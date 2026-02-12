@@ -1,16 +1,12 @@
-import { SqliteIntegrationProvider } from '@studio/common/lib/sqlite-integration';
 import fs from 'fs-extra';
-import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 import { vi } from 'vitest';
+import { SqliteIntegrationProvider } from '../sqlite-integration';
+import { platformTestSuite } from './utils/platform-test-suite';
 
 const SQLITE_DIRNAME = 'sqlite-database-integration';
 const MOCK_SITE_PATH = 'mock-site-path';
 
-// Use the global fs-extra mock from src/__mocks__/fs-extra.ts
-vi.mock( 'fs-extra', async () => {
-	const mockModule = await import( 'src/__mocks__/fs-extra' );
-	return mockModule;
-} );
+vi.mock( 'fs-extra', async () => await import( './utils/fs-extra-mock' ) );
 
 // Import the mock helpers directly from the mocked fs-extra module
 const mockFs = fs as typeof fs & {

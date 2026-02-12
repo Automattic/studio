@@ -1,9 +1,9 @@
+import { platformTestSuite } from '@studio/common/lib/tests/utils/platform-test-suite';
 import { move } from 'fs-extra';
 import { vi } from 'vitest';
 import { SqlExporter } from 'src/lib/import-export/export/exporters';
 import { ExportOptions } from 'src/lib/import-export/export/types';
 import { SiteServer } from 'src/site-server';
-import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 
 vi.mock( 'fs' );
 vi.mock( 'fs/promises' );

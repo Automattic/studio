@@ -1,10 +1,10 @@
 import * as fs from 'fs/promises';
+import { platformTestSuite } from '@studio/common/lib/tests/utils/platform-test-suite';
 import { lstat, move, Stats } from 'fs-extra';
 import { vi } from 'vitest';
 import { LocalImporter } from 'src/lib/import-export/import/importers';
 import { BackupContents } from 'src/lib/import-export/import/types';
 import { SiteServer } from 'src/site-server';
-import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 
 vi.mock( 'fs/promises' );
 vi.mock( 'src/site-server' );

@@ -1,4 +1,4 @@
-import { sequential } from 'common/lib/sequential';
+import { sequential } from '../sequential';
 
 describe( 'sequential', () => {
 	describe( 'concurrency', () => {

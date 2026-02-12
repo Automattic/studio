@@ -1,6 +1,6 @@
 import path from 'path';
+import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
 import { move } from 'fs-extra';
-import { parseJsonFromPhpOutput } from 'common/lib/php-output-parser';
 import { generateBackupFilename } from 'src/lib/import-export/export/generate-backup-filename';
 import { SiteServer } from 'src/site-server';
 

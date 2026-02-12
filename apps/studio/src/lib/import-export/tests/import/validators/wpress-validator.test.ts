@@ -1,7 +1,7 @@
+import { platformTestSuite } from '@studio/common/lib/tests/utils/platform-test-suite';
 import { vi } from 'vitest';
 import { ImportEvents } from 'src/lib/import-export/import/events';
 import { WpressValidator } from 'src/lib/import-export/import/validators/wpress-validator';
-import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 
 platformTestSuite( 'WpressValidator', ( { sep: separator } ) => {
 	let validator: WpressValidator;

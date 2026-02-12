@@ -1,5 +1,5 @@
+import { platformTestSuite } from '@studio/common/lib/tests/utils/platform-test-suite';
 import { SqlValidator } from 'src/lib/import-export/import/validators/sql-validator';
-import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 
 platformTestSuite( 'SqlValidator', ( { normalize } ) => {
 	let validator: SqlValidator;

@@ -3,12 +3,12 @@ import fs from 'fs';
 import fsPromises from 'fs/promises';
 import os from 'os';
 import path from 'path';
+import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
 import {
 	hasDefaultDbBlock,
 	removeDbConstants,
 } from '@studio/common/lib/remove-default-db-constants';
 import archiver from 'archiver';
-import { parseJsonFromPhpOutput } from 'common/lib/php-output-parser';
 import { ARCHIVER_OPTIONS } from 'src/constants';
 import { getSiteUrl } from 'src/lib/get-site-url';
 import { ExportEvents } from 'src/lib/import-export/export/events';

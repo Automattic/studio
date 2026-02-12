@@ -2,10 +2,10 @@
  * @vitest-environment node
  */
 // To run tests, execute `npm run test -- src/storage/user-data.test.ts` from the root directory
+import { platformTestSuite } from '@studio/common/lib/tests/utils/platform-test-suite';
 import { readFile, writeFile } from 'atomically';
 import { vi } from 'vitest';
 import { loadUserData, lockAppdata, unlockAppdata, saveUserData } from 'src/storage/user-data';
-import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 import { UserData } from '../storage-types';
 
 const {

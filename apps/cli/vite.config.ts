@@ -1,28 +1,25 @@
 import { existsSync, readFileSync } from 'fs';
-import { resolve } from 'path';
-import { defineConfig } from 'vite';
+import { dirname, join, resolve } from 'path';
+import { defineConfig, normalizePath } from 'vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 
-const yargsLocalesPath = resolve( __dirname, '../../node_modules/yargs/locales' );
+const yargsPath = dirname( require.resolve( 'yargs' ) );
+const yargsLocalesPath = join( yargsPath, 'locales' );
 const cliNodeModulesPath = resolve( __dirname, 'node_modules' );
 const packageVersion = JSON.parse(
-	readFileSync( resolve( __dirname, 'package.json' ), 'utf-8' )
+	readFileSync( resolve( __dirname, '..', 'studio', 'package.json' ), 'utf-8' )
 ).version;
 
 export default defineConfig( {
 	plugins: [
-		...( existsSync( yargsLocalesPath )
-			? [
-					viteStaticCopy( {
-						targets: [
-							{
-								src: `../../node_modules/yargs/locales/*`,
-								dest: '../locales',
-							},
-						],
-					} ),
-			  ]
-			: [] ),
+		viteStaticCopy( {
+			targets: [
+				{
+					src: normalizePath( join( yargsLocalesPath, '*' ) ),
+					dest: '../locales',
+				},
+			],
+		} ),
 		...( existsSync( cliNodeModulesPath )
 			? [
 					viteStaticCopy( {

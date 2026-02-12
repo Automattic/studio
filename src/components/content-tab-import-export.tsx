@@ -251,7 +251,7 @@ const ImportSite = ( {
 	};
 
 	const startLoadingCursorClassName =
-		loadingServer[ selectedSite.id ] && 'animate-pulse duration-100 cursor-wait';
+		loadingServer[ selectedSite.id ] && 'cursor-wait';
 
 	const isImporting = currentProgress?.progress < 100 && ! isThisSiteSyncing;
 	const isImported = currentProgress?.progress === 100 && ! isDraggingOver && ! isThisSiteSyncing;

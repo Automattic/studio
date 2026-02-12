@@ -48,7 +48,7 @@ const packageJsonPath = path.resolve( __dirname, '..', 'package.json' );
 const packageJsonText = await fs.readFile( packageJsonPath, 'utf-8' );
 const packageJson = JSON.parse( packageJsonText );
 
-const outPath = path.join( __dirname, '..', 'out' );
+const outPath = path.join( __dirname, '..', 'apps', 'studio', 'out' );
 const assetsPath = path.join( __dirname, '..', 'apps', 'studio', 'assets', 'appx' );
 
 console.log( `~~~ Packaging AppX for architecture: ${ architecture }` );

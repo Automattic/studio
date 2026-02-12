@@ -6,7 +6,8 @@ const __filename = fileURLToPath( import.meta.url );
 const __dirname = dirname( __filename );
 const projectRoot = dirname( __dirname );
 
-const POT_FILE = join( projectRoot, 'out', 'pots', 'bundle-strings.pot' );
+const POT_DIR = join( projectRoot, 'apps', 'studio', 'out', 'pots' );
+const POT_FILE = join( POT_DIR, 'bundle-strings.pot' );
 const IMPORT_PAGE = 'https://translate.wordpress.com/projects/studio/import-originals/';
 
 function executeCommand( command, description ) {
@@ -25,12 +26,12 @@ console.log( '✨ Starting pot files generation...\n' );
 
 const commands = [
 	{
-		command: 'rm -rf ./out/pots',
+		command: 'rm -rf ./apps/studio/out/pots',
 		description: 'Removing existing pot files',
 	},
 	{
 		command:
-			'npx wp-babel-makepot "{apps/studio/src,apps/cli,tools/common}/**/*.{js,jsx,ts,tsx}" --ignore "apps/cli/node_modules/**/*,**/*.d.ts" --base "." --dir "./out/pots" --output "./out/pots/bundle-strings.pot"',
+			'npx wp-babel-makepot "{apps/studio/src,apps/cli,tools/common}/**/*.{js,jsx,ts,tsx}" --ignore "apps/cli/node_modules/**/*,**/*.d.ts" --base "." --dir "./apps/studio/out/pots" --output "./apps/studio/out/pots/bundle-strings.pot"',
 		description: 'Generating pot file with wp-babel-makepot',
 	},
 	{

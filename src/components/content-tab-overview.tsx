@@ -55,7 +55,7 @@ function CustomizeSection( {
 	const handleCustomizeClick = ( url: string ) => async () => {
 		if ( isLoading ) return;
 		if ( ! selectedSite.running ) {
-			await startServer( selectedSite.id );
+			await startServer( selectedSite );
 		}
 		getIpcApi().openSiteURL( selectedSite.id, url );
 	};
@@ -200,7 +200,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 		if ( isServerLoading ) return;
 
 		if ( ! selectedSite.running ) {
-			await startServer( selectedSite.id );
+			await startServer( selectedSite );
 		}
 		getIpcApi().openSiteURL( selectedSite.id, '', { autoLogin: false } );
 	};

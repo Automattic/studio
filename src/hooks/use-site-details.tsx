@@ -1,4 +1,4 @@
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import {
 	ReactNode,
 	createContext,
@@ -15,6 +15,7 @@ import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
+import { generateNumberedName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useAppDispatch } from 'src/stores';
 import { snapshotThunks } from 'src/stores/snapshot-slice';
@@ -36,7 +37,8 @@ interface SiteDetailsContext {
 		callback?: ( site: SiteDetails ) => Promise< void >,
 		noStart?: boolean
 	) => Promise< SiteDetails | void >;
-	startServer: ( id: string ) => Promise< void >;
+	copySite: ( sourceSiteId: string ) => Promise< SiteDetails | void >;
+	startServer: ( site: SiteDetails ) => Promise< void >;
 	stopServer: ( id: string ) => Promise< void >;
 	stopAllRunningSites: () => Promise< void >;
 	startAllStoppedSites: () => Promise< void >;
@@ -59,6 +61,7 @@ const defaultContext: SiteDetailsContext = {
 	siteCreationMessages: {},
 	setSelectedSiteId: () => undefined,
 	createSite: async () => undefined,
+	copySite: async () => undefined,
 	startServer: async () => undefined,
 	stopServer: async () => undefined,
 	stopAllRunningSites: async () => undefined,
@@ -393,7 +396,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	}, [] );
 
 	const startServer = useCallback(
-		async ( id: string ) => {
+		async ( site: SiteDetails ) => {
+			const { id, name: siteName } = site;
 			toggleLoadingServerForSite( id );
 
 			try {
@@ -401,7 +405,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			} catch ( error ) {
 				if ( error instanceof Error && error.message.includes( 'PROXY_ERROR_PORT_IN_USE' ) ) {
 					getIpcApi().showErrorMessageBox( {
-						title: __( 'Studio failed to initialize custom domains' ),
+						title: sprintf( __( "Failed to initialize custom domains for '%s'" ), siteName ),
 						message: __(
 							'Studio needs to use port 80 and 443 to enable custom domains and SSL, but one of these ports are already in use by another app. Close any local development apps and restart Studio.'
 						),
@@ -412,7 +416,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					error.message.includes( 'PROXY_ERROR_START_FAILED' )
 				) {
 					getIpcApi().showErrorMessageBox( {
-						title: __( 'Studio failed to initialize custom domains' ),
+						title: sprintf( __( "Failed to initialize custom domains for '%s'" ), siteName ),
 						message: __(
 							'Please restart Studio and try again. If this problem persists, please contact support.'
 						),
@@ -423,7 +427,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					error.message.includes( 'WASM_ERROR_NOT_ENOUGH_MEMORY' )
 				) {
 					getIpcApi().showErrorMessageBox( {
-						title: __( 'Not enough memory to start the site server' ),
+						title: sprintf( __( "Not enough memory to start '%s'" ), siteName ),
 						message: __(
 							'Please stop some of your running sites first. If this problem persists, try closing other apps that might be using memory and try again.'
 						),
@@ -432,7 +436,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				} else if ( error instanceof Error && error.message.includes( 'ERROR_PORT_IN_USE' ) ) {
 					const port = error.message.match( /\d+/ );
 					getIpcApi().showErrorMessageBox( {
-						title: __( 'Failed to start the site server' ),
+						title: sprintf( __( "Failed to start '%s'" ), siteName ),
 						message: __(
 							`The site server failed to start because the port is already in use. Please close any local development apps that may be using port ${ port } and try again.`
 						),
@@ -441,7 +445,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				} else {
 					const errorToShow = simplifyErrorForDisplay( error );
 					getIpcApi().showErrorMessageBox( {
-						title: __( 'Failed to start the site server' ),
+						title: sprintf( __( "Failed to start '%s'" ), siteName ),
 						message: __(
 							"Please verify your site's local path directory contains the standard WordPress installation files and try again. If this problem persists, please contact support."
 						),
@@ -457,17 +461,92 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		[ toggleLoadingServerForSite ]
 	);
 
-	const autoStartSites = useCallback(
-		( sites: SiteDetails[] ) => {
-			for ( const site of sites ) {
-				if ( site.autoStart ) {
-					void startServer( site.id );
+	const copySite = useCallback(
+		async ( sourceSiteId: string ) => {
+			const sourceSite = sites.find( ( site ) => site.id === sourceSiteId );
+			if ( ! sourceSite ) {
+				console.error( 'Source site not found' );
+				return;
+			}
+
+			const showError = ( error?: unknown ) => {
+				console.error( 'Failed to copy site' );
+				const errorToShow = simplifyErrorForDisplay( error );
+
+				getIpcApi().showErrorMessageBox( {
+					title: __( 'Failed to copy site' ),
+					message: __(
+						'An error occurred while copying the site. Please try again. If this problem persists, please contact support.'
+					),
+					error: errorToShow,
+					showOpenLogs: true,
+				} );
+
+				setSites( ( prevData ) =>
+					sortSites( prevData.filter( ( site ) => site.id !== tempSiteId ) )
+				);
+			};
+
+			const finalSiteName = await generateNumberedName(
+				sprintf( __( '%s Copy' ), sourceSite.name ),
+				sites
+			);
+
+			const tempSiteId = crypto.randomUUID();
+
+			setSites( ( prevData ) =>
+				sortSites( [
+					...prevData,
+					{
+						id: tempSiteId,
+						name: finalSiteName,
+						path: '', // Path will be determined by the backend
+						port: -1, // Temporary port
+						running: false,
+						isAddingSite: true,
+						phpVersion: sourceSite.phpVersion,
+					},
+				] )
+			);
+
+			setSelectedSiteId( tempSiteId );
+			if ( selectedTab !== 'overview' ) {
+				setSelectedTab( 'overview' );
+			}
+
+			let newSite: SiteDetails;
+			try {
+				newSite = await getIpcApi().copySite( sourceSiteId, tempSiteId, finalSiteName );
+				if ( ! newSite ) {
+					showError();
+					return;
 				}
+
+				setSites( ( prevData ) =>
+					sortSites( [
+						...prevData.filter( ( site ) => site.id !== tempSiteId ),
+						{ ...newSite, isAddingSite: false },
+					] )
+				);
+
+				setSelectedSiteId( newSite.id );
+
+				getIpcApi().showNotification( {
+					title: newSite.name,
+					body: __( sprintf( 'Your site %s was copied successfully', sourceSite.name ) ),
+				} );
+
+				void startServer( newSite );
+
+				return newSite;
+			} catch ( error ) {
+				showError( error );
 			}
 		},
-		[ startServer ]
+		[ sites, selectedTab, setSelectedSiteId, setSelectedTab, startServer ]
 	);
 
+	// Auto start sites that are set to auto start when the component mounts
 	useEffect( () => {
 		let cancel = false;
 		setLoadingSites( true );
@@ -477,7 +556,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				if ( ! cancel ) {
 					setSites( data );
 					setLoadingSites( false );
-					autoStartSites( data );
+					const autoStartSites = data.filter( ( site ) => site.autoStart );
+					void Promise.all( autoStartSites.map( ( site ) => startServer( site ) ) );
 				}
 			} )
 			.catch( ( error ) => {
@@ -488,7 +568,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		return () => {
 			cancel = true;
 		};
-	}, [ autoStartSites ] );
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [] );
 
 	const stopServer = useCallback(
 		async ( id: string ) => {
@@ -505,7 +586,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 	const startAllStoppedSites = useCallback( async () => {
 		const stoppedSites = sites.filter( ( site ) => ! site.running && ! site.isAddingSite );
-		await Promise.allSettled( stoppedSites.map( ( site ) => startServer( site.id ) ) );
+		await Promise.allSettled( stoppedSites.map( ( site ) => startServer( site ) ) );
 	}, [ sites, startServer ] );
 
 	const [ isEditModalOpen, setIsEditModalOpen ] = useState( false );
@@ -522,6 +603,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			sites,
 			setSelectedSiteId,
 			createSite,
+			copySite,
 			updateSite,
 			startServer,
 			stopServer,
@@ -543,6 +625,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			sites,
 			setSelectedSiteId,
 			createSite,
+			copySite,
 			updateSite,
 			startServer,
 			stopServer,

@@ -5,6 +5,7 @@ import fsExtra from 'fs-extra';
 import { parse } from 'shell-quote';
 import { z } from 'zod';
 import { SQLITE_FILENAME } from 'common/constants';
+import { parseJsonFromPhpOutput } from 'common/lib/php-output-parser';
 import {
 	WP_CLI_DEFAULT_RESPONSE_TIMEOUT,
 	WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT,
@@ -352,8 +353,12 @@ export class SiteServer {
 				resolve( { stdout: result.stdout, stderr: result.stderr, exitCode: 0 } );
 			} );
 
-			emitter.on( 'failure', ( { result } ) => {
-				resolve( { stdout: result.stdout, stderr: result.stderr, exitCode: 1 } );
+			emitter.on( 'failure', ( { error, result } ) => {
+				resolve( {
+					stdout: result.stdout,
+					stderr: result.stderr || error.lastErrorMessage || '',
+					exitCode: 1,
+				} );
 			} );
 
 			emitter.on( 'error', ( { error } ) => {
@@ -394,7 +399,7 @@ export class SiteServer {
 				return this.details.themeDetails;
 			}
 
-			const themeDetailsParsed = JSON.parse( stdout );
+			const themeDetailsParsed = parseJsonFromPhpOutput( stdout );
 			this.details.themeDetails = SiteServer.themeDetailsSchema.parse( themeDetailsParsed );
 		} catch ( error ) {
 			console.error( 'Failed to get theme details:', error );

@@ -207,4 +207,53 @@ test.describe( 'Servers', () => {
 
 		expect( await pathExists( localPath ) ).toBe( false );
 	} );
+
+	test( 'copy site creates a duplicate with all files and thumbnail', async () => {
+		const { siteName } = await completeOnboardingWithParams();
+
+		const siteContent = new SiteContent( session.mainWindow, siteName );
+		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
+
+		const appDataFile = path.join( session.appDataPath, 'Studio', 'appdata-v1.json' );
+		const appData = await fs.readJson( appDataFile );
+		const site = appData.sites.find( ( s: { name: string } ) => s.name === siteName );
+		const siteId = site.id;
+
+		const thumbnailsDir = path.join( session.appDataPath, 'Studio', 'thumbnails' );
+		await fs.ensureDir( thumbnailsDir );
+		const sourceThumbnailPath = path.join( thumbnailsDir, `${ siteId }.png` );
+		await fs.writeFile( sourceThumbnailPath, 'test-thumbnail-data' );
+
+		// Trigger copy via IPC (bypassing native menu since Playwright can't interact with it)
+		await session.electronApp.evaluate(
+			( { BrowserWindow }, { siteId } ) => {
+				const mainWindow = BrowserWindow.getAllWindows()[ 0 ];
+				mainWindow.webContents.send( 'site-context-menu-action', {
+					action: 'copy-site',
+					siteId,
+				} );
+			},
+			{ siteId }
+		);
+
+		const expectedCopyName = `${ siteName } Copy`;
+		const sidebar = new MainSidebar( session.mainWindow );
+		await expect( sidebar.getSiteNavButton( expectedCopyName ) ).toBeVisible( {
+			timeout: 120_000,
+		} );
+
+		const copiedSiteContent = new SiteContent( session.mainWindow, expectedCopyName );
+		await expect( copiedSiteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
+
+		const updatedAppData = await fs.readJson( appDataFile );
+		const copiedSite = updatedAppData.sites.find(
+			( s: { name: string } ) => s.name === expectedCopyName
+		);
+		expect( copiedSite ).toBeDefined();
+
+		expect( await pathExists( path.join( copiedSite.path, 'wp-config.php' ) ) ).toBe( true );
+
+		const copiedThumbnailPath = path.join( thumbnailsDir, `${ copiedSite.id }.png` );
+		expect( await pathExists( copiedThumbnailPath ) ).toBe( true );
+	} );
 } );

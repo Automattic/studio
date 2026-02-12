@@ -21,12 +21,8 @@ interface SiteMenuProps {
 	className?: string;
 }
 
-function ButtonToRun( {
-	running,
-	id,
-	name,
-	enableXdebug,
-}: Pick< SiteDetails, 'running' | 'id' | 'name' | 'enableXdebug' > ) {
+function ButtonToRun( site: SiteDetails ) {
+	const { running, id, name, enableXdebug } = site;
 	const { startServer, stopServer, loadingServer } = useSiteDetails();
 	const siteStartedMessage = sprintf(
 		// translators: %s is the site name.
@@ -87,7 +83,7 @@ function ButtonToRun( {
 					if ( loadingServer[ id ] ) {
 						return;
 					}
-					return running ? stopServer( id ) : startServer( id );
+					return running ? stopServer( id ) : startServer( site );
 				} }
 				className="w-7 h-8 rounded-tr rounded-br group grid focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-a8c-blue-50"
 				aria-label={ sprintf( running ? __( 'stop %s site' ) : __( 'start %s site' ), name ) }
@@ -212,8 +208,15 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 }
 
 export default function SiteMenu( { className }: SiteMenuProps ) {
-	const { sites, selectedSite, setSelectedSiteId, startServer, stopServer, setIsEditModalOpen } =
-		useSiteDetails();
+	const {
+		sites,
+		selectedSite,
+		setSelectedSiteId,
+		startServer,
+		stopServer,
+		setIsEditModalOpen,
+		copySite,
+	} = useSiteDetails();
 	const { setSelectedTab } = useContentTabs();
 	const { handleDeleteSite } = useDeleteSite();
 	const { data: editor } = useGetUserEditorQuery();
@@ -230,20 +233,20 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 				const ipcApi = getIpcApi();
 				switch ( actionData.action ) {
 					case 'start':
-						void startServer( site.id );
+						void startServer( site );
 						break;
 					case 'stop':
 						void stopServer( site.id );
 						break;
 					case 'open-site':
 						if ( ! site.running ) {
-							await startServer( site.id );
+							await startServer( site );
 						}
 						ipcApi.openSiteURL( site.id, '', { autoLogin: false } );
 						break;
 					case 'open-admin':
 						if ( ! site.running ) {
-							await startServer( site.id );
+							await startServer( site );
 						}
 						ipcApi.openSiteURL( site.id, '/wp-admin/' );
 						break;
@@ -272,6 +275,15 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 						setSelectedTab( 'settings' );
 						setIsEditModalOpen( true );
 						break;
+					case 'copy-site':
+						void ( async () => {
+							try {
+								await copySite( site.id );
+							} catch ( error ) {
+								Sentry.captureException( error );
+							}
+						} )();
+						break;
 					case 'delete':
 						await handleDeleteSite( site.id, site.name );
 						break;
@@ -291,6 +303,7 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 		setSelectedSiteId,
 		startServer,
 		stopServer,
+		copySite,
 		handleDeleteSite,
 	] );
 

@@ -27,10 +27,13 @@ import {
 	arePathsEqual,
 	isEmptyDir,
 	pathExists,
+	recursiveCopyDirectory,
 } from 'common/lib/fs-utils';
 import { getWordPressVersion } from 'common/lib/get-wordpress-version';
 import { isErrnoException } from 'common/lib/is-errno-exception';
 import { getAuthenticationUrl } from 'common/lib/oauth';
+import { portFinder } from 'common/lib/port-finder';
+import { sanitizeFolderName } from 'common/lib/sanitize-folder-name';
 import { isWordPressDevVersion } from 'common/lib/wordpress-version-utils';
 import { Snapshot } from 'common/types/snapshot';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
@@ -45,7 +48,6 @@ import {
 } from 'src/lib/certificate-manager';
 import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
 import { buildFeatureFlags } from 'src/lib/feature-flags';
-import { sanitizeFolderName } from 'src/lib/generate-site-name';
 import { getImageData } from 'src/lib/get-image-data';
 import { exportBackup } from 'src/lib/import-export/export/export-manager';
 import { ExportOptions } from 'src/lib/import-export/export/types';
@@ -567,6 +569,64 @@ export async function deleteSite( event: IpcMainInvokeEvent, id: string, deleteF
 	await server.delete( deleteFiles );
 }
 
+export async function copySite(
+	event: IpcMainInvokeEvent,
+	sourceSiteId: string,
+	newSiteId: string,
+	siteName: string
+): Promise< SiteDetails > {
+	const sourceServer = SiteServer.get( sourceSiteId );
+	if ( ! sourceServer ) {
+		throw new Error( 'Source site not found.' );
+	}
+	const sourceSite = sourceServer.details;
+
+	const finalSitePath = nodePath.join( DEFAULT_SITE_PATH, sanitizeFolderName( siteName ) );
+
+	console.log( `Copying site '${ sourceSite.name }' to '${ siteName }'` );
+
+	await recursiveCopyDirectory( sourceSite.path, finalSitePath );
+
+	const sourceThumbnailPath = getSiteThumbnailPath( sourceSiteId );
+	const newThumbnailPath = getSiteThumbnailPath( newSiteId );
+	if ( fs.existsSync( sourceThumbnailPath ) ) {
+		await fs.promises.copyFile( sourceThumbnailPath, newThumbnailPath );
+		// Send thumbnail-loaded event so UI updates immediately
+		const thumbnailData = await getImageData( newThumbnailPath );
+		sendIpcEventToRendererWithWindow(
+			BrowserWindow.fromWebContents( event.sender ),
+			'thumbnail-loaded',
+			{ id: newSiteId, imageData: thumbnailData }
+		);
+	}
+
+	const port = await portFinder.getOpenPort();
+
+	const newSiteDetails: StoppedSiteDetails = {
+		id: newSiteId,
+		name: siteName,
+		path: finalSitePath,
+		port,
+		phpVersion: sourceSite.phpVersion,
+		running: false,
+		adminPassword: sourceSite.adminPassword,
+		themeDetails: sourceSite.themeDetails,
+	};
+
+	try {
+		await lockAppdata();
+		const userData = await loadUserData();
+		userData.sites.push( newSiteDetails );
+		await saveUserData( userData );
+	} finally {
+		await unlockAppdata();
+	}
+
+	SiteServer.register( newSiteDetails );
+
+	return newSiteDetails;
+}
+
 export function logRendererMessage(
 	event: IpcMainInvokeEvent,
 	level: LogLevel,
@@ -699,6 +759,7 @@ export function getAppGlobals(): AppGlobals {
 		appName: app.name,
 		appVersion: app.getVersion(),
 		arm64Translation: app.runningUnderARM64Translation,
+		isWindowsStore: process.windowsStore ?? false,
 		...buildFeatureFlags(),
 	};
 }
@@ -788,8 +849,8 @@ export async function loadThemeDetails(
 				sendIpcEventToRendererWithWindow( parentWindow, 'thumbnail-loading', { id } );
 			}
 			await server.persistThemeDetails();
-			await server.updateCachedThumbnail();
 		}
+		await server.updateCachedThumbnail();
 		const thumbnailPath = getSiteThumbnailPath( id );
 		const thumbnailData = await getImageData( thumbnailPath );
 		sendIpcEventToRendererWithWindow( parentWindow, 'thumbnail-loaded', {
@@ -1298,6 +1359,23 @@ export function showSiteContextMenu(
 					'site-context-menu-action',
 					{
 						action: 'edit-site',
+						siteId,
+					}
+				);
+			},
+		} )
+	);
+
+	menu.append(
+		new MenuItem( {
+			label: __( 'Copy site…' ),
+			enabled: ! isLoading && ! isAddingSite,
+			click: () => {
+				sendIpcEventToRendererWithWindow(
+					BrowserWindow.fromWebContents( event.sender ),
+					'site-context-menu-action',
+					{
+						action: 'copy-site',
 						siteId,
 					}
 				);

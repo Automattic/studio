@@ -4,6 +4,7 @@ type BlueprintSiteSettings = Partial<
 	Pick< StoppedSiteDetails, 'phpVersion' | 'customDomain' | 'enableHttps' >
 > & {
 	wpVersion?: string;
+	siteName?: string;
 };
 
 /**
@@ -33,6 +34,14 @@ export function extractFormValuesFromBlueprint( blueprintJson: Blueprint ): Blue
 			} catch {
 				// Invalid URL, skip
 			}
+		}
+
+		const setSiteOptionsStep = blueprintJson.steps.find(
+			( step: { step?: string; options?: Record< string, unknown > } ) =>
+				step.step === 'setSiteOptions' && step.options?.blogname
+		);
+		if ( setSiteOptionsStep?.options?.blogname ) {
+			values.siteName = String( setSiteOptionsStep.options.blogname );
 		}
 	}
 
@@ -73,6 +82,27 @@ export function updateBlueprintWithFormValues(
 				...updated.steps[ stepIndex ],
 				siteUrl: `${ protocol }://${ formValues.customDomain }`,
 			};
+		}
+
+		// Update setSiteOptions blogname (only if it already exists)
+		if ( formValues.siteName ) {
+			const siteOptionsIndex = updated.steps.findIndex(
+				( step: { step?: string; options?: Record< string, unknown > } ) =>
+					step.step === 'setSiteOptions' && step.options?.blogname
+			);
+
+			if ( siteOptionsIndex >= 0 ) {
+				if ( updated.steps === blueprintJson.steps ) {
+					updated.steps = [ ...updated.steps ];
+				}
+				updated.steps[ siteOptionsIndex ] = {
+					...updated.steps[ siteOptionsIndex ],
+					options: {
+						...updated.steps[ siteOptionsIndex ].options,
+						blogname: formValues.siteName,
+					},
+				};
+			}
 		}
 	}
 

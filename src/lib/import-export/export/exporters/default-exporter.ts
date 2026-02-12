@@ -4,6 +4,7 @@ import fsPromises from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import archiver from 'archiver';
+import { parseJsonFromPhpOutput } from 'common/lib/php-output-parser';
 import { ARCHIVER_OPTIONS } from 'src/constants';
 import { getSiteUrl } from 'src/lib/get-site-url';
 import { ExportEvents } from 'src/lib/import-export/export/events';
@@ -20,6 +21,7 @@ import {
 	StudioJson,
 } from 'src/lib/import-export/export/types';
 import { getWordPressVersionFromInstallation } from 'src/lib/wp-versions';
+import { hasDefaultDbBlock, removeDbConstants } from 'src/migrations/remove-default-db-constants';
 import { SiteServer } from 'src/site-server';
 
 export class DefaultExporter extends EventEmitter implements Exporter {
@@ -180,6 +182,11 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 	private addWpConfig(): void {
 		const wpConfigPath = path.join( this.options.site.path, 'wp-config.php' );
 		if ( fs.existsSync( wpConfigPath ) ) {
+			const content = fs.readFileSync( wpConfigPath, 'utf-8' );
+			if ( hasDefaultDbBlock( content ) ) {
+				const modifiedContent = removeDbConstants( content );
+				fs.writeFileSync( wpConfigPath, modifiedContent, 'utf-8' );
+			}
 			this.archiveBuilder.file( wpConfigPath, {
 				name: 'wp-config.php',
 			} );
@@ -309,7 +316,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		// Try to parse stdout first. WordPress may produce warnings on stderr (e.g., when offline
 		// and can't check for updates) while still returning valid JSON data on stdout.
 		try {
-			return JSON.parse( stdout );
+			return parseJsonFromPhpOutput( stdout );
 		} catch ( error ) {
 			if ( stderr ) {
 				console.error( `Could not get information about plugins: ${ stderr }` );
@@ -341,7 +348,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		// Try to parse stdout first. WordPress may produce warnings on stderr (e.g., when offline
 		// and can't check for updates) while still returning valid JSON data on stdout.
 		try {
-			return JSON.parse( stdout );
+			return parseJsonFromPhpOutput( stdout );
 		} catch ( error ) {
 			if ( stderr ) {
 				console.error( `Could not get information about themes: ${ stderr }` );

@@ -150,7 +150,7 @@ const config: ForgeConfig = {
 			await execAsync( 'npm run app:install:bundle', { cwd: repoRoot } );
 
 			console.log( 'Building CLI (with bundled node_modules) ...' );
-			await execAsync( 'npm run cli:build:bundle', { cwd: repoRoot } );
+			await execAsync( 'npm run cli:package', { cwd: repoRoot } );
 
 			console.log( `Downloading Node.js binary for ${ platform }-${ arch }...` );
 			await execAsync(
@@ -161,10 +161,6 @@ const config: ForgeConfig = {
 				) } ${ platform } ${ arch }`,
 				{ cwd: repoRoot }
 			);
-		},
-		postPackage: async (forgeConfig, options) => {
-			fs.rmSync( path.join( repoRoot, 'apps', 'cli', 'node_modules' ), { recursive: true } );
-			fs.rmSync( path.join( repoRoot, 'apps', 'studio', 'node_modules' ), { recursive: true } );
 		},
 	},
 };

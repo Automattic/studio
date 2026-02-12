@@ -4,6 +4,7 @@ import fsPromises from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import archiver from 'archiver';
+import { parseJsonFromPhpOutput } from 'common/lib/php-output-parser';
 import { ARCHIVER_OPTIONS } from 'src/constants';
 import { getSiteUrl } from 'src/lib/get-site-url';
 import { ExportEvents } from 'src/lib/import-export/export/events';
@@ -315,7 +316,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		// Try to parse stdout first. WordPress may produce warnings on stderr (e.g., when offline
 		// and can't check for updates) while still returning valid JSON data on stdout.
 		try {
-			return JSON.parse( stdout );
+			return parseJsonFromPhpOutput( stdout );
 		} catch ( error ) {
 			if ( stderr ) {
 				console.error( `Could not get information about plugins: ${ stderr }` );
@@ -347,7 +348,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		// Try to parse stdout first. WordPress may produce warnings on stderr (e.g., when offline
 		// and can't check for updates) while still returning valid JSON data on stdout.
 		try {
-			return JSON.parse( stdout );
+			return parseJsonFromPhpOutput( stdout );
 		} catch ( error ) {
 			if ( stderr ) {
 				console.error( `Could not get information about themes: ${ stderr }` );

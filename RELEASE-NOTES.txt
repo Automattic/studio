@@ -1,5 +1,6 @@
 Unreleased
 ==========
+* Added PHP 8.5 support #2551
 * Added copy site feature to the site context menu #2528
 
 1.7.3

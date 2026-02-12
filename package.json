@@ -70,7 +70,7 @@
 		"@types/winreg": "^1.2.36",
 		"@types/yargs": "^17.0.35",
 		"@types/yauzl": "^2.10.3",
-		"@vitejs/plugin-react": "^5.1.2",
+		"@vitejs/plugin-react": "^5.1.4",
 		"@vitest/ui": "^2.1.8",
 		"@wordpress/components": "^32.1.0",
 		"@wordpress/element": "^6.39.0",

@@ -236,7 +236,7 @@ const ImportSite = ( {
 	const openSite = async () => {
 		if ( ! selectedSite.running ) {
 			speak( __( 'Starting the server before opening the site link' ) );
-			await startServer( selectedSite.id );
+			await startServer( selectedSite );
 		}
 		getIpcApi().openSiteURL( selectedSite.id, '', { autoLogin: false } );
 	};

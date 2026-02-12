@@ -28,10 +28,10 @@ import {
 	InMemoryFilesystem,
 } from '@wp-playground/storage';
 import { WordPressInstallMode } from '@wp-playground/wordpress';
-import { isSqliteInstalled } from 'src/lib/sqlite-versions';
 import { z } from 'zod';
 import { sanitizeRunCLIArgs } from 'cli/lib/cli-args-sanitizer';
 import { getSqliteCommandPath, getWpCliPharPath } from 'cli/lib/server-files';
+import { isSqliteIntegrationInstalled } from 'cli/lib/sqlite-integration';
 import {
 	ServerConfig,
 	managerMessageSchema,
@@ -112,7 +112,7 @@ async function setAdminPassword( server: RunCLIServer, adminPassword: string ): 
  */
 async function getWordPressInstallMode( sitePath: string ): Promise< WordPressInstallMode > {
 	const hasWordPress = isWordPressDirectory( sitePath );
-	const hasSqlite = await isSqliteInstalled( sitePath );
+	const hasSqlite = await isSqliteIntegrationInstalled( sitePath );
 
 	if ( ! hasWordPress ) {
 		return 'download-and-install';

@@ -139,7 +139,11 @@ export async function runPerformanceTests(
 		throw new Error( `Need at least two git refs to run` );
 	}
 
-	const baseDir = path.join( os.tmpdir(), 'studio-performance-tests' );
+	const tmpDir =
+		process.platform === 'win32'
+			? path.join( process.env.USERPROFILE || os.homedir(), 'AppData', 'Local', 'Temp' )
+			: os.tmpdir();
+	const baseDir = path.join( tmpDir, 'studio-performance-tests' );
 
 	if ( fs.existsSync( baseDir ) ) {
 		logAtIndent( 1, 'Removing existing files' );
@@ -178,10 +182,10 @@ export async function runPerformanceTests(
 
 	logAtIndent( 1, 'Setting up test runner' );
 
-	const testRunnerDir = path.join( baseDir + '/tests' );
+	const testRunnerDir = path.join( baseDir, 'tests' );
 
 	logAtIndent( 2, 'Copying source to:', formats.success( testRunnerDir ) );
-	await runShellScript( `cp -R  ${ sourceDir } ${ testRunnerDir }` );
+	fs.cpSync( sourceDir, testRunnerDir, { recursive: true } );
 
 	logAtIndent( 2, 'Checking out branch:', formats.success( testRunnerBranch ) );
 	await simpleGit( testRunnerDir ).raw( 'checkout', testRunnerBranch );
@@ -210,7 +214,7 @@ export async function runPerformanceTests(
 		const buildDir = path.join( envDir, 'app' );
 
 		logAtIndent( 3, 'Copying source to:', formats.success( buildDir ) );
-		await runShellScript( `cp -R ${ sourceDir } ${ buildDir }` );
+		fs.cpSync( sourceDir, buildDir, { recursive: true } );
 
 		logAtIndent( 3, 'Checking out:', formats.success( branch ) );
 		await simpleGit( buildDir ).raw( 'checkout', branch );
@@ -219,6 +223,7 @@ export async function runPerformanceTests(
 		await runShellScript( config.setupCommand, buildDir, {
 			GITHUB_TOKEN: process.env.GITHUB_TOKEN,
 			SKIP_WORKER_THREAD_BUILD: process.env.SKIP_WORKER_THREAD_BUILD,
+			IS_DEV_BUILD: 'true',
 		} );
 	}
 

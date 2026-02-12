@@ -2,7 +2,6 @@ import { vi } from 'vitest';
 
 // Extend globalThis to include our mock file system
 declare global {
-	// eslint-disable-next-line no-var
 	var __fsExtraMockFiles: Record< string, string | string[] > | undefined;
 }
 

@@ -38,7 +38,7 @@
 		"app:install:bundle": "npm -w studio-app run install:bundle",
 		"compare:perf": "npm -w compare-perf run compare",
 		"lint": "eslint {apps/cli,apps/studio/src,apps/studio/e2e,tools/common}",
-		"format": "prettier . --write",
+		"format": "npm run lint -- --fix",
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"e2e": "npx playwright install && npx playwright test",

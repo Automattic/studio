@@ -551,17 +551,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		[ sites, selectedTab, setSelectedSiteId, setSelectedTab, startServer ]
 	);
 
-	const autoStartSites = useCallback(
-		( sites: SiteDetails[] ) => {
-			for ( const site of sites ) {
-				if ( site.autoStart ) {
-					void startServer( site.id );
-				}
-			}
-		},
-		[ startServer ]
-	);
-
+	// Auto start sites that are set to auto start when the component mounts
 	useEffect( () => {
 		let cancel = false;
 		setLoadingSites( true );
@@ -571,7 +561,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				if ( ! cancel ) {
 					setSites( data );
 					setLoadingSites( false );
-					autoStartSites( data );
+					const autoStartSites = data.filter( ( site ) => site.autoStart );
+					void Promise.all( autoStartSites.map( ( site ) => startServer( site.id ) ) );
 				}
 			} )
 			.catch( ( error ) => {
@@ -582,7 +573,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		return () => {
 			cancel = true;
 		};
-	}, [ autoStartSites ] );
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [] );
 
 	const stopServer = useCallback(
 		async ( id: string ) => {

@@ -19,7 +19,6 @@
 		"make:macos-arm64": "electron-vite build --config ./electron.vite.config.ts --outDir=dist && SKIP_DMG=true FILE_ARCHITECTURE=arm64 electron-forge make . --arch=arm64 --platform=darwin",
 		"install:bundle": "npm install --no-package-lock --install-links --no-workspaces && patch-package && npx @electron/rebuild -o fs-ext",
 		"package": "electron-vite build --config ./electron.vite.config.ts --outDir=dist && electron-forge package .",
-		"postpackage": "rimraf node_modules",
 		"publish": "electron-forge publish .",
 		"start-wayland": "npm -w studio-cli run build && electron-forge start . -- --enable-features=UseOzonePlatform --ozone-platform=wayland"
 	},

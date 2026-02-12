@@ -147,9 +147,13 @@ const config: ForgeConfig = {
 			}
 
 			console.log( 'Installing Studio app dependencies for bundling ...' );
+			// NOTE: The `app:install:bundle` script mutates the `apps/studio/node_modules` directory. You
+			// may need to rerun `npm ci` from the repo root to reset the dependency tree after packaging.
 			await execAsync( 'npm run app:install:bundle', { cwd: repoRoot } );
 
 			console.log( 'Building CLI (with bundled node_modules) ...' );
+			// NOTE: The `cli:package` script mutates the `apps/cli/node_modules` directory. You may need to
+			// rerun `npm ci` from the repo root to reset the dependency tree after packaging.
 			await execAsync( 'npm run cli:package', { cwd: repoRoot } );
 
 			console.log( `Downloading Node.js binary for ${ platform }-${ arch }...` );

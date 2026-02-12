@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction, isAnyOf } from '@reduxjs/toolkit';
 import * as Sentry from '@sentry/electron/renderer';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
+import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
 import { WPCOM } from 'wpcom/types';
 import { z } from 'zod';
 import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
@@ -32,7 +33,7 @@ const createTypedAsyncThunk = createAsyncThunk.withTypes< {
 
 const parseWpCliOutput = ( stdout: string ): string[] => {
 	try {
-		const data = JSON.parse( stdout );
+		const data = parseJsonFromPhpOutput( stdout );
 		return data?.map( ( item: { name: string } ) => item.name ) || [];
 	} catch ( error ) {
 		Sentry.captureException( error, { extra: { stdout } } );

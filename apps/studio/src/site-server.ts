@@ -2,6 +2,7 @@ import fs from 'fs';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { SQLITE_FILENAME } from '@studio/common/constants';
+import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
 import fsExtra from 'fs-extra';
 import { parse } from 'shell-quote';
 import { z } from 'zod';
@@ -352,8 +353,12 @@ export class SiteServer {
 				resolve( { stdout: result.stdout, stderr: result.stderr, exitCode: 0 } );
 			} );
 
-			emitter.on( 'failure', ( { result } ) => {
-				resolve( { stdout: result.stdout, stderr: result.stderr, exitCode: 1 } );
+			emitter.on( 'failure', ( { error, result } ) => {
+				resolve( {
+					stdout: result.stdout,
+					stderr: result.stderr || error.lastErrorMessage || '',
+					exitCode: 1,
+				} );
 			} );
 
 			emitter.on( 'error', ( { error } ) => {
@@ -394,7 +399,7 @@ export class SiteServer {
 				return this.details.themeDetails;
 			}
 
-			const themeDetailsParsed = JSON.parse( stdout );
+			const themeDetailsParsed = parseJsonFromPhpOutput( stdout );
 			this.details.themeDetails = SiteServer.themeDetailsSchema.parse( themeDetailsParsed );
 		} catch ( error ) {
 			console.error( 'Failed to get theme details:', error );

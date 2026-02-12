@@ -194,7 +194,6 @@ function NavigationContent( props: NavigationContentProps ) {
 		if ( location.path === '/blueprint/select/create' ) {
 			goTo( '/blueprint/select/details' );
 		} else if ( location.path === '/blueprint/select/details' ) {
-			setBlueprintWarnings( undefined );
 			goTo( '/blueprint/select' );
 		} else if ( location.path === '/blueprint/deeplink/create' ) {
 			goTo( '/blueprint/deeplink' );
@@ -277,9 +276,10 @@ function NavigationContent( props: NavigationContentProps ) {
 			const blueprint = blueprintsData?.blueprints.find(
 				( b: Blueprint ) => b.slug === blueprintId
 			);
+			setBlueprintWarnings( undefined );
 			applyBlueprintFormValues( blueprint );
 		},
-		[ blueprintsData?.blueprints, applyBlueprintFormValues ]
+		[ blueprintsData?.blueprints, setBlueprintWarnings, applyBlueprintFormValues ]
 	);
 
 	const handleFileBlueprintSelect = useCallback(

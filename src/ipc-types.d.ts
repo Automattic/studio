@@ -96,6 +96,7 @@ interface AppGlobals extends FeatureFlags {
 	appName: string;
 	appVersion: string;
 	arm64Translation: boolean;
+	isWindowsStore: boolean;
 }
 
 // Our IPC objects will be attached to the `window` global

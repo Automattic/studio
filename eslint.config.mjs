@@ -12,13 +12,12 @@ import path from 'node:path';
 export default defineConfig(
 	globalIgnores( [
 		'**/node_modules/',
-		'cli/dist/',
+		'**/__mocks__',
+		'apps/cli/dist/',
 		'dist/',
 		'out/',
-		'wp-files/',
 		'vendor/',
-		'apps/cli/__mocks__',
-		'apps/studio/src/__mocks__',
+		'wp-files/',
 	] ),
 	js.configs.recommended,
 	tsEslint.configs.recommended,

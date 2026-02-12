@@ -62,7 +62,7 @@ export function getResourcesPath(): string {
 
 export function getCliPath(): string {
 	return process.env.NODE_ENV === 'development'
-		? path.join( getResourcesPath(), 'dist', 'cli', 'main.js' )
+		? path.join( getResourcesPath(), '..', 'cli', 'dist', 'cli', 'main.js' )
 		: path.join( getResourcesPath(), 'cli', 'main.js' );
 }
 

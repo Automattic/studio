@@ -6,7 +6,6 @@
 	"version": "1.7.3",
 	"description": "Local WordPress development environment using Playgrounds",
 	"license": "GPL-2.0-or-later",
-	"main": "dist/main/index.js",
 	"packageManager": "npm@10.9.4",
 	"engines": {
 		"npm": ">=10.0.0 <11.0.0",
@@ -22,9 +21,7 @@
 		"tools/*"
 	],
 	"scripts": {
-		"pretest": "rimraf apps/studio/node_modules apps/cli/node_modules",
-		"prestart": "npm run cli:build",
-		"start": "electron-vite dev --config apps/studio/electron.vite.config.ts --outDir=dist --watch",
+		"start": "npm -w studio-app run start",
 		"start-wayland": "npm -w studio-app run start-wayland",
 		"postinstall": "patch-package --patch-dir apps/cli/patches && patch-package --patch-dir apps/studio/patches && ts-node ./scripts/download-wp-server-files.ts && node ./scripts/download-available-site-translations.mjs && npx @electron/rebuild -o fs-ext",
 		"package": "ts-node ./scripts/package-in-isolation.ts package",

@@ -11,6 +11,7 @@
 		"forge": "./forge.config.ts"
 	},
 	"scripts": {
+		"start": "electron-vite dev --config ./electron.vite.config.ts --outDir=dist --watch",
 		"prestart": "npm -w studio-cli run build",
 		"make": "electron-vite build --config ./electron.vite.config.ts --outDir=dist && electron-forge make .",
 		"make:windows-x64": "electron-vite build --config ./electron.vite.config.ts --outDir=dist && electron-forge make . --arch=x64 --platform=win32",

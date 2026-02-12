@@ -431,6 +431,8 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 							wp_update_user( array( 'ID' => $user->ID, 'user_email' => $provided_email ) );
 						}
 					} else {
+						// WordPress doesn't support renaming user_login, so we create a new admin user.
+						// The old user is left intact — this is intentional.
 						// Generate a unique email to avoid conflicts with existing users
 						$email = $provided_email ? $provided_email : 'admin@localhost.com';
 						if ( ! $provided_email ) {

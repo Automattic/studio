@@ -138,7 +138,7 @@ const config: ForgeConfig = {
 			}
 
 			console.log( 'Downloading language packs ...' );
-			await execAsync( 'npm run download:language-packs' );
+			await execAsync( 'npm run download-language-packs' );
 
 			console.log( 'Building CLI ...' );
 			await execAsync( 'npm run cli:build' );

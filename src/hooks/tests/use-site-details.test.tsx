@@ -10,7 +10,7 @@ import { store } from 'src/stores';
 
 vi.mock( 'src/lib/get-ipc-api' );
 
-const mockSites = [
+const mockSites: SiteDetails[] = [
 	{
 		id: 'site-1',
 		name: 'Site 1',
@@ -194,7 +194,7 @@ describe( 'useSiteDetails', () => {
 			vi.mocked( getIpcApi().startServer ).mockClear();
 
 			await act( async () => {
-				await result.current.startServer( 'site-2' );
+				await result.current.startServer( mockSites[ 1 ] );
 			} );
 
 			expect( showErrorMessageBox ).toHaveBeenCalledWith(
@@ -218,7 +218,7 @@ describe( 'useSiteDetails', () => {
 			vi.mocked( getIpcApi().startServer ).mockClear();
 
 			await act( async () => {
-				await result.current.startServer( 'site-1' );
+				await result.current.startServer( mockSites[ 0 ] as SiteDetails );
 			} );
 
 			expect( showErrorMessageBox ).toHaveBeenCalledWith(
@@ -242,7 +242,7 @@ describe( 'useSiteDetails', () => {
 			vi.mocked( getIpcApi().startServer ).mockClear();
 
 			await act( async () => {
-				await result.current.startServer( 'site-3' );
+				await result.current.startServer( mockSites[ 2 ] as SiteDetails );
 			} );
 
 			expect( showErrorMessageBox ).toHaveBeenCalledWith(
@@ -266,7 +266,7 @@ describe( 'useSiteDetails', () => {
 			vi.mocked( getIpcApi().startServer ).mockClear();
 
 			await act( async () => {
-				await result.current.startServer( 'site-1' );
+				await result.current.startServer( mockSites[ 0 ] as SiteDetails );
 			} );
 
 			expect( showErrorMessageBox ).toHaveBeenCalledWith(
@@ -290,7 +290,7 @@ describe( 'useSiteDetails', () => {
 			vi.mocked( getIpcApi().startServer ).mockClear();
 
 			await act( async () => {
-				await result.current.startServer( 'site-2' );
+				await result.current.startServer( mockSites[ 1 ] as SiteDetails );
 			} );
 
 			expect( showErrorMessageBox ).toHaveBeenCalledWith(
@@ -300,7 +300,7 @@ describe( 'useSiteDetails', () => {
 			);
 		} );
 
-		it( 'should display empty string in title when site is not found', async () => {
+		it( 'should use site name in dialog title even if site has no name', async () => {
 			const { showErrorMessageBox } = setupStartServerError( new Error( 'Something went wrong' ) );
 
 			const { result } = renderHook( () => useSiteDetails(), { wrapper } );
@@ -312,12 +312,19 @@ describe( 'useSiteDetails', () => {
 			vi.mocked( getIpcApi().startServer ).mockClear();
 
 			await act( async () => {
-				await result.current.startServer( 'non-existent-id' );
+				await result.current.startServer( {
+					id: 'non-existent-id',
+					name: '',
+					path: '',
+					port: 0,
+					phpVersion: '',
+					running: false,
+				} );
 			} );
 
 			expect( showErrorMessageBox ).toHaveBeenCalledWith(
 				expect.objectContaining( {
-					title: "Failed to start 'site'",
+					title: "Failed to start ''",
 				} )
 			);
 		} );

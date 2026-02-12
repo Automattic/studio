@@ -247,7 +247,7 @@ export function useSyncPull( {
 
 				await getIpcApi().removeSyncBackup( remoteSiteId );
 
-				await startServer( selectedSite.id );
+				await startServer( selectedSite );
 
 				clearImportState( selectedSite.id );
 

@@ -6,7 +6,6 @@ import {
 	useContext,
 	useEffect,
 	useMemo,
-	useRef,
 	useState,
 } from 'react';
 import { SITE_EVENTS, SiteEvent } from 'common/lib/site-events';
@@ -39,7 +38,7 @@ interface SiteDetailsContext {
 		noStart?: boolean
 	) => Promise< SiteDetails | void >;
 	copySite: ( sourceSiteId: string ) => Promise< SiteDetails | void >;
-	startServer: ( id: string ) => Promise< void >;
+	startServer: ( site: SiteDetails ) => Promise< void >;
 	stopServer: ( id: string ) => Promise< void >;
 	stopAllRunningSites: () => Promise< void >;
 	startAllStoppedSites: () => Promise< void >;
@@ -397,13 +396,13 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	}, [] );
 
 	const startServer = useCallback(
-		async ( id: string ) => {
+		async ( site: SiteDetails ) => {
+			const { id, name: siteName } = site;
 			toggleLoadingServerForSite( id );
 
 			try {
 				await getIpcApi().startServer( id );
 			} catch ( error ) {
-				const siteName = sites.find( ( site ) => site.id === id )?.name || __( 'site' );
 				if ( error instanceof Error && error.message.includes( 'PROXY_ERROR_PORT_IN_USE' ) ) {
 					getIpcApi().showErrorMessageBox( {
 						title: sprintf( __( "Failed to initialize custom domains for '%s'" ), siteName ),
@@ -459,7 +458,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 			toggleLoadingServerForSite( id );
 		},
-		[ toggleLoadingServerForSite, sites ]
+		[ toggleLoadingServerForSite ]
 	);
 
 	const copySite = useCallback(
@@ -537,7 +536,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					body: __( sprintf( 'Your site %s was copied successfully', sourceSite.name ) ),
 				} );
 
-				void startServer( newSite.id );
+				void startServer( newSite );
 
 				return newSite;
 			} catch ( error ) {
@@ -558,7 +557,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					setSites( data );
 					setLoadingSites( false );
 					const autoStartSites = data.filter( ( site ) => site.autoStart );
-					void Promise.all( autoStartSites.map( ( site ) => startServer( site.id ) ) );
+					void Promise.all( autoStartSites.map( ( site ) => startServer( site ) ) );
 				}
 			} )
 			.catch( ( error ) => {
@@ -587,7 +586,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 	const startAllStoppedSites = useCallback( async () => {
 		const stoppedSites = sites.filter( ( site ) => ! site.running && ! site.isAddingSite );
-		await Promise.allSettled( stoppedSites.map( ( site ) => startServer( site.id ) ) );
+		await Promise.allSettled( stoppedSites.map( ( site ) => startServer( site ) ) );
 	}, [ sites, startServer ] );
 
 	const [ isEditModalOpen, setIsEditModalOpen ] = useState( false );

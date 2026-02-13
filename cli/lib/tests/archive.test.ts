@@ -3,9 +3,22 @@ import path from 'path';
 import archiver from 'archiver';
 import { vi } from 'vitest';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
-vi.mock( 'fs' );
-vi.mock( 'path' );
-vi.mock( 'archiver' );
+
+vi.mock( 'fs', () => ( {
+	default: {
+		createWriteStream: vi.fn(),
+		existsSync: vi.fn(),
+		unlinkSync: vi.fn(),
+	},
+} ) );
+vi.mock( 'path', () => ( {
+	default: {
+		join: vi.fn(),
+	},
+} ) );
+vi.mock( 'archiver', () => ( {
+	default: vi.fn(),
+} ) );
 
 describe( 'Archive Module', () => {
 	const mockSiteFolder = '/mock/site/folder';
@@ -44,8 +57,8 @@ describe( 'Archive Module', () => {
 		vi.clearAllMocks();
 		mockArchiver = createMockArchiver();
 		mockWriteStream = createMockWriteStream();
-		vi.mocked( archiver, { partial: true } ).mockReturnValue( mockArchiver );
-		vi.mocked( fs.createWriteStream, { partial: true } ).mockReturnValue( mockWriteStream );
+		vi.mocked( archiver ).mockReturnValue( mockArchiver as any );
+		vi.mocked( fs.createWriteStream ).mockReturnValue( mockWriteStream as any );
 		vi.mocked( path.join ).mockImplementation( ( ...args ) => args.join( '/' ) );
 	} );
 

@@ -30,7 +30,9 @@ vi.mock( 'src/lib/wordpress-provider', () => {
 		DEFAULT_WORDPRESS_VERSION: 'latest',
 		ALLOWED_PHP_VERSIONS: [ '8.0', '8.1', '8.2', '8.3' ],
 		SQLITE_FILENAME: 'sqlite-database-integration',
-		getWordPressVersionPath: vi.fn().mockImplementation( ( version ) => `/mock/path/to/wp-${ version }` ),
+		getWordPressVersionPath: vi
+			.fn()
+			.mockImplementation( ( version ) => `/mock/path/to/wp-${ version }` ),
 		getSqlitePath: vi.fn().mockReturnValue( '/mock/path/to/sqlite' ),
 		getWpCliPath: vi.fn().mockReturnValue( '/mock/path/to/wp-cli' ),
 		getWpCliFolderPath: vi.fn().mockReturnValue( '/mock/path/to/wp-cli-folder' ),

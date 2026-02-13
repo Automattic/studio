@@ -544,44 +544,44 @@ export const CreateSiteForm = ( {
 								</div>
 
 								<div className="flex flex-col gap-2 mt-4">
-								<span className="font-semibold">{ __( 'Admin credentials' ) }</span>
-								<div className="grid grid-cols-2 gap-4">
-									<div className="flex flex-col gap-1.5 leading-4">
-										<label className="text-sm" htmlFor="admin-username">
-											{ __( 'Username' ) }
-										</label>
-										<TextControlComponent
-											id="admin-username"
-											value={ adminUsername }
-											onChange={ ( value: string ) => {
-												hasUserEditedCredentials.current = true;
-												setAdminUsername( value );
-											} }
-											className={ adminUsernameError ? '[&_input]:!border-red-500' : '' }
-										/>
-										{ adminUsernameError && (
-											<span className="text-red-500 text-xs">{ adminUsernameError }</span>
-										) }
-									</div>
+									<span className="font-semibold">{ __( 'Admin credentials' ) }</span>
+									<div className="grid grid-cols-2 gap-4">
+										<div className="flex flex-col gap-1.5 leading-4">
+											<label className="text-sm" htmlFor="admin-username">
+												{ __( 'Username' ) }
+											</label>
+											<TextControlComponent
+												id="admin-username"
+												value={ adminUsername }
+												onChange={ ( value: string ) => {
+													hasUserEditedCredentials.current = true;
+													setAdminUsername( value );
+												} }
+												className={ adminUsernameError ? '[&_input]:!border-red-500' : '' }
+											/>
+											{ adminUsernameError && (
+												<span className="text-red-500 text-xs">{ adminUsernameError }</span>
+											) }
+										</div>
 
-									<div className="flex flex-col gap-1.5 leading-4">
-										<label className="text-sm" htmlFor="admin-password">
-											{ __( 'Password' ) }
-										</label>
-										<PasswordControl
-											id="admin-password"
-											value={ adminPassword }
-											onChange={ ( value: string ) => {
-												hasUserEditedCredentials.current = true;
-												setAdminPassword( value );
-											} }
-											className={ adminPasswordError ? '[&_input]:!border-red-500' : '' }
-										/>
-										{ adminPasswordError && (
-											<span className="text-red-500 text-xs">{ adminPasswordError }</span>
-										) }
+										<div className="flex flex-col gap-1.5 leading-4">
+											<label className="text-sm" htmlFor="admin-password">
+												{ __( 'Password' ) }
+											</label>
+											<PasswordControl
+												id="admin-password"
+												value={ adminPassword }
+												onChange={ ( value: string ) => {
+													hasUserEditedCredentials.current = true;
+													setAdminPassword( value );
+												} }
+												className={ adminPasswordError ? '[&_input]:!border-red-500' : '' }
+											/>
+											{ adminPasswordError && (
+												<span className="text-red-500 text-xs">{ adminPasswordError }</span>
+											) }
+										</div>
 									</div>
-								</div>
 								</div>
 
 								<div className="flex flex-col gap-1.5 leading-4 mt-4">

@@ -6,12 +6,30 @@ import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
 import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import { spawn } from 'child_process';
 import { exec as pkgExec } from '@yao-pkg/pkg';
 import type { ForgeConfig } from '@electron-forge/shared-types';
 
 const repoRoot = path.resolve( __dirname, '../..' );
+
+function runCommand( command: string ) {
+	return new Promise< void >( ( resolve, reject ) => {
+		const child = spawn( command, {
+			cwd: repoRoot,
+			shell: process.platform === 'win32',
+			stdio: 'inherit',
+		} );
+
+		child.on( 'error', reject );
+		child.on( 'exit', ( code ) => {
+			if ( code === 0 ) {
+				resolve();
+			} else {
+				reject( new Error( `Command failed with exit code ${ code }: ${ command }` ) );
+			}
+		} );
+	} );
+}
 
 const config: ForgeConfig = {
 	packagerConfig: {
@@ -137,8 +155,6 @@ const config: ForgeConfig = {
 	plugins: [ new AutoUnpackNativesPlugin( {} ) ],
 	hooks: {
 		prePackage: async ( _forgeConfig, platform, arch ) => {
-			const execAsync = promisify( exec );
-
 			console.log( "Ensuring latest WordPress zip isn't included in production build ..." );
 			const zipPath = path.join( repoRoot, 'wp-files', 'latest.zip' );
 			try {
@@ -150,21 +166,20 @@ const config: ForgeConfig = {
 			console.log( 'Installing Studio app dependencies for bundling ...' );
 			// NOTE: The `app:install:bundle` script mutates the `apps/studio/node_modules` directory. You
 			// may need to rerun `npm ci` from the repo root to reset the dependency tree after packaging.
-			await execAsync( 'npm run app:install:bundle', { cwd: repoRoot } );
+			await runCommand( 'npm run app:install:bundle' );
 
 			console.log( 'Building CLI (with bundled node_modules) ...' );
 			// NOTE: The `cli:package` script mutates the `apps/cli/node_modules` directory. You may need to
 			// rerun `npm ci` from the repo root to reset the dependency tree after packaging.
-			await execAsync( 'npm run cli:package', { cwd: repoRoot } );
+			await runCommand( 'npm run cli:package' );
 
 			console.log( `Downloading Node.js binary for ${ platform }-${ arch }...` );
-			await execAsync(
+			await runCommand(
 				`npx ts-node ${ path.join(
 					repoRoot,
 					'scripts',
 					'download-node-binary.ts'
-				) } ${ platform } ${ arch }`,
-				{ cwd: repoRoot }
+				) } ${ platform } ${ arch }`
 			);
 
 			// Build CLI launcher executable for Windows AppX (Microsoft Store).

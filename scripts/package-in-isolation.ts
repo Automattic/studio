@@ -40,10 +40,9 @@ function getStudioAppScripts(): Record< string, string > {
 	);
 }
 
-function runOrFail( command: string, args: string[], cwd: string, env = process.env ) {
+function runOrFail( command: string, args: string[], cwd: string ) {
 	const options: SpawnSyncOptions = {
 		cwd,
-		env,
 		stdio: 'inherit',
 		shell: process.platform === 'win32',
 	};
@@ -110,23 +109,23 @@ function main() {
 	const stagingRoot = path.join( stagingParent, 'repo' );
 
 	try {
-		console.log( `Creating staging workspace at ${ stagingRoot }` );
+		console.log( `Creating packaging directory at ${ stagingRoot }` );
 		fs.mkdirSync( stagingRoot, { recursive: true } );
 		fs.cpSync( REPO_ROOT, stagingRoot, {
 			recursive: true,
 			filter: shouldCopyToStaging,
 		} );
 
-		console.log( 'Installing workspace dependencies in staging ...' );
+		console.log( 'Installing workspace dependencies in packaging directory ...' );
 		runOrFail( 'npm', [ 'ci' ], stagingRoot );
 
-		console.log( `Running script "${ scriptName }" in staging ...` );
+		console.log( `Running script "${ scriptName }" in packaging directory ...` );
 		runOrFail( 'npm', [ '-w', 'studio-app', 'run', scriptName ], stagingRoot );
 
 		console.log( 'Syncing packaging artifacts back to workspace ...' );
 		copyArtifactsBack( stagingRoot );
 	} finally {
-		console.log( `Removing staging workspace ${ stagingParent }` );
+		console.log( `Removing packaging directory ${ stagingParent }` );
 		fs.rmSync( stagingParent, { recursive: true, force: true } );
 	}
 }

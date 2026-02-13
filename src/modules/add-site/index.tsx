@@ -537,7 +537,7 @@ export function AddSiteModalContent( {
 
 	return (
 		<Navigator
-			className={ className ?? 'w-full h-full app-no-drag-region' }
+			className={ className ?? 'w-full h-full app-no-drag-region [align-items:stretch]' }
 			initialPath={ initialNavigatorPath }
 		>
 			<NavigationContent

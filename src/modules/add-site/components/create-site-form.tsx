@@ -543,10 +543,12 @@ export const CreateSiteForm = ( {
 									/>
 								</div>
 
-								<div className="grid grid-cols-2 gap-4 mt-4">
+								<div className="flex flex-col gap-2 mt-4">
+								<span className="font-semibold">{ __( 'Admin credentials' ) }</span>
+								<div className="grid grid-cols-2 gap-4">
 									<div className="flex flex-col gap-1.5 leading-4">
-										<label className="font-semibold" htmlFor="admin-username">
-											{ __( 'Admin username' ) }
+										<label className="text-sm" htmlFor="admin-username">
+											{ __( 'Username' ) }
 										</label>
 										<TextControlComponent
 											id="admin-username"
@@ -563,8 +565,8 @@ export const CreateSiteForm = ( {
 									</div>
 
 									<div className="flex flex-col gap-1.5 leading-4">
-										<label className="font-semibold" htmlFor="admin-password">
-											{ __( 'Admin password' ) }
+										<label className="text-sm" htmlFor="admin-password">
+											{ __( 'Password' ) }
 										</label>
 										<PasswordControl
 											id="admin-password"
@@ -580,10 +582,11 @@ export const CreateSiteForm = ( {
 										) }
 									</div>
 								</div>
+								</div>
 
 								<div className="flex flex-col gap-1.5 leading-4 mt-4">
-									<label className="font-semibold" htmlFor="admin-email">
-										{ __( 'Admin email' ) }
+									<label className="text-sm" htmlFor="admin-email">
+										{ __( 'Email' ) }
 									</label>
 									<TextControlComponent
 										id="admin-email"

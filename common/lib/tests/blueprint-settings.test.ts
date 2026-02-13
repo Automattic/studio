@@ -250,6 +250,39 @@ describe( 'blueprint-settings', () => {
 			expect( result.adminUsername ).toBe( 'toplevel' );
 			expect( result.adminPassword ).toBe( 'toplevelpass' );
 		} );
+
+		it( 'should extract blogname from setSiteOptions step', () => {
+			const blueprint = {
+				steps: [ { step: 'setSiteOptions', options: { blogname: 'My Blog' } } ],
+			};
+
+			const result = extractFormValuesFromBlueprint( blueprint );
+
+			expect( result.siteName ).toBe( 'My Blog' );
+		} );
+
+		it( 'should ignore setSiteOptions step without blogname', () => {
+			const blueprint = {
+				steps: [ { step: 'setSiteOptions', options: { blogdescription: 'A description' } } ],
+			};
+
+			const result = extractFormValuesFromBlueprint( blueprint );
+
+			expect( result.siteName ).toBeUndefined();
+		} );
+
+		it( 'should use first setSiteOptions step with blogname', () => {
+			const blueprint = {
+				steps: [
+					{ step: 'setSiteOptions', options: { blogname: 'First Name' } },
+					{ step: 'setSiteOptions', options: { blogname: 'Second Name' } },
+				],
+			};
+
+			const result = extractFormValuesFromBlueprint( blueprint );
+
+			expect( result.siteName ).toBe( 'First Name' );
+		} );
 	} );
 
 	describe( 'updateBlueprintWithFormValues', () => {
@@ -430,6 +463,69 @@ describe( 'blueprint-settings', () => {
 			expect( result.steps?.[ 2 ] ).toEqual( {
 				step: 'installPlugin',
 				pluginData: { resource: 'wordpress.org/plugins', slug: 'akismet' },
+			} );
+		} );
+
+		it( 'should update blogname in existing setSiteOptions step', () => {
+			const blueprint = {
+				steps: [ { step: 'setSiteOptions', options: { blogname: 'Old Name' } } ],
+			};
+
+			const result = updateBlueprintWithFormValues( blueprint, {
+				siteName: 'New Name',
+			} );
+
+			expect( result.steps?.[ 0 ] ).toEqual( {
+				step: 'setSiteOptions',
+				options: { blogname: 'New Name' },
+			} );
+		} );
+
+		it( 'should not add setSiteOptions step if none exists', () => {
+			const blueprint = {
+				steps: [ { step: 'login' } ],
+			};
+
+			const result = updateBlueprintWithFormValues( blueprint, {
+				siteName: 'New Name',
+			} );
+
+			expect( result.steps ).toHaveLength( 1 );
+			expect( result.steps?.[ 0 ] ).toEqual( { step: 'login' } );
+		} );
+
+		it( 'should not modify setSiteOptions if siteName not provided', () => {
+			const blueprint = {
+				steps: [ { step: 'setSiteOptions', options: { blogname: 'Original Name' } } ],
+			};
+
+			const result = updateBlueprintWithFormValues( blueprint, {
+				phpVersion: '8.2',
+			} );
+
+			expect( result.steps?.[ 0 ] ).toEqual( {
+				step: 'setSiteOptions',
+				options: { blogname: 'Original Name' },
+			} );
+		} );
+
+		it( 'should preserve other options when updating blogname', () => {
+			const blueprint = {
+				steps: [
+					{
+						step: 'setSiteOptions',
+						options: { blogname: 'Old Name', blogdescription: 'A description' },
+					},
+				],
+			};
+
+			const result = updateBlueprintWithFormValues( blueprint, {
+				siteName: 'New Name',
+			} );
+
+			expect( result.steps?.[ 0 ] ).toEqual( {
+				step: 'setSiteOptions',
+				options: { blogname: 'New Name', blogdescription: 'A description' },
 			} );
 		} );
 	} );

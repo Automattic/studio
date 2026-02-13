@@ -23,7 +23,7 @@
 	},
 	"scripts": {
 		"build": "vite build --config ./vite.config.ts",
-		"install:bundle": "npm install --omit=dev --no-package-lock --install-links --no-workspaces && patch-package",
+		"install:bundle": "npm install --omit=dev --no-package-lock --no-progress --install-links --no-workspaces && patch-package",
 		"package": "npm run install:bundle && npm run build",
 		"watch": "vite build --config ./vite.config.ts --watch"
 	},

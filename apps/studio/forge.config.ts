@@ -16,8 +16,11 @@ function runCommand( command: string, args: string[] = [] ) {
 	return new Promise< void >( ( resolve, reject ) => {
 		const child = spawn( command, args, {
 			cwd: repoRoot,
-			stdio: 'inherit',
+			stdio: 'pipe',
 		} );
+
+		child.stdout.pipe( process.stdout );
+		child.stderr.pipe( process.stderr );
 
 		child.on( 'error', reject );
 		child.on( 'exit', ( code ) => {
@@ -158,9 +161,6 @@ const config: ForgeConfig = {
 	plugins: [ new AutoUnpackNativesPlugin( {} ) ],
 	hooks: {
 		prePackage: async ( _forgeConfig, platform, arch ) => {
-			const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-			const npxCommand = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-
 			console.log( "Ensuring latest WordPress zip isn't included in production build ..." );
 			const zipPath = path.join( repoRoot, 'wp-files', 'latest.zip' );
 			try {
@@ -172,15 +172,15 @@ const config: ForgeConfig = {
 			console.log( 'Installing Studio app dependencies for bundling ...' );
 			// NOTE: The `app:install:bundle` script mutates the `apps/studio/node_modules` directory. You
 			// may need to rerun `npm ci` from the repo root to reset the dependency tree after packaging.
-			await runCommand( npmCommand, [ 'run', 'app:install:bundle' ] );
+			await runCommand( 'npm', [ 'run', 'app:install:bundle' ] );
 
 			console.log( 'Building CLI (with bundled node_modules) ...' );
 			// NOTE: The `cli:package` script mutates the `apps/cli/node_modules` directory. You may need to
 			// rerun `npm ci` from the repo root to reset the dependency tree after packaging.
-			await runCommand( npmCommand, [ 'run', 'cli:package' ] );
+			await runCommand( 'npm', [ 'run', 'cli:package' ] );
 
 			console.log( `Downloading Node.js binary for ${ platform }-${ arch }...` );
-			await runCommand( npxCommand, [
+			await runCommand( 'npx', [
 				'ts-node',
 				path.join( repoRoot, 'scripts', 'download-node-binary.ts' ),
 				platform,

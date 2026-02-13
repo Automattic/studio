@@ -20,7 +20,7 @@ steps:
       echo "--- :snowflake: Execute Code Freeze"
       bundle exec fastlane code_freeze version:"${RELEASE_VERSION}" skip_confirm:true
     artifact_paths:
-      - out/pots/bundle-strings.pot
+      - i18n/bundle-strings.pot
     agents:
       queue: mac
     retry:

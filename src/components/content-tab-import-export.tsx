@@ -299,6 +299,7 @@ const ImportSite = ( {
 										className={ cx( startLoadingCursorClassName ) }
 										variant="primary"
 										onClick={ openSite }
+										disabled={ !! loadingServer[ selectedSite.id ] }
 									>
 										{ __( 'Open site ↗' ) }
 									</Button>

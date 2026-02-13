@@ -57,12 +57,12 @@ vi.mock( 'cli/lib/appdata', async () => {
 		updateSiteLatestCliPid: vi.fn(),
 		updateSiteAutoStart: vi.fn().mockResolvedValue( undefined ),
 		removeSiteFromAppdata: vi.fn(),
-		getSiteUrl: vi.fn( ( site ) => `http://localhost:${ site.port }` ),
+		getSiteUrl: vi.fn().mockImplementation( ( site ) => `http://localhost:${ site.port }` ),
 	};
 } );
 vi.mock( 'cli/lib/pm2-manager' );
 vi.mock( 'cli/lib/server-files', () => ( {
-	getServerFilesPath: vi.fn( () => '/test/server-files' ),
+	getServerFilesPath: vi.fn().mockReturnValue( '/test/server-files' ),
 } ) );
 vi.mock( 'cli/lib/site-language' );
 vi.mock( 'cli/lib/site-utils' );

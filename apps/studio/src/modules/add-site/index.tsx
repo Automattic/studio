@@ -35,6 +35,7 @@ import { useFindAvailableSiteName } from './hooks/use-find-available-site-name';
 type BlueprintsData = ReturnType< typeof useGetBlueprints >[ 'data' ];
 
 interface NavigationContentProps {
+	startOver: () => void;
 	blueprintsData: BlueprintsData;
 	isLoadingBlueprints: boolean;
 	blueprintsErrorMessage?: string;
@@ -72,6 +73,8 @@ interface NavigationContentProps {
 	setBlueprintSuggestedDomain?: ( domain: string | undefined ) => void;
 	blueprintSuggestedHttps?: boolean;
 	setBlueprintSuggestedHttps?: ( https: boolean | undefined ) => void;
+	blueprintSuggestedSiteName?: string;
+	setBlueprintSuggestedSiteName?: ( name: string | undefined ) => void;
 	selectedRemoteSite?: SyncSite;
 	setSelectedRemoteSite: ( site?: SyncSite ) => void;
 	isDeeplinkFlow: boolean;
@@ -79,9 +82,9 @@ interface NavigationContentProps {
 }
 
 function NavigationContent( props: NavigationContentProps ) {
-	const { __ } = useI18n();
 	const { goTo, location } = useNavigator();
 	const {
+		startOver,
 		blueprintsData,
 		isLoadingBlueprints,
 		blueprintsErrorMessage,
@@ -103,6 +106,8 @@ function NavigationContent( props: NavigationContentProps ) {
 		setBlueprintSuggestedDomain,
 		blueprintSuggestedHttps,
 		setBlueprintSuggestedHttps,
+		blueprintSuggestedSiteName,
+		setBlueprintSuggestedSiteName,
 		selectedRemoteSite,
 		setSelectedRemoteSite,
 		isDeeplinkFlow,
@@ -171,6 +176,10 @@ function NavigationContent( props: NavigationContentProps ) {
 	}, [ goTo ] );
 
 	const handleBack = useCallback( () => {
+		const goToFirstStep = () => {
+			startOver();
+			goTo( '/' );
+		};
 		if ( location.path === '/blueprint/select/create' ) {
 			goTo( '/blueprint/select' );
 		} else if ( location.path === '/blueprint/deeplink/create' ) {
@@ -193,22 +202,25 @@ function NavigationContent( props: NavigationContentProps ) {
 			if ( location.path === '/blueprint/select' || location.path === '/blueprint/deeplink' ) {
 				setSelectedBlueprint();
 				setBlueprintPreferredVersions?.( undefined );
+				setBlueprintSuggestedSiteName?.( undefined );
 			}
 			if ( location.path === '/pullRemote' ) {
 				setSelectedRemoteSite( undefined );
 				setRemoteSiteName( '' );
 			}
-			goTo( '/' );
+			goToFirstStep();
 		} else {
-			goTo( '/' );
+			goToFirstStep();
 		}
 	}, [
 		location.path,
 		goTo,
+		startOver,
 		setFileForImport,
 		setSelectedBlueprint,
 		setBlueprintPreferredVersions,
 		setSelectedRemoteSite,
+		setBlueprintSuggestedSiteName,
 	] );
 
 	const applyBlueprintFormValues = useCallback(
@@ -219,6 +231,7 @@ function NavigationContent( props: NavigationContentProps ) {
 				setBlueprintPreferredVersions?.( undefined );
 				setBlueprintSuggestedDomain?.( undefined );
 				setBlueprintSuggestedHttps?.( undefined );
+				setBlueprintSuggestedSiteName?.( undefined );
 				return;
 			}
 
@@ -232,12 +245,14 @@ function NavigationContent( props: NavigationContentProps ) {
 
 			setBlueprintSuggestedDomain?.( formValues.customDomain );
 			setBlueprintSuggestedHttps?.( formValues.enableHttps );
+			setBlueprintSuggestedSiteName?.( formValues.siteName );
 		},
 		[
 			setSelectedBlueprint,
 			setBlueprintPreferredVersions,
 			setBlueprintSuggestedDomain,
 			setBlueprintSuggestedHttps,
+			setBlueprintSuggestedSiteName,
 		]
 	);
 
@@ -276,8 +291,11 @@ function NavigationContent( props: NavigationContentProps ) {
 		) {
 			values.wpVersion = blueprintPreferredVersions.wp;
 		}
+		if ( blueprintSuggestedSiteName ) {
+			values.siteName = blueprintSuggestedSiteName;
+		}
 		return values;
-	}, [ defaultValues, blueprintPreferredVersions, wpVersions ] );
+	}, [ defaultValues, blueprintPreferredVersions, blueprintSuggestedSiteName, wpVersions ] );
 
 	const formRef = useRef< HTMLFormElement >( null );
 
@@ -418,6 +436,8 @@ export function AddSiteModalContent( {
 		setBlueprintSuggestedDomain,
 		blueprintSuggestedHttps,
 		setBlueprintSuggestedHttps,
+		blueprintSuggestedSiteName,
+		setBlueprintSuggestedSiteName,
 		selectedRemoteSite,
 		setSelectedRemoteSite,
 		existingDomainNames,
@@ -450,12 +470,31 @@ export function AddSiteModalContent( {
 		void initializeForm();
 	}, [ isOpen, formInitialized, loadingSites, sites, loadAllCustomDomains ] );
 
+	// Update site name and path when blueprint suggests a site name
+	const findAvailableSiteName = useFindAvailableSiteName();
+	useEffect( () => {
+		if ( ! formInitialized || ! blueprintSuggestedSiteName ) {
+			return;
+		}
+
+		const updatePathForBlueprintName = async () => {
+			const availableName = await findAvailableSiteName( blueprintSuggestedSiteName );
+			const { path } = await getIpcApi().generateProposedSitePath( availableName );
+			setDefaultSiteName( availableName );
+			setDefaultSitePath( path );
+		};
+		void updatePathForBlueprintName();
+	}, [ blueprintSuggestedSiteName, formInitialized, findAvailableSiteName ] );
+
 	// Reset form initialized state when modal closes
 	useEffect( () => {
 		if ( ! isOpen ) {
 			setFormInitialized( false );
 		}
 	}, [ isOpen ] );
+	const startOver = useCallback( () => {
+		setFormInitialized( false );
+	}, [] );
 
 	const defaultValues = useMemo(
 		() => ( {
@@ -523,10 +562,13 @@ export function AddSiteModalContent( {
 				setBlueprintSuggestedDomain={ setBlueprintSuggestedDomain }
 				blueprintSuggestedHttps={ blueprintSuggestedHttps }
 				setBlueprintSuggestedHttps={ setBlueprintSuggestedHttps }
+				blueprintSuggestedSiteName={ blueprintSuggestedSiteName }
+				setBlueprintSuggestedSiteName={ setBlueprintSuggestedSiteName }
 				selectedRemoteSite={ selectedRemoteSite }
 				setSelectedRemoteSite={ setSelectedRemoteSite }
 				isDeeplinkFlow={ isDeeplinkFlow }
 				setIsDeeplinkFlow={ setIsDeeplinkFlow }
+				startOver={ startOver }
 			/>
 		</Navigator>
 	);
@@ -560,6 +602,7 @@ export default function AddSiteModal( { className }: AddSiteModalProps ) {
 		setBlueprintDeeplinkWarnings,
 		setBlueprintSuggestedDomain,
 		setBlueprintSuggestedHttps,
+		setBlueprintSuggestedSiteName,
 		setIsDeeplinkFlow,
 	} = addSiteProps;
 
@@ -584,6 +627,7 @@ export default function AddSiteModal( { className }: AddSiteModalProps ) {
 		setBlueprintDeeplinkWarnings,
 		setBlueprintSuggestedDomain,
 		setBlueprintSuggestedHttps,
+		setBlueprintSuggestedSiteName,
 		setIsDeeplinkFlow,
 		onModalOpen: openModal,
 	} );

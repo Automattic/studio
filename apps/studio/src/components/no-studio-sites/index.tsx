@@ -13,6 +13,7 @@ export function NoStudioSites() {
 		setBlueprintDeeplinkWarnings,
 		setBlueprintSuggestedDomain,
 		setBlueprintSuggestedHttps,
+		setBlueprintSuggestedSiteName,
 		setIsDeeplinkFlow,
 	} = addSiteProps;
 
@@ -25,6 +26,7 @@ export function NoStudioSites() {
 		setBlueprintDeeplinkWarnings,
 		setBlueprintSuggestedDomain,
 		setBlueprintSuggestedHttps,
+		setBlueprintSuggestedSiteName,
 		setIsDeeplinkFlow,
 	} );
 

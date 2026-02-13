@@ -32,7 +32,7 @@ const mockEventHandlers = new Map< string, ( ( ...args: any[] ) => void )[] >();
 
 vi.mock( 'electron', () => {
 	class MockBrowserWindow {
-		static fromWebContents = vi.fn( () => new MockBrowserWindow() );
+		static fromWebContents = vi.fn().mockImplementation( () => new MockBrowserWindow() );
 		static getFocusedWindow = vi.fn();
 		static getAllWindows = vi.fn().mockReturnValue( [] );
 
@@ -43,7 +43,7 @@ vi.mock( 'electron', () => {
 		setBackgroundColor = vi.fn();
 		getBounds = vi.fn().mockReturnValue( { x: 0, y: 0, width: 800, height: 600 } );
 
-		on = vi.fn( ( event: string, handler: ( ...args: any[] ) => void ) => {
+		on = vi.fn().mockImplementation( ( event: string, handler: ( ...args: any[] ) => void ) => {
 			if ( ! mockEventHandlers.has( event ) ) {
 				mockEventHandlers.set( event, [] );
 			}
@@ -53,7 +53,7 @@ vi.mock( 'electron', () => {
 		webContents = {
 			isDestroyed: vi.fn().mockReturnValue( false ),
 			send: vi.fn(),
-			on: vi.fn( ( event: string, handler: ( ...args: any[] ) => void ) => {
+			on: vi.fn().mockImplementation( ( event: string, handler: ( ...args: any[] ) => void ) => {
 				if ( event === 'did-finish-load' ) {
 					// Call handler immediately to resolve window creation
 					setImmediate( handler );

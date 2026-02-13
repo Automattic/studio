@@ -75,7 +75,7 @@ vi.mocked( SiteServer.create ).mockResolvedValue( {
 		start: vi.fn(),
 		details: mockSiteDetails,
 		updateSiteDetails: vi.fn(),
-		updateCachedThumbnail: vi.fn( () => Promise.resolve() ),
+		updateCachedThumbnail: vi.fn().mockResolvedValue( undefined ),
 	} as unknown as SiteServer,
 	details: mockSiteDetails,
 } );
@@ -84,7 +84,7 @@ vi.mocked( SiteServer.register, { partial: true } ).mockImplementation( ( detail
 	start: vi.fn(),
 	details,
 	updateSiteDetails: vi.fn(),
-	updateCachedThumbnail: vi.fn( () => Promise.resolve() ),
+	updateCachedThumbnail: vi.fn().mockResolvedValue( undefined ),
 } ) );
 
 const mockUserData = {
@@ -101,7 +101,7 @@ if ( '__setFileContents' in fs ) {
 vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( mockUserData ) ) );
 
 const mockIpcMainInvokeEvent = {
-	sender: { isDestroyed: vi.fn( () => false ) },
+	sender: { isDestroyed: vi.fn().mockReturnValue( false ) },
 	// Double assert the type with `unknown` to simplify mocking this value
 } as unknown as IpcMainInvokeEvent;
 

@@ -59,13 +59,15 @@ platformTestSuite( 'JetpackImporter', ( { normalize } ) => {
 				phpVersion: '8.0',
 				running: false,
 			},
-			executeWpCliCommand: vi.fn().mockImplementation( ( command: string ) =>
-				Promise.resolve(
-					command === 'option get siteurl'
-						? { stdout: 'http://localhost:8881', stderr: '', exitCode: 0 }
-						: { stdout: '', stderr: '', exitCode: 0 }
-				)
-			),
+			executeWpCliCommand: vi
+				.fn()
+				.mockImplementation( ( command: string ) =>
+					Promise.resolve(
+						command === 'option get siteurl'
+							? { stdout: 'http://localhost:8881', stderr: '', exitCode: 0 }
+							: { stdout: '', stderr: '', exitCode: 0 }
+					)
+				),
 		} );
 
 		// mock move

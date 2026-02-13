@@ -23,11 +23,11 @@ describe( 'API Module', () => {
 	const mockWordPressVersion = '6.8.1';
 	const mockSiteUrl = 'test-site.wp.build';
 	const mockSiteId = 12345;
-	const mockReadStream = { pipe: vi.fn() };
+	const mockReadStream = { pipe: vi.fn() } as unknown as ReturnType< typeof fs.createReadStream >;
 
 	beforeEach( () => {
 		vi.clearAllMocks();
-		vi.mocked( fs.createReadStream ).mockReturnValue( mockReadStream as any );
+		vi.mocked( fs.createReadStream ).mockReturnValue( mockReadStream );
 	} );
 
 	describe( 'uploadArchive', () => {
@@ -42,7 +42,9 @@ describe( 'API Module', () => {
 					post: vi.fn().mockResolvedValue( mockResponse ),
 				} ),
 			};
-			vi.mocked( wpcomFactory ).mockReturnValue( mockWpcom as any );
+			vi.mocked( wpcomFactory ).mockReturnValue(
+				mockWpcom as unknown as ReturnType< typeof wpcomFactory >
+			);
 
 			const result = await uploadArchive( mockArchivePath, mockToken, mockWordPressVersion );
 
@@ -77,7 +79,9 @@ describe( 'API Module', () => {
 					} ),
 				} ),
 			};
-			vi.mocked( wpcomFactory ).mockReturnValue( mockWpcom as any );
+			vi.mocked( wpcomFactory ).mockReturnValue(
+				mockWpcom as unknown as ReturnType< typeof wpcomFactory >
+			);
 
 			await uploadArchive( mockArchivePath, mockToken, mockWordPressVersion );
 			expect( mockWpcom.req.post ).toHaveBeenCalledWith( {
@@ -104,7 +108,9 @@ describe( 'API Module', () => {
 					post: vi.fn().mockRejectedValue( mockError ),
 				} ),
 			};
-			vi.mocked( wpcomFactory ).mockReturnValue( mockWpcom as any );
+			vi.mocked( wpcomFactory ).mockReturnValue(
+				mockWpcom as unknown as ReturnType< typeof wpcomFactory >
+			);
 
 			await expect(
 				uploadArchive( mockArchivePath, mockToken, mockWordPressVersion )
@@ -122,7 +128,9 @@ describe( 'API Module', () => {
 					post: vi.fn().mockResolvedValue( invalidResponse ),
 				} ),
 			};
-			vi.mocked( wpcomFactory ).mockReturnValue( mockWpcom as any );
+			vi.mocked( wpcomFactory ).mockReturnValue(
+				mockWpcom as unknown as ReturnType< typeof wpcomFactory >
+			);
 
 			await expect(
 				uploadArchive( mockArchivePath, mockToken, mockWordPressVersion )
@@ -166,7 +174,9 @@ describe( 'API Module', () => {
 						.mockResolvedValueOnce( activeResponse ),
 				} ),
 			};
-			vi.mocked( wpcomFactory ).mockReturnValue( mockWpcom as any );
+			vi.mocked( wpcomFactory ).mockReturnValue(
+				mockWpcom as unknown as ReturnType< typeof wpcomFactory >
+			);
 
 			const result = await waitForSiteReady( mockSiteId, mockToken );
 			expect( mockWpcom.req.get ).toHaveBeenCalledTimes( 2 );
@@ -186,7 +196,9 @@ describe( 'API Module', () => {
 					get: vi.fn().mockResolvedValue( pendingResponse ),
 				} ),
 			};
-			vi.mocked( wpcomFactory ).mockReturnValue( mockWpcom as any );
+			vi.mocked( wpcomFactory ).mockReturnValue(
+				mockWpcom as unknown as ReturnType< typeof wpcomFactory >
+			);
 
 			try {
 				await waitForSiteReady( mockSiteId, mockToken );
@@ -217,7 +229,9 @@ describe( 'API Module', () => {
 						.mockResolvedValueOnce( validResponse ),
 				} ),
 			};
-			vi.mocked( wpcomFactory ).mockReturnValue( mockWpcom as any );
+			vi.mocked( wpcomFactory ).mockReturnValue(
+				mockWpcom as unknown as ReturnType< typeof wpcomFactory >
+			);
 
 			const result = await waitForSiteReady( mockSiteId, mockToken );
 			expect( mockWpcom.req.get ).toHaveBeenCalledTimes( 2 );

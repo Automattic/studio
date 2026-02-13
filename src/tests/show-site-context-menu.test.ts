@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  */
-import { IpcMainInvokeEvent, BrowserWindow, Menu, MenuItem } from 'electron';
+import { IpcMainInvokeEvent, BrowserWindow, MenuItem } from 'electron';
 import { vi } from 'vitest';
 import { showSiteContextMenu } from 'src/ipc-handlers';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
@@ -20,12 +20,13 @@ vi.mock( 'electron', () => {
 
 		constructor() {
 			// Store the instance in the outer mockMenu variable
+			// eslint-disable-next-line @typescript-eslint/no-this-alias
 			mockMenu = this;
 		}
 	}
 
 	class MockMenuItem {
-		constructor( config: any ) {
+		constructor( config: Record< string, unknown > ) {
 			Object.assign( this, config );
 		}
 	}

@@ -18,7 +18,7 @@ BUILDS_FOLDER = File.join(PROJECT_ROOT_FOLDER, 'out')
 DRY_RUN = ENV['DRY_RUN'] == 'true'
 
 # Make sure the WPCOM API token is set
-UI.user_error!("Environment variable WPCOM_API_TOKEN is not set") if ENV['WPCOM_API_TOKEN'].nil? && !DRY_RUN
+UI.user_error!('Environment variable WPCOM_API_TOKEN is not set') if ENV['WPCOM_API_TOKEN'].nil? && !DRY_RUN
 UI.message("Running in #{DRY_RUN ? 'DRY RUN' : 'NORMAL'} mode")
 
 # Read version from package.json
@@ -121,8 +121,8 @@ end
 
 # Create a new release branch from trunk and the first beta.
 #
+# - Extracts translatable strings and commits them to trunk (for GlotPress import)
 # - Creates a `release/<version>` branch from trunk
-# - Extracts translatable strings
 # - Delegates to {new_beta_release} to bump to beta1, commit, push, create a GitHub prerelease, and trigger a build
 #
 # @param version [String] The version to freeze (e.g., '1.7.4')
@@ -133,28 +133,40 @@ lane :code_freeze do |version:, skip_confirm: false|
 
   UI.important <<~PROMPT
     Freezing code for release #{version}. This will:
+    - Extract translatable strings and commit to `#{MAIN_BRANCH}`
     - Create a new `#{branch_name}` branch from `#{MAIN_BRANCH}`
-    - Extract translatable strings
     - Bump version to #{version}-beta1
     - Create a GitHub prerelease for v#{version}-beta1
     - Trigger a release build
   PROMPT
   next unless skip_confirm || UI.confirm('Continue?')
 
-  # Create release branch from trunk
+  # Extract translatable strings on trunk before branching
   Fastlane::Helper::GitHelper.checkout_and_pull(MAIN_BRANCH)
-  Fastlane::Helper::GitHelper.create_branch(branch_name)
 
-  # Extract translatable strings
   sh('rm', '-rf', './out/pots')
+  sh('mkdir', '-p', './i18n')
   sh(
     'npx', 'wp-babel-makepot',
     '{src,cli,common}/**/*.{js,jsx,ts,tsx}',
     '--ignore', 'cli/node_modules/**/*,**/*.d.ts',
     '--base', '.',
     '--dir', './out/pots',
-    '--output', './out/pots/bundle-strings.pot'
+    '--output', './i18n/bundle-strings.pot'
   )
+
+  # Commit and push the .pot file to trunk so the wpcom cron can import it to GlotPress
+  git_add(path: ['./i18n/bundle-strings.pot'])
+  git_commit(
+    path: ['./i18n/bundle-strings.pot'],
+    message: "Code freeze: Update translatable strings for #{version}",
+    allow_nothing_to_commit: true
+  )
+  push_to_git_remote
+
+  # Create release branch from trunk (inherits the .pot commit)
+  Fastlane::Helper::GitHelper.create_branch(branch_name)
+  push_to_git_remote(set_upstream: true)
 
   # Create the first beta (bumps version, commits, pushes, creates GitHub prerelease, triggers build)
   new_beta_release(version: "#{version}-beta1", skip_confirm: skip_confirm)
@@ -202,7 +214,7 @@ lane :new_beta_release do |version: nil, skip_confirm: false|
     path: ['package.json', 'package-lock.json'],
     message: "Bump version to #{new_version}"
   )
-  push_to_git_remote(set_upstream: true)
+  push_to_git_remote
 
   # Create GitHub prerelease (also creates the tag)
   tag_name = "v#{new_version}"
@@ -385,12 +397,12 @@ def get_windows_update_release_sha(arch: 'x64')
 
   begin
     releases_content = File.read(releases_file_path)
-  rescue => error
+  rescue StandardError => e
     UI.user_error!("Couldn't read RELEASES file of Windows build at #{releases_file_path}. Please ensure that the file compute the release SHA1.")
   end
 
   match_data = releases_content.match(/([a-zA-Z\d]{40})\s(.*\.nupkg)\s(\d+)/)
-  UI.user_error!("Could not parse Windows RELEASES file format") unless match_data
+  UI.user_error!('Could not parse Windows RELEASES file format') unless match_data
 
   sha1, filename, size = match_data.captures
   sha1
@@ -401,14 +413,13 @@ def distribute_builds(
   build_number: get_required_env('BUILDKITE_BUILD_NUMBER'),
   release_tag: nil
 )
-
   build_type = if release_tag.nil?
-    'Nightly'
-  elsif release_tag.downcase.include?('beta')
-    'Beta'
-  else
-    'Production'
-  end
+                 'Nightly'
+               elsif release_tag.downcase.include?('beta')
+                 'Beta'
+               else
+                 'Production'
+               end
   version = release_tag.nil? ? "v#{PACKAGE_VERSION}" : release_tag
   appx_version = "#{version[/\d+\.\d+\.\d+/]}.0"
   release_notes = release_tag.nil? ? "Development build #{version}-#{build_number}" : "Release #{release_tag}"
@@ -431,7 +442,7 @@ def distribute_builds(
       sha: commit_hash
     },
     windows_update: {
-      binary_path: File.join(BUILDS_FOLDER, 'make', 'squirrel.windows', 'x64', "studio-update.nupkg"),
+      binary_path: File.join(BUILDS_FOLDER, 'make', 'squirrel.windows', 'x64', 'studio-update.nupkg'),
       name: 'Windows - x64 Update',
       platform: 'Windows - x64',
       arch: 'x64',
@@ -439,7 +450,7 @@ def distribute_builds(
       sha: get_windows_update_release_sha(arch: 'x64')
     },
     windows_arm64_update: {
-      binary_path: File.join(BUILDS_FOLDER, 'make', 'squirrel.windows', 'arm64', "studio-update.nupkg"),
+      binary_path: File.join(BUILDS_FOLDER, 'make', 'squirrel.windows', 'arm64', 'studio-update.nupkg'),
       name: 'Windows - ARM64 Update',
       platform: 'Windows - ARM64',
       arch: 'arm64',
@@ -461,7 +472,7 @@ def distribute_builds(
       name: 'Mac Apple Silicon (DMG)',
       platform: 'Mac - Silicon',
       arch: 'arm64',
-      install_type: 'Full Install',
+      install_type: 'Full Install'
     },
     windows: {
       binary_path: File.join(BUILDS_FOLDER, 'make', 'squirrel.windows', 'x64', 'studio-setup.exe'),
@@ -470,7 +481,7 @@ def distribute_builds(
       arch: 'x64',
       install_type: 'Full Install'
     },
-	  windows_arm64: {
+    windows_arm64: {
       binary_path: File.join(BUILDS_FOLDER, 'make', 'squirrel.windows', 'arm64', 'studio-setup.exe'),
       name: 'Windows - ARM64',
       platform: 'Windows - ARM64',
@@ -482,15 +493,15 @@ def distribute_builds(
       name: 'Windows - x64 (Unsigned Appx)',
       platform: 'Microsoft Store - x64',
       arch: 'x64',
-      install_type: 'Full Install',
+      install_type: 'Full Install'
     },
     windows_arm64_appx_unsigned: {
       binary_path: File.join(BUILDS_FOLDER, 'Studio-appx-arm64-unsigned', "Studio #{appx_version} unsigned.appx"),
       name: 'Windows - ARM64 (Unsigned Appx)',
       platform: 'Microsoft Store - ARM64',
       arch: 'arm64',
-      install_type: 'Full Install',
-    },
+      install_type: 'Full Install'
+    }
   }
 
   builds_to_upload = release_tag.nil? ? update_builds : { **update_builds, **full_install_builds }
@@ -544,11 +555,11 @@ def create_versioned_file(original_file_path:, version:, arch:)
   end
   base_name = File.basename(original_filename, extension)
 
-  if base_name.match(/-#{arch}/i)
-    versioned_filename = "#{base_name}-#{version}#{extension}"
-  else
-    versioned_filename = "#{base_name}-#{arch}-#{version}#{extension}"
-  end
+  versioned_filename = if base_name.match(/-#{arch}/i)
+                         "#{base_name}-#{version}#{extension}"
+                       else
+                         "#{base_name}-#{arch}-#{version}#{extension}"
+                       end
 
   versioned_file_path = File.join(File.dirname(original_file_path), versioned_filename)
   UI.message("Copying #{original_file_path} to #{versioned_file_path}")
@@ -557,19 +568,17 @@ def create_versioned_file(original_file_path:, version:, arch:)
 end
 
 # Helper method to upload a file to Apps CDN with dry run support
-def upload_file_to_apps_cdn(site_id:, product:, file_path:, platform:, arch:, build_type:, install_type: 'Full Install', visibility:, version:, build_number:, release_notes:, sha: nil, error_on_duplicate:, dry_run: DRY_RUN)
+def upload_file_to_apps_cdn(site_id:, product:, file_path:, platform:, arch:, build_type:, visibility:, version:, build_number:, release_notes:, error_on_duplicate:, install_type: 'Full Install', sha: nil, dry_run: DRY_RUN)
   versioned_file_path = create_versioned_file(original_file_path: file_path, version:, arch:)
 
-  if !File.exist?(versioned_file_path)
-    UI.user_error!("File #{versioned_file_path} does not exist")
-  end
+  UI.user_error!("File #{versioned_file_path} does not exist") unless File.exist?(versioned_file_path)
 
   if dry_run
     media_url = "https://appscdn.wordpress.com/downloads/wordpress-com-studio/#{platform}/#{version}/#{build_number}"
-	# Check if the file exists
-    UI.message("[DRY RUN] Upload step skipped due to dry run mode.")
+    # Check if the file exists
+    UI.message('[DRY RUN] Upload step skipped due to dry run mode.')
     UI.message("           File exists at: #{versioned_file_path}")
-    UI.message("           file size: #{File.size(versioned_file_path)/1024/1024} MB")
+    UI.message("           file size: #{File.size(versioned_file_path) / 1024 / 1024} MB")
     UI.message("           for platform: #{platform}")
     UI.message("           media url: #{media_url}")
     UI.message("           build type: #{build_type}")
@@ -603,7 +612,7 @@ def upload_file_to_apps_cdn(site_id:, product:, file_path:, platform:, arch:, bu
     error_on_duplicate:
   )
 
-  UI.message("--------------------------------")
+  UI.message('--------------------------------')
   UI.message("✅ Uploaded file: #{versioned_file_path} to #{result[:media_url]}")
 
   result

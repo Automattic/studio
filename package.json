@@ -39,7 +39,6 @@
 		"test:watch": "vitest",
 		"e2e": "npx playwright install && npx playwright test",
 		"test:metrics": "npx playwright test --config=./metrics/playwright.metrics.config.ts",
-		"make-pot": "node ./scripts/make-pot.mjs",
 		"download-language-packs": "ts-node ./scripts/download-language-packs.ts"
 	},
 	"devDependencies": {

@@ -6,36 +6,11 @@ import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
 import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
-import { spawn } from 'child_process';
+import { exec } from 'child_process';
 import { exec as pkgExec } from '@yao-pkg/pkg';
 import type { ForgeConfig } from '@electron-forge/shared-types';
 
 const repoRoot = path.resolve( __dirname, '../..' );
-
-function runCommand( command: string, args: string[] = [] ) {
-	return new Promise< void >( ( resolve, reject ) => {
-		const child = spawn( command, args, {
-			cwd: repoRoot,
-			stdio: 'pipe',
-		} );
-
-		child.stdout.pipe( process.stdout );
-		child.stderr.pipe( process.stderr );
-
-		child.on( 'error', reject );
-		child.on( 'exit', ( code ) => {
-			if ( code === 0 ) {
-				resolve();
-			} else {
-				reject(
-					new Error(
-						`Command failed with exit code ${ code }: ${ [ command, ...args ].join( ' ' ) }`
-					)
-				);
-			}
-		} );
-	} );
-}
 
 const config: ForgeConfig = {
 	packagerConfig: {
@@ -161,8 +136,20 @@ const config: ForgeConfig = {
 	plugins: [ new AutoUnpackNativesPlugin( {} ) ],
 	hooks: {
 		prePackage: async ( _forgeConfig, platform, arch ) => {
-			const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-			const npxCommand = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+			const execAsync = ( command: string ) =>
+				new Promise< void >( ( resolve, reject ) => {
+					exec(
+						command,
+						{ cwd: repoRoot, maxBuffer: 50 * 1024 * 1024, windowsHide: true },
+						( error ) => {
+							if ( error ) {
+								reject( error );
+							} else {
+								resolve();
+							}
+						}
+					);
+				} );
 
 			console.log( "Ensuring latest WordPress zip isn't included in production build ..." );
 			const zipPath = path.join( repoRoot, 'wp-files', 'latest.zip' );
@@ -175,20 +162,21 @@ const config: ForgeConfig = {
 			console.log( 'Installing Studio app dependencies for bundling ...' );
 			// NOTE: The `app:install:bundle` script mutates the `apps/studio/node_modules` directory. You
 			// may need to rerun `npm ci` from the repo root to reset the dependency tree after packaging.
-			await runCommand( npmCommand, [ 'run', 'app:install:bundle' ] );
+			await execAsync( 'npm run app:install:bundle' );
 
 			console.log( 'Building CLI (with bundled node_modules) ...' );
 			// NOTE: The `cli:package` script mutates the `apps/cli/node_modules` directory. You may need to
 			// rerun `npm ci` from the repo root to reset the dependency tree after packaging.
-			await runCommand( npmCommand, [ 'run', 'cli:package' ] );
+			await execAsync( 'npm run cli:package' );
 
 			console.log( `Downloading Node.js binary for ${ platform }-${ arch }...` );
-			await runCommand( npxCommand, [
-				'ts-node',
-				path.join( repoRoot, 'scripts', 'download-node-binary.ts' ),
-				platform,
-				arch,
-			] );
+			await execAsync(
+				`npx ts-node ${ path.join(
+					repoRoot,
+					'scripts',
+					'download-node-binary.ts'
+				) } ${ platform } ${ arch }`
+			);
 
 			// Build CLI launcher executable for Windows AppX (Microsoft Store).
 			// AppX packages require AppExecutionAlias with an .exe target — batch files won't work.

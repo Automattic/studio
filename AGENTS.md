@@ -67,8 +67,7 @@ WordPress Studio - Electron desktop app for managing local WordPress sites. Buil
 - Windows: `%APPDATA%\Studio\appdata-v1.json` (expands to `C:\Users\<username>\AppData\Roaming\Studio\appdata-v1.json`)
 
 **Logs:**
-- macOS (dev): `~/Library/Logs/Electron/` (app called "Electron" during development)
-- macOS (release): `~/Library/Logs/Studio/`
+- macOS: `~/Library/Logs/Studio/`
 - Windows: `%APPDATA%\Studio\logs\`
 
 **Sites:**

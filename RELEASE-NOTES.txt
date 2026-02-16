@@ -8,10 +8,10 @@ Unreleased
 * Added Hungarian localization #2578
 * Added Blueprint's defineSiteUrl support #2516
 * Added Blueprint's blogname support to prefill site name field #2563
-* Enabled Xdebug for all users (previously it was a Beta Feature) #2523
-* Fixed site start/stop status #2534
+* Enabled Xdebug support for all users #2523
+* Fixed an issue with site start/stop status #2534
 * Added ability to start all stopped sites #2548
-* Fixed printing JSON keys to camelCase in site status output #2552
+* Fixed printing JSON keys to camelCase in Studio CLI site status output #2552
 * Misc UI improvements #2584, #2577, 2536, #2549
 
 1.7.3

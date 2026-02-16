@@ -15,19 +15,14 @@ If you want to add support for another language you will need to add it to the
 
 ### Extract and Import
 
-#### Step 1: Extract Strings:
+String extraction and GlotPress import are automated as part of the release process:
 
-   1. Run `npm run make-pot` to get the text out of the source files.
+1. During **code freeze**, the `code_freeze` Fastlane lane extracts all translatable strings
+   and commits the resulting `i18n/bundle-strings.pot` file to trunk.
+2. A **wpcom cron job** (`import-github-originals.php`) periodically fetches the `.pot` file
+   from trunk and imports it into [GlotPress](https://translate.wordpress.com/projects/studio/).
 
-   This will remove the `out/pots/` directory and create a `*.pot` file for each module, as well as a bundle
-   of all translatable strings in `out/pots/bundle-strings.pot`.
-   It will also open the import page in your browser and select the `bundle-strings.pot` file.
-
-#### Step 2: Import to GlotPress:
-
-   1. Drag and drop the `out/pots/bundle-strings.pot` to the file input in the GlotPress Studio page https://translate.wordpress.com/projects/studio/import-originals/
-   2. Leave the format as "_Auto Detect_".
-   3. Click **Import** and wait for the import to complete.
+No manual steps are needed for string extraction or import.
 
 ### Export and Add
 

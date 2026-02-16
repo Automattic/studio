@@ -133,16 +133,19 @@ lane :code_freeze do |version:, skip_confirm: false|
 
   UI.important <<~PROMPT
     Freezing code for release #{version}. This will:
-    - Extract translatable strings and commit to `#{MAIN_BRANCH}`
     - Create a new `#{branch_name}` branch from `#{MAIN_BRANCH}`
+    - Extract translatable strings and commit to `#{branch_name}`
+    - Create a backmerge PR from `#{branch_name}` to `#{MAIN_BRANCH}`
     - Bump version to #{version}-beta1
     - Create a GitHub prerelease for v#{version}-beta1
     - Trigger a release build
   PROMPT
   next unless skip_confirm || UI.confirm('Continue?')
 
-  # Extract translatable strings on trunk before branching
   Fastlane::Helper::GitHelper.checkout_and_pull(MAIN_BRANCH)
+
+  # Create release branch from MAIN_BRANCH
+  Fastlane::Helper::GitHelper.create_branch(branch_name)
 
   sh('rm', '-rf', './out/pots')
   sh('mkdir', '-p', './i18n')
@@ -155,18 +158,23 @@ lane :code_freeze do |version:, skip_confirm: false|
     '--output', './i18n/bundle-strings.pot'
   )
 
-  # Commit and push the .pot file to trunk so the wpcom cron can import it to GlotPress
+  # Commit and push the .pot file so the wpcom cron can import it to GlotPress
   git_add(path: ['./i18n/bundle-strings.pot'])
   git_commit(
     path: ['./i18n/bundle-strings.pot'],
     message: "Code freeze: Update translatable strings for #{version}",
     allow_nothing_to_commit: true
   )
-  push_to_git_remote
 
-  # Create release branch from trunk (inherits the .pot commit)
-  Fastlane::Helper::GitHelper.create_branch(branch_name)
   push_to_git_remote(set_upstream: true)
+
+  # Create backmerge PR from the release branch to MAIN_BRANCH so that the strings bundle is uploaded to GlotPress
+  create_release_backmerge_pull_request(
+    repository: GITHUB_REPO,
+    source_branch: branch_name,
+    target_branch: MAIN_BRANCH,
+    labels: ['Releases']
+  )
 
   # Create the first beta (bumps version, commits, pushes, creates GitHub prerelease, triggers build)
   new_beta_release(version: "#{version}-beta1", skip_confirm: skip_confirm)

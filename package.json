@@ -7,8 +7,8 @@
 	"license": "GPL-2.0-or-later",
 	"packageManager": "npm@10.9.4",
 	"engines": {
-		"npm": ">=10.0.0 <11.0.0",
-		"node": ">=22.0.0 <23.0.0"
+		"npm": ">=10.0.0",
+		"node": ">=22.0.0"
 	},
 	"repository": {
 		"type": "git",

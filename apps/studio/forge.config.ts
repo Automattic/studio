@@ -119,6 +119,10 @@ const config: ForgeConfig = {
 									}/Studio.app`,
 								},
 								{ x: 533, y: 354, type: 'link', path: '/Applications' },
+								{ x: 900, y: 900, type: 'position', path: '.background' },
+								{ x: 900, y: 900, type: 'position', path: '.DS_Store' },
+								{ x: 900, y: 900, type: 'position', path: '.Trashes' },
+								{ x: 900, y: 900, type: 'position', path: '.VolumeIcon.icns' },
 							],
 							additionalDMGOptions: {
 								window: {

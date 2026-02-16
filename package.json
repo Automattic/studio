@@ -76,7 +76,7 @@
 		"@wordpress/element": "^6.39.0",
 		"@yao-pkg/pkg": "^6.3.2",
 		"@wordpress/react-i18n": "^4.39.0",
-		"@wp-playground/blueprints": "^3.0.52",
+		"@wp-playground/blueprints": "^3.0.53",
 		"electron": "^39.2.7",
 		"electron-devtools-installer": "^4.0.0",
 		"electron-playwright-helpers": "^2.1.0",

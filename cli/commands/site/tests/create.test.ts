@@ -13,6 +13,7 @@ import {
 } from 'common/lib/fs-utils';
 import { isOnline } from 'common/lib/network-utils';
 import { portFinder } from 'common/lib/port-finder';
+import { normalizeLineEndings } from 'src/migrations/remove-default-db-constants';
 import { vi, type MockInstance } from 'vitest';
 import {
 	lockAppdata,
@@ -770,6 +771,117 @@ describe( 'CLI: studio site create', () => {
 			).rejects.toThrow();
 
 			expect( fsRmSpy ).not.toHaveBeenCalled();
+		} );
+	} );
+
+	describe( 'DB Constants Removal', () => {
+		const wpConfigWithDbBlock = normalizeLineEndings(
+			`<?php
+// ** Database settings - You can get this info from your web host ** //
+/** The name of the database for WordPress */
+define( 'DB_NAME', 'database_name_here' );
+
+/** Database username */
+define( 'DB_USER', 'username_here' );
+
+/** Database password */
+define( 'DB_PASSWORD', 'password_here' );
+
+/** Database hostname */
+define( 'DB_HOST', 'localhost' );
+
+/** Database charset to use in creating database tables. */
+define( 'DB_CHARSET', 'utf8mb4' );
+
+/** The database collate type. Don't change this if in doubt. */
+define( 'DB_COLLATE', '' );
+
+$table_prefix = 'wp_';
+`
+		);
+
+		const wpConfigWithoutDbBlock = normalizeLineEndings(
+			`<?php
+/**
+ * Database connection information is automatically provided.
+ */
+$table_prefix = 'wp_';
+`
+		);
+
+		it( 'should strip default DB constants from wp-config.php after server start', async () => {
+			const wpConfigPath = require( 'path' ).join( mockSitePath, 'wp-config.php' );
+			const fsExistsSyncSpy = vi
+				.spyOn( fs, 'existsSync' )
+				.mockImplementation( ( p ) => p === wpConfigPath );
+			const fsReadFileSyncSpy = vi.spyOn( fs, 'readFileSync' ).mockImplementation( ( p ) => {
+				if ( p === wpConfigPath ) {
+					return wpConfigWithDbBlock;
+				}
+				return '';
+			} );
+			const fsWriteFileSyncSpy = vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+
+			await runCommand( mockSitePath, { ...defaultTestOptions } );
+
+			expect( fsExistsSyncSpy ).toHaveBeenCalledWith( wpConfigPath );
+			expect( fsReadFileSyncSpy ).toHaveBeenCalledWith( wpConfigPath, 'utf-8' );
+			expect( fsWriteFileSyncSpy ).toHaveBeenCalledWith(
+				wpConfigPath,
+				expect.not.stringContaining( "define( 'DB_NAME'" ),
+				'utf-8'
+			);
+		} );
+
+		it( 'should strip default DB constants from wp-config.php after Blueprint application (noStart)', async () => {
+			const wpConfigPath = require( 'path' ).join( mockSitePath, 'wp-config.php' );
+			const fsExistsSyncSpy = vi
+				.spyOn( fs, 'existsSync' )
+				.mockImplementation( ( p ) => p === wpConfigPath );
+			const fsReadFileSyncSpy = vi.spyOn( fs, 'readFileSync' ).mockImplementation( ( p ) => {
+				if ( p === wpConfigPath ) {
+					return wpConfigWithDbBlock;
+				}
+				return '';
+			} );
+			const fsWriteFileSyncSpy = vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+
+			await runCommand( mockSitePath, {
+				...defaultTestOptions,
+				noStart: true,
+				blueprint: {
+					uri: '/home/test/blueprint.json',
+					contents: { steps: [] },
+				},
+			} );
+
+			expect( fsExistsSyncSpy ).toHaveBeenCalledWith( wpConfigPath );
+			expect( fsReadFileSyncSpy ).toHaveBeenCalledWith( wpConfigPath, 'utf-8' );
+			expect( fsWriteFileSyncSpy ).toHaveBeenCalledWith(
+				wpConfigPath,
+				expect.not.stringContaining( "define( 'DB_NAME'" ),
+				'utf-8'
+			);
+		} );
+
+		it( 'should not modify wp-config.php if no default DB constants found', async () => {
+			const wpConfigPath = require( 'path' ).join( mockSitePath, 'wp-config.php' );
+			vi.spyOn( fs, 'existsSync' ).mockImplementation( ( p ) => p === wpConfigPath );
+			vi.spyOn( fs, 'readFileSync' ).mockImplementation( ( p ) => {
+				if ( p === wpConfigPath ) {
+					return wpConfigWithoutDbBlock;
+				}
+				return '';
+			} );
+			const fsWriteFileSyncSpy = vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+
+			await runCommand( mockSitePath, { ...defaultTestOptions } );
+
+			expect( fsWriteFileSyncSpy ).not.toHaveBeenCalledWith(
+				wpConfigPath,
+				expect.anything(),
+				'utf-8'
+			);
 		} );
 	} );
 } );

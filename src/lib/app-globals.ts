@@ -20,3 +20,7 @@ export function isLinux() {
 	const platform = process ? process.platform : getAppGlobals().platform;
 	return platform === 'linux';
 }
+
+export function isWindowsStore() {
+	return getAppGlobals().isWindowsStore;
+}

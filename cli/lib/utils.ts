@@ -1,4 +1,5 @@
 import os from 'node:os';
+import { parse as parsePath } from 'node:path';
 import { SupportedPHPVersion, SupportedPHPVersions } from '@php-wasm/universal';
 import { __, sprintf } from '@wordpress/i18n';
 import { z } from 'zod';
@@ -28,9 +29,19 @@ export function getColumnWidths( widthFactors: number[] ) {
 }
 
 export function getPrettyPath( path: string ): string {
-	return process.platform === 'win32'
-		? path
-		: path.replace( process.cwd(), '.' ).replace( os.homedir(), '~' );
+	const cwd = process.cwd();
+	const root = parsePath( cwd ).root;
+
+	// If cwd is system root, don't replace it. Otherwise `/Users/foo/bar` becomes `.Users/foo/bar`
+	if ( cwd !== root ) {
+		path = path.replace( cwd, '.' );
+	}
+
+	if ( process.platform === 'win32' ) {
+		return path;
+	}
+
+	return path.replace( os.homedir(), '~' );
 }
 
 // `~` is a shell construct on Posix platforms. The shell expands it to the user's home directory

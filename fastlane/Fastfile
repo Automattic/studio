@@ -162,7 +162,7 @@ lane :code_freeze do |version:, skip_confirm: false|
   git_add(path: ['./i18n/bundle-strings.pot'])
   git_commit(
     path: ['./i18n/bundle-strings.pot'],
-    message: "Code freeze: Update translatable strings for #{version}",
+    message: "[skip ci] Code freeze: Update translatable strings for #{version}",
     allow_nothing_to_commit: true
   )
 
@@ -220,7 +220,7 @@ lane :new_beta_release do |version: nil, skip_confirm: false|
   git_add(path: ['package.json', 'package-lock.json'])
   git_commit(
     path: ['package.json', 'package-lock.json'],
-    message: "Bump version to #{new_version}"
+    message: "[skip ci] Bump version to #{new_version}"
   )
   push_to_git_remote
 
@@ -265,7 +265,7 @@ lane :finalize_release do |version:, skip_confirm: false|
   git_add(path: ['package.json', 'package-lock.json'])
   git_commit(
     path: ['package.json', 'package-lock.json'],
-    message: "Bump version to #{version}"
+    message: "[skip ci] Bump version to #{version}"
   )
   push_to_git_remote
 
@@ -366,7 +366,7 @@ lane :new_hotfix_release do |version:, skip_confirm: false|
   git_add(path: ['package.json', 'package-lock.json'])
   git_commit(
     path: ['package.json', 'package-lock.json'],
-    message: "Bump version to #{version}"
+    message: "[skip ci] Bump version to #{version}"
   )
   push_to_git_remote(set_upstream: true)
 
@@ -390,7 +390,7 @@ lane :download_translations do |skip_confirm: false|
   git_add(path: ['.'])
   git_commit(
     path: ['.'],
-    message: 'Update translations',
+    message: '[skip ci] Update translations',
     allow_nothing_to_commit: true
   )
   push_to_git_remote

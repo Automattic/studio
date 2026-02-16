@@ -6,14 +6,24 @@
  */
 
 import fs from 'fs';
-import os from 'os';
 import path from 'path';
+import os from 'os';
 import { extract } from 'tar';
 import { extractZip } from '../common/lib/extract-zip';
 
-// Node.js version to bundle with the CLI
-// This is separate from .nvmrc which controls the development environment
-const NODE_VERSION = 'v24.11.0';
+const LTS_FALLBACK = 'v24.13.1';
+
+function getNodeVersion(): string {
+	const nvmrcPath = path.join( __dirname, '..', '.nvmrc' );
+	if ( fs.existsSync( nvmrcPath ) ) {
+		const version = fs.readFileSync( nvmrcPath, 'utf-8' ).trim();
+		return version.startsWith( 'v' ) ? version : `v${ version }`;
+	}
+	console.log( `.nvmrc not found, using fallback version ${ LTS_FALLBACK }` );
+	return LTS_FALLBACK;
+}
+
+const NODE_VERSION = getNodeVersion();
 
 const platform = process.argv[ 2 ] || process.platform;
 const arch = process.argv[ 3 ] || process.arch;
@@ -161,4 +171,4 @@ async function main(): Promise< void > {
 	}
 }
 
-void main();
+main();

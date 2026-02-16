@@ -55,7 +55,6 @@
 		"@types/fs-extra": "^11.0.4",
 		"@vitest/ui": "^2.1.8",
 		"@yao-pkg/pkg": "^6.13.1",
-		"electron": "^39.2.7",
 		"electron-playwright-helpers": "^2.1.0",
 		"eslint": "^9.39.2",
 		"eslint-import-resolver-typescript": "^4.4.4",

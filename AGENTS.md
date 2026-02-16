@@ -75,7 +75,7 @@ WordPress Studio - Electron desktop app for managing local WordPress sites. Buil
 
 ## Git & PR Conventions
 
-**Branches**: Create from `trunk` using dash-separated lowercase names with prefixes: `add/something-new`, `update/feature-xyz`, `delete/something-else`, `fix/foo-bar`, `release/1.7.8`
+**Branches**: Create from `trunk` using dash-separated lowercase names. Include a verb for clarity. Examples: `new-dark-mode`, `improve-agent-instructions`, `fix-login-bug`, `add-logout-button`. For Linear issues: `stu-123-update-sync-feature`.
 **Commits**: Single-line messages. Clear and descriptive. Focus on "what" and "why", not "how"
 **PRs**: Create PR against `trunk` branch. Use the template from `.github/PULL_REQUEST_TEMPLATE.md` (include Related issues, Proposed Changes, Testing Instructions, Pre-merge Checklist). MUST pass all CI checks before merge.
 **IMPORTANT**: Prefer merging `trunk` into your branch over rebasing. Avoid force pushes to trunk/main branches. Avoid force pushes to already-pushed branches - add new commits instead.

@@ -1,19 +1,82 @@
 # Release Process
 
-Release builds are built, signed, notarized, and uploaded to the CDN by [Buildkite](https://buildkite.com/automattic/studio).
-Once the release is on the CDN the auto-update process will start downloading the new version.
+Releases are managed through [ReleasesV2](https://releases.a8c.com/) and automated via Fastlane + Buildkite. Each step below has a corresponding button in the ReleasesV2 UI that triggers a Buildkite pipeline, which runs the appropriate Fastlane lane.
 
-## Creating a Release
+Builds are signed, notarized (macOS), and uploaded to the Apps CDN automatically. Once on the CDN, auto-update delivers the new version to users.
 
-These instructions are for creating version 0.1.0-alpha5, but the steps are the same for releases with no pre-release tag.
+## Release Lifecycle
 
-1. Create a PR which updates the `version` field in `package.json` to `'0.1.0-alpha5'`.
-   - Remember to run `npm install` so the version in `package-lock.json` gets updated too.
-2. Merge this PR.
-3. Make a note of the commit hash of the PR which was just merged into `trunk`, e.g. `a1c70f3a3be5d28922a48f7f298f6152d6001516`
-4. Tag this commit with `v0.1.0-alpha5`:
-   1. On your local machine get the latest code: `git checkout trunk && git pull`
-   2. Create the tag: `git tag v0.1.0-alpha5 a1c70f3a3be5d28922a48f7f298f6152d6001516`
-   3. Push the tag to the GitHub repo: `git push origin v0.1.0-alpha5`
+### 1. Code Freeze
 
-Pushing the tag will automatically start the build and release process, and is complete when the build finishes cleanly.
+**ReleasesV2 milestone**: Code Freeze | **Fastlane lane**: `code_freeze`
+
+- Extracts translatable strings and commits them to `trunk` (a wpcom cron imports them to GlotPress)
+- Creates `release/<version>` branch from `trunk`
+- Bumps version to `<version>-beta1`, creates a GitHub prerelease, and triggers a build
+
+### 2. Beta Releases
+
+**ReleasesV2 milestone**: Beta Release | **Fastlane lane**: `new_beta_release`
+
+- Increments the beta number (e.g. beta1 → beta2)
+- Creates a GitHub prerelease and triggers a build
+- Repeat as needed for additional betas
+
+### 3. Pre-Release
+
+**ReleasesV2 milestone**: Pre-Release
+
+- **Download translations**: Button triggers `download_translations` lane, which fetches translations from GlotPress and commits them to the release branch
+- **Release notes**: Manually update `RELEASE-NOTES.txt` on the `release/<version>` branch (required before finalizing)
+- **Smoke tests**: Verify betas on macOS and Windows
+
+### 4. Finalize Release
+
+**ReleasesV2 milestone**: Release | **Fastlane lane**: `finalize_release`
+
+- Removes beta suffix (sets version to `<version>`)
+- Creates a **draft** GitHub release with notes from `RELEASE-NOTES.txt`
+- Triggers the final release build
+
+### 5. Publish Release
+
+**Fastlane lane**: `publish_release`
+
+- Publishes the draft GitHub release
+- Creates a backmerge PR from `release/<version>` into `trunk`
+
+### 6. Post-Release (manual)
+
+- Publish Windows build to the Microsoft Store
+- Update Slack channel bookmark
+- Notify team for changelog update
+- Notify next Release Wrangler
+
+## Hotfix Releases
+
+**Fastlane lane**: `new_hotfix_release`
+
+- Creates a `release/<version>` branch from the latest release tag (or existing release branch)
+- Bumps the version number
+- After committing fixes, use `finalize_release` and `publish_release` as normal
+
+## Running Lanes Locally
+
+Lanes can be run locally for testing (requires Ruby + Bundler setup):
+
+```sh
+# Dry run (no pushes, no uploads)
+DRY_RUN=true bundle exec fastlane code_freeze version:"1.8.0" skip_confirm:true
+
+# Other lanes
+bundle exec fastlane new_beta_release skip_confirm:true
+bundle exec fastlane finalize_release version:"1.8.0" skip_confirm:true
+bundle exec fastlane publish_release version:"1.8.0" skip_confirm:true
+```
+
+## Reference
+
+- [Buildkite pipelines](https://buildkite.com/automattic/studio)
+- [ReleasesV2 scenarios](https://releases.a8c.com/)
+- [Fastfile](../fastlane/Fastfile) — all lane implementations
+- [Localization](localization.md) — string extraction and translation workflow

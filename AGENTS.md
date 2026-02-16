@@ -57,8 +57,22 @@ WordPress Studio - Electron desktop app for managing local WordPress sites. Buil
 
 **Files**: React components (PascalCase), utils (camelCase), tests (.test.ts/.tsx)
 **IPC Handlers** (`src/ipc-handlers.ts`): **MUST** `export async function handlerName(event, ...args): Promise<ReturnType>` | Handler names in `src/constants.ts` | All handlers MUST be async and return Promises
-**Storage**: `~/Library/Application Support/WordPress Studio/appdata-v1.json` (macOS), `%APPDATA%/...` (Win), `~/.config/...` (Linux) | **CRITICAL**: Always use file locking: `lockAppdata()` / `unlockAppdata()` to prevent data corruption
+**Storage**: **CRITICAL** - Always use file locking: `lockAppdata()` / `unlockAppdata()` to prevent data corruption
 **i18n**: `@wordpress/i18n` (`__()` function), `common/translations/`, `<I18nProvider>` (renderer), `loadTranslations()` (CLI)
+
+## WordPress Studio Paths
+
+**App Data:**
+- macOS: `~/Library/Application Support/Studio/appdata-v1.json`
+- Windows: `%APPDATA%\Studio\appdata-v1.json` (expands to `C:\Users\<username>\AppData\Roaming\Studio\appdata-v1.json`)
+
+**Logs:**
+- macOS (dev): `~/Library/Logs/Electron/` (app called "Electron" during development)
+- macOS (release): `~/Library/Logs/Studio/`
+- Windows: `%APPDATA%\Studio\logs\`
+
+**Sites:**
+- All platforms: `~/Studio/` (user's home directory)
 
 ## Git & PR Conventions
 

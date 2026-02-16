@@ -11,7 +11,7 @@ import os from 'os';
 import { extract } from 'tar';
 import { extractZip } from '../common/lib/extract-zip';
 
-const LTS_FALLBACK = 'v22.12.0';
+const LTS_FALLBACK = 'v24.13.1';
 
 function getNodeVersion(): string {
 	const nvmrcPath = path.join( __dirname, '..', '.nvmrc' );

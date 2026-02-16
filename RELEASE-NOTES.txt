@@ -13,7 +13,7 @@ Unreleased
 * Added ability to start all stopped sites #2548
 * Fixed printing JSON keys to camelCase in Studio CLI site status output #2552
 * Misc UI improvements #2584, #2577, 2536, #2549
-* Dependency updates #2544, #2542, #2541, #2543, #2570, #2567, #2579, #2576, #2586, #2499
+* Updated multiple dependencies, including Vite, Vitest, Playwright, Faraday, QS, Node.js types, and various WordPress packages
 
 1.7.3
 =====

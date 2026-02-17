@@ -1,10 +1,12 @@
 import { resolve } from 'path';
 import { defineConfig } from 'vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
-import { existsSync } from 'fs';
+import { existsSync, rmSync } from 'fs';
+import { sync as globSync } from 'glob';
 
 const yargsLocalesPath = resolve( __dirname, 'node_modules/yargs/locales' );
 const cliNodeModulesPath = resolve( __dirname, 'cli/node_modules' );
+const distCliNodeModulesPath = resolve( __dirname, 'dist/cli/node_modules' );
 
 export default defineConfig( {
 	plugins: [
@@ -30,6 +32,22 @@ export default defineConfig( {
 							},
 						],
 					} ),
+					{
+						// Remove asyncify PHP-WASM builds from dist. JSPI is a newer and faster technology, and
+						// there's no need for us to bundle both build formats. Removing asyncify saves ~250MB.
+						name: 'prune-php-wasm-asyncify',
+						apply: 'build' as const,
+						closeBundle() {
+							const asyncifyPaths = globSync( '@php-wasm/node-*/asyncify/', {
+								cwd: distCliNodeModulesPath,
+								absolute: true,
+							} );
+
+							for ( const asyncifyPath of asyncifyPaths ) {
+								rmSync( asyncifyPath, { recursive: true, force: true } );
+							}
+						},
+					},
 			  ]
 			: [] ),
 	],
@@ -81,6 +99,10 @@ export default defineConfig( {
 			src: resolve( __dirname, 'src' ),
 			vendor: resolve( __dirname, 'vendor' ),
 			common: resolve( __dirname, 'common' ),
+			'@wp-playground/blueprints/blueprint-schema-validator': resolve(
+				__dirname,
+				'node_modules/@wp-playground/blueprints/blueprint-schema-validator.js'
+			),
 		},
 		conditions: [ 'node' ],
 		mainFields: [ 'main' ],

@@ -160,7 +160,7 @@ describe( 'MainSidebar Site Menu', () => {
 		expect( greenDotFirstSite ).toBeVisible();
 		await user.click( greenDotFirstSite );
 		expect( siteDetailsMocked.startServer ).toHaveBeenCalledWith(
-			'0e9e237b-335a-43fa-b439-9b078a618512'
+			expect.objectContaining( { id: '0e9e237b-335a-43fa-b439-9b078a618512', name: 'test-1' } )
 		);
 	} );
 

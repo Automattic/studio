@@ -332,7 +332,7 @@ describe( 'useImportExport hook', () => {
 			} )
 		);
 		expect( useSiteDetails().startServer ).toHaveBeenCalledTimes( 1 );
-		expect( useSiteDetails().startServer ).toHaveBeenCalledWith( SITE_ID );
+		expect( useSiteDetails().startServer ).toHaveBeenCalledWith( selectedSite );
 	} );
 
 	it( 'shows error message when import fails with absolute path error', async () => {

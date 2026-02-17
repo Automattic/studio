@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* eslint-disable no-console */
+
 import fs from 'fs';
 import https from 'https';
 import path from 'path';
@@ -22,6 +22,7 @@ function formatResultsAsMarkdown(
 	baseBranch: string,
 	compareBranch: string
 ): string {
+	const CHANGE_THRESHOLD_MS = 50;
 	let markdown = `## 📊 Performance Test Results\n\n`;
 	markdown += `Comparing **${ compareBranch }** vs **${ baseBranch }**\n\n`;
 
@@ -39,9 +40,22 @@ function formatResultsAsMarkdown(
 			const baseValue = baseMetrics[ metric ] || 0;
 			const compareValue = compareMetrics[ metric ] || 0;
 			const diff = compareValue - baseValue;
-			const percentChange = baseValue !== 0 ? ( ( diff / baseValue ) * 100 ).toFixed( 1 ) : 'N/A';
+			const isNoChange = Math.abs( diff ) < CHANGE_THRESHOLD_MS;
+			let percentChange = 'N/A';
+			if ( isNoChange ) {
+				percentChange = '0.0';
+			} else if ( baseValue !== 0 ) {
+				percentChange = ( ( diff / baseValue ) * 100 ).toFixed( 1 );
+			}
 
-			const emoji = diff > 0 ? '🔴' : diff < 0 ? '🟢' : '⚪';
+			let emoji = '⚪';
+			if ( ! isNoChange ) {
+				if ( diff > 0 ) {
+					emoji = '🔴';
+				} else if ( diff < 0 ) {
+					emoji = '🟢';
+				}
+			}
 			const sign = diff > 0 ? '+' : '';
 
 			markdown += `| ${ metric } | ${ baseValue.toFixed( 2 ) } ms | ${ compareValue.toFixed(
@@ -54,7 +68,7 @@ function formatResultsAsMarkdown(
 
 	markdown += `\n---\n`;
 	markdown += `*Results are median values from multiple test runs.*\n\n`;
-	markdown += `*Legend: 🟢 Improvement (faster) | 🔴 Regression (slower) | ⚪ No change*\n`;
+	markdown += `*Legend: 🟢 Improvement (faster) | 🔴 Regression (slower) | ⚪ No change (<50ms diff)*\n`;
 
 	return markdown;
 }
@@ -82,8 +96,8 @@ async function findOrCreateComment(
 			res.on( 'end', () => {
 				if ( res.statusCode === 200 ) {
 					const comments = JSON.parse( data );
-					const existingComment = comments.find( ( c: { body?: string } ) =>
-						c.body?.includes( commentIdentifier )
+					const existingComment = comments.find(
+						( c: { body?: string } ) => c.body?.includes( commentIdentifier )
 					);
 					resolve( existingComment?.id || null );
 				} else {
@@ -130,9 +144,7 @@ async function postOrUpdateComment( context: GitHubContext, body: string ): Prom
 			res.on( 'data', ( chunk ) => ( data += chunk ) );
 			res.on( 'end', () => {
 				if ( res.statusCode === 200 || res.statusCode === 201 ) {
-					console.log(
-						`✅ Successfully ${ existingCommentId ? 'updated' : 'posted' } PR comment`
-					);
+					console.log( `✅ Successfully ${ existingCommentId ? 'updated' : 'posted' } PR comment` );
 					resolve();
 				} else {
 					reject( new Error( `Failed to post comment: ${ res.statusCode } ${ data }` ) );
@@ -166,7 +178,9 @@ async function main() {
 	};
 
 	const resultsPath = artifactsPath || process.env.ARTIFACTS_PATH || 'artifacts';
-	const summaryFiles = fs.readdirSync( resultsPath ).filter( ( f ) => f.endsWith( '.summary.json' ) );
+	const summaryFiles = fs
+		.readdirSync( resultsPath )
+		.filter( ( f ) => f.endsWith( '.summary.json' ) );
 
 	if ( summaryFiles.length === 0 ) {
 		console.error( `No summary files found in ${ resultsPath }` );
@@ -188,4 +202,3 @@ main().catch( ( error ) => {
 	console.error( 'Error posting to GitHub:', error );
 	process.exit( 1 );
 } );
-

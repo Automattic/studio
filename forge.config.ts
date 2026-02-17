@@ -8,6 +8,7 @@ import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-nati
 import { isErrnoException } from './common/lib/is-errno-exception';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { exec as pkgExec } from '@yao-pkg/pkg';
 import type { ForgeConfig } from '@electron-forge/shared-types';
 
 const config: ForgeConfig = {
@@ -109,6 +110,10 @@ const config: ForgeConfig = {
 									}/Studio.app`,
 								},
 								{ x: 533, y: 354, type: 'link', path: '/Applications' },
+								{ x: 900, y: 900, type: 'position', path: '.background' },
+								{ x: 900, y: 900, type: 'position', path: '.DS_Store' },
+								{ x: 900, y: 900, type: 'position', path: '.Trashes' },
+								{ x: 900, y: 900, type: 'position', path: '.VolumeIcon.icns' },
 							],
 							additionalDMGOptions: {
 								window: {
@@ -136,25 +141,33 @@ const config: ForgeConfig = {
 				if ( isErrnoException( err ) && err.code !== 'ENOENT' ) throw err;
 			}
 
+			console.log( 'Downloading language packs ...' );
+			await execAsync( 'npm run download-language-packs' );
+
 			console.log( 'Building CLI ...' );
 			await execAsync( 'npm run cli:build' );
 
-			// Remove asyncify PHP-WASM builds from dist. The bundled Node.js binary supports
-			// JSPI, so asyncify variants are unused and removing them saves ~250MB.
-			console.log( 'Removing asyncify PHP-WASM builds from dist ...' );
-			const distNodeModules = path.join( __dirname, 'dist', 'cli', 'node_modules', '@php-wasm' );
-			const phpWasmPackages = fs.readdirSync( distNodeModules ).filter( ( name ) =>
-				name.startsWith( 'node-' )
-			);
-			for ( const pkg of phpWasmPackages ) {
-				const asyncifyPath = path.join( distNodeModules, pkg, 'asyncify' );
-				if ( fs.existsSync( asyncifyPath ) ) {
-					fs.rmSync( asyncifyPath, { recursive: true } );
-				}
-			}
-
 			console.log( `Downloading Node.js binary for ${ platform }-${ arch }...` );
 			await execAsync( `npx ts-node ./scripts/download-node-binary.ts ${ platform } ${ arch }` );
+
+			// Build CLI launcher executable for Windows AppX (Microsoft Store).
+			// AppX packages require AppExecutionAlias with an .exe target — batch files won't work.
+			if ( platform === 'win32' ) {
+				const pkgArch = arch === 'x64' ? 'x64' : 'arm64';
+				const target = `node22-win-${ pkgArch }`;
+				console.log( `Building CLI launcher executable for ${ target }...` );
+				await pkgExec( [
+					'bin/studio-cli-launcher.js',
+					'--target',
+					target,
+					'--output',
+					'bin/studio-cli.exe',
+					'--compress',
+					'GZip',
+					'--no-bytecode',
+					'--public',
+				] );
+			}
 		},
 	},
 };

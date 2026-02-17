@@ -91,7 +91,7 @@ describe( 'Header', () => {
 			expect( screen.getByText( 'Start' ) ).toBeVisible();
 			expect( vi.mocked( getIpcApi )().showErrorMessageBox ).toHaveBeenCalledTimes( 1 );
 			expect( vi.mocked( getIpcApi )().showErrorMessageBox ).toHaveBeenCalledWith( {
-				title: 'Failed to start the site server',
+				title: "Failed to start 'test-1'",
 				message:
 					"Please verify your site's local path directory contains the standard WordPress installation files and try again. If this problem persists, please contact support.",
 				error,

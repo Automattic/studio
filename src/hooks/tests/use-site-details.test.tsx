@@ -10,7 +10,7 @@ import { store } from 'src/stores';
 
 vi.mock( 'src/lib/get-ipc-api' );
 
-const mockSites = [
+const mockSites: SiteDetails[] = [
 	{
 		id: 'site-1',
 		name: 'Site 1',
@@ -165,6 +165,168 @@ describe( 'useSiteDetails', () => {
 
 			expect( getIpcApi().startServer ).toHaveBeenCalledWith( 'site-1' );
 			expect( getIpcApi().startServer ).not.toHaveBeenCalledWith( 'site-2' );
+		} );
+	} );
+
+	describe( 'startServer error handling', () => {
+		function setupStartServerError( error: Error ) {
+			const showErrorMessageBox = vi.fn();
+			const stopServer = vi.fn( () => Promise.resolve() );
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+				getSiteDetails: vi.fn().mockResolvedValue( mockSites ),
+				startServer: vi.fn().mockRejectedValue( error ),
+				showErrorMessageBox,
+				stopServer,
+				getConnectedWpcomSites: vi.fn( () => Promise.resolve( [] ) ),
+			} );
+			return { showErrorMessageBox, stopServer };
+		}
+
+		it( 'should include site name in error title for generic start failure', async () => {
+			const { showErrorMessageBox } = setupStartServerError( new Error( 'Something went wrong' ) );
+
+			const { result } = renderHook( () => useSiteDetails(), { wrapper } );
+
+			await waitFor( () => {
+				expect( result.current.loadingSites ).toBe( false );
+			} );
+
+			vi.mocked( getIpcApi().startServer ).mockClear();
+
+			await act( async () => {
+				await result.current.startServer( mockSites[ 1 ] );
+			} );
+
+			expect( showErrorMessageBox ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					title: "Failed to start 'Site 2'",
+				} )
+			);
+		} );
+
+		it( 'should include site name in error title for WASM memory error', async () => {
+			const { showErrorMessageBox } = setupStartServerError(
+				new Error( 'WASM_ERROR_NOT_ENOUGH_MEMORY' )
+			);
+
+			const { result } = renderHook( () => useSiteDetails(), { wrapper } );
+
+			await waitFor( () => {
+				expect( result.current.loadingSites ).toBe( false );
+			} );
+
+			vi.mocked( getIpcApi().startServer ).mockClear();
+
+			await act( async () => {
+				await result.current.startServer( mockSites[ 0 ] as SiteDetails );
+			} );
+
+			expect( showErrorMessageBox ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					title: "Not enough memory to start 'Site 1'",
+				} )
+			);
+		} );
+
+		it( 'should include site name in error title for port-in-use error', async () => {
+			const { showErrorMessageBox } = setupStartServerError(
+				new Error( 'ERROR_PORT_IN_USE 8080' )
+			);
+
+			const { result } = renderHook( () => useSiteDetails(), { wrapper } );
+
+			await waitFor( () => {
+				expect( result.current.loadingSites ).toBe( false );
+			} );
+
+			vi.mocked( getIpcApi().startServer ).mockClear();
+
+			await act( async () => {
+				await result.current.startServer( mockSites[ 2 ] as SiteDetails );
+			} );
+
+			expect( showErrorMessageBox ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					title: "Failed to start 'Site 3'",
+				} )
+			);
+		} );
+
+		it( 'should include site name in error title for proxy port-in-use error', async () => {
+			const { showErrorMessageBox } = setupStartServerError(
+				new Error( 'PROXY_ERROR_PORT_IN_USE' )
+			);
+
+			const { result } = renderHook( () => useSiteDetails(), { wrapper } );
+
+			await waitFor( () => {
+				expect( result.current.loadingSites ).toBe( false );
+			} );
+
+			vi.mocked( getIpcApi().startServer ).mockClear();
+
+			await act( async () => {
+				await result.current.startServer( mockSites[ 0 ] as SiteDetails );
+			} );
+
+			expect( showErrorMessageBox ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					title: "Failed to initialize custom domains for 'Site 1'",
+				} )
+			);
+		} );
+
+		it( 'should include site name in error title for proxy start failed error', async () => {
+			const { showErrorMessageBox } = setupStartServerError(
+				new Error( 'PROXY_ERROR_START_FAILED' )
+			);
+
+			const { result } = renderHook( () => useSiteDetails(), { wrapper } );
+
+			await waitFor( () => {
+				expect( result.current.loadingSites ).toBe( false );
+			} );
+
+			vi.mocked( getIpcApi().startServer ).mockClear();
+
+			await act( async () => {
+				await result.current.startServer( mockSites[ 1 ] as SiteDetails );
+			} );
+
+			expect( showErrorMessageBox ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					title: "Failed to initialize custom domains for 'Site 2'",
+				} )
+			);
+		} );
+
+		it( 'should use site name in dialog title even if site has no name', async () => {
+			const { showErrorMessageBox } = setupStartServerError( new Error( 'Something went wrong' ) );
+
+			const { result } = renderHook( () => useSiteDetails(), { wrapper } );
+
+			await waitFor( () => {
+				expect( result.current.loadingSites ).toBe( false );
+			} );
+
+			vi.mocked( getIpcApi().startServer ).mockClear();
+
+			await act( async () => {
+				await result.current.startServer( {
+					id: 'non-existent-id',
+					name: '',
+					path: '',
+					port: 0,
+					phpVersion: '',
+					running: false,
+				} );
+			} );
+
+			expect( showErrorMessageBox ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					title: "Failed to start ''",
+				} )
+			);
 		} );
 	} );
 

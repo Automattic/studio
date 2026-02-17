@@ -3,6 +3,7 @@ import { locale_data as de } from 'common/translations/studio-de.jed.json';
 import { locale_data as es } from 'common/translations/studio-es.jed.json';
 import { locale_data as fr } from 'common/translations/studio-fr.jed.json';
 import { locale_data as he } from 'common/translations/studio-he.jed.json';
+import { locale_data as hu } from 'common/translations/studio-hu.jed.json';
 import { locale_data as id } from 'common/translations/studio-id.jed.json';
 import { locale_data as it } from 'common/translations/studio-it.jed.json';
 import { locale_data as ja } from 'common/translations/studio-ja.jed.json';
@@ -25,6 +26,7 @@ export const localeDataDictionary = {
 	es,
 	fr,
 	he,
+	hu,
 	id,
 	it,
 	ja,

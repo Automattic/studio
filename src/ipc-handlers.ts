@@ -34,7 +34,6 @@ import { isErrnoException } from 'common/lib/is-errno-exception';
 import { getAuthenticationUrl } from 'common/lib/oauth';
 import { portFinder } from 'common/lib/port-finder';
 import { sanitizeFolderName } from 'common/lib/sanitize-folder-name';
-import { SITE_EVENTS } from 'common/lib/site-events';
 import { isWordPressDevVersion } from 'common/lib/wordpress-version-utils';
 import { Snapshot } from 'common/types/snapshot';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
@@ -760,6 +759,7 @@ export function getAppGlobals(): AppGlobals {
 		appName: app.name,
 		appVersion: app.getVersion(),
 		arm64Translation: app.runningUnderARM64Translation,
+		isWindowsStore: process.windowsStore ?? false,
 		...buildFeatureFlags(),
 	};
 }

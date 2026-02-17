@@ -3,7 +3,7 @@
 set -eu
 
 PLATFORM=$(uname -s)
-ARCHITECTURE=$(uname -m)
+ARCHITECTURE=${FILE_ARCHITECTURE:-$(uname -m)}
 NODE_VERSION=$(node --version)
 NPM_VERSION=$(npm --version)
 PACKAGE_HASH=$(hash_file package-lock.json)

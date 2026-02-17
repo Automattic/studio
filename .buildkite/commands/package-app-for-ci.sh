@@ -5,6 +5,7 @@ PLATFORM=${1:?Expected platform to be provided as first parameter}
 ARCH=${2:?Expected architecture to be provided as second parameter}
 
 echo "--- :package: Install deps"
+export FILE_ARCHITECTURE="$ARCH"
 bash .buildkite/commands/install-node-dependencies.sh
 
 export IS_DEV_BUILD=true

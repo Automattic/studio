@@ -32,6 +32,10 @@ if ($Architecture -notin $VALID_ARCHITECTURES) {
 & "setup_windows_code_signing.ps1"
 If ($LastExitCode -ne 0) { Exit $LastExitCode }
 
+# Set architecture environment variable before dependency install so cache key
+# matches the target build architecture.
+$env:FILE_ARCHITECTURE=$Architecture
+
 Write-Host "--- :npm: Installing Node dependencies"
 bash .buildkite/commands/install-node-dependencies.sh
 If ($LastExitCode -ne 0) { Exit $LastExitCode }
@@ -49,9 +53,6 @@ if ($BuildType -eq $BUILD_TYPE_DEV) {
     node ./scripts/confirm-tag-matches-version.mjs
 	If ($LastExitCode -ne 0) { Exit $LastExitCode }
 }
-
-# Set architecture environment variable for AppX packaging
-$env:FILE_ARCHITECTURE=$Architecture
 
 Write-Host "--- :package: Preparing packaged app for architecture: $Architecture"
 if ($BuildType -eq $BUILD_TYPE_DEV) {

@@ -15,6 +15,7 @@ if [ "$ARCH" != "x64" ] && [ "$ARCH" != "arm64" ]; then
 fi
 
 .buildkite/commands/prepare-environment.sh
+export FILE_ARCHITECTURE="$ARCH"
 .buildkite/commands/install-node-dependencies.sh
 
 if [ "$BUILD_TYPE" = "dev" ]; then

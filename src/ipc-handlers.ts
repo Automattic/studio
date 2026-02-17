@@ -14,6 +14,7 @@ import {
 import fs from 'fs';
 import fsPromises from 'fs/promises';
 import https from 'node:https';
+import os from 'os';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
@@ -26,10 +27,13 @@ import {
 	arePathsEqual,
 	isEmptyDir,
 	pathExists,
+	recursiveCopyDirectory,
 } from 'common/lib/fs-utils';
 import { getWordPressVersion } from 'common/lib/get-wordpress-version';
 import { isErrnoException } from 'common/lib/is-errno-exception';
 import { getAuthenticationUrl } from 'common/lib/oauth';
+import { portFinder } from 'common/lib/port-finder';
+import { sanitizeFolderName } from 'common/lib/sanitize-folder-name';
 import { isWordPressDevVersion } from 'common/lib/wordpress-version-utils';
 import { Snapshot } from 'common/types/snapshot';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
@@ -44,7 +48,6 @@ import {
 } from 'src/lib/certificate-manager';
 import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
 import { buildFeatureFlags } from 'src/lib/feature-flags';
-import { sanitizeFolderName } from 'src/lib/generate-site-name';
 import { getImageData } from 'src/lib/get-image-data';
 import { exportBackup } from 'src/lib/import-export/export/export-manager';
 import { ExportOptions } from 'src/lib/import-export/export/types';
@@ -96,9 +99,11 @@ export {
 	downloadSyncBackup,
 	exportSiteForPush,
 	getConnectedWpcomSites,
+	pauseSyncUpload,
 	pushArchive,
 	removeExportedSiteTmpFile,
 	removeSyncBackup,
+	resumeSyncUpload,
 	updateConnectedWpcomSites,
 	updateSingleConnectedWpcomSite,
 } from 'src/modules/sync/lib/ipc-handlers';
@@ -119,6 +124,38 @@ export {
 	saveUserTerminal,
 	showUserSettings,
 } from 'src/modules/user-settings/lib/ipc-handlers';
+
+const DEBUG_LOG_MAX_LINES = 50;
+const PM2_HOME = nodePath.join( os.homedir(), '.studio', 'pm2' );
+
+function readLastLines( filePath: string, maxLines: number ): string[] | undefined {
+	try {
+		if ( ! fs.existsSync( filePath ) ) {
+			return undefined;
+		}
+		const content = fs.readFileSync( filePath, 'utf-8' );
+		const lines = content.split( '\n' ).filter( ( line ) => line.trim() );
+		return lines.slice( -maxLines );
+	} catch {
+		return undefined;
+	}
+}
+
+function readWordPressDebugLog( sitePath: string ): string[] | undefined {
+	const debugLogPath = nodePath.join( sitePath, 'wp-content', 'debug.log' );
+	return readLastLines( debugLogPath, DEBUG_LOG_MAX_LINES );
+}
+
+function readPm2Logs( siteId: string ): { stdout?: string[]; stderr?: string[] } {
+	const logsDir = nodePath.join( PM2_HOME, 'logs' );
+	const stdoutPath = nodePath.join( logsDir, `studio-site-${ siteId }-out.log` );
+	const stderrPath = nodePath.join( logsDir, `studio-site-${ siteId }-error.log` );
+
+	return {
+		stdout: readLastLines( stdoutPath, DEBUG_LOG_MAX_LINES ),
+		stderr: readLastLines( stderrPath, DEBUG_LOG_MAX_LINES ),
+	};
+}
 
 function mergeSiteDetailsWithRunningDetails( sites: SiteDetails[] ): SiteDetails[] {
 	return sites.map( ( site ) => {
@@ -219,11 +256,13 @@ export async function createSite(
 		wpVersion,
 		customDomain,
 		enableHttps,
-		siteId,
+		siteId: providedSiteId,
 		blueprint,
 		phpVersion,
 		noStart = false,
 	} = config;
+
+	const siteId = providedSiteId || crypto.randomUUID();
 
 	const metric = getBlueprintMetric( blueprint?.slug );
 	bumpStat( StatsGroup.STUDIO_SITE_CREATE, metric );
@@ -269,6 +308,19 @@ export async function createSite(
 		const cliError = parseCliError( error );
 		if ( cliError?.cliArgs ) {
 			contexts.startup = cliError.cliArgs;
+		}
+
+		const debugLog = readWordPressDebugLog( path );
+		if ( debugLog && debugLog.length > 0 ) {
+			contexts.debugLog = { entries: debugLog };
+		}
+
+		const pm2Logs = readPm2Logs( siteId );
+		if ( pm2Logs.stdout && pm2Logs.stdout.length > 0 ) {
+			contexts.playgroundLogs = { entries: pm2Logs.stdout };
+		}
+		if ( pm2Logs.stderr && pm2Logs.stderr.length > 0 ) {
+			contexts.playgroundErrors = { entries: pm2Logs.stderr };
 		}
 
 		Sentry.captureException( error, {
@@ -386,6 +438,19 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 			contexts.startup = cliError.cliArgs;
 		}
 
+		const debugLog = readWordPressDebugLog( server.details.path );
+		if ( debugLog && debugLog.length > 0 ) {
+			contexts.debugLog = { entries: debugLog };
+		}
+
+		const pm2Logs = readPm2Logs( id );
+		if ( pm2Logs.stdout && pm2Logs.stdout.length > 0 ) {
+			contexts.playgroundLogs = { entries: pm2Logs.stdout };
+		}
+		if ( pm2Logs.stderr && pm2Logs.stderr.length > 0 ) {
+			contexts.playgroundErrors = { entries: pm2Logs.stderr };
+		}
+
 		Sentry.captureException( error, {
 			tags: {
 				provider: 'cli',
@@ -496,20 +561,70 @@ export async function getSentryUserId( _event: IpcMainInvokeEvent ) {
 }
 
 export async function deleteSite( event: IpcMainInvokeEvent, id: string, deleteFiles = false ) {
+	const server = SiteServer.get( id );
+	console.log( 'Deleting site', id );
+	if ( ! server ) {
+		throw new Error( 'Site not found.' );
+	}
+	await server.delete( deleteFiles );
+}
+
+export async function copySite(
+	event: IpcMainInvokeEvent,
+	sourceSiteId: string,
+	newSiteId: string,
+	siteName: string
+): Promise< SiteDetails > {
+	const sourceServer = SiteServer.get( sourceSiteId );
+	if ( ! sourceServer ) {
+		throw new Error( 'Source site not found.' );
+	}
+	const sourceSite = sourceServer.details;
+
+	const finalSitePath = nodePath.join( DEFAULT_SITE_PATH, sanitizeFolderName( siteName ) );
+
+	console.log( `Copying site '${ sourceSite.name }' to '${ siteName }'` );
+
+	await recursiveCopyDirectory( sourceSite.path, finalSitePath );
+
+	const sourceThumbnailPath = getSiteThumbnailPath( sourceSiteId );
+	const newThumbnailPath = getSiteThumbnailPath( newSiteId );
+	if ( fs.existsSync( sourceThumbnailPath ) ) {
+		await fs.promises.copyFile( sourceThumbnailPath, newThumbnailPath );
+		// Send thumbnail-loaded event so UI updates immediately
+		const thumbnailData = await getImageData( newThumbnailPath );
+		sendIpcEventToRendererWithWindow(
+			BrowserWindow.fromWebContents( event.sender ),
+			'thumbnail-loaded',
+			{ id: newSiteId, imageData: thumbnailData }
+		);
+	}
+
+	const port = await portFinder.getOpenPort();
+
+	const newSiteDetails: StoppedSiteDetails = {
+		id: newSiteId,
+		name: siteName,
+		path: finalSitePath,
+		port,
+		phpVersion: sourceSite.phpVersion,
+		running: false,
+		adminPassword: sourceSite.adminPassword,
+		themeDetails: sourceSite.themeDetails,
+	};
+
 	try {
 		await lockAppdata();
 		const userData = await loadUserData();
-		const server = SiteServer.get( id );
-		console.log( 'Deleting site', id );
-		if ( ! server ) {
-			throw new Error( 'Site not found.' );
-		}
-		await server.delete( deleteFiles );
-		const newSites = userData.sites.filter( ( site ) => site.id !== id );
-		await saveUserData( { ...userData, sites: newSites } );
+		userData.sites.push( newSiteDetails );
+		await saveUserData( userData );
 	} finally {
 		await unlockAppdata();
 	}
+
+	SiteServer.register( newSiteDetails );
+
+	return newSiteDetails;
 }
 
 export function logRendererMessage(
@@ -644,6 +759,7 @@ export function getAppGlobals(): AppGlobals {
 		appName: app.name,
 		appVersion: app.getVersion(),
 		arm64Translation: app.runningUnderARM64Translation,
+		isWindowsStore: process.windowsStore ?? false,
 		...buildFeatureFlags(),
 	};
 }
@@ -715,6 +831,7 @@ export async function loadThemeDetails(
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	if ( emitThemeDetailsLoadingEvent ) {
 		sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-loading', { id } );
+		sendIpcEventToRendererWithWindow( parentWindow, 'thumbnail-loading', { id } );
 	}
 
 	const oldThemePath = server.details.themeDetails?.path;
@@ -726,22 +843,23 @@ export async function loadThemeDetails(
 		details: themeDetails,
 	} );
 
-	if ( hasThemeChanged ) {
-		await server.persistThemeDetails();
-
-		try {
-			sendIpcEventToRendererWithWindow( parentWindow, 'thumbnail-loading', { id } );
-			await server.updateCachedThumbnail();
-			const thumbnailPath = getSiteThumbnailPath( id );
-			const thumbnailData = await getImageData( thumbnailPath );
-			sendIpcEventToRendererWithWindow( parentWindow, 'thumbnail-loaded', {
-				id,
-				imageData: thumbnailData,
-			} );
-		} catch ( error ) {
-			sendIpcEventToRendererWithWindow( parentWindow, 'thumbnail-load-error', { id } );
-			console.error( `Failed to update thumbnail for server ${ id }:`, error );
+	try {
+		if ( hasThemeChanged ) {
+			if ( ! emitThemeDetailsLoadingEvent ) {
+				sendIpcEventToRendererWithWindow( parentWindow, 'thumbnail-loading', { id } );
+			}
+			await server.persistThemeDetails();
 		}
+		await server.updateCachedThumbnail();
+		const thumbnailPath = getSiteThumbnailPath( id );
+		const thumbnailData = await getImageData( thumbnailPath );
+		sendIpcEventToRendererWithWindow( parentWindow, 'thumbnail-loaded', {
+			id,
+			imageData: thumbnailData,
+		} );
+	} catch ( error ) {
+		sendIpcEventToRendererWithWindow( parentWindow, 'thumbnail-load-error', { id } );
+		console.error( `Failed to update thumbnail for server ${ id }:`, error );
 	}
 
 	return themeDetails;
@@ -1241,6 +1359,23 @@ export function showSiteContextMenu(
 					'site-context-menu-action',
 					{
 						action: 'edit-site',
+						siteId,
+					}
+				);
+			},
+		} )
+	);
+
+	menu.append(
+		new MenuItem( {
+			label: __( 'Copy site…' ),
+			enabled: ! isLoading && ! isAddingSite,
+			click: () => {
+				sendIpcEventToRendererWithWindow(
+					BrowserWindow.fromWebContents( event.sender ),
+					'site-context-menu-action',
+					{
+						action: 'copy-site',
 						siteId,
 					}
 				);

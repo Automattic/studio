@@ -4,7 +4,7 @@
  */
 
 import nodePath from 'path';
-import { recursiveCopyDirectory, pathExists } from 'common/lib/fs-utils';
+import { pathExists, recursiveCopyDirectory } from 'common/lib/fs-utils';
 import { getResourcesPath } from 'src/storage/paths';
 
 /**

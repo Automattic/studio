@@ -1,20 +1,21 @@
 import { render, act, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
+import { vi } from 'vitest';
 import MainSidebar from 'src/components/main-sidebar';
 import { SyncSitesProvider } from 'src/hooks/sync-sites';
 import { useAuth } from 'src/hooks/use-auth';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { store } from 'src/stores';
 
-jest.mock( 'src/hooks/use-auth' );
+vi.mock( 'src/hooks/use-auth' );
 
-jest.mock( 'src/stores/wordpress-versions-api', () => ( {
+vi.mock( 'src/stores/wordpress-versions-api', () => ( {
 	wordpressVersionsApi: {
 		reducer: () => ( {} ),
 		middleware: () => () => () => {},
 	},
-	useGetWordPressVersions: jest.fn( () => ( {
+	useGetWordPressVersions: vi.fn( () => ( {
 		data: [
 			{ label: 'Latest', value: '6.7.2' },
 			{ label: '6.8-beta1', value: '6.8-beta1', isBeta: true, isDevelopment: false },
@@ -26,35 +27,35 @@ jest.mock( 'src/stores/wordpress-versions-api', () => ( {
 	} ) ),
 } ) );
 
-jest.mock( 'src/stores/wpcom-api', () => {
-	const actual = jest.requireActual( 'src/stores/wpcom-api' ) || {};
+vi.mock( 'src/stores/wpcom-api', async () => {
+	const actual = ( await vi.importActual( 'src/stores/wpcom-api' ) ) || {};
 	return {
 		...actual,
-		useGetBlueprints: jest.fn().mockReturnValue( {
+		useGetBlueprints: vi.fn().mockReturnValue( {
 			data: {
 				blueprints: [],
 				total: 0,
 			},
 			isLoading: false,
-			refetch: jest.fn(),
+			refetch: vi.fn(),
 			isUninitialized: false,
 		} ),
 	};
 } );
 
-jest.mock( 'src/lib/get-ipc-api', () => ( {
+vi.mock( 'src/lib/get-ipc-api', () => ( {
 	__esModule: true,
-	default: jest.fn(),
+	default: vi.fn(),
 	getIpcApi: () => ( {
-		getConnectedWpcomSites: jest.fn().mockResolvedValue( [] ),
-		showOpenFolderDialog: jest.fn(),
-		generateProposedSitePath: jest.fn(),
-		openURL: jest.fn(),
-		getAllCustomDomains: jest.fn().mockResolvedValue( [] ),
-		getUserEditor: jest.fn().mockResolvedValue( 'cursor' ),
-		getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
-		setWindowControlVisibility: jest.fn(),
-		setupAppMenu: jest.fn(),
+		getConnectedWpcomSites: vi.fn().mockResolvedValue( [] ),
+		showOpenFolderDialog: vi.fn(),
+		generateProposedSitePath: vi.fn(),
+		openURL: vi.fn(),
+		getAllCustomDomains: vi.fn().mockResolvedValue( [] ),
+		getUserEditor: vi.fn().mockResolvedValue( 'cursor' ),
+		getUserTerminal: vi.fn().mockResolvedValue( 'terminal' ),
+		setWindowControlVisibility: vi.fn(),
+		setupAppMenu: vi.fn(),
 	} ),
 } ) );
 
@@ -88,13 +89,13 @@ const siteDetailsMocked = {
 		[ site2.id ]: false,
 	},
 	snapshots: [],
-	setSelectedSiteId: jest.fn(),
-	createSite: jest.fn(),
-	startServer: jest.fn(),
-	stopServer: jest.fn(),
-	isSiteDeleting: jest.fn( () => false ),
+	setSelectedSiteId: vi.fn(),
+	createSite: vi.fn(),
+	startServer: vi.fn(),
+	stopServer: vi.fn(),
+	isSiteDeleting: vi.fn( () => false ),
 };
-jest.mock( 'src/hooks/use-site-details', () => ( {
+vi.mock( 'src/hooks/use-site-details', () => ( {
 	useSiteDetails: () => ( { ...siteDetailsMocked } ),
 } ) );
 
@@ -110,10 +111,10 @@ const renderWithProvider = ( children: React.ReactElement ) => {
 
 describe( 'MainSidebar Footer', () => {
 	beforeEach( () => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 	} );
 	it( 'Has add site button', async () => {
-		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false } );
+		vi.mocked( useAuth, { partial: true } ).mockReturnValue( { isAuthenticated: false } );
 		await act( async () => renderWithProvider( <MainSidebar /> ) );
 		expect( screen.getByRole( 'button', { name: 'Add site' } ) ).toBeVisible();
 	} );
@@ -159,7 +160,7 @@ describe( 'MainSidebar Site Menu', () => {
 		expect( greenDotFirstSite ).toBeVisible();
 		await user.click( greenDotFirstSite );
 		expect( siteDetailsMocked.startServer ).toHaveBeenCalledWith(
-			'0e9e237b-335a-43fa-b439-9b078a618512'
+			expect.objectContaining( { id: '0e9e237b-335a-43fa-b439-9b078a618512', name: 'test-1' } )
 		);
 	} );
 

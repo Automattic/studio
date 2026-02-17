@@ -39,11 +39,10 @@ export interface CreateSiteFormProps {
 	existingDomainNames?: string[];
 	/** Blueprint preferred versions for warning display */
 	blueprintPreferredVersions?: BlueprintPreferredVersions;
-	/** Original default versions (before Blueprint override) for warning comparison */
-	originalDefaultVersions?: {
-		phpVersion?: AllowedPHPVersion;
-		wpVersion?: string;
-	};
+	/** Blueprint suggested domain from defineSiteUrl step */
+	blueprintSuggestedDomain?: string;
+	/** Blueprint suggested HTTPS setting from defineSiteUrl step */
+	blueprintSuggestedHttps?: boolean;
 	/** Called when form is submitted */
 	onSubmit: ( values: CreateSiteFormValues ) => void;
 	/** Called when form validity changes */
@@ -156,7 +155,8 @@ export const CreateSiteForm = ( {
 	onSiteNameChange,
 	existingDomainNames = [],
 	blueprintPreferredVersions,
-	originalDefaultVersions,
+	blueprintSuggestedDomain,
+	blueprintSuggestedHttps,
 	onSubmit,
 	onValidityChange,
 	formRef,
@@ -211,6 +211,18 @@ export const CreateSiteForm = ( {
 			setWpVersion( defaultValues.wpVersion );
 		}
 	}, [ defaultValues.phpVersion, defaultValues.wpVersion ] );
+
+	useEffect( () => {
+		if ( hasUserInteracted.current || ! blueprintSuggestedDomain ) {
+			return;
+		}
+		setUseCustomDomain( true );
+		setCustomDomain( blueprintSuggestedDomain );
+		if ( blueprintSuggestedHttps !== undefined ) {
+			setEnableHttps( blueprintSuggestedHttps );
+		}
+		setAdvancedSettingsVisible( true );
+	}, [ blueprintSuggestedDomain, blueprintSuggestedHttps ] );
 
 	useEffect( () => {
 		if ( useCustomDomain && isCertificateTrusted ) {
@@ -353,20 +365,11 @@ export const CreateSiteForm = ( {
 
 	const generatedDomainName = generateCustomDomainFromSiteName( siteName );
 
-	// Check if blueprint versions differ from original defaults (or current selections if no originals provided)
-	// This ensures the warning shows immediately when a Blueprint with different versions is selected
-	const phpVersionToCompare = originalDefaultVersions?.phpVersion ?? phpVersion;
-	const wpVersionToCompare = originalDefaultVersions?.wpVersion ?? wpVersion;
-
 	const showPhpVersionWarning =
-		blueprintPreferredVersions?.php &&
-		blueprintPreferredVersions.php !== 'latest' &&
-		blueprintPreferredVersions.php !== phpVersionToCompare;
+		blueprintPreferredVersions?.php && blueprintPreferredVersions.php !== phpVersion;
 
 	const showWpVersionWarning =
-		blueprintPreferredVersions?.wp &&
-		blueprintPreferredVersions.wp !== 'latest' &&
-		blueprintPreferredVersions.wp !== wpVersionToCompare;
+		blueprintPreferredVersions?.wp && blueprintPreferredVersions.wp !== wpVersion;
 
 	const showBlueprintVersionWarning = showPhpVersionWarning || showWpVersionWarning;
 	const warningCount = [ showPhpVersionWarning, showWpVersionWarning ].filter( Boolean ).length;
@@ -494,9 +497,9 @@ export const CreateSiteForm = ( {
 												<li>
 													{ sprintf(
 														/* translators: %1$s: recommended PHP version, %2$s: default PHP version */
-														__( 'PHP %s (default is %s)' ),
+														__( 'PHP %s (selected is %s)' ),
 														blueprintPreferredVersions?.php as string,
-														phpVersionToCompare
+														phpVersion
 													) }
 												</li>
 											) }
@@ -504,9 +507,9 @@ export const CreateSiteForm = ( {
 												<li>
 													{ sprintf(
 														/* translators: %1$s: recommended WordPress version, %2$s: default WordPress version */
-														__( 'WordPress %s (default is %s)' ),
+														__( 'WordPress %s (selected is %s)' ),
 														blueprintPreferredVersions?.wp as string,
-														wpVersionToCompare
+														wpVersion
 													) }
 												</li>
 											) }

@@ -2,35 +2,51 @@
 import fsPromises from 'fs/promises';
 import os from 'os';
 import path from 'path';
+import { vi } from 'vitest';
 import { BackupHandlerFactory } from 'src/lib/import-export/import/handlers/backup-handler-factory';
 import { selectImporter, importBackup } from 'src/lib/import-export/import/import-manager';
 import { Importer } from 'src/lib/import-export/import/importers/importer';
 import { BackupContents, BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { Validator } from 'src/lib/import-export/import/validators/validator';
+import type { Stats } from 'fs';
 
-jest.mock( 'src/storage/paths', () => ( {
-	getResourcesPath: jest.fn().mockReturnValue( '/path/to/app/appData/App Name' ),
-	getUserDataCertificatesPath: jest
+vi.mock( 'src/storage/paths', () => ( {
+	getResourcesPath: vi.fn().mockReturnValue( '/path/to/app/appData/App Name' ),
+	getUserDataCertificatesPath: vi
 		.fn()
 		.mockReturnValue( '/path/to/app/appData/App Name/certificates' ),
-	getUserDataLockFilePath: jest
+	getUserDataLockFilePath: vi
 		.fn()
 		.mockReturnValue( '/path/to/app/appData/App Name/appdata-v1.json.lock' ),
 } ) );
-jest.mock( 'src/lib/import-export/import/handlers/backup-handler-factory' );
-jest.mock( 'fs/promises' );
-jest.mock( 'os' );
-jest.mock( 'path' );
+vi.mock( 'src/lib/import-export/import/handlers/backup-handler-factory' );
+vi.mock( 'fs/promises', () => ( {
+	default: {
+		mkdtemp: vi.fn(),
+		stat: vi.fn(),
+		rm: vi.fn(),
+	},
+} ) );
+vi.mock( 'os', () => ( {
+	default: {
+		tmpdir: vi.fn(),
+	},
+} ) );
+vi.mock( 'path', () => ( {
+	default: {
+		join: vi.fn(),
+	},
+} ) );
 
 describe( 'importManager', () => {
 	describe( 'selectImporter', () => {
 		it( 'should select the correct importer', () => {
 			class MockValidator implements Validator {
-				canHandle = jest.fn().mockReturnValue( true );
-				parseBackupContents = jest.fn().mockReturnValue( {} as BackupContents );
+				canHandle = vi.fn().mockReturnValue( true );
+				parseBackupContents = vi.fn().mockReturnValue( {} as BackupContents );
 			}
 			const mockValidator = new MockValidator();
-			const MockImporter = jest.fn();
+			const MockImporter = vi.fn();
 
 			const options = [
 				{
@@ -41,7 +57,7 @@ describe( 'importManager', () => {
 			const result = selectImporter(
 				[ 'file1.txt', 'file2.txt' ],
 				'/tmp/extracted',
-				jest.fn(),
+				vi.fn(),
 				options
 			);
 
@@ -55,21 +71,21 @@ describe( 'importManager', () => {
 
 		it( 'should return null if no suitable importer is found', () => {
 			class MockValidator implements Validator {
-				canHandle = jest.fn().mockReturnValue( false );
-				parseBackupContents = jest.fn();
+				canHandle = vi.fn().mockReturnValue( false );
+				parseBackupContents = vi.fn();
 			}
 			const mockValidator = new MockValidator();
 
 			const options = [
 				{
 					validator: mockValidator,
-					importer: jest.fn(),
+					importer: vi.fn(),
 				},
 			];
 			const result = selectImporter(
 				[ 'file1.txt', 'file2.txt' ],
 				'/tmp/extracted',
-				jest.fn(),
+				vi.fn(),
 				options
 			);
 
@@ -94,29 +110,33 @@ describe( 'importManager', () => {
 		const mockExtractDir = '/tmp/studio_backup_123456';
 
 		beforeEach( () => {
-			jest.clearAllMocks();
-			( os.tmpdir as jest.Mock ).mockReturnValue( '/tmp' );
-			( path.join as jest.Mock ).mockImplementation( ( ...args ) => args.join( '/' ) );
-			( fsPromises.mkdtemp as jest.Mock ).mockResolvedValue( mockExtractDir );
+			vi.clearAllMocks();
+			vi.mocked( os.tmpdir ).mockReturnValue( '/tmp' );
+			vi.mocked( path.join ).mockImplementation( ( ...args ) => args.join( '/' ) );
+			vi.mocked( fsPromises.mkdtemp ).mockResolvedValue( mockExtractDir );
 		} );
 
 		it( 'should successfully import a backup', async () => {
 			const mockValidator: Validator = {
-				canHandle: jest.fn().mockReturnValue( true ),
-				parseBackupContents: jest.fn().mockReturnValue( {} as BackupContents ),
+				canHandle: vi.fn().mockReturnValue( true ),
+				parseBackupContents: vi.fn().mockReturnValue( {} as BackupContents ),
 			};
 			const mockImporter: Importer = {
-				import: jest.fn().mockResolvedValue( {} ),
-				on: jest.fn(),
-				emit: jest.fn(),
+				import: vi.fn().mockResolvedValue( {} ),
+				on: vi.fn(),
+				emit: vi.fn(),
 			};
-			const MockImporterClass = jest.fn().mockImplementation( () => mockImporter );
+			class MockImporterClass {
+				import = mockImporter.import;
+				on = mockImporter.on;
+				emit = mockImporter.emit;
+			}
 
 			const mockBackupHandler = {
-				listFiles: jest.fn().mockResolvedValue( [ 'file1.txt', 'file2.txt' ] ),
-				extractFiles: jest.fn().mockResolvedValue( undefined ),
+				listFiles: vi.fn().mockResolvedValue( [ 'file1.txt', 'file2.txt' ] ),
+				extractFiles: vi.fn().mockResolvedValue( undefined ),
 			};
-			( BackupHandlerFactory.create as jest.Mock ).mockReturnValue( mockBackupHandler );
+			vi.mocked( BackupHandlerFactory.create ).mockReturnValue( mockBackupHandler );
 
 			const options = [
 				{
@@ -124,7 +144,7 @@ describe( 'importManager', () => {
 					importer: MockImporterClass,
 				},
 			];
-			const result = await importBackup( mockFile, mockSite, jest.fn(), options );
+			const result = await importBackup( mockFile, mockSite, vi.fn(), options );
 
 			expect( result ).toBeTruthy();
 			expect( fsPromises.mkdtemp ).toHaveBeenCalledWith( '/tmp/studio_backup' );
@@ -138,20 +158,21 @@ describe( 'importManager', () => {
 
 		it( 'should throw error if no suitable importer is found', async () => {
 			const mockValidator: Validator = {
-				canHandle: jest.fn().mockReturnValue( false ),
-				parseBackupContents: jest.fn(),
+				canHandle: vi.fn().mockReturnValue( false ),
+				parseBackupContents: vi.fn(),
 			};
 
 			const mockBackupHandler = {
-				listFiles: jest.fn().mockResolvedValue( [ 'file1.txt', 'file2.txt' ] ),
+				listFiles: vi.fn().mockResolvedValue( [ 'file1.txt', 'file2.txt' ] ),
+				extractFiles: vi.fn().mockResolvedValue( undefined ),
 			};
-			( BackupHandlerFactory.create as jest.Mock ).mockReturnValue( mockBackupHandler );
+			vi.mocked( BackupHandlerFactory.create ).mockReturnValue( mockBackupHandler );
 
 			await expect(
-				importBackup( mockFile, mockSite, jest.fn(), [
+				importBackup( mockFile, mockSite, vi.fn(), [
 					{
 						validator: mockValidator,
-						importer: jest.fn(),
+						importer: vi.fn(),
 					},
 				] )
 			).rejects.toThrow( 'No suitable importer found for the provided backup contents' );
@@ -161,10 +182,10 @@ describe( 'importManager', () => {
 		} );
 
 		it( 'should throw error if no suitable backup handler is found', async () => {
-			( BackupHandlerFactory.create as jest.Mock ).mockReturnValue( null );
-			( fsPromises.stat as jest.Mock ).mockResolvedValue( { size: 1024 } );
+			vi.mocked( BackupHandlerFactory.create ).mockReturnValue( undefined );
+			vi.mocked( fsPromises.stat ).mockResolvedValue( { size: 1024 } as Stats );
 
-			await expect( importBackup( mockFile, mockSite, jest.fn(), [] ) ).rejects.toThrow(
+			await expect( importBackup( mockFile, mockSite, vi.fn(), [] ) ).rejects.toThrow(
 				'No suitable backup handler found for the provided backup file'
 			);
 

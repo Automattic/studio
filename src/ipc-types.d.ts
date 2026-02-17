@@ -42,12 +42,14 @@ interface StartedSiteDetails extends StoppedSiteDetails {
 type SiteDetails = StartedSiteDetails | StoppedSiteDetails;
 
 type InstalledApps = {
+	antigravity: boolean;
 	vscode: boolean;
 	phpstorm: boolean;
 	webstorm: boolean;
 	windsurf: boolean;
 	cursor: boolean;
 	sublime: boolean;
+	zed: boolean;
 	terminal: boolean;
 	iterm: boolean;
 	warp: boolean;
@@ -85,7 +87,6 @@ interface FeatureFlags {
 
 interface BetaFeatures {
 	multiWorkerSupport: boolean;
-	xdebugSupport: boolean;
 }
 
 interface AppGlobals extends FeatureFlags {
@@ -93,6 +94,7 @@ interface AppGlobals extends FeatureFlags {
 	appName: string;
 	appVersion: string;
 	arm64Translation: boolean;
+	isWindowsStore: boolean;
 }
 
 // Our IPC objects will be attached to the `window` global

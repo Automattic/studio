@@ -1,43 +1,75 @@
 // To run tests, execute `npm run test -- src/lib/import-export/tests/import/handlers/backup-handler-factory.test.ts`
 import fs from 'fs';
 import path from 'path';
-import { Readable, Writable } from 'stream';
+import { Readable } from 'stream';
 import * as tar from 'tar';
+import { vi, Mock } from 'vitest';
 import * as yauzl from 'yauzl';
 import { BackupHandlerFactory } from 'src/lib/import-export/import/handlers/backup-handler-factory';
 import { BackupHandlerSql } from 'src/lib/import-export/import/handlers/backup-handler-sql';
 import { BackupHandlerTarGz } from 'src/lib/import-export/import/handlers/backup-handler-tar-gz';
 import { BackupHandlerZip } from 'src/lib/import-export/import/handlers/backup-handler-zip';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
+import { createMock } from 'src/lib/test-utils';
 
-jest.mock( 'fs' );
-jest.mock( 'fs/promises' );
-jest.mock( 'zlib' );
-jest.mock( 'tar' );
-jest.mock( 'yauzl' );
-jest.mock( 'path' );
+vi.mock( 'fs', () => ( {
+	default: {
+		createReadStream: vi.fn(),
+		createWriteStream: vi.fn(),
+		statSync: vi.fn(),
+		existsSync: vi.fn(),
+		promises: {
+			copyFile: vi.fn(),
+		},
+	},
+	createReadStream: vi.fn(),
+	createWriteStream: vi.fn(),
+	statSync: vi.fn(),
+	existsSync: vi.fn(),
+	promises: {
+		copyFile: vi.fn(),
+	},
+} ) );
+vi.mock( 'fs/promises' );
+vi.mock( 'zlib' );
+vi.mock( 'tar' );
+vi.mock( 'yauzl' );
+vi.mock( 'path', () => ( {
+	default: {
+		extname: vi.fn(),
+		basename: vi.fn(),
+		join: vi.fn(),
+		dirname: vi.fn(),
+	},
+	extname: vi.fn(),
+	basename: vi.fn(),
+	join: vi.fn(),
+	dirname: vi.fn(),
+} ) );
 
 // Mock types to match yauzl and Node.js stream interfaces
 interface MockZipFile {
-	on: jest.Mock;
-	readEntry: jest.Mock;
-	openReadStream?: jest.Mock;
+	on: Mock;
+	readEntry: Mock;
+	openReadStream?: Mock;
 }
 
 interface MockReadStream extends Partial< Readable > {
-	on: jest.Mock;
-	once: jest.Mock;
-	pipe: jest.Mock;
-}
-
-interface MockWriteStream extends Partial< Writable > {
-	on: jest.Mock;
-	once: jest.Mock;
+	on: Mock;
+	once: Mock;
+	pipe: Mock;
 }
 
 describe( 'BackupHandlerFactory', () => {
 	beforeEach( () => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
+		vi.mocked( path.join ).mockImplementation( ( ...args ) => args.join( '/' ) );
+		vi.mocked( path.dirname ).mockImplementation( ( p ) => {
+			const parts = p.split( '/' );
+			parts.pop();
+			return parts.join( '/' );
+		} );
+		vi.mocked( fs.promises.copyFile ).mockResolvedValue( undefined );
 	} );
 
 	describe( 'create', () => {
@@ -46,7 +78,7 @@ describe( 'BackupHandlerFactory', () => {
 				path: '/path/to/backup.tar.gz',
 				type: 'application/gzip',
 			};
-			( path.extname as jest.Mock ).mockReturnValue( '.gz' );
+			vi.mocked( path.extname ).mockReturnValue( '.gz' );
 			const handler = BackupHandlerFactory.create( archiveInfo );
 			expect( handler ).toBeInstanceOf( BackupHandlerTarGz );
 		} );
@@ -56,7 +88,7 @@ describe( 'BackupHandlerFactory', () => {
 				path: '/path/to/backup.zip',
 				type: 'application/zip',
 			};
-			( path.extname as jest.Mock ).mockReturnValue( '.zip' );
+			vi.mocked( path.extname ).mockReturnValue( '.zip' );
 			const handler = BackupHandlerFactory.create( archiveInfo );
 			expect( handler ).toBeInstanceOf( BackupHandlerZip );
 		} );
@@ -66,7 +98,7 @@ describe( 'BackupHandlerFactory', () => {
 				path: '/path/to/backup.sql',
 				type: 'application/sql',
 			};
-			( path.extname as jest.Mock ).mockReturnValue( '.sql' );
+			vi.mocked( path.extname ).mockReturnValue( '.sql' );
 			const handler = BackupHandlerFactory.create( archiveInfo );
 			expect( handler ).toBeInstanceOf( BackupHandlerSql );
 		} );
@@ -76,7 +108,7 @@ describe( 'BackupHandlerFactory', () => {
 				path: '/path/to/backup.unknown',
 				type: 'application/unknown',
 			};
-			( path.extname as jest.Mock ).mockReturnValue( '.unknown' );
+			vi.mocked( path.extname ).mockReturnValue( '.unknown' );
 			const handler = BackupHandlerFactory.create( archiveInfo );
 			expect( handler ).toBeUndefined();
 		} );
@@ -106,7 +138,7 @@ describe( 'BackupHandlerFactory', () => {
 			};
 			const handler = BackupHandlerFactory.create( archiveInfo );
 
-			jest.spyOn( tar, 't' ).mockImplementation( ( { onReadEntry } ) => {
+			vi.spyOn( tar, 't' ).mockImplementation( ( { onReadEntry } ) => {
 				archiveFiles.forEach( ( path ) => onReadEntry?.( { path } as tar.ReadEntry ) );
 			} );
 
@@ -121,7 +153,7 @@ describe( 'BackupHandlerFactory', () => {
 			const handler = BackupHandlerFactory.create( archiveInfo );
 
 			const mockZipFile: MockZipFile = {
-				on: jest.fn().mockImplementation( ( event, callback ) => {
+				on: vi.fn().mockImplementation( ( event, callback ) => {
 					if ( event === 'entry' ) {
 						archiveFiles.forEach( ( file ) => callback( { fileName: file } ) );
 					} else if ( event === 'end' ) {
@@ -129,12 +161,21 @@ describe( 'BackupHandlerFactory', () => {
 					}
 					return mockZipFile;
 				} ),
-				readEntry: jest.fn(),
+				readEntry: vi.fn(),
 			};
 
-			( yauzl.open as jest.Mock ).mockImplementation( ( path, options, callback ) => {
-				callback( null, mockZipFile );
-			} );
+			vi.mocked( yauzl.open, { partial: true } ).mockImplementation(
+				(
+					path: string,
+					optionsOrCallback?:
+						| yauzl.Options
+						| ( ( err: Error | null, zipfile: yauzl.ZipFile ) => void ),
+					callback?: ( err: Error | null, zipfile: yauzl.ZipFile ) => void
+				) => {
+					const cb = typeof optionsOrCallback === 'function' ? optionsOrCallback : callback;
+					cb?.( null, createMock< yauzl.ZipFile >( mockZipFile ) );
+				}
+			);
 
 			await expect( handler?.listFiles( archiveInfo ) ).resolves.toEqual( expectedArchiveFiles );
 		} );
@@ -145,7 +186,7 @@ describe( 'BackupHandlerFactory', () => {
 				type: 'application/sql',
 			};
 			const handler = BackupHandlerFactory.create( archiveInfo );
-			( path.basename as jest.Mock ).mockReturnValue( 'backup.sql' );
+			vi.mocked( path.basename ).mockReturnValue( 'backup.sql' );
 			const result = await handler?.listFiles( archiveInfo );
 			expect( result ).toEqual( [ 'backup.sql' ] );
 		} );
@@ -160,17 +201,21 @@ describe( 'BackupHandlerFactory', () => {
 			const handler = BackupHandlerFactory.create( archiveInfo );
 			const extractionDirectory = '/tmp/extracted';
 
-			const createReadStreamMock: unknown = {
-				on: jest.fn( ( event, callback ) => {
+			const createReadStreamMock: Partial< fs.ReadStream > = {
+				on: vi.fn().mockImplementation( ( event, callback ) => {
 					if ( event === 'finish' ) {
 						callback();
 					}
 					return createReadStreamMock;
 				} ),
-				pipe: jest.fn().mockReturnThis(),
-			};
-			( fs.createReadStream as jest.Mock ).mockReturnValue( createReadStreamMock );
-			( fs.statSync as jest.Mock ).mockResolvedValueOnce( 1000 );
+				pipe: vi.fn().mockReturnThis(),
+			} as Partial< fs.ReadStream >;
+			vi.mocked( fs.createReadStream, { partial: true } ).mockReturnValue(
+				createReadStreamMock as fs.ReadStream
+			);
+			vi.mocked( fs.statSync, { partial: true } ).mockReturnValueOnce(
+				createMock< fs.Stats >( { size: 1000 } )
+			);
 
 			await expect(
 				handler?.extractFiles( archiveInfo, extractionDirectory )
@@ -191,50 +236,75 @@ describe( 'BackupHandlerFactory', () => {
 			const extractionDirectory = '/tmp/extracted';
 
 			const mockReadStream: MockReadStream = {
-				on: jest.fn().mockImplementation( ( event, callback ) => {
+				on: vi.fn().mockImplementation( ( event, callback ) => {
 					if ( event === 'data' ) {
 						callback( Buffer.from( 'test data' ) );
 					}
 					return mockReadStream;
 				} ),
-				once: jest.fn().mockReturnThis(),
-				pipe: jest.fn().mockReturnThis(),
+				once: vi.fn().mockReturnThis(),
+				pipe: vi.fn().mockReturnThis(),
 			};
 
-			const mockWriteStream: MockWriteStream = {
-				on: jest.fn().mockImplementation( ( event, callback ) => {
+			const mockWriteStream: Partial< fs.WriteStream > = {
+				on: vi.fn().mockImplementation( ( event, callback ) => {
 					if ( event === 'finish' ) {
 						callback();
 					}
 					return mockWriteStream;
 				} ),
-				once: jest.fn().mockReturnThis(),
-			};
+				once: vi.fn().mockReturnThis(),
+			} as Partial< fs.WriteStream >;
+
+			let entryCallback: ( ( entry: { fileName: string } ) => void ) | undefined;
+			let endCallback: ( () => void ) | undefined;
 
 			const mockZipFile: MockZipFile = {
-				on: jest.fn().mockImplementation( ( event, callback ) => {
+				on: vi.fn().mockImplementation( ( event, callback ) => {
 					if ( event === 'entry' ) {
-						callback( { fileName: 'test.txt' } );
+						entryCallback = callback;
 					} else if ( event === 'end' ) {
-						callback();
+						endCallback = callback;
 					}
 					return mockZipFile;
 				} ),
-				readEntry: jest.fn(),
-				openReadStream: jest.fn().mockImplementation( ( entry, callback ) => {
+				readEntry: vi.fn().mockImplementation( () => {
+					if ( entryCallback ) {
+						entryCallback( { fileName: 'test.txt' } );
+						// After processing one entry, call end
+						setTimeout( () => endCallback?.(), 0 );
+					}
+				} ),
+				openReadStream: vi.fn().mockImplementation( ( entry, callback ) => {
 					callback( null, mockReadStream );
 				} ),
 			};
 
-			( yauzl.open as jest.Mock ).mockImplementation( ( path, options, callback ) => {
-				callback( null, mockZipFile );
-			} );
-			( fs.createWriteStream as jest.Mock ).mockReturnValue( mockWriteStream );
-			( fs.statSync as jest.Mock ).mockReturnValue( { size: 1000 } );
+			vi.mocked( yauzl.open, { partial: true } ).mockImplementation(
+				(
+					path: string,
+					optionsOrCallback?:
+						| yauzl.Options
+						| ( ( err: Error | null, zipfile: yauzl.ZipFile ) => void ),
+					callback?: ( err: Error | null, zipfile: yauzl.ZipFile ) => void
+				) => {
+					const cb = typeof optionsOrCallback === 'function' ? optionsOrCallback : callback;
+					cb?.( null, createMock< yauzl.ZipFile >( mockZipFile ) );
+				}
+			);
+			vi.mocked( fs.createWriteStream, { partial: true } ).mockReturnValue(
+				mockWriteStream as fs.WriteStream
+			);
+			vi.mocked( fs.statSync, { partial: true } ).mockReturnValue(
+				createMock< fs.Stats >( { size: 1000 } )
+			);
 
 			await expect(
 				handler?.extractFiles( archiveInfo, extractionDirectory )
 			).resolves.not.toThrow();
+
+			// Wait for async callbacks to complete
+			await new Promise( ( resolve ) => setTimeout( resolve, 10 ) );
 
 			// Verify zip file was opened with correct options
 			expect( yauzl.open ).toHaveBeenCalledWith(
@@ -274,8 +344,8 @@ describe( 'BackupHandlerFactory', () => {
 			};
 			const handler = BackupHandlerFactory.create( archiveInfo );
 			const extractionDirectory = '/tmp/extracted';
-			( path.basename as jest.Mock ).mockReturnValue( 'backup.sql' );
-			( fs.promises.copyFile as jest.Mock ).mockResolvedValue( undefined );
+			vi.mocked( path.basename ).mockReturnValue( 'backup.sql' );
+			vi.mocked( fs.promises.copyFile ).mockResolvedValue( undefined );
 
 			await expect(
 				handler?.extractFiles( archiveInfo, extractionDirectory )

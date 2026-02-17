@@ -1,5 +1,7 @@
-module.exports = {
+import requireLockBeforeSave from './rules/require-lock-before-save.js';
+
+export default {
 	rules: {
-		'require-lock-before-save': require( './rules/require-lock-before-save' ),
+		'require-lock-before-save': requireLockBeforeSave,
 	},
 };

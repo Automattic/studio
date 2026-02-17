@@ -1,47 +1,40 @@
-/**
- * @jest-environment node
- */
-// eslint-disable-next-line import/order
+import { ChildProcess } from 'node:child_process';
 import EventEmitter from 'node:events';
-
+import { vi } from 'vitest';
 // Mock executeCliCommand before importing SiteServer
-const mockEventEmitter = new EventEmitter();
-const mockChildProcess = { kill: jest.fn() };
-
-jest.mock( 'src/modules/cli/lib/execute-command', () => ( {
-	executeCliCommand: jest.fn( () => [ mockEventEmitter, mockChildProcess ] ),
+vi.mock( 'src/modules/cli/lib/execute-command', () => ( {
+	executeCliCommand: vi.fn().mockReturnValue( [ new EventEmitter(), { kill: vi.fn() } ] ),
 } ) );
-
-jest.mock( 'src/constants', () => ( {
+vi.mock( 'src/constants', () => ( {
 	WP_CLI_DEFAULT_RESPONSE_TIMEOUT: 100, // Short timeout for tests
 	WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT: 200,
 } ) );
-
-jest.mock( '@sentry/electron/main', () => ( {
-	captureException: jest.fn(),
+vi.mock( '@sentry/electron/main', () => ( {
+	captureException: vi.fn(),
 } ) );
-
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import type { CliCommandResult } from 'src/modules/cli/lib/execute-command';
 
-const mockExecuteCliCommand = executeCliCommand as jest.Mock;
+const mockExecuteCliCommand = vi.mocked( executeCliCommand );
+const mockEventEmitter = new EventEmitter();
+const mockChildProcess = { kill: vi.fn() } as unknown as ChildProcess;
 
 function simulateCliResponse( {
 	stdout = '',
 	stderr = '',
 	exitCode = 0,
-	emitSuccess = true,
 }: {
 	stdout?: string;
 	stderr?: string;
 	exitCode?: number;
-	emitSuccess?: boolean;
 } ) {
 	setImmediate( () => {
-		const result: CliCommandResult = { stdout, stderr, exitCode };
-		if ( emitSuccess ) {
-			mockEventEmitter.emit( exitCode === 0 ? 'success' : 'failure', { result } );
-		}
+		// We are intentionally excluding the `error` prop for simplicity, since none of the tests need it
+		const payload: { result: CliCommandResult } = {
+			result: { stdout, stderr },
+		};
+		// Use the mockEventEmitter directly
+		mockEventEmitter.emit( exitCode === 0 ? 'success' : 'failure', payload );
 	} );
 }
 
@@ -52,7 +45,7 @@ describe( 'SiteServer.executeWpCliCommand', () => {
 	) => Promise< { stdout: string; stderr: string; exitCode: number } >;
 
 	beforeEach( () => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 		mockEventEmitter.removeAllListeners();
 		mockExecuteCliCommand.mockReturnValue( [ mockEventEmitter, mockChildProcess ] );
 
@@ -102,14 +95,14 @@ describe( 'SiteServer.executeWpCliCommand', () => {
 					} );
 				}, timeout );
 
-				emitter.on( 'success', ( { result }: { result?: CliCommandResult } ) => {
+				emitter.on( 'success', ( { result } ) => {
 					clearTimeout( timeoutId );
-					resolve( result ?? { stdout: '', stderr: '', exitCode: 0 } );
+					resolve( { stdout: result.stdout, stderr: result.stderr, exitCode: 0 } );
 				} );
 
-				emitter.on( 'failure', ( { result }: { result?: CliCommandResult } ) => {
+				emitter.on( 'failure', ( { result } ) => {
 					clearTimeout( timeoutId );
-					resolve( result ?? { stdout: '', stderr: '', exitCode: 1 } );
+					resolve( { stdout: result.stdout, stderr: result.stderr, exitCode: 1 } );
 				} );
 
 				emitter.on( 'error', ( { error }: { error: Error } ) => {
@@ -174,14 +167,6 @@ describe( 'SiteServer.executeWpCliCommand', () => {
 			const result = await resultPromise;
 
 			expect( result.stderr ).toBe( 'Error: command not found' );
-		} );
-
-		it( 'should capture exitCode from CLI process', async () => {
-			const resultPromise = executeWpCliCommand( 'plugin list' );
-			simulateCliResponse( { exitCode: 42 } );
-			const result = await resultPromise;
-
-			expect( result.exitCode ).toBe( 42 );
 		} );
 
 		it( 'should capture all output values together', async () => {

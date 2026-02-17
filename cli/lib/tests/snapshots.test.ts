@@ -1,8 +1,5 @@
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
-import { readFile, writeFile } from 'atomically';
-import { arePathsEqual } from 'common/lib/fs-utils';
+import { writeFile } from 'atomically';
+import { vi } from 'vitest';
 import {
 	deleteSnapshotFromAppdata,
 	getSnapshotsFromAppdata,
@@ -11,26 +8,45 @@ import {
 } from 'cli/lib/snapshots';
 import { LoggerError } from 'cli/logger';
 
-jest.mock( 'fs' );
-jest.mock( 'os' );
-jest.mock( 'path', () => ( {
-	join: jest.fn().mockImplementation( ( ...args ) => args.join( '/' ) ),
-	resolve: jest.fn().mockImplementation( ( path ) => path ),
-	basename: jest.fn(),
-} ) );
-jest.mock( 'atomically', () => ( {
-	readFile: jest.fn(),
-	writeFile: jest.fn(),
-} ) );
-jest.mock( 'lockfile', () => ( {
-	lock: jest.fn().mockImplementation( ( path, options, callback ) => callback( null ) ),
-	unlock: jest.fn().mockImplementation( ( path, callback ) => callback( null ) ),
+const mocks = vi.hoisted( () => ( {
+	readFile: vi.fn(),
+	writeFile: vi.fn(),
+	pathJoin: vi.fn().mockImplementation( ( ...args: string[] ) => args.join( '/' ) ),
+	pathResolve: vi.fn().mockImplementation( ( path: string ) => path ),
+	pathBasename: vi.fn(),
+	lockfileLock: vi.fn().mockImplementation( ( path, options, callback ) => callback( null ) ),
+	lockfileUnlock: vi.fn().mockImplementation( ( path, callback ) => callback( null ) ),
+	arePathsEqual: vi.fn(),
+	isWordPressDirectory: vi.fn(),
+	existsSync: vi.fn(),
+	homedir: vi.fn(),
 } ) );
 
-jest.mock( 'common/lib/fs-utils' );
-jest.mock( 'cli/lib/api', () => ( {
-	validateAccessToken: jest.fn().mockResolvedValue( undefined ),
+vi.mock( 'fs', () => ( {
+	default: { existsSync: mocks.existsSync },
+	existsSync: mocks.existsSync,
 } ) );
+vi.mock( 'os', () => ( { default: { homedir: mocks.homedir }, homedir: mocks.homedir } ) );
+vi.mock( 'path', () => ( {
+	default: { join: mocks.pathJoin, resolve: mocks.pathResolve, basename: mocks.pathBasename },
+	join: mocks.pathJoin,
+	resolve: mocks.pathResolve,
+	basename: mocks.pathBasename,
+} ) );
+vi.mock( 'atomically', () => ( {
+	readFile: mocks.readFile,
+	writeFile: mocks.writeFile,
+} ) );
+vi.mock( 'lockfile', () => ( {
+	default: { lock: mocks.lockfileLock, unlock: mocks.lockfileUnlock },
+	lock: mocks.lockfileLock,
+	unlock: mocks.lockfileUnlock,
+} ) );
+vi.mock( 'common/lib/fs-utils', () => ( {
+	arePathsEqual: mocks.arePathsEqual,
+	isWordPressDirectory: mocks.isWordPressDirectory,
+} ) );
+vi.mock( 'cli/lib/api', () => ( { validateAccessToken: vi.fn().mockResolvedValue( undefined ) } ) );
 
 const mockAuthToken = Object.freeze( {
 	accessToken: 'mock-token',
@@ -50,15 +66,15 @@ describe( 'Snapshots Module', () => {
 	const mockUserId = 9876;
 
 	beforeEach( () => {
-		jest.clearAllMocks();
-		( os.homedir as jest.Mock ).mockReturnValue( mockHomeDir );
-		( path.basename as jest.Mock ).mockReturnValue( mockSiteFolderName );
-		jest.spyOn( Date, 'now' ).mockReturnValue( 1234567890 );
+		vi.clearAllMocks();
+		mocks.homedir.mockReturnValue( mockHomeDir );
+		mocks.pathBasename.mockReturnValue( mockSiteFolderName );
+		vi.spyOn( Date, 'now' ).mockReturnValue( 1234567890 );
 
-		( fs.existsSync as jest.Mock ).mockReturnValue( true );
-		( arePathsEqual as jest.Mock ).mockImplementation( ( path1, path2 ) => path1 === path2 );
-		( readFile as jest.Mock ).mockResolvedValue( '{}' );
-		( writeFile as jest.Mock ).mockResolvedValue( undefined );
+		mocks.existsSync.mockReturnValue( true );
+		mocks.arePathsEqual.mockImplementation( ( path1, path2 ) => path1 === path2 );
+		mocks.readFile.mockResolvedValue( '{}' );
+		mocks.writeFile.mockResolvedValue( undefined );
 	} );
 
 	describe( 'saveSnapshotToAppdata', () => {
@@ -82,12 +98,12 @@ describe( 'Snapshots Module', () => {
 				},
 			};
 
-			( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );
+			mocks.readFile.mockResolvedValue( JSON.stringify( mockUserData ) );
 
 			await saveSnapshotToAppdata( mockSiteFolder, mockAtomicSiteId, mockSiteUrl );
 
 			expect( writeFile ).toHaveBeenCalled();
-			const savedData = JSON.parse( ( writeFile as jest.Mock ).mock.calls[ 0 ][ 1 ] );
+			const savedData = JSON.parse( mocks.writeFile.mock.calls[ 0 ][ 1 ] );
 
 			expect( savedData.snapshots ).toHaveLength( 1 );
 			expect( savedData.snapshots[ 0 ] ).toEqual( {
@@ -131,12 +147,12 @@ describe( 'Snapshots Module', () => {
 				},
 			};
 
-			( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );
+			mocks.readFile.mockResolvedValue( JSON.stringify( mockUserData ) );
 
 			await saveSnapshotToAppdata( mockSiteFolder, mockAtomicSiteId + 1, mockSiteUrl );
 
 			expect( writeFile ).toHaveBeenCalled();
-			const savedData = JSON.parse( ( writeFile as jest.Mock ).mock.calls[ 0 ][ 1 ] );
+			const savedData = JSON.parse( mocks.writeFile.mock.calls[ 0 ][ 1 ] );
 
 			expect( savedData.snapshots ).toHaveLength( 2 );
 			expect( savedData.snapshots[ 0 ] ).toEqual( existingSnapshot );
@@ -170,7 +186,7 @@ describe( 'Snapshots Module', () => {
 				},
 			};
 
-			( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );
+			mocks.readFile.mockResolvedValue( JSON.stringify( mockUserData ) );
 
 			await expect(
 				saveSnapshotToAppdata( mockSiteFolder, mockAtomicSiteId, mockSiteUrl )
@@ -180,7 +196,7 @@ describe( 'Snapshots Module', () => {
 		} );
 
 		it( 'should handle errors correctly', async () => {
-			( fs.existsSync as jest.Mock ).mockReturnValueOnce( false );
+			mocks.existsSync.mockReturnValueOnce( false );
 
 			await expect(
 				saveSnapshotToAppdata( mockSiteFolder, mockAtomicSiteId, mockSiteUrl )
@@ -215,12 +231,12 @@ describe( 'Snapshots Module', () => {
 				],
 			};
 
-			( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );
+			mocks.readFile.mockResolvedValue( JSON.stringify( mockUserData ) );
 
 			const updatedSnapshot = await updateSnapshotInAppdata( mockAtomicSiteId, mockSiteFolder );
 
 			expect( writeFile ).toHaveBeenCalled();
-			const savedData = JSON.parse( ( writeFile as jest.Mock ).mock.calls[ 0 ][ 1 ] );
+			const savedData = JSON.parse( mocks.writeFile.mock.calls[ 0 ][ 1 ] );
 
 			expect( savedData.snapshots[ 0 ].date ).toBe( 1234567890 );
 			expect( updatedSnapshot ).toEqual( savedData.snapshots[ 0 ] );
@@ -233,7 +249,7 @@ describe( 'Snapshots Module', () => {
 				snapshots: [],
 			};
 
-			( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );
+			mocks.readFile.mockResolvedValue( JSON.stringify( mockUserData ) );
 
 			await expect( updateSnapshotInAppdata( mockAtomicSiteId, mockSiteFolder ) ).rejects.toThrow(
 				LoggerError
@@ -267,7 +283,7 @@ describe( 'Snapshots Module', () => {
 				],
 			};
 
-			( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );
+			mocks.readFile.mockResolvedValue( JSON.stringify( mockUserData ) );
 
 			const snapshots = await getSnapshotsFromAppdata( 9876 );
 
@@ -303,7 +319,7 @@ describe( 'Snapshots Module', () => {
 				],
 			};
 
-			( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );
+			mocks.readFile.mockResolvedValue( JSON.stringify( mockUserData ) );
 
 			const snapshots = await getSnapshotsFromAppdata( 9876, mockSiteFolder );
 
@@ -317,7 +333,7 @@ describe( 'Snapshots Module', () => {
 				snapshots: [],
 			};
 
-			( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );
+			mocks.readFile.mockResolvedValue( JSON.stringify( mockUserData ) );
 
 			const snapshots = await getSnapshotsFromAppdata( 9876 );
 
@@ -349,12 +365,12 @@ describe( 'Snapshots Module', () => {
 				],
 			};
 
-			( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );
+			mocks.readFile.mockResolvedValue( JSON.stringify( mockUserData ) );
 
 			await deleteSnapshotFromAppdata( 'test1.com' );
 
 			expect( writeFile ).toHaveBeenCalled();
-			const savedData = JSON.parse( ( writeFile as jest.Mock ).mock.calls[ 0 ][ 1 ] );
+			const savedData = JSON.parse( mocks.writeFile.mock.calls[ 0 ][ 1 ] );
 			expect( savedData.snapshots ).toHaveLength( 1 );
 			expect( savedData.snapshots[ 0 ].url ).toBe( 'test2.com' );
 		} );
@@ -374,7 +390,7 @@ describe( 'Snapshots Module', () => {
 				],
 			};
 
-			( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );
+			mocks.readFile.mockResolvedValue( JSON.stringify( mockUserData ) );
 
 			await deleteSnapshotFromAppdata( 'nonexistent.com' );
 
@@ -387,7 +403,7 @@ describe( 'Snapshots Module', () => {
 				snapshots: [],
 			};
 
-			( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );
+			mocks.readFile.mockResolvedValue( JSON.stringify( mockUserData ) );
 
 			await deleteSnapshotFromAppdata( 'test1.com' );
 

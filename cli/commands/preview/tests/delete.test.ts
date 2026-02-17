@@ -1,22 +1,53 @@
+import { vi } from 'vitest';
 import { deleteSnapshot } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { getSnapshotsFromAppdata, deleteSnapshotFromAppdata } from 'cli/lib/snapshots';
-import { Logger, LoggerError } from 'cli/logger';
+import { LoggerError } from 'cli/logger';
+import {
+	mockReportStart,
+	mockReportSuccess,
+	mockReportError,
+	mockReportProgress,
+	mockReportWarning,
+	mockReportKeyValuePair,
+} from 'cli/tests/test-utils';
 import { runCommand } from '../delete';
 
-jest.mock( 'cli/lib/appdata', () => ( {
-	...jest.requireActual( 'cli/lib/appdata' ),
-	getAppdataDirectory: jest.fn().mockReturnValue( '/test/appdata' ),
-	getAuthToken: jest.fn(),
+vi.mock( 'cli/lib/appdata', async () => {
+	const actual = await vi.importActual( 'cli/lib/appdata' );
+	return {
+		...actual,
+		getAppdataDirectory: vi.fn().mockReturnValue( '/test/appdata' ),
+		getAuthToken: vi.fn(),
+	};
+} );
+vi.mock( 'cli/lib/api' );
+vi.mock( 'cli/lib/snapshots' );
+vi.mock( 'cli/logger', () => ( {
+	Logger: class {
+		reportStart = mockReportStart;
+		reportSuccess = mockReportSuccess;
+		reportError = mockReportError;
+		reportProgress = mockReportProgress;
+		reportWarning = mockReportWarning;
+		reportKeyValuePair = mockReportKeyValuePair;
+		spinner = {};
+		currentAction = null;
+	},
+	LoggerError: class LoggerError extends Error {},
 } ) );
-jest.mock( 'cli/lib/api' );
-jest.mock( 'cli/lib/snapshots' );
-jest.mock( 'cli/logger' );
 
 describe( 'Preview Delete Command', () => {
 	const mockSiteUrl = 'test-preview.example.com';
 	const mockAtomicSiteId = 12345;
-	const mockAuthToken = { accessToken: 'mock-auth-token', id: 123 };
+	const mockAuthToken = {
+		accessToken: 'mock-auth-token',
+		id: 123,
+		expiresIn: 1209600,
+		expirationTime: Date.now() + 1209600000,
+		email: 'test@example.com',
+		displayName: 'Test User',
+	};
 	const mockSnapshot = {
 		url: mockSiteUrl,
 		atomicSiteId: mockAtomicSiteId,
@@ -26,30 +57,17 @@ describe( 'Preview Delete Command', () => {
 		userId: 123,
 	};
 
-	let mockLogger: {
-		reportStart: jest.Mock;
-		reportSuccess: jest.Mock;
-		reportError: jest.Mock;
-	};
-
 	beforeEach( () => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 
-		mockLogger = {
-			reportStart: jest.fn(),
-			reportSuccess: jest.fn(),
-			reportError: jest.fn(),
-		};
-
-		( Logger as jest.Mock ).mockReturnValue( mockLogger );
-		( getAuthToken as jest.Mock ).mockResolvedValue( mockAuthToken );
-		( getSnapshotsFromAppdata as jest.Mock ).mockResolvedValue( [ mockSnapshot ] );
-		( deleteSnapshot as jest.Mock ).mockResolvedValue( undefined );
-		( deleteSnapshotFromAppdata as jest.Mock ).mockResolvedValue( undefined );
+		vi.mocked( getAuthToken ).mockResolvedValue( mockAuthToken );
+		vi.mocked( getSnapshotsFromAppdata ).mockResolvedValue( [ mockSnapshot ] );
+		vi.mocked( deleteSnapshot ).mockResolvedValue( undefined );
+		vi.mocked( deleteSnapshotFromAppdata ).mockResolvedValue( undefined );
 	} );
 
 	afterEach( () => {
-		jest.restoreAllMocks();
+		vi.restoreAllMocks();
 	} );
 
 	it( 'should complete the preview deletion process successfully', async () => {
@@ -60,58 +78,58 @@ describe( 'Preview Delete Command', () => {
 		expect( deleteSnapshot ).toHaveBeenCalledWith( mockAtomicSiteId, mockAuthToken.accessToken );
 		expect( deleteSnapshotFromAppdata ).toHaveBeenCalledWith( mockSiteUrl );
 
-		expect( mockLogger.reportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating…' ] );
-		expect( mockLogger.reportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful', true ] );
-		expect( mockLogger.reportStart.mock.calls[ 1 ] ).toEqual( [ 'delete', 'Deleting…' ] );
-		expect( mockLogger.reportSuccess.mock.calls[ 1 ] ).toEqual( [ 'Deletion successful' ] );
+		expect( mockReportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating…' ] );
+		expect( mockReportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful', true ] );
+		expect( mockReportStart.mock.calls[ 1 ] ).toEqual( [ 'delete', 'Deleting…' ] );
+		expect( mockReportSuccess.mock.calls[ 1 ] ).toEqual( [ 'Deletion successful' ] );
 	} );
 
 	it( 'should handle authentication errors', async () => {
 		const errorMessage =
 			'Authentication required. Please run the Studio app and authenticate first.';
-		( getAuthToken as jest.Mock ).mockImplementation( () => {
+		vi.mocked( getAuthToken ).mockImplementation( () => {
 			throw new LoggerError( errorMessage );
 		} );
 
 		await runCommand( mockSiteUrl );
 
-		expect( mockLogger.reportError ).toHaveBeenCalled();
-		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
+		expect( mockReportError ).toHaveBeenCalled();
+		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 		expect( deleteSnapshot ).not.toHaveBeenCalled();
 	} );
 
 	it( 'should handle snapshot not found errors', async () => {
-		( getSnapshotsFromAppdata as jest.Mock ).mockResolvedValue( [] );
+		vi.mocked( getSnapshotsFromAppdata ).mockResolvedValue( [] );
 
 		await runCommand( mockSiteUrl );
 
-		expect( mockLogger.reportError ).toHaveBeenCalled();
-		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
+		expect( mockReportError ).toHaveBeenCalled();
+		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 		expect( deleteSnapshot ).not.toHaveBeenCalled();
 	} );
 
 	it( 'should handle delete preview site errors', async () => {
 		const errorMessage = 'Failed to delete preview site';
-		( deleteSnapshot as jest.Mock ).mockImplementation( () => {
+		vi.mocked( deleteSnapshot ).mockImplementation( () => {
 			throw new LoggerError( errorMessage );
 		} );
 
 		await runCommand( mockSiteUrl );
 
-		expect( mockLogger.reportError ).toHaveBeenCalled();
-		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
+		expect( mockReportError ).toHaveBeenCalled();
+		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 		expect( deleteSnapshotFromAppdata ).not.toHaveBeenCalled();
 	} );
 
 	it( 'should handle delete snapshot errors', async () => {
 		const errorMessage = 'Failed to delete snapshot';
-		( deleteSnapshotFromAppdata as jest.Mock ).mockImplementation( () => {
+		vi.mocked( deleteSnapshotFromAppdata ).mockImplementation( () => {
 			throw new LoggerError( errorMessage );
 		} );
 
 		await runCommand( mockSiteUrl );
 
-		expect( mockLogger.reportError ).toHaveBeenCalled();
-		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
+		expect( mockReportError ).toHaveBeenCalled();
+		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 	} );
 } );

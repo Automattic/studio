@@ -1,4 +1,5 @@
 import { readFile, writeFile } from 'fs';
+import { vi } from 'vitest';
 import {
 	addDomainToHosts,
 	removeDomainFromHosts,
@@ -6,26 +7,39 @@ import {
 	createHostsEntryPattern,
 } from '../hosts-file';
 
-const readFileCallbackMock = jest.fn();
+const readFileCallbackMock = vi.fn();
 
-jest.mock( 'fs', () => ( {
-	readFile: jest.fn( ( path, encoding, callback ) => {
+vi.mock( 'fs', () => {
+	const mockReadFile = vi.fn().mockImplementation( ( path, encoding, callback ) => {
 		callback( null, readFileCallbackMock() );
-	} ),
-	writeFile: jest.fn( ( path, data, callback ) => {
+	} );
+	const mockWriteFile = vi.fn().mockImplementation( ( path, data, callback ) => {
 		callback( null );
-	} ),
-} ) );
+	} );
 
-jest.mock( '@vscode/sudo-prompt', () => {
 	return {
-		exec: jest.fn( ( command, options, callback ) => {
-			callback( null, 'Mocked output' );
-		} ),
+		default: {
+			readFile: mockReadFile,
+			writeFile: mockWriteFile,
+		},
+		readFile: mockReadFile,
+		writeFile: mockWriteFile,
 	};
 } );
 
-jest.spyOn( console, 'error' ).mockImplementation( () => {} );
+vi.mock( '@vscode/sudo-prompt', () => {
+	const mockExec = vi.fn().mockImplementation( ( command, options, callback ) => {
+		callback( null, 'Mocked output' );
+	} );
+	return {
+		default: {
+			exec: mockExec,
+		},
+		exec: mockExec,
+	};
+} );
+
+vi.spyOn( console, 'error' ).mockImplementation( () => {} );
 
 describe( 'hosts-file', () => {
 	// Sample hosts file content for testing
@@ -44,7 +58,7 @@ describe( 'hosts-file', () => {
 
 	// Setup before each test
 	beforeEach( () => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 	} );
 
 	describe( 'addDomainToHosts', () => {
@@ -56,7 +70,7 @@ describe( 'hosts-file', () => {
 			expect( readFile ).toHaveBeenCalled();
 			expect( writeFile ).toHaveBeenCalled();
 
-			const newContent = ( writeFile as unknown as jest.Mock ).mock.calls[ 0 ][ 1 ];
+			const newContent = vi.mocked( writeFile ).mock.calls[ 0 ][ 1 ];
 
 			expect( newContent ).toEqual(
 				`127.0.0.1 localhost
@@ -83,7 +97,7 @@ describe( 'hosts-file', () => {
 			expect( readFile ).toHaveBeenCalled();
 			expect( writeFile ).toHaveBeenCalled();
 
-			const newContent = ( writeFile as unknown as jest.Mock ).mock.calls[ 0 ][ 1 ];
+			const newContent = vi.mocked( writeFile ).mock.calls[ 0 ][ 1 ];
 
 			expect( newContent ).toEqual(
 				`127.0.0.1 localhost
@@ -123,7 +137,7 @@ describe( 'hosts-file', () => {
 
 			expect( writeFile ).toHaveBeenCalled();
 
-			const newContent = ( writeFile as unknown as jest.Mock ).mock.calls[ 0 ][ 1 ];
+			const newContent = vi.mocked( writeFile ).mock.calls[ 0 ][ 1 ];
 			expect( newContent ).toEqual( `127.0.0.1 localhost
 ::1 localhost
 
@@ -190,7 +204,7 @@ describe( 'hosts-file', () => {
 			expect( readFile ).toHaveBeenCalled();
 			expect( writeFile ).toHaveBeenCalled();
 
-			const newContent = ( writeFile as unknown as jest.Mock ).mock.calls[ 0 ][ 1 ];
+			const newContent = vi.mocked( writeFile ).mock.calls[ 0 ][ 1 ];
 
 			expect( newContent ).not.toContain( '127.0.0.1 foo.wp.cloud' );
 			expect( newContent ).toContain( '127.0.0.1 bar.wp.cloud' );
@@ -219,7 +233,7 @@ describe( 'hosts-file', () => {
 
 			expect( writeFile ).toHaveBeenCalled();
 
-			const newContent = ( writeFile as unknown as jest.Mock ).mock.calls[ 0 ][ 1 ];
+			const newContent = vi.mocked( writeFile ).mock.calls[ 0 ][ 1 ] as string;
 
 			expect( newContent.trim() ).toEqual( '127.0.0.1 localhost\n::1 localhost' );
 		} );
@@ -240,7 +254,7 @@ describe( 'hosts-file', () => {
 			expect( readFile ).toHaveBeenCalled();
 			expect( writeFile ).toHaveBeenCalled();
 
-			const newContent = ( writeFile as unknown as jest.Mock ).mock.calls[ 0 ][ 1 ];
+			const newContent = vi.mocked( writeFile ).mock.calls[ 0 ][ 1 ];
 
 			expect( newContent ).toEqual(
 				`127.0.0.1 localhost
@@ -266,7 +280,7 @@ describe( 'hosts-file', () => {
 			expect( readFile ).toHaveBeenCalled();
 			expect( writeFile ).toHaveBeenCalled();
 
-			const newContent = ( writeFile as unknown as jest.Mock ).mock.calls[ 0 ][ 1 ];
+			const newContent = vi.mocked( writeFile ).mock.calls[ 0 ][ 1 ];
 
 			expect( newContent ).toEqual(
 				`127.0.0.1 localhost
@@ -293,7 +307,7 @@ describe( 'hosts-file', () => {
 			expect( readFile ).toHaveBeenCalled();
 			expect( writeFile ).toHaveBeenCalled();
 
-			const newContent = ( writeFile as unknown as jest.Mock ).mock.calls[ 0 ][ 1 ];
+			const newContent = vi.mocked( writeFile ).mock.calls[ 0 ][ 1 ];
 
 			expect( newContent ).toEqual(
 				`127.0.0.1 localhost

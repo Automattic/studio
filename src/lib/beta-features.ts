@@ -1,3 +1,4 @@
+import { __ } from '@wordpress/i18n';
 import { lockAppdata, unlockAppdata, loadUserData, saveUserData } from 'src/storage/user-data';
 
 export interface BetaFeatureDefinition {
@@ -7,32 +8,33 @@ export interface BetaFeatureDefinition {
 	description?: string;
 }
 
-const BETA_FEATURES_DEFINITION: Record< keyof BetaFeatures, BetaFeatureDefinition > = {
-	multiWorkerSupport: {
-		label: 'Multi-Worker Support',
-		key: 'multiWorkerSupport',
-		default: false,
-		description: 'Enable multi-worker PHP processing for faster performance',
-	},
-	xdebugSupport: {
-		label: 'Xdebug Support',
-		key: 'xdebugSupport',
-		default: false,
-		description: 'Enable PHP debugging with Xdebug (one site at a time)',
-	},
-} as const;
+/**
+ * Default values for beta features.
+ */
+const BETA_FEATURE_DEFAULTS: Record< keyof BetaFeatures, boolean > = {
+	multiWorkerSupport: false,
+};
 
-export const BETA_FEATURES: Record< keyof BetaFeatures, BetaFeatureDefinition > =
-	BETA_FEATURES_DEFINITION;
+/**
+ * Returns beta feature definitions with translated labels and descriptions.
+ * Must be called at runtime (not at module load) to ensure translations are loaded.
+ */
+export function getBetaFeaturesDefinition(): Record< keyof BetaFeatures, BetaFeatureDefinition > {
+	return {
+		multiWorkerSupport: {
+			key: 'multiWorkerSupport',
+			default: BETA_FEATURE_DEFAULTS.multiWorkerSupport,
+			label: __( 'Multi-Worker Support' ),
+			description: __( 'Enable multi-worker PHP processing for faster performance' ),
+		},
+	};
+}
 
 function buildBetaFeatures( userData: BetaFeatures | undefined ): BetaFeatures {
 	const features: Partial< BetaFeatures > = {};
-	const keys = Object.keys( BETA_FEATURES );
+	const keys = Object.keys( BETA_FEATURE_DEFAULTS ) as ( keyof BetaFeatures )[];
 	keys.forEach( ( key ) => {
-		const featureKey = key as keyof BetaFeatures;
-		const definition = BETA_FEATURES[ featureKey ];
-		( features as Record< string, boolean > )[ key ] =
-			userData?.[ featureKey ] ?? definition.default;
+		features[ key ] = userData?.[ key ] ?? BETA_FEATURE_DEFAULTS[ key ];
 	} );
 	return features as BetaFeatures;
 }

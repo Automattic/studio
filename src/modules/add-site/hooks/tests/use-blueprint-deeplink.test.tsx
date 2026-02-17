@@ -1,25 +1,31 @@
+import { IpcRendererEvent } from 'electron';
 import { renderHook, act } from '@testing-library/react';
 import { Provider } from 'react-redux';
+import { vi } from 'vitest';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { createMock } from 'src/lib/test-utils';
 import { useBlueprintDeeplink } from 'src/modules/add-site/hooks/use-blueprint-deeplink';
 import { store } from 'src/stores';
 
-jest.mock( 'src/hooks/use-ipc-listener' );
-jest.mock( 'src/lib/get-ipc-api' );
+vi.mock( 'src/hooks/use-ipc-listener' );
+vi.mock( 'src/lib/get-ipc-api' );
 
 const wrapper = ( { children }: { children: React.ReactNode } ) => (
 	<Provider store={ store }>{ children }</Provider>
 );
 
 describe( 'useBlueprintDeeplink', () => {
-	const mockSetSelectedBlueprint = jest.fn();
-	const mockSetPhpVersion = jest.fn();
-	const mockSetWpVersion = jest.fn();
-	const mockSetBlueprintPreferredVersions = jest.fn();
-	const mockSetBlueprintDeeplinkWarnings = jest.fn();
-	const mockSetIsDeeplinkFlow = jest.fn();
-	let ipcCallback: ( event: unknown, data: unknown ) => Promise< void >;
+	const mockSetSelectedBlueprint = vi.fn();
+	const mockSetPhpVersion = vi.fn();
+	const mockSetWpVersion = vi.fn();
+	const mockSetBlueprintPreferredVersions = vi.fn();
+	const mockSetBlueprintDeeplinkWarnings = vi.fn();
+	const mockSetBlueprintSuggestedDomain = vi.fn();
+	const mockSetBlueprintSuggestedHttps = vi.fn();
+	const mockSetBlueprintSuggestedSiteName = vi.fn();
+	const mockSetIsDeeplinkFlow = vi.fn();
+	let ipcCallback: Parameters< typeof useIpcListener >[ 1 ];
 
 	const renderBlueprintDeeplinkHook = ( isAnySiteProcessing = false ) => {
 		return renderHook(
@@ -31,6 +37,9 @@ describe( 'useBlueprintDeeplink', () => {
 					setWpVersion: mockSetWpVersion,
 					setBlueprintPreferredVersions: mockSetBlueprintPreferredVersions,
 					setBlueprintDeeplinkWarnings: mockSetBlueprintDeeplinkWarnings,
+					setBlueprintSuggestedDomain: mockSetBlueprintSuggestedDomain,
+					setBlueprintSuggestedHttps: mockSetBlueprintSuggestedHttps,
+					setBlueprintSuggestedSiteName: mockSetBlueprintSuggestedSiteName,
 					setIsDeeplinkFlow: mockSetIsDeeplinkFlow,
 				} ),
 			{ wrapper }
@@ -38,12 +47,11 @@ describe( 'useBlueprintDeeplink', () => {
 	};
 
 	beforeEach( () => {
-		jest.clearAllMocks();
-		jest.mocked( getIpcApi ).mockReturnValue( {
-			readBlueprintFile: jest.fn(),
-		} as Partial< ReturnType< typeof getIpcApi > > as ReturnType< typeof getIpcApi > );
+		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+			readBlueprintFile: vi.fn(),
+		} );
 
-		( useIpcListener as jest.Mock ).mockImplementation( ( event, callback ) => {
+		vi.mocked( useIpcListener ).mockImplementation( ( event, callback ) => {
 			if ( event === 'add-site-with-blueprint' ) {
 				ipcCallback = callback;
 			}
@@ -65,15 +73,15 @@ describe( 'useBlueprintDeeplink', () => {
 			meta: { title: 'Test Blueprint', description: 'A test blueprint' },
 		};
 
-		const mockReadBlueprintFile = jest.fn().mockResolvedValue( mockBlueprintData );
-		( getIpcApi as jest.Mock ).mockReturnValue( {
+		const mockReadBlueprintFile = vi.fn().mockResolvedValue( mockBlueprintData );
+		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 			readBlueprintFile: mockReadBlueprintFile,
 		} );
 
 		renderBlueprintDeeplinkHook();
 
 		await act( async () => {
-			await ipcCallback!( null, {
+			await ipcCallback!( createMock< IpcRendererEvent >( {} ), {
 				blueprintPath: '/path/to/blueprint.json',
 				warnings: [],
 			} );
@@ -101,15 +109,15 @@ describe( 'useBlueprintDeeplink', () => {
 			},
 		};
 
-		const mockReadBlueprintFile = jest.fn().mockResolvedValue( mockBlueprintData );
-		( getIpcApi as jest.Mock ).mockReturnValue( {
+		const mockReadBlueprintFile = vi.fn().mockResolvedValue( mockBlueprintData );
+		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 			readBlueprintFile: mockReadBlueprintFile,
 		} );
 
 		renderBlueprintDeeplinkHook();
 
 		await act( async () => {
-			await ipcCallback!( null, {
+			await ipcCallback!( createMock< IpcRendererEvent >( {} ), {
 				blueprintPath: '/path/to/blueprint.json',
 				warnings: [],
 			} );
@@ -132,15 +140,15 @@ describe( 'useBlueprintDeeplink', () => {
 			},
 		};
 
-		const mockReadBlueprintFile = jest.fn().mockResolvedValue( mockBlueprintData );
-		( getIpcApi as jest.Mock ).mockReturnValue( {
+		const mockReadBlueprintFile = vi.fn().mockResolvedValue( mockBlueprintData );
+		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 			readBlueprintFile: mockReadBlueprintFile,
 		} );
 
 		renderBlueprintDeeplinkHook();
 
 		await act( async () => {
-			await ipcCallback!( null, {
+			await ipcCallback!( createMock< IpcRendererEvent >( {} ), {
 				blueprintPath: '/path/to/blueprint.json',
 				warnings: [],
 			} );
@@ -154,16 +162,107 @@ describe( 'useBlueprintDeeplink', () => {
 		expect( mockSetWpVersion ).not.toHaveBeenCalled();
 	} );
 
+	it( 'should set domain and HTTPS from defineSiteUrl step', async () => {
+		const mockBlueprintData = {
+			steps: [ { step: 'defineSiteUrl', siteUrl: 'https://mysite.local:8443' } ],
+		};
+
+		const mockReadBlueprintFile = vi.fn().mockResolvedValue( mockBlueprintData );
+		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+			readBlueprintFile: mockReadBlueprintFile,
+		} );
+
+		renderBlueprintDeeplinkHook();
+
+		await act( async () => {
+			await ipcCallback!( createMock< IpcRendererEvent >( {} ), {
+				blueprintPath: '/path/to/blueprint.json',
+				warnings: [],
+			} );
+		} );
+
+		expect( mockSetBlueprintSuggestedDomain ).toHaveBeenCalledWith( 'mysite.local' );
+		expect( mockSetBlueprintSuggestedHttps ).toHaveBeenCalledWith( true );
+	} );
+
+	it( 'should set HTTPS to false when defineSiteUrl uses http', async () => {
+		const mockBlueprintData = {
+			steps: [ { step: 'defineSiteUrl', siteUrl: 'http://mysite.local' } ],
+		};
+
+		const mockReadBlueprintFile = vi.fn().mockResolvedValue( mockBlueprintData );
+		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+			readBlueprintFile: mockReadBlueprintFile,
+		} );
+
+		renderBlueprintDeeplinkHook();
+
+		await act( async () => {
+			await ipcCallback!( createMock< IpcRendererEvent >( {} ), {
+				blueprintPath: '/path/to/blueprint.json',
+				warnings: [],
+			} );
+		} );
+
+		expect( mockSetBlueprintSuggestedDomain ).toHaveBeenCalledWith( 'mysite.local' );
+		expect( mockSetBlueprintSuggestedHttps ).toHaveBeenCalledWith( false );
+	} );
+
+	it( 'should not set domain/HTTPS when no defineSiteUrl step', async () => {
+		const mockBlueprintData = {
+			steps: [ { step: 'login' } ],
+		};
+
+		const mockReadBlueprintFile = vi.fn().mockResolvedValue( mockBlueprintData );
+		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+			readBlueprintFile: mockReadBlueprintFile,
+		} );
+
+		renderBlueprintDeeplinkHook();
+
+		await act( async () => {
+			await ipcCallback!( createMock< IpcRendererEvent >( {} ), {
+				blueprintPath: '/path/to/blueprint.json',
+				warnings: [],
+			} );
+		} );
+
+		expect( mockSetBlueprintSuggestedDomain ).not.toHaveBeenCalled();
+		expect( mockSetBlueprintSuggestedHttps ).not.toHaveBeenCalled();
+	} );
+
+	it( 'should set site name from setSiteOptions blogname', async () => {
+		const mockBlueprintData = {
+			steps: [ { step: 'setSiteOptions', options: { blogname: 'My Blog' } } ],
+		};
+
+		const mockReadBlueprintFile = vi.fn().mockResolvedValue( mockBlueprintData );
+		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+			readBlueprintFile: mockReadBlueprintFile,
+		} );
+
+		renderBlueprintDeeplinkHook();
+
+		await act( async () => {
+			await ipcCallback!( createMock< IpcRendererEvent >( {} ), {
+				blueprintPath: '/path/to/blueprint.json',
+				warnings: [],
+			} );
+		} );
+
+		expect( mockSetBlueprintSuggestedSiteName ).toHaveBeenCalledWith( 'My Blog' );
+	} );
+
 	it( 'should not process event when site is processing', async () => {
-		const mockReadBlueprintFile = jest.fn();
-		( getIpcApi as jest.Mock ).mockReturnValue( {
+		const mockReadBlueprintFile = vi.fn();
+		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 			readBlueprintFile: mockReadBlueprintFile,
 		} );
 
 		renderBlueprintDeeplinkHook( true );
 
 		await act( async () => {
-			await ipcCallback!( null, {
+			await ipcCallback!( createMock< IpcRendererEvent >( {} ), {
 				blueprintPath: '/path/to/blueprint.json',
 				warnings: [],
 			} );

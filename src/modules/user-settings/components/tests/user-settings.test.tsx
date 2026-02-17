@@ -2,56 +2,67 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
+import { vi } from 'vitest';
 import { useAuth } from 'src/hooks/use-auth';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { UserSettings } from 'src/modules/user-settings';
 import { store } from 'src/stores';
 
-jest.mock( 'src/lib/app-globals', () => ( {
-	getAppGlobals: jest.fn( () => ( {
+vi.mock( 'src/lib/app-globals', () => ( {
+	getAppGlobals: vi.fn( () => ( {
 		platform: 'darwin',
 	} ) ),
-	isMac: jest.fn( () => true ),
-	isWindows: jest.fn( () => false ),
+	isMac: vi.fn( () => true ),
+	isWindows: vi.fn( () => false ),
+	isWindowsStore: vi.fn( () => false ),
 } ) );
-jest.mock( 'src/hooks/use-feature-flags' );
-jest.mock( 'src/hooks/use-auth' );
-jest.mock( 'src/hooks/use-ipc-listener' );
+vi.mock( 'src/hooks/use-feature-flags' );
+vi.mock( 'src/hooks/use-auth' );
+vi.mock( 'src/hooks/use-ipc-listener' );
+vi.mock( 'src/hooks/use-offline' );
 
-jest.mock( 'src/lib/get-ipc-api', () => ( {
+vi.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: () => ( {
-		getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
-		getUserEditor: jest.fn().mockResolvedValue( 'vscode' ),
-		getInstalledAppsAndTerminals: jest.fn().mockResolvedValue( {
+		getUserTerminal: vi.fn().mockResolvedValue( 'terminal' ),
+		getUserEditor: vi.fn().mockResolvedValue( 'vscode' ),
+		getInstalledAppsAndTerminals: vi.fn().mockResolvedValue( {
 			terminals: [ 'terminal' ],
 			editors: [ 'vscode' ],
 		} ),
-		isStudioCliInstalled: jest.fn().mockResolvedValue( true ),
+		isStudioCliInstalled: vi.fn().mockResolvedValue( true ),
 	} ),
 } ) );
-
-afterEach( () => {
-	jest.clearAllMocks();
-} );
 
 function renderWithProvider( component: React.ReactElement ) {
 	return render( <Provider store={ store }>{ component }</Provider> );
 }
 
+const mockIpcEvent = {
+	ports: [],
+	sender: {} as unknown as Electron.IpcRenderer,
+	preventDefault: vi.fn(),
+	defaultPrevented: false,
+};
+
 describe( 'UserSettings', () => {
 	beforeEach( () => {
 		// Triggers IPC listener to show modal
-		( useIpcListener as jest.Mock ).mockImplementationOnce( ( listener, callback ) => {
+		vi.mocked( useIpcListener ).mockImplementationOnce( ( listener, callback ) => {
 			if ( listener === 'user-settings' ) {
-				callback( {}, {} );
+				callback( mockIpcEvent, {} );
 			}
 		} );
 	} );
 
 	it( 'logs in when not authenticated', async () => {
-		const authenticate = jest.fn();
-		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false, authenticate } );
+		const authenticate = vi.fn();
+		vi.mocked( useAuth ).mockReturnValue( {
+			isAuthenticated: false,
+			authenticate,
+			logout: vi.fn(),
+			client: undefined,
+		} );
 		renderWithProvider( <UserSettings /> );
 		const loginButton = screen.getByRole( 'button', { name: 'Log in' } );
 		expect( loginButton ).toBeVisible();
@@ -60,8 +71,13 @@ describe( 'UserSettings', () => {
 	} );
 
 	it( 'logs out if authenticated', async () => {
-		const logout = jest.fn();
-		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, logout } );
+		const logout = vi.fn();
+		vi.mocked( useAuth ).mockReturnValue( {
+			isAuthenticated: true,
+			logout,
+			authenticate: vi.fn(),
+			client: undefined,
+		} );
 		renderWithProvider( <UserSettings /> );
 		const logoutButton = screen.getByRole( 'button', { name: 'Log out' } );
 		expect( logoutButton ).toBeVisible();
@@ -70,9 +86,14 @@ describe( 'UserSettings', () => {
 	} );
 
 	it( 'disables log in button when offline', async () => {
-		const authenticate = jest.fn();
-		( useOffline as jest.Mock ).mockReturnValue( true );
-		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false, authenticate } );
+		const authenticate = vi.fn();
+		vi.mocked( useOffline ).mockReturnValue( true );
+		vi.mocked( useAuth ).mockReturnValue( {
+			isAuthenticated: false,
+			authenticate,
+			logout: vi.fn(),
+			client: undefined,
+		} );
 		renderWithProvider( <UserSettings /> );
 		const loginButton = screen.getByRole( 'button', { name: 'Log in' } );
 		expect( loginButton ).toHaveAttribute( 'aria-disabled', 'true' );
@@ -89,7 +110,12 @@ describe( 'UserSettings', () => {
 	describe( 'Tab Navigation', () => {
 		it( 'switches between tabs correctly', async () => {
 			const user = userEvent.setup();
-			( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
+			vi.mocked( useAuth ).mockReturnValue( {
+				isAuthenticated: true,
+				authenticate: vi.fn(),
+				logout: vi.fn(),
+				client: undefined,
+			} );
 
 			renderWithProvider( <UserSettings /> );
 
@@ -120,12 +146,17 @@ describe( 'UserSettings', () => {
 	describe( 'Tab Selection via IPC', () => {
 		it( 'should open with specified tab when tabName is provided via IPC', async () => {
 			// Mock IPC listener with specific tab name and trigger modal show
-			( useIpcListener as jest.Mock ).mockImplementation( ( listener, callback ) => {
+			vi.mocked( useIpcListener ).mockImplementation( ( listener, callback ) => {
 				if ( listener === 'user-settings' ) {
-					setTimeout( () => callback( {}, { tabName: 'preferences' } ), 0 );
+					setTimeout( () => callback( mockIpcEvent, { tabName: 'preferences' } ), 0 );
 				}
 			} );
-			( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
+			vi.mocked( useAuth ).mockReturnValue( {
+				isAuthenticated: true,
+				authenticate: vi.fn(),
+				logout: vi.fn(),
+				client: undefined,
+			} );
 
 			renderWithProvider( <UserSettings /> );
 
@@ -136,12 +167,17 @@ describe( 'UserSettings', () => {
 		} );
 
 		it( 'should open with usage tab when tabName is usage and user is authenticated', async () => {
-			( useIpcListener as jest.Mock ).mockImplementation( ( listener, callback ) => {
+			vi.mocked( useIpcListener ).mockImplementation( ( listener, callback ) => {
 				if ( listener === 'user-settings' ) {
-					setTimeout( () => callback( {}, { tabName: 'usage' } ), 0 );
+					setTimeout( () => callback( mockIpcEvent, { tabName: 'usage' } ), 0 );
 				}
 			} );
-			( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
+			vi.mocked( useAuth ).mockReturnValue( {
+				isAuthenticated: true,
+				authenticate: vi.fn(),
+				logout: vi.fn(),
+				client: undefined,
+			} );
 
 			renderWithProvider( <UserSettings /> );
 
@@ -152,12 +188,17 @@ describe( 'UserSettings', () => {
 		} );
 
 		it( 'should default to first tab when no tabName is provided', async () => {
-			( useIpcListener as jest.Mock ).mockImplementation( ( listener, callback ) => {
+			vi.mocked( useIpcListener ).mockImplementation( ( listener, callback ) => {
 				if ( listener === 'user-settings' ) {
-					setTimeout( () => callback( {}, {} ), 0 );
+					setTimeout( () => callback( mockIpcEvent, {} ), 0 );
 				}
 			} );
-			( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
+			vi.mocked( useAuth ).mockReturnValue( {
+				isAuthenticated: true,
+				authenticate: vi.fn(),
+				logout: vi.fn(),
+				client: undefined,
+			} );
 
 			renderWithProvider( <UserSettings /> );
 
@@ -167,12 +208,17 @@ describe( 'UserSettings', () => {
 		} );
 
 		it( 'should not show usage tab for unauthenticated users even if specified', async () => {
-			( useIpcListener as jest.Mock ).mockImplementation( ( listener, callback ) => {
+			vi.mocked( useIpcListener ).mockImplementation( ( listener, callback ) => {
 				if ( listener === 'user-settings' ) {
-					setTimeout( () => callback( {}, { tabName: 'usage' } ), 0 );
+					setTimeout( () => callback( mockIpcEvent, { tabName: 'usage' } ), 0 );
 				}
 			} );
-			( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false } );
+			vi.mocked( useAuth ).mockReturnValue( {
+				isAuthenticated: false,
+				authenticate: vi.fn(),
+				logout: vi.fn(),
+				client: undefined,
+			} );
 
 			renderWithProvider( <UserSettings /> );
 

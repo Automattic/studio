@@ -1,13 +1,30 @@
 import * as fs from 'fs/promises';
-import { lstat, move } from 'fs-extra';
+import { lstat, move, Stats } from 'fs-extra';
+import { vi } from 'vitest';
 import { JetpackImporter, SQLImporter } from 'src/lib/import-export/import/importers';
 import { BackupContents } from 'src/lib/import-export/import/types';
 import { SiteServer } from 'src/site-server';
 import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 
-jest.mock( 'fs/promises' );
-jest.mock( 'src/site-server' );
-jest.mock( 'fs-extra' );
+vi.mock( 'fs/promises', () => {
+	const mockFns = {
+		mkdir: vi.fn(),
+		copyFile: vi.fn(),
+		writeFile: vi.fn(),
+		readFile: vi.fn(),
+		readdir: vi.fn(),
+		rm: vi.fn(),
+	};
+	return {
+		default: mockFns,
+		...mockFns,
+	};
+} );
+vi.mock( 'src/site-server' );
+vi.mock( 'fs-extra', () => ( {
+	lstat: vi.fn(),
+	move: vi.fn(),
+} ) );
 
 platformTestSuite( 'JetpackImporter', ( { normalize } ) => {
 	const mockBackupContents: BackupContents = {
@@ -31,36 +48,50 @@ platformTestSuite( 'JetpackImporter', ( { normalize } ) => {
 	const mockStudioSiteId = '123';
 
 	beforeEach( () => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 
-		( SiteServer.get as jest.Mock ).mockReturnValue( {
-			details: { path: '/path/to/site' },
-			executeWpCliCommand: jest.fn( ( command: string ) =>
-				command === 'option get siteurl' ? { stdout: 'http://localhost:8881' } : { stderr: null }
-			),
+		vi.mocked( SiteServer.get, { partial: true } ).mockReturnValue( {
+			details: {
+				path: '/path/to/site',
+				id: 'test-id',
+				name: 'Test Site',
+				port: 8881,
+				phpVersion: '8.0',
+				running: false,
+			},
+			executeWpCliCommand: vi
+				.fn()
+				.mockImplementation( ( command: string ) =>
+					Promise.resolve(
+						command === 'option get siteurl'
+							? { stdout: 'http://localhost:8881', stderr: '', exitCode: 0 }
+							: { stdout: '', stderr: '', exitCode: 0 }
+					)
+				),
 		} );
 
 		// mock move
-		( move as unknown as jest.Mock ).mockResolvedValue( null );
+		vi.mocked( move ).mockResolvedValue();
 
-		jest.useFakeTimers();
-		jest.setSystemTime( new Date( '2024-08-01T12:00:00Z' ) );
+		vi.useFakeTimers();
+		vi.setSystemTime( new Date( '2024-08-01T12:00:00Z' ) );
 
-		( lstat as unknown as jest.Mock ).mockResolvedValue( {
-			isDirectory: jest.fn().mockReturnValue( false ),
-		} );
+		vi.mocked( lstat ).mockImplementation(
+			async () =>
+				( {
+					isDirectory: () => false,
+				} ) as Stats
+		);
 	} );
 
-	afterEach( () => {
-		jest.useRealTimers();
-	} );
+	afterEach( () => {} );
 
 	describe( 'import', () => {
 		it( 'should copy wp-config, wp-content files and read meta file', async () => {
 			const importer = new JetpackImporter( mockBackupContents );
-			( fs.mkdir as jest.Mock ).mockResolvedValue( undefined );
-			( fs.copyFile as jest.Mock ).mockResolvedValue( undefined );
-			( fs.readFile as jest.Mock ).mockResolvedValue(
+			vi.mocked( fs.mkdir ).mockResolvedValue( undefined );
+			vi.mocked( fs.copyFile ).mockResolvedValue( undefined );
+			vi.mocked( fs.readFile ).mockResolvedValue(
 				JSON.stringify( {
 					phpVersion: '8.3',
 					wordpressVersion: '5.8',
@@ -109,8 +140,8 @@ platformTestSuite( 'JetpackImporter', ( { normalize } ) => {
 
 		it( 'should handle missing meta file', async () => {
 			const importer = new JetpackImporter( { ...mockBackupContents, metaFile: undefined } );
-			( fs.mkdir as jest.Mock ).mockResolvedValue( undefined );
-			( fs.copyFile as jest.Mock ).mockResolvedValue( undefined );
+			vi.mocked( fs.mkdir ).mockResolvedValue( undefined );
+			vi.mocked( fs.copyFile ).mockResolvedValue( undefined );
 
 			await importer.import( mockStudioSitePath, mockStudioSiteId );
 
@@ -121,9 +152,9 @@ platformTestSuite( 'JetpackImporter', ( { normalize } ) => {
 
 		it( 'should handle JSON parse error in meta file', async () => {
 			const importer = new JetpackImporter( mockBackupContents );
-			( fs.mkdir as jest.Mock ).mockResolvedValue( undefined );
-			( fs.copyFile as jest.Mock ).mockResolvedValue( undefined );
-			( fs.readFile as jest.Mock ).mockResolvedValue( 'Invalid JSON' );
+			vi.mocked( fs.mkdir ).mockResolvedValue( undefined );
+			vi.mocked( fs.copyFile ).mockResolvedValue( undefined );
+			vi.mocked( fs.readFile ).mockResolvedValue( 'Invalid JSON' );
 
 			await expect(
 				importer.import( mockStudioSitePath, mockStudioSiteId )
@@ -139,8 +170,8 @@ platformTestSuite( 'JetpackImporter', ( { normalize } ) => {
 
 		it( 'should properly import fonts directory', async () => {
 			const importer = new JetpackImporter( mockBackupContents );
-			( fs.mkdir as jest.Mock ).mockResolvedValue( undefined );
-			( fs.copyFile as jest.Mock ).mockResolvedValue( undefined );
+			vi.mocked( fs.mkdir ).mockResolvedValue( undefined );
+			vi.mocked( fs.copyFile ).mockResolvedValue( undefined );
 
 			await importer.import( mockStudioSitePath, mockStudioSiteId );
 
@@ -159,8 +190,8 @@ platformTestSuite( 'JetpackImporter', ( { normalize } ) => {
 				),
 			};
 			const importer = new JetpackImporter( backupWithoutFonts );
-			( fs.mkdir as jest.Mock ).mockResolvedValue( undefined );
-			( fs.copyFile as jest.Mock ).mockResolvedValue( undefined );
+			vi.mocked( fs.mkdir ).mockResolvedValue( undefined );
+			vi.mocked( fs.copyFile ).mockResolvedValue( undefined );
 
 			await importer.import( mockStudioSitePath, mockStudioSiteId );
 

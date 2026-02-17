@@ -1,5 +1,6 @@
 import { input } from '@inquirer/prompts';
 import { getAuthenticationUrl } from 'common/lib/oauth';
+import { vi } from 'vitest';
 import { getUserInfo } from 'cli/lib/api';
 import {
 	getAuthToken,
@@ -10,16 +11,36 @@ import {
 } from 'cli/lib/appdata';
 import { openBrowser } from 'cli/lib/browser';
 import { getAppLocale } from 'cli/lib/i18n';
-import { Logger, LoggerError } from 'cli/logger';
+import { LoggerError } from 'cli/logger';
+import {
+	mockReportStart,
+	mockReportSuccess,
+	mockReportError,
+	mockReportProgress,
+	mockReportWarning,
+	mockReportKeyValuePair,
+} from 'cli/tests/test-utils';
 import { runCommand } from '../login';
 
-jest.mock( '@inquirer/prompts' );
-jest.mock( 'common/lib/oauth' );
-jest.mock( 'cli/lib/api' );
-jest.mock( 'cli/lib/appdata' );
-jest.mock( 'cli/lib/browser' );
-jest.mock( 'cli/lib/i18n' );
-jest.mock( 'cli/logger' );
+vi.mock( '@inquirer/prompts' );
+vi.mock( 'common/lib/oauth' );
+vi.mock( 'cli/lib/api' );
+vi.mock( 'cli/lib/appdata' );
+vi.mock( 'cli/lib/browser' );
+vi.mock( 'cli/lib/i18n' );
+vi.mock( 'cli/logger', () => ( {
+	Logger: class {
+		reportStart = mockReportStart;
+		reportSuccess = mockReportSuccess;
+		reportError = mockReportError;
+		reportProgress = mockReportProgress;
+		reportWarning = mockReportWarning;
+		reportKeyValuePair = mockReportKeyValuePair;
+		spinner = {};
+		currentAction = null;
+	},
+	LoggerError: class LoggerError extends Error {},
+} ) );
 
 describe( 'Auth Login Command', () => {
 	const mockAccessToken = 'mock-access-token-12345';
@@ -28,6 +49,7 @@ describe( 'Auth Login Command', () => {
 		ID: 12345,
 		email: 'test@example.com',
 		display_name: 'Test User',
+		username: 'testuser',
 	};
 	const mockAppdata = {
 		authToken: {
@@ -40,42 +62,27 @@ describe( 'Auth Login Command', () => {
 		},
 	};
 
-	let mockLogger: {
-		reportStart: jest.Mock;
-		reportSuccess: jest.Mock;
-		reportError: jest.Mock;
-		reportKeyValuePair: jest.Mock;
-	};
-
 	beforeEach( () => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 
-		mockLogger = {
-			reportStart: jest.fn(),
-			reportSuccess: jest.fn(),
-			reportError: jest.fn(),
-			reportKeyValuePair: jest.fn(),
-		};
-
-		( Logger as jest.Mock ).mockReturnValue( mockLogger );
-		( getAuthenticationUrl as jest.Mock ).mockReturnValue( mockAuthUrl );
-		( getAppLocale as jest.Mock ).mockResolvedValue( 'en' );
-		( getUserInfo as jest.Mock ).mockResolvedValue( mockUserData );
-		( openBrowser as jest.Mock ).mockResolvedValue( undefined );
-		( input as jest.Mock ).mockResolvedValue( mockAccessToken );
-		( readAppdata as jest.Mock ).mockResolvedValue( mockAppdata );
-		( getAuthToken as jest.Mock ).mockRejectedValue( new Error( 'Mock error' ) );
-		( lockAppdata as jest.Mock ).mockResolvedValue( undefined );
-		( unlockAppdata as jest.Mock ).mockResolvedValue( undefined );
-		( saveAppdata as jest.Mock ).mockResolvedValue( undefined );
+		vi.mocked( getAuthenticationUrl ).mockReturnValue( mockAuthUrl );
+		vi.mocked( getAppLocale ).mockResolvedValue( 'en' );
+		vi.mocked( getUserInfo ).mockResolvedValue( mockUserData );
+		vi.mocked( openBrowser ).mockResolvedValue( undefined );
+		vi.mocked( input ).mockResolvedValue( mockAccessToken );
+		vi.mocked( readAppdata, { partial: true } ).mockResolvedValue( mockAppdata );
+		vi.mocked( getAuthToken ).mockRejectedValue( new Error( 'Mock error' ) );
+		vi.mocked( lockAppdata ).mockResolvedValue( undefined );
+		vi.mocked( unlockAppdata ).mockResolvedValue( undefined );
+		vi.mocked( saveAppdata ).mockResolvedValue( undefined );
 	} );
 
 	afterEach( () => {
-		jest.restoreAllMocks();
+		vi.restoreAllMocks();
 	} );
 
 	it( 'should skip login if already authenticated', async () => {
-		( getAuthToken as jest.Mock ).mockResolvedValue( mockAppdata.authToken );
+		vi.mocked( getAuthToken ).mockResolvedValue( mockAppdata.authToken );
 
 		await runCommand();
 
@@ -118,7 +125,7 @@ describe( 'Auth Login Command', () => {
 
 	it( 'should handle browser open failure', async () => {
 		const browserError = new LoggerError( 'Failed to open browser' );
-		( openBrowser as jest.Mock ).mockRejectedValue( browserError );
+		vi.mocked( openBrowser ).mockRejectedValue( browserError );
 
 		await runCommand();
 
@@ -127,39 +134,39 @@ describe( 'Auth Login Command', () => {
 
 	it( 'should handle API error when fetching user info', async () => {
 		const apiError = new LoggerError( 'Failed to fetch user info' );
-		( getUserInfo as jest.Mock ).mockRejectedValue( apiError );
+		vi.mocked( getUserInfo ).mockRejectedValue( apiError );
 
 		await runCommand();
 
-		expect( mockLogger.reportError ).toHaveBeenCalled();
-		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
+		expect( mockReportError ).toHaveBeenCalled();
+		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 		expect( getUserInfo ).toHaveBeenCalled();
 	} );
 
 	it( 'should unlock appdata even if save fails', async () => {
 		const saveError = new Error( 'Failed to save' );
-		( saveAppdata as jest.Mock ).mockRejectedValue( saveError );
+		vi.mocked( saveAppdata ).mockRejectedValue( saveError );
 
 		await runCommand();
 
-		expect( mockLogger.reportError ).toHaveBeenCalled();
-		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
+		expect( mockReportError ).toHaveBeenCalled();
+		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 		expect( lockAppdata ).toHaveBeenCalled();
 		expect( unlockAppdata ).toHaveBeenCalled();
 	} );
 
 	it( 'should handle lock appdata failure', async () => {
 		const lockError = new Error( 'Failed to lock' );
-		( lockAppdata as jest.Mock ).mockRejectedValue( lockError );
+		vi.mocked( lockAppdata ).mockRejectedValue( lockError );
 
 		await runCommand();
 
-		expect( mockLogger.reportError ).toHaveBeenCalled();
-		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
+		expect( mockReportError ).toHaveBeenCalled();
+		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 	} );
 
 	it( 'should use provided locale', async () => {
-		( getAppLocale as jest.Mock ).mockResolvedValue( 'fr' );
+		vi.mocked( getAppLocale ).mockResolvedValue( 'fr' );
 
 		await runCommand();
 

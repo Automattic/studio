@@ -33,6 +33,7 @@ import {
 	isWordPressVersionAtLeast,
 } from 'common/lib/wordpress-version-utils';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
+import { hasDefaultDbBlock, removeDbConstants } from 'src/migrations/remove-default-db-constants';
 import {
 	lockAppdata,
 	readAppdata,
@@ -43,6 +44,7 @@ import {
 	updateSiteAutoStart,
 	updateSiteLatestCliPid,
 } from 'cli/lib/appdata';
+import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { connect, disconnect, emitSiteEvent } from 'cli/lib/pm2-manager';
 import { getServerFilesPath } from 'cli/lib/server-files';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
@@ -60,6 +62,7 @@ const logger = new Logger< LoggerAction >();
 
 type CreateCommandOptions = {
 	name?: string;
+	siteId?: string;
 	wpVersion: string;
 	phpVersion: ( typeof ALLOWED_PHP_VERSIONS )[ number ];
 	customDomain?: string;
@@ -183,15 +186,38 @@ export async function runCommand(
 		logger.reportSuccess( sprintf( __( 'Port assigned: %d' ), port ) );
 
 		const siteName = options.name || path.basename( sitePath );
-		const siteId = crypto.randomUUID();
+		const siteId = options.siteId || crypto.randomUUID();
 		const adminPassword = createPassword();
 
 		const setupSteps: StepDefinition[] = [];
 
-		if ( isOnlineStatus ) {
-			const siteLanguage = await getPreferredSiteLanguage( options.wpVersion );
+		const siteLanguage = await getPreferredSiteLanguage( options.wpVersion );
 
-			if ( siteLanguage && siteLanguage !== DEFAULT_LOCALE ) {
+		if ( siteLanguage && siteLanguage !== DEFAULT_LOCALE ) {
+			// For the 'latest' WP version, try using bundled language packs first to avoid
+			// a network round-trip. Fall back to the Playground setSiteLanguage step for
+			// non-latest versions or when bundled packs aren't available.
+			let isUsingBundledLanguagePacks = false;
+			if ( options.wpVersion === DEFAULT_WORDPRESS_VERSION ) {
+				isUsingBundledLanguagePacks = await copyLanguagePackToSite( sitePath, siteLanguage );
+			}
+
+			if ( isUsingBundledLanguagePacks ) {
+				setupSteps.push(
+					{
+						step: 'defineWpConfigConsts',
+						consts: {
+							WPLANG: siteLanguage,
+						},
+					},
+					{
+						step: 'setSiteOptions',
+						options: {
+							WPLANG: siteLanguage,
+						},
+					}
+				);
+			} else if ( isOnlineStatus ) {
 				setupSteps.push(
 					{
 						step: 'setSiteLanguage',
@@ -277,6 +303,8 @@ export async function runCommand(
 				} );
 				logger.reportSuccess( __( 'WordPress server started' ) );
 
+				stripWpConfigDbConstants( sitePath );
+
 				if ( processDesc.pid ) {
 					await updateSiteLatestCliPid( siteDetails.id, processDesc.pid );
 				}
@@ -314,6 +342,8 @@ export async function runCommand(
 						blueprintUri: blueprintUri as string,
 					} );
 					logger.reportSuccess( __( 'Blueprint applied successfully' ) );
+
+					stripWpConfigDbConstants( sitePath );
 				} catch ( error ) {
 					await removeSiteFromAppdata( siteDetails.id );
 					if ( ! isWordPressDirResult ) {
@@ -353,6 +383,17 @@ async function fetchBlueprint( url: string ) {
 	}
 }
 
+function stripWpConfigDbConstants( sitePath: string ): void {
+	const wpConfigPath = path.join( sitePath, 'wp-config.php' );
+	if ( ! fs.existsSync( wpConfigPath ) ) {
+		return;
+	}
+	const content = fs.readFileSync( wpConfigPath, 'utf-8' );
+	if ( hasDefaultDbBlock( content ) ) {
+		fs.writeFileSync( wpConfigPath, removeDbConstants( content ), 'utf-8' );
+	}
+}
+
 function readBlueprint( blueprintPath: string ) {
 	if ( ! fs.existsSync( blueprintPath ) ) {
 		throw new LoggerError( sprintf( __( 'Blueprint file not found: %s' ), blueprintPath ) );
@@ -367,6 +408,15 @@ function readBlueprint( blueprintPath: string ) {
 			error
 		);
 	}
+}
+
+function coerceSiteId( value: string ) {
+	// Validate UUID format (8-4-4-4-12 hex characters)
+	const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+	if ( ! uuidRegex.test( value ) ) {
+		throw new ValidationError( 'id', value, __( 'Must be a valid UUID' ) );
+	}
+	return value;
 }
 
 function coerceWpVersion( value: string ) {
@@ -397,6 +447,12 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		describe: __( 'Create a new site' ),
 		builder: ( yargs ) => {
 			return yargs
+				.option( 'id', {
+					type: 'string',
+					describe: __( 'Site ID (UUID format, used internally by Studio app)' ),
+					hidden: true,
+					coerce: coerceSiteId,
+				} )
 				.option( 'name', {
 					type: 'string',
 					describe: __( 'Site name' ),
@@ -438,13 +494,14 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} )
 				.option( 'skip-log-details', {
 					type: 'boolean',
-					describe: __( 'Skip logging default wp-admin user details after starting' ),
+					describe: __( 'Skip printing site URL and admin credentials after creating' ),
 					default: false,
 				} );
 		},
 		handler: async ( argv ) => {
 			const config: CreateCommandOptions = {
 				name: argv.name,
+				siteId: argv.id,
 				wpVersion: argv.wp,
 				phpVersion: argv.php,
 				customDomain: argv.domain,

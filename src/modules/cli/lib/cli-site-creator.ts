@@ -51,8 +51,6 @@ export async function createSiteViaCli( options: CreateSiteOptions ): Promise< C
 
 	return new Promise( ( resolve, reject ) => {
 		const result: Partial< CreateSiteResult > = {};
-		let lastErrorMessage: string | null = null;
-
 		const [ emitter ] = executeCliCommand( args, { output: 'capture', logPrefix: siteId } );
 
 		emitter.on( 'data', ( { data } ) => {
@@ -78,8 +76,6 @@ export async function createSiteViaCli( options: CreateSiteOptions ): Promise< C
 					siteId,
 					message: parsed.data.message,
 				} );
-			} else if ( parsed.data.status === 'fail' ) {
-				lastErrorMessage = parsed.data.message;
 			}
 		} );
 
@@ -92,9 +88,10 @@ export async function createSiteViaCli( options: CreateSiteOptions ): Promise< C
 			}
 		} );
 
-		emitter.on( 'failure', () => {
+		emitter.on( 'failure', ( { error } ) => {
 			cleanupTempFile( blueprintTempPath );
-			reject( new Error( lastErrorMessage || 'CLI create site failed' ) );
+			error.baseMessage = 'Failed to create site';
+			reject( error );
 		} );
 
 		emitter.on( 'error', ( { error } ) => {
@@ -106,6 +103,10 @@ export async function createSiteViaCli( options: CreateSiteOptions ): Promise< C
 
 function buildCliArgs( options: CreateSiteOptions ): string[] {
 	const args = [ 'site', 'create', '--path', options.path, '--skip-browser', '--skip-log-details' ];
+
+	if ( options.siteId ) {
+		args.push( '--id', options.siteId );
+	}
 
 	if ( options.name ) {
 		args.push( '--name', options.name );

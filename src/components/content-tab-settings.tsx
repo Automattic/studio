@@ -4,13 +4,14 @@ import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren } from 'react';
 import { decodePassword } from 'common/lib/passwords';
 import { CopyTextButton } from 'src/components/copy-text-button';
-import DeleteSite from 'src/components/delete-site';
 import { LearnHowLink } from 'src/components/learn-more';
+import { SettingsMenuItem } from 'src/components/settings-site-menu';
+import { useDeleteSite } from 'src/hooks/use-delete-site';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
+import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import EditSiteDetails from 'src/modules/site-settings/edit-site-details';
-import { useAppDispatch, useRootSelector } from 'src/stores';
-import { betaFeaturesSelectors } from 'src/stores/beta-features-slice';
+import { useAppDispatch } from 'src/stores';
 import {
 	certificateTrustApi,
 	useCheckCertificateTrustQuery,
@@ -35,7 +36,6 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 	const dispatch = useAppDispatch();
 	const { __ } = useI18n();
 	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
-	const betaFeatures = useRootSelector( betaFeaturesSelectors.selectBetaFeatures );
 	const username = 'admin';
 	// Empty strings account for legacy sites lacking a stored password.
 	const storedPassword = decodePassword( selectedSite.adminPassword ?? '' );
@@ -52,6 +52,8 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 		// Invalidate the query to refresh the data
 		await dispatch( certificateTrustApi.util.invalidateTags( [ 'CertificateTrust' ] ) );
 	};
+	const { handleDeleteSite } = useDeleteSite();
+	const { copySite } = useSiteDetails();
 
 	return (
 		<div className="p-8 ltr:pr-4 rtl:pl-4">
@@ -68,7 +70,18 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 					>
 						{ ( { onClose }: { onClose: () => void } ) => (
 							<MenuGroup>
-								<DeleteSite onClose={ onClose } />
+								<SettingsMenuItem onClick={ () => void copySite( selectedSite.id ) }>
+									{ __( 'Copy site' ) }
+								</SettingsMenuItem>
+								<SettingsMenuItem
+									onClick={ () => {
+										void handleDeleteSite( selectedSite.id, selectedSite.name );
+										onClose();
+									} }
+									isDestructive
+								>
+									{ __( 'Delete site' ) }
+								</SettingsMenuItem>
 							</MenuGroup>
 						) }
 					</DropdownMenu>
@@ -125,11 +138,9 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 							<span className="line-clamp-1 break-all">{ selectedSite.phpVersion }</span>
 						</div>
 					</SettingsRow>
-					{ betaFeatures.xdebugSupport && (
-						<SettingsRow label={ __( 'Xdebug' ) }>
-							<span>{ selectedSite.enableXdebug ? __( 'Enabled' ) : __( 'Disabled' ) }</span>
-						</SettingsRow>
-					) }
+					<SettingsRow label={ __( 'Xdebug' ) }>
+						<span>{ selectedSite.enableXdebug ? __( 'Enabled' ) : __( 'Disabled' ) }</span>
+					</SettingsRow>
 
 					<tr>
 						<th colSpan={ 2 } className="pb-4 ltr:text-left rtl:text-right">

@@ -1,4 +1,5 @@
 import { configureStore } from '@reduxjs/toolkit';
+import { vi } from 'vitest';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import {
 	installedAppsApi,
@@ -8,25 +9,25 @@ import {
 	selectUninstalledTerminals,
 } from 'src/stores/installed-apps-api';
 
-jest.mock( 'src/lib/get-ipc-api', () => ( {
-	getIpcApi: jest.fn(),
+vi.mock( 'src/lib/get-ipc-api', () => ( {
+	getIpcApi: vi.fn(),
 } ) );
 
-jest.mock( 'src/lib/app-globals', () => ( {
-	getAppGlobals: jest.fn( () => ( {
+vi.mock( 'src/lib/app-globals', () => ( {
+	getAppGlobals: vi.fn().mockReturnValue( {
 		platform: 'darwin',
-	} ) ),
+	} ),
 } ) );
 
 const mockIpcApi = {
-	getInstalledAppsAndTerminals: jest.fn(),
-	getUserEditor: jest.fn(),
-	getUserTerminal: jest.fn(),
-	saveUserEditor: jest.fn(),
-	saveUserTerminal: jest.fn(),
+	getInstalledAppsAndTerminals: vi.fn(),
+	getUserEditor: vi.fn(),
+	getUserTerminal: vi.fn(),
+	saveUserEditor: vi.fn(),
+	saveUserTerminal: vi.fn(),
 };
 
-( getIpcApi as jest.Mock ).mockReturnValue( mockIpcApi );
+vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( mockIpcApi );
 
 const createTestStore = () => {
 	return configureStore( {
@@ -41,12 +42,14 @@ const createTestStore = () => {
 const createMockInstalledApps = (
 	installedApps: Partial< InstalledApps > = {}
 ): InstalledApps => ( {
+	antigravity: false,
 	vscode: false,
 	phpstorm: false,
 	webstorm: false,
 	windsurf: false,
 	cursor: false,
 	sublime: false,
+	zed: false,
 	terminal: false,
 	iterm: false,
 	warp: false,
@@ -56,7 +59,7 @@ const createMockInstalledApps = (
 
 describe( 'Installed Apps API', () => {
 	beforeEach( () => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 	} );
 
 	describe( 'getInstalledApps', () => {
@@ -220,9 +223,16 @@ describe( 'Installed Apps API', () => {
 				const mockInstalledApps = createMockInstalledApps( { vscode: true, cursor: true } );
 				const result = selectUninstalledEditors( mockInstalledApps );
 
-				expect( result ).toHaveLength( 4 );
+				expect( result ).toHaveLength( 6 );
 				expect( result.map( ( [ editor ] ) => editor ) ).toEqual(
-					expect.arrayContaining( [ 'phpstorm', 'windsurf', 'webstorm', 'sublime' ] )
+					expect.arrayContaining( [
+						'antigravity',
+						'phpstorm',
+						'windsurf',
+						'webstorm',
+						'sublime',
+						'zed',
+					] )
 				);
 			} );
 
@@ -230,7 +240,7 @@ describe( 'Installed Apps API', () => {
 				const mockInstalledApps = createMockInstalledApps();
 				const result = selectUninstalledEditors( mockInstalledApps );
 
-				expect( result ).toHaveLength( 6 );
+				expect( result ).toHaveLength( 8 );
 			} );
 		} );
 

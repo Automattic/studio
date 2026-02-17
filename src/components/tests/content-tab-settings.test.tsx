@@ -4,6 +4,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { produce } from 'immer';
 import { Provider } from 'react-redux';
+import { vi } from 'vitest';
 import { Snapshot } from 'common/types/snapshot';
 import { ContentTabSettings } from 'src/components/content-tab-settings';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
@@ -33,13 +34,12 @@ const snapshotTestActions = {
 	},
 };
 
-// Create test store with xdebug beta feature enabled by default
+// Create test store
 let testStore = createTestStore( {
 	preloadedState: {
 		betaFeatures: {
 			features: {
 				multiWorkerSupport: false,
-				xdebugSupport: true,
 			},
 			loading: false,
 		},
@@ -53,7 +53,6 @@ function createCustomTestStore() {
 			betaFeatures: {
 				features: {
 					multiWorkerSupport: false,
-					xdebugSupport: true,
 				},
 				loading: false,
 			},
@@ -63,18 +62,18 @@ function createCustomTestStore() {
 	return store;
 }
 
-jest.mock( 'src/hooks/use-get-wp-version' );
-jest.mock( 'src/hooks/use-site-details' );
-jest.mock( 'src/lib/get-ipc-api' );
-jest.mock( 'src/lib/app-globals', () => ( {
+vi.mock( 'src/hooks/use-get-wp-version' );
+vi.mock( 'src/hooks/use-site-details' );
+vi.mock( 'src/lib/get-ipc-api' );
+vi.mock( 'src/lib/app-globals', () => ( {
 	isWindows: () => false,
 } ) );
 
-jest.mock( 'src/stores/wordpress-versions-api', () => {
-	const actual = jest.requireActual( 'src/stores/wordpress-versions-api' );
+vi.mock( 'src/stores/wordpress-versions-api', async () => {
+	const actual = await vi.importActual( 'src/stores/wordpress-versions-api' );
 	return {
 		...actual,
-		useGetWordPressVersions: jest.fn( () => ( {
+		useGetWordPressVersions: vi.fn( () => ( {
 			sites: [
 				{ label: 'Latest', value: 'latest', isBeta: false, isDevelopment: false },
 				{ label: '6.4', value: '6.4', isBeta: false, isDevelopment: false },
@@ -107,11 +106,11 @@ function rerenderWithProvider(
 }
 
 describe( 'ContentTabSettings', () => {
-	const copyText = jest.fn();
-	const openLocalPath = jest.fn();
-	const generateProposedSitePath = jest.fn();
-	const getAllCustomDomains = jest.fn().mockResolvedValue( [] );
-	const getXdebugEnabledSite = jest.fn().mockResolvedValue( null );
+	const copyText = vi.fn();
+	const openLocalPath = vi.fn();
+	const generateProposedSitePath = vi.fn();
+	const getAllCustomDomains = vi.fn().mockResolvedValue( [] );
+	const getXdebugEnabledSite = vi.fn().mockResolvedValue( null );
 	const mockSnapshot = {
 		localSiteId: selectedSite.id,
 		url: 'http://localhost:8881',
@@ -122,27 +121,27 @@ describe( 'ContentTabSettings', () => {
 	};
 
 	beforeEach( () => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 
 		// Create a fresh store for each test (includes xdebugSupport: true)
 		testStore = createCustomTestStore();
 
-		( useGetWpVersion as jest.Mock ).mockReturnValue( [ '7.7.7', jest.fn() ] );
-		( getIpcApi as jest.Mock ).mockReturnValue( {
+		vi.mocked( useGetWpVersion ).mockReturnValue( [ '7.7.7', vi.fn() ] );
+		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 			copyText,
 			openLocalPath,
 			generateProposedSitePath,
 			getAllCustomDomains,
 			getXdebugEnabledSite,
-			isCATrusted: jest.fn( () => Promise.resolve( true ) ),
+			isCATrusted: vi.fn( () => Promise.resolve( true ) ),
 		} );
 
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
+		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 			selectedSite,
 			uploadingSites: {},
-			deleteSite: jest.fn(),
+			deleteSite: vi.fn(),
 			isDeleting: false,
-			updateSite: jest.fn(),
+			updateSite: vi.fn(),
 		} );
 	} );
 
@@ -250,53 +249,24 @@ describe( 'ContentTabSettings', () => {
 		} );
 	} );
 
-	describe( 'Xdebug beta feature', () => {
-		it( 'hides Xdebug row when beta feature is disabled', async () => {
-			const storeWithoutXdebug = createTestStore( {
-				preloadedState: {
-					betaFeatures: {
-						features: {
-							multiWorkerSupport: false,
-							xdebugSupport: false,
-						},
-						loading: false,
-					},
-				},
-			} );
-
-			render(
-				<Provider store={ storeWithoutXdebug }>
-					<ContentTabSettings selectedSite={ selectedSite } />
-				</Provider>
-			);
-
-			await waitFor( () => {
-				expect( getAllCustomDomains ).toHaveBeenCalled();
-			} );
-
-			// Xdebug row should not be visible
-			expect( screen.queryByText( 'Xdebug' ) ).not.toBeInTheDocument();
-		} );
-	} );
-
 	describe( 'PHP version', () => {
 		it( 'changes PHP version when site is not running', async () => {
 			const user = userEvent.setup();
 
-			const updateSite = jest.fn();
-			const startServer = jest.fn();
-			const stopServer = jest.fn();
+			const updateSite = vi.fn();
+			const startServer = vi.fn();
+			const stopServer = vi.fn();
 
 			testStore.dispatch( snapshotTestActions.addSnapshot( mockSnapshot ) );
 
 			// Mock snapshots to include a snapshot for the selected site
-			( useSiteDetails as jest.Mock ).mockReturnValue( {
+			vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 				selectedSite: { ...selectedSite, running: false } as SiteDetails,
 				updateSite,
 				startServer,
 				stopServer,
 				isEditModalOpen: false,
-				setIsEditModalOpen: jest.fn(),
+				setIsEditModalOpen: vi.fn(),
 			} );
 
 			const { rerender } = renderWithProvider(
@@ -304,13 +274,13 @@ describe( 'ContentTabSettings', () => {
 			);
 			expect( screen.getByText( '8.3' ) ).toBeVisible();
 			await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
-			( useSiteDetails as jest.Mock ).mockReturnValue( {
+			vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 				selectedSite: { ...selectedSite, running: false } as SiteDetails,
 				updateSite,
 				startServer,
 				stopServer,
 				isEditModalOpen: true,
-				setIsEditModalOpen: jest.fn(),
+				setIsEditModalOpen: vi.fn(),
 			} );
 			rerenderWithProvider( rerender, <ContentTabSettings selectedSite={ selectedSite } /> );
 			await waitFor( () => {
@@ -326,13 +296,13 @@ describe( 'ContentTabSettings', () => {
 				} )
 			);
 
-			( useSiteDetails as jest.Mock ).mockReturnValue( {
+			vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 				selectedSite: { ...selectedSite, running: false } as SiteDetails,
 				updateSite,
 				startServer,
 				stopServer,
 				isEditModalOpen: false,
-				setIsEditModalOpen: jest.fn(),
+				setIsEditModalOpen: vi.fn(),
 			} );
 			rerenderWithProvider( rerender, <ContentTabSettings selectedSite={ selectedSite } /> );
 
@@ -357,18 +327,18 @@ describe( 'ContentTabSettings', () => {
 		it( 'changes PHP version and restarts site when site is running', async () => {
 			const user = userEvent.setup();
 
-			const updateSite = jest.fn();
-			const startServer = jest.fn();
-			const stopServer = jest.fn();
+			const updateSite = vi.fn();
+			const startServer = vi.fn();
+			const stopServer = vi.fn();
 			// Mock snapshots to include a snapshot for the selected site
 			testStore.dispatch( snapshotTestActions.addSnapshot( mockSnapshot ) );
-			( useSiteDetails as jest.Mock ).mockReturnValue( {
+			vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 				selectedSite: { ...selectedSite, running: true } as SiteDetails,
 				updateSite,
 				startServer,
 				stopServer,
 				isEditModalOpen: false,
-				setIsEditModalOpen: jest.fn(),
+				setIsEditModalOpen: vi.fn(),
 			} );
 
 			const { rerender } = renderWithProvider(
@@ -376,13 +346,13 @@ describe( 'ContentTabSettings', () => {
 			);
 			expect( screen.getByText( '8.3' ) ).toBeVisible();
 			await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
-			( useSiteDetails as jest.Mock ).mockReturnValue( {
+			vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 				selectedSite: { ...selectedSite, running: true } as SiteDetails,
 				updateSite,
 				startServer,
 				stopServer,
 				isEditModalOpen: true,
-				setIsEditModalOpen: jest.fn(),
+				setIsEditModalOpen: vi.fn(),
 			} );
 			rerenderWithProvider( rerender, <ContentTabSettings selectedSite={ selectedSite } /> );
 			await waitFor( () => {
@@ -397,13 +367,13 @@ describe( 'ContentTabSettings', () => {
 				} )
 			);
 
-			( useSiteDetails as jest.Mock ).mockReturnValue( {
+			vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 				selectedSite: { ...selectedSite, running: true } as SiteDetails,
 				updateSite,
 				startServer,
 				stopServer,
 				isEditModalOpen: false,
-				setIsEditModalOpen: jest.fn(),
+				setIsEditModalOpen: vi.fn(),
 			} );
 			rerenderWithProvider( rerender, <ContentTabSettings selectedSite={ selectedSite } /> );
 

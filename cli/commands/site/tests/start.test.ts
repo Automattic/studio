@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 import {
 	getSiteByFolder,
 	updateSiteLatestCliPid,
@@ -11,17 +12,17 @@ import { isServerRunning, startWordPressServer } from 'cli/lib/wordpress-server-
 import { Logger } from 'cli/logger';
 import { runCommand } from '../start';
 
-jest.mock( 'cli/lib/appdata', () => ( {
-	...jest.requireActual( 'cli/lib/appdata' ),
-	getSiteByFolder: jest.fn(),
-	updateSiteLatestCliPid: jest.fn(),
-	updateSiteAutoStart: jest.fn().mockResolvedValue( undefined ),
-	getAppdataDirectory: jest.fn().mockReturnValue( '/test/appdata' ),
+vi.mock( 'cli/lib/appdata', async () => ( {
+	...( await vi.importActual( 'cli/lib/appdata' ) ),
+	getSiteByFolder: vi.fn(),
+	updateSiteLatestCliPid: vi.fn(),
+	updateSiteAutoStart: vi.fn().mockResolvedValue( undefined ),
+	getAppdataDirectory: vi.fn().mockReturnValue( '/test/appdata' ),
 } ) );
-jest.mock( 'cli/lib/pm2-manager' );
-jest.mock( 'cli/lib/site-utils' );
-jest.mock( 'cli/lib/wordpress-server-manager' );
-jest.mock( 'cli/lib/sqlite-integration' );
+vi.mock( 'cli/lib/pm2-manager' );
+vi.mock( 'cli/lib/site-utils' );
+vi.mock( 'cli/lib/wordpress-server-manager' );
+vi.mock( 'cli/lib/sqlite-integration' );
 
 describe( 'CLI: studio site start', () => {
 	// Simple test data
@@ -41,46 +42,48 @@ describe( 'CLI: studio site start', () => {
 	};
 
 	const testProcessDescription = {
+		name: 'test-site',
+		pmId: 0,
 		pid: 12345,
 		status: 'online',
 	};
 
 	beforeEach( () => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 
-		( getSiteByFolder as jest.Mock ).mockResolvedValue( testSite );
-		( connect as jest.Mock ).mockResolvedValue( undefined );
-		( disconnect as jest.Mock ).mockResolvedValue( undefined );
-		( isServerRunning as jest.Mock ).mockResolvedValue( undefined );
-		( setupCustomDomain as jest.Mock ).mockResolvedValue( undefined );
-		( keepSqliteIntegrationUpdated as jest.Mock ).mockResolvedValue( undefined );
-		( startWordPressServer as jest.Mock ).mockResolvedValue( testProcessDescription );
-		( updateSiteLatestCliPid as jest.Mock ).mockResolvedValue( undefined );
-		( logSiteDetails as jest.Mock ).mockImplementation( () => {} );
-		( openSiteInBrowser as jest.Mock ).mockResolvedValue( undefined );
+		vi.mocked( getSiteByFolder ).mockResolvedValue( testSite );
+		vi.mocked( connect ).mockResolvedValue( undefined );
+		vi.mocked( disconnect ).mockResolvedValue( undefined );
+		vi.mocked( isServerRunning ).mockResolvedValue( undefined );
+		vi.mocked( setupCustomDomain ).mockResolvedValue( undefined );
+		vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( undefined );
+		vi.mocked( startWordPressServer ).mockResolvedValue( testProcessDescription );
+		vi.mocked( updateSiteLatestCliPid ).mockResolvedValue( undefined );
+		vi.mocked( logSiteDetails ).mockImplementation( () => {} );
+		vi.mocked( openSiteInBrowser ).mockResolvedValue( undefined );
 	} );
 
 	afterEach( () => {
-		jest.restoreAllMocks();
+		vi.restoreAllMocks();
 	} );
 
 	describe( 'Error Cases', () => {
 		it( 'should throw when site not found', async () => {
-			( getSiteByFolder as jest.Mock ).mockRejectedValue( new Error( 'Site not found' ) );
+			vi.mocked( getSiteByFolder ).mockRejectedValue( new Error( 'Site not found' ) );
 
 			await expect( runCommand( '/invalid/path' ) ).rejects.toThrow( 'Site not found' );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
 		it( 'should throw when PM2 connection fails', async () => {
-			( connect as jest.Mock ).mockRejectedValue( new Error( 'PM2 connection failed' ) );
+			vi.mocked( connect ).mockRejectedValue( new Error( 'PM2 connection failed' ) );
 
 			await expect( runCommand( '/test/site' ) ).rejects.toThrow( 'PM2 connection failed' );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
 		it( 'should throw when WordPress server fails to start', async () => {
-			( startWordPressServer as jest.Mock ).mockRejectedValue( new Error( 'Server start failed' ) );
+			vi.mocked( startWordPressServer ).mockRejectedValue( new Error( 'Server start failed' ) );
 
 			await expect( runCommand( '/test/site' ) ).rejects.toThrow(
 				'Failed to start WordPress server'
@@ -89,8 +92,8 @@ describe( 'CLI: studio site start', () => {
 		} );
 
 		it( 'should throw when custom domain setup fails', async () => {
-			( getSiteByFolder as jest.Mock ).mockResolvedValue( testSiteWithDomain );
-			( setupCustomDomain as jest.Mock ).mockRejectedValue(
+			vi.mocked( getSiteByFolder ).mockResolvedValue( testSiteWithDomain );
+			vi.mocked( setupCustomDomain ).mockRejectedValue(
 				new Error( ' Custom domain setup failed' )
 			);
 
@@ -99,7 +102,7 @@ describe( 'CLI: studio site start', () => {
 		} );
 
 		it( 'should throw when SQLite integration setup fails', async () => {
-			( keepSqliteIntegrationUpdated as jest.Mock ).mockRejectedValue(
+			vi.mocked( keepSqliteIntegrationUpdated ).mockRejectedValue(
 				new Error( 'SQLite setup failed' )
 			);
 
@@ -108,15 +111,15 @@ describe( 'CLI: studio site start', () => {
 		} );
 
 		it( 'should throw when browser fails', async () => {
-			( openSiteInBrowser as jest.Mock ).mockRejectedValue( new Error( 'Browser error' ) );
+			vi.mocked( openSiteInBrowser ).mockRejectedValue( new Error( 'Browser error' ) );
 
 			await expect( runCommand( '/test/site' ) ).rejects.toThrow( 'Browser error' );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
 		it( 'should throw when browser fails while already running', async () => {
-			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
-			( openSiteInBrowser as jest.Mock ).mockRejectedValue( new Error( 'Browser error' ) );
+			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
+			vi.mocked( openSiteInBrowser ).mockRejectedValue( new Error( 'Browser error' ) );
 
 			await expect( runCommand( '/test/site' ) ).rejects.toThrow( 'Browser error' );
 			expect( disconnect ).toHaveBeenCalled();
@@ -144,7 +147,7 @@ describe( 'CLI: studio site start', () => {
 		} );
 
 		it( 'should skip server start if already running', async () => {
-			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
+			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
 
 			await runCommand( '/test/site' );
 
@@ -160,7 +163,7 @@ describe( 'CLI: studio site start', () => {
 		} );
 
 		it( 'should setup custom domain when present', async () => {
-			( getSiteByFolder as jest.Mock ).mockResolvedValue( testSiteWithDomain );
+			vi.mocked( getSiteByFolder ).mockResolvedValue( testSiteWithDomain );
 
 			await runCommand( '/test/site' );
 
@@ -188,7 +191,7 @@ describe( 'CLI: studio site start', () => {
 		} );
 
 		it( 'should skip browser when already running and skipBrowser is true', async () => {
-			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
+			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
 
 			await runCommand( '/test/site', true );
 

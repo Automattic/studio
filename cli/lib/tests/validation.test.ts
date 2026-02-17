@@ -1,30 +1,39 @@
 import fs from 'fs';
 import path from 'path';
 import { calculateDirectorySize, isWordPressDirectory } from 'common/lib/fs-utils';
+import { vi } from 'vitest';
 import { validateSiteSize } from 'cli/lib/validation';
 import { LoggerError } from 'cli/logger';
 
-jest.mock( 'fs' );
-jest.mock( 'path' );
-jest.mock( 'common/lib/fs-utils', () => ( {
-	calculateDirectorySize: jest.fn(),
-	isWordPressDirectory: jest.fn(),
+vi.mock( 'fs', () => ( {
+	default: {
+		existsSync: vi.fn(),
+	},
+} ) );
+vi.mock( 'path', () => ( {
+	default: {
+		join: vi.fn(),
+	},
+} ) );
+vi.mock( 'common/lib/fs-utils', () => ( {
+	calculateDirectorySize: vi.fn(),
+	isWordPressDirectory: vi.fn(),
 } ) );
 
 describe( 'Validation Module', () => {
 	const mockSiteFolder = '/mock/site';
 
 	beforeEach( () => {
-		jest.clearAllMocks();
-		( path.join as jest.Mock ).mockImplementation( ( ...args ) => args.join( '/' ) );
-		( fs.existsSync as jest.Mock ).mockReturnValue( true );
-		( isWordPressDirectory as jest.Mock ).mockReturnValue( true );
-		( calculateDirectorySize as jest.Mock ).mockResolvedValue( 1024 * 1024 * 1024 ); // 1GB
+		vi.clearAllMocks();
+		vi.mocked( path.join ).mockImplementation( ( ...args ) => args.join( '/' ) );
+		vi.mocked( fs.existsSync ).mockReturnValue( true );
+		vi.mocked( isWordPressDirectory ).mockReturnValue( true );
+		vi.mocked( calculateDirectorySize ).mockResolvedValue( 1024 * 1024 * 1024 ); // 1GB
 	} );
 
 	describe( 'validateSiteSize', () => {
 		it( 'should throw an error if the site exceeds size limit', async () => {
-			( calculateDirectorySize as jest.Mock ).mockResolvedValue( 3 * 1024 * 1024 * 1024 ); // 3GB
+			vi.mocked( calculateDirectorySize ).mockResolvedValue( 3 * 1024 * 1024 * 1024 ); // 3GB
 
 			await expect( validateSiteSize( mockSiteFolder ) ).rejects.toThrow( LoggerError );
 			await expect( validateSiteSize( mockSiteFolder ) ).rejects.toThrow(
@@ -34,7 +43,7 @@ describe( 'Validation Module', () => {
 		} );
 
 		it( 'should return true for a valid WordPress site within size limit', async () => {
-			( calculateDirectorySize as jest.Mock ).mockResolvedValue( 1024 * 1024 * 1024 ); // 1GB
+			vi.mocked( calculateDirectorySize ).mockResolvedValue( 1024 * 1024 * 1024 ); // 1GB
 
 			expect( await validateSiteSize( mockSiteFolder ) ).toBe( true );
 			expect( calculateDirectorySize ).toHaveBeenCalledWith( mockSiteFolder + '/wp-content' );

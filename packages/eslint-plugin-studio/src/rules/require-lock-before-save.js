@@ -1,4 +1,5 @@
-module.exports = {
+/** @type {import('eslint').Rule.RuleModule} */
+export default {
 	meta: {
 		type: 'problem',
 		docs: {
@@ -73,19 +74,19 @@ module.exports = {
 					current.hasTryFinally = true;
 				}
 			},
-			FunctionDeclaration( node ) {
+			FunctionDeclaration() {
 				enterFunction();
 			},
 			'FunctionDeclaration:exit'( node ) {
 				exitFunction( node );
 			},
-			ArrowFunctionExpression( node ) {
+			ArrowFunctionExpression() {
 				enterFunction();
 			},
 			'ArrowFunctionExpression:exit'( node ) {
 				exitFunction( node );
 			},
-			FunctionExpression( node ) {
+			FunctionExpression() {
 				enterFunction();
 			},
 			'FunctionExpression:exit'( node ) {

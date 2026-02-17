@@ -121,7 +121,7 @@ steps:
       - step: package_app_artifacts_mac_x64
     if: build.tag !~ /^v[0-9]+/
     steps:
-      - label: 🔨 Mac Dev Build - {{matrix}}
+      - label: 🔨 Mac Dev Build - {{matrix.arch}}
         agents:
           queue: mac
         command: |
@@ -133,44 +133,44 @@ steps:
 
           export IS_DEV_BUILD=true
 
-          ARTIFACT_PATTERN="*studio-app-mac-{{matrix}}.tar.gz"
+          ARTIFACT_PATTERN="*studio-app-mac-{{matrix.arch}}.tar.gz"
           printf 'Artifact search query: <%s>\n' "$ARTIFACT_PATTERN"
           if ! buildkite-agent artifact download "$ARTIFACT_PATTERN" .; then
             echo "^^^ +++ Required prebuilt app artifact not found: $ARTIFACT_PATTERN"
             exit 1
           fi
 
-          ARTIFACT_FILE=$(find . -type f -name "studio-app-mac-{{matrix}}.tar.gz" | head -n 1)
+          ARTIFACT_FILE=$(find . -type f -name "studio-app-mac-{{matrix.arch}}.tar.gz" | head -n 1)
           if [ -z "$ARTIFACT_FILE" ]; then
-            echo "^^^ +++ Downloaded artifact but couldn't locate archive for mac-{{matrix}}"
+            echo "^^^ +++ Downloaded artifact but couldn't locate archive for mac-{{matrix.arch}}"
             exit 1
           fi
 
           printf 'Resolved downloaded artifact: <%s>\n' "$ARTIFACT_FILE"
-          echo "--- :package: Extracting prebuilt app artifacts (mac-{{matrix}}) from $ARTIFACT_FILE"
+          echo "--- :package: Extracting prebuilt app artifacts (mac-{{matrix.arch}}) from $ARTIFACT_FILE"
           tar -xzf "$ARTIFACT_FILE"
 
           echo "--- :node: Building installer artifacts"
-          npm run make:macos-{{matrix}}
+          npm run make:macos-{{matrix.arch}}
 
           # Local trial and error show this needs to run before the DMG generation (obviously) but after the binary has been built
           echo "--- :hammer: Rebuild fs-attr if necessary before generating DMG"
-          case {{matrix}} in
+          case {{matrix.arch}} in
             x64)
-              echo "Rebuilding fs-xattr for {{matrix}} architecture"
+              echo "Rebuilding fs-xattr for {{matrix.arch}} architecture"
               npm rebuild fs-xattr --cpu universal
               ;;
             arm64)
               echo "No need to rebuild fs-xattr because it works out of the box on Apple Silicon"
               ;;
             *)
-              echo "^^^ +++ Unexpected architecture {{matrix}}"
+              echo "^^^ +++ Unexpected architecture {{matrix.arch}}"
               exit 1
               ;;
           esac
 
           echo "--- :node: Packaging in DMG"
-          npm run make:dmg-{{matrix}}
+          npm run make:dmg-{{matrix.arch}}
 
           echo "--- 📃 Notarizing Binary"
           bundle exec fastlane notarize_binary
@@ -179,8 +179,10 @@ steps:
           - apps/studio/out/**/*.app.zip
           - apps/studio/out/*.dmg
         matrix:
-          - x64
-          - arm64
+          setup:
+            arch:
+              - x64
+              - arm64
 
   - input: "🚦 Build for Windows?"
     prompt: "Do you want to build Windows dev binaries for this PR?"

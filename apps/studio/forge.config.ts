@@ -97,7 +97,8 @@ const config: ForgeConfig = {
 
 				setupExe: 'studio-setup.exe',
 
-				certificateFile: 'certificate.pfx',
+				// CI code-signing setup writes certificate.pfx at the repository root.
+				certificateFile: path.join( repoRoot, 'certificate.pfx' ),
 				certificatePassword: process.env.WINDOWS_CODE_SIGNING_CERT_PASSWORD,
 			},
 			[ 'win32' ]

@@ -20,9 +20,23 @@ vi.mock( 'src/storage/paths', () => ( {
 		.mockReturnValue( '/path/to/app/appData/App Name/appdata-v1.json.lock' ),
 } ) );
 vi.mock( 'src/lib/import-export/import/handlers/backup-handler-factory' );
-vi.mock( 'fs/promises' );
-vi.mock( 'os' );
-vi.mock( 'path' );
+vi.mock( 'fs/promises', () => ( {
+	default: {
+		mkdtemp: vi.fn(),
+		stat: vi.fn(),
+		rm: vi.fn(),
+	},
+} ) );
+vi.mock( 'os', () => ( {
+	default: {
+		tmpdir: vi.fn(),
+	},
+} ) );
+vi.mock( 'path', () => ( {
+	default: {
+		join: vi.fn(),
+	},
+} ) );
 
 describe( 'importManager', () => {
 	describe( 'selectImporter', () => {
@@ -112,7 +126,11 @@ describe( 'importManager', () => {
 				on: vi.fn(),
 				emit: vi.fn(),
 			};
-			const MockImporterClass = vi.fn().mockImplementation( () => mockImporter );
+			class MockImporterClass {
+				import = mockImporter.import;
+				on = mockImporter.on;
+				emit = mockImporter.emit;
+			}
 
 			const mockBackupHandler = {
 				listFiles: vi.fn().mockResolvedValue( [ 'file1.txt', 'file2.txt' ] ),

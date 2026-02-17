@@ -1,39 +1,69 @@
 /**
  * @vitest-environment node
  */
-import { IpcMainInvokeEvent, BrowserWindow, Menu, MenuItem } from 'electron';
+import { IpcMainInvokeEvent, BrowserWindow, MenuItem } from 'electron';
 import { vi } from 'vitest';
 import { showSiteContextMenu } from 'src/ipc-handlers';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
+
+// Track menu items and menu instance
+let menuItems: MenuItem[] = [];
+let mockMenu: {
+	append: ReturnType< typeof vi.fn >;
+	popup: ReturnType< typeof vi.fn >;
+};
+
+vi.mock( 'electron', () => {
+	class MockMenu {
+		append = vi.fn().mockImplementation( ( item: MenuItem ) => menuItems.push( item ) );
+		popup = vi.fn();
+
+		constructor() {
+			// Store the instance in the outer mockMenu variable
+			// eslint-disable-next-line @typescript-eslint/no-this-alias
+			mockMenu = this;
+		}
+	}
+
+	class MockMenuItem {
+		constructor( config: Record< string, unknown > ) {
+			Object.assign( this, config );
+		}
+	}
+
+	class MockBrowserWindow {
+		static fromWebContents = vi.fn();
+		isDestroyed = vi.fn().mockReturnValue( false );
+	}
+
+	return {
+		Menu: MockMenu,
+		MenuItem: MockMenuItem,
+		BrowserWindow: MockBrowserWindow,
+		app: {
+			getPath: vi.fn().mockReturnValue( '/mock/app/path' ),
+		},
+	};
+} );
 
 vi.mock( 'src/ipc-utils' );
 vi.mock( 'fs' );
 
 const mockIpcMainInvokeEvent = {
-	sender: { isDestroyed: vi.fn( () => false ) },
+	sender: { isDestroyed: vi.fn().mockReturnValue( false ) },
 	// Double assert the type with `unknown` to simplify mocking this value
 } as unknown as IpcMainInvokeEvent;
 
 describe( 'showSiteContextMenu', () => {
-	let mockMenu: Partial< Menu >;
 	let mockWindow: Partial< BrowserWindow >;
-	let menuItems: MenuItem[];
 
 	beforeEach( () => {
 		vi.clearAllMocks();
 		menuItems = [];
-		mockMenu = {
-			append: vi.fn( ( item: MenuItem ) => menuItems.push( item ) ),
-			popup: vi.fn(),
-		};
 		mockWindow = {
-			isDestroyed: vi.fn( () => false ),
+			isDestroyed: vi.fn().mockReturnValue( false ),
 		};
 
-		vi.mocked( Menu, { partial: true } ).mockImplementation( () => mockMenu as Menu );
-		vi.mocked( MenuItem, { partial: true } ).mockImplementation(
-			( config ) => config as unknown as MenuItem
-		);
 		vi.mocked( BrowserWindow.fromWebContents, { partial: true } ).mockReturnValue(
 			mockWindow as BrowserWindow
 		);

@@ -13,7 +13,7 @@ vi.mock( 'src/ipc-utils' );
 vi.mock( 'src/lib/download' );
 vi.mock( 'src/main-window' );
 vi.mock( 'src/logging', () => ( {
-	getLogsFilePath: vi.fn( () => '/mock/path/to/logs.log' ),
+	getLogsFilePath: vi.fn().mockReturnValue( '/mock/path/to/logs.log' ),
 } ) );
 vi.mock( 'common/lib/blueprint-validation', () => ( {
 	validateBlueprintData: vi.fn(),

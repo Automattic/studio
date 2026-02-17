@@ -141,6 +141,9 @@ const config: ForgeConfig = {
 				if ( isErrnoException( err ) && err.code !== 'ENOENT' ) throw err;
 			}
 
+			console.log( 'Downloading language packs ...' );
+			await execAsync( 'npm run download-language-packs' );
+
 			console.log( 'Building CLI ...' );
 			await execAsync( 'npm run cli:build' );
 

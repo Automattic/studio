@@ -5,7 +5,7 @@ import { vi } from 'vitest';
 import { validateSiteSize } from 'cli/lib/validation';
 import { LoggerError } from 'cli/logger';
 
-vi.mock('fs', () => ({
+vi.mock( 'fs', () => ( {
 	default: {
 		existsSync: vi.fn(),
 	},

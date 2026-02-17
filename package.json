@@ -88,6 +88,7 @@
 		"eslint-plugin-prettier": "^5.5.4",
 		"eslint-plugin-react-hooks": "^7.0.1",
 		"eslint-plugin-studio": "file:packages/eslint-plugin-studio",
+		"glob": "^13.0.4",
 		"isomorphic-fetch": "^3.0.0",
 		"jsdom": "^24.0.0",
 		"nock": "^13.5.6",

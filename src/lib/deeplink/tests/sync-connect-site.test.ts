@@ -1,14 +1,15 @@
 /**
- * @jest-environment node
+ * @vitest-environment node
  */
+import { vi } from 'vitest';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { handleSyncConnectSiteDeeplink } from 'src/lib/deeplink/handlers/sync-connect-site';
 
-jest.mock( 'src/ipc-utils' );
+vi.mock( 'src/ipc-utils' );
 
 describe( 'handleSyncConnectSiteDeeplink', () => {
 	beforeEach( () => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 	} );
 
 	it( 'should handle sync connect site callback', async () => {

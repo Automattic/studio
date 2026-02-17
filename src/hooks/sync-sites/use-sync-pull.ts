@@ -7,11 +7,7 @@ import {
 	useSyncStatesProgressInfo,
 } from 'src/hooks/use-sync-states-progress-info';
 import { store, useAppDispatch, useRootSelector, type RootState } from 'src/stores';
-import {
-	syncOperationsActions,
-	syncOperationsSelectors,
-	syncOperationsThunks,
-} from 'src/stores/sync';
+import { syncOperationsSelectors, syncOperationsThunks } from 'src/stores/sync';
 import type { SyncSite } from 'src/modules/sync/types';
 import type { SyncOption } from 'src/types';
 

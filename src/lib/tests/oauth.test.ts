@@ -1,22 +1,20 @@
-/**
- * @jest-environment node
- */
 import { readFile } from 'atomically';
+import { vi } from 'vitest';
 import { SupportedLocale } from 'common/lib/locale';
 import { getAuthenticationToken, getSignUpUrl } from 'src/lib/oauth';
 
-jest.mock( 'src/lib/certificate-manager', () => ( {} ) );
-jest.mock( 'atomically', () => ( {
-	readFile: jest.fn(),
+vi.mock( 'src/lib/certificate-manager', () => ( {} ) );
+vi.mock( 'atomically', () => ( {
+	readFile: vi.fn(),
 } ) );
-jest.mock( 'src/lib/wpcom-factory', () => ( {
+vi.mock( 'src/lib/wpcom-factory', () => ( {
 	__esModule: true,
-	default: jest.fn(),
+	default: vi.fn(),
 } ) );
 
 describe( 'getAuthenticationToken', () => {
 	beforeEach( () => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 	} );
 
 	it( 'should return valid token', async () => {
@@ -28,8 +26,8 @@ describe( 'getAuthenticationToken', () => {
 			email: 'user@example.com',
 			displayName: 'Test User',
 		};
-		( readFile as jest.Mock ).mockResolvedValue(
-			JSON.stringify( { authToken: validToken, sites: [] } )
+		vi.mocked( readFile ).mockResolvedValue(
+			Buffer.from( JSON.stringify( { authToken: validToken, sites: [] } ) )
 		);
 
 		const result = await getAuthenticationToken();
@@ -45,8 +43,8 @@ describe( 'getAuthenticationToken', () => {
 			email: 'user@example.com',
 			displayName: 'Test User',
 		};
-		( readFile as jest.Mock ).mockResolvedValue(
-			JSON.stringify( { authToken: expiredToken, sites: [] } )
+		vi.mocked( readFile ).mockResolvedValue(
+			Buffer.from( JSON.stringify( { authToken: expiredToken, sites: [] } ) )
 		);
 
 		const result = await getAuthenticationToken();
@@ -58,8 +56,8 @@ describe( 'getAuthenticationToken', () => {
 			accessToken: 'token',
 			// Missing required fields
 		};
-		( readFile as jest.Mock ).mockResolvedValue(
-			JSON.stringify( { authToken: malformedToken, sites: [] } )
+		vi.mocked( readFile ).mockResolvedValue(
+			Buffer.from( JSON.stringify( { authToken: malformedToken, sites: [] } ) )
 		);
 
 		const result = await getAuthenticationToken();
@@ -67,7 +65,7 @@ describe( 'getAuthenticationToken', () => {
 	} );
 
 	it( 'should return null when no token exists', async () => {
-		( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( { sites: [] } ) );
+		vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( { sites: [] } ) ) );
 
 		const result = await getAuthenticationToken();
 		expect( result ).toBeNull();

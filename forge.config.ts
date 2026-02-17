@@ -8,6 +8,7 @@ import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-nati
 import { isErrnoException } from './common/lib/is-errno-exception';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { exec as pkgExec } from '@yao-pkg/pkg';
 import type { ForgeConfig } from '@electron-forge/shared-types';
 
 const config: ForgeConfig = {
@@ -48,7 +49,7 @@ const config: ForgeConfig = {
 			// Config files
 			/^\/webpack\./,
 			/^\/tsconfig\./,
-			/^\/jest\./,
+			/^\/vitest\./,
 			/^\/playwright\./,
 			/^\/postcss\./,
 			/^\/tailwind\./,
@@ -109,6 +110,10 @@ const config: ForgeConfig = {
 									}/Studio.app`,
 								},
 								{ x: 533, y: 354, type: 'link', path: '/Applications' },
+								{ x: 900, y: 900, type: 'position', path: '.background' },
+								{ x: 900, y: 900, type: 'position', path: '.DS_Store' },
+								{ x: 900, y: 900, type: 'position', path: '.Trashes' },
+								{ x: 900, y: 900, type: 'position', path: '.VolumeIcon.icns' },
 							],
 							additionalDMGOptions: {
 								window: {
@@ -141,6 +146,25 @@ const config: ForgeConfig = {
 
 			console.log( `Downloading Node.js binary for ${ platform }-${ arch }...` );
 			await execAsync( `npx ts-node ./scripts/download-node-binary.ts ${ platform } ${ arch }` );
+
+			// Build CLI launcher executable for Windows AppX (Microsoft Store).
+			// AppX packages require AppExecutionAlias with an .exe target — batch files won't work.
+			if ( platform === 'win32' ) {
+				const pkgArch = arch === 'x64' ? 'x64' : 'arm64';
+				const target = `node22-win-${ pkgArch }`;
+				console.log( `Building CLI launcher executable for ${ target }...` );
+				await pkgExec( [
+					'bin/studio-cli-launcher.js',
+					'--target',
+					target,
+					'--output',
+					'bin/studio-cli.exe',
+					'--compress',
+					'GZip',
+					'--no-bytecode',
+					'--public',
+				] );
+			}
 		},
 	},
 };

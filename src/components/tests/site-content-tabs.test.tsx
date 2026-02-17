@@ -1,46 +1,49 @@
 import { act, render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
+import { vi } from 'vitest';
 import { SiteContentTabs } from 'src/components/site-content-tabs';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { store } from 'src/stores';
 import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 
-const selectedSite = {
+const selectedSite: SiteDetails = {
 	id: 'site-id-1',
 	name: 'Test Site',
-	running: false as const,
+	running: false,
 	path: '/test-site',
+	port: 8881,
+	phpVersion: '8.3',
 };
 
-jest.mock( 'src/hooks/use-site-details' );
-jest.mock( 'src/hooks/use-auth', () => ( {
+vi.mock( 'src/hooks/use-site-details' );
+vi.mock( 'src/hooks/use-auth', () => ( {
 	useAuth: () => ( {
 		isAuthenticated: true,
-		authenticate: jest.fn(),
+		authenticate: vi.fn(),
 	} ),
 } ) );
-jest.mock( 'src/lib/app-globals', () => ( {
-	...jest.requireActual( '../../lib/app-globals' ),
-	getAppGlobals: jest.fn().mockReturnValue( { locale: ' en' } ),
-	isWindows: jest.fn().mockReturnValue( false ),
+vi.mock( 'src/lib/app-globals', async () => ( {
+	...( await vi.importActual( '../../lib/app-globals' ) ),
+	getAppGlobals: vi.fn().mockReturnValue( { locale: ' en' } ),
+	isWindows: vi.fn().mockReturnValue( false ),
 } ) );
-jest.mock( 'src/lib/get-ipc-api', () => ( {
-	...jest.requireActual( '../../lib/get-ipc-api' ),
-	getIpcApi: jest.fn().mockReturnValue( {
-		getConnectedWpcomSites: jest.fn().mockResolvedValue( [] ),
-		updateConnectedWpcomSites: jest.fn(),
-		getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
-		getUserEditor: jest.fn().mockResolvedValue( 'vscode' ),
-		setWindowControlVisibility: jest.fn(),
+vi.mock( 'src/lib/get-ipc-api', async () => ( {
+	...( await vi.importActual( '../../lib/get-ipc-api' ) ),
+	getIpcApi: vi.fn().mockReturnValue( {
+		getConnectedWpcomSites: vi.fn().mockResolvedValue( [] ),
+		updateConnectedWpcomSites: vi.fn(),
+		getUserTerminal: vi.fn().mockResolvedValue( 'terminal' ),
+		getUserEditor: vi.fn().mockResolvedValue( 'vscode' ),
+		setWindowControlVisibility: vi.fn(),
 	} ),
 } ) );
 
-jest.mock( 'src/stores/wordpress-versions-api', () => {
-	const actual = jest.requireActual( 'src/stores/wordpress-versions-api' );
+vi.mock( 'src/stores/wordpress-versions-api', async () => {
+	const actual = await vi.importActual( 'src/stores/wordpress-versions-api' );
 	return {
 		...actual,
-		useGetWordPressVersions: jest.fn( () => ( {
+		useGetWordPressVersions: vi.fn( () => ( {
 			sites: [
 				{ label: 'Latest', value: 'latest', isBeta: false, isDevelopment: false },
 				{ label: '6.4', value: '6.4', isBeta: false, isDevelopment: false },
@@ -51,11 +54,11 @@ jest.mock( 'src/stores/wordpress-versions-api', () => {
 	};
 } );
 
-jest.mock( 'src/stores/wpcom-api', () => {
-	const actual = jest.requireActual( 'src/stores/wpcom-api' );
+vi.mock( 'src/stores/wpcom-api', async () => {
+	const actual = await vi.importActual( 'src/stores/wpcom-api' );
 	return {
 		...actual,
-		useGetBlueprints: jest.fn( () => ( {
+		useGetBlueprints: vi.fn( () => ( {
 			sites: { blueprints: [], total: 0 },
 			isLoading: false,
 		} ) ),
@@ -66,7 +69,7 @@ store.replaceReducer( testReducer );
 
 describe( 'SiteContentTabs', () => {
 	beforeEach( () => {
-		jest.clearAllMocks(); // Clear mock call history between tests
+		vi.clearAllMocks(); // Clear mock call history between tests
 		store.dispatch( testActions.resetState() );
 	} );
 	const renderWithProvider = ( component: React.ReactElement ) => {
@@ -77,9 +80,8 @@ describe( 'SiteContentTabs', () => {
 		);
 	};
 	it( 'should render tabs correctly if selected site exists', async () => {
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
+		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 			selectedSite,
-			snapshots: [],
 			sites: [ selectedSite ],
 			loadingServer: {},
 		} );
@@ -93,9 +95,8 @@ describe( 'SiteContentTabs', () => {
 		expect( screen.queryByRole( 'tab', { name: 'Export' } ) ).not.toBeInTheDocument();
 	} );
 	it( 'selects the Overview tab by default', async () => {
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
+		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 			selectedSite,
-			snapshots: [],
 			sites: [ selectedSite ],
 			loadingServer: {},
 		} );

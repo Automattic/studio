@@ -5,6 +5,7 @@ import fsExtra from 'fs-extra';
 import { parse } from 'shell-quote';
 import { z } from 'zod';
 import { SQLITE_FILENAME } from 'common/constants';
+import { parseJsonFromPhpOutput } from 'common/lib/php-output-parser';
 import {
 	WP_CLI_DEFAULT_RESPONSE_TIMEOUT,
 	WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT,
@@ -33,7 +34,7 @@ export async function stopAllServers( shouldSaveAutoStartProp: boolean ) {
 		if ( shouldSaveAutoStartProp ) {
 			args.push( '--auto-start' );
 		}
-		const [ emitter ] = executeCliCommand( args, { output: 'ignore' } );
+		const [ emitter ] = executeCliCommand( args );
 		emitter.on( 'success', () => resolve() );
 		emitter.on( 'failure', () => resolve() );
 		emitter.on( 'error', () => resolve() );
@@ -115,9 +116,9 @@ export class SiteServer {
 		options: CreateSiteOptions,
 		meta: SiteServerMeta = {}
 	): Promise< { server: SiteServer; details: SiteDetails } > {
-		// Use the siteId from frontend if provided, for placeholder consistency
+		const siteId = options.siteId || crypto.randomUUID();
 		const placeholderDetails: StoppedSiteDetails = {
-			id: options.siteId || crypto.randomUUID(),
+			id: siteId,
 			name: options.name || options.path,
 			path: options.path,
 			port: 0,
@@ -128,7 +129,7 @@ export class SiteServer {
 		server.hasOngoingOperation = true;
 
 		try {
-			const result = await createSiteViaCli( options );
+			const result = await createSiteViaCli( { ...options, siteId } );
 			const userData = await loadUserData();
 			const siteData = userData.sites.find( ( s ) => s.id === result.id );
 			if ( ! siteData ) {
@@ -349,11 +350,15 @@ export class SiteServer {
 			}, timeout );
 
 			emitter.on( 'success', ( { result } ) => {
-				resolve( result ?? { stdout: '', stderr: '', exitCode: 0 } );
+				resolve( { stdout: result.stdout, stderr: result.stderr, exitCode: 0 } );
 			} );
 
-			emitter.on( 'failure', ( { result } ) => {
-				resolve( result ?? { stdout: '', stderr: '', exitCode: 1 } );
+			emitter.on( 'failure', ( { error, result } ) => {
+				resolve( {
+					stdout: result.stdout,
+					stderr: result.stderr || error.lastErrorMessage || '',
+					exitCode: 1,
+				} );
 			} );
 
 			emitter.on( 'error', ( { error } ) => {
@@ -394,7 +399,7 @@ export class SiteServer {
 				return this.details.themeDetails;
 			}
 
-			const themeDetailsParsed = JSON.parse( stdout );
+			const themeDetailsParsed = parseJsonFromPhpOutput( stdout );
 			this.details.themeDetails = SiteServer.themeDetailsSchema.parse( themeDetailsParsed );
 		} catch ( error ) {
 			console.error( 'Failed to get theme details:', error );

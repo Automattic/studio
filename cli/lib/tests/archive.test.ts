@@ -1,11 +1,11 @@
 import fs from 'fs';
 import path from 'path';
 import archiver from 'archiver';
+import { vi } from 'vitest';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
-
-jest.mock( 'fs' );
-jest.mock( 'path' );
-jest.mock( 'archiver' );
+vi.mock( 'fs' );
+vi.mock( 'path' );
+vi.mock( 'archiver' );
 
 describe( 'Archive Module', () => {
 	const mockSiteFolder = '/mock/site/folder';
@@ -13,28 +13,45 @@ describe( 'Archive Module', () => {
 	const mockWpContentPath = '/mock/site/folder/wp-content';
 	const mockWpConfigPath = '/mock/site/folder/wp-config.php';
 
-	const mockArchiver = {
-		pipe: jest.fn(),
-		directory: jest.fn(),
-		file: jest.fn(),
-		finalize: jest.fn().mockResolvedValue( undefined ),
-		on: jest.fn(),
-	};
+	let mockArchiver: ReturnType< typeof createMockArchiver >;
+	let mockWriteStream: ReturnType< typeof createMockWriteStream >;
 
-	const mockWriteStream = {
-		on: jest.fn(),
-	};
+	function createMockArchiver(): {
+		pipe: ReturnType< typeof vi.fn >;
+		directory: ReturnType< typeof vi.fn >;
+		file: ReturnType< typeof vi.fn >;
+		finalize: ReturnType< typeof vi.fn >;
+		on: ReturnType< typeof vi.fn >;
+	} {
+		return {
+			pipe: vi.fn().mockReturnThis(),
+			directory: vi.fn().mockReturnThis(),
+			file: vi.fn().mockReturnThis(),
+			finalize: vi.fn().mockResolvedValue( undefined ),
+			on: vi.fn().mockReturnThis(),
+		};
+	}
+
+	function createMockWriteStream(): {
+		on: ReturnType< typeof vi.fn >;
+	} {
+		return {
+			on: vi.fn().mockReturnThis(),
+		};
+	}
 
 	beforeEach( () => {
-		jest.clearAllMocks();
-		( archiver as unknown as jest.Mock ).mockReturnValue( mockArchiver );
-		( fs.createWriteStream as jest.Mock ).mockReturnValue( mockWriteStream );
-		( path.join as jest.Mock ).mockImplementation( ( ...args ) => args.join( '/' ) );
+		vi.clearAllMocks();
+		mockArchiver = createMockArchiver();
+		mockWriteStream = createMockWriteStream();
+		vi.mocked( archiver, { partial: true } ).mockReturnValue( mockArchiver );
+		vi.mocked( fs.createWriteStream, { partial: true } ).mockReturnValue( mockWriteStream );
+		vi.mocked( path.join ).mockImplementation( ( ...args ) => args.join( '/' ) );
 	} );
 
 	describe( 'createArchive', () => {
 		it( 'should create an archive with wp-content directory', async () => {
-			( fs.existsSync as jest.Mock ).mockReturnValue( false );
+			vi.mocked( fs.existsSync ).mockReturnValue( false );
 
 			mockWriteStream.on.mockImplementation( ( event, callback ) => {
 				if ( event === 'close' ) {
@@ -67,7 +84,7 @@ describe( 'Archive Module', () => {
 		} );
 
 		it( 'should include wp-config.php if it exists', async () => {
-			( fs.existsSync as jest.Mock ).mockReturnValue( true );
+			vi.mocked( fs.existsSync ).mockReturnValue( true );
 
 			mockWriteStream.on.mockImplementation( ( event, callback ) => {
 				if ( event === 'close' ) {
@@ -108,18 +125,16 @@ describe( 'Archive Module', () => {
 
 	describe( 'cleanup', () => {
 		beforeEach( () => {
-			jest.useFakeTimers();
+			vi.useFakeTimers();
 		} );
 
-		afterEach( () => {
-			jest.useRealTimers();
-		} );
+		afterEach( () => {} );
 
 		it( 'should remove the archive file if it exists', async () => {
-			( fs.existsSync as jest.Mock ).mockReturnValue( true );
+			vi.mocked( fs.existsSync ).mockReturnValue( true );
 
 			const cleanupPromise = cleanup( mockArchivePath );
-			jest.runAllTimers();
+			vi.runAllTimers();
 			await cleanupPromise;
 
 			expect( fs.existsSync ).toHaveBeenCalledWith( mockArchivePath );
@@ -127,10 +142,10 @@ describe( 'Archive Module', () => {
 		} );
 
 		it( 'should not attempt to remove the file if it does not exist', async () => {
-			( fs.existsSync as jest.Mock ).mockReturnValue( false );
+			vi.mocked( fs.existsSync ).mockReturnValue( false );
 
 			const cleanupPromise = cleanup( mockArchivePath );
-			jest.runAllTimers();
+			vi.runAllTimers();
 			await cleanupPromise;
 
 			expect( fs.existsSync ).toHaveBeenCalledWith( mockArchivePath );

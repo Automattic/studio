@@ -1,5 +1,6 @@
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback } from 'react';
+import { extractFormValuesFromBlueprint } from 'common/lib/blueprint-settings';
 import {
 	BlueprintValidationWarning,
 	BlueprintPreferredVersions,
@@ -20,6 +21,9 @@ interface UseBlueprintDeeplinkOptions {
 	setWpVersion: ( version: string ) => void;
 	setBlueprintPreferredVersions: ( versions: BlueprintPreferredVersions | undefined ) => void;
 	setBlueprintDeeplinkWarnings: ( warnings: BlueprintValidationWarning[] | undefined ) => void;
+	setBlueprintSuggestedDomain: ( domain: string | undefined ) => void;
+	setBlueprintSuggestedHttps: ( https: boolean | undefined ) => void;
+	setBlueprintSuggestedSiteName: ( name: string | undefined ) => void;
 	setIsDeeplinkFlow: ( isDeeplink: boolean ) => void;
 	onModalOpen?: () => void;
 }
@@ -33,6 +37,9 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 		setWpVersion,
 		setBlueprintPreferredVersions,
 		setBlueprintDeeplinkWarnings,
+		setBlueprintSuggestedDomain,
+		setBlueprintSuggestedHttps,
+		setBlueprintSuggestedSiteName,
 		setIsDeeplinkFlow,
 		onModalOpen,
 	} = options;
@@ -69,15 +76,25 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 
 					setSelectedBlueprint( fileBlueprint );
 
+					const formValues = extractFormValuesFromBlueprint( blueprintJson );
+
 					if ( blueprintJson.preferredVersions ) {
-						const preferredVersions = blueprintJson.preferredVersions as BlueprintPreferredVersions;
-						setBlueprintPreferredVersions( preferredVersions );
-						if ( preferredVersions.php && preferredVersions.php !== 'latest' ) {
-							setPhpVersion( preferredVersions.php );
-						}
-						if ( preferredVersions.wp && preferredVersions.wp !== 'latest' ) {
-							setWpVersion( preferredVersions.wp );
-						}
+						setBlueprintPreferredVersions(
+							blueprintJson.preferredVersions as BlueprintPreferredVersions
+						);
+					}
+					if ( formValues.phpVersion ) {
+						setPhpVersion( formValues.phpVersion );
+					}
+					if ( formValues.wpVersion ) {
+						setWpVersion( formValues.wpVersion );
+					}
+					if ( formValues.customDomain ) {
+						setBlueprintSuggestedDomain( formValues.customDomain );
+						setBlueprintSuggestedHttps( formValues.enableHttps );
+					}
+					if ( formValues.siteName ) {
+						setBlueprintSuggestedSiteName( formValues.siteName );
 					}
 
 					setBlueprintDeeplinkWarnings( warnings );
@@ -94,6 +111,9 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 				setWpVersion,
 				setBlueprintPreferredVersions,
 				setBlueprintDeeplinkWarnings,
+				setBlueprintSuggestedDomain,
+				setBlueprintSuggestedHttps,
+				setBlueprintSuggestedSiteName,
 				setIsDeeplinkFlow,
 				onModalOpen,
 			]

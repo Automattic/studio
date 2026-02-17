@@ -30,7 +30,7 @@ export default function Anchor( props: JSX.IntrinsicElements[ 'a' ] & ExtraProps
 					/^https?:\/\/localhost/.test( href ) && selectedSite && ! selectedSite.running;
 				if ( urlForStoppedSite ) {
 					speak( __( 'Starting the server before opening the site link' ) );
-					await startServer( selectedSite?.id );
+					await startServer( selectedSite );
 				}
 
 				const isTelexUrl = getHostnameFromUrl( href ) === TELEX_HOSTNAME;

@@ -1,27 +1,32 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { vi } from 'vitest';
 import AIClearHistoryReminder from 'src/components/ai-clear-history-reminder';
 import { CLEAR_HISTORY_REMINDER_TIME } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { Message } from 'src/stores/chat-slice';
 
-jest.mock( 'src/lib/get-ipc-api' );
+const mockShowMessageBox = vi.fn();
+
+vi.mock( 'src/lib/get-ipc-api', () => ( {
+	getIpcApi: () => ( {
+		showMessageBox: mockShowMessageBox,
+	} ),
+} ) );
 
 describe( 'AIClearHistoryReminder', () => {
-	let clearConversation: jest.Mock;
+	let clearConversation: ReturnType< typeof vi.fn >;
 	const MOCKED_CURRENT_TIME = 1718882159928;
 	const OLD_MESSAGE_TIME = MOCKED_CURRENT_TIME - CLEAR_HISTORY_REMINDER_TIME - 1;
 
 	beforeEach( () => {
-		window.HTMLElement.prototype.scrollIntoView = jest.fn();
-		clearConversation = jest.fn();
-		jest.clearAllMocks();
-		jest.useFakeTimers();
-		jest.setSystemTime( MOCKED_CURRENT_TIME );
+		window.HTMLElement.prototype.scrollIntoView = vi.fn();
+		clearConversation = vi.fn();
+		mockShowMessageBox.mockClear();
+		vi.useFakeTimers();
+		vi.setSystemTime( MOCKED_CURRENT_TIME );
 	} );
 
-	afterEach( () => {
-		jest.useRealTimers();
-	} );
+	afterEach( () => {} );
 
 	it( 'should display a reminder when the conversation is stale', () => {
 		const message: Message = {
@@ -38,9 +43,7 @@ describe( 'AIClearHistoryReminder', () => {
 	} );
 
 	it( 'should warn then clear conversations', async () => {
-		( getIpcApi as jest.Mock ).mockReturnValue( {
-			showMessageBox: jest.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ),
-		} );
+		mockShowMessageBox.mockResolvedValue( { response: 0, checkboxChecked: false } );
 		const message: Message = {
 			id: 0,
 			createdAt: OLD_MESSAGE_TIME,
@@ -51,19 +54,21 @@ describe( 'AIClearHistoryReminder', () => {
 			<AIClearHistoryReminder lastMessage={ message } clearConversation={ clearConversation } />
 		);
 
+		// Use real timers for the async operation
+		vi.useRealTimers();
 		fireEvent.click( screen.getByText( /Clear the history/ ) );
 
 		await waitFor( () => {
 			expect( getIpcApi().showMessageBox ).toHaveBeenCalledTimes( 1 );
 			expect( clearConversation ).toHaveBeenCalledTimes( 1 );
 		} );
+		vi.useFakeTimers();
+		vi.setSystemTime( MOCKED_CURRENT_TIME );
 	} );
 
 	it( 'should clear conversations without warning if dismised permanently', async () => {
 		localStorage.setItem( 'dontShowClearMessagesWarning', 'true' );
-		( getIpcApi as jest.Mock ).mockReturnValue( {
-			showMessageBox: jest.fn().mockResolvedValue( { response: 1, checkboxChecked: false } ),
-		} );
+		mockShowMessageBox.mockResolvedValue( { response: 1, checkboxChecked: false } );
 		const message: Message = {
 			id: 0,
 			createdAt: OLD_MESSAGE_TIME,

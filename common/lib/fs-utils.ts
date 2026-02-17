@@ -77,6 +77,29 @@ export async function pathExists( path: string ): Promise< boolean > {
 	}
 }
 
+export async function recursiveCopyDirectory(
+	source: string,
+	destination: string
+): Promise< void > {
+	await fsPromises.mkdir( destination, { recursive: true } );
+
+	const entries = await fsPromises.readdir( source, { withFileTypes: true } );
+
+	await Promise.all(
+		entries.map( ( entry ) => {
+			const sourcePath = path.join( source, entry.name );
+			const destinationPath = path.join( destination, entry.name );
+
+			if ( entry.isDirectory() ) {
+				return recursiveCopyDirectory( sourcePath, destinationPath );
+			}
+			if ( entry.isFile() ) {
+				return fsPromises.copyFile( sourcePath, destinationPath );
+			}
+		} )
+	);
+}
+
 export async function isEmptyDir( directory: string ): Promise< boolean > {
 	const stats = await fsPromises.stat( directory );
 	if ( ! stats.isDirectory() ) {

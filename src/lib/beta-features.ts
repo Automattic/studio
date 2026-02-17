@@ -13,7 +13,6 @@ export interface BetaFeatureDefinition {
  */
 const BETA_FEATURE_DEFAULTS: Record< keyof BetaFeatures, boolean > = {
 	multiWorkerSupport: false,
-	xdebugSupport: false,
 };
 
 /**
@@ -27,12 +26,6 @@ export function getBetaFeaturesDefinition(): Record< keyof BetaFeatures, BetaFea
 			default: BETA_FEATURE_DEFAULTS.multiWorkerSupport,
 			label: __( 'Multi-Worker Support' ),
 			description: __( 'Enable multi-worker PHP processing for faster performance' ),
-		},
-		xdebugSupport: {
-			key: 'xdebugSupport',
-			default: BETA_FEATURE_DEFAULTS.xdebugSupport,
-			label: __( 'Xdebug Support' ),
-			description: __( 'Enable PHP debugging with Xdebug (one site at a time)' ),
 		},
 	};
 }

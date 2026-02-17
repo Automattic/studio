@@ -14,26 +14,16 @@ console.log( 'Sentry environment:', isDevEnvironment ? 'development' : 'producti
 
 export default defineConfig( {
 	main: {
-		plugins: [
-			viteStaticCopy( {
-				targets: [
-					{
-						src: 'src/about-menu/about-menu.html',
-						dest: '.',
-					},
-					{
-						src: 'src/about-menu/studio-app-icon.png',
-						dest: '.',
-					},
-				],
-			} ),
-		],
+		plugins: [],
 		resolve: {
 			alias: {
 				src: resolve( 'src' ),
 				common: resolve( 'common' ),
 				cli: resolve( 'cli' ),
 				vendor: resolve( 'vendor' ),
+				'@wp-playground/blueprints/blueprint-schema-validator': resolve(
+					'node_modules/@wp-playground/blueprints/blueprint-schema-validator.js'
+				),
 			},
 		},
 		define: {
@@ -50,6 +40,9 @@ export default defineConfig( {
 				output: {
 					entryFileNames: '[name].js',
 				},
+				external: [
+					/^@php-wasm\/.*/,
+				],
 			},
 		},
 	},
@@ -94,6 +87,14 @@ export default defineConfig( {
 					{
 						src: 'node_modules/@rive-app/canvas/rive_fallback.wasm',
 						dest: 'assets',
+					},
+					{
+						src: 'src/about-menu/about-menu.html',
+						dest: '.',
+					},
+					{
+						src: 'src/about-menu/studio-app-icon.png',
+						dest: '.',
 					},
 				],
 			} ),

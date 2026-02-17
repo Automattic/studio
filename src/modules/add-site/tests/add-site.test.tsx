@@ -1,30 +1,29 @@
-// Run tests: yarn test -- src/components/add-site-button.test.tsx
-import { jest } from '@jest/globals';
 import { render, waitFor, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
+import { vi } from 'vitest';
 import { useOffline } from 'src/hooks/use-offline';
 import { FolderDialogResponse } from 'src/ipc-handlers';
 import { createTestStore } from 'src/lib/test-utils';
 import AddSite from 'src/modules/add-site';
 import { useGetBlueprints } from 'src/stores/wpcom-api';
 
-jest.mock( 'src/stores/certificate-trust-api', () => {
-	const actual = jest.requireActual( 'src/stores/certificate-trust-api' ) || {};
+vi.mock( 'src/stores/certificate-trust-api', async () => {
+	const actual = await vi.importActual( 'src/stores/certificate-trust-api' );
 	return {
-		...actual,
-		useCheckCertificateTrustQuery: jest.fn().mockReturnValue( { data: true } ),
+		...( actual || {} ),
+		useCheckCertificateTrustQuery: vi.fn().mockReturnValue( { data: true } ),
 	};
 } );
 
-jest.mock( 'src/lib/app-globals', () => ( {
+vi.mock( 'src/lib/app-globals', () => ( {
 	isWindows: () => false,
 } ) );
 
-jest.mock( 'src/stores/wordpress-versions-api', () => {
-	const actual = jest.requireActual( 'src/stores/wordpress-versions-api' ) || {};
+vi.mock( 'src/stores/wordpress-versions-api', async () => {
+	const actual = await vi.importActual( 'src/stores/wordpress-versions-api' );
 	return {
-		...actual,
+		...( actual || {} ),
 		useGetWordPressVersions: () => ( {
 			data: [
 				{
@@ -37,46 +36,46 @@ jest.mock( 'src/stores/wordpress-versions-api', () => {
 				{ value: '6.3.3', isBeta: false, isDevelopment: false, label: '6.3.3' },
 			],
 		} ),
-		selectWordPressVersionsWithLatest: jest.fn(),
-		selectLatestStableVersion: jest.fn(),
+		selectWordPressVersionsWithLatest: vi.fn(),
+		selectLatestStableVersion: vi.fn(),
 	};
 } );
 
 const mockShowOpenFolderDialog =
-	jest.fn< ( dialogTitle: string ) => Promise< FolderDialogResponse | null > >();
+	vi.fn< ( dialogTitle: string ) => Promise< FolderDialogResponse | null > >();
 const mockGenerateProposedSitePath =
-	jest.fn< ( siteName: string ) => Promise< FolderDialogResponse > >();
-const mockGetAllCustomDomains = jest.fn< () => Promise< string[] > >().mockResolvedValue( [] );
-const mockPullSite = jest.fn();
-const mockUseSyncSites = jest.fn();
-const mockSetSelectedTab = jest.fn();
+	vi.fn< ( siteName: string ) => Promise< FolderDialogResponse > >();
+const mockGetAllCustomDomains = vi.fn< () => Promise< string[] > >().mockResolvedValue( [] );
+const mockPullSite = vi.fn();
+const mockUseSyncPull = vi.fn();
+const mockSetSelectedTab = vi.fn();
 
-jest.mock( 'src/lib/get-ipc-api', () => ( {
+vi.mock( 'src/lib/get-ipc-api', () => ( {
 	__esModule: true,
-	default: jest.fn(),
+	default: vi.fn(),
 	getIpcApi: () => ( {
-		isCATrusted: jest.fn( () => Promise.resolve( true ) ),
+		isCATrusted: vi.fn( () => Promise.resolve( true ) ),
 		showOpenFolderDialog: mockShowOpenFolderDialog,
 		generateProposedSitePath: mockGenerateProposedSitePath,
 		getAllCustomDomains: mockGetAllCustomDomains,
-		setWindowControlVisibility: jest.fn(),
-		setupAppMenu: jest.fn(),
+		setWindowControlVisibility: vi.fn(),
+		setupAppMenu: vi.fn(),
 	} ),
 } ) );
 
-jest.mock( 'src/hooks/sync-sites/use-sync-pull', () => ( {
-	useSyncPull: () => mockUseSyncSites(),
+vi.mock( 'src/hooks/sync-sites/use-sync-pull', () => ( {
+	useSyncPull: () => mockUseSyncPull(),
 } ) );
 
-jest.mock( 'src/hooks/use-import-export', () => ( {
+vi.mock( 'src/hooks/use-import-export', () => ( {
 	useImportExport: () => ( {
 		importState: {},
-		importFile: jest.fn(),
-		clearImportState: jest.fn(),
+		importFile: vi.fn(),
+		clearImportState: vi.fn(),
 	} ),
 } ) );
 
-jest.mock( 'src/hooks/use-content-tabs', () => ( {
+vi.mock( 'src/hooks/use-content-tabs', () => ( {
 	useContentTabs: () => ( {
 		selectedTab: 'overview',
 		setSelectedTab: mockSetSelectedTab,
@@ -84,35 +83,33 @@ jest.mock( 'src/hooks/use-content-tabs', () => ( {
 	} ),
 } ) );
 
-const mockCreateSite = jest.fn< ( path: string, name?: string, wpVersion?: string ) => void >();
-jest.mock( 'src/hooks/use-site-details', () => ( {
+const mockCreateSite = vi.fn< ( path: string, name?: string, wpVersion?: string ) => void >();
+vi.mock( 'src/hooks/use-site-details', () => ( {
 	useSiteDetails: () => ( {
 		createSite: mockCreateSite,
 		sites: [],
 	} ),
 } ) );
 
-jest.mock( 'src/hooks/use-offline', () => ( {
-	useOffline: jest.fn().mockReturnValue( false ),
+vi.mock( 'src/hooks/use-offline', () => ( {
+	useOffline: vi.fn().mockReturnValue( false ),
 } ) );
 
-jest.mock( 'src/stores/wpcom-api', () => {
-	const actual = jest.requireActual( 'src/stores/wpcom-api' ) || {};
+vi.mock( 'src/stores/wpcom-api', async () => {
+	const actual = await vi.importActual( 'src/stores/wpcom-api' );
 	return {
-		...actual,
-		useGetBlueprints: jest.fn().mockReturnValue( {
+		...( actual || {} ),
+		useGetBlueprints: vi.fn().mockReturnValue( {
 			data: {
 				blueprints: [],
 				total: 0,
 			},
 			isLoading: false,
-			refetch: jest.fn(),
+			refetch: vi.fn(),
 			isUninitialized: false,
 		} ),
 	};
 } );
-
-const mockUseGetBlueprints = useGetBlueprints as jest.MockedFunction< typeof useGetBlueprints >;
 
 const renderWithProvider = ( children: React.ReactElement ) => {
 	const store = createTestStore();
@@ -120,17 +117,17 @@ const renderWithProvider = ( children: React.ReactElement ) => {
 };
 
 beforeEach( () => {
-	jest.clearAllMocks();
+	vi.clearAllMocks();
 
 	mockPullSite.mockReset();
-	mockUseSyncSites.mockReturnValue( {
+	mockUseSyncPull.mockReturnValue( {
 		pullSite: mockPullSite,
 		pullStates: {},
-		getPullState: jest.fn(),
+		getPullState: vi.fn(),
 		isAnySitePulling: false,
-		isSiteIdPulling: jest.fn(),
-		clearPullState: jest.fn(),
-		cancelPull: jest.fn(),
+		isSiteIdPulling: vi.fn(),
+		clearPullState: vi.fn(),
+		cancelPull: vi.fn(),
 	} );
 	mockSetSelectedTab.mockReset();
 
@@ -150,9 +147,7 @@ beforeEach( () => {
 } );
 
 describe( 'AddSite', () => {
-	beforeEach( () => {
-		jest.clearAllMocks();
-	} );
+	beforeEach( () => {} );
 
 	it( 'should dismiss the modal when the close button is activated via keyboard', async () => {
 		const user = userEvent.setup();
@@ -493,7 +488,7 @@ describe( 'AddSite', () => {
 	} );
 
 	it( 'should disable WordPress version field when offline', async () => {
-		( useOffline as jest.Mock ).mockReturnValue( true );
+		vi.mocked( useOffline ).mockReturnValue( true );
 
 		renderWithProvider( <AddSite /> );
 		const user = userEvent.setup();
@@ -509,7 +504,7 @@ describe( 'AddSite', () => {
 	} );
 
 	it( 'should enable WordPress version field when online', async () => {
-		( useOffline as jest.Mock ).mockReturnValue( false );
+		vi.mocked( useOffline ).mockReturnValue( false );
 
 		renderWithProvider( <AddSite /> );
 		const user = userEvent.setup();
@@ -525,7 +520,7 @@ describe( 'AddSite', () => {
 	} );
 
 	it( 'should show tooltip with offline message when hovering over disabled WordPress version field', async () => {
-		( useOffline as jest.Mock ).mockReturnValue( true );
+		vi.mocked( useOffline ).mockReturnValue( true );
 
 		renderWithProvider( <AddSite /> );
 		const user = userEvent.setup();
@@ -547,7 +542,7 @@ describe( 'AddSite', () => {
 	} );
 
 	it( 'should not show tooltip when hovering over WordPress version field while online', async () => {
-		( useOffline as jest.Mock ).mockReturnValue( false );
+		vi.mocked( useOffline ).mockReturnValue( false );
 
 		renderWithProvider( <AddSite /> );
 		const user = userEvent.setup();
@@ -568,7 +563,7 @@ describe( 'AddSite', () => {
 		).not.toBeInTheDocument();
 	} );
 
-	it( 'should show warning immediately when Blueprint preferred versions differ from defaults', async () => {
+	it( 'should show warning immediately when Blueprint preferred versions differ from selected versions', async () => {
 		const mockBlueprintData = {
 			data: {
 				blueprints: [
@@ -580,8 +575,8 @@ describe( 'AddSite', () => {
 						playground_url: '',
 						blueprint: {
 							preferredVersions: {
-								php: '8.1',
-								wp: '6.4.0',
+								php: '7.1',
+								wp: '6.2.0',
 							},
 						},
 					},
@@ -589,13 +584,11 @@ describe( 'AddSite', () => {
 				total: 1,
 			},
 			isLoading: false,
-			refetch: jest.fn(),
+			refetch: vi.fn(),
 			isUninitialized: false,
 		};
 
-		mockUseGetBlueprints.mockReturnValue(
-			mockBlueprintData as ReturnType< typeof useGetBlueprints >
-		);
+		vi.mocked( useGetBlueprints, { partial: true } ).mockReturnValue( mockBlueprintData );
 
 		renderWithProvider( <AddSite /> );
 		const user = userEvent.setup();
@@ -617,13 +610,12 @@ describe( 'AddSite', () => {
 		// Open advanced settings to access version selectors
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 
-		// Warning should show immediately since Blueprint versions (8.1, 6.4.0) differ from defaults (8.3, latest)
-		// No need to change version - the fix ensures warning appears right away
 		await waitFor( () => {
 			expect(
 				screen.getByText( 'Version differs from Blueprint recommendation' )
 			).toBeInTheDocument();
-			expect( screen.getByText( 'PHP 8.1 (default is 8.3)' ) ).toBeInTheDocument();
+			expect( screen.getByText( 'PHP 7.1 (selected is 8.3)' ) ).toBeInTheDocument();
+			expect( screen.getByText( 'WordPress 6.2.0 (selected is latest)' ) ).toBeInTheDocument();
 		} );
 
 		// Warning indicator should show next to Advanced settings
@@ -653,13 +645,11 @@ describe( 'AddSite', () => {
 				total: 1,
 			},
 			isLoading: false,
-			refetch: jest.fn(),
+			refetch: vi.fn(),
 			isUninitialized: false,
 		};
 
-		mockUseGetBlueprints.mockReturnValue(
-			mockBlueprintData as ReturnType< typeof useGetBlueprints >
-		);
+		vi.mocked( useGetBlueprints, { partial: true } ).mockReturnValue( mockBlueprintData );
 
 		renderWithProvider( <AddSite /> );
 		const user = userEvent.setup();

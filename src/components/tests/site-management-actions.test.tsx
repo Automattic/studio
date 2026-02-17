@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
+import { vi } from 'vitest';
 import {
 	SiteManagementActionProps,
 	SiteManagementActions,
@@ -9,25 +10,25 @@ import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { store } from 'src/stores';
 import { connectedSitesApi } from 'src/stores/sync/connected-sites';
 
-const mockGetConnectedWpcomSites = jest.fn();
-const mockUpdateSingleConnectedWpcomSite = jest.fn();
+const mockGetConnectedWpcomSites = vi.fn();
+const mockUpdateSingleConnectedWpcomSite = vi.fn();
 
-jest.mock( 'src/lib/get-ipc-api', () => ( {
-	getIpcApi: jest.fn( () => ( {
+vi.mock( 'src/lib/get-ipc-api', () => ( {
+	getIpcApi: vi.fn( () => ( {
 		getConnectedWpcomSites: mockGetConnectedWpcomSites,
 		updateSingleConnectedWpcomSite: mockUpdateSingleConnectedWpcomSite,
 	} ) ),
 } ) );
 
 // Mock useSiteDetails to return the site passed via context
-jest.mock( 'src/hooks/use-site-details', () => ( {
+vi.mock( 'src/hooks/use-site-details', () => ( {
 	useSiteDetails: () => ( {
 		selectedSite: { id: 'site-1', running: false },
 	} ),
 } ) );
 
 // Mock useAuth to return a dummy user
-jest.mock( 'src/hooks/use-auth', () => ( {
+vi.mock( 'src/hooks/use-auth', () => ( {
 	useAuth: () => ( {
 		user: { id: 1 },
 		isAuthenticated: true,
@@ -35,8 +36,8 @@ jest.mock( 'src/hooks/use-auth', () => ( {
 } ) );
 
 const defaultProps = {
-	onStart: jest.fn(),
-	onStop: jest.fn(),
+	onStart: vi.fn(),
+	onStop: vi.fn(),
 	loading: false,
 } as SiteManagementActionProps;
 describe( 'SiteManagementActions', () => {

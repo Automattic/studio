@@ -1,12 +1,12 @@
 import path from 'path';
 import fs from 'fs-extra';
 import semver from 'semver';
+import { recursiveCopyDirectory } from 'common/lib/fs-utils';
 import { updateLatestWPCliVersion } from 'src/lib/download-utils';
 import { getWordPressVersionPath, getSqlitePath, getWpCliPath } from 'src/lib/server-files-paths';
 import {
 	getSqliteCommandPath,
 	updateLatestSQLiteCommandVersion,
-	getSQLiteCommandVersion,
 } from 'src/lib/sqlite-command-versions';
 import { getSqliteVersionFromInstallation } from 'src/lib/sqlite-versions';
 import {
@@ -41,7 +41,7 @@ export async function copyBundledLatestWPVersion() {
 			} );
 		}
 		console.log( `Copying bundled WP version ${ bundledWPVersion } as 'latest' version…` );
-		await fs.copy( bundledWPVersionPath, latestWPVersionPath );
+		await recursiveCopyDirectory( bundledWPVersionPath, latestWPVersionPath );
 	}
 }
 
@@ -68,7 +68,7 @@ async function copyBundledSqlite() {
 		installedSqliteVersion && semver.gt( bundledSqliteVersion, installedSqliteVersion );
 	if ( ! isSqliteInstalled || isBundledVersionNewer ) {
 		console.log( `Copying bundled SQLite version ${ bundledSqliteVersion }…` );
-		await fs.copy( bundledSqlitePath, getSqlitePath() );
+		await recursiveCopyDirectory( bundledSqlitePath, getSqlitePath() );
 	}
 }
 
@@ -83,21 +83,11 @@ async function copyBundledWPCLI() {
 
 async function copyBundledSQLiteCommand() {
 	const bundledSqliteCommandPath = path.join( getResourcesPath(), 'wp-files', 'sqlite-command' );
-	const bundledSqliteCommandVersion = await getSQLiteCommandVersion( bundledSqliteCommandPath );
-	if ( ! bundledSqliteCommandVersion ) {
+	if ( ! ( await fs.pathExists( bundledSqliteCommandPath ) ) ) {
 		return;
 	}
-	const installedSqliteCommandPath = getSqliteCommandPath();
-	const isSqliteCommandInstalled = await fs.pathExists( installedSqliteCommandPath );
-
-	const installedSqliteCommandVersion = await getSQLiteCommandVersion( installedSqliteCommandPath );
-	const isBundledVersionNewer =
-		installedSqliteCommandVersion &&
-		semver.gt( bundledSqliteCommandVersion, installedSqliteCommandVersion );
-	if ( ! isSqliteCommandInstalled || isBundledVersionNewer ) {
-		console.log( `Copying bundled SQLite command version ${ bundledSqliteCommandVersion }…` );
-		await fs.copy( bundledSqliteCommandPath, installedSqliteCommandPath );
-	}
+	// Always copy to ensure files are complete and up-to-date
+	await recursiveCopyDirectory( bundledSqliteCommandPath, getSqliteCommandPath() );
 }
 
 async function copyBundledTranslations() {

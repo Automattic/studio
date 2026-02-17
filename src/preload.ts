@@ -39,6 +39,8 @@ const api: IpcApi = {
 			specificSelectionPaths
 		),
 	deleteSite: ( id, deleteFiles ) => ipcRendererInvoke( 'deleteSite', id, deleteFiles ),
+	copySite: ( sourceSiteId, newSiteId, siteName ) =>
+		ipcRendererInvoke( 'copySite', sourceSiteId, newSiteId, siteName ),
 	createSite: ( path, config ) => ipcRendererInvoke( 'createSite', path, config ),
 	updateSite: ( updatedSite, wpVersion ) =>
 		ipcRendererInvoke( 'updateSite', updatedSite, wpVersion ),
@@ -126,6 +128,10 @@ const api: IpcApi = {
 	addSyncOperation: ( id, status ) => ipcRendererSend( 'addSyncOperation', id, status ),
 	clearSyncOperation: ( id ) => ipcRendererSend( 'clearSyncOperation', id ),
 	cancelSyncOperation: ( id ) => ipcRendererSend( 'cancelSyncOperation', id ),
+	pauseSyncUpload: ( selectedSiteId, remoteSiteId ) =>
+		ipcRendererInvoke( 'pauseSyncUpload', selectedSiteId, remoteSiteId ),
+	resumeSyncUpload: ( selectedSiteId, remoteSiteId ) =>
+		ipcRendererInvoke( 'resumeSyncUpload', selectedSiteId, remoteSiteId ),
 	getDirectorySize: ( id, subdir ) => ipcRendererInvoke( 'getDirectorySize', id, subdir ),
 	getFileSize: ( id, filePath ) => ipcRendererInvoke( 'getFileSize', id, filePath ),
 	getPathForFile: ( file ) => webUtils.getPathForFile( file ),

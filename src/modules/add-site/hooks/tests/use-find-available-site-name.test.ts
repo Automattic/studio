@@ -1,18 +1,18 @@
-import { jest } from '@jest/globals';
 import { renderHook } from '@testing-library/react';
+import { vi } from 'vitest';
 import { FolderDialogResponse } from 'src/ipc-handlers';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useFindAvailableSiteName } from '../use-find-available-site-name';
 
-jest.mock( 'src/lib/get-ipc-api' );
+vi.mock( 'src/lib/get-ipc-api' );
 
 const mockGenerateProposedSitePath =
-	jest.fn< ( siteName: string ) => Promise< FolderDialogResponse > >();
+	vi.fn< ( siteName: string ) => Promise< FolderDialogResponse > >();
 
 describe( 'useFindAvailableSiteName', () => {
 	beforeEach( () => {
-		jest.clearAllMocks();
-		( getIpcApi as jest.Mock ).mockReturnValue( {
+		vi.clearAllMocks();
+		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 			generateProposedSitePath: mockGenerateProposedSitePath,
 		} );
 	} );

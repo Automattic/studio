@@ -3,14 +3,15 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { produce } from 'immer';
 import { Provider } from 'react-redux';
+import { vi } from 'vitest';
 import { Snapshot } from 'common/types/snapshot';
 import { PreviewActionButtonsMenu } from 'src/modules/preview-site/components/preview-action-buttons-menu';
 import { store, RootState } from 'src/stores';
 import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 
-jest.mock( 'src/lib/get-ipc-api', () => ( {
+vi.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: () => ( {
-		saveSnapshotsToStorage: jest.fn( () => Promise.resolve() ),
+		saveSnapshotsToStorage: vi.fn( () => Promise.resolve() ),
 	} ),
 } ) );
 
@@ -60,7 +61,7 @@ describe( 'PreviewActionButtonsMenu Rename', () => {
 	};
 
 	beforeEach( () => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 
 		// Reset Redux store state
 		store.dispatch( testActions.resetState() );

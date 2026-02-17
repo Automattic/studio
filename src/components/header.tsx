@@ -14,7 +14,7 @@ export default function Header() {
 		if ( ! site || isLoading ) return;
 
 		if ( ! site.running ) {
-			await startServer( site.id );
+			await startServer( site );
 		}
 		getIpcApi().openSiteURL( site.id, '/wp-admin' );
 	};
@@ -23,7 +23,7 @@ export default function Header() {
 		if ( ! site || isLoading ) return;
 
 		if ( ! site.running ) {
-			await startServer( site.id );
+			await startServer( site );
 		}
 		getIpcApi().openSiteURL( site.id, '', { autoLogin: false } );
 	};

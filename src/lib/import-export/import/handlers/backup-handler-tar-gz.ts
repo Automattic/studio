@@ -73,13 +73,15 @@ export class BackupHandlerTarGz extends EventEmitter implements BackupHandler {
 							this.emit( ImportEvents.BACKUP_EXTRACT_WARNING, { message } );
 						},
 						onReadEntry: ( entry ) => {
-							currentFile = entry.path;
-							processedFiles++;
-							this.emit( ImportEvents.BACKUP_EXTRACT_FILE_START, {
-								currentFile,
-								processedFiles,
-								totalFiles,
-							} as BackupExtractProgressEventData );
+							if ( isFileAllowed( entry.path ) ) {
+								currentFile = entry.path;
+								processedFiles++;
+								this.emit( ImportEvents.BACKUP_EXTRACT_FILE_START, {
+									currentFile,
+									processedFiles,
+									totalFiles,
+								} as BackupExtractProgressEventData );
+							}
 						},
 					} )
 				)

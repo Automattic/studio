@@ -18,7 +18,8 @@ export type PushStateProgressInfo = {
 		| 'finished'
 		| 'failed'
 		| 'cancelled'
-		| 'uploadingPaused';
+		| 'uploadingPaused'
+		| 'uploadingManuallyPaused';
 	progress: number;
 	message: string;
 };
@@ -84,6 +85,10 @@ function isKeyPushing( key: PushStateProgressInfo[ 'key' ] | undefined ): boolea
 
 function isKeyUploadingPaused( key: PushStateProgressInfo[ 'key' ] | undefined ): boolean {
 	return key === 'uploadingPaused';
+}
+
+function isKeyUploadingManuallyPaused( key: PushStateProgressInfo[ 'key' ] | undefined ): boolean {
+	return key === 'uploadingManuallyPaused';
 }
 
 function isKeyUploading( key: PushStateProgressInfo[ 'key' ] | undefined ): boolean {
@@ -182,6 +187,11 @@ export function useSyncStatesProgressInfo() {
 			},
 			uploadingPaused: {
 				key: 'uploadingPaused',
+				progress: 45,
+				message: __( 'Uploading paused' ),
+			},
+			uploadingManuallyPaused: {
+				key: 'uploadingManuallyPaused',
 				progress: 45,
 				message: __( 'Uploading paused' ),
 			},
@@ -285,5 +295,6 @@ export function useSyncStatesProgressInfo() {
 		getPushUploadMessage,
 		mapUploadProgressToOverallProgress,
 		isKeyUploadingPaused,
+		isKeyUploadingManuallyPaused,
 	};
 }

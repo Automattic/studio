@@ -1,5 +1,6 @@
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import validateBlueprintSchema from '@wp-playground/blueprints/blueprint-schema-validator';
+import type { Blueprint } from '@wp-playground/blueprints';
 
 interface UnsupportedFeature {
 	type: 'step' | 'property';
@@ -20,13 +21,6 @@ const UNSUPPORTED_BLUEPRINT_FEATURES: UnsupportedFeature[] = [
 		type: 'step',
 		name: 'login',
 		reason: __( 'Studio automatically creates and logs in the admin user during site creation.' ),
-	},
-	{
-		type: 'step',
-		name: 'defineSiteUrl',
-		reason: __(
-			'Custom site URLs in blueprints are ignored. You can set a custom site URL on the Settings tab.'
-		),
 	},
 ];
 
@@ -60,17 +54,12 @@ function getUnsupportedFeatureInfo( name: string ): UnsupportedFeature | undefin
 	);
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type BlueprintData = Record< string, any >;
-
 export type BlueprintPreferredVersions = {
 	php?: string;
 	wp?: string;
 };
 
-export function scanBlueprintForUnsupportedFeatures(
-	blueprint: BlueprintData
-): UnsupportedFeature[] {
+export function scanBlueprintForUnsupportedFeatures( blueprint: Blueprint ): UnsupportedFeature[] {
 	const foundUnsupported: UnsupportedFeature[] = [];
 
 	if ( blueprint.steps && Array.isArray( blueprint.steps ) ) {
@@ -100,8 +89,8 @@ export function scanBlueprintForUnsupportedFeatures(
 }
 
 export function filterUnsupportedBlueprintFeatures(
-	blueprint: BlueprintData | undefined
-): BlueprintData | undefined {
+	blueprint: Blueprint | undefined
+): Blueprint | undefined {
 	if ( ! blueprint ) {
 		return undefined;
 	}
@@ -146,15 +135,15 @@ export async function validateBlueprintData(
 	const isValid = validateBlueprintSchema( blueprintJson );
 
 	if ( ! isValid && validateBlueprintSchema.errors ) {
-		const firstError = validateBlueprintSchema.errors[ 0 ] as {
-			instancePath?: string;
-			message?: string;
-			params?: { additionalProperty?: string };
-		};
-		const errorPath = firstError.instancePath || '/';
-		const additionalProp = firstError.params?.additionalProperty;
+		const firstError = validateBlueprintSchema.errors[ 0 ];
+		// The schema validator uses ajv v8 internally (instancePath, additionalProperty)
+		// but ships with ajv v6 types (dataPath, ErrorParameters).
+		type RuntimeError = { instancePath?: string; params?: { additionalProperty?: string } };
+		const error = firstError as unknown as RuntimeError;
+		const errorPath = error.instancePath || '/';
+		const additionalProp = error.params?.additionalProperty;
 		const errorMessage = additionalProp
-			? __( `"${ additionalProp }" is not a valid Blueprint property` )
+			? sprintf( __( '"%s" is not a valid Blueprint property' ), additionalProp )
 			: firstError.message || __( 'Invalid blueprint' );
 
 		return {
@@ -163,7 +152,7 @@ export async function validateBlueprintData(
 		};
 	}
 
-	const unsupportedFeatures = scanBlueprintForUnsupportedFeatures( blueprintJson as BlueprintData );
+	const unsupportedFeatures = scanBlueprintForUnsupportedFeatures( blueprintJson as Blueprint );
 	const warnings = unsupportedFeatures.map( ( feature ) => ( {
 		feature: feature.name,
 		reason: feature.reason,

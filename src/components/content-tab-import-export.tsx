@@ -237,7 +237,7 @@ const ImportSite = ( {
 	const openSite = async () => {
 		if ( ! selectedSite.running ) {
 			speak( __( 'Starting the server before opening the site link' ) );
-			await startServer( selectedSite.id );
+			await startServer( selectedSite );
 		}
 		getIpcApi().openSiteURL( selectedSite.id, '', { autoLogin: false } );
 	};
@@ -251,8 +251,7 @@ const ImportSite = ( {
 		clearImportFileInput();
 	};
 
-	const startLoadingCursorClassName =
-		loadingServer[ selectedSite.id ] && 'animate-pulse duration-100 cursor-wait';
+	const startLoadingCursorClassName = loadingServer[ selectedSite.id ] && 'cursor-wait';
 
 	const isImporting = currentProgress?.progress < 100 && ! isThisSiteSyncing;
 	const isImported = currentProgress?.progress === 100 && ! isDraggingOver && ! isThisSiteSyncing;
@@ -301,6 +300,7 @@ const ImportSite = ( {
 										className={ cx( startLoadingCursorClassName ) }
 										variant="primary"
 										onClick={ openSite }
+										disabled={ !! loadingServer[ selectedSite.id ] }
 									>
 										{ __( 'Open site ↗' ) }
 									</Button>

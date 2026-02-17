@@ -2,11 +2,9 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import semver from 'semver';
 import { getLatestTag, getCommitCount } from './lib/git-utils.mjs';
-
-const __dirname = path.dirname( fileURLToPath( import.meta.url ) );
+import packageJson from '../apps/studio/package.json' with { type: 'json' };
 
 const latestTag = getLatestTag();
 const commitCount = getCommitCount( latestTag );
@@ -18,10 +16,6 @@ if ( ! commitCount && commitCount !== 0 ) {
 	// GITHUB_SHA=abcdef1234567890 node ./scripts/prepare-dev-build-version.mjs
 	throw new Error( 'Missing commit count' );
 }
-
-const packageJsonPath = path.resolve( __dirname, '../package.json' );
-const packageJsonText = await fs.readFile( packageJsonPath, 'utf-8' );
-const packageJson = JSON.parse( packageJsonText );
 
 // Use version from latestTag (strip leading 'v' if present)
 const tagVersion = latestTag.startsWith( 'v' ) ? latestTag.slice( 1 ) : latestTag;
@@ -35,4 +29,5 @@ const devVersion = `${ parsedVersion.major }.${ parsedVersion.minor }.${ parsedV
 
 packageJson.version = devVersion;
 
+const packageJsonPath = path.resolve( 'apps', 'studio', 'package.json' );
 await fs.writeFile( packageJsonPath, JSON.stringify( packageJson, null, '\t' ) + '\n' );

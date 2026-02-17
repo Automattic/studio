@@ -2,13 +2,15 @@ import child_process from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import packageJson from '../package.json' with { type: 'json' };
+import packageJson from '../apps/studio/package.json' with { type: 'json' };
 
 const __dirname = path.dirname( fileURLToPath( import.meta.url ) );
 const fileArchitecture = process.env.FILE_ARCHITECTURE;
 
 if ( ! fileArchitecture ) {
-	throw new Error( 'FILE_ARCHITECTURE environment variable is required (for example: x64 or arm64).' );
+	throw new Error(
+		'FILE_ARCHITECTURE environment variable is required (for example: x64 or arm64).'
+	);
 }
 
 const outDir = path.resolve( __dirname, '../apps/studio/out' );
@@ -19,7 +21,10 @@ const appPath = path.resolve(
 	`${ packageJson.productName }.app`
 );
 
-const dmgPath = path.resolve( outDir, `${ packageJson.productName }-darwin-${ fileArchitecture }.dmg` );
+const dmgPath = path.resolve(
+	outDir,
+	`${ packageJson.productName }-darwin-${ fileArchitecture }.dmg`
+);
 
 const volumeIconPath = path.resolve( __dirname, '../apps/studio/assets/studio-app-icon.icns' );
 const backgroundPath = path.resolve( __dirname, '../apps/studio/assets/dmg-background.png' );

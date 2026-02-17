@@ -173,7 +173,8 @@ lane :code_freeze do |version:, skip_confirm: false|
     repository: GITHUB_REPO,
     source_branch: branch_name,
     target_branch: MAIN_BRANCH,
-    labels: ['Releases']
+    labels: ['Releases'],
+    reviewers: Array(ENV.fetch('GITHUB_USERNAME', nil))
   )
 
   # Create the first beta (bumps version, commits, pushes, creates GitHub prerelease, triggers build)
@@ -321,7 +322,8 @@ lane :publish_release do |version:, skip_confirm: false|
     repository: GITHUB_REPO,
     source_branch: release_branch,
     target_branch: MAIN_BRANCH,
-    labels: ['Releases']
+    labels: ['Releases'],
+    reviewers: Array(ENV.fetch('GITHUB_USERNAME', nil))
   )
 
   Fastlane::Helper::GitHelper.delete_remote_branch_if_exists!(release_branch)

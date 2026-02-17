@@ -123,7 +123,7 @@ end
 #
 # - Extracts translatable strings and commits them to trunk (for GlotPress import)
 # - Creates a `release/<version>` branch from trunk
-# - Delegates to {new_beta_release} to bump to beta1, commit, push, create a GitHub prerelease, and trigger a build
+# - Delegates to {new_beta_release} to bump to beta1, commit, push, tag, and trigger a build
 #
 # @param version [String] The version to freeze (e.g., '1.7.4')
 # @param skip_confirm [Boolean] Skip interactive confirmation prompts (default: false)
@@ -137,7 +137,7 @@ lane :code_freeze do |version:, skip_confirm: false|
     - Extract translatable strings and commit to `#{branch_name}`
     - Create a backmerge PR from `#{branch_name}` to `#{MAIN_BRANCH}`
     - Bump version to #{version}-beta1
-    - Create a GitHub prerelease for v#{version}-beta1
+    - Tag v#{version}-beta1
     - Trigger a release build
   PROMPT
   next unless skip_confirm || UI.confirm('Continue?')
@@ -177,7 +177,7 @@ lane :code_freeze do |version:, skip_confirm: false|
     reviewers: Array(ENV.fetch('GITHUB_USERNAME', nil))
   )
 
-  # Create the first beta (bumps version, commits, pushes, creates GitHub prerelease, triggers build)
+  # Create the first beta (bumps version, commits, pushes, tags, triggers build)
   new_beta_release(version: "#{version}-beta1", skip_confirm: skip_confirm)
 
   UI.success("Code freeze complete! Created #{branch_name} with first beta")
@@ -186,7 +186,7 @@ end
 # Create a new beta release on the current release branch.
 #
 # - Bumps the beta number (e.g., beta1 -> beta2)
-# - Creates a GitHub prerelease (which also creates the tag)
+# - Tags the release
 # - Triggers a release build in Buildkite
 #
 # @param version [String] (optional) The beta version to use (e.g., '1.7.4-beta1').
@@ -210,7 +210,7 @@ lane :new_beta_release do |version: nil, skip_confirm: false|
   UI.important <<~PROMPT
     Creating new beta release #{new_version}. This will:
     - Bump version to #{new_version}
-    - Create a GitHub prerelease for v#{new_version}
+    - Tag v#{new_version}
     - Trigger a release build
   PROMPT
   next unless skip_confirm || UI.confirm('Continue?')
@@ -225,16 +225,10 @@ lane :new_beta_release do |version: nil, skip_confirm: false|
   )
   push_to_git_remote
 
-  # Create GitHub prerelease (also creates the tag)
+  # Tag the beta release
   tag_name = "v#{new_version}"
-  create_github_release(
-    repository: GITHUB_REPO,
-    version: tag_name,
-    target: "release/#{base_version}",
-    release_assets: [],
-    prerelease: true,
-    is_draft: false
-  )
+  add_git_tag(tag: tag_name)
+  push_git_tags(tag: tag_name)
 
   trigger_release_build(version: new_version)
 

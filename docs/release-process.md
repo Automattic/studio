@@ -12,14 +12,14 @@ Builds are signed, notarized (macOS), and uploaded to the Apps CDN automatically
 
 - Extracts translatable strings and commits them to `trunk` (a wpcom cron imports them to GlotPress)
 - Creates `release/<version>` branch from `trunk`
-- Bumps version to `<version>-beta1`, creates a GitHub prerelease, and triggers a build
+- Bumps version to `<version>-beta1`, tags it, and triggers a build
 
 ### 2. Beta Releases
 
 **ReleasesV2 milestone**: Beta Release | **Fastlane lane**: `new_beta_release`
 
 - Increments the beta number (e.g. beta1 → beta2)
-- Creates a GitHub prerelease and triggers a build
+- Tags the new beta version and triggers a build
 - Repeat as needed for additional betas
 
 ### 3. Pre-Release

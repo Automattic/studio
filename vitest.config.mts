@@ -5,6 +5,8 @@ export default defineConfig( {
 	assetsInclude: [ '**/*.riv' ],
 	test: {
 		pool: 'threads',
+		maxThreads: 8,
+		minThreads: 1,
 		globals: true,
 		environment: 'jsdom',
 		environmentOptions: {
@@ -29,12 +31,6 @@ export default defineConfig( {
 			deps: {
 				inline: [ '@php-wasm', '@wp-playground' ],
 				external: [ 'electron' ],
-			},
-		},
-		poolOptions: {
-			threads: {
-				maxThreads: 8,
-				minThreads: 1,
 			},
 		},
 		css: false,

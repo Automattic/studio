@@ -18,67 +18,69 @@ vi.mock( 'src/lib/wordpress-setup', () => ( {
 } ) );
 
 // Mock the WordPress provider
+const mockStartServer = vi.fn().mockResolvedValue( {
+	url: 'http://localhost:1234',
+	options: { port: 1234, phpVersion: '8.0' },
+	_internal: { mode: 'wordpress', port: 1234 },
+} );
+
 vi.mock( 'src/lib/wordpress-provider', () => {
 	const mockProvider = {
 		DEFAULT_PHP_VERSION: '8.0',
 		DEFAULT_WORDPRESS_VERSION: 'latest',
 		ALLOWED_PHP_VERSIONS: [ '8.0', '8.1', '8.2', '8.3' ],
 		SQLITE_FILENAME: 'sqlite-database-integration',
-		getWordPressVersionPath: vi.fn( ( version ) => `/mock/path/to/wp-${ version }` ),
-		getSqlitePath: vi.fn( () => '/mock/path/to/sqlite' ),
-		getWpCliPath: vi.fn( () => '/mock/path/to/wp-cli' ),
-		getWpCliFolderPath: vi.fn( () => '/mock/path/to/wp-cli-folder' ),
+		getWordPressVersionPath: vi
+			.fn()
+			.mockImplementation( ( version ) => `/mock/path/to/wp-${ version }` ),
+		getSqlitePath: vi.fn().mockReturnValue( '/mock/path/to/sqlite' ),
+		getWpCliPath: vi.fn().mockReturnValue( '/mock/path/to/wp-cli' ),
+		getWpCliFolderPath: vi.fn().mockReturnValue( '/mock/path/to/wp-cli-folder' ),
 		downloadWordPress: vi.fn(),
 		downloadWpCli: vi.fn(),
 		downloadSQLiteCommand: vi.fn(),
-		setupWordPressSite: vi.fn( () => Promise.resolve( true ) ),
-		startServer: vi.fn( () =>
-			Promise.resolve( {
-				url: 'http://localhost:1234',
-				options: { port: 1234, phpVersion: '8.0' },
-				_internal: { mode: 'wordpress', port: 1234 },
-			} )
-		),
-		createServerProcess: vi.fn( () => ( {
+		setupWordPressSite: vi.fn().mockResolvedValue( true ),
+		startServer: mockStartServer,
+		createServerProcess: vi.fn().mockReturnValue( {
 			url: 'http://localhost:1234',
 			php: {},
-			start: vi.fn( () => Promise.resolve() ),
-			stop: vi.fn( () => Promise.resolve() ),
-			runPhp: vi.fn( () => Promise.resolve( '' ) ),
-		} ) ),
+			start: vi.fn().mockResolvedValue( undefined ),
+			stop: vi.fn().mockResolvedValue( undefined ),
+			runPhp: vi.fn().mockResolvedValue( '' ),
+		} ),
 		executeWPCli: vi.fn(),
-		isValidWordPressVersion: vi.fn( () => true ),
-		getConfig: vi.fn( () => Promise.resolve( {} ) ),
+		isValidWordPressVersion: vi.fn().mockReturnValue( true ),
+		getConfig: vi.fn().mockResolvedValue( {} ),
 	};
 
 	return {
 		...mockProvider,
-		getWordPressProvider: vi.fn( () => mockProvider ),
+		getWordPressProvider: vi.fn().mockReturnValue( mockProvider ),
 	};
 } );
 
 // Mock CliServerProcess with a start method that calls startServer
-vi.mock( 'src/modules/cli/lib/cli-server-process', () => ( {
-	CliServerProcess: vi.fn().mockImplementation( () => ( {
-		url: 'http://localhost:1234',
-		start: vi.fn( async () => {
-			// eslint-disable-next-line import/no-unresolved
-			const { startServer } = await import( 'src/lib/wordpress-provider' );
-			return startServer();
-		} ),
-		stop: vi.fn(),
-		delete: vi.fn(),
-	} ) ),
-} ) );
+vi.mock( 'src/modules/cli/lib/cli-server-process', () => {
+	class MockCliServerProcess {
+		url = 'http://localhost:1234';
+		start = vi.fn().mockImplementation( async () => {
+			return mockStartServer();
+		} );
+		stop = vi.fn();
+		delete = vi.fn();
+	}
+
+	return {
+		CliServerProcess: MockCliServerProcess,
+	};
+} );
 
 vi.mock( 'src/storage/user-data' );
 
 describe( 'SiteServer', () => {
 	describe( 'start', () => {
 		it( 'should throw if the server starts with a non-WordPress mode', async () => {
-			// eslint-disable-next-line import/no-unresolved
-			const { startServer } = await import( 'src/lib/wordpress-provider' );
-			vi.mocked( startServer ).mockRejectedValue(
+			mockStartServer.mockRejectedValue(
 				new Error(
 					"Site server started with Playground's 'theme' mode. Studio only supports 'wordpress' mode."
 				)

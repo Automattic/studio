@@ -43,17 +43,18 @@
 		"test:watch": "vitest",
 		"e2e": "npx playwright install && npx playwright test",
 		"test:metrics": "npx playwright test --config=./tools/metrics/playwright.metrics.config.ts",
-		"make-pot": "node ./scripts/make-pot.mjs"
+		"make-pot": "node ./scripts/make-pot.mjs",
+		"download-language-packs": "ts-node ./scripts/download-language-packs.ts"
 	},
 	"devDependencies": {
 		"@automattic/wp-babel-makepot": "^1.2.0",
 		"@eslint/js": "^9.39.2",
-		"@playwright/test": "^1.58.1",
+		"@playwright/test": "^1.58.2",
 		"@testing-library/jest-dom": "^6.9.1",
-		"@testing-library/react": "^16.3.1",
+		"@testing-library/react": "^16.3.2",
 		"@testing-library/user-event": "^14.6.1",
 		"@types/fs-extra": "^11.0.4",
-		"@vitest/ui": "^2.1.8",
+		"@vitest/ui": "^4.0.18",
 		"@yao-pkg/pkg": "^6.13.1",
 		"electron-playwright-helpers": "^2.1.0",
 		"eslint": "^9.39.2",
@@ -74,7 +75,7 @@
 		"ts-node": "^10.9.2",
 		"typescript": "~5.9.3",
 		"typescript-eslint": "^8.53.0",
-		"vitest": "^2.1.9",
+		"vitest": "^4.0.18",
 		"web-streams-polyfill": "^4.2.0"
 	},
 	"overrides": {

@@ -19,12 +19,12 @@ vi.mock( '@sentry/electron/main', () => ( {
 } ) );
 vi.mock( '@studio/common/lib/bump-stat', () => ( {
 	bumpStat: vi.fn(),
-	bumpAggregatedUniqueStat: vi.fn( () => Promise.resolve() ),
+	bumpAggregatedUniqueStat: vi.fn().mockResolvedValue( undefined ),
 } ) );
 vi.mock( 'src/lib/user-data-watcher' );
 vi.mock( 'src/setup-wp-server-files', () => ( {
-	setupWPServerFiles: vi.fn( () => Promise.resolve() ),
-	updateWPServerFiles: vi.fn( () => Promise.resolve() ),
+	setupWPServerFiles: vi.fn().mockResolvedValue( undefined ),
+	updateWPServerFiles: vi.fn().mockResolvedValue( undefined ),
 } ) );
 vi.mock( 'atomically', () => ( {
 	readFile: vi.fn().mockResolvedValue( Buffer.from( JSON.stringify( { sites: [] } ) ) ),
@@ -63,10 +63,10 @@ vi.mock( 'src/modules/cli/lib/execute-command', () => {
 	};
 } );
 vi.mock( 'src/modules/cli/lib/windows-installation-manager', () => ( {
-	updateWindowsCliVersionedPathIfNeeded: vi.fn().mockReturnValue( Promise.resolve() ),
+	updateWindowsCliVersionedPathIfNeeded: vi.fn().mockResolvedValue( undefined ),
 } ) );
 vi.mock( 'electron-devtools-installer', () => ( {
-	installExtension: vi.fn( () => Promise.resolve( { id: 'test-extension' } ) ),
+	installExtension: vi.fn().mockResolvedValue( { id: 'test-extension' } ),
 	REACT_DEVELOPER_TOOLS: { id: 'fmkadmapgofadopljbjfkapdkoienihi' },
 	REDUX_DEVTOOLS: { id: 'lmhkpmbekcpmknklioeibfkpmmfibljd' },
 } ) );
@@ -89,12 +89,12 @@ function mockElectron() {
 	vi.doMock( 'electron', () => {
 		return {
 			app: {
-				on: vi.fn( ( event, callback ) => {
+				on: vi.fn().mockImplementation( ( event, callback ) => {
 					mockedEvents[ event ] = callback;
 				} ),
 				off: vi.fn(),
 				getVersion: vi.fn().mockReturnValue( '1.0.0' ),
-				getPath: vi.fn( ( name: string ) => {
+				getPath: vi.fn().mockImplementation( ( name: string ) => {
 					switch ( name ) {
 						case 'home':
 							return '/mock/home/path';
@@ -236,7 +236,7 @@ describe( 'App initialization', () => {
 	it( 'should wait app initialization before creating main window via second-instance event', async () => {
 		vi.mocked( getMainWindow, { partial: true } ).mockResolvedValue( {
 			focus: vi.fn(),
-			isMinimized: vi.fn( () => false ),
+			isMinimized: vi.fn().mockReturnValue( false ),
 		} );
 
 		const { mockedEvents } = mockElectron();

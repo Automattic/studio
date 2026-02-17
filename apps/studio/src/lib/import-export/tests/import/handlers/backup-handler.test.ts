@@ -202,7 +202,7 @@ describe( 'BackupHandlerFactory', () => {
 			const extractionDirectory = '/tmp/extracted';
 
 			const createReadStreamMock: Partial< fs.ReadStream > = {
-				on: vi.fn( ( event, callback ) => {
+				on: vi.fn().mockImplementation( ( event, callback ) => {
 					if ( event === 'finish' ) {
 						callback();
 					}

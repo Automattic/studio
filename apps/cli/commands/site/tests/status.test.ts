@@ -10,7 +10,7 @@ vi.mock( 'cli/lib/appdata', async () => {
 		...actual,
 		getSiteByFolder: vi.fn(),
 		getSiteUrl: vi.fn(),
-		getAppdataDirectory: vi.fn( () => '/test/appdata' ),
+		getAppdataDirectory: vi.fn().mockReturnValue( '/test/appdata' ),
 	};
 } );
 vi.mock( 'cli/lib/pm2-manager' );

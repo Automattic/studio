@@ -24,6 +24,7 @@ import {
 	updateSiteAutoStart,
 	SiteData,
 } from 'cli/lib/appdata';
+import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { getServerFilesPath } from 'cli/lib/server-files';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
@@ -57,12 +58,13 @@ vi.mock( 'cli/lib/appdata', async () => {
 		updateSiteLatestCliPid: vi.fn(),
 		updateSiteAutoStart: vi.fn().mockResolvedValue( undefined ),
 		removeSiteFromAppdata: vi.fn(),
-		getSiteUrl: vi.fn( ( site ) => `http://localhost:${ site.port }` ),
+		getSiteUrl: vi.fn().mockImplementation( ( site ) => `http://localhost:${ site.port }` ),
 	};
 } );
+vi.mock( 'cli/lib/language-packs' );
 vi.mock( 'cli/lib/pm2-manager' );
 vi.mock( 'cli/lib/server-files', () => ( {
-	getServerFilesPath: vi.fn( () => '/test/server-files' ),
+	getServerFilesPath: vi.fn().mockReturnValue( '/test/server-files' ),
 } ) );
 vi.mock( 'cli/lib/site-language' );
 vi.mock( 'cli/lib/site-utils' );
@@ -158,6 +160,7 @@ describe( 'CLI: studio site create', () => {
 		);
 		vi.mocked( isOnline ).mockResolvedValue( true );
 		vi.mocked( getPreferredSiteLanguage ).mockResolvedValue( 'en' );
+		vi.mocked( copyLanguagePackToSite ).mockResolvedValue( false );
 	} );
 
 	afterEach( () => {
@@ -609,6 +612,99 @@ describe( 'CLI: studio site create', () => {
 			expect( startWordPressServer ).not.toHaveBeenCalled();
 			expect( consoleLogSpy ).toHaveBeenCalledWith( 'Site created successfully' );
 			expect( disconnect ).toHaveBeenCalled();
+		} );
+	} );
+
+	describe( 'Language Packs', () => {
+		it( 'should use bundled language packs and skip setSiteLanguage for latest WP version', async () => {
+			vi.mocked( getPreferredSiteLanguage ).mockResolvedValue( 'sv_SE' );
+			vi.mocked( copyLanguagePackToSite ).mockResolvedValue( true );
+
+			await runCommand( mockSitePath, { ...defaultTestOptions } );
+
+			expect( copyLanguagePackToSite ).toHaveBeenCalledWith( mockSitePath, 'sv_SE' );
+			expect( startWordPressServer ).toHaveBeenCalledWith(
+				expect.anything(),
+				expect.any( Logger ),
+				expect.objectContaining( {
+					blueprint: expect.objectContaining( {
+						steps: expect.arrayContaining( [
+							expect.objectContaining( {
+								step: 'defineWpConfigConsts',
+								consts: { WPLANG: 'sv_SE' },
+							} ),
+							expect.objectContaining( {
+								step: 'setSiteOptions',
+								options: { WPLANG: 'sv_SE' },
+							} ),
+						] ),
+					} ),
+				} )
+			);
+			// Should NOT include setSiteLanguage step
+			const calls = vi.mocked( startWordPressServer ).mock.calls;
+			const blueprintSteps = ( calls[ 0 ][ 2 ] as { blueprint?: Blueprint } )?.blueprint
+				?.steps as StepDefinition[];
+			expect( blueprintSteps.some( ( s ) => s.step === 'setSiteLanguage' ) ).toBe( false );
+		} );
+
+		it( 'should fall back to setSiteLanguage when bundled packs are not available', async () => {
+			vi.mocked( getPreferredSiteLanguage ).mockResolvedValue( 'sv_SE' );
+			vi.mocked( copyLanguagePackToSite ).mockResolvedValue( false );
+
+			await runCommand( mockSitePath, { ...defaultTestOptions } );
+
+			expect( startWordPressServer ).toHaveBeenCalledWith(
+				expect.anything(),
+				expect.any( Logger ),
+				expect.objectContaining( {
+					blueprint: expect.objectContaining( {
+						steps: expect.arrayContaining( [
+							expect.objectContaining( {
+								step: 'setSiteLanguage',
+								language: 'sv_SE',
+							} ),
+							expect.objectContaining( {
+								step: 'setSiteOptions',
+								options: { WPLANG: 'sv_SE' },
+							} ),
+						] ),
+					} ),
+				} )
+			);
+		} );
+
+		it( 'should use setSiteLanguage for non-latest WP versions', async () => {
+			vi.mocked( getPreferredSiteLanguage ).mockResolvedValue( 'sv_SE' );
+
+			await runCommand( mockSitePath, {
+				...defaultTestOptions,
+				wpVersion: '6.5',
+			} );
+
+			expect( copyLanguagePackToSite ).not.toHaveBeenCalled();
+			expect( startWordPressServer ).toHaveBeenCalledWith(
+				expect.anything(),
+				expect.any( Logger ),
+				expect.objectContaining( {
+					blueprint: expect.objectContaining( {
+						steps: expect.arrayContaining( [
+							expect.objectContaining( {
+								step: 'setSiteLanguage',
+								language: 'sv_SE',
+							} ),
+						] ),
+					} ),
+				} )
+			);
+		} );
+
+		it( 'should not set language when locale is English', async () => {
+			vi.mocked( getPreferredSiteLanguage ).mockResolvedValue( 'en' );
+
+			await runCommand( mockSitePath, { ...defaultTestOptions } );
+
+			expect( copyLanguagePackToSite ).not.toHaveBeenCalled();
 		} );
 	} );
 

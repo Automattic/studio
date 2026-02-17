@@ -19,7 +19,6 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useI18nLocale } from 'src/stores';
 import { useGetBlueprints } from 'src/stores/wpcom-api';
-import { BlueprintWarningNotice } from './blueprint-warning-notice';
 
 import './blueprints.css';
 
@@ -67,14 +66,6 @@ export function AddSiteBlueprintSelector( {
 	} );
 	const fileRef = useRef< HTMLInputElement | null >( null );
 	const [ validationError, setValidationError ] = useState< string | undefined >( undefined );
-	const [ blueprintWarnings, setBlueprintWarnings ] = useState<
-		| Array< {
-				feature: string;
-				reason: string;
-				alternative?: string;
-		  } >
-		| undefined
-	>( undefined );
 	const [ uploadedFileName, setUploadedFileName ] = useState< string | null >( null );
 
 	// Check if current selection is a file-based blueprint
@@ -85,7 +76,6 @@ export function AddSiteBlueprintSelector( {
 	const handleRemoveFile = useCallback( () => {
 		onBlueprintChange( '' );
 		setValidationError( undefined );
-		setBlueprintWarnings( undefined );
 		setUploadedFileName( null );
 		if ( fileRef.current ) {
 			fileRef.current.value = '';
@@ -95,7 +85,6 @@ export function AddSiteBlueprintSelector( {
 	const handleBlueprintClick = useCallback(
 		( item: DataViewBlueprint ) => {
 			setValidationError( undefined );
-			setBlueprintWarnings( undefined );
 			onBlueprintChange( item.slug );
 		},
 		[ onBlueprintChange ]
@@ -196,7 +185,6 @@ export function AddSiteBlueprintSelector( {
 	const handleFileSelect = async ( event: React.ChangeEvent< HTMLInputElement > ) => {
 		const file = event.target.files?.[ 0 ];
 		setValidationError( undefined );
-		setBlueprintWarnings( undefined );
 		setUploadedFileName( null );
 
 		if ( file && file.type === 'application/json' && onFileBlueprintSelect ) {
@@ -313,14 +301,6 @@ export function AddSiteBlueprintSelector( {
 					<br />
 					{ validationError }
 				</Notice>
-			) }
-
-			{ ! validationError && (
-				<BlueprintWarningNotice
-					warnings={ blueprintWarnings }
-					fileName={ selectedFileName || '' }
-					className="mx-0 mb-4"
-				/>
 			) }
 
 			<HStack alignment="edge" className="w-full mb-5 h-7">

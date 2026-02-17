@@ -24,7 +24,13 @@ import {
 } from 'src/stores/snapshot-slice';
 import { syncReducer, syncOperationsActions } from 'src/stores/sync';
 import { connectedSitesApi, connectedSitesReducer } from 'src/stores/sync/connected-sites';
-import { syncOperationsReducer } from 'src/stores/sync/sync-operations-slice';
+import {
+	syncOperationsReducer,
+	pushSiteThunk,
+	pullSiteThunk,
+	pollPushProgressThunk,
+	pollPullBackupThunk,
+} from 'src/stores/sync/sync-operations-slice';
 import { wpcomSitesApi } from 'src/stores/sync/wpcom-sites';
 import uiReducer from 'src/stores/ui-slice';
 import { wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
@@ -127,6 +133,24 @@ listenerMiddleware.startListening( {
 		};
 		const stateId = generateStateId( selectedSiteId, remoteSiteId );
 		getIpcApi().clearSyncOperation( stateId );
+	},
+} );
+
+// Show error modals for rejected sync thunks
+listenerMiddleware.startListening( {
+	matcher: isAnyOf(
+		pushSiteThunk.rejected,
+		pullSiteThunk.rejected,
+		pollPushProgressThunk.rejected,
+		pollPullBackupThunk.rejected
+	),
+	effect( action ) {
+		const payload = action.payload as
+			| { errorInfo?: { title: string; message: string; showOpenLogs?: boolean; error?: unknown } }
+			| undefined;
+		if ( payload?.errorInfo ) {
+			getIpcApi().showErrorMessageBox( payload.errorInfo );
+		}
 	},
 } );
 

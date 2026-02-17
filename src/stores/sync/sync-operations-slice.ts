@@ -86,10 +86,12 @@ const syncOperationsSlice = createSlice( {
 		},
 	},
 	extraReducers: ( builder ) => {
-		// Handle push thunk rejections (pushSiteThunk)
+		// Handle push thunk rejections (pushSiteThunk, pollPushProgressThunk)
 		builder.addMatcher(
 			( action ): action is PayloadAction< RejectedSyncPayload > =>
-				action.type === 'syncOperations/pushSite/rejected' && action.payload != null,
+				[ 'syncOperations/pushSite/rejected', 'syncOperations/pollPushProgress/rejected' ].includes(
+					action.type
+				) && action.payload != null,
 			( state, action ) => {
 				const { selectedSiteId, remoteSiteId } = action.payload;
 				const stateId = generateStateId( selectedSiteId, remoteSiteId );
@@ -226,7 +228,7 @@ const getErrorFromResponse = ( error: unknown ): string => {
 };
 
 // Payload type for thunk rejections handled by extraReducers
-type RejectedSyncPayload = {
+export type RejectedSyncPayload = {
 	selectedSiteId: string;
 	remoteSiteId: number;
 	errorInfo?: {
@@ -389,14 +391,6 @@ export const pushSiteThunk = createTypedAsyncThunk< PushSiteResult, PushSitePayl
 			}
 
 			Sentry.captureException( error );
-			getIpcApi().showErrorMessageBox( {
-				title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
-				message: __(
-					'An error occurred while pushing the site. If this problem persists, please contact support.'
-				),
-				error,
-				showOpenLogs: true,
-			} );
 			return rejectWithValue( {
 				selectedSiteId: selectedSite.id,
 				remoteSiteId,
@@ -413,12 +407,6 @@ export const pushSiteThunk = createTypedAsyncThunk< PushSiteResult, PushSitePayl
 
 		// Check file size
 		if ( archiveSizeInBytes > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
-			getIpcApi().showErrorMessageBox( {
-				title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
-				message: __(
-					'The site is too large to push. Please reduce the size of the site and try again.'
-				),
-			} );
 			await getIpcApi().removeExportedSiteTmpFile( archivePath );
 			return rejectWithValue( {
 				selectedSiteId: selectedSite.id,
@@ -505,10 +493,6 @@ export const pushSiteThunk = createTypedAsyncThunk< PushSiteResult, PushSitePayl
 				throw error;
 			}
 			Sentry.captureException( error );
-			getIpcApi().showErrorMessageBox( {
-				title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
-				message: getErrorFromResponse( error ),
-			} );
 			return rejectWithValue( {
 				selectedSiteId: selectedSite.id,
 				remoteSiteId,
@@ -608,11 +592,6 @@ export const pullSiteThunk = createTypedAsyncThunk< PullSiteResult, PullSitePayl
 			console.error( 'Pull request failed:', error );
 
 			Sentry.captureException( error );
-			getIpcApi().showErrorMessageBox( {
-				title: sprintf( __( 'Error pulling from %s' ), connectedSite.name ),
-				message: __( 'Studio was unable to connect to WordPress.com. Please try again.' ),
-			} );
-
 			return rejectWithValue( {
 				selectedSiteId: selectedSite.id,
 				remoteSiteId,
@@ -637,7 +616,7 @@ export const pollPushProgressThunk = createTypedAsyncThunk(
 	'syncOperations/pollPushProgress',
 	async (
 		{ client, selectedSiteId, remoteSiteId, pushStatesProgressInfo }: PollPushProgressPayload,
-		{ dispatch, getState }
+		{ dispatch, getState, rejectWithValue }
 	) => {
 		// Check if state exists and is not cancelled
 		const state = getState();
@@ -662,7 +641,16 @@ export const pollPushProgressThunk = createTypedAsyncThunk(
 		);
 
 		if ( ! response.success ) {
-			throw new Error( response.error || 'Push import failed' );
+			return rejectWithValue( {
+				selectedSiteId,
+				remoteSiteId,
+				errorInfo: {
+					title: sprintf( __( 'Error pushing to %s' ), currentPushState.selectedSite.name ),
+					message: __(
+						'An error occurred while pushing the site. If this problem persists, please contact support.'
+					),
+				},
+			} );
 		}
 
 		let status: PushStateProgressInfo;
@@ -686,40 +674,40 @@ export const pollPushProgressThunk = createTypedAsyncThunk(
 					),
 				} );
 				break;
-			case 'failed':
-				status = pushStatesProgressInfo.failed;
+			case 'failed': {
 				console.error( 'Push import failed:', {
 					remoteSiteId: currentPushState.remoteSiteId,
 					error: response.error,
 					error_data: response.error_data,
 				} );
 				// If the import fails due to a SQL import error, show a more specific message
-				{
-					const restoreMessage = response.error_data?.vp_restore_message || '';
-					const isSqlImportFailure = /importing sql dump/i.test( restoreMessage );
-					const isImportTimedOut = response.error === 'Import timed out';
-					let message: string;
-					if ( isSqlImportFailure ) {
-						message = __(
-							'Database import failed on the remote site. Please review your database and try again or contact support and provide details from the logs below.'
-						);
-					} else if ( isImportTimedOut ) {
-						message = __(
-							"A timeout error occurred while pushing the site, likely due to its large size. Please try reducing the site's content or files and try again. If this problem persists, please contact support."
-						);
-					} else {
-						message = __(
-							'An error occurred while pushing the site. If this problem persists, please contact support.'
-						);
-					}
-
-					getIpcApi().showErrorMessageBox( {
+				const restoreMessage = response.error_data?.vp_restore_message || '';
+				const isSqlImportFailure = /importing sql dump/i.test( restoreMessage );
+				const isImportTimedOut = response.error === 'Import timed out';
+				let message: string;
+				if ( isSqlImportFailure ) {
+					message = __(
+						'Database import failed on the remote site. Please review your database and try again or contact support and provide details from the logs below.'
+					);
+				} else if ( isImportTimedOut ) {
+					message = __(
+						"A timeout error occurred while pushing the site, likely due to its large size. Please try reducing the site's content or files and try again. If this problem persists, please contact support."
+					);
+				} else {
+					message = __(
+						'An error occurred while pushing the site. If this problem persists, please contact support.'
+					);
+				}
+				return rejectWithValue( {
+					selectedSiteId,
+					remoteSiteId,
+					errorInfo: {
 						title: sprintf( __( 'Error pushing to %s' ), currentPushState.selectedSite.name ),
 						message,
 						showOpenLogs: true,
-					} );
-				}
-				break;
+					},
+				} );
+			}
 			case 'initial_backup_started':
 				status = pushStatesProgressInfo.creatingRemoteBackup;
 				break;
@@ -996,10 +984,6 @@ export const pollPullBackupThunk = createTypedAsyncThunk(
 			}
 
 			Sentry.captureException( error );
-			getIpcApi().showErrorMessageBox( {
-				title: sprintf( __( 'Error pulling from %s' ), currentPullState.selectedSite.name ),
-				message: __( 'Failed to check backup file size. Please try again.' ),
-			} );
 			return rejectWithValue( {
 				selectedSiteId,
 				remoteSiteId,

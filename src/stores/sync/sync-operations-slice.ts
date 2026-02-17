@@ -85,6 +85,42 @@ const syncOperationsSlice = createSlice( {
 			delete state.pushStates[ stateId ];
 		},
 	},
+	extraReducers: ( builder ) => {
+		// Handle push thunk rejections (pushSiteThunk)
+		builder.addMatcher(
+			( action ): action is PayloadAction< RejectedSyncPayload > =>
+				action.type === 'syncOperations/pushSite/rejected' && action.payload != null,
+			( state, action ) => {
+				const { selectedSiteId, remoteSiteId } = action.payload;
+				const stateId = generateStateId( selectedSiteId, remoteSiteId );
+				if ( state.pushStates[ stateId ] ) {
+					state.pushStates[ stateId ].status = {
+						key: 'failed',
+						progress: 100,
+						message: __( 'Error pushing changes' ),
+					};
+				}
+			}
+		);
+		// Handle pull thunk rejections (pullSiteThunk, pollPullBackupThunk)
+		builder.addMatcher(
+			( action ): action is PayloadAction< RejectedSyncPayload > =>
+				[ 'syncOperations/pullSite/rejected', 'syncOperations/pollPullBackup/rejected' ].includes(
+					action.type
+				) && action.payload != null,
+			( state, action ) => {
+				const { selectedSiteId, remoteSiteId } = action.payload;
+				const stateId = generateStateId( selectedSiteId, remoteSiteId );
+				if ( state.pullStates[ stateId ] ) {
+					state.pullStates[ stateId ].status = {
+						key: 'failed',
+						progress: 100,
+						message: __( 'Error pulling changes' ),
+					};
+				}
+			}
+		);
+	},
 } );
 
 export const syncOperationsActions = syncOperationsSlice.actions;
@@ -189,10 +225,23 @@ const getErrorFromResponse = ( error: unknown ): string => {
 	return __( 'Studio was unable to connect to WordPress.com. Please try again.' );
 };
 
+// Payload type for thunk rejections handled by extraReducers
+type RejectedSyncPayload = {
+	selectedSiteId: string;
+	remoteSiteId: number;
+	errorInfo?: {
+		title: string;
+		message: string;
+		showOpenLogs?: boolean;
+		error?: unknown;
+	};
+};
+
 // Create typed async thunk helper
 const createTypedAsyncThunk = createAsyncThunk.withTypes< {
 	state: RootState;
 	dispatch: AppDispatch;
+	rejectValue: RejectedSyncPayload;
 } >();
 
 // Thunks for clear operations
@@ -295,7 +344,7 @@ export const pushSiteThunk = createTypedAsyncThunk< PushSiteResult, PushSitePayl
 	'syncOperations/pushSite',
 	async (
 		{ connectedSite, selectedSite, options, pushStatesProgressInfo },
-		{ dispatch, getState }
+		{ dispatch, getState, rejectWithValue }
 	) => {
 		const remoteSiteId = connectedSite.id;
 		const remoteSiteUrl = connectedSite.url;
@@ -340,13 +389,6 @@ export const pushSiteThunk = createTypedAsyncThunk< PushSiteResult, PushSitePayl
 			}
 
 			Sentry.captureException( error );
-			dispatch(
-				syncOperationsActions.updatePushState( {
-					selectedSiteId: selectedSite.id,
-					remoteSiteId,
-					state: { status: pushStatesProgressInfo.failed },
-				} )
-			);
 			getIpcApi().showErrorMessageBox( {
 				title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
 				message: __(
@@ -355,18 +397,22 @@ export const pushSiteThunk = createTypedAsyncThunk< PushSiteResult, PushSitePayl
 				error,
 				showOpenLogs: true,
 			} );
-			throw error;
+			return rejectWithValue( {
+				selectedSiteId: selectedSite.id,
+				remoteSiteId,
+				errorInfo: {
+					title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
+					message: __(
+						'An error occurred while pushing the site. If this problem persists, please contact support.'
+					),
+					showOpenLogs: true,
+					error,
+				},
+			} );
 		}
 
 		// Check file size
 		if ( archiveSizeInBytes > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
-			dispatch(
-				syncOperationsActions.updatePushState( {
-					selectedSiteId: selectedSite.id,
-					remoteSiteId,
-					state: { status: pushStatesProgressInfo.failed },
-				} )
-			);
 			getIpcApi().showErrorMessageBox( {
 				title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
 				message: __(
@@ -374,7 +420,16 @@ export const pushSiteThunk = createTypedAsyncThunk< PushSiteResult, PushSitePayl
 				),
 			} );
 			await getIpcApi().removeExportedSiteTmpFile( archivePath );
-			throw new Error( 'Site too large' );
+			return rejectWithValue( {
+				selectedSiteId: selectedSite.id,
+				remoteSiteId,
+				errorInfo: {
+					title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
+					message: __(
+						'The site is too large to push. Please reduce the size of the site and try again.'
+					),
+				},
+			} );
 		}
 
 		// Check if cancelled before upload
@@ -418,7 +473,6 @@ export const pushSiteThunk = createTypedAsyncThunk< PushSiteResult, PushSitePayl
 			)( stateAfterUpload );
 
 			if ( pushStateAfterUpload?.status.key === 'cancelled' ) {
-				await getIpcApi().removeExportedSiteTmpFile( archivePath );
 				throw new Error( 'Push cancelled' );
 			}
 
@@ -443,22 +497,26 @@ export const pushSiteThunk = createTypedAsyncThunk< PushSiteResult, PushSitePayl
 					remoteSiteUrl,
 				};
 			} else {
-				throw response;
+				throw new Error( response.error );
 			}
 		} catch ( error ) {
+			// Don't override cancelled state
+			if ( error instanceof Error && error.message === 'Push cancelled' ) {
+				throw error;
+			}
 			Sentry.captureException( error );
-			dispatch(
-				syncOperationsActions.updatePushState( {
-					selectedSiteId: selectedSite.id,
-					remoteSiteId,
-					state: { status: pushStatesProgressInfo.failed },
-				} )
-			);
 			getIpcApi().showErrorMessageBox( {
 				title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
 				message: getErrorFromResponse( error ),
 			} );
-			throw error;
+			return rejectWithValue( {
+				selectedSiteId: selectedSite.id,
+				remoteSiteId,
+				errorInfo: {
+					title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
+					message: getErrorFromResponse( error ),
+				},
+			} );
 		} finally {
 			await getIpcApi().removeExportedSiteTmpFile( archivePath );
 		}
@@ -486,7 +544,7 @@ export const pullSiteThunk = createTypedAsyncThunk< PullSiteResult, PullSitePayl
 	'syncOperations/pullSite',
 	async (
 		{ client, connectedSite, selectedSite, options, pullStatesProgressInfo },
-		{ dispatch }
+		{ dispatch, rejectWithValue }
 	) => {
 		const remoteSiteId = connectedSite.id;
 		const remoteSiteUrl = connectedSite.url;
@@ -550,22 +608,19 @@ export const pullSiteThunk = createTypedAsyncThunk< PullSiteResult, PullSitePayl
 			console.error( 'Pull request failed:', error );
 
 			Sentry.captureException( error );
-			dispatch(
-				syncOperationsActions.updatePullState( {
-					selectedSiteId: selectedSite.id,
-					remoteSiteId,
-					state: {
-						status: pullStatesProgressInfo.failed,
-					},
-				} )
-			);
-
 			getIpcApi().showErrorMessageBox( {
 				title: sprintf( __( 'Error pulling from %s' ), connectedSite.name ),
 				message: __( 'Studio was unable to connect to WordPress.com. Please try again.' ),
 			} );
 
-			throw error;
+			return rejectWithValue( {
+				selectedSiteId: selectedSite.id,
+				remoteSiteId,
+				errorInfo: {
+					title: sprintf( __( 'Error pulling from %s' ), connectedSite.name ),
+					message: __( 'Studio was unable to connect to WordPress.com. Please try again.' ),
+				},
+			} );
 		}
 	}
 );
@@ -727,7 +782,7 @@ export const pollPullBackupThunk = createTypedAsyncThunk(
 	'syncOperations/pollPullBackup',
 	async (
 		{ client, selectedSiteId, remoteSiteId, pullStatesProgressInfo }: PollPullBackupPayload,
-		{ dispatch, getState }
+		{ dispatch, getState, rejectWithValue }
 	) => {
 		// Check if state exists and is not cancelled
 		const state = getState();
@@ -941,20 +996,18 @@ export const pollPullBackupThunk = createTypedAsyncThunk(
 			}
 
 			Sentry.captureException( error );
-			dispatch(
-				syncOperationsActions.updatePullState( {
-					selectedSiteId,
-					remoteSiteId,
-					state: {
-						status: pullStatesProgressInfo.failed,
-					},
-				} )
-			);
 			getIpcApi().showErrorMessageBox( {
 				title: sprintf( __( 'Error pulling from %s' ), currentPullState.selectedSite.name ),
 				message: __( 'Failed to check backup file size. Please try again.' ),
 			} );
-			throw error;
+			return rejectWithValue( {
+				selectedSiteId,
+				remoteSiteId,
+				errorInfo: {
+					title: sprintf( __( 'Error pulling from %s' ), currentPullState.selectedSite.name ),
+					message: __( 'Failed to check backup file size. Please try again.' ),
+				},
+			} );
 		}
 	}
 );

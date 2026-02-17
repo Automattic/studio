@@ -8,7 +8,7 @@ env:
 
 steps:
   - label: ":package: Package App Artifacts on {{matrix.platform}}-{{matrix.arch}}"
-    key: package_app_artifacts
+    key: package_app_artifacts_{{matrix.platform}}_{{matrix.arch}}
     agents:
       queue: "{{matrix.platform}}"
     command: bash .buildkite/commands/package-app-for-ci.sh "{{matrix.platform}}" "{{matrix.arch}}"
@@ -51,7 +51,7 @@ steps:
   - label: E2E Tests on {{matrix.platform}}-{{matrix.arch}}
     key: e2e_tests
     depends_on:
-      - step: package_app_artifacts
+      - step: package_app_artifacts_{{matrix.platform}}_{{matrix.arch}}
     command: bash .buildkite/commands/run-e2e-tests.sh "{{matrix.platform}}" "{{matrix.arch}}"
     artifact_paths:
       - test-results/**/*.zip
@@ -78,7 +78,7 @@ steps:
   - label: ":chart_with_upwards_trend: Performance Metrics"
     key: metrics
     depends_on:
-      - step: package_app_artifacts
+      - step: package_app_artifacts_mac_arm64
     agents:
       queue: mac
     command: bash .buildkite/commands/run-metrics-tests.sh
@@ -101,7 +101,7 @@ steps:
     key: dev-mac
     depends_on:
       - step: input-dev-mac
-      - step: package_app_artifacts
+      - step: package_app_artifacts_mac_arm64
     if: build.tag !~ /^v[0-9]+/
     steps:
       - label: 🔨 Mac Dev Build - {{matrix}}
@@ -166,7 +166,7 @@ steps:
     key: dev-windows
     depends_on:
       - step: input-dev-windows
-      - step: package_app_artifacts
+      - step: package_app_artifacts_windows_x64
     if: build.tag !~ /^v[0-9]+/
     steps:
       - label: 🔨 Windows Dev Build - {{matrix}}

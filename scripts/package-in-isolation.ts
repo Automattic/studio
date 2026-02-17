@@ -1,7 +1,7 @@
 /**
  * This script packages the Studio app in isolation by copying the repo to a temporary directory,
- * installing dependencies, running the relevant make/package script, copying the output back to
- * the repo and then cleaning up.
+ * installing dependencies, running studio-app's package script, copying output back to the repo,
+ * and cleaning up.
  *
  * Why is this needed? With npm workspaces, most dependencies are hoisted to the top-level
  * `node_modules` directory, but there's no guarantee that all of them are. This behavior conflicts
@@ -21,23 +21,29 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { spawnSync, type SpawnSyncOptions } from 'child_process';
-import { z } from 'zod';
+import yargs from 'yargs';
+import { hideBin } from 'yargs/helpers';
 
 const REPO_ROOT = path.resolve( __dirname, '..' );
-const STUDIO_APP_PACKAGE_JSON = path.join( REPO_ROOT, 'apps', 'studio', 'package.json' );
 
-const STUDIO_APP_PACKAGE_JSON_SCHEMA = z.object( {
-	scripts: z.record( z.string(), z.string() ),
-} );
-
-function getStudioAppScripts(): Record< string, string > {
-	const studioAppPackage = JSON.parse( fs.readFileSync( STUDIO_APP_PACKAGE_JSON, 'utf-8' ) );
-	const parsedPackage = STUDIO_APP_PACKAGE_JSON_SCHEMA.parse( studioAppPackage );
-	return Object.fromEntries(
-		Object.entries( parsedPackage.scripts ).filter(
-			( [ scriptName ] ) => scriptName === 'package' || scriptName.startsWith( 'make' )
-		)
-	);
+function parseArgs( argv: string[] ) {
+	return yargs( hideBin( argv ) )
+		.scriptName( 'package-in-isolation' )
+		.usage( '$0 [--platform=<platform> --arch=<arch>]' )
+		.option( 'platform', {
+			type: 'string',
+			describe: 'Target platform',
+			choices: [ 'darwin', 'win32' ] as const,
+		} )
+		.option( 'arch', {
+			type: 'string',
+			describe: 'Target architecture',
+			choices: [ 'x64', 'arm64' ] as const,
+		} )
+		.strict()
+		.help( false )
+		.version( false )
+		.parseSync();
 }
 
 function runOrFail( command: string, args: string[], cwd: string ) {
@@ -51,6 +57,20 @@ function runOrFail( command: string, args: string[], cwd: string ) {
 	if ( result.status !== 0 ) {
 		process.exit( result.status ?? 1 );
 	}
+}
+
+function runPackageScript( cwd: string, arch?: 'x64' | 'arm64', platform?: 'darwin' | 'win32' ) {
+	const args = [ '-w', 'studio-app', 'run', 'package', '--' ];
+
+	if ( arch ) {
+		args.push( `--arch=${ arch }` );
+	}
+
+	if ( platform ) {
+		args.push( `--platform=${ platform }` );
+	}
+
+	runOrFail( 'npm', args, cwd );
 }
 
 function shouldCopyToStaging( sourcePath: string ): boolean {
@@ -87,21 +107,12 @@ function copyArtifactsBack( stagingRoot: string ) {
 }
 
 function main() {
-	const studioAppScripts = getStudioAppScripts();
-	const scriptName = process.argv[ 2 ];
-
-	if ( ! studioAppScripts.hasOwnProperty( scriptName ) ) {
-		throw new Error(
-			`Unsupported script "${ scriptName }". Supported studio-app packaging scripts: ${ Object.keys(
-				studioAppScripts
-			).join( ', ' ) }`
-		);
-	}
+	const target = parseArgs( process.argv );
 
 	const isCi = process.env.CI && process.env.CI !== 'false';
 	if ( isCi ) {
-		console.log( `Detected CI environment; running script "${ scriptName }" in place.` );
-		runOrFail( 'npm', [ '-w', 'studio-app', 'run', scriptName ], REPO_ROOT );
+		console.log( 'Detected CI environment; running package in place.' );
+		runPackageScript( REPO_ROOT, target.arch, target.platform );
 		return;
 	}
 
@@ -119,8 +130,8 @@ function main() {
 		console.log( 'Installing workspace dependencies in packaging directory ...' );
 		runOrFail( 'npm', [ 'ci' ], stagingRoot );
 
-		console.log( `Running script "${ scriptName }" in packaging directory ...` );
-		runOrFail( 'npm', [ '-w', 'studio-app', 'run', scriptName ], stagingRoot );
+		console.log( 'Running package in packaging directory ...' );
+		runPackageScript( stagingRoot, target.arch, target.platform );
 
 		console.log( 'Syncing packaging artifacts back to workspace ...' );
 		copyArtifactsBack( stagingRoot );

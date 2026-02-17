@@ -114,6 +114,8 @@ export async function runPerformanceTests(
 ) {
 	const runningInCI = !! process.env.CI || !! options.ci;
 	const testRounds = options.rounds || 1;
+	const prebuiltBranch = process.env.COMPARE_PERF_PREBUILT_BRANCH;
+	const prebuiltOutDir = process.env.COMPARE_PERF_PREBUILT_OUT_DIR;
 
 	// The default value doesn't work because commander provides an array.
 	if ( branches.length === 0 ) {
@@ -219,12 +221,31 @@ export async function runPerformanceTests(
 		logAtIndent( 3, 'Checking out:', formats.success( branch ) );
 		await simpleGit( buildDir ).raw( 'checkout', branch );
 
-		logAtIndent( 3, 'Installing dependencies and building' );
-		await runShellScript( config.setupCommand, buildDir, {
-			GITHUB_TOKEN: process.env.GITHUB_TOKEN,
-			SKIP_WORKER_THREAD_BUILD: process.env.SKIP_WORKER_THREAD_BUILD,
-			IS_DEV_BUILD: 'true',
-		} );
+		if (
+			prebuiltBranch &&
+			prebuiltOutDir &&
+			branch === prebuiltBranch &&
+			fs.existsSync( prebuiltOutDir )
+		) {
+			const prebuiltTargetDir = path.join( buildDir, 'out' );
+			logAtIndent(
+				3,
+				'Using prebuilt app artifacts from:',
+				formats.success( prebuiltOutDir )
+			);
+
+			if ( fs.existsSync( prebuiltTargetDir ) ) {
+				fs.rmSync( prebuiltTargetDir, { recursive: true } );
+			}
+			fs.cpSync( prebuiltOutDir, prebuiltTargetDir, { recursive: true } );
+		} else {
+			logAtIndent( 3, 'Installing dependencies and building' );
+			await runShellScript( config.setupCommand, buildDir, {
+				GITHUB_TOKEN: process.env.GITHUB_TOKEN,
+				SKIP_WORKER_THREAD_BUILD: process.env.SKIP_WORKER_THREAD_BUILD,
+				IS_DEV_BUILD: 'true',
+			} );
+		}
 	}
 
 	logAtIndent( 0, 'Looking for test files' );

@@ -13,13 +13,10 @@
 	"scripts": {
 		"start": "electron-vite dev --config ./electron.vite.config.ts --outDir=dist --watch",
 		"prestart": "npm -w studio-cli run build",
-		"make": "electron-vite build --config ./electron.vite.config.ts --outDir=dist && electron-forge make .",
-		"make:windows-x64": "electron-vite build --config ./electron.vite.config.ts --outDir=dist && electron-forge make . --arch=x64 --platform=win32",
-		"make:windows-arm64": "electron-vite build --config ./electron.vite.config.ts --outDir=dist && electron-forge make . --arch=arm64 --platform=win32",
-		"make:macos-x64": "electron-vite build --config ./electron.vite.config.ts --outDir=dist && SKIP_DMG=true FILE_ARCHITECTURE=x64 electron-forge make . --arch=x64 --platform=darwin",
-		"make:macos-arm64": "electron-vite build --config ./electron.vite.config.ts --outDir=dist && SKIP_DMG=true FILE_ARCHITECTURE=arm64 electron-forge make . --arch=arm64 --platform=darwin",
+		"build": "electron-vite build --config ./electron.vite.config.ts --outDir=dist",
+		"make": "SKIP_DMG=true electron-forge make . --skip-package",
 		"install:bundle": "npm install --no-package-lock --no-progress --install-links --no-workspaces && patch-package && npx @electron/rebuild -o fs-ext",
-		"package": "electron-vite build --config ./electron.vite.config.ts --outDir=dist && electron-forge package .",
+		"package": "npm run build && electron-forge package .",
 		"publish": "electron-forge publish .",
 		"start-wayland": "npm -w studio-cli run build && electron-forge start . -- --enable-features=UseOzonePlatform --ozone-platform=wayland"
 	},

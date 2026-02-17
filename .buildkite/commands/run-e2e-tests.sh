@@ -13,25 +13,14 @@ bash .buildkite/commands/install-node-dependencies.sh
 
 export IS_DEV_BUILD=true
 
-# Map platform names to electron-forge platform values
-case "$PLATFORM" in
-  mac)
-    FORGE_PLATFORM="darwin"
-    ;;
-  windows)
-    FORGE_PLATFORM="win32"
-    ;;
-  *)
-    echo "Unknown platform: $PLATFORM"
-    exit 1
-    ;;
-esac
+ARTIFACT_FILE="artifacts/studio-app-${PLATFORM}-${ARCH}.tar.gz"
 
-# Use `electron-forge package` instead of `npm run make:*` for E2E tests.
-# `make` creates signed distributables (installers), which requires code signing setup.
-# `package` creates an unsigned app bundle, sufficient for E2E testing.
-echo "--- :package: Package app for testing ($PLATFORM-$ARCH)"
-npm -w studio-app run package -- --arch="$ARCH" --platform="$FORGE_PLATFORM"
+if ! buildkite-agent artifact download "$ARTIFACT_FILE" .; then
+  echo "^^^ +++ Required prebuilt app artifact not found: $ARTIFACT_FILE"
+  exit 1
+fi
+echo "--- :package: Extracting prebuilt app artifacts ($PLATFORM-$ARCH)"
+tar -xzf "$ARTIFACT_FILE"
 
 echo '--- :playwright: Run End To End Tests'
 

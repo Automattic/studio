@@ -14,6 +14,12 @@ npm -w compare-perf install
 export IS_DEV_BUILD=true
 export ARTIFACTS_PATH=${PWD}/tools/metrics/artifacts
 export SKIP_WORKER_THREAD_BUILD='true'
+export COMPARE_PERF_PREBUILT_BRANCH=$BUILDKITE_COMMIT
+export COMPARE_PERF_PREBUILT_OUT_DIR=${PWD}/apps/studio/out
+
+echo '--- :package: Downloading prebuilt app artifacts'
+buildkite-agent artifact download "artifacts/studio-app-mac-arm64.tar.gz" .
+tar -xzf artifacts/studio-app-mac-arm64.tar.gz
 
 # Detect if this is a PR or trunk push
 if [ "${BUILDKITE_PULL_REQUEST}" != "false" ]; then

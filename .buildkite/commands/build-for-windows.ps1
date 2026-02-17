@@ -53,8 +53,26 @@ if ($BuildType -eq $BUILD_TYPE_DEV) {
 # Set architecture environment variable for AppX packaging
 $env:FILE_ARCHITECTURE=$Architecture
 
-Write-Host "Building for architecture: $Architecture"
-npm -w studio-app run "make:windows-$Architecture"
+Write-Host "--- :package: Preparing packaged app for architecture: $Architecture"
+if ($BuildType -eq $BUILD_TYPE_DEV) {
+    $artifactFile = "artifacts/studio-app-windows-$Architecture.tar.gz"
+    bash -lc "buildkite-agent artifact download `"$artifactFile`" ."
+    if ($LastExitCode -eq 0) {
+        Write-Host "Using prebuilt app artifact: $artifactFile"
+        tar -xzf $artifactFile
+        If ($LastExitCode -ne 0) { Exit $LastExitCode }
+    } else {
+        Write-Host "Error: required prebuilt app artifact not found: $artifactFile" -ForegroundColor Red
+        Exit 1
+    }
+} else {
+    Write-Host "Release build: packaging app for windows-$Architecture"
+    npm run "package:windows-$Architecture"
+    If ($LastExitCode -ne 0) { Exit $LastExitCode }
+}
+
+Write-Host "--- :node: Building installer artifacts for architecture: $Architecture"
+npm run "make:windows-$Architecture"
 If ($LastExitCode -ne 0) { Exit $LastExitCode }
 
 # Rename NuGet package files with generic name

@@ -3,8 +3,8 @@ import { renderHook, act } from '@testing-library/react';
 import nock from 'nock';
 import { Provider } from 'react-redux';
 import { vi } from 'vitest';
-import { useSyncPull } from 'src/hooks/sync-sites/use-sync-pull';
 import { useAddSite, CreateSiteFormValues } from 'src/hooks/use-add-site';
+import { useAuth } from 'src/hooks/use-auth';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { store } from 'src/stores';
@@ -13,8 +13,22 @@ import type { SyncSite } from 'src/modules/sync/types';
 
 vi.mock( 'src/hooks/use-site-details' );
 vi.mock( 'src/hooks/use-feature-flags' );
-vi.mock( 'src/hooks/sync-sites/use-sync-pull' );
+vi.mock( 'src/hooks/use-auth' );
 vi.mock( 'src/hooks/use-content-tabs' );
+
+const { mockPullSiteThunk } = vi.hoisted( () => ( {
+	mockPullSiteThunk: vi.fn().mockReturnValue( { type: 'test/pullSite' } ),
+} ) );
+vi.mock( 'src/stores/sync', async () => {
+	const actual = await vi.importActual( 'src/stores/sync' );
+	return {
+		...actual,
+		syncOperationsThunks: {
+			...( actual as Record< string, unknown > ).syncOperationsThunks,
+			pullSite: mockPullSiteThunk,
+		},
+	};
+} );
 vi.mock( 'src/hooks/use-import-export', () => ( {
 	useImportExport: () => ( {
 		importFile: vi.fn(),
@@ -55,7 +69,7 @@ describe( 'useAddSite', () => {
 	const mockCreateSite = vi.fn();
 	const mockUpdateSite = vi.fn();
 	const mockStartServer = vi.fn();
-	const mockPullSite = vi.fn();
+	const mockClient = { req: { get: vi.fn(), post: vi.fn() } };
 	const mockSetSelectedTab = vi.fn();
 
 	beforeEach( () => {
@@ -86,15 +100,8 @@ describe( 'useAddSite', () => {
 			startServer: mockStartServer,
 		} );
 
-		mockPullSite.mockReset();
-		vi.mocked( useSyncPull, { partial: true } ).mockReturnValue( {
-			pullSite: mockPullSite,
-			pullStates: {},
-			getPullState: vi.fn(),
-			isAnySitePulling: false,
-			isSiteIdPulling: vi.fn(),
-			clearPullState: vi.fn(),
-			cancelPull: vi.fn(),
+		vi.mocked( useAuth, { partial: true } ).mockReturnValue( {
+			client: mockClient,
 		} );
 
 		mockSetSelectedTab.mockReset();
@@ -264,8 +271,11 @@ describe( 'useAddSite', () => {
 				localSiteId: createdSite.id,
 			},
 		] );
-		expect( mockPullSite ).toHaveBeenCalledWith( remoteSite, createdSite, {
-			optionsToSync: [ 'all' ],
+		expect( mockPullSiteThunk ).toHaveBeenCalledWith( {
+			client: mockClient,
+			connectedSite: remoteSite,
+			selectedSite: createdSite,
+			options: { optionsToSync: [ 'all' ] },
 		} );
 		expect( mockSetSelectedTab ).toHaveBeenCalledWith( 'sync' );
 	} );

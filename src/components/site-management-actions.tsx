@@ -3,8 +3,9 @@ import { useI18n } from '@wordpress/react-i18n';
 import { ActionButton } from 'src/components/action-button';
 import { PublishSiteButton } from 'src/components/publish-site-button';
 import { Tooltip } from 'src/components/tooltip';
-import { useSyncPull } from 'src/hooks/sync-sites/use-sync-pull';
 import { useImportExport } from 'src/hooks/use-import-export';
+import { store } from 'src/stores';
+import { syncOperationsSelectors } from 'src/stores/sync';
 
 export interface SiteManagementActionProps {
 	onStop: ( id: string ) => Promise< void >;
@@ -21,14 +22,15 @@ export const SiteManagementActions = ( {
 }: SiteManagementActionProps ) => {
 	const { __ } = useI18n();
 	const { isSiteImporting } = useImportExport();
-	const { isSiteIdPulling } = useSyncPull();
 
 	if ( ! selectedSite ) {
 		return null;
 	}
 
 	const isImporting = isSiteImporting( selectedSite.id );
-	const isPulling = isSiteIdPulling( selectedSite.id );
+	const isPulling = syncOperationsSelectors.selectIsSiteIdPulling( selectedSite.id )(
+		store.getState()
+	);
 	const disabled = isImporting || isPulling;
 
 	let buttonLabelOnDisabled: string = __( 'Importing…' );

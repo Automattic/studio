@@ -5,8 +5,6 @@ import { __, sprintf } from '@wordpress/i18n';
 import { useEffect } from 'react';
 import { XDebugIcon } from 'src/components/icons/xdebug-icon';
 import { Tooltip } from 'src/components/tooltip';
-import { useSyncPull } from 'src/hooks/sync-sites/use-sync-pull';
-import { useSyncPush } from 'src/hooks/sync-sites/use-sync-push';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useDeleteSite } from 'src/hooks/use-delete-site';
 import { useImportExport } from 'src/hooks/use-import-export';
@@ -16,7 +14,9 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
 import { getTerminalName } from 'src/modules/user-settings/lib/terminal';
+import { store } from 'src/stores';
 import { useGetUserEditorQuery, useGetUserTerminalQuery } from 'src/stores/installed-apps-api';
+import { syncOperationsSelectors } from 'src/stores/sync';
 
 interface SiteMenuProps {
 	className?: string;
@@ -133,14 +133,12 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 	const { selectedSite, setSelectedSiteId, loadingServer, isSiteDeleting } = useSiteDetails();
 	const isSelected = site === selectedSite;
 	const { isSiteImporting, isSiteExporting } = useImportExport();
-	const { isSiteIdPulling } = useSyncPull();
-	const { isSiteIdPushing } = useSyncPush();
 	const { data: editor } = useGetUserEditorQuery();
 	const { data: terminal } = useGetUserTerminalQuery();
 	const isImporting = isSiteImporting( site.id );
 	const isExporting = isSiteExporting( site.id );
-	const isPulling = isSiteIdPulling( site.id );
-	const isPushing = isSiteIdPushing( site.id );
+	const isPulling = syncOperationsSelectors.selectIsSiteIdPulling( site.id )( store.getState() );
+	const isPushing = syncOperationsSelectors.selectIsSiteIdPushing( site.id )( store.getState() );
 	const isSyncing = isPulling || isPushing;
 	const isDeleting = isSiteDeleting( site.id );
 	const showSpinner =

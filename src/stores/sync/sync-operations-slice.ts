@@ -8,8 +8,6 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getHostnameFromUrl } from 'src/lib/url-utils';
 import { store } from 'src/stores';
 import { connectedSitesApi } from 'src/stores/sync/connected-sites';
-import type { SyncBackupState, PullStates } from 'src/hooks/sync-sites/use-sync-pull';
-import type { SyncPushState, PushStates } from 'src/hooks/sync-sites/use-sync-push';
 import type {
 	ImportResponse,
 	PullStateProgressInfo,
@@ -19,6 +17,32 @@ import type {
 import type { SyncSite } from 'src/modules/sync/types';
 import type { AppDispatch, RootState } from 'src/stores';
 import type { SyncOption } from 'src/types';
+
+export type SyncBackupState = {
+	remoteSiteId: number;
+	backupId: string | null;
+	status: PullStateProgressInfo;
+	downloadUrl: string | null;
+	selectedSite: SiteDetails;
+	remoteSiteUrl: string;
+};
+
+export type PullSiteOptions = {
+	optionsToSync: SyncOption[];
+	include_path_list?: string[];
+};
+
+export type PullStates = Record< string, SyncBackupState >;
+
+export type SyncPushState = {
+	remoteSiteId: number;
+	status: PushStateProgressInfo;
+	selectedSite: SiteDetails;
+	remoteSiteUrl: string;
+	uploadProgress?: number;
+};
+
+export type PushStates = Record< string, SyncPushState >;
 
 // Factory functions for progress info (canonical definitions, also used by useSyncStatesProgressInfo hook)
 export function getPushStatesProgressInfo(): Record<

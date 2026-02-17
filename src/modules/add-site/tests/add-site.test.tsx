@@ -46,8 +46,6 @@ const mockShowOpenFolderDialog =
 const mockGenerateProposedSitePath =
 	vi.fn< ( siteName: string ) => Promise< FolderDialogResponse > >();
 const mockGetAllCustomDomains = vi.fn< () => Promise< string[] > >().mockResolvedValue( [] );
-const mockPullSite = vi.fn();
-const mockUseSyncPull = vi.fn();
 const mockSetSelectedTab = vi.fn();
 
 vi.mock( 'src/lib/get-ipc-api', () => ( {
@@ -61,10 +59,6 @@ vi.mock( 'src/lib/get-ipc-api', () => ( {
 		setWindowControlVisibility: vi.fn(),
 		setupAppMenu: vi.fn(),
 	} ),
-} ) );
-
-vi.mock( 'src/hooks/sync-sites/use-sync-pull', () => ( {
-	useSyncPull: () => mockUseSyncPull(),
 } ) );
 
 vi.mock( 'src/hooks/use-import-export', () => ( {
@@ -119,16 +113,6 @@ const renderWithProvider = ( children: React.ReactElement ) => {
 beforeEach( () => {
 	vi.clearAllMocks();
 
-	mockPullSite.mockReset();
-	mockUseSyncPull.mockReturnValue( {
-		pullSite: mockPullSite,
-		pullStates: {},
-		getPullState: vi.fn(),
-		isAnySitePulling: false,
-		isSiteIdPulling: vi.fn(),
-		clearPullState: vi.fn(),
-		cancelPull: vi.fn(),
-	} );
 	mockSetSelectedTab.mockReset();
 
 	mockShowOpenFolderDialog.mockResolvedValue( {

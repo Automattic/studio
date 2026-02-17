@@ -7,4 +7,11 @@ export {
 	syncOperationsSelectors,
 	syncOperationsThunks,
 } from './sync-operations-slice';
+export type {
+	SyncBackupState,
+	PullSiteOptions,
+	PullStates,
+	SyncPushState,
+	PushStates,
+} from './sync-operations-slice';
 export * from './sync-types';

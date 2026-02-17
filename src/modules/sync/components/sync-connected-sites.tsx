@@ -14,8 +14,6 @@ import ProgressBar from 'src/components/progress-bar';
 import { Tooltip, DynamicTooltip } from 'src/components/tooltip';
 import { WordPressLogoCircle } from 'src/components/wordpress-logo-circle';
 import { useLastSyncTimeText } from 'src/hooks/sync-sites/use-last-sync-time-text';
-import { useSyncPull } from 'src/hooks/sync-sites/use-sync-pull';
-import { useSyncPush } from 'src/hooks/sync-sites/use-sync-push';
 import { useAuth } from 'src/hooks/use-auth';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useOffline } from 'src/hooks/use-offline';
@@ -35,7 +33,8 @@ import {
 	convertTreeToPushOptions,
 } from 'src/modules/sync/lib/convert-tree-to-sync-options';
 import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
-import { useAppDispatch, useI18nLocale } from 'src/stores';
+import { store, useAppDispatch, useI18nLocale, useRootSelector } from 'src/stores';
+import { syncOperationsSelectors, syncOperationsThunks } from 'src/stores/sync';
 import {
 	connectedSitesActions,
 	useGetConnectedSitesForLocalSiteQuery,
@@ -51,18 +50,23 @@ const SyncConnectedSiteControls = ( {
 } ) => {
 	const { __ } = useI18n();
 	const isOffline = useOffline();
+	const dispatch = useAppDispatch();
 	const [ syncDialogType, setSyncDialogType ] = useState< 'pull' | 'push' | null >( null );
-	const { pullSite, isAnySitePulling, isSiteIdPulling } = useSyncPull();
-	const { pushSite, isAnySitePushing, isSiteIdPushing } = useSyncPush();
+	const isAnySitePulling = useRootSelector( syncOperationsSelectors.selectIsAnySitePulling );
+	const isAnySitePushing = useRootSelector( syncOperationsSelectors.selectIsAnySitePushing );
 	const getLastSyncTimeText = useLastSyncTimeText();
-	const { user } = useAuth();
+	const { user, client } = useAuth();
 	const { data: connectedSites = [] } = useGetConnectedSitesForLocalSiteQuery( {
 		localSiteId: selectedSite.id,
 		userId: user?.id,
 	} );
 	const isAnyConnectedSiteSyncing = connectedSites.some(
 		( site ) =>
-			isSiteIdPulling( selectedSite.id, site.id ) || isSiteIdPushing( selectedSite.id, site.id )
+			syncOperationsSelectors.selectIsSiteIdPulling(
+				selectedSite.id,
+				site.id
+			)( store.getState() ) ||
+			syncOperationsSelectors.selectIsSiteIdPushing( selectedSite.id, site.id )( store.getState() )
 	);
 	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
 
@@ -161,11 +165,27 @@ const SyncConnectedSiteControls = ( {
 						remoteSite={ connectedSite }
 						onPush={ ( tree ) => {
 							const pushOptions = convertTreeToPushOptions( tree );
-							void pushSite( connectedSite, selectedSite, pushOptions );
+							void dispatch(
+								syncOperationsThunks.pushSite( {
+									connectedSite,
+									selectedSite,
+									options: pushOptions,
+								} )
+							);
 						} }
 						onPull={ ( tree ) => {
+							if ( ! client ) {
+								return;
+							}
 							const pullOptions = convertTreeToPullOptions( tree );
-							pullSite( connectedSite, selectedSite, pullOptions );
+							void dispatch(
+								syncOperationsThunks.pullSite( {
+									client,
+									connectedSite,
+									selectedSite,
+									options: pullOptions,
+								} )
+							);
 						} }
 						onRequestClose={ () => setSyncDialogType( null ) }
 					/>
@@ -185,13 +205,14 @@ const SyncConnectedSitesSectionItem = ( {
 	connectedSite,
 }: SyncConnectedSitesListProps ) => {
 	const { __ } = useI18n();
-	const { clearPullState, getPullState, cancelPull } = useSyncPull();
-	const { getPushState, clearPushState, cancelPush } = useSyncPush();
+	const dispatch = useAppDispatch();
 	const isOffline = useOffline();
 	const { importState } = useImportExport();
 	const { getPushUploadPercentage, getPushUploadMessage } = useSyncStatesProgressInfo();
 
-	const sitePullState = getPullState( selectedSite.id, connectedSite.id );
+	const sitePullState = useRootSelector(
+		syncOperationsSelectors.selectPullState( selectedSite.id, connectedSite.id )
+	);
 	const isPulling =
 		sitePullState?.status &&
 		[ 'in-progress', 'downloading', 'importing' ].includes( sitePullState.status.key );
@@ -215,7 +236,9 @@ const SyncConnectedSitesSectionItem = ( {
 		sitePullStatusProgress = sitePullState.status.progress;
 	}
 
-	const pushState = getPushState( selectedSite.id, connectedSite.id );
+	const pushState = useRootSelector(
+		syncOperationsSelectors.selectPushState( selectedSite.id, connectedSite.id )
+	);
 	const isPushing =
 		pushState?.status &&
 		[
@@ -287,7 +310,14 @@ const SyncConnectedSitesSectionItem = ( {
 							>
 								<Button
 									variant="link"
-									onClick={ () => cancelPull( selectedSite.id, connectedSite.id ) }
+									onClick={ () =>
+										dispatch(
+											syncOperationsThunks.cancelPull( {
+												selectedSiteId: selectedSite.id,
+												remoteSiteId: connectedSite.id,
+											} )
+										)
+									}
 									disabled={ ! canCancelPull( sitePullState?.status.key ) }
 									className="!p-0 flex-shrink-0"
 								>
@@ -297,13 +327,29 @@ const SyncConnectedSitesSectionItem = ( {
 						</div>
 					) }
 					{ sitePullState?.status && hasPullCancelled && (
-						<ClearAction onClick={ () => clearPullState( selectedSite.id, connectedSite.id ) }>
+						<ClearAction
+							onClick={ () =>
+								dispatch(
+									syncOperationsThunks.clearPullState( {
+										selectedSiteId: selectedSite.id,
+										remoteSiteId: connectedSite.id,
+									} )
+								)
+							}
+						>
 							{ __( 'Pull cancelled' ) }
 						</ClearAction>
 					) }
 					{ isPullError && (
 						<ClearAction
-							onClick={ () => clearPullState( selectedSite.id, connectedSite.id ) }
+							onClick={ () =>
+								dispatch(
+									syncOperationsThunks.clearPullState( {
+										selectedSiteId: selectedSite.id,
+										remoteSiteId: connectedSite.id,
+									} )
+								)
+							}
 							isError
 						>
 							{ __( 'Error pulling changes' ) }
@@ -311,14 +357,30 @@ const SyncConnectedSitesSectionItem = ( {
 					) }
 					{ isPushError && (
 						<ClearAction
-							onClick={ () => clearPushState( selectedSite.id, connectedSite.id ) }
+							onClick={ () =>
+								dispatch(
+									syncOperationsThunks.clearPushState( {
+										selectedSiteId: selectedSite.id,
+										remoteSiteId: connectedSite.id,
+									} )
+								)
+							}
 							isError
 						>
 							{ __( 'Error pushing changes' ) }
 						</ClearAction>
 					) }
 					{ hasPullFinished && (
-						<ClearAction onClick={ () => clearPullState( selectedSite.id, connectedSite.id ) }>
+						<ClearAction
+							onClick={ () =>
+								dispatch(
+									syncOperationsThunks.clearPullState( {
+										selectedSiteId: selectedSite.id,
+										remoteSiteId: connectedSite.id,
+									} )
+								)
+							}
+						>
 							{ __( 'Pull complete' ) }
 						</ClearAction>
 					) }
@@ -360,7 +422,14 @@ const SyncConnectedSitesSectionItem = ( {
 							>
 								<Button
 									variant="link"
-									onClick={ () => cancelPush( selectedSite.id, connectedSite.id ) }
+									onClick={ () =>
+										dispatch(
+											syncOperationsThunks.cancelPush( {
+												selectedSiteId: selectedSite.id,
+												remoteSiteId: connectedSite.id,
+											} )
+										)
+									}
 									disabled={ ! canCancelPush( pushState?.status.key ) }
 									className="!p-0 flex-shrink-0"
 								>
@@ -370,13 +439,31 @@ const SyncConnectedSitesSectionItem = ( {
 						</div>
 					) }
 					{ pushState?.status && hasPushCancelled && (
-						<ClearAction onClick={ () => clearPushState( selectedSite.id, connectedSite.id ) }>
+						<ClearAction
+							onClick={ () =>
+								dispatch(
+									syncOperationsThunks.clearPushState( {
+										selectedSiteId: selectedSite.id,
+										remoteSiteId: connectedSite.id,
+									} )
+								)
+							}
+						>
 							{ __( 'Push cancelled' ) }
 						</ClearAction>
 					) }
 
 					{ pushState?.status && hasPushFinished && (
-						<ClearAction onClick={ () => clearPushState( selectedSite.id, connectedSite.id ) }>
+						<ClearAction
+							onClick={ () =>
+								dispatch(
+									syncOperationsThunks.clearPushState( {
+										selectedSiteId: selectedSite.id,
+										remoteSiteId: connectedSite.id,
+									} )
+								)
+							}
+						>
 							{ pushState.status.message }
 						</ClearAction>
 					) }
@@ -414,8 +501,6 @@ const SyncConnectedSiteSection = ( {
 	const { __ } = useI18n();
 	const dispatch = useAppDispatch();
 	const locale = useI18nLocale();
-	const { clearPullState, isSiteIdPulling } = useSyncPull();
-	const { isSiteIdPushing } = useSyncPush();
 	const isOffline = useOffline();
 
 	const handleDisconnectSite = async () => {
@@ -443,7 +528,12 @@ const SyncConnectedSiteSection = ( {
 					localStorage.setItem( 'dontShowDisconnectWarning', 'true' );
 				}
 				disconnectSite( connectedSite.id );
-				clearPullState( selectedSite.id, connectedSite.id );
+				void dispatch(
+					syncOperationsThunks.clearPullState( {
+						selectedSiteId: selectedSite.id,
+						remoteSiteId: connectedSite.id,
+					} )
+				);
 			}
 		} else {
 			disconnectSite( connectedSite.id );
@@ -451,8 +541,14 @@ const SyncConnectedSiteSection = ( {
 	};
 
 	const hasConnectionErrors = connectedSite?.syncSupport !== 'already-connected';
-	const isPulling = isSiteIdPulling( selectedSite.id, connectedSite.id );
-	const isPushing = isSiteIdPushing( selectedSite.id, connectedSite.id );
+	const isPulling = syncOperationsSelectors.selectIsSiteIdPulling(
+		selectedSite.id,
+		connectedSite.id
+	)( store.getState() );
+	const isPushing = syncOperationsSelectors.selectIsSiteIdPushing(
+		selectedSite.id,
+		connectedSite.id
+	)( store.getState() );
 
 	let logo = <WordPressLogoCircle />;
 	if ( hasConnectionErrors ) {

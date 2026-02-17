@@ -1,3 +1,4 @@
+import { BlueprintValidationWarning } from '@studio/common/lib/blueprint-validation';
 import {
 	__experimentalVStack as VStack,
 	__experimentalHStack as HStack,
@@ -12,7 +13,6 @@ import { sprintf } from '@wordpress/i18n';
 import { Icon, external, upload } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useRef, useState, useMemo } from 'react';
-import { BlueprintValidationWarning } from 'common/lib/blueprint-validation';
 import StudioButton from 'src/components/button';
 import { LearnMoreLink } from 'src/components/learn-more';
 import { cx } from 'src/lib/cx';

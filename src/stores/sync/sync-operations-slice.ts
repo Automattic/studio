@@ -618,20 +618,11 @@ export const pollPushProgressThunk = createTypedAsyncThunk(
 		{ client, selectedSiteId, remoteSiteId, pushStatesProgressInfo }: PollPushProgressPayload,
 		{ dispatch, getState, rejectWithValue }
 	) => {
-		// Check if state exists and is not cancelled
-		const state = getState();
+		// condition guarantees currentPushState exists and is not cancelled
 		const currentPushState = syncOperationsSelectors.selectPushState(
 			selectedSiteId,
 			remoteSiteId
-		)( state );
-
-		if (
-			! currentPushState ||
-			! currentPushState.status ||
-			currentPushState.status.key === 'cancelled'
-		) {
-			return;
-		}
+		)( getState() )!;
 
 		const response = await client.req.get< ImportResponse >(
 			`/sites/${ remoteSiteId }/studio-app/sync/import`,
@@ -750,6 +741,15 @@ export const pollPushProgressThunk = createTypedAsyncThunk(
 				state: { status },
 			} )
 		);
+	},
+	{
+		condition: ( { selectedSiteId, remoteSiteId }, { getState } ) => {
+			const pushState = syncOperationsSelectors.selectPushState(
+				selectedSiteId,
+				remoteSiteId
+			)( getState() );
+			return !! pushState?.status && pushState.status.key !== 'cancelled';
+		},
 	}
 );
 
@@ -772,20 +772,11 @@ export const pollPullBackupThunk = createTypedAsyncThunk(
 		{ client, selectedSiteId, remoteSiteId, pullStatesProgressInfo }: PollPullBackupPayload,
 		{ dispatch, getState, rejectWithValue }
 	) => {
-		// Check if state exists and is not cancelled
-		const state = getState();
+		// condition guarantees currentPullState exists and is not cancelled
 		const currentPullState = syncOperationsSelectors.selectPullState(
 			selectedSiteId,
 			remoteSiteId
-		)( state );
-
-		if (
-			! currentPullState ||
-			! currentPullState.status ||
-			currentPullState.status.key === 'cancelled'
-		) {
-			return;
-		}
+		)( getState() )!;
 
 		const backupId = currentPullState.backupId;
 		if ( ! backupId ) {
@@ -993,6 +984,15 @@ export const pollPullBackupThunk = createTypedAsyncThunk(
 				},
 			} );
 		}
+	},
+	{
+		condition: ( { selectedSiteId, remoteSiteId }, { getState } ) => {
+			const pullState = syncOperationsSelectors.selectPullState(
+				selectedSiteId,
+				remoteSiteId
+			)( getState() );
+			return !! pullState?.status && pullState.status.key !== 'cancelled';
+		},
 	}
 );
 

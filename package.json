@@ -3,14 +3,14 @@
 	"author": "Automattic Inc.",
 	"private": true,
 	"productName": "Studio",
-	"version": "1.7.4-beta1",
+	"version": "1.7.4",
 	"description": "Local WordPress development environment using Playgrounds",
 	"license": "GPL-2.0-or-later",
 	"main": "dist/main/index.js",
 	"packageManager": "npm@10.9.4",
 	"engines": {
-		"npm": ">=10.0.0 <11.0.0",
-		"node": ">=22.0.0 <23.0.0"
+		"npm": ">=10.0.0",
+		"node": ">=22.0.0"
 	},
 	"repository": {
 		"type": "git",
@@ -39,7 +39,8 @@
 		"test:watch": "vitest",
 		"e2e": "npx playwright install && npx playwright test",
 		"test:metrics": "npx playwright test --config=./metrics/playwright.metrics.config.ts",
-		"make-pot": "node ./scripts/make-pot.mjs"
+		"make-pot": "node ./scripts/make-pot.mjs",
+		"download-language-packs": "ts-node ./scripts/download-language-packs.ts"
 	},
 	"devDependencies": {
 		"@automattic/color-studio": "^4.1.0",
@@ -74,9 +75,9 @@
 		"@vitest/ui": "^4.0.18",
 		"@wordpress/components": "^32.1.0",
 		"@wordpress/element": "^6.39.0",
-		"@yao-pkg/pkg": "^6.3.2",
 		"@wordpress/react-i18n": "^4.39.0",
-		"@wp-playground/blueprints": "^3.0.46",
+		"@wp-playground/blueprints": "^3.0.53",
+		"@yao-pkg/pkg": "^6.3.2",
 		"electron": "^39.2.7",
 		"electron-devtools-installer": "^4.0.0",
 		"electron-playwright-helpers": "^2.1.0",
@@ -117,7 +118,7 @@
 		"@reduxjs/toolkit": "^2.11.2",
 		"@rive-app/react-canvas": "^4.12.0",
 		"@sentry/electron": "^6.5.0",
-		"@vscode/sudo-prompt": "^9.3.1",
+		"@vscode/sudo-prompt": "^9.3.2",
 		"@wordpress/compose": "^7.36.0",
 		"@wordpress/dataviews": "^11.3.0",
 		"@wordpress/i18n": "^6.9.0",
@@ -161,9 +162,9 @@
 		"zod": "^4.0.0"
 	},
 	"optionalDependencies": {
-		"appdmg": "^0.6.6",
+		"@rollup/rollup-linux-x64-gnu": "^4.50.2",
 		"@rollup/rollup-win32-x64-msvc": "^4.50.2",
-		"@rollup/rollup-linux-x64-gnu": "^4.50.2"
+		"appdmg": "^0.6.6"
 	},
 	"overrides": {
 		"fs-ext": {

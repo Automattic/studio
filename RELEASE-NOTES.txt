@@ -1,7 +1,19 @@
 Unreleased
 ==========
+
+1.7.4
+=====
 * Added PHP 8.5 support #2551
 * Added copy site feature to the site context menu #2528
+* Added Hungarian localization #2578
+* Added Blueprint's defineSiteUrl support #2516
+* Added Blueprint's blogname support to prefill site name field #2563
+* Enabled Xdebug support for all users #2523
+* Fixed an issue with site start/stop status #2534
+* Added ability to start all stopped sites #2548
+* Fixed printing JSON keys to camelCase in Studio CLI site status output #2552
+* Misc UI improvements #2584, #2577, 2536, #2549
+* Updated multiple dependencies, including Vite, Vitest, Playwright, Faraday, QS, Node.js types, and various WordPress packages
 
 1.7.3
 =====

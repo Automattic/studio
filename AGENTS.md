@@ -9,11 +9,11 @@ WordPress Studio - Electron desktop app for managing local WordPress sites. Buil
 **Quality**: `npm run lint` | `npx prettier --write <files>` (format ONLY modified files)
 **Package**: `npm run make` (builds installers for current platform)
 
-**Hot Reload**: Renderer auto-reloads, Main process needs restart (or `rs` in terminal)
+**IMPORTANT - Hot Reload**: Renderer auto-reloads, Main process needs restart (or `rs` in terminal). Changes to Main process IPC handlers require full restart.
 
 ## CLI Commands
 
-CLI pattern: `npm run cli:build && node dist/cli/main.js <command>`
+**MUST** build CLI before testing: `npm run cli:build && node dist/cli/main.js <command>`
 - **Auth**: `auth login|logout|status` - WordPress.com OAuth (tokens valid 2 weeks)
 - **Preview Sites**: See `cli/commands/preview/`
 - **Local Sites**: See `cli/commands/site/`
@@ -56,9 +56,45 @@ CLI pattern: `npm run cli:build && node dist/cli/main.js <command>`
 ## Conventions
 
 **Files**: React components (PascalCase), utils (camelCase), tests (.test.ts/.tsx)
-**IPC Handlers** (`src/ipc-handlers.ts`): `export async function handlerName(event, ...args): Promise<ReturnType>` | Handler names in `src/constants.ts`
-**Storage**: `~/Library/Application Support/WordPress Studio/appdata-v1.json` (macOS), `%APPDATA%/...` (Win), `~/.config/...` (Linux) | File locking: `lockAppdata()` / `unlockAppdata()`
+**IPC Handlers** (`src/ipc-handlers.ts`): **MUST** `export async function handlerName(event, ...args): Promise<ReturnType>` | Handler names in `src/constants.ts` | All handlers MUST be async and return Promises
+**Storage**: **CRITICAL** - Always use file locking: `lockAppdata()` / `unlockAppdata()` to prevent data corruption
 **i18n**: `@wordpress/i18n` (`__()` function), `common/translations/`, `<I18nProvider>` (renderer), `loadTranslations()` (CLI)
+
+## WordPress Studio Paths
+
+**App Data:**
+- macOS: `~/Library/Application Support/Studio/appdata-v1.json`
+- Windows: `%APPDATA%\Studio\appdata-v1.json` (expands to `C:\Users\<username>\AppData\Roaming\Studio\appdata-v1.json`)
+
+**Logs:**
+- macOS: `~/Library/Logs/Studio/`
+- Windows: `%APPDATA%\Studio\logs\`
+
+**Sites:**
+- All platforms: `~/Studio/` (user's home directory)
+
+## Git & PR Conventions
+
+**Branches**: Create from `trunk` using dash-separated lowercase names. Include a verb for clarity. Examples: `new-dark-mode`, `improve-agent-instructions`, `fix-login-bug`, `add-logout-button`. For Linear issues: `stu-123-update-sync-feature`.
+**Commits**: Single-line messages. Clear and descriptive. Focus on "what" and "why", not "how"
+**PRs**: Create PR against `trunk` branch. Use the template from `.github/PULL_REQUEST_TEMPLATE.md` (include Related issues, Proposed Changes, Testing Instructions, Pre-merge Checklist). MUST pass all CI checks before merge.
+**IMPORTANT**: Prefer merging `trunk` into your branch over rebasing. Avoid force pushes to trunk/main branches. Avoid force pushes to already-pushed branches - add new commits instead.
+
+## Common Pitfalls
+
+**CRITICAL - WordPress Core Files**: Do NOT edit WordPress core files within site directories. Studio uses WordPress Playground (PHP WASM), and core modifications won't persist or function correctly.
+
+**CRITICAL - Appdata Locking**: Always wrap appdata file operations with `lockAppdata()` / `unlockAppdata()`. Concurrent writes will corrupt the database file.
+
+**IMPORTANT - CLI Build Required**: Running CLI commands without first running `npm run cli:build` will execute stale/outdated code. Always build before testing CLI changes.
+
+**IMPORTANT - Main Process Restarts**: Hot reload (`rs` or auto-restart) does NOT pick up new IPC handlers or changes to Main process initialization. Full app restart required for Main process changes.
+
+**Async IPC Handlers**: All IPC handlers MUST return Promises. Synchronous handlers will break the IPC communication pattern.
+
+**Context Isolation**: Renderer is sandboxed - direct Node.js API access not available. MUST use IPC (`window.ipcApi.*`) for all Main process operations.
+
+**Port Conflicts**: Site servers dynamically allocate ports. Don't hardcode port numbers; use the port-finder utility.
 
 ## Detailed Documentation
 

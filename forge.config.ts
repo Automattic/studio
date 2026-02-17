@@ -110,6 +110,10 @@ const config: ForgeConfig = {
 									}/Studio.app`,
 								},
 								{ x: 533, y: 354, type: 'link', path: '/Applications' },
+								{ x: 900, y: 900, type: 'position', path: '.background' },
+								{ x: 900, y: 900, type: 'position', path: '.DS_Store' },
+								{ x: 900, y: 900, type: 'position', path: '.Trashes' },
+								{ x: 900, y: 900, type: 'position', path: '.VolumeIcon.icns' },
 							],
 							additionalDMGOptions: {
 								window: {
@@ -136,6 +140,9 @@ const config: ForgeConfig = {
 			} catch ( err ) {
 				if ( isErrnoException( err ) && err.code !== 'ENOENT' ) throw err;
 			}
+
+			console.log( 'Downloading language packs ...' );
+			await execAsync( 'npm run download-language-packs' );
 
 			console.log( 'Building CLI ...' );
 			await execAsync( 'npm run cli:build' );

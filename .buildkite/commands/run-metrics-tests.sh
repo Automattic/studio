@@ -21,6 +21,24 @@ echo '--- :package: Downloading prebuilt app artifacts'
 buildkite-agent artifact download "artifacts/studio-app-mac-arm64.tar.gz" .
 tar -xzf artifacts/studio-app-mac-arm64.tar.gz
 
+if [ "${BUILDKITE_PULL_REQUEST}" != "false" ]; then
+  TRUNK_ARTIFACT_CACHE_KEY="$BUILDKITE_PIPELINE_SLUG-trunk-mac-arm64-package"
+  TRUNK_ARTIFACT_CACHE_PATH="artifacts/trunk-mac-arm64"
+  TRUNK_ARTIFACT_FILE="$TRUNK_ARTIFACT_CACHE_PATH/studio-app-trunk-mac-arm64.tar.gz"
+  TRUNK_EXTRACT_PATH="${PWD}/artifacts/trunk-mac-arm64-extract"
+
+  echo '--- :package: Restoring latest cached trunk package artifact'
+  if restore_cache "$TRUNK_ARTIFACT_CACHE_KEY" && [ -f "$TRUNK_ARTIFACT_FILE" ]; then
+    rm -rf "$TRUNK_EXTRACT_PATH"
+    mkdir -p "$TRUNK_EXTRACT_PATH"
+    tar -xzf "$TRUNK_ARTIFACT_FILE" -C "$TRUNK_EXTRACT_PATH"
+    export COMPARE_PERF_PREBUILT_BRANCH_BASE=trunk
+    export COMPARE_PERF_PREBUILT_OUT_DIR_BASE="$TRUNK_EXTRACT_PATH/apps/studio/out"
+  else
+    echo "--- :warning: Could not restore cached trunk package artifact; compare-perf will build trunk"
+  fi
+fi
+
 # Detect if this is a PR or trunk push
 if [ "${BUILDKITE_PULL_REQUEST}" != "false" ]; then
   # PR context - compare against trunk

@@ -29,6 +29,41 @@ interface PerformanceCommandOptions {
 	testsBranch?: string;
 }
 
+interface PrebuiltArtifacts {
+	branch?: string;
+	outDir?: string;
+}
+
+const CURRENT_BRANCH_PREBUILT: PrebuiltArtifacts = {
+	branch: process.env.COMPARE_PERF_PREBUILT_BRANCH,
+	outDir: process.env.COMPARE_PERF_PREBUILT_OUT_DIR,
+};
+
+const BASE_BRANCH_PREBUILT: PrebuiltArtifacts = {
+	branch: process.env.COMPARE_PERF_PREBUILT_BRANCH_BASE,
+	outDir: process.env.COMPARE_PERF_PREBUILT_OUT_DIR_BASE,
+};
+
+function getPrebuiltOutDirForBranch( branch: string ): string | undefined {
+	if (
+		CURRENT_BRANCH_PREBUILT.branch === branch &&
+		CURRENT_BRANCH_PREBUILT.outDir &&
+		fs.existsSync( CURRENT_BRANCH_PREBUILT.outDir )
+	) {
+		return CURRENT_BRANCH_PREBUILT.outDir;
+	}
+
+	if (
+		BASE_BRANCH_PREBUILT.branch === branch &&
+		BASE_BRANCH_PREBUILT.outDir &&
+		fs.existsSync( BASE_BRANCH_PREBUILT.outDir )
+	) {
+		return BASE_BRANCH_PREBUILT.outDir;
+	}
+
+	return undefined;
+}
+
 /**
  * A logging helper for printing steps and their substeps.
  *
@@ -114,8 +149,6 @@ export async function runPerformanceTests(
 ) {
 	const runningInCI = !! process.env.CI || !! options.ci;
 	const testRounds = options.rounds || 1;
-	const prebuiltBranch = process.env.COMPARE_PERF_PREBUILT_BRANCH;
-	const prebuiltOutDir = process.env.COMPARE_PERF_PREBUILT_OUT_DIR;
 
 	// The default value doesn't work because commander provides an array.
 	if ( branches.length === 0 ) {
@@ -221,18 +254,11 @@ export async function runPerformanceTests(
 		logAtIndent( 3, 'Checking out:', formats.success( branch ) );
 		await simpleGit( buildDir ).raw( 'checkout', branch );
 
-		if (
-			prebuiltBranch &&
-			prebuiltOutDir &&
-			branch === prebuiltBranch &&
-			fs.existsSync( prebuiltOutDir )
-		) {
+		const prebuiltOutDir = getPrebuiltOutDirForBranch( branch );
+
+		if ( prebuiltOutDir ) {
 			const prebuiltTargetDir = path.join( buildDir, 'out' );
-			logAtIndent(
-				3,
-				'Using prebuilt app artifacts from:',
-				formats.success( prebuiltOutDir )
-			);
+			logAtIndent( 3, 'Using prebuilt app artifacts from:', formats.success( prebuiltOutDir ) );
 
 			if ( fs.existsSync( prebuiltTargetDir ) ) {
 				fs.rmSync( prebuiltTargetDir, { recursive: true } );

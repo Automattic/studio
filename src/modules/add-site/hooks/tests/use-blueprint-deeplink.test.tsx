@@ -20,7 +20,7 @@ describe( 'useBlueprintDeeplink', () => {
 	const mockSetPhpVersion = vi.fn();
 	const mockSetWpVersion = vi.fn();
 	const mockSetBlueprintPreferredVersions = vi.fn();
-	const mockSetBlueprintDeeplinkWarnings = vi.fn();
+	const mockSetBlueprintWarnings = vi.fn();
 	const mockSetBlueprintSuggestedDomain = vi.fn();
 	const mockSetBlueprintSuggestedHttps = vi.fn();
 	const mockSetBlueprintSuggestedSiteName = vi.fn();
@@ -36,7 +36,7 @@ describe( 'useBlueprintDeeplink', () => {
 					setPhpVersion: mockSetPhpVersion,
 					setWpVersion: mockSetWpVersion,
 					setBlueprintPreferredVersions: mockSetBlueprintPreferredVersions,
-					setBlueprintDeeplinkWarnings: mockSetBlueprintDeeplinkWarnings,
+					setBlueprintWarnings: mockSetBlueprintWarnings,
 					setBlueprintSuggestedDomain: mockSetBlueprintSuggestedDomain,
 					setBlueprintSuggestedHttps: mockSetBlueprintSuggestedHttps,
 					setBlueprintSuggestedSiteName: mockSetBlueprintSuggestedSiteName,
@@ -96,7 +96,7 @@ describe( 'useBlueprintDeeplink', () => {
 				blueprint: mockBlueprintData,
 			} )
 		);
-		expect( mockSetBlueprintDeeplinkWarnings ).toHaveBeenCalledWith( [] );
+		expect( mockSetBlueprintWarnings ).toHaveBeenCalledWith( [] );
 		expect( mockSetIsDeeplinkFlow ).toHaveBeenCalledWith( true );
 	} );
 

@@ -5,25 +5,37 @@ import {
 	__experimentalText as Text,
 	Icon,
 } from '@wordpress/components';
-import { check, link } from '@wordpress/icons';
+import { check, link, upload, starFilled } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { BlueprintValidationWarning } from 'common/lib/blueprint-validation';
 import { Blueprint } from 'src/stores/wpcom-api';
 import { BlueprintWarningNotice } from './blueprint-warning-notice';
 
-interface BlueprintDeeplinkProps {
+export type BlueprintSource = 'deeplink' | 'file' | 'featured';
+
+interface BlueprintDetailsProps {
 	selectedBlueprint?: Blueprint;
 	warnings?: BlueprintValidationWarning[];
+	source?: BlueprintSource;
 }
 
-export default function BlueprintDeeplink( {
+export default function BlueprintDetails( {
 	selectedBlueprint,
 	warnings,
-}: BlueprintDeeplinkProps ) {
+	source = 'deeplink',
+}: BlueprintDetailsProps ) {
 	const { __ } = useI18n();
 
 	const blueprintTitle = selectedBlueprint?.title || __( 'Blueprint' );
 	const blueprintDescription = selectedBlueprint?.excerpt || '';
+
+	const sourceConfig = {
+		deeplink: { icon: link, label: __( 'Blueprint loaded from URL' ) },
+		file: { icon: upload, label: __( 'Blueprint loaded from file' ) },
+		featured: { icon: starFilled, label: __( 'Featured Blueprint' ) },
+	};
+
+	const { icon: sourceIcon, label: sourceLabel } = sourceConfig[ source ];
 
 	return (
 		<VStack className="text-center w-full" alignment="top" spacing={ 0 }>
@@ -61,10 +73,8 @@ export default function BlueprintDeeplink( {
 					alignment="start"
 					className="w-full bg-[#FAFAFA] border border-t-0 rounded-b-lg py-[14px] pe-[14px] ps-[68px] justify-start"
 				>
-					<Icon icon={ link } size={ 18 } />
-					<Text className="text-[13px] text-a8c-gray-800">
-						{ __( 'Blueprint loaded from URL' ) }
-					</Text>
+					<Icon icon={ sourceIcon } size={ 18 } />
+					<Text className="text-[13px] text-a8c-gray-800">{ sourceLabel }</Text>
 				</HStack>
 			</VStack>
 		</VStack>

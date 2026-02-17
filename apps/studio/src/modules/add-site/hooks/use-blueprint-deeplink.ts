@@ -20,7 +20,7 @@ interface UseBlueprintDeeplinkOptions {
 	setPhpVersion: ( version: string ) => void;
 	setWpVersion: ( version: string ) => void;
 	setBlueprintPreferredVersions: ( versions: BlueprintPreferredVersions | undefined ) => void;
-	setBlueprintDeeplinkWarnings: ( warnings: BlueprintValidationWarning[] | undefined ) => void;
+	setBlueprintWarnings: ( warnings: BlueprintValidationWarning[] | undefined ) => void;
 	setBlueprintSuggestedDomain: ( domain: string | undefined ) => void;
 	setBlueprintSuggestedHttps: ( https: boolean | undefined ) => void;
 	setBlueprintSuggestedSiteName: ( name: string | undefined ) => void;
@@ -36,7 +36,7 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 		setPhpVersion,
 		setWpVersion,
 		setBlueprintPreferredVersions,
-		setBlueprintDeeplinkWarnings,
+		setBlueprintWarnings,
 		setBlueprintSuggestedDomain,
 		setBlueprintSuggestedHttps,
 		setBlueprintSuggestedSiteName,
@@ -97,7 +97,7 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 						setBlueprintSuggestedSiteName( formValues.siteName );
 					}
 
-					setBlueprintDeeplinkWarnings( warnings );
+					setBlueprintWarnings( warnings );
 					setIsDeeplinkFlow( true );
 					onModalOpen?.();
 				} catch ( error ) {
@@ -110,7 +110,7 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 				setPhpVersion,
 				setWpVersion,
 				setBlueprintPreferredVersions,
-				setBlueprintDeeplinkWarnings,
+				setBlueprintWarnings,
 				setBlueprintSuggestedDomain,
 				setBlueprintSuggestedHttps,
 				setBlueprintSuggestedSiteName,

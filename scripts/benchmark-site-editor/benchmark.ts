@@ -3,7 +3,7 @@
 /**
  * Site Editor Performance Benchmark — Orchestration Script
  *
- * Runs the site-editor-benchmark Playwright test across a matrix of environments:
+ * Benchmarks site editor performance across a matrix of environments:
  *   - Studio (bare, multi-worker, plugins, multi-worker+plugins)
  *   - Playground CLI (bare, multi-worker, plugins, multi-worker+plugins)
  *   - Playground Web (bare, plugins)
@@ -27,6 +27,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import chalk from 'chalk';
+import { measureSiteEditor, METRIC_NAMES, type MeasurementResult } from './measure-site-editor.js';
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -43,13 +44,10 @@ const PLAYGROUND_CLI_PATH = path.resolve(
 );
 const PLUGINS_BLUEPRINT_PATH = path.resolve( import.meta.dirname, 'plugins-blueprint.json' );
 const ARTIFACTS_PATH = path.resolve( STUDIO_ROOT, 'metrics', 'artifacts' );
-const BENCHMARK_TEST_NAME = 'site-editor-benchmark';
-const PLAYWRIGHT_CONFIG = path.resolve( STUDIO_ROOT, 'metrics', 'playwright.metrics.config.ts' );
 
 const PLAYGROUND_WEB_BASE_URL = 'https://playground.wordpress.net';
 
-// Ports used for local servers — offset to avoid collisions with dev servers
-const STUDIO_PORT_BASE = 9400;
+// Port offset for Playground CLI servers — avoids collisions with dev servers
 const PLAYGROUND_CLI_PORT_BASE = 9500;
 
 // ---------------------------------------------------------------------------
@@ -491,87 +489,64 @@ function getPlaygroundWebUrl( env: EnvironmentConfig ): string {
 // Benchmark runner
 // ---------------------------------------------------------------------------
 
-async function runBenchmarkTest(
-	benchmarkUrl: string,
-	resultsId: string,
-	runs: number
-): Promise< Record< string, number > | null > {
-	console.log( chalk.gray( `    Running benchmark (${ runs } run${ runs > 1 ? 's' : '' })...` ) );
+const MEASUREMENT_TIMEOUT = 600_000; // 10 min per measurement
 
-	const result = await runCommand(
-		'npx',
-		[ 'playwright', 'test', `--config=${ PLAYWRIGHT_CONFIG }`, BENCHMARK_TEST_NAME ],
-		{
-			cwd: STUDIO_ROOT,
-			env: {
-				BENCHMARK_URL: benchmarkUrl,
-				BENCHMARK_RUNS: String( runs ),
-				RESULTS_ID: resultsId,
-				ARTIFACTS_PATH: ARTIFACTS_PATH,
-				TIMEOUT: '600000', // 10 min — plugin-heavy environments need more time
-			},
-			timeout: 600_000,
-		}
+async function runBenchmark(
+	benchmarkUrl: string,
+	env: EnvironmentConfig,
+	rounds: number
+): Promise< Record< string, number > | null > {
+	console.log(
+		chalk.gray( `    Running benchmark (${ rounds } round${ rounds > 1 ? 's' : '' })...` )
 	);
 
-	if ( result.exitCode !== 0 ) {
-		console.error( chalk.red( `    Benchmark failed for ${ resultsId }` ) );
-		// Playwright outputs test failures to stdout
-		const output = ( result.stdout + '\n' + result.stderr ).trim();
-		console.error( chalk.gray( output.slice( -2000 ) ) );
+	const isPlaygroundWeb = benchmarkUrl.includes( 'playground.wordpress.net' );
+	const isPlaygroundCli = benchmarkUrl.includes( '127.0.0.1' );
+	const allMeasurements: MeasurementResult[] = [];
+
+	for ( let round = 1; round <= rounds; round++ ) {
+		if ( rounds > 1 ) {
+			console.log( chalk.gray( `      Round ${ round }/${ rounds }...` ) );
+		}
+		try {
+			const result = await Promise.race( [
+				measureSiteEditor( { url: benchmarkUrl, isPlaygroundWeb, isPlaygroundCli } ),
+				sleep( MEASUREMENT_TIMEOUT ).then( () => {
+					throw new Error( 'Measurement timed out' );
+				} ),
+			] );
+			allMeasurements.push( result );
+		} catch ( err ) {
+			console.warn( chalk.yellow( `      Round ${ round } failed: ${ err }` ) );
+		}
+
+		// Small delay between rounds
+		if ( round < rounds ) {
+			await sleep( 1000 );
+		}
+	}
+
+	if ( allMeasurements.length === 0 ) {
 		return null;
 	}
 
-	// Read the results file
-	const resultsFile = path.join( ARTIFACTS_PATH, `${ resultsId }.results.json` );
-	if ( fs.existsSync( resultsFile ) ) {
-		return JSON.parse( fs.readFileSync( resultsFile, 'utf-8' ) );
+	// Calculate medians across rounds
+	const medians: Record< string, number > = {};
+	for ( const metric of METRIC_NAMES ) {
+		const values = allMeasurements
+			.map( ( m ) => m[ metric ] )
+			.filter( ( v ): v is number => v !== undefined );
+		if ( values.length > 0 ) {
+			medians[ metric ] = median( values );
+		}
 	}
 
-	console.warn( chalk.yellow( `    Results file not found: ${ resultsFile }` ) );
-	return null;
+	return medians;
 }
 
 // ---------------------------------------------------------------------------
 // Results formatting
 // ---------------------------------------------------------------------------
-
-/**
- * The site-editor-benchmark test prefixes metric keys with a URL-derived identifier
- * (e.g., "localhost-9401-siteEditorLoad"). We strip the prefix to get the base metric
- * name so results from different environments can be compared in the same row.
- */
-function stripMetricPrefix( key: string ): string {
-	// Known metric base names from the benchmark test
-	const knownMetrics = [
-		'siteEditorLoad',
-		'templatesViewLoad',
-		'templateOpen',
-		'blockAdd',
-		'templateSave',
-	];
-
-	for ( const metric of knownMetrics ) {
-		if ( key.endsWith( metric ) ) {
-			return metric;
-		}
-	}
-
-	// Fallback: strip everything before the last camelCase segment
-	const match = key.match( /[a-z][a-zA-Z]+$/ );
-	return match ? match[ 0 ] : key;
-}
-
-/**
- * Normalize metric keys in a results object by stripping URL-derived prefixes.
- */
-function normalizeMetricKeys( metrics: Record< string, number > ): Record< string, number > {
-	const normalized: Record< string, number > = {};
-	for ( const [ key, value ] of Object.entries( metrics ) ) {
-		normalized[ stripMetricPrefix( key ) ] = value;
-	}
-	return normalized;
-}
 
 function printComparisonTable( results: BenchmarkResult[] ): void {
 	if ( results.length === 0 ) {
@@ -579,38 +554,32 @@ function printComparisonTable( results: BenchmarkResult[] ): void {
 		return;
 	}
 
-	// Normalize metric keys for comparison
-	const normalizedResults = results.map( ( r ) => ( {
-		...r,
-		metrics: normalizeMetricKeys( r.metrics ),
-	} ) );
-
 	// Collect all unique metric names across all results
 	const allMetrics = new Set< string >();
-	for ( const r of normalizedResults ) {
+	for ( const r of results ) {
 		Object.keys( r.metrics ).forEach( ( k ) => allMetrics.add( k ) );
 	}
 	const metrics = [ ...allMetrics ].sort();
 
 	// Calculate column widths
 	const metricColWidth = Math.max( 20, ...metrics.map( ( m ) => m.length + 2 ) );
-	const envColWidth = Math.max( 12, ...normalizedResults.map( ( r ) => r.environment.length + 2 ) );
+	const envColWidth = Math.max( 12, ...results.map( ( r ) => r.environment.length + 2 ) );
 
 	// Header
 	console.log( chalk.bold( '\n\nResults Comparison' ) );
-	console.log( '═'.repeat( metricColWidth + envColWidth * normalizedResults.length ) );
+	console.log( '═'.repeat( metricColWidth + envColWidth * results.length ) );
 
 	const header =
 		'Metric'.padEnd( metricColWidth ) +
-		normalizedResults.map( ( r ) => r.environment.padEnd( envColWidth ) ).join( '' );
+		results.map( ( r ) => r.environment.padEnd( envColWidth ) ).join( '' );
 	console.log( chalk.bold( header ) );
-	console.log( '─'.repeat( metricColWidth + envColWidth * normalizedResults.length ) );
+	console.log( '─'.repeat( metricColWidth + envColWidth * results.length ) );
 
 	// Rows
 	for ( const metric of metrics ) {
 		let row = metric.padEnd( metricColWidth );
 
-		for ( const r of normalizedResults ) {
+		for ( const r of results ) {
 			const value = r.metrics[ metric ];
 			if ( value !== undefined ) {
 				row += formatDuration( value ).padEnd( envColWidth );
@@ -622,7 +591,7 @@ function printComparisonTable( results: BenchmarkResult[] ): void {
 		console.log( row );
 	}
 
-	console.log( '═'.repeat( metricColWidth + envColWidth * normalizedResults.length ) );
+	console.log( '═'.repeat( metricColWidth + envColWidth * results.length ) );
 }
 
 function saveResultsSummary( results: BenchmarkResult[] ): void {
@@ -731,7 +700,7 @@ async function main() {
 
 	// Ensure Playwright browsers are installed
 	try {
-		execSync( 'npx playwright install chromium', { cwd: STUDIO_ROOT, stdio: 'ignore' } );
+		execSync( 'npx playwright install chromium', { cwd: import.meta.dirname, stdio: 'ignore' } );
 		console.log( chalk.green( '  Playwright chromium ready' ) );
 	} catch {
 		console.error( chalk.red( '  Failed to install Playwright chromium' ) );
@@ -790,7 +759,7 @@ async function main() {
 			}
 
 			// Run benchmark
-			const metrics = await runBenchmarkTest( benchmarkUrl, env.name, opts.rounds );
+			const metrics = await runBenchmark( benchmarkUrl, env, opts.rounds );
 
 			if ( metrics ) {
 				allResults.push( { environment: env.name, metrics } );

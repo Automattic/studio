@@ -8,7 +8,7 @@ Benchmarks site editor performance across Studio, Playground CLI, and Playground
 
 ## What It Measures
 
-The benchmark runs the `site-editor-benchmark` Playwright test against each environment, measuring:
+The benchmark launches a headless Chromium browser against each environment, measuring:
 
 | Metric                | Description                                                |
 | --------------------- | ---------------------------------------------------------- |
@@ -87,10 +87,8 @@ npm run benchmark -- --only=studio-mw-plugins --rounds=5
 
 - **Studio CLI**: Built automatically if `dist/cli/main.js` doesn't exist (`npm run cli:build`)
 - **Playground CLI**: Installed automatically via this script's `npm install`
-- **Playwright**: Must be installed at the repo root (`npx playwright install chromium`)
+- **Playwright**: Chromium is installed automatically during setup
 
 ## Output
 
 Results are printed as a comparison table and saved to `metrics/artifacts/benchmark-comparison-<timestamp>.json`.
-
-Individual results per environment are saved to `metrics/artifacts/<env-name>.results.json`.

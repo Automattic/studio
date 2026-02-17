@@ -20,6 +20,51 @@ import type { SyncSite } from 'src/modules/sync/types';
 import type { AppDispatch, RootState } from 'src/stores';
 import type { SyncOption } from 'src/types';
 
+// Factory functions for progress info (canonical definitions, also used by useSyncStatesProgressInfo hook)
+export function getPushStatesProgressInfo(): Record<
+	PushStateProgressInfo[ 'key' ],
+	PushStateProgressInfo
+> {
+	return {
+		creatingBackup: { key: 'creatingBackup', progress: 20, message: __( 'Creating backup…' ) },
+		uploading: { key: 'uploading', progress: 40, message: __( 'Uploading site…' ) },
+		uploadingPaused: { key: 'uploadingPaused', progress: 45, message: __( 'Uploading paused' ) },
+		uploadingManuallyPaused: {
+			key: 'uploadingManuallyPaused',
+			progress: 45,
+			message: __( 'Uploading paused' ),
+		},
+		creatingRemoteBackup: {
+			key: 'creatingRemoteBackup',
+			progress: 50,
+			message: __( 'Backing up remote site…' ),
+		},
+		applyingChanges: { key: 'applyingChanges', progress: 60, message: __( 'Applying changes…' ) },
+		finishing: { key: 'finishing', progress: 99, message: __( 'Almost there…' ) },
+		finished: { key: 'finished', progress: 100, message: __( 'Push complete' ) },
+		failed: { key: 'failed', progress: 100, message: __( 'Error pushing changes' ) },
+		cancelled: { key: 'cancelled', progress: 0, message: __( 'Cancelled' ) },
+	};
+}
+
+export function getPullStatesProgressInfo(): Record<
+	PullStateProgressInfo[ 'key' ],
+	PullStateProgressInfo
+> {
+	return {
+		'in-progress': {
+			key: 'in-progress',
+			progress: 30,
+			message: __( 'Initializing remote backup…' ),
+		},
+		downloading: { key: 'downloading', progress: 60, message: __( 'Downloading backup…' ) },
+		importing: { key: 'importing', progress: 80, message: __( 'Importing backup…' ) },
+		finished: { key: 'finished', progress: 100, message: __( 'Pull complete' ) },
+		failed: { key: 'failed', progress: 100, message: __( 'Error pulling changes' ) },
+		cancelled: { key: 'cancelled', progress: 0, message: __( 'Cancelled' ) },
+	};
+}
+
 interface SyncOperationsState {
 	pullStates: PullStates;
 	pushStates: PushStates;
@@ -267,18 +312,16 @@ export const clearPullStateThunk = createTypedAsyncThunk(
 type CancelPushPayload = {
 	selectedSiteId: string;
 	remoteSiteId: number;
-	cancelledStatus: PushStateProgressInfo;
 };
 
 type CancelPullPayload = {
 	selectedSiteId: string;
 	remoteSiteId: number;
-	cancelledStatus: PullStateProgressInfo;
 };
 
 export const cancelPushThunk = createTypedAsyncThunk(
 	'syncOperations/cancelPush',
-	async ( { selectedSiteId, remoteSiteId, cancelledStatus }: CancelPushPayload, { dispatch } ) => {
+	async ( { selectedSiteId, remoteSiteId }: CancelPushPayload, { dispatch } ) => {
 		const operationId = generateStateId( selectedSiteId, remoteSiteId );
 		getIpcApi().cancelSyncOperation( operationId );
 
@@ -286,7 +329,7 @@ export const cancelPushThunk = createTypedAsyncThunk(
 			syncOperationsActions.updatePushState( {
 				selectedSiteId,
 				remoteSiteId,
-				state: { status: cancelledStatus },
+				state: { status: getPushStatesProgressInfo().cancelled },
 			} )
 		);
 
@@ -299,7 +342,7 @@ export const cancelPushThunk = createTypedAsyncThunk(
 
 export const cancelPullThunk = createTypedAsyncThunk(
 	'syncOperations/cancelPull',
-	async ( { selectedSiteId, remoteSiteId, cancelledStatus }: CancelPullPayload, { dispatch } ) => {
+	async ( { selectedSiteId, remoteSiteId }: CancelPullPayload, { dispatch } ) => {
 		const operationId = generateStateId( selectedSiteId, remoteSiteId );
 		getIpcApi().cancelSyncOperation( operationId );
 
@@ -307,7 +350,7 @@ export const cancelPullThunk = createTypedAsyncThunk(
 			syncOperationsActions.updatePullState( {
 				selectedSiteId,
 				remoteSiteId,
-				state: { status: cancelledStatus },
+				state: { status: getPullStatesProgressInfo().cancelled },
 			} )
 		);
 
@@ -332,7 +375,6 @@ type PushSitePayload = {
 		optionsToSync?: SyncOption[];
 		specificSelectionPaths?: string[];
 	};
-	pushStatesProgressInfo: Record< PushStateProgressInfo[ 'key' ], PushStateProgressInfo >;
 };
 
 type PushSiteResult = {
@@ -344,10 +386,8 @@ type PushSiteResult = {
 
 export const pushSiteThunk = createTypedAsyncThunk< PushSiteResult, PushSitePayload >(
 	'syncOperations/pushSite',
-	async (
-		{ connectedSite, selectedSite, options, pushStatesProgressInfo },
-		{ dispatch, getState, rejectWithValue }
-	) => {
+	async ( { connectedSite, selectedSite, options }, { dispatch, getState, rejectWithValue } ) => {
+		const pushStatesProgressInfo = getPushStatesProgressInfo();
 		const remoteSiteId = connectedSite.id;
 		const remoteSiteUrl = connectedSite.url;
 		const operationId = generateStateId( selectedSite.id, remoteSiteId );
@@ -516,7 +556,6 @@ type PullSitePayload = {
 		optionsToSync: SyncOption[];
 		include_path_list?: string[];
 	};
-	pullStatesProgressInfo: Record< PullStateProgressInfo[ 'key' ], PullStateProgressInfo >;
 };
 
 type PullSiteResult = {
@@ -526,10 +565,8 @@ type PullSiteResult = {
 
 export const pullSiteThunk = createTypedAsyncThunk< PullSiteResult, PullSitePayload >(
 	'syncOperations/pullSite',
-	async (
-		{ client, connectedSite, selectedSite, options, pullStatesProgressInfo },
-		{ dispatch, rejectWithValue }
-	) => {
+	async ( { client, connectedSite, selectedSite, options }, { dispatch, rejectWithValue } ) => {
+		const pullStatesProgressInfo = getPullStatesProgressInfo();
 		const remoteSiteId = connectedSite.id;
 		const remoteSiteUrl = connectedSite.url;
 
@@ -609,15 +646,15 @@ type PollPushProgressPayload = {
 	client: WPCOM;
 	selectedSiteId: string;
 	remoteSiteId: number;
-	pushStatesProgressInfo: Record< PushStateProgressInfo[ 'key' ], PushStateProgressInfo >;
 };
 
 export const pollPushProgressThunk = createTypedAsyncThunk(
 	'syncOperations/pollPushProgress',
 	async (
-		{ client, selectedSiteId, remoteSiteId, pushStatesProgressInfo }: PollPushProgressPayload,
+		{ client, selectedSiteId, remoteSiteId }: PollPushProgressPayload,
 		{ dispatch, getState, rejectWithValue }
 	) => {
+		const pushStatesProgressInfo = getPushStatesProgressInfo();
 		// condition guarantees currentPushState exists and is not cancelled
 		const currentPushState = syncOperationsSelectors.selectPushState(
 			selectedSiteId,
@@ -763,15 +800,15 @@ type PollPullBackupPayload = {
 	client: WPCOM;
 	selectedSiteId: string;
 	remoteSiteId: number;
-	pullStatesProgressInfo: Record< PullStateProgressInfo[ 'key' ], PullStateProgressInfo >;
 };
 
 export const pollPullBackupThunk = createTypedAsyncThunk(
 	'syncOperations/pollPullBackup',
 	async (
-		{ client, selectedSiteId, remoteSiteId, pullStatesProgressInfo }: PollPullBackupPayload,
+		{ client, selectedSiteId, remoteSiteId }: PollPullBackupPayload,
 		{ dispatch, getState, rejectWithValue }
 	) => {
+		const pullStatesProgressInfo = getPullStatesProgressInfo();
 		// condition guarantees currentPullState exists and is not cancelled
 		const currentPullState = syncOperationsSelectors.selectPullState(
 			selectedSiteId,

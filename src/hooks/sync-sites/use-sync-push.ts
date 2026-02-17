@@ -2,13 +2,10 @@ import { useCallback } from 'react';
 import { ClearState, GetState } from 'src/hooks/sync-sites/use-pull-push-states';
 import { useSyncPolling } from 'src/hooks/sync-sites/use-sync-polling';
 import { useAuth } from 'src/hooks/use-auth';
-import {
-	ImportResponse,
-	useSyncStatesProgressInfo,
-	PushStateProgressInfo,
-} from 'src/hooks/use-sync-states-progress-info';
+import { ImportResponse, PushStateProgressInfo } from 'src/hooks/use-sync-states-progress-info';
 import { store, useAppDispatch, useRootSelector, type RootState } from 'src/stores';
 import { syncOperationsSelectors, syncOperationsThunks } from 'src/stores/sync';
+import { getPushStatesProgressInfo } from 'src/stores/sync/sync-operations-slice';
 import type { SyncSite } from 'src/modules/sync/types';
 import type { SyncOption } from 'src/types';
 
@@ -75,8 +72,6 @@ export function useSyncPush(): UseSyncPush {
 	const pushStates = useRootSelector(
 		syncOperationsSelectors.selectPushStates as ( state: RootState ) => PushStates
 	);
-	const { pushStatesProgressInfo } = useSyncStatesProgressInfo();
-
 	const getPushState = useCallback< GetState< SyncPushState > >(
 		( selectedSiteId, remoteSiteId ) => {
 			const state = store.getState();
@@ -102,11 +97,10 @@ export function useSyncPush(): UseSyncPush {
 					client,
 					selectedSiteId: syncPushState.selectedSite.id,
 					remoteSiteId,
-					pushStatesProgressInfo,
 				} )
 			);
 		},
-		[ client, dispatch, pushStatesProgressInfo ]
+		[ client, dispatch ]
 	);
 
 	const pushSite = useCallback< PushSite >(
@@ -121,7 +115,6 @@ export function useSyncPush(): UseSyncPush {
 						connectedSite,
 						selectedSite,
 						options,
-						pushStatesProgressInfo,
 					} )
 				).unwrap();
 
@@ -129,7 +122,7 @@ export function useSyncPush(): UseSyncPush {
 				if ( result.shouldStartPolling ) {
 					const stateForPolling: SyncPushState = {
 						remoteSiteId: result.remoteSiteId,
-						status: pushStatesProgressInfo.creatingRemoteBackup,
+						status: getPushStatesProgressInfo().creatingRemoteBackup,
 						selectedSite: result.selectedSite,
 						remoteSiteUrl: result.remoteSiteUrl,
 					};
@@ -143,7 +136,7 @@ export function useSyncPush(): UseSyncPush {
 				}
 			}
 		},
-		[ client, dispatch, pushStatesProgressInfo, getPushProgressInfo ]
+		[ client, dispatch, getPushProgressInfo ]
 	);
 
 	// Poll for push progress when states are in importing status
@@ -177,11 +170,10 @@ export function useSyncPush(): UseSyncPush {
 				syncOperationsThunks.cancelPush( {
 					selectedSiteId,
 					remoteSiteId,
-					cancelledStatus: pushStatesProgressInfo.cancelled,
 				} )
 			);
 		},
-		[ dispatch, pushStatesProgressInfo.cancelled ]
+		[ dispatch ]
 	);
 
 	return {

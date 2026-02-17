@@ -2,10 +2,7 @@ import { useCallback } from 'react';
 import { ClearState, GetState } from 'src/hooks/sync-sites/use-pull-push-states';
 import { useSyncPolling } from 'src/hooks/sync-sites/use-sync-polling';
 import { useAuth } from 'src/hooks/use-auth';
-import {
-	PullStateProgressInfo,
-	useSyncStatesProgressInfo,
-} from 'src/hooks/use-sync-states-progress-info';
+import { PullStateProgressInfo } from 'src/hooks/use-sync-states-progress-info';
 import { store, useAppDispatch, useRootSelector, type RootState } from 'src/stores';
 import { syncOperationsSelectors, syncOperationsThunks } from 'src/stores/sync';
 import type { SyncSite } from 'src/modules/sync/types';
@@ -47,7 +44,6 @@ export type UseSyncPull = {
 
 export function useSyncPull(): UseSyncPull {
 	const { client } = useAuth();
-	const { pullStatesProgressInfo } = useSyncStatesProgressInfo();
 
 	const dispatch = useAppDispatch();
 	const pullStates = useRootSelector(
@@ -79,11 +75,10 @@ export function useSyncPull(): UseSyncPull {
 					client,
 					selectedSiteId,
 					remoteSiteId,
-					pullStatesProgressInfo,
 				} )
 			);
 		},
-		[ client, dispatch, pullStatesProgressInfo ]
+		[ client, dispatch ]
 	);
 
 	const pullSite = useCallback< PullSite >(
@@ -99,7 +94,6 @@ export function useSyncPull(): UseSyncPull {
 						connectedSite,
 						selectedSite,
 						options,
-						pullStatesProgressInfo,
 					} )
 				).unwrap();
 
@@ -111,7 +105,7 @@ export function useSyncPull(): UseSyncPull {
 				// Errors are already handled in the thunk (state updates, error messages)
 			}
 		},
-		[ client, dispatch, pullStatesProgressInfo, fetchAndUpdateBackup ]
+		[ client, dispatch, fetchAndUpdateBackup ]
 	);
 
 	// Poll for backup status when states have backupId and are in-progress
@@ -146,11 +140,10 @@ export function useSyncPull(): UseSyncPull {
 				syncOperationsThunks.cancelPull( {
 					selectedSiteId,
 					remoteSiteId,
-					cancelledStatus: pullStatesProgressInfo.cancelled,
 				} )
 			);
 		},
-		[ dispatch, pullStatesProgressInfo.cancelled ]
+		[ dispatch ]
 	);
 
 	return {

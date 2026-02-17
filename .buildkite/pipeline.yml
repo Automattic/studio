@@ -25,6 +25,14 @@ steps:
       queue: windows
     command: bash .buildkite/commands/package-app-for-ci.sh windows x64
 
+  - <<: *package_artifacts_common
+    label: ":package: Package App Artifacts on mac-x64"
+    key: package_app_artifacts_mac_x64
+    command: bash .buildkite/commands/package-app-for-ci.sh mac x64
+    depends_on:
+      - step: input-dev-mac
+    if: build.tag !~ /^v[0-9]+/ && build.branch != 'trunk'
+
   - label: Lint
     agents:
       queue: mac
@@ -110,6 +118,7 @@ steps:
     depends_on:
       - step: input-dev-mac
       - step: package_app_artifacts_mac_arm64
+      - step: package_app_artifacts_mac_x64
     if: build.tag !~ /^v[0-9]+/
     steps:
       - label: 🔨 Mac Dev Build - {{matrix}}
@@ -125,13 +134,13 @@ steps:
           export IS_DEV_BUILD=true
 
           ARTIFACT_FILE="artifacts/studio-app-mac-{{matrix}}.tar.gz"
-          if buildkite-agent artifact download "$ARTIFACT_FILE" .; then
-            echo "--- :package: Extracting prebuilt app artifacts (mac-{{matrix}})"
-            tar -xzf "$ARTIFACT_FILE"
-          else
+          if ! buildkite-agent artifact download "$ARTIFACT_FILE" .; then
             echo "^^^ +++ Required prebuilt app artifact not found: $ARTIFACT_FILE"
             exit 1
           fi
+
+          echo "--- :package: Extracting prebuilt app artifacts (mac-{{matrix}}) from $ARTIFACT_FILE"
+          tar -xzf "$ARTIFACT_FILE"
 
           echo "--- :node: Building installer artifacts"
           npm run make:macos-{{matrix}}

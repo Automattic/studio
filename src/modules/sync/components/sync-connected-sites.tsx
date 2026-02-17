@@ -189,22 +189,15 @@ const SyncConnectedSitesSectionItem = ( {
 	const { getPushState, clearPushState, cancelPush } = useSyncPush();
 	const isOffline = useOffline();
 	const { importState } = useImportExport();
-	const {
-		isKeyPulling,
-		isKeyPushing,
-		isKeyFinished,
-		isKeyFailed,
-		isKeyCancelled,
-		getPushUploadPercentage,
-		getPushUploadMessage,
-		isKeyUploadingPaused,
-	} = useSyncStatesProgressInfo();
+	const { getPushUploadPercentage, getPushUploadMessage } = useSyncStatesProgressInfo();
 
 	const sitePullState = getPullState( selectedSite.id, connectedSite.id );
-	const isPulling = sitePullState?.status && isKeyPulling( sitePullState.status.key );
-	const isPullError = sitePullState?.status && isKeyFailed( sitePullState.status.key );
-	const hasPullFinished = sitePullState?.status && isKeyFinished( sitePullState.status.key );
-	const hasPullCancelled = sitePullState?.status && isKeyCancelled( sitePullState.status.key );
+	const isPulling =
+		sitePullState?.status &&
+		[ 'in-progress', 'downloading', 'importing' ].includes( sitePullState.status.key );
+	const isPullError = sitePullState?.status && sitePullState.status.key === 'failed';
+	const hasPullFinished = sitePullState?.status && sitePullState.status.key === 'finished';
+	const hasPullCancelled = sitePullState?.status && sitePullState.status.key === 'cancelled';
 	const pullImportState = importState[ connectedSite.localSiteId ];
 	let sitePullStatusMessage = '';
 	let sitePullStatusProgress = 0;
@@ -223,11 +216,19 @@ const SyncConnectedSitesSectionItem = ( {
 	}
 
 	const pushState = getPushState( selectedSite.id, connectedSite.id );
-	const isPushing = pushState?.status && isKeyPushing( pushState.status.key );
-	const isUploadingPaused = pushState?.status && isKeyUploadingPaused( pushState.status.key );
-	const isPushError = pushState?.status && isKeyFailed( pushState.status.key );
-	const hasPushFinished = pushState?.status && isKeyFinished( pushState.status.key );
-	const hasPushCancelled = pushState?.status && isKeyCancelled( pushState.status.key );
+	const isPushing =
+		pushState?.status &&
+		[
+			'creatingBackup',
+			'uploading',
+			'creatingRemoteBackup',
+			'applyingChanges',
+			'finishing',
+		].includes( pushState.status.key );
+	const isUploadingPaused = pushState?.status && pushState.status.key === 'uploadingPaused';
+	const isPushError = pushState?.status && pushState.status.key === 'failed';
+	const hasPushFinished = pushState?.status && pushState.status.key === 'finished';
+	const hasPushCancelled = pushState?.status && pushState.status.key === 'cancelled';
 
 	const uploadPercentage = getPushUploadPercentage(
 		pushState?.status.key,

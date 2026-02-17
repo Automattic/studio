@@ -56,79 +56,11 @@ const IN_PROGRESS_INITIAL_VALUE = 30;
 const DOWNLOADING_INITIAL_VALUE = 60;
 const PULL_IMPORTING_INITIAL_VALUE = 80;
 
-function isKeyPulling( key: PullStateProgressInfo[ 'key' ] | undefined ): boolean {
-	const pullingStateKeys: PullStateProgressInfo[ 'key' ][] = [
-		'in-progress',
-		'downloading',
-		'importing',
-	];
-	if ( ! key ) {
-		return false;
-	}
-	return pullingStateKeys.includes( key );
-}
-
-function isKeyPushing( key: PushStateProgressInfo[ 'key' ] | undefined ): boolean {
-	const pushingStateKeys: PushStateProgressInfo[ 'key' ][] = [
-		'creatingBackup',
-		'uploading',
-		'creatingRemoteBackup',
-		'applyingChanges',
-		'finishing',
-	];
-	if ( ! key ) {
-		return false;
-	}
-	return pushingStateKeys.includes( key );
-}
-
-function isKeyUploadingPaused( key: PushStateProgressInfo[ 'key' ] | undefined ): boolean {
-	return key === 'uploadingPaused';
-}
-
-function isKeyUploadingManuallyPaused( key: PushStateProgressInfo[ 'key' ] | undefined ): boolean {
-	return key === 'uploadingManuallyPaused';
-}
-
-function isKeyUploading( key: PushStateProgressInfo[ 'key' ] | undefined ): boolean {
-	return key === 'uploading';
-}
-
-function isKeyImporting( key: PushStateProgressInfo[ 'key' ] | undefined ): boolean {
-	const pushingStateKeys: PushStateProgressInfo[ 'key' ][] = [
-		'creatingRemoteBackup',
-		'applyingChanges',
-		'finishing',
-	];
-	if ( ! key ) {
-		return false;
-	}
-	return pushingStateKeys.includes( key );
-}
-
-function isKeyFinished(
-	key: PullStateProgressInfo[ 'key' ] | PushStateProgressInfo[ 'key' ] | undefined
-): boolean {
-	return key === 'finished';
-}
-
-function isKeyFailed(
-	key: PullStateProgressInfo[ 'key' ] | PushStateProgressInfo[ 'key' ] | undefined
-): boolean {
-	return key === 'failed';
-}
-
-function isKeyCancelled(
-	key: PullStateProgressInfo[ 'key' ] | PushStateProgressInfo[ 'key' ] | undefined
-): boolean {
-	return key === 'cancelled';
-}
-
 function getPushUploadPercentage(
 	statusKey: PushStateProgressInfo[ 'key' ] | undefined,
 	uploadProgress: number | undefined
 ): number | null {
-	if ( isKeyUploading( statusKey ) && uploadProgress !== undefined ) {
+	if ( statusKey === 'uploading' && uploadProgress !== undefined ) {
 		return Math.round( uploadProgress );
 	}
 	return null;
@@ -260,17 +192,8 @@ export function useSyncStatesProgressInfo() {
 	return {
 		pullStatesProgressInfo,
 		pushStatesProgressInfo,
-		isKeyPulling,
-		isKeyPushing,
-		isKeyImporting,
-		isKeyFinished,
-		isKeyFailed,
-		isKeyCancelled,
-		isKeyUploading,
 		getPushUploadPercentage,
 		getPushUploadMessage,
 		mapUploadProgressToOverallProgress,
-		isKeyUploadingPaused,
-		isKeyUploadingManuallyPaused,
 	};
 }

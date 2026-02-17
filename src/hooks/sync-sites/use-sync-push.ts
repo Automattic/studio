@@ -1,11 +1,9 @@
 import { useCallback } from 'react';
 import { ClearState, GetState } from 'src/hooks/sync-sites/use-pull-push-states';
-import { useSyncPolling } from 'src/hooks/sync-sites/use-sync-polling';
 import { useAuth } from 'src/hooks/use-auth';
 import { ImportResponse, PushStateProgressInfo } from 'src/hooks/use-sync-states-progress-info';
 import { store, useAppDispatch, useRootSelector, type RootState } from 'src/stores';
 import { syncOperationsSelectors, syncOperationsThunks } from 'src/stores/sync';
-import { getPushStatesProgressInfo } from 'src/stores/sync/sync-operations-slice';
 import type { SyncSite } from 'src/modules/sync/types';
 import type { SyncOption } from 'src/types';
 
@@ -87,22 +85,6 @@ export function useSyncPush(): UseSyncPush {
 		[ dispatch ]
 	);
 
-	const getPushProgressInfo = useCallback(
-		async ( remoteSiteId: number, syncPushState: SyncPushState ) => {
-			if ( ! client ) {
-				return;
-			}
-			void dispatch(
-				syncOperationsThunks.pollPushProgress( {
-					client,
-					selectedSiteId: syncPushState.selectedSite.id,
-					remoteSiteId,
-				} )
-			);
-		},
-		[ client, dispatch ]
-	);
-
 	const pushSite = useCallback< PushSite >(
 		async ( connectedSite, selectedSite, options ) => {
 			if ( ! client ) {
@@ -110,52 +92,21 @@ export function useSyncPush(): UseSyncPush {
 			}
 
 			try {
-				const result = await dispatch(
+				// Polling is triggered automatically by listener middleware
+				// when state enters creatingRemoteBackup/applyingChanges/finishing
+				await dispatch(
 					syncOperationsThunks.pushSite( {
 						connectedSite,
 						selectedSite,
 						options,
 					} )
 				).unwrap();
-
-				// If thunk completed successfully and returned polling info, start polling
-				if ( result.shouldStartPolling ) {
-					const stateForPolling: SyncPushState = {
-						remoteSiteId: result.remoteSiteId,
-						status: getPushStatesProgressInfo().creatingRemoteBackup,
-						selectedSite: result.selectedSite,
-						remoteSiteUrl: result.remoteSiteUrl,
-					};
-					void getPushProgressInfo( result.remoteSiteId, stateForPolling );
-				}
 			} catch ( error ) {
 				// Errors are already handled in the thunk (state updates, error messages)
-				// Just log if it's an unexpected error
-				if ( ! ( error instanceof Error && error.message === 'Export aborted' ) ) {
-					// Other errors are already handled in thunk
-				}
 			}
 		},
-		[ client, dispatch, getPushProgressInfo ]
+		[ client, dispatch ]
 	);
-
-	// Poll for push progress when states are in importing status
-	// Importing keys: creatingRemoteBackup, applyingChanges, finishing
-	const shouldPollPush = useCallback( ( state: SyncPushState ) => {
-		const importingKeys = [ 'creatingRemoteBackup', 'applyingChanges', 'finishing' ];
-		return (
-			state.status && state.status.key !== 'cancelled' && importingKeys.includes( state.status.key )
-		);
-	}, [] );
-
-	const pollPushProgress = useCallback(
-		( _key: string, state: SyncPushState ) => {
-			void getPushProgressInfo( state.remoteSiteId, state );
-		},
-		[ getPushProgressInfo ]
-	);
-
-	useSyncPolling( pushStates, shouldPollPush, pollPushProgress, 2000 );
 
 	const isAnySitePushing = useRootSelector( syncOperationsSelectors.selectIsAnySitePushing );
 

@@ -1,6 +1,5 @@
 import { useCallback } from 'react';
 import { ClearState, GetState } from 'src/hooks/sync-sites/use-pull-push-states';
-import { useSyncPolling } from 'src/hooks/sync-sites/use-sync-polling';
 import { useAuth } from 'src/hooks/use-auth';
 import { PullStateProgressInfo } from 'src/hooks/use-sync-states-progress-info';
 import { store, useAppDispatch, useRootSelector, type RootState } from 'src/stores';
@@ -65,22 +64,6 @@ export function useSyncPull(): UseSyncPull {
 		[ dispatch ]
 	);
 
-	const fetchAndUpdateBackup = useCallback(
-		async ( remoteSiteId: number, selectedSiteId: string ) => {
-			if ( ! client ) {
-				return;
-			}
-			void dispatch(
-				syncOperationsThunks.pollPullBackup( {
-					client,
-					selectedSiteId,
-					remoteSiteId,
-				} )
-			);
-		},
-		[ client, dispatch ]
-	);
-
 	const pullSite = useCallback< PullSite >(
 		async ( connectedSite, selectedSite, options ) => {
 			if ( ! client ) {
@@ -88,7 +71,9 @@ export function useSyncPull(): UseSyncPull {
 			}
 
 			try {
-				const result = await dispatch(
+				// Polling is triggered automatically by listener middleware
+				// when state has backupId and status is in-progress
+				await dispatch(
 					syncOperationsThunks.pullSite( {
 						client,
 						connectedSite,
@@ -96,36 +81,12 @@ export function useSyncPull(): UseSyncPull {
 						options,
 					} )
 				).unwrap();
-
-				// Start polling once backupId is set
-				if ( result.backupId ) {
-					void fetchAndUpdateBackup( result.remoteSiteId, selectedSite.id );
-				}
 			} catch ( error ) {
 				// Errors are already handled in the thunk (state updates, error messages)
 			}
 		},
-		[ client, dispatch, fetchAndUpdateBackup ]
+		[ client, dispatch ]
 	);
-
-	// Poll for backup status when states have backupId and are in-progress
-	const shouldPollPull = useCallback( ( state: SyncBackupState ) => {
-		return (
-			state.status &&
-			state.status.key !== 'cancelled' &&
-			!! state.backupId &&
-			state.status.key === 'in-progress'
-		);
-	}, [] );
-
-	const pollBackupStatus = useCallback(
-		( _key: string, state: SyncBackupState ) => {
-			void fetchAndUpdateBackup( state.remoteSiteId, state.selectedSite.id );
-		},
-		[ fetchAndUpdateBackup ]
-	);
-
-	useSyncPolling( pullStates, shouldPollPull, pollBackupStatus, 2000 );
 
 	const isAnySitePulling = useRootSelector( syncOperationsSelectors.selectIsAnySitePulling );
 

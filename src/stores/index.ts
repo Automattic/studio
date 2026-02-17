@@ -22,7 +22,7 @@ import {
 	updateSnapshotLocally,
 	snapshotActions,
 } from 'src/stores/snapshot-slice';
-import { syncReducer, syncOperationsActions } from 'src/stores/sync';
+import { syncReducer, syncOperationsActions, syncOperationsSelectors } from 'src/stores/sync';
 import { connectedSitesApi, connectedSitesReducer } from 'src/stores/sync/connected-sites';
 import {
 	syncOperationsReducer,
@@ -33,7 +33,7 @@ import {
 } from 'src/stores/sync/sync-operations-slice';
 import { wpcomSitesApi } from 'src/stores/sync/wpcom-sites';
 import uiReducer from 'src/stores/ui-slice';
-import { wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
+import { getWpcomClient, wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
 import { wordpressVersionsApi } from './wordpress-versions-api';
 import type { SupportedLocale } from 'common/lib/locale';
 import type {
@@ -151,6 +151,59 @@ listenerMiddleware.startListening( {
 		if ( payload?.errorInfo ) {
 			getIpcApi().showErrorMessageBox( payload.errorInfo );
 		}
+	},
+} );
+
+const PUSH_POLLING_KEYS = [ 'creatingRemoteBackup', 'applyingChanges', 'finishing' ];
+const PUSH_POLLING_INTERVAL = 2000;
+
+// Poll push progress when state enters a pollable status
+listenerMiddleware.startListening( {
+	actionCreator: syncOperationsActions.updatePushState,
+	async effect( action, listenerApi ) {
+		const { selectedSiteId, remoteSiteId } = action.payload;
+		const pushState = syncOperationsSelectors.selectPushState(
+			selectedSiteId,
+			remoteSiteId
+		)( listenerApi.getState() );
+		if ( ! pushState?.status || ! PUSH_POLLING_KEYS.includes( pushState.status.key ) ) {
+			return;
+		}
+
+		await listenerApi.delay( PUSH_POLLING_INTERVAL );
+
+		const client = getWpcomClient();
+		if ( ! client ) {
+			return;
+		}
+
+		void listenerApi.dispatch( pollPushProgressThunk( { client, selectedSiteId, remoteSiteId } ) );
+	},
+} );
+
+const PULL_POLLING_INTERVAL = 2000;
+
+// Poll pull backup when state has a backupId and is in-progress
+listenerMiddleware.startListening( {
+	actionCreator: syncOperationsActions.updatePullState,
+	async effect( action, listenerApi ) {
+		const { selectedSiteId, remoteSiteId } = action.payload;
+		const pullState = syncOperationsSelectors.selectPullState(
+			selectedSiteId,
+			remoteSiteId
+		)( listenerApi.getState() );
+		if ( ! pullState?.status || pullState.status.key !== 'in-progress' || ! pullState.backupId ) {
+			return;
+		}
+
+		await listenerApi.delay( PULL_POLLING_INTERVAL );
+
+		const client = getWpcomClient();
+		if ( ! client ) {
+			return;
+		}
+
+		void listenerApi.dispatch( pollPullBackupThunk( { client, selectedSiteId, remoteSiteId } ) );
 	},
 } );
 

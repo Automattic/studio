@@ -2,8 +2,8 @@
 import fs from 'fs';
 import path from 'path';
 import { Readable } from 'stream';
-import * as tar from 'tar';
 import fse from 'fs-extra';
+import * as tar from 'tar';
 import { vi, Mock } from 'vitest';
 import * as yauzl from 'yauzl';
 import { BackupHandlerFactory } from 'src/lib/import-export/import/handlers/backup-handler-factory';

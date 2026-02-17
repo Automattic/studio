@@ -300,10 +300,13 @@ end
 # @param skip_confirm [Boolean] Skip interactive confirmation prompts (default: false)
 #
 lane :publish_release do |version:, skip_confirm: false|
+  release_branch = "release/#{version}"
+
   UI.important <<~PROMPT
     Publishing release #{version}. This will:
     - Publish the draft GitHub release for v#{version}
-    - Create a backmerge PR from `release/#{version}` into `#{MAIN_BRANCH}`
+    - Create a backmerge PR from `#{release_branch}` into `#{MAIN_BRANCH}`
+    - Delete the `#{release_branch}` branch after creating the backmerge PR
   PROMPT
   next unless skip_confirm || UI.confirm('Continue?')
 
@@ -316,10 +319,14 @@ lane :publish_release do |version:, skip_confirm: false|
   # Create backmerge PR with intermediate branch to handle conflicts
   create_release_backmerge_pull_request(
     repository: GITHUB_REPO,
-    source_branch: "release/#{version}",
+    source_branch: release_branch,
     target_branch: MAIN_BRANCH,
     labels: ['Releases']
   )
+
+  Fastlane::Helper::GitHelper.delete_remote_branch_if_exists!(release_branch)
+  Fastlane::Helper::GitHelper.checkout_and_pull(MAIN_BRANCH)
+  Fastlane::Helper::GitHelper.delete_local_branch_if_exists!(release_branch)
 
   UI.success("Release v#{version} published!")
 end

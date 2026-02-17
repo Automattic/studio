@@ -106,10 +106,28 @@ async function addAppExecutionAliasToManifest( manifestPath ) {
 			'xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"\n   xmlns:rescap='
 		);
 	}
+	if ( ! manifestContent.includes( 'xmlns:uap10=' ) ) {
+		manifestContent = manifestContent.replace(
+			'xmlns:rescap=',
+			'xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"\n   xmlns:rescap='
+		);
+	}
+	const ignorableNamespacesMatch = manifestContent.match( /IgnorableNamespaces="([^"]*)"/ );
+	if ( ! ignorableNamespacesMatch ) {
+		manifestContent = manifestContent.replace(
+			'<Package',
+			'<Package IgnorableNamespaces="uap mp rescap uap5 uap10"'
+		);
+	} else if ( ! /\buap10\b/.test( ignorableNamespacesMatch[ 1 ] ) ) {
+		manifestContent = manifestContent.replace(
+			/IgnorableNamespaces="([^"]*)"/,
+			( _match, namespaces ) => `IgnorableNamespaces="${ namespaces } uap10"`
+		);
+	}
 
 	// Insert the AppExecutionAlias extension into the existing Extensions block.
 	// The protocol handler creates the <Extensions> block, so we add inside it.
-	const aliasExtension = `        <uap5:Extension Category="windows.appExecutionAlias" Executable="app\\resources\\bin\\studio-cli.exe" EntryPoint="Windows.FullTrustApplication">
+	const aliasExtension = `        <uap5:Extension Category="windows.appExecutionAlias" Executable="app\\resources\\bin\\node.exe" EntryPoint="Windows.FullTrustApplication" uap10:Parameters="app\\resources\\cli\\main.js">
           <uap5:AppExecutionAlias>
             <uap5:ExecutionAlias Alias="studio.exe" />
           </uap5:AppExecutionAlias>

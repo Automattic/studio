@@ -117,12 +117,11 @@ steps:
     key: dev-mac
     depends_on:
       - step: input-dev-mac
-      - step: package_app_artifacts_mac_arm64
-      - step: package_app_artifacts_mac_x64
     if: build.tag !~ /^v[0-9]+/
     steps:
-      - &mac_build_common
-        label: 🔨 Mac Dev Build - x64
+      - label: 🔨 Mac Dev Build - x64
+        depends_on:
+          - step: package_app_artifacts_mac_x64
         agents:
           queue: mac
         command: bash .buildkite/commands/build-for-mac.sh dev x64
@@ -131,9 +130,16 @@ steps:
           - apps/studio/out/**/*.app.zip
           - apps/studio/out/*.dmg
 
-      - <<: *mac_build_common
-        label: 🔨 Mac Dev Build - arm64
+      - label: 🔨 Mac Dev Build - arm64
+        depends_on:
+          - step: package_app_artifacts_mac_arm64
+        agents:
+          queue: mac
         command: bash .buildkite/commands/build-for-mac.sh dev arm64
+        plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
+        artifact_paths:
+          - apps/studio/out/**/*.app.zip
+          - apps/studio/out/*.dmg
 
   - input: "🚦 Build for Windows?"
     prompt: "Do you want to build Windows dev binaries for this PR?"
@@ -195,7 +201,7 @@ steps:
   - group: 📦 Build for Mac
     key: release-mac
     steps:
-      - <<: *mac_build_common
+      - &mac_build_common
         label: 🔨 Mac Release Build - x64
         agents:
           queue: mac

@@ -9,8 +9,8 @@ import { NoStudioSites } from 'src/components/no-studio-sites';
 import { SiteContentTabs } from 'src/components/site-content-tabs';
 import TopBar from 'src/components/top-bar';
 import WindowsTitlebar from 'src/components/windows-titlebar';
-import { useInitializeSyncStates } from 'src/hooks/sync-sites/use-initialize-sync-states';
 import { useListenDeepLinkConnection } from 'src/hooks/sync-sites/use-listen-deep-link-connection';
+import { useAuth } from 'src/hooks/use-auth';
 import { useLocalizationSupport } from 'src/hooks/use-localization-support';
 import { useSidebarVisibility } from 'src/hooks/use-sidebar-visibility';
 import { useSiteDetails } from 'src/hooks/use-site-details';
@@ -21,8 +21,9 @@ import { Onboarding } from 'src/modules/onboarding';
 import { useOnboarding } from 'src/modules/onboarding/hooks/use-onboarding';
 import { UserSettings } from 'src/modules/user-settings';
 import { WhatsNewModal, useWhatsNew } from 'src/modules/whats-new';
-import { useRootSelector } from 'src/stores';
+import { useAppDispatch, useRootSelector } from 'src/stores';
 import { selectOnboardingLoading } from 'src/stores/onboarding-slice';
+import { syncOperationsThunks } from 'src/stores/sync';
 import 'src/index.css';
 
 export default function App() {
@@ -34,9 +35,16 @@ export default function App() {
 	const { sites: localSites, loadingSites } = useSiteDetails();
 	const isEmpty = ! loadingSites && ! localSites.length;
 	const shouldShowWhatsNew = showWhatsNew && ! isEmpty;
+	const { client } = useAuth();
+	const dispatch = useAppDispatch();
 
-	// Initialize sync states and listen for deep link connections
-	useInitializeSyncStates();
+	// Initialize sync states from in-progress server operations
+	useEffect( () => {
+		if ( client ) {
+			void dispatch( syncOperationsThunks.initializeSyncStates( { client } ) );
+		}
+	}, [ client, dispatch ] );
+
 	useListenDeepLinkConnection();
 
 	useEffect( () => {

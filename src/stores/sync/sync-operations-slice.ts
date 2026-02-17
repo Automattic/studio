@@ -1033,6 +1033,77 @@ export const pollPullBackupThunk = createTypedAsyncThunk(
 	}
 );
 
+/**
+ * Maps an ImportResponse status to a PushStateProgressInfo object.
+ * Returns null if the operation is not in progress or unknown.
+ */
+export function mapImportResponseToPushState(
+	response: ImportResponse
+): PushStateProgressInfo | null {
+	const pushStatesProgressInfo = getPushStatesProgressInfo();
+	switch ( response.status ) {
+		case 'initial_backup_started':
+			return pushStatesProgressInfo.creatingRemoteBackup;
+		case 'archive_import_started':
+			return pushStatesProgressInfo.applyingChanges;
+		case 'archive_import_finished':
+			return pushStatesProgressInfo.finishing;
+		default:
+			return null;
+	}
+}
+
+// Thunk to initialize push states from in-progress server operations on mount
+type InitializeSyncStatesPayload = {
+	client: WPCOM;
+};
+
+export const initializeSyncStatesThunk = createTypedAsyncThunk(
+	'syncOperations/initializeSyncStates',
+	async ( { client }: InitializeSyncStatesPayload, { dispatch } ) => {
+		const allSites = await getIpcApi().getSiteDetails();
+		const allConnectedSites = await getIpcApi().getConnectedWpcomSites();
+
+		for ( const connectedSite of allConnectedSites ) {
+			try {
+				const localSite = allSites.find( ( site ) => site.id === connectedSite.localSiteId );
+				const hasConnectionErrors = connectedSite?.syncSupport !== 'already-connected';
+
+				if ( ! localSite || hasConnectionErrors ) {
+					continue;
+				}
+
+				const response = ( await client.req.get(
+					`/sites/${ connectedSite.id }/studio-app/sync/import`,
+					{
+						apiNamespace: 'wpcom/v2',
+					}
+				) ) as ImportResponse;
+
+				const status = mapImportResponseToPushState( response );
+
+				// Only restore the pushStates if the operation is still in progress
+				if ( status ) {
+					dispatch(
+						syncOperationsActions.updatePushState( {
+							selectedSiteId: connectedSite.localSiteId,
+							remoteSiteId: connectedSite.id,
+							state: {
+								status,
+								selectedSite: localSite,
+								remoteSiteUrl: connectedSite.url,
+							},
+						} )
+					);
+				}
+			} catch ( error ) {
+				// Continue checking other sites even if one fails
+				console.error( `Failed to check push progress for site ${ connectedSite.id }:`, error );
+			}
+		}
+	}
+);
+
 // Export thunks object for convenience (must be after all thunk declarations)
 export const syncOperationsThunks = {
 	clearPushState: clearPushStateThunk,
@@ -1043,6 +1114,7 @@ export const syncOperationsThunks = {
 	pullSite: pullSiteThunk,
 	pollPushProgress: pollPushProgressThunk,
 	pollPullBackup: pollPullBackupThunk,
+	initializeSyncStates: initializeSyncStatesThunk,
 };
 
 // Helper functions for checking state keys (matching useSyncStatesProgressInfo logic)

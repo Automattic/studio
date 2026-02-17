@@ -94,7 +94,7 @@ describe( 'sequential', () => {
 		it( 'should allow fresh execution after previous promise resolves', async () => {
 			let callCount = 0;
 			const fn = sequential(
-				async ( key: string ) => {
+				async ( _key: string ) => {
 					callCount++;
 					await new Promise( ( r ) => setTimeout( r, 10 ) );
 					return `result-${ callCount }`;

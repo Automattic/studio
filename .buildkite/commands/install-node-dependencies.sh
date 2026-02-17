@@ -8,6 +8,7 @@ NODE_VERSION=$(node --version)
 NPM_VERSION=$(npm --version)
 PACKAGE_HASH=$(hash_file package-lock.json)
 IMAGE_KEY=${IMAGE_ID:-noimage}
+CACHE_FORMAT_VERSION=v2
 
 PATCHES_HASH=nopatch
 if [ -d apps/cli/patches ] || [ -d apps/studio/patches ]; then
@@ -16,7 +17,7 @@ if [ -d apps/cli/patches ] || [ -d apps/studio/patches ]; then
   PATCHES_HASH=$(echo "${CLI_PATCHES_HASH}-${STUDIO_PATCHES_HASH}" | shasum -a 256 | awk '{print $1}')
 fi
 
-BASE_CACHE_KEY="$BUILDKITE_PIPELINE_SLUG-$PLATFORM-$ARCHITECTURE-image-$IMAGE_KEY-node-$NODE_VERSION-$PACKAGE_HASH-$PATCHES_HASH"
+BASE_CACHE_KEY="$BUILDKITE_PIPELINE_SLUG-$CACHE_FORMAT_VERSION-$PLATFORM-$ARCHITECTURE-image-$IMAGE_KEY-node-$NODE_VERSION-npm-$NPM_VERSION-$PACKAGE_HASH-$PATCHES_HASH"
 NPM_CACHE_KEY="$BASE_CACHE_KEY-npm-cache"
 NODE_MODULES_CACHE_KEY="$BASE_CACHE_KEY-node-modules"
 
@@ -51,6 +52,7 @@ else
   fi
 
   npm ci \
+    --include=dev \
     --prefer-offline \
     --no-audit \
     --no-progress \

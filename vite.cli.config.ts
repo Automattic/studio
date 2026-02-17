@@ -38,10 +38,6 @@ export default defineConfig( {
 						name: 'prune-php-wasm-asyncify',
 						apply: 'build' as const,
 						closeBundle() {
-							if ( ! existsSync( distCliNodeModulesPath ) ) {
-								return;
-							}
-
 							const asyncifyPaths = globSync( '@php-wasm/node-*/asyncify/', {
 								cwd: distCliNodeModulesPath,
 								absolute: true,

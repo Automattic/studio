@@ -133,12 +133,20 @@ steps:
 
           export IS_DEV_BUILD=true
 
-          ARTIFACT_FILE="artifacts/studio-app-mac-{{matrix}}.tar.gz"
-          if ! buildkite-agent artifact download "$ARTIFACT_FILE" .; then
-            echo "^^^ +++ Required prebuilt app artifact not found: $ARTIFACT_FILE"
+          ARTIFACT_PATTERN="*studio-app-mac-{{matrix}}.tar.gz"
+          printf 'Artifact search query: <%s>\n' "$ARTIFACT_PATTERN"
+          if ! buildkite-agent artifact download "$ARTIFACT_PATTERN" .; then
+            echo "^^^ +++ Required prebuilt app artifact not found: $ARTIFACT_PATTERN"
             exit 1
           fi
 
+          ARTIFACT_FILE=$(find . -type f -name "studio-app-mac-{{matrix}}.tar.gz" | head -n 1)
+          if [ -z "$ARTIFACT_FILE" ]; then
+            echo "^^^ +++ Downloaded artifact but couldn't locate archive for mac-{{matrix}}"
+            exit 1
+          fi
+
+          printf 'Resolved downloaded artifact: <%s>\n' "$ARTIFACT_FILE"
           echo "--- :package: Extracting prebuilt app artifacts (mac-{{matrix}}) from $ARTIFACT_FILE"
           tar -xzf "$ARTIFACT_FILE"
 

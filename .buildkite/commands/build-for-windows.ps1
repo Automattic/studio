@@ -55,14 +55,19 @@ $env:FILE_ARCHITECTURE=$Architecture
 
 Write-Host "--- :package: Preparing packaged app for architecture: $Architecture"
 if ($BuildType -eq $BUILD_TYPE_DEV) {
-    $artifactFile = "artifacts/studio-app-windows-$Architecture.tar.gz"
-    bash -lc "buildkite-agent artifact download `"$artifactFile`" ."
+    $artifactFilePattern = "*studio-app-windows-$Architecture.tar.gz"
+    bash -lc "buildkite-agent artifact download `"$artifactFilePattern`" ."
     if ($LastExitCode -eq 0) {
+        $artifactFile = Get-ChildItem -Path . -Recurse -File -Filter "studio-app-windows-$Architecture.tar.gz" | Select-Object -First 1 -ExpandProperty FullName
+        if (-not $artifactFile) {
+            Write-Host "Error: downloaded artifact but could not locate studio-app-windows-$Architecture.tar.gz" -ForegroundColor Red
+            Exit 1
+        }
         Write-Host "Using prebuilt app artifact: $artifactFile"
-        tar -xzf $artifactFile
+        tar -xzf "$artifactFile"
         If ($LastExitCode -ne 0) { Exit $LastExitCode }
     } else {
-        Write-Host "Error: required prebuilt app artifact not found: $artifactFile" -ForegroundColor Red
+        Write-Host "Error: required prebuilt app artifact not found: $artifactFilePattern" -ForegroundColor Red
         Exit 1
     }
 } else {

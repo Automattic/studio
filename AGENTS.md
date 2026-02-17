@@ -42,7 +42,7 @@ WordPress Studio - Electron desktop app for managing local WordPress sites. Buil
 ## Tech Stack
 
 **Frontend**: React 18, Redux Toolkit + RTK Query, @wordpress/components, TailwindCSS, TypeScript, Vite
-**Main**: Electron 38, express
+**Main**: Electron, express
 **CLI**: @wp-playground/cli, @php-wasm/node, @wp-playground/blueprints
 **Dev**: electron-vite, electron-forge, Vitest, Playwright
 **Other**: Sentry, wpcom, zod, yargs

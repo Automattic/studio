@@ -1,7 +1,6 @@
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useMemo } from 'react';
-import { ImportProgressState } from './use-import-export';
 
 export type PullStateProgressInfo = {
 	key: 'in-progress' | 'downloading' | 'importing' | 'finished' | 'failed' | 'cancelled';
@@ -230,28 +229,6 @@ export function useSyncStatesProgressInfo() {
 
 	const uploadingProgressMessageTemplate = useMemo( () => __( 'Uploading site (%d%%)…' ), [ __ ] );
 
-	const getPullStatusWithProgress = useCallback(
-		( sitePullState?: PullStateProgressInfo, importState?: ImportProgressState[ string ] ) => {
-			if ( importState ) {
-				if ( importState.progress === 100 ) {
-					return { message: __( 'Applying final details…' ), progress: 99 };
-				}
-				const stepToProgress = 100 - PULL_IMPORTING_INITIAL_VALUE;
-				return {
-					message: importState.statusMessage,
-					// Update progress from the initial value to the new step proportionally to the importState.progress
-					// on every update of the importState.progress
-					progress: PULL_IMPORTING_INITIAL_VALUE + stepToProgress * ( importState.progress / 100 ),
-				};
-			}
-			if ( sitePullState ) {
-				return { message: sitePullState.message, progress: sitePullState.progress };
-			}
-			return { message: '', progress: 0 };
-		},
-		[ __ ]
-	);
-
 	const getPushUploadMessage = useCallback(
 		( message: string, uploadPercentage: number | null ): string => {
 			if ( uploadPercentage !== null ) {
@@ -290,7 +267,6 @@ export function useSyncStatesProgressInfo() {
 		isKeyFailed,
 		isKeyCancelled,
 		isKeyUploading,
-		getPullStatusWithProgress,
 		getPushUploadPercentage,
 		getPushUploadMessage,
 		mapUploadProgressToOverallProgress,

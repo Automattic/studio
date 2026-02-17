@@ -606,60 +606,74 @@ export const pollPushProgressThunk = createTypedAsyncThunk(
 			}
 		);
 
-		let status: PushStateProgressInfo = pushStatesProgressInfo.creatingRemoteBackup;
-		if ( response.success && response.status === 'finished' ) {
-			status = pushStatesProgressInfo.finished;
-			// Update site timestamp
-			void dispatch(
-				connectedSitesApi.endpoints.updateSiteTimestamp.initiate( {
-					siteId: remoteSiteId,
-					localSiteId: selectedSiteId,
-					type: 'push',
-				} )
-			);
-			getIpcApi().showNotification( {
-				title: currentPushState.selectedSite.name,
-				body: sprintf(
-					// translators: %s is the site url without the protocol.
-					__( '%s has been updated' ),
-					getHostnameFromUrl( currentPushState.remoteSiteUrl )
-				),
-			} );
-		} else if ( response.success && response.status === 'failed' ) {
-			status = pushStatesProgressInfo.failed;
-			console.error( 'Push import failed:', {
-				remoteSiteId: currentPushState.remoteSiteId,
-				error: response.error,
-				error_data: response.error_data,
-			} );
-			// If the import fails due to a SQL import error, show a more specific message
-			const restoreMessage = response.error_data?.vp_restore_message || '';
-			const isSqlImportFailure = /importing sql dump/i.test( restoreMessage );
-			const isImportTimedOut = response.error === 'Import timed out';
-			let message: string;
-			if ( isSqlImportFailure ) {
-				message = __(
-					'Database import failed on the remote site. Please review your database and try again or contact support and provide details from the logs below.'
-				);
-			} else if ( isImportTimedOut ) {
-				message = __(
-					"A timeout error occurred while pushing the site, likely due to its large size. Please try reducing the site's content or files and try again. If this problem persists, please contact support."
-				);
-			} else {
-				message = __(
-					'An error occurred while pushing the site. If this problem persists, please contact support.'
-				);
-			}
+		if ( ! response.success ) {
+			throw new Error( response.error || 'Push import failed' );
+		}
 
-			getIpcApi().showErrorMessageBox( {
-				title: sprintf( __( 'Error pushing to %s' ), currentPushState.selectedSite.name ),
-				message,
-				showOpenLogs: true,
-			} );
-		} else if ( response.success && response.status === 'archive_import_started' ) {
-			status = pushStatesProgressInfo.applyingChanges;
-		} else if ( response.success && response.status === 'archive_import_finished' ) {
-			status = pushStatesProgressInfo.finishing;
+		let status: PushStateProgressInfo;
+		switch ( response.status ) {
+			case 'finished':
+				status = pushStatesProgressInfo.finished;
+				// Update site timestamp
+				void dispatch(
+					connectedSitesApi.endpoints.updateSiteTimestamp.initiate( {
+						siteId: remoteSiteId,
+						localSiteId: selectedSiteId,
+						type: 'push',
+					} )
+				);
+				getIpcApi().showNotification( {
+					title: currentPushState.selectedSite.name,
+					body: sprintf(
+						// translators: %s is the site url without the protocol.
+						__( '%s has been updated' ),
+						getHostnameFromUrl( currentPushState.remoteSiteUrl )
+					),
+				} );
+				break;
+			case 'failed':
+				status = pushStatesProgressInfo.failed;
+				console.error( 'Push import failed:', {
+					remoteSiteId: currentPushState.remoteSiteId,
+					error: response.error,
+					error_data: response.error_data,
+				} );
+				// If the import fails due to a SQL import error, show a more specific message
+				{
+					const restoreMessage = response.error_data?.vp_restore_message || '';
+					const isSqlImportFailure = /importing sql dump/i.test( restoreMessage );
+					const isImportTimedOut = response.error === 'Import timed out';
+					let message: string;
+					if ( isSqlImportFailure ) {
+						message = __(
+							'Database import failed on the remote site. Please review your database and try again or contact support and provide details from the logs below.'
+						);
+					} else if ( isImportTimedOut ) {
+						message = __(
+							"A timeout error occurred while pushing the site, likely due to its large size. Please try reducing the site's content or files and try again. If this problem persists, please contact support."
+						);
+					} else {
+						message = __(
+							'An error occurred while pushing the site. If this problem persists, please contact support.'
+						);
+					}
+
+					getIpcApi().showErrorMessageBox( {
+						title: sprintf( __( 'Error pushing to %s' ), currentPushState.selectedSite.name ),
+						message,
+						showOpenLogs: true,
+					} );
+				}
+				break;
+			case 'initial_backup_started':
+				status = pushStatesProgressInfo.creatingRemoteBackup;
+				break;
+			case 'archive_import_started':
+				status = pushStatesProgressInfo.applyingChanges;
+				break;
+			case 'archive_import_finished':
+				status = pushStatesProgressInfo.finishing;
+				break;
 		}
 		// Calculate push status with progress
 		if ( status.key === pushStatesProgressInfo.creatingRemoteBackup.key ) {

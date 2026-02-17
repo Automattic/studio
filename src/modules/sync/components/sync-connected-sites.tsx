@@ -195,7 +195,6 @@ const SyncConnectedSitesSectionItem = ( {
 		isKeyFinished,
 		isKeyFailed,
 		isKeyCancelled,
-		getPullStatusWithProgress,
 		getPushUploadPercentage,
 		getPushUploadMessage,
 		isKeyUploadingPaused,
@@ -206,8 +205,22 @@ const SyncConnectedSitesSectionItem = ( {
 	const isPullError = sitePullState?.status && isKeyFailed( sitePullState.status.key );
 	const hasPullFinished = sitePullState?.status && isKeyFinished( sitePullState.status.key );
 	const hasPullCancelled = sitePullState?.status && isKeyCancelled( sitePullState.status.key );
-	const { message: sitePullStatusMessage, progress: sitePullStatusProgress } =
-		getPullStatusWithProgress( sitePullState?.status, importState[ connectedSite.localSiteId ] );
+	const pullImportState = importState[ connectedSite.localSiteId ];
+	let sitePullStatusMessage = '';
+	let sitePullStatusProgress = 0;
+	if ( pullImportState ) {
+		if ( pullImportState.progress === 100 ) {
+			sitePullStatusMessage = __( 'Applying final details…' );
+			sitePullStatusProgress = 99;
+		} else {
+			sitePullStatusMessage = pullImportState.statusMessage;
+			// Map import progress (0-100%) to the pull importing range (80-100%)
+			sitePullStatusProgress = 80 + 20 * ( pullImportState.progress / 100 );
+		}
+	} else if ( sitePullState?.status ) {
+		sitePullStatusMessage = sitePullState.status.message;
+		sitePullStatusProgress = sitePullState.status.progress;
+	}
 
 	const pushState = getPushState( selectedSite.id, connectedSite.id );
 	const isPushing = pushState?.status && isKeyPushing( pushState.status.key );

@@ -24,6 +24,7 @@ interface UseBlueprintDeeplinkOptions {
 	setBlueprintSuggestedDomain: ( domain: string | undefined ) => void;
 	setBlueprintSuggestedHttps: ( https: boolean | undefined ) => void;
 	setBlueprintSuggestedSiteName: ( name: string | undefined ) => void;
+	setBlueprintRequiresCustomDomain: ( requires: boolean ) => void;
 	setIsDeeplinkFlow: ( isDeeplink: boolean ) => void;
 	onModalOpen?: () => void;
 }
@@ -40,6 +41,7 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 		setBlueprintSuggestedDomain,
 		setBlueprintSuggestedHttps,
 		setBlueprintSuggestedSiteName,
+		setBlueprintRequiresCustomDomain,
 		setIsDeeplinkFlow,
 		onModalOpen,
 	} = options;
@@ -96,6 +98,7 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 					if ( formValues.siteName ) {
 						setBlueprintSuggestedSiteName( formValues.siteName );
 					}
+					setBlueprintRequiresCustomDomain( !! formValues.requiresCustomDomain );
 
 					setBlueprintWarnings( warnings );
 					setIsDeeplinkFlow( true );
@@ -114,6 +117,7 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 				setBlueprintSuggestedDomain,
 				setBlueprintSuggestedHttps,
 				setBlueprintSuggestedSiteName,
+				setBlueprintRequiresCustomDomain,
 				setIsDeeplinkFlow,
 				onModalOpen,
 			]

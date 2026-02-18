@@ -14,6 +14,7 @@ import {
 	filterUnsupportedBlueprintFeatures,
 	validateBlueprintData,
 } from 'common/lib/blueprint-validation';
+import { blueprintHasMultisite } from 'common/lib/blueprint-settings';
 import { getDomainNameValidationError } from 'common/lib/domains';
 import {
 	arePathsEqual,
@@ -117,6 +118,18 @@ export async function runCommand(
 			blueprint = filterUnsupportedBlueprintFeatures(
 				options.blueprint.contents as Record< string, unknown >
 			);
+
+			if (
+				blueprint &&
+				blueprintHasMultisite( blueprint ) &&
+				! options.customDomain
+			) {
+				throw new LoggerError(
+					__(
+						'The enableMultisite Blueprint step requires a custom domain. WordPress multisite does not support custom ports. Use --domain <name>.local to set a custom domain.'
+					)
+				);
+			}
 		}
 
 		const appdata = await readAppdata();

@@ -5,7 +5,18 @@ type BlueprintSiteSettings = Partial<
 > & {
 	wpVersion?: string;
 	siteName?: string;
+	requiresCustomDomain?: boolean;
 };
+
+/**
+ * Checks if a blueprint contains the enableMultisite step.
+ */
+export function blueprintHasMultisite( blueprintJson: Blueprint ): boolean {
+	return (
+		Array.isArray( blueprintJson.steps ) &&
+		blueprintJson.steps.some( ( step: { step?: string } ) => step.step === 'enableMultisite' )
+	);
+}
 
 /**
  * Extracts form-relevant values from a blueprint.
@@ -20,6 +31,10 @@ export function extractFormValuesFromBlueprint( blueprintJson: Blueprint ): Blue
 		if ( blueprintJson.preferredVersions.wp && blueprintJson.preferredVersions.wp !== 'latest' ) {
 			values.wpVersion = blueprintJson.preferredVersions.wp;
 		}
+	}
+
+	if ( blueprintHasMultisite( blueprintJson ) ) {
+		values.requiresCustomDomain = true;
 	}
 
 	if ( blueprintJson.steps && Array.isArray( blueprintJson.steps ) ) {

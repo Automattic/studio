@@ -24,6 +24,7 @@ describe( 'useBlueprintDeeplink', () => {
 	const mockSetBlueprintSuggestedDomain = vi.fn();
 	const mockSetBlueprintSuggestedHttps = vi.fn();
 	const mockSetBlueprintSuggestedSiteName = vi.fn();
+	const mockSetBlueprintRequiresCustomDomain = vi.fn();
 	const mockSetIsDeeplinkFlow = vi.fn();
 	let ipcCallback: Parameters< typeof useIpcListener >[ 1 ];
 
@@ -40,6 +41,7 @@ describe( 'useBlueprintDeeplink', () => {
 					setBlueprintSuggestedDomain: mockSetBlueprintSuggestedDomain,
 					setBlueprintSuggestedHttps: mockSetBlueprintSuggestedHttps,
 					setBlueprintSuggestedSiteName: mockSetBlueprintSuggestedSiteName,
+					setBlueprintRequiresCustomDomain: mockSetBlueprintRequiresCustomDomain,
 					setIsDeeplinkFlow: mockSetIsDeeplinkFlow,
 				} ),
 			{ wrapper }

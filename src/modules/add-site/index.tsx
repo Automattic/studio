@@ -79,6 +79,8 @@ interface NavigationContentProps {
 	setBlueprintSuggestedHttps?: ( https: boolean | undefined ) => void;
 	blueprintSuggestedSiteName?: string;
 	setBlueprintSuggestedSiteName?: ( name: string | undefined ) => void;
+	blueprintRequiresCustomDomain: boolean;
+	setBlueprintRequiresCustomDomain: ( requires: boolean ) => void;
 	selectedRemoteSite?: SyncSite;
 	setSelectedRemoteSite: ( site?: SyncSite ) => void;
 	isDeeplinkFlow: boolean;
@@ -113,6 +115,8 @@ function NavigationContent( props: NavigationContentProps ) {
 		setBlueprintSuggestedHttps,
 		blueprintSuggestedSiteName,
 		setBlueprintSuggestedSiteName,
+		blueprintRequiresCustomDomain,
+		setBlueprintRequiresCustomDomain,
 		selectedRemoteSite,
 		setSelectedRemoteSite,
 		isDeeplinkFlow,
@@ -247,6 +251,7 @@ function NavigationContent( props: NavigationContentProps ) {
 				setBlueprintSuggestedDomain?.( undefined );
 				setBlueprintSuggestedHttps?.( undefined );
 				setBlueprintSuggestedSiteName?.( undefined );
+				setBlueprintRequiresCustomDomain( false );
 				return;
 			}
 
@@ -261,6 +266,7 @@ function NavigationContent( props: NavigationContentProps ) {
 			setBlueprintSuggestedDomain?.( formValues.customDomain );
 			setBlueprintSuggestedHttps?.( formValues.enableHttps );
 			setBlueprintSuggestedSiteName?.( formValues.siteName );
+			setBlueprintRequiresCustomDomain( !! formValues.requiresCustomDomain );
 		},
 		[
 			setSelectedBlueprint,
@@ -268,6 +274,7 @@ function NavigationContent( props: NavigationContentProps ) {
 			setBlueprintSuggestedDomain,
 			setBlueprintSuggestedHttps,
 			setBlueprintSuggestedSiteName,
+			setBlueprintRequiresCustomDomain,
 		]
 	);
 
@@ -355,6 +362,7 @@ function NavigationContent( props: NavigationContentProps ) {
 					blueprintPreferredVersions={ blueprintPreferredVersions }
 					blueprintSuggestedDomain={ blueprintSuggestedDomain }
 					blueprintSuggestedHttps={ blueprintSuggestedHttps }
+					blueprintRequiresCustomDomain={ blueprintRequiresCustomDomain }
 				/>
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/create">
@@ -374,6 +382,7 @@ function NavigationContent( props: NavigationContentProps ) {
 					blueprintPreferredVersions={ blueprintPreferredVersions }
 					blueprintSuggestedDomain={ blueprintSuggestedDomain }
 					blueprintSuggestedHttps={ blueprintSuggestedHttps }
+					blueprintRequiresCustomDomain={ blueprintRequiresCustomDomain }
 				/>
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/backup">
@@ -467,6 +476,8 @@ export function AddSiteModalContent( {
 		setBlueprintSuggestedHttps,
 		blueprintSuggestedSiteName,
 		setBlueprintSuggestedSiteName,
+		blueprintRequiresCustomDomain,
+		setBlueprintRequiresCustomDomain,
 		selectedRemoteSite,
 		setSelectedRemoteSite,
 		existingDomainNames,
@@ -594,6 +605,8 @@ export function AddSiteModalContent( {
 				setBlueprintSuggestedHttps={ setBlueprintSuggestedHttps }
 				blueprintSuggestedSiteName={ blueprintSuggestedSiteName }
 				setBlueprintSuggestedSiteName={ setBlueprintSuggestedSiteName }
+				blueprintRequiresCustomDomain={ blueprintRequiresCustomDomain }
+				setBlueprintRequiresCustomDomain={ setBlueprintRequiresCustomDomain }
 				selectedRemoteSite={ selectedRemoteSite }
 				setSelectedRemoteSite={ setSelectedRemoteSite }
 				isDeeplinkFlow={ isDeeplinkFlow }
@@ -633,6 +646,7 @@ export default function AddSiteModal( { className }: AddSiteModalProps ) {
 		setBlueprintSuggestedDomain,
 		setBlueprintSuggestedHttps,
 		setBlueprintSuggestedSiteName,
+		setBlueprintRequiresCustomDomain,
 		setIsDeeplinkFlow,
 	} = addSiteProps;
 
@@ -658,6 +672,7 @@ export default function AddSiteModal( { className }: AddSiteModalProps ) {
 		setBlueprintSuggestedDomain,
 		setBlueprintSuggestedHttps,
 		setBlueprintSuggestedSiteName,
+		setBlueprintRequiresCustomDomain,
 		setIsDeeplinkFlow,
 		onModalOpen: openModal,
 	} );

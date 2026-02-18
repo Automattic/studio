@@ -2,7 +2,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import { render } from '@testing-library/react';
 import React from 'react';
 import { Provider } from 'react-redux';
-import { rootReducer, RootState } from 'src/stores';
+import { rootReducer } from 'src/stores';
 import { appVersionApi } from 'src/stores/app-version-api';
 import { certificateTrustApi } from 'src/stores/certificate-trust-api';
 import { installedAppsApi } from 'src/stores/installed-apps-api';
@@ -24,7 +24,7 @@ export function createMock< T >( partial: Partial< T > ): T {
 }
 
 interface TestStoreOptions {
-	preloadedState?: Partial< RootState >;
+	preloadedState?: Parameters< typeof rootReducer >[ 0 ];
 }
 
 export function createTestStore( options: TestStoreOptions = {} ) {

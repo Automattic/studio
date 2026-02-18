@@ -1,6 +1,5 @@
 import fs from 'fs';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
-import { createMock } from 'src/lib/test-utils';
 import { vi } from 'vitest';
 import { uploadArchive, waitForSiteReady, SnapshotStatus } from 'cli/lib/api';
 import { LoggerError } from 'cli/logger';
@@ -16,6 +15,11 @@ vi.mock( '@studio/common/lib/wpcom-factory', () => ( {
 	__esModule: true,
 	default: vi.fn(),
 } ) );
+
+type WpcomReqMethods = Pick< ReturnType< typeof wpcomFactory >[ 'req' ], 'post' | 'get' >;
+type WpcomFactory = ReturnType< typeof wpcomFactory >;
+const createWpcomMock = ( req: Partial< WpcomReqMethods > ): WpcomFactory =>
+	( { req: req } ) as WpcomFactory;
 
 describe( 'API Module', () => {
 	const mockArchivePath = '/mock/archive.zip';
@@ -37,14 +41,10 @@ describe( 'API Module', () => {
 				atomic_site_id: mockSiteId,
 			};
 
-			const mockWpcom = {
-				req: createMock< ReturnType< typeof wpcomFactory >[ 'req' ] >( {
-					post: vi.fn().mockResolvedValue( mockResponse ),
-				} ),
-			};
-			vi.mocked( wpcomFactory ).mockReturnValue(
-				mockWpcom as unknown as ReturnType< typeof wpcomFactory >
-			);
+			const mockWpcom = createWpcomMock( {
+				post: vi.fn().mockResolvedValue( mockResponse ),
+			} );
+			vi.mocked( wpcomFactory ).mockReturnValue( mockWpcom );
 
 			const result = await uploadArchive( mockArchivePath, mockToken, mockWordPressVersion );
 
@@ -71,17 +71,13 @@ describe( 'API Module', () => {
 		} );
 
 		it( 'should successfully send wordpress_version to create new site from zip', async () => {
-			const mockWpcom = {
-				req: createMock< ReturnType< typeof wpcomFactory >[ 'req' ] >( {
-					post: vi.fn().mockResolvedValue( {
-						domain_name: mockSiteUrl,
-						atomic_site_id: mockSiteId,
-					} ),
+			const mockWpcom = createWpcomMock( {
+				post: vi.fn().mockResolvedValue( {
+					domain_name: mockSiteUrl,
+					atomic_site_id: mockSiteId,
 				} ),
-			};
-			vi.mocked( wpcomFactory ).mockReturnValue(
-				mockWpcom as unknown as ReturnType< typeof wpcomFactory >
-			);
+			} );
+			vi.mocked( wpcomFactory ).mockReturnValue( mockWpcom );
 
 			await uploadArchive( mockArchivePath, mockToken, mockWordPressVersion );
 			expect( mockWpcom.req.post ).toHaveBeenCalledWith( {
@@ -103,14 +99,10 @@ describe( 'API Module', () => {
 
 		it( 'should throw LoggerError for API errors', async () => {
 			const mockError = new Error( 'API error' );
-			const mockWpcom = {
-				req: createMock< ReturnType< typeof wpcomFactory >[ 'req' ] >( {
-					post: vi.fn().mockRejectedValue( mockError ),
-				} ),
-			};
-			vi.mocked( wpcomFactory ).mockReturnValue(
-				mockWpcom as unknown as ReturnType< typeof wpcomFactory >
-			);
+			const mockWpcom = createWpcomMock( {
+				post: vi.fn().mockRejectedValue( mockError ),
+			} );
+			vi.mocked( wpcomFactory ).mockReturnValue( mockWpcom );
 
 			await expect(
 				uploadArchive( mockArchivePath, mockToken, mockWordPressVersion )
@@ -123,14 +115,10 @@ describe( 'API Module', () => {
 				some_field: 'value',
 			};
 
-			const mockWpcom = {
-				req: createMock< ReturnType< typeof wpcomFactory >[ 'req' ] >( {
-					post: vi.fn().mockResolvedValue( invalidResponse ),
-				} ),
-			};
-			vi.mocked( wpcomFactory ).mockReturnValue(
-				mockWpcom as unknown as ReturnType< typeof wpcomFactory >
-			);
+			const mockWpcom = createWpcomMock( {
+				post: vi.fn().mockResolvedValue( invalidResponse ),
+			} );
+			vi.mocked( wpcomFactory ).mockReturnValue( mockWpcom );
 
 			await expect(
 				uploadArchive( mockArchivePath, mockToken, mockWordPressVersion )
@@ -166,17 +154,13 @@ describe( 'API Module', () => {
 				is_deleted: 'false',
 			};
 
-			const mockWpcom = {
-				req: createMock< ReturnType< typeof wpcomFactory >[ 'req' ] >( {
-					get: vi
-						.fn()
-						.mockResolvedValueOnce( pendingResponse )
-						.mockResolvedValueOnce( activeResponse ),
-				} ),
-			};
-			vi.mocked( wpcomFactory ).mockReturnValue(
-				mockWpcom as unknown as ReturnType< typeof wpcomFactory >
-			);
+			const mockWpcom = createWpcomMock( {
+				get: vi
+					.fn()
+					.mockResolvedValueOnce( pendingResponse )
+					.mockResolvedValueOnce( activeResponse ),
+			} );
+			vi.mocked( wpcomFactory ).mockReturnValue( mockWpcom );
 
 			const result = await waitForSiteReady( mockSiteId, mockToken );
 			expect( mockWpcom.req.get ).toHaveBeenCalledTimes( 2 );
@@ -191,14 +175,10 @@ describe( 'API Module', () => {
 				is_deleted: 'false',
 			};
 
-			const mockWpcom = {
-				req: createMock< ReturnType< typeof wpcomFactory >[ 'req' ] >( {
-					get: vi.fn().mockResolvedValue( pendingResponse ),
-				} ),
-			};
-			vi.mocked( wpcomFactory ).mockReturnValue(
-				mockWpcom as unknown as ReturnType< typeof wpcomFactory >
-			);
+			const mockWpcom = createWpcomMock( {
+				get: vi.fn().mockResolvedValue( pendingResponse ),
+			} );
+			vi.mocked( wpcomFactory ).mockReturnValue( mockWpcom );
 
 			try {
 				await waitForSiteReady( mockSiteId, mockToken );
@@ -221,17 +201,13 @@ describe( 'API Module', () => {
 				is_deleted: 'false',
 			};
 
-			const mockWpcom = {
-				req: createMock< ReturnType< typeof wpcomFactory >[ 'req' ] >( {
-					get: vi
-						.fn()
-						.mockResolvedValueOnce( invalidResponse )
-						.mockResolvedValueOnce( validResponse ),
-				} ),
-			};
-			vi.mocked( wpcomFactory ).mockReturnValue(
-				mockWpcom as unknown as ReturnType< typeof wpcomFactory >
-			);
+			const mockWpcom = createWpcomMock( {
+				get: vi
+					.fn()
+					.mockResolvedValueOnce( invalidResponse )
+					.mockResolvedValueOnce( validResponse ),
+			} );
+			vi.mocked( wpcomFactory ).mockReturnValue( mockWpcom );
 
 			const result = await waitForSiteReady( mockSiteId, mockToken );
 			expect( mockWpcom.req.get ).toHaveBeenCalledTimes( 2 );

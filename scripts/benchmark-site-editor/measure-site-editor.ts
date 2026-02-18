@@ -136,6 +136,15 @@ export async function measureSiteEditor( options: MeasureOptions ): Promise< Mea
 				timeout: 120_000,
 			} );
 			await page.waitForLoadState( 'networkidle', { timeout: 30_000 } ).catch( () => {} );
+
+			// Playground CLI may redirect to wp-login.php — handle login
+			if ( page.url().includes( 'wp-login.php' ) ) {
+				await page.fill( '#user_login', 'admin' );
+				await page.fill( '#user_pass', 'password' );
+				await page.click( '#wp-submit' );
+				await page.waitForLoadState( 'networkidle', { timeout: 30_000 } ).catch( () => {} );
+			}
+
 			await page.getByRole( 'link', { name: 'Appearance' } ).waitFor( {
 				state: 'visible',
 				timeout: 60_000,

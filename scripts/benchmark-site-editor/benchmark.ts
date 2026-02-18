@@ -787,6 +787,8 @@ async function main() {
 	// Print results
 	printComparisonTable( allResults );
 	saveResultsSummary( allResults );
+
+	process.exit( 0 );
 }
 
 main().catch( ( err ) => {

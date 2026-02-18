@@ -31,6 +31,8 @@ export interface MeasureOptions {
 	isPlaygroundWeb: boolean;
 	/** Whether this is a local Playground CLI site (127.0.0.1). Affects login flow. */
 	isPlaygroundCli: boolean;
+	/** Launch browser in headed mode for debugging. */
+	headed?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -107,7 +109,7 @@ export async function measureSiteEditor( options: MeasureOptions ): Promise< Mea
 
 	const result: MeasurementResult = {};
 
-	const browser = await chromium.launch();
+	const browser = await chromium.launch( { headless: ! options.headed } );
 	const context = await browser.newContext();
 	const page = await context.newPage();
 

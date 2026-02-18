@@ -3,7 +3,7 @@ import { __ } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useDeleteSite } from 'src/hooks/use-delete-site';
 import { useSiteDetails } from 'src/hooks/use-site-details';
-import { store } from 'src/stores';
+import { useRootSelector } from 'src/stores';
 import { syncOperationsSelectors } from 'src/stores/sync';
 
 type DeleteSiteProps = {
@@ -14,9 +14,13 @@ const DeleteSite = ( { onClose }: DeleteSiteProps ) => {
 	const { __ } = useI18n();
 	const { selectedSite, isDeleting } = useSiteDetails();
 	const { handleDeleteSite } = useDeleteSite();
-	const isThisSiteSyncing =
-		syncOperationsSelectors.selectIsSiteIdPulling( selectedSite?.id ?? '' )( store.getState() ) ||
-		syncOperationsSelectors.selectIsSiteIdPushing( selectedSite?.id ?? '' )( store.getState() );
+	const isPulling = useRootSelector(
+		syncOperationsSelectors.selectIsSiteIdPulling( selectedSite?.id ?? '' )
+	);
+	const isPushing = useRootSelector(
+		syncOperationsSelectors.selectIsSiteIdPushing( selectedSite?.id ?? '' )
+	);
+	const isThisSiteSyncing = isPulling || isPushing;
 
 	const isSiteDeletionDisabled = ! selectedSite || isDeleting || isThisSiteSyncing;
 

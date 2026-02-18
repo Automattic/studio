@@ -19,7 +19,7 @@ import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { store } from 'src/stores';
+import { useRootSelector } from 'src/stores';
 import { syncOperationsSelectors } from 'src/stores/sync';
 import { useGetConnectedSitesForLocalSiteQuery } from 'src/stores/sync/connected-sites';
 
@@ -349,11 +349,15 @@ export function ContentTabImportExport( { selectedSite }: ContentTabImportExport
 		localSiteId: selectedSite.id,
 		userId: user?.id,
 	} );
-	const isPulling = connectedSites.some( ( site ) =>
-		syncOperationsSelectors.selectIsSiteIdPulling( selectedSite.id, site.id )( store.getState() )
+	const isPulling = useRootSelector( ( state ) =>
+		connectedSites.some( ( site ) =>
+			syncOperationsSelectors.selectIsSiteIdPulling( selectedSite.id, site.id )( state )
+		)
 	);
-	const isPushing = connectedSites.some( ( site ) =>
-		syncOperationsSelectors.selectIsSiteIdPushing( selectedSite.id, site.id )( store.getState() )
+	const isPushing = useRootSelector( ( state ) =>
+		connectedSites.some( ( site ) =>
+			syncOperationsSelectors.selectIsSiteIdPushing( selectedSite.id, site.id )( state )
+		)
 	);
 	const isThisSiteSyncing = isPulling || isPushing;
 

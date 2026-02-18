@@ -4,7 +4,7 @@ import { ActionButton } from 'src/components/action-button';
 import { PublishSiteButton } from 'src/components/publish-site-button';
 import { Tooltip } from 'src/components/tooltip';
 import { useImportExport } from 'src/hooks/use-import-export';
-import { store } from 'src/stores';
+import { useRootSelector } from 'src/stores';
 import { syncOperationsSelectors } from 'src/stores/sync';
 
 export interface SiteManagementActionProps {
@@ -22,15 +22,15 @@ export const SiteManagementActions = ( {
 }: SiteManagementActionProps ) => {
 	const { __ } = useI18n();
 	const { isSiteImporting } = useImportExport();
+	const isPulling = useRootSelector(
+		syncOperationsSelectors.selectIsSiteIdPulling( selectedSite?.id ?? '' )
+	);
 
 	if ( ! selectedSite ) {
 		return null;
 	}
 
 	const isImporting = isSiteImporting( selectedSite.id );
-	const isPulling = syncOperationsSelectors.selectIsSiteIdPulling( selectedSite.id )(
-		store.getState()
-	);
 	const disabled = isImporting || isPulling;
 
 	let buttonLabelOnDisabled: string = __( 'Importing…' );

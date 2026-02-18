@@ -33,7 +33,7 @@ import {
 	convertTreeToPushOptions,
 } from 'src/modules/sync/lib/convert-tree-to-sync-options';
 import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
-import { store, useAppDispatch, useI18nLocale, useRootSelector } from 'src/stores';
+import { useAppDispatch, useI18nLocale, useRootSelector } from 'src/stores';
 import { syncOperationsSelectors, syncOperationsThunks } from 'src/stores/sync';
 import {
 	connectedSitesActions,
@@ -60,13 +60,12 @@ const SyncConnectedSiteControls = ( {
 		localSiteId: selectedSite.id,
 		userId: user?.id,
 	} );
-	const isAnyConnectedSiteSyncing = connectedSites.some(
-		( site ) =>
-			syncOperationsSelectors.selectIsSiteIdPulling(
-				selectedSite.id,
-				site.id
-			)( store.getState() ) ||
-			syncOperationsSelectors.selectIsSiteIdPushing( selectedSite.id, site.id )( store.getState() )
+	const isAnyConnectedSiteSyncing = useRootSelector( ( state ) =>
+		connectedSites.some(
+			( site ) =>
+				syncOperationsSelectors.selectIsSiteIdPulling( selectedSite.id, site.id )( state ) ||
+				syncOperationsSelectors.selectIsSiteIdPushing( selectedSite.id, site.id )( state )
+		)
 	);
 	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
 
@@ -541,14 +540,12 @@ const SyncConnectedSiteSection = ( {
 	};
 
 	const hasConnectionErrors = connectedSite?.syncSupport !== 'already-connected';
-	const isPulling = syncOperationsSelectors.selectIsSiteIdPulling(
-		selectedSite.id,
-		connectedSite.id
-	)( store.getState() );
-	const isPushing = syncOperationsSelectors.selectIsSiteIdPushing(
-		selectedSite.id,
-		connectedSite.id
-	)( store.getState() );
+	const isPulling = useRootSelector(
+		syncOperationsSelectors.selectIsSiteIdPulling( selectedSite.id, connectedSite.id )
+	);
+	const isPushing = useRootSelector(
+		syncOperationsSelectors.selectIsSiteIdPushing( selectedSite.id, connectedSite.id )
+	);
 
 	let logo = <WordPressLogoCircle />;
 	if ( hasConnectionErrors ) {

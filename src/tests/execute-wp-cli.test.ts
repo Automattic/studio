@@ -2,10 +2,8 @@ import { ChildProcess } from 'node:child_process';
 import EventEmitter from 'node:events';
 import { vi } from 'vitest';
 // Mock executeCliCommand before importing SiteServer
-const mockEventEmitter = new EventEmitter();
-const mockChildProcess = { kill: vi.fn() } as unknown as ChildProcess;
 vi.mock( 'src/modules/cli/lib/execute-command', () => ( {
-	executeCliCommand: vi.fn( () => [ mockEventEmitter, mockChildProcess ] ),
+	executeCliCommand: vi.fn().mockReturnValue( [ new EventEmitter(), { kill: vi.fn() } ] ),
 } ) );
 vi.mock( 'src/constants', () => ( {
 	WP_CLI_DEFAULT_RESPONSE_TIMEOUT: 100, // Short timeout for tests
@@ -18,6 +16,8 @@ import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import type { CliCommandResult } from 'src/modules/cli/lib/execute-command';
 
 const mockExecuteCliCommand = vi.mocked( executeCliCommand );
+const mockEventEmitter = new EventEmitter();
+const mockChildProcess = { kill: vi.fn() } as unknown as ChildProcess;
 
 function simulateCliResponse( {
 	stdout = '',
@@ -33,6 +33,7 @@ function simulateCliResponse( {
 		const payload: { result: CliCommandResult } = {
 			result: { stdout, stderr },
 		};
+		// Use the mockEventEmitter directly
 		mockEventEmitter.emit( exitCode === 0 ? 'success' : 'failure', payload );
 	} );
 }

@@ -22,7 +22,7 @@ import { validateBlueprintData } from 'common/lib/blueprint-validation';
 import { bumpStat } from 'common/lib/bump-stat';
 import { parseCliError, errorMessageContains } from 'common/lib/cli-error';
 import {
-	calculateDirectorySize,
+	calculateDirectorySizeForArchive,
 	isWordPressDirectory,
 	arePathsEqual,
 	isEmptyDir,
@@ -1145,7 +1145,7 @@ export function getDirectorySize( _event: IpcMainInvokeEvent, siteId: string, su
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
 	}
-	return calculateDirectorySize( nodePath.join( site.details.path, ...subdir ) );
+	return calculateDirectorySizeForArchive( nodePath.join( site.details.path, ...subdir ) );
 }
 
 export function getFileSize( _event: IpcMainInvokeEvent, siteId: string, filePath: string[] ) {
@@ -1190,6 +1190,7 @@ export function showSiteContextMenu(
 		isRunning: boolean;
 		isLoading: boolean;
 		isAddingSite: boolean;
+		isAnySiteAdding: boolean;
 		isSyncing: boolean;
 		finderLabel: string;
 		editorLabel: string | null;
@@ -1201,6 +1202,7 @@ export function showSiteContextMenu(
 		isRunning,
 		isLoading,
 		isAddingSite,
+		isAnySiteAdding,
 		isSyncing,
 		finderLabel,
 		editorLabel,
@@ -1369,7 +1371,7 @@ export function showSiteContextMenu(
 	menu.append(
 		new MenuItem( {
 			label: __( 'Copy site…' ),
-			enabled: ! isLoading && ! isAddingSite,
+			enabled: ! isLoading && ! isAnySiteAdding,
 			click: () => {
 				sendIpcEventToRendererWithWindow(
 					BrowserWindow.fromWebContents( event.sender ),
@@ -1386,7 +1388,7 @@ export function showSiteContextMenu(
 	menu.append(
 		new MenuItem( {
 			label: __( 'Delete site…' ),
-			enabled: ! isLoading && ! isAddingSite && ! isSyncing,
+			enabled: ! isLoading && ! isAnySiteAdding && ! isSyncing,
 			click: () => {
 				sendIpcEventToRendererWithWindow(
 					BrowserWindow.fromWebContents( event.sender ),

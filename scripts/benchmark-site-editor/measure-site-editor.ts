@@ -74,8 +74,7 @@ function findEditorCanvasFrame(
 	wordPressFrame: Frame | null
 ): Frame | null {
 	if ( isPlaygroundWeb && wordPressFrame ) {
-		let frame =
-			wordPressFrame.childFrames().find( ( f ) => f.name() === 'editor-canvas' ) || null;
+		let frame = wordPressFrame.childFrames().find( ( f ) => f.name() === 'editor-canvas' ) || null;
 		if ( ! frame ) {
 			frame = page.frames().find( ( f ) => f.name() === 'editor-canvas' ) || null;
 		}
@@ -126,6 +125,11 @@ export async function measureSiteEditor( options: MeasureOptions ): Promise< Mea
 				.first();
 
 			await wordPressFrameLocator
+				.getByRole( 'menuitem', { name: 'My WordPress Website' } )
+				.first()
+				.click( { timeout: 30_000 } );
+
+			await wordPressFrameLocator
 				.getByRole( 'link', { name: 'Appearance' } )
 				.waitFor( { timeout: 30_000 } );
 
@@ -174,9 +178,7 @@ export async function measureSiteEditor( options: MeasureOptions ): Promise< Mea
 		const welcomeDialog = target.getByRole( 'dialog', {
 			name: /welcome to the site editor/i,
 		} );
-		const isModalVisible = await welcomeDialog
-			.isVisible( { timeout: 5_000 } )
-			.catch( () => false );
+		const isModalVisible = await welcomeDialog.isVisible( { timeout: 5_000 } ).catch( () => false );
 		if ( isModalVisible ) {
 			await target.getByRole( 'button', { name: /get started/i } ).click();
 			await welcomeDialog.waitFor( { state: 'hidden', timeout: 5_000 } ).catch( () => {} );
@@ -198,8 +200,7 @@ export async function measureSiteEditor( options: MeasureOptions ): Promise< Mea
 			() => {
 				const blocks = document.querySelectorAll( '[data-block]' );
 				return (
-					blocks.length > 0 &&
-					Array.from( blocks ).some( ( block ) => block.clientHeight > 0 )
+					blocks.length > 0 && Array.from( blocks ).some( ( block ) => block.clientHeight > 0 )
 				);
 			},
 			{ timeout: 60_000 }
@@ -220,10 +221,7 @@ export async function measureSiteEditor( options: MeasureOptions ): Promise< Mea
 			.waitFor( { timeout: 60_000 } );
 		const firstCard = target.locator( '.dataviews-view-grid__card' ).first();
 		await firstCard.waitFor( { state: 'visible', timeout: 60_000 } );
-		await firstCard
-			.getByRole( 'button' )
-			.first()
-			.waitFor( { state: 'visible', timeout: 60_000 } );
+		await firstCard.getByRole( 'button' ).first().waitFor( { state: 'visible', timeout: 60_000 } );
 
 		result.templatesViewLoad = Date.now() - templatesViewStart;
 
@@ -253,8 +251,7 @@ export async function measureSiteEditor( options: MeasureOptions ): Promise< Mea
 			() => {
 				const blocks = document.querySelectorAll( '[data-block]' );
 				return (
-					blocks.length > 0 &&
-					Array.from( blocks ).some( ( block ) => block.clientHeight > 0 )
+					blocks.length > 0 && Array.from( blocks ).some( ( block ) => block.clientHeight > 0 )
 				);
 			},
 			{ timeout: 60_000 }

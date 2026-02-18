@@ -148,6 +148,8 @@ async function addAppExecutionAliasToManifest( manifestPath ) {
 
 	await fs.writeFile( manifestPath, manifestContent, 'utf-8' );
 	console.log( '~~~ AppExecutionAlias added successfully' );
+
+	console.log( manifestContent );
 }
 
 const sharedOptions = {

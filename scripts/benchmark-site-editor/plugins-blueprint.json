@@ -68,7 +68,7 @@
 			"step": "installPlugin",
 			"pluginData": {
 				"resource": "wordpress.org/plugins",
-				"slug": "elementor"
+				"slug": "coblocks"
 			}
 		}
 	]

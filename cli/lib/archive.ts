@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { __ } from '@wordpress/i18n';
 import archiver, { EntryData } from 'archiver';
+import { isExcludedFromArchive } from 'common/lib/fs-utils';
 import { LoggerError } from 'cli/logger';
 
 const ZIP_COMPRESSION_LEVEL = 9;
@@ -29,7 +30,7 @@ export async function archiveSiteContent(
 			path.join( siteFolder, 'wp-content' ),
 			'wp-content',
 			( entry: EntryData ) => {
-				if ( entry.name.includes( '.git' ) || entry.name.includes( 'node_modules' ) ) {
+				if ( isExcludedFromArchive( entry.name ) ) {
 					return false;
 				}
 				return entry;

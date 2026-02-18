@@ -8,7 +8,7 @@ import { useImportExport } from 'src/hooks/use-import-export';
 
 export interface SiteManagementActionProps {
 	onStop: ( id: string ) => Promise< void >;
-	onStart: ( id: string ) => Promise< void >;
+	onStart: ( site: SiteDetails ) => Promise< void >;
 	selectedSite?: SiteDetails | null;
 	loading: boolean;
 }
@@ -51,7 +51,7 @@ export const SiteManagementActions = ( {
 						if ( selectedSite.running ) {
 							void onStop( selectedSite.id );
 						} else {
-							void onStart( selectedSite.id );
+							void onStart( selectedSite );
 						}
 					} }
 					disabled={ disabled }

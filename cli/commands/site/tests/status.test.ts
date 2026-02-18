@@ -10,7 +10,7 @@ vi.mock( 'cli/lib/appdata', async () => {
 		...actual,
 		getSiteByFolder: vi.fn(),
 		getSiteUrl: vi.fn(),
-		getAppdataDirectory: vi.fn( () => '/test/appdata' ),
+		getAppdataDirectory: vi.fn().mockReturnValue( '/test/appdata' ),
 	};
 } );
 vi.mock( 'cli/lib/pm2-manager' );
@@ -79,14 +79,14 @@ describe( 'CLI: studio site status', () => {
 			expect( consoleSpy ).toHaveBeenCalledWith(
 				JSON.stringify(
 					{
-						'Site URL': 'http://localhost:8080/',
-						'Site Path': '/path/to/site',
-						Status: '🔴 Offline',
-						'PHP version': '8.0',
-						'WP version': '6.4',
-						Xdebug: 'Disabled',
-						'Admin username': 'admin',
-						'Admin password': 'password123',
+						siteUrl: 'http://localhost:8080/',
+						sitePath: '/path/to/site',
+						status: '🔴 Offline',
+						phpVersion: '8.0',
+						wpVersion: '6.4',
+						xdebug: 'Disabled',
+						adminUsername: 'admin',
+						adminPassword: 'password123',
 					},
 					null,
 					2
@@ -111,15 +111,15 @@ describe( 'CLI: studio site status', () => {
 			expect( consoleSpy ).toHaveBeenCalledWith(
 				JSON.stringify(
 					{
-						'Site URL': 'http://localhost:8080/',
-						'Auto-login URL': 'http://localhost:8080/studio-auto-login?redirect_to=%2Fwp-admin%2F',
-						'Site Path': '/path/to/site',
-						Status: '🟢 Online',
-						'PHP version': '8.0',
-						'WP version': '6.4',
-						Xdebug: 'Disabled',
-						'Admin username': 'admin',
-						'Admin password': 'password123',
+						siteUrl: 'http://localhost:8080/',
+						autoLoginUrl: 'http://localhost:8080/studio-auto-login?redirect_to=%2Fwp-admin%2F',
+						sitePath: '/path/to/site',
+						status: '🟢 Online',
+						phpVersion: '8.0',
+						wpVersion: '6.4',
+						xdebug: 'Disabled',
+						adminUsername: 'admin',
+						adminPassword: 'password123',
 					},
 					null,
 					2
@@ -153,12 +153,12 @@ describe( 'CLI: studio site status', () => {
 			expect( consoleSpy ).toHaveBeenCalledWith(
 				JSON.stringify(
 					{
-						'Site URL': 'http://localhost:8080/',
-						'Site Path': '/path/to/site',
-						Status: '🔴 Offline',
-						'WP version': '6.4',
-						Xdebug: 'Disabled',
-						'Admin username': 'admin',
+						siteUrl: 'http://localhost:8080/',
+						sitePath: '/path/to/site',
+						status: '🔴 Offline',
+						wpVersion: '6.4',
+						xdebug: 'Disabled',
+						adminUsername: 'admin',
 					},
 					null,
 					2

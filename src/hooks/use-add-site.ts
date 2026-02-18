@@ -61,13 +61,16 @@ export function useAddSite() {
 	const [ blueprintPreferredVersions, setBlueprintPreferredVersions ] = useState<
 		BlueprintPreferredVersions | undefined
 	>();
-	const [ blueprintDeeplinkWarnings, setBlueprintDeeplinkWarnings ] = useState<
+	const [ blueprintWarnings, setBlueprintWarnings ] = useState<
 		BlueprintValidationWarning[] | undefined
 	>();
 	const [ blueprintSuggestedDomain, setBlueprintSuggestedDomain ] = useState<
 		string | undefined
 	>();
 	const [ blueprintSuggestedHttps, setBlueprintSuggestedHttps ] = useState< boolean | undefined >();
+	const [ blueprintSuggestedSiteName, setBlueprintSuggestedSiteName ] = useState<
+		string | undefined
+	>();
 	const [ isDeeplinkFlow, setIsDeeplinkFlow ] = useState( false );
 	const [ existingDomainNames, setExistingDomainNames ] = useState< string[] >( [] );
 
@@ -79,9 +82,10 @@ export function useAddSite() {
 		setIsDeeplinkFlow( false );
 		setSelectedBlueprint( undefined );
 		setBlueprintPreferredVersions( undefined );
-		setBlueprintDeeplinkWarnings( undefined );
+		setBlueprintWarnings( undefined );
 		setBlueprintSuggestedDomain( undefined );
 		setBlueprintSuggestedHttps( undefined );
+		setBlueprintSuggestedSiteName( undefined );
 	}, [] );
 
 	// For blueprint deeplinks - we need temporary state for PHP/WP versions
@@ -94,9 +98,10 @@ export function useAddSite() {
 		setFileForImport( null );
 		setSelectedBlueprint( undefined );
 		setBlueprintPreferredVersions( undefined );
-		setBlueprintDeeplinkWarnings( undefined );
+		setBlueprintWarnings( undefined );
 		setBlueprintSuggestedDomain( undefined );
 		setBlueprintSuggestedHttps( undefined );
+		setBlueprintSuggestedSiteName( undefined );
 		setSelectedRemoteSite( undefined );
 		setDeeplinkPhpVersion( defaultPhpVersion as AllowedPHPVersion );
 		setDeeplinkWpVersion( defaultWordPressVersion );
@@ -246,6 +251,7 @@ export function useAddSite() {
 						wpVersion: formValues.wpVersion,
 						customDomain: usedCustomDomain,
 						enableHttps,
+						siteName: formValues.siteName,
 					} );
 					updatedBlueprint = { ...selectedBlueprint, blueprint: updatedJson };
 				}
@@ -321,12 +327,14 @@ export function useAddSite() {
 			setSelectedBlueprint,
 			blueprintPreferredVersions,
 			setBlueprintPreferredVersions,
-			blueprintDeeplinkWarnings,
-			setBlueprintDeeplinkWarnings,
+			blueprintWarnings,
+			setBlueprintWarnings,
 			blueprintSuggestedDomain,
 			setBlueprintSuggestedDomain,
 			blueprintSuggestedHttps,
 			setBlueprintSuggestedHttps,
+			blueprintSuggestedSiteName,
+			setBlueprintSuggestedSiteName,
 			selectedRemoteSite,
 			setSelectedRemoteSite,
 			existingDomainNames,
@@ -350,9 +358,10 @@ export function useAddSite() {
 			fileForImport,
 			selectedBlueprint,
 			blueprintPreferredVersions,
-			blueprintDeeplinkWarnings,
+			blueprintWarnings,
 			blueprintSuggestedDomain,
 			blueprintSuggestedHttps,
+			blueprintSuggestedSiteName,
 			selectedRemoteSite,
 			existingDomainNames,
 			loadAllCustomDomains,

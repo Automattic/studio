@@ -31,6 +31,10 @@ const dmgSpecs = {
 	contents: [
 		{ type: 'file', path: appPath, x: 533, y: 122 },
 		{ type: 'link', path: '/Applications', x: 533, y: 354 },
+		{ type: 'position', path: '.background', x: 900, y: 900 },
+		{ type: 'position', path: '.DS_Store', x: 900, y: 900 },
+		{ type: 'position', path: '.Trashes', x: 900, y: 900 },
+		{ type: 'position', path: '.VolumeIcon.icns', x: 900, y: 900 },
 	],
 };
 

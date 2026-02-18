@@ -656,7 +656,7 @@ def create_backmerge_pr(source_branch:)
   created_prs = create_release_backmerge_pull_request(
     repository: GITHUB_REPO,
     source_branch: source_branch,
-    target_branch: MAIN_BRANCH,
+    default_branch: MAIN_BRANCH,
     labels: ['Releases'],
     reviewers: Array(ENV.fetch('GITHUB_USERNAME', nil))
   )

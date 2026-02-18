@@ -14,9 +14,9 @@ vi.mock( 'src/lib/get-ipc-api', () => ( {
 } ) );
 
 vi.mock( 'src/lib/app-globals', () => ( {
-	getAppGlobals: vi.fn( () => ( {
+	getAppGlobals: vi.fn().mockReturnValue( {
 		platform: 'darwin',
-	} ) ),
+	} ),
 } ) );
 
 const mockIpcApi = {

@@ -10,10 +10,10 @@ import {
 const readFileCallbackMock = vi.fn();
 
 vi.mock( 'fs', () => {
-	const mockReadFile = vi.fn( ( path, encoding, callback ) => {
+	const mockReadFile = vi.fn().mockImplementation( ( path, encoding, callback ) => {
 		callback( null, readFileCallbackMock() );
 	} );
-	const mockWriteFile = vi.fn( ( path, data, callback ) => {
+	const mockWriteFile = vi.fn().mockImplementation( ( path, data, callback ) => {
 		callback( null );
 	} );
 
@@ -28,7 +28,7 @@ vi.mock( 'fs', () => {
 } );
 
 vi.mock( '@vscode/sudo-prompt', () => {
-	const mockExec = vi.fn( ( command, options, callback ) => {
+	const mockExec = vi.fn().mockImplementation( ( command, options, callback ) => {
 		callback( null, 'Mocked output' );
 	} );
 	return {

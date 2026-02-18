@@ -4,8 +4,17 @@ import { calculateDirectorySize, isWordPressDirectory } from 'common/lib/fs-util
 import { vi } from 'vitest';
 import { validateSiteSize } from 'cli/lib/validation';
 import { LoggerError } from 'cli/logger';
-vi.mock( 'fs' );
-vi.mock( 'path' );
+
+vi.mock( 'fs', () => ( {
+	default: {
+		existsSync: vi.fn(),
+	},
+} ) );
+vi.mock( 'path', () => ( {
+	default: {
+		join: vi.fn(),
+	},
+} ) );
 vi.mock( 'common/lib/fs-utils', () => ( {
 	calculateDirectorySize: vi.fn(),
 	isWordPressDirectory: vi.fn(),

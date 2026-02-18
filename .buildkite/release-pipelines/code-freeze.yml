@@ -18,7 +18,7 @@ steps:
       install_gems
 
       echo "--- :snowflake: Execute Code Freeze"
-      bundle exec fastlane code_freeze version:"${RELEASE_VERSION}" skip_confirm:true
+      bundle exec fastlane code_freeze version:"${RELEASE_VERSION}" github_username:"${GITHUB_USERNAME}" skip_confirm:true
     artifact_paths:
       - i18n/bundle-strings.pot
     agents:

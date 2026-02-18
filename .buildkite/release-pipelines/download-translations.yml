@@ -17,7 +17,7 @@ steps:
       install_gems
 
       echo "--- :earth_asia: Download Translations"
-      bundle exec fastlane download_translations skip_confirm:true
+      bundle exec fastlane download_translations github_username:"${GITHUB_USERNAME}" skip_confirm:true
     agents:
       queue: mac
     retry:

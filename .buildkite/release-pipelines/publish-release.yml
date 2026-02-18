@@ -14,7 +14,7 @@ steps:
       install_gems
 
       echo "--- :shipit: Publish Release"
-      bundle exec fastlane publish_release version:"${RELEASE_VERSION}" skip_confirm:true
+      bundle exec fastlane publish_release version:"${RELEASE_VERSION}" github_username:"${GITHUB_USERNAME}" skip_confirm:true
     agents:
       queue: mac
     retry:

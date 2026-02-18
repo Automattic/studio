@@ -25,6 +25,7 @@ test.describe( 'Site Editor Load Metrics', () => {
 		} );
 
 		await session.cleanup();
+		setTimeout( () => process.exit( 0 ), 1000 );
 	} );
 
 	test( 'measure site editor load time', async () => {

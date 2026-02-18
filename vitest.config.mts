@@ -4,6 +4,8 @@ import path from 'path';
 export default defineConfig( {
 	test: {
 		pool: 'threads',
+		maxThreads: 8,
+		minThreads: 1,
 		globals: true,
 		environment: 'jsdom',
 		environmentOptions: {
@@ -29,12 +31,6 @@ export default defineConfig( {
 				external: [ 'electron' ],
 			},
 		},
-		poolOptions: {
-			threads: {
-				maxThreads: 8,
-				minThreads: 1,
-			},
-		},
 		css: false,
 	},
 	resolve: {
@@ -44,6 +40,10 @@ export default defineConfig( {
 			src: path.resolve( __dirname, './src' ),
 			vendor: path.resolve( __dirname, './vendor' ),
 			common: path.resolve( __dirname, './common' ),
+			'@wp-playground/blueprints/blueprint-schema-validator': path.resolve(
+				__dirname,
+				'./node_modules/@wp-playground/blueprints/blueprint-schema-validator.js'
+			),
 		},
 	},
 } );

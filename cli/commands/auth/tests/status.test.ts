@@ -15,16 +15,16 @@ import { runCommand } from '../status';
 vi.mock( 'cli/lib/api' );
 vi.mock( 'cli/lib/appdata' );
 vi.mock( 'cli/logger', () => ( {
-	Logger: vi.fn( () => ( {
-		reportStart: mockReportStart,
-		reportSuccess: mockReportSuccess,
-		reportError: mockReportError,
-		reportProgress: mockReportProgress,
-		reportWarning: mockReportWarning,
-		reportKeyValuePair: mockReportKeyValuePair,
-		spinner: {},
-		currentAction: null,
-	} ) ),
+	Logger: class {
+		reportStart = mockReportStart;
+		reportSuccess = mockReportSuccess;
+		reportError = mockReportError;
+		reportProgress = mockReportProgress;
+		reportWarning = mockReportWarning;
+		reportKeyValuePair = mockReportKeyValuePair;
+		spinner = {};
+		currentAction = null;
+	},
 	LoggerError: class LoggerError extends Error {},
 } ) );
 

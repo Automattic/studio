@@ -5,6 +5,7 @@ import fsExtra from 'fs-extra';
 import { parse } from 'shell-quote';
 import { z } from 'zod';
 import { SQLITE_FILENAME } from 'common/constants';
+import { parseJsonFromPhpOutput } from 'common/lib/php-output-parser';
 import {
 	WP_CLI_DEFAULT_RESPONSE_TIMEOUT,
 	WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT,
@@ -26,17 +27,34 @@ const deletedServers: string[] = [];
  * Stop all running sites using the CLI `site stop --all` command.
  *
  * @param shouldSaveAutoStartProp Makes it so sites are automatically started the next time Studio launches. Typically only true when this function runs during the application close sequence.
+ * @param timeoutAfterMs Optional timeout in milliseconds.
  */
-export async function stopAllServers( shouldSaveAutoStartProp: boolean ) {
+export async function stopAllServers( shouldSaveAutoStartProp: boolean, timeoutAfterMs?: number ) {
+	let timeoutId: NodeJS.Timeout | undefined;
+
 	return new Promise< void >( ( resolve ) => {
 		const args = [ 'site', 'stop', '--all' ];
 		if ( shouldSaveAutoStartProp ) {
 			args.push( '--auto-start' );
 		}
-		const [ emitter ] = executeCliCommand( args );
+		const [ emitter, childProcess ] = executeCliCommand( args, { output: 'ignore' } );
 		emitter.on( 'success', () => resolve() );
 		emitter.on( 'failure', () => resolve() );
 		emitter.on( 'error', () => resolve() );
+
+		if ( timeoutAfterMs ) {
+			timeoutId = setTimeout( () => {
+				console.warn(
+					`site stop --all command timed out after ${ timeoutAfterMs }ms. Killing process.`
+				);
+				childProcess.kill( 'SIGKILL' );
+				resolve();
+			}, timeoutAfterMs );
+		}
+	} ).finally( () => {
+		if ( timeoutId ) {
+			clearTimeout( timeoutId );
+		}
 	} );
 }
 
@@ -352,8 +370,12 @@ export class SiteServer {
 				resolve( { stdout: result.stdout, stderr: result.stderr, exitCode: 0 } );
 			} );
 
-			emitter.on( 'failure', ( { result } ) => {
-				resolve( { stdout: result.stdout, stderr: result.stderr, exitCode: 1 } );
+			emitter.on( 'failure', ( { error, result } ) => {
+				resolve( {
+					stdout: result.stdout,
+					stderr: result.stderr || error.lastErrorMessage || '',
+					exitCode: 1,
+				} );
 			} );
 
 			emitter.on( 'error', ( { error } ) => {
@@ -394,7 +416,7 @@ export class SiteServer {
 				return this.details.themeDetails;
 			}
 
-			const themeDetailsParsed = JSON.parse( stdout );
+			const themeDetailsParsed = parseJsonFromPhpOutput( stdout );
 			this.details.themeDetails = SiteServer.themeDetailsSchema.parse( themeDetailsParsed );
 		} catch ( error ) {
 			console.error( 'Failed to get theme details:', error );

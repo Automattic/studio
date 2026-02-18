@@ -81,6 +81,10 @@ export default defineConfig( {
 			src: resolve( __dirname, 'src' ),
 			vendor: resolve( __dirname, 'vendor' ),
 			common: resolve( __dirname, 'common' ),
+			'@wp-playground/blueprints/blueprint-schema-validator': resolve(
+				__dirname,
+				'node_modules/@wp-playground/blueprints/blueprint-schema-validator.js'
+			),
 		},
 		conditions: [ 'node' ],
 		mainFields: [ 'main' ],

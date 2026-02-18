@@ -1,5 +1,5 @@
 import { RuleTester } from 'eslint';
-import { describe, it } from 'vitest';
+import { describe } from 'vitest';
 import rule from '../src/rules/require-lock-before-save';
 
 const ruleTester = new RuleTester( {
@@ -10,8 +10,7 @@ const ruleTester = new RuleTester( {
 } );
 
 describe( 'require-lock-before-save', () => {
-	it( 'should enforce locking when calling saveUserData or saveAppdata', () => {
-		ruleTester.run( 'require-lock-before-save', rule, {
+	ruleTester.run( 'require-lock-before-save', rule, {
 			valid: [
 				// Functions not calling save functions (allowed)
 				{
@@ -106,5 +105,4 @@ describe( 'require-lock-before-save', () => {
 				},
 			],
 		} );
-	} );
 } );

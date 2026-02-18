@@ -77,7 +77,9 @@ describe( 'Anchor', () => {
 		screen.getByRole( 'link' ).click();
 
 		expect( speak ).toHaveBeenCalledWith( 'Starting the server before opening the site link' );
-		expect( useSiteDetails().startServer ).toHaveBeenCalledWith( '1' );
+		expect( useSiteDetails().startServer ).toHaveBeenCalledWith(
+			expect.objectContaining( { id: '1', name: 'Test Site' } )
+		);
 
 		// Await asynchronous start server execution
 		await new Promise( process.nextTick );

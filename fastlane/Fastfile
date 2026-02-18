@@ -395,14 +395,14 @@ def get_windows_update_release_sha(arch: 'x64')
 
   begin
     releases_content = File.read(releases_file_path)
-  rescue StandardError => e
+  rescue StandardError
     UI.user_error!("Couldn't read RELEASES file of Windows build at #{releases_file_path}. Please ensure that the file compute the release SHA1.")
   end
 
   match_data = releases_content.match(/([a-zA-Z\d]{40})\s(.*\.nupkg)\s(\d+)/)
   UI.user_error!('Could not parse Windows RELEASES file format') unless match_data
 
-  sha1, filename, size = match_data.captures
+  sha1, = match_data.captures
   sha1
 end
 

@@ -116,12 +116,26 @@ async function addAppExecutionAliasToManifest( manifestPath ) {
 	if ( ! ignorableNamespacesMatch ) {
 		manifestContent = manifestContent.replace(
 			'<Package',
-			'<Package IgnorableNamespaces="uap mp rescap uap5 uap10"'
+			'<Package IgnorableNamespaces="uap rescap uap5 uap10"'
 		);
-	} else if ( ! /\buap10\b/.test( ignorableNamespacesMatch[ 1 ] ) ) {
+	} else {
+		const declaredPrefixes = Array.from(
+			manifestContent.matchAll( /xmlns:([A-Za-z0-9_]+)=/g ),
+			( [ , prefix ] ) => prefix
+		);
+		const declaredPrefixSet = new Set( declaredPrefixes );
+		const updatedNamespaces = ignorableNamespacesMatch[ 1 ]
+			.split( /\s+/ )
+			.filter( Boolean )
+			.filter( ( prefix ) => declaredPrefixSet.has( prefix ) );
+
+		if ( ! updatedNamespaces.includes( 'uap10' ) ) {
+			updatedNamespaces.push( 'uap10' );
+		}
+
 		manifestContent = manifestContent.replace(
 			/IgnorableNamespaces="([^"]*)"/,
-			( _match, namespaces ) => `IgnorableNamespaces="${ namespaces } uap10"`
+			`IgnorableNamespaces="${ updatedNamespaces.join( ' ' ) }"`
 		);
 	}
 

@@ -82,7 +82,7 @@ function copyArtifactsBack( stagingRoot: string ) {
 		if ( ! fs.existsSync( from ) ) continue;
 		fs.rmSync( to, { recursive: true, force: true } );
 		fs.mkdirSync( path.dirname( to ), { recursive: true } );
-		fs.cpSync( from, to, { recursive: true, force: true } );
+		fs.cpSync( from, to, { recursive: true, force: true, verbatimSymlinks: true } );
 	}
 }
 

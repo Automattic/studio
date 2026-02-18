@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { isExcludedFromArchive } from '@studio/common/lib/fs-utils';
 import { __ } from '@wordpress/i18n';
 import archiver, { EntryData } from 'archiver';
 import { LoggerError } from 'cli/logger';
@@ -29,7 +30,7 @@ export async function archiveSiteContent(
 			path.join( siteFolder, 'wp-content' ),
 			'wp-content',
 			( entry: EntryData ) => {
-				if ( entry.name.includes( '.git' ) || entry.name.includes( 'node_modules' ) ) {
+				if ( isExcludedFromArchive( entry.name ) ) {
 					return false;
 				}
 				return entry;

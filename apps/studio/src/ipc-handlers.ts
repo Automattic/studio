@@ -21,7 +21,7 @@ import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { bumpStat } from '@studio/common/lib/bump-stat';
 import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
 import {
-	calculateDirectorySize,
+	calculateDirectorySizeForArchive,
 	isWordPressDirectory,
 	arePathsEqual,
 	isEmptyDir,
@@ -1145,7 +1145,7 @@ export function getDirectorySize( _event: IpcMainInvokeEvent, siteId: string, su
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
 	}
-	return calculateDirectorySize( nodePath.join( site.details.path, ...subdir ) );
+	return calculateDirectorySizeForArchive( nodePath.join( site.details.path, ...subdir ) );
 }
 
 export function getFileSize( _event: IpcMainInvokeEvent, siteId: string, filePath: string[] ) {

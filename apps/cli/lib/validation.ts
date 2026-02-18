@@ -1,12 +1,12 @@
 import path from 'path';
 import { DEMO_SITE_SIZE_LIMIT_BYTES, DEMO_SITE_SIZE_LIMIT_GB } from '@studio/common/constants';
-import { calculateDirectorySize } from '@studio/common/lib/fs-utils';
+import { calculateDirectorySizeForArchive } from '@studio/common/lib/fs-utils';
 import { __, sprintf } from '@wordpress/i18n';
 import { LoggerError } from 'cli/logger';
 
 export async function validateSiteSize( siteFolder: string ): Promise< true > {
 	const wpContentPath = path.join( siteFolder, 'wp-content' );
-	const wpContentSize = await calculateDirectorySize( wpContentPath );
+	const wpContentSize = await calculateDirectorySizeForArchive( wpContentPath );
 
 	if ( wpContentSize > DEMO_SITE_SIZE_LIMIT_BYTES ) {
 		throw new LoggerError(

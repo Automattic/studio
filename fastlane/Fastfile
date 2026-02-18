@@ -367,27 +367,68 @@ lane :new_hotfix_release do |version:, skip_confirm: false|
   UI.success("Hotfix branch #{branch_name} created from #{base_ref}")
 end
 
-# Download the latest translations and commit them to the current branch.
+# Download the latest translations and create a PR to merge them into the release branch.
 #
 # @param skip_confirm [Boolean] Skip interactive confirmation prompts (default: false)
 #
 lane :download_translations do |skip_confirm: false|
+  current_branch = Fastlane::Helper::GitHelper.current_branch_name
+
   UI.important <<~PROMPT
     Downloading translations. This will:
     - Download latest translations from GlotPress
-    - Commit and push any changes to the current branch
+    - Create a PR to merge them into `#{current_branch}`
   PROMPT
   next unless skip_confirm || UI.confirm('Continue?')
 
   sh('node', File.join(PROJECT_ROOT_FOLDER, 'scripts', 'download-available-site-translations.mjs'))
 
+  translations_branch = 'update/latest-translations'
+  Fastlane::Helper::GitHelper.delete_local_branch_if_exists!(translations_branch)
+  Fastlane::Helper::GitHelper.create_branch(translations_branch)
+
   git_add(path: ['.'])
-  git_commit(
+  result = git_commit(
     path: ['.'],
-    message: '[skip ci] Update translations',
+    message: 'Update translations',
     allow_nothing_to_commit: true
   )
-  push_to_git_remote
+
+  if result.nil?
+    Fastlane::Helper::GitHelper.checkout_and_pull(current_branch)
+    Fastlane::Helper::GitHelper.delete_local_branch_if_exists!(translations_branch)
+    UI.important('No translation changes detected.')
+
+    if is_ci?
+      buildkite_annotate(
+        context: 'download-translations',
+        style: 'info',
+        message: 'No translation changes detected. No PR was created.'
+      )
+    end
+    next
+  end
+
+  Fastlane::Helper::GitHelper.delete_remote_branch_if_exists!(translations_branch)
+  push_to_git_remote(set_upstream: true, tags: false)
+
+  pr_url = create_pull_request(
+    repo: GITHUB_REPO,
+    title: 'Update translations',
+    body: 'Merges the latest translations from GlotPress.',
+    labels: 'Releases',
+    base: current_branch,
+    head: translations_branch,
+    reviewers: Array(ENV.fetch('GITHUB_USERNAME', nil))
+  )
+
+  if is_ci? && pr_url
+    buildkite_annotate(
+      context: 'download-translations',
+      style: 'info',
+      message: "Translations Pull Request: #{pr_url}"
+    )
+  end
 end
 
 ########################################################################

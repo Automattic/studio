@@ -128,7 +128,7 @@ end
 # @param version [String] The version to freeze (e.g., '1.7.4')
 # @param skip_confirm [Boolean] Skip interactive confirmation prompts (default: false)
 #
-lane :code_freeze do |version:, skip_confirm: false|
+lane :code_freeze do |version:, skip_confirm: false, github_username: nil|
   branch_name = "release/#{version}"
 
   UI.important <<~PROMPT
@@ -173,7 +173,7 @@ lane :code_freeze do |version:, skip_confirm: false|
   push_to_git_remote(set_upstream: true)
 
   # Create backmerge PR from the release branch to MAIN_BRANCH so that the strings bundle is uploaded to GlotPress
-  create_backmerge_pr(source_branch: branch_name)
+  create_backmerge_pr(source_branch: branch_name, github_username: github_username)
 
   # Create the first beta (bumps version, commits, pushes, tags, triggers build)
   new_beta_release(version: "#{version}-beta1", skip_confirm: skip_confirm)
@@ -291,7 +291,7 @@ end
 # @param version [String] The version to publish (e.g., '1.7.4')
 # @param skip_confirm [Boolean] Skip interactive confirmation prompts (default: false)
 #
-lane :publish_release do |version:, skip_confirm: false|
+lane :publish_release do |version:, skip_confirm: false, github_username: nil|
   release_branch = "release/#{version}"
 
   UI.important <<~PROMPT
@@ -309,7 +309,7 @@ lane :publish_release do |version:, skip_confirm: false|
   )
 
   # Create backmerge PR with intermediate branch to handle conflicts
-  create_backmerge_pr(source_branch: release_branch)
+  create_backmerge_pr(source_branch: release_branch, github_username: github_username)
 
   Fastlane::Helper::GitHelper.delete_remote_branch_if_exists!(release_branch)
   Fastlane::Helper::GitHelper.checkout_and_pull(MAIN_BRANCH)
@@ -371,7 +371,7 @@ end
 #
 # @param skip_confirm [Boolean] Skip interactive confirmation prompts (default: false)
 #
-lane :download_translations do |skip_confirm: false|
+lane :download_translations do |skip_confirm: false, github_username: nil|
   current_branch = Fastlane::Helper::GitHelper.current_branch_name
 
   UI.important <<~PROMPT
@@ -419,7 +419,7 @@ lane :download_translations do |skip_confirm: false|
     labels: 'Releases',
     base: current_branch,
     head: translations_branch,
-    reviewers: Array(ENV.fetch('GITHUB_USERNAME', nil))
+    reviewers: Array(github_username)
   )
 
   if is_ci? && pr_url
@@ -693,13 +693,13 @@ end
 
 # Create a backmerge PR from the given source branch into the main branch
 # and post a Buildkite annotation with links to the created PRs.
-def create_backmerge_pr(source_branch:)
+def create_backmerge_pr(source_branch:, github_username: nil)
   created_prs = create_release_backmerge_pull_request(
     repository: GITHUB_REPO,
     source_branch: source_branch,
     default_branch: MAIN_BRANCH,
     labels: ['Releases'],
-    reviewers: Array(ENV.fetch('GITHUB_USERNAME', nil))
+    reviewers: Array(github_username)
   )
 
   return unless is_ci? && created_prs && !created_prs.empty?

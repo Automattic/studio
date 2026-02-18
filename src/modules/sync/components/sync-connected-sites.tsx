@@ -111,6 +111,7 @@ const SyncConnectedSiteControls = ( {
 							) }
 							onClick={ () => setSyncDialogType( 'pull' ) }
 							disabled={ isAnySiteSyncing || isOffline }
+							data-testid="sync-list-pull-button"
 						>
 							<Icon icon={ cloudDownload } />
 							{ __( 'Pull' ) }
@@ -151,6 +152,7 @@ const SyncConnectedSiteControls = ( {
 							) }
 							onClick={ () => setSyncDialogType( 'push' ) }
 							disabled={ isAnySiteSyncing || isOffline }
+							data-testid="sync-list-push-button"
 						>
 							<Icon icon={ cloudUpload } />
 							{ __( 'Push' ) }

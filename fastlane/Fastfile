@@ -147,15 +147,19 @@ lane :code_freeze do |version:, skip_confirm: false|
   # Create release branch from MAIN_BRANCH
   Fastlane::Helper::GitHelper.create_branch(branch_name)
 
-  sh('rm', '-rf', './out/pots')
-  sh('mkdir', '-p', './i18n')
+  # Fastlane sh() runs from the fastlane/ directory, so use absolute paths
+  pot_dir = File.join(PROJECT_ROOT_FOLDER, 'out', 'pots')
+  pot_output = File.join(PROJECT_ROOT_FOLDER, 'i18n', 'bundle-strings.pot')
+
+  sh('rm', '-rf', pot_dir)
+  sh('mkdir', '-p', File.join(PROJECT_ROOT_FOLDER, 'i18n'))
   sh(
     'npx', 'wp-babel-makepot',
-    '{src,cli,common}/**/*.{js,jsx,ts,tsx}',
-    '--ignore', 'cli/node_modules/**/*,**/*.d.ts',
-    '--base', '.',
-    '--dir', './out/pots',
-    '--output', './i18n/bundle-strings.pot'
+    "#{PROJECT_ROOT_FOLDER}/{src,cli,common}/**/*.{js,jsx,ts,tsx}",
+    '--ignore', "#{PROJECT_ROOT_FOLDER}/cli/node_modules/**/*,**/*.d.ts",
+    '--base', PROJECT_ROOT_FOLDER,
+    '--dir', pot_dir,
+    '--output', pot_output
   )
 
   # Commit and push the .pot file so the wpcom cron can import it to GlotPress
@@ -375,7 +379,7 @@ lane :download_translations do |skip_confirm: false|
   PROMPT
   next unless skip_confirm || UI.confirm('Continue?')
 
-  sh('node', './scripts/download-available-site-translations.mjs')
+  sh('node', File.join(PROJECT_ROOT_FOLDER, 'scripts', 'download-available-site-translations.mjs'))
 
   git_add(path: ['.'])
   git_commit(
@@ -627,7 +631,7 @@ end
 
 # Set the version in package.json (and update package-lock.json via npm)
 def set_package_json_version(version:)
-  sh('npm', 'version', version, '--no-git-tag-version')
+  sh('npm', 'version', version, '--no-git-tag-version', '--prefix', PROJECT_ROOT_FOLDER)
 end
 
 # Extract release notes for a specific version from RELEASE-NOTES.txt

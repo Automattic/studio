@@ -18,7 +18,7 @@
 		"make:windows-arm64": "electron-vite build --config ./electron.vite.config.ts --outDir=dist && electron-forge make . --arch=arm64 --platform=win32",
 		"make:macos-x64": "electron-vite build --config ./electron.vite.config.ts --outDir=dist && SKIP_DMG=true FILE_ARCHITECTURE=x64 electron-forge make . --arch=x64 --platform=darwin",
 		"make:macos-arm64": "electron-vite build --config ./electron.vite.config.ts --outDir=dist && SKIP_DMG=true FILE_ARCHITECTURE=arm64 electron-forge make . --arch=arm64 --platform=darwin",
-		"install:bundle": "npm install --no-package-lock --no-progress --install-links --no-workspaces && patch-package && npx @electron/rebuild -o fs-ext",
+		"install:bundle": "npm install --no-package-lock --no-progress --install-links --no-workspaces && patch-package",
 		"package": "electron-vite build --config ./electron.vite.config.ts --outDir=dist && electron-forge package .",
 		"publish": "electron-forge publish .",
 		"start-wayland": "npm -w studio-cli run build && electron-forge start . -- --enable-features=UseOzonePlatform --ozone-platform=wayland"
@@ -114,5 +114,10 @@
 		"@rollup/rollup-linux-x64-gnu": "^4.50.2",
 		"@rollup/rollup-win32-x64-msvc": "^4.50.2",
 		"appdmg": "^0.6.6"
+	},
+	"overrides": {
+		"fs-ext": {
+			"nan": "2.25.0"
+		}
 	}
 }

@@ -130,7 +130,8 @@ function ButtonToRun( site: SiteDetails ) {
 	);
 }
 function SiteItem( { site }: { site: SiteDetails } ) {
-	const { selectedSite, setSelectedSiteId, loadingServer, isSiteDeleting } = useSiteDetails();
+	const { sites, selectedSite, setSelectedSiteId, loadingServer, isSiteDeleting } =
+		useSiteDetails();
 	const isSelected = site === selectedSite;
 	const { isSiteImporting, isSiteExporting } = useImportExport();
 	const { data: editor } = useGetUserEditorQuery();
@@ -160,6 +161,7 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 		const ipcApi = getIpcApi();
 		const isLoading = loadingServer[ site.id ] || false;
 		const isAddingSite = site.isAddingSite || false;
+		const isAnySiteAdding = sites.some( ( s ) => s.isAddingSite );
 		const finderLabel = isWindows() ? __( 'File Explorer' ) : __( 'Finder' );
 		const editorLabel =
 			editor && supportedEditorConfig[ editor ] ? supportedEditorConfig[ editor ].label : null;
@@ -170,6 +172,7 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 			isRunning: site.running,
 			isLoading,
 			isAddingSite,
+			isAnySiteAdding,
 			isSyncing,
 			finderLabel,
 			editorLabel,

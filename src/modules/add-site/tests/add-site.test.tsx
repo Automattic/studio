@@ -588,6 +588,9 @@ describe( 'AddSite', () => {
 		// Select the blueprint with preferred versions
 		await user.click( screen.getByText( 'Test Blueprint' ) );
 
+		// Continue to blueprint details step
+		await user.click( screen.getByRole( 'button', { name: 'Continue' } ) );
+
 		// Continue to create site form
 		await user.click( screen.getByRole( 'button', { name: 'Continue' } ) );
 
@@ -648,6 +651,9 @@ describe( 'AddSite', () => {
 
 		// Select the blueprint
 		await user.click( screen.getByText( 'Test Blueprint 2' ) );
+
+		// Continue to blueprint details step
+		await user.click( screen.getByRole( 'button', { name: 'Continue' } ) );
 
 		// Continue to create site form
 		await user.click( screen.getByRole( 'button', { name: 'Continue' } ) );

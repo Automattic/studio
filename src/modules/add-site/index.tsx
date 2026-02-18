@@ -5,7 +5,10 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MINIMUM_WORDPRESS_VERSION } from 'common/constants';
 import { extractFormValuesFromBlueprint } from 'common/lib/blueprint-settings';
-import { BlueprintPreferredVersions } from 'common/lib/blueprint-validation';
+import {
+	BlueprintPreferredVersions,
+	BlueprintValidationWarning,
+} from 'common/lib/blueprint-validation';
 import { SupportedPHPVersionsList } from 'common/types/php-versions';
 import Button from 'src/components/button';
 import { FullscreenModal } from 'src/components/fullscreen-modal';
@@ -23,7 +26,7 @@ import { selectMinimumWordPressVersion } from 'src/stores/provider-constants-sli
 import { openAddSiteModal, closeAddSiteModal, selectIsAddSiteModalOpen } from 'src/stores/ui-slice';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import { useGetBlueprints, Blueprint } from 'src/stores/wpcom-api';
-import BlueprintDeeplink from './components/blueprint-deeplink';
+import BlueprintDetails from './components/blueprint-details';
 import { AddSiteBlueprintSelector } from './components/blueprints';
 import CreateSite from './components/create-site';
 import ImportBackup from './components/import-backup';
@@ -68,7 +71,8 @@ interface NavigationContentProps {
 	selectedBlueprint?: Blueprint;
 	blueprintPreferredVersions?: BlueprintPreferredVersions;
 	setBlueprintPreferredVersions?: ( versions: BlueprintPreferredVersions | undefined ) => void;
-	blueprintDeeplinkWarnings?: import('common/lib/blueprint-validation').BlueprintValidationWarning[];
+	blueprintWarnings?: BlueprintValidationWarning[];
+	setBlueprintWarnings?: ( warnings: BlueprintValidationWarning[] | undefined ) => void;
 	blueprintSuggestedDomain?: string;
 	setBlueprintSuggestedDomain?: ( domain: string | undefined ) => void;
 	blueprintSuggestedHttps?: boolean;
@@ -101,7 +105,8 @@ function NavigationContent( props: NavigationContentProps ) {
 		setSelectedBlueprint,
 		blueprintPreferredVersions,
 		setBlueprintPreferredVersions,
-		blueprintDeeplinkWarnings,
+		blueprintWarnings,
+		setBlueprintWarnings,
 		blueprintSuggestedDomain,
 		setBlueprintSuggestedDomain,
 		blueprintSuggestedHttps,
@@ -137,6 +142,12 @@ function NavigationContent( props: NavigationContentProps ) {
 	);
 
 	const handleBlueprintContinue = useCallback( () => {
+		if ( selectedBlueprint ) {
+			goTo( '/blueprint/select/details' );
+		}
+	}, [ selectedBlueprint, goTo ] );
+
+	const handleBlueprintDetailsContinue = useCallback( () => {
 		if ( selectedBlueprint ) {
 			goTo( '/blueprint/select/create' );
 		}
@@ -181,6 +192,8 @@ function NavigationContent( props: NavigationContentProps ) {
 			goTo( '/' );
 		};
 		if ( location.path === '/blueprint/select/create' ) {
+			goTo( '/blueprint/select/details' );
+		} else if ( location.path === '/blueprint/select/details' ) {
 			goTo( '/blueprint/select' );
 		} else if ( location.path === '/blueprint/deeplink/create' ) {
 			goTo( '/blueprint/deeplink' );
@@ -203,6 +216,7 @@ function NavigationContent( props: NavigationContentProps ) {
 				setSelectedBlueprint();
 				setBlueprintPreferredVersions?.( undefined );
 				setBlueprintSuggestedSiteName?.( undefined );
+				setBlueprintWarnings?.( undefined );
 			}
 			if ( location.path === '/pullRemote' ) {
 				setSelectedRemoteSite( undefined );
@@ -219,6 +233,7 @@ function NavigationContent( props: NavigationContentProps ) {
 		setFileForImport,
 		setSelectedBlueprint,
 		setBlueprintPreferredVersions,
+		setBlueprintWarnings,
 		setSelectedRemoteSite,
 		setBlueprintSuggestedSiteName,
 	] );
@@ -261,16 +276,19 @@ function NavigationContent( props: NavigationContentProps ) {
 			const blueprint = blueprintsData?.blueprints.find(
 				( b: Blueprint ) => b.slug === blueprintId
 			);
+			setBlueprintWarnings?.( undefined );
 			applyBlueprintFormValues( blueprint );
 		},
-		[ blueprintsData?.blueprints, applyBlueprintFormValues ]
+		[ blueprintsData?.blueprints, setBlueprintWarnings, applyBlueprintFormValues ]
 	);
 
 	const handleFileBlueprintSelect = useCallback(
-		( blueprint: Blueprint ) => {
+		( blueprint: Blueprint, warnings?: BlueprintValidationWarning[] ) => {
 			applyBlueprintFormValues( blueprint );
+			setBlueprintWarnings?.( warnings );
+			goTo( '/blueprint/select/details' );
 		},
-		[ applyBlueprintFormValues ]
+		[ applyBlueprintFormValues, setBlueprintWarnings, goTo ]
 	);
 
 	// Build default values with blueprint preferred versions applied
@@ -323,6 +341,13 @@ function NavigationContent( props: NavigationContentProps ) {
 					onFileBlueprintSelect={ handleFileBlueprintSelect }
 				/>
 			</Navigator.Screen>
+			<Navigator.Screen className="flex-1" path="/blueprint/select/details">
+				<BlueprintDetails
+					selectedBlueprint={ selectedBlueprint }
+					warnings={ blueprintWarnings }
+					source={ selectedBlueprint?.slug?.startsWith( 'file:' ) ? 'file' : 'featured' }
+				/>
+			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/blueprint/select/create">
 				<CreateSite
 					{ ...createSiteProps }
@@ -336,9 +361,10 @@ function NavigationContent( props: NavigationContentProps ) {
 				<CreateSite { ...createSiteProps } defaultValues={ defaultValues } />
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/blueprint/deeplink">
-				<BlueprintDeeplink
+				<BlueprintDetails
 					selectedBlueprint={ selectedBlueprint }
-					warnings={ blueprintDeeplinkWarnings }
+					warnings={ blueprintWarnings }
+					source="deeplink"
 				/>
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/blueprint/deeplink/create">
@@ -372,6 +398,7 @@ function NavigationContent( props: NavigationContentProps ) {
 				currentPath={ location.path }
 				onBack={ handleBack }
 				onBlueprintContinue={ handleBlueprintContinue }
+				onBlueprintDetailsContinue={ handleBlueprintDetailsContinue }
 				onBlueprintDeeplinkContinue={ handleBlueprintDeeplinkContinue }
 				onBackupContinue={ handleBackupContinue }
 				onPullRemoteContinue={ handlePullRemoteContinue }
@@ -379,6 +406,7 @@ function NavigationContent( props: NavigationContentProps ) {
 					formRef.current?.requestSubmit();
 				} }
 				canSubmitBlueprint={ !! selectedBlueprint }
+				canSubmitBlueprintDetails={ !! selectedBlueprint }
 				canSubmitBlueprintDeeplink={ !! selectedBlueprint }
 				canSubmitBackup={ !! fileForImport }
 				canSubmitPullRemote={ !! selectedRemoteSite }
@@ -431,7 +459,8 @@ export function AddSiteModalContent( {
 		setSelectedBlueprint,
 		blueprintPreferredVersions,
 		setBlueprintPreferredVersions,
-		blueprintDeeplinkWarnings,
+		blueprintWarnings,
+		setBlueprintWarnings,
 		blueprintSuggestedDomain,
 		setBlueprintSuggestedDomain,
 		blueprintSuggestedHttps,
@@ -557,7 +586,8 @@ export function AddSiteModalContent( {
 				setSelectedBlueprint={ setSelectedBlueprint }
 				blueprintPreferredVersions={ blueprintPreferredVersions }
 				setBlueprintPreferredVersions={ setBlueprintPreferredVersions }
-				blueprintDeeplinkWarnings={ blueprintDeeplinkWarnings }
+				blueprintWarnings={ blueprintWarnings }
+				setBlueprintWarnings={ setBlueprintWarnings }
 				blueprintSuggestedDomain={ blueprintSuggestedDomain }
 				setBlueprintSuggestedDomain={ setBlueprintSuggestedDomain }
 				blueprintSuggestedHttps={ blueprintSuggestedHttps }
@@ -599,7 +629,7 @@ export default function AddSiteModal( { className }: AddSiteModalProps ) {
 		setDeeplinkPhpVersion,
 		setDeeplinkWpVersion,
 		setBlueprintPreferredVersions,
-		setBlueprintDeeplinkWarnings,
+		setBlueprintWarnings,
 		setBlueprintSuggestedDomain,
 		setBlueprintSuggestedHttps,
 		setBlueprintSuggestedSiteName,
@@ -624,7 +654,7 @@ export default function AddSiteModal( { className }: AddSiteModalProps ) {
 		setPhpVersion: setDeeplinkPhpVersion,
 		setWpVersion: setDeeplinkWpVersion,
 		setBlueprintPreferredVersions,
-		setBlueprintDeeplinkWarnings,
+		setBlueprintWarnings,
 		setBlueprintSuggestedDomain,
 		setBlueprintSuggestedHttps,
 		setBlueprintSuggestedSiteName,

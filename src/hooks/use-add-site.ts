@@ -63,7 +63,7 @@ export function useAddSite() {
 	const [ blueprintPreferredVersions, setBlueprintPreferredVersions ] = useState<
 		BlueprintPreferredVersions | undefined
 	>();
-	const [ blueprintDeeplinkWarnings, setBlueprintDeeplinkWarnings ] = useState<
+	const [ blueprintWarnings, setBlueprintWarnings ] = useState<
 		BlueprintValidationWarning[] | undefined
 	>();
 	const [ blueprintSuggestedDomain, setBlueprintSuggestedDomain ] = useState<
@@ -84,7 +84,7 @@ export function useAddSite() {
 		setIsDeeplinkFlow( false );
 		setSelectedBlueprint( undefined );
 		setBlueprintPreferredVersions( undefined );
-		setBlueprintDeeplinkWarnings( undefined );
+		setBlueprintWarnings( undefined );
 		setBlueprintSuggestedDomain( undefined );
 		setBlueprintSuggestedHttps( undefined );
 		setBlueprintSuggestedSiteName( undefined );
@@ -100,7 +100,7 @@ export function useAddSite() {
 		setFileForImport( null );
 		setSelectedBlueprint( undefined );
 		setBlueprintPreferredVersions( undefined );
-		setBlueprintDeeplinkWarnings( undefined );
+		setBlueprintWarnings( undefined );
 		setBlueprintSuggestedDomain( undefined );
 		setBlueprintSuggestedHttps( undefined );
 		setBlueprintSuggestedSiteName( undefined );
@@ -335,8 +335,8 @@ export function useAddSite() {
 			setSelectedBlueprint,
 			blueprintPreferredVersions,
 			setBlueprintPreferredVersions,
-			blueprintDeeplinkWarnings,
-			setBlueprintDeeplinkWarnings,
+			blueprintWarnings,
+			setBlueprintWarnings,
 			blueprintSuggestedDomain,
 			setBlueprintSuggestedDomain,
 			blueprintSuggestedHttps,
@@ -366,7 +366,7 @@ export function useAddSite() {
 			fileForImport,
 			selectedBlueprint,
 			blueprintPreferredVersions,
-			blueprintDeeplinkWarnings,
+			blueprintWarnings,
 			blueprintSuggestedDomain,
 			blueprintSuggestedHttps,
 			blueprintSuggestedSiteName,

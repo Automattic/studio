@@ -15,9 +15,34 @@ import {
 import { SiteServer } from 'src/site-server';
 import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 
-vi.mock( 'fs' );
-vi.mock( 'fs/promises' );
-vi.mock( 'os' );
+vi.mock( 'fs', () => ( {
+	default: {
+		existsSync: vi.fn(),
+		statSync: vi.fn(),
+		readFileSync: vi.fn(),
+		createWriteStream: vi.fn(),
+		writeFileSync: vi.fn(),
+		readdirSync: vi.fn(),
+	},
+} ) );
+vi.mock( 'fs/promises', () => ( {
+	default: {
+		readdir: vi.fn(),
+		readFile: vi.fn(),
+		writeFile: vi.fn(),
+		mkdir: vi.fn(),
+		mkdtemp: vi.fn(),
+		copyFile: vi.fn(),
+		rm: vi.fn(),
+		stat: vi.fn(),
+		unlink: vi.fn(),
+	},
+} ) );
+vi.mock( 'os', () => ( {
+	default: {
+		tmpdir: vi.fn(),
+	},
+} ) );
 vi.mock( 'fs-extra' );
 vi.mock( 'date-fns', () => ( {
 	format: vi.fn(),
@@ -50,7 +75,7 @@ const createMockArchiver = (): {
 
 // Mock archiver module
 vi.mock( 'archiver', () => {
-	return { default: vi.fn( () => createMockArchiver() ) };
+	return { default: vi.fn().mockImplementation( () => createMockArchiver() ) };
 } );
 
 // Mock SiteServer
@@ -240,7 +265,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				phpVersion: '8.0',
 				running: false,
 			},
-			executeWpCliCommand: vi.fn( function ( command: string ) {
+			executeWpCliCommand: vi.fn().mockImplementation( function ( command: string ) {
 				switch ( true ) {
 					case /plugin list/.test( command ):
 						return Promise.resolve( {
@@ -550,7 +575,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				phpVersion: '8.0',
 				running: false,
 			},
-			executeWpCliCommand: vi.fn( function ( command: string ) {
+			executeWpCliCommand: vi.fn().mockImplementation( function ( command: string ) {
 				switch ( true ) {
 					case /plugin list/.test( command ):
 					case /theme list/.test( command ):

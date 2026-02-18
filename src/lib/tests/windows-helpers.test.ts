@@ -27,7 +27,7 @@ vi.mock( 'electron', async () => {
 	};
 } );
 vi.mock( '@vscode/sudo-prompt', () => ( {
-	exec: vi.fn( ( _command, _options, callback ) => {
+	exec: vi.fn().mockImplementation( ( _command, _options, callback ) => {
 		callback( null );
 	} ),
 } ) );

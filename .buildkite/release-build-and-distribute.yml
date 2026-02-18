@@ -9,6 +9,10 @@
 # Each step checks out the release branch to ensure it builds the latest commit.
 ---
 
+# Used by mac agents only
+env:
+  IMAGE_ID: $IMAGE_ID
+
 steps:
   - group: ":package: Build for Mac"
     key: release-mac

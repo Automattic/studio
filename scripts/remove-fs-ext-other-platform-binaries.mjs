@@ -4,15 +4,15 @@
  * The package ships prebuilt .node files for all platforms. Downstream tools
  * such as Windows code-signing will fail if they encounter binaries built for
  * another OS (e.g. darwin .node files on a Windows build agent). This script
- * is called from the root postinstall hook to prune the extras.
+ * is called from both the root postinstall hook and from apps/studio's
+ * install:bundle script, so it resolves the binaries directory relative to
+ * process.cwd() to work correctly in both contexts.
  */
 
 import { readdirSync, unlinkSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { join } from 'path';
 
-const __dirname = dirname( fileURLToPath( import.meta.url ) );
-const binDir = join( __dirname, '..', 'node_modules', 'fs-ext-extra-prebuilt', 'binaries' );
+const binDir = join( process.cwd(), 'node_modules', 'fs-ext-extra-prebuilt', 'binaries' );
 
 try {
 	for ( const file of readdirSync( binDir ) ) {

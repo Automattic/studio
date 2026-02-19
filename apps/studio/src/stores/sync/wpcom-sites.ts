@@ -158,12 +158,9 @@ export const wpcomSitesApi = createApi( {
 
 					const parsedSite = sitesEndpointSiteSchema.parse( response );
 
-					// Fetch all connected sites to determine if this is a staging site
 					const allConnectedSites = await getIpcApi().getConnectedWpcomSites();
 
-					// Fetch parent sites' staging IDs to check if this site is a staging site
-					// Note: We can't get all staging IDs without fetching /me/sites, so we approximate
-					// by checking if the site has environment_type set
+					// Determine if staging by checking environment_type (can't access parent site's staging IDs without fetching /me/sites)
 					const isStaging =
 						parsedSite.environment_type === 'staging' ||
 						parsedSite.environment_type === 'development';

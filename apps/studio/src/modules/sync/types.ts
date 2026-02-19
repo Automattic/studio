@@ -27,4 +27,5 @@ export type SyncSite = {
 	syncSupport: SyncSupport;
 	lastPullTimestamp: string | null;
 	lastPushTimestamp: string | null;
+	isLoading?: boolean; // True when site data is incomplete (e.g., from deep link before full fetch)
 };

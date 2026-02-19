@@ -48,12 +48,12 @@ When the "plugins" variant is enabled, these 10 plugins are installed via a blue
 - Jetpack VideoPress
 - WooCommerce Payments
 - Contact Form 7
-- Elementor
+- CoBlocks
 
 ## Usage
 
 ```bash
-cd scripts/benchmark-site-editor
+cd tools/benchmark-site-editor
 npm install
 npm run benchmark
 ```

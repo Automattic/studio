@@ -1,5 +1,5 @@
 #!/usr/bin/env tsx
-/* eslint-disable no-console */
+
 /**
  * Site Editor Performance Benchmark — Orchestration Script
  *
@@ -10,7 +10,7 @@
  *   - Local by Flywheel (bare, plugins) — opt-in via --include-local
  *
  * Usage:
- *   cd scripts/benchmark-site-editor
+ *   cd tools/benchmark-site-editor
  *   npm install
  *   npm run benchmark
  *
@@ -29,9 +29,9 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import chalk from 'chalk';
-import { measureSiteEditor, METRIC_NAMES, type MeasurementResult } from './measure-site-editor.js';
-import { LocalGraphQLClient, getLocalSitesDir } from './local-graphql.js';
 import { installPluginsForLocalSite } from './install-plugins-local.js';
+import { LocalGraphQLClient, getLocalSitesDir } from './local-graphql.js';
+import { measureSiteEditor, METRIC_NAMES, type MeasurementResult } from './measure-site-editor.js';
 
 // ---------------------------------------------------------------------------
 // Configuration

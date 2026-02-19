@@ -38,7 +38,7 @@ import { measureSiteEditor, METRIC_NAMES, type MeasurementResult } from './measu
 // ---------------------------------------------------------------------------
 
 const STUDIO_ROOT = path.resolve( import.meta.dirname, '../..' );
-const STUDIO_CLI_PATH = path.resolve( STUDIO_ROOT, 'dist/cli/main.js' );
+const STUDIO_CLI_PATH = path.resolve( STUDIO_ROOT, 'apps/cli/dist/cli/main.js' );
 const PLAYGROUND_CLI_BIN =
 	process.platform === 'win32' ? 'wp-playground-cli.cmd' : 'wp-playground-cli';
 const PLAYGROUND_CLI_PATH = path.resolve(
@@ -698,12 +698,12 @@ function saveResultsSummary( results: BenchmarkResult[] ): void {
 
 async function ensureStudioCLIBuilt(): Promise< boolean > {
 	// Ensure CLI dependencies are installed (required for the Vite build to resolve pm2-axon, etc.)
-	const cliNodeModules = path.resolve( STUDIO_ROOT, 'cli', 'node_modules' );
+	const cliNodeModules = path.resolve( STUDIO_ROOT, 'apps/cli', 'node_modules' );
 	if ( ! fs.existsSync( cliNodeModules ) ) {
 		console.log( chalk.yellow( '  Installing CLI dependencies...' ) );
 		try {
 			execSync( 'npm install', {
-				cwd: path.resolve( STUDIO_ROOT, 'cli' ),
+				cwd: path.resolve( STUDIO_ROOT, 'apps/cli' ),
 				stdio: 'inherit',
 			} );
 		} catch {

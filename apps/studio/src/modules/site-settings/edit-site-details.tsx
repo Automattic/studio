@@ -220,6 +220,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 					focusOnMount="firstContentElement"
 					onRequestClose={ closeModal }
 					className={ cx(
+						'[&_[role="document"]]:px-0',
 						isEditingSite &&
 							'[&_[aria-label="Close"]_svg]:opacity-50 [&_[aria-label="Close"]]:cursor-not-allowed'
 					) }
@@ -234,7 +235,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 							orientation="horizontal"
 						>
 							{ ( { name } ) => (
-								<div className="mt-6 flex flex-col">
+								<div className="mt-6 px-8 flex flex-col">
 									{ name === 'general' && (
 										<>
 											<label className="flex flex-col gap-1.5 leading-4 mb-6">
@@ -459,7 +460,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 							) }
 						</TabPanel>
 
-						<div className="flex flex-row justify-end gap-x-5 mt-8">
+						<div className="flex flex-row justify-end gap-x-5 mt-8 px-8">
 							<Button onClick={ closeModal } disabled={ isEditingSite } variant="tertiary">
 								{ __( 'Cancel' ) }
 							</Button>

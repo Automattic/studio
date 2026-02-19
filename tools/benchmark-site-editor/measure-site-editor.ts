@@ -31,8 +31,8 @@ export interface MeasureOptions {
 	isPlaygroundWeb: boolean;
 	/** Whether this is a local Playground CLI site (127.0.0.1). Affects login flow. */
 	isPlaygroundCli: boolean;
-	/** Launch browser in headed mode for debugging. */
-	headed?: boolean;
+	/** Whether this is a Local by Flywheel site. Uses wp-login.php credentials. */
+	isLocal: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -97,7 +97,7 @@ function findEditorCanvasFrame(
  * The browser is always closed, even on error.
  */
 export async function measureSiteEditor( options: MeasureOptions ): Promise< MeasurementResult > {
-	const { isPlaygroundWeb, isPlaygroundCli } = options;
+	const { isPlaygroundWeb, isPlaygroundCli, isLocal } = options;
 
 	// Normalize URL
 	let wpAdminUrl = options.url;
@@ -108,7 +108,7 @@ export async function measureSiteEditor( options: MeasureOptions ): Promise< Mea
 
 	const result: MeasurementResult = {};
 
-	const browser = await chromium.launch( { headless: ! options.headed } );
+	const browser = await chromium.launch();
 	const context = await browser.newContext();
 	const page = await context.newPage();
 
@@ -127,11 +127,6 @@ export async function measureSiteEditor( options: MeasureOptions ): Promise< Mea
 				.first();
 
 			await wordPressFrameLocator
-				.getByRole( 'menuitem', { name: 'My WordPress Website' } )
-				.first()
-				.click( { timeout: 30_000 } );
-
-			await wordPressFrameLocator
 				.getByRole( 'link', { name: 'Appearance' } )
 				.waitFor( { timeout: 30_000 } );
 
@@ -142,15 +137,23 @@ export async function measureSiteEditor( options: MeasureOptions ): Promise< Mea
 				timeout: 120_000,
 			} );
 			await page.waitForLoadState( 'networkidle', { timeout: 30_000 } ).catch( () => {} );
-
-			// Playground CLI may redirect to wp-login.php — handle login
-			if ( page.url().includes( 'wp-login.php' ) ) {
-				await page.fill( '#user_login', 'admin' );
-				await page.fill( '#user_pass', 'password' );
-				await page.click( '#wp-submit' );
-				await page.waitForLoadState( 'networkidle', { timeout: 30_000 } ).catch( () => {} );
-			}
-
+			await page.getByRole( 'link', { name: 'Appearance' } ).waitFor( {
+				state: 'visible',
+				timeout: 60_000,
+			} );
+		} else if ( isLocal ) {
+			// Local sites require wp-login.php with credentials
+			await page.goto( `${ wpAdminUrl }/wp-login.php`, {
+				waitUntil: 'domcontentloaded',
+				timeout: 120_000,
+			} );
+			await page.waitForLoadState( 'networkidle', { timeout: 30_000 } ).catch( () => {} );
+			await page.fill( '#user_login', 'admin' );
+			await page.fill( '#user_pass', 'password' );
+			await Promise.all( [
+				page.waitForURL( '**/wp-admin/**', { timeout: 60_000 } ),
+				page.click( '#wp-submit' ),
+			] );
 			await page.getByRole( 'link', { name: 'Appearance' } ).waitFor( {
 				state: 'visible',
 				timeout: 60_000,

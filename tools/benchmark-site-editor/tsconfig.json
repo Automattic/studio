@@ -1,15 +1,15 @@
 {
-	"extends": "../../tsconfig.base.json",
 	"compilerOptions": {
-		"composite": true,
-		"baseUrl": "../..",
-		"module": "NodeNext",
-		"moduleResolution": "NodeNext",
-		"allowImportingTsExtensions": true,
-		"outDir": "dist",
-		"declaration": true,
-		"emitDeclarationOnly": true
+		"target": "ES2022",
+		"module": "ES2022",
+		"moduleResolution": "bundler",
+		"esModuleInterop": true,
+		"strict": true,
+		"skipLibCheck": true,
+		"outDir": "./dist",
+		"rootDir": ".",
+		"declaration": false,
+		"sourceMap": false
 	},
-	"include": [ "**/*" ],
-	"exclude": [ "**/__mocks__/**/*", "**/node_modules/**/*", "**/dist/**/*", "**/out/**/*" ]
+	"include": [ "*.ts" ]
 }

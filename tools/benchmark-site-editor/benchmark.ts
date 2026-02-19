@@ -1,5 +1,5 @@
 #!/usr/bin/env tsx
-
+/* eslint-disable no-console */
 /**
  * Site Editor Performance Benchmark — Orchestration Script
  *
@@ -7,6 +7,7 @@
  *   - Studio (bare, multi-worker, plugins, multi-worker+plugins)
  *   - Playground CLI (bare, multi-worker, plugins, multi-worker+plugins)
  *   - Playground Web (bare, plugins)
+ *   - Local by Flywheel (bare, plugins) — opt-in via --include-local
  *
  * Usage:
  *   cd scripts/benchmark-site-editor
@@ -18,6 +19,7 @@
  *   --skip-studio           Skip Studio environments
  *   --skip-playground-cli   Skip Playground CLI environments
  *   --skip-playground-web   Skip Playground web environments
+ *   --include-local         Include Local by Flywheel environments (requires Local running)
  *   --only=<env1,env2>      Run only these environments (comma-separated)
  *   --help                  Show help
  */
@@ -27,14 +29,16 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import chalk from 'chalk';
-import { measureSiteEditor, METRIC_NAMES, type MeasurementResult } from './measure-site-editor.ts';
+import { measureSiteEditor, METRIC_NAMES, type MeasurementResult } from './measure-site-editor.js';
+import { LocalGraphQLClient, getLocalSitesDir } from './local-graphql.js';
+import { installPluginsForLocalSite } from './install-plugins-local.js';
 
 // ---------------------------------------------------------------------------
 // Configuration
 // ---------------------------------------------------------------------------
 
 const STUDIO_ROOT = path.resolve( import.meta.dirname, '../..' );
-const STUDIO_CLI_PATH = path.resolve( STUDIO_ROOT, 'apps/cli/dist/cli/main.js' );
+const STUDIO_CLI_PATH = path.resolve( STUDIO_ROOT, 'dist/cli/main.js' );
 const PLAYGROUND_CLI_BIN =
 	process.platform === 'win32' ? 'wp-playground-cli.cmd' : 'wp-playground-cli';
 const PLAYGROUND_CLI_PATH = path.resolve(
@@ -54,7 +58,7 @@ const PLAYGROUND_CLI_PORT_BASE = 9500;
 // Types
 // ---------------------------------------------------------------------------
 
-type EnvironmentType = 'studio' | 'playground-cli' | 'playground-web';
+type EnvironmentType = 'studio' | 'playground-cli' | 'playground-web' | 'local';
 
 interface EnvironmentConfig {
 	name: string;
@@ -88,6 +92,8 @@ const ALL_ENVIRONMENTS: EnvironmentConfig[] = [
 	},
 	{ name: 'pg-web', type: 'playground-web', plugins: false, multiWorker: false },
 	{ name: 'pg-web-plugins', type: 'playground-web', plugins: true, multiWorker: false },
+	{ name: 'local', type: 'local', plugins: false, multiWorker: false },
+	{ name: 'local-plugins', type: 'local', plugins: true, multiWorker: false },
 ];
 
 // ---------------------------------------------------------------------------
@@ -99,8 +105,8 @@ interface Options {
 	skipStudio: boolean;
 	skipPlaygroundCli: boolean;
 	skipPlaygroundWeb: boolean;
+	includeLocal: boolean;
 	only: string[];
-	headed: boolean;
 }
 
 function parseArgs(): Options {
@@ -110,8 +116,8 @@ function parseArgs(): Options {
 		skipStudio: false,
 		skipPlaygroundCli: false,
 		skipPlaygroundWeb: false,
+		includeLocal: false,
 		only: [],
-		headed: false,
 	};
 
 	for ( const arg of args ) {
@@ -123,13 +129,13 @@ function parseArgs(): Options {
 			opts.skipPlaygroundCli = true;
 		} else if ( arg === '--skip-playground-web' ) {
 			opts.skipPlaygroundWeb = true;
+		} else if ( arg === '--include-local' ) {
+			opts.includeLocal = true;
 		} else if ( arg.startsWith( '--only=' ) ) {
 			opts.only = arg
 				.split( '=' )[ 1 ]
 				.split( ',' )
 				.map( ( s ) => s.trim() );
-		} else if ( arg === '--headed' ) {
-			opts.headed = true;
 		} else if ( arg === '--help' ) {
 			printHelp();
 			process.exit( 0 );
@@ -148,8 +154,8 @@ Options:
   --skip-studio           Skip Studio environments
   --skip-playground-cli   Skip Playground CLI environments
   --skip-playground-web   Skip Playground web environments
+  --include-local         Include Local by Flywheel environments (requires Local running)
   --only=<env1,env2>      Run only named environments (comma-separated)
-  --headed                Launch browser in headed mode for debugging
   --help                  Show this help message
 
 Environments: ${ ALL_ENVIRONMENTS.map( ( e ) => e.name ).join( ', ' ) }
@@ -491,6 +497,71 @@ function getPlaygroundWebUrl( env: EnvironmentConfig ): string {
 }
 
 // ---------------------------------------------------------------------------
+// Local by Flywheel environment helpers
+// ---------------------------------------------------------------------------
+
+async function ensureLocalRunning(): Promise< LocalGraphQLClient > {
+	try {
+		return await LocalGraphQLClient.connect();
+	} catch ( err ) {
+		console.error( chalk.red( `  Local is not running or not reachable.\n  ${ err }` ) );
+		process.exit( 1 );
+	}
+}
+
+async function setupLocalSite(
+	env: EnvironmentConfig,
+	client: LocalGraphQLClient
+): Promise< { url: string; siteId: string; siteDir: string } > {
+	const siteName = `bench-${ env.name }`;
+	const domain = `bench-${ env.name }.local`;
+	const siteDir = path.join( getLocalSitesDir(), siteName );
+
+	console.log( chalk.gray( `    Creating Local site "${ siteName }"...` ) );
+
+	const site = await client.createSite( {
+		name: siteName,
+		domain,
+		path: siteDir,
+		wpAdminPassword: 'password',
+		wpAdminUsername: 'admin',
+	} );
+
+	const url = site.url || `http://localhost:${ site.httpPort }`;
+
+	// Plugin install is best-effort — we still want to return site info
+	// so the caller can set up teardown even if plugin install fails.
+	if ( env.plugins ) {
+		console.log( chalk.gray( `    Installing plugins via REST API...` ) );
+		try {
+			await installPluginsForLocalSite( url, PLUGINS_BLUEPRINT_PATH );
+		} catch ( err ) {
+			console.warn( chalk.yellow( `    Plugin installation failed: ${ err }` ) );
+		}
+	}
+	console.log( chalk.gray( `    Local site running at ${ url }` ) );
+	return { url, siteId: site.id, siteDir };
+}
+
+async function teardownLocalSite(
+	siteId: string,
+	client: LocalGraphQLClient,
+	siteDir: string
+): Promise< void > {
+	try {
+		await client.stopSite( siteId );
+	} catch {
+		// Site may already be stopped
+	}
+	try {
+		await client.deleteSite( siteId );
+	} catch {
+		// Best effort cleanup
+	}
+	cleanupDir( siteDir );
+}
+
+// ---------------------------------------------------------------------------
 // Benchmark runner
 // ---------------------------------------------------------------------------
 
@@ -499,8 +570,7 @@ const MEASUREMENT_TIMEOUT = 600_000; // 10 min per measurement
 async function runBenchmark(
 	benchmarkUrl: string,
 	env: EnvironmentConfig,
-	rounds: number,
-	headed: boolean
+	rounds: number
 ): Promise< Record< string, number > | null > {
 	console.log(
 		chalk.gray( `    Running benchmark (${ rounds } round${ rounds > 1 ? 's' : '' })...` )
@@ -508,6 +578,7 @@ async function runBenchmark(
 
 	const isPlaygroundWeb = benchmarkUrl.includes( 'playground.wordpress.net' );
 	const isPlaygroundCli = benchmarkUrl.includes( '127.0.0.1' );
+	const isLocal = env.type === 'local';
 	const allMeasurements: MeasurementResult[] = [];
 
 	for ( let round = 1; round <= rounds; round++ ) {
@@ -516,7 +587,7 @@ async function runBenchmark(
 		}
 		try {
 			const result = await Promise.race( [
-				measureSiteEditor( { url: benchmarkUrl, isPlaygroundWeb, isPlaygroundCli, headed } ),
+				measureSiteEditor( { url: benchmarkUrl, isPlaygroundWeb, isPlaygroundCli, isLocal } ),
 				sleep( MEASUREMENT_TIMEOUT ).then( () => {
 					throw new Error( 'Measurement timed out' );
 				} ),
@@ -620,6 +691,21 @@ function saveResultsSummary( results: BenchmarkResult[] ): void {
 // ---------------------------------------------------------------------------
 
 async function ensureStudioCLIBuilt(): Promise< boolean > {
+	// Ensure CLI dependencies are installed (required for the Vite build to resolve pm2-axon, etc.)
+	const cliNodeModules = path.resolve( STUDIO_ROOT, 'cli', 'node_modules' );
+	if ( ! fs.existsSync( cliNodeModules ) ) {
+		console.log( chalk.yellow( '  Installing CLI dependencies...' ) );
+		try {
+			execSync( 'npm install', {
+				cwd: path.resolve( STUDIO_ROOT, 'cli' ),
+				stdio: 'inherit',
+			} );
+		} catch {
+			console.error( chalk.red( '  Failed to install CLI dependencies' ) );
+			return false;
+		}
+	}
+
 	if ( ! fs.existsSync( STUDIO_CLI_PATH ) ) {
 		console.log( chalk.yellow( '  Building Studio CLI...' ) );
 		try {
@@ -669,6 +755,10 @@ async function main() {
 		if ( opts.skipPlaygroundWeb ) {
 			environments = environments.filter( ( e ) => e.type !== 'playground-web' );
 		}
+		// Local environments are excluded by default — they require the GUI app running
+		if ( ! opts.includeLocal ) {
+			environments = environments.filter( ( e ) => e.type !== 'local' );
+		}
 	}
 
 	if ( environments.length === 0 ) {
@@ -700,6 +790,7 @@ async function main() {
 
 	const needsStudio = environments.some( ( e ) => e.type === 'studio' );
 	const needsPlaygroundCli = environments.some( ( e ) => e.type === 'playground-cli' );
+	const needsLocal = environments.some( ( e ) => e.type === 'local' );
 
 	if ( needsStudio ) {
 		if ( ! ( await ensureStudioCLIBuilt() ) ) {
@@ -713,6 +804,12 @@ async function main() {
 			process.exit( 1 );
 		}
 		console.log( chalk.green( '  Playground CLI ready' ) );
+	}
+
+	let localClient: LocalGraphQLClient | null = null;
+	if ( needsLocal ) {
+		localClient = await ensureLocalRunning();
+		console.log( chalk.green( '  Local ready' ) );
 	}
 
 	fs.mkdirSync( ARTIFACTS_PATH, { recursive: true } );
@@ -744,13 +841,17 @@ async function main() {
 				const setup = await setupPlaygroundCliSite( env, port );
 				benchmarkUrl = setup.url;
 				teardownFn = () => teardownPlaygroundCliSite( setup.process, port, setup.siteDir );
+			} else if ( env.type === 'local' ) {
+				const setup = await setupLocalSite( env, localClient! );
+				benchmarkUrl = setup.url;
+				teardownFn = () => teardownLocalSite( setup.siteId, localClient!, setup.siteDir );
 			} else {
 				benchmarkUrl = getPlaygroundWebUrl( env );
 				console.log( chalk.gray( `    URL: ${ benchmarkUrl.slice( 0, 80 ) }...` ) );
 			}
 
 			// Run benchmark
-			const metrics = await runBenchmark( benchmarkUrl, env, opts.rounds, opts.headed );
+			const metrics = await runBenchmark( benchmarkUrl, env, opts.rounds );
 
 			if ( metrics ) {
 				allResults.push( { environment: env.name, metrics } );
@@ -772,8 +873,6 @@ async function main() {
 	// Print results
 	printComparisonTable( allResults );
 	saveResultsSummary( allResults );
-
-	process.exit( 0 );
 }
 
 main().catch( ( err ) => {

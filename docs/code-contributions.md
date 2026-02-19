@@ -25,6 +25,8 @@ nvm use
 npm install
 ```
 
+Studio now uses npm workspaces. Run installs from the repo root (this also runs the nested CLI install required for packaging).
+
 ### Running the App
 
 Once all required dependencies are installed, you can run the app with the following command:
@@ -38,17 +40,19 @@ This command starts the app in dev mode and opens it automatically, with the Chr
 As with any Electron app, the code is split into two processes:
 
 1. **Renderer Process** (reloads automatically):
-   - All React components and UI code in `src/components/`, `src/modules/*/components/`
-   - Hooks, stores, and utilities used by the UI (`src/hooks/`, `src/stores/`, etc.)
+
+   - All React components and UI code in `apps/studio/src/components/`, `apps/studio/src/modules/*/components/`
+   - Hooks, stores, and utilities used by the UI (`apps/studio/src/hooks/`, `apps/studio/src/stores/`, etc.)
    - Any code that runs in the browser window context
 
 2. **Main Process** (requires restart):
-   - IPC handlers in `src/ipc-handlers.ts`
-   - Electron main process code in `src/index.ts`
+   - IPC handlers in `apps/studio/src/ipc-handlers.ts`
+   - Electron main process code in `apps/studio/src/index.ts`
    - Node.js operations like file system access
    - PHP server management code
 
 When editing main process code, you can either:
+
 - Restart the app manually, or
 - Type `rs` in the terminal where you ran `npm start` to restart the server
 
@@ -76,34 +80,36 @@ The project follows a modular architecture with both global and feature-specific
 
 #### Global Directories
 
-| Directory         | Description |
-|-------------------|-------------|
-| `cli/`            | Root directory for CLI code |
-| `common/`         | Shared code between CLI and Studio (constants, types, utility functions, etc) |
-| `src/`            | Root directory for Studio code |
-| `src/components/` | Reusable UI components used across the application |
-| `src/hooks/`      | Global React hooks |
-| `src/lib/`        | Utility functions and helper libraries |
-| `src/modules/`    | Feature-specific code |
-| `src/stores/`     | Global state management (Redux stores) |
-| `src/api/`        | API interfaces and implementations |
+| Directory                     | Description                                                                   |
+| ----------------------------- | ----------------------------------------------------------------------------- |
+| `apps/cli/`                   | Root directory for CLI code                                                   |
+| `apps/studio/src/`            | Root directory for Studio code                                                |
+| `apps/studio/src/components/` | Reusable UI components used across the application                            |
+| `apps/studio/src/hooks/`      | Global React hooks                                                            |
+| `apps/studio/src/lib/`        | Utility functions and helper libraries                                        |
+| `apps/studio/src/modules/`    | Feature-specific code                                                         |
+| `apps/studio/src/stores/`     | Global state management (Redux stores)                                        |
+| `apps/studio/src/api/`        | API interfaces and implementations                                            |
+| `tools/common/`               | Shared code between CLI and Studio (constants, types, utility functions, etc) |
+| `tools/compare-perf/`         | Compare-perf tooling workspace                                                |
+| `tools/eslint-plugin-studio/` | Custom ESLint rules                                                           |
 
 #### Important Entry Points
 
-| File | Description |
-|------|-------------|
-| `cli/index.ts`    | The entry point for the CLI bundle |
-| `scripts/`        | Scripts for building and testing the app |
-| `src/index.ts`    | The entry point for the main process |
-| `src/renderer.ts` | The entry point for the "renderer," the code running in the Chromium window |
-| `vendor/wp-now`   | The modified `wp-now` source code |
+| File                          | Description                                                                 |
+| ----------------------------- | --------------------------------------------------------------------------- |
+| `apps/cli/index.ts`           | The entry point for the CLI bundle                                          |
+| `scripts/`                    | Scripts for building and testing the app                                    |
+| `apps/studio/src/index.ts`    | The entry point for the main process                                        |
+| `apps/studio/src/renderer.ts` | The entry point for the "renderer," the code running in the Chromium window |
+| `vendor/wp-now`               | The modified `wp-now` source code                                           |
 
 #### Feature Modules
 
-Feature-specific code is organized in the `src/modules/` directory. Each module follows a consistent internal structure:
+Feature-specific code is organized in the `apps/studio/src/modules/` directory. Each module follows a consistent internal structure:
 
 ```
-src/modules/
+apps/studio/src/modules/
   ├── preview-site/          # Preview sites feature
   │   ├── components/        # Feature-specific components
   │   ├── hooks/             # Feature-specific hooks
@@ -127,7 +133,7 @@ Code formatting is set up to make merging pull requests easier. It uses the same
 The CLI relies upon a separate instance of the app to run. When developing the CLI, the CLI can be invoked with the following steps:
 
 - Run `npm start` to launch the first instance of the app.
-- Within the `forge.config.ts` file, change the `WebpackPlugin` ports used for the second instance:
+- Within `apps/studio/forge.config.ts`, change the `WebpackPlugin` ports used for the second instance:
   - Set the development `port` to `3457`.
   - Add a `loggerPort` property set to `9001`.
 - Run `npm start -- -- --cli"=<CLI-COMMAND>"` in separate terminal session.
@@ -198,6 +204,7 @@ npm run package
 After building, the executable will be located at `out/Studio-linux-x64/studio`.
 
 **Important considerations:**
+
 - The auto-update feature is not currently supported on Linux builds.
 - For Wayland systems, you may need to use additional flags when running the application.
 - Some features may not work as expected due to platform-specific implementations.
@@ -214,6 +221,6 @@ See [Versioning and Updates](./versioning-and-updates.md) documentation.
 
 ## Design Docs
 
- - [Custom Domains and SSL](./design-docs/custom-domains-and-ssl.md)
- - [What's New modal](./design-docs/whats-new-modal.md)
- - [Sync](./design-docs/sync.md)
+- [Custom Domains and SSL](./design-docs/custom-domains-and-ssl.md)
+- [What's New modal](./design-docs/whats-new-modal.md)
+- [Sync](./design-docs/sync.md)

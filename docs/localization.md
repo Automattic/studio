@@ -41,7 +41,7 @@ they will be left as English in the app.
    2. Click the **Project actions** menu.
    3. Click **Bulk Export**.
    4. Click **Select WP.Com Priority Languages** to only the magnificent 16 languages.
-   5. Select **Polish**, **Vietnamese** and **Ukrainian** too.
+   5. Select **Polish**, **Vietnamese**, **Ukrainian** and **Hungarian** too.
    6. Change the format to `Jed 1.x (.json)`.
    7. Leave the other fields as default and click **Export**.
 

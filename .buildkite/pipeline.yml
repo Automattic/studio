@@ -33,9 +33,6 @@ steps:
   # E2E tests run on supported platform/architecture combinations.
   # - mac-arm64: Native on Apple Silicon agents
   # - windows-x64: Native on x64 agents
-  # Skipped via matrix adjustments:
-  # - mac-x64: https://linear.app/a8c/issue/AINFRA-1904
-  # - windows-arm64: x64 Windows cannot run arm64 binaries (no emulation layer)
   - label: E2E Tests on {{matrix.platform}}-{{matrix.arch}}
     key: e2e_tests
     command: bash .buildkite/commands/run-e2e-tests.sh "{{matrix.platform}}" "{{matrix.arch}}"
@@ -50,17 +47,10 @@ steps:
       # See https://playwright.dev/docs/ci#debugging-browser-launches
       DEBUG: "pw:browser"
     matrix:
-      # More details on this setup at https://github.com/Automattic/studio/pull/2530#discussion_r2763853223
-      #
-      # TL;DR: we're bending the syntax to limit the combinations.
-      setup: { platform: [_], arch: [_] }
+      setup: { platform: [], arch: [] }
       adjustments:
-        # Combinations to run
         - with: { platform: mac, arch: arm64 }
         - with: { platform: windows, arch: x64 }
-        # Skip the dummy value used to initiate the syntax.
-        - with: { platform: _, arch: _ }
-          skip: true
     # Skip E2E tests on draft PRs to save CI resources
     # Tests will run automatically when PR is marked ready for review
     if: build.branch == 'trunk' || build.tag =~ /^v[0-9]+/ || !build.pull_request.draft
@@ -131,8 +121,8 @@ steps:
           bundle exec fastlane notarize_binary
         plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
         artifact_paths:
-          - out/**/*.app.zip
-          - out/*.dmg
+          - apps/studio/out/**/*.app.zip
+          - apps/studio/out/*.dmg
         matrix:
           - x64
           - arm64
@@ -230,8 +220,8 @@ steps:
           bundle exec fastlane notarize_binary
         plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
         artifact_paths:
-          - out/**/*.app.zip
-          - out/*.dmg
+          - apps/studio/out/**/*.app.zip
+          - apps/studio/out/*.dmg
         matrix:
           - x64
           - arm64

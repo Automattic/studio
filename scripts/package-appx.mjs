@@ -2,6 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import convertToWindowsStore from 'electron2appx';
+import packageJson from '../apps/studio/package.json' with { type: 'json' };
 
 console.log( '--- :electron: Packaging AppX' );
 
@@ -44,12 +45,8 @@ try {
 	process.exit( 1 );
 }
 
-const packageJsonPath = path.resolve( __dirname, '..', 'package.json' );
-const packageJsonText = await fs.readFile( packageJsonPath, 'utf-8' );
-const packageJson = JSON.parse( packageJsonText );
-
-const outPath = path.join( __dirname, '..', 'out' );
-const assetsPath = path.join( __dirname, '..', 'assets', 'appx' );
+const outPath = path.join( __dirname, '..', 'apps', 'studio', 'out' );
+const assetsPath = path.join( __dirname, '..', 'apps', 'studio', 'assets', 'appx' );
 
 console.log( `~~~ Packaging AppX for architecture: ${ architecture }` );
 
@@ -90,6 +87,48 @@ async function addProtocolHandlerToManifest( manifestPath ) {
 	console.log( '~~~ Protocol handler added successfully' );
 }
 
+async function addAppExecutionAliasToManifest( manifestPath ) {
+	console.log( '~~~ Adding AppExecutionAlias to manifest...' );
+	let manifestContent = await fs.readFile( manifestPath, 'utf-8' );
+
+	if ( manifestContent.includes( 'AppExecutionAlias' ) ) {
+		console.log( '~~~ AppExecutionAlias already exists, skipping...' );
+		return;
+	}
+
+	// Add uap5 namespace to the Package element (required for AppExecutionAlias)
+	if ( ! manifestContent.includes( 'xmlns:uap5=' ) ) {
+		manifestContent = manifestContent.replace(
+			'xmlns:rescap=',
+			'xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"\n   xmlns:rescap='
+		);
+	}
+
+	// Insert the AppExecutionAlias extension into the existing Extensions block.
+	// The protocol handler creates the <Extensions> block, so we add inside it.
+	const aliasExtension = `        <uap5:Extension Category="windows.appExecutionAlias" Executable="app\\resources\\bin\\studio-cli.exe" EntryPoint="Windows.FullTrustApplication">
+          <uap5:AppExecutionAlias>
+            <uap5:ExecutionAlias Alias="studio.exe" />
+          </uap5:AppExecutionAlias>
+        </uap5:Extension>`;
+
+	if ( manifestContent.includes( '</Extensions>' ) ) {
+		manifestContent = manifestContent.replace(
+			'      </Extensions>',
+			`${ aliasExtension }\n      </Extensions>`
+		);
+	} else {
+		// If no Extensions block exists yet, create one
+		manifestContent = manifestContent.replace(
+			'</Application>',
+			`      <Extensions>\n${ aliasExtension }\n      </Extensions>\n    </Application>`
+		);
+	}
+
+	await fs.writeFile( manifestPath, manifestContent, 'utf-8' );
+	console.log( '~~~ AppExecutionAlias added successfully' );
+}
+
 const sharedOptions = {
 	containerVirtualization: false,
 	inputDirectory: path.resolve( outPath, `Studio-win32-${ architecture }` ),
@@ -110,6 +149,7 @@ const sharedOptions = {
 		// This hook runs after manifest generation but before packaging
 		const manifestPath = path.join( this.outputDirectory, 'pre-appx', 'AppXManifest.xml' );
 		await addProtocolHandlerToManifest( manifestPath );
+		await addAppExecutionAliasToManifest( manifestPath );
 	},
 };
 

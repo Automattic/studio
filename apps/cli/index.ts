@@ -45,12 +45,13 @@ const cliAppdataProvider: AppdataProvider< LastBumpStatsData > = {
 };
 
 async function main() {
-	const yargsLocale = await loadTranslations();
+	const { yargsLocale, yargsLocaleData } = await loadTranslations();
 
 	const studioArgv: StudioArgv = yargs( process.argv.slice( 2 ) )
 		.scriptName( 'studio' )
 		.usage( __( 'WordPress Studio CLI' ) )
 		.locale( yargsLocale )
+		.updateLocale( yargsLocaleData ?? {} )
 		.version( version )
 		.option( 'avoid-telemetry', {
 			type: 'boolean',

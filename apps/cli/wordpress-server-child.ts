@@ -10,7 +10,6 @@
  * - Sends response back when ready
  * - Sends activity heartbeats to prevent timeout during long operations
  */
-import { cpus } from 'os';
 import { dirname } from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { isWordPressDirectory } from '@studio/common/lib/fs-utils';
@@ -20,7 +19,7 @@ import { formatPlaygroundCliMessage } from '@studio/common/lib/playground-cli-me
 import { sequential } from '@studio/common/lib/sequential';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import { BlueprintBundle } from '@wp-playground/blueprints';
-import { runCLI, RunCLIArgs, RunCLIServer, internalsKeyForTesting } from '@wp-playground/cli';
+import { runCLI, RunCLIArgs, RunCLIServer } from '@wp-playground/cli';
 import {
 	FetchFilesystem,
 	NodeJsFilesystem,
@@ -237,14 +236,6 @@ async function getBaseRunCLIArgs(
 		}
 	}
 
-	if ( config.enableMultiWorker ) {
-		const workerCount = Math.max( 1, cpus().length - 1 );
-		logToConsole(
-			`Enabling experimental multi-worker support with ${ workerCount } workers (CPU cores - 1)`
-		);
-		args.experimentalMultiWorker = workerCount;
-	}
-
 	if ( config.enableXdebug ) {
 		logToConsole( 'Enabling Xdebug support' );
 		args.xdebug = true;
@@ -281,12 +272,6 @@ const startServer = wrapWithStartingPromise(
 			const args = await getBaseRunCLIArgs( 'server', config );
 			lastCliArgs = sanitizeRunCLIArgs( args );
 			server = await runCLI( args );
-
-			if ( config.enableMultiWorker && server ) {
-				logToConsole(
-					`Server started with ${ server[ internalsKeyForTesting ].workerThreadCount } worker thread(s)`
-				);
-			}
 
 			if ( config.adminPassword ) {
 				await setAdminPassword( server, config.adminPassword );

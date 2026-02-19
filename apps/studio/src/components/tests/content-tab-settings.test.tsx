@@ -38,9 +38,7 @@ const snapshotTestActions = {
 let testStore = createTestStore( {
 	preloadedState: {
 		betaFeatures: {
-			features: {
-				multiWorkerSupport: false,
-			},
+			features: {},
 			loading: false,
 		},
 	},
@@ -51,9 +49,7 @@ function createCustomTestStore() {
 	const store = createTestStore( {
 		preloadedState: {
 			betaFeatures: {
-				features: {
-					multiWorkerSupport: false,
-				},
+				features: {},
 				loading: false,
 			},
 		},

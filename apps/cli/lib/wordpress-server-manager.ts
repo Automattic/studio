@@ -12,7 +12,7 @@ import {
 } from '@studio/common/constants';
 import { SITE_EVENTS } from '@studio/common/lib/site-events';
 import { z } from 'zod';
-import { SiteData, readAppdata } from 'cli/lib/appdata';
+import { SiteData } from 'cli/lib/appdata';
 import {
 	isProcessRunning,
 	startProcess,
@@ -41,15 +41,6 @@ process.on( 'SIGTERM', () => abortController.abort() );
 
 export function getProcessName( siteId: string ): string {
 	return `${ SITE_PROCESS_PREFIX }${ siteId }`;
-}
-
-async function isMultiWorkerEnabled() {
-	try {
-		const appdata = await readAppdata();
-		return appdata.betaFeatures?.multiWorkerSupport ?? false;
-	} catch {
-		return false;
-	}
 }
 
 export async function isServerRunning( siteId: string ): Promise< ProcessDescription | undefined > {
@@ -84,7 +75,6 @@ export async function startWordPressServer(
 		port: site.port,
 		phpVersion: site.phpVersion,
 		siteTitle: site.name,
-		enableMultiWorker: await isMultiWorkerEnabled(),
 	};
 
 	if ( site.customDomain ) {
@@ -354,7 +344,6 @@ export async function runBlueprint(
 		port: site.port,
 		phpVersion: site.phpVersion,
 		siteTitle: site.name,
-		enableMultiWorker: await isMultiWorkerEnabled(),
 		blueprint: {
 			contents: options.blueprint,
 			uri: options.blueprintUri,

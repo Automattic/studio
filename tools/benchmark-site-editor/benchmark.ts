@@ -107,6 +107,7 @@ interface Options {
 	skipPlaygroundWeb: boolean;
 	includeLocal: boolean;
 	only: string[];
+	headed: boolean;
 }
 
 function parseArgs(): Options {
@@ -118,6 +119,7 @@ function parseArgs(): Options {
 		skipPlaygroundWeb: false,
 		includeLocal: false,
 		only: [],
+		headed: false,
 	};
 
 	for ( const arg of args ) {
@@ -136,6 +138,8 @@ function parseArgs(): Options {
 				.split( '=' )[ 1 ]
 				.split( ',' )
 				.map( ( s ) => s.trim() );
+		} else if ( arg === '--headed' ) {
+			opts.headed = true;
 		} else if ( arg === '--help' ) {
 			printHelp();
 			process.exit( 0 );
@@ -156,6 +160,7 @@ Options:
   --skip-playground-web   Skip Playground web environments
   --include-local         Include Local by Flywheel environments (requires Local running)
   --only=<env1,env2>      Run only named environments (comma-separated)
+  --headed                Launch browser in headed mode for debugging
   --help                  Show this help message
 
 Environments: ${ ALL_ENVIRONMENTS.map( ( e ) => e.name ).join( ', ' ) }
@@ -570,7 +575,8 @@ const MEASUREMENT_TIMEOUT = 600_000; // 10 min per measurement
 async function runBenchmark(
 	benchmarkUrl: string,
 	env: EnvironmentConfig,
-	rounds: number
+	rounds: number,
+	headed: boolean
 ): Promise< Record< string, number > | null > {
 	console.log(
 		chalk.gray( `    Running benchmark (${ rounds } round${ rounds > 1 ? 's' : '' })...` )
@@ -587,7 +593,7 @@ async function runBenchmark(
 		}
 		try {
 			const result = await Promise.race( [
-				measureSiteEditor( { url: benchmarkUrl, isPlaygroundWeb, isPlaygroundCli, isLocal } ),
+				measureSiteEditor( { url: benchmarkUrl, isPlaygroundWeb, isPlaygroundCli, isLocal, headed } ),
 				sleep( MEASUREMENT_TIMEOUT ).then( () => {
 					throw new Error( 'Measurement timed out' );
 				} ),
@@ -851,7 +857,7 @@ async function main() {
 			}
 
 			// Run benchmark
-			const metrics = await runBenchmark( benchmarkUrl, env, opts.rounds );
+			const metrics = await runBenchmark( benchmarkUrl, env, opts.rounds, opts.headed );
 
 			if ( metrics ) {
 				allResults.push( { environment: env.name, metrics } );

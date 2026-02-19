@@ -33,6 +33,8 @@ export interface MeasureOptions {
 	isPlaygroundCli: boolean;
 	/** Whether this is a Local by Flywheel site. Uses wp-login.php credentials. */
 	isLocal: boolean;
+	/** Launch browser in headed mode for debugging. */
+	headed?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -108,7 +110,7 @@ export async function measureSiteEditor( options: MeasureOptions ): Promise< Mea
 
 	const result: MeasurementResult = {};
 
-	const browser = await chromium.launch();
+	const browser = await chromium.launch( { headless: ! options.headed } );
 	const context = await browser.newContext();
 	const page = await context.newPage();
 

@@ -230,7 +230,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 							className="w-full [&>[role=tabpanel]]:h-64 [&>[role=tabpanel]]:overflow-auto"
 							tabs={ [
 								{ name: 'general', title: __( 'General' ) },
-								{ name: 'developer', title: __( 'Developer' ) },
+								{ name: 'developer', title: __( 'Debugging' ) },
 							] }
 							orientation="horizontal"
 						>

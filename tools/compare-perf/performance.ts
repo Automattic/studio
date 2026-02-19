@@ -87,10 +87,12 @@ async function runTestSuite(
 	branchDir: string
 ) {
 	const outDir = path.join( branchDir, 'out' );
-	const testRunnerOutDir = path.join( testRunnerDir, 'out' );
+	const testRunnerOutDir = path.join( testRunnerDir, 'apps', 'studio', 'out' );
+
 	if ( fs.existsSync( testRunnerOutDir ) ) {
 		fs.rmSync( testRunnerOutDir, { recursive: true } );
 	}
+	fs.mkdirSync( path.dirname( testRunnerOutDir ), { recursive: true } );
 	fs.symlinkSync( outDir, testRunnerOutDir, 'dir' );
 
 	// Run the test suite

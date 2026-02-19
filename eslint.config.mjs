@@ -12,12 +12,12 @@ import path from 'node:path';
 export default defineConfig(
 	globalIgnores( [
 		'**/node_modules/',
+		'**/__mocks__',
+		'apps/cli/dist/',
 		'dist/',
 		'out/',
-		'wp-files/',
 		'vendor/',
-		'cli/__mocks__',
-		'src/__mocks__',
+		'wp-files/',
 	] ),
 	js.configs.recommended,
 	tsEslint.configs.recommended,
@@ -45,7 +45,12 @@ export default defineConfig(
 			'import/resolver': {
 				typescript: {
 					alwaysTryTypes: true,
-					project: path.join( import.meta.dirname, 'tsconfig.json' ),
+					project: [
+						path.join( import.meta.dirname, 'tsconfig.json' ),
+						path.join( import.meta.dirname, 'apps/cli/tsconfig.json' ),
+						path.join( import.meta.dirname, 'apps/studio/tsconfig.json' ),
+						path.join( import.meta.dirname, 'tools/common/tsconfig.json' ),
+					],
 				},
 			},
 		},

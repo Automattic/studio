@@ -31,8 +31,7 @@ esac
 # `make` creates signed distributables (installers), which requires code signing setup.
 # `package` creates an unsigned app bundle, sufficient for E2E testing.
 echo "--- :package: Package app for testing ($PLATFORM-$ARCH)"
-npx electron-vite build --outDir=dist
-npx electron-forge package --arch="$ARCH" --platform="$FORGE_PLATFORM"
+npm -w studio-app run package -- --arch="$ARCH" --platform="$FORGE_PLATFORM"
 
 echo '--- :playwright: Run End To End Tests'
 

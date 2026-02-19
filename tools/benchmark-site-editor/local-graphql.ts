@@ -287,7 +287,7 @@ export class LocalGraphQLClient {
 	/**
 	 * Find a site by name.
 	 */
-	private async findSiteByName( name: string ): Promise< LocalSite | null > {
+	async findSiteByName( name: string ): Promise< LocalSite | null > {
 		const result = await this.query< {
 			sites: Array< {
 				id: string;

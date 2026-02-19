@@ -16,11 +16,18 @@ export abstract class SqliteIntegrationProvider {
 		return ( await fs.pathExists( sqliteSourcePath ) ) && ( await fs.pathExists( dbCopyPath ) );
 	}
 
-	// Returns true if site has db.php or no wp-config.php
 	async needsSqliteSetup( sitePath: string ): Promise< boolean > {
-		const hasDbPhp = await fs.pathExists( path.join( sitePath, 'wp-content', 'db.php' ) );
 		const hasWpConfig = await fs.pathExists( path.join( sitePath, 'wp-config.php' ) );
-		return hasDbPhp || ! hasWpConfig;
+		if ( ! hasWpConfig ) {
+			return true;
+		}
+		const wpContentPath = path.join( sitePath, 'wp-content' );
+		const hasSqlite = await Promise.all( [
+			fs.pathExists( path.join( wpContentPath, 'db.php' ) ),
+			fs.pathExists( path.join( wpContentPath, 'database', '.ht.sqlite' ) ),
+			fs.pathExists( path.join( wpContentPath, 'mu-plugins', this.getSqliteDirname() ) ),
+		] ).then( ( results ) => results.some( Boolean ) );
+		return hasSqlite;
 	}
 
 	async getSqliteVersionFromInstallation( sqliteMuPluginPath: string ): Promise< string > {

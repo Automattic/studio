@@ -49,12 +49,36 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 			expect( result ).toBe( true );
 		} );
 
-		it( 'should return false when wp-config.php exists and db.php does not', async () => {
+		it( 'should return false when wp-config.php exists and no SQLite artifacts exist', async () => {
 			mockFs.__setFileContents( normalize( `${ MOCK_SITE_PATH }/wp-config.php` ), 'config' );
 
 			const result = await provider.needsSqliteSetup( MOCK_SITE_PATH );
 
 			expect( result ).toBe( false );
+		} );
+
+		it( 'should return true when wp-config.php exists and SQLite database exists but db.php is missing', async () => {
+			mockFs.__setFileContents( normalize( `${ MOCK_SITE_PATH }/wp-config.php` ), 'config' );
+			mockFs.__setFileContents(
+				normalize( `${ MOCK_SITE_PATH }/wp-content/database/.ht.sqlite` ),
+				'sqlite-data'
+			);
+
+			const result = await provider.needsSqliteSetup( MOCK_SITE_PATH );
+
+			expect( result ).toBe( true );
+		} );
+
+		it( 'should return true when wp-config.php exists and SQLite mu-plugin exists but db.php is missing', async () => {
+			mockFs.__setFileContents( normalize( `${ MOCK_SITE_PATH }/wp-config.php` ), 'config' );
+			mockFs.__setFileContents(
+				normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_DIRNAME }` ),
+				'dir'
+			);
+
+			const result = await provider.needsSqliteSetup( MOCK_SITE_PATH );
+
+			expect( result ).toBe( true );
 		} );
 
 		it( 'should return true when both files exist (db.php takes precedence)', async () => {

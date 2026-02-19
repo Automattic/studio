@@ -54,7 +54,7 @@ if ($BuildType -eq $BUILD_TYPE_DEV) {
 $env:FILE_ARCHITECTURE=$Architecture
 
 Write-Host "Building for architecture: $Architecture"
-npm run "make:windows-$Architecture"
+npm -w studio-app run "make:windows-$Architecture"
 If ($LastExitCode -ne 0) { Exit $LastExitCode }
 
 # Rename NuGet package files with generic name

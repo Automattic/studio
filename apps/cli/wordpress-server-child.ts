@@ -166,21 +166,15 @@ async function getBaseRunCLIArgs(
 		},
 	];
 
+	const enableDebugLog = config.enableDebugLog ?? false;
+	const enableDebugDisplay = config.enableDebugDisplay ?? false;
+
 	const defaultConstants: Record< string, boolean > = {
 		WP_SQLITE_AST_DRIVER: true,
+		WP_DEBUG: enableDebugLog || enableDebugDisplay,
+		WP_DEBUG_LOG: enableDebugLog,
+		WP_DEBUG_DISPLAY: enableDebugDisplay,
 	};
-
-	if ( config.enableDebugLog || config.enableDebugDisplay ) {
-		defaultConstants.WP_DEBUG = true;
-	}
-
-	if ( config.enableDebugLog ) {
-		defaultConstants.WP_DEBUG_LOG = true;
-	}
-
-	if ( config.enableDebugDisplay ) {
-		defaultConstants.WP_DEBUG_DISPLAY = true;
-	}
 
 	let blueprintBundle: BlueprintBundle | undefined;
 

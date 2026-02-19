@@ -118,7 +118,6 @@ const fakeSyncSite: SyncSite = {
 	localSiteId: 'site-id',
 	lastPullTimestamp: null,
 	lastPushTimestamp: null,
-	isLoading: false,
 };
 
 describe( 'ContentTabSync', () => {
@@ -307,7 +306,6 @@ describe( 'ContentTabSync', () => {
 			isPressable: false,
 			lastPullTimestamp: null,
 			lastPushTimestamp: null,
-			isLoading: false,
 		};
 		vi.mocked( useAuth, { partial: true } ).mockReturnValue( createAuthMock( true ) );
 		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );

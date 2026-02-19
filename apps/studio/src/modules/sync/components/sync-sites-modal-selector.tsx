@@ -18,8 +18,11 @@ import { CreateButton } from 'src/modules/sync/components/create-button';
 import { EnvironmentBadge } from 'src/modules/sync/components/environment-badge';
 import { NoWpcomSitesModal } from 'src/modules/sync/components/no-wpcom-sites-modal';
 import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
-import { useI18nLocale } from 'src/stores';
-import { useGetConnectedSitesForLocalSiteQuery } from 'src/stores/sync/connected-sites';
+import { useI18nLocale, useRootSelector } from 'src/stores';
+import {
+	connectedSitesSelectors,
+	useGetConnectedSitesForLocalSiteQuery,
+} from 'src/stores/sync/connected-sites';
 import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
 import type { SyncSite, SyncModalMode } from 'src/modules/sync/types';
 
@@ -248,6 +251,8 @@ function SiteItem( {
 	onClick: () => void;
 } ) {
 	const { __ } = useI18n();
+	const loadingSiteIds = useRootSelector( connectedSitesSelectors.selectLoadingSiteIds );
+	const isSiteLoading = loadingSiteIds.includes( site.id );
 	const isAlreadyConnected = site.syncSupport === 'already-connected';
 	const isSyncable = site.syncSupport === 'syncable';
 	const isNeedsTransfer = site.syncSupport === 'needs-transfer';
@@ -285,7 +290,7 @@ function SiteItem( {
 			} }
 		>
 			<div className="flex flex-col gap-0.5 min-w-0">
-				{ site.isLoading ? (
+				{ isSiteLoading ? (
 					<div className="flex items-center gap-1.5">
 						<div
 							className="w-3 h-3 rounded-full animate-pulse bg-gradient-to-r from-[#F6F7F7] via-[#DCDCDE] to-[#F6F7F7]"
@@ -319,7 +324,7 @@ function SiteItem( {
 						{ site.name }
 					</div>
 				) }
-				{ site.isLoading ? (
+				{ isSiteLoading ? (
 					<div
 						className="h-3 w-36 rounded animate-pulse bg-gradient-to-r from-[#F6F7F7] via-[#DCDCDE] to-[#F6F7F7]"
 						aria-label={ __( 'Loading site URL' ) }

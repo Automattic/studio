@@ -35,9 +35,10 @@ import {
 	convertTreeToPushOptions,
 } from 'src/modules/sync/lib/convert-tree-to-sync-options';
 import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
-import { useAppDispatch, useI18nLocale } from 'src/stores';
+import { useAppDispatch, useI18nLocale, useRootSelector } from 'src/stores';
 import {
 	connectedSitesActions,
+	connectedSitesSelectors,
 	useGetConnectedSitesForLocalSiteQuery,
 } from 'src/stores/sync/connected-sites';
 import type { SyncSite } from 'src/modules/sync/types';
@@ -194,6 +195,8 @@ const SyncConnectedSitesSectionItem = ( {
 }: SyncConnectedSitesListProps ) => {
 	const { __ } = useI18n();
 	const isOffline = useOffline();
+	const loadingSiteIds = useRootSelector( connectedSitesSelectors.selectLoadingSiteIds );
+	const isSiteLoading = loadingSiteIds.includes( connectedSite.id );
 	const {
 		clearPullState,
 		getPullState,
@@ -263,7 +266,7 @@ const SyncConnectedSitesSectionItem = ( {
 				key={ connectedSite.id }
 			>
 				<div className="shrink-0">
-					{ connectedSite.isLoading ? (
+					{ isSiteLoading ? (
 						<div
 							className="h-5 w-20 rounded animate-pulse bg-gradient-to-r from-[#F6F7F7] via-[#DCDCDE] to-[#F6F7F7]"
 							aria-label={ __( 'Loading environment' ) }
@@ -273,7 +276,7 @@ const SyncConnectedSitesSectionItem = ( {
 					) }
 				</div>
 
-				{ connectedSite.isLoading ? (
+				{ isSiteLoading ? (
 					<div
 						className="h-5 w-48 rounded animate-pulse bg-gradient-to-r from-[#F6F7F7] via-[#DCDCDE] to-[#F6F7F7]"
 						aria-label={ __( 'Loading site URL' ) }
@@ -556,13 +559,14 @@ const SyncConnectedSiteSection = ( {
 		}
 	};
 
+	const loadingSiteIds = useRootSelector( connectedSitesSelectors.selectLoadingSiteIds );
+	const isSiteLoading = loadingSiteIds.includes( connectedSite.id );
 	const hasConnectionErrors = connectedSite?.syncSupport !== 'already-connected';
 	const isPulling = isSiteIdPulling( selectedSite.id, connectedSite.id );
 	const isPushing = isSiteIdPushing( selectedSite.id, connectedSite.id );
 
 	let logo = <WordPressLogoCircle />;
-	if ( connectedSite.isLoading ) {
-		// Show skeleton loader while fetching full site data
+	if ( isSiteLoading ) {
 		logo = (
 			<div
 				className="w-5 h-5 rounded-full animate-pulse bg-gradient-to-r from-[#F6F7F7] via-[#DCDCDE] to-[#F6F7F7]"
@@ -579,7 +583,7 @@ const SyncConnectedSiteSection = ( {
 		<div key={ connectedSite.id } className="flex flex-col gap-2 border-b border-a8c-gray-0 py-5">
 			<div className="flex items-center gap-2 ps-8 pe-5">
 				{ logo }
-				{ connectedSite.isLoading ? (
+				{ isSiteLoading ? (
 					<div
 						className="h-5 w-40 rounded animate-pulse bg-gradient-to-r from-[#F6F7F7] via-[#DCDCDE] to-[#F6F7F7]"
 						aria-label={ __( 'Loading site name' ) }

@@ -1,6 +1,6 @@
 import { check, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { PropsWithChildren, useCallback, useEffect, useState } from 'react';
+import { PropsWithChildren, useEffect, useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
@@ -136,7 +136,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		localSiteId: selectedSite.id,
 		userId: user?.id,
 	} );
-	const [ connectSite, { isLoading: isConnecting } ] = useConnectSiteMutation();
+	const [ connectSite ] = useConnectSiteMutation();
 	const [ disconnectSite ] = useDisconnectSiteMutation();
 	const { pushSite, pullSite } = useSyncSites();
 
@@ -146,18 +146,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		userId: user?.id,
 	} );
 
-	// Merge connectedSites with syncSites to get the most up-to-date data
-	// This ensures the Sync tab shows current data even before reconciliation updates storage
-	const mergedConnectedSites = connectedSites.map( ( connectedSite ) => {
-		const syncSite = syncSites.find( ( site ) => site.id === connectedSite.id );
-		// If we have data from the API (syncSites), use it; otherwise use storage data
-		return syncSite || connectedSite;
-	} );
-
 	const [ selectedRemoteSite, setSelectedRemoteSite ] = useState< SyncSite | null >( null );
-
-	// Check if connection is ready using RTK Query's built-in loading state
-	const isConnectionReady = ! isConnecting;
 
 	// Auto-select remote site when set via Redux (e.g., from deep link connection)
 	useEffect( () => {
@@ -171,45 +160,20 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		}
 	}, [ selectedRemoteSiteId, syncSites, dispatch ] );
 
-	// Update selectedRemoteSite when syncSites updates with more complete data
-	// This ensures the modal shows updated site info when background refetch completes
-	useEffect( () => {
-		if ( selectedRemoteSite ) {
-			const updatedSite = syncSites.find( ( site ) => site.id === selectedRemoteSite.id );
-			if ( updatedSite && updatedSite !== selectedRemoteSite ) {
-				// Update with the more complete site data from refetch
-				setSelectedRemoteSite( updatedSite );
-			}
-		}
-	}, [ syncSites, selectedRemoteSite ] );
-
-	const handleConnect = useCallback(
-		async ( newConnectedSite: SyncSite ) => {
-			// Check if already connected (use connectedSites from storage as source of truth)
-			const isAlreadyConnected = connectedSites.some( ( site ) => site.id === newConnectedSite.id );
-			if ( isAlreadyConnected ) {
-				// Site is already connected, no need to reconnect
-				return;
-			}
-
-			// Note: Connection status check is handled by the disabled button state
-			// If connection is pending, the button will be disabled
-
-			try {
-				await connectSite( { site: newConnectedSite, localSiteId: selectedSite.id } );
-			} catch ( error ) {
-				getIpcApi().showErrorMessageBox( {
-					title: __( 'Failed to connect to site' ),
-					message: __( 'Please try again.' ),
-				} );
-			}
-		},
-		[ connectedSites, connectSite, selectedSite.id, __ ]
-	);
-
 	if ( ! isAuthenticated ) {
 		return <NoAuthSyncTab />;
 	}
+
+	const handleConnect = async ( newConnectedSite: SyncSite ) => {
+		try {
+			await connectSite( { site: newConnectedSite, localSiteId: selectedSite.id } );
+		} catch ( error ) {
+			getIpcApi().showErrorMessageBox( {
+				title: __( 'Failed to connect to site' ),
+				message: __( 'Please try again.' ),
+			} );
+		}
+	};
 
 	const handleSiteSelection = async ( siteId: number ) => {
 		const selectedSiteFromList = syncSites.find( ( site ) => site.id === siteId );
@@ -235,7 +199,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 			{ connectedSites.length > 0 ? (
 				<div className="h-full relative">
 					<SyncConnectedSites
-						connectedSites={ mergedConnectedSites }
+						connectedSites={ connectedSites }
 						selectedSite={ selectedSite }
 						disconnectSite={ ( id ) =>
 							disconnectSite( { siteId: id, localSiteId: selectedSite.id } )
@@ -281,7 +245,6 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 					type={ reduxModalMode }
 					localSite={ selectedSite }
 					remoteSite={ selectedRemoteSite }
-					isConnectionReady={ isConnectionReady }
 					onPush={ async ( tree ) => {
 						await handleConnect( selectedRemoteSite );
 						const pushOptions = convertTreeToPushOptions( tree );

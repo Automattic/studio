@@ -36,7 +36,6 @@ type SyncDialogProps = {
 	onPush: ( syncData: TreeNode[] ) => void;
 	onPull: ( syncData: TreeNode[] ) => void;
 	onRequestClose: () => void;
-	isConnectionReady?: boolean;
 };
 
 const useDynamicTreeState = (
@@ -142,7 +141,6 @@ export function SyncDialog( {
 	onPush,
 	onPull,
 	onRequestClose,
-	isConnectionReady = true,
 }: SyncDialogProps ) {
 	const locale = useI18nLocale();
 	const { __ } = useI18n();
@@ -481,12 +479,11 @@ export function SyncDialog( {
 										isSubmitDisabled ||
 										isLoadingRewindId ||
 										isPushSelectionOverLimit ||
-										isSizeCheckLoading ||
-										! isConnectionReady
+										isSizeCheckLoading
 									}
 									data-testid={ `sync-dialog-${ type }-button` }
 								>
-									{ ! isConnectionReady ? __( 'Connecting...' ) : syncTexts.submit }
+									{ syncTexts.submit }
 								</Button>
 							</div>
 						</div>

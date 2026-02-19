@@ -8,6 +8,7 @@ type ConnectedSitesState = {
 	isModalOpen: boolean;
 	modalMode: SyncModalMode | null;
 	selectedRemoteSiteId: number | null;
+	loadingSiteIds: number[];
 };
 
 function getInitialState(): ConnectedSitesState {
@@ -15,6 +16,7 @@ function getInitialState(): ConnectedSitesState {
 		isModalOpen: false,
 		modalMode: null,
 		selectedRemoteSiteId: null,
+		loadingSiteIds: [],
 	};
 }
 
@@ -41,6 +43,16 @@ const connectedSitesSlice = createSlice( {
 		clearSelectedRemoteSiteId: ( state ) => {
 			state.selectedRemoteSiteId = null;
 		},
+
+		addLoadingSiteId: ( state, action: PayloadAction< number > ) => {
+			if ( ! state.loadingSiteIds.includes( action.payload ) ) {
+				state.loadingSiteIds.push( action.payload );
+			}
+		},
+
+		removeLoadingSiteId: ( state, action: PayloadAction< number > ) => {
+			state.loadingSiteIds = state.loadingSiteIds.filter( ( id ) => id !== action.payload );
+		},
 	},
 } );
 
@@ -50,6 +62,7 @@ export const connectedSitesSelectors = {
 	selectIsModalOpen: ( state: RootState ) => state.connectedSites.isModalOpen,
 	selectModalMode: ( state: RootState ) => state.connectedSites.modalMode,
 	selectSelectedRemoteSiteId: ( state: RootState ) => state.connectedSites.selectedRemoteSiteId,
+	selectLoadingSiteIds: ( state: RootState ) => state.connectedSites.loadingSiteIds,
 };
 
 export const connectedSitesApi = createApi( {

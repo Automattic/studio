@@ -2,10 +2,16 @@ import { useAuth } from 'src/hooks/use-auth';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 import { SyncSite } from 'src/modules/sync/types';
 import { useAppDispatch } from 'src/stores';
-import { connectedSitesActions, useConnectSiteMutation } from 'src/stores/sync/connected-sites';
-import { wpcomSitesApi } from 'src/stores/sync/wpcom-sites';
+import {
+	connectedSitesActions,
+	connectedSitesApi,
+	useConnectSiteMutation,
+	useGetConnectedSitesForLocalSiteQuery,
+} from 'src/stores/sync/connected-sites';
+import { wpcomSitesApi, useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
 
 export function useListenDeepLinkConnection() {
 	const dispatch = useAppDispatch();
@@ -13,6 +19,15 @@ export function useListenDeepLinkConnection() {
 	const { selectedSite, setSelectedSiteId } = useSiteDetails();
 	const { setSelectedTab, selectedTab } = useContentTabs();
 	const { user } = useAuth();
+	const { data: connectedSites = [] } = useGetConnectedSitesForLocalSiteQuery( {
+		localSiteId: selectedSite?.id,
+		userId: user?.id,
+	} );
+	const connectedSiteIds = connectedSites.map( ( { id } ) => id );
+	const { refetch: refetchWpComSites } = useGetWpComSitesQuery( {
+		connectedSiteIds,
+		userId: user?.id,
+	} );
 
 	useIpcListener(
 		'sync-connect-site',
@@ -33,19 +48,17 @@ export function useListenDeepLinkConnection() {
 			}
 		) => {
 			// Create minimal site object optimistically to connect immediately
-			// Use siteName and siteUrl from deeplink if available, otherwise use placeholders
 			const minimalSite: SyncSite = {
 				id: remoteSiteId,
 				localSiteId: studioSiteId,
-				name: siteName ?? '', // Will be replaced by fetch; not shown (loading skeleton displayed)
-				url: siteUrl ?? '', // Will be replaced by fetch; not shown (loading skeleton displayed)
-				isStaging: false, // Placeholder
-				isPressable: false, // Placeholder
-				environmentType: null, // Will be fetched
-				syncSupport: 'already-connected', // Safe default for new connections
-				lastPullTimestamp: null, // New site, no history
-				lastPushTimestamp: null, // New site, no history
-				isLoading: true, // Mark as loading until single-site fetch completes
+				name: siteName ?? '',
+				url: siteUrl ?? '',
+				isStaging: false,
+				isPressable: false,
+				environmentType: null,
+				syncSupport: 'already-connected',
+				lastPullTimestamp: null,
+				lastPushTimestamp: null,
 			};
 
 			// Switch to the site that initiated the connection if needed
@@ -58,10 +71,12 @@ export function useListenDeepLinkConnection() {
 				setSelectedTab( 'sync' );
 			}
 
+			// Mark site as loading in ephemeral Redux state (not persisted to storage)
+			dispatch( connectedSitesActions.addLoadingSiteId( remoteSiteId ) );
+
 			const connectPromise = connectSite( { site: minimalSite, localSiteId: studioSiteId } );
 
 			// Only auto-open push dialog if explicitly requested (e.g., from "Publish site" button)
-			// Open modal immediately with minimal data
 			if ( autoOpenPush ) {
 				dispatch( connectedSitesActions.setSelectedRemoteSiteId( remoteSiteId ) );
 			}
@@ -73,7 +88,7 @@ export function useListenDeepLinkConnection() {
 				} )
 			);
 
-			// Wait for both operations to complete for error handling
+			// Wait for both operations to complete
 			try {
 				const [ , singleSiteResult ] = await Promise.all( [
 					connectPromise,
@@ -85,13 +100,22 @@ export function useListenDeepLinkConnection() {
 						...singleSiteResult.data,
 						localSiteId: studioSiteId,
 					};
-					await connectSite( { site: fullSiteData, localSiteId: studioSiteId } );
+					// Use updateSingleConnectedWpcomSite to overwrite the minimal site in storage.
+					// connectSite only adds new sites — it won't update an existing entry.
+					await getIpcApi().updateSingleConnectedWpcomSite( fullSiteData );
+					dispatch( connectedSitesApi.util.invalidateTags( [ 'ConnectedSites' ] ) );
 				}
 
 				fetchSingleSitePromise.unsubscribe();
+
+				// Refetch all sites to update syncSites (used by the push/pull modal).
+				// Await so loading state persists until the modal can display full site data.
+				await refetchWpComSites();
 			} catch ( error ) {
 				console.error( 'Error during site connection:', error );
-				// Connection or refetch failed - the UI will handle the error state via mutation status
+			} finally {
+				// Always clear loading state, even on error
+				dispatch( connectedSitesActions.removeLoadingSiteId( remoteSiteId ) );
 			}
 		}
 	);

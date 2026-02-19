@@ -71,6 +71,7 @@ describe( 'showSiteContextMenu', () => {
 
 	const baseContext = {
 		siteId: 'test-site-id',
+		isAnySiteAdding: false,
 		finderLabel: 'Finder',
 		editorLabel: 'VS Code',
 		terminalLabel: 'Terminal',
@@ -121,6 +122,7 @@ describe( 'showSiteContextMenu', () => {
 				isRunning: true,
 				isLoading: false,
 				isAddingSite: true,
+				isAnySiteAdding: true,
 				isSyncing: false,
 			} );
 
@@ -147,11 +149,45 @@ describe( 'showSiteContextMenu', () => {
 				isRunning: false,
 				isLoading: false,
 				isAddingSite: true,
+				isAnySiteAdding: true,
 				isSyncing: false,
 			} );
 
 			const startItem = menuItems.find( ( item ) => item.label === 'Start' );
 			expect( startItem?.enabled ).toBe( false );
+		} );
+	} );
+
+	describe( 'when another site is being added', () => {
+		it( 'should disable Copy and Delete but keep other items enabled', () => {
+			showSiteContextMenu( mockIpcMainInvokeEvent, {
+				...baseContext,
+				isRunning: true,
+				isLoading: false,
+				isAddingSite: false,
+				isAnySiteAdding: true,
+				isSyncing: false,
+			} );
+
+			const stopItem = menuItems.find( ( item ) => item.label === 'Stop' );
+			const openSiteItem = menuItems.find( ( item ) => item.label === 'Open site' );
+			const wpAdminItem = menuItems.find( ( item ) => item.label === 'WP admin' );
+			const finderItem = menuItems.find( ( item ) => item.label === 'Open in Finder' );
+			const editorItem = menuItems.find( ( item ) => item.label === 'Open in VS Code' );
+			const terminalItem = menuItems.find( ( item ) => item.label === 'Open in Terminal' );
+			const editItem = menuItems.find( ( item ) => item.label === 'Edit site…' );
+			const copyItem = menuItems.find( ( item ) => item.label === 'Copy site…' );
+			const deleteItem = menuItems.find( ( item ) => item.label === 'Delete site…' );
+
+			expect( stopItem?.enabled ).toBe( true );
+			expect( openSiteItem?.enabled ).toBe( true );
+			expect( wpAdminItem?.enabled ).toBe( true );
+			expect( finderItem?.enabled ).toBe( true );
+			expect( editorItem?.enabled ).toBe( true );
+			expect( terminalItem?.enabled ).toBe( true );
+			expect( editItem?.enabled ).toBe( true );
+			expect( copyItem?.enabled ).toBe( false );
+			expect( deleteItem?.enabled ).toBe( false );
 		} );
 	} );
 

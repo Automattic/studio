@@ -1,6 +1,9 @@
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback } from 'react';
-import { extractFormValuesFromBlueprint } from 'common/lib/blueprint-settings';
+import {
+	extractFormValuesFromBlueprint,
+	generateDefaultBlueprintDescription,
+} from 'common/lib/blueprint-settings';
 import {
 	BlueprintValidationWarning,
 	BlueprintPreferredVersions,
@@ -68,7 +71,8 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 					const fileBlueprint: Blueprint = {
 						slug: `file:${ fileName }`,
 						title: blueprintMeta?.title || '',
-						excerpt: blueprintMeta?.description || '',
+						excerpt:
+							blueprintMeta?.description || generateDefaultBlueprintDescription( blueprintJson ),
 						image: '',
 						playground_url: '',
 						blueprint: blueprintJson,

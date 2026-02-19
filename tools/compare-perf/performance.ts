@@ -86,7 +86,10 @@ async function runTestSuite(
 	runKey: string,
 	branchDir: string
 ) {
-	const outDir = path.join( branchDir, 'out' );
+	const outDir = path.join( branchDir, 'apps', 'studio', 'out' );
+	if ( ! fs.existsSync( outDir ) ) {
+		throw new Error( `Could not find packaged Studio build output at: ${ outDir }` );
+	}
 	const testRunnerOutDir = path.join( testRunnerDir, 'apps', 'studio', 'out' );
 
 	if ( fs.existsSync( testRunnerOutDir ) ) {

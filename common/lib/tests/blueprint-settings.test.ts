@@ -1,6 +1,7 @@
 import {
 	blueprintHasMultisite,
 	extractFormValuesFromBlueprint,
+	generateDefaultBlueprintDescription,
 	updateBlueprintWithFormValues,
 } from '../blueprint-settings';
 
@@ -485,6 +486,114 @@ describe( 'blueprint-settings', () => {
 				step: 'setSiteOptions',
 				options: { blogname: 'New Name', blogdescription: 'A description' },
 			} );
+		} );
+	} );
+
+	describe( 'generateDefaultBlueprintDescription', () => {
+		it( 'should return empty string for empty blueprint', () => {
+			expect( generateDefaultBlueprintDescription( {} ) ).toBe( '' );
+		} );
+
+		it( 'should return empty string for missing steps', () => {
+			expect( generateDefaultBlueprintDescription( { meta: { title: 'Test' } } ) ).toBe( '' );
+		} );
+
+		it( 'should return empty string for non-array steps', () => {
+			const blueprint = { steps: 'not-an-array' };
+			expect(
+				generateDefaultBlueprintDescription(
+					blueprint as unknown as Parameters< typeof generateDefaultBlueprintDescription >[ 0 ]
+				)
+			).toBe( '' );
+		} );
+
+		it( 'should return empty string for steps with no recognized actions', () => {
+			expect( generateDefaultBlueprintDescription( { steps: [ { step: 'login' } ] } ) ).toBe( '' );
+		} );
+
+		it( 'should describe a single plugin', () => {
+			const blueprint = { steps: [ { step: 'installPlugin' } ] };
+			expect( generateDefaultBlueprintDescription( blueprint ) ).toBe( 'Installs 1 plugin.' );
+		} );
+
+		it( 'should describe multiple plugins', () => {
+			const blueprint = {
+				steps: [ { step: 'installPlugin' }, { step: 'installPlugin' }, { step: 'installPlugin' } ],
+			};
+			expect( generateDefaultBlueprintDescription( blueprint ) ).toBe( 'Installs 3 plugins.' );
+		} );
+
+		it( 'should describe plugins and themes combined', () => {
+			const blueprint = {
+				steps: [ { step: 'installPlugin' }, { step: 'installPlugin' }, { step: 'installTheme' } ],
+			};
+			expect( generateDefaultBlueprintDescription( blueprint ) ).toBe(
+				'Installs 2 plugins and 1 theme.'
+			);
+		} );
+
+		it( 'should describe content import steps', () => {
+			const blueprint = { steps: [ { step: 'importWxr' } ] };
+			expect( generateDefaultBlueprintDescription( blueprint ) ).toBe( 'Imports content.' );
+		} );
+
+		it( 'should describe a single PHP code block', () => {
+			const blueprint = { steps: [ { step: 'runPHP' } ] };
+			expect( generateDefaultBlueprintDescription( blueprint ) ).toBe(
+				'Runs 1 block of PHP code.'
+			);
+		} );
+
+		it( 'should describe PHP code, SQL queries, and WP-CLI commands combined', () => {
+			const blueprint = {
+				steps: [ { step: 'runPHP' }, { step: 'runSql' }, { step: 'wp-cli' } ],
+			};
+			expect( generateDefaultBlueprintDescription( blueprint ) ).toBe(
+				'Runs 1 block of PHP code, 1 SQL query, and 1 WP-CLI command.'
+			);
+		} );
+
+		it( 'should describe site configuration steps', () => {
+			const blueprint = {
+				steps: [ { step: 'setSiteOptions' }, { step: 'defineWpConfigConsts' } ],
+			};
+			expect( generateDefaultBlueprintDescription( blueprint ) ).toBe(
+				'Applies site configuration.'
+			);
+		} );
+
+		it( 'should describe a complex blueprint with all categories', () => {
+			const blueprint = {
+				steps: [
+					{ step: 'installPlugin' },
+					{ step: 'installPlugin' },
+					{ step: 'installPlugin' },
+					{ step: 'installTheme' },
+					{ step: 'installTheme' },
+					{ step: 'importWxr' },
+					{ step: 'runPHP' },
+					{ step: 'runSql' },
+					{ step: 'runSql' },
+					{ step: 'wp-cli' },
+					{ step: 'setSiteOptions' },
+					{ step: 'defineWpConfigConsts' },
+				],
+			};
+			expect( generateDefaultBlueprintDescription( blueprint ) ).toBe(
+				'Installs 3 plugins and 2 themes. Imports content. Runs 1 block of PHP code, 2 SQL queries, and 1 WP-CLI command. Applies site configuration.'
+			);
+		} );
+
+		it( 'should ignore unrecognized steps', () => {
+			const blueprint = {
+				steps: [
+					{ step: 'login' },
+					{ step: 'installPlugin' },
+					{ step: 'enableMultisite' },
+					{ step: 'defineSiteUrl' },
+				],
+			};
+			expect( generateDefaultBlueprintDescription( blueprint ) ).toBe( 'Installs 1 plugin.' );
 		} );
 	} );
 } );

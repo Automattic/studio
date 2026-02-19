@@ -1,4 +1,3 @@
-import { __ } from '@wordpress/i18n';
 import { lockAppdata, unlockAppdata, loadUserData, saveUserData } from 'src/storage/user-data';
 
 export interface BetaFeatureDefinition {
@@ -11,23 +10,14 @@ export interface BetaFeatureDefinition {
 /**
  * Default values for beta features.
  */
-const BETA_FEATURE_DEFAULTS: Record< keyof BetaFeatures, boolean > = {
-	multiWorkerSupport: false,
-};
+const BETA_FEATURE_DEFAULTS: Record< keyof BetaFeatures, boolean > = {};
 
 /**
  * Returns beta feature definitions with translated labels and descriptions.
  * Must be called at runtime (not at module load) to ensure translations are loaded.
  */
 export function getBetaFeaturesDefinition(): Record< keyof BetaFeatures, BetaFeatureDefinition > {
-	return {
-		multiWorkerSupport: {
-			key: 'multiWorkerSupport',
-			default: BETA_FEATURE_DEFAULTS.multiWorkerSupport,
-			label: __( 'Multi-Worker Support' ),
-			description: __( 'Enable multi-worker PHP processing for faster performance' ),
-		},
-	};
+	return {};
 }
 
 function buildBetaFeatures( userData: BetaFeatures | undefined ): BetaFeatures {

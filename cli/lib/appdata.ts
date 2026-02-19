@@ -23,11 +23,7 @@ const siteSchema = siteDetailsSchema
 	} )
 	.loose();
 
-const betaFeaturesSchema = z
-	.object( {
-		multiWorkerSupport: z.boolean().optional(),
-	} )
-	.loose();
+const betaFeaturesSchema = z.object( {} ).loose();
 
 const userDataSchema = z
 	.object( {

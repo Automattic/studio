@@ -1,11 +1,7 @@
 // Fails (thus halting the build) if the git tag doesn't match the version in package.json.
 // This safety measure is part of the release build process.
 
-import fs from 'fs/promises';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = path.dirname( fileURLToPath( import.meta.url ) );
+import packageJson from '../apps/studio/package.json' with { type: 'json' };
 
 const tagTriggeringBuild = process.env.BUILDKITE_TAG;
 
@@ -17,17 +13,13 @@ if ( ! tagTriggeringBuild ) {
 	throw new Error( 'Build was not triggered by a new tag' );
 }
 
-const packageJsonPath = path.resolve( __dirname, '../package.json' );
-const packageJsonText = await fs.readFile( packageJsonPath, 'utf-8' );
-const { version: packageVersion } = JSON.parse( packageJsonText );
-
-if ( tagTriggeringBuild === packageVersion ) {
+if ( tagTriggeringBuild === packageJson.version ) {
 	throw new Error( 'The git tag used to trigger a release build must start with "v"' );
 }
 
-if ( tagTriggeringBuild !== 'v' + packageVersion ) {
+if ( tagTriggeringBuild !== 'v' + packageJson.version ) {
 	throw new Error(
-		`Tag which triggered the build (${ tagTriggeringBuild }) does not match version in package.json (${ packageVersion })`
+		`Tag which triggered the build (${ tagTriggeringBuild }) does not match version in package.json (${ packageJson.version })`
 	);
 }
 

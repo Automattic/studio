@@ -1,0 +1,35 @@
+diff --git a/node_modules/electron-devtools-installer/dist/index.js b/node_modules/electron-devtools-installer/dist/index.js
+index c428018..2b9b8a2 100644
+--- a/node_modules/electron-devtools-installer/dist/index.js
++++ b/node_modules/electron-devtools-installer/dist/index.js
+@@ -26,7 +26,8 @@ async function installExtension(extensionReference, options = {}) {
+     else {
+         throw new Error(`Invalid extensionReference passed in: "${extensionReference}"`);
+     }
+-    const installedExtension = targetSession.getAllExtensions().find((e) => e.id === chromeStoreID);
++    const extensionApi = (targetSession.extensions) || targetSession;
++    const installedExtension = extensionApi.getAllExtensions().find((e) => e.id === chromeStoreID);
+     if (!forceDownload && installedExtension) {
+         return installedExtension;
+     }
+@@ -38,16 +39,16 @@ async function installExtension(extensionReference, options = {}) {
+         const unloadPromise = new Promise((resolve) => {
+             const handler = (_, ext) => {
+                 if (ext.id === installedExtension.id) {
+-                    targetSession.removeListener('extension-unloaded', handler);
++                    extensionApi.removeListener('extension-unloaded', handler);
+                     resolve();
+                 }
+             };
+-            targetSession.on('extension-unloaded', handler);
++            extensionApi.on('extension-unloaded', handler);
+         });
+-        targetSession.removeExtension(installedExtension.id);
++        extensionApi.removeExtension(installedExtension.id);
+         await unloadPromise;
+     }
+-    return targetSession.loadExtension(extensionFolder, loadExtensionOptions);
++    return extensionApi.loadExtension(extensionFolder, loadExtensionOptions);
+ }
+ exports.default = installExtension;
+ exports.EMBER_INSPECTOR = {

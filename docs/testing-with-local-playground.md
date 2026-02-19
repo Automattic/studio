@@ -1,6 +1,8 @@
 # Testing with Local Playground Packages
 
-When developing features that require changes to WordPress Playground packages (`@wp-playground/*` or `@php-wasm/*`), you can test Studio with locally built Playground packages.
+When developing features that require changes to WordPress Playground packages (`@wp-playground/*` or `@php-wasm/*`), you can test Studio's CLI with locally built Playground packages.
+
+**Note:** The desktop app does not directly use PHP-WASM packages - only the CLI does. These instructions are for testing CLI functionality.
 
 ## Prerequisites
 
@@ -29,19 +31,18 @@ npm install
 npm run build
 ```
 
-### 2. Update Studio's package.json
+### 2. Update CLI's package.json
 
-Replace the existing Playground dependencies with local file references. These packages are grouped together at the end of `dependencies` in `package.json` for easier replacement:
+Replace the existing Playground dependencies in `apps/cli/package.json` with local file references:
 
 ```json
 {
   "dependencies": {
-    "@php-wasm/node": "file:../wordpress-playground/dist/packages/php-wasm/node",
-    "@php-wasm/scopes": "file:../wordpress-playground/dist/packages/php-wasm/scopes",
-    "@php-wasm/universal": "file:../wordpress-playground/dist/packages/php-wasm/universal",
-    "@wp-playground/blueprints": "file:../wordpress-playground/dist/packages/playground/blueprints",
-    "@wp-playground/cli": "file:../wordpress-playground/dist/packages/playground/cli",
-    "@wp-playground/wordpress": "file:../wordpress-playground/dist/packages/playground/wordpress"
+    "@php-wasm/universal": "file:../../wordpress-playground/dist/packages/php-wasm/universal",
+    "@wp-playground/blueprints": "file:../../wordpress-playground/dist/packages/playground/blueprints",
+    "@wp-playground/cli": "file:../../wordpress-playground/dist/packages/playground/cli",
+    "@wp-playground/common": "file:../../wordpress-playground/dist/packages/playground/common",
+    "@wp-playground/storage": "file:../../wordpress-playground/dist/packages/playground/storage"
   }
 }
 ```
@@ -72,10 +73,21 @@ done
 
 ```bash
 cd /path/to/studio
+rm -rf apps/cli/node_modules
+npm --prefix apps/cli install
 npm install
 ```
 
-### 5. Start Studio
+### 5. Build and test the CLI
+
+```bash
+npm run cli:build
+node dist/cli/main.js site create --name test-site
+```
+
+### 6. Start Studio (optional)
+
+If you want to test the full desktop app with CLI changes:
 
 ```bash
 npm start
@@ -91,17 +103,27 @@ After making changes to Playground:
    npx nx build playground-cli  # or other package name
    ```
 
-2. Restart Studio (restart `npm start`)
+2. Rebuild the CLI:
+   ```bash
+   cd /path/to/studio
+   npm run cli:build
+   ```
+
+3. If testing with the desktop app, restart `npm start`
 
 ## Reverting to npm Packages
 
 To go back to using the published npm packages:
 
-1. Restore both `package.json` and `package-lock.json`:
+1. Restore `apps/cli/package.json`:
    ```bash
-   git checkout package.json package-lock.json
+   git checkout apps/cli/package.json
    ```
-2. Run `npm install`
+2. Reinstall CLI dependencies:
+   ```bash
+   rm -rf apps/cli/node_modules
+   npm --prefix apps/cli install
+   ```
 3. In the Playground repo, restore the original `node_modules` symlinks:
    ```bash
    cd /path/to/wordpress-playground

@@ -4,46 +4,278 @@
 version: 2
 
 updates:
-  # Enable version updates for npm
+  # Enable version updates for npm (covers both root and cli/ directories)
   - package-ecosystem: "npm"
-    # Look for `package.json` and `lock` files in the `root` directory
     directory: "/"
-    # Check the npm registry for updates every week
     schedule:
       interval: "weekly"
+
     allow:
+      # Automattic packages
       - dependency-name: "@automattic/*"
+
+      # Electron ecosystem
+      - dependency-name: "@electron/*"
       - dependency-name: "@electron-forge/*"
+      - dependency-name: "electron"
+      - dependency-name: "electron-*"
+
+      # WordPress ecosystem
       - dependency-name: "@wordpress/*"
+      - dependency-name: "wpcom"
+      - dependency-name: "wpcom-*"
+
+      # WordPress Playground & PHP WASM
       - dependency-name: "@wp-playground/*"
       - dependency-name: "@php-wasm/*"
+
+      # TypeScript ecosystem
+      - dependency-name: "typescript"
+      - dependency-name: "typescript-*"
       - dependency-name: "@types/*"
+      - dependency-name: "ts-*"
+      - dependency-name: "@tsconfig/*"
+
+      # ESLint ecosystem
       - dependency-name: "eslint"
       - dependency-name: "eslint-*"
       - dependency-name: "@eslint/*"
       - dependency-name: "typescript-eslint"
-      - dependency-name: "typescript"
-      - dependency-name: "ts-*"
+
+      # Testing ecosystem
       - dependency-name: "jest"
       - dependency-name: "jest-*"
-      - dependency-name: "patch-package"
       - dependency-name: "@playwright/*"
       - dependency-name: "electron-playwright-helpers"
+      - dependency-name: "vitest"
+      - dependency-name: "@vitest/*"
+      - dependency-name: "@testing-library/*"
+
+      # Build tools
       - dependency-name: "vite"
       - dependency-name: "vite-*"
       - dependency-name: "@vitejs/*"
       - dependency-name: "electron-vite"
-      - dependency-name: "mdast-util-to-hast"
+      - dependency-name: "@rollup/*"
+      - dependency-name: "rollup"
+
+      # Sentry monitoring
+      - dependency-name: "@sentry/*"
+
+      # Redux ecosystem
+      - dependency-name: "@reduxjs/*"
+      - dependency-name: "react-redux"
+
+      # React ecosystem
+      - dependency-name: "react"
+      - dependency-name: "react-*"
+      - dependency-name: "@rive-app/*"
+
+      # Inquirer CLI prompts
+      - dependency-name: "@inquirer/*"
+
+      # Compression & archiving
+      - dependency-name: "archiver"
+      - dependency-name: "compression"
+      - dependency-name: "compressible"
+      - dependency-name: "yauzl"
+      - dependency-name: "tar"
+
+      # HTTP & networking
+      - dependency-name: "express"
+      - dependency-name: "http-proxy"
+      - dependency-name: "hpagent"
+      - dependency-name: "follow-redirects"
+
+      # Process management
+      - dependency-name: "pm2"
+      - dependency-name: "pm2-*"
+
+      # Security & crypto
+      - dependency-name: "node-forge"
+
+      # Utilities
+      - dependency-name: "yargs"
+      - dependency-name: "yargs-*"
+      - dependency-name: "zod"
+      - dependency-name: "semver"
+      - dependency-name: "date-fns"
+      - dependency-name: "patch-package"
+      - dependency-name: "shell-quote"
+      - dependency-name: "fs-extra"
+      - dependency-name: "rimraf"
+      - dependency-name: "lockfile"
+      - dependency-name: "atomically"
+      - dependency-name: "file-stream-rotator"
+      - dependency-name: "strip-ansi"
+      - dependency-name: "trash"
+      - dependency-name: "cli-table3"
+      - dependency-name: "ora"
+      - dependency-name: "cross-port-killer"
+      - dependency-name: "fast-deep-equal"
+
+      # Markdown & content processing
+      - dependency-name: "react-markdown"
+      - dependency-name: "remark-*"
+      - dependency-name: "rehype-*"
+      - dependency-name: "mdast-*"
+
+      # Internationalization
+      - dependency-name: "@formatjs/*"
+
+      # File uploads
+      - dependency-name: "tus-js-client"
+
+      # Windows-specific
+      - dependency-name: "electron2appx"
+
+      # macOS-specific
+      - dependency-name: "appdmg"
+      - dependency-name: "@vscode/sudo-prompt"
+
+      # Polyfills
+      - dependency-name: "web-streams-polyfill"
+      - dependency-name: "resize-observer-polyfill"
+      - dependency-name: "isomorphic-fetch"
+
+      # Dev tools
+      - dependency-name: "prettier"
+      - dependency-name: "postcss"
+      - dependency-name: "tailwindcss"
+      - dependency-name: "nock"
+      - dependency-name: "jsdom"
+      - dependency-name: "electron-devtools-installer"
+
     groups:
       electron-forge:
         patterns:
           - "@electron-forge/*"
+
+      electron:
+        patterns:
+          - "electron"
+          - "electron-*"
+          - "@electron/*"
+        exclude-patterns:
+          - "@electron-forge/*"
+          - "electron-vite"
+          - "electron-playwright-helpers"
+          - "electron-devtools-installer"
+
       wp-playground-php-wasm:
         patterns:
           - "@wp-playground/*"
           - "@php-wasm/*"
+
+      wordpress:
+        patterns:
+          - "@wordpress/*"
+          - "wpcom"
+          - "wpcom-*"
+
+      typescript:
+        patterns:
+          - "typescript"
+          - "typescript-*"
+          - "ts-*"
+          - "@types/*"
+          - "@tsconfig/*"
+        exclude-patterns:
+          - "typescript-eslint"
+
+      eslint:
+        patterns:
+          - "eslint"
+          - "eslint-*"
+          - "@eslint/*"
+          - "typescript-eslint"
+
+      testing:
+        patterns:
+          - "vitest"
+          - "@vitest/*"
+          - "@playwright/*"
+          - "electron-playwright-helpers"
+          - "@testing-library/*"
+          - "jest"
+          - "jest-*"
+
+      vite:
+        patterns:
+          - "vite"
+          - "vite-*"
+          - "@vitejs/*"
+          - "electron-vite"
+
+      sentry:
+        patterns:
+          - "@sentry/*"
+
+      redux:
+        patterns:
+          - "@reduxjs/*"
+          - "react-redux"
+
+      react:
+        patterns:
+          - "react"
+          - "react-*"
+        exclude-patterns:
+          - "react-redux"
+          - "react-markdown"
+
+      inquirer:
+        patterns:
+          - "@inquirer/*"
+
+      http-networking:
+        patterns:
+          - "express"
+          - "http-proxy"
+          - "hpagent"
+          - "follow-redirects"
+
+      process-management:
+        patterns:
+          - "pm2"
+          - "pm2-*"
+
+      markdown:
+        patterns:
+          - "react-markdown"
+          - "remark-*"
+          - "rehype-*"
+          - "mdast-*"
+
+      compression:
+        patterns:
+          - "archiver"
+          - "compression"
+          - "compressible"
+          - "yauzl"
+          - "tar"
+
+      cli-utilities:
+        patterns:
+          - "yargs"
+          - "yargs-*"
+          - "ora"
+          - "cli-table3"
+          - "shell-quote"
+          - "strip-ansi"
+
+      file-utilities:
+        patterns:
+          - "fs-extra"
+          - "rimraf"
+          - "lockfile"
+          - "atomically"
+          - "file-stream-rotator"
+          - "trash"
+
     ignore:
       - dependency-name: "eslint-plugin-studio"
+      - dependency-name: "winreg" # v1.2.5 has a known issue: https://github.com/fresc81/node-winreg/issues/65
 
   # Enable version updates for GitHub Actions
   - package-ecosystem: "github-actions"

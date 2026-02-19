@@ -12,7 +12,7 @@ UI.user_error!('Please run fastlane via `bundle exec`') unless FastlaneCore::Hel
 ########################################################################
 PROJECT_ROOT_FOLDER = File.dirname(File.expand_path(__dir__))
 SECRETS_FOLDER = File.join(Dir.home, '.configure', 'studio', 'secrets')
-BUILDS_FOLDER = File.join(PROJECT_ROOT_FOLDER, 'out')
+BUILDS_FOLDER = File.join(PROJECT_ROOT_FOLDER, 'apps', 'studio', 'out')
 
 # Enable dry run mode through environment variable
 DRY_RUN = ENV['DRY_RUN'] == 'true'
@@ -61,7 +61,8 @@ lane :notarize_binary do
   Dir[File.join(BUILDS_FOLDER, '**', 'Studio.app')].each do |path|
     notarize(
       package: path,
-      api_key_path: APPLE_API_KEY_PATH
+      api_key_path: APPLE_API_KEY_PATH,
+      print_log: true
     )
   end
 
@@ -69,7 +70,8 @@ lane :notarize_binary do
     notarize(
       bundle_id: APPLE_BUNDLE_IDENTIFIER,
       package: path,
-      api_key_path: APPLE_API_KEY_PATH
+      api_key_path: APPLE_API_KEY_PATH,
+      print_log: true
     )
   end
 end

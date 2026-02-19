@@ -121,8 +121,8 @@ steps:
           bundle exec fastlane notarize_binary
         plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
         artifact_paths:
-          - out/**/*.app.zip
-          - out/*.dmg
+          - apps/studio/out/**/*.app.zip
+          - apps/studio/out/*.dmg
         matrix:
           - x64
           - arm64
@@ -220,8 +220,8 @@ steps:
           bundle exec fastlane notarize_binary
         plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
         artifact_paths:
-          - out/**/*.app.zip
-          - out/*.dmg
+          - apps/studio/out/**/*.app.zip
+          - apps/studio/out/*.dmg
         matrix:
           - x64
           - arm64

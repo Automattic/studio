@@ -1,8 +1,8 @@
 import os from 'os';
 import path from 'path';
 import fs from 'fs-extra';
-import { extractZip } from '../common/lib/extract-zip';
-import { WP_LOCALES } from '../common/lib/wp-locales';
+import { extractZip } from '../tools/common/lib/extract-zip';
+import { WP_LOCALES } from '../tools/common/lib/wp-locales';
 
 const WP_SERVER_FILES_PATH = path.join( __dirname, '..', 'wp-files' );
 

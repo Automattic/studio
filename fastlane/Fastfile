@@ -12,7 +12,7 @@ UI.user_error!('Please run fastlane via `bundle exec`') unless FastlaneCore::Hel
 ########################################################################
 PROJECT_ROOT_FOLDER = File.dirname(File.expand_path(__dir__))
 SECRETS_FOLDER = File.join(Dir.home, '.configure', 'studio', 'secrets')
-BUILDS_FOLDER = File.join(PROJECT_ROOT_FOLDER, 'out')
+BUILDS_FOLDER = File.join(PROJECT_ROOT_FOLDER, 'apps', 'studio', 'out')
 
 # Enable dry run mode through environment variable
 DRY_RUN = ENV['DRY_RUN'] == 'true'

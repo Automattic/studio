@@ -10,7 +10,7 @@ set -eu
 # Job types:
 #   - validation: Skip if changes are limited to documentation, config, localization, and non-code files.
 #                 Used for lint, unit tests, and e2e tests.
-#   - metrics: Same as validation, but also skips on test-only changes (e2e/**, *.test.ts).
+#   - metrics: Same as validation, but also skips on test-only changes (apps/studio/e2e/**, *.test.ts).
 #              Since metrics measure app performance, test file changes don't affect them.
 #   - build: Skip if changes are limited to documentation and config files.
 #            Does NOT skip on localization changes since builds should include translation updates.
@@ -53,7 +53,7 @@ COMMON_NON_CODE_PATTERNS=(
 
   # Installer assets and configuration
   "installers/**"
-  "assets/appx/**"
+  "apps/studio/assets/appx/**"
 
   # Claude AI configuration
   ".claude/**"
@@ -62,17 +62,17 @@ COMMON_NON_CODE_PATTERNS=(
 
 # Localization files - changes here don't affect runtime behavior or performance
 LOCALIZATION_PATTERNS=(
-  "common/translations/**"
+  "tools/common/translations/**"
 )
 
 # Test files - changes here don't affect app performance (for metrics)
 TEST_PATTERNS=(
-  "e2e/**"
-  "src/tests/**"
-  "src/**/*.test.ts"
-  "src/**/*.test.tsx"
-  "cli/**/*.test.ts"
-  "common/**/*.test.ts"
+  "apps/studio/e2e/**"
+  "apps/studio/src/tests/**"
+  "apps/studio/src/**/*.test.ts"
+  "apps/studio/src/**/*.test.tsx"
+  "apps/cli/**/*.test.ts"
+  "tools/common/**/*.test.ts"
   "metrics/**"
 )
 

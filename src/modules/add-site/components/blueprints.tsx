@@ -12,6 +12,7 @@ import { sprintf } from '@wordpress/i18n';
 import { Icon, external, upload } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useRef, useState, useMemo } from 'react';
+import { generateDefaultBlueprintDescription } from 'common/lib/blueprint-settings';
 import { BlueprintValidationWarning } from 'common/lib/blueprint-validation';
 import StudioButton from 'src/components/button';
 import { LearnMoreLink } from 'src/components/learn-more';
@@ -219,7 +220,8 @@ export function AddSiteBlueprintSelector( {
 				const fileBlueprint: Blueprint = {
 					slug: `file:${ file.name }`, // Use filename as part of the slug
 					title: blueprintJson.meta?.title || file.name.replace( '.json', '' ),
-					excerpt: blueprintJson.meta?.description || __( 'Blueprint loaded from file' ),
+					excerpt:
+						blueprintJson.meta?.description || generateDefaultBlueprintDescription( blueprintJson ),
 					image: '', // No image for file-based blueprints
 					playground_url: '', // No playground URL for file-based blueprints
 					blueprint: blueprintJson, // The actual blueprint JSON

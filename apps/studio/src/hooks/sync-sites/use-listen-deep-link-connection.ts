@@ -58,7 +58,6 @@ export function useListenDeepLinkConnection() {
 				setSelectedTab( 'sync' );
 			}
 
-			// Connect optimistically (async, don't block modal opening)
 			const connectPromise = connectSite( { site: minimalSite, localSiteId: studioSiteId } );
 
 			// Only auto-open push dialog if explicitly requested (e.g., from "Publish site" button)
@@ -81,7 +80,6 @@ export function useListenDeepLinkConnection() {
 					fetchSingleSitePromise,
 				] );
 
-				// If we successfully fetched the single site, update the connection with full data
 				if ( singleSiteResult.data ) {
 					const fullSiteData: SyncSite = {
 						...singleSiteResult.data,

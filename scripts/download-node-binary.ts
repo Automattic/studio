@@ -9,7 +9,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { extract } from 'tar';
-import { extractZip } from '../common/lib/extract-zip';
+import { extractZip } from '../tools/common/lib/extract-zip';
 
 const LTS_FALLBACK = 'v24.13.1';
 
@@ -53,7 +53,7 @@ if ( ! nodeArch ) {
 	process.exit( 1 );
 }
 
-const binDir = path.join( __dirname, '..', 'bin' );
+const binDir = path.join( __dirname, '..', 'apps', 'studio', 'bin' );
 const tmpDir = os.tmpdir();
 
 if ( ! fs.existsSync( binDir ) ) {

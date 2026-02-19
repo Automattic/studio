@@ -8,9 +8,7 @@ interface BetaFeaturesState {
 }
 
 const initialState: BetaFeaturesState = {
-	features: {
-		multiWorkerSupport: false,
-	},
+	features: {},
 	loading: false,
 };
 

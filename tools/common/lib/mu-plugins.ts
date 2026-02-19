@@ -78,6 +78,19 @@ async function createLoaderMuPlugin(): Promise< string > {
 function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 	const muPlugins: MuPlugin[] = [];
 
+	// Must load before other mu-plugins that may trigger PHP warnings.
+	// Playground's 0-playground.php unconditionally sets error_log to
+	// wp-content/debug.log. Without this, any PHP warning from Studio's
+	// mu-plugins creates a debug.log even when WP_DEBUG_LOG is disabled.
+	muPlugins.push( {
+		filename: '0-configure-error-logging.php',
+		content: `<?php
+		if ( ! defined( 'WP_DEBUG_LOG' ) || ! WP_DEBUG_LOG ) {
+			ini_set( 'log_errors', '0' );
+		}
+		`,
+	} );
+
 	muPlugins.push( {
 		filename: '0-tmp-fix-qm-plugin-sapi.php',
 		content: `<?php

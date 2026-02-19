@@ -37,8 +37,8 @@ export function useListenDeepLinkConnection() {
 			const minimalSite: SyncSite = {
 				id: remoteSiteId,
 				localSiteId: studioSiteId,
-				name: siteName || 'Loading site...', // Use provided name or placeholder
-				url: siteUrl || '', // Use provided URL or empty string
+				name: siteName ?? '', // Will be replaced by fetch; not shown (loading skeleton displayed)
+				url: siteUrl ?? '', // Will be replaced by fetch; not shown (loading skeleton displayed)
 				isStaging: false, // Placeholder
 				isPressable: false, // Placeholder
 				environmentType: null, // Will be fetched
@@ -67,7 +67,6 @@ export function useListenDeepLinkConnection() {
 				dispatch( connectedSitesActions.setSelectedRemoteSiteId( remoteSiteId ) );
 			}
 
-			// Fetch full site data in background using optimized single-site endpoint
 			const fetchSingleSitePromise = dispatch(
 				wpcomSitesApi.endpoints.getSingleWpComSite.initiate( {
 					siteId: remoteSiteId,

@@ -113,7 +113,7 @@ export function SyncSitesModalSelector( {
 	);
 }
 
-export function SearchSites( {
+function SearchSites( {
 	searchQuery,
 	setSearchQuery,
 }: {
@@ -213,7 +213,7 @@ const getSortedSites = ( sites: SyncSite[] ) => {
 	return [ ...sites ].sort( ( a, b ) => order[ a.syncSupport ] - order[ b.syncSupport ] );
 };
 
-export function ListSites( {
+function ListSites( {
 	syncSites,
 	selectedSiteId,
 	onSelectSite,

@@ -522,12 +522,12 @@ async function setupLocalSite(
 	const domain = `bench-${ env.name }.local`;
 	const siteDir = path.join( getLocalSitesDir(), siteName );
 
-	// Clean up any leftover site from a previous run
-	const existing = await client.findSiteByName( siteName );
-	if ( existing ) {
-		console.log( chalk.gray( `    Removing leftover site "${ siteName }"...` ) );
-		await client.stopSite( existing.id ).catch( () => {} );
-		await client.deleteSite( existing.id ).catch( () => {} );
+	// Clean up any leftover sites from previous runs
+	const existing = await client.findAllSitesByName( siteName );
+	for ( const old of existing ) {
+		console.log( chalk.gray( `    Removing leftover site "${ siteName }" (${ old.id })...` ) );
+		await client.stopSite( old.id ).catch( () => {} );
+		await client.deleteSite( old.id ).catch( () => {} );
 	}
 	if ( fs.existsSync( siteDir ) ) {
 		cleanupDir( siteDir );

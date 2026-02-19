@@ -208,8 +208,11 @@ export class LocalGraphQLClient {
 			throw new Error( `Site "${ name }" was not found after creation job completed` );
 		}
 
-		// Wait for site to be running
-		await this.waitForSiteStatus( site.id, 'running', 120_000 );
+		// Explicitly start the site — addSite may not auto-start it
+		if ( site.status !== 'running' ) {
+			await this.startSite( site.id );
+			await this.waitForSiteStatus( site.id, 'running', 120_000 );
+		}
 
 		// Re-fetch to get the port
 		const runningSite = await this.getSite( site.id );
@@ -285,9 +288,9 @@ export class LocalGraphQLClient {
 	}
 
 	/**
-	 * Find a site by name.
+	 * Find all sites matching a name.
 	 */
-	async findSiteByName( name: string ): Promise< LocalSite | null > {
+	async findAllSitesByName( name: string ): Promise< LocalSite[] > {
 		const result = await this.query< {
 			sites: Array< {
 				id: string;
@@ -310,13 +313,20 @@ export class LocalGraphQLClient {
 			}`
 		);
 
-		const site = result.sites.find( ( s ) => s.name === name );
-		if ( ! site ) return null;
+		return result.sites
+			.filter( ( s ) => s.name === name )
+			.map( ( s ) => ( {
+				...s,
+				url: s.httpPort ? `http://localhost:${ s.httpPort }` : '',
+			} ) );
+	}
 
-		return {
-			...site,
-			url: site.httpPort ? `http://localhost:${ site.httpPort }` : '',
-		};
+	/**
+	 * Find a site by name.
+	 */
+	async findSiteByName( name: string ): Promise< LocalSite | null > {
+		const matches = await this.findAllSitesByName( name );
+		return matches[ 0 ] ?? null;
 	}
 
 	/**
@@ -353,6 +363,21 @@ export class LocalGraphQLClient {
 			...site,
 			url: site.httpPort ? `http://localhost:${ site.httpPort }` : '',
 		};
+	}
+
+	/**
+	 * Start a site.
+	 */
+	async startSite( id: string ): Promise< void > {
+		await this.query(
+			`mutation StartSite($id: ID!) {
+				startSite(id: $id) {
+					id
+					status
+				}
+			}`,
+			{ id }
+		);
 	}
 
 	/**

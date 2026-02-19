@@ -1,27 +1,22 @@
 {
+	"extends": "./tsconfig.base.json",
 	"compilerOptions": {
-		"target": "ES6",
-		"allowJs": true,
-		"module": "commonjs",
-		"skipLibCheck": true,
-		"esModuleInterop": true,
-		"noImplicitAny": true,
-		"sourceMap": true,
 		"baseUrl": ".",
 		"outDir": "dist",
-		"moduleResolution": "node",
-		"resolveJsonModule": true,
-		"jsx": "react-jsx",
-		"strict": true,
-		"types": [ "vitest/globals" ],
 		"paths": {
 			"*": [ "node_modules/*" ],
-			"cli/*": [ "cli/*" ],
-			"src/*": [ "src/*" ],
+			"cli/*": [ "apps/cli/*" ],
+			"src/*": [ "apps/studio/src/*" ],
 			"vendor/*": [ "vendor/*" ],
-			"common/*": [ "common/*" ]
+			"@studio/common/*": [ "tools/common/*" ]
 		}
 	},
-	"include": [ "src/**/*", "cli/**/*", "common/**/*", "e2e/**/*", "./vitest.setup.ts" ],
+	"include": [
+		"apps/studio/src/**/*",
+		"apps/studio/e2e/**/*",
+		"apps/cli/**/*",
+		"tools/common/**/*",
+		"./vitest.global-setup.ts"
+	],
 	"exclude": [ "**/__mocks__/**/*", "**/node_modules/**/*", "**/dist/**/*", "**/out/**/*" ]
 }

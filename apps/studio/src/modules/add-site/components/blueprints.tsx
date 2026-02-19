@@ -1,3 +1,4 @@
+import { generateDefaultBlueprintDescription } from '@studio/common/lib/blueprint-settings';
 import { BlueprintValidationWarning } from '@studio/common/lib/blueprint-validation';
 import {
 	__experimentalVStack as VStack,
@@ -219,7 +220,8 @@ export function AddSiteBlueprintSelector( {
 				const fileBlueprint: Blueprint = {
 					slug: `file:${ file.name }`, // Use filename as part of the slug
 					title: blueprintJson.meta?.title || file.name.replace( '.json', '' ),
-					excerpt: blueprintJson.meta?.description || __( 'Blueprint loaded from file' ),
+					excerpt:
+						blueprintJson.meta?.description || generateDefaultBlueprintDescription( blueprintJson ),
 					image: '', // No image for file-based blueprints
 					playground_url: '', // No playground URL for file-based blueprints
 					blueprint: blueprintJson, // The actual blueprint JSON

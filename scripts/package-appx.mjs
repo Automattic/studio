@@ -2,6 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import convertToWindowsStore from 'electron2appx';
+import packageJson from '../apps/studio/package.json' with { type: 'json' };
 
 console.log( '--- :electron: Packaging AppX' );
 
@@ -44,12 +45,8 @@ try {
 	process.exit( 1 );
 }
 
-const packageJsonPath = path.resolve( __dirname, '..', 'package.json' );
-const packageJsonText = await fs.readFile( packageJsonPath, 'utf-8' );
-const packageJson = JSON.parse( packageJsonText );
-
-const outPath = path.join( __dirname, '..', 'out' );
-const assetsPath = path.join( __dirname, '..', 'assets', 'appx' );
+const outPath = path.join( __dirname, '..', 'apps', 'studio', 'out' );
+const assetsPath = path.join( __dirname, '..', 'apps', 'studio', 'assets', 'appx' );
 
 console.log( `~~~ Packaging AppX for architecture: ${ architecture }` );
 

@@ -1,9 +1,9 @@
 import os from 'os';
 import path from 'path';
 import fs from 'fs-extra';
-import { extractZip } from '../common/lib/extract-zip';
-import { getLatestSQLiteCommandRelease } from '../src/lib/sqlite-command-release';
-import { SQLITE_DATABASE_INTEGRATION_RELEASE_URL } from '../src/constants';
+import { extractZip } from '../tools/common/lib/extract-zip';
+import { getLatestSQLiteCommandRelease } from '../apps/studio/src/lib/sqlite-command-release';
+import { SQLITE_DATABASE_INTEGRATION_RELEASE_URL } from '../apps/studio/src/constants';
 
 const WP_SERVER_FILES_PATH = path.join( __dirname, '..', 'wp-files' );
 

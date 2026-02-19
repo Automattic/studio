@@ -16,50 +16,50 @@ WordPress Studio - Electron desktop app for managing local WordPress sites. Buil
 
 **MUST** build CLI before testing: `npm run cli:build && node dist/cli/main.js <command>`
 - **Auth**: `auth login|logout|status` - WordPress.com OAuth (tokens valid 2 weeks)
-- **Preview Sites**: See `cli/commands/preview/`
-- **Local Sites**: See `cli/commands/site/`
+- **Preview Sites**: See `apps/cli/commands/preview/`
+- **Local Sites**: See `apps/cli/commands/site/`
 
 ## Architecture
 
 **Electron 3-Process**: Main (Node.js) → Preload (IPC bridge) → Renderer (React)
-**Main Process** (`src/`): IPC handlers, site servers, storage, OAuth, sync, migrations
-**Renderer** (`src/components`, `src/hooks`): React UI, Redux stores, TailwindCSS
-**CLI** (`cli/`): WordPress Playground (PHP WASM), yargs commands, child process of desktop app
+**Main Process** (`apps/studio/src/`): IPC handlers, site servers, storage, OAuth, sync, migrations
+**Renderer** (`apps/studio/src/components`, `apps/studio/src/hooks`): React UI, Redux stores, TailwindCSS
+**CLI** (`apps/cli/`): WordPress Playground (PHP WASM), yargs commands, child process of desktop app
 
 ## Directory Structure
 
-**`/src`**: Main (index.ts, ipc-handlers.ts, site-server.ts, storage/, lib/) | Renderer (components/, hooks/, stores/) | modules/ (sync, cli, user-settings, preview-site)
-**`/cli`**: index.ts, commands/ (auth, preview, site), lib/ (appdata, i18n, browser)
-**`/common`**: Shared lib/ (fs-utils, port-finder, oauth), types/, translations/
-**`/packages`**: eslint-plugin-studio
+**`/apps/studio/src`**: Main (index.ts, ipc-handlers.ts, site-server.ts, storage/, lib/) | Renderer (components/, hooks/, stores/) | modules/ (sync, cli, user-settings, preview-site)
+**`/apps/cli`**: index.ts, commands/ (auth, preview, site), lib/ (appdata, i18n, browser)
+**`/tools/common`**: Shared lib/ (fs-utils, port-finder, oauth), types/, translations/
+**`/tools/eslint-plugin-studio`**: eslint-plugin-studio
 
 ## Key Patterns
 
 **IPC**: Renderer → `window.ipcApi.*` → Preload (contextBridge) → Main `ipc-handlers.ts` → Business logic
-**CliServerProcess**: Desktop spawns CLI as child process (`src/modules/cli/lib/cli-server-process.ts`)
+**CliServerProcess**: Desktop spawns CLI as child process (`apps/studio/src/modules/cli/lib/cli-server-process.ts`)
 **Redux Stores**: chat, sync, connectedSites, snapshot, onboarding | RTK Query APIs: wpcomApi, installedAppsApi, wordpressVersionsApi
-**SiteServer** (`src/site-server.ts`): Manages site instances, server start/stop, SSL certs, ports
+**SiteServer** (`apps/studio/src/site-server.ts`): Manages site instances, server start/stop, SSL certs, ports
 
 ## Tech Stack
 
 **Frontend**: React 18, Redux Toolkit + RTK Query, @wordpress/components, TailwindCSS, TypeScript, Vite
-**Main**: Electron 38, express
+**Main**: Electron, express
 **CLI**: @wp-playground/cli, @php-wasm/node, @wp-playground/blueprints
 **Dev**: electron-vite, electron-forge, Vitest, Playwright
 **Other**: Sentry, wpcom, zod, yargs
 
 ## Build & Distribution
 
-**Build**: CLI (`vite build --config vite.cli.config.ts`) → Electron (`electron-vite build`) → Package (`electron-forge make`)
+**Build**: CLI (`vite build --config apps/cli/vite.config.ts`) → Electron (`electron-vite build --config apps/studio/electron.vite.config.ts`) → Package (`electron-forge make --config apps/studio/forge.config.ts`)
 **Platforms**: macOS (x64/ARM64 DMG), Windows (x64/ARM64 MSIX), Linux (DEB)
 **Bundling**: Rollup (main), Vite (renderer with code splitting), ASAR (resources)
 
 ## Conventions
 
 **Files**: React components (PascalCase), utils (camelCase), tests (.test.ts/.tsx)
-**IPC Handlers** (`src/ipc-handlers.ts`): **MUST** `export async function handlerName(event, ...args): Promise<ReturnType>` | Handler names in `src/constants.ts` | All handlers MUST be async and return Promises
+**IPC Handlers** (`apps/studio/src/ipc-handlers.ts`): **MUST** `export async function handlerName(event, ...args): Promise<ReturnType>` | Handler names in `apps/studio/src/constants.ts` | All handlers MUST be async and return Promises
 **Storage**: **CRITICAL** - Always use file locking: `lockAppdata()` / `unlockAppdata()` to prevent data corruption
-**i18n**: `@wordpress/i18n` (`__()` function), `common/translations/`, `<I18nProvider>` (renderer), `loadTranslations()` (CLI)
+**i18n**: `@wordpress/i18n` (`__()` function), `tools/common/translations/`, `<I18nProvider>` (renderer), `loadTranslations()` (CLI)
 
 ## WordPress Studio Paths
 
@@ -109,7 +109,7 @@ For in-depth information, see these docs:
 ## Quick Reference
 
 **WP Playground**: CLI runs WordPress via PHP WASM, Blueprints for config, `filterUnsupportedBlueprintFeatures()` for compatibility
-**Sync**: OAuth via `common/lib/oauth.ts`, Redux `sync` slice, pull/push WordPress.com sites
+**Sync**: OAuth via `tools/common/lib/oauth.ts`, Redux `sync` slice, pull/push WordPress.com sites
 **Security**: Renderer sandboxed, IPC validation, strict CSP, no Node integration, self-signed HTTPS certs
 
 ---

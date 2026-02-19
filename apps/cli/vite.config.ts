@@ -1,9 +1,8 @@
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, readFileSync, rmSync } from 'fs';
 import { dirname, join, resolve } from 'path';
+import { sync as globSync } from 'glob';
 import { defineConfig, normalizePath } from 'vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
-import { rmSync } from 'fs';
-import { sync as globSync } from 'glob';
 
 const yargsPath = dirname( require.resolve( 'yargs' ) );
 const yargsLocalesPath = join( yargsPath, 'locales' );

@@ -85,9 +85,8 @@ interface FeatureFlags {
 	enableBlueprints: boolean;
 }
 
-interface BetaFeatures {
-	multiWorkerSupport: boolean;
-}
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+interface BetaFeatures {}
 
 interface AppGlobals extends FeatureFlags {
 	platform: NodeJS.Platform;

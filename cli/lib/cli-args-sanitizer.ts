@@ -129,7 +129,6 @@ export function sanitizeRunCLIArgs( args: RunCLIArgs ): Record< string, unknown 
 		internalCookieStore: args.internalCookieStore,
 		xdebug: args.xdebug,
 		experimentalDevtools: args.experimentalDevtools,
-		experimentalMultiWorker: args.experimentalMultiWorker,
 		'site-url': args[ 'site-url' ],
 		outfile: args.outfile,
 		blueprintJson: args.blueprint

@@ -31,6 +31,8 @@ export interface MeasureOptions {
 	isPlaygroundWeb: boolean;
 	/** Whether this is a local Playground CLI site (127.0.0.1). Affects login flow. */
 	isPlaygroundCli: boolean;
+	/** Whether this is a Local by Flywheel site. Uses wp-login.php credentials. */
+	isLocal: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -74,8 +76,7 @@ function findEditorCanvasFrame(
 	wordPressFrame: Frame | null
 ): Frame | null {
 	if ( isPlaygroundWeb && wordPressFrame ) {
-		let frame =
-			wordPressFrame.childFrames().find( ( f ) => f.name() === 'editor-canvas' ) || null;
+		let frame = wordPressFrame.childFrames().find( ( f ) => f.name() === 'editor-canvas' ) || null;
 		if ( ! frame ) {
 			frame = page.frames().find( ( f ) => f.name() === 'editor-canvas' ) || null;
 		}
@@ -96,7 +97,7 @@ function findEditorCanvasFrame(
  * The browser is always closed, even on error.
  */
 export async function measureSiteEditor( options: MeasureOptions ): Promise< MeasurementResult > {
-	const { isPlaygroundWeb, isPlaygroundCli } = options;
+	const { isPlaygroundWeb, isPlaygroundCli, isLocal } = options;
 
 	// Normalize URL
 	let wpAdminUrl = options.url;
@@ -140,6 +141,23 @@ export async function measureSiteEditor( options: MeasureOptions ): Promise< Mea
 				state: 'visible',
 				timeout: 60_000,
 			} );
+		} else if ( isLocal ) {
+			// Local sites require wp-login.php with credentials
+			await page.goto( `${ wpAdminUrl }/wp-login.php`, {
+				waitUntil: 'domcontentloaded',
+				timeout: 120_000,
+			} );
+			await page.waitForLoadState( 'networkidle', { timeout: 30_000 } ).catch( () => {} );
+			await page.fill( '#user_login', 'admin' );
+			await page.fill( '#user_pass', 'password' );
+			await Promise.all( [
+				page.waitForURL( '**/wp-admin/**', { timeout: 60_000 } ),
+				page.click( '#wp-submit' ),
+			] );
+			await page.getByRole( 'link', { name: 'Appearance' } ).waitFor( {
+				state: 'visible',
+				timeout: 60_000,
+			} );
 		} else {
 			// Studio: use auto-login endpoint
 			await page.goto( getUrlWithAutoLogin( `${ wpAdminUrl }/wp-admin` ), {
@@ -165,9 +183,7 @@ export async function measureSiteEditor( options: MeasureOptions ): Promise< Mea
 		const welcomeDialog = target.getByRole( 'dialog', {
 			name: /welcome to the site editor/i,
 		} );
-		const isModalVisible = await welcomeDialog
-			.isVisible( { timeout: 5_000 } )
-			.catch( () => false );
+		const isModalVisible = await welcomeDialog.isVisible( { timeout: 5_000 } ).catch( () => false );
 		if ( isModalVisible ) {
 			await target.getByRole( 'button', { name: /get started/i } ).click();
 			await welcomeDialog.waitFor( { state: 'hidden', timeout: 5_000 } ).catch( () => {} );
@@ -189,8 +205,7 @@ export async function measureSiteEditor( options: MeasureOptions ): Promise< Mea
 			() => {
 				const blocks = document.querySelectorAll( '[data-block]' );
 				return (
-					blocks.length > 0 &&
-					Array.from( blocks ).some( ( block ) => block.clientHeight > 0 )
+					blocks.length > 0 && Array.from( blocks ).some( ( block ) => block.clientHeight > 0 )
 				);
 			},
 			{ timeout: 60_000 }
@@ -211,10 +226,7 @@ export async function measureSiteEditor( options: MeasureOptions ): Promise< Mea
 			.waitFor( { timeout: 60_000 } );
 		const firstCard = target.locator( '.dataviews-view-grid__card' ).first();
 		await firstCard.waitFor( { state: 'visible', timeout: 60_000 } );
-		await firstCard
-			.getByRole( 'button' )
-			.first()
-			.waitFor( { state: 'visible', timeout: 60_000 } );
+		await firstCard.getByRole( 'button' ).first().waitFor( { state: 'visible', timeout: 60_000 } );
 
 		result.templatesViewLoad = Date.now() - templatesViewStart;
 
@@ -244,8 +256,7 @@ export async function measureSiteEditor( options: MeasureOptions ): Promise< Mea
 			() => {
 				const blocks = document.querySelectorAll( '[data-block]' );
 				return (
-					blocks.length > 0 &&
-					Array.from( blocks ).some( ( block ) => block.clientHeight > 0 )
+					blocks.length > 0 && Array.from( blocks ).some( ( block ) => block.clientHeight > 0 )
 				);
 			},
 			{ timeout: 60_000 }

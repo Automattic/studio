@@ -108,6 +108,8 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 	const adminUsernameError = validateAdminUsername( adminUsername );
 	const adminPasswordError = ! adminPassword.trim() ? __( 'Admin password is required' ) : '';
 	const adminEmailError = adminEmail.trim() ? validateAdminEmail( adminEmail ) : '';
+	const isUsernameChanged =
+		! adminUsernameError && adminUsername !== ( selectedSite?.adminUsername ?? 'admin' );
 	const isFormUnchanged =
 		!! selectedSite &&
 		selectedSite.name === siteName &&
@@ -436,6 +438,13 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 										) }
 									</div>
 								</div>
+								{ isUsernameChanged && (
+									<span className="text-a8c-gray-50 text-xs">
+										{ __(
+											'A new admin user will be created. WordPress does not support renaming usernames.'
+										) }
+									</span>
+								) }
 							</div>
 
 							<div className="flex flex-col gap-1.5 leading-4 mt-4">
@@ -450,8 +459,12 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 									placeholder="admin@localhost.com"
 									className={ adminEmailError ? '[&_input]:!border-red-500' : '' }
 								/>
-								{ adminEmailError && (
+								{ adminEmailError ? (
 									<span className="text-red-500 text-xs">{ adminEmailError }</span>
+								) : (
+									<span className="text-a8c-gray-50 text-xs">
+										{ __( 'Defaults to admin@localhost.com if not provided.' ) }
+									</span>
 								) }
 							</div>
 						</div>

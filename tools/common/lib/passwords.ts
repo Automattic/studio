@@ -59,7 +59,7 @@ export function validateAdminUsername( username: string ): string {
 		return __( 'Admin username cannot be empty.' );
 	}
 	if ( ! /^[a-zA-Z0-9_.@-]+$/.test( username ) ) {
-		return __( 'Username can only contain letters, numbers, and _.@- characters' );
+		return __( 'Username can only contain letters, numbers, and _.@- characters.' );
 	}
 	if ( username.length > 60 ) {
 		return __( 'Username must be 60 characters or fewer.' );

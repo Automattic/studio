@@ -10,7 +10,11 @@ import { __, sprintf, _n } from '@wordpress/i18n';
 import { tip, cautionFilled, chevronRight, chevronDown, chevronLeft } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useState, useEffect, useCallback, useMemo, useRef, RefObject } from 'react';
-import { generatePassword, validateAdminEmail, validateAdminUsername } from '@studio/common/lib/passwords';
+import {
+	generatePassword,
+	validateAdminEmail,
+	validateAdminUsername,
+} from '@studio/common/lib/passwords';
 import Button from 'src/components/button';
 import FolderIcon from 'src/components/folder-icon';
 import { LearnMoreLink, LearnHowLink } from 'src/components/learn-more';
@@ -601,8 +605,12 @@ export const CreateSiteForm = ( {
 										placeholder="admin@localhost.com"
 										className={ adminEmailError ? '[&_input]:!border-red-500' : '' }
 									/>
-									{ adminEmailError && (
+									{ adminEmailError ? (
 										<span className="text-red-500 text-xs">{ adminEmailError }</span>
+									) : (
+										<span className="text-a8c-gray-50 text-xs">
+											{ __( 'Defaults to admin@localhost.com if not provided.' ) }
+										</span>
 									) }
 								</div>
 

@@ -140,9 +140,9 @@ lane :code_freeze do |version:, skip_confirm: false, github_username: nil|
     - Extract translatable strings and commit to `#{branch_name}`
     - Generate draft release notes from merged PRs
     - Create a backmerge PR from `#{branch_name}` to `#{MAIN_BRANCH}`
-    - Bump version to #{version}-beta1
-    - Tag v#{version}-beta1
-    - Trigger a release build
+    - Trigger the first beta build for all platforms (macOS, Windows), which will then:
+      - Upload build artifacts to the Apps CDN
+      - Notify #dotcom-studio on Slack
   PROMPT
   next unless skip_confirm || UI.confirm('Continue?')
 
@@ -211,7 +211,9 @@ lane :new_beta_release do |version:, skip_confirm: false|
     Creating new beta release #{new_version}. This will:
     - Bump version to #{new_version}
     - Tag v#{new_version}
-    - Trigger a release build
+    - Trigger a release build for all platforms (macOS, Windows), which will then:
+      - Upload build artifacts to the Apps CDN
+      - Notify #dotcom-studio on Slack
   PROMPT
   next unless skip_confirm || UI.confirm('Continue?')
 
@@ -250,7 +252,10 @@ lane :finalize_release do |version:, skip_confirm: false|
     Finalizing release #{version}. This will:
     - Bump version to #{version} (remove beta suffix)
     - Create a draft GitHub release with release notes
-    - Trigger a release build
+    - Trigger a release build for all platforms (macOS, Windows), which will then:
+      - Upload build artifacts to the Apps CDN
+      - Add download links to the draft GitHub release
+      - Notify #dotcom-studio on Slack
   PROMPT
   next unless skip_confirm || UI.confirm('Continue?')
 

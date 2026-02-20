@@ -56,6 +56,14 @@ export default defineConfig( {
 					},
 			  ]
 			: [] ),
+		viteStaticCopy( {
+			targets: [
+				{
+					src: 'ai/plugin',
+					dest: 'ai',
+				},
+			],
+		} ),
 	],
 	build: {
 		lib: {
@@ -91,6 +99,8 @@ export default defineConfig( {
 				'@wp-playground/cli',
 				'@wp-playground/blueprints',
 				'@wp-playground/wordpress',
+				'@anthropic-ai/claude-agent-sdk',
+				'koffi',
 			],
 			output: {
 				format: 'cjs',

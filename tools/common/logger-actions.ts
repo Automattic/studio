@@ -40,3 +40,8 @@ export enum SiteCommandLoggerAction {
 	DELETE_PREVIEW_SITES = 'deletePreviewSites',
 	DELETE_FILES = 'deleteFiles',
 }
+
+export enum AiCommandLoggerAction {
+	AGENT_START = 'agentStart',
+	AGENT_RUN = 'agentRun',
+}

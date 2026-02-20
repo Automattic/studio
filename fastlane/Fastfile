@@ -138,6 +138,7 @@ lane :code_freeze do |version:, skip_confirm: false, github_username: nil|
     Freezing code for release #{version}. This will:
     - Create a new `#{branch_name}` branch from `#{MAIN_BRANCH}`
     - Extract translatable strings and commit to `#{branch_name}`
+    - Generate draft release notes from merged PRs
     - Create a backmerge PR from `#{branch_name}` to `#{MAIN_BRANCH}`
     - Bump version to #{version}-beta1
     - Tag v#{version}-beta1
@@ -170,6 +171,15 @@ lane :code_freeze do |version:, skip_confirm: false, github_username: nil|
   git_commit(
     path: ['./i18n/bundle-strings.pot'],
     message: "[skip ci] Code freeze: Update translatable strings for #{version}",
+    allow_nothing_to_commit: true
+  )
+
+  # Generate draft release notes from PRs merged since the last published release
+  update_release_notes_draft(version: version)
+  git_add(path: ['RELEASE-NOTES.txt'])
+  git_commit(
+    path: ['RELEASE-NOTES.txt'],
+    message: "[skip ci] Code freeze: Add draft release notes for #{version}",
     allow_nothing_to_commit: true
   )
 
@@ -692,6 +702,42 @@ def extract_release_notes(version:)
     UI.important("No release notes found for #{version} in RELEASE-NOTES.txt")
     "Release #{version}"
   end
+end
+
+# Generate a draft release notes section from merged PRs and prepend it to RELEASE-NOTES.txt.
+# Uses GitHub's generate-notes API to list PRs since the last published release.
+def update_release_notes_draft(version:)
+  # Find the latest stable release tag reachable from HEAD to use as the starting point
+  previous_tag = find_previous_tag(pattern: 'v*')
+
+  changelog = get_prs_between_tags(
+    repository: GITHUB_REPO,
+    tag_name: "v#{version}",
+    previous_tag: previous_tag,
+    target_commitish: 'HEAD'
+  )
+
+  # Convert "* Title by @user in https://github.com/Org/Repo/pull/123" to "* Title #123"
+  lines = changelog.lines.reject { |l| l.start_with?('##') || l.strip.empty? }
+  formatted = lines.map do |line|
+    line.sub(%r{ by @\S+ in https://github\.com/\S+/pull/(\d+)}, ' #\1')
+  end.join.strip
+
+  if formatted.empty?
+    UI.important('No PRs found for draft release notes — skipping RELEASE-NOTES.txt update')
+    return
+  end
+
+  notes_path = File.join(PROJECT_ROOT_FOLDER, 'RELEASE-NOTES.txt')
+  content = File.read(notes_path)
+
+  new_section = "#{version}\n=====\n#{formatted}\n"
+
+  # Insert the new version section after the "Unreleased" header
+  content.sub!(/^(Unreleased\n=+\n)\n*/, "\\1\n#{new_section}\n")
+  File.write(notes_path, content)
+
+  UI.success("Draft release notes for #{version} added to RELEASE-NOTES.txt")
 end
 
 # Create a backmerge PR from the given source branch into the main branch

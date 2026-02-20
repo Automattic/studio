@@ -2,6 +2,7 @@ import { password } from '@inquirer/prompts';
 import { __ } from '@wordpress/i18n';
 import { AiCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { startAiAgent } from 'cli/ai/agent';
+import { setToolProgressHandler } from 'cli/ai/tools';
 import { getAnthropicApiKey, saveAnthropicApiKey } from 'cli/lib/appdata';
 import { AiChatUI } from 'cli/ai/ui';
 import { Logger, LoggerError } from 'cli/logger';
@@ -34,6 +35,7 @@ export async function runCommand( options: { maxTurns?: number } ): Promise< voi
 	const apiKey = await resolveApiKey();
 
 	const ui = new AiChatUI();
+	setToolProgressHandler( ( message ) => ui.setLoaderMessage( message ) );
 	ui.start();
 
 	let sessionId: string | undefined;

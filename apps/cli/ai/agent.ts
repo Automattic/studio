@@ -56,7 +56,8 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 			plugins: [ { type: 'local', path: pluginPath } ],
 			maxTurns,
 			cwd: process.cwd(),
-			permissionMode: 'default',
+			permissionMode: 'bypassPermissions',
+			allowDangerouslySkipPermissions: true,
 			canUseTool: async ( toolName, input ) => {
 				if ( toolName === 'AskUserQuestion' && onAskUser ) {
 					const typedInput = input as {
@@ -72,17 +73,8 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 				}
 				return { behavior: 'allow' as const, updatedInput: input };
 			},
-			allowedTools: [
-				'mcp__studio__*',
-				'Skill',
-				'Read',
-				'Write',
-				'Edit',
-				'Bash',
-				'Glob',
-				'Grep',
-			],
-			model: 'claude-opus-4-6',
+			allowedTools: [ 'mcp__studio__*', 'Skill', 'Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep' ],
+			model: 'claude-sonnet-4-6',
 			resume,
 		},
 	} );

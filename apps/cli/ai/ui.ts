@@ -1,4 +1,3 @@
-import chalk from 'chalk';
 import {
 	TUI,
 	ProcessTerminal,
@@ -13,6 +12,7 @@ import {
 	type EditorOptions,
 	type MarkdownTheme,
 } from '@mariozechner/pi-tui';
+import chalk from 'chalk';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { AskUserQuestion } from 'cli/ai/agent';
 
@@ -99,6 +99,7 @@ const editorTheme: EditorTheme = {
 };
 
 const toolDisplayNames: Record< string, string > = {
+	mcp__studio__site_create: 'Creating site',
 	mcp__studio__site_list: 'Listing sites',
 	mcp__studio__site_info: 'Getting site info',
 	mcp__studio__site_start: 'Starting site',
@@ -114,8 +115,52 @@ const toolDisplayNames: Record< string, string > = {
 	Task: 'Running task',
 };
 
-function formatToolName( name: string ): string {
-	return toolDisplayNames[ name ] ?? name;
+function getToolDetail( name: string, input: Record< string, unknown > ): string {
+	switch ( name ) {
+		case 'mcp__studio__site_create':
+			return typeof input.name === 'string' ? input.name : '';
+		case 'mcp__studio__site_info':
+		case 'mcp__studio__site_start':
+		case 'mcp__studio__site_stop':
+			return typeof input.nameOrPath === 'string' ? input.nameOrPath : '';
+		case 'mcp__studio__wp_cli':
+			return typeof input.command === 'string' ? `wp ${ input.command }` : '';
+		case 'Read':
+		case 'Write':
+		case 'Edit': {
+			const filePath = input.file_path ?? input.path;
+			if ( typeof filePath === 'string' ) {
+				const parts = filePath.split( '/' );
+				return parts.slice( -2 ).join( '/' );
+			}
+			return '';
+		}
+		case 'Bash':
+			return typeof input.command === 'string'
+				? input.command.length > 60
+					? input.command.slice( 0, 57 ) + '…'
+					: input.command
+				: '';
+		case 'Skill':
+			return typeof input.skill === 'string' ? input.skill : '';
+		case 'Grep':
+			return typeof input.pattern === 'string' ? input.pattern : '';
+		case 'Glob':
+			return typeof input.pattern === 'string' ? input.pattern : '';
+		default:
+			return '';
+	}
+}
+
+function formatToolName( name: string, input?: Record< string, unknown > ): string {
+	const displayName = toolDisplayNames[ name ] ?? name;
+	if ( input ) {
+		const detail = getToolDetail( name, input );
+		if ( detail ) {
+			return `${ displayName }: ${ detail }`;
+		}
+	}
+	return displayName;
 }
 
 export class AiChatUI {
@@ -197,6 +242,12 @@ export class AiChatUI {
 		this.addSpacer();
 		this.messages.addChild( new Text( chalk.bold.cyan( '> ' ) + text, 0, 0 ) );
 		this.tui.requestRender();
+	}
+
+	setLoaderMessage( message: string ): void {
+		if ( this.loaderVisible ) {
+			this.loader.setMessage( message );
+		}
 	}
 
 	private showLoader(): void {
@@ -313,7 +364,10 @@ export class AiChatUI {
 			if ( q.options.length > 0 ) {
 				questionText += '\n';
 				questionText += q.options
-					.map( ( opt, i ) => chalk.dim( `  ${ i + 1 }. ` ) + opt.label + chalk.dim( ` — ${ opt.description }` ) )
+					.map(
+						( opt, i ) =>
+							chalk.dim( `  ${ i + 1 }. ` ) + opt.label + chalk.dim( ` — ${ opt.description }` )
+					)
 					.join( '\n' );
 			}
 			this.messages.addChild( new Text( questionText, 0, 0 ) );
@@ -365,7 +419,8 @@ export class AiChatUI {
 						this.tui.requestRender();
 					} else if ( block.type === 'tool_use' ) {
 						this.showLoader();
-						this.loader.setMessage( formatToolName( block.name ) );
+						const input = ( block as { input?: Record< string, unknown > } ).input;
+						this.loader.setMessage( formatToolName( block.name, input ) );
 					}
 				}
 				// Always show the loader after processing — the agent turn is still active
@@ -395,7 +450,9 @@ export class AiChatUI {
 					parts.push( ...message.errors );
 				}
 				if ( message.subtype === 'error_max_turns' ) {
-					parts.push( 'Reached the maximum number of turns. Use --max-turns to increase the limit.' );
+					parts.push(
+						'Reached the maximum number of turns. Use --max-turns to increase the limit.'
+					);
 				} else if ( message.subtype ) {
 					parts.push( `(${ message.subtype })` );
 				}

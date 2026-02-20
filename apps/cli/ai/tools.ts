@@ -1,16 +1,22 @@
+import path from 'path';
 import { tool, createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
+import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { z } from 'zod';
-import { readAppdata, getSiteByFolder, getSiteUrl, type SiteData } from 'cli/lib/appdata';
+import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
+import { runCommand as runListSitesCommand } from 'cli/commands/site/list';
+import { runCommand as runStartSiteCommand } from 'cli/commands/site/start';
+import { runCommand as runStatusCommand } from 'cli/commands/site/status';
+import { runCommand as runStopSiteCommand, Mode as StopMode } from 'cli/commands/site/stop';
+import { getSiteByFolder, getSiteUrl, readAppdata, type SiteData } from 'cli/lib/appdata';
+import { setProgressCallback } from 'cli/logger';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
-import { isSiteRunning } from 'cli/lib/site-utils';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
-import {
-	isServerRunning,
-	startWordPressServer,
-	stopWordPressServer,
-	sendWpCliCommand,
-} from 'cli/lib/wordpress-server-manager';
-import { Logger } from 'cli/logger';
+import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
+
+export function setToolProgressHandler( handler: ( message: string ) => void ): void {
+	setProgressCallback( handler );
+}
+
+const SITES_ROOT = path.join( process.env.HOME || '~', 'Studio' );
 
 async function findSiteByName( name: string ): Promise< SiteData | undefined > {
 	const appdata = await readAppdata();
@@ -38,71 +44,110 @@ function textResult( text: string ) {
 	};
 }
 
+/**
+ * Captures console.log output during a function call.
+ * Used for commands (list, status) that print JSON to console instead of returning data.
+ */
+async function captureConsoleOutput( fn: () => Promise< void > ): Promise< string > {
+	let captured = '';
+	const origLog = console.log;
+	const origTable = console.table;
+	console.log = ( ...args: unknown[] ) => {
+		captured += args.map( String ).join( ' ' ) + '\n';
+	};
+	console.table = ( ...args: unknown[] ) => {
+		captured += args.map( String ).join( ' ' ) + '\n';
+	};
+	try {
+		await fn();
+	} finally {
+		console.log = origLog;
+		console.table = origTable;
+	}
+	return captured.trim();
+}
+
+const createSiteTool = tool(
+	'site_create',
+	'Creates a new WordPress site with the latest WordPress version. Automatically sets up the site directory, installs WordPress, registers the site, and starts the server. Returns the site URL and credentials.',
+	z.object( {
+		name: z.string().describe( 'The name for the new site (e.g., "My Coffee Shop")' ),
+	} ),
+	async ( args ) => {
+		try {
+			const slug = args.name
+				.toLowerCase()
+				.replace( /[^a-z0-9]+/g, '-' )
+				.replace( /^-|-$/g, '' );
+			const sitePath = path.join( SITES_ROOT, slug );
+
+			await runCreateSiteCommand( sitePath, {
+				name: args.name,
+				wpVersion: 'latest',
+				phpVersion: DEFAULT_PHP_VERSION,
+				enableHttps: false,
+				noStart: false,
+				skipBrowser: true,
+				skipLogDetails: true,
+			} );
+
+			// Read back the created site to return its details
+			const site = await resolveSite( args.name );
+			const url = getSiteUrl( site );
+			return textResult(
+				JSON.stringify(
+					{
+						name: site.name,
+						path: site.path,
+						url,
+						adminUrl: `${ url }/wp-admin`,
+						username: 'admin',
+						password: site.adminPassword,
+						phpVersion: site.phpVersion,
+					},
+					null,
+					2
+				)
+			);
+		} catch ( error ) {
+			return errorResult(
+				`Failed to create site: ${ error instanceof Error ? error.message : String( error ) }`
+			);
+		}
+	}
+);
+
 const listSitesTool = tool(
 	'site_list',
-	'Lists all WordPress sites managed by Studio with their name, path, URL, PHP version, and running status.',
+	'Lists all WordPress sites managed by Studio with their name, path, URL, and running status.',
 	z.object( {} ),
 	async () => {
 		try {
-			const appdata = await readAppdata();
-			if ( appdata.sites.length === 0 ) {
-				return textResult( 'No sites found.' );
-			}
-
-			try {
-				await connect();
-				const sites = [];
-				for ( const site of appdata.sites ) {
-					const running = await isSiteRunning( site );
-					sites.push( {
-						name: site.name,
-						path: site.path,
-						url: getSiteUrl( site ),
-						phpVersion: site.phpVersion,
-						running,
-					} );
-				}
-				return textResult( JSON.stringify( sites, null, 2 ) );
-			} finally {
-				await disconnect();
-			}
+			const output = await captureConsoleOutput( () => runListSitesCommand( 'json' ) );
+			return textResult( output || 'No sites found.' );
 		} catch ( error ) {
-			return errorResult( `Failed to list sites: ${ error instanceof Error ? error.message : String( error ) }` );
+			return errorResult(
+				`Failed to list sites: ${ error instanceof Error ? error.message : String( error ) }`
+			);
 		}
 	}
 );
 
 const getSiteInfoTool = tool(
 	'site_info',
-	'Gets detailed information about a specific WordPress site by name or path, including its running status, URL, PHP version, and custom domain.',
+	'Gets detailed information about a specific WordPress site by name or path, including its running status, URL, PHP version, and admin credentials.',
 	z.object( {
 		nameOrPath: z.string().describe( 'The site name or file system path to the site' ),
 	} ),
 	async ( args ) => {
 		try {
 			const site = await resolveSite( args.nameOrPath );
-			let running = false;
-
-			try {
-				await connect();
-				running = await isSiteRunning( site );
-			} finally {
-				await disconnect();
-			}
-
-			const info = {
-				name: site.name,
-				path: site.path,
-				url: getSiteUrl( site ),
-				phpVersion: site.phpVersion,
-				running,
-				customDomain: site.customDomain || null,
-				enableHttps: site.enableHttps || false,
-			};
-
-			return textResult( JSON.stringify( info, null, 2 ) );
+			const output = await captureConsoleOutput( () => runStatusCommand( site.path, 'json' ) );
+			return textResult( output || 'No site info available.' );
 		} catch ( error ) {
-			return errorResult( `Failed to get site info: ${ error instanceof Error ? error.message : String( error ) }` );
+			return errorResult(
+				`Failed to get site info: ${ error instanceof Error ? error.message : String( error ) }`
+			);
 		}
 	}
 );
@@ -116,26 +161,12 @@ const startSiteTool = tool(
 	async ( args ) => {
 		try {
 			const site = await resolveSite( args.nameOrPath );
-
-			try {
-				await connect();
-
-				const runningProcess = await isServerRunning( site.id );
-				if ( runningProcess ) {
-					return textResult( `Site "${ site.name }" is already running at ${ getSiteUrl( site ) }` );
-				}
-
-				await keepSqliteIntegrationUpdated( site.path );
-
-				const logger = new Logger< string >();
-				await startWordPressServer( site, logger );
-
-				return textResult( `Site "${ site.name }" started at ${ getSiteUrl( site ) }` );
-			} finally {
-				await disconnect();
-			}
+			await runStartSiteCommand( site.path, true, true );
+			return textResult( `Site "${ site.name }" started at ${ getSiteUrl( site ) }` );
 		} catch ( error ) {
-			return errorResult( `Failed to start site: ${ error instanceof Error ? error.message : String( error ) }` );
+			return errorResult(
+				`Failed to start site: ${ error instanceof Error ? error.message : String( error ) }`
+			);
 		}
 	}
 );
@@ -149,26 +180,17 @@ const stopSiteTool = tool(
 	async ( args ) => {
 		try {
 			const site = await resolveSite( args.nameOrPath );
-
-			try {
-				await connect();
-
-				const runningProcess = await isServerRunning( site.id );
-				if ( ! runningProcess ) {
-					return textResult( `Site "${ site.name }" is not running.` );
-				}
-
-				await stopWordPressServer( site.id );
-				return textResult( `Site "${ site.name }" stopped.` );
-			} finally {
-				await disconnect();
-			}
+			await runStopSiteCommand( StopMode.STOP_SINGLE_SITE, site.path, false );
+			return textResult( `Site "${ site.name }" stopped.` );
 		} catch ( error ) {
-			return errorResult( `Failed to stop site: ${ error instanceof Error ? error.message : String( error ) }` );
+			return errorResult(
+				`Failed to stop site: ${ error instanceof Error ? error.message : String( error ) }`
+			);
 		}
 	}
 );
 
+// Note: wp.ts runCommand calls process.exit(), so we use the lower-level sendWpCliCommand directly.
 const runWpCliTool = tool(
 	'wp_cli',
 	'Runs a WP-CLI command on a specific WordPress site. The site must be running. Examples: "plugin install woocommerce --activate", "option get blogname", "user list".',
@@ -189,7 +211,9 @@ const runWpCliTool = tool(
 
 				const runningProcess = await isServerRunning( site.id );
 				if ( ! runningProcess ) {
-					return errorResult( `Site "${ site.name }" is not running. Start it first using site_start.` );
+					return errorResult(
+						`Site "${ site.name }" is not running. Start it first using site_start.`
+					);
 				}
 
 				const wpCliArgs = args.command.split( /\s+/ );
@@ -207,14 +231,20 @@ const runWpCliTool = tool(
 				}
 
 				return {
-					content: [ { type: 'text' as const, text: output || 'Command completed with no output.' } ],
+					content: [
+						{ type: 'text' as const, text: output || 'Command completed with no output.' },
+					],
 					isError: result.exitCode !== 0,
 				};
 			} finally {
 				await disconnect();
 			}
 		} catch ( error ) {
-			return errorResult( `Failed to run WP-CLI command: ${ error instanceof Error ? error.message : String( error ) }` );
+			return errorResult(
+				`Failed to run WP-CLI command: ${
+					error instanceof Error ? error.message : String( error )
+				}`
+			);
 		}
 	}
 );
@@ -223,6 +253,13 @@ export function createStudioTools() {
 	return createSdkMcpServer( {
 		name: 'studio',
 		version: '1.0.0',
-		tools: [ listSitesTool, getSiteInfoTool, startSiteTool, stopSiteTool, runWpCliTool ],
+		tools: [
+			createSiteTool,
+			listSitesTool,
+			getSiteInfoTool,
+			startSiteTool,
+			stopSiteTool,
+			runWpCliTool,
+		],
 	} );
 }

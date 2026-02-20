@@ -189,33 +189,23 @@ lane :code_freeze do |version:, skip_confirm: false, github_username: nil|
   create_backmerge_pr(source_branch: branch_name, github_username: github_username)
 
   # Create the first beta (bumps version, commits, pushes, tags, triggers build)
-  new_beta_release(version: "#{version}-beta1", skip_confirm: skip_confirm)
+  new_beta_release(version: version, skip_confirm: skip_confirm)
 
   UI.success("Code freeze complete! Created #{branch_name} with first beta")
 end
 
 # Create a new beta release on the current release branch.
 #
-# - Bumps the beta number (e.g., beta1 -> beta2)
-# - Tags the release
-# - Triggers a release build in Buildkite
+# - Determines the next beta number automatically from package.json
+# - Bumps the version, commits, tags, and triggers a release build
 #
-# @param version [String] (optional) The beta version to use (e.g., '1.7.4-beta1').
-#                 If provided, sets the version directly. Typically passed from {code_freeze}.
-#                 If nil, increments the current beta number.
+# @param version [String] The base release version (e.g., '1.7.4')
 # @param skip_confirm [Boolean] Skip interactive confirmation prompts (default: false)
 #
-lane :new_beta_release do |version: nil, skip_confirm: false|
-  if version
-    new_version = version
-  else
-    current_version = read_package_json_version
-    UI.user_error!("Current version #{current_version} is not a beta") unless current_version.include?('beta')
-
-    base_version = current_version.sub(/-beta\d+$/, '')
-    current_beta = current_version.match(/beta(\d+)$/)[1].to_i
-    new_version = "#{base_version}-beta#{current_beta + 1}"
-  end
+lane :new_beta_release do |version:, skip_confirm: false|
+  current_version = read_package_json_version
+  current_beta = current_version[/beta(\d+)$/, 1].to_i
+  new_version = "#{version}-beta#{current_beta + 1}"
 
   UI.important <<~PROMPT
     Creating new beta release #{new_version}. This will:

@@ -156,6 +156,13 @@ export async function measureSiteEditor( options: MeasureOptions ): Promise< Mea
 				page.waitForURL( '**/wp-admin/**', { timeout: 60_000 } ),
 				page.click( '#wp-submit' ),
 			] );
+			// Navigate explicitly to wp-admin to bypass plugin setup wizard redirects
+			// (WooCommerce, Jetpack, etc. redirect to their own onboarding pages)
+			await page.goto( `${ wpAdminUrl }/wp-admin/`, {
+				waitUntil: 'domcontentloaded',
+				timeout: 60_000,
+			} );
+			await page.waitForLoadState( 'networkidle', { timeout: 30_000 } ).catch( () => {} );
 			await page.getByRole( 'link', { name: 'Appearance' } ).waitFor( {
 				state: 'visible',
 				timeout: 60_000,

@@ -2,11 +2,9 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import semver from 'semver';
 import { getLatestTag, getCommitCount } from './lib/git-utils.mjs';
-
-const __dirname = path.dirname( fileURLToPath( import.meta.url ) );
+import packageJson from '../apps/studio/package.json' with { type: 'json' };
 
 const latestTag = getLatestTag();
 const commitCount = getCommitCount( latestTag );
@@ -19,12 +17,8 @@ if ( ! commitCount && commitCount !== 0 ) {
 	throw new Error( 'Missing commit count' );
 }
 
-const packageJsonPath = path.resolve( __dirname, '../package.json' );
-const packageJsonText = await fs.readFile( packageJsonPath, 'utf-8' );
-const packageJson = JSON.parse( packageJsonText );
-
 // Use version from latestTag (strip leading 'v' if present)
-const tagVersion = latestTag.startsWith('v') ? latestTag.slice(1) : latestTag;
+const tagVersion = latestTag.startsWith( 'v' ) ? latestTag.slice( 1 ) : latestTag;
 const parsedVersion = semver.parse( tagVersion );
 if ( ! parsedVersion ) {
 	throw new Error( `Invalid version in latestTag: ${ latestTag }` );
@@ -35,4 +29,5 @@ const devVersion = `${ parsedVersion.major }.${ parsedVersion.minor }.${ parsedV
 
 packageJson.version = devVersion;
 
+const packageJsonPath = path.resolve( 'apps', 'studio', 'package.json' );
 await fs.writeFile( packageJsonPath, JSON.stringify( packageJson, null, '\t' ) + '\n' );

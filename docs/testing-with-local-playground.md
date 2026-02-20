@@ -33,7 +33,7 @@ npm run build
 
 ### 2. Update CLI's package.json
 
-Replace the existing Playground dependencies in `cli/package.json` with local file references:
+Replace the existing Playground dependencies in `apps/cli/package.json` with local file references:
 
 ```json
 {
@@ -73,8 +73,8 @@ done
 
 ```bash
 cd /path/to/studio
-rm -rf cli/node_modules
-cd cli && npm install && cd ..
+rm -rf apps/cli/node_modules
+npm --prefix apps/cli install
 npm install
 ```
 
@@ -115,14 +115,14 @@ After making changes to Playground:
 
 To go back to using the published npm packages:
 
-1. Restore `cli/package.json`:
+1. Restore `apps/cli/package.json`:
    ```bash
-   git checkout cli/package.json
+   git checkout apps/cli/package.json
    ```
 2. Reinstall CLI dependencies:
    ```bash
-   rm -rf cli/node_modules
-   cd cli && npm install && cd ..
+   rm -rf apps/cli/node_modules
+   npm --prefix apps/cli install
    ```
 3. In the Playground repo, restore the original `node_modules` symlinks:
    ```bash

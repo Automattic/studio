@@ -230,7 +230,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 							className="w-full [&>[role=tabpanel]]:h-64 [&>[role=tabpanel]]:overflow-auto"
 							tabs={ [
 								{ name: 'general', title: __( 'General' ) },
-								{ name: 'developer', title: __( 'Debugging' ) },
+								{ name: 'debugging', title: __( 'Debugging' ) },
 							] }
 							orientation="horizontal"
 						>
@@ -355,7 +355,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 										</>
 									) }
 
-									{ name === 'developer' && (
+									{ name === 'debugging' && (
 										<>
 											<div
 												className={ cx(
@@ -419,7 +419,12 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 												</Tooltip>
 											</div>
 
-											<div className="flex flex-col gap-2 mt-4">
+											<div
+												className={ cx(
+													'flex flex-col gap-2 mt-4',
+													isEditingSite ? 'opacity-50 cursor-not-allowed' : ''
+												) }
+											>
 												<div className="flex items-center gap-2">
 													<input
 														type="checkbox"
@@ -428,7 +433,12 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 														onChange={ ( e ) => setEnableDebugLog( e.target.checked ) }
 														disabled={ isEditingSite }
 													/>
-													<label htmlFor="enable-debug-log">{ __( 'Enable debug log' ) }</label>
+													<label
+														htmlFor="enable-debug-log"
+														className={ cx( isEditingSite ? 'cursor-not-allowed' : '' ) }
+													>
+														{ __( 'Enable debug log' ) }
+													</label>
 												</div>
 												<div className="text-a8c-gray-50 text-xs mt-1">
 													{ __(
@@ -437,7 +447,12 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 												</div>
 											</div>
 
-											<div className="flex flex-col gap-2 mt-4">
+											<div
+												className={ cx(
+													'flex flex-col gap-2 mt-4',
+													isEditingSite ? 'opacity-50 cursor-not-allowed' : ''
+												) }
+											>
 												<div className="flex items-center gap-2">
 													<input
 														type="checkbox"
@@ -446,7 +461,10 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 														onChange={ ( e ) => setEnableDebugDisplay( e.target.checked ) }
 														disabled={ isEditingSite }
 													/>
-													<label htmlFor="enable-debug-display">
+													<label
+														htmlFor="enable-debug-display"
+														className={ cx( isEditingSite ? 'cursor-not-allowed' : '' ) }
+													>
 														{ __( 'Show errors in browser' ) }
 													</label>
 												</div>

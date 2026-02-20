@@ -140,7 +140,7 @@ describe( 'ContentTabSync', () => {
 		syncSites: SyncSite[] = []
 	) => {
 		// Update the IPC API mock to return the connected sites
-		const currentMock = vi.mocked( getIpcApi, { partial: true } )();
+		const currentMock = vi.mocked( getIpcApi )();
 		vi.mocked( currentMock.getConnectedWpcomSites, { partial: true } ).mockResolvedValue(
 			connectedSites
 		);

@@ -262,12 +262,8 @@ export const wpcomSitesApi = createApi( {
 	} ),
 } );
 
-const {
-	useGetWpComSitesQuery: useGetWpComSitesQueryBase,
-	useGetSingleWpComSiteQuery: useGetSingleWpComSiteQueryBase,
-} = wpcomSitesApi;
+const { useGetWpComSitesQuery: useGetWpComSitesQueryBase } = wpcomSitesApi;
 
-// Wrap the query hooks with offline check
+// Wrap the query hook with offline check
 // Authentication is already handled in queryFn which checks wpcomClient
 export const useGetWpComSitesQuery = withOfflineCheck( useGetWpComSitesQueryBase );
-export const useGetSingleWpComSiteQuery = withOfflineCheck( useGetSingleWpComSiteQueryBase );

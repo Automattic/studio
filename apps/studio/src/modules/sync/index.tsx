@@ -132,10 +132,11 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		connectedSitesSelectors.selectSelectedRemoteSiteId
 	);
 	const { isAuthenticated, user } = useAuth();
-	const { data: connectedSites = [] } = useGetConnectedSitesForLocalSiteQuery( {
-		localSiteId: selectedSite.id,
-		userId: user?.id,
-	} );
+	const { data: connectedSites = [], isLoading: isLoadingConnectedSites } =
+		useGetConnectedSitesForLocalSiteQuery( {
+			localSiteId: selectedSite.id,
+			userId: user?.id,
+		} );
 	const [ connectSite ] = useConnectSiteMutation();
 	const [ disconnectSite ] = useDisconnectSiteMutation();
 	const { pushSite, pullSite } = useSyncSites();
@@ -214,7 +215,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 						</ConnectButton>
 					</div>
 				</div>
-			) : (
+			) : isLoadingConnectedSites ? null : (
 				<SiteSyncDescription>
 					<div className="mt-8">
 						<ConnectButton

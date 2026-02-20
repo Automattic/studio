@@ -7,7 +7,8 @@ const config = {
 	gitRepositoryURL: 'https://github.com/Automattic/studio.git',
 	setupTestRunner: 'npm ci && npx playwright install chromium',
 	testCommand: 'npm run test:metrics',
-	setupCommand: 'bash scripts/setup-for-performance-test.sh',
+	setupCommand:
+		'if [ -d "apps/studio" ]; then npm ci && npm -w studio-cli run install:bundle && npm -w studio-app run install:bundle && npm run package; else npm ci && npm run package; fi',
 	testsPath: 'tools/metrics/tests',
 	testFileSuffix: '.test.ts',
 	artifactsPath,

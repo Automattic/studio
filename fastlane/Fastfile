@@ -112,6 +112,10 @@ lane :distribute_release_build do |version: read_package_json_version|
     },
     default_payloads: []
   )
+
+  # For final releases (not betas), append download links to the draft GitHub release.
+  # Betas only have tags (no GitHub release), so get_github_release returns nil and this is skipped.
+  append_download_links_to_github_release(release_tag: release_tag, builds: builds)
 end
 
 ########################################################################
@@ -708,6 +712,39 @@ def create_backmerge_pr(source_branch:, github_username: nil)
     style: 'info',
     message: "Backmerge Pull Requests:\n#{created_prs.map { |pr| "* #{pr}\n" }.join}"
   )
+end
+
+# Append download links to an existing draft GitHub release.
+# Fetches the current release body, appends a formatted download section, and updates the release.
+# Silently skips if no GitHub release exists for the tag (e.g., beta releases only have tags).
+def append_download_links_to_github_release(release_tag:, builds:)
+  release_info = get_github_release(url: GITHUB_REPO, version: release_tag)
+  return unless release_info
+
+  version = release_tag.delete_prefix('v')
+
+  download_link_keys = %i[x64_dmg arm64_dmg windows windows_arm64]
+  links = download_link_keys.filter_map do |key|
+    build = builds[key]
+    next unless build&.dig(:cdn_url)
+
+    label = build[:name].sub(' - ', ' – ') # Use en-dash like existing releases
+    "[#{label}](#{build[:cdn_url]})"
+  end
+  return if links.empty?
+
+  download_section = "---\nDownload Studio #{version}: #{links.join(', ')}\n\n" \
+                     'The latest version is always available on the [WordPress Studio](https://developer.wordpress.com/studio/) site.'
+  updated_body = "#{release_info['body']}\n\n#{download_section}"
+
+  github_api(
+    server_url: 'https://api.github.com',
+    http_method: 'PATCH',
+    path: "/repos/#{GITHUB_REPO}/releases/#{release_info['id']}",
+    body: { body: updated_body }.to_json
+  )
+
+  UI.success("Updated GitHub release #{release_tag} with download links")
 end
 
 # Trigger a release build in Buildkite for the given version.

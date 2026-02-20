@@ -170,7 +170,7 @@ npm run e2e
 
 ### CI: E2E and Performance Tests on Pull Requests
 
-E2E and performance tests run automatically on Buildkite for non-draft PRs. Draft PRs skip these tests to save CI resources (see `.buildkite/pipeline.yml`).
+E2E and performance tests run automatically on Buildkite for non-draft PRs. Draft PRs skip these tests to save CI resources (see [`.buildkite/pipeline.yml`](../.buildkite/pipeline.yml)).
 
 When you mark a draft PR as ready for review, Buildkite does **not** automatically re-trigger a build. You need to push a new commit to start the E2E and performance test runs. If your branch is already up to date, an empty commit works:
 

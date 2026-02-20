@@ -21,8 +21,8 @@ DRY_RUN = ENV['DRY_RUN'] == 'true'
 UI.user_error!('Environment variable WPCOM_API_TOKEN is not set') if ENV['WPCOM_API_TOKEN'].nil? && !DRY_RUN
 UI.message("Running in #{DRY_RUN ? 'DRY RUN' : 'NORMAL'} mode")
 
-# Read version from package.json
-PACKAGE_VERSION = JSON.parse(File.read(File.join(PROJECT_ROOT_FOLDER, 'package.json')))['version']
+# Path to the Studio app's package.json (monorepo workspace)
+PACKAGE_JSON_PATH = File.join(PROJECT_ROOT_FOLDER, 'apps', 'studio', 'package.json')
 
 APPLE_TEAM_ID = 'PZYM8XX95Q'
 APPLE_BUNDLE_IDENTIFIER = 'com.automattic.studio'
@@ -33,7 +33,6 @@ WPCOM_STUDIO_SITE_ID = '239164481'
 
 GITHUB_REPO = 'Automattic/studio'
 MAIN_BRANCH = 'trunk'
-PACKAGE_JSON_PATH = File.join(PROJECT_ROOT_FOLDER, 'package.json')
 BUILDKITE_ORG = 'automattic'
 BUILDKITE_PIPELINE = 'studio'
 
@@ -155,8 +154,8 @@ lane :code_freeze do |version:, skip_confirm: false, github_username: nil|
   sh('mkdir', '-p', File.join(PROJECT_ROOT_FOLDER, 'i18n'))
   sh(
     'npx', 'wp-babel-makepot',
-    "#{PROJECT_ROOT_FOLDER}/{src,cli,common}/**/*.{js,jsx,ts,tsx}",
-    '--ignore', "#{PROJECT_ROOT_FOLDER}/cli/node_modules/**/*,**/*.d.ts",
+    "#{PROJECT_ROOT_FOLDER}/{apps/studio/src,apps/cli,tools/common}/**/*.{js,jsx,ts,tsx}",
+    '--ignore', "#{PROJECT_ROOT_FOLDER}/apps/cli/node_modules/**/*,**/*.d.ts",
     '--base', PROJECT_ROOT_FOLDER,
     '--dir', pot_dir,
     '--output', pot_output
@@ -215,9 +214,9 @@ lane :new_beta_release do |version: nil, skip_confirm: false|
   set_package_json_version(version: new_version)
 
   # Commit and push
-  git_add(path: ['package.json', 'package-lock.json'])
+  git_add(path: ['apps/studio/package.json', 'package-lock.json'])
   git_commit(
-    path: ['package.json', 'package-lock.json'],
+    path: ['apps/studio/package.json', 'package-lock.json'],
     message: "[skip ci] Bump version to #{new_version}"
   )
   push_to_git_remote
@@ -254,9 +253,9 @@ lane :finalize_release do |version:, skip_confirm: false|
   set_package_json_version(version: version)
 
   # Commit and push
-  git_add(path: ['package.json', 'package-lock.json'])
+  git_add(path: ['apps/studio/package.json', 'package-lock.json'])
   git_commit(
-    path: ['package.json', 'package-lock.json'],
+    path: ['apps/studio/package.json', 'package-lock.json'],
     message: "[skip ci] Bump version to #{version}"
   )
   push_to_git_remote
@@ -357,9 +356,9 @@ lane :new_hotfix_release do |version:, skip_confirm: false|
   set_package_json_version(version: version)
 
   # Commit and push
-  git_add(path: ['package.json', 'package-lock.json'])
+  git_add(path: ['apps/studio/package.json', 'package-lock.json'])
   git_commit(
-    path: ['package.json', 'package-lock.json'],
+    path: ['apps/studio/package.json', 'package-lock.json'],
     message: "[skip ci] Bump version to #{version}"
   )
   push_to_git_remote(set_upstream: true)
@@ -463,7 +462,7 @@ def distribute_builds(
                else
                  'Production'
                end
-  version = release_tag.nil? ? "v#{PACKAGE_VERSION}" : release_tag
+  version = release_tag.nil? ? "v#{read_package_json_version}" : release_tag
   appx_version = "#{version[/\d+\.\d+\.\d+/]}.0"
   release_notes = release_tag.nil? ? "Development build #{version}-#{build_number}" : "Release #{release_tag}"
 
@@ -670,9 +669,9 @@ def read_package_json_version
   JSON.parse(File.read(PACKAGE_JSON_PATH))['version']
 end
 
-# Set the version in package.json (and update package-lock.json via npm)
+# Set the version in apps/studio/package.json (and update root package-lock.json via npm workspaces)
 def set_package_json_version(version:)
-  sh('npm', 'version', version, '--no-git-tag-version', '--prefix', PROJECT_ROOT_FOLDER)
+  sh('npm', 'version', version, '--no-git-tag-version', '-w', 'studio-app', '--prefix', PROJECT_ROOT_FOLDER)
 end
 
 # Extract release notes for a specific version from RELEASE-NOTES.txt

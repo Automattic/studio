@@ -121,8 +121,8 @@ steps:
           bundle exec fastlane notarize_binary
         plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
         artifact_paths:
-          - out/**/*.app.zip
-          - out/*.dmg
+          - apps/studio/out/**/*.app.zip
+          - apps/studio/out/*.dmg
         matrix:
           - x64
           - arm64
@@ -142,10 +142,10 @@ steps:
           queue: windows
         command: powershell -File .buildkite/commands/build-for-windows.ps1 -BuildType dev -Architecture {{matrix}}
         artifact_paths:
-          - out\**\studio-setup.exe
-          - out\**\studio-update.nupkg
-          - out\**\RELEASES
-          - out\**\*.appx
+          - apps\studio\out\**\studio-setup.exe
+          - apps\studio\out\**\studio-update.nupkg
+          - apps\studio\out\**\RELEASES
+          - apps\studio\out\**\*.appx
         plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
         matrix:
           - x64
@@ -220,8 +220,8 @@ steps:
           bundle exec fastlane notarize_binary
         plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
         artifact_paths:
-          - out/**/*.app.zip
-          - out/*.dmg
+          - apps/studio/out/**/*.app.zip
+          - apps/studio/out/*.dmg
         matrix:
           - x64
           - arm64
@@ -238,10 +238,10 @@ steps:
           queue: windows
         command: powershell -File .buildkite/commands/build-for-windows.ps1 -BuildType release -Architecture {{matrix}}
         artifact_paths:
-          - out\**\studio-setup.exe
-          - out\**\studio-update.nupkg
-          - out\**\RELEASES
-          - out\**\*.appx
+          - apps\studio\out\**\studio-setup.exe
+          - apps\studio\out\**\studio-update.nupkg
+          - apps\studio\out\**\RELEASES
+          - apps\studio\out\**\*.appx
         plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
         matrix:
           - x64

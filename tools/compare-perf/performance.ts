@@ -86,11 +86,21 @@ async function runTestSuite(
 	runKey: string,
 	branchDir: string
 ) {
-	const outDir = path.join( branchDir, 'apps', 'studio', 'out' );
+	// Support both monorepo (apps/studio/out) and old structure (out)
+	const monorepoOutDir = path.join( branchDir, 'apps', 'studio', 'out' );
+	const oldOutDir = path.join( branchDir, 'out' );
+	const outDir = fs.existsSync( monorepoOutDir ) ? monorepoOutDir : oldOutDir;
+
 	if ( ! fs.existsSync( outDir ) ) {
 		throw new Error( `Could not find packaged Studio build output at: ${ outDir }` );
 	}
-	const testRunnerOutDir = path.join( testRunnerDir, 'apps', 'studio', 'out' );
+
+	// Test runner may also use either structure depending on --tests-branch
+	const testRunnerMonorepoOutDir = path.join( testRunnerDir, 'apps', 'studio', 'out' );
+	const testRunnerOldOutDir = path.join( testRunnerDir, 'out' );
+	const testRunnerOutDir = fs.existsSync( path.join( testRunnerDir, 'apps', 'studio' ) )
+		? testRunnerMonorepoOutDir
+		: testRunnerOldOutDir;
 
 	if ( fs.existsSync( testRunnerOutDir ) ) {
 		fs.rmSync( testRunnerOutDir, { recursive: true } );

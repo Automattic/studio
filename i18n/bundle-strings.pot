@@ -1,0 +1,6 @@
+# THIS IS A GENERATED FILE. DO NOT EDIT DIRECTLY.
+
+msgid ""
+msgstr "Content-Type: text/plain\n"
+
+# THIS IS THE END OF THE GENERATED FILE.

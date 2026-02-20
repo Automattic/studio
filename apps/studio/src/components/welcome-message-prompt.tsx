@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { arrowRight } from '@wordpress/icons';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import Button from 'src/components/button';
 import { cx } from 'src/lib/cx';
 
@@ -22,7 +22,6 @@ interface WelcomeComponentProps {
 	showExamplePrompts: boolean;
 	messages: string[];
 	examplePrompts: string[];
-	siteId: string;
 	disabled?: boolean;
 	isLoading?: boolean;
 }
@@ -76,7 +75,7 @@ export const ExampleMessagePrompt = ( {
 
 const WelcomeComponent = React.forwardRef< HTMLDivElement, WelcomeComponentProps >(
 	(
-		{ onExampleClick, showExamplePrompts, messages, examplePrompts, siteId, disabled, isLoading },
+		{ onExampleClick, showExamplePrompts, messages, examplePrompts, disabled, isLoading },
 		ref
 	) => {
 		const [ showMore, setShowMore ] = useState( false );
@@ -84,10 +83,6 @@ const WelcomeComponent = React.forwardRef< HTMLDivElement, WelcomeComponentProps
 
 		// Determine the prompts to display (either first 3 or all)
 		const displayedPrompts = showMore ? examplePrompts : examplePrompts.slice( 0, 3 );
-
-		useEffect( () => {
-			setShowMore( false );
-		}, [ siteId ] );
 
 		const handleShowMore = () => {
 			setShowMore( true );

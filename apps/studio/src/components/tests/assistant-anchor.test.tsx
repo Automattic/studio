@@ -37,21 +37,23 @@ describe( 'Anchor', () => {
 	} );
 
 	it( 'should render an anchor element', () => {
-		render( <Anchor href="https://example.com" children="Example link" /> );
+		render( <Anchor href="https://example.com">Example link</Anchor> );
 
 		expect( screen.getByRole( 'link' ) ).toBeVisible();
 	} );
 
 	it( 'should render an anchor element with a custom class', () => {
 		render(
-			<Anchor href="https://example.com" className="custom-class" children="Example link" />
+			<Anchor href="https://example.com" className="custom-class">
+				Example link
+			</Anchor>
 		);
 
 		expect( screen.getByRole( 'link' ) ).toHaveClass( 'custom-class' );
 	} );
 
 	it( 'should not navigate if no href is provided', () => {
-		render( <Anchor children="href-less link" /> );
+		render( <Anchor>href-less link</Anchor> );
 
 		screen.getByText( 'href-less link' ).click();
 
@@ -59,7 +61,7 @@ describe( 'Anchor', () => {
 	} );
 
 	it( 'should navigate to the provided URL when clicked', () => {
-		render( <Anchor href="https://example.com" children="Example link" /> );
+		render( <Anchor href="https://example.com">Example link</Anchor> );
 
 		screen.getByRole( 'link' ).click();
 
@@ -72,7 +74,7 @@ describe( 'Anchor', () => {
 			startServer: vi.fn( () => Promise.resolve() ),
 			loadingServer: {},
 		} );
-		render( <Anchor href="http://localhost:3000" children="Local link" /> );
+		render( <Anchor href="http://localhost:3000">Local link</Anchor> );
 
 		screen.getByRole( 'link' ).click();
 
@@ -92,14 +94,14 @@ describe( 'Anchor', () => {
 			selectedSite: createMockSiteDetails(),
 			loadingServer: { 1: true },
 		} );
-		render( <Anchor href="http://localhost:3000" children="Example link" /> );
+		render( <Anchor href="http://localhost:3000">Example link</Anchor> );
 
 		expect( screen.getByRole( 'link' ) ).toHaveClass( 'animate-pulse', 'cursor-wait' );
 	} );
 
 	it( 'should add UTM params when clicking a Telex link', () => {
 		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {} );
-		render( <Anchor href="https://telex.automattic.ai/" children="Telex link" /> );
+		render( <Anchor href="https://telex.automattic.ai/">Telex link</Anchor> );
 
 		screen.getByRole( 'link' ).click();
 
@@ -116,7 +118,7 @@ describe( 'Anchor', () => {
 
 	it( 'should not modify non-Telex URLs', () => {
 		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {} );
-		render( <Anchor href="https://wordpress.com/" children="WordPress link" /> );
+		render( <Anchor href="https://wordpress.com/">WordPress link</Anchor> );
 
 		screen.getByRole( 'link' ).click();
 

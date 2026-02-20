@@ -1,9 +1,15 @@
 import { RuntimeLoader } from '@rive-app/canvas';
 import { useRive, useStateMachineInput } from '@rive-app/react-canvas';
-import { useCallback, useEffect } from '@wordpress/element';
+import { useEffect } from '@wordpress/element';
 import aiImage from '../../assets/ai-icon.riv';
 
-const useAiIcon = () => {
+interface AiIconStates {
+	inactive?: boolean;
+	thinking?: boolean;
+	typing?: boolean;
+}
+
+const useAiIcon = ( states: AiIconStates = {} ) => {
 	const stateMachineName = 'State Machine A';
 
 	// Configure Rive to use local WASM files
@@ -29,26 +35,30 @@ const useAiIcon = () => {
 		};
 	}, [ rive ] );
 
-	const setInputState = useCallback(
-		( stateName: 'inactive' | 'thinking' | 'typing', value: boolean ) => {
-			if ( stateName === 'inactive' && inactiveInput ) {
-				// eslint-disable-next-line react-hooks/immutability
-				inactiveInput.value = value;
-			} else if ( stateName === 'thinking' && thinkingInput ) {
-				// eslint-disable-next-line react-hooks/immutability
-				thinkingInput.value = value;
-			} else if ( stateName === 'typing' && typingInput ) {
-				// eslint-disable-next-line react-hooks/immutability
-				typingInput.value = value;
-			}
-		},
-		[ inactiveInput, thinkingInput, typingInput ]
-	);
+	useEffect( () => {
+		if ( inactiveInput ) {
+			// eslint-disable-next-line react-hooks/immutability
+			inactiveInput.value = states.inactive ?? false;
+		}
+	}, [ inactiveInput, states.inactive ] );
+
+	useEffect( () => {
+		if ( thinkingInput ) {
+			// eslint-disable-next-line react-hooks/immutability
+			thinkingInput.value = states.thinking ?? false;
+		}
+	}, [ thinkingInput, states.thinking ] );
+
+	useEffect( () => {
+		if ( typingInput ) {
+			// eslint-disable-next-line react-hooks/immutability
+			typingInput.value = states.typing ?? false;
+		}
+	}, [ typingInput, states.typing ] );
 
 	return {
 		rive,
 		RiveComponent,
-		setInputState,
 	};
 };
 

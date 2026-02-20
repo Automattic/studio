@@ -284,7 +284,7 @@ export function useSyncPush( {
 				} );
 				( { archivePath, archiveSizeInBytes } = result );
 			} catch ( error ) {
-				if ( error instanceof Error && error.message === 'Export aborted' ) {
+				if ( error instanceof Error && error.message.includes( 'Export aborted' ) ) {
 					updatePushState( selectedSite.id, remoteSiteId, {
 						status: pushStatesProgressInfo.cancelled,
 					} );
@@ -353,7 +353,7 @@ export function useSyncPush( {
 					throw response;
 				}
 			} catch ( error ) {
-				if ( error instanceof Error && error.message === 'Export aborted' ) {
+				if ( error instanceof Error && error.message.includes( 'Export aborted' ) ) {
 					updatePushState( selectedSite.id, remoteSiteId, {
 						status: pushStatesProgressInfo.cancelled,
 					} );

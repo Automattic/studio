@@ -64,25 +64,17 @@ const UnforwardedAIInput = (
 	const typingTimeout = useRef< NodeJS.Timeout >();
 	const thinkingTimeout = useRef< NodeJS.Timeout[] >( [] );
 
-	const { RiveComponent, setInputState } = useAiIcon();
+	const { RiveComponent } = useAiIcon( {
+		inactive: disabled,
+		thinking: isAssistantThinking,
+		typing: isTyping,
+	} );
 
 	useEffect( () => {
 		if ( ! disabled && inputRef && 'current' in inputRef && inputRef.current ) {
 			inputRef.current?.focus();
 		}
 	}, [ disabled, inputRef ] );
-
-	useEffect( () => {
-		setInputState( 'inactive', disabled );
-	}, [ setInputState, disabled ] );
-
-	useEffect( () => {
-		setInputState( 'thinking', isAssistantThinking );
-	}, [ setInputState, isAssistantThinking ] );
-
-	useEffect( () => {
-		setInputState( 'typing', isTyping );
-	}, [ setInputState, isTyping ] );
 
 	useEffect(
 		() => () => {

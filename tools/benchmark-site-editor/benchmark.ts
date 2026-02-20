@@ -7,7 +7,7 @@
  *   - Studio (bare, multi-worker, plugins, multi-worker+plugins)
  *   - Playground CLI (bare, multi-worker, plugins, multi-worker+plugins)
  *   - Playground Web (bare, plugins)
- *   - Local by Flywheel (bare, plugins) — opt-in via --include-local
+ *   - Custom (any running WordPress site via --custom-url)
  *
  * Usage:
  *   cd tools/benchmark-site-editor
@@ -19,7 +19,8 @@
  *   --skip-studio           Skip Studio environments
  *   --skip-playground-cli   Skip Playground CLI environments
  *   --skip-playground-web   Skip Playground web environments
- *   --include-local         Include Local by Flywheel environments (requires Local running)
+ *   --custom=<name>,<url>[,<user>,<password>]  Add a custom WordPress site (repeatable)
+ *   --install-plugins[=<name1>,<name2>]        Install plugins from blueprint via WP REST API
  *   --only=<env1,env2>      Run only these environments (comma-separated)
  *   --help                  Show help
  */
@@ -29,8 +30,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import chalk from 'chalk';
-import { installPluginsForLocalSite } from './install-plugins-local.js';
-import { LocalGraphQLClient, getLocalSitesDir } from './local-graphql.js';
+import { installPlugins } from './install-plugins.js';
 import { measureSiteEditor, METRIC_NAMES, type MeasurementResult } from './measure-site-editor.js';
 
 // ---------------------------------------------------------------------------
@@ -58,13 +58,17 @@ const PLAYGROUND_CLI_PORT_BASE = 9500;
 // Types
 // ---------------------------------------------------------------------------
 
-type EnvironmentType = 'studio' | 'playground-cli' | 'playground-web' | 'local';
+type EnvironmentType = 'studio' | 'playground-cli' | 'playground-web' | 'custom';
 
 interface EnvironmentConfig {
 	name: string;
 	type: EnvironmentType;
 	plugins: boolean;
 	multiWorker: boolean;
+	/** Base URL for custom environments. */
+	customUrl?: string;
+	/** WordPress admin credentials for custom environments. */
+	credentials?: { username: string; password: string };
 }
 
 interface BenchmarkResult {
@@ -92,22 +96,45 @@ const ALL_ENVIRONMENTS: EnvironmentConfig[] = [
 	},
 	{ name: 'pg-web', type: 'playground-web', plugins: false, multiWorker: false },
 	{ name: 'pg-web-plugins', type: 'playground-web', plugins: true, multiWorker: false },
-	{ name: 'local', type: 'local', plugins: false, multiWorker: false },
-	{ name: 'local-plugins', type: 'local', plugins: true, multiWorker: false },
 ];
 
 // ---------------------------------------------------------------------------
 // Argument parsing
 // ---------------------------------------------------------------------------
 
+interface CustomEnvInput {
+	name: string;
+	url: string;
+	user: string;
+	password: string;
+}
+
 interface Options {
 	rounds: number;
 	skipStudio: boolean;
 	skipPlaygroundCli: boolean;
 	skipPlaygroundWeb: boolean;
-	includeLocal: boolean;
 	only: string[];
 	headed: boolean;
+	customs: CustomEnvInput[];
+	/** Names of custom environments to install plugins on, or 'all'. */
+	installPlugins: string[] | 'all' | false;
+}
+
+function parseCustomFlag( value: string ): CustomEnvInput {
+	const parts = value.split( ',' );
+	if ( parts.length < 2 ) {
+		console.error(
+			`Invalid --custom value: "${ value }"\nExpected: --custom=name,url[,user,password]`
+		);
+		process.exit( 1 );
+	}
+	return {
+		name: parts[ 0 ],
+		url: parts[ 1 ],
+		user: parts[ 2 ] || 'admin',
+		password: parts[ 3 ] || 'password',
+	};
 }
 
 function parseArgs(): Options {
@@ -117,9 +144,10 @@ function parseArgs(): Options {
 		skipStudio: false,
 		skipPlaygroundCli: false,
 		skipPlaygroundWeb: false,
-		includeLocal: false,
 		only: [],
 		headed: false,
+		customs: [],
+		installPlugins: false,
 	};
 
 	for ( const arg of args ) {
@@ -131,8 +159,15 @@ function parseArgs(): Options {
 			opts.skipPlaygroundCli = true;
 		} else if ( arg === '--skip-playground-web' ) {
 			opts.skipPlaygroundWeb = true;
-		} else if ( arg === '--include-local' ) {
-			opts.includeLocal = true;
+		} else if ( arg.startsWith( '--custom=' ) ) {
+			opts.customs.push( parseCustomFlag( arg.split( '=' ).slice( 1 ).join( '=' ) ) );
+		} else if ( arg === '--install-plugins' ) {
+			opts.installPlugins = 'all';
+		} else if ( arg.startsWith( '--install-plugins=' ) ) {
+			opts.installPlugins = arg
+				.split( '=' )[ 1 ]
+				.split( ',' )
+				.map( ( s ) => s.trim() );
 		} else if ( arg.startsWith( '--only=' ) ) {
 			opts.only = arg
 				.split( '=' )[ 1 ]
@@ -154,16 +189,35 @@ function printHelp() {
 Usage: npm run benchmark [options]
 
 Options:
-  --rounds=N              Number of benchmark runs per environment (default: 1)
-  --skip-studio           Skip Studio environments
-  --skip-playground-cli   Skip Playground CLI environments
-  --skip-playground-web   Skip Playground web environments
-  --include-local         Include Local by Flywheel environments (requires Local running)
-  --only=<env1,env2>      Run only named environments (comma-separated)
-  --headed                Launch browser in headed mode for debugging
-  --help                  Show this help message
+  --rounds=N                                    Number of benchmark runs per environment (default: 1)
+  --skip-studio                                 Skip Studio environments
+  --skip-playground-cli                         Skip Playground CLI environments
+  --skip-playground-web                         Skip Playground web environments
+  --custom=<name>,<url>[,<user>,<password>]     Add a custom WordPress site (repeatable)
+                                                  user defaults to "admin", password to "password"
+  --install-plugins                             Install blueprint plugins on ALL custom environments
+  --install-plugins=<name1>,<name2>             Install blueprint plugins on specific custom environments
+  --only=<env1,env2>                            Run only named environments (comma-separated)
+  --headed                                      Launch browser in headed mode for debugging
+  --help                                        Show this help message
 
-Environments: ${ ALL_ENVIRONMENTS.map( ( e ) => e.name ).join( ', ' ) }
+Built-in environments: ${ ALL_ENVIRONMENTS.map( ( e ) => e.name ).join( ', ' ) }
+
+Examples:
+  # Benchmark a single custom WordPress site
+  npm run benchmark -- --custom=my-site,http://localhost:10003
+
+  # Two custom sites: bare vs with plugins
+  npm run benchmark -- \\
+    --custom=local-bare,http://localhost:10003 \\
+    --custom=local-plugins,http://localhost:10004 \\
+    --install-plugins=local-plugins
+
+  # Custom site with non-default credentials
+  npm run benchmark -- --custom=my-site,http://localhost:10003,admin,secret
+
+  # Compare Studio vs a custom site
+  npm run benchmark -- --only=studio,my-site --custom=my-site,http://localhost:10003 --rounds=3
 ` );
 }
 
@@ -502,82 +556,6 @@ function getPlaygroundWebUrl( env: EnvironmentConfig ): string {
 }
 
 // ---------------------------------------------------------------------------
-// Local by Flywheel environment helpers
-// ---------------------------------------------------------------------------
-
-async function ensureLocalRunning(): Promise< LocalGraphQLClient > {
-	try {
-		return await LocalGraphQLClient.connect();
-	} catch ( err ) {
-		console.error( chalk.red( `  Local is not running or not reachable.\n  ${ err }` ) );
-		process.exit( 1 );
-	}
-}
-
-async function setupLocalSite(
-	env: EnvironmentConfig,
-	client: LocalGraphQLClient
-): Promise< { url: string; siteId: string; siteDir: string } > {
-	const siteName = `bench-${ env.name }`;
-	const domain = `bench-${ env.name }.local`;
-	const siteDir = path.join( getLocalSitesDir(), siteName );
-
-	// Clean up any leftover sites from previous runs
-	const existing = await client.findAllSitesByName( siteName );
-	for ( const old of existing ) {
-		console.log( chalk.gray( `    Removing leftover site "${ siteName }" (${ old.id })...` ) );
-		await client.stopSite( old.id ).catch( () => {} );
-		await client.deleteSite( old.id ).catch( () => {} );
-	}
-	if ( fs.existsSync( siteDir ) ) {
-		cleanupDir( siteDir );
-	}
-
-	console.log( chalk.gray( `    Creating Local site "${ siteName }"...` ) );
-
-	const site = await client.createSite( {
-		name: siteName,
-		domain,
-		path: siteDir,
-		wpAdminPassword: 'password',
-		wpAdminUsername: 'admin',
-	} );
-
-	const url = site.url || `http://localhost:${ site.httpPort }`;
-
-	// Plugin install is best-effort — we still want to return site info
-	// so the caller can set up teardown even if plugin install fails.
-	if ( env.plugins ) {
-		console.log( chalk.gray( `    Installing plugins via REST API...` ) );
-		try {
-			await installPluginsForLocalSite( url, PLUGINS_BLUEPRINT_PATH );
-		} catch ( err ) {
-			console.warn( chalk.yellow( `    Plugin installation failed: ${ err }` ) );
-		}
-	}
-	console.log( chalk.gray( `    Local site running at ${ url }` ) );
-	return { url, siteId: site.id, siteDir };
-}
-
-async function teardownLocalSite(
-	siteId: string,
-	client: LocalGraphQLClient,
-	siteDir: string
-): Promise< void > {
-	try {
-		await client.stopSite( siteId );
-	} catch {
-		// Site may already be stopped
-	}
-	try {
-		await client.deleteSite( siteId );
-	} catch {
-		// Best effort cleanup
-	}
-	cleanupDir( siteDir );
-}
-
-// ---------------------------------------------------------------------------
 // Benchmark runner
 // ---------------------------------------------------------------------------
 
@@ -595,7 +573,6 @@ async function runBenchmark(
 
 	const isPlaygroundWeb = benchmarkUrl.includes( 'playground.wordpress.net' );
 	const isPlaygroundCli = benchmarkUrl.includes( '127.0.0.1' );
-	const isLocal = env.type === 'local';
 	const allMeasurements: MeasurementResult[] = [];
 
 	for ( let round = 1; round <= rounds; round++ ) {
@@ -604,7 +581,13 @@ async function runBenchmark(
 		}
 		try {
 			const result = await Promise.race( [
-				measureSiteEditor( { url: benchmarkUrl, isPlaygroundWeb, isPlaygroundCli, isLocal, headed } ),
+				measureSiteEditor( {
+					url: benchmarkUrl,
+					isPlaygroundWeb,
+					isPlaygroundCli,
+					credentials: env.credentials,
+					headed,
+				} ),
 				sleep( MEASUREMENT_TIMEOUT ).then( () => {
 					throw new Error( 'Measurement timed out' );
 				} ),
@@ -758,7 +741,23 @@ async function main() {
 	const opts = parseArgs();
 
 	// Filter environments
-	let environments = ALL_ENVIRONMENTS;
+	let environments = [ ...ALL_ENVIRONMENTS ];
+
+	// Add custom environments from --custom flags
+	for ( const custom of opts.customs ) {
+		const shouldInstallPlugins =
+			opts.installPlugins === 'all' ||
+			( Array.isArray( opts.installPlugins ) && opts.installPlugins.includes( custom.name ) );
+
+		environments.push( {
+			name: custom.name,
+			type: 'custom',
+			plugins: shouldInstallPlugins,
+			multiWorker: false,
+			customUrl: custom.url,
+			credentials: { username: custom.user, password: custom.password },
+		} );
+	}
 
 	if ( opts.only.length > 0 ) {
 		environments = environments.filter( ( e ) => opts.only.includes( e.name ) );
@@ -771,10 +770,6 @@ async function main() {
 		}
 		if ( opts.skipPlaygroundWeb ) {
 			environments = environments.filter( ( e ) => e.type !== 'playground-web' );
-		}
-		// Local environments are excluded by default — they require the GUI app running
-		if ( ! opts.includeLocal ) {
-			environments = environments.filter( ( e ) => e.type !== 'local' );
 		}
 	}
 
@@ -807,7 +802,6 @@ async function main() {
 
 	const needsStudio = environments.some( ( e ) => e.type === 'studio' );
 	const needsPlaygroundCli = environments.some( ( e ) => e.type === 'playground-cli' );
-	const needsLocal = environments.some( ( e ) => e.type === 'local' );
 
 	if ( needsStudio ) {
 		if ( ! ( await ensureStudioCLIBuilt() ) ) {
@@ -821,12 +815,6 @@ async function main() {
 			process.exit( 1 );
 		}
 		console.log( chalk.green( '  Playground CLI ready' ) );
-	}
-
-	let localClient: LocalGraphQLClient | null = null;
-	if ( needsLocal ) {
-		localClient = await ensureLocalRunning();
-		console.log( chalk.green( '  Local ready' ) );
 	}
 
 	fs.mkdirSync( ARTIFACTS_PATH, { recursive: true } );
@@ -858,10 +846,23 @@ async function main() {
 				const setup = await setupPlaygroundCliSite( env, port );
 				benchmarkUrl = setup.url;
 				teardownFn = () => teardownPlaygroundCliSite( setup.process, port, setup.siteDir );
-			} else if ( env.type === 'local' ) {
-				const setup = await setupLocalSite( env, localClient! );
-				benchmarkUrl = setup.url;
-				teardownFn = () => teardownLocalSite( setup.siteId, localClient!, setup.siteDir );
+			} else if ( env.type === 'custom' ) {
+				benchmarkUrl = env.customUrl!;
+				console.log( chalk.gray( `    URL: ${ benchmarkUrl }` ) );
+
+				if ( env.plugins && env.credentials ) {
+					console.log( chalk.gray( `    Installing plugins via REST API...` ) );
+					try {
+						await installPlugins(
+							benchmarkUrl,
+							PLUGINS_BLUEPRINT_PATH,
+							env.credentials.username,
+							env.credentials.password
+						);
+					} catch ( err ) {
+						console.warn( chalk.yellow( `    Plugin installation failed: ${ err }` ) );
+					}
+				}
 			} else {
 				benchmarkUrl = getPlaygroundWebUrl( env );
 				console.log( chalk.gray( `    URL: ${ benchmarkUrl.slice( 0, 80 ) }...` ) );

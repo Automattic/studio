@@ -1,7 +1,6 @@
 /**
- * Plugin installer for Local by Flywheel benchmark sites.
+ * Plugin installer for benchmark sites via the WordPress REST API.
  *
- * Uses the WordPress REST API to install and activate plugins.
  * Reads plugin slugs from the shared plugins-blueprint.json
  * (single source of truth for all environments).
  *
@@ -36,7 +35,7 @@ interface Blueprint {
 /**
  * Parse the blueprint JSON to extract plugin slugs.
  * This is the single source of truth for which plugins to install across
- * all environments (Studio, Playground CLI, Playground Web, Local).
+ * all environments (Studio, Playground CLI, Playground Web, custom).
  */
 export function getPluginSlugsFromBlueprint( blueprintPath: string ): string[] {
 	const blueprint: Blueprint = JSON.parse( fs.readFileSync( blueprintPath, 'utf-8' ) );
@@ -130,6 +129,16 @@ async function installPlugin(
 
 	if ( ! response.ok ) {
 		const body = await response.text();
+		let json: { code?: string } | null = null;
+		try {
+			json = JSON.parse( body );
+		} catch {
+			// Not JSON, fall through to throw
+		}
+		if ( json?.code === 'folder_exists' ) {
+			console.log( chalk.gray( `        ${ slug } already installed, skipping` ) );
+			return;
+		}
 		throw new Error( `HTTP ${ response.status }: ${ body.slice( 0, 200 ) }` );
 	}
 }
@@ -139,19 +148,23 @@ async function installPlugin(
 // ---------------------------------------------------------------------------
 
 /**
- * Installs and activates plugins on a Local site using the WordPress REST API.
+ * Installs and activates plugins on a WordPress site using the REST API.
  *
  * Reads plugin slugs from the provided blueprint file (the same file used
  * for Studio and Playground environments), logs in via wp-login.php,
  * extracts a REST API nonce, and installs each plugin via
  * POST /wp-json/wp/v2/plugins.
  *
- * @param siteUrl - The Local site's base URL (e.g., http://localhost:10003)
+ * @param siteUrl - The site's base URL (e.g., http://localhost:10003)
  * @param blueprintPath - Path to plugins-blueprint.json
+ * @param username - WordPress admin username
+ * @param password - WordPress admin password
  */
-export async function installPluginsForLocalSite(
+export async function installPlugins(
 	siteUrl: string,
-	blueprintPath: string
+	blueprintPath: string,
+	username: string,
+	password: string
 ): Promise< void > {
 	const slugs = getPluginSlugsFromBlueprint( blueprintPath );
 	if ( slugs.length === 0 ) {
@@ -160,7 +173,7 @@ export async function installPluginsForLocalSite(
 	}
 
 	console.log( chalk.gray( `      Logging in to WordPress...` ) );
-	const cookies = await wpLogin( siteUrl, 'admin', 'password' );
+	const cookies = await wpLogin( siteUrl, username, password );
 
 	console.log( chalk.gray( `      Extracting REST API nonce...` ) );
 	const nonce = await extractNonce( siteUrl, cookies );

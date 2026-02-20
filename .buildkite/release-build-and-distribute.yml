@@ -14,10 +14,10 @@ env:
   IMAGE_ID: $IMAGE_ID
 
 steps:
-  - group: ":package: Build for Mac"
+  - group: 📦 Build for Mac
     key: release-mac
     steps:
-      - label: ":hammer: Mac Release Build - {{matrix}}"
+      - label: 🔨 Mac Release Build - {{matrix}}
         agents:
           queue: mac
         command: |
@@ -49,12 +49,12 @@ steps:
           echo "--- :node: Packaging in DMG"
           npm run make:dmg-{{matrix}}
 
-          echo "--- :scroll: Notarizing Binary"
+          echo "--- 📃 Notarizing Binary"
           bundle exec fastlane notarize_binary
         plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
         artifact_paths:
-          - out/**/*.app.zip
-          - out/*.dmg
+          - apps/studio/out/**/*.app.zip
+          - apps/studio/out/*.dmg
         matrix:
           - x64
           - arm64
@@ -62,20 +62,20 @@ steps:
           - github_commit_status:
               context: All Mac Release Builds
 
-  - group: ":package: Build for Windows"
+  - group: 📦 Build for Windows
     key: release-windows
     steps:
-      - label: ":hammer: Windows Release Build - {{matrix}}"
+      - label: 🔨 Windows Release Build - {{matrix}}
         agents:
           queue: windows
         command: |
           bash .buildkite/commands/checkout-release-branch.sh "${RELEASE_VERSION}"
           powershell -File .buildkite/commands/build-for-windows.ps1 -BuildType release -Architecture {{matrix}}
         artifact_paths:
-          - out\**\studio-setup.exe
-          - out\**\studio-update.nupkg
-          - out\**\RELEASES
-          - out\**\*.appx
+          - apps\studio\out\**\studio-setup.exe
+          - apps\studio\out\**\studio-update.nupkg
+          - apps\studio\out\**\RELEASES
+          - apps\studio\out\**\*.appx
         plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
         matrix:
           - x64

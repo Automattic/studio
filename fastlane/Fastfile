@@ -375,7 +375,7 @@ end
 # @param skip_confirm [Boolean] Skip interactive confirmation prompts (default: false)
 #
 lane :download_translations do |skip_confirm: false, github_username: nil|
-  current_branch = Fastlane::Helper::GitHelper.current_branch_name
+  current_branch = Fastlane::Helper::GitHelper.current_git_branch
 
   UI.important <<~PROMPT
     Downloading translations. This will:

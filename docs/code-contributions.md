@@ -168,6 +168,17 @@ Then run tests:
 npm run e2e
 ```
 
+### CI: E2E and Performance Tests on Pull Requests
+
+E2E and performance tests run automatically on Buildkite for non-draft PRs. Draft PRs skip these tests to save CI resources (see [`.buildkite/pipeline.yml`](../.buildkite/pipeline.yml)).
+
+When you mark a draft PR as ready for review, Buildkite does **not** automatically re-trigger a build. You need to push a new commit to start the E2E and performance test runs. If your branch is already up to date, an empty commit works:
+
+```bash
+git commit --allow-empty -m "Trigger CI"
+git push
+```
+
 ## Debugging
 
 The renderer process can be debugged using the Chromium developer tools. To open the developer tools, press <kbd>Cmd</kbd>+<kbd>Option</kbd>+<kbd>I</kbd> on Mac or <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd> on Windows. You can also use the [React Developer Tools](https://chromewebstore.google.com/detail/react-developer-tools/fmkadmapgofadopljbjfkapdkoienihi) and [Redux DevTools](https://chromewebstore.google.com/detail/redux-devtools/lmhkpmbekcpmknklioeibfkpmmfibljd) to debug the renderer process.

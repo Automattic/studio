@@ -32,7 +32,7 @@ APPLE_API_KEY_PATH = File.join(SECRETS_FOLDER, 'app_store_connect_fastlane_api_k
 WPCOM_STUDIO_SITE_ID = '239164481'
 
 GITHUB_REPO = 'Automattic/studio'
-MAIN_BRANCH = 'trunk'
+MAIN_BRANCH = 'iangmaia/add-studio-to-releasesv2-tests'
 BUILDKITE_ORG = 'automattic'
 BUILDKITE_PIPELINE = 'studio'
 

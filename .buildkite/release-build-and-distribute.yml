@@ -100,7 +100,7 @@ steps:
 
       echo "--- :fastlane: Distributing Release Builds"
       install_gems
-      VERSION=$(node -p "require('./package.json').version")
+      VERSION=$(node -p "require('./apps/studio/package.json').version")
       bundle exec fastlane distribute_release_build version:"${VERSION}"
     agents:
       queue: mac

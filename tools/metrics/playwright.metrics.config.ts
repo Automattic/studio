@@ -1,6 +1,6 @@
 import path from 'path';
 import { defineConfig } from '@playwright/test';
-import baseConfig from '../playwright.config';
+import baseConfig from '../../playwright.config';
 
 process.env.ARTIFACTS_PATH ??= path.join( __dirname, 'artifacts' );
 

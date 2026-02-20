@@ -2,7 +2,11 @@ import { SupportedPHPVersions } from '@php-wasm/universal';
 import { DEFAULT_WORDPRESS_VERSION, MINIMUM_WORDPRESS_VERSION } from '@studio/common/constants';
 import { getDomainNameValidationError } from '@studio/common/lib/domains';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
-import { encodePassword, validateAdminEmail, validateAdminUsername } from '@studio/common/lib/passwords';
+import {
+	encodePassword,
+	validateAdminEmail,
+	validateAdminUsername,
+} from '@studio/common/lib/passwords';
 import { SITE_EVENTS } from '@studio/common/lib/site-events';
 import { siteNeedsRestart } from '@studio/common/lib/site-needs-restart';
 import {

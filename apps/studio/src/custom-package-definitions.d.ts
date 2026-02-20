@@ -1,3 +1,5 @@
+/// <reference types="@testing-library/jest-dom/vitest" />
+
 declare module '*.png' {
 	const dataUri: string;
 	export default dataUri;

@@ -5,7 +5,7 @@ import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
 import Anchor from 'src/components/assistant-anchor';
 import createCodeComponent from 'src/components/assistant-code-block';
-import { FeedbackThanks } from 'src/components/chat-rating';
+import { ChatRating } from 'src/components/chat-rating';
 import { CopyTextButton } from 'src/components/copy-text-button';
 import { cx } from 'src/lib/cx';
 import { Message } from 'src/stores/chat-slice';
@@ -18,8 +18,8 @@ export interface ChatMessageProps {
 	message: Message;
 	isUnauthenticated?: boolean;
 	failedMessage?: boolean;
-	feedbackReceived?: boolean;
 	instanceId: string;
+	onRate?: ( ratingValue: number ) => void;
 }
 
 export const MarkDownWithCode = ( {
@@ -51,8 +51,31 @@ export const MarkDownWithCode = ( {
 		</Markdown>
 	</div>
 );
+
+const MessageActions = ( {
+	content,
+	isAssistant,
+	onRate,
+}: {
+	content: string;
+	isAssistant: boolean;
+	onRate?: ( ratingValue: number ) => void;
+} ) => (
+	<div className="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+		<CopyTextButton
+			text={ content }
+			variant="icon"
+			className="text-a8c-gray-70 hover:!text-a8c-blue-50"
+			iconSize={ 18 }
+		/>
+		{ isAssistant && <ChatRating onRate={ onRate } /> }
+	</div>
+);
+
 export const ChatMessage = forwardRef< HTMLDivElement, ChatMessageProps >(
-	( { id, message, className, siteId, children, isUnauthenticated, instanceId }, ref ) => {
+	( { id, message, className, siteId, children, isUnauthenticated, instanceId, onRate }, ref ) => {
+		const isString = typeof children === 'string';
+
 		return (
 			<>
 				<div ref={ ref } className="h-4" />
@@ -83,26 +106,22 @@ export const ChatMessage = forwardRef< HTMLDivElement, ChatMessageProps >(
 								{ message.role === 'user' ? __( 'Your message' ) : __( 'Studio Assistant' ) },
 							</span>
 						</div>
-						{ typeof children === 'string' ? (
-							<>
-								<MarkDownWithCode
-									message={ message }
-									siteId={ siteId }
-									instanceId={ instanceId }
-									content={ children }
-								/>
-								<div className="flex mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-									<CopyTextButton
-										text={ children }
-										variant="icon"
-										className="text-a8c-gray-70 hover:!text-a8c-blue-50"
-										iconSize={ 18 }
-									/>
-								</div>
-								{ message.feedbackReceived && <FeedbackThanks /> }
-							</>
+						{ isString ? (
+							<MarkDownWithCode
+								message={ message }
+								siteId={ siteId }
+								instanceId={ instanceId }
+								content={ children }
+							/>
 						) : (
 							children
+						) }
+						{ message.content && (
+							<MessageActions
+								content={ message.content }
+								isAssistant={ message.role === 'assistant' }
+								onRate={ onRate }
+							/>
 						) }
 					</div>
 				</div>

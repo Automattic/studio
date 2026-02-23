@@ -13,8 +13,6 @@ import { ArrowIcon } from 'src/components/arrow-icon';
 import { MessageThinking } from 'src/components/assistant-thinking';
 import Button from 'src/components/button';
 import { ChatMessage, MarkDownWithCode } from 'src/components/chat-message';
-import { CopyTextButton } from 'src/components/copy-text-button';
-import { ChatRating } from 'src/components/chat-rating';
 import { LearnMoreLink } from 'src/components/learn-more';
 import offlineIcon from 'src/components/offline-icon';
 import WelcomeComponent from 'src/components/welcome-message-prompt';
@@ -125,13 +123,14 @@ const OfflineModeView = () => {
 
 const LastMessage = forwardRef<
 	HTMLDivElement,
-	React.PropsWithChildren< {
+	{
 		instanceId: string;
 		message: MessageType;
 		showThinking: boolean;
 		siteId: string;
-	} >
->( ( { children, instanceId, message, showThinking, siteId }, ref ) => {
+		onRate?: ( ratingValue: number ) => void;
+	}
+>( ( { instanceId, message, showThinking, siteId, onRate }, ref ) => {
 	const [ isInitialRender, setIsInitialRender ] = useState( true );
 
 	useEffect( () => {
@@ -157,6 +156,7 @@ const LastMessage = forwardRef<
 			message={ message }
 			siteId={ siteId }
 			instanceId={ instanceId }
+			onRate={ onRate }
 		>
 			<AnimatePresence mode="wait">
 				{ showThinking ? (
@@ -184,15 +184,6 @@ const LastMessage = forwardRef<
 							instanceId={ instanceId }
 							content={ message.content }
 						/>
-						<div className="flex mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-							<CopyTextButton
-								text={ message.content }
-								variant="icon"
-								className="text-a8c-gray-70 hover:!text-a8c-blue-50"
-								iconSize={ 18 }
-							/>
-						</div>
-						{ children }
 					</motion.div>
 				) }
 			</AnimatePresence>
@@ -207,6 +198,7 @@ interface AuthenticatedViewProps {
 	siteId: string;
 	submitPrompt: ( messageToSend: string, isRetry?: boolean ) => void;
 	wrapperRef: React.RefObject< HTMLDivElement >;
+	onRate: ( messageApiId: number, ratingValue: number ) => void;
 }
 
 const AuthenticatedView = memo(
@@ -217,6 +209,7 @@ const AuthenticatedView = memo(
 		siteId,
 		submitPrompt,
 		wrapperRef,
+		onRate,
 	}: AuthenticatedViewProps ) => {
 		const lastMessageRef = useRef< HTMLDivElement >( null );
 		const [ showThinking, setShowThinking ] = useState( isAssistantThinking );
@@ -287,6 +280,11 @@ const AuthenticatedView = memo(
 						message={ message }
 						siteId={ siteId }
 						instanceId={ instanceId }
+						onRate={
+							message.messageApiId
+								? ( ratingValue ) => onRate( message.messageApiId!, ratingValue )
+								: undefined
+						}
 					>
 						{ message.content }
 					</ChatMessage>
@@ -295,7 +293,7 @@ const AuthenticatedView = memo(
 					) }
 				</>
 			),
-			[ submitPrompt, siteId, instanceId ]
+			[ submitPrompt, siteId, instanceId, onRate ]
 		);
 
 		if ( messages.length === 0 ) {
@@ -313,17 +311,12 @@ const AuthenticatedView = memo(
 						ref={ lastMessageRef }
 						showThinking={ showThinking }
 						siteId={ siteId }
-					>
-						<div className="flex">
-							{ !! lastMessage.messageApiId && (
-								<ChatRating
-									instanceId={ instanceId }
-									messageApiId={ lastMessage.messageApiId }
-									feedbackReceived={ !! lastMessage.feedbackReceived }
-								/>
-							) }
-						</div>
-					</LastMessage>
+						onRate={
+							lastMessage.messageApiId
+								? ( ratingValue ) => onRate( lastMessage.messageApiId!, ratingValue )
+								: undefined
+						}
+					/>
 				) }
 			</>
 		);
@@ -430,6 +423,18 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		[ client, dispatch, instanceId, selectedSite.id, messages, chatApiId ]
 	);
 
+	const handleRate = useCallback(
+		( messageApiId: number, ratingValue: number ) => {
+			if ( ! client ) {
+				return;
+			}
+			void dispatch(
+				chatThunks.sendFeedback( { client, messageApiId, ratingValue, instanceId } )
+			);
+		},
+		[ client, dispatch, instanceId ]
+	);
+
 	const clearConversation = () => {
 		dispatch( chatActions.setChatInput( { siteId: selectedSite.id, input: '' } ) );
 		dispatch( chatActions.setMessages( { instanceId, messages: [] } ) );
@@ -532,6 +537,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 								siteId={ selectedSite.id }
 								submitPrompt={ submitPrompt }
 								wrapperRef={ wrapperRef }
+								onRate={ handleRate }
 							/>
 						</>
 					) : (

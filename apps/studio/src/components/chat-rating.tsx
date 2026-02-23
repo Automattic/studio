@@ -1,60 +1,56 @@
 import { __ } from '@wordpress/i18n';
 import { thumbsUp, thumbsDown, Icon } from '@wordpress/icons';
+import { useState } from 'react';
 import Button from 'src/components/button';
-import { useAuth } from 'src/hooks/use-auth';
-import { useAppDispatch } from 'src/stores';
-import { chatThunks } from 'src/stores/chat-slice';
+import { cx } from 'src/lib/cx';
 
 interface ChatRatingProps {
-	instanceId: string;
-	messageApiId: number;
-	feedbackReceived: boolean;
+	onRate?: ( ratingValue: number ) => void;
 	className?: string;
 }
 
-export const FeedbackThanks = () => {
-	return (
-		<div className="text-a8c-gray-70 italic text-xs flex justify-end mt-4">
-			{ __( 'Thanks for the feedback!' ) }
-		</div>
-	);
-};
+export const ChatRating = ( { onRate, className }: ChatRatingProps ) => {
+	const [ selectedRating, setSelectedRating ] = useState< number | null >( null );
 
-export const ChatRating = ( { messageApiId, feedbackReceived, instanceId }: ChatRatingProps ) => {
-	const { client } = useAuth();
-	const dispatch = useAppDispatch();
-	const handleRatingClick = async ( feedback: number ) => {
-		if ( ! client ) {
-			return;
+	const handleClick = ( value: number ) => {
+		if ( selectedRating === value ) {
+			setSelectedRating( null );
+		} else {
+			setSelectedRating( value );
+			onRate?.( value );
 		}
-
-		void dispatch(
-			chatThunks.sendFeedback( { client, messageApiId, ratingValue: feedback, instanceId } )
-		);
 	};
 
-	return feedbackReceived ? (
-		<FeedbackThanks />
-	) : (
-		<div className="flex mt-2">
-			<div className="flex items-center gap-1">
+	return (
+		<div className={ cx( 'flex items-center gap-1', className ) }>
+			{ ( selectedRating === null || selectedRating === 1 ) && (
 				<Button
 					variant="icon"
-					className="text-a8c-gray-70 hover:!text-a8c-green-50"
-					onClick={ () => handleRatingClick( 1 ) }
+					className={ cx(
+						selectedRating === 1
+							? 'text-a8c-green-50'
+							: 'text-a8c-gray-70 hover:!text-a8c-green-50'
+					) }
+					onClick={ () => handleClick( 1 ) }
 					tooltipText={ __( 'Helpful' ) }
 				>
 					<Icon size={ 18 } icon={ thumbsUp } />
 				</Button>
+			) }
+			{ ( selectedRating === null || selectedRating === 0 ) && (
 				<Button
 					variant="icon"
-					className="text-a8c-gray-70 hover:!text-a8c-red-50"
-					onClick={ () => handleRatingClick( 0 ) }
+					className={ cx(
+						selectedRating === 0
+							? 'text-a8c-red-50'
+							: 'text-a8c-gray-70 hover:!text-a8c-red-50'
+					) }
+					onClick={ () => handleClick( 0 ) }
 					tooltipText={ __( 'Unhelpful' ) }
 				>
 					<Icon size={ 18 } icon={ thumbsDown } />
 				</Button>
-			</div>
+			) }
 		</div>
 	);
 };

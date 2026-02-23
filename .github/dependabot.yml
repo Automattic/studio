@@ -138,6 +138,9 @@ updates:
       - dependency-name: "resize-observer-polyfill"
       - dependency-name: "isomorphic-fetch"
 
+      # Binary packaging
+      - dependency-name: "@yao-pkg/*"
+
       # Dev tools
       - dependency-name: "prettier"
       - dependency-name: "postcss"

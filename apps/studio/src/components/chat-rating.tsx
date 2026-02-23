@@ -36,24 +36,23 @@ export const ChatRating = ( { messageApiId, feedbackReceived, instanceId }: Chat
 	return feedbackReceived ? (
 		<FeedbackThanks />
 	) : (
-		<div className="flex flex-col mt-4 items-start gap-3">
-			<div className="flex items-center gap-3">
-				<span className="text-a8c-gray-70 text-xs">{ __( 'Was this helpful?' ) }</span>
+		<div className="flex mt-2">
+			<div className="flex items-center gap-1">
 				<Button
 					variant="icon"
-					className="text-a8c-green-50 hover:!text-a8c-green-50 flex items-center gap-1"
+					className="text-a8c-gray-70 hover:!text-a8c-green-50"
 					onClick={ () => handleRatingClick( 1 ) }
+					tooltipText={ __( 'Helpful' ) }
 				>
 					<Icon size={ 18 } icon={ thumbsUp } />
-					<span className="text-xs">{ __( 'Yes' ) }</span>
 				</Button>
 				<Button
 					variant="icon"
-					className="text-a8c-red-50 hover:!text-a8c-red-50 flex items-center gap-1"
+					className="text-a8c-gray-70 hover:!text-a8c-red-50"
 					onClick={ () => handleRatingClick( 0 ) }
+					tooltipText={ __( 'Unhelpful' ) }
 				>
 					<Icon size={ 18 } icon={ thumbsDown } />
-					<span className="text-xs">{ __( 'No' ) }</span>
 				</Button>
 			</div>
 		</div>

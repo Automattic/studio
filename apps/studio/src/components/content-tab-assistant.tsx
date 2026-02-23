@@ -305,7 +305,7 @@ const AuthenticatedView = memo(
 						showThinking={ showThinking }
 						siteId={ siteId }
 					>
-						<div className="flex justify-end">
+						<div className="flex">
 							{ !! lastMessage.messageApiId && (
 								<ChatRating
 									instanceId={ instanceId }

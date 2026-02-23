@@ -13,6 +13,11 @@ function useTabs() {
 	return useMemo( () => {
 		const tabs: Tab[] = [
 			{
+				order: 0,
+				name: 'assistant',
+				title: __( 'Chat' ),
+			},
+			{
 				order: 1,
 				name: 'overview',
 				title: __( 'Overview' ),
@@ -41,13 +46,6 @@ function useTabs() {
 				title: __( 'Settings' ),
 			}
 		);
-
-		tabs.push( {
-			order: 6,
-			name: 'assistant',
-			title: __( 'Assistant' ),
-			className: 'components-tab-panel__tabs--assistant ltr:pl-8 rtl:pr-8 ltr:ml-auto rtl:mr-auto',
-		} );
 
 		return tabs.sort( ( a, b ) => a.order - b.order );
 	}, [ __ ] );

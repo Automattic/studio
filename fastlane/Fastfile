@@ -689,7 +689,7 @@ def extract_release_notes(version:)
   content = File.read(notes_path)
 
   escaped = Regexp.escape(version)
-  match = content.match(/^#{escaped}\n=+\n(.*?)(?=\n\d+\.\d+|\z)/m)
+  match = content.match(/^#{escaped}\n=+\n(.*?)(?=^\d+\.\d+\S*\n=+|\z)/m)
 
   if match
     match[1].strip

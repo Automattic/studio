@@ -729,7 +729,9 @@ def update_release_notes_draft(version:)
   new_section = "#{version}\n=====\n#{formatted}\n"
 
   # Insert the new version section after the "Unreleased" header
-  content.sub!(/^(Unreleased\n=+\n)\n*/, "\\1\n#{new_section}\n")
+  unless content.sub!(/^(Unreleased\n=+\n)\n*/, "\\1\n#{new_section}\n")
+    UI.user_error!("Could not find 'Unreleased' header in RELEASE-NOTES.txt. Please ensure the file has an 'Unreleased' section.")
+  end
   File.write(notes_path, content)
 
   UI.success("Draft release notes for #{version} added to RELEASE-NOTES.txt")

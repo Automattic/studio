@@ -217,15 +217,7 @@ lane :new_beta_release do |version:, skip_confirm: false|
   PROMPT
   next unless skip_confirm || UI.confirm('Continue?')
 
-  set_package_json_version(version: new_version)
-
-  # Commit and push
-  git_add(path: ['apps/studio/package.json', 'package-lock.json'])
-  git_commit(
-    path: ['apps/studio/package.json', 'package-lock.json'],
-    message: "[skip ci] Bump version to #{new_version}"
-  )
-  push_to_git_remote
+  bump_version_commit_and_push(version: new_version)
 
   # Tag the beta release
   tag_name = "v#{new_version}"
@@ -259,15 +251,7 @@ lane :finalize_release do |version:, skip_confirm: false|
   PROMPT
   next unless skip_confirm || UI.confirm('Continue?')
 
-  set_package_json_version(version: version)
-
-  # Commit and push
-  git_add(path: ['apps/studio/package.json', 'package-lock.json'])
-  git_commit(
-    path: ['apps/studio/package.json', 'package-lock.json'],
-    message: "[skip ci] Bump version to #{version}"
-  )
-  push_to_git_remote
+  bump_version_commit_and_push(version: version)
 
   # Extract release notes and write to a temp file for the GitHub release action
   notes = extract_release_notes(version: version)
@@ -362,15 +346,7 @@ lane :new_hotfix_release do |version:, skip_confirm: false|
 
   Fastlane::Helper::GitHelper.create_branch(branch_name, from: base_ref)
 
-  set_package_json_version(version: version)
-
-  # Commit and push
-  git_add(path: ['apps/studio/package.json', 'package-lock.json'])
-  git_commit(
-    path: ['apps/studio/package.json', 'package-lock.json'],
-    message: "[skip ci] Bump version to #{version}"
-  )
-  push_to_git_remote(set_upstream: true)
+  bump_version_commit_and_push(version: version, set_upstream: true)
 
   UI.success("Hotfix branch #{branch_name} created from #{base_ref}")
 end
@@ -672,6 +648,18 @@ end
 ########################################################################
 # Release Management Helper Methods
 ########################################################################
+
+# Bump version in package.json, commit, and push.
+# Used by new_beta_release, finalize_release, and new_hotfix_release.
+def bump_version_commit_and_push(version:, set_upstream: false)
+  set_package_json_version(version: version)
+  git_add(path: ['apps/studio/package.json', 'package-lock.json'])
+  git_commit(
+    path: ['apps/studio/package.json', 'package-lock.json'],
+    message: "[skip ci] Bump version to #{version}"
+  )
+  push_to_git_remote(set_upstream: set_upstream)
+end
 
 # Read the current version from package.json
 def read_package_json_version

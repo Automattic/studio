@@ -75,7 +75,6 @@ const config: ForgeConfig = {
 			/^\/wp-files/,
 			/^\/apps\/cli\/dist\/cli/,
 			/^\/dist\/playground-cli/,
-			/^\/node_modules\/@php-wasm/,
 		],
 	},
 	rebuildConfig: {},

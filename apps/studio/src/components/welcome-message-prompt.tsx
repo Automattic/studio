@@ -35,7 +35,7 @@ export const WelcomeMessagePrompt = React.forwardRef< HTMLDivElement, WelcomeMes
 				role="group"
 				aria-labelledby={ id }
 				className={ cx(
-					'inline-block p-3 rounded border border-gray-300 lg:max-w-[70%] select-text bg-white',
+					'inline-block p-3 lg:max-w-[70%] select-text',
 					className
 				) }
 			>
@@ -95,10 +95,10 @@ const WelcomeComponent = React.forwardRef< HTMLDivElement, WelcomeComponentProps
 			return (
 				<div ref={ ref } className="flex flex-col animate-pulse">
 					<div className="flex mt-2">
-						<div className="inline-block p-3 rounded border border-gray-300 lg:max-w-[70%] bg-gray-100 h-16 w-96" />
+						<div className="inline-block p-3 lg:max-w-[70%] bg-gray-100 rounded h-16 w-96" />
 					</div>
 					<div className="flex mt-2">
-						<div className="inline-block p-3 rounded border border-gray-300 lg:max-w-[70%] bg-gray-100 h-12 w-72" />
+						<div className="inline-block p-3 lg:max-w-[70%] bg-gray-100 rounded h-12 w-72" />
 					</div>
 				</div>
 			);

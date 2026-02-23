@@ -442,7 +442,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 												</div>
 												<div className="text-a8c-gray-50 text-xs mt-1">
 													{ __(
-														"Log PHP errors and warnings to a debug.log file in your site's wp-content directory."
+														"Log PHP errors and warnings to a debug.log file in your site's wp-content directory by setting the WP_DEBUG_LOG constant."
 													) }
 												</div>
 											</div>
@@ -469,7 +469,9 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 													</label>
 												</div>
 												<div className="text-a8c-gray-50 text-xs mt-1">
-													{ __( 'Display PHP errors and warnings directly in the browser.' ) }
+													{ __(
+														'Display PHP errors and warnings directly in the browser by setting the WP_DEBUG_DISPLAY constant.'
+													) }
 												</div>
 											</div>
 										</>

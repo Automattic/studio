@@ -1,5 +1,5 @@
 diff --git a/node_modules/@wp-playground/wordpress/index.cjs b/node_modules/@wp-playground/wordpress/index.cjs
-index 9c468e3..3e5ab08 100644
+index 9c468e3..324e27d 100644
 --- a/node_modules/@wp-playground/wordpress/index.cjs
 +++ b/node_modules/@wp-playground/wordpress/index.cjs
 @@ -352,7 +352,7 @@ function skip_whitespace($tokens) {
@@ -11,8 +11,21 @@ index 9c468e3..3e5ab08 100644
  			ob_start();
  			$wp_load = getenv('DOCUMENT_ROOT') . '/wp-load.php';
  			if (!file_exists($wp_load)) {
+@@ -619,7 +619,11 @@ function skip_whitespace($tokens) {
+ 
+         $log_file = WP_CONTENT_DIR . '/debug.log';
+         define('ERROR_LOG_FILE', $log_file);
+-        ini_set('error_log', $log_file);
++        if ( defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
++            ini_set('error_log', $log_file);
++        } else {
++            ini_set('log_errors', '0');
++        }
+         ?>`),await e.writeFile("/internal/shared/mu-plugins/sitemap-redirect.php",`<?php
+ 		/**
+ 		 * Redirect sitemap.xml to wp-sitemap.xml for non-root installations.
 diff --git a/node_modules/@wp-playground/wordpress/index.js b/node_modules/@wp-playground/wordpress/index.js
-index 356bdc9..3fa4beb 100644
+index 356bdc9..e1e3fcf 100644
 --- a/node_modules/@wp-playground/wordpress/index.js
 +++ b/node_modules/@wp-playground/wordpress/index.js
 @@ -366,7 +366,6 @@ async function v(e, n, t, i = "rewrite") {
@@ -23,3 +36,16 @@ index 356bdc9..3fa4beb 100644
    };
    !e.fileExists(t) && e.fileExists(o(n, "wp-config-sample.php")) && await e.writeFile(
      t,
+@@ -873,7 +872,11 @@ async function A(e) {
+ 
+         $log_file = WP_CONTENT_DIR . '/debug.log';
+         define('ERROR_LOG_FILE', $log_file);
+-        ini_set('error_log', $log_file);
++        if ( defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
++            ini_set('error_log', $log_file);
++        } else {
++            ini_set('log_errors', '0');
++        }
+         ?>`
+   ), await e.writeFile(
+     "/internal/shared/mu-plugins/sitemap-redirect.php",

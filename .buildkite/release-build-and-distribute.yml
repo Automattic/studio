@@ -100,7 +100,7 @@ steps:
 
       echo "--- :fastlane: Distributing Release Builds"
       install_gems
-      bundle exec fastlane distribute_release_build version:"${RELEASE_VERSION}"
+      bundle exec fastlane distribute_release_build
     agents:
       queue: mac
     depends_on:

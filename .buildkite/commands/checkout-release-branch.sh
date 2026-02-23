@@ -22,5 +22,4 @@ fi
 BRANCH_NAME="release/${RELEASE_VERSION}"
 
 git fetch origin "$BRANCH_NAME"
-git checkout "$BRANCH_NAME"
-git pull
+git checkout -B "$BRANCH_NAME" "origin/$BRANCH_NAME"

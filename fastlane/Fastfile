@@ -205,6 +205,13 @@ end
 lane :new_beta_release do |version:, skip_confirm: false|
   current_version = read_package_json_version
   current_beta = current_version[/beta(\d+)$/, 1].to_i
+
+  # Guard against version mismatch (e.g. package.json has 1.7.4-beta3 but version param is 1.8.0)
+  # Skip the check when current_beta is 0, meaning this is the first beta (called from code_freeze before any bump).
+  if current_beta > 0
+    base_version = current_version.sub(/-beta\d+$/, '')
+    UI.user_error!("Version mismatch: package.json has #{current_version} but expected #{version}-betaN") unless base_version == version
+  end
   new_version = "#{version}-beta#{current_beta + 1}"
 
   UI.important <<~PROMPT

@@ -64,16 +64,15 @@ Builds are signed, notarized (macOS), and uploaded to the Apps CDN automatically
 
 ## Running Lanes Locally
 
-Lanes can be run locally for testing (requires Ruby + Bundler setup):
+Lanes can be run locally for testing (requires Ruby + Bundler + GITHUB_TOKEN + BUILDKITE_TOKEN):
 
 ```sh
-# Dry run (no pushes, no uploads)
-DRY_RUN=true bundle exec fastlane code_freeze version:"1.8.0" skip_confirm:true
 
-# Other lanes
-bundle exec fastlane new_beta_release version:"1.8.0" skip_confirm:true
-bundle exec fastlane finalize_release version:"1.8.0" skip_confirm:true
-bundle exec fastlane publish_release version:"1.8.0" skip_confirm:true
+# Running these lanes locally will always print a description of what the lane will do with a confirmation prompt
+bundle exec fastlane code_freeze version:"1.8.0"
+bundle exec fastlane new_beta_release version:"1.8.0"
+bundle exec fastlane finalize_release version:"1.8.0"
+bundle exec fastlane publish_release version:"1.8.0"
 ```
 
 ## Reference

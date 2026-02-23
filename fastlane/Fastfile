@@ -124,7 +124,7 @@ end
 
 # Create a new release branch from trunk and the first beta.
 #
-# - Extracts translatable strings and commits them to trunk (for GlotPress import)
+# - Extracts translatable strings and commits them to the release branch (for GlotPress import)
 # - Creates a `release/<version>` branch from trunk
 # - Delegates to {new_beta_release} to bump to beta1, commit, push, tag, and trigger a build
 #

@@ -24,6 +24,9 @@ UI.message("Running in #{DRY_RUN ? 'DRY RUN' : 'NORMAL'} mode")
 # Path to the Studio app's package.json (monorepo workspace)
 PACKAGE_JSON_PATH = File.join(PROJECT_ROOT_FOLDER, 'apps', 'studio', 'package.json')
 
+# Path to the translatable strings file (committed to the repo for GlotPress import)
+POT_FILE_PATH = File.join(PROJECT_ROOT_FOLDER, 'i18n', 'bundle-strings.pot')
+
 APPLE_TEAM_ID = 'PZYM8XX95Q'
 APPLE_BUNDLE_IDENTIFIER = 'com.automattic.studio'
 APPLE_API_KEY_PATH = File.join(SECRETS_FOLDER, 'app_store_connect_fastlane_api_key.json')
@@ -151,25 +154,24 @@ lane :code_freeze do |version:, skip_confirm: false, github_username: nil|
   # Create release branch from MAIN_BRANCH
   Fastlane::Helper::GitHelper.create_branch(branch_name)
 
-  # Fastlane sh() runs from the fastlane/ directory, so use absolute paths
+  # Fastlane sh() runs from the fastlane/ directory, so use absolute paths for shell commands
   pot_dir = File.join(PROJECT_ROOT_FOLDER, 'out', 'pots')
-  pot_output = File.join(PROJECT_ROOT_FOLDER, 'i18n', 'bundle-strings.pot')
 
   sh('rm', '-rf', pot_dir)
-  sh('mkdir', '-p', File.join(PROJECT_ROOT_FOLDER, 'i18n'))
+  sh('mkdir', '-p', File.dirname(POT_FILE_PATH))
   sh(
     'npx', 'wp-babel-makepot',
     "#{PROJECT_ROOT_FOLDER}/{apps/studio/src,apps/cli,tools/common}/**/*.{js,jsx,ts,tsx}",
     '--ignore', "#{PROJECT_ROOT_FOLDER}/apps/cli/node_modules/**/*,**/*.d.ts",
     '--base', PROJECT_ROOT_FOLDER,
     '--dir', pot_dir,
-    '--output', pot_output
+    '--output', POT_FILE_PATH
   )
 
   # Commit and push the .pot file so the wpcom cron can import it to GlotPress
-  git_add(path: ['./i18n/bundle-strings.pot'])
+  git_add(path: [POT_FILE_PATH])
   git_commit(
-    path: ['./i18n/bundle-strings.pot'],
+    path: [POT_FILE_PATH],
     message: "[skip ci] Code freeze: Update translatable strings for #{version}",
     allow_nothing_to_commit: true
   )
@@ -212,6 +214,7 @@ lane :new_beta_release do |version:, skip_confirm: false|
     base_version = current_version.sub(/-beta\d+$/, '')
     UI.user_error!("Version mismatch: package.json has #{current_version} but expected #{version}-betaN") unless base_version == version
   end
+
   new_version = "#{version}-beta#{current_beta + 1}"
 
   UI.important <<~PROMPT

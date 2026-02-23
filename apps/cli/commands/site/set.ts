@@ -52,10 +52,23 @@ export interface SetCommandOptions {
 	adminUsername?: string;
 	adminPassword?: string;
 	adminEmail?: string;
+	debugLog?: boolean;
+	debugDisplay?: boolean;
 }
 
 export async function runCommand( sitePath: string, options: SetCommandOptions ): Promise< void > {
-	const { name, domain, https, php, wp, xdebug, adminUsername, adminPassword } = options;
+	const {
+		name,
+		domain,
+		https,
+		php,
+		wp,
+		xdebug,
+		adminUsername,
+		adminPassword,
+		debugLog,
+		debugDisplay,
+	} = options;
 	let { adminEmail } = options;
 
 	if (
@@ -67,11 +80,13 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 		xdebug === undefined &&
 		adminUsername === undefined &&
 		adminPassword === undefined &&
-		adminEmail === undefined
+		adminEmail === undefined &&
+		debugLog === undefined &&
+		debugDisplay === undefined
 	) {
 		throw new LoggerError(
 			__(
-				'At least one option (--name, --domain, --https, --php, --wp, --xdebug, --admin-username, --admin-password, --admin-email) is required.'
+				'At least one option (--name, --domain, --https, --php, --wp, --xdebug, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display) is required.'
 			)
 		);
 	}
@@ -153,6 +168,9 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 		const adminPasswordChanged = adminPassword !== undefined;
 		const adminEmailChanged = adminEmail !== undefined && adminEmail !== ( site.adminEmail ?? '' );
 		const credentialsChanged = adminUsernameChanged || adminPasswordChanged || adminEmailChanged;
+		const debugLogChanged = debugLog !== undefined && debugLog !== site.enableDebugLog;
+		const debugDisplayChanged =
+			debugDisplay !== undefined && debugDisplay !== site.enableDebugDisplay;
 
 		const hasChanges =
 			nameChanged ||
@@ -161,7 +179,9 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 			phpChanged ||
 			wpChanged ||
 			xdebugChanged ||
-			credentialsChanged;
+			credentialsChanged ||
+			debugLogChanged ||
+			debugDisplayChanged;
 		if ( ! hasChanges ) {
 			throw new LoggerError(
 				__( 'No changes to apply. The site already has the specified settings.' )
@@ -175,6 +195,8 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 			wpChanged,
 			xdebugChanged,
 			credentialsChanged,
+			debugLogChanged,
+			debugDisplayChanged,
 		} );
 		const oldDomain = site.customDomain;
 
@@ -209,6 +231,12 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 			}
 			if ( adminEmailChanged ) {
 				foundSite.adminEmail = adminEmail!;
+			}
+			if ( debugLogChanged ) {
+				foundSite.enableDebugLog = debugLog;
+			}
+			if ( debugDisplayChanged ) {
+				foundSite.enableDebugDisplay = debugDisplay;
 			}
 
 			await saveAppdata( appdata );
@@ -356,6 +384,14 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'admin-email', {
 					type: 'string',
 					description: __( 'Admin email' ),
+				} )
+				.option( 'debug-log', {
+					type: 'boolean',
+					description: __( 'Enable WP_DEBUG_LOG' ),
+				} )
+				.option( 'debug-display', {
+					type: 'boolean',
+					description: __( 'Enable WP_DEBUG_DISPLAY' ),
 				} );
 		},
 		handler: async ( argv ) => {
@@ -370,6 +406,8 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					adminUsername: argv.adminUsername,
 					adminPassword: argv.adminPassword,
 					adminEmail: argv.adminEmail,
+					debugLog: argv.debugLog,
+					debugDisplay: argv.debugDisplay,
 				} );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {

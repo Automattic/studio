@@ -1568,3 +1568,25 @@ export async function setWindowControlVisibility( event: IpcMainInvokeEvent, vis
 		parentWindow.setWindowButtonVisibility( visible );
 	}
 }
+
+export async function updateSitesSortOrder(
+	event: IpcMainInvokeEvent,
+	updates: { siteId: string; sortOrder: number }[]
+): Promise< void > {
+	try {
+		await lockAppdata();
+		const userData = await loadUserData();
+
+		const updatedSites = userData.sites.map( ( site ) => {
+			const update = updates.find( ( u ) => u.siteId === site.id );
+			if ( update ) {
+				return { ...site, sortOrder: update.sortOrder };
+			}
+			return site;
+		} );
+
+		await saveUserData( { ...userData, sites: updatedSites } );
+	} finally {
+		await unlockAppdata();
+	}
+}

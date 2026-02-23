@@ -233,6 +233,8 @@ async function getBaseRunCLIArgs(
 		'site-url': config.absoluteUrl || `http://localhost:${ config.port }`,
 		blueprint: blueprintBundle,
 		wordpressInstallMode,
+		redis: true,
+		memcached: true,
 	};
 
 	if ( config.wpVersion ) {

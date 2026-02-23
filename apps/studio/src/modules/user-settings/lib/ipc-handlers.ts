@@ -6,10 +6,7 @@ import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { SUPPORTED_EDITORS, SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 import { UserSettingsTabName } from 'src/modules/user-settings/user-settings-types';
-import {
-	ensureWritableDirectory,
-	resolveDefaultSiteDirectory,
-} from 'src/storage/default-site-directory';
+import { ensureWritableDirectory, resolveDefaultSiteDirectory } from 'src/storage/paths';
 import { loadUserData, updateAppdata } from 'src/storage/user-data';
 
 export function getInstalledAppsAndTerminals(): InstalledApps {

@@ -1,3 +1,5 @@
+import fs from 'fs';
+import fsPromises from 'fs/promises';
 import path from 'path';
 import { LOCKFILE_NAME } from '@studio/common/constants';
 
@@ -128,4 +130,43 @@ function getAppName(): string {
 		throw new Error( 'Electron app not available in child process' );
 	}
 	return app.getName();
+}
+
+async function ensurePathIsDirectory( directory: string ) {
+	const stats = await fsPromises.stat( directory );
+	if ( ! stats.isDirectory() ) {
+		throw new Error( 'Selected path is not a directory.' );
+	}
+}
+
+async function ensurePathIsWritable( directory: string ) {
+	await fsPromises.access( directory, fs.constants.W_OK );
+}
+
+export async function ensureWritableDirectory( directory: string ) {
+	await ensurePathIsDirectory( directory );
+	await ensurePathIsWritable( directory );
+}
+
+async function getStoredDefaultSiteDirectory(): Promise< string | undefined > {
+	const { loadUserData } = await import( 'src/storage/user-data' );
+	const userData = await loadUserData();
+	return userData.defaultSiteDirectory;
+}
+
+export async function resolveDefaultSiteDirectory(): Promise< string > {
+	const storedPath = await getStoredDefaultSiteDirectory();
+	if ( storedPath ) {
+		try {
+			await ensureWritableDirectory( storedPath );
+			return storedPath;
+		} catch ( error ) {
+			console.warn(
+				'Stored default site directory is unavailable, falling back to built-in path.',
+				error
+			);
+		}
+	}
+
+	return DEFAULT_SITE_PATH;
 }

@@ -13,6 +13,7 @@ import { ArrowIcon } from 'src/components/arrow-icon';
 import { MessageThinking } from 'src/components/assistant-thinking';
 import Button from 'src/components/button';
 import { ChatMessage, MarkDownWithCode } from 'src/components/chat-message';
+import { CopyTextButton } from 'src/components/copy-text-button';
 import { ChatRating } from 'src/components/chat-rating';
 import { LearnMoreLink } from 'src/components/learn-more';
 import offlineIcon from 'src/components/offline-icon';
@@ -183,6 +184,14 @@ const LastMessage = forwardRef<
 							instanceId={ instanceId }
 							content={ message.content }
 						/>
+						<div className="flex mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+							<CopyTextButton
+								text={ message.content }
+								variant="icon"
+								className="text-a8c-gray-70 hover:!text-a8c-blue-50"
+								iconSize={ 18 }
+							/>
+						</div>
 						{ children }
 					</motion.div>
 				) }
@@ -552,10 +561,8 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 						clearConversation={ clearConversation }
 						isAssistantThinking={ isAssistantThinking }
 					/>
-					<div data-testid="guidelines-link" className="text-a8c-gray-50 self-end py-2">
-						{ createInterpolateElement( __( 'Powered by experimental AI. <learn_more_link />' ), {
-							learn_more_link: <LearnMoreLink docsLinksKey="a8cAiGuidelines" />,
-						} ) }
+					<div data-testid="guidelines-link" className="text-a8c-gray-50 text-xs text-center py-2">
+						{ __( 'AI can make mistakes. Double-check responses.' ) }
 					</div>
 				</div>
 			</div>

@@ -6,6 +6,7 @@ import remarkGfm from 'remark-gfm';
 import Anchor from 'src/components/assistant-anchor';
 import createCodeComponent from 'src/components/assistant-code-block';
 import { FeedbackThanks } from 'src/components/chat-rating';
+import { CopyTextButton } from 'src/components/copy-text-button';
 import { cx } from 'src/lib/cx';
 import { Message } from 'src/stores/chat-slice';
 
@@ -70,7 +71,7 @@ export const ChatMessage = forwardRef< HTMLDivElement, ChatMessageProps >(
 						data-testid="chat-message"
 						aria-labelledby={ id }
 						className={ cx(
-							'inline-block p-3 overflow-x-auto overflow-y-hidden select-text',
+							'group inline-block p-3 overflow-x-auto overflow-y-hidden select-text',
 							isUnauthenticated ? 'lg:max-w-[90%]' : 'lg:max-w-[70%]',
 							message.failedMessage
 								? 'rounded border border-[#FACFD2] bg-[#F7EBEC]'
@@ -90,6 +91,14 @@ export const ChatMessage = forwardRef< HTMLDivElement, ChatMessageProps >(
 									instanceId={ instanceId }
 									content={ children }
 								/>
+								<div className="flex mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+									<CopyTextButton
+										text={ children }
+										variant="icon"
+										className="text-a8c-gray-70 hover:!text-a8c-blue-50"
+										iconSize={ 18 }
+									/>
+								</div>
 								{ message.feedbackReceived && <FeedbackThanks /> }
 							</>
 						) : (

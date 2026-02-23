@@ -33,9 +33,10 @@ export default defineConfig( {
 						],
 					} ),
 					{
-						// Remove asyncify PHP-WASM builds from dist. JSPI is a newer and faster technology, and
-						// there's no need for us to bundle both build formats. Removing asyncify saves ~250MB.
-						name: 'prune-php-wasm-asyncify',
+						// Remove unnecessary PHP-WASM binaries from dist: asyncify binaries for node and all web
+						// binaries. JSPI is a newer and faster than asyncify, and there's no need for us to bundle
+						// both build formats. Removing asyncify saves ~250MB.
+						name: 'prune-php-wasm',
 						apply: 'build' as const,
 						closeBundle() {
 							const asyncifyPaths = globSync( '@php-wasm/node-*/asyncify/', {
@@ -43,8 +44,13 @@ export default defineConfig( {
 								absolute: true,
 							} );
 
-							for ( const asyncifyPath of asyncifyPaths ) {
-								rmSync( asyncifyPath, { recursive: true, force: true } );
+							const webPaths = globSync( '@php-wasm/web-*/', {
+								cwd: distCliNodeModulesPath,
+								absolute: true,
+							} );
+
+							for ( const path of [ ...asyncifyPaths, ...webPaths ] ) {
+								rmSync( path, { recursive: true, force: true } );
 							}
 						},
 					},

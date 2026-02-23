@@ -35,7 +35,7 @@ export default defineConfig( {
 					{
 						// Remove unnecessary PHP-WASM binaries from dist: asyncify binaries for node and all web
 						// binaries. JSPI is a newer and faster than asyncify, and there's no need for us to bundle
-						// both build formats. Removing asyncify saves ~250MB.
+						// both build formats. Removing asyncify saves ~250MB. Removing the web binaries saves ~400MB.
 						name: 'prune-php-wasm',
 						apply: 'build' as const,
 						closeBundle() {

@@ -4,7 +4,6 @@ import { Icon, moreVertical, keyboardReturn, reset } from '@wordpress/icons';
 import React, { forwardRef, useRef, useEffect, useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import { TELEX_HOSTNAME, TELEX_UTM_PARAMS } from 'src/constants';
-import useAiIcon from 'src/hooks/use-ai-icon';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { addUrlParams } from 'src/lib/url-utils';
@@ -57,33 +56,16 @@ const UnforwardedAIInput = (
 	}: AIInputProps,
 	inputRef: React.RefObject< HTMLTextAreaElement > | React.RefCallback< HTMLTextAreaElement > | null
 ) => {
-	const [ isTyping, setIsTyping ] = useState( false );
 	const [ thinkingDuration, setThinkingDuration ] = useState<
 		'short' | 'medium' | 'long' | 'veryLong'
 	>( 'short' );
-	const typingTimeout = useRef< NodeJS.Timeout >();
 	const thinkingTimeout = useRef< NodeJS.Timeout[] >( [] );
-
-	const { RiveComponent } = useAiIcon( {
-		inactive: disabled,
-		thinking: isAssistantThinking,
-		typing: isTyping,
-	} );
 
 	useEffect( () => {
 		if ( ! disabled && inputRef && 'current' in inputRef && inputRef.current ) {
 			inputRef.current?.focus();
 		}
 	}, [ disabled, inputRef ] );
-
-	useEffect(
-		() => () => {
-			if ( typingTimeout.current ) {
-				clearTimeout( typingTimeout.current );
-			}
-		},
-		[]
-	);
 
 	const handleInput = ( e: React.ChangeEvent< HTMLTextAreaElement > ) => {
 		setInput( e.target.value );
@@ -126,19 +108,8 @@ const UnforwardedAIInput = (
 			// Allow Shift + Enter to create a new line
 			return;
 		} else {
-			setIsTyping( true );
 			handleKeyDown( e );
 		}
-	};
-
-	const handleKeyUpWrapper = () => {
-		if ( typingTimeout.current ) {
-			clearTimeout( typingTimeout.current );
-		}
-
-		typingTimeout.current = setTimeout( () => {
-			setIsTyping( false );
-		}, 400 );
 	};
 
 	useEffect( () => {
@@ -223,22 +194,18 @@ const UnforwardedAIInput = (
 				}`
 			) }
 		>
-			<div className={ `flex items-center h-12 ${ disabled && 'opacity-20 grayscale' }` }>
-				<RiveComponent aria-hidden="true" style={ { width: 48, height: 48 } } />
-			</div>
 			<textarea
 				ref={ inputRef }
 				disabled={ disabled }
 				placeholder={ getPlaceholderText() }
 				className={ cx(
-					`w-full px-1 py-3.5 rounded-sm border-none bg-transparent resize-none focus:outline-none assistant-textarea ${
+					`w-full px-4 py-3.5 rounded-sm border-none bg-transparent resize-none focus:outline-none assistant-textarea ${
 						disabled ? 'cursor-not-allowed opacity-30' : ''
 					}`
 				) }
 				value={ input }
 				onChange={ handleInput }
 				onKeyDown={ handleKeyDownWrapper }
-				onKeyUp={ handleKeyUpWrapper }
 				rows={ 1 }
 				data-testid="ai-input-textarea"
 			/>

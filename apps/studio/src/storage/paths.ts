@@ -36,7 +36,7 @@ export function getUserDataCertificatesPath(): string {
 	return path.join( getAppDataPath(), getAppName(), 'certificates' );
 }
 
-export const DEFAULT_SITE_PATH = path.join(
+const defaultSitePath = path.join(
 	( process.env.E2E && process.env.E2E_HOME_PATH
 		? process.env.E2E_HOME_PATH
 		: app?.getPath( 'home' ) ) || '',
@@ -168,5 +168,5 @@ export async function resolveDefaultSiteDirectory(): Promise< string > {
 		}
 	}
 
-	return DEFAULT_SITE_PATH;
+	return defaultSitePath;
 }

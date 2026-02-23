@@ -5,6 +5,9 @@ import { IpcMainInvokeEvent } from 'electron';
 import fs from 'fs';
 import { normalize } from 'path';
 import * as Sentry from '@sentry/electron/main';
+import { bumpStat } from '@studio/common/lib/bump-stat';
+import { recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
+import { StatsGroup, StatsMetric } from '@studio/common/types/stats';
 import { readFile } from 'atomically';
 import { vi } from 'vitest';
 import {
@@ -12,6 +15,7 @@ import {
 	isFullscreen,
 	importSite,
 	getXdebugEnabledSite,
+	copySite,
 	loadThemeDetails,
 } from 'src/ipc-handlers';
 import { bumpStat, StatsGroup, StatsMetric } from 'src/lib/bump-stats';
@@ -19,6 +23,9 @@ import { importBackup, defaultImporterOptions } from 'src/lib/import-export/impo
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { getMainWindow } from 'src/main-window';
 import { SiteServer } from 'src/site-server';
+import { resolveDefaultSiteDirectory } from 'src/storage/paths';
+import { loadUserData } from 'src/storage/user-data';
+import type { UserData } from 'src/storage/storage-types';
 
 vi.mock( 'fs' );
 vi.mock( 'fs-extra' );
@@ -36,7 +43,14 @@ vi.mock( 'src/storage/paths', () => ( {
 	getCliPath: vi.fn().mockReturnValue( '/mock/cli/path' ),
 	getBundledNodeBinaryPath: vi.fn().mockReturnValue( '/mock/node/binary' ),
 	getSiteThumbnailPath: vi.fn().mockReturnValue( '/mock/thumbnail.png' ),
-	DEFAULT_SITE_PATH: '/mock/default/site/path',
+	resolveDefaultSiteDirectory: vi.fn().mockResolvedValue( '/mock/default/site/path' ),
+} ) );
+vi.mock( 'src/storage/user-data', () => ( {
+	loadUserData: vi.fn().mockResolvedValue( { sites: [] } ),
+	saveUserData: vi.fn().mockResolvedValue( undefined ),
+	lockAppdata: vi.fn().mockResolvedValue( undefined ),
+	unlockAppdata: vi.fn().mockResolvedValue( undefined ),
+	updateAppdata: vi.fn().mockResolvedValue( undefined ),
 } ) );
 vi.mock( 'src/site-server' );
 vi.mock( 'src/lib/wordpress-setup', () => ( {
@@ -272,17 +286,69 @@ describe( 'importSite', () => {
 	} );
 } );
 
+describe( 'copySite', () => {
+	it( 'uses the resolved default site directory for the new path', async () => {
+		const sourceSite = {
+			details: {
+				id: 'source-site-id',
+				name: 'Source Site',
+				path: '/source/path',
+				port: 9998,
+				phpVersion: '8.3',
+				running: false,
+				adminPassword: 'source-password',
+				themeDetails: { name: 'Theme', path: '/themes/theme' },
+			},
+		};
+
+		vi.mocked( SiteServer.get, { partial: true } ).mockReturnValue(
+			sourceSite as unknown as SiteServer
+		);
+		vi.mocked( recursiveCopyDirectory ).mockResolvedValue( undefined );
+		vi.mocked( resolveDefaultSiteDirectory ).mockResolvedValue( '/mock/default/site/path' );
+		vi.mocked( fs.existsSync ).mockReturnValue( false );
+
+		const result = await copySite(
+			mockIpcMainInvokeEvent,
+			'source-site-id',
+			'new-site-id',
+			'MySite'
+		);
+
+		expect( resolveDefaultSiteDirectory ).toHaveBeenCalled();
+		expect( recursiveCopyDirectory ).toHaveBeenCalledWith(
+			sourceSite.details.path,
+			'/mock/default/site/path/mysite'
+		);
+		expect( result.path ).toBe( '/mock/default/site/path/mysite' );
+	} );
+} );
+
 describe( 'getXdebugEnabledSite', () => {
 	it( 'should return null when no site has Xdebug enabled', async () => {
-		const mockUserDataWithoutXdebug = {
+		const mockUserDataWithoutXdebug: UserData = {
 			sites: [
-				{ id: 'site-1', name: 'Site 1', path: '/path/to/site-1', enableXdebug: false },
-				{ id: 'site-2', name: 'Site 2', path: '/path/to/site-2' },
+				{
+					id: 'site-1',
+					name: 'Site 1',
+					path: '/path/to/site-1',
+					enableXdebug: false,
+					running: false as const,
+					port: 9999,
+					phpVersion: '8.3',
+				},
+				{
+					id: 'site-2',
+					name: 'Site 2',
+					path: '/path/to/site-2',
+					running: false as const,
+					port: 9999,
+					phpVersion: '8.3',
+				},
 			],
+			snapshots: [],
 		};
-		vi.mocked( readFile ).mockResolvedValue(
-			Buffer.from( JSON.stringify( mockUserDataWithoutXdebug ) )
-		);
+		vi.mocked( loadUserData ).mockResolvedValue( mockUserDataWithoutXdebug );
 		vi.mocked( fs.existsSync ).mockReturnValue( true );
 
 		const result = await getXdebugEnabledSite( mockIpcMainInvokeEvent );
@@ -291,15 +357,31 @@ describe( 'getXdebugEnabledSite', () => {
 	} );
 
 	it( 'should return the site that has Xdebug enabled', async () => {
-		const mockUserDataWithXdebug = {
+		const mockUserDataWithXdebug: UserData = {
 			sites: [
-				{ id: 'site-1', name: 'Site 1', path: '/path/to/site-1', enableXdebug: false },
-				{ id: 'site-2', name: 'Site 2', path: '/path/to/site-2', enableXdebug: true },
+				{
+					id: 'site-1',
+					name: 'Site 1',
+					path: '/path/to/site-1',
+					enableXdebug: false,
+					running: false as const,
+					port: 9999,
+					phpVersion: '8.3',
+				},
+				{
+					id: 'site-2',
+					name: 'Site 2',
+					path: '/path/to/site-2',
+					enableXdebug: true,
+					running: true as const,
+					port: 9999,
+					phpVersion: '8.3',
+					url: 'https://site-2.test',
+				},
 			],
+			snapshots: [],
 		};
-		vi.mocked( readFile ).mockResolvedValue(
-			Buffer.from( JSON.stringify( mockUserDataWithXdebug ) )
-		);
+		vi.mocked( loadUserData ).mockResolvedValue( mockUserDataWithXdebug );
 		vi.mocked( fs.existsSync ).mockReturnValue( true );
 		vi.mocked( SiteServer.get, { partial: true } ).mockReturnValue( {
 			details: {
@@ -329,15 +411,30 @@ describe( 'getXdebugEnabledSite', () => {
 	} );
 
 	it( 'should return the first site when multiple have Xdebug enabled', async () => {
-		const mockUserDataWithMultipleXdebug = {
+		const mockUserDataWithMultipleXdebug: UserData = {
 			sites: [
-				{ id: 'site-1', name: 'Site 1', path: '/path/to/site-1', enableXdebug: true },
-				{ id: 'site-2', name: 'Site 2', path: '/path/to/site-2', enableXdebug: true },
+				{
+					id: 'site-1',
+					name: 'Site 1',
+					path: '/path/to/site-1',
+					enableXdebug: true,
+					running: false as const,
+					port: 9999,
+					phpVersion: '8.3',
+				},
+				{
+					id: 'site-2',
+					name: 'Site 2',
+					path: '/path/to/site-2',
+					enableXdebug: true,
+					running: false as const,
+					port: 9999,
+					phpVersion: '8.3',
+				},
 			],
+			snapshots: [],
 		};
-		vi.mocked( readFile ).mockResolvedValue(
-			Buffer.from( JSON.stringify( mockUserDataWithMultipleXdebug ) )
-		);
+		vi.mocked( loadUserData ).mockResolvedValue( mockUserDataWithMultipleXdebug );
 		vi.mocked( fs.existsSync ).mockReturnValue( true );
 		vi.mocked( SiteServer.get, { partial: true } ).mockReturnValue( {
 			details: {

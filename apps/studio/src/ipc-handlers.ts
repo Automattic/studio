@@ -93,11 +93,7 @@ import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-setting
 import { getUserEditor, getUserTerminal } from 'src/modules/user-settings/lib/ipc-handlers';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
 import { SiteServer, stopAllServers as triggerStopAllServers } from 'src/site-server';
-import {
-	DEFAULT_SITE_PATH,
-	getSiteThumbnailPath,
-	resolveDefaultSiteDirectory,
-} from 'src/storage/paths';
+import { getSiteThumbnailPath, resolveDefaultSiteDirectory } from 'src/storage/paths';
 import {
 	loadUserData,
 	lockAppdata,
@@ -709,7 +705,8 @@ export async function copySite(
 	}
 	const sourceSite = sourceServer.details;
 
-	const finalSitePath = nodePath.join( DEFAULT_SITE_PATH, sanitizeFolderName( siteName ) );
+	const defaultSiteDirectory = await resolveDefaultSiteDirectory();
+	const finalSitePath = nodePath.join( defaultSiteDirectory, sanitizeFolderName( siteName ) );
 
 	console.log( `Copying site '${ sourceSite.name }' to '${ siteName }'` );
 

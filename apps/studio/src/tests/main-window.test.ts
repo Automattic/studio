@@ -24,7 +24,7 @@ vi.mock( 'src/storage/paths', () => ( {
 	getCliPath: vi.fn().mockReturnValue( '/mock/cli/path' ),
 	getBundledNodeBinaryPath: vi.fn().mockReturnValue( '/mock/node/binary' ),
 	getSiteThumbnailPath: vi.fn().mockReturnValue( '/mock/thumbnail.png' ),
-	DEFAULT_SITE_PATH: '/mock/default/site/path',
+	resolveDefaultSiteDirectory: vi.fn().mockResolvedValue( '/mock/default/site/path' ),
 } ) );
 
 // Create a simpler mock that tracks event handlers

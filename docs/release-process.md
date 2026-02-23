@@ -10,8 +10,10 @@ Builds are signed, notarized (macOS), and uploaded to the Apps CDN automatically
 
 **ReleasesV2 milestone**: Code Freeze | **Fastlane lane**: `code_freeze`
 
-- Extracts translatable strings and commits them to `trunk` (a wpcom cron imports them to GlotPress)
 - Creates `release/<version>` branch from `trunk`
+- Extracts translatable strings and commits them to the release branch (a wpcom cron imports them to GlotPress via a backmerge PR)
+- Generates draft release notes from merged PRs and commits them to the release branch
+- Creates a backmerge PR from the release branch into `trunk`
 - Bumps version to `<version>-beta1`, tags it, and triggers a build
 
 ### 2. Beta Releases
@@ -27,7 +29,7 @@ Builds are signed, notarized (macOS), and uploaded to the Apps CDN automatically
 **ReleasesV2 milestone**: Pre-Release
 
 - **Download translations**: Button triggers `download_translations` lane, which fetches translations from GlotPress and commits them to the release branch
-- **Release notes**: Manually update `RELEASE-NOTES.txt` on the `release/<version>` branch (required before finalizing)
+- **Release notes**: Review and refine the draft release notes in `RELEASE-NOTES.txt` on the `release/<version>` branch (a draft is auto-generated during code freeze)
 - **Smoke tests**: Verify betas on macOS and Windows
 
 ### 4. Finalize Release
@@ -36,7 +38,7 @@ Builds are signed, notarized (macOS), and uploaded to the Apps CDN automatically
 
 - Removes beta suffix (sets version to `<version>`)
 - Creates a **draft** GitHub release with notes from `RELEASE-NOTES.txt`
-- Triggers the final release build
+- Triggers the final release build, which uploads to the Apps CDN, appends download links to the draft GitHub release, and notifies Slack
 
 ### 5. Publish Release
 
@@ -69,7 +71,7 @@ Lanes can be run locally for testing (requires Ruby + Bundler setup):
 DRY_RUN=true bundle exec fastlane code_freeze version:"1.8.0" skip_confirm:true
 
 # Other lanes
-bundle exec fastlane new_beta_release skip_confirm:true
+bundle exec fastlane new_beta_release version:"1.8.0" skip_confirm:true
 bundle exec fastlane finalize_release version:"1.8.0" skip_confirm:true
 bundle exec fastlane publish_release version:"1.8.0" skip_confirm:true
 ```

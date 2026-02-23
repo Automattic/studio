@@ -8,6 +8,7 @@ import {
 	useContext,
 	useEffect,
 	useMemo,
+	useRef,
 	useState,
 } from 'react';
 import { useAuth } from 'src/hooks/use-auth';
@@ -397,13 +398,20 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		setSites( updatedSites );
 	}, [] );
 
+	const saveTimeoutRef = useRef< ReturnType< typeof setTimeout > >();
+	const DEBOUNCE_SAVE_MS = 300;
+
 	const updateSitesSortOrder = useCallback( async ( sites: SiteDetails[] ) => {
 		setSites( sites );
 		const updates = sites.map( ( site, index ) => ( {
 			siteId: site.id,
 			sortOrder: ( index + 1 ) * 1000,
 		} ) );
-		await getIpcApi().updateSitesSortOrder( updates );
+
+		clearTimeout( saveTimeoutRef.current );
+		saveTimeoutRef.current = setTimeout( async () => {
+			await getIpcApi().updateSitesSortOrder( updates );
+		}, DEBOUNCE_SAVE_MS );
 	}, [] );
 
 	const startServer = useCallback(

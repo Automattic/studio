@@ -38,7 +38,7 @@ import { Snapshot } from '@studio/common/types/snapshot';
 import { StatsGroup, StatsMetric } from '@studio/common/types/stats';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import { MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
-import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
+import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
 import { getImporterMetric, getBlueprintMetric } from 'src/lib/bump-stats/lib';
 import {
@@ -822,6 +822,88 @@ export async function openLocalPath( _event: IpcMainInvokeEvent, path: string ) 
 
 export function showItemInFolder( _event: IpcMainInvokeEvent, path: string ) {
 	shell.showItemInFolder( path );
+}
+
+const DEFAULT_DEBUG_LOG_LINES = 200;
+const debugLogWatchers = new Map< string, fs.FSWatcher >();
+const debugLogDebounceTimers = new Map< string, ReturnType< typeof setTimeout > >();
+
+function getDebugLogPath( siteId: string ): string | null {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		return null;
+	}
+	return nodePath.join( server.details.path, 'wp-content', 'debug.log' );
+}
+
+export async function readSiteDebugLog(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	options?: { offset?: number; limit?: number }
+): Promise< { lines: string[]; totalLines: number } | null > {
+	const debugLogPath = getDebugLogPath( siteId );
+	if ( ! debugLogPath || ! ( await pathExists( debugLogPath ) ) ) {
+		return null;
+	}
+
+	const content = await fsPromises.readFile( debugLogPath, 'utf-8' );
+	const lines = content.split( '\n' );
+	const totalLines = lines.length;
+	const limit = options?.limit ?? DEFAULT_DEBUG_LOG_LINES;
+	const offset = options?.offset ?? Math.max( 0, totalLines - limit );
+	return { lines: lines.slice( offset, offset + limit ), totalLines };
+}
+
+export function watchDebugLog( _event: IpcMainInvokeEvent, siteId: string ) {
+	// Clean up existing watcher for this site
+	unwatchDebugLog( _event, siteId );
+
+	const debugLogPath = getDebugLogPath( siteId );
+	if ( ! debugLogPath ) {
+		return;
+	}
+
+	const wpContentDir = nodePath.dirname( debugLogPath );
+	const debugLogFilename = nodePath.basename( debugLogPath );
+
+	// Watch the wp-content directory so we catch file creation too
+	try {
+		const watcher = fs.watch( wpContentDir, ( _eventType, filename ) => {
+			if ( filename !== debugLogFilename ) {
+				return;
+			}
+
+			// Debounce to avoid flooding the renderer
+			const existingTimer = debugLogDebounceTimers.get( siteId );
+			if ( existingTimer ) {
+				clearTimeout( existingTimer );
+			}
+			debugLogDebounceTimers.set(
+				siteId,
+				setTimeout( () => {
+					debugLogDebounceTimers.delete( siteId );
+					void sendIpcEventToRenderer( 'debug-log-updated', { siteId } );
+				}, 500 )
+			);
+		} );
+
+		debugLogWatchers.set( siteId, watcher );
+	} catch {
+		// wp-content directory might not exist yet — silently ignore
+	}
+}
+
+export function unwatchDebugLog( _event: IpcMainInvokeEvent, siteId: string ) {
+	const watcher = debugLogWatchers.get( siteId );
+	if ( watcher ) {
+		watcher.close();
+		debugLogWatchers.delete( siteId );
+	}
+	const timer = debugLogDebounceTimers.get( siteId );
+	if ( timer ) {
+		clearTimeout( timer );
+		debugLogDebounceTimers.delete( siteId );
+	}
 }
 
 // Update a site's theme details and thumbnail. Emit the appropriate IPC events to the renderer

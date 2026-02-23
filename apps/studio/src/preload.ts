@@ -88,6 +88,9 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'generateProposedSitePath', siteName ),
 	openLocalPath: ( path ) => ipcRendererSend( 'openLocalPath', path ),
 	showItemInFolder: ( path ) => ipcRendererSend( 'showItemInFolder', path ),
+	readSiteDebugLog: ( siteId, options ) => ipcRendererInvoke( 'readSiteDebugLog', siteId, options ),
+	watchDebugLog: ( siteId ) => ipcRendererSend( 'watchDebugLog', siteId ),
+	unwatchDebugLog: ( siteId ) => ipcRendererSend( 'unwatchDebugLog', siteId ),
 	loadThemeDetails: ( id, emitThemeDetailsLoadingEvent = true ) =>
 		ipcRendererInvoke( 'loadThemeDetails', id, emitThemeDetailsLoadingEvent ),
 	getThumbnailData: ( id ) => ipcRendererInvoke( 'getThumbnailData', id ),

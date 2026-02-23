@@ -113,4 +113,23 @@ describe( 'SiteContentTabs', () => {
 			screen.queryByRole( 'tab', { name: 'Backup', selected: false } )
 		).not.toBeInTheDocument();
 	} );
+	it( 'does not show Logs tab when enableDebugLog is false', async () => {
+		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
+			selectedSite,
+			sites: [ selectedSite ],
+			loadingServer: {},
+		} );
+		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
+		expect( screen.queryByRole( 'tab', { name: 'Logs' } ) ).not.toBeInTheDocument();
+	} );
+	it( 'shows Logs tab when enableDebugLog is true', async () => {
+		const siteWithDebugLog = { ...selectedSite, enableDebugLog: true };
+		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
+			selectedSite: siteWithDebugLog,
+			sites: [ siteWithDebugLog ],
+			loadingServer: {},
+		} );
+		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
+		expect( screen.queryByRole( 'tab', { name: 'Logs' } ) ).toBeVisible();
+	} );
 } );

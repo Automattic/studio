@@ -95,6 +95,8 @@ export const IPC_VOID_HANDLERS = < const >[
 	'showSiteContextMenu',
 	'showItemInFolder',
 	'showNotification',
+	'watchDebugLog',
+	'unwatchDebugLog',
 	'authenticate',
 ];
 

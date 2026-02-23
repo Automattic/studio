@@ -636,7 +636,9 @@ export async function copySite(
 		port,
 		phpVersion: sourceSite.phpVersion,
 		running: false,
+		adminUsername: sourceSite.adminUsername,
 		adminPassword: sourceSite.adminPassword,
+		adminEmail: sourceSite.adminEmail,
 		themeDetails: sourceSite.themeDetails,
 	};
 

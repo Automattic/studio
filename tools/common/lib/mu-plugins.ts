@@ -409,13 +409,7 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 
 			switch ( $action ) {
 				case 'set_admin_password':
-					if ( empty( $_POST['password'] ) ) {
-						status_header( 400 );
-						header( 'Content-Type: application/json' );
-						echo json_encode( [ 'error' => 'Password is required' ] );
-						exit;
-					}
-
+					$has_password = ! empty( $_POST['password'] );
 					$username = ! empty( $_POST['username'] ) ? sanitize_user( $_POST['username'] ) : 'admin';
 					// Fallback to 'admin' if sanitize_user() strips all characters (e.g., !@#$%)
 					if ( empty( $username ) ) {
@@ -426,11 +420,20 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 					$provided_email = ! empty( $_POST['email'] ) ? sanitize_email( $_POST['email'] ) : '';
 
 					if ( $user ) {
-						wp_set_password( $_POST['password'], $user->ID );
+						if ( $has_password ) {
+							wp_set_password( $_POST['password'], $user->ID );
+						}
 						if ( $provided_email ) {
 							wp_update_user( array( 'ID' => $user->ID, 'user_email' => $provided_email ) );
 						}
 					} else {
+						// Creating a new user requires a password
+						if ( ! $has_password ) {
+							status_header( 400 );
+							header( 'Content-Type: application/json' );
+							echo json_encode( [ 'error' => 'Password is required to create a new admin user' ] );
+							exit;
+						}
 						// WordPress doesn't support renaming user_login, so we create a new admin user.
 						// The old user is left intact — this is intentional.
 						// Generate a unique email to avoid conflicts with existing users

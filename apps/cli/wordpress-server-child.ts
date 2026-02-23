@@ -93,7 +93,7 @@ function escapePhpString( str: string ): string {
 
 async function setAdminCredentials(
 	server: RunCLIServer,
-	adminPassword: string,
+	adminPassword?: string,
 	adminUsername?: string,
 	adminEmail?: string
 ): Promise< void > {
@@ -102,7 +102,9 @@ async function setAdminCredentials(
 		method: 'POST',
 		body: {
 			action: 'set_admin_password',
-			password: escapePhpString( decodePassword( adminPassword ) ),
+			...( adminPassword && {
+				password: escapePhpString( decodePassword( adminPassword ) ),
+			} ),
 			...( adminUsername && { username: escapePhpString( adminUsername ) } ),
 			...( adminEmail && { email: escapePhpString( adminEmail ) } ),
 		},
@@ -282,7 +284,7 @@ const startServer = wrapWithStartingPromise(
 			lastCliArgs = sanitizeRunCLIArgs( args );
 			server = await runCLI( args );
 
-			if ( config.adminPassword ) {
+			if ( config.adminPassword || config.adminUsername || config.adminEmail ) {
 				await setAdminCredentials(
 					server,
 					config.adminPassword,

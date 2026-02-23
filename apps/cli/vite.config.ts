@@ -1,11 +1,13 @@
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, readFileSync, rmSync } from 'fs';
 import { dirname, join, resolve } from 'path';
+import { sync as globSync } from 'glob';
 import { defineConfig, normalizePath } from 'vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 
 const yargsPath = dirname( require.resolve( 'yargs' ) );
 const yargsLocalesPath = join( yargsPath, 'locales' );
 const cliNodeModulesPath = resolve( __dirname, 'node_modules' );
+const distCliNodeModulesPath = resolve( __dirname, 'dist/cli/node_modules' );
 const packageVersion = JSON.parse(
 	readFileSync( resolve( __dirname, '..', 'studio', 'package.json' ), 'utf-8' )
 ).version;
@@ -30,6 +32,22 @@ export default defineConfig( {
 							},
 						],
 					} ),
+					{
+						// Remove asyncify PHP-WASM builds from dist. JSPI is a newer and faster technology, and
+						// there's no need for us to bundle both build formats. Removing asyncify saves ~250MB.
+						name: 'prune-php-wasm-asyncify',
+						apply: 'build' as const,
+						closeBundle() {
+							const asyncifyPaths = globSync( '@php-wasm/node-*/asyncify/', {
+								cwd: distCliNodeModulesPath,
+								absolute: true,
+							} );
+
+							for ( const asyncifyPath of asyncifyPaths ) {
+								rmSync( asyncifyPath, { recursive: true, force: true } );
+							}
+						},
+					},
 			  ]
 			: [] ),
 	],

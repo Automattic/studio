@@ -1,6 +1,6 @@
 import { webcrypto } from 'crypto';
 import { TextEncoder, TextDecoder } from 'util';
-import '@testing-library/jest-dom';
+import '@testing-library/jest-dom/vitest';
 import { configure } from '@testing-library/react';
 import 'isomorphic-fetch';
 import nock from 'nock';

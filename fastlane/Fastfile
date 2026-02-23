@@ -700,8 +700,13 @@ end
 # Generate a draft release notes section from merged PRs and prepend it to RELEASE-NOTES.txt.
 # Uses GitHub's generate-notes API to list PRs since the last published release.
 def update_release_notes_draft(version:)
-  # Find the latest stable (non-beta) release tag reachable from HEAD
-  previous_tag = sh('git', 'describe', '--tags', '--abbrev=0', '--match=v*', '--exclude=*beta*', log: false).strip
+  # Find the latest stable (non-beta) release tag reachable from HEAD.
+  # Mirrors find_previous_tag logic but adds --exclude for beta tags (not yet supported by the action, see AINFRA-2056).
+  sh('git', 'fetch', '--tags', '--force', log: false) { nil }
+  current_tag = sh('git', 'describe', '--tags', '--exact-match', log: false) { |_, stdout, _| stdout.chomp }.to_s.strip
+  git_cmd = %w[git describe --tags --abbrev=0 --match=v* --exclude=*beta*]
+  git_cmd += ['--exclude', current_tag] unless current_tag.empty?
+  previous_tag = sh(*git_cmd, log: false).strip
 
   changelog = get_prs_between_tags(
     repository: GITHUB_REPO,

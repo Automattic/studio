@@ -104,6 +104,7 @@ function rerenderWithProvider(
 describe( 'ContentTabSettings', () => {
 	const copyText = vi.fn();
 	const openLocalPath = vi.fn();
+	const getAbsolutePathFromSite = vi.fn().mockResolvedValue( null );
 	const generateProposedSitePath = vi.fn();
 	const getAllCustomDomains = vi.fn().mockResolvedValue( [] );
 	const getXdebugEnabledSite = vi.fn().mockResolvedValue( null );
@@ -126,6 +127,7 @@ describe( 'ContentTabSettings', () => {
 		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 			copyText,
 			openLocalPath,
+			getAbsolutePathFromSite,
 			generateProposedSitePath,
 			getAllCustomDomains,
 			getXdebugEnabledSite,
@@ -254,21 +256,32 @@ describe( 'ContentTabSettings', () => {
 			expect( screen.queryByRole( 'button', { name: 'Open log file' } ) ).not.toBeInTheDocument();
 		} );
 
-		test( 'shows "Open log file" button when debug log is enabled', async () => {
+		test( 'does not show "Open log file" button when debug log is enabled but file does not exist', async () => {
+			getAbsolutePathFromSite.mockResolvedValue( null );
 			const siteWithDebugLog = { ...selectedSite, enableDebugLog: true };
 			renderWithProvider( <ContentTabSettings selectedSite={ siteWithDebugLog } /> );
 			await waitFor( () => {
-				expect( getAllCustomDomains ).toHaveBeenCalled();
+				expect( getAbsolutePathFromSite ).toHaveBeenCalledWith( 'site-id', 'wp-content/debug.log' );
 			} );
-			expect( screen.getByRole( 'button', { name: 'Open log file' } ) ).toBeVisible();
+			expect( screen.queryByRole( 'button', { name: 'Open log file' } ) ).not.toBeInTheDocument();
+		} );
+
+		test( 'shows "Open log file" button when debug log is enabled and file exists', async () => {
+			getAbsolutePathFromSite.mockResolvedValue( '/path/to/site/wp-content/debug.log' );
+			const siteWithDebugLog = { ...selectedSite, enableDebugLog: true };
+			renderWithProvider( <ContentTabSettings selectedSite={ siteWithDebugLog } /> );
+			await waitFor( () => {
+				expect( screen.getByRole( 'button', { name: 'Open log file' } ) ).toBeVisible();
+			} );
 		} );
 
 		test( 'opens debug log file when button is clicked', async () => {
 			const user = userEvent.setup();
+			getAbsolutePathFromSite.mockResolvedValue( '/path/to/site/wp-content/debug.log' );
 			const siteWithDebugLog = { ...selectedSite, enableDebugLog: true };
 			renderWithProvider( <ContentTabSettings selectedSite={ siteWithDebugLog } /> );
 			await waitFor( () => {
-				expect( getAllCustomDomains ).toHaveBeenCalled();
+				expect( screen.getByRole( 'button', { name: 'Open log file' } ) ).toBeVisible();
 			} );
 			await user.click( screen.getByRole( 'button', { name: 'Open log file' } ) );
 			expect( openLocalPath ).toHaveBeenCalledWith( '/path/to/site/wp-content/debug.log' );

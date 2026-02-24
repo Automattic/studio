@@ -7,7 +7,7 @@ import {
 } from '@wordpress/components';
 import { moreVertical } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { PropsWithChildren } from 'react';
+import { PropsWithChildren, useCallback, useEffect, useState } from 'react';
 import { CopyTextButton } from 'src/components/copy-text-button';
 import { LearnHowLink } from 'src/components/learn-more';
 import { SettingsMenuItem } from 'src/components/settings-site-menu';
@@ -59,6 +59,23 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 	};
 	const { handleDeleteSite } = useDeleteSite();
 	const { copySite } = useSiteDetails();
+	const [ debugLogExists, setDebugLogExists ] = useState( false );
+
+	const checkDebugLogExists = useCallback( async () => {
+		if ( ! selectedSite.enableDebugLog ) {
+			setDebugLogExists( false );
+			return;
+		}
+		const path = await getIpcApi().getAbsolutePathFromSite(
+			selectedSite.id,
+			'wp-content/debug.log'
+		);
+		setDebugLogExists( path !== null );
+	}, [ selectedSite.id, selectedSite.enableDebugLog ] );
+
+	useEffect( () => {
+		checkDebugLogExists();
+	}, [ checkDebugLogExists ] );
 
 	return (
 		<div className="p-8 ltr:pr-4 rtl:pl-4">
@@ -154,7 +171,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 					<SettingsRow label={ __( 'Debug log' ) }>
 						<span className="flex items-center gap-2">
 							{ selectedSite.enableDebugLog ? __( 'Enabled' ) : __( 'Disabled' ) }
-							{ selectedSite.enableDebugLog && (
+							{ debugLogExists && (
 								<Button
 									variant="link"
 									onClick={ () =>

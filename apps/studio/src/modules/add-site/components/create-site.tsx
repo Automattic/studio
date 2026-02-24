@@ -31,13 +31,11 @@ export interface CreateSiteProps {
 	formRef?: RefObject< HTMLFormElement >;
 }
 
-const EMPTY_STRING_ARRAY: string[] = [];
-
 export default function CreateSite( {
 	defaultValues,
 	onSelectPath,
 	onSiteNameChange,
-	existingDomainNames = EMPTY_STRING_ARRAY,
+	existingDomainNames,
 	blueprintPreferredVersions,
 	blueprintSuggestedDomain,
 	blueprintSuggestedHttps,

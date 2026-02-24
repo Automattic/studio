@@ -152,13 +152,11 @@ function FormPathInputComponent( {
 	);
 }
 
-const EMPTY_STRING_ARRAY: string[] = [];
-
 export const CreateSiteForm = ( {
 	defaultValues = {},
 	onSelectPath,
 	onSiteNameChange,
-	existingDomainNames = EMPTY_STRING_ARRAY,
+	existingDomainNames,
 	blueprintPreferredVersions,
 	blueprintSuggestedDomain,
 	blueprintSuggestedHttps,
@@ -242,7 +240,7 @@ export const CreateSiteForm = ( {
 			const generatedDomainName = generateCustomDomainFromSiteName( siteName );
 			const domainToValidate = customDomain ?? generatedDomainName;
 			setCustomDomainError(
-				getDomainNameValidationError( useCustomDomain, domainToValidate, existingDomainNames )
+				getDomainNameValidationError( useCustomDomain, domainToValidate, existingDomainNames || [] )
 			);
 		} else {
 			setCustomDomainError( '' );

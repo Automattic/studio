@@ -233,7 +233,7 @@ const sendFeedback = createTypedAsyncThunk(
 
 const EMPTY_MESSAGES: readonly Message[] = Object.freeze( [] );
 
-export interface ChatState {
+interface ChatState {
 	currentURL: string;
 	pluginListDict: Record< string, string[] >;
 	themeListDict: Record< string, string[] >;

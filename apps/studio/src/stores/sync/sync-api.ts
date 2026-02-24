@@ -55,7 +55,7 @@ const convertBackupItemToTreeNode = (
 	};
 };
 
-export const syncApi = wpcomApi.injectEndpoints( {
+const syncApi = wpcomApi.injectEndpoints( {
 	endpoints: ( builder ) => ( {
 		getLatestRewindId: builder.query< string | null, number >( {
 			query: ( remoteSiteId ) => ( {

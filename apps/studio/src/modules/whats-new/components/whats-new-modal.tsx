@@ -45,7 +45,7 @@ const PageContent = ( {
 			{ learnMoreUrl && (
 				<button
 					onClick={ () => getIpcApi().openURL( learnMoreUrl ) }
-					className="text-a8c-blue-50 text-m leading-s cursor-pointer"
+					className="text-frame-theme text-m leading-s cursor-pointer"
 				>
 					{ learnMoreLabel || __( 'Learn more' ) }
 				</button>
@@ -109,7 +109,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 			onFinish={ onClose }
 			contentLabel={ __( "What's New in Studio" ) }
 			className={ cx(
-				'whats-new-modal !w-[360px] !h-[470px] overflow-hidden [&_.components-button.is-compact.has-icon_svg]:!fill-white [&_.components-button.is-tertiary]:!outline-1 [&_.components-button.is-tertiary]:!outline-solid [&_.components-button.is-tertiary]:!outline-a8c-blue-50',
+				'whats-new-modal !w-[360px] !h-[470px] overflow-hidden [&_.components-button.is-compact.has-icon_svg]:!fill-white [&_.components-button.is-tertiary]:!outline-1 [&_.components-button.is-tertiary]:!outline-solid [&_.components-button.is-tertiary]:!outline-frame-theme',
 				'[&_*]:select-none',
 				'focus:outline-none'
 			) }

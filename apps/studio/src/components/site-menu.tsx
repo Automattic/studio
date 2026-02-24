@@ -94,7 +94,7 @@ function ButtonToRun( site: SiteDetails ) {
 					}
 					return running ? stopServer( id ) : startServer( site );
 				} }
-				className="w-7 h-8 rounded-tr rounded-br group grid focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-a8c-blue-50"
+				className="w-7 h-8 rounded-tr rounded-br group grid focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme"
 				aria-label={ sprintf( running ? __( 'stop %s site' ) : __( 'start %s site' ), name ) }
 			>
 				{ /* Circle or Xdebug icon */ }
@@ -222,7 +222,7 @@ function SiteItem( {
 		>
 			<button
 				type="button"
-				className="p-2 text-xs rounded-tl rounded-bl whitespace-nowrap overflow-hidden text-ellipsis w-full text-left rtl:text-right focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-a8c-blue-50"
+				className="p-2 text-xs rounded-tl rounded-bl whitespace-nowrap overflow-hidden text-ellipsis w-full text-left rtl:text-right focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme"
 				onClick={ () => {
 					setSelectedSiteId( site.id );
 				} }

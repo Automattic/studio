@@ -57,6 +57,6 @@ describe( 'EnvironmentBadge', () => {
 		expect( badgeElement ).toBeInTheDocument();
 
 		expect( badgeElement.className ).toContain( 'bg-white' );
-		expect( badgeElement.className ).toContain( 'text-a8c-blue-50' );
+		expect( badgeElement.className ).toContain( 'text-frame-theme' );
 	} );
 } );

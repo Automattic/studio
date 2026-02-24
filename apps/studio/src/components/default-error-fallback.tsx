@@ -78,7 +78,7 @@ const RightPanel = () => {
 			</div>
 			<div>
 				<Button
-					className="bg-a8c-blue-50 hover:text-white text-white"
+					className="bg-frame-theme hover:text-white text-white"
 					variant="primary"
 					onClick={ () => window.location.reload() }
 				>

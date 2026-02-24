@@ -137,7 +137,7 @@ export function PreviewSiteRow( {
 								disabled={ isSiteInactive }
 								className={ cx(
 									'!text-a8c-gray-700 max-w-full',
-									isSiteInactive ? 'pointer-events-none' : 'hover:!text-a8c-blue-50'
+									isSiteInactive ? 'pointer-events-none' : 'hover:!text-frame-theme'
 								) }
 								onClick={ () => getIpcApi().openURL( `https://${ url }` ) }
 							>
@@ -182,7 +182,7 @@ export function PreviewSiteRow( {
 										} )
 									);
 								} }
-								className={ '!text-a8c-blue-50 hover:!text-a8c-red-50' }
+								className={ '!text-frame-theme hover:!text-a8c-red-50' }
 							>
 								{ __( 'Clear' ) }
 							</Button>

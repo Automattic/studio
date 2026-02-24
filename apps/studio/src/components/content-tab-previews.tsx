@@ -62,7 +62,7 @@ function EmptyGeneric( {
 							key={ typeof text === 'string' ? text : 'wordpress-com' }
 							className="text-a8c-gray-70 a8c-body flex items-center"
 						>
-							<Icon className="fill-a8c-blue-50 ltr:mr-2 rtl:ml-2 shrink-0" icon={ check } />
+							<Icon className="fill-frame-theme ltr:mr-2 rtl:ml-2 shrink-0" icon={ check } />
 							{ text }
 						</div>
 					) ) }
@@ -114,7 +114,7 @@ function NoAuth( { selectedSite }: React.ComponentProps< typeof EmptyGeneric > )
 						<Button
 							aria-description={ isOffline ? offlineMessage : '' }
 							aria-disabled={ isOffline }
-							className="!p-0 text-a8c-blue-50 hover:opacity-80 h-auto inline-flex items-center"
+							className="!p-0 text-frame-theme hover:opacity-80 h-auto inline-flex items-center"
 							onClick={ () => {
 								if ( isOffline ) {
 									return;

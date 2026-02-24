@@ -50,7 +50,7 @@ export default function BlueprintDetails( {
 			<VStack className="max-w-[400px] min-w-[350px] mx-auto mt-16 justify-start" spacing={ 0 }>
 				<VStack className="w-full max-h-[172px] p-6 border rounded-t-lg border-frame-border justify-start">
 					<HStack className="h-full justify-start" alignment="top" spacing={ 4 }>
-						<Icon className="fill-a8c-blue-50 shrink-0" icon={ check } size={ 29 } />
+						<Icon className="fill-frame-theme shrink-0" icon={ check } size={ 29 } />
 						<VStack alignment="left" spacing={ 1 }>
 							<Text className="text-lg font-medium text-frame-text text-left line-clamp-2">
 								{ blueprintTitle }

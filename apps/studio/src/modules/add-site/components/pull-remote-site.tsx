@@ -40,7 +40,7 @@ function SiteSyncDescription( { children }: PropsWithChildren ) {
 						__( 'Start working locally with your site data.' ),
 					].map( ( text ) => (
 						<div key={ text } className="text-a8c-gray-70 a8c-body flex items-center">
-							<Icon className="fill-a8c-blue-50 me-2 shrink-0" icon={ check } />
+							<Icon className="fill-frame-theme me-2 shrink-0" icon={ check } />
 							{ text }
 						</div>
 					) ) }
@@ -61,7 +61,7 @@ function NoWpcomSitesView() {
 		<div className="p-8 flex">
 			<div className="flex flex-col gap-6">
 				<div className="a8c-subtitle text-pretty">{ __( 'Find a perfect plan' ) }</div>
-				<NoWpcomSitesContent buttonClassName="!text-white !shadow-a8c-blue-50 mt-2" />
+				<NoWpcomSitesContent buttonClassName="!text-white !shadow-frame-theme mt-2" />
 			</div>
 			<div className="flex flex-col shrink-0 items-end">
 				<SyncTabImage />
@@ -108,7 +108,7 @@ function NoAuthPullRemoteSiteView() {
 						<Button
 							aria-description={ isOffline ? offlineMessage : '' }
 							aria-disabled={ isOffline }
-							className="!p-0 text-a8c-blue-50 hover:opacity-80 h-auto inline-flex items-center"
+							className="!p-0 text-frame-theme hover:opacity-80 h-auto inline-flex items-center"
 							onClick={ () => {
 								if ( isOffline ) {
 									return;

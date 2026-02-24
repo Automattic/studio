@@ -117,7 +117,7 @@ function FormPathInputComponent( {
 				type="button"
 				aria-label={ `${ value }, ${ __( 'Select different local path' ) }` }
 				className={ cx(
-					'flex flex-row items-stretch rounded-sm border border-frame-border focus:border-a8c-blue-50 focus:shadow-[0_0_0_0.5px_black] focus:shadow-a8c-blue-50 outline-none transition-shadow transition-linear duration-100 [&_.local-path-icon]:focus:border-l-a8c-blue-50 [&:disabled]:cursor-not-allowed',
+					'flex flex-row items-stretch rounded-sm border border-frame-border focus:border-frame-theme focus:shadow-[0_0_0_0.5px_black] focus:shadow-frame-theme outline-none transition-shadow transition-linear duration-100 [&_.local-path-icon]:focus:border-l-frame-theme [&:disabled]:cursor-not-allowed',
 					error && 'border-red-500 [&_.local-path-icon]:border-l-red-500'
 				) }
 				data-testid="select-path-button"

@@ -15,7 +15,7 @@ interface EnvironmentBadgeProps {
 export function EnvironmentBadge( { type, selected, className }: EnvironmentBadgeProps ) {
 	const getClassName = () => {
 		if ( selected ) {
-			return 'bg-frame text-a8c-blue-50 text-a8c-blue-50';
+			return 'bg-frame text-frame-theme text-frame-theme';
 		}
 
 		const classes: Record< string, string > = {

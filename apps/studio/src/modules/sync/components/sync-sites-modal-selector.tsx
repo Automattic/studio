@@ -262,11 +262,11 @@ function SiteItem( {
 		<div
 			className={ cx(
 				'flex py-3 px-8 items-center border-b justify-between gap-4',
-				isSelected && 'bg-a8c-blue-50 text-white border-a8c-blue-50',
+				isSelected && 'bg-frame-theme text-white border-frame-theme',
 				! isSelected && 'text-frame-text border-frame-border',
 				! isSelected && isSyncable && 'hover:bg-a8c-blue-5',
 				isSyncable &&
-					'focus:outline-none focus:ring-1 focus:ring-a8c-blue-50 focus:relative focus:z-10'
+					'focus:outline-none focus:ring-1 focus:ring-frame-theme focus:relative focus:z-10'
 			) }
 			role={ isSyncable ? 'button' : undefined }
 			tabIndex={ isSyncable ? 0 : -1 }
@@ -313,7 +313,7 @@ function SiteItem( {
 						'a8c-body-small truncate !p-0 w-full !justify-start',
 						isSelected
 							? '!text-inherit hover:!text-a8c-blue-10'
-							: '!text-a8c-gray-30 hover:!text-a8c-blue-50'
+							: '!text-a8c-gray-30 hover:!text-frame-theme'
 					) }
 					onClick={ () => getIpcApi().openURL( site.url ) }
 					onKeyDown={ ( e: React.KeyboardEvent ) => {
@@ -429,7 +429,7 @@ function Footer( {
 				variant="link"
 				selectedSite={ selectedSite }
 				text={ __( 'Create a new WordPress.com site' ) }
-				className="!text-a8c-blue-50 !shadow-a8c-blue-50"
+				className="!text-frame-theme !shadow-frame-theme"
 			/>
 			<div className="flex gap-4">
 				<Button variant="link" onClick={ onRequestClose }>

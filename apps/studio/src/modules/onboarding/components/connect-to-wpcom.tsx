@@ -35,7 +35,7 @@ export function OnboardingConnectToWpcom( { onSkip }: { onSkip: () => void } ) {
 						__( 'Get smart suggestions from the Studio Assistant' ),
 					].map( ( text ) => (
 						<div key={ text } className="text-a8c-gray-70 a8c-body flex items-start">
-							<Icon className="fill-a8c-blue-50 me-2 shrink-0" icon={ check } />
+							<Icon className="fill-frame-theme me-2 shrink-0" icon={ check } />
 							{ text }
 						</div>
 					) ) }
@@ -69,7 +69,7 @@ export function OnboardingConnectToWpcom( { onSkip }: { onSkip: () => void } ) {
 						<Button
 							aria-description={ isOffline ? offlineMessage : '' }
 							aria-disabled={ isOffline }
-							className="!p-0 text-a8c-blue-50 hover:opacity-80 h-auto inline-flex items-center"
+							className="!p-0 text-frame-theme hover:opacity-80 h-auto inline-flex items-center"
 							onClick={ () => {
 								if ( isOffline ) {
 									return;

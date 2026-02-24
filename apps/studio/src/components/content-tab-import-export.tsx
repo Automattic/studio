@@ -106,7 +106,7 @@ export const ExportSite = ( {
 							onClick={ () => handleExport( exportDatabase ) }
 							type="submit"
 							variant="secondary"
-							className={ cx( isExportDisabled ? '' : '!text-a8c-blue-50 !shadow-a8c-blue-50' ) }
+							className={ cx( isExportDisabled ? '' : '!text-frame-theme !shadow-frame-theme' ) }
 							disabled={ isExportDisabled }
 						>
 							{ __( 'Export database' ) }
@@ -151,7 +151,7 @@ const InitialImportButton = ( {
 					'w-full',
 					disabled
 						? '[&>div.border-zinc-300]:border-frame-border cursor-not-allowed opacity-50'
-						: '[&>div.border-zinc-300]:hover:border-a8c-blue-50'
+						: '[&>div.border-zinc-300]:hover:border-frame-theme'
 				) }
 				onClick={ openFileSelector }
 				disabled={ disabled }
@@ -278,7 +278,7 @@ const ImportSite = ( {
 					<div
 						className={ cx(
 							'h-36 w-full rounded-sm border border-frame-border flex-col justify-center items-center inline-flex',
-							isDraggingOver && ! isImporting && 'border-a8c-blue-50 bg-frame-surface'
+							isDraggingOver && ! isImporting && 'border-frame-theme bg-frame-surface'
 						) }
 					>
 						{ isImporting && (

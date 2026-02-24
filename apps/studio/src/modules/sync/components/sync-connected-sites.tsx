@@ -110,7 +110,7 @@ const SyncConnectedSiteControls = ( {
 								! isOffline &&
 									! isAnySitePulling &&
 									! isAnySitePushing &&
-									'!text-frame-text hover:!text-a8c-blue-50'
+									'!text-frame-text hover:!text-frame-theme'
 							) }
 							onClick={ () => setSyncDialogType( 'pull' ) }
 							disabled={ isAnySiteSyncing || isOffline }
@@ -151,7 +151,7 @@ const SyncConnectedSiteControls = ( {
 								! isOffline &&
 									! isAnySitePulling &&
 									! isAnySitePushing &&
-									'!text-frame-text hover:!text-a8c-blue-50'
+									'!text-frame-text hover:!text-frame-theme'
 							) }
 							onClick={ () => setSyncDialogType( 'push' ) }
 							disabled={ isAnySiteSyncing || isOffline }
@@ -268,7 +268,7 @@ const SyncConnectedSitesSectionItem = ( {
 
 				<Button
 					variant="link"
-					className="!text-a8c-gray-70 hover:!text-a8c-blue-50 max-w-full overflow-hidden"
+					className="!text-a8c-gray-70 hover:!text-frame-theme max-w-full overflow-hidden"
 					onClick={ () => {
 						getIpcApi().openURL( connectedSite.url );
 					} }

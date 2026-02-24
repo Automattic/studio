@@ -39,7 +39,7 @@ function BlueprintIssuesModal( {
 		>
 			<VStack spacing={ 6 } className="h-full">
 				<div className="flex items-center">
-					<Icon className="fill-a8c-blue-50 me-2 shrink-0" icon={ check } />
+					<Icon className="fill-frame-theme me-2 shrink-0" icon={ check } />
 					<Text className="font-medium text-frame-text">{ fileName }</Text>
 				</div>
 				<Text>

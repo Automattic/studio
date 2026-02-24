@@ -76,7 +76,7 @@ type TwoColorProgressBarProps = {
 export function TwoColorProgressBar( {
 	value,
 	maxValue,
-	normalColorClass = 'bg-a8c-blue-50',
+	normalColorClass = 'bg-frame-theme',
 	overLimitColorClass = 'bg-a8c-red-50',
 	trackColorClass = 'bg-a8c-gray-5',
 	showLabels = false,

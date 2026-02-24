@@ -219,7 +219,7 @@ const UnforwardedAIInput = (
 		<div
 			className={ cx(
 				`flex items-end w-full border rounded-sm bg-frame ${
-					disabled ? 'border-frame-border' : 'border-frame-border focus-within:border-a8c-blue-50'
+					disabled ? 'border-frame-border' : 'border-frame-border focus-within:border-frame-theme'
 				}`
 			) }
 		>

@@ -31,7 +31,7 @@ export function NoWpcomSitesContent( {
 			<div>
 				{ features.map( ( text ) => (
 					<div key={ text } className="text-a8c-gray-70 a8c-body flex items-center">
-						<Icon className="fill-a8c-blue-50 me-2 shrink-0" icon={ check } />
+						<Icon className="fill-frame-theme me-2 shrink-0" icon={ check } />
 						{ text }
 					</div>
 				) ) }

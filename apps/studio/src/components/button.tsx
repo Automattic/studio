@@ -48,13 +48,13 @@ const primaryStyles = `
 `.replace( /\n/g, ' ' );
 
 const secondaryStyles = `
-[&.is-secondary]:text-black
+[&.is-secondary]:text-frame-text
 [&.is-secondary]:shadow-[inset_0_0_0_1px_black]
 [&.is-secondary]:shadow-a8c-gray-5
 [&.is-secondary]:focus:shadow-a8c-gray-5
 [&.is-secondary]:focus-visible:shadow-a8c-blue-50
 [&.is-secondary:not(.is-destructive,:disabled,[aria-disabled=true])]:hover:text-a8c-blue-50
-[&.is-secondary:not(.is-destructive,:disabled,[aria-disabled=true])]:active:text-black
+[&.is-secondary:not(.is-destructive,:disabled,[aria-disabled=true])]:active:text-frame-text
 [&.is-secondary:disabled:not(:focus)]:shadow-[inset_0_0_0_1px_black]
 [&.is-secondary:disabled:not(:focus)]:shadow-a8c-gray-5
 [&.is-secondary:not(:focus)]:aria-disabled:shadow-[inset_0_0_0_1px_black]
@@ -66,10 +66,10 @@ const secondaryStyles = `
 const outlinedStyles = `
 outlined
 text-white
-[&.components-button]:hover:text-black
-[&.components-button]:hover:bg-gray-100
-[&.components-button]:active:text-black
-[&.components-button]:active:bg-gray-100
+[&.components-button]:hover:text-frame-text
+[&.components-button]:hover:bg-frame-surface
+[&.components-button]:active:text-frame-text
+[&.components-button]:active:bg-frame-surface
 [&.components-button]:shadow-[inset_0_0_0_1px_white]
 [&.components-button.outlined]:focus:shadow-[inset_0_0_0_1px_white]
 [&.components-button]:focus-visible:outline-none
@@ -89,14 +89,14 @@ const destructiveStyles = `
 const linkStyles = `
 [&.is-link]:no-underline
 [&.is-link]:hover:text-[#2145e6]
-[&.is-link]:active:text-black
+[&.is-link]:active:text-frame-text
 [&.is-link]:disabled:text-a8c-gray-50
 `.replace( /\n/g, ' ' );
 
 const iconStyles = `
 [&.components-button]:p-0
 h-auto
-hover:bg-white
+hover:bg-frame-surface
 hover:bg-opacity-10
 `.replace( /\n/g, ' ' );
 

@@ -1,3 +1,4 @@
+// no-op: trigger react-doctor CI step
 import {
 	app,
 	BrowserWindow,
@@ -67,52 +68,52 @@ import packageJson from '../package.json';
 
 // Helper function to get the actual URL for validation
 function getRendererUrl(): string {
-	if ( ! app.isPackaged && process.env[ 'ELECTRON_RENDERER_URL' ] ) {
-		return process.env[ 'ELECTRON_RENDERER_URL' ];
+	if (!app.isPackaged && process.env['ELECTRON_RENDERER_URL']) {
+		return process.env['ELECTRON_RENDERER_URL'];
 	} else {
 		// For production file paths, convert to file:// URL
-		return pathToFileURL( path.join( __dirname, '../renderer/index.html' ) ).href;
+		return pathToFileURL(path.join(__dirname, '../renderer/index.html')).href;
 	}
 }
 
-if ( ! process.env.IS_DEV_BUILD ) {
-	const { sentryRelease, isDevEnvironment } = getSentryReleaseInfo( app.getVersion() );
+if (!process.env.IS_DEV_BUILD) {
+	const { sentryRelease, isDevEnvironment } = getSentryReleaseInfo(app.getVersion());
 
-	Sentry.init( {
+	Sentry.init({
 		dsn: 'https://97693275b2716fb95048c6d12f4318cf@o248881.ingest.sentry.io/4506612776501248',
 		debug: true,
-		enabled: ! isDevEnvironment,
+		enabled: !isDevEnvironment,
 		release: sentryRelease,
 		environment: isDevEnvironment ? 'development' : 'production',
-	} );
+	});
 }
 
 suppressPunycodeWarning();
 
-const appAppdataProvider: AppdataProvider< LastBumpStatsData > = {
+const appAppdataProvider: AppdataProvider<LastBumpStatsData> = {
 	load: loadUserData,
 	lock: lockAppdata,
 	unlock: unlockAppdata,
-	save: async ( data ) => {
+	save: async (data) => {
 		// Cast is safe: data comes from loadUserData() which returns the full UserData type.
 		// The lock/unlock is already handled by the caller (updateLastBump in /common/lib/bump-stat.ts)
 		// eslint-disable-next-line studio/require-lock-before-save
-		await saveUserData( data as never );
+		await saveUserData(data as never);
 	},
 };
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 
-const isInInstaller = require( 'electron-squirrel-startup' );
+const isInInstaller = require('electron-squirrel-startup');
 
 // Ensure we're the only instance of the app running
 const gotTheLock = app.requestSingleInstanceLock();
 
 let finishedInitialization = false;
 
-if ( gotTheLock && ! isInInstaller ) {
+if (gotTheLock && !isInInstaller) {
 	void appBoot();
-} else if ( ! gotTheLock ) {
+} else if (!gotTheLock) {
 	app.quit();
 }
 
@@ -120,14 +121,14 @@ async function setupSentryUserId() {
 	try {
 		await lockAppdata();
 		const userData = await loadUserData();
-		if ( ! userData.sentryUserId ) {
+		if (!userData.sentryUserId) {
 			userData.sentryUserId = crypto.randomUUID();
 		}
 
-		console.log( 'Setting Sentry user ID:', userData.sentryUserId );
-		Sentry.setUser( { id: userData.sentryUserId } );
+		console.log('Setting Sentry user ID:', userData.sentryUserId);
+		Sentry.setUser({ id: userData.sentryUserId });
 
-		await saveUserData( userData );
+		await saveUserData(userData);
 	} finally {
 		await unlockAppdata();
 	}
@@ -136,22 +137,22 @@ async function setupSentryUserId() {
 // This is a workaround to ensure that the extension background workers are started
 // If you are updating Electron, confirm if this is still needed
 // https://github.com/electron/electron/issues/41613
-function launchExtensionBackgroundWorkers( appSession = session.defaultSession ) {
-	const extensionApi = ( appSession.extensions as Electron.Extensions | undefined ) || appSession;
+function launchExtensionBackgroundWorkers(appSession = session.defaultSession) {
+	const extensionApi = (appSession.extensions as Electron.Extensions | undefined) || appSession;
 	return Promise.all(
-		extensionApi.getAllExtensions().map( async ( extension ) => {
+		extensionApi.getAllExtensions().map(async (extension) => {
 			const manifest = extension.manifest;
-			if ( manifest.manifest_version === 3 && manifest?.background?.service_worker ) {
-				await appSession.serviceWorkers.startWorkerForScope( extension.url );
+			if (manifest.manifest_version === 3 && manifest?.background?.service_worker) {
+				await appSession.serviceWorkers.startWorkerForScope(extension.url);
 			}
-		} )
+		})
 	);
 }
 
 async function appBoot() {
-	app.setName( packageJson.productName );
+	app.setName(packageJson.productName);
 
-	Menu.setApplicationMenu( null );
+	Menu.setApplicationMenu(null);
 
 	setupCustomProtocolHandler();
 
@@ -159,14 +160,14 @@ async function appBoot() {
 
 	setupUpdates();
 
-	if ( process.defaultApp ) {
-		if ( process.argv.length >= 2 ) {
-			app.setAsDefaultProtocolClient( PROTOCOL_PREFIX, process.execPath, [
-				path.resolve( process.argv[ 1 ] ),
-			] );
+	if (process.defaultApp) {
+		if (process.argv.length >= 2) {
+			app.setAsDefaultProtocolClient(PROTOCOL_PREFIX, process.execPath, [
+				path.resolve(process.argv[1]),
+			]);
 		}
 	} else {
-		app.setAsDefaultProtocolClient( PROTOCOL_PREFIX );
+		app.setAsDefaultProtocolClient(PROTOCOL_PREFIX);
 	}
 
 	// Forces all renderers to be sandboxed. IPC is the only way render processes will
@@ -174,120 +175,120 @@ async function appBoot() {
 	app.enableSandbox();
 
 	// Prevent navigation to anywhere other than known locations
-	app.on( 'web-contents-created', ( _event, contents ) => {
-		contents.on( 'will-navigate', ( event, navigationUrl ) => {
-			const { origin } = new URL( navigationUrl );
-			const allowedOrigins = [ new URL( getRendererUrl() ).origin ];
-			if ( ! allowedOrigins.includes( origin ) ) {
+	app.on('web-contents-created', (_event, contents) => {
+		contents.on('will-navigate', (event, navigationUrl) => {
+			const { origin } = new URL(navigationUrl);
+			const allowedOrigins = [new URL(getRendererUrl()).origin];
+			if (!allowedOrigins.includes(origin)) {
 				event.preventDefault();
 			}
-		} );
-		contents.setWindowOpenHandler( () => {
+		});
+		contents.setWindowOpenHandler(() => {
 			return { action: 'deny' };
-		} );
-	} );
+		});
+	});
 
-	function validateIpcSender( event: IpcMainInvokeEvent ) {
-		if ( ! event.senderFrame ) {
+	function validateIpcSender(event: IpcMainInvokeEvent) {
+		if (!event.senderFrame) {
 			throw new Error(
 				'Failed IPC sender validation check: the frame has either navigated or been destroyed'
 			);
 		}
 
-		if ( new URL( event.senderFrame.url ).origin === new URL( getRendererUrl() ).origin ) {
+		if (new URL(event.senderFrame.url).origin === new URL(getRendererUrl()).origin) {
 			return true;
 		}
 
-		throw new Error( 'Failed IPC sender validation check: ' + event.senderFrame.url );
+		throw new Error('Failed IPC sender validation check: ' + event.senderFrame.url);
 	}
 
 	function setupIpc() {
-		const ipcHandlerEntries = Object.entries( ipcHandlers ) as [
+		const ipcHandlerEntries = Object.entries(ipcHandlers) as [
 			keyof typeof ipcHandlers,
-			( ...args: unknown[] ) => unknown,
+			(...args: unknown[]) => unknown,
 		][];
 
-		for ( const [ key, handler ] of ipcHandlerEntries ) {
-			if ( IPC_VOID_HANDLERS.find( ( handler ) => handler === key ) ) {
-				ipcMain.on( key, function ( event, ...args: unknown[] ) {
+		for (const [key, handler] of ipcHandlerEntries) {
+			if (IPC_VOID_HANDLERS.find((handler) => handler === key)) {
+				ipcMain.on(key, function (event, ...args: unknown[]) {
 					try {
-						validateIpcSender( event );
-						handler( event, ...args );
-					} catch ( error ) {
-						console.error( error );
+						validateIpcSender(event);
+						handler(event, ...args);
+					} catch (error) {
+						console.error(error);
 						throw error;
 					}
-				} );
+				});
 			} else {
-				ipcMain.handle( key, function ( event, ...args: unknown[] ) {
+				ipcMain.handle(key, function (event, ...args: unknown[]) {
 					try {
-						validateIpcSender( event );
-						return handler( event, ...args );
-					} catch ( error ) {
-						console.error( error );
+						validateIpcSender(event);
+						return handler(event, ...args);
+					} catch (error) {
+						console.error(error);
 						throw error;
 					}
-				} );
+				});
 			}
 		}
 	}
 
 	function setupCustomProtocolHandler() {
-		if ( process.platform === 'darwin' ) {
-			app.on( 'open-url', ( _event, url ) => {
-				void handleDeeplink( url );
-			} );
+		if (process.platform === 'darwin') {
+			app.on('open-url', (_event, url) => {
+				void handleDeeplink(url);
+			});
 		} else {
 			// Handle custom protocol links on Windows and Linux
-			app.on( 'second-instance', async ( _event, argv ) => {
-				if ( ! finishedInitialization ) {
+			app.on('second-instance', async (_event, argv) => {
+				if (!finishedInitialization) {
 					return;
 				}
 
 				const mainWindow = await getMainWindow();
 				// CLI commands are likely invoked from other apps, so we need to avoid changing app focus.
-				const isCLI = argv?.find( ( arg ) => arg.startsWith( '--cli=' ) );
-				if ( ! isCLI ) {
-					if ( mainWindow.isMinimized() ) mainWindow.restore();
+				const isCLI = argv?.find((arg) => arg.startsWith('--cli='));
+				if (!isCLI) {
+					if (mainWindow.isMinimized()) mainWindow.restore();
 					mainWindow.focus();
 				}
 
-				const customProtocolParameter = argv?.find( ( arg ) => arg.startsWith( PROTOCOL_PREFIX ) );
-				if ( customProtocolParameter ) {
-					void handleDeeplink( customProtocolParameter );
+				const customProtocolParameter = argv?.find((arg) => arg.startsWith(PROTOCOL_PREFIX));
+				if (customProtocolParameter) {
+					void handleDeeplink(customProtocolParameter);
 				}
-			} );
+			});
 		}
 	}
 
-	app.on( 'ready', async () => {
+	app.on('ready', async () => {
 		const locale = await getUserLocaleWithFallback();
-		if ( process.env.NODE_ENV === 'development' ) {
-			await installExtension( REACT_DEVELOPER_TOOLS );
-			await installExtension( REDUX_DEVTOOLS );
+		if (process.env.NODE_ENV === 'development') {
+			await installExtension(REACT_DEVELOPER_TOOLS);
+			await installExtension(REDUX_DEVTOOLS);
 			await launchExtensionBackgroundWorkers();
 		}
 
-		console.log( `App version: ${ app.getVersion() }` );
-		console.log( `Environment: ${ process.env.NODE_ENV ?? 'undefined' }` );
-		console.log( `Built from commit: ${ COMMIT_HASH ?? 'undefined' }` );
-		console.log( `Local timezone: ${ Intl.DateTimeFormat().resolvedOptions().timeZone }` );
-		console.log( `App locale: ${ app.getLocale() }` );
-		console.log( `System locale: ${ app.getSystemLocale() }` );
-		console.log( `Used language: ${ locale }` );
+		console.log(`App version: ${app.getVersion()}`);
+		console.log(`Environment: ${process.env.NODE_ENV ?? 'undefined'}`);
+		console.log(`Built from commit: ${COMMIT_HASH ?? 'undefined'}`);
+		console.log(`Local timezone: ${Intl.DateTimeFormat().resolvedOptions().timeZone}`);
+		console.log(`App locale: ${app.getLocale()}`);
+		console.log(`System locale: ${app.getSystemLocale()}`);
+		console.log(`Used language: ${locale}`);
 
 		// By default Electron automatically approves all permissions requests (e.g. notifications, webcam)
 		// We'll opt-in to permissions we specifically need instead.
-		session.defaultSession.setPermissionRequestHandler( ( webContents, permission, callback ) => {
+		session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
 			// Reject all permission requests
-			callback( false );
-		} );
+			callback(false);
+		});
 
-		session.defaultSession.webRequest.onHeadersReceived( ( details, callback ) => {
+		session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
 			// Only set a custom CSP header the main window UI. For other pages (like login) we should
 			// use the CSP provided by the server, which is more likely to be up-to-date and complete.
-			if ( details.url !== getRendererUrl() ) {
-				callback( details );
+			if (details.url !== getRendererUrl()) {
+				callback(details);
 				return;
 			}
 
@@ -309,25 +310,25 @@ async function appBoot() {
 			];
 			const policies = [
 				...basePolicies,
-				...( process.env.NODE_ENV === 'development' ? devPolicies : prodPolicies ),
+				...(process.env.NODE_ENV === 'development' ? devPolicies : prodPolicies),
 			];
 
-			callback( {
+			callback({
 				...details,
 				responseHeaders: {
 					...details.responseHeaders,
-					'Content-Security-Policy': [ policies.filter( Boolean ).join( '; ' ) ],
+					'Content-Security-Policy': [policies.filter(Boolean).join('; ')],
 				},
-			} );
-		} );
+			});
+		});
 
 		setupIpc();
 
-		await setupWPServerFiles().catch( Sentry.captureException );
+		await setupWPServerFiles().catch(Sentry.captureException);
 		// WordPress server files are updated asynchronously to avoid delaying app initialization
-		updateWPServerFiles().catch( Sentry.captureException );
+		updateWPServerFiles().catch(Sentry.captureException);
 
-		if ( await needsToMigrateFromWpNowFolder() ) {
+		if (await needsToMigrateFromWpNowFolder()) {
 			await migrateFromWpNowFolder();
 		}
 
@@ -344,40 +345,40 @@ async function appBoot() {
 
 		const userData = await loadUserData();
 		// Bump stats for the first time the app runs - this is when no lastBumpStats are available
-		if ( ! userData.lastBumpStats ) {
-			bumpStat( StatsGroup.STUDIO_APP_LAUNCH, getPlatformMetric( process.platform ) );
+		if (!userData.lastBumpStats) {
+			bumpStat(StatsGroup.STUDIO_APP_LAUNCH, getPlatformMetric(process.platform));
 		}
 
 		// Bump a stat on each app launch, approximates total app launches
-		bumpStat( StatsGroup.STUDIO_APP_LAUNCH_TOTAL, getPlatformMetric( process.platform ) );
+		bumpStat(StatsGroup.STUDIO_APP_LAUNCH_TOTAL, getPlatformMetric(process.platform));
 		// Bump stat for unique weekly app launch, approximates weekly active users
 		bumpAggregatedUniqueStat(
 			StatsGroup.STUDIO_APP_LAUNCH_UNIQUE,
-			getPlatformMetric( process.platform ),
+			getPlatformMetric(process.platform),
 			'weekly',
 			appAppdataProvider
-		).catch( ( err ) => Sentry.captureException( err ) );
+		).catch((err) => Sentry.captureException(err));
 		// Bump stat for unique monthly app launch, approximates monthly active users
 		bumpAggregatedUniqueStat(
 			StatsGroup.STUDIO_APP_LAUNCH_UNIQUE_MONTHLY,
-			getPlatformMetric( process.platform ),
+			getPlatformMetric(process.platform),
 			'monthly',
 			appAppdataProvider
-		).catch( ( err ) => Sentry.captureException( err ) );
+		).catch((err) => Sentry.captureException(err));
 
 		await updateWindowsCliVersionedPathIfNeeded();
 
 		finishedInitialization = true;
-	} );
+	});
 
 	// Quit when all windows are closed, except on macOS. There, it's common
 	// for applications and their menu bar to stay active until the user quits
 	// explicitly with Cmd + Q.
-	app.on( 'window-all-closed', () => {
-		if ( process.platform !== 'darwin' ) {
+	app.on('window-all-closed', () => {
+		if (process.platform !== 'darwin') {
 			app.quit();
 		}
-	} );
+	});
 
 	/**
 	 * We want to stop all running sites (including the process daemon) in any of these cases:
@@ -388,63 +389,63 @@ async function appBoot() {
 	let shouldStopSitesOnQuit = true;
 	let isQuittingConfirmed = false;
 
-	app.on( 'before-quit', ( event ) => {
-		if ( isQuittingConfirmed ) {
+	app.on('before-quit', (event) => {
+		if (isQuittingConfirmed) {
 			return;
 		}
 
-		if ( hasActiveSyncOperations() ) {
+		if (hasActiveSyncOperations()) {
 			const QUIT_APP_BUTTON_INDEX = 0;
 			const CANCEL_BUTTON_INDEX = 1;
 
-			const messageInformation: Pick< MessageBoxSyncOptions, 'message' | 'detail' | 'type' > =
+			const messageInformation: Pick<MessageBoxSyncOptions, 'message' | 'detail' | 'type'> =
 				hasUploadingPushOperations()
 					? {
-							message: __( 'Sync is in progress' ),
+							message: __('Sync is in progress'),
 							detail: __(
 								"There's a sync operation in progress. Quitting the app will abort that operation. Are you sure you want to quit?"
 							),
 							type: 'warning',
-					  }
+						}
 					: {
-							message: __( 'Sync will continue' ),
+							message: __('Sync will continue'),
 							detail: __(
 								'The sync process will continue running remotely after you quit Studio. We will send you an email once it is complete.'
 							),
 							type: 'info',
-					  };
+						};
 
-			const clickedButtonIndex = dialog.showMessageBoxSync( {
+			const clickedButtonIndex = dialog.showMessageBoxSync({
 				message: messageInformation.message,
 				detail: messageInformation.detail,
 				type: messageInformation.type,
-				buttons: [ __( 'Yes, quit the app' ), __( 'No, take me back' ) ],
+				buttons: [__('Yes, quit the app'), __('No, take me back')],
 				cancelId: CANCEL_BUTTON_INDEX,
 				defaultId: QUIT_APP_BUTTON_INDEX,
-			} );
+			});
 
-			if ( clickedButtonIndex === CANCEL_BUTTON_INDEX ) {
+			if (clickedButtonIndex === CANCEL_BUTTON_INDEX) {
 				event.preventDefault();
 				return;
 			}
 		}
 
 		const runningSiteCount = getRunningSiteCount();
-		if ( getAutoUpdaterState() !== 'waiting-for-restart' && runningSiteCount > 0 ) {
+		if (getAutoUpdaterState() !== 'waiting-for-restart' && runningSiteCount > 0) {
 			event.preventDefault();
 
-			void ( async () => {
+			void (async () => {
 				const userData = await loadUserData();
 				const isCliInstalled = await isStudioCliInstalled();
 
-				if ( userData.stopSitesOnQuit !== undefined ) {
+				if (userData.stopSitesOnQuit !== undefined) {
 					shouldStopSitesOnQuit = userData.stopSitesOnQuit;
 					isQuittingConfirmed = true;
 					app.quit();
 					return;
 				}
 
-				if ( ! isCliInstalled || process.env.E2E ) {
+				if (!isCliInstalled || process.env.E2E) {
 					isQuittingConfirmed = true;
 					app.quit();
 					return;
@@ -453,9 +454,9 @@ async function appBoot() {
 				const STOP_SITES_BUTTON_INDEX = 0;
 				const CANCEL_BUTTON_INDEX = 2;
 
-				const { response, checkboxChecked } = await dialog.showMessageBox( {
+				const { response, checkboxChecked } = await dialog.showMessageBox({
 					type: 'question',
-					message: _n( 'You have a running site', 'You have running sites', runningSiteCount ),
+					message: _n('You have a running site', 'You have running sites', runningSiteCount),
 					detail: sprintf(
 						_n(
 							'%d site is currently running. Do you want to stop it before quitting?',
@@ -464,57 +465,57 @@ async function appBoot() {
 						),
 						runningSiteCount
 					),
-					buttons: [ __( 'Stop sites' ), __( 'Leave running' ), __( 'Cancel' ) ],
-					checkboxLabel: __( "Don't ask again" ),
+					buttons: [__('Stop sites'), __('Leave running'), __('Cancel')],
+					checkboxLabel: __("Don't ask again"),
 					cancelId: CANCEL_BUTTON_INDEX,
 					defaultId: STOP_SITES_BUTTON_INDEX,
-				} );
+				});
 
-				if ( response === CANCEL_BUTTON_INDEX ) {
+				if (response === CANCEL_BUTTON_INDEX) {
 					return;
 				}
 
 				const stopSites = response === STOP_SITES_BUTTON_INDEX;
 
-				if ( checkboxChecked ) {
-					await updateAppdata( { stopSitesOnQuit: stopSites } );
+				if (checkboxChecked) {
+					await updateAppdata({ stopSitesOnQuit: stopSites });
 				}
 
 				shouldStopSitesOnQuit = stopSites;
 				isQuittingConfirmed = true;
 				app.quit();
-			} )();
+			})();
 
 			return;
 		}
-	} );
+	});
 
-	app.on( 'will-quit', ( event ) => {
+	app.on('will-quit', (event) => {
 		globalShortcut.unregisterAll();
 		stopUserDataWatcher();
 		stopCliEventsSubscriber();
 
-		if ( shouldStopSitesOnQuit ) {
+		if (shouldStopSitesOnQuit) {
 			event.preventDefault();
-			stopAllServers( true, 6_000 )
-				.then( () => {
+			stopAllServers(true, 6_000)
+				.then(() => {
 					app.exit();
-				} )
-				.catch( () => {
+				})
+				.catch(() => {
 					app.exit();
-				} );
+				});
 		}
-	} );
+	});
 
-	app.on( 'activate', () => {
-		if ( ! finishedInitialization ) {
+	app.on('activate', () => {
+		if (!finishedInitialization) {
 			return;
 		}
 
-		if ( BrowserWindow.getAllWindows().length === 0 ) {
+		if (BrowserWindow.getAllWindows().length === 0) {
 			// On OS X it's common to re-create a window in the app when the
 			// dock icon is clicked and there are no other windows open.
 			void createMainWindow();
 		}
-	} );
+	});
 }

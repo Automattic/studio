@@ -1,4 +1,7 @@
+import { nativeImage } from 'electron';
 import fs from 'fs';
+import http from 'node:http';
+import https from 'node:https';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { SQLITE_FILENAME } from '@studio/common/constants';
@@ -14,7 +17,7 @@ import { CliServerProcess } from 'src/modules/cli/lib/cli-server-process';
 import { createSiteViaCli, type CreateSiteOptions } from 'src/modules/cli/lib/cli-site-creator';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { createScreenshotWindow } from 'src/screenshot-window';
-import { getSiteThumbnailPath } from 'src/storage/paths';
+import { getSiteIconPath, getSiteThumbnailPath } from 'src/storage/paths';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
@@ -75,6 +78,36 @@ function getAbsoluteUrl( details: SiteDetails ): string {
 	}
 
 	return `http://localhost:${ details.port }`;
+}
+
+function fetchImageBuffer( url: string ): Promise< Buffer > {
+	return new Promise( ( resolve, reject ) => {
+		const protocol = url.startsWith( 'https' ) ? https : http;
+		const request = protocol.get( url, { timeout: 5000, rejectUnauthorized: false }, ( res ) => {
+			if (
+				res.statusCode &&
+				res.statusCode >= 300 &&
+				res.statusCode < 400 &&
+				res.headers.location
+			) {
+				fetchImageBuffer( res.headers.location ).then( resolve, reject );
+				return;
+			}
+			if ( ! res.statusCode || res.statusCode >= 400 ) {
+				reject( new Error( `HTTP ${ res.statusCode } fetching ${ url }` ) );
+				return;
+			}
+			const chunks: Buffer[] = [];
+			res.on( 'data', ( chunk: Buffer ) => chunks.push( chunk ) );
+			res.on( 'end', () => resolve( Buffer.concat( chunks ) ) );
+			res.on( 'error', reject );
+		} );
+		request.on( 'timeout', () => {
+			request.destroy();
+			reject( new Error( `Timeout fetching ${ url }` ) );
+		} );
+		request.on( 'error', reject );
+	} );
 }
 
 // We use SiteDetails for storing it in appdata-v1.json, so this meta was introduced for extra data which is not stored locally
@@ -191,6 +224,11 @@ export class SiteServer {
 			await fs.promises.unlink( thumbnailPath );
 		}
 
+		const iconPath = getSiteIconPath( this.details.id );
+		if ( fs.existsSync( iconPath ) ) {
+			await fs.promises.unlink( iconPath );
+		}
+
 		await this.server.delete( deleteFiles );
 		deletedServers.push( this.details.id );
 		servers.delete( this.details.id );
@@ -298,6 +336,44 @@ export class SiteServer {
 				}
 			} )
 			.finally( () => window.destroy() );
+	}
+
+	async updateCachedSiteIcon() {
+		if ( ! this.details.running ) {
+			return;
+		}
+
+		let iconUrl = '';
+
+		// Try WP-CLI first to get the site icon URL
+		try {
+			const { stdout, exitCode } = await this.executeWpCliCommand(
+				[ 'option', 'get', 'site_icon_url' ],
+				{ skipPluginsAndThemes: true }
+			);
+			if ( exitCode === 0 && stdout.trim() ) {
+				iconUrl = stdout.trim();
+			}
+		} catch {
+			// WP-CLI failed, fall through to favicon fallback
+		}
+
+		// Fall back to favicon.ico
+		if ( ! iconUrl ) {
+			iconUrl = `${ this.details.url }/favicon.ico`;
+		}
+
+		const buffer = await fetchImageBuffer( iconUrl );
+		const image = nativeImage.createFromBuffer( buffer );
+		if ( image.isEmpty() ) {
+			throw new Error( 'Could not parse image from buffer' );
+		}
+
+		const resized = image.resize( { width: 64, height: 64 } );
+		const outPath = getSiteIconPath( this.details.id );
+		const outDir = nodePath.dirname( outPath );
+		await fs.promises.mkdir( outDir, { recursive: true } );
+		await fs.promises.writeFile( outPath, resized.toPNG() );
 	}
 
 	async executeWpCliCommand(

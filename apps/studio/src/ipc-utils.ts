@@ -50,6 +50,9 @@ export interface IpcEvents {
 	'thumbnail-loading': [ { id: string } ];
 	'thumbnail-loaded': [ { id: string; imageData: string | null } ];
 	'thumbnail-load-error': [ { id: string } ];
+	'site-icon-loading': [ { id: string } ];
+	'site-icon-loaded': [ { id: string; imageData: string | null } ];
+	'site-icon-load-error': [ { id: string } ];
 	'user-settings': [ { tabName?: string } ];
 	'window-fullscreen-change': [ boolean ];
 	'user-preference-changed': [ void ];

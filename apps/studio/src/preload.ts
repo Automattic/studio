@@ -1,7 +1,7 @@
 // See the Electron documentation for details on how to use preload scripts:
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 
-import '@sentry/electron/preload';
+// import '@sentry/electron/preload'; // Crashes with Electron 39 — Sentry bug
 import { IpcRendererEvent, contextBridge, ipcRenderer, webUtils } from 'electron';
 import { IpcEvents } from 'src/ipc-utils';
 
@@ -91,6 +91,7 @@ const api: IpcApi = {
 	loadThemeDetails: ( id, emitThemeDetailsLoadingEvent = true ) =>
 		ipcRendererInvoke( 'loadThemeDetails', id, emitThemeDetailsLoadingEvent ),
 	getThumbnailData: ( id ) => ipcRendererInvoke( 'getThumbnailData', id ),
+	getSiteIconData: ( id ) => ipcRendererInvoke( 'getSiteIconData', id ),
 	getInstalledAppsAndTerminals: () => ipcRendererInvoke( 'getInstalledAppsAndTerminals' ),
 	importSite: ( { id, backupFile } ) => ipcRendererInvoke( 'importSite', { id, backupFile } ),
 	executeWPCLiInline: ( options ) => ipcRendererInvoke( 'executeWPCLiInline', options ),

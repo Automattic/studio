@@ -42,6 +42,10 @@ export function getSiteThumbnailPath( siteId: string ): string {
 	return path.join( getAppDataPath(), getAppName(), 'thumbnails', `${ siteId }.png` );
 }
 
+export function getSiteIconPath( siteId: string ): string {
+	return path.join( getAppDataPath(), getAppName(), 'site-icons', `${ siteId }.png` );
+}
+
 export function getResourcesPath(): string {
 	if ( ! app ) {
 		throw new Error( 'Electron app not available in child process' );

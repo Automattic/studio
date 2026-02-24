@@ -72,7 +72,7 @@ import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-setting
 import { getUserTerminal } from 'src/modules/user-settings/lib/ipc-handlers';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
 import { SiteServer, stopAllServers as triggerStopAllServers } from 'src/site-server';
-import { DEFAULT_SITE_PATH, getSiteThumbnailPath } from 'src/storage/paths';
+import { DEFAULT_SITE_PATH, getSiteIconPath, getSiteThumbnailPath } from 'src/storage/paths';
 import {
 	loadUserData,
 	lockAppdata,
@@ -608,6 +608,18 @@ export async function copySite(
 		);
 	}
 
+	const sourceIconPath = getSiteIconPath( sourceSiteId );
+	const newIconPath = getSiteIconPath( newSiteId );
+	if ( fs.existsSync( sourceIconPath ) ) {
+		await fs.promises.copyFile( sourceIconPath, newIconPath );
+		const iconData = await getImageData( newIconPath );
+		sendIpcEventToRendererWithWindow(
+			BrowserWindow.fromWebContents( event.sender ),
+			'site-icon-loaded',
+			{ id: newSiteId, imageData: iconData }
+		);
+	}
+
 	const port = await portFinder.getOpenPort();
 
 	const newSiteDetails: StoppedSiteDetails = {
@@ -870,6 +882,18 @@ export async function loadThemeDetails(
 		console.error( `Failed to update thumbnail for server ${ id }:`, error );
 	}
 
+	try {
+		sendIpcEventToRendererWithWindow( parentWindow, 'site-icon-loading', { id } );
+		await server.updateCachedSiteIcon();
+		const iconData = await getImageData( getSiteIconPath( id ) );
+		sendIpcEventToRendererWithWindow( parentWindow, 'site-icon-loaded', {
+			id,
+			imageData: iconData,
+		} );
+	} catch ( error ) {
+		sendIpcEventToRendererWithWindow( parentWindow, 'site-icon-load-error', { id } );
+	}
+
 	return themeDetails;
 }
 
@@ -917,6 +941,11 @@ export async function executeWPCLiInline(
 
 export function getThumbnailData( _event: IpcMainInvokeEvent, id: string ) {
 	const path = getSiteThumbnailPath( id );
+	return getImageData( path );
+}
+
+export function getSiteIconData( _event: IpcMainInvokeEvent, id: string ) {
+	const path = getSiteIconPath( id );
 	return getImageData( path );
 }
 

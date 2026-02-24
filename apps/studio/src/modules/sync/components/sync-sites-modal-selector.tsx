@@ -292,12 +292,9 @@ function SiteItem( {
 			<div className="flex flex-col gap-0.5 min-w-0">
 				{ isSiteLoading ? (
 					<div className="flex items-center gap-1.5">
+						<div className="w-3 h-3 rounded-full skeleton-bg" aria-label={ __( 'Loading' ) } />
 						<div
-							className="w-3 h-3 rounded-full animate-pulse bg-gradient-to-r from-[#F6F7F7] via-[#DCDCDE] to-[#F6F7F7]"
-							aria-label={ __( 'Loading' ) }
-						/>
-						<div
-							className="h-4 w-48 rounded animate-pulse bg-gradient-to-r from-[#F6F7F7] via-[#DCDCDE] to-[#F6F7F7]"
+							className="h-4 w-48 rounded skeleton-bg"
 							aria-label={ __( 'Loading site name' ) }
 						/>
 					</div>
@@ -325,10 +322,7 @@ function SiteItem( {
 					</div>
 				) }
 				{ isSiteLoading ? (
-					<div
-						className="h-3 w-36 rounded animate-pulse bg-gradient-to-r from-[#F6F7F7] via-[#DCDCDE] to-[#F6F7F7]"
-						aria-label={ __( 'Loading site URL' ) }
-					/>
+					<div className="h-3 w-36 rounded skeleton-bg" aria-label={ __( 'Loading site URL' ) } />
 				) : (
 					<Button
 						variant="link"

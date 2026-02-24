@@ -268,7 +268,7 @@ const SyncConnectedSitesSectionItem = ( {
 				<div className="shrink-0">
 					{ isSiteLoading ? (
 						<div
-							className="h-5 w-20 rounded animate-pulse bg-gradient-to-r from-[#F6F7F7] via-[#DCDCDE] to-[#F6F7F7]"
+							className="h-5 w-20 rounded skeleton-bg"
 							aria-label={ __( 'Loading environment' ) }
 						/>
 					) : (
@@ -277,10 +277,7 @@ const SyncConnectedSitesSectionItem = ( {
 				</div>
 
 				{ isSiteLoading ? (
-					<div
-						className="h-5 w-48 rounded animate-pulse bg-gradient-to-r from-[#F6F7F7] via-[#DCDCDE] to-[#F6F7F7]"
-						aria-label={ __( 'Loading site URL' ) }
-					/>
+					<div className="h-5 w-48 rounded skeleton-bg" aria-label={ __( 'Loading site URL' ) } />
 				) : (
 					<Button
 						variant="link"
@@ -567,12 +564,7 @@ const SyncConnectedSiteSection = ( {
 
 	let logo = <WordPressLogoCircle />;
 	if ( isSiteLoading ) {
-		logo = (
-			<div
-				className="w-5 h-5 rounded-full animate-pulse bg-gradient-to-r from-[#F6F7F7] via-[#DCDCDE] to-[#F6F7F7]"
-				aria-label={ __( 'Loading' ) }
-			/>
-		);
+		logo = <div className="w-5 h-5 rounded-full skeleton-bg" aria-label={ __( 'Loading' ) } />;
 	} else if ( hasConnectionErrors ) {
 		logo = <CircleRedCrossIcon />;
 	} else if ( connectedSite.isPressable ) {
@@ -584,10 +576,7 @@ const SyncConnectedSiteSection = ( {
 			<div className="flex items-center gap-2 ps-8 pe-5">
 				{ logo }
 				{ isSiteLoading ? (
-					<div
-						className="h-5 w-40 rounded animate-pulse bg-gradient-to-r from-[#F6F7F7] via-[#DCDCDE] to-[#F6F7F7]"
-						aria-label={ __( 'Loading site name' ) }
-					/>
+					<div className="h-5 w-40 rounded skeleton-bg" aria-label={ __( 'Loading site name' ) } />
 				) : (
 					<div className={ cx( 'a8c-label-semibold', hasConnectionErrors && 'error-message' ) }>
 						{ connectedSite.name }

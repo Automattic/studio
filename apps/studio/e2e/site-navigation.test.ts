@@ -83,8 +83,8 @@ test.describe( 'Site Navigation', () => {
 		await page.goto( getUrlWithAutoLogin( wpAdminUrl ) );
 		await page.waitForLoadState( 'networkidle' );
 
-		// Verify we're on the dashboard
-		await expect( page ).toHaveURL( /wp-admin/ );
+		// Verify we're on the dashboard (not the login page)
+		await expect( page ).toHaveURL( /\/wp-admin\/?$/ );
 
 		// Check for dashboard elements
 		await expect( page.locator( '#wpadminbar' ) ).toBeVisible();

@@ -557,14 +557,7 @@ const pollPushProgressThunk = createTypedAsyncThunk(
 			switch ( response.status ) {
 				case 'finished':
 					status = pushStatesProgressInfo.finished;
-					// Update site timestamp
-					void dispatch(
-						connectedSitesApi.endpoints.updateSiteTimestamp.initiate( {
-							siteId: remoteSiteId,
-							localSiteId: selectedSiteId,
-							type: 'push',
-						} )
-					);
+					void dispatch( connectedSitesApi.util.invalidateTags( [ 'ConnectedSites' ] ) );
 					getIpcApi().showNotification( {
 						title: currentPushState.selectedSite.name,
 						body: sprintf(
@@ -668,7 +661,6 @@ const pollPullBackupThunk = createTypedAsyncThunk(
 		{ dispatch, getState, rejectWithValue }
 	) => {
 		const pullStatesProgressInfo = getPullStatesProgressInfo();
-		// condition guarantees currentPullState exists and is not cancelled
 		const currentPullState = syncOperationsSelectors.selectPullState(
 			selectedSiteId,
 			remoteSiteId
@@ -699,10 +691,8 @@ const pollPullBackupThunk = createTypedAsyncThunk(
 			const downloadUrl = hasBackupCompleted ? response.download_url : null;
 
 			if ( downloadUrl ) {
-				// Backup completed, handle download and import
 				const { selectedSite, remoteSiteUrl } = currentPullState;
 
-				// Check file size
 				const fileSize = await getIpcApi().checkSyncBackupSize( downloadUrl );
 
 				if ( fileSize > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
@@ -739,7 +729,6 @@ const pollPullBackupThunk = createTypedAsyncThunk(
 					}
 				}
 
-				// Update to downloading
 				dispatch(
 					syncOperationsActions.updatePullState( {
 						selectedSiteId,
@@ -751,7 +740,6 @@ const pollPullBackupThunk = createTypedAsyncThunk(
 					} )
 				);
 
-				// Download backup
 				const operationId = generateStateId( selectedSiteId, remoteSiteId );
 				const filePath = await getIpcApi().downloadSyncBackup(
 					remoteSiteId,
@@ -759,7 +747,6 @@ const pollPullBackupThunk = createTypedAsyncThunk(
 					operationId
 				);
 
-				// Update to importing
 				dispatch(
 					syncOperationsActions.updatePullState( {
 						selectedSiteId,
@@ -770,7 +757,6 @@ const pollPullBackupThunk = createTypedAsyncThunk(
 					} )
 				);
 
-				// Stop server, import, then start server
 				await getIpcApi().stopServer( selectedSiteId );
 				await getIpcApi().importSite( {
 					id: selectedSiteId,
@@ -781,19 +767,10 @@ const pollPullBackupThunk = createTypedAsyncThunk(
 				} );
 				await getIpcApi().startServer( selectedSiteId );
 
-				// Clean up
 				await getIpcApi().removeSyncBackup( remoteSiteId );
 
-				// Update site timestamp
-				void dispatch(
-					connectedSitesApi.endpoints.updateSiteTimestamp.initiate( {
-						siteId: remoteSiteId,
-						localSiteId: selectedSiteId,
-						type: 'pull',
-					} )
-				);
+				void dispatch( connectedSitesApi.util.invalidateTags( [ 'ConnectedSites' ] ) );
 
-				// Mark as finished
 				dispatch(
 					syncOperationsActions.updatePullState( {
 						selectedSiteId,
@@ -804,7 +781,6 @@ const pollPullBackupThunk = createTypedAsyncThunk(
 					} )
 				);
 
-				// Show notification
 				getIpcApi().showNotification( {
 					title: selectedSite.name,
 					body: sprintf(
@@ -933,7 +909,7 @@ export const syncOperationsThunks = {
 };
 
 // Helper functions for checking state keys (matching useSyncStatesProgressInfo logic)
-const isKeyPulling = ( key: string | undefined ): boolean => {
+const isKeyPulling = ( key?: PullStateProgressInfo[ 'key' ] ): boolean => {
 	if ( ! key ) {
 		return false;
 	}
@@ -941,7 +917,7 @@ const isKeyPulling = ( key: string | undefined ): boolean => {
 	return pullingStateKeys.includes( key );
 };
 
-const isKeyPushing = ( key: string | undefined ): boolean => {
+const isKeyPushing = ( key?: PushStateProgressInfo[ 'key' ] ): boolean => {
 	if ( ! key ) {
 		return false;
 	}
@@ -973,8 +949,8 @@ export const syncOperationsSelectors = {
 			return state.syncOperations.pushStates[ stateId ];
 		},
 	selectIsAnySitePulling: ( state: { syncOperations: SyncOperationsState } ): boolean => {
-		return Object.values( state.syncOperations.pullStates ).some(
-			( pullState ) => pullState.status && isKeyPulling( pullState.status.key )
+		return Object.values( state.syncOperations.pullStates ).some( ( pullState ) =>
+			isKeyPulling( pullState.status.key )
 		);
 	},
 	selectIsSiteIdPulling:
@@ -988,18 +964,14 @@ export const syncOperationsSelectors = {
 					return false;
 				}
 				if ( remoteSiteId !== undefined ) {
-					return (
-						pullState.status &&
-						isKeyPulling( pullState.status.key ) &&
-						pullState.remoteSiteId === remoteSiteId
-					);
+					return isKeyPulling( pullState.status.key ) && pullState.remoteSiteId === remoteSiteId;
 				}
 				return pullState.status && isKeyPulling( pullState.status.key );
 			} );
 		},
 	selectIsAnySitePushing: ( state: { syncOperations: SyncOperationsState } ): boolean => {
-		return Object.values( state.syncOperations.pushStates ).some(
-			( pushState ) => pushState.status && isKeyPushing( pushState.status.key )
+		return Object.values( state.syncOperations.pushStates ).some( ( pushState ) =>
+			isKeyPushing( pushState.status.key )
 		);
 	},
 	selectIsSiteIdPushing:
@@ -1013,13 +985,9 @@ export const syncOperationsSelectors = {
 					return false;
 				}
 				if ( remoteSiteId !== undefined ) {
-					return (
-						pushState.status &&
-						isKeyPushing( pushState.status.key ) &&
-						pushState.remoteSiteId === remoteSiteId
-					);
+					return isKeyPushing( pushState.status.key ) && pushState.remoteSiteId === remoteSiteId;
 				}
-				return pushState.status && isKeyPushing( pushState.status.key );
+				return isKeyPushing( pushState.status.key );
 			} );
 		},
 };

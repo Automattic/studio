@@ -892,6 +892,7 @@ export async function loadThemeDetails(
 		} );
 	} catch ( error ) {
 		sendIpcEventToRendererWithWindow( parentWindow, 'site-icon-load-error', { id } );
+		console.error( `Failed to update site icon for server ${ id }:`, error );
 	}
 
 	return themeDetails;

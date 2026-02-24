@@ -94,12 +94,19 @@ export const ThemeDetailsProvider: React.FC< ThemeDetailsProviderProps > = ( { c
 	} );
 
 	useWindowListener( 'focus', async () => {
-		// When the window is focused, we need to kick off a request to refetch the theme details, if server is running.
-		if ( ! selectedSite?.id || selectedSite.running === false ) {
-			return;
-		}
-		await getIpcApi().loadThemeDetails( selectedSite.id, false );
+		// When the window is focused, refetch theme details for all running sites.
+		const runningSites = sites.filter( ( site ) => site.running );
+		await Promise.all(
+			runningSites.map( ( site ) => getIpcApi().loadThemeDetails( site.id, false ) )
+		);
 	} );
+
+	useEffect( () => {
+		// When the selected site changes, refresh its theme details (including icon).
+		if ( selectedSite?.id && selectedSite.running ) {
+			void getIpcApi().loadThemeDetails( selectedSite.id, false );
+		}
+	}, [ selectedSite?.id ] ); // eslint-disable-line react-hooks/exhaustive-deps
 
 	useEffect( () => {
 		let isCurrent = true;

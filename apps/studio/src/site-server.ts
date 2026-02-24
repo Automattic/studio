@@ -345,22 +345,22 @@ export class SiteServer {
 
 		let iconUrl = '';
 
-		// Try WP-CLI first to get the site icon URL
+		// Use get_site_icon_url() PHP function to resolve the actual icon URL.
+		// The 'site_icon' WP option only stores an attachment ID, not a URL.
 		try {
 			const { stdout, exitCode } = await this.executeWpCliCommand(
-				[ 'option', 'get', 'site_icon_url' ],
+				[ 'eval', 'echo get_site_icon_url( 512 );' ],
 				{ skipPluginsAndThemes: true }
 			);
 			if ( exitCode === 0 && stdout.trim() ) {
 				iconUrl = stdout.trim();
 			}
 		} catch {
-			// WP-CLI failed, fall through to favicon fallback
+			// WP-CLI failed, no icon available
 		}
 
-		// Fall back to favicon.ico
 		if ( ! iconUrl ) {
-			iconUrl = `${ this.details.url }/favicon.ico`;
+			return;
 		}
 
 		const buffer = await fetchImageBuffer( iconUrl );

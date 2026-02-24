@@ -197,6 +197,8 @@ function toDiskFormat( { sites, ...rest }: UserData ): PersistedUserData {
 				autoStart,
 				latestCliPid,
 				enableXdebug,
+				enableDebugLog,
+				enableDebugDisplay,
 				sortOrder,
 			} ) => {
 				// No object spreading allowed. TypeScript's structural typing is too permissive and
@@ -215,6 +217,8 @@ function toDiskFormat( { sites, ...rest }: UserData ): PersistedUserData {
 					autoStart,
 					latestCliPid,
 					enableXdebug,
+					enableDebugLog,
+					enableDebugDisplay,
 					sortOrder,
 					themeDetails: {
 						name: themeDetails?.name || '',

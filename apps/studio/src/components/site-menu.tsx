@@ -11,7 +11,7 @@ import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useDeleteSite } from 'src/hooks/use-delete-site';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
-import { isMac, isWindows } from 'src/lib/app-globals';
+import { isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
@@ -227,7 +227,7 @@ function SiteItem( {
 					setSelectedSiteId( site.id );
 				} }
 			>
-				<SiteIcon siteId={ site.id } siteName={ site.name } size={ 28 } />
+				<SiteIcon siteId={ site.id } iconColorIndex={ site.iconColorIndex } size={ 28 } />
 				{ site.name }
 			</button>
 			{ showSpinner ? (

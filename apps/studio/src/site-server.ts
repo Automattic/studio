@@ -114,6 +114,7 @@ function fetchImageBuffer( url: string ): Promise< Buffer > {
 type SiteServerMeta = {
 	wpVersion?: string;
 	blueprint?: BlueprintV1Declaration;
+	iconColorIndex?: number;
 };
 
 export class SiteServer {
@@ -174,17 +175,33 @@ export class SiteServer {
 			port: 0,
 			phpVersion: options.phpVersion || '',
 			running: false,
+			iconColorIndex: meta.iconColorIndex,
 		};
 		const server = SiteServer.register( placeholderDetails, meta );
 		server.hasOngoingOperation = true;
 
 		try {
 			const result = await createSiteViaCli( { ...options, siteId } );
-			const userData = await loadUserData();
-			const siteData = userData.sites.find( ( s ) => s.id === result.id );
-			if ( ! siteData ) {
-				throw new Error( `Site with ID ${ result.id } not found in appdata after CLI creation` );
+
+			// Persist iconColorIndex to appdata immediately so file-watcher
+			// reloads never see the site without it (prevents color flash).
+			let userData: Awaited< ReturnType< typeof loadUserData > >;
+			try {
+				await lockAppdata();
+				userData = await loadUserData();
+				const siteData = userData.sites.find( ( s ) => s.id === result.id );
+				if ( ! siteData ) {
+					throw new Error( `Site with ID ${ result.id } not found in appdata after CLI creation` );
+				}
+				if ( meta.iconColorIndex !== undefined ) {
+					siteData.iconColorIndex = meta.iconColorIndex;
+					await saveUserData( userData );
+				}
+			} finally {
+				await unlockAppdata();
 			}
+
+			const siteData = userData.sites.find( ( s ) => s.id === result.id )!;
 
 			let siteDetails: SiteDetails;
 			if ( result.running ) {

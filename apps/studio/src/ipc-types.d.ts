@@ -34,6 +34,7 @@ interface StoppedSiteDetails {
 	enableDebugLog?: boolean;
 	enableDebugDisplay?: boolean;
 	sortOrder?: number;
+	iconColorIndex?: number;
 }
 
 interface StartedSiteDetails extends StoppedSiteDetails {

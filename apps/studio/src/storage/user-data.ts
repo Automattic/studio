@@ -200,6 +200,7 @@ function toDiskFormat( { sites, ...rest }: UserData ): PersistedUserData {
 				enableDebugLog,
 				enableDebugDisplay,
 				sortOrder,
+				iconColorIndex,
 			} ) => {
 				// No object spreading allowed. TypeScript's structural typing is too permissive and
 				// will permit us to persist properties that aren't in the type definition.
@@ -220,6 +221,7 @@ function toDiskFormat( { sites, ...rest }: UserData ): PersistedUserData {
 					enableDebugLog,
 					enableDebugDisplay,
 					sortOrder,
+					iconColorIndex,
 					themeDetails: {
 						name: themeDetails?.name || '',
 						path: themeDetails?.path || '',

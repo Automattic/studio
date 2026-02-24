@@ -1,14 +1,38 @@
+import { WordPressLogoCircle } from 'src/components/wordpress-logo-circle';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { cx } from 'src/lib/cx';
 
+const SITE_ICON_COLORS = [
+	'#5B8A72', // sage
+	'#7B6B8A', // lavender
+	'#8A7B5B', // khaki
+	'#5B7B8A', // steel
+	'#8A5B6B', // mauve
+	'#6B8A5B', // moss
+	'#5B6B8A', // slate
+	'#8A6B5B', // clay
+];
+
+/**
+ * Simple hash of a string to a number, used for deterministic
+ * color assignment for sites without an explicit iconColorIndex.
+ */
+function hashStringToIndex( str: string ): number {
+	let hash = 0;
+	for ( let i = 0; i < str.length; i++ ) {
+		hash = ( hash * 31 + str.charCodeAt( i ) ) | 0;
+	}
+	return Math.abs( hash );
+}
+
 export function SiteIcon( {
 	siteId,
-	siteName,
+	iconColorIndex,
 	size = 16,
 	className,
 }: {
 	siteId: string;
-	siteName: string;
+	iconColorIndex?: number;
 	size?: number;
 	className?: string;
 } ) {
@@ -27,15 +51,16 @@ export function SiteIcon( {
 		);
 	}
 
+	const colorIndex =
+		typeof iconColorIndex === 'number' ? iconColorIndex : hashStringToIndex( siteId );
+	const bgColor = SITE_ICON_COLORS[ colorIndex % SITE_ICON_COLORS.length ];
+
 	return (
 		<div
-			className={ cx(
-				'rounded-sm flex-shrink-0 bg-[#ffffff19] text-[#ffffffaa] flex items-center justify-center font-medium leading-none',
-				className
-			) }
-			style={ { width: size, height: size, fontSize: size * 0.6 } }
+			className={ cx( 'rounded flex-shrink-0 flex items-center justify-center', className ) }
+			style={ { width: size, height: size, backgroundColor: bgColor } }
 		>
-			{ siteName.charAt( 0 ).toUpperCase() }
+			<WordPressLogoCircle size={ Math.round( size * 0.55 ) } color="currentColor" />
 		</div>
 	);
 }

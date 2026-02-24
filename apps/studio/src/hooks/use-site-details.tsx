@@ -328,6 +328,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 						running: false,
 						isAddingSite: true,
 						phpVersion: '',
+						iconColorIndex: prevData.length % 8,
 					},
 				] )
 			);
@@ -524,6 +525,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 						running: false,
 						isAddingSite: true,
 						phpVersion: sourceSite.phpVersion,
+						iconColorIndex: prevData.length % 8,
 					},
 				] )
 			);

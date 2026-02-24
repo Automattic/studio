@@ -70,14 +70,17 @@ const mockSiteDetails: StoppedSiteDetails = {
 	enableHttps: undefined,
 };
 
-vi.mocked( SiteServer.create ).mockResolvedValue( {
-	server: {
-		start: vi.fn(),
-		details: mockSiteDetails,
-		updateSiteDetails: vi.fn(),
-		updateCachedThumbnail: vi.fn().mockResolvedValue( undefined ),
-	} as unknown as SiteServer,
-	details: mockSiteDetails,
+vi.mocked( SiteServer.create ).mockImplementation( async ( _options, meta ) => {
+	const details = { ...mockSiteDetails, iconColorIndex: meta?.iconColorIndex };
+	return {
+		server: {
+			start: vi.fn(),
+			details,
+			updateSiteDetails: vi.fn(),
+			updateCachedThumbnail: vi.fn().mockResolvedValue( undefined ),
+		} as unknown as SiteServer,
+		details,
+	};
 } );
 
 vi.mocked( SiteServer.register, { partial: true } ).mockImplementation( ( details ) => ( {
@@ -123,6 +126,7 @@ describe( 'createSite', () => {
 			customDomain: undefined,
 			enableHttps: undefined,
 			isWpAutoUpdating: false,
+			iconColorIndex: 0,
 		} );
 
 		expect( SiteServer.create ).toHaveBeenCalledWith(

@@ -264,6 +264,10 @@ export async function createSite(
 
 	const siteId = providedSiteId || crypto.randomUUID();
 
+	// Determine the icon color index for this site (round-robin from palette of 8 colors)
+	const existingSites = ( await loadUserData() ).sites;
+	const iconColorIndex = existingSites.length % 8;
+
 	const metric = getBlueprintMetric( blueprint?.slug );
 	bumpStat( StatsGroup.STUDIO_SITE_CREATE, metric );
 
@@ -280,7 +284,7 @@ export async function createSite(
 				blueprint: blueprint?.blueprint,
 				noStart,
 			},
-			{ wpVersion, blueprint: blueprint?.blueprint }
+			{ wpVersion, blueprint: blueprint?.blueprint, iconColorIndex }
 		);
 
 		// If the site is running after creation, fetch theme details and update thumbnail
@@ -636,6 +640,7 @@ export async function copySite(
 	try {
 		await lockAppdata();
 		const userData = await loadUserData();
+		newSiteDetails.iconColorIndex = userData.sites.length % 8;
 		userData.sites.push( newSiteDetails );
 		await saveUserData( userData );
 	} finally {

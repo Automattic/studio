@@ -4,6 +4,7 @@ import { Spinner } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useState } from 'react';
 import { XDebugIcon } from 'src/components/icons/xdebug-icon';
+import { SiteIcon } from 'src/components/site-icon';
 import { Tooltip } from 'src/components/tooltip';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
@@ -220,9 +221,10 @@ function SiteItem( {
 			onDrop={ ( e ) => onDrop( e, index ) }
 			onDragEnd={ onDragEnd }
 		>
+			<SiteIcon siteId={ site.id } siteName={ site.name } size={ 16 } className="ml-2" />
 			<button
 				type="button"
-				className="p-2 text-xs rounded-tl rounded-bl whitespace-nowrap overflow-hidden text-ellipsis w-full text-left rtl:text-right focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-a8c-blue-50"
+				className="p-2 pl-1.5 text-xs rounded-tl rounded-bl whitespace-nowrap overflow-hidden text-ellipsis w-full text-left rtl:text-right focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-a8c-blue-50"
 				onClick={ () => {
 					setSelectedSiteId( site.id );
 				} }

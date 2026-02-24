@@ -6,15 +6,18 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 
 type ThemeDetailsType = SiteDetails[ 'themeDetails' ] | undefined;
 type ThumbnailType = string | undefined;
+type SiteIconType = string | undefined;
 
 interface ThemeDetailsContextType {
 	loadingThemeDetails: Record< string, boolean >;
 	loadingThumbnails: Record< string, boolean >;
 	themeDetails: Record< string, ThemeDetailsType >;
 	thumbnails: Record< string, ThumbnailType >;
+	siteIcons: Record< string, SiteIconType >;
 	initialLoading: boolean;
 	selectedThemeDetails: ThemeDetailsType;
 	selectedThumbnail: ThumbnailType;
+	selectedSiteIcon: SiteIconType;
 	selectedLoadingThemeDetails: boolean;
 	selectedLoadingThumbnails: boolean;
 }
@@ -24,9 +27,11 @@ export const ThemeDetailsContext = createContext< ThemeDetailsContextType >( {
 	loadingThumbnails: {},
 	themeDetails: {},
 	thumbnails: {},
+	siteIcons: {},
 	initialLoading: false,
 	selectedThemeDetails: undefined,
 	selectedThumbnail: undefined,
+	selectedSiteIcon: undefined,
 	selectedLoadingThemeDetails: false,
 	selectedLoadingThumbnails: false,
 } );
@@ -44,6 +49,7 @@ export const ThemeDetailsProvider: React.FC< ThemeDetailsProviderProps > = ( { c
 		{}
 	);
 	const [ loadingThumbnails, setLoadingThumbnails ] = useState< Record< string, boolean > >( {} );
+	const [ siteIcons, setSiteIcons ] = useState< Record< string, SiteIconType > >( {} );
 
 	useIpcListener( 'theme-details-loading', ( _evt, { id } ) => {
 		setLoadingThemeDetails( ( loadingThemeDetails ) => {
@@ -81,6 +87,12 @@ export const ThemeDetailsProvider: React.FC< ThemeDetailsProviderProps > = ( { c
 		} );
 	} );
 
+	useIpcListener( 'site-icon-loaded', ( _evt, { id, imageData } ) => {
+		setSiteIcons( ( siteIcons ) => {
+			return { ...siteIcons, [ id ]: imageData ?? undefined };
+		} );
+	} );
+
 	useWindowListener( 'focus', async () => {
 		// When the window is focused, we need to kick off a request to refetch the theme details, if server is running.
 		if ( ! selectedSite?.id || selectedSite.running === false ) {
@@ -95,17 +107,21 @@ export const ThemeDetailsProvider: React.FC< ThemeDetailsProviderProps > = ( { c
 		const run = async () => {
 			const newThemeDetails = { ...themeDetails };
 			const newThumbnailData = { ...thumbnails };
+			const newSiteIcons = { ...siteIcons };
 			for ( const site of sites ) {
 				if ( site.themeDetails ) {
 					newThemeDetails[ site.id ] = { ...site.themeDetails };
 					const thumbnailData = await getIpcApi().getThumbnailData( site.id );
 					newThumbnailData[ site.id ] = thumbnailData ?? undefined;
 				}
+				const iconData = await getIpcApi().getSiteIconData( site.id );
+				newSiteIcons[ site.id ] = iconData ?? undefined;
 			}
 			if ( isCurrent ) {
 				setInitialLoad( true );
 				setThemeDetails( newThemeDetails );
 				setThumbnails( newThumbnailData );
+				setSiteIcons( newSiteIcons );
 			}
 		};
 		if ( sites.length > 0 && ! loadingSites && ! initialLoad && isCurrent ) {
@@ -114,17 +130,19 @@ export const ThemeDetailsProvider: React.FC< ThemeDetailsProviderProps > = ( { c
 		return () => {
 			isCurrent = false;
 		};
-	}, [ initialLoad, loadingSites, sites, themeDetails, thumbnails ] );
+	}, [ initialLoad, loadingSites, sites, themeDetails, thumbnails, siteIcons ] );
 
 	const contextValue = useMemo( () => {
 		return {
 			thumbnails,
 			themeDetails,
+			siteIcons,
 			loadingThemeDetails,
 			loadingThumbnails,
 			initialLoading: ! initialLoad,
 			selectedThemeDetails: themeDetails[ selectedSite?.id ?? '' ],
 			selectedThumbnail: thumbnails[ selectedSite?.id ?? '' ],
+			selectedSiteIcon: siteIcons[ selectedSite?.id ?? '' ],
 			selectedLoadingThemeDetails: loadingThemeDetails[ selectedSite?.id ?? '' ],
 			selectedLoadingThumbnails: loadingThumbnails[ selectedSite?.id ?? '' ],
 		};
@@ -133,6 +151,7 @@ export const ThemeDetailsProvider: React.FC< ThemeDetailsProviderProps > = ( { c
 		loadingThemeDetails,
 		loadingThumbnails,
 		selectedSite?.id,
+		siteIcons,
 		themeDetails,
 		thumbnails,
 	] );

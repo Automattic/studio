@@ -95,8 +95,17 @@ const siteDetailsMocked = {
 	stopServer: vi.fn(),
 	isSiteDeleting: vi.fn( () => false ),
 };
-vi.mock( 'src/hooks/use-site-details', () => ( {
-	useSiteDetails: () => ( { ...siteDetailsMocked } ),
+vi.mock( 'src/hooks/use-site-details', async ( importOriginal ) => {
+	const actual = await importOriginal< typeof import('src/hooks/use-site-details') >();
+	return {
+		...actual,
+		useSiteDetails: () => ( { ...siteDetailsMocked } ),
+	};
+} );
+
+vi.mock( 'src/hooks/use-theme-details', () => ( {
+	useThemeDetails: () => ( { siteIcons: {} } ),
+	ThemeDetailsContext: { Provider: ( { children }: { children: React.ReactNode } ) => children },
 } ) );
 
 const renderWithProvider = ( children: React.ReactElement ) => {

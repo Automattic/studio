@@ -315,7 +315,9 @@ lane :new_hotfix_release do |version:, skip_confirm: false|
   branch_name = "release/#{version}"
 
   # Extract the major.minor version to find the previous release tag
-  short_version = version.match(/^(\d+\.\d+)/)[1]
+  match_data = version.match(/^(\d+\.\d+)/)
+  UI.user_error!("Invalid version '#{version}'. Expected format like '1.7.5' so that a 'major.minor' (e.g., '1.7') can be extracted.") if match_data.nil?
+  short_version = match_data[1]
   previous_tag = find_previous_tag(pattern: "v#{short_version}.*")
 
   # Determine the base for the hotfix branch: either a tag or a release branch

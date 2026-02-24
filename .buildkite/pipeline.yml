@@ -1,6 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/buildkite/pipeline-schema/main/schema.json
 ---
-
 # IMAGE_ID is an env var that only macOS agents need.
 # Defining it at the root level propagates it too all agents, which can seem unnecessary but is a the same time convenient and DRY.
 env:
@@ -17,12 +16,22 @@ steps:
       - github_commit_status:
           context: Lint
 
+  - label: ':react: React Doctor'
+    agents:
+      queue: mac
+    key: react_doctor
+    command: bash .buildkite/commands/run-react-doctor.sh
+    plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
+    notify:
+      - github_commit_status:
+          context: React Doctor
+
   - label: Unit Tests on {{matrix}}
     key: unit_tests
     command: bash .buildkite/commands/run-unit-tests.sh "{{matrix}}"
     plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
     agents:
-      queue: "{{matrix}}"
+      queue: '{{matrix}}'
     matrix:
       - mac
       - windows
@@ -42,10 +51,10 @@ steps:
       - test-results/**/*error-context.md
     plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
     agents:
-      queue: "{{matrix.platform}}"
+      queue: '{{matrix.platform}}'
     env:
       # See https://playwright.dev/docs/ci#debugging-browser-launches
-      DEBUG: "pw:browser"
+      DEBUG: 'pw:browser'
     matrix:
       setup: { platform: [], arch: [] }
       adjustments:
@@ -58,7 +67,7 @@ steps:
       - github_commit_status:
           context: E2E Tests
 
-  - label: ":chart_with_upwards_trend: Performance Metrics"
+  - label: ':chart_with_upwards_trend: Performance Metrics'
     key: metrics
     agents:
       queue: mac
@@ -73,8 +82,8 @@ steps:
       - github_commit_status:
           context: Performance Metrics
 
-  - input: "🚦 Build for Mac?"
-    prompt: "Do you want to build Mac dev binaries for this PR?"
+  - input: '🚦 Build for Mac?'
+    prompt: 'Do you want to build Mac dev binaries for this PR?'
     key: input-dev-mac
     if: build.tag !~ /^v[0-9]+/ && build.branch != 'trunk'
 
@@ -127,8 +136,8 @@ steps:
           - x64
           - arm64
 
-  - input: "🚦 Build for Windows?"
-    prompt: "Do you want to build Windows dev binaries for this PR?"
+  - input: '🚦 Build for Windows?'
+    prompt: 'Do you want to build Windows dev binaries for this PR?'
     key: input-dev-windows
     if: build.tag !~ /^v[0-9]+/ && build.branch != 'trunk'
 
@@ -151,7 +160,7 @@ steps:
           - x64
           - arm64
 
-  - label: ":rocket: Distribute Dev Builds"
+  - label: ':rocket: Distribute Dev Builds'
     command: |
       echo "--- :node: Downloading Binaries"
       buildkite-agent artifact download "*.app.zip" .
@@ -251,7 +260,7 @@ steps:
               context: All Windows Release Builds
     if: build.tag =~ /^v[0-9]+/
 
-  - label: ":rocket: Publish Release Builds"
+  - label: ':rocket: Publish Release Builds'
     command: |
       echo "--- :node: Downloading Binaries"
       buildkite-agent artifact download "*.zip" .

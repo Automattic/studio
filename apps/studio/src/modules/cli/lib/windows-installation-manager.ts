@@ -1,5 +1,5 @@
 import { app, dialog } from 'electron';
-import { mkdir, writeFile } from 'fs/promises';
+import { mkdir, rm, writeFile } from 'fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'path';
 import * as Sentry from '@sentry/electron/main';
@@ -202,6 +202,9 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 			.join( ';' );
 
 		await this.setPathInRegistry( newPath );
+		if ( process.env.NODE_ENV === 'production' ) {
+			await rm( STABLE_BIN_DIR_PATH, { recursive: true, force: true } );
+		}
 	}
 }
 

@@ -51,8 +51,8 @@ export function CopyTextButton( {
 	return (
 		<Button
 			className={ cx(
-				'flex items-center [&.is-link]:text-frame-text [&.is-link]:hover:text-[#2145e6]',
-				showCopied && '[&.is-link]:text-[#2145e6]',
+				'flex items-center [&.is-link]:text-frame-text [&.is-link]:hover:text-frame-theme',
+				showCopied && '[&.is-link]:text-frame-theme',
 				className
 			) }
 			aria-label={ label || __( 'Copy to clipboard' ) }

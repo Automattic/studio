@@ -101,16 +101,17 @@ export function useListenDeepLinkConnection() {
 					await getIpcApi().updateSingleConnectedWpcomSite( fullSiteData );
 					dispatch( connectedSitesApi.util.invalidateTags( [ 'ConnectedSites' ] ) );
 				}
-
-				// Refetch all sites to update syncSites (used by the push/pull modal).
-				// Await so loading state persists until the modal can display full site data.
-				await refetchWpComSites();
 			} catch ( error ) {
 				console.error( 'Error during site connection:', error );
 			} finally {
 				fetchSingleSitePromise.unsubscribe();
 				dispatch( connectedSitesActions.removeLoadingSiteId( remoteSiteId ) );
 			}
+
+			// Refetch all sites to update syncSites (used by the push/pull modal).
+			// Fired after clearing the loading state to avoid stale closure issues
+			// where the captured refetch references an outdated query subscription.
+			void refetchWpComSites();
 		}
 	);
 }

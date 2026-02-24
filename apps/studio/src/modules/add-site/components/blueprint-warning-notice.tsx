@@ -40,7 +40,7 @@ function BlueprintIssuesModal( {
 			<VStack spacing={ 6 } className="h-full">
 				<div className="flex items-center">
 					<Icon className="fill-a8c-blue-50 me-2 shrink-0" icon={ check } />
-					<Text className="font-medium text-gray-900">{ fileName }</Text>
+					<Text className="font-medium text-frame-text">{ fileName }</Text>
 				</div>
 				<Text>
 					{ warnings?.length &&
@@ -53,7 +53,7 @@ function BlueprintIssuesModal( {
 						{ warnings?.map( ( warningItem, index ) => (
 							<div
 								key={ index }
-								className="rounded-sm p-3 border border-gray-200"
+								className="rounded-sm p-3 border border-frame-border"
 								style={ { backgroundColor: 'color-mix(in srgb, #d47608 4%, transparent)' } }
 							>
 								<HStack alignment="flex-start" spacing={ 2 }>
@@ -68,7 +68,7 @@ function BlueprintIssuesModal( {
 					</VStack>
 				</div>
 				<div>
-					<Text className="text-sm text-gray-600">
+					<Text className="text-sm text-frame-text-secondary">
 						{ __(
 							'Your Blueprint will still work, but these features will be skipped during site creation.'
 						) }

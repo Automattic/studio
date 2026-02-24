@@ -46,8 +46,8 @@ export default function CreateSite( {
 	const { __ } = useI18n();
 
 	return (
-		<VStack className="w-full max-w-[402px] mx-auto text-black" spacing={ 6 }>
-			<Heading className="text-[32px] text-gray-900 text-center" weight={ 500 }>
+		<VStack className="w-full max-w-[402px] mx-auto text-frame-text" spacing={ 6 }>
+			<Heading className="text-[32px] text-frame-text text-center" weight={ 500 }>
 				{ __( 'Add a site' ) }
 			</Heading>
 

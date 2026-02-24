@@ -157,11 +157,11 @@ export function PullRemoteSite( {
 
 	return (
 		<VStack className="w-full" alignment="top" spacing={ isAuthenticated ? 3 : 1 }>
-			<Heading className="text-center text-[32px] text-gray-900" weight={ 500 }>
+			<Heading className="text-center text-[32px] text-frame-text" weight={ 500 }>
 				{ __( 'Pull an existing site' ) }
 			</Heading>
 			{ isAuthenticated ? (
-				<VStack className="flex flex-col w-full max-w-[650px] flex-1 text-a8c-gray-900">
+				<VStack className="flex flex-col w-full max-w-[650px] flex-1 text-frame-text">
 					{ showNoSitesView ? (
 						<NoWpcomSitesView />
 					) : (

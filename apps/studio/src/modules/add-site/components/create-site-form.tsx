@@ -117,7 +117,7 @@ function FormPathInputComponent( {
 				type="button"
 				aria-label={ `${ value }, ${ __( 'Select different local path' ) }` }
 				className={ cx(
-					'flex flex-row items-stretch rounded-sm border border-[#949494] focus:border-a8c-blue-50 focus:shadow-[0_0_0_0.5px_black] focus:shadow-a8c-blue-50 outline-none transition-shadow transition-linear duration-100 [&_.local-path-icon]:focus:border-l-a8c-blue-50 [&:disabled]:cursor-not-allowed',
+					'flex flex-row items-stretch rounded-sm border border-frame-border focus:border-a8c-blue-50 focus:shadow-[0_0_0_0.5px_black] focus:shadow-a8c-blue-50 outline-none transition-shadow transition-linear duration-100 [&_.local-path-icon]:focus:border-l-a8c-blue-50 [&:disabled]:cursor-not-allowed',
 					error && 'border-red-500 [&_.local-path-icon]:border-l-red-500'
 				) }
 				data-testid="select-path-button"
@@ -136,7 +136,7 @@ function FormPathInputComponent( {
 					aria-hidden="true"
 					className="local-path-icon flex items-center py-[9px] px-2.5 self-center"
 				>
-					<FolderIcon className="text-[#3C434A]" />
+					<FolderIcon className="text-frame-text-secondary" />
 				</div>
 			</button>
 			<SiteFormError
@@ -401,7 +401,7 @@ export const CreateSiteForm = ( {
 					<>
 						<div className="flex flex-row items-center mb-1">
 							<Button
-								className="pl-0"
+								className="pl-0 !text-frame-text-secondary"
 								onClick={ handleAdvancedSettingsClick }
 								data-testid="advanced-settings-button"
 							>

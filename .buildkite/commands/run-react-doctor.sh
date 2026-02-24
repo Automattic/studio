@@ -21,13 +21,14 @@ OUTPUT=$(npx -y react-doctor --no-ami --yes --fail-on error 2>&1) || DOCTOR_EXIT
 
 echo "$OUTPUT"
 
-# Parse score from output (format: "XX / 100")
-SCORE=$(echo "$OUTPUT" | grep -oE '[0-9]+ / 100' | head -1 | grep -oE '^[0-9]+') || true
+# Strip ANSI escape codes for score parsing and annotation
+CLEAN_OUTPUT=$(echo "$OUTPUT" | sed $'s/\x1b\\[[0-9;]*m//g')
+
+# Parse score from clean output (format: "XX / 100")
+SCORE=$(echo "$CLEAN_OUTPUT" | grep -oE '[0-9]+ / 100' | head -1 | grep -oE '^[0-9]+') || true
 
 # Post annotation to Buildkite UI
 if command -v buildkite-agent &> /dev/null; then
-  # Strip ANSI escape codes for the annotation
-  CLEAN_OUTPUT=$(echo "$OUTPUT" | sed $'s/\x1b\\[[0-9;]*m//g')
 
   if [ -n "$SCORE" ]; then
     if [ "$SCORE" -lt "$SCORE_THRESHOLD" ]; then

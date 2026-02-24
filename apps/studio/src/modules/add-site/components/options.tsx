@@ -72,7 +72,12 @@ function OptionButton( {
 						{ description }
 					</Text>
 				</VStack>
-				<Icon className="mt-0.5 text-frame-text-secondary" icon={ chevron } size={ 24 } fill="currentColor" />
+				<Icon
+					className="mt-0.5 text-frame-text-secondary"
+					icon={ chevron }
+					size={ 24 }
+					fill="currentColor"
+				/>
 			</HStack>
 		</Tooltip>
 	);
@@ -96,7 +101,7 @@ export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps 
 				{ __( 'Add a clean site, start from a Blueprint or import site from a backup' ) }
 			</Text>
 			<OptionButton
-				icon={ <Icon className="" icon={ plus } size={ 26 } fill="#3858E9" /> }
+				icon={ <Icon className="" icon={ plus } size={ 26 } fill="var(--color-frame-theme)" /> }
 				title={ __( 'Create a site' ) }
 				description={ __( 'Start with an empty site' ) }
 				onClick={ () => onOptionSelect( 'create' ) }
@@ -113,7 +118,7 @@ export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps 
 				/>
 			) }
 			<OptionButton
-				icon={ <Icon icon={ download } size={ 24 } fill="#3858E9" /> }
+				icon={ <Icon icon={ download } size={ 24 } fill="var(--color-frame-theme)" /> }
 				title={ __( 'Pull an existing site' ) }
 				description={ __( 'Download directly from WordPress.com or Pressable' ) }
 				onClick={ () => onOptionSelect( 'pullRemote' ) }
@@ -121,7 +126,7 @@ export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps 
 				disabledTooltip={ importOfflineMessage }
 			/>
 			<OptionButton
-				icon={ <Icon icon={ backup } size={ 24 } fill="#3858E9" /> }
+				icon={ <Icon icon={ backup } size={ 24 } fill="var(--color-frame-theme)" /> }
 				title={ __( 'Import from a backup' ) }
 				description={ __( 'Start a site from a backup' ) }
 				onClick={ () => onOptionSelect( 'backup' ) }

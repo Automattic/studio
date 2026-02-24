@@ -466,7 +466,7 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 
 			if ( is_user_logged_in() ) {
 				$redirect_url = isset( $_GET['redirect_to'] ) ? $_GET['redirect_to'] : home_url();
-				wp_redirect( $redirect_url );
+				wp_safe_redirect( $redirect_url );
 				exit;
 			}
 
@@ -479,7 +479,7 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 			wp_set_auth_cookie( $user->ID, true, is_ssl() );
 			do_action( 'wp_login', $user->user_login, $user );
 			$redirect_url = isset( $_GET['redirect_to'] ) ? $_GET['redirect_to'] : home_url();
-			wp_redirect( $redirect_url );
+			wp_safe_redirect( $redirect_url );
 			exit;
 
 		}, 1 );

@@ -129,6 +129,18 @@ blockquote {
 	}
 }
 
+/* WP component theme — wire foreground/background so Emotion-styled components
+   (ProgressBar, etc.) adapt to dark mode via color-mix(). */
+:root {
+	--wp-components-color-foreground: var( --color-frame-text );
+	--wp-components-color-background: var( --color-frame-bg );
+}
+
+/* WP ProgressBar indicator — override Emotion's foreground color-mix with theme blue */
+div:has( > progress ) > div:first-child {
+	background-color: var( --color-frame-theme ) !important;
+}
+
 .components-tab-panel__tabs-item.is-active::after {
 	background: var( --color-frame-tab-active );
 }

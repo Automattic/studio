@@ -78,7 +78,7 @@ export function TwoColorProgressBar( {
 	maxValue,
 	normalColorClass = 'bg-frame-theme',
 	overLimitColorClass = 'bg-a8c-red-50',
-	trackColorClass = 'bg-a8c-gray-5',
+	trackColorClass = 'bg-frame-text-secondary',
 	showLabels = false,
 	valueLabel,
 	limitLabel,

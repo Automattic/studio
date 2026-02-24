@@ -74,7 +74,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 	}, [ selectedSite.id, selectedSite.enableDebugLog ] );
 
 	useEffect( () => {
-		checkDebugLogExists();
+		void checkDebugLogExists();
 	}, [ checkDebugLogExists ] );
 
 	return (

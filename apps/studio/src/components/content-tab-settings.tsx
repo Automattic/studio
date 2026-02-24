@@ -8,6 +8,7 @@ import {
 import { moreVertical } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren, useCallback, useEffect, useState } from 'react';
+import { ArrowIcon } from 'src/components/arrow-icon';
 import { CopyTextButton } from 'src/components/copy-text-button';
 import { LearnHowLink } from 'src/components/learn-more';
 import { SettingsMenuItem } from 'src/components/settings-site-menu';
@@ -169,15 +170,20 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 						<span>{ selectedSite.enableXdebug ? __( 'Enabled' ) : __( 'Disabled' ) }</span>
 					</SettingsRow>
 					<SettingsRow label={ __( 'Debug log' ) }>
-						<span className="flex items-center gap-2">
-							{ selectedSite.enableDebugLog ? __( 'Enabled' ) : __( 'Disabled' ) }
-							{ debugLogPath && (
-								<Button variant="link" onClick={ () => getIpcApi().openLocalPath( debugLogPath ) }>
-									{ __( 'Open log file' ) }
-								</Button>
-							) }
-						</span>
+						<span>{ selectedSite.enableDebugLog ? __( 'Enabled' ) : __( 'Disabled' ) }</span>
 					</SettingsRow>
+					{ debugLogPath && (
+						<SettingsRow label={ __( 'Debug log path' ) }>
+							<Button
+								variant="link"
+								className="[&.is-link]:text-a8c-gray-70 [&.is-link]:hover:text-a8c-blue-50 !px-0 h-auto leading-4"
+								onClick={ () => getIpcApi().openLocalPath( debugLogPath ) }
+							>
+								<span className="line-clamp-1 break-all">{ 'wp-content/debug.log' }</span>
+								<ArrowIcon />
+							</Button>
+						</SettingsRow>
+					) }
 					<SettingsRow label={ __( 'Debug display' ) }>
 						<span>{ selectedSite.enableDebugDisplay ? __( 'Enabled' ) : __( 'Disabled' ) }</span>
 					</SettingsRow>

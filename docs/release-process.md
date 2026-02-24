@@ -43,7 +43,7 @@ Builds are signed, notarized (macOS), and uploaded to the Apps CDN automatically
 
 **Fastlane lane**: `publish_release`
 
-- Publishes the draft GitHub release
+- Publishes the draft GitHub release (which creates the corresponding GitHub tag too)
 - Creates a backmerge PR from `release/<version>` into `trunk`
 
 ### 6. Post-Release (manual)

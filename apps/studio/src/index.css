@@ -7,22 +7,24 @@
 	--color-frame-bg: #fff;
 	--color-frame-text: #1e1e1e;
 	--color-frame-text-secondary: #757575;
-	--color-frame-border: #DCDCDE;
+	--color-frame-border: #dcdcde;
 	--color-frame-surface: #f0f0f0;
-	--color-frame-surface-alt: #DCDCDE;
+	--color-frame-surface-alt: #dcdcde;
 	--color-frame-scrollbar-thumb: #7f7f7f;
 	--color-frame-scrollbar-thumb-hover: #484848;
 	--color-frame-scrollbar-border: #fff;
-	--color-frame-link: #3858e9;
-	--color-frame-link-hover: #2145e6;
+	--color-frame-theme: #3858e9;
+	--color-frame-theme-hover: #2145e6;
 	--color-frame-code-text: #1d2327;
 	--color-frame-error: #d63638;
 	--color-frame-tab-active: #000;
+	--wp-admin-theme-color: var(--color-frame-theme);
+	--wp-admin-theme-color-darker-20: var(--color-frame-theme-hover);
 }
 
 @media ( prefers-color-scheme: dark ) {
 	:root {
-		--color-frame-bg: #2F2F2F;
+		--color-frame-bg: #2f2f2f;
 		--color-frame-text: #e0e0e0;
 		--color-frame-text-secondary: #949494;
 		--color-frame-border: #474747;
@@ -30,9 +32,9 @@
 		--color-frame-surface-alt: #474747;
 		--color-frame-scrollbar-thumb: #666666;
 		--color-frame-scrollbar-thumb-hover: #888888;
-		--color-frame-scrollbar-border: #2F2F2F;
-		--color-frame-link: #6b8aff;
-		--color-frame-link-hover: #8da6ff;
+		--color-frame-scrollbar-border: #2f2f2f;
+		--color-frame-theme: #6b8aff;
+		--color-frame-theme-hover: #8da6ff;
 		--color-frame-code-text: #e0e0e0;
 		--color-frame-error: #f87171;
 		--color-frame-tab-active: #fff;
@@ -93,7 +95,7 @@ blockquote {
 
 .components-tab-panel__tabs {
 	padding: 0 theme( 'spacing.4' );
-	border-bottom: 1px solid var(--color-frame-border);
+	border-bottom: 1px solid var( --color-frame-border );
 }
 
 .components-tab-panel__tabs-item {
@@ -117,10 +119,18 @@ blockquote {
 	.components-tab-panel__tabs--assistant::before {
 		content: url( 'data:image/svg+xml;utf8,<svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(%23clip0_2870_30744)"><path d="M13.7035 6.58213L10.8309 5.59124C9.69491 5.20089 8.79911 4.30509 8.40876 3.16908L7.41787 0.296515C7.28275 -0.0988382 6.71725 -0.0988382 6.58213 0.296515L5.59124 3.16908C5.20089 4.30509 4.30509 5.20089 3.16908 5.59124L0.296515 6.58213C-0.0988382 6.71725 -0.0988382 7.28275 0.296515 7.41787L3.16908 8.40876C4.30509 8.79911 5.20089 9.69491 5.59124 10.8309L6.58213 13.7035C6.71725 14.0988 7.28275 14.0988 7.41787 13.7035L8.40876 10.8309C8.79911 9.69491 9.69491 8.79911 10.8309 8.40876L13.7035 7.41787C14.0988 7.28275 14.0988 6.71725 13.7035 6.58213ZM10.3505 7.21269L8.91421 7.70813C8.3437 7.90331 7.8983 8.35371 7.70313 8.91921L7.20768 10.3555C7.13762 10.5557 6.85737 10.5557 6.79231 10.3555L6.29687 8.91921C6.1017 8.3487 5.6513 7.90331 5.08579 7.70813L3.64951 7.21269C3.44933 7.14263 3.44933 6.86238 3.64951 6.79232L5.08579 6.29687C5.6563 6.1017 6.1017 5.6513 6.29687 5.08579L6.79231 3.64951C6.86238 3.44933 7.14263 3.44933 7.20768 3.64951L7.70313 5.08579C7.8983 5.6563 8.3487 6.1017 8.91421 6.29687L10.3505 6.79232C10.5507 6.86238 10.5507 7.14263 10.3505 7.21269Z" fill="white"/></g><defs><clip-path id="clip0_2870_30744"><rect width="14" height="14" fill="white"/></clip-path></defs></svg>' );
 	}
+
+	.components-tab-panel__tabs--assistant:hover:not( :active )::before {
+		content: url( 'data:image/svg+xml;utf8,<svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(%23clip0_2870_30744)"><path d="M13.7035 6.58213L10.8309 5.59124C9.69491 5.20089 8.79911 4.30509 8.40876 3.16908L7.41787 0.296515C7.28275 -0.0988382 6.71725 -0.0988382 6.58213 0.296515L5.59124 3.16908C5.20089 4.30509 4.30509 5.20089 3.16908 5.59124L0.296515 6.58213C-0.0988382 6.71725 -0.0988382 7.28275 0.296515 7.41787L3.16908 8.40876C4.30509 8.79911 5.20089 9.69491 5.59124 10.8309L6.58213 13.7035C6.71725 14.0988 7.28275 14.0988 7.41787 13.7035L8.40876 10.8309C8.79911 9.69491 9.69491 8.79911 10.8309 8.40876L13.7035 7.41787C14.0988 7.28275 14.0988 6.71725 13.7035 6.58213ZM10.3505 7.21269L8.91421 7.70813C8.3437 7.90331 7.8983 8.35371 7.70313 8.91921L7.20768 10.3555C7.13762 10.5557 6.85737 10.5557 6.79231 10.3555L6.29687 8.91921C6.1017 8.3487 5.6513 7.90331 5.08579 7.70813L3.64951 7.21269C3.44933 7.14263 3.44933 6.86238 3.64951 6.79232L5.08579 6.29687C5.6563 6.1017 6.1017 5.6513 6.29687 5.08579L6.79231 3.64951C6.86238 3.44933 7.14263 3.44933 7.20768 3.64951L7.70313 5.08579C7.8983 5.6563 8.3487 6.1017 8.91421 6.29687L10.3505 6.79232C10.5507 6.86238 10.5507 7.14263 10.3505 7.21269Z" fill="%236b8aff"/></g><defs><clip-path id="clip0_2870_30744"><rect width="14" height="14" fill="white"/></clip-path></defs></svg>' );
+	}
+
+	.components-button.is-secondary:hover span {
+		color: var( --color-frame-theme );
+	}
 }
 
 .components-tab-panel__tabs-item.is-active::after {
-	background: var(--color-frame-tab-active);
+	background: var( --color-frame-tab-active );
 }
 
 /* Customize scrollbar area for the sites sidebar and tab panel */
@@ -139,9 +149,9 @@ blockquote {
 }
 .components-tab-panel__tab-content::-webkit-scrollbar-thumb,
 .assistant-textarea::-webkit-scrollbar-thumb {
-	background: var(--color-frame-scrollbar-thumb);
+	background: var( --color-frame-scrollbar-thumb );
 	border-radius: 10px;
-	border: 2px solid var(--color-frame-scrollbar-border);
+	border: 2px solid var( --color-frame-scrollbar-border );
 }
 
 /* Add hover effect to thumb appearance on the scrollbar */
@@ -150,7 +160,7 @@ blockquote {
 }
 .components-tab-panel__tab-content::-webkit-scrollbar-thumb:hover,
 .assistant-textarea::-webkit-scrollbar-thumb:hover {
-	background: var(--color-frame-scrollbar-thumb-hover);
+	background: var( --color-frame-scrollbar-thumb-hover );
 }
 
 /* Avoid selecting text on dropdown menu, like preview links */
@@ -169,24 +179,24 @@ blockquote {
 }
 
 .assistant-markdown a {
-	color: var(--color-frame-link);
+	color: var( --color-frame-theme );
 }
 
 .assistant-markdown a:hover,
 .assistant-markdown a:focus {
-	color: var(--color-frame-link-hover);
+	color: var( --color-frame-theme-hover );
 	text-decoration: underline;
 }
 
 .assistant-markdown blockquote {
-	background-color: var(--color-frame-surface);
+	background-color: var( --color-frame-surface );
 	border-radius: 2px;
 	margin: 0 0 1rem;
 	padding: 0.5rem 1rem;
 }
 
 .assistant-markdown blockquote > blockquote {
-	background-color: var(--color-frame-surface-alt);
+	background-color: var( --color-frame-surface-alt );
 	margin: 0;
 }
 
@@ -195,8 +205,8 @@ blockquote {
 }
 
 .assistant-markdown code {
-	background-color: var(--color-frame-surface);
-	color: var(--color-frame-code-text);
+	background-color: var( --color-frame-surface );
+	color: var( --color-frame-code-text );
 	font-family: 'Courier New', Courier, monospace;
 	font-size: 13px;
 	padding: 0.25rem;
@@ -205,8 +215,8 @@ blockquote {
 }
 
 .assistant-markdown code.file-block {
-	color: theme( 'colors.a8c-blue.50' );
-	fill: theme( 'colors.a8c-blue.50' );
+	color: var( --color-frame-theme );
+	fill: var( --color-frame-theme );
 	display: inline-flex;
 	align-items: center;
 	padding: 0 0 0 3px;
@@ -214,8 +224,8 @@ blockquote {
 }
 
 .assistant-markdown code.file-block:hover {
-	color: theme( 'colors.a8c-blue.70' );
-	fill: theme( 'colors.a8c-blue.70' );
+	color: var( --color-frame-theme-hover );
+	fill: var( --color-frame-theme-hover );
 }
 
 .assistant-markdown pre {
@@ -264,7 +274,7 @@ blockquote {
 
 .assistant-markdown hr {
 	border: none;
-	border-top: 1px solid var(--color-frame-border);
+	border-top: 1px solid var( --color-frame-border );
 	margin: 1rem 0;
 }
 
@@ -306,18 +316,18 @@ blockquote {
 }
 
 .assistant-markdown tr {
-	background-color: var(--color-frame-bg);
-	border-top: 1px solid var(--color-frame-border);
+	background-color: var( --color-frame-bg );
+	border-top: 1px solid var( --color-frame-border );
 }
 
 .assistant-markdown tr:nth-child( 2n ) {
-	background-color: var(--color-frame-surface);
+	background-color: var( --color-frame-surface );
 }
 
 .assistant-markdown td,
 .assistant-markdown th {
 	padding: 6px 13px;
-	border: 1px solid var(--color-frame-border);
+	border: 1px solid var( --color-frame-border );
 }
 
 .assistant-markdown th {
@@ -329,7 +339,7 @@ blockquote {
 }
 
 .error-message {
-	color: var(--color-frame-error);
+	color: var( --color-frame-error );
 }
 
 .error-select-control .components-input-control__backdrop {
@@ -341,12 +351,12 @@ blockquote {
 	bottom: 0;
 	left: 0;
 	right: 0;
-	background: var(--color-frame-bg);
+	background: var( --color-frame-bg );
 }
 
 .components-button.components-guide__back-button {
 	outline: none;
-	border: 1px solid theme( 'colors.a8c-blue.50' );
+	border: 1px solid var( --color-frame-theme );
 }
 
 /* Dark mode: override WP component colors.
@@ -356,59 +366,60 @@ blockquote {
 @media ( prefers-color-scheme: dark ) {
 	/* Element text cascade — WP Heading/Text set explicit color on elements.
 	   :is() groups the scopes; specificity = 0-1-1, same as [attr] element. */
-	:is([data-testid="site-content"], .components-modal__frame, [data-fullscreen-modal]) :is(h1, h2, h3, h4, h5, h6, p, span, label, li, td, th) {
-		color: var(--color-frame-text);
+	:is( [data-testid='site-content'], .components-modal__frame, [data-fullscreen-modal] )
+		:is( h1, h2, h3, h4, h5, h6, p, span, label, li, td, th ) {
+		color: var( --color-frame-text );
 	}
 
 	/* Modal/fullscreen surfaces */
 	.components-modal__frame,
 	.components-modal__content,
 	[data-fullscreen-modal] {
-		background-color: var(--color-frame-bg);
-		color: var(--color-frame-text);
+		background-color: var( --color-frame-bg );
+		color: var( --color-frame-text );
 	}
 
 	/* Modal chrome */
 	.components-modal__header {
-		border-bottom-color: var(--color-frame-border);
+		border-bottom-color: var( --color-frame-border );
 	}
 
 	/* Tab labels */
 	.components-tab-panel__tabs-item {
-		color: var(--color-frame-text-secondary);
+		color: var( --color-frame-text-secondary );
 	}
 	.components-tab-panel__tabs-item.is-active {
-		color: var(--color-frame-text);
+		color: var( --color-frame-text );
 	}
 	.components-tab-panel__tabs-item:hover {
-		color: var(--color-frame-text);
+		color: var( --color-frame-text );
 	}
 	.components-tab-panel__tabs {
-		border-bottom-color: var(--color-frame-border);
+		border-bottom-color: var( --color-frame-border );
 	}
 	.components-tab-panel__tabs-item.is-active::after {
-		background: var(--color-frame-tab-active);
+		background: var( --color-frame-tab-active );
 	}
 
 	/* Buttons — tertiary/link get secondary text, hover brightens */
 	.components-button.is-tertiary,
-	.components-button.is-link:not(.is-destructive) {
-		color: var(--color-frame-text-secondary);
+	.components-button.is-link:not( .is-destructive ) {
+		color: var( --color-frame-text-secondary );
 	}
 	.components-button.is-tertiary:hover,
-	.components-button.is-link:not(.is-destructive):hover {
-		color: var(--color-frame-text);
+	.components-button.is-link:not( .is-destructive ):hover {
+		color: var( --color-frame-text );
 	}
 
 	/* Button SVG icons */
 	.components-button svg {
-		fill: var(--color-frame-text);
+		fill: var( --color-frame-text );
 	}
 
 	/* Preserve primary/destructive button colors */
 	.components-button.is-primary,
 	.components-button.is-primary svg,
-	.components-button.is-destructive:not(.is-secondary) {
+	.components-button.is-destructive:not( .is-secondary ) {
 		color: #fff;
 		fill: #fff;
 	}
@@ -418,28 +429,28 @@ blockquote {
 	.components-select-control__input,
 	.components-input-control__input,
 	.components-search-control__input {
-		color: var(--color-frame-text) !important;
-		background-color: var(--color-frame-surface) !important;
-		border-color: var(--color-frame-border);
+		color: var( --color-frame-text ) !important;
+		background-color: var( --color-frame-surface ) !important;
+		border-color: var( --color-frame-border );
 	}
 	.components-input-control__container {
-		background-color: var(--color-frame-surface);
+		background-color: var( --color-frame-surface );
 	}
 	.components-input-control__backdrop {
-		border-color: var(--color-frame-border) !important;
+		border-color: var( --color-frame-border ) !important;
 	}
 	.components-search-control__input::placeholder {
-		color: var(--color-frame-text-secondary);
+		color: var( --color-frame-text-secondary );
 	}
 
 	/* Checkbox / Toggle */
-	.components-checkbox-control__input[type="checkbox"],
-	input[type="checkbox"] {
-		border-color: var(--color-frame-border);
-		background-color: var(--color-frame-surface);
+	.components-checkbox-control__input[type='checkbox'],
+	input[type='checkbox'] {
+		border-color: var( --color-frame-border );
+		background-color: var( --color-frame-surface );
 	}
-	.components-form-toggle:not(.is-checked) .components-form-toggle__track {
-		border-color: var(--color-frame-border);
+	.components-form-toggle:not( .is-checked ) .components-form-toggle__track {
+		border-color: var( --color-frame-border );
 	}
 
 	/* Typography tokens */
@@ -447,21 +458,21 @@ blockquote {
 	.a8c-subtitle,
 	.a8c-subtitle-small,
 	.a8c-body {
-		color: var(--color-frame-text);
+		color: var( --color-frame-text );
 	}
 
 	/* Popover / DropdownMenu (portaled to body) */
 	.components-popover .components-popover__content {
-		background-color: var(--color-frame-bg);
-		border-color: var(--color-frame-border);
-		box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+		background-color: var( --color-frame-bg );
+		border-color: var( --color-frame-border );
+		box-shadow: 0 2px 12px rgba( 0, 0, 0, 0.4 );
 	}
 	.components-dropdown-menu__menu {
-		background-color: var(--color-frame-bg);
+		background-color: var( --color-frame-bg );
 	}
 	.components-menu-item__button,
 	.components-menu-item__button .components-menu-item__item {
-		color: var(--color-frame-text-secondary);
+		color: var( --color-frame-text-secondary );
 	}
 	.components-menu-item__button:hover,
 	.components-menu-item__button:focus {
@@ -469,21 +480,21 @@ blockquote {
 	}
 	.components-menu-item__button.is-destructive,
 	.components-menu-item__button.is-destructive .components-menu-item__item {
-		color: var(--color-frame-error);
+		color: var( --color-frame-error );
 	}
 	.components-menu-item__button.is-destructive svg {
-		fill: var(--color-frame-error);
+		fill: var( --color-frame-error );
 	}
 	.components-menu-item__button svg {
-		fill: var(--color-frame-text-secondary);
+		fill: var( --color-frame-text-secondary );
 	}
 	.components-menu-group + .components-menu-group {
-		border-top-color: var(--color-frame-border);
+		border-top-color: var( --color-frame-border );
 	}
 
 	/* WP Guide (What's New modal) */
 	.components-guide {
-		background-color: var(--color-frame-bg);
-		color: var(--color-frame-text);
+		background-color: var( --color-frame-bg );
+		color: var( --color-frame-text );
 	}
 }

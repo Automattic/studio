@@ -245,6 +245,36 @@ describe( 'ContentTabSettings', () => {
 		} );
 	} );
 
+	describe( 'Debug log', () => {
+		test( 'does not show "Open log file" button when debug log is disabled', async () => {
+			renderWithProvider( <ContentTabSettings selectedSite={ selectedSite } /> );
+			await waitFor( () => {
+				expect( getAllCustomDomains ).toHaveBeenCalled();
+			} );
+			expect( screen.queryByRole( 'button', { name: 'Open log file' } ) ).not.toBeInTheDocument();
+		} );
+
+		test( 'shows "Open log file" button when debug log is enabled', async () => {
+			const siteWithDebugLog = { ...selectedSite, enableDebugLog: true };
+			renderWithProvider( <ContentTabSettings selectedSite={ siteWithDebugLog } /> );
+			await waitFor( () => {
+				expect( getAllCustomDomains ).toHaveBeenCalled();
+			} );
+			expect( screen.getByRole( 'button', { name: 'Open log file' } ) ).toBeVisible();
+		} );
+
+		test( 'opens debug log file when button is clicked', async () => {
+			const user = userEvent.setup();
+			const siteWithDebugLog = { ...selectedSite, enableDebugLog: true };
+			renderWithProvider( <ContentTabSettings selectedSite={ siteWithDebugLog } /> );
+			await waitFor( () => {
+				expect( getAllCustomDomains ).toHaveBeenCalled();
+			} );
+			await user.click( screen.getByRole( 'button', { name: 'Open log file' } ) );
+			expect( openLocalPath ).toHaveBeenCalledWith( '/path/to/site/wp-content/debug.log' );
+		} );
+	} );
+
 	describe( 'PHP version', () => {
 		it( 'changes PHP version when site is not running', async () => {
 			const user = userEvent.setup();

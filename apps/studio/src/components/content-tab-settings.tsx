@@ -158,7 +158,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 								<Button
 									variant="link"
 									onClick={ () =>
-										getIpcApi().showItemInFolder( `${ selectedSite.path }/wp-content/debug.log` )
+										getIpcApi().openLocalPath( `${ selectedSite.path }/wp-content/debug.log` )
 									}
 								>
 									{ __( 'Open log file' ) }

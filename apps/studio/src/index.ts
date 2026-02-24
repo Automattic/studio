@@ -1,4 +1,3 @@
-// no-op: trigger react-doctor CI step
 import {
 	app,
 	BrowserWindow,

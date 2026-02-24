@@ -143,8 +143,19 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 							<span className="line-clamp-1 break-all">{ selectedSite.phpVersion }</span>
 						</div>
 					</SettingsRow>
+					<tr>
+						<th colSpan={ 2 } className="pb-4 ltr:text-left rtl:text-right">
+							<h3 className="text-black text-sm font-semibold mt-4">{ __( 'Debugging' ) }</h3>
+						</th>
+					</tr>
 					<SettingsRow label={ __( 'Xdebug' ) }>
 						<span>{ selectedSite.enableXdebug ? __( 'Enabled' ) : __( 'Disabled' ) }</span>
+					</SettingsRow>
+					<SettingsRow label={ __( 'Debug log' ) }>
+						<span>{ selectedSite.enableDebugLog ? __( 'Enabled' ) : __( 'Disabled' ) }</span>
+					</SettingsRow>
+					<SettingsRow label={ __( 'Debug display' ) }>
+						<span>{ selectedSite.enableDebugDisplay ? __( 'Enabled' ) : __( 'Disabled' ) }</span>
 					</SettingsRow>
 
 					<tr>

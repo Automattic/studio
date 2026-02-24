@@ -31,6 +31,9 @@ interface StoppedSiteDetails {
 	autoStart?: boolean;
 	latestCliPid?: number;
 	enableXdebug?: boolean;
+	enableDebugLog?: boolean;
+	enableDebugDisplay?: boolean;
+	sortOrder?: number;
 }
 
 interface StartedSiteDetails extends StoppedSiteDetails {

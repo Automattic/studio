@@ -1,6 +1,6 @@
 import { check, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { PropsWithChildren, useEffect, useState } from 'react';
+import { PropsWithChildren, useMemo } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
@@ -144,19 +144,10 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		userId: user?.id,
 	} );
 
-	const [ selectedRemoteSite, setSelectedRemoteSite ] = useState< SyncSite | null >( null );
-
-	// Auto-select remote site when set via Redux (e.g., from deep link connection)
-	useEffect( () => {
-		if ( selectedRemoteSiteId ) {
-			const siteToSelect = syncSites.find( ( site ) => site.id === selectedRemoteSiteId );
-			if ( siteToSelect ) {
-				setSelectedRemoteSite( siteToSelect );
-				dispatch( connectedSitesActions.openModal( 'push' ) );
-				dispatch( connectedSitesActions.clearSelectedRemoteSiteId() );
-			}
-		}
-	}, [ selectedRemoteSiteId, syncSites, dispatch ] );
+	const selectedRemoteSite = useMemo(
+		() => syncSites.find( ( site ) => site.id === selectedRemoteSiteId ) ?? null,
+		[ syncSites, selectedRemoteSiteId ]
+	);
 
 	if ( ! isAuthenticated ) {
 		return <NoAuthSyncTab />;
@@ -185,7 +176,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 
 		if ( reduxModalMode === 'push' || reduxModalMode === 'pull' ) {
 			dispatch( connectedSitesActions.openModal( reduxModalMode ) );
-			setSelectedRemoteSite( selectedSiteFromList );
+			dispatch( connectedSitesActions.setSelectedRemoteSiteId( selectedSiteFromList.id ) );
 		} else {
 			await handleConnect( selectedSiteFromList );
 			dispatch( connectedSitesActions.closeModal() );
@@ -254,7 +245,6 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 						void pullSite( selectedRemoteSite, selectedSite, pullOptions );
 					} }
 					onRequestClose={ () => {
-						setSelectedRemoteSite( null );
 						dispatch( connectedSitesActions.closeModal() );
 					} }
 				/>

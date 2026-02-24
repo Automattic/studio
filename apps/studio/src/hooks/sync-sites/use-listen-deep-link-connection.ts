@@ -46,6 +46,7 @@ export function useListenDeepLinkConnection() {
 				// Only auto-open push dialog if explicitly requested (e.g., from "Publish site" button)
 				if ( autoOpenPush ) {
 					dispatch( connectedSitesActions.setSelectedRemoteSiteId( remoteSiteId ) );
+					dispatch( connectedSitesActions.openModal( 'push' ) );
 				}
 			}
 		}

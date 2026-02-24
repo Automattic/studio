@@ -117,6 +117,21 @@ function transformSitesResponse( sites: unknown[], connectedSiteIds?: number[] )
 		} );
 }
 
+const SITE_FIELDS = [
+	'name',
+	'ID',
+	'URL',
+	'plan',
+	'capabilities',
+	'is_wpcom_atomic',
+	'options',
+	'jetpack',
+	'is_deleted',
+	'is_a8c',
+	'hosting_provider_guess',
+	'environment_type',
+].join( ',' );
+
 export const wpcomSitesApi = createApi( {
 	reducerPath: 'wpcomSitesApi',
 	baseQuery: fetchBaseQuery(),
@@ -130,28 +145,13 @@ export const wpcomSitesApi = createApi( {
 				}
 
 				try {
-					const fields = [
-						'name',
-						'ID',
-						'URL',
-						'plan',
-						'capabilities',
-						'is_wpcom_atomic',
-						'options',
-						'jetpack',
-						'is_deleted',
-						'is_a8c',
-						'hosting_provider_guess',
-						'environment_type',
-					].join( ',' );
-
 					const response = await wpcomClient.req.get(
 						{
 							apiNamespace: 'rest/v1.1',
 							path: `/sites/${ siteId }`,
 						},
 						{
-							fields,
+							fields: SITE_FIELDS,
 							options: 'created_at,wpcom_staging_blog_ids',
 						}
 					);
@@ -199,28 +199,13 @@ export const wpcomSitesApi = createApi( {
 				try {
 					const allConnectedSites = await getIpcApi().getConnectedWpcomSites();
 
-					const fields = [
-						'name',
-						'ID',
-						'URL',
-						'plan',
-						'capabilities',
-						'is_wpcom_atomic',
-						'options',
-						'jetpack',
-						'is_deleted',
-						'is_a8c',
-						'hosting_provider_guess',
-						'environment_type',
-					].join( ',' );
-
 					const response = await wpcomClient.req.get(
 						{
 							apiNamespace: 'rest/v1.2',
 							path: `/me/sites`,
 						},
 						{
-							fields,
+							fields: SITE_FIELDS,
 							filter: 'atomic,wpcom',
 							options: 'created_at,wpcom_staging_blog_ids',
 							site_activity: 'active',

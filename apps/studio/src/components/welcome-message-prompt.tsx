@@ -26,7 +26,7 @@ interface WelcomeComponentProps {
 	isLoading?: boolean;
 }
 
-export const WelcomeMessagePrompt = React.forwardRef< HTMLDivElement, WelcomeMessagePromptProps >(
+const WelcomeMessagePrompt = React.forwardRef< HTMLDivElement, WelcomeMessagePromptProps >(
 	( { id, children, className }, ref ) => (
 		<div className={ cx( 'flex mt-2' ) }>
 			<div
@@ -50,7 +50,7 @@ export const WelcomeMessagePrompt = React.forwardRef< HTMLDivElement, WelcomeMes
 	)
 );
 
-export const ExampleMessagePrompt = ( {
+const ExampleMessagePrompt = ( {
 	onClick,
 	children,
 	className,

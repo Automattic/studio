@@ -57,7 +57,6 @@ export interface IpcEvents {
 	'user-data-error': [ string ];
 	'refresh-app-globals': [ void ];
 	'beta-features-updated': [ void ];
-	'debug-log-updated': [ { siteId: string } ];
 }
 
 export async function sendIpcEventToRenderer< T extends keyof IpcEvents >(

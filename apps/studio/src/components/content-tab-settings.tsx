@@ -152,7 +152,19 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 						<span>{ selectedSite.enableXdebug ? __( 'Enabled' ) : __( 'Disabled' ) }</span>
 					</SettingsRow>
 					<SettingsRow label={ __( 'Debug log' ) }>
-						<span>{ selectedSite.enableDebugLog ? __( 'Enabled' ) : __( 'Disabled' ) }</span>
+						<span className="flex items-center gap-2">
+							{ selectedSite.enableDebugLog ? __( 'Enabled' ) : __( 'Disabled' ) }
+							{ selectedSite.enableDebugLog && (
+								<Button
+									variant="link"
+									onClick={ () =>
+										getIpcApi().showItemInFolder( `${ selectedSite.path }/wp-content/debug.log` )
+									}
+								>
+									{ __( 'Open log file' ) }
+								</Button>
+							) }
+						</span>
 					</SettingsRow>
 					<SettingsRow label={ __( 'Debug display' ) }>
 						<span>{ selectedSite.enableDebugDisplay ? __( 'Enabled' ) : __( 'Disabled' ) }</span>

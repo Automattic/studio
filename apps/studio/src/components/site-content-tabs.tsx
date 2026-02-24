@@ -1,8 +1,7 @@
 import { TabPanel } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
-import { useMemo, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ContentTabAssistant } from 'src/components/content-tab-assistant';
-import { ContentTabDebugLog } from 'src/components/content-tab-debug-log';
 import { ContentTabImportExport } from 'src/components/content-tab-import-export';
 import { ContentTabOverview } from 'src/components/content-tab-overview';
 import { ContentTabPreviews } from 'src/components/content-tab-previews';
@@ -20,12 +19,7 @@ import { ContentTabSync } from 'src/modules/sync';
 export function SiteContentTabs() {
 	const { selectedSite, siteCreationMessages } = useSiteDetails();
 	const { importState } = useImportExport();
-	const { effectiveTab, selectedTab, setSelectedTab, tabs: allTabs } = useEffectiveTab();
-	const enableDebugLog = selectedSite?.enableDebugLog ?? false;
-	const tabs = useMemo(
-		() => allTabs.filter( ( tab ) => tab.name !== 'debug-log' || enableDebugLog ),
-		[ allTabs, enableDebugLog ]
-	);
+	const { effectiveTab, selectedTab, setSelectedTab, tabs } = useEffectiveTab();
 	const { __ } = useI18n();
 
 	// Remount: Avoid focus loss on user tab changes (no remount),
@@ -113,7 +107,6 @@ export function SiteContentTabs() {
 						{ name === 'previews' && <ContentTabPreviews selectedSite={ selectedSite } /> }
 						{ name === 'sync' && <ContentTabSync selectedSite={ selectedSite } /> }
 						{ name === 'settings' && <ContentTabSettings selectedSite={ selectedSite } /> }
-						{ name === 'debug-log' && <ContentTabDebugLog selectedSite={ selectedSite } /> }
 						{ name === 'assistant' && <ContentTabAssistant selectedSite={ selectedSite } /> }
 						{ name === 'import-export' && <ContentTabImportExport selectedSite={ selectedSite } /> }
 					</div>

@@ -2,14 +2,7 @@ import { TabPanel } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { createContext, ReactNode, useContext, useMemo, useState } from 'react';
 
-export type TabName =
-	| 'overview'
-	| 'sync'
-	| 'settings'
-	| 'assistant'
-	| 'import-export'
-	| 'previews'
-	| 'debug-log';
+export type TabName = 'overview' | 'sync' | 'settings' | 'assistant' | 'import-export' | 'previews';
 type Tab = React.ComponentProps< typeof TabPanel >[ 'tabs' ][ number ] & {
 	name: TabName;
 };
@@ -34,6 +27,9 @@ function useTabs() {
 				name: 'previews',
 				title: __( 'Previews' ),
 			},
+		];
+
+		tabs.push(
 			{
 				order: 4,
 				name: 'import-export',
@@ -43,20 +39,15 @@ function useTabs() {
 				order: 5,
 				name: 'settings',
 				title: __( 'Settings' ),
-			},
-			{
-				order: 6,
-				name: 'debug-log',
-				title: __( 'Logs' ),
-			},
-			{
-				order: 7,
-				name: 'assistant',
-				title: __( 'Assistant' ),
-				className:
-					'components-tab-panel__tabs--assistant ltr:pl-8 rtl:pr-8 ltr:ml-auto rtl:mr-auto',
-			},
-		];
+			}
+		);
+
+		tabs.push( {
+			order: 6,
+			name: 'assistant',
+			title: __( 'Assistant' ),
+			className: 'components-tab-panel__tabs--assistant ltr:pl-8 rtl:pr-8 ltr:ml-auto rtl:mr-auto',
+		} );
 
 		return tabs.sort( ( a, b ) => a.order - b.order );
 	}, [ __ ] );

@@ -265,6 +265,7 @@ function SiteItem( {
 				isSelected && 'bg-a8c-blue-50 text-white border-a8c-blue-50',
 				! isSelected && 'text-black border-a8c-gray-0',
 				! isSelected && isSyncable && 'hover:bg-a8c-blue-5',
+				isSyncable ? 'cursor-pointer' : 'cursor-default',
 				isSyncable &&
 					'focus:outline-none focus:ring-1 focus:ring-a8c-blue-50 focus:relative focus:z-10'
 			) }

@@ -8,15 +8,58 @@ import { runCommand as runStartSiteCommand } from 'cli/commands/site/start';
 import { runCommand as runStatusCommand } from 'cli/commands/site/status';
 import { runCommand as runStopSiteCommand, Mode as StopMode } from 'cli/commands/site/stop';
 import { getSiteByFolder, getSiteUrl, readAppdata, type SiteData } from 'cli/lib/appdata';
-import { setProgressCallback } from 'cli/logger';
-import { connect, disconnect } from 'cli/lib/pm2-manager';
+import { connect, disconnect, setKeepAlive } from 'cli/lib/pm2-manager';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
+import { setProgressCallback } from 'cli/logger';
 
 export function setToolProgressHandler( handler: ( message: string ) => void ): void {
 	setProgressCallback( handler );
 }
 
+export function enablePm2KeepAlive(): void {
+	setKeepAlive( true );
+}
+
 const SITES_ROOT = path.join( process.env.HOME || '~', 'Studio' );
+
+/**
+ * Splits a command string into arguments, respecting quoted strings.
+ * Handles both single and double quotes, e.g.:
+ *   post create --post_title="Ember & Oak" --post_type=page
+ *   → ['post', 'create', '--post_title=Ember & Oak', '--post_type=page']
+ */
+function splitCommandArgs( command: string ): string[] {
+	const args: string[] = [];
+	let current = '';
+	let inQuote: string | null = null;
+
+	for ( let i = 0; i < command.length; i++ ) {
+		const char = command[ i ];
+
+		if ( inQuote ) {
+			if ( char === inQuote ) {
+				inQuote = null;
+			} else {
+				current += char;
+			}
+		} else if ( char === '"' || char === "'" ) {
+			inQuote = char;
+		} else if ( /\s/.test( char ) ) {
+			if ( current ) {
+				args.push( current );
+				current = '';
+			}
+		} else {
+			current += char;
+		}
+	}
+
+	if ( current ) {
+		args.push( current );
+	}
+
+	return args;
+}
 
 async function findSiteByName( name: string ): Promise< SiteData | undefined > {
 	const appdata = await readAppdata();
@@ -216,7 +259,7 @@ const runWpCliTool = tool(
 					);
 				}
 
-				const wpCliArgs = args.command.split( /\s+/ );
+				const wpCliArgs = splitCommandArgs( args.command );
 				const result = await sendWpCliCommand( site.id, wpCliArgs );
 
 				let output = '';

@@ -1,10 +1,10 @@
 import { password } from '@inquirer/prompts';
-import { __ } from '@wordpress/i18n';
 import { AiCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
+import { __ } from '@wordpress/i18n';
 import { startAiAgent } from 'cli/ai/agent';
-import { setToolProgressHandler } from 'cli/ai/tools';
-import { getAnthropicApiKey, saveAnthropicApiKey } from 'cli/lib/appdata';
+import { enablePm2KeepAlive, setToolProgressHandler } from 'cli/ai/tools';
 import { AiChatUI } from 'cli/ai/ui';
+import { getAnthropicApiKey, saveAnthropicApiKey } from 'cli/lib/appdata';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -36,12 +36,12 @@ export async function runCommand( options: { maxTurns?: number } ): Promise< voi
 
 	const ui = new AiChatUI();
 	setToolProgressHandler( ( message ) => ui.setLoaderMessage( message ) );
+	enablePm2KeepAlive();
 	ui.start();
 
 	let sessionId: string | undefined;
 
 	try {
-		// eslint-disable-next-line no-constant-condition
 		while ( true ) {
 			const prompt = await ui.waitForInput();
 
@@ -58,7 +58,7 @@ export async function runCommand( options: { maxTurns?: number } ): Promise< voi
 
 			// Escape key interrupts the current agent turn
 			ui.onInterrupt = () => {
-				agentQuery.interrupt();
+				void agentQuery.interrupt();
 			};
 
 			for await ( const message of agentQuery ) {

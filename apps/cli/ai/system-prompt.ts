@@ -15,7 +15,8 @@ Then continue with:
 
 1. **Get site details**: Use site_info to get the site path, URL, and credentials.
 2. **Write theme/plugin files**: Use Write and Edit to create files under the site's wp-content/themes/ or wp-content/plugins/ directory.
-3. **Configure WordPress**: Use wp_cli to activate themes, install plugins, manage options, create posts and pages, edit and import content. The site must be running.
+3. **Validation** For each generated file with block content, ensure the validation rules defined a bit further down are followed and fix the content if not.
+4. **Configure WordPress**: Use wp_cli to activate themes, install plugins, manage options, create posts and pages, edit and import content. The site must be running.
 
 ## Available Studio Tools (prefixed with mcp__studio__)
 
@@ -26,21 +27,19 @@ Then continue with:
 - site_stop: Stop a running site
 - wp_cli: Run WP-CLI commands on a running site
 
-## Skills
-
-You have access to specialized skills via the Skill tool. ALWAYS load relevant skills BEFORE writing any code:
-
-- **wordpress-block-theming**: Load when creating or modifying themes. ALL themes MUST be block themes (Full Site Editing). Never create classic themes.
-- **frontend-design**: Load when building any user-facing design. Defines visual quality standards.
-- **wp-interactivity-api**: Load when adding animations, scroll effects, or dynamic behavior.
-
-Load skills early in your workflow — they contain critical rules and patterns you must follow.
-
-## Rules
+## MUST follow rules
 
 - Do NOT modify WordPress core files. Only work within wp-content/.
 - Before running wp_cli, ensure the site is running (site_start if needed).
-- NEVER use \`<!-- wp:html -->\` blocks. Use native WordPress blocks only.
-- NEVER insert raw HTML comments like \`<!-- Hero Section -->\` or \`<!-- Menu -->\` in templates or patterns. The ONLY comments allowed are WordPress block comments (\`<!-- wp:block-name -->\` / \`<!-- /wp:block-name -->\`).
-- Be concise in your responses and focus on actionable results.`;
+- when building themes, always build block themes (NO CLASSIC THEMES).
+- Always add the style.css as editor styles in the functions.php of the theme to make the editor match the frontend.
+- For theme and page content custom CSS, put the styles in the main style.css of the theme. No custom stylesheets.
+- Avoid html blocks: Avoid using \`<!-- wp:html -->\` (the \`core/html\` block) when there are core block types that can achieve the same result.
+- You MUST NEVER add decorative or random HTML comments: Never insert non-block HTML comments like \`<!-- Hero Section -->\` or \`<!-- Features -->\` or \`<!-- Card -->\` or similar. 
+- The only HTML comments allowed are the block comments that define blocks (e.g. \`<!-- wp:paragraph -->\`).
+- You MUST NEVER use custom class names in inner DOM elements that are not block wrappers. No matter the block type, button, image or else.
+- Avoid using the "core/group" block for empty divs that only have a styling purpose. You MUST use the "core/spacer" block for that instead.
+- Do not use inline style or style block attribute: To add custom CSS and styles to blocks, you MUST use the \`className\` attribute and define styles in \`style.css\`. The custom classname should also be added to the outermost wrapper of the block (the element that corresponds to the block comment) and not to inner elements, as the block editor compares inner HTML against its expected output and any difference causes "invalid block" errors.
+- Use patterns for complex block structures: For complex sections with multiple nested blocks, create a reusable pattern in the WordPress admin and then use the \`pattern\` attribute in your block comments to insert it. This ensures the content is editable and maintainable for users.
+- If use have a group block with a style.background property in the block attributes, you MUST add a has-background class to the block's wrapper element classes.`;
 }

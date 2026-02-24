@@ -1,4 +1,3 @@
-import path from 'path';
 import { query, type Query } from '@anthropic-ai/claude-agent-sdk';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { createStudioTools } from 'cli/ai/tools';
@@ -39,8 +38,6 @@ function buildEnv( apiKey: string ): Record< string, string > {
 export function startAiAgent( config: AiAgentConfig ): Query {
 	const { prompt, apiKey, maxTurns = 10, resume, onAskUser } = config;
 
-	const pluginPath = path.resolve( __dirname, 'plugin' );
-
 	return query( {
 		prompt,
 		options: {
@@ -53,7 +50,6 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 			mcpServers: {
 				studio: createStudioTools(),
 			},
-			plugins: [ { type: 'local', path: pluginPath } ],
 			maxTurns,
 			cwd: process.cwd(),
 			permissionMode: 'bypassPermissions',
@@ -73,7 +69,7 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 				}
 				return { behavior: 'allow' as const, updatedInput: input };
 			},
-			allowedTools: [ 'mcp__studio__*', 'Skill', 'Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep' ],
+			allowedTools: [ 'mcp__studio__*', 'Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep' ],
 			model: 'claude-sonnet-4-6',
 			resume,
 		},

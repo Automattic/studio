@@ -56,14 +56,6 @@ export default defineConfig( {
 					},
 			  ]
 			: [] ),
-		viteStaticCopy( {
-			targets: [
-				{
-					src: 'ai/plugin',
-					dest: 'ai',
-				},
-			],
-		} ),
 	],
 	build: {
 		lib: {

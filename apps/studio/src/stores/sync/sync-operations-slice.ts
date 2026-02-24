@@ -9,10 +9,8 @@ import { getHostnameFromUrl } from 'src/lib/url-utils';
 import { store } from 'src/stores';
 import { connectedSitesApi } from 'src/stores/sync/connected-sites';
 import type {
-	ImportResponse,
 	PullStateProgressInfo,
 	PushStateProgressInfo,
-	SyncBackupResponse,
 } from 'src/hooks/use-sync-states-progress-info';
 import type { SyncSite } from 'src/modules/sync/types';
 import type { AppDispatch, RootState } from 'src/stores';
@@ -89,10 +87,10 @@ export function getPullStatesProgressInfo(): Record<
 	};
 }
 
-interface SyncOperationsState {
+type SyncOperationsState = {
 	pullStates: PullStates;
 	pushStates: PushStates;
-}
+};
 
 const initialState: SyncOperationsState = {
 	pullStates: {},
@@ -128,7 +126,7 @@ const syncOperationsSlice = createSlice( {
 				...state.pullStates[ stateId ],
 				...updateState,
 				remoteSiteId,
-			} as SyncBackupState;
+			};
 		},
 
 		clearPullState: ( state, action: PayloadAction< ClearStatePayload > ) => {
@@ -145,7 +143,7 @@ const syncOperationsSlice = createSlice( {
 				...state.pushStates[ stateId ],
 				...updateState,
 				remoteSiteId,
-			} as SyncPushState;
+			};
 		},
 
 		clearPushState: ( state, action: PayloadAction< ClearStatePayload > ) => {
@@ -155,42 +153,35 @@ const syncOperationsSlice = createSlice( {
 		},
 	},
 	extraReducers: ( builder ) => {
-		// Handle push thunk rejections (pushSiteThunk, pollPushProgressThunk)
-		builder.addMatcher(
-			( action ): action is PayloadAction< RejectedSyncPayload > =>
-				[ 'syncOperations/pushSite/rejected', 'syncOperations/pollPushProgress/rejected' ].includes(
-					action.type
-				) && action.payload != null,
-			( state, action ) => {
-				const { selectedSiteId, remoteSiteId } = action.payload;
-				const stateId = generateStateId( selectedSiteId, remoteSiteId );
-				if ( state.pushStates[ stateId ] ) {
-					state.pushStates[ stateId ].status = {
-						key: 'failed',
-						progress: 100,
-						message: __( 'Error pushing changes' ),
-					};
+		builder
+			.addCase( pushSiteThunk.rejected, ( state, action ) => {
+				const { connectedSite, selectedSite } = action.meta.arg;
+				const stateId = generateStateId( selectedSite.id, connectedSite.id );
+				if ( ! action.meta.aborted && state.pushStates[ stateId ] ) {
+					state.pushStates[ stateId ].status = getPushStatesProgressInfo().failed;
 				}
-			}
-		);
-		// Handle pull thunk rejections (pullSiteThunk, pollPullBackupThunk)
-		builder.addMatcher(
-			( action ): action is PayloadAction< RejectedSyncPayload > =>
-				[ 'syncOperations/pullSite/rejected', 'syncOperations/pollPullBackup/rejected' ].includes(
-					action.type
-				) && action.payload != null,
-			( state, action ) => {
-				const { selectedSiteId, remoteSiteId } = action.payload;
+			} )
+			.addCase( pollPushProgressThunk.rejected, ( state, action ) => {
+				const { remoteSiteId, selectedSiteId } = action.meta.arg;
 				const stateId = generateStateId( selectedSiteId, remoteSiteId );
-				if ( state.pullStates[ stateId ] ) {
-					state.pullStates[ stateId ].status = {
-						key: 'failed',
-						progress: 100,
-						message: __( 'Error pulling changes' ),
-					};
+				if ( ! action.meta.aborted && state.pushStates[ stateId ] ) {
+					state.pushStates[ stateId ].status = getPushStatesProgressInfo().failed;
 				}
-			}
-		);
+			} )
+			.addCase( pullSiteThunk.rejected, ( state, action ) => {
+				const { connectedSite, selectedSite } = action.meta.arg;
+				const stateId = generateStateId( selectedSite.id, connectedSite.id );
+				if ( ! action.meta.aborted && state.pullStates[ stateId ] ) {
+					state.pullStates[ stateId ].status = getPullStatesProgressInfo().failed;
+				}
+			} )
+			.addCase( pollPullBackupThunk.rejected, ( state, action ) => {
+				const { remoteSiteId, selectedSiteId } = action.meta.arg;
+				const stateId = generateStateId( selectedSiteId, remoteSiteId );
+				if ( ! action.meta.aborted && state.pullStates[ stateId ] ) {
+					state.pullStates[ stateId ].status = getPullStatesProgressInfo().failed;
+				}
+			} );
 	},
 } );
 
@@ -208,17 +199,7 @@ export const syncOperationsReducer = syncOperationsSlice.reducer;
 const UPLOADING_BASE_PROGRESS = 40;
 const CREATING_REMOTE_BACKUP_PROGRESS = 50;
 
-function isUploadPhaseKey( key: SyncPushState[ 'status' ][ 'key' ] | undefined ) {
-	return key === 'creatingBackup' || key === 'uploading' || key === 'uploadingPaused';
-}
-
 window.ipcListener.subscribe( 'sync-upload-progress', ( _event, payload ) => {
-	const stateId = generateStateId( payload.selectedSiteId, payload.remoteSiteId );
-	const existing = store.getState().syncOperations.pushStates[ stateId ];
-	if ( ! existing || ! isUploadPhaseKey( existing.status?.key ) ) {
-		return;
-	}
-
 	const uploadProgress = Math.max( 0, Math.min( 100, payload.progress ) );
 	const uploadRange = CREATING_REMOTE_BACKUP_PROGRESS - UPLOADING_BASE_PROGRESS; // 10
 	const overallProgress = UPLOADING_BASE_PROGRESS + ( uploadProgress / 100 ) * uploadRange;
@@ -230,8 +211,7 @@ window.ipcListener.subscribe( 'sync-upload-progress', ( _event, payload ) => {
 			state: {
 				uploadProgress,
 				status: {
-					...existing.status,
-					key: 'uploading',
+					...getPushStatesProgressInfo().uploading,
 					progress: overallProgress,
 				},
 			},
@@ -239,114 +219,41 @@ window.ipcListener.subscribe( 'sync-upload-progress', ( _event, payload ) => {
 	);
 } );
 
-window.ipcListener.subscribe( 'sync-upload-paused', ( _event, payload ) => {
-	const stateId = generateStateId( payload.selectedSiteId, payload.remoteSiteId );
-	const existing = store.getState().syncOperations.pushStates[ stateId ];
-	if ( ! existing || ! isUploadPhaseKey( existing.status?.key ) ) {
-		return;
-	}
-
-	store.dispatch(
-		syncOperationsActions.updatePushState( {
-			selectedSiteId: payload.selectedSiteId,
-			remoteSiteId: payload.remoteSiteId,
-			state: {
-				status: {
-					...existing.status,
-					key: 'uploadingPaused',
-					progress: 45,
-					message: __( 'Uploading paused' ),
-				},
-			},
-		} )
-	);
-} );
-
 window.ipcListener.subscribe( 'sync-upload-resumed', ( _event, payload ) => {
-	const stateId = generateStateId( payload.selectedSiteId, payload.remoteSiteId );
-	const existing = store.getState().syncOperations.pushStates[ stateId ];
-	if ( ! existing || ! isUploadPhaseKey( existing.status?.key ) ) {
-		return;
-	}
-
 	store.dispatch(
 		syncOperationsActions.updatePushState( {
 			selectedSiteId: payload.selectedSiteId,
 			remoteSiteId: payload.remoteSiteId,
 			state: {
-				status: {
-					...existing.status,
-					key: 'uploading',
-					message: __( 'Uploading site…' ),
-				},
+				status: getPushStatesProgressInfo().uploading,
 			},
 		} )
 	);
 } );
 
-const getErrorFromResponse = ( error: unknown ): string => {
-	if (
-		typeof error === 'object' &&
-		error !== null &&
-		'error' in error &&
-		typeof ( error as { error: unknown } ).error === 'string'
-	) {
-		return ( error as { error: string } ).error;
-	}
-	return __( 'Studio was unable to connect to WordPress.com. Please try again.' );
-};
-
-// Payload type for thunk rejections handled by extraReducers
-export type RejectedSyncPayload = {
-	selectedSiteId: string;
-	remoteSiteId: number;
-	errorInfo?: {
+const createTypedAsyncThunk = createAsyncThunk.withTypes< {
+	state: RootState;
+	dispatch: AppDispatch;
+	rejectValue: {
 		title: string;
 		message: string;
 		showOpenLogs?: boolean;
 		error?: unknown;
 	};
-};
-
-// Create typed async thunk helper
-const createTypedAsyncThunk = createAsyncThunk.withTypes< {
-	state: RootState;
-	dispatch: AppDispatch;
-	rejectValue: RejectedSyncPayload;
 } >();
 
-// Thunks for clear operations
-export const clearPushStateThunk = createTypedAsyncThunk(
-	'syncOperations/clearPushState',
-	async ( { selectedSiteId, remoteSiteId }: ClearStatePayload, { dispatch } ) => {
-		dispatch( syncOperationsActions.clearPushState( { selectedSiteId, remoteSiteId } ) );
-		return { selectedSiteId, remoteSiteId };
-	}
-);
-
-export const clearPullStateThunk = createTypedAsyncThunk(
-	'syncOperations/clearPullState',
-	async ( { selectedSiteId, remoteSiteId }: ClearStatePayload, { dispatch } ) => {
-		dispatch( syncOperationsActions.clearPullState( { selectedSiteId, remoteSiteId } ) );
-		return { selectedSiteId, remoteSiteId };
-	}
-);
-
-// Thunks for cancel operations
-type CancelPushPayload = {
+type CancelOperationPayload = {
 	selectedSiteId: string;
 	remoteSiteId: number;
 };
 
-type CancelPullPayload = {
-	selectedSiteId: string;
-	remoteSiteId: number;
-};
-
-export const cancelPushThunk = createTypedAsyncThunk(
+const cancelPushThunk = createTypedAsyncThunk(
 	'syncOperations/cancelPush',
-	async ( { selectedSiteId, remoteSiteId }: CancelPushPayload, { dispatch } ) => {
+	async ( { selectedSiteId, remoteSiteId }: CancelOperationPayload, { dispatch } ) => {
 		const operationId = generateStateId( selectedSiteId, remoteSiteId );
+		const abortCallback = PUSH_SITE_ABORT_CALLBACKS.get( operationId );
+
+		abortCallback?.();
 		getIpcApi().cancelSyncOperation( operationId );
 
 		dispatch(
@@ -364,9 +271,9 @@ export const cancelPushThunk = createTypedAsyncThunk(
 	}
 );
 
-export const cancelPullThunk = createTypedAsyncThunk(
+const cancelPullThunk = createTypedAsyncThunk(
 	'syncOperations/cancelPull',
-	async ( { selectedSiteId, remoteSiteId }: CancelPullPayload, { dispatch } ) => {
+	async ( { selectedSiteId, remoteSiteId }: CancelOperationPayload, { dispatch } ) => {
 		const operationId = generateStateId( selectedSiteId, remoteSiteId );
 		getIpcApi().cancelSyncOperation( operationId );
 
@@ -391,7 +298,20 @@ export const cancelPullThunk = createTypedAsyncThunk(
 	}
 );
 
-// Thunk for push operation
+const getErrorFromResponse = ( error: unknown ): string => {
+	if (
+		typeof error === 'object' &&
+		error !== null &&
+		'error' in error &&
+		typeof error.error === 'string'
+	) {
+		return error.error;
+	}
+	return __( 'Studio was unable to connect to WordPress.com. Please try again.' );
+};
+
+const PUSH_SITE_ABORT_CALLBACKS: Map< string, ( reason?: string | undefined ) => void > = new Map();
+
 type PushSitePayload = {
 	connectedSite: SyncSite;
 	selectedSite: SiteDetails;
@@ -401,114 +321,58 @@ type PushSitePayload = {
 	};
 };
 
-type PushSiteResult = {
-	shouldStartPolling: boolean;
-	remoteSiteId: number;
-	selectedSite: SiteDetails;
-	remoteSiteUrl: string;
-};
-
-export const pushSiteThunk = createTypedAsyncThunk< PushSiteResult, PushSitePayload >(
+const pushSiteThunk = createTypedAsyncThunk< void, PushSitePayload >(
 	'syncOperations/pushSite',
-	async ( { connectedSite, selectedSite, options }, { dispatch, getState, rejectWithValue } ) => {
+	async (
+		{ connectedSite, selectedSite, options },
+		{ abort, dispatch, signal, rejectWithValue }
+	) => {
 		const pushStatesProgressInfo = getPushStatesProgressInfo();
 		const remoteSiteId = connectedSite.id;
 		const remoteSiteUrl = connectedSite.url;
 		const operationId = generateStateId( selectedSite.id, remoteSiteId );
 
-		// Clear existing state
-		void dispatch(
-			syncOperationsThunks.clearPushState( { selectedSiteId: selectedSite.id, remoteSiteId } )
-		);
-
-		// Initialize push state
-		dispatch(
-			syncOperationsActions.updatePushState( {
-				selectedSiteId: selectedSite.id,
-				remoteSiteId,
-				state: {
-					status: pushStatesProgressInfo.creatingBackup,
-					selectedSite,
-					remoteSiteUrl,
-				},
-			} )
-		);
-
-		let archivePath: string, archiveSizeInBytes: number;
-
 		try {
-			const result = await getIpcApi().exportSiteForPush( selectedSite.id, operationId, {
-				optionsToSync: options?.optionsToSync,
-				specificSelectionPaths: options?.specificSelectionPaths,
-			} );
-			( { archivePath, archiveSizeInBytes } = result );
-		} catch ( error ) {
-			if ( error instanceof Error && error.message === 'Export aborted' ) {
-				dispatch(
-					syncOperationsActions.updatePushState( {
-						selectedSiteId: selectedSite.id,
-						remoteSiteId,
-						state: { status: pushStatesProgressInfo.cancelled },
-					} )
-				);
-				throw error; // Signal cancellation
-			}
+			PUSH_SITE_ABORT_CALLBACKS.set( operationId, abort );
 
-			Sentry.captureException( error );
-			return rejectWithValue( {
-				selectedSiteId: selectedSite.id,
-				remoteSiteId,
-				errorInfo: {
-					title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
-					message: __(
-						'An error occurred while pushing the site. If this problem persists, please contact support.'
-					),
-					showOpenLogs: true,
-					error,
-				},
-			} );
-		}
+			dispatch(
+				syncOperationsActions.updatePushState( {
+					selectedSiteId: selectedSite.id,
+					remoteSiteId,
+					state: {
+						status: pushStatesProgressInfo.creatingBackup,
+						selectedSite,
+						remoteSiteUrl,
+					},
+				} )
+			);
 
-		// Check file size
-		if ( archiveSizeInBytes > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
-			await getIpcApi().removeExportedSiteTmpFile( archivePath );
-			return rejectWithValue( {
-				selectedSiteId: selectedSite.id,
-				remoteSiteId,
-				errorInfo: {
+			const { archivePath, archiveSizeInBytes } = await getIpcApi().exportSiteForPush(
+				selectedSite.id,
+				operationId,
+				{
+					optionsToSync: options?.optionsToSync,
+					specificSelectionPaths: options?.specificSelectionPaths,
+				}
+			);
+
+			if ( archiveSizeInBytes > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
+				return rejectWithValue( {
 					title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
 					message: __(
 						'The site is too large to push. Please reduce the size of the site and try again.'
 					),
-				},
-			} );
-		}
+				} );
+			}
 
-		// Check if cancelled before upload
-		const state = getState();
-		const currentPushState = syncOperationsSelectors.selectPushState(
-			selectedSite.id,
-			remoteSiteId
-		)( state );
-		if (
-			! currentPushState ||
-			! currentPushState.status ||
-			currentPushState.status.key === 'cancelled'
-		) {
-			await getIpcApi().removeExportedSiteTmpFile( archivePath );
-			throw new Error( 'Push cancelled' );
-		}
+			dispatch(
+				syncOperationsActions.updatePushState( {
+					selectedSiteId: selectedSite.id,
+					remoteSiteId,
+					state: { status: pushStatesProgressInfo.uploading },
+				} )
+			);
 
-		// Update to uploading
-		dispatch(
-			syncOperationsActions.updatePushState( {
-				selectedSiteId: selectedSite.id,
-				remoteSiteId,
-				state: { status: pushStatesProgressInfo.uploading },
-			} )
-		);
-
-		try {
 			const response = await getIpcApi().pushArchive(
 				selectedSite.id,
 				remoteSiteId,
@@ -516,17 +380,6 @@ export const pushSiteThunk = createTypedAsyncThunk< PushSiteResult, PushSitePayl
 				options?.optionsToSync,
 				options?.specificSelectionPaths
 			);
-
-			// Check if cancelled after upload
-			const stateAfterUpload = getState();
-			const pushStateAfterUpload = syncOperationsSelectors.selectPushState(
-				selectedSite.id,
-				remoteSiteId
-			)( stateAfterUpload );
-
-			if ( pushStateAfterUpload?.status.key === 'cancelled' ) {
-				throw new Error( 'Push cancelled' );
-			}
 
 			if ( response.success ) {
 				dispatch(
@@ -540,33 +393,23 @@ export const pushSiteThunk = createTypedAsyncThunk< PushSiteResult, PushSitePayl
 						},
 					} )
 				);
-
-				// Return info needed for polling
-				return {
-					shouldStartPolling: true,
-					remoteSiteId,
-					selectedSite,
-					remoteSiteUrl,
-				};
 			} else {
-				throw new Error( response.error );
+				return rejectWithValue( {
+					title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
+					message: getErrorFromResponse( response ),
+				} );
 			}
 		} catch ( error ) {
-			// Don't override cancelled state
-			if ( error instanceof Error && error.message === 'Push cancelled' ) {
-				throw error;
+			if ( signal.aborted ) {
+				return;
 			}
 			Sentry.captureException( error );
 			return rejectWithValue( {
-				selectedSiteId: selectedSite.id,
-				remoteSiteId,
-				errorInfo: {
-					title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
-					message: getErrorFromResponse( error ),
-				},
+				title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
+				message: getErrorFromResponse( error ),
 			} );
 		} finally {
-			await getIpcApi().removeExportedSiteTmpFile( archivePath );
+			PUSH_SITE_ABORT_CALLBACKS.delete( operationId );
 		}
 	}
 );
@@ -594,12 +437,6 @@ export const pullSiteThunk = createTypedAsyncThunk< PullSiteResult, PullSitePayl
 		const remoteSiteId = connectedSite.id;
 		const remoteSiteUrl = connectedSite.url;
 
-		// Clear existing state
-		void dispatch(
-			syncOperationsThunks.clearPullState( { selectedSiteId: selectedSite.id, remoteSiteId } )
-		);
-
-		// Initialize pull state
 		dispatch(
 			syncOperationsActions.updatePullState( {
 				selectedSiteId: selectedSite.id,
@@ -646,20 +483,13 @@ export const pullSiteThunk = createTypedAsyncThunk< PullSiteResult, PullSitePayl
 					remoteSiteId,
 				};
 			} else {
-				console.error( response );
 				throw new Error( 'Pull request failed' );
 			}
 		} catch ( error ) {
-			console.error( 'Pull request failed:', error );
-
 			Sentry.captureException( error );
 			return rejectWithValue( {
-				selectedSiteId: selectedSite.id,
-				remoteSiteId,
-				errorInfo: {
-					title: sprintf( __( 'Error pulling from %s' ), connectedSite.name ),
-					message: __( 'Studio was unable to connect to WordPress.com. Please try again.' ),
-				},
+				title: sprintf( __( 'Error pulling from %s' ), connectedSite.name ),
+				message: __( 'Studio was unable to connect to WordPress.com. Please try again.' ),
 			} );
 		}
 	}
@@ -669,13 +499,34 @@ export const pullSiteThunk = createTypedAsyncThunk< PullSiteResult, PullSitePayl
 type PollPushProgressPayload = {
 	client: WPCOM;
 	selectedSiteId: string;
+	signal: AbortSignal;
 	remoteSiteId: number;
 };
 
-export const pollPushProgressThunk = createTypedAsyncThunk(
+type RestoreErrorData = {
+	vp_restore_status?: string;
+	vp_restore_message?: string;
+	vp_rewind_id?: string | null;
+};
+
+type ImportResponse = {
+	status:
+		| 'finished'
+		| 'failed'
+		| 'initial_backup_started'
+		| 'archive_import_started'
+		| 'archive_import_finished';
+	success: boolean;
+	backup_progress: number;
+	import_progress: number;
+	error?: string;
+	error_data?: RestoreErrorData | null;
+};
+
+const pollPushProgressThunk = createTypedAsyncThunk(
 	'syncOperations/pollPushProgress',
 	async (
-		{ client, selectedSiteId, remoteSiteId }: PollPushProgressPayload,
+		{ client, selectedSiteId, signal, remoteSiteId }: PollPushProgressPayload,
 		{ dispatch, getState, rejectWithValue }
 	) => {
 		const pushStatesProgressInfo = getPushStatesProgressInfo();
@@ -683,134 +534,111 @@ export const pollPushProgressThunk = createTypedAsyncThunk(
 		const currentPushState = syncOperationsSelectors.selectPushState(
 			selectedSiteId,
 			remoteSiteId
-		)( getState() )!;
+		)( getState() );
 
-		const response = await client.req.get< ImportResponse >(
-			`/sites/${ remoteSiteId }/studio-app/sync/import`,
-			{
-				apiNamespace: 'wpcom/v2',
-			}
-		);
+		try {
+			const response = await client.req.get< ImportResponse >(
+				`/sites/${ remoteSiteId }/studio-app/sync/import`,
+				{ apiNamespace: 'wpcom/v2' }
+			);
 
-		if ( ! response.success ) {
-			return rejectWithValue( {
-				selectedSiteId,
-				remoteSiteId,
-				errorInfo: {
+			signal.throwIfAborted();
+
+			if ( ! response.success ) {
+				return rejectWithValue( {
 					title: sprintf( __( 'Error pushing to %s' ), currentPushState.selectedSite.name ),
 					message: __(
 						'An error occurred while pushing the site. If this problem persists, please contact support.'
 					),
-				},
-			} );
-		}
+				} );
+			}
 
-		let status: PushStateProgressInfo;
-		switch ( response.status ) {
-			case 'finished':
-				status = pushStatesProgressInfo.finished;
-				// Update site timestamp
-				void dispatch(
-					connectedSitesApi.endpoints.updateSiteTimestamp.initiate( {
-						siteId: remoteSiteId,
-						localSiteId: selectedSiteId,
-						type: 'push',
-					} )
-				);
-				getIpcApi().showNotification( {
-					title: currentPushState.selectedSite.name,
-					body: sprintf(
-						// translators: %s is the site url without the protocol.
-						__( '%s has been updated' ),
-						getHostnameFromUrl( currentPushState.remoteSiteUrl )
-					),
-				} );
-				break;
-			case 'failed': {
-				console.error( 'Push import failed:', {
-					remoteSiteId: currentPushState.remoteSiteId,
-					error: response.error,
-					error_data: response.error_data,
-				} );
-				// If the import fails due to a SQL import error, show a more specific message
-				const restoreMessage = response.error_data?.vp_restore_message || '';
-				const isSqlImportFailure = /importing sql dump/i.test( restoreMessage );
-				const isImportTimedOut = response.error === 'Import timed out';
-				let message: string;
-				if ( isSqlImportFailure ) {
-					message = __(
-						'Database import failed on the remote site. Please review your database and try again or contact support and provide details from the logs below.'
+			let status: PushStateProgressInfo;
+			switch ( response.status ) {
+				case 'finished':
+					status = pushStatesProgressInfo.finished;
+					// Update site timestamp
+					void dispatch(
+						connectedSitesApi.endpoints.updateSiteTimestamp.initiate( {
+							siteId: remoteSiteId,
+							localSiteId: selectedSiteId,
+							type: 'push',
+						} )
 					);
-				} else if ( isImportTimedOut ) {
-					message = __(
-						"A timeout error occurred while pushing the site, likely due to its large size. Please try reducing the site's content or files and try again. If this problem persists, please contact support."
-					);
-				} else {
-					message = __(
-						'An error occurred while pushing the site. If this problem persists, please contact support.'
-					);
-				}
-				return rejectWithValue( {
-					selectedSiteId,
-					remoteSiteId,
-					errorInfo: {
+					getIpcApi().showNotification( {
+						title: currentPushState.selectedSite.name,
+						body: sprintf(
+							// translators: %s is the site url without the protocol.
+							__( '%s has been updated' ),
+							getHostnameFromUrl( currentPushState.remoteSiteUrl )
+						),
+					} );
+					break;
+				case 'failed': {
+					console.error( 'Push import failed:', {
+						remoteSiteId: currentPushState.remoteSiteId,
+						error: response.error,
+						error_data: response.error_data,
+					} );
+					// If the import fails due to a SQL import error, show a more specific message
+					const restoreMessage = response.error_data?.vp_restore_message || '';
+					const isSqlImportFailure = /importing sql dump/i.test( restoreMessage );
+					const isImportTimedOut = response.error === 'Import timed out';
+					let message: string;
+					if ( isSqlImportFailure ) {
+						message = __(
+							'Database import failed on the remote site. Please review your database and try again or contact support and provide details from the logs below.'
+						);
+					} else if ( isImportTimedOut ) {
+						message = __(
+							"A timeout error occurred while pushing the site, likely due to its large size. Please try reducing the site's content or files and try again. If this problem persists, please contact support."
+						);
+					} else {
+						message = __(
+							'An error occurred while pushing the site. If this problem persists, please contact support.'
+						);
+					}
+					return rejectWithValue( {
 						title: sprintf( __( 'Error pushing to %s' ), currentPushState.selectedSite.name ),
 						message,
 						showOpenLogs: true,
-					},
-				} );
+					} );
+				}
+				case 'initial_backup_started': {
+					status = pushStatesProgressInfo.creatingRemoteBackup;
+					const progressRange = pushStatesProgressInfo.applyingChanges.progress - status.progress;
+					status.progress = status.progress + progressRange * ( response.backup_progress / 100 );
+					break;
+				}
+				case 'archive_import_started': {
+					status = pushStatesProgressInfo.applyingChanges;
+					const progressRange = pushStatesProgressInfo.finishing.progress - status.progress;
+					status.progress = status.progress + progressRange * ( response.import_progress / 100 );
+					break;
+				}
+				case 'archive_import_finished':
+					status = pushStatesProgressInfo.finishing;
+					break;
 			}
-			case 'initial_backup_started':
-				status = pushStatesProgressInfo.creatingRemoteBackup;
-				break;
-			case 'archive_import_started':
-				status = pushStatesProgressInfo.applyingChanges;
-				break;
-			case 'archive_import_finished':
-				status = pushStatesProgressInfo.finishing;
-				break;
+
+			dispatch(
+				syncOperationsActions.updatePushState( {
+					selectedSiteId,
+					remoteSiteId,
+					state: { status },
+				} )
+			);
+		} catch ( error ) {
+			if ( signal.aborted ) {
+				return;
+			}
+
+			Sentry.captureException( error );
+			return rejectWithValue( {
+				title: sprintf( __( 'Error pushing from %s' ), currentPushState.selectedSite.name ),
+				message: __( 'Failed to check backup file size. Please try again.' ),
+			} );
 		}
-		// Calculate push status with progress
-		if ( status.key === pushStatesProgressInfo.creatingRemoteBackup.key ) {
-			const progressRange =
-				pushStatesProgressInfo.applyingChanges.progress -
-				pushStatesProgressInfo.creatingRemoteBackup.progress;
-			status = {
-				...status,
-				progress:
-					pushStatesProgressInfo.creatingRemoteBackup.progress +
-					progressRange * ( response.backup_progress / 100 ),
-			};
-		} else if (
-			status.key === pushStatesProgressInfo.applyingChanges.key &&
-			response.import_progress < 100
-		) {
-			const progressRange =
-				pushStatesProgressInfo.finishing.progress - pushStatesProgressInfo.applyingChanges.progress;
-			status = {
-				...status,
-				progress:
-					pushStatesProgressInfo.applyingChanges.progress +
-					progressRange * ( response.import_progress / 100 ),
-			};
-		}
-		// Update state in any case to keep polling push state
-		dispatch(
-			syncOperationsActions.updatePushState( {
-				selectedSiteId,
-				remoteSiteId,
-				state: { status },
-			} )
-		);
-	},
-	{
-		condition: ( { selectedSiteId, remoteSiteId }, { getState } ) => {
-			const pushState = syncOperationsSelectors.selectPushState(
-				selectedSiteId,
-				remoteSiteId
-			)( getState() );
-			return !! pushState?.status && pushState.status.key !== 'cancelled';
-		},
 	}
 );
 
@@ -823,13 +651,20 @@ const IN_PROGRESS_TO_DOWNLOADING_STEP = DOWNLOADING_INITIAL_VALUE - IN_PROGRESS_
 type PollPullBackupPayload = {
 	client: WPCOM;
 	selectedSiteId: string;
+	signal: AbortSignal;
 	remoteSiteId: number;
 };
 
-export const pollPullBackupThunk = createTypedAsyncThunk(
+type SyncBackupResponse = {
+	status: 'in-progress' | 'finished' | 'failed';
+	download_url: string;
+	percent: number;
+};
+
+const pollPullBackupThunk = createTypedAsyncThunk(
 	'syncOperations/pollPullBackup',
 	async (
-		{ client, selectedSiteId, remoteSiteId }: PollPullBackupPayload,
+		{ client, selectedSiteId, remoteSiteId, signal }: PollPullBackupPayload,
 		{ dispatch, getState, rejectWithValue }
 	) => {
 		const pullStatesProgressInfo = getPullStatesProgressInfo();
@@ -837,7 +672,7 @@ export const pollPullBackupThunk = createTypedAsyncThunk(
 		const currentPullState = syncOperationsSelectors.selectPullState(
 			selectedSiteId,
 			remoteSiteId
-		)( getState() )!;
+		)( getState() );
 
 		const backupId = currentPullState.backupId;
 		if ( ! backupId ) {
@@ -853,6 +688,8 @@ export const pollPullBackupThunk = createTypedAsyncThunk(
 					backup_id: backupId,
 				}
 			);
+
+			signal.throwIfAborted();
 
 			if ( ! response.status ) {
 				throw new Error( 'Unexpected backup response: missing status' );
@@ -896,7 +733,7 @@ export const pollPullBackupThunk = createTypedAsyncThunk(
 							} )
 						);
 						void dispatch(
-							syncOperationsThunks.clearPullState( { selectedSiteId, remoteSiteId } )
+							syncOperationsActions.clearPullState( { selectedSiteId, remoteSiteId } )
 						);
 						return;
 					}
@@ -921,21 +758,6 @@ export const pollPullBackupThunk = createTypedAsyncThunk(
 					downloadUrl,
 					operationId
 				);
-
-				// Check if cancelled after download
-				const stateAfterDownload = getState();
-				const pullStateAfterDownload = syncOperationsSelectors.selectPullState(
-					selectedSiteId,
-					remoteSiteId
-				)( stateAfterDownload );
-
-				if (
-					! pullStateAfterDownload ||
-					! pullStateAfterDownload.status ||
-					pullStateAfterDownload.status.key === 'cancelled'
-				) {
-					return;
-				}
 
 				// Update to importing
 				dispatch(
@@ -996,7 +818,7 @@ export const pollPullBackupThunk = createTypedAsyncThunk(
 				const frontendStatus = hasBackupCompleted
 					? pullStatesProgressInfo.downloading.key
 					: response.status;
-				let statusWithProgress: PullStateProgressInfo = pullStatesProgressInfo[ frontendStatus ];
+				let statusWithProgress = pullStatesProgressInfo[ frontendStatus ];
 				if ( response.status === 'in-progress' ) {
 					statusWithProgress = {
 						...pullStatesProgressInfo[ frontendStatus ],
@@ -1012,48 +834,21 @@ export const pollPullBackupThunk = createTypedAsyncThunk(
 						remoteSiteId,
 						state: {
 							status: statusWithProgress,
-							downloadUrl,
 						},
 					} )
 				);
 			}
 		} catch ( error ) {
-			console.error( 'Pull backup polling/completion failed:', error );
-
-			// Check if cancelled
-			const errorState = getState();
-			const pullStateOnError = syncOperationsSelectors.selectPullState(
-				selectedSiteId,
-				remoteSiteId
-			)( errorState );
-
-			if (
-				pullStateOnError &&
-				pullStateOnError.status &&
-				pullStateOnError.status.key === 'cancelled'
-			) {
+			if ( signal.aborted ) {
 				return;
 			}
 
 			Sentry.captureException( error );
 			return rejectWithValue( {
-				selectedSiteId,
-				remoteSiteId,
-				errorInfo: {
-					title: sprintf( __( 'Error pulling from %s' ), currentPullState.selectedSite.name ),
-					message: __( 'Failed to check backup file size. Please try again.' ),
-				},
+				title: sprintf( __( 'Error pulling from %s' ), currentPullState.selectedSite.name ),
+				message: __( 'Failed to check backup file size. Please try again.' ),
 			} );
 		}
-	},
-	{
-		condition: ( { selectedSiteId, remoteSiteId }, { getState } ) => {
-			const pullState = syncOperationsSelectors.selectPullState(
-				selectedSiteId,
-				remoteSiteId
-			)( getState() );
-			return !! pullState?.status && pullState.status.key !== 'cancelled';
-		},
 	}
 );
 
@@ -1097,12 +892,10 @@ export const initializeSyncStatesThunk = createTypedAsyncThunk(
 					continue;
 				}
 
-				const response = ( await client.req.get(
+				const response = await client.req.get< ImportResponse >(
 					`/sites/${ connectedSite.id }/studio-app/sync/import`,
-					{
-						apiNamespace: 'wpcom/v2',
-					}
-				) ) as ImportResponse;
+					{ apiNamespace: 'wpcom/v2' }
+				);
 
 				const status = mapImportResponseToPushState( response );
 
@@ -1130,8 +923,6 @@ export const initializeSyncStatesThunk = createTypedAsyncThunk(
 
 // Export thunks object for convenience (must be after all thunk declarations)
 export const syncOperationsThunks = {
-	clearPushState: clearPushStateThunk,
-	clearPullState: clearPullStateThunk,
 	cancelPush: cancelPushThunk,
 	cancelPull: cancelPullThunk,
 	pushSite: pushSiteThunk,

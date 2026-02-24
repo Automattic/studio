@@ -2,10 +2,10 @@ import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { RootState, store } from 'src/stores';
 
-interface BetaFeaturesState {
+type BetaFeaturesState = {
 	features: BetaFeatures;
 	loading: boolean;
-}
+};
 
 const initialState: BetaFeaturesState = {
 	features: {},

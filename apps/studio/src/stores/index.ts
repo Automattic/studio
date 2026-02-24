@@ -8,6 +8,10 @@ import { setupListeners } from '@reduxjs/toolkit/query';
 import { useDispatch, useSelector } from 'react-redux';
 import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
 import { generateStateId } from 'src/hooks/sync-sites/use-pull-push-states';
+import {
+	PullStateProgressInfo,
+	PushStateProgressInfo,
+} from 'src/hooks/use-sync-states-progress-info';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { appVersionApi } from 'src/stores/app-version-api';
 import { betaFeaturesReducer, loadBetaFeatures } from 'src/stores/beta-features-slice';
@@ -22,24 +26,14 @@ import {
 	updateSnapshotLocally,
 	snapshotActions,
 } from 'src/stores/snapshot-slice';
-import { syncReducer, syncOperationsActions, syncOperationsSelectors } from 'src/stores/sync';
+import { syncReducer, syncOperationsActions } from 'src/stores/sync';
 import { connectedSitesApi, connectedSitesReducer } from 'src/stores/sync/connected-sites';
-import {
-	syncOperationsReducer,
-	pushSiteThunk,
-	pullSiteThunk,
-	pollPushProgressThunk,
-	pollPullBackupThunk,
-} from 'src/stores/sync/sync-operations-slice';
+import { syncOperationsReducer, syncOperationsThunks } from 'src/stores/sync/sync-operations-slice';
 import { wpcomSitesApi } from 'src/stores/sync/wpcom-sites';
 import uiReducer from 'src/stores/ui-slice';
 import { getWpcomClient, wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
 import { wordpressVersionsApi } from './wordpress-versions-api';
 import type { SupportedLocale } from '@studio/common/lib/locale';
-import type {
-	PullStateProgressInfo,
-	PushStateProgressInfo,
-} from 'src/hooks/use-sync-states-progress-info';
 
 export type RootState = {
 	appVersionApi: ReturnType< typeof appVersionApi.reducer >;
@@ -62,10 +56,11 @@ export type RootState = {
 	ui: ReturnType< typeof uiReducer >;
 };
 
-const listenerMiddleware = createListenerMiddleware< RootState >();
+const listenerMiddleware = createListenerMiddleware();
+const startAppListening = listenerMiddleware.startListening.withTypes< RootState, AppDispatch >();
 
 // Save chat messages to local storage
-listenerMiddleware.startListening( {
+startAppListening( {
 	predicate( action, currentState, previousState ) {
 		return currentState.chat.messagesDict !== previousState.chat.messagesDict;
 	},
@@ -79,7 +74,7 @@ listenerMiddleware.startListening( {
 } );
 
 // Save chat API IDs to local storage
-listenerMiddleware.startListening( {
+startAppListening( {
 	predicate( action, currentState, previousState ) {
 		return currentState.chat.chatApiIdDict !== previousState.chat.chatApiIdDict;
 	},
@@ -93,7 +88,7 @@ listenerMiddleware.startListening( {
 } );
 
 // Save snapshots to user config
-listenerMiddleware.startListening( {
+startAppListening( {
 	matcher: isAnyOf( updateSnapshotLocally, snapshotActions.deleteSnapshotLocally ),
 	async effect( action, listenerApi ) {
 		const state = listenerApi.getState();
@@ -104,106 +99,145 @@ listenerMiddleware.startListening( {
 const TERMINAL_STATUS_KEYS = [ 'failed', 'finished', 'cancelled' ];
 
 // Sync push/pull state updates to IPC (addSyncOperation / clearSyncOperation)
-listenerMiddleware.startListening( {
-	matcher: isAnyOf( syncOperationsActions.updatePushState, syncOperationsActions.updatePullState ),
+function keepSyncOperationInSync(
+	stateId: string,
+	status?: PushStateProgressInfo | PullStateProgressInfo
+) {
+	if ( status?.key && TERMINAL_STATUS_KEYS.includes( status.key ) ) {
+		getIpcApi().clearSyncOperation( stateId );
+	} else if ( status ) {
+		getIpcApi().addSyncOperation( stateId, status );
+	}
+}
+startAppListening( {
+	actionCreator: syncOperationsActions.updatePushState,
 	effect( action ) {
-		const { selectedSiteId, remoteSiteId, state } = action.payload as {
-			selectedSiteId: string;
-			remoteSiteId: number;
-			state: { status?: PullStateProgressInfo | PushStateProgressInfo };
-		};
+		const { selectedSiteId, remoteSiteId, state } = action.payload;
 		const stateId = generateStateId( selectedSiteId, remoteSiteId );
-		const statusKey = state.status?.key;
-
-		if ( statusKey && TERMINAL_STATUS_KEYS.includes( statusKey ) ) {
-			getIpcApi().clearSyncOperation( stateId );
-		} else if ( state.status ) {
-			getIpcApi().addSyncOperation( stateId, state.status );
-		}
+		keepSyncOperationInSync( stateId, state.status );
+	},
+} );
+startAppListening( {
+	actionCreator: syncOperationsActions.updatePullState,
+	effect( action ) {
+		const { selectedSiteId, remoteSiteId, state } = action.payload;
+		const stateId = generateStateId( selectedSiteId, remoteSiteId );
+		keepSyncOperationInSync( stateId, state.status );
 	},
 } );
 
 // Sync push/pull state clears to IPC (clearSyncOperation)
-listenerMiddleware.startListening( {
-	matcher: isAnyOf( syncOperationsActions.clearPushState, syncOperationsActions.clearPullState ),
+startAppListening( {
+	actionCreator: syncOperationsActions.clearPushState,
 	effect( action ) {
-		const { selectedSiteId, remoteSiteId } = action.payload as {
-			selectedSiteId: string;
-			remoteSiteId: number;
-		};
+		const { selectedSiteId, remoteSiteId } = action.payload;
+		const stateId = generateStateId( selectedSiteId, remoteSiteId );
+		getIpcApi().clearSyncOperation( stateId );
+	},
+} );
+startAppListening( {
+	actionCreator: syncOperationsActions.clearPullState,
+	effect( action ) {
+		const { selectedSiteId, remoteSiteId } = action.payload;
 		const stateId = generateStateId( selectedSiteId, remoteSiteId );
 		getIpcApi().clearSyncOperation( stateId );
 	},
 } );
 
 // Show error modals for rejected sync thunks
-listenerMiddleware.startListening( {
-	matcher: isAnyOf(
-		pushSiteThunk.rejected,
-		pullSiteThunk.rejected,
-		pollPushProgressThunk.rejected,
-		pollPullBackupThunk.rejected
-	),
+function maybeShowErrorMessageBox(
+	params: { title: string; message: string; error?: unknown; showOpenLogs?: boolean } | undefined,
+	aborted: boolean
+) {
+	if ( params && ! aborted ) {
+		getIpcApi().showErrorMessageBox( params );
+	}
+}
+startAppListening( {
+	actionCreator: syncOperationsThunks.pushSite.rejected,
 	effect( action ) {
-		const payload = action.payload as
-			| { errorInfo?: { title: string; message: string; showOpenLogs?: boolean; error?: unknown } }
-			| undefined;
-		if ( payload?.errorInfo ) {
-			getIpcApi().showErrorMessageBox( payload.errorInfo );
-		}
+		maybeShowErrorMessageBox( action.payload, action.meta.aborted );
+	},
+} );
+startAppListening( {
+	actionCreator: syncOperationsThunks.pullSite.rejected,
+	effect( action ) {
+		maybeShowErrorMessageBox( action.payload, action.meta.aborted );
+	},
+} );
+startAppListening( {
+	actionCreator: syncOperationsThunks.pollPushProgress.rejected,
+	effect( action ) {
+		maybeShowErrorMessageBox( action.payload, action.meta.aborted );
+	},
+} );
+startAppListening( {
+	actionCreator: syncOperationsThunks.pollPullBackup.rejected,
+	effect( action ) {
+		maybeShowErrorMessageBox( action.payload, action.meta.aborted );
 	},
 } );
 
 const PUSH_POLLING_KEYS = [ 'creatingRemoteBackup', 'applyingChanges', 'finishing' ];
-const PUSH_POLLING_INTERVAL = 2000;
+const SYNC_POLLING_INTERVAL = 3000;
 
 // Poll push progress when state enters a pollable status
-listenerMiddleware.startListening( {
+startAppListening( {
 	actionCreator: syncOperationsActions.updatePushState,
 	async effect( action, listenerApi ) {
-		const { selectedSiteId, remoteSiteId } = action.payload;
-		const pushState = syncOperationsSelectors.selectPushState(
-			selectedSiteId,
-			remoteSiteId
-		)( listenerApi.getState() );
-		if ( ! pushState?.status || ! PUSH_POLLING_KEYS.includes( pushState.status.key ) ) {
-			return;
-		}
-
-		await listenerApi.delay( PUSH_POLLING_INTERVAL );
-
 		const client = getWpcomClient();
 		if ( ! client ) {
 			return;
 		}
 
-		void listenerApi.dispatch( pollPushProgressThunk( { client, selectedSiteId, remoteSiteId } ) );
+		listenerApi.cancelActiveListeners();
+		await listenerApi.delay( SYNC_POLLING_INTERVAL );
+		const state = listenerApi.getState();
+
+		const promises = Object.values( state.syncOperations.pushStates )
+			.filter( ( pushState ) => PUSH_POLLING_KEYS.includes( pushState.status.key ) )
+			.map( ( pushState ) =>
+				listenerApi.dispatch(
+					syncOperationsThunks.pollPushProgress( {
+						client,
+						signal: listenerApi.signal,
+						selectedSiteId: pushState.selectedSite.id,
+						remoteSiteId: pushState.remoteSiteId,
+					} )
+				)
+			);
+
+		await Promise.all( promises );
 	},
 } );
 
-const PULL_POLLING_INTERVAL = 2000;
-
 // Poll pull backup when state has a backupId and is in-progress
-listenerMiddleware.startListening( {
+startAppListening( {
 	actionCreator: syncOperationsActions.updatePullState,
 	async effect( action, listenerApi ) {
-		const { selectedSiteId, remoteSiteId } = action.payload;
-		const pullState = syncOperationsSelectors.selectPullState(
-			selectedSiteId,
-			remoteSiteId
-		)( listenerApi.getState() );
-		if ( ! pullState?.status || pullState.status.key !== 'in-progress' || ! pullState.backupId ) {
-			return;
-		}
-
-		await listenerApi.delay( PULL_POLLING_INTERVAL );
-
 		const client = getWpcomClient();
 		if ( ! client ) {
 			return;
 		}
 
-		void listenerApi.dispatch( pollPullBackupThunk( { client, selectedSiteId, remoteSiteId } ) );
+		listenerApi.cancelActiveListeners();
+		await listenerApi.delay( SYNC_POLLING_INTERVAL );
+		const state = listenerApi.getState();
+
+		const promises = Object.values( state.syncOperations.pullStates )
+			.filter( ( pullState ) => pullState.status.key === 'in-progress' )
+			.map( ( pullState ) =>
+				listenerApi.dispatch(
+					syncOperationsThunks.pollPullBackup( {
+						client,
+						signal: listenerApi.signal,
+						selectedSiteId: pullState.selectedSite.id,
+						remoteSiteId: pullState.remoteSiteId,
+					} )
+				)
+			);
+
+		await Promise.all( promises );
 	},
 } );
 

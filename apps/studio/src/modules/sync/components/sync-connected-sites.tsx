@@ -34,7 +34,11 @@ import {
 } from 'src/modules/sync/lib/convert-tree-to-sync-options';
 import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
 import { useAppDispatch, useI18nLocale, useRootSelector } from 'src/stores';
-import { syncOperationsSelectors, syncOperationsThunks } from 'src/stores/sync';
+import {
+	syncOperationsSelectors,
+	syncOperationsThunks,
+	syncOperationsActions,
+} from 'src/stores/sync';
 import {
 	connectedSitesActions,
 	useGetConnectedSitesForLocalSiteQuery,
@@ -331,7 +335,7 @@ const SyncConnectedSitesSectionItem = ( {
 						<ClearAction
 							onClick={ () =>
 								dispatch(
-									syncOperationsThunks.clearPullState( {
+									syncOperationsActions.clearPullState( {
 										selectedSiteId: selectedSite.id,
 										remoteSiteId: connectedSite.id,
 									} )
@@ -345,7 +349,7 @@ const SyncConnectedSitesSectionItem = ( {
 						<ClearAction
 							onClick={ () =>
 								dispatch(
-									syncOperationsThunks.clearPullState( {
+									syncOperationsActions.clearPullState( {
 										selectedSiteId: selectedSite.id,
 										remoteSiteId: connectedSite.id,
 									} )
@@ -360,7 +364,7 @@ const SyncConnectedSitesSectionItem = ( {
 						<ClearAction
 							onClick={ () =>
 								dispatch(
-									syncOperationsThunks.clearPushState( {
+									syncOperationsActions.clearPushState( {
 										selectedSiteId: selectedSite.id,
 										remoteSiteId: connectedSite.id,
 									} )
@@ -375,7 +379,7 @@ const SyncConnectedSitesSectionItem = ( {
 						<ClearAction
 							onClick={ () =>
 								dispatch(
-									syncOperationsThunks.clearPullState( {
+									syncOperationsActions.clearPullState( {
 										selectedSiteId: selectedSite.id,
 										remoteSiteId: connectedSite.id,
 									} )
@@ -443,7 +447,7 @@ const SyncConnectedSitesSectionItem = ( {
 						<ClearAction
 							onClick={ () =>
 								dispatch(
-									syncOperationsThunks.clearPushState( {
+									syncOperationsActions.clearPushState( {
 										selectedSiteId: selectedSite.id,
 										remoteSiteId: connectedSite.id,
 									} )
@@ -458,7 +462,7 @@ const SyncConnectedSitesSectionItem = ( {
 						<ClearAction
 							onClick={ () =>
 								dispatch(
-									syncOperationsThunks.clearPushState( {
+									syncOperationsActions.clearPushState( {
 										selectedSiteId: selectedSite.id,
 										remoteSiteId: connectedSite.id,
 									} )
@@ -530,7 +534,7 @@ const SyncConnectedSiteSection = ( {
 				}
 				disconnectSite( connectedSite.id );
 				void dispatch(
-					syncOperationsThunks.clearPullState( {
+					syncOperationsActions.clearPullState( {
 						selectedSiteId: selectedSite.id,
 						remoteSiteId: connectedSite.id,
 					} )

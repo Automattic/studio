@@ -162,7 +162,7 @@ export async function exportSiteForPush(
 
 	try {
 		if ( abortController.signal.aborted ) {
-			throw new Error( 'Export aborted' );
+			throw new Error( 'PUSH_CANCELLED' );
 		}
 
 		await keepSqliteIntegrationUpdated( site.details.path );
@@ -199,7 +199,7 @@ export async function exportSiteForPush(
 			await fsPromises.unlink( archivePath ).catch( () => {
 				// Ignore cleanup errors
 			} );
-			throw new Error( 'Export aborted' );
+			throw new Error( 'PUSH_CANCELLED' );
 		}
 
 		const stats = fs.statSync( archivePath );
@@ -338,7 +338,7 @@ export async function pushArchive(
 
 		abortController.signal.addEventListener( 'abort', () => {
 			void upload.abort();
-			reject( new Error( 'Upload Aborted' ) );
+			reject( new Error( 'PUSH_CANCELLED' ) );
 		} );
 
 		const existingUploadState = SYNC_TUS_UPLOADS.get( uploadKey );
@@ -359,6 +359,7 @@ export async function pushArchive(
 		SYNC_TUS_UPLOADS.delete( uploadKey );
 		file.destroy();
 		file.close();
+		fs.unlinkSync( archivePath );
 	} );
 
 	const wpcom = wpcomFactory( token.accessToken, wpcomXhrRequest );
@@ -385,6 +386,10 @@ export async function pushArchive(
 
 		return { success: true };
 	} catch ( error ) {
+		if ( abortController.signal.aborted ) {
+			throw error;
+		}
+
 		const parseResult = z.object( { error: z.string() } ).safeParse( error );
 
 		if ( parseResult.success ) {

@@ -99,12 +99,12 @@ function generateVersionLabel(
 	return shortName;
 }
 
-interface WordPressVersion {
+type WordPressVersion = {
 	isBeta: boolean;
 	isDevelopment: boolean;
 	label: string;
 	value: string;
-}
+};
 
 export const wordpressVersionsApi = createApi( {
 	reducerPath: 'wordpressVersionsApi',

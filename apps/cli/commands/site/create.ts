@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { confirm, input, select } from '@inquirer/prompts';
 import { SupportedPHPVersions } from '@php-wasm/universal';
 import {
 	DEFAULT_PHP_VERSION,
@@ -34,6 +35,7 @@ import {
 	isValidWordPressVersion,
 	isWordPressVersionAtLeast,
 } from '@studio/common/lib/wordpress-version-utils';
+import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
 import { Blueprint, StepDefinition } from '@wp-playground/blueprints';
@@ -47,6 +49,8 @@ import {
 	updateSiteAutoStart,
 	updateSiteLatestCliPid,
 } from 'cli/lib/appdata';
+import { generateSiteName, getDefaultSitePath } from 'cli/lib/generate-site-name';
+import { isInteractive } from 'cli/lib/is-interactive';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { connect, disconnect, emitSiteEvent } from 'cli/lib/pm2-manager';
 import { getServerFilesPath } from 'cli/lib/server-files';
@@ -463,14 +467,14 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'wp', {
 					type: 'string',
 					describe: __( 'WordPress version (e.g., "latest", "6.4", "6.4.1")' ),
-					default: DEFAULT_WORDPRESS_VERSION,
+					defaultDescription: DEFAULT_WORDPRESS_VERSION,
 					coerce: coerceWpVersion,
 				} )
 				.option( 'php', {
 					type: 'string',
 					describe: __( 'PHP version' ),
 					choices: ALLOWED_PHP_VERSIONS,
-					default: DEFAULT_PHP_VERSION,
+					defaultDescription: DEFAULT_PHP_VERSION,
 				} )
 				.option( 'domain', {
 					type: 'string',
@@ -502,13 +506,98 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} );
 		},
 		handler: async ( argv ) => {
+			let siteName = argv.name as string | undefined;
+			let sitePath = argv.path;
+			let wpVersion = argv.wp as string | undefined;
+			let phpVersion = argv.php as string | undefined;
+			let customDomain = argv.domain as string | undefined;
+			let enableHttps = !! argv.https;
+
+			try {
+				if ( isInteractive() ) {
+					if ( ! siteName ) {
+						const defaultName = await generateSiteName();
+						siteName = await input( {
+							message: __( 'Site name:' ),
+							default: defaultName,
+						} );
+					}
+
+					const pathWasExplicitlyProvided = sitePath !== process.cwd();
+					if ( ! pathWasExplicitlyProvided ) {
+						const suggestedPath = getDefaultSitePath( siteName || __( 'My WordPress Website' ) );
+						const promptedPath = await input( {
+							message: __( 'Site path:' ),
+							default: suggestedPath,
+						} );
+						sitePath = path.resolve( untildify( promptedPath ) );
+					}
+
+					if ( ! wpVersion ) {
+						let wpChoices: { name: string; value: string }[];
+						try {
+							const versions = await fetchWordPressVersions();
+							wpChoices = versions.map( ( v ) => ( {
+								name: v.value === 'latest' ? `latest (${ v.label })` : v.label,
+								value: v.value,
+							} ) );
+						} catch {
+							// Offline or API failure — offer only "latest"
+							wpChoices = [
+								{
+									name: sprintf( __( '%s (recommended)' ), 'Latest' ),
+									value: 'latest',
+								},
+							];
+						}
+						wpVersion = await select( {
+							message: __( 'WordPress version:' ),
+							choices: wpChoices,
+							default: DEFAULT_WORDPRESS_VERSION,
+						} );
+					}
+
+					if ( ! phpVersion ) {
+						phpVersion = await select( {
+							message: __( 'PHP version:' ),
+							choices: ALLOWED_PHP_VERSIONS.map( ( v ) => ( {
+								name: v === DEFAULT_PHP_VERSION ? sprintf( __( '%s (recommended)' ), v ) : v,
+								value: v,
+							} ) ),
+							default: DEFAULT_PHP_VERSION,
+						} );
+					}
+
+					if ( ! customDomain ) {
+						customDomain =
+							( await input( {
+								message: __( 'Custom domain (leave empty to skip):' ),
+							} ) ) || undefined;
+					}
+
+					if ( customDomain && ! argv.https ) {
+						enableHttps = await confirm( {
+							message: __( 'Enable HTTPS?' ),
+							default: false,
+						} );
+					}
+				}
+			} catch {
+				// User cancelled the prompt (Ctrl+C)
+				return;
+			}
+
+			// Apply defaults for non-interactive mode when flags weren't provided
+			wpVersion = wpVersion ?? DEFAULT_WORDPRESS_VERSION;
+			phpVersion = phpVersion ?? DEFAULT_PHP_VERSION;
+
 			const config: CreateCommandOptions = {
-				name: argv.name,
+				name: siteName,
 				siteId: argv.id,
-				wpVersion: argv.wp,
-				phpVersion: argv.php,
-				customDomain: argv.domain,
-				enableHttps: !! argv.https,
+				wpVersion,
+				phpVersion,
+				customDomain,
+				enableHttps,
 				noStart: ! argv.start,
 				skipBrowser: !! argv.skipBrowser,
 				skipLogDetails: !! argv.skipLogDetails,
@@ -531,7 +620,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			}
 
 			try {
-				await runCommand( argv.path, config );
+				await runCommand( sitePath, config );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );

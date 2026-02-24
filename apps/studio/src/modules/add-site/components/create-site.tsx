@@ -35,7 +35,7 @@ export default function CreateSite( {
 	defaultValues,
 	onSelectPath,
 	onSiteNameChange,
-	existingDomainNames = [],
+	existingDomainNames,
 	blueprintPreferredVersions,
 	blueprintSuggestedDomain,
 	blueprintSuggestedHttps,

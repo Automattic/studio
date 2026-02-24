@@ -518,13 +518,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 									inputRef.current?.focus();
 								} }
 								showExamplePrompts={ messages.length === 0 }
-								messages={ [
-									__( "Hi! I'm Kit, your AI assistant." ),
-									__(
-										"I can design and build just about anything. I can make stores, blogs, portfolios, apps, you name it. Just describe what you want and I'll make it happen."
-									),
-									__( 'So, what are we making?' ),
-								] }
+								messages={ data?.messages ?? [] }
 								examplePrompts={ data?.example_prompts ?? [] }
 								disabled={ disabled }
 								isLoading={ isLoading }

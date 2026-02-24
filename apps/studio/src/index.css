@@ -16,6 +16,7 @@
 	--color-frame-theme: #3858e9;
 	--color-frame-theme-hover: #2145e6;
 	--color-frame-code-text: #1d2327;
+	--color-frame-running: #008a20;
 	--color-frame-error: #d63638;
 	--color-frame-tab-active: #000;
 	--wp-admin-theme-color: var(--color-frame-theme);
@@ -36,6 +37,7 @@
 		--color-frame-theme: #6b8aff;
 		--color-frame-theme-hover: #8da6ff;
 		--color-frame-code-text: #e0e0e0;
+		--color-frame-running: #1ed15a;
 		--color-frame-error: #f87171;
 		--color-frame-tab-active: #fff;
 	}

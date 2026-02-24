@@ -163,6 +163,7 @@ module.exports = {
 				'frame-theme': 'var(--color-frame-theme)',
 				'frame-theme-hover': 'var(--color-frame-theme-hover)',
 				'frame-code-text': 'var(--color-frame-code-text)',
+				'frame-running': 'var(--color-frame-running)',
 				'frame-error': 'var(--color-frame-error)',
 				'frame-tab-active': 'var(--color-frame-tab-active)',
 			},

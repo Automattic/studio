@@ -41,5 +41,6 @@ Then continue with:
 - Avoid using the "core/group" block for empty divs that only have a styling purpose. You MUST use the "core/spacer" block for that instead.
 - Do not use inline style or style block attribute: To add custom CSS and styles to blocks, you MUST use the \`className\` attribute and define styles in \`style.css\`. The custom classname should also be added to the outermost wrapper of the block (the element that corresponds to the block comment) and not to inner elements, as the block editor compares inner HTML against its expected output and any difference causes "invalid block" errors.
 - Use patterns for complex block structures: For complex sections with multiple nested blocks, create a reusable pattern in the WordPress admin and then use the \`pattern\` attribute in your block comments to insert it. This ensures the content is editable and maintainable for users.
-- If use have a group block with a style.background property in the block attributes, you MUST add a has-background class to the block's wrapper element classes.`;
+- If use have a group block with a style.background property in the block attributes, you MUST add a has-background class to the block's wrapper element classes.
+- Do not use the style.backgroundColor or style.textColor block attributes.`;
 }

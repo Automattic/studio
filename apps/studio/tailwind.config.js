@@ -153,6 +153,18 @@ module.exports = {
 				'development-text': 'hsl(200, 95%, 28%)',
 				'circle-env-production': '#069e08',
 				'circle-env-staging': '#f7ba42',
+				// Content frame colors (CSS custom properties, swap in dark mode)
+				frame: 'var(--color-frame-bg)',
+				'frame-text': 'var(--color-frame-text)',
+				'frame-text-secondary': 'var(--color-frame-text-secondary)',
+				'frame-border': 'var(--color-frame-border)',
+				'frame-surface': 'var(--color-frame-surface)',
+				'frame-surface-alt': 'var(--color-frame-surface-alt)',
+				'frame-link': 'var(--color-frame-link)',
+				'frame-link-hover': 'var(--color-frame-link-hover)',
+				'frame-code-text': 'var(--color-frame-code-text)',
+				'frame-error': 'var(--color-frame-error)',
+				'frame-tab-active': 'var(--color-frame-tab-active)',
 			},
 			spacing: {
 				chrome: `${ APP_CHROME_SPACING }px`,

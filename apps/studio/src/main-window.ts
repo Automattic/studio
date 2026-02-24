@@ -1,4 +1,4 @@
-import { BrowserWindow, type BrowserWindowConstructorOptions, screen, app } from 'electron';
+import { BrowserWindow, type BrowserWindowConstructorOptions, screen, app, nativeTheme } from 'electron';
 import * as path from 'path';
 import { portFinder } from '@studio/common/lib/port-finder';
 import {
@@ -56,6 +56,8 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 	if ( mainWindow && ! mainWindow.isDestroyed() ) {
 		return mainWindow;
 	}
+
+	nativeTheme.themeSource = 'system';
 
 	const savedBounds = await loadWindowBounds();
 	let windowOptions: BrowserWindowConstructorOptions = {

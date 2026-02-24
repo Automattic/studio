@@ -103,6 +103,15 @@ lane :distribute_release_build do |version: read_package_json_version|
     next
   end
 
+  # Create the tag or draft GitHub release only after the build succeeds.
+  # This avoids orphan tags or draft releases if the build fails.
+  if version.include?('beta')
+    add_git_tag(tag: release_tag)
+    push_git_tags(tag: release_tag)
+  else
+    create_draft_github_release(version: version, release_tag: release_tag, builds: builds)
+  end
+
   slack(
     username: 'CI Bot',
     icon_url: 'https://octodex.github.com/images/jenktocat.jpg',
@@ -115,10 +124,6 @@ lane :distribute_release_build do |version: read_package_json_version|
     },
     default_payloads: []
   )
-
-  # For final releases (not betas), append download links to the draft GitHub release.
-  # Betas only have tags (no GitHub release), so get_github_release returns nil and this is skipped.
-  append_download_links_to_github_release(release_tag: release_tag, builds: builds)
 end
 
 ########################################################################
@@ -210,7 +215,7 @@ lane :new_beta_release do |version:, skip_confirm: false|
 
   # Guard against version mismatch (e.g. package.json has 1.7.4-beta3 but version param is 1.8.0)
   # Skip the check when current_beta is 0, meaning this is the first beta (called from code_freeze before any bump).
-  if current_beta > 0
+  if current_beta.positive?
     base_version = current_version.sub(/-beta\d+$/, '')
     UI.user_error!("Version mismatch: package.json has #{current_version} but expected #{version}-betaN") unless base_version == version
   end
@@ -220,30 +225,25 @@ lane :new_beta_release do |version:, skip_confirm: false|
   UI.important <<~PROMPT
     Creating new beta release #{new_version}. This will:
     - Bump version to #{new_version}
-    - Tag v#{new_version}
     - Trigger a release build for all platforms (macOS, Windows), which will then:
       - Upload build artifacts to the Apps CDN
+      - Tag v#{new_version}
       - Notify #dotcom-studio on Slack
   PROMPT
   next unless skip_confirm || UI.confirm('Continue?')
 
   bump_version_commit_and_push(version: new_version)
 
-  # Tag the beta release
-  tag_name = "v#{new_version}"
-  add_git_tag(tag: tag_name)
-  push_git_tags(tag: tag_name)
-
   trigger_release_build(version: new_version)
 
-  UI.success("New beta release created: #{tag_name}")
+  UI.success("New beta release created: v#{new_version}")
 end
 
-# Finalize the release by removing the beta suffix and preparing the final version.
+# Finalize the release by removing the beta suffix and triggering the final build.
 #
 # - Bumps version to the final release number (removes beta suffix)
-# - Creates a draft GitHub release with release notes (which also creates the tag)
 # - Triggers a release build in Buildkite
+# - The build creates a draft GitHub release (with notes and download links) after uploading to CDN
 # - The draft is published later by the {publish_release} lane
 #
 # @param version [String] The final version number (e.g., '1.7.4')
@@ -253,41 +253,23 @@ lane :finalize_release do |version:, skip_confirm: false|
   UI.important <<~PROMPT
     Finalizing release #{version}. This will:
     - Bump version to #{version} (remove beta suffix)
-    - Create a draft GitHub release with release notes
     - Trigger a release build for all platforms (macOS, Windows), which will then:
       - Upload build artifacts to the Apps CDN
-      - Add download links to the draft GitHub release
+      - Create a draft GitHub release with release notes and download links
       - Notify #dotcom-studio on Slack
   PROMPT
   next unless skip_confirm || UI.confirm('Continue?')
 
   bump_version_commit_and_push(version: version)
 
-  # Extract release notes and write to a temp file for the GitHub release action
-  notes = extract_release_notes(version: version)
-  release_notes_path = File.join(PROJECT_ROOT_FOLDER, 'fastlane', 'github_release_notes.txt')
-  File.write(release_notes_path, notes)
-
-  # Create draft GitHub release with release notes (also creates the tag)
-  tag_name = "v#{version}"
-  create_github_release(
-    repository: GITHUB_REPO,
-    version: tag_name,
-    target: "release/#{version}",
-    release_notes_file_path: release_notes_path,
-    release_assets: [],
-    prerelease: false,
-    is_draft: true
-  )
-
   trigger_release_build(version: version)
 
-  UI.success("Release finalized: #{tag_name} (draft release created)")
+  UI.success("Release finalized: v#{version} (build triggered)")
 end
 
 # Publish the release by making the draft GitHub release public and creating a backmerge PR.
 #
-# - Publishes the draft GitHub release created by {finalize_release}
+# - Publishes the draft GitHub release created by {distribute_release_build}
 # - Creates a backmerge PR from the release branch to trunk (with intermediate branch for conflicts)
 #
 # @param version [String] The version to publish (e.g., '1.7.4')
@@ -760,37 +742,42 @@ def create_backmerge_pr(source_branch:, github_username: nil)
   )
 end
 
-# Append download links to an existing draft GitHub release.
-# Fetches the current release body, appends a formatted download section, and updates the release.
-# Silently skips if no GitHub release exists for the tag (e.g., beta releases only have tags).
-def append_download_links_to_github_release(release_tag:, builds:)
-  release_info = get_github_release(url: GITHUB_REPO, version: release_tag)
-  return unless release_info
+# Create a draft GitHub release with release notes and download links.
+# Called from distribute_release_build after a successful final (non-beta) build.
+def create_draft_github_release(version:, release_tag:, builds:)
+  notes = extract_release_notes(version: version)
 
-  version = release_tag.delete_prefix('v')
-
+  # Format download links from CDN URLs
   download_link_keys = %i[x64_dmg arm64_dmg windows windows_arm64]
   links = download_link_keys.filter_map do |key|
     build = builds[key]
     next unless build&.dig(:cdn_url)
 
-    label = build[:name].sub(' - ', ' – ') # Use en-dash like existing releases
+    label = build[:name].sub(' - ', ' \u2013 ') # Use en-dash like existing releases
     "[#{label}](#{build[:cdn_url]})"
   end
-  return if links.empty?
 
-  download_section = "---\nDownload Studio #{version}: #{links.join(', ')}\n\n" \
-                     'The latest version is always available on the [WordPress Studio](https://developer.wordpress.com/studio/) site.'
-  updated_body = "#{release_info['body']}\n\n#{download_section}"
+  body = notes
+  unless links.empty?
+    body += "\n\n---\nDownload Studio #{version}: #{links.join(', ')}\n\n" \
+            'The latest version is always available on the [WordPress Studio](https://developer.wordpress.com/studio/) site.'
+  end
 
-  github_api(
-    server_url: 'https://api.github.com',
-    http_method: 'PATCH',
-    path: "/repos/#{GITHUB_REPO}/releases/#{release_info['id']}",
-    body: { body: updated_body }.to_json
+  release_notes_path = File.join(PROJECT_ROOT_FOLDER, 'fastlane', 'github_release_notes.txt')
+  File.write(release_notes_path, body)
+
+  base_version = version.sub(/-beta\d+$/, '')
+  create_github_release(
+    repository: GITHUB_REPO,
+    version: release_tag,
+    target: "release/#{base_version}",
+    release_notes_file_path: release_notes_path,
+    release_assets: [],
+    prerelease: false,
+    is_draft: true
   )
 
-  UI.success("Updated GitHub release #{release_tag} with download links")
+  UI.success("Created draft GitHub release #{release_tag} with download links")
 end
 
 # Trigger a release build in Buildkite for the given version.

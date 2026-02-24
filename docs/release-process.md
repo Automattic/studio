@@ -14,14 +14,14 @@ Builds are signed, notarized (macOS), and uploaded to the Apps CDN automatically
 - Extracts translatable strings and commits them to the release branch (a wpcom cron imports them to GlotPress via a backmerge PR)
 - Generates draft release notes from merged PRs and commits them to the release branch
 - Creates a backmerge PR from the release branch into `trunk`
-- Bumps version to `<version>-beta1`, tags it, and triggers a build
+- Bumps version to `<version>-beta1` and triggers a build (the build tags and uploads to CDN)
 
 ### 2. Beta Releases
 
 **ReleasesV2 milestone**: Beta Release | **Fastlane lane**: `new_beta_release`
 
 - Increments the beta number (e.g. beta1 → beta2)
-- Tags the new beta version and triggers a build
+- Triggers a build (the build tags the new version and uploads to CDN)
 - Repeat as needed for additional betas
 
 ### 3. Pre-Release
@@ -37,8 +37,7 @@ Builds are signed, notarized (macOS), and uploaded to the Apps CDN automatically
 **ReleasesV2 milestone**: Release | **Fastlane lane**: `finalize_release`
 
 - Removes beta suffix (sets version to `<version>`)
-- Creates a **draft** GitHub release with notes from `RELEASE-NOTES.txt`
-- Triggers the final release build, which uploads to the Apps CDN, appends download links to the draft GitHub release, and notifies Slack
+- Triggers the final release build, which uploads to the Apps CDN, creates a **draft** GitHub release with notes and download links, and notifies Slack
 
 ### 5. Publish Release
 

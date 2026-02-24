@@ -86,6 +86,9 @@ steps:
 
   - label: ":rocket: Publish Release Builds"
     command: |
+      echo "--- :robot_face: Use bot for Git operations"
+      source use-bot-for-git
+
       .buildkite/commands/checkout-release-branch.sh "${RELEASE_VERSION}"
 
       echo "--- :node: Downloading Binaries"

@@ -81,7 +81,6 @@ test.describe( 'Site Navigation', () => {
 	test( 'opens and automatically logs in to WP Admin', async ( { page } ) => {
 		// Navigate to wp-admin with auto-login
 		await page.goto( getUrlWithAutoLogin( wpAdminUrl ) );
-		await page.waitForLoadState( 'networkidle' );
 
 		// Verify we're on the dashboard
 		await expect( page ).toHaveURL( /wp-admin/ );

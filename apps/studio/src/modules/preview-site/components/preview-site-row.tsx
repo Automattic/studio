@@ -154,7 +154,7 @@ export function PreviewSiteRow( {
 				<div className="flex ltr:ml-auto rtl:mr-auto">
 					<div className="w-[150px] text-a8c-gray-700 flex items-center pl-4">
 						{ updateOperation?.status === 'pending' ? (
-							<div className="flex items-center text-gray-900">
+							<div className="flex items-center text-frame-text">
 								<Spinner className="!mt-0 !mx-2" />
 								{ __( 'Updating' ) }
 							</div>

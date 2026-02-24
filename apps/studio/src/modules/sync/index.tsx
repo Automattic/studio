@@ -205,7 +205,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 							disconnectSite( { siteId: id, localSiteId: selectedSite.id } )
 						}
 					/>
-					<div className="sticky bottom-0 bg-white/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
+					<div className="sticky bottom-0 bg-frame/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
 						<ConnectButton
 							variant="primary"
 							connectSite={ () => dispatch( connectedSitesActions.openModal( 'connect' ) ) }

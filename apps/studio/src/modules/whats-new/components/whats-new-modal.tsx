@@ -32,10 +32,10 @@ const PageContent = ( {
 	isIntroPage = false,
 }: Omit< WhatsNewPage, 'image' > & { isIntroPage?: boolean } ) => (
 	<div className="px-8 pt-3 pb-2 flex flex-col h-full">
-		<h2 className="text-xl mb-2 text-gray-900 line-clamp-2">{ title }</h2>
+		<h2 className="text-xl mb-2 text-frame-text line-clamp-2">{ title }</h2>
 		<p
 			className={ cx(
-				'text-gray-900 text-m leading-s',
+				'text-frame-text text-m leading-s',
 				isIntroPage ? 'line-clamp-5' : 'line-clamp-3'
 			) }
 		>

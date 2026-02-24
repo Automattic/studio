@@ -56,7 +56,7 @@ export function Onboarding() {
 				<GradientBox />
 			</div>
 
-			<div className="w-1/2 bg-white p-[50px] flex flex-col relative overflow-y-auto app-no-drag-region">
+			<div className="w-1/2 bg-frame text-frame-text p-[50px] flex flex-col relative overflow-y-auto app-no-drag-region">
 				<div className="flex flex-col justify-center items-center flex-[1_0_0%] gap-8">
 					<OnboardingConnectToWpcom onSkip={ handleSkip } />
 				</div>

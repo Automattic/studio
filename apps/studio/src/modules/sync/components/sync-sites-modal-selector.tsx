@@ -104,7 +104,7 @@ export function SyncSitesModalSelector( {
 				/>
 
 				{ isOffline && (
-					<div className="absolute inset-0 bg-white/80 z-10 flex items-center justify-center">
+					<div className="absolute inset-0 bg-frame/80 z-10 flex items-center justify-center">
 						<SyncSitesOfflineView mode={ mode } />
 					</div>
 				) }
@@ -123,9 +123,9 @@ export function SearchSites( {
 	const { __ } = useI18n();
 	const locale = useI18nLocale();
 	return (
-		<div className="flex flex-col px-8 pb-6 border-b border-a8c-gray-5 shrink-0">
+		<div className="flex flex-col px-8 pb-6 border-b border-frame-border shrink-0">
 			<SearchControl
-				className="w-full mt-0.5 mb-2 text-black"
+				className="w-full mt-0.5 mb-2 text-frame-text"
 				placeholder={ __( 'Search sites' ) }
 				onChange={ ( value ) => {
 					setSearchQuery( value );
@@ -134,7 +134,7 @@ export function SearchSites( {
 				autoFocus
 				__nextHasNoMarginBottom={ true }
 			/>
-			<p className="a8c-helper-text text-gray-500">
+			<p className="a8c-helper-text text-frame-text-secondary">
 				{ __( "Can't find your site?" ) }{ ' ' }
 				<Button
 					variant="link"
@@ -263,7 +263,7 @@ function SiteItem( {
 			className={ cx(
 				'flex py-3 px-8 items-center border-b justify-between gap-4',
 				isSelected && 'bg-a8c-blue-50 text-white border-a8c-blue-50',
-				! isSelected && 'text-black border-a8c-gray-0',
+				! isSelected && 'text-frame-text border-frame-border',
 				! isSelected && isSyncable && 'hover:bg-a8c-blue-5',
 				isSyncable &&
 					'focus:outline-none focus:ring-1 focus:ring-a8c-blue-50 focus:relative focus:z-10'
@@ -424,7 +424,7 @@ function Footer( {
 	}, [ disabled ] );
 
 	return (
-		<div className="flex px-8 py-4 border-t border-a8c-gray-5 justify-between items-center">
+		<div className="flex px-8 py-4 border-t border-frame-border justify-between items-center">
 			<CreateButton
 				variant="link"
 				selectedSite={ selectedSite }

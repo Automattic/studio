@@ -110,7 +110,7 @@ const SyncConnectedSiteControls = ( {
 								! isOffline &&
 									! isAnySitePulling &&
 									! isAnySitePushing &&
-									'!text-black hover:!text-a8c-blue-50'
+									'!text-frame-text hover:!text-a8c-blue-50'
 							) }
 							onClick={ () => setSyncDialogType( 'pull' ) }
 							disabled={ isAnySiteSyncing || isOffline }
@@ -151,7 +151,7 @@ const SyncConnectedSiteControls = ( {
 								! isOffline &&
 									! isAnySitePulling &&
 									! isAnySitePushing &&
-									'!text-black hover:!text-a8c-blue-50'
+									'!text-frame-text hover:!text-a8c-blue-50'
 							) }
 							onClick={ () => setSyncDialogType( 'push' ) }
 							disabled={ isAnySiteSyncing || isOffline }
@@ -554,7 +554,7 @@ const SyncConnectedSiteSection = ( {
 	}
 
 	return (
-		<div key={ connectedSite.id } className="flex flex-col gap-2 border-b border-a8c-gray-0 py-5">
+		<div key={ connectedSite.id } className="flex flex-col gap-2 border-b border-frame-border py-5">
 			<div className="flex items-center gap-2 ps-8 pe-5">
 				{ logo }
 				<div className={ cx( 'a8c-label-semibold', hasConnectionErrors && 'error-message' ) }>
@@ -571,7 +571,7 @@ const SyncConnectedSiteSection = ( {
 						<Button
 							variant="link"
 							className={ cx(
-								! isPulling && ! isPushing ? '!text-a8c-gray-70 hover:!text-a8c-red-50' : ''
+								! isPulling && ! isPushing ? '!text-frame-text-secondary hover:!text-a8c-red-50' : ''
 							) }
 							onClick={ handleDisconnectSite }
 							disabled={ isPulling || isPushing }
@@ -584,7 +584,7 @@ const SyncConnectedSiteSection = ( {
 
 			{ hasConnectionErrors && (
 				<div className="flex items-center px-8">
-					<div className="text-[#3C434A]">
+					<div className="text-frame-text">
 						{ createInterpolateElement(
 							__(
 								'<siteUrlButton /> appears to be deleted or is currently unreachable. <button>Get help ↗</button>'

@@ -59,18 +59,18 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 	};
 	const { handleDeleteSite } = useDeleteSite();
 	const { copySite } = useSiteDetails();
-	const [ debugLogExists, setDebugLogExists ] = useState( false );
+	const [ debugLogPath, setDebugLogPath ] = useState< string | null >( null );
 
 	const checkDebugLogExists = useCallback( async () => {
 		if ( ! selectedSite.enableDebugLog ) {
-			setDebugLogExists( false );
+			setDebugLogPath( null );
 			return;
 		}
 		const path = await getIpcApi().getAbsolutePathFromSite(
 			selectedSite.id,
 			'wp-content/debug.log'
 		);
-		setDebugLogExists( path !== null );
+		setDebugLogPath( path );
 	}, [ selectedSite.id, selectedSite.enableDebugLog ] );
 
 	useEffect( () => {
@@ -171,13 +171,8 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 					<SettingsRow label={ __( 'Debug log' ) }>
 						<span className="flex items-center gap-2">
 							{ selectedSite.enableDebugLog ? __( 'Enabled' ) : __( 'Disabled' ) }
-							{ debugLogExists && (
-								<Button
-									variant="link"
-									onClick={ () =>
-										getIpcApi().openLocalPath( `${ selectedSite.path }/wp-content/debug.log` )
-									}
-								>
+							{ debugLogPath && (
+								<Button variant="link" onClick={ () => getIpcApi().openLocalPath( debugLogPath ) }>
 									{ __( 'Open log file' ) }
 								</Button>
 							) }

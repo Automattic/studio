@@ -37,22 +37,18 @@ export function useListenDeepLinkConnection() {
 				remoteSiteId,
 				studioSiteId,
 				autoOpenPush,
-				siteName,
-				siteUrl,
 			}: {
 				remoteSiteId: number;
 				studioSiteId: string;
 				autoOpenPush?: boolean;
-				siteName?: string;
-				siteUrl?: string;
 			}
 		) => {
 			// Create minimal site object optimistically to connect immediately
 			const minimalSite: SyncSite = {
 				id: remoteSiteId,
 				localSiteId: studioSiteId,
-				name: siteName ?? '',
-				url: siteUrl ?? '',
+				name: '',
+				url: '',
 				isStaging: false,
 				isPressable: false,
 				environmentType: null,

@@ -48,8 +48,6 @@ export interface IpcEvents {
 			remoteSiteId: number;
 			studioSiteId: string;
 			autoOpenPush?: boolean;
-			siteName?: string;
-			siteUrl?: string;
 		},
 	];
 	'test-render-failure': [ void ];

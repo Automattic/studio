@@ -63,7 +63,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 				: currentWpVersion,
 		[ selectedSite, currentWpVersion, defaultWordPressVersion ]
 	);
-	const [ selectedWpVersion, setSelectedWpVersion ] = useState( getEffectiveWpVersion() );
+	const [ selectedWpVersion, setSelectedWpVersion ] = useState( () => getEffectiveWpVersion() );
 	const [ useCustomDomain, setUseCustomDomain ] = useState( Boolean( selectedSite?.customDomain ) );
 	const [ customDomain, setCustomDomain ] = useState< string | null >(
 		selectedSite?.customDomain ?? null

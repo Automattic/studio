@@ -152,11 +152,13 @@ function FormPathInputComponent( {
 	);
 }
 
+const EMPTY_STRING_ARRAY: string[] = [];
+
 export const CreateSiteForm = ( {
 	defaultValues = {},
 	onSelectPath,
 	onSiteNameChange,
-	existingDomainNames = [],
+	existingDomainNames = EMPTY_STRING_ARRAY,
 	blueprintPreferredVersions,
 	blueprintSuggestedDomain,
 	blueprintSuggestedHttps,

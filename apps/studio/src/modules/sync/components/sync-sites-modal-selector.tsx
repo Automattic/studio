@@ -268,7 +268,8 @@ function SiteItem( {
 				isSyncable &&
 					'focus:outline-none focus:ring-1 focus:ring-a8c-blue-50 focus:relative focus:z-10'
 			) }
-			role={ isSyncable ? 'button' : undefined }
+			role="button"
+			aria-disabled={ ! isSyncable }
 			tabIndex={ isSyncable ? 0 : -1 }
 			onKeyDown={ ( e: React.KeyboardEvent ) => {
 				if ( ( e.code === 'Space' || e.code === 'Enter' ) && isSyncable ) {

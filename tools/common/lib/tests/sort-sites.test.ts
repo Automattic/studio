@@ -20,4 +20,36 @@ describe( 'sortSites', () => {
 			'Tristan',
 		] );
 	} );
+
+	it( 'should sort sites by sortOrder when available', () => {
+		const sites = [
+			{ name: 'Charlie', sortOrder: 3000 },
+			{ name: 'Alpha', sortOrder: 1000 },
+			{ name: 'Bravo', sortOrder: 2000 },
+		] as SiteDetails[];
+
+		const sortedSites = sortSites( sites );
+
+		expect( sortedSites.map( ( site ) => site.name ) ).toEqual( [ 'Alpha', 'Bravo', 'Charlie' ] );
+	} );
+
+	it( 'should prioritize sortOrder over name', () => {
+		const sites = [
+			{ name: 'Zulu', sortOrder: 3000 },
+			{ name: 'Charlie' },
+			{ name: 'Alpha', sortOrder: 1000 },
+			{ name: 'Bravo' },
+			{ name: 'Beta', sortOrder: 2000 },
+		] as SiteDetails[];
+
+		const sortedSites = sortSites( sites );
+
+		expect( sortedSites.map( ( site ) => site.name ) ).toEqual( [
+			'Alpha',
+			'Beta',
+			'Zulu',
+			'Bravo',
+			'Charlie',
+		] );
+	} );
 } );

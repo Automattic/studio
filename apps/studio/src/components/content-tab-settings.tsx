@@ -1,5 +1,10 @@
 import { decodePassword } from '@studio/common/lib/passwords';
-import { DropdownMenu, MenuGroup, Button } from '@wordpress/components';
+import {
+	DropdownMenu,
+	MenuGroup,
+	Button,
+	__experimentalHeading as Heading,
+} from '@wordpress/components';
 import { moreVertical } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren } from 'react';
@@ -58,9 +63,9 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 	return (
 		<div className="p-8 ltr:pr-4 rtl:pl-4">
 			<div className="flex justify-between items-center mb-4">
-				<h3 role="heading" className="text-black text-sm font-semibold">
+				<Heading level={ 3 } className="text-black text-sm font-semibold">
 					{ __( 'Site details' ) }
-				</h3>
+				</Heading>
 				<div className="flex items-center gap-1">
 					<EditSiteDetails currentWpVersion={ wpVersion } onSave={ refreshWpVersion } />
 					<DropdownMenu
@@ -138,8 +143,19 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 							<span className="line-clamp-1 break-all">{ selectedSite.phpVersion }</span>
 						</div>
 					</SettingsRow>
+					<tr>
+						<th colSpan={ 2 } className="pb-4 ltr:text-left rtl:text-right">
+							<h3 className="text-black text-sm font-semibold mt-4">{ __( 'Debugging' ) }</h3>
+						</th>
+					</tr>
 					<SettingsRow label={ __( 'Xdebug' ) }>
 						<span>{ selectedSite.enableXdebug ? __( 'Enabled' ) : __( 'Disabled' ) }</span>
+					</SettingsRow>
+					<SettingsRow label={ __( 'Debug log' ) }>
+						<span>{ selectedSite.enableDebugLog ? __( 'Enabled' ) : __( 'Disabled' ) }</span>
+					</SettingsRow>
+					<SettingsRow label={ __( 'Debug display' ) }>
+						<span>{ selectedSite.enableDebugDisplay ? __( 'Enabled' ) : __( 'Disabled' ) }</span>
 					</SettingsRow>
 
 					<tr>

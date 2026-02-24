@@ -3,6 +3,7 @@ import * as path from 'path';
 import { portFinder } from '@studio/common/lib/port-finder';
 import {
 	DEFAULT_WIDTH,
+	MACOS_TRAFFIC_LIGHT_POSITION,
 	MAIN_MIN_HEIGHT,
 	MAIN_MIN_WIDTH,
 	WINDOWS_TITLEBAR_HEIGHT,
@@ -161,7 +162,7 @@ function getOSWindowOptions(): Partial< BrowserWindowConstructorOptions > {
 			return {
 				frame: false,
 				titleBarStyle: 'hidden',
-				trafficLightPosition: { x: 20, y: 20 },
+				trafficLightPosition: MACOS_TRAFFIC_LIGHT_POSITION,
 			};
 
 		case 'win32':

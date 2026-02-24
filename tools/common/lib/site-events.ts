@@ -22,6 +22,8 @@ export const siteDetailsSchema = z.object( {
 	isWpAutoUpdating: z.boolean().optional(),
 	autoStart: z.boolean().optional(),
 	enableXdebug: z.boolean().optional(),
+	enableDebugLog: z.boolean().optional(),
+	enableDebugDisplay: z.boolean().optional(),
 } );
 
 export type SiteDetails = z.infer< typeof siteDetailsSchema >;

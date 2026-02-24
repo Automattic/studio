@@ -17,6 +17,8 @@ export interface EditSiteOptions {
 	php?: string;
 	wp?: string;
 	xdebug?: boolean;
+	debugLog?: boolean;
+	debugDisplay?: boolean;
 }
 
 export async function editSiteViaCli( options: EditSiteOptions ): Promise< void > {
@@ -77,6 +79,14 @@ function buildCliArgs( options: EditSiteOptions ): string[] {
 
 	if ( options.xdebug !== undefined ) {
 		args.push( options.xdebug ? '--xdebug' : '--no-xdebug' );
+	}
+
+	if ( options.debugLog !== undefined ) {
+		args.push( options.debugLog ? '--debug-log' : '--no-debug-log' );
+	}
+
+	if ( options.debugDisplay !== undefined ) {
+		args.push( options.debugDisplay ? '--debug-display' : '--no-debug-display' );
 	}
 
 	return args;

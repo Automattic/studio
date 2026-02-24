@@ -212,6 +212,7 @@ const SyncConnectedSitesSectionItem = ( {
 	const { __ } = useI18n();
 	const dispatch = useAppDispatch();
 	const isOffline = useOffline();
+	const getLastSyncTimeText = useLastSyncTimeText();
 	const { importState } = useImportExport();
 	const { getPushUploadPercentage, getPushUploadMessage } = useSyncStatesProgressInfo();
 
@@ -376,18 +377,27 @@ const SyncConnectedSitesSectionItem = ( {
 						</ClearAction>
 					) }
 					{ hasPullFinished && (
-						<ClearAction
-							onClick={ () =>
-								dispatch(
-									syncOperationsActions.clearPullState( {
-										selectedSiteId: selectedSite.id,
-										remoteSiteId: connectedSite.id,
-									} )
-								)
-							}
-						>
-							{ __( 'Pull complete' ) }
-						</ClearAction>
+						<div className="transition-all duration-300 ease-in-out">
+							<DynamicTooltip
+								getTooltipText={ () =>
+									getLastSyncTimeText( connectedSite.lastPullTimestamp, 'pull' )
+								}
+								placement="top-start"
+							>
+								<ClearAction
+									onClick={ () =>
+										dispatch(
+											syncOperationsActions.clearPullState( {
+												selectedSiteId: selectedSite.id,
+												remoteSiteId: connectedSite.id,
+											} )
+										)
+									}
+								>
+									{ __( 'Pull complete' ) }
+								</ClearAction>
+							</DynamicTooltip>
+						</div>
 					) }
 					{ pushState?.status && isUploadingPaused && (
 						<Tooltip
@@ -459,18 +469,27 @@ const SyncConnectedSitesSectionItem = ( {
 					) }
 
 					{ pushState?.status && hasPushFinished && (
-						<ClearAction
-							onClick={ () =>
-								dispatch(
-									syncOperationsActions.clearPushState( {
-										selectedSiteId: selectedSite.id,
-										remoteSiteId: connectedSite.id,
-									} )
-								)
-							}
-						>
-							{ pushState.status.message }
-						</ClearAction>
+						<div className="transition-all duration-300 ease-in-out">
+							<DynamicTooltip
+								getTooltipText={ () =>
+									getLastSyncTimeText( connectedSite.lastPushTimestamp, 'push' )
+								}
+								placement="top-start"
+							>
+								<ClearAction
+									onClick={ () =>
+										dispatch(
+											syncOperationsActions.clearPushState( {
+												selectedSiteId: selectedSite.id,
+												remoteSiteId: connectedSite.id,
+											} )
+										)
+									}
+								>
+									{ pushState.status.message }
+								</ClearAction>
+							</DynamicTooltip>
+						</div>
 					) }
 					{ ! isPulling &&
 						! hasPullFinished &&

@@ -18,8 +18,6 @@ export default function MainSidebar( { className }: MainSidebarProps ) {
 			data-testid="main-sidebar"
 			className={ cx(
 				'text-chrome-inverted relative',
-				isMac() && 'pt-[10px]',
-				! isMac() && 'pt-[38px]',
 				className
 			) }
 		>
@@ -32,7 +30,7 @@ export default function MainSidebar( { className }: MainSidebarProps ) {
 					<div
 						className={ cx(
 							'flex-1 overflow-y-auto sites-scrollbar app-no-drag-region',
-							isMac() ? 'ms-4' : 'ms-3'
+							''
 						) }
 					>
 						<SiteMenu />

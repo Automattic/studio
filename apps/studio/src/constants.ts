@@ -1,7 +1,7 @@
 import { HOUR_MS } from '@studio/common/constants';
 export const DEFAULT_WIDTH = 900;
 export const MAIN_MIN_HEIGHT = 600;
-export const SIDEBAR_WIDTH = 208;
+export const SIDEBAR_WIDTH = 248;
 export const MAIN_MIN_WIDTH = DEFAULT_WIDTH - SIDEBAR_WIDTH + 20;
 export const APP_CHROME_SPACING = 10;
 export const MIN_WIDTH_CLASS_TO_MEASURE = 'app-measure-tabs-width';

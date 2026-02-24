@@ -74,7 +74,7 @@ export default function App() {
 						<MainSidebar
 							className={ cx(
 								'h-full transition-all duration-500',
-								isSidebarVisible ? 'basis-52 flex-shrink-0' : 'basis-0 !min-w-[10px]'
+								isSidebarVisible ? 'basis-[248px] flex-shrink-0' : 'basis-0 !min-w-[10px]'
 							) }
 						/>
 						<main

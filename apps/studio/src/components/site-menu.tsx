@@ -209,8 +209,7 @@ function SiteItem( {
 	return (
 		<li
 			className={ cx(
-				'flex flex-row min-w-[168px] h-8 hover:bg-[#ffffff0C] rounded transition-all ms-1 items-center',
-				isMac() ? 'me-5' : 'me-4',
+				'flex flex-row min-w-[168px] pe-1 hover:bg-[#ffffff0C] rounded transition-all items-center',
 				isSelected && 'bg-[#ffffff19] hover:bg-[#ffffff19]',
 				isDragOver && 'bg-[#ffffff26]'
 			) }
@@ -221,14 +220,14 @@ function SiteItem( {
 			onDrop={ ( e ) => onDrop( e, index ) }
 			onDragEnd={ onDragEnd }
 		>
-			<SiteIcon siteId={ site.id } siteName={ site.name } size={ 16 } className="ml-2" />
 			<button
 				type="button"
-				className="p-2 pl-1.5 text-xs rounded-tl rounded-bl whitespace-nowrap overflow-hidden text-ellipsis w-full text-left rtl:text-right focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-a8c-blue-50"
+				className="flex flex-row items-center gap-2.5 p-2 text-xs rounded-tl rounded-bl whitespace-nowrap overflow-hidden text-ellipsis w-full text-left rtl:text-right focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-a8c-blue-50"
 				onClick={ () => {
 					setSelectedSiteId( site.id );
 				} }
 			>
+				<SiteIcon siteId={ site.id } siteName={ site.name } size={ 28 } />
 				{ site.name }
 			</button>
 			{ showSpinner ? (
@@ -388,11 +387,11 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 				scrollbarGutter: 'stable',
 			} }
 			className={ cx(
-				'w-full overflow-y-auto overflow-x-hidden flex flex-col gap-0.5 pb-4',
+				'w-full overflow-y-auto overflow-x-hidden flex flex-col gap-1 px-2 pb-4',
 				className
 			) }
 		>
-			<ul className="pt-px">
+			<ul className="pt-px flex flex-col gap-0.5">
 				{ sites.map( ( site, index ) => (
 					<SiteItem
 						key={ site.id }

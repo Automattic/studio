@@ -202,7 +202,9 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 			.join( ';' );
 
 		await this.setPathInRegistry( newPath );
-		await rm( STABLE_BIN_DIR_PATH, { recursive: true, force: true } );
+		if ( process.env.NODE_ENV === 'production' ) {
+			await rm( STABLE_BIN_DIR_PATH, { recursive: true, force: true } );
+		}
 	}
 }
 

@@ -10,7 +10,7 @@ export default function LinkButtonComponent( { className, ...props }: ButtonProp
 			{ ...props }
 			variant="link"
 			className={ cx(
-				'px-3 py-2 text-sm font-semibold disabled:opacity-30 !text-gray-600',
+				'px-3 py-2 text-sm font-semibold disabled:opacity-30 !text-frame-text-secondary',
 				className
 			) }
 		/>

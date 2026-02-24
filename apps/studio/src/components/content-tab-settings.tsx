@@ -63,7 +63,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 	return (
 		<div className="p-8 ltr:pr-4 rtl:pl-4">
 			<div className="flex justify-between items-center mb-4">
-				<Heading level={ 3 } className="text-black text-sm font-semibold">
+				<Heading level={ 3 } className="text-frame-text text-sm font-semibold">
 					{ __( 'Site details' ) }
 				</Heading>
 				<div className="flex items-center gap-1">
@@ -145,7 +145,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 					</SettingsRow>
 					<tr>
 						<th colSpan={ 2 } className="pb-4 ltr:text-left rtl:text-right">
-							<h3 className="text-black text-sm font-semibold mt-4">{ __( 'Debugging' ) }</h3>
+							<h3 className="text-frame-text text-sm font-semibold mt-4">{ __( 'Debugging' ) }</h3>
 						</th>
 					</tr>
 					<SettingsRow label={ __( 'Xdebug' ) }>
@@ -160,7 +160,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 
 					<tr>
 						<th colSpan={ 2 } className="pb-4 ltr:text-left rtl:text-right">
-							<h3 className="text-black text-sm font-semibold mt-4">{ __( 'WP Admin' ) }</h3>
+							<h3 className="text-frame-text text-sm font-semibold mt-4">{ __( 'WP Admin' ) }</h3>
 						</th>
 					</tr>
 					<SettingsRow label={ __( 'Username' ) }>

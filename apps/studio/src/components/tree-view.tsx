@@ -165,13 +165,13 @@ const TreeItem = ( {
 			{ expanded && node.children && (
 				<div
 					role="group"
-					className={ cx( 'ps-6', isFirstLevel && 'border border-gray-300 rounded-sm py-2' ) }
+					className={ cx( 'ps-6', isFirstLevel && 'border border-frame-border rounded-sm py-2' ) }
 				>
 					{ node.children.length === 0 ? (
 						renderEmptyContent ? (
 							renderEmptyContent( node.id, node )
 						) : (
-							<div className="text-gray-500 italic" aria-label={ __( 'Empty folder' ) }>
+							<div className="text-frame-text-secondary italic" aria-label={ __( 'Empty folder' ) }>
 								{ __( 'Empty' ) }
 							</div>
 						)

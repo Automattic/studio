@@ -59,7 +59,7 @@ const RightPanel = () => {
 			<div className="text-a8c-gray-20 text-[54px] font-normal leading-[54px]">
 				{ __( 'Uh oh!' ) }
 			</div>
-			<div className="text-black font-normal text-xl leading-[28px] mt-2">
+			<div className="text-frame-text font-normal text-xl leading-[28px] mt-2">
 				{ __( "Something's broken." ) }
 			</div>
 			<div className="mt-6 mb-8 text-a8c-gray-70 leading-[18px] text-[13px]">
@@ -135,7 +135,7 @@ export default function DefaultErrorFallback() {
 							</div>
 						</div>
 					</div>
-					<div className="p-16 bg-white overflow-y-auto h-full flex-grow rounded-chrome app-no-drag-region">
+					<div className="p-16 bg-frame text-frame-text overflow-y-auto h-full flex-grow rounded-chrome app-no-drag-region">
 						<RightPanel />
 					</div>
 				</HStack>

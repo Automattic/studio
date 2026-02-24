@@ -150,7 +150,7 @@ const InitialImportButton = ( {
 				className={ cx(
 					'w-full',
 					disabled
-						? '[&>div.border-zinc-300]:border-gray-400 cursor-not-allowed opacity-50'
+						? '[&>div.border-zinc-300]:border-frame-border cursor-not-allowed opacity-50'
 						: '[&>div.border-zinc-300]:hover:border-a8c-blue-50'
 				) }
 				onClick={ openFileSelector }
@@ -277,8 +277,8 @@ const ImportSite = ( {
 				>
 					<div
 						className={ cx(
-							'h-36 w-full rounded-sm border border-zinc-300 flex-col justify-center items-center inline-flex',
-							isDraggingOver && ! isImporting && 'border-a8c-blue-50 bg-a8c-gray-0'
+							'h-36 w-full rounded-sm border border-frame-border flex-col justify-center items-center inline-flex',
+							isDraggingOver && ! isImporting && 'border-a8c-blue-50 bg-frame-surface'
 						) }
 					>
 						{ isImporting && (
@@ -311,8 +311,8 @@ const ImportSite = ( {
 						) }
 						{ isInitial && (
 							<>
-								<Icon className="!fill-a8c-gray-70" icon={ download } />
-								<span className="text-a8c-gray-70 a8c-body-small mt-1">
+								<Icon className="!fill-frame-text-secondary" icon={ download } />
+								<span className="text-frame-text-secondary a8c-body-small mt-1">
 									{ isDraggingOver
 										? __( 'Drop file' )
 										: __( 'Drag a file here, or click to select a file' ) }

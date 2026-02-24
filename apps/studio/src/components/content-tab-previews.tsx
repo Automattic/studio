@@ -191,7 +191,7 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 		<div className="relative min-h-full flex flex-col">
 			<div className="w-full flex flex-col flex-1">
 				<PreviewSitesTableHeader />
-				<div className="[&>*:not(:last-child)]:border-b [&>*]:border-a8c-gray-5">
+				<div className="[&>*:not(:last-child)]:border-b [&>*]:border-frame-border">
 					{ activeOperation && (
 						<ProgressRow text={ activeOperation.detail } progress={ activeOperation.progress } />
 					) }
@@ -207,7 +207,7 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 								key={ snapshot.atomicSiteId }
 							/>
 						) ) }
-					<div className="sticky bottom-0 bg-white/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
+					<div className="sticky bottom-0 bg-frame/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
 						<CreatePreviewButton
 							onClick={ () => {
 								void dispatch(

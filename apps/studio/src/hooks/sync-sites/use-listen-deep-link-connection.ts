@@ -102,15 +102,13 @@ export function useListenDeepLinkConnection() {
 					dispatch( connectedSitesApi.util.invalidateTags( [ 'ConnectedSites' ] ) );
 				}
 
-				fetchSingleSitePromise.unsubscribe();
-
 				// Refetch all sites to update syncSites (used by the push/pull modal).
 				// Await so loading state persists until the modal can display full site data.
 				await refetchWpComSites();
 			} catch ( error ) {
 				console.error( 'Error during site connection:', error );
 			} finally {
-				// Always clear loading state, even on error
+				fetchSingleSitePromise.unsubscribe();
 				dispatch( connectedSitesActions.removeLoadingSiteId( remoteSiteId ) );
 			}
 		}

@@ -265,10 +265,12 @@ function SiteItem( {
 				isSelected && 'bg-a8c-blue-50 text-white border-a8c-blue-50',
 				! isSelected && 'text-black border-a8c-gray-0',
 				! isSelected && isSyncable && 'hover:bg-a8c-blue-5',
-				isSyncable &&
-					'focus:outline-none focus:ring-1 focus:ring-a8c-blue-50 focus:relative focus:z-10'
+				isSyncable
+					? 'cursor-pointer focus:outline-none focus:ring-1 focus:ring-a8c-blue-50 focus:relative focus:z-10'
+					: 'cursor-default'
 			) }
-			role={ isSyncable ? 'button' : undefined }
+			role="button"
+			aria-disabled={ ! isSyncable }
 			tabIndex={ isSyncable ? 0 : -1 }
 			onKeyDown={ ( e: React.KeyboardEvent ) => {
 				if ( ( e.code === 'Space' || e.code === 'Enter' ) && isSyncable ) {

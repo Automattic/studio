@@ -156,7 +156,7 @@ export const CreateSiteForm = ( {
 	defaultValues = {},
 	onSelectPath,
 	onSiteNameChange,
-	existingDomainNames = [],
+	existingDomainNames,
 	blueprintPreferredVersions,
 	blueprintSuggestedDomain,
 	blueprintSuggestedHttps,
@@ -240,7 +240,7 @@ export const CreateSiteForm = ( {
 			const generatedDomainName = generateCustomDomainFromSiteName( siteName );
 			const domainToValidate = customDomain ?? generatedDomainName;
 			setCustomDomainError(
-				getDomainNameValidationError( useCustomDomain, domainToValidate, existingDomainNames )
+				getDomainNameValidationError( useCustomDomain, domainToValidate, existingDomainNames || [] )
 			);
 		} else {
 			setCustomDomainError( '' );

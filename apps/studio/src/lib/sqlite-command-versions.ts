@@ -84,7 +84,7 @@ async function checkForUpdate(): Promise< DistributionCheckResult > {
 	}
 }
 
-export async function getSQLiteCommandVersion( distributionPath: string ) {
+async function getSQLiteCommandVersion( distributionPath: string ) {
 	try {
 		const versionValue = await fs.readFile(
 			path.join( distributionPath, VERSION_FILENAME ),

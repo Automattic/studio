@@ -203,6 +203,7 @@ const SyncConnectedSitesSectionItem = ( {
 		cancelPush,
 		pauseUpload,
 		resumeUpload,
+		getLastSyncTimeText,
 	} = useSyncSites();
 	const { importState } = useImportExport();
 	const {
@@ -335,9 +336,16 @@ const SyncConnectedSitesSectionItem = ( {
 					) }
 					{ hasPullFinished && (
 						<div className="transition-all duration-300 ease-in-out">
-							<ClearAction onClick={ () => clearPullState( selectedSite.id, connectedSite.id ) }>
-								{ __( 'Pull complete' ) }
-							</ClearAction>
+							<DynamicTooltip
+								getTooltipText={ () =>
+									getLastSyncTimeText( connectedSite.lastPullTimestamp, 'pull' )
+								}
+								placement="top-start"
+							>
+								<ClearAction onClick={ () => clearPullState( selectedSite.id, connectedSite.id ) }>
+									{ __( 'Pull complete' ) }
+								</ClearAction>
+							</DynamicTooltip>
 						</div>
 					) }
 					{ pushState?.status && isUploadingNetworkPaused && (
@@ -465,9 +473,16 @@ const SyncConnectedSitesSectionItem = ( {
 
 					{ pushState?.status && hasPushFinished && (
 						<div className="transition-all duration-300 ease-in-out">
-							<ClearAction onClick={ () => clearPushState( selectedSite.id, connectedSite.id ) }>
-								{ pushState.status.message }
-							</ClearAction>
+							<DynamicTooltip
+								getTooltipText={ () =>
+									getLastSyncTimeText( connectedSite.lastPushTimestamp, 'push' )
+								}
+								placement="top-start"
+							>
+								<ClearAction onClick={ () => clearPushState( selectedSite.id, connectedSite.id ) }>
+									{ pushState.status.message }
+								</ClearAction>
+							</DynamicTooltip>
 						</div>
 					) }
 					{ ! isPulling &&

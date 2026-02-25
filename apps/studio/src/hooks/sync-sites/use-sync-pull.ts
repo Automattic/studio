@@ -23,7 +23,7 @@ import { getHostnameFromUrl } from 'src/lib/url-utils';
 import type { SyncSite } from 'src/modules/sync/types';
 import type { SyncOption } from 'src/types';
 
-export type SyncBackupState = {
+type SyncBackupState = {
 	remoteSiteId: number;
 	backupId: string | null;
 	status: PullStateProgressInfo;

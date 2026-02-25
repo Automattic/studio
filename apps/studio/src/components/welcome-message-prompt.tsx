@@ -26,7 +26,7 @@ interface WelcomeComponentProps {
 	isLoading?: boolean;
 }
 
-export const WelcomeMessagePrompt = React.forwardRef< HTMLDivElement, WelcomeMessagePromptProps >(
+const WelcomeMessagePrompt = React.forwardRef< HTMLDivElement, WelcomeMessagePromptProps >(
 	( { id, children, className }, ref ) => (
 		<div className={ cx( 'flex mt-2' ) }>
 			<div
@@ -50,7 +50,7 @@ export const WelcomeMessagePrompt = React.forwardRef< HTMLDivElement, WelcomeMes
 	)
 );
 
-export const ExampleMessagePrompt = ( {
+const ExampleMessagePrompt = ( {
 	onClick,
 	children,
 	className,
@@ -109,7 +109,7 @@ const WelcomeComponent = React.forwardRef< HTMLDivElement, WelcomeComponentProps
 				<div className="flex flex-col">
 					{ messages.map( ( message, index ) => (
 						<WelcomeMessagePrompt
-							key={ index }
+							key={ message }
 							id={ `message-welcome-${ index }` }
 							className="welcome-message"
 							ref={ index === messages.length - 1 ? lastMessageRef : null }
@@ -123,9 +123,8 @@ const WelcomeComponent = React.forwardRef< HTMLDivElement, WelcomeComponentProps
 					{ showExamplePrompts && (
 						<div className="flex-grow">
 							{ displayedPrompts.map( ( prompt, index ) => (
-								<div key={ index } className="flex items-center">
+								<div key={ prompt } className="flex items-center">
 									<ExampleMessagePrompt
-										key={ index }
 										className="example-prompt"
 										onClick={ () => onExampleClick( prompt ) }
 										disabled={ disabled }

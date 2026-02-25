@@ -183,7 +183,9 @@ const SYNC_POLLING_INTERVAL = 3000;
 
 // Poll push progress when state enters a pollable status
 startAppListening( {
-	actionCreator: syncOperationsActions.updatePushState,
+	predicate( action, currentState, previousState ) {
+		return currentState.syncOperations.pushStates !== previousState.syncOperations.pushStates;
+	},
 	async effect( action, listenerApi ) {
 		const client = getWpcomClient();
 		if ( ! client ) {
@@ -194,26 +196,26 @@ startAppListening( {
 		await listenerApi.delay( SYNC_POLLING_INTERVAL );
 		const state = listenerApi.getState();
 
-		const promises = Object.values( state.syncOperations.pushStates )
-			.filter( ( pushState ) => PUSH_POLLING_KEYS.includes( pushState.status.key ) )
-			.map( ( pushState ) =>
-				listenerApi.dispatch(
+		for ( const pushState of Object.values( state.syncOperations.pushStates ) ) {
+			if ( PUSH_POLLING_KEYS.includes( pushState.status.key ) ) {
+				void listenerApi.dispatch(
 					syncOperationsThunks.pollPushProgress( {
 						client,
 						signal: listenerApi.signal,
 						selectedSiteId: pushState.selectedSite.id,
 						remoteSiteId: pushState.remoteSiteId,
 					} )
-				)
-			);
-
-		await Promise.all( promises );
+				);
+			}
+		}
 	},
 } );
 
 // Poll pull backup when state has a backupId and is in-progress
 startAppListening( {
-	actionCreator: syncOperationsActions.updatePullState,
+	predicate( action, currentState, previousState ) {
+		return currentState.syncOperations.pullStates !== previousState.syncOperations.pullStates;
+	},
 	async effect( action, listenerApi ) {
 		const client = getWpcomClient();
 		if ( ! client ) {
@@ -224,20 +226,18 @@ startAppListening( {
 		await listenerApi.delay( SYNC_POLLING_INTERVAL );
 		const state = listenerApi.getState();
 
-		const promises = Object.values( state.syncOperations.pullStates )
-			.filter( ( pullState ) => pullState.status.key === 'in-progress' )
-			.map( ( pullState ) =>
-				listenerApi.dispatch(
+		for ( const pullState of Object.values( state.syncOperations.pullStates ) ) {
+			if ( pullState.status.key === 'in-progress' ) {
+				void listenerApi.dispatch(
 					syncOperationsThunks.pollPullBackup( {
 						client,
 						signal: listenerApi.signal,
 						selectedSiteId: pullState.selectedSite.id,
 						remoteSiteId: pullState.remoteSiteId,
 					} )
-				)
-			);
-
-		await Promise.all( promises );
+				);
+			}
+		}
 	},
 } );
 

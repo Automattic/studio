@@ -30,7 +30,8 @@ interface ContentTabOverviewProps {
 	selectedSite: SiteDetails;
 }
 
-const skeletonBg = 'animate-pulse bg-gradient-to-r from-frame-surface via-frame-surface-alt to-frame-surface';
+const skeletonBg =
+	'animate-pulse bg-gradient-to-r from-frame-surface via-frame-surface-alt to-frame-surface';
 
 const ButtonSectionSkeleton = ( { title }: { title: string } ) => {
 	return (

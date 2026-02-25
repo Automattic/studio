@@ -571,7 +571,9 @@ const SyncConnectedSiteSection = ( {
 						<Button
 							variant="link"
 							className={ cx(
-								! isPulling && ! isPushing ? '!text-frame-text-secondary hover:!text-a8c-red-50' : ''
+								! isPulling && ! isPushing
+									? '!text-frame-text-secondary hover:!text-a8c-red-50'
+									: ''
 							) }
 							onClick={ handleDisconnectSite }
 							disabled={ isPulling || isPushing }

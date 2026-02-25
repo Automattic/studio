@@ -46,8 +46,7 @@ export const ColorSchemePicker = ( { value, onChange }: ColorSchemePickerProps )
 								aria-hidden="true"
 								className={ cx(
 									'block h-auto w-auto rounded-[4px] dark:shadow-[0_0_0_1px_var(--color-frame-border)]',
-									isSelected &&
-										'outline outline-[2px] outline-frame-theme outline-offset-[1.5px]'
+									isSelected && 'outline outline-[2px] outline-frame-theme outline-offset-[1.5px]'
 								) }
 							/>
 							<span

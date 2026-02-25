@@ -114,7 +114,8 @@ function ButtonToRun( site: SiteDetails ) {
 							'w-2.5 h-2.5 transition-opacity group-hover:opacity-0 group-focus-visible:opacity-0 border-[0.5px]',
 							'row-start-1 col-start-1 place-self-center',
 							classCircle,
-							loadingServer[ id ] && 'animate-pulse border-a8c-green-20/50 bg-a8c-green-20/50 duration-100',
+							loadingServer[ id ] &&
+								'animate-pulse border-a8c-green-20/50 bg-a8c-green-20/50 duration-100',
 							running && 'border-a8c-green-20 bg-a8c-green-20 duration-100',
 							! running && ! loadingServer[ id ] && 'border-[#ffffff19] bg-[#ffffff26]'
 						) }

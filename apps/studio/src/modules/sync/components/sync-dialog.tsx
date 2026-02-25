@@ -406,7 +406,10 @@ export function SyncDialog( {
 											);
 										}
 										return (
-											<div className="text-frame-text-secondary italic" aria-label={ __( 'Empty folder' ) }>
+											<div
+												className="text-frame-text-secondary italic"
+												aria-label={ __( 'Empty folder' ) }
+											>
 												{ __( 'Empty' ) }
 											</div>
 										);

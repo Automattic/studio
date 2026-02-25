@@ -121,8 +121,6 @@ function NoAuthSyncTab() {
 	);
 }
 
-export type OpenSitesSyncSelector = ( options?: { disconnectSiteId?: number } ) => void;
-
 export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } ) {
 	const { __ } = useI18n();
 	const dispatch = useAppDispatch();

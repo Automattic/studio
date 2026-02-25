@@ -27,7 +27,7 @@ import {
 } from 'src/lib/import-export/import/validators';
 import { Validator } from 'src/lib/import-export/import/validators/validator';
 
-export interface ImporterOption {
+interface ImporterOption {
 	validator: Validator;
 	importer: NewImporter;
 }

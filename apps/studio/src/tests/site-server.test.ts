@@ -7,11 +7,6 @@ import { SiteServer } from 'src/site-server';
 // Electron's Node.js environment provides `btoa`/`atob`, but Vitest's does not
 vi.mock( '@studio/common/lib/passwords' );
 
-// `SiteServer::start` uses `getPreferredSiteLanguage` to set the site language
-vi.mock( 'src/lib/site-language', () => ( {
-	getPreferredSiteLanguage: vi.fn().mockResolvedValue( 'en' ),
-} ) );
-
 // Mock the WordPress setup
 vi.mock( 'src/lib/wordpress-setup', () => ( {
 	setupWordPressFilesOnly: vi.fn().mockResolvedValue( undefined ),

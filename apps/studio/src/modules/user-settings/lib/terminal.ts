@@ -5,7 +5,7 @@ export type SupportedTerminal = 'terminal' | 'iterm' | 'warp' | 'ghostty';
 
 type TerminalPlatform = 'darwin' | 'win32' | 'linux';
 
-export type TerminalConfig = {
+type TerminalConfig = {
 	name: string;
 	platforms: TerminalPlatform[];
 };

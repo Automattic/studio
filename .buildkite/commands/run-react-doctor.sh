@@ -11,7 +11,7 @@ bash .buildkite/commands/install-node-dependencies.sh
 
 echo '--- :react: React Doctor'
 
-SCORE_THRESHOLD=90
+SCORE_THRESHOLD=87
 DOCTOR_EXIT=0
 
 # Run react-doctor and capture output

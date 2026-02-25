@@ -886,9 +886,7 @@ const pollPullBackupThunk = createTypedAsyncThunk(
  * Maps an ImportResponse status to a PushStateProgressInfo object.
  * Returns null if the operation is not in progress or unknown.
  */
-export function mapImportResponseToPushState(
-	response: ImportResponse
-): PushStateProgressInfo | null {
+function mapImportResponseToPushState( response: ImportResponse ): PushStateProgressInfo | null {
 	const pushStatesProgressInfo = getPushStatesProgressInfo();
 	switch ( response.status ) {
 		case 'initial_backup_started':

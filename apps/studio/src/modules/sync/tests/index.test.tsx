@@ -1,7 +1,8 @@
 // To run tests, execute `npm run test -- src/modules/sync/tests/index.test.tsx` from the root directory
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { vi } from 'vitest';
+import { SYNC_OPTIONS } from 'src/constants';
 import { useAuth } from 'src/hooks/use-auth';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
@@ -10,11 +11,14 @@ import { ContentTabSync } from 'src/modules/sync';
 import { useSelectedItemsPushSize } from 'src/modules/sync/hooks/use-selected-items-push-size';
 import { SyncSite } from 'src/modules/sync/types';
 import { store } from 'src/stores';
-import { useLatestRewindId, useRemoteFileTree } from 'src/stores/sync';
+import { syncOperationsActions, useLatestRewindId, useRemoteFileTree } from 'src/stores/sync';
 import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
 import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 
 store.replaceReducer( testReducer );
+
+const mockPullSiteThunk = vi.hoisted( () => vi.fn() );
+const mockPushSiteThunk = vi.hoisted( () => vi.fn() );
 
 vi.mock( 'src/lib/get-ipc-api' );
 vi.mock( 'src/hooks/use-auth' );
@@ -52,6 +56,11 @@ vi.mock( 'src/stores/sync', async () => {
 				return { type: 'connectedSites/closeModal' };
 			} ),
 		},
+		syncOperationsThunks: {
+			...actual.syncOperationsThunks,
+			pullSite: mockPullSiteThunk,
+			pushSite: mockPushSiteThunk,
+		},
 	};
 } );
 
@@ -76,6 +85,7 @@ const createAuthMock = ( isAuthenticated: boolean = false ) => ( {
 	isAuthenticated,
 	authenticate: vi.fn(),
 	user: isAuthenticated ? { id: 123, email: 'user@example.com', displayName: 'user' } : undefined,
+	client: isAuthenticated ? ( {} as never ) : undefined,
 } );
 
 const selectedSite: SiteDetails = {
@@ -118,6 +128,14 @@ describe( 'ContentTabSync', () => {
 
 	beforeEach( () => {
 		vi.resetAllMocks();
+		mockPullSiteThunk.mockImplementation( ( payload ) => ( {
+			type: 'syncOperations/pullSite',
+			payload,
+		} ) );
+		mockPushSiteThunk.mockImplementation( ( payload ) => ( {
+			type: 'syncOperations/pushSite',
+			payload,
+		} ) );
 		store.dispatch( testActions.resetState() );
 		store.dispatch( { type: 'connectedSitesApi/resetApiState' } );
 		vi.mocked( useAuth, { partial: true } ).mockReturnValue( createAuthMock( false ) );
@@ -130,6 +148,8 @@ describe( 'ContentTabSync', () => {
 			openURL: vi.fn(),
 			showMessageBox: vi.fn(),
 			updateConnectedWpcomSites: vi.fn(),
+			addSyncOperation: vi.fn(),
+			removeSyncOperation: vi.fn(),
 			getConnectedWpcomSites: vi.fn().mockResolvedValue( [] ),
 			getDirectorySize: vi.fn().mockResolvedValue( 0 ),
 			connectWpcomSites: vi.fn(),
@@ -230,6 +250,8 @@ describe( 'ContentTabSync', () => {
 	};
 
 	it( 'renders the sync title and login buttons', () => {
+		const authMock = createAuthMock( false );
+		vi.mocked( useAuth, { partial: true } ).mockReturnValue( authMock );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 		expect( screen.getByText( 'Sync with WordPress.com or Pressable' ) ).toBeInTheDocument();
 
@@ -237,7 +259,7 @@ describe( 'ContentTabSync', () => {
 		expect( loginButton ).toBeInTheDocument();
 
 		fireEvent.click( loginButton );
-		expect( useAuth().authenticate ).toHaveBeenCalled();
+		expect( authMock.authenticate ).toHaveBeenCalled();
 
 		const freeAccountButton = screen.getByRole( 'button', { name: /Create a free account/i } );
 		expect( freeAccountButton ).toBeInTheDocument();
@@ -355,10 +377,24 @@ describe( 'ContentTabSync', () => {
 		expect( screen.getByText( 'Staging' ) ).toBeInTheDocument();
 		expect( screen.getByText( 'Development' ) ).toBeInTheDocument();
 	} );
-	it.skip( 'displays the progress bar when the site is being pushed', async () => {
-		// TODO: Needs Redux store state setup instead of hook mocks (STU-711)
+	it( 'displays the progress bar when the site is being pushed', async () => {
 		vi.mocked( useAuth, { partial: true } ).mockReturnValue( createAuthMock( true ) );
 		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
+		store.dispatch(
+			syncOperationsActions.updatePushState( {
+				selectedSiteId: selectedSite.id,
+				remoteSiteId: fakeSyncSite.id,
+				state: {
+					status: {
+						key: 'uploading',
+						progress: 40,
+						message: 'Uploading…',
+					},
+					selectedSite,
+					remoteSiteUrl: fakeSyncSite.url,
+				},
+			} )
+		);
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
 		await screen.findByRole( 'progressbar' );
@@ -406,8 +442,7 @@ describe( 'ContentTabSync', () => {
 		);
 	} );
 
-	it.skip( 'calls pullSite with correct optionsToSync when all options are selected', async () => {
-		// TODO: Needs thunk mock instead of hook mock (STU-711)
+	it( 'calls pullSite with correct optionsToSync when all options are selected', async () => {
 		vi.mocked( useAuth, { partial: true } ).mockReturnValue( createAuthMock( true ) );
 		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
 
@@ -426,10 +461,19 @@ describe( 'ContentTabSync', () => {
 
 		const dialogPullButton = await screen.findByTestId( 'sync-dialog-pull-button' );
 		fireEvent.click( dialogPullButton );
+
+		await waitFor( () => {
+			expect( mockPullSiteThunk ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					options: {
+						optionsToSync: [ SYNC_OPTIONS.all ],
+					},
+				} )
+			);
+		} );
 	} );
 
-	it.skip( 'calls pullSite with correct optionsToSync when only database is selected', async () => {
-		// TODO: Needs thunk mock instead of hook mock (STU-711)
+	it( 'calls pullSite with correct optionsToSync when only database is selected', async () => {
 		vi.mocked( useAuth, { partial: true } ).mockReturnValue( createAuthMock( true ) );
 		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
 
@@ -446,10 +490,19 @@ describe( 'ContentTabSync', () => {
 
 		const dialogPullButton = await screen.findByTestId( 'sync-dialog-pull-button' );
 		fireEvent.click( dialogPullButton );
+
+		await waitFor( () => {
+			expect( mockPullSiteThunk ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					options: {
+						optionsToSync: [ SYNC_OPTIONS.sqls ],
+					},
+				} )
+			);
+		} );
 	} );
 
-	it.skip( 'calls pullSite with correct optionsToSync when options partially are selected', async () => {
-		// TODO: Needs thunk mock instead of hook mock (STU-711)
+	it( 'calls pullSite with correct optionsToSync when options partially are selected', async () => {
 		vi.mocked( useAuth, { partial: true } ).mockReturnValue( createAuthMock( true ) );
 		vi.mocked( useRemoteFileTree, { partial: true } ).mockReturnValue( {
 			fetchChildren: vi.fn().mockResolvedValue( [
@@ -520,6 +573,31 @@ describe( 'ContentTabSync', () => {
 		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
 
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
+
+		const pullButton = await screen.findByTestId( 'sync-list-pull-button' );
+		fireEvent.click( pullButton );
+
+		await screen.findByText( 'Pull from Production' );
+
+		const select = screen.getByRole( 'combobox', { name: 'Select files and folders to sync' } );
+		fireEvent.change( select, { target: { value: 'true' } } );
+
+		const pluginsCheckbox = screen.getByRole( 'checkbox', { name: 'plugins' } );
+		fireEvent.click( pluginsCheckbox );
+
+		const dialogPullButton = await screen.findByTestId( 'sync-dialog-pull-button' );
+		fireEvent.click( dialogPullButton );
+
+		await waitFor( () => {
+			expect( mockPullSiteThunk ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					options: {
+						optionsToSync: [ SYNC_OPTIONS.paths ],
+						include_path_list: [ 'cjI6,ZjI6Lw==' ],
+					},
+				} )
+			);
+		} );
 	} );
 
 	it( 'disables the pull button when all checkboxes are unchecked, which is the initial state', async () => {

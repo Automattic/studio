@@ -1,3 +1,6 @@
+import path from 'path';
+import { isEmptyDir, pathExists } from '@studio/common/lib/fs-utils';
+import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import { __ } from '@wordpress/i18n';
 
 export const DEFAULT_SITE_NAME = __( 'My WordPress Website' );
@@ -25,22 +28,42 @@ export const SITE_NAMES = [
 	__( 'My True Website' ),
 ];
 
+async function isNameAvailable(
+	name: string,
+	usedNames: string[],
+	sitesDir: string
+): Promise< boolean > {
+	if ( usedNames.includes( name ) ) {
+		return false;
+	}
+	const sitePath = path.join( sitesDir, sanitizeFolderName( name ) );
+	try {
+		if ( ! ( await pathExists( sitePath ) ) ) {
+			return true;
+		}
+		return await isEmptyDir( sitePath );
+	} catch {
+		return true;
+	}
+}
+
 /**
  * Generates a unique numbered name by iterating until an available name is found.
  * Example: "My WordPress site 2" if "My WordPress site" exists
  */
 export async function generateNumberedName(
 	baseName: string,
-	isNameAvailable: ( name: string ) => Promise< boolean >
+	usedNames: string[],
+	sitesDir: string
 ): Promise< string > {
-	if ( await isNameAvailable( baseName ) ) {
+	if ( await isNameAvailable( baseName, usedNames, sitesDir ) ) {
 		return baseName;
 	}
 
 	let number = 2;
 	let candidateName = `${ baseName } ${ number }`;
 
-	while ( ! ( await isNameAvailable( candidateName ) ) ) {
+	while ( ! ( await isNameAvailable( candidateName, usedNames, sitesDir ) ) ) {
 		number++;
 		candidateName = `${ baseName } ${ number }`;
 	}
@@ -52,16 +75,14 @@ export async function generateNumberedName(
  * Generates a random site name from a list of default names.
  * Falls back to numbered variants when all names are taken.
  */
-export async function generateSiteName(
-	isNameAvailable: ( name: string ) => Promise< boolean >
-): Promise< string > {
-	if ( await isNameAvailable( DEFAULT_SITE_NAME ) ) {
+export async function generateSiteName( usedNames: string[], sitesDir: string ): Promise< string > {
+	if ( await isNameAvailable( DEFAULT_SITE_NAME, usedNames, sitesDir ) ) {
 		return DEFAULT_SITE_NAME;
 	}
 
 	const availableNames = [];
 	for ( const name of SITE_NAMES ) {
-		if ( await isNameAvailable( name ) ) {
+		if ( await isNameAvailable( name, usedNames, sitesDir ) ) {
 			availableNames.push( name );
 		}
 	}
@@ -70,5 +91,5 @@ export async function generateSiteName(
 		return availableNames[ Math.floor( Math.random() * availableNames.length ) ];
 	}
 
-	return generateNumberedName( DEFAULT_SITE_NAME, isNameAvailable );
+	return generateNumberedName( DEFAULT_SITE_NAME, usedNames, sitesDir );
 }

@@ -19,5 +19,3 @@ export const getSqliteVersionFromInstallation = ( sqliteMuPluginPath: string ) =
 
 export const keepSqliteIntegrationUpdated = ( sitePath: string ) =>
 	provider.keepSqliteIntegrationUpdated( sitePath );
-
-export const isSqliteInstalled = ( sitePath: string ) => provider.isSqliteInstalled( sitePath );

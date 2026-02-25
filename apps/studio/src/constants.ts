@@ -14,6 +14,7 @@ export const UPDATED_MESSAGE_DURATION_MS = 60000; // 1 minute
 export const SYNC_PUSH_SIZE_LIMIT_GB = 5;
 export const SYNC_PUSH_SIZE_LIMIT_BYTES = SYNC_PUSH_SIZE_LIMIT_GB * 1024 * 1024 * 1024; // 5GB
 export const AUTO_UPDATE_INTERVAL_MS = 60 * 60 * 1000;
+export const MACOS_TRAFFIC_LIGHT_POSITION = { x: 20, y: 20 };
 export const WINDOWS_TITLEBAR_HEIGHT = 32;
 export const ABOUT_WINDOW_WIDTH = 300;
 export const ABOUT_WINDOW_HEIGHT = 350;
@@ -74,7 +75,7 @@ export const WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT =
 	WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT_IN_HRS * 60 * 60 * 1000; // 6hr
 
 // SQLite
-export const SQLITE_DATABASE_INTEGRATION_VERSION = 'v2.2.17';
+const SQLITE_DATABASE_INTEGRATION_VERSION = 'v2.2.17';
 
 export const SQLITE_DATABASE_INTEGRATION_RELEASE_URL = `https://github.com/WordPress/sqlite-database-integration/archive/refs/tags/${ SQLITE_DATABASE_INTEGRATION_VERSION }.zip`;
 

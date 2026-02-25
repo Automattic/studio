@@ -21,7 +21,7 @@ const cliEventSchema = z.discriminatedUnion( 'action', [
 	} ),
 ] );
 
-export interface CreateSiteResult {
+interface CreateSiteResult {
 	id: string;
 	running: boolean;
 }

@@ -220,11 +220,12 @@ const SyncConnectedSitesSectionItem = ( {
 		syncOperationsSelectors.selectPullState( selectedSite.id, connectedSite.id )
 	);
 	const isPulling =
-		sitePullState?.status &&
-		[ 'in-progress', 'downloading', 'importing' ].includes( sitePullState.status.key );
-	const isPullError = sitePullState?.status && sitePullState.status.key === 'failed';
-	const hasPullFinished = sitePullState?.status && sitePullState.status.key === 'finished';
-	const hasPullCancelled = sitePullState?.status && sitePullState.status.key === 'cancelled';
+		sitePullState?.status.key === 'in-progress' ||
+		sitePullState?.status.key === 'downloading' ||
+		sitePullState?.status.key === 'importing';
+	const isPullError = sitePullState?.status.key === 'failed';
+	const hasPullFinished = sitePullState?.status.key === 'finished';
+	const hasPullCancelled = sitePullState?.status.key === 'cancelled';
 	const pullImportState = importState[ connectedSite.localSiteId ];
 	let sitePullStatusMessage = '';
 	let sitePullStatusProgress = 0;
@@ -246,18 +247,15 @@ const SyncConnectedSitesSectionItem = ( {
 		syncOperationsSelectors.selectPushState( selectedSite.id, connectedSite.id )
 	);
 	const isPushing =
-		pushState?.status &&
-		[
-			'creatingBackup',
-			'uploading',
-			'creatingRemoteBackup',
-			'applyingChanges',
-			'finishing',
-		].includes( pushState.status.key );
-	const isUploadingPaused = pushState?.status && pushState.status.key === 'uploadingPaused';
-	const isPushError = pushState?.status && pushState.status.key === 'failed';
-	const hasPushFinished = pushState?.status && pushState.status.key === 'finished';
-	const hasPushCancelled = pushState?.status && pushState.status.key === 'cancelled';
+		pushState?.status.key === 'creatingBackup' ||
+		pushState?.status.key === 'uploading' ||
+		pushState?.status.key === 'creatingRemoteBackup' ||
+		pushState?.status.key === 'applyingChanges' ||
+		pushState?.status.key === 'finishing';
+	const isUploadingPaused = pushState?.status.key === 'uploadingPaused';
+	const isPushError = pushState?.status.key === 'failed';
+	const hasPushFinished = pushState?.status.key === 'finished';
+	const hasPushCancelled = pushState?.status.key === 'cancelled';
 
 	const uploadPercentage = getPushUploadPercentage(
 		pushState?.status.key,
@@ -344,7 +342,7 @@ const SyncConnectedSitesSectionItem = ( {
 							</Tooltip>
 						</div>
 					) }
-					{ sitePullState?.status && hasPullCancelled && (
+					{ hasPullCancelled && (
 						<div className="transition-all duration-300 ease-in-out">
 							<ClearAction onClick={ () => clearPullState( selectedSite.id, connectedSite.id ) }>
 								{ __( 'Pull cancelled' ) }
@@ -392,7 +390,7 @@ const SyncConnectedSitesSectionItem = ( {
 							</DynamicTooltip>
 						</div>
 					) }
-					{ pushState?.status && isUploadingPaused && (
+					{ isUploadingPaused && (
 						<Tooltip
 							text={ __(
 								'The site uploading has been paused due to an internet connection issue. We will retry automatically in a few seconds.'
@@ -405,7 +403,7 @@ const SyncConnectedSitesSectionItem = ( {
 							</Button>
 						</Tooltip>
 					) }
-					{ pushState?.status && isPushing && (
+					{ isPushing && (
 						<div className="flex items-center gap-2 max-w-full transition-all duration-300 ease-in-out">
 							<Tooltip text={ getPushProgressTooltip() } placement="top-start">
 								<div className="flex flex-col gap-2 min-w-44 flex-shrink">
@@ -422,7 +420,7 @@ const SyncConnectedSitesSectionItem = ( {
 							</Tooltip>
 							<Tooltip
 								text={
-									canCancelPush( pushState?.status.key )
+									canCancelPush( pushState.status.key )
 										? __( 'Cancel push' )
 										: __( 'Push can not be cancelled while applying changes to the remote site' )
 								}
@@ -438,7 +436,7 @@ const SyncConnectedSitesSectionItem = ( {
 											} )
 										)
 									}
-									disabled={ ! canCancelPush( pushState?.status.key ) }
+									disabled={ ! canCancelPush( pushState.status.key ) }
 									className="flex-shrink-0 transition-all duration-300 ease-in-out"
 								>
 									<span className="flex items-center justify-center w-5 h-5">
@@ -448,7 +446,7 @@ const SyncConnectedSitesSectionItem = ( {
 							</Tooltip>
 						</div>
 					) }
-					{ pushState?.status && hasPushCancelled && (
+					{ hasPushCancelled && (
 						<div className="transition-all duration-300 ease-in-out">
 							<ClearAction
 								onClick={ () =>
@@ -464,7 +462,7 @@ const SyncConnectedSitesSectionItem = ( {
 							</ClearAction>
 						</div>
 					) }
-					{ pushState?.status && hasPushFinished && (
+					{ hasPushFinished && (
 						<div className="transition-all duration-300 ease-in-out">
 							<DynamicTooltip
 								getTooltipText={ () =>

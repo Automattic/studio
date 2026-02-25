@@ -552,6 +552,9 @@ const pollPushProgressThunk = createTypedAsyncThunk(
 			selectedSiteId,
 			remoteSiteId
 		)( getState() );
+		if ( ! currentPushState ) {
+			return;
+		}
 
 		try {
 			const rawResponse = await client.req.get( `/sites/${ remoteSiteId }/studio-app/sync/import`, {
@@ -680,6 +683,10 @@ const pollPullBackupThunk = createTypedAsyncThunk(
 			selectedSiteId,
 			remoteSiteId
 		)( getState() );
+
+		if ( ! currentPullState ) {
+			return;
+		}
 
 		const backupId = currentPullState.backupId;
 		if ( ! backupId ) {
@@ -952,15 +959,15 @@ export const syncOperationsSelectors = {
 		state.syncOperations.pushStates,
 	selectPullState:
 		( selectedSiteId: string, remoteSiteId: number ) =>
-		( state: { syncOperations: SyncOperationsState } ) => {
+		( state: { syncOperations: SyncOperationsState } ): SyncBackupState | undefined => {
 			const stateId = generateStateId( selectedSiteId, remoteSiteId );
-			return state.syncOperations.pullStates[ stateId ];
+			return state.syncOperations.pullStates[ stateId ] as SyncBackupState | undefined;
 		},
 	selectPushState:
 		( selectedSiteId: string, remoteSiteId: number ) =>
-		( state: { syncOperations: SyncOperationsState } ) => {
+		( state: { syncOperations: SyncOperationsState } ): SyncPushState | undefined => {
 			const stateId = generateStateId( selectedSiteId, remoteSiteId );
-			return state.syncOperations.pushStates[ stateId ];
+			return state.syncOperations.pushStates[ stateId ] as SyncPushState | undefined;
 		},
 	selectIsAnySitePulling: ( state: { syncOperations: SyncOperationsState } ): boolean => {
 		return Object.values( state.syncOperations.pullStates ).some( ( pullState ) =>

@@ -200,6 +200,30 @@ export const syncOperationsReducer = syncOperationsSlice.reducer;
 const UPLOADING_BASE_PROGRESS = 40;
 const CREATING_REMOTE_BACKUP_PROGRESS = 50;
 
+window.ipcListener.subscribe( 'sync-upload-network-paused', ( _event, payload ) => {
+	store.dispatch(
+		syncOperationsActions.updatePushState( {
+			selectedSiteId: payload.selectedSiteId,
+			remoteSiteId: payload.remoteSiteId,
+			state: {
+				status: getPushStatesProgressInfo().uploadingPaused,
+			},
+		} )
+	);
+} );
+
+window.ipcListener.subscribe( 'sync-upload-manually-paused', ( _event, payload ) => {
+	store.dispatch(
+		syncOperationsActions.updatePushState( {
+			selectedSiteId: payload.selectedSiteId,
+			remoteSiteId: payload.remoteSiteId,
+			state: {
+				status: getPushStatesProgressInfo().uploadingManuallyPaused,
+			},
+		} )
+	);
+} );
+
 window.ipcListener.subscribe( 'sync-upload-progress', ( _event, payload ) => {
 	const uploadProgress = Math.max( 0, Math.min( 100, payload.progress ) );
 	const uploadRange = CREATING_REMOTE_BACKUP_PROGRESS - UPLOADING_BASE_PROGRESS; // 10

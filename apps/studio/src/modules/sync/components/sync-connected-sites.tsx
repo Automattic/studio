@@ -8,6 +8,8 @@ import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { ClearAction } from 'src/components/clear-action';
 import { CircleRedCrossIcon } from 'src/components/icons/circle-red-cross';
+import { PauseIcon } from 'src/components/icons/pause';
+import { PlayIcon } from 'src/components/icons/play';
 import offlineIcon from 'src/components/offline-icon';
 import { PressableLogo } from 'src/components/pressable-logo';
 import ProgressBar from 'src/components/progress-bar';
@@ -252,7 +254,9 @@ const SyncConnectedSitesSectionItem = ( {
 		pushState?.status.key === 'creatingRemoteBackup' ||
 		pushState?.status.key === 'applyingChanges' ||
 		pushState?.status.key === 'finishing';
-	const isUploadingPaused = pushState?.status.key === 'uploadingPaused';
+	const isUploading = pushState?.status.key === 'uploading';
+	const isUploadingManuallyPaused = pushState?.status.key === 'uploadingManuallyPaused';
+	const isUploadingNetworkPaused = pushState?.status.key === 'uploadingPaused';
 	const isPushError = pushState?.status.key === 'failed';
 	const hasPushFinished = pushState?.status.key === 'finished';
 	const hasPushCancelled = pushState?.status.key === 'cancelled';
@@ -391,18 +395,71 @@ const SyncConnectedSitesSectionItem = ( {
 							</DynamicTooltip>
 						</div>
 					) }
-					{ isUploadingPaused && (
-						<Tooltip
-							text={ __(
-								'The site uploading has been paused due to an internet connection issue. We will retry automatically in a few seconds.'
-							) }
-							placement="top-start"
-						>
-							<Button variant="link" disabled={ true }>
-								<Icon icon={ error } />
-								{ pushState.status.message }
-							</Button>
-						</Tooltip>
+					{ isUploadingNetworkPaused && (
+						<div className="transition-all duration-300 ease-in-out">
+							<Tooltip
+								text={ __(
+									'The site uploading has been paused due to an internet connection issue. We will retry automatically in a few seconds.'
+								) }
+								placement="top-start"
+							>
+								<Button variant="link" disabled={ true }>
+									<Icon icon={ error } />
+									{ pushState.status.message }
+								</Button>
+							</Tooltip>
+						</div>
+					) }
+					{ isUploadingManuallyPaused && (
+						<div className="flex items-center gap-2 max-w-full transition-all duration-300 ease-in-out">
+							<Tooltip
+								text={ __(
+									'Upload is manually paused. Click the resume button to continue uploading.'
+								) }
+								placement="top-start"
+							>
+								<div className="flex flex-col gap-2 min-w-44 flex-shrink">
+									<div className="a8c-body-small flex items-center gap-0.5">
+										<Icon icon={ info } size={ 14 } />
+										{ pushState.status.message }
+									</div>
+									<ProgressBar value={ pushState.status.progress } maxValue={ 100 } />
+								</div>
+							</Tooltip>
+							<Tooltip text={ __( 'Resume upload' ) } placement="top">
+								<Button
+									variant="icon"
+									onClick={ () =>
+										getIpcApi().resumeSyncUpload( selectedSite.id, connectedSite.id )
+									}
+									className="flex-shrink-0 transition-all duration-300 ease-in-out"
+									aria-label={ __( 'Resume upload' ) }
+								>
+									<span className="flex items-center justify-center w-5 h-5">
+										<PlayIcon />
+									</span>
+								</Button>
+							</Tooltip>
+							<Tooltip text={ __( 'Cancel push' ) } placement="top-start">
+								<Button
+									variant="icon"
+									onClick={ () =>
+										dispatch(
+											syncOperationsThunks.cancelPush( {
+												selectedSiteId: selectedSite.id,
+												remoteSiteId: connectedSite.id,
+											} )
+										)
+									}
+									className="flex-shrink-0 transition-all duration-300 ease-in-out"
+									aria-label={ __( 'Cancel push' ) }
+								>
+									<span className="flex items-center justify-center w-5 h-5">
+										<Icon icon={ close } size={ 20 } />
+									</span>
+								</Button>
+							</Tooltip>
+						</div>
 					) }
 					{ isPushing && (
 						<div className="flex items-center gap-2 max-w-full transition-all duration-300 ease-in-out">
@@ -419,6 +476,29 @@ const SyncConnectedSitesSectionItem = ( {
 									<ProgressBar value={ pushState.status.progress } maxValue={ 100 } />
 								</div>
 							</Tooltip>
+							<div
+								className={ cx(
+									'flex-shrink-0 transition-opacity duration-300 ease-in-out',
+									! isUploading || ( uploadPercentage !== null && uploadPercentage >= 100 )
+										? 'opacity-0 pointer-events-none'
+										: 'opacity-100'
+								) }
+							>
+								<Tooltip text={ __( 'Pause upload' ) } placement="top">
+									<Button
+										variant="icon"
+										onClick={ () =>
+											getIpcApi().pauseSyncUpload( selectedSite.id, connectedSite.id )
+										}
+										className="flex-shrink-0"
+										aria-label={ __( 'Pause upload' ) }
+									>
+										<span className="flex items-center justify-center w-5 h-5">
+											<PauseIcon />
+										</span>
+									</Button>
+								</Tooltip>
+							</div>
 							<Tooltip
 								text={
 									canCancelPush( pushState.status.key )
@@ -492,7 +572,8 @@ const SyncConnectedSitesSectionItem = ( {
 						! isPullError &&
 						! isPushError &&
 						! isPushing &&
-						! isUploadingPaused &&
+						! isUploadingNetworkPaused &&
+						! isUploadingManuallyPaused &&
 						! hasPushFinished &&
 						! hasPullCancelled &&
 						! hasPushCancelled && (

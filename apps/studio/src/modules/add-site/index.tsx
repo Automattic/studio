@@ -1,5 +1,4 @@
 import { MINIMUM_WORDPRESS_VERSION } from '@studio/common/constants';
-import { extractFormValuesFromBlueprint } from '@studio/common/lib/blueprint-settings';
 import {
 	BlueprintPreferredVersions,
 	BlueprintValidationWarning,
@@ -34,6 +33,7 @@ import AddSiteOptions, { type AddSiteFlowType } from './components/options';
 import { PullRemoteSite } from './components/pull-remote-site';
 import Stepper from './components/stepper';
 import { useFindAvailableSiteName } from './hooks/use-find-available-site-name';
+import { applyBlueprintFormValues } from './lib/apply-blueprint-form-values';
 
 type BlueprintsData = ReturnType< typeof useGetBlueprints >[ 'data' ];
 
@@ -242,7 +242,7 @@ function NavigationContent( props: NavigationContentProps ) {
 		setBlueprintSuggestedSiteName,
 	] );
 
-	const applyBlueprintFormValues = useCallback(
+	const handleBlueprintFormValues = useCallback(
 		( blueprint?: Blueprint ) => {
 			setSelectedBlueprint( blueprint );
 
@@ -255,18 +255,13 @@ function NavigationContent( props: NavigationContentProps ) {
 				return;
 			}
 
-			const formValues = extractFormValuesFromBlueprint( blueprint.blueprint );
-
-			if ( blueprint.blueprint.preferredVersions ) {
-				setBlueprintPreferredVersions?.( blueprint.blueprint.preferredVersions );
-			} else {
-				setBlueprintPreferredVersions?.( undefined );
-			}
-
-			setBlueprintSuggestedDomain?.( formValues.customDomain );
-			setBlueprintSuggestedHttps?.( formValues.enableHttps );
-			setBlueprintSuggestedSiteName?.( formValues.siteName );
-			setBlueprintRequiresCustomDomain( !! formValues.requiresCustomDomain );
+			applyBlueprintFormValues( blueprint.blueprint, {
+				setBlueprintPreferredVersions,
+				setBlueprintSuggestedDomain,
+				setBlueprintSuggestedHttps,
+				setBlueprintSuggestedSiteName,
+				setBlueprintRequiresCustomDomain,
+			} );
 		},
 		[
 			setSelectedBlueprint,
@@ -284,18 +279,18 @@ function NavigationContent( props: NavigationContentProps ) {
 				( b: Blueprint ) => b.slug === blueprintId
 			);
 			setBlueprintWarnings?.( undefined );
-			applyBlueprintFormValues( blueprint );
+			handleBlueprintFormValues( blueprint );
 		},
-		[ blueprintsData?.blueprints, setBlueprintWarnings, applyBlueprintFormValues ]
+		[ blueprintsData?.blueprints, setBlueprintWarnings, handleBlueprintFormValues ]
 	);
 
 	const handleFileBlueprintSelect = useCallback(
 		( blueprint: Blueprint, warnings?: BlueprintValidationWarning[] ) => {
-			applyBlueprintFormValues( blueprint );
+			handleBlueprintFormValues( blueprint );
 			setBlueprintWarnings?.( warnings );
 			goTo( '/blueprint/select/details' );
 		},
-		[ applyBlueprintFormValues, setBlueprintWarnings, goTo ]
+		[ handleBlueprintFormValues, setBlueprintWarnings, goTo ]
 	);
 
 	// Build default values with blueprint preferred versions applied

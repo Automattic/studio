@@ -229,8 +229,8 @@ describe( 'useBlueprintDeeplink', () => {
 			} );
 		} );
 
-		expect( mockSetBlueprintSuggestedDomain ).not.toHaveBeenCalled();
-		expect( mockSetBlueprintSuggestedHttps ).not.toHaveBeenCalled();
+		expect( mockSetBlueprintSuggestedDomain ).toHaveBeenCalledWith( undefined );
+		expect( mockSetBlueprintSuggestedHttps ).toHaveBeenCalledWith( undefined );
 	} );
 
 	it( 'should set site name from setSiteOptions blogname', async () => {

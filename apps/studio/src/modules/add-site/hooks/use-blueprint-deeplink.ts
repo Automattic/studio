@@ -1,16 +1,13 @@
+import { generateDefaultBlueprintDescription } from '@studio/common/lib/blueprint-settings';
 import {
-	extractFormValuesFromBlueprint,
-	generateDefaultBlueprintDescription,
-} from '@studio/common/lib/blueprint-settings';
-import {
-	BlueprintValidationWarning,
 	BlueprintPreferredVersions,
+	BlueprintValidationWarning,
 } from '@studio/common/lib/blueprint-validation';
-import { useI18n } from '@wordpress/react-i18n';
 import { useCallback } from 'react';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { Blueprint } from 'src/stores/wpcom-api';
+import { applyBlueprintFormValues } from '../lib/apply-blueprint-form-values';
 
 type BlueprintMetadata = {
 	title?: string;
@@ -33,7 +30,6 @@ interface UseBlueprintDeeplinkOptions {
 }
 
 export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): void {
-	const { __ } = useI18n();
 	const {
 		isAnySiteProcessing,
 		setSelectedBlueprint,
@@ -82,27 +78,15 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 
 					setSelectedBlueprint( fileBlueprint );
 
-					const formValues = extractFormValuesFromBlueprint( blueprintJson );
-
-					if ( blueprintJson.preferredVersions ) {
-						setBlueprintPreferredVersions(
-							blueprintJson.preferredVersions as BlueprintPreferredVersions
-						);
-					}
-					if ( formValues.phpVersion ) {
-						setPhpVersion( formValues.phpVersion );
-					}
-					if ( formValues.wpVersion ) {
-						setWpVersion( formValues.wpVersion );
-					}
-					if ( formValues.customDomain ) {
-						setBlueprintSuggestedDomain( formValues.customDomain );
-						setBlueprintSuggestedHttps( formValues.enableHttps );
-					}
-					if ( formValues.siteName ) {
-						setBlueprintSuggestedSiteName( formValues.siteName );
-					}
-					setBlueprintRequiresCustomDomain( !! formValues.requiresCustomDomain );
+					applyBlueprintFormValues( blueprintJson, {
+						setBlueprintPreferredVersions,
+						setPhpVersion,
+						setWpVersion,
+						setBlueprintSuggestedDomain,
+						setBlueprintSuggestedHttps,
+						setBlueprintSuggestedSiteName,
+						setBlueprintRequiresCustomDomain,
+					} );
 
 					setBlueprintWarnings( warnings );
 					setIsDeeplinkFlow( true );

@@ -56,18 +56,18 @@ const RightPanel = () => {
 	};
 	return (
 		<div className="flex flex-col justify-center h-full">
-			<div className="text-a8c-gray-20 text-[54px] font-normal leading-[54px]">
+			<div className="text-frame-text text-[54px] font-normal leading-[54px]">
 				{ __( 'Uh oh!' ) }
 			</div>
 			<div className="text-frame-text font-normal text-xl leading-[28px] mt-2">
 				{ __( "Something's broken." ) }
 			</div>
-			<div className="mt-6 mb-8 text-a8c-gray-70 leading-[18px] text-[13px]">
+			<div className="mt-6 mb-8 text-frame-text-secondary leading-[18px] text-[13px]">
 				<p>{ __( 'We’ve logged the issue to help us track down the problem.' ) }</p>
 				<p>
 					{ __( 'Try restarting the app, if the problem persists' ) }{ ' ' }
 					<Button
-						className="text-[13px]"
+						className="text-[13px] !text-frame-theme underline"
 						aria-label={ __( 'Help' ) }
 						onClick={ openLocalizedSupport }
 						variant="link"

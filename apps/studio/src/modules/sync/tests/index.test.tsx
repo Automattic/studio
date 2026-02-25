@@ -575,29 +575,35 @@ describe( 'ContentTabSync', () => {
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
 		const pullButton = await screen.findByTestId( 'sync-list-pull-button' );
+		expect( pullButton ).toBeInTheDocument();
 		fireEvent.click( pullButton );
 
 		await screen.findByText( 'Pull from Production' );
 
+		const databaseCheckbox = screen.getByRole( 'checkbox', { name: 'Database' } );
+		fireEvent.click( databaseCheckbox );
+
+		// Open specific files and folders selector
 		const select = screen.getByRole( 'combobox', { name: 'Select files and folders to sync' } );
 		fireEvent.change( select, { target: { value: 'true' } } );
 
+		// Check plugins and uploads
 		const pluginsCheckbox = screen.getByRole( 'checkbox', { name: 'plugins' } );
 		fireEvent.click( pluginsCheckbox );
+		const uploadsCheckbox = screen.getByRole( 'checkbox', { name: 'uploads' } );
+		fireEvent.click( uploadsCheckbox );
 
 		const dialogPullButton = await screen.findByTestId( 'sync-dialog-pull-button' );
 		fireEvent.click( dialogPullButton );
 
-		await waitFor( () => {
-			expect( mockPullSiteThunk ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					options: {
-						optionsToSync: [ SYNC_OPTIONS.paths ],
-						include_path_list: [ 'cjI6,ZjI6Lw==' ],
-					},
-				} )
-			);
-		} );
+		expect( mockPullSiteThunk ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				options: {
+					optionsToSync: [ SYNC_OPTIONS.paths, SYNC_OPTIONS.sqls ],
+					include_path_list: [ 'cjI6,ZjI6Lw==', 'ZjM6Lw==' ],
+				},
+			} )
+		);
 	} );
 
 	it( 'disables the pull button when all checkboxes are unchecked, which is the initial state', async () => {

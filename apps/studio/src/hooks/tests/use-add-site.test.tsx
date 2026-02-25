@@ -73,6 +73,9 @@ describe( 'useAddSite', () => {
 
 	beforeEach( () => {
 		vi.clearAllMocks();
+		mockPullSiteThunk.mockImplementation( () => ( {
+			type: 'syncOperations/pullSite',
+		} ) );
 
 		// Prepopulate store with provider constants
 		store.dispatch(

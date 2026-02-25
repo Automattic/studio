@@ -211,11 +211,12 @@ lane :code_freeze do |version:, skip_confirm: false, github_username: nil|
 
   push_to_git_remote(set_upstream: true)
 
-  # Create backmerge PR from the release branch to MAIN_BRANCH so that the strings bundle is uploaded to GlotPress
-  create_backmerge_pr(source_branch: branch_name, github_username: github_username)
-
   # Create the first beta (bumps version, commits, pushes, tags, triggers build)
   new_beta_release(version: version, skip_confirm: skip_confirm)
+
+  # Create backmerge PR from the release branch to MAIN_BRANCH so that the pot strings bundle is uploaded to GlotPress once it hits trunk
+  # Important: this must come after new_beta_release because the backmerge action switches branches.
+  create_backmerge_pr(source_branch: branch_name, github_username: github_username)
 
   UI.success("Code freeze complete! Created #{branch_name} with first beta")
 end
@@ -311,7 +312,6 @@ lane :publish_release do |version:, skip_confirm: false, github_username: nil|
     name: "v#{version}"
   )
 
-  # Create backmerge PR with intermediate branch to handle conflicts
   create_backmerge_pr(source_branch: release_branch, github_username: github_username)
 
   Fastlane::Helper::GitHelper.delete_remote_branch_if_exists!(release_branch)

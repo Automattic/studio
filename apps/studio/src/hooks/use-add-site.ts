@@ -277,7 +277,7 @@ export function useAddSite() {
 								body: __( 'Your new site was imported' ),
 							} );
 						} else if ( selectedRemoteSite ) {
-							await connectSite( { site: selectedRemoteSite, localSiteId: newSite.id } );
+							await connectSite( { remoteSiteId: selectedRemoteSite.id, localSiteId: newSite.id } );
 							const pullOptions: SyncOption[] = [ 'all' ];
 							pullSite( selectedRemoteSite, newSite, {
 								optionsToSync: pullOptions,

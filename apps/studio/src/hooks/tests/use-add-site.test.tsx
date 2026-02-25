@@ -9,6 +9,7 @@ import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { store } from 'src/stores';
 import { setProviderConstants } from 'src/stores/provider-constants-slice';
+import { useConnectSiteMutation } from 'src/stores/sync/connected-sites';
 import type { SyncSitesContextType } from 'src/hooks/sync-sites/sync-sites-context';
 import type { SyncSite } from 'src/modules/sync/types';
 
@@ -16,6 +17,13 @@ vi.mock( 'src/hooks/use-site-details' );
 vi.mock( 'src/hooks/use-feature-flags' );
 vi.mock( 'src/hooks/sync-sites' );
 vi.mock( 'src/hooks/use-content-tabs' );
+vi.mock( 'src/stores/sync/connected-sites', async ( importOriginal ) => {
+	const original = await importOriginal< typeof import('src/stores/sync/connected-sites') >();
+	return {
+		...original,
+		useConnectSiteMutation: vi.fn(),
+	};
+} );
 vi.mock( 'src/hooks/use-import-export', () => ( {
 	useImportExport: () => ( {
 		importFile: vi.fn(),
@@ -24,6 +32,7 @@ vi.mock( 'src/hooks/use-import-export', () => ( {
 	} ),
 } ) );
 
+const mockConnectSite = vi.fn().mockReturnValue( { unwrap: () => Promise.resolve( [] ) } );
 const mockConnectWpcomSites = vi.fn().mockResolvedValue( undefined );
 const mockShowOpenFolderDialog = vi.fn();
 const mockGenerateProposedSitePath = vi.fn().mockResolvedValue( {
@@ -61,6 +70,11 @@ describe( 'useAddSite', () => {
 
 	beforeEach( () => {
 		vi.clearAllMocks();
+
+		vi.mocked( useConnectSiteMutation ).mockReturnValue( [
+			mockConnectSite,
+			{ isLoading: false, reset: vi.fn() },
+		] as unknown as ReturnType< typeof useConnectSiteMutation > );
 
 		// Prepopulate store with provider constants
 		store.dispatch(
@@ -267,12 +281,10 @@ describe( 'useAddSite', () => {
 			await result.current.handleCreateSite( formValues );
 		} );
 
-		expect( mockConnectWpcomSites ).toHaveBeenCalledWith( [
-			{
-				sites: [ remoteSite ],
-				localSiteId: createdSite.id,
-			},
-		] );
+		expect( mockConnectSite ).toHaveBeenCalledWith( {
+			remoteSiteId: remoteSite.id,
+			localSiteId: createdSite.id,
+		} );
 		expect( mockPullSite ).toHaveBeenCalledWith( remoteSite, createdSite, {
 			optionsToSync: [ 'all' ],
 		} );

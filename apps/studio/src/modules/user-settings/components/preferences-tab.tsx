@@ -38,16 +38,12 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const [ saveTerminal ] = useSaveUserTerminalMutation();
 	const [ saveCliIsInstalled ] = useSaveStudioCliIsInstalledMutation();
 
-	const [ dirtyColorScheme, setDirtyColorScheme ] = useState< 'system' | 'light' | 'dark' >();
 	const [ dirtyLocale, setDirtyLocale ] = useState< SupportedLocale >();
 	const [ dirtyEditor, setDirtyEditor ] = useState< SupportedEditor | null >();
 	const [ dirtyTerminal, setDirtyTerminal ] = useState< SupportedTerminal >();
 	const [ dirtyIsCliInstalled, setDirtyIsCliInstalled ] = useState< boolean >();
 
 	const savePreferences = async () => {
-		if ( dirtyColorScheme ) {
-			await saveColorSchemePreference( dirtyColorScheme );
-		}
 		if ( dirtyLocale ) {
 			await dispatch( saveUserLocale( dirtyLocale ) );
 		}
@@ -63,14 +59,12 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 		onClose();
 	};
 
-	const colorSchemeSelection = dirtyColorScheme ?? colorScheme ?? 'system';
 	const localeSelection = dirtyLocale ?? savedLocale ?? 'en';
 	const editorSelection = dirtyEditor ?? editor ?? 'vscode';
 	const terminalSelection = dirtyTerminal ?? terminal ?? 'terminal';
 	const isCliInstalledSelection = dirtyIsCliInstalled ?? isCliInstalled ?? false;
 
 	const hasChanges = [
-		[ dirtyColorScheme, colorScheme ],
 		[ dirtyLocale, savedLocale ],
 		[ dirtyEditor, editor ],
 		[ dirtyTerminal, terminal ],
@@ -79,14 +73,19 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 
 	return (
 		<>
-			<ColorSchemePicker value={ colorSchemeSelection } onChange={ setDirtyColorScheme } />
-			<LanguagePicker value={ localeSelection } onChange={ setDirtyLocale } />
-			<EditorPicker
-				value={ editorSelection }
-				onChange={ setDirtyEditor }
-				disabled={ editor === undefined }
+			<ColorSchemePicker
+				value={ colorScheme ?? 'system' }
+				onChange={ ( value ) => saveColorSchemePreference( value ) }
 			/>
-			<TerminalPicker value={ terminalSelection } onChange={ setDirtyTerminal } />
+			<LanguagePicker value={ localeSelection } onChange={ setDirtyLocale } />
+			<div className="grid grid-cols-2 gap-3">
+				<EditorPicker
+					value={ editorSelection }
+					onChange={ setDirtyEditor }
+					disabled={ editor === undefined }
+				/>
+				<TerminalPicker value={ terminalSelection } onChange={ setDirtyTerminal } />
+			</div>
 			{ ! isWindowsStore() && (
 				<StudioCliToggle value={ isCliInstalledSelection } onChange={ setDirtyIsCliInstalled } />
 			) }

@@ -19,8 +19,8 @@
 	--color-frame-running: #008a20;
 	--color-frame-error: #d63638;
 	--color-frame-tab-active: #000;
-	--wp-admin-theme-color: var(--color-frame-theme);
-	--wp-admin-theme-color-darker-20: var(--color-frame-theme-hover);
+	--wp-admin-theme-color: var( --color-frame-theme );
+	--wp-admin-theme-color-darker-20: var( --color-frame-theme-hover );
 }
 
 @media ( prefers-color-scheme: dark ) {
@@ -87,6 +87,11 @@ ul,
 ol,
 blockquote {
 	text-wrap: pretty;
+}
+
+/* Settings modal — reduce WP's default 128px viewport margin to 32px */
+.components-modal__frame.has-size-medium {
+	max-height: calc( 100% - 32px );
 }
 
 /* Tabs */

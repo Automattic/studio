@@ -56,7 +56,7 @@ describe( 'EnvironmentBadge', () => {
 		const badgeElement = container.firstChild as HTMLElement;
 		expect( badgeElement ).toBeInTheDocument();
 
-		expect( badgeElement.className ).toContain( 'bg-white' );
+		expect( badgeElement.className ).toContain( 'bg-frame' );
 		expect( badgeElement.className ).toContain( 'text-frame-theme' );
 	} );
 } );

@@ -35,6 +35,20 @@ export default class UserSettingsModal {
 		return this.locator.getByRole( 'button', { name: 'Close' } );
 	}
 
+	get appearanceRadioGroup() {
+		return this.locator.getByRole( 'radiogroup', { name: 'Appearance' } );
+	}
+
+	getAppearanceOption( name: string ) {
+		return this.appearanceRadioGroup.getByRole( 'radio', { name } );
+	}
+
+	async selectColorScheme( scheme: 'System' | 'Light' | 'Dark' ) {
+		const option = this.getAppearanceOption( scheme );
+		await option.click();
+		await expect( option ).toHaveAttribute( 'aria-checked', 'true' );
+	}
+
 	async selectLanguage( language: string ) {
 		await this.languageSelect.selectOption( { label: language } );
 	}

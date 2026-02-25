@@ -90,6 +90,36 @@ lane :notarize_binary do
   end
 end
 
+#
+# Extract translatable strings from source code into the .pot file and optionally commit the changes
+#
+# @param commit_message [String, nil] The commit message to use if committing changes, or nil to skip commit.
+# @param skip_confirm [Boolean] Whether to skip interactive confirmation before committing.
+#
+lane :generate_pot_file do |commit_message: nil, skip_confirm: false|
+  pot_dir = File.join(PROJECT_ROOT_FOLDER, 'out', 'pots')
+
+  sh('rm', '-rf', pot_dir)
+  sh('mkdir', '-p', File.dirname(POT_FILE_PATH))
+  sh(
+    'npx', 'wp-babel-makepot',
+    "#{PROJECT_ROOT_FOLDER}/{apps/studio/src,apps/cli,tools/common}/**/*.{js,jsx,ts,tsx}",
+    '--ignore', "#{PROJECT_ROOT_FOLDER}/apps/cli/node_modules/**/*,**/*.d.ts",
+    '--base', PROJECT_ROOT_FOLDER,
+    '--dir', pot_dir,
+    '--output', POT_FILE_PATH
+  )
+
+  if commit_message && (skip_confirm || UI.confirm('Commit updated strings?'))
+    git_add(path: [POT_FILE_PATH])
+    git_commit(
+      path: [POT_FILE_PATH],
+      message: commit_message,
+      allow_nothing_to_commit: true
+    )
+  end
+end
+
 desc 'Ship the binary to internal testers'
 lane :distribute_dev_build do |_options|
   distribute_builds
@@ -165,26 +195,9 @@ lane :code_freeze do |version:, skip_confirm: false, github_username: nil|
   # Create release branch from MAIN_BRANCH
   Fastlane::Helper::GitHelper.create_branch(branch_name)
 
-  # Fastlane sh() runs from the fastlane/ directory, so use absolute paths for shell commands
-  pot_dir = File.join(PROJECT_ROOT_FOLDER, 'out', 'pots')
-
-  sh('rm', '-rf', pot_dir)
-  sh('mkdir', '-p', File.dirname(POT_FILE_PATH))
-  sh(
-    'npx', 'wp-babel-makepot',
-    "#{PROJECT_ROOT_FOLDER}/{apps/studio/src,apps/cli,tools/common}/**/*.{js,jsx,ts,tsx}",
-    '--ignore', "#{PROJECT_ROOT_FOLDER}/apps/cli/node_modules/**/*,**/*.d.ts",
-    '--base', PROJECT_ROOT_FOLDER,
-    '--dir', pot_dir,
-    '--output', POT_FILE_PATH
-  )
-
-  # Commit and push the .pot file so the wpcom cron can import it to GlotPress
-  git_add(path: [POT_FILE_PATH])
-  git_commit(
-    path: [POT_FILE_PATH],
-    message: "[skip ci] Code freeze: Update translatable strings for #{version}",
-    allow_nothing_to_commit: true
+  generate_pot_file(
+    commit_message: "[skip ci] Code freeze: Update translatable strings for #{version}",
+    skip_confirm: skip_confirm
   )
 
   # Generate draft release notes from PRs merged since the last published release

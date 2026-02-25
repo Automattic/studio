@@ -91,12 +91,12 @@ export function TwoColorProgressBar( {
 		<div>
 			{ showLabels && ( valueLabel || limitLabel || overLimitLabel ) && (
 				<div className="flex justify-between items-center text-xs mb-2">
-					<div className="text-a8c-gray-90 font-medium uppercase">{ valueLabel }</div>
+					<div className="text-frame-text font-medium uppercase">{ valueLabel }</div>
 					<div>
 						{ isOverLimit && overLimitLabel ? (
-							<span className="text-a8c-gray-700 text-xs">{ overLimitLabel }</span>
+							<span className="text-frame-text-secondary text-xs">{ overLimitLabel }</span>
 						) : (
-							limitLabel && <span className="text-a8c-gray-700 text-xs">{ limitLabel }</span>
+							limitLabel && <span className="text-frame-text-secondary text-xs">{ limitLabel }</span>
 						) }
 					</div>
 				</div>

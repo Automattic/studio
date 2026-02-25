@@ -1,5 +1,5 @@
 // To run tests, execute `npm run test -- src/modules/sync/tests/index.test.tsx` from the root directory
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { vi } from 'vitest';
 import { SYNC_OPTIONS } from 'src/constants';
@@ -462,15 +462,13 @@ describe( 'ContentTabSync', () => {
 		const dialogPullButton = await screen.findByTestId( 'sync-dialog-pull-button' );
 		fireEvent.click( dialogPullButton );
 
-		await waitFor( () => {
-			expect( mockPullSiteThunk ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					options: {
-						optionsToSync: [ SYNC_OPTIONS.all ],
-					},
-				} )
-			);
-		} );
+		expect( mockPullSiteThunk ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				options: {
+					optionsToSync: [ SYNC_OPTIONS.all ],
+				},
+			} )
+		);
 	} );
 
 	it( 'calls pullSite with correct optionsToSync when only database is selected', async () => {
@@ -491,15 +489,13 @@ describe( 'ContentTabSync', () => {
 		const dialogPullButton = await screen.findByTestId( 'sync-dialog-pull-button' );
 		fireEvent.click( dialogPullButton );
 
-		await waitFor( () => {
-			expect( mockPullSiteThunk ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					options: {
-						optionsToSync: [ SYNC_OPTIONS.sqls ],
-					},
-				} )
-			);
-		} );
+		expect( mockPullSiteThunk ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				options: {
+					optionsToSync: [ SYNC_OPTIONS.sqls ],
+				},
+			} )
+		);
 	} );
 
 	it( 'calls pullSite with correct optionsToSync when options partially are selected', async () => {

@@ -436,17 +436,9 @@ const pullSiteResponseSchema = z.object( {
 	backup_id: z.number(),
 } );
 
-const importResponseSchema = z.object( {
-	status: z.enum( [
-		'finished',
-		'failed',
-		'initial_backup_started',
-		'archive_import_started',
-		'archive_import_finished',
-	] ),
+const importFailedResponseSchema = z.object( {
+	status: z.literal( 'failed' ),
 	success: z.boolean(),
-	backup_progress: z.number().nullable(),
-	import_progress: z.number().nullable(),
 	error: z.string(),
 	error_data: z
 		.object( {
@@ -454,9 +446,27 @@ const importResponseSchema = z.object( {
 			vp_restore_message: z.string().nullable(),
 			vp_rewind_id: z.string().nullable(),
 		} )
-		.nullable()
-		.optional(),
+		.nullable(),
 } );
+
+const importWorkingResponseSchema = z.object( {
+	status: z.enum( [
+		'started',
+		'initial_backup_started',
+		'initial_backup_finished',
+		'archive_import_started',
+		'archive_import_finished',
+		'finished',
+	] ),
+	success: z.boolean(),
+	backup_progress: z.number().nullable(),
+	import_progress: z.number().nullable(),
+} );
+
+const importResponseSchema = z.discriminatedUnion( 'status', [
+	importWorkingResponseSchema,
+	importFailedResponseSchema,
+] );
 
 const syncBackupResponseSchema = z.object( {
 	status: z.enum( [ 'in-progress', 'finished', 'failed' ] ),
@@ -617,22 +627,22 @@ const pollPushProgressThunk = createTypedAsyncThunk(
 						showOpenLogs: true,
 					} );
 				}
-				case 'initial_backup_started': {
+				case 'started':
+				case 'initial_backup_started':
+				case 'initial_backup_finished':
 					status = pushStatesProgressInfo.creatingRemoteBackup;
 					if ( response.backup_progress ) {
 						const progressRange = pushStatesProgressInfo.applyingChanges.progress - status.progress;
 						status.progress = status.progress + progressRange * ( response.backup_progress / 100 );
 					}
 					break;
-				}
-				case 'archive_import_started': {
+				case 'archive_import_started':
 					status = pushStatesProgressInfo.applyingChanges;
 					if ( response.import_progress ) {
 						const progressRange = pushStatesProgressInfo.finishing.progress - status.progress;
 						status.progress = status.progress + progressRange * ( response.import_progress / 100 );
 					}
 					break;
-				}
 				case 'archive_import_finished':
 					status = pushStatesProgressInfo.finishing;
 					break;

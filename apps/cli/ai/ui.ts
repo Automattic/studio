@@ -105,6 +105,7 @@ const toolDisplayNames: Record< string, string > = {
 	mcp__studio__site_start: 'Starting site',
 	mcp__studio__site_stop: 'Stopping site',
 	mcp__studio__wp_cli: 'Running WP-CLI',
+	mcp__studio__validate_blocks: 'Validating blocks',
 	Read: 'Reading file',
 	Write: 'Writing file',
 	Edit: 'Editing file',
@@ -125,6 +126,11 @@ function getToolDetail( name: string, input: Record< string, unknown > ): string
 			return typeof input.nameOrPath === 'string' ? input.nameOrPath : '';
 		case 'mcp__studio__wp_cli':
 			return typeof input.command === 'string' ? `wp ${ input.command }` : '';
+		case 'mcp__studio__validate_blocks':
+			if ( typeof input.filePath === 'string' ) {
+				return input.filePath.split( '/' ).slice( -2 ).join( '/' );
+			}
+			return 'inline content';
 		case 'Read':
 		case 'Write':
 		case 'Edit': {

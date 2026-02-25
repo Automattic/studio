@@ -1,7 +1,9 @@
+import { readFile } from 'fs/promises';
 import path from 'path';
 import { tool, createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { z } from 'zod';
+import { validateBlocks } from 'cli/ai/block-validator';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { runCommand as runListSitesCommand } from 'cli/commands/site/list';
 import { runCommand as runStartSiteCommand } from 'cli/commands/site/start';
@@ -292,6 +294,68 @@ const runWpCliTool = tool(
 	}
 );
 
+const validateBlocksTool = tool(
+	'validate_blocks',
+	'Validates WordPress block content by parsing it and checking each block against its registered save() function. ' +
+		'Returns per-block validation results showing which blocks are valid and which have issues, ' +
+		'along with the expected HTML for invalid blocks so you can fix them.',
+	z.object( {
+		filePath: z
+			.string()
+			.optional()
+			.describe( 'Path to a file containing WordPress block content to validate' ),
+		content: z
+			.string()
+			.optional()
+			.describe( 'Raw WordPress block content (HTML with block comments) to validate' ),
+	} ),
+	async ( args ) => {
+		try {
+			let blockContent: string;
+
+			if ( args.filePath ) {
+				blockContent = await readFile( args.filePath, 'utf-8' );
+			} else if ( args.content ) {
+				blockContent = args.content;
+			} else {
+				return errorResult( 'Either content or filePath must be provided.' );
+			}
+
+			const report = validateBlocks( blockContent );
+
+			if ( report.error ) {
+				return errorResult( `Block validator initialization failed: ${ report.error }` );
+			}
+
+			const lines: string[] = [];
+			lines.push( `Validation: ${ report.validBlocks }/${ report.totalBlocks } blocks valid` );
+
+			if ( report.invalidBlocks > 0 ) {
+				lines.push( '' );
+				lines.push( 'Invalid blocks:' );
+				for ( const result of report.results ) {
+					if ( ! result.isValid ) {
+						lines.push( `  - ${ result.blockName }` );
+						for ( const issue of result.issues ) {
+							lines.push( `    ${ issue }` );
+						}
+						if ( result.expectedContent !== undefined ) {
+							lines.push( `    Expected: ${ result.expectedContent }` );
+							lines.push( `    Actual:   ${ result.originalContent }` );
+						}
+					}
+				}
+			}
+
+			return textResult( lines.join( '\n' ) );
+		} catch ( error ) {
+			return errorResult(
+				`Block validation failed: ${ error instanceof Error ? error.message : String( error ) }`
+			);
+		}
+	}
+);
+
 export function createStudioTools() {
 	return createSdkMcpServer( {
 		name: 'studio',
@@ -303,6 +367,7 @@ export function createStudioTools() {
 			startSiteTool,
 			stopSiteTool,
 			runWpCliTool,
+			validateBlocksTool,
 		],
 	} );
 }

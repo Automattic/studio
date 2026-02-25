@@ -81,6 +81,16 @@ WordPress Studio - Electron desktop app for managing local WordPress sites. Buil
 **PRs**: Create PR against `trunk` branch. Use the template from `.github/PULL_REQUEST_TEMPLATE.md` (include Related issues, Proposed Changes, Testing Instructions, Pre-merge Checklist). MUST pass all CI checks before merge.
 **IMPORTANT**: Prefer merging `trunk` into your branch over rebasing. Avoid force pushes to trunk/main branches. Avoid force pushes to already-pushed branches - add new commits instead.
 
+## Large & Exploratory Contributions (Vibe-Coded Features)
+
+If you've built a substantial new feature — especially one generated with AI assistance or built rapidly without prior team alignment — treat your PR as a **Proof of Concept** rather than a merge-ready change:
+
+- **Add the `Proof of Concept` label** to your PR. This signals the team that the PR is intended as directional guidance rather than production-ready code.
+- **Open a companion issue first** (or reference an existing one). The CONTRIBUTING.md recommends this for new features — it lets the team review the plan before implementation work begins.
+- **Describe intent clearly in the PR body**: What problem does this solve? What tradeoffs were made? What would need to change before this could be merged into core?
+- **Don't expect a fast merge path**: Proof of Concept PRs are valuable as starting points and discussion anchors, but the team will likely want to revisit architecture, tests, and polish before landing them.
+- **Keep scope visible**: If the change touches many files or crosses architectural boundaries (e.g., new IPC handlers + new Redux slices + new UI), call that out explicitly so reviewers know what they're evaluating.
+
 ## Common Pitfalls
 
 **CRITICAL - WordPress Core Files**: Do NOT edit WordPress core files within site directories. Studio uses WordPress Playground (PHP WASM), and core modifications won't persist or function correctly.

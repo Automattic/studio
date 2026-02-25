@@ -4,6 +4,8 @@ fastlane_require 'digest'
 fastlane_require 'zip'
 fastlane_require 'aws-sdk-cloudfront'
 fastlane_require 'json'
+fastlane_require 'net/http'
+fastlane_require 'uri'
 
 UI.user_error!('Please run fastlane via `bundle exec`') unless FastlaneCore::Helper.bundler?
 
@@ -18,11 +20,18 @@ BUILDS_FOLDER = File.join(PROJECT_ROOT_FOLDER, 'apps', 'studio', 'out')
 DRY_RUN = ENV['DRY_RUN'] == 'true'
 
 # Make sure the WPCOM API token is set
-UI.user_error!("Environment variable WPCOM_API_TOKEN is not set") if ENV['WPCOM_API_TOKEN'].nil? && !DRY_RUN
+UI.user_error!('Environment variable WPCOM_API_TOKEN is not set') if ENV['WPCOM_API_TOKEN'].nil? && !DRY_RUN
 UI.message("Running in #{DRY_RUN ? 'DRY RUN' : 'NORMAL'} mode")
 
-# Read version from package.json
-PACKAGE_VERSION = JSON.parse(File.read(File.join(PROJECT_ROOT_FOLDER, 'package.json')))['version']
+# Path to the Studio app's package.json (monorepo workspace)
+PACKAGE_JSON_PATH = File.join(PROJECT_ROOT_FOLDER, 'apps', 'studio', 'package.json')
+
+# Path to the translatable strings file (committed to the repo for GlotPress import)
+POT_FILE_PATH = File.join(PROJECT_ROOT_FOLDER, 'i18n', 'bundle-strings.pot')
+
+# GlotPress project URL and output directory for Studio UI translations (Jed 1.x JSON)
+GLOTPRESS_PROJECT_URL = 'https://translate.wordpress.com/projects/studio'
+TRANSLATIONS_DIR = File.join(PROJECT_ROOT_FOLDER, 'tools', 'common', 'translations')
 
 APPLE_TEAM_ID = 'PZYM8XX95Q'
 APPLE_BUNDLE_IDENTIFIER = 'com.automattic.studio'
@@ -30,6 +39,11 @@ APPLE_API_KEY_PATH = File.join(SECRETS_FOLDER, 'app_store_connect_fastlane_api_k
 
 # Site ID for WordPress.com Studio in the Apps CDN
 WPCOM_STUDIO_SITE_ID = '239164481'
+
+GITHUB_REPO = 'Automattic/studio'
+MAIN_BRANCH = 'trunk'
+BUILDKITE_ORG = 'automattic'
+BUILDKITE_PIPELINE = 'studio'
 
 # Use this instead of getting values from ENV directly
 # It will throw an error if the requested value is missing
@@ -81,15 +95,27 @@ lane :distribute_dev_build do |_options|
   distribute_builds
 end
 
-desc 'Ship release build'
-lane :distribute_release_build do |_options|
-  release_tag = get_required_env('BUILDKITE_TAG')
+# Upload release builds to the Apps CDN and notify Slack.
+#
+# @param version [String] The release version (e.g., '1.7.4' or '1.7.4-beta1')
+#
+lane :distribute_release_build do |version: read_package_json_version|
+  release_tag = "v#{version}"
   builds = distribute_builds(release_tag:)
 
   if DRY_RUN
     UI.message("[DRY RUN] Would notify Slack about #{release_tag}")
     UI.message("[DRY RUN] Release assets prepared for #{builds.each_value.map { |build| build[:name] }.join(', ')}")
     next
+  end
+
+  # Create the tag or draft GitHub release only after the build succeeds.
+  # This avoids orphan tags or draft releases if the build fails.
+  if version.include?('beta')
+    add_git_tag(tag: release_tag)
+    push_git_tags(tag: release_tag)
+  else
+    create_draft_github_release(version: version, release_tag: release_tag, builds: builds)
   end
 
   slack(
@@ -106,19 +132,329 @@ lane :distribute_release_build do |_options|
   )
 end
 
+########################################################################
+# Release Management Lanes
+########################################################################
+
+# Create a new release branch from trunk and the first beta.
+#
+# - Extracts translatable strings and commits them to the release branch (for GlotPress import)
+# - Creates a `release/<version>` branch from trunk
+# - Delegates to {new_beta_release} to bump to beta1, commit, push, tag, and trigger a build
+#
+# @param version [String] The version to freeze (e.g., '1.7.4')
+# @param skip_confirm [Boolean] Skip interactive confirmation prompts (default: false)
+#
+lane :code_freeze do |version:, skip_confirm: false, github_username: nil|
+  branch_name = "release/#{version}"
+
+  UI.important <<~PROMPT
+    Freezing code for release #{version}. This will:
+    - Create a new `#{branch_name}` branch from `#{MAIN_BRANCH}`
+    - Extract translatable strings and commit to `#{branch_name}`
+    - Generate draft release notes from merged PRs
+    - Create a backmerge PR from `#{branch_name}` to `#{MAIN_BRANCH}`
+    - Trigger the first beta build for all platforms (macOS, Windows), which will then:
+      - Upload build artifacts to the Apps CDN
+      - Notify #dotcom-studio on Slack
+  PROMPT
+  next unless skip_confirm || UI.confirm('Continue?')
+
+  Fastlane::Helper::GitHelper.checkout_and_pull(MAIN_BRANCH)
+
+  # Create release branch from MAIN_BRANCH
+  Fastlane::Helper::GitHelper.create_branch(branch_name)
+
+  # Fastlane sh() runs from the fastlane/ directory, so use absolute paths for shell commands
+  pot_dir = File.join(PROJECT_ROOT_FOLDER, 'out', 'pots')
+
+  sh('rm', '-rf', pot_dir)
+  sh('mkdir', '-p', File.dirname(POT_FILE_PATH))
+  sh(
+    'npx', 'wp-babel-makepot',
+    "#{PROJECT_ROOT_FOLDER}/{apps/studio/src,apps/cli,tools/common}/**/*.{js,jsx,ts,tsx}",
+    '--ignore', "#{PROJECT_ROOT_FOLDER}/apps/cli/node_modules/**/*,**/*.d.ts",
+    '--base', PROJECT_ROOT_FOLDER,
+    '--dir', pot_dir,
+    '--output', POT_FILE_PATH
+  )
+
+  # Commit and push the .pot file so the wpcom cron can import it to GlotPress
+  git_add(path: [POT_FILE_PATH])
+  git_commit(
+    path: [POT_FILE_PATH],
+    message: "[skip ci] Code freeze: Update translatable strings for #{version}",
+    allow_nothing_to_commit: true
+  )
+
+  # Generate draft release notes from PRs merged since the last published release
+  update_release_notes_draft(version: version)
+  git_add(path: ['RELEASE-NOTES.txt'])
+  git_commit(
+    path: ['RELEASE-NOTES.txt'],
+    message: "[skip ci] Code freeze: Add draft release notes for #{version}",
+    allow_nothing_to_commit: true
+  )
+
+  push_to_git_remote(set_upstream: true)
+
+  # Create backmerge PR from the release branch to MAIN_BRANCH so that the strings bundle is uploaded to GlotPress
+  create_backmerge_pr(source_branch: branch_name, github_username: github_username)
+
+  # Create the first beta (bumps version, commits, pushes, tags, triggers build)
+  new_beta_release(version: version, skip_confirm: skip_confirm)
+
+  UI.success("Code freeze complete! Created #{branch_name} with first beta")
+end
+
+# Create a new beta release on the current release branch.
+#
+# - Determines the next beta number automatically from package.json
+# - Bumps the version, commits, tags, and triggers a release build
+#
+# @param version [String] The base release version (e.g., '1.7.4')
+# @param skip_confirm [Boolean] Skip interactive confirmation prompts (default: false)
+#
+lane :new_beta_release do |version:, skip_confirm: false|
+  current_version = read_package_json_version
+  current_beta = current_version[/beta(\d+)$/, 1].to_i
+
+  # Guard against version mismatch (e.g. package.json has 1.7.4-beta3 but version param is 1.8.0)
+  # Skip the check when current_beta is 0, meaning this is the first beta (called from code_freeze before any bump).
+  if current_beta.positive?
+    base_version = current_version.sub(/-beta\d+$/, '')
+    UI.user_error!("Version mismatch: package.json has #{current_version} but expected #{version}-betaN") unless base_version == version
+  end
+
+  new_version = "#{version}-beta#{current_beta + 1}"
+
+  UI.important <<~PROMPT
+    Creating new beta release #{new_version}. This will:
+    - Bump version to #{new_version}
+    - Trigger a release build for all platforms (macOS, Windows), which will then:
+      - Upload build artifacts to the Apps CDN
+      - Tag v#{new_version}
+      - Notify #dotcom-studio on Slack
+  PROMPT
+  next unless skip_confirm || UI.confirm('Continue?')
+
+  bump_version_commit_and_push(version: new_version)
+
+  trigger_release_build(version: new_version)
+
+  UI.success("New beta release created: v#{new_version}")
+end
+
+# Finalize the release by removing the beta suffix and triggering the final build.
+#
+# - Bumps version to the final release number (removes beta suffix)
+# - Triggers a release build in Buildkite
+# - The build creates a draft GitHub release (with notes and download links) after uploading to CDN
+# - The draft is published later by the {publish_release} lane
+#
+# @param version [String] The final version number (e.g., '1.7.4')
+# @param skip_confirm [Boolean] Skip interactive confirmation prompts (default: false)
+#
+lane :finalize_release do |version:, skip_confirm: false|
+  UI.important <<~PROMPT
+    Finalizing release #{version}. This will:
+    - Bump version to #{version} (remove beta suffix)
+    - Trigger a release build for all platforms (macOS, Windows), which will then:
+      - Upload build artifacts to the Apps CDN
+      - Create a draft GitHub release with release notes and download links
+      - Notify #dotcom-studio on Slack
+  PROMPT
+  next unless skip_confirm || UI.confirm('Continue?')
+
+  bump_version_commit_and_push(version: version)
+
+  trigger_release_build(version: version)
+
+  UI.success("Release finalized: v#{version} (build triggered)")
+end
+
+# Publish the release by making the draft GitHub release public and creating a backmerge PR.
+#
+# - Publishes the draft GitHub release created by {distribute_release_build}
+# - Creates a backmerge PR from the release branch to trunk (with intermediate branch for conflicts)
+#
+# @param version [String] The version to publish (e.g., '1.7.4')
+# @param skip_confirm [Boolean] Skip interactive confirmation prompts (default: false)
+#
+lane :publish_release do |version:, skip_confirm: false, github_username: nil|
+  release_branch = "release/#{version}"
+
+  UI.important <<~PROMPT
+    Publishing release #{version}. This will:
+    - Publish the draft GitHub release for v#{version}
+    - Create a backmerge PR from `#{release_branch}` into `#{MAIN_BRANCH}`
+    - Delete the `#{release_branch}` branch after creating the backmerge PR
+  PROMPT
+  next unless skip_confirm || UI.confirm('Continue?')
+
+  # Publish the draft GitHub release
+  publish_github_release(
+    repository: GITHUB_REPO,
+    name: "v#{version}"
+  )
+
+  # Create backmerge PR with intermediate branch to handle conflicts
+  create_backmerge_pr(source_branch: release_branch, github_username: github_username)
+
+  Fastlane::Helper::GitHelper.delete_remote_branch_if_exists!(release_branch)
+  Fastlane::Helper::GitHelper.checkout_and_pull(MAIN_BRANCH)
+  Fastlane::Helper::GitHelper.delete_local_branch_if_exists!(release_branch)
+
+  UI.success("Release v#{version} published!")
+end
+
+# Create a hotfix release branch from the latest release tag.
+#
+# - Finds the latest non-beta release tag
+# - Creates a `release/<version>` branch from that tag
+# - Bumps the version number
+#
+# @param version [String] The hotfix version number (e.g., '1.7.5')
+# @param skip_confirm [Boolean] Skip interactive confirmation prompts (default: false)
+#
+lane :new_hotfix_release do |version:, skip_confirm: false|
+  branch_name = "release/#{version}"
+
+  # Extract the major.minor version to find the previous release tag
+  match_data = version.match(/^(\d+\.\d+)/)
+  UI.user_error!("Invalid version '#{version}'. Expected format like '1.7.5' so that a 'major.minor' (e.g., '1.7') can be extracted.") if match_data.nil?
+  short_version = match_data[1]
+  previous_tag = find_previous_tag(pattern: "v#{short_version}.*")
+
+  # Determine the base for the hotfix branch: either a tag or a release branch
+  previous_release_branch = "release/#{short_version}"
+  base_ref = if previous_tag && !previous_tag.include?('beta')
+               previous_tag
+             elsif Fastlane::Helper::GitHelper.branch_exists_on_remote?(branch_name: previous_release_branch)
+               UI.message("Tag for version '#{short_version}' not found. Using release branch '#{previous_release_branch}' as the base for the hotfix.")
+               previous_release_branch
+             else
+               UI.user_error!("Neither a tag for version '#{short_version}' nor branch '#{previous_release_branch}' exists on the remote. A hotfix branch cannot be created.")
+             end
+
+  UI.important <<~PROMPT
+    Creating hotfix release #{version}. This will:
+    - Create a new `#{branch_name}` branch from #{base_ref}
+    - Bump version to #{version}
+  PROMPT
+  next unless skip_confirm || UI.confirm('Continue?')
+
+  Fastlane::Helper::GitHelper.create_branch(branch_name, from: base_ref)
+
+  bump_version_commit_and_push(version: version, set_upstream: true)
+
+  UI.success("Hotfix branch #{branch_name} created from #{base_ref}")
+end
+
+# Download Studio UI translations from GlotPress (Jed 1.x JSON) into tools/common/translations/.
+# Discovers locales from existing files in TRANSLATIONS_DIR (e.g. studio-es.jed.json → "es").
+#
+lane :fetch_glotpress_translations do
+  files = Dir.glob(File.join(TRANSLATIONS_DIR, 'studio-*.jed.json'))
+  locales = files.map { |f| File.basename(f, '.jed.json').delete_prefix('studio-') }.sort
+  UI.user_error!('No existing translation files found in translations directory') if locales.empty?
+
+  UI.message("Downloading translations for #{locales.length} locales from GlotPress...")
+
+  locales.each do |locale|
+    url = URI("#{GLOTPRESS_PROJECT_URL}/#{locale}/default/export-translations/?format=jed1x")
+    response = Net::HTTP.get_response(url)
+    UI.user_error!("Failed to download translations for '#{locale}': HTTP #{response.code}") unless response.is_a?(Net::HTTPSuccess)
+
+    output_path = File.join(TRANSLATIONS_DIR, "studio-#{locale}.jed.json")
+    File.write(output_path, response.body)
+    UI.message("  Downloaded #{locale}")
+  end
+
+  UI.success("Downloaded translations for #{locales.length} locales")
+end
+
+# Download the latest translations and create a PR to merge them into the release branch.
+#
+# @param skip_confirm [Boolean] Skip interactive confirmation prompts (default: false)
+#
+lane :download_translations do |skip_confirm: false, github_username: nil|
+  current_branch = Fastlane::Helper::GitHelper.current_git_branch
+
+  UI.important <<~PROMPT
+    Downloading translations. This will:
+    - Download latest translations from GlotPress
+    - Create a PR to merge them into `#{current_branch}`
+  PROMPT
+  next unless skip_confirm || UI.confirm('Continue?')
+
+  fetch_glotpress_translations
+
+  translations_branch = 'update/latest-translations'
+  Fastlane::Helper::GitHelper.delete_local_branch_if_exists!(translations_branch)
+  Fastlane::Helper::GitHelper.create_branch(translations_branch)
+
+  git_add(path: ['.'])
+  result = git_commit(
+    path: ['.'],
+    message: 'Update translations',
+    allow_nothing_to_commit: true
+  )
+
+  if result.nil?
+    Fastlane::Helper::GitHelper.checkout_and_pull(current_branch)
+    Fastlane::Helper::GitHelper.delete_local_branch_if_exists!(translations_branch)
+    UI.important('No translation changes detected.')
+
+    if is_ci?
+      buildkite_annotate(
+        context: 'download-translations',
+        style: 'info',
+        message: 'No translation changes detected. No PR was created.'
+      )
+    end
+    next
+  end
+
+  Fastlane::Helper::GitHelper.delete_remote_branch_if_exists!(translations_branch)
+  push_to_git_remote(set_upstream: true, tags: false)
+
+  pr_url = create_pull_request(
+    repo: GITHUB_REPO,
+    title: 'Update translations',
+    body: 'Merges the latest translations from GlotPress.',
+    labels: 'Releases',
+    base: current_branch,
+    head: translations_branch,
+    reviewers: Array(github_username)
+  )
+
+  if is_ci? && pr_url
+    buildkite_annotate(
+      context: 'download-translations',
+      style: 'info',
+      message: "Translations Pull Request: #{pr_url}"
+    )
+  end
+end
+
+########################################################################
+# Build and Distribution Helper Methods
+########################################################################
+
 def get_windows_update_release_sha(arch: 'x64')
   releases_file_path = File.join(BUILDS_FOLDER, 'make', 'squirrel.windows', arch, 'RELEASES')
 
   begin
     releases_content = File.read(releases_file_path)
-  rescue => error
+  rescue StandardError
     UI.user_error!("Couldn't read RELEASES file of Windows build at #{releases_file_path}. Please ensure that the file compute the release SHA1.")
   end
 
   match_data = releases_content.match(/([a-zA-Z\d]{40})\s(.*\.nupkg)\s(\d+)/)
-  UI.user_error!("Could not parse Windows RELEASES file format") unless match_data
+  UI.user_error!('Could not parse Windows RELEASES file format') unless match_data
 
-  sha1, filename, size = match_data.captures
+  sha1, = match_data.captures
   sha1
 end
 
@@ -127,15 +463,14 @@ def distribute_builds(
   build_number: get_required_env('BUILDKITE_BUILD_NUMBER'),
   release_tag: nil
 )
-
   build_type = if release_tag.nil?
-    'Nightly'
-  elsif release_tag.downcase.include?('beta')
-    'Beta'
-  else
-    'Production'
-  end
-  version = release_tag.nil? ? "v#{PACKAGE_VERSION}" : release_tag
+                 'Nightly'
+               elsif release_tag.downcase.include?('beta')
+                 'Beta'
+               else
+                 'Production'
+               end
+  version = release_tag.nil? ? "v#{read_package_json_version}" : release_tag
   appx_version = "#{version[/\d+\.\d+\.\d+/]}.0"
   release_notes = release_tag.nil? ? "Development build #{version}-#{build_number}" : "Release #{release_tag}"
 
@@ -157,7 +492,7 @@ def distribute_builds(
       sha: commit_hash
     },
     windows_update: {
-      binary_path: File.join(BUILDS_FOLDER, 'make', 'squirrel.windows', 'x64', "studio-update.nupkg"),
+      binary_path: File.join(BUILDS_FOLDER, 'make', 'squirrel.windows', 'x64', 'studio-update.nupkg'),
       name: 'Windows - x64 Update',
       platform: 'Windows - x64',
       arch: 'x64',
@@ -165,7 +500,7 @@ def distribute_builds(
       sha: get_windows_update_release_sha(arch: 'x64')
     },
     windows_arm64_update: {
-      binary_path: File.join(BUILDS_FOLDER, 'make', 'squirrel.windows', 'arm64', "studio-update.nupkg"),
+      binary_path: File.join(BUILDS_FOLDER, 'make', 'squirrel.windows', 'arm64', 'studio-update.nupkg'),
       name: 'Windows - ARM64 Update',
       platform: 'Windows - ARM64',
       arch: 'arm64',
@@ -187,7 +522,7 @@ def distribute_builds(
       name: 'Mac Apple Silicon (DMG)',
       platform: 'Mac - Silicon',
       arch: 'arm64',
-      install_type: 'Full Install',
+      install_type: 'Full Install'
     },
     windows: {
       binary_path: File.join(BUILDS_FOLDER, 'make', 'squirrel.windows', 'x64', 'studio-setup.exe'),
@@ -196,7 +531,7 @@ def distribute_builds(
       arch: 'x64',
       install_type: 'Full Install'
     },
-	  windows_arm64: {
+    windows_arm64: {
       binary_path: File.join(BUILDS_FOLDER, 'make', 'squirrel.windows', 'arm64', 'studio-setup.exe'),
       name: 'Windows - ARM64',
       platform: 'Windows - ARM64',
@@ -208,15 +543,15 @@ def distribute_builds(
       name: 'Windows - x64 (Unsigned Appx)',
       platform: 'Microsoft Store - x64',
       arch: 'x64',
-      install_type: 'Full Install',
+      install_type: 'Full Install'
     },
     windows_arm64_appx_unsigned: {
       binary_path: File.join(BUILDS_FOLDER, 'Studio-appx-arm64-unsigned', "Studio #{appx_version} unsigned.appx"),
       name: 'Windows - ARM64 (Unsigned Appx)',
       platform: 'Microsoft Store - ARM64',
       arch: 'arm64',
-      install_type: 'Full Install',
-    },
+      install_type: 'Full Install'
+    }
   }
 
   builds_to_upload = release_tag.nil? ? update_builds : { **update_builds, **full_install_builds }
@@ -270,11 +605,11 @@ def create_versioned_file(original_file_path:, version:, arch:)
   end
   base_name = File.basename(original_filename, extension)
 
-  if base_name.match(/-#{arch}/i)
-    versioned_filename = "#{base_name}-#{version}#{extension}"
-  else
-    versioned_filename = "#{base_name}-#{arch}-#{version}#{extension}"
-  end
+  versioned_filename = if base_name.match(/-#{arch}/i)
+                         "#{base_name}-#{version}#{extension}"
+                       else
+                         "#{base_name}-#{arch}-#{version}#{extension}"
+                       end
 
   versioned_file_path = File.join(File.dirname(original_file_path), versioned_filename)
   UI.message("Copying #{original_file_path} to #{versioned_file_path}")
@@ -283,19 +618,17 @@ def create_versioned_file(original_file_path:, version:, arch:)
 end
 
 # Helper method to upload a file to Apps CDN with dry run support
-def upload_file_to_apps_cdn(site_id:, product:, file_path:, platform:, arch:, build_type:, install_type: 'Full Install', visibility:, version:, build_number:, release_notes:, sha: nil, error_on_duplicate:, dry_run: DRY_RUN)
+def upload_file_to_apps_cdn(site_id:, product:, file_path:, platform:, arch:, build_type:, visibility:, version:, build_number:, release_notes:, error_on_duplicate:, install_type: 'Full Install', sha: nil, dry_run: DRY_RUN)
   versioned_file_path = create_versioned_file(original_file_path: file_path, version:, arch:)
 
-  if !File.exist?(versioned_file_path)
-    UI.user_error!("File #{versioned_file_path} does not exist")
-  end
+  UI.user_error!("File #{versioned_file_path} does not exist") unless File.exist?(versioned_file_path)
 
   if dry_run
     media_url = "https://appscdn.wordpress.com/downloads/wordpress-com-studio/#{platform}/#{version}/#{build_number}"
-	# Check if the file exists
-    UI.message("[DRY RUN] Upload step skipped due to dry run mode.")
+    # Check if the file exists
+    UI.message('[DRY RUN] Upload step skipped due to dry run mode.')
     UI.message("           File exists at: #{versioned_file_path}")
-    UI.message("           file size: #{File.size(versioned_file_path)/1024/1024} MB")
+    UI.message("           file size: #{File.size(versioned_file_path) / 1024 / 1024} MB")
     UI.message("           for platform: #{platform}")
     UI.message("           media url: #{media_url}")
     UI.message("           build type: #{build_type}")
@@ -329,8 +662,176 @@ def upload_file_to_apps_cdn(site_id:, product:, file_path:, platform:, arch:, bu
     error_on_duplicate:
   )
 
-  UI.message("--------------------------------")
+  UI.message('--------------------------------')
   UI.message("✅ Uploaded file: #{versioned_file_path} to #{result[:media_url]}")
 
   result
+end
+
+########################################################################
+# Release Management Helper Methods
+########################################################################
+
+# Bump version in package.json, commit, and push.
+# Used by new_beta_release, finalize_release, and new_hotfix_release.
+def bump_version_commit_and_push(version:, set_upstream: false)
+  set_package_json_version(version: version)
+  git_add(path: ['apps/studio/package.json', 'package-lock.json'])
+  git_commit(
+    path: ['apps/studio/package.json', 'package-lock.json'],
+    message: "[skip ci] Bump version to #{version}"
+  )
+  push_to_git_remote(set_upstream: set_upstream)
+end
+
+# Read the current version from package.json
+def read_package_json_version
+  JSON.parse(File.read(PACKAGE_JSON_PATH))['version']
+end
+
+# Set the version in apps/studio/package.json (and update root package-lock.json via npm workspaces)
+def set_package_json_version(version:)
+  sh('npm', 'version', version, '--no-git-tag-version', '-w', 'studio-app', '--prefix', PROJECT_ROOT_FOLDER)
+end
+
+# Extract release notes for a specific version from RELEASE-NOTES.txt
+def extract_release_notes(version:)
+  notes_path = File.join(PROJECT_ROOT_FOLDER, 'RELEASE-NOTES.txt')
+  content = File.read(notes_path)
+
+  escaped = Regexp.escape(version)
+  match = content.match(/^#{escaped}\n=+\n(.*?)(?=^\d+\.\d+\S*\n=+|\z)/m)
+
+  if match
+    match[1].strip
+  else
+    UI.important("No release notes found for #{version} in RELEASE-NOTES.txt")
+    "Release #{version}"
+  end
+end
+
+# Generate a draft release notes section from merged PRs and prepend it to RELEASE-NOTES.txt.
+# Uses GitHub's generate-notes API to list PRs since the last published release.
+def update_release_notes_draft(version:)
+  # Find the latest stable (non-beta) release tag reachable from HEAD.
+  previous_tag = find_previous_tag(pattern: 'v*', exclude: '*beta*')
+
+  changelog = get_prs_between_tags(
+    repository: GITHUB_REPO,
+    tag_name: "v#{version}",
+    previous_tag: previous_tag,
+    target_commitish: 'HEAD'
+  )
+
+  # Convert "* Title by @user in https://github.com/Org/Repo/pull/123" to "* Title #123"
+  lines = changelog.lines.reject { |l| l.start_with?('##') || l.strip.empty? }
+  formatted = lines.map do |line|
+    line.sub(%r{ by @\S+ in https://github\.com/\S+/pull/(\d+)}, ' #\1')
+  end.join.strip
+
+  if formatted.empty?
+    UI.important('No PRs found for draft release notes — skipping RELEASE-NOTES.txt update')
+    return
+  end
+
+  notes_path = File.join(PROJECT_ROOT_FOLDER, 'RELEASE-NOTES.txt')
+  content = File.read(notes_path)
+
+  new_section = "#{version}\n=====\n#{formatted}\n"
+
+  # Insert the new version section after the "Unreleased" header
+  unless content.sub!(/^(Unreleased\n=+\n)\n*/, "\\1\n#{new_section}\n")
+    UI.user_error!("Could not find 'Unreleased' header in RELEASE-NOTES.txt. Please ensure the file has an 'Unreleased' section.")
+  end
+  File.write(notes_path, content)
+
+  UI.success("Draft release notes for #{version} added to RELEASE-NOTES.txt")
+end
+
+# Create a backmerge PR from the given source branch into the main branch
+# and post a Buildkite annotation with links to the created PRs.
+def create_backmerge_pr(source_branch:, github_username: nil)
+  created_prs = create_release_backmerge_pull_request(
+    repository: GITHUB_REPO,
+    source_branch: source_branch,
+    default_branch: MAIN_BRANCH,
+    labels: ['Releases'],
+    reviewers: Array(github_username)
+  )
+
+  return unless is_ci? && created_prs && !created_prs.empty?
+
+  buildkite_annotate(
+    context: 'backmerge-prs',
+    style: 'info',
+    message: "Backmerge Pull Requests:\n#{created_prs.map { |pr| "* #{pr}\n" }.join}"
+  )
+end
+
+# Create a draft GitHub release with release notes and download links.
+# Called from distribute_release_build after a successful final (non-beta) build.
+def create_draft_github_release(version:, release_tag:, builds:)
+  notes = extract_release_notes(version: version)
+
+  # Format download links from CDN URLs
+  download_link_keys = %i[x64_dmg arm64_dmg windows windows_arm64]
+  links = download_link_keys.filter_map do |key|
+    build = builds[key]
+    next unless build&.dig(:cdn_url)
+
+    label = build[:name].sub(' - ', ' \u2013 ') # Use en-dash like existing releases
+    "[#{label}](#{build[:cdn_url]})"
+  end
+
+  body = notes
+  unless links.empty?
+    body += "\n\n---\nDownload Studio #{version}: #{links.join(', ')}\n\n" \
+            'The latest version is always available on the [WordPress Studio](https://developer.wordpress.com/studio/) site.'
+  end
+
+  release_notes_path = File.join(PROJECT_ROOT_FOLDER, 'fastlane', 'github_release_notes.txt')
+  File.write(release_notes_path, body)
+
+  base_version = version.sub(/-beta\d+$/, '')
+  create_github_release(
+    repository: GITHUB_REPO,
+    version: release_tag,
+    target: "release/#{base_version}",
+    release_notes_file_path: release_notes_path,
+    release_assets: [],
+    prerelease: false,
+    is_draft: true
+  )
+
+  UI.success("Created draft GitHub release #{release_tag} with download links")
+end
+
+# Trigger a release build in Buildkite for the given version.
+#
+# Uses `buildkite_add_trigger_step` on CI (to create a separate build with proper Git mirroring)
+# and `buildkite_trigger_build` when running locally.
+def trigger_release_build(version:)
+  base_version = version.sub(/-beta\d+$/, '')
+  branch = "release/#{base_version}"
+
+  environment = {
+    'RELEASE_VERSION' => base_version
+  }
+
+  common_args = {
+    pipeline_file: 'release-build-and-distribute.yml',
+    branch: branch,
+    message: "Release Build (v#{version})",
+    environment: environment
+  }
+
+  if is_ci?
+    buildkite_add_trigger_step(**common_args)
+  else
+    buildkite_trigger_build(
+      buildkite_organization: BUILDKITE_ORG,
+      buildkite_pipeline: BUILDKITE_PIPELINE,
+      **common_args
+    )
+  end
 end

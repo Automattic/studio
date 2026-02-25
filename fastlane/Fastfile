@@ -4,6 +4,8 @@ fastlane_require 'digest'
 fastlane_require 'zip'
 fastlane_require 'aws-sdk-cloudfront'
 fastlane_require 'json'
+fastlane_require 'net/http'
+fastlane_require 'uri'
 
 UI.user_error!('Please run fastlane via `bundle exec`') unless FastlaneCore::Helper.bundler?
 
@@ -26,6 +28,10 @@ PACKAGE_JSON_PATH = File.join(PROJECT_ROOT_FOLDER, 'apps', 'studio', 'package.js
 
 # Path to the translatable strings file (committed to the repo for GlotPress import)
 POT_FILE_PATH = File.join(PROJECT_ROOT_FOLDER, 'i18n', 'bundle-strings.pot')
+
+# GlotPress project URL and output directory for Studio UI translations (Jed 1.x JSON)
+GLOTPRESS_PROJECT_URL = 'https://translate.wordpress.com/projects/studio'
+TRANSLATIONS_DIR = File.join(PROJECT_ROOT_FOLDER, 'tools', 'common', 'translations')
 
 APPLE_TEAM_ID = 'PZYM8XX95Q'
 APPLE_BUNDLE_IDENTIFIER = 'com.automattic.studio'
@@ -345,6 +351,29 @@ lane :new_hotfix_release do |version:, skip_confirm: false|
   UI.success("Hotfix branch #{branch_name} created from #{base_ref}")
 end
 
+# Download Studio UI translations from GlotPress (Jed 1.x JSON) into tools/common/translations/.
+# Discovers locales from existing files in TRANSLATIONS_DIR (e.g. studio-es.jed.json → "es").
+#
+lane :fetch_glotpress_translations do
+  files = Dir.glob(File.join(TRANSLATIONS_DIR, 'studio-*.jed.json'))
+  locales = files.map { |f| File.basename(f, '.jed.json').delete_prefix('studio-') }.sort
+  UI.user_error!('No existing translation files found in translations directory') if locales.empty?
+
+  UI.message("Downloading translations for #{locales.length} locales from GlotPress...")
+
+  locales.each do |locale|
+    url = URI("#{GLOTPRESS_PROJECT_URL}/#{locale}/default/export-translations/?format=jed1x")
+    response = Net::HTTP.get_response(url)
+    UI.user_error!("Failed to download translations for '#{locale}': HTTP #{response.code}") unless response.is_a?(Net::HTTPSuccess)
+
+    output_path = File.join(TRANSLATIONS_DIR, "studio-#{locale}.jed.json")
+    File.write(output_path, response.body)
+    UI.message("  Downloaded #{locale}")
+  end
+
+  UI.success("Downloaded translations for #{locales.length} locales")
+end
+
 # Download the latest translations and create a PR to merge them into the release branch.
 #
 # @param skip_confirm [Boolean] Skip interactive confirmation prompts (default: false)
@@ -359,7 +388,7 @@ lane :download_translations do |skip_confirm: false, github_username: nil|
   PROMPT
   next unless skip_confirm || UI.confirm('Continue?')
 
-  sh('node', File.join(PROJECT_ROOT_FOLDER, 'scripts', 'download-available-site-translations.mjs'))
+  fetch_glotpress_translations
 
   translations_branch = 'update/latest-translations'
   Fastlane::Helper::GitHelper.delete_local_branch_if_exists!(translations_branch)

@@ -46,6 +46,17 @@ if ( typeof window !== 'undefined' ) {
 			} as unknown as CSSStyleDeclaration;
 		}
 	};
+
+	// Suppress jsdom CSS parse errors. jsdom's rrweb-cssom parser can't handle modern CSS
+	// features (@layer, nesting) used by @wordpress/ui, causing ~54 noisy errors per run.
+	// The virtualConsole emits "jsdomError" events that forward to console.error via sendTo().
+	// We remove those listeners to prevent the noise since the errors are harmless.
+	const jsdomInstance = (
+		window as unknown as { jsdom?: { virtualConsole?: NodeJS.EventEmitter } }
+	 ).jsdom;
+	if ( jsdomInstance?.virtualConsole ) {
+		jsdomInstance.virtualConsole.removeAllListeners( 'jsdomError' );
+	}
 }
 
 ( global as typeof global & { COMMIT_HASH: string } ).COMMIT_HASH = 'mock-hash';
@@ -84,6 +95,7 @@ nock.enableNetConnect( 'raw.githubusercontent.com' );
 afterEach( () => {
 	console.log = originalConsoleLog;
 	nock.cleanAll();
+
 	try {
 		vi.useRealTimers();
 	} catch {

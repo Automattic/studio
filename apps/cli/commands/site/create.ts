@@ -545,7 +545,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 							// Offline or API failure — offer only "latest"
 							wpChoices = [
 								{
-									name: sprintf( __( '%s (recommended)' ), 'Latest' ),
+									name: sprintf( __( '%s (recommended)' ), __( 'Latest' ) ),
 									value: 'latest',
 								},
 							];

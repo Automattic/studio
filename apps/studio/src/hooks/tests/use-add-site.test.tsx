@@ -16,15 +16,14 @@ vi.mock( 'src/hooks/use-feature-flags' );
 vi.mock( 'src/hooks/use-auth' );
 vi.mock( 'src/hooks/use-content-tabs' );
 
-const { mockPullSiteThunk } = vi.hoisted( () => ( {
-	mockPullSiteThunk: vi.fn().mockReturnValue( { type: 'test/pullSite' } ),
-} ) );
+const mockPullSiteThunk = vi.hoisted( () => vi.fn() );
+
 vi.mock( 'src/stores/sync', async () => {
 	const actual = await vi.importActual( 'src/stores/sync' );
 	return {
 		...actual,
 		syncOperationsThunks: {
-			...( actual as Record< string, unknown > ).syncOperationsThunks,
+			...actual.syncOperationsThunks,
 			pullSite: mockPullSiteThunk,
 		},
 	};

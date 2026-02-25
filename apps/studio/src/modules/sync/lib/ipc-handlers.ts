@@ -162,7 +162,7 @@ export async function exportSiteForPush(
 
 	try {
 		if ( abortController.signal.aborted ) {
-			throw new Error( 'PUSH_CANCELLED' );
+			throw new Error( 'Export aborted' );
 		}
 
 		await keepSqliteIntegrationUpdated( site.details.path );
@@ -199,7 +199,7 @@ export async function exportSiteForPush(
 			await fsPromises.unlink( archivePath ).catch( () => {
 				// Ignore cleanup errors
 			} );
-			throw new Error( 'PUSH_CANCELLED' );
+			throw new Error( 'Export aborted' );
 		}
 
 		const stats = fs.statSync( archivePath );
@@ -338,7 +338,7 @@ export async function pushArchive(
 
 		abortController.signal.addEventListener( 'abort', () => {
 			void upload.abort();
-			reject( new Error( 'PUSH_CANCELLED' ) );
+			reject( new Error( 'Export aborted' ) );
 		} );
 
 		const existingUploadState = SYNC_TUS_UPLOADS.get( uploadKey );

@@ -323,7 +323,7 @@ const SyncConnectedSitesSectionItem = ( {
 								placement="top-start"
 							>
 								<Button
-									variant="link"
+									variant="icon"
 									onClick={ () =>
 										dispatch(
 											syncOperationsThunks.cancelPull( {
@@ -334,10 +334,11 @@ const SyncConnectedSitesSectionItem = ( {
 									}
 									disabled={ ! canCancelPull( sitePullState?.status.key ) }
 									className="flex-shrink-0 transition-all duration-300 ease-in-out"
+									aria-label={ __( 'Cancel pull' ) }
 								>
 									<span className="flex items-center justify-center w-5 h-5">
 										<Icon icon={ close } size={ 20 } />
-									</span>{ ' ' }
+									</span>
 								</Button>
 							</Tooltip>
 						</div>
@@ -427,7 +428,7 @@ const SyncConnectedSitesSectionItem = ( {
 								placement="top-start"
 							>
 								<Button
-									variant="link"
+									variant="icon"
 									onClick={ () =>
 										dispatch(
 											syncOperationsThunks.cancelPush( {
@@ -438,6 +439,7 @@ const SyncConnectedSitesSectionItem = ( {
 									}
 									disabled={ ! canCancelPush( pushState.status.key ) }
 									className="flex-shrink-0 transition-all duration-300 ease-in-out"
+									aria-label={ __( 'Cancel push' ) }
 								>
 									<span className="flex items-center justify-center w-5 h-5">
 										<Icon icon={ close } size={ 20 } />

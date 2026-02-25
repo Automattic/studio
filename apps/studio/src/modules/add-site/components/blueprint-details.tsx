@@ -11,7 +11,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { Blueprint } from 'src/stores/wpcom-api';
 import { BlueprintWarningNotice } from './blueprint-warning-notice';
 
-export type BlueprintSource = 'deeplink' | 'file' | 'featured';
+type BlueprintSource = 'deeplink' | 'file' | 'featured';
 
 interface BlueprintDetailsProps {
 	selectedBlueprint?: Blueprint;

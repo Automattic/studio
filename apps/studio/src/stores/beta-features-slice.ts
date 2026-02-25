@@ -1,6 +1,6 @@
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { RootState, store } from 'src/stores';
+import { store } from 'src/stores';
 
 interface BetaFeaturesState {
 	features: BetaFeatures;
@@ -39,15 +39,6 @@ const betaFeaturesSlice = createSlice( {
 			} );
 	},
 } );
-
-export const { setBetaFeatures } = betaFeaturesSlice.actions;
-
-export const betaFeaturesSelectors = {
-	selectBetaFeatures: ( state: RootState ) => state.betaFeatures.features,
-	selectBetaFeaturesLoading: ( state: RootState ) => state.betaFeatures.loading,
-	selectBetaFeature: ( state: RootState, key: keyof BetaFeatures ) =>
-		state.betaFeatures.features[ key ],
-};
 
 window.ipcListener.subscribe( 'beta-features-updated', () => {
 	void store.dispatch( loadBetaFeatures() );

@@ -13,14 +13,6 @@ export function isWindows() {
 	return getAppGlobals().platform === 'win32';
 }
 
-export function isLinux() {
-	if ( process.env.NODE_ENV === 'test' ) {
-		return false;
-	}
-	const platform = process ? process.platform : getAppGlobals().platform;
-	return platform === 'linux';
-}
-
 export function isWindowsStore() {
 	return getAppGlobals().isWindowsStore;
 }

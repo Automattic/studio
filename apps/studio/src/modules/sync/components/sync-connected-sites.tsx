@@ -213,7 +213,7 @@ const SyncConnectedSitesSectionItem = ( {
 	const dispatch = useAppDispatch();
 	const isOffline = useOffline();
 	const getLastSyncTimeText = useLastSyncTimeText();
-	const { importState } = useImportExport();
+	const { importState, clearImportState } = useImportExport();
 	const { getPushUploadPercentage, getPushUploadMessage } = useSyncStatesProgressInfo();
 
 	const sitePullState = useRootSelector(
@@ -264,6 +264,16 @@ const SyncConnectedSitesSectionItem = ( {
 		pushState?.uploadProgress
 	);
 
+	function clearPullState( selectedSiteId: string, remoteSiteId: number ) {
+		clearImportState( selectedSiteId );
+		dispatch(
+			syncOperationsActions.clearPullState( {
+				selectedSiteId,
+				remoteSiteId,
+			} )
+		);
+	}
+
 	const getPushProgressTooltip = () => {
 		if ( isOffline ) {
 			return __(
@@ -281,7 +291,7 @@ const SyncConnectedSitesSectionItem = ( {
 	return (
 		<div className="grid grid-cols-[max-content_1fr_max-content]">
 			<div
-				className="col-span-3 grid px-8 gap-2 justify-items-start items-center grid-cols-subgrid"
+				className="col-span-3 grid ps-8 pe-5 gap-2 justify-items-start items-center grid-cols-subgrid"
 				key={ connectedSite.id }
 			>
 				<div className="shrink-0">
@@ -299,9 +309,9 @@ const SyncConnectedSitesSectionItem = ( {
 					<ArrowIcon />
 				</Button>
 
-				<div className="flex shrink-0 justify-self-end">
+				<div className="flex shrink-0 justify-self-end justify-end items-center min-h-[26px] w-80">
 					{ isPulling && (
-						<div className="flex items-center gap-2 max-w-full">
+						<div className="flex items-center gap-2 max-w-full transition-all duration-300 ease-in-out">
 							<div className="flex flex-col gap-2 min-w-44 flex-shrink">
 								<div className="a8c-body-small">{ sitePullStatusMessage }</div>
 								<ProgressBar value={ sitePullStatusProgress } maxValue={ 100 } />
@@ -325,56 +335,48 @@ const SyncConnectedSitesSectionItem = ( {
 										)
 									}
 									disabled={ ! canCancelPull( sitePullState?.status.key ) }
-									className="!p-0 flex-shrink-0"
+									className="flex-shrink-0 transition-all duration-300 ease-in-out"
 								>
-									<Icon icon={ close } size={ 20 } />
+									<span className="flex items-center justify-center w-5 h-5">
+										<Icon icon={ close } size={ 20 } />
+									</span>{ ' ' }
 								</Button>
 							</Tooltip>
 						</div>
 					) }
 					{ sitePullState?.status && hasPullCancelled && (
-						<ClearAction
-							onClick={ () =>
-								dispatch(
-									syncOperationsActions.clearPullState( {
-										selectedSiteId: selectedSite.id,
-										remoteSiteId: connectedSite.id,
-									} )
-								)
-							}
-						>
-							{ __( 'Pull cancelled' ) }
-						</ClearAction>
+						<div className="transition-all duration-300 ease-in-out">
+							<ClearAction onClick={ () => clearPullState( selectedSite.id, connectedSite.id ) }>
+								{ __( 'Pull cancelled' ) }
+							</ClearAction>
+						</div>
 					) }
 					{ isPullError && (
-						<ClearAction
-							onClick={ () =>
-								dispatch(
-									syncOperationsActions.clearPullState( {
-										selectedSiteId: selectedSite.id,
-										remoteSiteId: connectedSite.id,
-									} )
-								)
-							}
-							isError
-						>
-							{ __( 'Error pulling changes' ) }
-						</ClearAction>
+						<div className="transition-all duration-300 ease-in-out">
+							<ClearAction
+								onClick={ () => clearPullState( selectedSite.id, connectedSite.id ) }
+								isError
+							>
+								{ __( 'Error pulling changes' ) }
+							</ClearAction>
+						</div>
 					) }
 					{ isPushError && (
-						<ClearAction
-							onClick={ () =>
-								dispatch(
-									syncOperationsActions.clearPushState( {
-										selectedSiteId: selectedSite.id,
-										remoteSiteId: connectedSite.id,
-									} )
-								)
-							}
-							isError
-						>
-							{ __( 'Error pushing changes' ) }
-						</ClearAction>
+						<div className="transition-all duration-300 ease-in-out">
+							<ClearAction
+								onClick={ () =>
+									dispatch(
+										syncOperationsActions.clearPushState( {
+											selectedSiteId: selectedSite.id,
+											remoteSiteId: connectedSite.id,
+										} )
+									)
+								}
+								isError
+							>
+								{ __( 'Error pushing changes' ) }
+							</ClearAction>
+						</div>
 					) }
 					{ hasPullFinished && (
 						<div className="transition-all duration-300 ease-in-out">
@@ -384,16 +386,7 @@ const SyncConnectedSitesSectionItem = ( {
 								}
 								placement="top-start"
 							>
-								<ClearAction
-									onClick={ () =>
-										dispatch(
-											syncOperationsActions.clearPullState( {
-												selectedSiteId: selectedSite.id,
-												remoteSiteId: connectedSite.id,
-											} )
-										)
-									}
-								>
+								<ClearAction onClick={ () => clearPullState( selectedSite.id, connectedSite.id ) }>
 									{ __( 'Pull complete' ) }
 								</ClearAction>
 							</DynamicTooltip>
@@ -413,7 +406,7 @@ const SyncConnectedSitesSectionItem = ( {
 						</Tooltip>
 					) }
 					{ pushState?.status && isPushing && (
-						<div className="flex items-center gap-2 max-w-full">
+						<div className="flex items-center gap-2 max-w-full transition-all duration-300 ease-in-out">
 							<Tooltip text={ getPushProgressTooltip() } placement="top-start">
 								<div className="flex flex-col gap-2 min-w-44 flex-shrink">
 									<div className="a8c-body-small flex items-center gap-0.5">
@@ -446,28 +439,31 @@ const SyncConnectedSitesSectionItem = ( {
 										)
 									}
 									disabled={ ! canCancelPush( pushState?.status.key ) }
-									className="!p-0 flex-shrink-0"
+									className="flex-shrink-0 transition-all duration-300 ease-in-out"
 								>
-									<Icon icon={ close } size={ 20 } />
+									<span className="flex items-center justify-center w-5 h-5">
+										<Icon icon={ close } size={ 20 } />
+									</span>
 								</Button>
 							</Tooltip>
 						</div>
 					) }
 					{ pushState?.status && hasPushCancelled && (
-						<ClearAction
-							onClick={ () =>
-								dispatch(
-									syncOperationsActions.clearPushState( {
-										selectedSiteId: selectedSite.id,
-										remoteSiteId: connectedSite.id,
-									} )
-								)
-							}
-						>
-							{ __( 'Push cancelled' ) }
-						</ClearAction>
+						<div className="transition-all duration-300 ease-in-out">
+							<ClearAction
+								onClick={ () =>
+									dispatch(
+										syncOperationsActions.clearPushState( {
+											selectedSiteId: selectedSite.id,
+											remoteSiteId: connectedSite.id,
+										} )
+									)
+								}
+							>
+								{ __( 'Push cancelled' ) }
+							</ClearAction>
+						</div>
 					) }
-
 					{ pushState?.status && hasPushFinished && (
 						<div className="transition-all duration-300 ease-in-out">
 							<DynamicTooltip
@@ -500,10 +496,12 @@ const SyncConnectedSitesSectionItem = ( {
 						! hasPushFinished &&
 						! hasPullCancelled &&
 						! hasPushCancelled && (
-							<SyncConnectedSiteControls
-								connectedSite={ connectedSite }
-								selectedSite={ selectedSite }
-							/>
+							<div className="transition-all duration-300 ease-in-out">
+								<SyncConnectedSiteControls
+									connectedSite={ connectedSite }
+									selectedSite={ selectedSite }
+								/>
+							</div>
 						) }
 				</div>
 			</div>
@@ -581,7 +579,7 @@ const SyncConnectedSiteSection = ( {
 
 	return (
 		<div key={ connectedSite.id } className="flex flex-col gap-2 border-b border-a8c-gray-0 py-5">
-			<div className="flex items-center gap-2 px-8">
+			<div className="flex items-center gap-2 ps-8 pe-5">
 				{ logo }
 				<div className={ cx( 'a8c-label-semibold', hasConnectionErrors && 'error-message' ) }>
 					{ connectedSite.name }

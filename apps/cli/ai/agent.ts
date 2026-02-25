@@ -36,7 +36,7 @@ function buildEnv( apiKey: string ): Record< string, string > {
  * Caller can iterate messages with `for await` and call `interrupt()` to stop.
  */
 export function startAiAgent( config: AiAgentConfig ): Query {
-	const { prompt, apiKey, maxTurns = 10, resume, onAskUser } = config;
+	const { prompt, apiKey, maxTurns = 30, resume, onAskUser } = config;
 
 	return query( {
 		prompt,

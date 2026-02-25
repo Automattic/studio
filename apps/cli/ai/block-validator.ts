@@ -30,16 +30,30 @@ function setupDomEnvironment(): void {
 
 	const g = global as Record< string, unknown >;
 
-	// Copy all window properties to global (includes MutationObserver, etc.)
-	g.window = dom.window;
-	g.document = dom.window.document;
-	g.navigator = dom.window.navigator;
-	g.MutationObserver = dom.window.MutationObserver;
-	g.Node = dom.window.Node;
-	g.HTMLElement = dom.window.HTMLElement;
-	g.CustomEvent = dom.window.CustomEvent;
-	g.URL = dom.window.URL;
-	g.Element = dom.window.Element;
+	// Helper to set global properties, using Object.defineProperty for read-only ones
+	// (e.g., `navigator` is getter-only in Node.js 21+)
+	function setGlobal( key: string, value: unknown ): void {
+		try {
+			g[ key ] = value;
+		} catch {
+			Object.defineProperty( globalThis, key, {
+				value,
+				writable: true,
+				configurable: true,
+			} );
+		}
+	}
+
+	// Copy DOM globals needed by WordPress packages
+	setGlobal( 'window', dom.window );
+	setGlobal( 'document', dom.window.document );
+	setGlobal( 'navigator', dom.window.navigator );
+	setGlobal( 'MutationObserver', dom.window.MutationObserver );
+	setGlobal( 'Node', dom.window.Node );
+	setGlobal( 'HTMLElement', dom.window.HTMLElement );
+	setGlobal( 'CustomEvent', dom.window.CustomEvent );
+	setGlobal( 'URL', dom.window.URL );
+	setGlobal( 'Element', dom.window.Element );
 
 	// Mock matchMedia (used by @wordpress/components and others)
 	if ( ! dom.window.matchMedia ) {
@@ -98,8 +112,9 @@ function ensureInitialized(): void {
 		setupDomEnvironment();
 	} catch ( error ) {
 		initError = `Failed to set up DOM environment: ${
-			error instanceof Error ? error.message : String( error )
+			error instanceof Error ? error.stack || error.message : String( error )
 		}. Make sure 'jsdom' is installed.`;
+		// Error stored in initError, returned via ValidationReport.error
 		initialized = true;
 		return;
 	}
@@ -120,8 +135,9 @@ function ensureInitialized(): void {
 		registerCoreBlocks();
 	} catch ( error ) {
 		initError = `Failed to register core blocks: ${
-			error instanceof Error ? error.message : String( error )
+			error instanceof Error ? error.stack || error.message : String( error )
 		}. Make sure '@wordpress/block-library' is installed.`;
+		// Error stored in initError, returned via ValidationReport.error
 	} finally {
 		console.error = origError;
 	}
@@ -133,10 +149,14 @@ function ensureInitialized(): void {
 			const types = getBlockTypes();
 			if ( ! types || types.length === 0 ) {
 				initError = 'No block types were registered. Block validation will not work correctly.';
+				// Error stored in initError, returned via ValidationReport.error
+			} else {
+				// Blocks registered successfully
 			}
 		} catch {
 			// If we can't even check, something is very wrong
 			initError = 'Failed to verify block registration.';
+			// Error stored in initError, returned via ValidationReport.error
 		}
 	}
 
@@ -262,14 +282,17 @@ export function validateBlocks( content: string ): ValidationReport {
 		};
 	}
 
-	// Suppress WordPress's verbose console output during parse/validation
-	// (e.g., "Updated Block:", "Block successfully updated for ..." messages)
+	// Suppress ALL console output during parse/validation.
+	// WordPress logs verbose messages (e.g., "Updated Block:", block type object dumps)
+	// via console.log/info/warn/error that would pollute the agent output.
 	const origLog = console.log;
 	const origInfo = console.info;
 	const origWarn = console.warn;
+	const origError = console.error;
 	console.log = () => {};
 	console.info = () => {};
 	console.warn = () => {};
+	console.error = () => {};
 
 	try {
 		const { parse } = require( '@wordpress/blocks' );
@@ -290,5 +313,6 @@ export function validateBlocks( content: string ): ValidationReport {
 		console.log = origLog;
 		console.info = origInfo;
 		console.warn = origWarn;
+		console.error = origError;
 	}
 }

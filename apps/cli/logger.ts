@@ -9,6 +9,10 @@ export function setProgressCallback( callback: ProgressCallback | null ): void {
 	progressCallback = callback;
 }
 
+export function emitProgress( message: string ): void {
+	progressCallback?.( message );
+}
+
 function canSend(): boolean {
 	return isIpcMode && !! process.send && process.connected;
 }

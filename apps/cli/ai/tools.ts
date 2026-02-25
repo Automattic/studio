@@ -12,7 +12,7 @@ import { runCommand as runStopSiteCommand, Mode as StopMode } from 'cli/commands
 import { getSiteByFolder, getSiteUrl, readAppdata, type SiteData } from 'cli/lib/appdata';
 import { connect, disconnect, setKeepAlive } from 'cli/lib/pm2-manager';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
-import { setProgressCallback } from 'cli/logger';
+import { emitProgress, setProgressCallback } from 'cli/logger';
 
 export function setToolProgressHandler( handler: ( message: string ) => void ): void {
 	setProgressCallback( handler );
@@ -235,10 +235,39 @@ const stopSiteTool = tool(
 	}
 );
 
+const BLOCK_COMMENT_PATTERN = /<!-- wp:/;
+
+/**
+ * Extract --post_content value from a wp_cli command string.
+ * Returns the content if found, undefined otherwise.
+ */
+function extractPostContent( command: string ): string | undefined {
+	const args = splitCommandArgs( command );
+	for ( const arg of args ) {
+		if ( arg.startsWith( '--post_content=' ) ) {
+			return arg.slice( '--post_content='.length );
+		}
+	}
+	return undefined;
+}
+
+/**
+ * Check if a wp_cli command is a post create/update that sets content.
+ */
+function isPostContentCommand( command: string ): boolean {
+	const trimmed = command.trimStart();
+	return (
+		( trimmed.startsWith( 'post create' ) || trimmed.startsWith( 'post update' ) ) &&
+		trimmed.includes( '--post_content=' )
+	);
+}
+
 // Note: wp.ts runCommand calls process.exit(), so we use the lower-level sendWpCliCommand directly.
 const runWpCliTool = tool(
 	'wp_cli',
-	'Runs a WP-CLI command on a specific WordPress site. The site must be running. Examples: "plugin install woocommerce --activate", "option get blogname", "user list".',
+	'Runs a WP-CLI command on a specific WordPress site. The site must be running. ' +
+		'Post content (in post create/update with --post_content) is automatically validated for block correctness before execution. ' +
+		'Examples: "plugin install woocommerce --activate", "option get blogname", "user list".',
 	z.object( {
 		nameOrPath: z.string().describe( 'The site name or file system path to the site' ),
 		command: z
@@ -249,6 +278,36 @@ const runWpCliTool = tool(
 	} ),
 	async ( args ) => {
 		try {
+			// Validate block content in post create/update commands before executing
+			if ( isPostContentCommand( args.command ) ) {
+				const postContent = extractPostContent( args.command );
+				if ( postContent && BLOCK_COMMENT_PATTERN.test( postContent ) ) {
+					emitProgress( 'Validating post content blocks…' );
+					const report = validateBlocks( postContent );
+					if ( report.invalidBlocks > 0 ) {
+						const lines: string[] = [];
+						lines.push(
+							`Block validation failed: ${ report.invalidBlocks }/${ report.totalBlocks } blocks invalid. Fix the content before creating/updating the post.`
+						);
+						lines.push( '' );
+						for ( const result of report.results ) {
+							if ( ! result.isValid ) {
+								lines.push( `  - ${ result.blockName }` );
+								for ( const issue of result.issues ) {
+									lines.push( `    ${ issue }` );
+								}
+								if ( result.expectedContent !== undefined ) {
+									lines.push( `    Expected: ${ result.expectedContent }` );
+									lines.push( `    Actual:   ${ result.originalContent }` );
+								}
+							}
+						}
+						return errorResult( lines.join( '\n' ) );
+					}
+					emitProgress( `Post content: all ${ report.totalBlocks } blocks valid` );
+				}
+			}
+
 			const site = await resolveSite( args.nameOrPath );
 
 			try {
@@ -312,19 +371,35 @@ const validateBlocksTool = tool(
 	async ( args ) => {
 		try {
 			let blockContent: string;
+			let fileName = 'inline content';
 
 			if ( args.filePath ) {
 				blockContent = await readFile( args.filePath, 'utf-8' );
+				fileName = args.filePath.split( '/' ).slice( -2 ).join( '/' );
 			} else if ( args.content ) {
 				blockContent = args.content;
 			} else {
 				return errorResult( 'Either content or filePath must be provided.' );
 			}
 
+			emitProgress( `Validating blocks in ${ fileName }…` );
+
 			const report = validateBlocks( blockContent );
 
 			if ( report.error ) {
+				emitProgress( `Validation failed for ${ fileName }: ${ report.error.slice( 0, 80 ) }` );
 				return errorResult( `Block validator initialization failed: ${ report.error }` );
+			}
+
+			// Update progress with result summary
+			if ( report.invalidBlocks > 0 ) {
+				const invalidNames = report.results
+					.filter( ( r ) => ! r.isValid )
+					.map( ( r ) => r.blockName )
+					.join( ', ' );
+				emitProgress( `${ fileName }: ${ report.invalidBlocks } invalid (${ invalidNames })` );
+			} else {
+				emitProgress( `${ fileName }: all ${ report.totalBlocks } blocks valid` );
 			}
 
 			const lines: string[] = [];

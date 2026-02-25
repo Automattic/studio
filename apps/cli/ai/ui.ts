@@ -180,6 +180,7 @@ export class AiChatUI {
 	private loaderVisible = false;
 	private editorVisible = false;
 	private interruptCallback: ( () => void ) | null = null;
+	private lastToolName: string | null = null;
 
 	constructor() {
 		const terminal = new ProcessTerminal();
@@ -323,7 +324,7 @@ export class AiChatUI {
 		this.tui.requestRender();
 	}
 
-	private showToolResult( message: SDKMessage & { type: 'user' } ): void {
+	private showToolResult( message: SDKMessage & { type: 'user' }, toolName?: string ): void {
 		const result = message.tool_use_result;
 		if ( ! result || typeof result !== 'object' ) {
 			return;
@@ -343,7 +344,8 @@ export class AiChatUI {
 		if ( ! text ) {
 			return;
 		}
-		const maxLength = 500;
+		// Use a larger limit for validation results so they're fully visible
+		const maxLength = toolName === 'mcp__studio__validate_blocks' ? 2000 : 500;
 		const truncated = text.length > maxLength ? text.slice( 0, maxLength ) + '…' : text;
 		const prefix = typedResult.isError ? chalk.red( '✗ ' ) : chalk.dim( '↳ ' );
 		this.messages.addChild( new Text( prefix + chalk.dim( truncated ), 1, 0 ) );
@@ -425,6 +427,7 @@ export class AiChatUI {
 						this.tui.requestRender();
 					} else if ( block.type === 'tool_use' ) {
 						this.showLoader();
+						this.lastToolName = block.name;
 						const input = ( block as { input?: Record< string, unknown > } ).input;
 						this.loader.setMessage( formatToolName( block.name, input ) );
 					}
@@ -438,7 +441,8 @@ export class AiChatUI {
 				return undefined;
 			}
 			case 'user': {
-				this.showToolResult( message );
+				this.showToolResult( message, this.lastToolName ?? undefined );
+				this.lastToolName = null;
 				return undefined;
 			}
 			case 'result': {

@@ -14,22 +14,17 @@ For any request that involves a WordPress site, you MUST first determine which s
 Then continue with:
 
 1. **Get site details**: Use site_info to get the site path, URL, and credentials.
-2. **Write theme/plugin files**: Use Write and Edit to create files under the site's wp-content/themes/ or wp-content/plugins/ directory.
-3. **Validation loop** (MANDATORY for every file with block content):
-   a. Before calling validate_blocks, review the file against this block content checklist:
-      - No \`<!-- wp:html -->\` blocks when a core block type can achieve the same result.
+2. **Block content checklist** — before writing any file with block content, or creating any page/post with block content, review the content against:
+      - Never use HTML (\`<!-- wp:html -->\`) blocks. Only allow it when wrapping SVGs or markup that no primitive core block support. Never use an HTML block for a big section.
       - No decorative HTML comments (e.g. \`<!-- Hero Section -->\`, \`<!-- Features -->\`). Only block delimiter comments are allowed.
       - No custom class names on inner DOM elements — only on the outermost block wrapper via the \`className\` attribute.
       - No inline \`style\` or \`style\` block attributes for styling. Use \`className\` + \`style.css\` instead.
       - No \`style.backgroundColor\` or \`style.textColor\` block attributes.
       - Use \`core/spacer\` for empty spacing divs, not \`core/group\`.
       - No emojis anywhere in generated content.
-   b. Call validate_blocks with the file path.
-   c. If validate_blocks reports ANY invalid blocks, fix them in the file. (Ensure design doesn't regress — adapt CSS or markup as needed.)
-   d. After fixing, call validate_blocks AGAIN on the same file. Repeat steps c–d until validate_blocks reports 0 invalid blocks.
-   e. Only proceed to the next step once every file with block content passes validation with 0 invalid blocks.
-   f. NEVER skip re-validation after a fix — the fix itself may introduce new issues.
-4. **Configure WordPress**: Use wp_cli to activate themes, install plugins, manage options, create posts and pages, edit and import content. The site must be running.
+3. **Write theme/plugin files**: Use Write and Edit to create files under the site's wp-content/themes/ or wp-content/plugins/ directory.
+4. **Per-file validation** — after writing EACH file with block content (templates, template parts, patterns), call validate_blocks with the file path. If it reports invalid blocks, fix them and re-validate until 0 invalid blocks remain. NEVER skip re-validation after a fix.
+6. **Configure WordPress**: Use wp_cli to activate themes, install plugins, manage options, create posts and pages, edit and import content. The site must be running. Note: post content passed via \`wp post create\` or \`wp post update --post_content=...\` need to be validated with the validate_blocks tool and adhere to the block content guidelines above as well.
 
 ## Available Studio Tools (prefixed with mcp__studio__)
 
@@ -39,7 +34,7 @@ Then continue with:
 - site_start: Start a stopped site
 - site_stop: Stop a running site
 - wp_cli: Run WP-CLI commands on a running site
-- validate_blocks: Validate WordPress block content for correctness (checks block markup matches expected save output). MUST be called after every file write/edit that contains block content, and repeated until 0 invalid blocks remain.
+- validate_blocks: Validate a single file's block content for correctness (checks block markup matches expected save output). Call after every file write/edit that contains block content.
 
 ## General rules
 

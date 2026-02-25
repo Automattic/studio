@@ -27,7 +27,13 @@ const getFirstInstalledEditor = async (): Promise< SupportedEditor | null > => {
 export const installedAppsApi = createApi( {
 	reducerPath: 'installedAppsApi',
 	baseQuery: fetchBaseQuery(),
-	tagTypes: [ 'StudioCliIsInstalled', 'InstalledApps', 'UserEditor', 'UserTerminal' ],
+	tagTypes: [
+		'StudioCliIsInstalled',
+		'InstalledApps',
+		'UserEditor',
+		'UserTerminal',
+		'ColorScheme',
+	],
 	endpoints: ( builder ) => ( {
 		getStudioCliIsInstalled: builder.query< boolean, void >( {
 			queryFn: async () => {
@@ -91,6 +97,20 @@ export const installedAppsApi = createApi( {
 			},
 			invalidatesTags: [ 'UserTerminal' ],
 		} ),
+		getColorScheme: builder.query< 'system' | 'light' | 'dark', void >( {
+			queryFn: async () => {
+				const colorScheme = await getIpcApi().getColorScheme();
+				return { data: colorScheme };
+			},
+			providesTags: [ 'ColorScheme' ],
+		} ),
+		saveColorScheme: builder.mutation< 'system' | 'light' | 'dark', 'system' | 'light' | 'dark' >( {
+			queryFn: async ( colorScheme ) => {
+				await getIpcApi().saveColorScheme( colorScheme );
+				return { data: colorScheme };
+			},
+			invalidatesTags: [ 'ColorScheme' ],
+		} ),
 	} ),
 } );
 
@@ -102,6 +122,8 @@ export const {
 	useSaveUserTerminalMutation,
 	useGetStudioCliIsInstalledQuery,
 	useSaveStudioCliIsInstalledMutation,
+	useGetColorSchemeQuery,
+	useSaveColorSchemeMutation,
 } = installedAppsApi;
 
 export const selectInstalledEditors = createSelector(

@@ -1,4 +1,4 @@
-export interface GithubRelease {
+interface GithubRelease {
 	tag_name: string;
 	assets?: {
 		name: string;

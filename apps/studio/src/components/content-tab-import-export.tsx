@@ -27,7 +27,7 @@ interface ContentTabImportExportProps {
 	selectedSite: SiteDetails;
 }
 
-export const ExportSite = ( {
+const ExportSite = ( {
 	selectedSite,
 	isThisSiteSyncing,
 }: {

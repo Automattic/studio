@@ -12,7 +12,7 @@ export type UpdateState< T > = (
 export type GetState< T > = ( selectedSiteId: string, remoteSiteId: number ) => T | undefined;
 export type ClearState = ( selectedSiteId: string, remoteSiteId: number ) => void;
 
-export type UsePullPushStates< T > = {
+type UsePullPushStates< T > = {
 	updateState: UpdateState< T >;
 	getState: GetState< T >;
 	clearState: ClearState;

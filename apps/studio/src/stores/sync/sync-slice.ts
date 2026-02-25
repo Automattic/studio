@@ -48,7 +48,6 @@ const syncSlice = createSlice( {
 	},
 } );
 
-export const syncActions = syncSlice.actions;
 export const syncReducer = syncSlice.reducer;
 
 export const syncSelectors = {

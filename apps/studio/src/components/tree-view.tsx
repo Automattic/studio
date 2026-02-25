@@ -197,7 +197,7 @@ const TreeItem = ( {
 	);
 };
 
-export type TreeViewProps = {
+type TreeViewProps = {
 	tree: TreeNode[];
 	setTree: React.Dispatch< React.SetStateAction< TreeNode[] > >;
 	onExpand?: ( node: TreeNode ) => Promise< void >;

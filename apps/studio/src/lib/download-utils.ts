@@ -195,7 +195,7 @@ async function downloadFileAndUnzip( {
 /**
  * Download WP-CLI
  */
-export async function downloadWpCli( overwrite = false ): Promise< DownloadResult > {
+async function downloadWpCli( overwrite = false ): Promise< DownloadResult > {
 	return downloadFile( {
 		url: WP_CLI_URL,
 		destinationFilePath: getWpCliPath(),

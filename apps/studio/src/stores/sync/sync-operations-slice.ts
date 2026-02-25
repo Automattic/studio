@@ -2,6 +2,7 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import * as Sentry from '@sentry/electron/renderer';
 import { __, sprintf } from '@wordpress/i18n';
 import { WPCOM } from 'wpcom/types';
+import { z } from 'zod';
 import { SYNC_PUSH_SIZE_LIMIT_BYTES, SYNC_PUSH_SIZE_LIMIT_GB } from 'src/constants';
 import { generateStateId } from 'src/hooks/sync-sites/use-pull-push-states';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -18,7 +19,7 @@ import type { SyncOption } from 'src/types';
 
 export type SyncBackupState = {
 	remoteSiteId: number;
-	backupId: string | null;
+	backupId: number | null;
 	status: PullStateProgressInfo;
 	downloadUrl: string | null;
 	selectedSite: SiteDetails;
@@ -426,9 +427,42 @@ type PullSitePayload = {
 };
 
 type PullSiteResult = {
-	backupId: string;
+	backupId: number;
 	remoteSiteId: number;
 };
+
+const pullSiteResponseSchema = z.object( {
+	success: z.boolean(),
+	backup_id: z.number(),
+} );
+
+const importResponseSchema = z.object( {
+	status: z.enum( [
+		'finished',
+		'failed',
+		'initial_backup_started',
+		'archive_import_started',
+		'archive_import_finished',
+	] ),
+	success: z.boolean(),
+	backup_progress: z.number().nullable(),
+	import_progress: z.number().nullable(),
+	error: z.string(),
+	error_data: z
+		.object( {
+			vp_restore_status: z.string().nullable(),
+			vp_restore_message: z.string().nullable(),
+			vp_rewind_id: z.string().nullable(),
+		} )
+		.nullable()
+		.optional(),
+} );
+
+const syncBackupResponseSchema = z.object( {
+	status: z.enum( [ 'in-progress', 'finished', 'failed' ] ),
+	download_url: z.string().nullable().optional(),
+	percent: z.number(),
+} );
 
 export const pullSiteThunk = createTypedAsyncThunk< PullSiteResult, PullSitePayload >(
 	'syncOperations/pullSite',
@@ -461,11 +495,12 @@ export const pullSiteThunk = createTypedAsyncThunk< PullSiteResult, PullSitePayl
 				include_path_list: options.include_path_list,
 			};
 
-			const response = await client.req.post< { success: boolean; backup_id: string } >( {
+			const rawResponse = await client.req.post( {
 				path: `/sites/${ remoteSiteId }/studio-app/sync/backup`,
 				apiNamespace: 'wpcom/v2',
 				body: requestBody,
 			} );
+			const response = pullSiteResponseSchema.parse( rawResponse );
 
 			if ( response.success ) {
 				dispatch(
@@ -503,25 +538,7 @@ type PollPushProgressPayload = {
 	remoteSiteId: number;
 };
 
-type RestoreErrorData = {
-	vp_restore_status?: string;
-	vp_restore_message?: string;
-	vp_rewind_id?: string | null;
-};
-
-type ImportResponse = {
-	status:
-		| 'finished'
-		| 'failed'
-		| 'initial_backup_started'
-		| 'archive_import_started'
-		| 'archive_import_finished';
-	success: boolean;
-	backup_progress: number;
-	import_progress: number;
-	error?: string;
-	error_data?: RestoreErrorData | null;
-};
+type ImportResponse = z.infer< typeof importResponseSchema >;
 
 const pollPushProgressThunk = createTypedAsyncThunk(
 	'syncOperations/pollPushProgress',
@@ -537,10 +554,10 @@ const pollPushProgressThunk = createTypedAsyncThunk(
 		)( getState() );
 
 		try {
-			const response = await client.req.get< ImportResponse >(
-				`/sites/${ remoteSiteId }/studio-app/sync/import`,
-				{ apiNamespace: 'wpcom/v2' }
-			);
+			const rawResponse = await client.req.get( `/sites/${ remoteSiteId }/studio-app/sync/import`, {
+				apiNamespace: 'wpcom/v2',
+			} );
+			const response = importResponseSchema.parse( rawResponse );
 
 			signal.throwIfAborted();
 
@@ -599,14 +616,18 @@ const pollPushProgressThunk = createTypedAsyncThunk(
 				}
 				case 'initial_backup_started': {
 					status = pushStatesProgressInfo.creatingRemoteBackup;
-					const progressRange = pushStatesProgressInfo.applyingChanges.progress - status.progress;
-					status.progress = status.progress + progressRange * ( response.backup_progress / 100 );
+					if ( response.backup_progress ) {
+						const progressRange = pushStatesProgressInfo.applyingChanges.progress - status.progress;
+						status.progress = status.progress + progressRange * ( response.backup_progress / 100 );
+					}
 					break;
 				}
 				case 'archive_import_started': {
 					status = pushStatesProgressInfo.applyingChanges;
-					const progressRange = pushStatesProgressInfo.finishing.progress - status.progress;
-					status.progress = status.progress + progressRange * ( response.import_progress / 100 );
+					if ( response.import_progress ) {
+						const progressRange = pushStatesProgressInfo.finishing.progress - status.progress;
+						status.progress = status.progress + progressRange * ( response.import_progress / 100 );
+					}
 					break;
 				}
 				case 'archive_import_finished':
@@ -648,12 +669,6 @@ type PollPullBackupPayload = {
 	remoteSiteId: number;
 };
 
-type SyncBackupResponse = {
-	status: 'in-progress' | 'finished' | 'failed';
-	download_url: string;
-	percent: number;
-};
-
 const pollPullBackupThunk = createTypedAsyncThunk(
 	'syncOperations/pollPullBackup',
 	async (
@@ -673,13 +688,11 @@ const pollPullBackupThunk = createTypedAsyncThunk(
 		}
 
 		try {
-			const response = await client.req.get< SyncBackupResponse >(
-				`/sites/${ remoteSiteId }/studio-app/sync/backup`,
-				{
-					apiNamespace: 'wpcom/v2',
-					backup_id: backupId,
-				}
-			);
+			const rawResponse = await client.req.get( `/sites/${ remoteSiteId }/studio-app/sync/backup`, {
+				apiNamespace: 'wpcom/v2',
+				backup_id: backupId,
+			} );
+			const response = syncBackupResponseSchema.parse( rawResponse );
 
 			signal.throwIfAborted();
 
@@ -868,10 +881,11 @@ export const initializeSyncStatesThunk = createTypedAsyncThunk(
 					continue;
 				}
 
-				const response = await client.req.get< ImportResponse >(
+				const rawResponse = await client.req.get(
 					`/sites/${ connectedSite.id }/studio-app/sync/import`,
 					{ apiNamespace: 'wpcom/v2' }
 				);
+				const response = importResponseSchema.parse( rawResponse );
 
 				const status = mapImportResponseToPushState( response );
 

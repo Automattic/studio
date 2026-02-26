@@ -28,6 +28,7 @@ import {
 	pathExists,
 	recursiveCopyDirectory,
 } from '@studio/common/lib/fs-utils';
+import { generateNumberedName, generateSiteName } from '@studio/common/lib/generate-site-name';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
@@ -814,6 +815,28 @@ export async function generateProposedSitePath(
 		}
 		throw err;
 	}
+}
+
+export async function generateSiteNameFromList(
+	_event: IpcMainInvokeEvent,
+	usedSites: SiteDetails[]
+): Promise< string > {
+	return generateSiteName(
+		usedSites.map( ( s ) => s.name ),
+		DEFAULT_SITE_PATH
+	);
+}
+
+export async function generateNumberedNameFromList(
+	_event: IpcMainInvokeEvent,
+	baseName: string,
+	usedSites: SiteDetails[]
+): Promise< string > {
+	return generateNumberedName(
+		baseName,
+		usedSites.map( ( s ) => s.name ),
+		DEFAULT_SITE_PATH
+	);
 }
 
 export async function openLocalPath( _event: IpcMainInvokeEvent, path: string ) {

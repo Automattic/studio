@@ -86,6 +86,7 @@ type IpcApi = {
 
 interface FeatureFlags {
 	enableBlueprints: boolean;
+	enableAgentSuite: boolean;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type

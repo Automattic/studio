@@ -13,7 +13,7 @@
 import { dirname } from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { isWordPressDirectory } from '@studio/common/lib/fs-utils';
-import { getMuPlugins } from '@studio/common/lib/mu-plugins';
+import { cleanupLegacyMuPlugins, getMuPlugins } from '@studio/common/lib/mu-plugins';
 import { decodePassword } from '@studio/common/lib/passwords';
 import { formatPlaygroundCliMessage } from '@studio/common/lib/playground-cli-messages';
 import { sequential } from '@studio/common/lib/sequential';
@@ -138,6 +138,8 @@ async function getBaseRunCLIArgs(
 	config: ServerConfig
 ): Promise< RunCLIArgs > {
 	const wordpressInstallMode = await getWordPressInstallMode( config.sitePath );
+
+	await cleanupLegacyMuPlugins( config.sitePath );
 
 	const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( {
 		isWpAutoUpdating: config.isWpAutoUpdating,

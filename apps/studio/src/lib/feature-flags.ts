@@ -5,7 +5,7 @@ export interface FeatureFlagDefinition {
 	default: boolean;
 }
 
-export const FEATURE_FLAGS_DEFINITION: Record< keyof FeatureFlags, FeatureFlagDefinition > = {
+export const FEATURE_FLAGS: Record< keyof FeatureFlags, FeatureFlagDefinition > = {
 	enableBlueprints: {
 		label: 'Enable Blueprints',
 		env: 'ENABLE_BLUEPRINTS',
@@ -13,9 +13,6 @@ export const FEATURE_FLAGS_DEFINITION: Record< keyof FeatureFlags, FeatureFlagDe
 		default: true,
 	},
 } as const;
-
-export const FEATURE_FLAGS: Record< keyof FeatureFlags, FeatureFlagDefinition > =
-	FEATURE_FLAGS_DEFINITION;
 
 export function getFeatureFlagFromEnv( flag: keyof FeatureFlags ): boolean {
 	const flagDefinition = FEATURE_FLAGS[ flag ] as FeatureFlagDefinition | undefined;

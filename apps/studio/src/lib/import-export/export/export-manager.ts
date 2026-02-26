@@ -29,4 +29,4 @@ export async function exportBackup(
 	return true;
 }
 
-export const defaultExporterOptions: NewExporter[] = [ DefaultExporter, SqlExporter ];
+const defaultExporterOptions: NewExporter[] = [ DefaultExporter, SqlExporter ];

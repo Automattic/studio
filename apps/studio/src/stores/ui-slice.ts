@@ -25,7 +25,7 @@ const uiSlice = createSlice( {
 	},
 } );
 
-export const { openAddSiteModal, closeAddSiteModal, toggleAddSiteModal } = uiSlice.actions;
+export const { openAddSiteModal, closeAddSiteModal } = uiSlice.actions;
 
 export const selectIsAddSiteModalOpen = ( state: RootState ) => state.ui.isAddSiteModalOpen;
 

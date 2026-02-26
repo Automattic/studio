@@ -5,7 +5,7 @@ import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { FEATURE_FLAGS } from 'src/lib/feature-flags';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
-export type FeatureFlagsContextType = FeatureFlags;
+type FeatureFlagsContextType = FeatureFlags;
 
 function createDefaultFeatureFlags(): FeatureFlags {
 	const flags = {} as FeatureFlags;
@@ -19,7 +19,7 @@ function createDefaultFeatureFlags(): FeatureFlags {
 
 const defaultFeatureFlags = createDefaultFeatureFlags();
 
-export const FeatureFlagsContext = createContext< FeatureFlagsContextType >( defaultFeatureFlags );
+const FeatureFlagsContext = createContext< FeatureFlagsContextType >( defaultFeatureFlags );
 
 interface FeatureFlagsProviderProps {
 	children: ReactNode;

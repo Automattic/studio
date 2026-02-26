@@ -4,10 +4,10 @@ WordPress Studio - Electron desktop app for managing local WordPress sites. Buil
 
 ## Essential Commands
 
-**Dev/Build**: `npm start` | `npm run cli:build` | `node dist/cli/main.js`
+**Dev/Build**: `npm start` | `npm run cli:build` | `node apps/cli/dist/cli/main.js`
 **Test**: `npm test [-- path/to/test.test.ts]` | `npm run e2e`
-**Quality**: `npm run lint` | `npx prettier --write <files>` (format ONLY modified files)
-**IMPORTANT - Post-Change Verification**: After applying code changes, always run the linter (`npm run lint`), format modified files (`npx prettier --write <files>`), and run relevant tests (`npm test [-- path/to/test]`) before considering the work complete.
+**Quality**: `npx eslint --fix <files>` (lint and format ONLY modified files)
+**IMPORTANT - Post-Change Verification**: After applying code changes, always run the linter and format modified files (`npx eslint --fix <files>`), and run relevant tests (`npm test [-- path/to/test]`) before considering the work complete.
 **Package**: `npm run make` (builds installers for current platform)
 
 **IMPORTANT - Hot Reload**: Renderer auto-reloads, Main process needs restart (or `rs` in terminal). Changes to Main process IPC handlers require full restart.
@@ -103,7 +103,7 @@ For in-depth information, see these docs:
 - **CLI Design**: `docs/design-docs/cli.md` - CLI architecture, installation, IPC communication, data flow
 - **Custom Domains/SSL**: `docs/design-docs/custom-domains-and-ssl.md` - Proxy server, certificates, hosts file
 - **Localization**: `docs/localization.md` - GlotPress workflow, translation process
-- **Release Process**: `docs/release-process.md` - Version tagging, Buildkite builds
+- **Release Process**: `docs/release-process.md` - ReleasesV2 + Fastlane lifecycle, running lanes locally
 - **Overview**: `README.md` - Features, download links, contribution guidelines
 
 ## Quick Reference

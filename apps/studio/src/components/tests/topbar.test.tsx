@@ -58,7 +58,7 @@ describe( 'TopBar', () => {
 	it( 'shows offline indicator', async () => {
 		vi.mocked( useOffline ).mockReturnValue( true );
 		await act( async () => renderWithProvider( <TopBar onToggleSidebar={ vi.fn() } /> ) );
-		const offlineIndicator = screen.getByRole( 'button', {
+		const offlineIndicator = screen.getByRole( 'status', {
 			name: 'Offline indicator',
 		} );
 		expect( offlineIndicator ).toHaveAttribute( 'aria-description' );

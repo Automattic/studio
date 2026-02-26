@@ -66,7 +66,7 @@ function processOffers(
 ): ProcessedOffer[] {
 	return offers
 		.map( ( offer ) => offerSchema.safeParse( offer ) )
-		.filter( ( r ): r is { success: true; data: z.infer< typeof offerSchema > } => r.success )
+		.filter( ( r ) => r.success )
 		.filter( ( r ) =>
 			isDevelopment ? r.data.response === 'development' : r.data.response === 'autoupdate'
 		)

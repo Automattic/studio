@@ -50,7 +50,6 @@ import {
 	updateSiteLatestCliPid,
 } from 'cli/lib/appdata';
 import { generateSiteName, getDefaultSitePath } from 'cli/lib/generate-site-name';
-import { isInteractive } from 'cli/lib/is-interactive';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { connect, disconnect, emitSiteEvent } from 'cli/lib/pm2-manager';
 import { getServerFilesPath } from 'cli/lib/server-files';
@@ -506,15 +505,15 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} );
 		},
 		handler: async ( argv ) => {
-			let siteName = argv.name as string | undefined;
+			let siteName = argv.name;
 			let sitePath = argv.path;
-			let wpVersion = argv.wp as string | undefined;
-			let phpVersion = argv.php as string | undefined;
-			let customDomain = argv.domain as string | undefined;
+			let wpVersion = argv.wp;
+			let phpVersion = argv.php;
+			let customDomain = argv.domain;
 			let enableHttps = !! argv.https;
 
 			try {
-				if ( isInteractive() ) {
+				if ( process.stdin.isTTY ) {
 					if ( ! siteName ) {
 						const defaultName = await generateSiteName();
 						siteName = await input( {
@@ -554,6 +553,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 							message: __( 'WordPress version:' ),
 							choices: wpChoices,
 							default: DEFAULT_WORDPRESS_VERSION,
+							loop: false,
 						} );
 					}
 
@@ -569,10 +569,16 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					}
 
 					if ( ! customDomain ) {
-						customDomain =
-							( await input( {
-								message: __( 'Custom domain (leave empty to skip):' ),
-							} ) ) || undefined;
+						const appdata = await readAppdata();
+						const existingDomains = appdata.sites
+							.map( ( site ) => site.customDomain )
+							.filter( ( domain ): domain is string => Boolean( domain ) );
+
+						customDomain = await input( {
+							message: __( 'Custom domain (leave empty to skip):' ),
+							validate: ( value ) =>
+								getDomainNameValidationError( !! value, value, existingDomains ) || true,
+						} );
 					}
 
 					if ( customDomain && ! argv.https ) {

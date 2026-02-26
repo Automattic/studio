@@ -13,7 +13,7 @@ import {
 import { isOnline } from '@studio/common/lib/network-utils';
 import { portFinder } from '@studio/common/lib/port-finder';
 import { normalizeLineEndings } from '@studio/common/lib/remove-default-db-constants';
-import { Blueprint, StepDefinition } from '@wp-playground/blueprints';
+import { Blueprint, BlueprintV1Declaration, StepDefinition } from '@wp-playground/blueprints';
 import { vi, type MockInstance } from 'vitest';
 import {
 	lockAppdata,
@@ -334,8 +334,8 @@ describe( 'CLI: studio site create', () => {
 			const calls = vi.mocked( startWordPressServer ).mock.calls;
 			const blueprintCall = calls.find(
 				( call ) =>
-					( call[ 2 ] as { blueprint?: Blueprint } )?.blueprint?.steps?.some(
-						( step: StepDefinition ) => step.step === 'setSiteOptions'
+					( call[ 2 ] as { blueprint?: BlueprintV1Declaration } )?.blueprint?.steps?.some(
+						( step ) => typeof step === 'object' && step?.step === 'setSiteOptions'
 					)
 			);
 			expect( blueprintCall ).toBeUndefined();
@@ -489,7 +489,12 @@ describe( 'CLI: studio site create', () => {
 
 	describe( 'Blueprint Handling', () => {
 		const testBlueprint: Blueprint = {
-			steps: [ { step: 'installPlugin', pluginData: { slug: 'akismet' } } ],
+			steps: [
+				{
+					step: 'installPlugin',
+					pluginData: { resource: 'wordpress.org/plugins', slug: 'akismet' },
+				},
+			],
 		};
 
 		it( 'should apply Blueprint when provided', async () => {
@@ -678,8 +683,8 @@ describe( 'CLI: studio site create', () => {
 			);
 			// Should NOT include setSiteLanguage step
 			const calls = vi.mocked( startWordPressServer ).mock.calls;
-			const blueprintSteps = ( calls[ 0 ][ 2 ] as { blueprint?: Blueprint } )?.blueprint
-				?.steps as StepDefinition[];
+			const blueprintSteps = ( calls[ 0 ][ 2 ] as { blueprint?: BlueprintV1Declaration } )
+				?.blueprint?.steps as StepDefinition[];
 			expect( blueprintSteps.some( ( s ) => s.step === 'setSiteLanguage' ) ).toBe( false );
 		} );
 

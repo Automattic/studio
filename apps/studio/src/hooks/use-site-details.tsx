@@ -8,6 +8,7 @@ import {
 	useContext,
 	useEffect,
 	useMemo,
+	useRef,
 	useState,
 } from 'react';
 import { useAuth } from 'src/hooks/use-auth';
@@ -24,6 +25,7 @@ import type { Blueprint } from 'src/stores/wpcom-api';
 interface SiteDetailsContext {
 	selectedSite: SiteDetails | null;
 	updateSite: ( site: SiteDetails, wpVersion?: string ) => Promise< void >;
+	updateSitesSortOrder: ( sites: SiteDetails[] ) => Promise< void >;
 	sites: SiteDetails[];
 	setSelectedSiteId: ( selectedSiteId: string ) => void;
 	createSite: (
@@ -57,6 +59,7 @@ interface SiteDetailsContext {
 const defaultContext: SiteDetailsContext = {
 	selectedSite: null,
 	updateSite: async () => undefined,
+	updateSitesSortOrder: async () => undefined,
 	sites: [],
 	siteCreationMessages: {},
 	setSelectedSiteId: () => undefined,
@@ -358,7 +361,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				} );
 				setSites( ( prevData ) =>
 					sortSites( [
-						...prevData.filter( ( site ) => site.id !== tempSiteId ),
+						...prevData.filter( ( site ) => site.id !== tempSiteId && site.id !== newSite.id ),
 						{ ...newSite, isAddingSite: true },
 					] )
 				);
@@ -393,6 +396,22 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		await getIpcApi().updateSite( site, wpVersion );
 		const updatedSites = await getIpcApi().getSiteDetails();
 		setSites( updatedSites );
+	}, [] );
+
+	const saveTimeoutRef = useRef< ReturnType< typeof setTimeout > >();
+	const DEBOUNCE_SAVE_MS = 300;
+
+	const updateSitesSortOrder = useCallback( async ( sites: SiteDetails[] ) => {
+		setSites( sites );
+		const updates = sites.map( ( site, index ) => ( {
+			siteId: site.id,
+			sortOrder: ( index + 1 ) * 1000,
+		} ) );
+
+		clearTimeout( saveTimeoutRef.current );
+		saveTimeoutRef.current = setTimeout( async () => {
+			await getIpcApi().updateSitesSortOrder( updates );
+		}, DEBOUNCE_SAVE_MS );
 	}, [] );
 
 	const startServer = useCallback(
@@ -605,6 +624,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			createSite,
 			copySite,
 			updateSite,
+			updateSitesSortOrder,
 			startServer,
 			stopServer,
 			stopAllRunningSites,
@@ -627,6 +647,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			createSite,
 			copySite,
 			updateSite,
+			updateSitesSortOrder,
 			startServer,
 			stopServer,
 			stopAllRunningSites,

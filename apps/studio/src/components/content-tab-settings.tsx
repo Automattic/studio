@@ -1,8 +1,13 @@
 import { decodePassword } from '@studio/common/lib/passwords';
-import { DropdownMenu, MenuGroup, Button } from '@wordpress/components';
+import {
+	DropdownMenu,
+	MenuGroup,
+	Button,
+	__experimentalHeading as Heading,
+} from '@wordpress/components';
 import { moreVertical } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { PropsWithChildren } from 'react';
+import { PropsWithChildren, useCallback, useEffect, useState } from 'react';
 import { CopyTextButton } from 'src/components/copy-text-button';
 import { LearnHowLink } from 'src/components/learn-more';
 import { SettingsMenuItem } from 'src/components/settings-site-menu';
@@ -54,13 +59,30 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 	};
 	const { handleDeleteSite } = useDeleteSite();
 	const { copySite } = useSiteDetails();
+	const [ debugLogPath, setDebugLogPath ] = useState< string | null >( null );
+
+	const checkDebugLogExists = useCallback( async () => {
+		if ( ! selectedSite.enableDebugLog ) {
+			setDebugLogPath( null );
+			return;
+		}
+		const path = await getIpcApi().getAbsolutePathFromSite(
+			selectedSite.id,
+			'wp-content/debug.log'
+		);
+		setDebugLogPath( path );
+	}, [ selectedSite.id, selectedSite.enableDebugLog ] );
+
+	useEffect( () => {
+		void checkDebugLogExists();
+	}, [ checkDebugLogExists ] );
 
 	return (
 		<div className="p-8 ltr:pr-4 rtl:pl-4">
 			<div className="flex justify-between items-center mb-4">
-				<h3 role="heading" className="text-black text-sm font-semibold">
+				<Heading level={ 3 } className="text-black text-sm font-semibold">
 					{ __( 'Site details' ) }
-				</h3>
+				</Heading>
 				<div className="flex items-center gap-1">
 					<EditSiteDetails currentWpVersion={ wpVersion } onSave={ refreshWpVersion } />
 					<DropdownMenu
@@ -138,8 +160,26 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 							<span className="line-clamp-1 break-all">{ selectedSite.phpVersion }</span>
 						</div>
 					</SettingsRow>
+					<tr>
+						<th colSpan={ 2 } className="pb-4 ltr:text-left rtl:text-right">
+							<h3 className="text-black text-sm font-semibold mt-4">{ __( 'Debugging' ) }</h3>
+						</th>
+					</tr>
 					<SettingsRow label={ __( 'Xdebug' ) }>
 						<span>{ selectedSite.enableXdebug ? __( 'Enabled' ) : __( 'Disabled' ) }</span>
+					</SettingsRow>
+					<SettingsRow label={ __( 'Debug log' ) }>
+						<span className="flex items-center gap-2">
+							{ selectedSite.enableDebugLog ? __( 'Enabled' ) : __( 'Disabled' ) }
+							{ debugLogPath && (
+								<Button variant="link" onClick={ () => getIpcApi().openLocalPath( debugLogPath ) }>
+									{ __( 'Open log file' ) }
+								</Button>
+							) }
+						</span>
+					</SettingsRow>
+					<SettingsRow label={ __( 'Debug display' ) }>
+						<span>{ selectedSite.enableDebugDisplay ? __( 'Enabled' ) : __( 'Disabled' ) }</span>
 					</SettingsRow>
 
 					<tr>

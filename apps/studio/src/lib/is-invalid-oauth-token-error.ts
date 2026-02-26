@@ -1,4 +1,4 @@
-export interface InvalidTokenError {
+interface InvalidTokenError {
 	error: 'invalid_token';
 }
 

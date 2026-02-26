@@ -20,7 +20,7 @@ const meResponseSchema = z.object( {
 	display_name: z.string(),
 } );
 
-export type StoredToken = z.infer< typeof authTokenSchema >;
+type StoredToken = z.infer< typeof authTokenSchema >;
 
 async function handleAuthCallback( hash: string ): Promise< StoredToken > {
 	const params = new URLSearchParams( hash.substring( 1 ) );

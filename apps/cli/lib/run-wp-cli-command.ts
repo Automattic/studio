@@ -7,7 +7,7 @@ import {
 	setPhpIniEntries,
 } from '@php-wasm/universal';
 import { createSpawnHandler } from '@php-wasm/util';
-import { getMuPlugins } from '@studio/common/lib/mu-plugins';
+import { cleanupLegacyMuPlugins, getMuPlugins } from '@studio/common/lib/mu-plugins';
 import { LatestSupportedPHPVersion } from '@studio/common/types/php-versions';
 import { __ } from '@wordpress/i18n';
 import { setupPlatformLevelMuPlugins } from '@wp-playground/wordpress';
@@ -45,7 +45,11 @@ export async function runWpCliCommand(
 	phpVersion: SupportedPHPVersion,
 	args: string[]
 ): Promise< [ StreamedPHPResponse, exitPhp: () => void ] > {
-	const id = await loadNodeRuntime( phpVersion, { followSymlinks: true } );
+	const id = await loadNodeRuntime( phpVersion, {
+		followSymlinks: true,
+		withRedis: true,
+		withMemcached: true,
+	} );
 	const php = new PHP( id );
 
 	try {
@@ -62,6 +66,8 @@ export async function runWpCliCommand(
 		} );
 
 		await php.setSpawnHandler( createNoopSpawnHandler() );
+
+		await cleanupLegacyMuPlugins( siteFolder );
 
 		// Mount mu-plugins
 		const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( {
@@ -96,7 +102,11 @@ export async function runWpCliCommand(
 export async function runGlobalWpCliCommand(
 	args: string[]
 ): Promise< [ StreamedPHPResponse, exitPhp: () => void ] > {
-	const id = await loadNodeRuntime( LatestSupportedPHPVersion, { followSymlinks: true } );
+	const id = await loadNodeRuntime( LatestSupportedPHPVersion, {
+		followSymlinks: true,
+		withRedis: true,
+		withMemcached: true,
+	} );
 	const php = new PHP( id );
 
 	try {

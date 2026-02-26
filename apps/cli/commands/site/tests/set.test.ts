@@ -98,7 +98,7 @@ describe( 'CLI: studio site set', () => {
 	describe( 'Validation', () => {
 		it( 'should throw when no options provided', async () => {
 			await expect( runCommand( testSitePath, {} ) ).rejects.toThrow(
-				'At least one option (--name, --domain, --https, --php, --wp, --xdebug) is required.'
+				'At least one option (--name, --domain, --https, --php, --wp, --xdebug, --debug-log, --debug-display) is required.'
 			);
 		} );
 

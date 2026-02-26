@@ -13,7 +13,7 @@
 import { dirname } from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { isWordPressDirectory } from '@studio/common/lib/fs-utils';
-import { getMuPlugins } from '@studio/common/lib/mu-plugins';
+import { cleanupLegacyMuPlugins, getMuPlugins } from '@studio/common/lib/mu-plugins';
 import { decodePassword } from '@studio/common/lib/passwords';
 import { formatPlaygroundCliMessage } from '@studio/common/lib/playground-cli-messages';
 import { sequential } from '@studio/common/lib/sequential';
@@ -139,6 +139,8 @@ async function getBaseRunCLIArgs(
 ): Promise< RunCLIArgs > {
 	const wordpressInstallMode = await getWordPressInstallMode( config.sitePath );
 
+	await cleanupLegacyMuPlugins( config.sitePath );
+
 	const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( {
 		isWpAutoUpdating: config.isWpAutoUpdating,
 	} );
@@ -166,8 +168,14 @@ async function getBaseRunCLIArgs(
 		},
 	];
 
-	const defaultConstants = {
+	const enableDebugLog = config.enableDebugLog ?? false;
+	const enableDebugDisplay = config.enableDebugDisplay ?? false;
+
+	const defaultConstants: Record< string, boolean > = {
 		WP_SQLITE_AST_DRIVER: true,
+		WP_DEBUG: enableDebugLog || enableDebugDisplay,
+		WP_DEBUG_LOG: enableDebugLog,
+		WP_DEBUG_DISPLAY: enableDebugDisplay,
 	};
 
 	let blueprintBundle: BlueprintBundle | undefined;
@@ -226,6 +234,8 @@ async function getBaseRunCLIArgs(
 		'site-url': config.absoluteUrl || `http://localhost:${ config.port }`,
 		blueprint: blueprintBundle,
 		wordpressInstallMode,
+		redis: true,
+		memcached: true,
 	};
 
 	if ( config.wpVersion ) {

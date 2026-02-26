@@ -420,7 +420,7 @@ function NavigationContent( props: NavigationContentProps ) {
 	);
 }
 
-export interface AddSiteModalContentProps {
+interface AddSiteModalContentProps {
 	isOpen?: boolean;
 	onSubmit?: () => void;
 	className?: string;

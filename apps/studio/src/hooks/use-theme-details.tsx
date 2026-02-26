@@ -19,7 +19,7 @@ interface ThemeDetailsContextType {
 	selectedLoadingThumbnails: boolean;
 }
 
-export const ThemeDetailsContext = createContext< ThemeDetailsContextType >( {
+const ThemeDetailsContext = createContext< ThemeDetailsContextType >( {
 	loadingThemeDetails: {},
 	loadingThumbnails: {},
 	themeDetails: {},

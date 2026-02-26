@@ -37,7 +37,7 @@ import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-util
 import { Snapshot } from '@studio/common/types/snapshot';
 import { StatsGroup, StatsMetric } from '@studio/common/types/stats';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
-import { MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
+import { MACOS_TRAFFIC_LIGHT_POSITION, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
 import { getImporterMetric, getBlueprintMetric } from 'src/lib/bump-stats/lib';
@@ -375,6 +375,14 @@ export async function updateSite(
 
 	if ( updatedSite.enableXdebug !== currentSite.enableXdebug ) {
 		options.xdebug = updatedSite.enableXdebug ?? false;
+	}
+
+	if ( updatedSite.enableDebugLog !== currentSite.enableDebugLog ) {
+		options.debugLog = updatedSite.enableDebugLog ?? false;
+	}
+
+	if ( updatedSite.enableDebugDisplay !== currentSite.enableDebugDisplay ) {
+		options.debugDisplay = updatedSite.enableDebugDisplay ?? false;
 	}
 
 	const hasCliChanges = Object.keys( options ).length > 2;
@@ -1539,5 +1547,30 @@ export async function setWindowControlVisibility( event: IpcMainInvokeEvent, vis
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	if ( parentWindow && process.platform === 'darwin' ) {
 		parentWindow.setWindowButtonVisibility( visible );
+		if ( visible ) {
+			parentWindow.setWindowButtonPosition( MACOS_TRAFFIC_LIGHT_POSITION );
+		}
+	}
+}
+
+export async function updateSitesSortOrder(
+	event: IpcMainInvokeEvent,
+	updates: { siteId: string; sortOrder: number }[]
+): Promise< void > {
+	try {
+		await lockAppdata();
+		const userData = await loadUserData();
+
+		const updatedSites = userData.sites.map( ( site ) => {
+			const update = updates.find( ( u ) => u.siteId === site.id );
+			if ( update ) {
+				return { ...site, sortOrder: update.sortOrder };
+			}
+			return site;
+		} );
+
+		await saveUserData( { ...userData, sites: updatedSites } );
+	} finally {
+		await unlockAppdata();
 	}
 }

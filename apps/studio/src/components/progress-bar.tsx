@@ -96,7 +96,9 @@ export function TwoColorProgressBar( {
 						{ isOverLimit && overLimitLabel ? (
 							<span className="text-frame-text-secondary text-xs">{ overLimitLabel }</span>
 						) : (
-							limitLabel && <span className="text-frame-text-secondary text-xs">{ limitLabel }</span>
+							limitLabel && (
+								<span className="text-frame-text-secondary text-xs">{ limitLabel }</span>
+							)
 						) }
 					</div>
 				</div>

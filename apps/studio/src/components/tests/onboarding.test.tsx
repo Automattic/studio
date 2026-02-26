@@ -52,6 +52,7 @@ describe( 'Onboarding Component', () => {
 
 	beforeEach( () => {
 		vi.clearAllMocks();
+		vi.mocked( useOffline ).mockReturnValue( false );
 		mockSaveLastSeenVersion.mockResolvedValue( { data: undefined } as never );
 		mockSaveOnboarding.mockResolvedValue( undefined as never );
 		window.appGlobals = { appVersion: '1.0.0' } as typeof window.appGlobals;
@@ -62,15 +63,15 @@ describe( 'Onboarding Component', () => {
 	} );
 
 	it( 'renders onboarding screen correctly', () => {
-		const { getByText, getByTestId } = renderWithProvider( <Onboarding /> );
+		const { getByTestId } = renderWithProvider( <Onboarding /> );
 		expect( getByTestId( 'onboarding-welcome-title' ) ).toBeVisible();
-		expect( getByText( 'Skip →' ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Skip' } ) ).toBeVisible();
 	} );
 
-	it( 'completes onboarding when the final button is clicked', async () => {
-		const { getByText } = renderWithProvider( <Onboarding /> );
+	it( 'completes onboarding when the skip button is clicked', async () => {
+		renderWithProvider( <Onboarding /> );
 
-		await user.click( getByText( 'Skip →' ) );
+		await user.click( screen.getByRole( 'button', { name: 'Skip' } ) );
 
 		await waitFor( () => {
 			expect( mockSaveOnboarding ).toHaveBeenCalledWith( true );
@@ -107,9 +108,9 @@ describe( 'Onboarding Component', () => {
 		// Mock window.appGlobals
 		window.appGlobals = { appVersion: mockAppVersion } as typeof window.appGlobals;
 
-		const { getByText } = renderWithProvider( <Onboarding /> );
+		renderWithProvider( <Onboarding /> );
 
-		await user.click( getByText( 'Skip →' ) );
+		await user.click( screen.getByRole( 'button', { name: 'Skip' } ) );
 
 		await waitFor( () => {
 			expect( mockSaveLastSeenVersion ).toHaveBeenCalledWith( mockAppVersion );

@@ -431,6 +431,97 @@ const validateBlocksTool = tool(
 	}
 );
 
+// --- Screenshot tool ---
+
+let screenshotBrowser: Awaited<
+	ReturnType< ( typeof import('playwright') )[ 'chromium' ][ 'launch' ] >
+> | null = null;
+
+async function getScreenshotBrowser() {
+	if ( ! screenshotBrowser ) {
+		const { chromium } = require( 'playwright' ) as typeof import('playwright');
+		screenshotBrowser = await chromium.launch( {
+			args: [ '--ignore-certificate-errors' ],
+		} );
+
+		// Clean up browser when process exits
+		const cleanup = () => {
+			screenshotBrowser?.close().catch( () => {} );
+			screenshotBrowser = null;
+		};
+		process.on( 'exit', cleanup );
+		process.on( 'SIGINT', cleanup );
+		process.on( 'SIGTERM', cleanup );
+	}
+	return screenshotBrowser;
+}
+
+const VIEWPORTS = {
+	desktop: { width: 1040, height: 1248 },
+	mobile: { width: 390, height: 844 },
+} as const;
+
+const takeScreenshotTool = tool(
+	'take_screenshot',
+	'Takes a full-page screenshot of a URL. Returns the screenshot as an image that you can analyze visually. ' +
+		'Supports desktop and mobile viewports. Use this to verify the site looks correct after building it.',
+	z.object( {
+		url: z.string().describe( 'The URL to screenshot' ),
+		viewport: z
+			.enum( [ 'desktop', 'mobile' ] )
+			.optional()
+			.describe(
+				'Viewport size: "desktop" (1040x1248) or "mobile" (390x844). Defaults to desktop.'
+			),
+	} ),
+	async ( args ) => {
+		try {
+			const viewportType = args.viewport ?? 'desktop';
+			const viewport = VIEWPORTS[ viewportType ];
+
+			emitProgress( `Taking ${ viewportType } screenshot of ${ args.url }…` );
+
+			const browser = await getScreenshotBrowser();
+			const page = await browser.newPage( { viewport } );
+
+			try {
+				await page.goto( args.url, { waitUntil: 'networkidle', timeout: 15000 } );
+
+				// Hide WordPress admin bar and scrollbars for cleaner screenshots
+				await page.addStyleTag( {
+					content: `
+						#wpadminbar { display: none !important; }
+						html { margin-top: 0 !important; }
+						::-webkit-scrollbar { display: none !important; }
+						html, body { scrollbar-width: none !important; }
+					`,
+				} );
+
+				const buffer = await page.screenshot( { fullPage: true, type: 'png' } );
+				const base64 = buffer.toString( 'base64' );
+
+				emitProgress( `Screenshot captured (${ viewportType })` );
+
+				return {
+					content: [
+						{
+							type: 'image' as const,
+							data: base64,
+							mimeType: 'image/png',
+						},
+					],
+				};
+			} finally {
+				await page.close();
+			}
+		} catch ( error ) {
+			return errorResult(
+				`Screenshot failed: ${ error instanceof Error ? error.message : String( error ) }`
+			);
+		}
+	}
+);
+
 export function createStudioTools() {
 	return createSdkMcpServer( {
 		name: 'studio',
@@ -443,6 +534,7 @@ export function createStudioTools() {
 			stopSiteTool,
 			runWpCliTool,
 			validateBlocksTool,
+			takeScreenshotTool,
 		],
 	} );
 }

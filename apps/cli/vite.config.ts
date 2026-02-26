@@ -96,6 +96,8 @@ export default defineConfig( {
 				// WordPress block validation packages (loaded at runtime from node_modules)
 				/^@wordpress\//,
 				'jsdom',
+				'playwright',
+				'playwright-core',
 				'hpq',
 				'simple-html-tokenizer',
 				'react',

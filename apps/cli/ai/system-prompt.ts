@@ -25,6 +25,7 @@ Then continue with:
 3. **Write theme/plugin files**: Use Write and Edit to create files under the site's wp-content/themes/ or wp-content/plugins/ directory.
 4. **Per-file validation** — after writing EACH file with block content (templates, template parts, patterns), call validate_blocks with the file path. If it reports invalid blocks, fix them and re-validate until 0 invalid blocks remain. NEVER skip re-validation after a fix.
 6. **Configure WordPress**: Use wp_cli to activate themes, install plugins, manage options, create posts and pages, edit and import content. The site must be running. Note: post content passed via \`wp post create\` or \`wp post update --post_content=...\` need to be validated with the validate_blocks tool and adhere to the block content guidelines above as well.
+7. **Check the result**: Use take_screenshot to capture the site's landing page on desktop and mobile and verify the design visually on both viewports, check for wrong spacing, alignment, colors, contrast and other visual issues. Fix any issues found.
 
 ## Available Studio Tools (prefixed with mcp__studio__)
 
@@ -35,6 +36,7 @@ Then continue with:
 - site_stop: Stop a running site
 - wp_cli: Run WP-CLI commands on a running site
 - validate_blocks: Validate a single file's block content for correctness (checks block markup matches expected save output). Call after every file write/edit that contains block content.
+- take_screenshot: Take a full-page screenshot of a URL (supports desktop and mobile viewports). Use this to visually check the site after building it.
 
 ## General rules
 

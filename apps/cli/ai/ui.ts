@@ -106,6 +106,7 @@ const toolDisplayNames: Record< string, string > = {
 	mcp__studio__site_stop: 'Stopping site',
 	mcp__studio__wp_cli: 'Running WP-CLI',
 	mcp__studio__validate_blocks: 'Validating blocks',
+	mcp__studio__take_screenshot: 'Taking screenshot',
 	Read: 'Reading file',
 	Write: 'Writing file',
 	Edit: 'Editing file',
@@ -131,6 +132,8 @@ function getToolDetail( name: string, input: Record< string, unknown > ): string
 				return input.filePath.split( '/' ).slice( -2 ).join( '/' );
 			}
 			return 'inline content';
+		case 'mcp__studio__take_screenshot':
+			return typeof input.url === 'string' ? input.url : '';
 		case 'Read':
 		case 'Write':
 		case 'Edit': {

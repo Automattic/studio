@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/buildkite/pipeline-schema/main/schema.json
+---
+
+env:
+  IMAGE_ID: $IMAGE_ID
+
+steps:
+  - label: ":shipit: Publish Release"
+    plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
+    command: |
+      echo "--- :robot_face: Use bot for Git operations"
+      source use-bot-for-git
+
+      .buildkite/commands/checkout-release-branch.sh "${RELEASE_VERSION}"
+
+      echo "--- :ruby: Setup Ruby Tools"
+      install_gems
+
+      echo "--- :shipit: Publish Release"
+      bundle exec fastlane publish_release version:"${RELEASE_VERSION}" github_username:"${GITHUB_USERNAME}" skip_confirm:true
+    agents:
+      queue: mac
+    retry:
+      manual:
+        reason: If release jobs fail, you should always re-trigger the task from Releases V2 rather than retrying the individual job from Buildkite
+        allowed: false

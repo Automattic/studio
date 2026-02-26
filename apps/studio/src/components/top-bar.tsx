@@ -54,14 +54,14 @@ function OfflineIndicator() {
 					className="h-6"
 					placement={ DEFAULT_TOOLTIP_PLACEMENT }
 				>
-					<Button
+					<span
+						role="status"
 						aria-label={ __( 'Offline indicator' ) }
 						aria-description={ offlineMessage.join( ' ' ) }
-						className="cursor-default !w-6 !h-6"
-						variant="icon"
+						className="inline-flex items-center justify-center w-6 h-6"
 					>
-						<Icon className="text-white" size={ 18 } icon={ offlineIcon } />
-					</Button>
+						<Icon className="text-white fill-white" size={ 18 } icon={ offlineIcon } />
+					</span>
 				</Tooltip>
 			</div>
 		)

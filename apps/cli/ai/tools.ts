@@ -487,6 +487,21 @@ const takeScreenshotTool = tool(
 			try {
 				await page.goto( args.url, { waitUntil: 'networkidle', timeout: 15000 } );
 
+				// Wait for all images to finish loading
+				await page.evaluate( () =>
+					Promise.all(
+						Array.from( document.images )
+							.filter( ( img ) => ! img.complete )
+							.map(
+								( img ) =>
+									new Promise< void >( ( resolve ) => {
+										img.addEventListener( 'load', () => resolve() );
+										img.addEventListener( 'error', () => resolve() );
+									} )
+							)
+					)
+				);
+
 				// Hide WordPress admin bar and scrollbars for cleaner screenshots
 				await page.addStyleTag( {
 					content: `

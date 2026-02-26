@@ -25,12 +25,13 @@ No manual steps are needed for string extraction or import.
 
 ### Export and Add (automated)
 
-During **pre-release**, the `download_translations` Fastlane lane downloads translations
-from GlotPress in Jed 1.x JSON format (which `@wordpress/i18n` understands) and creates
-a PR to merge them into the release branch. It's ok if some translations are missing —
-they will be left as English in the app.
+During each **beta release**, the `new_beta_release` Fastlane lane downloads translations
+from GlotPress in Jed 1.x JSON format (which `@wordpress/i18n` understands) and commits
+them directly to the release branch before bumping the version. It's ok if some translations
+are missing — they will be left as English in the app.
 
 The lane discovers locales from the existing `studio-*.jed.json` files in
 `tools/common/translations/` and downloads each one from GlotPress.
 
-No manual steps are needed for translation export.
+No manual steps are needed for translation export. The standalone `fetch_glotpress_translations`
+lane can be used to manually download translations if needed.

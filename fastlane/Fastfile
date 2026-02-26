@@ -166,14 +166,18 @@ end
 # Release Management Lanes
 ########################################################################
 
-# Create a new release branch from trunk and the first beta.
+# Create a new release branch from trunk, extract translatable strings, and generate draft release notes.
 #
-# - Extracts translatable strings and commits them to the release branch (for GlotPress import)
 # - Creates a `release/<version>` branch from trunk
-# - Delegates to {new_beta_release} to bump to beta1, commit, push, tag, and trigger a build
+# - Extracts translatable strings and commits them to the release branch (for GlotPress import)
+# - Generates draft release notes from merged PRs and commits them to the release branch
+# - Creates a backmerge PR from the release branch to trunk (so wpcom cron can import strings to GlotPress)
+#
+# The first beta is triggered separately via {new_beta_release}.
 #
 # @param version [String] The version to freeze (e.g., '1.7.4')
 # @param skip_confirm [Boolean] Skip interactive confirmation prompts (default: false)
+# @param github_username [String, nil] GitHub username to assign as reviewer on the backmerge PR
 #
 lane :code_freeze do |version:, skip_confirm: false, github_username: nil|
   branch_name = "release/#{version}"
@@ -184,9 +188,6 @@ lane :code_freeze do |version:, skip_confirm: false, github_username: nil|
     - Extract translatable strings and commit to `#{branch_name}`
     - Generate draft release notes from merged PRs
     - Create a backmerge PR from `#{branch_name}` to `#{MAIN_BRANCH}`
-    - Trigger the first beta build for all platforms (macOS, Windows), which will then:
-      - Upload build artifacts to the Apps CDN
-      - Notify #dotcom-studio on Slack
   PROMPT
   next unless skip_confirm || UI.confirm('Continue?')
 
@@ -211,30 +212,29 @@ lane :code_freeze do |version:, skip_confirm: false, github_username: nil|
 
   push_to_git_remote(set_upstream: true)
 
-  # Create the first beta (bumps version, commits, pushes, tags, triggers build)
-  new_beta_release(version: version, skip_confirm: skip_confirm)
-
-  # Create backmerge PR from the release branch to MAIN_BRANCH so that the pot strings bundle is uploaded to GlotPress once it hits trunk
-  # Important: this must come after new_beta_release because the backmerge action switches branches.
+  # Create backmerge PR so that the .pot strings file reaches trunk for GlotPress import
   create_backmerge_pr(source_branch: branch_name, github_username: github_username)
 
-  UI.success("Code freeze complete! Created #{branch_name} with first beta")
+  UI.success("Code freeze complete! Created #{branch_name}")
 end
 
 # Create a new beta release on the current release branch.
 #
+# - Downloads latest translations from GlotPress and commits them
 # - Determines the next beta number automatically from package.json
-# - Bumps the version, commits, tags, and triggers a release build
+# - Bumps the version, commits, pushes, and triggers a release build
+# - Creates a backmerge PR from the release branch to trunk
 #
 # @param version [String] The base release version (e.g., '1.7.4')
 # @param skip_confirm [Boolean] Skip interactive confirmation prompts (default: false)
+# @param github_username [String, nil] GitHub username to assign as reviewer on the backmerge PR
 #
-lane :new_beta_release do |version:, skip_confirm: false|
+lane :new_beta_release do |version:, skip_confirm: false, github_username: nil|
   current_version = read_package_json_version
   current_beta = current_version[/beta(\d+)$/, 1].to_i
 
   # Guard against version mismatch (e.g. package.json has 1.7.4-beta3 but version param is 1.8.0)
-  # Skip the check when current_beta is 0, meaning this is the first beta (called from code_freeze before any bump).
+  # Skip the check when current_beta is 0, meaning this is the first beta (before any bump).
   if current_beta.positive?
     base_version = current_version.sub(/-beta\d+$/, '')
     UI.user_error!("Version mismatch: package.json has #{current_version} but expected #{version}-betaN") unless base_version == version
@@ -244,19 +244,33 @@ lane :new_beta_release do |version:, skip_confirm: false|
 
   UI.important <<~PROMPT
     Creating new beta release #{new_version}. This will:
+    - Download latest translations from GlotPress
     - Bump version to #{new_version}
     - Trigger a release build for all platforms (macOS, Windows), which will then:
       - Upload build artifacts to the Apps CDN
       - Tag v#{new_version}
       - Notify #dotcom-studio on Slack
+    - Create a backmerge PR from the release branch to `#{MAIN_BRANCH}`
   PROMPT
   next unless skip_confirm || UI.confirm('Continue?')
+
+  # Download latest translations so they're included in the beta build
+  fetch_glotpress_translations
+  git_add(path: [TRANSLATIONS_DIR])
+  git_commit(
+    path: [TRANSLATIONS_DIR],
+    message: '[skip ci] Update translations',
+    allow_nothing_to_commit: true
+  )
 
   bump_version_commit_and_push(version: new_version)
 
   trigger_release_build(version: new_version)
 
   UI.success("New beta release created: v#{new_version}")
+
+  # Create backmerge PR so that translations and version bump get merged back to trunk
+  create_backmerge_pr(source_branch: "release/#{version}", github_username: github_username)
 end
 
 # Finalize the release by removing the beta suffix and triggering the final build.
@@ -385,70 +399,6 @@ lane :fetch_glotpress_translations do
   end
 
   UI.success("Downloaded translations for #{locales.length} locales")
-end
-
-# Download the latest translations and create a PR to merge them into the release branch.
-#
-# @param skip_confirm [Boolean] Skip interactive confirmation prompts (default: false)
-#
-lane :download_translations do |skip_confirm: false, github_username: nil|
-  current_branch = Fastlane::Helper::GitHelper.current_git_branch
-
-  UI.important <<~PROMPT
-    Downloading translations. This will:
-    - Download latest translations from GlotPress
-    - Create a PR to merge them into `#{current_branch}`
-  PROMPT
-  next unless skip_confirm || UI.confirm('Continue?')
-
-  fetch_glotpress_translations
-
-  translations_branch = 'update/latest-translations'
-  Fastlane::Helper::GitHelper.delete_local_branch_if_exists!(translations_branch)
-  Fastlane::Helper::GitHelper.create_branch(translations_branch)
-
-  git_add(path: ['.'])
-  result = git_commit(
-    path: ['.'],
-    message: 'Update translations',
-    allow_nothing_to_commit: true
-  )
-
-  if result.nil?
-    Fastlane::Helper::GitHelper.checkout_and_pull(current_branch)
-    Fastlane::Helper::GitHelper.delete_local_branch_if_exists!(translations_branch)
-    UI.important('No translation changes detected.')
-
-    if is_ci?
-      buildkite_annotate(
-        context: 'download-translations',
-        style: 'info',
-        message: 'No translation changes detected. No PR was created.'
-      )
-    end
-    next
-  end
-
-  Fastlane::Helper::GitHelper.delete_remote_branch_if_exists!(translations_branch)
-  push_to_git_remote(set_upstream: true, tags: false)
-
-  pr_url = create_pull_request(
-    repo: GITHUB_REPO,
-    title: 'Update translations',
-    body: 'Merges the latest translations from GlotPress.',
-    labels: 'Releases',
-    base: current_branch,
-    head: translations_branch,
-    reviewers: Array(github_username)
-  )
-
-  if is_ci? && pr_url
-    buildkite_annotate(
-      context: 'download-translations',
-      style: 'info',
-      message: "Translations Pull Request: #{pr_url}"
-    )
-  end
 end
 
 ########################################################################

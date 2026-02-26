@@ -32,7 +32,7 @@ import type { BlueprintPreferredVersions } from '@studio/common/lib/blueprint-va
 import type { CreateSiteFormValues, PathValidationResult } from 'src/hooks/use-add-site';
 import type { AllowedPHPVersion } from 'src/lib/wordpress-server-types';
 
-export interface CreateSiteFormProps {
+interface CreateSiteFormProps {
 	/** Initial values and async updates (syncs before user interaction) */
 	defaultValues?: {
 		siteName?: string;
@@ -164,7 +164,7 @@ export const CreateSiteForm = ( {
 	defaultValues = {},
 	onSelectPath,
 	onSiteNameChange,
-	existingDomainNames = [],
+	existingDomainNames,
 	blueprintPreferredVersions,
 	blueprintSuggestedDomain,
 	blueprintSuggestedHttps,
@@ -272,7 +272,7 @@ export const CreateSiteForm = ( {
 			const generatedDomainName = generateCustomDomainFromSiteName( siteName );
 			const domainToValidate = customDomain ?? generatedDomainName;
 			setCustomDomainError(
-				getDomainNameValidationError( useCustomDomain, domainToValidate, existingDomainNames )
+				getDomainNameValidationError( useCustomDomain, domainToValidate, existingDomainNames || [] )
 			);
 		} else {
 			setCustomDomainError( '' );

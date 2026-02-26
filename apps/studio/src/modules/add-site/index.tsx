@@ -15,7 +15,6 @@ import { FullscreenModal } from 'src/components/fullscreen-modal';
 import { useAddSite, CreateSiteFormValues } from 'src/hooks/use-add-site';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
-import { generateSiteName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { AllowedPHPVersion } from 'src/lib/wordpress-server-types';
 import { useBlueprintDeeplink } from 'src/modules/add-site/hooks/use-blueprint-deeplink';
@@ -419,7 +418,7 @@ function NavigationContent( props: NavigationContentProps ) {
 	);
 }
 
-export interface AddSiteModalContentProps {
+interface AddSiteModalContentProps {
 	isOpen?: boolean;
 	onSubmit?: () => void;
 	className?: string;
@@ -490,7 +489,7 @@ export function AddSiteModalContent( {
 		const initializeForm = async () => {
 			if ( ! isOpen || formInitialized || loadingSites ) return;
 
-			const generatedSiteName = await generateSiteName( sites );
+			const generatedSiteName = await getIpcApi().generateSiteNameFromList( sites );
 			const { path } = await getIpcApi().generateProposedSitePath( generatedSiteName );
 
 			setDefaultSiteName( generatedSiteName );

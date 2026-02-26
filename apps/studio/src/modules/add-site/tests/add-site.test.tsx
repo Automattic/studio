@@ -58,6 +58,7 @@ vi.mock( 'src/lib/get-ipc-api', () => ( {
 		isCATrusted: vi.fn( () => Promise.resolve( true ) ),
 		showOpenFolderDialog: mockShowOpenFolderDialog,
 		generateProposedSitePath: mockGenerateProposedSitePath,
+		generateSiteNameFromList: vi.fn( () => Promise.resolve( 'My WordPress Website' ) ),
 		getAllCustomDomains: mockGetAllCustomDomains,
 		setWindowControlVisibility: vi.fn(),
 		setupAppMenu: vi.fn(),

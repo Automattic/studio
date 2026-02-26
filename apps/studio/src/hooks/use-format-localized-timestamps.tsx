@@ -30,5 +30,3 @@ export function useFormatLocalizedTimestamps() {
 
 	return { formatRelativeTime };
 }
-
-export { formatTimeDistance };

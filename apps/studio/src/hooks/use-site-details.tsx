@@ -16,7 +16,6 @@ import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
-import { generateNumberedName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useAppDispatch } from 'src/stores';
 import { snapshotThunks } from 'src/stores/snapshot-slice';
@@ -515,7 +514,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				);
 			};
 
-			const finalSiteName = await generateNumberedName(
+			const finalSiteName = await getIpcApi().generateNumberedNameFromList(
 				sprintf( __( '%s Copy' ), sourceSite.name ),
 				sites
 			);

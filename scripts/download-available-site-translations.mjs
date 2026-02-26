@@ -16,11 +16,7 @@ const jsonFilePath = path.join(
 	'latest',
 	'available-site-translations.json'
 );
-try {
-	fs.mkdirSync( path.dirname( jsonFilePath ) );
-} catch ( err ) {
-	if ( err.code !== 'EEXIST' ) throw err;
-}
+fs.mkdirSync( path.dirname( jsonFilePath ), { recursive: true } );
 const jsonFile = fs.createWriteStream( jsonFilePath );
 
 await new Promise( ( resolve, reject ) => {

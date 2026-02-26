@@ -90,7 +90,7 @@ export async function promptWindowsSpeedUpSites( {
 	}
 }
 
-export async function excludeProcessInWindowsDefender() {
+async function excludeProcessInWindowsDefender() {
 	let exePath = app.getPath( 'exe' );
 	// When the app is packaged, the exe path points to "%appdata%\Local\studio\app-{app-version}\Studio.exe".
 	// To avoid updating this configuration on each update, we use a wilcard in the path to include all versions.

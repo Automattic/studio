@@ -28,6 +28,7 @@ import {
 	pathExists,
 	recursiveCopyDirectory,
 } from '@studio/common/lib/fs-utils';
+import { generateNumberedName, generateSiteName } from '@studio/common/lib/generate-site-name';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
@@ -38,7 +39,7 @@ import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-util
 import { Snapshot } from '@studio/common/types/snapshot';
 import { StatsGroup, StatsMetric } from '@studio/common/types/stats';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
-import { MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
+import { MACOS_TRAFFIC_LIGHT_POSITION, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
 import { getImporterMetric, getBlueprintMetric } from 'src/lib/bump-stats/lib';
@@ -845,6 +846,28 @@ export async function generateProposedSitePath(
 	}
 }
 
+export async function generateSiteNameFromList(
+	_event: IpcMainInvokeEvent,
+	usedSites: SiteDetails[]
+): Promise< string > {
+	return generateSiteName(
+		usedSites.map( ( s ) => s.name ),
+		DEFAULT_SITE_PATH
+	);
+}
+
+export async function generateNumberedNameFromList(
+	_event: IpcMainInvokeEvent,
+	baseName: string,
+	usedSites: SiteDetails[]
+): Promise< string > {
+	return generateNumberedName(
+		baseName,
+		usedSites.map( ( s ) => s.name ),
+		DEFAULT_SITE_PATH
+	);
+}
+
 export async function openLocalPath( _event: IpcMainInvokeEvent, path: string ) {
 	await shell.openPath( path );
 }
@@ -1576,6 +1599,9 @@ export async function setWindowControlVisibility( event: IpcMainInvokeEvent, vis
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	if ( parentWindow && process.platform === 'darwin' ) {
 		parentWindow.setWindowButtonVisibility( visible );
+		if ( visible ) {
+			parentWindow.setWindowButtonPosition( MACOS_TRAFFIC_LIGHT_POSITION );
+		}
 	}
 }
 

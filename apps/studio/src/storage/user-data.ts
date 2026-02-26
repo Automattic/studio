@@ -16,7 +16,7 @@ import type { PersistedUserData, UserData, WindowBounds } from 'src/storage/stor
 // Before persisting the PHP version of sites, the default PHP version used was 8.0.
 // In case we can't retrieve the PHP version from site details, we assume it was created
 // with version 8.0.
-export const DEFAULT_PHP_VERSION_WHEN_UNKNOWN: SupportedPHPVersion = '8.0';
+const DEFAULT_PHP_VERSION_WHEN_UNKNOWN: SupportedPHPVersion = '8.0';
 
 const migrateUserData = ( appName: string ) => {
 	const appDataPath = app.getPath( 'appData' );

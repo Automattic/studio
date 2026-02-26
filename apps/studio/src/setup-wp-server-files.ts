@@ -25,7 +25,7 @@ import { getResourcesPath } from 'src/storage/paths';
 const SQLITE_FILENAME = 'sqlite-database-integration';
 
 // Tries to copy the app's bundled WordPress version to server files if needed
-export async function copyBundledLatestWPVersion() {
+async function copyBundledLatestWPVersion() {
 	const bundledWPVersionPath = path.join( getResourcesPath(), 'wp-files', 'latest', 'wordpress' );
 	const bundledWPVersion = semver.coerce(
 		await getWordPressVersionFromInstallation( bundledWPVersionPath )

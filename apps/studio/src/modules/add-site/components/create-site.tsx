@@ -9,7 +9,7 @@ import { CreateSiteForm } from 'src/modules/add-site/components/create-site-form
 import type { BlueprintPreferredVersions } from '@studio/common/lib/blueprint-validation';
 import type { CreateSiteFormValues, PathValidationResult } from 'src/hooks/use-add-site';
 
-export interface CreateSiteProps {
+interface CreateSiteProps {
 	defaultValues?: {
 		siteName?: string;
 		sitePath?: string;
@@ -36,7 +36,7 @@ export default function CreateSite( {
 	defaultValues,
 	onSelectPath,
 	onSiteNameChange,
-	existingDomainNames = [],
+	existingDomainNames,
 	blueprintPreferredVersions,
 	blueprintSuggestedDomain,
 	blueprintSuggestedHttps,

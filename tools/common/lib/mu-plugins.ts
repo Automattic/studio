@@ -5,7 +5,7 @@
  * available to WordPress instances. Shared between desktop app and CLI.
  */
 
-import { mkdtemp, writeFile } from 'fs/promises';
+import { mkdtemp, readdir, unlink, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -555,4 +555,72 @@ export async function getMuPlugins( options: MuPluginOptions ) {
 	const loaderMuPluginHostPath = await createLoaderMuPlugin();
 
 	return [ studioMuPluginsHostPath, loaderMuPluginHostPath ];
+}
+
+/**
+ * Legacy mu-plugin filenames that older Studio versions wrote directly into
+ * wp-content/mu-plugins/. Newer versions inject these at runtime via the
+ * PHP WASM virtual filesystem, so on-disk copies cause "Cannot redeclare"
+ * PHP fatal errors. This list includes both current and retired filenames.
+ */
+const LEGACY_MU_PLUGIN_FILENAMES = [
+	// Current mu-plugins (from getStandardMuPlugins)
+	'0-allowed-redirect-hosts.php',
+	'0-auto-login.php',
+	'0-check-theme-availability.php',
+	'0-deactivate-jetpack-modules.php',
+	'0-disable-auto-updates.php',
+	'0-enable-auto-updates.php',
+	'0-http-request-timeout.php',
+	'0-https-for-reverse-proxy.php',
+	'0-permalinks.php',
+	'0-redirect-to-siteurl-constant.php',
+	'0-sqlite-command.php',
+	'0-studio-admin-api.php',
+	'0-studio-cli-commands.php',
+	'0-suppress-dns-get-record-warnings.php',
+	'0-thumbnails.php',
+	'0-tmp-fix-hide-plugins-spinner.php',
+	'0-tmp-fix-qm-plugin-sapi.php',
+	'0-wp-admin-trailing-slash.php',
+	// Retired mu-plugins from older Studio versions
+	'0-32bit-integer-warnings.php',
+	'0-dns-functions.php',
+	'0-sqlite.php',
+	'0-wp-config-constants-polyfill.php',
+];
+
+/**
+ * Remove legacy Studio mu-plugin files from a site's wp-content/mu-plugins/ directory.
+ *
+ * Older Studio versions wrote mu-plugin PHP files directly into the site directory.
+ * Newer versions inject them at runtime via the PHP WASM virtual filesystem.
+ * Having both copies causes PHP fatal errors like "Cannot redeclare" because
+ * the same functions are defined in both the on-disk file and the runtime-injected file.
+ *
+ * @param sitePath - Absolute path to the WordPress site directory
+ */
+export async function cleanupLegacyMuPlugins( sitePath: string ): Promise< void > {
+	const muPluginsDir = join( sitePath, 'wp-content', 'mu-plugins' );
+
+	let entries: string[];
+	try {
+		entries = await readdir( muPluginsDir );
+	} catch {
+		// Directory doesn't exist or can't be read – nothing to clean up
+		return;
+	}
+
+	const legacySet = new Set( LEGACY_MU_PLUGIN_FILENAMES );
+	const filesToRemove = entries.filter( ( name ) => legacySet.has( name ) );
+
+	await Promise.all(
+		filesToRemove.map( async ( name ) => {
+			try {
+				await unlink( join( muPluginsDir, name ) );
+			} catch {
+				// Best-effort: file may already be gone or locked
+			}
+		} )
+	);
 }

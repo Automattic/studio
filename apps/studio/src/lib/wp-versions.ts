@@ -5,7 +5,7 @@ import semver from 'semver';
 import { downloadWordPress } from 'src/lib/download-utils';
 import { getWordPressVersionPath } from 'src/lib/server-files-paths';
 
-export const MINIMUM_SUPPORTED_WP_VERSION = 6;
+const MINIMUM_SUPPORTED_WP_VERSION = 6;
 
 // Default WordPress version when API call fails
 const DEFAULT_WORDPRESS_VERSION = 'latest';

@@ -29,34 +29,34 @@ import {
 import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
 import type { SyncSite } from 'src/modules/sync/types';
 
-function SiteSyncDescription( { children }: PropsWithChildren ) {
+function SiteSyncDescription({ children }: PropsWithChildren) {
 	const { __ } = useI18n();
 	return (
 		<div className="p-8 flex justify-between max-w-3xl gap-4">
 			<div className="flex flex-col">
 				<div className="flex items-center mb-1">
 					<div className="a8c-subtitle text-pretty">
-						{ __( 'Sync with WordPress.com or Pressable' ) }
+						{__('Sync with WordPress.com or Pressable')}
 					</div>
 				</div>
 				<div className="max-w-[40ch] text-a8c-gray-70 a8c-body">
-					{ __(
+					{__(
 						'Launch your existing WordPress.com or Jetpack-activated Pressable sites, or import an existing one. Then, share your work with the world.'
-					) }
+					)}
 				</div>
 				<div className="mt-6">
-					{ [
-						__( 'Push and pull changes from your live site.' ),
-						__( 'Supports staging and production sites.' ),
-						__( 'Sync database and file changes.' ),
-					].map( ( text ) => (
-						<div key={ text } className="text-a8c-gray-70 a8c-body flex items-center">
-							<Icon className="fill-a8c-blue-50 me-2 shrink-0" icon={ check } />
-							{ text }
+					{[
+						__('Push and pull changes from your live site.'),
+						__('Supports staging and production sites.'),
+						__('Sync database and file changes.'),
+					].map((text) => (
+						<div key={text} className="text-a8c-gray-70 a8c-body flex items-center">
+							<Icon className="fill-a8c-blue-50 me-2 shrink-0" icon={check} />
+							{text}
 						</div>
-					) ) }
+					))}
 				</div>
-				{ children }
+				{children}
 			</div>
 			<div className="flex flex-col shrink-0 items-end">
 				<SyncTabImage />
@@ -69,49 +69,49 @@ function NoAuthSyncTab() {
 	const isOffline = useOffline();
 	const { __ } = useI18n();
 	const { authenticate } = useAuth();
-	const offlineMessage = __( "You're currently offline." );
+	const offlineMessage = __("You're currently offline.");
 
 	return (
 		<SiteSyncDescription>
 			<div className="mt-8">
-				<Tooltip disabled={ ! isOffline } icon={ offlineIcon } text={ offlineMessage }>
+				<Tooltip disabled={!isOffline} icon={offlineIcon} text={offlineMessage}>
 					<Button
-						aria-description={ isOffline ? offlineMessage : '' }
-						aria-disabled={ isOffline }
+						aria-description={isOffline ? offlineMessage : ''}
+						aria-disabled={isOffline}
 						variant="primary"
-						onClick={ () => {
-							if ( isOffline ) {
+						onClick={() => {
+							if (isOffline) {
 								return;
 							}
 							authenticate();
-						} }
+						}}
 					>
-						{ __( 'Log in to WordPress.com' ) }
+						{__('Log in to WordPress.com')}
 						<ArrowIcon />
 					</Button>
 				</Tooltip>
 			</div>
 			<div className="mt-3 text-a8c-gray-70 a8c-body">
 				<Tooltip
-					disabled={ ! isOffline }
-					icon={ offlineIcon }
-					text={ offlineMessage }
+					disabled={!isOffline}
+					icon={offlineIcon}
+					text={offlineMessage}
 					placement="bottom-start"
 				>
 					<span>
-						{ __( 'New to WordPress.com?' ) }{ ' ' }
+						{__('New to WordPress.com?')}{' '}
 						<Button
-							aria-description={ isOffline ? offlineMessage : '' }
-							aria-disabled={ isOffline }
+							aria-description={isOffline ? offlineMessage : ''}
+							aria-disabled={isOffline}
 							className="!p-0 text-a8c-blue-50 hover:opacity-80 h-auto inline-flex items-center"
-							onClick={ () => {
-								if ( isOffline ) {
+							onClick={() => {
+								if (isOffline) {
 									return;
 								}
-								getIpcApi().authenticate( true );
-							} }
+								getIpcApi().authenticate(true);
+							}}
 						>
-							{ __( 'Create a free account' ) }
+							{__('Create a free account')}
 							<ArrowIcon />
 						</Button>
 					</span>
@@ -121,98 +121,94 @@ function NoAuthSyncTab() {
 	);
 }
 
-export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } ) {
+export function ContentTabSync({ selectedSite }: { selectedSite: SiteDetails }) {
 	const { __ } = useI18n();
 	const dispatch = useAppDispatch();
-	const isModalOpen = useRootSelector( connectedSitesSelectors.selectIsModalOpen );
-	const reduxModalMode = useRootSelector( connectedSitesSelectors.selectModalMode );
-	const selectedRemoteSiteId = useRootSelector(
-		connectedSitesSelectors.selectSelectedRemoteSiteId
-	);
+	const isModalOpen = useRootSelector(connectedSitesSelectors.selectIsModalOpen);
+	const reduxModalMode = useRootSelector(connectedSitesSelectors.selectModalMode);
+	const selectedRemoteSiteId = useRootSelector(connectedSitesSelectors.selectSelectedRemoteSiteId);
 	const { isAuthenticated, user } = useAuth();
-	const { data: connectedSites = [] } = useGetConnectedSitesForLocalSiteQuery( {
+	const { data: connectedSites = [] } = useGetConnectedSitesForLocalSiteQuery({
 		localSiteId: selectedSite.id,
 		userId: user?.id,
-	} );
-	const [ connectSite ] = useConnectSiteMutation();
-	const [ disconnectSite ] = useDisconnectSiteMutation();
+	});
+	const [connectSite] = useConnectSiteMutation();
+	const [disconnectSite] = useDisconnectSiteMutation();
 	const { pushSite, pullSite } = useSyncSites();
 
-	const connectedSiteIds = connectedSites.map( ( { id } ) => id );
-	const { data: syncSites = [] } = useGetWpComSitesQuery( {
+	const connectedSiteIds = connectedSites.map(({ id }) => id);
+	const { data: syncSites = [] } = useGetWpComSitesQuery({
 		connectedSiteIds,
 		userId: user?.id,
-	} );
+	});
 
-	const [ selectedRemoteSite, setSelectedRemoteSite ] = useState< SyncSite | null >( null );
+	const [selectedRemoteSite, setSelectedRemoteSite] = useState<SyncSite | null>(null);
 
 	// Auto-select remote site when set via Redux (e.g., from deep link connection)
-	useEffect( () => {
-		if ( selectedRemoteSiteId ) {
-			const siteToSelect = syncSites.find( ( site ) => site.id === selectedRemoteSiteId );
-			if ( siteToSelect ) {
-				setSelectedRemoteSite( siteToSelect );
-				dispatch( connectedSitesActions.openModal( 'push' ) );
-				dispatch( connectedSitesActions.clearSelectedRemoteSiteId() );
+	useEffect(() => {
+		if (selectedRemoteSiteId) {
+			const siteToSelect = syncSites.find((site) => site.id === selectedRemoteSiteId);
+			if (siteToSelect) {
+				setSelectedRemoteSite(siteToSelect);
+				dispatch(connectedSitesActions.openModal('push'));
+				dispatch(connectedSitesActions.clearSelectedRemoteSiteId());
 			}
 		}
-	}, [ selectedRemoteSiteId, syncSites, dispatch ] );
+	}, [selectedRemoteSiteId, syncSites, dispatch]);
 
-	if ( ! isAuthenticated ) {
+	if (!isAuthenticated) {
 		return <NoAuthSyncTab />;
 	}
 
-	const handleConnect = async ( remoteSiteId: number ) => {
+	const handleConnect = async (remoteSiteId: number) => {
 		try {
-			await connectSite( {
+			await connectSite({
 				remoteSiteId,
 				localSiteId: selectedSite.id,
 				userId: user?.id,
-			} );
-		} catch ( error ) {
-			getIpcApi().showErrorMessageBox( {
-				title: __( 'Failed to connect to site' ),
-				message: __( 'Please try again.' ),
-			} );
+			});
+		} catch (error) {
+			getIpcApi().showErrorMessageBox({
+				title: __('Failed to connect to site'),
+				message: __('Please try again.'),
+			});
 		}
 	};
 
-	const handleSiteSelection = async ( siteId: number ) => {
-		const selectedSiteFromList = syncSites.find( ( site ) => site.id === siteId );
-		if ( ! selectedSiteFromList ) {
-			getIpcApi().showErrorMessageBox( {
-				title: __( 'Failed to select site' ),
-				message: __( 'Please try again.' ),
-			} );
+	const handleSiteSelection = async (siteId: number) => {
+		const selectedSiteFromList = syncSites.find((site) => site.id === siteId);
+		if (!selectedSiteFromList) {
+			getIpcApi().showErrorMessageBox({
+				title: __('Failed to select site'),
+				message: __('Please try again.'),
+			});
 			return;
 		}
 
-		if ( reduxModalMode === 'push' || reduxModalMode === 'pull' ) {
-			dispatch( connectedSitesActions.openModal( reduxModalMode ) );
-			setSelectedRemoteSite( selectedSiteFromList );
+		if (reduxModalMode === 'push' || reduxModalMode === 'pull') {
+			dispatch(connectedSitesActions.openModal(reduxModalMode));
+			setSelectedRemoteSite(selectedSiteFromList);
 		} else {
-			await handleConnect( siteId );
-			dispatch( connectedSitesActions.closeModal() );
+			await handleConnect(siteId);
+			dispatch(connectedSitesActions.closeModal());
 		}
 	};
 
 	return (
 		<div className="flex flex-col h-full overflow-y-auto">
-			{ connectedSites.length > 0 ? (
+			{connectedSites.length > 0 ? (
 				<div className="h-full relative">
 					<SyncConnectedSites
-						connectedSites={ connectedSites }
-						selectedSite={ selectedSite }
-						disconnectSite={ ( id ) =>
-							disconnectSite( { siteId: id, localSiteId: selectedSite.id } )
-						}
+						connectedSites={connectedSites}
+						selectedSite={selectedSite}
+						disconnectSite={(id) => disconnectSite({ siteId: id, localSiteId: selectedSite.id })}
 					/>
 					<div className="sticky bottom-0 bg-white/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
 						<ConnectButton
 							variant="primary"
-							connectSite={ () => dispatch( connectedSitesActions.openModal( 'connect' ) ) }
+							connectSite={() => dispatch(connectedSitesActions.openModal('connect'))}
 						>
-							{ __( 'Connect another site' ) }
+							{__('Connect another site')}
 						</ConnectButton>
 					</div>
 				</div>
@@ -221,48 +217,48 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 					<div className="mt-8">
 						<ConnectButton
 							variant="primary"
-							connectSite={ () => dispatch( connectedSitesActions.openModal( 'connect' ) ) }
+							connectSite={() => dispatch(connectedSitesActions.openModal('connect'))}
 						>
-							{ __( 'Connect site' ) }
+							{__('Connect site')}
 						</ConnectButton>
 					</div>
 				</SiteSyncDescription>
-			) }
+			)}
 
-			{ isModalOpen && ! selectedRemoteSite && (
+			{isModalOpen && !selectedRemoteSite && (
 				<SyncSitesModalSelector
-					mode={ reduxModalMode || 'connect' }
-					onRequestClose={ () => {
-						dispatch( connectedSitesActions.closeModal() );
-					} }
-					onConnect={ async ( siteId: number ) => {
-						await handleSiteSelection( siteId );
-					} }
-					selectedSite={ selectedSite }
+					mode={reduxModalMode || 'connect'}
+					onRequestClose={() => {
+						dispatch(connectedSitesActions.closeModal());
+					}}
+					onConnect={async (siteId: number) => {
+						await handleSiteSelection(siteId);
+					}}
+					selectedSite={selectedSite}
 				/>
-			) }
+			)}
 
-			{ reduxModalMode && reduxModalMode !== 'connect' && selectedRemoteSite && (
+			{reduxModalMode && reduxModalMode !== 'connect' && selectedRemoteSite && (
 				<SyncDialog
-					type={ reduxModalMode }
-					localSite={ selectedSite }
-					remoteSite={ selectedRemoteSite }
-					onPush={ async ( tree ) => {
-						await handleConnect( selectedRemoteSite );
-						const pushOptions = convertTreeToPushOptions( tree );
-						void pushSite( selectedRemoteSite, selectedSite, pushOptions );
-					} }
-					onPull={ async ( tree ) => {
-						await handleConnect( selectedRemoteSite );
-						const pullOptions = convertTreeToPullOptions( tree );
-						void pullSite( selectedRemoteSite, selectedSite, pullOptions );
-					} }
-					onRequestClose={ () => {
-						setSelectedRemoteSite( null );
-						dispatch( connectedSitesActions.closeModal() );
-					} }
+					type={reduxModalMode}
+					localSite={selectedSite}
+					remoteSite={selectedRemoteSite}
+					onPush={async (tree) => {
+						await handleConnect(selectedRemoteSite.id);
+						const pushOptions = convertTreeToPushOptions(tree);
+						void pushSite(selectedRemoteSite, selectedSite, pushOptions);
+					}}
+					onPull={async (tree) => {
+						await handleConnect(selectedRemoteSite.id);
+						const pullOptions = convertTreeToPullOptions(tree);
+						void pullSite(selectedRemoteSite, selectedSite, pullOptions);
+					}}
+					onRequestClose={() => {
+						setSelectedRemoteSite(null);
+						dispatch(connectedSitesActions.closeModal());
+					}}
 				/>
-			) }
+			)}
 		</div>
 	);
 }

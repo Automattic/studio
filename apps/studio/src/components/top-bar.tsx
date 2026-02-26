@@ -21,11 +21,13 @@ function ToggleSidebar( { onToggleSidebar }: TopBarProps ) {
 	const { __ } = useI18n();
 	return (
 		<div className="app-no-drag-region ml-2">
-			<Tooltip
-				text={ __( 'Toggle sidebar' ) }
-				placement={ DEFAULT_TOOLTIP_PLACEMENT }
-			>
-				<Button onClick={ onToggleSidebar } variant="icon" aria-label={ __( 'Toggle sidebar' ) } className="!p-1.5 !rounded-lg">
+			<Tooltip text={ __( 'Toggle sidebar' ) } placement={ DEFAULT_TOOLTIP_PLACEMENT }>
+				<Button
+					onClick={ onToggleSidebar }
+					variant="icon"
+					aria-label={ __( 'Toggle sidebar' ) }
+					className="!p-1.5 !rounded-lg"
+				>
 					<Icon className="text-white" icon={ drawerLeft } size={ 24 } />
 				</Button>
 			</Tooltip>
@@ -163,7 +165,12 @@ export default function TopBar( { onToggleSidebar }: TopBarProps ) {
 				<Authentication />
 				<SettingsButton />
 				<Tooltip text={ __( 'Get help' ) } placement="bottom-end">
-					<Button onClick={ openDocs } aria-label={ __( 'Get help' ) } variant="icon" className="!p-1.5 !rounded-lg">
+					<Button
+						onClick={ openDocs }
+						aria-label={ __( 'Get help' ) }
+						variant="icon"
+						className="!p-1.5 !rounded-lg"
+					>
 						<Icon className="text-white" size={ 24 } icon={ help } />
 					</Button>
 				</Tooltip>

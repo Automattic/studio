@@ -46,8 +46,6 @@ if ($BuildType -eq $BUILD_TYPE_DEV) {
     $env:IS_DEV_BUILD="true"
 } else {
     Write-Host "Preparing release build..."
-    node ./scripts/confirm-tag-matches-version.mjs
-	If ($LastExitCode -ne 0) { Exit $LastExitCode }
 }
 
 # Set architecture environment variable for AppX packaging

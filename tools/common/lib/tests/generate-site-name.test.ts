@@ -1,24 +1,10 @@
-import os from 'os';
-import path from 'path';
 import { isEmptyDir, pathExists } from '@studio/common/lib/fs-utils';
 import { vi } from 'vitest';
-import { readAppdata } from 'cli/lib/appdata';
-import { generateSiteName, getDefaultSitePath } from 'cli/lib/generate-site-name';
+import { generateNumberedName, generateSiteName } from '../generate-site-name';
 
 vi.mock( '@studio/common/lib/fs-utils' );
-vi.mock( 'cli/lib/appdata' );
 
-describe( 'getDefaultSitePath', () => {
-	it( 'returns path under ~/Studio with sanitized folder name', () => {
-		const result = getDefaultSitePath( 'My WordPress Website' );
-		expect( result ).toBe( path.join( os.homedir(), 'Studio', 'my-wordpress-website' ) );
-	} );
-
-	it( 'sanitizes special characters from name', () => {
-		const result = getDefaultSitePath( 'My Site (Test)' );
-		expect( result ).toBe( path.join( os.homedir(), 'Studio', 'my-site-test' ) );
-	} );
-} );
+const SITES_DIR = '/tmp/test-sites';
 
 describe( 'generateSiteName', () => {
 	beforeEach( () => {
@@ -28,16 +14,12 @@ describe( 'generateSiteName', () => {
 	} );
 
 	it( 'returns default name when no sites exist', async () => {
-		vi.mocked( readAppdata, { partial: true } ).mockResolvedValue( { sites: [] } );
-		const name = await generateSiteName();
+		const name = await generateSiteName( [], SITES_DIR );
 		expect( name ).toBe( 'My WordPress Website' );
 	} );
 
 	it( 'returns a random alternative when default name is taken', async () => {
-		vi.mocked( readAppdata, { partial: true } ).mockResolvedValue( {
-			sites: [ { name: 'My WordPress Website' } ],
-		} );
-		const name = await generateSiteName();
+		const name = await generateSiteName( [ 'My WordPress Website' ], SITES_DIR );
 		expect( name ).not.toBe( 'My WordPress Website' );
 		expect( name ).toMatch( /^My \w+ Website$/ );
 	} );
@@ -66,20 +48,42 @@ describe( 'generateSiteName', () => {
 			'My Swift Website',
 			'My True Website',
 		];
-		vi.mocked( readAppdata, { partial: true } ).mockResolvedValue( {
-			sites: allNames.map( ( name ) => ( { name } ) ),
-		} );
-		const name = await generateSiteName();
+		const name = await generateSiteName( allNames, SITES_DIR );
 		expect( name ).toBe( 'My WordPress Website 2' );
 	} );
 
-	it( 'skips default name when its path already exists', async () => {
-		vi.mocked( readAppdata, { partial: true } ).mockResolvedValue( { sites: [] } );
+	it( 'skips default name when its path already exists and is non-empty', async () => {
 		vi.mocked( pathExists ).mockImplementation( async ( p ) => {
 			return String( p ).includes( 'my-wordpress-website' );
 		} );
 		vi.mocked( isEmptyDir ).mockResolvedValue( false );
-		const name = await generateSiteName();
+		const name = await generateSiteName( [], SITES_DIR );
 		expect( name ).not.toBe( 'My WordPress Website' );
+	} );
+} );
+
+describe( 'generateNumberedName', () => {
+	beforeEach( () => {
+		vi.clearAllMocks();
+		vi.mocked( pathExists ).mockResolvedValue( false );
+	} );
+
+	it( 'returns the base name if available', async () => {
+		const name = await generateNumberedName( 'My Site', [], SITES_DIR );
+		expect( name ).toBe( 'My Site' );
+	} );
+
+	it( 'appends a number when base name is taken', async () => {
+		const name = await generateNumberedName( 'My Site', [ 'My Site' ], SITES_DIR );
+		expect( name ).toBe( 'My Site 2' );
+	} );
+
+	it( 'increments until an available name is found', async () => {
+		const name = await generateNumberedName(
+			'My Site',
+			[ 'My Site', 'My Site 2', 'My Site 3' ],
+			SITES_DIR
+		);
+		expect( name ).toBe( 'My Site 4' );
 	} );
 } );

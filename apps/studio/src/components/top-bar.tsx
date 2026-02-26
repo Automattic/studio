@@ -74,7 +74,7 @@ function Authentication() {
 	const isOffline = useOffline();
 	if ( isAuthenticated ) {
 		return (
-			<Tooltip text={ user?.displayName || '' } placement="bottom-start">
+			<Tooltip text={ user?.displayName || '' } placement="bottom-end">
 				<Button
 					onClick={ () => getIpcApi().showUserSettings() }
 					aria-label={ __( 'Open account settings' ) }
@@ -110,15 +110,17 @@ function Authentication() {
 function SettingsButton() {
 	const { __ } = useI18n();
 	return (
-		<Button
-			onClick={ () => getIpcApi().showUserSettings( 'preferences' ) }
-			aria-label={ __( 'Open settings' ) }
-			variant="icon"
-			className="!p-1.5 !rounded-lg"
-			data-testid="settings-button"
-		>
-			<Icon className="text-white" size={ 24 } icon={ cog } />
-		</Button>
+		<Tooltip text={ __( 'Settings' ) } placement="bottom-end">
+			<Button
+				onClick={ () => getIpcApi().showUserSettings( 'preferences' ) }
+				aria-label={ __( 'Open settings' ) }
+				variant="icon"
+				className="!p-1.5 !rounded-lg"
+				data-testid="settings-button"
+			>
+				<Icon className="text-white" size={ 24 } icon={ cog } />
+			</Button>
+		</Tooltip>
 	);
 }
 
@@ -160,7 +162,7 @@ export default function TopBar( { onToggleSidebar }: TopBarProps ) {
 			<div className="app-no-drag-region flex items-center space-x-1.5 rtl:space-x-reverse">
 				<Authentication />
 				<SettingsButton />
-				<Tooltip text={ __( 'Get help' ) } placement="bottom-start">
+				<Tooltip text={ __( 'Get help' ) } placement="bottom-end">
 					<Button onClick={ openDocs } aria-label={ __( 'Get help' ) } variant="icon" className="!p-1.5 !rounded-lg">
 						<Icon className="text-white" size={ 24 } icon={ help } />
 					</Button>

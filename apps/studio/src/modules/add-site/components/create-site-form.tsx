@@ -3,6 +3,11 @@ import {
 	generateCustomDomainFromSiteName,
 	getDomainNameValidationError,
 } from '@studio/common/lib/domains';
+import {
+	generatePassword,
+	validateAdminEmail,
+	validateAdminUsername,
+} from '@studio/common/lib/passwords';
 import { SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { Icon, SelectControl, Notice } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
@@ -13,6 +18,7 @@ import { FormEvent, useState, useEffect, useCallback, useMemo, useRef, RefObject
 import Button from 'src/components/button';
 import FolderIcon from 'src/components/folder-icon';
 import { LearnMoreLink, LearnHowLink } from 'src/components/learn-more';
+import PasswordControl from 'src/components/password-control';
 import TextControlComponent from 'src/components/text-control';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { cx } from 'src/lib/cx';
@@ -46,6 +52,8 @@ interface CreateSiteFormProps {
 	blueprintSuggestedDomain?: string;
 	/** Blueprint suggested HTTPS setting from defineSiteUrl step */
 	blueprintSuggestedHttps?: boolean;
+	/** Blueprint login credentials for pre-filling admin fields */
+	blueprintCredentials?: { adminUsername?: string; adminPassword?: string };
 	/** Called when form is submitted */
 	onSubmit: ( values: CreateSiteFormValues ) => void;
 	/** Called when form validity changes */
@@ -160,6 +168,7 @@ export const CreateSiteForm = ( {
 	blueprintPreferredVersions,
 	blueprintSuggestedDomain,
 	blueprintSuggestedHttps,
+	blueprintCredentials,
 	onSubmit,
 	onValidityChange,
 	formRef,
@@ -180,6 +189,13 @@ export const CreateSiteForm = ( {
 	const [ useCustomDomain, setUseCustomDomain ] = useState( false );
 	const [ customDomain, setCustomDomain ] = useState< string | null >( null );
 	const [ enableHttps, setEnableHttps ] = useState( false );
+	const [ adminUsername, setAdminUsername ] = useState(
+		blueprintCredentials?.adminUsername ?? 'admin'
+	);
+	const [ adminPassword, setAdminPassword ] = useState(
+		() => blueprintCredentials?.adminPassword ?? generatePassword()
+	);
+	const [ adminEmail, setAdminEmail ] = useState( '' );
 
 	const [ pathError, setPathError ] = useState( '' );
 	const [ doesPathContainWordPress, setDoesPathContainWordPress ] = useState( false );
@@ -190,6 +206,7 @@ export const CreateSiteForm = ( {
 
 	// Prevent overwriting user input when defaultValues change asynchronously
 	const hasUserInteracted = useRef( false );
+	const hasUserEditedCredentials = useRef( false );
 
 	// Sync name/path only before user interaction (allows async loading)
 	useEffect( () => {
@@ -214,6 +231,21 @@ export const CreateSiteForm = ( {
 			setWpVersion( defaultValues.wpVersion );
 		}
 	}, [ defaultValues.phpVersion, defaultValues.wpVersion ] );
+
+	// Sync admin credentials from Blueprint when they change (only if user hasn't edited)
+	useEffect( () => {
+		if ( hasUserEditedCredentials.current ) {
+			return;
+		}
+		if ( blueprintCredentials?.adminUsername !== undefined ) {
+			setAdminUsername( blueprintCredentials.adminUsername );
+			setAdvancedSettingsVisible( true );
+		}
+		if ( blueprintCredentials?.adminPassword !== undefined ) {
+			setAdminPassword( blueprintCredentials.adminPassword );
+			setAdvancedSettingsVisible( true );
+		}
+	}, [ blueprintCredentials?.adminUsername, blueprintCredentials?.adminPassword ] );
 
 	useEffect( () => {
 		if ( hasUserInteracted.current || ! blueprintSuggestedDomain ) {
@@ -255,7 +287,12 @@ export const CreateSiteForm = ( {
 			return;
 		}
 
-		const hasErrors = !! pathError || ( useCustomDomain && !! customDomainError );
+		const hasErrors =
+			!! pathError ||
+			( useCustomDomain && !! customDomainError ) ||
+			! adminUsername.trim() ||
+			! adminPassword.trim() ||
+			!! adminEmailError;
 		const isValid = ! hasErrors;
 
 		// Only notify if validity has actually changed
@@ -264,7 +301,7 @@ export const CreateSiteForm = ( {
 			onValidityChange( isValid );
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [ pathError, customDomainError, useCustomDomain ] );
+	}, [ pathError, customDomainError, useCustomDomain, adminUsername, adminPassword, adminEmail ] );
 
 	const handleSiteNameChange = useCallback(
 		async ( name: string ) => {
@@ -338,8 +375,22 @@ export const CreateSiteForm = ( {
 			useCustomDomain,
 			customDomain,
 			enableHttps,
+			adminUsername: adminUsername || undefined,
+			adminPassword: adminPassword || undefined,
+			adminEmail: adminEmail || undefined,
 		} ),
-		[ siteName, sitePath, phpVersion, wpVersion, useCustomDomain, customDomain, enableHttps ]
+		[
+			siteName,
+			sitePath,
+			phpVersion,
+			wpVersion,
+			useCustomDomain,
+			customDomain,
+			enableHttps,
+			adminUsername,
+			adminPassword,
+			adminEmail,
+		]
 	);
 
 	const handleFormSubmit = useCallback(
@@ -351,7 +402,16 @@ export const CreateSiteForm = ( {
 	);
 
 	const shouldShowCustomDomainError = useCustomDomain && customDomainError;
-	const errorCount = [ pathError, shouldShowCustomDomainError ].filter( Boolean ).length;
+	const adminUsernameError = validateAdminUsername( adminUsername );
+	const adminPasswordError = ! adminPassword.trim() ? __( 'Admin password is required' ) : '';
+	const adminEmailError = adminEmail.trim() ? validateAdminEmail( adminEmail ) : '';
+	const errorCount = [
+		pathError,
+		shouldShowCustomDomainError,
+		adminUsernameError,
+		adminPasswordError,
+		adminEmailError,
+	].filter( Boolean ).length;
 
 	const handleAdvancedSettingsClick = () => {
 		setAdvancedSettingsVisible( ! isAdvancedSettingsVisible );
@@ -488,6 +548,69 @@ export const CreateSiteForm = ( {
 											'You are currently offline so your site will be created with the latest version. Selecting a different WordPress version requires an internet connection.'
 										) }
 									/>
+								</div>
+
+								<div className="flex flex-col gap-2 mt-4">
+									<span className="font-semibold">{ __( 'Admin credentials' ) }</span>
+									<div className="grid grid-cols-2 gap-4">
+										<div className="flex flex-col gap-1.5 leading-4">
+											<label className="text-sm" htmlFor="admin-username">
+												{ __( 'Username' ) }
+											</label>
+											<TextControlComponent
+												id="admin-username"
+												value={ adminUsername }
+												onChange={ ( value: string ) => {
+													hasUserEditedCredentials.current = true;
+													setAdminUsername( value );
+												} }
+												className={ adminUsernameError ? '[&_input]:!border-red-500' : '' }
+											/>
+										</div>
+
+										<div className="flex flex-col gap-1.5 leading-4">
+											<label className="text-sm" htmlFor="admin-password">
+												{ __( 'Password' ) }
+											</label>
+											<PasswordControl
+												id="admin-password"
+												value={ adminPassword }
+												onChange={ ( value: string ) => {
+													hasUserEditedCredentials.current = true;
+													setAdminPassword( value );
+												} }
+												className={ adminPasswordError ? '[&_input]:!border-red-500' : '' }
+											/>
+										</div>
+									</div>
+									{ ( adminUsernameError || adminPasswordError ) && (
+										<span className="text-red-500 text-xs">
+											{ adminUsernameError || adminPasswordError }
+										</span>
+									) }
+								</div>
+
+								<div className="flex flex-col gap-1.5 leading-4 mt-4">
+									<label className="text-sm" htmlFor="admin-email">
+										{ __( 'Email' ) }
+									</label>
+									<TextControlComponent
+										id="admin-email"
+										value={ adminEmail }
+										onChange={ ( value: string ) => {
+											hasUserEditedCredentials.current = true;
+											setAdminEmail( value );
+										} }
+										placeholder="admin@localhost.com"
+										className={ adminEmailError ? '[&_input]:!border-red-500' : '' }
+									/>
+									{ adminEmailError ? (
+										<span className="text-red-500 text-xs">{ adminEmailError }</span>
+									) : (
+										<span className="text-a8c-gray-50 text-xs">
+											{ __( 'Defaults to admin@localhost.com if not provided.' ) }
+										</span>
+									) }
 								</div>
 
 								{ showBlueprintVersionWarning && (

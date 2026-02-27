@@ -82,8 +82,16 @@ export async function startWordPressServer(
 		serverConfig.absoluteUrl = `${ protocol }://${ site.customDomain }`;
 	}
 
+	if ( site.adminUsername ) {
+		serverConfig.adminUsername = site.adminUsername;
+	}
+
 	if ( site.adminPassword ) {
 		serverConfig.adminPassword = site.adminPassword;
+	}
+
+	if ( site.adminEmail ) {
+		serverConfig.adminEmail = site.adminEmail;
 	}
 
 	if ( site.isWpAutoUpdating !== undefined ) {
@@ -363,8 +371,16 @@ export async function runBlueprint(
 		serverConfig.absoluteUrl = `${ protocol }://${ site.customDomain }`;
 	}
 
+	if ( site.adminUsername ) {
+		serverConfig.adminUsername = site.adminUsername;
+	}
+
 	if ( site.adminPassword ) {
 		serverConfig.adminPassword = site.adminPassword;
+	}
+
+	if ( site.adminEmail ) {
+		serverConfig.adminEmail = site.adminEmail;
 	}
 
 	if ( site.isWpAutoUpdating !== undefined ) {

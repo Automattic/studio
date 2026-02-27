@@ -16,7 +16,9 @@ interface StoppedSiteDetails {
 	isWpAutoUpdating?: boolean;
 	customDomain?: string;
 	enableHttps?: boolean;
+	adminUsername?: string;
 	adminPassword?: string;
+	adminEmail?: string;
 	tlsKey?: string;
 	tlsCert?: string;
 	themeDetails?: {

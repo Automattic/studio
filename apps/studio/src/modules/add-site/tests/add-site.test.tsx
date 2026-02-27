@@ -230,7 +230,10 @@ describe( 'AddSite', () => {
 				undefined, // blueprint parameter
 				'8.3',
 				expect.any( Function ),
-				false
+				false,
+				'admin',
+				expect.any( String ),
+				undefined // adminEmail
 			);
 		} );
 	} );
@@ -447,7 +450,10 @@ describe( 'AddSite', () => {
 				undefined, // blueprint parameter
 				'8.3',
 				expect.any( Function ),
-				false
+				false,
+				'admin',
+				expect.any( String ),
+				undefined // adminEmail
 			);
 		} );
 	} );

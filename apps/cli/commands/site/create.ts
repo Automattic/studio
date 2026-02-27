@@ -9,6 +9,7 @@ import {
 	DEFAULT_WORDPRESS_VERSION,
 	MINIMUM_WORDPRESS_VERSION,
 } from '@studio/common/constants';
+import { extractFormValuesFromBlueprint } from '@studio/common/lib/blueprint-settings';
 import {
 	filterUnsupportedBlueprintFeatures,
 	validateBlueprintData,
@@ -23,7 +24,12 @@ import {
 } from '@studio/common/lib/fs-utils';
 import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
 import { isOnline } from '@studio/common/lib/network-utils';
-import { createPassword } from '@studio/common/lib/passwords';
+import {
+	createPassword,
+	encodePassword,
+	validateAdminEmail,
+	validateAdminUsername,
+} from '@studio/common/lib/passwords';
 import { portFinder } from '@studio/common/lib/port-finder';
 import {
 	hasDefaultDbBlock,
@@ -77,6 +83,9 @@ type CreateCommandOptions = {
 		contents: unknown;
 		uri: string;
 	};
+	adminUsername?: string;
+	adminPassword?: string;
+	adminEmail?: string;
 	noStart: boolean;
 	skipBrowser: boolean;
 	skipLogDetails: boolean;
@@ -101,6 +110,7 @@ export async function runCommand(
 
 		let blueprintUri: string | undefined;
 		let blueprint: Blueprint | undefined;
+		let blueprintCredentials: { adminUsername?: string; adminPassword?: string } | null = null;
 
 		if ( options.blueprint ) {
 			const validation = await validateBlueprintData( options.blueprint.contents );
@@ -117,6 +127,15 @@ export async function runCommand(
 						warning.reason
 					)
 				);
+			}
+
+			// Extract login credentials from blueprint before filtering
+			const formValues = extractFormValuesFromBlueprint( options.blueprint.contents as Blueprint );
+			if ( formValues.adminUsername || formValues.adminPassword ) {
+				blueprintCredentials = {
+					adminUsername: formValues.adminUsername,
+					adminPassword: formValues.adminPassword,
+				};
 			}
 
 			blueprintUri = options.blueprint.uri;
@@ -193,7 +212,26 @@ export async function runCommand(
 
 		const siteName = options.name || path.basename( sitePath );
 		const siteId = options.siteId || crypto.randomUUID();
-		const adminPassword = createPassword();
+
+		// Determine admin credentials: CLI args > Blueprint > defaults
+		// External passwords need to be encoded; createPassword() already returns encoded
+		const adminUsername = options.adminUsername || blueprintCredentials?.adminUsername || undefined;
+		if ( adminUsername ) {
+			const usernameError = validateAdminUsername( adminUsername );
+			if ( usernameError ) {
+				throw new LoggerError( usernameError );
+			}
+		}
+		const adminEmail = options.adminEmail?.trim() || undefined;
+		if ( adminEmail ) {
+			const emailError = validateAdminEmail( adminEmail );
+			if ( emailError ) {
+				throw new LoggerError( emailError );
+			}
+		}
+
+		const externalPassword = options.adminPassword || blueprintCredentials?.adminPassword;
+		const adminPassword = externalPassword ? encodePassword( externalPassword ) : createPassword();
 
 		const setupSteps: StepDefinition[] = [];
 
@@ -266,7 +304,9 @@ export async function runCommand(
 			id: siteId,
 			name: siteName,
 			path: sitePath,
+			adminUsername,
 			adminPassword,
+			adminEmail,
 			port,
 			phpVersion: options.phpVersion,
 			running: false,
@@ -488,6 +528,20 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'string',
 					describe: __( 'Path or URL to Blueprint JSON file' ),
 				} )
+				.option( 'admin-username', {
+					type: 'string',
+					describe: __( 'Admin username (defaults to "admin")' ),
+				} )
+				.option( 'admin-password', {
+					type: 'string',
+					describe: __(
+						'Admin password (auto-generated if not provided). Note: passwords in CLI arguments may be visible in process lists; consider using a Blueprint file for sensitive passwords.'
+					),
+				} )
+				.option( 'admin-email', {
+					type: 'string',
+					describe: __( 'Admin email (defaults to "admin@localhost.com")' ),
+				} )
 				.option( 'start', {
 					type: 'boolean',
 					describe: __( 'Start the site after creation' ),
@@ -604,6 +658,9 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				phpVersion,
 				customDomain,
 				enableHttps,
+				adminUsername: argv.adminUsername,
+				adminPassword: argv.adminPassword,
+				adminEmail: argv.adminEmail,
 				noStart: ! argv.start,
 				skipBrowser: !! argv.skipBrowser,
 				skipLogDetails: !! argv.skipLogDetails,

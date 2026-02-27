@@ -1,6 +1,7 @@
 import { StreamedPHPResponse } from '@php-wasm/universal';
 import { getDomainNameValidationError } from '@studio/common/lib/domains';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
+import { encodePassword } from '@studio/common/lib/passwords';
 import { vi } from 'vitest';
 import {
 	getSiteByFolder,
@@ -98,7 +99,7 @@ describe( 'CLI: studio site set', () => {
 	describe( 'Validation', () => {
 		it( 'should throw when no options provided', async () => {
 			await expect( runCommand( testSitePath, {} ) ).rejects.toThrow(
-				'At least one option (--name, --domain, --https, --php, --wp, --xdebug, --debug-log, --debug-display) is required.'
+				'At least one option (--name, --domain, --https, --php, --wp, --xdebug, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display) is required.'
 			);
 		} );
 
@@ -419,6 +420,113 @@ describe( 'CLI: studio site set', () => {
 
 			await expect( runCommand( testSitePath, { xdebug: false } ) ).rejects.toThrow(
 				'No changes to apply. The site already has the specified settings.'
+			);
+		} );
+	} );
+
+	describe( 'Admin credential changes', () => {
+		it( 'should update admin username and restart running site', async () => {
+			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
+
+			await runCommand( testSitePath, { adminUsername: 'newadmin' } );
+
+			const savedAppdata = vi.mocked( saveAppdata ).mock.calls[ 0 ][ 0 ];
+			expect( savedAppdata.sites[ 0 ].adminUsername ).toBe( 'newadmin' );
+			expect( stopWordPressServer ).toHaveBeenCalledWith( 'site-1' );
+			expect( startWordPressServer ).toHaveBeenCalled();
+		} );
+
+		it( 'should update admin password and restart running site', async () => {
+			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
+
+			await runCommand( testSitePath, { adminPassword: 'newpass123' } );
+
+			const savedAppdata = vi.mocked( saveAppdata ).mock.calls[ 0 ][ 0 ];
+			expect( savedAppdata.sites[ 0 ].adminPassword ).toBe( encodePassword( 'newpass123' ) );
+			expect( stopWordPressServer ).toHaveBeenCalledWith( 'site-1' );
+			expect( startWordPressServer ).toHaveBeenCalled();
+		} );
+
+		it( 'should not restart stopped site when credentials change', async () => {
+			await runCommand( testSitePath, { adminUsername: 'newadmin' } );
+
+			const savedAppdata = vi.mocked( saveAppdata ).mock.calls[ 0 ][ 0 ];
+			expect( savedAppdata.sites[ 0 ].adminUsername ).toBe( 'newadmin' );
+			expect( stopWordPressServer ).not.toHaveBeenCalled();
+			expect( startWordPressServer ).not.toHaveBeenCalled();
+		} );
+
+		it( 'should throw when admin username is empty', async () => {
+			await expect( runCommand( testSitePath, { adminUsername: '  ' } ) ).rejects.toThrow(
+				'Admin username cannot be empty.'
+			);
+		} );
+
+		it( 'should throw when admin username has invalid characters', async () => {
+			await expect( runCommand( testSitePath, { adminUsername: 'bad user!' } ) ).rejects.toThrow(
+				'Username can only contain letters, numbers, and _.@- characters'
+			);
+		} );
+
+		it( 'should throw when admin username exceeds 60 characters', async () => {
+			const longUsername = 'a'.repeat( 61 );
+			await expect( runCommand( testSitePath, { adminUsername: longUsername } ) ).rejects.toThrow(
+				'Username must be 60 characters or fewer.'
+			);
+		} );
+
+		it( 'should throw when admin password is empty', async () => {
+			await expect( runCommand( testSitePath, { adminPassword: '  ' } ) ).rejects.toThrow(
+				'Admin password cannot be empty.'
+			);
+		} );
+
+		it( 'should throw when username has not changed', async () => {
+			await expect( runCommand( testSitePath, { adminUsername: 'admin' } ) ).rejects.toThrow(
+				'No changes to apply.'
+			);
+		} );
+
+		it( 'should update both credentials at once', async () => {
+			await runCommand( testSitePath, { adminUsername: 'newadmin', adminPassword: 'newpass' } );
+
+			const savedAppdata = vi.mocked( saveAppdata ).mock.calls[ 0 ][ 0 ];
+			expect( savedAppdata.sites[ 0 ].adminUsername ).toBe( 'newadmin' );
+			expect( savedAppdata.sites[ 0 ].adminPassword ).toBe( encodePassword( 'newpass' ) );
+		} );
+	} );
+
+	describe( 'Admin email changes', () => {
+		it( 'should update admin email and restart running site', async () => {
+			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
+
+			await runCommand( testSitePath, { adminEmail: 'test@example.com' } );
+
+			const savedAppdata = vi.mocked( saveAppdata ).mock.calls[ 0 ][ 0 ];
+			expect( savedAppdata.sites[ 0 ].adminEmail ).toBe( 'test@example.com' );
+			expect( stopWordPressServer ).toHaveBeenCalledWith( 'site-1' );
+			expect( startWordPressServer ).toHaveBeenCalled();
+		} );
+
+		it( 'should not restart stopped site when email changes', async () => {
+			await runCommand( testSitePath, { adminEmail: 'test@example.com' } );
+
+			const savedAppdata = vi.mocked( saveAppdata ).mock.calls[ 0 ][ 0 ];
+			expect( savedAppdata.sites[ 0 ].adminEmail ).toBe( 'test@example.com' );
+			expect( stopWordPressServer ).not.toHaveBeenCalled();
+			expect( startWordPressServer ).not.toHaveBeenCalled();
+		} );
+
+		it( 'should ignore whitespace-only admin email', async () => {
+			await runCommand( testSitePath, { adminEmail: '  ', name: 'New Name' } );
+			const savedAppdata = vi.mocked( saveAppdata ).mock.calls[ 0 ][ 0 ];
+			expect( savedAppdata.sites[ 0 ].adminEmail ).toBeUndefined();
+			expect( savedAppdata.sites[ 0 ].name ).toBe( 'New Name' );
+		} );
+
+		it( 'should throw when admin email is invalid', async () => {
+			await expect( runCommand( testSitePath, { adminEmail: 'notanemail' } ) ).rejects.toThrow(
+				'Please enter a valid email address.'
 			);
 		} );
 	} );

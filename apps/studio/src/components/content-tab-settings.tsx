@@ -41,10 +41,11 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 	const dispatch = useAppDispatch();
 	const { __ } = useI18n();
 	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
-	const username = 'admin';
+	const username = selectedSite.adminUsername || 'admin';
 	// Empty strings account for legacy sites lacking a stored password.
 	const storedPassword = decodePassword( selectedSite.adminPassword ?? '' );
 	const password = storedPassword === '' ? 'password' : storedPassword;
+	const email = selectedSite.adminEmail || 'admin@localhost.com';
 	const [ wpVersion, refreshWpVersion ] = useGetWpVersion( selectedSite );
 	const domain = selectedSite.customDomain
 		? `${ selectedSite.customDomain }`
@@ -203,6 +204,15 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 							text={ password || '' }
 						>
 							************
+						</CopyTextButton>
+					</SettingsRow>
+					<SettingsRow label={ __( 'Email' ) }>
+						<CopyTextButton
+							copyConfirmation={ __( 'Copied!' ) }
+							label={ `${ email }, ${ __( 'Copy admin email to clipboard' ) }` }
+							text={ email }
+						>
+							{ email }
 						</CopyTextButton>
 					</SettingsRow>
 					<SettingsRow label={ __( 'Admin URL' ) }>

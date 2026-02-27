@@ -1,0 +1,11 @@
+{
+	"name": "eslint-plugin-studio",
+	"private": true,
+	"version": "1.0.0",
+	"type": "module",
+	"description": "ESLint rules for Studio",
+	"main": "src/index.js",
+	"dependencies": {
+		"eslint": "^9.0.0"
+	}
+}

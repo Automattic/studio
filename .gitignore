@@ -101,6 +101,7 @@ wp-files/
 vendor/*
 /fastlane/report.xml
 /fastlane/README.md
+/fastlane/github_release_notes.txt
 
 # CLI npm artifacts
 cli/vendor/
@@ -112,9 +113,9 @@ dist
 test-results
 
 # E2E test import files (not versioned)
-e2e/imports/*.tar.gz
-e2e/imports/*.zip
-e2e/imports/*.wpress
+apps/studio/e2e/imports/*.tar.gz
+apps/studio/e2e/imports/*.zip
+apps/studio/e2e/imports/*.wpress
 
 # Metrics traces
 artifacts
@@ -126,5 +127,8 @@ artifacts
 CLAUDE.md
 
 # Bundled Node binary (downloaded during build)
-bin/node
-bin/node.exe
+apps/studio/bin/node
+apps/studio/bin/node.exe
+
+# CLI launcher executable (built during packaging via @yao-pkg/pkg)
+bin/studio-cli.exe

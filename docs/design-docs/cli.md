@@ -10,7 +10,7 @@ The Studio CLI (invoked with the `studio` command) is a globally available CLI u
 
 ## High level approach
 
-The CLI is independent of the main desktop app, but is written using mostly the same conventions. It's a node.js app written in Typescript, that's bundled into a single JS file using Webpack. Jest is used to test CLI modules in the same way as for regular Studio modules.
+The CLI is independent of the main desktop app, but is written using mostly the same conventions. It's a node.js app written in Typescript, that's bundled into a single JS file using Webpack. Vitest is used to test CLI modules in the same way as for regular Studio modules.
 
 To run the CLI, we first add a script to a directory on `$PATH`. This script runs the CLI JS file using the node runtime bundled with Studio. Running JS files independently of the main Studio app is possible thanks to the `ELECTRON_RUN_AS_NODE=1` option.
 
@@ -19,20 +19,22 @@ The first iteration of the CLI shipped commands to create, read, update, and del
 ## Data flow
 
 1. When calling the CLI:
-    - `yargs` is used to parse commands and options and to auto-generate help pages.
-    - The appropriate command is called.
-    - Progress is pretty-printed and the command runs until completion or failure.
+
+   - `yargs` is used to parse commands and options and to auto-generate help pages.
+   - The appropriate command is called.
+   - Progress is pretty-printed and the command runs until completion or failure.
 
 2. When Studio instantiates the CLI:
-    - The node.js `child_process` module is used to fork a process that runs the CLI.
-    - When running in forked mode, the CLI process uses the `process.send` API to communicate back to Studio.
-    - IPC messages received from the CLI are parsed and validated. The results are emitted as Electron IPC events to the renderer process.
-    - The renderer process uses "logger action" definitions from the `common` folder to determine command progress based on incoming IPC events.
+
+   - The node.js `child_process` module is used to fork a process that runs the CLI.
+   - When running in forked mode, the CLI process uses the `process.send` API to communicate back to Studio.
+   - IPC messages received from the CLI are parsed and validated. The results are emitted as Electron IPC events to the renderer process.
+   - The renderer process uses "logger action" definitions from the `common` folder to determine command progress based on incoming IPC events.
 
 3. Studio reacts when the CLI modifies preview sites:
-    - `src/lib/user-data-watcher.ts` watches the Studio config file and emits `user-data-updated` IPC renderer events.
-    - State handlers (primarily Redux slices) listen to `user-data-updated` events and update the state accordingly.
-    - Because state changes trigger writes to the Studio config file, event handlers have to first run a deep diff on the incoming payload to ensure that the data has truly changed. Without this, there'd be infinite watch/write loops.
+   - `src/lib/user-data-watcher.ts` watches the Studio config file and emits `user-data-updated` IPC renderer events.
+   - State handlers (primarily Redux slices) listen to `user-data-updated` events and update the state accordingly.
+   - Because state changes trigger writes to the Studio config file, event handlers have to first run a deep diff on the incoming payload to ensure that the data has truly changed. Without this, there'd be infinite watch/write loops.
 
 ## Implementation details
 

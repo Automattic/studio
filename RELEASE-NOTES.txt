@@ -1,6 +1,116 @@
 Unreleased
 ==========
 
+1.7.5
+=====
+* Update release notes for 1.7.4 #2591
+* Bundle WordPress translation files with download retry and failure handling #2575
+* Bump the wp-playground-php-wasm group with 29 updates #2585
+* Bump the testing group with 11 updates #2569
+* Timeout `site stop --all` after 6s when quitting #2475
+* Add Blueprint details step to blueprint selection flow #2571
+* Bump the electron group with 5 updates #2566
+* Bump tar from 7.5.2 to 7.5.8 #2601
+* Disable Copy and Delete in context menu when any site is being added #2596
+* Fix Preview site and Push size validation to exclude archived-out directories #2598
+* Add Site Editor performance benchmark across environments #2600
+* Add default Blueprint description from steps #2602
+* Update @php-wasm and @wp-playground packages from 3.0.53 to 3.1.1 #2610
+* Fix Studio CLI yargs locale strings displaying in English #2609
+* Bump nokogiri from 1.19.0 to 1.19.1 #2613
+* Adopt monorepo structure #2565
+* Patch fs-ext-extra-prebuilt to remove other-platform binaries on install #2615
+* Bump the electron group with 5 updates #2622
+* Use JSX children syntax instead of children prop in tests #2621
+* Remove useEffect state resets in WelcomeComponent and AIInput #2619
+* Fix performance tests to support pre-monorepo commits #2627
+* Fix performance test to support old structure for both build and test runner paths #2629
+* Bump @types/node from 20.19.33 to 25.3.0 in the typescript group #2624
+* Fix missing aria-level on heading role in site settings #2618
+* Add JSPI support for PHP WASM extensions #2560
+* Studio: Fix toBeInDocument warnings in tests #2628
+* Bump the wordpress group with 29 updates #2623
+* Bump the sentry group with 12 updates #2626
+* Document how to trigger E2E and performance tests on PR review #2635
+* Fix flaky blueprint plugin activate E2E test #2634
+* Fix push cancellation error dialog #2633
+* Add @yao-pkg/pkg to dependabot allow list #2639
+* Add Redis and Memcached support #2554
+* Add drag-and-drop site reordering with sortOrder persistence #2498
+* Exclude @php-wasm packages from app.asar bundle #2641
+* Bump @inquirer/prompts from 7.10.1 to 8.3.0 in the inquirer group #2647
+* Remove PHP-WASM web builds from output #2644
+* Add WP_DEBUG_LOG and WP_DEBUG_DISPLAY toggles #2553
+* Fix toggle sidebar icon alignment after Add Site modal #2636
+* Studio: Add time display over pull and push completed notification #2653
+* Bump electron-to-chromium from 1.5.286 to 1.5.302 in the electron group #2642
+* Fix CLI uninstall on Windows not removing bin directory #2608
+* Fix React performance and accessibility issues from react-doctor #2654
+* Remove dead code: unused exports, types, and files #2620
+* Add open debug log file button in Settings #2649
+* Bump the wp-playground-php-wasm group with 33 updates #2643
+* Add "Open Application Logs" to Help menu #2656
+* Delete legacy mu-plugin files that lived in site filesystem #2655
+* [Tooling] Add Buildkite release pipelines and fastlane lanes for ReleasesV2 #2583
+* Add initial .pot file and extract pot generation to a reusable lane #2658
+* Fix code_freeze lane committing beta bump to wrong branch #2668
+* @mikaoelitiana made their first contribution in https://github.com/Automattic/studio/pull/2498
+**Full Changelog**: https://github.com/Automattic/studio/compare/v1.7.4...v1.7.5
+
+1.7.4
+=====
+* Added PHP 8.5 support #2551
+* Added copy site feature to the site context menu #2528
+* Added Hungarian localization #2578
+* Added Blueprint's defineSiteUrl support #2516
+* Added Blueprint's blogname support to prefill site name field #2563
+* Enabled Xdebug support for all users #2523
+* Fixed an issue with site start/stop status #2534
+* Added ability to start all stopped sites #2548
+* Fixed printing JSON keys to camelCase in Studio CLI site status output #2552
+* Misc UI improvements #2584, #2577, 2536, #2549
+* Updated multiple dependencies, including Vite, Vitest, Playwright, Faraday, QS, Node.js types, and various WordPress packages
+
+1.7.3
+=====
+* Added Zed and Antigravity editor support #2497
+* Fixed incorrect WordPress version warning when applying Blueprints #2494
+* Fixed an issue where deleting multiple sites at once could fail #2492
+* Fixed tab selection after site deletion #2468
+* Fixed sites failing to start when Studio is installed in a path containing spaces #2495
+* CLI: Fixed --skip-site-details argument for starting a site that is already running #2510
+* Updated multiple dependencies, including WordPress Element, WordPress Date, and Node.js types
+
+1.7.2
+=====
+* Added pause/resume functionality for the push process #2379
+* Improved site creation speed #2409
+* Improved error details recorded when the CLI fails #2483
+* Fixed thumbnail not loading for newly created sites #2484
+* Fixed site export in offline mode #2481
+* Fixed Beta Features menu items not being translated #2466
+
+1.7.1
+=====
+* Fixed bundled node permissions that caused crashes on Intel Macs #2473
+* Fixed excessive WP-CLI command invocations that affected the Assistant tab #2472
+
+1.7.0
+=====
+* Added support for managing sites and authentication in the Studio CLI tool
+* Added WP CLI support to Studio CLI tool
+* Improved Xdebug support (Beta Feature) #2316, #2395, #2410
+* Improved performance on Mac and Windows #2303
+* Added file upload progress and offline status indicator in Sync UI #2332
+* Increased Sync push size limit to 5 GB #2377
+* Added support for Blueprint translations #2363
+* Improved the speed of creating a WordPress site in online mode #2364
+* Improved the design of the Blueprint deeplink step #2397
+* Fixed error connecting to external MySQL database #2393
+* Fixed misc bugs and UI issues #2336, #2334, #2425, #2430
+* Updated SQLite plugin to 2.2.16, improving MySQL compatibility
+* Updated multiple dependencies including Electron Forge, Jest, Zod v4, and various WordPress packages
+
 1.6.8
 =====
 * Made sync uploads resumable #2212

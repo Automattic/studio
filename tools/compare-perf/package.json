@@ -1,0 +1,26 @@
+{
+	"name": "compare-perf",
+	"private": true,
+	"version": "0.0.1",
+	"description": "A tool to compare performance accross tow branches in Studio Monorepo.",
+	"author": "Automattic",
+	"homepage": "https://github.com/Automattic/studio",
+	"license": "GPLv2",
+	"repository": "Automattic/studio",
+	"scripts": {
+		"compare": "ts-node index.ts",
+		"log-to-codevitals": "ts-node log-to-codevitals.ts",
+		"post-to-github": "ts-node post-to-github.ts"
+	},
+	"dependencies": {
+		"chalk": "^4.1.2",
+		"commander": "^13.1.0",
+		"inquirer": "^12.5.0",
+		"simple-git": "^3.27.0",
+		"ts-node": "^10.9.2"
+	},
+	"devDependencies": {
+		"@types/node": "^25.3.2",
+		"typescript": "^5.0.0"
+	}
+}

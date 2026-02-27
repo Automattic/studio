@@ -46,19 +46,17 @@ if ($BuildType -eq $BUILD_TYPE_DEV) {
     $env:IS_DEV_BUILD="true"
 } else {
     Write-Host "Preparing release build..."
-    node ./scripts/confirm-tag-matches-version.mjs
-	If ($LastExitCode -ne 0) { Exit $LastExitCode }
 }
 
 # Set architecture environment variable for AppX packaging
 $env:FILE_ARCHITECTURE=$Architecture
 
 Write-Host "Building for architecture: $Architecture"
-npm run "make:windows-$Architecture"
+npm -w studio-app run "make:windows-$Architecture"
 If ($LastExitCode -ne 0) { Exit $LastExitCode }
 
 # Rename NuGet package files with generic name
-$artifactsPath = Get-Item ".\out" | Select-Object -ExpandProperty FullName
+$artifactsPath = Get-Item ".\apps\studio\out" | Select-Object -ExpandProperty FullName
 Get-ChildItem -Path $artifactsPath -Recurse -Include "*.nupkg" | Rename-Item -NewName "studio-update.nupkg"
 If ($LastExitCode -ne 0) { Exit $LastExitCode }
 

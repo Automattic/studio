@@ -9,9 +9,9 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { extract } from 'tar';
-import { extractZip } from '../common/lib/extract-zip';
+import { extractZip } from '../tools/common/lib/extract-zip';
 
-const LTS_FALLBACK = 'v22.12.0';
+const LTS_FALLBACK = 'v24.13.1';
 
 function getNodeVersion(): string {
 	const nvmrcPath = path.join( __dirname, '..', '.nvmrc' );
@@ -53,7 +53,7 @@ if ( ! nodeArch ) {
 	process.exit( 1 );
 }
 
-const binDir = path.join( __dirname, '..', 'bin' );
+const binDir = path.join( __dirname, '..', 'apps', 'studio', 'bin' );
 const tmpDir = os.tmpdir();
 
 if ( ! fs.existsSync( binDir ) ) {
@@ -100,7 +100,11 @@ async function download( downloadUrl: string, dest: string ): Promise< void > {
 	console.log( 'Download complete.' );
 }
 
-async function extractTarGz( archivePath: string, destDir: string, binaryName: string ): Promise< void > {
+async function extractTarGz(
+	archivePath: string,
+	destDir: string,
+	binaryName: string
+): Promise< void > {
 	console.log( 'Extracting node binary...' );
 
 	const extractDir = path.join( tmpDir, `node-${ NODE_VERSION }-${ nodePlatform }-${ nodeArch }` );
@@ -118,7 +122,11 @@ async function extractTarGz( archivePath: string, destDir: string, binaryName: s
 	fs.rmSync( extractDir, { recursive: true } );
 }
 
-async function extractNodeZip( archivePath: string, destDir: string, binaryName: string ): Promise< void > {
+async function extractNodeZip(
+	archivePath: string,
+	destDir: string,
+	binaryName: string
+): Promise< void > {
 	console.log( 'Extracting node.exe...' );
 
 	const extractDir = path.join( tmpDir, `node-${ NODE_VERSION }-${ nodePlatform }-${ nodeArch }` );

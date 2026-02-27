@@ -275,6 +275,7 @@ end
 
 # Finalize the release by removing the beta suffix and triggering the final build.
 #
+# - Downloads latest translations from GlotPress (to capture any translations added during the beta period)
 # - Bumps version to the final release number (removes beta suffix)
 # - Triggers a release build in Buildkite
 # - The build creates a draft GitHub release (with notes and download links) after uploading to CDN
@@ -286,6 +287,7 @@ end
 lane :finalize_release do |version:, skip_confirm: false|
   UI.important <<~PROMPT
     Finalizing release #{version}. This will:
+    - Download latest translations from GlotPress
     - Bump version to #{version} (remove beta suffix)
     - Trigger a release build for all platforms (macOS, Windows), which will then:
       - Upload build artifacts to the Apps CDN
@@ -293,6 +295,15 @@ lane :finalize_release do |version:, skip_confirm: false|
       - Notify #dotcom-studio on Slack
   PROMPT
   next unless skip_confirm || UI.confirm('Continue?')
+
+  # Download latest translations to capture any added during the beta period
+  fetch_glotpress_translations
+  git_add(path: [TRANSLATIONS_DIR])
+  git_commit(
+    path: [TRANSLATIONS_DIR],
+    message: '[skip ci] Update translations',
+    allow_nothing_to_commit: true
+  )
 
   bump_version_commit_and_push(version: version)
 

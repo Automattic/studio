@@ -36,6 +36,7 @@ Builds are signed, notarized (macOS), and uploaded to the Apps CDN automatically
 
 **ReleasesV2 milestone**: Release | **Fastlane lane**: `finalize_release`
 
+- Downloads latest translations from GlotPress (to capture any added during the beta period)
 - Removes beta suffix (sets version to `<version>`)
 - Triggers the final release build, which uploads to the Apps CDN, creates a **draft** GitHub release with notes and download links, and notifies Slack
 

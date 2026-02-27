@@ -207,12 +207,12 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 					</SettingsRow>
 					<SettingsRow label={ __( 'Admin URL' ) }>
 						<CopyTextButton
-							text={ `${ protocol }://${ domain }/wp-admin` }
-							label={ `${ domain }/wp-admin, ${ __( 'Copy wp-admin url to clipboard' ) }` }
+							text={ `${ protocol }://${ domain }/wp-admin/` }
+							label={ `${ domain }/wp-admin/, ${ __( 'Copy wp-admin url to clipboard' ) }` }
 							copyConfirmation={ __( 'Copied!' ) }
 							data-testid="copy-wp-admin-url"
 						>
-							{ `${ domain }/wp-admin` }
+							{ `${ domain }/wp-admin/` }
 						</CopyTextButton>
 					</SettingsRow>
 				</tbody>

@@ -38,37 +38,68 @@ export async function runCommand( options: { maxTurns?: number } ): Promise< voi
 	setToolProgressHandler( ( message ) => ui.setLoaderMessage( message ) );
 	enablePm2KeepAlive();
 	ui.start();
+	ui.showWelcome();
 
 	let sessionId: string | undefined;
+
+	async function runAgentTurn( prompt: string ): Promise< void > {
+		ui.beginAgentTurn();
+
+		const agentQuery = startAiAgent( {
+			prompt,
+			apiKey,
+			maxTurns: options.maxTurns,
+			resume: sessionId,
+			onAskUser: ( questions ) => ui.askUser( questions ),
+		} );
+
+		ui.onInterrupt = () => {
+			void agentQuery.interrupt();
+		};
+
+		let maxTurnsResult: { numTurns: number; costUsd: number } | undefined;
+
+		for await ( const message of agentQuery ) {
+			const result = ui.handleMessage( message );
+			if ( result ) {
+				sessionId = result.sessionId;
+				if ( 'maxTurnsReached' in result && result.maxTurnsReached ) {
+					maxTurnsResult = {
+						numTurns: result.numTurns,
+						costUsd: result.costUsd,
+					};
+				}
+			}
+		}
+
+		ui.endAgentTurn();
+
+		if ( maxTurnsResult ) {
+			ui.showInfo(
+				`Used ${ maxTurnsResult.numTurns } turns · $${ maxTurnsResult.costUsd.toFixed( 4 ) }`
+			);
+			const answer = await ui.askUser( [
+				{
+					question: 'Reached the turn limit. Continue?',
+					options: [
+						{ label: 'Yes', description: 'Resume where the agent left off' },
+						{ label: 'No', description: 'Stop here' },
+					],
+				},
+			] );
+			const choice = Object.values( answer )[ 0 ]?.toLowerCase();
+			if ( choice === 'yes' || choice === '1' ) {
+				ui.addUserMessage( 'Continue' );
+				await runAgentTurn( 'Continue from where you left off.' );
+			}
+		}
+	}
 
 	try {
 		while ( true ) {
 			const prompt = await ui.waitForInput();
-
 			ui.addUserMessage( prompt );
-			ui.beginAgentTurn();
-
-			const agentQuery = startAiAgent( {
-				prompt,
-				apiKey,
-				maxTurns: options.maxTurns,
-				resume: sessionId,
-				onAskUser: ( questions ) => ui.askUser( questions ),
-			} );
-
-			// Escape key interrupts the current agent turn
-			ui.onInterrupt = () => {
-				void agentQuery.interrupt();
-			};
-
-			for await ( const message of agentQuery ) {
-				const result = ui.handleMessage( message );
-				if ( result ) {
-					sessionId = result.sessionId;
-				}
-			}
-
-			ui.endAgentTurn();
+			await runAgentTurn( prompt );
 		}
 	} finally {
 		ui.stop();

@@ -20,6 +20,9 @@ export interface AiAgentResult {
 	success: boolean;
 }
 
+export const AI_MODEL = 'claude-sonnet-4-6';
+export const AI_MODEL_DISPLAY = 'Sonnet 4.6';
+
 function buildEnv( apiKey: string ): Record< string, string > {
 	const env: Record< string, string > = {};
 	for ( const [ key, value ] of Object.entries( process.env ) ) {

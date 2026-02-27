@@ -13,18 +13,23 @@ import {
 	type MarkdownTheme,
 } from '@mariozechner/pi-tui';
 import chalk from 'chalk';
+import { AI_MODEL_DISPLAY, type AskUserQuestion } from 'cli/ai/agent';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
-import type { AskUserQuestion } from 'cli/ai/agent';
+
+function stripAnsi( str: string ): string {
+	// eslint-disable-next-line no-control-regex
+	return str.replace( /\x1b\[[0-9;]*m/g, '' );
+}
 
 /**
- * Wraps the Editor component with left/right borders and rounded corners.
- * The Editor only renders top/bottom horizontal lines — this adds │ on the sides
- * and ╭╮╰╯ corners for a complete box.
+ * Wraps the Editor with a Claude Code–style prompt: top/bottom horizontal
+ * borders, a red `>` prompt prefix, and no side borders.
  */
-class BorderedEditor implements Component, Focusable {
+class PromptEditor implements Component, Focusable {
 	private editor: Editor;
 	private borderColorFn: ( text: string ) => string;
 	private _focused = false;
+	private isEmpty = true;
 
 	get focused(): boolean {
 		return this._focused;
@@ -39,15 +44,17 @@ class BorderedEditor implements Component, Focusable {
 	}
 
 	constructor( tui: TUI, theme: EditorTheme, options?: EditorOptions ) {
-		this.editor = new Editor( tui, theme, { ...options, paddingX: options?.paddingX ?? 1 } );
+		this.editor = new Editor( tui, theme, { ...options, paddingX: 0 } );
 		this.borderColorFn = theme.borderColor;
 	}
 
 	setText( text: string ): void {
+		this.isEmpty = text === '';
 		this.editor.setText( text );
 	}
 
 	handleInput( data: string ): void {
+		this.isEmpty = false;
 		this.editor.handleInput( data );
 	}
 
@@ -56,18 +63,20 @@ class BorderedEditor implements Component, Focusable {
 	}
 
 	render( width: number ): string[] {
-		const innerWidth = Math.max( 1, width - 2 );
+		const promptPrefix = ' ' + chalk.bold( '> ' );
+		const promptWidth = 3; // space + > + space
+		const innerWidth = Math.max( 1, width - promptWidth );
 		const lines = this.editor.render( innerWidth );
 		const bc = this.borderColorFn;
 
 		return lines.map( ( line, i ) => {
-			if ( i === 0 ) {
-				return bc( '┌' ) + line + bc( '┐' );
+			if ( i === 0 || i === lines.length - 1 ) {
+				return ' ' + bc( '─'.repeat( width - 2 ) );
 			}
-			if ( i === lines.length - 1 ) {
-				return bc( '└' ) + line + bc( '┘' );
+			if ( this.isEmpty && i === 1 ) {
+				return promptPrefix + chalk.dim( 'Type your prompt…' );
 			}
-			return bc( '│' ) + line + bc( '│' );
+			return promptPrefix + line;
 		} );
 	}
 }
@@ -90,7 +99,7 @@ const markdownTheme: MarkdownTheme = {
 };
 
 const editorTheme: EditorTheme = {
-	borderColor: ( text ) => chalk.cyan( text ),
+	borderColor: ( text ) => chalk.white( text ),
 	selectList: {
 		selectedItem: ( text ) => chalk.inverse( text ),
 		item: ( text ) => text,
@@ -174,7 +183,7 @@ function formatToolName( name: string, input?: Record< string, unknown > ): stri
 
 export class AiChatUI {
 	private tui: TUI;
-	private editor: BorderedEditor;
+	private editor: PromptEditor;
 	private loader: Loader;
 	private messages: Container;
 	private currentResponseText = '';
@@ -194,12 +203,12 @@ export class AiChatUI {
 
 		this.loader = new Loader(
 			this.tui,
-			( str ) => chalk.cyan( str ),
+			( str ) => chalk.red( str ),
 			( str ) => chalk.dim( str ),
 			'Thinking…'
 		);
 
-		this.editor = new BorderedEditor( this.tui, editorTheme );
+		this.editor = new PromptEditor( this.tui, editorTheme );
 		this.editor.onSubmit = ( text ) => {
 			const trimmed = text.trim();
 			if ( trimmed && this.submitResolve ) {
@@ -226,6 +235,50 @@ export class AiChatUI {
 		this.tui.start();
 	}
 
+	showWelcome(): void {
+		const version = typeof __STUDIO_CLI_VERSION__ === 'string' ? __STUDIO_CLI_VERSION__ : '';
+		const cwd = process.cwd();
+		const home = process.env.HOME ?? process.env.USERPROFILE ?? '';
+		const displayCwd = home && cwd.startsWith( home ) ? '~' + cwd.slice( home.length ) : cwd;
+
+		const title = chalk.bold.red( 'Studio AI' ) + ( version ? chalk.dim( ` v${ version }` ) : '' );
+
+		// prettier-ignore
+		const wapuu = [
+			'╭─────╮',
+			'│ ● ● │',
+			'│  ◡  │',
+			'│  W  │',
+			'╰─────╯',
+		];
+
+		const contentLines = [
+			title,
+			'',
+			...wapuu.map( ( line ) => chalk.cyan( line ) ),
+			'',
+			chalk.dim( `${ AI_MODEL_DISPLAY } · ${ displayCwd }` ),
+		];
+
+		// Full-width bordered box in cyan
+		const termWidth = process.stdout.columns || 80;
+		const boxInner = termWidth - 2; // space between │ and │
+		const pad = 2;
+		const bc = chalk.cyan;
+		const boxLines = [
+			bc( '╭' + '─'.repeat( boxInner ) + '╮' ),
+			...contentLines.map( ( line ) => {
+				const fill = Math.max( 0, boxInner - pad - stripAnsi( line ).length );
+				return bc( '│' ) + ' '.repeat( pad ) + line + ' '.repeat( fill ) + bc( '│' );
+			} ),
+			bc( '╰' + '─'.repeat( boxInner ) + '╯' ),
+		];
+
+		this.messages.addChild( new Text( boxLines.join( '\n' ), 0, 0 ) );
+		this.messages.addChild( new Text( ' ', 0, 0 ) );
+		this.tui.requestRender();
+	}
+
 	set onInterrupt( fn: ( () => void ) | null ) {
 		this.interruptCallback = fn;
 	}
@@ -244,13 +297,8 @@ export class AiChatUI {
 		} );
 	}
 
-	private addSpacer(): void {
-		this.messages.addChild( new Text( '', 0, 0 ) );
-	}
-
 	addUserMessage( text: string ): void {
-		this.addSpacer();
-		this.messages.addChild( new Text( chalk.bold.cyan( '> ' ) + text, 0, 0 ) );
+		this.messages.addChild( new Text( '\n' + chalk.inverse( '> ' + text + ' ' ), 1, 0 ) );
 		this.tui.requestRender();
 	}
 
@@ -302,8 +350,7 @@ export class AiChatUI {
 		this.hideEditor();
 		this.showLoader();
 		this.currentResponseText = '';
-		this.addSpacer();
-		this.currentMarkdown = new Markdown( '', 1, 0, markdownTheme );
+		this.currentMarkdown = new Markdown( '\n', 1, 0, markdownTheme );
 		this.messages.addChild( this.currentMarkdown );
 	}
 
@@ -318,12 +365,12 @@ export class AiChatUI {
 	}
 
 	showError( message: string ): void {
-		this.messages.addChild( new Text( chalk.red( message ), 0, 0 ) );
+		this.messages.addChild( new Text( '\n' + chalk.red( message ) + '\n', 1, 0 ) );
 		this.tui.requestRender();
 	}
 
 	showInfo( message: string ): void {
-		this.messages.addChild( new Text( chalk.dim( message ), 0, 0 ) );
+		this.messages.addChild( new Text( '\n' + chalk.dim( message ) + '\n', 1, 0 ) );
 		this.tui.requestRender();
 	}
 
@@ -370,8 +417,7 @@ export class AiChatUI {
 
 		for ( const q of questions ) {
 			// Display the question and options
-			this.addSpacer();
-			let questionText = chalk.bold.yellow( '? ' ) + chalk.bold( q.question );
+			let questionText = '\n' + chalk.bold.yellow( '? ' ) + chalk.bold( q.question );
 			if ( q.options.length > 0 ) {
 				questionText += '\n';
 				questionText += q.options
@@ -389,7 +435,7 @@ export class AiChatUI {
 			this.hideEditor();
 
 			// Show the user's answer
-			this.messages.addChild( new Text( chalk.bold.cyan( '> ' ) + answer, 0, 0 ) );
+			this.messages.addChild( new Text( chalk.inverse( '> ' + answer + ' ' ), 1, 0 ) );
 
 			// If user typed a number, map to option label
 			const num = parseInt( answer, 10 );
@@ -409,7 +455,12 @@ export class AiChatUI {
 	 * Process an SDK message and update the UI.
 	 * Returns session result when the agent turn is complete.
 	 */
-	handleMessage( message: SDKMessage ): { sessionId: string; success: boolean } | undefined {
+	handleMessage(
+		message: SDKMessage
+	):
+		| { sessionId: string; success: boolean; maxTurnsReached?: undefined }
+		| { sessionId: string; maxTurnsReached: true; numTurns: number; costUsd: number }
+		| undefined {
 		switch ( message.type ) {
 			case 'assistant': {
 				for ( const block of message.message.content ) {
@@ -418,7 +469,7 @@ export class AiChatUI {
 						// Lazily create a new markdown block if needed (e.g. after askUser closed the previous one)
 						if ( ! this.currentMarkdown ) {
 							this.currentResponseText = '';
-							this.currentMarkdown = new Markdown( '', 1, 0, markdownTheme );
+							this.currentMarkdown = new Markdown( '\n', 1, 0, markdownTheme );
 							this.messages.addChild( this.currentMarkdown );
 						}
 						// Add a line break between consecutive assistant messages
@@ -426,7 +477,7 @@ export class AiChatUI {
 							this.currentResponseText += '\n';
 						}
 						this.currentResponseText += block.text;
-						this.currentMarkdown.setText( this.currentResponseText );
+						this.currentMarkdown.setText( '\n' + this.currentResponseText );
 						this.tui.requestRender();
 					} else if ( block.type === 'tool_use' ) {
 						this.showLoader();
@@ -463,9 +514,12 @@ export class AiChatUI {
 					parts.push( ...message.errors );
 				}
 				if ( message.subtype === 'error_max_turns' ) {
-					parts.push(
-						'Reached the maximum number of turns. Use --max-turns to increase the limit.'
-					);
+					return {
+						sessionId: message.session_id,
+						maxTurnsReached: true,
+						numTurns: message.num_turns,
+						costUsd: message.total_cost_usd,
+					};
 				} else if ( message.subtype ) {
 					parts.push( `(${ message.subtype })` );
 				}

@@ -544,7 +544,7 @@ export const CreateSiteForm = ( {
 								</div>
 
 								{ blueprintRequiresCustomDomain && (
-									<Notice status="info" isDismissible={ false } className="mt-2">
+									<Notice status="warning" isDismissible={ false } className="mt-2">
 										{ __( 'WordPress multisite requires a custom domain.' ) }
 									</Notice>
 								) }

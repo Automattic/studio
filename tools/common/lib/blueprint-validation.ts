@@ -11,13 +11,7 @@ interface UnsupportedFeature {
 /**
  * List of blueprint features that are not supported in Studio
  */
-const UNSUPPORTED_BLUEPRINT_FEATURES: UnsupportedFeature[] = [
-	{
-		type: 'step',
-		name: 'login',
-		reason: __( 'Studio automatically creates and logs in the admin user during site creation.' ),
-	},
-];
+const UNSUPPORTED_BLUEPRINT_FEATURES: UnsupportedFeature[] = [];
 
 /**
  * Blueprint properties that are not supported in Studio

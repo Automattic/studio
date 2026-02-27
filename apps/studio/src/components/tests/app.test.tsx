@@ -58,6 +58,7 @@ vi.mock( 'src/lib/get-ipc-api', async () => {
 				isWordPress: false,
 			} ),
 			getAllCustomDomains: vi.fn().mockResolvedValue( [] ),
+			generateSiteNameFromList: vi.fn().mockResolvedValue( 'My WordPress Website' ),
 		} ),
 	};
 } );

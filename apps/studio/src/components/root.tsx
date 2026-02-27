@@ -36,9 +36,9 @@ const Root = () => {
 					<I18nProvider i18n={ defaultI18n }>
 						<WordPressStyles />
 						<AuthProvider>
-							<ContentTabsProvider>
-								<SiteDetailsProvider>
-									<FeatureFlagsProvider>
+							<FeatureFlagsProvider>
+								<ContentTabsProvider>
+									<SiteDetailsProvider>
 										<ThemeDetailsProvider>
 											<OnboardingProvider>
 												<ImportExportProvider>
@@ -46,9 +46,9 @@ const Root = () => {
 												</ImportExportProvider>
 											</OnboardingProvider>
 										</ThemeDetailsProvider>
-									</FeatureFlagsProvider>
-								</SiteDetailsProvider>
-							</ContentTabsProvider>
+									</SiteDetailsProvider>
+								</ContentTabsProvider>
+							</FeatureFlagsProvider>
 						</AuthProvider>
 					</I18nProvider>
 				</ReduxProvider>

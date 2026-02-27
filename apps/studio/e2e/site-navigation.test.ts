@@ -264,7 +264,7 @@ test.describe( 'Site Navigation', () => {
 
 		// Search for a plugin
 		const searchInput = page.locator( '#search-plugins' );
-		await searchInput.fill( 'Contact Form 7' );
+		await searchInput.fill( 'Jetpack Protect' );
 		await searchInput.press( 'Enter' );
 
 		// Wait for search results
@@ -273,8 +273,8 @@ test.describe( 'Site Navigation', () => {
 		// Wait for the search spinner to disappear (indicates API response received)
 		await expect( page.locator( '.spinner' ) ).toBeHidden( { timeout: 30_000 } );
 
-		// Find Contact Form 7 plugin
-		const pluginResult = page.locator( '.plugin-card-contact-form-7' ).first();
+		// Find Jetpack Protect plugin
+		const pluginResult = page.locator( '.plugin-card-jetpack-protect' ).first();
 		await expect( pluginResult ).toBeVisible( { timeout: 30_000 } );
 
 		// Install the plugin

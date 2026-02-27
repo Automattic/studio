@@ -1,4 +1,5 @@
 import { MINIMUM_WORDPRESS_VERSION } from '@studio/common/constants';
+import { extractFormValuesFromBlueprint } from '@studio/common/lib/blueprint-settings';
 import {
 	BlueprintPreferredVersions,
 	BlueprintValidationWarning,

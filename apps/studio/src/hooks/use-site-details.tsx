@@ -16,7 +16,6 @@ import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
-import { generateNumberedName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useAppDispatch } from 'src/stores';
 import { snapshotThunks } from 'src/stores/snapshot-slice';
@@ -37,7 +36,10 @@ interface SiteDetailsContext {
 		blueprint?: Blueprint,
 		phpVersion?: string,
 		callback?: ( site: SiteDetails ) => Promise< void >,
-		noStart?: boolean
+		noStart?: boolean,
+		adminUsername?: string,
+		adminPassword?: string,
+		adminEmail?: string
 	) => Promise< SiteDetails | void >;
 	copySite: ( sourceSiteId: string ) => Promise< SiteDetails | void >;
 	startServer: ( site: SiteDetails ) => Promise< void >;
@@ -269,7 +271,10 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			blueprint?: Blueprint,
 			phpVersion?: string,
 			callback?: ( site: SiteDetails ) => Promise< void >,
-			noStart?: boolean
+			noStart?: boolean,
+			adminUsername?: string,
+			adminPassword?: string,
+			adminEmail?: string
 		) => {
 			// Function to handle error messages and cleanup
 			const showError = ( error?: unknown, hasBlueprint?: boolean ) => {
@@ -343,6 +348,9 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					siteId: tempSiteId,
 					phpVersion,
 					blueprint,
+					adminUsername,
+					adminPassword,
+					adminEmail,
 					noStart,
 				} );
 				if ( ! newSite ) {
@@ -506,7 +514,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				);
 			};
 
-			const finalSiteName = await generateNumberedName(
+			const finalSiteName = await getIpcApi().generateNumberedNameFromList(
 				sprintf( __( '%s Copy' ), sourceSite.name ),
 				sites
 			);

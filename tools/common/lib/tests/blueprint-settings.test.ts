@@ -146,6 +146,113 @@ describe( 'blueprint-settings', () => {
 			expect( result.customDomain ).toBeUndefined();
 		} );
 
+		// Login credentials extraction tests
+		it( 'should not extract credentials when there is no login', () => {
+			const blueprint = {
+				steps: [
+					{
+						step: 'installPlugin',
+						pluginData: { resource: 'wordpress.org/plugins', slug: 'akismet' },
+					},
+				],
+			};
+			const result = extractFormValuesFromBlueprint( blueprint );
+			expect( result.adminUsername ).toBeUndefined();
+			expect( result.adminPassword ).toBeUndefined();
+		} );
+
+		it( 'should not extract credentials for top-level login: true', () => {
+			const blueprint = { login: true };
+			const result = extractFormValuesFromBlueprint( blueprint );
+			expect( result.adminUsername ).toBeUndefined();
+			expect( result.adminPassword ).toBeUndefined();
+		} );
+
+		it( 'should extract credentials from top-level login object', () => {
+			const blueprint = {
+				login: { username: 'customuser', password: 'custompass' },
+			};
+			const result = extractFormValuesFromBlueprint( blueprint );
+			expect( result.adminUsername ).toBe( 'customuser' );
+			expect( result.adminPassword ).toBe( 'custompass' );
+		} );
+
+		it( 'should extract username only from top-level login', () => {
+			const blueprint = {
+				login: { username: 'customuser' },
+			};
+			const result = extractFormValuesFromBlueprint( blueprint );
+			expect( result.adminUsername ).toBe( 'customuser' );
+			expect( result.adminPassword ).toBeUndefined();
+		} );
+
+		it( 'should extract password only from top-level login', () => {
+			const blueprint = {
+				login: { password: 'custompass' },
+			};
+			const result = extractFormValuesFromBlueprint( blueprint );
+			expect( result.adminUsername ).toBeUndefined();
+			expect( result.adminPassword ).toBe( 'custompass' );
+		} );
+
+		it( 'should extract credentials from login step in steps array', () => {
+			const blueprint = {
+				steps: [
+					{
+						step: 'login',
+						username: 'stepuser',
+						password: 'steppass',
+					},
+				],
+			};
+			const result = extractFormValuesFromBlueprint( blueprint );
+			expect( result.adminUsername ).toBe( 'stepuser' );
+			expect( result.adminPassword ).toBe( 'steppass' );
+		} );
+
+		it( 'should extract username only from login step', () => {
+			const blueprint = {
+				steps: [
+					{
+						step: 'login',
+						username: 'stepuser',
+					},
+				],
+			};
+			const result = extractFormValuesFromBlueprint( blueprint );
+			expect( result.adminUsername ).toBe( 'stepuser' );
+			expect( result.adminPassword ).toBeUndefined();
+		} );
+
+		it( 'should not extract credentials from login step without credentials', () => {
+			const blueprint = {
+				steps: [
+					{
+						step: 'login',
+					},
+				],
+			};
+			const result = extractFormValuesFromBlueprint( blueprint );
+			expect( result.adminUsername ).toBeUndefined();
+			expect( result.adminPassword ).toBeUndefined();
+		} );
+
+		it( 'should prefer top-level login credentials over steps array', () => {
+			const blueprint = {
+				login: { username: 'toplevel', password: 'toplevelpass' },
+				steps: [
+					{
+						step: 'login',
+						username: 'stepuser',
+						password: 'steppass',
+					},
+				],
+			};
+			const result = extractFormValuesFromBlueprint( blueprint );
+			expect( result.adminUsername ).toBe( 'toplevel' );
+			expect( result.adminPassword ).toBe( 'toplevelpass' );
+		} );
+
 		it( 'should extract blogname from setSiteOptions step', () => {
 			const blueprint = {
 				steps: [ { step: 'setSiteOptions', options: { blogname: 'My Blog' } } ],

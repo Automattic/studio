@@ -91,13 +91,22 @@ function escapePhpString( str: string ): string {
 	return str.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
 }
 
-async function setAdminPassword( server: RunCLIServer, adminPassword: string ): Promise< void > {
+async function setAdminCredentials(
+	server: RunCLIServer,
+	adminPassword?: string,
+	adminUsername?: string,
+	adminEmail?: string
+): Promise< void > {
 	await server.playground.request( {
 		url: '/?studio-admin-api',
 		method: 'POST',
 		body: {
 			action: 'set_admin_password',
-			password: escapePhpString( decodePassword( adminPassword ) ),
+			...( adminPassword && {
+				password: escapePhpString( decodePassword( adminPassword ) ),
+			} ),
+			...( adminUsername && { username: escapePhpString( adminUsername ) } ),
+			...( adminEmail && { email: escapePhpString( adminEmail ) } ),
 		},
 	} );
 }
@@ -283,8 +292,13 @@ const startServer = wrapWithStartingPromise(
 			lastCliArgs = sanitizeRunCLIArgs( args );
 			server = await runCLI( args );
 
-			if ( config.adminPassword ) {
-				await setAdminPassword( server, config.adminPassword );
+			if ( config.adminPassword || config.adminUsername || config.adminEmail ) {
+				await setAdminCredentials(
+					server,
+					config.adminPassword,
+					config.adminUsername,
+					config.adminEmail
+				);
 			}
 		} catch ( error ) {
 			server = null;

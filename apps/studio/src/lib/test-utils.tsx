@@ -32,7 +32,7 @@ export function createTestStore( options: TestStoreOptions = {} ) {
 		reducer: rootReducer,
 		preloadedState: options.preloadedState,
 		middleware: ( getDefaultMiddleware ) =>
-			getDefaultMiddleware()
+			getDefaultMiddleware( { immutableCheck: false, serializableCheck: false } )
 				.concat( appVersionApi.middleware )
 				.concat( installedAppsApi.middleware )
 				.concat( wordpressVersionsApi.middleware )

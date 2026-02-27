@@ -409,25 +409,59 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 
 			switch ( $action ) {
 				case 'set_admin_password':
-					if ( empty( $_POST['password'] ) ) {
-						status_header( 400 );
-						header( 'Content-Type: application/json' );
-						echo json_encode( [ 'error' => 'Password is required' ] );
-						exit;
+					$has_password = ! empty( $_POST['password'] );
+					$username = ! empty( $_POST['username'] ) ? sanitize_user( $_POST['username'] ) : 'admin';
+					// Fallback to 'admin' if sanitize_user() strips all characters (e.g., !@#$%)
+					if ( empty( $username ) ) {
+						$username = 'admin';
 					}
 
-					$user = get_user_by( 'login', 'admin' );
+					$user = get_user_by( 'login', $username );
+					$provided_email = ! empty( $_POST['email'] ) ? sanitize_email( $_POST['email'] ) : '';
+
 					if ( $user ) {
-						wp_set_password( $_POST['password'], $user->ID );
+						if ( $has_password ) {
+							wp_set_password( $_POST['password'], $user->ID );
+						}
+						if ( $provided_email ) {
+							wp_update_user( array( 'ID' => $user->ID, 'user_email' => $provided_email ) );
+						}
 					} else {
+						// Creating a new user requires a password
+						if ( ! $has_password ) {
+							status_header( 400 );
+							header( 'Content-Type: application/json' );
+							echo json_encode( [ 'error' => 'Password is required to create a new admin user' ] );
+							exit;
+						}
+						// WordPress doesn't support renaming user_login, so we create a new admin user.
+						// The old user is left intact — this is intentional.
+						// Generate a unique email to avoid conflicts with existing users
+						$email = $provided_email ? $provided_email : 'admin@localhost.com';
+						if ( ! $provided_email ) {
+							$counter = 1;
+							while ( email_exists( $email ) && $counter < 100 ) {
+								$email = 'admin' . $counter . '@localhost.com';
+								$counter++;
+							}
+						}
+
 						$user_data = array(
-							'user_login' => 'admin',
+							'user_login' => $username,
 							'user_pass' => $_POST['password'],
-							'user_email' => 'admin@localhost.com',
+							'user_email' => $email,
 							'role' => 'administrator',
 						);
-						wp_insert_user( $user_data );
+						$insert_result = wp_insert_user( $user_data );
+						if ( is_wp_error( $insert_result ) ) {
+							status_header( 400 );
+							header( 'Content-Type: application/json' );
+							echo json_encode( [ 'error' => $insert_result->get_error_message() ] );
+							exit;
+						}
 					}
+					// Store the admin username in options for auto-login to use
+					update_option( 'studio_admin_username', $username );
 					$result = [ 'success' => true ];
 					break;
 
@@ -470,7 +504,8 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 				exit;
 			}
 
-			$user = get_user_by( 'login', 'admin' );
+			$username = get_option( 'studio_admin_username', 'admin' );
+			$user = get_user_by( 'login', $username );
 			if ( ! $user ) {
 				wp_die( 'Auto-login failed: admin user not found' );
 			}

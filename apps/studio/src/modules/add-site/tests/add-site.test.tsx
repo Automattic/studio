@@ -58,6 +58,7 @@ vi.mock( 'src/lib/get-ipc-api', () => ( {
 		isCATrusted: vi.fn( () => Promise.resolve( true ) ),
 		showOpenFolderDialog: mockShowOpenFolderDialog,
 		generateProposedSitePath: mockGenerateProposedSitePath,
+		generateSiteNameFromList: vi.fn( () => Promise.resolve( 'My WordPress Website' ) ),
 		getAllCustomDomains: mockGetAllCustomDomains,
 		setWindowControlVisibility: vi.fn(),
 		setupAppMenu: vi.fn(),
@@ -229,7 +230,10 @@ describe( 'AddSite', () => {
 				undefined, // blueprint parameter
 				'8.3',
 				expect.any( Function ),
-				false
+				false,
+				'admin',
+				expect.any( String ),
+				undefined // adminEmail
 			);
 		} );
 	} );
@@ -446,7 +450,10 @@ describe( 'AddSite', () => {
 				undefined, // blueprint parameter
 				'8.3',
 				expect.any( Function ),
-				false
+				false,
+				'admin',
+				expect.any( String ),
+				undefined // adminEmail
 			);
 		} );
 	} );

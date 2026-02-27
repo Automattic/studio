@@ -28,7 +28,11 @@ import {
 } from 'src/stores/snapshot-slice';
 import { syncReducer, syncOperationsActions } from 'src/stores/sync';
 import { connectedSitesApi, connectedSitesReducer } from 'src/stores/sync/connected-sites';
-import { syncOperationsReducer, syncOperationsThunks } from 'src/stores/sync/sync-operations-slice';
+import {
+	syncOperationsReducer,
+	syncOperationsSelectors,
+	syncOperationsThunks,
+} from 'src/stores/sync/sync-operations-slice';
 import { wpcomSitesApi } from 'src/stores/sync/wpcom-sites';
 import uiReducer from 'src/stores/ui-slice';
 import { getWpcomClient, wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
@@ -132,6 +136,7 @@ startAppListening( {
 	effect( action ) {
 		const { selectedSiteId, remoteSiteId } = action.payload;
 		const stateId = generateStateId( selectedSiteId, remoteSiteId );
+		stopPushPoller( stateId );
 		getIpcApi().clearSyncOperation( stateId );
 	},
 } );
@@ -140,6 +145,7 @@ startAppListening( {
 	effect( action ) {
 		const { selectedSiteId, remoteSiteId } = action.payload;
 		const stateId = generateStateId( selectedSiteId, remoteSiteId );
+		stopPullPoller( stateId );
 		getIpcApi().clearSyncOperation( stateId );
 	},
 } );
@@ -181,63 +187,138 @@ startAppListening( {
 const PUSH_POLLING_KEYS = [ 'creatingRemoteBackup', 'applyingChanges', 'finishing' ];
 const SYNC_POLLING_INTERVAL = 3000;
 
+const PUSH_POLLERS = new Map< string, AbortController >();
+const PULL_POLLERS = new Map< string, AbortController >();
+
+function isPushPollable( selectedSiteId: string, remoteSiteId: number ) {
+	const pushState = syncOperationsSelectors.selectPushState(
+		selectedSiteId,
+		remoteSiteId
+	)( store.getState() );
+	return pushState && PUSH_POLLING_KEYS.includes( pushState.status.key );
+}
+
+function isPullPollable( selectedSiteId: string, remoteSiteId: number ) {
+	const pullState = syncOperationsSelectors.selectPullState(
+		selectedSiteId,
+		remoteSiteId
+	)( store.getState() );
+	return pullState?.status.key === 'in-progress' && !! pullState.backupId;
+}
+
+function stopPushPoller( stateId: string ) {
+	PUSH_POLLERS.get( stateId )?.abort();
+	PUSH_POLLERS.delete( stateId );
+}
+
+function stopPullPoller( stateId: string ) {
+	PULL_POLLERS.get( stateId )?.abort();
+	PULL_POLLERS.delete( stateId );
+}
+
+async function startPushPoller( selectedSiteId: string, remoteSiteId: number ) {
+	const stateId = generateStateId( selectedSiteId, remoteSiteId );
+	if ( PUSH_POLLERS.has( stateId ) ) {
+		return;
+	}
+
+	const controller = new AbortController();
+	PUSH_POLLERS.set( stateId, controller );
+
+	try {
+		while ( ! controller.signal.aborted ) {
+			const client = getWpcomClient();
+			if ( ! client ) {
+				break;
+			}
+
+			await store.dispatch(
+				syncOperationsThunks.pollPushProgress( {
+					client,
+					signal: controller.signal,
+					selectedSiteId,
+					remoteSiteId,
+				} )
+			);
+
+			if ( controller.signal.aborted || ! isPushPollable( selectedSiteId, remoteSiteId ) ) {
+				break;
+			}
+
+			await new Promise( ( resolve ) => setTimeout( resolve, SYNC_POLLING_INTERVAL ) );
+		}
+	} finally {
+		if ( PUSH_POLLERS.get( stateId ) === controller ) {
+			PUSH_POLLERS.delete( stateId );
+		}
+	}
+}
+
+async function startPullPoller( selectedSiteId: string, remoteSiteId: number ) {
+	const stateId = generateStateId( selectedSiteId, remoteSiteId );
+	if ( PULL_POLLERS.has( stateId ) ) {
+		return;
+	}
+
+	const controller = new AbortController();
+	PULL_POLLERS.set( stateId, controller );
+
+	try {
+		while ( ! controller.signal.aborted ) {
+			const client = getWpcomClient();
+			if ( ! client ) {
+				break;
+			}
+
+			await store.dispatch(
+				syncOperationsThunks.pollPullBackup( {
+					client,
+					signal: controller.signal,
+					selectedSiteId,
+					remoteSiteId,
+				} )
+			);
+
+			if ( controller.signal.aborted || ! isPullPollable( selectedSiteId, remoteSiteId ) ) {
+				break;
+			}
+
+			await new Promise( ( resolve ) => setTimeout( resolve, SYNC_POLLING_INTERVAL ) );
+		}
+	} finally {
+		if ( PULL_POLLERS.get( stateId ) === controller ) {
+			PULL_POLLERS.delete( stateId );
+		}
+	}
+}
+
 // Poll push progress when state enters a pollable status
 startAppListening( {
 	actionCreator: syncOperationsActions.updatePushState,
-	async effect( action, listenerApi ) {
-		const client = getWpcomClient();
-		if ( ! client ) {
-			return;
+	effect( action ) {
+		const { selectedSiteId, remoteSiteId } = action.payload;
+		const stateId = generateStateId( selectedSiteId, remoteSiteId );
+
+		if ( isPushPollable( selectedSiteId, remoteSiteId ) ) {
+			void startPushPoller( selectedSiteId, remoteSiteId );
+		} else {
+			stopPushPoller( stateId );
 		}
-
-		listenerApi.cancelActiveListeners();
-		await listenerApi.delay( SYNC_POLLING_INTERVAL );
-		const state = listenerApi.getState();
-
-		const promises = Object.values( state.syncOperations.pushStates )
-			.filter( ( pushState ) => PUSH_POLLING_KEYS.includes( pushState.status.key ) )
-			.map( ( pushState ) =>
-				listenerApi.dispatch(
-					syncOperationsThunks.pollPushProgress( {
-						client,
-						signal: listenerApi.signal,
-						selectedSiteId: pushState.selectedSite.id,
-						remoteSiteId: pushState.remoteSiteId,
-					} )
-				)
-			);
-
-		await Promise.all( promises );
 	},
 } );
 
 // Poll pull backup when state has a backupId and is in-progress
 startAppListening( {
 	actionCreator: syncOperationsActions.updatePullState,
-	async effect( action, listenerApi ) {
-		const client = getWpcomClient();
-		if ( ! client ) {
-			return;
+	effect( action ) {
+		const { selectedSiteId, remoteSiteId } = action.payload;
+		const stateId = generateStateId( selectedSiteId, remoteSiteId );
+
+		if ( isPullPollable( selectedSiteId, remoteSiteId ) ) {
+			void startPullPoller( selectedSiteId, remoteSiteId );
+		} else {
+			stopPullPoller( stateId );
 		}
-
-		listenerApi.cancelActiveListeners();
-		await listenerApi.delay( SYNC_POLLING_INTERVAL );
-		const state = listenerApi.getState();
-
-		const promises = Object.values( state.syncOperations.pullStates )
-			.filter( ( pullState ) => pullState.status.key === 'in-progress' )
-			.map( ( pullState ) =>
-				listenerApi.dispatch(
-					syncOperationsThunks.pollPullBackup( {
-						client,
-						signal: listenerApi.signal,
-						selectedSiteId: pullState.selectedSite.id,
-						remoteSiteId: pullState.remoteSiteId,
-					} )
-				)
-			);
-
-		await Promise.all( promises );
 	},
 } );
 

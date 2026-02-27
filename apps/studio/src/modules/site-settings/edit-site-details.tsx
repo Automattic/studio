@@ -389,6 +389,69 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 													</div>
 												) }
 											</div>
+
+											<div className="flex flex-col gap-2 mt-4">
+												<span className="font-semibold">{ __( 'Admin credentials' ) }</span>
+												<div className="grid grid-cols-2 gap-4">
+													<div className="flex flex-col gap-1.5 leading-4">
+														<label className="text-sm" htmlFor="edit-admin-username">
+															{ __( 'Username' ) }
+														</label>
+														<TextControlComponent
+															id="edit-admin-username"
+															disabled={ isEditingSite }
+															value={ adminUsername }
+															onChange={ setAdminUsername }
+															className={ adminUsernameError ? '[&_input]:!border-red-500' : '' }
+														/>
+													</div>
+													<div className="flex flex-col gap-1.5 leading-4">
+														<label className="text-sm" htmlFor="edit-admin-password">
+															{ __( 'Password' ) }
+														</label>
+														<PasswordControl
+															id="edit-admin-password"
+															disabled={ isEditingSite }
+															value={ adminPassword }
+															onChange={ setAdminPassword }
+															className={ adminPasswordError ? '[&_input]:!border-red-500' : '' }
+														/>
+													</div>
+												</div>
+												{ ( adminUsernameError || adminPasswordError ) && (
+													<span className="text-red-500 text-xs">
+														{ adminUsernameError || adminPasswordError }
+													</span>
+												) }
+												{ isUsernameChanged && (
+													<span className="text-a8c-gray-50 text-xs">
+														{ __(
+															'A new admin user will be created. WordPress does not support renaming usernames.'
+														) }
+													</span>
+												) }
+											</div>
+
+											<div className="flex flex-col gap-1.5 leading-4 mt-4">
+												<label className="text-sm" htmlFor="edit-admin-email">
+													{ __( 'Email' ) }
+												</label>
+												<TextControlComponent
+													id="edit-admin-email"
+													disabled={ isEditingSite }
+													value={ adminEmail }
+													onChange={ setAdminEmail }
+													placeholder="admin@localhost.com"
+													className={ adminEmailError ? '[&_input]:!border-red-500' : '' }
+												/>
+												{ adminEmailError ? (
+													<span className="text-red-500 text-xs">{ adminEmailError }</span>
+												) : (
+													<span className="text-a8c-gray-50 text-xs">
+														{ __( 'Defaults to admin@localhost.com if not provided.' ) }
+													</span>
+												) }
+											</div>
 										</>
 									) }
 
@@ -454,69 +517,6 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 														</div>
 													</div>
 												</Tooltip>
-											</div>
-
-											<div className="flex flex-col gap-2 mt-4">
-												<span className="font-semibold">{ __( 'Admin credentials' ) }</span>
-												<div className="grid grid-cols-2 gap-4">
-													<div className="flex flex-col gap-1.5 leading-4">
-														<label className="text-sm" htmlFor="edit-admin-username">
-															{ __( 'Username' ) }
-														</label>
-														<TextControlComponent
-															id="edit-admin-username"
-															disabled={ isEditingSite }
-															value={ adminUsername }
-															onChange={ setAdminUsername }
-															className={ adminUsernameError ? '[&_input]:!border-red-500' : '' }
-														/>
-													</div>
-													<div className="flex flex-col gap-1.5 leading-4">
-														<label className="text-sm" htmlFor="edit-admin-password">
-															{ __( 'Password' ) }
-														</label>
-														<PasswordControl
-															id="edit-admin-password"
-															disabled={ isEditingSite }
-															value={ adminPassword }
-															onChange={ setAdminPassword }
-															className={ adminPasswordError ? '[&_input]:!border-red-500' : '' }
-														/>
-													</div>
-												</div>
-												{ ( adminUsernameError || adminPasswordError ) && (
-													<span className="text-red-500 text-xs">
-														{ adminUsernameError || adminPasswordError }
-													</span>
-												) }
-												{ isUsernameChanged && (
-													<span className="text-a8c-gray-50 text-xs">
-														{ __(
-															'A new admin user will be created. WordPress does not support renaming usernames.'
-														) }
-													</span>
-												) }
-											</div>
-
-											<div className="flex flex-col gap-1.5 leading-4 mt-4">
-												<label className="text-sm" htmlFor="edit-admin-email">
-													{ __( 'Email' ) }
-												</label>
-												<TextControlComponent
-													id="edit-admin-email"
-													disabled={ isEditingSite }
-													value={ adminEmail }
-													onChange={ setAdminEmail }
-													placeholder="admin@localhost.com"
-													className={ adminEmailError ? '[&_input]:!border-red-500' : '' }
-												/>
-												{ adminEmailError ? (
-													<span className="text-red-500 text-xs">{ adminEmailError }</span>
-												) : (
-													<span className="text-a8c-gray-50 text-xs">
-														{ __( 'Defaults to admin@localhost.com if not provided.' ) }
-													</span>
-												) }
 											</div>
 
 											<div

@@ -26,6 +26,7 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 			throw new Error( 'LOCALAPPDATA environment variable is not set' );
 		}
 
+		// Resolves to C:\Users\<USERNAME>\AppData\Local\studio\bin
 		return path.join( process.env.LOCALAPPDATA, 'studio', 'bin' );
 	}
 

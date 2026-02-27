@@ -470,9 +470,6 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 															onChange={ setAdminUsername }
 															className={ adminUsernameError ? '[&_input]:!border-red-500' : '' }
 														/>
-														{ adminUsernameError && (
-															<span className="text-red-500 text-xs">{ adminUsernameError }</span>
-														) }
 													</div>
 													<div className="flex flex-col gap-1.5 leading-4">
 														<label className="text-sm" htmlFor="edit-admin-password">
@@ -485,11 +482,13 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 															onChange={ setAdminPassword }
 															className={ adminPasswordError ? '[&_input]:!border-red-500' : '' }
 														/>
-														{ adminPasswordError && (
-															<span className="text-red-500 text-xs">{ adminPasswordError }</span>
-														) }
 													</div>
 												</div>
+												{ ( adminUsernameError || adminPasswordError ) && (
+													<span className="text-red-500 text-xs">
+														{ adminUsernameError || adminPasswordError }
+													</span>
+												) }
 												{ isUsernameChanged && (
 													<span className="text-a8c-gray-50 text-xs">
 														{ __(

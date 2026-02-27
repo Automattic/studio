@@ -566,9 +566,6 @@ export const CreateSiteForm = ( {
 												} }
 												className={ adminUsernameError ? '[&_input]:!border-red-500' : '' }
 											/>
-											{ adminUsernameError && (
-												<span className="text-red-500 text-xs">{ adminUsernameError }</span>
-											) }
 										</div>
 
 										<div className="flex flex-col gap-1.5 leading-4">
@@ -584,11 +581,13 @@ export const CreateSiteForm = ( {
 												} }
 												className={ adminPasswordError ? '[&_input]:!border-red-500' : '' }
 											/>
-											{ adminPasswordError && (
-												<span className="text-red-500 text-xs">{ adminPasswordError }</span>
-											) }
 										</div>
 									</div>
+									{ ( adminUsernameError || adminPasswordError ) && (
+										<span className="text-red-500 text-xs">
+											{ adminUsernameError || adminPasswordError }
+										</span>
+									) }
 								</div>
 
 								<div className="flex flex-col gap-1.5 leading-4 mt-4">

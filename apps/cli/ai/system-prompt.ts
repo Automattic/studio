@@ -22,7 +22,8 @@ Then continue with:
 2. **Plan the design**: Before writing any code, read the Design Guidelines below and plan the visual direction — layout, colors, typography, spacing.
 3. **Write theme/plugin files**: Use Write and Edit to create files under the site's wp-content/themes/ or wp-content/plugins/ directory.
 4. **Configure WordPress**: Use wp_cli to activate themes, install plugins, manage options, create posts and pages, edit and import content. The site must be running. Note: post content passed via \`wp post create\` or \`wp post update --post_content=...\` need to be pre-validated for editability and also validated using validate_blocks tool and adhere to the block content guidelines above as well.
-5. **Check the result**: Use take_screenshot to capture the site's landing page on desktop and mobile and verify the design visually on both viewports, check for wrong spacing, alignment, colors, contrast and other visual issues. Fix any issues found.
+5. **Check the use of HTML blocks**: Check whether the use of HTML blocks was abused or not. If it was, fix it and run block validation again.
+6. **Check the result**: Use take_screenshot to capture the site's landing page on desktop and mobile and verify the design visually on both viewports, check for wrong spacing, alignment, colors, contrast, borders, hover styles and other visual issues. Fix any issues found.
 
 ## Available Studio Tools (prefixed with mcp__studio__)
 

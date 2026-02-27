@@ -54,7 +54,30 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 	const [ adminPassword, setAdminPassword ] = useState(
 		() => decodePassword( selectedSite?.adminPassword ?? '' ) || 'password'
 	);
-	const [ adminEmail, setAdminEmail ] = useState( selectedSite?.adminEmail ?? '' );
+	const [ adminEmail, setAdminEmail ] = useState(
+		selectedSite?.adminEmail || 'admin@localhost.com'
+	);
+
+	useEffect( () => {
+		if ( selectedSite?.adminEmail || ! selectedSite?.id ) {
+			return;
+		}
+		const username = selectedSite?.adminUsername ?? 'admin';
+		getIpcApi()
+			.executeWPCLiInline( {
+				siteId: selectedSite.id,
+				args: `user get ${ username } --field=user_email`,
+				skipPluginsAndThemes: true,
+			} )
+			.then( ( { stdout, stderr } ) => {
+				if ( ! stderr && stdout.trim() ) {
+					setAdminEmail( stdout.trim() );
+				}
+			} )
+			.catch( () => {
+				// Keep the default value
+			} );
+	}, [ selectedSite?.id, selectedSite?.adminEmail, selectedSite?.adminUsername ] );
 
 	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
 	const closeModal = useCallback( () => {
@@ -111,7 +134,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 	const usedCustomDomain = ! useCustomDomain ? customDomain : undefined;
 	const adminUsernameError = validateAdminUsername( adminUsername );
 	const adminPasswordError = ! adminPassword.trim() ? __( 'Admin password is required' ) : '';
-	const adminEmailError = adminEmail.trim() ? validateAdminEmail( adminEmail ) : '';
+	const adminEmailError = validateAdminEmail( adminEmail );
 	const isUsernameChanged =
 		! adminUsernameError && adminUsername !== ( selectedSite?.adminUsername ?? 'admin' );
 	const isFormUnchanged =
@@ -125,7 +148,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		!! selectedSite.enableXdebug === enableXdebug &&
 		( selectedSite.adminUsername ?? 'admin' ) === adminUsername &&
 		( decodePassword( selectedSite.adminPassword ?? '' ) || 'password' ) === adminPassword &&
-		( selectedSite.adminEmail ?? '' ) === adminEmail &&
+		( selectedSite.adminEmail || 'admin@localhost.com' ) === adminEmail &&
 		!! selectedSite.enableDebugLog === enableDebugLog &&
 		!! selectedSite.enableDebugDisplay === enableDebugDisplay;
 	const hasValidationErrors =
@@ -151,7 +174,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		setEnableXdebug( selectedSite.enableXdebug ?? false );
 		setAdminUsername( selectedSite.adminUsername ?? 'admin' );
 		setAdminPassword( decodePassword( selectedSite.adminPassword ?? '' ) || 'password' );
-		setAdminEmail( selectedSite.adminEmail ?? '' );
+		setAdminEmail( selectedSite.adminEmail || 'admin@localhost.com' );
 		setEnableDebugLog( selectedSite.enableDebugLog ?? false );
 		setEnableDebugDisplay( selectedSite.enableDebugDisplay ?? false );
 	}, [ selectedSite, getEffectiveWpVersion ] );
@@ -178,7 +201,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		const hasCredentialsChanged =
 			adminUsername !== ( selectedSite.adminUsername ?? 'admin' ) ||
 			adminPassword !== ( decodePassword( selectedSite.adminPassword ?? '' ) || 'password' ) ||
-			adminEmail !== ( selectedSite.adminEmail ?? '' );
+			adminEmail !== ( selectedSite.adminEmail || 'admin@localhost.com' );
 
 		const needsRestart =
 			selectedSite.running &&
@@ -213,7 +236,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 					adminUsername,
 					// Encode for IPC storage; IPC handler decodes back to plain text for the CLI set command
 					adminPassword: encodePassword( adminPassword ),
-					adminEmail: adminEmail || undefined,
+					adminEmail,
 					enableDebugLog,
 					enableDebugDisplay,
 				},
@@ -444,12 +467,8 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 													placeholder="admin@localhost.com"
 													className={ adminEmailError ? '[&_input]:!border-red-500' : '' }
 												/>
-												{ adminEmailError ? (
+												{ adminEmailError && (
 													<span className="text-red-500 text-xs">{ adminEmailError }</span>
-												) : (
-													<span className="text-a8c-gray-50 text-xs">
-														{ __( 'Defaults to admin@localhost.com if not provided.' ) }
-													</span>
 												) }
 											</div>
 										</>

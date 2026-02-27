@@ -192,7 +192,10 @@ describe( 'useAddSite', () => {
 			undefined, // blueprint parameter
 			'8.2',
 			expect.any( Function ),
-			false
+			false,
+			undefined, // adminUsername
+			undefined, // adminPassword
+			undefined // adminEmail
 		);
 	} );
 

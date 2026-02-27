@@ -127,13 +127,18 @@ describe( 'BackupHandlerFactory', () => {
 			'index.php',
 			'.hidden-file',
 			'wp-content/.hidden-file',
+			'wp-content/.gitignore',
 			'wp-content/plugins/hello.php',
 			'wp-content/themes/twentytwentyfour/theme.json',
 			'wp-content/uploads/2024/07/image.png',
+			'wp-content/.DS_Store',
 			'__MACOSX/meta-file',
 		];
 		const expectedArchiveFiles = [
 			'index.php',
+			'.hidden-file',
+			'wp-content/.hidden-file',
+			'wp-content/.gitignore',
 			'wp-content/plugins/hello.php',
 			'wp-content/themes/twentytwentyfour/theme.json',
 			'wp-content/uploads/2024/07/image.png',

@@ -41,22 +41,30 @@ export function OnboardingConnectToWpcom( { onSkip }: { onSkip: () => void } ) {
 					) ) }
 				</div>
 
-				<Tooltip disabled={ ! isOffline } icon={ offlineIcon } text={ offlineMessage }>
-					<Button
-						aria-description={ isOffline ? offlineMessage : '' }
-						aria-disabled={ isOffline }
-						variant="primary"
-						onClick={ () => {
-							if ( isOffline ) {
-								return;
-							}
-							authenticate();
-						} }
-					>
-						{ __( 'Log in to WordPress.com' ) }
-						<ArrowIcon />
+				<div className="flex flex-row gap-2 items-center">
+					<Tooltip disabled={ ! isOffline } icon={ offlineIcon } text={ offlineMessage }>
+						<Button
+							aria-description={ isOffline ? offlineMessage : '' }
+							aria-disabled={ isOffline }
+							variant="primary"
+							onClick={ () => {
+								if ( isOffline ) {
+									return;
+								}
+								authenticate();
+							} }
+						>
+							{ __( 'Log in to WordPress.com' ) }
+							<ArrowIcon />
+						</Button>
+					</Tooltip>
+					<Button variant="secondary" onClick={ onSkip }>
+						{ __( 'Skip' ) }
+						<span aria-hidden className="ml-1">
+							{ '\u2192' }
+						</span>
 					</Button>
-				</Tooltip>
+				</div>
 
 				<Tooltip
 					disabled={ ! isOffline }
@@ -82,12 +90,6 @@ export function OnboardingConnectToWpcom( { onSkip }: { onSkip: () => void } ) {
 						</Button>
 					</div>
 				</Tooltip>
-			</div>
-
-			<div className="text-right">
-				<Button className="pr-0" onClick={ onSkip }>
-					{ __( 'Skip  →' ) }
-				</Button>
 			</div>
 		</div>
 	);

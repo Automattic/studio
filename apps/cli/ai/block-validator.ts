@@ -1,6 +1,24 @@
 let initialized = false;
 let initError: string | null = null;
 
+function withSuppressedConsole< T >( fn: () => T ): T {
+	const orig = {
+		log: console.log,
+		info: console.info,
+		warn: console.warn,
+		error: console.error,
+	};
+	console.log = () => {};
+	console.info = () => {};
+	console.warn = () => {};
+	console.error = () => {};
+	try {
+		return fn();
+	} finally {
+		Object.assign( console, orig );
+	}
+}
+
 interface BlockValidationResult {
 	blockName: string;
 	isValid: boolean;
@@ -44,7 +62,6 @@ function setupDomEnvironment(): void {
 		}
 	}
 
-	// Copy DOM globals needed by WordPress packages
 	setGlobal( 'window', dom.window );
 	setGlobal( 'document', dom.window.document );
 	setGlobal( 'navigator', dom.window.navigator );
@@ -114,7 +131,6 @@ function ensureInitialized(): void {
 		initError = `Failed to set up DOM environment: ${
 			error instanceof Error ? error.stack || error.message : String( error )
 		}. Make sure 'jsdom' is installed.`;
-		// Error stored in initError, returned via ValidationReport.error
 		initialized = true;
 		return;
 	}
@@ -137,7 +153,6 @@ function ensureInitialized(): void {
 		initError = `Failed to register core blocks: ${
 			error instanceof Error ? error.stack || error.message : String( error )
 		}. Make sure '@wordpress/block-library' is installed.`;
-		// Error stored in initError, returned via ValidationReport.error
 	} finally {
 		console.error = origError;
 	}
@@ -149,14 +164,9 @@ function ensureInitialized(): void {
 			const types = getBlockTypes();
 			if ( ! types || types.length === 0 ) {
 				initError = 'No block types were registered. Block validation will not work correctly.';
-				// Error stored in initError, returned via ValidationReport.error
-			} else {
-				// Blocks registered successfully
 			}
 		} catch {
-			// If we can't even check, something is very wrong
 			initError = 'Failed to verify block registration.';
-			// Error stored in initError, returned via ValidationReport.error
 		}
 	}
 
@@ -258,7 +268,6 @@ function validateBlockList( blocks: ParsedBlock[], results: BlockValidationResul
 			} );
 		}
 
-		// Recursively validate inner blocks
 		if ( block.innerBlocks && block.innerBlocks.length > 0 ) {
 			validateBlockList( block.innerBlocks, results );
 		}
@@ -282,19 +291,7 @@ export function validateBlocks( content: string ): ValidationReport {
 		};
 	}
 
-	// Suppress ALL console output during parse/validation.
-	// WordPress logs verbose messages (e.g., "Updated Block:", block type object dumps)
-	// via console.log/info/warn/error that would pollute the agent output.
-	const origLog = console.log;
-	const origInfo = console.info;
-	const origWarn = console.warn;
-	const origError = console.error;
-	console.log = () => {};
-	console.info = () => {};
-	console.warn = () => {};
-	console.error = () => {};
-
-	try {
+	return withSuppressedConsole( () => {
 		const { parse } = require( '@wordpress/blocks' );
 		const blocks = parse( content ) as ParsedBlock[];
 		const results: BlockValidationResult[] = [];
@@ -309,10 +306,5 @@ export function validateBlocks( content: string ): ValidationReport {
 			invalidBlocks: results.length - validCount,
 			results,
 		};
-	} finally {
-		console.log = origLog;
-		console.info = origInfo;
-		console.warn = origWarn;
-		console.error = origError;
-	}
+	} );
 }

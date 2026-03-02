@@ -162,7 +162,6 @@ function getToolDetail( name: string, input: Record< string, unknown > ): string
 		case 'Skill':
 			return typeof input.skill === 'string' ? input.skill : '';
 		case 'Grep':
-			return typeof input.pattern === 'string' ? input.pattern : '';
 		case 'Glob':
 			return typeof input.pattern === 'string' ? input.pattern : '';
 		default:

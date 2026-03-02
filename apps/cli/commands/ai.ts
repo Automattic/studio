@@ -1,14 +1,13 @@
 import { password } from '@inquirer/prompts';
-import { AiCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import { startAiAgent } from 'cli/ai/agent';
-import { enablePm2KeepAlive, setToolProgressHandler } from 'cli/ai/tools';
 import { AiChatUI } from 'cli/ai/ui';
 import { getAnthropicApiKey, saveAnthropicApiKey } from 'cli/lib/appdata';
-import { Logger, LoggerError } from 'cli/logger';
+import { setKeepAlive } from 'cli/lib/pm2-manager';
+import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
-const logger = new Logger< LoggerAction >();
+const logger = new Logger< string >();
 
 async function resolveApiKey(): Promise< string > {
 	const savedKey = await getAnthropicApiKey();
@@ -31,12 +30,12 @@ async function resolveApiKey(): Promise< string > {
 	return apiKey;
 }
 
-export async function runCommand( options: { maxTurns?: number } ): Promise< void > {
+export async function runCommand(): Promise< void > {
 	const apiKey = await resolveApiKey();
 
 	const ui = new AiChatUI();
-	setToolProgressHandler( ( message ) => ui.setLoaderMessage( message ) );
-	enablePm2KeepAlive();
+	setProgressCallback( ( message ) => ui.setLoaderMessage( message ) );
+	setKeepAlive( true );
 	ui.start();
 	ui.showWelcome();
 
@@ -48,7 +47,6 @@ export async function runCommand( options: { maxTurns?: number } ): Promise< voi
 		const agentQuery = startAiAgent( {
 			prompt,
 			apiKey,
-			maxTurns: options.maxTurns,
 			resume: sessionId,
 			onAskUser: ( questions ) => ui.askUser( questions ),
 		} );
@@ -88,7 +86,7 @@ export async function runCommand( options: { maxTurns?: number } ): Promise< voi
 				},
 			] );
 			const choice = Object.values( answer )[ 0 ]?.toLowerCase();
-			if ( choice === 'yes' || choice === '1' ) {
+			if ( choice === 'yes' ) {
 				ui.addUserMessage( 'Continue' );
 				await runAgentTurn( 'Continue from where you left off.' );
 			}
@@ -111,21 +109,13 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		command: 'ai',
 		describe: __( 'AI-powered WordPress assistant' ),
 		builder: ( yargs ) => {
-			return yargs
-				.option( 'max-turns', {
-					type: 'number',
-					describe: __( 'Maximum conversation turns' ),
-					default: 50,
-				} )
-				.option( 'path', {
-					hidden: true,
-				} );
+			return yargs.option( 'path', {
+				hidden: true,
+			} );
 		},
-		handler: async ( argv ) => {
+		handler: async () => {
 			try {
-				await runCommand( {
-					maxTurns: argv.maxTurns,
-				} );
+				await runCommand();
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );

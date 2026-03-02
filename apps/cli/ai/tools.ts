@@ -4,24 +4,16 @@ import path from 'path';
 import { tool, createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { z } from 'zod';
-import { validateBlocks } from 'cli/ai/block-validator';
+import { validateBlocks, type ValidationReport } from 'cli/ai/block-validator';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { runCommand as runListSitesCommand } from 'cli/commands/site/list';
 import { runCommand as runStartSiteCommand } from 'cli/commands/site/start';
 import { runCommand as runStatusCommand } from 'cli/commands/site/status';
 import { runCommand as runStopSiteCommand, Mode as StopMode } from 'cli/commands/site/stop';
 import { getSiteByFolder, getSiteUrl, readAppdata, type SiteData } from 'cli/lib/appdata';
-import { connect, disconnect, setKeepAlive } from 'cli/lib/pm2-manager';
+import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
-import { emitProgress, setProgressCallback } from 'cli/logger';
-
-export function setToolProgressHandler( handler: ( message: string ) => void ): void {
-	setProgressCallback( handler );
-}
-
-export function enablePm2KeepAlive(): void {
-	setKeepAlive( true );
-}
+import { emitProgress } from 'cli/logger';
 
 const SITES_ROOT = path.join( os.homedir(), 'Studio' );
 
@@ -91,6 +83,23 @@ function textResult( text: string ) {
 	return {
 		content: [ { type: 'text' as const, text } ],
 	};
+}
+
+function formatInvalidBlocks( report: ValidationReport ): string[] {
+	const lines: string[] = [];
+	for ( const result of report.results ) {
+		if ( ! result.isValid ) {
+			lines.push( `  - ${ result.blockName }` );
+			for ( const issue of result.issues ) {
+				lines.push( `    ${ issue }` );
+			}
+			if ( result.expectedContent !== undefined ) {
+				lines.push( `    Expected: ${ result.expectedContent }` );
+				lines.push( `    Actual:   ${ result.originalContent }` );
+			}
+		}
+	}
+	return lines;
 }
 
 /**
@@ -246,10 +255,6 @@ const stopSiteTool = tool(
 
 const BLOCK_COMMENT_PATTERN = /<!-- wp:/;
 
-/**
- * Extract --post_content value from a wp_cli command string.
- * Returns the content if found, undefined otherwise.
- */
 function extractPostContent( command: string ): string | undefined {
 	const args = splitCommandArgs( command );
 	for ( const arg of args ) {
@@ -260,9 +265,6 @@ function extractPostContent( command: string ): string | undefined {
 	return undefined;
 }
 
-/**
- * Check if a wp_cli command is a post create/update that sets content.
- */
 function isPostContentCommand( command: string ): boolean {
 	const trimmed = command.trimStart();
 	return (
@@ -294,23 +296,11 @@ const runWpCliTool = tool(
 					emitProgress( 'Validating post content blocks…' );
 					const report = validateBlocks( postContent );
 					if ( report.invalidBlocks > 0 ) {
-						const lines: string[] = [];
-						lines.push(
-							`Block validation failed: ${ report.invalidBlocks }/${ report.totalBlocks } blocks invalid. Fix the content before creating/updating the post.`
-						);
-						lines.push( '' );
-						for ( const result of report.results ) {
-							if ( ! result.isValid ) {
-								lines.push( `  - ${ result.blockName }` );
-								for ( const issue of result.issues ) {
-									lines.push( `    ${ issue }` );
-								}
-								if ( result.expectedContent !== undefined ) {
-									lines.push( `    Expected: ${ result.expectedContent }` );
-									lines.push( `    Actual:   ${ result.originalContent }` );
-								}
-							}
-						}
+						const lines = [
+							`Block validation failed: ${ report.invalidBlocks }/${ report.totalBlocks } blocks invalid. Fix the content before creating/updating the post.`,
+							'',
+							...formatInvalidBlocks( report ),
+						];
 						return errorResult( lines.join( '\n' ) );
 					}
 					emitProgress( `Post content: all ${ report.totalBlocks } blocks valid` );
@@ -411,24 +401,10 @@ const validateBlocksTool = tool(
 				emitProgress( `${ fileName }: all ${ report.totalBlocks } blocks valid` );
 			}
 
-			const lines: string[] = [];
-			lines.push( `Validation: ${ report.validBlocks }/${ report.totalBlocks } blocks valid` );
+			const lines = [ `Validation: ${ report.validBlocks }/${ report.totalBlocks } blocks valid` ];
 
 			if ( report.invalidBlocks > 0 ) {
-				lines.push( '' );
-				lines.push( 'Invalid blocks:' );
-				for ( const result of report.results ) {
-					if ( ! result.isValid ) {
-						lines.push( `  - ${ result.blockName }` );
-						for ( const issue of result.issues ) {
-							lines.push( `    ${ issue }` );
-						}
-						if ( result.expectedContent !== undefined ) {
-							lines.push( `    Expected: ${ result.expectedContent }` );
-							lines.push( `    Actual:   ${ result.originalContent }` );
-						}
-					}
-				}
+				lines.push( '', 'Invalid blocks:', ...formatInvalidBlocks( report ) );
 			}
 
 			return textResult( lines.join( '\n' ) );

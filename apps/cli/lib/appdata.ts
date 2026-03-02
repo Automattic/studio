@@ -247,12 +247,8 @@ export async function updateSiteAutoStart( siteId: string, autoStart: boolean ):
 }
 
 export async function getAnthropicApiKey(): Promise< string | undefined > {
-	try {
-		const userData = await readAppdata();
-		return userData.anthropicApiKey;
-	} catch {
-		return undefined;
-	}
+	const userData = await readAppdata();
+	return userData.anthropicApiKey;
 }
 
 export async function saveAnthropicApiKey( apiKey: string ): Promise< void > {

@@ -15,36 +15,20 @@ export interface AiAgentConfig {
 	onAskUser?: ( questions: AskUserQuestion[] ) => Promise< Record< string, string > >;
 }
 
-export interface AiAgentResult {
-	sessionId: string;
-	success: boolean;
-}
-
-export const AI_MODEL = 'claude-sonnet-4-6';
+const AI_MODEL = 'claude-sonnet-4-6';
 export const AI_MODEL_DISPLAY = 'Sonnet 4.6';
-
-function buildEnv( apiKey: string ): Record< string, string > {
-	const env: Record< string, string > = {};
-	for ( const [ key, value ] of Object.entries( process.env ) ) {
-		if ( value !== undefined ) {
-			env[ key ] = value;
-		}
-	}
-	env.ANTHROPIC_API_KEY = apiKey;
-	return env;
-}
 
 /**
  * Start the AI agent and return the Query object.
  * Caller can iterate messages with `for await` and call `interrupt()` to stop.
  */
 export function startAiAgent( config: AiAgentConfig ): Query {
-	const { prompt, apiKey, maxTurns = 30, resume, onAskUser } = config;
+	const { prompt, apiKey, maxTurns = 50, resume, onAskUser } = config;
 
 	return query( {
 		prompt,
 		options: {
-			env: buildEnv( apiKey ),
+			env: { ...( process.env as Record< string, string > ), ANTHROPIC_API_KEY: apiKey },
 			systemPrompt: {
 				type: 'preset',
 				preset: 'claude_code',
@@ -73,7 +57,7 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 				return { behavior: 'allow' as const, updatedInput: input };
 			},
 			allowedTools: [ 'mcp__studio__*', 'Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep' ],
-			model: 'claude-sonnet-4-6',
+			model: AI_MODEL,
 			resume,
 		},
 	} );

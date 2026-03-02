@@ -17,10 +17,6 @@ function canSend(): boolean {
 	return isIpcMode && !! process.send && process.connected;
 }
 
-function hasCallback(): boolean {
-	return progressCallback !== null;
-}
-
 export class LoggerError extends Error {
 	previousError?: Error;
 	private errorMessage: string;
@@ -59,7 +55,7 @@ export class Logger< T extends string > {
 			process.send!( { action, status: 'inprogress', message } );
 			return;
 		}
-		if ( hasCallback() ) {
+		if ( progressCallback ) {
 			progressCallback!( message );
 			return;
 		}
@@ -72,7 +68,7 @@ export class Logger< T extends string > {
 			return;
 		}
 
-		if ( hasCallback() ) {
+		if ( progressCallback ) {
 			progressCallback!( message );
 			return;
 		}
@@ -89,7 +85,7 @@ export class Logger< T extends string > {
 	public reportSuccess( message: string, shouldClearSpinner = false ) {
 		if ( canSend() ) {
 			process.send!( { action: this.currentAction, status: 'success', message } );
-		} else if ( hasCallback() ) {
+		} else if ( progressCallback ) {
 			progressCallback!( message );
 		} else if ( shouldClearSpinner ) {
 			this.spinner.clear();
@@ -105,7 +101,7 @@ export class Logger< T extends string > {
 			process.send!( { action: this.currentAction, status: 'warning', message } );
 			return;
 		}
-		if ( hasCallback() ) {
+		if ( progressCallback ) {
 			progressCallback!( message );
 			return;
 		}
@@ -119,7 +115,7 @@ export class Logger< T extends string > {
 
 		if ( canSend() ) {
 			process.send!( { action: this.currentAction, status: 'fail', message: error.message } );
-		} else if ( hasCallback() ) {
+		} else if ( progressCallback ) {
 			progressCallback!( error.message );
 		} else {
 			this.spinner.fail( error.message );

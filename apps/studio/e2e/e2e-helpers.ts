@@ -16,8 +16,7 @@ export class E2ESession {
 	appDataPath: string;
 	homePath: string;
 	private mainProcessLogs: string[] = [];
-	private mainProcessLogSize = 0;
-	private readonly maxMainProcessLogSize = 200_000;
+	private readonly maxMainProcessLogChunks = 500;
 	private stdoutListener?: ( chunk: Buffer | string ) => void;
 	private stderrListener?: ( chunk: Buffer | string ) => void;
 	private childProcess?: ChildProcess;
@@ -142,7 +141,6 @@ export class E2ESession {
 	private startCapturingMainProcessLogs() {
 		this.stopCapturingMainProcessLogs();
 		this.mainProcessLogs = [];
-		this.mainProcessLogSize = 0;
 		this.childProcess = this.electronApp.process();
 
 		this.stdoutListener = ( chunk ) => {
@@ -173,14 +171,9 @@ export class E2ESession {
 	private appendMainProcessLogChunk( chunk: Buffer | string ) {
 		const text = chunk.toString();
 		this.mainProcessLogs.push( text );
-		this.mainProcessLogSize += text.length;
 
-		while (
-			this.mainProcessLogSize > this.maxMainProcessLogSize &&
-			this.mainProcessLogs.length > 1
-		) {
-			const removed = this.mainProcessLogs.shift();
-			this.mainProcessLogSize -= removed?.length ?? 0;
+		while ( this.mainProcessLogs.length > this.maxMainProcessLogChunks ) {
+			this.mainProcessLogs.shift();
 		}
 	}
 

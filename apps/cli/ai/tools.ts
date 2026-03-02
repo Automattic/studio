@@ -1,4 +1,5 @@
 import { readFile } from 'fs/promises';
+import os from 'os';
 import path from 'path';
 import { tool, createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
@@ -22,7 +23,7 @@ export function enablePm2KeepAlive(): void {
 	setKeepAlive( true );
 }
 
-const SITES_ROOT = path.join( process.env.HOME || '~', 'Studio' );
+const SITES_ROOT = path.join( os.homedir(), 'Studio' );
 
 /**
  * Splits a command string into arguments, respecting quoted strings.
@@ -44,7 +45,10 @@ function splitCommandArgs( command: string ): string[] {
 			} else {
 				current += char;
 			}
-		} else if ( char === '"' || char === "'" ) {
+		} else if (
+			( char === '"' || char === "'" ) &&
+			( current === '' || current.endsWith( '=' ) )
+		) {
 			inQuote = char;
 		} else if ( /\s/.test( char ) ) {
 			if ( current ) {
@@ -124,6 +128,11 @@ const createSiteTool = tool(
 				.toLowerCase()
 				.replace( /[^a-z0-9]+/g, '-' )
 				.replace( /^-|-$/g, '' );
+			if ( ! slug ) {
+				return errorResult(
+					'Site name must contain at least one ASCII letter or digit (a-z, 0-9).'
+				);
+			}
 			const sitePath = path.join( SITES_ROOT, slug );
 
 			await runCreateSiteCommand( sitePath, {
@@ -433,27 +442,31 @@ const validateBlocksTool = tool(
 
 // --- Screenshot tool ---
 
-let screenshotBrowser: Awaited<
-	ReturnType< ( typeof import('playwright') )[ 'chromium' ][ 'launch' ] >
-> | null = null;
+type Browser = Awaited< ReturnType< ( typeof import('playwright') )[ 'chromium' ][ 'launch' ] > >;
+
+let browserPromise: Promise< Browser > | null = null;
 
 async function getScreenshotBrowser() {
-	if ( ! screenshotBrowser ) {
-		const { chromium } = require( 'playwright' ) as typeof import('playwright');
-		screenshotBrowser = await chromium.launch( {
-			args: [ '--ignore-certificate-errors' ],
-		} );
+	if ( ! browserPromise ) {
+		browserPromise = ( async () => {
+			const { chromium } = require( 'playwright' ) as typeof import('playwright');
+			const browser = await chromium.launch( {
+				args: [ '--ignore-certificate-errors' ],
+			} );
 
-		// Clean up browser when process exits
-		const cleanup = () => {
-			screenshotBrowser?.close().catch( () => {} );
-			screenshotBrowser = null;
-		};
-		process.on( 'exit', cleanup );
-		process.on( 'SIGINT', cleanup );
-		process.on( 'SIGTERM', cleanup );
+			// Clean up browser when process exits
+			const cleanup = () => {
+				browser.close().catch( () => {} );
+				browserPromise = null;
+			};
+			process.on( 'exit', cleanup );
+			process.on( 'SIGINT', cleanup );
+			process.on( 'SIGTERM', cleanup );
+
+			return browser;
+		} )();
 	}
-	return screenshotBrowser;
+	return browserPromise;
 }
 
 const VIEWPORTS = {

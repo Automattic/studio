@@ -5,6 +5,7 @@ fastlane_require 'zip'
 fastlane_require 'aws-sdk-cloudfront'
 fastlane_require 'json'
 fastlane_require 'net/http'
+fastlane_require 'octokit'
 fastlane_require 'uri'
 
 UI.user_error!('Please run fastlane via `bundle exec`') unless FastlaneCore::Helper.bundler?
@@ -274,7 +275,7 @@ lane :finalize_release do |version:, skip_confirm: false|
     Finalizing release #{version}. This will:
     - Bump version to #{version} (remove beta suffix)
     - Trigger a release build for all platforms (macOS, Windows), which will then:
-      - Upload build artifacts to the Apps CDN
+      - Upload build artifacts to the Apps CDN (as Internal, visible only to Automatticians)
       - Create a draft GitHub release with release notes and download links
       - Notify #dotcom-studio on Slack
   PROMPT
@@ -300,11 +301,15 @@ lane :publish_release do |version:, skip_confirm: false, github_username: nil|
 
   UI.important <<~PROMPT
     Publishing release #{version}. This will:
+    - Make CDN builds public (change visibility from Internal to External)
     - Publish the draft GitHub release for v#{version}
     - Create a backmerge PR from `#{release_branch}` into `#{MAIN_BRANCH}`
     - Delete the `#{release_branch}` branch after creating the backmerge PR
   PROMPT
   next unless skip_confirm || UI.confirm('Continue?')
+
+  # Update CDN build visibility from Internal to External
+  make_cdn_builds_public(version: version)
 
   # Publish the draft GitHub release
   publish_github_release(
@@ -581,15 +586,16 @@ def distribute_builds(
       arch: build[:arch],
       build_type: build_type,
       install_type: build[:install_type],
-      visibility: 'external',
+      visibility: 'internal',
       version: version,
       build_number: build_number,
       release_notes: release_notes,
       sha: build[:sha],
       error_on_duplicate: false
     )
-    # Store the download URL for later use
+    # Store the download URL and post ID for later use
     build[:cdn_url] = result[:media_url]
+    build[:post_id] = result[:post_id]
   end
 
   unless DRY_RUN
@@ -654,7 +660,8 @@ def upload_file_to_apps_cdn(site_id:, product:, file_path:, platform:, arch:, bu
     UI.message("           error on duplicate: #{error_on_duplicate}")
 
     return {
-      media_url: media_url
+      media_url: media_url,
+      post_id: 0
     }
   end
 
@@ -802,6 +809,12 @@ def create_draft_github_release(version:, release_tag:, builds:)
             'The latest version is always available on the [WordPress Studio](https://developer.wordpress.com/studio/) site.'
   end
 
+  # Embed CDN post IDs so publish_release can update their visibility later
+  cdn_post_ids = builds.each_with_object({}) do |(key, build), hash|
+    hash[key] = build[:post_id] if build[:post_id]
+  end
+  body += "\n<!-- CDN_POST_IDS:#{cdn_post_ids.to_json} -->" unless cdn_post_ids.empty?
+
   release_notes_path = File.join(PROJECT_ROOT_FOLDER, 'fastlane', 'github_release_notes.txt')
   File.write(release_notes_path, body)
 
@@ -817,6 +830,64 @@ def create_draft_github_release(version:, release_tag:, builds:)
   )
 
   UI.success("Created draft GitHub release #{release_tag} with download links")
+end
+
+# Make CDN builds public by updating their visibility from Internal to External.
+#
+# Reads CDN post IDs embedded in the draft GitHub release body by {create_draft_github_release},
+# then calls {update_apps_cdn_build_metadata} for each to set visibility to External.
+#
+# @param version [String] The version to publish (e.g., '1.7.5')
+#
+def make_cdn_builds_public(version:)
+  release_name = "v#{version}"
+  cdn_post_ids = extract_cdn_post_ids_from_draft_release(release_name: release_name)
+
+  if cdn_post_ids.empty?
+    UI.important("No CDN post IDs found in draft release #{release_name}. Skipping visibility update.")
+    return
+  end
+
+  UI.message("Updating CDN build visibility to External for #{cdn_post_ids.size} builds...")
+
+  cdn_post_ids.each do |key, post_id|
+    UI.message("  Updating #{key} (post #{post_id})...")
+    update_apps_cdn_build_metadata(
+      site_id: WPCOM_STUDIO_SITE_ID,
+      post_id: post_id.to_i,
+      visibility: :external
+    )
+  end
+
+  UI.success('All CDN builds are now public (External visibility)')
+end
+
+# Extract CDN post IDs from the draft GitHub release body.
+#
+# The post IDs are embedded as an HTML comment by {create_draft_github_release}:
+#   <!-- CDN_POST_IDS:{"x64":12345,"arm64":67890} -->
+#
+# @param release_name [String] The release name (e.g., 'v1.7.5')
+# @return [Hash] A hash of build key => post ID, or empty hash if not found
+#
+def extract_cdn_post_ids_from_draft_release(release_name:)
+  client = Octokit::Client.new(access_token: get_required_env('GITHUB_TOKEN'), auto_paginate: true)
+  releases = client.releases(GITHUB_REPO)
+  release = releases.find { |r| r.draft && r.name == release_name }
+
+  unless release
+    UI.important("No draft release found with name #{release_name}.")
+    return {}
+  end
+
+  body = release.body || ''
+  match = body.match(/<!-- CDN_POST_IDS:(\{.*?\}) -->/)
+  unless match
+    UI.important("Draft release #{release_name} found but no CDN post IDs embedded in the body.")
+    return {}
+  end
+
+  JSON.parse(match[1])
 end
 
 # Trigger a release build in Buildkite for the given version.

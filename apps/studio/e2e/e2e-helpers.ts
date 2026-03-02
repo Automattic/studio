@@ -5,14 +5,22 @@ import { findLatestBuild, parseElectronApp } from 'electron-playwright-helpers';
 import fs from 'fs-extra';
 import { _electron as electron, Page, ElectronApplication } from 'playwright';
 import { rimraf } from 'rimraf';
+import type { TestInfo } from '@playwright/test';
+import type { ChildProcess } from 'node:child_process';
 
 export class E2ESession {
-	electronApp: ElectronApplication;
-	mainWindow: Page;
+	electronApp!: ElectronApplication;
+	mainWindow!: Page;
 
 	sessionPath: string;
 	appDataPath: string;
 	homePath: string;
+	private mainProcessLogs: string[] = [];
+	private mainProcessLogSize = 0;
+	private readonly maxMainProcessLogSize = 200_000;
+	private stdoutListener?: ( chunk: Buffer | string ) => void;
+	private stderrListener?: ( chunk: Buffer | string ) => void;
+	private childProcess?: ChildProcess;
 
 	public constructor() {
 		this.sessionPath = path.join( tmpdir(), `studio-app-e2e-session-${ randomUUID() }` );
@@ -68,6 +76,8 @@ export class E2ESession {
 			console.log( 'App closed successfully' );
 		} catch ( error ) {
 			console.log( 'Process exit timeout' );
+		} finally {
+			this.stopCapturingMainProcessLogs();
 		}
 	}
 
@@ -106,6 +116,75 @@ export class E2ESession {
 			timeout: 60_000,
 		} );
 
+		this.startCapturingMainProcessLogs();
+
 		this.mainWindow = await this.electronApp.firstWindow( { timeout: 60_000 } );
+	}
+
+	async reportMainProcessLogsOnFailure( testInfo: TestInfo ) {
+		if ( testInfo.status === testInfo.expectedStatus ) {
+			return;
+		}
+
+		const logs =
+			this.getMainProcessLogs() || 'No main process logs were captured before the failure.';
+		const report = [ `Main process logs for failed test: ${ testInfo.title }`, '', logs ].join(
+			'\n'
+		);
+
+		console.error( report );
+		await testInfo.attach( 'main-process.log', {
+			body: Buffer.from( report, 'utf8' ),
+			contentType: 'text/plain',
+		} );
+	}
+
+	private startCapturingMainProcessLogs() {
+		this.stopCapturingMainProcessLogs();
+		this.mainProcessLogs = [];
+		this.mainProcessLogSize = 0;
+		this.childProcess = this.electronApp.process();
+
+		this.stdoutListener = ( chunk ) => {
+			this.appendMainProcessLogChunk( chunk );
+		};
+		this.stderrListener = ( chunk ) => {
+			this.appendMainProcessLogChunk( chunk );
+		};
+
+		this.childProcess.stdout?.on( 'data', this.stdoutListener );
+		this.childProcess.stderr?.on( 'data', this.stderrListener );
+	}
+
+	private stopCapturingMainProcessLogs() {
+		if ( this.stdoutListener ) {
+			this.childProcess?.stdout?.off( 'data', this.stdoutListener );
+		}
+
+		if ( this.stderrListener ) {
+			this.childProcess?.stderr?.off( 'data', this.stderrListener );
+		}
+
+		this.stdoutListener = undefined;
+		this.stderrListener = undefined;
+		this.childProcess = undefined;
+	}
+
+	private appendMainProcessLogChunk( chunk: Buffer | string ) {
+		const text = chunk.toString();
+		this.mainProcessLogs.push( text );
+		this.mainProcessLogSize += text.length;
+
+		while (
+			this.mainProcessLogSize > this.maxMainProcessLogSize &&
+			this.mainProcessLogs.length > 1
+		) {
+			const removed = this.mainProcessLogs.shift();
+			this.mainProcessLogSize -= removed?.length ?? 0;
+		}
+	}
+
+	private getMainProcessLogs() {
+		return this.mainProcessLogs.join( '' ).trim();
 	}
 }

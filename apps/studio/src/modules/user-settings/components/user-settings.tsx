@@ -45,7 +45,7 @@ export default function UserSettings() {
 
 	useIpcListener( 'user-settings', ( _event, { tabName } ) => {
 		setSelectedTabName( tabName );
-		setNeedsToOpenUserSettings( ! needsToOpenUserSettings );
+		setNeedsToOpenUserSettings( ( prev ) => ! prev );
 	} );
 
 	const onRemoveSnapshots = useCallback( async () => {

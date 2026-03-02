@@ -46,54 +46,52 @@ export default function App() {
 	return (
 		<EnabledAddonsProvider>
 			<AddonAppProviders>
-				<>
-					{ needsOnboarding || isEmpty ? (
-						<VStack
-							className={ cx( 'h-screen backdrop-blur-3xl app-drag-region select-none' ) }
-							spacing="0"
-						>
-							{ isWindows() && <WindowsTitlebar className="h-titlebar-win flex-shrink-0" /> }
-							{ needsOnboarding ? <Onboarding /> : <NoStudioSites /> }
-						</VStack>
-					) : (
-						<VStack
-							className={ cx(
-								'h-screen bg-chrome backdrop-blur-3xl ltr:pr-chrome rtl:pl-chrome app-drag-region select-none',
-								isWindows() && 'pt-0 pb-chrome',
-								! isWindows() && 'py-chrome'
-							) }
-							spacing="0"
-						>
-							{ isWindows() ? (
-								<WindowsTitlebar className="h-titlebar-win flex-shrink-0">
-									<TopBar onToggleSidebar={ toggleSidebar } />
-								</WindowsTitlebar>
-							) : (
-								<MacTitlebar className="flex-shrink-0">
-									<TopBar onToggleSidebar={ toggleSidebar } />
-								</MacTitlebar>
-							) }
+				{ needsOnboarding || isEmpty ? (
+					<VStack
+						className={ cx( 'h-screen backdrop-blur-3xl app-drag-region select-none' ) }
+						spacing="0"
+					>
+						{ isWindows() && <WindowsTitlebar className="h-titlebar-win flex-shrink-0" /> }
+						{ needsOnboarding ? <Onboarding /> : <NoStudioSites /> }
+					</VStack>
+				) : (
+					<VStack
+						className={ cx(
+							'h-screen bg-chrome backdrop-blur-3xl ltr:pr-chrome rtl:pl-chrome app-drag-region select-none',
+							isWindows() && 'pt-0 pb-chrome',
+							! isWindows() && 'py-chrome'
+						) }
+						spacing="0"
+					>
+						{ isWindows() ? (
+							<WindowsTitlebar className="h-titlebar-win flex-shrink-0">
+								<TopBar onToggleSidebar={ toggleSidebar } />
+							</WindowsTitlebar>
+						) : (
+							<MacTitlebar className="flex-shrink-0">
+								<TopBar onToggleSidebar={ toggleSidebar } />
+							</MacTitlebar>
+						) }
 
-							<HStack spacing="0" alignment="left" className="flex-grow">
-								<MainSidebar
-									className={ cx(
-										'h-full transition-all duration-500',
-										isSidebarVisible ? 'basis-52 flex-shrink-0' : 'basis-0 !min-w-[10px]'
-									) }
-								/>
-								<main
-									data-testid="site-content"
-									className="bg-white h-full flex-grow rounded-chrome overflow-hidden z-10"
-								>
-									<MainContent />
-								</main>
-							</HStack>
-						</VStack>
-					) }
-					<UserSettings />
-					<WhatsNewModal showModal={ shouldShowWhatsNew } onClose={ closeWhatsNew } />
-				</>
+						<HStack spacing="0" alignment="left" className="flex-grow">
+							<MainSidebar
+								className={ cx(
+									'h-full transition-all duration-500',
+									isSidebarVisible ? 'basis-52 flex-shrink-0' : 'basis-0 !min-w-[10px]'
+								) }
+							/>
+							<main
+								data-testid="site-content"
+								className="bg-white h-full flex-grow rounded-chrome overflow-hidden z-10"
+							>
+								<MainContent />
+							</main>
+						</HStack>
+					</VStack>
+				) }
 			</AddonAppProviders>
+			<UserSettings />
+			<WhatsNewModal showModal={ shouldShowWhatsNew } onClose={ closeWhatsNew } />
 		</EnabledAddonsProvider>
 	);
 }

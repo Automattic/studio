@@ -6,6 +6,7 @@ import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { z } from 'zod';
 import { validateBlocks, type ValidationReport } from 'cli/ai/block-validator';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
+import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
 import { runCommand as runListSitesCommand } from 'cli/commands/site/list';
 import { runCommand as runStartSiteCommand } from 'cli/commands/site/start';
 import { runCommand as runStatusCommand } from 'cli/commands/site/status';
@@ -248,6 +249,29 @@ const stopSiteTool = tool(
 		} catch ( error ) {
 			return errorResult(
 				`Failed to stop site: ${ error instanceof Error ? error.message : String( error ) }`
+			);
+		}
+	}
+);
+
+const deleteSiteTool = tool(
+	'site_delete',
+	'Deletes a WordPress site by name or path. Removes the site from Studio and optionally moves site files to trash.',
+	z.object( {
+		nameOrPath: z.string().describe( 'The site name or file system path to the site' ),
+		deleteFiles: z
+			.boolean()
+			.optional()
+			.describe( 'Also move site files to trash. Defaults to false.' ),
+	} ),
+	async ( args ) => {
+		try {
+			const site = await resolveSite( args.nameOrPath );
+			await runDeleteSiteCommand( site.path, args.deleteFiles ?? false );
+			return textResult( `Site "${ site.name }" deleted.` );
+		} catch ( error ) {
+			return errorResult(
+				`Failed to delete site: ${ error instanceof Error ? error.message : String( error ) }`
 			);
 		}
 	}
@@ -536,6 +560,7 @@ export function createStudioTools() {
 			getSiteInfoTool,
 			startSiteTool,
 			stopSiteTool,
+			deleteSiteTool,
 			runWpCliTool,
 			validateBlocksTool,
 			takeScreenshotTool,

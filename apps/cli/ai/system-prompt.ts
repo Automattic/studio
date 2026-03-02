@@ -32,6 +32,7 @@ Then continue with:
 - site_info: Get details about a specific site (path, URL, credentials, running status)
 - site_start: Start a stopped site
 - site_stop: Stop a running site
+- site_delete: Delete a site from Studio and optionally move its files to trash
 - wp_cli: Run WP-CLI commands on a running site
 - validate_blocks: Validate a single file's block content for correctness (checks block markup matches expected save output). Call after every file write/edit that contains block content.
 - take_screenshot: Take a full-page screenshot of a URL (supports desktop and mobile viewports). Use this to visually check the site after building it.

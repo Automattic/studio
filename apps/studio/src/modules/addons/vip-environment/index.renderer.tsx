@@ -28,7 +28,7 @@ const VipIcon = () => (
 		width="24"
 		height="24"
 		fill="none"
-		stroke="currentColor"
+		stroke="#3858E9"
 		strokeWidth="1.5"
 		aria-hidden="true"
 	>

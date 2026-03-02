@@ -129,8 +129,15 @@ export interface AddonTopBarItem {
 // ─── Add-Site Flow ────────────────────────────────────────────────────────────
 
 export interface AddonAddSiteFlowProps {
+	/** Call when the addon has successfully created the site. */
 	onSubmit: () => void;
+	/** Call whenever form validity changes; controls the stepper "Add site" button. */
 	onValidityChange: ( isValid: boolean ) => void;
+	/**
+	 * Optional ref. The addon component should set `submitRef.current` to its submit
+	 * function so the stepper footer's "Add site" button can trigger it.
+	 */
+	submitRef?: React.RefObject< ( () => void ) | null >;
 }
 
 export interface AddonAddSiteFlow {

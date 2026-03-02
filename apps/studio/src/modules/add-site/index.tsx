@@ -129,6 +129,8 @@ function NavigationContent( props: NavigationContentProps ) {
 		}
 	}, [ isDeeplinkFlow, goTo, setIsDeeplinkFlow, selectedBlueprint ] );
 
+	const [ isAddonFormValid, setIsAddonFormValid ] = useState( false );
+
 	const handleOptionSelect = useCallback(
 		( option: AddSiteFlowType ) => {
 			if ( option === 'blueprint' ) {
@@ -229,6 +231,9 @@ function NavigationContent( props: NavigationContentProps ) {
 				setRemoteSiteName( '' );
 			}
 			goToFirstStep();
+		} else if ( location.path?.startsWith( '/addon-' ) ) {
+			setIsAddonFormValid( false );
+			goToFirstStep();
 		} else {
 			goToFirstStep();
 		}
@@ -242,6 +247,7 @@ function NavigationContent( props: NavigationContentProps ) {
 		setBlueprintWarnings,
 		setSelectedRemoteSite,
 		setBlueprintSuggestedSiteName,
+		setIsAddonFormValid,
 	] );
 
 	const applyBlueprintFormValues = useCallback(
@@ -322,6 +328,7 @@ function NavigationContent( props: NavigationContentProps ) {
 	}, [ defaultValues, blueprintPreferredVersions, blueprintSuggestedSiteName, wpVersions ] );
 
 	const formRef = useRef< HTMLFormElement >( null );
+	const addonSubmitRef = useRef< ( () => void ) | null >( null );
 
 	const createSiteProps = {
 		onSelectPath,
@@ -408,7 +415,8 @@ function NavigationContent( props: NavigationContentProps ) {
 							startOver();
 							goTo( '/' );
 						} }
-						onValidityChange={ () => {} }
+						onValidityChange={ setIsAddonFormValid }
+						submitRef={ addonSubmitRef }
 					/>
 				</Navigator.Screen>
 			) ) }
@@ -423,12 +431,16 @@ function NavigationContent( props: NavigationContentProps ) {
 				onCreateSubmit={ () => {
 					formRef.current?.requestSubmit();
 				} }
+				onAddonSubmit={ () => {
+					addonSubmitRef.current?.();
+				} }
 				canSubmitBlueprint={ !! selectedBlueprint }
 				canSubmitBlueprintDetails={ !! selectedBlueprint }
 				canSubmitBlueprintDeeplink={ !! selectedBlueprint }
 				canSubmitBackup={ !! fileForImport }
 				canSubmitPullRemote={ !! selectedRemoteSite }
 				canSubmitCreate={ canSubmit }
+				canSubmitAddon={ isAddonFormValid }
 			/>
 		</>
 	);

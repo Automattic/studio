@@ -9,6 +9,7 @@ import {
 } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState, useCallback, useEffect } from 'react';
+import Button from 'src/components/button';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getVipIpcApi } from './vip-ipc';
@@ -28,7 +29,7 @@ const MULTISITE_OPTIONS = [
 	{ label: 'Yes - Subdirectory', value: 'subdirectory' },
 ];
 
-export function CreateVipSite( { onSubmit, onValidityChange }: AddonAddSiteFlowProps ) {
+export function CreateVipSite( { onSubmit, onValidityChange, submitRef }: AddonAddSiteFlowProps ) {
 	const { __ } = useI18n();
 	const [ showAdvanced, setShowAdvanced ] = useState( false );
 	const [ vipCliStatus, setVipCliStatus ] = useState< VipCliStatus | null >( null );
@@ -141,6 +142,18 @@ export function CreateVipSite( { onSubmit, onValidityChange }: AddonAddSiteFlowP
 		__,
 	] );
 
+	// Register submit function with parent stepper via submitRef
+	useEffect( () => {
+		if ( submitRef ) {
+			submitRef.current = handleSubmit;
+		}
+		return () => {
+			if ( submitRef ) {
+				submitRef.current = null;
+			}
+		};
+	}, [ submitRef, handleSubmit ] );
+
 	if ( ! vipCliStatus ) {
 		return (
 			<VStack className="w-full max-w-md mx-auto" spacing={ 4 }>
@@ -171,7 +184,7 @@ export function CreateVipSite( { onSubmit, onValidityChange }: AddonAddSiteFlowP
 	}
 
 	return (
-		<VStack className="w-full max-w-md mx-auto" spacing={ 4 }>
+		<VStack className="w-full max-w-md mx-auto text-gray-900" spacing={ 4 }>
 			<VStack className="text-center mb-4" spacing={ 2 }>
 				<Heading className="text-[24px] text-gray-900" weight={ 500 }>
 					{ __( 'Create VIP Site' ) }
@@ -219,23 +232,24 @@ export function CreateVipSite( { onSubmit, onValidityChange }: AddonAddSiteFlowP
 					<Text className="text-[13px] font-medium text-gray-700">
 						{ __( 'Application Code' ) }
 					</Text>
-					<HStack spacing={ 2 }>
+					<HStack spacing={ 2 } alignment="top">
 						<TextControl
+							label={ __( 'Application Code Path' ) }
+							hideLabelFromVision
 							value={ appCodePath }
 							onChange={ setAppCodePath }
 							placeholder={ __( 'Demo (default)' ) }
 							className="flex-1"
 							__nextHasNoMarginBottom
 						/>
-						<button
-							type="button"
+						<Button
+							variant="secondary"
 							onClick={ () => {
 								void handleSelectAppCodePath();
 							} }
-							className="px-3 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50"
 						>
 							{ __( 'Browse' ) }
-						</button>
+						</Button>
 					</HStack>
 					<Text className="text-[12px] text-gray-500">
 						{ __( 'Leave empty to use demo code, or select your VIP app repository' ) }
@@ -246,7 +260,7 @@ export function CreateVipSite( { onSubmit, onValidityChange }: AddonAddSiteFlowP
 					type="button"
 					onClick={ () => setShowAdvanced( ! showAdvanced ) }
 					className={ cx(
-						'text-sm text-blue-600 hover:text-blue-800 underline',
+						'text-sm text-a8c-blue-50 hover:text-blue-800 underline',
 						'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded'
 					) }
 				>
@@ -259,23 +273,24 @@ export function CreateVipSite( { onSubmit, onValidityChange }: AddonAddSiteFlowP
 							<Text className="text-[13px] font-medium text-gray-700">
 								{ __( 'VIP MU Plugins' ) }
 							</Text>
-							<HStack spacing={ 2 }>
+							<HStack spacing={ 2 } alignment="top">
 								<TextControl
+									label={ __( 'VIP MU Plugins Path' ) }
+									hideLabelFromVision
 									value={ muPluginsPath }
 									onChange={ setMuPluginsPath }
 									placeholder={ __( 'Demo (default)' ) }
 									className="flex-1"
 									__nextHasNoMarginBottom
 								/>
-								<button
-									type="button"
+								<Button
+									variant="secondary"
 									onClick={ () => {
 										void handleSelectMuPluginsPath();
 									} }
-									className="px-3 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50"
 								>
 									{ __( 'Browse' ) }
-								</button>
+								</Button>
 							</HStack>
 						</div>
 
@@ -292,42 +307,44 @@ export function CreateVipSite( { onSubmit, onValidityChange }: AddonAddSiteFlowP
 							<Text className="text-[13px] font-medium text-gray-700">
 								{ __( 'Optional Services' ) }
 							</Text>
-							<CheckboxControl
-								label={ __( 'Elasticsearch (for Enterprise Search)' ) }
-								checked={ elasticsearch }
-								onChange={ setElasticsearch }
-								__nextHasNoMarginBottom
-							/>
-							<CheckboxControl
-								label={ __( 'phpMyAdmin' ) }
-								checked={ phpmyadmin }
-								onChange={ setPhpmyadmin }
-								__nextHasNoMarginBottom
-							/>
-							<CheckboxControl
-								label={ __( 'XDebug' ) }
-								checked={ xdebug }
-								onChange={ setXdebug }
-								__nextHasNoMarginBottom
-							/>
-							<CheckboxControl
-								label={ __( 'Mailpit (email testing)' ) }
-								checked={ mailpit }
-								onChange={ setMailpit }
-								__nextHasNoMarginBottom
-							/>
-							<CheckboxControl
-								label={ __( 'Photon (image optimization)' ) }
-								checked={ photon }
-								onChange={ setPhoton }
-								__nextHasNoMarginBottom
-							/>
-							<CheckboxControl
-								label={ __( 'Cron' ) }
-								checked={ cron }
-								onChange={ setCron }
-								__nextHasNoMarginBottom
-							/>
+							<div className="[&_label]:text-gray-900 [&_.components-checkbox-control\_\_label]:text-gray-900">
+								<CheckboxControl
+									label={ __( 'Elasticsearch (for Enterprise Search)' ) }
+									checked={ elasticsearch }
+									onChange={ setElasticsearch }
+									__nextHasNoMarginBottom
+								/>
+								<CheckboxControl
+									label={ __( 'phpMyAdmin' ) }
+									checked={ phpmyadmin }
+									onChange={ setPhpmyadmin }
+									__nextHasNoMarginBottom
+								/>
+								<CheckboxControl
+									label={ __( 'XDebug' ) }
+									checked={ xdebug }
+									onChange={ setXdebug }
+									__nextHasNoMarginBottom
+								/>
+								<CheckboxControl
+									label={ __( 'Mailpit (email testing)' ) }
+									checked={ mailpit }
+									onChange={ setMailpit }
+									__nextHasNoMarginBottom
+								/>
+								<CheckboxControl
+									label={ __( 'Photon (image optimization)' ) }
+									checked={ photon }
+									onChange={ setPhoton }
+									__nextHasNoMarginBottom
+								/>
+								<CheckboxControl
+									label={ __( 'Cron' ) }
+									checked={ cron }
+									onChange={ setCron }
+									__nextHasNoMarginBottom
+								/>
+							</div>
 						</VStack>
 					</VStack>
 				) }
@@ -338,7 +355,7 @@ export function CreateVipSite( { onSubmit, onValidityChange }: AddonAddSiteFlowP
 					</div>
 				) }
 
-				{ /* The parent modal controls the primary submit button via onValidityChange.
+				{ /* The parent stepper controls the primary submit button via onValidityChange + submitRef.
 				     This hidden button allows submit via keyboard. */ }
 				<button
 					type="submit"

@@ -21,12 +21,14 @@ interface StepperConfig {
 	onBackupContinue?: () => void;
 	onPullRemoteContinue?: () => void;
 	onCreateSubmit?: ( event: FormEvent ) => void;
+	onAddonSubmit?: () => void;
 	canSubmitBlueprint?: boolean;
 	canSubmitBlueprintDetails?: boolean;
 	canSubmitBlueprintDeeplink?: boolean;
 	canSubmitBackup?: boolean;
 	canSubmitPullRemote?: boolean;
 	canSubmitCreate?: boolean;
+	canSubmitAddon?: boolean;
 }
 
 interface StepperContext {
@@ -119,6 +121,13 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 			};
 		}
 
+		if ( location.path?.startsWith( '/addon-' ) ) {
+			return {
+				flow: location.path.slice( 1 ) as AddSiteFlowType, // e.g. 'addon-vip'
+				steps: [ { id: 'addon-create', label: __( 'Site details' ), path: location.path } ],
+			};
+		}
+
 		return null;
 	}, [ location.path, __ ] );
 
@@ -172,6 +181,13 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 			return undefined;
 		}
 
+		if ( location.path.startsWith( '/addon-' ) ) {
+			return {
+				label: __( 'Add site' ),
+				isVisible: true,
+			};
+		}
+
 		switch ( location.path ) {
 			case '/blueprint/select':
 			case '/blueprint/select/details':
@@ -199,6 +215,11 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 	// Determine the submit handler based on current path
 	const onSubmit = useCallback( () => {
 		if ( ! location.path ) return;
+
+		if ( location.path.startsWith( '/addon-' ) ) {
+			config?.onAddonSubmit?.();
+			return;
+		}
 
 		switch ( location.path ) {
 			case '/blueprint/select':
@@ -229,6 +250,10 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 	// Determine if submission is allowed based on current path
 	const canSubmit = useMemo( () => {
 		if ( ! location.path ) return false;
+
+		if ( location.path.startsWith( '/addon-' ) ) {
+			return config?.canSubmitAddon ?? false;
+		}
 
 		switch ( location.path ) {
 			case '/blueprint/select':

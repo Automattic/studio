@@ -10,7 +10,7 @@ import { Tooltip } from 'src/components/tooltip';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
-import { AddonAddSiteOptions } from 'src/modules/addons/addon-add-site-flows';
+import { useAddonAddSiteFlows } from 'src/modules/addons/addon-add-site-flows';
 import { BlueprintIcon } from './blueprint-icon';
 
 export type AddSiteFlowType =
@@ -32,6 +32,7 @@ interface OptionButtonProps {
 	disabled?: boolean;
 	disabledTooltip?: string;
 	testId?: string;
+	useGrid?: boolean;
 }
 
 function OptionButton( {
@@ -42,6 +43,7 @@ function OptionButton( {
 	disabled = false,
 	disabledTooltip,
 	testId,
+	useGrid = false,
 }: OptionButtonProps ) {
 	const { isRTL } = useI18n();
 	const chevron = isRTL() ? chevronLeft : chevronRight;
@@ -49,7 +51,7 @@ function OptionButton( {
 		<Tooltip
 			text={ disabledTooltip }
 			disabled={ ! disabled }
-			className={ cx( 'w-full max-w-[460px]' ) }
+			className={ cx( useGrid ? 'w-full' : 'w-full max-w-[460px]' ) }
 		>
 			<HStack
 				as="button"
@@ -84,10 +86,17 @@ export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps 
 	const { __ } = useI18n();
 	const { enableBlueprints } = useFeatureFlags();
 	const isOffline = useOffline();
+	const addonFlows = useAddonAddSiteFlows();
 	const blueprintOfflineMessage = __(
 		'Starting from a Blueprint requires an internet connection.'
 	);
 	const importOfflineMessage = __( 'Importing a site requires an internet connection.' );
+
+	const builtInCount = 3 + ( enableBlueprints ? 1 : 0 );
+	const totalCount = builtInCount + addonFlows.length;
+	const useGrid = totalCount > 4;
+
+	const buttonProps = { useGrid };
 
 	return (
 		<VStack className="text-center w-full" alignment="top" spacing="3">
@@ -97,38 +106,57 @@ export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps 
 			<Text className="text-[15px] font-light text-gray-700 max-w-sm mb-4">
 				{ __( 'Add a clean site, start from a Blueprint or import site from a backup' ) }
 			</Text>
-			<OptionButton
-				icon={ <Icon className="" icon={ plus } size={ 26 } fill="#3858E9" /> }
-				title={ __( 'Create a site' ) }
-				description={ __( 'Start with an empty site' ) }
-				onClick={ () => onOptionSelect( 'create' ) }
-				testId="create-site-option-button"
-			/>
-			{ enableBlueprints && (
+			<div
+				className={ cx(
+					useGrid ? 'grid grid-cols-2 gap-3 w-full' : 'flex flex-col gap-3 w-full items-center'
+				) }
+			>
 				<OptionButton
-					icon={ <BlueprintIcon size={ 24 } /> }
-					title={ __( 'Start from a Blueprint' ) }
-					description={ __( 'Choose a featured Blueprint or use your own' ) }
-					onClick={ () => onOptionSelect( 'blueprint' ) }
-					disabled={ isOffline }
-					disabledTooltip={ blueprintOfflineMessage }
+					{ ...buttonProps }
+					icon={ <Icon className="" icon={ plus } size={ 26 } fill="#3858E9" /> }
+					title={ __( 'Create a site' ) }
+					description={ __( 'Start with an empty site' ) }
+					onClick={ () => onOptionSelect( 'create' ) }
+					testId="create-site-option-button"
 				/>
-			) }
-			<OptionButton
-				icon={ <Icon icon={ download } size={ 24 } fill="#3858E9" /> }
-				title={ __( 'Pull an existing site' ) }
-				description={ __( 'Download directly from WordPress.com or Pressable' ) }
-				onClick={ () => onOptionSelect( 'pullRemote' ) }
-				disabled={ isOffline }
-				disabledTooltip={ importOfflineMessage }
-			/>
-			<OptionButton
-				icon={ <Icon icon={ backup } size={ 24 } fill="#3858E9" /> }
-				title={ __( 'Import from a backup' ) }
-				description={ __( 'Start a site from a backup' ) }
-				onClick={ () => onOptionSelect( 'backup' ) }
-			/>
-			<AddonAddSiteOptions onSelect={ onOptionSelect } />
+				{ enableBlueprints && (
+					<OptionButton
+						{ ...buttonProps }
+						icon={ <BlueprintIcon size={ 24 } /> }
+						title={ __( 'Start from a Blueprint' ) }
+						description={ __( 'Choose a featured Blueprint or use your own' ) }
+						onClick={ () => onOptionSelect( 'blueprint' ) }
+						disabled={ isOffline }
+						disabledTooltip={ blueprintOfflineMessage }
+					/>
+				) }
+				<OptionButton
+					{ ...buttonProps }
+					icon={ <Icon icon={ download } size={ 24 } fill="#3858E9" /> }
+					title={ __( 'Pull an existing site' ) }
+					description={ __( 'Download directly from WordPress.com or Pressable' ) }
+					onClick={ () => onOptionSelect( 'pullRemote' ) }
+					disabled={ isOffline }
+					disabledTooltip={ importOfflineMessage }
+				/>
+				<OptionButton
+					{ ...buttonProps }
+					icon={ <Icon icon={ backup } size={ 24 } fill="#3858E9" /> }
+					title={ __( 'Import from a backup' ) }
+					description={ __( 'Start a site from a backup' ) }
+					onClick={ () => onOptionSelect( 'backup' ) }
+				/>
+				{ addonFlows.map( ( flow ) => (
+					<OptionButton
+						key={ flow.type }
+						{ ...buttonProps }
+						icon={ flow.icon }
+						title={ flow.label }
+						description={ flow.description }
+						onClick={ () => onOptionSelect( flow.type ) }
+					/>
+				) ) }
+			</div>
 		</VStack>
 	);
 }

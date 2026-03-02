@@ -1,15 +1,9 @@
-import {
-	__experimentalVStack as VStack,
-	__experimentalHStack as HStack,
-	__experimentalHeading as Heading,
-	__experimentalText as Text,
-	SelectControl,
-	CheckboxControl,
-	TextControl,
-} from '@wordpress/components';
+import { SelectControl, Icon } from '@wordpress/components';
+import { chevronRight, chevronDown } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState, useCallback, useEffect } from 'react';
 import Button from 'src/components/button';
+import TextControlComponent from 'src/components/text-control';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getVipIpcApi } from './vip-ipc';
@@ -24,9 +18,9 @@ const PHP_VERSIONS = [
 ];
 
 const MULTISITE_OPTIONS = [
-	{ label: 'No', value: 'false' },
-	{ label: 'Yes - Subdomain', value: 'subdomain' },
-	{ label: 'Yes - Subdirectory', value: 'subdirectory' },
+	{ label: 'No multisite', value: 'false' },
+	{ label: 'Subdomain multisite', value: 'subdomain' },
+	{ label: 'Subdirectory multisite', value: 'subdirectory' },
 ];
 
 export function CreateVipSite( { onSubmit, onValidityChange, submitRef }: AddonAddSiteFlowProps ) {
@@ -156,217 +150,217 @@ export function CreateVipSite( { onSubmit, onValidityChange, submitRef }: AddonA
 
 	if ( ! vipCliStatus ) {
 		return (
-			<VStack className="w-full max-w-md mx-auto" spacing={ 4 }>
-				<Text>{ __( 'Checking VIP CLI status...' ) }</Text>
-			</VStack>
+			<div className="w-full max-w-md mx-auto text-sm text-gray-500">
+				{ __( 'Checking VIP CLI status…' ) }
+			</div>
 		);
 	}
 
 	if ( ! vipCliStatus.available ) {
 		return (
-			<VStack className="w-full max-w-md mx-auto text-center" spacing={ 4 }>
-				<Heading className="text-[24px] text-gray-900" weight={ 500 }>
-					{ __( 'VIP CLI Required' ) }
-				</Heading>
-				<Text className="text-[15px] text-gray-600">
+			<div className="w-full max-w-md mx-auto flex flex-col gap-4 text-center">
+				<h2 className="text-2xl font-medium text-gray-900">{ __( 'VIP CLI Required' ) }</h2>
+				<p className="text-[15px] text-gray-600">
 					{ __(
 						'The VIP CLI is required to create VIP Local Development Environments. Please install it first.'
 					) }
-				</Text>
-				<Text className="text-[13px] text-gray-500 font-mono bg-gray-100 p-3 rounded">
+				</p>
+				<code className="text-[13px] text-gray-500 bg-gray-100 p-3 rounded">
 					npm install -g @automattic/vip
-				</Text>
-				{ vipCliStatus.error && (
-					<Text className="text-[13px] text-red-600">{ vipCliStatus.error }</Text>
-				) }
-			</VStack>
+				</code>
+				{ vipCliStatus.error && <p className="text-[13px] text-red-600">{ vipCliStatus.error }</p> }
+			</div>
 		);
 	}
 
-	return (
-		<VStack className="w-full max-w-md mx-auto text-gray-900" spacing={ 4 }>
-			<VStack className="text-center mb-4" spacing={ 2 }>
-				<Heading className="text-[24px] text-gray-900" weight={ 500 }>
-					{ __( 'Create VIP Site' ) }
-				</Heading>
-				<Text className="text-[13px] text-gray-500">
-					{ __( 'VIP CLI version:' ) } { vipCliStatus.version }
-				</Text>
-			</VStack>
+	const chevronIcon = showAdvanced ? chevronDown : chevronRight;
 
-			<div className="w-full space-y-4">
-				<TextControl
-					label={ __( 'Environment Slug' ) }
-					help={ __( 'A unique name for this environment (e.g., my-vip-site)' ) }
+	return (
+		<div className="w-full max-w-md mx-auto flex flex-col gap-6">
+			<div className="text-center">
+				<h2 className="text-2xl font-medium text-gray-900">{ __( 'Create VIP site' ) }</h2>
+				<p className="text-[13px] text-a8c-gray-50 mt-1">
+					{ __( 'VIP CLI:' ) } { vipCliStatus.version }
+				</p>
+			</div>
+
+			<label className="flex flex-col gap-1.5 leading-4">
+				<span className="font-semibold">{ __( 'Environment slug' ) }</span>
+				<TextControlComponent
 					value={ slug }
 					onChange={ ( value ) => setSlug( value.toLowerCase().replace( /\s+/g, '-' ) ) }
 					placeholder="my-vip-site"
-					__nextHasNoMarginBottom
 				/>
+				<span className="text-a8c-gray-50 text-xs">
+					{ __( 'A unique identifier for this environment (lowercase, hyphens allowed).' ) }
+				</span>
+			</label>
 
-				<TextControl
-					label={ __( 'WordPress Site Title' ) }
-					value={ title }
-					onChange={ setTitle }
-					placeholder="VIP Dev"
-					__nextHasNoMarginBottom
-				/>
+			<label className="flex flex-col gap-1.5 leading-4">
+				<span className="font-semibold">{ __( 'Site title' ) }</span>
+				<TextControlComponent value={ title } onChange={ setTitle } placeholder="VIP Dev" />
+			</label>
 
+			<div className="flex flex-col gap-1.5 leading-4">
+				<label className="font-semibold" htmlFor="vip-php-version">
+					{ __( 'PHP version' ) }
+				</label>
 				<SelectControl
-					label={ __( 'PHP Version' ) }
+					id="vip-php-version"
 					value={ phpVersion }
 					options={ PHP_VERSIONS }
 					onChange={ setPhpVersion }
+					__next40pxDefaultSize
 					__nextHasNoMarginBottom
 				/>
+			</div>
 
+			<div className="flex flex-col gap-1.5 leading-4">
+				<label className="font-semibold" htmlFor="vip-multisite">
+					{ __( 'Multisite' ) }
+				</label>
 				<SelectControl
-					label={ __( 'Multisite' ) }
+					id="vip-multisite"
 					value={ multisite }
 					options={ MULTISITE_OPTIONS }
 					onChange={ setMultisite }
+					__next40pxDefaultSize
 					__nextHasNoMarginBottom
 				/>
+			</div>
 
-				<div className="space-y-1">
-					<Text className="text-[13px] font-medium text-gray-700">
-						{ __( 'Application Code' ) }
-					</Text>
-					<HStack spacing={ 2 } alignment="top">
-						<TextControl
-							label={ __( 'Application Code Path' ) }
-							hideLabelFromVision
-							value={ appCodePath }
-							onChange={ setAppCodePath }
+			<div className="flex flex-col gap-1.5 leading-4">
+				<span className="font-semibold">{ __( 'Application code' ) }</span>
+				<div className="flex gap-2">
+					<TextControlComponent
+						value={ appCodePath }
+						onChange={ setAppCodePath }
+						placeholder={ __( 'Demo (default)' ) }
+						className="flex-1"
+					/>
+					<Button
+						variant="secondary"
+						onClick={ () => {
+							void handleSelectAppCodePath();
+						} }
+					>
+						{ __( 'Browse' ) }
+					</Button>
+				</div>
+				<span className="text-a8c-gray-50 text-xs">
+					{ __( 'Leave empty to use demo code, or select your VIP app repository.' ) }
+				</span>
+			</div>
+
+			<div className="flex flex-row items-center">
+				<Button
+					className="pl-0"
+					onClick={ () => setShowAdvanced( ! showAdvanced ) }
+					data-testid="vip-advanced-settings-button"
+				>
+					<Icon size={ 24 } icon={ chevronIcon } />
+					<div className="text-[13px] leading-[16px] ml-2">{ __( 'Advanced settings' ) }</div>
+				</Button>
+			</div>
+
+			<div
+				className={ cx(
+					'transition-all duration-500 ease-in-out overflow-hidden flex flex-col gap-6 interpolate-size-allow-keywords',
+					showAdvanced ? 'h-auto opacity-100' : 'h-0 opacity-0'
+				) }
+			>
+				<div className="flex flex-col gap-1.5 leading-4">
+					<span className="font-semibold">{ __( 'VIP MU plugins' ) }</span>
+					<div className="flex gap-2">
+						<TextControlComponent
+							value={ muPluginsPath }
+							onChange={ setMuPluginsPath }
 							placeholder={ __( 'Demo (default)' ) }
 							className="flex-1"
-							__nextHasNoMarginBottom
 						/>
 						<Button
 							variant="secondary"
 							onClick={ () => {
-								void handleSelectAppCodePath();
+								void handleSelectMuPluginsPath();
 							} }
 						>
 							{ __( 'Browse' ) }
 						</Button>
-					</HStack>
-					<Text className="text-[12px] text-gray-500">
-						{ __( 'Leave empty to use demo code, or select your VIP app repository' ) }
-					</Text>
+					</div>
 				</div>
 
-				<button
-					type="button"
-					onClick={ () => setShowAdvanced( ! showAdvanced ) }
-					className={ cx(
-						'text-sm text-a8c-blue-50 hover:text-blue-800 underline',
-						'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded'
-					) }
-				>
-					{ showAdvanced ? __( 'Hide advanced settings' ) : __( 'Show advanced settings' ) }
-				</button>
+				<label className="flex flex-col gap-1.5 leading-4">
+					<span className="font-semibold">{ __( 'Media redirect domain' ) }</span>
+					<TextControlComponent
+						value={ mediaRedirectDomain }
+						onChange={ setMediaRedirectDomain }
+						placeholder="https://example.com"
+					/>
+					<span className="text-a8c-gray-50 text-xs">
+						{ __( 'Proxy missing media files from this domain.' ) }
+					</span>
+				</label>
 
-				{ showAdvanced && (
-					<VStack className="pt-4 border-t border-gray-200" spacing={ 4 }>
-						<div className="space-y-1">
-							<Text className="text-[13px] font-medium text-gray-700">
-								{ __( 'VIP MU Plugins' ) }
-							</Text>
-							<HStack spacing={ 2 } alignment="top">
-								<TextControl
-									label={ __( 'VIP MU Plugins Path' ) }
-									hideLabelFromVision
-									value={ muPluginsPath }
-									onChange={ setMuPluginsPath }
-									placeholder={ __( 'Demo (default)' ) }
-									className="flex-1"
-									__nextHasNoMarginBottom
-								/>
-								<Button
-									variant="secondary"
-									onClick={ () => {
-										void handleSelectMuPluginsPath();
-									} }
-								>
-									{ __( 'Browse' ) }
-								</Button>
-							</HStack>
+				<div className="flex flex-col gap-2">
+					<span className="font-semibold">{ __( 'Optional services' ) }</span>
+					{ [
+						{
+							id: 'vip-elasticsearch',
+							label: __( 'Elasticsearch (Enterprise Search)' ),
+							checked: elasticsearch,
+							onChange: setElasticsearch,
+						},
+						{
+							id: 'vip-phpmyadmin',
+							label: __( 'phpMyAdmin' ),
+							checked: phpmyadmin,
+							onChange: setPhpmyadmin,
+						},
+						{ id: 'vip-xdebug', label: __( 'XDebug' ), checked: xdebug, onChange: setXdebug },
+						{
+							id: 'vip-mailpit',
+							label: __( 'Mailpit (email testing)' ),
+							checked: mailpit,
+							onChange: setMailpit,
+						},
+						{
+							id: 'vip-photon',
+							label: __( 'Photon (image optimization)' ),
+							checked: photon,
+							onChange: setPhoton,
+						},
+						{ id: 'vip-cron', label: __( 'Cron' ), checked: cron, onChange: setCron },
+					].map( ( { id, label, checked, onChange } ) => (
+						<div key={ id } className="flex items-center gap-2">
+							<input
+								type="checkbox"
+								id={ id }
+								checked={ checked }
+								onChange={ ( e ) => onChange( e.target.checked ) }
+							/>
+							<label htmlFor={ id }>{ label }</label>
 						</div>
-
-						<TextControl
-							label={ __( 'Media Redirect Domain' ) }
-							help={ __( 'Proxy missing media files from this domain' ) }
-							value={ mediaRedirectDomain }
-							onChange={ setMediaRedirectDomain }
-							placeholder="https://example.com"
-							__nextHasNoMarginBottom
-						/>
-
-						<VStack spacing={ 2 }>
-							<Text className="text-[13px] font-medium text-gray-700">
-								{ __( 'Optional Services' ) }
-							</Text>
-							<div className="[&_label]:text-gray-900 [&_.components-checkbox-control\_\_label]:text-gray-900">
-								<CheckboxControl
-									label={ __( 'Elasticsearch (for Enterprise Search)' ) }
-									checked={ elasticsearch }
-									onChange={ setElasticsearch }
-									__nextHasNoMarginBottom
-								/>
-								<CheckboxControl
-									label={ __( 'phpMyAdmin' ) }
-									checked={ phpmyadmin }
-									onChange={ setPhpmyadmin }
-									__nextHasNoMarginBottom
-								/>
-								<CheckboxControl
-									label={ __( 'XDebug' ) }
-									checked={ xdebug }
-									onChange={ setXdebug }
-									__nextHasNoMarginBottom
-								/>
-								<CheckboxControl
-									label={ __( 'Mailpit (email testing)' ) }
-									checked={ mailpit }
-									onChange={ setMailpit }
-									__nextHasNoMarginBottom
-								/>
-								<CheckboxControl
-									label={ __( 'Photon (image optimization)' ) }
-									checked={ photon }
-									onChange={ setPhoton }
-									__nextHasNoMarginBottom
-								/>
-								<CheckboxControl
-									label={ __( 'Cron' ) }
-									checked={ cron }
-									onChange={ setCron }
-									__nextHasNoMarginBottom
-								/>
-							</div>
-						</VStack>
-					</VStack>
-				) }
-
-				{ submitError && (
-					<div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
-						{ submitError }
-					</div>
-				) }
-
-				{ /* The parent stepper controls the primary submit button via onValidityChange + submitRef.
-				     This hidden button allows submit via keyboard. */ }
-				<button
-					type="submit"
-					className="sr-only"
-					onClick={ () => {
-						void handleSubmit();
-					} }
-					disabled={ isSubmitting }
-					aria-hidden
-				/>
+					) ) }
+				</div>
 			</div>
-		</VStack>
+
+			{ submitError && (
+				<div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+					{ submitError }
+				</div>
+			) }
+
+			{ /* The parent stepper controls the primary submit button via onValidityChange + submitRef.
+			     This hidden button allows submit via keyboard. */ }
+			<button
+				type="submit"
+				className="sr-only"
+				onClick={ () => {
+					void handleSubmit();
+				} }
+				disabled={ isSubmitting }
+				aria-hidden
+			/>
+		</div>
 	);
 }

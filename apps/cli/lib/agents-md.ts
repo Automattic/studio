@@ -7,7 +7,7 @@ const AGENTS_MD_TEMPLATE = `# AI Instructions
 
 This is a local WordPress site managed by [WordPress Studio](https://developer.wordpress.com/studio/), a free desktop app for local WordPress development. Studio uses [WordPress Playground](https://wordpress.github.io/wordpress-playground/) (PHP WASM) as its runtime.
 
-> **IMPORTANT:** This site is managed by Studio. Always use \`studio wp\` instead of \`wp\` directly. Never suggest using the WordPress admin UI or a standalone \`wp\` binary to manage this site — use the Studio CLI commands below.
+> **IMPORTANT:** This site is managed by Studio. Always use \`studio wp\` instead of a standalone \`wp\` binary — Studio runs WordPress through PHP WASM and WP-CLI must go through the same runtime.
 
 ## Managing This Site
 
@@ -27,9 +27,6 @@ studio site set --wp 6.8   # Update WordPress version
 studio wp plugin install woocommerce --activate
 studio wp plugin list
 studio wp theme activate twentytwentyfive
-studio wp post create --post_title="Hello" --post_status=publish
-studio wp eval 'echo get_bloginfo("name");'
-studio wp db query "SELECT * FROM wp_options WHERE option_name='blogname';"
 \`\`\`
 
 Note: \`wp shell\` is not supported. Always use \`studio wp\` rather than a standalone \`wp\` binary — Studio runs WordPress through PHP WASM and WP-CLI must go through the same runtime.
@@ -75,7 +72,7 @@ add_action( 'wp_enqueue_scripts', function () {
 
 ## Database: SQLite (not MySQL)
 
-Studio uses **SQLite** as the WordPress database backend via the [SQLite Database Integration](https://wordpress.org/plugins/sqlite-database-integration/) plugin. There is no MySQL server.
+Studio uses **SQLite** as the WordPress database backend via the [SQLite Database Integration](https://github.com/WordPress/sqlite-database-integration) plugin. There is no MySQL server. The plugin works as a MySQL emulation layer — it translates WordPress's MySQL queries into SQLite, so standard \`$wpdb\` queries work without any changes.
 
 **File locations:**
 - Integration plugin: \`wp-content/mu-plugins/sqlite-database-integration/\`
@@ -87,24 +84,18 @@ Studio uses **SQLite** as the WordPress database backend via the [SQLite Databas
 studio wp db query "SELECT option_name, option_value FROM wp_options LIMIT 10;"
 \`\`\`
 
-**SQLite limitations to be aware of:**
+**Known limitations:**
 - No stored procedures or user-defined functions
 - No \`FULLTEXT\` index support (use a search plugin instead)
-- Some MySQL-specific functions are unavailable (\`GROUP_CONCAT\` with \`ORDER BY\`, \`REGEXP\`, date-formatting functions)
-- \`ALTER TABLE\` support is limited — use \`dbDelta()\` for schema changes in plugins
-- The \`utf8mb4\` charset referenced in older code is irrelevant; SQLite handles encoding natively
-
-**Best practices for SQLite-compatible code:**
-- Use \`$wpdb->prepare()\` and the WordPress database abstraction layer — avoid raw MySQL syntax
-- Use \`dbDelta()\` (from \`wp-admin/includes/upgrade.php\`) to create or alter tables in plugins
-- Do not reference \`DB_NAME\`, \`DB_HOST\`, \`DB_USER\`, or \`DB_PASSWORD\` constants — they are not defined
-- If a plugin checks for MySQL and refuses to activate, it may not be compatible with this site
+- Some MySQL-specific functions have limited or no support
+- Do not reference \`DB_NAME\`, \`DB_HOST\`, \`DB_USER\`, or \`DB_PASSWORD\` constants — they are not defined on this site
+- Plugins that explicitly check for a MySQL connection and refuse to run may not be compatible
 
 ## Studio-Specific Notes
 
 **WordPress core:** Do not modify files inside \`wp-includes/\` or \`wp-admin/\`. Studio sites run on WordPress Playground (PHP WASM), and core changes will not persist as expected.
 
-**Must-use plugins:** The \`wp-content/mu-plugins/\` directory contains the SQLite integration. Do not remove files from this directory. You can add your own mu-plugins alongside the existing ones.
+**Must-use plugins:** The \`wp-content/mu-plugins/\` directory contains the SQLite integration. Do not remove files from this directory.
 
 **Port and URL:** The local URL and port are assigned dynamically by Studio. Always retrieve the current URL with \`studio site status\` rather than hardcoding it.
 

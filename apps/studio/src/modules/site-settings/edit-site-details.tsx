@@ -467,9 +467,11 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 													placeholder="admin@localhost.com"
 													className={ adminEmailError ? '[&_input]:!border-red-500' : '' }
 												/>
-												{ adminEmailError && (
-													<span className="text-red-500 text-xs">{ adminEmailError }</span>
-												) }
+												<div className="h-4">
+													{ adminEmailError && (
+														<span className="text-red-500 text-xs">{ adminEmailError }</span>
+													) }
+												</div>
 											</div>
 										</>
 									) }

@@ -7,7 +7,6 @@ import nock from 'nock';
 import { Provider } from 'react-redux';
 import { Dispatch } from 'redux';
 import { vi } from 'vitest';
-import type { WPCOM } from 'wpcom/types';
 import { AuthContext, AuthContextType } from 'src/components/auth-provider';
 import {
 	ContentTabAssistant,
@@ -22,6 +21,7 @@ import { store } from 'src/stores';
 import { generateMessage, chatActions } from 'src/stores/chat-slice';
 import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 import { useGetAssistantQuota, useGetWelcomeMessages } from 'src/stores/wpcom-api';
+import type { WPCOM } from 'wpcom/types';
 
 store.replaceReducer( testReducer );
 

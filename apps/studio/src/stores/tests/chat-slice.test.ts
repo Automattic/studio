@@ -1,5 +1,4 @@
 import { vi } from 'vitest';
-import type { WPCOM } from 'wpcom/types';
 import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { store } from 'src/stores';
@@ -11,6 +10,7 @@ import {
 	testReducer,
 } from 'src/stores/tests/utils/test-reducer';
 import { wpcomApi } from 'src/stores/wpcom-api';
+import type { WPCOM } from 'wpcom/types';
 
 vi.mock( 'src/lib/get-ipc-api' );
 vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {

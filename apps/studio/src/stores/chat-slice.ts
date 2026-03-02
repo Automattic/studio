@@ -2,12 +2,12 @@ import { createSlice, createAsyncThunk, PayloadAction, isAnyOf } from '@reduxjs/
 import * as Sentry from '@sentry/electron/renderer';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
-import type { WPCOM } from 'wpcom/types';
 import { z } from 'zod';
 import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { AppDispatch, RootState } from 'src/stores';
 import { assistantQuotaSchema, wpcomApi } from 'src/stores/wpcom-api';
+import type { WPCOM } from 'wpcom/types';
 
 export type Message = {
 	id?: number;

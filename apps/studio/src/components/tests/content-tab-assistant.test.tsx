@@ -7,7 +7,7 @@ import nock from 'nock';
 import { Provider } from 'react-redux';
 import { Dispatch } from 'redux';
 import { vi } from 'vitest';
-import { WPCOM } from 'wpcom/types';
+import type { WPCOM } from 'wpcom/types';
 import { AuthContext, AuthContextType } from 'src/components/auth-provider';
 import {
 	ContentTabAssistant,
@@ -111,33 +111,37 @@ const initialMessages = [
 	generateMessage( 'Initial message 1', 'user', 0, 100, 10 ),
 	generateMessage( 'Initial message 2', 'assistant', 1, 100, 11 ),
 ];
-let authContextValue: AuthContextType;
-
-function ContextWrapper( props: Parameters< typeof ContentTabAssistant >[ 0 ] ) {
-	return (
-		<Provider store={ store }>
-			<AuthContext.Provider value={ authContextValue }>
-				<ThemeDetailsProvider>
-					<ContentTabAssistant { ...props } />
-				</ThemeDetailsProvider>
-			</AuthContext.Provider>
-		</Provider>
-	);
-}
 
 describe( 'ContentTabAssistant', () => {
 	const authenticate = vi.fn();
 	const logout = vi.fn();
 
-	const setAuthContext = ( overrides: Partial< AuthContextType > = {} ) => {
-		authContextValue = {
+	type ContextState = {
+		selectedSite?: SiteDetails;
+		auth?: Partial< AuthContextType >;
+	};
+
+	const buildContextTree = ( { selectedSite = runningSite, auth = {} }: ContextState = {} ) => {
+		const authContextValue: AuthContextType = {
 			client: createWpcomClient(),
 			isAuthenticated: true,
 			authenticate,
 			logout,
-			...overrides,
+			...auth,
 		};
+
+		return (
+			<Provider store={ store }>
+				<AuthContext.Provider value={ authContextValue }>
+					<ThemeDetailsProvider>
+						<ContentTabAssistant selectedSite={ selectedSite } />
+					</ThemeDetailsProvider>
+				</AuthContext.Provider>
+			</Provider>
+		);
 	};
+
+	const renderWithContext = ( options?: ContextState ) => render( buildContextTree( options ) );
 
 	const getInput = () => screen.getByTestId( 'ai-input-textarea' );
 
@@ -158,7 +162,6 @@ describe( 'ContentTabAssistant', () => {
 		// Avoid flaky late async updates from previous tests by ensuring the default instance exists.
 		store.dispatch( chatActions.setMessages( { instanceId: runningSite.id, messages: [] } ) );
 
-		setAuthContext();
 		vi.mocked( useOffline ).mockReturnValue( false );
 		vi.mocked( useGetWelcomeMessages, { partial: true } ).mockReturnValue( {
 			data: {
@@ -185,7 +188,7 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	it( 'renders placeholder text input', () => {
-		render( <ContextWrapper selectedSite={ runningSite } /> );
+		renderWithContext();
 		const textInput = getInput();
 		expect( textInput ).toBeVisible();
 		expect( textInput ).toBeEnabled();
@@ -193,7 +196,7 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	it( 'renders guideline section', () => {
-		render( <ContextWrapper selectedSite={ runningSite } /> );
+		renderWithContext();
 		const guideLines = getGuidelinesLink();
 		expect( guideLines ).toBeVisible();
 		expect( guideLines ).toHaveTextContent( 'Powered by experimental AI. Learn more' );
@@ -203,7 +206,7 @@ describe( 'ContentTabAssistant', () => {
 		store.dispatch(
 			chatActions.setMessages( { instanceId: runningSite.id, messages: initialMessages } )
 		);
-		render( <ContextWrapper selectedSite={ runningSite } /> );
+		renderWithContext();
 		await waitFor( () => {
 			expect( screen.getByText( 'Initial message 1' ) ).toBeVisible();
 			expect( screen.getByText( 'Initial message 2' ) ).toBeVisible();
@@ -229,8 +232,7 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	it( 'renders default message when not authenticated', async () => {
-		setAuthContext( { isAuthenticated: false } );
-		render( <ContextWrapper selectedSite={ runningSite } /> );
+		renderWithContext( { auth: { isAuthenticated: false } } );
 
 		await waitFor( () => {
 			expect( screen.getByText( 'Hold up!' ) ).toBeVisible();
@@ -241,10 +243,9 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	it( 'renders offline notice when not authenticated', () => {
-		setAuthContext( { isAuthenticated: false } );
 		vi.mocked( useOffline ).mockReturnValue( true );
 
-		render( <ContextWrapper selectedSite={ runningSite } /> );
+		renderWithContext( { auth: { isAuthenticated: false } } );
 		expect( screen.queryByText( 'Hold up!' ) ).not.toBeInTheDocument();
 		expect(
 			screen.queryByText( 'You need to log in to your WordPress.com account to use the assistant.' )
@@ -253,8 +254,7 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	it( 'allows authentication from Assistant chat', async () => {
-		setAuthContext( { isAuthenticated: false } );
-		render( <ContextWrapper selectedSite={ runningSite } /> );
+		renderWithContext( { auth: { isAuthenticated: false } } );
 
 		await waitFor( () => {
 			const loginButton = screen.getByRole( 'button', { name: 'Log in to WordPress.com ↗' } );
@@ -269,8 +269,7 @@ describe( 'ContentTabAssistant', () => {
 	it( 'it stores messages with user-unique keys', async () => {
 		const user1 = { id: 1, email: 'user1@example.com', displayName: 'User 1' };
 		const user2 = { id: 2, email: 'user2@example.com', displayName: 'User 2' };
-		setAuthContext( { user: user1 } );
-		const { rerender } = render( <ContextWrapper selectedSite={ runningSite } /> );
+		const { rerender } = renderWithContext( { auth: { user: user1 } } );
 
 		const textInput = getInput();
 		act( () => {
@@ -282,9 +281,7 @@ describe( 'ContentTabAssistant', () => {
 		} );
 
 		// Simulate user authentication change
-		setAuthContext( { user: user2 } );
-
-		rerender( <ContextWrapper selectedSite={ runningSite } /> );
+		rerender( buildContextTree( { auth: { user: user2 } } ) );
 
 		await waitFor(
 			() => {
@@ -295,8 +292,7 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	it( 'does not render the Welcome messages and example prompts when not authenticated', () => {
-		setAuthContext( { isAuthenticated: false } );
-		render( <ContextWrapper selectedSite={ runningSite } /> );
+		renderWithContext( { auth: { isAuthenticated: false } } );
 
 		expect( screen.getByTestId( 'unauthenticated-header' ) ).toHaveTextContent( 'Hold up!' );
 
@@ -305,7 +301,7 @@ describe( 'ContentTabAssistant', () => {
 
 	it( 'renders Welcome messages and example prompts when the conversation is starts', () => {
 		store.dispatch( chatActions.setMessages( { instanceId: runningSite.id, messages: [] } ) );
-		render( <ContextWrapper selectedSite={ runningSite } /> );
+		renderWithContext();
 
 		expect( screen.getByText( 'Welcome to our service!' ) ).toBeVisible();
 		expect( screen.getByText( 'How to create a WordPress site' ) ).toBeVisible();
@@ -317,7 +313,7 @@ describe( 'ContentTabAssistant', () => {
 		store.dispatch( chatActions.setMessages( { instanceId: runningSite.id, messages: [] } ) );
 		vi.mocked( useOffline ).mockReturnValue( true );
 
-		render( <ContextWrapper selectedSite={ runningSite } /> );
+		renderWithContext();
 		expect( screen.getByText( 'Welcome to our service!' ) ).toBeVisible();
 		expect( screen.getByText( 'How to create a WordPress site' ) ).toBeVisible();
 		expect( screen.getByText( 'How to clear cache' ) ).toBeVisible();
@@ -328,7 +324,7 @@ describe( 'ContentTabAssistant', () => {
 	it( 'should manage the focus state when selecting an example prompt', async () => {
 		store.dispatch( chatActions.setMessages( { instanceId: runningSite.id, messages: [] } ) );
 		const user = userEvent.setup();
-		render( <ContextWrapper selectedSite={ runningSite } /> );
+		renderWithContext();
 
 		const textInput = getInput();
 		await user.type( textInput, '[Tab]' );
@@ -346,7 +342,7 @@ describe( 'ContentTabAssistant', () => {
 	it( 'renders the selected prompt of Welcome messages and confirms other prompts are removed', async () => {
 		store.dispatch( chatActions.setMessages( { instanceId: runningSite.id, messages: [] } ) );
 
-		render( <ContextWrapper selectedSite={ runningSite } /> );
+		renderWithContext();
 
 		await waitFor( () => {
 			expect( screen.getByText( 'Welcome to our service!' ) ).toBeInTheDocument();
@@ -392,7 +388,7 @@ describe( 'ContentTabAssistant', () => {
 			executeWPCLiInline: vi.fn().mockResolvedValue( { stdout: '', stderr: 'Error' } ),
 		} );
 
-		render( <ContextWrapper selectedSite={ runningSite } /> );
+		renderWithContext();
 
 		await waitFor(
 			() => {
@@ -429,7 +425,7 @@ describe( 'ContentTabAssistant', () => {
 			} )
 		);
 
-		const { rerender } = render( <ContextWrapper selectedSite={ runningSite } /> );
+		const { rerender } = renderWithContext();
 		await waitFor(
 			() => {
 				expect( screen.getByText( 'Welcome to our service!' ) ).toBeVisible();
@@ -445,7 +441,7 @@ describe( 'ContentTabAssistant', () => {
 		vi.mocked( useGetAssistantQuota, { partial: true } ).mockReturnValue( {
 			data: { userCanSendMessage: false, daysUntilReset: 4 },
 		} );
-		rerender( <ContextWrapper selectedSite={ runningSite } /> );
+		rerender( buildContextTree() );
 		expect(
 			screen.getByText( 'Your limit will reset in 4 days.', { exact: false } )
 		).toBeVisible();
@@ -454,7 +450,7 @@ describe( 'ContentTabAssistant', () => {
 		).not.toBeInTheDocument();
 
 		vi.mocked( useOffline ).mockReturnValue( true );
-		rerender( <ContextWrapper selectedSite={ runningSite } /> );
+		rerender( buildContextTree() );
 		expect( screen.getByText( 'The AI assistant requires an internet connection.' ) ).toBeVisible();
 		expect(
 			screen.queryByText( 'Your limit will reset in 4 days.', { exact: false } )
@@ -471,7 +467,7 @@ describe( 'ContentTabAssistant', () => {
 			name: 'Another Test Site',
 		};
 
-		const { rerender } = render( <ContextWrapper selectedSite={ runningSite } /> );
+		const { rerender } = renderWithContext();
 
 		// Input should be empty initially
 		expect( getInput() ).toHaveValue( '' );
@@ -481,7 +477,7 @@ describe( 'ContentTabAssistant', () => {
 		expect( getInput() ).toHaveValue( 'New message' );
 
 		// Changing to second site should reset the input
-		rerender( <ContextWrapper selectedSite={ anotherSite } /> );
+		rerender( buildContextTree( { selectedSite: anotherSite } ) );
 		expect( getInput() ).toHaveValue( '' );
 
 		// Input is updated for the second site
@@ -489,11 +485,11 @@ describe( 'ContentTabAssistant', () => {
 		expect( getInput() ).toHaveValue( 'Another message' );
 
 		// Changing to the first site should restore the input
-		rerender( <ContextWrapper selectedSite={ runningSite } /> );
+		rerender( buildContextTree() );
 		expect( getInput() ).toHaveValue( 'New message' );
 
 		// Changing to the second site should restore the input
-		rerender( <ContextWrapper selectedSite={ anotherSite } /> );
+		rerender( buildContextTree( { selectedSite: anotherSite } ) );
 		expect( getInput() ).toHaveValue( 'Another message' );
 	} );
 } );

@@ -3,7 +3,7 @@ import * as Sentry from '@sentry/electron/renderer';
 import { DAY_MS } from '@studio/common/constants';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
-import { WPCOM } from 'wpcom/types';
+import type { WPCOM } from 'wpcom/types';
 import { z } from 'zod';
 import { withOfflineCheck, withOfflineCheckMutation } from 'src/stores/utils/with-offline-check';
 import type { BaseQueryFn, FetchBaseQueryError } from '@reduxjs/toolkit/query';

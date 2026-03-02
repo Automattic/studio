@@ -33,6 +33,7 @@ export interface UserData {
 	preferredEditor?: SupportedEditor;
 	betaFeatures?: BetaFeatures;
 	stopSitesOnQuit?: boolean;
+	addonData?: Record< string, unknown >;
 }
 
 export interface PersistedUserData extends Omit< UserData, 'sites' > {

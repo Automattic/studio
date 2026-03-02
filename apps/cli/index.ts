@@ -8,6 +8,7 @@ import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-wa
 import { StatsGroup, StatsMetric } from '@studio/common/types/stats';
 import { __ } from '@wordpress/i18n';
 import yargs from 'yargs';
+import { registerAddonCliCommands } from 'cli/addons/addon-cli-loader';
 import { commandHandler as eventsCommandHandler } from 'cli/commands/_events';
 import { registerCommand as registerAuthLoginCommand } from 'cli/commands/auth/login';
 import { registerCommand as registerAuthLogoutCommand } from 'cli/commands/auth/logout';
@@ -127,6 +128,8 @@ async function main() {
 		} )
 		.demandCommand( 1, __( 'You must provide a valid command' ) )
 		.strict();
+
+	registerAddonCliCommands( studioArgv );
 
 	await studioArgv.argv;
 }

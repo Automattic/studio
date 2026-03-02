@@ -4,6 +4,7 @@
 import '@sentry/electron/preload';
 import { IpcRendererEvent, contextBridge, ipcRenderer, webUtils } from 'electron';
 import { IpcEvents } from 'src/ipc-utils';
+import { mergeAddonPreloadApis } from 'src/modules/addons/addon-preload-api';
 
 function ipcRendererInvoke< T extends keyof IpcHandlers >(
 	channel: T,
@@ -160,7 +161,7 @@ const api: IpcApi = {
 	uninstallStudioCli: () => ipcRendererInvoke( 'uninstallStudioCli' ),
 };
 
-contextBridge.exposeInMainWorld( 'ipcApi', api );
+contextBridge.exposeInMainWorld( 'ipcApi', { ...api, ...mergeAddonPreloadApis() } );
 
 const subscribe = < T extends keyof IpcEvents >(
 	channel: T,

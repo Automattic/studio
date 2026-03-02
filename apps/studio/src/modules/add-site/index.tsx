@@ -18,6 +18,7 @@ import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { AllowedPHPVersion } from 'src/lib/wordpress-server-types';
 import { useBlueprintDeeplink } from 'src/modules/add-site/hooks/use-blueprint-deeplink';
+import { useAddonAddSiteFlows } from 'src/modules/addons/addon-add-site-flows';
 import { SyncSite } from 'src/modules/sync/types';
 import { useRootSelector, useAppDispatch, useI18nLocale } from 'src/stores';
 import { formatRtkError } from 'src/stores/format-rtk-error';
@@ -87,6 +88,7 @@ interface NavigationContentProps {
 
 function NavigationContent( props: NavigationContentProps ) {
 	const { goTo, location } = useNavigator();
+	const addonFlows = useAddonAddSiteFlows();
 	const {
 		startOver,
 		blueprintsData,
@@ -137,6 +139,9 @@ function NavigationContent( props: NavigationContentProps ) {
 				goTo( '/backup' );
 			} else if ( option === 'pullRemote' ) {
 				goTo( '/pullRemote' );
+			} else {
+				// Addon flow types — navigate to "/addon-{type}"
+				goTo( `/addon-${ option }` );
 			}
 		},
 		[ goTo ]
@@ -396,6 +401,17 @@ function NavigationContent( props: NavigationContentProps ) {
 					defaultValues={ { ...defaultValues, siteName: remoteSiteName } }
 				/>
 			</Navigator.Screen>
+			{ addonFlows.map( ( flow ) => (
+				<Navigator.Screen key={ flow.type } className="flex-1" path={ `/addon-${ flow.type }` }>
+					<flow.component
+						onSubmit={ () => {
+							startOver();
+							goTo( '/' );
+						} }
+						onValidityChange={ () => {} }
+					/>
+				</Navigator.Screen>
+			) ) }
 			<Stepper
 				currentPath={ location.path }
 				onBack={ handleBack }

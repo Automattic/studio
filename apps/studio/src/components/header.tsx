@@ -4,6 +4,7 @@ import Button from 'src/components/button';
 import { SiteManagementActions } from 'src/components/site-management-actions';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { AddonHeaderActions } from 'src/modules/addons/addon-header-actions';
 
 export default function Header() {
 	const { __ } = useI18n();
@@ -63,12 +64,15 @@ export default function Header() {
 					</div>
 				</div>
 			) }
-			<SiteManagementActions
-				onStart={ startServer }
-				loading={ isLoading }
-				onStop={ stopServer }
-				selectedSite={ site }
-			/>
+			<div className="flex items-center gap-2">
+				<AddonHeaderActions selectedSite={ site ?? null } />
+				<SiteManagementActions
+					onStart={ startServer }
+					loading={ isLoading }
+					onStop={ stopServer }
+					selectedSite={ site }
+				/>
+			</div>
 		</div>
 	);
 }

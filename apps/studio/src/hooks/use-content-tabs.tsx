@@ -2,6 +2,7 @@ import { TabPanel } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { createContext, ReactNode, useContext, useMemo, useState } from 'react';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
+import { useAddonContentTabs } from 'src/modules/addons/use-addon-content-tabs';
 
 export type TabName =
 	| 'overview'
@@ -10,14 +11,17 @@ export type TabName =
 	| 'assistant'
 	| 'agents'
 	| 'import-export'
-	| 'previews';
+	| 'previews'
+	| ( string & Record< never, never > ); // Allow addon tab names
 type Tab = React.ComponentProps< typeof TabPanel >[ 'tabs' ][ number ] & {
-	name: TabName;
+	name: string;
+	order: number;
 };
 
 function useTabs() {
 	const { __ } = useI18n();
 	const { enableAgentSuite } = useFeatureFlags();
+	const addonTabs = useAddonContentTabs();
 
 	return useMemo( () => {
 		const tabs: Tab[] = [
@@ -69,12 +73,22 @@ function useTabs() {
 			} );
 		}
 
+		// Addon tabs sort at order 100+ to appear after core tabs
+		for ( const addonTab of addonTabs ) {
+			tabs.push( {
+				order: addonTab.order,
+				name: addonTab.name,
+				title: addonTab.title,
+				className: addonTab.className,
+			} );
+		}
+
 		return tabs.sort( ( a, b ) => a.order - b.order );
-	}, [ __, enableAgentSuite ] );
+	}, [ __, enableAgentSuite, addonTabs ] );
 }
 interface ContentTabsContextType {
-	selectedTab: TabName;
-	setSelectedTab: ( tab: TabName ) => void;
+	selectedTab: string;
+	setSelectedTab: ( tab: string ) => void;
 	tabs: React.ComponentProps< typeof TabPanel >[ 'tabs' ];
 }
 
@@ -82,7 +96,7 @@ const ContentTabsContext = createContext< ContentTabsContextType | undefined >( 
 
 export function ContentTabsProvider( { children }: { children: ReactNode } ) {
 	const tabs = useTabs();
-	const [ selectedTab, setSelectedTab ] = useState< TabName >( tabs[ 0 ].name );
+	const [ selectedTab, setSelectedTab ] = useState< string >( tabs[ 0 ].name );
 
 	return (
 		<ContentTabsContext.Provider value={ { selectedTab, setSelectedTab, tabs } }>

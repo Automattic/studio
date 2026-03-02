@@ -10,6 +10,7 @@ import { Tooltip } from 'src/components/tooltip';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
+import { AddonAddSiteOptions } from 'src/modules/addons/addon-add-site-flows';
 import { BlueprintIcon } from './blueprint-icon';
 
 export type AddSiteFlowType =
@@ -17,7 +18,8 @@ export type AddSiteFlowType =
 	| 'blueprint'
 	| 'blueprintDeeplink'
 	| 'backup'
-	| 'pullRemote';
+	| 'pullRemote'
+	| ( string & Record< never, never > ); // Allow addon flow types
 interface AddSiteOptionsProps {
 	onOptionSelect: ( option: AddSiteFlowType ) => void;
 }
@@ -126,6 +128,7 @@ export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps 
 				description={ __( 'Start a site from a backup' ) }
 				onClick={ () => onOptionSelect( 'backup' ) }
 			/>
+			<AddonAddSiteOptions onSelect={ onOptionSelect } />
 		</VStack>
 	);
 }

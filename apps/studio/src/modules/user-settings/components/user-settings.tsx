@@ -7,6 +7,10 @@ import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import {
+	AddonSettingsPanels,
+	getAddonSettingsTabs,
+} from 'src/modules/addons/addon-settings-panels';
 import { AccountTab } from 'src/modules/user-settings/components/account-tab';
 import { NonAuthenticatedAccountTab } from 'src/modules/user-settings/components/non-authenticated-account-tab';
 import { PreferencesTab } from 'src/modules/user-settings/components/preferences-tab';
@@ -90,6 +94,11 @@ export default function UserSettings() {
 		} );
 	}
 
+	// Append addon settings tabs
+	for ( const addonTab of getAddonSettingsTabs() ) {
+		tabs.push( addonTab );
+	}
+
 	return (
 		<>
 			{ needsToOpenUserSettings && (
@@ -128,6 +137,7 @@ export default function UserSettings() {
 										onRemoveSnapshots={ onRemoveSnapshots }
 									/>
 								) }
+								<AddonSettingsPanels activeTabName={ name } />
 							</div>
 						) }
 					</TabPanel>

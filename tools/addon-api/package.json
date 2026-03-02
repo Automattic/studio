@@ -1,0 +1,8 @@
+{
+	"name": "@studio/addon-api",
+	"version": "1.0.0",
+	"description": "Stable public contract for WordPress Studio addons",
+	"main": "index.ts",
+	"types": "index.ts",
+	"license": "GPL-2.0-or-later"
+}

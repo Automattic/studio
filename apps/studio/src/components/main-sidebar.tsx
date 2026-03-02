@@ -5,6 +5,7 @@ import { useSiteDetails } from 'src/hooks/use-site-details';
 import { isMac } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import AddSite from 'src/modules/add-site';
+import { AddonSidebarContent } from 'src/modules/addons/addon-sidebar-content';
 
 interface MainSidebarProps {
 	className?: string;
@@ -36,6 +37,7 @@ export default function MainSidebar( { className }: MainSidebarProps ) {
 						) }
 					>
 						<SiteMenu />
+						<AddonSidebarContent />
 					</div>
 					<div className="flex flex-col gap-4 pt-5 border-white border-t border-opacity-10 app-no-drag-region">
 						<RunningSites />

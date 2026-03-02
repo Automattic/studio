@@ -8,6 +8,7 @@ import { setupListeners } from '@reduxjs/toolkit/query';
 import { useDispatch, useSelector } from 'react-redux';
 import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { buildAddonReducers, getAddonMiddlewares } from 'src/modules/addons/addon-store-enhancer';
 import { appVersionApi } from 'src/stores/app-version-api';
 import { betaFeaturesReducer, loadBetaFeatures } from 'src/stores/beta-features-slice';
 import { certificateTrustApi } from 'src/stores/certificate-trust-api';
@@ -106,6 +107,7 @@ export const rootReducer = combineReducers( {
 	certificateTrustApi: certificateTrustApi.reducer,
 	i18n: i18nReducer,
 	ui: uiReducer,
+	...buildAddonReducers(),
 } );
 
 export const store = configureStore( {
@@ -120,7 +122,9 @@ export const store = configureStore( {
 			.concat( wordpressVersionsApi.middleware )
 			.concat( wpcomApi.middleware )
 			.concat( wpcomPublicApi.middleware )
-			.concat( certificateTrustApi.middleware ),
+			.concat( certificateTrustApi.middleware )
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			.concat( getAddonMiddlewares() as any ),
 } );
 
 // Enable the refetchOnFocus behavior

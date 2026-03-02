@@ -73,6 +73,7 @@ import { shouldExcludeFromSync, shouldLimitDepth } from 'src/modules/sync/lib/tr
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { getUserTerminal } from 'src/modules/user-settings/lib/ipc-handlers';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
+import { getAddonContextMenuItems } from 'src/modules/addons/addon-loader';
 import { SiteServer, stopAllServers as triggerStopAllServers } from 'src/site-server';
 import { DEFAULT_SITE_PATH, getSiteThumbnailPath } from 'src/storage/paths';
 import {
@@ -1461,6 +1462,49 @@ export function showSiteContextMenu(
 			},
 		} )
 	);
+
+	// Append addon context menu items
+	const addonItems = getAddonContextMenuItems();
+	if ( addonItems.length > 0 ) {
+		menu.append( new MenuItem( { type: 'separator' } ) );
+
+		const menuContext = { siteId, isRunning, isLoading, isAddingSite };
+
+		for ( const addonItem of addonItems ) {
+			if ( addonItem.separator ) {
+				menu.append( new MenuItem( { type: 'separator' } ) );
+			}
+
+			const label =
+				typeof addonItem.label === 'function'
+					? addonItem.label( menuContext )
+					: addonItem.label;
+
+			const enabled =
+				addonItem.enabled === undefined
+					? true
+					: typeof addonItem.enabled === 'function'
+					? addonItem.enabled( menuContext )
+					: addonItem.enabled;
+
+			menu.append(
+				new MenuItem( {
+					label,
+					enabled,
+					click: () => {
+						sendIpcEventToRendererWithWindow(
+							BrowserWindow.fromWebContents( event.sender ),
+							'site-context-menu-action',
+							{
+								action: addonItem.action,
+								siteId,
+							}
+						);
+					},
+				} )
+			);
+		}
+	}
 
 	const window = BrowserWindow.fromWebContents( event.sender );
 	if ( window ) {

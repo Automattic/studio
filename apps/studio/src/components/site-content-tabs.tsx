@@ -15,12 +15,14 @@ import { useEffectiveTab } from 'src/hooks/use-effective-tab';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
+import { useAddonContentTabs } from 'src/modules/addons/use-addon-content-tabs';
 import { ContentTabSync } from 'src/modules/sync';
 
 export function SiteContentTabs() {
 	const { selectedSite, siteCreationMessages } = useSiteDetails();
 	const { importState } = useImportExport();
 	const { effectiveTab, selectedTab, setSelectedTab, tabs } = useEffectiveTab();
+	const addonTabs = useAddonContentTabs();
 	const { __ } = useI18n();
 
 	// Remount: Avoid focus loss on user tab changes (no remount),
@@ -111,6 +113,11 @@ export function SiteContentTabs() {
 						{ name === 'assistant' && <ContentTabAssistant selectedSite={ selectedSite } /> }
 						{ name === 'agents' && <ContentTabAgents /> }
 						{ name === 'import-export' && <ContentTabImportExport selectedSite={ selectedSite } /> }
+						{ addonTabs.map( ( addonTab ) =>
+							name === addonTab.name ? (
+								<addonTab.component key={ addonTab.name } selectedSite={ selectedSite } />
+							) : null
+						) }
 					</div>
 				) }
 			</TabPanel>

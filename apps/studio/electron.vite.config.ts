@@ -23,6 +23,7 @@ export default defineConfig({
 			alias: {
 				src: resolve( __dirname, 'src' ),
 				'@studio/common': resolve( __dirname, '../../tools/common' ),
+				'@studio/addon-api': resolve( __dirname, '../../tools/addon-api/index.ts' ),
 				'@wp-playground/blueprints/blueprint-schema-validator': resolve(
 					__dirname,
 					'../../node_modules/@wp-playground/blueprints/blueprint-schema-validator.js'
@@ -37,7 +38,7 @@ export default defineConfig({
 		},
 		build: {
 			externalizeDeps: {
-				exclude: [ '@studio/common' ],
+				exclude: [ '@studio/common', '@studio/addon-api' ],
 			},
 			rollupOptions: {
 				input: {
@@ -51,6 +52,13 @@ export default defineConfig({
 		},
 	},
 	preload: {
+		resolve: {
+			alias: {
+				src: resolve( __dirname, 'src' ),
+				'@studio/common': resolve( __dirname, '../../tools/common' ),
+				'@studio/addon-api': resolve( __dirname, '../../tools/addon-api/index.ts' ),
+			},
+		},
 		build: {
 			externalizeDeps: { exclude: [ '@sentry/electron' ] },
 			lib: {
@@ -64,6 +72,7 @@ export default defineConfig({
 			alias: {
 				src: resolve( __dirname, 'src' ),
 				'@studio/common': resolve( __dirname, '../../tools/common' ),
+				'@studio/addon-api': resolve( __dirname, '../../tools/addon-api/index.ts' ),
 				cli: resolve( __dirname, '../cli' ),
 				vendor: resolve( __dirname, '../../vendor' ),
 				'@wp-playground/blueprints/blueprint-schema-validator': resolve(

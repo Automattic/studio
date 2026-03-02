@@ -8,7 +8,9 @@
 			"cli/*": [ "apps/cli/*" ],
 			"src/*": [ "apps/studio/src/*" ],
 			"vendor/*": [ "vendor/*" ],
-			"@studio/common/*": [ "tools/common/*" ]
+			"@studio/common/*": [ "tools/common/*" ],
+		"@studio/addon-api": [ "tools/addon-api/index.ts" ],
+		"@studio/addon-api/*": [ "tools/addon-api/*" ]
 		}
 	},
 	"include": [ "src/**/*", "e2e/**/*" ],

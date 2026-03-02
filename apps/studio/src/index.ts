@@ -46,6 +46,7 @@ import {
 } from 'src/migrations/migrate-from-wp-now-folder';
 import { removeSitesWithEmptyDirectories } from 'src/migrations/remove-sites-with-empty-dirs';
 import { renameLaunchUniquesStat } from 'src/migrations/rename-launch-uniques-stat';
+import { initializeAddons, teardownAddons } from 'src/modules/addons/addon-loader';
 import {
 	startCliEventsSubscriber,
 	stopCliEventsSubscriber,
@@ -321,6 +322,8 @@ async function appBoot() {
 			} );
 		} );
 
+		await initializeAddons( validateIpcSender );
+
 		setupIpc();
 
 		await setupWPServerFiles().catch( Sentry.captureException );
@@ -493,6 +496,7 @@ async function appBoot() {
 		globalShortcut.unregisterAll();
 		stopUserDataWatcher();
 		stopCliEventsSubscriber();
+		void teardownAddons();
 
 		if ( shouldStopSitesOnQuit ) {
 			event.preventDefault();

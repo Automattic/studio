@@ -87,7 +87,6 @@ studio wp db query "SELECT option_name, option_value FROM wp_options LIMIT 10;"
 **Known limitations:**
 - No stored procedures or user-defined functions
 - No \`FULLTEXT\` index support (use a search plugin instead)
-- Some MySQL-specific functions have limited or no support
 - Do not reference \`DB_NAME\`, \`DB_HOST\`, \`DB_USER\`, or \`DB_PASSWORD\` constants — they are not defined on this site
 - Plugins that explicitly check for a MySQL connection and refuse to run may not be compatible
 

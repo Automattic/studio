@@ -56,7 +56,7 @@ function OptionButton( {
 			<HStack
 				as="button"
 				className={ cx(
-					'w-full h-[63px] px-4 border border-gray-200 rounded-xl text-left',
+					'w-full min-h-[90px] px-4 py-3 border border-gray-200 rounded-xl text-left',
 					'rtl:text-right',
 					'hover:border-gray-300 hover:bg-gray-50',
 					'disabled:opacity-50 disabled:cursor-not-allowed'
@@ -72,7 +72,7 @@ function OptionButton( {
 					<Heading className="text-[15px]" weight="500">
 						{ title }
 					</Heading>
-					<Text className="text-[13px] text-gray-500 truncate" weight="400">
+					<Text className="text-[13px] text-gray-500" weight="400">
 						{ description }
 					</Text>
 				</VStack>

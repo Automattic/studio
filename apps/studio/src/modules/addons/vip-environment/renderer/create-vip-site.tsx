@@ -176,7 +176,7 @@ export function CreateVipSite( { onSubmit, onValidityChange, submitRef }: AddonA
 	const chevronIcon = showAdvanced ? chevronDown : chevronRight;
 
 	return (
-		<div className="w-full max-w-md mx-auto flex flex-col gap-6">
+		<div className="w-full max-w-md mx-auto flex flex-col gap-6 text-gray-900">
 			<div className="text-center">
 				<h2 className="text-2xl font-medium text-gray-900">{ __( 'Create VIP site' ) }</h2>
 				<p className="text-[13px] text-a8c-gray-50 mt-1">

@@ -7,8 +7,8 @@ import { _electron as electron, Page, ElectronApplication } from 'playwright';
 import { rimraf } from 'rimraf';
 
 export class E2ESession {
-	electronApp: ElectronApplication;
-	mainWindow: Page;
+	electronApp!: ElectronApplication;
+	mainWindow!: Page;
 
 	sessionPath: string;
 	appDataPath: string;

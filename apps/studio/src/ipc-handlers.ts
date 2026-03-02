@@ -66,6 +66,7 @@ import { setupWordPressFilesOnly } from 'src/lib/wordpress-setup';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
+import { getAddonContextMenuItems } from 'src/modules/addons/addon-loader';
 import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
@@ -73,7 +74,6 @@ import { shouldExcludeFromSync, shouldLimitDepth } from 'src/modules/sync/lib/tr
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { getUserTerminal } from 'src/modules/user-settings/lib/ipc-handlers';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
-import { getAddonContextMenuItems } from 'src/modules/addons/addon-loader';
 import { SiteServer, stopAllServers as triggerStopAllServers } from 'src/site-server';
 import { DEFAULT_SITE_PATH, getSiteThumbnailPath } from 'src/storage/paths';
 import {
@@ -118,10 +118,12 @@ export {
 } from 'src/modules/preview-site/lib/ipc-handlers';
 
 export {
+	getEnabledAddonIds,
 	getInstalledAppsAndTerminals,
 	getUserEditor,
 	getUserLocale,
 	getUserTerminal,
+	saveEnabledAddonIds,
 	saveUserEditor,
 	saveUserLocale,
 	saveUserTerminal,
@@ -1476,9 +1478,7 @@ export function showSiteContextMenu(
 			}
 
 			const label =
-				typeof addonItem.label === 'function'
-					? addonItem.label( menuContext )
-					: addonItem.label;
+				typeof addonItem.label === 'function' ? addonItem.label( menuContext ) : addonItem.label;
 
 			const enabled =
 				addonItem.enabled === undefined

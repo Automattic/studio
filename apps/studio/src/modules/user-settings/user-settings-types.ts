@@ -1,5 +1,5 @@
-export type UserSettingsTabName = 'account' | 'preferences' | 'usage';
+export type UserSettingsTabName = 'account' | 'preferences' | 'usage' | 'addons';
 export type UserSettingsTab = {
-	name: UserSettingsTabName;
+	name: UserSettingsTabName | ( string & Record< never, never > );
 	title: string;
 };

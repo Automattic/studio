@@ -62,3 +62,15 @@ export function showUserSettings( event: IpcMainInvokeEvent, tabName?: UserSetti
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	sendIpcEventToRendererWithWindow( parentWindow, 'user-settings', { tabName } );
 }
+
+export async function getEnabledAddonIds(): Promise< string[] > {
+	const userData = await loadUserData();
+	return userData.enabledAddonIds ?? [];
+}
+
+export async function saveEnabledAddonIds(
+	_event: IpcMainInvokeEvent,
+	ids: string[]
+): Promise< void > {
+	await updateAppdata( { enabledAddonIds: ids } );
+}

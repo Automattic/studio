@@ -159,6 +159,8 @@ const api: IpcApi = {
 	isStudioCliInstalled: () => ipcRendererInvoke( 'isStudioCliInstalled' ),
 	installStudioCli: () => ipcRendererInvoke( 'installStudioCli' ),
 	uninstallStudioCli: () => ipcRendererInvoke( 'uninstallStudioCli' ),
+	getEnabledAddonIds: () => ipcRendererInvoke( 'getEnabledAddonIds' ),
+	saveEnabledAddonIds: ( ids: string[] ) => ipcRendererInvoke( 'saveEnabledAddonIds', ids ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', { ...api, ...mergeAddonPreloadApis() } );

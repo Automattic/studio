@@ -12,6 +12,7 @@ import {
 	getAddonSettingsTabs,
 } from 'src/modules/addons/addon-settings-panels';
 import { AccountTab } from 'src/modules/user-settings/components/account-tab';
+import { AddonsTab } from 'src/modules/user-settings/components/addons-tab';
 import { NonAuthenticatedAccountTab } from 'src/modules/user-settings/components/non-authenticated-account-tab';
 import { PreferencesTab } from 'src/modules/user-settings/components/preferences-tab';
 import { UsageTab } from 'src/modules/user-settings/components/usage-tab';
@@ -94,6 +95,11 @@ export default function UserSettings() {
 		} );
 	}
 
+	tabs.push( {
+		name: 'addons',
+		title: __( 'Add-ons' ),
+	} );
+
 	// Append addon settings tabs
 	for ( const addonTab of getAddonSettingsTabs() ) {
 		tabs.push( addonTab );
@@ -127,6 +133,7 @@ export default function UserSettings() {
 										<NonAuthenticatedAccountTab />
 									) ) }
 								{ name === 'preferences' && <PreferencesTab onClose={ resetLocalState } /> }
+								{ name === 'addons' && <AddonsTab /> }
 								{ name === 'usage' && isAuthenticated && (
 									<UsageTab
 										loadingDeletingAllSnapshots={ isDeletingAllSnapshots }

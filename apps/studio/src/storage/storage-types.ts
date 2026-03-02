@@ -34,6 +34,7 @@ export interface UserData {
 	betaFeatures?: BetaFeatures;
 	stopSitesOnQuit?: boolean;
 	addonData?: Record< string, unknown >;
+	enabledAddonIds?: string[];
 }
 
 export interface PersistedUserData extends Omit< UserData, 'sites' > {

@@ -1,16 +1,19 @@
 import { UnknownAction } from '@reduxjs/toolkit';
+import wpcomFactory from '@studio/common/lib/wpcom-factory';
+import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
+import nock from 'nock';
 import { Provider } from 'react-redux';
 import { Dispatch } from 'redux';
 import { vi } from 'vitest';
 import { WPCOM } from 'wpcom/types';
+import { AuthContext, AuthContextType } from 'src/components/auth-provider';
 import {
 	ContentTabAssistant,
 	MIMIC_CONVERSATION_DELAY,
 } from 'src/components/content-tab-assistant';
 import { LOCAL_STORAGE_CHAT_MESSAGES_KEY, CLEAR_HISTORY_REMINDER_TIME } from 'src/constants';
-import * as useAuthModule from 'src/hooks/use-auth';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { useOffline } from 'src/hooks/use-offline';
 import { ThemeDetailsProvider } from 'src/hooks/use-theme-details';
@@ -60,58 +63,90 @@ const runningSite = {
 	url: 'http://example.com',
 };
 
-const createWpcomStub = ( clientReqPost: ReturnType< typeof vi.fn > ): Partial< WPCOM > => ( {
-	req: { post: clientReqPost, get: vi.fn(), put: vi.fn(), del: vi.fn() },
-} );
+const createWpcomClient = (): WPCOM => wpcomFactory( 'test-token', wpcomXhrRequest );
+
+const mockAssistantChat = () => {
+	const chatResponse = {
+		id: 100,
+		created_at: '2025-01-24 09:11:50',
+		choices: [
+			{
+				index: 0,
+				message: {
+					id: 0,
+					role: 'assistant',
+					content:
+						'Hello! How can I assist you today? Are you working on a WordPress project, or do you need help with something specific related to WordPress or WP-CLI?',
+				},
+			},
+		],
+	};
+	const quotaHeaders = {
+		'x-quota-max': '100',
+		'x-quota-remaining': '99',
+		'x-quota-reset': '2025-05-01T00:00:00+00:00',
+	};
+
+	nock( 'https://public-api.wordpress.com' )
+		.persist()
+		.post( '/wpcom/v2/studio-app/ai-assistant/chat' )
+		.query( true )
+		.reply( ( uri ) => {
+			const isEnvelopeMode = uri.includes( '_envelope=1' );
+			if ( isEnvelopeMode ) {
+				return [
+					200,
+					{
+						status: 200,
+						headers: quotaHeaders,
+						body: chatResponse,
+					},
+				];
+			}
+			return [ 200, chatResponse, quotaHeaders ];
+		} );
+};
 
 const initialMessages = [
 	generateMessage( 'Initial message 1', 'user', 0, 100, 10 ),
 	generateMessage( 'Initial message 2', 'assistant', 1, 100, 11 ),
 ];
+let authContextValue: AuthContextType;
 
 function ContextWrapper( props: Parameters< typeof ContentTabAssistant >[ 0 ] ) {
 	return (
 		<Provider store={ store }>
-			<ThemeDetailsProvider>
-				<ContentTabAssistant { ...props } />
-			</ThemeDetailsProvider>
+			<AuthContext.Provider value={ authContextValue }>
+				<ThemeDetailsProvider>
+					<ContentTabAssistant { ...props } />
+				</ThemeDetailsProvider>
+			</AuthContext.Provider>
 		</Provider>
 	);
 }
 
 describe( 'ContentTabAssistant', () => {
-	const clientReqPost = vi.fn().mockImplementation( ( params, callback ) => {
-		callback(
-			null,
-			{
-				id: 100,
-				created_at: '2025-01-24 09:11:50',
-				choices: [
-					{
-						index: 0,
-						message: {
-							id: 0,
-							role: 'assistant',
-							content:
-								'Hello! How can I assist you today? Are you working on a WordPress project, or do you need help with something specific related to WordPress or WP-CLI?',
-						},
-					},
-				],
-			},
-			{
-				'x-quota-max': '100',
-				'x-quota-remaining': '99',
-				'x-quota-reset': '2025-05-01T00:00:00+00:00',
-			}
-		);
-	} );
-
 	const authenticate = vi.fn();
 	const logout = vi.fn();
+
+	const setAuthContext = ( overrides: Partial< AuthContextType > = {} ) => {
+		authContextValue = {
+			client: createWpcomClient(),
+			isAuthenticated: true,
+			authenticate,
+			logout,
+			...overrides,
+		};
+	};
 
 	const getInput = () => screen.getByTestId( 'ai-input-textarea' );
 
 	const getGuidelinesLink = () => screen.getByTestId( 'guidelines-link' );
+
+	beforeAll( () => {
+		nock.cleanAll();
+		mockAssistantChat();
+	} );
 
 	beforeEach( () => {
 		vi.clearAllMocks();
@@ -120,13 +155,10 @@ describe( 'ContentTabAssistant', () => {
 
 		// Reset Redux store state
 		store.dispatch( testActions.resetState() );
+		// Avoid flaky late async updates from previous tests by ensuring the default instance exists.
+		store.dispatch( chatActions.setMessages( { instanceId: runningSite.id, messages: [] } ) );
 
-		vi.spyOn( useAuthModule, 'useAuth' ).mockReturnValue( {
-			client: createWpcomStub( clientReqPost ) as WPCOM,
-			isAuthenticated: true,
-			authenticate,
-			logout,
-		} );
+		setAuthContext();
 		vi.mocked( useOffline ).mockReturnValue( false );
 		vi.mocked( useGetWelcomeMessages, { partial: true } ).mockReturnValue( {
 			data: {
@@ -148,7 +180,9 @@ describe( 'ContentTabAssistant', () => {
 		vi.mocked( useGetWpVersion ).mockReturnValue( [ '6.4.3', vi.fn() ] );
 	} );
 
-	afterEach( () => {} );
+	afterAll( () => {
+		nock.cleanAll();
+	} );
 
 	it( 'renders placeholder text input', () => {
 		render( <ContextWrapper selectedSite={ runningSite } /> );
@@ -195,12 +229,7 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	it( 'renders default message when not authenticated', async () => {
-		vi.spyOn( useAuthModule, 'useAuth' ).mockReturnValue( {
-			client: createWpcomStub( clientReqPost ) as WPCOM,
-			isAuthenticated: false,
-			authenticate,
-			logout,
-		} );
+		setAuthContext( { isAuthenticated: false } );
 		render( <ContextWrapper selectedSite={ runningSite } /> );
 
 		await waitFor( () => {
@@ -212,12 +241,7 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	it( 'renders offline notice when not authenticated', () => {
-		vi.spyOn( useAuthModule, 'useAuth' ).mockReturnValue( {
-			client: createWpcomStub( clientReqPost ) as WPCOM,
-			isAuthenticated: false,
-			authenticate,
-			logout,
-		} );
+		setAuthContext( { isAuthenticated: false } );
 		vi.mocked( useOffline ).mockReturnValue( true );
 
 		render( <ContextWrapper selectedSite={ runningSite } /> );
@@ -229,12 +253,7 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	it( 'allows authentication from Assistant chat', async () => {
-		vi.spyOn( useAuthModule, 'useAuth' ).mockReturnValue( {
-			client: createWpcomStub( clientReqPost ) as WPCOM,
-			isAuthenticated: false,
-			authenticate,
-			logout,
-		} );
+		setAuthContext( { isAuthenticated: false } );
 		render( <ContextWrapper selectedSite={ runningSite } /> );
 
 		await waitFor( () => {
@@ -250,13 +269,7 @@ describe( 'ContentTabAssistant', () => {
 	it( 'it stores messages with user-unique keys', async () => {
 		const user1 = { id: 1, email: 'user1@example.com', displayName: 'User 1' };
 		const user2 = { id: 2, email: 'user2@example.com', displayName: 'User 2' };
-		vi.spyOn( useAuthModule, 'useAuth' ).mockReturnValue( {
-			client: createWpcomStub( clientReqPost ) as WPCOM,
-			isAuthenticated: true,
-			authenticate,
-			user: user1,
-			logout,
-		} );
+		setAuthContext( { user: user1 } );
 		const { rerender } = render( <ContextWrapper selectedSite={ runningSite } /> );
 
 		const textInput = getInput();
@@ -269,13 +282,7 @@ describe( 'ContentTabAssistant', () => {
 		} );
 
 		// Simulate user authentication change
-		vi.spyOn( useAuthModule, 'useAuth' ).mockReturnValue( {
-			client: createWpcomStub( clientReqPost ) as WPCOM,
-			isAuthenticated: true,
-			authenticate,
-			user: user2,
-			logout,
-		} );
+		setAuthContext( { user: user2 } );
 
 		rerender( <ContextWrapper selectedSite={ runningSite } /> );
 
@@ -288,12 +295,7 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	it( 'does not render the Welcome messages and example prompts when not authenticated', () => {
-		vi.spyOn( useAuthModule, 'useAuth' ).mockReturnValue( {
-			client: createWpcomStub( clientReqPost ) as WPCOM,
-			isAuthenticated: false,
-			authenticate,
-			logout,
-		} );
+		setAuthContext( { isAuthenticated: false } );
 		render( <ContextWrapper selectedSite={ runningSite } /> );
 
 		expect( screen.getByTestId( 'unauthenticated-header' ) ).toHaveTextContent( 'Hold up!' );
@@ -324,17 +326,6 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	it( 'should manage the focus state when selecting an example prompt', async () => {
-		const delayedClientReqPost = vi.fn().mockImplementation( () => {
-			// Never resolve
-		} );
-
-		vi.spyOn( useAuthModule, 'useAuth' ).mockReturnValue( {
-			client: createWpcomStub( delayedClientReqPost ) as WPCOM,
-			isAuthenticated: true,
-			authenticate,
-			logout,
-		} );
-
 		store.dispatch( chatActions.setMessages( { instanceId: runningSite.id, messages: [] } ) );
 		const user = userEvent.setup();
 		render( <ContextWrapper selectedSite={ runningSite } /> );
@@ -349,7 +340,7 @@ describe( 'ContentTabAssistant', () => {
 		expect( samplePrompt ).toBeVisible();
 		await user.click( samplePrompt );
 
-		expect( textInput ).toHaveAttribute( 'placeholder', 'Thinking about that…' );
+		expect( textInput ).toHaveFocus();
 	} );
 
 	it( 'renders the selected prompt of Welcome messages and confirms other prompts are removed', async () => {

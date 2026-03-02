@@ -164,7 +164,7 @@ export const CreateSiteForm = ( {
 	defaultValues = {},
 	onSelectPath,
 	onSiteNameChange,
-	existingDomainNames,
+	existingDomainNames = [],
 	blueprintPreferredVersions,
 	blueprintSuggestedDomain,
 	blueprintSuggestedHttps,

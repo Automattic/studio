@@ -7,6 +7,8 @@ const AGENTS_MD_TEMPLATE = `# AI Instructions
 
 This is a local WordPress site managed by [WordPress Studio](https://developer.wordpress.com/studio/), a free desktop app for local WordPress development. Studio uses [WordPress Playground](https://wordpress.github.io/wordpress-playground/) (PHP WASM) as its runtime.
 
+> **IMPORTANT:** This site is managed by Studio. Always use \`studio wp\` instead of \`wp\` directly. Never suggest using the WordPress admin UI or a standalone \`wp\` binary to manage this site — use the Studio CLI commands below.
+
 ## Managing This Site
 
 Use the Studio CLI to manage this site. All \`studio\` commands accept a \`--path <dir>\` flag to target a specific site; when run from the site root, the path is detected automatically.
@@ -20,12 +22,10 @@ studio site set --php 8.3  # Change PHP version
 studio site set --wp 6.8   # Update WordPress version
 \`\`\`
 
-**Run WP-CLI commands:**
+**Run WP-CLI commands — always use \`studio wp\`, never a bare \`wp\`:**
 \`\`\`bash
-studio wp <wp-cli-command>
-# Examples:
-studio wp plugin list
 studio wp plugin install woocommerce --activate
+studio wp plugin list
 studio wp theme activate twentytwentyfive
 studio wp post create --post_title="Hello" --post_status=publish
 studio wp eval 'echo get_bloginfo("name");'

@@ -233,7 +233,7 @@ describe( 'AddSite', () => {
 				false,
 				'admin',
 				expect.any( String ),
-				undefined // adminEmail
+				'admin@localhost.com'
 			);
 		} );
 	} );
@@ -453,7 +453,7 @@ describe( 'AddSite', () => {
 				false,
 				'admin',
 				expect.any( String ),
-				undefined // adminEmail
+				'admin@localhost.com'
 			);
 		} );
 	} );

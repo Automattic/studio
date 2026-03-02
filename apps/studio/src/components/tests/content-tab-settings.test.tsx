@@ -132,6 +132,7 @@ describe( 'ContentTabSettings', () => {
 			getAllCustomDomains,
 			getXdebugEnabledSite,
 			isCATrusted: vi.fn( () => Promise.resolve( true ) ),
+			executeWPCLiInline: vi.fn( () => Promise.resolve( { stdout: '', stderr: '', exitCode: 0 } ) ),
 		} );
 
 		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {

@@ -8,32 +8,30 @@
 import vipEnvironmentAddon from './vip-environment/index.renderer';
 import type { AddonDefinition } from 'src/modules/addons/addon-api';
 
-const BUNDLED_ADDONS: AddonDefinition[] = [ vipEnvironmentAddon ];
+export const BUNDLED_ADDONS: AddonDefinition[] = [ vipEnvironmentAddon ];
 
 export function getBundledAddons(): AddonDefinition[] {
 	return BUNDLED_ADDONS;
 }
 
 /** Module-level cache of enabled addon IDs, populated by initEnabledAddons() at renderer boot. */
-let _enabledAddonIds: Set< string > | null = null;
+let _initialEnabledAddonIds: string[] | null = null;
 
 /**
  * Call once at renderer startup (before root.render) with the persisted enabled IDs.
- * Until called, getEnabledAddons() returns all addons (safe default for tests/storybook).
+ * The EnabledAddonsProvider reads this via getInitialEnabledAddonIds() to seed its state.
  */
 export function initEnabledAddons( ids: string[] ): void {
-	_enabledAddonIds = new Set( ids );
+	_initialEnabledAddonIds = ids;
 }
 
 /**
- * Returns only the addons that the user has enabled.
- * Use this everywhere UI is rendered. Use getBundledAddons() only in the Add-ons settings tab.
+ * Returns the initial enabled IDs loaded at boot.
+ * Used by EnabledAddonsProvider to seed its useState.
+ * Returns all addon IDs if called before initEnabledAddons (tests/storybook).
  */
-export function getEnabledAddons(): AddonDefinition[] {
-	if ( _enabledAddonIds === null ) {
-		return BUNDLED_ADDONS;
-	}
-	return BUNDLED_ADDONS.filter( ( addon ) => _enabledAddonIds!.has( addon.manifest.id ) );
+export function getInitialEnabledAddonIds(): string[] {
+	return _initialEnabledAddonIds ?? BUNDLED_ADDONS.map( ( a ) => a.manifest.id );
 }
 
 /**

@@ -3,18 +3,18 @@
  * Rendered inside Header, after the built-in site action buttons.
  */
 import { Fragment } from 'react';
-import { getEnabledAddons } from 'src/modules/addons/registry';
+import { useEnabledAddons } from 'src/modules/addons/enabled-addons-context';
 
 interface AddonHeaderActionsProps {
 	selectedSite: SiteDetails | null;
 }
 
 export function AddonHeaderActions( { selectedSite }: AddonHeaderActionsProps ) {
+	const actions = useEnabledAddons().flatMap( ( addon ) => addon.headerActions ?? [] );
+
 	if ( ! selectedSite ) {
 		return null;
 	}
-
-	const actions = getEnabledAddons().flatMap( ( addon ) => addon.headerActions ?? [] );
 
 	if ( actions.length === 0 ) {
 		return null;

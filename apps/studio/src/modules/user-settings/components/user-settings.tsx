@@ -9,7 +9,7 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import {
 	AddonSettingsPanels,
-	getAddonSettingsTabs,
+	useAddonSettingsTabs,
 } from 'src/modules/addons/addon-settings-panels';
 import { AccountTab } from 'src/modules/user-settings/components/account-tab';
 import { AddonsTab } from 'src/modules/user-settings/components/addons-tab';
@@ -101,7 +101,8 @@ export default function UserSettings() {
 	} );
 
 	// Append addon settings tabs
-	for ( const addonTab of getAddonSettingsTabs() ) {
+	const addonSettingsTabs = useAddonSettingsTabs();
+	for ( const addonTab of addonSettingsTabs ) {
 		tabs.push( addonTab );
 	}
 

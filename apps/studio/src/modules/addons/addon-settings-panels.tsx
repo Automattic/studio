@@ -2,7 +2,7 @@
  * <AddonSettingsPanels /> — Renders tab panels for addon-registered settings.
  * Rendered at the end of the UserSettings modal's TabPanel content.
  */
-import { getEnabledAddons } from 'src/modules/addons/registry';
+import { useEnabledAddons } from 'src/modules/addons/enabled-addons-context';
 import type { AddonSettingsPanel } from 'src/modules/addons/addon-api';
 
 interface AddonSettingsPanelsProps {
@@ -10,7 +10,7 @@ interface AddonSettingsPanelsProps {
 }
 
 export function AddonSettingsPanels( { activeTabName }: AddonSettingsPanelsProps ) {
-	const panels = getEnabledAddons().flatMap( ( addon ) => addon.settingsPanels ?? [] );
+	const panels = useEnabledAddons().flatMap( ( addon ) => addon.settingsPanels ?? [] );
 
 	if ( panels.length === 0 ) {
 		return null;
@@ -26,11 +26,11 @@ export function AddonSettingsPanels( { activeTabName }: AddonSettingsPanelsProps
 }
 
 /**
- * Returns the tab definitions for all addon settings panels,
+ * Returns the tab definitions for all enabled addon settings panels,
  * suitable for merging into the UserSettings TabPanel tabs array.
  */
-export function getAddonSettingsTabs(): Array< { name: string; title: string } > {
-	return getEnabledAddons().flatMap( ( addon ) =>
+export function useAddonSettingsTabs(): Array< { name: string; title: string } > {
+	return useEnabledAddons().flatMap( ( addon ) =>
 		( addon.settingsPanels ?? [] ).map( ( panel: AddonSettingsPanel ) => ( {
 			name: panel.name,
 			title: panel.title,

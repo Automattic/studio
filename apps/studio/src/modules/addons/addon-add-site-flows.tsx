@@ -16,12 +16,16 @@ import { Icon, chevronRight, chevronLeft } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useMemo } from 'react';
 import { cx } from 'src/lib/cx';
-import { getEnabledAddons } from 'src/modules/addons/registry';
+import { useEnabledAddons } from 'src/modules/addons/enabled-addons-context';
 import type { ComponentType } from 'react';
 import type { AddonAddSiteFlow, AddonAddSiteFlowProps } from 'src/modules/addons/addon-api';
 
 export function useAddonAddSiteFlows(): AddonAddSiteFlow[] {
-	return useMemo( () => getEnabledAddons().flatMap( ( addon ) => addon.addSiteFlows ?? [] ), [] );
+	const enabledAddons = useEnabledAddons();
+	return useMemo(
+		() => enabledAddons.flatMap( ( addon ) => addon.addSiteFlows ?? [] ),
+		[ enabledAddons ]
+	);
 }
 
 export function useAddonAddSiteFlowComponent(

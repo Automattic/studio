@@ -5,13 +5,10 @@
  * v2: Replace getBundledAddons() with a dynamic directory scan + require().
  *     The AddonDefinition contract and all downstream code remain unchanged.
  */
+import vipEnvironmentAddon from './vip-environment/index.renderer';
 import type { AddonDefinition } from 'src/modules/addons/addon-api';
 
-// Add imports here as addons are vendored in, e.g.:
-// import vipEnvironmentAddon from '@studio-addons/vip-environment';
-const BUNDLED_ADDONS: AddonDefinition[] = [
-	// vipEnvironmentAddon,
-];
+const BUNDLED_ADDONS: AddonDefinition[] = [ vipEnvironmentAddon ];
 
 export function getBundledAddons(): AddonDefinition[] {
 	return BUNDLED_ADDONS;

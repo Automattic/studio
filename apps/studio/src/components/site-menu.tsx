@@ -386,7 +386,7 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 				scrollbarGutter: 'stable',
 			} }
 			className={ cx(
-				'w-full overflow-y-auto overflow-x-hidden flex flex-col gap-0.5 pb-4',
+				'w-full overflow-y-auto overflow-x-hidden flex flex-col gap-0.5 pb-1',
 				className
 			) }
 		>
@@ -403,12 +403,6 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 						isDragOver={ dragOverIndex === index }
 					/>
 				) ) }
-				{ /* Drop zone for dragging to bottom of list */ }
-				<li
-					className="h-8"
-					onDragOver={ ( e ) => handleDragOver( e, sites.length ) }
-					onDrop={ ( e ) => handleDrop( e, sites.length ) }
-				/>
 			</ul>
 		</nav>
 	);

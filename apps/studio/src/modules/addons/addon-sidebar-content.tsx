@@ -3,10 +3,10 @@
  * Rendered inside the scrollable sites container in MainSidebar, after <SiteMenu />.
  */
 import { Fragment } from 'react';
-import { getBundledAddons } from 'src/modules/addons/registry';
+import { getEnabledAddons } from 'src/modules/addons/registry';
 
 export function AddonSidebarContent() {
-	const addons = getBundledAddons().filter( ( addon ) => addon.sidebarContent != null );
+	const addons = getEnabledAddons().filter( ( addon ) => addon.sidebarContent != null );
 
 	if ( addons.length === 0 ) {
 		return null;

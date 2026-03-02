@@ -14,6 +14,28 @@ export function getBundledAddons(): AddonDefinition[] {
 	return BUNDLED_ADDONS;
 }
 
+/** Module-level cache of enabled addon IDs, populated by initEnabledAddons() at renderer boot. */
+let _enabledAddonIds: Set< string > | null = null;
+
+/**
+ * Call once at renderer startup (before root.render) with the persisted enabled IDs.
+ * Until called, getEnabledAddons() returns all addons (safe default for tests/storybook).
+ */
+export function initEnabledAddons( ids: string[] ): void {
+	_enabledAddonIds = new Set( ids );
+}
+
+/**
+ * Returns only the addons that the user has enabled.
+ * Use this everywhere UI is rendered. Use getBundledAddons() only in the Add-ons settings tab.
+ */
+export function getEnabledAddons(): AddonDefinition[] {
+	if ( _enabledAddonIds === null ) {
+		return BUNDLED_ADDONS;
+	}
+	return BUNDLED_ADDONS.filter( ( addon ) => _enabledAddonIds!.has( addon.manifest.id ) );
+}
+
 /**
  * Validates that the addon declares all permissions it uses.
  * In v1 this is informational; in v2 it becomes a hard gate.

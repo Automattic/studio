@@ -32,6 +32,7 @@ import { createElement, StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import Root from 'src/components/root';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { initEnabledAddons } from 'src/modules/addons/registry';
 
 // Enhances Sentry breadcrumbs messages by extracting meaningful information from DOM elements
 const getExtraSentryBreadcrumbs = ( targetElement: HTMLElement ) => {
@@ -130,60 +131,63 @@ window.onunhandledrejection = ( event ) => {
 	);
 };
 
-void Promise.all( [ getIpcApi().getAppGlobals(), getIpcApi().getSentryUserId() ] ).then(
-	( [ appGlobals, sentryUserId ] ) => {
-		// Ensure the app globals are available before any renderer code starts running
-		window.appGlobals = appGlobals;
+void Promise.all( [
+	getIpcApi().getAppGlobals(),
+	getIpcApi().getSentryUserId(),
+	getIpcApi().getEnabledAddonIds(),
+] ).then( ( [ appGlobals, sentryUserId, enabledAddonIds ] ) => {
+	// Ensure the app globals are available before any renderer code starts running
+	window.appGlobals = appGlobals;
+	initEnabledAddons( enabledAddonIds );
 
-		// Show warning if running an ARM64 translator
-		if ( appGlobals.arm64Translation && ! localStorage.getItem( 'dontShowARM64Warning' ) ) {
-			const showARM64MessageBox = async () => {
-				const platformMessages: Record< string, string > = {
-					darwin: __(
-						'Downloading the Apple Silicon Chip version of Studio will provide better performance.'
-					),
-					win32: __( 'Downloading the ARM version of Studio will provide better performance.' ),
-				};
-
-				const detailMessage =
-					platformMessages[ window.appGlobals.platform ] ||
-					__( 'Downloading the optimized version of Studio will provide better performance.' );
-
-				const { response, checkboxChecked } = await getIpcApi().showMessageBox( {
-					type: 'warning',
-					message: __( 'This version of Studio is not optimized for your computer' ),
-					detail: detailMessage,
-					checkboxLabel: __( "Don't show this warning again" ),
-					buttons: [ __( 'Download' ), __( 'Not now' ) ],
-					cancelId: 1,
-				} );
-
-				if ( checkboxChecked ) {
-					localStorage.setItem( 'dontShowARM64Warning', 'true' );
-				}
-
-				switch ( response ) {
-					case 0:
-						// Open Download link
-						getIpcApi().openURL( `https://developer.wordpress.com/studio/` );
-						break;
-					case 1:
-						// User clicked Cancel
-						break;
-					default:
-						break;
-				}
+	// Show warning if running an ARM64 translator
+	if ( appGlobals.arm64Translation && ! localStorage.getItem( 'dontShowARM64Warning' ) ) {
+		const showARM64MessageBox = async () => {
+			const platformMessages: Record< string, string > = {
+				darwin: __(
+					'Downloading the Apple Silicon Chip version of Studio will provide better performance.'
+				),
+				win32: __( 'Downloading the ARM version of Studio will provide better performance.' ),
 			};
 
-			void showARM64MessageBox();
-		}
+			const detailMessage =
+				platformMessages[ window.appGlobals.platform ] ||
+				__( 'Downloading the optimized version of Studio will provide better performance.' );
 
-		Sentry.setUser( { id: sentryUserId } );
+			const { response, checkboxChecked } = await getIpcApi().showMessageBox( {
+				type: 'warning',
+				message: __( 'This version of Studio is not optimized for your computer' ),
+				detail: detailMessage,
+				checkboxLabel: __( "Don't show this warning again" ),
+				buttons: [ __( 'Download' ), __( 'Not now' ) ],
+				cancelId: 1,
+			} );
 
-		const rootEl = document.getElementById( 'root' );
-		if ( rootEl ) {
-			const root = createRoot( rootEl );
-			root.render( createElement( StrictMode, null, createElement( Root ) ) );
-		}
+			if ( checkboxChecked ) {
+				localStorage.setItem( 'dontShowARM64Warning', 'true' );
+			}
+
+			switch ( response ) {
+				case 0:
+					// Open Download link
+					getIpcApi().openURL( `https://developer.wordpress.com/studio/` );
+					break;
+				case 1:
+					// User clicked Cancel
+					break;
+				default:
+					break;
+			}
+		};
+
+		void showARM64MessageBox();
 	}
-);
+
+	Sentry.setUser( { id: sentryUserId } );
+
+	const rootEl = document.getElementById( 'root' );
+	if ( rootEl ) {
+		const root = createRoot( rootEl );
+		root.render( createElement( StrictMode, null, createElement( Root ) ) );
+	}
+} );

@@ -3,7 +3,7 @@
  * Each addon can register React context providers via `appProviders`.
  * They are applied in addon registration order (first = outermost wrapper).
  */
-import { getBundledAddons } from 'src/modules/addons/registry';
+import { getEnabledAddons } from 'src/modules/addons/registry';
 import type { ReactNode } from 'react';
 
 interface AddonAppProvidersProps {
@@ -11,7 +11,7 @@ interface AddonAppProvidersProps {
 }
 
 export function AddonAppProviders( { children }: AddonAppProvidersProps ) {
-	const providers = getBundledAddons().flatMap( ( addon ) => addon.appProviders ?? [] );
+	const providers = getEnabledAddons().flatMap( ( addon ) => addon.appProviders ?? [] );
 
 	// Wrap children with each provider from innermost to outermost
 	return providers.reduceRight(

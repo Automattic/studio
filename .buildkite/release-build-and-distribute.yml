@@ -1,0 +1,115 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/buildkite/pipeline-schema/main/schema.json
+#
+# Release build and distribution pipeline.
+#
+# Triggered as a separate Buildkite build by the fastlane lanes (code_freeze, new_beta_release,
+# finalize_release) via `buildkite_add_trigger_step` / `buildkite_trigger_build`.
+#
+# Expects `RELEASE_VERSION` env var to be set (e.g., '1.7.4').
+# Each step checks out the release branch to ensure it builds the latest commit.
+---
+
+# Used by mac agents only
+env:
+  IMAGE_ID: $IMAGE_ID
+
+steps:
+  - group: 📦 Build for Mac
+    key: release-mac
+    steps:
+      - label: 🔨 Mac Release Build - {{matrix}}
+        agents:
+          queue: mac
+        command: |
+          .buildkite/commands/checkout-release-branch.sh "${RELEASE_VERSION}"
+
+          .buildkite/commands/prepare-environment.sh
+
+          .buildkite/commands/install-node-dependencies.sh
+
+          echo "--- :node: Building Binary"
+          npm run make:macos-{{matrix}}
+
+          # Local trial and error show this needs to run before the DMG generation (obviously) but after the binary has been built
+          echo "--- :hammer: Rebuild fs-attr if necessary before generating DMG"
+          case {{matrix}} in
+            x64)
+              echo "Rebuilding fs-xattr for {{matrix}} architecture"
+              npm rebuild fs-xattr --cpu universal
+              ;;
+            arm64)
+              echo "No need to rebuild fs-xattr because it works out of the box on Apple Silicon"
+              ;;
+            *)
+              echo "^^^ +++ Unexpected architecture {{matrix}}"
+              exit 1
+              ;;
+          esac
+
+          echo "--- :node: Packaging in DMG"
+          npm run make:dmg-{{matrix}}
+
+          echo "--- 📃 Notarizing Binary"
+          bundle exec fastlane notarize_binary
+        plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
+        artifact_paths:
+          - apps/studio/out/**/*.app.zip
+          - apps/studio/out/*.dmg
+        matrix:
+          - x64
+          - arm64
+        notify:
+          - github_commit_status:
+              context: All Mac Release Builds
+
+  - group: 📦 Build for Windows
+    key: release-windows
+    steps:
+      - label: 🔨 Windows Release Build - {{matrix}}
+        agents:
+          queue: windows
+        command: |
+          bash .buildkite/commands/checkout-release-branch.sh "${RELEASE_VERSION}"
+          powershell -File .buildkite/commands/build-for-windows.ps1 -BuildType release -Architecture {{matrix}}
+        artifact_paths:
+          - apps\studio\out\**\studio-setup.exe
+          - apps\studio\out\**\studio-update.nupkg
+          - apps\studio\out\**\RELEASES
+          - apps\studio\out\**\*.appx
+        plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
+        matrix:
+          - x64
+          - arm64
+        notify:
+          - github_commit_status:
+              context: All Windows Release Builds
+
+  - label: ":rocket: Publish Release Builds"
+    command: |
+      echo "--- :robot_face: Use bot for Git operations"
+      source use-bot-for-git
+
+      .buildkite/commands/checkout-release-branch.sh "${RELEASE_VERSION}"
+
+      echo "--- :node: Downloading Binaries"
+      buildkite-agent artifact download "*.zip" .
+      buildkite-agent artifact download "*.dmg" .
+      buildkite-agent artifact download "*.exe" .
+      buildkite-agent artifact download "*.appx" .
+      buildkite-agent artifact download "*.nupkg" .
+      buildkite-agent artifact download "*\\RELEASES" .
+
+      .buildkite/commands/install-node-dependencies.sh
+
+      echo "--- :fastlane: Distributing Release Builds"
+      install_gems
+      bundle exec fastlane distribute_release_build
+    agents:
+      queue: mac
+    depends_on:
+      - step: release-mac
+      - step: release-windows
+    plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
+    notify:
+      - github_commit_status:
+          context: Publish Release Builds

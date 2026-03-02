@@ -3,6 +3,12 @@ import {
 	generateCustomDomainFromSiteName,
 	getDomainNameValidationError,
 } from '@studio/common/lib/domains';
+import {
+	decodePassword,
+	encodePassword,
+	validateAdminEmail,
+	validateAdminUsername,
+} from '@studio/common/lib/passwords';
 import { siteNeedsRestart } from '@studio/common/lib/site-needs-restart';
 import { SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { SelectControl, TabPanel } from '@wordpress/components';
@@ -14,6 +20,7 @@ import Button from 'src/components/button';
 import { ErrorInformation } from 'src/components/error-information';
 import { LearnMoreLink, LearnHowLink } from 'src/components/learn-more';
 import Modal from 'src/components/modal';
+import PasswordControl from 'src/components/password-control';
 import TextControlComponent from 'src/components/text-control';
 import { Tooltip } from 'src/components/tooltip';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
@@ -43,6 +50,11 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		selectedSite?.enableDebugDisplay ?? false
 	);
 	const [ xdebugEnabledSite, setXdebugEnabledSite ] = useState< SiteDetails | null >( null );
+	const [ adminUsername, setAdminUsername ] = useState( selectedSite?.adminUsername ?? 'admin' );
+	const [ adminPassword, setAdminPassword ] = useState(
+		() => decodePassword( selectedSite?.adminPassword ?? '' ) || 'password'
+	);
+	const [ adminEmail, setAdminEmail ] = useState( selectedSite?.adminEmail ?? '' );
 
 	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
 	const closeModal = useCallback( () => {
@@ -97,6 +109,11 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 
 	const generatedDomainName = generateCustomDomainFromSiteName( siteName );
 	const usedCustomDomain = ! useCustomDomain ? customDomain : undefined;
+	const adminUsernameError = validateAdminUsername( adminUsername );
+	const adminPasswordError = ! adminPassword.trim() ? __( 'Admin password is required' ) : '';
+	const adminEmailError = adminEmail.trim() ? validateAdminEmail( adminEmail ) : '';
+	const isUsernameChanged =
+		! adminUsernameError && adminUsername !== ( selectedSite?.adminUsername ?? 'admin' );
 	const isFormUnchanged =
 		!! selectedSite &&
 		selectedSite.name === siteName &&
@@ -106,10 +123,18 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		usedCustomDomain === customDomain &&
 		!! selectedSite.enableHttps === ( !! usedCustomDomain && enableHttps ) &&
 		!! selectedSite.enableXdebug === enableXdebug &&
+		( selectedSite.adminUsername ?? 'admin' ) === adminUsername &&
+		( decodePassword( selectedSite.adminPassword ?? '' ) || 'password' ) === adminPassword &&
+		( selectedSite.adminEmail ?? '' ) === adminEmail &&
 		!! selectedSite.enableDebugLog === enableDebugLog &&
 		!! selectedSite.enableDebugDisplay === enableDebugDisplay;
 	const hasValidationErrors =
-		! selectedSite || ! siteName.trim() || ( useCustomDomain && !! customDomainError );
+		! selectedSite ||
+		! siteName.trim() ||
+		( useCustomDomain && !! customDomainError ) ||
+		!! adminUsernameError ||
+		!! adminPasswordError ||
+		!! adminEmailError;
 
 	const resetFormState = useCallback( () => {
 		if ( ! selectedSite ) {
@@ -124,6 +149,9 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		setErrorUpdatingWpVersion( null );
 		setEnableHttps( selectedSite.enableHttps ?? false );
 		setEnableXdebug( selectedSite.enableXdebug ?? false );
+		setAdminUsername( selectedSite.adminUsername ?? 'admin' );
+		setAdminPassword( decodePassword( selectedSite.adminPassword ?? '' ) || 'password' );
+		setAdminEmail( selectedSite.adminEmail ?? '' );
 		setEnableDebugLog( selectedSite.enableDebugLog ?? false );
 		setEnableDebugDisplay( selectedSite.enableDebugDisplay ?? false );
 	}, [ selectedSite, getEffectiveWpVersion ] );
@@ -147,6 +175,10 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 			( useCustomDomain && customDomain !== selectedSite.customDomain );
 		const hasHttpsChanged =
 			useCustomDomain && enableHttps !== ( selectedSite.enableHttps ?? false );
+		const hasCredentialsChanged =
+			adminUsername !== ( selectedSite.adminUsername ?? 'admin' ) ||
+			adminPassword !== ( decodePassword( selectedSite.adminPassword ?? '' ) || 'password' ) ||
+			adminEmail !== ( selectedSite.adminEmail ?? '' );
 
 		const needsRestart =
 			selectedSite.running &&
@@ -156,6 +188,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 				phpChanged: hasPhpVersionChanged,
 				wpChanged: hasWpVersionChanged,
 				xdebugChanged: hasXdebugChanged,
+				credentialsChanged: hasCredentialsChanged,
 				debugLogChanged: hasDebugLogChanged,
 				debugDisplayChanged: hasDebugDisplayChanged,
 			} );
@@ -177,6 +210,10 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 					customDomain: usedCustomDomain,
 					enableHttps: !! usedCustomDomain && enableHttps,
 					enableXdebug,
+					adminUsername,
+					// Encode for IPC storage; IPC handler decodes back to plain text for the CLI set command
+					adminPassword: encodePassword( adminPassword ),
+					adminEmail: adminEmail || undefined,
 					enableDebugLog,
 					enableDebugDisplay,
 				},
@@ -350,6 +387,69 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 														) }{ ' ' }
 														<LearnHowLink docsLinksKey="docsSslInStudio" />
 													</div>
+												) }
+											</div>
+
+											<div className="flex flex-col gap-2 mt-4">
+												<span className="font-semibold">{ __( 'Admin credentials' ) }</span>
+												<div className="grid grid-cols-2 gap-4">
+													<div className="flex flex-col gap-1.5 leading-4">
+														<label className="text-sm" htmlFor="edit-admin-username">
+															{ __( 'Username' ) }
+														</label>
+														<TextControlComponent
+															id="edit-admin-username"
+															disabled={ isEditingSite }
+															value={ adminUsername }
+															onChange={ setAdminUsername }
+															className={ adminUsernameError ? '[&_input]:!border-red-500' : '' }
+														/>
+													</div>
+													<div className="flex flex-col gap-1.5 leading-4">
+														<label className="text-sm" htmlFor="edit-admin-password">
+															{ __( 'Password' ) }
+														</label>
+														<PasswordControl
+															id="edit-admin-password"
+															disabled={ isEditingSite }
+															value={ adminPassword }
+															onChange={ setAdminPassword }
+															className={ adminPasswordError ? '[&_input]:!border-red-500' : '' }
+														/>
+													</div>
+												</div>
+												{ ( adminUsernameError || adminPasswordError ) && (
+													<span className="text-red-500 text-xs">
+														{ adminUsernameError || adminPasswordError }
+													</span>
+												) }
+												{ isUsernameChanged && (
+													<span className="text-a8c-gray-50 text-xs">
+														{ __(
+															'A new admin user will be created. WordPress does not support renaming usernames.'
+														) }
+													</span>
+												) }
+											</div>
+
+											<div className="flex flex-col gap-1.5 leading-4 mt-4">
+												<label className="text-sm" htmlFor="edit-admin-email">
+													{ __( 'Email' ) }
+												</label>
+												<TextControlComponent
+													id="edit-admin-email"
+													disabled={ isEditingSite }
+													value={ adminEmail }
+													onChange={ setAdminEmail }
+													placeholder="admin@localhost.com"
+													className={ adminEmailError ? '[&_input]:!border-red-500' : '' }
+												/>
+												{ adminEmailError ? (
+													<span className="text-red-500 text-xs">{ adminEmailError }</span>
+												) : (
+													<span className="text-a8c-gray-50 text-xs">
+														{ __( 'Defaults to admin@localhost.com if not provided.' ) }
+													</span>
 												) }
 											</div>
 										</>

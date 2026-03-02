@@ -13,7 +13,7 @@
 import { dirname } from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { isWordPressDirectory } from '@studio/common/lib/fs-utils';
-import { getMuPlugins } from '@studio/common/lib/mu-plugins';
+import { cleanupLegacyMuPlugins, getMuPlugins } from '@studio/common/lib/mu-plugins';
 import { decodePassword } from '@studio/common/lib/passwords';
 import { formatPlaygroundCliMessage } from '@studio/common/lib/playground-cli-messages';
 import { sequential } from '@studio/common/lib/sequential';
@@ -91,13 +91,22 @@ function escapePhpString( str: string ): string {
 	return str.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
 }
 
-async function setAdminPassword( server: RunCLIServer, adminPassword: string ): Promise< void > {
+async function setAdminCredentials(
+	server: RunCLIServer,
+	adminPassword?: string,
+	adminUsername?: string,
+	adminEmail?: string
+): Promise< void > {
 	await server.playground.request( {
 		url: '/?studio-admin-api',
 		method: 'POST',
 		body: {
 			action: 'set_admin_password',
-			password: escapePhpString( decodePassword( adminPassword ) ),
+			...( adminPassword && {
+				password: escapePhpString( decodePassword( adminPassword ) ),
+			} ),
+			...( adminUsername && { username: escapePhpString( adminUsername ) } ),
+			...( adminEmail && { email: escapePhpString( adminEmail ) } ),
 		},
 	} );
 }
@@ -138,6 +147,8 @@ async function getBaseRunCLIArgs(
 	config: ServerConfig
 ): Promise< RunCLIArgs > {
 	const wordpressInstallMode = await getWordPressInstallMode( config.sitePath );
+
+	await cleanupLegacyMuPlugins( config.sitePath );
 
 	const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( {
 		isWpAutoUpdating: config.isWpAutoUpdating,
@@ -281,8 +292,13 @@ const startServer = wrapWithStartingPromise(
 			lastCliArgs = sanitizeRunCLIArgs( args );
 			server = await runCLI( args );
 
-			if ( config.adminPassword ) {
-				await setAdminPassword( server, config.adminPassword );
+			if ( config.adminPassword || config.adminUsername || config.adminEmail ) {
+				await setAdminCredentials(
+					server,
+					config.adminPassword,
+					config.adminUsername,
+					config.adminEmail
+				);
 			}
 		} catch ( error ) {
 			server = null;

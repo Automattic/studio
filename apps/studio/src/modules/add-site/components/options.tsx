@@ -56,27 +56,27 @@ function OptionButton( {
 			<HStack
 				as="button"
 				className={ cx(
-					'w-full p-4 border border-gray-200 rounded-xl text-left',
+					'w-full h-[63px] px-4 border border-gray-200 rounded-xl text-left',
 					'rtl:text-right',
 					'hover:border-gray-300 hover:bg-gray-50',
 					'disabled:opacity-50 disabled:cursor-not-allowed'
 				) }
-				alignment="top"
+				alignment="center"
 				onClick={ onClick }
 				disabled={ disabled }
 				spacing={ 5 }
 				data-testid={ testId }
 			>
-				<div className="mt-[-2px]">{ icon }</div>
-				<VStack className="flex-1 gap-1.5">
+				<div className="shrink-0">{ icon }</div>
+				<VStack className="flex-1 gap-1.5 min-w-0">
 					<Heading className="text-[15px]" weight="500">
 						{ title }
 					</Heading>
-					<Text className="text-[13px] text-gray-500" weight="400">
+					<Text className="text-[13px] text-gray-500 truncate" weight="400">
 						{ description }
 					</Text>
 				</VStack>
-				<Icon className="mt-0.5" icon={ chevron } size={ 24 } fill="#949494" />
+				<Icon className="shrink-0" icon={ chevron } size={ 24 } fill="#949494" />
 			</HStack>
 		</Tooltip>
 	);

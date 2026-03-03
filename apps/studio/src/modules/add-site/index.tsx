@@ -39,6 +39,7 @@ type BlueprintsData = ReturnType< typeof useGetBlueprints >[ 'data' ];
 
 interface NavigationContentProps {
 	startOver: () => void;
+	onSubmit?: () => void;
 	blueprintsData: BlueprintsData;
 	isLoadingBlueprints: boolean;
 	blueprintsErrorMessage?: string;
@@ -91,6 +92,7 @@ function NavigationContent( props: NavigationContentProps ) {
 	const addonFlows = useAddonAddSiteFlows();
 	const {
 		startOver,
+		onSubmit,
 		blueprintsData,
 		isLoadingBlueprints,
 		blueprintsErrorMessage,
@@ -412,8 +414,7 @@ function NavigationContent( props: NavigationContentProps ) {
 				<Navigator.Screen key={ flow.type } className="flex-1" path={ `/addon-${ flow.type }` }>
 					<flow.component
 						onSubmit={ () => {
-							startOver();
-							goTo( '/' );
+							onSubmit?.();
 						} }
 						onValidityChange={ setIsAddonFormValid }
 						submitRef={ addonSubmitRef }
@@ -645,6 +646,7 @@ export function AddSiteModalContent( {
 				isDeeplinkFlow={ isDeeplinkFlow }
 				setIsDeeplinkFlow={ setIsDeeplinkFlow }
 				startOver={ startOver }
+				onSubmit={ onSubmit }
 			/>
 		</Navigator>
 	);

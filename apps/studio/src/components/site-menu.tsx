@@ -13,6 +13,7 @@ import { useSiteDetails } from 'src/hooks/use-site-details';
 import { isMac, isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useContributorContext } from 'src/modules/addons/wp-contributor-toolkit/renderer/contributor-context';
 import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
 import { getTerminalName } from 'src/modules/user-settings/lib/terminal';
 import { useGetUserEditorQuery, useGetUserTerminalQuery } from 'src/stores/installed-apps-api';
@@ -253,6 +254,8 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 		copySite,
 		updateSitesSortOrder,
 	} = useSiteDetails();
+	const { hiddenStudioSiteIds } = useContributorContext();
+	const visibleSites = sites.filter( ( s ) => ! hiddenStudioSiteIds.has( s.id ) );
 	const { setSelectedTab } = useContentTabs();
 	const { handleDeleteSite } = useDeleteSite();
 	const { data: editor } = useGetUserEditorQuery();
@@ -279,7 +282,7 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 			return;
 		}
 
-		const updatedSites = [ ...sites ];
+		const updatedSites = [ ...visibleSites ];
 		const [ movedSite ] = updatedSites.splice( draggedIndex, 1 );
 		updatedSites.splice( targetIndex, 0, movedSite );
 
@@ -391,7 +394,7 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 			) }
 		>
 			<ul className="pt-px">
-				{ sites.map( ( site, index ) => (
+				{ visibleSites.map( ( site, index ) => (
 					<SiteItem
 						key={ site.id }
 						site={ site }

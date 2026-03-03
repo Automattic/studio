@@ -1,0 +1,9 @@
+{
+	"name": "@studio/addon-wp-contributor-toolkit",
+	"version": "0.1.0",
+	"private": true,
+	"description": "WordPress Contributor Toolkit addon for Studio — source of truth for addon-owned dependencies",
+	"dependencies": {
+		"isomorphic-git": "^1.27.0"
+	}
+}

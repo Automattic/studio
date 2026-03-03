@@ -3,7 +3,6 @@ import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { vi, beforeAll, type Mock } from 'vitest';
 import Header from 'src/components/header';
-import { SyncSitesProvider } from 'src/hooks/sync-sites';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { SiteDetailsProvider } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -46,9 +45,7 @@ const renderWithProvider = ( children: React.ReactElement ) => {
 	return render(
 		<Provider store={ store }>
 			<ContentTabsProvider>
-				<SyncSitesProvider>
-					<SiteDetailsProvider>{ children }</SiteDetailsProvider>
-				</SyncSitesProvider>
+				<SiteDetailsProvider>{ children }</SiteDetailsProvider>
 			</ContentTabsProvider>
 		</Provider>
 	);

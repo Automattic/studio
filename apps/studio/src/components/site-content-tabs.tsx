@@ -109,7 +109,7 @@ export function SiteContentTabs() {
 						{ name === 'sync' && <ContentTabSync selectedSite={ selectedSite } /> }
 						{ name === 'settings' && <ContentTabSettings selectedSite={ selectedSite } /> }
 						{ name === 'assistant' && <ContentTabAssistant selectedSite={ selectedSite } /> }
-						{ name === 'agents' && <ContentTabAgents /> }
+						{ name === 'agents' && <ContentTabAgents selectedSite={ selectedSite } /> }
 						{ name === 'import-export' && <ContentTabImportExport selectedSite={ selectedSite } /> }
 					</div>
 				) }

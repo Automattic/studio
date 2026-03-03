@@ -887,11 +887,20 @@ def extract_cdn_post_ids_from_draft_release(release_name:)
   end
 
   begin
-    JSON.parse(match[1])
+    parsed = JSON.parse(match[1])
   rescue JSON::ParserError => e
     UI.error("Failed to parse CDN post IDs from draft release #{release_name}: #{e.message}")
-    {}
+    return {}
   end
+
+  # Validate shape: must be a Hash of string keys to positive integer post IDs
+  parsed.each do |key, value|
+    unless value.is_a?(Integer) && value.positive?
+      UI.user_error!("Invalid CDN post ID for '#{key}' in draft release #{release_name}: #{value.inspect} (expected positive integer)")
+    end
+  end
+
+  parsed
 end
 
 # Trigger a release build in Buildkite for the given version.

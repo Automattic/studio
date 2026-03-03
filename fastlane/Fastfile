@@ -309,7 +309,9 @@ lane :publish_release do |version:, skip_confirm: false, github_username: nil|
   next unless skip_confirm || UI.confirm('Continue?')
 
   # Update CDN build visibility from Internal to External
-  make_cdn_builds_public(version: version)
+  unless DRY_RUN
+    make_cdn_builds_public(version: version)
+  end
 
   # Publish the draft GitHub release
   publish_github_release(
@@ -811,7 +813,7 @@ def create_draft_github_release(version:, release_tag:, builds:)
 
   # Embed CDN post IDs so publish_release can update their visibility later
   cdn_post_ids = builds.each_with_object({}) do |(key, build), hash|
-    hash[key] = build[:post_id] if build[:post_id]
+    hash[key] = build[:post_id] if build[:post_id]&.positive?
   end
   body += "\n<!-- CDN_POST_IDS:#{cdn_post_ids.to_json} -->" unless cdn_post_ids.empty?
 
@@ -843,10 +845,7 @@ def make_cdn_builds_public(version:)
   release_name = "v#{version}"
   cdn_post_ids = extract_cdn_post_ids_from_draft_release(release_name: release_name)
 
-  if cdn_post_ids.empty?
-    UI.important("No CDN post IDs found in draft release #{release_name}. Skipping visibility update.")
-    return
-  end
+  UI.user_error!("No CDN post IDs found in draft release #{release_name}. Cannot publish without updating CDN visibility.") if cdn_post_ids.empty?
 
   UI.message("Updating CDN build visibility to External for #{cdn_post_ids.size} builds...")
 
@@ -887,7 +886,12 @@ def extract_cdn_post_ids_from_draft_release(release_name:)
     return {}
   end
 
-  JSON.parse(match[1])
+  begin
+    JSON.parse(match[1])
+  rescue JSON::ParserError => e
+    UI.error("Failed to parse CDN post IDs from draft release #{release_name}: #{e.message}")
+    {}
+  end
 end
 
 # Trigger a release build in Buildkite for the given version.

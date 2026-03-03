@@ -7,10 +7,7 @@ Unreleased
 * Added drag-and-drop site reordering #2498
 * Added WP_DEBUG_LOG and WP_DEBUG_DISPLAY toggles in site settings #2553
 * Added "Open Debug Log" button in Settings and "Open Application Logs" to Help menu #2649, #2656
-* Added Blueprint details step and default description to blueprint selection flow #2571, #2602
-* Added JSPI support for PHP WASM extensions #2560
-* Bundled WordPress translation files with download retry and failure handling #2575
-* Added time display over pull and push completed notification #2653
+* Added a time tooltip to the pull and push completion notification #2653
 * Improved app quit speed by timing out site stop after 6 seconds #2475
 * Disabled Copy and Delete in context menu while a site is being added #2596
 * Fixed push cancellation error dialog #2633
@@ -18,9 +15,8 @@ Unreleased
 * Fixed CLI uninstall on Windows not removing bin directory #2608
 * Fixed CLI locale strings displaying in English #2609
 * Fixed toggle sidebar icon alignment after Add Site modal #2636
-* Fixed missing accessibility attributes in site settings #2618
-* Fixed React performance and accessibility issues #2654
-* Removed legacy mu-plugin files from site filesystem #2655
+* Improved accessibility attributes in site settings #2618, #2654
+* Improved compatibility with Studio sites with legacy mu-plugin in the filesystem. #2655
 * Adopted monorepo structure #2565
 * Updated multiple dependencies, including Electron, WordPress Playground, PHP-WASM, Sentry, and WordPress packages
 

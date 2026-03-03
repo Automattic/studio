@@ -48,7 +48,8 @@ test.describe( 'Servers', () => {
 		};
 	}
 
-	test.afterEach( async () => {
+	test.afterEach( async ( { page: _page }, testInfo ) => {
+		await session.reportMainProcessLogsOnFailure( testInfo );
 		await session.cleanup();
 	} );
 

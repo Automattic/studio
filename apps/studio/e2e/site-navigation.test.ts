@@ -57,6 +57,10 @@ test.describe( 'Site Navigation', () => {
 		frontendUrl = await settingsTab.copySiteUrlToClipboard( session.electronApp );
 	} );
 
+	test.afterEach( async ( { page: _page }, testInfo ) => {
+		await session.reportMainProcessLogsOnFailure( testInfo );
+	} );
+
 	test.afterAll( async () => {
 		await session.cleanup();
 	} );

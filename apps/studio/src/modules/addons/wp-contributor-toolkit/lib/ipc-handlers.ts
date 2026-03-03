@@ -145,6 +145,13 @@ export async function removeSiteHandler( _event: unknown, siteId: unknown ): Pro
 	const site = sites.find( ( s ) => s.id === id );
 	if ( site ) {
 		buildOps.stopWatch( id );
+		// Delete the linked Studio site (registration only, keep files on disk)
+		if ( site.siteId ) {
+			const server = SiteServer.get( site.siteId );
+			if ( server ) {
+				await server.delete( false );
+			}
+		}
 	}
 	sites = sites.filter( ( s ) => s.id !== id );
 	if ( activeSiteId === id ) {

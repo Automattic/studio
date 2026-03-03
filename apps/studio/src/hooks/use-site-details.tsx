@@ -25,6 +25,7 @@ interface SiteDetailsContext {
 	selectedSite: SiteDetails | null;
 	updateSite: ( site: SiteDetails, wpVersion?: string ) => Promise< void >;
 	updateSitesSortOrder: ( sites: SiteDetails[] ) => Promise< void >;
+	refreshSites: () => Promise< void >;
 	sites: SiteDetails[];
 	setSelectedSiteId: ( selectedSiteId: string ) => void;
 	createSite: (
@@ -65,6 +66,7 @@ const defaultContext: SiteDetailsContext = {
 	sites: [],
 	siteCreationMessages: {},
 	setSelectedSiteId: () => undefined,
+	refreshSites: async () => undefined,
 	createSite: async () => undefined,
 	copySite: async () => undefined,
 	startServer: async () => undefined,
@@ -406,6 +408,11 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		setSites( updatedSites );
 	}, [] );
 
+	const refreshSites = useCallback( async () => {
+		const updatedSites = await getIpcApi().getSiteDetails();
+		setSites( updatedSites );
+	}, [] );
+
 	const saveTimeoutRef = useRef< ReturnType< typeof setTimeout > >();
 	const DEBOUNCE_SAVE_MS = 300;
 
@@ -632,6 +639,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			createSite,
 			copySite,
 			updateSite,
+			refreshSites,
 			updateSitesSortOrder,
 			startServer,
 			stopServer,
@@ -655,6 +663,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			createSite,
 			copySite,
 			updateSite,
+			refreshSites,
 			updateSitesSortOrder,
 			startServer,
 			stopServer,

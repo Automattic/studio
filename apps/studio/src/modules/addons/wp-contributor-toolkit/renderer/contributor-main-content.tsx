@@ -3,6 +3,12 @@
  */
 import { TabPanel } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
+import { useState } from 'react';
+import { ActionButton } from 'src/components/action-button';
+import { ArrowIcon } from 'src/components/arrow-icon';
+import Button from 'src/components/button';
+import { useSiteDetails } from 'src/hooks/use-site-details';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 import { BuildPanel } from './build-panel';
 import { useContributorContext } from './contributor-context';
 import { PatchPanel } from './patch-panel';
@@ -74,35 +80,117 @@ function ErrorView( { site }: { site: WctSite } ) {
 	);
 }
 
-function WorkspaceView( { site }: { site: WctSite } ) {
-	const { openFolder } = useContributorContext();
+function ContributorHeader( { site }: { site: WctSite } ) {
+	const { openFolder, removeSite } = useContributorContext();
+	const { sites, startServer, stopServer, loadingServer } = useSiteDetails();
+	const [ confirmDelete, setConfirmDelete ] = useState( false );
 
+	const studioSite = site.siteId ? sites.find( ( s ) => s.id === site.siteId ) : null;
+	const isRunning = studioSite?.running ?? false;
+	const isLoading = site.siteId ? loadingServer[ site.siteId ] ?? false : false;
+
+	const handleToggle = () => {
+		if ( isRunning ) {
+			void stopServer( site.siteId! );
+		} else if ( studioSite ) {
+			void startServer( studioSite );
+		}
+	};
+
+	const handleOpenSite = () => {
+		if ( studioSite?.running && studioSite.url ) {
+			getIpcApi().openURL( studioSite.url );
+		}
+	};
+
+	const handleDelete = () => {
+		void removeSite( site.id );
+	};
+
+	return (
+		<div className="flex flex-col w-full gap-2">
+			<div className="flex justify-between items-start w-full gap-5 px-8">
+				<div className="flex flex-col">
+					<h1 className="text-xl font-medium max-h-full line-clamp-1 break-all">{ site.name }</h1>
+					<div className="flex mt-1 gap-x-4">
+						<Button
+							className="[&.is-link]:text-a8c-gray-70 [&.is-link]:hover:text-a8c-blue-50 !px-0 h-0 leading-4"
+							onClick={ () => {
+								void openFolder( site.repoPath );
+							} }
+							variant="link"
+						>
+							{ __( 'Open folder' ) }
+							<ArrowIcon />
+						</Button>
+						{ studioSite?.running && (
+							<Button
+								className="[&.is-link]:text-a8c-gray-70 [&.is-link]:hover:text-a8c-blue-50 !px-0 h-0 leading-4"
+								onClick={ handleOpenSite }
+								variant="link"
+							>
+								{ __( 'Open site' ) }
+								<ArrowIcon />
+							</Button>
+						) }
+					</div>
+				</div>
+				<div className="flex items-center gap-2 flex-shrink-0">
+					{ confirmDelete ? (
+						<div className="flex items-center gap-2">
+							<span className="text-xs text-gray-600">{ __( 'Delete this site?' ) }</span>
+							<Button variant="secondary" onClick={ handleDelete }>
+								{ __( 'Delete' ) }
+							</Button>
+							<Button
+								variant="secondary"
+								onClick={ () => {
+									setConfirmDelete( false );
+								} }
+							>
+								{ __( 'Cancel' ) }
+							</Button>
+						</div>
+					) : (
+						<Button
+							variant="secondary"
+							onClick={ () => {
+								setConfirmDelete( true );
+							} }
+						>
+							{ __( 'Delete' ) }
+						</Button>
+					) }
+					{ site.siteId && (
+						<ActionButton
+							isRunning={ isRunning }
+							isLoading={ isLoading }
+							onClick={ handleToggle }
+							disabled={ ! studioSite && ! isRunning }
+							buttonLabelOnDisabled={ __( 'Setting up…' ) }
+						/>
+					) }
+				</div>
+			</div>
+		</div>
+	);
+}
+
+function WorkspaceView( { site }: { site: WctSite } ) {
 	const tabs = [
-		{ name: 'build', title: __( 'Build' ) },
+		{ name: 'build', title: __( 'Develop' ) },
 		{ name: 'patch', title: __( 'Patch' ) },
 	];
 
 	return (
 		<div className="flex flex-col w-full h-full app-no-drag-region pt-8 overflow-y-auto">
-			<div className="px-6 pb-4 flex items-center gap-3">
-				<div className="flex-1 min-w-0">
-					<h1 className="text-xl font-semibold text-gray-900">{ site.name }</h1>
-					<button
-						type="button"
-						className="text-xs text-a8c-blue-50 hover:underline truncate max-w-full text-left"
-						onClick={ () => {
-							void openFolder( site.repoPath );
-						} }
-					>
-						{ site.repoPath }
-					</button>
-				</div>
-			</div>
+			<ContributorHeader site={ site } />
 
 			<TabPanel
-				className="h-full flex flex-col overflow-hidden"
+				className="mt-6 h-full flex flex-col overflow-hidden"
 				tabs={ tabs }
 				orientation="horizontal"
+				key={ site.id }
 			>
 				{ ( { name } ) => (
 					<div className="h-full overflow-y-auto" style={ { scrollbarWidth: 'thin' } }>

@@ -2,6 +2,7 @@
  * React context for the WordPress Contributor Toolkit addon.
  */
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import type { CloneProgress, ContributorToolkitState, PatchResult, WctSite } from '../types';
 import type { IpcRendererEvent } from 'electron';
@@ -63,6 +64,7 @@ interface ContributorContextValue {
 export const ContributorContext = createContext< ContributorContextValue | null >( null );
 
 export function ContributorProvider( { children }: { children: ReactNode } ) {
+	const { refreshSites } = useSiteDetails();
 	const [ sites, setSites ] = useState< WctSite[] >( [] );
 	const [ activeSiteId, setActiveSiteId ] = useState< string | null >( null );
 	const [ cloneProgress, setCloneProgress ] = useState< CloneProgress | null >( null );
@@ -139,16 +141,22 @@ export function ContributorProvider( { children }: { children: ReactNode } ) {
 		} );
 	}, [] );
 
-	const addSite = useCallback( async ( name: string, repoPath: string ) => {
-		const api = getWctApi();
-		if ( ! api ) {
-			return null;
-		}
-		const site = await api.wctAddSite( name, repoPath );
-		setSites( ( prev ) => [ ...prev, site ] );
-		setActiveSiteId( site.id );
-		return site;
-	}, [] );
+	const addSite = useCallback(
+		async ( name: string, repoPath: string ) => {
+			const api = getWctApi();
+			if ( ! api ) {
+				return null;
+			}
+			const site = await api.wctAddSite( name, repoPath );
+			setSites( ( prev ) => [ ...prev, site ] );
+			setActiveSiteId( site.id );
+			// Refresh useSiteDetails so the auto-created Studio site (repoPath/build/)
+			// becomes visible to useSiteDetails consumers (sidebar toggle, header ActionButton).
+			await refreshSites();
+			return site;
+		},
+		[ refreshSites ]
+	);
 
 	const removeSite = useCallback(
 		async ( siteId: string ) => {
@@ -165,8 +173,10 @@ export function ContributorProvider( { children }: { children: ReactNode } ) {
 				}
 				return prev;
 			} );
+			// Sync useSiteDetails — the linked Studio site was deleted on the main process side.
+			await refreshSites();
 		},
-		[ sites ]
+		[ sites, refreshSites ]
 	);
 
 	const setActiveSite = useCallback( async ( siteId: string | null ) => {

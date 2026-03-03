@@ -1,8 +1,8 @@
 /**
  * Add Site flow form for the WordPress Contributor Toolkit addon.
  */
-import { __ } from '@wordpress/i18n';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { __, sprintf } from '@wordpress/i18n';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Button from 'src/components/button';
 import TextControlComponent from 'src/components/text-control';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -10,7 +10,7 @@ import { useContributorContext } from './contributor-context';
 import type { AddonAddSiteFlowProps } from 'src/modules/addons/addon-api';
 
 export function CreateWctSite( { onSubmit, onValidityChange, submitRef }: AddonAddSiteFlowProps ) {
-	const { addSite, clone, chooseRepoFolder } = useContributorContext();
+	const { addSite, clone, chooseRepoFolder, sites } = useContributorContext();
 
 	const [ name, setName ] = useState( '' );
 	const [ repoSource, setRepoSource ] = useState< 'existing' | 'clone' >( 'existing' );
@@ -18,7 +18,14 @@ export function CreateWctSite( { onSubmit, onValidityChange, submitRef }: AddonA
 	const [ isSubmitting, setIsSubmitting ] = useState( false );
 	const [ submitError, setSubmitError ] = useState< string | null >( null );
 
-	const isValid = name.trim() !== '' && repoPath !== null;
+	const duplicatePath = useMemo( () => {
+		if ( ! repoPath ) {
+			return null;
+		}
+		return sites.find( ( s ) => s.repoPath === repoPath ) ?? null;
+	}, [ repoPath, sites ] );
+
+	const isValid = name.trim() !== '' && repoPath !== null && duplicatePath === null;
 
 	useEffect( () => {
 		onValidityChange( isValid );
@@ -124,7 +131,7 @@ export function CreateWctSite( { onSubmit, onValidityChange, submitRef }: AddonA
 							{ __( 'Point to a wordpress-develop directory already on your machine.' ) }
 						</div>
 						{ repoSource === 'existing' && (
-							<div className="mt-3 flex items-center gap-2">
+							<div className="mt-3 flex items-center gap-2 flex-wrap">
 								<Button
 									variant="secondary"
 									onClick={ () => {
@@ -133,7 +140,15 @@ export function CreateWctSite( { onSubmit, onValidityChange, submitRef }: AddonA
 								>
 									{ __( 'Choose Folder' ) }
 								</Button>
-								{ repoPath && <span className="text-xs text-gray-600 truncate">{ repoPath }</span> }
+								{ repoPath && (
+									<span
+										className={ `text-xs truncate ${
+											duplicatePath ? 'text-red-600' : 'text-gray-600'
+										}` }
+									>
+										{ repoPath }
+									</span>
+								) }
 							</div>
 						) }
 					</div>
@@ -157,7 +172,7 @@ export function CreateWctSite( { onSubmit, onValidityChange, submitRef }: AddonA
 							{ __( 'Download wordpress/wordpress-develop (~500 MB, shallow clone).' ) }
 						</div>
 						{ repoSource === 'clone' && (
-							<div className="mt-3 flex items-center gap-2">
+							<div className="mt-3 flex items-center gap-2 flex-wrap">
 								<Button
 									variant="secondary"
 									onClick={ () => {
@@ -166,12 +181,30 @@ export function CreateWctSite( { onSubmit, onValidityChange, submitRef }: AddonA
 								>
 									{ __( 'Choose Destination' ) }
 								</Button>
-								{ repoPath && <span className="text-xs text-gray-600 truncate">{ repoPath }</span> }
+								{ repoPath && (
+									<span
+										className={ `text-xs truncate ${
+											duplicatePath ? 'text-red-600' : 'text-gray-600'
+										}` }
+									>
+										{ repoPath }
+									</span>
+								) }
 							</div>
 						) }
 					</div>
 				</label>
 			</div>
+
+			{ duplicatePath && (
+				<div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+					{ sprintf(
+						/* translators: %s: site name */
+						__( 'This directory is already used by "%s". Choose a different folder.' ),
+						duplicatePath.name
+					) }
+				</div>
+			) }
 
 			{ submitError && (
 				<div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">

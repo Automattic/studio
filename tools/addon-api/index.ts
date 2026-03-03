@@ -76,6 +76,47 @@ export interface MainContentContext {
 	selectedSiteId: string | null;
 }
 
+// ─── Site Details ─────────────────────────────────────────────────────────────
+
+export interface StoppedSiteDetails {
+	running: false;
+	id: string;
+	name: string;
+	path: string;
+	port: number;
+	phpVersion: string;
+	isWpAutoUpdating?: boolean;
+	customDomain?: string;
+	enableHttps?: boolean;
+	adminUsername?: string;
+	adminPassword?: string;
+	adminEmail?: string;
+	tlsKey?: string;
+	tlsCert?: string;
+	themeDetails?: {
+		name: string;
+		path: string;
+		slug: string;
+		isBlockTheme: boolean;
+		supportsWidgets: boolean;
+		supportsMenus: boolean;
+	};
+	isAddingSite?: boolean;
+	autoStart?: boolean;
+	latestCliPid?: number;
+	enableXdebug?: boolean;
+	enableDebugLog?: boolean;
+	enableDebugDisplay?: boolean;
+	sortOrder?: number;
+}
+
+export interface StartedSiteDetails extends StoppedSiteDetails {
+	running: true;
+	url: string;
+}
+
+export type SiteDetails = StartedSiteDetails | StoppedSiteDetails;
+
 // ─── UI Slots ─────────────────────────────────────────────────────────────────
 
 export interface AddonContentTab {

@@ -1,5 +1,5 @@
 diff --git a/node_modules/yargs/lib/platform-shims/esm.mjs b/node_modules/yargs/lib/platform-shims/esm.mjs
-index 1b8efe8..acc0f8e 100644
+index 1b8efe8..0e34ec4 100644
 --- a/node_modules/yargs/lib/platform-shims/esm.mjs
 +++ b/node_modules/yargs/lib/platform-shims/esm.mjs
 @@ -61,7 +61,7 @@ export default {
@@ -7,7 +7,7 @@ index 1b8efe8..acc0f8e 100644
    stringWidth,
    y18n: y18n({
 -    directory: resolve(__dirname, '../../../locales'),
-+    directory: resolve(__dirname, '../../locales'),
++    directory: resolve(dirname(require.resolve('yargs')), 'locales'),
      updateFiles: false
    })
  }

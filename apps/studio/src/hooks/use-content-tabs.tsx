@@ -1,14 +1,11 @@
 import { TabPanel } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { createContext, ReactNode, useContext, useMemo, useState } from 'react';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
-
 export type TabName =
 	| 'overview'
 	| 'sync'
 	| 'settings'
 	| 'assistant'
-	| 'agents'
 	| 'import-export'
 	| 'previews';
 type Tab = React.ComponentProps< typeof TabPanel >[ 'tabs' ][ number ] & {
@@ -17,7 +14,6 @@ type Tab = React.ComponentProps< typeof TabPanel >[ 'tabs' ][ number ] & {
 
 function useTabs() {
 	const { __ } = useI18n();
-	const { enableAgentSuite } = useFeatureFlags();
 
 	return useMemo( () => {
 		const tabs: Tab[] = [
@@ -51,26 +47,16 @@ function useTabs() {
 			}
 		);
 
-		if ( enableAgentSuite ) {
-			tabs.push( {
-				order: 6,
-				name: 'agents',
-				title: __( 'Agents' ),
-				className:
-					'components-tab-panel__tabs--assistant ltr:pl-8 rtl:pr-8 ltr:ml-auto rtl:mr-auto',
-			} );
-		} else {
-			tabs.push( {
-				order: 6,
-				name: 'assistant',
-				title: __( 'Assistant' ),
-				className:
-					'components-tab-panel__tabs--assistant ltr:pl-8 rtl:pr-8 ltr:ml-auto rtl:mr-auto',
-			} );
-		}
+		tabs.push( {
+			order: 6,
+			name: 'assistant',
+			title: __( 'Assistant' ),
+			className:
+				'components-tab-panel__tabs--assistant ltr:pl-8 rtl:pr-8 ltr:ml-auto rtl:mr-auto',
+		} );
 
 		return tabs.sort( ( a, b ) => a.order - b.order );
-	}, [ __, enableAgentSuite ] );
+	}, [ __ ] );
 }
 interface ContentTabsContextType {
 	selectedTab: TabName;

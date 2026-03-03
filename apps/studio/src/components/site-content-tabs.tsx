@@ -1,7 +1,6 @@
 import { TabPanel } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useRef, useState } from 'react';
-import { ContentTabAgents } from 'src/components/content-tab-agents';
 import { ContentTabAssistant } from 'src/components/content-tab-assistant';
 import { ContentTabImportExport } from 'src/components/content-tab-import-export';
 import { ContentTabOverview } from 'src/components/content-tab-overview';
@@ -109,7 +108,6 @@ export function SiteContentTabs() {
 						{ name === 'sync' && <ContentTabSync selectedSite={ selectedSite } /> }
 						{ name === 'settings' && <ContentTabSettings selectedSite={ selectedSite } /> }
 						{ name === 'assistant' && <ContentTabAssistant selectedSite={ selectedSite } /> }
-						{ name === 'agents' && <ContentTabAgents selectedSite={ selectedSite } /> }
 						{ name === 'import-export' && <ContentTabImportExport selectedSite={ selectedSite } /> }
 					</div>
 				) }

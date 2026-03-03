@@ -107,6 +107,10 @@ If you've built a substantial new feature — especially one generated with AI a
 
 **Port Conflicts**: Site servers dynamically allocate ports. Don't hardcode port numbers; use the port-finder utility.
 
+## Skills
+
+Agent skills are located in `.agent/skills/`. Each skill has a `SKILL.md` file describing its usage and capabilities.
+
 ## Detailed Documentation
 
 For in-depth information, see these docs:

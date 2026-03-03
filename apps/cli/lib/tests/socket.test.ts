@@ -75,9 +75,9 @@ describe( 'socket', () => {
 		expect( decoder.write( encoded.subarray( 3 ) ) ).toEqual( [ message ] );
 	} );
 
-	it( 'sends queued messages from pusher to puller', async () => {
+	it( 'sends queued messages from pusher to puller', async ( { skip } ) => {
 		if ( ! ( await canBindUnixSocket() ) ) {
-			return;
+			skip( true, 'Environment does not support Unix sockets' );
 		}
 
 		const endpoint = createEndpoint();
@@ -101,12 +101,12 @@ describe( 'socket', () => {
 		await puller.close();
 	} );
 
-	it( 'recovers from stale unix socket file on bind', async () => {
+	it( 'recovers from stale unix socket file on bind', async ( { skip } ) => {
 		if ( process.platform === 'win32' ) {
-			return;
+			skip( true, 'Does not apply on Windows' );
 		}
 		if ( ! ( await canBindUnixSocket() ) ) {
-			return;
+			skip( true, 'Environment does not support Unix sockets' );
 		}
 
 		const endpoint = createEndpoint();

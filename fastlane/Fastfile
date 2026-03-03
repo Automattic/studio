@@ -838,7 +838,10 @@ def make_cdn_builds_public(version:)
     visibility: :internal
   )
 
-  UI.user_error!("No internal CDN builds found for #{release_version}. Cannot publish without updating CDN visibility.") if builds.empty?
+  if builds.empty?
+    UI.important("No internal CDN builds found for #{release_version}. They may have already been made public.")
+    return
+  end
 
   UI.message("Updating CDN build visibility to External for #{builds.size} builds...")
 

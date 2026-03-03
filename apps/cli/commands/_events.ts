@@ -76,7 +76,7 @@ const siteEventSchema = z.object( {
 } );
 
 export async function runCommand(): Promise< void > {
-	const eventsSocketServer = new SocketServer( EVENTS_SOCKET_PATH );
+	const eventsSocketServer = new SocketServer( EVENTS_SOCKET_PATH, 2500 );
 	eventsSocketServer.on( 'message', ( packet: unknown ) => {
 		try {
 			const parsedPacket = siteEventSchema.parse( packet );
@@ -108,7 +108,7 @@ export async function runCommand(): Promise< void > {
 	process.on( 'SIGTERM', () => void cleanup() );
 
 	try {
-		await eventsSocketServer.listen( 2500 );
+		await eventsSocketServer.listen();
 	} catch ( error ) {
 		await cleanup();
 		return;

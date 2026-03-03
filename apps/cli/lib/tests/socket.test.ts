@@ -86,11 +86,11 @@ describe( 'socket', () => {
 		}
 
 		const received: unknown[] = [];
-		const puller = new SocketServer( endpoint );
+		const puller = new SocketServer( endpoint, 1000 );
 		puller.on( 'message', ( message ) => {
 			received.push( message );
 		} );
-		await puller.listen( 1000 );
+		await puller.listen();
 
 		const pusher = new SocketClient( endpoint, 1000 );
 		await Promise.all( [ pusher.send( { idx: 1 } ), pusher.send( { idx: 2 } ) ] );
@@ -113,8 +113,8 @@ describe( 'socket', () => {
 		unixEndpointsToCleanup.push( endpoint );
 		fs.writeFileSync( endpoint, 'stale' );
 
-		const server = new SocketServer( endpoint );
-		await expect( server.listen( 1000 ) ).resolves.toBeUndefined();
+		const server = new SocketServer( endpoint, 1000 );
+		await expect( server.listen() ).resolves.toBeUndefined();
 		await server.close();
 	} );
 } );

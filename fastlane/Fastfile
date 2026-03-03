@@ -588,7 +588,7 @@ def distribute_builds(
       arch: build[:arch],
       build_type: build_type,
       install_type: build[:install_type],
-      visibility: 'internal',
+      visibility: :internal,
       version: version,
       build_number: build_number,
       release_notes: release_notes,

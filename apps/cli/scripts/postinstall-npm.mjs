@@ -25,7 +25,7 @@ if ( ! existsSync( nodeModulesPath ) ) {
 
 // Apply patches via patch-package
 try {
-	execSync( 'npx patch-package --patch-dir ./patches', {
+	execSync( 'npx --no-install patch-package --patch-dir ./patches', {
 		cwd: packageDir,
 		stdio: 'inherit',
 	} );

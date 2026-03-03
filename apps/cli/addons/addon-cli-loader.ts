@@ -1,25 +1,20 @@
 /**
  * CLI Addon Loader — Registers addon CLI commands with yargs.
  *
- * v1: Static array (mirrors registry.ts bundled addons pattern).
- * v2: Dynamically loaded from the same addon packages.
+ * Iterates getBundledCliRegistrations() and calls each addon's
+ * cliCommands[].register() with the yargs instance.
+ *
+ * Mirrors the pattern of apps/studio/src/modules/addons/addon-loader.ts.
  */
-
-// Add imports here as addons are vendored in, e.g.:
-// import vipEnvironmentAddon from '@studio-addons/vip-environment';
-import type { AddonDefinition } from '@studio/addon-api';
-
-const BUNDLED_CLI_ADDONS: AddonDefinition[] = [
-	// vipEnvironmentAddon,
-];
+import { getBundledCliRegistrations } from 'cli/addons/registry-cli';
 
 /**
  * Registers all addon CLI commands with the provided yargs instance.
  * Call this after all core commands are registered in apps/cli/index.ts.
  */
 export function registerAddonCliCommands( studioArgv: unknown ): void {
-	for ( const addon of BUNDLED_CLI_ADDONS ) {
-		for ( const registration of addon.cliCommands ?? [] ) {
+	for ( const addon of getBundledCliRegistrations() ) {
+		for ( const registration of addon.cliCommands ) {
 			try {
 				registration.register( studioArgv );
 			} catch ( error ) {

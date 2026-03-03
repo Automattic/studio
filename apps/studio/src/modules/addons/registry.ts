@@ -6,9 +6,10 @@
  *     The AddonDefinition contract and all downstream code remain unchanged.
  */
 import vipEnvironmentAddon from './vip-environment/index.renderer';
+import wpContributorToolkitAddon from './wp-contributor-toolkit/index.renderer';
 import type { AddonDefinition } from 'src/modules/addons/addon-api';
 
-export const BUNDLED_ADDONS: AddonDefinition[] = [ vipEnvironmentAddon ];
+export const BUNDLED_ADDONS: AddonDefinition[] = [ vipEnvironmentAddon, wpContributorToolkitAddon ];
 
 export function getBundledAddons(): AddonDefinition[] {
 	return BUNDLED_ADDONS;

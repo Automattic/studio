@@ -12,9 +12,15 @@ import { VipContext, VipProvider } from './renderer/vip-context';
 import { VipSiteMenu } from './renderer/vip-site-menu';
 import type { AddonDefinition, MainContentContext } from 'src/modules/addons/addon-api';
 
+const VIP_ADDON_ID = 'studio-vip-environment';
+
 // Reads selectedEnvironment directly from context — no module-level variable, no lag.
-function VipMainContent( _context: MainContentContext ) {
+function VipMainContent( context: MainContentContext ) {
 	const ctx = useContext( VipContext );
+	// Another addon has explicit focus — yield
+	if ( context.focusedAddonId !== null && context.focusedAddonId !== VIP_ADDON_ID ) {
+		return null;
+	}
 	if ( ! ctx?.selectedEnvironment ) {
 		return null;
 	}

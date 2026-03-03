@@ -74,6 +74,10 @@ export interface AddonReduxRegistration {
 
 export interface MainContentContext {
 	selectedSiteId: string | null;
+	/** The addon ID that currently has explicit focus in the main content area, or null. */
+	focusedAddonId: string | null;
+	/** Call from a sidebar item click to give this addon focus. Pass null to clear. */
+	setFocusedAddonId: ( id: string | null ) => void;
 }
 
 // ─── UI Slots ─────────────────────────────────────────────────────────────────

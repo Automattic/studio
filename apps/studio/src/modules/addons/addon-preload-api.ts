@@ -6,6 +6,7 @@
  * Do NOT import this file from the renderer bundle.
  */
 import { vipPreloadApi } from './vip-environment/index.preload';
+import { wctPreloadApi } from './wp-contributor-toolkit/index.preload';
 
 /**
  * Returns a merged record of all addon preload API methods.
@@ -14,5 +15,6 @@ import { vipPreloadApi } from './vip-environment/index.preload';
 export function mergeAddonPreloadApis(): Record< string, ( ...args: unknown[] ) => unknown > {
 	return {
 		...vipPreloadApi,
+		...wctPreloadApi,
 	};
 }

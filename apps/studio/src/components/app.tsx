@@ -16,6 +16,7 @@ import { isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { AddonAppProviders } from 'src/modules/addons/addon-app-providers';
+import { AddonFocusProvider } from 'src/modules/addons/addon-main-content';
 import { EnabledAddonsProvider } from 'src/modules/addons/enabled-addons-context';
 import { Onboarding } from 'src/modules/onboarding';
 import { useOnboarding } from 'src/modules/onboarding/hooks/use-onboarding';
@@ -31,7 +32,7 @@ export default function App() {
 	const isOnboardingLoading = useRootSelector( selectOnboardingLoading );
 	const { isSidebarVisible, toggleSidebar } = useSidebarVisibility();
 	const { showWhatsNew, closeWhatsNew } = useWhatsNew();
-	const { sites: localSites, loadingSites } = useSiteDetails();
+	const { sites: localSites, loadingSites, selectedSite } = useSiteDetails();
 	const isEmpty = ! loadingSites && ! localSites.length;
 	const shouldShowWhatsNew = showWhatsNew && ! isEmpty;
 
@@ -73,20 +74,22 @@ export default function App() {
 							</MacTitlebar>
 						) }
 
-						<HStack spacing="0" alignment="left" className="flex-grow">
-							<MainSidebar
-								className={ cx(
-									'h-full transition-all duration-500',
-									isSidebarVisible ? 'basis-52 flex-shrink-0' : 'basis-0 !min-w-[10px]'
-								) }
-							/>
-							<main
-								data-testid="site-content"
-								className="bg-white h-full flex-grow rounded-chrome overflow-hidden z-10"
-							>
-								<MainContent />
-							</main>
-						</HStack>
+						<AddonFocusProvider selectedSiteId={ selectedSite?.id ?? null }>
+							<HStack spacing="0" alignment="left" className="flex-grow">
+								<MainSidebar
+									className={ cx(
+										'h-full transition-all duration-500',
+										isSidebarVisible ? 'basis-52 flex-shrink-0' : 'basis-0 !min-w-[10px]'
+									) }
+								/>
+								<main
+									data-testid="site-content"
+									className="bg-white h-full flex-grow rounded-chrome overflow-hidden z-10"
+								>
+									<MainContent />
+								</main>
+							</HStack>
+						</AddonFocusProvider>
 					</VStack>
 				) }
 			</AddonAppProviders>

@@ -3,6 +3,7 @@ import { __ } from '@wordpress/i18n';
 import { Tooltip } from 'src/components/tooltip';
 import { isMac } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
+import { useFocusedAddon } from 'src/modules/addons/addon-main-content';
 import { useVipContext } from './vip-context';
 import type { VipEnvironment } from '../types';
 
@@ -148,6 +149,7 @@ export function VipSiteMenu() {
 		startEnvironment,
 		stopEnvironment,
 	} = useVipContext();
+	const { setFocusedAddonId } = useFocusedAddon();
 
 	if ( ! isVipAvailable && ! isLoading ) {
 		return null;
@@ -179,7 +181,10 @@ export function VipSiteMenu() {
 							environment={ env }
 							isSelected={ selectedEnvironment?.slug === env.slug }
 							isLoading={ loadingEnvironments[ env.slug ] ?? false }
-							onSelect={ () => selectEnvironment( env.slug ) }
+							onSelect={ () => {
+								selectEnvironment( env.slug );
+								setFocusedAddonId( null );
+							} }
 							onStart={ () => startEnvironment( env.slug ) }
 							onStop={ () => stopEnvironment( env.slug ) }
 						/>

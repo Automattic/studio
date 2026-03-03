@@ -59,6 +59,7 @@
 		"fs-extra": "^11.3.2",
 		"hpagent": "1.2.0",
 		"http-proxy": "^1.18.1",
+		"isomorphic-git": "^1.37.2",
 		"lockfile": "^1.0.4",
 		"ora": "^8.2.0",
 		"react": "^18.2.0",

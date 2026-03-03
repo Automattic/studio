@@ -5,6 +5,7 @@
  * Used by addon-loader.ts to register IPC handlers and lifecycle hooks.
  */
 import vipEnvironmentMain from './vip-environment/index.main';
+import wpContributorToolkitMain from './wp-contributor-toolkit/index.main';
 import type { AddonDefinition } from 'src/modules/addons/addon-api';
 
 type MainAddonRegistration = Pick<
@@ -12,7 +13,10 @@ type MainAddonRegistration = Pick<
 	'manifest' | 'ipcHandlers' | 'onInitialize' | 'onTeardown'
 >;
 
-const BUNDLED_ADDON_MAIN_REGISTRATIONS: MainAddonRegistration[] = [ vipEnvironmentMain ];
+const BUNDLED_ADDON_MAIN_REGISTRATIONS: MainAddonRegistration[] = [
+	vipEnvironmentMain,
+	wpContributorToolkitMain,
+];
 
 export function getBundledAddonMainRegistrations(): MainAddonRegistration[] {
 	return BUNDLED_ADDON_MAIN_REGISTRATIONS;

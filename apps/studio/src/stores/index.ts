@@ -14,6 +14,7 @@ import {
 } from 'src/hooks/use-sync-states-progress-info';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { appVersionApi } from 'src/stores/app-version-api';
+import { userLoggedOut } from 'src/stores/auth-actions';
 import { betaFeaturesReducer, loadBetaFeatures } from 'src/stores/beta-features-slice';
 import { certificateTrustApi } from 'src/stores/certificate-trust-api';
 import { reducer as chatReducer } from 'src/stores/chat-slice';
@@ -181,6 +182,42 @@ startAppListening( {
 	actionCreator: syncOperationsThunks.pollPullBackup.rejected,
 	effect( action ) {
 		maybeShowErrorMessageBox( action.payload, action.meta.aborted );
+	},
+} );
+
+// Clear all sync state when user logs out
+startAppListening( {
+	actionCreator: userLoggedOut,
+	effect( action, listenerApi ) {
+		const state = listenerApi.getState();
+
+		// Collect all operation IDs from state and pollers
+		const allStateIds = new Set( [
+			...Object.keys( state.syncOperations.pushStates ),
+			...Object.keys( state.syncOperations.pullStates ),
+			...PUSH_POLLERS.keys(),
+			...PULL_POLLERS.keys(),
+		] );
+
+		// Cancel main process operations
+		for ( const stateId of allStateIds ) {
+			getIpcApi().cancelSyncOperation( stateId );
+		}
+
+		// Stop renderer-side pollers
+		for ( const controller of PUSH_POLLERS.values() ) {
+			controller.abort();
+		}
+		PUSH_POLLERS.clear();
+		for ( const controller of PULL_POLLERS.values() ) {
+			controller.abort();
+		}
+		PULL_POLLERS.clear();
+
+		// Reset authenticated RTK Query caches
+		listenerApi.dispatch( connectedSitesApi.util.resetApiState() );
+		listenerApi.dispatch( wpcomSitesApi.util.resetApiState() );
+		listenerApi.dispatch( wpcomApi.util.resetApiState() );
 	},
 } );
 

@@ -2,6 +2,7 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { RootState } from 'src/stores';
+import { userLoggedOut } from 'src/stores/auth-actions';
 import type { SyncSite, SyncModalMode } from 'src/modules/sync/types';
 
 type ConnectedSitesState = {
@@ -41,6 +42,9 @@ const connectedSitesSlice = createSlice( {
 		clearSelectedRemoteSiteId: ( state ) => {
 			state.selectedRemoteSiteId = null;
 		},
+	},
+	extraReducers: ( builder ) => {
+		builder.addCase( userLoggedOut, () => getInitialState() );
 	},
 } );
 

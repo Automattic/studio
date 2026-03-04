@@ -8,6 +8,7 @@ import { generateStateId } from 'src/hooks/sync-sites/use-pull-push-states';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getHostnameFromUrl } from 'src/lib/url-utils';
 import { store } from 'src/stores';
+import { userLoggedOut } from 'src/stores/auth-actions';
 import { connectedSitesApi } from 'src/stores/sync/connected-sites';
 import type {
 	PullStateProgressInfo,
@@ -155,6 +156,7 @@ const syncOperationsSlice = createSlice( {
 	},
 	extraReducers: ( builder ) => {
 		builder
+			.addCase( userLoggedOut, () => initialState )
 			.addCase( pushSiteThunk.rejected, ( state, action ) => {
 				const { connectedSite, selectedSite } = action.meta.arg;
 				const stateId = generateStateId( selectedSite.id, connectedSite.id );

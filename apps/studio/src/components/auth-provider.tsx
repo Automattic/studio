@@ -8,7 +8,8 @@ import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { isInvalidTokenError } from 'src/lib/is-invalid-oauth-token-error';
-import { useI18nLocale } from 'src/stores';
+import { useAppDispatch, useI18nLocale } from 'src/stores';
+import { userLoggedOut } from 'src/stores/auth-actions';
 import { setWpcomClient } from 'src/stores/wpcom-api';
 
 export interface AuthContextType {
@@ -45,11 +46,13 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 	const { __ } = useI18n();
 	const isOffline = useOffline();
 
+	const dispatch = useAppDispatch();
 	const authenticate = useCallback( () => getIpcApi().authenticate(), [] );
 
 	const handleInvalidToken = useCallback( async () => {
 		try {
 			void getIpcApi().logRendererMessage( 'info', 'Detected invalid token. Logging out.' );
+			dispatch( userLoggedOut() );
 			await getIpcApi().clearAuthenticationToken();
 			setIsAuthenticated( false );
 			setClient( undefined );
@@ -59,7 +62,7 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 			console.error( 'Failed to handle invalid token:', err );
 			Sentry.captureException( err );
 		}
-	}, [] );
+	}, [ dispatch ] );
 
 	useIpcListener( 'auth-updated', ( _event, payload ) => {
 		if ( 'error' in payload ) {
@@ -110,6 +113,7 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 		}
 
 		try {
+			dispatch( userLoggedOut() );
 			await getIpcApi().clearAuthenticationToken();
 			setIsAuthenticated( false );
 			setClient( undefined );
@@ -119,7 +123,7 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 			console.error( err );
 			Sentry.captureException( err );
 		}
-	}, [ client, isOffline ] );
+	}, [ client, dispatch, isOffline ] );
 
 	useEffect( () => {
 		async function run() {

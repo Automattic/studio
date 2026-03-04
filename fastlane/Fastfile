@@ -274,7 +274,7 @@ lane :finalize_release do |version:, skip_confirm: false|
     Finalizing release #{version}. This will:
     - Bump version to #{version} (remove beta suffix)
     - Trigger a release build for all platforms (macOS, Windows), which will then:
-      - Upload build artifacts to the Apps CDN (as Internal, visible only to Automatticians)
+      - Upload build artifacts to the Apps CDN (as drafts, published later by publish_release)
       - Create a draft GitHub release with release notes and download links
       - Notify #dotcom-studio on Slack
   PROMPT
@@ -300,7 +300,7 @@ lane :publish_release do |version:, skip_confirm: false, github_username: nil|
 
   UI.important <<~PROMPT
     Publishing release #{version}. This will:
-    - Make CDN builds public (change visibility from Internal to External)
+    - Publish CDN builds (change post status from draft to publish)
     - Publish the draft GitHub release for v#{version}
     - Create a backmerge PR from `#{release_branch}` into `#{MAIN_BRANCH}`
     - Delete the `#{release_branch}` branch after creating the backmerge PR
@@ -585,7 +585,8 @@ def distribute_builds(
       arch: build[:arch],
       build_type: build_type,
       install_type: build[:install_type],
-      visibility: :internal,
+      visibility: :external,
+      post_status: release_tag&.match?(/beta/i) ? nil : 'draft',
       version: version,
       build_number: build_number,
       release_notes: release_notes,
@@ -823,10 +824,11 @@ def create_draft_github_release(version:, release_tag:, builds:)
   UI.success("Created draft GitHub release #{release_tag} with download links")
 end
 
-# Make CDN builds public by updating their visibility from Internal to External.
+# Publish CDN builds by changing their post status from draft to publish.
 #
-# Queries the Apps CDN API to find internal builds matching the version,
-# then calls {update_apps_cdn_build_metadata} for each to set visibility to External.
+# Queries the Apps CDN API to find draft builds matching the version,
+# then calls {update_apps_cdn_build_metadata} for each to set status to publish.
+# This is idempotent: if no drafts are found (already published), it logs a warning and returns.
 #
 # @param version [String] The version to publish (e.g., '1.7.5')
 #
@@ -835,26 +837,26 @@ def make_cdn_builds_public(version:)
   builds = list_apps_cdn_builds(
     site_id: WPCOM_STUDIO_SITE_ID,
     version: release_version,
-    visibility: :internal
+    post_status: 'draft'
   )
 
   if builds.empty?
-    UI.important("No internal CDN builds found for #{release_version}. They may have already been made public.")
+    UI.important("No draft CDN builds found for #{release_version}. They may have already been published.")
     return
   end
 
-  UI.message("Updating CDN build visibility to External for #{builds.size} builds...")
+  UI.message("Publishing #{builds.size} CDN build(s) for #{release_version}...")
 
   builds.each do |build|
-    UI.message("  Updating #{build[:title]} (post #{build[:post_id]})...")
+    UI.message("  Publishing #{build[:title]} (post #{build[:post_id]})...")
     update_apps_cdn_build_metadata(
       site_id: WPCOM_STUDIO_SITE_ID,
       post_id: build[:post_id],
-      visibility: :external
+      post_status: 'publish'
     )
   end
 
-  UI.success('All CDN builds are now public (External visibility)')
+  UI.success('All CDN builds are now published')
 end
 
 # Trigger a release build in Buildkite for the given version.

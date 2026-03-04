@@ -2,7 +2,7 @@ import {
 	__experimentalVStack as VStack,
 	__experimentalHStack as HStack,
 } from '@wordpress/components';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import MacTitlebar from 'src/components/mac-titlebar';
 import MainSidebar from 'src/components/main-sidebar';
 import { NoStudioSites } from 'src/components/no-studio-sites';
@@ -38,9 +38,12 @@ export default function App() {
 	const { client } = useAuth();
 	const dispatch = useAppDispatch();
 
-	// Initialize sync states from in-progress server operations
+	// Initialize sync states from in-progress server operations on first login only.
+	// Skip re-initialization after logout/re-login to avoid restoring stale operations.
+	const hasSyncInitialized = useRef( false );
 	useEffect( () => {
-		if ( client ) {
+		if ( client && ! hasSyncInitialized.current ) {
+			hasSyncInitialized.current = true;
 			void dispatch( syncOperationsThunks.initializeSyncStates( { client } ) );
 		}
 	}, [ client, dispatch ] );

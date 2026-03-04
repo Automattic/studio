@@ -73,7 +73,7 @@ export function arePathsEqual( path1: string, path2: string ) {
 
 		return stats1.ino === stats2.ino && stats1.dev === stats2.dev;
 	} catch ( error ) {
-		return path.resolve( path1 ).toLowerCase() === path.resolve( path2 ).toLowerCase();
+		return path.resolve( path1 ) === path.resolve( path2 );
 	}
 }
 

@@ -8,7 +8,8 @@ import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { isInvalidTokenError } from 'src/lib/is-invalid-oauth-token-error';
-import { useI18nLocale } from 'src/stores';
+import { store, useI18nLocale } from 'src/stores';
+import { userLogout } from 'src/stores/user-actions';
 import { setWpcomClient } from 'src/stores/wpcom-api';
 
 export interface AuthContextType {
@@ -50,6 +51,7 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 	const handleInvalidToken = useCallback( async () => {
 		try {
 			void getIpcApi().logRendererMessage( 'info', 'Detected invalid token. Logging out.' );
+			store.dispatch( userLogout() );
 			await getIpcApi().clearAuthenticationToken();
 			setIsAuthenticated( false );
 			setClient( undefined );
@@ -110,6 +112,7 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 		}
 
 		try {
+			store.dispatch( userLogout() );
 			await getIpcApi().clearAuthenticationToken();
 			setIsAuthenticated( false );
 			setClient( undefined );

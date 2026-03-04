@@ -9,6 +9,7 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getHostnameFromUrl } from 'src/lib/url-utils';
 import { store } from 'src/stores';
 import { connectedSitesApi } from 'src/stores/sync/connected-sites';
+import { userLogout } from 'src/stores/user-actions';
 import type {
 	PullStateProgressInfo,
 	PushStateProgressInfo,
@@ -182,7 +183,8 @@ const syncOperationsSlice = createSlice( {
 				if ( ! action.meta.aborted && state.pullStates[ stateId ] ) {
 					state.pullStates[ stateId ].status = getPullStatesProgressInfo().failed;
 				}
-			} );
+			} )
+			.addCase( userLogout, () => initialState );
 	},
 } );
 

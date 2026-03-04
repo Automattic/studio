@@ -526,7 +526,7 @@ describe( 'WASM memory error detection', () => {
 	describe( 'startServer - Windows heuristic', () => {
 		it( 'should throw WASM_ERROR_NOT_ENOUGH_MEMORY on Windows with low memory and running sites', async () => {
 			Object.defineProperty( process, 'platform', { value: 'win32' } );
-			vi.spyOn( os, 'freemem' ).mockReturnValue( 500 * 1024 ** 2 );
+			vi.spyOn( os, 'freemem' ).mockReturnValue( 100 * 1024 ** 2 );
 			vi.mocked( getRunningSiteCount ).mockReturnValue( 2 );
 
 			const mockServer = {

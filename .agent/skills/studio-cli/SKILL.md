@@ -35,6 +35,15 @@ Key options: `--name`, `--wp` (version), `--php` (version), `--domain`, `--https
 
 Without flags, the CLI prompts interactively for site name, path, WP/PHP versions, and domain.
 
+### Checking site details
+
+`studio site status` shows site URL, admin credentials, PHP/WP versions, Xdebug status, and whether the site is online — all in one command. Prefer this over individual `wp-cli` calls when you need general site info.
+
+```bash
+studio site status --path ~/Studio/my-site              # Table output
+studio site status --path ~/Studio/my-site --format json # JSON output
+```
+
 ### Configuring a site
 
 ```bash

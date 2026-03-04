@@ -121,12 +121,7 @@ export async function startWordPressServer(
 		serverConfig.enableDebugDisplay = true;
 	}
 
-	const env = {
-		ELECTRON_RUN_AS_NODE: '1',
-		STUDIO_WORDPRESS_SERVER_CONFIG: JSON.stringify( serverConfig ),
-	};
-
-	const processDesc = await startProcess( processName, wordPressServerChildPath, env );
+	const processDesc = await startProcess( processName, wordPressServerChildPath );
 	await waitForReadyMessage( processDesc.pmId );
 	await sendMessage(
 		processDesc.pmId,
@@ -403,12 +398,7 @@ export async function runBlueprint(
 		serverConfig.enableDebugDisplay = true;
 	}
 
-	const env = {
-		ELECTRON_RUN_AS_NODE: '1',
-		STUDIO_WORDPRESS_SERVER_CONFIG: JSON.stringify( serverConfig ),
-	};
-
-	const processDesc = await startProcess( processName, wordPressServerChildPath, env );
+	const processDesc = await startProcess( processName, wordPressServerChildPath );
 	try {
 		await waitForReadyMessage( processDesc.pmId );
 		await sendMessage(

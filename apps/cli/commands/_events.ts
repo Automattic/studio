@@ -16,7 +16,7 @@ import {
 	connect,
 	disconnect,
 	subscribePm2KillEvent,
-	EVENTS_SOCKET_PATH,
+	SITE_EVENTS_SOCKET_PATH,
 } from 'cli/lib/pm2-manager';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import { SocketServer } from 'cli/lib/socket';
@@ -76,8 +76,8 @@ const siteEventSchema = z.object( {
 } );
 
 export async function runCommand(): Promise< void > {
-	const eventsSocketServer = new SocketServer( EVENTS_SOCKET_PATH, 2500 );
-	eventsSocketServer.on( 'message', ( packet: unknown ) => {
+	const eventsSocketServer = new SocketServer( SITE_EVENTS_SOCKET_PATH, 2500 );
+	eventsSocketServer.on( 'message', ( { message: packet } ) => {
 		try {
 			const parsedPacket = siteEventSchema.parse( packet );
 			if (

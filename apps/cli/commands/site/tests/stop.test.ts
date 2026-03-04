@@ -7,7 +7,7 @@ import {
 	saveAppdata,
 	updateSiteAutoStart,
 } from 'cli/lib/appdata';
-import { connect, disconnect, killDaemonAndChildrenAndExitProcess } from 'cli/lib/pm2-manager';
+import { connect, disconnect, killDaemonAndChildren } from 'cli/lib/pm2-manager';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Mode, runCommand } from '../stop';
@@ -57,7 +57,7 @@ describe( 'CLI: studio site stop', () => {
 		vi.mocked( stopWordPressServer ).mockResolvedValue( undefined );
 		vi.mocked( clearSiteLatestCliPid ).mockResolvedValue( undefined );
 		vi.mocked( stopProxyIfNoSitesNeedIt ).mockResolvedValue( undefined );
-		vi.mocked( killDaemonAndChildrenAndExitProcess ).mockResolvedValue( undefined );
+		vi.mocked( killDaemonAndChildren ).mockResolvedValue( undefined );
 	} );
 
 	afterEach( () => {
@@ -213,7 +213,7 @@ describe( 'CLI: studio site stop --all', () => {
 		vi.mocked( connect ).mockResolvedValue( undefined );
 		vi.mocked( disconnect ).mockResolvedValue( undefined );
 		vi.mocked( isServerRunning ).mockResolvedValue( undefined );
-		vi.mocked( killDaemonAndChildrenAndExitProcess ).mockResolvedValue( undefined );
+		vi.mocked( killDaemonAndChildren ).mockResolvedValue( undefined );
 		vi.mocked( clearSiteLatestCliPid ).mockResolvedValue( undefined );
 	} );
 
@@ -244,9 +244,7 @@ describe( 'CLI: studio site stop --all', () => {
 		it( 'should throw when killDaemonAndAllChildren fails', async () => {
 			vi.mocked( readAppdata ).mockResolvedValue( { sites: testSites, snapshots: [] } );
 			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
-			vi.mocked( killDaemonAndChildrenAndExitProcess ).mockRejectedValue(
-				new Error( 'Failed to kill daemon' )
-			);
+			vi.mocked( killDaemonAndChildren ).mockRejectedValue( new Error( 'Failed to kill daemon' ) );
 
 			await expect( runCommand( Mode.STOP_ALL_SITES, undefined, false ) ).rejects.toThrow(
 				'Failed to kill daemon'
@@ -262,7 +260,7 @@ describe( 'CLI: studio site stop --all', () => {
 			await runCommand( Mode.STOP_ALL_SITES, undefined, false );
 
 			expect( connect ).toHaveBeenCalled();
-			expect( killDaemonAndChildrenAndExitProcess ).toHaveBeenCalledTimes( 1 );
+			expect( killDaemonAndChildren ).toHaveBeenCalledTimes( 1 );
 		} );
 
 		it( 'should kill daemon even if no sites are running', async () => {
@@ -274,7 +272,7 @@ describe( 'CLI: studio site stop --all', () => {
 
 			expect( connect ).toHaveBeenCalled();
 			expect( isServerRunning ).toHaveBeenCalledTimes( 3 );
-			expect( killDaemonAndChildrenAndExitProcess ).toHaveBeenCalledTimes( 1 );
+			expect( killDaemonAndChildren ).toHaveBeenCalledTimes( 1 );
 			expect( clearSiteLatestCliPid ).not.toHaveBeenCalled();
 		} );
 
@@ -284,7 +282,7 @@ describe( 'CLI: studio site stop --all', () => {
 
 			await runCommand( Mode.STOP_ALL_SITES, undefined, false );
 
-			expect( killDaemonAndChildrenAndExitProcess ).toHaveBeenCalledTimes( 1 );
+			expect( killDaemonAndChildren ).toHaveBeenCalledTimes( 1 );
 			expect( saveAppdata ).toHaveBeenCalledTimes( 1 );
 			expect( saveAppdata ).toHaveBeenCalledWith(
 				expect.objectContaining( {
@@ -311,7 +309,7 @@ describe( 'CLI: studio site stop --all', () => {
 			expect( isServerRunning ).toHaveBeenCalledWith( 'site-2' );
 			expect( isServerRunning ).toHaveBeenCalledWith( 'site-3' );
 
-			expect( killDaemonAndChildrenAndExitProcess ).toHaveBeenCalledTimes( 1 );
+			expect( killDaemonAndChildren ).toHaveBeenCalledTimes( 1 );
 
 			expect( saveAppdata ).toHaveBeenCalledTimes( 1 );
 			expect( saveAppdata ).toHaveBeenCalledWith(
@@ -346,7 +344,7 @@ describe( 'CLI: studio site stop --all', () => {
 
 			expect( isServerRunning ).toHaveBeenCalledTimes( 3 );
 
-			expect( killDaemonAndChildrenAndExitProcess ).toHaveBeenCalledTimes( 1 );
+			expect( killDaemonAndChildren ).toHaveBeenCalledTimes( 1 );
 
 			expect( saveAppdata ).toHaveBeenCalledTimes( 1 );
 			expect( saveAppdata ).toHaveBeenCalledWith(

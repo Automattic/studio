@@ -2,6 +2,7 @@ import { EventEmitter } from 'events';
 import fs from 'fs';
 import net from 'net';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
+import { DaemonResponse } from 'cli/lib/types/process-manager-ipc';
 
 const DEFAULT_CONNECT_TIMEOUT_MS = 500;
 
@@ -11,6 +12,14 @@ function isWindowsNamedPipe( endpoint: string ): boolean {
 
 function isUnixSocketPath( endpoint: string ): boolean {
 	return ! isWindowsNamedPipe( endpoint );
+}
+
+function encodeSocketMessage( message: unknown ): Buffer {
+	const json = JSON.stringify( message );
+	const body = Buffer.from( json, 'utf8' );
+	const header = Buffer.allocUnsafe( 4 );
+	header.writeUInt32BE( body.length, 0 );
+	return Buffer.concat( [ header, body ] );
 }
 
 // TCP gives us arbitrary byte chunks, not one object per `data` event.
@@ -49,13 +58,26 @@ export class SocketClient {
 	}
 
 	send( message: unknown ): Promise< void > {
-		const payload = this.encodeSocketMessage( message );
+		const payload = encodeSocketMessage( message );
 		const sendPromise = this.queue.then( async () => {
 			const socket = await this.connect();
 			await this.sendToSocket( socket, payload );
 		} );
 		this.queue = sendPromise.catch( () => undefined );
 		return sendPromise;
+	}
+
+	sendAndWaitForResponse( message: unknown ): Promise< unknown > {
+		const payload = encodeSocketMessage( message );
+		const responsePromise = this.queue.then( async () => {
+			const socket = await this.connect();
+			return this.sendAndReadFromSocket( socket, payload );
+		} );
+		this.queue = responsePromise.then(
+			() => undefined,
+			() => undefined
+		);
+		return responsePromise;
 	}
 
 	async connect(): Promise< net.Socket > {
@@ -80,14 +102,6 @@ export class SocketClient {
 		} );
 	}
 
-	encodeSocketMessage( message: unknown ): Buffer {
-		const json = JSON.stringify( message );
-		const body = Buffer.from( json, 'utf8' );
-		const header = Buffer.allocUnsafe( 4 );
-		header.writeUInt32BE( body.length, 0 );
-		return Buffer.concat( [ header, body ] );
-	}
-
 	private async sendToSocket( socket: net.Socket, payload: Buffer ): Promise< void > {
 		return new Promise< void >( ( resolve, reject ) => {
 			socket.once( 'error', ( error ) => {
@@ -105,9 +119,61 @@ export class SocketClient {
 			socket.removeAllListeners();
 		} );
 	}
+
+	private async sendAndReadFromSocket( socket: net.Socket, payload: Buffer ): Promise< unknown > {
+		const decoder = new SocketMessageDecoder();
+
+		return new Promise< unknown >( ( resolve, reject ) => {
+			socket.once( 'error', ( error ) => {
+				reject( error );
+			} );
+			socket.on( 'data', ( chunk ) => {
+				try {
+					for ( const message of decoder.write( chunk ) ) {
+						resolve( message );
+						return;
+					}
+				} catch ( error ) {
+					reject( error );
+				}
+			} );
+			socket.once( 'close', () => {
+				reject( new Error( `Socket closed before response: ${ this.peer }` ) );
+			} );
+			if ( socket.destroyed ) {
+				reject( new Error( `Socket closed before send: ${ this.peer }` ) );
+				return;
+			}
+			socket.write( payload );
+		} ).finally( () => {
+			socket.removeAllListeners();
+			socket.end();
+		} );
+	}
 }
 
-export class SocketServer extends EventEmitter {
+type SocketServerEventMap = {
+	message: { message: unknown; socket: net.Socket };
+	'message-error': { error: unknown };
+};
+
+class SocketServerEventEmitter extends EventEmitter {
+	on< K extends keyof SocketServerEventMap >(
+		event: K,
+		listener: ( payload: SocketServerEventMap[ K ] ) => void
+	): this {
+		return super.on( event, listener );
+	}
+
+	emit< K extends keyof SocketServerEventMap >(
+		event: K,
+		payload: SocketServerEventMap[ K ]
+	): boolean {
+		return super.emit( event, payload );
+	}
+}
+
+export class SocketServer extends SocketServerEventEmitter {
 	private readonly endpoint: string;
 	private readonly sockets = new Set< net.Socket >();
 	private readonly server: net.Server;
@@ -124,10 +190,10 @@ export class SocketServer extends EventEmitter {
 			socket.on( 'data', ( chunk ) => {
 				try {
 					for ( const message of decoder.write( chunk ) ) {
-						this.emit( 'message', message );
+						this.emit( 'message', { message, socket } );
 					}
 				} catch ( error ) {
-					this.emit( 'message-error', error );
+					this.emit( 'message-error', { error } );
 				}
 			} );
 
@@ -168,6 +234,24 @@ export class SocketServer extends EventEmitter {
 			}
 
 			await this.attemptServerListen();
+		}
+	}
+
+	sendAndClose( socket: net.Socket, message: DaemonResponse ) {
+		socket.end( encodeSocketMessage( message ) );
+	}
+
+	send( socket: net.Socket, message: unknown ) {
+		socket.write( encodeSocketMessage( message ) );
+	}
+
+	broadcast( message: unknown ) {
+		const payload = encodeSocketMessage( message );
+
+		for ( const socket of this.sockets ) {
+			if ( ! socket.destroyed ) {
+				socket.write( payload );
+			}
 		}
 	}
 
@@ -213,13 +297,29 @@ export class SocketServer extends EventEmitter {
 			}
 
 			if ( ! this.server.listening ) {
+				this.cleanupEndpoint();
 				resolve();
 				return;
 			}
 
 			this.server.close( () => {
+				this.cleanupEndpoint();
 				resolve();
 			} );
 		} );
+	}
+
+	private cleanupEndpoint() {
+		if ( ! isUnixSocketPath( this.endpoint ) ) {
+			return;
+		}
+
+		try {
+			fs.unlinkSync( this.endpoint );
+		} catch ( error ) {
+			if ( isErrnoException( error ) && error.code !== 'ENOENT' ) {
+				throw error;
+			}
+		}
 	}
 }

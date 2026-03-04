@@ -113,59 +113,10 @@ describe( 'WordPress Server Manager', () => {
 
 			expect( vi.mocked( pm2Manager.startProcess ) ).toHaveBeenCalledWith(
 				'studio-site-test-site-id',
-				expect.stringContaining( 'wordpress-server-child.js' ),
-				expect.objectContaining( {
-					STUDIO_WORDPRESS_SERVER_CONFIG: expect.any( String ),
-				} )
-			);
-
-			const callArgs = vi.mocked( pm2Manager.startProcess ).mock.calls[ 0 ];
-			const configJson = JSON.parse( callArgs[ 2 ]!.STUDIO_WORDPRESS_SERVER_CONFIG );
-			expect( configJson ).toEqual(
-				expect.objectContaining( {
-					siteId: 'test-site-id',
-					sitePath: '/test/site/path',
-					port: 8881,
-					phpVersion: '8.0',
-					siteTitle: 'Test Site',
-					adminPassword: 'password123',
-				} )
+				expect.stringContaining( 'wordpress-server-child.js' )
 			);
 
 			expect( result ).toEqual( mockProcessDescription );
-		} );
-
-		it( 'should start WordPress server with custom domain (HTTP)', async () => {
-			setupIpcMocks();
-
-			await startWordPressServer(
-				{
-					...mockSiteData,
-					customDomain: 'testsite.local',
-				},
-				mockLogger
-			);
-
-			const callArgs = vi.mocked( pm2Manager.startProcess ).mock.calls[ 0 ];
-			const configJson = JSON.parse( callArgs[ 2 ]!.STUDIO_WORDPRESS_SERVER_CONFIG );
-			expect( configJson.absoluteUrl ).toBe( 'http://testsite.local' );
-		} );
-
-		it( 'should start WordPress server with custom domain (HTTPS)', async () => {
-			setupIpcMocks();
-
-			await startWordPressServer(
-				{
-					...mockSiteData,
-					customDomain: 'testsite.local',
-					enableHttps: true,
-				},
-				mockLogger
-			);
-
-			const callArgs = vi.mocked( pm2Manager.startProcess ).mock.calls[ 0 ];
-			const configJson = JSON.parse( callArgs[ 2 ]!.STUDIO_WORDPRESS_SERVER_CONFIG );
-			expect( configJson.absoluteUrl ).toBe( 'https://testsite.local' );
 		} );
 
 		it( 'should handle PM2 start process failure', async () => {
@@ -176,21 +127,6 @@ describe( 'WordPress Server Manager', () => {
 			await expect( startWordPressServer( mockSiteData, mockLogger ) ).rejects.toThrow(
 				'Failed to start PM2 process'
 			);
-		} );
-
-		it( 'should send correct config via environment variable', async () => {
-			setupIpcMocks();
-
-			const siteWithOptions: SiteData = {
-				...mockSiteData,
-				isWpAutoUpdating: false,
-			};
-
-			await startWordPressServer( siteWithOptions, mockLogger );
-
-			const callArgs = vi.mocked( pm2Manager.startProcess ).mock.calls[ 0 ];
-			const configJson = JSON.parse( callArgs[ 2 ]!.STUDIO_WORDPRESS_SERVER_CONFIG );
-			expect( configJson.isWpAutoUpdating ).toBe( false );
 		} );
 	} );
 

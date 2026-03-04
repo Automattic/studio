@@ -87,7 +87,7 @@ describe( 'socket', () => {
 
 		const received: unknown[] = [];
 		const puller = new SocketServer( endpoint, 1000 );
-		puller.on( 'message', ( message ) => {
+		puller.on( 'message', ( { message } ) => {
 			received.push( message );
 		} );
 		await puller.listen();
@@ -99,6 +99,37 @@ describe( 'socket', () => {
 		expect( received ).toEqual( [ { idx: 1 }, { idx: 2 } ] );
 
 		await puller.close();
+	} );
+
+	it( 'sends a message and waits for a response', async ( { skip } ) => {
+		if ( ! ( await canBindUnixSocket() ) ) {
+			skip( true, 'Environment does not support Unix sockets' );
+		}
+
+		const endpoint = createEndpoint();
+		if ( process.platform !== 'win32' ) {
+			unixEndpointsToCleanup.push( endpoint );
+		}
+
+		const server = net.createServer( ( socket ) => {
+			const decoder = new SocketMessageDecoder();
+			socket.on( 'data', ( chunk ) => {
+				for ( const message of decoder.write( chunk ) ) {
+					socket.end( encodeTestMessage( { ok: true, echo: message } ) );
+				}
+			} );
+		} );
+
+		await new Promise< void >( ( resolve ) => {
+			server.listen( endpoint, () => resolve() );
+		} );
+
+		const client = new SocketClient( endpoint, 1000 );
+		const response = await client.sendAndWaitForResponse( { idx: 1 }, ( message ) => message );
+
+		expect( response ).toEqual( { ok: true, echo: { idx: 1 } } );
+
+		await closeServer( server );
 	} );
 
 	it( 'recovers from stale unix socket file on bind', async ( { skip } ) => {

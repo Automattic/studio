@@ -28,6 +28,7 @@ import { readAppdata, lockAppdata, unlockAppdata, saveAppdata } from 'cli/lib/ap
 import { loadTranslations } from 'cli/lib/i18n';
 import { untildify } from 'cli/lib/utils';
 import { StudioArgv } from 'cli/types';
+
 const version = __STUDIO_CLI_VERSION__;
 
 suppressPunycodeWarning();

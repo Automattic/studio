@@ -10,7 +10,7 @@ import {
 	updateSiteAutoStart,
 	type SiteData,
 } from 'cli/lib/appdata';
-import { connect, disconnect, killDaemonAndChildrenAndExitProcess } from 'cli/lib/pm2-manager';
+import { connect, disconnect, killDaemonAndChildren } from 'cli/lib/pm2-manager';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
@@ -73,29 +73,26 @@ export async function runCommand(
 			}
 
 			if ( ! runningSites.length ) {
-				await killDaemonAndChildrenAndExitProcess( () => {
-					logger.reportSuccess( __( 'No sites are currently running' ) );
-				} );
-				return;
-			}
-
-			try {
-				await lockAppdata();
-				const appdata = await readAppdata();
-				for ( const site of appdata.sites ) {
-					if ( runningSites.find( ( r ) => r.id === site.id ) ) {
-						delete site.latestCliPid;
-						site.autoStart = autoStart;
+				await killDaemonAndChildren();
+				logger.reportSuccess( __( 'No sites are currently running' ) );
+			} else {
+				try {
+					await lockAppdata();
+					const appdata = await readAppdata();
+					for ( const site of appdata.sites ) {
+						if ( runningSites.find( ( r ) => r.id === site.id ) ) {
+							delete site.latestCliPid;
+							site.autoStart = autoStart;
+						}
 					}
+					await saveAppdata( appdata );
+				} finally {
+					await unlockAppdata();
 				}
-				await saveAppdata( appdata );
-			} finally {
-				await unlockAppdata();
-			}
 
-			logger.reportStart( LoggerAction.STOP_ALL_SITES, __( 'Stopping all WordPress servers…' ) );
+				logger.reportStart( LoggerAction.STOP_ALL_SITES, __( 'Stopping all WordPress servers…' ) );
 
-			await killDaemonAndChildrenAndExitProcess( () => {
+				await killDaemonAndChildren();
 				logger.reportSuccess(
 					sprintf(
 						_n(
@@ -106,7 +103,7 @@ export async function runCommand(
 						runningSites.length
 					)
 				);
-			} );
+			}
 		}
 	} finally {
 		await disconnect();

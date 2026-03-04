@@ -16,4 +16,4 @@ export const subscribeSiteEvents = vi.fn().mockResolvedValue( undefined );
 export const subscribePm2KillEvent = vi.fn().mockResolvedValue( undefined );
 export const isProcessRunning = vi.fn().mockResolvedValue( false );
 
-export const EVENTS_SOCKET_PATH = '/test/events.sock';
+export const SITE_EVENTS_SOCKET_PATH = '/test/events.sock';

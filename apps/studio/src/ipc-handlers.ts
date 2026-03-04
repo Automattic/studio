@@ -73,7 +73,11 @@ import { shouldExcludeFromSync, shouldLimitDepth } from 'src/modules/sync/lib/tr
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { getUserTerminal } from 'src/modules/user-settings/lib/ipc-handlers';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
-import { SiteServer, stopAllServers as triggerStopAllServers } from 'src/site-server';
+import {
+	SiteServer,
+	stopAllServers as triggerStopAllServers,
+	getRunningSiteCount,
+} from 'src/site-server';
 import { DEFAULT_SITE_PATH, getSiteThumbnailPath } from 'src/storage/paths';
 import {
 	loadUserData,
@@ -126,6 +130,37 @@ export {
 	saveUserTerminal,
 	showUserSettings,
 } from 'src/modules/user-settings/lib/ipc-handlers';
+
+/**
+ * Detects if an error is likely caused by insufficient memory for WASM allocation.
+ * Checks both explicit WASM error messages and a heuristic for Windows where the
+ * server process may exit unexpectedly without a clear error when memory is low.
+ */
+function isWasmMemoryError( error: unknown ): boolean {
+	if (
+		errorMessageContains( error, 'Cannot allocate Wasm memory for new instance' ) ||
+		errorMessageContains( error, 'could not allocate memory' ) ||
+		errorMessageContains( error, 'Allocation failed' ) ||
+		errorMessageContains( error, 'WebAssembly.Memory()' )
+	) {
+		return true;
+	}
+
+	// Heuristic: On Windows, when the server process exits unexpectedly while other sites
+	// are running and free memory is low, it's likely a memory allocation failure.
+	// Windows doesn't overcommit memory like macOS, so WASM allocation fails silently.
+	const MINIMUM_FREE_MEMORY_BYTES = 600 * 1024 ** 2; // 600 MB
+	if (
+		process.platform === 'win32' &&
+		errorMessageContains( error, 'process exited unexpectedly' ) &&
+		getRunningSiteCount() > 0 &&
+		os.freemem() < MINIMUM_FREE_MEMORY_BYTES
+	) {
+		return true;
+	}
+
+	return false;
+}
 
 const DEBUG_LOG_MAX_LINES = 50;
 const PM2_HOME = nodePath.join( os.homedir(), '.studio', 'pm2' );
@@ -302,8 +337,7 @@ export async function createSite(
 
 		return server.details;
 	} catch ( error ) {
-		// Skip WASM memory errors - they're user system issues, not bugs
-		if ( errorMessageContains( error, 'Cannot allocate Wasm memory for new instance' ) ) {
+		if ( isWasmMemoryError( error ) ) {
 			throw new Error( 'WASM_ERROR_NOT_ENOUGH_MEMORY' );
 		}
 
@@ -454,8 +488,7 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 	try {
 		await server.start();
 	} catch ( error ) {
-		// Skip WASM memory errors - they're user system issues, not bugs
-		if ( errorMessageContains( error, 'Cannot allocate Wasm memory for new instance' ) ) {
+		if ( isWasmMemoryError( error ) ) {
 			throw new Error( 'WASM_ERROR_NOT_ENOUGH_MEMORY' );
 		}
 

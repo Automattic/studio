@@ -2,12 +2,10 @@ import os from 'os';
 import { errorMessageContains } from '@studio/common/lib/cli-error';
 import { getRunningSiteCount } from 'src/site-server';
 
-const MINIMUM_FREE_MEMORY_BYTES = 600 * 1024 ** 2; // 600 MB
-
 /**
  * Checks if the error message contains a known WASM memory allocation failure string.
  */
-export function hasWasmMemoryErrorMessage( error: unknown ): boolean {
+function hasWasmMemoryErrorMessage( error: unknown ): boolean {
 	return (
 		errorMessageContains( error, 'Cannot allocate Wasm memory for new instance' ) ||
 		errorMessageContains( error, 'could not allocate memory' ) ||
@@ -21,7 +19,8 @@ export function hasWasmMemoryErrorMessage( error: unknown ): boolean {
  * a clear WASM error when memory is low. Windows doesn't overcommit memory like
  * macOS, so WASM allocation can fail silently, crashing the child process.
  */
-export function isLikelyWindowsMemoryError( error: unknown ): boolean {
+function isLikelyWindowsMemoryError( error: unknown ): boolean {
+	const MINIMUM_FREE_MEMORY_BYTES = 600 * 1024 ** 2; // 600 MB
 	return (
 		process.platform === 'win32' &&
 		errorMessageContains( error, 'process exited unexpectedly' ) &&

@@ -3,6 +3,7 @@
  */
 import { IpcMainInvokeEvent } from 'electron';
 import fs from 'fs';
+import os from 'os';
 import { normalize } from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { bumpStat } from '@studio/common/lib/bump-stat';
@@ -13,13 +14,14 @@ import {
 	createSite,
 	isFullscreen,
 	importSite,
+	startServer,
 	getXdebugEnabledSite,
 	loadThemeDetails,
 } from 'src/ipc-handlers';
 import { importBackup, defaultImporterOptions } from 'src/lib/import-export/import/import-manager';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { getMainWindow } from 'src/main-window';
-import { SiteServer } from 'src/site-server';
+import { SiteServer, getRunningSiteCount } from 'src/site-server';
 
 vi.mock( 'fs' );
 vi.mock( 'fs-extra' );
@@ -399,5 +401,145 @@ describe( 'loadThemeDetails', () => {
 
 		expect( mockServer.persistThemeDetails ).toHaveBeenCalled();
 		expect( mockServer.updateCachedThumbnail ).toHaveBeenCalled();
+	} );
+} );
+
+describe( 'WASM memory error detection', () => {
+	const originalPlatform = process.platform;
+
+	afterEach( () => {
+		Object.defineProperty( process, 'platform', { value: originalPlatform } );
+		vi.restoreAllMocks();
+	} );
+
+	describe( 'createSite - explicit WASM error strings', () => {
+		it.each( [
+			'Cannot allocate Wasm memory for new instance',
+			'could not allocate memory',
+			'Allocation failed - process out of memory',
+			'WebAssembly.Memory(): could not allocate memory',
+		] )(
+			'should throw WASM_ERROR_NOT_ENOUGH_MEMORY when error contains "%s"',
+			async ( errorString ) => {
+				vi.mocked( SiteServer.create ).mockRejectedValueOnce( new Error( errorString ) );
+
+				await expect(
+					createSite( mockIpcMainInvokeEvent, '/test', { siteName: 'Test' } )
+				).rejects.toThrow( 'WASM_ERROR_NOT_ENOUGH_MEMORY' );
+
+				expect( Sentry.captureException ).not.toHaveBeenCalled();
+			}
+		);
+
+		it( 'should not throw WASM_ERROR_NOT_ENOUGH_MEMORY for unrelated errors', async () => {
+			const unrelatedError = new Error( 'ENOENT: no such file or directory' );
+			vi.mocked( SiteServer.create ).mockRejectedValueOnce( unrelatedError );
+
+			await expect(
+				createSite( mockIpcMainInvokeEvent, '/test', { siteName: 'Test' } )
+			).rejects.toThrow( unrelatedError );
+
+			expect( Sentry.captureException ).toHaveBeenCalledWith(
+				unrelatedError,
+				expect.any( Object )
+			);
+		} );
+	} );
+
+	describe( 'createSite - Windows heuristic', () => {
+		it( 'should throw WASM_ERROR_NOT_ENOUGH_MEMORY on Windows with low memory and running sites', async () => {
+			Object.defineProperty( process, 'platform', { value: 'win32' } );
+			vi.spyOn( os, 'freemem' ).mockReturnValue( 500 * 1024 ** 2 ); // 500 MB
+			vi.mocked( getRunningSiteCount ).mockReturnValue( 2 );
+
+			vi.mocked( SiteServer.create ).mockRejectedValueOnce(
+				new Error( 'WordPress server process exited unexpectedly' )
+			);
+
+			await expect(
+				createSite( mockIpcMainInvokeEvent, '/test', { siteName: 'Test' } )
+			).rejects.toThrow( 'WASM_ERROR_NOT_ENOUGH_MEMORY' );
+		} );
+
+		it( 'should not trigger heuristic on macOS', async () => {
+			Object.defineProperty( process, 'platform', { value: 'darwin' } );
+			vi.spyOn( os, 'freemem' ).mockReturnValue( 500 * 1024 ** 2 );
+			vi.mocked( getRunningSiteCount ).mockReturnValue( 2 );
+
+			const error = new Error( 'WordPress server process exited unexpectedly' );
+			vi.mocked( SiteServer.create ).mockRejectedValueOnce( error );
+
+			await expect(
+				createSite( mockIpcMainInvokeEvent, '/test', { siteName: 'Test' } )
+			).rejects.toThrow( error );
+		} );
+
+		it( 'should not trigger heuristic when no sites are running', async () => {
+			Object.defineProperty( process, 'platform', { value: 'win32' } );
+			vi.spyOn( os, 'freemem' ).mockReturnValue( 500 * 1024 ** 2 );
+			vi.mocked( getRunningSiteCount ).mockReturnValue( 0 );
+
+			const error = new Error( 'WordPress server process exited unexpectedly' );
+			vi.mocked( SiteServer.create ).mockRejectedValueOnce( error );
+
+			await expect(
+				createSite( mockIpcMainInvokeEvent, '/test', { siteName: 'Test' } )
+			).rejects.toThrow( error );
+		} );
+
+		it( 'should not trigger heuristic when free memory is above threshold', async () => {
+			Object.defineProperty( process, 'platform', { value: 'win32' } );
+			vi.spyOn( os, 'freemem' ).mockReturnValue( 2 * 1024 ** 3 ); // 2 GB
+			vi.mocked( getRunningSiteCount ).mockReturnValue( 2 );
+
+			const error = new Error( 'WordPress server process exited unexpectedly' );
+			vi.mocked( SiteServer.create ).mockRejectedValueOnce( error );
+
+			await expect(
+				createSite( mockIpcMainInvokeEvent, '/test', { siteName: 'Test' } )
+			).rejects.toThrow( error );
+		} );
+	} );
+
+	describe( 'startServer - explicit WASM error strings', () => {
+		it.each( [
+			'Cannot allocate Wasm memory for new instance',
+			'could not allocate memory',
+			'Allocation failed - process out of memory',
+			'WebAssembly.Memory(): could not allocate memory',
+		] )(
+			'should throw WASM_ERROR_NOT_ENOUGH_MEMORY when error contains "%s"',
+			async ( errorString ) => {
+				const mockServer = {
+					details: { ...mockSiteDetails, running: false },
+					start: vi.fn().mockRejectedValue( new Error( errorString ) ),
+				};
+				vi.mocked( SiteServer.get ).mockReturnValue( mockServer as unknown as SiteServer );
+
+				await expect( startServer( mockIpcMainInvokeEvent, 'mock-cli-site-id' ) ).rejects.toThrow(
+					'WASM_ERROR_NOT_ENOUGH_MEMORY'
+				);
+			}
+		);
+	} );
+
+	describe( 'startServer - Windows heuristic', () => {
+		it( 'should throw WASM_ERROR_NOT_ENOUGH_MEMORY on Windows with low memory and running sites', async () => {
+			Object.defineProperty( process, 'platform', { value: 'win32' } );
+			vi.spyOn( os, 'freemem' ).mockReturnValue( 500 * 1024 ** 2 );
+			vi.mocked( getRunningSiteCount ).mockReturnValue( 2 );
+
+			const mockServer = {
+				details: { ...mockSiteDetails, running: false },
+				start: vi
+					.fn()
+					.mockRejectedValue( new Error( 'WordPress server process exited unexpectedly' ) ),
+			};
+			vi.mocked( SiteServer.get ).mockReturnValue( mockServer as unknown as SiteServer );
+
+			await expect( startServer( mockIpcMainInvokeEvent, 'mock-cli-site-id' ) ).rejects.toThrow(
+				'WASM_ERROR_NOT_ENOUGH_MEMORY'
+			);
+		} );
 	} );
 } );

@@ -21,7 +21,6 @@ import {
 	sendMessageToProcess,
 	subscribeProcessEvents,
 	subscribeProcessMessages,
-	getPm2ProcessLogs,
 } from 'cli/lib/pm2-manager';
 import { ProcessDescription } from 'cli/lib/types/pm2';
 import {
@@ -244,13 +243,6 @@ export async function sendMessage(
 			}
 
 			if ( result.data.process.name === processName && result.data.event === 'exit' ) {
-				const logs = getPm2ProcessLogs( processName );
-				if ( logs.stdout ) {
-					console.log( `stdout:\n${ logs.stdout }` );
-				}
-				if ( logs.stderr ) {
-					console.log( `stderr:\n${ logs.stderr }` );
-				}
 				reject( new Error( 'WordPress server process exited unexpectedly' ) );
 			}
 		};

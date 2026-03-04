@@ -385,28 +385,3 @@ export async function emitSiteEvent(
 		// Do nothing
 	}
 }
-
-function readLastLines( filePath: string, maxLines: number ): string[] | undefined {
-	try {
-		if ( ! fs.existsSync( filePath ) ) {
-			return undefined;
-		}
-		const content = fs.readFileSync( filePath, 'utf-8' );
-		const lines = content.split( '\n' ).filter( ( line ) => line.trim() );
-		return lines.slice( -maxLines );
-	} catch {
-		return undefined;
-	}
-}
-
-const DEBUG_LOG_MAX_LINES = 50;
-
-export function getPm2ProcessLogs( processName: string ) {
-	const stdoutPath = path.join( STUDIO_PM2_HOME, 'logs', `${ processName }-out.log` );
-	const stderrPath = path.join( STUDIO_PM2_HOME, 'logs', `${ processName }-error.log` );
-
-	return {
-		stdout: readLastLines( stdoutPath, DEBUG_LOG_MAX_LINES ),
-		stderr: readLastLines( stderrPath, DEBUG_LOG_MAX_LINES ),
-	};
-}

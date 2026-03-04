@@ -73,7 +73,9 @@ export async function runCommand(
 			}
 
 			if ( ! runningSites.length ) {
-				logger.reportSuccess( __( 'No sites are currently running' ) );
+				await killDaemonAndChildrenAndExitProcess( () => {
+					logger.reportSuccess( __( 'No sites are currently running' ) );
+				} );
 				return;
 			}
 

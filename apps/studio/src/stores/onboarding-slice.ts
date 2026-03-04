@@ -2,10 +2,10 @@ import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { RootState } from 'src/stores';
 
-interface OnboardingState {
+type OnboardingState = {
 	completed: boolean;
 	loading: boolean;
-}
+};
 
 const initialState: OnboardingState = {
 	completed: false,

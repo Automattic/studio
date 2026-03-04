@@ -7,12 +7,12 @@ import {
 import { SupportedPHPVersionsList } from '@studio/common/types/php-versions';
 import { RootState } from 'src/stores';
 
-interface ProviderConstantsState {
+type ProviderConstantsState = {
 	defaultPhpVersion: string;
 	defaultWordPressVersion: string;
 	allowedPhpVersions: string[];
 	minimumWordPressVersion: string;
-}
+};
 
 const initialState: ProviderConstantsState = {
 	defaultPhpVersion: DEFAULT_PHP_VERSION,

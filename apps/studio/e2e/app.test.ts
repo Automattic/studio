@@ -9,6 +9,10 @@ test.describe( 'Electron app', () => {
 		await session.launch();
 	} );
 
+	test.afterEach( async ( { page: _page }, testInfo ) => {
+		await session.reportMainProcessLogsOnFailure( testInfo );
+	} );
+
 	test.afterAll( async () => {
 		await session.cleanup();
 	} );

@@ -1,12 +1,20 @@
+## Related issues
+
 <!--
 Link a related issue to this PR. If the PR does not immediately resolve the issue,
 for example, it requires a separate deployment to production, avoid
 using the "Fixes" keyword and use "Related to" instead.
 -->
 
-## Related issues
-
 - Fixes #
+
+## How AI was used in this PR
+
+<!--
+Help reviewers understand what to look for and verify that you've reviewed the code yourself.
+-->
+
+
 
 ## Proposed Changes
 

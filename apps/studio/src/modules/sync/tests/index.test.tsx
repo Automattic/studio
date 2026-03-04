@@ -2,8 +2,7 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { vi } from 'vitest';
-import { SyncSitesProvider, useSyncSites } from 'src/hooks/sync-sites';
-import { SyncPushState } from 'src/hooks/sync-sites/use-sync-push';
+import { SYNC_OPTIONS } from 'src/constants';
 import { useAuth } from 'src/hooks/use-auth';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
@@ -12,11 +11,14 @@ import { ContentTabSync } from 'src/modules/sync';
 import { useSelectedItemsPushSize } from 'src/modules/sync/hooks/use-selected-items-push-size';
 import { SyncSite } from 'src/modules/sync/types';
 import { store } from 'src/stores';
-import { useLatestRewindId, useRemoteFileTree } from 'src/stores/sync';
+import { syncOperationsActions, useLatestRewindId, useRemoteFileTree } from 'src/stores/sync';
 import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
 import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 
 store.replaceReducer( testReducer );
+
+const mockPullSiteThunk = vi.hoisted( () => vi.fn() );
+const mockPushSiteThunk = vi.hoisted( () => vi.fn() );
 
 vi.mock( 'src/lib/get-ipc-api' );
 vi.mock( 'src/hooks/use-auth' );
@@ -28,13 +30,6 @@ vi.mock( 'src/stores/sync/wpcom-sites', async () => {
 	};
 } );
 vi.mock( 'src/hooks/use-feature-flags' );
-vi.mock( 'src/hooks/sync-sites/sync-sites-context', async () => {
-	const actual = await vi.importActual( '../../../hooks/sync-sites/sync-sites-context' );
-	return {
-		...actual,
-		useSyncSites: vi.fn(),
-	};
-} );
 
 vi.mock( 'src/stores/sync', async () => {
 	const actual = await vi.importActual( 'src/stores/sync' );
@@ -61,6 +56,11 @@ vi.mock( 'src/stores/sync', async () => {
 				return { type: 'connectedSites/closeModal' };
 			} ),
 		},
+		syncOperationsThunks: {
+			...actual.syncOperationsThunks,
+			pullSite: mockPullSiteThunk,
+			pushSite: mockPushSiteThunk,
+		},
 	};
 } );
 
@@ -85,6 +85,7 @@ const createAuthMock = ( isAuthenticated: boolean = false ) => ( {
 	isAuthenticated,
 	authenticate: vi.fn(),
 	user: isAuthenticated ? { id: 123, email: 'user@example.com', displayName: 'user' } : undefined,
+	client: isAuthenticated ? ( {} as never ) : undefined,
 } );
 
 const selectedSite: SiteDetails = {
@@ -95,17 +96,6 @@ const selectedSite: SiteDetails = {
 	running: false,
 	phpVersion: '8.3',
 	id: 'site-id',
-};
-
-const inProgressPushState: SyncPushState = {
-	remoteSiteId: 1,
-	status: {
-		key: 'creatingRemoteBackup',
-		progress: 50,
-		message: '',
-	},
-	selectedSite,
-	remoteSiteUrl: 'https://example.com',
 };
 
 const fakeSyncSite: SyncSite = {
@@ -121,20 +111,6 @@ const fakeSyncSite: SyncSite = {
 };
 
 describe( 'ContentTabSync', () => {
-	const mockSyncSites = {
-		pullSite: vi.fn(),
-		pushSite: vi.fn(),
-		isAnySitePulling: false,
-		isAnySitePushing: false,
-		getPullState: vi.fn(),
-		getPushState: vi.fn(),
-		updateTimestamp: vi.fn(),
-		getLastSyncTimeText: vi.fn().mockReturnValue( 'You have not pulled this site yet.' ),
-		isSiteIdPulling: vi.fn().mockReturnValue( false ),
-		isSiteIdPushing: vi.fn().mockReturnValue( false ),
-		clearTimeout: vi.fn(),
-	};
-
 	const setupConnectedSitesMocks = (
 		connectedSites: SyncSite[] = [],
 		syncSites: SyncSite[] = []
@@ -152,6 +128,14 @@ describe( 'ContentTabSync', () => {
 
 	beforeEach( () => {
 		vi.resetAllMocks();
+		mockPullSiteThunk.mockImplementation( ( payload ) => ( {
+			type: 'syncOperations/pullSite',
+			payload,
+		} ) );
+		mockPushSiteThunk.mockImplementation( ( payload ) => ( {
+			type: 'syncOperations/pushSite',
+			payload,
+		} ) );
 		store.dispatch( testActions.resetState() );
 		store.dispatch( { type: 'connectedSitesApi/resetApiState' } );
 		vi.mocked( useAuth, { partial: true } ).mockReturnValue( createAuthMock( false ) );
@@ -164,6 +148,8 @@ describe( 'ContentTabSync', () => {
 			openURL: vi.fn(),
 			showMessageBox: vi.fn(),
 			updateConnectedWpcomSites: vi.fn(),
+			addSyncOperation: vi.fn(),
+			removeSyncOperation: vi.fn(),
 			getConnectedWpcomSites: vi.fn().mockResolvedValue( [] ),
 			getDirectorySize: vi.fn().mockResolvedValue( 0 ),
 			connectWpcomSites: vi.fn(),
@@ -199,7 +185,6 @@ describe( 'ContentTabSync', () => {
 			isPushSelectionOverLimit: false,
 			isLoading: false,
 		} );
-		vi.mocked( useSyncSites, { partial: true } ).mockReturnValue( mockSyncSites );
 		vi.mocked( useLatestRewindId, { partial: true } ).mockReturnValue( {
 			rewindId: '1704067200',
 			isLoading: false,
@@ -259,14 +244,14 @@ describe( 'ContentTabSync', () => {
 	const renderWithProvider = ( children: React.ReactElement ) => {
 		return render(
 			<Provider store={ store }>
-				<ContentTabsProvider>
-					<SyncSitesProvider>{ children }</SyncSitesProvider>
-				</ContentTabsProvider>
+				<ContentTabsProvider>{ children }</ContentTabsProvider>
 			</Provider>
 		);
 	};
 
 	it( 'renders the sync title and login buttons', () => {
+		const authMock = createAuthMock( false );
+		vi.mocked( useAuth, { partial: true } ).mockReturnValue( authMock );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 		expect( screen.getByText( 'Sync with WordPress.com or Pressable' ) ).toBeInTheDocument();
 
@@ -274,7 +259,7 @@ describe( 'ContentTabSync', () => {
 		expect( loginButton ).toBeInTheDocument();
 
 		fireEvent.click( loginButton );
-		expect( useAuth().authenticate ).toHaveBeenCalled();
+		expect( authMock.authenticate ).toHaveBeenCalled();
 
 		const freeAccountButton = screen.getByRole( 'button', { name: /Create a free account/i } );
 		expect( freeAccountButton ).toBeInTheDocument();
@@ -395,18 +380,27 @@ describe( 'ContentTabSync', () => {
 	it( 'displays the progress bar when the site is being pushed', async () => {
 		vi.mocked( useAuth, { partial: true } ).mockReturnValue( createAuthMock( true ) );
 		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
-		vi.mocked( useSyncSites, { partial: true } ).mockReturnValue( {
-			...mockSyncSites,
-			getPushState: vi.fn().mockReturnValue( inProgressPushState ),
-			isSiteIdPushing: vi.fn().mockReturnValue( true ),
-		} );
+		store.dispatch(
+			syncOperationsActions.updatePushState( {
+				selectedSiteId: selectedSite.id,
+				remoteSiteId: fakeSyncSite.id,
+				state: {
+					status: {
+						key: 'uploading',
+						progress: 40,
+						message: 'Uploading…',
+					},
+					selectedSite,
+					remoteSiteUrl: fakeSyncSite.url,
+				},
+			} )
+		);
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
 		await screen.findByRole( 'progressbar' );
 	} );
 
 	it( 'opens sync pullSite dialog with development environment label', async () => {
-		const mockPullSite = vi.fn();
 		vi.mocked( useAuth, { partial: true } ).mockReturnValue( createAuthMock( true ) );
 		const fakeDevelopmentSyncSite: SyncSite = {
 			...fakeSyncSite,
@@ -414,10 +408,6 @@ describe( 'ContentTabSync', () => {
 			environmentType: 'development',
 		};
 		setupConnectedSitesMocks( [ fakeDevelopmentSyncSite ], [ fakeDevelopmentSyncSite ] );
-		vi.mocked( useSyncSites, { partial: true } ).mockReturnValue( {
-			...mockSyncSites,
-			pullSite: mockPullSite,
-		} );
 
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
@@ -432,7 +422,6 @@ describe( 'ContentTabSync', () => {
 	} );
 
 	it( 'opens sync pullSite dialog and displays production when the environment is not supported', async () => {
-		const mockPullSite = vi.fn();
 		vi.mocked( useAuth, { partial: true } ).mockReturnValue( createAuthMock( true ) );
 		const fakeDevelopmentSyncSite: SyncSite = {
 			...fakeSyncSite,
@@ -440,10 +429,6 @@ describe( 'ContentTabSync', () => {
 			environmentType: 'non-supported-environment-example-or-sandbox',
 		};
 		setupConnectedSitesMocks( [ fakeDevelopmentSyncSite ], [ fakeDevelopmentSyncSite ] );
-		vi.mocked( useSyncSites, { partial: true } ).mockReturnValue( {
-			...mockSyncSites,
-			pullSite: mockPullSite,
-		} );
 
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
@@ -458,13 +443,8 @@ describe( 'ContentTabSync', () => {
 	} );
 
 	it( 'calls pullSite with correct optionsToSync when all options are selected', async () => {
-		const mockPullSite = vi.fn();
 		vi.mocked( useAuth, { partial: true } ).mockReturnValue( createAuthMock( true ) );
 		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
-		vi.mocked( useSyncSites, { partial: true } ).mockReturnValue( {
-			...mockSyncSites,
-			pullSite: mockPullSite,
-		} );
 
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
@@ -482,19 +462,18 @@ describe( 'ContentTabSync', () => {
 		const dialogPullButton = await screen.findByTestId( 'sync-dialog-pull-button' );
 		fireEvent.click( dialogPullButton );
 
-		expect( mockPullSite ).toHaveBeenCalledWith( fakeSyncSite, selectedSite, {
-			optionsToSync: [ 'all' ],
-		} );
+		expect( mockPullSiteThunk ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				options: {
+					optionsToSync: [ SYNC_OPTIONS.all ],
+				},
+			} )
+		);
 	} );
 
 	it( 'calls pullSite with correct optionsToSync when only database is selected', async () => {
-		const mockPullSite = vi.fn();
 		vi.mocked( useAuth, { partial: true } ).mockReturnValue( createAuthMock( true ) );
 		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
-		vi.mocked( useSyncSites, { partial: true } ).mockReturnValue( {
-			...mockSyncSites,
-			pullSite: mockPullSite,
-		} );
 
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
@@ -510,13 +489,16 @@ describe( 'ContentTabSync', () => {
 		const dialogPullButton = await screen.findByTestId( 'sync-dialog-pull-button' );
 		fireEvent.click( dialogPullButton );
 
-		expect( mockPullSite ).toHaveBeenCalledWith( fakeSyncSite, selectedSite, {
-			optionsToSync: [ 'sqls' ],
-		} );
+		expect( mockPullSiteThunk ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				options: {
+					optionsToSync: [ SYNC_OPTIONS.sqls ],
+				},
+			} )
+		);
 	} );
 
 	it( 'calls pullSite with correct optionsToSync when options partially are selected', async () => {
-		const mockPullSite = vi.fn();
 		vi.mocked( useAuth, { partial: true } ).mockReturnValue( createAuthMock( true ) );
 		vi.mocked( useRemoteFileTree, { partial: true } ).mockReturnValue( {
 			fetchChildren: vi.fn().mockResolvedValue( [
@@ -585,10 +567,6 @@ describe( 'ContentTabSync', () => {
 		} );
 
 		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
-		vi.mocked( useSyncSites, { partial: true } ).mockReturnValue( {
-			...mockSyncSites,
-			pullSite: mockPullSite,
-		} );
 
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
@@ -614,10 +592,14 @@ describe( 'ContentTabSync', () => {
 		const dialogPullButton = await screen.findByTestId( 'sync-dialog-pull-button' );
 		fireEvent.click( dialogPullButton );
 
-		expect( mockPullSite ).toHaveBeenCalledWith( fakeSyncSite, selectedSite, {
-			optionsToSync: [ 'paths', 'sqls' ],
-			include_path_list: [ 'cjI6,ZjI6Lw==', 'ZjM6Lw==' ],
-		} );
+		expect( mockPullSiteThunk ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				options: {
+					optionsToSync: [ SYNC_OPTIONS.paths, SYNC_OPTIONS.sqls ],
+					include_path_list: [ 'cjI6,ZjI6Lw==', 'ZjM6Lw==' ],
+				},
+			} )
+		);
 	} );
 
 	it( 'disables the pull button when all checkboxes are unchecked, which is the initial state', async () => {

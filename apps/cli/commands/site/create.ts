@@ -206,7 +206,14 @@ export async function runCommand(
 			isSqliteUpdated ? __( 'SQLite integration configured' ) : __( 'SQLite integration skipped' )
 		);
 
-		await writeAgentsMd( sitePath );
+		try {
+			await writeAgentsMd( sitePath );
+		} catch ( error ) {
+			logger.reportError(
+				new LoggerError( __( 'Failed to write AGENTS.md. Proceeding anyway…' ), error ),
+				false
+			);
+		}
 
 		logger.reportStart( LoggerAction.ASSIGN_PORT, __( 'Assigning port…' ) );
 		const port = await portFinder.getOpenPort();

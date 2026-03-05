@@ -80,7 +80,7 @@ function createMockSocket(
 	return socket;
 }
 
-describe( 'PM2 Manager', () => {
+describe( 'process manager daemon client', () => {
 	let eventSocket:
 		| ( EventEmitter & {
 				end: ReturnType< typeof vi.fn >;
@@ -196,12 +196,12 @@ describe( 'PM2 Manager', () => {
 		} );
 	} );
 
-	it( 'getPm2Bus() caches the bus and re-emits compatibility events', async () => {
-		const { connectToDaemon, getDaemonBus: getPm2Bus } = await import( '../daemon-client' );
+	it( 'getDaemonBus() caches the bus and re-emits compatibility events', async () => {
+		const { connectToDaemon, getDaemonBus } = await import( '../daemon-client' );
 		await connectToDaemon();
 
-		const bus1 = await getPm2Bus();
-		const bus2 = await getPm2Bus();
+		const bus1 = await getDaemonBus();
+		const bus2 = await getDaemonBus();
 		expect( bus1 ).toBe( bus2 );
 
 		const processMessageHandler = vi.fn();

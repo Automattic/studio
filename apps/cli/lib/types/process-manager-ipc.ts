@@ -80,9 +80,15 @@ export type DaemonResponse = z.infer< typeof daemonResponseSchema >;
 export const processEventSchema = z.object( {
 	process: z.object( {
 		name: z.string(),
-		pm_id: z.number().optional(),
+		pm_id: z.number(),
 	} ),
-	event: z.string(),
+	event: z.union( [
+		z.literal( 'delete' ),
+		z.literal( 'exit' ),
+		z.literal( 'online' ),
+		z.literal( 'restart' ),
+		z.literal( 'stop' ),
+	] ),
 } );
 
 const daemonProcessEventSchema = z.object( {

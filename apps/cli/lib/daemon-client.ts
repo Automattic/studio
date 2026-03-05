@@ -31,7 +31,7 @@ import {
 
 const PROXY_PROCESS_NAME = 'studio-proxy';
 const CONNECTION_TIMEOUT = 10_000;
-const PM2_LOCKFILE_PATH = path.join( PROCESS_MANAGER_HOME, 'pm2-connection.lock' );
+const PROCESS_MANAGER_LOCKFILE_PATH = path.join( PROCESS_MANAGER_HOME, 'pm-connection.lock' );
 export const SITE_EVENTS_SOCKET_PATH =
 	process.platform === 'win32'
 		? '\\\\.\\pipe\\studio-events.sock'
@@ -213,7 +213,7 @@ export async function connectToDaemon(): Promise< void > {
 	if ( isConnected ) {
 		return;
 	}
-	await lockFileAsync( PM2_LOCKFILE_PATH, {
+	await lockFileAsync( PROCESS_MANAGER_LOCKFILE_PATH, {
 		wait: LOCKFILE_WAIT_TIME,
 		stale: LOCKFILE_STALE_TIME,
 	} );
@@ -226,7 +226,7 @@ export async function connectToDaemon(): Promise< void > {
 		await cleanupDaemonBus();
 		throw error;
 	} finally {
-		await unlockFileAsync( PM2_LOCKFILE_PATH );
+		await unlockFileAsync( PROCESS_MANAGER_LOCKFILE_PATH );
 	}
 }
 
@@ -326,78 +326,6 @@ export async function stopProcess( processName: string ): Promise< void > {
 		type: 'stop-process',
 		processName,
 	} );
-}
-
-type ProcessEventData = {
-	processName: string;
-	event: string;
-};
-
-/**
- * Subscribe to process manager events (online, exit, stop, restart)
- * @param handler - Callback invoked when a process event occurs
- * @returns Unsubscribe function to stop listening
- */
-export async function subscribeProcessEvents(
-	handler: ( data: ProcessEventData ) => void
-): Promise< () => void > {
-	const bus = await getDaemonBus();
-
-	const eventHandler = ( event: DaemonBusEventMap[ 'process-event' ] ) => {
-		handler( {
-			processName: event.process.name,
-			event: event.event,
-		} );
-	};
-
-	bus.on( 'process-event', eventHandler );
-
-	return () => {
-		bus.off( 'process-event', eventHandler );
-	};
-}
-
-type ProcessMessageData = {
-	processName: string;
-	pmId: number;
-	topic: string;
-	data?: unknown;
-};
-
-/**
- * Subscribe to process manager messages (IPC messages from child processes)
- * @param handler - Callback invoked when a process message is received
- * @returns Unsubscribe function to stop listening
- */
-export async function subscribeProcessMessages(
-	handler: ( data: ProcessMessageData ) => void
-): Promise< () => void > {
-	const bus = await getDaemonBus();
-
-	const messageHandler = ( packet: DaemonBusEventMap[ 'process-message' ] ) => {
-		handler( {
-			processName: packet.process.name,
-			pmId: packet.process.pm_id,
-			topic: packet.raw.topic,
-			data: packet.raw,
-		} );
-	};
-
-	bus.on( 'process-message', messageHandler );
-
-	return () => {
-		bus.off( 'process-message', messageHandler );
-	};
-}
-
-export async function subscribeDaemonKillEvent( handler: () => void ) {
-	const bus = await getDaemonBus();
-
-	bus.on( 'daemon-kill', handler );
-
-	return () => {
-		bus.off( 'daemon-kill', handler );
-	};
 }
 
 const eventsSocketClient = new SocketClient( SITE_EVENTS_SOCKET_PATH );

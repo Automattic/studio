@@ -120,13 +120,13 @@ describe( 'WordPress Server Manager', () => {
 			expect( result ).toEqual( mockProcessDescription );
 		} );
 
-		it( 'should handle PM2 start process failure', async () => {
+		it( 'should handle start process failure', async () => {
 			vi.mocked( daemonClient.startProcess ).mockRejectedValue(
-				new Error( 'Failed to start PM2 process' )
+				new Error( 'Failed to start process' )
 			);
 
 			await expect( startWordPressServer( mockSiteData, mockLogger ) ).rejects.toThrow(
-				'Failed to start PM2 process'
+				'Failed to start process'
 			);
 		} );
 	} );

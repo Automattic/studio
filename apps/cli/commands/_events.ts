@@ -15,8 +15,8 @@ import { getSiteUrl, readAppdata, SiteData } from 'cli/lib/appdata';
 import {
 	connectToDaemon,
 	disconnectFromDaemon,
-	subscribeDaemonKillEvent,
 	SITE_EVENTS_SOCKET_PATH,
+	getDaemonBus,
 } from 'cli/lib/daemon-client';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import { SocketServer } from 'cli/lib/socket';
@@ -124,7 +124,9 @@ export async function runCommand(): Promise< void > {
 		void emitSiteEvent( event, siteId, running );
 	} );
 
-	await subscribeDaemonKillEvent( () => {
+	const bus = await getDaemonBus();
+
+	bus.on( 'daemon-kill', () => {
 		void emitAllSitesStopped();
 	} );
 }

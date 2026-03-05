@@ -219,21 +219,20 @@ export class ProcessManagerDaemon {
 
 		child.on( 'error', ( error ) => {
 			void stderrStream.write( `${ error.stack ?? error.message }\n` );
-			void this.handleProcessExit( managedProcess, 'exit' );
+			void this.handleProcessExit( managedProcess );
 		} );
 
 		child.on( 'exit', () => {
-			void this.handleProcessExit( managedProcess, 'exit' );
+			void this.handleProcessExit( managedProcess );
 		} );
 
-		const onlineEvent = daemonEventSchema.parse( {
+		await this.broadcastEvent( {
 			type: 'process-event',
 			payload: {
 				process: { name: processName, pm_id: pmId },
 				event: 'online',
 			},
 		} );
-		await this.broadcastEvent( onlineEvent );
 
 		return this.toProcessDescription( managedProcess );
 	}
@@ -252,15 +251,13 @@ export class ProcessManagerDaemon {
 
 			managedProcess.child.once( 'exit', () => {
 				clearTimeout( timeoutId );
-				void this.broadcastEvent(
-					daemonEventSchema.parse( {
-						type: 'process-event',
-						payload: {
-							process: { name: managedProcess.name, pm_id: managedProcess.pmId },
-							event: 'delete',
-						},
-					} )
-				);
+				void this.broadcastEvent( {
+					type: 'process-event',
+					payload: {
+						process: { name: managedProcess.name, pm_id: managedProcess.pmId },
+						event: 'delete',
+					},
+				} );
 				resolve();
 			} );
 
@@ -268,7 +265,7 @@ export class ProcessManagerDaemon {
 		} );
 	}
 
-	private async handleProcessExit( managedProcess: ManagedProcess, eventName: string ) {
+	private async handleProcessExit( managedProcess: ManagedProcess ) {
 		if ( managedProcess.settled ) {
 			return;
 		}
@@ -280,14 +277,13 @@ export class ProcessManagerDaemon {
 		managedProcess.stdoutStream.end();
 		managedProcess.stderrStream.end();
 
-		const exitEvent = daemonEventSchema.parse( {
+		await this.broadcastEvent( {
 			type: 'process-event',
 			payload: {
 				process: { name: managedProcess.name, pm_id: managedProcess.pmId },
-				event: eventName,
+				event: 'exit',
 			},
 		} );
-		await this.broadcastEvent( exitEvent );
 	}
 
 	private async sendMessageToProcess( processId: number, message: ManagerMessage ) {
@@ -341,12 +337,10 @@ export class ProcessManagerDaemon {
 		}
 
 		this.shuttingDown = true;
-		await this.broadcastEvent(
-			daemonEventSchema.parse( {
-				type: 'daemon-kill',
-				payload: { reason },
-			} )
-		);
+		await this.broadcastEvent( {
+			type: 'daemon-kill',
+			payload: { reason },
+		} );
 
 		await Promise.allSettled(
 			Array.from( this.managedProcesses.values() ).map( ( managedProcess ) =>

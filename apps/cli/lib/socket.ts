@@ -297,29 +297,13 @@ export class SocketServer extends SocketServerEventEmitter {
 			}
 
 			if ( ! this.server.listening ) {
-				this.cleanupEndpoint();
 				resolve();
 				return;
 			}
 
 			this.server.close( () => {
-				this.cleanupEndpoint();
 				resolve();
 			} );
 		} );
-	}
-
-	private cleanupEndpoint() {
-		if ( ! isUnixSocketPath( this.endpoint ) ) {
-			return;
-		}
-
-		try {
-			fs.unlinkSync( this.endpoint );
-		} catch ( error ) {
-			if ( isErrnoException( error ) && error.code !== 'ENOENT' ) {
-				throw error;
-			}
-		}
 	}
 }

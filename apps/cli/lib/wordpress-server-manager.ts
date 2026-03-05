@@ -1,8 +1,8 @@
 /**
  * WordPress Server Manager for Studio CLI
  *
- * Manages WordPress server processes via PM2. Each site runs as its own
- * PM2 daemon process using the Playground CLI provider.
+ * Manages WordPress server processes via process manager daemon. Each site runs in a separate
+ * process that spawns Playground CLI.
  */
 import path from 'path';
 import {
@@ -20,8 +20,6 @@ import {
 	getDaemonBus,
 	type DaemonBusEventMap,
 	sendMessageToProcess,
-	subscribeProcessEvents,
-	subscribeProcessMessages,
 } from 'cli/lib/daemon-client';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { ServerConfig, ManagerMessagePayload } from 'cli/lib/types/wordpress-server-ipc';
@@ -45,8 +43,8 @@ export async function isServerRunning( siteId: string ): Promise< ProcessDescrip
 }
 
 /**
- * Start a WordPress server for a site via PM2
- * 1. Start the PM2 process
+ * Start a WordPress server for a site via process manager daemon
+ * 1. Start the process (via the process manager daemon)
  * 2. Wait for 'ready' message
  * 3. Send 'start-server' message with config
  * 4. Wait for response before resolving
@@ -161,13 +159,6 @@ async function waitForReadyMessage( pmId: number ): Promise< void > {
 	} );
 }
 
-/**
- * Send message to PM2 process and wait for response with activity-based timeout
- * Implements activity-based timeout system:
- * - Tracks last activity timestamp
- * - Checks periodically for inactivity
- * - Has both inactivity timeout and max total timeout
- */
 const messageActivityTrackers = new Map<
 	string,
 	{
@@ -180,6 +171,13 @@ export interface SendMessageOptions {
 	logger?: Logger< string >;
 }
 
+/**
+ * Send message to process (via the process manager daemon) and wait for response with
+ * activity-based timeout.
+ * - Tracks last activity timestamp
+ * - Checks periodically for inactivity
+ * - Has both inactivity timeout and max total timeout
+ */
 export async function sendMessage(
 	pmId: number,
 	processName: string,
@@ -290,7 +288,7 @@ export async function stopWordPressServer( siteId: string ): Promise< void > {
 				{ maxTotalElapsedTime: GRACEFUL_STOP_TIMEOUT }
 			);
 		} catch {
-			// Graceful shutdown failed, PM2 delete will handle it
+			// Graceful shutdown failed, `stopProcess()` will handle it
 		}
 	}
 
@@ -305,7 +303,7 @@ export interface RunBlueprintOptions {
 
 /**
  * Run a blueprint on a site without starting a server
- * 1. Start the PM2 process
+ * 1. Start the process (via the process manager daemon)
  * 2. Wait for 'ready' message
  * 3. Send 'run-blueprint' message with config
  * 4. Wait for completion
@@ -411,13 +409,11 @@ export async function sendWpCliCommand(
 	return wpCliResultSchema.parse( result );
 }
 
-const PM2_STATUS_EVENTS = [ 'exit', 'stop', 'restart', 'delete' ];
-
 /**
  * Subscribe to site server events
  *
- * Listens for PM2 process events and emits 'site-updated' when site status changes.
- * All PM2 events (online, exit, stop, restart) are mapped to 'site-updated'.
+ * Listens for process events and emits 'site-updated' when site status changes.
+ * All process manager daemon events are mapped to 'site-updated'.
  *
  * @param handler - Callback invoked when a site event occurs
  * @returns Unsubscribe function to stop listening
@@ -425,32 +421,37 @@ const PM2_STATUS_EVENTS = [ 'exit', 'stop', 'restart', 'delete' ];
 export async function subscribeSiteEvents(
 	handler: ( data: { siteId: string; event: SITE_EVENTS; running: boolean } ) => void
 ): Promise< () => void > {
-	const unsubscribeMessages = await subscribeProcessMessages( ( { processName, topic } ) => {
+	const bus = await getDaemonBus();
+
+	const messageHandler = ( message: DaemonBusEventMap[ 'process-message' ] ) => {
+		const processName = message.process.name;
 		if ( ! processName.startsWith( SITE_PROCESS_PREFIX ) ) {
 			return;
 		}
 
-		if ( topic === 'result' ) {
+		if ( message.raw.topic === 'result' ) {
 			const siteId = processName.replace( SITE_PROCESS_PREFIX, '' );
 			// 'result' message means server started successfully
 			handler( { siteId, event: SITE_EVENTS.UPDATED, running: true } );
 		}
-	} );
+	};
+	bus.on( 'process-message', messageHandler );
 
-	const unsubscribeEvents = await subscribeProcessEvents( ( { processName, event } ) => {
+	const eventHandler = ( event: DaemonBusEventMap[ 'process-event' ] ) => {
+		const processName = event.process.name;
 		if ( ! processName.startsWith( SITE_PROCESS_PREFIX ) ) {
 			return;
 		}
 
-		if ( PM2_STATUS_EVENTS.includes( event ) ) {
+		if ( event.event !== 'online' ) {
 			const siteId = processName.replace( SITE_PROCESS_PREFIX, '' );
-			// PM2 exit/stop/restart/delete events mean the server is not running
 			handler( { siteId, event: SITE_EVENTS.UPDATED, running: false } );
 		}
-	} );
+	};
+	bus.on( 'process-event', eventHandler );
 
 	return () => {
-		unsubscribeMessages();
-		unsubscribeEvents();
+		bus.off( 'process-message', messageHandler );
+		bus.off( 'process-event', eventHandler );
 	};
 }

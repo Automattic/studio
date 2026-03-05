@@ -115,14 +115,27 @@ Copy-Item "C:\Windows\System32\cmd.exe" $dummyExe -Force
 
 $outFile = "$env:TEMP\signtool-out.txt"
 
-# First verify signtool runs at all (without dlib)
-Write-Host "--- Verifying signtool works ---"
-cmd /c "`"$signtoolPath`" verify /pa `"$dummyExe`" >  `"$outFile`" 2>&1"
-Write-Host "signtool verify exit code: $LastExitCode"
-Get-Content $outFile
-Remove-Item $outFile -ErrorAction SilentlyContinue
+# List DLib directory to check for companion DLLs
+Write-Host "--- DLib directory contents ---"
+Get-ChildItem (Split-Path $dlibPath) -Recurse | ForEach-Object { Write-Host "  $($_.FullName) ($($_.Length))" }
 
-# Now try signing with Azure Trusted Signing
+# List full NuGet package structure
+Write-Host "--- NuGet package structure ---"
+Get-ChildItem "$nugetDir\Microsoft.Trusted.Signing.Client" -Recurse -Filter "*.dll" | ForEach-Object { Write-Host "  $($_.FullName)" }
+
+# Check DLib dependencies via dumpbin if available
+$dumpbin = "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe"
+$dumpbinPath = Get-ChildItem $dumpbin -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($dumpbinPath) {
+    Write-Host "--- DLib dependencies (dumpbin) ---"
+    cmd /c "`"$dumpbinPath`" /dependents `"$dlibPath`" > `"$outFile`" 2>&1"
+    Get-Content $outFile
+    Remove-Item $outFile -ErrorAction SilentlyContinue
+} else {
+    Write-Host "dumpbin not available, skipping dependency check"
+}
+
+# Try signing with Azure Trusted Signing
 Write-Host "--- Signing with Azure Trusted Signing ---"
 $signtoolCmd = "`"$signtoolPath`" sign /v /debug /fd SHA256 /tr http://timestamp.acs.microsoft.com /td SHA256 /dlib `"$dlibPath`" /dmdf `"$metadataPath`" `"$dummyExe`""
 Write-Host "Command: $signtoolCmd"

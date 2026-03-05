@@ -33,9 +33,10 @@ export default defineConfig( {
 						],
 					} ),
 					{
-						// Remove unnecessary PHP-WASM binaries from dist: asyncify binaries for node and all web
-						// binaries. JSPI is a newer and faster than asyncify, and there's no need for us to bundle
-						// both build formats. Removing asyncify saves ~250MB. Removing the web binaries saves ~400MB.
+						// Remove PHP-WASM asyncify binaries from dist. JSPI is newer and faster
+						// than asyncify, and there's no need to bundle both. Removing asyncify
+						// saves ~250MB. Web binaries were removed upstream in
+						// WordPress/wordpress-playground#3315.
 						name: 'prune-php-wasm',
 						apply: 'build' as const,
 						closeBundle() {
@@ -44,12 +45,7 @@ export default defineConfig( {
 								absolute: true,
 							} );
 
-							const webPaths = globSync( '@php-wasm/web-[0-9]-[0-9]/', {
-								cwd: distCliNodeModulesPath,
-								absolute: true,
-							} );
-
-							for ( const path of [ ...asyncifyPaths, ...webPaths ] ) {
+							for ( const path of asyncifyPaths ) {
 								rmSync( path, { recursive: true, force: true } );
 							}
 						},

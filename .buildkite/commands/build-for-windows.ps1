@@ -39,7 +39,7 @@ foreach ($var in @("AZURE_TENANT_ID", "AZURE_CLIENT_ID", "AZURE_CLIENT_SECRET", 
 }
 
 # Install Azure Trusted Signing Client (provides the DLib DLL)
-# NuGet packages are just zip files — download and extract directly.
+# NuGet packages are just zip files - download and extract directly.
 Write-Host "~~~ Installing Microsoft.Trusted.Signing.Client NuGet package..."
 $nugetDir = "$env:TEMP\AzureCodeSigning"
 if (-not (Test-Path $nugetDir)) {
@@ -116,7 +116,7 @@ If ($LastExitCode -ne 0) {
     Get-Content $metadataPath
     Exit 1
 }
-Write-Host "Smoke test passed — Azure Trusted Signing is working."
+Write-Host "Smoke test passed - Azure Trusted Signing is working."
 Remove-Item $dummyExe -Force
 
 Write-Host "--- :npm: Installing Node dependencies"

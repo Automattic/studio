@@ -113,25 +113,16 @@ Write-Host "~~~ Smoke testing Azure Trusted Signing..."
 $dummyExe = "$env:TEMP\signing-test.exe"
 Copy-Item "C:\Windows\System32\cmd.exe" $dummyExe -Force
 
-# Verify the dummy file exists
-Write-Host "Dummy file size: $((Get-Item $dummyExe).Length) bytes"
+# Temporarily allow errors so signtool stderr doesn't kill the script
+$ErrorActionPreference = "Continue"
 
-# Check signtool version first
-Write-Host "--- signtool version ---"
-cmd /c "`"$signtoolPath`" /?" 2>&1 | Select-Object -First 3 | ForEach-Object { Write-Host $_ }
-
-# Check if the DLib can be loaded
-Write-Host "DLib file size: $((Get-Item $dlibPath).Length) bytes"
-Write-Host "DLib directory contents:"
-Get-ChildItem (Split-Path $dlibPath) | ForEach-Object { Write-Host "  $($_.Name) ($($_.Length) bytes)" }
-
-# Run signing via cmd /c to ensure output is captured
-Write-Host "--- Running signtool ---"
 $signtoolCmd = "`"$signtoolPath`" sign /v /debug /fd SHA256 /tr http://timestamp.acs.microsoft.com /td SHA256 /dlib `"$dlibPath`" /dmdf `"$metadataPath`" `"$dummyExe`""
-Write-Host "Command: $signtoolCmd"
-cmd /c "$signtoolCmd 2>&1"
+Write-Host "Running: $signtoolCmd"
+cmd /c "$signtoolCmd" 2>&1 | ForEach-Object { Write-Host $_ }
 $signtoolExitCode = $LastExitCode
-Write-Host "--- signtool exit code: $signtoolExitCode ---"
+Write-Host "signtool exit code: $signtoolExitCode"
+
+$ErrorActionPreference = "Stop"
 
 If ($signtoolExitCode -ne 0) {
     Write-Host "Error: Azure Trusted Signing smoke test failed!" -ForegroundColor Red

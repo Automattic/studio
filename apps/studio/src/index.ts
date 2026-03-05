@@ -53,7 +53,7 @@ import {
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { updateWindowsCliVersionedPathIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
 import { setupWPServerFiles, updateWPServerFiles } from 'src/setup-wp-server-files';
-import { getRunningSiteCount, stopAllServers } from 'src/site-server';
+import { getRunningSiteCount, SiteServer, stopAllServers } from 'src/site-server';
 import {
 	loadUserData,
 	lockAppdata,
@@ -337,8 +337,13 @@ async function appBoot() {
 
 		await renameLaunchUniquesStat();
 
-		await startUserDataWatcher();
+		// Fetch data from CLI and subscribe to CLI events before starting the user data
+		// watcher. The watcher can trigger getMainWindow() which creates the window early,
+		// so sites must be loaded first.
+		await SiteServer.fetchAll();
 		await startCliEventsSubscriber();
+
+		await startUserDataWatcher();
 
 		await createMainWindow();
 

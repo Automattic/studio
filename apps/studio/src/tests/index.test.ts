@@ -112,7 +112,7 @@ function mockElectron() {
 				} ),
 				requestSingleInstanceLock: vi.fn().mockReturnValue( true ),
 				quit: vi.fn(),
-			exit: vi.fn(),
+				exit: vi.fn(),
 				setName: vi.fn(),
 				setAsDefaultProtocolClient: vi.fn(),
 				enableSandbox: vi.fn(),

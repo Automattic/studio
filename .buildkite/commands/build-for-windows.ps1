@@ -115,24 +115,33 @@ Copy-Item "C:\Windows\System32\cmd.exe" $dummyExe -Force
 
 $outFile = "$env:TEMP\signtool-out.txt"
 
-# List DLib directory to check for companion DLLs
-Write-Host "--- DLib directory contents ---"
-Get-ChildItem (Split-Path $dlibPath) -Recurse | ForEach-Object { Write-Host "  $($_.FullName) ($($_.Length))" }
+# The DLib is a .NET assembly (C++/CLI via Ijwhost.dll) that requires the .NET runtime.
+# Check if .NET 6+ is available; install if missing.
+Write-Host "~~~ Checking .NET runtime..."
+$dotnetRuntimes = $null
+try {
+    $dotnetRuntimes = & dotnet --list-runtimes 2>&1
+    Write-Host "Installed .NET runtimes:"
+    $dotnetRuntimes | ForEach-Object { Write-Host "  $_" }
+} catch {
+    Write-Host "dotnet CLI not found"
+}
 
-# List full NuGet package structure
-Write-Host "--- NuGet package structure ---"
-Get-ChildItem "$nugetDir\Microsoft.Trusted.Signing.Client" -Recurse -Filter "*.dll" | ForEach-Object { Write-Host "  $($_.FullName)" }
+$hasNet6Plus = $false
+if ($dotnetRuntimes) {
+    $hasNet6Plus = $dotnetRuntimes | Where-Object { $_ -match "Microsoft\.NETCore\.App\s+([6-9]|[1-9]\d+)\." } | Select-Object -First 1
+}
 
-# Check DLib dependencies via dumpbin if available
-$dumpbin = "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe"
-$dumpbinPath = Get-ChildItem $dumpbin -ErrorAction SilentlyContinue | Select-Object -First 1
-if ($dumpbinPath) {
-    Write-Host "--- DLib dependencies (dumpbin) ---"
-    cmd /c "`"$dumpbinPath`" /dependents `"$dlibPath`" > `"$outFile`" 2>&1"
-    Get-Content $outFile
-    Remove-Item $outFile -ErrorAction SilentlyContinue
-} else {
-    Write-Host "dumpbin not available, skipping dependency check"
+if (-not $hasNet6Plus) {
+    Write-Host "No .NET 6+ runtime found. Installing .NET 8 Runtime..."
+    $dotnetInstallerUrl = "https://dot.net/v1/dotnet-install.ps1"
+    $dotnetInstallScript = "$env:TEMP\dotnet-install.ps1"
+    Invoke-WebRequest -Uri $dotnetInstallerUrl -OutFile $dotnetInstallScript
+    & $dotnetInstallScript -Runtime dotnet -Channel 8.0 -InstallDir "$env:ProgramFiles\dotnet"
+    # Refresh PATH so Ijwhost.dll can find hostfxr.dll
+    $env:PATH = "$env:ProgramFiles\dotnet;$env:PATH"
+    Write-Host "Verifying .NET 8 installation..."
+    & dotnet --list-runtimes
 }
 
 # Try signing with Azure Trusted Signing

@@ -57,11 +57,18 @@ if (-not $dlibPath) {
 }
 Write-Host "Found DLib at: $dlibPath"
 
-# Read Windows SDK version for signtool path
-$sdkVersion = (Get-Content ".windows-10-sdk-version").Trim()
-$signtoolPath = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.$sdkVersion.0\x64\signtool.exe"
-if (-not (Test-Path $signtoolPath)) {
-    Write-Host "Error: signtool.exe not found at $signtoolPath" -ForegroundColor Red
+# Azure Trusted Signing requires signtool from SDK 10.0.22621+.
+# The CI agents have SDK 19041 which is too old (/dlib not supported).
+# Download a modern signtool via the Microsoft.Windows.SDK.BuildTools NuGet package.
+Write-Host "~~~ Installing modern signtool via Microsoft.Windows.SDK.BuildTools..."
+$sdkToolsUrl = "https://www.nuget.org/api/v2/package/Microsoft.Windows.SDK.BuildTools"
+$sdkToolsZip = "$nugetDir\Microsoft.Windows.SDK.BuildTools.zip"
+$sdkToolsDir = "$nugetDir\Microsoft.Windows.SDK.BuildTools"
+Invoke-WebRequest -Uri $sdkToolsUrl -OutFile $sdkToolsZip
+Expand-Archive -Path $sdkToolsZip -DestinationPath $sdkToolsDir -Force
+$signtoolPath = (Get-ChildItem -Path $sdkToolsDir -Recurse -Filter "signtool.exe" | Where-Object { $_.FullName -like "*x64*" } | Select-Object -First 1).FullName
+if (-not $signtoolPath) {
+    Write-Host "Error: signtool.exe not found in SDK BuildTools package" -ForegroundColor Red
     Exit 1
 }
 Write-Host "Found signtool at: $signtoolPath"

@@ -198,7 +198,7 @@ export const CreateSiteForm = ( {
 	const [ adminPassword, setAdminPassword ] = useState(
 		() => blueprintCredentials?.adminPassword ?? generatePassword()
 	);
-	const [ adminEmail, setAdminEmail ] = useState( '' );
+	const [ adminEmail, setAdminEmail ] = useState( 'admin@localhost.com' );
 
 	const [ pathError, setPathError ] = useState( '' );
 	const [ doesPathContainWordPress, setDoesPathContainWordPress ] = useState( false );
@@ -388,7 +388,7 @@ export const CreateSiteForm = ( {
 			enableHttps,
 			adminUsername: adminUsername || undefined,
 			adminPassword: adminPassword || undefined,
-			adminEmail: adminEmail || undefined,
+			adminEmail,
 		} ),
 		[
 			siteName,
@@ -415,7 +415,7 @@ export const CreateSiteForm = ( {
 	const shouldShowCustomDomainError = useCustomDomain && customDomainError;
 	const adminUsernameError = validateAdminUsername( adminUsername );
 	const adminPasswordError = ! adminPassword.trim() ? __( 'Admin password is required' ) : '';
-	const adminEmailError = adminEmail.trim() ? validateAdminEmail( adminEmail ) : '';
+	const adminEmailError = validateAdminEmail( adminEmail );
 	const errorCount = [
 		pathError,
 		shouldShowCustomDomainError,
@@ -615,12 +615,8 @@ export const CreateSiteForm = ( {
 										placeholder="admin@localhost.com"
 										className={ adminEmailError ? '[&_input]:!border-red-500' : '' }
 									/>
-									{ adminEmailError ? (
+									{ adminEmailError && (
 										<span className="text-red-500 text-xs">{ adminEmailError }</span>
-									) : (
-										<span className="text-a8c-gray-50 text-xs">
-											{ __( 'Defaults to admin@localhost.com if not provided.' ) }
-										</span>
 									) }
 								</div>
 

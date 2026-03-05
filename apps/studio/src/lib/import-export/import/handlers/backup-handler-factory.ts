@@ -10,9 +10,8 @@ export interface BackupHandler extends Partial< EventEmitter > {
 }
 
 const EXCLUDED_FILES_PATTERNS = [
-	/^__MACOSX\/.*/, // MacOS meta folder
-	/^\..*/, // Unix hidden files at root
-	/\/\.(?!.*\.sqlite$).*/, // Unix hidden files at subfolders, except .sqlite files
+	/^__MACOSX\/.*/, // macOS resource fork folder in zip archives
+	/(^|\/)\.DS_Store$/, // macOS Finder metadata
 ];
 
 export function isFileAllowed( filePath: string ) {

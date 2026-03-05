@@ -256,17 +256,16 @@ describe( 'CLI: studio site stop --all', () => {
 	} );
 
 	describe( 'Success Cases', () => {
-		it( 'should handle empty sites list', async () => {
+		it( 'should kill daemon even with empty sites list', async () => {
 			vi.mocked( readAppdata ).mockResolvedValue( { sites: [], snapshots: [] } );
 
 			await runCommand( Mode.STOP_ALL_SITES, undefined, false );
 
 			expect( connect ).toHaveBeenCalled();
-			expect( killDaemonAndChildrenAndExitProcess ).not.toHaveBeenCalled();
-			expect( disconnect ).toHaveBeenCalled();
+			expect( killDaemonAndChildrenAndExitProcess ).toHaveBeenCalledTimes( 1 );
 		} );
 
-		it( 'should skip if no sites are running', async () => {
+		it( 'should kill daemon even if no sites are running', async () => {
 			vi.mocked( readAppdata ).mockResolvedValue( { sites: testSites, snapshots: [] } );
 
 			vi.mocked( isServerRunning ).mockResolvedValue( undefined );
@@ -275,9 +274,8 @@ describe( 'CLI: studio site stop --all', () => {
 
 			expect( connect ).toHaveBeenCalled();
 			expect( isServerRunning ).toHaveBeenCalledTimes( 3 );
-			expect( killDaemonAndChildrenAndExitProcess ).not.toHaveBeenCalled();
+			expect( killDaemonAndChildrenAndExitProcess ).toHaveBeenCalledTimes( 1 );
 			expect( clearSiteLatestCliPid ).not.toHaveBeenCalled();
-			expect( disconnect ).toHaveBeenCalled();
 		} );
 
 		it( 'should handle single site', async () => {

@@ -19,3 +19,6 @@ steps:
       - out\**\RELEASES
       - out\**\*.appx
     plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
+    notify:
+      - github_commit_status:
+          context: Windows Dev Build

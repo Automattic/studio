@@ -2,6 +2,7 @@ import { ChildProcess, fork } from 'child_process';
 import fs, { createWriteStream, WriteStream } from 'fs';
 import net from 'net';
 import path from 'path';
+import semver from 'semver';
 import {
 	PROCESS_MANAGER_LOGS_DIR,
 	PROCESS_MANAGER_CONTROL_SOCKET_PATH,
@@ -170,9 +171,12 @@ export class ProcessManagerDaemon {
 		const { stdoutLogPath, stderrLogPath } = getProcessLogPaths( processName );
 		const stdoutStream = createWriteStream( stdoutLogPath, { flags: 'a' } );
 		const stderrStream = createWriteStream( stderrLogPath, { flags: 'a' } );
+		// Node.js >=24 supports the JSPI (JavaScript Promises Integration) API
+		const doesCurrentNodeSupportJspi = semver.gte( process.version, '24.0.0' );
+		const execArgv = doesCurrentNodeSupportJspi ? [ '--experimental-wasm-jspi' ] : undefined;
 		const child = fork( scriptPath, args, {
 			execPath: process.execPath,
-			execArgv: [ '--experimental-wasm-jspi' ],
+			execArgv,
 			env: { ...process.env, ...env },
 			silent: true,
 		} );

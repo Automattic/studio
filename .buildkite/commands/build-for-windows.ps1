@@ -72,9 +72,27 @@ $metadata = @{
     Endpoint = $env:AZURE_ENDPOINT
     CodeSigningAccountName = $env:AZURE_CODE_SIGNING_ACCOUNT
     CertificateProfileName = $env:AZURE_CERTIFICATE_PROFILE
+    ExcludeCredentials = @(
+        "ManagedIdentityCredential"
+        "WorkloadIdentityCredential"
+        "SharedTokenCacheCredential"
+        "VisualStudioCredential"
+        "VisualStudioCodeCredential"
+        "AzureCliCredential"
+        "AzurePowerShellCredential"
+        "AzureDeveloperCliCredential"
+        "InteractiveBrowserCredential"
+    )
 } | ConvertTo-Json
 Set-Content -Path $metadataPath -Value $metadata
 Write-Host "Generated metadata.json at: $metadataPath"
+Write-Host "metadata.json contents:"
+Get-Content $metadataPath
+
+# Verify Azure auth env vars are visible to child processes
+Write-Host "AZURE_TENANT_ID is set: $(-not [string]::IsNullOrEmpty($env:AZURE_TENANT_ID))"
+Write-Host "AZURE_CLIENT_ID is set: $(-not [string]::IsNullOrEmpty($env:AZURE_CLIENT_ID))"
+Write-Host "AZURE_CLIENT_SECRET is set: $(-not [string]::IsNullOrEmpty($env:AZURE_CLIENT_SECRET))"
 
 # Export paths as env vars for forge and package-appx to consume
 $env:AZURE_CODE_SIGNING_DLIB = $dlibPath

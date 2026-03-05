@@ -60,8 +60,8 @@ export default defineConfig( {
 	build: {
 		lib: {
 			entry: {
-				daemon: resolve( __dirname, 'daemon.ts' ),
 				main: resolve( __dirname, 'index.ts' ),
+				'process-manager-daemon': resolve( __dirname, 'process-manager-daemon.ts' ),
 				'proxy-daemon': resolve( __dirname, 'proxy-daemon.ts' ),
 				'wordpress-server-child': resolve( __dirname, 'wordpress-server-child.ts' ),
 			},

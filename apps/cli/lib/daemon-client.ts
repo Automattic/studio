@@ -156,7 +156,7 @@ async function waitForDaemonReady() {
 }
 
 function spawnDaemonProcess() {
-	const daemonScriptPath = path.resolve( __dirname, 'daemon.js' );
+	const daemonScriptPath = path.resolve( __dirname, 'process-manager-daemon.js' );
 	const daemonProcess = spawn( process.execPath, [ daemonScriptPath, '--avoid-telemetry' ], {
 		detached: true,
 		stdio: 'ignore',

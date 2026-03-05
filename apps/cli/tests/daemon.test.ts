@@ -56,7 +56,7 @@ describe( 'ProcessManagerDaemon', () => {
 	it( 'starts a process, emits events, and writes logs', async () => {
 		const child = new MockChildProcess();
 		forkMock.mockReturnValue( child );
-		const { ProcessManagerDaemon } = await import( '../daemon' );
+		const { ProcessManagerDaemon } = await import( '../process-manager-daemon' );
 
 		const daemon = new ProcessManagerDaemon();
 		const daemonInternal = daemon as unknown as {
@@ -124,7 +124,7 @@ describe( 'ProcessManagerDaemon', () => {
 	it( 'reuses duplicate starts, forwards messages, and resolves missing stops', async () => {
 		const child = new MockChildProcess();
 		forkMock.mockReturnValue( child );
-		const { ProcessManagerDaemon } = await import( '../daemon' );
+		const { ProcessManagerDaemon } = await import( '../process-manager-daemon' );
 
 		const daemon = new ProcessManagerDaemon();
 		const daemonInternal = daemon as unknown as {

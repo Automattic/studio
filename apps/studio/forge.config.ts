@@ -9,6 +9,7 @@ import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { exec } from 'child_process';
 import { exec as pkgExec } from '@yao-pkg/pkg';
 import type { ForgeConfig } from '@electron-forge/shared-types';
+import { windowsSign } from './windowsSign';
 
 const repoRoot = path.resolve( __dirname, '../..' );
 
@@ -22,6 +23,7 @@ const config: ForgeConfig = {
 		],
 		executableName: process.platform === 'linux' ? 'studio' : undefined,
 		icon: path.join( __dirname, 'assets', 'studio-app-icon' ),
+		windowsSign,
 		osxSign: {
 			optionsForFile: ( filePath ) => {
 				// The bundled Node binary requires specific entitlements for V8 JIT compilation.
@@ -95,9 +97,10 @@ const config: ForgeConfig = {
 
 				setupExe: 'studio-setup.exe',
 
-				// CI code-signing setup writes certificate.pfx at the repository root.
-				certificateFile: path.join( repoRoot, 'certificate.pfx' ),
-				certificatePassword: process.env.WINDOWS_CODE_SIGNING_CERT_PASSWORD,
+				// Signing is handled by @electron/windows-sign via the windowsSign config.
+				// Azure Trusted Signing replaces the previous PFX-based approach.
+				// @ts-expect-error -- incorrect types exported by MakerSquirrel
+				windowsSign,
 			},
 			[ 'win32' ]
 		),

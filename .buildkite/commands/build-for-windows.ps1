@@ -2,7 +2,7 @@
 param (
     [Parameter(Mandatory=$true)]
     [string]$BuildType,
-    
+
     [Parameter(Mandatory=$false)]
     [string]$Architecture = "x64"
 )
@@ -28,9 +28,55 @@ if ($Architecture -notin $VALID_ARCHITECTURES) {
     Exit 1
 }
 
-# setup_windows_code_signing.ps1 comes from CI Toolkit Plugin
-& "setup_windows_code_signing.ps1"
+Write-Host "--- :lock: Setting up Azure Trusted Signing"
+
+# Verify required env vars
+foreach ($var in @("AZURE_TENANT_ID", "AZURE_CLIENT_ID", "AZURE_CLIENT_SECRET", "AZURE_ENDPOINT", "AZURE_CODE_SIGNING_ACCOUNT", "AZURE_CERTIFICATE_PROFILE")) {
+    if (-not (Test-Path "env:$var")) {
+        Write-Host "Error: Required environment variable $var is not set" -ForegroundColor Red
+        Exit 1
+    }
+}
+
+# Install Azure.CodeSigning module (provides the DLib DLL)
+Write-Host "~~~ Installing Azure.CodeSigning NuGet package..."
+$nugetDir = "$env:TEMP\AzureCodeSigning"
+if (-not (Test-Path $nugetDir)) {
+    New-Item -ItemType Directory -Path $nugetDir -Force | Out-Null
+}
+nuget install Microsoft.Trusted.Signing.Client -OutputDirectory $nugetDir -ExcludeVersion
 If ($LastExitCode -ne 0) { Exit $LastExitCode }
+
+$dlibPath = (Get-ChildItem -Path $nugetDir -Recurse -Filter "Azure.CodeSigning.Dlib.dll" | Where-Object { $_.FullName -like "*x64*" } | Select-Object -First 1).FullName
+if (-not $dlibPath) {
+    Write-Host "Error: Azure.CodeSigning.Dlib.dll not found" -ForegroundColor Red
+    Exit 1
+}
+Write-Host "Found DLib at: $dlibPath"
+
+# Read Windows SDK version for signtool path
+$sdkVersion = (Get-Content ".windows-10-sdk-version").Trim()
+$signtoolPath = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.$sdkVersion.0\x64\signtool.exe"
+if (-not (Test-Path $signtoolPath)) {
+    Write-Host "Error: signtool.exe not found at $signtoolPath" -ForegroundColor Red
+    Exit 1
+}
+Write-Host "Found signtool at: $signtoolPath"
+
+# Generate metadata.json for Azure Trusted Signing
+$metadataPath = "$env:TEMP\metadata.json"
+$metadata = @{
+    Endpoint = $env:AZURE_ENDPOINT
+    CodeSigningAccountName = $env:AZURE_CODE_SIGNING_ACCOUNT
+    CertificateProfileName = $env:AZURE_CERTIFICATE_PROFILE
+} | ConvertTo-Json
+Set-Content -Path $metadataPath -Value $metadata
+Write-Host "Generated metadata.json at: $metadataPath"
+
+# Export paths as env vars for forge and package-appx to consume
+$env:AZURE_CODE_SIGNING_DLIB = $dlibPath
+$env:AZURE_METADATA_JSON = $metadataPath
+$env:SIGNTOOL_PATH = $signtoolPath
 
 Write-Host "--- :npm: Installing Node dependencies"
 bash .buildkite/commands/install-node-dependencies.sh

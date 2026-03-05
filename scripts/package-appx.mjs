@@ -1,3 +1,4 @@
+import { execFileSync } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -6,10 +7,14 @@ import packageJson from '../apps/studio/package.json' with { type: 'json' };
 
 console.log( '--- :electron: Packaging AppX' );
 
-console.log( '~~~ Verifying WINDOWS_CODE_SIGNING_CERT_PASSWORD env var...' );
-if ( ! process.env.WINDOWS_CODE_SIGNING_CERT_PASSWORD ) {
-	console.error( 'Required env var WINDOWS_CODE_SIGNING_CERT_PASSWORD is not set!' );
-	process.exit( 1 );
+// Verify Azure Trusted Signing env vars for the signed (sideload) AppX
+console.log( '~~~ Verifying Azure Trusted Signing env vars...' );
+const requiredEnvVars = [ 'AZURE_CODE_SIGNING_DLIB', 'AZURE_METADATA_JSON', 'SIGNTOOL_PATH' ];
+for ( const envVar of requiredEnvVars ) {
+	if ( ! process.env[ envVar ] ) {
+		console.error( `Required env var ${ envVar } is not set!` );
+		process.exit( 1 );
+	}
 }
 
 const __dirname = path.dirname( fileURLToPath( import.meta.url ) );
@@ -153,7 +158,8 @@ const sharedOptions = {
 	},
 };
 
-// Create unsigned AppX
+// Create unsigned AppX for Microsoft Store submission upload.
+// The Store re-signs with its own certificate, so no signing needed here.
 const appxOutputPathUnsigned = path.resolve( outPath, `${ appxName }-${ architecture }-unsigned` );
 console.log(
 	`~~~ Creating unsigned .appx for Microsoft Store submission upload at ${ appxOutputPathUnsigned }...`
@@ -167,14 +173,40 @@ await convertToWindowsStore( {
 	outputDirectory: appxOutputPathUnsigned,
 } );
 
-// Create signed AppX
+// Create unsigned AppX for sideloading, then sign it with Azure Trusted Signing.
 const appxOutputPathSigned = path.resolve( outPath, `${ appxName }-${ architecture }-signed` );
-console.log( `~~~ Creating signed .appx for local testing at ${ appxOutputPathSigned }...` );
+console.log( `~~~ Creating .appx for sideloading at ${ appxOutputPathSigned }...` );
 
 await convertToWindowsStore( {
 	...sharedOptions,
-	publisher: 'CN=&quot;Automattic, Inc.&quot;, O=&quot;Automattic, Inc.&quot;, S=California, C=US',
-	devCert: 'certificate.pfx',
-	certPass: process.env.WINDOWS_CODE_SIGNING_CERT_PASSWORD,
+	publisher: 'CN=Automattic Inc., O=Automattic Inc., L=San Francisco, S=California, C=US',
+	devCert: 'nil', // build unsigned; we sign with Azure Trusted Signing below
 	outputDirectory: appxOutputPathSigned,
 } );
+
+// Sign the sideload AppX with Azure Trusted Signing via signtool
+console.log( '~~~ Signing sideload .appx with Azure Trusted Signing...' );
+const appxFiles = ( await fs.readdir( appxOutputPathSigned ) ).filter( ( f ) => f.endsWith( '.appx' ) );
+if ( appxFiles.length === 0 ) {
+	console.error( 'No .appx file found to sign!' );
+	process.exit( 1 );
+}
+
+for ( const appxFile of appxFiles ) {
+	const appxPath = path.join( appxOutputPathSigned, appxFile );
+	console.log( `Signing ${ appxPath }...` );
+
+	execFileSync( process.env.SIGNTOOL_PATH, [
+		'sign',
+		'/v',
+		'/debug',
+		'/fd', 'SHA256',
+		'/tr', 'http://timestamp.acs.microsoft.com',
+		'/td', 'SHA256',
+		'/dlib', process.env.AZURE_CODE_SIGNING_DLIB,
+		'/dmdf', process.env.AZURE_METADATA_JSON,
+		appxPath,
+	], { stdio: 'inherit' } );
+
+	console.log( `Signed ${ appxFile } successfully.` );
+}

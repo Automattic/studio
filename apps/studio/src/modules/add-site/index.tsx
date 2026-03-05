@@ -15,7 +15,6 @@ import { FullscreenModal } from 'src/components/fullscreen-modal';
 import { useAddSite, CreateSiteFormValues } from 'src/hooks/use-add-site';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
-import { generateSiteName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { AllowedPHPVersion } from 'src/lib/wordpress-server-types';
 import { useBlueprintDeeplink } from 'src/modules/add-site/hooks/use-blueprint-deeplink';
@@ -77,6 +76,7 @@ interface NavigationContentProps {
 	setBlueprintSuggestedDomain?: ( domain: string | undefined ) => void;
 	blueprintSuggestedHttps?: boolean;
 	setBlueprintSuggestedHttps?: ( https: boolean | undefined ) => void;
+	blueprintCredentials?: { adminUsername?: string; adminPassword?: string };
 	blueprintSuggestedSiteName?: string;
 	setBlueprintSuggestedSiteName?: ( name: string | undefined ) => void;
 	selectedRemoteSite?: SyncSite;
@@ -111,6 +111,7 @@ function NavigationContent( props: NavigationContentProps ) {
 		setBlueprintSuggestedDomain,
 		blueprintSuggestedHttps,
 		setBlueprintSuggestedHttps,
+		blueprintCredentials,
 		blueprintSuggestedSiteName,
 		setBlueprintSuggestedSiteName,
 		selectedRemoteSite,
@@ -324,6 +325,7 @@ function NavigationContent( props: NavigationContentProps ) {
 		onSubmit: onFormSubmit,
 		onValidityChange,
 		formRef,
+		blueprintCredentials: blueprintCredentials ?? undefined,
 	};
 
 	return (
@@ -487,7 +489,7 @@ export function AddSiteModalContent( {
 		const initializeForm = async () => {
 			if ( ! isOpen || formInitialized || loadingSites ) return;
 
-			const generatedSiteName = await generateSiteName( sites );
+			const generatedSiteName = await getIpcApi().generateSiteNameFromList( sites );
 			const { path } = await getIpcApi().generateProposedSitePath( generatedSiteName );
 
 			setDefaultSiteName( generatedSiteName );
@@ -564,6 +566,21 @@ export function AddSiteModalContent( {
 	// canSubmit is true if the form is initialized, has a name, and is valid (no errors)
 	const canSubmit = formInitialized && defaultSiteName.trim().length > 0 && isFormValid;
 
+	// Extract login credentials from blueprint
+	const blueprintCredentials = useMemo( () => {
+		if ( ! selectedBlueprint?.blueprint ) {
+			return undefined;
+		}
+		const formValues = extractFormValuesFromBlueprint( selectedBlueprint.blueprint );
+		if ( formValues.adminUsername || formValues.adminPassword ) {
+			return {
+				adminUsername: formValues.adminUsername,
+				adminPassword: formValues.adminPassword,
+			};
+		}
+		return undefined;
+	}, [ selectedBlueprint ] );
+
 	return (
 		<Navigator
 			className={ className ?? 'w-full h-full app-no-drag-region' }
@@ -592,6 +609,7 @@ export function AddSiteModalContent( {
 				setBlueprintSuggestedDomain={ setBlueprintSuggestedDomain }
 				blueprintSuggestedHttps={ blueprintSuggestedHttps }
 				setBlueprintSuggestedHttps={ setBlueprintSuggestedHttps }
+				blueprintCredentials={ blueprintCredentials }
 				blueprintSuggestedSiteName={ blueprintSuggestedSiteName }
 				setBlueprintSuggestedSiteName={ setBlueprintSuggestedSiteName }
 				selectedRemoteSite={ selectedRemoteSite }

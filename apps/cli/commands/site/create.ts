@@ -2,12 +2,14 @@ import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { confirm, input, select } from '@inquirer/prompts';
 import { SupportedPHPVersions } from '@php-wasm/universal';
 import {
 	DEFAULT_PHP_VERSION,
 	DEFAULT_WORDPRESS_VERSION,
 	MINIMUM_WORDPRESS_VERSION,
 } from '@studio/common/constants';
+import { extractFormValuesFromBlueprint } from '@studio/common/lib/blueprint-settings';
 import {
 	filterUnsupportedBlueprintFeatures,
 	validateBlueprintData,
@@ -22,7 +24,12 @@ import {
 } from '@studio/common/lib/fs-utils';
 import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
 import { isOnline } from '@studio/common/lib/network-utils';
-import { createPassword } from '@studio/common/lib/passwords';
+import {
+	createPassword,
+	encodePassword,
+	validateAdminEmail,
+	validateAdminUsername,
+} from '@studio/common/lib/passwords';
 import { portFinder } from '@studio/common/lib/port-finder';
 import {
 	hasDefaultDbBlock,
@@ -34,9 +41,10 @@ import {
 	isValidWordPressVersion,
 	isWordPressVersionAtLeast,
 } from '@studio/common/lib/wordpress-version-utils';
+import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
-import { Blueprint, StepDefinition } from '@wp-playground/blueprints';
+import { Blueprint, BlueprintV1Declaration, StepDefinition } from '@wp-playground/blueprints';
 import {
 	lockAppdata,
 	readAppdata,
@@ -47,6 +55,7 @@ import {
 	updateSiteAutoStart,
 	updateSiteLatestCliPid,
 } from 'cli/lib/appdata';
+import { generateSiteName, getDefaultSitePath } from 'cli/lib/generate-site-name';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { connect, disconnect, emitSiteEvent } from 'cli/lib/pm2-manager';
 import { getServerFilesPath } from 'cli/lib/server-files';
@@ -74,6 +83,9 @@ type CreateCommandOptions = {
 		contents: unknown;
 		uri: string;
 	};
+	adminUsername?: string;
+	adminPassword?: string;
+	adminEmail?: string;
 	noStart: boolean;
 	skipBrowser: boolean;
 	skipLogDetails: boolean;
@@ -98,6 +110,7 @@ export async function runCommand(
 
 		let blueprintUri: string | undefined;
 		let blueprint: Blueprint | undefined;
+		let blueprintCredentials: { adminUsername?: string; adminPassword?: string } | null = null;
 
 		if ( options.blueprint ) {
 			const validation = await validateBlueprintData( options.blueprint.contents );
@@ -114,6 +127,15 @@ export async function runCommand(
 						warning.reason
 					)
 				);
+			}
+
+			// Extract login credentials from blueprint before filtering
+			const formValues = extractFormValuesFromBlueprint( options.blueprint.contents as Blueprint );
+			if ( formValues.adminUsername || formValues.adminPassword ) {
+				blueprintCredentials = {
+					adminUsername: formValues.adminUsername,
+					adminPassword: formValues.adminPassword,
+				};
 			}
 
 			blueprintUri = options.blueprint.uri;
@@ -190,7 +212,26 @@ export async function runCommand(
 
 		const siteName = options.name || path.basename( sitePath );
 		const siteId = options.siteId || crypto.randomUUID();
-		const adminPassword = createPassword();
+
+		// Determine admin credentials: CLI args > Blueprint > defaults
+		// External passwords need to be encoded; createPassword() already returns encoded
+		const adminUsername = options.adminUsername || blueprintCredentials?.adminUsername || undefined;
+		if ( adminUsername ) {
+			const usernameError = validateAdminUsername( adminUsername );
+			if ( usernameError ) {
+				throw new LoggerError( usernameError );
+			}
+		}
+		const adminEmail = options.adminEmail?.trim() || undefined;
+		if ( adminEmail ) {
+			const emailError = validateAdminEmail( adminEmail );
+			if ( emailError ) {
+				throw new LoggerError( emailError );
+			}
+		}
+
+		const externalPassword = options.adminPassword || blueprintCredentials?.adminPassword;
+		const adminPassword = externalPassword ? encodePassword( externalPassword ) : createPassword();
 
 		const setupSteps: StepDefinition[] = [];
 
@@ -255,15 +296,18 @@ export async function runCommand(
 				const blueprintDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-empty-blueprint-' ) );
 				blueprintUri = path.join( blueprintDir, 'blueprint.json' );
 			}
-			const existingSteps = blueprint.steps || [];
-			blueprint.steps = [ ...setupSteps, ...existingSteps ];
+			const blueprintDecl = blueprint as BlueprintV1Declaration;
+			const existingSteps = blueprintDecl.steps || [];
+			blueprintDecl.steps = [ ...setupSteps, ...existingSteps ];
 		}
 
 		const siteDetails: SiteData = {
 			id: siteId,
 			name: siteName,
 			path: sitePath,
+			adminUsername,
 			adminPassword,
+			adminEmail,
 			port,
 			phpVersion: options.phpVersion,
 			running: false,
@@ -463,14 +507,14 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'wp', {
 					type: 'string',
 					describe: __( 'WordPress version (e.g., "latest", "6.4", "6.4.1")' ),
-					default: DEFAULT_WORDPRESS_VERSION,
+					defaultDescription: DEFAULT_WORDPRESS_VERSION,
 					coerce: coerceWpVersion,
 				} )
 				.option( 'php', {
 					type: 'string',
 					describe: __( 'PHP version' ),
 					choices: ALLOWED_PHP_VERSIONS,
-					default: DEFAULT_PHP_VERSION,
+					defaultDescription: DEFAULT_PHP_VERSION,
 				} )
 				.option( 'domain', {
 					type: 'string',
@@ -484,6 +528,20 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'blueprint', {
 					type: 'string',
 					describe: __( 'Path or URL to Blueprint JSON file' ),
+				} )
+				.option( 'admin-username', {
+					type: 'string',
+					describe: __( 'Admin username (defaults to "admin")' ),
+				} )
+				.option( 'admin-password', {
+					type: 'string',
+					describe: __(
+						'Admin password (auto-generated if not provided). Note: passwords in CLI arguments may be visible in process lists; consider using a Blueprint file for sensitive passwords.'
+					),
+				} )
+				.option( 'admin-email', {
+					type: 'string',
+					describe: __( 'Admin email (defaults to "admin@localhost.com")' ),
 				} )
 				.option( 'start', {
 					type: 'boolean',
@@ -502,13 +560,108 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} );
 		},
 		handler: async ( argv ) => {
+			let siteName = argv.name;
+			let sitePath = argv.path;
+			let wpVersion = argv.wp;
+			let phpVersion = argv.php;
+			let customDomain = argv.domain;
+			let enableHttps = !! argv.https;
+
+			try {
+				if ( process.stdin.isTTY ) {
+					if ( ! siteName ) {
+						const defaultName = await generateSiteName();
+						siteName = await input( {
+							message: __( 'Site name:' ),
+							default: defaultName,
+						} );
+					}
+
+					const pathWasExplicitlyProvided = sitePath !== process.cwd();
+					if ( ! pathWasExplicitlyProvided ) {
+						const suggestedPath = getDefaultSitePath( siteName || __( 'My WordPress Website' ) );
+						const promptedPath = await input( {
+							message: __( 'Site path:' ),
+							default: suggestedPath,
+						} );
+						sitePath = path.resolve( untildify( promptedPath ) );
+					}
+
+					if ( ! wpVersion ) {
+						let wpChoices: { name: string; value: string }[];
+						try {
+							const versions = await fetchWordPressVersions();
+							wpChoices = versions.map( ( v ) => ( {
+								name: v.value === 'latest' ? `latest (${ v.label })` : v.label,
+								value: v.value,
+							} ) );
+						} catch {
+							// Offline or API failure — offer only "latest"
+							wpChoices = [
+								{
+									name: sprintf( __( '%s (recommended)' ), __( 'Latest' ) ),
+									value: 'latest',
+								},
+							];
+						}
+						wpVersion = await select( {
+							message: __( 'WordPress version:' ),
+							choices: wpChoices,
+							default: DEFAULT_WORDPRESS_VERSION,
+							loop: false,
+						} );
+					}
+
+					if ( ! phpVersion ) {
+						phpVersion = await select( {
+							message: __( 'PHP version:' ),
+							choices: ALLOWED_PHP_VERSIONS.map( ( v ) => ( {
+								name: v === DEFAULT_PHP_VERSION ? sprintf( __( '%s (recommended)' ), v ) : v,
+								value: v,
+							} ) ),
+							default: DEFAULT_PHP_VERSION,
+						} );
+					}
+
+					if ( ! customDomain ) {
+						const appdata = await readAppdata();
+						const existingDomains = appdata.sites
+							.map( ( site ) => site.customDomain )
+							.filter( ( domain ): domain is string => Boolean( domain ) );
+
+						customDomain = await input( {
+							message: __( 'Custom domain (leave empty to skip):' ),
+							validate: ( value ) =>
+								getDomainNameValidationError( !! value, value, existingDomains ) || true,
+						} );
+					}
+
+					if ( customDomain && ! argv.https ) {
+						enableHttps = await confirm( {
+							message: __( 'Enable HTTPS?' ),
+							default: false,
+						} );
+					}
+				}
+			} catch {
+				// User cancelled the prompt (Ctrl+C)
+				return;
+			}
+
+			// Apply defaults for non-interactive mode when flags weren't provided
+			wpVersion = wpVersion ?? DEFAULT_WORDPRESS_VERSION;
+			phpVersion = phpVersion ?? DEFAULT_PHP_VERSION;
+
 			const config: CreateCommandOptions = {
-				name: argv.name,
+				name: siteName,
 				siteId: argv.id,
-				wpVersion: argv.wp,
-				phpVersion: argv.php,
-				customDomain: argv.domain,
-				enableHttps: !! argv.https,
+				wpVersion,
+				phpVersion,
+				customDomain,
+				enableHttps,
+				adminUsername: argv.adminUsername,
+				adminPassword: argv.adminPassword,
+				adminEmail: argv.adminEmail,
 				noStart: ! argv.start,
 				skipBrowser: !! argv.skipBrowser,
 				skipLogDetails: !! argv.skipLogDetails,
@@ -531,7 +684,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			}
 
 			try {
-				await runCommand( argv.path, config );
+				await runCommand( sitePath, config );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );

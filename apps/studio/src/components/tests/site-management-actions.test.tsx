@@ -6,7 +6,6 @@ import {
 	SiteManagementActionProps,
 	SiteManagementActions,
 } from 'src/components/site-management-actions';
-import { SyncSitesProvider } from 'src/hooks/sync-sites';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { store } from 'src/stores';
 import { connectedSitesApi } from 'src/stores/sync/connected-sites';
@@ -55,9 +54,7 @@ describe( 'SiteManagementActions', () => {
 	const renderWithProvider = ( children: React.ReactElement ) => {
 		return render(
 			<Provider store={ store }>
-				<ContentTabsProvider>
-					<SyncSitesProvider>{ children }</SyncSitesProvider>
-				</ContentTabsProvider>
+				<ContentTabsProvider>{ children }</ContentTabsProvider>
 			</Provider>
 		);
 	};

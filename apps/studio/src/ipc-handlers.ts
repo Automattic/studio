@@ -28,9 +28,11 @@ import {
 	pathExists,
 	recursiveCopyDirectory,
 } from '@studio/common/lib/fs-utils';
+import { generateNumberedName, generateSiteName } from '@studio/common/lib/generate-site-name';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
+import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
 import { portFinder } from '@studio/common/lib/port-finder';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
@@ -101,7 +103,6 @@ export {
 	getConnectedWpcomSites,
 	pauseSyncUpload,
 	pushArchive,
-	removeExportedSiteTmpFile,
 	removeSyncBackup,
 	resumeSyncUpload,
 	updateConnectedWpcomSites,
@@ -127,6 +128,7 @@ export {
 
 const DEBUG_LOG_MAX_LINES = 50;
 const PM2_HOME = nodePath.join( os.homedir(), '.studio', 'pm2' );
+const DEFAULT_ENCODED_PASSWORD = encodePassword( 'password' );
 
 function readLastLines( filePath: string, maxLines: number ): string[] | undefined {
 	try {
@@ -248,6 +250,9 @@ export async function createSite(
 		siteId?: string;
 		phpVersion?: string;
 		blueprint?: Blueprint;
+		adminUsername?: string;
+		adminPassword?: string;
+		adminEmail?: string;
 		noStart?: boolean;
 	} = {}
 ): Promise< SiteDetails > {
@@ -259,6 +264,9 @@ export async function createSite(
 		siteId: providedSiteId,
 		blueprint,
 		phpVersion,
+		adminUsername,
+		adminPassword,
+		adminEmail,
 		noStart = false,
 	} = config;
 
@@ -278,6 +286,9 @@ export async function createSite(
 				enableHttps,
 				siteId,
 				blueprint: blueprint?.blueprint,
+				adminUsername,
+				adminPassword,
+				adminEmail,
 				noStart,
 			},
 			{ wpVersion, blueprint: blueprint?.blueprint }
@@ -375,6 +386,22 @@ export async function updateSite(
 
 	if ( updatedSite.enableXdebug !== currentSite.enableXdebug ) {
 		options.xdebug = updatedSite.enableXdebug ?? false;
+	}
+
+	if ( ( updatedSite.adminUsername ?? 'admin' ) !== ( currentSite.adminUsername ?? 'admin' ) ) {
+		options.adminUsername = updatedSite.adminUsername;
+	}
+
+	if (
+		( updatedSite.adminPassword ?? DEFAULT_ENCODED_PASSWORD ) !==
+		( currentSite.adminPassword ?? DEFAULT_ENCODED_PASSWORD )
+	) {
+		// CLI set expects plain text password (it encodes before saving)
+		options.adminPassword = decodePassword( updatedSite.adminPassword ?? DEFAULT_ENCODED_PASSWORD );
+	}
+
+	if ( ( updatedSite.adminEmail ?? '' ) !== ( currentSite.adminEmail ?? '' ) ) {
+		options.adminEmail = updatedSite.adminEmail;
 	}
 
 	if ( updatedSite.enableDebugLog !== currentSite.enableDebugLog ) {
@@ -617,7 +644,9 @@ export async function copySite(
 		port,
 		phpVersion: sourceSite.phpVersion,
 		running: false,
+		adminUsername: sourceSite.adminUsername,
 		adminPassword: sourceSite.adminPassword,
+		adminEmail: sourceSite.adminEmail,
 		themeDetails: sourceSite.themeDetails,
 	};
 
@@ -814,6 +843,28 @@ export async function generateProposedSitePath(
 		}
 		throw err;
 	}
+}
+
+export async function generateSiteNameFromList(
+	_event: IpcMainInvokeEvent,
+	usedSites: SiteDetails[]
+): Promise< string > {
+	return generateSiteName(
+		usedSites.map( ( s ) => s.name ),
+		DEFAULT_SITE_PATH
+	);
+}
+
+export async function generateNumberedNameFromList(
+	_event: IpcMainInvokeEvent,
+	baseName: string,
+	usedSites: SiteDetails[]
+): Promise< string > {
+	return generateNumberedName(
+		baseName,
+		usedSites.map( ( s ) => s.name ),
+		DEFAULT_SITE_PATH
+	);
 }
 
 export async function openLocalPath( _event: IpcMainInvokeEvent, path: string ) {

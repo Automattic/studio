@@ -101,6 +101,7 @@ wp-files/
 vendor/*
 /fastlane/report.xml
 /fastlane/README.md
+/fastlane/github_release_notes.txt
 
 # CLI npm artifacts
 cli/vendor/

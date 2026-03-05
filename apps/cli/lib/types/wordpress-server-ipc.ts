@@ -161,12 +161,3 @@ export const childMessagePm2Schema = z.object( {
 	} ),
 	raw: childMessageRaw,
 } );
-
-// Zod schemas for PM2 process events (online, exit, stop, restart)
-export const pm2ProcessEventSchema = z.object( {
-	process: z.object( {
-		name: z.string(),
-		pm_id: z.number().optional(),
-	} ),
-	event: z.string(),
-} );

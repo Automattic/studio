@@ -18,17 +18,13 @@ import {
 	startProcess,
 	stopProcess,
 	getPm2Bus,
+	type DaemonBusEventMap,
 	sendMessageToProcess,
 	subscribeProcessEvents,
 	subscribeProcessMessages,
 } from 'cli/lib/pm2-manager';
-import { ProcessDescription } from 'cli/lib/types/pm2';
-import {
-	ServerConfig,
-	childMessagePm2Schema,
-	pm2ProcessEventSchema,
-	ManagerMessagePayload,
-} from 'cli/lib/types/wordpress-server-ipc';
+import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
+import { ServerConfig, ManagerMessagePayload } from 'cli/lib/types/wordpress-server-ipc';
 import { Logger } from 'cli/logger';
 
 export const SITE_PROCESS_PREFIX = 'studio-site-';
@@ -140,25 +136,18 @@ async function waitForReadyMessage( pmId: number ): Promise< void > {
 	const bus = await getPm2Bus();
 
 	let timeoutId: NodeJS.Timeout;
-	let readyHandler: ( packet: unknown ) => void;
+	let readyHandler: ( packet: DaemonBusEventMap[ 'process:msg' ] ) => void;
 	let abortListener: () => void;
 
 	return new Promise< void >( ( resolve, reject ) => {
 		timeoutId = setTimeout( () => {
 			reject( new Error( 'Timeout waiting for ready message from WordPress server child' ) );
 		}, PLAYGROUND_CLI_INACTIVITY_TIMEOUT );
-
-		readyHandler = ( packet: unknown ) => {
-			const result = childMessagePm2Schema.safeParse( packet );
-			if ( ! result.success ) {
-				return;
-			}
-
-			if ( result.data.process.pm_id === pmId && result.data.raw.topic === 'ready' ) {
+		readyHandler = ( packet ) => {
+			if ( packet.process.pm_id === pmId && packet.raw.topic === 'ready' ) {
 				resolve();
 			}
 		};
-
 		abortListener = () => {
 			reject( new Error( 'Operation aborted' ) );
 		};
@@ -200,8 +189,8 @@ export async function sendMessage(
 	const { maxTotalElapsedTime = PLAYGROUND_CLI_MAX_TIMEOUT, logger } = options;
 	const bus = await getPm2Bus();
 	const messageId = crypto.randomUUID();
-	let responseHandler: ( packet: unknown ) => void;
-	let processEventHandler: ( event: unknown ) => void;
+	let responseHandler: ( packet: DaemonBusEventMap[ 'process:msg' ] ) => void;
+	let processEventHandler: ( event: DaemonBusEventMap[ 'process:event' ] ) => void;
 	let abortListener: () => void;
 
 	return new Promise( ( resolve, reject ) => {
@@ -231,54 +220,35 @@ export async function sendMessage(
 			activityCheckIntervalId,
 		} );
 
-		processEventHandler = ( event: unknown ) => {
-			const result = pm2ProcessEventSchema.safeParse( event );
-			if ( ! result.success ) {
-				return;
-			}
-
-			if ( result.data.process.name === processName && result.data.event === 'exit' ) {
+		processEventHandler = ( event ) => {
+			if ( event.process.name === processName && event.event === 'exit' ) {
 				reject( new Error( 'WordPress server process exited unexpectedly' ) );
 			}
 		};
 
-		responseHandler = ( packet: unknown ) => {
-			const validationResult = childMessagePm2Schema.safeParse( packet );
-			if ( ! validationResult.success ) {
-				// Don't reject on validation errors - other processes may send messages we don't handle
+		responseHandler = ( packet ) => {
+			if ( packet.process.pm_id !== pmId ) {
 				return;
 			}
 
-			const validPacket = validationResult.data;
-
-			if ( validPacket.process.pm_id !== pmId ) {
-				return;
-			}
-
-			if ( validPacket.raw.topic === 'activity' ) {
+			if ( packet.raw.topic === 'activity' ) {
 				lastActivityTimestamp = Date.now();
-			} else if ( validPacket.raw.topic === 'console-message' ) {
+			} else if ( packet.raw.topic === 'console-message' ) {
 				lastActivityTimestamp = Date.now();
-				logger?.reportProgress( validPacket.raw.message );
-			} else if (
-				validPacket.raw.topic === 'error' &&
-				validPacket.raw.originalMessageId === messageId
-			) {
-				const error = new Error( validPacket.raw.errorMessage ) as Error & {
+				logger?.reportProgress( packet.raw.message );
+			} else if ( packet.raw.topic === 'error' && packet.raw.originalMessageId === messageId ) {
+				const error = new Error( packet.raw.errorMessage ) as Error & {
 					cliArgs?: Record< string, unknown >;
 				};
-				if ( validPacket.raw.errorStack ) {
-					error.stack = validPacket.raw.errorStack;
+				if ( packet.raw.errorStack ) {
+					error.stack = packet.raw.errorStack;
 				}
-				if ( validPacket.raw.cliArgs ) {
-					error.cliArgs = validPacket.raw.cliArgs;
+				if ( packet.raw.cliArgs ) {
+					error.cliArgs = packet.raw.cliArgs;
 				}
 				reject( error );
-			} else if (
-				validPacket.raw.topic === 'result' &&
-				validPacket.raw.originalMessageId === messageId
-			) {
-				resolve( validPacket.raw.result );
+			} else if ( packet.raw.topic === 'result' && packet.raw.originalMessageId === messageId ) {
+				resolve( packet.raw.result );
 			}
 		};
 

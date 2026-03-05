@@ -1,23 +1,21 @@
 import { z } from 'zod';
-import { ProcessDescription } from 'cli/lib/types/pm2';
-import {
-	childMessagePm2Schema,
-	managerMessageSchema,
-	pm2ProcessEventSchema,
-} from './wordpress-server-ipc';
+import { childMessagePm2Schema, managerMessageSchema } from 'cli/lib/types/wordpress-server-ipc';
 
+// Zod schema for process descriptions
 export const processDescriptionSchema = z.object( {
 	name: z.string(),
 	pmId: z.number(),
 	status: z.string(),
 	pid: z.number().optional(),
-} satisfies Record< keyof ProcessDescription, z.ZodTypeAny > );
+} );
+export type ProcessDescription = z.infer< typeof processDescriptionSchema >;
 
-const daemonPingRequestSchema = z.object( {
+// Zod schemas for requests to process manager daemon
+const daemonRequestPingSchema = z.object( {
 	type: z.literal( 'ping' ),
 } );
 
-const daemonStartProcessRequestSchema = z.object( {
+const daemonRequestStartProcessSchema = z.object( {
 	type: z.literal( 'start-process' ),
 	processName: z.string(),
 	scriptPath: z.string(),
@@ -25,48 +23,36 @@ const daemonStartProcessRequestSchema = z.object( {
 	args: z.array( z.string() ).optional(),
 } );
 
-const daemonStopProcessRequestSchema = z.object( {
+const daemonRequestStopProcessSchema = z.object( {
 	type: z.literal( 'stop-process' ),
 	processName: z.string(),
 } );
 
-const daemonListProcessesRequestSchema = z.object( {
+const daemonRequestListProcessesSchema = z.object( {
 	type: z.literal( 'list-processes' ),
 } );
 
-const daemonSendMessageToProcessRequestSchema = z.object( {
+const daemonRequestSendMessageToProcessSchema = z.object( {
 	type: z.literal( 'send-message-to-process' ),
 	processId: z.number(),
 	message: managerMessageSchema,
 } );
 
-const daemonKillRequestSchema = z.object( {
+const daemonRequestKillSchema = z.object( {
 	type: z.literal( 'kill-daemon' ),
 } );
 
-export const daemonRequestWithoutRequestIdSchema = z.discriminatedUnion( 'type', [
-	daemonPingRequestSchema,
-	daemonStartProcessRequestSchema,
-	daemonStopProcessRequestSchema,
-	daemonListProcessesRequestSchema,
-	daemonSendMessageToProcessRequestSchema,
-	daemonKillRequestSchema,
-] );
-
-const requestBaseSchema = z.object( { requestId: z.string() } );
-
 export const daemonRequestSchema = z.discriminatedUnion( 'type', [
-	requestBaseSchema.extend( daemonPingRequestSchema.shape ),
-	requestBaseSchema.extend( daemonStartProcessRequestSchema.shape ),
-	requestBaseSchema.extend( daemonStopProcessRequestSchema.shape ),
-	requestBaseSchema.extend( daemonListProcessesRequestSchema.shape ),
-	requestBaseSchema.extend( daemonSendMessageToProcessRequestSchema.shape ),
-	requestBaseSchema.extend( daemonKillRequestSchema.shape ),
+	daemonRequestPingSchema,
+	daemonRequestStartProcessSchema,
+	daemonRequestStopProcessSchema,
+	daemonRequestListProcessesSchema,
+	daemonRequestSendMessageToProcessSchema,
+	daemonRequestKillSchema,
 ] );
-
 export type DaemonRequest = z.infer< typeof daemonRequestSchema >;
-export type DaemonRequestWithoutRequestId = z.infer< typeof daemonRequestWithoutRequestIdSchema >;
 
+// Zod schemas for responses from process manager daemon
 const daemonResponseResultSchema = z.object( {
 	type: z.literal( 'result' ),
 	payload: z.unknown(),
@@ -87,17 +73,26 @@ export const daemonResponseSchema = z.discriminatedUnion( 'type', [
 ] );
 export type DaemonResponse = z.infer< typeof daemonResponseSchema >;
 
-export const daemonProcessEventSchema = z.object( {
+// Zod schemas for process manager events (messages, online, exit, stop, restart)
+export const pm2ProcessEventSchema = z.object( {
+	process: z.object( {
+		name: z.string(),
+		pm_id: z.number().optional(),
+	} ),
+	event: z.string(),
+} );
+
+const daemonProcessEventSchema = z.object( {
 	type: z.literal( 'process-event' ),
 	payload: pm2ProcessEventSchema,
 } );
 
-export const daemonProcessMessageSchema = z.object( {
+const daemonProcessMessageSchema = z.object( {
 	type: z.literal( 'process-message' ),
 	payload: childMessagePm2Schema,
 } );
 
-export const daemonKillEventSchema = z.object( {
+const daemonKillEventSchema = z.object( {
 	type: z.literal( 'daemon-kill' ),
 	payload: z.object( {
 		reason: z.string().optional(),
@@ -109,5 +104,4 @@ export const daemonEventSchema = z.discriminatedUnion( 'type', [
 	daemonProcessMessageSchema,
 	daemonKillEventSchema,
 ] );
-
 export type DaemonEvent = z.infer< typeof daemonEventSchema >;

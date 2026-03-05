@@ -8,12 +8,12 @@ import {
 	PROCESS_MANAGER_EVENTS_SOCKET_PATH,
 } from 'cli/lib/process-manager';
 import { SocketServer } from 'cli/lib/socket';
-import { ProcessDescription } from 'cli/lib/types/pm2';
 import {
+	ProcessDescription,
 	DaemonEvent,
 	DaemonResponseResult,
-	DaemonRequest,
 	daemonEventSchema,
+	DaemonRequest,
 	daemonRequestSchema,
 } from 'cli/lib/types/process-manager-ipc';
 import { ManagerMessage } from 'cli/lib/types/wordpress-server-ipc';

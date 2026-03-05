@@ -16,18 +16,15 @@ import {
 	PROCESS_MANAGER_HOME,
 } from 'cli/lib/process-manager';
 import { SocketClient, SocketMessageDecoder } from 'cli/lib/socket';
-import { ProcessDescription } from 'cli/lib/types/pm2';
 import {
-	DaemonRequestWithoutRequestId,
+	ProcessDescription,
+	DaemonRequest,
 	daemonEventSchema,
 	daemonResponseSchema,
 	processDescriptionSchema,
-} from 'cli/lib/types/process-manager-ipc';
-import {
-	ManagerMessage,
-	childMessagePm2Schema,
 	pm2ProcessEventSchema,
-} from 'cli/lib/types/wordpress-server-ipc';
+} from 'cli/lib/types/process-manager-ipc';
+import { ManagerMessage, childMessagePm2Schema } from 'cli/lib/types/wordpress-server-ipc';
 
 const PM2_STATUS_ONLINE = 'online';
 const PROXY_PROCESS_NAME = 'studio-proxy';
@@ -42,22 +39,26 @@ if ( process.platform !== 'win32' && ! fs.existsSync( PROCESS_MANAGER_HOME ) ) {
 	fs.mkdirSync( PROCESS_MANAGER_HOME, { recursive: true } );
 }
 
-export interface ProcessEventData {
-	processName: string;
-	event: string;
+export type DaemonBusEventMap = {
+	'process:msg': z.infer< typeof childMessagePm2Schema >;
+	'process:event': z.infer< typeof pm2ProcessEventSchema >;
+	'pm2:kill': { reason?: string };
+};
+
+class DaemonBusEventEmitter extends EventEmitter {
+	on< K extends keyof DaemonBusEventMap >(
+		event: K,
+		listener: ( payload: DaemonBusEventMap[ K ] ) => void
+	): this {
+		return super.on( event, listener );
+	}
+
+	emit< K extends keyof DaemonBusEventMap >( event: K, payload: DaemonBusEventMap[ K ] ): boolean {
+		return super.emit( event, payload );
+	}
 }
 
-let isConnected = false;
-let pm2Bus: DaemonBus | null = null;
-
-function isRecoverableConnectError( error: unknown ) {
-	return (
-		isErrnoException( error ) &&
-		( error.code === 'ENOENT' || error.code === 'ECONNREFUSED' || error.code === 'EPIPE' )
-	);
-}
-
-class DaemonBus extends EventEmitter {
+class DaemonBus extends DaemonBusEventEmitter {
 	private readonly socketClient: SocketClient;
 	private socket: net.Socket | null = null;
 	private readonly decoder = new SocketMessageDecoder();
@@ -115,7 +116,7 @@ class DaemonBus extends EventEmitter {
 	}
 }
 
-async function sendDaemonRequest( request: DaemonRequestWithoutRequestId ): Promise< unknown > {
+async function sendDaemonRequest( request: DaemonRequest ): Promise< unknown > {
 	const socketClient = new SocketClient( PROCESS_MANAGER_CONTROL_SOCKET_PATH, CONNECTION_TIMEOUT );
 	const rawResponse = await socketClient.sendAndWaitForResponse( {
 		...request,
@@ -161,6 +162,13 @@ function spawnDaemonProcess() {
 	daemonProcess.unref();
 }
 
+function isRecoverableConnectError( error: unknown ) {
+	return (
+		isErrnoException( error ) &&
+		( error.code === 'ENOENT' || error.code === 'ECONNREFUSED' || error.code === 'EPIPE' )
+	);
+}
+
 async function ensureDaemonIsRunning(): Promise< void > {
 	try {
 		await sendDaemonRequest( { type: 'ping' } );
@@ -174,6 +182,8 @@ async function ensureDaemonIsRunning(): Promise< void > {
 		await sendDaemonRequest( { type: 'ping' } );
 	}
 }
+
+let pm2Bus: DaemonBus | null = null;
 
 async function ensurePm2Bus(): Promise< DaemonBus > {
 	if ( pm2Bus ) {
@@ -194,6 +204,8 @@ async function cleanupPm2Bus() {
 		await busToClose.close();
 	}
 }
+
+let isConnected = false;
 
 // `connect()` / `disconnect()` are client-side lifecycle helpers. They prepare and tear down this
 // process's local daemon session state; they do not establish daemon-side control-channel state.
@@ -240,7 +252,7 @@ const listProcesses = cacheFunctionTTL( async () => {
 	return daemonListProcessesSuccessResponseSchema.parse( response ).processes;
 } );
 
-export async function getPm2Bus(): Promise< EventEmitter > {
+export async function getPm2Bus(): Promise< DaemonBus > {
 	if ( ! pm2Bus ) {
 		throw new Error( 'Daemon bus is not initialized' );
 	}
@@ -315,6 +327,11 @@ export async function stopProcess( processName: string ): Promise< void > {
 		processName,
 	} );
 }
+
+type ProcessEventData = {
+	processName: string;
+	event: string;
+};
 
 /**
  * Subscribe to process manager events (online, exit, stop, restart)

@@ -46,7 +46,7 @@ if (-not (Test-Path $nugetDir)) {
     New-Item -ItemType Directory -Path $nugetDir -Force | Out-Null
 }
 $nupkgUrl = "https://www.nuget.org/api/v2/package/Microsoft.Trusted.Signing.Client"
-$nupkgPath = "$nugetDir\Microsoft.Trusted.Signing.Client.nupkg"
+$nupkgPath = "$nugetDir\Microsoft.Trusted.Signing.Client.zip"
 Invoke-WebRequest -Uri $nupkgUrl -OutFile $nupkgPath
 Expand-Archive -Path $nupkgPath -DestinationPath "$nugetDir\Microsoft.Trusted.Signing.Client" -Force
 

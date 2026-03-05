@@ -113,14 +113,13 @@ Write-Host "~~~ Smoke testing Azure Trusted Signing..."
 $dummyExe = "$env:TEMP\signing-test.exe"
 # Create a minimal valid PE file (copy cmd.exe as a test subject)
 Copy-Item "C:\Windows\System32\cmd.exe" $dummyExe -Force
-& $signtoolPath sign /v /debug /fd SHA256 /tr http://timestamp.acs.microsoft.com /td SHA256 /dlib $dlibPath /dmdf $metadataPath $dummyExe
-If ($LastExitCode -ne 0) {
+$signtoolOutput = & $signtoolPath sign /v /debug /fd SHA256 /tr http://timestamp.acs.microsoft.com /td SHA256 /dlib $dlibPath /dmdf $metadataPath $dummyExe 2>&1
+$signtoolExitCode = $LastExitCode
+Write-Host "signtool output:"
+$signtoolOutput | ForEach-Object { Write-Host $_ }
+Write-Host "signtool exit code: $signtoolExitCode"
+If ($signtoolExitCode -ne 0) {
     Write-Host "Error: Azure Trusted Signing smoke test failed!" -ForegroundColor Red
-    Write-Host "signtool path: $signtoolPath"
-    Write-Host "dlib path: $dlibPath"
-    Write-Host "metadata path: $metadataPath"
-    Write-Host "metadata contents:"
-    Get-Content $metadataPath
     Exit 1
 }
 Write-Host "Smoke test passed - Azure Trusted Signing is working."

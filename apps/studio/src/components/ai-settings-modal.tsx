@@ -38,22 +38,32 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 		null
 	);
 
-	const refreshStatus = useCallback( async () => {
-		setIsLoading( true );
-		try {
-			const result = await getIpcApi().getAgentInstructionsStatus( siteId );
-			setStatuses( result as InstructionFileStatus[] );
-			setError( null );
-		} catch ( err ) {
-			const errorMessage = err instanceof Error ? err.message : String( err );
-			setError( errorMessage );
-		} finally {
-			setIsLoading( false );
-		}
-	}, [ siteId ] );
+	const refreshStatus = useCallback(
+		async ( showLoadingSpinner = false ) => {
+			if ( showLoadingSpinner ) {
+				setIsLoading( true );
+			}
+			try {
+				const result = await getIpcApi().getAgentInstructionsStatus( siteId );
+				setStatuses( result as InstructionFileStatus[] );
+				setError( null );
+			} catch ( err ) {
+				const errorMessage = err instanceof Error ? err.message : String( err );
+				setError( errorMessage );
+			} finally {
+				if ( showLoadingSpinner ) {
+					setIsLoading( false );
+				}
+			}
+		},
+		[ siteId ]
+	);
 
 	useEffect( () => {
-		void refreshStatus();
+		void refreshStatus( true );
+		const handleFocus = () => void refreshStatus();
+		window.addEventListener( 'focus', handleFocus );
+		return () => window.removeEventListener( 'focus', handleFocus );
 	}, [ refreshStatus ] );
 
 	const handleInstallFile = useCallback(

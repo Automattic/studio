@@ -58,12 +58,17 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 			{ key: __( 'PHP version' ), jsonKey: 'phpVersion', value: site.phpVersion },
 			{ key: __( 'WP version' ), jsonKey: 'wpVersion', value: wpVersion },
 			{ key: __( 'Xdebug' ), jsonKey: 'xdebug', value: xdebugStatus },
-			{ key: __( 'Admin username' ), jsonKey: 'adminUsername', value: 'admin' },
+			{
+				key: __( 'Admin username' ),
+				jsonKey: 'adminUsername',
+				value: site.adminUsername ?? 'admin',
+			},
 			{
 				key: __( 'Admin password' ),
 				jsonKey: 'adminPassword',
 				value: site.adminPassword ? decodePassword( site.adminPassword ) : undefined,
 			},
+			{ key: __( 'Admin email' ), jsonKey: 'adminEmail', value: site.adminEmail },
 		].filter( ( { value, hidden } ) => value && ! hidden );
 
 		if ( format === 'table' ) {

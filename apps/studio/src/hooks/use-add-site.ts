@@ -4,16 +4,17 @@ import { BlueprintValidationWarning } from '@studio/common/lib/blueprint-validat
 import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useMemo, useState } from 'react';
-import { useSyncSites } from 'src/hooks/sync-sites';
+import { useAuth } from 'src/hooks/use-auth';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { useRootSelector } from 'src/stores';
+import { useAppDispatch, useRootSelector } from 'src/stores';
 import {
 	selectDefaultPhpVersion,
 	selectDefaultWordPressVersion,
 } from 'src/stores/provider-constants-slice';
+import { syncOperationsThunks } from 'src/stores/sync';
 import { useConnectSiteMutation } from 'src/stores/sync/connected-sites';
 import { Blueprint } from 'src/stores/wpcom-api';
 import type { BlueprintPreferredVersions } from '@studio/common/lib/blueprint-validation';
@@ -32,6 +33,9 @@ export interface CreateSiteFormValues {
 	useCustomDomain: boolean;
 	customDomain: string | null;
 	enableHttps: boolean;
+	adminUsername?: string;
+	adminPassword?: string;
+	adminEmail?: string;
 }
 
 /**
@@ -50,7 +54,8 @@ export function useAddSite() {
 	const { createSite, sites } = useSiteDetails();
 	const { importFile, clearImportState, importState } = useImportExport();
 	const [ connectSite ] = useConnectSiteMutation();
-	const { pullSite } = useSyncSites();
+	const { client } = useAuth();
+	const dispatch = useAppDispatch();
 	const { setSelectedTab } = useContentTabs();
 	const defaultPhpVersion = useRootSelector( selectDefaultPhpVersion );
 	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
@@ -276,12 +281,17 @@ export function useAddSite() {
 								title: newSite.name,
 								body: __( 'Your new site was imported' ),
 							} );
-						} else if ( selectedRemoteSite ) {
+						} else if ( selectedRemoteSite && client ) {
 							await connectSite( { site: selectedRemoteSite, localSiteId: newSite.id } );
 							const pullOptions: SyncOption[] = [ 'all' ];
-							pullSite( selectedRemoteSite, newSite, {
-								optionsToSync: pullOptions,
-							} );
+							void dispatch(
+								syncOperationsThunks.pullSite( {
+									client,
+									connectedSite: selectedRemoteSite,
+									selectedSite: newSite,
+									options: { optionsToSync: pullOptions },
+								} )
+							);
 							setSelectedTab( 'sync' );
 						} else {
 							getIpcApi().showNotification( {
@@ -290,7 +300,10 @@ export function useAddSite() {
 							} );
 						}
 					},
-					shouldSkipStart
+					shouldSkipStart,
+					formValues.adminUsername,
+					formValues.adminPassword,
+					formValues.adminEmail
 				);
 			} catch ( e ) {
 				Sentry.captureException( e );
@@ -299,12 +312,13 @@ export function useAddSite() {
 		[
 			__,
 			clearImportState,
+			client,
 			createSite,
+			dispatch,
 			fileForImport,
 			importFile,
 			selectedBlueprint,
 			selectedRemoteSite,
-			pullSite,
 			connectSite,
 			setSelectedTab,
 		]

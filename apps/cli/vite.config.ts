@@ -44,7 +44,7 @@ export default defineConfig( {
 								absolute: true,
 							} );
 
-							const webPaths = globSync( '@php-wasm/web-*/', {
+							const webPaths = globSync( '@php-wasm/web-[0-9]-[0-9]/', {
 								cwd: distCliNodeModulesPath,
 								absolute: true,
 							} );

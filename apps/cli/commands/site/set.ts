@@ -2,6 +2,11 @@ import { SupportedPHPVersions } from '@php-wasm/universal';
 import { DEFAULT_WORDPRESS_VERSION, MINIMUM_WORDPRESS_VERSION } from '@studio/common/constants';
 import { getDomainNameValidationError } from '@studio/common/lib/domains';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
+import {
+	encodePassword,
+	validateAdminEmail,
+	validateAdminUsername,
+} from '@studio/common/lib/passwords';
 import { SITE_EVENTS } from '@studio/common/lib/site-events';
 import { siteNeedsRestart } from '@studio/common/lib/site-needs-restart';
 import {
@@ -44,12 +49,27 @@ export interface SetCommandOptions {
 	php?: string;
 	wp?: string;
 	xdebug?: boolean;
+	adminUsername?: string;
+	adminPassword?: string;
+	adminEmail?: string;
 	debugLog?: boolean;
 	debugDisplay?: boolean;
 }
 
 export async function runCommand( sitePath: string, options: SetCommandOptions ): Promise< void > {
-	const { name, domain, https, php, wp, xdebug, debugLog, debugDisplay } = options;
+	const {
+		name,
+		domain,
+		https,
+		php,
+		wp,
+		xdebug,
+		adminUsername,
+		adminPassword,
+		debugLog,
+		debugDisplay,
+	} = options;
+	let { adminEmail } = options;
 
 	if (
 		name === undefined &&
@@ -58,18 +78,43 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 		php === undefined &&
 		wp === undefined &&
 		xdebug === undefined &&
+		adminUsername === undefined &&
+		adminPassword === undefined &&
+		adminEmail === undefined &&
 		debugLog === undefined &&
 		debugDisplay === undefined
 	) {
 		throw new LoggerError(
 			__(
-				'At least one option (--name, --domain, --https, --php, --wp, --xdebug, --debug-log, --debug-display) is required.'
+				'At least one option (--name, --domain, --https, --php, --wp, --xdebug, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display) is required.'
 			)
 		);
 	}
 
 	if ( name !== undefined && ! name.trim() ) {
 		throw new LoggerError( __( 'Site name cannot be empty.' ) );
+	}
+
+	if ( adminUsername !== undefined ) {
+		const usernameError = validateAdminUsername( adminUsername );
+		if ( usernameError ) {
+			throw new LoggerError( usernameError );
+		}
+	}
+
+	if ( adminPassword !== undefined && ! adminPassword.trim() ) {
+		throw new LoggerError( __( 'Admin password cannot be empty.' ) );
+	}
+
+	if ( adminEmail !== undefined ) {
+		if ( ! adminEmail.trim() ) {
+			adminEmail = undefined;
+		} else {
+			const emailError = validateAdminEmail( adminEmail );
+			if ( emailError ) {
+				throw new LoggerError( emailError );
+			}
+		}
 	}
 
 	try {
@@ -118,6 +163,11 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 		const phpChanged = php !== undefined && php !== site.phpVersion;
 		const wpChanged = wp !== undefined;
 		const xdebugChanged = xdebug !== undefined && xdebug !== site.enableXdebug;
+		const adminUsernameChanged =
+			adminUsername !== undefined && adminUsername !== ( site.adminUsername ?? 'admin' );
+		const adminPasswordChanged = adminPassword !== undefined;
+		const adminEmailChanged = adminEmail !== undefined && adminEmail !== ( site.adminEmail ?? '' );
+		const credentialsChanged = adminUsernameChanged || adminPasswordChanged || adminEmailChanged;
 		const debugLogChanged = debugLog !== undefined && debugLog !== site.enableDebugLog;
 		const debugDisplayChanged =
 			debugDisplay !== undefined && debugDisplay !== site.enableDebugDisplay;
@@ -129,6 +179,7 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 			phpChanged ||
 			wpChanged ||
 			xdebugChanged ||
+			credentialsChanged ||
 			debugLogChanged ||
 			debugDisplayChanged;
 		if ( ! hasChanges ) {
@@ -143,6 +194,7 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 			phpChanged,
 			wpChanged,
 			xdebugChanged,
+			credentialsChanged,
 			debugLogChanged,
 			debugDisplayChanged,
 		} );
@@ -170,6 +222,15 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 			}
 			if ( xdebugChanged ) {
 				foundSite.enableXdebug = xdebug;
+			}
+			if ( adminUsernameChanged ) {
+				foundSite.adminUsername = adminUsername!;
+			}
+			if ( adminPasswordChanged ) {
+				foundSite.adminPassword = encodePassword( adminPassword! );
+			}
+			if ( adminEmailChanged ) {
+				foundSite.adminEmail = adminEmail!;
 			}
 			if ( debugLogChanged ) {
 				foundSite.enableDebugLog = debugLog;
@@ -312,6 +373,18 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'boolean',
 					description: __( 'Enable Xdebug' ),
 				} )
+				.option( 'admin-username', {
+					type: 'string',
+					description: __( 'Admin username' ),
+				} )
+				.option( 'admin-password', {
+					type: 'string',
+					description: __( 'Admin password' ),
+				} )
+				.option( 'admin-email', {
+					type: 'string',
+					description: __( 'Admin email' ),
+				} )
 				.option( 'debug-log', {
 					type: 'boolean',
 					description: __( 'Enable WP_DEBUG_LOG' ),
@@ -330,6 +403,9 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					php: argv.php,
 					wp: argv.wp,
 					xdebug: argv.xdebug,
+					adminUsername: argv.adminUsername,
+					adminPassword: argv.adminPassword,
+					adminEmail: argv.adminEmail,
 					debugLog: argv.debugLog,
 					debugDisplay: argv.debugDisplay,
 				} );

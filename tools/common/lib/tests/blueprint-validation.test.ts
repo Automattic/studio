@@ -67,10 +67,6 @@ describe( 'validateBlueprintData', () => {
 				landingPage: '/wp-admin/',
 				steps: [
 					{
-						step: 'login',
-						username: 'admin',
-					},
-					{
 						step: 'enableMultisite',
 					},
 				],
@@ -82,7 +78,6 @@ describe( 'validateBlueprintData', () => {
 			if ( result.valid ) {
 				expect( result.warnings.length ).toBeGreaterThan( 0 );
 				expect( result.warnings.map( ( w ) => w.feature ) ).toContain( 'landingPage' );
-				expect( result.warnings.map( ( w ) => w.feature ) ).toContain( 'login' );
 				expect( result.warnings.map( ( w ) => w.feature ) ).toContain( 'enableMultisite' );
 			}
 		} );

@@ -7,7 +7,7 @@ import {
 } from '@wordpress/components';
 import { moreVertical } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { PropsWithChildren } from 'react';
+import { PropsWithChildren, useCallback, useEffect, useState } from 'react';
 import { CopyTextButton } from 'src/components/copy-text-button';
 import { LearnHowLink } from 'src/components/learn-more';
 import { SettingsMenuItem } from 'src/components/settings-site-menu';
@@ -41,10 +41,11 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 	const dispatch = useAppDispatch();
 	const { __ } = useI18n();
 	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
-	const username = 'admin';
+	const username = selectedSite.adminUsername || 'admin';
 	// Empty strings account for legacy sites lacking a stored password.
 	const storedPassword = decodePassword( selectedSite.adminPassword ?? '' );
 	const password = storedPassword === '' ? 'password' : storedPassword;
+	const email = selectedSite.adminEmail || 'admin@localhost.com';
 	const [ wpVersion, refreshWpVersion ] = useGetWpVersion( selectedSite );
 	const domain = selectedSite.customDomain
 		? `${ selectedSite.customDomain }`
@@ -59,6 +60,23 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 	};
 	const { handleDeleteSite } = useDeleteSite();
 	const { copySite } = useSiteDetails();
+	const [ debugLogPath, setDebugLogPath ] = useState< string | null >( null );
+
+	const checkDebugLogExists = useCallback( async () => {
+		if ( ! selectedSite.enableDebugLog ) {
+			setDebugLogPath( null );
+			return;
+		}
+		const path = await getIpcApi().getAbsolutePathFromSite(
+			selectedSite.id,
+			'wp-content/debug.log'
+		);
+		setDebugLogPath( path );
+	}, [ selectedSite.id, selectedSite.enableDebugLog ] );
+
+	useEffect( () => {
+		void checkDebugLogExists();
+	}, [ checkDebugLogExists ] );
 
 	return (
 		<div className="p-8 ltr:pr-4 rtl:pl-4">
@@ -152,7 +170,14 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 						<span>{ selectedSite.enableXdebug ? __( 'Enabled' ) : __( 'Disabled' ) }</span>
 					</SettingsRow>
 					<SettingsRow label={ __( 'Debug log' ) }>
-						<span>{ selectedSite.enableDebugLog ? __( 'Enabled' ) : __( 'Disabled' ) }</span>
+						<span className="flex items-center gap-2">
+							{ selectedSite.enableDebugLog ? __( 'Enabled' ) : __( 'Disabled' ) }
+							{ debugLogPath && (
+								<Button variant="link" onClick={ () => getIpcApi().openLocalPath( debugLogPath ) }>
+									{ __( 'Open log file' ) }
+								</Button>
+							) }
+						</span>
 					</SettingsRow>
 					<SettingsRow label={ __( 'Debug display' ) }>
 						<span>{ selectedSite.enableDebugDisplay ? __( 'Enabled' ) : __( 'Disabled' ) }</span>
@@ -181,14 +206,23 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 							************
 						</CopyTextButton>
 					</SettingsRow>
+					<SettingsRow label={ __( 'Email' ) }>
+						<CopyTextButton
+							copyConfirmation={ __( 'Copied!' ) }
+							label={ `${ email }, ${ __( 'Copy admin email to clipboard' ) }` }
+							text={ email }
+						>
+							{ email }
+						</CopyTextButton>
+					</SettingsRow>
 					<SettingsRow label={ __( 'Admin URL' ) }>
 						<CopyTextButton
-							text={ `${ protocol }://${ domain }/wp-admin` }
-							label={ `${ domain }/wp-admin, ${ __( 'Copy wp-admin url to clipboard' ) }` }
+							text={ `${ protocol }://${ domain }/wp-admin/` }
+							label={ `${ domain }/wp-admin/, ${ __( 'Copy wp-admin url to clipboard' ) }` }
 							copyConfirmation={ __( 'Copied!' ) }
 							data-testid="copy-wp-admin-url"
 						>
-							{ `${ domain }/wp-admin` }
+							{ `${ domain }/wp-admin/` }
 						</CopyTextButton>
 					</SettingsRow>
 				</tbody>

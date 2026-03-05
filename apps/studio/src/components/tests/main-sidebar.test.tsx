@@ -3,7 +3,6 @@ import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { vi } from 'vitest';
 import MainSidebar from 'src/components/main-sidebar';
-import { SyncSitesProvider } from 'src/hooks/sync-sites';
 import { useAuth } from 'src/hooks/use-auth';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { store } from 'src/stores';
@@ -102,9 +101,7 @@ vi.mock( 'src/hooks/use-site-details', () => ( {
 const renderWithProvider = ( children: React.ReactElement ) => {
 	return render(
 		<Provider store={ store }>
-			<ContentTabsProvider>
-				<SyncSitesProvider>{ children }</SyncSitesProvider>
-			</ContentTabsProvider>
+			<ContentTabsProvider>{ children }</ContentTabsProvider>
 		</Provider>
 	);
 };

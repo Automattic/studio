@@ -54,7 +54,7 @@ describe( 'WordPress Server Manager', () => {
 	function setupIpcMocks(): void {
 		// Emit "ready" repeatedly to avoid races where the listener is attached after one-shot emission.
 		const readyInterval = setInterval( () => {
-			mockBus.emit( 'process:msg', {
+			mockBus.emit( 'process-message', {
 				process: { name: mockProcessDescription.name, pm_id: mockProcessDescription.pmId },
 				raw: { topic: 'ready' },
 			} );
@@ -64,7 +64,7 @@ describe( 'WordPress Server Manager', () => {
 			clearInterval( readyInterval );
 			// Send result message only after sendMessageToProcess is called
 			setImmediate( () => {
-				mockBus.emit( 'process:msg', {
+				mockBus.emit( 'process-message', {
 					process: { name: mockProcessDescription.name, pm_id: mockProcessDescription.pmId },
 					raw: {
 						topic: 'result',

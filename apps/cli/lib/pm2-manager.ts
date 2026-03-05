@@ -40,9 +40,9 @@ if ( process.platform !== 'win32' && ! fs.existsSync( PROCESS_MANAGER_HOME ) ) {
 }
 
 export type DaemonBusEventMap = {
-	'process:msg': z.infer< typeof childMessagePm2Schema >;
-	'process:event': z.infer< typeof pm2ProcessEventSchema >;
-	'pm2:kill': { reason?: string };
+	'process-message': z.infer< typeof childMessagePm2Schema >;
+	'process-event': z.infer< typeof pm2ProcessEventSchema >;
+	'daemon-kill': { reason?: string };
 };
 
 class DaemonBusEventEmitter extends EventEmitter {
@@ -76,13 +76,13 @@ class DaemonBus extends DaemonBusEventEmitter {
 
 		switch ( result.data.type ) {
 			case 'process-message':
-				this.emit( 'process:msg', result.data.payload );
+				this.emit( 'process-message', result.data.payload );
 				return;
 			case 'process-event':
-				this.emit( 'process:event', result.data.payload );
+				this.emit( 'process-event', result.data.payload );
 				return;
 			case 'daemon-kill':
-				this.emit( 'pm2:kill', result.data.payload );
+				this.emit( 'daemon-kill', result.data.payload );
 				return;
 		}
 	}
@@ -355,10 +355,10 @@ export async function subscribeProcessEvents(
 		} );
 	};
 
-	bus.on( 'process:event', eventHandler );
+	bus.on( 'process-event', eventHandler );
 
 	return () => {
-		bus.off( 'process:event', eventHandler );
+		bus.off( 'process-event', eventHandler );
 	};
 }
 
@@ -393,20 +393,20 @@ export async function subscribeProcessMessages(
 		} );
 	};
 
-	bus.on( 'process:msg', messageHandler );
+	bus.on( 'process-message', messageHandler );
 
 	return () => {
-		bus.off( 'process:msg', messageHandler );
+		bus.off( 'process-message', messageHandler );
 	};
 }
 
 export async function subscribePm2KillEvent( handler: () => void ) {
 	const bus = await getPm2Bus();
 
-	bus.on( 'pm2:kill', handler );
+	bus.on( 'daemon-kill', handler );
 
 	return () => {
-		bus.off( 'pm2:kill', handler );
+		bus.off( 'daemon-kill', handler );
 	};
 }
 

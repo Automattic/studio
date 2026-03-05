@@ -205,7 +205,7 @@ describe( 'PM2 Manager', () => {
 		expect( bus1 ).toBe( bus2 );
 
 		const processMessageHandler = vi.fn();
-		bus1.on( 'process:msg', processMessageHandler );
+		bus1.on( 'process-message', processMessageHandler );
 		( bus1 as unknown as { handlePacket: ( packet: unknown ) => void } ).handlePacket( {
 			type: 'process-message',
 			payload: {

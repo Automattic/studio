@@ -136,7 +136,7 @@ async function waitForReadyMessage( pmId: number ): Promise< void > {
 	const bus = await getPm2Bus();
 
 	let timeoutId: NodeJS.Timeout;
-	let readyHandler: ( packet: DaemonBusEventMap[ 'process:msg' ] ) => void;
+	let readyHandler: ( packet: DaemonBusEventMap[ 'process-message' ] ) => void;
 	let abortListener: () => void;
 
 	return new Promise< void >( ( resolve, reject ) => {
@@ -153,11 +153,11 @@ async function waitForReadyMessage( pmId: number ): Promise< void > {
 		};
 		abortController.signal.addEventListener( 'abort', abortListener );
 
-		bus.on( 'process:msg', readyHandler );
+		bus.on( 'process-message', readyHandler );
 	} ).finally( () => {
 		clearTimeout( timeoutId );
 		abortController.signal.removeEventListener( 'abort', abortListener );
-		bus.off( 'process:msg', readyHandler );
+		bus.off( 'process-message', readyHandler );
 	} );
 }
 
@@ -189,8 +189,8 @@ export async function sendMessage(
 	const { maxTotalElapsedTime = PLAYGROUND_CLI_MAX_TIMEOUT, logger } = options;
 	const bus = await getPm2Bus();
 	const messageId = crypto.randomUUID();
-	let responseHandler: ( packet: DaemonBusEventMap[ 'process:msg' ] ) => void;
-	let processEventHandler: ( event: DaemonBusEventMap[ 'process:event' ] ) => void;
+	let responseHandler: ( packet: DaemonBusEventMap[ 'process-message' ] ) => void;
+	let processEventHandler: ( event: DaemonBusEventMap[ 'process-event' ] ) => void;
 	let abortListener: () => void;
 
 	return new Promise( ( resolve, reject ) => {
@@ -258,14 +258,14 @@ export async function sendMessage(
 		};
 		abortController.signal.addEventListener( 'abort', abortListener );
 
-		bus.on( 'process:event', processEventHandler );
-		bus.on( 'process:msg', responseHandler );
+		bus.on( 'process-event', processEventHandler );
+		bus.on( 'process-message', responseHandler );
 
 		sendMessageToProcess( pmId, { ...message, messageId } ).catch( reject );
 	} ).finally( () => {
 		abortController.signal.removeEventListener( 'abort', abortListener );
-		bus.off( 'process:event', processEventHandler );
-		bus.off( 'process:msg', responseHandler );
+		bus.off( 'process-event', processEventHandler );
+		bus.off( 'process-message', responseHandler );
 
 		const tracker = messageActivityTrackers.get( messageId );
 		if ( tracker ) {

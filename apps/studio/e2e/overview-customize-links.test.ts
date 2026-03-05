@@ -81,6 +81,10 @@ test.describe( 'Overview customize links', () => {
 			await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
 		} );
 
+		test.afterEach( async ( { page: _page }, testInfo ) => {
+			await session.reportMainProcessLogsOnFailure( testInfo );
+		} );
+
 		test.afterAll( async () => {
 			if ( session.electronApp ) {
 				await restoreOpenExternal();

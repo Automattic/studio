@@ -44,7 +44,7 @@ import {
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
-import { Blueprint, StepDefinition } from '@wp-playground/blueprints';
+import { Blueprint, BlueprintV1Declaration, StepDefinition } from '@wp-playground/blueprints';
 import { writeAgentsMd } from 'cli/lib/agents-md';
 import {
 	lockAppdata,
@@ -299,8 +299,9 @@ export async function runCommand(
 				const blueprintDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-empty-blueprint-' ) );
 				blueprintUri = path.join( blueprintDir, 'blueprint.json' );
 			}
-			const existingSteps = blueprint.steps || [];
-			blueprint.steps = [ ...setupSteps, ...existingSteps ];
+			const blueprintDecl = blueprint as BlueprintV1Declaration;
+			const existingSteps = blueprintDecl.steps || [];
+			blueprintDecl.steps = [ ...setupSteps, ...existingSteps ];
 		}
 
 		const siteDetails: SiteData = {

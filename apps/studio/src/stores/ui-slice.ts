@@ -1,9 +1,9 @@
 import { createSlice } from '@reduxjs/toolkit';
 import { RootState } from 'src/stores';
 
-interface UiState {
+type UiState = {
 	isAddSiteModalOpen: boolean;
-}
+};
 
 const initialState: UiState = {
 	isAddSiteModalOpen: false,

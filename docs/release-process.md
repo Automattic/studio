@@ -14,21 +14,21 @@ Builds are signed, notarized (macOS), and uploaded to the Apps CDN automatically
 - Extracts translatable strings and commits them to the release branch (a wpcom cron imports them to GlotPress via a backmerge PR)
 - Generates draft release notes from merged PRs and commits them to the release branch
 - Creates a backmerge PR from the release branch into `trunk`
-- Bumps version to `<version>-beta1` and triggers a build (the build tags and uploads to CDN)
 
 ### 2. Beta Releases
 
 **ReleasesV2 milestone**: Beta Release | **Fastlane lane**: `new_beta_release`
 
+- Downloads latest translations from GlotPress and commits them to the release branch
 - Increments the beta number (e.g. beta1 → beta2)
 - Triggers a build (the build tags the new version and uploads to CDN)
+- Creates a backmerge PR from the release branch into `trunk`
 - Repeat as needed for additional betas
 
 ### 3. Pre-Release
 
 **ReleasesV2 milestone**: Pre-Release
 
-- **Download translations**: Button triggers `download_translations` lane, which fetches translations from GlotPress and commits them to the release branch
 - **Release notes**: Review and refine the draft release notes in `RELEASE-NOTES.txt` on the `release/<version>` branch (a draft is auto-generated during code freeze)
 - **Smoke tests**: Verify betas on macOS and Windows
 
@@ -36,6 +36,7 @@ Builds are signed, notarized (macOS), and uploaded to the Apps CDN automatically
 
 **ReleasesV2 milestone**: Release | **Fastlane lane**: `finalize_release`
 
+- Downloads latest translations from GlotPress (to capture any added during the beta period)
 - Removes beta suffix (sets version to `<version>`)
 - Triggers the final release build, which uploads to the Apps CDN, creates a **draft** GitHub release with notes and download links, and notifies Slack
 

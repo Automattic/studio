@@ -69,6 +69,7 @@ class PromptEditor implements Component, Focusable {
 		const lines = this.editor.render( innerWidth );
 		const bc = this.borderColorFn;
 
+		const emptyPrefix = ' '.repeat( promptWidth );
 		return lines.map( ( line, i ) => {
 			if ( i === 0 || i === lines.length - 1 ) {
 				return ' ' + bc( '─'.repeat( width - 2 ) );
@@ -76,7 +77,10 @@ class PromptEditor implements Component, Focusable {
 			if ( this.isEmpty && i === 1 ) {
 				return promptPrefix + chalk.dim( 'Type your prompt…' );
 			}
-			return promptPrefix + line;
+			if ( i === 1 ) {
+				return promptPrefix + line;
+			}
+			return emptyPrefix + line;
 		} );
 	}
 }
@@ -299,7 +303,14 @@ export class AiChatUI {
 	}
 
 	addUserMessage( text: string ): void {
-		this.messages.addChild( new Text( '\n' + chalk.inverse( '> ' + text + ' ' ), 1, 0 ) );
+		const lines = text.split( '\n' );
+		const formatted = lines
+			.map( ( line, i ) => {
+				const prefix = i === 0 ? ' > ' : '   ';
+				return prefix + chalk.inverse( ' ' + line + ' ' );
+			} )
+			.join( '\n' );
+		this.messages.addChild( new Text( formatted, 0, 0 ) );
 		this.tui.requestRender();
 	}
 

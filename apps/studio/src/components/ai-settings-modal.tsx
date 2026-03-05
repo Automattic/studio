@@ -9,7 +9,6 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import {
 	DEFAULT_AGENT_INSTRUCTIONS,
 	INSTRUCTION_FILES,
-	INSTRUCTION_FILE_TYPES,
 	type InstructionFileType,
 } from 'src/modules/agent-instructions/constants';
 
@@ -74,26 +73,8 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 		[ siteId, refreshStatus ]
 	);
 
-	const handleInstallAll = useCallback(
-		async ( overwrite: boolean ) => {
-			setInstallingFile( 'all' );
-			setError( null );
-			try {
-				await getIpcApi().installAllAgentInstructions( siteId, { overwrite } );
-				await refreshStatus();
-			} catch ( err ) {
-				const errorMessage = err instanceof Error ? err.message : String( err );
-				setError( errorMessage );
-			} finally {
-				setInstallingFile( null );
-			}
-		},
-		[ siteId, refreshStatus ]
-	);
-
-	const installedCount = statuses.filter( ( s ) => s.exists ).length;
-	const allInstalled = installedCount === INSTRUCTION_FILE_TYPES.length;
 	const hasOutdated = statuses.some( ( s ) => s.isOutdated );
+	const allInstalled = statuses.length > 0 && statuses.every( ( s ) => s.exists );
 
 	return (
 		<div className="flex flex-col gap-4">
@@ -104,20 +85,26 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 						{ __( 'Install instructions so agents know how to use Studio' ) }
 					</p>
 				</div>
-				<Button
-					variant="link"
-					onClick={ () => handleInstallAll( allInstalled ) }
-					disabled={ installingFile !== null }
-					className="text-sm"
-				>
-					{ installingFile === 'all'
-						? __( 'Installing...' )
-						: hasOutdated
-						? __( 'Update All' )
-						: allInstalled
-						? __( 'Reinstall All' )
-						: __( 'Install All' ) }
-				</Button>
+				{ ! allInstalled && (
+					<Button
+						variant="link"
+						onClick={ () => handleInstallFile( 'agents', false ) }
+						disabled={ installingFile !== null }
+						className="text-sm"
+					>
+						{ installingFile !== null ? __( 'Installing...' ) : __( 'Install All' ) }
+					</Button>
+				) }
+				{ hasOutdated && (
+					<Button
+						variant="link"
+						onClick={ () => handleInstallFile( 'agents', true ) }
+						disabled={ installingFile !== null }
+						className="text-sm"
+					>
+						{ installingFile !== null ? __( 'Updating...' ) : __( 'Update All' ) }
+					</Button>
+				) }
 			</div>
 
 			{ error && (

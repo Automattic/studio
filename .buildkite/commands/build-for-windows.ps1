@@ -111,14 +111,21 @@ $env:SIGNTOOL_PATH = $signtoolPath
 # Smoke test: sign a small dummy file to verify Azure auth works before the full build
 Write-Host "~~~ Smoke testing Azure Trusted Signing..."
 $dummyExe = "$env:TEMP\signing-test.exe"
-# Create a minimal valid PE file (copy cmd.exe as a test subject)
 Copy-Item "C:\Windows\System32\cmd.exe" $dummyExe -Force
-$signtoolOutput = & $signtoolPath sign /v /debug /fd SHA256 /tr http://timestamp.acs.microsoft.com /td SHA256 /dlib $dlibPath /dmdf $metadataPath $dummyExe 2>&1
-$signtoolExitCode = $LastExitCode
-Write-Host "signtool output:"
-$signtoolOutput | ForEach-Object { Write-Host $_ }
-Write-Host "signtool exit code: $signtoolExitCode"
-If ($signtoolExitCode -ne 0) {
+
+$signtoolArgs = "sign /v /debug /fd SHA256 /tr http://timestamp.acs.microsoft.com /td SHA256 /dlib `"$dlibPath`" /dmdf `"$metadataPath`" `"$dummyExe`""
+Write-Host "Running: $signtoolPath $signtoolArgs"
+
+$stdoutFile = "$env:TEMP\signtool-stdout.txt"
+$stderrFile = "$env:TEMP\signtool-stderr.txt"
+$proc = Start-Process -FilePath $signtoolPath -ArgumentList $signtoolArgs -NoNewWindow -Wait -PassThru -RedirectStandardOutput $stdoutFile -RedirectStandardError $stderrFile
+Write-Host "--- signtool stdout ---"
+if (Test-Path $stdoutFile) { Get-Content $stdoutFile | ForEach-Object { Write-Host $_ } }
+Write-Host "--- signtool stderr ---"
+if (Test-Path $stderrFile) { Get-Content $stderrFile | ForEach-Object { Write-Host $_ } }
+Write-Host "--- signtool exit code: $($proc.ExitCode) ---"
+
+If ($proc.ExitCode -ne 0) {
     Write-Host "Error: Azure Trusted Signing smoke test failed!" -ForegroundColor Red
     Exit 1
 }

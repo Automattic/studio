@@ -5,6 +5,7 @@ import {
 	SupportedPHPVersion,
 	PHP,
 	setPhpIniEntries,
+	ProcessIdAllocator,
 } from '@php-wasm/universal';
 import { createSpawnHandler } from '@php-wasm/util';
 import { cleanupLegacyMuPlugins, getMuPlugins } from '@studio/common/lib/mu-plugins';
@@ -13,6 +14,7 @@ import { __ } from '@wordpress/i18n';
 import { setupPlatformLevelMuPlugins } from '@wp-playground/wordpress';
 import { getSqliteCommandPath, getWpCliPharPath } from 'cli/lib/server-files';
 
+const processIdAllocator = new ProcessIdAllocator();
 const PLAYGROUND_INTERNAL_SHARED_FOLDER = '/internal/shared';
 
 /**
@@ -49,6 +51,9 @@ export async function runWpCliCommand(
 		followSymlinks: true,
 		withRedis: true,
 		withMemcached: true,
+		emscriptenOptions: {
+			processId: processIdAllocator.claim(),
+		},
 	} );
 	const php = new PHP( id );
 
@@ -106,6 +111,9 @@ export async function runGlobalWpCliCommand(
 		followSymlinks: true,
 		withRedis: true,
 		withMemcached: true,
+		emscriptenOptions: {
+			processId: processIdAllocator.claim(),
+		},
 	} );
 	const php = new PHP( id );
 

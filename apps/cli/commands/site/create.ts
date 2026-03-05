@@ -45,6 +45,7 @@ import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
 import { Blueprint, BlueprintV1Declaration, StepDefinition } from '@wp-playground/blueprints';
+import { writeAgentsMd } from 'cli/lib/agents-md';
 import {
 	lockAppdata,
 	readAppdata,
@@ -204,6 +205,15 @@ export async function runCommand(
 		logger.reportSuccess(
 			isSqliteUpdated ? __( 'SQLite integration configured' ) : __( 'SQLite integration skipped' )
 		);
+
+		try {
+			await writeAgentsMd( sitePath );
+		} catch ( error ) {
+			logger.reportError(
+				new LoggerError( __( 'Failed to write AGENTS.md. Proceeding anyway…' ), error ),
+				false
+			);
+		}
 
 		logger.reportStart( LoggerAction.ASSIGN_PORT, __( 'Assigning port…' ) );
 		const port = await portFinder.getOpenPort();

@@ -66,8 +66,10 @@ if (-not (Test-Path $signtoolPath)) {
 }
 Write-Host "Found signtool at: $signtoolPath"
 
-# Generate metadata.json for Azure Trusted Signing
-$metadataPath = "$env:TEMP\metadata.json"
+# Generate metadata.json for Azure Trusted Signing.
+# Use the full resolved path to avoid 8.3 short names (e.g. BUILDK~1)
+# which the Azure DLib may not handle.
+$metadataPath = [System.IO.Path]::Combine([System.IO.Path]::GetFullPath($env:TEMP), "metadata.json")
 $metadata = @{
     Endpoint = $env:AZURE_ENDPOINT
     CodeSigningAccountName = $env:AZURE_CODE_SIGNING_ACCOUNT
@@ -98,6 +100,24 @@ Write-Host "AZURE_CLIENT_SECRET is set: $(-not [string]::IsNullOrEmpty($env:AZUR
 $env:AZURE_CODE_SIGNING_DLIB = $dlibPath
 $env:AZURE_METADATA_JSON = $metadataPath
 $env:SIGNTOOL_PATH = $signtoolPath
+
+# Smoke test: sign a small dummy file to verify Azure auth works before the full build
+Write-Host "~~~ Smoke testing Azure Trusted Signing..."
+$dummyExe = "$env:TEMP\signing-test.exe"
+# Create a minimal valid PE file (copy cmd.exe as a test subject)
+Copy-Item "C:\Windows\System32\cmd.exe" $dummyExe -Force
+& $signtoolPath sign /v /debug /fd SHA256 /tr http://timestamp.acs.microsoft.com /td SHA256 /dlib $dlibPath /dmdf $metadataPath $dummyExe
+If ($LastExitCode -ne 0) {
+    Write-Host "Error: Azure Trusted Signing smoke test failed!" -ForegroundColor Red
+    Write-Host "signtool path: $signtoolPath"
+    Write-Host "dlib path: $dlibPath"
+    Write-Host "metadata path: $metadataPath"
+    Write-Host "metadata contents:"
+    Get-Content $metadataPath
+    Exit 1
+}
+Write-Host "Smoke test passed — Azure Trusted Signing is working."
+Remove-Item $dummyExe -Force
 
 Write-Host "--- :npm: Installing Node dependencies"
 bash .buildkite/commands/install-node-dependencies.sh

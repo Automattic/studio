@@ -940,9 +940,10 @@ export async function generateSiteNameFromList(
 	_event: IpcMainInvokeEvent,
 	usedSites: SiteDetails[]
 ): Promise< string > {
+	const defaultSiteDirectory = await resolveDefaultSiteDirectory();
 	return generateSiteName(
 		usedSites.map( ( s ) => s.name ),
-		DEFAULT_SITE_PATH
+		defaultSiteDirectory
 	);
 }
 
@@ -951,10 +952,11 @@ export async function generateNumberedNameFromList(
 	baseName: string,
 	usedSites: SiteDetails[]
 ): Promise< string > {
+	const defaultSiteDirectory = await resolveDefaultSiteDirectory();
 	return generateNumberedName(
 		baseName,
 		usedSites.map( ( s ) => s.name ),
-		DEFAULT_SITE_PATH
+		defaultSiteDirectory
 	);
 }
 

@@ -39,24 +39,16 @@ foreach ($var in @("AZURE_TENANT_ID", "AZURE_CLIENT_ID", "AZURE_CLIENT_SECRET", 
 }
 
 # Install Azure Trusted Signing Client (provides the DLib DLL)
+# NuGet packages are just zip files — download and extract directly.
 Write-Host "~~~ Installing Microsoft.Trusted.Signing.Client NuGet package..."
 $nugetDir = "$env:TEMP\AzureCodeSigning"
 if (-not (Test-Path $nugetDir)) {
     New-Item -ItemType Directory -Path $nugetDir -Force | Out-Null
 }
-# Use dotnet nuget instead of standalone nuget CLI
-$packageName = "Microsoft.Trusted.Signing.Client"
-$nugetSource = "https://api.nuget.org/v3/index.json"
-# Create a temporary project to restore the package
-$tmpProject = "$env:TEMP\nuget-restore"
-if (-not (Test-Path $tmpProject)) {
-    New-Item -ItemType Directory -Path $tmpProject -Force | Out-Null
-}
-Push-Location $tmpProject
-dotnet new console --force --no-restore 2>$null
-dotnet add package $packageName --package-directory $nugetDir --source $nugetSource
-Pop-Location
-If ($LastExitCode -ne 0) { Exit $LastExitCode }
+$nupkgUrl = "https://www.nuget.org/api/v2/package/Microsoft.Trusted.Signing.Client"
+$nupkgPath = "$nugetDir\Microsoft.Trusted.Signing.Client.nupkg"
+Invoke-WebRequest -Uri $nupkgUrl -OutFile $nupkgPath
+Expand-Archive -Path $nupkgPath -DestinationPath "$nugetDir\Microsoft.Trusted.Signing.Client" -Force
 
 $dlibPath = (Get-ChildItem -Path $nugetDir -Recurse -Filter "Azure.CodeSigning.Dlib.dll" | Where-Object { $_.FullName -like "*x64*" } | Select-Object -First 1).FullName
 if (-not $dlibPath) {

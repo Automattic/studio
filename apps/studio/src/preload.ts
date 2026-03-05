@@ -82,7 +82,6 @@ const api: IpcApi = {
 	stopAllServers: () => ipcRendererInvoke( 'stopAllServers' ),
 	copyText: ( text ) => ipcRendererInvoke( 'copyText', text ),
 	getAppGlobals: () => ipcRendererInvoke( 'getAppGlobals' ),
-	removeExportedSiteTmpFile: ( path ) => ipcRendererInvoke( 'removeExportedSiteTmpFile', path ),
 	getWpVersion: ( id ) => ipcRendererInvoke( 'getWpVersion', id ),
 	generateProposedSitePath: ( siteName ) =>
 		ipcRendererInvoke( 'generateProposedSitePath', siteName ),

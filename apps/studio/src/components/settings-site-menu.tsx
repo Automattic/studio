@@ -1,6 +1,7 @@
 import { MenuItem } from '@wordpress/components';
-import { useSyncSites } from 'src/hooks/sync-sites';
 import { useSiteDetails } from 'src/hooks/use-site-details';
+import { useRootSelector } from 'src/stores';
+import { syncOperationsSelectors } from 'src/stores/sync';
 
 type SettingsMenuItemProps = {
 	onClick: () => void;
@@ -14,12 +15,16 @@ export const SettingsMenuItem = ( {
 	isDestructive = false,
 }: SettingsMenuItemProps ) => {
 	const { isDeleting, sites, selectedSite } = useSiteDetails();
-	const { isSiteIdPulling, isSiteIdPushing } = useSyncSites();
+	const isPulling = useRootSelector(
+		syncOperationsSelectors.selectIsSiteIdPulling( selectedSite?.id ?? '' )
+	);
+	const isPushing = useRootSelector(
+		syncOperationsSelectors.selectIsSiteIdPushing( selectedSite?.id ?? '' )
+	);
 	if ( ! selectedSite ) {
 		return null;
 	}
-	const isThisSiteSyncing =
-		isSiteIdPulling( selectedSite.id ) || isSiteIdPushing( selectedSite.id );
+	const isThisSiteSyncing = isPulling || isPushing;
 	const isAddingSite = sites.some( ( site ) => site.isAddingSite );
 	const isDisabled = isDeleting || isThisSiteSyncing || isAddingSite;
 

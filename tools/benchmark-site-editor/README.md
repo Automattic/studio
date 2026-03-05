@@ -121,8 +121,8 @@ With `--install-plugins`, the benchmark installs the same set of plugins used by
 
 ## Prerequisites
 
+- **Dependencies**: Run `npm install` from the repo root to install all workspace dependencies
 - **Studio CLI**: Built automatically if `dist/cli/main.js` doesn't exist (`npm run cli:build`)
-- **Playground CLI**: Installed automatically via this script's `npm install`
 - **Playwright**: Chromium is installed automatically during setup
 
 ## Output

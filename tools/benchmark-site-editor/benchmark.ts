@@ -696,21 +696,6 @@ function saveResultsSummary( results: BenchmarkResult[] ): void {
 // ---------------------------------------------------------------------------
 
 async function ensureStudioCLIBuilt(): Promise< boolean > {
-	// Ensure CLI dependencies are installed (required for the Vite build to resolve pm2-axon, etc.)
-	const cliNodeModules = path.resolve( STUDIO_ROOT, 'apps/cli', 'node_modules' );
-	if ( ! fs.existsSync( cliNodeModules ) ) {
-		console.log( chalk.yellow( '  Installing CLI dependencies...' ) );
-		try {
-			execSync( 'npm install', {
-				cwd: path.resolve( STUDIO_ROOT, 'apps/cli' ),
-				stdio: 'inherit',
-			} );
-		} catch {
-			console.error( chalk.red( '  Failed to install CLI dependencies' ) );
-			return false;
-		}
-	}
-
 	if ( ! fs.existsSync( STUDIO_CLI_PATH ) ) {
 		console.log( chalk.yellow( '  Building Studio CLI...' ) );
 		try {
@@ -718,20 +703,6 @@ async function ensureStudioCLIBuilt(): Promise< boolean > {
 			return true;
 		} catch {
 			console.error( chalk.red( '  Failed to build Studio CLI' ) );
-			return false;
-		}
-	}
-	return true;
-}
-
-async function ensurePlaygroundCLIInstalled(): Promise< boolean > {
-	if ( ! fs.existsSync( PLAYGROUND_CLI_PATH ) ) {
-		console.log( chalk.yellow( '  Installing dependencies (including @wp-playground/cli)...' ) );
-		try {
-			execSync( 'npm install', { cwd: import.meta.dirname, stdio: 'inherit' } );
-			return true;
-		} catch {
-			console.error( chalk.red( '  Failed to install Playground CLI' ) );
 			return false;
 		}
 	}
@@ -806,20 +777,12 @@ async function main() {
 	}
 
 	const needsStudio = environments.some( ( e ) => e.type === 'studio' );
-	const needsPlaygroundCli = environments.some( ( e ) => e.type === 'playground-cli' );
 
 	if ( needsStudio ) {
 		if ( ! ( await ensureStudioCLIBuilt() ) ) {
 			process.exit( 1 );
 		}
 		console.log( chalk.green( '  Studio CLI ready' ) );
-	}
-
-	if ( needsPlaygroundCli ) {
-		if ( ! ( await ensurePlaygroundCLIInstalled() ) ) {
-			process.exit( 1 );
-		}
-		console.log( chalk.green( '  Playground CLI ready' ) );
 	}
 
 	fs.mkdirSync( ARTIFACTS_PATH, { recursive: true } );

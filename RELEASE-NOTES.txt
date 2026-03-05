@@ -19,7 +19,6 @@ Unreleased
 * Fixed toggle sidebar icon alignment after Add Site modal #2636
 * Improved accessibility attributes in site settings #2618, #2654
 * Improved compatibility with Studio sites with legacy mu-plugin in the filesystem #2655
-* Adopted monorepo structure #2565
 * Updated multiple dependencies, including Electron, WordPress Playground, PHP-WASM, Sentry, and WordPress packages
 
 1.7.4

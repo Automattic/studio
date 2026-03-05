@@ -343,15 +343,10 @@ export async function subscribeProcessEvents(
 ): Promise< () => void > {
 	const bus = await getDaemonBus();
 
-	const eventHandler = ( data: unknown ) => {
-		const result = processEventSchema.safeParse( data );
-		if ( ! result.success ) {
-			return;
-		}
-
+	const eventHandler = ( event: DaemonBusEventMap[ 'process-event' ] ) => {
 		handler( {
-			processName: result.data.process.name,
-			event: result.data.event,
+			processName: event.process.name,
+			event: event.event,
 		} );
 	};
 
@@ -379,17 +374,12 @@ export async function subscribeProcessMessages(
 ): Promise< () => void > {
 	const bus = await getDaemonBus();
 
-	const messageHandler = ( packet: unknown ) => {
-		const result = childMessageFromProcessManagerSchema.safeParse( packet );
-		if ( ! result.success ) {
-			return;
-		}
-
+	const messageHandler = ( packet: DaemonBusEventMap[ 'process-message' ] ) => {
 		handler( {
-			processName: result.data.process.name,
-			pmId: result.data.process.pm_id,
-			topic: result.data.raw.topic,
-			data: result.data.raw,
+			processName: packet.process.name,
+			pmId: packet.process.pm_id,
+			topic: packet.raw.topic,
+			data: packet.raw,
 		} );
 	};
 

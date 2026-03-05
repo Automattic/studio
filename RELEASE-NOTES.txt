@@ -16,9 +16,9 @@ Unreleased
 * Fixed Preview site and Push size validation to exclude archived-out directories #2598
 * Fixed CLI uninstall on Windows not removing bin directory #2608
 * Fixed CLI locale strings displaying in English #2609
-* Fixed toggle sidebar icon alignment after Add Site modal #2636
+* Fixed toggle sidebar icon alignment after the Add Site modal #2636
 * Improved accessibility attributes in site settings #2618, #2654
-* Improved compatibility with Studio sites with legacy mu-plugin in the filesystem #2655
+* Improved compatibility of Studio sites with legacy mu-plugin in the filesystem #2655
 * Updated multiple dependencies, including Electron, WordPress Playground, PHP-WASM, Sentry, and WordPress packages
 
 1.7.4

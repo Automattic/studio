@@ -17,12 +17,12 @@ import {
 	isProcessRunning,
 	startProcess,
 	stopProcess,
-	getPm2Bus,
+	getDaemonBus,
 	type DaemonBusEventMap,
 	sendMessageToProcess,
 	subscribeProcessEvents,
 	subscribeProcessMessages,
-} from 'cli/lib/pm2-manager';
+} from 'cli/lib/daemon-client';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { ServerConfig, ManagerMessagePayload } from 'cli/lib/types/wordpress-server-ipc';
 import { Logger } from 'cli/logger';
@@ -133,7 +133,7 @@ export async function startWordPressServer(
 }
 
 async function waitForReadyMessage( pmId: number ): Promise< void > {
-	const bus = await getPm2Bus();
+	const bus = await getDaemonBus();
 
 	let timeoutId: NodeJS.Timeout;
 	let readyHandler: ( packet: DaemonBusEventMap[ 'process-message' ] ) => void;
@@ -187,7 +187,7 @@ export async function sendMessage(
 	options: SendMessageOptions = {}
 ): Promise< unknown > {
 	const { maxTotalElapsedTime = PLAYGROUND_CLI_MAX_TIMEOUT, logger } = options;
-	const bus = await getPm2Bus();
+	const bus = await getDaemonBus();
 	const messageId = crypto.randomUUID();
 	let responseHandler: ( packet: DaemonBusEventMap[ 'process-message' ] ) => void;
 	let processEventHandler: ( event: DaemonBusEventMap[ 'process-event' ] ) => void;

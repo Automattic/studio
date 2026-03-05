@@ -1,7 +1,7 @@
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { vi, type Mock } from 'vitest';
 import { SiteData, readAppdata } from 'cli/lib/appdata';
-import { isProxyProcessRunning, stopProxyProcess } from 'cli/lib/pm2-manager';
+import { isProxyProcessRunning, stopProxyProcess } from 'cli/lib/daemon-client';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
@@ -14,7 +14,7 @@ vi.mock( 'cli/lib/appdata', async () => {
 		readAppdata: vi.fn(),
 	};
 } );
-vi.mock( 'cli/lib/pm2-manager' );
+vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
 
 describe( 'stopProxyIfNoSitesNeedIt', () => {

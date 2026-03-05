@@ -154,7 +154,7 @@ const childMessageRaw = z.discriminatedUnion( 'topic', [
 	childMessageSiteStopped,
 ] );
 export type ChildMessageRaw = z.infer< typeof childMessageRaw >;
-export const childMessagePm2Schema = z.object( {
+export const childMessageFromProcessManagerSchema = z.object( {
 	process: z.object( {
 		name: z.string(),
 		pm_id: z.number(),

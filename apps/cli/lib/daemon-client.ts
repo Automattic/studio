@@ -14,7 +14,7 @@ import {
 	PROCESS_MANAGER_EVENTS_SOCKET_PATH,
 	PROCESS_MANAGER_CONTROL_SOCKET_PATH,
 	PROCESS_MANAGER_HOME,
-} from 'cli/lib/process-manager';
+} from 'cli/lib/daemon-paths';
 import { SocketClient, SocketMessageDecoder } from 'cli/lib/socket';
 import {
 	ProcessDescription,
@@ -22,11 +22,13 @@ import {
 	daemonEventSchema,
 	daemonResponseSchema,
 	processDescriptionSchema,
-	pm2ProcessEventSchema,
+	processEventSchema,
 } from 'cli/lib/types/process-manager-ipc';
-import { ManagerMessage, childMessagePm2Schema } from 'cli/lib/types/wordpress-server-ipc';
+import {
+	ManagerMessage,
+	childMessageFromProcessManagerSchema,
+} from 'cli/lib/types/wordpress-server-ipc';
 
-const PM2_STATUS_ONLINE = 'online';
 const PROXY_PROCESS_NAME = 'studio-proxy';
 const CONNECTION_TIMEOUT = 10_000;
 const PM2_LOCKFILE_PATH = path.join( PROCESS_MANAGER_HOME, 'pm2-connection.lock' );
@@ -40,8 +42,8 @@ if ( process.platform !== 'win32' && ! fs.existsSync( PROCESS_MANAGER_HOME ) ) {
 }
 
 export type DaemonBusEventMap = {
-	'process-message': z.infer< typeof childMessagePm2Schema >;
-	'process-event': z.infer< typeof pm2ProcessEventSchema >;
+	'process-message': z.infer< typeof childMessageFromProcessManagerSchema >;
+	'process-event': z.infer< typeof processEventSchema >;
 	'daemon-kill': { reason?: string };
 };
 
@@ -58,7 +60,7 @@ class DaemonBusEventEmitter extends EventEmitter {
 	}
 }
 
-class DaemonBus extends DaemonBusEventEmitter {
+export class DaemonBus extends DaemonBusEventEmitter {
 	private readonly socketClient: SocketClient;
 	private socket: net.Socket | null = null;
 	private readonly decoder = new SocketMessageDecoder();
@@ -183,22 +185,22 @@ async function ensureDaemonIsRunning(): Promise< void > {
 	}
 }
 
-let pm2Bus: DaemonBus | null = null;
+let daemonBus: DaemonBus | null = null;
 
-async function ensurePm2Bus(): Promise< DaemonBus > {
-	if ( pm2Bus ) {
-		return pm2Bus;
+async function ensureDaemonBus(): Promise< DaemonBus > {
+	if ( daemonBus ) {
+		return daemonBus;
 	}
 
 	const bus = new DaemonBus( PROCESS_MANAGER_EVENTS_SOCKET_PATH );
 	await bus.connect();
-	pm2Bus = bus;
+	daemonBus = bus;
 	return bus;
 }
 
-async function cleanupPm2Bus() {
-	const busToClose = pm2Bus;
-	pm2Bus = null;
+async function cleanupDaemonBus() {
+	const busToClose = daemonBus;
+	daemonBus = null;
 
 	if ( busToClose ) {
 		await busToClose.close();
@@ -207,9 +209,7 @@ async function cleanupPm2Bus() {
 
 let isConnected = false;
 
-// `connect()` / `disconnect()` are client-side lifecycle helpers. They prepare and tear down this
-// process's local daemon session state; they do not establish daemon-side control-channel state.
-export async function connect(): Promise< void > {
+export async function connectToDaemon(): Promise< void > {
 	if ( isConnected ) {
 		return;
 	}
@@ -220,19 +220,19 @@ export async function connect(): Promise< void > {
 
 	try {
 		await ensureDaemonIsRunning();
-		await ensurePm2Bus();
+		await ensureDaemonBus();
 		isConnected = true;
 	} catch ( error ) {
-		await cleanupPm2Bus();
+		await cleanupDaemonBus();
 		throw error;
 	} finally {
 		await unlockFileAsync( PM2_LOCKFILE_PATH );
 	}
 }
 
-export async function disconnect(): Promise< void > {
+export async function disconnectFromDaemon(): Promise< void > {
 	isConnected = false;
-	await cleanupPm2Bus();
+	await cleanupDaemonBus();
 }
 
 export async function killDaemonAndChildren() {
@@ -252,21 +252,21 @@ const listProcesses = cacheFunctionTTL( async () => {
 	return daemonListProcessesSuccessResponseSchema.parse( response ).processes;
 } );
 
-export async function getPm2Bus(): Promise< DaemonBus > {
-	if ( ! pm2Bus ) {
+export async function getDaemonBus(): Promise< DaemonBus > {
+	if ( ! daemonBus ) {
 		throw new Error( 'Daemon bus is not initialized' );
 	}
-	return pm2Bus;
+	return daemonBus;
 }
 
 export async function sendMessageToProcess(
 	processId: number,
-	pm2Message: ManagerMessage
+	messageToProcess: ManagerMessage
 ): Promise< void > {
 	await sendDaemonRequest( {
 		type: 'send-message-to-process',
 		processId,
-		message: pm2Message,
+		message: messageToProcess,
 	} );
 }
 
@@ -293,7 +293,7 @@ export async function isProcessRunning(
 		}
 
 		const processes = await listProcesses();
-		return processes.find( ( p ) => p.name === processName && p.status === PM2_STATUS_ONLINE );
+		return processes.find( ( p ) => p.name === processName && p.status === 'online' );
 	} catch ( error ) {
 		console.error( `Error checking if process ${ processName } is running:`, error );
 		return undefined;
@@ -321,7 +321,7 @@ export async function startProcess(
 }
 
 export async function stopProcess( processName: string ): Promise< void > {
-	await connect();
+	await connectToDaemon();
 	await sendDaemonRequest( {
 		type: 'stop-process',
 		processName,
@@ -341,10 +341,10 @@ type ProcessEventData = {
 export async function subscribeProcessEvents(
 	handler: ( data: ProcessEventData ) => void
 ): Promise< () => void > {
-	const bus = await getPm2Bus();
+	const bus = await getDaemonBus();
 
 	const eventHandler = ( data: unknown ) => {
-		const result = pm2ProcessEventSchema.safeParse( data );
+		const result = processEventSchema.safeParse( data );
 		if ( ! result.success ) {
 			return;
 		}
@@ -377,10 +377,10 @@ type ProcessMessageData = {
 export async function subscribeProcessMessages(
 	handler: ( data: ProcessMessageData ) => void
 ): Promise< () => void > {
-	const bus = await getPm2Bus();
+	const bus = await getDaemonBus();
 
 	const messageHandler = ( packet: unknown ) => {
-		const result = childMessagePm2Schema.safeParse( packet );
+		const result = childMessageFromProcessManagerSchema.safeParse( packet );
 		if ( ! result.success ) {
 			return;
 		}
@@ -400,8 +400,8 @@ export async function subscribeProcessMessages(
 	};
 }
 
-export async function subscribePm2KillEvent( handler: () => void ) {
-	const bus = await getPm2Bus();
+export async function subscribeDaemonKillEvent( handler: () => void ) {
+	const bus = await getDaemonBus();
 
 	bus.on( 'daemon-kill', handler );
 

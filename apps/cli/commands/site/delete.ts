@@ -13,8 +13,8 @@ import {
 	ValidatedAuthToken,
 } from 'cli/lib/appdata';
 import { deleteSiteCertificate } from 'cli/lib/certificate-manager';
+import { connectToDaemon, disconnectFromDaemon, emitSiteEvent } from 'cli/lib/daemon-client';
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
-import { connect, disconnect, emitSiteEvent } from 'cli/lib/pm2-manager';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { getSnapshotsFromAppdata, deleteSnapshotFromAppdata } from 'cli/lib/snapshots';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
@@ -67,7 +67,7 @@ export async function runCommand(
 ): Promise< void > {
 	try {
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
-		await connect();
+		await connectToDaemon();
 		logger.reportSuccess( __( 'Process daemon started' ) );
 
 		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
@@ -129,7 +129,7 @@ export async function runCommand(
 
 		await emitSiteEvent( SITE_EVENTS.DELETED, { siteId: site.id } );
 	} finally {
-		await disconnect();
+		await disconnectFromDaemon();
 	}
 }
 

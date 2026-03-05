@@ -6,7 +6,7 @@ import {
 	PROCESS_MANAGER_LOGS_DIR,
 	PROCESS_MANAGER_CONTROL_SOCKET_PATH,
 	PROCESS_MANAGER_EVENTS_SOCKET_PATH,
-} from 'cli/lib/process-manager';
+} from 'cli/lib/daemon-paths';
 import { SocketServer } from 'cli/lib/socket';
 import {
 	ProcessDescription,
@@ -29,7 +29,7 @@ interface ManagedProcess {
 	env: Record< string, string >;
 	child: ChildProcess;
 	pid?: number;
-	status: string;
+	status: 'online' | 'stopped';
 	stdoutLogPath: string;
 	stderrLogPath: string;
 	stdoutStream: WriteStream;

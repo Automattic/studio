@@ -10,7 +10,11 @@ import {
 	updateSiteAutoStart,
 	type SiteData,
 } from 'cli/lib/appdata';
-import { connect, disconnect, killDaemonAndChildren } from 'cli/lib/pm2-manager';
+import {
+	connectToDaemon,
+	disconnectFromDaemon,
+	killDaemonAndChildren,
+} from 'cli/lib/daemon-client';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
@@ -39,7 +43,7 @@ export async function runCommand(
 	autoStart: boolean
 ): Promise< void > {
 	try {
-		await connect();
+		await connectToDaemon();
 
 		if ( target === Mode.STOP_SINGLE_SITE && siteFolder ) {
 			const site = await getSiteByFolder( siteFolder );
@@ -106,7 +110,7 @@ export async function runCommand(
 			}
 		}
 	} finally {
-		await disconnect();
+		await disconnectFromDaemon();
 	}
 }
 

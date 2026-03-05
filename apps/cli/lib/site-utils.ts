@@ -4,8 +4,8 @@ import { __ } from '@wordpress/i18n';
 import { getSiteUrl, readAppdata, SiteData } from 'cli/lib/appdata';
 import { openBrowser } from 'cli/lib/browser';
 import { generateSiteCertificate } from 'cli/lib/certificate-manager';
+import { isProxyProcessRunning, startProxyProcess, stopProxyProcess } from 'cli/lib/daemon-client';
 import { addDomainToHosts } from 'cli/lib/hosts-file';
-import { isProxyProcessRunning, startProxyProcess, stopProxyProcess } from 'cli/lib/pm2-manager';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 

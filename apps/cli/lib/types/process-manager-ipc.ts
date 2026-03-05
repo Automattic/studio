@@ -1,11 +1,14 @@
 import { z } from 'zod';
-import { childMessagePm2Schema, managerMessageSchema } from 'cli/lib/types/wordpress-server-ipc';
+import {
+	childMessageFromProcessManagerSchema,
+	managerMessageSchema,
+} from 'cli/lib/types/wordpress-server-ipc';
 
 // Zod schema for process descriptions
 export const processDescriptionSchema = z.object( {
 	name: z.string(),
 	pmId: z.number(),
-	status: z.string(),
+	status: z.union( [ z.literal( 'online' ), z.literal( 'stopped' ) ] ),
 	pid: z.number().optional(),
 } );
 export type ProcessDescription = z.infer< typeof processDescriptionSchema >;
@@ -74,7 +77,7 @@ export const daemonResponseSchema = z.discriminatedUnion( 'type', [
 export type DaemonResponse = z.infer< typeof daemonResponseSchema >;
 
 // Zod schemas for process manager events (messages, online, exit, stop, restart)
-export const pm2ProcessEventSchema = z.object( {
+export const processEventSchema = z.object( {
 	process: z.object( {
 		name: z.string(),
 		pm_id: z.number().optional(),
@@ -84,12 +87,12 @@ export const pm2ProcessEventSchema = z.object( {
 
 const daemonProcessEventSchema = z.object( {
 	type: z.literal( 'process-event' ),
-	payload: pm2ProcessEventSchema,
+	payload: processEventSchema,
 } );
 
 const daemonProcessMessageSchema = z.object( {
 	type: z.literal( 'process-message' ),
-	payload: childMessagePm2Schema,
+	payload: childMessageFromProcessManagerSchema,
 } );
 
 const daemonKillEventSchema = z.object( {

@@ -13,11 +13,11 @@ import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
 import { getSiteUrl, readAppdata, SiteData } from 'cli/lib/appdata';
 import {
-	connect,
-	disconnect,
-	subscribePm2KillEvent,
+	connectToDaemon,
+	disconnectFromDaemon,
+	subscribeDaemonKillEvent,
 	SITE_EVENTS_SOCKET_PATH,
-} from 'cli/lib/pm2-manager';
+} from 'cli/lib/daemon-client';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import { SocketServer } from 'cli/lib/socket';
 import { subscribeSiteEvents } from 'cli/lib/wordpress-server-manager';
@@ -39,7 +39,7 @@ const emitSiteEvent = sequential(
 		const payload: SiteEvent = {
 			event,
 			siteId,
-			// Use provided running status, or query PM2 if not provided
+			// Use provided running status, or query process manager if not provided
 			running: running ?? ( site ? await isSiteRunning( site ) : false ),
 			site: site ? toSiteDetails( site ) : undefined,
 		};
@@ -96,7 +96,7 @@ export async function runCommand(): Promise< void > {
 		await eventsSocketServer.close();
 
 		try {
-			await disconnect();
+			await disconnectFromDaemon();
 		} catch ( err ) {
 			// Do nothing
 		}
@@ -115,7 +115,7 @@ export async function runCommand(): Promise< void > {
 	}
 
 	logger.reportStart( LoggerAction.START_DAEMON, __( 'Connecting to process daemon…' ) );
-	await connect();
+	await connectToDaemon();
 	logger.reportSuccess( __( 'Connected to process daemon' ) );
 
 	await emitAllSitesStatus();
@@ -124,7 +124,7 @@ export async function runCommand(): Promise< void > {
 		void emitSiteEvent( event, siteId, running );
 	} );
 
-	await subscribePm2KillEvent( () => {
+	await subscribeDaemonKillEvent( () => {
 		void emitAllSitesStopped();
 	} );
 }

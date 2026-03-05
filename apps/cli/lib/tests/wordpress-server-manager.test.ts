@@ -1,15 +1,16 @@
 import { EventEmitter } from 'events';
 import { vi } from 'vitest';
-// Mock the pm2-manager module BEFORE importing wordpress-server-manager
-vi.mock( 'cli/lib/pm2-manager' );
 import { SiteData } from 'cli/lib/appdata';
-import * as pm2Manager from 'cli/lib/pm2-manager';
+import * as daemonClient from 'cli/lib/daemon-client';
+import { DaemonBus } from 'cli/lib/daemon-client';
 import {
 	isServerRunning,
 	startWordPressServer,
 	stopWordPressServer,
 } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
+
+vi.mock( 'cli/lib/daemon-client' );
 
 describe( 'WordPress Server Manager', () => {
 	const mockLogger = {
@@ -32,7 +33,7 @@ describe( 'WordPress Server Manager', () => {
 		pmId: 5,
 		status: 'online',
 		pid: 12345,
-	};
+	} as const;
 
 	let mockBus: EventEmitter;
 
@@ -41,10 +42,10 @@ describe( 'WordPress Server Manager', () => {
 
 		mockBus = new EventEmitter();
 
-		vi.mocked( pm2Manager.isProcessRunning ).mockResolvedValue( undefined );
-		vi.mocked( pm2Manager.startProcess ).mockResolvedValue( mockProcessDescription );
-		vi.mocked( pm2Manager.stopProcess ).mockResolvedValue( undefined );
-		vi.mocked( pm2Manager.getPm2Bus ).mockResolvedValue( mockBus );
+		vi.mocked( daemonClient.isProcessRunning ).mockResolvedValue( undefined );
+		vi.mocked( daemonClient.startProcess ).mockResolvedValue( mockProcessDescription );
+		vi.mocked( daemonClient.stopProcess ).mockResolvedValue( undefined );
+		vi.mocked( daemonClient.getDaemonBus ).mockResolvedValue( mockBus as DaemonBus );
 	} );
 
 	afterEach( () => {
@@ -60,7 +61,7 @@ describe( 'WordPress Server Manager', () => {
 			} );
 		}, 1 );
 
-		vi.mocked( pm2Manager.sendMessageToProcess ).mockImplementation( ( pmId, message ) => {
+		vi.mocked( daemonClient.sendMessageToProcess ).mockImplementation( ( pmId, message ) => {
 			clearInterval( readyInterval );
 			// Send result message only after sendMessageToProcess is called
 			setImmediate( () => {
@@ -84,20 +85,20 @@ describe( 'WordPress Server Manager', () => {
 				pmId: 5,
 				status: 'online',
 				pid: 12345,
-			};
+			} as const;
 
-			vi.mocked( pm2Manager.isProcessRunning ).mockResolvedValue( mockProcess );
+			vi.mocked( daemonClient.isProcessRunning ).mockResolvedValue( mockProcess );
 
 			const result = await isServerRunning( 'test-site-id' );
 
-			expect( vi.mocked( pm2Manager.isProcessRunning ) ).toHaveBeenCalledWith(
+			expect( vi.mocked( daemonClient.isProcessRunning ) ).toHaveBeenCalledWith(
 				'studio-site-test-site-id'
 			);
 			expect( result ).toEqual( mockProcess );
 		} );
 
 		it( 'should return undefined when process is not running', async () => {
-			vi.mocked( pm2Manager.isProcessRunning ).mockResolvedValue( undefined );
+			vi.mocked( daemonClient.isProcessRunning ).mockResolvedValue( undefined );
 
 			const result = await isServerRunning( 'test-site-id' );
 
@@ -111,7 +112,7 @@ describe( 'WordPress Server Manager', () => {
 
 			const result = await startWordPressServer( mockSiteData, mockLogger );
 
-			expect( vi.mocked( pm2Manager.startProcess ) ).toHaveBeenCalledWith(
+			expect( vi.mocked( daemonClient.startProcess ) ).toHaveBeenCalledWith(
 				'studio-site-test-site-id',
 				expect.stringContaining( 'wordpress-server-child.js' )
 			);
@@ -120,7 +121,7 @@ describe( 'WordPress Server Manager', () => {
 		} );
 
 		it( 'should handle PM2 start process failure', async () => {
-			vi.mocked( pm2Manager.startProcess ).mockRejectedValue(
+			vi.mocked( daemonClient.startProcess ).mockRejectedValue(
 				new Error( 'Failed to start PM2 process' )
 			);
 
@@ -134,13 +135,13 @@ describe( 'WordPress Server Manager', () => {
 		it( 'should stop WordPress server with correct process name', async () => {
 			await stopWordPressServer( 'test-site-id' );
 
-			expect( vi.mocked( pm2Manager.stopProcess ) ).toHaveBeenCalledWith(
+			expect( vi.mocked( daemonClient.stopProcess ) ).toHaveBeenCalledWith(
 				'studio-site-test-site-id'
 			);
 		} );
 
 		it( 'should propagate stopProcess errors', async () => {
-			vi.mocked( pm2Manager.stopProcess ).mockRejectedValue(
+			vi.mocked( daemonClient.stopProcess ).mockRejectedValue(
 				new Error( 'Failed to stop process' )
 			);
 

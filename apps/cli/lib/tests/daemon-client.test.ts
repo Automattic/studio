@@ -108,17 +108,17 @@ describe( 'PM2 Manager', () => {
 		spawnMock.mockReturnValue( { unref: vi.fn() } );
 	} );
 
-	it( 'connect() is idempotent once connected', async () => {
-		const { connect } = await import( '../pm2-manager' );
+	it( 'connectToDaemon() is idempotent once connected', async () => {
+		const { connectToDaemon } = await import( '../daemon-client' );
 
-		await connect();
-		await connect();
-		await connect();
+		await connectToDaemon();
+		await connectToDaemon();
+		await connectToDaemon();
 
 		expect( createConnectionMock ).toHaveBeenCalledTimes( 2 );
 	} );
 
-	it( 'connect() auto-starts the daemon when the socket is missing', async () => {
+	it( 'connectToDaemon() auto-starts the daemon when the socket is missing', async () => {
 		createConnectionMock.mockImplementationOnce( () => {
 			const error = new Error( 'missing' ) as NodeJS.ErrnoException;
 			error.code = 'ENOENT';
@@ -136,8 +136,8 @@ describe( 'PM2 Manager', () => {
 			} );
 		} );
 
-		const { connect } = await import( '../pm2-manager' );
-		await connect();
+		const { connectToDaemon } = await import( '../daemon-client' );
+		await connectToDaemon();
 
 		expect( spawnMock ).toHaveBeenCalledTimes( 1 );
 	} );
@@ -155,8 +155,8 @@ describe( 'PM2 Manager', () => {
 			} );
 		} );
 
-		const { connect, startProcess } = await import( '../pm2-manager' );
-		await connect();
+		const { connectToDaemon, startProcess } = await import( '../daemon-client' );
+		await connectToDaemon();
 
 		await expect( startProcess( 'app', '/path/script.js' ) ).rejects.toThrow(
 			/Invalid input|process/
@@ -186,8 +186,8 @@ describe( 'PM2 Manager', () => {
 			} );
 		} );
 
-		const { connect, isProcessRunning } = await import( '../pm2-manager' );
-		await connect();
+		const { connectToDaemon, isProcessRunning } = await import( '../daemon-client' );
+		await connectToDaemon();
 		await expect( isProcessRunning( 'app' ) ).resolves.toEqual( {
 			name: 'app',
 			pmId: 2,
@@ -197,8 +197,8 @@ describe( 'PM2 Manager', () => {
 	} );
 
 	it( 'getPm2Bus() caches the bus and re-emits compatibility events', async () => {
-		const { connect, getPm2Bus } = await import( '../pm2-manager' );
-		await connect();
+		const { connectToDaemon, getDaemonBus: getPm2Bus } = await import( '../daemon-client' );
+		await connectToDaemon();
 
 		const bus1 = await getPm2Bus();
 		const bus2 = await getPm2Bus();
@@ -237,8 +237,8 @@ describe( 'PM2 Manager', () => {
 			} );
 		} );
 
-		const { connect, sendMessageToProcess } = await import( '../pm2-manager' );
-		await connect();
+		const { connectToDaemon, sendMessageToProcess } = await import( '../daemon-client' );
+		await connectToDaemon();
 
 		await sendMessageToProcess( 42, {
 			topic: 'stop-server',

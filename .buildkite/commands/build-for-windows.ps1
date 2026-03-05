@@ -113,16 +113,25 @@ Write-Host "~~~ Smoke testing Azure Trusted Signing..."
 $dummyExe = "$env:TEMP\signing-test.exe"
 Copy-Item "C:\Windows\System32\cmd.exe" $dummyExe -Force
 
-# Temporarily allow errors so signtool stderr doesn't kill the script
-$ErrorActionPreference = "Continue"
+$outFile = "$env:TEMP\signtool-out.txt"
 
+# First verify signtool runs at all (without dlib)
+Write-Host "--- Verifying signtool works ---"
+cmd /c "`"$signtoolPath`" verify /pa `"$dummyExe`" >  `"$outFile`" 2>&1"
+Write-Host "signtool verify exit code: $LastExitCode"
+Get-Content $outFile
+Remove-Item $outFile -ErrorAction SilentlyContinue
+
+# Now try signing with Azure Trusted Signing
+Write-Host "--- Signing with Azure Trusted Signing ---"
 $signtoolCmd = "`"$signtoolPath`" sign /v /debug /fd SHA256 /tr http://timestamp.acs.microsoft.com /td SHA256 /dlib `"$dlibPath`" /dmdf `"$metadataPath`" `"$dummyExe`""
-Write-Host "Running: $signtoolCmd"
-cmd /c "$signtoolCmd" 2>&1 | ForEach-Object { Write-Host $_ }
+Write-Host "Command: $signtoolCmd"
+cmd /c "$signtoolCmd > `"$outFile`" 2>&1"
 $signtoolExitCode = $LastExitCode
-Write-Host "signtool exit code: $signtoolExitCode"
-
-$ErrorActionPreference = "Stop"
+Write-Host "--- signtool output ---"
+Get-Content $outFile
+Write-Host "--- signtool exit code: $signtoolExitCode ---"
+Remove-Item $outFile -ErrorAction SilentlyContinue
 
 If ($signtoolExitCode -ne 0) {
     Write-Host "Error: Azure Trusted Signing smoke test failed!" -ForegroundColor Red

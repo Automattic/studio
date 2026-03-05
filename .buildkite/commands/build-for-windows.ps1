@@ -38,13 +38,24 @@ foreach ($var in @("AZURE_TENANT_ID", "AZURE_CLIENT_ID", "AZURE_CLIENT_SECRET", 
     }
 }
 
-# Install Azure.CodeSigning module (provides the DLib DLL)
-Write-Host "~~~ Installing Azure.CodeSigning NuGet package..."
+# Install Azure Trusted Signing Client (provides the DLib DLL)
+Write-Host "~~~ Installing Microsoft.Trusted.Signing.Client NuGet package..."
 $nugetDir = "$env:TEMP\AzureCodeSigning"
 if (-not (Test-Path $nugetDir)) {
     New-Item -ItemType Directory -Path $nugetDir -Force | Out-Null
 }
-nuget install Microsoft.Trusted.Signing.Client -OutputDirectory $nugetDir -ExcludeVersion
+# Use dotnet nuget instead of standalone nuget CLI
+$packageName = "Microsoft.Trusted.Signing.Client"
+$nugetSource = "https://api.nuget.org/v3/index.json"
+# Create a temporary project to restore the package
+$tmpProject = "$env:TEMP\nuget-restore"
+if (-not (Test-Path $tmpProject)) {
+    New-Item -ItemType Directory -Path $tmpProject -Force | Out-Null
+}
+Push-Location $tmpProject
+dotnet new console --force --no-restore 2>$null
+dotnet add package $packageName --package-directory $nugetDir --source $nugetSource
+Pop-Location
 If ($LastExitCode -ne 0) { Exit $LastExitCode }
 
 $dlibPath = (Get-ChildItem -Path $nugetDir -Recurse -Filter "Azure.CodeSigning.Dlib.dll" | Where-Object { $_.FullName -like "*x64*" } | Select-Object -First 1).FullName

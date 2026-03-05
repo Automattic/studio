@@ -97,10 +97,13 @@ const config: ForgeConfig = {
 
 				setupExe: 'studio-setup.exe',
 
-				// Signing is handled by @electron/windows-sign via the windowsSign config.
-				// Azure Trusted Signing replaces the previous PFX-based approach.
-				// @ts-expect-error -- incorrect types exported by MakerSquirrel
-				windowsSign,
+				// Squirrel calls signtool directly — pass Azure Trusted Signing params as a string.
+				// The packager uses a hook (windowsSign in packagerConfig), but Squirrel needs signWithParams.
+				...( process.env.AZURE_CODE_SIGNING_DLIB && process.env.AZURE_METADATA_JSON
+					? {
+							signWithParams: `/v /fd SHA256 /tr http://timestamp.acs.microsoft.com /td SHA256 /dlib ${ process.env.AZURE_CODE_SIGNING_DLIB } /dmdf ${ process.env.AZURE_METADATA_JSON }`,
+						}
+					: {} ),
 			},
 			[ 'win32' ]
 		),

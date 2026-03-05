@@ -8,8 +8,10 @@ Unreleased
 * Added WP_DEBUG_LOG and WP_DEBUG_DISPLAY toggles in site settings #2553
 * Added "Open Debug Log" button in Settings and "Open Application Logs" to the Help menu #2649, #2656
 * Added a time tooltip to the pull and push completion notification #2653
+* Made CLI site create command interactive #2657
 * Improved app quit speed by timing out site stop after 6 seconds #2475
 * Disabled Copy and Delete in context menu while a site is being added #2596
+* Fixed import to include hidden files within wp-content #2663
 * Fixed push cancellation error dialog #2633
 * Fixed Preview site and Push size validation to exclude archived-out directories #2598
 * Fixed CLI uninstall on Windows not removing bin directory #2608

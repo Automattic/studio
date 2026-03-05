@@ -1,4 +1,4 @@
-#!/usr/bin/env tsx
+#!/usr/bin/env ts-node
 
 /**
  * Site Editor Performance Benchmark — Orchestration Script
@@ -30,8 +30,10 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import chalk from 'chalk';
-import { installPlugins } from './install-plugins.js';
-import { measureSiteEditor, METRIC_NAMES, type MeasurementResult } from './measure-site-editor.js';
+import yargs from 'yargs';
+import { hideBin } from 'yargs/helpers';
+import { installPlugins } from './install-plugins.ts';
+import { measureSiteEditor, METRIC_NAMES, type MeasurementResult } from './measure-site-editor.ts';
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -124,10 +126,9 @@ interface Options {
 function parseCustomFlag( value: string ): CustomEnvInput {
 	const parts = value.split( ',' );
 	if ( parts.length < 2 ) {
-		console.error(
+		throw new Error(
 			`Invalid --custom value: "${ value }"\nExpected: --custom=name,url[,user,password]`
 		);
-		process.exit( 1 );
 	}
 	return {
 		name: parts[ 0 ],
@@ -138,87 +139,91 @@ function parseCustomFlag( value: string ): CustomEnvInput {
 }
 
 function parseArgs(): Options {
-	const args = process.argv.slice( 2 );
-	const opts: Options = {
-		rounds: 1,
-		skipStudio: false,
-		skipPlaygroundCli: false,
-		skipPlaygroundWeb: false,
-		only: [],
-		headed: false,
-		customs: [],
-		installPlugins: false,
-	};
+	const argv = yargs( hideBin( process.argv ) )
+		.usage( 'Usage: npm run benchmark [options]' )
+		.option( 'rounds', {
+			type: 'number',
+			default: 1,
+			describe: 'Number of benchmark runs per environment',
+		} )
+		.option( 'skip-studio', {
+			type: 'boolean',
+			default: false,
+			describe: 'Skip Studio environments',
+		} )
+		.option( 'skip-playground-cli', {
+			type: 'boolean',
+			default: false,
+			describe: 'Skip Playground CLI environments',
+		} )
+		.option( 'skip-playground-web', {
+			type: 'boolean',
+			default: false,
+			describe: 'Skip Playground web environments',
+		} )
+		.option( 'custom', {
+			type: 'string',
+			array: true,
+			default: [] as string[],
+			describe: 'Add a custom WordPress site: name,url[,user,password] (repeatable)',
+		} )
+		.option( 'install-plugins', {
+			type: 'string',
+			describe:
+				'Install blueprint plugins on custom environments. Pass without value for all, or comma-separated names.',
+		} )
+		.option( 'only', {
+			type: 'string',
+			describe: 'Run only named environments (comma-separated)',
+		} )
+		.option( 'headed', {
+			type: 'boolean',
+			default: false,
+			describe: 'Launch browser in headed mode for debugging',
+		} )
+		.example( [
+			[
+				'npm run benchmark -- --custom=my-site,http://localhost:10003',
+				'Benchmark a single custom WordPress site',
+			],
+			[
+				'npm run benchmark -- --custom=bare,http://localhost:10003 --custom=plugins,http://localhost:10004 --install-plugins=plugins',
+				'Two custom sites: bare vs with plugins',
+			],
+			[
+				'npm run benchmark -- --custom=my-site,http://localhost:10003,admin,secret',
+				'Custom site with non-default credentials',
+			],
+			[
+				'npm run benchmark -- --only=studio,my-site --custom=my-site,http://localhost:10003 --rounds=3',
+				'Compare Studio vs a custom site',
+			],
+		] )
+		.epilog( `Built-in environments: ${ ALL_ENVIRONMENTS.map( ( e ) => e.name ).join( ', ' ) }` )
+		.strict()
+		.parseSync();
 
-	for ( const arg of args ) {
-		if ( arg.startsWith( '--rounds=' ) ) {
-			opts.rounds = parseInt( arg.split( '=' )[ 1 ], 10 );
-		} else if ( arg === '--skip-studio' ) {
-			opts.skipStudio = true;
-		} else if ( arg === '--skip-playground-cli' ) {
-			opts.skipPlaygroundCli = true;
-		} else if ( arg === '--skip-playground-web' ) {
-			opts.skipPlaygroundWeb = true;
-		} else if ( arg.startsWith( '--custom=' ) ) {
-			opts.customs.push( parseCustomFlag( arg.split( '=' ).slice( 1 ).join( '=' ) ) );
-		} else if ( arg === '--install-plugins' ) {
-			opts.installPlugins = 'all';
-		} else if ( arg.startsWith( '--install-plugins=' ) ) {
-			opts.installPlugins = arg
-				.split( '=' )[ 1 ]
-				.split( ',' )
-				.map( ( s ) => s.trim() );
-		} else if ( arg.startsWith( '--only=' ) ) {
-			opts.only = arg
-				.split( '=' )[ 1 ]
-				.split( ',' )
-				.map( ( s ) => s.trim() );
-		} else if ( arg === '--headed' ) {
-			opts.headed = true;
-		} else if ( arg === '--help' ) {
-			printHelp();
-			process.exit( 0 );
+	// Parse --install-plugins: boolean true means "all", string means specific names
+	let installPluginsOpt: Options[ 'installPlugins' ] = false;
+	if ( argv[ 'install-plugins' ] !== undefined ) {
+		const val = argv[ 'install-plugins' ];
+		if ( val === '' || val === 'true' ) {
+			installPluginsOpt = 'all';
+		} else {
+			installPluginsOpt = val.split( ',' ).map( ( s: string ) => s.trim() );
 		}
 	}
 
-	return opts;
-}
-
-function printHelp() {
-	console.log( `
-Usage: npm run benchmark [options]
-
-Options:
-  --rounds=N                                    Number of benchmark runs per environment (default: 1)
-  --skip-studio                                 Skip Studio environments
-  --skip-playground-cli                         Skip Playground CLI environments
-  --skip-playground-web                         Skip Playground web environments
-  --custom=<name>,<url>[,<user>,<password>]     Add a custom WordPress site (repeatable)
-                                                  user defaults to "admin", password to "password"
-  --install-plugins                             Install blueprint plugins on ALL custom environments
-  --install-plugins=<name1>,<name2>             Install blueprint plugins on specific custom environments
-  --only=<env1,env2>                            Run only named environments (comma-separated)
-  --headed                                      Launch browser in headed mode for debugging
-  --help                                        Show this help message
-
-Built-in environments: ${ ALL_ENVIRONMENTS.map( ( e ) => e.name ).join( ', ' ) }
-
-Examples:
-  # Benchmark a single custom WordPress site
-  npm run benchmark -- --custom=my-site,http://localhost:10003
-
-  # Two custom sites: bare vs with plugins
-  npm run benchmark -- \\
-    --custom=local-bare,http://localhost:10003 \\
-    --custom=local-plugins,http://localhost:10004 \\
-    --install-plugins=local-plugins
-
-  # Custom site with non-default credentials
-  npm run benchmark -- --custom=my-site,http://localhost:10003,admin,secret
-
-  # Compare Studio vs a custom site
-  npm run benchmark -- --only=studio,my-site --custom=my-site,http://localhost:10003 --rounds=3
-` );
+	return {
+		rounds: argv.rounds,
+		skipStudio: argv[ 'skip-studio' ],
+		skipPlaygroundCli: argv[ 'skip-playground-cli' ],
+		skipPlaygroundWeb: argv[ 'skip-playground-web' ],
+		only: argv.only ? argv.only.split( ',' ).map( ( s: string ) => s.trim() ) : [],
+		headed: argv.headed,
+		customs: ( argv.custom as string[] ).map( parseCustomFlag ),
+		installPlugins: installPluginsOpt,
+	};
 }
 
 // ---------------------------------------------------------------------------

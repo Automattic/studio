@@ -59,7 +59,6 @@ export class ProcessManagerDaemon {
 		SOCKET_TIMEOUT_MS
 	);
 	private readonly managedProcesses = new Map< number, ManagedProcess >();
-	private readonly managedProcessesByName = new Map< string, ManagedProcess >();
 	private nextPmId = 1;
 	private shuttingDown = false;
 
@@ -156,13 +155,22 @@ export class ProcessManagerDaemon {
 		return Array.from( this.managedProcesses.values() ).map( this.toProcessDescription );
 	}
 
+	private getManagedProcessByName( processName: string ): ManagedProcess | undefined {
+		for ( const managedProcess of this.managedProcesses.values() ) {
+			if ( managedProcess.name === processName ) {
+				return managedProcess;
+			}
+		}
+		return undefined;
+	}
+
 	private async startProcess(
 		processName: string,
 		scriptPath: string,
 		env: Record< string, string >,
 		args: string[]
 	): Promise< ProcessDescription > {
-		const existing = this.managedProcessesByName.get( processName );
+		const existing = this.getManagedProcessByName( processName );
 		if ( existing && existing.status === 'online' ) {
 			return this.toProcessDescription( existing );
 		}
@@ -198,7 +206,6 @@ export class ProcessManagerDaemon {
 		};
 
 		this.managedProcesses.set( pmId, managedProcess );
-		this.managedProcessesByName.set( processName, managedProcess );
 
 		child.stdout?.pipe( stdoutStream );
 		child.stderr?.pipe( stderrStream );
@@ -238,7 +245,7 @@ export class ProcessManagerDaemon {
 	}
 
 	private async stopProcess( processName: string ): Promise< void > {
-		const managedProcess = this.managedProcessesByName.get( processName );
+		const managedProcess = this.getManagedProcessByName( processName );
 
 		if ( ! managedProcess || managedProcess.settled ) {
 			return;
@@ -273,7 +280,6 @@ export class ProcessManagerDaemon {
 		managedProcess.settled = true;
 		managedProcess.status = 'stopped';
 		this.managedProcesses.delete( managedProcess.pmId );
-		this.managedProcessesByName.delete( managedProcess.name );
 		managedProcess.stdoutStream.end();
 		managedProcess.stderrStream.end();
 

@@ -4,8 +4,16 @@
 // This hook calls signtool directly with SHA256-only parameters.
 
 const { execFileSync } = require( 'child_process' );
+const path = require( 'path' );
+
+// @electron/windows-sign includes .ps1 shim scripts from node_modules/.bin
+// in its file list. These are text files that don't need code signing.
+const SKIP_EXTENSIONS = new Set( [ '.ps1', '.vbs', '.wsf' ] );
 
 module.exports = function ( fileToSign ) {
+	if ( SKIP_EXTENSIONS.has( path.extname( fileToSign ).toLowerCase() ) ) {
+		return;
+	}
 	const signtoolPath = process.env.SIGNTOOL_PATH;
 	const dlib = process.env.AZURE_CODE_SIGNING_DLIB;
 	const metadata = process.env.AZURE_METADATA_JSON;

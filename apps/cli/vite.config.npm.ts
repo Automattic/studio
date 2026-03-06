@@ -1,6 +1,6 @@
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
-import { defineConfig, mergeConfig, type Plugin } from 'vite';
+import { defineConfig, mergeConfig } from 'vite';
 import { baseConfig, yargsLocalesCopyPlugin } from './vite.config.base';
 
 const packageJson = JSON.parse( readFileSync( resolve( __dirname, 'package.json' ), 'utf-8' ) );
@@ -9,30 +9,17 @@ const packageVersion = packageJson.version;
 // Externalize all runtime dependencies listed in package.json
 const externalDeps = Object.keys( packageJson.dependencies || {} );
 
-/**
- * Vite plugin that prepends a Node.js shebang to the main entry point.
- * Only main.js gets the shebang — proxy-daemon and wordpress-server-child
- * are spawned by PM2 with an explicit `node` invocation.
- */
-function shebangPlugin(): Plugin {
-	return {
-		name: 'shebang',
-		apply: 'build',
-		generateBundle( _options, bundle ) {
-			const mainChunk = bundle[ 'main.js' ];
-			if ( mainChunk && mainChunk.type === 'chunk' ) {
-				mainChunk.code = '#!/usr/bin/env node\n' + mainChunk.code;
-			}
-		},
-	};
-}
-
 export default mergeConfig(
 	baseConfig,
 	defineConfig( {
-		plugins: [ yargsLocalesCopyPlugin, shebangPlugin() ],
+		plugins: [ yargsLocalesCopyPlugin ],
 		build: {
 			rollupOptions: {
+				output: {
+					// Add shebang to main.js only. Using banner (rather than mutating code
+					// in generateBundle) ensures Rollup accounts for it in sourcemaps.
+					banner: ( chunk ) => ( chunk.fileName === 'main.js' ? '#!/usr/bin/env node' : '' ),
+				},
 				external: ( id ) => {
 					// Node built-ins
 					if ( /^node:/.test( id ) ) {

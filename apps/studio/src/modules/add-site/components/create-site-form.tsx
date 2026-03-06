@@ -8,7 +8,7 @@ import {
 	validateAdminEmail,
 	validateAdminUsername,
 } from '@studio/common/lib/passwords';
-import { SupportedPHPVersions } from '@studio/common/types/php-versions';
+import { SupportedPHPVersion, SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { Icon, SelectControl, Notice } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf, _n } from '@wordpress/i18n';
@@ -30,14 +30,13 @@ import {
 } from 'src/stores/provider-constants-slice';
 import type { BlueprintPreferredVersions } from '@studio/common/lib/blueprint-validation';
 import type { CreateSiteFormValues, PathValidationResult } from 'src/hooks/use-add-site';
-import type { AllowedPHPVersion } from 'src/lib/wordpress-server-types';
 
 interface CreateSiteFormProps {
 	/** Initial values and async updates (syncs before user interaction) */
 	defaultValues?: {
 		siteName?: string;
 		sitePath?: string;
-		phpVersion?: AllowedPHPVersion;
+		phpVersion?: SupportedPHPVersion;
 		wpVersion?: string;
 	};
 	/** Opens folder picker to select site path */
@@ -183,8 +182,8 @@ export const CreateSiteForm = ( {
 
 	const [ siteName, setSiteName ] = useState( defaultValues.siteName ?? '' );
 	const [ sitePath, setSitePath ] = useState( defaultValues.sitePath ?? '' );
-	const [ phpVersion, setPhpVersion ] = useState< AllowedPHPVersion >(
-		defaultValues.phpVersion ?? ( allowedPhpVersions[ 0 ] as AllowedPHPVersion ) ?? '8.2'
+	const [ phpVersion, setPhpVersion ] = useState< SupportedPHPVersion >(
+		defaultValues.phpVersion ?? allowedPhpVersions[ 0 ] ?? '8.2'
 	);
 	const [ wpVersion, setWpVersion ] = useState(
 		defaultValues.wpVersion ?? defaultWordPressVersion
@@ -536,14 +535,14 @@ export const CreateSiteForm = ( {
 										<label className="font-semibold" htmlFor="php-version-select">
 											{ __( 'PHP version' ) }
 										</label>
-										<SelectControl< string >
+										<SelectControl< SupportedPHPVersion >
 											id="php-version-select"
 											value={ phpVersion }
 											options={ SupportedPHPVersions.map( ( version ) => ( {
 												label: version,
 												value: version,
 											} ) ) }
-											onChange={ ( value: string ) => setPhpVersion( value as AllowedPHPVersion ) }
+											onChange={ ( value ) => setPhpVersion( value ) }
 											__next40pxDefaultSize
 											__nextHasNoMarginBottom
 										/>

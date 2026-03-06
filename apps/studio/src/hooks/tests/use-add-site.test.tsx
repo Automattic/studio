@@ -1,4 +1,5 @@
 // Run tests: yarn test -- src/hooks/tests/use-add-site.test.tsx
+import { SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { renderHook, act } from '@testing-library/react';
 import nock from 'nock';
 import { Provider } from 'react-redux';
@@ -82,7 +83,7 @@ describe( 'useAddSite', () => {
 			setProviderConstants( {
 				defaultPhpVersion: '8.3',
 				defaultWordPressVersion: 'latest',
-				allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
+				allowedPhpVersions: SupportedPHPVersions,
 				minimumWordPressVersion: '5.9.9',
 			} )
 		);

@@ -1,10 +1,10 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { type BlueprintV1Declaration, isStepDefinition } from '@wp-playground/blueprints';
-import type { BlueprintPHPVersion } from '@wp-playground/blueprints/lib/v1/types';
+import { SupportedPHPVersion } from '../types/php-versions';
 
 type BlueprintSiteSettings = {
 	enableHttps?: boolean;
-	phpVersion?: BlueprintPHPVersion;
+	phpVersion?: SupportedPHPVersion;
 	customDomain?: string;
 	wpVersion?: string;
 	adminUsername?: string;
@@ -22,8 +22,15 @@ export function extractFormValuesFromBlueprint(
 	const values: BlueprintSiteSettings = {};
 
 	if ( blueprintJson.preferredVersions ) {
-		if ( blueprintJson.preferredVersions.php && blueprintJson.preferredVersions.php !== 'latest' ) {
-			values.phpVersion = blueprintJson.preferredVersions.php;
+		const preferredPhpVersion = blueprintJson.preferredVersions.php;
+
+		if (
+			preferredPhpVersion &&
+			preferredPhpVersion !== 'latest' &&
+			preferredPhpVersion !== '7.2' &&
+			preferredPhpVersion !== '7.3'
+		) {
+			values.phpVersion = preferredPhpVersion;
 		}
 		if ( blueprintJson.preferredVersions.wp && blueprintJson.preferredVersions.wp !== 'latest' ) {
 			values.wpVersion = blueprintJson.preferredVersions.wp;

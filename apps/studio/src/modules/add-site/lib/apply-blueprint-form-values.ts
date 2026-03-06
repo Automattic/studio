@@ -1,10 +1,11 @@
 import { extractFormValuesFromBlueprint } from '@studio/common/lib/blueprint-settings';
 import { BlueprintPreferredVersions } from '@studio/common/lib/blueprint-validation';
+import { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Blueprint } from '@wp-playground/blueprints';
 
 interface BlueprintFormValueSetters {
 	setBlueprintPreferredVersions: ( versions: BlueprintPreferredVersions | undefined ) => void;
-	setPhpVersion?: ( version: string ) => void;
+	setPhpVersion?: ( version: SupportedPHPVersion ) => void;
 	setWpVersion?: ( version: string ) => void;
 	setBlueprintSuggestedDomain?: ( domain: string | undefined ) => void;
 	setBlueprintSuggestedHttps?: ( https: boolean | undefined ) => void;

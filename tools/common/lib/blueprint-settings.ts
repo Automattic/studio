@@ -14,6 +14,7 @@ type BlueprintSiteSettings = {
 	adminUsername?: string;
 	adminPassword?: string;
 	siteName?: string;
+	requiresCustomDomain?: boolean;
 };
 
 /**
@@ -36,6 +37,11 @@ export function extractFormValuesFromBlueprint(
 	const steps = Array.isArray( blueprintJson.steps )
 		? blueprintJson.steps.filter( isStepDefinition )
 		: [];
+
+	const enableMultisiteStep = steps.some( ( step ) => step.step === 'enableMultisite' );
+	if ( enableMultisiteStep ) {
+		values.requiresCustomDomain = true;
+	}
 
 	const defineSiteUrlStep = steps.find( ( step ) => step.step === 'defineSiteUrl' );
 	if ( defineSiteUrlStep?.siteUrl ) {

@@ -753,8 +753,7 @@ def create_draft_github_release(version:, release_tag:, builds:)
     build = builds[key]
     next unless build&.dig(:cdn_url)
 
-    label = build[:name].sub(' - ', ' \u2013 ') # Use en-dash like existing releases
-    "[#{label}](#{build[:cdn_url]})"
+    "[#{build[:name]}](#{build[:cdn_url]})"
   end
 
   body = notes

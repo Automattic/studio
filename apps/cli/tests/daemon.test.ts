@@ -23,10 +23,8 @@ class MockChildProcess extends EventEmitter {
 
 const forkMock = vi.fn();
 
-vi.mock( 'child_process', async ( importOriginal ) => {
-	const actual = await importOriginal< typeof import('child_process') >();
+vi.mock( 'child_process', () => {
 	const mockedModule = {
-		...actual,
 		fork: forkMock,
 	};
 	return {

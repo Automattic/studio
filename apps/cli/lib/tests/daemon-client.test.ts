@@ -27,22 +27,18 @@ function isEventsSocketPath( peer?: string ) {
 	return peer?.includes( 'daemon-events.sock' ) || peer?.includes( 'studio-daemon-events.sock' );
 }
 
-vi.mock( 'net', async ( importOriginal ) => {
-	const actual = await importOriginal< typeof import('net') >();
-	return {
-		...actual,
-		default: {
-			...actual,
-			createConnection: createConnectionMock,
-		},
+vi.mock( 'net', () => {
+	const mockedModule = {
 		createConnection: createConnectionMock,
+	};
+	return {
+		...mockedModule,
+		default: mockedModule,
 	};
 } );
 
-vi.mock( 'child_process', async ( importOriginal ) => {
-	const actual = await importOriginal< typeof import('child_process') >();
+vi.mock( 'child_process', () => {
 	const mockedModule = {
-		...actual,
 		spawn: spawnMock,
 	};
 	return {

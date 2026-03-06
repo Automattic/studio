@@ -70,7 +70,7 @@ interface NavigationContentProps {
 	setSelectedBlueprint: ( blueprint?: Blueprint ) => void;
 	selectedBlueprint?: Blueprint;
 	blueprintPreferredVersions?: BlueprintPreferredVersions;
-	setBlueprintPreferredVersions?: ( versions: BlueprintPreferredVersions | undefined ) => void;
+	setBlueprintPreferredVersions: ( versions: BlueprintPreferredVersions | undefined ) => void;
 	blueprintWarnings?: BlueprintValidationWarning[];
 	setBlueprintWarnings?: ( warnings: BlueprintValidationWarning[] | undefined ) => void;
 	blueprintSuggestedDomain?: string;

@@ -17,6 +17,9 @@ export interface EditSiteOptions {
 	php?: string;
 	wp?: string;
 	xdebug?: boolean;
+	adminUsername?: string;
+	adminPassword?: string;
+	adminEmail?: string;
 	debugLog?: boolean;
 	debugDisplay?: boolean;
 }
@@ -79,6 +82,18 @@ function buildCliArgs( options: EditSiteOptions ): string[] {
 
 	if ( options.xdebug !== undefined ) {
 		args.push( options.xdebug ? '--xdebug' : '--no-xdebug' );
+	}
+
+	if ( options.adminUsername !== undefined ) {
+		args.push( '--admin-username', options.adminUsername );
+	}
+
+	if ( options.adminPassword !== undefined ) {
+		args.push( '--admin-password', options.adminPassword );
+	}
+
+	if ( options.adminEmail !== undefined ) {
+		args.push( '--admin-email', options.adminEmail );
 	}
 
 	if ( options.debugLog !== undefined ) {

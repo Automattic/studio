@@ -2,15 +2,15 @@ import { createSlice } from '@reduxjs/toolkit';
 import { TreeNode } from 'src/components/tree-view';
 import { fetchRemoteFileTree } from './sync-api';
 
-interface RemoteFileTreeState {
+type RemoteFileTreeState = {
 	loading: boolean;
 	error: string | null;
 	cache: Record< string, TreeNode[] >;
-}
+};
 
-interface SyncState {
+type SyncState = {
 	remoteFileTrees: RemoteFileTreeState;
-}
+};
 
 const initialState: SyncState = {
 	remoteFileTrees: {
@@ -48,7 +48,6 @@ const syncSlice = createSlice( {
 	},
 } );
 
-export const syncActions = syncSlice.actions;
 export const syncReducer = syncSlice.reducer;
 
 export const syncSelectors = {

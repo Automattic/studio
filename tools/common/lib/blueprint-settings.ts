@@ -5,8 +5,21 @@ type BlueprintSiteSettings = Partial<
 	Pick< StoppedSiteDetails, 'phpVersion' | 'customDomain' | 'enableHttps' >
 > & {
 	wpVersion?: string;
+	adminUsername?: string;
+	adminPassword?: string;
 	siteName?: string;
+	requiresCustomDomain?: boolean;
 };
+
+/**
+ * Checks if a blueprint contains the enableMultisite step.
+ */
+export function blueprintHasMultisite( blueprintJson: Blueprint ): boolean {
+	return (
+		Array.isArray( blueprintJson.steps ) &&
+		blueprintJson.steps.some( ( step: { step?: string } ) => step.step === 'enableMultisite' )
+	);
+}
 
 /**
  * Extracts form-relevant values from a blueprint.
@@ -23,6 +36,10 @@ export function extractFormValuesFromBlueprint( blueprintJson: Blueprint ): Blue
 		}
 	}
 
+	if ( blueprintHasMultisite( blueprintJson ) ) {
+		values.requiresCustomDomain = true;
+	}
+
 	if ( blueprintJson.steps && Array.isArray( blueprintJson.steps ) ) {
 		const defineSiteUrlStep = blueprintJson.steps.find(
 			( step: { step?: string } ) => step.step === 'defineSiteUrl'
@@ -37,12 +54,43 @@ export function extractFormValuesFromBlueprint( blueprintJson: Blueprint ): Blue
 			}
 		}
 
+		// Extract login credentials from login step
+		const loginStep = blueprintJson.steps.find(
+			( step: { step?: string } ) => step.step === 'login'
+		);
+		if ( loginStep ) {
+			const { username, password } = loginStep as { username?: string; password?: string };
+			if ( typeof username === 'string' ) {
+				values.adminUsername = username;
+			}
+			if ( typeof password === 'string' ) {
+				values.adminPassword = password;
+			}
+		}
+
 		const setSiteOptionsStep = blueprintJson.steps.find(
 			( step: { step?: string; options?: Record< string, unknown > } ) =>
 				step.step === 'setSiteOptions' && step.options?.blogname
 		);
 		if ( setSiteOptionsStep?.options?.blogname ) {
 			values.siteName = String( setSiteOptionsStep.options.blogname );
+		}
+	}
+
+	// Check top-level login property (shorthand syntax).
+	// login: true just enables auto-login with defaults, login: false disables it — neither has credentials to extract.
+	if ( blueprintJson.login !== undefined && blueprintJson.login !== true ) {
+		if ( typeof blueprintJson.login === 'object' && blueprintJson.login !== null ) {
+			const { username, password } = blueprintJson.login as {
+				username?: string;
+				password?: string;
+			};
+			if ( typeof username === 'string' ) {
+				values.adminUsername = username;
+			}
+			if ( typeof password === 'string' ) {
+				values.adminPassword = password;
+			}
 		}
 	}
 

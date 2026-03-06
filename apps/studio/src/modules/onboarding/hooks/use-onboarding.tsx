@@ -7,11 +7,11 @@ import {
 	loadOnboardingStatus,
 } from 'src/stores/onboarding-slice';
 
-export interface OnboardingContextType {
+interface OnboardingContextType {
 	needsOnboarding: boolean;
 }
 
-export const OnboardingContext = createContext< OnboardingContextType >( {
+const OnboardingContext = createContext< OnboardingContextType >( {
 	needsOnboarding: false,
 } );
 

@@ -11,18 +11,7 @@ interface UnsupportedFeature {
 /**
  * List of blueprint features that are not supported in Studio
  */
-const UNSUPPORTED_BLUEPRINT_FEATURES: UnsupportedFeature[] = [
-	{
-		type: 'step',
-		name: 'enableMultisite',
-		reason: __( 'Multisite functionality is not currently supported in Studio.' ),
-	},
-	{
-		type: 'step',
-		name: 'login',
-		reason: __( 'Studio automatically creates and logs in the admin user during site creation.' ),
-	},
-];
+const UNSUPPORTED_BLUEPRINT_FEATURES: UnsupportedFeature[] = [];
 
 /**
  * Blueprint properties that are not supported in Studio

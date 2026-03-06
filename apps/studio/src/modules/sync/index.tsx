@@ -5,7 +5,6 @@ import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
-import { useSyncSites } from 'src/hooks/sync-sites';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -19,6 +18,7 @@ import {
 	convertTreeToPushOptions,
 } from 'src/modules/sync/lib/convert-tree-to-sync-options';
 import { useAppDispatch, useRootSelector } from 'src/stores';
+import { syncOperationsThunks } from 'src/stores/sync';
 import {
 	connectedSitesActions,
 	connectedSitesSelectors,
@@ -121,8 +121,6 @@ function NoAuthSyncTab() {
 	);
 }
 
-export type OpenSitesSyncSelector = ( options?: { disconnectSiteId?: number } ) => void;
-
 export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } ) {
 	const { __ } = useI18n();
 	const dispatch = useAppDispatch();
@@ -131,7 +129,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	const selectedRemoteSiteId = useRootSelector(
 		connectedSitesSelectors.selectSelectedRemoteSiteId
 	);
-	const { isAuthenticated, user } = useAuth();
+	const { isAuthenticated, user, client } = useAuth();
 	const { data: connectedSites = [], isLoading: isLoadingConnectedSites } =
 		useGetConnectedSitesForLocalSiteQuery( {
 			localSiteId: selectedSite.id,
@@ -139,7 +137,6 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		} );
 	const [ connectSite ] = useConnectSiteMutation();
 	const [ disconnectSite ] = useDisconnectSiteMutation();
-	const { pushSite, pullSite } = useSyncSites();
 
 	const connectedSiteIds = connectedSites.map( ( { id } ) => id );
 	const { data: syncSites = [] } = useGetWpComSitesQuery( {
@@ -249,12 +246,28 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 					onPush={ async ( tree ) => {
 						await handleConnect( selectedRemoteSite );
 						const pushOptions = convertTreeToPushOptions( tree );
-						void pushSite( selectedRemoteSite, selectedSite, pushOptions );
+						void dispatch(
+							syncOperationsThunks.pushSite( {
+								connectedSite: selectedRemoteSite,
+								selectedSite,
+								options: pushOptions,
+							} )
+						);
 					} }
 					onPull={ async ( tree ) => {
+						if ( ! client ) {
+							return;
+						}
 						await handleConnect( selectedRemoteSite );
 						const pullOptions = convertTreeToPullOptions( tree );
-						void pullSite( selectedRemoteSite, selectedSite, pullOptions );
+						void dispatch(
+							syncOperationsThunks.pullSite( {
+								client,
+								connectedSite: selectedRemoteSite,
+								selectedSite,
+								options: pullOptions,
+							} )
+						);
 					} }
 					onRequestClose={ () => {
 						setSelectedRemoteSite( null );

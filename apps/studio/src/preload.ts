@@ -82,10 +82,13 @@ const api: IpcApi = {
 	stopAllServers: () => ipcRendererInvoke( 'stopAllServers' ),
 	copyText: ( text ) => ipcRendererInvoke( 'copyText', text ),
 	getAppGlobals: () => ipcRendererInvoke( 'getAppGlobals' ),
-	removeExportedSiteTmpFile: ( path ) => ipcRendererInvoke( 'removeExportedSiteTmpFile', path ),
 	getWpVersion: ( id ) => ipcRendererInvoke( 'getWpVersion', id ),
 	generateProposedSitePath: ( siteName ) =>
 		ipcRendererInvoke( 'generateProposedSitePath', siteName ),
+	generateSiteNameFromList: ( usedSites ) =>
+		ipcRendererInvoke( 'generateSiteNameFromList', usedSites ),
+	generateNumberedNameFromList: ( baseName, usedSites ) =>
+		ipcRendererInvoke( 'generateNumberedNameFromList', baseName, usedSites ),
 	openLocalPath: ( path ) => ipcRendererSend( 'openLocalPath', path ),
 	showItemInFolder: ( path ) => ipcRendererSend( 'showItemInFolder', path ),
 	loadThemeDetails: ( id, emitThemeDetailsLoadingEvent = true ) =>

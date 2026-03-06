@@ -233,7 +233,7 @@ const sendFeedback = createTypedAsyncThunk(
 
 const EMPTY_MESSAGES: readonly Message[] = Object.freeze( [] );
 
-export interface ChatState {
+type ChatState = {
 	currentURL: string;
 	pluginListDict: Record< string, string[] >;
 	themeListDict: Record< string, string[] >;
@@ -250,7 +250,7 @@ export interface ChatState {
 	chatInputBySite: { [ key: string ]: string };
 	isLoadingDict: Record< string, boolean >;
 	isLoadingUpdateFromSiteDict: Record< string, boolean >;
-}
+};
 
 const getInitialState = (): ChatState => {
 	const storedMessages = localStorage.getItem( LOCAL_STORAGE_CHAT_MESSAGES_KEY );

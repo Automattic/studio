@@ -73,7 +73,7 @@ describe( 'showSiteContextMenu', () => {
 		siteId: 'test-site-id',
 		isAnySiteAdding: false,
 		finderLabel: 'Finder',
-		editorLabel: 'VS Code',
+		editorLabel: 'Visual Studio Code',
 		terminalLabel: 'Terminal',
 	};
 
@@ -130,7 +130,7 @@ describe( 'showSiteContextMenu', () => {
 			const openSiteItem = menuItems.find( ( item ) => item.label === 'Open site' );
 			const wpAdminItem = menuItems.find( ( item ) => item.label === 'WP admin' );
 			const finderItem = menuItems.find( ( item ) => item.label === 'Open in Finder' );
-			const editorItem = menuItems.find( ( item ) => item.label === 'Open in VS Code' );
+			const editorItem = menuItems.find( ( item ) => item.label === 'Open in Visual Studio Code' );
 			const terminalItem = menuItems.find( ( item ) => item.label === 'Open in Terminal' );
 			const editItem = menuItems.find( ( item ) => item.label === 'Edit site…' );
 			const deleteItem = menuItems.find( ( item ) => item.label === 'Delete site…' );
@@ -173,7 +173,7 @@ describe( 'showSiteContextMenu', () => {
 			const openSiteItem = menuItems.find( ( item ) => item.label === 'Open site' );
 			const wpAdminItem = menuItems.find( ( item ) => item.label === 'WP admin' );
 			const finderItem = menuItems.find( ( item ) => item.label === 'Open in Finder' );
-			const editorItem = menuItems.find( ( item ) => item.label === 'Open in VS Code' );
+			const editorItem = menuItems.find( ( item ) => item.label === 'Open in Visual Studio Code' );
 			const terminalItem = menuItems.find( ( item ) => item.label === 'Open in Terminal' );
 			const editItem = menuItems.find( ( item ) => item.label === 'Edit site…' );
 			const copyItem = menuItems.find( ( item ) => item.label === 'Copy site…' );
@@ -296,8 +296,8 @@ describe( 'showSiteContextMenu', () => {
 			);
 		} );
 
-		it( 'should send open-editor action when Open in VS Code is clicked', () => {
-			const editorItem = menuItems.find( ( item ) => item.label === 'Open in VS Code' );
+		it( 'should send open-editor action when Open in Visual Studio Code is clicked', () => {
+			const editorItem = menuItems.find( ( item ) => item.label === 'Open in Visual Studio Code' );
 			editorItem?.click?.();
 
 			expect( sendIpcEventToRendererWithWindow ).toHaveBeenCalledWith(

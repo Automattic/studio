@@ -1,0 +1,12 @@
+{
+	"ignore": {
+		"rules": [ "jsx-a11y/no-autofocus" ],
+		"files": [
+			"electron.vite.config.ts",
+			"forge.config.ts",
+			"bin/studio-cli-launcher.js",
+			"src/additional-phrases.ts",
+			"src/preload.ts"
+		]
+	}
+}

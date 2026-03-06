@@ -52,6 +52,8 @@ interface CreateSiteFormProps {
 	blueprintSuggestedDomain?: string;
 	/** Blueprint suggested HTTPS setting from defineSiteUrl step */
 	blueprintSuggestedHttps?: boolean;
+	/** Whether the blueprint requires a custom domain (e.g., multisite) */
+	blueprintRequiresCustomDomain?: boolean;
 	/** Blueprint login credentials for pre-filling admin fields */
 	blueprintCredentials?: { adminUsername?: string; adminPassword?: string };
 	/** Called when form is submitted */
@@ -168,6 +170,7 @@ export const CreateSiteForm = ( {
 	blueprintPreferredVersions,
 	blueprintSuggestedDomain,
 	blueprintSuggestedHttps,
+	blueprintRequiresCustomDomain,
 	blueprintCredentials,
 	onSubmit,
 	onValidityChange,
@@ -258,6 +261,14 @@ export const CreateSiteForm = ( {
 		}
 		setAdvancedSettingsVisible( true );
 	}, [ blueprintSuggestedDomain, blueprintSuggestedHttps ] );
+
+	useEffect( () => {
+		if ( ! blueprintRequiresCustomDomain ) {
+			return;
+		}
+		setUseCustomDomain( true );
+		setAdvancedSettingsVisible( true );
+	}, [ blueprintRequiresCustomDomain ] );
 
 	useEffect( () => {
 		if ( useCustomDomain && isCertificateTrusted ) {
@@ -645,10 +656,17 @@ export const CreateSiteForm = ( {
 										type="checkbox"
 										id="use-custom-domain"
 										checked={ useCustomDomain }
+										disabled={ blueprintRequiresCustomDomain }
 										onChange={ ( e ) => setUseCustomDomain( e.target.checked ) }
 									/>
 									<label htmlFor="use-custom-domain">{ __( 'Use custom domain' ) }</label>
 								</div>
+
+								{ blueprintRequiresCustomDomain && (
+									<Notice status="warning" isDismissible={ false } className="mt-2">
+										{ __( 'WordPress multisite requires a custom domain.' ) }
+									</Notice>
+								) }
 
 								<div className="text-a8c-gray-50 text-xs mt-2">
 									{ __( 'Your system password will be required to set up the domain.' ) }

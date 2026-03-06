@@ -49,10 +49,15 @@ export abstract class SqliteIntegrationProvider {
 		const sqliteSourcePath = this.getSqlitePluginSourcePath();
 		const dbCopyContent = await fs.readFile( path.join( sqliteSourcePath, 'db.copy' ), 'utf8' );
 		const sqliteDirname = this.getSqliteDirname();
-		const updatedContent = dbCopyContent.replace(
-			"'{SQLITE_IMPLEMENTATION_FOLDER_PATH}'",
-			`realpath( __DIR__ . '/mu-plugins/${ sqliteDirname }' )`
-		);
+		const updatedContent = dbCopyContent
+			.replace(
+				"'{SQLITE_IMPLEMENTATION_FOLDER_PATH}'",
+				`realpath( __DIR__ . '/mu-plugins/${ sqliteDirname }' )`
+			)
+			.replace(
+				"define( 'SQLITE_DB_DROPIN_VERSION'",
+				`define( 'SQLITE_MAIN_FILE', __FILE__ );\ndefine( 'SQLITE_DB_DROPIN_VERSION'`
+			);
 		await fs.writeFile( path.join( wpContentPath, 'db.php' ), updatedContent );
 
 		const sqliteDestPath = path.join( wpContentPath, 'mu-plugins', sqliteDirname );

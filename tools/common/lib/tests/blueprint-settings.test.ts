@@ -1,4 +1,5 @@
 import {
+	blueprintHasMultisite,
 	extractFormValuesFromBlueprint,
 	generateDefaultBlueprintDescription,
 	updateBlueprintWithFormValues,
@@ -283,6 +284,70 @@ describe( 'blueprint-settings', () => {
 			const result = extractFormValuesFromBlueprint( blueprint );
 
 			expect( result.siteName ).toBe( 'First Name' );
+		} );
+
+		it( 'should set requiresCustomDomain when enableMultisite step is present', () => {
+			const blueprint = {
+				steps: [ { step: 'enableMultisite' } ],
+			};
+
+			const result = extractFormValuesFromBlueprint( blueprint );
+
+			expect( result.requiresCustomDomain ).toBe( true );
+		} );
+
+		it( 'should not set requiresCustomDomain when enableMultisite step is absent', () => {
+			const blueprint = {
+				steps: [ { step: 'installPlugin', pluginData: { slug: 'akismet' } } ],
+			};
+
+			const result = extractFormValuesFromBlueprint( blueprint );
+
+			expect( result.requiresCustomDomain ).toBeUndefined();
+		} );
+	} );
+
+	describe( 'blueprintHasMultisite', () => {
+		it( 'should return true when enableMultisite step is present', () => {
+			const blueprint = {
+				steps: [ { step: 'enableMultisite' } ],
+			};
+
+			expect( blueprintHasMultisite( blueprint ) ).toBe( true );
+		} );
+
+		it( 'should return true when enableMultisite is among other steps', () => {
+			const blueprint = {
+				steps: [
+					{ step: 'login' },
+					{ step: 'enableMultisite' },
+					{ step: 'installPlugin', pluginData: { slug: 'akismet' } },
+				],
+			};
+
+			expect( blueprintHasMultisite( blueprint ) ).toBe( true );
+		} );
+
+		it( 'should return false when enableMultisite is not present', () => {
+			const blueprint = {
+				steps: [ { step: 'login' } ],
+			};
+
+			expect( blueprintHasMultisite( blueprint ) ).toBe( false );
+		} );
+
+		it( 'should return false for empty blueprint', () => {
+			expect( blueprintHasMultisite( {} ) ).toBe( false );
+		} );
+
+		it( 'should return false when steps is not an array', () => {
+			const blueprint = { steps: 'not-an-array' };
+
+			expect(
+				blueprintHasMultisite(
+					blueprint as unknown as Parameters< typeof blueprintHasMultisite >[ 0 ]
+				)
+			).toBe( false );
 		} );
 	} );
 

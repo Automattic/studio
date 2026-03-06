@@ -64,7 +64,7 @@ describe( 'ShortcutsSection', () => {
 		store.dispatch( { type: 'test/resetState' } );
 	} );
 
-	it( 'opens site in VS Code when the user select VS Code and clicked the button', async () => {
+	it( 'opens site in Visual Studio Code when the user select Visual Studio Code and clicked the button', async () => {
 		// Mock the IPC API with getInstalledApps returning the installed apps
 		const openURLMock = vi.fn();
 		const openAppAtPathMock = vi.fn();
@@ -91,8 +91,8 @@ describe( 'ShortcutsSection', () => {
 			<ContentTabOverview selectedSite={ selectedSite } />
 		);
 
-		// Find and click the VS Code button
-		const vscodeButton = await waitFor( () => getByText( 'VS Code' ) );
+		// Find and click the Visual Studio Code button
+		const vscodeButton = await waitFor( () => getByText( 'Visual Studio Code' ) );
 		fireEvent.click( vscodeButton );
 
 		// Verify that openURL was called with the correct path
@@ -185,7 +185,7 @@ describe( 'ShortcutsSection', () => {
 		await findByLabelText( 'Terminal' );
 		await findByLabelText( 'Cursor' );
 
-		expect( queryByLabelText( 'VS Code' ) ).not.toBeInTheDocument();
+		expect( queryByLabelText( 'Visual Studio Code' ) ).not.toBeInTheDocument();
 		expect( queryByLabelText( 'PhpStorm' ) ).not.toBeInTheDocument();
 	} );
 } );

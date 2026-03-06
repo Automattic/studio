@@ -1,10 +1,9 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { type BlueprintV1Declaration, isStepDefinition } from '@wp-playground/blueprints';
-import type { BlueprintPHPVersion } from '@wp-playground/blueprints/lib/v1/types';
 
 type BlueprintSiteSettings = {
 	enableHttps?: boolean;
-	phpVersion?: BlueprintPHPVersion;
+	phpVersion?: NonNullable< BlueprintV1Declaration[ 'preferredVersions' ] >[ 'php' ];
 	customDomain?: string;
 	wpVersion?: string;
 	adminUsername?: string;

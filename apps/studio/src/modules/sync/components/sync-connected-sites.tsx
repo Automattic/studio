@@ -215,7 +215,9 @@ const SyncConnectedSitesSectionItem = ( {
 	const { __ } = useI18n();
 	const dispatch = useAppDispatch();
 	const isOffline = useOffline();
-	const isSiteLoading = useRootSelector( connectedSitesSelectors.selectIsLoadingSiteId( connectedSite.id ) );
+	const isSiteLoading = useRootSelector(
+		connectedSitesSelectors.selectIsLoadingSiteId( connectedSite.id )
+	);
 	const getLastSyncTimeText = useLastSyncTimeText();
 	const { importState, clearImportState } = useImportExport();
 	const { getPushUploadPercentage, getPushUploadMessage } = useSyncStatesProgressInfo();
@@ -656,7 +658,9 @@ const SyncConnectedSiteSection = ( {
 		}
 	};
 
-	const isSiteLoading = useRootSelector( connectedSitesSelectors.selectIsLoadingSiteId( connectedSite.id ) );
+	const isSiteLoading = useRootSelector(
+		connectedSitesSelectors.selectIsLoadingSiteId( connectedSite.id )
+	);
 	const hasConnectionErrors = connectedSite?.syncSupport !== 'already-connected';
 	const isPulling = useRootSelector(
 		syncOperationsSelectors.selectIsSiteIdPulling( selectedSite.id, connectedSite.id )

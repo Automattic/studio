@@ -1,9 +1,5 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
-import {
-	type Blueprint,
-	type BlueprintV1Declaration,
-	isStepDefinition,
-} from '@wp-playground/blueprints';
+import { type BlueprintV1Declaration, isStepDefinition } from '@wp-playground/blueprints';
 import type { BlueprintPHPVersion } from '@wp-playground/blueprints/lib/v1/types';
 
 type BlueprintSiteSettings = {
@@ -92,7 +88,7 @@ export function extractFormValuesFromBlueprint(
 export function updateBlueprintWithFormValues(
 	blueprintJson: BlueprintV1Declaration,
 	formValues: BlueprintSiteSettings
-): Blueprint {
+): BlueprintV1Declaration {
 	const updated = structuredClone( blueprintJson );
 
 	// Update preferred versions (only if they already exist)

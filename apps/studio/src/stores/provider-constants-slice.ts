@@ -24,14 +24,8 @@ const initialState: ProviderConstantsState = {
 const providerConstantsSlice = createSlice( {
 	name: 'providerConstants',
 	initialState,
-	reducers: {
-		setProviderConstants: ( state, action: PayloadAction< Partial< ProviderConstantsState > > ) => {
-			return { ...state, ...action.payload };
-		},
-	},
+	reducers: {},
 } );
-
-export const { setProviderConstants } = providerConstantsSlice.actions;
 
 export const selectDefaultPhpVersion = ( state: RootState ) =>
 	state.providerConstants.defaultPhpVersion;

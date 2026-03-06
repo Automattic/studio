@@ -1,5 +1,4 @@
 // Run tests: yarn test -- src/hooks/tests/use-add-site.test.tsx
-import { SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { renderHook, act } from '@testing-library/react';
 import nock from 'nock';
 import { Provider } from 'react-redux';
@@ -9,7 +8,6 @@ import { useAuth } from 'src/hooks/use-auth';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { store } from 'src/stores';
-import { setProviderConstants } from 'src/stores/provider-constants-slice';
 import type { SyncSite } from 'src/modules/sync/types';
 
 vi.mock( 'src/hooks/use-site-details' );
@@ -77,16 +75,6 @@ describe( 'useAddSite', () => {
 		mockPullSiteThunk.mockImplementation( () => ( {
 			type: 'syncOperations/pullSite',
 		} ) );
-
-		// Prepopulate store with provider constants
-		store.dispatch(
-			setProviderConstants( {
-				defaultPhpVersion: '8.3',
-				defaultWordPressVersion: 'latest',
-				allowedPhpVersions: SupportedPHPVersions,
-				minimumWordPressVersion: '5.9.9',
-			} )
-		);
 
 		mockGenerateProposedSitePath.mockResolvedValue( {
 			path: '/default/path',

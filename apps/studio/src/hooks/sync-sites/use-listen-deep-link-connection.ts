@@ -74,7 +74,12 @@ export function useListenDeepLinkConnection() {
 
 			// Only auto-open push dialog if explicitly requested (e.g., from "Publish site" button)
 			if ( autoOpenPush ) {
-				dispatch( connectedSitesActions.setSelectedRemoteSiteId( remoteSiteId ) );
+				dispatch(
+					connectedSitesActions.setSelectedRemoteSiteId( {
+						remoteSiteId,
+						localSiteId: studioSiteId,
+					} )
+				);
 			}
 
 			const fetchSingleSitePromise = dispatch(
@@ -95,9 +100,8 @@ export function useListenDeepLinkConnection() {
 					const fullSiteData: SyncSite = {
 						...singleSiteResult.data,
 						localSiteId: studioSiteId,
+						syncSupport: 'already-connected',
 					};
-					// Use updateSingleConnectedWpcomSite to overwrite the minimal site in storage.
-					// connectSite only adds new sites — it won't update an existing entry.
 					await getIpcApi().updateSingleConnectedWpcomSite( fullSiteData );
 					dispatch( connectedSitesApi.util.invalidateTags( [ 'ConnectedSites' ] ) );
 				}

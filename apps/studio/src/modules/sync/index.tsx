@@ -1,6 +1,6 @@
 import { check, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { PropsWithChildren, useEffect, useState } from 'react';
+import { PropsWithChildren, useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
@@ -129,6 +129,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	const selectedRemoteSiteId = useRootSelector(
 		connectedSitesSelectors.selectSelectedRemoteSiteId
 	);
+	const selectedLocalSiteId = useRootSelector( connectedSitesSelectors.selectSelectedLocalSiteId );
 	const { isAuthenticated, user, client } = useAuth();
 	const { data: connectedSites = [], isLoading: isLoadingConnectedSites } =
 		useGetConnectedSitesForLocalSiteQuery( {
@@ -146,17 +147,17 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 
 	const [ selectedRemoteSite, setSelectedRemoteSite ] = useState< SyncSite | null >( null );
 
-	// Auto-select remote site when set via Redux (e.g., from deep link connection)
-	useEffect( () => {
-		if ( selectedRemoteSiteId ) {
-			const siteToSelect = syncSites.find( ( site ) => site.id === selectedRemoteSiteId );
-			if ( siteToSelect ) {
-				setSelectedRemoteSite( siteToSelect );
-				dispatch( connectedSitesActions.openModal( 'push' ) );
-				dispatch( connectedSitesActions.clearSelectedRemoteSiteId() );
-			}
-		}
-	}, [ selectedRemoteSiteId, syncSites, dispatch ] );
+	// Derived inline from Redux + connectedSites (storage) rather than stored in local state.
+	// Local state would reset on remount — SiteContentTabs causes a second TabPanel remount
+	// on programmatic tab changes, which would lose the value before the dialog could open.
+	// connectedSites is used instead of syncSites because the /me/sites?filter=atomic,wpcom
+	// endpoint excludes some site types (e.g. Pressable) that can still be connected.
+	const deepLinkRemoteSite =
+		selectedRemoteSiteId && selectedLocalSiteId === selectedSite.id
+			? connectedSites.find( ( site ) => site.id === selectedRemoteSiteId ) ?? null
+			: null;
+
+	const effectiveRemoteSite = deepLinkRemoteSite || selectedRemoteSite;
 
 	if ( ! isAuthenticated ) {
 		return <NoAuthSyncTab />;
@@ -225,7 +226,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 				</SiteSyncDescription>
 			) }
 
-			{ isModalOpen && ! selectedRemoteSite && (
+			{ isModalOpen && ! effectiveRemoteSite && (
 				<SyncSitesModalSelector
 					mode={ reduxModalMode || 'connect' }
 					onRequestClose={ () => {
@@ -238,43 +239,48 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 				/>
 			) }
 
-			{ reduxModalMode && reduxModalMode !== 'connect' && selectedRemoteSite && (
-				<SyncDialog
-					type={ reduxModalMode }
-					localSite={ selectedSite }
-					remoteSite={ selectedRemoteSite }
-					onPush={ async ( tree ) => {
-						await handleConnect( selectedRemoteSite );
-						const pushOptions = convertTreeToPushOptions( tree );
-						void dispatch(
-							syncOperationsThunks.pushSite( {
-								connectedSite: selectedRemoteSite,
-								selectedSite,
-								options: pushOptions,
-							} )
-						);
-					} }
-					onPull={ async ( tree ) => {
-						if ( ! client ) {
-							return;
-						}
-						await handleConnect( selectedRemoteSite );
-						const pullOptions = convertTreeToPullOptions( tree );
-						void dispatch(
-							syncOperationsThunks.pullSite( {
-								client,
-								connectedSite: selectedRemoteSite,
-								selectedSite,
-								options: pullOptions,
-							} )
-						);
-					} }
-					onRequestClose={ () => {
-						setSelectedRemoteSite( null );
-						dispatch( connectedSitesActions.closeModal() );
-					} }
-				/>
-			) }
+			{ effectiveRemoteSite &&
+				( deepLinkRemoteSite || ( reduxModalMode && reduxModalMode !== 'connect' ) ) && (
+					<SyncDialog
+						type={ deepLinkRemoteSite ? 'push' : ( reduxModalMode as 'push' | 'pull' ) }
+						localSite={ selectedSite }
+						remoteSite={ effectiveRemoteSite }
+						onPush={ async ( tree ) => {
+							await handleConnect( effectiveRemoteSite );
+							const pushOptions = convertTreeToPushOptions( tree );
+							void dispatch(
+								syncOperationsThunks.pushSite( {
+									connectedSite: effectiveRemoteSite,
+									selectedSite,
+									options: pushOptions,
+								} )
+							);
+						} }
+						onPull={ async ( tree ) => {
+							if ( ! client ) {
+								return;
+							}
+							await handleConnect( effectiveRemoteSite );
+							const pullOptions = convertTreeToPullOptions( tree );
+							void dispatch(
+								syncOperationsThunks.pullSite( {
+									client,
+									connectedSite: effectiveRemoteSite,
+									selectedSite,
+									options: pullOptions,
+								} )
+							);
+						} }
+						onRequestClose={ () => {
+							if ( deepLinkRemoteSite ) {
+								dispatch( connectedSitesActions.clearSelectedRemoteSiteId() );
+							} else {
+								setSelectedRemoteSite( null );
+								dispatch( connectedSitesActions.closeModal() );
+							}
+						} }
+					/>
+				) }
 		</div>
 	);
 }

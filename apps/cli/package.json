@@ -1,5 +1,5 @@
 {
-	"name": "@automattic/studio-cli",
+	"name": "@automattic/wp-studio",
 	"author": "Automattic Inc.",
 	"version": "0.1.0",
 	"productName": "Studio CLI",

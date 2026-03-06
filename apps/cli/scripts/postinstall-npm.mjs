@@ -1,5 +1,5 @@
 /**
- * Postinstall script for npm consumers of @automattic/studio-cli.
+ * Postinstall script for npm consumers of @automattic/wp-studio.
  *
  * Applies patches via patch-package.
  *

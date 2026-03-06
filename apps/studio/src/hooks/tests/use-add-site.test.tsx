@@ -12,22 +12,22 @@ import { setProviderConstants } from 'src/stores/provider-constants-slice';
 import { useConnectSiteMutation } from 'src/stores/sync/connected-sites';
 import type { SyncSite } from 'src/modules/sync/types';
 
-vi.mock('src/hooks/use-site-details');
-vi.mock('src/hooks/use-feature-flags');
-vi.mock('src/hooks/use-auth');
-vi.mock('src/hooks/use-content-tabs');
-vi.mock('src/stores/sync/connected-sites', async (importOriginal) => {
-	const original = await importOriginal<typeof import('src/stores/sync/connected-sites')>();
+vi.mock( 'src/hooks/use-site-details' );
+vi.mock( 'src/hooks/use-feature-flags' );
+vi.mock( 'src/hooks/use-auth' );
+vi.mock( 'src/hooks/use-content-tabs' );
+vi.mock( 'src/stores/sync/connected-sites', async ( importOriginal ) => {
+	const original = await importOriginal< typeof import('src/stores/sync/connected-sites') >();
 	return {
 		...original,
 		useConnectSiteMutation: vi.fn(),
 	};
-});
+} );
 
-const mockPullSiteThunk = vi.hoisted(() => vi.fn());
+const mockPullSiteThunk = vi.hoisted( () => vi.fn() );
 
-vi.mock('src/stores/sync', async () => {
-	const actual = await vi.importActual('src/stores/sync');
+vi.mock( 'src/stores/sync', async () => {
+	const actual = await vi.importActual( 'src/stores/sync' );
 	return {
 		...actual,
 		syncOperationsThunks: {
@@ -35,102 +35,102 @@ vi.mock('src/stores/sync', async () => {
 			pullSite: mockPullSiteThunk,
 		},
 	};
-});
-vi.mock('src/hooks/use-import-export', () => ({
-	useImportExport: () => ({
+} );
+vi.mock( 'src/hooks/use-import-export', () => ( {
+	useImportExport: () => ( {
 		importFile: vi.fn(),
 		clearImportState: vi.fn(),
 		importState: {},
-	}),
-}));
+	} ),
+} ) );
 
-const mockConnectSite = vi.fn().mockReturnValue({ unwrap: () => Promise.resolve([]) });
-const mockConnectWpcomSites = vi.fn().mockResolvedValue(undefined);
+const mockConnectSite = vi.fn().mockReturnValue( { unwrap: () => Promise.resolve( [] ) } );
+const mockConnectWpcomSites = vi.fn().mockResolvedValue( undefined );
 const mockShowOpenFolderDialog = vi.fn();
-const mockGenerateProposedSitePath = vi.fn().mockResolvedValue({
+const mockGenerateProposedSitePath = vi.fn().mockResolvedValue( {
 	path: '/default/path',
 	name: 'Default Site',
 	isEmpty: true,
 	isWordPress: false,
-});
-const mockComparePaths = vi.fn().mockResolvedValue(false);
+} );
+const mockComparePaths = vi.fn().mockResolvedValue( false );
 
-vi.mock('src/lib/get-ipc-api', () => ({
-	getIpcApi: () => ({
+vi.mock( 'src/lib/get-ipc-api', () => ( {
+	getIpcApi: () => ( {
 		generateProposedSitePath: mockGenerateProposedSitePath,
 		showOpenFolderDialog: mockShowOpenFolderDialog,
 		showNotification: vi.fn(),
-		getAllCustomDomains: vi.fn().mockResolvedValue([]),
+		getAllCustomDomains: vi.fn().mockResolvedValue( [] ),
 		connectWpcomSites: mockConnectWpcomSites,
-		getConnectedWpcomSites: vi.fn().mockResolvedValue([]),
+		getConnectedWpcomSites: vi.fn().mockResolvedValue( [] ),
 		comparePaths: mockComparePaths,
-	}),
-}));
+	} ),
+} ) );
 
-const renderHookWithProvider = (hook: () => ReturnType<typeof useAddSite>) => {
-	return renderHook<ReturnType<typeof useAddSite>, void>(hook, {
-		wrapper: ({ children }) => <Provider store={store}>{children}</Provider>,
-	});
+const renderHookWithProvider = ( hook: () => ReturnType< typeof useAddSite > ) => {
+	return renderHook< ReturnType< typeof useAddSite >, void >( hook, {
+		wrapper: ( { children } ) => <Provider store={ store }>{ children }</Provider>,
+	} );
 };
 
-describe('useAddSite', () => {
+describe( 'useAddSite', () => {
 	const mockCreateSite = vi.fn();
 	const mockUpdateSite = vi.fn();
 	const mockStartServer = vi.fn();
 	const mockClient = { req: { get: vi.fn(), post: vi.fn() } };
 	const mockSetSelectedTab = vi.fn();
 
-	beforeEach(() => {
+	beforeEach( () => {
 		vi.clearAllMocks();
-		mockPullSiteThunk.mockImplementation(() => ({
+		mockPullSiteThunk.mockImplementation( () => ( {
 			type: 'syncOperations/pullSite',
-		}));
+		} ) );
 
-		vi.mocked(useConnectSiteMutation).mockReturnValue([
+		vi.mocked( useConnectSiteMutation ).mockReturnValue( [
 			mockConnectSite,
 			{ isLoading: false, reset: vi.fn() },
-		] as unknown as ReturnType<typeof useConnectSiteMutation>);
+		] as unknown as ReturnType< typeof useConnectSiteMutation > );
 
 		// Prepopulate store with provider constants
 		store.dispatch(
-			setProviderConstants({
+			setProviderConstants( {
 				defaultPhpVersion: '8.3',
 				defaultWordPressVersion: 'latest',
-				allowedPhpVersions: ['8.0', '8.1', '8.2', '8.3'],
+				allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
 				minimumWordPressVersion: '5.9.9',
-			})
+			} )
 		);
 
-		mockGenerateProposedSitePath.mockResolvedValue({
+		mockGenerateProposedSitePath.mockResolvedValue( {
 			path: '/default/path',
 			name: 'Default Site',
 			isEmpty: true,
 			isWordPress: false,
-		});
+		} );
 
-		vi.mocked(useSiteDetails, { partial: true }).mockReturnValue({
+		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 			createSite: mockCreateSite,
 			updateSite: mockUpdateSite,
 			sites: [],
 			loadingSites: false,
 			startServer: mockStartServer,
-		});
+		} );
 
-		vi.mocked(useAuth, { partial: true }).mockReturnValue({
+		vi.mocked( useAuth, { partial: true } ).mockReturnValue( {
 			client: mockClient,
-		});
+		} );
 
 		mockSetSelectedTab.mockReset();
-		vi.mocked(useContentTabs, { partial: true }).mockReturnValue({
+		vi.mocked( useContentTabs, { partial: true } ).mockReturnValue( {
 			selectedTab: 'overview',
 			setSelectedTab: mockSetSelectedTab,
 			tabs: [],
-		});
+		} );
 
-		nock('https://api.wordpress.org')
-			.get('/core/version-check/1.7/')
-			.query({ channel: 'beta', version: '5.9.9' })
-			.reply(200, {
+		nock( 'https://api.wordpress.org' )
+			.get( '/core/version-check/1.7/' )
+			.query( { channel: 'beta', version: '5.9.9' } )
+			.reply( 200, {
 				offers: [
 					{
 						version: '6.1.7',
@@ -141,47 +141,47 @@ describe('useAddSite', () => {
 						response: 'autoupdate',
 					},
 				],
-			});
+			} );
 
-		nock('https://api.wordpress.org')
-			.get('/core/version-check/1.7/')
-			.query({ channel: 'development' })
-			.reply(200, {
+		nock( 'https://api.wordpress.org' )
+			.get( '/core/version-check/1.7/' )
+			.query( { channel: 'development' } )
+			.reply( 200, {
 				offers: [],
-			});
-	});
+			} );
+	} );
 
-	afterEach(() => {
+	afterEach( () => {
 		nock.cleanAll();
-	});
+	} );
 
-	it('should provide default PHP version', () => {
-		const { result } = renderHookWithProvider(() => useAddSite());
+	it( 'should provide default PHP version', () => {
+		const { result } = renderHookWithProvider( () => useAddSite() );
 
-		expect(result.current.defaultPhpVersion).toBe('8.3');
-	});
+		expect( result.current.defaultPhpVersion ).toBe( '8.3' );
+	} );
 
-	it('should provide default WordPress version', () => {
-		const { result } = renderHookWithProvider(() => useAddSite());
+	it( 'should provide default WordPress version', () => {
+		const { result } = renderHookWithProvider( () => useAddSite() );
 
-		expect(result.current.defaultWpVersion).toBe('latest');
-	});
+		expect( result.current.defaultWpVersion ).toBe( 'latest' );
+	} );
 
-	it('should create site with provided form values', async () => {
+	it( 'should create site with provided form values', async () => {
 		mockCreateSite.mockImplementation(
-			(path, name, wpVersion, customDomain, enableHttps, blueprint, phpVersion, callback) => {
-				callback({
+			( path, name, wpVersion, customDomain, enableHttps, blueprint, phpVersion, callback ) => {
+				callback( {
 					id: 'test-id',
 					name: name || 'Test Site',
 					path,
 					wpVersion,
 					phpVersion,
-				});
+				} );
 				return Promise.resolve();
 			}
 		);
 
-		const { result } = renderHookWithProvider(() => useAddSite());
+		const { result } = renderHookWithProvider( () => useAddSite() );
 
 		const formValues: CreateSiteFormValues = {
 			siteName: 'My Test Site',
@@ -193,11 +193,11 @@ describe('useAddSite', () => {
 			enableHttps: false,
 		};
 
-		await act(async () => {
-			await result.current.handleCreateSite(formValues);
-		});
+		await act( async () => {
+			await result.current.handleCreateSite( formValues );
+		} );
 
-		expect(mockCreateSite).toHaveBeenCalledWith(
+		expect( mockCreateSite ).toHaveBeenCalledWith(
 			'/test/path',
 			'My Test Site',
 			'6.1.7',
@@ -205,37 +205,37 @@ describe('useAddSite', () => {
 			false,
 			undefined, // blueprint parameter
 			'8.2',
-			expect.any(Function),
+			expect.any( Function ),
 			false,
 			undefined, // adminUsername
 			undefined, // adminPassword
 			undefined // adminEmail
 		);
-	});
+	} );
 
-	it('should generate proposed path for site name', async () => {
-		mockGenerateProposedSitePath.mockResolvedValue({
+	it( 'should generate proposed path for site name', async () => {
+		mockGenerateProposedSitePath.mockResolvedValue( {
 			path: '/studio/my-site',
 			isEmpty: true,
 			isWordPress: false,
-		});
+		} );
 
-		const { result } = renderHookWithProvider(() => useAddSite());
+		const { result } = renderHookWithProvider( () => useAddSite() );
 
 		let pathResult;
-		await act(async () => {
-			pathResult = await result.current.generateProposedPath('My Site');
-		});
+		await act( async () => {
+			pathResult = await result.current.generateProposedPath( 'My Site' );
+		} );
 
-		expect(mockGenerateProposedSitePath).toHaveBeenCalledWith('My Site');
-		expect(pathResult).toEqual({
+		expect( mockGenerateProposedSitePath ).toHaveBeenCalledWith( 'My Site' );
+		expect( pathResult ).toEqual( {
 			path: '/studio/my-site',
 			isEmpty: true,
 			isWordPress: false,
-		});
-	});
+		} );
+	} );
 
-	it('should connect and start pulling when a remote site is selected', async () => {
+	it( 'should connect and start pulling when a remote site is selected', async () => {
 		const remoteSite: SyncSite = {
 			id: 123,
 			localSiteId: 'remote-site-id',
@@ -258,17 +258,17 @@ describe('useAddSite', () => {
 		};
 
 		mockCreateSite.mockImplementation(
-			(path, name, version, customDomain, enableHttps, blueprint, phpVersion, callback) => {
-				callback(createdSite);
+			( path, name, version, customDomain, enableHttps, blueprint, phpVersion, callback ) => {
+				callback( createdSite );
 				return Promise.resolve();
 			}
 		);
 
-		const { result } = renderHookWithProvider(() => useAddSite());
+		const { result } = renderHookWithProvider( () => useAddSite() );
 
-		act(() => {
-			result.current.setSelectedRemoteSite(remoteSite);
-		});
+		act( () => {
+			result.current.setSelectedRemoteSite( remoteSite );
+		} );
 
 		const formValues: CreateSiteFormValues = {
 			siteName: createdSite.name,
@@ -280,20 +280,20 @@ describe('useAddSite', () => {
 			enableHttps: false,
 		};
 
-		await act(async () => {
-			await result.current.handleCreateSite(formValues);
-		});
+		await act( async () => {
+			await result.current.handleCreateSite( formValues );
+		} );
 
-		expect(mockConnectSite).toHaveBeenCalledWith({
+		expect( mockConnectSite ).toHaveBeenCalledWith( {
 			remoteSiteId: remoteSite.id,
 			localSiteId: createdSite.id,
-		});
-		expect(mockPullSiteThunk).toHaveBeenCalledWith({
+		} );
+		expect( mockPullSiteThunk ).toHaveBeenCalledWith( {
 			client: mockClient,
 			connectedSite: remoteSite,
 			selectedSite: createdSite,
-			options: { optionsToSync: ['all'] },
-		});
-		expect(mockSetSelectedTab).toHaveBeenCalledWith('sync');
-	});
-});
+			options: { optionsToSync: [ 'all' ] },
+		} );
+		expect( mockSetSelectedTab ).toHaveBeenCalledWith( 'sync' );
+	} );
+} );

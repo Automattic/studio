@@ -251,8 +251,7 @@ function SiteItem( {
 	onClick: () => void;
 } ) {
 	const { __ } = useI18n();
-	const loadingSiteIds = useRootSelector( connectedSitesSelectors.selectLoadingSiteIds );
-	const isSiteLoading = loadingSiteIds.includes( site.id );
+	const isSiteLoading = useRootSelector( connectedSitesSelectors.selectIsLoadingSiteId( site.id ) );
 	const isAlreadyConnected = site.syncSupport === 'already-connected';
 	const isSyncable = site.syncSupport === 'syncable';
 	const isNeedsTransfer = site.syncSupport === 'needs-transfer';

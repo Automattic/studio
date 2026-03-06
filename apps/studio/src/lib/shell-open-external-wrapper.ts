@@ -23,9 +23,9 @@ export const shellOpenExternalWrapper = async ( url: string ) => {
 		let title = '';
 		let message = '';
 		if ( url.startsWith( 'vscode://file/' ) ) {
-			title = __( 'Failed to open VS Code' );
+			title = __( 'Failed to open Visual Studio Code' );
 			message = __(
-				'Studio is unable to open VS Code. Please ensure it is functioning correctly.'
+				'Studio is unable to open Visual Studio Code. Please ensure it is functioning correctly.'
 			);
 		} else if ( url.startsWith( 'phpstorm://open?file=' ) ) {
 			title = __( 'Failed to open PHP Storm' );

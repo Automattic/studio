@@ -31,8 +31,8 @@ export const supportedEditorConfig: Record< SupportedEditor, SupportedEditorConf
 		],
 	},
 	vscode: {
-		// translators: "VS Code" is the brand name for an IDE and does not need to be translated
-		label: __( 'VS Code' ),
+		// translators: "Visual Studio Code" is the brand name for an IDE and does not need to be translated
+		label: __( 'Visual Studio Code' ),
 		url: ( path: string ) => `vscode://file/${ path }?windowId=_blank`,
 		macOSBundleId: 'com.microsoft.VSCode',
 		winPaths: [

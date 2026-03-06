@@ -9,10 +9,7 @@ import {
 	DEFAULT_WORDPRESS_VERSION,
 	MINIMUM_WORDPRESS_VERSION,
 } from '@studio/common/constants';
-import {
-	blueprintHasMultisite,
-	extractFormValuesFromBlueprint,
-} from '@studio/common/lib/blueprint-settings';
+import { extractFormValuesFromBlueprint } from '@studio/common/lib/blueprint-settings';
 import {
 	filterUnsupportedBlueprintFeatures,
 	validateBlueprintData,
@@ -47,7 +44,11 @@ import {
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
-import { Blueprint, BlueprintV1Declaration, StepDefinition } from '@wp-playground/blueprints';
+import {
+	isStepDefinition,
+	type BlueprintV1Declaration,
+	type StepDefinition,
+} from '@wp-playground/blueprints';
 import { writeAgentsMd } from 'cli/lib/agents-md';
 import {
 	lockAppdata,
@@ -151,7 +152,11 @@ export async function runCommand(
 				options.blueprint.contents as BlueprintV1Declaration
 			);
 
-			if ( blueprint && blueprintHasMultisite( blueprint ) && ! options.customDomain ) {
+			const blueprintHasMultisite = blueprint?.steps
+				?.filter( isStepDefinition )
+				.some( ( step ) => step.step === 'enableMultisite' );
+
+			if ( blueprintHasMultisite && ! options.customDomain ) {
 				throw new LoggerError(
 					__(
 						'The enableMultisite Blueprint step requires a custom domain. WordPress multisite does not support custom ports. Use --domain <name>.local to set a custom domain.'

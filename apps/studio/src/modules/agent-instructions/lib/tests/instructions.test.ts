@@ -57,7 +57,6 @@ describe( 'getInstructionFilePath', () => {
 			path.join( SITE_PATH, 'AGENTS.md' )
 		);
 	} );
-
 } );
 
 describe( 'getInstructionFileStatus', () => {

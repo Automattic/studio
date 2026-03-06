@@ -27,6 +27,8 @@ try {
 		cwd: packageDir,
 		stdio: 'inherit',
 	} );
-} catch {
-	console.log( 'patch-package failed — patches may not apply cleanly' );
+} catch ( error ) {
+	console.error( 'patch-package failed — patches may not apply cleanly.' );
+	console.error( error instanceof Error ? error.message : error );
+	process.exit( 1 );
 }

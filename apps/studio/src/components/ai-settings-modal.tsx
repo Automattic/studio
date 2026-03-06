@@ -1,4 +1,3 @@
-import { Spinner } from '@wordpress/components';
 import { Icon, check } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useState } from 'react';
@@ -23,32 +22,21 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 	const { __ } = useI18n();
 	const [ statuses, setStatuses ] = useState< InstructionFileStatus[] >( [] );
 	const [ error, setError ] = useState< string | null >( null );
-	const [ isLoading, setIsLoading ] = useState( true );
 	const [ installingFile, setInstallingFile ] = useState< InstructionFileType | null >( null );
 
-	const refreshStatus = useCallback(
-		async ( showLoadingSpinner = false ) => {
-			if ( showLoadingSpinner ) {
-				setIsLoading( true );
-			}
-			try {
-				const result = await getIpcApi().getAgentInstructionsStatus( siteId );
-				setStatuses( result as InstructionFileStatus[] );
-				setError( null );
-			} catch ( err ) {
-				const errorMessage = err instanceof Error ? err.message : String( err );
-				setError( errorMessage );
-			} finally {
-				if ( showLoadingSpinner ) {
-					setIsLoading( false );
-				}
-			}
-		},
-		[ siteId ]
-	);
+	const refreshStatus = useCallback( async () => {
+		try {
+			const result = await getIpcApi().getAgentInstructionsStatus( siteId );
+			setStatuses( result as InstructionFileStatus[] );
+			setError( null );
+		} catch ( err ) {
+			const errorMessage = err instanceof Error ? err.message : String( err );
+			setError( errorMessage );
+		}
+	}, [ siteId ] );
 
 	useEffect( () => {
-		void refreshStatus( true );
+		void refreshStatus();
 		const handleFocus = () => void refreshStatus();
 		window.addEventListener( 'focus', handleFocus );
 		return () => window.removeEventListener( 'focus', handleFocus );
@@ -112,77 +100,68 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 			) }
 
 			<div className="border border-gray-200 rounded-md overflow-hidden">
-				{ isLoading ? (
-					<div className="flex items-center justify-center py-4">
-						<Spinner />
-						<span className="ml-2 text-sm text-gray-500">{ __( 'Loading...' ) }</span>
-					</div>
-				) : (
-					statuses.map( ( status ) => {
-						const config = INSTRUCTION_FILES[ status.id ];
-						const isInstalling = installingFile === status.id;
-						return (
-							<div
-								key={ status.id }
-								className="flex items-center justify-between px-3 py-2.5 border-b border-gray-200 last:border-b-0"
-							>
-								<div className="flex-1 min-w-0 pr-3">
-									<div className="flex items-center gap-2">
-										<span className="text-sm font-medium text-gray-900">
-											{ config.displayName }
+				{ statuses.map( ( status ) => {
+					const config = INSTRUCTION_FILES[ status.id ];
+					const isInstalling = installingFile === status.id;
+					return (
+						<div
+							key={ status.id }
+							className="flex items-center justify-between px-3 py-2.5 border-b border-gray-200 last:border-b-0"
+						>
+							<div className="flex-1 min-w-0 pr-3">
+								<div className="flex items-center gap-2">
+									<span className="text-sm font-medium text-gray-900">{ config.displayName }</span>
+									{ status.exists && ! status.isOutdated && (
+										<span className="inline-flex items-center gap-1 text-[11px] text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
+											<Icon icon={ check } size={ 12 } />
+											{ __( 'Installed' ) }
 										</span>
-										{ status.exists && ! status.isOutdated && (
-											<span className="inline-flex items-center gap-1 text-[11px] text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
-												<Icon icon={ check } size={ 12 } />
-												{ __( 'Installed' ) }
-											</span>
-										) }
-										{ status.exists && status.isOutdated && (
-											<span className="inline-flex items-center gap-1 text-[11px] text-orange-700 bg-orange-50 px-2 py-0.5 rounded-full">
-												{ __( 'Update Available' ) }
-											</span>
-										) }
-									</div>
-									<div className="text-xs text-gray-500">
-										{ config.description }
-										{ status.isOutdated && (
-											<span className="block mt-1 text-orange-600">
-												{ __(
-													'A newer version is available. Reinstall to get the latest commands.'
-												) }
-											</span>
-										) }
-									</div>
-								</div>
-								<div className={ cx( 'flex items-center gap-2 flex-shrink-0' ) }>
-									{ status.exists && (
-										<Button
-											variant="link"
-											onClick={ () => getIpcApi().openFileInIDE( config.fileName, siteId ) }
-											className="text-xs"
-										>
-											{ __( 'Open' ) }
-										</Button>
 									) }
-									<Button
-										variant="secondary"
-										onClick={ () => handleInstallFile( status.id, status.exists ) }
-										disabled={ isInstalling }
-										className="text-xs py-1 px-2"
-									>
-										{ isInstalling
-											? __( 'Installing...' )
-											: status.exists && status.isOutdated
-											? __( 'Update' )
-											: status.exists
-											? __( 'Reinstall' )
-											: __( 'Install' ) }
-									</Button>
+									{ status.exists && status.isOutdated && (
+										<span className="inline-flex items-center gap-1 text-[11px] text-orange-700 bg-orange-50 px-2 py-0.5 rounded-full">
+											{ __( 'Update Available' ) }
+										</span>
+									) }
+								</div>
+								<div className="text-xs text-gray-500">
+									{ config.description }
+									{ status.isOutdated && (
+										<span className="block mt-1 text-orange-600">
+											{ __(
+												'A newer version is available. Reinstall to get the latest commands.'
+											) }
+										</span>
+									) }
 								</div>
 							</div>
-						);
-					} )
-				) }
+							<div className={ cx( 'flex items-center gap-2 flex-shrink-0' ) }>
+								{ status.exists && (
+									<Button
+										variant="link"
+										onClick={ () => getIpcApi().openFileInIDE( config.fileName, siteId ) }
+										className="text-xs"
+									>
+										{ __( 'Open' ) }
+									</Button>
+								) }
+								<Button
+									variant="secondary"
+									onClick={ () => handleInstallFile( status.id, status.exists ) }
+									disabled={ isInstalling }
+									className="text-xs py-1 px-2"
+								>
+									{ isInstalling
+										? __( 'Installing...' )
+										: status.exists && status.isOutdated
+										? __( 'Update' )
+										: status.exists
+										? __( 'Reinstall' )
+										: __( 'Install' ) }
+								</Button>
+							</div>
+						</div>
+					);
+				} ) }
 			</div>
 
 			<details className="group">

@@ -95,71 +95,43 @@ $metadata = @{
 } | ConvertTo-Json
 Set-Content -Path $metadataPath -Value $metadata
 Write-Host "Generated metadata.json at: $metadataPath"
-Write-Host "metadata.json contents:"
-Get-Content $metadataPath
-
-# Verify Azure auth env vars are visible to child processes
-Write-Host "AZURE_TENANT_ID is set: $(-not [string]::IsNullOrEmpty($env:AZURE_TENANT_ID))"
-Write-Host "AZURE_CLIENT_ID is set: $(-not [string]::IsNullOrEmpty($env:AZURE_CLIENT_ID))"
-Write-Host "AZURE_CLIENT_SECRET is set: $(-not [string]::IsNullOrEmpty($env:AZURE_CLIENT_SECRET))"
 
 # Export paths as env vars for forge and package-appx to consume
 $env:AZURE_CODE_SIGNING_DLIB = $dlibPath
 $env:AZURE_METADATA_JSON = $metadataPath
 $env:SIGNTOOL_PATH = $signtoolPath
 
-# Smoke test: sign a small dummy file to verify Azure auth works before the full build
+# The DLib is a .NET assembly (C++/CLI via Ijwhost.dll) that requires the .NET runtime.
+# Check if .NET 6+ is available; install if missing.
+Write-Host "~~~ Checking .NET runtime..."
+$dotnetRuntimes = $null
+try { $dotnetRuntimes = & dotnet --list-runtimes 2>&1 } catch {}
+
+$hasNet6Plus = $dotnetRuntimes | Where-Object { $_ -match "Microsoft\.NETCore\.App\s+([6-9]|[1-9]\d+)\." } | Select-Object -First 1
+if (-not $hasNet6Plus) {
+    Write-Host "Installing .NET 8 Runtime..."
+    $dotnetInstallScript = "$env:TEMP\dotnet-install.ps1"
+    Invoke-WebRequest -Uri "https://dot.net/v1/dotnet-install.ps1" -OutFile $dotnetInstallScript
+    & $dotnetInstallScript -Runtime dotnet -Channel 8.0 -InstallDir "$env:ProgramFiles\dotnet"
+    $env:PATH = "$env:ProgramFiles\dotnet;$env:PATH"
+}
+
+# Smoke test: sign a dummy file to verify Azure auth before the full build
 Write-Host "~~~ Smoke testing Azure Trusted Signing..."
 $dummyExe = "$env:TEMP\signing-test.exe"
 Copy-Item "C:\Windows\System32\cmd.exe" $dummyExe -Force
 
 $outFile = "$env:TEMP\signtool-out.txt"
-
-# The DLib is a .NET assembly (C++/CLI via Ijwhost.dll) that requires the .NET runtime.
-# Check if .NET 6+ is available; install if missing.
-Write-Host "~~~ Checking .NET runtime..."
-$dotnetRuntimes = $null
-try {
-    $dotnetRuntimes = & dotnet --list-runtimes 2>&1
-    Write-Host "Installed .NET runtimes:"
-    $dotnetRuntimes | ForEach-Object { Write-Host "  $_" }
-} catch {
-    Write-Host "dotnet CLI not found"
-}
-
-$hasNet6Plus = $false
-if ($dotnetRuntimes) {
-    $hasNet6Plus = $dotnetRuntimes | Where-Object { $_ -match "Microsoft\.NETCore\.App\s+([6-9]|[1-9]\d+)\." } | Select-Object -First 1
-}
-
-if (-not $hasNet6Plus) {
-    Write-Host "No .NET 6+ runtime found. Installing .NET 8 Runtime..."
-    $dotnetInstallerUrl = "https://dot.net/v1/dotnet-install.ps1"
-    $dotnetInstallScript = "$env:TEMP\dotnet-install.ps1"
-    Invoke-WebRequest -Uri $dotnetInstallerUrl -OutFile $dotnetInstallScript
-    & $dotnetInstallScript -Runtime dotnet -Channel 8.0 -InstallDir "$env:ProgramFiles\dotnet"
-    # Refresh PATH so Ijwhost.dll can find hostfxr.dll
-    $env:PATH = "$env:ProgramFiles\dotnet;$env:PATH"
-    Write-Host "Verifying .NET 8 installation..."
-    & dotnet --list-runtimes
-}
-
-# Try signing with Azure Trusted Signing
-Write-Host "--- Signing with Azure Trusted Signing ---"
-$signtoolCmd = "`"$signtoolPath`" sign /v /debug /fd SHA256 /tr http://timestamp.acs.microsoft.com /td SHA256 /dlib `"$dlibPath`" /dmdf `"$metadataPath`" `"$dummyExe`""
-Write-Host "Command: $signtoolCmd"
-cmd /c "$signtoolCmd > `"$outFile`" 2>&1"
+cmd /c "`"$signtoolPath`" sign /v /fd SHA256 /tr http://timestamp.acs.microsoft.com /td SHA256 /dlib `"$dlibPath`" /dmdf `"$metadataPath`" `"$dummyExe`" > `"$outFile`" 2>&1"
 $signtoolExitCode = $LastExitCode
-Write-Host "--- signtool output ---"
 Get-Content $outFile
-Write-Host "--- signtool exit code: $signtoolExitCode ---"
 Remove-Item $outFile -ErrorAction SilentlyContinue
 
 If ($signtoolExitCode -ne 0) {
-    Write-Host "Error: Azure Trusted Signing smoke test failed!" -ForegroundColor Red
+    Write-Host "Error: Smoke test failed (exit code $signtoolExitCode)" -ForegroundColor Red
     Exit 1
 }
-Write-Host "Smoke test passed - Azure Trusted Signing is working."
+Write-Host "Smoke test passed."
 Remove-Item $dummyExe -Force
 
 Write-Host "--- :npm: Installing Node dependencies"

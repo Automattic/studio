@@ -11,22 +11,12 @@ import {
 	INSTRUCTION_FILES,
 	type InstructionFileType,
 } from 'src/modules/agent-instructions/constants';
+import { type InstructionFileStatus } from 'src/modules/agent-instructions/lib/instructions';
 
 interface AiSettingsModalProps {
 	isOpen: boolean;
 	onClose: () => void;
 	siteId: string;
-}
-
-interface InstructionFileStatus {
-	id: InstructionFileType;
-	fileName: string;
-	displayName: string;
-	description: string;
-	exists: boolean;
-	path: string;
-	version?: string | null;
-	isOutdated?: boolean;
 }
 
 function AgentInstructionsPanel( { siteId }: { siteId: string } ) {

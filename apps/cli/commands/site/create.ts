@@ -110,7 +110,7 @@ export async function runCommand(
 		}
 
 		let blueprintUri: string | undefined;
-		let blueprint: Blueprint | undefined;
+		let blueprint: BlueprintV1Declaration | undefined;
 		let blueprintCredentials: { adminUsername?: string; adminPassword?: string } | null = null;
 
 		if ( options.blueprint ) {
@@ -131,7 +131,11 @@ export async function runCommand(
 			}
 
 			// Extract login credentials from blueprint before filtering
-			const formValues = extractFormValuesFromBlueprint( options.blueprint.contents as Blueprint );
+			const formValues = extractFormValuesFromBlueprint(
+				// `validateBlueprintData()` does not give us a proper type guard, but in reality, it ensures
+				// `options.blueprint.contents` conforms to the`BlueprintV1Declaration` schema.
+				options.blueprint.contents as BlueprintV1Declaration
+			);
 			if ( formValues.adminUsername || formValues.adminPassword ) {
 				blueprintCredentials = {
 					adminUsername: formValues.adminUsername,
@@ -141,7 +145,7 @@ export async function runCommand(
 
 			blueprintUri = options.blueprint.uri;
 			blueprint = filterUnsupportedBlueprintFeatures(
-				options.blueprint.contents as Record< string, unknown >
+				options.blueprint.contents as BlueprintV1Declaration
 			);
 		}
 
@@ -306,9 +310,8 @@ export async function runCommand(
 				const blueprintDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-empty-blueprint-' ) );
 				blueprintUri = path.join( blueprintDir, 'blueprint.json' );
 			}
-			const blueprintDecl = blueprint as BlueprintV1Declaration;
-			const existingSteps = blueprintDecl.steps || [];
-			blueprintDecl.steps = [ ...setupSteps, ...existingSteps ];
+			const existingSteps = Array.isArray( blueprint.steps ) ? blueprint.steps : [];
+			blueprint = { ...blueprint, steps: [ ...setupSteps, ...existingSteps ] };
 		}
 
 		const siteDetails: SiteData = {
@@ -393,10 +396,13 @@ export async function runCommand(
 
 				logger.reportStart( LoggerAction.START_SITE, __( 'Applying Blueprint…' ) );
 				try {
+					if ( ! blueprintUri ) {
+						throw new LoggerError( __( 'Blueprint source path is missing' ) );
+					}
 					await runBlueprint( siteDetails, logger, {
 						wpVersion: options.wpVersion,
 						blueprint,
-						blueprintUri: blueprintUri as string,
+						blueprintUri,
 					} );
 					logger.reportSuccess( __( 'Blueprint applied successfully' ) );
 

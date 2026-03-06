@@ -1,5 +1,9 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
-import type { Blueprint } from '@wp-playground/blueprints';
+import {
+	type Blueprint,
+	type BlueprintV1Declaration,
+	isStepDefinition,
+} from '@wp-playground/blueprints';
 
 type BlueprintSiteSettings = Partial<
 	Pick< StoppedSiteDetails, 'phpVersion' | 'customDomain' | 'enableHttps' >
@@ -13,7 +17,9 @@ type BlueprintSiteSettings = Partial<
 /**
  * Extracts form-relevant values from a blueprint.
  */
-export function extractFormValuesFromBlueprint( blueprintJson: Blueprint ): BlueprintSiteSettings {
+export function extractFormValuesFromBlueprint(
+	blueprintJson: BlueprintV1Declaration
+): BlueprintSiteSettings {
 	const values: BlueprintSiteSettings = {};
 
 	if ( blueprintJson.preferredVersions ) {
@@ -25,57 +31,47 @@ export function extractFormValuesFromBlueprint( blueprintJson: Blueprint ): Blue
 		}
 	}
 
-	if ( blueprintJson.steps && Array.isArray( blueprintJson.steps ) ) {
-		const defineSiteUrlStep = blueprintJson.steps.find(
-			( step: { step?: string } ) => step.step === 'defineSiteUrl'
-		);
-		if ( defineSiteUrlStep?.siteUrl ) {
-			try {
-				const url = new URL( defineSiteUrlStep.siteUrl );
-				values.customDomain = url.hostname;
-				values.enableHttps = url.protocol === 'https:';
-			} catch {
-				// Invalid URL, skip
-			}
-		}
+	const steps = Array.isArray( blueprintJson.steps )
+		? blueprintJson.steps.filter( isStepDefinition )
+		: [];
 
-		// Extract login credentials from login step
-		const loginStep = blueprintJson.steps.find(
-			( step: { step?: string } ) => step.step === 'login'
-		);
-		if ( loginStep ) {
-			const { username, password } = loginStep as { username?: string; password?: string };
-			if ( typeof username === 'string' ) {
-				values.adminUsername = username;
-			}
-			if ( typeof password === 'string' ) {
-				values.adminPassword = password;
-			}
+	const defineSiteUrlStep = steps.find( ( step ) => step.step === 'defineSiteUrl' );
+	if ( defineSiteUrlStep?.siteUrl ) {
+		try {
+			const url = new URL( defineSiteUrlStep.siteUrl );
+			values.customDomain = url.hostname;
+			values.enableHttps = url.protocol === 'https:';
+		} catch {
+			// Invalid URL, skip
 		}
+	}
 
-		const setSiteOptionsStep = blueprintJson.steps.find(
-			( step: { step?: string; options?: Record< string, unknown > } ) =>
-				step.step === 'setSiteOptions' && step.options?.blogname
-		);
-		if ( setSiteOptionsStep?.options?.blogname ) {
-			values.siteName = String( setSiteOptionsStep.options.blogname );
+	// Extract login credentials from login step
+	const loginStep = steps.find( ( step ) => step.step === 'login' );
+	if ( loginStep ) {
+		if ( typeof loginStep.username === 'string' ) {
+			values.adminUsername = loginStep.username;
 		}
+		if ( typeof loginStep.password === 'string' ) {
+			values.adminPassword = loginStep.password;
+		}
+	}
+
+	const setSiteOptionsStep = steps.find( ( step ) => step.step === 'setSiteOptions' );
+	if ( setSiteOptionsStep?.options?.blogname ) {
+		values.siteName = String( setSiteOptionsStep.options.blogname );
 	}
 
 	// Check top-level login property (shorthand syntax).
 	// login: true just enables auto-login with defaults, login: false disables it — neither has credentials to extract.
-	if ( blueprintJson.login !== undefined && blueprintJson.login !== true ) {
-		if ( typeof blueprintJson.login === 'object' && blueprintJson.login !== null ) {
-			const { username, password } = blueprintJson.login as {
-				username?: string;
-				password?: string;
-			};
-			if ( typeof username === 'string' ) {
-				values.adminUsername = username;
-			}
-			if ( typeof password === 'string' ) {
-				values.adminPassword = password;
-			}
+	if ( blueprintJson.login !== undefined && typeof blueprintJson.login !== 'boolean' ) {
+		const username = blueprintJson.login.username;
+		const password = blueprintJson.login.password;
+		if ( typeof username === 'string' ) {
+			values.adminUsername = username;
+		}
+		if ( typeof password === 'string' ) {
+			values.adminPassword = password;
 		}
 	}
 
@@ -191,7 +187,7 @@ export function generateDefaultBlueprintDescription( blueprintJson: Blueprint ):
 	};
 
 	for ( const step of blueprintJson.steps ) {
-		const stepName = ( step as { step?: string } ).step;
+		const stepName = Reflect.get( step, 'step' );
 		switch ( stepName ) {
 			case 'installPlugin':
 				counts.plugins++;

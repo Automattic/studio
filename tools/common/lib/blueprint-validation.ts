@@ -1,6 +1,6 @@
 import { __, sprintf } from '@wordpress/i18n';
+import { isStepDefinition, type BlueprintV1Declaration } from '@wp-playground/blueprints';
 import validateBlueprintSchema from '@wp-playground/blueprints/blueprint-schema-validator';
-import type { Blueprint } from '@wp-playground/blueprints';
 
 interface UnsupportedFeature {
 	type: 'step' | 'property';
@@ -54,16 +54,17 @@ export type BlueprintPreferredVersions = {
 	wp?: string;
 };
 
-export function scanBlueprintForUnsupportedFeatures( blueprint: Blueprint ): UnsupportedFeature[] {
+export function scanBlueprintForUnsupportedFeatures(
+	blueprint: BlueprintV1Declaration
+): UnsupportedFeature[] {
 	const foundUnsupported: UnsupportedFeature[] = [];
+	const steps = Array.isArray( blueprint.steps ) ? blueprint.steps.filter( isStepDefinition ) : [];
 
-	if ( blueprint.steps && Array.isArray( blueprint.steps ) ) {
-		for ( const step of blueprint.steps ) {
-			if ( step.step && ! isStepSupported( step.step ) ) {
-				const featureInfo = getUnsupportedFeatureInfo( step.step );
-				if ( featureInfo ) {
-					foundUnsupported.push( featureInfo );
-				}
+	for ( const step of steps ) {
+		if ( step.step && ! isStepSupported( step.step ) ) {
+			const featureInfo = getUnsupportedFeatureInfo( step.step );
+			if ( featureInfo ) {
+				foundUnsupported.push( featureInfo );
 			}
 		}
 	}
@@ -84,18 +85,14 @@ export function scanBlueprintForUnsupportedFeatures( blueprint: Blueprint ): Uns
 }
 
 export function filterUnsupportedBlueprintFeatures(
-	blueprint: Blueprint | undefined
-): Blueprint | undefined {
+	blueprint: BlueprintV1Declaration | undefined
+): BlueprintV1Declaration | undefined {
 	if ( ! blueprint ) {
 		return undefined;
 	}
 	const filtered = { ...blueprint };
-
-	if ( filtered.steps && Array.isArray( filtered.steps ) ) {
-		filtered.steps = filtered.steps.filter(
-			( step: { step: string } ) => step.step && isStepSupported( step.step )
-		);
-	}
+	const steps = Array.isArray( filtered.steps ) ? filtered.steps.filter( isStepDefinition ) : [];
+	filtered.steps = steps.filter( ( step ) => step && step.step && isStepSupported( step.step ) );
 
 	for ( const [ key ] of Object.entries( filtered ) ) {
 		if ( ! isPropertySupported( key ) ) {
@@ -147,7 +144,10 @@ export async function validateBlueprintData(
 		};
 	}
 
-	const unsupportedFeatures = scanBlueprintForUnsupportedFeatures( blueprintJson as Blueprint );
+	const unsupportedFeatures = scanBlueprintForUnsupportedFeatures(
+		// `validateBlueprintSchema()` doesn't give us a proper type guard, but in reality, it ensures `blueprintJson` has the correct type
+		blueprintJson as BlueprintV1Declaration
+	);
 	const warnings = unsupportedFeatures.map( ( feature ) => ( {
 		feature: feature.name,
 		reason: feature.reason,

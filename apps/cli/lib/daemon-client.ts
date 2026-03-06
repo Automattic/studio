@@ -37,7 +37,7 @@ export const SITE_EVENTS_SOCKET_PATH =
 		? '\\\\.\\pipe\\studio-events.sock'
 		: path.join( PROCESS_MANAGER_HOME, 'events.sock' );
 
-if ( process.platform !== 'win32' && ! fs.existsSync( PROCESS_MANAGER_HOME ) ) {
+if ( ! fs.existsSync( PROCESS_MANAGER_HOME ) ) {
 	fs.mkdirSync( PROCESS_MANAGER_HOME, { recursive: true } );
 }
 

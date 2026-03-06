@@ -12,7 +12,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import fastDeepEqual from 'fast-deep-equal';
 import { LIMIT_OF_ZIP_SITES_PER_USER } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { AppDispatch, RootState, store } from 'src/stores/index';
+import { RootState, store } from 'src/stores/index';
 import { wpcomApi } from 'src/stores/wpcom-api';
 import type { UUID } from 'crypto';
 
@@ -65,7 +65,6 @@ const getInitialState = (): SnapshotState => {
 
 const createTypedAsyncThunk = createAsyncThunk.withTypes< {
 	state: RootState;
-	dispatch: AppDispatch;
 } >();
 
 const createSnapshot = createTypedAsyncThunk(

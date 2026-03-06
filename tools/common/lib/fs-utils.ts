@@ -64,8 +64,7 @@ export function isWordPressDirectory( projectPath: string ): boolean {
 // `fs.Stats.dev` signifies the device ID, and `fs.Stats.ino` signifies the inode number
 // that uniquely identifies the file or directory. This approach respects the current file
 // system's case sensitivity.
-// Falls back to string comparison when either path doesn't exist (e.g., deleted directories),
-// using case-insensitive comparison on macOS/Windows.
+// Falls back to string comparison when either path doesn't exist (e.g., deleted directories).
 export function arePathsEqual( path1: string, path2: string ) {
 	try {
 		const stats1 = fs.statSync( path.resolve( path1 ) );

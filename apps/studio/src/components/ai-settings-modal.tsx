@@ -34,9 +34,7 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 	const [ statuses, setStatuses ] = useState< InstructionFileStatus[] >( [] );
 	const [ error, setError ] = useState< string | null >( null );
 	const [ isLoading, setIsLoading ] = useState( true );
-	const [ installingFile, setInstallingFile ] = useState< InstructionFileType | 'all' | null >(
-		null
-	);
+	const [ installingFile, setInstallingFile ] = useState< InstructionFileType | null >( null );
 
 	const refreshStatus = useCallback(
 		async ( showLoadingSpinner = false ) => {
@@ -132,7 +130,7 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 				) : (
 					statuses.map( ( status ) => {
 						const config = INSTRUCTION_FILES[ status.id ];
-						const isInstalling = installingFile === status.id || installingFile === 'all';
+						const isInstalling = installingFile === status.id;
 						return (
 							<div
 								key={ status.id }

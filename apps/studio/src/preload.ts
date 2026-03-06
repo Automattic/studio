@@ -161,8 +161,6 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'getAgentInstructionsStatus', siteId ),
 	installAgentInstructions: ( siteId, options ) =>
 		ipcRendererInvoke( 'installAgentInstructions', siteId, options ),
-	installAllAgentInstructions: ( siteId, options ) =>
-		ipcRendererInvoke( 'installAllAgentInstructions', siteId, options ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

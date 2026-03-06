@@ -73,7 +73,6 @@ import {
 import {
 	getAllInstructionFilesStatus,
 	installInstructionFile,
-	installAllInstructionFiles,
 	type InstructionFileStatus,
 } from 'src/modules/agent-instructions/lib/instructions';
 import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
@@ -162,16 +161,6 @@ export async function installAgentInstructions(
 	const overwrite = options?.overwrite ?? false;
 	const fileType = options?.fileType ?? 'agents';
 	return installInstructionFile( sitePath, fileType, DEFAULT_AGENT_INSTRUCTIONS, overwrite );
-}
-
-export async function installAllAgentInstructions(
-	_event: IpcMainInvokeEvent,
-	siteId: string,
-	options?: { overwrite?: boolean }
-): Promise< Array< { fileType: InstructionFileType; path: string; overwritten: boolean } > > {
-	const sitePath = await getAgentInstructionsSitePath( siteId );
-	const overwrite = options?.overwrite ?? false;
-	return installAllInstructionFiles( sitePath, DEFAULT_AGENT_INSTRUCTIONS, overwrite );
 }
 
 const DEBUG_LOG_MAX_LINES = 50;

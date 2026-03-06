@@ -6,10 +6,8 @@ import { baseConfig, yargsLocalesCopyPlugin } from './vite.config.base';
 const packageJson = JSON.parse( readFileSync( resolve( __dirname, 'package.json' ), 'utf-8' ) );
 const packageVersion = packageJson.version;
 
-// Externalize all runtime dependencies except @studio/common (which is bundled via alias)
-const externalDeps = Object.keys( packageJson.dependencies || {} ).filter(
-	( dep ) => dep !== '@studio/common'
-);
+// Externalize all runtime dependencies listed in package.json
+const externalDeps = Object.keys( packageJson.dependencies || {} );
 
 /**
  * Vite plugin that prepends a Node.js shebang to the main entry point.

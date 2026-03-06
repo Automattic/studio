@@ -133,7 +133,7 @@ export async function runCommand(
 			// Extract login credentials from blueprint before filtering
 			const formValues = extractFormValuesFromBlueprint(
 				// `validateBlueprintData()` does not give us a proper type guard, but in reality, it ensures
-				// `options.blueprint.contents` conforms to the`BlueprintV1Declaration` schema.
+				// `options.blueprint.contents` conforms to the `BlueprintV1Declaration` schema.
 				options.blueprint.contents as BlueprintV1Declaration
 			);
 			if ( formValues.adminUsername || formValues.adminPassword ) {

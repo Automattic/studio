@@ -45,7 +45,6 @@ vi.mock( 'src/hooks/use-import-export', () => ( {
 } ) );
 
 const mockConnectSite = vi.fn().mockReturnValue( { unwrap: () => Promise.resolve( [] ) } );
-const mockConnectWpcomSites = vi.fn().mockResolvedValue( undefined );
 const mockShowOpenFolderDialog = vi.fn();
 const mockGenerateProposedSitePath = vi.fn().mockResolvedValue( {
 	path: '/default/path',
@@ -61,7 +60,6 @@ vi.mock( 'src/lib/get-ipc-api', () => ( {
 		showOpenFolderDialog: mockShowOpenFolderDialog,
 		showNotification: vi.fn(),
 		getAllCustomDomains: vi.fn().mockResolvedValue( [] ),
-		connectWpcomSites: mockConnectWpcomSites,
 		getConnectedWpcomSites: vi.fn().mockResolvedValue( [] ),
 		comparePaths: mockComparePaths,
 	} ),
@@ -285,7 +283,7 @@ describe( 'useAddSite', () => {
 		} );
 
 		expect( mockConnectSite ).toHaveBeenCalledWith( {
-			remoteSiteId: remoteSite.id,
+			site: remoteSite,
 			localSiteId: createdSite.id,
 		} );
 		expect( mockPullSiteThunk ).toHaveBeenCalledWith( {

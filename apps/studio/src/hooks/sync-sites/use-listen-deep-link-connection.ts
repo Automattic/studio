@@ -3,11 +3,11 @@ import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { useAppDispatch } from 'src/stores';
-import { connectedSitesActions, useConnectSiteMutation } from 'src/stores/sync/connected-sites';
+import { connectedSitesActions, useConnectSiteByIdMutation } from 'src/stores/sync/connected-sites';
 
 export function useListenDeepLinkConnection() {
 	const dispatch = useAppDispatch();
-	const [ connectSite ] = useConnectSiteMutation();
+	const [ connectSiteById ] = useConnectSiteByIdMutation();
 	const { selectedSite, setSelectedSiteId } = useSiteDetails();
 	const { setSelectedTab, selectedTab } = useContentTabs();
 	const { user } = useAuth();
@@ -19,7 +19,11 @@ export function useListenDeepLinkConnection() {
 				// Select studio site that started the sync
 				setSelectedSiteId( studioSiteId );
 			}
-			await connectSite( { remoteSiteId, localSiteId: studioSiteId, userId: user?.id } );
+			await connectSiteById( {
+				remoteSiteId,
+				localSiteId: studioSiteId,
+				userId: user?.id,
+			} ).unwrap();
 			if ( selectedTab !== 'sync' ) {
 				// Switch to sync tab
 				setSelectedTab( 'sync' );

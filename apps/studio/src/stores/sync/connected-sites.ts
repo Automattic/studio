@@ -53,6 +53,17 @@ export const connectedSitesSelectors = {
 	selectSelectedRemoteSiteId: ( state: RootState ) => state.connectedSites.selectedRemoteSiteId,
 };
 
+async function persistConnectedSite( site: SyncSite, localSiteId: string ) {
+	await getIpcApi().connectWpcomSites( [
+		{
+			sites: [ site ],
+			localSiteId,
+		},
+	] );
+
+	return getIpcApi().getConnectedWpcomSites( localSiteId );
+}
+
 export const connectedSitesApi = createApi( {
 	reducerPath: 'connectedSitesApi',
 	baseQuery: fetchBaseQuery(),
@@ -75,7 +86,17 @@ export const connectedSitesApi = createApi( {
 			],
 		} ),
 
-		connectSite: builder.mutation<
+		connectSite: builder.mutation< SyncSite[], { site: SyncSite; localSiteId: string } >( {
+			queryFn: async ( { site, localSiteId } ) => {
+				const actualConnectedSites = await persistConnectedSite( site, localSiteId );
+				return { data: actualConnectedSites };
+			},
+			invalidatesTags: ( result, error, { localSiteId } ) => [
+				{ type: 'ConnectedSites', localSiteId },
+			],
+		} ),
+
+		connectSiteById: builder.mutation<
 			SyncSite[],
 			{ remoteSiteId: number; localSiteId: string; userId?: number }
 		>( {
@@ -101,15 +122,7 @@ export const connectedSitesApi = createApi( {
 					};
 				}
 
-				await getIpcApi().connectWpcomSites( [
-					{
-						sites: [ siteToConnect ],
-						localSiteId,
-					},
-				] );
-
-				const actualConnectedSites = await getIpcApi().getConnectedWpcomSites( localSiteId );
-
+				const actualConnectedSites = await persistConnectedSite( siteToConnect, localSiteId );
 				return { data: actualConnectedSites };
 			},
 			invalidatesTags: ( result, error, { localSiteId } ) => [
@@ -169,6 +182,7 @@ export const connectedSitesApi = createApi( {
 export const {
 	useGetConnectedSitesForLocalSiteQuery,
 	useConnectSiteMutation,
+	useConnectSiteByIdMutation,
 	useDisconnectSiteMutation,
 	useUpdateSiteTimestampMutation,
 } = connectedSitesApi;

@@ -161,18 +161,19 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		return <NoAuthSyncTab />;
 	}
 
-	const handleConnect = async ( remoteSiteId: number ) => {
+	const handleConnect = async ( remoteSite: SyncSite ) => {
 		try {
 			await connectSite( {
-				remoteSiteId,
+				site: remoteSite,
 				localSiteId: selectedSite.id,
-				userId: user?.id,
-			} );
+			} ).unwrap();
+			return true;
 		} catch ( error ) {
 			getIpcApi().showErrorMessageBox( {
 				title: __( 'Failed to connect to site' ),
 				message: __( 'Please try again.' ),
 			} );
+			return false;
 		}
 	};
 
@@ -190,8 +191,10 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 			dispatch( connectedSitesActions.openModal( reduxModalMode ) );
 			setSelectedRemoteSite( selectedSiteFromList );
 		} else {
-			await handleConnect( siteId );
-			dispatch( connectedSitesActions.closeModal() );
+			const didConnect = await handleConnect( selectedSiteFromList );
+			if ( didConnect ) {
+				dispatch( connectedSitesActions.closeModal() );
+			}
 		}
 	};
 
@@ -247,7 +250,10 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 					localSite={ selectedSite }
 					remoteSite={ selectedRemoteSite }
 					onPush={ async ( tree ) => {
-						await handleConnect( selectedRemoteSite.id );
+						const didConnect = await handleConnect( selectedRemoteSite );
+						if ( ! didConnect ) {
+							return;
+						}
 						const pushOptions = convertTreeToPushOptions( tree );
 						void dispatch(
 							syncOperationsThunks.pushSite( {
@@ -261,7 +267,10 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 						if ( ! client ) {
 							return;
 						}
-						await handleConnect( selectedRemoteSite.id );
+						const didConnect = await handleConnect( selectedRemoteSite );
+						if ( ! didConnect ) {
+							return;
+						}
 						const pullOptions = convertTreeToPullOptions( tree );
 						void dispatch(
 							syncOperationsThunks.pullSite( {

@@ -80,17 +80,17 @@ describe( 'isInstalled', () => {
 			isInstalled = module.isInstalled;
 		} );
 
-		it( 'detects VS Code installed in system Applications', () => {
+		it( 'detects Visual Studio Code installed in system Applications', () => {
 			mockPaths = [ '/Applications/Visual Studio Code.app' ];
 			expect( isInstalled( 'vscode' ) ).toBe( true );
 		} );
 
-		it( 'detects VS Code installed in user Applications', () => {
+		it( 'detects Visual Studio Code installed in user Applications', () => {
 			mockPaths = [ '/mock/home/path/Applications/Visual Studio Code.app' ];
 			expect( isInstalled( 'vscode' ) ).toBe( true );
 		} );
 
-		it( 'returns false when VS Code is not installed', () => {
+		it( 'returns false when Visual Studio Code is not installed', () => {
 			mockPaths = [];
 			expect( isInstalled( 'vscode' ) ).toBe( false );
 		} );
@@ -112,12 +112,12 @@ describe( 'isInstalled', () => {
 			isInstalled = module.isInstalled;
 		} );
 
-		it( 'detects VS Code installed in Program Files', () => {
+		it( 'detects Visual Studio Code installed in Program Files', () => {
 			mockPaths = [ 'D:\\Program Files\\Microsoft VS Code' ];
 			expect( isInstalled( 'vscode' ) ).toBe( true );
 		} );
 
-		it( 'detects VS Code installed in Local Programs', () => {
+		it( 'detects Visual Studio Code installed in Local Programs', () => {
 			mockPaths = [ 'C:\\Users\\TestUser\\AppData\\Local\\Programs\\Microsoft VS Code' ];
 			expect( isInstalled( 'vscode' ) ).toBe( true );
 		} );

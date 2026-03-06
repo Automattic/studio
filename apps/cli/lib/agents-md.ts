@@ -98,7 +98,7 @@ studio wp db query "SELECT option_name, option_value FROM wp_options LIMIT 10;"
 
 **Port and URL:** The local URL and port are assigned dynamically by Studio. Always retrieve the current URL with \`studio site status\` rather than hardcoding it.
 
-**Multisite:** WordPress Multisite is not supported in Studio sites.
+**Multisite:** WordPress Multisite is supported in Studio sites when the site was created from a blueprint that includes the \`enableMultisite\` step. Multisite requires a custom domain — Studio will prompt for one during site creation when the blueprint includes that step.
 
 **Persistence:** The site runs in-process using PHP WASM. File writes to \`wp-content/\` persist to disk normally. Server-side cron is emulated; long-running background processes are not supported.
 `;

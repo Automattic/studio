@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { defineConfig, mergeConfig } from 'vite';
-import { baseConfig, yargsLocalesCopyPlugin } from './vite.config.base';
+import { baseConfig, nodeBuiltinExternals, yargsLocalesCopyPlugin } from './vite.config.base';
 
 const packageJson = JSON.parse( readFileSync( resolve( __dirname, 'package.json' ), 'utf-8' ) );
 const packageVersion = packageJson.version;
@@ -21,18 +21,12 @@ export default mergeConfig(
 					banner: ( chunk ) => ( chunk.fileName === 'main.js' ? '#!/usr/bin/env node' : '' ),
 				},
 				external: ( id ) => {
-					// Node built-ins
-					if ( /^node:/.test( id ) ) {
-						return true;
-					}
+					// Node built-ins (reuse shared list from base config)
 					if (
-						/^(path|fs|os|child_process|crypto|http|https|http2|url|querystring|stream|util|events|buffer|assert|net|tty|readline|zlib|constants|tls|domain|dns)$/.test(
-							id
+						nodeBuiltinExternals.some( ( pattern ) =>
+							pattern instanceof RegExp ? pattern.test( id ) : pattern === id
 						)
 					) {
-						return true;
-					}
-					if ( id === 'fs/promises' || id === 'dns/promises' ) {
 						return true;
 					}
 

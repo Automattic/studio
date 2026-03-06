@@ -4,10 +4,12 @@ import {
 	type BlueprintV1Declaration,
 	isStepDefinition,
 } from '@wp-playground/blueprints';
+import type { BlueprintPHPVersion } from '@wp-playground/blueprints/lib/v1/types';
 
-type BlueprintSiteSettings = Partial<
-	Pick< StoppedSiteDetails, 'phpVersion' | 'customDomain' | 'enableHttps' >
-> & {
+type BlueprintSiteSettings = {
+	enableHttps?: boolean;
+	phpVersion?: BlueprintPHPVersion;
+	customDomain?: string;
 	wpVersion?: string;
 	adminUsername?: string;
 	adminPassword?: string;
@@ -82,15 +84,13 @@ export function extractFormValuesFromBlueprint(
  * Updates a blueprint with form values. Only updates properties that already exist.
  */
 export function updateBlueprintWithFormValues(
-	blueprintJson: Blueprint,
+	blueprintJson: BlueprintV1Declaration,
 	formValues: BlueprintSiteSettings
 ): Blueprint {
-	const updated = { ...blueprintJson };
+	const updated = structuredClone( blueprintJson );
 
 	// Update preferred versions (only if they already exist)
 	if ( updated.preferredVersions ) {
-		updated.preferredVersions = { ...updated.preferredVersions };
-
 		if ( updated.preferredVersions.php !== undefined && formValues.phpVersion ) {
 			updated.preferredVersions.php = formValues.phpVersion;
 		}
@@ -99,41 +99,17 @@ export function updateBlueprintWithFormValues(
 		}
 	}
 
-	// Update defineSiteUrl step (only if it already exists)
-	if ( updated.steps && Array.isArray( updated.steps ) ) {
-		const stepIndex = updated.steps.findIndex(
-			( step: { step?: string } ) => step.step === 'defineSiteUrl'
-		);
+	const steps = Array.isArray( updated.steps ) ? updated.steps.filter( isStepDefinition ) : [];
 
-		if ( stepIndex >= 0 && formValues.customDomain ) {
-			const protocol = formValues.enableHttps ? 'https' : 'http';
-			updated.steps = [ ...updated.steps ];
-			updated.steps[ stepIndex ] = {
-				...updated.steps[ stepIndex ],
-				siteUrl: `${ protocol }://${ formValues.customDomain }`,
-			};
-		}
+	const defineSiteUrlStep = steps.find( ( step ) => step.step === 'defineSiteUrl' );
+	if ( defineSiteUrlStep && formValues.customDomain ) {
+		const protocol = formValues.enableHttps ? 'https' : 'http';
+		defineSiteUrlStep.siteUrl = `${ protocol }://${ formValues.customDomain }`;
+	}
 
-		// Update setSiteOptions blogname (only if it already exists)
-		if ( formValues.siteName ) {
-			const siteOptionsIndex = updated.steps.findIndex(
-				( step: { step?: string; options?: Record< string, unknown > } ) =>
-					step.step === 'setSiteOptions' && step.options?.blogname
-			);
-
-			if ( siteOptionsIndex >= 0 ) {
-				if ( updated.steps === blueprintJson.steps ) {
-					updated.steps = [ ...updated.steps ];
-				}
-				updated.steps[ siteOptionsIndex ] = {
-					...updated.steps[ siteOptionsIndex ],
-					options: {
-						...updated.steps[ siteOptionsIndex ].options,
-						blogname: formValues.siteName,
-					},
-				};
-			}
-		}
+	const siteOptionsStep = steps.find( ( step ) => step.step === 'setSiteOptions' );
+	if ( siteOptionsStep?.options && formValues.siteName ) {
+		siteOptionsStep.options.blogname = formValues.siteName;
 	}
 
 	return updated;
@@ -171,8 +147,14 @@ function joinWithAnd( items: string[] ): string {
  * Generates a default description from a blueprint's steps array.
  * Returns a human-readable summary like "Installs 3 plugins and 2 themes. Runs 1 block of PHP code."
  */
-export function generateDefaultBlueprintDescription( blueprintJson: Blueprint ): string {
-	if ( ! blueprintJson.steps || ! Array.isArray( blueprintJson.steps ) ) {
+export function generateDefaultBlueprintDescription(
+	blueprintJson: BlueprintV1Declaration
+): string {
+	const steps = Array.isArray( blueprintJson.steps )
+		? blueprintJson.steps.filter( isStepDefinition )
+		: [];
+
+	if ( ! steps.length ) {
 		return '';
 	}
 
@@ -186,8 +168,8 @@ export function generateDefaultBlueprintDescription( blueprintJson: Blueprint ):
 		siteConfig: 0,
 	};
 
-	for ( const step of blueprintJson.steps ) {
-		const stepName = Reflect.get( step, 'step' );
+	for ( const step of steps ) {
+		const stepName = step.step;
 		switch ( stepName ) {
 			case 'installPlugin':
 				counts.plugins++;

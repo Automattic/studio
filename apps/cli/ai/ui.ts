@@ -498,8 +498,10 @@ export class AiChatUI {
 		const lines = text.split( '\n' );
 		const formatted = lines
 			.map( ( line, i ) => {
-				const prefix = i === 0 ? ' ' + chalk.blue( '❯' ) + ' ' : '   ';
-				return prefix + chalk.inverse( ' ' + line + ' ' );
+				if ( i === 0 ) {
+					return ' ' + chalk.bgWhite.black( ' ❯ ' + line + ' ' );
+				}
+				return ' ' + chalk.bgWhite.black( '   ' + line + ' ' );
 			} )
 			.join( '\n' );
 		this.messages.addChild( new Text( formatted, 0, 0 ) );
@@ -718,12 +720,12 @@ export class AiChatUI {
 						if ( ! this.currentMarkdown ) {
 							this.currentResponseText = '';
 							this.hasShownResponseMarker = false;
-							this.currentMarkdown = new Markdown( '\n', 1, 0, markdownTheme );
-							this.messages.addChild( this.currentMarkdown );
 						}
 						if ( ! this.hasShownResponseMarker ) {
 							this.messages.addChild( new Text( ' ' + chalk.blue( '⏺' ) + ' ', 0, 0 ) );
 							this.hasShownResponseMarker = true;
+							this.currentMarkdown = new Markdown( '\n', 1, 0, markdownTheme );
+							this.messages.addChild( this.currentMarkdown );
 						}
 						// Add a line break between consecutive assistant messages
 						if ( this.currentResponseText && ! this.currentResponseText.endsWith( '\n' ) ) {

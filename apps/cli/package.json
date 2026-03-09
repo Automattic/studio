@@ -28,7 +28,8 @@
 		"build": "vite build --config ./vite.config.ts",
 		"install:bundle": "npm install --omit=dev --no-package-lock --no-progress --install-links --no-workspaces && patch-package && node ../../scripts/remove-fs-ext-other-platform-binaries.mjs",
 		"package": "npm run install:bundle && npm run build",
-		"watch": "vite build --config ./vite.config.ts --watch"
+		"watch": "vite build --config ./vite.config.ts --watch",
+		"mcp-bundle": "mcpb pack mcp-bundle dist/wordpress-studio.mcpb"
 	},
 	"devDependencies": {
 		"@types/archiver": "^6.0.4",

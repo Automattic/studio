@@ -1,0 +1,61 @@
+{
+	"manifest_version": "0.3",
+	"name": "wordpress-studio",
+	"display_name": "WordPress Studio",
+	"version": "1.7.5",
+	"description": "Manage local WordPress sites via WordPress Studio",
+	"long_description": "Control your local WordPress sites directly from Claude. List, start, stop, create, and delete sites. Read and write site files. Run WP-CLI commands. Create and manage preview sites on WordPress.com. Requires WordPress Studio to be installed.",
+	"author": {
+		"name": "Automattic Inc.",
+		"url": "https://developer.wordpress.com/studio"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/Automattic/studio"
+	},
+	"homepage": "https://developer.wordpress.com/studio",
+	"documentation": "https://github.com/Automattic/studio",
+	"support": "https://github.com/Automattic/studio/issues",
+	"icon": "icon.png",
+	"server": {
+		"type": "node",
+		"entry_point": "server/index.js",
+		"mcp_config": {
+			"command": "node",
+			"args": ["${__dirname}/server/index.js"],
+			"platform_overrides": {
+				"win32": {
+					"command": "node",
+					"args": ["${__dirname}/server/index.js"]
+				}
+			}
+		}
+	},
+	"tools": [
+		{ "name": "site_list", "description": "List all WordPress sites in Studio" },
+		{ "name": "site_status", "description": "Get detailed status of a WordPress site" },
+		{ "name": "site_start", "description": "Start a WordPress site" },
+		{ "name": "site_stop", "description": "Stop a WordPress site" },
+		{ "name": "site_create", "description": "Create a new WordPress site" },
+		{ "name": "site_delete", "description": "Delete a WordPress site" },
+		{ "name": "site_set", "description": "Update settings for a WordPress site" },
+		{ "name": "fs_list_dir", "description": "List files inside a WordPress site" },
+		{ "name": "fs_read_file", "description": "Read a file inside a WordPress site" },
+		{ "name": "fs_write_file", "description": "Write content to a file inside a WordPress site" },
+		{ "name": "fs_delete", "description": "Delete a file or directory inside a WordPress site" },
+		{ "name": "wp", "description": "Run a WP-CLI command on a running WordPress site" },
+		{ "name": "preview_list", "description": "List preview sites for a WordPress site" },
+		{ "name": "preview_create", "description": "Create a preview site from a WordPress site" },
+		{ "name": "auth_status", "description": "Check WordPress.com authentication status" }
+	],
+	"keywords": ["wordpress", "studio", "local", "development", "wp-cli", "preview"],
+	"license": "GPL-2.0-or-later",
+	"compatibility": {
+		"claude_desktop": ">=0.10.0",
+		"platforms": ["darwin", "win32"],
+		"runtimes": {
+			"node": ">=18.0.0"
+		}
+	},
+	"privacy_policies": []
+}

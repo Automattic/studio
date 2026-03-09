@@ -4,17 +4,21 @@
 
 Add a `studio mcp` subcommand to the Studio CLI that implements an MCP (Model Context Protocol) server over stdin/stdout. This lets Claude Desktop (or any MCP client) manage local WordPress sites directly.
 
-**Claude Desktop config:**
+There are two ways to connect Claude Desktop to the Studio MCP server:
+
+**Option A — Manual config** (edit `claude_desktop_config.json` directly):
 ```json
 {
   "mcpServers": {
     "studio": {
-      "command": "studio",
-      "args": ["mcp"]
+      "command": "node",
+      "args": ["/Applications/Studio.app/Contents/Resources/cli/main.js", "mcp"]
     }
   }
 }
 ```
+
+**Option B — `.mcpb` drag-and-drop bundle** (see [MCP Bundle](#mcp-bundle) section below).
 
 ## Why build it into the CLI (not a separate package)
 
@@ -48,47 +52,106 @@ Add `@modelcontextprotocol/sdk` to `apps/cli/package.json`. This single package 
 
 ## Tools
 
-18 tools across 5 categories — matching the prototype's scope:
+15 tools across 5 categories:
 
 ### Sites (7)
 | Tool | Description |
 |------|-------------|
-| `studio_site_list` | List all local sites |
-| `studio_site_status` | Get site details (URL, credentials, PHP/WP versions) |
-| `studio_site_start` | Start a site |
-| `studio_site_stop` | Stop a site |
-| `studio_site_create` | Create a new site (supports WP version, PHP version, Blueprints) |
-| `studio_site_delete` | Delete a site (requires `confirm: true`) |
-| `studio_site_set` | Modify site settings (domain, HTTPS, PHP/WP version, Xdebug) |
+| `site_list` | List all local sites |
+| `site_status` | Get site details (URL, credentials, PHP/WP versions) |
+| `site_start` | Start a site |
+| `site_stop` | Stop a site |
+| `site_create` | Create a new site (supports WP version, PHP version) |
+| `site_delete` | Delete a site |
+| `site_set` | Modify site settings (domain, HTTPS, PHP/WP version, Xdebug) |
 
 ### File System (4)
 | Tool | Description |
 |------|-------------|
-| `studio_fs_list_dir` | List files in a directory |
-| `studio_fs_read_file` | Read a text file (size-limited) |
-| `studio_fs_write_file` | Create or overwrite a file |
-| `studio_fs_delete` | Delete a file or directory |
+| `fs_list_dir` | List files in a directory |
+| `fs_read_file` | Read a text file |
+| `fs_write_file` | Create or overwrite a file |
+| `fs_delete` | Delete a file or directory |
 
 All file operations use path containment — paths must resolve inside the site root to prevent directory traversal.
 
 ### WP-CLI (1)
 | Tool | Description |
 |------|-------------|
-| `studio_wp` | Run arbitrary WP-CLI commands against a site |
+| `wp` | Run arbitrary WP-CLI commands against a running site |
 
-### Preview Sites (4)
+### Preview Sites (2)
 | Tool | Description |
 |------|-------------|
-| `studio_preview_list` | List previews for a site |
-| `studio_preview_create` | Create a shareable preview URL |
-| `studio_preview_update` | Update an existing preview |
-| `studio_preview_delete` | Delete a preview (requires `confirm: true`) |
+| `preview_list` | List previews for a site |
+| `preview_create` | Create a shareable preview URL |
 
-### Auth (2)
+### Auth (1)
 | Tool | Description |
 |------|-------------|
-| `studio_auth_status` | Check WordPress.com login status |
-| `studio_auth_logout` | Clear credentials |
+| `auth_status` | Check WordPress.com login status |
+
+## MCP Bundle
+
+The `.mcpb` (MCP Bundle) format lets users install the Studio MCP server into Claude Desktop by dragging a single file — no terminal required.
+
+### Structure
+
+```
+apps/cli/mcp-bundle/
+  manifest.json       ← bundle metadata, tool declarations, entry point
+  server/index.js     ← launcher: finds the Studio CLI and re-execs it
+  icon.png            ← Studio app icon (1024×1024 PNG)
+  .gitignore          ← excludes *.mcpb build artifacts
+  .mcpbignore         ← excludes *.mcpb from mcpb pack input
+```
+
+The generated `.mcpb` file is a zip archive and is **not committed** — it lives in `apps/cli/dist/` alongside the built CLI.
+
+### How the launcher works
+
+`server/index.js` is a small Node script (no dependencies) that Claude Desktop executes using its own bundled Node.js. It searches for the Studio CLI in this order:
+
+1. `../../dist/cli/main.js` relative to the bundle — picks up a **dev build** at `apps/cli/dist/cli/main.js` when the bundle is installed from this repo
+2. `/Applications/Studio.app/Contents/Resources/cli/main.js` (macOS system install)
+3. `~/Applications/Studio.app/...` (macOS user install)
+4. `%ProgramFiles%\Studio\resources\cli\main.js` (Windows)
+5. `%LOCALAPPDATA%\Programs\Studio\resources\cli\main.js` (Windows user install)
+
+Once found, it re-execs `node [cli-path] mcp`, inheriting stdin/stdout/stderr for the JSON-RPC transport.
+
+### Building
+
+Requires [`@anthropic-ai/mcpb`](https://github.com/modelcontextprotocol/mcpb) CLI:
+
+```bash
+npm install -g @anthropic-ai/mcpb
+```
+
+Then from `apps/cli/`:
+
+```bash
+npm run mcp-bundle
+# outputs: apps/cli/dist/wordpress-studio.mcpb
+```
+
+Or directly:
+
+```bash
+mcpb pack apps/cli/mcp-bundle apps/cli/dist/wordpress-studio.mcpb
+```
+
+### Installing
+
+Drag `dist/wordpress-studio.mcpb` onto Claude Desktop (or use **File → Developer → Install Extension**). Claude Desktop unpacks the bundle and runs `server/index.js` on every session start.
+
+### Debugging
+
+MCP server logs are at `~/Library/Logs/Claude/mcp-server-WordPress Studio.log`. The most useful signals:
+
+- **"Server transport closed unexpectedly"** — the process exited early; look for errors in the log above that line
+- **"Using built-in Node.js"** — Claude Desktop found and started the bundle correctly
+- **Studio not found** — the launcher writes to stderr before exiting; check the log
 
 ## What the prototype has that we can drop
 

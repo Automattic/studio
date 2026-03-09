@@ -65,6 +65,7 @@ import { connect, disconnect, emitSiteEvent } from 'cli/lib/pm2-manager';
 import { getServerFilesPath } from 'cli/lib/server-files';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
+import { writeSkillMd } from 'cli/lib/skill-md';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { untildify } from 'cli/lib/utils';
 import { ValidationError } from 'cli/lib/validation-error';
@@ -222,6 +223,15 @@ export async function runCommand(
 		} catch ( error ) {
 			logger.reportError(
 				new LoggerError( __( 'Failed to write AGENTS.md. Proceeding anyway…' ), error ),
+				false
+			);
+		}
+
+		try {
+			await writeSkillMd( sitePath );
+		} catch ( error ) {
+			logger.reportError(
+				new LoggerError( __( 'Failed to write SKILL.md. Proceeding anyway…' ), error ),
 				false
 			);
 		}

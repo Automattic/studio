@@ -1181,7 +1181,7 @@ function getFirstInstalledEditor(): SupportedEditor | null {
  * Uses the user's preferred editor, falling back to the first installed editor.
  */
 export async function openFileInIDE(
-	_event: IpcMainInvokeEvent,
+	event: IpcMainInvokeEvent,
 	relativePath: string,
 	siteId: string
 ) {
@@ -1190,8 +1190,8 @@ export async function openFileInIDE(
 		throw new Error( 'Site not found.' );
 	}
 
-	const path = await getAbsolutePathFromSite( _event, siteId, relativePath );
-	if ( ! path ) {
+	const filepath = await getAbsolutePathFromSite( event, siteId, relativePath );
+	if ( ! filepath ) {
 		return;
 	}
 
@@ -1200,11 +1200,10 @@ export async function openFileInIDE(
 	if ( ! editorKey ) {
 		return;
 	}
-
-	const editor = supportedEditorConfig[ editorKey ];
 	// Open site folder first to ensure the file is opened within the site context
-	await shellOpenExternalWrapper( editor.url( server.details.path ) );
-	await shellOpenExternalWrapper( editor.url( path ) );
+
+	await openAppAtPath( event, editorKey, server.details.path );
+	await openAppAtPath( event, editorKey, filepath );
 }
 
 export async function isImportExportSupported( _event: IpcMainInvokeEvent, siteId: string ) {

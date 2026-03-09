@@ -724,7 +724,6 @@ export class AiChatUI {
 							this.hasShownResponseMarker = false;
 						}
 						if ( ! this.hasShownResponseMarker ) {
-							this.messages.addChild( new Text( ' ' + chalk.blue( '⏺' ) + ' ', 0, 0 ) );
 							this.hasShownResponseMarker = true;
 							this.currentMarkdown = new Markdown( '\n', 1, 0, markdownTheme );
 							this.messages.addChild( this.currentMarkdown );
@@ -734,7 +733,9 @@ export class AiChatUI {
 							this.currentResponseText += '\n';
 						}
 						this.currentResponseText += block.text;
-						this.currentMarkdown.setText( '\n' + this.currentResponseText );
+						this.currentMarkdown.setText(
+							'\n' + chalk.blue( '⏺' ) + ' ' + this.currentResponseText
+						);
 						this.tui.requestRender();
 					} else if ( block.type === 'tool_use' ) {
 						this.showLoader();

@@ -4,14 +4,12 @@
  * This command subscribes to CLI events and streams them back to Studio.
  * It's designed to be executed by Studio's main process and communicates via
  * stdout key-value pairs that Studio parses.
- *
  */
-import fs from 'fs';
+
 import { sequential } from '@studio/common/lib/sequential';
 import { SITE_EVENTS, siteDetailsSchema, SiteEvent } from '@studio/common/lib/site-events';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
-import axon from 'pm2-axon';
 import { z } from 'zod';
 import { getSiteUrl, readAppdata, SiteData } from 'cli/lib/appdata';
 import {
@@ -21,6 +19,7 @@ import {
 	EVENTS_SOCKET_PATH,
 } from 'cli/lib/pm2-manager';
 import { isSiteRunning } from 'cli/lib/site-utils';
+import { SocketServer } from 'cli/lib/socket';
 import { subscribeSiteEvents } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 
@@ -77,34 +76,24 @@ const siteEventSchema = z.object( {
 } );
 
 export async function runCommand(): Promise< void > {
-	const socket = axon.socket( 'pull' );
-	const bindAbortController = new AbortController();
+	const eventsSocketServer = new SocketServer( EVENTS_SOCKET_PATH, 2500 );
+	eventsSocketServer.on( 'message', ( packet: unknown ) => {
+		try {
+			const parsedPacket = siteEventSchema.parse( packet );
+			if (
+				parsedPacket.event === SITE_EVENTS.CREATED ||
+				parsedPacket.event === SITE_EVENTS.UPDATED ||
+				parsedPacket.event === SITE_EVENTS.DELETED
+			) {
+				void emitSiteEvent( parsedPacket.event, parsedPacket.data.siteId );
+			}
+		} catch ( error ) {
+			// Do nothing
+		}
+	} );
 
 	async function cleanup() {
-		if ( bindAbortController.signal.aborted ) {
-			return;
-		}
-
-		bindAbortController.abort();
-
-		await new Promise< void >( ( resolve ) => {
-			// Only try to close if socket is actually bound
-			if ( socket.type !== 'server' ) {
-				return resolve();
-			}
-
-			socket.once( 'close', () => {
-				clearTimeout( timeoutId );
-				resolve();
-			} );
-
-			const timeoutId = setTimeout( () => {
-				socket.destroy?.();
-				resolve();
-			}, 250 );
-
-			socket.close();
-		} );
+		await eventsSocketServer.close();
 
 		try {
 			await disconnect();
@@ -119,64 +108,11 @@ export async function runCommand(): Promise< void > {
 	process.on( 'SIGTERM', () => void cleanup() );
 
 	try {
-		await new Promise< void >( ( resolve, reject ) => {
-			bindAbortController.signal.throwIfAborted();
-
-			const timeout = setTimeout( () => {
-				bindAbortController.signal.removeEventListener( 'abort', onAbort );
-				reject( new Error( 'Socket bind timeout' ) );
-			}, 2500 );
-
-			function onAbort() {
-				clearTimeout( timeout );
-				reject( new Error( 'Bind aborted due to signal' ) );
-			}
-			bindAbortController.signal.addEventListener( 'abort', onAbort );
-
-			socket.once( 'bind', () => {
-				clearTimeout( timeout );
-				bindAbortController.signal.removeEventListener( 'abort', onAbort );
-				resolve();
-			} );
-
-			// Remove stale socket file before binding (Unix only).
-			// If Studio crashes or is killed, the socket file may be left behind,
-			// preventing the new _events process from binding.
-			if ( process.platform !== 'win32' ) {
-				try {
-					fs.unlinkSync( EVENTS_SOCKET_PATH );
-				} catch {
-					// File doesn't exist or can't be removed - that's fine
-				}
-			}
-
-			socket.bind( EVENTS_SOCKET_PATH, ( error: unknown ) => {
-				if ( error ) {
-					clearTimeout( timeout );
-					bindAbortController.signal.removeEventListener( 'abort', onAbort );
-					reject( error );
-				}
-			} );
-		} );
+		await eventsSocketServer.listen();
 	} catch ( error ) {
 		await cleanup();
 		return;
 	}
-
-	socket.on( 'message', ( packet: unknown ) => {
-		try {
-			const parsedPacket = siteEventSchema.parse( packet );
-			if (
-				parsedPacket.event === SITE_EVENTS.CREATED ||
-				parsedPacket.event === SITE_EVENTS.UPDATED ||
-				parsedPacket.event === SITE_EVENTS.DELETED
-			) {
-				void emitSiteEvent( parsedPacket.event, parsedPacket.data.siteId );
-			}
-		} catch ( error ) {
-			// Do nothing
-		}
-	} );
 
 	logger.reportStart( LoggerAction.START_DAEMON, __( 'Connecting to process daemon…' ) );
 	await connect();

@@ -564,6 +564,41 @@ describe( 'CLI: studio site create', () => {
 		} );
 	} );
 
+	describe( 'Multisite Validation', () => {
+		it( 'should error when enableMultisite step is present without custom domain', async () => {
+			const multisiteBlueprint: Blueprint = {
+				steps: [ { step: 'enableMultisite' } ],
+			};
+
+			await expect(
+				runCommand( mockSitePath, {
+					...defaultTestOptions,
+					blueprint: {
+						uri: '/home/test/blueprint.json',
+						contents: multisiteBlueprint,
+					},
+				} )
+			).rejects.toThrow( /enableMultisite.*custom domain/i );
+		} );
+
+		it( 'should proceed when enableMultisite step is present with custom domain', async () => {
+			const multisiteBlueprint: Blueprint = {
+				steps: [ { step: 'enableMultisite' } ],
+			};
+
+			await runCommand( mockSitePath, {
+				...defaultTestOptions,
+				customDomain: 'test.local',
+				blueprint: {
+					uri: '/home/test/blueprint.json',
+					contents: multisiteBlueprint,
+				},
+			} );
+
+			expect( startWordPressServer ).toHaveBeenCalled();
+		} );
+	} );
+
 	describe( 'noStart Option', () => {
 		it( 'should not start server when noStart is true', async () => {
 			await runCommand( mockSitePath, {

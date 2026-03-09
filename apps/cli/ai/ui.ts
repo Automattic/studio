@@ -292,6 +292,11 @@ export class AiChatUI {
 	private randomThinkingMessage(): string {
 		return this.thinkingMessages[ Math.floor( Math.random() * this.thinkingMessages.length ) ];
 	}
+	private optionPickerVisible = false;
+	private optionPickerContainer: Container | null = null;
+	private optionPickerItems: { label: string; description: string }[] = [];
+	private optionPickerSelectedIndex = 0;
+	private optionPickerResolve: ( ( label: string ) => void ) | null = null;
 	private sitePickerVisible = false;
 	private sitePickerContainer: Container | null = null;
 	private sitePickerItems: SiteInfo[] = [];
@@ -337,6 +342,32 @@ export class AiChatUI {
 			if ( matchesKey( data, 'ctrl+c' ) ) {
 				this.stop();
 				process.exit( 0 );
+			}
+			// Option picker navigation (must be checked before site picker)
+			if ( this.optionPickerVisible ) {
+				if ( matchesKey( data, 'up' ) ) {
+					this.optionPickerSelectedIndex = Math.max( 0, this.optionPickerSelectedIndex - 1 );
+					this.renderOptionPicker();
+					return { consume: true };
+				}
+				if ( matchesKey( data, 'down' ) ) {
+					this.optionPickerSelectedIndex = Math.min(
+						this.optionPickerItems.length - 1,
+						this.optionPickerSelectedIndex + 1
+					);
+					this.renderOptionPicker();
+					return { consume: true };
+				}
+				if ( matchesKey( data, 'enter' ) ) {
+					const selected = this.optionPickerItems[ this.optionPickerSelectedIndex ];
+					this.closeOptionPicker();
+					if ( selected && this.optionPickerResolve ) {
+						this.optionPickerResolve( selected.label );
+						this.optionPickerResolve = null;
+					}
+					return { consume: true };
+				}
+				return { consume: true };
 			}
 			// Down arrow to open site picker (when editor is visible and picker is not)
 			if ( matchesKey( data, 'down' ) && this.editorVisible && ! this.sitePickerVisible ) {
@@ -455,6 +486,40 @@ export class AiChatUI {
 		this.tui.requestRender();
 	}
 
+	private renderOptionPicker(): void {
+		if ( ! this.optionPickerContainer ) {
+			return;
+		}
+		while (
+			( this.optionPickerContainer as Container & { children?: unknown[] } ).children?.length
+		) {
+			this.optionPickerContainer.removeChild(
+				( this.optionPickerContainer as Container & { children: Component[] } ).children[ 0 ]
+			);
+		}
+
+		const items = this.optionPickerItems.map( ( opt, i ) => {
+			if ( i === this.optionPickerSelectedIndex ) {
+				return `  ${ chalk.blue( '❯' ) } ${ i + 1 }. ${ chalk.blue( opt.label ) }`;
+			}
+			return `    ${ i + 1 }. ${ opt.label }`;
+		} );
+
+		const text = items.join( '\n' );
+		this.optionPickerContainer.addChild( new Text( text, 0, 0 ) );
+		this.tui.requestRender();
+	}
+
+	private closeOptionPicker(): void {
+		if ( this.optionPickerContainer ) {
+			this.tui.removeChild( this.optionPickerContainer );
+			this.optionPickerContainer = null;
+		}
+		this.optionPickerVisible = false;
+		this.optionPickerItems = [];
+		this.tui.requestRender();
+	}
+
 	start(): void {
 		this.tui.start();
 	}
@@ -533,17 +598,26 @@ export class AiChatUI {
 	}
 
 	setLoaderMessage( message: string ): void {
-		if ( this.loaderVisible ) {
-			this.loader.setMessage( message + '\n' );
+		if ( ! message ) {
+			return;
 		}
+		this.messages.addChild(
+			new Text( '   ' + chalk.dim( '⎿ ' ) + chalk.dim( message ), 0, 0 )
+		);
+		this.tui.requestRender();
 	}
 
 	private showLoader( message?: string ): void {
 		if ( ! this.loaderVisible ) {
-			// Insert loader before editor so editor stays at bottom
-			this.tui.removeChild( this.editor );
+			// Ensure editor is removed first so loader appears above it
+			const wasEditorVisible = this.editorVisible;
+			if ( wasEditorVisible ) {
+				this.tui.removeChild( this.editor );
+			}
 			this.tui.addChild( this.loader );
-			this.tui.addChild( this.editor );
+			if ( wasEditorVisible ) {
+				this.tui.addChild( this.editor );
+			}
 			this.loader.start();
 			this.loaderVisible = true;
 		}
@@ -698,38 +772,36 @@ export class AiChatUI {
 		const answers: Record< string, string > = {};
 
 		for ( const q of questions ) {
-			// Display the question and options
-			let questionText = '\n' + chalk.bold.yellow( '? ' ) + chalk.bold( q.question );
-			if ( q.options.length > 0 ) {
-				questionText += '\n';
-				questionText += q.options
-					.map(
-						( opt, i ) =>
-							chalk.dim( `  ${ i + 1 }. ` ) + opt.label + chalk.dim( ` — ${ opt.description }` )
-					)
-					.join( '\n' );
-			}
-			this.messages.addChild( new Text( questionText, 0, 0 ) );
+			// Display the question
+			this.messages.addChild(
+				new Text( '\n' + chalk.bold( q.question ), 0, 0 )
+			);
 			this.tui.requestRender();
 
-			// Collect answer via the editor
-			const answer = await this.waitForInput();
-			this.hideEditor();
+			if ( q.options.length > 0 ) {
+				// Use arrow-key option picker
+				this.hideEditor();
+				this.optionPickerItems = q.options;
+				this.optionPickerSelectedIndex = 0;
+				this.optionPickerVisible = true;
+				this.optionPickerContainer = new Container();
+				this.tui.addChild( this.optionPickerContainer );
+				this.renderOptionPicker();
 
-			// Show the user's answer
-			this.messages.addChild( new Text( chalk.inverse( '> ' + answer + ' ' ), 1, 0 ) );
+				const selected = await new Promise< string >( ( resolve ) => {
+					this.optionPickerResolve = resolve;
+				} );
 
-			// If user typed a number, map to option label
-			const num = parseInt( answer, 10 );
-			if ( ! isNaN( num ) && num >= 1 && num <= q.options.length ) {
-				answers[ q.question ] = q.options[ num - 1 ].label;
+				answers[ q.question ] = selected;
 			} else {
+				// Free-form text input
+				const answer = await this.waitForInput();
 				answers[ q.question ] = answer;
 			}
 		}
 
 		// Resume the agent turn with a fresh markdown block for subsequent text
-		this.showLoader();
+		this.showLoader( this.randomThinkingMessage() );
 		return answers;
 	}
 
@@ -772,7 +844,7 @@ export class AiChatUI {
 						this.toolStartTime = Date.now();
 						const input = ( block as { input?: Record< string, unknown > } ).input;
 						const toolLabel = formatToolName( block.name, input );
-						this.showLoader( toolLabel );
+						this.showLoader( this.randomThinkingMessage() );
 						this.stopToolDotBlink();
 						this.toolDotLabel = toolLabel;
 						this.toolDotText = new Text( '\n ' + '⏺' + ' ' + toolLabel, 0, 0 );
@@ -805,6 +877,11 @@ export class AiChatUI {
 				this.hideLoader();
 				if ( message.subtype === 'success' ) {
 					const thinkingSec = Math.round( ( Date.now() - this.turnStartTime ) / 1000 );
+					if ( ! this.hasShownResponseMarker ) {
+						this.messages.addChild(
+							new Text( '\n ' + chalk.blue( '⏺' ) + ' Done', 0, 0 )
+						);
+					}
 					this.showInfo(
 						`Thought for ${ thinkingSec }s · ${ message.num_turns } turns · $${ message.total_cost_usd.toFixed( 4 ) }`
 					);

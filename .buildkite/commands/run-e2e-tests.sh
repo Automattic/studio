@@ -15,11 +15,17 @@ export IS_DEV_BUILD=true
 
 ARTIFACT_PATTERN="*studio-app-${PLATFORM}-${ARCH}.tar.gz"
 
-# Use `electron-forge package` instead of `npm run make:*` for E2E tests.
-# `make` creates signed distributables (installers), which requires code signing setup.
-# `package` creates an unsigned app bundle, sufficient for E2E testing.
-echo "--- :package: Package app for testing ($PLATFORM-$ARCH)"
-npm -w studio-app run package -- --arch="$ARCH" --platform="$FORGE_PLATFORM"
+if ! buildkite-agent artifact download "$ARTIFACT_PATTERN" .; then
+  echo "^^^ +++ Required prebuilt app artifact not found: $ARTIFACT_PATTERN"
+  exit 1
+fi
+ARTIFACT_FILE=$(find . -type f -name "studio-app-${PLATFORM}-${ARCH}.tar.gz" | head -n 1)
+if [ -z "$ARTIFACT_FILE" ]; then
+  echo "^^^ +++ Downloaded artifact but couldn't locate archive for ${PLATFORM}-${ARCH}"
+  exit 1
+fi
+echo "--- :package: Extracting prebuilt app artifacts ($PLATFORM-$ARCH) from $ARTIFACT_FILE"
+tar -xzf "$ARTIFACT_FILE"
 
 echo '--- :playwright: Run End To End Tests'
 

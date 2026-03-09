@@ -14,7 +14,7 @@ PATCHES_HASH=nopatch
 if [ -d apps/cli/patches ] || [ -d apps/studio/patches ]; then
   CLI_PATCHES_HASH=$( [ -d apps/cli/patches ] && hash_directory apps/cli/patches || echo none )
   STUDIO_PATCHES_HASH=$( [ -d apps/studio/patches ] && hash_directory apps/studio/patches || echo none )
-  PATCHES_HASH="${CLI_PATCHES_HASH}-${STUDIO_PATCHES_HASH}"
+  PATCHES_HASH=$(echo "${CLI_PATCHES_HASH}-${STUDIO_PATCHES_HASH}" | shasum -a 256 | awk '{print $1}')
 fi
 
 BASE_CACHE_KEY="$BUILDKITE_PIPELINE_SLUG-$CACHE_FORMAT_VERSION-$PLATFORM-$ARCHITECTURE-image-$IMAGE_KEY-node-$NODE_VERSION-npm-$NPM_VERSION-$PACKAGE_HASH-$PATCHES_HASH"

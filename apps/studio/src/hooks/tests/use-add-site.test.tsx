@@ -11,6 +11,7 @@ import { store } from 'src/stores';
 import { setProviderConstants } from 'src/stores/provider-constants-slice';
 import { useConnectSiteMutation } from 'src/stores/sync/connected-sites';
 import type { SyncSite } from 'src/modules/sync/types';
+import type { WPCOM } from 'wpcom/types';
 
 vi.mock( 'src/hooks/use-site-details' );
 vi.mock( 'src/hooks/use-feature-flags' );
@@ -27,7 +28,7 @@ vi.mock( 'src/stores/sync/connected-sites', async ( importOriginal ) => {
 const mockPullSiteThunk = vi.hoisted( () => vi.fn() );
 
 vi.mock( 'src/stores/sync', async () => {
-	const actual = await vi.importActual( 'src/stores/sync' );
+	const actual = await vi.importActual< typeof import('src/stores/sync') >( 'src/stores/sync' );
 	return {
 		...actual,
 		syncOperationsThunks: {
@@ -75,7 +76,7 @@ describe( 'useAddSite', () => {
 	const mockCreateSite = vi.fn();
 	const mockUpdateSite = vi.fn();
 	const mockStartServer = vi.fn();
-	const mockClient = { req: { get: vi.fn(), post: vi.fn() } };
+	const mockClient = { req: { get: vi.fn(), post: vi.fn() } } as unknown as WPCOM;
 	const mockSetSelectedTab = vi.fn();
 
 	beforeEach( () => {

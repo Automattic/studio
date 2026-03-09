@@ -8,6 +8,7 @@ import {
 	useContext,
 	useEffect,
 	useMemo,
+	useRef,
 	useState,
 } from 'react';
 import { useAuth } from 'src/hooks/use-auth';
@@ -15,7 +16,6 @@ import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
-import { generateNumberedName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useAppDispatch } from 'src/stores';
 import { snapshotThunks } from 'src/stores/snapshot-slice';
@@ -24,6 +24,7 @@ import type { Blueprint } from 'src/stores/wpcom-api';
 interface SiteDetailsContext {
 	selectedSite: SiteDetails | null;
 	updateSite: ( site: SiteDetails, wpVersion?: string ) => Promise< void >;
+	updateSitesSortOrder: ( sites: SiteDetails[] ) => Promise< void >;
 	sites: SiteDetails[];
 	setSelectedSiteId: ( selectedSiteId: string ) => void;
 	createSite: (
@@ -35,7 +36,10 @@ interface SiteDetailsContext {
 		blueprint?: Blueprint,
 		phpVersion?: string,
 		callback?: ( site: SiteDetails ) => Promise< void >,
-		noStart?: boolean
+		noStart?: boolean,
+		adminUsername?: string,
+		adminPassword?: string,
+		adminEmail?: string
 	) => Promise< SiteDetails | void >;
 	copySite: ( sourceSiteId: string ) => Promise< SiteDetails | void >;
 	startServer: ( site: SiteDetails ) => Promise< void >;
@@ -57,6 +61,7 @@ interface SiteDetailsContext {
 const defaultContext: SiteDetailsContext = {
 	selectedSite: null,
 	updateSite: async () => undefined,
+	updateSitesSortOrder: async () => undefined,
 	sites: [],
 	siteCreationMessages: {},
 	setSelectedSiteId: () => undefined,
@@ -266,7 +271,10 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			blueprint?: Blueprint,
 			phpVersion?: string,
 			callback?: ( site: SiteDetails ) => Promise< void >,
-			noStart?: boolean
+			noStart?: boolean,
+			adminUsername?: string,
+			adminPassword?: string,
+			adminEmail?: string
 		) => {
 			// Function to handle error messages and cleanup
 			const showError = ( error?: unknown, hasBlueprint?: boolean ) => {
@@ -340,6 +348,9 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					siteId: tempSiteId,
 					phpVersion,
 					blueprint,
+					adminUsername,
+					adminPassword,
+					adminEmail,
 					noStart,
 				} );
 				if ( ! newSite ) {
@@ -358,7 +369,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				} );
 				setSites( ( prevData ) =>
 					sortSites( [
-						...prevData.filter( ( site ) => site.id !== tempSiteId ),
+						...prevData.filter( ( site ) => site.id !== tempSiteId && site.id !== newSite.id ),
 						{ ...newSite, isAddingSite: true },
 					] )
 				);
@@ -393,6 +404,22 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		await getIpcApi().updateSite( site, wpVersion );
 		const updatedSites = await getIpcApi().getSiteDetails();
 		setSites( updatedSites );
+	}, [] );
+
+	const saveTimeoutRef = useRef< ReturnType< typeof setTimeout > >();
+	const DEBOUNCE_SAVE_MS = 300;
+
+	const updateSitesSortOrder = useCallback( async ( sites: SiteDetails[] ) => {
+		setSites( sites );
+		const updates = sites.map( ( site, index ) => ( {
+			siteId: site.id,
+			sortOrder: ( index + 1 ) * 1000,
+		} ) );
+
+		clearTimeout( saveTimeoutRef.current );
+		saveTimeoutRef.current = setTimeout( async () => {
+			await getIpcApi().updateSitesSortOrder( updates );
+		}, DEBOUNCE_SAVE_MS );
 	}, [] );
 
 	const startServer = useCallback(
@@ -487,7 +514,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				);
 			};
 
-			const finalSiteName = await generateNumberedName(
+			const finalSiteName = await getIpcApi().generateNumberedNameFromList(
 				sprintf( __( '%s Copy' ), sourceSite.name ),
 				sites
 			);
@@ -605,6 +632,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			createSite,
 			copySite,
 			updateSite,
+			updateSitesSortOrder,
 			startServer,
 			stopServer,
 			stopAllRunningSites,
@@ -627,6 +655,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			createSite,
 			copySite,
 			updateSite,
+			updateSitesSortOrder,
 			startServer,
 			stopServer,
 			stopAllRunningSites,

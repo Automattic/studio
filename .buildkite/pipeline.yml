@@ -129,17 +129,9 @@ steps:
         artifact_paths:
           - apps/studio/out/**/*.app.zip
           - apps/studio/out/*.dmg
-
-      - label: 🔨 Mac Dev Build - arm64
-        depends_on:
-          - step: package_app_artifacts_mac_arm64
-        agents:
-          queue: mac
-        command: bash .buildkite/commands/build-for-mac.sh dev arm64
-        plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
-        artifact_paths:
-          - apps/studio/out/**/*.app.zip
-          - apps/studio/out/*.dmg
+        matrix:
+          - x64
+          - arm64
 
   - input: "🚦 Build for Windows?"
     prompt: "Do you want to build Windows dev binaries for this PR?"
@@ -158,10 +150,10 @@ steps:
           queue: windows
         command: powershell -File .buildkite/commands/build-for-windows.ps1 -BuildType dev -Architecture {{matrix}}
         artifact_paths:
-          - out\**\studio-setup.exe
-          - out\**\studio-update.nupkg
-          - out\**\RELEASES
-          - out\**\*.appx
+          - apps\studio\out\**\studio-setup.exe
+          - apps\studio\out\**\studio-update.nupkg
+          - apps\studio\out\**\RELEASES
+          - apps\studio\out\**\*.appx
         plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
         matrix:
           - x64
@@ -197,71 +189,3 @@ steps:
     notify:
       - github_commit_status:
           context: Distribute Dev Builds
-
-  - group: 📦 Build for Mac
-    key: release-mac
-    steps:
-      - &mac_build_common
-        label: 🔨 Mac Release Build - x64
-        agents:
-          queue: mac
-        command: bash .buildkite/commands/build-for-mac.sh release x64
-        plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
-        notify:
-          - github_commit_status:
-              context: All Mac Release Builds
-
-      - <<: *mac_build_common
-        label: 🔨 Mac Release Build - arm64
-        command: bash .buildkite/commands/build-for-mac.sh release arm64
-        notify:
-          - github_commit_status:
-              context: All Mac Release Builds
-    if: build.tag =~ /^v[0-9]+/
-
-  - group: 📦 Build for Windows
-    key: release-windows
-    steps:
-      - label: 🔨 Windows Release Build - {{matrix}}
-        agents:
-          queue: windows
-        command: powershell -File .buildkite/commands/build-for-windows.ps1 -BuildType release -Architecture {{matrix}}
-        artifact_paths:
-          - out\**\studio-setup.exe
-          - out\**\studio-update.nupkg
-          - out\**\RELEASES
-          - out\**\*.appx
-        plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
-        matrix:
-          - x64
-          - arm64
-        notify:
-          - github_commit_status:
-              context: All Windows Release Builds
-    if: build.tag =~ /^v[0-9]+/
-
-  - label: ":rocket: Publish Release Builds"
-    command: |
-      echo "--- :node: Downloading Binaries"
-      buildkite-agent artifact download "*.zip" .
-      buildkite-agent artifact download "*.dmg" .
-      buildkite-agent artifact download "*.exe" .
-      buildkite-agent artifact download "*.appx" .
-      buildkite-agent artifact download "*.nupkg" .
-      buildkite-agent artifact download "*\\RELEASES" .
-
-      .buildkite/commands/install-node-dependencies.sh
-
-      echo "--- :fastlane: Distributing Release Builds"
-      install_gems
-      bundle exec fastlane distribute_release_build
-    agents:
-      queue: mac
-    depends_on:
-      - step: release-mac
-      - step: release-windows
-    plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
-    if: build.tag =~ /^v[0-9]+/
-    notify:
-      - github_commit_status:
-          context: Publish Release Builds

@@ -45,7 +45,7 @@ describe( 'createCodeComponent', () => {
 	}
 
 	it( 'should render inline styles for language-generic code', () => {
-		render( <ContextWrapper children="example-code" /> );
+		render( <ContextWrapper>example-code</ContextWrapper> );
 
 		expect( screen.getByText( 'example-code' ) ).toBeVisible();
 		expect( screen.queryByText( 'Copy' ) ).not.toBeInTheDocument();
@@ -53,68 +53,74 @@ describe( 'createCodeComponent', () => {
 	} );
 
 	it( 'should display a "copy" button for language-specific code', () => {
-		render( <ContextWrapper className="language-bash" children="wp --version" /> );
+		render( <ContextWrapper className="language-bash">wp --version</ContextWrapper> );
 
 		expect( screen.getByText( 'Copy' ) ).toBeVisible();
 	} );
 
 	it( 'should display the "run" button for eligible wp-cli commands without placeholder content', () => {
-		render( <ContextWrapper className="language-bash" children="wp --version" /> );
+		render( <ContextWrapper className="language-bash">wp --version</ContextWrapper> );
 
 		expect( screen.getByText( 'Run' ) ).toBeVisible();
 	} );
 
 	it( 'should hide the "run" button for ineligible non-wp-cli code', () => {
-		render( <ContextWrapper className="language-bash" children="echo 'Hello, World!'" /> );
+		render( <ContextWrapper className="language-bash">{ "echo 'Hello, World!'" }</ContextWrapper> );
 
 		expect( screen.queryByText( 'Run' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'should hide the "run" button for ineligible wp-cli commands with placeholder content', () => {
 		render(
-			<ContextWrapper className="language-bash" children="wp plugin activate <example-plugin>" />
+			<ContextWrapper className="language-bash">
+				{ 'wp plugin activate <example-plugin>' }
+			</ContextWrapper>
 		);
 		expect( screen.queryByText( 'Run' ) ).not.toBeInTheDocument();
 
 		render(
-			<ContextWrapper className="language-bash" children="wp plugin activate [example-plugin]" />
+			<ContextWrapper className="language-bash">wp plugin activate [example-plugin]</ContextWrapper>
 		);
 		expect( screen.queryByText( 'Run' ) ).not.toBeInTheDocument();
 
 		render(
-			<ContextWrapper className="language-bash" children="wp plugin activate {example-plugin}" />
+			<ContextWrapper className="language-bash">
+				{ 'wp plugin activate {example-plugin}' }
+			</ContextWrapper>
 		);
 		expect( screen.queryByText( 'Run' ) ).not.toBeInTheDocument();
 
 		render(
-			<ContextWrapper className="language-bash" children="wp plugin activate (example-plugin)" />
+			<ContextWrapper className="language-bash">wp plugin activate (example-plugin)</ContextWrapper>
 		);
 		expect( screen.queryByText( 'Run' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'should hide the "run" button for ineligible wp-cli commands with multiple wp-cli invocations', () => {
-		render( <ContextWrapper className="language-bash" children="wp --version wp --version" /> );
+		render( <ContextWrapper className="language-bash">wp --version wp --version</ContextWrapper> );
 
 		expect( screen.queryByText( 'Run' ) ).not.toBeInTheDocument();
 	} );
 	it( 'should hide the "run" button for unsupported commands db', () => {
-		render( <ContextWrapper className="language-bash" children="wp db export" /> );
+		render( <ContextWrapper className="language-bash">wp db export</ContextWrapper> );
 
 		expect( screen.queryByText( 'Run' ) ).not.toBeInTheDocument();
 	} );
 	it( 'should hide the "run" button for unsupported commands shell', () => {
-		render( <ContextWrapper className="language-bash" children="wp shell" /> );
+		render( <ContextWrapper className="language-bash">wp shell</ContextWrapper> );
 
 		expect( screen.queryByText( 'Run' ) ).not.toBeInTheDocument();
 	} );
 	it( 'should hide the "run" button for unsupported commands server', () => {
-		render( <ContextWrapper className="language-bash" children="wp server" /> );
+		render( <ContextWrapper className="language-bash">wp server</ContextWrapper> );
 
 		expect( screen.queryByText( 'Run' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'should display the "run" button for elligble wp-cli commands that contain a placeholder char', () => {
-		render( <ContextWrapper className="language-bash" children="wp eval 'var_dump(3 < 4);'" /> );
+		render(
+			<ContextWrapper className="language-bash">{ "wp eval 'var_dump(3 < 4);'" }</ContextWrapper>
+		);
 
 		expect( screen.getByText( 'Run' ) ).toBeInTheDocument();
 	} );
@@ -137,7 +143,7 @@ describe( 'createCodeComponent', () => {
 					exitCode: 0,
 				} ),
 			} );
-			render( <ContextWrapper className="language-bash" children="wp --version" /> );
+			render( <ContextWrapper className="language-bash">wp --version</ContextWrapper> );
 			expect( screen.queryByText( 'Running…' ) ).not.toBeInTheDocument();
 
 			fireEvent.click( screen.getByText( 'Run' ) );
@@ -160,7 +166,7 @@ describe( 'createCodeComponent', () => {
 			const message = generateMessage( 'Lorem ipsum', 'user', 1 );
 			store.dispatch( chatActions.setMessages( { instanceId: '1', messages: [ message ] } ) );
 
-			render( <ContextWrapper className="language-bash" children="wp --version" /> );
+			render( <ContextWrapper className="language-bash">wp --version</ContextWrapper> );
 
 			fireEvent.click( screen.getByText( 'Run' ) );
 
@@ -181,7 +187,7 @@ describe( 'createCodeComponent', () => {
 			const message = generateMessage( 'Lorem ipsum', 'user', 1 );
 			store.dispatch( chatActions.setMessages( { instanceId: '1', messages: [ message ] } ) );
 
-			render( <ContextWrapper className="language-bash" children="wp --version" /> );
+			render( <ContextWrapper className="language-bash">wp --version</ContextWrapper> );
 
 			fireEvent.click( screen.getByText( 'Run' ) );
 
@@ -199,7 +205,7 @@ describe( 'createCodeComponent', () => {
 				copyText: mockCopyText,
 				showNotification: vi.fn(),
 			} );
-			render( <ContextWrapper className="language-bash" children="wp --version" /> );
+			render( <ContextWrapper className="language-bash">wp --version</ContextWrapper> );
 
 			fireEvent.click( screen.getByText( 'Copy' ) );
 
@@ -220,7 +226,7 @@ describe( 'createCodeComponent', () => {
 			];
 			store.dispatch( chatActions.setMessages( { instanceId: '1', messages: [ message ] } ) );
 
-			render( <ContextWrapper className="language-bash" children="wp --version" /> );
+			render( <ContextWrapper className="language-bash">wp --version</ContextWrapper> );
 
 			expect( screen.getByText( 'Success' ) ).toBeVisible();
 			expect( screen.getByText( 'Mock success' ) ).toBeVisible();
@@ -237,7 +243,7 @@ describe( 'createCodeComponent', () => {
 				showNotification: vi.fn(),
 			} );
 
-			render( <ContextWrapper children="wp-content/plugins/hello.php" /> );
+			render( <ContextWrapper>wp-content/plugins/hello.php</ContextWrapper> );
 
 			await waitFor( () => {
 				expect( screen.getByText( 'wp-content/plugins/hello.php' ) ).toBeVisible();
@@ -257,7 +263,7 @@ describe( 'createCodeComponent', () => {
 				openFileInIDE: vi.fn(),
 			} );
 
-			render( <ContextWrapper children="wp-content/debug.log" /> );
+			render( <ContextWrapper>wp-content/debug.log</ContextWrapper> );
 
 			await waitFor( () => {
 				expect( screen.getByText( 'wp-content/debug.log' ) ).toBeVisible();
@@ -274,7 +280,7 @@ describe( 'createCodeComponent', () => {
 				openLocalPath: vi.fn(),
 			} );
 
-			render( <ContextWrapper children="wp-content/plugins" /> );
+			render( <ContextWrapper>wp-content/plugins</ContextWrapper> );
 
 			await waitFor( () => {
 				expect( screen.getByText( 'wp-content/plugins' ) ).toBeVisible();
@@ -291,7 +297,7 @@ describe( 'createCodeComponent', () => {
 				openLocalPath: vi.fn(),
 			} );
 
-			render( <ContextWrapper children="wp-content/plugins" /> );
+			render( <ContextWrapper>wp-content/plugins</ContextWrapper> );
 
 			await waitFor( () => {
 				expect( screen.getByText( 'wp-content/plugins' ) ).toBeVisible();
@@ -305,19 +311,21 @@ describe( 'createCodeComponent', () => {
 
 	describe( 'when the "open in terminal" button is clicked', () => {
 		it( 'should not be visible for non-bash code blocks', () => {
-			render( <ContextWrapper className="language-php" children="<?php echo 'Hello'; ?>" /> );
+			render(
+				<ContextWrapper className="language-php">{ "<?php echo 'Hello'; ?>" }</ContextWrapper>
+			);
 
 			expect( screen.queryByText( 'Open in terminal' ) ).not.toBeInTheDocument();
 		} );
 
 		it( 'should be visible for bash code blocks', () => {
-			render( <ContextWrapper className="language-bash" children="wp plugin list" /> );
+			render( <ContextWrapper className="language-bash">wp plugin list</ContextWrapper> );
 
 			expect( screen.getByText( 'Open in terminal' ) ).toBeVisible();
 		} );
 
 		it( 'should be visible for sh code blocks', () => {
-			render( <ContextWrapper className="language-sh" children="wp plugin list" /> );
+			render( <ContextWrapper className="language-sh">wp plugin list</ContextWrapper> );
 
 			expect( screen.getByText( 'Open in terminal' ) ).toBeVisible();
 		} );
@@ -328,7 +336,7 @@ describe( 'createCodeComponent', () => {
 				openTerminalAtPath: vi.fn(),
 				showNotification: vi.fn(),
 			} );
-			render( <ContextWrapper className="language-bash" children="wp plugin list" /> );
+			render( <ContextWrapper className="language-bash">wp plugin list</ContextWrapper> );
 
 			fireEvent.click( screen.getByText( 'Open in terminal' ) );
 

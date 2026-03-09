@@ -6,9 +6,9 @@ import { cacheFunctionTTL } from '@studio/common/lib/cache-function-ttl';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
 import { SITE_EVENTS } from '@studio/common/lib/site-events';
 import { custom as PM2, StartOptions } from 'pm2';
-import axon from 'pm2-axon';
 import { getAppdataPath } from 'cli/lib/appdata';
 import { ProcessDescription } from 'cli/lib/types/pm2';
+import { SocketClient } from './socket';
 import {
 	ManagerMessage,
 	pm2ProcessEventSchema,
@@ -24,10 +24,6 @@ const KILL_TIMEOUT = 25_000;
 // This ensures all Studio CLI commands use the same PM2 daemon
 const STUDIO_PM2_HOME = path.join( os.homedir(), '.studio', 'pm2' );
 const PM2_LOCKFILE_PATH = path.join( STUDIO_PM2_HOME, 'pm2-connection.lock' );
-export const EVENTS_SOCKET_PATH =
-	process.platform === 'win32'
-		? '\\\\.\\pipe\\studio-events.sock'
-		: path.join( STUDIO_PM2_HOME, 'events.sock' );
 
 if ( process.platform !== 'win32' && ! fs.existsSync( STUDIO_PM2_HOME ) ) {
 	fs.mkdirSync( STUDIO_PM2_HOME, { recursive: true } );
@@ -233,6 +229,7 @@ export async function startProcess(
 		const processConfig: StartOptions = {
 			name: processName,
 			interpreter: process.execPath,
+			node_args: '--experimental-wasm-jspi',
 			script: scriptPath,
 			exec_mode: 'fork',
 			autorestart: false,
@@ -366,6 +363,12 @@ export async function subscribePm2KillEvent( handler: () => void ) {
 	};
 }
 
+export const EVENTS_SOCKET_PATH =
+	process.platform === 'win32'
+		? '\\\\.\\pipe\\studio-events.sock'
+		: path.join( STUDIO_PM2_HOME, 'events.sock' );
+const eventsSocketClient = new SocketClient( EVENTS_SOCKET_PATH );
+
 /**
  * Emit a site event via the events socket, for the `_events` command server to receive.
  *
@@ -376,50 +379,9 @@ export async function emitSiteEvent(
 	event: SITE_EVENTS,
 	data: { siteId: string }
 ): Promise< void > {
-	const socket = axon.socket( 'push' );
-	socket.connect( EVENTS_SOCKET_PATH );
-
-	// Suppress `Buffer()` deprecation warning from pm2-axon dependencies
-	const originalEmitWarning = process.emitWarning;
-	process.emitWarning = ( warning, ...args ) => {
-		if (
-			( typeof warning === 'string' && warning.includes( 'Buffer()' ) ) ||
-			// @ts-expect-error `Error.prototype.code` is non-standard but exists here, so just ignore TS
-			( warning instanceof Error && warning.code === 'DEP0005' )
-		) {
-			return;
-		}
-		// @ts-expect-error `process.emitWarning` has complex overloads, ignoring for warning suppression
-		return originalEmitWarning.call( process, warning, ...args );
-	};
-
-	function closeHandler() {
-		return new Promise< void >( ( resolve ) => {
-			socket.once( 'close', () => {
-				clearTimeout( timeoutId );
-				resolve();
-			} );
-
-			const timeoutId = setTimeout( () => {
-				socket.destroy?.();
-				resolve();
-			}, 200 );
-
-			socket.close();
-			process.emitWarning = originalEmitWarning;
-		} );
+	try {
+		await eventsSocketClient.send( { event, data } );
+	} catch {
+		// Do nothing
 	}
-	process.on( 'SIGINT', closeHandler );
-	process.on( 'SIGTERM', closeHandler );
-
-	await new Promise< void >( ( resolve ) => {
-		socket.once( 'connect', function () {
-			socket.send( { event, data } );
-			resolve();
-		} );
-		// Connection refused. Likely means Studio isn't running.
-		socket.once( 'socket error', () => {
-			resolve();
-		} );
-	} ).finally( closeHandler );
 }

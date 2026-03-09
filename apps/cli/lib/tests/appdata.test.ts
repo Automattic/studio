@@ -13,15 +13,31 @@ import {
 	unlockAppdata,
 } from 'cli/lib/appdata';
 
-vi.mock( 'fs' );
-vi.mock( 'os' );
-vi.mock( 'path' );
+vi.mock( 'fs', () => ( {
+	default: {
+		existsSync: vi.fn(),
+	},
+} ) );
+vi.mock( 'os', () => ( {
+	default: {
+		homedir: vi.fn(),
+	},
+} ) );
+vi.mock( 'path', () => ( {
+	default: {
+		join: vi.fn(),
+		basename: vi.fn(),
+		resolve: vi.fn(),
+	},
+} ) );
 vi.mock( 'atomically', () => ( {
 	readFile: vi.fn(),
 	writeFile: vi.fn(),
 } ) );
 
-vi.mock( '@studio/common/lib/fs-utils' );
+vi.mock( '@studio/common/lib/fs-utils', () => ( {
+	arePathsEqual: vi.fn(),
+} ) );
 vi.mock( 'cli/lib/api', () => ( {
 	validateAccessToken: vi.fn().mockResolvedValue( undefined ),
 } ) );

@@ -27,11 +27,11 @@ vi.mock( 'cli/lib/api' );
 vi.mock( 'cli/lib/snapshots' );
 
 vi.mock( 'cli/logger', () => ( {
-	Logger: vi.fn( () => ( {
-		reportStart: mockReportStart,
-		reportSuccess: mockReportSuccess,
-		reportError: mockReportError,
-	} ) ),
+	Logger: class {
+		reportStart = mockReportStart;
+		reportSuccess = mockReportSuccess;
+		reportError = mockReportError;
+	},
 	LoggerError: class LoggerError extends Error {},
 } ) );
 

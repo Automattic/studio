@@ -5,7 +5,7 @@
  * available to WordPress instances. Shared between desktop app and CLI.
  */
 
-import { mkdtemp, writeFile } from 'fs/promises';
+import { mkdtemp, readdir, unlink, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -409,25 +409,59 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 
 			switch ( $action ) {
 				case 'set_admin_password':
-					if ( empty( $_POST['password'] ) ) {
-						status_header( 400 );
-						header( 'Content-Type: application/json' );
-						echo json_encode( [ 'error' => 'Password is required' ] );
-						exit;
+					$has_password = ! empty( $_POST['password'] );
+					$username = ! empty( $_POST['username'] ) ? sanitize_user( $_POST['username'] ) : 'admin';
+					// Fallback to 'admin' if sanitize_user() strips all characters (e.g., !@#$%)
+					if ( empty( $username ) ) {
+						$username = 'admin';
 					}
 
-					$user = get_user_by( 'login', 'admin' );
+					$user = get_user_by( 'login', $username );
+					$provided_email = ! empty( $_POST['email'] ) ? sanitize_email( $_POST['email'] ) : '';
+
 					if ( $user ) {
-						wp_set_password( $_POST['password'], $user->ID );
+						if ( $has_password ) {
+							wp_set_password( $_POST['password'], $user->ID );
+						}
+						if ( $provided_email ) {
+							wp_update_user( array( 'ID' => $user->ID, 'user_email' => $provided_email ) );
+						}
 					} else {
+						// Creating a new user requires a password
+						if ( ! $has_password ) {
+							status_header( 400 );
+							header( 'Content-Type: application/json' );
+							echo json_encode( [ 'error' => 'Password is required to create a new admin user' ] );
+							exit;
+						}
+						// WordPress doesn't support renaming user_login, so we create a new admin user.
+						// The old user is left intact — this is intentional.
+						// Generate a unique email to avoid conflicts with existing users
+						$email = $provided_email ? $provided_email : 'admin@localhost.com';
+						if ( ! $provided_email ) {
+							$counter = 1;
+							while ( email_exists( $email ) && $counter < 100 ) {
+								$email = 'admin' . $counter . '@localhost.com';
+								$counter++;
+							}
+						}
+
 						$user_data = array(
-							'user_login' => 'admin',
+							'user_login' => $username,
 							'user_pass' => $_POST['password'],
-							'user_email' => 'admin@localhost.com',
+							'user_email' => $email,
 							'role' => 'administrator',
 						);
-						wp_insert_user( $user_data );
+						$insert_result = wp_insert_user( $user_data );
+						if ( is_wp_error( $insert_result ) ) {
+							status_header( 400 );
+							header( 'Content-Type: application/json' );
+							echo json_encode( [ 'error' => $insert_result->get_error_message() ] );
+							exit;
+						}
 					}
+					// Store the admin username in options for auto-login to use
+					update_option( 'studio_admin_username', $username );
 					$result = [ 'success' => true ];
 					break;
 
@@ -470,7 +504,8 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 				exit;
 			}
 
-			$user = get_user_by( 'login', 'admin' );
+			$username = get_option( 'studio_admin_username', 'admin' );
+			$user = get_user_by( 'login', $username );
 			if ( ! $user ) {
 				wp_die( 'Auto-login failed: admin user not found' );
 			}
@@ -520,4 +555,72 @@ export async function getMuPlugins( options: MuPluginOptions ) {
 	const loaderMuPluginHostPath = await createLoaderMuPlugin();
 
 	return [ studioMuPluginsHostPath, loaderMuPluginHostPath ];
+}
+
+/**
+ * Legacy mu-plugin filenames that older Studio versions wrote directly into
+ * wp-content/mu-plugins/. Newer versions inject these at runtime via the
+ * PHP WASM virtual filesystem, so on-disk copies cause "Cannot redeclare"
+ * PHP fatal errors. This list includes both current and retired filenames.
+ */
+const LEGACY_MU_PLUGIN_FILENAMES = [
+	// Current mu-plugins (from getStandardMuPlugins)
+	'0-allowed-redirect-hosts.php',
+	'0-auto-login.php',
+	'0-check-theme-availability.php',
+	'0-deactivate-jetpack-modules.php',
+	'0-disable-auto-updates.php',
+	'0-enable-auto-updates.php',
+	'0-http-request-timeout.php',
+	'0-https-for-reverse-proxy.php',
+	'0-permalinks.php',
+	'0-redirect-to-siteurl-constant.php',
+	'0-sqlite-command.php',
+	'0-studio-admin-api.php',
+	'0-studio-cli-commands.php',
+	'0-suppress-dns-get-record-warnings.php',
+	'0-thumbnails.php',
+	'0-tmp-fix-hide-plugins-spinner.php',
+	'0-tmp-fix-qm-plugin-sapi.php',
+	'0-wp-admin-trailing-slash.php',
+	// Retired mu-plugins from older Studio versions
+	'0-32bit-integer-warnings.php',
+	'0-dns-functions.php',
+	'0-sqlite.php',
+	'0-wp-config-constants-polyfill.php',
+];
+
+/**
+ * Remove legacy Studio mu-plugin files from a site's wp-content/mu-plugins/ directory.
+ *
+ * Older Studio versions wrote mu-plugin PHP files directly into the site directory.
+ * Newer versions inject them at runtime via the PHP WASM virtual filesystem.
+ * Having both copies causes PHP fatal errors like "Cannot redeclare" because
+ * the same functions are defined in both the on-disk file and the runtime-injected file.
+ *
+ * @param sitePath - Absolute path to the WordPress site directory
+ */
+export async function cleanupLegacyMuPlugins( sitePath: string ): Promise< void > {
+	const muPluginsDir = join( sitePath, 'wp-content', 'mu-plugins' );
+
+	let entries: string[];
+	try {
+		entries = await readdir( muPluginsDir );
+	} catch {
+		// Directory doesn't exist or can't be read – nothing to clean up
+		return;
+	}
+
+	const legacySet = new Set( LEGACY_MU_PLUGIN_FILENAMES );
+	const filesToRemove = entries.filter( ( name ) => legacySet.has( name ) );
+
+	await Promise.all(
+		filesToRemove.map( async ( name ) => {
+			try {
+				await unlink( join( muPluginsDir, name ) );
+			} catch {
+				// Best-effort: file may already be gone or locked
+			}
+		} )
+	);
 }

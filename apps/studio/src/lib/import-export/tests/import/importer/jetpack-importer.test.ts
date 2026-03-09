@@ -6,7 +6,20 @@ import { JetpackImporter, SQLImporter } from 'src/lib/import-export/import/impor
 import { BackupContents } from 'src/lib/import-export/import/types';
 import { SiteServer } from 'src/site-server';
 
-vi.mock( 'fs/promises' );
+vi.mock( 'fs/promises', () => {
+	const mockFns = {
+		mkdir: vi.fn(),
+		copyFile: vi.fn(),
+		writeFile: vi.fn(),
+		readFile: vi.fn(),
+		readdir: vi.fn(),
+		rm: vi.fn(),
+	};
+	return {
+		default: mockFns,
+		...mockFns,
+	};
+} );
 vi.mock( 'src/site-server' );
 vi.mock( 'fs-extra', () => ( {
 	lstat: vi.fn(),
@@ -46,13 +59,15 @@ platformTestSuite( 'JetpackImporter', ( { normalize } ) => {
 				phpVersion: '8.0',
 				running: false,
 			},
-			executeWpCliCommand: vi.fn( ( command: string ) =>
-				Promise.resolve(
-					command === 'option get siteurl'
-						? { stdout: 'http://localhost:8881', stderr: '', exitCode: 0 }
-						: { stdout: '', stderr: '', exitCode: 0 }
-				)
-			),
+			executeWpCliCommand: vi
+				.fn()
+				.mockImplementation( ( command: string ) =>
+					Promise.resolve(
+						command === 'option get siteurl'
+							? { stdout: 'http://localhost:8881', stderr: '', exitCode: 0 }
+							: { stdout: '', stderr: '', exitCode: 0 }
+					)
+				),
 		} );
 
 		// mock move

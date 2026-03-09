@@ -44,7 +44,7 @@ export async function openSiteInBrowser( site: SiteData ): Promise< void > {
 export function logSiteDetails( site: SiteData ): void {
 	const siteUrl = getSiteUrl( site );
 	console.log( __( 'Site URL: ' ), siteUrl );
-	console.log( __( 'Username: ' ), 'admin' );
+	console.log( __( 'Username: ' ), site.adminUsername || 'admin' );
 	if ( site.adminPassword ) {
 		console.log( __( 'Password: ' ), decodePassword( site.adminPassword ) );
 	}

@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { arrowRight } from '@wordpress/icons';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import Button from 'src/components/button';
 import { cx } from 'src/lib/cx';
 
@@ -22,12 +22,11 @@ interface WelcomeComponentProps {
 	showExamplePrompts: boolean;
 	messages: string[];
 	examplePrompts: string[];
-	siteId: string;
 	disabled?: boolean;
 	isLoading?: boolean;
 }
 
-export const WelcomeMessagePrompt = React.forwardRef< HTMLDivElement, WelcomeMessagePromptProps >(
+const WelcomeMessagePrompt = React.forwardRef< HTMLDivElement, WelcomeMessagePromptProps >(
 	( { id, children, className }, ref ) => (
 		<div className={ cx( 'flex mt-2' ) }>
 			<div
@@ -51,7 +50,7 @@ export const WelcomeMessagePrompt = React.forwardRef< HTMLDivElement, WelcomeMes
 	)
 );
 
-export const ExampleMessagePrompt = ( {
+const ExampleMessagePrompt = ( {
 	onClick,
 	children,
 	className,
@@ -76,7 +75,7 @@ export const ExampleMessagePrompt = ( {
 
 const WelcomeComponent = React.forwardRef< HTMLDivElement, WelcomeComponentProps >(
 	(
-		{ onExampleClick, showExamplePrompts, messages, examplePrompts, siteId, disabled, isLoading },
+		{ onExampleClick, showExamplePrompts, messages, examplePrompts, disabled, isLoading },
 		ref
 	) => {
 		const [ showMore, setShowMore ] = useState( false );
@@ -84,10 +83,6 @@ const WelcomeComponent = React.forwardRef< HTMLDivElement, WelcomeComponentProps
 
 		// Determine the prompts to display (either first 3 or all)
 		const displayedPrompts = showMore ? examplePrompts : examplePrompts.slice( 0, 3 );
-
-		useEffect( () => {
-			setShowMore( false );
-		}, [ siteId ] );
 
 		const handleShowMore = () => {
 			setShowMore( true );
@@ -114,7 +109,7 @@ const WelcomeComponent = React.forwardRef< HTMLDivElement, WelcomeComponentProps
 				<div className="flex flex-col">
 					{ messages.map( ( message, index ) => (
 						<WelcomeMessagePrompt
-							key={ index }
+							key={ message }
 							id={ `message-welcome-${ index }` }
 							className="welcome-message"
 							ref={ index === messages.length - 1 ? lastMessageRef : null }
@@ -128,9 +123,8 @@ const WelcomeComponent = React.forwardRef< HTMLDivElement, WelcomeComponentProps
 					{ showExamplePrompts && (
 						<div className="flex-grow">
 							{ displayedPrompts.map( ( prompt, index ) => (
-								<div key={ index } className="flex items-center">
+								<div key={ prompt } className="flex items-center">
 									<ExampleMessagePrompt
-										key={ index }
 										className="example-prompt"
 										onClick={ () => onExampleClick( prompt ) }
 										disabled={ disabled }

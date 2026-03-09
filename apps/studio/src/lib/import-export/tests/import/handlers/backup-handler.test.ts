@@ -2,6 +2,7 @@
 import fs from 'fs';
 import path from 'path';
 import { Readable } from 'stream';
+import fse from 'fs-extra';
 import * as tar from 'tar';
 import { vi, Mock } from 'vitest';
 import * as yauzl from 'yauzl';
@@ -31,6 +32,12 @@ vi.mock( 'fs', () => ( {
 	},
 } ) );
 vi.mock( 'fs/promises' );
+vi.mock( 'fs-extra', () => ( {
+	default: {
+		ensureDir: vi.fn(),
+	},
+	ensureDir: vi.fn(),
+} ) );
 vi.mock( 'zlib' );
 vi.mock( 'tar' );
 vi.mock( 'yauzl' );
@@ -69,6 +76,7 @@ describe( 'BackupHandlerFactory', () => {
 			parts.pop();
 			return parts.join( '/' );
 		} );
+		vi.mocked( fse.ensureDir ).mockResolvedValue( undefined );
 		vi.mocked( fs.promises.copyFile ).mockResolvedValue( undefined );
 	} );
 
@@ -119,13 +127,18 @@ describe( 'BackupHandlerFactory', () => {
 			'index.php',
 			'.hidden-file',
 			'wp-content/.hidden-file',
+			'wp-content/.gitignore',
 			'wp-content/plugins/hello.php',
 			'wp-content/themes/twentytwentyfour/theme.json',
 			'wp-content/uploads/2024/07/image.png',
+			'wp-content/.DS_Store',
 			'__MACOSX/meta-file',
 		];
 		const expectedArchiveFiles = [
 			'index.php',
+			'.hidden-file',
+			'wp-content/.hidden-file',
+			'wp-content/.gitignore',
 			'wp-content/plugins/hello.php',
 			'wp-content/themes/twentytwentyfour/theme.json',
 			'wp-content/uploads/2024/07/image.png',
@@ -202,7 +215,7 @@ describe( 'BackupHandlerFactory', () => {
 			const extractionDirectory = '/tmp/extracted';
 
 			const createReadStreamMock: Partial< fs.ReadStream > = {
-				on: vi.fn( ( event, callback ) => {
+				on: vi.fn().mockImplementation( ( event, callback ) => {
 					if ( event === 'finish' ) {
 						callback();
 					}
@@ -253,11 +266,17 @@ describe( 'BackupHandlerFactory', () => {
 					}
 					return mockWriteStream;
 				} ),
-				once: vi.fn().mockReturnThis(),
+				once: vi.fn().mockImplementation( ( event, callback ) => {
+					if ( event === 'finish' ) {
+						callback();
+					}
+					return mockWriteStream;
+				} ),
 			} as Partial< fs.WriteStream >;
 
 			let entryCallback: ( ( entry: { fileName: string } ) => void ) | undefined;
 			let endCallback: ( () => void ) | undefined;
+			let emittedEntry = false;
 
 			const mockZipFile: MockZipFile = {
 				on: vi.fn().mockImplementation( ( event, callback ) => {
@@ -269,11 +288,12 @@ describe( 'BackupHandlerFactory', () => {
 					return mockZipFile;
 				} ),
 				readEntry: vi.fn().mockImplementation( () => {
-					if ( entryCallback ) {
+					if ( ! emittedEntry && entryCallback ) {
+						emittedEntry = true;
 						entryCallback( { fileName: 'test.txt' } );
-						// After processing one entry, call end
-						setTimeout( () => endCallback?.(), 0 );
+						return;
 					}
+					endCallback?.();
 				} ),
 				openReadStream: vi.fn().mockImplementation( ( entry, callback ) => {
 					callback( null, mockReadStream );

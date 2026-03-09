@@ -498,6 +498,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 					{ isAuthenticated ? (
 						<>
 							<WelcomeComponent
+								key={ selectedSite.id }
 								onExampleClick={ ( prompt ) => {
 									submitPrompt( prompt );
 									inputRef.current?.focus();
@@ -505,7 +506,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 								showExamplePrompts={ messages.length === 0 }
 								messages={ data?.messages ?? [] }
 								examplePrompts={ data?.example_prompts ?? [] }
-								siteId={ selectedSite.id }
 								disabled={ disabled }
 								isLoading={ isLoading }
 							/>

@@ -1,13 +1,13 @@
-import { extractFormValuesFromBlueprint } from '@studio/common/lib/blueprint-settings';
+import { generateDefaultBlueprintDescription } from '@studio/common/lib/blueprint-settings';
 import {
-	BlueprintValidationWarning,
 	BlueprintPreferredVersions,
+	BlueprintValidationWarning,
 } from '@studio/common/lib/blueprint-validation';
-import { useI18n } from '@wordpress/react-i18n';
 import { useCallback } from 'react';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { Blueprint } from 'src/stores/wpcom-api';
+import { applyBlueprintFormValues } from '../lib/apply-blueprint-form-values';
 
 type BlueprintMetadata = {
 	title?: string;
@@ -20,26 +20,27 @@ interface UseBlueprintDeeplinkOptions {
 	setPhpVersion: ( version: string ) => void;
 	setWpVersion: ( version: string ) => void;
 	setBlueprintPreferredVersions: ( versions: BlueprintPreferredVersions | undefined ) => void;
-	setBlueprintDeeplinkWarnings: ( warnings: BlueprintValidationWarning[] | undefined ) => void;
+	setBlueprintWarnings: ( warnings: BlueprintValidationWarning[] | undefined ) => void;
 	setBlueprintSuggestedDomain: ( domain: string | undefined ) => void;
 	setBlueprintSuggestedHttps: ( https: boolean | undefined ) => void;
 	setBlueprintSuggestedSiteName: ( name: string | undefined ) => void;
+	setBlueprintRequiresCustomDomain: ( requires: boolean ) => void;
 	setIsDeeplinkFlow: ( isDeeplink: boolean ) => void;
 	onModalOpen?: () => void;
 }
 
 export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): void {
-	const { __ } = useI18n();
 	const {
 		isAnySiteProcessing,
 		setSelectedBlueprint,
 		setPhpVersion,
 		setWpVersion,
 		setBlueprintPreferredVersions,
-		setBlueprintDeeplinkWarnings,
+		setBlueprintWarnings,
 		setBlueprintSuggestedDomain,
 		setBlueprintSuggestedHttps,
 		setBlueprintSuggestedSiteName,
+		setBlueprintRequiresCustomDomain,
 		setIsDeeplinkFlow,
 		onModalOpen,
 	} = options;
@@ -68,7 +69,8 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 					const fileBlueprint: Blueprint = {
 						slug: `file:${ fileName }`,
 						title: blueprintMeta?.title || '',
-						excerpt: blueprintMeta?.description || '',
+						excerpt:
+							blueprintMeta?.description || generateDefaultBlueprintDescription( blueprintJson ),
 						image: '',
 						playground_url: '',
 						blueprint: blueprintJson,
@@ -76,28 +78,17 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 
 					setSelectedBlueprint( fileBlueprint );
 
-					const formValues = extractFormValuesFromBlueprint( blueprintJson );
+					applyBlueprintFormValues( blueprintJson, {
+						setBlueprintPreferredVersions,
+						setPhpVersion,
+						setWpVersion,
+						setBlueprintSuggestedDomain,
+						setBlueprintSuggestedHttps,
+						setBlueprintSuggestedSiteName,
+						setBlueprintRequiresCustomDomain,
+					} );
 
-					if ( blueprintJson.preferredVersions ) {
-						setBlueprintPreferredVersions(
-							blueprintJson.preferredVersions as BlueprintPreferredVersions
-						);
-					}
-					if ( formValues.phpVersion ) {
-						setPhpVersion( formValues.phpVersion );
-					}
-					if ( formValues.wpVersion ) {
-						setWpVersion( formValues.wpVersion );
-					}
-					if ( formValues.customDomain ) {
-						setBlueprintSuggestedDomain( formValues.customDomain );
-						setBlueprintSuggestedHttps( formValues.enableHttps );
-					}
-					if ( formValues.siteName ) {
-						setBlueprintSuggestedSiteName( formValues.siteName );
-					}
-
-					setBlueprintDeeplinkWarnings( warnings );
+					setBlueprintWarnings( warnings );
 					setIsDeeplinkFlow( true );
 					onModalOpen?.();
 				} catch ( error ) {
@@ -110,10 +101,11 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 				setPhpVersion,
 				setWpVersion,
 				setBlueprintPreferredVersions,
-				setBlueprintDeeplinkWarnings,
+				setBlueprintWarnings,
 				setBlueprintSuggestedDomain,
 				setBlueprintSuggestedHttps,
 				setBlueprintSuggestedSiteName,
+				setBlueprintRequiresCustomDomain,
 				setIsDeeplinkFlow,
 				onModalOpen,
 			]

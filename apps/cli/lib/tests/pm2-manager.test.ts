@@ -3,7 +3,13 @@ import { clearCache } from '@studio/common/lib/cache-function-ttl';
 import { vi } from 'vitest';
 import { getAppdataPath } from 'cli/lib/appdata';
 import { ManagerMessage } from '../types/wordpress-server-ipc';
-vi.mock( 'fs' );
+
+vi.mock( 'fs', () => ( {
+	default: {
+		existsSync: vi.fn().mockReturnValue( true ),
+		mkdirSync: vi.fn(),
+	},
+} ) );
 vi.mock( 'os', () => ( {
 	default: {
 		homedir: vi.fn().mockReturnValue( '/home/user' ),
@@ -25,8 +31,18 @@ const mockPm2Instance = {
 };
 
 vi.mock( 'pm2', () => {
+	class MockPM2 {
+		connect = mockPm2Instance.connect;
+		disconnect = mockPm2Instance.disconnect;
+		list = mockPm2Instance.list;
+		start = mockPm2Instance.start;
+		delete = mockPm2Instance.delete;
+		launchBus = mockPm2Instance.launchBus;
+		sendDataToProcessId = mockPm2Instance.sendDataToProcessId;
+	}
+
 	return {
-		custom: vi.fn().mockImplementation( () => mockPm2Instance ),
+		custom: MockPM2,
 	};
 } );
 

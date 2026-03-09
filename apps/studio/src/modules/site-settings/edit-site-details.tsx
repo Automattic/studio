@@ -3,9 +3,15 @@ import {
 	generateCustomDomainFromSiteName,
 	getDomainNameValidationError,
 } from '@studio/common/lib/domains';
+import {
+	decodePassword,
+	encodePassword,
+	validateAdminEmail,
+	validateAdminUsername,
+} from '@studio/common/lib/passwords';
 import { siteNeedsRestart } from '@studio/common/lib/site-needs-restart';
 import { SupportedPHPVersions } from '@studio/common/types/php-versions';
-import { SelectControl } from '@wordpress/components';
+import { SelectControl, TabPanel } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
@@ -14,6 +20,7 @@ import Button from 'src/components/button';
 import { ErrorInformation } from 'src/components/error-information';
 import { LearnMoreLink, LearnHowLink } from 'src/components/learn-more';
 import Modal from 'src/components/modal';
+import PasswordControl from 'src/components/password-control';
 import TextControlComponent from 'src/components/text-control';
 import { Tooltip } from 'src/components/tooltip';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
@@ -38,7 +45,39 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 	const [ isEditingSite, setIsEditingSite ] = useState( false );
 	const [ needsRestart, setNeedsRestart ] = useState( false );
 	const [ enableXdebug, setEnableXdebug ] = useState( selectedSite?.enableXdebug ?? false );
+	const [ enableDebugLog, setEnableDebugLog ] = useState( selectedSite?.enableDebugLog ?? false );
+	const [ enableDebugDisplay, setEnableDebugDisplay ] = useState(
+		selectedSite?.enableDebugDisplay ?? false
+	);
 	const [ xdebugEnabledSite, setXdebugEnabledSite ] = useState< SiteDetails | null >( null );
+	const [ adminUsername, setAdminUsername ] = useState( selectedSite?.adminUsername ?? 'admin' );
+	const [ adminPassword, setAdminPassword ] = useState(
+		() => decodePassword( selectedSite?.adminPassword ?? '' ) || 'password'
+	);
+	const [ adminEmail, setAdminEmail ] = useState(
+		selectedSite?.adminEmail || 'admin@localhost.com'
+	);
+
+	useEffect( () => {
+		if ( selectedSite?.adminEmail || ! selectedSite?.id ) {
+			return;
+		}
+		const username = selectedSite?.adminUsername ?? 'admin';
+		getIpcApi()
+			.executeWPCLiInline( {
+				siteId: selectedSite.id,
+				args: `user get ${ username } --field=user_email`,
+				skipPluginsAndThemes: true,
+			} )
+			.then( ( { stdout, stderr } ) => {
+				if ( ! stderr && stdout.trim() ) {
+					setAdminEmail( stdout.trim() );
+				}
+			} )
+			.catch( () => {
+				// Keep the default value
+			} );
+	}, [ selectedSite?.id, selectedSite?.adminEmail, selectedSite?.adminUsername ] );
 
 	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
 	const closeModal = useCallback( () => {
@@ -59,7 +98,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 				: currentWpVersion,
 		[ selectedSite, currentWpVersion, defaultWordPressVersion ]
 	);
-	const [ selectedWpVersion, setSelectedWpVersion ] = useState( getEffectiveWpVersion() );
+	const [ selectedWpVersion, setSelectedWpVersion ] = useState( () => getEffectiveWpVersion() );
 	const [ useCustomDomain, setUseCustomDomain ] = useState( Boolean( selectedSite?.customDomain ) );
 	const [ customDomain, setCustomDomain ] = useState< string | null >(
 		selectedSite?.customDomain ?? null
@@ -93,6 +132,11 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 
 	const generatedDomainName = generateCustomDomainFromSiteName( siteName );
 	const usedCustomDomain = ! useCustomDomain ? customDomain : undefined;
+	const adminUsernameError = validateAdminUsername( adminUsername );
+	const adminPasswordError = ! adminPassword.trim() ? __( 'Admin password is required' ) : '';
+	const adminEmailError = validateAdminEmail( adminEmail );
+	const isUsernameChanged =
+		! adminUsernameError && adminUsername !== ( selectedSite?.adminUsername ?? 'admin' );
 	const isFormUnchanged =
 		!! selectedSite &&
 		selectedSite.name === siteName &&
@@ -101,9 +145,19 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		Boolean( selectedSite.customDomain ) === useCustomDomain &&
 		usedCustomDomain === customDomain &&
 		!! selectedSite.enableHttps === ( !! usedCustomDomain && enableHttps ) &&
-		!! selectedSite.enableXdebug === enableXdebug;
+		!! selectedSite.enableXdebug === enableXdebug &&
+		( selectedSite.adminUsername ?? 'admin' ) === adminUsername &&
+		( decodePassword( selectedSite.adminPassword ?? '' ) || 'password' ) === adminPassword &&
+		( selectedSite.adminEmail || 'admin@localhost.com' ) === adminEmail &&
+		!! selectedSite.enableDebugLog === enableDebugLog &&
+		!! selectedSite.enableDebugDisplay === enableDebugDisplay;
 	const hasValidationErrors =
-		! selectedSite || ! siteName.trim() || ( useCustomDomain && !! customDomainError );
+		! selectedSite ||
+		! siteName.trim() ||
+		( useCustomDomain && !! customDomainError ) ||
+		!! adminUsernameError ||
+		!! adminPasswordError ||
+		!! adminEmailError;
 
 	const resetFormState = useCallback( () => {
 		if ( ! selectedSite ) {
@@ -118,6 +172,11 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		setErrorUpdatingWpVersion( null );
 		setEnableHttps( selectedSite.enableHttps ?? false );
 		setEnableXdebug( selectedSite.enableXdebug ?? false );
+		setAdminUsername( selectedSite.adminUsername ?? 'admin' );
+		setAdminPassword( decodePassword( selectedSite.adminPassword ?? '' ) || 'password' );
+		setAdminEmail( selectedSite.adminEmail || 'admin@localhost.com' );
+		setEnableDebugLog( selectedSite.enableDebugLog ?? false );
+		setEnableDebugDisplay( selectedSite.enableDebugDisplay ?? false );
 	}, [ selectedSite, getEffectiveWpVersion ] );
 
 	const onSiteEdit = async ( event: FormEvent ) => {
@@ -131,11 +190,18 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		const hasWpVersionChanged = selectedWpVersion !== getEffectiveWpVersion();
 		const hasPhpVersionChanged = selectedPhpVersion !== selectedSite.phpVersion;
 		const hasXdebugChanged = enableXdebug !== ( selectedSite.enableXdebug ?? false );
+		const hasDebugLogChanged = enableDebugLog !== ( selectedSite.enableDebugLog ?? false );
+		const hasDebugDisplayChanged =
+			enableDebugDisplay !== ( selectedSite.enableDebugDisplay ?? false );
 		const hasDomainChanged =
 			Boolean( selectedSite.customDomain ) !== useCustomDomain ||
 			( useCustomDomain && customDomain !== selectedSite.customDomain );
 		const hasHttpsChanged =
 			useCustomDomain && enableHttps !== ( selectedSite.enableHttps ?? false );
+		const hasCredentialsChanged =
+			adminUsername !== ( selectedSite.adminUsername ?? 'admin' ) ||
+			adminPassword !== ( decodePassword( selectedSite.adminPassword ?? '' ) || 'password' ) ||
+			adminEmail !== ( selectedSite.adminEmail || 'admin@localhost.com' );
 
 		const needsRestart =
 			selectedSite.running &&
@@ -145,6 +211,9 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 				phpChanged: hasPhpVersionChanged,
 				wpChanged: hasWpVersionChanged,
 				xdebugChanged: hasXdebugChanged,
+				credentialsChanged: hasCredentialsChanged,
+				debugLogChanged: hasDebugLogChanged,
+				debugDisplayChanged: hasDebugDisplayChanged,
 			} );
 		setNeedsRestart( needsRestart );
 
@@ -164,6 +233,12 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 					customDomain: usedCustomDomain,
 					enableHttps: !! usedCustomDomain && enableHttps,
 					enableXdebug,
+					adminUsername,
+					// Encode for IPC storage; IPC handler decodes back to plain text for the CLI set command
+					adminPassword: encodePassword( adminPassword ),
+					adminEmail,
+					enableDebugLog,
+					enableDebugDisplay,
 				},
 				hasWpVersionChanged ? selectedWpVersion : undefined
 			);
@@ -205,170 +280,328 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 					focusOnMount="firstContentElement"
 					onRequestClose={ closeModal }
 					className={ cx(
+						'[&_[role="document"]]:px-0',
 						isEditingSite &&
 							'[&_[aria-label="Close"]_svg]:opacity-50 [&_[aria-label="Close"]]:cursor-not-allowed'
 					) }
 				>
 					<form onSubmit={ onSiteEdit }>
-						<div className="flex flex-col">
-							<label className="flex flex-col gap-1.5 leading-4 mb-6">
-								<span className="font-semibold">{ __( 'Site name' ) }</span>
-								<TextControlComponent
-									disabled={ isEditingSite }
-									onChange={ setSiteName }
-									value={ siteName }
-								></TextControlComponent>
-							</label>
+						<TabPanel
+							className="w-full [&>[role=tabpanel]]:h-64 [&>[role=tabpanel]]:overflow-auto"
+							tabs={ [
+								{ name: 'general', title: __( 'General' ) },
+								{ name: 'debugging', title: __( 'Debugging' ) },
+							] }
+							orientation="horizontal"
+						>
+							{ ( { name } ) => (
+								<div className="mt-6 px-8 flex flex-col">
+									{ name === 'general' && (
+										<>
+											<label className="flex flex-col gap-1.5 leading-4 mb-6">
+												<span className="font-semibold">{ __( 'Site name' ) }</span>
+												<TextControlComponent
+													disabled={ isEditingSite }
+													onChange={ setSiteName }
+													value={ siteName }
+												></TextControlComponent>
+											</label>
 
-							<div className="flex flex-row gap-x-6">
-								<label
-									htmlFor="php-version-select"
-									className="flex flex-1 flex-col gap-1.5 leading-4"
-								>
-									<span className="font-semibold">{ __( 'PHP version' ) }</span>
-									<SelectControl< string >
-										id="php-version-select"
-										disabled={ isEditingSite }
-										value={ selectedPhpVersion }
-										options={ SupportedPHPVersions.map( ( version ) => ( {
-											label: version,
-											value: version,
-										} ) ) }
-										onChange={ ( version ) =>
-											setSelectedPhpVersion( version as AllowedPHPVersion )
-										}
-										__next40pxDefaultSize
-										__nextHasNoMarginBottom
-									/>
-								</label>
+											<div className="flex flex-row gap-x-6">
+												<label
+													htmlFor="php-version-select"
+													className="flex flex-1 flex-col gap-1.5 leading-4"
+												>
+													<span className="font-semibold">{ __( 'PHP version' ) }</span>
+													<SelectControl< string >
+														id="php-version-select"
+														disabled={ isEditingSite }
+														value={ selectedPhpVersion }
+														options={ SupportedPHPVersions.map( ( version ) => ( {
+															label: version,
+															value: version,
+														} ) ) }
+														onChange={ ( version ) =>
+															setSelectedPhpVersion( version as AllowedPHPVersion )
+														}
+														__next40pxDefaultSize
+														__nextHasNoMarginBottom
+													/>
+												</label>
 
-								<WPVersionSelector
-									selectedValue={ selectedWpVersion }
-									onChange={ setSelectedWpVersion }
-									disabled={ isEditingSite }
-									errorMessage={ errorUpdatingWpVersion }
-									extraOptions={ [ { label: currentWpVersion, value: currentWpVersion } ] }
-									fallbackOptions={ [ { label: currentWpVersion, value: currentWpVersion } ] }
-								/>
-							</div>
-							{ errorUpdatingWpVersion && (
-								<ErrorInformation className="mt-2">{ errorUpdatingWpVersion }</ErrorInformation>
-							) }
+												<WPVersionSelector
+													selectedValue={ selectedWpVersion }
+													onChange={ setSelectedWpVersion }
+													disabled={ isEditingSite }
+													errorMessage={ errorUpdatingWpVersion }
+													extraOptions={ [
+														{
+															label: currentWpVersion,
+															value: currentWpVersion,
+														},
+													] }
+													fallbackOptions={ [
+														{
+															label: currentWpVersion,
+															value: currentWpVersion,
+														},
+													] }
+												/>
+											</div>
+											{ errorUpdatingWpVersion && (
+												<ErrorInformation className="mt-2">
+													{ errorUpdatingWpVersion }
+												</ErrorInformation>
+											) }
 
-							<div className="flex flex-col gap-2 mt-4">
-								<div className="flex items-center gap-2">
-									<input
-										type="checkbox"
-										id="use-custom-domain"
-										checked={ useCustomDomain }
-										onChange={ ( e ) => setUseCustomDomain( e.target.checked ) }
-										disabled={ isEditingSite }
-									/>
-									<label htmlFor="use-custom-domain">{ __( 'Use custom domain' ) }</label>
-								</div>
+											<div className="flex flex-col gap-2 mt-4">
+												<div className="flex items-center gap-2">
+													<input
+														type="checkbox"
+														id="use-custom-domain"
+														checked={ useCustomDomain }
+														onChange={ ( e ) => setUseCustomDomain( e.target.checked ) }
+														disabled={ isEditingSite }
+													/>
+													<label htmlFor="use-custom-domain">{ __( 'Use custom domain' ) }</label>
+												</div>
 
-								{ useCustomDomain && (
-									<div className="flex flex-col gap-2 mt-2">
-										<label htmlFor="custom-domain" className="font-semibold">
-											{ __( 'Domain name' ) }
-										</label>
-										<TextControlComponent
-											id="custom-domain"
-											value={ customDomain ?? generatedDomainName }
-											onChange={ handleCustomDomainChange }
-											disabled={ isEditingSite }
-										/>
-										{ customDomainError && (
-											<ErrorInformation className="mt-1">{ customDomainError }</ErrorInformation>
-										) }
-										<div className="text-a8c-gray-50 text-xs mt-1">
-											{ __( 'Your system password will be required to set up the domain.' ) }
-										</div>
-									</div>
-								) }
+												{ useCustomDomain && (
+													<div className="flex flex-col gap-2 mt-2">
+														<label htmlFor="custom-domain" className="font-semibold">
+															{ __( 'Domain name' ) }
+														</label>
+														<TextControlComponent
+															id="custom-domain"
+															value={ customDomain ?? generatedDomainName }
+															onChange={ handleCustomDomainChange }
+															disabled={ isEditingSite }
+														/>
+														{ customDomainError && (
+															<ErrorInformation className="mt-1">
+																{ customDomainError }
+															</ErrorInformation>
+														) }
+														<div className="text-a8c-gray-50 text-xs mt-1">
+															{ __(
+																'Your system password will be required to set up the domain.'
+															) }
+														</div>
+													</div>
+												) }
 
-								{ useCustomDomain && (
-									<div className="flex items-center gap-2 mt-4">
-										<input
-											type="checkbox"
-											id="enable-https"
-											checked={ enableHttps }
-											onChange={ ( e ) => setEnableHttps( e.target.checked ) }
-											disabled={ isEditingSite }
-										/>
-										<label htmlFor="enable-https">{ __( 'Enable HTTPS' ) }</label>
-									</div>
-								) }
+												{ useCustomDomain && (
+													<div className="flex items-center gap-2 mt-4">
+														<input
+															type="checkbox"
+															id="enable-https"
+															checked={ enableHttps }
+															onChange={ ( e ) => setEnableHttps( e.target.checked ) }
+															disabled={ isEditingSite }
+														/>
+														<label htmlFor="enable-https">{ __( 'Enable HTTPS' ) }</label>
+													</div>
+												) }
 
-								{ ! isCertificateTrusted && useCustomDomain && (
-									<div className="text-a8c-gray-50 text-xs mt-2">
-										{ __(
-											'You need to manually add the Studio certificate authority to your keychain and trust it.'
-										) }{ ' ' }
-										<LearnHowLink docsLinksKey="docsSslInStudio" />
-									</div>
-								) }
-							</div>
+												{ ! isCertificateTrusted && useCustomDomain && (
+													<div className="text-a8c-gray-50 text-xs mt-2">
+														{ __(
+															'You need to manually add the Studio certificate authority to your keychain and trust it.'
+														) }{ ' ' }
+														<LearnHowLink docsLinksKey="docsSslInStudio" />
+													</div>
+												) }
+											</div>
 
-							<div
-								className={ cx(
-									'flex flex-col gap-2 mt-4',
-									isEditingSite ||
-										( xdebugEnabledSite && xdebugEnabledSite.id !== selectedSite?.id )
-										? 'opacity-50 cursor-not-allowed'
-										: ''
-								) }
-							>
-								<Tooltip
-									disabled={ ! xdebugEnabledSite || xdebugEnabledSite.id === selectedSite?.id }
-									text={ sprintf(
-										__(
-											'Xdebug is currently enabled for "%s" site. Disable it there first to enable it for this site.'
-										),
-										xdebugEnabledSite?.name || ''
+											<div className="flex flex-col gap-2 mt-4">
+												<span className="font-semibold">{ __( 'Admin credentials' ) }</span>
+												<div className="grid grid-cols-2 gap-4">
+													<div className="flex flex-col gap-1.5 leading-4">
+														<label className="text-sm" htmlFor="edit-admin-username">
+															{ __( 'Username' ) }
+														</label>
+														<TextControlComponent
+															id="edit-admin-username"
+															disabled={ isEditingSite }
+															value={ adminUsername }
+															onChange={ setAdminUsername }
+															className={ adminUsernameError ? '[&_input]:!border-red-500' : '' }
+														/>
+													</div>
+													<div className="flex flex-col gap-1.5 leading-4">
+														<label className="text-sm" htmlFor="edit-admin-password">
+															{ __( 'Password' ) }
+														</label>
+														<PasswordControl
+															id="edit-admin-password"
+															disabled={ isEditingSite }
+															value={ adminPassword }
+															onChange={ setAdminPassword }
+															className={ adminPasswordError ? '[&_input]:!border-red-500' : '' }
+														/>
+													</div>
+												</div>
+												{ ( adminUsernameError || adminPasswordError ) && (
+													<span className="text-red-500 text-xs">
+														{ adminUsernameError || adminPasswordError }
+													</span>
+												) }
+												{ isUsernameChanged && (
+													<span className="text-a8c-gray-50 text-xs">
+														{ __(
+															'A new admin user will be created. WordPress does not support renaming usernames.'
+														) }
+													</span>
+												) }
+											</div>
+
+											<div className="flex flex-col gap-1.5 leading-4 mt-4">
+												<label className="text-sm" htmlFor="edit-admin-email">
+													{ __( 'Email' ) }
+												</label>
+												<TextControlComponent
+													id="edit-admin-email"
+													disabled={ isEditingSite }
+													value={ adminEmail }
+													onChange={ setAdminEmail }
+													placeholder="admin@localhost.com"
+													className={ adminEmailError ? '[&_input]:!border-red-500' : '' }
+												/>
+												<div className="h-4">
+													{ adminEmailError && (
+														<span className="text-red-500 text-xs">{ adminEmailError }</span>
+													) }
+												</div>
+											</div>
+										</>
 									) }
-									placement="top-start"
-								>
-									<div>
-										<div className="flex items-center gap-2">
-											<input
-												type="checkbox"
-												id="enable-xdebug"
-												checked={ enableXdebug }
-												onChange={ ( e ) => setEnableXdebug( e.target.checked ) }
-												disabled={
-													isEditingSite ||
-													!! ( xdebugEnabledSite && xdebugEnabledSite.id !== selectedSite?.id )
-												}
-											/>
-											<label
-												htmlFor="enable-xdebug"
+
+									{ name === 'debugging' && (
+										<>
+											<div
 												className={ cx(
+													'flex flex-col gap-2',
 													isEditingSite ||
 														( xdebugEnabledSite && xdebugEnabledSite.id !== selectedSite?.id )
-														? 'cursor-not-allowed'
+														? 'opacity-50 cursor-not-allowed'
 														: ''
 												) }
 											>
-												{ __( 'Enable Xdebug' ) }
-											</label>
-										</div>
-										<div className="text-a8c-gray-50 text-xs mt-2">
-											{ createInterpolateElement(
-												__(
-													'Enable PHP debugging with Xdebug. Only one site can have Xdebug enabled at a time. Note that Xdebug may slow down site performance. <learn_more_link />'
-												),
-												{
-													learn_more_link: <LearnMoreLink docsLinksKey="docsXdebug" />,
-												}
-											) }
-										</div>
-									</div>
-								</Tooltip>
-							</div>
-						</div>
+												<Tooltip
+													disabled={
+														! xdebugEnabledSite || xdebugEnabledSite.id === selectedSite?.id
+													}
+													text={ sprintf(
+														__(
+															'Xdebug is currently enabled for "%s" site. Disable it there first to enable it for this site.'
+														),
+														xdebugEnabledSite?.name || ''
+													) }
+													placement="top-start"
+												>
+													<div>
+														<div className="flex items-center gap-2">
+															<input
+																type="checkbox"
+																id="enable-xdebug"
+																checked={ enableXdebug }
+																onChange={ ( e ) => setEnableXdebug( e.target.checked ) }
+																disabled={
+																	isEditingSite ||
+																	!! (
+																		xdebugEnabledSite && xdebugEnabledSite.id !== selectedSite?.id
+																	)
+																}
+															/>
+															<label
+																htmlFor="enable-xdebug"
+																className={ cx(
+																	isEditingSite ||
+																		( xdebugEnabledSite &&
+																			xdebugEnabledSite.id !== selectedSite?.id )
+																		? 'cursor-not-allowed'
+																		: ''
+																) }
+															>
+																{ __( 'Enable Xdebug' ) }
+															</label>
+														</div>
+														<div className="text-a8c-gray-50 text-xs mt-2">
+															{ createInterpolateElement(
+																__(
+																	'Enable PHP debugging with Xdebug. Only one site can have Xdebug enabled at a time. Note that Xdebug may slow down site performance. <learn_more_link />'
+																),
+																{
+																	learn_more_link: <LearnMoreLink docsLinksKey="docsXdebug" />,
+																}
+															) }
+														</div>
+													</div>
+												</Tooltip>
+											</div>
 
-						<div className="flex flex-row justify-end gap-x-5 mt-8">
+											<div
+												className={ cx(
+													'flex flex-col gap-2 mt-4',
+													isEditingSite ? 'opacity-50 cursor-not-allowed' : ''
+												) }
+											>
+												<div className="flex items-center gap-2">
+													<input
+														type="checkbox"
+														id="enable-debug-log"
+														checked={ enableDebugLog }
+														onChange={ ( e ) => setEnableDebugLog( e.target.checked ) }
+														disabled={ isEditingSite }
+													/>
+													<label
+														htmlFor="enable-debug-log"
+														className={ cx( isEditingSite ? 'cursor-not-allowed' : '' ) }
+													>
+														{ __( 'Enable debug log' ) }
+													</label>
+												</div>
+												<div className="text-a8c-gray-50 text-xs mt-1">
+													{ __(
+														"Log PHP errors and warnings to a debug.log file in your site's wp-content directory by setting the WP_DEBUG_LOG constant."
+													) }
+												</div>
+											</div>
+
+											<div
+												className={ cx(
+													'flex flex-col gap-2 mt-4',
+													isEditingSite ? 'opacity-50 cursor-not-allowed' : ''
+												) }
+											>
+												<div className="flex items-center gap-2">
+													<input
+														type="checkbox"
+														id="enable-debug-display"
+														checked={ enableDebugDisplay }
+														onChange={ ( e ) => setEnableDebugDisplay( e.target.checked ) }
+														disabled={ isEditingSite }
+													/>
+													<label
+														htmlFor="enable-debug-display"
+														className={ cx( isEditingSite ? 'cursor-not-allowed' : '' ) }
+													>
+														{ __( 'Show errors in browser' ) }
+													</label>
+												</div>
+												<div className="text-a8c-gray-50 text-xs mt-1">
+													{ __(
+														'Display PHP errors and warnings directly in the browser by setting the WP_DEBUG_DISPLAY constant.'
+													) }
+												</div>
+											</div>
+										</>
+									) }
+								</div>
+							) }
+						</TabPanel>
+
+						<div className="flex flex-row justify-end gap-x-5 mt-8 px-8">
 							<Button onClick={ closeModal } disabled={ isEditingSite } variant="tertiary">
 								{ __( 'Cancel' ) }
 							</Button>

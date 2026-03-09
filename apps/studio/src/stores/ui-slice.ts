@@ -1,9 +1,9 @@
 import { createSlice } from '@reduxjs/toolkit';
 import { RootState } from 'src/stores';
 
-interface UiState {
+type UiState = {
 	isAddSiteModalOpen: boolean;
-}
+};
 
 const initialState: UiState = {
 	isAddSiteModalOpen: false,
@@ -25,7 +25,7 @@ const uiSlice = createSlice( {
 	},
 } );
 
-export const { openAddSiteModal, closeAddSiteModal, toggleAddSiteModal } = uiSlice.actions;
+export const { openAddSiteModal, closeAddSiteModal } = uiSlice.actions;
 
 export const selectIsAddSiteModalOpen = ( state: RootState ) => state.ui.isAddSiteModalOpen;
 

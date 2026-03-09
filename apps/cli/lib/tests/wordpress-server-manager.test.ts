@@ -52,22 +52,24 @@ describe( 'WordPress Server Manager', () => {
 	} );
 
 	function setupIpcMocks(): void {
-		// Send ready message after a tick (simulating async bus initialization)
-		process.nextTick( () => {
+		// Emit "ready" repeatedly to avoid races where the listener is attached after one-shot emission.
+		const readyInterval = setInterval( () => {
 			mockBus.emit( 'process:msg', {
 				process: { name: mockProcessDescription.name, pm_id: mockProcessDescription.pmId },
 				raw: { topic: 'ready' },
 			} );
-		} );
+		}, 1 );
 
 		vi.mocked( pm2Manager.sendMessageToProcess ).mockImplementation( ( pmId, message ) => {
+			clearInterval( readyInterval );
 			// Send result message only after sendMessageToProcess is called
-			process.nextTick( () => {
+			setImmediate( () => {
 				mockBus.emit( 'process:msg', {
 					process: { name: mockProcessDescription.name, pm_id: mockProcessDescription.pmId },
 					raw: {
 						topic: 'result',
 						originalMessageId: message.messageId,
+						result: {},
 					},
 				} );
 			} );

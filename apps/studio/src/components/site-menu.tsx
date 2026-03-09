@@ -2,10 +2,9 @@ import * as Sentry from '@sentry/electron/renderer';
 import { speak } from '@wordpress/a11y';
 import { Spinner } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { XDebugIcon } from 'src/components/icons/xdebug-icon';
 import { Tooltip } from 'src/components/tooltip';
-import { useSyncSites } from 'src/hooks/sync-sites';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useDeleteSite } from 'src/hooks/use-delete-site';
 import { useImportExport } from 'src/hooks/use-import-export';
@@ -15,7 +14,9 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
 import { getTerminalName } from 'src/modules/user-settings/lib/terminal';
+import { useRootSelector } from 'src/stores';
 import { useGetUserEditorQuery, useGetUserTerminalQuery } from 'src/stores/installed-apps-api';
+import { syncOperationsSelectors } from 'src/stores/sync';
 
 interface SiteMenuProps {
 	className?: string;
@@ -42,6 +43,7 @@ function ButtonToRun( site: SiteDetails ) {
 	const classCircle = `rounded-full`;
 	const triangle = (
 		<svg
+			aria-hidden="true"
 			width="8"
 			height="10"
 			viewBox="0 0 8 10"
@@ -59,7 +61,14 @@ function ButtonToRun( site: SiteDetails ) {
 	);
 
 	const rectangle = (
-		<svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+		<svg
+			aria-hidden="true"
+			width="10"
+			height="10"
+			viewBox="0 0 10 10"
+			fill="none"
+			xmlns="http://www.w3.org/2000/svg"
+		>
 			<path
 				d="M0.25 2C0.25 1.0335 1.0335 0.25 2 0.25H8C8.9665 0.25 9.75 1.0335 9.75 2V8C9.75 8.9665 8.9665 9.75 8 9.75H2C1.0335 9.75 0.25 8.9665 0.25 8V2Z"
 				fill="#FF8085"
@@ -78,6 +87,7 @@ function ButtonToRun( site: SiteDetails ) {
 	return (
 		<Tooltip text={ tooltipText }>
 			<button
+				type="button"
 				aria-disabled={ loadingServer[ id ] }
 				onClick={ () => {
 					if ( loadingServer[ id ] ) {
@@ -128,23 +138,39 @@ function ButtonToRun( site: SiteDetails ) {
 		</Tooltip>
 	);
 }
-function SiteItem( { site }: { site: SiteDetails } ) {
-	const { selectedSite, setSelectedSiteId, loadingServer, isSiteDeleting } = useSiteDetails();
+function SiteItem( {
+	site,
+	index,
+	onDragStart,
+	onDragOver,
+	onDrop,
+	onDragEnd,
+	isDragOver,
+}: {
+	site: SiteDetails;
+	index: number;
+	onDragStart: ( e: React.DragEvent, index: number ) => void;
+	onDragOver: ( e: React.DragEvent, index: number ) => void;
+	onDrop: ( e: React.DragEvent, index: number ) => void;
+	onDragEnd: () => void;
+	isDragOver: boolean;
+} ) {
+	const { sites, selectedSite, setSelectedSiteId, loadingServer, isSiteDeleting } =
+		useSiteDetails();
 	const isSelected = site === selectedSite;
 	const { isSiteImporting, isSiteExporting } = useImportExport();
-	const { isSiteIdPulling, isSiteIdPushing } = useSyncSites();
 	const { data: editor } = useGetUserEditorQuery();
 	const { data: terminal } = useGetUserTerminalQuery();
 	const isImporting = isSiteImporting( site.id );
 	const isExporting = isSiteExporting( site.id );
-	const isPulling = isSiteIdPulling( site.id );
-	const isPushing = isSiteIdPushing( site.id );
+	const isPulling = useRootSelector( syncOperationsSelectors.selectIsSiteIdPulling( site.id ) );
+	const isPushing = useRootSelector( syncOperationsSelectors.selectIsSiteIdPushing( site.id ) );
 	const isSyncing = isPulling || isPushing;
 	const isDeleting = isSiteDeleting( site.id );
 	const showSpinner =
 		site.isAddingSite || isImporting || isPulling || isPushing || isExporting || isDeleting;
 
-	let tooltipText;
+	let tooltipText: string;
 	if ( site.isAddingSite ) {
 		tooltipText = __( 'Adding' );
 	} else if ( isImporting ) {
@@ -160,6 +186,7 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 		const ipcApi = getIpcApi();
 		const isLoading = loadingServer[ site.id ] || false;
 		const isAddingSite = site.isAddingSite || false;
+		const isAnySiteAdding = sites.some( ( s ) => s.isAddingSite );
 		const finderLabel = isWindows() ? __( 'File Explorer' ) : __( 'Finder' );
 		const editorLabel =
 			editor && supportedEditorConfig[ editor ] ? supportedEditorConfig[ editor ].label : null;
@@ -170,6 +197,7 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 			isRunning: site.running,
 			isLoading,
 			isAddingSite,
+			isAnySiteAdding,
 			isSyncing,
 			finderLabel,
 			editorLabel,
@@ -180,13 +208,20 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 	return (
 		<li
 			className={ cx(
-				'flex flex-row min-w-[168px] h-8 hover:bg-[#ffffff0C] rounded transition-all ms-1',
+				'flex flex-row min-w-[168px] h-8 hover:bg-[#ffffff0C] rounded transition-all ms-1 items-center',
 				isMac() ? 'me-5' : 'me-4',
-				isSelected && 'bg-[#ffffff19] hover:bg-[#ffffff19]'
+				isSelected && 'bg-[#ffffff19] hover:bg-[#ffffff19]',
+				isDragOver && 'bg-[#ffffff26]'
 			) }
 			onContextMenu={ handleContextMenu }
+			draggable
+			onDragStart={ ( e ) => onDragStart( e, index ) }
+			onDragOver={ ( e ) => onDragOver( e, index ) }
+			onDrop={ ( e ) => onDrop( e, index ) }
+			onDragEnd={ onDragEnd }
 		>
 			<button
+				type="button"
 				className="p-2 text-xs rounded-tl rounded-bl whitespace-nowrap overflow-hidden text-ellipsis w-full text-left rtl:text-right focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-a8c-blue-50"
 				onClick={ () => {
 					setSelectedSiteId( site.id );
@@ -197,7 +232,7 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 			{ showSpinner ? (
 				<Tooltip text={ tooltipText }>
 					<div className="grid place-items-center">
-						<Spinner className="!w-2.5 !h-2.5 !top-[6px] !mr-2 [&>circle]:stroke-a8c-gray-70" />
+						<Spinner className="!w-2.5 !h-2.5 !mt-0 !mr-2 [&>circle]:stroke-a8c-gray-70" />
 					</div>
 				</Tooltip>
 			) : (
@@ -216,10 +251,47 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 		stopServer,
 		setIsEditModalOpen,
 		copySite,
+		updateSitesSortOrder,
 	} = useSiteDetails();
 	const { setSelectedTab } = useContentTabs();
 	const { handleDeleteSite } = useDeleteSite();
 	const { data: editor } = useGetUserEditorQuery();
+	const [ draggedIndex, setDraggedIndex ] = useState< number | null >( null );
+	const [ dragOverIndex, setDragOverIndex ] = useState< number | null >( null );
+
+	const handleDragStart = ( e: React.DragEvent, index: number ) => {
+		setDraggedIndex( index );
+		e.dataTransfer.effectAllowed = 'move';
+	};
+
+	const handleDragOver = ( e: React.DragEvent, index: number ) => {
+		e.preventDefault();
+		e.dataTransfer.dropEffect = 'move';
+		if ( draggedIndex !== null && draggedIndex !== index ) {
+			setDragOverIndex( index );
+		}
+	};
+
+	const handleDrop = ( e: React.DragEvent, targetIndex: number ) => {
+		e.preventDefault();
+		setDragOverIndex( null );
+		if ( draggedIndex === null || draggedIndex === targetIndex ) {
+			return;
+		}
+
+		const updatedSites = [ ...sites ];
+		const [ movedSite ] = updatedSites.splice( draggedIndex, 1 );
+		updatedSites.splice( targetIndex, 0, movedSite );
+
+		updateSitesSortOrder( updatedSites ).catch( ( error ) => {
+			console.error( 'Failed to save site order:', error );
+		} );
+	};
+
+	const handleDragEnd = () => {
+		setDraggedIndex( null );
+		setDragOverIndex( null );
+	};
 
 	useEffect( () => {
 		const unsubscribe = window.ipcListener.subscribe(
@@ -319,9 +391,24 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 			) }
 		>
 			<ul className="pt-px">
-				{ sites.map( ( site ) => (
-					<SiteItem key={ site.id } site={ site } />
+				{ sites.map( ( site, index ) => (
+					<SiteItem
+						key={ site.id }
+						site={ site }
+						index={ index }
+						onDragStart={ handleDragStart }
+						onDragOver={ handleDragOver }
+						onDrop={ handleDrop }
+						onDragEnd={ handleDragEnd }
+						isDragOver={ dragOverIndex === index }
+					/>
 				) ) }
+				{ /* Drop zone for dragging to bottom of list */ }
+				<li
+					className="h-8"
+					onDragOver={ ( e ) => handleDragOver( e, sites.length ) }
+					onDrop={ ( e ) => handleDrop( e, sites.length ) }
+				/>
 			</ul>
 		</nav>
 	);

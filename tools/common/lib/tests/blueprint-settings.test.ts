@@ -1,5 +1,7 @@
 import {
+	blueprintHasMultisite,
 	extractFormValuesFromBlueprint,
+	generateDefaultBlueprintDescription,
 	updateBlueprintWithFormValues,
 } from '../blueprint-settings';
 
@@ -144,6 +146,113 @@ describe( 'blueprint-settings', () => {
 			expect( result.customDomain ).toBeUndefined();
 		} );
 
+		// Login credentials extraction tests
+		it( 'should not extract credentials when there is no login', () => {
+			const blueprint = {
+				steps: [
+					{
+						step: 'installPlugin',
+						pluginData: { resource: 'wordpress.org/plugins', slug: 'akismet' },
+					},
+				],
+			};
+			const result = extractFormValuesFromBlueprint( blueprint );
+			expect( result.adminUsername ).toBeUndefined();
+			expect( result.adminPassword ).toBeUndefined();
+		} );
+
+		it( 'should not extract credentials for top-level login: true', () => {
+			const blueprint = { login: true };
+			const result = extractFormValuesFromBlueprint( blueprint );
+			expect( result.adminUsername ).toBeUndefined();
+			expect( result.adminPassword ).toBeUndefined();
+		} );
+
+		it( 'should extract credentials from top-level login object', () => {
+			const blueprint = {
+				login: { username: 'customuser', password: 'custompass' },
+			};
+			const result = extractFormValuesFromBlueprint( blueprint );
+			expect( result.adminUsername ).toBe( 'customuser' );
+			expect( result.adminPassword ).toBe( 'custompass' );
+		} );
+
+		it( 'should extract username only from top-level login', () => {
+			const blueprint = {
+				login: { username: 'customuser' },
+			};
+			const result = extractFormValuesFromBlueprint( blueprint );
+			expect( result.adminUsername ).toBe( 'customuser' );
+			expect( result.adminPassword ).toBeUndefined();
+		} );
+
+		it( 'should extract password only from top-level login', () => {
+			const blueprint = {
+				login: { password: 'custompass' },
+			};
+			const result = extractFormValuesFromBlueprint( blueprint );
+			expect( result.adminUsername ).toBeUndefined();
+			expect( result.adminPassword ).toBe( 'custompass' );
+		} );
+
+		it( 'should extract credentials from login step in steps array', () => {
+			const blueprint = {
+				steps: [
+					{
+						step: 'login',
+						username: 'stepuser',
+						password: 'steppass',
+					},
+				],
+			};
+			const result = extractFormValuesFromBlueprint( blueprint );
+			expect( result.adminUsername ).toBe( 'stepuser' );
+			expect( result.adminPassword ).toBe( 'steppass' );
+		} );
+
+		it( 'should extract username only from login step', () => {
+			const blueprint = {
+				steps: [
+					{
+						step: 'login',
+						username: 'stepuser',
+					},
+				],
+			};
+			const result = extractFormValuesFromBlueprint( blueprint );
+			expect( result.adminUsername ).toBe( 'stepuser' );
+			expect( result.adminPassword ).toBeUndefined();
+		} );
+
+		it( 'should not extract credentials from login step without credentials', () => {
+			const blueprint = {
+				steps: [
+					{
+						step: 'login',
+					},
+				],
+			};
+			const result = extractFormValuesFromBlueprint( blueprint );
+			expect( result.adminUsername ).toBeUndefined();
+			expect( result.adminPassword ).toBeUndefined();
+		} );
+
+		it( 'should prefer top-level login credentials over steps array', () => {
+			const blueprint = {
+				login: { username: 'toplevel', password: 'toplevelpass' },
+				steps: [
+					{
+						step: 'login',
+						username: 'stepuser',
+						password: 'steppass',
+					},
+				],
+			};
+			const result = extractFormValuesFromBlueprint( blueprint );
+			expect( result.adminUsername ).toBe( 'toplevel' );
+			expect( result.adminPassword ).toBe( 'toplevelpass' );
+		} );
+
 		it( 'should extract blogname from setSiteOptions step', () => {
 			const blueprint = {
 				steps: [ { step: 'setSiteOptions', options: { blogname: 'My Blog' } } ],
@@ -175,6 +284,70 @@ describe( 'blueprint-settings', () => {
 			const result = extractFormValuesFromBlueprint( blueprint );
 
 			expect( result.siteName ).toBe( 'First Name' );
+		} );
+
+		it( 'should set requiresCustomDomain when enableMultisite step is present', () => {
+			const blueprint = {
+				steps: [ { step: 'enableMultisite' } ],
+			};
+
+			const result = extractFormValuesFromBlueprint( blueprint );
+
+			expect( result.requiresCustomDomain ).toBe( true );
+		} );
+
+		it( 'should not set requiresCustomDomain when enableMultisite step is absent', () => {
+			const blueprint = {
+				steps: [ { step: 'installPlugin', pluginData: { slug: 'akismet' } } ],
+			};
+
+			const result = extractFormValuesFromBlueprint( blueprint );
+
+			expect( result.requiresCustomDomain ).toBeUndefined();
+		} );
+	} );
+
+	describe( 'blueprintHasMultisite', () => {
+		it( 'should return true when enableMultisite step is present', () => {
+			const blueprint = {
+				steps: [ { step: 'enableMultisite' } ],
+			};
+
+			expect( blueprintHasMultisite( blueprint ) ).toBe( true );
+		} );
+
+		it( 'should return true when enableMultisite is among other steps', () => {
+			const blueprint = {
+				steps: [
+					{ step: 'login' },
+					{ step: 'enableMultisite' },
+					{ step: 'installPlugin', pluginData: { slug: 'akismet' } },
+				],
+			};
+
+			expect( blueprintHasMultisite( blueprint ) ).toBe( true );
+		} );
+
+		it( 'should return false when enableMultisite is not present', () => {
+			const blueprint = {
+				steps: [ { step: 'login' } ],
+			};
+
+			expect( blueprintHasMultisite( blueprint ) ).toBe( false );
+		} );
+
+		it( 'should return false for empty blueprint', () => {
+			expect( blueprintHasMultisite( {} ) ).toBe( false );
+		} );
+
+		it( 'should return false when steps is not an array', () => {
+			const blueprint = { steps: 'not-an-array' };
+
+			expect(
+				blueprintHasMultisite(
+					blueprint as unknown as Parameters< typeof blueprintHasMultisite >[ 0 ]
+				)
+			).toBe( false );
 		} );
 	} );
 
@@ -420,6 +593,114 @@ describe( 'blueprint-settings', () => {
 				step: 'setSiteOptions',
 				options: { blogname: 'New Name', blogdescription: 'A description' },
 			} );
+		} );
+	} );
+
+	describe( 'generateDefaultBlueprintDescription', () => {
+		it( 'should return empty string for empty blueprint', () => {
+			expect( generateDefaultBlueprintDescription( {} ) ).toBe( '' );
+		} );
+
+		it( 'should return empty string for missing steps', () => {
+			expect( generateDefaultBlueprintDescription( { meta: { title: 'Test' } } ) ).toBe( '' );
+		} );
+
+		it( 'should return empty string for non-array steps', () => {
+			const blueprint = { steps: 'not-an-array' };
+			expect(
+				generateDefaultBlueprintDescription(
+					blueprint as unknown as Parameters< typeof generateDefaultBlueprintDescription >[ 0 ]
+				)
+			).toBe( '' );
+		} );
+
+		it( 'should return empty string for steps with no recognized actions', () => {
+			expect( generateDefaultBlueprintDescription( { steps: [ { step: 'login' } ] } ) ).toBe( '' );
+		} );
+
+		it( 'should describe a single plugin', () => {
+			const blueprint = { steps: [ { step: 'installPlugin' } ] };
+			expect( generateDefaultBlueprintDescription( blueprint ) ).toBe( 'Installs 1 plugin.' );
+		} );
+
+		it( 'should describe multiple plugins', () => {
+			const blueprint = {
+				steps: [ { step: 'installPlugin' }, { step: 'installPlugin' }, { step: 'installPlugin' } ],
+			};
+			expect( generateDefaultBlueprintDescription( blueprint ) ).toBe( 'Installs 3 plugins.' );
+		} );
+
+		it( 'should describe plugins and themes combined', () => {
+			const blueprint = {
+				steps: [ { step: 'installPlugin' }, { step: 'installPlugin' }, { step: 'installTheme' } ],
+			};
+			expect( generateDefaultBlueprintDescription( blueprint ) ).toBe(
+				'Installs 2 plugins and 1 theme.'
+			);
+		} );
+
+		it( 'should describe content import steps', () => {
+			const blueprint = { steps: [ { step: 'importWxr' } ] };
+			expect( generateDefaultBlueprintDescription( blueprint ) ).toBe( 'Imports content.' );
+		} );
+
+		it( 'should describe a single PHP code block', () => {
+			const blueprint = { steps: [ { step: 'runPHP' } ] };
+			expect( generateDefaultBlueprintDescription( blueprint ) ).toBe(
+				'Runs 1 block of PHP code.'
+			);
+		} );
+
+		it( 'should describe PHP code, SQL queries, and WP-CLI commands combined', () => {
+			const blueprint = {
+				steps: [ { step: 'runPHP' }, { step: 'runSql' }, { step: 'wp-cli' } ],
+			};
+			expect( generateDefaultBlueprintDescription( blueprint ) ).toBe(
+				'Runs 1 block of PHP code, 1 SQL query, and 1 WP-CLI command.'
+			);
+		} );
+
+		it( 'should describe site configuration steps', () => {
+			const blueprint = {
+				steps: [ { step: 'setSiteOptions' }, { step: 'defineWpConfigConsts' } ],
+			};
+			expect( generateDefaultBlueprintDescription( blueprint ) ).toBe(
+				'Applies site configuration.'
+			);
+		} );
+
+		it( 'should describe a complex blueprint with all categories', () => {
+			const blueprint = {
+				steps: [
+					{ step: 'installPlugin' },
+					{ step: 'installPlugin' },
+					{ step: 'installPlugin' },
+					{ step: 'installTheme' },
+					{ step: 'installTheme' },
+					{ step: 'importWxr' },
+					{ step: 'runPHP' },
+					{ step: 'runSql' },
+					{ step: 'runSql' },
+					{ step: 'wp-cli' },
+					{ step: 'setSiteOptions' },
+					{ step: 'defineWpConfigConsts' },
+				],
+			};
+			expect( generateDefaultBlueprintDescription( blueprint ) ).toBe(
+				'Installs 3 plugins and 2 themes. Imports content. Runs 1 block of PHP code, 2 SQL queries, and 1 WP-CLI command. Applies site configuration.'
+			);
+		} );
+
+		it( 'should ignore unrecognized steps', () => {
+			const blueprint = {
+				steps: [
+					{ step: 'login' },
+					{ step: 'installPlugin' },
+					{ step: 'enableMultisite' },
+					{ step: 'defineSiteUrl' },
+				],
+			};
+			expect( generateDefaultBlueprintDescription( blueprint ) ).toBe( 'Installs 1 plugin.' );
 		} );
 	} );
 } );

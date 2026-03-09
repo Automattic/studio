@@ -21,6 +21,10 @@ test.describe( 'Blueprints', () => {
 		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
 	} );
 
+	test.afterEach( async ( { page: _page }, testInfo ) => {
+		await session.reportMainProcessLogsOnFailure( testInfo );
+	} );
+
 	test.afterAll( async () => {
 		await session.cleanup();
 	} );
@@ -169,8 +173,9 @@ test.describe( 'Blueprints', () => {
 		const pluginsUrl = wpAdminUrl + '/plugins.php';
 		await page.goto( getUrlWithAutoLogin( pluginsUrl ) );
 		// Be more specific - look for the active Hello Dolly plugin
+		// Use a generous timeout to account for auto-login redirect + page load
 		const pluginRow = page.locator( 'tr[data-slug="hello-dolly"].active' );
-		await expect( pluginRow ).toBeVisible();
+		await expect( pluginRow ).toBeVisible( { timeout: 60_000 } );
 	} );
 
 	test( 'create site with Blueprint that runs PHP code', async ( { page } ) => {

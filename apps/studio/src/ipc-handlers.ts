@@ -21,23 +21,25 @@ import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { bumpStat } from '@studio/common/lib/bump-stat';
 import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
 import {
-	calculateDirectorySize,
+	calculateDirectorySizeForArchive,
 	isWordPressDirectory,
 	arePathsEqual,
 	isEmptyDir,
 	pathExists,
 	recursiveCopyDirectory,
 } from '@studio/common/lib/fs-utils';
+import { generateNumberedName, generateSiteName } from '@studio/common/lib/generate-site-name';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
+import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
 import { portFinder } from '@studio/common/lib/port-finder';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import { Snapshot } from '@studio/common/types/snapshot';
 import { StatsGroup, StatsMetric } from '@studio/common/types/stats';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
-import { MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
+import { MACOS_TRAFFIC_LIGHT_POSITION, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
 import { getImporterMetric, getBlueprintMetric } from 'src/lib/bump-stats/lib';
@@ -101,7 +103,6 @@ export {
 	getConnectedWpcomSites,
 	pauseSyncUpload,
 	pushArchive,
-	removeExportedSiteTmpFile,
 	removeSyncBackup,
 	resumeSyncUpload,
 	updateConnectedWpcomSites,
@@ -127,6 +128,7 @@ export {
 
 const DEBUG_LOG_MAX_LINES = 50;
 const PM2_HOME = nodePath.join( os.homedir(), '.studio', 'pm2' );
+const DEFAULT_ENCODED_PASSWORD = encodePassword( 'password' );
 
 function readLastLines( filePath: string, maxLines: number ): string[] | undefined {
 	try {
@@ -248,6 +250,9 @@ export async function createSite(
 		siteId?: string;
 		phpVersion?: string;
 		blueprint?: Blueprint;
+		adminUsername?: string;
+		adminPassword?: string;
+		adminEmail?: string;
 		noStart?: boolean;
 	} = {}
 ): Promise< SiteDetails > {
@@ -259,6 +264,9 @@ export async function createSite(
 		siteId: providedSiteId,
 		blueprint,
 		phpVersion,
+		adminUsername,
+		adminPassword,
+		adminEmail,
 		noStart = false,
 	} = config;
 
@@ -278,6 +286,9 @@ export async function createSite(
 				enableHttps,
 				siteId,
 				blueprint: blueprint?.blueprint,
+				adminUsername,
+				adminPassword,
+				adminEmail,
 				noStart,
 			},
 			{ wpVersion, blueprint: blueprint?.blueprint }
@@ -375,6 +386,30 @@ export async function updateSite(
 
 	if ( updatedSite.enableXdebug !== currentSite.enableXdebug ) {
 		options.xdebug = updatedSite.enableXdebug ?? false;
+	}
+
+	if ( ( updatedSite.adminUsername ?? 'admin' ) !== ( currentSite.adminUsername ?? 'admin' ) ) {
+		options.adminUsername = updatedSite.adminUsername;
+	}
+
+	if (
+		( updatedSite.adminPassword ?? DEFAULT_ENCODED_PASSWORD ) !==
+		( currentSite.adminPassword ?? DEFAULT_ENCODED_PASSWORD )
+	) {
+		// CLI set expects plain text password (it encodes before saving)
+		options.adminPassword = decodePassword( updatedSite.adminPassword ?? DEFAULT_ENCODED_PASSWORD );
+	}
+
+	if ( ( updatedSite.adminEmail ?? '' ) !== ( currentSite.adminEmail ?? '' ) ) {
+		options.adminEmail = updatedSite.adminEmail;
+	}
+
+	if ( updatedSite.enableDebugLog !== currentSite.enableDebugLog ) {
+		options.debugLog = updatedSite.enableDebugLog ?? false;
+	}
+
+	if ( updatedSite.enableDebugDisplay !== currentSite.enableDebugDisplay ) {
+		options.debugDisplay = updatedSite.enableDebugDisplay ?? false;
 	}
 
 	const hasCliChanges = Object.keys( options ).length > 2;
@@ -609,7 +644,9 @@ export async function copySite(
 		port,
 		phpVersion: sourceSite.phpVersion,
 		running: false,
+		adminUsername: sourceSite.adminUsername,
 		adminPassword: sourceSite.adminPassword,
+		adminEmail: sourceSite.adminEmail,
 		themeDetails: sourceSite.themeDetails,
 	};
 
@@ -806,6 +843,28 @@ export async function generateProposedSitePath(
 		}
 		throw err;
 	}
+}
+
+export async function generateSiteNameFromList(
+	_event: IpcMainInvokeEvent,
+	usedSites: SiteDetails[]
+): Promise< string > {
+	return generateSiteName(
+		usedSites.map( ( s ) => s.name ),
+		DEFAULT_SITE_PATH
+	);
+}
+
+export async function generateNumberedNameFromList(
+	_event: IpcMainInvokeEvent,
+	baseName: string,
+	usedSites: SiteDetails[]
+): Promise< string > {
+	return generateNumberedName(
+		baseName,
+		usedSites.map( ( s ) => s.name ),
+		DEFAULT_SITE_PATH
+	);
 }
 
 export async function openLocalPath( _event: IpcMainInvokeEvent, path: string ) {
@@ -1145,7 +1204,7 @@ export function getDirectorySize( _event: IpcMainInvokeEvent, siteId: string, su
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
 	}
-	return calculateDirectorySize( nodePath.join( site.details.path, ...subdir ) );
+	return calculateDirectorySizeForArchive( nodePath.join( site.details.path, ...subdir ) );
 }
 
 export function getFileSize( _event: IpcMainInvokeEvent, siteId: string, filePath: string[] ) {
@@ -1190,6 +1249,7 @@ export function showSiteContextMenu(
 		isRunning: boolean;
 		isLoading: boolean;
 		isAddingSite: boolean;
+		isAnySiteAdding: boolean;
 		isSyncing: boolean;
 		finderLabel: string;
 		editorLabel: string | null;
@@ -1201,6 +1261,7 @@ export function showSiteContextMenu(
 		isRunning,
 		isLoading,
 		isAddingSite,
+		isAnySiteAdding,
 		isSyncing,
 		finderLabel,
 		editorLabel,
@@ -1369,7 +1430,7 @@ export function showSiteContextMenu(
 	menu.append(
 		new MenuItem( {
 			label: __( 'Copy site…' ),
-			enabled: ! isLoading && ! isAddingSite,
+			enabled: ! isLoading && ! isAnySiteAdding,
 			click: () => {
 				sendIpcEventToRendererWithWindow(
 					BrowserWindow.fromWebContents( event.sender ),
@@ -1386,7 +1447,7 @@ export function showSiteContextMenu(
 	menu.append(
 		new MenuItem( {
 			label: __( 'Delete site…' ),
-			enabled: ! isLoading && ! isAddingSite && ! isSyncing,
+			enabled: ! isLoading && ! isAnySiteAdding && ! isSyncing,
 			click: () => {
 				sendIpcEventToRendererWithWindow(
 					BrowserWindow.fromWebContents( event.sender ),
@@ -1537,5 +1598,30 @@ export async function setWindowControlVisibility( event: IpcMainInvokeEvent, vis
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	if ( parentWindow && process.platform === 'darwin' ) {
 		parentWindow.setWindowButtonVisibility( visible );
+		if ( visible ) {
+			parentWindow.setWindowButtonPosition( MACOS_TRAFFIC_LIGHT_POSITION );
+		}
+	}
+}
+
+export async function updateSitesSortOrder(
+	event: IpcMainInvokeEvent,
+	updates: { siteId: string; sortOrder: number }[]
+): Promise< void > {
+	try {
+		await lockAppdata();
+		const userData = await loadUserData();
+
+		const updatedSites = userData.sites.map( ( site ) => {
+			const update = updates.find( ( u ) => u.siteId === site.id );
+			if ( update ) {
+				return { ...site, sortOrder: update.sortOrder };
+			}
+			return site;
+		} );
+
+		await saveUserData( { ...userData, sites: updatedSites } );
+	} finally {
+		await unlockAppdata();
 	}
 }

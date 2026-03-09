@@ -1,3 +1,5 @@
+/// <reference types="@testing-library/jest-dom/vitest" />
+
 declare module '*.png' {
 	const dataUri: string;
 	export default dataUri;
@@ -42,8 +44,6 @@ declare module '*.wasm' {
 	const dataUri: function;
 	export default dataUri;
 }
-
-declare module 'pm2-axon';
 
 declare module 'wpcom-xhr-request';
 

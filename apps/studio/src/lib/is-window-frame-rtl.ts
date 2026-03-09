@@ -1,5 +1,6 @@
 interface HasTextInfo {
-	textInfo: { direction: 'ltr' | 'rtl' };
+	getTextInfo?: () => { direction: 'ltr' | 'rtl' };
+	textInfo?: { direction: 'ltr' | 'rtl' };
 }
 
 let cachedResult: boolean | null = null;
@@ -10,11 +11,11 @@ let cachedResult: boolean | null = null;
  */
 export function isWindowFrameRtl(): boolean {
 	if ( null === cachedResult ) {
-		// If `textInfo` is removed in a future version of Electron, we might need to change it to `getTextInfo()`
+		// `getTextInfo()` replaced the `textInfo` property in Chromium 130+ (Electron 32+)
 		// See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/Locale/getTextInfo
-		cachedResult =
-			'rtl' ===
-			( new Intl.Locale( navigator.language ) as unknown as HasTextInfo ).textInfo.direction;
+		const locale = new Intl.Locale( navigator.language ) as unknown as HasTextInfo;
+		const direction = ( locale.getTextInfo?.() ?? locale.textInfo )?.direction ?? 'ltr';
+		cachedResult = 'rtl' === direction;
 	}
 
 	return cachedResult;

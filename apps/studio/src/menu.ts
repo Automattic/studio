@@ -5,6 +5,7 @@ import {
 	BrowserWindow,
 	autoUpdater,
 	MenuItem,
+	shell,
 } from 'electron';
 import { __ } from '@wordpress/i18n';
 import { openAboutWindow } from 'src/about-menu/open-about-menu';
@@ -26,6 +27,7 @@ import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
+import { getLogsFilePath } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from 'src/updates';
 
@@ -157,6 +159,7 @@ async function getAppMenu(
 				{
 					label: __( 'Beta Features' ),
 					submenu: betaFeaturesMenu,
+					enabled: false,
 				},
 				{ type: 'separator' },
 				...( process.platform === 'win32'
@@ -324,6 +327,16 @@ async function getAppMenu(
 							},
 					  ]
 					: [] ),
+				{
+					label: __( 'Open Application Logs' ),
+					click: async () => {
+						const logFilePath = getLogsFilePath();
+						const err = await shell.openPath( logFilePath );
+						if ( err ) {
+							console.error( `Error opening logs file: ${ logFilePath } ${ err }` );
+						}
+					},
+				},
 				{ type: 'separator' },
 				{
 					label: __( 'Report an Issue' ),

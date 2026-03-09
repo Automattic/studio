@@ -30,7 +30,7 @@ function getBasePath(): string {
 /**
  * The path where WordPress zip files will be unzipped and stored.
  */
-export function getWordPressVersionsPath(): string {
+function getWordPressVersionsPath(): string {
 	return path.join( getBasePath(), 'wordpress-versions' );
 }
 
@@ -51,7 +51,7 @@ export function getSqlitePath(): string {
 /**
  * The path to the wp-cli folder.
  */
-export function getWpCliFolderPath(): string {
+function getWpCliFolderPath(): string {
 	if ( process.env.NODE_ENV === 'test' ) {
 		return getTmpPath( 'wp-cli' );
 	}
@@ -63,4 +63,11 @@ export function getWpCliFolderPath(): string {
  */
 export function getWpCliPath(): string {
 	return path.join( getWpCliFolderPath(), 'wp-cli.phar' );
+}
+
+/**
+ * The path where bundled WordPress language packs are stored.
+ */
+export function getLanguagePacksPath(): string {
+	return path.join( getBasePath(), 'language-packs' );
 }

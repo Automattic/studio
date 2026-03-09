@@ -21,7 +21,7 @@ const cliEventSchema = z.discriminatedUnion( 'action', [
 	} ),
 ] );
 
-export interface CreateSiteResult {
+interface CreateSiteResult {
 	id: string;
 	running: boolean;
 }
@@ -35,6 +35,9 @@ export interface CreateSiteOptions {
 	enableHttps?: boolean;
 	siteId?: string;
 	blueprint?: Blueprint;
+	adminUsername?: string;
+	adminPassword?: string;
+	adminEmail?: string;
 	noStart?: boolean;
 }
 
@@ -127,6 +130,18 @@ function buildCliArgs( options: CreateSiteOptions ): string[] {
 
 	if ( options.enableHttps ) {
 		args.push( '--https' );
+	}
+
+	if ( options.adminUsername ) {
+		args.push( '--admin-username', options.adminUsername );
+	}
+
+	if ( options.adminPassword ) {
+		args.push( '--admin-password', options.adminPassword );
+	}
+
+	if ( options.adminEmail ) {
+		args.push( '--admin-email', options.adminEmail );
 	}
 
 	if ( options.noStart ) {

@@ -8,12 +8,15 @@ const serverConfig = z.object( {
 	phpVersion: z.string().optional(),
 	wpVersion: z.string().optional(),
 	absoluteUrl: z.string().optional(),
+	adminUsername: z.string().optional(),
 	adminPassword: z.string().optional(),
+	adminEmail: z.string().optional(),
 	siteTitle: z.string().optional(),
 	siteLanguage: z.string().optional(),
 	isWpAutoUpdating: z.boolean().optional(),
-	enableMultiWorker: z.boolean().optional(),
 	enableXdebug: z.boolean().optional(),
+	enableDebugLog: z.boolean().optional(),
+	enableDebugDisplay: z.boolean().optional(),
 	blueprint: z
 		.object( {
 			contents: z.any(), // Blueprint type is complex, allow any for now

@@ -16,7 +16,9 @@ interface StoppedSiteDetails {
 	isWpAutoUpdating?: boolean;
 	customDomain?: string;
 	enableHttps?: boolean;
+	adminUsername?: string;
 	adminPassword?: string;
+	adminEmail?: string;
 	tlsKey?: string;
 	tlsCert?: string;
 	themeDetails?: {
@@ -31,6 +33,9 @@ interface StoppedSiteDetails {
 	autoStart?: boolean;
 	latestCliPid?: number;
 	enableXdebug?: boolean;
+	enableDebugLog?: boolean;
+	enableDebugDisplay?: boolean;
+	sortOrder?: number;
 }
 
 interface StartedSiteDetails extends StoppedSiteDetails {
@@ -83,11 +88,11 @@ type IpcApi = {
 
 interface FeatureFlags {
 	enableBlueprints: boolean;
+	enableAgentSuite: boolean;
 }
 
-interface BetaFeatures {
-	multiWorkerSupport: boolean;
-}
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+interface BetaFeatures {}
 
 interface AppGlobals extends FeatureFlags {
 	platform: NodeJS.Platform;

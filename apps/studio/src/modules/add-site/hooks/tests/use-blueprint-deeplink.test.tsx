@@ -20,10 +20,11 @@ describe( 'useBlueprintDeeplink', () => {
 	const mockSetPhpVersion = vi.fn();
 	const mockSetWpVersion = vi.fn();
 	const mockSetBlueprintPreferredVersions = vi.fn();
-	const mockSetBlueprintDeeplinkWarnings = vi.fn();
+	const mockSetBlueprintWarnings = vi.fn();
 	const mockSetBlueprintSuggestedDomain = vi.fn();
 	const mockSetBlueprintSuggestedHttps = vi.fn();
 	const mockSetBlueprintSuggestedSiteName = vi.fn();
+	const mockSetBlueprintRequiresCustomDomain = vi.fn();
 	const mockSetIsDeeplinkFlow = vi.fn();
 	let ipcCallback: Parameters< typeof useIpcListener >[ 1 ];
 
@@ -36,10 +37,11 @@ describe( 'useBlueprintDeeplink', () => {
 					setPhpVersion: mockSetPhpVersion,
 					setWpVersion: mockSetWpVersion,
 					setBlueprintPreferredVersions: mockSetBlueprintPreferredVersions,
-					setBlueprintDeeplinkWarnings: mockSetBlueprintDeeplinkWarnings,
+					setBlueprintWarnings: mockSetBlueprintWarnings,
 					setBlueprintSuggestedDomain: mockSetBlueprintSuggestedDomain,
 					setBlueprintSuggestedHttps: mockSetBlueprintSuggestedHttps,
 					setBlueprintSuggestedSiteName: mockSetBlueprintSuggestedSiteName,
+					setBlueprintRequiresCustomDomain: mockSetBlueprintRequiresCustomDomain,
 					setIsDeeplinkFlow: mockSetIsDeeplinkFlow,
 				} ),
 			{ wrapper }
@@ -96,7 +98,7 @@ describe( 'useBlueprintDeeplink', () => {
 				blueprint: mockBlueprintData,
 			} )
 		);
-		expect( mockSetBlueprintDeeplinkWarnings ).toHaveBeenCalledWith( [] );
+		expect( mockSetBlueprintWarnings ).toHaveBeenCalledWith( [] );
 		expect( mockSetIsDeeplinkFlow ).toHaveBeenCalledWith( true );
 	} );
 
@@ -227,8 +229,8 @@ describe( 'useBlueprintDeeplink', () => {
 			} );
 		} );
 
-		expect( mockSetBlueprintSuggestedDomain ).not.toHaveBeenCalled();
-		expect( mockSetBlueprintSuggestedHttps ).not.toHaveBeenCalled();
+		expect( mockSetBlueprintSuggestedDomain ).toHaveBeenCalledWith( undefined );
+		expect( mockSetBlueprintSuggestedHttps ).toHaveBeenCalledWith( undefined );
 	} );
 
 	it( 'should set site name from setSiteOptions blogname', async () => {

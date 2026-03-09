@@ -27,28 +27,39 @@ const deletedServers: string[] = [];
  * Stop all running sites using the CLI `site stop --all` command.
  *
  * @param shouldSaveAutoStartProp Makes it so sites are automatically started the next time Studio launches. Typically only true when this function runs during the application close sequence.
+ * @param timeoutAfterMs Optional timeout in milliseconds.
  */
-export async function stopAllServers( shouldSaveAutoStartProp: boolean ) {
+export async function stopAllServers( shouldSaveAutoStartProp: boolean, timeoutAfterMs?: number ) {
+	let timeoutId: NodeJS.Timeout | undefined;
+
 	return new Promise< void >( ( resolve ) => {
 		const args = [ 'site', 'stop', '--all' ];
 		if ( shouldSaveAutoStartProp ) {
 			args.push( '--auto-start' );
 		}
-		const [ emitter ] = executeCliCommand( args );
+		const [ emitter, childProcess ] = executeCliCommand( args, { output: 'ignore' } );
 		emitter.on( 'success', () => resolve() );
 		emitter.on( 'failure', () => resolve() );
 		emitter.on( 'error', () => resolve() );
+
+		if ( timeoutAfterMs ) {
+			timeoutId = setTimeout( () => {
+				console.warn(
+					`site stop --all command timed out after ${ timeoutAfterMs }ms. Killing process.`
+				);
+				childProcess.kill( 'SIGKILL' );
+				resolve();
+			}, timeoutAfterMs );
+		}
+	} ).finally( () => {
+		if ( timeoutId ) {
+			clearTimeout( timeoutId );
+		}
 	} );
 }
 
 export function getRunningSiteCount(): number {
 	return Array.from( servers.values() ).filter( ( server ) => server.details.running ).length;
-}
-
-// Only for testing purposes
-export function __resetServersForTesting(): void {
-	servers.clear();
-	deletedServers.length = 0;
 }
 
 function getAbsoluteUrl( details: SiteDetails ): string {

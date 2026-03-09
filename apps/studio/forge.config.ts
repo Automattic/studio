@@ -97,7 +97,8 @@ const config: ForgeConfig = {
 
 				setupExe: 'studio-setup.exe',
 
-				certificateFile: 'certificate.pfx',
+				// CI code-signing setup writes certificate.pfx at the repository root.
+				certificateFile: path.join( repoRoot, 'certificate.pfx' ),
 				certificatePassword: process.env.WINDOWS_CODE_SIGNING_CERT_PASSWORD,
 			},
 			[ 'win32' ]
@@ -145,8 +146,10 @@ const config: ForgeConfig = {
 					exec(
 						command,
 						{ cwd: repoRoot, maxBuffer: 50 * 1024 * 1024, windowsHide: true },
-						( error ) => {
+						( error, stdout, stderr ) => {
 							if ( error ) {
+								if ( stdout ) console.log( stdout );
+								if ( stderr ) console.error( stderr );
 								reject( error );
 							} else {
 								resolve();
@@ -172,6 +175,9 @@ const config: ForgeConfig = {
 			// NOTE: The `cli:package` script mutates the `apps/cli/node_modules` directory. You may need to
 			// rerun `npm ci` from the repo root to reset the dependency tree after packaging.
 			await execAsync( 'npm run cli:package' );
+
+			console.log('Downloading language packs ...');
+			await execAsync( 'npm run download-language-packs' );
 
 			console.log( `Downloading Node.js binary for ${ platform }-${ arch }...` );
 			await execAsync(

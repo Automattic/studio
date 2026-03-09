@@ -17,6 +17,11 @@ export interface EditSiteOptions {
 	php?: string;
 	wp?: string;
 	xdebug?: boolean;
+	adminUsername?: string;
+	adminPassword?: string;
+	adminEmail?: string;
+	debugLog?: boolean;
+	debugDisplay?: boolean;
 }
 
 export async function editSiteViaCli( options: EditSiteOptions ): Promise< void > {
@@ -77,6 +82,26 @@ function buildCliArgs( options: EditSiteOptions ): string[] {
 
 	if ( options.xdebug !== undefined ) {
 		args.push( options.xdebug ? '--xdebug' : '--no-xdebug' );
+	}
+
+	if ( options.adminUsername !== undefined ) {
+		args.push( '--admin-username', options.adminUsername );
+	}
+
+	if ( options.adminPassword !== undefined ) {
+		args.push( '--admin-password', options.adminPassword );
+	}
+
+	if ( options.adminEmail !== undefined ) {
+		args.push( '--admin-email', options.adminEmail );
+	}
+
+	if ( options.debugLog !== undefined ) {
+		args.push( options.debugLog ? '--debug-log' : '--no-debug-log' );
+	}
+
+	if ( options.debugDisplay !== undefined ) {
+		args.push( options.debugDisplay ? '--debug-display' : '--no-debug-display' );
 	}
 
 	return args;

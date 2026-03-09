@@ -2,13 +2,20 @@ import fs, { promises as fsPromises } from 'fs';
 import path from 'path';
 import { isErrnoException } from './is-errno-exception';
 
+const ARCHIVE_EXCLUDED_DIRECTORIES = [ '.git', 'node_modules' ];
+
+export function isExcludedFromArchive( name: string ): boolean {
+	return ARCHIVE_EXCLUDED_DIRECTORIES.some( ( excluded ) => name.includes( excluded ) );
+}
+
 /**
  * Calculates the total size of a directory by recursively traversing its contents.
+ * Excludes directories that are not included in archives (e.g., .git, node_modules).
  *
  * @param directoryPath - The path to the directory to calculate the size of
  * @returns A promise that resolves to the total size in bytes
  */
-export function calculateDirectorySize( directoryPath: string ): Promise< number > {
+export function calculateDirectorySizeForArchive( directoryPath: string ): Promise< number > {
 	return new Promise( ( resolve, reject ) => {
 		let totalSize = 0;
 
@@ -21,6 +28,9 @@ export function calculateDirectorySize( directoryPath: string ): Promise< number
 						const filePath = path.join( dirPath, file.name );
 						try {
 							if ( file.isDirectory() ) {
+								if ( isExcludedFromArchive( file.name ) ) {
+									return;
+								}
 								await calculateSize( filePath );
 							} else {
 								const stats = await fsPromises.stat( filePath );
@@ -50,10 +60,11 @@ export function isWordPressDirectory( projectPath: string ): boolean {
 	);
 }
 
-// Compare paths in a case-insensitive manner. `fs.Stats.dev` signifies the device ID, and
-// `fs.Stats.ino` signifies the inode number that uniquely identifies the file or directory.
-// The benefit of this approach over converting the entire path to lowercase is that it respects
-// the current file system's case sensitivity.
+// Compare paths, preferring inode comparison when both paths exist on disk.
+// `fs.Stats.dev` signifies the device ID, and `fs.Stats.ino` signifies the inode number
+// that uniquely identifies the file or directory. This approach respects the current file
+// system's case sensitivity.
+// Falls back to string comparison when either path doesn't exist (e.g., deleted directories).
 export function arePathsEqual( path1: string, path2: string ) {
 	try {
 		const stats1 = fs.statSync( path.resolve( path1 ) );
@@ -61,7 +72,7 @@ export function arePathsEqual( path1: string, path2: string ) {
 
 		return stats1.ino === stats2.ino && stats1.dev === stats2.dev;
 	} catch ( error ) {
-		return false;
+		return path.resolve( path1 ) === path.resolve( path2 );
 	}
 }
 

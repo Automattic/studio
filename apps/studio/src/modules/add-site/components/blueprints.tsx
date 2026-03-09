@@ -1,3 +1,5 @@
+import { generateDefaultBlueprintDescription } from '@studio/common/lib/blueprint-settings';
+import { BlueprintValidationWarning } from '@studio/common/lib/blueprint-validation';
 import {
 	__experimentalVStack as VStack,
 	__experimentalHStack as HStack,
@@ -18,7 +20,6 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useI18nLocale } from 'src/stores';
 import { useGetBlueprints } from 'src/stores/wpcom-api';
-import { BlueprintWarningNotice } from './blueprint-warning-notice';
 
 import './blueprints.css';
 
@@ -48,7 +49,7 @@ interface AddSiteBlueprintProps {
 	isLoading: boolean;
 	selectedBlueprint: string | null;
 	onBlueprintChange: ( blueprintId: string ) => void;
-	onFileBlueprintSelect?: ( blueprint: Blueprint ) => void;
+	onFileBlueprintSelect?: ( blueprint: Blueprint, warnings?: BlueprintValidationWarning[] ) => void;
 }
 
 export function AddSiteBlueprintSelector( {
@@ -66,14 +67,6 @@ export function AddSiteBlueprintSelector( {
 	} );
 	const fileRef = useRef< HTMLInputElement | null >( null );
 	const [ validationError, setValidationError ] = useState< string | undefined >( undefined );
-	const [ blueprintWarnings, setBlueprintWarnings ] = useState<
-		| Array< {
-				feature: string;
-				reason: string;
-				alternative?: string;
-		  } >
-		| undefined
-	>( undefined );
 	const [ uploadedFileName, setUploadedFileName ] = useState< string | null >( null );
 
 	// Check if current selection is a file-based blueprint
@@ -84,7 +77,6 @@ export function AddSiteBlueprintSelector( {
 	const handleRemoveFile = useCallback( () => {
 		onBlueprintChange( '' );
 		setValidationError( undefined );
-		setBlueprintWarnings( undefined );
 		setUploadedFileName( null );
 		if ( fileRef.current ) {
 			fileRef.current.value = '';
@@ -94,7 +86,6 @@ export function AddSiteBlueprintSelector( {
 	const handleBlueprintClick = useCallback(
 		( item: DataViewBlueprint ) => {
 			setValidationError( undefined );
-			setBlueprintWarnings( undefined );
 			onBlueprintChange( item.slug );
 		},
 		[ onBlueprintChange ]
@@ -195,7 +186,6 @@ export function AddSiteBlueprintSelector( {
 	const handleFileSelect = async ( event: React.ChangeEvent< HTMLInputElement > ) => {
 		const file = event.target.files?.[ 0 ];
 		setValidationError( undefined );
-		setBlueprintWarnings( undefined );
 		setUploadedFileName( null );
 
 		if ( file && file.type === 'application/json' && onFileBlueprintSelect ) {
@@ -224,21 +214,21 @@ export function AddSiteBlueprintSelector( {
 					return;
 				}
 
-				if ( validation.warnings && validation.warnings.length > 0 ) {
-					setBlueprintWarnings( validation.warnings );
-				}
+				const fileWarnings =
+					validation.warnings && validation.warnings.length > 0 ? validation.warnings : undefined;
 
 				const fileBlueprint: Blueprint = {
 					slug: `file:${ file.name }`, // Use filename as part of the slug
 					title: blueprintJson.meta?.title || file.name.replace( '.json', '' ),
-					excerpt: blueprintJson.meta?.description || __( 'Blueprint loaded from file' ),
+					excerpt:
+						blueprintJson.meta?.description || generateDefaultBlueprintDescription( blueprintJson ),
 					image: '', // No image for file-based blueprints
 					playground_url: '', // No playground URL for file-based blueprints
 					blueprint: blueprintJson, // The actual blueprint JSON
 				};
 
 				setUploadedFileName( null );
-				onFileBlueprintSelect( fileBlueprint );
+				onFileBlueprintSelect( fileBlueprint, fileWarnings );
 			} catch ( error ) {
 				if ( error instanceof SyntaxError ) {
 					setValidationError(
@@ -313,14 +303,6 @@ export function AddSiteBlueprintSelector( {
 					<br />
 					{ validationError }
 				</Notice>
-			) }
-
-			{ ! validationError && (
-				<BlueprintWarningNotice
-					warnings={ blueprintWarnings }
-					fileName={ selectedFileName || '' }
-					className="mx-0 mb-4"
-				/>
 			) }
 
 			<HStack alignment="edge" className="w-full mb-5 h-7">

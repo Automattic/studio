@@ -16,7 +16,7 @@ export default function Header() {
 		if ( ! site.running ) {
 			await startServer( site );
 		}
-		getIpcApi().openSiteURL( site.id, '/wp-admin' );
+		getIpcApi().openSiteURL( site.id, '/wp-admin/' );
 	};
 
 	const handleOpenSiteClick = async () => {

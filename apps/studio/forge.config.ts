@@ -146,8 +146,10 @@ const config: ForgeConfig = {
 					exec(
 						command,
 						{ cwd: repoRoot, maxBuffer: 50 * 1024 * 1024, windowsHide: true },
-						( error ) => {
+						( error, stdout, stderr ) => {
 							if ( error ) {
+								if ( stdout ) console.log( stdout );
+								if ( stderr ) console.error( stderr );
 								reject( error );
 							} else {
 								resolve();

@@ -8,9 +8,9 @@ import {
 import { defaultI18n } from '@wordpress/i18n';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
-interface I18nState {
+type I18nState = {
 	locale: SupportedLocale;
-}
+};
 
 const initialState: I18nState = {
 	locale: DEFAULT_LOCALE,

@@ -1,5 +1,5 @@
 import { SYNC_OPTIONS } from 'src/constants';
-import { PullSiteOptions } from 'src/hooks/sync-sites/use-sync-pull';
+import { PullSiteOptions } from 'src/stores/sync';
 import type { TreeNode } from 'src/components/tree-view';
 import type { SyncOption } from 'src/types';
 

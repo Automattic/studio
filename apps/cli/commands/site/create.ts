@@ -2,14 +2,17 @@ import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { confirm, input, select } from '@inquirer/prompts';
+import { confirm, input, password, select } from '@inquirer/prompts';
 import { SupportedPHPVersions } from '@php-wasm/universal';
 import {
 	DEFAULT_PHP_VERSION,
 	DEFAULT_WORDPRESS_VERSION,
 	MINIMUM_WORDPRESS_VERSION,
 } from '@studio/common/constants';
-import { extractFormValuesFromBlueprint } from '@studio/common/lib/blueprint-settings';
+import {
+	blueprintHasMultisite,
+	extractFormValuesFromBlueprint,
+} from '@studio/common/lib/blueprint-settings';
 import {
 	filterUnsupportedBlueprintFeatures,
 	validateBlueprintData,
@@ -44,7 +47,8 @@ import {
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
-import { Blueprint, StepDefinition } from '@wp-playground/blueprints';
+import { Blueprint, BlueprintV1Declaration, StepDefinition } from '@wp-playground/blueprints';
+import { writeAgentsMd } from 'cli/lib/agents-md';
 import {
 	lockAppdata,
 	readAppdata,
@@ -142,6 +146,14 @@ export async function runCommand(
 			blueprint = filterUnsupportedBlueprintFeatures(
 				options.blueprint.contents as Record< string, unknown >
 			);
+
+			if ( blueprint && blueprintHasMultisite( blueprint ) && ! options.customDomain ) {
+				throw new LoggerError(
+					__(
+						'The enableMultisite Blueprint step requires a custom domain. WordPress multisite does not support custom ports. Use --domain <name>.local to set a custom domain.'
+					)
+				);
+			}
 		}
 
 		const appdata = await readAppdata();
@@ -204,6 +216,15 @@ export async function runCommand(
 		logger.reportSuccess(
 			isSqliteUpdated ? __( 'SQLite integration configured' ) : __( 'SQLite integration skipped' )
 		);
+
+		try {
+			await writeAgentsMd( sitePath );
+		} catch ( error ) {
+			logger.reportError(
+				new LoggerError( __( 'Failed to write AGENTS.md. Proceeding anyway…' ), error ),
+				false
+			);
+		}
 
 		logger.reportStart( LoggerAction.ASSIGN_PORT, __( 'Assigning port…' ) );
 		const port = await portFinder.getOpenPort();
@@ -296,8 +317,9 @@ export async function runCommand(
 				const blueprintDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-empty-blueprint-' ) );
 				blueprintUri = path.join( blueprintDir, 'blueprint.json' );
 			}
-			const existingSteps = blueprint.steps || [];
-			blueprint.steps = [ ...setupSteps, ...existingSteps ];
+			const blueprintDecl = blueprint as BlueprintV1Declaration;
+			const existingSteps = blueprintDecl.steps || [];
+			blueprintDecl.steps = [ ...setupSteps, ...existingSteps ];
 		}
 
 		const siteDetails: SiteData = {
@@ -565,6 +587,9 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			let phpVersion = argv.php;
 			let customDomain = argv.domain;
 			let enableHttps = !! argv.https;
+			let adminUsername = argv.adminUsername;
+			let adminPassword = argv.adminPassword;
+			let adminEmail = argv.adminEmail;
 
 			try {
 				if ( process.stdin.isTTY ) {
@@ -641,6 +666,32 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 							default: false,
 						} );
 					}
+
+					if ( ! adminUsername ) {
+						adminUsername = await input( {
+							message: __( 'Admin username:' ),
+							default: 'admin',
+							validate: ( value ) => validateAdminUsername( value ) || true,
+						} );
+					}
+
+					if ( ! adminPassword ) {
+						adminPassword = await password( {
+							message: __( 'Admin password (leave empty to auto-generate):' ),
+							mask: true,
+						} );
+						if ( ! adminPassword ) {
+							adminPassword = undefined;
+						}
+					}
+
+					if ( ! adminEmail ) {
+						adminEmail = await input( {
+							message: __( 'Admin email:' ),
+							default: 'admin@localhost.com',
+							validate: ( value ) => validateAdminEmail( value ) || true,
+						} );
+					}
 				}
 			} catch {
 				// User cancelled the prompt (Ctrl+C)
@@ -658,9 +709,9 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				phpVersion,
 				customDomain,
 				enableHttps,
-				adminUsername: argv.adminUsername,
-				adminPassword: argv.adminPassword,
-				adminEmail: argv.adminEmail,
+				adminUsername,
+				adminPassword,
+				adminEmail,
 				noStart: ! argv.start,
 				skipBrowser: !! argv.skipBrowser,
 				skipLogDetails: !! argv.skipLogDetails,

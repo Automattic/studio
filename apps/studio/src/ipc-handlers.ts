@@ -103,7 +103,6 @@ export {
 	getConnectedWpcomSites,
 	pauseSyncUpload,
 	pushArchive,
-	removeExportedSiteTmpFile,
 	removeSyncBackup,
 	resumeSyncUpload,
 	updateConnectedWpcomSites,

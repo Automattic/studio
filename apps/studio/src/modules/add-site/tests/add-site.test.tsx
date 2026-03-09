@@ -7,7 +7,6 @@ import { FolderDialogResponse } from 'src/ipc-handlers';
 import { createTestStore } from 'src/lib/test-utils';
 import AddSite from 'src/modules/add-site';
 import { useGetBlueprints } from 'src/stores/wpcom-api';
-import type { SyncSitesContextType } from 'src/hooks/sync-sites/sync-sites-context';
 
 vi.mock( 'src/stores/certificate-trust-api', async () => {
 	const actual = await vi.importActual( 'src/stores/certificate-trust-api' );
@@ -47,8 +46,6 @@ const mockShowOpenFolderDialog =
 const mockGenerateProposedSitePath =
 	vi.fn< ( siteName: string ) => Promise< FolderDialogResponse > >();
 const mockGetAllCustomDomains = vi.fn< () => Promise< string[] > >().mockResolvedValue( [] );
-const mockPullSite = vi.fn();
-const mockUseSyncSites = vi.fn();
 const mockSetSelectedTab = vi.fn();
 
 vi.mock( 'src/lib/get-ipc-api', () => ( {
@@ -63,10 +60,6 @@ vi.mock( 'src/lib/get-ipc-api', () => ( {
 		setWindowControlVisibility: vi.fn(),
 		setupAppMenu: vi.fn(),
 	} ),
-} ) );
-
-vi.mock( 'src/hooks/sync-sites', () => ( {
-	useSyncSites: () => mockUseSyncSites(),
 } ) );
 
 vi.mock( 'src/hooks/use-import-export', () => ( {
@@ -121,24 +114,6 @@ const renderWithProvider = ( children: React.ReactElement ) => {
 beforeEach( () => {
 	vi.clearAllMocks();
 
-	mockPullSite.mockReset();
-	mockUseSyncSites.mockReturnValue( {
-		pullSite: mockPullSite,
-		isAnySitePulling: false,
-		isSiteIdPulling: vi.fn(),
-		clearPullState: vi.fn(),
-		cancelPull: vi.fn(),
-		getPullState: vi.fn(),
-		pushSite: vi.fn(),
-		isAnySitePushing: false,
-		isSiteIdPushing: vi.fn(),
-		clearPushState: vi.fn(),
-		getPushState: vi.fn(),
-		getLastSyncTimeText: vi.fn(),
-		cancelPush: vi.fn(),
-		pauseUpload: vi.fn(),
-		resumeUpload: vi.fn(),
-	} as SyncSitesContextType );
 	mockSetSelectedTab.mockReset();
 
 	mockShowOpenFolderDialog.mockResolvedValue( {

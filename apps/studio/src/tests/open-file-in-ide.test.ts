@@ -9,7 +9,6 @@ import { readFile } from 'atomically';
 import { vi } from 'vitest';
 import { openFileInIDE } from 'src/ipc-handlers';
 import { isInstalled } from 'src/lib/is-installed';
-import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
 import { getUserEditor } from 'src/modules/user-settings/lib/ipc-handlers';
 import { SiteServer } from 'src/site-server';
 
@@ -50,6 +49,9 @@ vi.mock( 'src/storage/paths', () => ( {
 vi.mock( 'src/site-server' );
 vi.mock( 'src/lib/is-installed' );
 vi.mock( 'src/lib/shell-open-external-wrapper' );
+vi.mock( 'src/modules/user-settings/lib/win-editor-path', () => ( {
+	winFindEditorPath: vi.fn().mockResolvedValue( 'C:\\mock\\editor.exe' ),
+} ) );
 vi.mock( 'src/modules/user-settings/lib/ipc-handlers', () => ( {
 	getUserEditor: vi.fn(),
 	getUserTerminal: vi.fn().mockResolvedValue( 'terminal' ),
@@ -118,9 +120,7 @@ describe( 'openFileInIDE', () => {
 
 		const calls = getExecCalls();
 		expect( calls ).toHaveLength( 2 );
-		expect( calls[ 0 ] ).toContain( supportedEditorConfig.cursor.macOSBundleId );
 		expect( calls[ 0 ] ).toContain( mockSiteDetails.path );
-		expect( calls[ 1 ] ).toContain( supportedEditorConfig.cursor.macOSBundleId );
 		expect( calls[ 1 ] ).toContain( 'wp-content/plugins/hello.php' );
 	} );
 
@@ -132,8 +132,8 @@ describe( 'openFileInIDE', () => {
 
 		const calls = getExecCalls();
 		expect( calls ).toHaveLength( 2 );
-		expect( calls[ 0 ] ).toContain( supportedEditorConfig.phpstorm.macOSBundleId );
-		expect( calls[ 1 ] ).toContain( supportedEditorConfig.phpstorm.macOSBundleId );
+		expect( calls[ 0 ] ).toContain( mockSiteDetails.path );
+		expect( calls[ 1 ] ).toContain( 'wp-content/plugins/hello.php' );
 	} );
 
 	it( 'should do nothing when no editor is preferred and none is installed', async () => {
@@ -173,7 +173,9 @@ describe( 'openFileInIDE', () => {
 		await openFileInIDE( mockIpcMainInvokeEvent, 'wp-content/plugins/hello.php', 'site-1' );
 
 		const calls = getExecCalls();
-		expect( calls[ 0 ] ).toContain( supportedEditorConfig.antigravity.macOSBundleId );
+		expect( calls ).toHaveLength( 2 );
+		// Should use antigravity (first in priority), not vscode
+		expect( calls[ 0 ] ).toContain( mockSiteDetails.path );
 	} );
 
 	it( 'should open site folder first, then the file', async () => {

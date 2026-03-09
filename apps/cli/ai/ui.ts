@@ -141,23 +141,24 @@ const editorTheme: EditorTheme = {
 };
 
 const toolDisplayNames: Record< string, string > = {
-	mcp__studio__site_create: 'Creating site',
-	mcp__studio__site_list: 'Listing sites',
-	mcp__studio__site_info: 'Getting site info',
-	mcp__studio__site_start: 'Starting site',
-	mcp__studio__site_stop: 'Stopping site',
-	mcp__studio__site_delete: 'Deleting site',
-	mcp__studio__wp_cli: 'Running WP-CLI',
-	mcp__studio__validate_blocks: 'Validating blocks',
-	mcp__studio__take_screenshot: 'Taking screenshot',
-	Read: 'Reading file',
-	Write: 'Writing file',
-	Edit: 'Editing file',
-	Bash: 'Running command',
-	Glob: 'Searching files',
-	Grep: 'Searching code',
-	Skill: 'Loading skill',
-	Task: 'Running task',
+	mcp__studio__site_create: 'Create site',
+	mcp__studio__site_list: 'List sites',
+	mcp__studio__site_info: 'Get site info',
+	mcp__studio__site_start: 'Start site',
+	mcp__studio__site_stop: 'Stop site',
+	mcp__studio__site_delete: 'Delete site',
+	mcp__studio__wp_cli: 'Run WP-CLI',
+	mcp__studio__validate_blocks: 'Validate blocks',
+	mcp__studio__take_screenshot: 'Take screenshot',
+	Read: 'Read',
+	Write: 'Write',
+	Edit: 'Edit',
+	Bash: 'Run',
+	Glob: 'Search',
+	Grep: 'Search',
+	Skill: 'Load skill',
+	Task: 'Run task',
+	TodoWrite: 'Update todo list',
 };
 
 function getToolDetail( name: string, input: Record< string, unknown > ): string {
@@ -209,10 +210,10 @@ function formatToolName( name: string, input?: Record< string, unknown > ): stri
 	if ( input ) {
 		const detail = getToolDetail( name, input );
 		if ( detail ) {
-			return `${ displayName }: ${ detail }`;
+			return chalk.bold( displayName ) + ' ' + chalk.dim( '(' + detail + ')' );
 		}
 	}
-	return displayName;
+	return chalk.bold( displayName );
 }
 
 export class AiChatUI {
@@ -650,7 +651,7 @@ export class AiChatUI {
 		const elapsed = this.toolStartTime ? Date.now() - this.toolStartTime : 0;
 		this.toolStartTime = null;
 		const elapsedStr = elapsed > 0 ? chalk.dim( ` (${ ( elapsed / 1000 ).toFixed( 1 ) }s)` ) : '';
-		const statusIcon = isError ? chalk.red( '⏺' ) : chalk.green( '⏺' );
+		const statusIcon = isError ? chalk.red( '⏺' ) : '⏺';
 		const label = this.toolDotLabel;
 
 		// Update the existing tool-use line in place

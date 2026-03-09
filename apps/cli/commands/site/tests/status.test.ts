@@ -1,16 +1,15 @@
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { vi } from 'vitest';
-import { getSiteByFolder, getSiteUrl } from 'cli/lib/appdata';
+import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { runCommand } from '../status';
-vi.mock( 'cli/lib/appdata', async () => {
-	const actual = await vi.importActual( 'cli/lib/appdata' );
+vi.mock( 'cli/lib/cli-config', async () => {
+	const actual = await vi.importActual( 'cli/lib/cli-config' );
 	return {
 		...actual,
 		getSiteByFolder: vi.fn(),
 		getSiteUrl: vi.fn(),
-		getAppdataDirectory: vi.fn().mockReturnValue( '/test/appdata' ),
 	};
 } );
 vi.mock( 'cli/lib/pm2-manager' );

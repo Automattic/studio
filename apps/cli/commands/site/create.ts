@@ -50,15 +50,15 @@ import { __, sprintf } from '@wordpress/i18n';
 import { Blueprint, BlueprintV1Declaration, StepDefinition } from '@wp-playground/blueprints';
 import { writeAgentsMd } from 'cli/lib/agents-md';
 import {
-	lockAppdata,
-	readAppdata,
-	removeSiteFromAppdata,
-	saveAppdata,
+	lockCliConfig,
+	readCliConfig,
+	removeSite,
+	saveCliConfig,
 	SiteData,
-	unlockAppdata,
+	unlockCliConfig,
 	updateSiteAutoStart,
 	updateSiteLatestCliPid,
-} from 'cli/lib/appdata';
+} from 'cli/lib/cli-config';
 import { generateSiteName, getDefaultSitePath } from 'cli/lib/generate-site-name';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { connect, disconnect, emitSiteEvent } from 'cli/lib/pm2-manager';
@@ -156,17 +156,17 @@ export async function runCommand(
 			}
 		}
 
-		const appdata = await readAppdata();
-		if ( appdata.sites.some( ( site ) => arePathsEqual( site.path, sitePath ) ) ) {
+		const cliConfig = await readCliConfig();
+		if ( cliConfig.sites.some( ( site ) => arePathsEqual( site.path, sitePath ) ) ) {
 			throw new LoggerError( __( 'The selected directory is already in use.' ) );
 		}
 
-		for ( const site of appdata.sites ) {
+		for ( const site of cliConfig.sites ) {
 			portFinder.addUnavailablePort( site.port );
 		}
 
 		if ( options.customDomain ) {
-			const existingDomains = appdata.sites
+			const existingDomains = cliConfig.sites
 				.map( ( site ) => site.customDomain )
 				.filter( ( domain ): domain is string => Boolean( domain ) );
 			const domainError = getDomainNameValidationError(
@@ -340,16 +340,16 @@ export async function runCommand(
 		logger.reportStart( LoggerAction.SAVE_SITE, __( 'Saving site…' ) );
 
 		try {
-			await lockAppdata();
-			const userData = await readAppdata();
+			await lockCliConfig();
+			const userData = await readCliConfig();
 
 			userData.sites.push( siteDetails );
 			sortSites( userData.sites );
 
-			await saveAppdata( userData );
+			await saveCliConfig( userData );
 			logger.reportSuccess( __( 'Site created successfully' ) );
 		} finally {
-			await unlockAppdata();
+			await unlockCliConfig();
 		}
 
 		if ( ! options.noStart ) {
@@ -390,7 +390,7 @@ export async function runCommand(
 					await openSiteInBrowser( siteDetails );
 				}
 			} catch ( error ) {
-				await removeSiteFromAppdata( siteDetails.id );
+				await removeSite( siteDetails.id );
 				if ( ! isWordPressDirResult ) {
 					await fs.promises.rm( sitePath, { recursive: true, force: true } );
 				}
@@ -413,7 +413,7 @@ export async function runCommand(
 
 					stripWpConfigDbConstants( sitePath );
 				} catch ( error ) {
-					await removeSiteFromAppdata( siteDetails.id );
+					await removeSite( siteDetails.id );
 					if ( ! isWordPressDirResult ) {
 						await fs.promises.rm( sitePath, { recursive: true, force: true } );
 					}
@@ -648,8 +648,8 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					}
 
 					if ( ! customDomain ) {
-						const appdata = await readAppdata();
-						const existingDomains = appdata.sites
+						const cliConfig = await readCliConfig();
+						const existingDomains = cliConfig.sites
 							.map( ( site ) => site.customDomain )
 							.filter( ( domain ): domain is string => Boolean( domain ) );
 

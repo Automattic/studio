@@ -2,10 +2,8 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { LOCKFILE_NAME, LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from '@studio/common/constants';
-import { arePathsEqual, isWordPressDirectory } from '@studio/common/lib/fs-utils';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
-import { siteDetailsSchema } from '@studio/common/lib/site-events';
 import { snapshotSchema } from '@studio/common/types/snapshot';
 import { StatsMetric } from '@studio/common/types/stats';
 import { __, sprintf } from '@wordpress/i18n';
@@ -14,20 +12,10 @@ import { z } from 'zod';
 import { validateAccessToken } from 'cli/lib/api';
 import { LoggerError } from 'cli/logger';
 
-const siteSchema = siteDetailsSchema
-	.extend( {
-		running: z.boolean().optional(),
-		url: z.string().optional(),
-		latestCliPid: z.number().optional(),
-		enableXdebug: z.boolean().optional(),
-	} )
-	.loose();
-
 const betaFeaturesSchema = z.object( {} ).loose();
 
 const userDataSchema = z
 	.object( {
-		sites: z.array( siteSchema ).default( () => [] ),
 		snapshots: z.array( snapshotSchema ).default( () => [] ),
 		locale: z.string().optional(),
 		authToken: z
@@ -49,7 +37,6 @@ const userDataSchema = z
 	.loose();
 
 type UserData = z.infer< typeof userDataSchema >;
-export type SiteData = z.infer< typeof siteSchema >;
 export type ValidatedAuthToken = Required< NonNullable< UserData[ 'authToken' ] > >;
 
 export function getAppdataDirectory(): string {
@@ -157,97 +144,5 @@ export async function getAuthToken(): Promise< ValidatedAuthToken > {
 				authUrl
 			)
 		);
-	}
-}
-
-export async function getSiteByFolder( siteFolder: string ): Promise< SiteData > {
-	const userData = await readAppdata();
-	const site = userData.sites.find( ( site ) => arePathsEqual( site.path, siteFolder ) );
-
-	if ( ! site ) {
-		if ( isWordPressDirectory( siteFolder ) ) {
-			throw new LoggerError(
-				__( 'The specified directory is not added to Studio. Use `studio site create` to add it.' )
-			);
-		}
-
-		throw new LoggerError( __( 'The specified directory is not added to Studio.' ) );
-	}
-
-	return site;
-}
-
-export function getSiteUrl( site: SiteData ): string {
-	if ( site.url ) {
-		return site.url;
-	}
-
-	if ( site.customDomain ) {
-		const protocol = site.enableHttps ? 'https' : 'http';
-		return `${ protocol }://${ site.customDomain }`;
-	}
-
-	return `http://localhost:${ site.port }`;
-}
-
-export async function updateSiteLatestCliPid( siteId: string, pid: number ): Promise< void > {
-	try {
-		await lockAppdata();
-		const userData = await readAppdata();
-		const site = userData.sites.find( ( s ) => s.id === siteId );
-
-		if ( ! site ) {
-			throw new LoggerError( __( 'Site not found' ) );
-		}
-
-		site.latestCliPid = pid;
-		await saveAppdata( userData );
-	} finally {
-		await unlockAppdata();
-	}
-}
-
-export async function clearSiteLatestCliPid( siteId: string ): Promise< void > {
-	try {
-		await lockAppdata();
-		const userData = await readAppdata();
-		const site = userData.sites.find( ( s ) => s.id === siteId );
-
-		if ( ! site ) {
-			throw new LoggerError( __( 'Site not found' ) );
-		}
-
-		delete site.latestCliPid;
-		await saveAppdata( userData );
-	} finally {
-		await unlockAppdata();
-	}
-}
-
-export async function updateSiteAutoStart( siteId: string, autoStart: boolean ): Promise< void > {
-	try {
-		await lockAppdata();
-		const userData = await readAppdata();
-		const site = userData.sites.find( ( s ) => s.id === siteId );
-
-		if ( ! site ) {
-			throw new LoggerError( __( 'Site not found' ) );
-		}
-
-		site.autoStart = autoStart;
-		await saveAppdata( userData );
-	} finally {
-		await unlockAppdata();
-	}
-}
-
-export async function removeSiteFromAppdata( siteId: string ): Promise< void > {
-	try {
-		await lockAppdata();
-		const userData = await readAppdata();
-		userData.sites = userData.sites.filter( ( s ) => s.id !== siteId );
-		await saveAppdata( userData );
-	} finally {
-		await unlockAppdata();
 	}
 }

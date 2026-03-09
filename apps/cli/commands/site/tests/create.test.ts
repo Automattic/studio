@@ -16,14 +16,14 @@ import { normalizeLineEndings } from '@studio/common/lib/remove-default-db-const
 import { Blueprint, BlueprintV1Declaration, StepDefinition } from '@wp-playground/blueprints';
 import { vi, type MockInstance } from 'vitest';
 import {
-	lockAppdata,
-	readAppdata,
-	removeSiteFromAppdata,
-	saveAppdata,
-	unlockAppdata,
+	lockCliConfig,
+	readCliConfig,
+	removeSite,
+	saveCliConfig,
+	unlockCliConfig,
 	updateSiteAutoStart,
 	SiteData,
-} from 'cli/lib/appdata';
+} from 'cli/lib/cli-config';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { getServerFilesPath } from 'cli/lib/server-files';
@@ -46,18 +46,17 @@ vi.mock( '@studio/common/lib/passwords', () => ( {
 	createPassword: vi.fn().mockReturnValue( 'generated-password-123' ),
 } ) );
 vi.mock( '@studio/common/lib/blueprint-validation' );
-vi.mock( 'cli/lib/appdata', async () => {
-	const actual = await vi.importActual( 'cli/lib/appdata' );
+vi.mock( 'cli/lib/cli-config', async () => {
+	const actual = await vi.importActual( 'cli/lib/cli-config' );
 	return {
 		...actual,
-		getAppdataDirectory: vi.fn().mockReturnValue( '/test/appdata' ),
-		readAppdata: vi.fn(),
-		saveAppdata: vi.fn(),
-		lockAppdata: vi.fn(),
-		unlockAppdata: vi.fn(),
+		readCliConfig: vi.fn(),
+		saveCliConfig: vi.fn(),
+		lockCliConfig: vi.fn(),
+		unlockCliConfig: vi.fn(),
 		updateSiteLatestCliPid: vi.fn(),
 		updateSiteAutoStart: vi.fn().mockResolvedValue( undefined ),
-		removeSiteFromAppdata: vi.fn(),
+		removeSite: vi.fn(),
 		getSiteUrl: vi.fn().mockImplementation( ( site ) => `http://localhost:${ site.port }` ),
 	};
 } );
@@ -140,13 +139,13 @@ describe( 'CLI: studio site create', () => {
 		vi.mocked( arePathsEqual ).mockImplementation( ( a, b ) => a === b );
 		vi.mocked( recursiveCopyDirectory ).mockResolvedValue( undefined );
 		vi.mocked( portFinder.getOpenPort ).mockResolvedValue( mockPort );
-		vi.mocked( readAppdata, { partial: true } ).mockResolvedValue( {
+		vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
+			version: 1,
 			sites: [ ...mockAppdata.sites ],
-			snapshots: [ ...mockAppdata.snapshots ],
 		} );
-		vi.mocked( saveAppdata ).mockResolvedValue( undefined );
-		vi.mocked( lockAppdata ).mockResolvedValue( undefined );
-		vi.mocked( unlockAppdata ).mockResolvedValue( undefined );
+		vi.mocked( saveCliConfig ).mockResolvedValue( undefined );
+		vi.mocked( lockCliConfig ).mockResolvedValue( undefined );
+		vi.mocked( unlockCliConfig ).mockResolvedValue( undefined );
 		vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( true );
 		vi.mocked( connect ).mockResolvedValue( undefined );
 		vi.mocked( disconnect ).mockResolvedValue( undefined );
@@ -182,9 +181,9 @@ describe( 'CLI: studio site create', () => {
 		} );
 
 		it( 'should error if site path is already in use', async () => {
-			vi.mocked( readAppdata, { partial: true } ).mockResolvedValue( {
+			vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
+				version: 1,
 				sites: [ mockExistingSite ],
-				snapshots: [],
 			} );
 			vi.mocked( arePathsEqual ).mockReturnValue( true );
 
@@ -207,9 +206,9 @@ describe( 'CLI: studio site create', () => {
 		} );
 
 		it( 'should error if custom domain is already in use', async () => {
-			vi.mocked( readAppdata, { partial: true } ).mockResolvedValue( {
+			vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
+				version: 1,
 				sites: [ { ...mockExistingSite, customDomain: 'mysite.local' } ],
-				snapshots: [],
 			} );
 
 			await expect(
@@ -262,8 +261,8 @@ describe( 'CLI: studio site create', () => {
 			expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( mockSitePath );
 			expect( loggerReportSuccessSpy ).toHaveBeenCalledWith( 'SQLite integration configured' );
 			expect( portFinder.getOpenPort ).toHaveBeenCalled();
-			expect( lockAppdata ).toHaveBeenCalled();
-			expect( saveAppdata ).toHaveBeenCalled();
+			expect( lockCliConfig ).toHaveBeenCalled();
+			expect( saveCliConfig ).toHaveBeenCalled();
 			expect( connect ).toHaveBeenCalled();
 			expect( startWordPressServer ).toHaveBeenCalled();
 			expect( updateSiteAutoStart ).toHaveBeenCalledWith( expect.any( String ), true );
@@ -287,7 +286,7 @@ describe( 'CLI: studio site create', () => {
 				name: 'My Custom Site',
 			} );
 
-			expect( saveAppdata ).toHaveBeenCalledWith(
+			expect( saveCliConfig ).toHaveBeenCalledWith(
 				expect.objectContaining( {
 					sites: expect.arrayContaining( [
 						expect.objectContaining( {
@@ -379,7 +378,7 @@ describe( 'CLI: studio site create', () => {
 		it( 'should use folder name as site name if no name provided', async () => {
 			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
-			expect( saveAppdata ).toHaveBeenCalledWith(
+			expect( saveCliConfig ).toHaveBeenCalledWith(
 				expect.objectContaining( {
 					sites: expect.arrayContaining( [
 						expect.objectContaining( {
@@ -415,7 +414,7 @@ describe( 'CLI: studio site create', () => {
 				customDomain: 'mysite.local',
 			} );
 
-			expect( saveAppdata ).toHaveBeenCalledWith(
+			expect( saveCliConfig ).toHaveBeenCalledWith(
 				expect.objectContaining( {
 					sites: expect.arrayContaining( [
 						expect.objectContaining( {
@@ -434,7 +433,7 @@ describe( 'CLI: studio site create', () => {
 				enableHttps: true,
 			} );
 
-			expect( saveAppdata ).toHaveBeenCalledWith(
+			expect( saveCliConfig ).toHaveBeenCalledWith(
 				expect.objectContaining( {
 					sites: expect.arrayContaining( [
 						expect.objectContaining( {
@@ -446,9 +445,9 @@ describe( 'CLI: studio site create', () => {
 		} );
 
 		it( 'should add existing site ports to unavailable ports', async () => {
-			vi.mocked( readAppdata, { partial: true } ).mockResolvedValue( {
+			vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
+				version: 1,
 				sites: [ mockExistingSite ],
-				snapshots: [],
 			} );
 
 			await runCommand( mockSitePath, { ...defaultTestOptions } );
@@ -459,7 +458,7 @@ describe( 'CLI: studio site create', () => {
 		it( 'should set isWpAutoUpdating true for latest WordPress version', async () => {
 			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
-			expect( saveAppdata ).toHaveBeenCalledWith(
+			expect( saveCliConfig ).toHaveBeenCalledWith(
 				expect.objectContaining( {
 					sites: expect.arrayContaining( [
 						expect.objectContaining( {
@@ -476,7 +475,7 @@ describe( 'CLI: studio site create', () => {
 				wpVersion: '6.4',
 			} );
 
-			expect( saveAppdata ).toHaveBeenCalledWith(
+			expect( saveCliConfig ).toHaveBeenCalledWith(
 				expect.objectContaining( {
 					sites: expect.arrayContaining( [
 						expect.objectContaining( {
@@ -791,7 +790,7 @@ describe( 'CLI: studio site create', () => {
 
 	describe( 'Cleanup', () => {
 		it( 'should disconnect from PM2 even on error', async () => {
-			vi.mocked( readAppdata ).mockRejectedValue( new Error( 'Appdata error' ) );
+			vi.mocked( readCliConfig ).mockRejectedValue( new Error( 'Appdata error' ) );
 
 			try {
 				await runCommand( mockSitePath, { ...defaultTestOptions } );
@@ -811,7 +810,7 @@ describe( 'CLI: studio site create', () => {
 		it( 'should unlock appdata after saving', async () => {
 			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
-			expect( unlockAppdata ).toHaveBeenCalled();
+			expect( unlockCliConfig ).toHaveBeenCalled();
 		} );
 
 		it( 'should remove site from appdata when server start fails', async () => {
@@ -819,7 +818,7 @@ describe( 'CLI: studio site create', () => {
 
 			await expect( runCommand( mockSitePath, { ...defaultTestOptions } ) ).rejects.toThrow();
 
-			expect( removeSiteFromAppdata ).toHaveBeenCalled();
+			expect( removeSite ).toHaveBeenCalled();
 		} );
 
 		it( 'should remove site from appdata when Blueprint application fails', async () => {
@@ -837,7 +836,7 @@ describe( 'CLI: studio site create', () => {
 				} )
 			).rejects.toThrow();
 
-			expect( removeSiteFromAppdata ).toHaveBeenCalled();
+			expect( removeSite ).toHaveBeenCalled();
 		} );
 
 		it( 'should delete site directory when server start fails for new directory', async () => {

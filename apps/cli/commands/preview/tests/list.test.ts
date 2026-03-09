@@ -1,5 +1,6 @@
 import { vi } from 'vitest';
-import { getAuthToken, getSiteByFolder } from 'cli/lib/appdata';
+import { getAuthToken } from 'cli/lib/appdata';
+import { getSiteByFolder } from 'cli/lib/cli-config';
 import { getSnapshotsFromAppdata } from 'cli/lib/snapshots';
 import {
 	mockReportStart,
@@ -17,6 +18,12 @@ vi.mock( 'cli/lib/appdata', async () => {
 		...actual,
 		getAppdataDirectory: vi.fn().mockReturnValue( '/test/appdata' ),
 		getAuthToken: vi.fn(),
+	};
+} );
+vi.mock( 'cli/lib/cli-config', async () => {
+	const actual = await vi.importActual( 'cli/lib/cli-config' );
+	return {
+		...actual,
 		getSiteByFolder: vi.fn(),
 	};
 } );

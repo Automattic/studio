@@ -4,16 +4,15 @@ import { SITE_EVENTS } from '@studio/common/lib/site-events';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { deleteSnapshot } from 'cli/lib/api';
+import { getAuthToken, ValidatedAuthToken } from 'cli/lib/appdata';
+import { deleteSiteCertificate } from 'cli/lib/certificate-manager';
 import {
 	getSiteByFolder,
-	lockAppdata,
-	readAppdata,
-	saveAppdata,
-	unlockAppdata,
-	getAuthToken,
-	ValidatedAuthToken,
-} from 'cli/lib/appdata';
-import { deleteSiteCertificate } from 'cli/lib/certificate-manager';
+	lockCliConfig,
+	readCliConfig,
+	saveCliConfig,
+	unlockCliConfig,
+} from 'cli/lib/cli-config';
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
 import { connect, disconnect, emitSiteEvent } from 'cli/lib/pm2-manager';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
@@ -106,16 +105,16 @@ export async function runCommand(
 		}
 
 		try {
-			await lockAppdata();
-			const appdata = await readAppdata();
-			const siteIndex = appdata.sites.findIndex( ( s ) => arePathsEqual( s.path, siteFolder ) );
+			await lockCliConfig();
+			const cliConfig = await readCliConfig();
+			const siteIndex = cliConfig.sites.findIndex( ( s ) => arePathsEqual( s.path, siteFolder ) );
 			if ( siteIndex === -1 ) {
 				throw new LoggerError( __( 'The specified directory is not added to Studio.' ) );
 			}
-			appdata.sites.splice( siteIndex, 1 );
-			await saveAppdata( appdata );
+			cliConfig.sites.splice( siteIndex, 1 );
+			await saveCliConfig( cliConfig );
 		} finally {
-			await unlockAppdata();
+			await unlockCliConfig();
 		}
 
 		if ( deleteFiles ) {

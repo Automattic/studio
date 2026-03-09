@@ -2,7 +2,7 @@ import { EventEmitter } from 'events';
 import { vi } from 'vitest';
 // Mock the pm2-manager module BEFORE importing wordpress-server-manager
 vi.mock( 'cli/lib/pm2-manager' );
-import { SiteData } from 'cli/lib/appdata';
+import { SiteData } from 'cli/lib/cli-config';
 import * as pm2Manager from 'cli/lib/pm2-manager';
 import {
 	isServerRunning,

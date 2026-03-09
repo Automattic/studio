@@ -2,7 +2,7 @@ import { siteDetailsSchema, type SiteDetails } from '@studio/common/lib/site-eve
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import Table from 'cli-table3';
-import { getSiteUrl, readAppdata, type SiteData } from 'cli/lib/appdata';
+import { getSiteUrl, readCliConfig, type SiteData } from 'cli/lib/cli-config';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import { getColumnWidths, getPrettyPath } from 'cli/lib/utils';
@@ -88,16 +88,16 @@ const logger = new Logger< LoggerAction >();
 export async function runCommand( format: 'table' | 'json' ): Promise< void > {
 	try {
 		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading sites…' ) );
-		const appdata = await readAppdata();
+		const cliConfig = await readCliConfig();
 
-		if ( appdata.sites.length === 0 ) {
+		if ( cliConfig.sites.length === 0 ) {
 			logger.reportSuccess( __( 'No sites found' ) );
 			return;
 		}
 
 		const sitesMessage = sprintf(
-			_n( 'Found %d site', 'Found %d sites', appdata.sites.length ),
-			appdata.sites.length
+			_n( 'Found %d site', 'Found %d sites', cliConfig.sites.length ),
+			cliConfig.sites.length
 		);
 		logger.reportSuccess( sitesMessage );
 
@@ -105,7 +105,7 @@ export async function runCommand( format: 'table' | 'json' ): Promise< void > {
 		await connect();
 		logger.reportSuccess( __( 'Connected to process daemon' ) );
 
-		const siteListData = await getSiteListData( appdata.sites );
+		const siteListData = await getSiteListData( cliConfig.sites );
 		displaySiteList( siteListData, format );
 	} finally {
 		await disconnect();

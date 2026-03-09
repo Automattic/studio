@@ -18,12 +18,12 @@ import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-a
 import { __, sprintf } from '@wordpress/i18n';
 import {
 	getSiteByFolder,
-	lockAppdata,
-	readAppdata,
-	saveAppdata,
-	unlockAppdata,
+	lockCliConfig,
+	readCliConfig,
+	saveCliConfig,
+	unlockCliConfig,
 	updateSiteLatestCliPid,
-} from 'cli/lib/appdata';
+} from 'cli/lib/cli-config';
 import { updateDomainInHosts } from 'cli/lib/hosts-file';
 import { connect, disconnect, emitSiteEvent } from 'cli/lib/pm2-manager';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
@@ -122,10 +122,10 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 		let site = await getSiteByFolder( sitePath );
 		logger.reportSuccess( __( 'Site loaded' ) );
 
-		const initialAppdata = await readAppdata();
+		const initialCliConfig = await readCliConfig();
 
 		if ( domain ) {
-			const existingDomainNames = initialAppdata.sites
+			const existingDomainNames = initialCliConfig.sites
 				.filter( ( s ) => s.id !== site.id )
 				.map( ( s ) => s.customDomain )
 				.filter( ( d ): d is string => Boolean( d ) );
@@ -143,7 +143,7 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 		}
 
 		if ( xdebug === true ) {
-			const otherXdebugSite = initialAppdata.sites.find(
+			const otherXdebugSite = initialCliConfig.sites.find(
 				( s ) => s.enableXdebug && s.id !== site.id
 			);
 			if ( otherXdebugSite ) {
@@ -201,9 +201,9 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 		const oldDomain = site.customDomain;
 
 		try {
-			await lockAppdata();
-			const appdata = await readAppdata();
-			const foundSite = appdata.sites.find( ( s ) => arePathsEqual( s.path, sitePath ) );
+			await lockCliConfig();
+			const cliConfig = await readCliConfig();
+			const foundSite = cliConfig.sites.find( ( s ) => arePathsEqual( s.path, sitePath ) );
 			if ( ! foundSite ) {
 				throw new LoggerError( __( 'The specified directory is not added to Studio.' ) );
 			}
@@ -239,10 +239,10 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 				foundSite.enableDebugDisplay = debugDisplay;
 			}
 
-			await saveAppdata( appdata );
+			await saveCliConfig( cliConfig );
 			site = foundSite;
 		} finally {
-			await unlockAppdata();
+			await unlockCliConfig();
 		}
 
 		if ( domainChanged ) {
@@ -285,16 +285,16 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 			logger.reportSuccess( __( 'WordPress version updated' ) );
 
 			try {
-				await lockAppdata();
-				const appdata = await readAppdata();
-				const updatedSite = appdata.sites.find( ( s ) => s.id === site.id );
+				await lockCliConfig();
+				const cliConfig = await readCliConfig();
+				const updatedSite = cliConfig.sites.find( ( s ) => s.id === site.id );
 				if ( updatedSite ) {
 					updatedSite.isWpAutoUpdating = wp === DEFAULT_WORDPRESS_VERSION;
-					await saveAppdata( appdata );
+					await saveCliConfig( cliConfig );
 					site = updatedSite;
 				}
 			} finally {
-				await unlockAppdata();
+				await unlockCliConfig();
 			}
 
 			exitPhp();

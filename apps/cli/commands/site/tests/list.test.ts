@@ -1,22 +1,21 @@
 import { vi } from 'vitest';
-import { readAppdata } from 'cli/lib/appdata';
+import { readCliConfig } from 'cli/lib/cli-config';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { runCommand } from '../list';
-vi.mock( 'cli/lib/appdata', async () => {
-	const actual = await vi.importActual( 'cli/lib/appdata' );
+vi.mock( 'cli/lib/cli-config', async () => {
+	const actual = await vi.importActual( 'cli/lib/cli-config' );
 	return {
 		...actual,
-		readAppdata: vi.fn(),
-		getAppdataDirectory: vi.fn().mockReturnValue( '/test/appdata' ),
+		readCliConfig: vi.fn(),
 	};
 } );
 vi.mock( 'cli/lib/pm2-manager' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
 
 describe( 'CLI: studio site list', () => {
-	// Simple test data
-	const testAppdata = {
+	const testCliConfig = {
+		version: 1,
 		sites: [
 			{
 				id: 'site-1',
@@ -34,18 +33,17 @@ describe( 'CLI: studio site list', () => {
 				customDomain: 'my-site.wp.local',
 			},
 		],
-		snapshots: [],
 	};
 
-	const emptyAppdata = {
+	const emptyCliConfig = {
+		version: 1,
 		sites: [],
-		snapshots: [],
 	};
 
 	beforeEach( () => {
 		vi.clearAllMocks();
 
-		vi.mocked( readAppdata ).mockResolvedValue( testAppdata );
+		vi.mocked( readCliConfig ).mockResolvedValue( testCliConfig );
 		vi.mocked( connect ).mockResolvedValue( undefined );
 		vi.mocked( disconnect ).mockResolvedValue( undefined );
 		vi.mocked( isServerRunning ).mockResolvedValue( undefined );
@@ -56,10 +54,10 @@ describe( 'CLI: studio site list', () => {
 	} );
 
 	describe( 'Error Cases', () => {
-		it( 'should throw when appdata read fails', async () => {
-			vi.mocked( readAppdata ).mockRejectedValue( new Error( 'Failed to read appdata' ) );
+		it( 'should throw when config read fails', async () => {
+			vi.mocked( readCliConfig ).mockRejectedValue( new Error( 'Failed to read config' ) );
 
-			await expect( runCommand( 'table' ) ).rejects.toThrow( 'Failed to read appdata' );
+			await expect( runCommand( 'table' ) ).rejects.toThrow( 'Failed to read config' );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 	} );
@@ -70,7 +68,7 @@ describe( 'CLI: studio site list', () => {
 
 			await runCommand( 'table' );
 
-			expect( readAppdata ).toHaveBeenCalled();
+			expect( readCliConfig ).toHaveBeenCalled();
 			expect( consoleSpy ).toHaveBeenCalled();
 			expect( disconnect ).toHaveBeenCalled();
 
@@ -115,11 +113,11 @@ describe( 'CLI: studio site list', () => {
 		} );
 
 		it( 'should handle no sites found', async () => {
-			vi.mocked( readAppdata ).mockResolvedValue( emptyAppdata );
+			vi.mocked( readCliConfig ).mockResolvedValue( emptyCliConfig );
 
 			await runCommand( 'table' );
 
-			expect( readAppdata ).toHaveBeenCalled();
+			expect( readCliConfig ).toHaveBeenCalled();
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 

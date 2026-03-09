@@ -70,8 +70,12 @@ import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-ed
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
 import { shouldExcludeFromSync, shouldLimitDepth } from 'src/modules/sync/lib/tree-utils';
-import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
-import { getUserTerminal } from 'src/modules/user-settings/lib/ipc-handlers';
+import {
+	supportedEditorConfig,
+	SupportedEditor,
+	SUPPORTED_EDITORS,
+} from 'src/modules/user-settings/lib/editor';
+import { getUserEditor, getUserTerminal } from 'src/modules/user-settings/lib/ipc-handlers';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
 import { SiteServer, stopAllServers as triggerStopAllServers } from 'src/site-server';
 import { DEFAULT_SITE_PATH, getSiteThumbnailPath } from 'src/storage/paths';
@@ -1163,8 +1167,18 @@ export async function getAbsolutePathFromSite(
 	return ( await pathExists( path ) ) ? path : null;
 }
 
+function getFirstInstalledEditor(): SupportedEditor | null {
+	for ( const editor of SUPPORTED_EDITORS ) {
+		if ( isInstalled( editor ) ) {
+			return editor;
+		}
+	}
+	return null;
+}
+
 /**
  * Opens a file in the IDE with the site context.
+ * Uses the user's preferred editor, falling back to the first installed editor.
  */
 export async function openFileInIDE(
 	_event: IpcMainInvokeEvent,
@@ -1181,14 +1195,16 @@ export async function openFileInIDE(
 		return;
 	}
 
-	if ( isInstalled( 'vscode' ) ) {
-		// Open site first to ensure the file is opened within the site context
-		await shellOpenExternalWrapper( `vscode://file/${ server.details.path }?windowId=_blank` );
-		await shellOpenExternalWrapper( `vscode://file/${ path }` );
-	} else if ( isInstalled( 'phpstorm' ) ) {
-		// Open site first to ensure the file is opened within the site context
-		await shellOpenExternalWrapper( `phpstorm://open?file=${ path }` );
+	const preferredEditor = await getUserEditor();
+	const editorKey = preferredEditor ?? getFirstInstalledEditor();
+	if ( ! editorKey ) {
+		return;
 	}
+
+	const editor = supportedEditorConfig[ editorKey ];
+	// Open site folder first to ensure the file is opened within the site context
+	await shellOpenExternalWrapper( editor.url( server.details.path ) );
+	await shellOpenExternalWrapper( editor.url( path ) );
 }
 
 export async function isImportExportSupported( _event: IpcMainInvokeEvent, siteId: string ) {

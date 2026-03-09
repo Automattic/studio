@@ -29,6 +29,7 @@ import { readAppdata, lockAppdata, unlockAppdata, saveAppdata } from 'cli/lib/ap
 import { loadTranslations } from 'cli/lib/i18n';
 import { untildify } from 'cli/lib/utils';
 import { StudioArgv } from 'cli/types';
+
 const version = __STUDIO_CLI_VERSION__;
 
 suppressPunycodeWarning();
@@ -46,13 +47,12 @@ const cliAppdataProvider: AppdataProvider< LastBumpStatsData > = {
 };
 
 async function main() {
-	const { yargsLocale, yargsLocaleData } = await loadTranslations();
+	const yargsLocale = await loadTranslations();
 
 	const studioArgv: StudioArgv = yargs( process.argv.slice( 2 ) )
 		.scriptName( 'studio' )
 		.usage( __( 'WordPress Studio CLI' ) )
 		.locale( yargsLocale )
-		.updateLocale( yargsLocaleData ?? {} )
 		.version( version )
 		.option( 'avoid-telemetry', {
 			type: 'boolean',

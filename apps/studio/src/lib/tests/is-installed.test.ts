@@ -18,6 +18,7 @@ type ReaddirSyncStrings = (
 				recursive?: boolean | undefined;
 		  }
 ) => string[];
+type ReaddirSyncMock = ReturnType< typeof vi.fn< ReaddirSyncStrings > >;
 
 vi.mock( 'fs', () => {
 	const existsSync = vi.fn< ( path: PathLike ) => boolean >();
@@ -36,11 +37,7 @@ vi.mock( 'electron', () => ( {
 	},
 } ) );
 
-function mockReaddirSync( files: string[] ) {
-	(
-		vi.mocked( fs.readdirSync ) as ReturnType< typeof vi.fn< ReaddirSyncStrings > >
-	 ).mockImplementation( () => files );
-}
+const readdirSyncMock = fs.readdirSync as unknown as ReaddirSyncMock;
 
 describe( 'isInstalled', () => {
 	let isInstalled: ( key: keyof InstalledApps ) => boolean;
@@ -124,7 +121,8 @@ describe( 'isInstalled', () => {
 
 		it( 'detects PhpStorm with version-specific folder', () => {
 			mockPaths = [ 'D:\\Program Files\\JetBrains', 'D:\\Program Files\\JetBrains\\PhpStorm' ];
-			mockReaddirSync( [ 'PhpStorm 2023.1', 'WebStorm 2023.1' ] );
+			readdirSyncMock.mockReturnValue( [ 'PhpStorm 2023.1', 'WebStorm 2023.1' ] );
+
 			expect( isInstalled( 'phpstorm' ) ).toBe( true );
 		} );
 

@@ -60,10 +60,11 @@ export function isWordPressDirectory( projectPath: string ): boolean {
 	);
 }
 
-// Compare paths in a case-insensitive manner. `fs.Stats.dev` signifies the device ID, and
-// `fs.Stats.ino` signifies the inode number that uniquely identifies the file or directory.
-// The benefit of this approach over converting the entire path to lowercase is that it respects
-// the current file system's case sensitivity.
+// Compare paths, preferring inode comparison when both paths exist on disk.
+// `fs.Stats.dev` signifies the device ID, and `fs.Stats.ino` signifies the inode number
+// that uniquely identifies the file or directory. This approach respects the current file
+// system's case sensitivity.
+// Falls back to string comparison when either path doesn't exist (e.g., deleted directories).
 export function arePathsEqual( path1: string, path2: string ) {
 	try {
 		const stats1 = fs.statSync( path.resolve( path1 ) );
@@ -71,7 +72,7 @@ export function arePathsEqual( path1: string, path2: string ) {
 
 		return stats1.ino === stats2.ino && stats1.dev === stats2.dev;
 	} catch ( error ) {
-		return false;
+		return path.resolve( path1 ) === path.resolve( path2 );
 	}
 }
 

@@ -12,10 +12,10 @@ export IS_DEV_BUILD=true
 
 case "$PLATFORM" in
   mac)
-    SCRIPT_PLATFORM="macos"
+    SCRIPT_PLATFORM="darwin"
     ;;
   windows)
-    SCRIPT_PLATFORM="windows"
+    SCRIPT_PLATFORM="win32"
     ;;
   *)
     echo "Unknown platform: $PLATFORM"

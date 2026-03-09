@@ -374,6 +374,7 @@ export class AiChatUI {
 		);
 		this.sitePickerSelectedIndex = 0;
 		this.sitePickerVisible = true;
+		this.editor.hints = [];
 		this.sitePickerContainer = new Container();
 		this.tui.addChild( this.sitePickerContainer );
 		this.renderSitePicker();
@@ -429,6 +430,7 @@ export class AiChatUI {
 		}
 		this.sitePickerVisible = false;
 		this.sitePickerItems = [];
+		this.editor.hints = [ '↓ select site', 'esc to interrupt' ];
 		this.tui.requestRender();
 	}
 
@@ -500,7 +502,7 @@ export class AiChatUI {
 		const formatted = lines
 			.map( ( line, i ) => {
 				if ( i === 0 ) {
-					return ' ' + chalk.bgWhite.black( ' ❯ ' + line + ' ' );
+					return ' ' + chalk.bgWhite.black( '❯ ' + line + ' ' );
 				}
 				return ' ' + chalk.bgWhite.black( '   ' + line + ' ' );
 			} )

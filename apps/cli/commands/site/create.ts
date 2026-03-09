@@ -2,14 +2,17 @@ import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { confirm, input, select } from '@inquirer/prompts';
+import { confirm, input, password, select } from '@inquirer/prompts';
 import { SupportedPHPVersions } from '@php-wasm/universal';
 import {
 	DEFAULT_PHP_VERSION,
 	DEFAULT_WORDPRESS_VERSION,
 	MINIMUM_WORDPRESS_VERSION,
 } from '@studio/common/constants';
-import { extractFormValuesFromBlueprint } from '@studio/common/lib/blueprint-settings';
+import {
+	blueprintHasMultisite,
+	extractFormValuesFromBlueprint,
+} from '@studio/common/lib/blueprint-settings';
 import {
 	filterUnsupportedBlueprintFeatures,
 	validateBlueprintData,
@@ -142,6 +145,14 @@ export async function runCommand(
 			blueprint = filterUnsupportedBlueprintFeatures(
 				options.blueprint.contents as Record< string, unknown >
 			);
+
+			if ( blueprint && blueprintHasMultisite( blueprint ) && ! options.customDomain ) {
+				throw new LoggerError(
+					__(
+						'The enableMultisite Blueprint step requires a custom domain. WordPress multisite does not support custom ports. Use --domain <name>.local to set a custom domain.'
+					)
+				);
+			}
 		}
 
 		const appdata = await readAppdata();
@@ -566,6 +577,9 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			let phpVersion = argv.php;
 			let customDomain = argv.domain;
 			let enableHttps = !! argv.https;
+			let adminUsername = argv.adminUsername;
+			let adminPassword = argv.adminPassword;
+			let adminEmail = argv.adminEmail;
 
 			try {
 				if ( process.stdin.isTTY ) {
@@ -642,6 +656,32 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 							default: false,
 						} );
 					}
+
+					if ( ! adminUsername ) {
+						adminUsername = await input( {
+							message: __( 'Admin username:' ),
+							default: 'admin',
+							validate: ( value ) => validateAdminUsername( value ) || true,
+						} );
+					}
+
+					if ( ! adminPassword ) {
+						adminPassword = await password( {
+							message: __( 'Admin password (leave empty to auto-generate):' ),
+							mask: true,
+						} );
+						if ( ! adminPassword ) {
+							adminPassword = undefined;
+						}
+					}
+
+					if ( ! adminEmail ) {
+						adminEmail = await input( {
+							message: __( 'Admin email:' ),
+							default: 'admin@localhost.com',
+							validate: ( value ) => validateAdminEmail( value ) || true,
+						} );
+					}
 				}
 			} catch {
 				// User cancelled the prompt (Ctrl+C)
@@ -659,9 +699,9 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				phpVersion,
 				customDomain,
 				enableHttps,
-				adminUsername: argv.adminUsername,
-				adminPassword: argv.adminPassword,
-				adminEmail: argv.adminEmail,
+				adminUsername,
+				adminPassword,
+				adminEmail,
 				noStart: ! argv.start,
 				skipBrowser: !! argv.skipBrowser,
 				skipLogDetails: !! argv.skipLogDetails,

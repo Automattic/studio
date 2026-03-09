@@ -6,6 +6,8 @@ import {
 	Text,
 	Loader,
 	Container,
+	matchesKey,
+	isKeyRelease,
 	type Component,
 	type Focusable,
 	type EditorTheme,
@@ -14,11 +16,14 @@ import {
 } from '@mariozechner/pi-tui';
 import chalk from 'chalk';
 import { AI_MODEL_DISPLAY, type AskUserQuestion } from 'cli/ai/agent';
+import { readAppdata, type SiteData } from 'cli/lib/appdata';
+import { isSiteRunning } from 'cli/lib/site-utils';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 
-function stripAnsi( str: string ): string {
-	// eslint-disable-next-line no-control-regex
-	return str.replace( /\x1b\[[0-9;]*m/g, '' );
+export interface SiteInfo {
+	name: string;
+	path: string;
+	running: boolean;
 }
 
 /**
@@ -30,6 +35,7 @@ class PromptEditor implements Component, Focusable {
 	private borderColorFn: ( text: string ) => string;
 	private _focused = false;
 	private isEmpty = true;
+	activeSiteName: string | null = null;
 
 	get focused(): boolean {
 		return this._focused;
@@ -70,8 +76,23 @@ class PromptEditor implements Component, Focusable {
 		const bc = this.borderColorFn;
 
 		const emptyPrefix = ' '.repeat( promptWidth );
-		return lines.map( ( line, i ) => {
-			if ( i === 0 || i === lines.length - 1 ) {
+		const result = lines.map( ( line, i ) => {
+			if ( i === 0 ) {
+				// Top border with active site name on the right
+				if ( this.activeSiteName ) {
+					const label = ` ${ this.activeSiteName } `;
+					const trailing = 3;
+					const leading = Math.max( 0, width - 2 - label.length - trailing );
+					return (
+						' ' +
+						bc( '─'.repeat( leading ) ) +
+						chalk.hex( '#8839ef' )( label ) +
+						bc( '─'.repeat( trailing ) )
+					);
+				}
+				return ' ' + bc( '─'.repeat( width - 2 ) );
+			}
+			if ( i === lines.length - 1 ) {
 				return ' ' + bc( '─'.repeat( width - 2 ) );
 			}
 			if ( this.isEmpty && i === 1 ) {
@@ -82,6 +103,14 @@ class PromptEditor implements Component, Focusable {
 			}
 			return emptyPrefix + line;
 		} );
+
+		// Hint bar below bottom border
+		const hints: string[] = [];
+		hints.push( chalk.dim( '↓ select site' ) );
+		hints.push( chalk.dim( 'esc to interrupt' ) );
+		result.push( ' ' + hints.join( chalk.dim( ' · ' ) ) );
+
+		return result;
 	}
 }
 
@@ -198,6 +227,17 @@ export class AiChatUI {
 	private editorVisible = false;
 	private interruptCallback: ( () => void ) | null = null;
 	private lastToolName: string | null = null;
+	private hasShownResponseMarker = false;
+	private toolStartTime: number | null = null;
+	private _activeSite: SiteInfo | null = null;
+	private sitePickerVisible = false;
+	private sitePickerContainer: Container | null = null;
+	private sitePickerItems: SiteInfo[] = [];
+	private sitePickerSelectedIndex = 0;
+
+	get activeSite(): SiteInfo | null {
+		return this._activeSite;
+	}
 
 	constructor() {
 		const terminal = new ProcessTerminal();
@@ -222,18 +262,129 @@ export class AiChatUI {
 				resolve( trimmed );
 			}
 		};
-
-		// Ctrl+C to exit, Escape to interrupt agent
+		// Ctrl+C to exit, Escape to interrupt/close picker, arrow keys for picker
 		this.tui.addInputListener( ( data ) => {
-			if ( data === '\x03' ) {
+			// Ignore key release events (Kitty protocol sends press + release)
+			if ( isKeyRelease( data ) ) {
+				return { consume: true };
+			}
+			if ( matchesKey( data, 'ctrl+c' ) ) {
 				this.stop();
 				process.exit( 0 );
 			}
-			if ( data === '\x1b' && this.interruptCallback ) {
+			// Down arrow to open site picker (when editor is visible and picker is not)
+			if ( matchesKey( data, 'down' ) && this.editorVisible && ! this.sitePickerVisible ) {
+				void this.openSitePicker();
+				return { consume: true };
+			}
+			// Site picker navigation
+			if ( this.sitePickerVisible ) {
+				if ( matchesKey( data, 'up' ) ) {
+					this.sitePickerSelectedIndex = Math.max( 0, this.sitePickerSelectedIndex - 1 );
+					this.renderSitePicker();
+					return { consume: true };
+				}
+				if ( matchesKey( data, 'down' ) ) {
+					this.sitePickerSelectedIndex = Math.min(
+						this.sitePickerItems.length - 1,
+						this.sitePickerSelectedIndex + 1
+					);
+					this.renderSitePicker();
+					return { consume: true };
+				}
+				if ( matchesKey( data, 'enter' ) ) {
+					this.selectSite( this.sitePickerSelectedIndex );
+					return { consume: true };
+				}
+				if ( matchesKey( data, 'escape' ) ) {
+					this.closeSitePicker();
+					return { consume: true };
+				}
+				return { consume: true };
+			}
+			if ( matchesKey( data, 'escape' ) && this.interruptCallback ) {
 				this.interruptCallback();
 			}
 			return undefined;
 		} );
+	}
+
+	private async openSitePicker(): Promise< void > {
+		const appdata = await readAppdata();
+		const sites: SiteData[] = appdata.sites ?? [];
+		if ( sites.length === 0 ) {
+			this.messages.addChild(
+				new Text( chalk.dim( '  No sites found. Create one first.' ), 1, 0 )
+			);
+			this.tui.requestRender();
+			return;
+		}
+
+		this.sitePickerItems = await Promise.all(
+			sites.map( async ( site ) => ( {
+				name: site.name,
+				path: site.path,
+				running: await isSiteRunning( site ),
+			} ) )
+		);
+		this.sitePickerSelectedIndex = 0;
+		this.sitePickerVisible = true;
+		this.sitePickerContainer = new Container();
+		this.tui.addChild( this.sitePickerContainer );
+		this.renderSitePicker();
+	}
+
+	private renderSitePicker(): void {
+		if ( ! this.sitePickerContainer ) {
+			return;
+		}
+		// Clear previous children
+		while (
+			( this.sitePickerContainer as Container & { children?: unknown[] } ).children?.length
+		) {
+			this.sitePickerContainer.removeChild(
+				( this.sitePickerContainer as Container & { children: Component[] } ).children[ 0 ]
+			);
+		}
+
+		const header = chalk.dim( '  Select a site:' );
+		const items = this.sitePickerItems.map( ( site, i ) => {
+			const status = site.running ? chalk.green( '●' ) + ' ' : '  ';
+			if ( i === this.sitePickerSelectedIndex ) {
+				return `  ${ chalk.blue( '❯' ) } ${ status }${ chalk.bold( site.name ) }`;
+			}
+			return `    ${ status }${ site.name }`;
+		} );
+
+		const text = [
+			header,
+			...items,
+			chalk.dim( '  ↑↓ navigate · enter select · esc cancel' ),
+		].join( '\n' );
+		this.sitePickerContainer.addChild( new Text( text, 0, 0 ) );
+		this.tui.requestRender();
+	}
+
+	private selectSite( index: number ): void {
+		const site = this.sitePickerItems[ index ];
+		if ( site ) {
+			this._activeSite = site;
+			this.editor.activeSiteName = site.name;
+			this.messages.addChild(
+				new Text( chalk.hex( '#8839ef' )( ' ✻ Selected site: ' + site.name ), 0, 0 )
+			);
+		}
+		this.closeSitePicker();
+	}
+
+	private closeSitePicker(): void {
+		if ( this.sitePickerContainer ) {
+			this.tui.removeChild( this.sitePickerContainer );
+			this.sitePickerContainer = null;
+		}
+		this.sitePickerVisible = false;
+		this.sitePickerItems = [];
+		this.tui.requestRender();
 	}
 
 	start(): void {

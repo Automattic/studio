@@ -44,8 +44,17 @@ export async function runCommand(): Promise< void > {
 	async function runAgentTurn( prompt: string ): Promise< void > {
 		ui.beginAgentTurn();
 
+		// Prepend active site context to the prompt
+		let enrichedPrompt = prompt;
+		const site = ui.activeSite;
+		if ( site ) {
+			enrichedPrompt = `[Active site: "${ site.name }" at ${ site.path }${
+				site.running ? ' (running)' : ' (stopped)'
+			}]\n\n${ prompt }`;
+		}
+
 		const agentQuery = startAiAgent( {
-			prompt,
+			prompt: enrichedPrompt,
 			apiKey,
 			resume: sessionId,
 			onAskUser: ( questions ) => ui.askUser( questions ),

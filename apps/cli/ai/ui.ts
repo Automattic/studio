@@ -359,6 +359,7 @@ export class AiChatUI {
 		this.hideEditor();
 		this.showLoader();
 		this.currentResponseText = '';
+		this.hasShownResponseMarker = false;
 		this.currentMarkdown = new Markdown( '\n', 1, 0, markdownTheme );
 		this.messages.addChild( this.currentMarkdown );
 	}
@@ -394,8 +395,18 @@ export class AiChatUI {
 			content?: Array< { type: string; text?: string } >;
 			isError?: boolean;
 		};
+		const isError = typedResult.isError === true;
+
+		// Show elapsed time
+		const elapsed = this.toolStartTime ? Date.now() - this.toolStartTime : 0;
+		this.toolStartTime = null;
+		const elapsedStr = elapsed > 0 ? chalk.dim( ` (${ ( elapsed / 1000 ).toFixed( 1 ) }s)` ) : '';
+		const statusIcon = isError ? chalk.red( '✗' ) : chalk.green( '✓' );
+		this.messages.addChild( new Text( '   ' + statusIcon + elapsedStr, 0, 0 ) );
+
 		const content = typedResult.content;
 		if ( ! Array.isArray( content ) ) {
+			this.tui.requestRender();
 			return;
 		}
 		const text = content
@@ -403,13 +414,17 @@ export class AiChatUI {
 			.map( ( block ) => block.text )
 			.join( '\n' );
 		if ( ! text ) {
+			this.tui.requestRender();
 			return;
 		}
 		// Use a larger limit for validation results so they're fully visible
 		const maxLength = toolName === 'mcp__studio__validate_blocks' ? 2000 : 500;
 		const truncated = text.length > maxLength ? text.slice( 0, maxLength ) + '…' : text;
-		const prefix = typedResult.isError ? chalk.red( '✗ ' ) : chalk.dim( '↳ ' );
-		this.messages.addChild( new Text( prefix + chalk.dim( truncated ), 1, 0 ) );
+		const resultLines = truncated.split( '\n' );
+		const formatted = resultLines
+			.map( ( line ) => '   ' + chalk.dim( '⎿ ' ) + chalk.dim( line ) )
+			.join( '\n' );
+		this.messages.addChild( new Text( formatted, 0, 0 ) );
 		this.tui.requestRender();
 	}
 
@@ -498,8 +513,13 @@ export class AiChatUI {
 					} else if ( block.type === 'tool_use' ) {
 						this.showLoader();
 						this.lastToolName = block.name;
+						this.toolStartTime = Date.now();
 						const input = ( block as { input?: Record< string, unknown > } ).input;
-						this.loader.setMessage( formatToolName( block.name, input ) );
+						const toolLabel = formatToolName( block.name, input );
+						this.messages.addChild(
+							new Text( ' ' + chalk.yellow( '⏺' ) + ' ' + chalk.dim( toolLabel ), 0, 0 )
+						);
+						this.loader.setMessage( toolLabel );
 					}
 				}
 				// Always show the loader after processing — the agent turn is still active

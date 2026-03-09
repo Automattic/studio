@@ -1211,10 +1211,8 @@ def create_draft_github_release(version:, release_tag:, builds:)
   end
 
   # Embed CDN post IDs so publish_release can update their visibility later
-  cdn_post_ids = builds.each_with_object({}) do |(key, build), hash|
-    hash[key] = build[:post_id] if build[:post_id]&.positive?
-  end
-  body += "\n<!-- CDN_POST_IDS:#{cdn_post_ids.to_json} -->" unless cdn_post_ids.empty?
+  cdn_post_ids = builds.values.filter_map { |b| b[:post_id] }.select(&:positive?)
+  body += "\n<!-- CDN_POST_IDS:#{cdn_post_ids.join(',')} -->" unless cdn_post_ids.empty?
 
   release_name = github_release_name(version:)
   release_notes_path = File.join(PROJECT_ROOT_FOLDER, 'fastlane', 'github_release_notes.txt')
@@ -1244,11 +1242,10 @@ end
 #
 def make_cdn_builds_public(version:)
   release_name = "v#{version}"
-  cdn_post_ids = extract_cdn_post_ids_from_draft_release(release_name: release_name)
+  post_ids = extract_cdn_post_ids_from_draft_release(release_name: release_name)
 
   UI.user_error!("No CDN post IDs found in draft release #{release_name}. Cannot publish without updating CDN visibility.") if cdn_post_ids.empty?
 
-  post_ids = cdn_post_ids.values.map(&:to_i)
   UI.message("Updating CDN build visibility to External for #{post_ids.size} builds...")
 
   update_apps_cdn_build_metadata(
@@ -1263,10 +1260,10 @@ end
 # Extract CDN post IDs from the draft GitHub release body.
 #
 # The post IDs are embedded as an HTML comment by {create_draft_github_release}:
-#   <!-- CDN_POST_IDS:{"x64":12345,"arm64":67890} -->
+#   <!-- CDN_POST_IDS:123,456,789 -->
 #
 # @param release_name [String] The release name (e.g., 'v1.7.5')
-# @return [Hash] A hash of build key => post ID, or empty hash if not found
+# @return [Array<Integer>] An array of post IDs, or empty array if not found
 #
 def extract_cdn_post_ids_from_draft_release(release_name:)
   client = Octokit::Client.new(access_token: get_required_env('GITHUB_TOKEN'), auto_paginate: true)
@@ -1275,28 +1272,17 @@ def extract_cdn_post_ids_from_draft_release(release_name:)
 
   unless release
     UI.important("No draft release found with name #{release_name}.")
-    return {}
+    return []
   end
 
   body = release.body || ''
-  match = body.match(/<!-- CDN_POST_IDS:(\{.*?\}) -->/)
+  match = body.match(/<!-- CDN_POST_IDS:([0-9,]+) -->/)
   unless match
     UI.important("Draft release #{release_name} found but no CDN post IDs embedded in the body.")
-    return {}
+    return []
   end
 
-  begin
-    parsed = JSON.parse(match[1])
-  rescue JSON::ParserError => e
-    UI.error("Failed to parse CDN post IDs from draft release #{release_name}: #{e.message}")
-    return {}
-  end
-
-  parsed.each do |key, value|
-    UI.user_error!("Invalid CDN post ID for '#{key}' in draft release #{release_name}: #{value.inspect} (expected positive integer)") unless value.is_a?(Integer) && value.positive?
-  end
-
-  parsed
+  match[1].split(',').map(&:to_i)
 end
 
 # Trigger a release build in Buildkite for the given version.

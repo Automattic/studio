@@ -63,8 +63,8 @@ class PromptEditor implements Component, Focusable {
 	}
 
 	render( width: number ): string[] {
-		const promptPrefix = ' ' + chalk.bold( '> ' );
-		const promptWidth = 3; // space + > + space
+		const promptPrefix = ' ' + chalk.bold.blue( '❯ ' );
+		const promptWidth = 3; // space + ❯ + space
 		const innerWidth = Math.max( 1, width - promptWidth );
 		const lines = this.editor.render( innerWidth );
 		const bc = this.borderColorFn;
@@ -246,41 +246,38 @@ export class AiChatUI {
 		const home = process.env.HOME ?? process.env.USERPROFILE ?? '';
 		const displayCwd = home && cwd.startsWith( home ) ? '~' + cwd.slice( home.length ) : cwd;
 
-		const title = chalk.bold.red( 'Studio AI' ) + ( version ? chalk.dim( ` v${ version }` ) : '' );
+		const b = chalk.blue;
 
-		// prettier-ignore
-		const wapuu = [
-			'╭─────╮',
-			'│ ● ● │',
-			'│  ◡  │',
-			'│  W  │',
-			'╰─────╯',
-		];
+		// W logo in block characters
+		const logo = [
+			'  ▗▟▛▀▀▜▙▖',
+			' ▟▌     ▗█▙',
+			'▟██▘▝██ ▝██▙',
+			'▌▐█▖ ▐█▌ ▐▌▐',
+			'▌ ▜▙ ▐██ ▐▘▐',
+			'▜▖▝█▄▌▝█▄▌▗▛',
+			' ▜▖▜█  ▜█▗▛',
+			'  ▝▜█▄▄▟▛▘',
+		].map( ( s ) => b( s.padEnd( 12, ' ' ) ) );
 
-		const contentLines = [
-			title,
-			'',
-			...wapuu.map( ( line ) => chalk.cyan( line ) ),
-			'',
+		const info = [
+			chalk.bold( 'WordPress Studio' ) + ( version ? chalk.dim( ` v${ version }` ) : '' ),
 			chalk.dim( `${ AI_MODEL_DISPLAY } · ${ displayCwd }` ),
+			'',
+			chalk.dim.italic( 'Code is Poetry' ),
 		];
 
-		// Full-width bordered box in cyan
-		const termWidth = process.stdout.columns || 80;
-		const boxInner = termWidth - 2; // space between │ and │
-		const pad = 2;
-		const bc = chalk.cyan;
-		const boxLines = [
-			bc( '╭' + '─'.repeat( boxInner ) + '╮' ),
-			...contentLines.map( ( line ) => {
-				const fill = Math.max( 0, boxInner - pad - stripAnsi( line ).length );
-				return bc( '│' ) + ' '.repeat( pad ) + line + ' '.repeat( fill ) + bc( '│' );
-			} ),
-			bc( '╰' + '─'.repeat( boxInner ) + '╯' ),
-		];
+		// Lay out logo on the left, info on the right (vertically centered)
+		const gap = 4;
+		const infoStartRow = Math.max( 0, Math.floor( ( logo.length - info.length ) / 2 ) );
 
-		this.messages.addChild( new Text( boxLines.join( '\n' ), 0, 0 ) );
-		this.messages.addChild( new Text( ' ', 0, 0 ) );
+		const lines = logo.map( ( logoLine, i ) => {
+			const infoIndex = i - infoStartRow;
+			const infoText = infoIndex >= 0 && infoIndex < info.length ? info[ infoIndex ] : '';
+			return ' ' + logoLine + ' '.repeat( gap ) + infoText;
+		} );
+
+		this.messages.addChild( new Text( '\n' + lines.join( '\n' ) + '\n', 0, 0 ) );
 		this.tui.requestRender();
 	}
 
@@ -306,7 +303,7 @@ export class AiChatUI {
 		const lines = text.split( '\n' );
 		const formatted = lines
 			.map( ( line, i ) => {
-				const prefix = i === 0 ? ' > ' : '   ';
+				const prefix = i === 0 ? ' ' + chalk.blue( '❯' ) + ' ' : '   ';
 				return prefix + chalk.inverse( ' ' + line + ' ' );
 			} )
 			.join( '\n' );
@@ -377,7 +374,9 @@ export class AiChatUI {
 	}
 
 	showError( message: string ): void {
-		this.messages.addChild( new Text( '\n' + chalk.red( message ) + '\n', 1, 0 ) );
+		this.messages.addChild(
+			new Text( '\n ' + chalk.red( '⏺' ) + ' ' + chalk.red( message ) + '\n', 0, 0 )
+		);
 		this.tui.requestRender();
 	}
 
@@ -481,8 +480,13 @@ export class AiChatUI {
 						// Lazily create a new markdown block if needed (e.g. after askUser closed the previous one)
 						if ( ! this.currentMarkdown ) {
 							this.currentResponseText = '';
+							this.hasShownResponseMarker = false;
 							this.currentMarkdown = new Markdown( '\n', 1, 0, markdownTheme );
 							this.messages.addChild( this.currentMarkdown );
+						}
+						if ( ! this.hasShownResponseMarker ) {
+							this.messages.addChild( new Text( ' ' + chalk.blue( '⏺' ) + ' ', 0, 0 ) );
+							this.hasShownResponseMarker = true;
 						}
 						// Add a line break between consecutive assistant messages
 						if ( this.currentResponseText && ! this.currentResponseText.endsWith( '\n' ) ) {

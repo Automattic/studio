@@ -5,21 +5,23 @@ description: Use the Studio CLI to manage local WordPress sites, authentication,
 
 # Studio CLI
 
-The `studio` command manages local WordPress sites powered by WordPress Playground.
+The `studio` command manages local WordPress sites powered by WordPress Playground (PHP WASM).
+
+**Build before use:** `npm run cli:build && node apps/cli/dist/cli/main.js <command>`
 
 ## Global Options
 
-- `--path <dir>` — Target site directory (default: current directory)
+- `--path <dir>` — Target site directory (default: current directory). Supports `~`.
 - `--help` — Show help for any command
 - `--version` — Show version
 
 ## Site Management
 
 ```bash
-studio site create    # Create a new site (interactive prompts or flags)
+studio site create    # Create a new site
 studio site list      # List all sites (--format table|json)
 studio site status    # Show site details (--format table|json)
-studio site start     # Start a site (--skip-browser, --skip-log-details)
+studio site start     # Start a site
 studio site stop      # Stop a site (--all to stop all)
 studio site delete    # Delete a site (--files to trash site files)
 studio site set       # Update site settings
@@ -31,17 +33,19 @@ studio site set       # Update site settings
 studio site create --name "My Site" --path ~/Studio/my-site
 ```
 
-Key options: `--name`, `--wp` (version), `--php` (version), `--domain`, `--https`, `--blueprint` (JSON file path/URL), `--admin-username`, `--admin-password`, `--admin-email`, `--start` (default: true), `--skip-browser`.
+**Options:** `--name`, `--wp` (default: "latest", min: 6.2.1), `--php` (default: 8.3, choices: 8.5/8.4/8.3/8.2/8.1/8.0/7.4), `--domain`, `--https`, `--blueprint` (JSON file/URL), `--admin-username` (default: "admin"), `--admin-password` (auto-generated if omitted), `--admin-email` (default: "admin@localhost.com"), `--start` (default: true, use `--no-start` to skip), `--skip-browser`, `--skip-log-details`.
 
-Without flags, the CLI prompts interactively for site name, path, WP/PHP versions, and domain.
+Without flags in a TTY, the CLI prompts interactively for name, path, WP/PHP versions, and domain.
+
+**Note:** CLI flag values are visible in process lists. Use Blueprint files for sensitive passwords.
 
 ### Checking site details
 
-`studio site status` shows site URL, admin credentials, PHP/WP versions, Xdebug status, and whether the site is online — all in one command. Prefer this over individual `wp-cli` calls when you need general site info.
+`studio site status` shows site URL, auto-login URL, admin credentials, PHP/WP versions, Xdebug status, and online/offline status. Prefer this over individual `wp-cli` calls when you need general site info.
 
 ```bash
 studio site status --path ~/Studio/my-site              # Table output
-studio site status --path ~/Studio/my-site --format json # JSON output
+studio site status --path ~/Studio/my-site --format json # JSON output (fields: siteUrl, autoLoginUrl, sitePath, status, phpVersion, wpVersion, xdebug, adminUsername, adminPassword, adminEmail)
 ```
 
 ### Configuring a site
@@ -52,7 +56,30 @@ studio site set --path ~/Studio/my-site --domain mysite.local --https
 studio site set --path ~/Studio/my-site --xdebug
 ```
 
-Options: `--name`, `--domain`, `--https`, `--php`, `--wp`, `--xdebug`, `--admin-username`, `--admin-password`, `--admin-email`, `--debug-log`, `--debug-display`.
+**Options:** `--name`, `--domain` (must be unique, typically `.local`), `--https` (requires domain), `--php`, `--wp`, `--xdebug`, `--admin-username`, `--admin-password`, `--admin-email`, `--debug-log`, `--debug-display`. At least one option is required.
+
+**Restart behavior:** Changes to domain, HTTPS, PHP, WP, Xdebug, credentials, or debug flags trigger an automatic restart if the site is running.
+
+**Xdebug:** Only one site can have Xdebug enabled at a time.
+
+### Starting and stopping sites
+
+```bash
+studio site start --path ~/Studio/my-site                    # Start and open browser
+studio site start --path ~/Studio/my-site --skip-browser     # Start without opening browser
+studio site start --path ~/Studio/my-site --skip-log-details # Start without printing credentials
+studio site stop --path ~/Studio/my-site                     # Stop current site
+studio site stop --all                                       # Stop all sites
+```
+
+### Deleting a site
+
+```bash
+studio site delete --path ~/Studio/my-site          # Remove site record only
+studio site delete --path ~/Studio/my-site --files   # Also trash site files
+```
+
+Deleting a site also removes its associated preview sites if authenticated.
 
 ## Authentication
 
@@ -64,16 +91,22 @@ studio auth logout    # Revoke and clear stored token
 studio auth status    # Check login status
 ```
 
+Tokens are valid for 14 days.
+
 ## Preview Sites
 
-Upload a local site as a temporary preview on WordPress.com.
+Upload a local site as a temporary preview on WordPress.com. Previews expire after **7 days** and sites must be under **2 GB**.
 
 ```bash
 studio preview create              # Create preview from site at --path
 studio preview list                # List previews (--format table|json)
-studio preview update <host>       # Update existing preview (--overwrite to change source dir)
+studio preview update <host>       # Update existing preview
 studio preview delete <host>       # Delete a preview site
 ```
+
+- `preview update` checks that the current path matches the original source site. Use `--overwrite` / `-o` to update from a different directory.
+- `preview update` will not update expired previews.
+- `<host>` is the preview hostname (e.g., "site.wordpress.com").
 
 ## WP-CLI
 
@@ -85,8 +118,16 @@ studio wp --path ~/Studio/my-site plugin list
 studio wp --path ~/Studio/my-site user list
 ```
 
+**Additional flags:**
+- `--php-version <version>` — Run with a specific PHP version (overrides site config)
+- `--studio-no-path` — Run global WP-CLI without site context
+
+**Note:** `studio wp shell` is not supported. Use `studio wp eval` instead.
+
 ## Tips
 
 - Use `--path` to target a specific site directory, or `cd` into the site folder first.
 - Use `--format json` on `site list`, `site status`, and `preview list` for machine-readable output.
 - Run `studio <command> --help` to see all options for any command.
+- Custom domains require hosts file changes (may need elevated permissions on macOS/Linux).
+- HTTPS uses self-signed certificates stored in platform-specific locations.

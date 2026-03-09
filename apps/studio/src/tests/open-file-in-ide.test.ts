@@ -4,7 +4,7 @@
 import { exec } from 'child_process';
 import { IpcMainInvokeEvent } from 'electron';
 import fs from 'fs';
-import { normalize } from 'path';
+import { normalize, join } from 'path';
 import { readFile } from 'atomically';
 import { vi } from 'vitest';
 import { openFileInIDE } from 'src/ipc-handlers';
@@ -121,7 +121,7 @@ describe( 'openFileInIDE', () => {
 		const calls = getExecCalls();
 		expect( calls ).toHaveLength( 2 );
 		expect( calls[ 0 ] ).toContain( mockSiteDetails.path );
-		expect( calls[ 1 ] ).toContain( 'wp-content/plugins/hello.php' );
+		expect( calls[ 1 ] ).toContain( join( 'wp-content', 'plugins', 'hello.php' ) );
 	} );
 
 	it( 'should fall back to first installed editor when no preference is set', async () => {
@@ -133,7 +133,7 @@ describe( 'openFileInIDE', () => {
 		const calls = getExecCalls();
 		expect( calls ).toHaveLength( 2 );
 		expect( calls[ 0 ] ).toContain( mockSiteDetails.path );
-		expect( calls[ 1 ] ).toContain( 'wp-content/plugins/hello.php' );
+		expect( calls[ 1 ] ).toContain( join( 'wp-content', 'plugins', 'hello.php' ) );
 	} );
 
 	it( 'should do nothing when no editor is preferred and none is installed', async () => {
@@ -188,6 +188,6 @@ describe( 'openFileInIDE', () => {
 		// First call opens site folder
 		expect( calls[ 0 ] ).toContain( mockSiteDetails.path );
 		// Second call opens the specific file
-		expect( calls[ 1 ] ).toContain( 'wp-content/plugins/hello.php' );
+		expect( calls[ 1 ] ).toContain( join( 'wp-content', 'plugins', 'hello.php' ) );
 	} );
 } );

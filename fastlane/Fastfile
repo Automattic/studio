@@ -1244,7 +1244,19 @@ def make_cdn_builds_public(version:)
   release_name = "v#{version}"
   post_ids = extract_cdn_post_ids_from_draft_release(release_name: release_name)
 
-  UI.user_error!("No CDN post IDs found in draft release #{release_name}. Cannot publish without updating CDN visibility.") if cdn_post_ids.empty?
+  if post_ids.empty?
+    UI.user_error! <<~ERROR
+      No CDN post IDs found in draft release #{release_name}. Cannot publish without updating CDN visibility.
+      To recover manually, an Automattician can find the post IDs by running this from a proxied machine:
+        curl -H "Authorization: Bearer $WPCOM_API_TOKEN" \\
+          "https://public-api.wordpress.com/wp/v2/sites/#{WPCOM_STUDIO_SITE_ID}/a8c_cdn_build?search=#{version}&visibility=1316&per_page=20" \\
+          | jq '[.[] | {id, slug}]'
+        (visibility=1316 filters for Internal builds only)
+      Then edit the draft GitHub release body to add a comment like:
+        <!-- CDN_POST_IDS:123,456,789 -->
+      and retry the publish_release lane or release tool task.
+    ERROR
+  end
 
   UI.message("Updating CDN build visibility to External for #{post_ids.size} builds...")
 

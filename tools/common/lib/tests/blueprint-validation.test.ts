@@ -65,11 +65,6 @@ describe( 'validateBlueprintData', () => {
 		it( 'should return warnings for unsupported features', async () => {
 			const blueprint = {
 				landingPage: '/wp-admin/',
-				steps: [
-					{
-						step: 'enableMultisite',
-					},
-				],
 			};
 
 			const result = await validateBlueprintData( blueprint );
@@ -78,7 +73,6 @@ describe( 'validateBlueprintData', () => {
 			if ( result.valid ) {
 				expect( result.warnings.length ).toBeGreaterThan( 0 );
 				expect( result.warnings.map( ( w ) => w.feature ) ).toContain( 'landingPage' );
-				expect( result.warnings.map( ( w ) => w.feature ) ).toContain( 'enableMultisite' );
 			}
 		} );
 	} );

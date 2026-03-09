@@ -17,6 +17,16 @@ steps:
       - github_commit_status:
           context: Lint
 
+  - label: ':react: React Doctor'
+    agents:
+      queue: mac
+    key: react_doctor
+    command: bash .buildkite/commands/run-react-doctor.sh
+    plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
+    notify:
+      - github_commit_status:
+          context: React Doctor
+
   - label: Unit Tests on {{matrix}}
     key: unit_tests
     command: bash .buildkite/commands/run-unit-tests.sh "{{matrix}}"

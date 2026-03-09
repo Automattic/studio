@@ -11,8 +11,8 @@ There are two ways to connect Claude Desktop to the Studio MCP server:
 {
   "mcpServers": {
     "studio": {
-      "command": "node",
-      "args": ["/Applications/Studio.app/Contents/Resources/cli/main.js", "mcp"]
+      "command": "studio",
+      "args": ["mcp"]
     }
   }
 }

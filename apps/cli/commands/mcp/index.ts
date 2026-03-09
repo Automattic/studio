@@ -9,9 +9,6 @@ import { registerSiteTools } from './tools/sites';
 import { registerWpCliTool } from './tools/wp-cli';
 
 function printInstallInstructions() {
-	const cliPath = process.argv[ 1 ];
-	const nodeAndCli = `node ${ cliPath } mcp`;
-
 	console.log(
 		[
 			__( 'Studio MCP Server' ),
@@ -27,16 +24,12 @@ function printInstallInstructions() {
 			__( 'Setup:' ),
 			'',
 			__( '  Claude Code:' ),
-			// translators: %s is a shell command e.g. "node /path/to/main.js mcp"
-			`    claude mcp add studio -- ${ nodeAndCli }`,
+			'    claude mcp add studio -- studio mcp',
 			'',
 			__( '  Claude Desktop (add to claude_desktop_config.json):' ),
 			'    {',
 			'      "mcpServers": {',
-			'        "studio": {',
-			`          "command": "node",`,
-			`          "args": ["${ cliPath }", "mcp"]`,
-			'        }',
+			'        "studio": { "command": "studio", "args": ["mcp"] }',
 			'      }',
 			'    }',
 			'',

@@ -235,8 +235,7 @@ export class AiChatUI {
 	private toolDotVisible = true;
 	private toolDotLabel = '';
 	private _activeSite: SiteInfo | null = null;
-	private agentHint: Text | null = null;
-	private thinkingMessageIndex = 0;
+
 	private readonly thinkingMessages = [
 		'Thinking…',
 		'Iterating…',
@@ -278,7 +277,20 @@ export class AiChatUI {
 		'Experiencing…',
 		'Reflecting…',
 		'Adventuring…',
+		'Levitating…',
+		'Glueing…',
+		'Soaring…',
+		'Gliding…',
+		'Paragliding…',
+		'Excavating…',
+		'Planting…',
+		'Stargazing…',
+		'Scribing…',
+		'Levitating…',
 	];
+	private randomThinkingMessage(): string {
+		return this.thinkingMessages[ Math.floor( Math.random() * this.thinkingMessages.length ) ];
+	}
 	private sitePickerVisible = false;
 	private sitePickerContainer: Container | null = null;
 	private sitePickerItems: SiteInfo[] = [];
@@ -425,7 +437,7 @@ export class AiChatUI {
 			this._activeSite = site;
 			this.editor.activeSiteName = site.name;
 			this.messages.addChild(
-				new Text( chalk.hex( '#8839ef' )( ' ✻ Selected site: ' + site.name ), 0, 0 )
+				new Text( chalk.hex( '#8839ef' )( ' ✻ Selected site: ' + site.name ) + '\n', 0, 0 )
 			);
 		}
 		this.closeSitePicker();
@@ -521,18 +533,23 @@ export class AiChatUI {
 
 	setLoaderMessage( message: string ): void {
 		if ( this.loaderVisible ) {
-			this.loader.setMessage( message );
+			this.loader.setMessage( message + '\n' );
 		}
 	}
 
-	private showLoader(): void {
+	private showLoader( message?: string ): void {
 		if ( ! this.loaderVisible ) {
+			// Insert loader before editor so editor stays at bottom
+			this.tui.removeChild( this.editor );
 			this.tui.addChild( this.loader );
+			this.tui.addChild( this.editor );
 			this.loader.start();
 			this.loaderVisible = true;
-			this.showAgentHint();
-			this.tui.requestRender();
 		}
+		if ( message ) {
+			this.loader.setMessage( message + '\n' );
+		}
+		this.tui.requestRender();
 	}
 
 	private hideLoader(): void {
@@ -540,31 +557,12 @@ export class AiChatUI {
 			this.loader.stop();
 			this.tui.removeChild( this.loader );
 			this.loaderVisible = false;
-			this.hideAgentHint();
 			this.tui.requestRender();
 		}
 	}
 
-	private showAgentHint(): void {
-		if ( ! this.agentHint ) {
-			this.agentHint = new Text( ' ' + chalk.dim( 'esc to interrupt' ), 0, 0 );
-			this.tui.addChild( this.agentHint );
-		}
-	}
-
-	private hideAgentHint(): void {
-		if ( this.agentHint ) {
-			this.tui.removeChild( this.agentHint );
-			this.agentHint = null;
-		}
-	}
-
 	private updateHints(): void {
-		if ( this.editorVisible ) {
-			this.editor.hints = [ '↓ select site', 'esc to interrupt' ];
-		} else {
-			this.editor.hints = [];
-		}
+		this.editor.hints = [ '↓ select site', 'esc to interrupt' ];
 	}
 
 	private showEditor(): void {
@@ -590,11 +588,9 @@ export class AiChatUI {
 	 * Begin an agent turn: hide editor, show loader, prepare response area.
 	 */
 	beginAgentTurn(): void {
-		this.hideEditor();
-		this.showLoader();
-		const msg = this.thinkingMessages[ this.thinkingMessageIndex % this.thinkingMessages.length ];
-		this.thinkingMessageIndex++;
-		this.loader.setMessage( msg );
+		this.editor.setText( '' );
+		this.editor.hints = [ 'esc to interrupt' ];
+		this.showLoader( this.randomThinkingMessage() );
 		this.currentResponseText = '';
 		this.hasShownResponseMarker = false;
 		this.turnStartTime = Date.now();
@@ -608,6 +604,7 @@ export class AiChatUI {
 		this.stopToolDotBlink();
 		this.toolDotText = null;
 		this.interruptCallback = null;
+		this.updateHints();
 		this.currentMarkdown = null;
 		this.currentResponseText = '';
 	}
@@ -770,11 +767,11 @@ export class AiChatUI {
 						);
 						this.tui.requestRender();
 					} else if ( block.type === 'tool_use' ) {
-						this.showLoader();
 						this.lastToolName = block.name;
 						this.toolStartTime = Date.now();
 						const input = ( block as { input?: Record< string, unknown > } ).input;
 						const toolLabel = formatToolName( block.name, input );
+						this.showLoader( toolLabel );
 						this.stopToolDotBlink();
 						this.toolDotLabel = toolLabel;
 						this.toolDotText = new Text( '\n ' + '⏺' + ' ' + toolLabel, 0, 0 );
@@ -789,16 +786,12 @@ export class AiChatUI {
 							this.toolDotText.setText( '\n ' + dot + ' ' + toolLabel );
 							this.tui.requestRender();
 						}, 500 );
-						this.loader.setMessage( toolLabel );
 					}
 				}
 				// Always show the loader after processing — the agent turn is still active
 				// and more messages are coming (next API call, tool execution, etc.)
 				if ( ! this.loaderVisible ) {
-					this.showLoader();
-					const thinkMsg =
-						this.thinkingMessages[ this.thinkingMessageIndex % this.thinkingMessages.length ];
-					this.loader.setMessage( thinkMsg );
+					this.showLoader( this.randomThinkingMessage() );
 				}
 				return undefined;
 			}

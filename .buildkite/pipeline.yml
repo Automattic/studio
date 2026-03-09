@@ -129,9 +129,17 @@ steps:
         artifact_paths:
           - apps/studio/out/**/*.app.zip
           - apps/studio/out/*.dmg
-        matrix:
-          - x64
-          - arm64
+
+      - label: 🔨 Mac Dev Build - arm64
+        depends_on:
+          - step: package_app_artifacts_mac_arm64
+        agents:
+          queue: mac
+        command: bash .buildkite/commands/build-for-mac.sh dev arm64
+        plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
+        artifact_paths:
+          - apps/studio/out/**/*.app.zip
+          - apps/studio/out/*.dmg
 
   - input: "🚦 Build for Windows?"
     prompt: "Do you want to build Windows dev binaries for this PR?"

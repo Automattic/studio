@@ -36,6 +36,7 @@ class PromptEditor implements Component, Focusable {
 	private _focused = false;
 	private isEmpty = true;
 	activeSiteName: string | null = null;
+	hints: string[] = [];
 
 	get focused(): boolean {
 		return this._focused;
@@ -105,10 +106,9 @@ class PromptEditor implements Component, Focusable {
 		} );
 
 		// Hint bar below bottom border
-		const hints: string[] = [];
-		hints.push( chalk.dim( '↓ select site' ) );
-		hints.push( chalk.dim( 'esc to interrupt' ) );
-		result.push( ' ' + hints.join( chalk.dim( ' · ' ) ) );
+		if ( this.hints.length > 0 ) {
+			result.push( ' ' + this.hints.map( ( h ) => chalk.dim( h ) ).join( chalk.dim( ' · ' ) ) );
+		}
 
 		return result;
 	}
@@ -517,6 +517,7 @@ export class AiChatUI {
 			this.tui.addChild( this.loader );
 			this.loader.start();
 			this.loaderVisible = true;
+			this.showAgentHint();
 			this.tui.requestRender();
 		}
 	}
@@ -526,7 +527,30 @@ export class AiChatUI {
 			this.loader.stop();
 			this.tui.removeChild( this.loader );
 			this.loaderVisible = false;
+			this.hideAgentHint();
 			this.tui.requestRender();
+		}
+	}
+
+	private showAgentHint(): void {
+		if ( ! this.agentHint ) {
+			this.agentHint = new Text( ' ' + chalk.dim( 'esc to interrupt' ), 0, 0 );
+			this.tui.addChild( this.agentHint );
+		}
+	}
+
+	private hideAgentHint(): void {
+		if ( this.agentHint ) {
+			this.tui.removeChild( this.agentHint );
+			this.agentHint = null;
+		}
+	}
+
+	private updateHints(): void {
+		if ( this.editorVisible ) {
+			this.editor.hints = [ '↓ select site', 'esc to interrupt' ];
+		} else {
+			this.editor.hints = [];
 		}
 	}
 
@@ -535,6 +559,7 @@ export class AiChatUI {
 			this.tui.addChild( this.editor );
 			this.tui.setFocus( this.editor );
 			this.editorVisible = true;
+			this.updateHints();
 			this.tui.requestRender();
 		}
 	}
@@ -543,6 +568,7 @@ export class AiChatUI {
 		if ( this.editorVisible ) {
 			this.tui.removeChild( this.editor );
 			this.editorVisible = false;
+			this.updateHints();
 			this.tui.requestRender();
 		}
 	}

@@ -24,7 +24,7 @@ case "$PLATFORM" in
 esac
 
 echo "--- :package: Package app for CI reuse ($PLATFORM-$ARCH)"
-npm run "package:${SCRIPT_PLATFORM}-${ARCH}"
+npm -w studio-app run package -- --arch="$ARCH" --platform="$SCRIPT_PLATFORM"
 
 mkdir -p artifacts
 ARTIFACT_FILE="artifacts/studio-app-${PLATFORM}-${ARCH}.tar.gz"

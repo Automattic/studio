@@ -334,7 +334,7 @@ lane :publish_release do |version:, skip_confirm: false, github_username: nil|
   # Publish the draft GitHub release
   publish_github_release(
     repository: GITHUB_REPO,
-    name: "v#{version}"
+    name: "Version #{version}"
   )
 
   create_backmerge_pr(source_branch: release_branch, github_username: github_username)
@@ -766,6 +766,7 @@ def create_draft_github_release(version:, release_tag:, builds:)
   File.write(release_notes_path, body)
 
   base_version = version.sub(/-beta\d+$/, '')
+  release_name = "Version #{version}"
   create_github_release(
     repository: GITHUB_REPO,
     version: release_tag,
@@ -776,7 +777,14 @@ def create_draft_github_release(version:, release_tag:, builds:)
     is_draft: true
   )
 
-  UI.success("Created draft GitHub release #{release_tag} with download links")
+  # Update the release title from the default tag-based name to a human-readable format
+  github_token = get_required_env('GITHUB_TOKEN')
+  github_client = Octokit::Client.new(access_token: github_token)
+  releases = github_client.releases(GITHUB_REPO)
+  draft_release = releases.find { |r| r.name == release_tag }
+  github_client.update_release(draft_release.url, name: release_name) if draft_release
+
+  UI.success("Created draft GitHub release '#{release_name}' with download links")
 end
 
 # Trigger a release build in Buildkite for the given version.

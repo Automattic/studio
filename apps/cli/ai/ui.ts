@@ -248,10 +248,14 @@ export class AiChatUI {
 
 		this.loader = new Loader(
 			this.tui,
-			( str ) => chalk.red( str ),
+			( str ) => chalk.yellow( str ),
 			( str ) => chalk.dim( str ),
 			'Thinking…'
 		);
+		this.loader.frames = [
+			'•', '•', '✦', '✦', '✷', '✷', '✸', '✸', '✹', '✹', '✺', '✺',
+			'✹', '✹', '✸', '✸', '✷', '✷', '✦', '✦',
+		];
 
 		this.editor = new PromptEditor( this.tui, editorTheme );
 		this.editor.onSubmit = ( text ) => {

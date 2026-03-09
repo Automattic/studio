@@ -230,6 +230,10 @@ export class AiChatUI {
 	private hasShownResponseMarker = false;
 	private turnStartTime = 0;
 	private toolStartTime: number | null = null;
+	private toolDotText: Text | null = null;
+	private toolDotTimer: ReturnType< typeof setInterval > | null = null;
+	private toolDotVisible = true;
+	private toolDotLabel = '';
 	private _activeSite: SiteInfo | null = null;
 	private agentHint: Text | null = null;
 	private thinkingMessageIndex = 0;
@@ -270,6 +274,10 @@ export class AiChatUI {
 		'Daydreaming…',
 		'Riffing…',
 		'Wandering…',
+		'Introspecting…',
+		'Experiencing…',
+		'Reflecting…',
+		'Adventuring…',
 	];
 	private sitePickerVisible = false;
 	private sitePickerContainer: Container | null = null;
@@ -502,12 +510,12 @@ export class AiChatUI {
 		const formatted = lines
 			.map( ( line, i ) => {
 				if ( i === 0 ) {
-					return ' ' + chalk.bgWhite.black( '❯ ' + line + ' ' );
+					return ' ' + chalk.bgHex( '#eeeeee' ).black( '❯ ' + line + ' ' );
 				}
-				return ' ' + chalk.bgWhite.black( '   ' + line + ' ' );
+				return ' ' + chalk.bgHex( '#eeeeee' ).black( '   ' + line + ' ' );
 			} )
 			.join( '\n' );
-		this.messages.addChild( new Text( formatted, 0, 0 ) );
+		this.messages.addChild( new Text( '\n' + formatted, 0, 0 ) );
 		this.tui.requestRender();
 	}
 
@@ -597,6 +605,8 @@ export class AiChatUI {
 	 */
 	endAgentTurn(): void {
 		this.hideLoader();
+		this.stopToolDotBlink();
+		this.toolDotText = null;
 		this.interruptCallback = null;
 		this.currentMarkdown = null;
 		this.currentResponseText = '';
@@ -614,9 +624,23 @@ export class AiChatUI {
 		this.tui.requestRender();
 	}
 
+	private stopToolDotBlink(): void {
+		if ( this.toolDotTimer ) {
+			clearInterval( this.toolDotTimer );
+			this.toolDotTimer = null;
+		}
+		// Ensure the dot is visible when we stop
+		if ( this.toolDotText && ! this.toolDotVisible ) {
+			this.toolDotVisible = true;
+			this.toolDotText.setText( '\n ' + '⏺' + ' ' + this.toolDotLabel );
+		}
+	}
+
 	private showToolResult( message: SDKMessage & { type: 'user' }, toolName?: string ): void {
+		this.stopToolDotBlink();
 		const result = message.tool_use_result;
 		if ( ! result || typeof result !== 'object' ) {
+			this.toolDotText = null;
 			return;
 		}
 		const typedResult = result as {
@@ -629,8 +653,14 @@ export class AiChatUI {
 		const elapsed = this.toolStartTime ? Date.now() - this.toolStartTime : 0;
 		this.toolStartTime = null;
 		const elapsedStr = elapsed > 0 ? chalk.dim( ` (${ ( elapsed / 1000 ).toFixed( 1 ) }s)` ) : '';
-		const statusIcon = isError ? chalk.red( '✗' ) : chalk.green( '✓' );
-		this.messages.addChild( new Text( '   ' + statusIcon + elapsedStr, 0, 0 ) );
+		const statusIcon = isError ? chalk.red( '⏺' ) : chalk.green( '⏺' );
+		const label = this.toolDotLabel;
+
+		// Update the existing tool-use line in place
+		if ( this.toolDotText ) {
+			this.toolDotText.setText( '\n ' + statusIcon + ' ' + label + elapsedStr );
+			this.toolDotText = null;
+		}
 
 		const content = typedResult.content;
 		if ( ! Array.isArray( content ) ) {
@@ -745,9 +775,20 @@ export class AiChatUI {
 						this.toolStartTime = Date.now();
 						const input = ( block as { input?: Record< string, unknown > } ).input;
 						const toolLabel = formatToolName( block.name, input );
-						this.messages.addChild(
-							new Text( ' ' + chalk.yellow( '⏺' ) + ' ' + chalk.dim( toolLabel ), 0, 0 )
-						);
+						this.stopToolDotBlink();
+						this.toolDotLabel = toolLabel;
+						this.toolDotText = new Text( '\n ' + '⏺' + ' ' + toolLabel, 0, 0 );
+						this.messages.addChild( this.toolDotText );
+						this.toolDotVisible = true;
+						this.toolDotTimer = setInterval( () => {
+							if ( ! this.toolDotText ) {
+								return;
+							}
+							this.toolDotVisible = ! this.toolDotVisible;
+							const dot = this.toolDotVisible ? '⏺' : ' ';
+							this.toolDotText.setText( '\n ' + dot + ' ' + toolLabel );
+							this.tui.requestRender();
+						}, 500 );
 						this.loader.setMessage( toolLabel );
 					}
 				}

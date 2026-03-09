@@ -12,6 +12,7 @@ import { commandHandler as eventsCommandHandler } from 'cli/commands/_events';
 import { registerCommand as registerAuthLoginCommand } from 'cli/commands/auth/login';
 import { registerCommand as registerAuthLogoutCommand } from 'cli/commands/auth/logout';
 import { registerCommand as registerAuthStatusCommand } from 'cli/commands/auth/status';
+import { registerCommand as registerMcpCommand } from 'cli/commands/mcp/index';
 import { registerCommand as registerCreateCommand } from 'cli/commands/preview/create';
 import { registerCommand as registerDeleteCommand } from 'cli/commands/preview/delete';
 import { registerCommand as registerListCommand } from 'cli/commands/preview/list';
@@ -124,9 +125,11 @@ async function main() {
 			command: '_events',
 			describe: false, // Hidden command
 			handler: eventsCommandHandler,
-		} )
-		.demandCommand( 1, __( 'You must provide a valid command' ) )
-		.strict();
+		} );
+
+	registerMcpCommand( studioArgv );
+
+	studioArgv.demandCommand( 1, __( 'You must provide a valid command' ) ).strict();
 
 	await studioArgv.argv;
 }

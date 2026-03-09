@@ -1,3 +1,4 @@
+import { execFileSync } from 'child_process';
 import { password } from '@inquirer/prompts';
 import { __ } from '@wordpress/i18n';
 import { startAiAgent } from 'cli/ai/agent';
@@ -9,12 +10,34 @@ import { StudioArgv } from 'cli/types';
 
 const logger = new Logger< string >();
 
-async function resolveApiKey(): Promise< string > {
+function isClaudeCodeAuthenticated(): boolean {
+	try {
+		const output = execFileSync( 'claude', [ 'auth', 'status' ], {
+			encoding: 'utf8',
+			timeout: 5000,
+			stdio: [ 'pipe', 'pipe', 'pipe' ],
+		} );
+		return (
+			output.toLowerCase().includes( 'authenticated' ) || ! output.toLowerCase().includes( 'not' )
+		);
+	} catch {
+		return false;
+	}
+}
+
+async function resolveApiKey(): Promise< string | undefined > {
+	// Check for saved API key first
 	const savedKey = await getAnthropicApiKey();
 	if ( savedKey ) {
 		return savedKey;
 	}
 
+	// If Claude Code is authenticated, use its auth
+	if ( isClaudeCodeAuthenticated() ) {
+		return undefined;
+	}
+
+	// Fall back to prompting for an API key
 	const apiKey = await password( {
 		message: __( 'Enter your Anthropic API key (will be saved for future use):' ),
 		mask: '*',

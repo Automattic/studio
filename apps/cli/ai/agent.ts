@@ -9,7 +9,7 @@ export interface AskUserQuestion {
 
 export interface AiAgentConfig {
 	prompt: string;
-	apiKey: string;
+	apiKey?: string;
 	maxTurns?: number;
 	resume?: string;
 	onAskUser?: ( questions: AskUserQuestion[] ) => Promise< Record< string, string > >;
@@ -25,10 +25,17 @@ export const AI_MODEL_DISPLAY = 'Sonnet 4.6';
 export function startAiAgent( config: AiAgentConfig ): Query {
 	const { prompt, apiKey, maxTurns = 50, resume, onAskUser } = config;
 
+	// If an API key is provided, pass it via env. Otherwise, let the SDK
+	// use Claude Code's existing authentication.
+	const env = { ...( process.env as Record< string, string > ) };
+	if ( apiKey ) {
+		env.ANTHROPIC_API_KEY = apiKey;
+	}
+
 	return query( {
 		prompt,
 		options: {
-			env: { ...( process.env as Record< string, string > ), ANTHROPIC_API_KEY: apiKey },
+			env,
 			systemPrompt: {
 				type: 'preset',
 				preset: 'claude_code',

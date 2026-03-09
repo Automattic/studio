@@ -1,3 +1,4 @@
+import { TabPanel } from '@wordpress/components';
 import { Icon, check } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useState } from 'react';
@@ -178,6 +179,20 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 	);
 }
 
+function SkillsPanel() {
+	const { __ } = useI18n();
+	return (
+		<div className="flex flex-col gap-4">
+			<div>
+				<h3 className="text-sm font-medium text-gray-900">{ __( 'Agent Skills' ) }</h3>
+				<p className="text-xs text-gray-500 mt-0.5">
+					{ __( 'Enhance AI assistant with specialized capabilities' ) }
+				</p>
+			</div>
+		</div>
+	);
+}
+
 export function AiSettingsModal( { isOpen, onClose, siteId }: AiSettingsModalProps ) {
 	const { __ } = useI18n();
 
@@ -185,17 +200,27 @@ export function AiSettingsModal( { isOpen, onClose, siteId }: AiSettingsModalPro
 		return null;
 	}
 
+	const tabs = [
+		{ name: 'skills', title: __( 'Skills' ) },
+		{ name: 'instructions', title: __( 'Instructions' ) },
+	];
+
 	return (
 		<Modal
 			title={ __( 'AI settings' ) }
 			isDismissible
 			onRequestClose={ onClose }
 			size="medium"
-			className="min-h-[350px] app-no-drag-region"
+			className={ cx( 'min-h-[350px] app-no-drag-region', '[&_[role="document"]]:px-0' ) }
 		>
-			<div className="px-2 pb-4 flex gap-4 flex-col">
-				<AgentInstructionsPanel siteId={ siteId } />
-			</div>
+			<TabPanel className="w-full" tabs={ tabs } orientation="horizontal">
+				{ ( { name } ) => (
+					<div className="mt-6 px-8 pb-4 flex flex-col gap-4">
+						{ name === 'skills' && <SkillsPanel /> }
+						{ name === 'instructions' && <AgentInstructionsPanel siteId={ siteId } /> }
+					</div>
+				) }
+			</TabPanel>
 		</Modal>
 	);
 }

@@ -228,6 +228,7 @@ export class AiChatUI {
 	private interruptCallback: ( () => void ) | null = null;
 	private lastToolName: string | null = null;
 	private hasShownResponseMarker = false;
+	private turnStartTime = 0;
 	private toolStartTime: number | null = null;
 	private _activeSite: SiteInfo | null = null;
 	private agentHint: Text | null = null;
@@ -294,7 +295,7 @@ export class AiChatUI {
 		);
 		this.loader.frames = [
 			'•', '•', '✦', '✦', '✷', '✷', '✸', '✸', '✹', '✹', '✺', '✺',
-			'✹', '✹', '✸', '✸', '✷', '✷', '✦', '✦',
+			'✹', '✹', '✸', '✸', '✷', '✷', '✦', '✦', '•', '•',
 		];
 
 		this.editor = new PromptEditor( this.tui, editorTheme );
@@ -586,6 +587,7 @@ export class AiChatUI {
 		this.loader.setMessage( msg );
 		this.currentResponseText = '';
 		this.hasShownResponseMarker = false;
+		this.turnStartTime = Date.now();
 	}
 
 	/**
@@ -764,8 +766,9 @@ export class AiChatUI {
 			case 'result': {
 				this.hideLoader();
 				if ( message.subtype === 'success' ) {
+					const thinkingSec = Math.round( ( Date.now() - this.turnStartTime ) / 1000 );
 					this.showInfo(
-						`${ message.num_turns } turns · $${ message.total_cost_usd.toFixed( 4 ) }`
+						`Thought for ${ thinkingSec }s · ${ message.num_turns } turns · $${ message.total_cost_usd.toFixed( 4 ) }`
 					);
 					return { sessionId: message.session_id, success: true };
 				}

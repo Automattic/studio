@@ -69,7 +69,7 @@ class PromptEditor implements Component, Focusable {
 	}
 
 	render( width: number ): string[] {
-		const promptPrefix = ' ' + chalk.bold.blue( '❯ ' );
+		const promptPrefix = ' ' + chalk.bold( '❯ ' );
 		const promptWidth = 3; // space + ❯ + space
 		const innerWidth = Math.max( 1, width - promptWidth );
 		const lines = this.editor.render( innerWidth );
@@ -230,6 +230,46 @@ export class AiChatUI {
 	private hasShownResponseMarker = false;
 	private toolStartTime: number | null = null;
 	private _activeSite: SiteInfo | null = null;
+	private agentHint: Text | null = null;
+	private thinkingMessageIndex = 0;
+	private readonly thinkingMessages = [
+		'Thinking…',
+		'Iterating…',
+		'Interpolating…',
+		'Philosophising…',
+		'Cogitating…',
+		'Poetizing…',
+		'Sketching…',
+		'Scribbling…',
+		'Drafting…',
+		'Harmonizing…',
+		'Rehearsing…',
+		'Combabulating…',
+		'Conjectureing…',
+		'Tinkering…',
+		'Polishing…',
+		'Concocting…',
+		'Wizarding…',
+		'Enchanting…',
+		'Transmuting…',
+		'Summoning…',
+		'Gutenberging…',
+		'Hooking…',
+		'Filtering…',
+		'Looping…',
+		'Codexing…',
+		'Annotating…',
+		'Ruminating…',
+		'Paragraphing…',
+		'Typesetting…',
+		'Soloing…',
+		'Compiling…',
+		'Abstracting…',
+		'Meandering…',
+		'Daydreaming…',
+		'Riffing…',
+		'Wandering…',
+	];
 	private sitePickerVisible = false;
 	private sitePickerContainer: Container | null = null;
 	private sitePickerItems: SiteInfo[] = [];
@@ -249,7 +289,7 @@ export class AiChatUI {
 		this.loader = new Loader(
 			this.tui,
 			( str ) => chalk.yellow( str ),
-			( str ) => chalk.dim( str ),
+			( str ) => chalk.yellow( str ),
 			'Thinking…'
 		);
 		this.loader.frames = [
@@ -513,10 +553,11 @@ export class AiChatUI {
 	beginAgentTurn(): void {
 		this.hideEditor();
 		this.showLoader();
+		const msg = this.thinkingMessages[ this.thinkingMessageIndex % this.thinkingMessages.length ];
+		this.thinkingMessageIndex++;
+		this.loader.setMessage( msg );
 		this.currentResponseText = '';
 		this.hasShownResponseMarker = false;
-		this.currentMarkdown = new Markdown( '\n', 1, 0, markdownTheme );
-		this.messages.addChild( this.currentMarkdown );
 	}
 
 	/**
@@ -681,7 +722,9 @@ export class AiChatUI {
 				// and more messages are coming (next API call, tool execution, etc.)
 				if ( ! this.loaderVisible ) {
 					this.showLoader();
-					this.loader.setMessage( 'Thinking…' );
+					const thinkMsg =
+						this.thinkingMessages[ this.thinkingMessageIndex % this.thinkingMessages.length ];
+					this.loader.setMessage( thinkMsg );
 				}
 				return undefined;
 			}

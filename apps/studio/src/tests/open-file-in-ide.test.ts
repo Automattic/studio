@@ -1,6 +1,7 @@
 /**
  * @vitest-environment node
  */
+import { exec } from 'child_process';
 import { IpcMainInvokeEvent } from 'electron';
 import fs from 'fs';
 import { normalize } from 'path';
@@ -8,11 +9,19 @@ import { readFile } from 'atomically';
 import { vi } from 'vitest';
 import { openFileInIDE } from 'src/ipc-handlers';
 import { isInstalled } from 'src/lib/is-installed';
-import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
 import { getUserEditor } from 'src/modules/user-settings/lib/ipc-handlers';
 import { SiteServer } from 'src/site-server';
 
+vi.mock( 'child_process', async ( importOriginal ) => {
+	const actual = await importOriginal< typeof import('child_process') >();
+	return {
+		...actual,
+		exec: vi.fn( ( _cmd: string, _opts: unknown, callback: ( err: null ) => void ) =>
+			callback( null )
+		),
+	};
+} );
 vi.mock( 'fs' );
 vi.mock( 'fs-extra' );
 vi.mock( '@studio/common/lib/fs-utils', () => ( {
@@ -92,6 +101,10 @@ function setupMockServer() {
 	} as unknown as SiteServer );
 }
 
+function getExecCalls(): string[] {
+	return vi.mocked( exec ).mock.calls.map( ( call ) => call[ 0 ] as string );
+}
+
 describe( 'openFileInIDE', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
@@ -103,13 +116,12 @@ describe( 'openFileInIDE', () => {
 
 		await openFileInIDE( mockIpcMainInvokeEvent, 'wp-content/plugins/hello.php', 'site-1' );
 
-		const expectedSiteUrl = supportedEditorConfig.cursor.url( mockSiteDetails.path );
-		const expectedFileUrl = supportedEditorConfig.cursor.url(
-			'/sites/test-site/wp-content/plugins/hello.php'
-		);
-		expect( shellOpenExternalWrapper ).toHaveBeenCalledTimes( 2 );
-		expect( shellOpenExternalWrapper ).toHaveBeenNthCalledWith( 1, expectedSiteUrl );
-		expect( shellOpenExternalWrapper ).toHaveBeenNthCalledWith( 2, expectedFileUrl );
+		const calls = getExecCalls();
+		expect( calls ).toHaveLength( 2 );
+		expect( calls[ 0 ] ).toContain( supportedEditorConfig.cursor.macOSBundleId );
+		expect( calls[ 0 ] ).toContain( mockSiteDetails.path );
+		expect( calls[ 1 ] ).toContain( supportedEditorConfig.cursor.macOSBundleId );
+		expect( calls[ 1 ] ).toContain( 'wp-content/plugins/hello.php' );
 	} );
 
 	it( 'should fall back to first installed editor when no preference is set', async () => {
@@ -118,13 +130,10 @@ describe( 'openFileInIDE', () => {
 
 		await openFileInIDE( mockIpcMainInvokeEvent, 'wp-content/plugins/hello.php', 'site-1' );
 
-		const expectedSiteUrl = supportedEditorConfig.phpstorm.url( mockSiteDetails.path );
-		const expectedFileUrl = supportedEditorConfig.phpstorm.url(
-			'/sites/test-site/wp-content/plugins/hello.php'
-		);
-		expect( shellOpenExternalWrapper ).toHaveBeenCalledTimes( 2 );
-		expect( shellOpenExternalWrapper ).toHaveBeenNthCalledWith( 1, expectedSiteUrl );
-		expect( shellOpenExternalWrapper ).toHaveBeenNthCalledWith( 2, expectedFileUrl );
+		const calls = getExecCalls();
+		expect( calls ).toHaveLength( 2 );
+		expect( calls[ 0 ] ).toContain( supportedEditorConfig.phpstorm.macOSBundleId );
+		expect( calls[ 1 ] ).toContain( supportedEditorConfig.phpstorm.macOSBundleId );
 	} );
 
 	it( 'should do nothing when no editor is preferred and none is installed', async () => {
@@ -133,7 +142,7 @@ describe( 'openFileInIDE', () => {
 
 		await openFileInIDE( mockIpcMainInvokeEvent, 'wp-content/plugins/hello.php', 'site-1' );
 
-		expect( shellOpenExternalWrapper ).not.toHaveBeenCalled();
+		expect( exec ).not.toHaveBeenCalled();
 	} );
 
 	it( 'should throw when site is not found', async () => {
@@ -151,7 +160,7 @@ describe( 'openFileInIDE', () => {
 
 		await openFileInIDE( mockIpcMainInvokeEvent, 'wp-content/plugins/nonexistent.php', 'site-1' );
 
-		expect( shellOpenExternalWrapper ).not.toHaveBeenCalled();
+		expect( exec ).not.toHaveBeenCalled();
 	} );
 
 	it( 'should respect the first editor in priority order as fallback', async () => {
@@ -163,8 +172,8 @@ describe( 'openFileInIDE', () => {
 
 		await openFileInIDE( mockIpcMainInvokeEvent, 'wp-content/plugins/hello.php', 'site-1' );
 
-		const expectedSiteUrl = supportedEditorConfig.antigravity.url( mockSiteDetails.path );
-		expect( shellOpenExternalWrapper ).toHaveBeenNthCalledWith( 1, expectedSiteUrl );
+		const calls = getExecCalls();
+		expect( calls[ 0 ] ).toContain( supportedEditorConfig.antigravity.macOSBundleId );
 	} );
 
 	it( 'should open site folder first, then the file', async () => {
@@ -172,14 +181,11 @@ describe( 'openFileInIDE', () => {
 
 		await openFileInIDE( mockIpcMainInvokeEvent, 'wp-content/plugins/hello.php', 'site-1' );
 
-		expect( shellOpenExternalWrapper ).toHaveBeenCalledTimes( 2 );
+		const calls = getExecCalls();
+		expect( calls ).toHaveLength( 2 );
 		// First call opens site folder
-		expect(
-			( shellOpenExternalWrapper as ReturnType< typeof vi.fn > ).mock.calls[ 0 ][ 0 ]
-		).toContain( mockSiteDetails.path );
+		expect( calls[ 0 ] ).toContain( mockSiteDetails.path );
 		// Second call opens the specific file
-		expect(
-			( shellOpenExternalWrapper as ReturnType< typeof vi.fn > ).mock.calls[ 1 ][ 0 ]
-		).toContain( 'wp-content/plugins/hello.php' );
+		expect( calls[ 1 ] ).toContain( 'wp-content/plugins/hello.php' );
 	} );
 } );

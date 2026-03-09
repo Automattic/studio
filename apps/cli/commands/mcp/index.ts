@@ -8,12 +8,54 @@ import { registerPreviewTools } from './tools/preview';
 import { registerSiteTools } from './tools/sites';
 import { registerWpCliTool } from './tools/wp-cli';
 
+function printInstallInstructions() {
+	const cliPath = process.argv[ 1 ];
+	const nodeAndCli = `node ${ cliPath } mcp`;
+
+	console.log(
+		[
+			__( 'Studio MCP Server' ),
+			'',
+			__(
+				'Connects Claude Desktop, Claude Code, or any MCP-compatible AI app to your local WordPress sites.'
+			),
+			'',
+			__( 'Available tools: site_list, site_start, site_stop, site_create, site_delete,' ),
+			__( '  site_status, site_set, fs_list_dir, fs_read_file, fs_write_file, fs_delete,' ),
+			__( '  wp, preview_list, preview_create, auth_status' ),
+			'',
+			__( 'Setup:' ),
+			'',
+			__( '  Claude Code:' ),
+			// translators: %s is a shell command e.g. "node /path/to/main.js mcp"
+			`    claude mcp add studio -- ${ nodeAndCli }`,
+			'',
+			__( '  Claude Desktop (add to claude_desktop_config.json):' ),
+			'    {',
+			'      "mcpServers": {',
+			'        "studio": {',
+			`          "command": "node",`,
+			`          "args": ["${ cliPath }", "mcp"]`,
+			'        }',
+			'      }',
+			'    }',
+			'',
+			__( 'This command is intended to be run by an MCP client, not directly in a terminal.' ),
+		].join( '\n' )
+	);
+}
+
 export const registerCommand = ( yargs: StudioArgv ) =>
 	yargs.command( {
 		command: 'mcp',
-		describe: __( 'Start MCP server (JSON-RPC over stdio)' ),
+		describe: __( 'Use Studio sites and tools from Claude or other AI apps' ),
 		builder: ( y ) => y.version( false ),
 		handler: async () => {
+			if ( process.stdin.isTTY ) {
+				printInstallInstructions();
+				return;
+			}
+
 			const server = new McpServer( {
 				name: 'studio',
 				version: __STUDIO_CLI_VERSION__,

@@ -14,6 +14,7 @@ export default defineConfig(
 		'**/node_modules/',
 		'**/__mocks__',
 		'apps/cli/dist/',
+		'apps/cli/mcp-bundle/',
 		'dist/',
 		'out/',
 		'vendor/',

@@ -79,6 +79,10 @@ export default defineConfig( {
 				// `trash` includes a native macOS binary that Vite/Rollup inlines as a base64 string, which
 				// generates an error in the production build
 				'trash',
+				// Fundamentally, yargs works well with Vite/Rollup bundling. The only issue is that it uses
+				// __filename-based lookups for JSON translation files, which breaks when bundling. This is a
+				// pragmatic solution to that problem.
+				'yargs',
 				'@php-wasm/node',
 				'@php-wasm/web',
 				'@php-wasm/logger',

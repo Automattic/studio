@@ -143,10 +143,10 @@ studio wp --path ~/Studio/my-site user list
  * Writes the default SKILL.md file to `.agents/skills/studio-cli/SKILL.md` within the
  * site directory and creates a `.claude/skills/studio-cli` symlink pointing to it.
  *
- * Returns `false` if both the SKILL.md and the symlink already exist (nothing was written).
- * Returns `true` if any files were created.
+ * Skips writing if the SKILL.md already exists so user-customised files are preserved.
+ * Skips creating the symlink if it already exists.
  */
-export async function writeSkillMd( sitePath: string ): Promise< boolean > {
+export async function writeSkillMd( sitePath: string ): Promise< void > {
 	const skillDirPath = path.join( sitePath, SKILL_DIR );
 	const skillMdPath = path.join( skillDirPath, SKILL_MD_FILENAME );
 	const claudeSkillsPath = path.join( sitePath, CLAUDE_SKILLS_DIR );
@@ -156,7 +156,7 @@ export async function writeSkillMd( sitePath: string ): Promise< boolean > {
 	const symlinkExists = fs.existsSync( symlinkPath );
 
 	if ( skillMdExists && symlinkExists ) {
-		return false;
+		return;
 	}
 
 	if ( ! skillMdExists ) {
@@ -169,6 +169,4 @@ export async function writeSkillMd( sitePath: string ): Promise< boolean > {
 		const relativeTarget = path.relative( claudeSkillsPath, skillDirPath );
 		await fs.promises.symlink( relativeTarget, symlinkPath );
 	}
-
-	return true;
 }

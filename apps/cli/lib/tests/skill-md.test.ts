@@ -32,9 +32,8 @@ describe( 'writeSkillMd', () => {
 	it( 'writes SKILL.md to .agents/skills/studio-cli/ when none exists', async () => {
 		vi.mocked( fs.existsSync ).mockReturnValue( false );
 
-		const result = await writeSkillMd( sitePath );
+		await writeSkillMd( sitePath );
 
-		expect( result ).toBe( true );
 		expect( fs.promises.mkdir ).toHaveBeenCalledWith( expectedSkillDir, { recursive: true } );
 		expect( fs.promises.writeFile ).toHaveBeenCalledWith(
 			expectedSkillMdPath,
@@ -43,12 +42,11 @@ describe( 'writeSkillMd', () => {
 		);
 	} );
 
-	it( 'returns false and writes nothing when both SKILL.md and symlink exist', async () => {
+	it( 'writes nothing when both SKILL.md and symlink exist', async () => {
 		vi.mocked( fs.existsSync ).mockReturnValue( true );
 
-		const result = await writeSkillMd( sitePath );
+		await writeSkillMd( sitePath );
 
-		expect( result ).toBe( false );
 		expect( fs.promises.writeFile ).not.toHaveBeenCalled();
 		expect( fs.promises.symlink ).not.toHaveBeenCalled();
 	} );
@@ -58,9 +56,8 @@ describe( 'writeSkillMd', () => {
 			return filePath === expectedSkillMdPath;
 		} );
 
-		const result = await writeSkillMd( sitePath );
+		await writeSkillMd( sitePath );
 
-		expect( result ).toBe( true );
 		expect( fs.promises.writeFile ).not.toHaveBeenCalled();
 		expect( fs.promises.symlink ).toHaveBeenCalledWith(
 			expectedRelativeTarget,
@@ -73,9 +70,8 @@ describe( 'writeSkillMd', () => {
 			return filePath === expectedSymlinkPath;
 		} );
 
-		const result = await writeSkillMd( sitePath );
+		await writeSkillMd( sitePath );
 
-		expect( result ).toBe( true );
 		expect( fs.promises.writeFile ).toHaveBeenCalledWith(
 			expectedSkillMdPath,
 			expect.stringContaining( '# Studio CLI' ),

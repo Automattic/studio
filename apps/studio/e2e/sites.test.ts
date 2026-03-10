@@ -14,40 +14,36 @@ import SiteContent from './page-objects/site-content';
 import { getUrlWithAutoLogin } from './utils';
 
 const skipTestOnWindows = process.platform === 'win32' ? test.skip : test;
+const session = new E2ESession();
 
-test.describe( 'Servers', () => {
-	const session = new E2ESession();
+async function completeOnboardingWithParams( customSiteName?: string, customFolderName?: string ) {
+	const env: NodeJS.ProcessEnv = {};
 
-	async function completeOnboardingWithParams(
-		customSiteName?: string,
-		customFolderName?: string
-	) {
-		const env: NodeJS.ProcessEnv = {};
-
-		if ( customFolderName ) {
-			const fullLocalPath = path.join( session.homePath, 'Studio', customFolderName );
-			await fs.mkdir( fullLocalPath, { recursive: true } );
-			env.E2E_OPEN_FOLDER_DIALOG = fullLocalPath;
-		}
-		await session.launch( env );
-
-		const onboarding = new Onboarding( session.mainWindow );
-		const { siteName, localPath } = await onboarding.completeOnboarding( {
-			customSiteName,
-			customFolderName,
-		} );
-
-		await onboarding.closeWhatsNew();
-
-		const siteContent = new SiteContent( session.mainWindow, siteName );
-		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
-
-		return {
-			siteName,
-			localPath,
-		};
+	if ( customFolderName ) {
+		const fullLocalPath = path.join( session.homePath, 'Studio', customFolderName );
+		await fs.mkdir( fullLocalPath, { recursive: true } );
+		env.E2E_OPEN_FOLDER_DIALOG = fullLocalPath;
 	}
+	await session.launch( env );
 
+	const onboarding = new Onboarding( session.mainWindow );
+	const { siteName, localPath } = await onboarding.completeOnboarding( {
+		customSiteName,
+		customFolderName,
+	} );
+
+	await onboarding.closeWhatsNew();
+
+	const siteContent = new SiteContent( session.mainWindow, siteName );
+	await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
+
+	return {
+		siteName,
+		localPath,
+	};
+}
+
+test.describe( 'Sites', () => {
 	test.afterEach( async ( { page: _page }, testInfo ) => {
 		await session.reportMainProcessLogsOnFailure( testInfo );
 		await session.cleanup();
@@ -208,6 +204,16 @@ test.describe( 'Servers', () => {
 
 		expect( await pathExists( localPath ) ).toBe( false );
 	} );
+} );
+
+test.describe( 'Sites without cleanup in-between', () => {
+	test.afterEach( async ( { page: _page }, testInfo ) => {
+		await session.reportMainProcessLogsOnFailure( testInfo );
+	} );
+
+	test.afterAll( async () => {
+		await session.cleanup();
+	} );
 
 	test( 'copy site creates a duplicate with all files and thumbnail', async () => {
 		const { siteName } = await completeOnboardingWithParams();
@@ -256,5 +262,23 @@ test.describe( 'Servers', () => {
 
 		const copiedThumbnailPath = path.join( thumbnailsDir, `${ copiedSite.id }.png` );
 		expect( await pathExists( copiedThumbnailPath ) ).toBe( true );
+	} );
+
+	test( 'stop all sites and then start the first site again', async () => {
+		const sidebar = new MainSidebar( session.mainWindow );
+		const stopAllButton = sidebar.getStopAllButton();
+		await stopAllButton.click();
+
+		const noSitesRunningText = sidebar.locator.getByText( 'No sites running' );
+		await expect( noSitesRunningText ).toBeAttached( { timeout: 120_000 } );
+
+		const firstSiteInSidebar = sidebar.locator.getByRole( 'button' ).first();
+		const siteName = await firstSiteInSidebar.textContent();
+		expect( siteName ).not.toBeNull();
+		const siteContent = new SiteContent( session.mainWindow, siteName as string );
+
+		const startButton = siteContent.locator.getByRole( 'button', { name: 'Start' } );
+		await startButton.click();
+		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 	} );
 } );

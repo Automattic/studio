@@ -3,7 +3,6 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useState } from 'react';
 import Button from 'src/components/button';
 import Modal from 'src/components/modal';
-import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import {
 	DEFAULT_AGENT_INSTRUCTIONS,
@@ -59,7 +58,6 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 		[ siteId, refreshStatus ]
 	);
 
-	const hasOutdated = statuses.some( ( s ) => s.isOutdated );
 	const allInstalled = statuses.length > 0 && statuses.every( ( s ) => s.exists );
 
 	return (
@@ -79,16 +77,6 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 						className="text-sm"
 					>
 						{ installingFile !== null ? __( 'Installing...' ) : __( 'Install All' ) }
-					</Button>
-				) }
-				{ hasOutdated && (
-					<Button
-						variant="link"
-						onClick={ () => handleInstallFile( 'agents', true ) }
-						disabled={ installingFile !== null }
-						className="text-sm"
-					>
-						{ installingFile !== null ? __( 'Updating...' ) : __( 'Update All' ) }
 					</Button>
 				) }
 			</div>

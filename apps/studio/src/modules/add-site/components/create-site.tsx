@@ -22,6 +22,7 @@ interface CreateSiteProps {
 	blueprintPreferredVersions?: BlueprintPreferredVersions;
 	blueprintSuggestedDomain?: string;
 	blueprintSuggestedHttps?: boolean;
+	blueprintRequiresCustomDomain?: boolean;
 	blueprintCredentials?: { adminUsername?: string; adminPassword?: string };
 	originalDefaultVersions?: {
 		phpVersion?: AllowedPHPVersion;
@@ -40,6 +41,7 @@ export default function CreateSite( {
 	blueprintPreferredVersions,
 	blueprintSuggestedDomain,
 	blueprintSuggestedHttps,
+	blueprintRequiresCustomDomain,
 	blueprintCredentials,
 	onSubmit,
 	onValidityChange,
@@ -61,6 +63,7 @@ export default function CreateSite( {
 				blueprintPreferredVersions={ blueprintPreferredVersions }
 				blueprintSuggestedDomain={ blueprintSuggestedDomain }
 				blueprintSuggestedHttps={ blueprintSuggestedHttps }
+				blueprintRequiresCustomDomain={ blueprintRequiresCustomDomain }
 				blueprintCredentials={ blueprintCredentials }
 				onSubmit={ onSubmit }
 				onValidityChange={ onValidityChange }

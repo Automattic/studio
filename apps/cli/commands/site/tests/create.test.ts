@@ -30,6 +30,7 @@ import { getServerFilesPath } from 'cli/lib/server-files';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
+import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
 import { runCommand } from '../create';
@@ -101,7 +102,7 @@ describe( 'CLI: studio site create', () => {
 		phpVersion: '8.0',
 	};
 
-	const mockProcessDescription = {
+	const mockProcessDescription: ProcessDescription = {
 		name: 'test-uuid-1234',
 		pmId: 0,
 		status: 'online',

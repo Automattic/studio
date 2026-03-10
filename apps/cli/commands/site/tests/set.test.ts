@@ -14,6 +14,7 @@ import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { updateDomainInHosts } from 'cli/lib/hosts-file';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { setupCustomDomain } from 'cli/lib/site-utils';
+import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import {
 	isServerRunning,
 	startWordPressServer,
@@ -66,7 +67,7 @@ describe( 'CLI: studio site set', () => {
 		enableHttps: false,
 	} );
 
-	const testProcessDescription = {
+	const testProcessDescription: ProcessDescription = {
 		name: 'test-site',
 		pmId: 0,
 		status: 'online',

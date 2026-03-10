@@ -182,7 +182,7 @@ export class SiteServer {
 
 		if ( result.running ) {
 			server.details.running = true;
-			if ( server.details.url ) {
+			if ( 'url' in server.details && server.details.url ) {
 				server.server.url = server.details.url;
 			}
 		}

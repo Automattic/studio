@@ -17,6 +17,10 @@ export default class MainSidebar {
 		return this.locator.getByRole( 'button', { name: siteName, exact: true } );
 	}
 
+	getStopAllButton() {
+		return this.locator.getByRole( 'button', { name: 'Stop all', exact: true } );
+	}
+
 	async openAddSiteModal() {
 		const isButtonVisible = await this.addSiteButton.isVisible().catch( () => false );
 

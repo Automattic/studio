@@ -44,10 +44,6 @@ type ManagedProcessStopped = ManagedProcessBase & {
 };
 type ManagedProcess = ManagedProcessRunning | ManagedProcessStopped;
 
-function ensureProcessManagerDirs() {
-	fs.mkdirSync( PROCESS_MANAGER_LOGS_DIR, { recursive: true } );
-}
-
 function getProcessLogPaths( processName: string ) {
 	return {
 		stdoutLogPath: path.join( PROCESS_MANAGER_LOGS_DIR, `${ processName }-out.log` ),
@@ -69,12 +65,12 @@ export class ProcessManagerDaemon {
 	private shuttingDown = false;
 
 	async start(): Promise< void > {
-		ensureProcessManagerDirs();
+		fs.mkdirSync( PROCESS_MANAGER_LOGS_DIR, { recursive: true } );
 		this.controlServer.on( 'message', ( { message, socket } ) => {
 			void this.handleDecodedRequest( socket, message );
 		} );
-		await this.controlServer.listen();
 		await this.eventsServer.listen();
+		await this.controlServer.listen();
 
 		process.on( 'SIGINT', () => void this.shutdown( 'signal' ) );
 		process.on( 'SIGTERM', () => void this.shutdown( 'signal' ) );

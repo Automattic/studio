@@ -320,8 +320,28 @@ export class AiChatUI {
 			'Thinking…'
 		);
 		this.loader.frames = [
-			'•', '•', '✦', '✦', '✷', '✷', '✸', '✸', '✹', '✹', '✺', '✺',
-			'✹', '✹', '✸', '✸', '✷', '✷', '✦', '✦', '•', '•',
+			'•',
+			'•',
+			'✦',
+			'✦',
+			'✷',
+			'✷',
+			'✸',
+			'✸',
+			'✹',
+			'✹',
+			'✺',
+			'✺',
+			'✹',
+			'✹',
+			'✸',
+			'✸',
+			'✷',
+			'✷',
+			'✦',
+			'✦',
+			'•',
+			'•',
 		];
 
 		this.editor = new PromptEditor( this.tui, editorTheme );
@@ -883,7 +903,9 @@ export class AiChatUI {
 						);
 					}
 					this.showInfo(
-						`Thought for ${ thinkingSec }s · ${ message.num_turns } turns · $${ message.total_cost_usd.toFixed( 4 ) }`
+						`Thought for ${ thinkingSec }s · ${
+							message.num_turns
+						} turns · $${ message.total_cost_usd.toFixed( 4 ) }`
 					);
 					return { sessionId: message.session_id, success: true };
 				}

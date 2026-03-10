@@ -110,6 +110,8 @@ export async function runCommand(): Promise< void > {
 	try {
 		await eventsSocketServer.listen();
 	} catch ( error ) {
+		console.error( 'Failed to bind to events socket', error );
+
 		await cleanup();
 		return;
 	}

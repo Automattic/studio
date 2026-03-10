@@ -1,13 +1,3 @@
-/**
- * Proxy Server for WordPress Studio CLI
- *
- * This runs as part of the CLI process when `studio proxy start` is called.
- * PM2 manages this CLI process to keep the proxy running persistently.
- *
- * The proxy listens on ports 80 (HTTP) and 443 (HTTPS) and routes requests
- * to local WordPress sites based on the Host header.
- */
-
 import http from 'http';
 import https from 'https';
 import { createSecureContext } from 'node:tls';
@@ -261,7 +251,7 @@ export async function startProxyServers(): Promise< void > {
 		console.log( '[Proxy] Ready to handle custom domain requests' );
 
 		// Keep the process running
-		// PM2 will manage this process and keep it alive
+		// The process manager daemon will manage this process and keep it alive
 		process.stdin.resume();
 	} catch ( error ) {
 		console.error( '[Proxy] Failed to start proxy servers:', error );

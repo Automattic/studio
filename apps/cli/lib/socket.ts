@@ -2,8 +2,10 @@ import { EventEmitter } from 'events';
 import fs from 'fs';
 import net from 'net';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
+import { DaemonResponse } from 'cli/lib/types/process-manager-ipc';
 
 const DEFAULT_CONNECT_TIMEOUT_MS = 500;
+const DEFAULT_RECONNECT_DELAY_MS = 500;
 
 function isWindowsNamedPipe( endpoint: string ): boolean {
 	return endpoint.startsWith( '\\\\.\\pipe\\' );
@@ -11,6 +13,14 @@ function isWindowsNamedPipe( endpoint: string ): boolean {
 
 function isUnixSocketPath( endpoint: string ): boolean {
 	return ! isWindowsNamedPipe( endpoint );
+}
+
+function encodeSocketMessage( message: unknown ): Buffer {
+	const json = JSON.stringify( message );
+	const body = Buffer.from( json, 'utf8' );
+	const header = Buffer.allocUnsafe( 4 );
+	header.writeUInt32BE( body.length, 0 );
+	return Buffer.concat( [ header, body ] );
 }
 
 // TCP gives us arbitrary byte chunks, not one object per `data` event.
@@ -38,54 +48,165 @@ export class SocketMessageDecoder {
 	}
 }
 
-export class SocketClient {
-	private readonly peer: string;
+async function connectToEndpoint( peer: string, connectTimeoutMs: number ): Promise< net.Socket > {
+	let timeoutId: NodeJS.Timeout;
+	const socket = net.createConnection( peer );
+
+	return new Promise< net.Socket >( ( resolve, reject ) => {
+		timeoutId = setTimeout( () => {
+			socket.destroy();
+			reject( new Error( `Socket connect timeout: ${ peer }` ) );
+		}, connectTimeoutMs );
+
+		socket.once( 'connect', () => {
+			resolve( socket );
+		} );
+		socket.once( 'error', ( error ) => {
+			reject( error );
+		} );
+	} ).finally( () => {
+		clearTimeout( timeoutId );
+		socket.removeAllListeners();
+	} );
+}
+
+type SocketClientEventMap = {
+	connect: { socket: net.Socket };
+	data: { chunk: Buffer; socket: net.Socket };
+	error: { error: Error };
+	close: { hadError: boolean };
+	reconnecting: { delayMs: number };
+};
+
+class SocketClientEventEmitter extends EventEmitter {
+	on< K extends keyof SocketClientEventMap >(
+		event: K,
+		listener: ( payload: SocketClientEventMap[ K ] ) => void
+	): this {
+		return super.on( event, listener );
+	}
+
+	emit< K extends keyof SocketClientEventMap >(
+		event: K,
+		payload: SocketClientEventMap[ K ]
+	): boolean {
+		return super.emit( event, payload );
+	}
+}
+
+export class SocketStreamClient extends SocketClientEventEmitter {
+	private readonly endpoint: string;
+	private readonly connectTimeoutMs: number;
+	private readonly reconnectDelayMs: number;
+	private socket: net.Socket | null = null;
+	private connectPromise: Promise< net.Socket > | null = null;
+	private reconnectTimer: NodeJS.Timeout | null = null;
+	private closedByClient = false;
+
+	constructor( endpoint: string, connectTimeoutMs = DEFAULT_CONNECT_TIMEOUT_MS ) {
+		super();
+		this.endpoint = endpoint;
+		this.connectTimeoutMs = connectTimeoutMs;
+		this.reconnectDelayMs = DEFAULT_RECONNECT_DELAY_MS;
+	}
+
+	async connect(): Promise< net.Socket > {
+		this.closedByClient = false;
+		if ( this.isConnected() ) {
+			return this.socket as net.Socket;
+		}
+
+		if ( this.connectPromise ) {
+			return this.connectPromise;
+		}
+
+		this.connectPromise = connectToEndpoint( this.endpoint, this.connectTimeoutMs )
+			.then( ( socket ) => {
+				this.attachPersistentSocketListeners( socket );
+				this.emit( 'connect', { socket } );
+				return socket;
+			} )
+			.finally( () => {
+				this.connectPromise = null;
+			} );
+
+		return this.connectPromise;
+	}
+
+	isConnected(): boolean {
+		return this.socket !== null && ! this.socket.destroyed;
+	}
+
+	async close(): Promise< void > {
+		this.closedByClient = true;
+		if ( this.reconnectTimer ) {
+			clearTimeout( this.reconnectTimer );
+			this.reconnectTimer = null;
+		}
+
+		const socket = this.socket;
+		this.socket = null;
+		if ( socket && ! socket.destroyed ) {
+			await new Promise< void >( ( resolve ) => {
+				socket.once( 'close', () => resolve() );
+				socket.end();
+			} );
+		}
+	}
+
+	private scheduleReconnect() {
+		if ( this.closedByClient || this.reconnectTimer ) {
+			return;
+		}
+
+		this.emit( 'reconnecting', { delayMs: this.reconnectDelayMs } );
+		this.reconnectTimer = setTimeout( () => {
+			this.reconnectTimer = null;
+			void this.connect().catch( () => {
+				this.scheduleReconnect();
+			} );
+		}, this.reconnectDelayMs );
+	}
+
+	private attachPersistentSocketListeners( socket: net.Socket ) {
+		this.socket = socket;
+		socket.on( 'data', ( chunk ) => {
+			this.emit( 'data', { chunk, socket } );
+		} );
+
+		socket.on( 'error', ( error ) => {
+			this.emit( 'error', { error } );
+		} );
+
+		socket.on( 'close', ( hadError ) => {
+			if ( this.socket === socket ) {
+				this.socket = null;
+			}
+
+			this.emit( 'close', { hadError } );
+			this.scheduleReconnect();
+		} );
+	}
+}
+
+export class SocketRequestClient {
+	private readonly endpoint: string;
 	private readonly connectTimeoutMs: number;
 	private queue = Promise.resolve();
 
-	constructor( peer: string, connectTimeoutMs = DEFAULT_CONNECT_TIMEOUT_MS ) {
-		this.peer = peer;
+	constructor( endpoint: string, connectTimeoutMs = DEFAULT_CONNECT_TIMEOUT_MS ) {
+		this.endpoint = endpoint;
 		this.connectTimeoutMs = connectTimeoutMs;
 	}
 
 	send( message: unknown ): Promise< void > {
-		const payload = this.encodeSocketMessage( message );
+		const payload = encodeSocketMessage( message );
 		const sendPromise = this.queue.then( async () => {
-			const socket = await this.connect();
+			const socket = await connectToEndpoint( this.endpoint, this.connectTimeoutMs );
 			await this.sendToSocket( socket, payload );
 		} );
 		this.queue = sendPromise.catch( () => undefined );
 		return sendPromise;
-	}
-
-	async connect(): Promise< net.Socket > {
-		let timeoutId: NodeJS.Timeout;
-		const socket = net.createConnection( this.peer );
-
-		return new Promise< net.Socket >( ( resolve, reject ) => {
-			timeoutId = setTimeout( () => {
-				socket.destroy();
-				reject( new Error( `Socket connect timeout: ${ this.peer }` ) );
-			}, this.connectTimeoutMs );
-
-			socket.once( 'connect', () => {
-				resolve( socket );
-			} );
-			socket.once( 'error', ( error ) => {
-				reject( error );
-			} );
-		} ).finally( () => {
-			clearTimeout( timeoutId );
-			socket.removeAllListeners();
-		} );
-	}
-
-	encodeSocketMessage( message: unknown ): Buffer {
-		const json = JSON.stringify( message );
-		const body = Buffer.from( json, 'utf8' );
-		const header = Buffer.allocUnsafe( 4 );
-		header.writeUInt32BE( body.length, 0 );
-		return Buffer.concat( [ header, body ] );
 	}
 
 	private async sendToSocket( socket: net.Socket, payload: Buffer ): Promise< void > {
@@ -97,7 +218,7 @@ export class SocketClient {
 				resolve();
 			} );
 			if ( socket.destroyed ) {
-				reject( new Error( `Socket closed before send: ${ this.peer }` ) );
+				reject( new Error( `Socket closed before send: ${ this.endpoint }` ) );
 				return;
 			}
 			socket.end( payload );
@@ -105,9 +226,74 @@ export class SocketClient {
 			socket.removeAllListeners();
 		} );
 	}
+
+	sendAndWaitForResponse( message: unknown ): Promise< unknown > {
+		const payload = encodeSocketMessage( message );
+		const responsePromise = this.queue.then( async () => {
+			const socket = await connectToEndpoint( this.endpoint, this.connectTimeoutMs );
+			return this.sendAndReadFromSocket( socket, payload );
+		} );
+		this.queue = responsePromise.then(
+			() => undefined,
+			() => undefined
+		);
+		return responsePromise;
+	}
+
+	private async sendAndReadFromSocket( socket: net.Socket, payload: Buffer ): Promise< unknown > {
+		const decoder = new SocketMessageDecoder();
+
+		return new Promise< unknown >( ( resolve, reject ) => {
+			socket.once( 'error', ( error ) => {
+				reject( error );
+			} );
+			socket.on( 'data', ( chunk ) => {
+				try {
+					for ( const message of decoder.write( chunk ) ) {
+						resolve( message );
+						return;
+					}
+				} catch ( error ) {
+					reject( error );
+				}
+			} );
+			socket.once( 'close', () => {
+				reject( new Error( `Socket closed before response: ${ this.endpoint }` ) );
+			} );
+			if ( socket.destroyed ) {
+				reject( new Error( `Socket closed before send: ${ this.endpoint }` ) );
+				return;
+			}
+			socket.write( payload );
+		} ).finally( () => {
+			socket.removeAllListeners();
+			socket.end();
+		} );
+	}
 }
 
-export class SocketServer extends EventEmitter {
+type SocketServerEventMap = {
+	message: { message: unknown; socket: net.Socket };
+	'message-error': { error: unknown };
+};
+
+class SocketServerEventEmitter extends EventEmitter {
+	on< K extends keyof SocketServerEventMap >(
+		event: K,
+		listener: ( payload: SocketServerEventMap[ K ] ) => void
+	): this {
+		return super.on( event, listener );
+	}
+
+	emit< K extends keyof SocketServerEventMap >(
+		event: K,
+		payload: SocketServerEventMap[ K ]
+	): boolean {
+		return super.emit( event, payload );
+	}
+}
+
+export class SocketServer extends SocketServerEventEmitter {
 	private readonly endpoint: string;
 	private readonly sockets = new Set< net.Socket >();
 	private readonly server: net.Server;
@@ -124,10 +310,10 @@ export class SocketServer extends EventEmitter {
 			socket.on( 'data', ( chunk ) => {
 				try {
 					for ( const message of decoder.write( chunk ) ) {
-						this.emit( 'message', message );
+						this.emit( 'message', { message, socket } );
 					}
 				} catch ( error ) {
-					this.emit( 'message-error', error );
+					this.emit( 'message-error', { error } );
 				}
 			} );
 
@@ -171,6 +357,24 @@ export class SocketServer extends EventEmitter {
 		}
 	}
 
+	sendAndClose( socket: net.Socket, message: DaemonResponse ) {
+		socket.end( encodeSocketMessage( message ) );
+	}
+
+	send( socket: net.Socket, message: unknown ) {
+		socket.write( encodeSocketMessage( message ) );
+	}
+
+	broadcast( message: unknown ) {
+		const payload = encodeSocketMessage( message );
+
+		for ( const socket of this.sockets ) {
+			if ( ! socket.destroyed ) {
+				socket.write( payload );
+			}
+		}
+	}
+
 	private async attemptServerListen(): Promise< void > {
 		let timeoutId: NodeJS.Timeout;
 
@@ -196,14 +400,25 @@ export class SocketServer extends EventEmitter {
 	private async canConnectUsingClient(
 		timeoutMs = DEFAULT_CONNECT_TIMEOUT_MS
 	): Promise< boolean > {
-		const socketClient = new SocketClient( this.endpoint, timeoutMs );
-		try {
-			const socket = await socketClient.connect();
-			socket.destroy();
-			return true;
-		} catch {
-			return false;
-		}
+		let timeoutId: NodeJS.Timeout;
+		const socket = net.createConnection( this.endpoint );
+
+		return new Promise< boolean >( ( resolve ) => {
+			timeoutId = setTimeout( () => {
+				socket.destroy();
+				resolve( false );
+			}, timeoutMs );
+
+			socket.once( 'connect', () => {
+				socket.destroy();
+				resolve( true );
+			} );
+			socket.once( 'error', () => {
+				resolve( false );
+			} );
+		} ).finally( () => {
+			clearTimeout( timeoutId );
+		} );
 	}
 
 	close(): Promise< void > {

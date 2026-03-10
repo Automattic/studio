@@ -3,7 +3,7 @@ import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-a
 import { __, _n, sprintf } from '@wordpress/i18n';
 import Table from 'cli-table3';
 import { getSiteUrl, readAppdata, type SiteData } from 'cli/lib/appdata';
-import { connect, disconnect } from 'cli/lib/pm2-manager';
+import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import { getColumnWidths, getPrettyPath } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
@@ -102,13 +102,13 @@ export async function runCommand( format: 'table' | 'json' ): Promise< void > {
 		logger.reportSuccess( sitesMessage );
 
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Connecting to process daemon…' ) );
-		await connect();
+		await connectToDaemon();
 		logger.reportSuccess( __( 'Connected to process daemon' ) );
 
 		const siteListData = await getSiteListData( appdata.sites );
 		displaySiteList( siteListData, format );
 	} finally {
-		await disconnect();
+		await disconnectFromDaemon();
 	}
 }
 

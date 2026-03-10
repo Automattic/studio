@@ -61,7 +61,7 @@ import {
 import { connectToDaemon, disconnectFromDaemon, emitSiteEvent } from 'cli/lib/daemon-client';
 import { generateSiteName, getDefaultSitePath } from 'cli/lib/generate-site-name';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
-import { getServerFilesPath } from 'cli/lib/server-files';
+import { getAgentSkillsPath, getServerFilesPath } from 'cli/lib/server-files';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { writeSkillMd } from 'cli/lib/skill-md';
@@ -431,6 +431,11 @@ export async function runCommand(
 			console.log( __( 'Run "studio site start" to start the site.' ) );
 		}
 
+		// Install bundled WordPress agent skills
+		if ( process.env.ENABLE_AGENT_SUITE === 'true' ) {
+			await installAgentSkills( sitePath );
+		}
+
 		logger.reportKeyValuePair( 'id', siteDetails.id );
 		logger.reportKeyValuePair( 'running', String( siteDetails.running ) );
 		await emitSiteEvent( SITE_EVENTS.CREATED, { siteId: siteDetails.id } );
@@ -509,6 +514,50 @@ function coerceWpVersion( value: string ) {
 	}
 
 	return value;
+}
+
+const BUNDLED_SKILL_IDS = [
+	'wp-plugin-development',
+	'wp-block-development',
+	'wp-block-themes',
+	'wp-rest-api',
+	'wp-wpcli-and-ops',
+];
+
+async function installAgentSkills( sitePath: string ): Promise< void > {
+	const bundledSkillsPath = getAgentSkillsPath();
+	for ( const skillId of BUNDLED_SKILL_IDS ) {
+		try {
+			const src = path.join( bundledSkillsPath, skillId );
+			if ( ! ( await pathExists( src ) ) ) {
+				continue;
+			}
+
+			const agentsDest = path.join( sitePath, '.agents', 'skills', skillId );
+			const claudeDest = path.join( sitePath, '.claude', 'skills', skillId );
+
+			// Skip if already installed
+			if ( await pathExists( path.join( agentsDest, 'SKILL.md' ) ) ) {
+				continue;
+			}
+
+			// Copy skill files
+			await recursiveCopyDirectory( src, agentsDest );
+
+			// Create symlink for Claude
+			await fs.promises.mkdir( path.join( sitePath, '.claude', 'skills' ), {
+				recursive: true,
+			} );
+			const relativePath = path.relative( path.join( sitePath, '.claude', 'skills' ), agentsDest );
+			try {
+				await fs.promises.lstat( claudeDest );
+			} catch {
+				await fs.promises.symlink( relativePath, claudeDest );
+			}
+		} catch {
+			// Continue with remaining skills if one fails
+		}
+	}
 }
 
 export const registerCommand = ( yargs: StudioArgv ) => {

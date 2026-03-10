@@ -21,6 +21,7 @@
 	],
 	"scripts": {
 		"start": "npm -w studio-app run start",
+		"start:test": "DEV_APP_DATA_PATH=/tmp/studio-test-appdata.json npm -w studio-app run start",
 		"start-wayland": "npm -w studio-app run start-wayland",
 		"postinstall": "patch-package --patch-dir apps/cli/patches && patch-package --patch-dir apps/studio/patches && node ./scripts/remove-fs-ext-other-platform-binaries.mjs && ts-node ./scripts/download-wp-server-files.ts && node ./scripts/download-available-site-translations.mjs",
 		"package": "ts-node ./scripts/package-in-isolation.ts package",

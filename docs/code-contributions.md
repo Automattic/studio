@@ -37,6 +37,8 @@ npm start
 
 This command starts the app in dev mode and opens it automatically, with the Chromium developer tools opened by default. Studio uses [Electron Forge](https://www.electronforge.io/) for running the app in dev mode, building, and packaging.
 
+To start with a clean, isolated appdata file (useful for testing without affecting your real sites), use `npm run start:test` instead.
+
 As with any Electron app, the code is split into two processes:
 
 1. **Renderer Process** (reloads automatically):

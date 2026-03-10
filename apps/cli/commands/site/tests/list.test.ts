@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
 import { readAppdata } from 'cli/lib/appdata';
-import { connect, disconnect } from 'cli/lib/pm2-manager';
+import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { runCommand } from '../list';
 vi.mock( 'cli/lib/appdata', async () => {
@@ -11,7 +11,7 @@ vi.mock( 'cli/lib/appdata', async () => {
 		getAppdataDirectory: vi.fn().mockReturnValue( '/test/appdata' ),
 	};
 } );
-vi.mock( 'cli/lib/pm2-manager' );
+vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
 
 describe( 'CLI: studio site list', () => {
@@ -46,8 +46,8 @@ describe( 'CLI: studio site list', () => {
 		vi.clearAllMocks();
 
 		vi.mocked( readAppdata ).mockResolvedValue( testAppdata );
-		vi.mocked( connect ).mockResolvedValue( undefined );
-		vi.mocked( disconnect ).mockResolvedValue( undefined );
+		vi.mocked( connectToDaemon ).mockResolvedValue( undefined );
+		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
 		vi.mocked( isServerRunning ).mockResolvedValue( undefined );
 	} );
 
@@ -60,7 +60,7 @@ describe( 'CLI: studio site list', () => {
 			vi.mocked( readAppdata ).mockRejectedValue( new Error( 'Failed to read appdata' ) );
 
 			await expect( runCommand( 'table' ) ).rejects.toThrow( 'Failed to read appdata' );
-			expect( disconnect ).toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 	} );
 
@@ -72,7 +72,7 @@ describe( 'CLI: studio site list', () => {
 
 			expect( readAppdata ).toHaveBeenCalled();
 			expect( consoleSpy ).toHaveBeenCalled();
-			expect( disconnect ).toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
 
 			consoleSpy.mockRestore();
 		} );
@@ -104,7 +104,7 @@ describe( 'CLI: studio site list', () => {
 					2
 				)
 			);
-			expect( disconnect ).toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
 
 			consoleSpy.mockRestore();
 		} );
@@ -115,7 +115,7 @@ describe( 'CLI: studio site list', () => {
 			await runCommand( 'table' );
 
 			expect( readAppdata ).toHaveBeenCalled();
-			expect( disconnect ).toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
 		it( 'should handle custom domain in site URL', async () => {
@@ -124,7 +124,7 @@ describe( 'CLI: studio site list', () => {
 			await runCommand( 'json' );
 
 			expect( consoleSpy ).toHaveBeenCalledWith( expect.stringContaining( 'my-site.wp.local' ) );
-			expect( disconnect ).toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
 
 			consoleSpy.mockRestore();
 		} );

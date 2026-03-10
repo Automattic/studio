@@ -24,8 +24,8 @@ import {
 	unlockAppdata,
 	updateSiteLatestCliPid,
 } from 'cli/lib/appdata';
+import { connectToDaemon, disconnectFromDaemon, emitSiteEvent } from 'cli/lib/daemon-client';
 import { updateDomainInHosts } from 'cli/lib/hosts-file';
-import { connect, disconnect, emitSiteEvent } from 'cli/lib/pm2-manager';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { setupCustomDomain } from 'cli/lib/site-utils';
 import { validatePhpVersion } from 'cli/lib/utils';
@@ -252,7 +252,7 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 		}
 
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
-		await connect();
+		await connectToDaemon();
 		logger.reportSuccess( __( 'Process daemon started' ) );
 
 		const wasRunning = await isServerRunning( site.id );
@@ -307,7 +307,7 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 
 			logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
 			const processDesc = await startWordPressServer( site, logger );
-			if ( processDesc.pid ) {
+			if ( processDesc.status === 'online' ) {
 				await updateSiteLatestCliPid( site.id, processDesc.pid );
 			}
 			logger.reportSuccess( __( 'WordPress server started' ) );
@@ -319,7 +319,7 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 
 		return;
 	} finally {
-		await disconnect();
+		await disconnectFromDaemon();
 	}
 }
 

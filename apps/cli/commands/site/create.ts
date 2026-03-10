@@ -227,13 +227,15 @@ export async function runCommand(
 			);
 		}
 
-		try {
-			await writeSkillMd( sitePath );
-		} catch ( error ) {
-			logger.reportError(
-				new LoggerError( __( 'Failed to write SKILL.md. Proceeding anyway…' ), error ),
-				false
-			);
+		if ( process.env.ENABLE_AGENT_SUITE === 'true' ) {
+			try {
+				await writeSkillMd( sitePath );
+			} catch ( error ) {
+				logger.reportError(
+					new LoggerError( __( 'Failed to write SKILL.md. Proceeding anyway…' ), error ),
+					false
+				);
+			}
 		}
 
 		logger.reportStart( LoggerAction.ASSIGN_PORT, __( 'Assigning port…' ) );

@@ -4,7 +4,7 @@ import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-a
 import { __, _n } from '@wordpress/i18n';
 import CliTable3 from 'cli-table3';
 import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config';
-import { connect, disconnect } from 'cli/lib/pm2-manager';
+import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getPrettyPath } from 'cli/lib/utils';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
@@ -15,7 +15,7 @@ const logger = new Logger< LoggerAction >();
 export async function runCommand( siteFolder: string, format: 'table' | 'json' ): Promise< void > {
 	try {
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
-		await connect();
+		await connectToDaemon();
 		logger.reportSuccess( __( 'Process daemon started' ) );
 
 		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
@@ -94,7 +94,7 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 			console.log( JSON.stringify( logData, null, 2 ) );
 		}
 	} finally {
-		await disconnect();
+		await disconnectFromDaemon();
 	}
 }
 

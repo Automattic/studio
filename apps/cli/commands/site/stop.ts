@@ -10,7 +10,11 @@ import {
 	updateSiteAutoStart,
 	type SiteData,
 } from 'cli/lib/cli-config';
-import { connect, disconnect, killDaemonAndChildrenAndExitProcess } from 'cli/lib/pm2-manager';
+import {
+	connectToDaemon,
+	disconnectFromDaemon,
+	killDaemonAndChildren,
+} from 'cli/lib/daemon-client';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
@@ -39,7 +43,7 @@ export async function runCommand(
 	autoStart: boolean
 ): Promise< void > {
 	try {
-		await connect();
+		await connectToDaemon();
 
 		if ( target === Mode.STOP_SINGLE_SITE && siteFolder ) {
 			const site = await getSiteByFolder( siteFolder );
@@ -73,29 +77,26 @@ export async function runCommand(
 			}
 
 			if ( ! runningSites.length ) {
-				await killDaemonAndChildrenAndExitProcess( () => {
-					logger.reportSuccess( __( 'No sites are currently running' ) );
-				} );
-				return;
-			}
-
-			try {
-				await lockCliConfig();
-				const cliConfig = await readCliConfig();
-				for ( const site of cliConfig.sites ) {
-					if ( runningSites.find( ( r ) => r.id === site.id ) ) {
-						delete site.latestCliPid;
-						site.autoStart = autoStart;
+				await killDaemonAndChildren();
+				logger.reportSuccess( __( 'No sites are currently running' ) );
+			} else {
+				try {
+					await lockCliConfig();
+					const cliConfig = await readCliConfig();
+					for ( const site of cliConfig.sites ) {
+						if ( runningSites.find( ( r ) => r.id === site.id ) ) {
+							delete site.latestCliPid;
+							site.autoStart = autoStart;
+						}
 					}
+					await saveCliConfig( cliConfig );
+				} finally {
+					await unlockCliConfig();
 				}
-				await saveCliConfig( cliConfig );
-			} finally {
-				await unlockCliConfig();
-			}
 
-			logger.reportStart( LoggerAction.STOP_ALL_SITES, __( 'Stopping all WordPress servers…' ) );
+				logger.reportStart( LoggerAction.STOP_ALL_SITES, __( 'Stopping all WordPress servers…' ) );
 
-			await killDaemonAndChildrenAndExitProcess( () => {
+				await killDaemonAndChildren();
 				logger.reportSuccess(
 					sprintf(
 						_n(
@@ -106,10 +107,10 @@ export async function runCommand(
 						runningSites.length
 					)
 				);
-			} );
+			}
 		}
 	} finally {
-		await disconnect();
+		await disconnectFromDaemon();
 	}
 }
 

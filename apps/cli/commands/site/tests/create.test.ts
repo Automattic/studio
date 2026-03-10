@@ -24,12 +24,13 @@ import {
 	updateSiteAutoStart,
 	SiteData,
 } from 'cli/lib/cli-config';
+import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
-import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { getServerFilesPath } from 'cli/lib/server-files';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
+import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
 import { runCommand } from '../create';
@@ -61,7 +62,7 @@ vi.mock( 'cli/lib/cli-config', async () => {
 	};
 } );
 vi.mock( 'cli/lib/language-packs' );
-vi.mock( 'cli/lib/pm2-manager' );
+vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/server-files', () => ( {
 	getServerFilesPath: vi.fn().mockReturnValue( '/test/server-files' ),
 } ) );
@@ -100,7 +101,7 @@ describe( 'CLI: studio site create', () => {
 		phpVersion: '8.0',
 	};
 
-	const mockProcessDescription = {
+	const mockProcessDescription: ProcessDescription = {
 		name: 'test-uuid-1234',
 		pmId: 0,
 		status: 'online',
@@ -147,8 +148,8 @@ describe( 'CLI: studio site create', () => {
 		vi.mocked( lockCliConfig ).mockResolvedValue( undefined );
 		vi.mocked( unlockCliConfig ).mockResolvedValue( undefined );
 		vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( true );
-		vi.mocked( connect ).mockResolvedValue( undefined );
-		vi.mocked( disconnect ).mockResolvedValue( undefined );
+		vi.mocked( connectToDaemon ).mockResolvedValue( undefined );
+		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
 		vi.mocked( setupCustomDomain ).mockResolvedValue( undefined );
 		vi.mocked( startWordPressServer ).mockResolvedValue( mockProcessDescription );
 		vi.mocked( runBlueprint ).mockResolvedValue( undefined );
@@ -177,7 +178,7 @@ describe( 'CLI: studio site create', () => {
 				'The selected directory is not empty nor an existing WordPress site.'
 			);
 
-			expect( disconnect ).toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
 		it( 'should error if site path is already in use', async () => {
@@ -191,7 +192,7 @@ describe( 'CLI: studio site create', () => {
 				'The selected directory is already in use.'
 			);
 
-			expect( disconnect ).toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
 		it( 'should error if custom domain is invalid', async () => {
@@ -202,7 +203,7 @@ describe( 'CLI: studio site create', () => {
 				} )
 			).rejects.toThrow();
 
-			expect( disconnect ).toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
 		it( 'should error if custom domain is already in use', async () => {
@@ -218,7 +219,7 @@ describe( 'CLI: studio site create', () => {
 				} )
 			).rejects.toThrow();
 
-			expect( disconnect ).toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
 		it( 'should error if Blueprint validation fails', async () => {
@@ -237,7 +238,7 @@ describe( 'CLI: studio site create', () => {
 				} )
 			).rejects.toThrow( 'Invalid Blueprint' );
 
-			expect( disconnect ).toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
 		it( 'should error if SQLite integration is not available', async () => {
@@ -249,7 +250,7 @@ describe( 'CLI: studio site create', () => {
 				'SQLite integration files not found'
 			);
 
-			expect( disconnect ).toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 	} );
 
@@ -263,12 +264,12 @@ describe( 'CLI: studio site create', () => {
 			expect( portFinder.getOpenPort ).toHaveBeenCalled();
 			expect( lockCliConfig ).toHaveBeenCalled();
 			expect( saveCliConfig ).toHaveBeenCalled();
-			expect( connect ).toHaveBeenCalled();
+			expect( connectToDaemon ).toHaveBeenCalled();
 			expect( startWordPressServer ).toHaveBeenCalled();
 			expect( updateSiteAutoStart ).toHaveBeenCalledWith( expect.any( String ), true );
 			expect( logSiteDetails ).toHaveBeenCalled();
 			expect( openSiteInBrowser ).toHaveBeenCalled();
-			expect( disconnect ).toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
 		it( 'should skip SQLite integration when it is already configured', async () => {
@@ -605,12 +606,12 @@ describe( 'CLI: studio site create', () => {
 				noStart: true,
 			} );
 
-			expect( connect ).not.toHaveBeenCalled();
+			expect( connectToDaemon ).not.toHaveBeenCalled();
 			expect( startWordPressServer ).not.toHaveBeenCalled();
 			expect( setupCustomDomain ).not.toHaveBeenCalled();
 			expect( consoleLogSpy ).toHaveBeenCalledWith( 'Site created successfully' );
 			expect( consoleLogSpy ).toHaveBeenCalledWith( 'Run "studio site start" to start the site.' );
-			expect( disconnect ).toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
 		it( 'should apply Blueprint without starting server when noStart is true', async () => {
@@ -625,11 +626,11 @@ describe( 'CLI: studio site create', () => {
 				noStart: true,
 			} );
 
-			expect( connect ).toHaveBeenCalled();
+			expect( connectToDaemon ).toHaveBeenCalled();
 			expect( runBlueprint ).toHaveBeenCalled();
 			expect( startWordPressServer ).not.toHaveBeenCalled();
 			expect( consoleLogSpy ).toHaveBeenCalledWith( 'Run "studio site start" to start the site.' );
-			expect( disconnect ).toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
 		it( 'should run Blueprint when preferred language is configured but no Blueprint was given', async () => {
@@ -640,7 +641,7 @@ describe( 'CLI: studio site create', () => {
 				noStart: true,
 			} );
 
-			expect( connect ).toHaveBeenCalled();
+			expect( connectToDaemon ).toHaveBeenCalled();
 			expect( runBlueprint ).toHaveBeenCalledWith(
 				expect.any( Object ),
 				expect.any( Object ),
@@ -651,7 +652,7 @@ describe( 'CLI: studio site create', () => {
 			);
 			expect( startWordPressServer ).not.toHaveBeenCalled();
 			expect( consoleLogSpy ).toHaveBeenCalledWith( 'Site created successfully' );
-			expect( disconnect ).toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 	} );
 
@@ -756,7 +757,7 @@ describe( 'CLI: studio site create', () => {
 				'Failed to start WordPress server'
 			);
 
-			expect( disconnect ).toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
 		it( 'should handle Blueprint application failure', async () => {
@@ -774,7 +775,7 @@ describe( 'CLI: studio site create', () => {
 				} )
 			).rejects.toThrow( 'Failed to apply Blueprint' );
 
-			expect( disconnect ).toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
 		it( 'should handle SQLite setup failure', async () => {
@@ -784,12 +785,12 @@ describe( 'CLI: studio site create', () => {
 
 			await expect( runCommand( mockSitePath, { ...defaultTestOptions } ) ).rejects.toThrow();
 
-			expect( disconnect ).toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 	} );
 
 	describe( 'Cleanup', () => {
-		it( 'should disconnect from PM2 even on error', async () => {
+		it( 'should disconnect from process manager even on error', async () => {
 			vi.mocked( readCliConfig ).mockRejectedValue( new Error( 'Appdata error' ) );
 
 			try {
@@ -798,13 +799,13 @@ describe( 'CLI: studio site create', () => {
 				// Expected
 			}
 
-			expect( disconnect ).toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
-		it( 'should disconnect from PM2 on success', async () => {
+		it( 'should disconnect from process manager on success', async () => {
 			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
-			expect( disconnect ).toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
 		it( 'should unlock appdata after saving', async () => {

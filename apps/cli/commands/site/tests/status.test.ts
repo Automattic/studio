@@ -1,7 +1,7 @@
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { vi } from 'vitest';
 import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config';
-import { connect, disconnect } from 'cli/lib/pm2-manager';
+import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { runCommand } from '../status';
 vi.mock( 'cli/lib/cli-config', async () => {
@@ -12,7 +12,7 @@ vi.mock( 'cli/lib/cli-config', async () => {
 		getSiteUrl: vi.fn(),
 	};
 } );
-vi.mock( 'cli/lib/pm2-manager' );
+vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
 vi.mock( '@studio/common/lib/get-wordpress-version' );
 
@@ -41,8 +41,8 @@ describe( 'CLI: studio site status', () => {
 
 		vi.mocked( getSiteByFolder ).mockResolvedValue( testSite );
 		vi.mocked( getSiteUrl ).mockReturnValue( 'http://localhost:8080' );
-		vi.mocked( connect ).mockResolvedValue( undefined );
-		vi.mocked( disconnect ).mockResolvedValue( undefined );
+		vi.mocked( connectToDaemon ).mockResolvedValue( undefined );
+		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
 		vi.mocked( isServerRunning ).mockResolvedValue( undefined );
 		vi.mocked( getWordPressVersion ).mockReturnValue( '6.4' );
 	} );
@@ -56,7 +56,7 @@ describe( 'CLI: studio site status', () => {
 			vi.mocked( getSiteByFolder ).mockRejectedValue( new Error( 'Site not found' ) );
 
 			await expect( runCommand( '/invalid/path', 'table' ) ).rejects.toThrow( 'Site not found' );
-			expect( disconnect ).toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 	} );
 
@@ -65,9 +65,9 @@ describe( 'CLI: studio site status', () => {
 			await runCommand( '/path/to/site', 'table' );
 
 			expect( getSiteByFolder ).toHaveBeenCalledWith( '/path/to/site' );
-			expect( connect ).toHaveBeenCalled();
+			expect( connectToDaemon ).toHaveBeenCalled();
 			expect( isServerRunning ).toHaveBeenCalledWith( testSite.id );
-			expect( disconnect ).toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
 		it( 'should output JSON format correctly', async () => {
@@ -169,13 +169,13 @@ describe( 'CLI: studio site status', () => {
 	} );
 
 	describe( 'Cleanup', () => {
-		it( 'should always disconnect from PM2 on success', async () => {
+		it( 'should always disconnect from process manager on success', async () => {
 			await runCommand( '/path/to/site', 'table' );
 
-			expect( disconnect ).toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
-		it( 'should always disconnect from PM2 on error', async () => {
+		it( 'should always disconnect from process manager on error', async () => {
 			vi.mocked( getSiteByFolder ).mockRejectedValue( new Error( 'Error' ) );
 
 			try {
@@ -184,7 +184,7 @@ describe( 'CLI: studio site status', () => {
 				// Expected
 			}
 
-			expect( disconnect ).toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 	} );
 } );

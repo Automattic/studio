@@ -3,7 +3,7 @@ import { __ } from '@wordpress/i18n';
 import { ArgumentsCamelCase } from 'yargs';
 import yargsParser from 'yargs-parser';
 import { getSiteByFolder } from 'cli/lib/cli-config';
-import { connect, disconnect } from 'cli/lib/pm2-manager';
+import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { runWpCliCommand, runGlobalWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { validatePhpVersion } from 'cli/lib/utils';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
@@ -65,11 +65,11 @@ export async function runCommand(
 	const useCustomPhpVersion = options.phpVersion && options.phpVersion !== site.phpVersion;
 
 	if ( ! useCustomPhpVersion ) {
-		process.on( 'SIGINT', disconnect );
-		process.on( 'SIGTERM', disconnect );
+		process.on( 'SIGINT', disconnectFromDaemon );
+		process.on( 'SIGTERM', disconnectFromDaemon );
 
 		try {
-			await connect();
+			await connectToDaemon();
 
 			if ( await isServerRunning( site.id ) ) {
 				const result = await sendWpCliCommand( site.id, args );
@@ -78,7 +78,7 @@ export async function runCommand(
 				process.exit( result.exitCode );
 			}
 		} finally {
-			await disconnect();
+			await disconnectFromDaemon();
 		}
 	}
 

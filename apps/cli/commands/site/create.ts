@@ -227,6 +227,8 @@ export async function runCommand(
 			);
 		}
 
+		console.log( 'process.env.ENABLE_AGENT_SUITE', process.env.ENABLE_AGENT_SUITE );
+
 		if ( process.env.ENABLE_AGENT_SUITE === 'true' ) {
 			try {
 				await writeSkillMd( sitePath );

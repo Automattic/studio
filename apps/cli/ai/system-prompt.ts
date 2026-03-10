@@ -46,6 +46,7 @@ Then continue with:
 - Always add the style.css as editor styles in the functions.php of the theme to make the editor match the frontend.
 - For theme and page content custom CSS, put the styles in the main style.css of the theme. No custom stylesheets.
 - Scroll animations must use progressive enhancement: CSS defines elements in their **final visible state** by default (full opacity, final position). JavaScript on the frontend adds the initial hidden state (e.g. \`opacity: 0\`, \`transform\`) and scroll-triggered transitions. This ensures elements are fully visible in the block editor (which loads theme CSS but not custom JS).
+- All animations and transitions must respect \`prefers-reduced-motion\`. Add a \`@media (prefers-reduced-motion: reduce)\` block that disables or simplifies animations (e.g. \`animation: none; transition: none; scroll-behavior: auto;\`).
 
 ## Block content guidelines
 

@@ -498,6 +498,9 @@ const takeScreenshotTool = tool(
 			const page = await browser.newPage( { viewport } );
 
 			try {
+				// Reduce motion to avoid capturing mid-animation states
+				await page.emulateMedia( { reducedMotion: 'reduce' } );
+
 				await page.goto( args.url, { waitUntil: 'networkidle', timeout: 15000 } );
 
 				// Wait for all images to finish loading

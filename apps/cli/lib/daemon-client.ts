@@ -2,7 +2,6 @@ import { spawn } from 'child_process';
 import crypto from 'crypto';
 import { EventEmitter } from 'events';
 import fs from 'fs';
-import net from 'net';
 import path from 'path';
 import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from '@studio/common/constants';
 import { cacheFunctionTTL } from '@studio/common/lib/cache-function-ttl';
@@ -62,12 +61,27 @@ class DaemonBusEventEmitter extends EventEmitter {
 
 export class DaemonBus extends DaemonBusEventEmitter {
 	private readonly socketClient: SocketClient;
-	private socket: net.Socket | null = null;
-	private readonly decoder = new SocketMessageDecoder();
+	private decoder = new SocketMessageDecoder();
 
 	constructor( endpoint: string ) {
 		super();
 		this.socketClient = new SocketClient( endpoint, 2500 );
+		this.socketClient.on( 'data', ( { chunk } ) => {
+			try {
+				for ( const packet of this.decoder.write( chunk ) ) {
+					this.handlePacket( packet );
+				}
+			} catch {
+				this.decoder = new SocketMessageDecoder();
+			}
+		} );
+		this.socketClient.on( 'close', () => {
+			this.decoder = new SocketMessageDecoder();
+		} );
+	}
+
+	isConnected(): boolean {
+		return this.socketClient.isConnected();
 	}
 
 	private handlePacket( packet: unknown ) {
@@ -90,31 +104,11 @@ export class DaemonBus extends DaemonBusEventEmitter {
 	}
 
 	async connect(): Promise< void > {
-		const socket = await this.socketClient.connect();
-		this.socket = socket;
-		socket.on( 'data', ( chunk ) => {
-			try {
-				for ( const packet of this.decoder.write( chunk ) ) {
-					this.handlePacket( packet );
-				}
-			} catch {
-				socket.destroy();
-			}
-		} );
-		socket.on( 'close', () => {
-			this.socket = null;
-		} );
+		await this.socketClient.connect();
 	}
 
 	async close(): Promise< void > {
-		const socket = this.socket;
-		this.socket = null;
-		if ( socket && ! socket.destroyed ) {
-			await new Promise< void >( ( resolve ) => {
-				socket.once( 'close', () => resolve() );
-				socket.end();
-			} );
-		}
+		await this.socketClient.close();
 	}
 }
 
@@ -189,6 +183,9 @@ let daemonBus: DaemonBus | null = null;
 
 async function ensureDaemonBus(): Promise< DaemonBus > {
 	if ( daemonBus ) {
+		if ( ! daemonBus.isConnected() ) {
+			await daemonBus.connect();
+		}
 		return daemonBus;
 	}
 

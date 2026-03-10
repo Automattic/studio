@@ -5,6 +5,7 @@ import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { DaemonResponse } from 'cli/lib/types/process-manager-ipc';
 
 const DEFAULT_CONNECT_TIMEOUT_MS = 500;
+const DEFAULT_RECONNECT_DELAY_MS = 500;
 
 function isWindowsNamedPipe( endpoint: string ): boolean {
 	return endpoint.startsWith( '\\\\.\\pipe\\' );
@@ -47,20 +48,51 @@ export class SocketMessageDecoder {
 	}
 }
 
-export class SocketClient {
+type SocketClientEventMap = {
+	connect: { socket: net.Socket };
+	data: { chunk: Buffer; socket: net.Socket };
+	error: { error: Error };
+	close: { hadError: boolean };
+	reconnecting: { delayMs: number };
+};
+
+class SocketClientEventEmitter extends EventEmitter {
+	on< K extends keyof SocketClientEventMap >(
+		event: K,
+		listener: ( payload: SocketClientEventMap[ K ] ) => void
+	): this {
+		return super.on( event, listener );
+	}
+
+	emit< K extends keyof SocketClientEventMap >(
+		event: K,
+		payload: SocketClientEventMap[ K ]
+	): boolean {
+		return super.emit( event, payload );
+	}
+}
+
+export class SocketClient extends SocketClientEventEmitter {
 	private readonly peer: string;
 	private readonly connectTimeoutMs: number;
+	private readonly reconnectDelayMs: number;
 	private queue = Promise.resolve();
+	private socket: net.Socket | null = null;
+	private connectPromise: Promise< net.Socket > | null = null;
+	private reconnectTimer: NodeJS.Timeout | null = null;
+	private closedByClient = false;
 
 	constructor( peer: string, connectTimeoutMs = DEFAULT_CONNECT_TIMEOUT_MS ) {
+		super();
 		this.peer = peer;
 		this.connectTimeoutMs = connectTimeoutMs;
+		this.reconnectDelayMs = DEFAULT_RECONNECT_DELAY_MS;
 	}
 
 	send( message: unknown ): Promise< void > {
 		const payload = encodeSocketMessage( message );
 		const sendPromise = this.queue.then( async () => {
-			const socket = await this.connect();
+			const socket = await this.connectOnce();
 			await this.sendToSocket( socket, payload );
 		} );
 		this.queue = sendPromise.catch( () => undefined );
@@ -70,7 +102,7 @@ export class SocketClient {
 	sendAndWaitForResponse( message: unknown ): Promise< unknown > {
 		const payload = encodeSocketMessage( message );
 		const responsePromise = this.queue.then( async () => {
-			const socket = await this.connect();
+			const socket = await this.connectOnce();
 			return this.sendAndReadFromSocket( socket, payload );
 		} );
 		this.queue = responsePromise.then(
@@ -81,6 +113,84 @@ export class SocketClient {
 	}
 
 	async connect(): Promise< net.Socket > {
+		this.closedByClient = false;
+		if ( this.isConnected() ) {
+			return this.socket as net.Socket;
+		}
+
+		if ( this.connectPromise ) {
+			return this.connectPromise;
+		}
+
+		this.connectPromise = this.connectOnce()
+			.then( ( socket ) => {
+				this.attachPersistentSocketListeners( socket );
+				this.emit( 'connect', { socket } );
+				return socket;
+			} )
+			.finally( () => {
+				this.connectPromise = null;
+			} );
+
+		return this.connectPromise;
+	}
+
+	isConnected(): boolean {
+		return this.socket !== null && ! this.socket.destroyed;
+	}
+
+	async close(): Promise< void > {
+		this.closedByClient = true;
+		if ( this.reconnectTimer ) {
+			clearTimeout( this.reconnectTimer );
+			this.reconnectTimer = null;
+		}
+
+		const socket = this.socket;
+		this.socket = null;
+		if ( socket && ! socket.destroyed ) {
+			await new Promise< void >( ( resolve ) => {
+				socket.once( 'close', () => resolve() );
+				socket.end();
+			} );
+		}
+	}
+
+	private scheduleReconnect() {
+		if ( this.closedByClient || this.reconnectTimer ) {
+			return;
+		}
+
+		this.emit( 'reconnecting', { delayMs: this.reconnectDelayMs } );
+		this.reconnectTimer = setTimeout( () => {
+			this.reconnectTimer = null;
+			void this.connect().catch( () => {
+				this.scheduleReconnect();
+			} );
+		}, this.reconnectDelayMs );
+	}
+
+	private attachPersistentSocketListeners( socket: net.Socket ) {
+		this.socket = socket;
+		socket.on( 'data', ( chunk ) => {
+			this.emit( 'data', { chunk, socket } );
+		} );
+
+		socket.on( 'error', ( error ) => {
+			this.emit( 'error', { error } );
+		} );
+
+		socket.on( 'close', ( hadError ) => {
+			if ( this.socket === socket ) {
+				this.socket = null;
+			}
+
+			this.emit( 'close', { hadError } );
+			this.scheduleReconnect();
+		} );
+	}
+
+	private async connectOnce(): Promise< net.Socket > {
 		let timeoutId: NodeJS.Timeout;
 		const socket = net.createConnection( this.peer );
 
@@ -280,14 +390,25 @@ export class SocketServer extends SocketServerEventEmitter {
 	private async canConnectUsingClient(
 		timeoutMs = DEFAULT_CONNECT_TIMEOUT_MS
 	): Promise< boolean > {
-		const socketClient = new SocketClient( this.endpoint, timeoutMs );
-		try {
-			const socket = await socketClient.connect();
-			socket.destroy();
-			return true;
-		} catch {
-			return false;
-		}
+		let timeoutId: NodeJS.Timeout;
+		const socket = net.createConnection( this.endpoint );
+
+		return new Promise< boolean >( ( resolve ) => {
+			timeoutId = setTimeout( () => {
+				socket.destroy();
+				resolve( false );
+			}, timeoutMs );
+
+			socket.once( 'connect', () => {
+				socket.destroy();
+				resolve( true );
+			} );
+			socket.once( 'error', () => {
+				resolve( false );
+			} );
+		} ).finally( () => {
+			clearTimeout( timeoutId );
+		} );
 	}
 
 	close(): Promise< void > {
@@ -297,27 +418,13 @@ export class SocketServer extends SocketServerEventEmitter {
 			}
 
 			if ( ! this.server.listening ) {
-				this.cleanupEndpoint();
 				resolve();
 				return;
 			}
 
 			this.server.close( () => {
-				this.cleanupEndpoint();
 				resolve();
 			} );
 		} );
-	}
-
-	private cleanupEndpoint() {
-		if ( ! isUnixSocketPath( this.endpoint ) ) {
-			return;
-		}
-
-		try {
-			fs.unlinkSync( this.endpoint );
-		} catch ( error ) {
-			// Do nothing
-		}
 	}
 }

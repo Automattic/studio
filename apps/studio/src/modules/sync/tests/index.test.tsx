@@ -23,7 +23,9 @@ const mockPushSiteThunk = vi.hoisted( () => vi.fn() );
 vi.mock( 'src/lib/get-ipc-api' );
 vi.mock( 'src/hooks/use-auth' );
 vi.mock( 'src/stores/sync/wpcom-sites', async () => {
-	const actual = await vi.importActual( 'src/stores/sync/wpcom-sites' );
+	const actual = await vi.importActual< typeof import('src/stores/sync/wpcom-sites') >(
+		'src/stores/sync/wpcom-sites'
+	);
 	return {
 		...actual,
 		useGetWpComSitesQuery: vi.fn(),
@@ -32,7 +34,7 @@ vi.mock( 'src/stores/sync/wpcom-sites', async () => {
 vi.mock( 'src/hooks/use-feature-flags' );
 
 vi.mock( 'src/stores/sync', async () => {
-	const actual = await vi.importActual( 'src/stores/sync' );
+	const actual = await vi.importActual< typeof import('src/stores/sync') >( 'src/stores/sync' );
 	return {
 		...actual,
 		useLatestRewindId: vi.fn(),
@@ -67,7 +69,9 @@ vi.mock( 'src/stores/sync', async () => {
 vi.mock( 'src/modules/sync/hooks/use-selected-items-push-size' );
 
 vi.mock( 'src/stores/wordpress-versions-api', async () => {
-	const actual = ( await vi.importActual( 'src/stores/wordpress-versions-api' ) ) || {};
+	const actual = await vi.importActual< typeof import('src/stores/wordpress-versions-api') >(
+		'src/stores/wordpress-versions-api'
+	);
 	return {
 		...actual,
 		useGetWordPressVersions: () => ( {
@@ -149,7 +153,7 @@ describe( 'ContentTabSync', () => {
 			showMessageBox: vi.fn(),
 			updateConnectedWpcomSites: vi.fn(),
 			addSyncOperation: vi.fn(),
-			removeSyncOperation: vi.fn(),
+			clearSyncOperation: vi.fn(),
 			getConnectedWpcomSites: vi.fn().mockResolvedValue( [] ),
 			getDirectorySize: vi.fn().mockResolvedValue( 0 ),
 			connectWpcomSites: vi.fn(),

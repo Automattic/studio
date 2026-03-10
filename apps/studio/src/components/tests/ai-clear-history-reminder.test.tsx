@@ -14,13 +14,13 @@ vi.mock( 'src/lib/get-ipc-api', () => ( {
 } ) );
 
 describe( 'AIClearHistoryReminder', () => {
-	let clearConversation: ReturnType< typeof vi.fn >;
+	const clearConversation = vi.fn();
 	const MOCKED_CURRENT_TIME = 1718882159928;
 	const OLD_MESSAGE_TIME = MOCKED_CURRENT_TIME - CLEAR_HISTORY_REMINDER_TIME - 1;
 
 	beforeEach( () => {
 		window.HTMLElement.prototype.scrollIntoView = vi.fn();
-		clearConversation = vi.fn();
+		clearConversation.mockClear();
 		mockShowMessageBox.mockClear();
 		vi.useFakeTimers();
 		vi.setSystemTime( MOCKED_CURRENT_TIME );

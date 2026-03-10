@@ -82,7 +82,6 @@ updates:
       - dependency-name: "tar"
 
       # HTTP & networking
-      - dependency-name: "express"
       - dependency-name: "http-proxy"
       - dependency-name: "hpagent"
       - dependency-name: "follow-redirects"
@@ -233,7 +232,6 @@ updates:
 
       http-networking:
         patterns:
-          - "express"
           - "http-proxy"
           - "hpagent"
           - "follow-redirects"

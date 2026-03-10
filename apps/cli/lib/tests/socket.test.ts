@@ -3,7 +3,7 @@ import net from 'net';
 import os from 'os';
 import path from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { SocketMessageDecoder, SocketServer, SocketClient } from '../socket';
+import { SocketMessageDecoder, SocketServer, SocketRequestClient } from '../socket';
 
 function encodeTestMessage( message: unknown ): Buffer {
 	const json = JSON.stringify( message );
@@ -87,18 +87,49 @@ describe( 'socket', () => {
 
 		const received: unknown[] = [];
 		const puller = new SocketServer( endpoint, 1000 );
-		puller.on( 'message', ( message ) => {
+		puller.on( 'message', ( { message } ) => {
 			received.push( message );
 		} );
 		await puller.listen();
 
-		const pusher = new SocketClient( endpoint, 1000 );
+		const pusher = new SocketRequestClient( endpoint, 1000 );
 		await Promise.all( [ pusher.send( { idx: 1 } ), pusher.send( { idx: 2 } ) ] );
 
 		await new Promise( ( resolve ) => setTimeout( resolve, 50 ) );
 		expect( received ).toEqual( [ { idx: 1 }, { idx: 2 } ] );
 
 		await puller.close();
+	} );
+
+	it( 'sends a message and waits for a response', async ( { skip } ) => {
+		if ( ! ( await canBindUnixSocket() ) ) {
+			skip( true, 'Environment does not support Unix sockets' );
+		}
+
+		const endpoint = createEndpoint();
+		if ( process.platform !== 'win32' ) {
+			unixEndpointsToCleanup.push( endpoint );
+		}
+
+		const server = net.createServer( ( socket ) => {
+			const decoder = new SocketMessageDecoder();
+			socket.on( 'data', ( chunk ) => {
+				for ( const message of decoder.write( chunk ) ) {
+					socket.end( encodeTestMessage( { ok: true, echo: message } ) );
+				}
+			} );
+		} );
+
+		await new Promise< void >( ( resolve ) => {
+			server.listen( endpoint, () => resolve() );
+		} );
+
+		const client = new SocketRequestClient( endpoint, 1000 );
+		const response = await client.sendAndWaitForResponse( { idx: 1 } );
+
+		expect( response ).toEqual( { ok: true, echo: { idx: 1 } } );
+
+		await closeServer( server );
 	} );
 
 	it( 'recovers from stale unix socket file on bind', async ( { skip } ) => {

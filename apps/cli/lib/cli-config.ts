@@ -1,6 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from '@studio/common/constants';
 import { arePathsEqual, isWordPressDirectory } from '@studio/common/lib/fs-utils';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
 import { siteDetailsSchema } from '@studio/common/lib/site-events';
@@ -9,8 +10,6 @@ import { readFile, writeFile } from 'atomically';
 import { z } from 'zod';
 import { LoggerError } from 'cli/logger';
 
-const LOCKFILE_STALE_TIME = 5000;
-const LOCKFILE_WAIT_TIME = 5000;
 
 const siteSchema = siteDetailsSchema
 	.extend( {
@@ -26,6 +25,11 @@ const cliConfigSchema = z.object( {
 
 type CliConfig = z.infer< typeof cliConfigSchema >;
 export type SiteData = z.infer< typeof siteSchema >;
+
+const DEFAULT_CLI_CONFIG: CliConfig = {
+	version: 1,
+	sites: [],
+};
 
 export function getCliConfigDirectory(): string {
 	if ( process.env.E2E && process.env.E2E_CLI_CONFIG_PATH ) {
@@ -43,7 +47,7 @@ export async function readCliConfig(): Promise< CliConfig > {
 	const configPath = getCliConfigPath();
 
 	if ( ! fs.existsSync( configPath ) ) {
-		return { version: 1, sites: [] };
+		return { ...DEFAULT_CLI_CONFIG };
 	}
 
 	try {

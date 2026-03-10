@@ -129,7 +129,9 @@ async function main() {
 		.demandCommand( 1, __( 'You must provide a valid command' ) )
 		.strict();
 
-	registerAiCommand( studioArgv );
+	if ( process.env.ENABLE_STUDIO_AI === 'true' ) {
+		registerAiCommand( studioArgv );
+	}
 
 	await studioArgv.argv;
 }

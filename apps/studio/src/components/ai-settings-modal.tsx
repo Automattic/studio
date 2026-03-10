@@ -124,7 +124,7 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 									) }
 								</div>
 								<div className="text-xs text-gray-500">
-									{ config.description }
+									{ __( config.description ) }
 									{ status.isOutdated && (
 										<span className="block mt-1 text-orange-600">
 											{ __(

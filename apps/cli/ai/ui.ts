@@ -16,7 +16,8 @@ import {
 } from '@mariozechner/pi-tui';
 import chalk from 'chalk';
 import { AI_MODEL_DISPLAY, type AskUserQuestion } from 'cli/ai/agent';
-import { readAppdata, type SiteData } from 'cli/lib/appdata';
+import { getSiteUrl, readAppdata, type SiteData } from 'cli/lib/appdata';
+import { openBrowser } from 'cli/lib/browser';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 
@@ -300,6 +301,7 @@ export class AiChatUI {
 	private sitePickerVisible = false;
 	private sitePickerContainer: Container | null = null;
 	private sitePickerItems: SiteInfo[] = [];
+	private sitePickerSiteData: SiteData[] = [];
 	private sitePickerSelectedIndex = 0;
 
 	get activeSite(): SiteInfo | null {
@@ -413,6 +415,10 @@ export class AiChatUI {
 					this.selectSite( this.sitePickerSelectedIndex );
 					return { consume: true };
 				}
+				if ( matchesKey( data, 'space' ) ) {
+					void this.openSelectedSite();
+					return { consume: true };
+				}
 				if ( matchesKey( data, 'escape' ) ) {
 					this.closeSitePicker();
 					return { consume: true };
@@ -437,6 +443,7 @@ export class AiChatUI {
 			return;
 		}
 
+		this.sitePickerSiteData = sites;
 		this.sitePickerItems = await Promise.all(
 			sites.map( async ( site ) => ( {
 				name: site.name,
@@ -477,7 +484,7 @@ export class AiChatUI {
 		const text = [
 			header,
 			...items,
-			chalk.dim( '  ↑↓ navigate · enter select · esc cancel' ),
+			chalk.dim( '  ↑↓ navigate · enter select · space open in browser · esc cancel' ),
 		].join( '\n' );
 		this.sitePickerContainer.addChild( new Text( text, 0, 0 ) );
 		this.tui.requestRender();
@@ -495,6 +502,18 @@ export class AiChatUI {
 		this.closeSitePicker();
 	}
 
+	private async openSelectedSite(): Promise< void > {
+		const site = this.sitePickerItems[ this.sitePickerSelectedIndex ];
+		const siteData = this.sitePickerSiteData[ this.sitePickerSelectedIndex ];
+		if ( ! site?.running || ! siteData ) {
+			return;
+		}
+		const url = getSiteUrl( siteData );
+		if ( url ) {
+			await openBrowser( url );
+		}
+	}
+
 	private closeSitePicker(): void {
 		if ( this.sitePickerContainer ) {
 			this.tui.removeChild( this.sitePickerContainer );
@@ -502,6 +521,7 @@ export class AiChatUI {
 		}
 		this.sitePickerVisible = false;
 		this.sitePickerItems = [];
+		this.sitePickerSiteData = [];
 		this.editor.hints = [ '↓ select site', 'esc to interrupt' ];
 		this.tui.requestRender();
 	}

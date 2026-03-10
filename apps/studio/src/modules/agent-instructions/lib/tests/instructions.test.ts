@@ -1,11 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { vi } from 'vitest';
-import {
-	AGENT_INSTRUCTIONS_VERSION,
-	extractInstructionVersion,
-	isInstructionVersionOutdated,
-} from 'src/modules/agent-instructions/constants';
+import { DEFAULT_AGENT_INSTRUCTIONS } from 'src/modules/agent-instructions/constants';
 import {
 	getInstructionFilePath,
 	getInstructionFileStatus,
@@ -23,33 +19,7 @@ vi.mock( 'fs/promises', () => ( {
 } ) );
 
 const SITE_PATH = '/test/my-site';
-const VERSIONED_CONTENT = `<!-- Studio Instructions Version: ${ AGENT_INSTRUCTIONS_VERSION } -->\n# AI Instructions\n`;
-const OUTDATED_CONTENT = `<!-- Studio Instructions Version: 19990101.1 -->\n# AI Instructions\n`;
-const UNVERSIONED_CONTENT = `# AI Instructions\n`;
-
-describe( 'extractInstructionVersion', () => {
-	it( 'extracts version from versioned content', () => {
-		expect( extractInstructionVersion( VERSIONED_CONTENT ) ).toBe( AGENT_INSTRUCTIONS_VERSION );
-	} );
-
-	it( 'returns null for content without a version comment', () => {
-		expect( extractInstructionVersion( UNVERSIONED_CONTENT ) ).toBeNull();
-	} );
-} );
-
-describe( 'isInstructionVersionOutdated', () => {
-	it( 'returns false for the current version', () => {
-		expect( isInstructionVersionOutdated( AGENT_INSTRUCTIONS_VERSION ) ).toBe( false );
-	} );
-
-	it( 'returns true for an old version', () => {
-		expect( isInstructionVersionOutdated( '19990101.1' ) ).toBe( true );
-	} );
-
-	it( 'returns true for null (no version installed)', () => {
-		expect( isInstructionVersionOutdated( null ) ).toBe( true );
-	} );
-} );
+const CUSTOM_CONTENT = `# My custom AI Instructions\n`;
 
 describe( 'getInstructionFilePath', () => {
 	it( 'returns correct path for agents file', () => {
@@ -75,36 +45,36 @@ describe( 'getInstructionFileStatus', () => {
 		expect( status.path ).toBe( path.join( SITE_PATH, 'AGENTS.md' ) );
 	} );
 
-	it( 'returns exists: true with current version when file is up to date', async () => {
+	it( 'returns isCustomized: false when file matches the default template', async () => {
 		vi.mocked( fs.access ).mockResolvedValue( undefined );
-		vi.mocked( fs.readFile ).mockResolvedValue( VERSIONED_CONTENT as never );
+		vi.mocked( fs.readFile ).mockResolvedValue( DEFAULT_AGENT_INSTRUCTIONS as never );
 
 		const status = await getInstructionFileStatus( SITE_PATH, 'agents' );
 
 		expect( status.exists ).toBe( true );
-		expect( status.version ).toBe( AGENT_INSTRUCTIONS_VERSION );
-		expect( status.isOutdated ).toBe( false );
+		expect( status.isCustomized ).toBe( false );
 	} );
 
-	it( 'returns isOutdated: true when file has an older version', async () => {
+	it( 'returns isCustomized: true when file content differs from the default template', async () => {
 		vi.mocked( fs.access ).mockResolvedValue( undefined );
-		vi.mocked( fs.readFile ).mockResolvedValue( OUTDATED_CONTENT as never );
+		vi.mocked( fs.readFile ).mockResolvedValue( CUSTOM_CONTENT as never );
 
 		const status = await getInstructionFileStatus( SITE_PATH, 'agents' );
 
 		expect( status.exists ).toBe( true );
-		expect( status.isOutdated ).toBe( true );
+		expect( status.isCustomized ).toBe( true );
 	} );
 
-	it( 'returns isOutdated: true when file has no version comment', async () => {
+	it( 'returns isCustomized: true when file has an outdated Studio version', async () => {
 		vi.mocked( fs.access ).mockResolvedValue( undefined );
-		vi.mocked( fs.readFile ).mockResolvedValue( UNVERSIONED_CONTENT as never );
+		vi.mocked( fs.readFile ).mockResolvedValue(
+			`<!-- Studio Instructions Version: 19990101.1 -->\n# AI Instructions\n` as never
+		);
 
 		const status = await getInstructionFileStatus( SITE_PATH, 'agents' );
 
 		expect( status.exists ).toBe( true );
-		expect( status.version ).toBeNull();
-		expect( status.isOutdated ).toBe( true );
+		expect( status.isCustomized ).toBe( true );
 	} );
 } );
 

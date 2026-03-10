@@ -26,16 +26,4 @@ export const INSTRUCTION_FILE_TYPES: InstructionFileType[] = [ 'agents' ];
  */
 export const AGENT_INSTRUCTIONS_VERSION = '20250131.1';
 
-export function extractInstructionVersion( content: string ): string | null {
-	const match = content.match( /<!--\s*Studio Instructions Version:\s*([^\s]+)\s*-->/ );
-	return match ? match[ 1 ] : null;
-}
-
-export function isInstructionVersionOutdated( installedVersion: string | null ): boolean {
-	if ( ! installedVersion ) {
-		return true;
-	}
-	return installedVersion !== AGENT_INSTRUCTIONS_VERSION;
-}
-
 export const DEFAULT_AGENT_INSTRUCTIONS = `<!-- Studio Instructions Version: ${ AGENT_INSTRUCTIONS_VERSION } -->\n${ AGENTS_MD_TEMPLATE }`;

@@ -1,11 +1,10 @@
 import fs from 'fs/promises';
 import nodePath from 'path';
 import {
+	DEFAULT_AGENT_INSTRUCTIONS,
 	INSTRUCTION_FILES,
 	INSTRUCTION_FILE_TYPES,
 	type InstructionFileType,
-	extractInstructionVersion,
-	isInstructionVersionOutdated,
 } from '../constants';
 
 export interface InstructionFileStatus {
@@ -15,8 +14,7 @@ export interface InstructionFileStatus {
 	description: string;
 	exists: boolean;
 	path: string;
-	version?: string | null;
-	isOutdated?: boolean;
+	isCustomized?: boolean;
 }
 
 export function getInstructionFilePath( sitePath: string, fileType: InstructionFileType ): string {
@@ -33,8 +31,7 @@ export async function getInstructionFileStatus(
 	try {
 		await fs.access( filePath );
 		const content = await fs.readFile( filePath, 'utf-8' );
-		const version = extractInstructionVersion( content );
-		const isOutdated = isInstructionVersionOutdated( version );
+		const isCustomized = content.trim() !== DEFAULT_AGENT_INSTRUCTIONS.trim();
 
 		return {
 			id: config.id,
@@ -43,8 +40,7 @@ export async function getInstructionFileStatus(
 			description: config.description,
 			exists: true,
 			path: filePath,
-			version,
-			isOutdated,
+			isCustomized,
 		};
 	} catch {
 		return {

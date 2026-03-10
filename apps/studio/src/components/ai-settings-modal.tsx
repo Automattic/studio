@@ -99,27 +99,24 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 							<div className="flex-1 min-w-0 pr-3">
 								<div className="flex items-center gap-2">
 									<span className="text-sm font-medium text-gray-900">{ config.displayName }</span>
-									{ status.exists && ! status.isOutdated && (
+									{ status.exists && ! status.isCustomized && (
 										<span className="inline-flex items-center gap-1 text-[11px] text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
 											<Icon icon={ check } size={ 12 } />
 											{ __( 'Installed' ) }
 										</span>
 									) }
-									{ status.exists && status.isOutdated && (
-										<span className="inline-flex items-center gap-1 text-[11px] text-orange-700 bg-orange-50 px-2 py-0.5 rounded-full">
-											{ __( 'Update Available' ) }
+									{ status.exists && status.isCustomized && (
+										<span className="inline-flex items-center gap-1 text-[11px] text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
+											{ __( 'Custom' ) }
 										</span>
 									) }
 								</div>
 								<div className="text-xs text-gray-500">
-									{ __( config.description ) }
-									{ status.isOutdated && (
-										<span className="block mt-1 text-orange-600">
-											{ __(
-												'A newer version is available. Reinstall to get the latest commands.'
-											) }
-										</span>
-									) }
+									{ status.isCustomized
+										? __(
+												'You are using a custom version of AGENTS.md. You can use the "Reinstall" option to use the newest Studio version. Your customizations will be overwritten.'
+										  )
+										: __( config.description ) }
 								</div>
 							</div>
 							<div className="flex items-center gap-2 flex-shrink-0">
@@ -140,8 +137,6 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 								>
 									{ isInstalling
 										? __( 'Installing...' )
-										: status.exists && status.isOutdated
-										? __( 'Update' )
 										: status.exists
 										? __( 'Reinstall' )
 										: __( 'Install' ) }

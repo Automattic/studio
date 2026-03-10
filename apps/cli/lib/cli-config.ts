@@ -10,7 +10,6 @@ import { readFile, writeFile } from 'atomically';
 import { z } from 'zod';
 import { LoggerError } from 'cli/logger';
 
-
 const siteSchema = siteDetailsSchema
 	.extend( {
 		url: z.string().optional(),

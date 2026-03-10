@@ -6,6 +6,7 @@ import {
 	Text,
 	Loader,
 	Container,
+	CombinedAutocompleteProvider,
 	matchesKey,
 	isKeyRelease,
 	type Component,
@@ -15,7 +16,7 @@ import {
 	type MarkdownTheme,
 } from '@mariozechner/pi-tui';
 import chalk from 'chalk';
-import { AI_MODEL_DISPLAY, type AskUserQuestion } from 'cli/ai/agent';
+import { AI_MODELS, DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
 import { getSiteUrl, readAppdata, type SiteData } from 'cli/lib/appdata';
 import { openBrowser } from 'cli/lib/browser';
 import { isSiteRunning } from 'cli/lib/site-utils';
@@ -31,6 +32,11 @@ export interface SiteInfo {
  * Wraps the Editor with a Claude Code–style prompt: top/bottom horizontal
  * borders, a red `>` prompt prefix, and no side borders.
  */
+interface SlashCommandDef {
+	name: string;
+	description: string;
+}
+
 class PromptEditor implements Component, Focusable {
 	private editor: Editor;
 	private borderColorFn: ( text: string ) => string;
@@ -38,6 +44,7 @@ class PromptEditor implements Component, Focusable {
 	private isEmpty = true;
 	activeSiteName: string | null = null;
 	hints: string[] = [];
+	slashCommands: SlashCommandDef[] = [];
 
 	get focused(): boolean {
 		return this._focused;
@@ -66,6 +73,14 @@ class PromptEditor implements Component, Focusable {
 		this.editor.handleInput( data );
 	}
 
+	setAutocompleteProvider( provider: CombinedAutocompleteProvider ): void {
+		this.editor.setAutocompleteProvider( provider );
+	}
+
+	getText(): string {
+		return this.editor.getText();
+	}
+
 	invalidate(): void {
 		this.editor.invalidate();
 	}
@@ -77,8 +92,22 @@ class PromptEditor implements Component, Focusable {
 		const lines = this.editor.render( innerWidth );
 		const bc = this.borderColorFn;
 
+		// The Editor renders: [top_border, ...content, bottom_border, ...autocomplete]
+		// Find the bottom border index: it's the last line containing ─ (U+2500).
+		// Autocomplete lines after it should pass through unchanged.
+		let bottomBorderIndex = lines.length - 1;
+		for ( let i = lines.length - 1; i > 0; i-- ) {
+			if ( lines[ i ].includes( '─' ) ) {
+				bottomBorderIndex = i;
+				break;
+			}
+		}
+
+		const hasAutocomplete = bottomBorderIndex < lines.length - 1;
+		// Only keep lines up to (and including) the bottom border; drop editor autocomplete lines.
+		const editorLines = lines.slice( 0, bottomBorderIndex + 1 );
 		const emptyPrefix = ' '.repeat( promptWidth );
-		const result = lines.map( ( line, i ) => {
+		const result = editorLines.map( ( line, i ) => {
 			if ( i === 0 ) {
 				// Top border with active site name on the right
 				if ( this.activeSiteName ) {
@@ -94,7 +123,7 @@ class PromptEditor implements Component, Focusable {
 				}
 				return ' ' + bc( '─'.repeat( width - 2 ) );
 			}
-			if ( i === lines.length - 1 ) {
+			if ( i === bottomBorderIndex ) {
 				return ' ' + bc( '─'.repeat( width - 2 ) );
 			}
 			if ( this.isEmpty && i === 1 ) {
@@ -106,8 +135,18 @@ class PromptEditor implements Component, Focusable {
 			return emptyPrefix + line;
 		} );
 
-		// Hint bar below bottom border
-		if ( this.hints.length > 0 ) {
+		// Below the bottom border: show either our own suggestions or the hint bar
+		if ( hasAutocomplete && this.slashCommands.length > 0 ) {
+			// Filter commands by what the user typed (e.g. "/mo" filters to "model")
+			const text = this.getText().trim();
+			const prefix = text.startsWith( '/' ) ? text.slice( 1 ).toLowerCase() : '';
+			const matching = this.slashCommands.filter( ( cmd ) =>
+				cmd.name.toLowerCase().startsWith( prefix )
+			);
+			for ( const cmd of matching ) {
+				result.push( ' ' + chalk.dim( `/${ cmd.name }` ) + chalk.dim( '  ' + cmd.description ) );
+			}
+		} else if ( this.hints.length > 0 ) {
 			result.push( ' ' + this.hints.map( ( h ) => chalk.dim( h ) ).join( chalk.dim( ' · ' ) ) );
 		}
 
@@ -135,9 +174,11 @@ const markdownTheme: MarkdownTheme = {
 const editorTheme: EditorTheme = {
 	borderColor: ( text ) => chalk.white( text ),
 	selectList: {
-		selectedItem: ( text ) => chalk.inverse( text ),
-		item: ( text ) => text,
-		border: ( text ) => chalk.dim( text ),
+		selectedPrefix: ( text ) => chalk.cyan( text ),
+		selectedText: ( text ) => chalk.bold( text ),
+		description: ( text ) => chalk.dim( text ),
+		scrollInfo: ( text ) => chalk.dim( text ),
+		noMatch: ( text ) => chalk.dim( text ),
 	},
 };
 
@@ -237,6 +278,7 @@ export class AiChatUI {
 	private toolDotVisible = true;
 	private toolDotLabel = '';
 	private _activeSite: SiteInfo | null = null;
+	currentModel: AiModelId = DEFAULT_MODEL;
 
 	private readonly thinkingMessages = [
 		'Thinking…',
@@ -347,6 +389,13 @@ export class AiChatUI {
 		];
 
 		this.editor = new PromptEditor( this.tui, editorTheme );
+
+		const slashCommands: SlashCommandDef[] = [
+			{ name: 'model', description: 'Switch the AI model' },
+		];
+		this.editor.slashCommands = slashCommands;
+		this.editor.setAutocompleteProvider( new CombinedAutocompleteProvider( slashCommands ) );
+
 		this.editor.onSubmit = ( text ) => {
 			const trimmed = text.trim();
 			if ( trimmed && this.submitResolve ) {
@@ -586,7 +635,7 @@ export class AiChatUI {
 
 		const info = [
 			chalk.bold( 'WordPress Studio' ) + ( version ? chalk.dim( ` v${ version }` ) : '' ),
-			chalk.dim( `${ AI_MODEL_DISPLAY } · ${ displayCwd }` ),
+			chalk.dim( `${ AI_MODELS[ this.currentModel ] } · ${ displayCwd }` ),
 			'',
 			chalk.dim.italic( 'Code is Poetry' ),
 		];
@@ -641,9 +690,7 @@ export class AiChatUI {
 		if ( ! message ) {
 			return;
 		}
-		this.messages.addChild(
-			new Text( '   ' + chalk.dim( '⎿ ' ) + chalk.dim( message ), 0, 0 )
-		);
+		this.messages.addChild( new Text( '   ' + chalk.dim( '⎿ ' ) + chalk.dim( message ), 0, 0 ) );
 		this.tui.requestRender();
 	}
 
@@ -813,9 +860,7 @@ export class AiChatUI {
 
 		for ( const q of questions ) {
 			// Display the question
-			this.messages.addChild(
-				new Text( '\n' + chalk.bold( q.question ), 0, 0 )
-			);
+			this.messages.addChild( new Text( '\n' + chalk.bold( q.question ), 0, 0 ) );
 			this.tui.requestRender();
 
 			if ( q.options.length > 0 ) {
@@ -918,9 +963,7 @@ export class AiChatUI {
 				if ( message.subtype === 'success' ) {
 					const thinkingSec = Math.round( ( Date.now() - this.turnStartTime ) / 1000 );
 					if ( ! this.hasShownResponseMarker ) {
-						this.messages.addChild(
-							new Text( '\n ' + chalk.blue( '⏺' ) + ' Done', 0, 0 )
-						);
+						this.messages.addChild( new Text( '\n ' + chalk.blue( '⏺' ) + ' Done', 0, 0 ) );
 					}
 					this.showInfo(
 						`Thought for ${ thinkingSec }s · ${

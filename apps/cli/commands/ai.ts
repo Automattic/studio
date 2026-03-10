@@ -1,7 +1,7 @@
 import { execFileSync } from 'child_process';
 import { password } from '@inquirer/prompts';
 import { __ } from '@wordpress/i18n';
-import { startAiAgent } from 'cli/ai/agent';
+import { AI_MODELS, DEFAULT_MODEL, startAiAgent, type AiModelId } from 'cli/ai/agent';
 import { AiChatUI } from 'cli/ai/ui';
 import { getAnthropicApiKey, saveAnthropicApiKey } from 'cli/lib/appdata';
 import { setKeepAlive } from 'cli/lib/pm2-manager';
@@ -63,6 +63,7 @@ export async function runCommand(): Promise< void > {
 	ui.showWelcome();
 
 	let sessionId: string | undefined;
+	let currentModel: AiModelId = DEFAULT_MODEL;
 
 	async function runAgentTurn( prompt: string ): Promise< void > {
 		ui.beginAgentTurn();
@@ -79,6 +80,7 @@ export async function runCommand(): Promise< void > {
 		const agentQuery = startAiAgent( {
 			prompt: enrichedPrompt,
 			apiKey,
+			model: currentModel,
 			resume: sessionId,
 			onAskUser: ( questions ) => ui.askUser( questions ),
 		} );
@@ -128,6 +130,29 @@ export async function runCommand(): Promise< void > {
 	try {
 		while ( true ) {
 			const prompt = await ui.waitForInput();
+
+			if ( prompt.trim() === '/model' ) {
+				const modelOptions = ( Object.entries( AI_MODELS ) as [ AiModelId, string ][] ).map(
+					( [ id, label ] ) => ( {
+						label: id === currentModel ? `${ label } (current)` : label,
+						description: id,
+					} )
+				);
+				const answer = await ui.askUser( [
+					{ question: 'Select a model', options: modelOptions },
+				] );
+				const selectedId = Object.values( answer )[ 0 ] as string;
+				const newModel = ( Object.entries( AI_MODELS ) as [ AiModelId, string ][] ).find(
+					( [ , label ] ) => selectedId.startsWith( label )
+				);
+				if ( newModel && newModel[ 0 ] !== currentModel ) {
+					currentModel = newModel[ 0 ];
+					ui.currentModel = currentModel;
+					ui.showInfo( `Switched to ${ AI_MODELS[ currentModel ] }` );
+				}
+				continue;
+			}
+
 			ui.addUserMessage( prompt );
 			await runAgentTurn( prompt );
 		}

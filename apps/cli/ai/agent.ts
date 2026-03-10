@@ -10,20 +10,27 @@ export interface AskUserQuestion {
 export interface AiAgentConfig {
 	prompt: string;
 	apiKey?: string;
+	model?: AiModelId;
 	maxTurns?: number;
 	resume?: string;
 	onAskUser?: ( questions: AskUserQuestion[] ) => Promise< Record< string, string > >;
 }
 
-const AI_MODEL = 'claude-sonnet-4-6';
-export const AI_MODEL_DISPLAY = 'Sonnet 4.6';
+export const AI_MODELS = {
+	'claude-sonnet-4-6': 'Sonnet 4.6',
+	'claude-opus-4-6': 'Opus 4.6',
+} as const;
+
+export type AiModelId = keyof typeof AI_MODELS;
+
+export const DEFAULT_MODEL: AiModelId = 'claude-sonnet-4-6';
 
 /**
  * Start the AI agent and return the Query object.
  * Caller can iterate messages with `for await` and call `interrupt()` to stop.
  */
 export function startAiAgent( config: AiAgentConfig ): Query {
-	const { prompt, apiKey, maxTurns = 50, resume, onAskUser } = config;
+	const { prompt, apiKey, model = DEFAULT_MODEL, maxTurns = 50, resume, onAskUser } = config;
 
 	// If an API key is provided, pass it via env. Otherwise, let the SDK
 	// use Claude Code's existing authentication.
@@ -64,7 +71,7 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 				return { behavior: 'allow' as const, updatedInput: input };
 			},
 			allowedTools: [ 'mcp__studio__*', 'Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep' ],
-			model: AI_MODEL,
+			model,
 			resume,
 		},
 	} );

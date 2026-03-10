@@ -29,7 +29,7 @@ import {
 } from 'cli/lib/types/wordpress-server-ipc';
 
 const PROXY_PROCESS_NAME = 'studio-proxy';
-const CONNECTION_TIMEOUT = 10_000;
+const CONNECTION_TIMEOUT_MS = 10_000;
 const PROCESS_MANAGER_LOCKFILE_PATH = path.join( PROCESS_MANAGER_HOME, 'pm-connection.lock' );
 export const SITE_EVENTS_SOCKET_PATH =
 	process.platform === 'win32'
@@ -115,7 +115,7 @@ export class DaemonBus extends DaemonBusEventEmitter {
 async function sendDaemonRequest( request: DaemonRequest ): Promise< unknown > {
 	const socketClient = new SocketRequestClient(
 		PROCESS_MANAGER_CONTROL_SOCKET_PATH,
-		CONNECTION_TIMEOUT
+		CONNECTION_TIMEOUT_MS
 	);
 	const rawResponse = await socketClient.sendAndWaitForResponse( {
 		...request,
@@ -135,7 +135,7 @@ async function waitForDaemonReady() {
 	const start = Date.now();
 	let lastError: unknown;
 
-	while ( Date.now() - start < CONNECTION_TIMEOUT ) {
+	while ( Date.now() - start < CONNECTION_TIMEOUT_MS ) {
 		try {
 			await sendDaemonRequest( { type: 'ping' } );
 			return;
@@ -149,12 +149,12 @@ async function waitForDaemonReady() {
 		throw lastError;
 	}
 
-	throw new Error( 'Daemon connection timeout after 10 seconds' );
+	throw new Error( `Daemon connection timeout after ${ CONNECTION_TIMEOUT_MS / 1000 } seconds` );
 }
 
 function spawnDaemonProcess() {
 	const daemonScriptPath = path.resolve( __dirname, 'process-manager-daemon.js' );
-	const daemonProcess = spawn( process.execPath, [ daemonScriptPath, '--avoid-telemetry' ], {
+	const daemonProcess = spawn( process.execPath, [ daemonScriptPath ], {
 		detached: true,
 		stdio: 'ignore',
 	} );

@@ -301,9 +301,9 @@ describe( 'CLI: studio site delete', () => {
 
 			await runCommand( testSiteFolder, true );
 
-			expect( saveAppdata ).toHaveBeenCalled();
-			const savedAppdata = vi.mocked( saveAppdata ).mock.calls[ 0 ][ 0 ];
-			expect( savedAppdata.sites ).toHaveLength( 0 );
+			expect( saveCliConfig ).toHaveBeenCalled();
+			const savedCliConfig = vi.mocked( saveCliConfig ).mock.calls[ 0 ][ 0 ];
+			expect( savedCliConfig.sites ).toHaveLength( 0 );
 			expect( trash ).not.toHaveBeenCalled();
 			expect( disconnect ).toHaveBeenCalled();
 		} );

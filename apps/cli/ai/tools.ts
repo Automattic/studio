@@ -3,7 +3,7 @@ import os from 'os';
 import path from 'path';
 import { tool, createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
-import { z } from 'zod';
+import { z } from 'zod/v4';
 import { validateBlocks, type ValidationReport } from 'cli/ai/block-validator';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
@@ -129,9 +129,9 @@ async function captureConsoleOutput( fn: () => Promise< void > ): Promise< strin
 const createSiteTool = tool(
 	'site_create',
 	'Creates a new WordPress site with the latest WordPress version. Automatically sets up the site directory, installs WordPress, registers the site, and starts the server. Returns the site URL and credentials.',
-	z.object( {
+	{
 		name: z.string().describe( 'The name for the new site (e.g., "My Coffee Shop")' ),
-	} ),
+	},
 	async ( args ) => {
 		try {
 			const slug = args.name
@@ -184,7 +184,7 @@ const createSiteTool = tool(
 const listSitesTool = tool(
 	'site_list',
 	'Lists all WordPress sites managed by Studio with their name, path, URL, and running status.',
-	z.object( {} ),
+	{},
 	async () => {
 		try {
 			const output = await captureConsoleOutput( () => runListSitesCommand( 'json' ) );
@@ -200,9 +200,9 @@ const listSitesTool = tool(
 const getSiteInfoTool = tool(
 	'site_info',
 	'Gets detailed information about a specific WordPress site by name or path, including its running status, URL, PHP version, and admin credentials.',
-	z.object( {
+	{
 		nameOrPath: z.string().describe( 'The site name or file system path to the site' ),
-	} ),
+	},
 	async ( args ) => {
 		try {
 			const site = await resolveSite( args.nameOrPath );
@@ -219,9 +219,9 @@ const getSiteInfoTool = tool(
 const startSiteTool = tool(
 	'site_start',
 	'Starts a WordPress site by name or path. The site must already exist in Studio.',
-	z.object( {
+	{
 		nameOrPath: z.string().describe( 'The site name or file system path to the site' ),
-	} ),
+	},
 	async ( args ) => {
 		try {
 			const site = await resolveSite( args.nameOrPath );
@@ -238,9 +238,9 @@ const startSiteTool = tool(
 const stopSiteTool = tool(
 	'site_stop',
 	'Stops a running WordPress site by name or path.',
-	z.object( {
+	{
 		nameOrPath: z.string().describe( 'The site name or file system path to the site' ),
-	} ),
+	},
 	async ( args ) => {
 		try {
 			const site = await resolveSite( args.nameOrPath );
@@ -257,13 +257,13 @@ const stopSiteTool = tool(
 const deleteSiteTool = tool(
 	'site_delete',
 	'Deletes a WordPress site by name or path. Removes the site from Studio and optionally moves site files to trash.',
-	z.object( {
+	{
 		nameOrPath: z.string().describe( 'The site name or file system path to the site' ),
 		deleteFiles: z
 			.boolean()
 			.optional()
 			.describe( 'Also move site files to trash. Defaults to false.' ),
-	} ),
+	},
 	async ( args ) => {
 		try {
 			const site = await resolveSite( args.nameOrPath );
@@ -303,14 +303,14 @@ const runWpCliTool = tool(
 	'Runs a WP-CLI command on a specific WordPress site. The site must be running. ' +
 		'Post content (in post create/update with --post_content) is automatically validated for block correctness before execution. ' +
 		'Examples: "plugin install woocommerce --activate", "option get blogname", "user list".',
-	z.object( {
+	{
 		nameOrPath: z.string().describe( 'The site name or file system path to the site' ),
 		command: z
 			.string()
 			.describe(
 				'The WP-CLI command to run (without the "wp" prefix). Example: "plugin list --status=active"'
 			),
-	} ),
+	},
 	async ( args ) => {
 		try {
 			// Validate block content in post create/update commands before executing
@@ -381,7 +381,7 @@ const validateBlocksTool = tool(
 	'Validates WordPress block content by parsing it and checking each block against its registered save() function. ' +
 		'Returns per-block validation results showing which blocks are valid and which have issues, ' +
 		'along with the expected HTML for invalid blocks so you can fix them.',
-	z.object( {
+	{
 		filePath: z
 			.string()
 			.optional()
@@ -390,7 +390,7 @@ const validateBlocksTool = tool(
 			.string()
 			.optional()
 			.describe( 'Raw WordPress block content (HTML with block comments) to validate' ),
-	} ),
+	},
 	async ( args ) => {
 		try {
 			let blockContent: string;
@@ -478,7 +478,7 @@ const takeScreenshotTool = tool(
 	'take_screenshot',
 	'Takes a full-page screenshot of a URL. Returns the screenshot as an image that you can analyze visually. ' +
 		'Supports desktop and mobile viewports. Use this to verify the site looks correct after building it.',
-	z.object( {
+	{
 		url: z.string().describe( 'The URL to screenshot' ),
 		viewport: z
 			.enum( [ 'desktop', 'mobile' ] )
@@ -486,7 +486,7 @@ const takeScreenshotTool = tool(
 			.describe(
 				'Viewport size: "desktop" (1040x1248) or "mobile" (390x844). Defaults to desktop.'
 			),
-	} ),
+	},
 	async ( args ) => {
 		try {
 			const viewportType = args.viewport ?? 'desktop';

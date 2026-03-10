@@ -363,6 +363,7 @@ export class AiChatUI {
 			( str ) => chalk.yellow( str ),
 			'Thinking…'
 		);
+		// @ts-expect-error -- frames is private but has no public API to customize
 		this.loader.frames = [
 			'•',
 			'•',
@@ -920,7 +921,7 @@ export class AiChatUI {
 							this.currentResponseText += '\n';
 						}
 						this.currentResponseText += block.text;
-						this.currentMarkdown.setText(
+						this.currentMarkdown!.setText(
 							'\n' + chalk.blue( '⏺' ) + ' ' + this.currentResponseText
 						);
 						this.tui.requestRender();

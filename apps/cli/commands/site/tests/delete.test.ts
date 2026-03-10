@@ -1,3 +1,4 @@
+import fs from 'fs';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
 import trash from 'trash';
 import { vi } from 'vitest';
@@ -117,6 +118,7 @@ describe( 'CLI: studio site delete', () => {
 		vi.mocked( deleteSnapshotFromAppdata ).mockResolvedValue( undefined );
 		vi.mocked( stopProxyIfNoSitesNeedIt ).mockResolvedValue( undefined );
 		vi.mocked( arePathsEqual ).mockImplementation( ( a: string, b: string ) => a === b );
+		vi.spyOn( fs, 'existsSync' ).mockReturnValue( true );
 	} );
 
 	afterEach( () => {
@@ -284,6 +286,19 @@ describe( 'CLI: studio site delete', () => {
 
 			expect( removeDomainFromHosts ).toHaveBeenCalledWith( 'example.local' );
 			expect( deleteSiteCertificate ).toHaveBeenCalledWith( 'example.local' );
+			expect( disconnect ).toHaveBeenCalled();
+		} );
+
+		it( 'should skip file deletion when site directory no longer exists', async () => {
+			vi.spyOn( fs, 'existsSync' ).mockReturnValue( false );
+			vi.mocked( getSnapshotsFromAppdata ).mockResolvedValue( [] );
+
+			await runCommand( testSiteFolder, true );
+
+			expect( saveAppdata ).toHaveBeenCalled();
+			const savedAppdata = vi.mocked( saveAppdata ).mock.calls[ 0 ][ 0 ];
+			expect( savedAppdata.sites ).toHaveLength( 0 );
+			expect( trash ).not.toHaveBeenCalled();
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 

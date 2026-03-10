@@ -117,11 +117,78 @@ function transformSitesResponse( sites: unknown[], connectedSiteIds?: number[] )
 		} );
 }
 
+const SITE_FIELDS = [
+	'name',
+	'ID',
+	'URL',
+	'plan',
+	'capabilities',
+	'is_wpcom_atomic',
+	'options',
+	'jetpack',
+	'is_deleted',
+	'is_a8c',
+	'hosting_provider_guess',
+	'environment_type',
+].join( ',' );
+
 export const wpcomSitesApi = createApi( {
 	reducerPath: 'wpcomSitesApi',
 	baseQuery: fetchBaseQuery(),
 	tagTypes: [ 'WpComSites' ],
 	endpoints: ( builder ) => ( {
+		getSingleWpComSite: builder.query< SyncSite, { siteId: number; userId?: number } >( {
+			queryFn: async ( { siteId } ) => {
+				const wpcomClient = getWpcomClient();
+				if ( ! wpcomClient ) {
+					return { error: { status: 401, data: 'Not authenticated' } };
+				}
+
+				try {
+					const response = await wpcomClient.req.get(
+						{
+							apiNamespace: 'rest/v1.1',
+							path: `/sites/${ siteId }`,
+						},
+						{
+							fields: SITE_FIELDS,
+							options: 'created_at,wpcom_staging_blog_ids',
+						}
+					);
+
+					const parsedSite = sitesEndpointSiteSchema.parse( response );
+
+					const allConnectedSites = await getIpcApi().getConnectedWpcomSites();
+
+					// Determine if staging by checking environment_type (can't access parent site's staging IDs without fetching /me/sites)
+					const isStaging =
+						parsedSite.environment_type === 'staging' ||
+						parsedSite.environment_type === 'development';
+
+					const syncSupport = getSyncSupport(
+						parsedSite,
+						allConnectedSites.map( ( { id } ) => id )
+					);
+
+					const syncSite = transformSingleSiteResponse( parsedSite, syncSupport, isStaging );
+
+					return { data: syncSite };
+				} catch ( error ) {
+					Sentry.captureException( error );
+					console.error( error );
+					return {
+						error: {
+							status: 500,
+							data: error,
+						},
+					};
+				}
+			},
+			providesTags: ( _result, _error, arg ) => [
+				{ type: 'WpComSites', userId: arg.userId },
+				{ type: 'WpComSites', id: arg.siteId },
+			],
+		} ),
 		getWpComSites: builder.query< SyncSite[], { connectedSiteIds?: number[]; userId?: number } >( {
 			queryFn: async ( { connectedSiteIds } ) => {
 				const wpcomClient = getWpcomClient();
@@ -132,28 +199,13 @@ export const wpcomSitesApi = createApi( {
 				try {
 					const allConnectedSites = await getIpcApi().getConnectedWpcomSites();
 
-					const fields = [
-						'name',
-						'ID',
-						'URL',
-						'plan',
-						'capabilities',
-						'is_wpcom_atomic',
-						'options',
-						'jetpack',
-						'is_deleted',
-						'is_a8c',
-						'hosting_provider_guess',
-						'environment_type',
-					].join( ',' );
-
 					const response = await wpcomClient.req.get(
 						{
 							apiNamespace: 'rest/v1.2',
 							path: `/me/sites`,
 						},
 						{
-							fields,
+							fields: SITE_FIELDS,
 							filter: 'atomic,wpcom',
 							options: 'created_at,wpcom_staging_blog_ids',
 							site_activity: 'active',

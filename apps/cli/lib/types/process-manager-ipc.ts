@@ -5,12 +5,21 @@ import {
 } from 'cli/lib/types/wordpress-server-ipc';
 
 // Zod schema for process descriptions
-export const processDescriptionSchema = z.object( {
+const processDescriptionSchemaBase = z.object( {
 	name: z.string(),
 	pmId: z.number(),
-	status: z.union( [ z.literal( 'online' ), z.literal( 'stopped' ) ] ),
-	pid: z.number().optional(),
 } );
+const processDescriptionSchemaRunning = processDescriptionSchemaBase.extend( {
+	status: z.literal( 'online' ),
+	pid: z.number(),
+} );
+const processDescriptionSchemaStopped = processDescriptionSchemaBase.extend( {
+	status: z.literal( 'stopped' ),
+} );
+export const processDescriptionSchema = z.discriminatedUnion( 'status', [
+	processDescriptionSchemaRunning,
+	processDescriptionSchemaStopped,
+] );
 export type ProcessDescription = z.infer< typeof processDescriptionSchema >;
 
 // Zod schemas for requests to process manager daemon

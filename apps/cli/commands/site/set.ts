@@ -307,7 +307,7 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 
 			logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
 			const processDesc = await startWordPressServer( site, logger );
-			if ( processDesc.pid ) {
+			if ( processDesc.status === 'online' ) {
 				await updateSiteLatestCliPid( site.id, processDesc.pid );
 			}
 			logger.reportSuccess( __( 'WordPress server started' ) );

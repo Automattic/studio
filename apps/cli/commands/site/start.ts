@@ -27,7 +27,7 @@ export async function runCommand(
 		const runningProcess = await isServerRunning( site.id );
 		if ( runningProcess ) {
 			logger.reportSuccess( __( 'WordPress server is already running' ) );
-			if ( runningProcess.pid ) {
+			if ( runningProcess.status === 'online' ) {
 				await updateSiteLatestCliPid( site.id, runningProcess.pid );
 			}
 			if ( ! skipBrowser ) {
@@ -53,7 +53,7 @@ export async function runCommand(
 			const processDesc = await startWordPressServer( site, logger );
 
 			logger.reportSuccess( __( 'WordPress server started' ) );
-			if ( processDesc.pid ) {
+			if ( processDesc.status === 'online' ) {
 				await updateSiteLatestCliPid( site.id, processDesc.pid );
 			}
 			await updateSiteAutoStart( site.id, true );

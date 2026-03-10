@@ -124,6 +124,7 @@ export const isSiteRunning = async ( site: SiteData ): Promise< boolean > => {
 	const processInfo = await isServerRunning( site.id );
 	return !! (
 		processInfo &&
+		processInfo.status === 'online' &&
 		site.latestCliPid !== undefined &&
 		processInfo.pid === site.latestCliPid
 	);

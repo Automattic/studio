@@ -373,7 +373,7 @@ export async function runCommand(
 
 				stripWpConfigDbConstants( sitePath );
 
-				if ( processDesc.pid ) {
+				if ( processDesc.status === 'online' ) {
 					await updateSiteLatestCliPid( siteDetails.id, processDesc.pid );
 				}
 				await updateSiteAutoStart( siteDetails.id, true );

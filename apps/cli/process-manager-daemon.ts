@@ -22,21 +22,27 @@ import { ManagerMessage } from 'cli/lib/types/wordpress-server-ipc';
 const SOCKET_TIMEOUT_MS = 2_500;
 const STOP_TIMEOUT_MS = 5_000;
 
-interface ManagedProcess {
+type ManagedProcessBase = {
 	pmId: number;
 	name: string;
 	scriptPath: string;
 	args: string[];
 	env: Record< string, string >;
 	child: ChildProcess;
-	pid?: number;
-	status: 'online' | 'stopped';
 	stdoutLogPath: string;
 	stderrLogPath: string;
 	stdoutStream: WriteStream;
 	stderrStream: WriteStream;
 	settled: boolean;
-}
+};
+type ManagedProcessRunning = ManagedProcessBase & {
+	pid: number;
+	status: 'online';
+};
+type ManagedProcessStopped = ManagedProcessBase & {
+	status: 'stopped';
+};
+type ManagedProcess = ManagedProcessRunning | ManagedProcessStopped;
 
 function ensureProcessManagerDirs() {
 	fs.mkdirSync( PROCESS_MANAGER_LOGS_DIR, { recursive: true } );
@@ -189,14 +195,16 @@ export class ProcessManagerDaemon {
 			silent: true,
 		} );
 
-		const managedProcess: ManagedProcess = {
+		const managedProcess: ManagedProcessRunning = {
 			pmId,
 			name: processName,
 			scriptPath,
 			args,
 			env,
 			child,
-			pid: child.pid,
+			// `child.pid` is only undefined if there's an error, in which case our error handler
+			// immediately changes the status and deletes the process from the map
+			pid: child.pid as number,
 			status: 'online',
 			stdoutLogPath,
 			stderrLogPath,
@@ -318,6 +326,14 @@ export class ProcessManagerDaemon {
 	}
 
 	private toProcessDescription( managedProcess: ManagedProcess ): ProcessDescription {
+		if ( managedProcess.status === 'stopped' ) {
+			return {
+				name: managedProcess.name,
+				pmId: managedProcess.pmId,
+				status: managedProcess.status,
+			};
+		}
+
 		return {
 			name: managedProcess.name,
 			pmId: managedProcess.pmId,

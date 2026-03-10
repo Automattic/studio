@@ -75,7 +75,7 @@ export class ProcessManagerDaemon {
 		process.on( 'SIGINT', () => void this.shutdown( 'signal' ) );
 		process.on( 'SIGTERM', () => void this.shutdown( 'signal' ) );
 		process.on( 'exit', () => {
-			void this.forceCleanupChildren();
+			this.forceCleanupChildren();
 		} );
 	}
 
@@ -338,15 +338,17 @@ export class ProcessManagerDaemon {
 		};
 	}
 
-	private async forceCleanupChildren() {
-		await Promise.allSettled(
-			Array.from( this.managedProcesses.values() ).map( async ( managedProcess ) => {
-				if ( managedProcess.settled ) {
-					return;
-				}
+	private forceCleanupChildren() {
+		for ( const managedProcess of this.managedProcesses.values() ) {
+			if ( managedProcess.settled ) {
+				continue;
+			}
+			try {
 				managedProcess.child.kill( 'SIGKILL' );
-			} )
-		);
+			} catch {
+				// Do nothing
+			}
+		}
 	}
 
 	async shutdown( reason?: string ): Promise< void > {

@@ -3,7 +3,7 @@ import net from 'net';
 import os from 'os';
 import path from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { SocketMessageDecoder, SocketServer, SocketClient } from '../socket';
+import { SocketMessageDecoder, SocketServer, SocketRequestClient } from '../socket';
 
 function encodeTestMessage( message: unknown ): Buffer {
 	const json = JSON.stringify( message );
@@ -92,7 +92,7 @@ describe( 'socket', () => {
 		} );
 		await puller.listen();
 
-		const pusher = new SocketClient( endpoint, 1000 );
+		const pusher = new SocketRequestClient( endpoint, 1000 );
 		await Promise.all( [ pusher.send( { idx: 1 } ), pusher.send( { idx: 2 } ) ] );
 
 		await new Promise( ( resolve ) => setTimeout( resolve, 50 ) );
@@ -124,8 +124,8 @@ describe( 'socket', () => {
 			server.listen( endpoint, () => resolve() );
 		} );
 
-		const client = new SocketClient( endpoint, 1000 );
-		const response = await client.sendAndWaitForResponse( { idx: 1 }, ( message ) => message );
+		const client = new SocketRequestClient( endpoint, 1000 );
+		const response = await client.sendAndWaitForResponse( { idx: 1 } );
 
 		expect( response ).toEqual( { ok: true, echo: { idx: 1 } } );
 

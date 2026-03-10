@@ -14,7 +14,7 @@ import {
 	PROCESS_MANAGER_CONTROL_SOCKET_PATH,
 	PROCESS_MANAGER_HOME,
 } from 'cli/lib/daemon-paths';
-import { SocketClient, SocketMessageDecoder } from 'cli/lib/socket';
+import { SocketStreamClient, SocketMessageDecoder, SocketRequestClient } from 'cli/lib/socket';
 import {
 	ProcessDescription,
 	DaemonRequest,
@@ -60,12 +60,12 @@ class DaemonBusEventEmitter extends EventEmitter {
 }
 
 export class DaemonBus extends DaemonBusEventEmitter {
-	private readonly socketClient: SocketClient;
+	private readonly socketClient: SocketStreamClient;
 	private decoder = new SocketMessageDecoder();
 
 	constructor( endpoint: string ) {
 		super();
-		this.socketClient = new SocketClient( endpoint, 2500 );
+		this.socketClient = new SocketStreamClient( endpoint, 2500 );
 		this.socketClient.on( 'data', ( { chunk } ) => {
 			try {
 				for ( const packet of this.decoder.write( chunk ) ) {
@@ -113,7 +113,10 @@ export class DaemonBus extends DaemonBusEventEmitter {
 }
 
 async function sendDaemonRequest( request: DaemonRequest ): Promise< unknown > {
-	const socketClient = new SocketClient( PROCESS_MANAGER_CONTROL_SOCKET_PATH, CONNECTION_TIMEOUT );
+	const socketClient = new SocketRequestClient(
+		PROCESS_MANAGER_CONTROL_SOCKET_PATH,
+		CONNECTION_TIMEOUT
+	);
 	const rawResponse = await socketClient.sendAndWaitForResponse( {
 		...request,
 		requestId: crypto.randomUUID(),
@@ -325,7 +328,7 @@ export async function stopProcess( processName: string ): Promise< void > {
 	} );
 }
 
-const eventsSocketClient = new SocketClient( SITE_EVENTS_SOCKET_PATH );
+const eventsSocketClient = new SocketRequestClient( SITE_EVENTS_SOCKET_PATH );
 
 /**
  * Emit a site event via the events socket, for the `_events` command server to receive.

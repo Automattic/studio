@@ -48,6 +48,28 @@ export class SocketMessageDecoder {
 	}
 }
 
+async function connectToEndpoint( peer: string, connectTimeoutMs: number ): Promise< net.Socket > {
+	let timeoutId: NodeJS.Timeout;
+	const socket = net.createConnection( peer );
+
+	return new Promise< net.Socket >( ( resolve, reject ) => {
+		timeoutId = setTimeout( () => {
+			socket.destroy();
+			reject( new Error( `Socket connect timeout: ${ peer }` ) );
+		}, connectTimeoutMs );
+
+		socket.once( 'connect', () => {
+			resolve( socket );
+		} );
+		socket.once( 'error', ( error ) => {
+			reject( error );
+		} );
+	} ).finally( () => {
+		clearTimeout( timeoutId );
+		socket.removeAllListeners();
+	} );
+}
+
 type SocketClientEventMap = {
 	connect: { socket: net.Socket };
 	data: { chunk: Buffer; socket: net.Socket };
@@ -72,44 +94,20 @@ class SocketClientEventEmitter extends EventEmitter {
 	}
 }
 
-export class SocketClient extends SocketClientEventEmitter {
-	private readonly peer: string;
+export class SocketStreamClient extends SocketClientEventEmitter {
+	private readonly endpoint: string;
 	private readonly connectTimeoutMs: number;
 	private readonly reconnectDelayMs: number;
-	private queue = Promise.resolve();
 	private socket: net.Socket | null = null;
 	private connectPromise: Promise< net.Socket > | null = null;
 	private reconnectTimer: NodeJS.Timeout | null = null;
 	private closedByClient = false;
 
-	constructor( peer: string, connectTimeoutMs = DEFAULT_CONNECT_TIMEOUT_MS ) {
+	constructor( endpoint: string, connectTimeoutMs = DEFAULT_CONNECT_TIMEOUT_MS ) {
 		super();
-		this.peer = peer;
+		this.endpoint = endpoint;
 		this.connectTimeoutMs = connectTimeoutMs;
 		this.reconnectDelayMs = DEFAULT_RECONNECT_DELAY_MS;
-	}
-
-	send( message: unknown ): Promise< void > {
-		const payload = encodeSocketMessage( message );
-		const sendPromise = this.queue.then( async () => {
-			const socket = await this.connectOnce();
-			await this.sendToSocket( socket, payload );
-		} );
-		this.queue = sendPromise.catch( () => undefined );
-		return sendPromise;
-	}
-
-	sendAndWaitForResponse( message: unknown ): Promise< unknown > {
-		const payload = encodeSocketMessage( message );
-		const responsePromise = this.queue.then( async () => {
-			const socket = await this.connectOnce();
-			return this.sendAndReadFromSocket( socket, payload );
-		} );
-		this.queue = responsePromise.then(
-			() => undefined,
-			() => undefined
-		);
-		return responsePromise;
 	}
 
 	async connect(): Promise< net.Socket > {
@@ -122,7 +120,7 @@ export class SocketClient extends SocketClientEventEmitter {
 			return this.connectPromise;
 		}
 
-		this.connectPromise = this.connectOnce()
+		this.connectPromise = connectToEndpoint( this.endpoint, this.connectTimeoutMs )
 			.then( ( socket ) => {
 				this.attachPersistentSocketListeners( socket );
 				this.emit( 'connect', { socket } );
@@ -189,27 +187,26 @@ export class SocketClient extends SocketClientEventEmitter {
 			this.scheduleReconnect();
 		} );
 	}
+}
 
-	private async connectOnce(): Promise< net.Socket > {
-		let timeoutId: NodeJS.Timeout;
-		const socket = net.createConnection( this.peer );
+export class SocketRequestClient {
+	private readonly endpoint: string;
+	private readonly connectTimeoutMs: number;
+	private queue = Promise.resolve();
 
-		return new Promise< net.Socket >( ( resolve, reject ) => {
-			timeoutId = setTimeout( () => {
-				socket.destroy();
-				reject( new Error( `Socket connect timeout: ${ this.peer }` ) );
-			}, this.connectTimeoutMs );
+	constructor( endpoint: string, connectTimeoutMs = DEFAULT_CONNECT_TIMEOUT_MS ) {
+		this.endpoint = endpoint;
+		this.connectTimeoutMs = connectTimeoutMs;
+	}
 
-			socket.once( 'connect', () => {
-				resolve( socket );
-			} );
-			socket.once( 'error', ( error ) => {
-				reject( error );
-			} );
-		} ).finally( () => {
-			clearTimeout( timeoutId );
-			socket.removeAllListeners();
+	send( message: unknown ): Promise< void > {
+		const payload = encodeSocketMessage( message );
+		const sendPromise = this.queue.then( async () => {
+			const socket = await connectToEndpoint( this.endpoint, this.connectTimeoutMs );
+			await this.sendToSocket( socket, payload );
 		} );
+		this.queue = sendPromise.catch( () => undefined );
+		return sendPromise;
 	}
 
 	private async sendToSocket( socket: net.Socket, payload: Buffer ): Promise< void > {
@@ -221,13 +218,26 @@ export class SocketClient extends SocketClientEventEmitter {
 				resolve();
 			} );
 			if ( socket.destroyed ) {
-				reject( new Error( `Socket closed before send: ${ this.peer }` ) );
+				reject( new Error( `Socket closed before send: ${ this.endpoint }` ) );
 				return;
 			}
 			socket.end( payload );
 		} ).finally( () => {
 			socket.removeAllListeners();
 		} );
+	}
+
+	sendAndWaitForResponse( message: unknown ): Promise< unknown > {
+		const payload = encodeSocketMessage( message );
+		const responsePromise = this.queue.then( async () => {
+			const socket = await connectToEndpoint( this.endpoint, this.connectTimeoutMs );
+			return this.sendAndReadFromSocket( socket, payload );
+		} );
+		this.queue = responsePromise.then(
+			() => undefined,
+			() => undefined
+		);
+		return responsePromise;
 	}
 
 	private async sendAndReadFromSocket( socket: net.Socket, payload: Buffer ): Promise< unknown > {
@@ -248,10 +258,10 @@ export class SocketClient extends SocketClientEventEmitter {
 				}
 			} );
 			socket.once( 'close', () => {
-				reject( new Error( `Socket closed before response: ${ this.peer }` ) );
+				reject( new Error( `Socket closed before response: ${ this.endpoint }` ) );
 			} );
 			if ( socket.destroyed ) {
-				reject( new Error( `Socket closed before send: ${ this.peer }` ) );
+				reject( new Error( `Socket closed before send: ${ this.endpoint }` ) );
 				return;
 			}
 			socket.write( payload );

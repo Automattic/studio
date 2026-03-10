@@ -7,6 +7,11 @@
 	.interpolate-size-allow-keywords {
 		interpolate-size: allow-keywords;
 	}
+
+	.skeleton-bg {
+		animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+		background-image: linear-gradient(to right, #f6f7f7, #dcdcde, #f6f7f7);
+	}
 }
 
 body {

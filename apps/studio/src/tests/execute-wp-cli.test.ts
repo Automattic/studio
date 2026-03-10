@@ -217,13 +217,24 @@ describe( 'SiteServer.executeWpCliCommand', () => {
 		} );
 
 		it( 'should use longer timeout for sqlite import/export commands', async () => {
-			const startTime = Date.now();
-			const resultPromise = executeWpCliCommand( 'sqlite import /tmp/backup.sql' );
-			const result = await resultPromise;
-			const elapsed = Date.now() - startTime;
+			vi.useFakeTimers();
+			try {
+				const resultPromise = executeWpCliCommand( 'sqlite import /tmp/backup.sql' );
+				let isSettled = false;
+				void resultPromise.finally( () => {
+					isSettled = true;
+				} );
 
-			expect( result.stderr ).toBe( 'WP-CLI command timed out after 200ms' );
-			expect( elapsed ).toBeGreaterThanOrEqual( 200 );
+				await vi.advanceTimersByTimeAsync( 199 );
+				expect( isSettled ).toBe( false );
+
+				await vi.advanceTimersByTimeAsync( 1 );
+				const result = await resultPromise;
+				expect( result.stderr ).toBe( 'WP-CLI command timed out after 200ms' );
+				expect( result.exitCode ).toBe( 1 );
+			} finally {
+				vi.useRealTimers();
+			}
 		} );
 
 		it( 'should clear timeout on success', async () => {

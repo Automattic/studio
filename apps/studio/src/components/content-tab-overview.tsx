@@ -30,13 +30,11 @@ interface ContentTabOverviewProps {
 	selectedSite: SiteDetails;
 }
 
-const skeletonBg = 'animate-pulse bg-gradient-to-r from-[#F6F7F7] via-[#DCDCDE] to-[#F6F7F7]';
-
 const ButtonSectionSkeleton = ( { title }: { title: string } ) => {
 	return (
 		<div className="w-full max-w-96">
 			<h2 className="a8c-subtitle-small mb-3">{ title }</h2>
-			<div className={ `w-full h-20 my-1 ${ skeletonBg }` }></div>
+			<div className="w-full h-20 my-1 skeleton-bg"></div>
 		</div>
 	);
 };
@@ -222,7 +220,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 				<div
 					className={ cx(
 						'w-full min-h-40 max-h-64 rounded-sm border border-a8c-gray-5 bg-a8c-gray-0 mb-2 flex justify-center',
-						loading && `h-64 ${ skeletonBg }`,
+						loading && 'h-64 skeleton-bg',
 						isThumbnailError && 'border-none',
 						! loading && 'hover:border-a8c-blue-50 duration-300'
 					) }
@@ -259,7 +257,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 					) }
 				</div>
 				<div className="flex justify-between items-center w-full">
-					{ loading && <div className={ `w-[100px] min-h-4 ${ skeletonBg }` }></div> }
+					{ loading && <div className="w-[100px] min-h-4 skeleton-bg"></div> }
 					{ ! loading && ! isThumbnailError && <p>{ themeDetails?.name }</p> }
 				</div>
 			</div>

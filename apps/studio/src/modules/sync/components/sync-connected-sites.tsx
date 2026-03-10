@@ -43,6 +43,7 @@ import {
 } from 'src/stores/sync';
 import {
 	connectedSitesActions,
+	connectedSitesSelectors,
 	useGetConnectedSitesForLocalSiteQuery,
 } from 'src/stores/sync/connected-sites';
 import type { SyncSite } from 'src/modules/sync/types';
@@ -214,6 +215,9 @@ const SyncConnectedSitesSectionItem = ( {
 	const { __ } = useI18n();
 	const dispatch = useAppDispatch();
 	const isOffline = useOffline();
+	const isSiteLoading = useRootSelector(
+		connectedSitesSelectors.selectIsLoadingSiteId( connectedSite.id )
+	);
 	const getLastSyncTimeText = useLastSyncTimeText();
 	const { importState, clearImportState } = useImportExport();
 	const { getPushUploadPercentage, getPushUploadMessage } = useSyncStatesProgressInfo();
@@ -297,19 +301,30 @@ const SyncConnectedSitesSectionItem = ( {
 				key={ connectedSite.id }
 			>
 				<div className="shrink-0">
-					<EnvironmentBadge type={ getSiteEnvironment( connectedSite ) } />
+					{ isSiteLoading ? (
+						<div
+							className="h-5 w-20 rounded skeleton-bg"
+							aria-label={ __( 'Loading environment' ) }
+						/>
+					) : (
+						<EnvironmentBadge type={ getSiteEnvironment( connectedSite ) } />
+					) }
 				</div>
 
-				<Button
-					variant="link"
-					className="!text-a8c-gray-70 hover:!text-a8c-blue-50 max-w-full overflow-hidden"
-					onClick={ () => {
-						getIpcApi().openURL( connectedSite.url );
-					} }
-				>
-					<span className="truncate">{ connectedSite.url.replace( /^https?:\/\//, '' ) }</span>{ ' ' }
-					<ArrowIcon />
-				</Button>
+				{ isSiteLoading ? (
+					<div className="h-5 w-48 rounded skeleton-bg" aria-label={ __( 'Loading site URL' ) } />
+				) : (
+					<Button
+						variant="link"
+						className="!text-a8c-gray-70 hover:!text-a8c-blue-50 max-w-full overflow-hidden"
+						onClick={ () => {
+							getIpcApi().openURL( connectedSite.url );
+						} }
+					>
+						<span className="truncate">{ connectedSite.url.replace( /^https?:\/\//, '' ) }</span>{ ' ' }
+						<ArrowIcon />
+					</Button>
+				) }
 
 				<div className="flex shrink-0 justify-self-end justify-end items-center min-h-[26px] w-80">
 					{ isPulling && (
@@ -643,6 +658,9 @@ const SyncConnectedSiteSection = ( {
 		}
 	};
 
+	const isSiteLoading = useRootSelector(
+		connectedSitesSelectors.selectIsLoadingSiteId( connectedSite.id )
+	);
 	const hasConnectionErrors = connectedSite?.syncSupport !== 'already-connected';
 	const isPulling = useRootSelector(
 		syncOperationsSelectors.selectIsSiteIdPulling( selectedSite.id, connectedSite.id )
@@ -652,7 +670,9 @@ const SyncConnectedSiteSection = ( {
 	);
 
 	let logo = <WordPressLogoCircle />;
-	if ( hasConnectionErrors ) {
+	if ( isSiteLoading ) {
+		logo = <div className="w-5 h-5 rounded-full skeleton-bg" aria-label={ __( 'Loading' ) } />;
+	} else if ( hasConnectionErrors ) {
 		logo = <CircleRedCrossIcon />;
 	} else if ( connectedSite.isPressable ) {
 		logo = <PressableLogo />;
@@ -662,9 +682,13 @@ const SyncConnectedSiteSection = ( {
 		<div key={ connectedSite.id } className="flex flex-col gap-2 border-b border-a8c-gray-0 py-5">
 			<div className="flex items-center gap-2 ps-8 pe-5">
 				{ logo }
-				<div className={ cx( 'a8c-label-semibold', hasConnectionErrors && 'error-message' ) }>
-					{ connectedSite.name }
-				</div>
+				{ isSiteLoading ? (
+					<div className="h-5 w-40 rounded skeleton-bg" aria-label={ __( 'Loading site name' ) } />
+				) : (
+					<div className={ cx( 'a8c-label-semibold', hasConnectionErrors && 'error-message' ) }>
+						{ connectedSite.name }
+					</div>
+				) }
 				<div className="ms-auto">
 					<Tooltip
 						text={ __(

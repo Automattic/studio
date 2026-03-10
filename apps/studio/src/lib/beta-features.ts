@@ -26,7 +26,7 @@ function buildBetaFeatures( userData: BetaFeatures | undefined ): BetaFeatures {
 	keys.forEach( ( key ) => {
 		features[ key ] = userData?.[ key ] ?? BETA_FEATURE_DEFAULTS[ key ];
 	} );
-	return features as BetaFeatures;
+	return features;
 }
 
 export async function getBetaFeatures(): Promise< BetaFeatures > {
@@ -41,7 +41,9 @@ export async function updateBetaFeature(
 	try {
 		await lockAppdata();
 		const userData = await loadUserData();
-		const betaFeatures: BetaFeatures = userData.betaFeatures || ( {} as BetaFeatures );
+		const betaFeatures = await getBetaFeatures();
+		// @ts-expect-error If `BetaFeatures` is empty, `key` will be `never`, and we cannot use it to
+		// assign to`betaFeatures`.That's fine. Just rely on type checking when this function is called.
 		betaFeatures[ key ] = value;
 		userData.betaFeatures = betaFeatures;
 		await saveUserData( userData );

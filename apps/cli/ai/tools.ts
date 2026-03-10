@@ -12,7 +12,7 @@ import { runCommand as runStartSiteCommand } from 'cli/commands/site/start';
 import { runCommand as runStatusCommand } from 'cli/commands/site/status';
 import { runCommand as runStopSiteCommand, Mode as StopMode } from 'cli/commands/site/stop';
 import { getSiteByFolder, getSiteUrl, readAppdata, type SiteData } from 'cli/lib/appdata';
-import { connect, disconnect } from 'cli/lib/pm2-manager';
+import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
 import { emitProgress } from 'cli/logger';
 
@@ -334,7 +334,7 @@ const runWpCliTool = tool(
 			const site = await resolveSite( args.nameOrPath );
 
 			try {
-				await connect();
+				await connectToDaemon();
 
 				const runningProcess = await isServerRunning( site.id );
 				if ( ! runningProcess ) {
@@ -364,7 +364,7 @@ const runWpCliTool = tool(
 					isError: result.exitCode !== 0,
 				};
 			} finally {
-				await disconnect();
+				await disconnectFromDaemon();
 			}
 		} catch ( error ) {
 			return errorResult(

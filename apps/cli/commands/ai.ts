@@ -4,7 +4,6 @@ import { __ } from '@wordpress/i18n';
 import { AI_MODELS, DEFAULT_MODEL, startAiAgent, type AiModelId } from 'cli/ai/agent';
 import { AiChatUI } from 'cli/ai/ui';
 import { getAnthropicApiKey, saveAnthropicApiKey } from 'cli/lib/appdata';
-import { setKeepAlive } from 'cli/lib/pm2-manager';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -58,7 +57,6 @@ export async function runCommand(): Promise< void > {
 
 	const ui = new AiChatUI();
 	setProgressCallback( ( message ) => ui.setLoaderMessage( message ) );
-	setKeepAlive( true );
 	ui.start();
 	ui.showWelcome();
 

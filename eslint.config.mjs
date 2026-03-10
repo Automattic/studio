@@ -78,7 +78,23 @@ export default defineConfig(
 				},
 			],
 			'react-hooks/set-state-in-effect': 'off',
-			'studio/require-lock-before-save': 'error',
+			'studio/require-lock-before-save': [
+				'error',
+				{
+					pairs: [
+						{
+							save: [ 'saveUserData', 'saveAppdata' ],
+							lock: 'lockAppdata',
+							unlock: 'unlockAppdata',
+						},
+						{
+							save: 'saveCliConfig',
+							lock: 'lockCliConfig',
+							unlock: 'unlockCliConfig',
+						},
+					],
+				},
+			],
 		},
 	},
 	{

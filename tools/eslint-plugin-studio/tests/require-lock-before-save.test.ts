@@ -10,9 +10,9 @@ const ruleTester = new RuleTester( {
 } );
 
 describe( 'require-lock-before-save', () => {
-	ruleTester.run( 'require-lock-before-save', rule, {
+	describe( 'default pairs (appdata)', () => {
+		ruleTester.run( 'require-lock-before-save', rule, {
 			valid: [
-				// Functions not calling save functions (allowed)
 				{
 					code: `
         async function updateUserData() {
@@ -20,7 +20,6 @@ describe( 'require-lock-before-save', () => {
         }
       `,
 				},
-				// saveUserData with lock (allowed)
 				{
 					code: `
         async function updateUserData() {
@@ -35,7 +34,6 @@ describe( 'require-lock-before-save', () => {
         }
       `,
 				},
-				// saveAppdata with lock (allowed)
 				{
 					code: `
         const updateUserData = async () => {
@@ -52,7 +50,6 @@ describe( 'require-lock-before-save', () => {
 				},
 			],
 			invalid: [
-				// saveUserData without lock (not allowed)
 				{
 					code: `
         const updateUserData = async () => {
@@ -63,7 +60,6 @@ describe( 'require-lock-before-save', () => {
       `,
 					errors: [ { messageId: 'missingLock' } ],
 				},
-				// saveAppdata without lock (not allowed)
 				{
 					code: `
         async function updateUserData() {
@@ -74,7 +70,6 @@ describe( 'require-lock-before-save', () => {
       `,
 					errors: [ { messageId: 'missingLock' } ],
 				},
-				// Lock without try/finally block (not allowed)
 				{
 					code: `
         async function updateUserData() {
@@ -87,7 +82,6 @@ describe( 'require-lock-before-save', () => {
       `,
 					errors: [ { messageId: 'missingUnlock' } ],
 				},
-				// Lock without unlock (not allowed)
 				{
 					code: `
         async function updateUserData() {
@@ -105,4 +99,96 @@ describe( 'require-lock-before-save', () => {
 				},
 			],
 		} );
+	} );
+
+	describe( 'custom pairs (cli-config)', () => {
+		const options = [
+			{
+				pairs: [
+					{
+						save: [ 'saveUserData', 'saveAppdata' ],
+						lock: 'lockAppdata',
+						unlock: 'unlockAppdata',
+					},
+					{
+						save: 'saveCliConfig',
+						lock: 'lockCliConfig',
+						unlock: 'unlockCliConfig',
+					},
+				],
+			},
+		];
+
+		ruleTester.run( 'require-lock-before-save (custom pairs)', rule, {
+			valid: [
+				{
+					code: `
+        async function updateSite() {
+          await lockCliConfig();
+          try {
+            const config = await readCliConfig();
+            config.sites.push(newSite);
+            await saveCliConfig(config);
+          } finally {
+            await unlockCliConfig();
+          }
+        }
+      `,
+					options,
+				},
+				{
+					code: `
+        async function updateAppAndCli() {
+          await lockAppdata();
+          try {
+            await saveAppdata(data);
+          } finally {
+            await unlockAppdata();
+          }
+        }
+      `,
+					options,
+				},
+			],
+			invalid: [
+				{
+					code: `
+        async function updateSite() {
+          const config = await readCliConfig();
+          config.sites.push(newSite);
+          await saveCliConfig(config);
+        }
+      `,
+					options,
+					errors: [ { messageId: 'missingLock' } ],
+				},
+				{
+					code: `
+        async function updateSite() {
+          await lockCliConfig();
+          const config = await readCliConfig();
+          await saveCliConfig(config);
+          await unlockCliConfig();
+        }
+      `,
+					options,
+					errors: [ { messageId: 'missingUnlock' } ],
+				},
+				{
+					code: `
+        async function updateSite() {
+          await lockAppdata();
+          try {
+            await saveCliConfig(config);
+          } finally {
+            await unlockAppdata();
+          }
+        }
+      `,
+					options,
+					errors: [ { messageId: 'missingLock' } ],
+				},
+			],
+		} );
+	} );
 } );

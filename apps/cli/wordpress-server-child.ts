@@ -1,11 +1,11 @@
 /**
  * WordPress Studio Server Child Process
  *
- * This child process is managed by PM2 and runs a single WordPress site server
- * using the Playground CLI provider. Each site runs in its own PM2 process.
+ * This child process is managed by the process manager daemon and runs a single WordPress site
+ * server using Playground CLI. Each site runs in its own process.
  *
- * Similar to Studio's playground-server-process-child.ts, this process:
- * - Listens for messages from the parent process (PM2)
+ * Similar to Studio's old playground-server-process-child.ts, this process:
+ * - Listens for messages from the parent process (the process manager daemon)
  * - Starts WordPress server when requested
  * - Sends response back when ready
  * - Sends activity heartbeats to prevent timeout during long operations

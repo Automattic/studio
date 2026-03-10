@@ -334,7 +334,7 @@ lane :publish_release do |version:, skip_confirm: false, github_username: nil|
   # Publish the draft GitHub release
   publish_github_release(
     repository: GITHUB_REPO,
-    name: "v#{version}"
+    name: github_release_name(version:)
   )
 
   create_backmerge_pr(source_branch: release_branch, github_username: github_username)
@@ -646,6 +646,12 @@ end
 # Release Management Helper Methods
 ########################################################################
 
+# Format the human-readable GitHub release name from a version string.
+# The git tag remains as "vX.Y.Z", but the release title uses this format.
+def github_release_name(version:)
+  "Version #{version}"
+end
+
 # Bump version in package.json, commit, and push.
 # Used by new_beta_release, finalize_release, and new_hotfix_release.
 def bump_version_commit_and_push(version:, set_upstream: false)
@@ -753,8 +759,7 @@ def create_draft_github_release(version:, release_tag:, builds:)
     build = builds[key]
     next unless build&.dig(:cdn_url)
 
-    label = build[:name].sub(' - ', ' \u2013 ') # Use en-dash like existing releases
-    "[#{label}](#{build[:cdn_url]})"
+    "[#{build[:name]}](#{build[:cdn_url]})"
   end
 
   body = notes
@@ -763,6 +768,7 @@ def create_draft_github_release(version:, release_tag:, builds:)
             'The latest version is always available on the [WordPress Studio](https://developer.wordpress.com/studio/) site.'
   end
 
+  release_name = github_release_name(version:)
   release_notes_path = File.join(PROJECT_ROOT_FOLDER, 'fastlane', 'github_release_notes.txt')
   File.write(release_notes_path, body)
 
@@ -770,6 +776,7 @@ def create_draft_github_release(version:, release_tag:, builds:)
   create_github_release(
     repository: GITHUB_REPO,
     version: release_tag,
+    name: release_name,
     target: "release/#{base_version}",
     release_notes_file_path: release_notes_path,
     release_assets: [],
@@ -777,7 +784,7 @@ def create_draft_github_release(version:, release_tag:, builds:)
     is_draft: true
   )
 
-  UI.success("Created draft GitHub release #{release_tag} with download links")
+  UI.success("Created draft GitHub release '#{release_name}' with download links")
 end
 
 # Trigger a release build in Buildkite for the given version.

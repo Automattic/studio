@@ -16,6 +16,9 @@ try {
 }
 
 export function getUserDataFilePath(): string {
+	if ( process.env.DEV_APP_DATA_PATH ) {
+		return process.env.DEV_APP_DATA_PATH;
+	}
 	return path.join( getAppDataPath(), getAppName(), 'appdata-v1.json' );
 }
 

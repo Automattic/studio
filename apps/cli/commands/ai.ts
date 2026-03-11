@@ -381,22 +381,26 @@ export async function runCommand(): Promise< void > {
 	ui.showWelcome();
 
 	let sessionRecorder: AiSessionRecorder | undefined;
-	let didDisableSessionPersistence = false;
+	let didDisableSessionPersistence = options.noSessionPersistence === true;
 	let sessionId: string | undefined = options.resumeSession?.summary.agentSessionId;
 
-	try {
-		if ( options.resumeSession ) {
-			sessionRecorder = await AiSessionRecorder.open( {
-				sessionId: options.resumeSession.summary.id,
-				filePath: options.resumeSession.summary.filePath,
-				linkedAgentSessionIds: options.resumeSession.summary.linkedAgentSessionIds,
-			} );
-		} else {
-			sessionRecorder = await AiSessionRecorder.create();
+	if ( options.noSessionPersistence ) {
+		ui.showInfo( 'Session persistence disabled (--no-session-persistence).' );
+	} else {
+		try {
+			if ( options.resumeSession ) {
+				sessionRecorder = await AiSessionRecorder.open( {
+					sessionId: options.resumeSession.summary.id,
+					filePath: options.resumeSession.summary.filePath,
+					linkedAgentSessionIds: options.resumeSession.summary.linkedAgentSessionIds,
+				} );
+			} else {
+				sessionRecorder = await AiSessionRecorder.create();
+			}
+		} catch ( error ) {
+			didDisableSessionPersistence = true;
+			ui.showError( `Session persistence disabled: ${ getErrorMessage( error ) }` );
 		}
-	} catch ( error ) {
-		didDisableSessionPersistence = true;
-		ui.showError( `Session persistence disabled: ${ getErrorMessage( error ) }` );
 	}
 
 	const persist = async ( callback: ( recorder: AiSessionRecorder ) => Promise< void > ) => {
@@ -718,6 +722,11 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'path', {
 					hidden: true,
 				} )
+				.option( 'session-persistence', {
+					type: 'boolean',
+					default: true,
+					description: __( 'Record this AI chat session to disk' ),
+				} )
 				.command( {
 					command: 'sessions',
 					describe: __( 'Manage AI sessions' ),
@@ -759,8 +768,13 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 								},
 								handler: async ( argv ) => {
 									try {
+										const noSessionPersistence =
+											( argv as { sessionPersistence?: boolean } ).sessionPersistence === false;
 										await runResumeSessionCommand(
-											typeof argv.id === 'string' ? argv.id : undefined
+											typeof argv.id === 'string' ? argv.id : undefined,
+											{
+												noSessionPersistence,
+											}
 										);
 									} catch ( error ) {
 										if ( error instanceof LoggerError ) {
@@ -806,9 +820,13 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					handler: async () => {},
 				} );
 		},
-		handler: async () => {
+		handler: async ( argv ) => {
 			try {
-				await runCommand();
+				const noSessionPersistence =
+					( argv as { sessionPersistence?: boolean } ).sessionPersistence === false;
+				await runCommand( {
+					noSessionPersistence,
+				} );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );

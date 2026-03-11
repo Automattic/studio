@@ -139,6 +139,19 @@ describe( 'CLI: studio ai sessions command', () => {
 		return parser;
 	}
 
+	it( 'records sessions by default when running studio ai', async () => {
+		await buildParser().parseAsync( [ 'ai' ] );
+
+		expect( ( AiSessionRecorder as typeof AiSessionRecorder ).create ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'disables session recording with --no-session-persistence', async () => {
+		await buildParser().parseAsync( [ 'ai', '--no-session-persistence' ] );
+
+		expect( ( AiSessionRecorder as typeof AiSessionRecorder ).create ).not.toHaveBeenCalled();
+		expect( ( AiSessionRecorder as typeof AiSessionRecorder ).open ).not.toHaveBeenCalled();
+	} );
+
 	it( 'resumes the latest session', async () => {
 		vi.mocked( listAiSessions ).mockResolvedValue( [
 			{
@@ -214,6 +227,42 @@ describe( 'CLI: studio ai sessions command', () => {
 
 		expect( deleteAiSession ).toHaveBeenCalledWith( 'session-latest' );
 		expect( console.log ).toHaveBeenCalledWith( expect.stringContaining( 'session-latest' ) );
+	} );
+
+	it( 'resumes latest without persistence when --no-session-persistence is set', async () => {
+		vi.mocked( listAiSessions ).mockResolvedValue( [
+			{
+				id: 'session-latest',
+				filePath: '/tmp/session-latest.jsonl',
+				createdAt: '2026-03-11T11:00:00.000Z',
+				updatedAt: '2026-03-11T11:00:00.000Z',
+				linkedAgentSessionIds: [],
+				eventCount: 1,
+			},
+		] );
+		vi.mocked( loadAiSession ).mockResolvedValue( {
+			summary: {
+				id: 'session-latest',
+				filePath: '/tmp/session-latest.jsonl',
+				createdAt: '2026-03-11T11:00:00.000Z',
+				updatedAt: '2026-03-11T11:00:00.000Z',
+				linkedAgentSessionIds: [],
+				eventCount: 1,
+			},
+			events: [],
+		} );
+
+		await buildParser().parseAsync( [
+			'ai',
+			'sessions',
+			'resume',
+			'latest',
+			'--no-session-persistence',
+		] );
+
+		expect( loadAiSession ).toHaveBeenCalledWith( 'session-latest' );
+		expect( ( AiSessionRecorder as typeof AiSessionRecorder ).open ).not.toHaveBeenCalled();
+		expect( process.exit ).toHaveBeenCalledWith( 0 );
 	} );
 
 	it( 'reports an error when resuming latest and no sessions exist', async () => {

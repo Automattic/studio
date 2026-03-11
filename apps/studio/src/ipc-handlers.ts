@@ -1046,7 +1046,9 @@ export async function openAppAtPath(
 	const quotedPaths = allPaths.map( ( p ) => `"${ p }"` ).join( ' ' );
 
 	if ( platform === 'darwin' ) {
-		return promiseExec( `open -b ${ editor.macOSBundleId } ${ quotedPaths }` );
+		const cmd = `open -b ${ editor.macOSBundleId } ${ quotedPaths }`;
+		console.log( '---->: ', cmd );
+		return promiseExec( cmd );
 	}
 
 	if ( platform === 'win32' ) {
@@ -1191,7 +1193,18 @@ export async function openFileInIDE(
 	if ( ! editorKey ) {
 		return;
 	}
-	// Open site folder and file in a single call to avoid blocking on Windows
+
+	const openSingleFileExceptions = [ { platform: 'darwin', editorKey: 'phpstorm' } ];
+
+	if (
+		openSingleFileExceptions.some(
+			( f ) => f.platform === process.platform && f.editorKey === editorKey
+		)
+	) {
+		await openAppAtPath( event, editorKey, filepath );
+		return;
+	}
+	// Open site folder and file in a single call
 	await openAppAtPath( event, editorKey, server.details.path, [ filepath ] );
 }
 

@@ -13,6 +13,7 @@ import { registerCommand as registerAiCommand } from 'cli/commands/ai';
 import { registerCommand as registerAuthLoginCommand } from 'cli/commands/auth/login';
 import { registerCommand as registerAuthLogoutCommand } from 'cli/commands/auth/logout';
 import { registerCommand as registerAuthStatusCommand } from 'cli/commands/auth/status';
+import { registerCommand as registerMcpCommand } from 'cli/commands/mcp';
 import { registerCommand as registerCreateCommand } from 'cli/commands/preview/create';
 import { registerCommand as registerDeleteCommand } from 'cli/commands/preview/delete';
 import { registerCommand as registerListCommand } from 'cli/commands/preview/list';
@@ -132,6 +133,7 @@ async function main() {
 	if ( process.env.ENABLE_STUDIO_AI === 'true' ) {
 		registerAiCommand( studioArgv );
 	}
+	registerMcpCommand( studioArgv );
 
 	await studioArgv.argv;
 }

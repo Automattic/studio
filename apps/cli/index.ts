@@ -19,6 +19,7 @@ import { registerCommand as registerListCommand } from 'cli/commands/preview/lis
 import { registerCommand as registerUpdateCommand } from 'cli/commands/preview/update';
 import { registerCommand as registerSiteCreateCommand } from 'cli/commands/site/create';
 import { registerCommand as registerSiteDeleteCommand } from 'cli/commands/site/delete';
+import { registerCommand as registerSiteImportCommand } from 'cli/commands/site/import';
 import { registerCommand as registerSiteListCommand } from 'cli/commands/site/list';
 import { registerCommand as registerSiteSetCommand } from 'cli/commands/site/set';
 import { registerCommand as registerSiteStartCommand } from 'cli/commands/site/start';
@@ -98,6 +99,7 @@ async function main() {
 		.command( 'site', __( 'Manage sites' ), ( sitesYargs ) => {
 			registerSiteStatusCommand( sitesYargs );
 			registerSiteCreateCommand( sitesYargs );
+			registerSiteImportCommand( sitesYargs );
 			registerSiteListCommand( sitesYargs );
 			registerSiteStartCommand( sitesYargs );
 			registerSiteStopCommand( sitesYargs );

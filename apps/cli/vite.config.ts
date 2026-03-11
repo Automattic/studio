@@ -64,6 +64,7 @@ export default defineConfig( {
 				'process-manager-daemon': resolve( __dirname, 'process-manager-daemon.ts' ),
 				'proxy-daemon': resolve( __dirname, 'proxy-daemon.ts' ),
 				'wordpress-server-child': resolve( __dirname, 'wordpress-server-child.ts' ),
+				'importer-child': resolve( __dirname, 'importer-child.ts' ),
 			},
 			name: 'StudioCLI',
 			formats: [ 'cjs' ],

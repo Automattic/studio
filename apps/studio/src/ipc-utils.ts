@@ -6,6 +6,7 @@ import { PreviewCommandLoggerAction } from '@studio/common/logger-actions';
 import { ImportExportEventData } from 'src/lib/import-export/handle-events';
 import { StoredToken } from 'src/lib/oauth';
 import { getMainWindow } from 'src/main-window';
+import type { SerializedAgentMessage } from '@studio/common/types/agent-messages';
 import type { UserData } from 'src/storage/storage-types';
 
 type SnapshotEventData = {
@@ -63,6 +64,17 @@ export interface IpcEvents {
 	'user-data-error': [ string ];
 	'refresh-app-globals': [ void ];
 	'beta-features-updated': [ void ];
+	'agent-message': [ { message: SerializedAgentMessage } ];
+	'agent-ask-user': [
+		{
+			questions: Array< {
+				question: string;
+				options: Array< { label: string; description: string } >;
+			} >;
+		},
+	];
+	'agent-ready': [ void ];
+	'agent-error': [ { message: string } ];
 }
 
 export async function sendIpcEventToRenderer< T extends keyof IpcEvents >(

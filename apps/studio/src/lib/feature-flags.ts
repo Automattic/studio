@@ -18,6 +18,12 @@ export const FEATURE_FLAGS: Record< keyof FeatureFlags, FeatureFlagDefinition > 
 		flag: 'enableAgentSuite',
 		default: false,
 	},
+	enableStudioAi: {
+		label: 'Enable Studio AI',
+		env: 'ENABLE_STUDIO_AI',
+		flag: 'enableStudioAi',
+		default: false,
+	},
 } as const;
 
 export function getFeatureFlagFromEnv( flag: keyof FeatureFlags ): boolean {

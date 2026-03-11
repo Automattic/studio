@@ -161,6 +161,10 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'getAgentInstructionsStatus', siteId ),
 	installAgentInstructions: ( siteId, options ) =>
 		ipcRendererInvoke( 'installAgentInstructions', siteId, options ),
+	startAgentTurn: ( prompt, options ) => ipcRendererInvoke( 'startAgentTurn', prompt, options ),
+	interruptAgent: () => ipcRendererInvoke( 'interruptAgent' ),
+	respondToAgentQuestion: ( answers ) => ipcRendererInvoke( 'respondToAgentQuestion', answers ),
+	resetAgentSession: () => ipcRendererInvoke( 'resetAgentSession' ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

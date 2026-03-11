@@ -75,6 +75,10 @@ import {
 	installInstructionFile,
 	type InstructionFileStatus,
 } from 'src/modules/agent-instructions/lib/instructions';
+import {
+	getAgentProcessManager,
+	destroyAgentProcessManager,
+} from 'src/modules/ai-agent/lib/agent-process-manager';
 import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
@@ -134,6 +138,36 @@ export {
 	saveUserTerminal,
 	showUserSettings,
 } from 'src/modules/user-settings/lib/ipc-handlers';
+
+export async function startAgentTurn(
+	_event: IpcMainInvokeEvent,
+	prompt: string,
+	options: {
+		model?: string;
+		resume?: string;
+		siteContext?: { name: string; path: string; running: boolean };
+	} = {}
+): Promise< void > {
+	const manager = getAgentProcessManager();
+	await manager.sendPrompt( prompt, options );
+}
+
+export async function interruptAgent( _event: IpcMainInvokeEvent ): Promise< void > {
+	const manager = getAgentProcessManager();
+	manager.interrupt();
+}
+
+export async function respondToAgentQuestion(
+	_event: IpcMainInvokeEvent,
+	answers: Record< string, string >
+): Promise< void > {
+	const manager = getAgentProcessManager();
+	manager.respondToQuestion( answers );
+}
+
+export async function resetAgentSession( _event: IpcMainInvokeEvent ): Promise< void > {
+	destroyAgentProcessManager();
+}
 
 export async function getAgentInstructionsStatus(
 	_event: IpcMainInvokeEvent,

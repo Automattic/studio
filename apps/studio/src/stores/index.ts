@@ -13,6 +13,7 @@ import {
 	PushStateProgressInfo,
 } from 'src/hooks/use-sync-states-progress-info';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { agentReducer } from 'src/stores/agent-slice';
 import { appVersionApi } from 'src/stores/app-version-api';
 import { betaFeaturesReducer, loadBetaFeatures } from 'src/stores/beta-features-slice';
 import { certificateTrustApi } from 'src/stores/certificate-trust-api';
@@ -40,6 +41,7 @@ import { wordpressVersionsApi } from './wordpress-versions-api';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 
 export type RootState = {
+	agent: ReturnType< typeof agentReducer >;
 	appVersionApi: ReturnType< typeof appVersionApi.reducer >;
 	betaFeatures: ReturnType< typeof betaFeaturesReducer >;
 	chat: ReturnType< typeof chatReducer >;
@@ -323,6 +325,7 @@ startAppListening( {
 } );
 
 export const rootReducer = combineReducers( {
+	agent: agentReducer,
 	appVersionApi: appVersionApi.reducer,
 	betaFeatures: betaFeaturesReducer,
 	chat: chatReducer,

@@ -1,6 +1,8 @@
-import { query, type Query } from '@anthropic-ai/claude-agent-sdk';
+import { query, type Query as QueryType } from '@anthropic-ai/claude-agent-sdk';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { createStudioTools } from 'cli/ai/tools';
+
+export type Query = QueryType;
 
 export interface AskUserQuestion {
 	question: string;

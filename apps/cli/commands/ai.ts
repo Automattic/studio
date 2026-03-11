@@ -1,7 +1,14 @@
 import { execFileSync } from 'child_process';
 import { password } from '@inquirer/prompts';
 import { __ } from '@wordpress/i18n';
-import { AI_MODELS, DEFAULT_MODEL, startAiAgent, type AiModelId } from 'cli/ai/agent';
+import {
+	AI_MODELS,
+	DEFAULT_MODEL,
+	startAiAgent,
+	type AiModelId,
+	type AskUserQuestion,
+	type Query,
+} from 'cli/ai/agent';
 import {
 	AI_CHAT_BROWSER_COMMAND,
 	AI_CHAT_EXIT_COMMAND,
@@ -11,6 +18,10 @@ import { AiChatUI } from 'cli/ai/ui';
 import { getAnthropicApiKey, saveAnthropicApiKey } from 'cli/lib/appdata';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
+import type {
+	ParentToChildMessage,
+	ChildToParentMessage,
+} from '@studio/common/types/agent-messages';
 
 const logger = new Logger< string >();
 
@@ -55,6 +66,119 @@ async function resolveApiKey(): Promise< string | undefined > {
 
 	await saveAnthropicApiKey( apiKey );
 	return apiKey;
+}
+
+function sendToParent( message: ChildToParentMessage ): void {
+	if ( process.send ) {
+		process.send( message );
+	}
+}
+
+/**
+ * Pipe mode: communicate with parent process via IPC instead of TUI.
+ * Used when the desktop app spawns `studio ai --pipe` as a child process.
+ */
+async function runPipeMode(): Promise< void > {
+	// Use API key from environment (passed by parent) or resolve from saved config
+	const apiKey = process.env.ANTHROPIC_API_KEY || ( await getAnthropicApiKey() ) || undefined;
+
+	let sessionId: string | undefined;
+	let currentQuery: Query | null = null;
+	let askUserResolve: ( ( answers: Record< string, string > ) => void ) | null = null;
+
+	// Wire up progress messages to IPC
+	setProgressCallback( ( message ) => {
+		sendToParent( {
+			type: 'agent-message',
+			message: {
+				type: 'user',
+				tool_use_result: { content: [ { type: 'text', text: `Progress: ${ message }` } ] },
+			},
+		} );
+	} );
+
+	process.on( 'message', ( msg: ParentToChildMessage ) => {
+		switch ( msg.type ) {
+			case 'prompt':
+				void handlePrompt(
+					msg.prompt,
+					msg.model as AiModelId | undefined,
+					msg.resume,
+					msg.siteContext
+				);
+				break;
+			case 'ask-user-response':
+				if ( askUserResolve ) {
+					const resolve = askUserResolve;
+					askUserResolve = null;
+					resolve( msg.answers );
+				}
+				break;
+			case 'interrupt':
+				if ( currentQuery ) {
+					void currentQuery.interrupt();
+				}
+				break;
+		}
+	} );
+
+	async function handlePrompt(
+		prompt: string,
+		model?: AiModelId,
+		resume?: string,
+		siteContext?: { name: string; path: string; running: boolean }
+	): Promise< void > {
+		// Prepend site context the same way the TUI does
+		let enrichedPrompt = prompt;
+		if ( siteContext ) {
+			enrichedPrompt = `[Active site: "${ siteContext.name }" at ${ siteContext.path }${
+				siteContext.running ? ' (running)' : ' (stopped)'
+			}]\n\n${ prompt }`;
+		}
+
+		const onAskUser = async (
+			questions: AskUserQuestion[]
+		): Promise< Record< string, string > > => {
+			sendToParent( { type: 'ask-user', questions } );
+			return new Promise( ( resolve ) => {
+				askUserResolve = resolve;
+			} );
+		};
+
+		const agentQuery = startAiAgent( {
+			prompt: enrichedPrompt,
+			apiKey,
+			model: model ?? DEFAULT_MODEL,
+			resume: resume ?? sessionId,
+			onAskUser,
+		} );
+		currentQuery = agentQuery;
+
+		try {
+			for await ( const message of agentQuery ) {
+				// Forward each SDK message to parent as-is (they are plain JSON-serializable objects)
+				sendToParent( {
+					type: 'agent-message',
+					message:
+						message as unknown as import('@studio/common/types/agent-messages').SerializedAgentMessage,
+				} );
+
+				// Extract session ID from result messages
+				if ( message.type === 'result' ) {
+					sessionId = message.session_id;
+				}
+			}
+		} catch ( error ) {
+			sendToParent( {
+				type: 'error',
+				message: error instanceof Error ? error.message : String( error ),
+			} );
+		} finally {
+			currentQuery = null;
+		}
+	}
+
+	sendToParent( { type: 'ready' } );
 }
 
 export async function runCommand(): Promise< void > {
@@ -183,13 +307,23 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		command: 'ai',
 		describe: __( 'AI-powered WordPress assistant' ),
 		builder: ( yargs ) => {
-			return yargs.option( 'path', {
-				hidden: true,
-			} );
+			return yargs
+				.option( 'path', {
+					hidden: true,
+				} )
+				.option( 'pipe', {
+					type: 'boolean' as const,
+					hidden: true,
+					default: false,
+				} );
 		},
-		handler: async () => {
+		handler: async ( argv ) => {
 			try {
-				await runCommand();
+				if ( argv.pipe ) {
+					await runPipeMode();
+				} else {
+					await runCommand();
+				}
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );

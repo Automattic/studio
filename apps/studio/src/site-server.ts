@@ -3,7 +3,7 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { SQLITE_FILENAME } from '@studio/common/constants';
 import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
-import { siteDetailsSchema } from '@studio/common/lib/site-events';
+import { siteListSchema, type SiteListItem } from '@studio/common/lib/site-events';
 import fsExtra from 'fs-extra';
 import { parse } from 'shell-quote';
 import { z } from 'zod';
@@ -114,37 +114,37 @@ export class SiteServer {
 		return deletedServers.includes( id );
 	}
 
-	private static siteListJsonSchema = z.array(
-		siteDetailsSchema.extend( {
-			running: z.boolean(),
-		} )
-	);
+	private static siteListKeyValueSchema = z.object( {
+		action: z.literal( 'keyValuePair' ),
+		key: z.literal( 'sites' ),
+		value: z
+			.string()
+			.transform( ( val ) => JSON.parse( val ) )
+			.pipe( siteListSchema ),
+	} );
 
 	static async fetchAll(): Promise< void > {
 		try {
-			const sites = await new Promise< z.infer< typeof SiteServer.siteListJsonSchema > >(
-				( resolve, reject ) => {
-					const [ emitter ] = executeCliCommand( [ 'site', 'list', '--format', 'json' ], {
-						output: 'capture',
-					} );
+			const sites = await new Promise< SiteListItem[] >( ( resolve, reject ) => {
+				const [ emitter ] = executeCliCommand( [ 'site', 'list', '--format', 'json' ], {
+					output: 'capture',
+				} );
 
-					emitter.on( 'success', ( { result } ) => {
-						try {
-							const parsed = JSON.parse( result.stdout );
-							resolve( SiteServer.siteListJsonSchema.parse( parsed ) );
-						} catch ( error ) {
-							reject( error );
-						}
-					} );
+				emitter.on( 'data', ( { data } ) => {
+					const parsed = SiteServer.siteListKeyValueSchema.safeParse( data );
+					if ( parsed.success ) {
+						resolve( parsed.data.value );
+					}
+				} );
 
-					emitter.on( 'failure', ( { error } ) => reject( error ) );
-					emitter.on( 'error', ( { error } ) => reject( error ) );
-				}
-			);
+				emitter.on( 'success', () => resolve( [] ) );
+				emitter.on( 'failure', ( { error } ) => reject( error ) );
+				emitter.on( 'error', ( { error } ) => reject( error ) );
+			} );
 
 			for ( const site of sites ) {
 				if ( ! SiteServer.get( site.id ) ) {
-					SiteServer.register( { ...site } );
+					SiteServer.register( site );
 				}
 			}
 		} catch ( error ) {
@@ -205,16 +205,6 @@ export class SiteServer {
 
 		console.log( `Starting server for '${ this.details.name }'` );
 		await this.server.start();
-
-		const url = getAbsoluteUrl( this.details );
-		this.details = {
-			...this.details,
-			url,
-			running: true,
-			autoStart: true,
-		};
-
-		this.server.url = url;
 	}
 
 	updateSiteDetails( site: SiteDetails ) {

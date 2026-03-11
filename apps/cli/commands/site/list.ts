@@ -1,4 +1,4 @@
-import { siteDetailsSchema, type SiteDetails } from '@studio/common/lib/site-events';
+import { type SiteDetails } from '@studio/common/lib/site-events';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import Table from 'cli-table3';
@@ -42,7 +42,8 @@ async function getSiteListData( sites: SiteData[] ): Promise< {
 		} );
 
 		jsonEntries.push( {
-			...siteDetailsSchema.parse( { ...site, url } ),
+			...site,
+			url,
 			running,
 		} );
 	}
@@ -79,7 +80,7 @@ function displaySiteList(
 
 		console.log( table.toString() );
 	} else {
-		console.log( JSON.stringify( data.jsonEntries, null, 2 ) );
+		logger.reportKeyValuePair( 'sites', JSON.stringify( data.jsonEntries ) );
 	}
 }
 

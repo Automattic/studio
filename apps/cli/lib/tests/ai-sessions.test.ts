@@ -241,4 +241,78 @@ describe( 'ai-sessions', () => {
 
 		await expect( fs.access( getAiSessionsRootDirectory() ) ).resolves.not.toThrow();
 	} );
+
+	it( 'keeps date directories when deleting one of multiple sessions from the same day', async () => {
+		testRoot = await fs.mkdtemp( path.join( os.tmpdir(), 'studio-ai-sessions-' ) );
+		process.env.E2E = '1';
+		process.env.E2E_APP_DATA_PATH = testRoot;
+
+		const firstStart = new Date( '2026-03-11T10:00:00.000Z' );
+		const secondStart = new Date( '2026-03-11T11:00:00.000Z' );
+		const firstRecorder = await AiSessionRecorder.create( { startedAt: firstStart } );
+		const secondRecorder = await AiSessionRecorder.create( { startedAt: secondStart } );
+
+		await firstRecorder.recordUserMessage( {
+			text: 'Delete me',
+			source: 'prompt',
+		} );
+		await secondRecorder.recordUserMessage( {
+			text: 'Keep me',
+			source: 'prompt',
+		} );
+
+		await deleteAiSession( firstRecorder.sessionId );
+
+		const sessions = await listAiSessions();
+		expect( sessions ).toHaveLength( 1 );
+		expect( sessions[ 0 ].id ).toBe( secondRecorder.sessionId );
+
+		const dayDirectory = getAiSessionsDirectoryForDate( firstStart );
+		const monthDirectory = path.dirname( dayDirectory );
+		const yearDirectory = path.dirname( monthDirectory );
+
+		await expect( fs.access( dayDirectory ) ).resolves.not.toThrow();
+		await expect( fs.access( monthDirectory ) ).resolves.not.toThrow();
+		await expect( fs.access( yearDirectory ) ).resolves.not.toThrow();
+	} );
+
+	it( 'throws when deleting a missing session id or prefix', async () => {
+		testRoot = await fs.mkdtemp( path.join( os.tmpdir(), 'studio-ai-sessions-' ) );
+		process.env.E2E = '1';
+		process.env.E2E_APP_DATA_PATH = testRoot;
+
+		await expect( deleteAiSession( 'does-not-exist' ) ).rejects.toThrow(
+			'AI session not found: does-not-exist'
+		);
+	} );
+
+	it( 'throws when deleting an ambiguous id prefix', async () => {
+		testRoot = await fs.mkdtemp( path.join( os.tmpdir(), 'studio-ai-sessions-' ) );
+		process.env.E2E = '1';
+		process.env.E2E_APP_DATA_PATH = testRoot;
+
+		await AiSessionRecorder.create( { startedAt: new Date( '2026-03-11T10:00:00.000Z' ) } );
+		await AiSessionRecorder.create( { startedAt: new Date( '2026-03-11T11:00:00.000Z' ) } );
+
+		await expect( deleteAiSession( '' ) ).rejects.toThrow( 'Session id prefix is ambiguous' );
+	} );
+
+	it( 'lists sessions with most recent update first (latest semantics)', async () => {
+		testRoot = await fs.mkdtemp( path.join( os.tmpdir(), 'studio-ai-sessions-' ) );
+		process.env.E2E = '1';
+		process.env.E2E_APP_DATA_PATH = testRoot;
+
+		const older = await AiSessionRecorder.create( {
+			startedAt: new Date( '2026-03-10T10:00:00.000Z' ),
+		} );
+		const latest = await AiSessionRecorder.create( {
+			startedAt: new Date( '2026-03-11T10:00:00.000Z' ),
+		} );
+
+		const sessions = await listAiSessions();
+		expect( sessions.map( ( session ) => session.id ) ).toEqual( [
+			latest.sessionId,
+			older.sessionId,
+		] );
+	} );
 } );

@@ -677,7 +677,13 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 							} )
 							.command( {
 								command: 'resume <id>',
-								describe: __( 'Resume an AI session' ),
+								describe: __( 'Resume an AI session (id or "latest")' ),
+								builder: ( resumeYargs ) => {
+									return resumeYargs.positional( 'id', {
+										type: 'string',
+										describe: __( 'Session id (or "latest")' ),
+									} );
+								},
 								handler: async ( argv ) => {
 									try {
 										await runResumeSessionCommand( argv.id as string );

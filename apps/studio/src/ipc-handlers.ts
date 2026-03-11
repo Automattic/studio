@@ -56,7 +56,6 @@ import { ExportOptions } from 'src/lib/import-export/export/types';
 import { ImportExportEventData } from 'src/lib/import-export/handle-events';
 import { defaultImporterOptions, importBackup } from 'src/lib/import-export/import/import-manager';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
-import { isInstalled } from 'src/lib/is-installed';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import * as oauthClient from 'src/lib/oauth';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
@@ -70,11 +69,7 @@ import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-ed
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
 import { shouldExcludeFromSync, shouldLimitDepth } from 'src/modules/sync/lib/tree-utils';
-import {
-	supportedEditorConfig,
-	SupportedEditor,
-	SUPPORTED_EDITORS,
-} from 'src/modules/user-settings/lib/editor';
+import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { getUserEditor, getUserTerminal } from 'src/modules/user-settings/lib/ipc-handlers';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
 import { SiteServer, stopAllServers as triggerStopAllServers } from 'src/site-server';
@@ -1173,15 +1168,6 @@ export async function getAbsolutePathFromSite(
 	return ( await pathExists( path ) ) ? path : null;
 }
 
-function getFirstInstalledEditor(): SupportedEditor | null {
-	for ( const editor of SUPPORTED_EDITORS ) {
-		if ( isInstalled( editor ) ) {
-			return editor;
-		}
-	}
-	return null;
-}
-
 /**
  * Opens a file in the IDE with the site context.
  * Uses the user's preferred editor, falling back to the first installed editor.
@@ -1201,8 +1187,7 @@ export async function openFileInIDE(
 		return;
 	}
 
-	const preferredEditor = await getUserEditor();
-	const editorKey = preferredEditor ?? getFirstInstalledEditor();
+	const editorKey = await getUserEditor();
 	if ( ! editorKey ) {
 		return;
 	}

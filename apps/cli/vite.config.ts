@@ -55,10 +55,11 @@ export default defineConfig( {
 						},
 					},
 					{
-						// Remove native binaries built for other platforms from bundled
+						// Remove directories named after foreign platforms from bundled
 						// node_modules. Packages like koffi and claude-agent-sdk ship
-						// prebuilt .node files for every OS. Windows code-signing fails
-						// when signtool encounters non-PE binaries (e.g. macOS .node).
+						// prebuilt binaries (.node, executables, .so, .dylib) for every
+						// OS. Windows code-signing fails when signtool encounters
+						// non-PE binaries (e.g. macOS .node files or Linux ELF binaries).
 						name: 'prune-foreign-platform-binaries',
 						apply: 'build' as const,
 						closeBundle() {
@@ -69,10 +70,10 @@ export default defineConfig( {
 									? [ 'win32', 'linux' ]
 									: [ 'darwin', 'win32' ];
 
-							// Match .node files whose path contains a foreign platform
-							// identifier as a directory component (e.g. darwin_arm64/,
-							// arm64-darwin/, linux-x64/).
-							const patterns = foreignPlatforms.map( ( p ) => `**/*${ p }*/**/*.node` );
+							// Find directories whose name contains a foreign platform
+							// identifier (e.g. darwin_arm64/, arm64-darwin/, linux-x64/)
+							// and remove them entirely.
+							const patterns = foreignPlatforms.map( ( p ) => `**/*${ p }*/` );
 
 							for ( const pattern of patterns ) {
 								const matches = globSync( pattern, {
@@ -80,7 +81,7 @@ export default defineConfig( {
 									absolute: true,
 								} );
 								for ( const match of matches ) {
-									rmSync( match, { force: true } );
+									rmSync( match, { recursive: true, force: true } );
 								}
 							}
 						},

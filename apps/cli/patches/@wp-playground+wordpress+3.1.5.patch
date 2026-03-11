@@ -1,5 +1,5 @@
 diff --git a/node_modules/@wp-playground/wordpress/index.cjs b/node_modules/@wp-playground/wordpress/index.cjs
-index 5a74c51..9cf6092 100644
+index 0f93ab4..97a2ad1 100644
 --- a/node_modules/@wp-playground/wordpress/index.cjs
 +++ b/node_modules/@wp-playground/wordpress/index.cjs
 @@ -469,7 +469,7 @@ class WP_Config_Transformer {
@@ -11,21 +11,8 @@ index 5a74c51..9cf6092 100644
  		$wp_config_path = ${a.wpConfigPath};
  		$transformer    = WP_Config_Transformer::from_file($wp_config_path);
  		foreach ( ${a.constants} as $name => $value ) {
-@@ -750,7 +750,11 @@ class WP_Config_Transformer {
- 
-         $log_file = WP_CONTENT_DIR . '/debug.log';
-         define('ERROR_LOG_FILE', $log_file);
--        ini_set('error_log', $log_file);
-+        if ( defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
-+            ini_set('error_log', $log_file);
-+        } else {
-+            ini_set('log_errors', '0');
-+        }
-         ?>`),await t.writeFile("/internal/shared/mu-plugins/sitemap-redirect.php",`<?php
- 		/**
- 		 * Redirect sitemap.xml to wp-sitemap.xml for non-root installations.
 diff --git a/node_modules/@wp-playground/wordpress/index.js b/node_modules/@wp-playground/wordpress/index.js
-index aaaa30d..80ce495 100644
+index 7ef25c4..46a3b7c 100644
 --- a/node_modules/@wp-playground/wordpress/index.js
 +++ b/node_modules/@wp-playground/wordpress/index.js
 @@ -475,9 +475,7 @@ class WP_Config_Transformer {
@@ -39,16 +26,3 @@ index aaaa30d..80ce495 100644
    if (!t.fileExists(n) && t.fileExists(s(e, "wp-config-sample.php")) && await t.writeFile(
      n,
      await t.readFileAsBuffer(
-@@ -1010,7 +1008,11 @@ async function U(t) {
- 
-         $log_file = WP_CONTENT_DIR . '/debug.log';
-         define('ERROR_LOG_FILE', $log_file);
--        ini_set('error_log', $log_file);
-+        if ( defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
-+            ini_set('error_log', $log_file);
-+        } else {
-+            ini_set('log_errors', '0');
-+        }
-         ?>`
-   ), await t.writeFile(
-     "/internal/shared/mu-plugins/sitemap-redirect.php",

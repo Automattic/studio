@@ -72,14 +72,14 @@ interface NavigationContentProps {
 	blueprintPreferredVersions?: BlueprintPreferredVersions;
 	setBlueprintPreferredVersions: ( versions: BlueprintPreferredVersions | undefined ) => void;
 	blueprintWarnings?: BlueprintValidationWarning[];
-	setBlueprintWarnings?: ( warnings: BlueprintValidationWarning[] | undefined ) => void;
+	setBlueprintWarnings: ( warnings: BlueprintValidationWarning[] | undefined ) => void;
 	blueprintSuggestedDomain?: string;
-	setBlueprintSuggestedDomain?: ( domain: string | undefined ) => void;
+	setBlueprintSuggestedDomain: ( domain: string | undefined ) => void;
 	blueprintSuggestedHttps?: boolean;
-	setBlueprintSuggestedHttps?: ( https: boolean | undefined ) => void;
+	setBlueprintSuggestedHttps: ( https: boolean | undefined ) => void;
 	blueprintCredentials?: { adminUsername?: string; adminPassword?: string };
 	blueprintSuggestedSiteName?: string;
-	setBlueprintSuggestedSiteName?: ( name: string | undefined ) => void;
+	setBlueprintSuggestedSiteName: ( name: string | undefined ) => void;
 	blueprintRequiresCustomDomain: boolean;
 	setBlueprintRequiresCustomDomain: ( requires: boolean ) => void;
 	selectedRemoteSite?: SyncSite;

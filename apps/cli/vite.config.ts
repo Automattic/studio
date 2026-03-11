@@ -61,6 +61,7 @@ export default defineConfig( {
 		lib: {
 			entry: {
 				main: resolve( __dirname, 'index.ts' ),
+				'process-manager-daemon': resolve( __dirname, 'process-manager-daemon.ts' ),
 				'proxy-daemon': resolve( __dirname, 'proxy-daemon.ts' ),
 				'wordpress-server-child': resolve( __dirname, 'wordpress-server-child.ts' ),
 			},
@@ -75,10 +76,13 @@ export default defineConfig( {
 				/^(path|fs|os|child_process|crypto|http|https|http2|url|querystring|stream|util|events|buffer|assert|net|tty|readline|zlib|constants|tls|domain|dns)$/,
 				'fs/promises',
 				'dns/promises',
-				'pm2',
 				// `trash` includes a native macOS binary that Vite/Rollup inlines as a base64 string, which
 				// generates an error in the production build
 				'trash',
+				// Fundamentally, yargs works well with Vite/Rollup bundling. The only issue is that it uses
+				// __filename-based lookups for JSON translation files, which breaks when bundling. This is a
+				// pragmatic solution to that problem.
+				'yargs',
 				'@php-wasm/node',
 				'@php-wasm/web',
 				'@php-wasm/logger',

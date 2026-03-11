@@ -49,7 +49,6 @@ import {
 	type BlueprintV1Declaration,
 	type StepDefinition,
 } from '@wp-playground/blueprints';
-import { writeAgentsMd } from 'cli/lib/agents-md';
 import {
 	lockAppdata,
 	readAppdata,
@@ -60,12 +59,13 @@ import {
 	updateSiteAutoStart,
 	updateSiteLatestCliPid,
 } from 'cli/lib/appdata';
+import { connectToDaemon, disconnectFromDaemon, emitSiteEvent } from 'cli/lib/daemon-client';
 import { generateSiteName, getDefaultSitePath } from 'cli/lib/generate-site-name';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
-import { connect, disconnect, emitSiteEvent } from 'cli/lib/pm2-manager';
 import { getServerFilesPath } from 'cli/lib/server-files';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
+import { writeSkillMd } from 'cli/lib/skill-md';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { untildify } from 'cli/lib/utils';
 import { ValidationError } from 'cli/lib/validation-error';
@@ -226,13 +226,15 @@ export async function runCommand(
 			isSqliteUpdated ? __( 'SQLite integration configured' ) : __( 'SQLite integration skipped' )
 		);
 
-		try {
-			await writeAgentsMd( sitePath );
-		} catch ( error ) {
-			logger.reportError(
-				new LoggerError( __( 'Failed to write AGENTS.md. Proceeding anyway…' ), error ),
-				false
-			);
+		if ( process.env.ENABLE_AGENT_SUITE === 'true' ) {
+			try {
+				await writeSkillMd( sitePath );
+			} catch ( error ) {
+				logger.reportError(
+					new LoggerError( __( 'Failed to write SKILL.md. Proceeding anyway…' ), error ),
+					false
+				);
+			}
 		}
 
 		logger.reportStart( LoggerAction.ASSIGN_PORT, __( 'Assigning port…' ) );
@@ -362,7 +364,7 @@ export async function runCommand(
 
 		if ( ! options.noStart ) {
 			logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
-			await connect();
+			await connectToDaemon();
 			logger.reportSuccess( __( 'Process daemon started' ) );
 
 			await setupCustomDomain( siteDetails, logger );
@@ -381,7 +383,7 @@ export async function runCommand(
 
 				stripWpConfigDbConstants( sitePath );
 
-				if ( processDesc.pid ) {
+				if ( processDesc.status === 'online' ) {
 					await updateSiteLatestCliPid( siteDetails.id, processDesc.pid );
 				}
 				await updateSiteAutoStart( siteDetails.id, true );
@@ -407,7 +409,7 @@ export async function runCommand(
 		} else {
 			if ( blueprint ) {
 				logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
-				await connect();
+				await connectToDaemon();
 				logger.reportSuccess( __( 'Process daemon started' ) );
 
 				logger.reportStart( LoggerAction.START_SITE, __( 'Applying Blueprint…' ) );
@@ -444,7 +446,7 @@ export async function runCommand(
 		logger.reportKeyValuePair( 'running', String( siteDetails.running ) );
 		await emitSiteEvent( SITE_EVENTS.CREATED, { siteId: siteDetails.id } );
 	} finally {
-		await disconnect();
+		await disconnectFromDaemon();
 	}
 }
 

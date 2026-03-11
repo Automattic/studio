@@ -119,9 +119,9 @@ describe( 'openFileInIDE', () => {
 		await openFileInIDE( mockIpcMainInvokeEvent, 'wp-content/plugins/hello.php', 'site-1' );
 
 		const calls = getExecCalls();
-		expect( calls ).toHaveLength( 2 );
+		expect( calls ).toHaveLength( 1 );
 		expect( calls[ 0 ] ).toContain( mockSiteDetails.path );
-		expect( calls[ 1 ] ).toContain( join( 'wp-content', 'plugins', 'hello.php' ) );
+		expect( calls[ 0 ] ).toContain( join( 'wp-content', 'plugins', 'hello.php' ) );
 	} );
 
 	it( 'should fall back to first installed editor when no preference is set', async () => {
@@ -131,9 +131,9 @@ describe( 'openFileInIDE', () => {
 		await openFileInIDE( mockIpcMainInvokeEvent, 'wp-content/plugins/hello.php', 'site-1' );
 
 		const calls = getExecCalls();
-		expect( calls ).toHaveLength( 2 );
+		expect( calls ).toHaveLength( 1 );
 		expect( calls[ 0 ] ).toContain( mockSiteDetails.path );
-		expect( calls[ 1 ] ).toContain( join( 'wp-content', 'plugins', 'hello.php' ) );
+		expect( calls[ 0 ] ).toContain( join( 'wp-content', 'plugins', 'hello.php' ) );
 	} );
 
 	it( 'should do nothing when no editor is preferred and none is installed', async () => {
@@ -173,21 +173,20 @@ describe( 'openFileInIDE', () => {
 		await openFileInIDE( mockIpcMainInvokeEvent, 'wp-content/plugins/hello.php', 'site-1' );
 
 		const calls = getExecCalls();
-		expect( calls ).toHaveLength( 2 );
+		expect( calls ).toHaveLength( 1 );
 		// Should use antigravity (first in priority), not vscode
 		expect( calls[ 0 ] ).toContain( mockSiteDetails.path );
 	} );
 
-	it( 'should open site folder first, then the file', async () => {
+	it( 'should open site folder and file in a single call', async () => {
 		vi.mocked( getUserEditor ).mockResolvedValue( 'vscode' );
 
 		await openFileInIDE( mockIpcMainInvokeEvent, 'wp-content/plugins/hello.php', 'site-1' );
 
 		const calls = getExecCalls();
-		expect( calls ).toHaveLength( 2 );
-		// First call opens site folder
+		expect( calls ).toHaveLength( 1 );
+		// Single call contains both site folder and file path
 		expect( calls[ 0 ] ).toContain( mockSiteDetails.path );
-		// Second call opens the specific file
-		expect( calls[ 1 ] ).toContain( join( 'wp-content', 'plugins', 'hello.php' ) );
+		expect( calls[ 0 ] ).toContain( join( 'wp-content', 'plugins', 'hello.php' ) );
 	} );
 } );

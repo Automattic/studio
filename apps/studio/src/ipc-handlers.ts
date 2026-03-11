@@ -1042,23 +1042,29 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 export async function openAppAtPath(
 	event: IpcMainInvokeEvent,
 	editorKey: SupportedEditor,
-	filePath: string
+	filePath: string,
+	otherFiles: string[] = []
 ): Promise< void > {
 	const platform = process.platform;
 	const editor = supportedEditorConfig[ editorKey ];
+	const allPaths = [ filePath, ...otherFiles ];
+	const quotedPaths = allPaths.map( ( p ) => `"${ p }"` ).join( ' ' );
 
 	if ( platform === 'darwin' ) {
-		return promiseExec( `open -b ${ editor.macOSBundleId } "${ filePath }"` );
+		return promiseExec( `open -b ${ editor.macOSBundleId } ${ quotedPaths }` );
 	}
 
 	if ( platform === 'win32' ) {
 		const editorPath = await winFindEditorPath( editorKey );
 		if ( ! editorPath ) {
-			// Fall back to using openURL if no editor path is found
-			return openURL( event, editor.url( filePath ) );
+			// Fall back to URL scheme for each path
+			for ( const p of allPaths ) {
+				openURL( event, editor.url( p ) );
+			}
+			return;
 		}
 
-		return promiseExec( `"${ editorPath }" "${ filePath }"` );
+		return promiseExec( `"${ editorPath }" ${ quotedPaths }` );
 	}
 
 	throw new Error( `Platform ${ platform } is not supported` );
@@ -1200,10 +1206,8 @@ export async function openFileInIDE(
 	if ( ! editorKey ) {
 		return;
 	}
-	// Open site folder first to ensure the file is opened within the site context
-
-	await openAppAtPath( event, editorKey, server.details.path );
-	await openAppAtPath( event, editorKey, filepath );
+	// Open site folder and file in a single call to avoid blocking on Windows
+	await openAppAtPath( event, editorKey, server.details.path, [ filepath ] );
 }
 
 export async function isImportExportSupported( _event: IpcMainInvokeEvent, siteId: string ) {

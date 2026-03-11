@@ -26,16 +26,9 @@ function SkillRow( {
 	isRemoving,
 }: SkillRowProps ) {
 	const { __ } = useI18n();
-	const [ showConfirm, setShowConfirm ] = useState( false );
-
 	const handleRemoveClick = useCallback( () => {
-		if ( showConfirm ) {
-			onRemove?.();
-			setShowConfirm( false );
-		} else {
-			setShowConfirm( true );
-		}
-	}, [ showConfirm, onRemove ] );
+		onRemove?.();
+	}, [ onRemove ] );
 
 	return (
 		<div className="flex items-center justify-between px-3 py-2.5 border-b border-gray-200 last:border-b-0">
@@ -50,34 +43,14 @@ function SkillRow( {
 							<Icon icon={ check } size={ 12 } />
 							{ __( 'Installed' ) }
 						</span>
-						{ showConfirm ? (
-							<div className="flex items-center gap-1">
-								<Button
-									variant="link"
-									onClick={ () => setShowConfirm( false ) }
-									disabled={ isRemoving }
-									className="text-xs"
-								>
-									{ __( 'Cancel' ) }
-								</Button>
-								<Button
-									variant="link"
-									onClick={ handleRemoveClick }
-									disabled={ isRemoving }
-									className="text-xs !text-a8c-red-50"
-								>
-									{ isRemoving ? __( 'Removing...' ) : __( 'Remove' ) }
-								</Button>
-							</div>
-						) : (
-							<Button
-								variant="link"
-								onClick={ handleRemoveClick }
-								className="text-xs !text-gray-400 hover:!text-a8c-red-50"
-							>
-								{ __( 'Remove' ) }
-							</Button>
-						) }
+						<Button
+							variant="link"
+							onClick={ handleRemoveClick }
+							disabled={ isRemoving }
+							className="text-xs !text-gray-400 hover:!text-a8c-red-50"
+						>
+							{ isRemoving ? __( 'Removing...' ) : __( 'Remove' ) }
+						</Button>
 					</>
 				) : (
 					<Button

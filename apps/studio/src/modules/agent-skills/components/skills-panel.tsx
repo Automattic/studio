@@ -163,10 +163,10 @@ export function SkillsPanel( { siteId, className }: SkillsPanelProps ) {
 				{ isLoadingInstalled ? (
 					<div className="flex items-center justify-center py-4">
 						<Spinner />
-						<span className="ml-2 text-sm text-gray-500">{ __( 'Loading...' ) }</span>
+						<span className="ml-2 text-xs text-gray-500">{ __( 'Loading...' ) }</span>
 					</div>
 				) : installedSkills.length === 0 ? (
-					<div className="px-3 py-4 text-sm text-gray-500 text-center">
+					<div className="px-3 py-4 text-xs text-gray-500 text-center">
 						{ __( 'No skills installed yet' ) }
 					</div>
 				) : (
@@ -208,14 +208,14 @@ export function SkillsPanel( { siteId, className }: SkillsPanelProps ) {
 				{ isLoadingAvailable ? (
 					<div className="flex items-center justify-center py-4">
 						<Spinner />
-						<span className="ml-2 text-sm text-gray-500">{ __( 'Loading...' ) }</span>
+						<span className="ml-2 text-xs text-gray-500">{ __( 'Loading...' ) }</span>
 					</div>
 				) : availableError ? (
-					<div className="px-3 py-4 text-sm text-gray-500 text-center">
+					<div className="px-3 py-4 text-xs text-gray-500 text-center">
 						{ __( 'Could not load available skills' ) }
 					</div>
 				) : uninstalledSkills.length === 0 ? (
-					<div className="px-3 py-4 text-sm text-gray-500 text-center">
+					<div className="px-3 py-4 text-xs text-gray-500 text-center">
 						{ __( 'All available skills are installed' ) }
 					</div>
 				) : (

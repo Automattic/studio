@@ -4,7 +4,7 @@ import {
 	BlueprintPreferredVersions,
 	BlueprintValidationWarning,
 } from '@studio/common/lib/blueprint-validation';
-import { SupportedPHPVersionsList } from '@studio/common/types/php-versions';
+import { SupportedPHPVersion, SupportedPHPVersionsList } from '@studio/common/types/php-versions';
 import { speak } from '@wordpress/a11y';
 import { Navigator, useNavigator } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
@@ -16,7 +16,6 @@ import { useAddSite, CreateSiteFormValues } from 'src/hooks/use-add-site';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { AllowedPHPVersion } from 'src/lib/wordpress-server-types';
 import { useBlueprintDeeplink } from 'src/modules/add-site/hooks/use-blueprint-deeplink';
 import { SyncSite } from 'src/modules/sync/types';
 import { useRootSelector, useAppDispatch, useI18nLocale } from 'src/stores';
@@ -45,7 +44,7 @@ interface NavigationContentProps {
 	defaultValues: {
 		siteName: string;
 		sitePath: string;
-		phpVersion: AllowedPHPVersion;
+		phpVersion: SupportedPHPVersion;
 		wpVersion: string;
 	};
 	onSelectPath: ( currentPath: string ) => Promise< {
@@ -305,7 +304,7 @@ function NavigationContent( props: NavigationContentProps ) {
 			blueprintPreferredVersions?.php &&
 			SupportedPHPVersionsList.includes( blueprintPreferredVersions.php )
 		) {
-			values.phpVersion = blueprintPreferredVersions.php as AllowedPHPVersion;
+			values.phpVersion = blueprintPreferredVersions.php;
 		}
 		if (
 			blueprintPreferredVersions?.wp &&

@@ -2,6 +2,17 @@ import ora, { Ora } from 'ora';
 
 const isIpcMode = Boolean( process.send );
 
+type ProgressCallback = ( message: string ) => void;
+let progressCallback: ProgressCallback | null = null;
+
+export function setProgressCallback( callback: ProgressCallback | null ): void {
+	progressCallback = callback;
+}
+
+export function emitProgress( message: string ): void {
+	progressCallback?.( message );
+}
+
 function canSend(): boolean {
 	return isIpcMode && !! process.send && process.connected;
 }
@@ -44,12 +55,21 @@ export class Logger< T extends string > {
 			process.send!( { action, status: 'inprogress', message } );
 			return;
 		}
+		if ( progressCallback ) {
+			progressCallback!( message );
+			return;
+		}
 		this.spinner.start( message );
 	}
 
 	public reportProgress( message: string ) {
 		if ( canSend() ) {
 			process.send!( { action: this.currentAction, status: 'inprogress', message } );
+			return;
+		}
+
+		if ( progressCallback ) {
+			progressCallback!( message );
 			return;
 		}
 
@@ -65,6 +85,8 @@ export class Logger< T extends string > {
 	public reportSuccess( message: string, shouldClearSpinner = false ) {
 		if ( canSend() ) {
 			process.send!( { action: this.currentAction, status: 'success', message } );
+		} else if ( progressCallback ) {
+			progressCallback!( message );
 		} else if ( shouldClearSpinner ) {
 			this.spinner.clear();
 		} else {
@@ -79,6 +101,10 @@ export class Logger< T extends string > {
 			process.send!( { action: this.currentAction, status: 'warning', message } );
 			return;
 		}
+		if ( progressCallback ) {
+			progressCallback!( message );
+			return;
+		}
 		this.spinner.warn( message );
 	}
 
@@ -89,6 +115,8 @@ export class Logger< T extends string > {
 
 		if ( canSend() ) {
 			process.send!( { action: this.currentAction, status: 'fail', message: error.message } );
+		} else if ( progressCallback ) {
+			progressCallback!( error.message );
 		} else {
 			this.spinner.fail( error.message );
 		}

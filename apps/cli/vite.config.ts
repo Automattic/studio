@@ -61,14 +61,16 @@ export default defineConfig( {
 								{
 									// When the AI feature is disabled at build time, remove AI-specific
 									// dependencies from dist to reduce the installer size by ~500MB.
+									// The AI command uses @anthropic-ai/claude-agent-sdk, @mariozechner/pi-tui,
+									// playwright, jsdom, and @wordpress/block-library (which pulls in a large
+									// transitive @wordpress/* tree). Only @wordpress/i18n and @wordpress/hooks
+									// are needed by the non-AI CLI code.
 									name: 'prune-ai-deps',
 									apply: 'build' as const,
 									closeBundle() {
 										const aiPackages = [
 											'@anthropic-ai/',
 											'@mariozechner/',
-											'@wordpress/block-library/',
-											'@wordpress/blocks/',
 											'jsdom/',
 											'playwright/',
 											'playwright-core/',
@@ -78,6 +80,21 @@ export default defineConfig( {
 											const pkgPath = resolve( distCliNodeModulesPath, pkg );
 											if ( existsSync( pkgPath ) ) {
 												rmSync( pkgPath, { recursive: true, force: true } );
+											}
+										}
+
+										// Prune @wordpress/* packages except i18n and hooks (needed by the CLI).
+										// All other @wordpress/* packages are transitive deps of block-library.
+										const wpKeep = new Set( [ 'i18n', 'hooks' ] );
+										const wpDir = resolve( distCliNodeModulesPath, '@wordpress' );
+										if ( existsSync( wpDir ) ) {
+											for ( const entry of globSync( '*', { cwd: wpDir } ) ) {
+												if ( ! wpKeep.has( entry ) ) {
+													rmSync( resolve( wpDir, entry ), {
+														recursive: true,
+														force: true,
+													} );
+												}
 											}
 										}
 									},

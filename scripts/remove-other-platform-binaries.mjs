@@ -14,9 +14,8 @@
  * workspace (e.g. apps/studio or apps/cli).
  */
 
-import { rmSync } from 'fs';
+import { readdirSync, rmSync, statSync } from 'fs';
 import { join } from 'path';
-import { globSync } from 'glob';
 
 const nodeModulesPath = join( process.cwd(), 'node_modules' );
 
@@ -27,23 +26,46 @@ const foreignPlatforms =
 		? [ 'win32', 'linux' ]
 		: [ 'darwin', 'win32' ];
 
-const patterns = foreignPlatforms.map( ( p ) => `**/*${ p }*/` );
+function isForeignPlatformDir( name ) {
+	return foreignPlatforms.some( ( p ) => name.includes( p ) );
+}
 
 let removedCount = 0;
 
-for ( const pattern of patterns ) {
-	const matches = globSync( pattern, {
-		cwd: nodeModulesPath,
-		absolute: true,
-	} );
-	for ( const match of matches ) {
+function walk( dir ) {
+	let entries;
+	try {
+		entries = readdirSync( dir );
+	} catch {
+		return;
+	}
+
+	for ( const entry of entries ) {
+		const fullPath = join( dir, entry );
+		let stat;
 		try {
-			rmSync( match, { recursive: true, force: true } );
-			removedCount++;
-		} catch ( e ) {
-			console.log( `Could not remove ${ match }: ${ e.message }` );
+			stat = statSync( fullPath );
+		} catch {
+			continue;
+		}
+
+		if ( ! stat.isDirectory() ) {
+			continue;
+		}
+
+		if ( isForeignPlatformDir( entry ) ) {
+			try {
+				rmSync( fullPath, { recursive: true, force: true } );
+				removedCount++;
+			} catch ( e ) {
+				console.log( `Could not remove ${ fullPath }: ${ e.message }` );
+			}
+		} else {
+			walk( fullPath );
 		}
 	}
 }
+
+walk( nodeModulesPath );
 
 console.log( `Removed ${ removedCount } foreign-platform directories from node_modules` );

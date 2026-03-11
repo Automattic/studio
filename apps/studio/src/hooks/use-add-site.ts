@@ -3,6 +3,7 @@ import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from '@studio/common/c
 import { updateBlueprintWithFormValues } from '@studio/common/lib/blueprint-settings';
 import { BlueprintValidationWarning } from '@studio/common/lib/blueprint-validation';
 import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
+import { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useMemo, useState } from 'react';
 import { useAuth } from 'src/hooks/use-auth';
@@ -15,7 +16,6 @@ import { syncOperationsThunks } from 'src/stores/sync';
 import { useConnectSiteMutation } from 'src/stores/sync/connected-sites';
 import { Blueprint } from 'src/stores/wpcom-api';
 import type { BlueprintPreferredVersions } from '@studio/common/lib/blueprint-validation';
-import type { AllowedPHPVersion } from 'src/lib/wordpress-server-types';
 import type { SyncSite } from 'src/modules/sync/types';
 import type { SyncOption } from 'src/types';
 
@@ -25,7 +25,7 @@ import type { SyncOption } from 'src/types';
 export interface CreateSiteFormValues {
 	siteName: string;
 	sitePath: string;
-	phpVersion: AllowedPHPVersion;
+	phpVersion: SupportedPHPVersion;
 	wpVersion: string;
 	useCustomDomain: boolean;
 	customDomain: string | null;
@@ -91,7 +91,7 @@ export function useAddSite() {
 
 	// For blueprint deeplinks - we need temporary state for PHP/WP versions
 	const [ deeplinkPhpVersion, setDeeplinkPhpVersion ] =
-		useState< AllowedPHPVersion >( DEFAULT_PHP_VERSION );
+		useState< SupportedPHPVersion >( DEFAULT_PHP_VERSION );
 	const [ deeplinkWpVersion, setDeeplinkWpVersion ] =
 		useState< string >( DEFAULT_WORDPRESS_VERSION );
 

@@ -91,18 +91,6 @@ export default defineConfig( {
 				'@wp-playground/cli',
 				'@wp-playground/blueprints',
 				'@wp-playground/wordpress',
-				'@anthropic-ai/claude-agent-sdk',
-				'koffi',
-				// WordPress block validation packages (loaded at runtime from node_modules)
-				/^@wordpress\//,
-				'jsdom',
-				'playwright',
-				'playwright-core',
-				'hpq',
-				'simple-html-tokenizer',
-				'react',
-				'react-dom',
-				'react-is',
 			],
 			output: {
 				format: 'cjs',

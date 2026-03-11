@@ -48,9 +48,7 @@ const userDataSchema = z
 	} )
 	.loose();
 
-type UserData = z.infer< typeof userDataSchema > & {
-	anthropicApiKey?: string;
-};
+type UserData = z.infer< typeof userDataSchema >;
 export type SiteData = z.infer< typeof siteSchema >;
 export type ValidatedAuthToken = Required< NonNullable< UserData[ 'authToken' ] > >;
 
@@ -240,22 +238,6 @@ export async function updateSiteAutoStart( siteId: string, autoStart: boolean ):
 		}
 
 		site.autoStart = autoStart;
-		await saveAppdata( userData );
-	} finally {
-		await unlockAppdata();
-	}
-}
-
-export async function getAnthropicApiKey(): Promise< string | undefined > {
-	const userData = await readAppdata();
-	return userData.anthropicApiKey;
-}
-
-export async function saveAnthropicApiKey( apiKey: string ): Promise< void > {
-	try {
-		await lockAppdata();
-		const userData = await readAppdata();
-		userData.anthropicApiKey = apiKey;
 		await saveAppdata( userData );
 	} finally {
 		await unlockAppdata();

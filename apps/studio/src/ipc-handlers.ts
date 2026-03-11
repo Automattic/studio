@@ -33,7 +33,6 @@ import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
-import { portFinder } from '@studio/common/lib/port-finder';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import { Snapshot } from '@studio/common/types/snapshot';
@@ -198,41 +197,26 @@ function readPm2Logs( siteId: string ): { stdout?: string[]; stderr?: string[] }
 	};
 }
 
-function mergeSiteDetailsWithRunningDetails( sites: SiteDetails[] ): SiteDetails[] {
-	return sites.map( ( site ) => {
-		const server = SiteServer.get( site.id );
-		if ( server ) {
-			return server.details;
-		}
-		return site;
-	} );
-}
-
 export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< SiteDetails[] > {
+	const sites = SiteServer.getAllDetails();
 	const userData = await loadUserData();
-
-	const { sites } = userData;
-
-	// Ensure we have an instance of a server for each site we know about
 	for ( const site of sites ) {
-		if ( ! SiteServer.get( site.id ) && ! site.running ) {
-			SiteServer.register( site );
+		const appdataSite = userData.sites.find( ( s ) => s.id === site.id );
+		if ( appdataSite ) {
+			site.sortOrder = appdataSite.sortOrder;
+			site.themeDetails = appdataSite.themeDetails;
 		}
 	}
 
-	return mergeSiteDetailsWithRunningDetails( sites );
+	return sites;
 }
 
 export async function getXdebugEnabledSite(
 	_event: IpcMainInvokeEvent
 ): Promise< SiteDetails | null > {
-	const userData = await loadUserData();
-	const { sites } = userData;
+	const sites = SiteServer.getAllDetails();
 	const xdebugSite = sites.find( ( site ) => site.enableXdebug );
-	if ( ! xdebugSite ) {
-		return null;
-	}
-	return mergeSiteDetailsWithRunningDetails( [ xdebugSite ] )[ 0 ] || null;
+	return xdebugSite || null;
 }
 
 export async function importSite(
@@ -455,31 +439,6 @@ export async function updateSite(
 
 	if ( hasCliChanges ) {
 		await editSiteViaCli( options );
-
-		const userData = await loadUserData();
-		const freshSiteData = userData.sites.find( ( s ) => s.id === updatedSite.id );
-		if ( freshSiteData ) {
-			const wasRunning = server.details.running;
-
-			if ( wasRunning ) {
-				const url = freshSiteData.customDomain
-					? `${ freshSiteData.enableHttps ? 'https' : 'http' }://${ freshSiteData.customDomain }`
-					: `http://localhost:${ freshSiteData.port }`;
-
-				server.details = {
-					...freshSiteData,
-					running: true,
-					url,
-				};
-
-				server.server.url = url;
-			} else {
-				server.details = {
-					...freshSiteData,
-					running: false,
-				};
-			}
-		}
 	}
 }
 
@@ -665,7 +624,6 @@ export async function copySite(
 	const newThumbnailPath = getSiteThumbnailPath( newSiteId );
 	if ( fs.existsSync( sourceThumbnailPath ) ) {
 		await fs.promises.copyFile( sourceThumbnailPath, newThumbnailPath );
-		// Send thumbnail-loaded event so UI updates immediately
 		const thumbnailData = await getImageData( newThumbnailPath );
 		sendIpcEventToRendererWithWindow(
 			BrowserWindow.fromWebContents( event.sender ),
@@ -674,33 +632,26 @@ export async function copySite(
 		);
 	}
 
-	const port = await portFinder.getOpenPort();
-
-	const newSiteDetails: StoppedSiteDetails = {
-		id: newSiteId,
-		name: siteName,
+	const { server, details } = await SiteServer.create( {
 		path: finalSitePath,
-		port,
+		name: siteName,
+		siteId: newSiteId,
 		phpVersion: sourceSite.phpVersion,
-		running: false,
 		adminUsername: sourceSite.adminUsername,
-		adminPassword: sourceSite.adminPassword,
+		adminPassword: sourceSite.adminPassword
+			? decodePassword( sourceSite.adminPassword )
+			: undefined,
 		adminEmail: sourceSite.adminEmail,
-		themeDetails: sourceSite.themeDetails,
-	};
+		noStart: true,
+	} );
 
-	try {
-		await lockAppdata();
-		const userData = await loadUserData();
-		userData.sites.push( newSiteDetails );
-		await saveUserData( userData );
-	} finally {
-		await unlockAppdata();
+	// Persist themeDetails to appdata (Studio-only data)
+	if ( sourceSite.themeDetails ) {
+		server.details.themeDetails = sourceSite.themeDetails;
+		await server.persistThemeDetails();
 	}
 
-	SiteServer.register( newSiteDetails );
-
-	return newSiteDetails;
+	return details;
 }
 
 export function logRendererMessage(

@@ -1,3 +1,4 @@
+import { type SiteDetails } from '@studio/common/lib/site-events';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import Table from 'cli-table3';
@@ -8,7 +9,7 @@ import { getColumnWidths, getPrettyPath } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
-interface SiteListEntry {
+interface SiteListTableEntry {
 	id: string;
 	status: string;
 	name: string;
@@ -16,27 +17,44 @@ interface SiteListEntry {
 	url: string;
 }
 
-async function getSiteListData( sites: SiteData[] ): Promise< SiteListEntry[] > {
-	const result: SiteListEntry[] = [];
+interface SiteListJsonEntry extends SiteDetails {
+	running: boolean;
+}
+
+async function getSiteListData( sites: SiteData[] ): Promise< {
+	tableEntries: SiteListTableEntry[];
+	jsonEntries: SiteListJsonEntry[];
+} > {
+	const tableEntries: SiteListTableEntry[] = [];
+	const jsonEntries: SiteListJsonEntry[] = [];
 
 	for await ( const site of sites ) {
-		const isReady = await isSiteRunning( site );
-		const status = isReady ? `🟢 ${ __( 'Online' ) }` : `🔴 ${ __( 'Offline' ) }`;
+		const running = await isSiteRunning( site );
 		const url = getSiteUrl( site );
+		const status = running ? `🟢 ${ __( 'Online' ) }` : `🔴 ${ __( 'Offline' ) }`;
 
-		result.push( {
+		tableEntries.push( {
 			id: site.id,
 			status,
 			name: site.name,
 			path: getPrettyPath( site.path ),
 			url,
 		} );
+
+		jsonEntries.push( {
+			...site,
+			url,
+			running,
+		} );
 	}
 
-	return result;
+	return { tableEntries, jsonEntries };
 }
 
-function displaySiteList( sitesData: SiteListEntry[], format: 'table' | 'json' ): void {
+function displaySiteList(
+	data: { tableEntries: SiteListTableEntry[]; jsonEntries: SiteListJsonEntry[] },
+	format: 'table' | 'json'
+): void {
 	if ( format === 'table' ) {
 		const colWidths = getColumnWidths( [ 0.1, 0.2, 0.3, 0.4 ] );
 
@@ -52,7 +70,7 @@ function displaySiteList( sitesData: SiteListEntry[], format: 'table' | 'json' )
 		} );
 
 		table.push(
-			...sitesData.map( ( site ) => [
+			...data.tableEntries.map( ( site ) => [
 				site.status,
 				site.name,
 				site.path,
@@ -62,7 +80,7 @@ function displaySiteList( sitesData: SiteListEntry[], format: 'table' | 'json' )
 
 		console.log( table.toString() );
 	} else {
-		console.log( JSON.stringify( sitesData, null, 2 ) );
+		logger.reportKeyValuePair( 'sites', JSON.stringify( data.jsonEntries ) );
 	}
 }
 
@@ -88,8 +106,8 @@ export async function runCommand( format: 'table' | 'json' ): Promise< void > {
 		await connectToDaemon();
 		logger.reportSuccess( __( 'Connected to process daemon' ) );
 
-		const sitesData = await getSiteListData( appdata.sites );
-		displaySiteList( sitesData, format );
+		const siteListData = await getSiteListData( appdata.sites );
+		displaySiteList( siteListData, format );
 	} finally {
 		await disconnectFromDaemon();
 	}

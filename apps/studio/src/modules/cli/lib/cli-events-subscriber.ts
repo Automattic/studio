@@ -35,23 +35,21 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 		return;
 	}
 
-	// Only register new sites on CREATED events to prevent duplicates
 	if ( eventType === SITE_EVENTS.CREATED ) {
 		const existingServer = SiteServer.get( siteId ) ?? SiteServer.getByPath( site.path );
 		if ( ! existingServer ) {
 			SiteServer.register( siteDetailsToServerDetails( site, running ) );
-		}
-		// Don't send to renderer if site is being created by UI (createSite IPC will handle it)
-		if ( existingServer?.hasOngoingOperation ) {
-			return;
+		} else {
+			existingServer.details = siteDetailsToServerDetails( site, running, existingServer.details );
 		}
 		void sendIpcEventToRenderer( 'site-event', event );
 		return;
 	}
 
-	// For UPDATED events, only update if the site already exists
+	// For UPDATED events, update existing server details
 	const server = SiteServer.get( siteId ) ?? SiteServer.getByPath( site.path );
 	if ( ! server ) {
+		console.warn( `Received UPDATED event for unknown site: ${ siteId }` );
 		return;
 	}
 

@@ -93,6 +93,8 @@ export function filterUnsupportedBlueprintFeatures(
 
 	for ( const [ key ] of Object.entries( filtered ) ) {
 		if ( ! isPropertySupported( key ) ) {
+			// @ts-expect-error We're not truly deleting unknown keys from `filtered` here, and even if we
+			// were, this would still be a safe operation.
 			delete filtered[ key ];
 		}
 	}

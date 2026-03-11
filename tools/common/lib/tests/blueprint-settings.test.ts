@@ -1,3 +1,4 @@
+import { BlueprintV1Declaration } from '@wp-playground/blueprints';
 import {
 	extractFormValuesFromBlueprint,
 	generateDefaultBlueprintDescription,
@@ -12,34 +13,25 @@ describe( 'blueprint-settings', () => {
 			expect( result ).toEqual( {} );
 		} );
 
-		it( 'should extract PHP version from preferredVersions', () => {
-			const blueprint = {
+		it( 'should extract WP and PHP versions from preferredVersions', () => {
+			const blueprint: BlueprintV1Declaration = {
 				preferredVersions: {
 					php: '8.2',
-				},
-			};
-
-			const result = extractFormValuesFromBlueprint( blueprint );
-
-			expect( result.phpVersion ).toBe( '8.2' );
-		} );
-
-		it( 'should extract WP version from preferredVersions', () => {
-			const blueprint = {
-				preferredVersions: {
 					wp: '6.5',
 				},
 			};
 
 			const result = extractFormValuesFromBlueprint( blueprint );
 
+			expect( result.phpVersion ).toBe( '8.2' );
 			expect( result.wpVersion ).toBe( '6.5' );
 		} );
 
 		it( 'should ignore "latest" PHP version', () => {
-			const blueprint = {
+			const blueprint: BlueprintV1Declaration = {
 				preferredVersions: {
 					php: 'latest',
+					wp: '6.5',
 				},
 			};
 
@@ -49,8 +41,9 @@ describe( 'blueprint-settings', () => {
 		} );
 
 		it( 'should ignore "latest" WP version', () => {
-			const blueprint = {
+			const blueprint: BlueprintV1Declaration = {
 				preferredVersions: {
+					php: '8.2',
 					wp: 'latest',
 				},
 			};
@@ -61,7 +54,7 @@ describe( 'blueprint-settings', () => {
 		} );
 
 		it( 'should extract custom domain from defineSiteUrl step with https', () => {
-			const blueprint = {
+			const blueprint: BlueprintV1Declaration = {
 				steps: [ { step: 'defineSiteUrl', siteUrl: 'https://mysite.local' } ],
 			};
 
@@ -72,7 +65,7 @@ describe( 'blueprint-settings', () => {
 		} );
 
 		it( 'should extract custom domain from defineSiteUrl step with http', () => {
-			const blueprint = {
+			const blueprint: BlueprintV1Declaration = {
 				steps: [ { step: 'defineSiteUrl', siteUrl: 'http://mysite.local' } ],
 			};
 
@@ -83,7 +76,7 @@ describe( 'blueprint-settings', () => {
 		} );
 
 		it( 'should strip port from custom domain', () => {
-			const blueprint = {
+			const blueprint: BlueprintV1Declaration = {
 				steps: [ { step: 'defineSiteUrl', siteUrl: 'https://mysite.local:8443' } ],
 			};
 
@@ -94,7 +87,7 @@ describe( 'blueprint-settings', () => {
 		} );
 
 		it( 'should handle invalid URL in defineSiteUrl gracefully', () => {
-			const blueprint = {
+			const blueprint: BlueprintV1Declaration = {
 				steps: [ { step: 'defineSiteUrl', siteUrl: 'not-a-valid-url' } ],
 			};
 
@@ -105,7 +98,7 @@ describe( 'blueprint-settings', () => {
 		} );
 
 		it( 'should extract all values from a complete blueprint', () => {
-			const blueprint = {
+			const blueprint: BlueprintV1Declaration = {
 				preferredVersions: {
 					php: '8.0',
 					wp: '6.4',
@@ -126,11 +119,9 @@ describe( 'blueprint-settings', () => {
 		it( 'should ignore steps array that is not an array', () => {
 			const blueprint = {
 				steps: 'not-an-array',
-			};
+			} as unknown as BlueprintV1Declaration;
 
-			const result = extractFormValuesFromBlueprint(
-				blueprint as unknown as Parameters< typeof extractFormValuesFromBlueprint >[ 0 ]
-			);
+			const result = extractFormValuesFromBlueprint( blueprint );
 
 			expect( result.customDomain ).toBeUndefined();
 		} );
@@ -138,7 +129,7 @@ describe( 'blueprint-settings', () => {
 		it( 'should handle defineSiteUrl step without siteUrl property', () => {
 			const blueprint = {
 				steps: [ { step: 'defineSiteUrl' } ],
-			};
+			} as BlueprintV1Declaration;
 
 			const result = extractFormValuesFromBlueprint( blueprint );
 
@@ -147,7 +138,7 @@ describe( 'blueprint-settings', () => {
 
 		// Login credentials extraction tests
 		it( 'should not extract credentials when there is no login', () => {
-			const blueprint = {
+			const blueprint: BlueprintV1Declaration = {
 				steps: [
 					{
 						step: 'installPlugin',
@@ -161,14 +152,14 @@ describe( 'blueprint-settings', () => {
 		} );
 
 		it( 'should not extract credentials for top-level login: true', () => {
-			const blueprint = { login: true };
+			const blueprint: BlueprintV1Declaration = { login: true };
 			const result = extractFormValuesFromBlueprint( blueprint );
 			expect( result.adminUsername ).toBeUndefined();
 			expect( result.adminPassword ).toBeUndefined();
 		} );
 
 		it( 'should extract credentials from top-level login object', () => {
-			const blueprint = {
+			const blueprint: BlueprintV1Declaration = {
 				login: { username: 'customuser', password: 'custompass' },
 			};
 			const result = extractFormValuesFromBlueprint( blueprint );
@@ -179,7 +170,7 @@ describe( 'blueprint-settings', () => {
 		it( 'should extract username only from top-level login', () => {
 			const blueprint = {
 				login: { username: 'customuser' },
-			};
+			} as BlueprintV1Declaration;
 			const result = extractFormValuesFromBlueprint( blueprint );
 			expect( result.adminUsername ).toBe( 'customuser' );
 			expect( result.adminPassword ).toBeUndefined();
@@ -188,14 +179,14 @@ describe( 'blueprint-settings', () => {
 		it( 'should extract password only from top-level login', () => {
 			const blueprint = {
 				login: { password: 'custompass' },
-			};
+			} as BlueprintV1Declaration;
 			const result = extractFormValuesFromBlueprint( blueprint );
 			expect( result.adminUsername ).toBeUndefined();
 			expect( result.adminPassword ).toBe( 'custompass' );
 		} );
 
 		it( 'should extract credentials from login step in steps array', () => {
-			const blueprint = {
+			const blueprint: BlueprintV1Declaration = {
 				steps: [
 					{
 						step: 'login',
@@ -210,7 +201,7 @@ describe( 'blueprint-settings', () => {
 		} );
 
 		it( 'should extract username only from login step', () => {
-			const blueprint = {
+			const blueprint: BlueprintV1Declaration = {
 				steps: [
 					{
 						step: 'login',
@@ -224,7 +215,7 @@ describe( 'blueprint-settings', () => {
 		} );
 
 		it( 'should not extract credentials from login step without credentials', () => {
-			const blueprint = {
+			const blueprint: BlueprintV1Declaration = {
 				steps: [
 					{
 						step: 'login',
@@ -237,7 +228,7 @@ describe( 'blueprint-settings', () => {
 		} );
 
 		it( 'should prefer top-level login credentials over steps array', () => {
-			const blueprint = {
+			const blueprint: BlueprintV1Declaration = {
 				login: { username: 'toplevel', password: 'toplevelpass' },
 				steps: [
 					{
@@ -253,7 +244,7 @@ describe( 'blueprint-settings', () => {
 		} );
 
 		it( 'should extract blogname from setSiteOptions step', () => {
-			const blueprint = {
+			const blueprint: BlueprintV1Declaration = {
 				steps: [ { step: 'setSiteOptions', options: { blogname: 'My Blog' } } ],
 			};
 
@@ -263,7 +254,7 @@ describe( 'blueprint-settings', () => {
 		} );
 
 		it( 'should ignore setSiteOptions step without blogname', () => {
-			const blueprint = {
+			const blueprint: BlueprintV1Declaration = {
 				steps: [ { step: 'setSiteOptions', options: { blogdescription: 'A description' } } ],
 			};
 
@@ -273,7 +264,7 @@ describe( 'blueprint-settings', () => {
 		} );
 
 		it( 'should use first setSiteOptions step with blogname', () => {
-			const blueprint = {
+			const blueprint: BlueprintV1Declaration = {
 				steps: [
 					{ step: 'setSiteOptions', options: { blogname: 'First Name' } },
 					{ step: 'setSiteOptions', options: { blogname: 'Second Name' } },
@@ -286,7 +277,7 @@ describe( 'blueprint-settings', () => {
 		} );
 
 		it( 'should set requiresCustomDomain when enableMultisite step is present', () => {
-			const blueprint = {
+			const blueprint: BlueprintV1Declaration = {
 				steps: [ { step: 'enableMultisite' } ],
 			};
 
@@ -296,8 +287,13 @@ describe( 'blueprint-settings', () => {
 		} );
 
 		it( 'should not set requiresCustomDomain when enableMultisite step is absent', () => {
-			const blueprint = {
-				steps: [ { step: 'installPlugin', pluginData: { slug: 'akismet' } } ],
+			const blueprint: BlueprintV1Declaration = {
+				steps: [
+					{
+						step: 'installPlugin',
+						pluginData: { resource: 'wordpress.org/plugins', slug: 'akismet' },
+					},
+				],
 			};
 
 			const result = extractFormValuesFromBlueprint( blueprint );
@@ -308,8 +304,11 @@ describe( 'blueprint-settings', () => {
 
 	describe( 'updateBlueprintWithFormValues', () => {
 		it( 'should return unchanged blueprint when no form values provided', () => {
-			const blueprint = {
-				meta: { title: 'Test' },
+			const blueprint: BlueprintV1Declaration = {
+				meta: {
+					author: 'Eve',
+					title: 'Test',
+				},
 			};
 
 			const result = updateBlueprintWithFormValues( blueprint, {} );
@@ -318,9 +317,10 @@ describe( 'blueprint-settings', () => {
 		} );
 
 		it( 'should update PHP version when preferredVersions exists', () => {
-			const blueprint = {
+			const blueprint: BlueprintV1Declaration = {
 				preferredVersions: {
 					php: '8.0',
+					wp: 'latest',
 				},
 			};
 
@@ -330,8 +330,9 @@ describe( 'blueprint-settings', () => {
 		} );
 
 		it( 'should update WP version when preferredVersions exists', () => {
-			const blueprint = {
+			const blueprint: BlueprintV1Declaration = {
 				preferredVersions: {
+					php: '8.0',
 					wp: '6.4',
 				},
 			};
@@ -342,8 +343,11 @@ describe( 'blueprint-settings', () => {
 		} );
 
 		it( 'should not add preferredVersions if it does not exist', () => {
-			const blueprint = {
-				meta: { title: 'Test' },
+			const blueprint: BlueprintV1Declaration = {
+				meta: {
+					author: 'Eve',
+					title: 'Test',
+				},
 			};
 
 			const result = updateBlueprintWithFormValues( blueprint, { phpVersion: '8.2' } );
@@ -356,7 +360,7 @@ describe( 'blueprint-settings', () => {
 				preferredVersions: {
 					wp: '6.4',
 				},
-			};
+			} as BlueprintV1Declaration;
 
 			const result = updateBlueprintWithFormValues( blueprint, { phpVersion: '8.2' } );
 
@@ -364,7 +368,7 @@ describe( 'blueprint-settings', () => {
 		} );
 
 		it( 'should update defineSiteUrl step with https', () => {
-			const blueprint = {
+			const blueprint: BlueprintV1Declaration = {
 				steps: [ { step: 'defineSiteUrl', siteUrl: 'http://old.local' } ],
 			};
 
@@ -380,7 +384,7 @@ describe( 'blueprint-settings', () => {
 		} );
 
 		it( 'should update defineSiteUrl step with http', () => {
-			const blueprint = {
+			const blueprint: BlueprintV1Declaration = {
 				steps: [ { step: 'defineSiteUrl', siteUrl: 'https://old.local' } ],
 			};
 
@@ -396,7 +400,7 @@ describe( 'blueprint-settings', () => {
 		} );
 
 		it( 'should preserve port in domain when updating', () => {
-			const blueprint = {
+			const blueprint: BlueprintV1Declaration = {
 				steps: [ { step: 'defineSiteUrl', siteUrl: 'http://old.local' } ],
 			};
 
@@ -412,7 +416,7 @@ describe( 'blueprint-settings', () => {
 		} );
 
 		it( 'should not add defineSiteUrl step if it does not exist', () => {
-			const blueprint = {
+			const blueprint: BlueprintV1Declaration = {
 				steps: [ { step: 'login' } ],
 			};
 
@@ -426,7 +430,7 @@ describe( 'blueprint-settings', () => {
 		} );
 
 		it( 'should not update defineSiteUrl if customDomain is not provided', () => {
-			const blueprint = {
+			const blueprint: BlueprintV1Declaration = {
 				steps: [ { step: 'defineSiteUrl', siteUrl: 'http://old.local' } ],
 			};
 
@@ -439,7 +443,7 @@ describe( 'blueprint-settings', () => {
 		} );
 
 		it( 'should not mutate the original blueprint', () => {
-			const blueprint = {
+			const blueprint: BlueprintV1Declaration = {
 				preferredVersions: {
 					php: '8.0',
 					wp: '6.4',
@@ -459,7 +463,7 @@ describe( 'blueprint-settings', () => {
 		} );
 
 		it( 'should handle blueprint with multiple steps', () => {
-			const blueprint = {
+			const blueprint: BlueprintV1Declaration = {
 				steps: [
 					{ step: 'login' },
 					{ step: 'defineSiteUrl', siteUrl: 'http://old.local' },
@@ -488,7 +492,7 @@ describe( 'blueprint-settings', () => {
 		} );
 
 		it( 'should update blogname in existing setSiteOptions step', () => {
-			const blueprint = {
+			const blueprint: BlueprintV1Declaration = {
 				steps: [ { step: 'setSiteOptions', options: { blogname: 'Old Name' } } ],
 			};
 
@@ -503,7 +507,7 @@ describe( 'blueprint-settings', () => {
 		} );
 
 		it( 'should not add setSiteOptions step if none exists', () => {
-			const blueprint = {
+			const blueprint: BlueprintV1Declaration = {
 				steps: [ { step: 'login' } ],
 			};
 
@@ -516,7 +520,7 @@ describe( 'blueprint-settings', () => {
 		} );
 
 		it( 'should not modify setSiteOptions if siteName not provided', () => {
-			const blueprint = {
+			const blueprint: BlueprintV1Declaration = {
 				steps: [ { step: 'setSiteOptions', options: { blogname: 'Original Name' } } ],
 			};
 
@@ -531,7 +535,7 @@ describe( 'blueprint-settings', () => {
 		} );
 
 		it( 'should preserve other options when updating blogname', () => {
-			const blueprint = {
+			const blueprint: BlueprintV1Declaration = {
 				steps: [
 					{
 						step: 'setSiteOptions',
@@ -557,16 +561,14 @@ describe( 'blueprint-settings', () => {
 		} );
 
 		it( 'should return empty string for missing steps', () => {
-			expect( generateDefaultBlueprintDescription( { meta: { title: 'Test' } } ) ).toBe( '' );
+			expect(
+				generateDefaultBlueprintDescription( { meta: { author: 'Eve', title: 'Test' } } )
+			).toBe( '' );
 		} );
 
 		it( 'should return empty string for non-array steps', () => {
-			const blueprint = { steps: 'not-an-array' };
-			expect(
-				generateDefaultBlueprintDescription(
-					blueprint as unknown as Parameters< typeof generateDefaultBlueprintDescription >[ 0 ]
-				)
-			).toBe( '' );
+			const blueprint = { steps: 'not-an-array' } as unknown as BlueprintV1Declaration;
+			expect( generateDefaultBlueprintDescription( blueprint ) ).toBe( '' );
 		} );
 
 		it( 'should return empty string for steps with no recognized actions', () => {
@@ -574,20 +576,53 @@ describe( 'blueprint-settings', () => {
 		} );
 
 		it( 'should describe a single plugin', () => {
-			const blueprint = { steps: [ { step: 'installPlugin' } ] };
+			const blueprint: BlueprintV1Declaration = {
+				steps: [
+					{
+						step: 'installPlugin',
+						pluginData: { resource: 'wordpress.org/plugins', slug: 'akismet' },
+					},
+				],
+			};
 			expect( generateDefaultBlueprintDescription( blueprint ) ).toBe( 'Installs 1 plugin.' );
 		} );
 
 		it( 'should describe multiple plugins', () => {
-			const blueprint = {
-				steps: [ { step: 'installPlugin' }, { step: 'installPlugin' }, { step: 'installPlugin' } ],
+			const blueprint: BlueprintV1Declaration = {
+				steps: [
+					{
+						step: 'installPlugin',
+						pluginData: { resource: 'wordpress.org/plugins', slug: 'akismet' },
+					},
+					{
+						step: 'installPlugin',
+						pluginData: { resource: 'wordpress.org/plugins', slug: 'akismet' },
+					},
+					{
+						step: 'installPlugin',
+						pluginData: { resource: 'wordpress.org/plugins', slug: 'akismet' },
+					},
+				],
 			};
 			expect( generateDefaultBlueprintDescription( blueprint ) ).toBe( 'Installs 3 plugins.' );
 		} );
 
 		it( 'should describe plugins and themes combined', () => {
-			const blueprint = {
-				steps: [ { step: 'installPlugin' }, { step: 'installPlugin' }, { step: 'installTheme' } ],
+			const blueprint: BlueprintV1Declaration = {
+				steps: [
+					{
+						step: 'installPlugin',
+						pluginData: { resource: 'wordpress.org/plugins', slug: 'akismet' },
+					},
+					{
+						step: 'installPlugin',
+						pluginData: { resource: 'wordpress.org/plugins', slug: 'akismet' },
+					},
+					{
+						step: 'installTheme',
+						themeData: { resource: 'wordpress.org/themes', slug: 'twentytwentyone' },
+					},
+				],
 			};
 			expect( generateDefaultBlueprintDescription( blueprint ) ).toBe(
 				'Installs 2 plugins and 1 theme.'
@@ -595,20 +630,36 @@ describe( 'blueprint-settings', () => {
 		} );
 
 		it( 'should describe content import steps', () => {
-			const blueprint = { steps: [ { step: 'importWxr' } ] };
+			const blueprint: BlueprintV1Declaration = {
+				steps: [
+					{
+						step: 'importWxr',
+						file: { resource: 'url', url: 'https://example.com/starter-content.wxr' },
+					},
+				],
+			};
 			expect( generateDefaultBlueprintDescription( blueprint ) ).toBe( 'Imports content.' );
 		} );
 
 		it( 'should describe a single PHP code block', () => {
-			const blueprint = { steps: [ { step: 'runPHP' } ] };
+			const blueprint: BlueprintV1Declaration = {
+				steps: [ { step: 'runPHP', code: '<? echo "hello world";' } ],
+			};
 			expect( generateDefaultBlueprintDescription( blueprint ) ).toBe(
 				'Runs 1 block of PHP code.'
 			);
 		} );
 
 		it( 'should describe PHP code, SQL queries, and WP-CLI commands combined', () => {
-			const blueprint = {
-				steps: [ { step: 'runPHP' }, { step: 'runSql' }, { step: 'wp-cli' } ],
+			const blueprint: BlueprintV1Declaration = {
+				steps: [
+					{ step: 'runPHP', code: '<? echo "hello world";' },
+					{
+						step: 'runSql',
+						sql: { resource: 'literal', name: 'schema.sql', contents: 'DELETE FROM wp_posts' },
+					},
+					{ step: 'wp-cli', command: '' },
+				],
 			};
 			expect( generateDefaultBlueprintDescription( blueprint ) ).toBe(
 				'Runs 1 block of PHP code, 1 SQL query, and 1 WP-CLI command.'
@@ -616,8 +667,11 @@ describe( 'blueprint-settings', () => {
 		} );
 
 		it( 'should describe site configuration steps', () => {
-			const blueprint = {
-				steps: [ { step: 'setSiteOptions' }, { step: 'defineWpConfigConsts' } ],
+			const blueprint: BlueprintV1Declaration = {
+				steps: [
+					{ step: 'setSiteOptions', options: {} },
+					{ step: 'defineWpConfigConsts', consts: {} },
+				],
 			};
 			expect( generateDefaultBlueprintDescription( blueprint ) ).toBe(
 				'Applies site configuration.'
@@ -625,20 +679,44 @@ describe( 'blueprint-settings', () => {
 		} );
 
 		it( 'should describe a complex blueprint with all categories', () => {
-			const blueprint = {
+			const blueprint: BlueprintV1Declaration = {
 				steps: [
-					{ step: 'installPlugin' },
-					{ step: 'installPlugin' },
-					{ step: 'installPlugin' },
-					{ step: 'installTheme' },
-					{ step: 'installTheme' },
-					{ step: 'importWxr' },
-					{ step: 'runPHP' },
-					{ step: 'runSql' },
-					{ step: 'runSql' },
-					{ step: 'wp-cli' },
-					{ step: 'setSiteOptions' },
-					{ step: 'defineWpConfigConsts' },
+					{
+						step: 'installPlugin',
+						pluginData: { resource: 'wordpress.org/plugins', slug: 'akismet' },
+					},
+					{
+						step: 'installPlugin',
+						pluginData: { resource: 'wordpress.org/plugins', slug: 'akismet' },
+					},
+					{
+						step: 'installPlugin',
+						pluginData: { resource: 'wordpress.org/plugins', slug: 'akismet' },
+					},
+					{
+						step: 'installTheme',
+						themeData: { resource: 'wordpress.org/themes', slug: 'twentytwentyone' },
+					},
+					{
+						step: 'installTheme',
+						themeData: { resource: 'wordpress.org/themes', slug: 'twentytwentyone' },
+					},
+					{
+						step: 'importWxr',
+						file: { resource: 'url', url: 'https://example.com/starter-content.wxr' },
+					},
+					{ step: 'runPHP', code: '<? echo "hello world";' },
+					{
+						step: 'runSql',
+						sql: { resource: 'literal', name: 'schema.sql', contents: 'DELETE FROM wp_posts' },
+					},
+					{
+						step: 'runSql',
+						sql: { resource: 'literal', name: 'schema.sql', contents: 'DELETE FROM wp_posts' },
+					},
+					{ step: 'wp-cli', command: '' },
+					{ step: 'setSiteOptions', options: {} },
+					{ step: 'defineWpConfigConsts', consts: {} },
 				],
 			};
 			expect( generateDefaultBlueprintDescription( blueprint ) ).toBe(
@@ -647,12 +725,15 @@ describe( 'blueprint-settings', () => {
 		} );
 
 		it( 'should ignore unrecognized steps', () => {
-			const blueprint = {
+			const blueprint: BlueprintV1Declaration = {
 				steps: [
 					{ step: 'login' },
-					{ step: 'installPlugin' },
+					{
+						step: 'installPlugin',
+						pluginData: { resource: 'wordpress.org/plugins', slug: 'akismet' },
+					},
 					{ step: 'enableMultisite' },
-					{ step: 'defineSiteUrl' },
+					{ step: 'defineSiteUrl', siteUrl: 'http://example.com' },
 				],
 			};
 			expect( generateDefaultBlueprintDescription( blueprint ) ).toBe( 'Installs 1 plugin.' );

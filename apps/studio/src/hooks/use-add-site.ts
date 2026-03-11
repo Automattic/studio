@@ -2,6 +2,7 @@ import * as Sentry from '@sentry/electron/renderer';
 import { updateBlueprintWithFormValues } from '@studio/common/lib/blueprint-settings';
 import { BlueprintValidationWarning } from '@studio/common/lib/blueprint-validation';
 import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
+import { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useMemo, useState } from 'react';
 import { useAuth } from 'src/hooks/use-auth';
@@ -28,7 +29,7 @@ import type { SyncOption } from 'src/types';
 export interface CreateSiteFormValues {
 	siteName: string;
 	sitePath: string;
-	phpVersion: AllowedPHPVersion;
+	phpVersion: SupportedPHPVersion;
 	wpVersion: string;
 	useCustomDomain: boolean;
 	customDomain: string | null;

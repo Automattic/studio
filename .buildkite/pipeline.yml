@@ -14,10 +14,10 @@ steps:
       queue: windows
     command: powershell -File .buildkite/commands/build-for-windows.ps1 -BuildType dev -Architecture x64
     artifact_paths:
-      - out\**\studio-setup.exe
-      - out\**\studio-update.nupkg
-      - out\**\RELEASES
-      - out\**\*.appx
+      - apps\studio\out\**\studio-setup.exe
+      - apps\studio\out\**\studio-update.nupkg
+      - apps\studio\out\**\RELEASES
+      - apps\studio\out\**\*.appx
     plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
     notify:
       - github_commit_status:

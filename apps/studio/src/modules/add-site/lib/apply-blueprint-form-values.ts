@@ -20,7 +20,23 @@ export function applyBlueprintFormValues(
 	const formValues = extractFormValuesFromBlueprint( blueprintJson );
 
 	if ( blueprintJson.preferredVersions ) {
-		setters.setBlueprintPreferredVersions( blueprintJson.preferredVersions );
+		let preferredPhpVersion: SupportedPHPVersion | undefined;
+
+		// PHP 7.2 and 7.3 are not supported. Upgrade to 7.4 if needed. Playground CLI does this
+		// internally, too.
+		if (
+			blueprintJson.preferredVersions.php === '7.2' ||
+			blueprintJson.preferredVersions.php === '7.3'
+		) {
+			preferredPhpVersion = '7.4';
+		} else if ( blueprintJson.preferredVersions.php !== 'latest' ) {
+			preferredPhpVersion = blueprintJson.preferredVersions.php;
+		}
+
+		setters.setBlueprintPreferredVersions( {
+			php: preferredPhpVersion,
+			wp: blueprintJson.preferredVersions.wp,
+		} );
 	} else {
 		setters.setBlueprintPreferredVersions( undefined );
 	}

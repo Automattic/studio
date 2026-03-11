@@ -133,7 +133,9 @@ async function main() {
 	if ( process.env.ENABLE_STUDIO_AI === 'true' ) {
 		registerAiCommand( studioArgv );
 	}
-	registerMcpCommand( studioArgv );
+	if ( process.env.ENABLE_AGENT_SUITE === 'true' ) {
+		registerMcpCommand( studioArgv );
+	}
 
 	await studioArgv.argv;
 }

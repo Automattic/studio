@@ -29,6 +29,29 @@ export interface SiteInfo {
 	running: boolean;
 }
 
+interface ToolInvocationEntry {
+	label: string;
+	elapsed: number;
+	isError: boolean;
+	outputLines: string[];
+}
+
+interface ToolGroupEntry {
+	key: string;
+	label: string;
+	invocations: ToolInvocationEntry[];
+	container: Container;
+}
+
+interface ToolCheckpointEntry {
+	container: Container;
+	groups: ToolGroupEntry[];
+	collapsedCount: number;
+	isClosed: boolean;
+}
+
+type ToolViewMode = 'hidden' | 'summary' | 'full';
+
 class PromptEditor implements Component, Focusable {
 	private editor: Editor;
 	private borderColorFn: ( text: string ) => string;
@@ -272,6 +295,12 @@ export class AiChatUI {
 	private toolDotTimer: ReturnType< typeof setInterval > | null = null;
 	private toolDotVisible = true;
 	private toolDotLabel = '';
+	private toolProgressText: Text | null = null;
+	private pendingToolProgressLines: string[] = [];
+	private toolCheckpoints: ToolCheckpointEntry[] = [];
+	private activeToolCheckpoint: ToolCheckpointEntry | null = null;
+	private activeToolGroup: ToolGroupEntry | null = null;
+	private toolViewMode: ToolViewMode = 'summary';
 	private _activeSite: SiteInfo | null = null;
 	private _activeSiteData: SiteData | null = null;
 	private pendingToolCalls = new Map<
@@ -404,7 +433,7 @@ export class AiChatUI {
 				resolve( trimmed );
 			}
 		};
-		// Ctrl+C to exit, Escape to interrupt/close picker, arrow keys for picker
+		// Ctrl+C to exit, ctrl + e toggles tool details, Escape interrupts/closes pickers.
 		this.tui.addInputListener( ( data ) => {
 			// Ignore key release events (Kitty protocol sends press + release)
 			if ( isKeyRelease( data ) ) {
@@ -413,6 +442,13 @@ export class AiChatUI {
 			if ( matchesKey( data, 'ctrl+c' ) ) {
 				this.stop();
 				process.exit( 0 );
+			}
+			if ( matchesKey( data, 'ctrl+right' ) ) {
+				return undefined;
+			}
+			if ( matchesKey( data, 'ctrl+e' ) ) {
+				this.toggleToolDetails();
+				return { consume: true };
 			}
 			// Option picker navigation (must be checked before site picker)
 			if ( this.optionPickerVisible ) {
@@ -512,14 +548,7 @@ export class AiChatUI {
 		if ( ! this.sitePickerContainer ) {
 			return;
 		}
-		// Clear previous children
-		while (
-			( this.sitePickerContainer as Container & { children?: unknown[] } ).children?.length
-		) {
-			this.sitePickerContainer.removeChild(
-				( this.sitePickerContainer as Container & { children: Component[] } ).children[ 0 ]
-			);
-		}
+		this.clearContainer( this.sitePickerContainer );
 
 		const header = chalk.dim( '  Select a site:' );
 		const items = this.sitePickerItems.map( ( site, i ) => {
@@ -705,7 +734,7 @@ export class AiChatUI {
 		this.sitePickerVisible = false;
 		this.sitePickerItems = [];
 		this.sitePickerSiteData = [];
-		this.editor.hints = [ '↓ select site' ];
+		this.updateHints();
 		this.tui.requestRender();
 	}
 
@@ -713,13 +742,7 @@ export class AiChatUI {
 		if ( ! this.optionPickerContainer ) {
 			return;
 		}
-		while (
-			( this.optionPickerContainer as Container & { children?: unknown[] } ).children?.length
-		) {
-			this.optionPickerContainer.removeChild(
-				( this.optionPickerContainer as Container & { children: Component[] } ).children[ 0 ]
-			);
-		}
+		this.clearContainer( this.optionPickerContainer );
 
 		const items = this.optionPickerItems.map( ( opt, i ) => {
 			if ( i === this.optionPickerSelectedIndex ) {
@@ -740,6 +763,269 @@ export class AiChatUI {
 		}
 		this.optionPickerVisible = false;
 		this.optionPickerItems = [];
+		this.tui.requestRender();
+	}
+
+	private clearContainer( container: Container ): void {
+		while ( ( container as Container & { children?: unknown[] } ).children?.length ) {
+			container.removeChild( ( container as Container & { children: Component[] } ).children[ 0 ] );
+		}
+	}
+
+	private formatToolOutputText( outputLines: string[] ): string {
+		return outputLines
+			.map( ( line ) => '   ' + chalk.dim( '⎿ ' ) + chalk.dim( line ) )
+			.join( '\n' );
+	}
+
+	private formatCompletedToolLine(
+		label: string,
+		isError: boolean,
+		elapsed: number,
+		count = 1
+	): string {
+		const countStr = count > 1 ? chalk.dim( ` x${ count }` ) : '';
+		const elapsedStr = elapsed > 0 ? chalk.dim( ` (${ ( elapsed / 1000 ).toFixed( 1 ) }s)` ) : '';
+		const statusIcon = isError ? chalk.red( '⏺' ) : chalk.green( '⏺' );
+		return '\n ' + statusIcon + ' ' + label + countStr + elapsedStr;
+	}
+
+	private formatActiveToolLine( label: string, pulsing: boolean ): string {
+		const statusIcon = pulsing ? chalk.yellowBright( '⏺' ) : chalk.yellow.dim( '⏺' );
+		return '\n ' + statusIcon + ' ' + label;
+	}
+
+	private formatCollapsedToolHeader( count: number ): string {
+		return '\n' + chalk.hex( '#8893a2' )( `⎿ Tools 1-${ count }` );
+	}
+
+	private formatToolHeaderWithIndicator( count: number, mode: ToolViewMode ): string {
+		const indicator = mode === 'hidden' ? '▸' : mode === 'summary' ? '▾' : '◂';
+		return this.formatCollapsedToolHeader( count ) + '  ' + chalk.hex( '#9aa5b5' )( indicator );
+	}
+
+	private canHideCheckpoint( checkpoint: ToolCheckpointEntry ): boolean {
+		return checkpoint.groups.length >= 5;
+	}
+
+	private formatCollapsedToolGroupLine( group: ToolGroupEntry ): string {
+		const totalElapsed = group.invocations.reduce(
+			( total, invocation ) => total + invocation.elapsed,
+			0
+		);
+		const countStr =
+			group.invocations.length > 1
+				? chalk.hex( '#9aa5b5' )( ` x${ group.invocations.length }` )
+				: '';
+		const elapsedStr =
+			totalElapsed > 0
+				? chalk.hex( '#8b96a5' )( ` (${ ( totalElapsed / 1000 ).toFixed( 1 ) }s)` )
+				: '';
+		const dotColor = group.invocations.some( ( invocation ) => invocation.isError )
+			? chalk.hex( '#c88484' )
+			: chalk.hex( '#8fa98d' );
+
+		return (
+			'  ' + dotColor( '⏺' ) + ' ' + chalk.hex( '#a4aebe' )( group.label ) + countStr + elapsedStr
+		);
+	}
+
+	private renderToolGroup( group: ToolGroupEntry ): void {
+		this.clearContainer( group.container );
+
+		let text: string;
+		if ( this.toolViewMode === 'full' ) {
+			text = group.invocations
+				.map( ( invocation ) => {
+					const summary = this.formatCompletedToolLine(
+						invocation.label,
+						invocation.isError,
+						invocation.elapsed
+					);
+					if ( invocation.outputLines.length === 0 ) {
+						return summary;
+					}
+					return summary + '\n' + this.formatToolOutputText( invocation.outputLines );
+				} )
+				.join( '' );
+		} else {
+			const totalElapsed = group.invocations.reduce(
+				( total, invocation ) => total + invocation.elapsed,
+				0
+			);
+			const hasError = group.invocations.some( ( invocation ) => invocation.isError );
+			const outputLines = group.invocations.flatMap( ( invocation ) => invocation.outputLines );
+			const summary = this.formatCompletedToolLine(
+				group.label,
+				hasError,
+				totalElapsed,
+				group.invocations.length
+			);
+			text =
+				outputLines.length === 0
+					? summary
+					: summary + '\n' + this.formatToolOutputText( outputLines );
+		}
+
+		group.container.addChild( new Text( text, 0, 0 ) );
+	}
+
+	private renderToolCheckpoint( checkpoint: ToolCheckpointEntry ): void {
+		this.clearContainer( checkpoint.container );
+
+		const canHide = this.canHideCheckpoint( checkpoint );
+		const headerMode =
+			canHide && this.toolViewMode === 'hidden'
+				? 'hidden'
+				: this.toolViewMode === 'full'
+				? 'full'
+				: 'summary';
+		const collapsedCount = this.toolViewMode === 'full' ? 0 : checkpoint.collapsedCount;
+
+		if ( canHide ) {
+			checkpoint.container.addChild(
+				new Text( this.formatToolHeaderWithIndicator( checkpoint.groups.length, headerMode ), 0, 0 )
+			);
+		} else if ( collapsedCount > 0 ) {
+			checkpoint.container.addChild(
+				new Text( this.formatCollapsedToolHeader( checkpoint.groups.length ), 0, 0 )
+			);
+		}
+
+		if ( canHide && this.toolViewMode === 'hidden' ) {
+			return;
+		}
+
+		if ( collapsedCount > 0 ) {
+			const collapsedGroups = checkpoint.groups.slice( 0, collapsedCount );
+			const collapsedText = collapsedGroups
+				.map( ( group ) => this.formatCollapsedToolGroupLine( group ) )
+				.join( '\n' );
+			checkpoint.container.addChild( new Text( collapsedText, 0, 0 ) );
+		}
+
+		for ( const group of checkpoint.groups.slice( collapsedCount ) ) {
+			this.renderToolGroup( group );
+			checkpoint.container.addChild( group.container );
+		}
+	}
+
+	private ensureActiveToolCheckpoint(): ToolCheckpointEntry {
+		if ( this.activeToolCheckpoint ) {
+			return this.activeToolCheckpoint;
+		}
+
+		const checkpoint: ToolCheckpointEntry = {
+			container: new Container(),
+			groups: [],
+			collapsedCount: 0,
+			isClosed: false,
+		};
+		this.toolCheckpoints.push( checkpoint );
+		this.messages.addChild( checkpoint.container );
+		this.activeToolCheckpoint = checkpoint;
+		return checkpoint;
+	}
+
+	private moveActiveToolCheckpointToEnd(): void {
+		if ( ! this.activeToolCheckpoint ) {
+			return;
+		}
+		this.messages.removeChild( this.activeToolCheckpoint.container );
+		this.messages.addChild( this.activeToolCheckpoint.container );
+	}
+
+	private hasHideableCheckpoint(): boolean {
+		return this.toolCheckpoints.some( ( checkpoint ) => this.canHideCheckpoint( checkpoint ) );
+	}
+
+	private toggleToolDetails(): void {
+		const hasHideableCheckpoint = this.hasHideableCheckpoint();
+		if ( hasHideableCheckpoint ) {
+			this.toolViewMode =
+				this.toolViewMode === 'hidden'
+					? 'summary'
+					: this.toolViewMode === 'summary'
+					? 'full'
+					: 'hidden';
+		} else {
+			this.toolViewMode = this.toolViewMode === 'full' ? 'summary' : 'full';
+		}
+
+		if ( this.toolViewMode !== 'full' && this.activeToolCheckpoint ) {
+			const visibleCount =
+				this.activeToolCheckpoint.groups.length - this.activeToolCheckpoint.collapsedCount;
+			if ( visibleCount > 3 ) {
+				this.activeToolCheckpoint.collapsedCount = this.activeToolCheckpoint.groups.length;
+			}
+		}
+		for ( const checkpoint of this.toolCheckpoints ) {
+			this.renderToolCheckpoint( checkpoint );
+		}
+		this.tui.requestRender();
+	}
+
+	private closeToolCheckpoint(): void {
+		const checkpoint = this.activeToolCheckpoint;
+		if ( ! checkpoint ) {
+			return;
+		}
+
+		checkpoint.isClosed = true;
+		checkpoint.collapsedCount = checkpoint.groups.length;
+		this.activeToolCheckpoint = null;
+		this.activeToolGroup = null;
+		this.renderToolCheckpoint( checkpoint );
+		this.tui.requestRender();
+	}
+
+	private addToolInvocation(
+		label: string,
+		elapsed: number,
+		isError: boolean,
+		outputLines: string[]
+	): void {
+		const checkpoint = this.ensureActiveToolCheckpoint();
+		let group = this.activeToolGroup;
+		if ( ! group || group.key !== label ) {
+			group = {
+				key: label,
+				label,
+				invocations: [],
+				container: new Container(),
+			};
+			checkpoint.groups.push( group );
+			this.activeToolGroup = group;
+		}
+
+		group.invocations.push( {
+			label,
+			elapsed,
+			isError,
+			outputLines,
+		} );
+		if ( this.toolViewMode !== 'full' && ! checkpoint.isClosed ) {
+			const visibleCount = checkpoint.groups.length - checkpoint.collapsedCount;
+			if ( visibleCount > 3 ) {
+				checkpoint.collapsedCount = checkpoint.groups.length;
+			}
+		}
+		let viewModeChanged = false;
+		if (
+			this.toolViewMode === 'summary' &&
+			this.canHideCheckpoint( checkpoint ) &&
+			checkpoint.collapsedCount === checkpoint.groups.length
+		) {
+			this.toolViewMode = 'hidden';
+			viewModeChanged = true;
+		}
+		if ( viewModeChanged ) {
+			for ( const toolCheckpoint of this.toolCheckpoints ) {
+				this.renderToolCheckpoint( toolCheckpoint );
+			}
+		} else {
+			this.renderToolCheckpoint( checkpoint );
+		}
 		this.tui.requestRender();
 	}
 
@@ -807,6 +1093,7 @@ export class AiChatUI {
 	}
 
 	addUserMessage( text: string ): void {
+		this.closeToolCheckpoint();
 		const lines = text.split( '\n' );
 		const formatted = lines
 			.map( ( line, i ) => {
@@ -824,7 +1111,17 @@ export class AiChatUI {
 		if ( ! message ) {
 			return;
 		}
-		this.messages.addChild( new Text( '   ' + chalk.dim( '⎿ ' ) + chalk.dim( message ), 0, 0 ) );
+		this.pendingToolProgressLines.push( message );
+		const progressText = this.pendingToolProgressLines
+			.map( ( line ) => '   ' + chalk.dim( '⎿ ' ) + chalk.dim( line ) )
+			.join( '\n' );
+
+		if ( ! this.toolProgressText ) {
+			this.toolProgressText = new Text( progressText, 0, 0 );
+			this.messages.addChild( this.toolProgressText );
+		} else {
+			this.toolProgressText.setText( progressText );
+		}
 		this.tui.requestRender();
 	}
 
@@ -858,7 +1155,7 @@ export class AiChatUI {
 	}
 
 	private updateHints(): void {
-		this.editor.hints = [ '↓ select site' ];
+		this.editor.hints = [ '↓ select site', 'ctrl + e tool details' ];
 	}
 
 	private showEditor(): void {
@@ -884,6 +1181,7 @@ export class AiChatUI {
 	 * Begin an agent turn: hide editor, show loader, prepare response area.
 	 */
 	beginAgentTurn(): void {
+		this.closeToolCheckpoint();
 		this.editor.setText( '' );
 		this.editor.hints = [ 'esc to interrupt' ];
 		this.showLoader( this.randomThinkingMessage() );
@@ -896,8 +1194,14 @@ export class AiChatUI {
 	 * End an agent turn: hide loader, clean up response state.
 	 */
 	endAgentTurn(): void {
+		this.closeToolCheckpoint();
 		this.hideLoader();
 		this.stopToolDotBlink();
+		if ( this.toolProgressText ) {
+			this.messages.removeChild( this.toolProgressText );
+			this.toolProgressText = null;
+		}
+		this.pendingToolProgressLines = [];
 		this.toolDotText = null;
 		this.interruptCallback = null;
 		this.pendingToolCalls.clear();
@@ -907,6 +1211,7 @@ export class AiChatUI {
 	}
 
 	showError( message: string ): void {
+		this.closeToolCheckpoint();
 		this.messages.addChild(
 			new Text( '\n ' + chalk.red( '⏺' ) + ' ' + chalk.red( message ) + '\n', 0, 0 )
 		);
@@ -914,6 +1219,7 @@ export class AiChatUI {
 	}
 
 	showInfo( message: string ): void {
+		this.closeToolCheckpoint();
 		this.messages.addChild( new Text( '\n' + chalk.dim( message ) + '\n', 1, 0 ) );
 		this.tui.requestRender();
 	}
@@ -923,10 +1229,10 @@ export class AiChatUI {
 			clearInterval( this.toolDotTimer );
 			this.toolDotTimer = null;
 		}
-		// Ensure the dot is visible when we stop
-		if ( this.toolDotText && ! this.toolDotVisible ) {
+		// Reset the active tool dot to the bright pulse frame before it is finalized/removed.
+		if ( this.toolDotText ) {
 			this.toolDotVisible = true;
-			this.toolDotText.setText( '\n ' + '⏺' + ' ' + this.toolDotLabel );
+			this.toolDotText.setText( this.formatActiveToolLine( this.toolDotLabel, true ) );
 		}
 	}
 
@@ -937,10 +1243,25 @@ export class AiChatUI {
 	): void {
 		this.stopToolDotBlink();
 		const result = message.tool_use_result;
-		if ( ! result || typeof result !== 'object' ) {
+		const elapsed = this.toolStartTime ? Date.now() - this.toolStartTime : 0;
+		this.toolStartTime = null;
+		const label =
+			this.toolDotLabel || ( toolName ? formatToolName( toolName ) : chalk.bold( 'Tool' ) );
+		if ( this.toolDotText ) {
+			this.messages.removeChild( this.toolDotText );
 			this.toolDotText = null;
+		}
+		if ( this.toolProgressText ) {
+			this.messages.removeChild( this.toolProgressText );
+			this.toolProgressText = null;
+		}
+
+		if ( ! result || typeof result !== 'object' ) {
+			this.addToolInvocation( label, elapsed, false, this.pendingToolProgressLines );
+			this.pendingToolProgressLines = [];
 			return;
 		}
+
 		const typedResult = result as {
 			content?: string | Array< { type: string; text?: string } >;
 			isError?: boolean;
@@ -950,19 +1271,6 @@ export class AiChatUI {
 		// Auto-select the site that was operated on
 		if ( ! isError && toolName && toolInput ) {
 			void this.autoSelectSiteFromToolResult( toolName, toolInput );
-		}
-
-		// Show elapsed time
-		const elapsed = this.toolStartTime ? Date.now() - this.toolStartTime : 0;
-		this.toolStartTime = null;
-		const elapsedStr = elapsed > 0 ? chalk.dim( ` (${ ( elapsed / 1000 ).toFixed( 1 ) }s)` ) : '';
-		const statusIcon = isError ? chalk.red( '⏺' ) : '⏺';
-		const label = this.toolDotLabel;
-
-		// Update the existing tool-use line in place
-		if ( this.toolDotText ) {
-			this.toolDotText.setText( '\n ' + statusIcon + ' ' + label + elapsedStr );
-			this.toolDotText = null;
 		}
 
 		const content = typedResult.content;
@@ -975,22 +1283,21 @@ export class AiChatUI {
 				.map( ( block ) => block.text )
 				.join( '\n' );
 		} else {
-			this.tui.requestRender();
+			this.addToolInvocation( label, elapsed, isError, this.pendingToolProgressLines );
+			this.pendingToolProgressLines = [];
 			return;
 		}
 		if ( ! text ) {
-			this.tui.requestRender();
+			this.addToolInvocation( label, elapsed, isError, this.pendingToolProgressLines );
+			this.pendingToolProgressLines = [];
 			return;
 		}
 		// Use a larger limit for validation results so they're fully visible
 		const maxLength = toolName === 'mcp__studio__validate_blocks' ? 2000 : 500;
 		const truncated = text.length > maxLength ? text.slice( 0, maxLength ) + '…' : text;
-		const resultLines = truncated.split( '\n' );
-		const formatted = resultLines
-			.map( ( line ) => '   ' + chalk.dim( '⎿ ' ) + chalk.dim( line ) )
-			.join( '\n' );
-		this.messages.addChild( new Text( formatted, 0, 0 ) );
-		this.tui.requestRender();
+		const resultLines = [ ...this.pendingToolProgressLines, ...truncated.split( '\n' ) ];
+		this.pendingToolProgressLines = [];
+		this.addToolInvocation( label, elapsed, isError, resultLines );
 	}
 
 	/**
@@ -998,6 +1305,7 @@ export class AiChatUI {
 	 * Called via canUseTool when the agent uses AskUserQuestion.
 	 */
 	async askUser( questions: AskUserQuestion[] ): Promise< Record< string, string > > {
+		this.closeToolCheckpoint();
 		this.hideLoader();
 
 		// Close off the current markdown block so questions appear after the text so far
@@ -1071,6 +1379,7 @@ export class AiChatUI {
 						this.currentMarkdown!.setText(
 							'\n' + chalk.blue( '⏺' ) + ' ' + this.currentResponseText
 						);
+						this.moveActiveToolCheckpointToEnd();
 						this.tui.requestRender();
 					} else if ( block.type === 'tool_use' ) {
 						this.lastToolName = block.name;
@@ -1089,7 +1398,9 @@ export class AiChatUI {
 						this.showLoader( this.randomThinkingMessage() );
 						this.stopToolDotBlink();
 						this.toolDotLabel = toolLabel;
-						this.toolDotText = new Text( '\n ' + '⏺' + ' ' + toolLabel, 0, 0 );
+						this.pendingToolProgressLines = [];
+						this.toolProgressText = null;
+						this.toolDotText = new Text( this.formatActiveToolLine( toolLabel, true ), 0, 0 );
 						this.messages.addChild( this.toolDotText );
 						this.toolDotVisible = true;
 						this.toolDotTimer = setInterval( () => {
@@ -1097,8 +1408,9 @@ export class AiChatUI {
 								return;
 							}
 							this.toolDotVisible = ! this.toolDotVisible;
-							const dot = this.toolDotVisible ? '⏺' : ' ';
-							this.toolDotText.setText( '\n ' + dot + ' ' + toolLabel );
+							this.toolDotText.setText(
+								this.formatActiveToolLine( toolLabel, this.toolDotVisible )
+							);
 							this.tui.requestRender();
 						}, 500 );
 					}
@@ -1121,6 +1433,7 @@ export class AiChatUI {
 				return undefined;
 			}
 			case 'result': {
+				this.closeToolCheckpoint();
 				this.hideLoader();
 				if ( message.subtype === 'success' ) {
 					const thinkingSec = Math.round( ( Date.now() - this.turnStartTime ) / 1000 );

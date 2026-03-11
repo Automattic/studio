@@ -5,7 +5,6 @@ import { tool, createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { z } from 'zod/v4';
 import { validateBlocks, type ValidationReport } from 'cli/ai/block-validator';
-import { getSharedBrowser } from 'cli/ai/browser-utils';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
 import { runCommand as runListSitesCommand } from 'cli/commands/site/list';
@@ -314,15 +313,12 @@ const runWpCliTool = tool(
 	},
 	async ( args ) => {
 		try {
-			const site = await resolveSite( args.nameOrPath );
-
 			// Validate block content in post create/update commands before executing
 			if ( isPostContentCommand( args.command ) ) {
 				const postContent = extractPostContent( args.command );
 				if ( postContent && BLOCK_COMMENT_PATTERN.test( postContent ) ) {
 					emitProgress( 'Validating post content blocks…' );
-					const siteUrl = getSiteUrl( site );
-					const report = await validateBlocks( postContent, siteUrl );
+					const report = validateBlocks( postContent );
 					if ( report.invalidBlocks > 0 ) {
 						const lines = [
 							`Block validation failed: ${ report.invalidBlocks }/${ report.totalBlocks } blocks invalid. Fix the content before creating/updating the post.`,
@@ -334,6 +330,8 @@ const runWpCliTool = tool(
 					emitProgress( `Post content: all ${ report.totalBlocks } blocks valid` );
 				}
 			}
+
+			const site = await resolveSite( args.nameOrPath );
 
 			try {
 				await connectToDaemon();
@@ -380,12 +378,10 @@ const runWpCliTool = tool(
 
 const validateBlocksTool = tool(
 	'validate_blocks',
-	"Validates WordPress block content by running each block through its save() function in the site's block editor (real browser). " +
-		'The site must be running. Returns per-block validation results with expected HTML for invalid blocks.',
+	'Validates WordPress block content by parsing it and checking each block against its registered save() function. ' +
+		'Returns per-block validation results showing which blocks are valid and which have issues, ' +
+		'along with the expected HTML for invalid blocks so you can fix them.',
 	{
-		nameOrPath: z
-			.string()
-			.describe( 'The site name or file system path — the site must be running' ),
 		filePath: z
 			.string()
 			.optional()
@@ -411,13 +407,11 @@ const validateBlocksTool = tool(
 
 			emitProgress( `Validating blocks in ${ fileName }…` );
 
-			const site = await resolveSite( args.nameOrPath );
-			const siteUrl = getSiteUrl( site );
-			const report = await validateBlocks( blockContent, siteUrl );
+			const report = validateBlocks( blockContent );
 
 			if ( report.error ) {
 				emitProgress( `Validation failed for ${ fileName }: ${ report.error.slice( 0, 80 ) }` );
-				return errorResult( `Block validation failed: ${ report.error }` );
+				return errorResult( `Block validator initialization failed: ${ report.error }` );
 			}
 
 			// Update progress with result summary
@@ -448,6 +442,33 @@ const validateBlocksTool = tool(
 
 // --- Screenshot tool ---
 
+type Browser = Awaited< ReturnType< ( typeof import('playwright') )[ 'chromium' ][ 'launch' ] > >;
+
+let browserPromise: Promise< Browser > | null = null;
+
+async function getScreenshotBrowser() {
+	if ( ! browserPromise ) {
+		browserPromise = ( async () => {
+			const { chromium } = require( 'playwright' ) as typeof import('playwright');
+			const browser = await chromium.launch( {
+				args: [ '--ignore-certificate-errors' ],
+			} );
+
+			// Clean up browser when process exits
+			const cleanup = () => {
+				browser.close().catch( () => {} );
+				browserPromise = null;
+			};
+			process.on( 'exit', cleanup );
+			process.on( 'SIGINT', cleanup );
+			process.on( 'SIGTERM', cleanup );
+
+			return browser;
+		} )();
+	}
+	return browserPromise;
+}
+
 const VIEWPORTS = {
 	desktop: { width: 1040, height: 1248 },
 	mobile: { width: 390, height: 844 },
@@ -473,7 +494,7 @@ const takeScreenshotTool = tool(
 
 			emitProgress( `Taking ${ viewportType } screenshot of ${ args.url }…` );
 
-			const browser = await getSharedBrowser();
+			const browser = await getScreenshotBrowser();
 			const page = await browser.newPage( { viewport } );
 
 			try {

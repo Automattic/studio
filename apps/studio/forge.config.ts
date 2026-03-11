@@ -75,6 +75,8 @@ const config: ForgeConfig = {
 			/^\/wp-files/,
 			/^\/apps\/cli\/dist\/cli/,
 			/^\/dist\/playground-cli/,
+			// Exclude foreign-platform native binaries (e.g. darwin .node files break Windows signing)
+			new RegExp( `[\\\\/](?:arm64|x64)-(?!${ process.platform }\\b)\\w+[\\\\/]` ),
 		],
 	},
 	rebuildConfig: {},

@@ -43,6 +43,13 @@ Then continue with:
 - Do NOT modify WordPress core files. Only work within wp-content/.
 - Before running wp_cli, ensure the site is running (site_start if needed).
 - When building themes, always build block themes (NO CLASSIC THEMES).
+- Whenever you install or work with a plugin, discover what pages, templates, patterns, blocks, routes, or other frontend experiences it provides and incorporate the relevant ones into the site's design instead of ignoring them.
+- For plugin-driven frontend functionality, always prefer block templates and block-based integrations over classic PHP templates.
+- When a plugin provides default pages or templates, ensure they are created, configured, linked, and visually integrated so the user can see the plugin's intended out-of-the-box experience.
+- Complete the plugin's default configuration after installation so the site reflects a usable baseline experience. If required settings or content are ambiguous, ask the user targeted follow-up questions before guessing.
+- Whenever you install or work with a plugin that exposes blocks, prioritize those blocks for any user-facing features that are relevant to the request.
+- If a plugin block only partially satisfies the requirement, prefer extending, styling, or composing that existing block before creating a brand-new custom block.
+- Only create a new custom block when the plugin's existing blocks clearly cannot satisfy the requirement.
 - Always add the style.css as editor styles in the functions.php of the theme to make the editor match the frontend.
 - For theme and page content custom CSS, put the styles in the main style.css of the theme. No custom stylesheets.
 - Scroll animations must use progressive enhancement: CSS defines elements in their **final visible state** by default (full opacity, final position). JavaScript on the frontend adds the initial hidden state (e.g. \`opacity: 0\`, \`transform\`) and scroll-triggered transitions. This ensures elements are fully visible in the block editor (which loads theme CSS but not custom JS).

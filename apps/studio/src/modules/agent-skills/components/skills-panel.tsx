@@ -47,7 +47,7 @@ function SkillRow( {
 							variant="link"
 							onClick={ handleRemoveClick }
 							disabled={ isRemoving }
-							className="text-xs !text-gray-400 hover:!text-a8c-red-50"
+							className="text-xs !text-a8c-red-50"
 						>
 							{ isRemoving ? __( 'Removing...' ) : __( 'Remove' ) }
 						</Button>
@@ -231,7 +231,6 @@ export function SkillsPanel( { siteId, className }: SkillsPanelProps ) {
 					) )
 				) }
 			</div>
-
 		</div>
 	);
 }

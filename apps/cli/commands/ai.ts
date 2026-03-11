@@ -193,6 +193,79 @@ async function runListSessionsCommand( format: 'compact' | 'json' ): Promise< vo
 	displaySessionsCompact( sessions );
 }
 
+async function pickSessionInteractively(
+	sessions: AiSessionSummary[],
+	message: string
+): Promise< AiSessionSummary | undefined > {
+	const interactiveWidth = Math.max( ( process.stdout.columns ?? 100 ) - 4, 56 );
+	const abortController = new AbortController();
+	const handleEscKey = ( chunk: Buffer | string ) => {
+		const bytes = Buffer.isBuffer( chunk ) ? chunk : Buffer.from( chunk );
+		if ( bytes.length === 1 && bytes[ 0 ] === 0x1b ) {
+			abortController.abort();
+		}
+	};
+
+	if ( process.stdin.isTTY ) {
+		process.stdin.on( 'data', handleEscKey );
+	}
+
+	try {
+		const selectedSessionId = await select(
+			{
+				message,
+				choices: sessions.map( ( session ) => ( {
+					name: formatSessionCompactLine( session, interactiveWidth, {
+						idWidth: Math.max( ...sessions.map( ( s ) => visibleWidth( s.id ) ) ),
+						relativeWidth: Math.max(
+							...sessions.map( ( s ) => visibleWidth( getRelativeTime( s.updatedAt ) ) )
+						),
+					} ),
+					value: session.id,
+				} ) ),
+				pageSize: Math.min( 12, sessions.length ),
+				loop: false,
+				theme: {
+					style: {
+						keysHelpTip: () => chalk.dim( '↑↓ navigate · ⏎ select · esc cancel' ),
+					},
+				},
+			},
+			{
+				signal: abortController.signal,
+			}
+		);
+
+		return sessions.find( ( session ) => session.id === selectedSessionId );
+	} catch ( error ) {
+		if (
+			error instanceof Error &&
+			( error.name === 'AbortPromptError' || error.name === 'ExitPromptError' )
+		) {
+			return undefined;
+		}
+
+		throw error;
+	} finally {
+		if ( process.stdin.isTTY ) {
+			process.stdin.off( 'data', handleEscKey );
+		}
+	}
+}
+
+async function chooseSessionForAction(
+	actionLabel: string,
+	noSessionsMessage: string
+): Promise< AiSessionSummary | undefined > {
+	const sessions = await listAiSessions();
+	if ( sessions.length === 0 ) {
+		console.log( noSessionsMessage );
+		return undefined;
+	}
+
+	return pickSessionInteractively( sessions, actionLabel );
+}
+
 function extractAssistantMessageBlocks( message: SDKMessage ): AssistantMessageBlock[] {
 	if ( message.type !== 'assistant' ) {
 		return [];
@@ -676,17 +749,19 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 								},
 							} )
 							.command( {
-								command: 'resume <id>',
-								describe: __( 'Resume an AI session (id or "latest")' ),
+								command: 'resume [id]',
+								describe: __( 'Resume an AI session (id, prefix, "latest", or picker)' ),
 								builder: ( resumeYargs ) => {
 									return resumeYargs.positional( 'id', {
 										type: 'string',
-										describe: __( 'Session id (or "latest")' ),
+										describe: __( 'Session id, id prefix, or "latest"' ),
 									} );
 								},
 								handler: async ( argv ) => {
 									try {
-										await runResumeSessionCommand( argv.id as string );
+										await runResumeSessionCommand(
+											typeof argv.id === 'string' ? argv.id : undefined
+										);
 									} catch ( error ) {
 										if ( error instanceof LoggerError ) {
 											logger.reportError( error );
@@ -701,8 +776,8 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 								},
 							} )
 							.command( {
-								command: 'delete <id>',
-								describe: __( 'Delete an AI session (id, prefix, or "latest")' ),
+								command: 'delete [id]',
+								describe: __( 'Delete an AI session (id, prefix, "latest", or picker)' ),
 								builder: ( deleteYargs ) => {
 									return deleteYargs.positional( 'id', {
 										type: 'string',
@@ -711,7 +786,9 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 								},
 								handler: async ( argv ) => {
 									try {
-										await runDeleteSessionCommand( argv.id as string );
+										await runDeleteSessionCommand(
+											typeof argv.id === 'string' ? argv.id : undefined
+										);
 									} catch ( error ) {
 										if ( error instanceof LoggerError ) {
 											logger.reportError( error );

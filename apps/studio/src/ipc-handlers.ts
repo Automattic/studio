@@ -65,6 +65,15 @@ import { setupWordPressFilesOnly } from 'src/lib/wordpress-setup';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
+import {
+	DEFAULT_AGENT_INSTRUCTIONS,
+	type InstructionFileType,
+} from 'src/modules/agent-instructions/constants';
+import {
+	getAllInstructionFilesStatus,
+	installInstructionFile,
+	type InstructionFileStatus,
+} from 'src/modules/agent-instructions/lib/instructions';
 import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
@@ -124,6 +133,36 @@ export {
 	saveUserTerminal,
 	showUserSettings,
 } from 'src/modules/user-settings/lib/ipc-handlers';
+
+export async function getAgentInstructionsStatus(
+	_event: IpcMainInvokeEvent,
+	siteId: string
+): Promise< InstructionFileStatus[] > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( `Site not found: ${ siteId }` );
+	}
+	return getAllInstructionFilesStatus( server.details.path );
+}
+
+export async function installAgentInstructions(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	options?: { overwrite?: boolean; fileType?: InstructionFileType }
+): Promise< { path: string; overwritten: boolean } > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( `Site not found: ${ siteId }` );
+	}
+	const overwrite = options?.overwrite ?? false;
+	const fileType = options?.fileType ?? 'agents';
+	return installInstructionFile(
+		server.details.path,
+		fileType,
+		DEFAULT_AGENT_INSTRUCTIONS,
+		overwrite
+	);
+}
 
 const DEBUG_LOG_MAX_LINES = 50;
 const PM2_HOME = nodePath.join( os.homedir(), '.studio', 'pm2' );

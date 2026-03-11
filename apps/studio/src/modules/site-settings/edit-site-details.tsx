@@ -10,7 +10,7 @@ import {
 	validateAdminUsername,
 } from '@studio/common/lib/passwords';
 import { siteNeedsRestart } from '@studio/common/lib/site-needs-restart';
-import { SupportedPHPVersions } from '@studio/common/types/php-versions';
+import { SupportedPHPVersion, SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { SelectControl, TabPanel } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { sprintf } from '@wordpress/i18n';
@@ -30,7 +30,6 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useRootSelector } from 'src/stores';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 import { selectDefaultWordPressVersion } from 'src/stores/provider-constants-slice';
-import type { AllowedPHPVersion } from 'src/lib/wordpress-server-types';
 
 type EditSiteDetailsProps = {
 	currentWpVersion: string;
@@ -87,8 +86,8 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		setIsEditModalOpen( false );
 	}, [ isEditingSite, setIsEditModalOpen ] );
 	const [ siteName, setSiteName ] = useState( selectedSite?.name ?? '' );
-	const [ selectedPhpVersion, setSelectedPhpVersion ] = useState< AllowedPHPVersion >(
-		( selectedSite?.phpVersion as AllowedPHPVersion ) ?? DEFAULT_PHP_VERSION
+	const [ selectedPhpVersion, setSelectedPhpVersion ] = useState< SupportedPHPVersion >(
+		( selectedSite?.phpVersion as SupportedPHPVersion ) ?? DEFAULT_PHP_VERSION
 	);
 	const getEffectiveWpVersion = useCallback(
 		() =>
@@ -164,7 +163,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 			return;
 		}
 		setSiteName( selectedSite.name );
-		setSelectedPhpVersion( selectedSite.phpVersion as AllowedPHPVersion );
+		setSelectedPhpVersion( selectedSite.phpVersion as SupportedPHPVersion );
 		setSelectedWpVersion( getEffectiveWpVersion() );
 		setUseCustomDomain( Boolean( selectedSite.customDomain ) );
 		setCustomDomain( selectedSite.customDomain ?? null );
@@ -313,7 +312,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 													className="flex flex-1 flex-col gap-1.5 leading-4"
 												>
 													<span className="font-semibold">{ __( 'PHP version' ) }</span>
-													<SelectControl< string >
+													<SelectControl< SupportedPHPVersion >
 														id="php-version-select"
 														disabled={ isEditingSite }
 														value={ selectedPhpVersion }
@@ -321,9 +320,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 															label: version,
 															value: version,
 														} ) ) }
-														onChange={ ( version ) =>
-															setSelectedPhpVersion( version as AllowedPHPVersion )
-														}
+														onChange={ ( version ) => setSelectedPhpVersion( version ) }
 														__next40pxDefaultSize
 														__nextHasNoMarginBottom
 													/>

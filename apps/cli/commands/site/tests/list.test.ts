@@ -2,6 +2,7 @@ import { vi } from 'vitest';
 import { readCliConfig } from 'cli/lib/cli-config';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
+import { mockReportKeyValuePair } from 'cli/tests/test-utils';
 import { runCommand } from '../list';
 vi.mock( 'cli/lib/cli-config', async () => {
 	const actual = await vi.importActual( 'cli/lib/cli-config' );
@@ -12,6 +13,19 @@ vi.mock( 'cli/lib/cli-config', async () => {
 } );
 vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
+vi.mock( 'cli/logger', () => ( {
+	Logger: class {
+		reportStart = vi.fn();
+		reportSuccess = vi.fn();
+		reportError = vi.fn();
+		reportProgress = vi.fn();
+		reportWarning = vi.fn();
+		reportKeyValuePair = mockReportKeyValuePair;
+		spinner = {};
+		currentAction = null;
+	},
+	LoggerError: class extends Error {},
+} ) );
 
 describe( 'CLI: studio site list', () => {
 	const testCliConfig = {
@@ -76,40 +90,33 @@ describe( 'CLI: studio site list', () => {
 		} );
 
 		it( 'should list sites with json format', async () => {
-			const consoleSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
-
 			await runCommand( 'json' );
 
-			expect( consoleSpy ).toHaveBeenCalledWith(
-				JSON.stringify(
-					[
-						{
-							id: 'site-1',
-							name: 'Test Site 1',
-							path: '/path/to/site1',
-							port: 8080,
-							url: 'http://localhost:8080',
-							phpVersion: '8.0',
-							running: false,
-						},
-						{
-							id: 'site-2',
-							name: 'Test Site 2',
-							path: '/path/to/site2',
-							port: 8081,
-							url: 'http://my-site.wp.local',
-							phpVersion: '8.0',
-							customDomain: 'my-site.wp.local',
-							running: false,
-						},
-					],
-					null,
-					2
-				)
+			expect( mockReportKeyValuePair ).toHaveBeenCalledWith(
+				'sites',
+				JSON.stringify( [
+					{
+						id: 'site-1',
+						name: 'Test Site 1',
+						path: '/path/to/site1',
+						port: 8080,
+						phpVersion: '8.0',
+						url: 'http://localhost:8080',
+						running: false,
+					},
+					{
+						id: 'site-2',
+						name: 'Test Site 2',
+						path: '/path/to/site2',
+						port: 8081,
+						phpVersion: '8.0',
+						customDomain: 'my-site.wp.local',
+						url: 'http://my-site.wp.local',
+						running: false,
+					},
+				] )
 			);
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
-
-			consoleSpy.mockRestore();
 		} );
 
 		it( 'should handle no sites found', async () => {
@@ -122,14 +129,13 @@ describe( 'CLI: studio site list', () => {
 		} );
 
 		it( 'should handle custom domain in site URL', async () => {
-			const consoleSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
-
 			await runCommand( 'json' );
 
-			expect( consoleSpy ).toHaveBeenCalledWith( expect.stringContaining( 'my-site.wp.local' ) );
+			expect( mockReportKeyValuePair ).toHaveBeenCalledWith(
+				'sites',
+				expect.stringContaining( 'my-site.wp.local' )
+			);
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
-
-			consoleSpy.mockRestore();
 		} );
 	} );
 } );

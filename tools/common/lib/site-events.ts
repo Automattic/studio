@@ -30,6 +30,14 @@ export const siteDetailsSchema = z.object( {
 
 export type SiteDetails = z.infer< typeof siteDetailsSchema >;
 
+export const siteListItemSchema = siteDetailsSchema.extend( {
+	running: z.boolean(),
+} );
+
+export type SiteListItem = z.infer< typeof siteListItemSchema >;
+
+export const siteListSchema = z.array( siteListItemSchema );
+
 export enum SITE_EVENTS {
 	CREATED = 'site-created',
 	UPDATED = 'site-updated',

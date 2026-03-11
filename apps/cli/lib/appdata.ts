@@ -36,7 +36,9 @@ const userDataSchema = z
 	} )
 	.loose();
 
-type UserData = z.infer< typeof userDataSchema >;
+type UserData = z.infer< typeof userDataSchema > & {
+	anthropicApiKey?: string;
+};
 export type ValidatedAuthToken = Required< NonNullable< UserData[ 'authToken' ] > >;
 
 export function getAppdataDirectory(): string {
@@ -147,5 +149,21 @@ export async function getAuthToken(): Promise< ValidatedAuthToken > {
 				authUrl
 			)
 		);
+	}
+}
+
+export async function getAnthropicApiKey(): Promise< string | undefined > {
+	const userData = await readAppdata();
+	return userData.anthropicApiKey;
+}
+
+export async function saveAnthropicApiKey( apiKey: string ): Promise< void > {
+	try {
+		await lockAppdata();
+		const userData = await readAppdata();
+		userData.anthropicApiKey = apiKey;
+		await saveAppdata( userData );
+	} finally {
+		await unlockAppdata();
 	}
 }

@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, rmSync } from 'fs';
+import { existsSync, readdirSync, readFileSync, rmSync, statSync } from 'fs';
 import { dirname, join, resolve } from 'path';
 import { sync as globSync } from 'glob';
 import { defineConfig, normalizePath } from 'vite';
@@ -51,6 +51,47 @@ export default defineConfig( {
 
 							for ( const path of [ ...asyncifyPaths, ...webPaths ] ) {
 								rmSync( path, { recursive: true, force: true } );
+							}
+						},
+					},
+					{
+						// Remove platform-specific vendor binaries from claude-agent-sdk that
+						// don't match the current build platform. The SDK bundles native binaries
+						// (ripgrep, tree-sitter) for all platforms, and Windows code-signing
+						// fails on non-PE files (e.g. macOS .node files).
+						name: 'prune-claude-agent-sdk-vendor',
+						apply: 'build' as const,
+						closeBundle() {
+							const vendorPath = join(
+								distCliNodeModulesPath,
+								'@anthropic-ai',
+								'claude-agent-sdk',
+								'vendor'
+							);
+							if ( ! existsSync( vendorPath ) ) {
+								return;
+							}
+
+							const platformMap: Record< string, string > = {
+								darwin: 'darwin',
+								win32: 'win32',
+								linux: 'linux',
+							};
+							const keepPlatform = platformMap[ process.platform ] || process.platform;
+
+							for ( const toolDir of readdirSync( vendorPath ) ) {
+								const toolPath = join( vendorPath, toolDir );
+								if ( ! statSync( toolPath ).isDirectory() ) {
+									continue;
+								}
+								for ( const platformDir of readdirSync( toolPath ) ) {
+									if ( ! platformDir.includes( keepPlatform ) ) {
+										rmSync( join( toolPath, platformDir ), {
+											recursive: true,
+											force: true,
+										} );
+									}
+								}
 							}
 						},
 					},

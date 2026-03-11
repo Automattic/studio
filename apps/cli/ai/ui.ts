@@ -668,7 +668,7 @@ export class AiChatUI {
 			this.sitePickerTab = SITE_PICKER_TAB_LOCAL;
 			this.renderSitePicker();
 			this.messages.addChild(
-				new Text( '\n' + chalk.dim( 'Not logged in. Use /login first.' ) + '\n', 1, 0 )
+				new Text( `\n${ chalk.dim( 'Not logged in. Use /login first.' ) }\n`, 1, 0 )
 			);
 			this.tui.requestRender();
 		}
@@ -708,10 +708,9 @@ export class AiChatUI {
 				originalIndex >= 0 ? this.sitePickerSiteData[ originalIndex ] ?? null : null;
 		}
 		this.editor.activeSiteName = site.name;
-		const label = site.remote
-			? ' ✻ Selected site: ' + site.name + ' (WordPress.com)'
-			: ' ✻ Selected site: ' + site.name;
-		this.messages.addChild( new Text( chalk.hex( '#8839ef' )( label ) + '\n', 0, 0 ) );
+		const suffix = site.remote ? ' (WordPress.com)' : '';
+		const label = ` ✻ Selected site: ${ site.name }${ suffix }`;
+		this.messages.addChild( new Text( `${ chalk.hex( '#8839ef' )( label ) }\n`, 0, 0 ) );
 		this.closeSitePicker();
 	}
 
@@ -769,7 +768,7 @@ export class AiChatUI {
 			const { start, end } = this.getVisibleWindow( filtered.length );
 			items = filtered.slice( start, end ).map( ( site, vi ) => {
 				const i = start + vi;
-				const url = site.url ? ' ' + chalk.dim( site.url ) : '';
+				const url = site.url ? ` ${ chalk.dim( site.url ) }` : '';
 				if ( i === this.sitePickerSelectedIndex ) {
 					return `  ${ chalk.blue( '❯' ) } ${ chalk.bold( site.name ) }${ url }`;
 				}

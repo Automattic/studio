@@ -85,7 +85,9 @@ export async function runCommand(): Promise< void > {
 		// Prepend active site context to the prompt
 		let enrichedPrompt = prompt;
 		const site = ui.activeSite;
-		if ( site ) {
+		if ( site?.remote && site?.url ) {
+			enrichedPrompt = `[Active site: "${ site.name }" at ${ site.url } (WordPress.com)]\n\n${ prompt }`;
+		} else if ( site ) {
 			enrichedPrompt = `[Active site: "${ site.name }" at ${ site.path }${
 				site.running ? ' (running)' : ' (stopped)'
 			}]\n\n${ prompt }`;

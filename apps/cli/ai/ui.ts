@@ -24,7 +24,8 @@ import {
 	type TodoDiff,
 	type TodoEntry,
 } from 'cli/ai/todo-stream';
-import { getSiteUrl, readAppdata, type SiteData } from 'cli/lib/appdata';
+import { getWpComSites } from 'cli/lib/api';
+import { getAuthToken, getSiteUrl, readAppdata, type SiteData } from 'cli/lib/appdata';
 import { openBrowser } from 'cli/lib/browser';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
@@ -34,6 +35,8 @@ export interface SiteInfo {
 	name: string;
 	path: string;
 	running: boolean;
+	remote?: boolean;
+	url?: string;
 }
 
 const FILE_PREVIEW_MAX_LINES = 10;
@@ -423,6 +426,10 @@ export class AiChatUI {
 	private sitePickerItems: SiteInfo[] = [];
 	private sitePickerSiteData: SiteData[] = [];
 	private sitePickerSelectedIndex = 0;
+	private sitePickerTab: 'local' | 'remote' = 'local';
+	private sitePickerRemoteItems: SiteInfo[] = [];
+	private sitePickerRemoteLoading = false;
+	private sitePickerQuery = '';
 
 	get activeSite(): SiteInfo | null {
 		return this._activeSite;
@@ -531,23 +538,64 @@ export class AiChatUI {
 					return { consume: true };
 				}
 				if ( matchesKey( data, 'down' ) ) {
+					const filtered = this.getFilteredSitePickerItems();
 					this.sitePickerSelectedIndex = Math.min(
-						this.sitePickerItems.length - 1,
+						filtered.length - 1,
 						this.sitePickerSelectedIndex + 1
 					);
 					this.renderSitePicker();
 					return { consume: true };
 				}
 				if ( matchesKey( data, 'enter' ) ) {
-					this.selectSite( this.sitePickerSelectedIndex );
+					const filtered = this.getFilteredSitePickerItems();
+					const selectedItem = filtered[ this.sitePickerSelectedIndex ];
+					if ( selectedItem ) {
+						this.selectFilteredSite( selectedItem );
+					}
 					return { consume: true };
 				}
 				if ( matchesKey( data, 'space' ) ) {
-					void this.openSelectedSite();
+					// If there's an active search query, treat space as a search character
+					if ( this.sitePickerQuery ) {
+						this.sitePickerQuery += ' ';
+						this.sitePickerSelectedIndex = 0;
+						this.renderSitePicker();
+					} else {
+						void this.openSelectedSite();
+					}
+					return { consume: true };
+				}
+				if ( matchesKey( data, 'right' ) && this.sitePickerTab === 'local' ) {
+					void this.switchToRemoteSites();
+					return { consume: true };
+				}
+				if ( matchesKey( data, 'left' ) && this.sitePickerTab === 'remote' ) {
+					this.switchToLocalSites();
 					return { consume: true };
 				}
 				if ( matchesKey( data, 'escape' ) ) {
-					this.closeSitePicker();
+					if ( this.sitePickerQuery ) {
+						this.sitePickerQuery = '';
+						this.sitePickerSelectedIndex = 0;
+						this.renderSitePicker();
+					} else {
+						this.closeSitePicker();
+					}
+					return { consume: true };
+				}
+				if ( matchesKey( data, 'backspace' ) ) {
+					if ( this.sitePickerQuery ) {
+						this.sitePickerQuery = this.sitePickerQuery.slice( 0, -1 );
+						this.sitePickerSelectedIndex = 0;
+						this.renderSitePicker();
+					}
+					return { consume: true };
+				}
+				// Printable character — append to search query
+				if ( data.length === 1 && data >= ' ' && data <= '~' ) {
+					this.sitePickerQuery += data;
+					this.sitePickerSelectedIndex = 0;
+					this.renderSitePicker();
 					return { consume: true };
 				}
 				return { consume: true };
@@ -590,6 +638,82 @@ export class AiChatUI {
 		this.renderSitePicker();
 	}
 
+	private async switchToRemoteSites(): Promise< void > {
+		try {
+			const token = await getAuthToken();
+			this.sitePickerTab = 'remote';
+			this.sitePickerRemoteLoading = true;
+			this.sitePickerRemoteItems = [];
+			this.sitePickerQuery = '';
+			this.renderSitePicker();
+
+			const sites = await getWpComSites( token.accessToken );
+			this.sitePickerRemoteItems = sites.map( ( site ) => ( {
+				name: site.name,
+				path: '',
+				running: false,
+				remote: true,
+				url: site.url,
+			} ) );
+			this.sitePickerRemoteLoading = false;
+			this.sitePickerSelectedIndex = 0;
+			this.renderSitePicker();
+		} catch {
+			this.sitePickerRemoteLoading = false;
+			this.sitePickerRemoteItems = [];
+			this.sitePickerTab = 'local';
+			this.renderSitePicker();
+			this.messages.addChild(
+				new Text( '\n' + chalk.dim( 'Not logged in. Use /login first.' ) + '\n', 1, 0 )
+			);
+			this.tui.requestRender();
+		}
+	}
+
+	private switchToLocalSites(): void {
+		this.sitePickerTab = 'local';
+		this.sitePickerSelectedIndex = 0;
+		this.sitePickerQuery = '';
+		this.renderSitePicker();
+	}
+
+	private getFilteredSitePickerItems(): SiteInfo[] {
+		const allItems =
+			this.sitePickerTab === 'remote' ? this.sitePickerRemoteItems : this.sitePickerItems;
+		if ( ! this.sitePickerQuery ) {
+			return allItems;
+		}
+		const query = this.sitePickerQuery.toLowerCase();
+		return allItems.filter(
+			( site ) =>
+				site.name.toLowerCase().includes( query ) ||
+				( site.url && site.url.toLowerCase().includes( query ) )
+		);
+	}
+
+	private selectFilteredSite( site: SiteInfo ): void {
+		if ( site.remote ) {
+			this._activeSite = site;
+			this._activeSiteData = null;
+		} else {
+			const originalIndex = this.sitePickerItems.indexOf( site );
+			this._activeSite = site;
+			this._activeSiteData =
+				originalIndex >= 0 ? this.sitePickerSiteData[ originalIndex ] ?? null : null;
+		}
+		this.editor.activeSiteName = site.name;
+		const label = site.remote
+			? ' ✻ Selected site: ' + site.name + ' (WordPress.com)'
+			: ' ✻ Selected site: ' + site.name;
+		this.messages.addChild( new Text( chalk.hex( '#8839ef' )( label ) + '\n', 0, 0 ) );
+		this.closeSitePicker();
+	}
+
+	private sitePickerPageSize(): number {
+		// Reserve 3 lines for header, hints, and a margin; use at least 5 visible items
+		return Math.max( 5, ( process.stdout.rows ?? 24 ) - 3 );
+	}
+
 	private renderSitePicker(): void {
 		if ( ! this.sitePickerContainer ) {
 			return;
@@ -603,20 +727,70 @@ export class AiChatUI {
 			);
 		}
 
-		const header = chalk.dim( '  Select a site:' );
-		const items = this.sitePickerItems.map( ( site, i ) => {
-			const status = site.running ? chalk.green( '●' ) + ' ' : '  ';
-			if ( i === this.sitePickerSelectedIndex ) {
-				return `  ${ chalk.blue( '❯' ) } ${ status }${ chalk.bold( site.name ) }`;
-			}
-			return `    ${ status }${ site.name }`;
-		} );
+		const isLocal = this.sitePickerTab === 'local';
+		const localTab = isLocal ? chalk.bold( '[Local]' ) : chalk.dim( 'Local' );
+		const remoteTab = isLocal ? chalk.dim( 'WordPress.com' ) : chalk.bold( '[WordPress.com]' );
+		const header = `  ${ localTab }  ${ remoteTab }`;
 
-		const text = [
-			header,
-			...items,
-			chalk.dim( '  ↑↓ navigate · enter select · space open in browser · esc cancel' ),
-		].join( '\n' );
+		const filtered = this.getFilteredSitePickerItems();
+
+		let items: string[];
+		let scrollInfo = '';
+		if ( isLocal ) {
+			if ( filtered.length === 0 ) {
+				items = [ chalk.dim( '  No matching sites.' ) ];
+			} else {
+				const { start, end } = this.getVisibleWindow( filtered.length );
+				items = filtered.slice( start, end ).map( ( site, vi ) => {
+					const i = start + vi;
+					const status = site.running ? chalk.green( '●' ) + ' ' : '  ';
+					if ( i === this.sitePickerSelectedIndex ) {
+						return `  ${ chalk.blue( '❯' ) } ${ status }${ chalk.bold( site.name ) }`;
+					}
+					return `    ${ status }${ site.name }`;
+				} );
+				scrollInfo = this.getScrollInfo( filtered.length, start, end );
+			}
+		} else if ( this.sitePickerRemoteLoading ) {
+			items = [ chalk.dim( '  Loading WordPress.com sites…' ) ];
+		} else if ( filtered.length === 0 ) {
+			items = [
+				chalk.dim(
+					this.sitePickerQuery ? '  No matching sites.' : '  No WordPress.com sites found.'
+				),
+			];
+		} else {
+			const { start, end } = this.getVisibleWindow( filtered.length );
+			items = filtered.slice( start, end ).map( ( site, vi ) => {
+				const i = start + vi;
+				const url = site.url ? ' ' + chalk.dim( site.url ) : '';
+				if ( i === this.sitePickerSelectedIndex ) {
+					return `  ${ chalk.blue( '❯' ) } ${ chalk.bold( site.name ) }${ url }`;
+				}
+				return `    ${ site.name }${ url }`;
+			} );
+			scrollInfo = this.getScrollInfo( filtered.length, start, end );
+		}
+
+		const searchLine = this.sitePickerQuery
+			? `  ${ chalk.dim( 'Search:' ) } ${ this.sitePickerQuery }`
+			: '';
+
+		const hints = isLocal
+			? '  ↑↓ navigate · → remote sites · enter select · space open in browser · esc cancel'
+			: '  ↑↓ navigate · ← local sites · enter select · space open in browser · esc cancel';
+
+		const lines = [ header ];
+		if ( searchLine ) {
+			lines.push( searchLine );
+		}
+		lines.push( ...items );
+		if ( scrollInfo ) {
+			lines.push( chalk.dim( `  ${ scrollInfo }` ) );
+		}
+		lines.push( chalk.dim( hints ) );
+
+		const text = lines.join( '\n' );
 		this.sitePickerContainer.addChild( new Text( text, 0, 0 ) );
 		this.tui.requestRender();
 	}
@@ -628,6 +802,32 @@ export class AiChatUI {
 			this._activeSiteData = this.sitePickerSiteData[ index ] ?? null;
 		}
 		this.closeSitePicker();
+	}
+
+	private getVisibleWindow( totalItems: number ): { start: number; end: number } {
+		const pageSize = this.sitePickerPageSize();
+		if ( totalItems <= pageSize ) {
+			return { start: 0, end: totalItems };
+		}
+		// Keep the selected item visible with some padding from the edges
+		let start = this.sitePickerSelectedIndex - Math.floor( pageSize / 2 );
+		start = Math.max( 0, Math.min( start, totalItems - pageSize ) );
+		return { start, end: start + pageSize };
+	}
+
+	private getScrollInfo( totalItems: number, start: number, end: number ): string {
+		const pageSize = this.sitePickerPageSize();
+		if ( totalItems <= pageSize ) {
+			return '';
+		}
+		const parts: string[] = [];
+		if ( start > 0 ) {
+			parts.push( `↑ ${ start } more` );
+		}
+		if ( end < totalItems ) {
+			parts.push( `↓ ${ totalItems - end } more` );
+		}
+		return parts.join( '  ' );
 	}
 
 	private setActiveSite( site: SiteInfo ): void {
@@ -753,7 +953,20 @@ export class AiChatUI {
 	}
 
 	private async openSelectedSite(): Promise< void > {
-		const siteData = this.sitePickerSiteData[ this.sitePickerSelectedIndex ];
+		const filtered = this.getFilteredSitePickerItems();
+		const site = filtered[ this.sitePickerSelectedIndex ];
+		if ( ! site ) {
+			return;
+		}
+		if ( site.remote && site.url ) {
+			await openBrowser( site.url );
+			return;
+		}
+		if ( ! site.running ) {
+			return;
+		}
+		const originalIndex = this.sitePickerItems.indexOf( site );
+		const siteData = originalIndex >= 0 ? this.sitePickerSiteData[ originalIndex ] : undefined;
 		if ( ! siteData ) {
 			return;
 		}
@@ -764,6 +977,10 @@ export class AiChatUI {
 	}
 
 	async openActiveSiteInBrowser(): Promise< boolean > {
+		if ( this._activeSite?.remote && this._activeSite?.url ) {
+			await openBrowser( this._activeSite.url );
+			return true;
+		}
 		if ( ! this._activeSiteData ) {
 			return false;
 		}
@@ -787,6 +1004,10 @@ export class AiChatUI {
 		this.sitePickerVisible = false;
 		this.sitePickerItems = [];
 		this.sitePickerSiteData = [];
+		this.sitePickerTab = 'local';
+		this.sitePickerRemoteItems = [];
+		this.sitePickerRemoteLoading = false;
+		this.sitePickerQuery = '';
 		this.updateHints();
 		this.tui.requestRender();
 	}

@@ -34,7 +34,7 @@ Then continue with:
 - site_stop: Stop a running site
 - site_delete: Delete a site from Studio and optionally move its files to trash
 - wp_cli: Run WP-CLI commands on a running site
-- validate_blocks: Validate a single file's block content for correctness (checks block markup matches expected save output). Call after every file write/edit that contains block content.
+- validate_blocks: Validate block content for correctness on a running site (runs each block through its save() function in a real browser). Requires a site name or path. Call after every file write/edit that contains block content.
 - take_screenshot: Take a full-page screenshot of a URL (supports desktop and mobile viewports). Use this to visually check the site after building it.
 
 ## General rules

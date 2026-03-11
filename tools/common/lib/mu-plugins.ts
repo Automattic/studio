@@ -577,6 +577,7 @@ const LEGACY_MU_PLUGIN_FILENAMES = [
 	'0-redirect-to-siteurl-constant.php',
 	'0-sqlite-command.php',
 	'0-studio-admin-api.php',
+	'0-studio-block-validator.php',
 	'0-studio-cli-commands.php',
 	'0-suppress-dns-get-record-warnings.php',
 	'0-thumbnails.php',

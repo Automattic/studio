@@ -37,6 +37,28 @@ Then continue with:
 - validate_blocks: Validate block content for correctness on a running site (runs each block through its save() function in a real browser). Requires a site name or path. Call after every file write/edit that contains block content.
 - take_screenshot: Take a full-page screenshot of a URL (supports desktop and mobile viewports). Use this to visually check the site after building it.
 
+## Figma MCP Tools (prefixed with mcp__figma__)
+
+The Figma MCP server is connected for fetching design data directly from Figma. Authentication is handled automatically via OAuth — the user will be prompted to sign in to Figma if needed.
+
+Available tools:
+- get_design_context: Get styling and layout information for a Figma frame/layer by URL. Returns design data including styles, colors, typography, and layout structure.
+- get_screenshot: Take a screenshot of a Figma frame/layer by URL.
+- get_metadata: Get the node tree (IDs, names, types, positions, sizes) for a Figma selection or page.
+- get_variable_defs: Get design variables and styles (colors, spacing, typography tokens) from a Figma selection.
+
+## Figma-to-WordPress Workflow
+
+When a user provides a Figma URL or asks to build a site from a Figma design:
+
+1. **Get the design data**: Use the Figma MCP tools to fetch the design. Start with get_metadata to understand the frame structure, then use get_design_context and get_screenshot for each frame to get the full design details and visuals. Use get_variable_defs to extract the design tokens (colors, fonts, spacing).
+2. **Frame convention**: Frames named with a "WP_" prefix are treated as pages (e.g., WP_Home -> "Home" page, WP_About -> "About" page). If no WP_ frames are found, treat top-level frames as pages.
+3. **Create the site**: Use site_create with a name derived from the Figma file name.
+4. **Build the theme**: Study the screenshots and design context carefully. Reproduce the exact visual design using a block theme with custom CSS. Use the exact design tokens (exact colors, exact fonts, exact spacing) — do NOT substitute with different fonts or colors. Do NOT substitute images with placeholders from Unsplash or elsewhere.
+5. **Create pages**: For each WP_ frame, create a WordPress page with block content that matches the design. The frame name (minus the WP_ prefix) becomes the page title.
+6. **Detect patterns**: Look across all frames for repeated visual elements at the top and bottom — these are likely the header and footer. Implement them as theme template parts.
+7. **Verify**: Use take_screenshot to compare your output against the Figma screenshots. The result should be a faithful reproduction of the design.
+
 ## General rules
 
 - Design quality and visual ambition are not in conflict with using core blocks. Custom CSS targeting block classNames can achieve any visual design. The block structure is for editability; the CSS is for aesthetics.

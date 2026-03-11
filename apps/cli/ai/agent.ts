@@ -44,6 +44,7 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 			},
 			mcpServers: {
 				studio: createStudioTools(),
+				figma: { type: 'http', url: 'https://mcp.figma.com/mcp' },
 			},
 			maxTurns,
 			cwd: process.cwd(),
@@ -64,7 +65,16 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 				}
 				return { behavior: 'allow' as const, updatedInput: input };
 			},
-			allowedTools: [ 'mcp__studio__*', 'Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep' ],
+			allowedTools: [
+				'mcp__studio__*',
+				'mcp__figma__*',
+				'Read',
+				'Write',
+				'Edit',
+				'Bash',
+				'Glob',
+				'Grep',
+			],
 			model,
 			resume,
 		},

@@ -1,5 +1,6 @@
 import { __, sprintf } from '@wordpress/i18n';
 import validateBlueprintSchema from '@wp-playground/blueprints/blueprint-schema-validator';
+import { SupportedPHPVersion } from '../types/php-versions';
 import { __isStepDefinition } from './blueprint-settings';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
@@ -45,7 +46,7 @@ function getUnsupportedFeatureInfo( name: string ): UnsupportedFeature | undefin
 }
 
 export type BlueprintPreferredVersions = {
-	php?: string;
+	php?: SupportedPHPVersion;
 	wp?: string;
 };
 

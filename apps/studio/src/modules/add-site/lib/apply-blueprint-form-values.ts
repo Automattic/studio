@@ -1,10 +1,11 @@
 import { extractFormValuesFromBlueprint } from '@studio/common/lib/blueprint-settings';
 import { BlueprintPreferredVersions } from '@studio/common/lib/blueprint-validation';
+import { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 interface BlueprintFormValueSetters {
 	setBlueprintPreferredVersions: ( versions: BlueprintPreferredVersions | undefined ) => void;
-	setPhpVersion?: ( version: string ) => void;
+	setPhpVersion?: ( version: SupportedPHPVersion ) => void;
 	setWpVersion?: ( version: string ) => void;
 	setBlueprintSuggestedDomain?: ( domain: string | undefined ) => void;
 	setBlueprintSuggestedHttps?: ( https: boolean | undefined ) => void;
@@ -19,7 +20,23 @@ export function applyBlueprintFormValues(
 	const formValues = extractFormValuesFromBlueprint( blueprintJson );
 
 	if ( blueprintJson.preferredVersions ) {
-		setters.setBlueprintPreferredVersions( blueprintJson.preferredVersions );
+		let preferredPhpVersion: SupportedPHPVersion | undefined;
+
+		// PHP 7.2 and 7.3 are not supported. Upgrade to 7.4 if needed. Playground CLI does this
+		// internally, too.
+		if (
+			blueprintJson.preferredVersions.php === '7.2' ||
+			blueprintJson.preferredVersions.php === '7.3'
+		) {
+			preferredPhpVersion = '7.4';
+		} else if ( blueprintJson.preferredVersions.php !== 'latest' ) {
+			preferredPhpVersion = blueprintJson.preferredVersions.php;
+		}
+
+		setters.setBlueprintPreferredVersions( {
+			php: preferredPhpVersion,
+			wp: blueprintJson.preferredVersions.wp,
+		} );
 	} else {
 		setters.setBlueprintPreferredVersions( undefined );
 	}

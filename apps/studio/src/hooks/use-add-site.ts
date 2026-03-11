@@ -19,7 +19,6 @@ import { syncOperationsThunks } from 'src/stores/sync';
 import { useConnectSiteMutation } from 'src/stores/sync/connected-sites';
 import { Blueprint } from 'src/stores/wpcom-api';
 import type { BlueprintPreferredVersions } from '@studio/common/lib/blueprint-validation';
-import type { AllowedPHPVersion } from 'src/lib/wordpress-server-types';
 import type { SyncSite } from 'src/modules/sync/types';
 import type { SyncOption } from 'src/types';
 
@@ -97,9 +96,8 @@ export function useAddSite() {
 	}, [] );
 
 	// For blueprint deeplinks - we need temporary state for PHP/WP versions
-	const [ deeplinkPhpVersion, setDeeplinkPhpVersion ] = useState< AllowedPHPVersion >(
-		defaultPhpVersion as AllowedPHPVersion
-	);
+	const [ deeplinkPhpVersion, setDeeplinkPhpVersion ] =
+		useState< SupportedPHPVersion >( defaultPhpVersion );
 	const [ deeplinkWpVersion, setDeeplinkWpVersion ] = useState( defaultWordPressVersion );
 
 	const resetForm = useCallback( () => {
@@ -112,7 +110,7 @@ export function useAddSite() {
 		setBlueprintSuggestedSiteName( undefined );
 		setBlueprintRequiresCustomDomain( false );
 		setSelectedRemoteSite( undefined );
-		setDeeplinkPhpVersion( defaultPhpVersion as AllowedPHPVersion );
+		setDeeplinkPhpVersion( defaultPhpVersion );
 		setDeeplinkWpVersion( defaultWordPressVersion );
 		clearDeeplinkState();
 	}, [ clearDeeplinkState, defaultPhpVersion, defaultWordPressVersion ] );
@@ -333,7 +331,7 @@ export function useAddSite() {
 			handleCreateSite,
 			selectPath,
 			generateProposedPath,
-			defaultPhpVersion: defaultPhpVersion as AllowedPHPVersion,
+			defaultPhpVersion,
 			defaultWpVersion: defaultWordPressVersion,
 			deeplinkPhpVersion,
 			deeplinkWpVersion,

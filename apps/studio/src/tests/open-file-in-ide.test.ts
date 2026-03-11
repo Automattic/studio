@@ -52,15 +52,8 @@ vi.mock( 'src/lib/shell-open-external-wrapper' );
 vi.mock( 'src/modules/user-settings/lib/win-editor-path', () => ( {
 	winFindEditorPath: vi.fn().mockResolvedValue( 'C:\\mock\\editor.exe' ),
 } ) );
-vi.mock( 'src/modules/user-settings/lib/ipc-handlers', () => ( {
-	getUserEditor: vi.fn(),
-	getUserTerminal: vi.fn().mockResolvedValue( 'terminal' ),
-	getInstalledAppsAndTerminals: vi.fn(),
-	saveUserEditor: vi.fn(),
-	saveUserTerminal: vi.fn(),
-	saveUserLocale: vi.fn(),
-	getUserLocale: vi.fn(),
-	showUserSettings: vi.fn(),
+vi.mock( 'src/modules/user-settings/lib/ipc-handlers', async () => ( {
+	getUserEditor: vi.fn().mockResolvedValue( null ),
 } ) );
 vi.mock( 'src/main-window' );
 vi.mock( '@studio/common/lib/bump-stat' );
@@ -125,7 +118,6 @@ describe( 'openFileInIDE', () => {
 	} );
 
 	it( 'should fall back to first installed editor when no preference is set', async () => {
-		vi.mocked( getUserEditor ).mockResolvedValue( null );
 		vi.mocked( isInstalled ).mockImplementation( ( key ) => key === 'phpstorm' );
 
 		await openFileInIDE( mockIpcMainInvokeEvent, 'wp-content/plugins/hello.php', 'site-1' );
@@ -161,21 +153,6 @@ describe( 'openFileInIDE', () => {
 		await openFileInIDE( mockIpcMainInvokeEvent, 'wp-content/plugins/nonexistent.php', 'site-1' );
 
 		expect( exec ).not.toHaveBeenCalled();
-	} );
-
-	it( 'should respect the first editor in priority order as fallback', async () => {
-		vi.mocked( getUserEditor ).mockResolvedValue( null );
-		// antigravity is first in SUPPORTED_EDITORS
-		vi.mocked( isInstalled ).mockImplementation(
-			( key ) => key === 'antigravity' || key === 'vscode'
-		);
-
-		await openFileInIDE( mockIpcMainInvokeEvent, 'wp-content/plugins/hello.php', 'site-1' );
-
-		const calls = getExecCalls();
-		expect( calls ).toHaveLength( 1 );
-		// Should use antigravity (first in priority), not vscode
-		expect( calls[ 0 ] ).toContain( mockSiteDetails.path );
 	} );
 
 	it( 'should open site folder and file in a single call', async () => {

@@ -9,6 +9,7 @@ import { StatsGroup, StatsMetric } from '@studio/common/types/stats';
 import { __ } from '@wordpress/i18n';
 import yargs from 'yargs';
 import { commandHandler as eventsCommandHandler } from 'cli/commands/_events';
+import { registerCommand as registerAiCommand } from 'cli/commands/ai';
 import { registerCommand as registerAuthLoginCommand } from 'cli/commands/auth/login';
 import { registerCommand as registerAuthLogoutCommand } from 'cli/commands/auth/logout';
 import { registerCommand as registerAuthStatusCommand } from 'cli/commands/auth/status';
@@ -127,6 +128,10 @@ async function main() {
 		} )
 		.demandCommand( 1, __( 'You must provide a valid command' ) )
 		.strict();
+
+	if ( process.env.ENABLE_STUDIO_AI === 'true' ) {
+		registerAiCommand( studioArgv );
+	}
 
 	await studioArgv.argv;
 }

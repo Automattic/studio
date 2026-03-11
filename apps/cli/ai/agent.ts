@@ -1,6 +1,9 @@
+import os from 'os';
+import path from 'path';
 import { query, type Query } from '@anthropic-ai/claude-agent-sdk';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { createStudioTools } from 'cli/ai/tools';
+import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 
 export interface AskUserQuestion {
 	question: string;
@@ -24,6 +27,32 @@ export const AI_MODELS = {
 export type AiModelId = keyof typeof AI_MODELS;
 
 export const DEFAULT_MODEL: AiModelId = 'claude-sonnet-4-6';
+const STUDIO_ROOT = path.resolve( STUDIO_SITES_ROOT );
+const STUDIO_ROOT_PREFIX = STUDIO_ROOT.endsWith( path.sep )
+	? STUDIO_ROOT
+	: `${ STUDIO_ROOT }${ path.sep }`;
+const PATH_INPUT_KEYS = [ 'path', 'file_path' ] as const;
+
+function resolveToolPath( rawPath: string ): string {
+	const expandedPath = rawPath.startsWith( '~/' )
+		? path.join( os.homedir(), rawPath.slice( 2 ) )
+		: rawPath;
+	return path.isAbsolute( expandedPath )
+		? path.resolve( expandedPath )
+		: path.resolve( STUDIO_ROOT, expandedPath );
+}
+
+function isPathWithinStudioRoot( filePath: string ): boolean {
+	const normalizedPath = resolveToolPath( filePath );
+	return normalizedPath === STUDIO_ROOT || normalizedPath.startsWith( STUDIO_ROOT_PREFIX );
+}
+
+function getToolInputPaths( input: Record< string, unknown > ): string[] {
+	return PATH_INPUT_KEYS.map( ( key ) => input[ key ] )
+		.filter( ( value ) => typeof value === 'string' )
+		.map( ( value ) => value as string )
+		.filter( ( value ) => value.trim().length > 0 );
+}
 
 /**
  * Start the AI agent and return the Query object.
@@ -46,10 +75,9 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 				studio: createStudioTools(),
 			},
 			maxTurns,
-			cwd: process.cwd(),
-			permissionMode: 'bypassPermissions',
-			allowDangerouslySkipPermissions: true,
-			canUseTool: async ( toolName, input ) => {
+			cwd: STUDIO_ROOT,
+			permissionMode: 'default',
+			canUseTool: async ( toolName, input, metadata ) => {
 				if ( toolName === 'AskUserQuestion' && onAskUser ) {
 					const typedInput = input as {
 						questions?: AskUserQuestion[];
@@ -62,6 +90,23 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 						updatedInput: { ...input, answers },
 					};
 				}
+
+				if ( metadata.blockedPath && ! isPathWithinStudioRoot( metadata.blockedPath ) ) {
+					return {
+						behavior: 'deny' as const,
+						message: `Access denied outside ${ STUDIO_ROOT }`,
+					};
+				}
+
+				for ( const toolPath of getToolInputPaths( input ) ) {
+					if ( ! isPathWithinStudioRoot( toolPath ) ) {
+						return {
+							behavior: 'deny' as const,
+							message: `Access denied outside ${ STUDIO_ROOT }`,
+						};
+					}
+				}
+
 				return { behavior: 'allow' as const, updatedInput: input };
 			},
 			allowedTools: [ 'mcp__studio__*', 'Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep' ],

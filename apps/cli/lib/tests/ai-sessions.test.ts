@@ -177,4 +177,31 @@ describe( 'ai-sessions', () => {
 			status: 'success',
 		} );
 	} );
+
+	it( 'builds list summaries with prompt, selected site, end reason, and event count', async () => {
+		testRoot = await fs.mkdtemp( path.join( os.tmpdir(), 'studio-ai-sessions-' ) );
+		process.env.E2E = '1';
+		process.env.E2E_APP_DATA_PATH = testRoot;
+
+		const recorder = await AiSessionRecorder.create();
+		await recorder.recordSiteSelected( {
+			name: 'My WordPress Website',
+			path: '/tmp/my-wordpress-website',
+		} );
+		await recorder.recordUserMessage( {
+			text: 'Create a homepage for me',
+			source: 'prompt',
+		} );
+		await recorder.recordTurnClosed( 'interrupted' );
+
+		const sessions = await listAiSessions();
+		expect( sessions ).toHaveLength( 1 );
+		expect( sessions[ 0 ] ).toMatchObject( {
+			id: recorder.sessionId,
+			firstPrompt: 'Create a homepage for me',
+			selectedSiteName: 'My WordPress Website',
+			endReason: 'stopped',
+		} );
+		expect( sessions[ 0 ].eventCount ).toBeGreaterThanOrEqual( 4 );
+	} );
 } );

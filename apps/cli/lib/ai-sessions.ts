@@ -74,6 +74,10 @@ export interface AiSessionSummary {
 	updatedAt: string;
 	agentSessionId?: string;
 	linkedAgentSessionIds: string[];
+	firstPrompt?: string;
+	selectedSiteName?: string;
+	endReason?: 'error' | 'stopped';
+	eventCount: number;
 }
 
 export interface LoadedAiSession {
@@ -297,8 +301,13 @@ async function readAiSessionSummaryFromFile(
 	let createdAt: string | undefined;
 	let updatedAt: string | undefined;
 	let sessionId = getSessionIdFromPath( filePath );
+	let firstPrompt: string | undefined;
+	let selectedSiteName: string | undefined;
+	let endReason: 'error' | 'stopped' | undefined;
+	let eventCount = 0;
 
 	for ( const event of events ) {
+		eventCount += 1;
 		updatedAt = event.timestamp;
 
 		if ( event.type === 'session.started' ) {
@@ -314,6 +323,22 @@ async function readAiSessionSummaryFromFile(
 		) {
 			linkedAgentSessionIds.push( event.agentSessionId );
 		}
+
+		if ( event.type === 'site.selected' ) {
+			selectedSiteName = event.siteName;
+		}
+
+		if ( event.type === 'user.message' && event.source === 'prompt' && ! firstPrompt ) {
+			firstPrompt = event.text;
+		}
+
+		if ( event.type === 'turn.closed' ) {
+			if ( event.status === 'error' ) {
+				endReason = 'error';
+			} else if ( event.status === 'interrupted' ) {
+				endReason = 'stopped';
+			}
+		}
 	}
 
 	const stats = await fs.stat( filePath );
@@ -326,6 +351,10 @@ async function readAiSessionSummaryFromFile(
 		updatedAt: updatedAt ?? createdAt ?? fallbackTimestamp,
 		agentSessionId: linkedAgentSessionIds[ linkedAgentSessionIds.length - 1 ],
 		linkedAgentSessionIds,
+		firstPrompt,
+		selectedSiteName,
+		endReason,
+		eventCount,
 	};
 }
 

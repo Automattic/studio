@@ -31,6 +31,10 @@ import { isSiteRunning } from 'cli/lib/site-utils';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { TodoWriteInput } from '@anthropic-ai/claude-agent-sdk/sdk-tools';
 
+const SITE_PICKER_TAB_LOCAL = 'local' as const;
+const SITE_PICKER_TAB_REMOTE = 'remote' as const;
+type SitePickerTab = typeof SITE_PICKER_TAB_LOCAL | typeof SITE_PICKER_TAB_REMOTE;
+
 export interface SiteInfo {
 	name: string;
 	path: string;
@@ -426,7 +430,7 @@ export class AiChatUI {
 	private sitePickerItems: SiteInfo[] = [];
 	private sitePickerSiteData: SiteData[] = [];
 	private sitePickerSelectedIndex = 0;
-	private sitePickerTab: 'local' | 'remote' = 'local';
+	private sitePickerTab: SitePickerTab = SITE_PICKER_TAB_LOCAL;
 	private sitePickerRemoteItems: SiteInfo[] = [];
 	private sitePickerRemoteLoading = false;
 	private sitePickerQuery = '';
@@ -565,11 +569,11 @@ export class AiChatUI {
 					}
 					return { consume: true };
 				}
-				if ( matchesKey( data, 'right' ) && this.sitePickerTab === 'local' ) {
+				if ( matchesKey( data, 'right' ) && this.sitePickerTab === SITE_PICKER_TAB_LOCAL ) {
 					void this.switchToRemoteSites();
 					return { consume: true };
 				}
-				if ( matchesKey( data, 'left' ) && this.sitePickerTab === 'remote' ) {
+				if ( matchesKey( data, 'left' ) && this.sitePickerTab === SITE_PICKER_TAB_REMOTE ) {
 					this.switchToLocalSites();
 					return { consume: true };
 				}
@@ -641,7 +645,7 @@ export class AiChatUI {
 	private async switchToRemoteSites(): Promise< void > {
 		try {
 			const token = await getAuthToken();
-			this.sitePickerTab = 'remote';
+			this.sitePickerTab = SITE_PICKER_TAB_REMOTE;
 			this.sitePickerRemoteLoading = true;
 			this.sitePickerRemoteItems = [];
 			this.sitePickerQuery = '';
@@ -661,7 +665,7 @@ export class AiChatUI {
 		} catch {
 			this.sitePickerRemoteLoading = false;
 			this.sitePickerRemoteItems = [];
-			this.sitePickerTab = 'local';
+			this.sitePickerTab = SITE_PICKER_TAB_LOCAL;
 			this.renderSitePicker();
 			this.messages.addChild(
 				new Text( '\n' + chalk.dim( 'Not logged in. Use /login first.' ) + '\n', 1, 0 )
@@ -671,7 +675,7 @@ export class AiChatUI {
 	}
 
 	private switchToLocalSites(): void {
-		this.sitePickerTab = 'local';
+		this.sitePickerTab = SITE_PICKER_TAB_LOCAL;
 		this.sitePickerSelectedIndex = 0;
 		this.sitePickerQuery = '';
 		this.renderSitePicker();
@@ -679,7 +683,9 @@ export class AiChatUI {
 
 	private getFilteredSitePickerItems(): SiteInfo[] {
 		const allItems =
-			this.sitePickerTab === 'remote' ? this.sitePickerRemoteItems : this.sitePickerItems;
+			this.sitePickerTab === SITE_PICKER_TAB_REMOTE
+				? this.sitePickerRemoteItems
+				: this.sitePickerItems;
 		if ( ! this.sitePickerQuery ) {
 			return allItems;
 		}
@@ -727,7 +733,7 @@ export class AiChatUI {
 			);
 		}
 
-		const isLocal = this.sitePickerTab === 'local';
+		const isLocal = this.sitePickerTab === SITE_PICKER_TAB_LOCAL;
 		const localTab = isLocal ? chalk.bold( '[Local]' ) : chalk.dim( 'Local' );
 		const remoteTab = isLocal ? chalk.dim( 'WordPress.com' ) : chalk.bold( '[WordPress.com]' );
 		const header = `  ${ localTab }  ${ remoteTab }`;
@@ -1004,7 +1010,7 @@ export class AiChatUI {
 		this.sitePickerVisible = false;
 		this.sitePickerItems = [];
 		this.sitePickerSiteData = [];
-		this.sitePickerTab = 'local';
+		this.sitePickerTab = SITE_PICKER_TAB_LOCAL;
 		this.sitePickerRemoteItems = [];
 		this.sitePickerRemoteLoading = false;
 		this.sitePickerQuery = '';

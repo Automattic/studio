@@ -135,8 +135,11 @@ class PromptEditor implements Component, Focusable {
 			const matching = this.slashCommands.filter( ( cmd ) =>
 				cmd.name.toLowerCase().startsWith( prefix )
 			);
+			const maxLen = Math.max( ...matching.map( ( c ) => c.name.length ) );
 			for ( const cmd of matching ) {
-				result.push( ' ' + chalk.dim( `/${ cmd.name }` ) + chalk.dim( '  ' + cmd.description ) );
+				result.push(
+					' ' + chalk.dim( `/${ cmd.name.padEnd( maxLen ) }` ) + chalk.dim( '  ' + cmd.description )
+				);
 			}
 		} else if ( this.hints.length > 0 ) {
 			result.push( ' ' + this.hints.map( ( h ) => chalk.dim( h ) ).join( chalk.dim( ' · ' ) ) );

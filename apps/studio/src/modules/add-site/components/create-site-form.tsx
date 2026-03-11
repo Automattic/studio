@@ -8,7 +8,7 @@ import {
 	validateAdminEmail,
 	validateAdminUsername,
 } from '@studio/common/lib/passwords';
-import { SupportedPHPVersions } from '@studio/common/types/php-versions';
+import { SupportedPHPVersionsList, SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { Icon, SelectControl, Notice } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf, _n } from '@wordpress/i18n';
@@ -22,12 +22,7 @@ import PasswordControl from 'src/components/password-control';
 import TextControlComponent from 'src/components/text-control';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { cx } from 'src/lib/cx';
-import { useRootSelector } from 'src/stores';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
-import {
-	selectDefaultWordPressVersion,
-	selectAllowedPhpVersions,
-} from 'src/stores/provider-constants-slice';
 import type { BlueprintPreferredVersions } from '@studio/common/lib/blueprint-validation';
 import type { CreateSiteFormValues, PathValidationResult } from 'src/hooks/use-add-site';
 import type { AllowedPHPVersion } from 'src/lib/wordpress-server-types';
@@ -178,16 +173,13 @@ export const CreateSiteForm = ( {
 }: CreateSiteFormProps ) => {
 	const { __, isRTL } = useI18n();
 	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
-	const allowedPhpVersions = useRootSelector( selectAllowedPhpVersions );
-	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
-
 	const [ siteName, setSiteName ] = useState( defaultValues.siteName ?? '' );
 	const [ sitePath, setSitePath ] = useState( defaultValues.sitePath ?? '' );
 	const [ phpVersion, setPhpVersion ] = useState< AllowedPHPVersion >(
-		defaultValues.phpVersion ?? ( allowedPhpVersions[ 0 ] as AllowedPHPVersion ) ?? '8.2'
+		defaultValues.phpVersion ?? SupportedPHPVersionsList[ 0 ] ?? '8.2'
 	);
 	const [ wpVersion, setWpVersion ] = useState(
-		defaultValues.wpVersion ?? defaultWordPressVersion
+		defaultValues.wpVersion ?? DEFAULT_WORDPRESS_VERSION
 	);
 	const [ useCustomDomain, setUseCustomDomain ] = useState( false );
 	const [ customDomain, setCustomDomain ] = useState< string | null >( null );

@@ -21,7 +21,6 @@ import { useBlueprintDeeplink } from 'src/modules/add-site/hooks/use-blueprint-d
 import { SyncSite } from 'src/modules/sync/types';
 import { useRootSelector, useAppDispatch, useI18nLocale } from 'src/stores';
 import { formatRtkError } from 'src/stores/format-rtk-error';
-import { selectMinimumWordPressVersion } from 'src/stores/provider-constants-slice';
 import { openAddSiteModal, closeAddSiteModal, selectIsAddSiteModalOpen } from 'src/stores/ui-slice';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import { useGetBlueprints, Blueprint } from 'src/stores/wpcom-api';
@@ -450,8 +449,6 @@ export function AddSiteModalContent( {
 	} = useGetBlueprints( { locale } );
 
 	const { sites, loadingSites } = useSiteDetails();
-	const minimumWordPressVersion = useRootSelector( selectMinimumWordPressVersion );
-
 	const {
 		handleCreateSite,
 		selectPath,
@@ -485,7 +482,7 @@ export function AddSiteModalContent( {
 	} = addSiteProps;
 
 	const { data: versions = [] } = useGetWordPressVersions( {
-		minimumVersion: minimumWordPressVersion,
+		minimumVersion: MINIMUM_WORDPRESS_VERSION,
 	} );
 	const latestStableVersion = versions.find( ( version ) => version.value === 'latest' );
 

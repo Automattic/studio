@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/electron/renderer';
+import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { updateBlueprintWithFormValues } from '@studio/common/lib/blueprint-settings';
 import { BlueprintValidationWarning } from '@studio/common/lib/blueprint-validation';
 import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
@@ -9,11 +10,7 @@ import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { useAppDispatch, useRootSelector } from 'src/stores';
-import {
-	selectDefaultPhpVersion,
-	selectDefaultWordPressVersion,
-} from 'src/stores/provider-constants-slice';
+import { useAppDispatch } from 'src/stores';
 import { syncOperationsThunks } from 'src/stores/sync';
 import { useConnectSiteMutation } from 'src/stores/sync/connected-sites';
 import { Blueprint } from 'src/stores/wpcom-api';
@@ -57,9 +54,6 @@ export function useAddSite() {
 	const { client } = useAuth();
 	const dispatch = useAppDispatch();
 	const { setSelectedTab } = useContentTabs();
-	const defaultPhpVersion = useRootSelector( selectDefaultPhpVersion );
-	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
-
 	const [ fileForImport, setFileForImport ] = useState< File | null >( null );
 	const [ selectedBlueprint, setSelectedBlueprint ] = useState< Blueprint | undefined >();
 	const [ selectedRemoteSite, setSelectedRemoteSite ] = useState< SyncSite | undefined >();
@@ -96,10 +90,10 @@ export function useAddSite() {
 	}, [] );
 
 	// For blueprint deeplinks - we need temporary state for PHP/WP versions
-	const [ deeplinkPhpVersion, setDeeplinkPhpVersion ] = useState< AllowedPHPVersion >(
-		defaultPhpVersion as AllowedPHPVersion
-	);
-	const [ deeplinkWpVersion, setDeeplinkWpVersion ] = useState( defaultWordPressVersion );
+	const [ deeplinkPhpVersion, setDeeplinkPhpVersion ] =
+		useState< AllowedPHPVersion >( DEFAULT_PHP_VERSION );
+	const [ deeplinkWpVersion, setDeeplinkWpVersion ] =
+		useState< string >( DEFAULT_WORDPRESS_VERSION );
 
 	const resetForm = useCallback( () => {
 		setFileForImport( null );
@@ -111,10 +105,10 @@ export function useAddSite() {
 		setBlueprintSuggestedSiteName( undefined );
 		setBlueprintRequiresCustomDomain( false );
 		setSelectedRemoteSite( undefined );
-		setDeeplinkPhpVersion( defaultPhpVersion as AllowedPHPVersion );
-		setDeeplinkWpVersion( defaultWordPressVersion );
+		setDeeplinkPhpVersion( DEFAULT_PHP_VERSION );
+		setDeeplinkWpVersion( DEFAULT_WORDPRESS_VERSION );
 		clearDeeplinkState();
-	}, [ clearDeeplinkState, defaultPhpVersion, defaultWordPressVersion ] );
+	}, [ clearDeeplinkState ] );
 
 	const loadAllCustomDomains = useCallback( () => {
 		getIpcApi()
@@ -332,8 +326,8 @@ export function useAddSite() {
 			handleCreateSite,
 			selectPath,
 			generateProposedPath,
-			defaultPhpVersion: defaultPhpVersion as AllowedPHPVersion,
-			defaultWpVersion: defaultWordPressVersion,
+			defaultPhpVersion: DEFAULT_PHP_VERSION,
+			defaultWpVersion: DEFAULT_WORDPRESS_VERSION,
 			deeplinkPhpVersion,
 			deeplinkWpVersion,
 			setDeeplinkPhpVersion,
@@ -368,8 +362,6 @@ export function useAddSite() {
 			handleCreateSite,
 			selectPath,
 			generateProposedPath,
-			defaultPhpVersion,
-			defaultWordPressVersion,
 			deeplinkPhpVersion,
 			deeplinkWpVersion,
 			setDeeplinkPhpVersion,

@@ -162,6 +162,7 @@ export async function runCommand(): Promise< void > {
 		}
 	} finally {
 		ui.stop();
+		process.exit( 0 );
 	}
 }
 

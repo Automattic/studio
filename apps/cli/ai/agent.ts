@@ -31,7 +31,15 @@ const STUDIO_ROOT = path.resolve( STUDIO_SITES_ROOT );
 const STUDIO_ROOT_PREFIX = STUDIO_ROOT.endsWith( path.sep )
 	? STUDIO_ROOT
 	: `${ STUDIO_ROOT }${ path.sep }`;
-const PATH_INPUT_KEYS = [ 'path', 'file_path' ] as const;
+
+const PATH_INPUT_KEYS = [ 'path', 'file_path', 'filePath' ] as const;
+const BUILTIN_TOOLS = [ 'Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep' ] as const;
+const PATH_GATED_TOOLS = [ 'Write', 'Edit', 'Bash' ] as const; // Tools that should not manipulate files outside of ~/Studio
+const ALLOWED_TOOLS = [ 'mcp__studio__*', 'Read', 'Glob', 'Grep' ]; // Tools that can run without permissions
+
+function isPathGatedTool( toolName: string ): boolean {
+	return ( PATH_GATED_TOOLS as readonly string[] ).includes( toolName );
+}
 
 function resolveToolPath( rawPath: string ): string {
 	const expandedPath = rawPath.startsWith( '~/' )
@@ -76,6 +84,15 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 			},
 			maxTurns,
 			cwd: STUDIO_ROOT,
+			sandbox: {
+				enabled: true,
+				allowUnsandboxedCommands: false,
+				filesystem: {
+					allowWrite: [ STUDIO_ROOT ],
+				},
+			},
+			tools: [ ...BUILTIN_TOOLS ],
+			allowedTools: [ ...ALLOWED_TOOLS ],
 			permissionMode: 'default',
 			canUseTool: async ( toolName, input, metadata ) => {
 				if ( toolName === 'AskUserQuestion' && onAskUser ) {
@@ -89,6 +106,24 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 						behavior: 'allow' as const,
 						updatedInput: { ...input, answers },
 					};
+				}
+
+				if ( isPathGatedTool( toolName ) ) {
+					if ( metadata.blockedPath && ! isPathWithinStudioRoot( metadata.blockedPath ) ) {
+						return {
+							behavior: 'deny' as const,
+							message: `Access denied outside ${ STUDIO_ROOT }`,
+						};
+					}
+
+					for ( const toolPath of getToolInputPaths( input ) ) {
+						if ( ! isPathWithinStudioRoot( toolPath ) ) {
+							return {
+								behavior: 'deny' as const,
+								message: `Access denied outside ${ STUDIO_ROOT }`,
+							};
+						}
+					}
 				}
 
 				if ( metadata.blockedPath && ! isPathWithinStudioRoot( metadata.blockedPath ) ) {
@@ -109,7 +144,6 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 
 				return { behavior: 'allow' as const, updatedInput: input };
 			},
-			allowedTools: [ 'mcp__studio__*', 'Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep' ],
 			model,
 			resume,
 		},

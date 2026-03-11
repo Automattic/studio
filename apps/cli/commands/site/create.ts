@@ -64,6 +64,7 @@ import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { getServerFilesPath } from 'cli/lib/server-files';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
+import { writeSkillMd } from 'cli/lib/skill-md';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { untildify } from 'cli/lib/utils';
 import { ValidationError } from 'cli/lib/validation-error';
@@ -215,6 +216,18 @@ export async function runCommand(
 		logger.reportSuccess(
 			isSqliteUpdated ? __( 'SQLite integration configured' ) : __( 'SQLite integration skipped' )
 		);
+
+		if ( process.env.ENABLE_AGENT_SUITE === 'true' ) {
+			try {
+				await writeSkillMd( sitePath );
+			} catch ( error ) {
+				logger.reportError(
+					new LoggerError( __( 'Failed to write SKILL.md. Proceeding anyway…' ), error ),
+					false
+				);
+			}
+		}
+
 
 		logger.reportStart( LoggerAction.ASSIGN_PORT, __( 'Assigning port…' ) );
 		const port = await portFinder.getOpenPort();

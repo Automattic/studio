@@ -2,7 +2,11 @@ import { execFileSync } from 'child_process';
 import { password } from '@inquirer/prompts';
 import { __ } from '@wordpress/i18n';
 import { AI_MODELS, DEFAULT_MODEL, startAiAgent, type AiModelId } from 'cli/ai/agent';
-import { AI_CHAT_EXIT_COMMAND, AI_CHAT_MODEL_COMMAND } from 'cli/ai/slash-commands';
+import {
+	AI_CHAT_BROWSER_COMMAND,
+	AI_CHAT_EXIT_COMMAND,
+	AI_CHAT_MODEL_COMMAND,
+} from 'cli/ai/slash-commands';
 import { AiChatUI } from 'cli/ai/ui';
 import { getAnthropicApiKey, saveAnthropicApiKey } from 'cli/lib/appdata';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
@@ -133,6 +137,14 @@ export async function runCommand(): Promise< void > {
 
 			if ( trimmedPrompt === AI_CHAT_EXIT_COMMAND ) {
 				break;
+			}
+
+			if ( trimmedPrompt === AI_CHAT_BROWSER_COMMAND ) {
+				const opened = await ui.openActiveSiteInBrowser();
+				if ( ! opened ) {
+					ui.showInfo( 'No site selected. Use ↓ to select a site first.' );
+				}
+				continue;
 			}
 
 			if ( trimmedPrompt === AI_CHAT_MODEL_COMMAND ) {

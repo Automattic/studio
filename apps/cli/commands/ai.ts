@@ -281,7 +281,7 @@ function extractToolResult( message: SDKMessage ): { ok: boolean; text: string }
 		const text = String( rawResult ).trim();
 		return {
 			ok: true,
-			text: text || 'Tool completed with no textual output.',
+			text,
 		};
 	}
 
@@ -293,18 +293,9 @@ function extractToolResult( message: SDKMessage ): { ok: boolean; text: string }
 	const isError = typedResult.isError === true || typedResult.is_error === true;
 	const textFromContent = toToolResultText( typedResult.content );
 
-	if ( textFromContent ) {
-		return {
-			ok: ! isError,
-			text: textFromContent,
-		};
-	}
-
 	return {
 		ok: ! isError,
-		text: isError
-			? 'Tool returned an error with no textual output.'
-			: 'Tool completed with no textual output.',
+		text: textFromContent,
 	};
 }
 
@@ -350,6 +341,11 @@ export async function runCommand(): Promise< void > {
 			}
 		}
 	};
+
+	setProgressCallback( ( message ) => {
+		ui.setLoaderMessage( message );
+		void persist( ( recorder ) => recorder.recordToolProgress( message ) );
+	} );
 
 	let currentModel: AiModelId = DEFAULT_MODEL;
 

@@ -48,6 +48,7 @@ describe( 'ai-sessions', () => {
 			ok: true,
 			text: 'File read successfully',
 		} );
+		await recorder.recordToolProgress( 'Starting process daemon…' );
 		await recorder.recordAgentQuestion( {
 			question: 'Choose a plugin slug',
 			options: [
@@ -85,6 +86,10 @@ describe( 'ai-sessions', () => {
 				{ type: 'text', text: 'Sure, I can help with that.' },
 				{ type: 'tool_use', name: 'Read' },
 			],
+		} );
+		expect( events.find( ( event ) => event.type === 'tool.progress' ) ).toMatchObject( {
+			type: 'tool.progress',
+			message: 'Starting process daemon…',
 		} );
 		expect( events.find( ( event ) => event.type === 'turn.closed' ) ).toMatchObject( {
 			type: 'turn.closed',

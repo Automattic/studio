@@ -247,9 +247,11 @@ const toolDisplayNames: Record< string, string > = {
 };
 
 export function getToolDetail( name: string, input: Record< string, unknown > ): string {
+	const fallbackDetail = typeof input.detail === 'string' ? input.detail : '';
+
 	switch ( name ) {
 		case 'mcp__studio__site_create':
-			return typeof input.name === 'string' ? input.name : '';
+			return typeof input.name === 'string' ? input.name : fallbackDetail;
 		case 'mcp__studio__site_info':
 		case 'mcp__studio__site_start':
 		case 'mcp__studio__site_stop':
@@ -261,14 +263,14 @@ export function getToolDetail( name: string, input: Record< string, unknown > ):
 		case 'mcp__studio__preview_delete':
 			return typeof input.host === 'string' ? input.host : '';
 		case 'mcp__studio__wp_cli':
-			return typeof input.command === 'string' ? `wp ${ input.command }` : '';
+			return typeof input.command === 'string' ? `wp ${ input.command }` : fallbackDetail;
 		case 'mcp__studio__validate_blocks':
 			if ( typeof input.filePath === 'string' ) {
 				return input.filePath.split( '/' ).slice( -2 ).join( '/' );
 			}
-			return 'inline content';
+			return fallbackDetail || 'inline content';
 		case 'mcp__studio__take_screenshot':
-			return typeof input.url === 'string' ? input.url : '';
+			return typeof input.url === 'string' ? input.url : fallbackDetail;
 		case 'Read':
 		case 'Write':
 		case 'Edit': {
@@ -277,21 +279,21 @@ export function getToolDetail( name: string, input: Record< string, unknown > ):
 				const parts = filePath.split( '/' );
 				return parts.slice( -2 ).join( '/' );
 			}
-			return '';
+			return fallbackDetail;
 		}
 		case 'Bash':
 			return typeof input.command === 'string'
 				? input.command.length > 60
 					? input.command.slice( 0, 57 ) + '…'
 					: input.command
-				: '';
+				: fallbackDetail;
 		case 'Skill':
-			return typeof input.skill === 'string' ? input.skill : '';
+			return typeof input.skill === 'string' ? input.skill : fallbackDetail;
 		case 'Grep':
 		case 'Glob':
-			return typeof input.pattern === 'string' ? input.pattern : '';
+			return typeof input.pattern === 'string' ? input.pattern : fallbackDetail;
 		default:
-			return typeof input.detail === 'string' ? input.detail : '';
+			return fallbackDetail;
 	}
 }
 

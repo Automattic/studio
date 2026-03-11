@@ -53,6 +53,11 @@ export type AiSessionEvent =
 			text: string;
 	  }
 	| {
+			type: 'tool.progress';
+			timestamp: string;
+			message: string;
+	  }
+	| {
 			type: 'agent.question';
 			timestamp: string;
 			question: string;
@@ -202,6 +207,18 @@ export class AiSessionRecorder {
 			timestamp: toIsoTimestamp(),
 			ok: options.ok,
 			text: options.text,
+		} );
+	}
+
+	async recordToolProgress( message: string ): Promise< void > {
+		if ( ! message.trim() ) {
+			return;
+		}
+
+		await this.appendEvent( {
+			type: 'tool.progress',
+			timestamp: toIsoTimestamp(),
+			message,
 		} );
 	}
 

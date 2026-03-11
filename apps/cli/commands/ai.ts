@@ -166,7 +166,7 @@ export async function runCommand(): Promise< void > {
 					const token = await getAuthToken();
 					ui.showInfo( `Logged in as ${ token.displayName } (${ token.email })` );
 				} catch {
-					// Login may have failed or been cancelled
+					ui.showInfo( 'Login failed or cancelled.' );
 				}
 				continue;
 			}

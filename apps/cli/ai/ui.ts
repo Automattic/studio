@@ -291,7 +291,7 @@ export function getToolDetail( name: string, input: Record< string, unknown > ):
 		case 'Glob':
 			return typeof input.pattern === 'string' ? input.pattern : '';
 		default:
-			return '';
+			return typeof input.detail === 'string' ? input.detail : '';
 	}
 }
 
@@ -540,6 +540,10 @@ export class AiChatUI {
 
 	get activeSite(): SiteInfo | null {
 		return this._activeSite;
+	}
+
+	set onSiteSelected( fn: ( ( site: SiteInfo ) => void ) | null ) {
+		this.siteSelectedCallback = fn;
 	}
 
 	constructor() {
@@ -1790,7 +1794,7 @@ export class AiChatUI {
 				}
 				// Always show the loader after processing — the agent turn is still active
 				// and more messages are coming (next API call, tool execution, etc.)
-				if ( ! this.loaderVisible ) {
+				if ( ! this.replayMode && ! this.loaderVisible ) {
 					this.showLoader( this.randomThinkingMessage() );
 				}
 				return undefined;

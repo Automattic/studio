@@ -169,8 +169,18 @@ export async function runCommand(): Promise< void > {
 
 	let sessionRecorder: AiSessionRecorder | undefined;
 	let didDisableSessionPersistence = false;
+	let sessionId: string | undefined = options.resumeSession?.summary.agentSessionId;
+
 	try {
-		sessionRecorder = await AiSessionRecorder.create();
+		if ( options.resumeSession ) {
+			sessionRecorder = await AiSessionRecorder.open( {
+				sessionId: options.resumeSession.summary.id,
+				filePath: options.resumeSession.summary.filePath,
+				linkedAgentSessionIds: options.resumeSession.summary.linkedAgentSessionIds,
+			} );
+		} else {
+			sessionRecorder = await AiSessionRecorder.create();
+		}
 	} catch ( error ) {
 		didDisableSessionPersistence = true;
 		ui.showError( `Session persistence disabled: ${ getErrorMessage( error ) }` );
@@ -192,7 +202,6 @@ export async function runCommand(): Promise< void > {
 		}
 	};
 
-	let sessionId: string | undefined;
 	let currentModel: AiModelId = DEFAULT_MODEL;
 
 	async function prepareProviderSelection(
@@ -506,8 +515,20 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 							.command( {
 								command: 'resume <id>',
 								describe: __( 'Resume an AI session' ),
-								handler: async () => {
-									// Not implemented
+								handler: async ( argv ) => {
+									try {
+										await runResumeSessionCommand( argv.id as string );
+									} catch ( error ) {
+										if ( error instanceof LoggerError ) {
+											logger.reportError( error );
+										} else {
+											const loggerError = new LoggerError(
+												__( 'Failed to resume AI session' ),
+												error
+											);
+											logger.reportError( loggerError );
+										}
+									}
 								},
 							} )
 							.command( {

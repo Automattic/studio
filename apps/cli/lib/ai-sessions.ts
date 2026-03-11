@@ -67,6 +67,20 @@ export type AiSessionEvent =
 			status: TurnStatus;
 	  };
 
+export interface AiSessionSummary {
+	id: string;
+	filePath: string;
+	createdAt: string;
+	updatedAt: string;
+	agentSessionId?: string;
+	linkedAgentSessionIds: string[];
+}
+
+export interface LoadedAiSession {
+	summary: AiSessionSummary;
+	events: AiSessionEvent[];
+}
+
 export function getAiSessionsRootDirectory(): string {
 	return path.join( getAppdataDirectory(), 'sessions' );
 }
@@ -92,9 +106,10 @@ export class AiSessionRecorder {
 
 	private linkedAgentSessionIds = new Set< string >();
 
-	private constructor( sessionId: string, filePath: string ) {
+	private constructor( sessionId: string, filePath: string, linkedAgentSessionIds: string[] = [] ) {
 		this.sessionId = sessionId;
 		this.filePath = filePath;
+		this.linkedAgentSessionIds = new Set( linkedAgentSessionIds );
 	}
 
 	static async create( options: { startedAt?: Date } = {} ): Promise< AiSessionRecorder > {
@@ -114,6 +129,19 @@ export class AiSessionRecorder {
 		} );
 
 		return recorder;
+	}
+
+	static async open( options: {
+		sessionId: string;
+		filePath: string;
+		linkedAgentSessionIds?: string[];
+	} ): Promise< AiSessionRecorder > {
+		await fs.access( options.filePath );
+		return new AiSessionRecorder(
+			options.sessionId,
+			options.filePath,
+			options.linkedAgentSessionIds ?? []
+		);
 	}
 
 	async recordAgentSessionId( agentSessionId: string ): Promise< void > {
@@ -220,4 +248,128 @@ export async function readAiSessionEventsFromFile( filePath: string ): Promise< 
 	}
 
 	return events;
+}
+
+function getSessionIdFromPath( filePath: string ): string {
+	return path.basename( filePath, '.jsonl' );
+}
+
+async function listSessionFilesRecursively( directory: string ): Promise< string[] > {
+	try {
+		const entries = await fs.readdir( directory, { withFileTypes: true, encoding: 'utf8' } );
+
+		const nestedFiles = await Promise.all(
+			entries.map( async ( entry ) => {
+				const fullPath = path.join( directory, entry.name );
+
+				if ( entry.isDirectory() ) {
+					return listSessionFilesRecursively( fullPath );
+				}
+
+				if ( entry.isFile() && entry.name.endsWith( '.jsonl' ) ) {
+					return [ fullPath ];
+				}
+
+				return [];
+			} )
+		);
+
+		return nestedFiles.flat();
+	} catch ( error ) {
+		const fsError = error as NodeJS.ErrnoException;
+		if ( fsError.code === 'ENOENT' ) {
+			return [];
+		}
+
+		throw error;
+	}
+}
+
+async function readAiSessionSummaryFromFile(
+	filePath: string
+): Promise< AiSessionSummary | undefined > {
+	const events = await readAiSessionEventsFromFile( filePath );
+	if ( events.length === 0 ) {
+		return undefined;
+	}
+
+	const linkedAgentSessionIds: string[] = [];
+	let createdAt: string | undefined;
+	let updatedAt: string | undefined;
+	let sessionId = getSessionIdFromPath( filePath );
+
+	for ( const event of events ) {
+		updatedAt = event.timestamp;
+
+		if ( event.type === 'session.started' ) {
+			createdAt = event.timestamp;
+			if ( event.sessionId.trim().length > 0 ) {
+				sessionId = event.sessionId;
+			}
+		}
+
+		if (
+			event.type === 'session.linked' &&
+			! linkedAgentSessionIds.includes( event.agentSessionId )
+		) {
+			linkedAgentSessionIds.push( event.agentSessionId );
+		}
+	}
+
+	const stats = await fs.stat( filePath );
+	const fallbackTimestamp = stats.mtime.toISOString();
+
+	return {
+		id: sessionId,
+		filePath,
+		createdAt: createdAt ?? fallbackTimestamp,
+		updatedAt: updatedAt ?? createdAt ?? fallbackTimestamp,
+		agentSessionId: linkedAgentSessionIds[ linkedAgentSessionIds.length - 1 ],
+		linkedAgentSessionIds,
+	};
+}
+
+export async function listAiSessions(): Promise< AiSessionSummary[] > {
+	const sessionFiles = await listSessionFilesRecursively( getAiSessionsRootDirectory() );
+	const results = await Promise.allSettled(
+		sessionFiles.map( ( filePath ) => readAiSessionSummaryFromFile( filePath ) )
+	);
+
+	const sessions = results
+		.filter(
+			( result ): result is PromiseFulfilledResult< AiSessionSummary | undefined > =>
+				result.status === 'fulfilled'
+		)
+		.map( ( result ) => result.value )
+		.filter( ( session ): session is AiSessionSummary => !! session );
+
+	return sessions.sort( ( a, b ) => Date.parse( b.updatedAt ) - Date.parse( a.updatedAt ) );
+}
+
+export async function loadAiSession( sessionIdOrPrefix: string ): Promise< LoadedAiSession > {
+	const sessions = await listAiSessions();
+	const exactMatch = sessions.find( ( session ) => session.id === sessionIdOrPrefix );
+	const candidates = exactMatch
+		? [ exactMatch ]
+		: sessions.filter( ( session ) => session.id.startsWith( sessionIdOrPrefix ) );
+
+	if ( candidates.length === 0 ) {
+		throw new Error( `AI session not found: ${ sessionIdOrPrefix }` );
+	}
+
+	if ( candidates.length > 1 ) {
+		const sample = candidates
+			.slice( 0, 5 )
+			.map( ( session ) => session.id )
+			.join( ', ' );
+		throw new Error(
+			`Session id prefix is ambiguous: ${ sessionIdOrPrefix }. Matches: ${ sample }${
+				candidates.length > 5 ? ', …' : ''
+			}`
+		);
+	}
+
+	const summary = candidates[ 0 ];
+	const events = await readAiSessionEventsFromFile( summary.filePath );
+	return { summary, events };
 }

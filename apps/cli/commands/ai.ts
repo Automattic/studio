@@ -25,6 +25,7 @@ import { runCommand as runLogoutCommand } from 'cli/commands/auth/logout';
 import { getAnthropicApiKey, getAuthToken } from 'cli/lib/appdata';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
+import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 
 const logger = new Logger< string >();
 
@@ -35,6 +36,129 @@ function isPromptAbortError( error: unknown ): boolean {
 	);
 }
 
+function getErrorMessage( error: unknown ): string {
+	if ( error instanceof Error ) {
+		return error.message;
+	}
+
+	return String( error );
+}
+
+function extractAssistantMessageBlocks( message: SDKMessage ): AssistantMessageBlock[] {
+	if ( message.type !== 'assistant' ) {
+		return [];
+	}
+
+	const blocks: AssistantMessageBlock[] = [];
+	for ( const block of message.message.content ) {
+		if ( block.type === 'text' && block.text ) {
+			blocks.push( {
+				type: 'text',
+				text: block.text,
+			} );
+		}
+
+		if ( block.type === 'tool_use' && block.name ) {
+			const detail =
+				block.input && typeof block.input === 'object'
+					? getToolDetail( block.name, block.input as Record< string, unknown > )
+					: '';
+			blocks.push( {
+				type: 'tool_use',
+				name: block.name,
+				detail: detail || undefined,
+			} );
+		}
+	}
+
+	return blocks;
+}
+
+function toToolResultText( value: unknown ): string {
+	if ( Array.isArray( value ) ) {
+		const lines = value
+			.map( ( item ) => {
+				if ( typeof item === 'string' ) {
+					return item;
+				}
+
+				if ( item && typeof item === 'object' ) {
+					const typedItem = item as { type?: unknown; text?: unknown };
+					if ( typedItem.type === 'text' && typeof typedItem.text === 'string' ) {
+						return typedItem.text;
+					}
+
+					try {
+						return JSON.stringify( item, null, 2 );
+					} catch {
+						return String( item );
+					}
+				}
+
+				return String( item );
+			} )
+			.map( ( line ) => line.trim() )
+			.filter( ( line ) => line.length > 0 );
+
+		return lines.join( '\n' );
+	}
+
+	if ( typeof value === 'string' ) {
+		return value.trim();
+	}
+
+	if ( value === null || value === undefined ) {
+		return '';
+	}
+
+	try {
+		return JSON.stringify( value, null, 2 );
+	} catch {
+		return String( value );
+	}
+}
+
+function extractToolResult( message: SDKMessage ): { ok: boolean; text: string } | undefined {
+	if ( message.type !== 'user' ) {
+		return undefined;
+	}
+
+	const rawResult = message.tool_use_result;
+	if ( ! rawResult ) {
+		return undefined;
+	}
+
+	if ( typeof rawResult !== 'object' ) {
+		const text = String( rawResult ).trim();
+		return {
+			ok: true,
+			text: text || 'Tool completed with no textual output.',
+		};
+	}
+
+	const typedResult = rawResult as {
+		content?: unknown;
+		isError?: unknown;
+		is_error?: unknown;
+	};
+	const isError = typedResult.isError === true || typedResult.is_error === true;
+	const textFromContent = toToolResultText( typedResult.content );
+
+	if ( textFromContent ) {
+		return {
+			ok: ! isError,
+			text: textFromContent,
+		};
+	}
+
+	return {
+		ok: ! isError,
+		text: isError
+			? 'Tool returned an error with no textual output.'
+			: 'Tool completed with no textual output.',
+	};
+}
+
 export async function runCommand(): Promise< void > {
 	const ui = new AiChatUI();
 	let currentProvider: AiProviderId = await resolveInitialAiProvider();
@@ -42,6 +166,31 @@ export async function runCommand(): Promise< void > {
 	setProgressCallback( ( message ) => ui.setLoaderMessage( message ) );
 	ui.start();
 	ui.showWelcome();
+
+	let sessionRecorder: AiSessionRecorder | undefined;
+	let didDisableSessionPersistence = false;
+	try {
+		sessionRecorder = await AiSessionRecorder.create();
+	} catch ( error ) {
+		didDisableSessionPersistence = true;
+		ui.showError( `Session persistence disabled: ${ getErrorMessage( error ) }` );
+	}
+
+	const persist = async ( callback: ( recorder: AiSessionRecorder ) => Promise< void > ) => {
+		if ( ! sessionRecorder ) {
+			return;
+		}
+
+		try {
+			await callback( sessionRecorder );
+		} catch ( error ) {
+			sessionRecorder = undefined;
+			if ( ! didDisableSessionPersistence ) {
+				didDisableSessionPersistence = true;
+				ui.showError( `Session persistence disabled: ${ getErrorMessage( error ) }` );
+			}
+		}
+	};
 
 	let sessionId: string | undefined;
 	let currentModel: AiModelId = DEFAULT_MODEL;
@@ -126,12 +275,20 @@ export async function runCommand(): Promise< void > {
 			}]\n\n${ prompt }`;
 		}
 
+		await persist( ( recorder ) =>
+			recorder.recordUserMessage( {
+				text: prompt,
+				source: 'prompt',
+				sitePath: site?.path,
+			} )
+		);
+
 		const agentQuery = startAiAgent( {
 			prompt: enrichedPrompt,
 			env,
 			model: currentModel,
 			resume: sessionId,
-			onAskUser: ( questions ) => ui.askUser( questions ),
+			onAskUser: ( questions ) => askUserAndPersistAnswers( questions ),
 		} );
 
 		ui.onInterrupt = () => {
@@ -139,21 +296,43 @@ export async function runCommand(): Promise< void > {
 		};
 
 		let maxTurnsResult: { numTurns: number; costUsd: number } | undefined;
+		let turnStatus: TurnStatus = 'interrupted';
 
-		for await ( const message of agentQuery ) {
-			const result = ui.handleMessage( message );
-			if ( result ) {
-				sessionId = result.sessionId;
-				if ( 'maxTurnsReached' in result && result.maxTurnsReached ) {
-					maxTurnsResult = {
-						numTurns: result.numTurns,
-						costUsd: result.costUsd,
-					};
+		try {
+			for await ( const message of agentQuery ) {
+				const assistantBlocks = extractAssistantMessageBlocks( message );
+				if ( assistantBlocks.length > 0 ) {
+					await persist( ( recorder ) => recorder.recordAssistantMessage( assistantBlocks ) );
+				}
+
+				const toolResult = extractToolResult( message );
+				if ( toolResult ) {
+					await persist( ( recorder ) => recorder.recordToolResult( toolResult ) );
+				}
+
+				const result = ui.handleMessage( message );
+				if ( result ) {
+					sessionId = result.sessionId;
+					await persist( ( recorder ) => recorder.recordAgentSessionId( result.sessionId ) );
+
+					if ( 'maxTurnsReached' in result && result.maxTurnsReached ) {
+						maxTurnsResult = {
+							numTurns: result.numTurns,
+							costUsd: result.costUsd,
+						};
+						turnStatus = 'max_turns';
+					} else {
+						turnStatus = result.success ? 'success' : 'error';
+					}
 				}
 			}
+		} catch ( error ) {
+			turnStatus = 'error';
+			throw error;
+		} finally {
+			await persist( ( recorder ) => recorder.recordTurnClosed( turnStatus ) );
+			ui.endAgentTurn();
 		}
-
-		ui.endAgentTurn();
 
 		if ( maxTurnsResult ) {
 			ui.showInfo(

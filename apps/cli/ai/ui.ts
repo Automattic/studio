@@ -246,7 +246,7 @@ const toolDisplayNames: Record< string, string > = {
 	TodoWrite: 'Update todo list',
 };
 
-function getToolDetail( name: string, input: Record< string, unknown > ): string {
+export function getToolDetail( name: string, input: Record< string, unknown > ): string {
 	switch ( name ) {
 		case 'mcp__studio__site_create':
 			return typeof input.name === 'string' ? input.name : '';

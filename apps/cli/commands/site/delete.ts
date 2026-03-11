@@ -1,3 +1,4 @@
+import fs from 'fs';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
 import { SITE_EVENTS } from '@studio/common/lib/site-events';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
@@ -13,8 +14,8 @@ import {
 	ValidatedAuthToken,
 } from 'cli/lib/appdata';
 import { deleteSiteCertificate } from 'cli/lib/certificate-manager';
+import { connectToDaemon, disconnectFromDaemon, emitSiteEvent } from 'cli/lib/daemon-client';
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
-import { connect, disconnect, emitSiteEvent } from 'cli/lib/pm2-manager';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { getSnapshotsFromAppdata, deleteSnapshotFromAppdata } from 'cli/lib/snapshots';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
@@ -67,7 +68,7 @@ export async function runCommand(
 ): Promise< void > {
 	try {
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
-		await connect();
+		await connectToDaemon();
 		logger.reportSuccess( __( 'Process daemon started' ) );
 
 		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
@@ -118,18 +119,22 @@ export async function runCommand(
 		}
 
 		if ( deleteFiles ) {
-			logger.reportStart( LoggerAction.DELETE_FILES, __( 'Moving site files to trash…' ) );
-			// We configure `trash` as an external module, since it includes a native macOS binary that Vite
-			// inlines as a base64 string, which produces a runtime error. Since `trash` is also an ESM-only
-			// module, we need to import it dynamically (since Rollup doesn't get a chance to process it)
-			const trash = ( await import( 'trash' ) ).default;
-			await trash( siteFolder );
-			logger.reportSuccess( __( 'Site files moved to trash' ) );
+			if ( fs.existsSync( siteFolder ) ) {
+				logger.reportStart( LoggerAction.DELETE_FILES, __( 'Moving site files to trash…' ) );
+				// We configure `trash` as an external module, since it includes a native macOS binary that Vite
+				// inlines as a base64 string, which produces a runtime error. Since `trash` is also an ESM-only
+				// module, we need to import it dynamically (since Rollup doesn't get a chance to process it)
+				const trash = ( await import( 'trash' ) ).default;
+				await trash( siteFolder );
+				logger.reportSuccess( __( 'Site files moved to trash' ) );
+			} else {
+				logger.reportSuccess( __( 'Site files already removed' ) );
+			}
 		}
 
 		await emitSiteEvent( SITE_EVENTS.DELETED, { siteId: site.id } );
 	} finally {
-		await disconnect();
+		await disconnectFromDaemon();
 	}
 }
 

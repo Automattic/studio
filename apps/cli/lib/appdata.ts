@@ -71,6 +71,9 @@ export function getAppdataDirectory(): string {
 }
 
 export function getAppdataPath(): string {
+	if ( process.env.DEV_APP_DATA_PATH ) {
+		return process.env.DEV_APP_DATA_PATH;
+	}
 	return path.join( getAppdataDirectory(), 'appdata-v1.json' );
 }
 

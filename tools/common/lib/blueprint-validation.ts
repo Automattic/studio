@@ -1,7 +1,8 @@
 import { __, sprintf } from '@wordpress/i18n';
-import { isStepDefinition, type BlueprintV1Declaration } from '@wp-playground/blueprints';
 import validateBlueprintSchema from '@wp-playground/blueprints/blueprint-schema-validator';
 import { SupportedPHPVersion } from '../types/php-versions';
+import { __isStepDefinition } from './blueprint-settings';
+import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 interface UnsupportedFeature {
 	type: 'step' | 'property';
@@ -53,7 +54,9 @@ export function scanBlueprintForUnsupportedFeatures(
 	blueprint: BlueprintV1Declaration
 ): UnsupportedFeature[] {
 	const foundUnsupported: UnsupportedFeature[] = [];
-	const steps = Array.isArray( blueprint.steps ) ? blueprint.steps.filter( isStepDefinition ) : [];
+	const steps = Array.isArray( blueprint.steps )
+		? blueprint.steps.filter( __isStepDefinition )
+		: [];
 
 	for ( const step of steps ) {
 		if ( step.step && ! isStepSupported( step.step ) ) {
@@ -86,11 +89,13 @@ export function filterUnsupportedBlueprintFeatures(
 		return undefined;
 	}
 	const filtered = { ...blueprint };
-	const steps = Array.isArray( filtered.steps ) ? filtered.steps.filter( isStepDefinition ) : [];
+	const steps = Array.isArray( filtered.steps ) ? filtered.steps.filter( __isStepDefinition ) : [];
 	filtered.steps = steps.filter( ( step ) => step && step.step && isStepSupported( step.step ) );
 
 	for ( const [ key ] of Object.entries( filtered ) ) {
 		if ( ! isPropertySupported( key ) ) {
+			// @ts-expect-error We're not truly deleting unknown keys from `filtered` here, and even if we
+			// were, this would still be a safe operation.
 			delete filtered[ key ];
 		}
 	}

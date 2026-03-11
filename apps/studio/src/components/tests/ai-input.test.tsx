@@ -49,6 +49,7 @@ describe( 'AIInput Component', () => {
 				handleKeyDown={ handleKeyDown }
 				clearConversation={ clearConverstaion }
 				isAssistantThinking={ defaultProps.isAssistantThinking }
+				onOpenSettings={ vi.fn() }
 			/>
 		);
 	} );

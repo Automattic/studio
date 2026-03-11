@@ -1,6 +1,14 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { type BlueprintV1Declaration, isStepDefinition } from '@wp-playground/blueprints';
 import { SupportedPHPVersion } from '../types/php-versions';
+import type { BlueprintV1Declaration, StepDefinition, Step } from '@wp-playground/blueprints';
+
+// Carbon-copy of the original function from @wp-playground/blueprints. Inlined to avoid trouble
+// with unintentionally pulling in a full PHP-WASM dependency tree.
+export function __isStepDefinition(
+	step: Step | string | undefined | false | null
+): step is StepDefinition {
+	return !! ( typeof step === 'object' && step );
+}
 
 type BlueprintSiteSettings = {
 	enableHttps?: boolean;
@@ -38,7 +46,7 @@ export function extractFormValuesFromBlueprint(
 	}
 
 	const steps = Array.isArray( blueprintJson.steps )
-		? blueprintJson.steps.filter( isStepDefinition )
+		? blueprintJson.steps.filter( __isStepDefinition )
 		: [];
 
 	const enableMultisiteStep = steps.some( ( step ) => step.step === 'enableMultisite' );
@@ -108,7 +116,7 @@ export function updateBlueprintWithFormValues(
 		}
 	}
 
-	const steps = Array.isArray( updated.steps ) ? updated.steps.filter( isStepDefinition ) : [];
+	const steps = Array.isArray( updated.steps ) ? updated.steps.filter( __isStepDefinition ) : [];
 
 	const defineSiteUrlStep = steps.find( ( step ) => step.step === 'defineSiteUrl' );
 	if ( defineSiteUrlStep && formValues.customDomain ) {
@@ -160,7 +168,7 @@ export function generateDefaultBlueprintDescription(
 	blueprintJson: BlueprintV1Declaration
 ): string {
 	const steps = Array.isArray( blueprintJson.steps )
-		? blueprintJson.steps.filter( isStepDefinition )
+		? blueprintJson.steps.filter( __isStepDefinition )
 		: [];
 
 	if ( ! steps.length ) {

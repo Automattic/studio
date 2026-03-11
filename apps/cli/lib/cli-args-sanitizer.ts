@@ -80,7 +80,7 @@ function sanitizeBlueprintStep( step: StepDefinition ): unknown {
  * while preserving useful debugging information.
  */
 export function sanitizeBlueprint(
-	blueprint: BlueprintV1Declaration | undefined
+	blueprint: Partial< BlueprintV1Declaration > | undefined
 ): object | undefined {
 	if ( ! blueprint ) {
 		return undefined;
@@ -112,8 +112,6 @@ export function sanitizeBlueprint(
  * Prepares data for Sentry by stringifying nested objects to avoid normalization limits.
  */
 export function sanitizeRunCLIArgs( args: RunCLIArgs ): Record< string, unknown > {
-	const blueprint = args.blueprint && 'steps' in args.blueprint ? args.blueprint : undefined;
-
 	return {
 		command: args.command,
 		php: args.php,
@@ -129,6 +127,10 @@ export function sanitizeRunCLIArgs( args: RunCLIArgs ): Record< string, unknown 
 		experimentalDevtools: args.experimentalDevtools,
 		'site-url': args[ 'site-url' ],
 		outfile: args.outfile,
-		blueprintJson: args.blueprint ? JSON.stringify( sanitizeBlueprint( blueprint ) ) : undefined,
+		blueprintJson: args.blueprint
+			? // This isn't a fully safe type assertion, but by the time we execute this, the blueprint
+			  // content will already have been validated to conform to the V1 spec, so it's fine.
+			  JSON.stringify( sanitizeBlueprint( args.blueprint as BlueprintV1Declaration ) )
+			: undefined,
 	};
 }

@@ -1,11 +1,10 @@
-import fs from 'fs';
-import path from 'path';
+export const AGENTS_MD_FILE_NAME = 'AGENTS.md';
 
-const AGENTS_MD_FILENAME = 'AGENTS.md';
-
-const AGENTS_MD_TEMPLATE = `# AI Instructions
+export const AGENTS_MD_TEMPLATE = `# AI Instructions
 
 This is a local WordPress site managed by [WordPress Studio](https://developer.wordpress.com/studio/), a free desktop app for local WordPress development. Studio uses [WordPress Playground](https://wordpress.github.io/wordpress-playground/) (PHP WASM) as its runtime.
+
+> **Customising this file:** Feel free to edit, extend, or replace the contents below. Studio will never overwrite your changes automatically. If you click **Update** or **Reinstall** in **Assistant → AI settings**, your customisations will be replaced with the latest Studio template — so make sure to back up anything you want to keep before doing so.
 
 > **IMPORTANT:** This site is managed by Studio. Always use \`studio wp\` instead of a standalone \`wp\` binary — Studio runs WordPress through PHP WASM and WP-CLI must go through the same runtime.
 
@@ -98,22 +97,7 @@ studio wp db query "SELECT option_name, option_value FROM wp_options LIMIT 10;"
 
 **Port and URL:** The local URL and port are assigned dynamically by Studio. Always retrieve the current URL with \`studio site status\` rather than hardcoding it.
 
-**Multisite:** WordPress Multisite is not supported in Studio sites.
+**Multisite:** WordPress Multisite is supported in Studio sites when the site was created from a blueprint that includes the \`enableMultisite\` step. Multisite requires a custom domain: Studio will prompt for one during site creation when the blueprint includes that step.
 
 **Persistence:** The site runs in-process using PHP WASM. File writes to \`wp-content/\` persist to disk normally. Server-side cron is emulated; long-running background processes are not supported.
 `;
-
-/**
- * Writes the default AGENTS.md file to the site root if one does not already exist.
- * The file guides AI coding agents toward Studio CLI commands, WordPress best practices,
- * and SQLite-specific conventions for sites managed by Studio.
- *
- * Skips writing if an AGENTS.md already exists so user-customised files are preserved.
- */
-export async function writeAgentsMd( sitePath: string ): Promise< void > {
-	const agentsMdPath = path.join( sitePath, AGENTS_MD_FILENAME );
-	if ( fs.existsSync( agentsMdPath ) ) {
-		return;
-	}
-	await fs.promises.writeFile( agentsMdPath, AGENTS_MD_TEMPLATE, 'utf-8' );
-}

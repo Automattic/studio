@@ -1,7 +1,7 @@
 import { extractFormValuesFromBlueprint } from '@studio/common/lib/blueprint-settings';
 import { BlueprintPreferredVersions } from '@studio/common/lib/blueprint-validation';
 import { SupportedPHPVersion } from '@studio/common/types/php-versions';
-import type { Blueprint } from '@wp-playground/blueprints';
+import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 interface BlueprintFormValueSetters {
 	setBlueprintPreferredVersions: ( versions: BlueprintPreferredVersions | undefined ) => void;
@@ -14,15 +14,13 @@ interface BlueprintFormValueSetters {
 }
 
 export function applyBlueprintFormValues(
-	blueprintJson: Blueprint,
+	blueprintJson: BlueprintV1Declaration,
 	setters: BlueprintFormValueSetters
 ): void {
 	const formValues = extractFormValuesFromBlueprint( blueprintJson );
 
 	if ( blueprintJson.preferredVersions ) {
-		setters.setBlueprintPreferredVersions(
-			blueprintJson.preferredVersions as BlueprintPreferredVersions
-		);
+		setters.setBlueprintPreferredVersions( blueprintJson.preferredVersions );
 	} else {
 		setters.setBlueprintPreferredVersions( undefined );
 	}

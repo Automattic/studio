@@ -87,7 +87,6 @@ export function SkillsPanel( { siteId, className }: SkillsPanelProps ) {
 		availableSkills,
 		isLoading: isLoadingAvailable,
 		error: availableError,
-		refresh: refreshAvailable,
 	} = useAvailableSkills();
 
 	const { installSkill, isInstalling, installError } = useInstallSkill( siteId, () => {

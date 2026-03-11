@@ -2,6 +2,7 @@ import { execFileSync } from 'child_process';
 import { password } from '@inquirer/prompts';
 import { __ } from '@wordpress/i18n';
 import { AI_MODELS, DEFAULT_MODEL, startAiAgent, type AiModelId } from 'cli/ai/agent';
+import { AI_CHAT_EXIT_COMMAND, AI_CHAT_MODEL_COMMAND } from 'cli/ai/slash-commands';
 import { AiChatUI } from 'cli/ai/ui';
 import { getAnthropicApiKey, saveAnthropicApiKey } from 'cli/lib/appdata';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
@@ -128,8 +129,13 @@ export async function runCommand(): Promise< void > {
 	try {
 		while ( true ) {
 			const prompt = await ui.waitForInput();
+			const trimmedPrompt = prompt.trim();
 
-			if ( prompt.trim() === '/model' ) {
+			if ( trimmedPrompt === AI_CHAT_EXIT_COMMAND ) {
+				break;
+			}
+
+			if ( trimmedPrompt === AI_CHAT_MODEL_COMMAND ) {
 				const modelOptions = ( Object.entries( AI_MODELS ) as [ AiModelId, string ][] ).map(
 					( [ id, label ] ) => ( {
 						label: id === currentModel ? `${ label } (current)` : label,

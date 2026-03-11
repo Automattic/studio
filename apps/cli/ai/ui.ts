@@ -17,6 +17,7 @@ import {
 } from '@mariozechner/pi-tui';
 import chalk from 'chalk';
 import { AI_MODELS, DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
+import { AI_CHAT_SLASH_COMMANDS, type SlashCommandDef } from 'cli/ai/slash-commands';
 import { getSiteUrl, readAppdata, type SiteData } from 'cli/lib/appdata';
 import { openBrowser } from 'cli/lib/browser';
 import { isSiteRunning } from 'cli/lib/site-utils';
@@ -26,15 +27,6 @@ export interface SiteInfo {
 	name: string;
 	path: string;
 	running: boolean;
-}
-
-/**
- * Wraps the Editor with a Claude Code–style prompt: top/bottom horizontal
- * borders, a red `>` prompt prefix, and no side borders.
- */
-interface SlashCommandDef {
-	name: string;
-	description: string;
 }
 
 class PromptEditor implements Component, Focusable {
@@ -143,8 +135,11 @@ class PromptEditor implements Component, Focusable {
 			const matching = this.slashCommands.filter( ( cmd ) =>
 				cmd.name.toLowerCase().startsWith( prefix )
 			);
+			const maxLen = Math.max( ...matching.map( ( c ) => c.name.length ) );
 			for ( const cmd of matching ) {
-				result.push( ' ' + chalk.dim( `/${ cmd.name }` ) + chalk.dim( '  ' + cmd.description ) );
+				result.push(
+					' ' + chalk.dim( `/${ cmd.name.padEnd( maxLen ) }` ) + chalk.dim( '  ' + cmd.description )
+				);
 			}
 		} else if ( this.hints.length > 0 ) {
 			result.push( ' ' + this.hints.map( ( h ) => chalk.dim( h ) ).join( chalk.dim( ' · ' ) ) );
@@ -391,11 +386,10 @@ export class AiChatUI {
 
 		this.editor = new PromptEditor( this.tui, editorTheme );
 
-		const slashCommands: SlashCommandDef[] = [
-			{ name: 'model', description: 'Switch the AI model' },
-		];
-		this.editor.slashCommands = slashCommands;
-		this.editor.setAutocompleteProvider( new CombinedAutocompleteProvider( slashCommands ) );
+		this.editor.slashCommands = AI_CHAT_SLASH_COMMANDS;
+		this.editor.setAutocompleteProvider(
+			new CombinedAutocompleteProvider( AI_CHAT_SLASH_COMMANDS )
+		);
 
 		this.editor.onSubmit = ( text ) => {
 			const trimmed = text.trim();

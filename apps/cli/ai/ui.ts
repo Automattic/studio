@@ -583,7 +583,7 @@ export class AiChatUI {
 		this.sitePickerVisible = false;
 		this.sitePickerItems = [];
 		this.sitePickerSiteData = [];
-		this.editor.hints = [ '↓ select site', 'esc to interrupt' ];
+		this.editor.hints = [ '↓ select site' ];
 		this.tui.requestRender();
 	}
 
@@ -736,7 +736,7 @@ export class AiChatUI {
 	}
 
 	private updateHints(): void {
-		this.editor.hints = [ '↓ select site', 'esc to interrupt' ];
+		this.editor.hints = [ '↓ select site' ];
 	}
 
 	private showEditor(): void {

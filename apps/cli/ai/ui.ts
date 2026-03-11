@@ -274,6 +274,7 @@ export class AiChatUI {
 	private toolDotLabel = '';
 	private _activeSite: SiteInfo | null = null;
 	private _activeSiteData: SiteData | null = null;
+	private lastToolInput: Record< string, unknown > | null = null;
 	currentModel: AiModelId = DEFAULT_MODEL;
 
 	private readonly thinkingMessages = [
@@ -538,14 +539,132 @@ export class AiChatUI {
 	private selectSite( index: number ): void {
 		const site = this.sitePickerItems[ index ];
 		if ( site ) {
-			this._activeSite = site;
+			this.setActiveSite( site );
 			this._activeSiteData = this.sitePickerSiteData[ index ] ?? null;
-			this.editor.activeSiteName = site.name;
-			this.messages.addChild(
-				new Text( chalk.hex( '#8839ef' )( ' ✻ Selected site: ' + site.name ) + '\n', 0, 0 )
-			);
 		}
 		this.closeSitePicker();
+	}
+
+	private setActiveSite( site: SiteInfo ): void {
+		this._activeSite = site;
+		this.editor.activeSiteName = site.name;
+		this.messages.addChild(
+			new Text( chalk.hex( '#8839ef' )( ' ✻ Selected site: ' + site.name ) + '\n', 0, 0 )
+		);
+		this.tui.requestRender();
+	}
+
+	private clearActiveSite(): void {
+		this._activeSite = null;
+		this._activeSiteData = null;
+		this.editor.activeSiteName = null;
+		this.messages.addChild( new Text( chalk.dim( ' ✻ Site deselected' ) + '\n', 0, 0 ) );
+		this.tui.requestRender();
+	}
+
+	private async findSiteFromAppdata( nameOrPath: string ): Promise< SiteInfo | null > {
+		const appdata = await readAppdata();
+		const site = appdata.sites.find(
+			( s ) => s.name.toLowerCase() === nameOrPath.toLowerCase() || s.path === nameOrPath
+		);
+		if ( ! site ) {
+			return null;
+		}
+		// Keep _activeSiteData in sync for /browser command
+		this._activeSiteData = site;
+		return {
+			name: site.name,
+			path: site.path,
+			running: await isSiteRunning( site ),
+		};
+	}
+
+	private isSameSite( a: SiteInfo | null, b: SiteInfo ): boolean {
+		return !! a && ( a.name.toLowerCase() === b.name.toLowerCase() || a.path === b.path );
+	}
+
+	private async autoSelectSiteFromToolResult(
+		toolName: string,
+		toolInput: Record< string, unknown > | null
+	): Promise< void > {
+		switch ( toolName ) {
+			case 'mcp__studio__site_create': {
+				// site_create tool input has { name: string }
+				const name = toolInput?.name;
+				if ( typeof name === 'string' ) {
+					const site = await this.findSiteFromAppdata( name );
+					if ( site ) {
+						site.running = true; // site_create auto-starts the site
+						this.setActiveSite( site );
+					}
+				}
+				break;
+			}
+			case 'mcp__studio__site_start': {
+				const nameOrPath = toolInput?.nameOrPath;
+				if ( typeof nameOrPath === 'string' ) {
+					const site = await this.findSiteFromAppdata( nameOrPath );
+					if ( site ) {
+						site.running = true;
+						if ( this.isSameSite( this._activeSite, site ) ) {
+							this._activeSite = site; // Update running status in-place
+						} else {
+							this.setActiveSite( site );
+						}
+					}
+				}
+				break;
+			}
+			case 'mcp__studio__wp_cli': {
+				const nameOrPath = toolInput?.nameOrPath;
+				if ( typeof nameOrPath === 'string' ) {
+					if (
+						! this._activeSite ||
+						! this.isSameSite( this._activeSite, {
+							name: nameOrPath,
+							path: nameOrPath,
+							running: true,
+						} )
+					) {
+						const site = await this.findSiteFromAppdata( nameOrPath );
+						if ( site ) {
+							this.setActiveSite( site );
+						}
+					}
+				}
+				break;
+			}
+			case 'mcp__studio__site_stop': {
+				const nameOrPath = toolInput?.nameOrPath;
+				if (
+					typeof nameOrPath === 'string' &&
+					this._activeSite &&
+					this.isSameSite( this._activeSite, {
+						name: nameOrPath,
+						path: nameOrPath,
+						running: false,
+					} )
+				) {
+					this._activeSite = { ...this._activeSite, running: false };
+				}
+				break;
+			}
+			case 'mcp__studio__site_delete': {
+				const nameOrPath = toolInput?.nameOrPath;
+				if (
+					typeof nameOrPath === 'string' &&
+					this._activeSite &&
+					this.isSameSite( this._activeSite, {
+						name: nameOrPath,
+						path: nameOrPath,
+						running: false,
+					} )
+				) {
+					this.clearActiveSite();
+				}
+				break;
+			}
+		}
 	}
 
 	private async openSelectedSite(): Promise< void > {
@@ -808,7 +927,11 @@ export class AiChatUI {
 		}
 	}
 
-	private showToolResult( message: SDKMessage & { type: 'user' }, toolName?: string ): void {
+	private showToolResult(
+		message: SDKMessage & { type: 'user' },
+		toolName?: string,
+		toolInput?: Record< string, unknown > | null
+	): void {
 		this.stopToolDotBlink();
 		const result = message.tool_use_result;
 		if ( ! result || typeof result !== 'object' ) {
@@ -816,10 +939,15 @@ export class AiChatUI {
 			return;
 		}
 		const typedResult = result as {
-			content?: Array< { type: string; text?: string } >;
+			content?: string | Array< { type: string; text?: string } >;
 			isError?: boolean;
 		};
 		const isError = typedResult.isError === true;
+
+		// Auto-select the site that was operated on
+		if ( ! isError && toolName && toolInput ) {
+			void this.autoSelectSiteFromToolResult( toolName, toolInput );
+		}
 
 		// Show elapsed time
 		const elapsed = this.toolStartTime ? Date.now() - this.toolStartTime : 0;
@@ -835,14 +963,18 @@ export class AiChatUI {
 		}
 
 		const content = typedResult.content;
-		if ( ! Array.isArray( content ) ) {
+		let text: string;
+		if ( typeof content === 'string' ) {
+			text = content;
+		} else if ( Array.isArray( content ) ) {
+			text = content
+				.filter( ( block ) => block.type === 'text' && block.text )
+				.map( ( block ) => block.text )
+				.join( '\n' );
+		} else {
 			this.tui.requestRender();
 			return;
 		}
-		const text = content
-			.filter( ( block ) => block.type === 'text' && block.text )
-			.map( ( block ) => block.text )
-			.join( '\n' );
 		if ( ! text ) {
 			this.tui.requestRender();
 			return;
@@ -941,6 +1073,7 @@ export class AiChatUI {
 						this.lastToolName = block.name;
 						this.toolStartTime = Date.now();
 						const input = ( block as { input?: Record< string, unknown > } ).input;
+						this.lastToolInput = input ?? null;
 						const toolLabel = formatToolName( block.name, input );
 						this.showLoader( this.randomThinkingMessage() );
 						this.stopToolDotBlink();
@@ -967,8 +1100,9 @@ export class AiChatUI {
 				return undefined;
 			}
 			case 'user': {
-				this.showToolResult( message, this.lastToolName ?? undefined );
+				this.showToolResult( message, this.lastToolName ?? undefined, this.lastToolInput );
 				this.lastToolName = null;
+				this.lastToolInput = null;
 				return undefined;
 			}
 			case 'result': {

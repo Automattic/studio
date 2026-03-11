@@ -1047,7 +1047,6 @@ export async function openAppAtPath(
 
 	if ( platform === 'darwin' ) {
 		const cmd = `open -b ${ editor.macOSBundleId } ${ quotedPaths }`;
-		console.log( '---->: ', cmd );
 		return promiseExec( cmd );
 	}
 

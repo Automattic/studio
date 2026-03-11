@@ -11,6 +11,7 @@ const distCliNodeModulesPath = resolve( __dirname, 'dist/cli/node_modules' );
 const packageVersion = JSON.parse(
 	readFileSync( resolve( __dirname, '..', 'studio', 'package.json' ), 'utf-8' )
 ).version;
+const enableStudioAi = process.env.ENABLE_STUDIO_AI === 'true';
 
 export default defineConfig( {
 	plugins: [
@@ -54,6 +55,34 @@ export default defineConfig( {
 							}
 						},
 					},
+					...( enableStudioAi
+						? []
+						: [
+								{
+									// When the AI feature is disabled at build time, remove AI-specific
+									// dependencies from dist to reduce the installer size by ~500MB.
+									name: 'prune-ai-deps',
+									apply: 'build' as const,
+									closeBundle() {
+										const aiPackages = [
+											'@anthropic-ai/',
+											'@mariozechner/',
+											'@wordpress/block-library/',
+											'@wordpress/blocks/',
+											'jsdom/',
+											'playwright/',
+											'playwright-core/',
+										];
+
+										for ( const pkg of aiPackages ) {
+											const pkgPath = resolve( distCliNodeModulesPath, pkg );
+											if ( existsSync( pkgPath ) ) {
+												rmSync( pkgPath, { recursive: true, force: true } );
+											}
+										}
+									},
+								},
+						  ] ),
 			  ]
 			: [] ),
 	],
@@ -129,5 +158,6 @@ export default defineConfig( {
 	},
 	define: {
 		__STUDIO_CLI_VERSION__: JSON.stringify( packageVersion ),
+		__ENABLE_STUDIO_AI__: JSON.stringify( enableStudioAi ),
 	},
 } );

@@ -308,9 +308,41 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		command: 'ai',
 		describe: __( 'AI-powered WordPress assistant' ),
 		builder: ( yargs ) => {
-			return yargs.option( 'path', {
-				hidden: true,
-			} );
+			return yargs
+				.option( 'path', {
+					hidden: true,
+				} )
+				.command( {
+					command: 'sessions',
+					describe: __( 'Manage AI sessions' ),
+					builder: ( sessionsYargs ) => {
+						return sessionsYargs
+							.command( {
+								command: 'list',
+								describe: __( 'List AI sessions' ),
+								handler: async () => {
+									// Not implemented
+								},
+							} )
+							.command( {
+								command: 'resume <id>',
+								describe: __( 'Resume an AI session' ),
+								handler: async () => {
+									// Not implemented
+								},
+							} )
+							.command( {
+								command: 'delete <id>',
+								describe: __( 'Delete an AI session' ),
+								handler: async () => {
+									// Not implemented
+								},
+							} )
+							.version( false )
+							.demandCommand( 1, __( 'You must provide a valid ai sessions command' ) );
+					},
+					handler: async () => {},
+				} );
 		},
 		handler: async () => {
 			try {

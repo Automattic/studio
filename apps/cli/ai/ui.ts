@@ -549,8 +549,9 @@ export class AiChatUI {
 	}
 
 	private async openSelectedSite(): Promise< void > {
+		const site = this.sitePickerItems[ this.sitePickerSelectedIndex ];
 		const siteData = this.sitePickerSiteData[ this.sitePickerSelectedIndex ];
-		if ( ! siteData ) {
+		if ( ! site?.running || ! siteData ) {
 			return;
 		}
 		const url = getSiteUrl( siteData );

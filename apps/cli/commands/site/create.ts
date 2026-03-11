@@ -228,7 +228,6 @@ export async function runCommand(
 			}
 		}
 
-
 		logger.reportStart( LoggerAction.ASSIGN_PORT, __( 'Assigning port…' ) );
 		const port = await portFinder.getOpenPort();
 		// translators: %d is the port number

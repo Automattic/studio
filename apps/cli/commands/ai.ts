@@ -71,9 +71,9 @@ export async function runCommand(): Promise< void > {
 
 	try {
 		const token = await getAuthToken();
-		ui.showInfo( __( 'Logged in as ' ) + token.displayName + ' (' + token.email + ')' );
+		ui.showInfo( `Logged in as ${ token.displayName } (${ token.email })` );
 	} catch {
-		ui.showInfo( __( 'Not logged in to WordPress.com. Use /login to authenticate.' ) );
+		ui.showInfo( 'Not logged in to WordPress.com. Use /login to authenticate.' );
 	}
 
 	let sessionId: string | undefined;
@@ -164,7 +164,7 @@ export async function runCommand(): Promise< void > {
 				ui.start();
 				try {
 					const token = await getAuthToken();
-					ui.showInfo( __( 'Logged in as ' ) + token.displayName + ' (' + token.email + ')' );
+					ui.showInfo( `Logged in as ${ token.displayName } (${ token.email })` );
 				} catch {
 					// Login may have failed or been cancelled
 				}
@@ -175,6 +175,7 @@ export async function runCommand(): Promise< void > {
 				ui.stop();
 				await runLogoutCommand();
 				ui.start();
+				ui.showInfo( 'Logged out of WordPress.com.' );
 				continue;
 			}
 

@@ -71,6 +71,8 @@ describe( 'ai-sessions', () => {
 		expect( recorder.filePath.startsWith( getAiSessionsDirectoryForDate( startedAt ) ) ).toBe(
 			true
 		);
+		const fileName = path.basename( recorder.filePath );
+		expect( fileName ).toBe( `2026-03-11T10-00-00-${ recorder.sessionId }.jsonl` );
 		expect( events[ 0 ] ).toMatchObject( {
 			type: 'session.started',
 			version: 1,

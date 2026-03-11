@@ -98,6 +98,13 @@ function formatDatePart( value: number ): string {
 	return String( value ).padStart( 2, '0' );
 }
 
+function toSortableTimestampPrefix( date: Date ): string {
+	return date
+		.toISOString()
+		.replace( /:/g, '-' )
+		.replace( /\.\d{3}Z$/, '' );
+}
+
 export function getAiSessionsDirectoryForDate( date: Date ): string {
 	const year = String( date.getFullYear() );
 	const month = formatDatePart( date.getMonth() + 1 );
@@ -125,7 +132,8 @@ export class AiSessionRecorder {
 		const startedAt = options.startedAt ?? new Date();
 		const sessionId = crypto.randomUUID();
 		const directory = getAiSessionsDirectoryForDate( startedAt );
-		const filePath = path.join( directory, `${ sessionId }.jsonl` );
+		const fileName = `${ toSortableTimestampPrefix( startedAt ) }-${ sessionId }.jsonl`;
+		const filePath = path.join( directory, fileName );
 
 		await fs.mkdir( directory, { recursive: true } );
 
@@ -272,7 +280,11 @@ export async function readAiSessionEventsFromFile( filePath: string ): Promise< 
 }
 
 function getSessionIdFromPath( filePath: string ): string {
-	return path.basename( filePath, '.jsonl' );
+	const fileName = path.basename( filePath, '.jsonl' );
+	const uuidMatch = fileName.match(
+		/\b([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b/i
+	);
+	return uuidMatch?.[ 1 ] ?? fileName;
 }
 
 async function listSessionFilesRecursively( directory: string ): Promise< string[] > {

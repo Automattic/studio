@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync, rmSync, statSync } from 'fs';
+import { existsSync, readFileSync, rmSync } from 'fs';
 import { dirname, join, resolve } from 'path';
 import { sync as globSync } from 'glob';
 import { defineConfig, normalizePath } from 'vite';
@@ -55,42 +55,32 @@ export default defineConfig( {
 						},
 					},
 					{
-						// Remove platform-specific vendor binaries from claude-agent-sdk that
-						// don't match the current build platform. The SDK bundles native binaries
-						// (ripgrep, tree-sitter) for all platforms, and Windows code-signing
-						// fails on non-PE files (e.g. macOS .node files).
-						name: 'prune-claude-agent-sdk-vendor',
+						// Remove native binaries built for other platforms from bundled
+						// node_modules. Packages like koffi and claude-agent-sdk ship
+						// prebuilt .node files for every OS. Windows code-signing fails
+						// when signtool encounters non-PE binaries (e.g. macOS .node).
+						name: 'prune-foreign-platform-binaries',
 						apply: 'build' as const,
 						closeBundle() {
-							const vendorPath = join(
-								distCliNodeModulesPath,
-								'@anthropic-ai',
-								'claude-agent-sdk',
-								'vendor'
-							);
-							if ( ! existsSync( vendorPath ) ) {
-								return;
-							}
+							const foreignPlatforms =
+								process.platform === 'win32'
+									? [ 'darwin', 'linux' ]
+									: process.platform === 'darwin'
+									? [ 'win32', 'linux' ]
+									: [ 'darwin', 'win32' ];
 
-							const platformMap: Record< string, string > = {
-								darwin: 'darwin',
-								win32: 'win32',
-								linux: 'linux',
-							};
-							const keepPlatform = platformMap[ process.platform ] || process.platform;
+							// Match .node files whose path contains a foreign platform
+							// identifier as a directory component (e.g. darwin_arm64/,
+							// arm64-darwin/, linux-x64/).
+							const patterns = foreignPlatforms.map( ( p ) => `**/*${ p }*/**/*.node` );
 
-							for ( const toolDir of readdirSync( vendorPath ) ) {
-								const toolPath = join( vendorPath, toolDir );
-								if ( ! statSync( toolPath ).isDirectory() ) {
-									continue;
-								}
-								for ( const platformDir of readdirSync( toolPath ) ) {
-									if ( ! platformDir.includes( keepPlatform ) ) {
-										rmSync( join( toolPath, platformDir ), {
-											recursive: true,
-											force: true,
-										} );
-									}
+							for ( const pattern of patterns ) {
+								const matches = globSync( pattern, {
+									cwd: distCliNodeModulesPath,
+									absolute: true,
+								} );
+								for ( const match of matches ) {
+									rmSync( match, { force: true } );
 								}
 							}
 						},

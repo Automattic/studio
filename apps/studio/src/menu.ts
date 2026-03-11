@@ -57,10 +57,10 @@ export function removeMenu() {
 	Menu.setApplicationMenu( null );
 }
 
-export async function popupMenu() {
+export async function popupMenu( position?: { x: number; y: number } ) {
 	const window = await getMainWindow();
 	const menu = await getAppMenu( window );
-	menu.popup();
+	menu.popup( { window: window ?? undefined, ...position } );
 }
 
 async function buildBetaFeaturesMenu(): Promise< MenuItemConstructorOptions[] > {

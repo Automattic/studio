@@ -702,9 +702,25 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 							} )
 							.command( {
 								command: 'delete <id>',
-								describe: __( 'Delete an AI session' ),
-								handler: async () => {
-									// Not implemented
+								describe: __( 'Delete an AI session (id, prefix, or "latest")' ),
+								builder: ( deleteYargs ) => {
+									return deleteYargs.positional( 'id', {
+										type: 'string',
+										describe: __( 'Session id, id prefix, or "latest"' ),
+									} );
+								},
+								handler: async ( argv ) => {
+									try {
+										await runDeleteSessionCommand( argv.id as string );
+									} catch ( error ) {
+										if ( error instanceof LoggerError ) {
+											logger.reportError( error );
+										} else {
+											logger.reportError(
+												new LoggerError( __( 'Failed to delete AI session' ), error )
+											);
+										}
+									}
 								},
 							} )
 							.version( false )

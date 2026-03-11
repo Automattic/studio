@@ -4,7 +4,9 @@ import path from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
 	AiSessionRecorder,
+	deleteAiSession,
 	getAiSessionsDirectoryForDate,
+	getAiSessionsRootDirectory,
 	loadAiSession,
 	listAiSessions,
 	readAiSessionEventsFromFile,
@@ -208,5 +210,33 @@ describe( 'ai-sessions', () => {
 			endReason: 'stopped',
 		} );
 		expect( sessions[ 0 ].eventCount ).toBeGreaterThanOrEqual( 4 );
+	} );
+
+	it( 'deletes a session by id prefix and prunes empty date directories', async () => {
+		testRoot = await fs.mkdtemp( path.join( os.tmpdir(), 'studio-ai-sessions-' ) );
+		process.env.E2E = '1';
+		process.env.E2E_APP_DATA_PATH = testRoot;
+
+		const startedAt = new Date( '2026-03-11T10:00:00.000Z' );
+		const recorder = await AiSessionRecorder.create( { startedAt } );
+		await recorder.recordUserMessage( {
+			text: 'Delete me',
+			source: 'prompt',
+		} );
+
+		const deleted = await deleteAiSession( recorder.sessionId.slice( 0, 8 ) );
+		expect( deleted.id ).toBe( recorder.sessionId );
+
+		const sessions = await listAiSessions();
+		expect( sessions ).toHaveLength( 0 );
+
+		const dayDirectory = getAiSessionsDirectoryForDate( startedAt );
+		const monthDirectory = path.dirname( dayDirectory );
+		const yearDirectory = path.dirname( monthDirectory );
+		await expect( fs.access( dayDirectory ) ).rejects.toThrow();
+		await expect( fs.access( monthDirectory ) ).rejects.toThrow();
+		await expect( fs.access( yearDirectory ) ).rejects.toThrow();
+
+		await expect( fs.access( getAiSessionsRootDirectory() ) ).resolves.not.toThrow();
 	} );
 } );

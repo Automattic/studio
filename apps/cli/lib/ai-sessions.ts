@@ -419,3 +419,56 @@ export async function loadAiSession( sessionIdOrPrefix: string ): Promise< Loade
 	const events = await readAiSessionEventsFromFile( summary.filePath );
 	return { summary, events };
 }
+
+async function pruneEmptySessionDirectories( startDirectory: string ): Promise< void > {
+	const rootDirectory = getAiSessionsRootDirectory();
+	let currentDirectory = startDirectory;
+
+	while (
+		currentDirectory.startsWith( rootDirectory + path.sep ) &&
+		currentDirectory !== rootDirectory
+	) {
+		try {
+			await fs.rmdir( currentDirectory );
+		} catch ( error ) {
+			const fsError = error as NodeJS.ErrnoException;
+			if ( fsError.code === 'ENOTEMPTY' || fsError.code === 'ENOENT' ) {
+				return;
+			}
+
+			throw error;
+		}
+
+		currentDirectory = path.dirname( currentDirectory );
+	}
+}
+
+export async function deleteAiSession( sessionIdOrPrefix: string ): Promise< AiSessionSummary > {
+	const sessions = await listAiSessions();
+	const exactMatch = sessions.find( ( session ) => session.id === sessionIdOrPrefix );
+	const candidates = exactMatch
+		? [ exactMatch ]
+		: sessions.filter( ( session ) => session.id.startsWith( sessionIdOrPrefix ) );
+
+	if ( candidates.length === 0 ) {
+		throw new Error( `AI session not found: ${ sessionIdOrPrefix }` );
+	}
+
+	if ( candidates.length > 1 ) {
+		const sample = candidates
+			.slice( 0, 5 )
+			.map( ( session ) => session.id )
+			.join( ', ' );
+		throw new Error(
+			`Session id prefix is ambiguous: ${ sessionIdOrPrefix }. Matches: ${ sample }${
+				candidates.length > 5 ? ', …' : ''
+			}`
+		);
+	}
+
+	const sessionToDelete = candidates[ 0 ];
+	await fs.rm( sessionToDelete.filePath, { force: false } );
+	await pruneEmptySessionDirectories( path.dirname( sessionToDelete.filePath ) );
+
+	return sessionToDelete;
+}

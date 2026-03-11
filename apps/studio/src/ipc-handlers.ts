@@ -135,21 +135,15 @@ export {
 	showUserSettings,
 } from 'src/modules/user-settings/lib/ipc-handlers';
 
-async function getAgentInstructionsSitePath( siteId: string ): Promise< string > {
-	const userData = await loadUserData();
-	const site = userData.sites.find( ( s ) => s.id === siteId );
-	if ( ! site ) {
-		throw new Error( `Site not found: ${ siteId }` );
-	}
-	return site.path;
-}
-
 export async function getAgentInstructionsStatus(
 	_event: IpcMainInvokeEvent,
 	siteId: string
 ): Promise< InstructionFileStatus[] > {
-	const sitePath = await getAgentInstructionsSitePath( siteId );
-	return getAllInstructionFilesStatus( sitePath );
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( `Site not found: ${ siteId }` );
+	}
+	return getAllInstructionFilesStatus( server.details.path );
 }
 
 export async function installAgentInstructions(
@@ -157,10 +151,18 @@ export async function installAgentInstructions(
 	siteId: string,
 	options?: { overwrite?: boolean; fileType?: InstructionFileType }
 ): Promise< { path: string; overwritten: boolean } > {
-	const sitePath = await getAgentInstructionsSitePath( siteId );
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( `Site not found: ${ siteId }` );
+	}
 	const overwrite = options?.overwrite ?? false;
 	const fileType = options?.fileType ?? 'agents';
-	return installInstructionFile( sitePath, fileType, DEFAULT_AGENT_INSTRUCTIONS, overwrite );
+	return installInstructionFile(
+		server.details.path,
+		fileType,
+		DEFAULT_AGENT_INSTRUCTIONS,
+		overwrite
+	);
 }
 
 const DEBUG_LOG_MAX_LINES = 50;

@@ -162,26 +162,15 @@ export function SkillsPanel( { siteId, className }: SkillsPanelProps ) {
 		[ removeSkill ]
 	);
 
-	const handleRefresh = useCallback( () => {
-		void refreshInstalled();
-		void refreshAvailable();
-	}, [ refreshInstalled, refreshAvailable ] );
-
-	const isLoading = isLoadingInstalled || isLoadingAvailable;
 	const error = installedError || availableError || installError || removeError;
 
 	return (
 		<div className={ cx( 'flex flex-col gap-4', className ) }>
-			<div className="flex items-center justify-between">
-				<div>
-					<h3 className="text-sm font-medium text-gray-900">{ __( 'Agent Skills' ) }</h3>
-					<p className="text-xs text-gray-500 mt-0.5">
-						{ __( 'Enhance the AI assistant with specialized capabilities' ) }
-					</p>
-				</div>
-				<Button variant="secondary" onClick={ handleRefresh } className="text-sm">
-					{ isLoading ? __( 'Refreshing...' ) : __( 'Refresh' ) }
-				</Button>
+			<div>
+				<h3 className="text-sm font-medium text-gray-900">{ __( 'Agent Skills' ) }</h3>
+				<p className="text-xs text-gray-500 mt-0.5">
+					{ __( 'Enhance the AI assistant with specialized capabilities' ) }
+				</p>
 			</div>
 
 			{ error && (
@@ -252,13 +241,9 @@ export function SkillsPanel( { siteId, className }: SkillsPanelProps ) {
 					<div className="px-3 py-4 text-sm text-gray-500 text-center">
 						{ __( 'Could not load available skills' ) }
 					</div>
-				) : uninstalledSkills.length === 0 && availableSkills.length > 0 ? (
-					<div className="px-3 py-4 text-sm text-gray-500 text-center">
-						{ __( 'All available skills are installed' ) }
-					</div>
 				) : uninstalledSkills.length === 0 ? (
 					<div className="px-3 py-4 text-sm text-gray-500 text-center">
-						{ __( 'Click Refresh to load available skills' ) }
+						{ __( 'All available skills are installed' ) }
 					</div>
 				) : (
 					uninstalledSkills.map( ( skill ) => (

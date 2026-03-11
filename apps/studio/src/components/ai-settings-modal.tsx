@@ -12,6 +12,7 @@ import {
 	type InstructionFileType,
 } from 'src/modules/agent-instructions/constants';
 import { type InstructionFileStatus } from 'src/modules/agent-instructions/lib/instructions';
+import { SkillsPanel } from 'src/modules/agent-skills/components/skills-panel';
 
 interface AiSettingsModalProps {
 	isOpen: boolean;
@@ -163,20 +164,6 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 	);
 }
 
-function SkillsPanel() {
-	const { __ } = useI18n();
-	return (
-		<div className="flex flex-col gap-4">
-			<div>
-				<h3 className="text-sm font-medium text-gray-900">{ __( 'Agent Skills' ) }</h3>
-				<p className="text-xs text-gray-500 mt-0.5">
-					{ __( 'Enhance AI assistant with specialized capabilities' ) }
-				</p>
-			</div>
-		</div>
-	);
-}
-
 export function AiSettingsModal( { isOpen, onClose, siteId }: AiSettingsModalProps ) {
 	const { __ } = useI18n();
 
@@ -200,7 +187,7 @@ export function AiSettingsModal( { isOpen, onClose, siteId }: AiSettingsModalPro
 			<TabPanel className="w-full" tabs={ tabs } orientation="horizontal">
 				{ ( { name } ) => (
 					<div className="mt-6 px-8 pb-4 flex flex-col gap-4">
-						{ name === 'skills' && <SkillsPanel /> }
+						{ name === 'skills' && <SkillsPanel siteId={ siteId } /> }
 						{ name === 'instructions' && <AgentInstructionsPanel siteId={ siteId } /> }
 					</div>
 				) }

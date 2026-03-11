@@ -75,6 +75,12 @@ import {
 	installInstructionFile,
 	type InstructionFileStatus,
 } from 'src/modules/agent-instructions/lib/instructions';
+import { discoverSiteSkills } from 'src/modules/agent-skills/lib/skill-discovery';
+import {
+	installSkillFromGitHub,
+	listAvailableSkills as listAvailableSkillsLib,
+	removeSkill as removeSkillLib,
+} from 'src/modules/agent-skills/lib/skill-installer';
 import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
@@ -92,6 +98,7 @@ import {
 	updateAppdata,
 } from 'src/storage/user-data';
 import { Blueprint } from 'src/stores/wpcom-api';
+import type { AvailableSkill, Skill } from 'src/modules/agent-skills/types';
 import type { RawDirectoryEntry } from 'src/modules/sync/types';
 import type { WpCliResult } from 'src/site-server';
 
@@ -163,6 +170,49 @@ export async function installAgentInstructions(
 		DEFAULT_AGENT_INSTRUCTIONS,
 		overwrite
 	);
+}
+
+export async function getSiteSkills(
+	_event: IpcMainInvokeEvent,
+	siteId: string
+): Promise< Skill[] > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( `Site not found: ${ siteId }` );
+	}
+	return discoverSiteSkills( server.details.path );
+}
+
+export async function installSkill(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	repo: string,
+	skillPath: string
+) {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( `Site not found: ${ siteId }` );
+	}
+	return installSkillFromGitHub( server.details.path, repo, skillPath );
+}
+
+export async function removeSkill(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	skillName: string
+): Promise< void > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( `Site not found: ${ siteId }` );
+	}
+	return removeSkillLib( server.details.path, skillName );
+}
+
+export async function listAvailableSkills(
+	_event: IpcMainInvokeEvent,
+	repo?: string
+): Promise< AvailableSkill[] > {
+	return listAvailableSkillsLib( repo );
 }
 
 const DEBUG_LOG_MAX_LINES = 50;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import type { AvailableSkill, Skill, SkillInstallResult } from '../types';
 
@@ -72,7 +72,7 @@ interface UseAvailableSkillsResult {
 
 export function useAvailableSkills( repo?: string ): UseAvailableSkillsResult {
 	const [ availableSkills, setAvailableSkills ] = useState< AvailableSkill[] >( [] );
-	const [ isLoading, setIsLoading ] = useState( false );
+	const [ isLoading, setIsLoading ] = useState( true );
 	const [ error, setError ] = useState< string | null >( null );
 
 	const loadSkills = useCallback( async () => {
@@ -90,6 +90,10 @@ export function useAvailableSkills( repo?: string ): UseAvailableSkillsResult {
 			setIsLoading( false );
 		}
 	}, [ repo ] );
+
+	useEffect( () => {
+		void loadSkills();
+	}, [ loadSkills ] );
 
 	return {
 		availableSkills,

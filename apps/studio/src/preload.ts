@@ -161,6 +161,11 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'getAgentInstructionsStatus', siteId ),
 	installAgentInstructions: ( siteId, options ) =>
 		ipcRendererInvoke( 'installAgentInstructions', siteId, options ),
+	getSiteSkills: ( siteId ) => ipcRendererInvoke( 'getSiteSkills', siteId ),
+	installSkill: ( siteId, repo, skillPath ) =>
+		ipcRendererInvoke( 'installSkill', siteId, repo, skillPath ),
+	removeSkill: ( siteId, skillName ) => ipcRendererInvoke( 'removeSkill', siteId, skillName ),
+	listAvailableSkills: ( repo ) => ipcRendererInvoke( 'listAvailableSkills', repo ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

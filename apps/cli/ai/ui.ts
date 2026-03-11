@@ -274,7 +274,10 @@ export class AiChatUI {
 	private toolDotLabel = '';
 	private _activeSite: SiteInfo | null = null;
 	private _activeSiteData: SiteData | null = null;
-	private lastToolInput: Record< string, unknown > | null = null;
+	private pendingToolCalls = new Map<
+		string,
+		{ name: string; input: Record< string, unknown > }
+	>();
 	currentModel: AiModelId = DEFAULT_MODEL;
 
 	private readonly thinkingMessages = [
@@ -898,6 +901,7 @@ export class AiChatUI {
 		this.stopToolDotBlink();
 		this.toolDotText = null;
 		this.interruptCallback = null;
+		this.pendingToolCalls.clear();
 		this.updateHints();
 		this.currentMarkdown = null;
 		this.currentResponseText = '';
@@ -1072,8 +1076,16 @@ export class AiChatUI {
 					} else if ( block.type === 'tool_use' ) {
 						this.lastToolName = block.name;
 						this.toolStartTime = Date.now();
-						const input = ( block as { input?: Record< string, unknown > } ).input;
-						this.lastToolInput = input ?? null;
+						const typedBlock = block as {
+							id: string;
+							name: string;
+							input?: Record< string, unknown >;
+						};
+						const input = typedBlock.input;
+						this.pendingToolCalls.set( typedBlock.id, {
+							name: typedBlock.name,
+							input: input ?? {},
+						} );
 						const toolLabel = formatToolName( block.name, input );
 						this.showLoader( this.randomThinkingMessage() );
 						this.stopToolDotBlink();
@@ -1100,9 +1112,13 @@ export class AiChatUI {
 				return undefined;
 			}
 			case 'user': {
-				this.showToolResult( message, this.lastToolName ?? undefined, this.lastToolInput );
+				const toolCallId = message.parent_tool_use_id;
+				const toolCall = toolCallId ? this.pendingToolCalls.get( toolCallId ) : null;
+				if ( toolCallId ) {
+					this.pendingToolCalls.delete( toolCallId );
+				}
+				this.showToolResult( message, toolCall?.name, toolCall?.input );
 				this.lastToolName = null;
-				this.lastToolInput = null;
 				return undefined;
 			}
 			case 'result': {

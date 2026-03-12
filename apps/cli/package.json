@@ -10,7 +10,6 @@
 	},
 	"files": [
 		"dist/cli/*.js",
-		"dist/locales/",
 		"patches/"
 	],
 	"engines": {

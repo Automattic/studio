@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { defineConfig, mergeConfig } from 'vite';
-import { baseConfig, nodeBuiltinExternals, yargsLocalesCopyPlugin } from './vite.config.base';
+import { baseConfig, nodeBuiltinExternals } from './vite.config.base';
 
 const packageJson = JSON.parse( readFileSync( resolve( __dirname, 'package.json' ), 'utf-8' ) );
 const packageVersion = packageJson.version;
@@ -12,7 +12,6 @@ const externalDeps = Object.keys( packageJson.dependencies || {} );
 export default mergeConfig(
 	baseConfig,
 	defineConfig( {
-		plugins: [ yargsLocalesCopyPlugin ],
 		build: {
 			sourcemap: false,
 			rollupOptions: {

@@ -3,7 +3,7 @@ import { resolve } from 'path';
 import { sync as globSync } from 'glob';
 import { defineConfig, mergeConfig } from 'vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
-import { baseConfig, nodeBuiltinExternals, yargsLocalesCopyPlugin } from './vite.config.base';
+import { baseConfig, nodeBuiltinExternals } from './vite.config.base';
 
 const cliNodeModulesPath = resolve( __dirname, 'node_modules' );
 const distCliNodeModulesPath = resolve( __dirname, 'dist/cli/node_modules' );
@@ -15,7 +15,6 @@ export default mergeConfig(
 	baseConfig,
 	defineConfig( {
 		plugins: [
-			yargsLocalesCopyPlugin,
 			...( existsSync( cliNodeModulesPath )
 				? [
 						viteStaticCopy( {

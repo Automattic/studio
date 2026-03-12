@@ -1,9 +1,5 @@
-import { dirname, join, resolve } from 'path';
-import { normalizePath, type UserConfig } from 'vite';
-import { viteStaticCopy } from 'vite-plugin-static-copy';
-
-const yargsPath = dirname( require.resolve( 'yargs' ) );
-const yargsLocalesPath = join( yargsPath, 'locales' );
+import { resolve } from 'path';
+import { type UserConfig } from 'vite';
 
 export const nodeBuiltinExternals = [
 	/^node:/,
@@ -11,15 +7,6 @@ export const nodeBuiltinExternals = [
 	'fs/promises',
 	'dns/promises',
 ];
-
-export const yargsLocalesCopyPlugin = viteStaticCopy( {
-	targets: [
-		{
-			src: normalizePath( join( yargsLocalesPath, '*' ) ),
-			dest: '../locales',
-		},
-	],
-} );
 
 export const baseConfig: UserConfig = {
 	build: {

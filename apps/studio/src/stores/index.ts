@@ -4,7 +4,6 @@ import {
 	createListenerMiddleware,
 	isAnyOf,
 } from '@reduxjs/toolkit';
-import authReducer from 'src/stores/auth-slice';
 import { setupListeners } from '@reduxjs/toolkit/query';
 import { useDispatch, useSelector } from 'react-redux';
 import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
@@ -15,6 +14,7 @@ import {
 } from 'src/hooks/use-sync-states-progress-info';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { appVersionApi } from 'src/stores/app-version-api';
+import authReducer from 'src/stores/auth-slice';
 import { betaFeaturesReducer, loadBetaFeatures } from 'src/stores/beta-features-slice';
 import { certificateTrustApi } from 'src/stores/certificate-trust-api';
 import { reducer as chatReducer } from 'src/stores/chat-slice';

@@ -16,7 +16,7 @@ const resultsFiles = [
 	},
 	{
 		file: 'app-size.summary.json',
-		metricsPrefix: 'app-size-',
+		metricsPrefix: '',
 	},
 ];
 

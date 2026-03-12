@@ -72,19 +72,44 @@ function repeatChange( change: TodoChange, count: number ): TodoChange[] {
 }
 
 export function normalizeTodoSnapshot( todos: TodoEntry[] ): TodoEntry[] {
-	return [ ...todos ]
-		.map( ( todo ) => ( {
-			content: todo.content,
-			status: todo.status,
-			activeForm: todo.activeForm,
-		} ) )
-		.sort( compareTodoEntries );
+	return [ ...todos ].map( ( todo ) => ( {
+		content: todo.content,
+		status: todo.status,
+		activeForm: todo.activeForm,
+	} ) );
+}
+
+function buildChangeOrder( todos: TodoEntry[] ): Map< string, number > {
+	const order = new Map< string, number >();
+
+	todos.forEach( ( todo, index ) => {
+		const identity = buildIdentityKey( todo );
+		if ( ! order.has( identity ) ) {
+			order.set( identity, index );
+		}
+	} );
+
+	return order;
+}
+
+function sortTodoChangesByOrder(
+	changes: TodoChange[],
+	changeOrder: Map< string, number >
+): TodoChange[] {
+	return changes.sort(
+		( left, right ) =>
+			( changeOrder.get( buildIdentityKey( left ) ) ?? Number.MAX_SAFE_INTEGER ) -
+				( changeOrder.get( buildIdentityKey( right ) ) ?? Number.MAX_SAFE_INTEGER ) ||
+			left.content.localeCompare( right.content ) ||
+			left.activeForm.localeCompare( right.activeForm )
+	);
 }
 
 export function diffTodoSnapshot( previous: TodoEntry[], next: TodoEntry[] ): TodoDiff {
 	const snapshot = normalizeTodoSnapshot( next );
 	const previousCounts = buildCounts( normalizeTodoSnapshot( previous ) );
 	const nextCounts = buildCounts( snapshot );
+	const changeOrder = buildChangeOrder( snapshot );
 	const identities = new Set( [ ...previousCounts.keys(), ...nextCounts.keys() ] );
 	const added: TodoChange[] = [];
 	const completed: TodoChange[] = [];
@@ -112,22 +137,14 @@ export function diffTodoSnapshot( previous: TodoEntry[], next: TodoEntry[] ): To
 		added.push( ...repeatChange( entry, addedCount ) );
 	}
 
-	added.sort(
-		( left, right ) =>
-			left.content.localeCompare( right.content ) ||
-			left.activeForm.localeCompare( right.activeForm )
-	);
-	completed.sort(
-		( left, right ) =>
-			left.content.localeCompare( right.content ) ||
-			left.activeForm.localeCompare( right.activeForm )
-	);
+	sortTodoChangesByOrder( added, changeOrder );
+	sortTodoChangesByOrder( completed, changeOrder );
 
 	return {
 		added,
 		completed,
 		hasVisibleChanges: added.length > 0 || completed.length > 0,
-		signature: JSON.stringify( snapshot ),
+		signature: JSON.stringify( [ ...snapshot ].sort( compareTodoEntries ) ),
 		snapshot,
 	};
 }

@@ -4,6 +4,7 @@ import {
 	createListenerMiddleware,
 	isAnyOf,
 } from '@reduxjs/toolkit';
+import authReducer from 'src/stores/auth-slice';
 import { setupListeners } from '@reduxjs/toolkit/query';
 import { useDispatch, useSelector } from 'react-redux';
 import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
@@ -40,6 +41,7 @@ import { wordpressVersionsApi } from './wordpress-versions-api';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 
 export type RootState = {
+	auth: ReturnType< typeof authReducer >;
 	appVersionApi: ReturnType< typeof appVersionApi.reducer >;
 	betaFeatures: ReturnType< typeof betaFeaturesReducer >;
 	chat: ReturnType< typeof chatReducer >;
@@ -323,6 +325,7 @@ startAppListening( {
 } );
 
 export const rootReducer = combineReducers( {
+	auth: authReducer,
 	appVersionApi: appVersionApi.reducer,
 	betaFeatures: betaFeaturesReducer,
 	chat: chatReducer,

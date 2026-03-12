@@ -93,7 +93,7 @@ export async function runCommand(): Promise< void > {
 		}
 
 		if ( currentProvider === 'anthropic-api-key' ) {
-			ui.showInfo( 'Use /api-key or /provider to update the Anthropic API key.' );
+			ui.showInfo( 'Use /api-key to update the Anthropic API key.' );
 		}
 	}
 

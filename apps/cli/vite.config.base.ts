@@ -1,5 +1,5 @@
 import { resolve } from 'path';
-import { type UserConfig } from 'vite';
+import { defineConfig } from 'vite';
 
 export const nodeBuiltinExternals = [
 	/^node:/,
@@ -8,7 +8,7 @@ export const nodeBuiltinExternals = [
 	'dns/promises',
 ];
 
-export const baseConfig: UserConfig = {
+export const baseConfig = defineConfig( {
 	build: {
 		lib: {
 			entry: {
@@ -46,4 +46,4 @@ export const baseConfig: UserConfig = {
 		conditions: [ 'node' ],
 		mainFields: [ 'main' ],
 	},
-};
+} );

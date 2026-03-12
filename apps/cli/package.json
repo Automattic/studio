@@ -11,8 +11,7 @@
 	"files": [
 		"dist/cli/*.js",
 		"dist/locales/",
-		"patches/",
-		"scripts/"
+		"patches/"
 	],
 	"engines": {
 		"node": ">=22.0.0"
@@ -52,7 +51,7 @@
 		"package": "npm run install:bundle && npm run build",
 		"watch": "vite build --config ./vite.config.ts --watch",
 		"prepublishOnly": "npm run build:npm",
-		"postinstall": "node ./scripts/postinstall-npm.mjs"
+		"postinstall": "patch-package"
 	},
 	"devDependencies": {
 		"@studio/common": "file:../../tools/common",

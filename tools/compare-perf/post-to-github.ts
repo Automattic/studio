@@ -3,7 +3,7 @@
 import fs from 'fs';
 import https from 'https';
 import path from 'path';
-import { BYTES_PER_MB, getMetricConfig, formatMetricValue } from '../metrics/metric-config';
+import { getMetricConfig } from '../metrics/metric-config';
 
 interface PerformanceResults {
 	[ branch: string ]: {
@@ -37,7 +37,7 @@ function formatResultsAsMarkdown(
 		const compareMetrics = suiteResults[ compareBranch ] || {};
 
 		for ( const metric of Object.keys( { ...baseMetrics, ...compareMetrics } ) ) {
-			const { label, unit, threshold } = getMetricConfig( metric );
+			const { label, format, threshold } = getMetricConfig( metric );
 			const baseValue = baseMetrics[ metric ] || 0;
 			const compareValue = compareMetrics[ metric ] || 0;
 			const diff = compareValue - baseValue;
@@ -58,16 +58,9 @@ function formatResultsAsMarkdown(
 				}
 			}
 			const sign = diff > 0 ? '+' : '';
-			const diffFormatted =
-				unit === 'MB'
-					? `${ sign }${ ( diff / BYTES_PER_MB ).toFixed( 2 ) } MB`
-					: `${ sign }${ diff.toFixed( 2 ) } ms`;
+			const diffFormatted = `${ sign }${ format( Math.abs( diff ) ) }`;
 
-			markdown += `| ${ label } | ${ formatMetricValue(
-				metric,
-				baseValue
-			) } | ${ formatMetricValue(
-				metric,
+			markdown += `| ${ label } | ${ format( baseValue ) } | ${ format(
 				compareValue
 			) } | ${ diffFormatted } | ${ emoji } ${ percentChange }% |\n`;
 		}

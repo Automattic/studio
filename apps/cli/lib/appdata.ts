@@ -13,7 +13,7 @@ import { readFile, writeFile } from 'atomically';
 import { z } from 'zod';
 import { validateAccessToken } from 'cli/lib/api';
 import { LoggerError } from 'cli/logger';
-import type { AiProviderId } from 'cli/lib/ai-provider';
+import type { AiProviderId } from 'cli/ai/providers';
 
 const siteSchema = siteDetailsSchema
 	.extend( {
@@ -25,13 +25,14 @@ const siteSchema = siteDetailsSchema
 	.loose();
 
 const betaFeaturesSchema = z.object( {} ).loose();
+const aiProviderSchema = z.enum( [ 'wpcom', 'anthropic-claude', 'anthropic-api-key' ] );
 
 const userDataSchema = z
 	.object( {
 		sites: z.array( siteSchema ).default( () => [] ),
 		snapshots: z.array( snapshotSchema ).default( () => [] ),
 		locale: z.string().optional(),
-		aiProvider: z.enum( [ 'wpcom', 'anthropic-claude', 'anthropic-api-key' ] ).optional(),
+		aiProvider: aiProviderSchema.optional(),
 		authToken: z
 			.object( {
 				accessToken: z.string().min( 1, __( 'Access token cannot be empty' ) ),

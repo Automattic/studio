@@ -2,12 +2,14 @@ import { __ } from '@wordpress/i18n';
 import { AI_MODELS, DEFAULT_MODEL, startAiAgent, type AiModelId } from 'cli/ai/agent';
 import {
 	getAvailableAiProviders,
-	hasClaudeCodeAuth,
+	isAiProviderReady,
 	prepareAiProvider,
 	resolveAiEnvironment,
 	resolveInitialAiProvider,
+	resolveUnavailableAiProvider,
 	saveSelectedAiProvider,
 } from 'cli/ai/auth';
+import { AI_PROVIDERS, type AiProviderId } from 'cli/ai/providers';
 import {
 	AI_CHAT_BROWSER_COMMAND,
 	AI_CHAT_EXIT_COMMAND,
@@ -19,7 +21,6 @@ import {
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { runCommand as runLogoutCommand } from 'cli/commands/auth/logout';
-import { AI_PROVIDERS, type AiProviderId } from 'cli/lib/ai-provider';
 import { getAnthropicApiKey, getAuthToken } from 'cli/lib/appdata';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -34,17 +35,6 @@ export async function runCommand(): Promise< void > {
 	ui.start();
 	ui.showWelcome();
 
-	try {
-		const token = await getAuthToken();
-		ui.showInfo( `Logged in as ${ token.displayName } (${ token.email })` );
-	} catch {
-		ui.showInfo( 'Not logged in to WordPress.com. Use /login to authenticate.' );
-	}
-
-	if ( currentProvider === 'anthropic-api-key' && ! ( await getAnthropicApiKey() ) ) {
-		ui.showInfo( 'No Anthropic API key saved. Use /provider to enter one.' );
-	}
-
 	let sessionId: string | undefined;
 	let currentModel: AiModelId = DEFAULT_MODEL;
 
@@ -55,6 +45,42 @@ export async function runCommand(): Promise< void > {
 		} finally {
 			ui.start();
 		}
+	}
+
+	async function switchProvider( provider: AiProviderId, announce = true ): Promise< void > {
+		currentProvider = provider;
+		ui.currentProvider = currentProvider;
+		sessionId = undefined;
+		await saveSelectedAiProvider( currentProvider );
+		if ( announce ) {
+			ui.showInfo( `Switched to ${ AI_PROVIDERS[ currentProvider ] }` );
+		}
+	}
+
+	async function maybeAutoSwitchProvider(): Promise< void > {
+		const fallbackProvider = await resolveUnavailableAiProvider( currentProvider );
+		if ( ! fallbackProvider || fallbackProvider === currentProvider ) {
+			return;
+		}
+
+		const previousProvider = currentProvider;
+		await switchProvider( fallbackProvider, false );
+		ui.showInfo(
+			`${ AI_PROVIDERS[ previousProvider ] } is no longer available. Switched to ${ AI_PROVIDERS[ currentProvider ] }.`
+		);
+	}
+
+	if ( currentProvider === 'wpcom' ) {
+		try {
+			const token = await getAuthToken();
+			ui.showInfo( `Logged in as ${ token.displayName } (${ token.email })` );
+		} catch {
+			ui.showInfo( 'WordPress.com provider selected. Use /login to authenticate.' );
+		}
+	}
+
+	if ( currentProvider === 'anthropic-api-key' && ! ( await getAnthropicApiKey() ) ) {
+		ui.showInfo( 'No Anthropic API key saved. Use /provider to enter one.' );
 	}
 
 	async function runAgentTurn( prompt: string ): Promise< void > {
@@ -141,10 +167,10 @@ export async function runCommand(): Promise< void > {
 				ui.stop();
 				await runLoginCommand();
 				ui.start();
-				try {
+				if ( await isAiProviderReady( 'wpcom' ) ) {
 					const token = await getAuthToken();
 					ui.showInfo( `Logged in as ${ token.displayName } (${ token.email })` );
-				} catch {
+				} else {
 					ui.showInfo( 'Login failed or canceled.' );
 				}
 				continue;
@@ -155,6 +181,7 @@ export async function runCommand(): Promise< void > {
 				await runLogoutCommand();
 				ui.start();
 				ui.showInfo( 'Logged out of WordPress.com.' );
+				await maybeAutoSwitchProvider();
 				continue;
 			}
 
@@ -181,7 +208,7 @@ export async function runCommand(): Promise< void > {
 			}
 
 			if ( trimmedPrompt === AI_CHAT_PROVIDER_COMMAND ) {
-				const availableProviders = getAvailableAiProviders();
+				const availableProviders = await getAvailableAiProviders();
 				const providerOptions = availableProviders.map( ( id ) => ( {
 					label: id === currentProvider ? `${ AI_PROVIDERS[ id ] } (current)` : AI_PROVIDERS[ id ],
 					description: id,
@@ -194,24 +221,21 @@ export async function runCommand(): Promise< void > {
 					selectedLabel.startsWith( AI_PROVIDERS[ id ] )
 				);
 				if ( newProvider && newProvider !== currentProvider ) {
-					await prepareProviderSelection( newProvider );
-					currentProvider = newProvider;
-					ui.currentProvider = currentProvider;
-					sessionId = undefined;
-					await saveSelectedAiProvider( currentProvider );
-					ui.showInfo( `Switched to ${ AI_PROVIDERS[ currentProvider ] }` );
+					try {
+						await prepareProviderSelection( newProvider );
+						await switchProvider( newProvider );
+					} catch ( error ) {
+						if ( error instanceof LoggerError ) {
+							ui.showError( error.message );
+							continue;
+						}
+						throw error;
+					}
 				}
 				continue;
 			}
 
-			if ( currentProvider === 'anthropic-claude' && ! hasClaudeCodeAuth() ) {
-				await prepareProviderSelection( 'anthropic-api-key' );
-				currentProvider = 'anthropic-api-key';
-				ui.currentProvider = currentProvider;
-				sessionId = undefined;
-				await saveSelectedAiProvider( currentProvider );
-				ui.showInfo( 'Claude auth is no longer available. Switched to Anthropic · API key.' );
-			}
+			await maybeAutoSwitchProvider();
 
 			ui.addUserMessage( prompt );
 			await runAgentTurn( prompt );

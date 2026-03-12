@@ -3,9 +3,11 @@ import { password } from '@inquirer/prompts';
 import { vi } from 'vitest';
 import {
 	getAvailableAiProviders,
+	isAiProviderReady,
 	prepareAiProvider,
 	resolveAiEnvironment,
 	resolveInitialAiProvider,
+	resolveUnavailableAiProvider,
 } from 'cli/ai/auth';
 import {
 	getAiProvider,
@@ -79,9 +81,9 @@ describe( 'AI auth helpers', () => {
 		expect( saveAnthropicApiKey ).toHaveBeenCalledWith( 'prompted-key' );
 	} );
 
-	it( 'lists Claude auth only when it is available', () => {
+	it( 'lists Claude auth only when it is available', async () => {
 		vi.mocked( childProcess.execFileSync ).mockReturnValue( 'Authenticated' as never );
-		expect( getAvailableAiProviders() ).toEqual( [
+		await expect( getAvailableAiProviders() ).resolves.toEqual( [
 			'wpcom',
 			'anthropic-claude',
 			'anthropic-api-key',
@@ -90,7 +92,7 @@ describe( 'AI auth helpers', () => {
 		vi.mocked( childProcess.execFileSync ).mockImplementation( () => {
 			throw new Error( 'not authenticated' );
 		} );
-		expect( getAvailableAiProviders() ).toEqual( [ 'wpcom', 'anthropic-api-key' ] );
+		await expect( getAvailableAiProviders() ).resolves.toEqual( [ 'wpcom', 'anthropic-api-key' ] );
 	} );
 
 	it( 'configures the WP.com gateway environment', async () => {
@@ -123,11 +125,20 @@ describe( 'AI auth helpers', () => {
 
 	it( 'falls back to API key mode when saved Claude auth is no longer available', async () => {
 		vi.mocked( getAiProvider ).mockResolvedValue( 'anthropic-claude' );
+		vi.mocked( getAuthToken ).mockRejectedValue( new Error( 'not authenticated' ) );
 		vi.mocked( childProcess.execFileSync ).mockImplementation( () => {
 			throw new Error( 'not authenticated' );
 		} );
 
 		await expect( resolveInitialAiProvider() ).resolves.toBe( 'anthropic-api-key' );
+	} );
+
+	it( 'falls back from saved WP.com provider when WordPress.com auth is unavailable and Claude auth is ready', async () => {
+		vi.mocked( getAiProvider ).mockResolvedValue( 'wpcom' );
+		vi.mocked( getAuthToken ).mockRejectedValue( new Error( 'not authenticated' ) );
+		vi.mocked( childProcess.execFileSync ).mockReturnValue( 'Authenticated' as never );
+
+		await expect( resolveInitialAiProvider() ).resolves.toBe( 'anthropic-claude' );
 	} );
 
 	it( 'defaults to WP.com when no provider is saved and a valid WP.com token exists', async () => {
@@ -160,5 +171,29 @@ describe( 'AI auth helpers', () => {
 		vi.mocked( childProcess.execFileSync ).mockReturnValue( 'Authenticated' as never );
 
 		await expect( resolveInitialAiProvider() ).resolves.toBe( 'anthropic-claude' );
+	} );
+
+	it( 'reports WordPress.com readiness based on WP.com auth state', async () => {
+		vi.mocked( getAuthToken ).mockResolvedValue( {
+			accessToken: 'wpcom-token',
+			displayName: 'User',
+			email: 'user@example.com',
+			expiresIn: 3600,
+			expirationTime: Date.now() + 3600_000,
+			id: 1,
+		} );
+
+		await expect( isAiProviderReady( 'wpcom' ) ).resolves.toBe( true );
+
+		vi.mocked( getAuthToken ).mockRejectedValue( new Error( 'not authenticated' ) );
+		await expect( isAiProviderReady( 'wpcom' ) ).resolves.toBe( false );
+	} );
+
+	it( 'resolves a fallback provider only for providers that auto-fallback', async () => {
+		vi.mocked( getAuthToken ).mockRejectedValue( new Error( 'not authenticated' ) );
+		vi.mocked( getAnthropicApiKey ).mockResolvedValue( 'saved-key' );
+
+		await expect( resolveUnavailableAiProvider( 'wpcom' ) ).resolves.toBe( 'anthropic-api-key' );
+		await expect( resolveUnavailableAiProvider( 'anthropic-api-key' ) ).resolves.toBeUndefined();
 	} );
 } );

@@ -9,7 +9,6 @@
 	"dependencies": {
 		"@anthropic-ai/claude-agent-sdk": "^0.2.45",
 		"@mariozechner/pi-tui": "^0.54.0",
-		"@modelcontextprotocol/sdk": "^1.27.1",
 		"@php-wasm/universal": "3.1.5",
 		"@studio/common": "file:../../tools/common",
 		"@vscode/sudo-prompt": "^9.3.2",

@@ -3,6 +3,7 @@
 import fs from 'fs';
 import https from 'https';
 import path from 'path';
+import { getMetricConfig } from '../metrics/metric-config';
 
 interface PerformanceResults {
 	[ branch: string ]: {
@@ -22,7 +23,6 @@ function formatResultsAsMarkdown(
 	baseBranch: string,
 	compareBranch: string
 ): string {
-	const CHANGE_THRESHOLD_MS = 50;
 	let markdown = `## 📊 Performance Test Results\n\n`;
 	markdown += `Comparing **${ compareBranch }** vs **${ baseBranch }**\n\n`;
 
@@ -37,10 +37,11 @@ function formatResultsAsMarkdown(
 		const compareMetrics = suiteResults[ compareBranch ] || {};
 
 		for ( const metric of Object.keys( { ...baseMetrics, ...compareMetrics } ) ) {
+			const { label, format, threshold } = getMetricConfig( metric );
 			const baseValue = baseMetrics[ metric ] || 0;
 			const compareValue = compareMetrics[ metric ] || 0;
 			const diff = compareValue - baseValue;
-			const isNoChange = Math.abs( diff ) < CHANGE_THRESHOLD_MS;
+			const isNoChange = Math.abs( diff ) < threshold;
 			let percentChange = 'N/A';
 			if ( isNoChange ) {
 				percentChange = '0.0';
@@ -57,10 +58,11 @@ function formatResultsAsMarkdown(
 				}
 			}
 			const sign = diff > 0 ? '+' : '';
+			const diffFormatted = `${ sign }${ format( Math.abs( diff ) ) }`;
 
-			markdown += `| ${ metric } | ${ baseValue.toFixed( 2 ) } ms | ${ compareValue.toFixed(
-				2
-			) } ms | ${ sign }${ diff.toFixed( 2 ) } ms | ${ emoji } ${ percentChange }% |\n`;
+			markdown += `| ${ label } | ${ format( baseValue ) } | ${ format(
+				compareValue
+			) } | ${ diffFormatted } | ${ emoji } ${ percentChange }% |\n`;
 		}
 
 		markdown += `\n`;

@@ -1,7 +1,5 @@
 import { __ } from '@wordpress/i18n';
 
-export { BUNDLED_SKILL_IDS, type BundledSkillId } from '@studio/common/lib/agent-skills';
-
 export interface SkillConfig {
 	id: string;
 	displayName: string;

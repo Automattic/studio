@@ -3,8 +3,8 @@
  *
  * Applies patches via patch-package.
  *
- * This script is a no-op in workspace (monorepo) contexts where the package's own
- * node_modules doesn't exist.
+ * This script is a no-op in workspace (monorepo) contexts where dependencies
+ * are hoisted to the root node_modules and aren't present locally.
  */
 
 import { execSync } from 'child_process';
@@ -14,10 +14,14 @@ import { fileURLToPath } from 'url';
 
 const scriptDir = dirname( fileURLToPath( import.meta.url ) );
 const packageDir = resolve( scriptDir, '..' );
-const nodeModulesPath = join( packageDir, 'node_modules' );
 
-// Skip in workspace context where deps are hoisted to the root
-if ( ! existsSync( nodeModulesPath ) ) {
+// Skip if the patched packages aren't installed locally (e.g. in a monorepo
+// workspace where dependencies are hoisted to the root node_modules).
+const patchedPackages = [
+	join( packageDir, 'node_modules', '@wp-playground', 'wordpress' ),
+	join( packageDir, 'node_modules', 'ps-man' ),
+];
+if ( ! patchedPackages.some( ( pkg ) => existsSync( pkg ) ) ) {
 	process.exit( 0 );
 }
 

@@ -66,8 +66,6 @@ export async function __bumpAggregatedUniqueStat(
 ) {
 	const lastBump = await getLastBump( group, stat, configFileProvider );
 
-	console.log( `lastBump`, group, lastBump );
-
 	if ( lastBump === null ) {
 		__bumpStat( group, stat, bumpInDev );
 		await updateLastBump( group, stat, configFileProvider );

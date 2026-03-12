@@ -10,7 +10,6 @@
 	},
 	"files": [
 		"dist/cli/*.js",
-		"dist/cli/*.map",
 		"dist/locales/",
 		"patches/",
 		"scripts/"

@@ -14,10 +14,10 @@ export default mergeConfig(
 	defineConfig( {
 		plugins: [ yargsLocalesCopyPlugin ],
 		build: {
+			sourcemap: false,
 			rollupOptions: {
 				output: {
-					// Add shebang to main.js only. Using banner (rather than mutating code
-					// in generateBundle) ensures Rollup accounts for it in sourcemaps.
+					// Add shebang to main.js so it can be executed directly as a CLI.
 					banner: ( chunk ) => ( chunk.fileName === 'main.js' ? '#!/usr/bin/env node' : '' ),
 				},
 				external: ( id ) => {

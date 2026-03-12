@@ -13,6 +13,7 @@ import { useExecuteWPCLI } from 'src/hooks/use-execute-cli';
 import { useIsValidBlueprint } from 'src/hooks/use-is-valid-blueprint';
 import { useIsValidWpCliInline } from 'src/hooks/use-is-valid-wp-cli-inline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
+import { useToolCallsCollapsed } from 'src/hooks/use-tool-calls-collapsed';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useRootSelector } from 'src/stores';
@@ -36,6 +37,7 @@ const LanguageBlock = ( props: ContextProps & CodeBlockProps ) => {
 	const content = String( children ).trim();
 	const isValidWpCliCommand = useIsValidWpCliInline( content );
 	const { isRunning, handleExecute } = useExecuteWPCLI( content, instanceId, siteId, messageId );
+	const { isCollapsed } = useToolCallsCollapsed();
 
 	const messages = useRootSelector( ( state ) =>
 		chatSelectors.selectMessages( state, instanceId )
@@ -51,6 +53,8 @@ const LanguageBlock = ( props: ContextProps & CodeBlockProps ) => {
 	const { selectedSite } = useSiteDetails();
 	const isValidBlueprint = useIsValidBlueprint( className, content );
 
+	const hasCompletedExecution = ! isRunning && cliOutput && cliStatus;
+
 	return (
 		<>
 			<div className="p-3">
@@ -58,71 +62,77 @@ const LanguageBlock = ( props: ContextProps & CodeBlockProps ) => {
 					{ children }
 				</code>
 			</div>
-			<div className="p-3 pt-1 flex justify-start items-center">
-				<CopyTextButton
-					text={ content }
-					label={ __( 'Copy' ) }
-					copyConfirmation={ __( 'Copied!' ) }
-					showText={ true }
-					variant="outlined"
-					className="h-auto mr-2 !px-2.5 py-0.5 !p-[6px] font-sans select-none"
-					iconSize={ 16 }
-					onCopied={ async () => {
-						await getIpcApi().showNotification( {
-							title: __( 'Copied to the clipboard' ),
-						} );
-					} }
-				></CopyTextButton>
-				{ isValidBlueprint && (
-					<AddSiteWithBlueprintButton
-						content={ content }
+			{ ( ! isCollapsed || ! hasCompletedExecution ) && (
+				<div className="p-3 pt-1 flex justify-start items-center">
+					<CopyTextButton
+						text={ content }
+						label={ __( 'Copy' ) }
+						copyConfirmation={ __( 'Copied!' ) }
+						showText={ true }
 						variant="outlined"
-						className="h-auto mr-2 !px-2.5 py-0.5 font-sans select-none"
+						className="h-auto mr-2 !px-2.5 py-0.5 !p-[6px] font-sans select-none"
 						iconSize={ 16 }
-					/>
-				) }
-				{ [ 'language-sh', 'language-bash' ].includes( props.className || '' ) && selectedSite && (
-					<Button
-						icon={ preformatted }
-						variant="outlined"
-						className="h-auto mr-2 !px-2.5 py-0.5 font-sans select-none"
-						iconSize={ 16 }
-						onClick={ async () => {
-							try {
-								await getIpcApi().copyText( content );
-								await getIpcApi().openTerminalAtPath( selectedSite.path );
-								await getIpcApi().showNotification( {
-									title: __( 'Command copied to the clipboard' ),
-								} );
-							} catch ( error ) {
-								console.error( error );
-							}
+						onCopied={ async () => {
+							await getIpcApi().showNotification( {
+								title: __( 'Copied to the clipboard' ),
+							} );
 						} }
-					>
-						{ __( 'Open in terminal' ) }
-					</Button>
-				) }
-				{ isValidWpCliCommand && (
-					<Button
-						icon={ <ExecuteIcon /> }
-						onClick={ handleExecute }
-						disabled={ isRunning }
-						variant="outlined"
-						className="h-auto mr-2 !px-2.5 py-0.5 font-sans select-none"
-					>
-						{ cliOutput ? __( 'Run again' ) : __( 'Run' ) }
-					</Button>
-				) }
-			</div>
+					></CopyTextButton>
+					{ isValidBlueprint && (
+						<AddSiteWithBlueprintButton
+							content={ content }
+							variant="outlined"
+							className="h-auto mr-2 !px-2.5 py-0.5 font-sans select-none"
+							iconSize={ 16 }
+						/>
+					) }
+					{ [ 'language-sh', 'language-bash' ].includes( props.className || '' ) &&
+						selectedSite && (
+							<Button
+								icon={ preformatted }
+								variant="outlined"
+								className="h-auto mr-2 !px-2.5 py-0.5 font-sans select-none"
+								iconSize={ 16 }
+								onClick={ async () => {
+									try {
+										await getIpcApi().copyText( content );
+										await getIpcApi().openTerminalAtPath( selectedSite.path );
+										await getIpcApi().showNotification( {
+											title: __( 'Command copied to the clipboard' ),
+										} );
+									} catch ( error ) {
+										console.error( error );
+									}
+								} }
+							>
+								{ __( 'Open in terminal' ) }
+							</Button>
+						) }
+					{ isValidWpCliCommand && (
+						<Button
+							icon={ <ExecuteIcon /> }
+							onClick={ handleExecute }
+							disabled={ isRunning }
+							variant="outlined"
+							className="h-auto mr-2 !px-2.5 py-0.5 font-sans select-none"
+						>
+							{ cliOutput ? __( 'Run again' ) : __( 'Run' ) }
+						</Button>
+					) }
+				</div>
+			) }
 			{ isRunning && (
 				<div className="p-3 flex justify-start items-center bg-[#2D3337] text-white">
 					<Spinner className="!text-white [&>circle]:stroke-a8c-gray-60 !mt-0" />
 					<span className="ml-2 font-sans">{ __( 'Running…' ) }</span>
 				</div>
 			) }
-			{ ! isRunning && cliOutput && cliStatus && (
-				<InlineCLI output={ cliOutput } status={ cliStatus } time={ cliTime } />
-			) }
+			{ hasCompletedExecution &&
+				( isCollapsed ? (
+					<InlineCLICollapsed status={ cliStatus } time={ cliTime } />
+				) : (
+					<InlineCLI output={ cliOutput } status={ cliStatus } time={ cliTime } />
+				) ) }
 		</>
 	);
 };
@@ -266,6 +276,23 @@ function InlineCLI( { output, status, time }: InlineCLIProps ) {
 			<pre className="text-white !bg-transparent !m-0 !px-0">
 				<code className="!bg-transparent !mx-0 !px-0 !text-nowrap">{ output }</code>
 			</pre>
+		</div>
+	);
+}
+
+function InlineCLICollapsed( {
+	status,
+	time,
+}: {
+	status: 'success' | 'error';
+	time?: string | null;
+} ) {
+	return (
+		<div className="px-3 py-1.5 bg-[#2D3337] flex items-center gap-2 font-sans text-sm">
+			<span className={ status === 'success' ? 'text-[#63CE68]' : 'text-[#E66D6C]' }>
+				{ status === 'success' ? __( 'Success' ) : __( 'Error' ) }
+			</span>
+			{ time && <span className="text-gray-400">{ time }</span> }
 		</div>
 	);
 }

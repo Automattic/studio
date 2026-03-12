@@ -1,7 +1,6 @@
 import { SiteCommandLoggerAction } from '@studio/common/logger-actions';
 import { z } from 'zod';
 import { executeCliCommand } from './execute-command';
-import type { WordPressServerProcess } from 'src/lib/wordpress-server-types';
 
 const cliEventSchema = z.object( {
 	action: z.enum( SiteCommandLoggerAction ),
@@ -13,7 +12,7 @@ const cliEventSchema = z.object( {
  * A WordPressServerProcess implementation that delegates to CLI commands.
  * Used when a site is started via CLI and we need to represent it in the desktop app.
  */
-export class CliServerProcess implements WordPressServerProcess {
+export class CliServerProcess {
 	url: string;
 
 	private siteId: string;

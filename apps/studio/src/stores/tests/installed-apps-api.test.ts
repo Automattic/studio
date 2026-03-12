@@ -1,6 +1,9 @@
 import { configureStore } from '@reduxjs/toolkit';
 import { vi } from 'vitest';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { isInstalled } from 'src/lib/is-installed';
+import { getUserEditor } from 'src/modules/user-settings/lib/ipc-handlers';
+import { loadUserData } from 'src/storage/user-data';
 import {
 	installedAppsApi,
 	selectInstalledEditors,
@@ -9,9 +12,9 @@ import {
 	selectUninstalledTerminals,
 } from 'src/stores/installed-apps-api';
 
-vi.mock( 'src/lib/get-ipc-api', () => ( {
-	getIpcApi: vi.fn(),
-} ) );
+vi.mock( 'src/lib/get-ipc-api' );
+vi.mock( 'src/storage/user-data' );
+vi.mock( 'src/lib/is-installed' );
 
 vi.mock( 'src/lib/app-globals', () => ( {
 	getAppGlobals: vi.fn().mockReturnValue( {
@@ -21,13 +24,13 @@ vi.mock( 'src/lib/app-globals', () => ( {
 
 const mockIpcApi = {
 	getInstalledAppsAndTerminals: vi.fn(),
-	getUserEditor: vi.fn(),
+	getUserEditor: vi.fn().mockImplementation( async () => getUserEditor() ),
 	getUserTerminal: vi.fn(),
 	saveUserEditor: vi.fn(),
 	saveUserTerminal: vi.fn(),
 };
 
-vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( mockIpcApi );
+vi.mocked( getIpcApi ).mockReturnValue( mockIpcApi as unknown as IpcApi );
 
 const createTestStore = () => {
 	return configureStore( {
@@ -78,42 +81,52 @@ describe( 'Installed Apps API', () => {
 	} );
 
 	describe( 'getUserEditor', () => {
+		const mockIsInstalled = ( installedApps: Partial< InstalledApps > = {} ) => {
+			const apps = createMockInstalledApps( installedApps );
+			vi.mocked( isInstalled ).mockImplementation( ( key ) => apps[ key ] );
+		};
+
+		const mockUserData = ( preferredEditor?: string ) => {
+			vi.mocked( loadUserData ).mockResolvedValue( {
+				sites: [],
+				snapshots: [],
+				preferredEditor,
+			} as Awaited< ReturnType< typeof loadUserData > > );
+		};
+
 		it( 'should return user preference when set', async () => {
-			mockIpcApi.getUserEditor.mockResolvedValueOnce( 'windsurf' );
+			mockUserData( 'windsurf' );
+			mockIsInstalled();
 
 			const store = createTestStore();
 			const result = await store.dispatch(
 				installedAppsApi.endpoints.getUserEditor.initiate( undefined )
 			);
 
-			expect( mockIpcApi.getUserEditor ).toHaveBeenCalledTimes( 1 );
-			expect( mockIpcApi.getInstalledAppsAndTerminals ).not.toHaveBeenCalled();
 			expect( result.data ).toBe( 'windsurf' );
 		} );
 
 		it( 'should respect priority order when multiple editors are installed', async () => {
-			mockIpcApi.getUserEditor.mockResolvedValueOnce( null );
-			const mockInstalledApps = createMockInstalledApps( {
+			mockUserData( undefined );
+			mockIsInstalled( {
 				webstorm: true,
 				phpstorm: true,
 				windsurf: true,
 				cursor: true,
 			} );
-			mockIpcApi.getInstalledAppsAndTerminals.mockResolvedValueOnce( mockInstalledApps );
 
 			const store = createTestStore();
 			const result = await store.dispatch(
 				installedAppsApi.endpoints.getUserEditor.initiate( undefined )
 			);
 
-			// Should return cursor since it has the highest priority
+			// Should return cursor since it has the highest priority in SUPPORTED_EDITORS
 			expect( result.data ).toBe( 'cursor' );
 		} );
 
 		it( 'should return the installed editor when no preference is set and only one editor is installed', async () => {
-			mockIpcApi.getUserEditor.mockResolvedValueOnce( null );
-			const mockInstalledApps = createMockInstalledApps( { cursor: true } );
-			mockIpcApi.getInstalledAppsAndTerminals.mockResolvedValueOnce( mockInstalledApps );
+			mockUserData( undefined );
+			mockIsInstalled( { cursor: true } );
 
 			const store = createTestStore();
 			const result = await store.dispatch(
@@ -124,9 +137,8 @@ describe( 'Installed Apps API', () => {
 		} );
 
 		it( 'should return phpstorm when cursor and vscode are not installed but phpstorm is', async () => {
-			mockIpcApi.getUserEditor.mockResolvedValueOnce( null );
-			const mockInstalledApps = createMockInstalledApps( { phpstorm: true, webstorm: true } );
-			mockIpcApi.getInstalledAppsAndTerminals.mockResolvedValueOnce( mockInstalledApps );
+			mockUserData( undefined );
+			mockIsInstalled( { phpstorm: true, webstorm: true } );
 
 			const store = createTestStore();
 			const result = await store.dispatch(
@@ -137,9 +149,8 @@ describe( 'Installed Apps API', () => {
 		} );
 
 		it( 'should return null when no preference set and no editors are installed', async () => {
-			mockIpcApi.getUserEditor.mockResolvedValueOnce( null );
-			const mockInstalledApps = createMockInstalledApps();
-			mockIpcApi.getInstalledAppsAndTerminals.mockResolvedValueOnce( mockInstalledApps );
+			mockUserData( undefined );
+			mockIsInstalled();
 
 			const store = createTestStore();
 			const result = await store.dispatch(

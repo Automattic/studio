@@ -17,16 +17,33 @@ import {
 } from '@mariozechner/pi-tui';
 import chalk from 'chalk';
 import { AI_MODELS, DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
+import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
 import { AI_CHAT_SLASH_COMMANDS, type SlashCommandDef } from 'cli/ai/slash-commands';
+import {
+	diffTodoSnapshot,
+	type TodoChange,
+	type TodoDiff,
+	type TodoEntry,
+} from 'cli/ai/todo-stream';
 import { getSiteUrl, readAppdata, type SiteData } from 'cli/lib/appdata';
 import { openBrowser } from 'cli/lib/browser';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
+import type { TodoWriteInput } from '@anthropic-ai/claude-agent-sdk/sdk-tools';
 
 export interface SiteInfo {
 	name: string;
 	path: string;
 	running: boolean;
+}
+
+const FILE_PREVIEW_MAX_LINES = 10;
+
+interface ExpandablePreview {
+	textComponent: Text;
+	collapsedContent: string;
+	expandedContent: string;
+	isExpanded: boolean;
 }
 
 class PromptEditor implements Component, Focusable {
@@ -253,6 +270,62 @@ function formatToolName( name: string, input?: Record< string, unknown > ): stri
 	return chalk.bold( displayName );
 }
 
+interface ToolUseResultContent {
+	content?: string | Array< { type: string; text?: string } >;
+	isError?: boolean;
+}
+
+interface PendingTodoRender {
+	diff: TodoDiff;
+	toolLabel: string;
+	shouldRender: boolean;
+}
+
+interface RenderableToolLine {
+	text: string;
+	dim?: boolean;
+}
+
+function isTodoWriteInput( input: unknown ): input is TodoWriteInput {
+	if (
+		! input ||
+		typeof input !== 'object' ||
+		! Array.isArray( ( input as TodoWriteInput ).todos )
+	) {
+		return false;
+	}
+
+	return ( input as TodoWriteInput ).todos.every(
+		( todo ) =>
+			typeof todo === 'object' &&
+			todo !== null &&
+			typeof todo.content === 'string' &&
+			typeof todo.activeForm === 'string' &&
+			( todo.status === 'pending' || todo.status === 'in_progress' || todo.status === 'completed' )
+	);
+}
+
+function formatTodoAction( action: 'added' | 'completed', todo: TodoChange ): string {
+	const verb = action === 'added' ? 'Added todo' : 'Completed todo';
+	return `${ verb }: ${ todo.content }`;
+}
+
+/**
+ * Format a single todo snapshot line for display.
+ * in_progress uses activeForm (present-tense "working on it" phrasing),
+ * while pending/completed use content (the canonical description).
+ */
+function formatTodoSnapshotLine( todo: TodoEntry ): string {
+	switch ( todo.status ) {
+		case 'completed':
+			return `${ chalk.green( '✓' ) } ${ chalk.dim( chalk.strikethrough( todo.content ) ) }`;
+		case 'in_progress':
+			return `${ chalk.yellow( '◐' ) } ${ chalk.dim( todo.activeForm ) }`;
+		default:
+			return `${ chalk.dim( '○' ) } ${ chalk.dim( todo.content ) }`;
+	}
+}
+
 export class AiChatUI {
 	private tui: TUI;
 	private editor: PromptEditor;
@@ -264,7 +337,7 @@ export class AiChatUI {
 	private loaderVisible = false;
 	private editorVisible = false;
 	private interruptCallback: ( () => void ) | null = null;
-	private lastToolName: string | null = null;
+	private wasInterrupted = false;
 	private hasShownResponseMarker = false;
 	private turnStartTime = 0;
 	private toolStartTime: number | null = null;
@@ -272,9 +345,21 @@ export class AiChatUI {
 	private toolDotTimer: ReturnType< typeof setInterval > | null = null;
 	private toolDotVisible = true;
 	private toolDotLabel = '';
+	private todoSnapshot: TodoEntry[] = [];
+	private latestTodoSnapshot: TodoEntry[] = [];
+	private lastRenderedTodoSignature: string | null = null;
+	private pendingTodoRenders = new Map< string, PendingTodoRender >();
+	private pendingTodoRenderOrder: string[] = [];
 	private _activeSite: SiteInfo | null = null;
+	private expandablePreview: ExpandablePreview | null = null;
+	private _inAgentTurn = false;
 	private _activeSiteData: SiteData | null = null;
+	private pendingToolCalls = new Map<
+		string,
+		{ name: string; input: Record< string, unknown > }
+	>();
 	currentModel: AiModelId = DEFAULT_MODEL;
+	currentProvider: AiProviderId = DEFAULT_AI_PROVIDER;
 
 	private readonly thinkingMessages = [
 		'Thinking…',
@@ -471,7 +556,12 @@ export class AiChatUI {
 				return { consume: true };
 			}
 			if ( matchesKey( data, 'escape' ) && this.interruptCallback ) {
+				this.wasInterrupted = true;
 				this.interruptCallback();
+			}
+			if ( matchesKey( data, 'ctrl+o' ) && this.expandablePreview ) {
+				this.toggleExpandablePreview();
+				return { consume: true };
 			}
 			return undefined;
 		} );
@@ -498,7 +588,7 @@ export class AiChatUI {
 		);
 		this.sitePickerSelectedIndex = 0;
 		this.sitePickerVisible = true;
-		this.editor.hints = [];
+		this.updateHints();
 		this.sitePickerContainer = new Container();
 		this.tui.addChild( this.sitePickerContainer );
 		this.renderSitePicker();
@@ -538,14 +628,132 @@ export class AiChatUI {
 	private selectSite( index: number ): void {
 		const site = this.sitePickerItems[ index ];
 		if ( site ) {
-			this._activeSite = site;
+			this.setActiveSite( site );
 			this._activeSiteData = this.sitePickerSiteData[ index ] ?? null;
-			this.editor.activeSiteName = site.name;
-			this.messages.addChild(
-				new Text( chalk.hex( '#8839ef' )( ' ✻ Selected site: ' + site.name ) + '\n', 0, 0 )
-			);
 		}
 		this.closeSitePicker();
+	}
+
+	private setActiveSite( site: SiteInfo ): void {
+		this._activeSite = site;
+		this.editor.activeSiteName = site.name;
+		this.messages.addChild(
+			new Text( chalk.hex( '#8839ef' )( ' ✻ Selected site: ' + site.name ) + '\n', 0, 0 )
+		);
+		this.tui.requestRender();
+	}
+
+	private clearActiveSite(): void {
+		this._activeSite = null;
+		this._activeSiteData = null;
+		this.editor.activeSiteName = null;
+		this.messages.addChild( new Text( chalk.dim( ' ✻ Site deselected' ) + '\n', 0, 0 ) );
+		this.tui.requestRender();
+	}
+
+	private async findSiteFromAppdata( nameOrPath: string ): Promise< SiteInfo | null > {
+		const appdata = await readAppdata();
+		const site = appdata.sites.find(
+			( s ) => s.name.toLowerCase() === nameOrPath.toLowerCase() || s.path === nameOrPath
+		);
+		if ( ! site ) {
+			return null;
+		}
+		// Keep _activeSiteData in sync for /browser command
+		this._activeSiteData = site;
+		return {
+			name: site.name,
+			path: site.path,
+			running: await isSiteRunning( site ),
+		};
+	}
+
+	private isSameSite( a: SiteInfo | null, b: SiteInfo ): boolean {
+		return !! a && ( a.name.toLowerCase() === b.name.toLowerCase() || a.path === b.path );
+	}
+
+	private async autoSelectSiteFromToolResult(
+		toolName: string,
+		toolInput: Record< string, unknown > | null
+	): Promise< void > {
+		switch ( toolName ) {
+			case 'mcp__studio__site_create': {
+				// site_create tool input has { name: string }
+				const name = toolInput?.name;
+				if ( typeof name === 'string' ) {
+					const site = await this.findSiteFromAppdata( name );
+					if ( site ) {
+						site.running = true; // site_create auto-starts the site
+						this.setActiveSite( site );
+					}
+				}
+				break;
+			}
+			case 'mcp__studio__site_start': {
+				const nameOrPath = toolInput?.nameOrPath;
+				if ( typeof nameOrPath === 'string' ) {
+					const site = await this.findSiteFromAppdata( nameOrPath );
+					if ( site ) {
+						site.running = true;
+						if ( this.isSameSite( this._activeSite, site ) ) {
+							this._activeSite = site; // Update running status in-place
+						} else {
+							this.setActiveSite( site );
+						}
+					}
+				}
+				break;
+			}
+			case 'mcp__studio__wp_cli': {
+				const nameOrPath = toolInput?.nameOrPath;
+				if ( typeof nameOrPath === 'string' ) {
+					if (
+						! this._activeSite ||
+						! this.isSameSite( this._activeSite, {
+							name: nameOrPath,
+							path: nameOrPath,
+							running: true,
+						} )
+					) {
+						const site = await this.findSiteFromAppdata( nameOrPath );
+						if ( site ) {
+							this.setActiveSite( site );
+						}
+					}
+				}
+				break;
+			}
+			case 'mcp__studio__site_stop': {
+				const nameOrPath = toolInput?.nameOrPath;
+				if (
+					typeof nameOrPath === 'string' &&
+					this._activeSite &&
+					this.isSameSite( this._activeSite, {
+						name: nameOrPath,
+						path: nameOrPath,
+						running: false,
+					} )
+				) {
+					this._activeSite = { ...this._activeSite, running: false };
+				}
+				break;
+			}
+			case 'mcp__studio__site_delete': {
+				const nameOrPath = toolInput?.nameOrPath;
+				if (
+					typeof nameOrPath === 'string' &&
+					this._activeSite &&
+					this.isSameSite( this._activeSite, {
+						name: nameOrPath,
+						path: nameOrPath,
+						running: false,
+					} )
+				) {
+					this.clearActiveSite();
+				}
+				break;
+			}
+		}
 	}
 
 	private async openSelectedSite(): Promise< void > {
@@ -583,7 +791,7 @@ export class AiChatUI {
 		this.sitePickerVisible = false;
 		this.sitePickerItems = [];
 		this.sitePickerSiteData = [];
-		this.editor.hints = [ '↓ select site', 'esc to interrupt' ];
+		this.updateHints();
 		this.tui.requestRender();
 	}
 
@@ -633,21 +841,25 @@ export class AiChatUI {
 
 		const b = chalk.blue;
 
-		// W logo in block characters
+		// WordPress logo in block characters, widened to avoid vertical stretching in terminals.
 		const logo = [
-			'  ▗▟▛▀▀▜▙▖',
-			' ▟▌     ▗█▙',
-			'▟██▘▝██ ▝██▙',
-			'▌▐█▖ ▐█▌ ▐▌▐',
-			'▌ ▜▙ ▐██ ▐▘▐',
-			'▜▖▝█▄▌▝█▄▌▗▛',
-			' ▜▖▜█  ▜█▗▛',
-			'  ▝▜█▄▄▟▛▘',
-		].map( ( s ) => b( s.padEnd( 12, ' ' ) ) );
+			'    ▄█▛▀▀▀▀█▙▖',
+			' ▗▟█        ▗██▄',
+			'▄███▛ ▝▜██  ▝███▙',
+			'█ ▐█▙   ███  ▐█ ▐',
+			'█  ▀█▄  ███▌ ▐▛ ▐',
+			'▀▙▖ ▜█▄▟ ▝█▙▄▌ ▄▛',
+			' ▝▜▄▝██▌  ▀██▗▟▀',
+			'    ▀██▙▄▄▄█▛▘',
+		].map( ( s ) => b( s ) );
 
 		const info = [
 			chalk.bold( 'WordPress Studio' ) + ( version ? chalk.dim( ` v${ version }` ) : '' ),
-			chalk.dim( `${ AI_MODELS[ this.currentModel ] } · ${ displayCwd }` ),
+			chalk.dim(
+				`${ AI_MODELS[ this.currentModel ] } · ${
+					AI_PROVIDERS[ this.currentProvider ]
+				} · ${ displayCwd }`
+			),
 			'',
 			chalk.dim.italic( 'Code is Poetry' ),
 		];
@@ -736,7 +948,21 @@ export class AiChatUI {
 	}
 
 	private updateHints(): void {
-		this.editor.hints = [ '↓ select site', 'esc to interrupt' ];
+		if ( this.sitePickerVisible ) {
+			this.editor.hints = [];
+			return;
+		}
+		const hints: string[] = [];
+		if ( ! this._inAgentTurn ) {
+			hints.push( '↓ select site' );
+		}
+		if ( this.expandablePreview && ! this.expandablePreview.isExpanded ) {
+			hints.push( 'ctrl+o expand' );
+		} else if ( this.expandablePreview?.isExpanded ) {
+			hints.push( 'ctrl+o collapse' );
+		}
+		hints.push( 'esc to interrupt' );
+		this.editor.hints = hints;
 	}
 
 	private showEditor(): void {
@@ -763,24 +989,38 @@ export class AiChatUI {
 	 */
 	beginAgentTurn(): void {
 		this.editor.setText( '' );
-		this.editor.hints = [ 'esc to interrupt' ];
+		this._inAgentTurn = true;
+		this.updateHints();
 		this.showLoader( this.randomThinkingMessage() );
 		this.currentResponseText = '';
 		this.hasShownResponseMarker = false;
+		this.wasInterrupted = false;
 		this.turnStartTime = Date.now();
+		this.todoSnapshot = [];
+		this.latestTodoSnapshot = [];
+		this.lastRenderedTodoSignature = null;
+		this.pendingTodoRenders.clear();
+		this.pendingTodoRenderOrder = [];
 	}
 
 	/**
 	 * End an agent turn: hide loader, clean up response state.
+	 * todoSnapshot, latestTodoSnapshot, and lastRenderedTodoSignature are deliberately
+	 * preserved across turns so the next turn's diff is computed against the latest
+	 * known state, rendering only genuinely new changes.
 	 */
 	endAgentTurn(): void {
 		this.hideLoader();
 		this.stopToolDotBlink();
 		this.toolDotText = null;
 		this.interruptCallback = null;
+		this._inAgentTurn = false;
+		this.pendingToolCalls.clear();
 		this.updateHints();
 		this.currentMarkdown = null;
 		this.currentResponseText = '';
+		this.pendingTodoRenders.clear();
+		this.pendingTodoRenderOrder = [];
 	}
 
 	showError( message: string ): void {
@@ -792,6 +1032,118 @@ export class AiChatUI {
 
 	showInfo( message: string ): void {
 		this.messages.addChild( new Text( '\n' + chalk.dim( message ) + '\n', 1, 0 ) );
+		this.tui.requestRender();
+	}
+
+	private showFilePreview( toolName: string, input: Record< string, unknown > ): void {
+		let preview: { collapsed: string; expanded: string } | null = null;
+
+		if ( toolName === 'Write' && typeof input.content === 'string' ) {
+			preview = this.generateWritePreview( input.content );
+		} else if (
+			toolName === 'Edit' &&
+			typeof input.old_string === 'string' &&
+			typeof input.new_string === 'string'
+		) {
+			preview = this.generateEditPreview( input.old_string, input.new_string );
+		}
+
+		if ( ! preview ) {
+			return;
+		}
+
+		const textComponent = new Text( preview.collapsed, 0, 0 );
+		this.messages.addChild( textComponent );
+
+		if ( preview.collapsed !== preview.expanded ) {
+			this.expandablePreview = {
+				textComponent,
+				collapsedContent: preview.collapsed,
+				expandedContent: preview.expanded,
+				isExpanded: false,
+			};
+			this.updateHints();
+		} else {
+			this.expandablePreview = null;
+		}
+
+		this.tui.requestRender();
+	}
+
+	private generateWritePreview( content: string ): { collapsed: string; expanded: string } {
+		const lines = content.split( '\n' );
+		const totalLines = lines.length;
+		const numWidth = String( totalLines ).length;
+
+		const formatLines = ( lineList: string[] ) => {
+			return lineList
+				.map( ( line, i ) => {
+					const lineNum = chalk.dim( String( i + 1 ).padStart( numWidth ) );
+					return '   ' + chalk.dim( '⎿ ' ) + lineNum + ' ' + chalk.green( line );
+				} )
+				.join( '\n' );
+		};
+
+		if ( totalLines <= FILE_PREVIEW_MAX_LINES ) {
+			const formatted = formatLines( lines );
+			return { collapsed: formatted, expanded: formatted };
+		}
+
+		const collapsed =
+			formatLines( lines.slice( 0, FILE_PREVIEW_MAX_LINES ) ) +
+			'\n   ' +
+			chalk.dim(
+				'⎿ ... ' + ( totalLines - FILE_PREVIEW_MAX_LINES ) + ' more lines · ctrl+o to expand'
+			);
+		const expanded = formatLines( lines );
+
+		return { collapsed, expanded };
+	}
+
+	private generateEditPreview(
+		oldStr: string,
+		newStr: string
+	): { collapsed: string; expanded: string } {
+		const oldLines = oldStr.split( '\n' );
+		const newLines = newStr.split( '\n' );
+
+		const diffLines: string[] = [];
+		for ( const line of oldLines ) {
+			diffLines.push( '   ' + chalk.dim( '⎿ ' ) + chalk.red( '- ' + line ) );
+		}
+		for ( const line of newLines ) {
+			diffLines.push( '   ' + chalk.dim( '⎿ ' ) + chalk.green( '+ ' + line ) );
+		}
+
+		const totalDiffLines = diffLines.length;
+
+		if ( totalDiffLines <= FILE_PREVIEW_MAX_LINES ) {
+			const formatted = diffLines.join( '\n' );
+			return { collapsed: formatted, expanded: formatted };
+		}
+
+		const collapsed =
+			diffLines.slice( 0, FILE_PREVIEW_MAX_LINES ).join( '\n' ) +
+			'\n   ' +
+			chalk.dim(
+				'⎿ ... ' + ( totalDiffLines - FILE_PREVIEW_MAX_LINES ) + ' more lines · ctrl+o to expand'
+			);
+		const expanded = diffLines.join( '\n' );
+
+		return { collapsed, expanded };
+	}
+
+	private toggleExpandablePreview(): void {
+		if ( ! this.expandablePreview ) {
+			return;
+		}
+
+		const preview = this.expandablePreview;
+		preview.isExpanded = ! preview.isExpanded;
+		preview.textComponent.setText(
+			preview.isExpanded ? preview.expandedContent : preview.collapsedContent
+		);
+		this.updateHints();
 		this.tui.requestRender();
 	}
 
@@ -807,46 +1159,112 @@ export class AiChatUI {
 		}
 	}
 
-	private showToolResult( message: SDKMessage & { type: 'user' }, toolName?: string ): void {
+	private showToolUse( toolLabel: string ): void {
+		this.showLoader( this.randomThinkingMessage() );
 		this.stopToolDotBlink();
+		this.toolDotLabel = toolLabel;
+		this.toolDotText = new Text( '\n ' + '⏺' + ' ' + toolLabel, 0, 0 );
+		this.messages.addChild( this.toolDotText );
+		this.toolDotVisible = true;
+		this.toolDotTimer = setInterval( () => {
+			if ( ! this.toolDotText ) {
+				return;
+			}
+			this.toolDotVisible = ! this.toolDotVisible;
+			const dot = this.toolDotVisible ? '⏺' : ' ';
+			this.toolDotText.setText( '\n ' + dot + ' ' + toolLabel );
+			this.tui.requestRender();
+		}, 500 );
+	}
+
+	private getToolResultContent(
+		message: SDKMessage & { type: 'user' }
+	): ToolUseResultContent | null {
 		const result = message.tool_use_result;
 		if ( ! result || typeof result !== 'object' ) {
-			this.toolDotText = null;
-			return;
+			return null;
 		}
-		const typedResult = result as {
-			content?: Array< { type: string; text?: string } >;
-			isError?: boolean;
-		};
-		const isError = typedResult.isError === true;
 
-		// Show elapsed time
+		return result as ToolUseResultContent;
+	}
+
+	private finalizeToolUseLine( isError: boolean, label: string ): void {
 		const elapsed = this.toolStartTime ? Date.now() - this.toolStartTime : 0;
 		this.toolStartTime = null;
 		const elapsedStr = elapsed > 0 ? chalk.dim( ` (${ ( elapsed / 1000 ).toFixed( 1 ) }s)` ) : '';
 		const statusIcon = isError ? chalk.red( '⏺' ) : '⏺';
-		const label = this.toolDotLabel;
 
-		// Update the existing tool-use line in place
 		if ( this.toolDotText ) {
 			this.toolDotText.setText( '\n ' + statusIcon + ' ' + label + elapsedStr );
 			this.toolDotText = null;
+			return;
 		}
 
-		const content = typedResult.content;
-		if ( ! Array.isArray( content ) ) {
-			this.tui.requestRender();
-			return;
+		if ( isError ) {
+			this.messages.addChild( new Text( '\n ' + statusIcon + ' ' + label + elapsedStr, 0, 0 ) );
 		}
-		const text = content
-			.filter( ( block ) => block.type === 'text' && block.text )
-			.map( ( block ) => block.text )
+	}
+
+	private renderTodoUpdate( pendingTodoRender: PendingTodoRender ): void {
+		const lines: RenderableToolLine[] = [
+			...pendingTodoRender.diff.added.map( ( todo ) => ( {
+				text: formatTodoAction( 'added', todo ),
+			} ) ),
+			...pendingTodoRender.diff.completed.map( ( todo ) => ( {
+				text: formatTodoAction( 'completed', todo ),
+			} ) ),
+			...( pendingTodoRender.diff.snapshot.length > 0
+				? [
+						{ text: 'Todo list:', dim: true } as RenderableToolLine,
+						...pendingTodoRender.diff.snapshot.map( ( todo ) => ( {
+							text: formatTodoSnapshotLine( todo ),
+						} ) ),
+				  ]
+				: [] ),
+		];
+		const formatted = lines
+			.map(
+				( line ) => '   ' + chalk.dim( '⎿ ' ) + ( line.dim ? chalk.dim( line.text ) : line.text )
+			)
 			.join( '\n' );
+		this.messages.addChild( new Text( formatted, 0, 0 ) );
+	}
+
+	private syncLatestTodoSnapshot(): void {
+		let latestPendingSnapshot: TodoEntry[] | null = null;
+		for ( const toolUseId of this.pendingTodoRenderOrder ) {
+			const pendingTodoRender = this.pendingTodoRenders.get( toolUseId );
+			if ( pendingTodoRender ) {
+				latestPendingSnapshot = pendingTodoRender.diff.snapshot;
+			}
+		}
+		this.latestTodoSnapshot = latestPendingSnapshot ?? this.todoSnapshot;
+	}
+
+	private consumePendingTodoRender( toolUseId: string ): PendingTodoRender | null {
+		const pendingTodoRender = this.pendingTodoRenders.get( toolUseId ) ?? null;
+		this.pendingTodoRenders.delete( toolUseId );
+		this.pendingTodoRenderOrder = this.pendingTodoRenderOrder.filter( ( id ) => id !== toolUseId );
+		return pendingTodoRender;
+	}
+
+	private renderToolResultText(
+		content: string | Array< { type: string; text?: string } >,
+		toolName?: string
+	): void {
+		let text: string;
+		if ( typeof content === 'string' ) {
+			text = content;
+		} else {
+			text = content
+				.filter( ( block ) => block.type === 'text' && block.text )
+				.map( ( block ) => block.text )
+				.join( '\n' );
+		}
 		if ( ! text ) {
-			this.tui.requestRender();
 			return;
 		}
-		// Use a larger limit for validation results so they're fully visible
+
 		const maxLength = toolName === 'mcp__studio__validate_blocks' ? 2000 : 500;
 		const truncated = text.length > maxLength ? text.slice( 0, maxLength ) + '…' : text;
 		const resultLines = truncated.split( '\n' );
@@ -854,6 +1272,74 @@ export class AiChatUI {
 			.map( ( line ) => '   ' + chalk.dim( '⎿ ' ) + chalk.dim( line ) )
 			.join( '\n' );
 		this.messages.addChild( new Text( formatted, 0, 0 ) );
+	}
+
+	private showToolResult(
+		message: SDKMessage & { type: 'user' },
+		toolName?: string,
+		toolInput?: Record< string, unknown > | null
+	): void {
+		this.stopToolDotBlink();
+		const typedResult = this.getToolResultContent( message );
+		if ( ! typedResult ) {
+			this.toolDotText = null;
+			return;
+		}
+		const isError = typedResult.isError === true;
+
+		// Auto-select the site that was operated on
+		if ( ! isError && toolName && toolInput ) {
+			void this.autoSelectSiteFromToolResult( toolName, toolInput );
+		}
+
+		const label = this.toolDotLabel;
+
+		this.finalizeToolUseLine( isError, label );
+
+		const content = typedResult.content;
+		if ( content === undefined ) {
+			this.tui.requestRender();
+			return;
+		}
+		this.renderToolResultText( content, toolName );
+		this.tui.requestRender();
+	}
+
+	private showTodoToolResult( message: SDKMessage & { type: 'user' }, toolUseId: string ): void {
+		this.stopToolDotBlink();
+		const typedResult = this.getToolResultContent( message );
+		const pendingTodoRender = this.consumePendingTodoRender( toolUseId );
+
+		if ( ! typedResult || ! pendingTodoRender ) {
+			this.toolDotText = null;
+			return;
+		}
+
+		const isError = typedResult.isError === true;
+
+		if ( isError ) {
+			// Errors always finalize the tool-use line (showToolUse may or may not have been called)
+			this.finalizeToolUseLine( true, pendingTodoRender.toolLabel );
+			this.syncLatestTodoSnapshot();
+			if ( typedResult.content !== undefined ) {
+				this.renderToolResultText( typedResult.content, 'TodoWrite' );
+			}
+			this.tui.requestRender();
+			return;
+		}
+
+		this.todoSnapshot = pendingTodoRender.diff.snapshot;
+		this.syncLatestTodoSnapshot();
+
+		if ( ! pendingTodoRender.shouldRender ) {
+			// No showToolUse was called for suppressed renders, so don't touch toolStartTime
+			this.tui.requestRender();
+			return;
+		}
+
+		this.finalizeToolUseLine( false, pendingTodoRender.toolLabel );
+		this.lastRenderedTodoSignature = pendingTodoRender.diff.signature;
+		this.renderTodoUpdate( pendingTodoRender );
 		this.tui.requestRender();
 	}
 
@@ -937,25 +1423,38 @@ export class AiChatUI {
 						);
 						this.tui.requestRender();
 					} else if ( block.type === 'tool_use' ) {
-						this.lastToolName = block.name;
 						this.toolStartTime = Date.now();
-						const input = ( block as { input?: Record< string, unknown > } ).input;
+						const typedBlock = block as {
+							id: string;
+							name: string;
+							input?: Record< string, unknown >;
+						};
+						const input = typedBlock.input;
+						this.pendingToolCalls.set( typedBlock.id, {
+							name: typedBlock.name,
+							input: input ?? {},
+						} );
 						const toolLabel = formatToolName( block.name, input );
-						this.showLoader( this.randomThinkingMessage() );
-						this.stopToolDotBlink();
-						this.toolDotLabel = toolLabel;
-						this.toolDotText = new Text( '\n ' + '⏺' + ' ' + toolLabel, 0, 0 );
-						this.messages.addChild( this.toolDotText );
-						this.toolDotVisible = true;
-						this.toolDotTimer = setInterval( () => {
-							if ( ! this.toolDotText ) {
-								return;
+						if ( block.name === 'TodoWrite' && isTodoWriteInput( input ) ) {
+							const diff = diffTodoSnapshot( this.latestTodoSnapshot, input.todos );
+							const shouldRender =
+								diff.hasVisibleChanges && diff.signature !== this.lastRenderedTodoSignature;
+							this.pendingTodoRenders.set( typedBlock.id, {
+								diff,
+								toolLabel,
+								shouldRender,
+							} );
+							this.pendingTodoRenderOrder.push( typedBlock.id );
+							this.latestTodoSnapshot = diff.snapshot;
+							if ( shouldRender ) {
+								this.showToolUse( toolLabel );
 							}
-							this.toolDotVisible = ! this.toolDotVisible;
-							const dot = this.toolDotVisible ? '⏺' : ' ';
-							this.toolDotText.setText( '\n ' + dot + ' ' + toolLabel );
-							this.tui.requestRender();
-						}, 500 );
+						} else {
+							this.showToolUse( toolLabel );
+						}
+						if ( ( block.name === 'Write' || block.name === 'Edit' ) && input ) {
+							this.showFilePreview( block.name, input );
+						}
 					}
 				}
 				// Always show the loader after processing — the agent turn is still active
@@ -966,8 +1465,24 @@ export class AiChatUI {
 				return undefined;
 			}
 			case 'user': {
-				this.showToolResult( message, this.lastToolName ?? undefined );
-				this.lastToolName = null;
+				const toolCallId = message.parent_tool_use_id;
+				const toolCall = toolCallId ? this.pendingToolCalls.get( toolCallId ) : null;
+				if ( toolCallId ) {
+					this.pendingToolCalls.delete( toolCallId );
+				}
+				// Direct ID match, or fallback for SDK-internal tools (e.g. TodoWrite)
+				// where parent_tool_use_id may be null.
+				if ( toolCallId && this.pendingTodoRenders.has( toolCallId ) ) {
+					this.showTodoToolResult( message, toolCallId );
+				} else if ( ! toolCallId && this.pendingTodoRenderOrder.length > 0 ) {
+					this.showTodoToolResult( message, this.pendingTodoRenderOrder[ 0 ] );
+				} else {
+					this.showToolResult( message, toolCall?.name, toolCall?.input );
+				}
+				// Close the current markdown block so the next assistant text
+				// creates a fresh visual block (mirrors askUser / endAgentTurn).
+				this.currentMarkdown = null;
+				this.currentResponseText = '';
 				return undefined;
 			}
 			case 'result': {
@@ -983,6 +1498,16 @@ export class AiChatUI {
 						} turns · $${ message.total_cost_usd.toFixed( 4 ) }`
 					);
 					return { sessionId: message.session_id, success: true };
+				}
+
+				// User-initiated interruption: show friendly message instead of error
+				if ( this.wasInterrupted ) {
+					const thinkingSec = Math.round( ( Date.now() - this.turnStartTime ) / 1000 );
+					this.messages.addChild(
+						new Text( '\n ' + chalk.yellow( '⏺' ) + ' ' + chalk.yellow( 'Interrupted' ), 0, 0 )
+					);
+					this.showInfo( `Ran for ${ thinkingSec }s before interruption` );
+					return { sessionId: message.session_id, success: false };
 				}
 
 				// Build detailed error message

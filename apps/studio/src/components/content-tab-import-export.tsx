@@ -229,8 +229,8 @@ const ImportSite = ( {
 		if ( ! file ) {
 			return;
 		}
+		clearImportFileInput();
 		void importConfirmation( async () => {
-			clearImportFileInput();
 			await importFile( file, selectedSite );
 		} );
 	};

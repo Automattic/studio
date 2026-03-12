@@ -5,10 +5,14 @@ import { AI_MODELS, DEFAULT_MODEL, startAiAgent, type AiModelId } from 'cli/ai/a
 import {
 	AI_CHAT_BROWSER_COMMAND,
 	AI_CHAT_EXIT_COMMAND,
+	AI_CHAT_LOGIN_COMMAND,
+	AI_CHAT_LOGOUT_COMMAND,
 	AI_CHAT_MODEL_COMMAND,
 } from 'cli/ai/slash-commands';
 import { AiChatUI } from 'cli/ai/ui';
-import { getAnthropicApiKey, saveAnthropicApiKey } from 'cli/lib/appdata';
+import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
+import { runCommand as runLogoutCommand } from 'cli/commands/auth/logout';
+import { getAnthropicApiKey, getAuthToken, saveAnthropicApiKey } from 'cli/lib/appdata';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -64,6 +68,13 @@ export async function runCommand(): Promise< void > {
 	setProgressCallback( ( message ) => ui.setLoaderMessage( message ) );
 	ui.start();
 	ui.showWelcome();
+
+	try {
+		const token = await getAuthToken();
+		ui.showInfo( `Logged in as ${ token.displayName } (${ token.email })` );
+	} catch {
+		ui.showInfo( 'Not logged in to WordPress.com. Use /login to authenticate.' );
+	}
 
 	let sessionId: string | undefined;
 	let currentModel: AiModelId = DEFAULT_MODEL;
@@ -144,6 +155,27 @@ export async function runCommand(): Promise< void > {
 				if ( ! opened ) {
 					ui.showInfo( 'No site selected. Use ↓ to select a site first.' );
 				}
+				continue;
+			}
+
+			if ( trimmedPrompt === AI_CHAT_LOGIN_COMMAND ) {
+				ui.stop();
+				await runLoginCommand();
+				ui.start();
+				try {
+					const token = await getAuthToken();
+					ui.showInfo( `Logged in as ${ token.displayName } (${ token.email })` );
+				} catch {
+					ui.showInfo( 'Login failed or canceled.' );
+				}
+				continue;
+			}
+
+			if ( trimmedPrompt === AI_CHAT_LOGOUT_COMMAND ) {
+				ui.stop();
+				await runLogoutCommand();
+				ui.start();
+				ui.showInfo( 'Logged out of WordPress.com.' );
 				continue;
 			}
 

@@ -15,6 +15,13 @@ export type AiSessionEvent =
 			agentSessionId: string;
 	  }
 	| {
+			type: 'session.context';
+			timestamp: string;
+			provider: string;
+			model: string;
+			cwd: string;
+	  }
+	| {
 			type: 'site.selected';
 			timestamp: string;
 			siteName: string;

@@ -44,6 +44,11 @@ describe( 'ai-sessions', () => {
 			source: 'prompt',
 			sitePath: '/tmp/my-wordpress-website',
 		} );
+		await recorder.recordSessionContext( {
+			provider: 'anthropic-api-key',
+			model: 'claude-sonnet-4-6',
+			cwd: '/tmp/my-wordpress-website',
+		} );
 		await recorder.recordSdkMessage( {
 			type: 'assistant',
 			message: {
@@ -94,6 +99,12 @@ describe( 'ai-sessions', () => {
 			message: {
 				type: 'assistant',
 			},
+		} );
+		expect( events.find( ( event ) => event.type === 'session.context' ) ).toMatchObject( {
+			type: 'session.context',
+			provider: 'anthropic-api-key',
+			model: 'claude-sonnet-4-6',
+			cwd: '/tmp/my-wordpress-website',
 		} );
 		expect( events.find( ( event ) => event.type === 'tool.progress' ) ).toMatchObject( {
 			type: 'tool.progress',

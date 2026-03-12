@@ -16,6 +16,7 @@ import {
 	saveSelectedAiProvider,
 } from 'cli/ai/auth';
 import { AI_PROVIDERS, type AiProviderId } from 'cli/ai/providers';
+import { resolveResumeSessionContext } from 'cli/ai/sessions/context';
 import { AiSessionRecorder } from 'cli/ai/sessions/recorder';
 import { replaySessionHistory } from 'cli/ai/sessions/replay';
 import { type LoadedAiSession, type TurnStatus } from 'cli/ai/sessions/types';
@@ -56,14 +57,19 @@ export async function runCommand(
 	options: { resumeSession?: LoadedAiSession; noSessionPersistence?: boolean } = {}
 ): Promise< void > {
 	const ui = new AiChatUI();
-	let currentProvider: AiProviderId = await resolveInitialAiProvider();
+	const resumeContext = resolveResumeSessionContext( options.resumeSession );
+	let currentProvider: AiProviderId =
+		resumeContext.provider ?? ( await resolveInitialAiProvider() );
+	let currentModel: AiModelId = resumeContext.model ?? DEFAULT_MODEL;
+	const currentWorkingDirectory = resumeContext.cwd ?? process.cwd();
 	ui.currentProvider = currentProvider;
+	ui.currentModel = currentModel;
 	ui.start();
 	ui.showWelcome();
 
 	let sessionRecorder: AiSessionRecorder | undefined;
 	let didDisableSessionPersistence = options.noSessionPersistence === true;
-	let sessionId: string | undefined = options.resumeSession?.summary.agentSessionId;
+	let sessionId: string | undefined = resumeContext.sessionId;
 	let persistQueue: Promise< void > = Promise.resolve();
 
 	if ( options.noSessionPersistence ) {
@@ -110,8 +116,6 @@ export async function runCommand(
 		ui.setLoaderMessage( message );
 		void persist( ( recorder ) => recorder.recordToolProgress( message, timestamp ) );
 	} );
-
-	let currentModel: AiModelId = DEFAULT_MODEL;
 
 	ui.onSiteSelected = ( site ) => {
 		void persist( ( recorder ) =>
@@ -245,6 +249,14 @@ export async function runCommand(
 		}
 
 		await persist( ( recorder ) =>
+			recorder.recordSessionContext( {
+				provider: currentProvider,
+				model: currentModel,
+				cwd: currentWorkingDirectory,
+			} )
+		);
+
+		await persist( ( recorder ) =>
 			recorder.recordUserMessage( {
 				text: prompt,
 				source: 'prompt',
@@ -256,6 +268,7 @@ export async function runCommand(
 			prompt: enrichedPrompt,
 			env,
 			model: currentModel,
+			cwd: currentWorkingDirectory,
 			resume: sessionId,
 			onAskUser: ( questions ) => askUserAndPersistAnswers( questions ),
 		} );

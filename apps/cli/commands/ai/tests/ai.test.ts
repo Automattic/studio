@@ -1,6 +1,8 @@
 import { __ } from '@wordpress/i18n';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import yargs from 'yargs/yargs';
+import { startAiAgent } from 'cli/ai/agent';
+import { resolveAiEnvironment, resolveInitialAiProvider } from 'cli/ai/auth';
 import { AiSessionRecorder } from 'cli/ai/sessions/recorder';
 import { deleteAiSession, listAiSessions, loadAiSession } from 'cli/ai/sessions/store';
 import { registerCommand as registerAiCommand } from 'cli/commands/ai';
@@ -10,17 +12,28 @@ import { registerCommand as registerAiSessionsResumeCommand } from 'cli/commands
 import { getAnthropicApiKey } from 'cli/lib/appdata';
 import { StudioArgv } from 'cli/types';
 
-const { reportErrorMock } = vi.hoisted( () => ( {
+const { reportErrorMock, waitForInputMock } = vi.hoisted( () => ( {
 	reportErrorMock: vi.fn(),
+	waitForInputMock: vi.fn(),
 } ) );
 
 vi.mock( 'cli/lib/appdata', () => ( {
 	getAnthropicApiKey: vi.fn(),
+	getAuthToken: vi.fn().mockResolvedValue( {
+		displayName: 'Test User',
+		email: 'test@example.com',
+	} ),
 	saveAnthropicApiKey: vi.fn(),
 } ) );
 
 vi.mock( 'cli/ai/auth', () => ( {
+	getAvailableAiProviders: vi.fn().mockResolvedValue( [ 'anthropic-api-key', 'wpcom' ] ),
+	isAiProviderReady: vi.fn().mockResolvedValue( true ),
+	prepareAiProvider: vi.fn().mockResolvedValue( undefined ),
+	resolveAiEnvironment: vi.fn().mockResolvedValue( {} ),
 	resolveInitialAiProvider: vi.fn().mockResolvedValue( 'anthropic-api-key' ),
+	resolveUnavailableAiProvider: vi.fn().mockResolvedValue( undefined ),
+	saveSelectedAiProvider: vi.fn().mockResolvedValue( undefined ),
 } ) );
 
 vi.mock( 'cli/logger', () => ( {
@@ -101,7 +114,7 @@ vi.mock( 'cli/ai/ui', () => ( {
 			return {};
 		}
 		async waitForInput() {
-			return '/exit';
+			return waitForInputMock();
 		}
 	},
 	getToolDetail: ( _name: string, input: Record< string, unknown > ) =>
@@ -114,6 +127,7 @@ vi.mock( 'cli/ai/sessions/recorder', () => {
 		static open = vi.fn().mockResolvedValue( new MockAiSessionRecorder() );
 		async recordSdkMessage() {}
 		async recordToolProgress() {}
+		async recordSessionContext() {}
 		async recordSiteSelected() {}
 		async recordUserMessage() {}
 		async recordAgentQuestion() {}
@@ -140,6 +154,7 @@ describe( 'CLI: studio ai sessions command', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		vi.mocked( getAnthropicApiKey ).mockResolvedValue( 'test-api-key' );
+		waitForInputMock.mockResolvedValue( '/exit' );
 		vi.spyOn( process, 'exit' ).mockImplementation( () => undefined as never );
 	} );
 
@@ -311,5 +326,63 @@ describe( 'CLI: studio ai sessions command', () => {
 
 		expect( deleteAiSession ).not.toHaveBeenCalled();
 		expect( reportErrorMock ).toHaveBeenCalled();
+	} );
+
+	it( 'restores provider, model, cwd, and resume session id from session events', async () => {
+		vi.mocked( resolveInitialAiProvider ).mockResolvedValue( 'wpcom' );
+		waitForInputMock.mockResolvedValueOnce( 'Continue the task' ).mockResolvedValueOnce( '/exit' );
+
+		vi.mocked( listAiSessions ).mockResolvedValue( [
+			{
+				id: 'session-latest',
+				filePath: '/tmp/session-latest.jsonl',
+				createdAt: '2026-03-11T11:00:00.000Z',
+				updatedAt: '2026-03-11T11:00:00.000Z',
+				linkedAgentSessionIds: [],
+				eventCount: 2,
+			},
+		] );
+		vi.mocked( loadAiSession ).mockResolvedValue( {
+			summary: {
+				id: 'session-latest',
+				filePath: '/tmp/session-latest.jsonl',
+				createdAt: '2026-03-11T11:00:00.000Z',
+				updatedAt: '2026-03-11T11:00:00.000Z',
+				linkedAgentSessionIds: [],
+				eventCount: 2,
+			},
+			events: [
+				{
+					type: 'session.context',
+					timestamp: '2026-03-11T11:00:00.000Z',
+					provider: 'anthropic-api-key',
+					model: 'claude-opus-4-6',
+					cwd: '/tmp/resume-cwd',
+				},
+				{
+					type: 'sdk.message',
+					timestamp: '2026-03-11T11:00:01.000Z',
+					message: {
+						type: 'assistant',
+						session_id: 'session-from-sdk-message',
+						message: {
+							content: [],
+						},
+					},
+				},
+			],
+		} );
+
+		await buildParser().parseAsync( [ 'ai', 'sessions', 'resume', 'latest' ] );
+
+		expect( resolveAiEnvironment ).toHaveBeenCalledWith( 'anthropic-api-key' );
+		expect( startAiAgent ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				model: 'claude-opus-4-6',
+				cwd: '/tmp/resume-cwd',
+				resume: 'session-from-sdk-message',
+			} )
+		);
+		expect( process.exit ).toHaveBeenCalledWith( 0 );
 	} );
 } );

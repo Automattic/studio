@@ -4,6 +4,8 @@ import path from 'path';
 import { getAiSessionsDirectoryForDate } from './paths';
 import type { AiSessionEvent, TurnStatus } from './types';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
+import type { AiModelId } from 'cli/ai/agent';
+import type { AiProviderId } from 'cli/ai/providers';
 
 function toSortableTimestampPrefix( date: Date ): string {
 	return date
@@ -71,6 +73,20 @@ export class AiSessionRecorder {
 			type: 'session.linked',
 			timestamp: toIsoTimestamp(),
 			agentSessionId,
+		} );
+	}
+
+	async recordSessionContext( options: {
+		provider: AiProviderId;
+		model: AiModelId;
+		cwd: string;
+	} ): Promise< void > {
+		await this.appendEvent( {
+			type: 'session.context',
+			timestamp: toIsoTimestamp(),
+			provider: options.provider,
+			model: options.model,
+			cwd: options.cwd,
 		} );
 	}
 

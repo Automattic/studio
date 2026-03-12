@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import yargs from 'yargs/yargs';
 import { AiSessionRecorder, deleteAiSession, listAiSessions, loadAiSession } from 'cli/ai/sessions';
 import { registerCommand as registerAiCommand } from 'cli/commands/ai';
-import { registerCommand as registerAiSessionsCommand } from 'cli/commands/ai/sessions';
+import { registerCommand as registerAiSessionsDeleteCommand } from 'cli/commands/ai/sessions/delete';
+import { registerCommand as registerAiSessionsListCommand } from 'cli/commands/ai/sessions/list';
+import { registerCommand as registerAiSessionsResumeCommand } from 'cli/commands/ai/sessions/resume';
 import { getAnthropicApiKey } from 'cli/lib/appdata';
 import { StudioArgv } from 'cli/types';
 
@@ -143,7 +145,9 @@ describe( 'CLI: studio ai sessions command', () => {
 						default: true,
 						description: 'Record this AI chat session to disk',
 					} );
-				registerAiSessionsCommand( sessionsYargs as StudioArgv );
+				registerAiSessionsListCommand( sessionsYargs as StudioArgv );
+				registerAiSessionsResumeCommand( sessionsYargs as StudioArgv );
+				registerAiSessionsDeleteCommand( sessionsYargs as StudioArgv );
 				sessionsYargs
 					.version( false )
 					.demandCommand( 1, 'You must provide a valid ai sessions command' );

@@ -1,17 +1,7 @@
 import { select } from '@inquirer/prompts';
 import { __ } from '@wordpress/i18n';
 import chalk from 'chalk';
-import {
-	deleteAiSession,
-	listAiSessions,
-	loadAiSession,
-	type AiSessionSummary,
-} from 'cli/ai/sessions';
-import { runCommand as runAiCommand } from 'cli/commands/ai';
-import { Logger, LoggerError } from 'cli/logger';
-import { StudioArgv } from 'cli/types';
-
-const logger = new Logger< string >();
+import { listAiSessions, type AiSessionSummary } from 'cli/ai/sessions';
 
 function formatSessionTimestamp( timestamp: string ): string {
 	const parsed = Date.parse( timestamp );
@@ -127,7 +117,7 @@ function formatSessionCompactLine(
 	return `${ renderedLeft }${ ' '.repeat( padding ) }${ chalk.hex( '#8839ef' )( siteLabel ) }`;
 }
 
-function displaySessionsCompact( sessions: AiSessionSummary[] ): void {
+export function displaySessionsCompact( sessions: AiSessionSummary[] ): void {
 	const terminalWidth = Math.max( process.stdout.columns ?? 100, 60 );
 	const relativeTimes = sessions.map( ( session ) => getRelativeTime( session.updatedAt ) );
 	const layout = {
@@ -144,22 +134,6 @@ function displaySessionsCompact( sessions: AiSessionSummary[] ): void {
 	for ( const session of sessions ) {
 		console.log( formatSessionCompactLine( session, terminalWidth, layout ) );
 	}
-}
-
-async function runListSessionsCommand( format: 'compact' | 'json' ): Promise< void > {
-	const sessions = await listAiSessions();
-
-	if ( sessions.length === 0 ) {
-		console.log( __( 'No AI sessions found' ) );
-		return;
-	}
-
-	if ( format === 'json' ) {
-		console.log( JSON.stringify( sessions, null, 2 ) );
-		return;
-	}
-
-	displaySessionsCompact( sessions );
 }
 
 async function pickSessionInteractively(
@@ -222,7 +196,7 @@ async function pickSessionInteractively(
 	}
 }
 
-async function chooseSessionForAction(
+export async function chooseSessionForAction(
 	actionLabel: string,
 	noSessionsMessage: string
 ): Promise< AiSessionSummary | undefined > {
@@ -234,139 +208,3 @@ async function chooseSessionForAction(
 
 	return pickSessionInteractively( sessions, actionLabel );
 }
-
-async function runResumeSessionCommand(
-	sessionIdOrPrefix?: string,
-	options: { noSessionPersistence?: boolean } = {}
-): Promise< void > {
-	let resolvedSessionIdOrPrefix = sessionIdOrPrefix?.trim();
-
-	if ( ! resolvedSessionIdOrPrefix ) {
-		const selectedSession = await chooseSessionForAction(
-			__( 'Select a session to resume:' ),
-			__( 'No AI sessions found' )
-		);
-		if ( ! selectedSession ) {
-			return;
-		}
-
-		resolvedSessionIdOrPrefix = selectedSession.id;
-	}
-
-	if ( resolvedSessionIdOrPrefix.toLowerCase() === 'latest' ) {
-		const sessions = await listAiSessions();
-		if ( sessions.length === 0 ) {
-			throw new Error( __( 'No AI sessions found' ) );
-		}
-
-		resolvedSessionIdOrPrefix = sessions[ 0 ].id;
-	}
-
-	const session = await loadAiSession( resolvedSessionIdOrPrefix );
-	await runAiCommand( {
-		resumeSession: session,
-		noSessionPersistence: options.noSessionPersistence === true,
-	} );
-}
-
-async function runDeleteSessionCommand( sessionIdOrPrefix?: string ): Promise< void > {
-	let resolvedSessionIdOrPrefix = sessionIdOrPrefix?.trim();
-
-	if ( ! resolvedSessionIdOrPrefix ) {
-		const selectedSession = await chooseSessionForAction(
-			__( 'Select a session to delete:' ),
-			__( 'No AI sessions found' )
-		);
-		if ( ! selectedSession ) {
-			return;
-		}
-
-		resolvedSessionIdOrPrefix = selectedSession.id;
-	}
-
-	if ( resolvedSessionIdOrPrefix.toLowerCase() === 'latest' ) {
-		const sessions = await listAiSessions();
-		if ( sessions.length === 0 ) {
-			throw new Error( __( 'No AI sessions found' ) );
-		}
-
-		resolvedSessionIdOrPrefix = sessions[ 0 ].id;
-	}
-
-	const deletedSession = await deleteAiSession( resolvedSessionIdOrPrefix );
-	console.log( `${ __( 'Deleted AI session' ) }: ${ deletedSession.id }` );
-}
-
-export const registerCommand = ( yargs: StudioArgv ) => {
-	return yargs
-		.command( {
-			command: 'list',
-			describe: __( 'List AI sessions' ),
-			builder: ( listYargs ) => {
-				return listYargs.option( 'format', {
-					type: 'string',
-					choices: [ 'compact', 'json' ] as const,
-					default: 'compact' as const,
-					description: __( 'Output format' ),
-				} );
-			},
-			handler: async ( argv ) => {
-				try {
-					await runListSessionsCommand( argv.format as 'compact' | 'json' );
-				} catch ( error ) {
-					if ( error instanceof LoggerError ) {
-						logger.reportError( error );
-					} else {
-						logger.reportError( new LoggerError( __( 'Failed to list AI sessions' ), error ) );
-					}
-				}
-			},
-		} )
-		.command( {
-			command: 'resume [id]',
-			describe: __( 'Resume an AI session (id, prefix, "latest", or picker)' ),
-			builder: ( resumeYargs ) => {
-				return resumeYargs.positional( 'id', {
-					type: 'string',
-					describe: __( 'Session id, id prefix, or "latest"' ),
-				} );
-			},
-			handler: async ( argv ) => {
-				try {
-					const noSessionPersistence =
-						( argv as { sessionPersistence?: boolean } ).sessionPersistence === false;
-					await runResumeSessionCommand( typeof argv.id === 'string' ? argv.id : undefined, {
-						noSessionPersistence,
-					} );
-				} catch ( error ) {
-					if ( error instanceof LoggerError ) {
-						logger.reportError( error );
-					} else {
-						const loggerError = new LoggerError( __( 'Failed to resume AI session' ), error );
-						logger.reportError( loggerError );
-					}
-				}
-			},
-		} )
-		.command( {
-			command: 'delete [id]',
-			describe: __( 'Delete an AI session (id, prefix, "latest", or picker)' ),
-			builder: ( deleteYargs ) => {
-				return deleteYargs.positional( 'id', {
-					type: 'string',
-					describe: __( 'Session id, id prefix, or "latest"' ),
-				} );
-			},
-			handler: async ( argv ) => {
-				try {
-					await runDeleteSessionCommand( typeof argv.id === 'string' ? argv.id : undefined );
-				} catch ( error ) {
-					if ( error instanceof LoggerError ) {
-						logger.reportError( error );
-					} else {
-						logger.reportError( new LoggerError( __( 'Failed to delete AI session' ), error ) );
-					}
-				}
-			},
-		} );
-};

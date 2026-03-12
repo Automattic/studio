@@ -44,6 +44,7 @@ const BUILTIN_TOOLS = [
 ] as const;
 const PATH_GATED_TOOLS = [ 'Write', 'Edit', 'Bash' ] as const; // Tools that should not manipulate files outside of ~/Studio
 const ALLOWED_TOOLS = [ 'mcp__studio__*', 'Read', 'Glob', 'Grep', 'AskUserQuestion' ]; // Tools that can run without permissions
+const sessionApprovedPathsByTool = new Map< string, Set< string > >();
 
 const ACCESS_DENIED_MESSAGE = `Access denied outside ${ STUDIO_ROOT }`;
 const APPROVE_ONCE_LABEL = 'Allow once';
@@ -63,6 +64,33 @@ function resolveToolPath( rawPath: string ): string {
 	return path.isAbsolute( expandedPath )
 		? path.resolve( expandedPath )
 		: path.resolve( STUDIO_ROOT, expandedPath );
+}
+
+function isPathWithinScope( filePath: string, scopePath: string ): boolean {
+	return filePath === scopePath || filePath.startsWith( `${ scopePath }${ path.sep }` );
+}
+
+function rememberSessionApprovedPath( toolName: string, approvedPath: string ): void {
+	const normalizedPath = resolveToolPath( approvedPath );
+	const approvedPaths = sessionApprovedPathsByTool.get( toolName ) ?? new Set< string >();
+	approvedPaths.add( normalizedPath );
+	sessionApprovedPathsByTool.set( toolName, approvedPaths );
+}
+
+function hasSessionApprovedPath( toolName: string, requestedPath: string ): boolean {
+	const approvedPaths = sessionApprovedPathsByTool.get( toolName );
+	if ( ! approvedPaths?.size ) {
+		return false;
+	}
+
+	const normalizedRequestedPath = resolveToolPath( requestedPath );
+	for ( const approvedPath of approvedPaths ) {
+		if ( isPathWithinScope( normalizedRequestedPath, approvedPath ) ) {
+			return true;
+		}
+	}
+
+	return false;
 }
 
 function isPathWithinStudioRoot( filePath: string ): boolean {
@@ -188,6 +216,10 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 
 				const outsidePath = findFirstPathOutsideStudioRoot( input, metadata.blockedPath );
 				if ( outsidePath && isPathGatedTool( toolName ) ) {
+					if ( hasSessionApprovedPath( toolName, outsidePath ) ) {
+						return { behavior: 'allow' as const, updatedInput: input };
+					}
+
 					const approvalDecision = await askForPathGatedToolApproval( {
 						toolName,
 						outsidePath,
@@ -201,12 +233,15 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 						};
 					}
 
-					if ( approvalDecision === 'allow_session' && metadata.suggestions?.length ) {
-						return {
-							behavior: 'allow' as const,
-							updatedInput: input,
-							updatedPermissions: metadata.suggestions,
-						};
+					if ( approvalDecision === 'allow_session' ) {
+						rememberSessionApprovedPath( toolName, outsidePath );
+						if ( metadata.suggestions?.length ) {
+							return {
+								behavior: 'allow' as const,
+								updatedInput: input,
+								updatedPermissions: metadata.suggestions,
+							};
+						}
 					}
 
 					return { behavior: 'allow' as const, updatedInput: input };

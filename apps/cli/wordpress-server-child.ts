@@ -30,7 +30,6 @@ import { WordPressInstallMode } from '@wp-playground/wordpress';
 import { z } from 'zod';
 import { sanitizeRunCLIArgs } from 'cli/lib/cli-args-sanitizer';
 import { getSqliteCommandPath, getWpCliPharPath } from 'cli/lib/server-files';
-import { isSqliteIntegrationInstalled } from 'cli/lib/sqlite-integration';
 import {
 	ServerConfig,
 	managerMessageSchema,
@@ -113,24 +112,24 @@ async function setAdminCredentials(
 
 /**
  * Gets the WordPress installation mode based on whether WordPress files
- * and SQLite integration are present.
+ * are already present in the site directory.
+ *
+ * When WordPress files exist we use 'do-not-attempt-installing' so that
+ * Playground doesn't try to download or install WordPress on top of
+ * existing files. This is especially important for imported sites where
+ * the WordPress installation is already complete and the database is
+ * already set up.
  *
  * @param sitePath - The path to the site
  * @returns The WordPressInstallMode to use for the site
  */
-async function getWordPressInstallMode( sitePath: string ): Promise< WordPressInstallMode > {
+function getWordPressInstallMode( sitePath: string ): WordPressInstallMode {
 	const hasWordPress = isWordPressDirectory( sitePath );
-	const hasSqlite = await isSqliteIntegrationInstalled( sitePath );
 
 	if ( ! hasWordPress ) {
 		return 'download-and-install';
 	}
 
-	if ( hasSqlite ) {
-		return 'install-from-existing-files-if-needed';
-	}
-
-	// We don't want playground to attempt installing WordPress when site is using MySQL.
 	return 'do-not-attempt-installing';
 }
 
@@ -146,7 +145,7 @@ async function getBaseRunCLIArgs(
 	command: RunCLIArgs[ 'command' ],
 	config: ServerConfig
 ): Promise< RunCLIArgs > {
-	const wordpressInstallMode = await getWordPressInstallMode( config.sitePath );
+	const wordpressInstallMode = getWordPressInstallMode( config.sitePath );
 
 	await cleanupLegacyMuPlugins( config.sitePath );
 

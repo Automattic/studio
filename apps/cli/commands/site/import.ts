@@ -105,6 +105,142 @@ function disableErrorDisplayInWpConfig( documentRoot: string ): void {
 }
 
 /**
+ * Ensures wp-config.php has all required constants for running
+ * under Studio with SQLite.
+ *
+ * Managed WordPress hosts like SiteGround and WordPress.com Atomic
+ * inject DB credentials at the server level, so wp-config.php
+ * may only contain comments about DB_HOST/DB_USER/DB_PASSWORD
+ * without actually defining them. WordPress requires these
+ * constants to exist (even with SQLite, where db.php intercepts
+ * before MySQL connects) or it redirects to setup-config.php.
+ *
+ * WP_CONTENT_DIR is set explicitly because Atomic sites use
+ * symlinks for wp-load.php that make __DIR__ resolve to the
+ * shared WP core directory. Without this, WordPress would look
+ * for wp-content (and db.php) in the core dir instead of the
+ * site's document root — exactly what the Atomic platform does
+ * with `define( 'WP_CONTENT_DIR', realpath('/srv/htdocs/wp-content') )`.
+ */
+function ensureRequiredConstantsInWpConfig( documentRoot: string ): void {
+	const wpConfigPath = path.join( documentRoot, 'wp-config.php' );
+	if ( ! fs.existsSync( wpConfigPath ) ) {
+		return;
+	}
+
+	let content = fs.readFileSync( wpConfigPath, 'utf-8' );
+
+	// DB placeholder constants — values don't matter for SQLite,
+	// but WordPress requires them to be defined.
+	const requiredConstants: Record< string, string > = {
+		DB_NAME: 'wordpress',
+		DB_USER: 'root',
+		DB_PASSWORD: 'root',
+		DB_HOST: 'localhost',
+	};
+
+	for ( const [ name, value ] of Object.entries( requiredConstants ) ) {
+		const definePattern = new RegExp( `define\\s*\\(\\s*['"]${ name }['"]` );
+		if ( ! definePattern.test( content ) ) {
+			// Insert before "That's all, stop editing" or before ABSPATH
+			const insertBefore = content.match(
+				/\/\*.*(?:stop editing|ABSPATH).*\*\/|if\s*\(\s*!\s*defined\s*\(\s*'ABSPATH'\s*\)/
+			);
+			const insertLine = `define( '${ name }', '${ value }' );\n`;
+			if ( insertBefore ) {
+				content = content.replace( insertBefore[ 0 ], insertLine + insertBefore[ 0 ] );
+			} else {
+				content = content.replace( /(require_once.*wp-settings\.php)/, insertLine + '$1' );
+			}
+		}
+	}
+
+	// WP_CONTENT_DIR must point to the document root's wp-content,
+	// not wherever __DIR__ resolves to (which may be a symlink target).
+	// Using __DIR__ here works because wp-config.php is a real file
+	// in the document root (or a symlink that resolves back to it).
+	if ( ! /define\s*\(\s*['"]WP_CONTENT_DIR['"]/.test( content ) ) {
+		const insertBefore = content.match(
+			/\/\*.*(?:stop editing|ABSPATH).*\*\/|if\s*\(\s*!\s*defined\s*\(\s*'ABSPATH'\s*\)/
+		);
+		const insertLine = `define( 'WP_CONTENT_DIR', __DIR__ . '/wp-content' );\n`;
+		if ( insertBefore ) {
+			content = content.replace( insertBefore[ 0 ], insertLine + insertBefore[ 0 ] );
+		} else {
+			content = content.replace( /(require_once.*wp-settings\.php)/, insertLine + '$1' );
+		}
+	}
+
+	fs.writeFileSync( wpConfigPath, content );
+}
+
+/**
+ * Detects WordPress.com Atomic site structure and creates a
+ * wp-config.php symlink in the WordPress core directory.
+ *
+ * Atomic sites use symlinks to share a single WordPress core install:
+ *   htdocs/__wp__ → ../wordpress/core/latest → 6.9.4/
+ *   htdocs/wp-load.php → __wp__/wp-load.php
+ *
+ * When PHP resolves __DIR__ inside the symlinked wp-load.php, it gets
+ * the core directory (e.g. wordpress/core/6.9.4/), not htdocs/.
+ * WordPress then looks for wp-config.php in __DIR__ — the core
+ * directory — and fails because wp-config.php lives in htdocs/.
+ *
+ * On the actual Atomic platform this works because their preload
+ * scripts run before wp-load.php. For Playground we solve it by
+ * placing a wp-config.php symlink in the core directory that points
+ * back to the document root's wp-config.php.
+ */
+function createAtomicWpConfigSymlink( sitePath: string, documentRoot: string ): boolean {
+	const wpSymlinkPath = path.join( documentRoot, '__wp__' );
+	const wpLoadPath = path.join( documentRoot, 'wp-load.php' );
+
+	// Check for the Atomic structure: __wp__ symlink and wp-load.php symlink
+	let wpLoadStat;
+	try {
+		wpLoadStat = fs.lstatSync( wpLoadPath );
+	} catch {
+		return false;
+	}
+
+	if ( ! wpLoadStat.isSymbolicLink() || ! fs.existsSync( wpSymlinkPath ) ) {
+		return false;
+	}
+
+	let wpLoadLinkTarget;
+	try {
+		wpLoadLinkTarget = fs.readlinkSync( wpLoadPath );
+	} catch {
+		return false;
+	}
+
+	// Verify wp-load.php points through __wp__
+	if ( ! wpLoadLinkTarget.startsWith( '__wp__/' ) ) {
+		return false;
+	}
+
+	// Resolve the real directory where wp-load.php lives.
+	// This follows all symlinks to get the actual filesystem path.
+	const realWpLoadPath = fs.realpathSync( wpLoadPath );
+	const wpCoreDir = path.dirname( realWpLoadPath );
+
+	// Don't overwrite an existing wp-config.php in the core directory
+	const coreWpConfigPath = path.join( wpCoreDir, 'wp-config.php' );
+	if ( fs.existsSync( coreWpConfigPath ) ) {
+		return true;
+	}
+
+	// Compute a relative symlink path from the core directory back to
+	// the document root's wp-config.php
+	const wpConfigRealPath = path.join( documentRoot, 'wp-config.php' );
+	const relativePath = path.relative( wpCoreDir, wpConfigRealPath );
+
+	fs.symlinkSync( relativePath, coreWpConfigPath );
+	return true;
+}
+
+/**
  * Parses a PHP serialized array of strings, e.g.:
  *   a:2:{i:0;s:19:"akismet/akismet.php";i:1;s:33:"sg-security/sg-security.php";}
  * Returns the string values as a plain array.
@@ -355,6 +491,23 @@ export async function runCommand( url: string, secret: string, name: string ): P
 		// Disable error display in wp-config.php so PHP errors from
 		// incompatible plugins don't leak into the browser.
 		disableErrorDisplayInWpConfig( documentRoot );
+
+		// Ensure DB constants are defined in wp-config.php. Managed
+		// hosts inject these at the server level, so the imported
+		// wp-config.php may not define them. WordPress requires all
+		// four even with SQLite (db.php intercepts before MySQL
+		// connects, but the constants must exist).
+		ensureRequiredConstantsInWpConfig( documentRoot );
+
+		// WordPress.com Atomic sites use symlinks to share a single
+		// WP core install. wp-load.php symlinks into the core dir,
+		// and PHP's __DIR__ resolves to there — so WordPress looks
+		// for wp-config.php in the core dir instead of the document
+		// root. Create a wp-config.php symlink in the core dir
+		// pointing back to the document root's wp-config.php.
+		if ( createAtomicWpConfigSymlink( sitePath, documentRoot ) ) {
+			logger.reportSuccess( 'Configured WordPress.com Atomic symlinks' );
+		}
 
 		logger.reportSuccess( `Site "${ siteName }" created` );
 

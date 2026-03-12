@@ -4,6 +4,7 @@
  * Manages WordPress server processes via process manager daemon. Each site runs in a separate
  * process that spawns Playground CLI.
  */
+import fs from 'fs';
 import path from 'path';
 import {
 	PLAYGROUND_CLI_ACTIVITY_CHECK_INTERVAL,
@@ -21,11 +22,38 @@ import {
 	type DaemonBusEventMap,
 	sendMessageToProcess,
 } from 'cli/lib/daemon-client';
+import { PROCESS_MANAGER_LOGS_DIR } from 'cli/lib/daemon-paths';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { ServerConfig, ManagerMessagePayload } from 'cli/lib/types/wordpress-server-ipc';
 import { Logger } from 'cli/logger';
 
 export const SITE_PROCESS_PREFIX = 'studio-site-';
+
+/**
+ * Read the last 50 lines from both stdout and stderr logs of a process.
+ * Playground often writes errors to stdout (not stderr), so we need both.
+ */
+function readProcessLogs( processName: string ): string {
+	const logFiles = [
+		{ label: 'stderr', file: path.join( PROCESS_MANAGER_LOGS_DIR, `${ processName }-error.log` ) },
+		{ label: 'stdout', file: path.join( PROCESS_MANAGER_LOGS_DIR, `${ processName }-out.log` ) },
+	];
+
+	const sections: string[] = [];
+	for ( const { label, file } of logFiles ) {
+		try {
+			const log = fs.readFileSync( file, 'utf-8' ).trim();
+			if ( log ) {
+				const tail = log.split( '\n' ).slice( -50 ).join( '\n' );
+				sections.push( `${ label } (${ file }):\n${ tail }` );
+			}
+		} catch {
+			// Log file may not exist or be unreadable
+		}
+	}
+
+	return sections.length > 0 ? `\n\n${ sections.join( '\n\n' ) }` : '';
+}
 
 // Get an abort signal that's triggered on SIGINT/SIGTERM. This is useful for aborting and cleaning
 // up async operations.
@@ -220,7 +248,8 @@ export async function sendMessage(
 
 		processEventHandler = ( event ) => {
 			if ( event.process.name === processName && event.event === 'exit' ) {
-				reject( new Error( 'WordPress server process exited unexpectedly' ) );
+				const details = readProcessLogs( processName );
+				reject( new Error( `WordPress server process exited unexpectedly${ details }` ) );
 			}
 		};
 

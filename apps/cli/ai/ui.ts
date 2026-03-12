@@ -29,6 +29,15 @@ export interface SiteInfo {
 	running: boolean;
 }
 
+const FILE_PREVIEW_MAX_LINES = 10;
+
+interface ExpandablePreview {
+	textComponent: Text;
+	collapsedContent: string;
+	expandedContent: string;
+	isExpanded: boolean;
+}
+
 class PromptEditor implements Component, Focusable {
 	private editor: Editor;
 	private borderColorFn: ( text: string ) => string;
@@ -273,7 +282,13 @@ export class AiChatUI {
 	private toolDotVisible = true;
 	private toolDotLabel = '';
 	private _activeSite: SiteInfo | null = null;
+	private expandablePreview: ExpandablePreview | null = null;
+	private _inAgentTurn = false;
 	private _activeSiteData: SiteData | null = null;
+	private pendingToolCalls = new Map<
+		string,
+		{ name: string; input: Record< string, unknown > }
+	>();
 	currentModel: AiModelId = DEFAULT_MODEL;
 
 	private readonly thinkingMessages = [
@@ -473,6 +488,10 @@ export class AiChatUI {
 			if ( matchesKey( data, 'escape' ) && this.interruptCallback ) {
 				this.interruptCallback();
 			}
+			if ( matchesKey( data, 'ctrl+o' ) && this.expandablePreview ) {
+				this.toggleExpandablePreview();
+				return { consume: true };
+			}
 			return undefined;
 		} );
 	}
@@ -498,7 +517,7 @@ export class AiChatUI {
 		);
 		this.sitePickerSelectedIndex = 0;
 		this.sitePickerVisible = true;
-		this.editor.hints = [];
+		this.updateHints();
 		this.sitePickerContainer = new Container();
 		this.tui.addChild( this.sitePickerContainer );
 		this.renderSitePicker();
@@ -538,14 +557,132 @@ export class AiChatUI {
 	private selectSite( index: number ): void {
 		const site = this.sitePickerItems[ index ];
 		if ( site ) {
-			this._activeSite = site;
+			this.setActiveSite( site );
 			this._activeSiteData = this.sitePickerSiteData[ index ] ?? null;
-			this.editor.activeSiteName = site.name;
-			this.messages.addChild(
-				new Text( chalk.hex( '#8839ef' )( ' ✻ Selected site: ' + site.name ) + '\n', 0, 0 )
-			);
 		}
 		this.closeSitePicker();
+	}
+
+	private setActiveSite( site: SiteInfo ): void {
+		this._activeSite = site;
+		this.editor.activeSiteName = site.name;
+		this.messages.addChild(
+			new Text( chalk.hex( '#8839ef' )( ' ✻ Selected site: ' + site.name ) + '\n', 0, 0 )
+		);
+		this.tui.requestRender();
+	}
+
+	private clearActiveSite(): void {
+		this._activeSite = null;
+		this._activeSiteData = null;
+		this.editor.activeSiteName = null;
+		this.messages.addChild( new Text( chalk.dim( ' ✻ Site deselected' ) + '\n', 0, 0 ) );
+		this.tui.requestRender();
+	}
+
+	private async findSiteFromAppdata( nameOrPath: string ): Promise< SiteInfo | null > {
+		const appdata = await readAppdata();
+		const site = appdata.sites.find(
+			( s ) => s.name.toLowerCase() === nameOrPath.toLowerCase() || s.path === nameOrPath
+		);
+		if ( ! site ) {
+			return null;
+		}
+		// Keep _activeSiteData in sync for /browser command
+		this._activeSiteData = site;
+		return {
+			name: site.name,
+			path: site.path,
+			running: await isSiteRunning( site ),
+		};
+	}
+
+	private isSameSite( a: SiteInfo | null, b: SiteInfo ): boolean {
+		return !! a && ( a.name.toLowerCase() === b.name.toLowerCase() || a.path === b.path );
+	}
+
+	private async autoSelectSiteFromToolResult(
+		toolName: string,
+		toolInput: Record< string, unknown > | null
+	): Promise< void > {
+		switch ( toolName ) {
+			case 'mcp__studio__site_create': {
+				// site_create tool input has { name: string }
+				const name = toolInput?.name;
+				if ( typeof name === 'string' ) {
+					const site = await this.findSiteFromAppdata( name );
+					if ( site ) {
+						site.running = true; // site_create auto-starts the site
+						this.setActiveSite( site );
+					}
+				}
+				break;
+			}
+			case 'mcp__studio__site_start': {
+				const nameOrPath = toolInput?.nameOrPath;
+				if ( typeof nameOrPath === 'string' ) {
+					const site = await this.findSiteFromAppdata( nameOrPath );
+					if ( site ) {
+						site.running = true;
+						if ( this.isSameSite( this._activeSite, site ) ) {
+							this._activeSite = site; // Update running status in-place
+						} else {
+							this.setActiveSite( site );
+						}
+					}
+				}
+				break;
+			}
+			case 'mcp__studio__wp_cli': {
+				const nameOrPath = toolInput?.nameOrPath;
+				if ( typeof nameOrPath === 'string' ) {
+					if (
+						! this._activeSite ||
+						! this.isSameSite( this._activeSite, {
+							name: nameOrPath,
+							path: nameOrPath,
+							running: true,
+						} )
+					) {
+						const site = await this.findSiteFromAppdata( nameOrPath );
+						if ( site ) {
+							this.setActiveSite( site );
+						}
+					}
+				}
+				break;
+			}
+			case 'mcp__studio__site_stop': {
+				const nameOrPath = toolInput?.nameOrPath;
+				if (
+					typeof nameOrPath === 'string' &&
+					this._activeSite &&
+					this.isSameSite( this._activeSite, {
+						name: nameOrPath,
+						path: nameOrPath,
+						running: false,
+					} )
+				) {
+					this._activeSite = { ...this._activeSite, running: false };
+				}
+				break;
+			}
+			case 'mcp__studio__site_delete': {
+				const nameOrPath = toolInput?.nameOrPath;
+				if (
+					typeof nameOrPath === 'string' &&
+					this._activeSite &&
+					this.isSameSite( this._activeSite, {
+						name: nameOrPath,
+						path: nameOrPath,
+						running: false,
+					} )
+				) {
+					this.clearActiveSite();
+				}
+				break;
+			}
+		}
 	}
 
 	private async openSelectedSite(): Promise< void > {
@@ -583,7 +720,7 @@ export class AiChatUI {
 		this.sitePickerVisible = false;
 		this.sitePickerItems = [];
 		this.sitePickerSiteData = [];
-		this.editor.hints = [ '↓ select site', 'esc to interrupt' ];
+		this.updateHints();
 		this.tui.requestRender();
 	}
 
@@ -736,7 +873,21 @@ export class AiChatUI {
 	}
 
 	private updateHints(): void {
-		this.editor.hints = [ '↓ select site', 'esc to interrupt' ];
+		if ( this.sitePickerVisible ) {
+			this.editor.hints = [];
+			return;
+		}
+		const hints: string[] = [];
+		if ( ! this._inAgentTurn ) {
+			hints.push( '↓ select site' );
+		}
+		if ( this.expandablePreview && ! this.expandablePreview.isExpanded ) {
+			hints.push( 'ctrl+o expand' );
+		} else if ( this.expandablePreview?.isExpanded ) {
+			hints.push( 'ctrl+o collapse' );
+		}
+		hints.push( 'esc to interrupt' );
+		this.editor.hints = hints;
 	}
 
 	private showEditor(): void {
@@ -763,7 +914,8 @@ export class AiChatUI {
 	 */
 	beginAgentTurn(): void {
 		this.editor.setText( '' );
-		this.editor.hints = [ 'esc to interrupt' ];
+		this._inAgentTurn = true;
+		this.updateHints();
 		this.showLoader( this.randomThinkingMessage() );
 		this.currentResponseText = '';
 		this.hasShownResponseMarker = false;
@@ -778,6 +930,8 @@ export class AiChatUI {
 		this.stopToolDotBlink();
 		this.toolDotText = null;
 		this.interruptCallback = null;
+		this._inAgentTurn = false;
+		this.pendingToolCalls.clear();
 		this.updateHints();
 		this.currentMarkdown = null;
 		this.currentResponseText = '';
@@ -795,6 +949,118 @@ export class AiChatUI {
 		this.tui.requestRender();
 	}
 
+	private showFilePreview( toolName: string, input: Record< string, unknown > ): void {
+		let preview: { collapsed: string; expanded: string } | null = null;
+
+		if ( toolName === 'Write' && typeof input.content === 'string' ) {
+			preview = this.generateWritePreview( input.content );
+		} else if (
+			toolName === 'Edit' &&
+			typeof input.old_string === 'string' &&
+			typeof input.new_string === 'string'
+		) {
+			preview = this.generateEditPreview( input.old_string, input.new_string );
+		}
+
+		if ( ! preview ) {
+			return;
+		}
+
+		const textComponent = new Text( preview.collapsed, 0, 0 );
+		this.messages.addChild( textComponent );
+
+		if ( preview.collapsed !== preview.expanded ) {
+			this.expandablePreview = {
+				textComponent,
+				collapsedContent: preview.collapsed,
+				expandedContent: preview.expanded,
+				isExpanded: false,
+			};
+			this.updateHints();
+		} else {
+			this.expandablePreview = null;
+		}
+
+		this.tui.requestRender();
+	}
+
+	private generateWritePreview( content: string ): { collapsed: string; expanded: string } {
+		const lines = content.split( '\n' );
+		const totalLines = lines.length;
+		const numWidth = String( totalLines ).length;
+
+		const formatLines = ( lineList: string[] ) => {
+			return lineList
+				.map( ( line, i ) => {
+					const lineNum = chalk.dim( String( i + 1 ).padStart( numWidth ) );
+					return '   ' + chalk.dim( '⎿ ' ) + lineNum + ' ' + chalk.green( line );
+				} )
+				.join( '\n' );
+		};
+
+		if ( totalLines <= FILE_PREVIEW_MAX_LINES ) {
+			const formatted = formatLines( lines );
+			return { collapsed: formatted, expanded: formatted };
+		}
+
+		const collapsed =
+			formatLines( lines.slice( 0, FILE_PREVIEW_MAX_LINES ) ) +
+			'\n   ' +
+			chalk.dim(
+				'⎿ ... ' + ( totalLines - FILE_PREVIEW_MAX_LINES ) + ' more lines · ctrl+o to expand'
+			);
+		const expanded = formatLines( lines );
+
+		return { collapsed, expanded };
+	}
+
+	private generateEditPreview(
+		oldStr: string,
+		newStr: string
+	): { collapsed: string; expanded: string } {
+		const oldLines = oldStr.split( '\n' );
+		const newLines = newStr.split( '\n' );
+
+		const diffLines: string[] = [];
+		for ( const line of oldLines ) {
+			diffLines.push( '   ' + chalk.dim( '⎿ ' ) + chalk.red( '- ' + line ) );
+		}
+		for ( const line of newLines ) {
+			diffLines.push( '   ' + chalk.dim( '⎿ ' ) + chalk.green( '+ ' + line ) );
+		}
+
+		const totalDiffLines = diffLines.length;
+
+		if ( totalDiffLines <= FILE_PREVIEW_MAX_LINES ) {
+			const formatted = diffLines.join( '\n' );
+			return { collapsed: formatted, expanded: formatted };
+		}
+
+		const collapsed =
+			diffLines.slice( 0, FILE_PREVIEW_MAX_LINES ).join( '\n' ) +
+			'\n   ' +
+			chalk.dim(
+				'⎿ ... ' + ( totalDiffLines - FILE_PREVIEW_MAX_LINES ) + ' more lines · ctrl+o to expand'
+			);
+		const expanded = diffLines.join( '\n' );
+
+		return { collapsed, expanded };
+	}
+
+	private toggleExpandablePreview(): void {
+		if ( ! this.expandablePreview ) {
+			return;
+		}
+
+		const preview = this.expandablePreview;
+		preview.isExpanded = ! preview.isExpanded;
+		preview.textComponent.setText(
+			preview.isExpanded ? preview.expandedContent : preview.collapsedContent
+		);
+		this.updateHints();
+		this.tui.requestRender();
+	}
+
 	private stopToolDotBlink(): void {
 		if ( this.toolDotTimer ) {
 			clearInterval( this.toolDotTimer );
@@ -807,7 +1073,11 @@ export class AiChatUI {
 		}
 	}
 
-	private showToolResult( message: SDKMessage & { type: 'user' }, toolName?: string ): void {
+	private showToolResult(
+		message: SDKMessage & { type: 'user' },
+		toolName?: string,
+		toolInput?: Record< string, unknown > | null
+	): void {
 		this.stopToolDotBlink();
 		const result = message.tool_use_result;
 		if ( ! result || typeof result !== 'object' ) {
@@ -815,10 +1085,15 @@ export class AiChatUI {
 			return;
 		}
 		const typedResult = result as {
-			content?: Array< { type: string; text?: string } >;
+			content?: string | Array< { type: string; text?: string } >;
 			isError?: boolean;
 		};
 		const isError = typedResult.isError === true;
+
+		// Auto-select the site that was operated on
+		if ( ! isError && toolName && toolInput ) {
+			void this.autoSelectSiteFromToolResult( toolName, toolInput );
+		}
 
 		// Show elapsed time
 		const elapsed = this.toolStartTime ? Date.now() - this.toolStartTime : 0;
@@ -834,14 +1109,18 @@ export class AiChatUI {
 		}
 
 		const content = typedResult.content;
-		if ( ! Array.isArray( content ) ) {
+		let text: string;
+		if ( typeof content === 'string' ) {
+			text = content;
+		} else if ( Array.isArray( content ) ) {
+			text = content
+				.filter( ( block ) => block.type === 'text' && block.text )
+				.map( ( block ) => block.text )
+				.join( '\n' );
+		} else {
 			this.tui.requestRender();
 			return;
 		}
-		const text = content
-			.filter( ( block ) => block.type === 'text' && block.text )
-			.map( ( block ) => block.text )
-			.join( '\n' );
 		if ( ! text ) {
 			this.tui.requestRender();
 			return;
@@ -939,7 +1218,16 @@ export class AiChatUI {
 					} else if ( block.type === 'tool_use' ) {
 						this.lastToolName = block.name;
 						this.toolStartTime = Date.now();
-						const input = ( block as { input?: Record< string, unknown > } ).input;
+						const typedBlock = block as {
+							id: string;
+							name: string;
+							input?: Record< string, unknown >;
+						};
+						const input = typedBlock.input;
+						this.pendingToolCalls.set( typedBlock.id, {
+							name: typedBlock.name,
+							input: input ?? {},
+						} );
 						const toolLabel = formatToolName( block.name, input );
 						this.showLoader( this.randomThinkingMessage() );
 						this.stopToolDotBlink();
@@ -956,6 +1244,9 @@ export class AiChatUI {
 							this.toolDotText.setText( '\n ' + dot + ' ' + toolLabel );
 							this.tui.requestRender();
 						}, 500 );
+						if ( ( block.name === 'Write' || block.name === 'Edit' ) && input ) {
+							this.showFilePreview( block.name, input );
+						}
 					}
 				}
 				// Always show the loader after processing — the agent turn is still active
@@ -966,7 +1257,12 @@ export class AiChatUI {
 				return undefined;
 			}
 			case 'user': {
-				this.showToolResult( message, this.lastToolName ?? undefined );
+				const toolCallId = message.parent_tool_use_id;
+				const toolCall = toolCallId ? this.pendingToolCalls.get( toolCallId ) : null;
+				if ( toolCallId ) {
+					this.pendingToolCalls.delete( toolCallId );
+				}
+				this.showToolResult( message, toolCall?.name, toolCall?.input );
 				this.lastToolName = null;
 				return undefined;
 			}

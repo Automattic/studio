@@ -618,13 +618,6 @@ export class AiChatUI {
 	private async openSitePicker(): Promise< void > {
 		const appdata = await readAppdata();
 		const sites: SiteData[] = appdata.sites ?? [];
-		if ( sites.length === 0 ) {
-			this.messages.addChild(
-				new Text( chalk.dim( '  No sites found. Create one first.' ), 1, 0 )
-			);
-			this.tui.requestRender();
-			return;
-		}
 
 		this.sitePickerSiteData = sites;
 		this.sitePickerItems = await Promise.all(
@@ -643,14 +636,21 @@ export class AiChatUI {
 	}
 
 	private async switchToRemoteSites(): Promise< void > {
+		let token: Awaited< ReturnType< typeof getAuthToken > >;
 		try {
-			const token = await getAuthToken();
-			this.sitePickerTab = SITE_PICKER_TAB_REMOTE;
-			this.sitePickerRemoteLoading = true;
-			this.sitePickerRemoteItems = [];
-			this.sitePickerQuery = '';
-			this.renderSitePicker();
+			token = await getAuthToken();
+		} catch {
+			this.showSitePickerError( 'Not logged in. Use /login first.' );
+			return;
+		}
 
+		this.sitePickerTab = SITE_PICKER_TAB_REMOTE;
+		this.sitePickerRemoteLoading = true;
+		this.sitePickerRemoteItems = [];
+		this.sitePickerQuery = '';
+		this.renderSitePicker();
+
+		try {
 			const sites = await getWpComSites( token.accessToken );
 			this.sitePickerRemoteItems = sites.map( ( site ) => ( {
 				name: site.name,
@@ -665,13 +665,15 @@ export class AiChatUI {
 		} catch {
 			this.sitePickerRemoteLoading = false;
 			this.sitePickerRemoteItems = [];
-			this.sitePickerTab = SITE_PICKER_TAB_LOCAL;
-			this.renderSitePicker();
-			this.messages.addChild(
-				new Text( `\n${ chalk.dim( 'Not logged in. Use /login first.' ) }\n`, 1, 0 )
-			);
-			this.tui.requestRender();
+			this.showSitePickerError( 'Failed to load WordPress.com sites. Please try again.' );
 		}
+	}
+
+	private showSitePickerError( message: string ): void {
+		this.sitePickerTab = SITE_PICKER_TAB_LOCAL;
+		this.renderSitePicker();
+		this.messages.addChild( new Text( `\n${ chalk.dim( message ) }\n`, 1, 0 ) );
+		this.tui.requestRender();
 	}
 
 	private switchToLocalSites(): void {
@@ -870,7 +872,14 @@ export class AiChatUI {
 	}
 
 	private isSameSite( a: SiteInfo | null, b: SiteInfo ): boolean {
-		return !! a && ( a.name.toLowerCase() === b.name.toLowerCase() || a.path === b.path );
+		if ( ! a ) {
+			return false;
+		}
+		// Remote sites have no stable path, so never match them against local sites
+		if ( a.remote !== b.remote ) {
+			return false;
+		}
+		return a.path === b.path || a.name.toLowerCase() === b.name.toLowerCase();
 	}
 
 	private async autoSelectSiteFromToolResult(

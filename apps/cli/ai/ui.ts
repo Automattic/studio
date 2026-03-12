@@ -18,7 +18,12 @@ import {
 import chalk from 'chalk';
 import { AI_MODELS, DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
 import { AI_CHAT_SLASH_COMMANDS, type SlashCommandDef } from 'cli/ai/slash-commands';
-import { diffTodoSnapshot, type TodoChange, type TodoEntry } from 'cli/ai/todo-stream';
+import {
+	diffTodoSnapshot,
+	type TodoChange,
+	type TodoDiff,
+	type TodoEntry,
+} from 'cli/ai/todo-stream';
 import { getSiteUrl, readAppdata, type SiteData } from 'cli/lib/appdata';
 import { openBrowser } from 'cli/lib/browser';
 import { isSiteRunning } from 'cli/lib/site-utils';
@@ -270,7 +275,7 @@ interface ToolUseResultContent {
 }
 
 interface PendingTodoRender {
-	diff: ReturnType< typeof diffTodoSnapshot >;
+	diff: TodoDiff;
 	toolLabel: string;
 	shouldRender: boolean;
 }
@@ -304,14 +309,19 @@ function formatTodoAction( action: 'added' | 'completed', todo: TodoChange ): st
 	return `${ verb }: ${ todo.content }`;
 }
 
+/**
+ * Format a single todo snapshot line for display.
+ * in_progress uses activeForm (present-tense "working on it" phrasing),
+ * while pending/completed use content (the canonical description).
+ */
 function formatTodoSnapshotLine( todo: TodoEntry ): string {
 	switch ( todo.status ) {
 		case 'completed':
 			return `${ chalk.green( '✓' ) } ${ chalk.dim( chalk.strikethrough( todo.content ) ) }`;
 		case 'in_progress':
-			return `${ chalk.yellow( '◐' ) } ${ todo.activeForm }`;
+			return `${ chalk.yellow( '◐' ) } ${ chalk.dim( todo.activeForm ) }`;
 		default:
-			return `${ chalk.dim( '○' ) } ${ todo.content }`;
+			return `${ chalk.dim( '○' ) } ${ chalk.dim( todo.content ) }`;
 	}
 }
 
@@ -326,7 +336,6 @@ export class AiChatUI {
 	private loaderVisible = false;
 	private editorVisible = false;
 	private interruptCallback: ( () => void ) | null = null;
-	private lastToolName: string | null = null;
 	private hasShownResponseMarker = false;
 	private turnStartTime = 0;
 	private toolStartTime: number | null = null;
@@ -987,6 +996,9 @@ export class AiChatUI {
 
 	/**
 	 * End an agent turn: hide loader, clean up response state.
+	 * todoSnapshot, latestTodoSnapshot, and lastRenderedTodoSignature are deliberately
+	 * preserved across turns so the next turn's diff is computed against the latest
+	 * known state, rendering only genuinely new changes.
 	 */
 	endAgentTurn(): void {
 		this.hideLoader();
@@ -1192,11 +1204,14 @@ export class AiChatUI {
 			...pendingTodoRender.diff.completed.map( ( todo ) => ( {
 				text: formatTodoAction( 'completed', todo ),
 			} ) ),
-			{ text: 'Todo list:', dim: true },
-			...pendingTodoRender.diff.snapshot.map( ( todo ) => ( {
-				text: formatTodoSnapshotLine( todo ),
-				dim: true,
-			} ) ),
+			...( pendingTodoRender.diff.snapshot.length > 0
+				? [
+						{ text: 'Todo list:', dim: true } as RenderableToolLine,
+						...pendingTodoRender.diff.snapshot.map( ( todo ) => ( {
+							text: formatTodoSnapshotLine( todo ),
+						} ) ),
+				  ]
+				: [] ),
 		];
 		const formatted = lines
 			.map(
@@ -1217,25 +1232,10 @@ export class AiChatUI {
 		this.latestTodoSnapshot = latestPendingSnapshot ?? this.todoSnapshot;
 	}
 
-	private consumePendingTodoRender( toolUseId?: string | null ): PendingTodoRender | null {
-		if ( toolUseId ) {
-			const pendingTodoRender = this.pendingTodoRenders.get( toolUseId );
-			if ( pendingTodoRender ) {
-				this.pendingTodoRenders.delete( toolUseId );
-				this.pendingTodoRenderOrder = this.pendingTodoRenderOrder.filter(
-					( id ) => id !== toolUseId
-				);
-				return pendingTodoRender;
-			}
-		}
-
-		const nextToolUseId = this.pendingTodoRenderOrder.shift();
-		if ( ! nextToolUseId ) {
-			return null;
-		}
-
-		const pendingTodoRender = this.pendingTodoRenders.get( nextToolUseId ) ?? null;
-		this.pendingTodoRenders.delete( nextToolUseId );
+	private consumePendingTodoRender( toolUseId: string ): PendingTodoRender | null {
+		const pendingTodoRender = this.pendingTodoRenders.get( toolUseId ) ?? null;
+		this.pendingTodoRenders.delete( toolUseId );
+		this.pendingTodoRenderOrder = this.pendingTodoRenderOrder.filter( ( id ) => id !== toolUseId );
 		return pendingTodoRender;
 	}
 
@@ -1296,10 +1296,8 @@ export class AiChatUI {
 		this.tui.requestRender();
 	}
 
-	private showTodoToolResult(
-		message: SDKMessage & { type: 'user' },
-		toolUseId?: string | null
-	): void {
+	private showTodoToolResult( message: SDKMessage & { type: 'user' }, toolUseId: string ): void {
+		this.stopToolDotBlink();
 		const typedResult = this.getToolResultContent( message );
 		const pendingTodoRender = this.consumePendingTodoRender( toolUseId );
 
@@ -1309,9 +1307,10 @@ export class AiChatUI {
 		}
 
 		const isError = typedResult.isError === true;
-		this.finalizeToolUseLine( isError, pendingTodoRender.toolLabel );
 
 		if ( isError ) {
+			// Errors always finalize the tool-use line (showToolUse may or may not have been called)
+			this.finalizeToolUseLine( true, pendingTodoRender.toolLabel );
 			this.syncLatestTodoSnapshot();
 			if ( typedResult.content !== undefined ) {
 				this.renderToolResultText( typedResult.content, 'TodoWrite' );
@@ -1324,10 +1323,12 @@ export class AiChatUI {
 		this.syncLatestTodoSnapshot();
 
 		if ( ! pendingTodoRender.shouldRender ) {
+			// No showToolUse was called for suppressed renders, so don't touch toolStartTime
 			this.tui.requestRender();
 			return;
 		}
 
+		this.finalizeToolUseLine( false, pendingTodoRender.toolLabel );
 		this.lastRenderedTodoSignature = pendingTodoRender.diff.signature;
 		this.renderTodoUpdate( pendingTodoRender );
 		this.tui.requestRender();
@@ -1413,7 +1414,6 @@ export class AiChatUI {
 						);
 						this.tui.requestRender();
 					} else if ( block.type === 'tool_use' ) {
-						this.lastToolName = block.name;
 						this.toolStartTime = Date.now();
 						const typedBlock = block as {
 							id: string;
@@ -1461,16 +1461,15 @@ export class AiChatUI {
 				if ( toolCallId ) {
 					this.pendingToolCalls.delete( toolCallId );
 				}
-				if (
-					this.lastToolName === 'TodoWrite' &&
-					( ( toolCallId && this.pendingTodoRenders.has( toolCallId ) ) ||
-						this.pendingTodoRenderOrder.length > 0 )
-				) {
+				// Direct ID match, or fallback for SDK-internal tools (e.g. TodoWrite)
+				// where parent_tool_use_id may be null.
+				if ( toolCallId && this.pendingTodoRenders.has( toolCallId ) ) {
 					this.showTodoToolResult( message, toolCallId );
+				} else if ( ! toolCallId && this.pendingTodoRenderOrder.length > 0 ) {
+					this.showTodoToolResult( message, this.pendingTodoRenderOrder[ 0 ] );
 				} else {
 					this.showToolResult( message, toolCall?.name, toolCall?.input );
 				}
-				this.lastToolName = null;
 				return undefined;
 			}
 			case 'result': {

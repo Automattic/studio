@@ -18,7 +18,6 @@ export interface TodoDiff {
 interface TodoCounts {
 	total: number;
 	completed: number;
-	incomplete: number;
 	entry: TodoChange;
 }
 
@@ -34,6 +33,7 @@ function buildIdentityKey( todo: TodoChange ): string {
 	return JSON.stringify( [ todo.content, todo.activeForm ] );
 }
 
+// in_progress is deliberately grouped with pending (not completed) for diffing purposes.
 function buildCounts( todos: TodoEntry[] ): Map< string, TodoCounts > {
 	const counts = new Map< string, TodoCounts >();
 
@@ -52,16 +52,11 @@ function buildCounts( todos: TodoEntry[] ): Map< string, TodoCounts > {
 		counts.set( identity, {
 			total: 1,
 			completed: todo.status === 'completed' ? 1 : 0,
-			incomplete: 0,
 			entry: {
 				content: todo.content,
 				activeForm: todo.activeForm,
 			},
 		} );
-	}
-
-	for ( const value of counts.values() ) {
-		value.incomplete = value.total - value.completed;
 	}
 
 	return counts;
@@ -71,8 +66,8 @@ function repeatChange( change: TodoChange, count: number ): TodoChange[] {
 	return Array.from( { length: count }, () => ( { ...change } ) );
 }
 
-export function normalizeTodoSnapshot( todos: TodoEntry[] ): TodoEntry[] {
-	return [ ...todos ].map( ( todo ) => ( {
+function normalizeTodoSnapshot( todos: TodoEntry[] ): TodoEntry[] {
+	return todos.map( ( todo ) => ( {
 		content: todo.content,
 		status: todo.status,
 		activeForm: todo.activeForm,
@@ -92,11 +87,8 @@ function buildChangeOrder( todos: TodoEntry[] ): Map< string, number > {
 	return order;
 }
 
-function sortTodoChangesByOrder(
-	changes: TodoChange[],
-	changeOrder: Map< string, number >
-): TodoChange[] {
-	return changes.sort(
+function sortTodoChangesByOrder( changes: TodoChange[], changeOrder: Map< string, number > ): void {
+	changes.sort(
 		( left, right ) =>
 			( changeOrder.get( buildIdentityKey( left ) ) ?? Number.MAX_SAFE_INTEGER ) -
 				( changeOrder.get( buildIdentityKey( right ) ) ?? Number.MAX_SAFE_INTEGER ) ||
@@ -105,6 +97,12 @@ function sortTodoChangesByOrder(
 	);
 }
 
+/**
+ * Compute the diff between two todo snapshots. This is a forward-progress-only view:
+ * only additions and completions are reported. Removals (todos dropped from next) and
+ * regressions (completed → pending) are intentionally invisible — the UI only shows
+ * forward momentum. The signature is order-insensitive so pure reorders are also suppressed.
+ */
 export function diffTodoSnapshot( previous: TodoEntry[], next: TodoEntry[] ): TodoDiff {
 	const snapshot = normalizeTodoSnapshot( next );
 	const previousCounts = buildCounts( normalizeTodoSnapshot( previous ) );
@@ -121,9 +119,8 @@ export function diffTodoSnapshot( previous: TodoEntry[], next: TodoEntry[] ): To
 		const nextTotal = nextCount?.total ?? 0;
 		const previousCompleted = previousCount?.completed ?? 0;
 		const nextCompleted = nextCount?.completed ?? 0;
-		const previousIncomplete = previousCount?.incomplete ?? 0;
 		const completedCount = Math.min(
-			previousIncomplete,
+			previousTotal - previousCompleted,
 			Math.max( nextCompleted - previousCompleted, 0 )
 		);
 		const addedCount = Math.max( nextTotal - previousTotal, 0 );

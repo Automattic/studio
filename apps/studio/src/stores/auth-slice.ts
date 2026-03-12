@@ -26,11 +26,7 @@ const initialState: AuthState = {
 	user: null,
 };
 
-function createWpcomClient(
-	token?: string,
-	locale?: string,
-	onInvalidToken?: () => void
-): WPCOM {
+function createWpcomClient( token?: string, locale?: string, onInvalidToken?: () => void ): WPCOM {
 	let isAuthErrorDialogOpen = false;
 	const handleInvalidTokenError = async ( response: unknown ) => {
 		if ( isInvalidTokenError( response ) && onInvalidToken && ! isAuthErrorDialogOpen ) {

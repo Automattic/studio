@@ -27,15 +27,14 @@ const lastBumpStatsProvider: LastBumpStatsProvider = {
 		const { lastBumpStats } = await readAppdata();
 		return lastBumpStats ?? {};
 	},
+	lock: lockAppdata,
+	unlock: unlockAppdata,
 	save: async ( lastBumpStats ) => {
-		try {
-			await lockAppdata();
-			const appdata = await readAppdata();
-			appdata.lastBumpStats = lastBumpStats;
-			await saveAppdata( appdata );
-		} finally {
-			await unlockAppdata();
-		}
+		const appdata = await readAppdata();
+		appdata.lastBumpStats = lastBumpStats;
+		// Locking is handled in `@studio/common/lib/bump-stat`
+		// eslint-disable-next-line studio/require-lock-before-save
+		await saveAppdata( appdata );
 	},
 };
 

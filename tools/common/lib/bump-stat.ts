@@ -48,6 +48,8 @@ export type LastBumpStats = Record< string, Partial< Record< string, number > > 
 // Appdata provider interface for abstracting storage operations
 export interface LastBumpStatsProvider {
 	load: () => Promise< LastBumpStats >;
+	lock: () => Promise< void >;
+	unlock: () => Promise< void >;
 	save: ( lastBumpStats: LastBumpStats ) => Promise< void >;
 }
 
@@ -102,8 +104,13 @@ async function getLastBump(
 
 // Store this moment as the last time we bumped the state, in UTC time.
 async function updateLastBump( group: string, stat: string, provider: LastBumpStatsProvider ) {
-	const lastBumpStats = await provider.load();
-	lastBumpStats[ group ] ??= {};
-	lastBumpStats[ group ][ stat ] = Date.now();
-	await provider.save( lastBumpStats );
+	try {
+		await provider.lock();
+		const lastBumpStats = await provider.load();
+		lastBumpStats[ group ] ??= {};
+		lastBumpStats[ group ][ stat ] = Date.now();
+		await provider.save( lastBumpStats );
+	} finally {
+		await provider.unlock();
+	}
 }

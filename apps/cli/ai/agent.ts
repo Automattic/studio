@@ -9,7 +9,7 @@ export interface AskUserQuestion {
 
 export interface AiAgentConfig {
 	prompt: string;
-	apiKey?: string;
+	env?: Record< string, string >;
 	model?: AiModelId;
 	maxTurns?: number;
 	resume?: string;
@@ -30,19 +30,13 @@ export const DEFAULT_MODEL: AiModelId = 'claude-sonnet-4-6';
  * Caller can iterate messages with `for await` and call `interrupt()` to stop.
  */
 export function startAiAgent( config: AiAgentConfig ): Query {
-	const { prompt, apiKey, model = DEFAULT_MODEL, maxTurns = 50, resume, onAskUser } = config;
-
-	// If an API key is provided, pass it via env. Otherwise, let the SDK
-	// use Claude Code's existing authentication.
-	const env = { ...( process.env as Record< string, string > ) };
-	if ( apiKey ) {
-		env.ANTHROPIC_API_KEY = apiKey;
-	}
+	const { prompt, env, model = DEFAULT_MODEL, maxTurns = 50, resume, onAskUser } = config;
+	const resolvedEnv = env ?? { ...( process.env as Record< string, string > ) };
 
 	return query( {
 		prompt,
 		options: {
-			env,
+			env: resolvedEnv,
 			systemPrompt: {
 				type: 'preset',
 				preset: 'claude_code',

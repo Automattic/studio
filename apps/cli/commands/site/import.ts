@@ -32,6 +32,7 @@ import { SITE_EVENTS } from '@studio/common/lib/site-events';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { ImportCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
+import chalk from 'chalk';
 import {
 	getAppdataDirectory,
 	lockAppdata,
@@ -49,6 +50,39 @@ import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
 const logger = new Logger< LoggerAction >();
+
+const PLUGIN_INSTALL_HINT =
+	'Make sure the streaming-site-migration plugin is installed and activated.\n' +
+	'Download the latest version from:\n' +
+	'https://github.com/adamziel/streaming-site-migration/releases/latest';
+
+/**
+ * Draws a red-bordered box around a message for terminal display.
+ */
+function redBox( message: string ): string {
+	const lines = message.split( '\n' );
+	const maxLen = Math.max( ...lines.map( ( l ) => l.length ) );
+	const top = chalk.red( '┌' + '─'.repeat( maxLen + 2 ) + '┐' );
+	const bottom = chalk.red( '└' + '─'.repeat( maxLen + 2 ) + '┘' );
+	const body = lines
+		.map( ( line ) => chalk.red( '│' ) + ' ' + line.padEnd( maxLen ) + ' ' + chalk.red( '│' ) )
+		.join( '\n' );
+	return `${ top }\n${ body }\n${ bottom }`;
+}
+
+/**
+ * An import error that separates the user-facing message from
+ * technical details. The handler shows the details only when
+ * --verbose is set.
+ */
+class ImportError extends LoggerError {
+	technicalDetails: string;
+
+	constructor( userMessage: string, technicalDetails: string ) {
+		super( userMessage );
+		this.technicalDetails = technicalDetails;
+	}
+}
 
 /**
  * Extracts JSON from importer.phar output, tolerating PHP warnings
@@ -401,20 +435,52 @@ export async function runCommand( url: string, secret: string, name: string ): P
 
 			// /state and /docroot are virtual mount points inside PHP WASM,
 			// mapped to stateDir and sitePath by the child process.
-			const preflightResult = await runImporterCommandUntilComplete( stateDir, sitePath, [
-				'preflight',
-				apiUrl,
-				`--secret=${ secret }`,
-				'--no-adaptive',
-				'--state-dir=/state',
-				'--docroot=/docroot',
-			] );
+			let preflightResult: ImporterResult;
+			try {
+				preflightResult = await runImporterCommandUntilComplete( stateDir, sitePath, [
+					'preflight',
+					apiUrl,
+					`--secret=${ secret }`,
+					'--no-adaptive',
+					'--state-dir=/state',
+					'--docroot=/docroot',
+				] );
+			} catch ( preflightError ) {
+				const details =
+					preflightError instanceof Error ? preflightError.message : String( preflightError );
+				throw new ImportError(
+					__( 'Could not connect to the remote site.' ) + '\n\n' + PLUGIN_INSTALL_HINT,
+					details
+				);
+			}
 
-			const envelope = parseImporterJson( preflightResult );
+			let envelope;
+			try {
+				envelope = parseImporterJson( preflightResult );
+			} catch {
+				throw new ImportError(
+					__( 'The remote site did not respond with a recognized format.' ) +
+						'\n\n' +
+						PLUGIN_INSTALL_HINT,
+					`stdout: ${ preflightResult.stdout }\nstderr: ${ preflightResult.stderr }`
+				);
+			}
 			const preflightData = envelope.data ?? envelope;
 
 			if ( ! preflightData.ok ) {
-				throw new LoggerError( preflightData.error || __( 'Remote site preflight check failed.' ) );
+				const errorDetail = preflightData.error || '';
+				// The importer returns "Invalid JSON: ..." when the remote
+				// site responds with HTML instead of the expected API JSON.
+				// This typically means the export plugin isn't installed.
+				const isJsonParseError = /^Invalid JSON\b/i.test( errorDetail );
+				const userMessage = isJsonParseError
+					? __( 'The remote site responded with HTML instead of the expected export API.' )
+					: __( 'Remote site preflight check failed.' );
+
+				throw new ImportError(
+					userMessage + '\n\n' + PLUGIN_INSTALL_HINT,
+					preflightResult.stdout.trim() + '\n' + preflightResult.stderr.trim()
+				);
 			}
 
 			preflight = {
@@ -647,13 +713,27 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'string',
 					describe: __( 'Local site name' ),
 					demandOption: true,
+				} )
+				.option( 'verbose', {
+					type: 'boolean',
+					describe: __( 'Show detailed error information' ),
+					default: false,
 				} );
 		},
 		handler: async ( argv ) => {
+			const verbose = argv.verbose as boolean;
 			try {
 				await runCommand( argv.url as string, argv.secret as string, argv.name as string );
 			} catch ( error ) {
-				if ( error instanceof LoggerError ) {
+				if ( error instanceof ImportError ) {
+					logger.spinner.fail( __( 'Import failed' ) );
+					console.error( '\n' + redBox( error.message ) );
+					if ( verbose && error.technicalDetails ) {
+						console.error( '\n' + chalk.dim( error.technicalDetails ) );
+					} else if ( error.technicalDetails ) {
+						console.error( chalk.dim( '\nRun with --verbose for detailed error output.' ) );
+					}
+				} else if ( error instanceof LoggerError ) {
 					logger.reportError( error );
 				} else {
 					logger.reportError( new LoggerError( __( 'Failed to import site' ), error ) );

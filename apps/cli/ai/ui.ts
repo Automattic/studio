@@ -336,6 +336,7 @@ export class AiChatUI {
 	private loaderVisible = false;
 	private editorVisible = false;
 	private interruptCallback: ( () => void ) | null = null;
+	private wasInterrupted = false;
 	private hasShownResponseMarker = false;
 	private turnStartTime = 0;
 	private toolStartTime: number | null = null;
@@ -553,6 +554,7 @@ export class AiChatUI {
 				return { consume: true };
 			}
 			if ( matchesKey( data, 'escape' ) && this.interruptCallback ) {
+				this.wasInterrupted = true;
 				this.interruptCallback();
 			}
 			if ( matchesKey( data, 'ctrl+o' ) && this.expandablePreview ) {
@@ -986,6 +988,7 @@ export class AiChatUI {
 		this.showLoader( this.randomThinkingMessage() );
 		this.currentResponseText = '';
 		this.hasShownResponseMarker = false;
+		this.wasInterrupted = false;
 		this.turnStartTime = Date.now();
 		this.todoSnapshot = [];
 		this.latestTodoSnapshot = [];
@@ -1485,6 +1488,16 @@ export class AiChatUI {
 						} turns · $${ message.total_cost_usd.toFixed( 4 ) }`
 					);
 					return { sessionId: message.session_id, success: true };
+				}
+
+				// User-initiated interruption: show friendly message instead of error
+				if ( this.wasInterrupted ) {
+					const thinkingSec = Math.round( ( Date.now() - this.turnStartTime ) / 1000 );
+					this.messages.addChild(
+						new Text( '\n ' + chalk.yellow( '⏺' ) + ' ' + chalk.yellow( 'Interrupted' ), 0, 0 )
+					);
+					this.showInfo( `Ran for ${ thinkingSec }s before interruption` );
+					return { sessionId: message.session_id, success: false };
 				}
 
 				// Build detailed error message

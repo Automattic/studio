@@ -1479,6 +1479,10 @@ export class AiChatUI {
 				} else {
 					this.showToolResult( message, toolCall?.name, toolCall?.input );
 				}
+				// Close the current markdown block so the next assistant text
+				// creates a fresh visual block (mirrors askUser / endAgentTurn).
+				this.currentMarkdown = null;
+				this.currentResponseText = '';
 				return undefined;
 			}
 			case 'result': {

@@ -33,9 +33,17 @@ const STUDIO_ROOT_PREFIX = STUDIO_ROOT.endsWith( path.sep )
 	: `${ STUDIO_ROOT }${ path.sep }`;
 
 const PATH_INPUT_KEYS = [ 'path', 'file_path', 'filePath' ] as const;
-const BUILTIN_TOOLS = [ 'Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep' ] as const;
+const BUILTIN_TOOLS = [
+	'Read',
+	'Write',
+	'Edit',
+	'Bash',
+	'Glob',
+	'Grep',
+	'AskUserQuestion',
+] as const;
 const PATH_GATED_TOOLS = [ 'Write', 'Edit', 'Bash' ] as const; // Tools that should not manipulate files outside of ~/Studio
-const ALLOWED_TOOLS = [ 'mcp__studio__*', 'Read', 'Glob', 'Grep' ]; // Tools that can run without permissions
+const ALLOWED_TOOLS = [ 'mcp__studio__*', 'Read', 'Glob', 'Grep', 'AskUserQuestion' ]; // Tools that can run without permissions
 
 function isPathGatedTool( toolName: string ): boolean {
 	return ( PATH_GATED_TOOLS as readonly string[] ).includes( toolName );

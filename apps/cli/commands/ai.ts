@@ -27,6 +27,13 @@ import { StudioArgv } from 'cli/types';
 
 const logger = new Logger< string >();
 
+function isPromptAbortError( error: unknown ): boolean {
+	return (
+		error instanceof Error &&
+		[ 'AbortPromptError', 'CancelPromptError', 'ExitPromptError' ].includes( error.name )
+	);
+}
+
 export async function runCommand(): Promise< void > {
 	const ui = new AiChatUI();
 	let currentProvider: AiProviderId = await resolveInitialAiProvider();
@@ -225,6 +232,10 @@ export async function runCommand(): Promise< void > {
 						await prepareProviderSelection( newProvider );
 						await switchProvider( newProvider );
 					} catch ( error ) {
+						if ( isPromptAbortError( error ) ) {
+							ui.showInfo( `Provider setup canceled. Kept ${ AI_PROVIDERS[ currentProvider ] }.` );
+							continue;
+						}
 						if ( error instanceof LoggerError ) {
 							ui.showError( error.message );
 							continue;

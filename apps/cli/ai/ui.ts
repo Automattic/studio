@@ -717,8 +717,8 @@ export class AiChatUI {
 	}
 
 	private sitePickerPageSize(): number {
-		// Reserve 3 lines for header, hints, and a margin; use at least 5 visible items
-		return Math.max( 5, ( process.stdout.rows ?? 24 ) - 3 );
+		// Reserve 4 lines for header, search, scroll info, and hints; use at least 5 visible items
+		return Math.max( 5, ( process.stdout.rows ?? 24 ) - 4 );
 	}
 
 	private renderSitePicker(): void {
@@ -800,15 +800,6 @@ export class AiChatUI {
 		const text = lines.join( '\n' );
 		this.sitePickerContainer.addChild( new Text( text, 0, 0 ) );
 		this.tui.requestRender();
-	}
-
-	private selectSite( index: number ): void {
-		const site = this.sitePickerItems[ index ];
-		if ( site ) {
-			this.setActiveSite( site );
-			this._activeSiteData = this.sitePickerSiteData[ index ] ?? null;
-		}
-		this.closeSitePicker();
 	}
 
 	private getVisibleWindow( totalItems: number ): { start: number; end: number } {

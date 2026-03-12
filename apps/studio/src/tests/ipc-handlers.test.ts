@@ -5,7 +5,6 @@ import { IpcMainInvokeEvent } from 'electron';
 import fs from 'fs';
 import { normalize } from 'path';
 import * as Sentry from '@sentry/electron/main';
-import { __bumpStat } from '@studio/common/lib/bump-stat';
 import { readFile } from 'atomically';
 import { vi } from 'vitest';
 import {
@@ -15,7 +14,7 @@ import {
 	getXdebugEnabledSite,
 	loadThemeDetails,
 } from 'src/ipc-handlers';
-import { StatsGroup, StatsMetric } from 'src/lib/bump-stats';
+import { bumpStat, StatsGroup, StatsMetric } from 'src/lib/bump-stats';
 import { importBackup, defaultImporterOptions } from 'src/lib/import-export/import/import-manager';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { getMainWindow } from 'src/main-window';
@@ -45,7 +44,14 @@ vi.mock( 'src/lib/wordpress-setup', () => ( {
 } ) );
 vi.mock( 'src/main-window' );
 vi.mock( 'src/lib/import-export/import/import-manager' );
-vi.mock( '@studio/common/lib/bump-stat' );
+vi.mock( import( 'src/lib/bump-stats' ), async ( importOriginal ) => {
+	const actual = await importOriginal();
+	return {
+		...actual,
+		bumpStat: vi.fn(),
+		bumpAggregatedUniqueStat: vi.fn().mockResolvedValue( undefined ),
+	};
+} );
 vi.mock( 'atomically' );
 vi.mock( 'src/lib/get-image-data', () => ( {
 	getImageData: vi.fn().mockResolvedValue( 'data:image/png;base64,mock' ),
@@ -166,7 +172,7 @@ describe( 'importSite', () => {
 
 	beforeEach( () => {
 		vi.mocked( importBackup ).mockReset();
-		vi.mocked( __bumpStat ).mockReset();
+		vi.mocked( bumpStat ).mockReset();
 	} );
 
 	it( 'should throw error if site is not found', async () => {
@@ -221,7 +227,7 @@ describe( 'importSite', () => {
 		expect( mockSite.details.phpVersion ).toBe( '8.3' );
 		expect( result ).toBe( mockSite.details );
 
-		expect( __bumpStat ).toHaveBeenNthCalledWith(
+		expect( bumpStat ).toHaveBeenNthCalledWith(
 			1,
 			StatsGroup.STUDIO_IMPORT,
 			StatsMetric.UNKNOWN_IMPORTER
@@ -262,7 +268,7 @@ describe( 'importSite', () => {
 		expect( Sentry.captureException ).toHaveBeenCalledWith( mockError );
 
 		// Verify failure stats were bumped
-		expect( __bumpStat ).toHaveBeenCalledWith( StatsGroup.STUDIO_IMPORT, StatsMetric.FAILURE );
+		expect( bumpStat ).toHaveBeenCalledWith( StatsGroup.STUDIO_IMPORT, StatsMetric.FAILURE );
 	} );
 } );
 

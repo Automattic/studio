@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, rmSync } from 'fs';
+import { existsSync, rmSync } from 'fs';
 import { resolve } from 'path';
 import { sync as globSync } from 'glob';
 import { defineConfig, mergeConfig } from 'vite';
@@ -7,9 +7,6 @@ import { baseConfig, nodeBuiltinExternals } from './vite.config.base';
 
 const cliNodeModulesPath = resolve( __dirname, 'node_modules' );
 const distCliNodeModulesPath = resolve( __dirname, 'dist/cli/node_modules' );
-const packageVersion = JSON.parse(
-	readFileSync( resolve( __dirname, '..', 'studio', 'package.json' ), 'utf-8' )
-).version;
 
 export default mergeConfig(
 	baseConfig,
@@ -71,9 +68,6 @@ export default mergeConfig(
 					'playwright-core',
 				],
 			},
-		},
-		define: {
-			__STUDIO_CLI_VERSION__: JSON.stringify( packageVersion ),
 		},
 	} )
 );

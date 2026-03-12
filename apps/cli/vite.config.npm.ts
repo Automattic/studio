@@ -4,7 +4,6 @@ import { defineConfig, mergeConfig } from 'vite';
 import { baseConfig, nodeBuiltinExternals } from './vite.config.base';
 
 const packageJson = JSON.parse( readFileSync( resolve( __dirname, 'package.json' ), 'utf-8' ) );
-const packageVersion = packageJson.version;
 
 // Externalize all runtime dependencies listed in package.json
 const externalDeps = Object.keys( packageJson.dependencies || {} );
@@ -44,9 +43,6 @@ export default mergeConfig(
 					return externalDeps.some( ( dep ) => id === dep || id.startsWith( dep + '/' ) );
 				},
 			},
-		},
-		define: {
-			__STUDIO_CLI_VERSION__: JSON.stringify( packageVersion ),
 		},
 	} )
 );

@@ -1,5 +1,10 @@
+import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { defineConfig } from 'vite';
+
+const packageVersion = JSON.parse(
+	readFileSync( resolve( __dirname, '..', 'studio', 'package.json' ), 'utf-8' )
+).version;
 
 export const nodeBuiltinExternals = [
 	/^node:/,
@@ -45,5 +50,8 @@ export const baseConfig = defineConfig( {
 		},
 		conditions: [ 'node' ],
 		mainFields: [ 'main' ],
+	},
+	define: {
+		__STUDIO_CLI_VERSION__: JSON.stringify( packageVersion ),
 	},
 } );

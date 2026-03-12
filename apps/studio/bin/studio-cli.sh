@@ -14,8 +14,8 @@ else
 	# If the default script path is not found, assume that this script lives in the development directory
 	# and look for the CLI JS bundle in the `./dist` directory
 	if ! [ -f "$CLI_SCRIPT" ]; then
-		SCRIPT_DIR=$(dirname "$(dirname "$(realpath "$0")")")
-		CLI_SCRIPT="$SCRIPT_DIR/dist/cli/main.js"
+		STUDIO_DIR=$(dirname "$(dirname "$(realpath "$0")")")
+		CLI_SCRIPT="$(dirname "$STUDIO_DIR")/cli/dist/cli/main.js"
 	fi
 
 	# Prevent node from printing warnings about NODE_OPTIONS being ignored

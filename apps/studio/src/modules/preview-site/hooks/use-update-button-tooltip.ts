@@ -1,8 +1,8 @@
 import { DEMO_SITE_SIZE_LIMIT_GB } from '@studio/common/constants';
-import { TooltipProps } from '@wordpress/components/build-types/tooltip/types';
+import { Tooltip } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
-import { useMemo } from 'react';
+import { type ComponentProps, useMemo } from 'react';
 import offlineIcon from 'src/components/offline-icon';
 
 export function useUpdateButtonTooltip( {
@@ -13,7 +13,7 @@ export function useUpdateButtonTooltip( {
 	snapshotCreationBlocked: boolean;
 	isOverLimit: boolean;
 	isOffline: boolean;
-} ): Pick< TooltipProps, 'text' > {
+} ): Pick< ComponentProps< typeof Tooltip >, 'text' > {
 	const { __ } = useI18n();
 
 	return useMemo( () => {

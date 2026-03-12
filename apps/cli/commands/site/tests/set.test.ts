@@ -10,10 +10,11 @@ import {
 	saveAppdata,
 	SiteData,
 } from 'cli/lib/appdata';
+import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { updateDomainInHosts } from 'cli/lib/hosts-file';
-import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { setupCustomDomain } from 'cli/lib/site-utils';
+import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import {
 	isServerRunning,
 	startWordPressServer,
@@ -42,7 +43,7 @@ vi.mock( 'cli/lib/appdata', async () => {
 	};
 } );
 vi.mock( 'cli/lib/hosts-file' );
-vi.mock( 'cli/lib/pm2-manager' );
+vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/run-wp-cli-command' );
 vi.mock( 'cli/lib/site-utils' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
@@ -66,7 +67,7 @@ describe( 'CLI: studio site set', () => {
 		enableHttps: false,
 	} );
 
-	const testProcessDescription = {
+	const testProcessDescription: ProcessDescription = {
 		name: 'test-site',
 		pmId: 0,
 		status: 'online',
@@ -82,8 +83,8 @@ describe( 'CLI: studio site set', () => {
 		vi.mocked( arePathsEqual ).mockReturnValue( true );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( getTestSite() );
 		vi.mocked( readAppdata ).mockResolvedValue( testAppdata );
-		vi.mocked( connect ).mockResolvedValue( undefined );
-		vi.mocked( disconnect ).mockResolvedValue( undefined );
+		vi.mocked( connectToDaemon ).mockResolvedValue( undefined );
+		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
 		vi.mocked( isServerRunning ).mockResolvedValue( undefined );
 		vi.mocked( startWordPressServer ).mockResolvedValue( testProcessDescription );
 		vi.mocked( stopWordPressServer ).mockResolvedValue( undefined );
@@ -538,16 +539,16 @@ describe( 'CLI: studio site set', () => {
 			await expect( runCommand( testSitePath, { name: 'New Name' } ) ).rejects.toThrow(
 				'Site not found'
 			);
-			expect( disconnect ).toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
-		it( 'should always disconnect PM2 on error', async () => {
+		it( 'should always disconnect process manager on error', async () => {
 			vi.mocked( saveAppdata ).mockRejectedValue( new Error( 'Save failed' ) );
 
 			await expect( runCommand( testSitePath, { name: 'New Name' } ) ).rejects.toThrow(
 				'Save failed'
 			);
-			expect( disconnect ).toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
 		it( 'should always unlock appdata on error', async () => {

@@ -9,6 +9,7 @@ import { StatsGroup, StatsMetric } from '@studio/common/types/stats';
 import { __ } from '@wordpress/i18n';
 import yargs from 'yargs';
 import { commandHandler as eventsCommandHandler } from 'cli/commands/_events';
+import { registerCommand as registerAiCommand } from 'cli/commands/ai';
 import { registerCommand as registerAuthLoginCommand } from 'cli/commands/auth/login';
 import { registerCommand as registerAuthLogoutCommand } from 'cli/commands/auth/logout';
 import { registerCommand as registerAuthStatusCommand } from 'cli/commands/auth/status';
@@ -28,6 +29,7 @@ import { readAppdata, lockAppdata, unlockAppdata, saveAppdata } from 'cli/lib/ap
 import { loadTranslations } from 'cli/lib/i18n';
 import { untildify } from 'cli/lib/utils';
 import { StudioArgv } from 'cli/types';
+
 const version = __STUDIO_CLI_VERSION__;
 
 suppressPunycodeWarning();
@@ -45,13 +47,12 @@ const cliAppdataProvider: AppdataProvider< LastBumpStatsData > = {
 };
 
 async function main() {
-	const { yargsLocale, yargsLocaleData } = await loadTranslations();
+	const yargsLocale = await loadTranslations();
 
 	const studioArgv: StudioArgv = yargs( process.argv.slice( 2 ) )
 		.scriptName( 'studio' )
 		.usage( __( 'WordPress Studio CLI' ) )
 		.locale( yargsLocale )
-		.updateLocale( yargsLocaleData ?? {} )
 		.version( version )
 		.option( 'avoid-telemetry', {
 			type: 'boolean',
@@ -127,6 +128,10 @@ async function main() {
 		} )
 		.demandCommand( 1, __( 'You must provide a valid command' ) )
 		.strict();
+
+	if ( process.env.ENABLE_STUDIO_AI === 'true' ) {
+		registerAiCommand( studioArgv );
+	}
 
 	await studioArgv.argv;
 }

@@ -139,6 +139,7 @@ export function executeCliCommand(
 		stdio,
 		execPath: getBundledNodeBinaryPath(),
 		execArgv: [ '--experimental-wasm-jspi' ],
+		env: { ...process.env },
 	} );
 	const eventEmitter = new CliCommandEventEmitter< boolean >();
 

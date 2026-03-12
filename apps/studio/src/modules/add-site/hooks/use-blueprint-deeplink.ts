@@ -3,6 +3,7 @@ import {
 	BlueprintPreferredVersions,
 	BlueprintValidationWarning,
 } from '@studio/common/lib/blueprint-validation';
+import { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import { useCallback } from 'react';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -17,7 +18,7 @@ type BlueprintMetadata = {
 interface UseBlueprintDeeplinkOptions {
 	isAnySiteProcessing: boolean;
 	setSelectedBlueprint: ( blueprint?: Blueprint ) => void;
-	setPhpVersion: ( version: string ) => void;
+	setPhpVersion: ( version: SupportedPHPVersion ) => void;
 	setWpVersion: ( version: string ) => void;
 	setBlueprintPreferredVersions: ( versions: BlueprintPreferredVersions | undefined ) => void;
 	setBlueprintWarnings: ( warnings: BlueprintValidationWarning[] | undefined ) => void;

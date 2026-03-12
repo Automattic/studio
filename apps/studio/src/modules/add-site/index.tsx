@@ -4,7 +4,7 @@ import {
 	BlueprintPreferredVersions,
 	BlueprintValidationWarning,
 } from '@studio/common/lib/blueprint-validation';
-import { SupportedPHPVersionsList } from '@studio/common/types/php-versions';
+import { SupportedPHPVersion, SupportedPHPVersionsList } from '@studio/common/types/php-versions';
 import { speak } from '@wordpress/a11y';
 import { Navigator, useNavigator } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
@@ -16,7 +16,6 @@ import { useAddSite, CreateSiteFormValues } from 'src/hooks/use-add-site';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { AllowedPHPVersion } from 'src/lib/wordpress-server-types';
 import { useBlueprintDeeplink } from 'src/modules/add-site/hooks/use-blueprint-deeplink';
 import { SyncSite } from 'src/modules/sync/types';
 import { useRootSelector, useAppDispatch, useI18nLocale } from 'src/stores';
@@ -45,7 +44,7 @@ interface NavigationContentProps {
 	defaultValues: {
 		siteName: string;
 		sitePath: string;
-		phpVersion: AllowedPHPVersion;
+		phpVersion: SupportedPHPVersion;
 		wpVersion: string;
 	};
 	onSelectPath: ( currentPath: string ) => Promise< {
@@ -70,16 +69,16 @@ interface NavigationContentProps {
 	setSelectedBlueprint: ( blueprint?: Blueprint ) => void;
 	selectedBlueprint?: Blueprint;
 	blueprintPreferredVersions?: BlueprintPreferredVersions;
-	setBlueprintPreferredVersions?: ( versions: BlueprintPreferredVersions | undefined ) => void;
+	setBlueprintPreferredVersions: ( versions: BlueprintPreferredVersions | undefined ) => void;
 	blueprintWarnings?: BlueprintValidationWarning[];
-	setBlueprintWarnings?: ( warnings: BlueprintValidationWarning[] | undefined ) => void;
+	setBlueprintWarnings: ( warnings: BlueprintValidationWarning[] | undefined ) => void;
 	blueprintSuggestedDomain?: string;
-	setBlueprintSuggestedDomain?: ( domain: string | undefined ) => void;
+	setBlueprintSuggestedDomain: ( domain: string | undefined ) => void;
 	blueprintSuggestedHttps?: boolean;
-	setBlueprintSuggestedHttps?: ( https: boolean | undefined ) => void;
+	setBlueprintSuggestedHttps: ( https: boolean | undefined ) => void;
 	blueprintCredentials?: { adminUsername?: string; adminPassword?: string };
 	blueprintSuggestedSiteName?: string;
-	setBlueprintSuggestedSiteName?: ( name: string | undefined ) => void;
+	setBlueprintSuggestedSiteName: ( name: string | undefined ) => void;
 	blueprintRequiresCustomDomain: boolean;
 	setBlueprintRequiresCustomDomain: ( requires: boolean ) => void;
 	selectedRemoteSite?: SyncSite;
@@ -305,7 +304,7 @@ function NavigationContent( props: NavigationContentProps ) {
 			blueprintPreferredVersions?.php &&
 			SupportedPHPVersionsList.includes( blueprintPreferredVersions.php )
 		) {
-			values.phpVersion = blueprintPreferredVersions.php as AllowedPHPVersion;
+			values.phpVersion = blueprintPreferredVersions.php;
 		}
 		if (
 			blueprintPreferredVersions?.wp &&

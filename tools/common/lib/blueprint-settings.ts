@@ -1,9 +1,19 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
-import type { Blueprint } from '@wp-playground/blueprints';
+import { SupportedPHPVersion } from '../types/php-versions';
+import type { BlueprintV1Declaration, StepDefinition, Step } from '@wp-playground/blueprints';
 
-type BlueprintSiteSettings = Partial<
-	Pick< StoppedSiteDetails, 'phpVersion' | 'customDomain' | 'enableHttps' >
-> & {
+// Carbon-copy of the original function from @wp-playground/blueprints. Inlined to avoid trouble
+// with unintentionally pulling in a full PHP-WASM dependency tree.
+export function __isStepDefinition(
+	step: Step | string | undefined | false | null
+): step is StepDefinition {
+	return !! ( typeof step === 'object' && step );
+}
+
+type BlueprintSiteSettings = {
+	enableHttps?: boolean;
+	phpVersion?: SupportedPHPVersion;
+	customDomain?: string;
 	wpVersion?: string;
 	adminUsername?: string;
 	adminPassword?: string;
@@ -12,85 +22,75 @@ type BlueprintSiteSettings = Partial<
 };
 
 /**
- * Checks if a blueprint contains the enableMultisite step.
- */
-export function blueprintHasMultisite( blueprintJson: Blueprint ): boolean {
-	return (
-		Array.isArray( blueprintJson.steps ) &&
-		blueprintJson.steps.some( ( step: { step?: string } ) => step.step === 'enableMultisite' )
-	);
-}
-
-/**
  * Extracts form-relevant values from a blueprint.
  */
-export function extractFormValuesFromBlueprint( blueprintJson: Blueprint ): BlueprintSiteSettings {
+export function extractFormValuesFromBlueprint(
+	blueprintJson: BlueprintV1Declaration
+): BlueprintSiteSettings {
 	const values: BlueprintSiteSettings = {};
 
 	if ( blueprintJson.preferredVersions ) {
-		if ( blueprintJson.preferredVersions.php && blueprintJson.preferredVersions.php !== 'latest' ) {
-			values.phpVersion = blueprintJson.preferredVersions.php;
+		const preferredPhpVersion = blueprintJson.preferredVersions.php;
+
+		if (
+			preferredPhpVersion &&
+			preferredPhpVersion !== 'latest' &&
+			preferredPhpVersion !== '7.2' &&
+			preferredPhpVersion !== '7.3'
+		) {
+			values.phpVersion = preferredPhpVersion;
 		}
 		if ( blueprintJson.preferredVersions.wp && blueprintJson.preferredVersions.wp !== 'latest' ) {
 			values.wpVersion = blueprintJson.preferredVersions.wp;
 		}
 	}
 
-	if ( blueprintHasMultisite( blueprintJson ) ) {
+	const steps = Array.isArray( blueprintJson.steps )
+		? blueprintJson.steps.filter( __isStepDefinition )
+		: [];
+
+	const enableMultisiteStep = steps.some( ( step ) => step.step === 'enableMultisite' );
+	if ( enableMultisiteStep ) {
 		values.requiresCustomDomain = true;
 	}
 
-	if ( blueprintJson.steps && Array.isArray( blueprintJson.steps ) ) {
-		const defineSiteUrlStep = blueprintJson.steps.find(
-			( step: { step?: string } ) => step.step === 'defineSiteUrl'
-		);
-		if ( defineSiteUrlStep?.siteUrl ) {
-			try {
-				const url = new URL( defineSiteUrlStep.siteUrl );
-				values.customDomain = url.hostname;
-				values.enableHttps = url.protocol === 'https:';
-			} catch {
-				// Invalid URL, skip
-			}
+	const defineSiteUrlStep = steps.find( ( step ) => step.step === 'defineSiteUrl' );
+	if ( defineSiteUrlStep?.siteUrl ) {
+		try {
+			const url = new URL( defineSiteUrlStep.siteUrl );
+			values.customDomain = url.hostname;
+			values.enableHttps = url.protocol === 'https:';
+		} catch {
+			// Invalid URL, skip
 		}
+	}
 
-		// Extract login credentials from login step
-		const loginStep = blueprintJson.steps.find(
-			( step: { step?: string } ) => step.step === 'login'
-		);
-		if ( loginStep ) {
-			const { username, password } = loginStep as { username?: string; password?: string };
-			if ( typeof username === 'string' ) {
-				values.adminUsername = username;
-			}
-			if ( typeof password === 'string' ) {
-				values.adminPassword = password;
-			}
+	// Extract login credentials from login step
+	const loginStep = steps.find( ( step ) => step.step === 'login' );
+	if ( loginStep ) {
+		if ( typeof loginStep.username === 'string' ) {
+			values.adminUsername = loginStep.username;
 		}
+		if ( typeof loginStep.password === 'string' ) {
+			values.adminPassword = loginStep.password;
+		}
+	}
 
-		const setSiteOptionsStep = blueprintJson.steps.find(
-			( step: { step?: string; options?: Record< string, unknown > } ) =>
-				step.step === 'setSiteOptions' && step.options?.blogname
-		);
-		if ( setSiteOptionsStep?.options?.blogname ) {
-			values.siteName = String( setSiteOptionsStep.options.blogname );
-		}
+	const setSiteOptionsStep = steps.find( ( step ) => step.step === 'setSiteOptions' );
+	if ( setSiteOptionsStep?.options?.blogname ) {
+		values.siteName = String( setSiteOptionsStep.options.blogname );
 	}
 
 	// Check top-level login property (shorthand syntax).
 	// login: true just enables auto-login with defaults, login: false disables it — neither has credentials to extract.
-	if ( blueprintJson.login !== undefined && blueprintJson.login !== true ) {
-		if ( typeof blueprintJson.login === 'object' && blueprintJson.login !== null ) {
-			const { username, password } = blueprintJson.login as {
-				username?: string;
-				password?: string;
-			};
-			if ( typeof username === 'string' ) {
-				values.adminUsername = username;
-			}
-			if ( typeof password === 'string' ) {
-				values.adminPassword = password;
-			}
+	if ( blueprintJson.login !== undefined && typeof blueprintJson.login !== 'boolean' ) {
+		const username = blueprintJson.login.username;
+		const password = blueprintJson.login.password;
+		if ( typeof username === 'string' ) {
+			values.adminUsername = username;
+		}
+		if ( typeof password === 'string' ) {
+			values.adminPassword = password;
 		}
 	}
 
@@ -101,15 +101,13 @@ export function extractFormValuesFromBlueprint( blueprintJson: Blueprint ): Blue
  * Updates a blueprint with form values. Only updates properties that already exist.
  */
 export function updateBlueprintWithFormValues(
-	blueprintJson: Blueprint,
+	blueprintJson: BlueprintV1Declaration,
 	formValues: BlueprintSiteSettings
-): Blueprint {
-	const updated = { ...blueprintJson };
+): BlueprintV1Declaration {
+	const updated = structuredClone( blueprintJson );
 
 	// Update preferred versions (only if they already exist)
 	if ( updated.preferredVersions ) {
-		updated.preferredVersions = { ...updated.preferredVersions };
-
 		if ( updated.preferredVersions.php !== undefined && formValues.phpVersion ) {
 			updated.preferredVersions.php = formValues.phpVersion;
 		}
@@ -118,41 +116,17 @@ export function updateBlueprintWithFormValues(
 		}
 	}
 
-	// Update defineSiteUrl step (only if it already exists)
-	if ( updated.steps && Array.isArray( updated.steps ) ) {
-		const stepIndex = updated.steps.findIndex(
-			( step: { step?: string } ) => step.step === 'defineSiteUrl'
-		);
+	const steps = Array.isArray( updated.steps ) ? updated.steps.filter( __isStepDefinition ) : [];
 
-		if ( stepIndex >= 0 && formValues.customDomain ) {
-			const protocol = formValues.enableHttps ? 'https' : 'http';
-			updated.steps = [ ...updated.steps ];
-			updated.steps[ stepIndex ] = {
-				...updated.steps[ stepIndex ],
-				siteUrl: `${ protocol }://${ formValues.customDomain }`,
-			};
-		}
+	const defineSiteUrlStep = steps.find( ( step ) => step.step === 'defineSiteUrl' );
+	if ( defineSiteUrlStep && formValues.customDomain ) {
+		const protocol = formValues.enableHttps ? 'https' : 'http';
+		defineSiteUrlStep.siteUrl = `${ protocol }://${ formValues.customDomain }`;
+	}
 
-		// Update setSiteOptions blogname (only if it already exists)
-		if ( formValues.siteName ) {
-			const siteOptionsIndex = updated.steps.findIndex(
-				( step: { step?: string; options?: Record< string, unknown > } ) =>
-					step.step === 'setSiteOptions' && step.options?.blogname
-			);
-
-			if ( siteOptionsIndex >= 0 ) {
-				if ( updated.steps === blueprintJson.steps ) {
-					updated.steps = [ ...updated.steps ];
-				}
-				updated.steps[ siteOptionsIndex ] = {
-					...updated.steps[ siteOptionsIndex ],
-					options: {
-						...updated.steps[ siteOptionsIndex ].options,
-						blogname: formValues.siteName,
-					},
-				};
-			}
-		}
+	const siteOptionsStep = steps.find( ( step ) => step.step === 'setSiteOptions' );
+	if ( siteOptionsStep?.options && formValues.siteName ) {
+		siteOptionsStep.options.blogname = formValues.siteName;
 	}
 
 	return updated;
@@ -190,8 +164,14 @@ function joinWithAnd( items: string[] ): string {
  * Generates a default description from a blueprint's steps array.
  * Returns a human-readable summary like "Installs 3 plugins and 2 themes. Runs 1 block of PHP code."
  */
-export function generateDefaultBlueprintDescription( blueprintJson: Blueprint ): string {
-	if ( ! blueprintJson.steps || ! Array.isArray( blueprintJson.steps ) ) {
+export function generateDefaultBlueprintDescription(
+	blueprintJson: BlueprintV1Declaration
+): string {
+	const steps = Array.isArray( blueprintJson.steps )
+		? blueprintJson.steps.filter( __isStepDefinition )
+		: [];
+
+	if ( ! steps.length ) {
 		return '';
 	}
 
@@ -205,8 +185,8 @@ export function generateDefaultBlueprintDescription( blueprintJson: Blueprint ):
 		siteConfig: 0,
 	};
 
-	for ( const step of blueprintJson.steps ) {
-		const stepName = ( step as { step?: string } ).step;
+	for ( const step of steps ) {
+		const stepName = step.step;
 		switch ( stepName ) {
 			case 'installPlugin':
 				counts.plugins++;

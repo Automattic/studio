@@ -7,12 +7,13 @@ import nock from 'nock';
 import { Provider } from 'react-redux';
 import { Dispatch } from 'redux';
 import { vi } from 'vitest';
-import { AuthContext, AuthContextType } from 'src/components/auth-provider';
+import { AuthContextType } from 'src/components/auth-provider';
 import {
 	ContentTabAssistant,
 	MIMIC_CONVERSATION_DELAY,
 } from 'src/components/content-tab-assistant';
 import { LOCAL_STORAGE_CHAT_MESSAGES_KEY, CLEAR_HISTORY_REMINDER_TIME } from 'src/constants';
+import { useAuth } from 'src/hooks/use-auth';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { useOffline } from 'src/hooks/use-offline';
 import { ThemeDetailsProvider } from 'src/hooks/use-theme-details';
@@ -28,6 +29,7 @@ store.replaceReducer( testReducer );
 vi.mock( 'src/hooks/use-offline' );
 vi.mock( 'src/lib/get-ipc-api' );
 vi.mock( 'src/hooks/use-get-wp-version' );
+vi.mock( 'src/hooks/use-auth' );
 
 vi.mock( 'src/lib/app-globals', () => ( {
 	getAppGlobals: () => ( {
@@ -129,14 +131,13 @@ describe( 'ContentTabAssistant', () => {
 			logout,
 			...auth,
 		};
+		vi.mocked( useAuth ).mockReturnValue( authContextValue );
 
 		return (
 			<Provider store={ store }>
-				<AuthContext.Provider value={ authContextValue }>
-					<ThemeDetailsProvider>
-						<ContentTabAssistant selectedSite={ selectedSite } />
-					</ThemeDetailsProvider>
-				</AuthContext.Provider>
+				<ThemeDetailsProvider>
+					<ContentTabAssistant selectedSite={ selectedSite } />
+				</ThemeDetailsProvider>
 			</Provider>
 		);
 	};

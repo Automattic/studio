@@ -14,7 +14,7 @@ WordPress Studio - Electron desktop app for managing local WordPress sites. Buil
 
 ## CLI Commands
 
-**MUST** build CLI before testing: `npm run cli:build && node dist/cli/main.js <command>`
+**MUST** build CLI before testing: `npm run cli:build && node apps/cli/dist/cli/main.js <command>`
 - **Auth**: `auth login|logout|status` - WordPress.com OAuth (tokens valid 2 weeks)
 - **Preview Sites**: See `apps/cli/commands/preview/`
 - **Local Sites**: See `apps/cli/commands/site/`

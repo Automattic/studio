@@ -13,7 +13,7 @@ export function McpSettings() {
 		getIpcApi()
 			.getMcpServerConfig()
 			.then( setConfigJson )
-			.catch( () => {} );
+			.catch( ( error ) => console.error( error ) );
 	}, [] );
 
 	const handleCopy = async () => {

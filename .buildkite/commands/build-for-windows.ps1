@@ -31,7 +31,7 @@ if ($Architecture -notin $VALID_ARCHITECTURES) {
 Write-Host "--- :lock: Setting up Azure Trusted Signing"
 
 # Verify required env vars
-foreach ($var in @("AZURE_TENANT_ID", "AZURE_CLIENT_ID", "AZURE_CLIENT_SECRET", "AZURE_ENDPOINT", "AZURE_CODE_SIGNING_ACCOUNT", "AZURE_CERTIFICATE_PROFILE")) {
+foreach ($var in @("AZURE_TENANT_ID", "AZURE_CLIENT_ID", "AZURE_CLIENT_SECRET", "AZURE_ENDPOINT", "AZURE_CODE_SIGNING_ACCOUNT", "AZURE_CERTIFICATE_PROFILE", "AZURE_APPX_PUBLISHER")) {
     if (-not (Test-Path "env:$var")) {
         Write-Host "Error: Required environment variable $var is not set" -ForegroundColor Red
         Exit 1
@@ -100,6 +100,9 @@ Write-Host "Generated metadata.json at: $metadataPath"
 $env:AZURE_CODE_SIGNING_DLIB = $dlibPath
 $env:AZURE_METADATA_JSON = $metadataPath
 $env:SIGNTOOL_PATH = $signtoolPath
+$env:AZURE_FILE_DIGEST = "SHA256"
+$env:AZURE_TIMESTAMP_DIGEST = "SHA256"
+$env:AZURE_TIMESTAMP_SERVER = "http://timestamp.acs.microsoft.com"
 
 # The DLib is a .NET assembly (C++/CLI via Ijwhost.dll) that requires the .NET runtime.
 # Check if .NET 6+ is available; install if missing.
@@ -122,7 +125,7 @@ $dummyExe = "$env:TEMP\signing-test.exe"
 Copy-Item "C:\Windows\System32\cmd.exe" $dummyExe -Force
 
 $outFile = "$env:TEMP\signtool-out.txt"
-cmd /c "`"$signtoolPath`" sign /v /fd SHA256 /tr http://timestamp.acs.microsoft.com /td SHA256 /dlib `"$dlibPath`" /dmdf `"$metadataPath`" `"$dummyExe`" > `"$outFile`" 2>&1"
+cmd /c "`"$signtoolPath`" sign /v /fd $env:AZURE_FILE_DIGEST /tr $env:AZURE_TIMESTAMP_SERVER /td $env:AZURE_TIMESTAMP_DIGEST /dlib `"$dlibPath`" /dmdf `"$metadataPath`" `"$dummyExe`" > `"$outFile`" 2>&1"
 $signtoolExitCode = $LastExitCode
 Get-Content $outFile
 Remove-Item $outFile -ErrorAction SilentlyContinue

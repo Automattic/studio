@@ -15,6 +15,7 @@
 		"apps/studio/src/**/*",
 		"apps/studio/e2e/**/*",
 		"apps/cli/**/*",
+		"scripts/**/*",
 		"tools/common/**/*",
 		"./vitest.global-setup.ts"
 	],

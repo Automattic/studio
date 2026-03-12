@@ -4,20 +4,27 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import convertToWindowsStore from 'electron2appx';
 import packageJson from '../apps/studio/package.json' with { type: 'json' };
+import azureSigning from './azure-signing.cjs';
+
+const { assertAzureSigningEnv, getAzureSignArgs, getAzureSigningConfig } = azureSigning;
+const sideloadPublisher = process.env.AZURE_APPX_PUBLISHER;
 
 console.log( '--- :electron: Packaging AppX' );
 
 // Verify Azure Trusted Signing env vars for the signed (sideload) AppX
 console.log( '~~~ Verifying Azure Trusted Signing env vars...' );
-const requiredEnvVars = [ 'AZURE_CODE_SIGNING_DLIB', 'AZURE_METADATA_JSON', 'SIGNTOOL_PATH' ];
-for ( const envVar of requiredEnvVars ) {
-	if ( ! process.env[ envVar ] ) {
-		console.error( `Required env var ${ envVar } is not set!` );
-		process.exit( 1 );
-	}
+try {
+	assertAzureSigningEnv();
+} catch ( error ) {
+	console.error( error instanceof Error ? error.message : error );
+	process.exit( 1 );
+}
+if ( ! sideloadPublisher ) {
+	console.error( 'Required env var AZURE_APPX_PUBLISHER is not set!' );
+	process.exit( 1 );
 }
 
-const __dirname = path.dirname( fileURLToPath( import.meta.url ) );
+const scriptDir = path.dirname( fileURLToPath( import.meta.url ) );
 
 // Get architecture from environment variable, default to x64 for backward compatibility
 const architecture = process.env.FILE_ARCHITECTURE || 'x64';
@@ -26,7 +33,7 @@ if ( architecture !== 'x64' && architecture !== 'arm64' ) {
 	process.exit( 1 );
 }
 
-const windows10SDKVersionPath = path.resolve( __dirname, '..', '.windows-10-sdk-version' );
+const windows10SDKVersionPath = path.resolve( scriptDir, '..', '.windows-10-sdk-version' );
 try {
 	await fs.access( windows10SDKVersionPath );
 } catch {
@@ -50,8 +57,8 @@ try {
 	process.exit( 1 );
 }
 
-const outPath = path.join( __dirname, '..', 'apps', 'studio', 'out' );
-const assetsPath = path.join( __dirname, '..', 'apps', 'studio', 'assets', 'appx' );
+const outPath = path.join( scriptDir, '..', 'apps', 'studio', 'out' );
+const assetsPath = path.join( scriptDir, '..', 'apps', 'studio', 'assets', 'appx' );
 
 console.log( `~~~ Packaging AppX for architecture: ${ architecture }` );
 
@@ -179,14 +186,16 @@ console.log( `~~~ Creating .appx for sideloading at ${ appxOutputPathSigned }...
 
 await convertToWindowsStore( {
 	...sharedOptions,
-	publisher: 'CN=Automattic Inc., O=Automattic Inc., L=San Francisco, S=California, C=US',
+	publisher: sideloadPublisher,
 	devCert: 'nil', // build unsigned; we sign with Azure Trusted Signing below
 	outputDirectory: appxOutputPathSigned,
 } );
 
 // Sign the sideload AppX with Azure Trusted Signing via signtool
 console.log( '~~~ Signing sideload .appx with Azure Trusted Signing...' );
-const appxFiles = ( await fs.readdir( appxOutputPathSigned ) ).filter( ( f ) => f.endsWith( '.appx' ) );
+const appxFiles = ( await fs.readdir( appxOutputPathSigned ) ).filter( ( f ) =>
+	f.endsWith( '.appx' )
+);
 if ( appxFiles.length === 0 ) {
 	console.error( 'No .appx file found to sign!' );
 	process.exit( 1 );
@@ -195,18 +204,9 @@ if ( appxFiles.length === 0 ) {
 for ( const appxFile of appxFiles ) {
 	const appxPath = path.join( appxOutputPathSigned, appxFile );
 	console.log( `Signing ${ appxPath }...` );
+	const { signtoolPath } = getAzureSigningConfig();
 
-	execFileSync( process.env.SIGNTOOL_PATH, [
-		'sign',
-		'/v',
-		'/debug',
-		'/fd', 'SHA256',
-		'/tr', 'http://timestamp.acs.microsoft.com',
-		'/td', 'SHA256',
-		'/dlib', process.env.AZURE_CODE_SIGNING_DLIB,
-		'/dmdf', process.env.AZURE_METADATA_JSON,
-		appxPath,
-	], { stdio: 'inherit' } );
+	execFileSync( signtoolPath, getAzureSignArgs( appxPath, [ '/debug' ] ), { stdio: 'inherit' } );
 
 	console.log( `Signed ${ appxFile } successfully.` );
 }

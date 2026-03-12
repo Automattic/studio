@@ -5,7 +5,7 @@ import { IpcMainInvokeEvent } from 'electron';
 import fs from 'fs';
 import { normalize } from 'path';
 import * as Sentry from '@sentry/electron/main';
-import { bumpStat } from '@studio/common/lib/bump-stat';
+import { __bumpStat } from '@studio/common/lib/bump-stat';
 import { StatsGroup, StatsMetric } from '@studio/common/types/stats';
 import { readFile } from 'atomically';
 import { vi } from 'vitest';
@@ -166,7 +166,7 @@ describe( 'importSite', () => {
 
 	beforeEach( () => {
 		vi.mocked( importBackup ).mockReset();
-		vi.mocked( bumpStat ).mockReset();
+		vi.mocked( __bumpStat ).mockReset();
 	} );
 
 	it( 'should throw error if site is not found', async () => {
@@ -221,7 +221,7 @@ describe( 'importSite', () => {
 		expect( mockSite.details.phpVersion ).toBe( '8.3' );
 		expect( result ).toBe( mockSite.details );
 
-		expect( bumpStat ).toHaveBeenNthCalledWith(
+		expect( __bumpStat ).toHaveBeenNthCalledWith(
 			1,
 			StatsGroup.STUDIO_IMPORT,
 			StatsMetric.UNKNOWN_IMPORTER
@@ -262,7 +262,7 @@ describe( 'importSite', () => {
 		expect( Sentry.captureException ).toHaveBeenCalledWith( mockError );
 
 		// Verify failure stats were bumped
-		expect( bumpStat ).toHaveBeenCalledWith( StatsGroup.STUDIO_IMPORT, StatsMetric.FAILURE );
+		expect( __bumpStat ).toHaveBeenCalledWith( StatsGroup.STUDIO_IMPORT, StatsMetric.FAILURE );
 	} );
 } );
 

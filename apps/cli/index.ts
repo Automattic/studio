@@ -1,11 +1,6 @@
 import path from 'node:path';
-import {
-	bumpAggregatedUniqueStat,
-	AppdataProvider,
-	LastBumpStatsData,
-} from '@studio/common/lib/bump-stat';
+import { __bumpAggregatedUniqueStat, ConfigFileProvider } from '@studio/common/lib/bump-stat';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
-import { StatsGroup, StatsMetric } from '@studio/common/types/stats';
 import { __ } from '@wordpress/i18n';
 import yargs from 'yargs';
 import { commandHandler as eventsCommandHandler } from 'cli/commands/_events';
@@ -26,6 +21,7 @@ import { registerCommand as registerSiteStatusCommand } from 'cli/commands/site/
 import { registerCommand as registerSiteStopCommand } from 'cli/commands/site/stop';
 import { commandHandler as wpCliCommandHandler } from 'cli/commands/wp';
 import { readAppdata, lockAppdata, unlockAppdata, saveAppdata } from 'cli/lib/appdata';
+import { getPlatformMetric, StatsGroup, StatsMetric } from 'cli/lib/bump-stat';
 import { loadTranslations } from 'cli/lib/i18n';
 import { untildify } from 'cli/lib/utils';
 import { StudioArgv } from 'cli/types';
@@ -34,15 +30,20 @@ const version = __STUDIO_CLI_VERSION__;
 
 suppressPunycodeWarning();
 
-const cliAppdataProvider: AppdataProvider< LastBumpStatsData > = {
-	load: readAppdata,
-	lock: lockAppdata,
-	unlock: unlockAppdata,
-	save: async ( data ) => {
-		// Cast is safe: data comes from readAppdata() which returns the full UserData type.
-		// The lock/unlock is already handled by the caller (updateLastBump in /common/lib/bump-stat.ts)
-		// eslint-disable-next-line studio/require-lock-before-save
-		await saveAppdata( data as never );
+const configFileProvider: ConfigFileProvider = {
+	load: async () => {
+		const { lastBumpStats } = await readAppdata();
+		return lastBumpStats ?? {};
+	},
+	save: async ( lastBumpStats ) => {
+		try {
+			await lockAppdata();
+			const appdata = await readAppdata();
+			appdata.lastBumpStats = lastBumpStats;
+			await saveAppdata( appdata );
+		} finally {
+			await unlockAppdata();
+		}
 	},
 };
 
@@ -71,12 +72,28 @@ async function main() {
 		.middleware( async ( argv ) => {
 			if ( ! argv.avoidTelemetry ) {
 				try {
-					await bumpAggregatedUniqueStat(
+					await __bumpAggregatedUniqueStat(
 						StatsGroup.STUDIO_CLI_USAGE_UNIQUE,
 						StatsMetric.SUCCESS,
 						'weekly',
-						cliAppdataProvider
+						configFileProvider
 					);
+
+					if ( __IS_PACKAGED_FOR_NPM__ ) {
+						await __bumpAggregatedUniqueStat(
+							StatsGroup.STUDIO_CLI_WEEKLY_UNIQUE_NPM,
+							getPlatformMetric(),
+							'weekly',
+							configFileProvider
+						);
+					} else {
+						await __bumpAggregatedUniqueStat(
+							StatsGroup.STUDIO_CLI_WEEKLY_UNIQUE_APP,
+							getPlatformMetric(),
+							'weekly',
+							configFileProvider
+						);
+					}
 				} catch ( error ) {
 					console.error( 'Failed to bump stat:', error );
 				}

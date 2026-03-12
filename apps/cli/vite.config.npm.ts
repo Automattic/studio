@@ -44,5 +44,8 @@ export default mergeConfig(
 				},
 			},
 		},
+		define: {
+			__IS_PACKAGED_FOR_NPM__: true,
+		},
 	} )
 );

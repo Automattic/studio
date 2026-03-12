@@ -215,7 +215,7 @@ const config: ForgeConfig = {
 				}
 			}
 
-			console.log( 'Downloading language packs ...' );
+			console.log('Downloading language packs ...');
 			await execAsync( 'npm run download-language-packs' );
 
 			console.log( `Downloading Node.js binary for ${ platform }-${ arch }...` );

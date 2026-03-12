@@ -26,7 +26,7 @@ const initialState: AuthState = {
 	user: null,
 };
 
-export function createWpcomClient(
+function createWpcomClient(
 	token?: string,
 	locale?: string,
 	onInvalidToken?: () => void

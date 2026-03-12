@@ -181,8 +181,8 @@ export class ProcessManagerDaemon {
 		const { stdoutLogPath, stderrLogPath } = getProcessLogPaths( processName );
 		const stdoutStream = createWriteStream( stdoutLogPath, { flags: 'a' } );
 		const stderrStream = createWriteStream( stderrLogPath, { flags: 'a' } );
-		// Node.js >=24 supports the JSPI (JavaScript Promises Integration) API
-		const doesCurrentNodeSupportJspi = semver.gte( process.version, '24.0.0' );
+		// Node.js >=23 supports the JSPI (JavaScript Promises Integration) API
+		const doesCurrentNodeSupportJspi = semver.gte( process.version, '23.0.0' );
 		const execArgv = doesCurrentNodeSupportJspi ? [ '--experimental-wasm-jspi' ] : undefined;
 		const child = fork( scriptPath, args, {
 			execPath: process.execPath,

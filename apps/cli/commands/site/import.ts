@@ -7,23 +7,25 @@
  * as a Studio site with SQLite and URL rewriting.
  *
  * The import flow:
- *   1. Preflight – verify the remote plugin is reachable (cached, runs once)
- *   2. files-sync – download all WordPress files via importer.phar
- *   3. db-sync – download the SQL dump via importer.phar
- *   4. Create a Studio site from the downloaded files
- *   5. Apply the database dump directly to SQLite via db-apply,
+ *   1. Create the site directory upfront (not yet a Studio site)
+ *   2. Preflight – verify the remote plugin is reachable (cached, runs once)
+ *   3. files-sync – download all WordPress files directly into the site dir
+ *   4. db-sync – download the SQL dump via importer.phar
+ *   5. Find the WordPress document root (wp-config.php location)
+ *   6. Apply the database dump directly to SQLite via db-apply,
  *      rewriting URLs (http + https variants → localhost) in the same pass
+ *   7. Register the site in Studio with the document root as the path
  *
  * Resumption: import state is persisted in the Studio appdata directory,
- * keyed by URL. If the command dies mid-import, re-running the same
- * command will resume from where it left off. The importer.phar natively
- * supports resuming partial file and database downloads.
+ * keyed by URL. The site directory is preserved on failure so re-running
+ * the same command resumes from where it left off. The importer.phar
+ * natively supports resuming partial file and database downloads.
  */
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
-import { isEmptyDir, pathExists, recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
+import { isEmptyDir, pathExists } from '@studio/common/lib/fs-utils';
 import { portFinder } from '@studio/common/lib/port-finder';
 import { SITE_EVENTS } from '@studio/common/lib/site-events';
 import { sortSites } from '@studio/common/lib/sort-sites';
@@ -41,8 +43,7 @@ import {
 import { emitSiteEvent } from 'cli/lib/daemon-client';
 import { getDefaultSitePath } from 'cli/lib/generate-site-name';
 import { runImporterCommandUntilComplete, ImporterResult } from 'cli/lib/import/migration-client';
-import { getServerFilesPath } from 'cli/lib/server-files';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
+import { installSqliteIntegration } from 'cli/lib/sqlite-integration';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -69,10 +70,43 @@ function parseImporterJson( result: ImporterResult ): any {
 	}
 }
 
+/**
+ * Decodes a value from the importer's state JSON. Values may be plain
+ * strings or base64-encoded with a "base64:" prefix.
+ */
+function decodeStateValue( value: string ): string {
+	if ( value.startsWith( 'base64:' ) ) {
+		return Buffer.from( value.slice( 7 ), 'base64' ).toString( 'utf-8' );
+	}
+	return value;
+}
+
+/**
+ * Reads the import state file (.import-state.json) to determine the
+ * local WordPress document root. The importer preserves the full
+ * remote directory structure within the docroot, so a remote WordPress
+ * root at /home/user/site/htdocs becomes sitePath/home/user/site/htdocs
+ * locally. We read wp_detect.roots[0].path from the preflight data to
+ * find that path.
+ */
+function getDocumentRootFromState( stateDir: string, sitePath: string ): string {
+	const stateFile = path.join( stateDir, '.import-state.json' );
+	const state = JSON.parse( fs.readFileSync( stateFile, 'utf-8' ) );
+
+	const wpRootEncoded = state.preflight?.data?.wp_detect?.roots?.[ 0 ]?.path;
+	if ( ! wpRootEncoded ) {
+		return sitePath;
+	}
+
+	const remoteWpRoot = decodeStateValue( wpRootEncoded )
+		.replace( /^\/+/, '' )
+		.replace( /\/+$/, '' );
+	return remoteWpRoot ? path.join( sitePath, remoteWpRoot ) : sitePath;
+}
+
 export async function runCommand( url: string, secret: string, name: string ): Promise< void > {
 	const apiUrl = url.replace( /\/+$/, '' ) + '/?site-export-api';
 	const siteName = name;
-	let sitePath: string | undefined;
 	let siteId: string | undefined;
 
 	// Ensure we have the latest importer.phar (older versions don't support db-apply)
@@ -94,18 +128,28 @@ export async function runCommand( url: string, secret: string, name: string ): P
 		.slice( 0, 12 );
 	const importDir = path.join( getAppdataDirectory(), 'imports', importDirHash );
 	const stateDir = path.join( importDir, 'state' );
-	const docroot = path.join( importDir, 'docroot' );
 	fs.mkdirSync( stateDir, { recursive: true } );
-	fs.mkdirSync( docroot, { recursive: true } );
+
+	// Create the site directory upfront so files-sync can download
+	// directly into it. On resume, the directory already has partial
+	// files and the importer picks up where it left off.
+	const sitePath = getDefaultSitePath( siteName );
 
 	const isResume = fs.readdirSync( stateDir ).length > 0;
+
+	if ( ! isResume && ( await pathExists( sitePath ) ) && ! ( await isEmptyDir( sitePath ) ) ) {
+		throw new LoggerError( __( 'Site directory already exists and is not empty.' ) );
+	}
+
+	fs.mkdirSync( sitePath, { recursive: true } );
+
 	if ( isResume ) {
 		console.log( `Resuming previous import for ${ url }` );
 		console.log( '' );
 	}
 
 	console.log( `Importing "${ siteName }" from ${ url }` );
-	console.log( `Import directory: ${ importDir }` );
+	console.log( `Site directory: ${ sitePath }` );
 	console.log( '' );
 
 	try {
@@ -130,8 +174,8 @@ export async function runCommand( url: string, secret: string, name: string ): P
 			logger.reportStart( LoggerAction.PREFLIGHT, __( 'Connecting to remote site…' ) );
 
 			// /state and /docroot are virtual mount points inside PHP WASM,
-			// mapped to stateDir and docroot by the child process.
-			const preflightResult = await runImporterCommandUntilComplete( stateDir, docroot, [
+			// mapped to stateDir and sitePath by the child process.
+			const preflightResult = await runImporterCommandUntilComplete( stateDir, sitePath, [
 				'preflight',
 				apiUrl,
 				`--secret=${ secret }`,
@@ -169,7 +213,7 @@ export async function runCommand( url: string, secret: string, name: string ): P
 
 		await runImporterCommandUntilComplete(
 			stateDir,
-			docroot,
+			sitePath,
 			[
 				'files-sync',
 				apiUrl,
@@ -188,7 +232,7 @@ export async function runCommand( url: string, secret: string, name: string ): P
 
 		await runImporterCommandUntilComplete(
 			stateDir,
-			docroot,
+			sitePath,
 			[
 				'db-sync',
 				apiUrl,
@@ -203,32 +247,20 @@ export async function runCommand( url: string, secret: string, name: string ): P
 
 		logger.reportSuccess( __( 'Database downloaded' ) );
 
-		// ── Step 4: Create Studio site from downloaded files ────────
+		// ── Step 4: Find document root and set up SQLite ────────────
+		// The importer's state file records where WordPress lives on the
+		// remote server relative to the document root. Use that to
+		// determine the local WordPress root within sitePath.
+		const documentRoot = getDocumentRootFromState( stateDir, sitePath );
+
 		logger.reportStart( LoggerAction.CREATE_SITE, `Creating site "${ siteName }"…` );
 
-		sitePath = getDefaultSitePath( siteName );
 		siteId = crypto.randomUUID();
 
-		if ( ( await pathExists( sitePath ) ) && ! ( await isEmptyDir( sitePath ) ) ) {
-			throw new LoggerError( __( 'Site directory already exists and is not empty.' ) );
-		}
-
-		// Copy bundled WordPress as the base
-		const bundledWPPath = path.join( getServerFilesPath(), 'wordpress-versions', 'latest' );
-		if ( ! ( await pathExists( bundledWPPath ) ) ) {
-			throw new LoggerError( __( 'Bundled WordPress files not found. Please reinstall Studio.' ) );
-		}
-		fs.mkdirSync( sitePath, { recursive: true } );
-		await recursiveCopyDirectory( bundledWPPath, sitePath );
-
-		// Overlay downloaded wp-content onto the fresh site
-		const downloadedWpContent = path.join( docroot, 'wp-content' );
-		if ( fs.existsSync( downloadedWpContent ) ) {
-			await recursiveCopyDirectory( downloadedWpContent, path.join( sitePath, 'wp-content' ) );
-		}
-
-		// Install SQLite integration
-		await keepSqliteIntegrationUpdated( sitePath );
+		// Install the SQLite integration drop-in. The remote site uses
+		// MySQL, so we must unconditionally install db.php and the
+		// mu-plugin to redirect WordPress to the SQLite database.
+		await installSqliteIntegration( documentRoot );
 
 		logger.reportSuccess( `Site "${ siteName }" created` );
 
@@ -245,13 +277,13 @@ export async function runCommand( url: string, secret: string, name: string ): P
 
 		// Create the database directory so db-apply can write
 		// the SQLite file to wp-content/database/.ht.sqlite.
-		const dbDir = path.join( sitePath, 'wp-content', 'database' );
+		const dbDir = path.join( documentRoot, 'wp-content', 'database' );
 		fs.mkdirSync( dbDir, { recursive: true } );
 
 		// Use importer.phar's db-apply to convert the MySQL dump
 		// directly into a SQLite database and rewrite URLs in one pass.
 		// The importer handles base64 decoding and SQL translation internally.
-		await runImporterCommandUntilComplete( stateDir, sitePath, [
+		await runImporterCommandUntilComplete( stateDir, documentRoot, [
 			'db-apply',
 			apiUrl,
 			`--secret=${ secret }`,
@@ -273,7 +305,7 @@ export async function runCommand( url: string, secret: string, name: string ): P
 		const siteDetails: SiteData = {
 			id: siteId,
 			name: siteName,
-			path: sitePath,
+			path: documentRoot,
 			port,
 			phpVersion: DEFAULT_PHP_VERSION,
 			adminPassword: 'password',
@@ -303,7 +335,7 @@ export async function runCommand( url: string, secret: string, name: string ): P
 		console.log( '' );
 		console.log( __( 'Site URL: ' ), localUrl );
 		console.log( __( 'WP Admin: ' ), `${ localUrl }/wp-admin/` );
-		console.log( `Start the site with: studio site start --path "${ sitePath }"` );
+		console.log( `Start the site with: studio site start --path "${ documentRoot }"` );
 		console.log( '' );
 
 		logger.reportKeyValuePair( 'id', siteDetails.id );
@@ -324,14 +356,6 @@ export async function runCommand( url: string, secret: string, name: string ): P
 				// Best-effort cleanup
 			}
 		}
-		if ( sitePath && ( await pathExists( sitePath ) ) ) {
-			try {
-				fs.rmSync( sitePath, { recursive: true, force: true } );
-			} catch {
-				// Best-effort cleanup
-			}
-		}
-
 		if ( error instanceof LoggerError ) {
 			throw error;
 		}

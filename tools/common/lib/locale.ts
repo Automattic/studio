@@ -29,11 +29,11 @@ export const supportedLocaleNames: Record< SupportedLocale, string > = {
 	'zh-tw': '繁體中文',
 };
 
-export const supportedLocales = Object.keys( supportedLocaleNames ) as SupportedLocale[];
+export const supportedLocales = Object.keys( supportedLocaleNames ).filter( isSupportedLocale );
 
 export function getLocaleData( locale: string ) {
-	if ( locale in localeDataDictionary ) {
-		return localeDataDictionary[ locale as SupportedLocale ];
+	if ( isSupportedLocale( locale ) ) {
+		return localeDataDictionary[ locale ];
 	}
 	return null;
 }
@@ -42,5 +42,5 @@ export function isSupportedLocale( locale: string | undefined ): locale is Suppo
 	if ( ! locale ) {
 		return false;
 	}
-	return supportedLocales.includes( locale as SupportedLocale );
+	return Object.prototype.hasOwnProperty.call( localeDataDictionary, locale );
 }

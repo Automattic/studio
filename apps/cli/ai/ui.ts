@@ -284,6 +284,7 @@ export class AiChatUI {
 	private _activeSite: SiteInfo | null = null;
 	private expandablePreview: ExpandablePreview | null = null;
 	private _inAgentTurn = false;
+	private _activeSiteData: SiteData | null = null;
 	currentModel: AiModelId = DEFAULT_MODEL;
 
 	private readonly thinkingMessages = [
@@ -553,6 +554,7 @@ export class AiChatUI {
 		const site = this.sitePickerItems[ index ];
 		if ( site ) {
 			this._activeSite = site;
+			this._activeSiteData = this.sitePickerSiteData[ index ] ?? null;
 			this.editor.activeSiteName = site.name;
 			this.messages.addChild(
 				new Text( chalk.hex( '#8839ef' )( ' ✻ Selected site: ' + site.name ) + '\n', 0, 0 )
@@ -562,15 +564,30 @@ export class AiChatUI {
 	}
 
 	private async openSelectedSite(): Promise< void > {
-		const site = this.sitePickerItems[ this.sitePickerSelectedIndex ];
 		const siteData = this.sitePickerSiteData[ this.sitePickerSelectedIndex ];
-		if ( ! site?.running || ! siteData ) {
+		if ( ! siteData ) {
 			return;
 		}
 		const url = getSiteUrl( siteData );
 		if ( url ) {
 			await openBrowser( url );
 		}
+	}
+
+	async openActiveSiteInBrowser(): Promise< boolean > {
+		if ( ! this._activeSiteData ) {
+			return false;
+		}
+		// Re-read appdata to get the current site state (port/domain may have changed)
+		const appdata = await readAppdata();
+		const freshSiteData = appdata.sites?.find( ( s ) => s.name === this._activeSite?.name );
+		const siteData = freshSiteData ?? this._activeSiteData;
+		const url = getSiteUrl( siteData );
+		if ( url ) {
+			await openBrowser( url );
+			return true;
+		}
+		return false;
 	}
 
 	private closeSitePicker(): void {

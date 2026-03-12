@@ -1,12 +1,15 @@
-import type { Blueprint } from '@wp-playground/blueprints';
+import {
+	isStepDefinition,
+	type BlueprintV1Declaration,
+	type StepDefinition,
+} from '@wp-playground/blueprints';
 import type { RunCLIArgs } from '@wp-playground/cli';
 
 /**
  * Sanitizes a Blueprint step to remove sensitive data while keeping useful debugging info.
  */
-function sanitizeBlueprintStep( step: Blueprint[ 'steps' ][ number ] ): Record< string, unknown > {
+function sanitizeBlueprintStep( step: StepDefinition ): unknown {
 	const baseStep: Record< string, unknown > = { step: step.step };
-	const stepRecord = step as Record< string, unknown >;
 
 	// For steps that might contain secrets, only include safe fields
 	switch ( step.step ) {
@@ -17,52 +20,43 @@ function sanitizeBlueprintStep( step: Blueprint[ 'steps' ][ number ] ): Record< 
 		case 'runPHP':
 		case 'runPHPWithOptions':
 			// Omit code (might contain secrets), indicate it exists
-			return { ...baseStep, hasCode: !! stepRecord.code };
+			return { ...baseStep, hasCode: 'code' in step };
 
 		case 'defineWpConfigConsts':
 			// Omit actual constants (might contain DB credentials, auth keys)
 			return {
 				...baseStep,
-				constCount:
-					stepRecord.consts && typeof stepRecord.consts === 'object'
-						? Object.keys( stepRecord.consts as object ).length
-						: 0,
+				constCount: 'consts' in step ? Object.keys( step.consts ).length : undefined,
 			};
 
 		case 'runSql':
 			// Omit SQL (might contain sensitive data)
-			return { ...baseStep, hasSql: !! stepRecord.sql };
+			return { ...baseStep, hasSql: 'sql' in step };
 
 		case 'writeFile':
 			// Keep path for debugging, omit file content
 			return {
 				...baseStep,
-				path: stepRecord.path,
-				hasData: !! stepRecord.data,
+				path: 'path' in step ? step.path : undefined,
+				hasData: 'data' in step,
 			};
 
 		case 'request':
 			// Keep URL and method, omit headers and body (might contain auth tokens)
 			return {
 				...baseStep,
-				url:
-					stepRecord.request && typeof stepRecord.request === 'object'
-						? ( stepRecord.request as Record< string, unknown > ).url
-						: undefined,
-				method:
-					stepRecord.request && typeof stepRecord.request === 'object'
-						? ( stepRecord.request as Record< string, unknown > ).method
-						: undefined,
+				url: 'request' in step ? step.request.url : undefined,
+				method: 'request' in step ? step.request.method : undefined,
 			};
 
 		case 'setSiteOptions':
 		case 'updateUserMeta': {
 			// Keep option/meta keys but not values (values might be API keys)
 			let keys: string[] = [];
-			if ( stepRecord.options && typeof stepRecord.options === 'object' ) {
-				keys = Object.keys( stepRecord.options as object );
-			} else if ( stepRecord.meta && typeof stepRecord.meta === 'object' ) {
-				keys = Object.keys( stepRecord.meta as object );
+			if ( 'options' in step && step.options ) {
+				keys = Object.keys( step.options );
+			} else if ( 'meta' in step ) {
+				keys = Object.keys( step.meta );
 			}
 			return {
 				...baseStep,
@@ -73,11 +67,11 @@ function sanitizeBlueprintStep( step: Blueprint[ 'steps' ][ number ] ): Record< 
 		case 'installPlugin':
 		case 'installTheme':
 			// These are safe - just WordPress.org slugs or URLs
-			return step as Record< string, unknown >;
+			return step;
 
 		default:
 			// For other steps, include everything (they're generally safe)
-			return step as Record< string, unknown >;
+			return step;
 	}
 }
 
@@ -85,7 +79,9 @@ function sanitizeBlueprintStep( step: Blueprint[ 'steps' ][ number ] ): Record< 
  * Sanitizes a Blueprint object to remove sensitive data (passwords, tokens, code)
  * while preserving useful debugging information.
  */
-export function sanitizeBlueprint( blueprint: Blueprint | undefined ): object | undefined {
+export function sanitizeBlueprint(
+	blueprint: Partial< BlueprintV1Declaration > | undefined
+): object | undefined {
 	if ( ! blueprint ) {
 		return undefined;
 	}
@@ -100,7 +96,7 @@ export function sanitizeBlueprint( blueprint: Blueprint | undefined ): object | 
 			: undefined,
 
 		// Sanitize each step individually
-		steps: blueprint.steps?.map( sanitizeBlueprintStep ),
+		steps: blueprint.steps?.filter( isStepDefinition ).map( sanitizeBlueprintStep ),
 
 		// Safe configuration
 		features: blueprint.features,
@@ -132,7 +128,9 @@ export function sanitizeRunCLIArgs( args: RunCLIArgs ): Record< string, unknown 
 		'site-url': args[ 'site-url' ],
 		outfile: args.outfile,
 		blueprintJson: args.blueprint
-			? JSON.stringify( sanitizeBlueprint( args.blueprint ) )
+			? // This isn't a fully safe type assertion, but by the time we execute this, the blueprint
+			  // content will already have been validated to conform to the V1 spec, so it's fine.
+			  JSON.stringify( sanitizeBlueprint( args.blueprint as BlueprintV1Declaration ) )
 			: undefined,
 	};
 }

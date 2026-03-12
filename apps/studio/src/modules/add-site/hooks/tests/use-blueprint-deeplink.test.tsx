@@ -157,7 +157,7 @@ describe( 'useBlueprintDeeplink', () => {
 		} );
 
 		expect( mockSetBlueprintPreferredVersions ).toHaveBeenCalledWith( {
-			php: 'latest',
+			php: undefined,
 			wp: 'latest',
 		} );
 		expect( mockSetPhpVersion ).not.toHaveBeenCalled();

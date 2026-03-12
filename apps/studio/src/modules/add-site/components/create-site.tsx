@@ -1,10 +1,10 @@
+import { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import {
 	__experimentalVStack as VStack,
 	__experimentalHeading as Heading,
 } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { RefObject } from 'react';
-import { AllowedPHPVersion } from 'src/lib/wordpress-server-types';
 import { CreateSiteForm } from 'src/modules/add-site/components/create-site-form';
 import type { BlueprintPreferredVersions } from '@studio/common/lib/blueprint-validation';
 import type { CreateSiteFormValues, PathValidationResult } from 'src/hooks/use-add-site';
@@ -13,7 +13,7 @@ interface CreateSiteProps {
 	defaultValues?: {
 		siteName?: string;
 		sitePath?: string;
-		phpVersion?: AllowedPHPVersion;
+		phpVersion?: SupportedPHPVersion;
 		wpVersion?: string;
 	};
 	onSelectPath: ( currentPath: string ) => Promise< PathValidationResult | null >;
@@ -25,7 +25,7 @@ interface CreateSiteProps {
 	blueprintRequiresCustomDomain?: boolean;
 	blueprintCredentials?: { adminUsername?: string; adminPassword?: string };
 	originalDefaultVersions?: {
-		phpVersion?: AllowedPHPVersion;
+		phpVersion?: SupportedPHPVersion;
 		wpVersion?: string;
 	};
 	onSubmit: ( values: CreateSiteFormValues ) => void;

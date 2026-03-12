@@ -1,5 +1,4 @@
 import path from 'node:path';
-import { __bumpAggregatedUniqueStat, ConfigFileProvider } from '@studio/common/lib/bump-stat';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
 import { __ } from '@wordpress/i18n';
 import yargs from 'yargs';
@@ -20,8 +19,12 @@ import { registerCommand as registerSiteStartCommand } from 'cli/commands/site/s
 import { registerCommand as registerSiteStatusCommand } from 'cli/commands/site/status';
 import { registerCommand as registerSiteStopCommand } from 'cli/commands/site/stop';
 import { commandHandler as wpCliCommandHandler } from 'cli/commands/wp';
-import { readAppdata, lockAppdata, unlockAppdata, saveAppdata } from 'cli/lib/appdata';
-import { getPlatformMetric, StatsGroup, StatsMetric } from 'cli/lib/bump-stat';
+import {
+	bumpAggregatedUniqueStat,
+	getPlatformMetric,
+	StatsGroup,
+	StatsMetric,
+} from 'cli/lib/bump-stat';
 import { loadTranslations } from 'cli/lib/i18n';
 import { untildify } from 'cli/lib/utils';
 import { StudioArgv } from 'cli/types';
@@ -29,23 +32,6 @@ import { StudioArgv } from 'cli/types';
 const version = __STUDIO_CLI_VERSION__;
 
 suppressPunycodeWarning();
-
-const configFileProvider: ConfigFileProvider = {
-	load: async () => {
-		const { lastBumpStats } = await readAppdata();
-		return lastBumpStats ?? {};
-	},
-	save: async ( lastBumpStats ) => {
-		try {
-			await lockAppdata();
-			const appdata = await readAppdata();
-			appdata.lastBumpStats = lastBumpStats;
-			await saveAppdata( appdata );
-		} finally {
-			await unlockAppdata();
-		}
-	},
-};
 
 async function main() {
 	const yargsLocale = await loadTranslations();
@@ -72,26 +58,23 @@ async function main() {
 		.middleware( async ( argv ) => {
 			if ( __ENABLE_CLI_TELEMETRY__ && ! argv.avoidTelemetry ) {
 				try {
-					await __bumpAggregatedUniqueStat(
+					await bumpAggregatedUniqueStat(
 						StatsGroup.STUDIO_CLI_USAGE_UNIQUE,
 						StatsMetric.SUCCESS,
-						'weekly',
-						configFileProvider
+						'weekly'
 					);
 
 					if ( __IS_PACKAGED_FOR_NPM__ ) {
-						await __bumpAggregatedUniqueStat(
+						await bumpAggregatedUniqueStat(
 							StatsGroup.STUDIO_CLI_WEEKLY_UNIQUE_NPM,
 							getPlatformMetric(),
-							'weekly',
-							configFileProvider
+							'weekly'
 						);
 					} else {
-						await __bumpAggregatedUniqueStat(
+						await bumpAggregatedUniqueStat(
 							StatsGroup.STUDIO_CLI_WEEKLY_UNIQUE_APP,
 							getPlatformMetric(),
-							'weekly',
-							configFileProvider
+							'weekly'
 						);
 					}
 				} catch ( error ) {

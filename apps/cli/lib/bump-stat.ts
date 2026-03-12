@@ -1,3 +1,11 @@
+import {
+	__bumpAggregatedUniqueStat,
+	__bumpStat,
+	AggregateInterval,
+	ConfigFileProvider,
+} from '@studio/common/lib/bump-stat';
+import { lockAppdata, readAppdata, saveAppdata, unlockAppdata } from 'cli/lib/appdata';
+
 export enum StatsGroup {
 	STUDIO_CLI_USAGE_UNIQUE = 'studio-cli-usage-unique',
 	STUDIO_CLI_WEEKLY_UNIQUE_NPM = 'studio-cli-weekly-unq-npm',
@@ -12,6 +20,36 @@ export enum StatsMetric {
 	LINUX = 'linux',
 	WINDOWS = 'win32',
 	UNKNOWN_PLATFORM = 'unknown-platform',
+}
+
+const configFileProvider: ConfigFileProvider = {
+	load: async () => {
+		const { lastBumpStats } = await readAppdata();
+		return lastBumpStats ?? {};
+	},
+	save: async ( lastBumpStats ) => {
+		try {
+			await lockAppdata();
+			const appdata = await readAppdata();
+			appdata.lastBumpStats = lastBumpStats;
+			await saveAppdata( appdata );
+		} finally {
+			await unlockAppdata();
+		}
+	},
+};
+
+export function bumpStat( group: StatsGroup, stat: StatsMetric, bumpInDev = false ) {
+	return __bumpStat( group, stat, bumpInDev );
+}
+
+export async function bumpAggregatedUniqueStat(
+	group: StatsGroup,
+	stat: StatsMetric,
+	aggregateBy: AggregateInterval,
+	bumpInDev = false
+) {
+	return __bumpAggregatedUniqueStat( group, stat, aggregateBy, configFileProvider, bumpInDev );
 }
 
 export function getPlatformMetric(): StatsMetric {

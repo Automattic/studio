@@ -1,6 +1,5 @@
 import path from 'path';
 import { AiChatUI } from 'cli/ai/ui';
-import { toReplayAssistantMessage, toReplayToolResultMessage } from './parser';
 import type { AiSessionEvent } from './types';
 
 export function replaySessionHistory( ui: AiChatUI, events: AiSessionEvent[] ): void {
@@ -8,6 +7,8 @@ export function replaySessionHistory( ui: AiChatUI, events: AiSessionEvent[] ): 
 
 	try {
 		for ( const event of events ) {
+			ui.setReplayTimestamp( event.timestamp );
+
 			if ( event.type === 'site.selected' ) {
 				ui.setActiveSite(
 					{
@@ -21,6 +22,10 @@ export function replaySessionHistory( ui: AiChatUI, events: AiSessionEvent[] ): 
 			}
 
 			if ( event.type === 'user.message' ) {
+				if ( event.source === 'ask_user' ) {
+					continue;
+				}
+
 				if ( event.sitePath && ( ! ui.activeSite || ui.activeSite.path !== event.sitePath ) ) {
 					ui.setActiveSite(
 						{
@@ -31,17 +36,13 @@ export function replaySessionHistory( ui: AiChatUI, events: AiSessionEvent[] ): 
 						{ announce: false, emitEvent: false }
 					);
 				}
+				ui.beginAgentTurn();
 				ui.addUserMessage( event.text );
 				continue;
 			}
 
-			if ( event.type === 'assistant.message' ) {
-				ui.handleMessage( toReplayAssistantMessage( event.blocks ) );
-				continue;
-			}
-
-			if ( event.type === 'tool.result' ) {
-				ui.handleMessage( toReplayToolResultMessage( event ) );
+			if ( event.type === 'sdk.message' ) {
+				ui.handleMessage( event.message );
 				continue;
 			}
 

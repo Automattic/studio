@@ -112,11 +112,10 @@ vi.mock( 'cli/ai/sessions/recorder', () => {
 	class MockAiSessionRecorder {
 		static create = vi.fn().mockResolvedValue( new MockAiSessionRecorder() );
 		static open = vi.fn().mockResolvedValue( new MockAiSessionRecorder() );
+		async recordSdkMessage() {}
 		async recordToolProgress() {}
 		async recordSiteSelected() {}
 		async recordUserMessage() {}
-		async recordAssistantMessage() {}
-		async recordToolResult() {}
 		async recordAgentQuestion() {}
 		async recordTurnClosed() {}
 		async recordAgentSessionId() {}
@@ -131,11 +130,6 @@ vi.mock( 'cli/ai/sessions/store', () => ( {
 	listAiSessions: vi.fn(),
 	loadAiSession: vi.fn(),
 	deleteAiSession: vi.fn(),
-} ) );
-
-vi.mock( 'cli/ai/sessions/parser', () => ( {
-	extractAssistantMessageBlocks: vi.fn().mockReturnValue( [] ),
-	extractToolResult: vi.fn().mockReturnValue( undefined ),
 } ) );
 
 vi.mock( 'cli/ai/sessions/replay', () => ( {

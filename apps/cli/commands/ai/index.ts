@@ -16,7 +16,6 @@ import {
 	saveSelectedAiProvider,
 } from 'cli/ai/auth';
 import { AI_PROVIDERS, type AiProviderId } from 'cli/ai/providers';
-import { extractAssistantMessageBlocks, extractToolResult } from 'cli/ai/sessions/parser';
 import { AiSessionRecorder } from 'cli/ai/sessions/recorder';
 import { replaySessionHistory } from 'cli/ai/sessions/replay';
 import { type LoadedAiSession, type TurnStatus } from 'cli/ai/sessions/types';
@@ -29,7 +28,7 @@ import {
 	AI_CHAT_MODEL_COMMAND,
 	AI_CHAT_PROVIDER_COMMAND,
 } from 'cli/ai/slash-commands';
-import { AiChatUI, getToolDetail } from 'cli/ai/ui';
+import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { runCommand as runLogoutCommand } from 'cli/commands/auth/logout';
 import { getAnthropicApiKey, getAuthToken } from 'cli/lib/appdata';
@@ -65,6 +64,7 @@ export async function runCommand(
 	let sessionRecorder: AiSessionRecorder | undefined;
 	let didDisableSessionPersistence = options.noSessionPersistence === true;
 	let sessionId: string | undefined = options.resumeSession?.summary.agentSessionId;
+	let persistQueue: Promise< void > = Promise.resolve();
 
 	if ( options.noSessionPersistence ) {
 		ui.showInfo( 'Session persistence disabled (--no-session-persistence).' );
@@ -85,25 +85,30 @@ export async function runCommand(
 		}
 	}
 
-	const persist = async ( callback: ( recorder: AiSessionRecorder ) => Promise< void > ) => {
-		if ( ! sessionRecorder ) {
-			return;
-		}
-
-		try {
-			await callback( sessionRecorder );
-		} catch ( error ) {
-			sessionRecorder = undefined;
-			if ( ! didDisableSessionPersistence ) {
-				didDisableSessionPersistence = true;
-				ui.showError( `Session persistence disabled: ${ getErrorMessage( error ) }` );
+	const persist = ( callback: ( recorder: AiSessionRecorder ) => Promise< void > ) => {
+		persistQueue = persistQueue.then( async () => {
+			if ( ! sessionRecorder ) {
+				return;
 			}
-		}
+
+			try {
+				await callback( sessionRecorder );
+			} catch ( error ) {
+				sessionRecorder = undefined;
+				if ( ! didDisableSessionPersistence ) {
+					didDisableSessionPersistence = true;
+					ui.showError( `Session persistence disabled: ${ getErrorMessage( error ) }` );
+				}
+			}
+		} );
+
+		return persistQueue;
 	};
 
 	setProgressCallback( ( message ) => {
+		const timestamp = new Date().toISOString();
 		ui.setLoaderMessage( message );
-		void persist( ( recorder ) => recorder.recordToolProgress( message ) );
+		void persist( ( recorder ) => recorder.recordToolProgress( message, timestamp ) );
 	} );
 
 	let currentModel: AiModelId = DEFAULT_MODEL;
@@ -264,17 +269,9 @@ export async function runCommand(
 
 		try {
 			for await ( const message of agentQuery ) {
-				const assistantBlocks = extractAssistantMessageBlocks( message, getToolDetail );
-				if ( assistantBlocks.length > 0 ) {
-					await persist( ( recorder ) => recorder.recordAssistantMessage( assistantBlocks ) );
-				}
-
-				const toolResult = extractToolResult( message );
-				if ( toolResult ) {
-					await persist( ( recorder ) => recorder.recordToolResult( toolResult ) );
-				}
-
+				const timestamp = new Date().toISOString();
 				const result = ui.handleMessage( message );
+				await persist( ( recorder ) => recorder.recordSdkMessage( message, timestamp ) );
 				if ( result ) {
 					sessionId = result.sessionId;
 					await persist( ( recorder ) => recorder.recordAgentSessionId( result.sessionId ) );
@@ -441,6 +438,7 @@ export async function runCommand(
 			}
 		}
 	} finally {
+		await persistQueue;
 		ui.stop();
 		process.exit( 0 );
 	}

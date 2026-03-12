@@ -1,15 +1,18 @@
 import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getAiSessionsDirectoryForDate, getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';
 import { AiSessionRecorder } from 'cli/ai/sessions/recorder';
+import { replaySessionHistory } from 'cli/ai/sessions/replay';
 import {
 	deleteAiSession,
 	listAiSessions,
 	loadAiSession,
 	readAiSessionEventsFromFile,
 } from 'cli/ai/sessions/store';
+import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
+import type { AiSessionEvent } from 'cli/ai/sessions/types';
 
 describe( 'ai-sessions', () => {
 	let testRoot: string | undefined;
@@ -41,14 +44,17 @@ describe( 'ai-sessions', () => {
 			source: 'prompt',
 			sitePath: '/tmp/my-wordpress-website',
 		} );
-		await recorder.recordAssistantMessage( [
-			{ type: 'text', text: 'Sure, I can help with that.' },
-			{ type: 'tool_use', name: 'Read' },
-		] );
-		await recorder.recordToolResult( {
-			ok: true,
-			text: 'File read successfully',
-		} );
+		await recorder.recordSdkMessage( {
+			type: 'assistant',
+			message: {
+				content: [
+					{
+						type: 'text',
+						text: 'Sure, I can help with that.',
+					},
+				],
+			},
+		} as SDKMessage );
 		await recorder.recordToolProgress( 'Starting process daemon…' );
 		await recorder.recordAgentQuestion( {
 			question: 'Choose a plugin slug',
@@ -83,12 +89,11 @@ describe( 'ai-sessions', () => {
 			source: 'prompt',
 			text: 'Help me create a plugin',
 		} );
-		expect( events.find( ( event ) => event.type === 'assistant.message' ) ).toMatchObject( {
-			type: 'assistant.message',
-			blocks: [
-				{ type: 'text', text: 'Sure, I can help with that.' },
-				{ type: 'tool_use', name: 'Read' },
-			],
+		expect( events.find( ( event ) => event.type === 'sdk.message' ) ).toMatchObject( {
+			type: 'sdk.message',
+			message: {
+				type: 'assistant',
+			},
 		} );
 		expect( events.find( ( event ) => event.type === 'tool.progress' ) ).toMatchObject( {
 			type: 'tool.progress',
@@ -313,5 +318,88 @@ describe( 'ai-sessions', () => {
 			latest.sessionId,
 			older.sessionId,
 		] );
+	} );
+
+	it( 'replays raw sdk.message events', () => {
+		const ui = {
+			activeSite: null,
+			prepareForReplay: vi.fn(),
+			finishReplay: vi.fn(),
+			setReplayTimestamp: vi.fn(),
+			setActiveSite: vi.fn(),
+			beginAgentTurn: vi.fn(),
+			addUserMessage: vi.fn(),
+			handleMessage: vi.fn(),
+			setLoaderMessage: vi.fn(),
+			showAgentQuestion: vi.fn(),
+			endAgentTurn: vi.fn(),
+		};
+		const sdkAssistantMessage = {
+			type: 'assistant',
+			message: {
+				content: [
+					{
+						type: 'text',
+						text: 'hello from sdk replay',
+					},
+				],
+			},
+		};
+		const events: AiSessionEvent[] = [
+			{
+				type: 'sdk.message',
+				timestamp: '2026-03-12T10:00:01.000Z',
+				message: sdkAssistantMessage as SDKMessage,
+			},
+		];
+
+		replaySessionHistory( ui as never, events );
+
+		expect( ui.prepareForReplay ).toHaveBeenCalledTimes( 1 );
+		expect( ui.handleMessage ).toHaveBeenCalledTimes( 1 );
+		expect( ui.handleMessage ).toHaveBeenCalledWith( sdkAssistantMessage );
+		expect( ui.finishReplay ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'skips ask_user echo lines during replay and starts turns on prompt messages', () => {
+		const ui = {
+			activeSite: null,
+			prepareForReplay: vi.fn(),
+			finishReplay: vi.fn(),
+			setReplayTimestamp: vi.fn(),
+			setActiveSite: vi.fn(),
+			beginAgentTurn: vi.fn(),
+			addUserMessage: vi.fn(),
+			handleMessage: vi.fn(),
+			setLoaderMessage: vi.fn(),
+			showAgentQuestion: vi.fn(),
+			endAgentTurn: vi.fn(),
+		};
+		const events: AiSessionEvent[] = [
+			{
+				type: 'user.message',
+				timestamp: '2026-03-12T11:00:00.000Z',
+				text: 'answer from ask_user',
+				source: 'ask_user',
+			},
+			{
+				type: 'user.message',
+				timestamp: '2026-03-12T11:00:01.000Z',
+				text: 'top-level prompt',
+				source: 'prompt',
+			},
+			{
+				type: 'turn.closed',
+				timestamp: '2026-03-12T11:00:02.000Z',
+				status: 'success',
+			},
+		];
+
+		replaySessionHistory( ui as never, events );
+
+		expect( ui.beginAgentTurn ).toHaveBeenCalledTimes( 1 );
+		expect( ui.addUserMessage ).toHaveBeenCalledTimes( 1 );
+		expect( ui.addUserMessage ).toHaveBeenCalledWith( 'top-level prompt' );
+		expect( ui.endAgentTurn ).toHaveBeenCalledTimes( 1 );
 	} );
 } );

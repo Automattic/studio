@@ -246,12 +246,10 @@ const toolDisplayNames: Record< string, string > = {
 	TodoWrite: 'Update todo list',
 };
 
-export function getToolDetail( name: string, input: Record< string, unknown > ): string {
-	const fallbackDetail = typeof input.detail === 'string' ? input.detail : '';
-
+function getToolDetail( name: string, input: Record< string, unknown > ): string {
 	switch ( name ) {
 		case 'mcp__studio__site_create':
-			return typeof input.name === 'string' ? input.name : fallbackDetail;
+			return typeof input.name === 'string' ? input.name : '';
 		case 'mcp__studio__site_info':
 		case 'mcp__studio__site_start':
 		case 'mcp__studio__site_stop':
@@ -263,14 +261,14 @@ export function getToolDetail( name: string, input: Record< string, unknown > ):
 		case 'mcp__studio__preview_delete':
 			return typeof input.host === 'string' ? input.host : '';
 		case 'mcp__studio__wp_cli':
-			return typeof input.command === 'string' ? `wp ${ input.command }` : fallbackDetail;
+			return typeof input.command === 'string' ? `wp ${ input.command }` : '';
 		case 'mcp__studio__validate_blocks':
 			if ( typeof input.filePath === 'string' ) {
 				return input.filePath.split( '/' ).slice( -2 ).join( '/' );
 			}
-			return fallbackDetail || 'inline content';
+			return 'inline content';
 		case 'mcp__studio__take_screenshot':
-			return typeof input.url === 'string' ? input.url : fallbackDetail;
+			return typeof input.url === 'string' ? input.url : '';
 		case 'Read':
 		case 'Write':
 		case 'Edit': {
@@ -279,21 +277,21 @@ export function getToolDetail( name: string, input: Record< string, unknown > ):
 				const parts = filePath.split( '/' );
 				return parts.slice( -2 ).join( '/' );
 			}
-			return fallbackDetail;
+			return '';
 		}
 		case 'Bash':
 			return typeof input.command === 'string'
 				? input.command.length > 60
 					? input.command.slice( 0, 57 ) + '…'
 					: input.command
-				: fallbackDetail;
+				: '';
 		case 'Skill':
-			return typeof input.skill === 'string' ? input.skill : fallbackDetail;
+			return typeof input.skill === 'string' ? input.skill : '';
 		case 'Grep':
 		case 'Glob':
-			return typeof input.pattern === 'string' ? input.pattern : fallbackDetail;
+			return typeof input.pattern === 'string' ? input.pattern : '';
 		default:
-			return fallbackDetail;
+			return '';
 	}
 }
 
@@ -453,6 +451,7 @@ export class AiChatUI {
 	private _activeSiteData: SiteData | null = null;
 	private siteSelectedCallback: ( ( site: SiteInfo ) => void ) | null = null;
 	private replayMode = false;
+	private replayTimestampMs: number | null = null;
 	private pendingToolCalls = new Map<
 		string,
 		{ name: string; input: Record< string, unknown > }
@@ -550,8 +549,27 @@ export class AiChatUI {
 		this.siteSelectedCallback = fn;
 	}
 
+	private nowMs(): number {
+		return this.replayTimestampMs ?? Date.now();
+	}
+
+	setReplayTimestamp( timestamp?: string ): void {
+		if ( ! this.replayMode ) {
+			return;
+		}
+
+		if ( ! timestamp ) {
+			this.replayTimestampMs = null;
+			return;
+		}
+
+		const parsedTimestamp = Date.parse( timestamp );
+		this.replayTimestampMs = Number.isNaN( parsedTimestamp ) ? null : parsedTimestamp;
+	}
+
 	prepareForReplay(): void {
 		this.replayMode = true;
+		this.replayTimestampMs = null;
 		this.hideLoader();
 		this.currentMarkdown = null;
 		this.currentResponseText = '';
@@ -559,6 +577,7 @@ export class AiChatUI {
 
 	finishReplay(): void {
 		this.replayMode = false;
+		this.replayTimestampMs = null;
 		this.hideLoader();
 		this.currentMarkdown = null;
 		this.currentResponseText = '';
@@ -566,9 +585,13 @@ export class AiChatUI {
 
 	showAgentQuestion(
 		question: string,
-		options: Array< { label: string; description: string } >
+		_options: Array< { label: string; description: string } >
 	): void {
-		this.showInfo( `${ question } — ${ options.map( ( option ) => option.label ).join( ' / ' ) }` );
+		this.hideLoader();
+		this.currentMarkdown = null;
+		this.currentResponseText = '';
+		this.messages.addChild( new Text( '\n' + chalk.bold( question ), 0, 0 ) );
+		this.tui.requestRender();
 	}
 
 	constructor() {
@@ -1338,7 +1361,7 @@ export class AiChatUI {
 		this.currentResponseText = '';
 		this.hasShownResponseMarker = false;
 		this.wasInterrupted = false;
-		this.turnStartTime = Date.now();
+		this.turnStartTime = this.nowMs();
 		this.todoSnapshot = [];
 		this.latestTodoSnapshot = [];
 		this.lastRenderedTodoSignature = null;
@@ -1538,9 +1561,11 @@ export class AiChatUI {
 	}
 
 	private finalizeToolUseLine( isError: boolean, label: string ): void {
-		const elapsed = this.toolStartTime ? Date.now() - this.toolStartTime : 0;
+		const elapsed = this.toolStartTime ? this.nowMs() - this.toolStartTime : 0;
 		this.toolStartTime = null;
-		const elapsedStr = elapsed > 0 ? chalk.dim( ` (${ ( elapsed / 1000 ).toFixed( 1 ) }s)` ) : '';
+		const elapsedSeconds = Math.max( elapsed, 0 ) / 1000;
+		const elapsedStr =
+			elapsed > 0 || this.replayMode ? chalk.dim( ` (${ elapsedSeconds.toFixed( 1 ) }s)` ) : '';
 		const statusIcon = isError ? chalk.red( '⏺' ) : '⏺';
 
 		if ( this.toolDotText ) {
@@ -1789,7 +1814,7 @@ export class AiChatUI {
 						);
 						this.tui.requestRender();
 					} else if ( block.type === 'tool_use' ) {
-						this.toolStartTime = Date.now();
+						this.toolStartTime = this.nowMs();
 						const typedBlock = block as {
 							id: string;
 							name: string;
@@ -1854,7 +1879,7 @@ export class AiChatUI {
 			case 'result': {
 				this.hideLoader();
 				if ( message.subtype === 'success' ) {
-					const thinkingSec = Math.round( ( Date.now() - this.turnStartTime ) / 1000 );
+					const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
 					if ( ! this.hasShownResponseMarker ) {
 						this.messages.addChild( new Text( '\n ' + chalk.blue( '⏺' ) + ' Done', 0, 0 ) );
 					}
@@ -1868,7 +1893,7 @@ export class AiChatUI {
 
 				// User-initiated interruption: show friendly message instead of error
 				if ( this.wasInterrupted ) {
-					const thinkingSec = Math.round( ( Date.now() - this.turnStartTime ) / 1000 );
+					const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
 					this.messages.addChild(
 						new Text( '\n ' + chalk.yellow( '⏺' ) + ' ' + chalk.yellow( 'Interrupted' ), 0, 0 )
 					);

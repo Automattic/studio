@@ -2,7 +2,8 @@ import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
 import { getAiSessionsDirectoryForDate } from './paths';
-import type { AiSessionEvent, AssistantMessageBlock, TurnStatus } from './types';
+import type { AiSessionEvent, TurnStatus } from './types';
+import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 
 function toSortableTimestampPrefix( date: Date ): string {
 	return date
@@ -96,35 +97,22 @@ export class AiSessionRecorder {
 		} );
 	}
 
-	async recordAssistantMessage( blocks: AssistantMessageBlock[] ): Promise< void > {
-		if ( blocks.length === 0 ) {
-			return;
-		}
-
+	async recordSdkMessage( message: SDKMessage, timestamp?: string ): Promise< void > {
 		await this.appendEvent( {
-			type: 'assistant.message',
-			timestamp: toIsoTimestamp(),
-			blocks,
+			type: 'sdk.message',
+			timestamp: timestamp ?? toIsoTimestamp(),
+			message,
 		} );
 	}
 
-	async recordToolResult( options: { ok: boolean; text: string } ): Promise< void > {
-		await this.appendEvent( {
-			type: 'tool.result',
-			timestamp: toIsoTimestamp(),
-			ok: options.ok,
-			text: options.text,
-		} );
-	}
-
-	async recordToolProgress( message: string ): Promise< void > {
+	async recordToolProgress( message: string, timestamp?: string ): Promise< void > {
 		if ( ! message.trim() ) {
 			return;
 		}
 
 		await this.appendEvent( {
 			type: 'tool.progress',
-			timestamp: toIsoTimestamp(),
+			timestamp: timestamp ?? toIsoTimestamp(),
 			message,
 		} );
 	}

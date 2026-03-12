@@ -1,15 +1,6 @@
-export type TurnStatus = 'success' | 'error' | 'max_turns' | 'interrupted';
+import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 
-export type AssistantMessageBlock =
-	| {
-			type: 'text';
-			text: string;
-	  }
-	| {
-			type: 'tool_use';
-			name: string;
-			detail?: string;
-	  };
+export type TurnStatus = 'success' | 'error' | 'max_turns' | 'interrupted';
 
 export type AiSessionEvent =
 	| {
@@ -37,15 +28,9 @@ export type AiSessionEvent =
 			sitePath?: string;
 	  }
 	| {
-			type: 'assistant.message';
+			type: 'sdk.message';
 			timestamp: string;
-			blocks: AssistantMessageBlock[];
-	  }
-	| {
-			type: 'tool.result';
-			timestamp: string;
-			ok: boolean;
-			text: string;
+			message: SDKMessage;
 	  }
 	| {
 			type: 'tool.progress';

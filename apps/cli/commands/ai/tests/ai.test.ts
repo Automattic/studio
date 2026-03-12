@@ -19,6 +19,10 @@ vi.mock( 'cli/lib/appdata', () => ( {
 	saveAnthropicApiKey: vi.fn(),
 } ) );
 
+vi.mock( 'cli/ai/auth', () => ( {
+	resolveInitialAiProvider: vi.fn().mockResolvedValue( 'anthropic-api-key' ),
+} ) );
+
 vi.mock( 'cli/logger', () => ( {
 	Logger: class {
 		reportStart = vi.fn();

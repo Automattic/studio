@@ -1,5 +1,11 @@
 import { __ } from '@wordpress/i18n';
-import { AI_MODELS, DEFAULT_MODEL, startAiAgent, type AiModelId } from 'cli/ai/agent';
+import {
+	AI_MODELS,
+	DEFAULT_MODEL,
+	startAiAgent,
+	type AiModelId,
+	type AskUserQuestion,
+} from 'cli/ai/agent';
 import {
 	getAvailableAiProviders,
 	isAiProviderReady,
@@ -10,6 +16,10 @@ import {
 	saveSelectedAiProvider,
 } from 'cli/ai/auth';
 import { AI_PROVIDERS, type AiProviderId } from 'cli/ai/providers';
+import { extractAssistantMessageBlocks, extractToolResult } from 'cli/ai/sessions/parser';
+import { AiSessionRecorder } from 'cli/ai/sessions/recorder';
+import { replaySessionHistory } from 'cli/ai/sessions/replay';
+import { type LoadedAiSession, type TurnStatus } from 'cli/ai/sessions/types';
 import {
 	AI_CHAT_API_KEY_COMMAND,
 	AI_CHAT_BROWSER_COMMAND,
@@ -19,7 +29,7 @@ import {
 	AI_CHAT_MODEL_COMMAND,
 	AI_CHAT_PROVIDER_COMMAND,
 } from 'cli/ai/slash-commands';
-import { AiChatUI } from 'cli/ai/ui';
+import { AiChatUI, getToolDetail } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { runCommand as runLogoutCommand } from 'cli/commands/auth/logout';
 import { getAnthropicApiKey, getAuthToken } from 'cli/lib/appdata';
@@ -43,117 +53,12 @@ function getErrorMessage( error: unknown ): string {
 	return String( error );
 }
 
-function extractAssistantMessageBlocks( message: SDKMessage ): AssistantMessageBlock[] {
-	if ( message.type !== 'assistant' ) {
-		return [];
-	}
-
-	const blocks: AssistantMessageBlock[] = [];
-	for ( const block of message.message.content ) {
-		if ( block.type === 'text' && block.text ) {
-			blocks.push( {
-				type: 'text',
-				text: block.text,
-			} );
-		}
-
-		if ( block.type === 'tool_use' && block.name ) {
-			const detail =
-				block.input && typeof block.input === 'object'
-					? getToolDetail( block.name, block.input as Record< string, unknown > )
-					: '';
-			blocks.push( {
-				type: 'tool_use',
-				name: block.name,
-				detail: detail || undefined,
-			} );
-		}
-	}
-
-	return blocks;
-}
-
-function toToolResultText( value: unknown ): string {
-	if ( Array.isArray( value ) ) {
-		const lines = value
-			.map( ( item ) => {
-				if ( typeof item === 'string' ) {
-					return item;
-				}
-
-				if ( item && typeof item === 'object' ) {
-					const typedItem = item as { type?: unknown; text?: unknown };
-					if ( typedItem.type === 'text' && typeof typedItem.text === 'string' ) {
-						return typedItem.text;
-					}
-
-					try {
-						return JSON.stringify( item, null, 2 );
-					} catch {
-						return String( item );
-					}
-				}
-
-				return String( item );
-			} )
-			.map( ( line ) => line.trim() )
-			.filter( ( line ) => line.length > 0 );
-
-		return lines.join( '\n' );
-	}
-
-	if ( typeof value === 'string' ) {
-		return value.trim();
-	}
-
-	if ( value === null || value === undefined ) {
-		return '';
-	}
-
-	try {
-		return JSON.stringify( value, null, 2 );
-	} catch {
-		return String( value );
-	}
-}
-
-function extractToolResult( message: SDKMessage ): { ok: boolean; text: string } | undefined {
-	if ( message.type !== 'user' ) {
-		return undefined;
-	}
-
-	const rawResult = message.tool_use_result;
-	if ( ! rawResult ) {
-		return undefined;
-	}
-
-	if ( typeof rawResult !== 'object' ) {
-		const text = String( rawResult ).trim();
-		return {
-			ok: true,
-			text,
-		};
-	}
-
-	const typedResult = rawResult as {
-		content?: unknown;
-		isError?: unknown;
-		is_error?: unknown;
-	};
-	const isError = typedResult.isError === true || typedResult.is_error === true;
-	const textFromContent = toToolResultText( typedResult.content );
-
-	return {
-		ok: ! isError,
-		text: textFromContent,
-	};
-}
-
-export async function runCommand(): Promise< void > {
+export async function runCommand(
+	options: { resumeSession?: LoadedAiSession; noSessionPersistence?: boolean } = {}
+): Promise< void > {
 	const ui = new AiChatUI();
 	let currentProvider: AiProviderId = await resolveInitialAiProvider();
 	ui.currentProvider = currentProvider;
-	setProgressCallback( ( message ) => ui.setLoaderMessage( message ) );
 	ui.start();
 	ui.showWelcome();
 
@@ -202,6 +107,23 @@ export async function runCommand(): Promise< void > {
 	} );
 
 	let currentModel: AiModelId = DEFAULT_MODEL;
+
+	ui.onSiteSelected = ( site ) => {
+		void persist( ( recorder ) =>
+			recorder.recordSiteSelected( {
+				name: site.name,
+				path: site.path,
+			} )
+		);
+	};
+
+	if ( options.resumeSession ) {
+		ui.showInfo( `Resuming session ${ options.resumeSession.summary.id }` );
+		replaySessionHistory( ui, options.resumeSession.events );
+		if ( ! sessionId ) {
+			ui.showInfo( 'No linked Claude session was found. Continuing from transcript only.' );
+		}
+	}
 
 	async function prepareProviderSelection(
 		provider: AiProviderId,
@@ -265,6 +187,40 @@ export async function runCommand(): Promise< void > {
 
 	if ( currentProvider === 'anthropic-api-key' && ! ( await getAnthropicApiKey() ) ) {
 		ui.showInfo( 'No Anthropic API key saved. Use /provider to enter one.' );
+	}
+
+	async function askUserAndPersistAnswers(
+		questions: AskUserQuestion[]
+	): Promise< Record< string, string > > {
+		for ( const question of questions ) {
+			await persist( ( recorder ) =>
+				recorder.recordAgentQuestion( {
+					question: question.question,
+					options: question.options.map( ( option ) => ( {
+						label: option.label,
+						description: option.description,
+					} ) ),
+				} )
+			);
+		}
+
+		const answers = await ui.askUser( questions );
+		for ( const question of questions ) {
+			const answer = answers[ question.question ];
+			if ( typeof answer !== 'string' || ! answer.trim() ) {
+				continue;
+			}
+
+			await persist( ( recorder ) =>
+				recorder.recordUserMessage( {
+					text: answer,
+					source: 'ask_user',
+					sitePath: ui.activeSite?.path,
+				} )
+			);
+		}
+
+		return answers;
 	}
 
 	async function runAgentTurn( prompt: string ): Promise< void > {

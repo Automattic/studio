@@ -451,6 +451,8 @@ export class AiChatUI {
 	private activeExpandablePreview: ExpandablePreview | null = null;
 	private _inAgentTurn = false;
 	private _activeSiteData: SiteData | null = null;
+	private siteSelectedCallback: ( ( site: SiteInfo ) => void ) | null = null;
+	private replayMode = false;
 	private pendingToolCalls = new Map<
 		string,
 		{ name: string; input: Record< string, unknown > }
@@ -546,6 +548,27 @@ export class AiChatUI {
 
 	set onSiteSelected( fn: ( ( site: SiteInfo ) => void ) | null ) {
 		this.siteSelectedCallback = fn;
+	}
+
+	prepareForReplay(): void {
+		this.replayMode = true;
+		this.hideLoader();
+		this.currentMarkdown = null;
+		this.currentResponseText = '';
+	}
+
+	finishReplay(): void {
+		this.replayMode = false;
+		this.hideLoader();
+		this.currentMarkdown = null;
+		this.currentResponseText = '';
+	}
+
+	showAgentQuestion(
+		question: string,
+		options: Array< { label: string; description: string } >
+	): void {
+		this.showInfo( `${ question } — ${ options.map( ( option ) => option.label ).join( ' / ' ) }` );
 	}
 
 	constructor() {
@@ -898,12 +921,18 @@ export class AiChatUI {
 		this.tui.requestRender();
 	}
 
-	private setActiveSite( site: SiteInfo ): void {
+	setActiveSite( site: SiteInfo, options: { announce?: boolean; emitEvent?: boolean } = {} ): void {
+		const { announce = true, emitEvent = true } = options;
 		this._activeSite = site;
 		this.editor.activeSiteName = site.name;
 		const suffix = site.remote ? ' (WordPress.com)' : '';
 		const label = ` ✻ Selected site: ${ site.name }${ suffix }`;
-		this.messages.addChild( new Text( `${ chalk.hex( '#5b8db8' )( label ) }\n`, 0, 0 ) );
+		if ( announce ) {
+			this.messages.addChild( new Text( `${ chalk.hex( '#5b8db8' )( label ) }\n`, 0, 0 ) );
+		}
+		if ( emitEvent ) {
+			this.siteSelectedCallback?.( site );
+		}
 		this.tui.requestRender();
 	}
 

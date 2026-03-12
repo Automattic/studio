@@ -3,6 +3,7 @@
 import fs from 'fs';
 import https from 'https';
 import path from 'path';
+import { BYTES_PER_MB, getMetricConfig, formatMetricValue } from '../metrics/metric-config';
 
 interface PerformanceResults {
 	[ branch: string ]: {
@@ -15,30 +16,6 @@ interface GitHubContext {
 	owner: string;
 	prNumber: number;
 	token: string;
-}
-
-interface MetricConfig {
-	label: string;
-	unit: 'ms' | 'MB';
-	threshold: number;
-}
-
-const METRIC_CONFIG: Record< string, MetricConfig > = {
-	appSizeMac: { label: 'App Size (Mac)', unit: 'MB', threshold: 1_048_576 },
-	appSizeWin: { label: 'App Size (Win)', unit: 'MB', threshold: 1_048_576 },
-};
-
-const BYTES_PER_MB = 1_048_576;
-
-function getMetricConfig( metric: string ): MetricConfig {
-	return METRIC_CONFIG[ metric ] ?? { label: metric, unit: 'ms', threshold: 50 };
-}
-
-function formatValue( value: number, unit: 'ms' | 'MB' ): string {
-	if ( unit === 'MB' ) {
-		return `${ ( value / BYTES_PER_MB ).toFixed( 2 ) } MB`;
-	}
-	return `${ value.toFixed( 2 ) } ms`;
 }
 
 function formatResultsAsMarkdown(
@@ -86,9 +63,12 @@ function formatResultsAsMarkdown(
 					? `${ sign }${ ( diff / BYTES_PER_MB ).toFixed( 2 ) } MB`
 					: `${ sign }${ diff.toFixed( 2 ) } ms`;
 
-			markdown += `| ${ label } | ${ formatValue( baseValue, unit ) } | ${ formatValue(
-				compareValue,
-				unit
+			markdown += `| ${ label } | ${ formatMetricValue(
+				metric,
+				baseValue
+			) } | ${ formatMetricValue(
+				metric,
+				compareValue
 			) } | ${ diffFormatted } | ${ emoji } ${ percentChange }% |\n`;
 		}
 

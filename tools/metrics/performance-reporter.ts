@@ -1,5 +1,6 @@
 import { writeFileSync, existsSync, mkdirSync } from 'fs';
 import path from 'path';
+import { formatMetricValue } from './metric-config';
 import type { Reporter, FullResult, TestCase, TestResult } from '@playwright/test/reporter';
 
 export type PerformanceResults = Record< string, number >;
@@ -55,11 +56,7 @@ class PerformanceReporter implements Reporter {
 			const printableResults: Record< string, { value: string } > = {};
 
 			for ( const [ key, value ] of Object.entries( results ) ) {
-				const isSizeMetric = key.toLowerCase().includes( 'size' );
-				const formatted = isSizeMetric
-					? `${ ( value / 1_048_576 ).toFixed( 2 ) } MB`
-					: `${ value } ms`;
-				printableResults[ key ] = { value: formatted };
+				printableResults[ key ] = { value: formatMetricValue( key, value ) };
 			}
 
 			console.log( `\n${ testSuite }\n` );

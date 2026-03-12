@@ -176,6 +176,45 @@ const config: ForgeConfig = {
 			// rerun `npm ci` from the repo root to reset the dependency tree after packaging.
 			await execAsync( 'npm run cli:package' );
 
+			// Remove native binaries for other platforms from CLI's node_modules.
+			// Some packages ship binaries for all platforms which causes code-signing failures
+			// on Windows when signtool encounters non-PE binaries (e.g., darwin .node files).
+			console.log( `Removing native binaries for other platforms from CLI bundle...` );
+			const cliNodeModules = path.join( repoRoot, 'apps', 'cli', 'dist', 'cli', 'node_modules' );
+
+			// Clean up @anthropic-ai/claude-agent-sdk vendor binaries (uses {arch}-{platform} format)
+			const claudeVendorDir = path.join( cliNodeModules, '@anthropic-ai', 'claude-agent-sdk', 'vendor' );
+			const platformSuffix = `-${ platform }`;
+			if ( fs.existsSync( claudeVendorDir ) ) {
+				for ( const toolDir of fs.readdirSync( claudeVendorDir ) ) {
+					const toolPath = path.join( claudeVendorDir, toolDir );
+					if ( fs.statSync( toolPath ).isDirectory() ) {
+						for ( const archPlatformDir of fs.readdirSync( toolPath ) ) {
+							if ( ! archPlatformDir.endsWith( platformSuffix ) ) {
+								const dirToRemove = path.join( toolPath, archPlatformDir );
+								fs.rmSync( dirToRemove, { recursive: true, force: true } );
+								console.log( `Removed claude-agent-sdk/vendor/${ toolDir }/${ archPlatformDir }` );
+							}
+						}
+					}
+				}
+			}
+
+			// Clean up koffi binaries (uses {platform}_{arch} format)
+			const koffiBuildDir = path.join( cliNodeModules, 'koffi', 'build', 'koffi' );
+			const platformPrefix = `${ platform }_`;
+			if ( fs.existsSync( koffiBuildDir ) ) {
+				for ( const platformArchDir of fs.readdirSync( koffiBuildDir ) ) {
+					if ( ! platformArchDir.startsWith( platformPrefix ) ) {
+						const dirToRemove = path.join( koffiBuildDir, platformArchDir );
+						if ( fs.statSync( dirToRemove ).isDirectory() ) {
+							fs.rmSync( dirToRemove, { recursive: true, force: true } );
+							console.log( `Removed koffi/build/koffi/${ platformArchDir }` );
+						}
+					}
+				}
+			}
+
 			console.log( 'Downloading language packs ...' );
 			await execAsync( 'npm run download-language-packs' );
 

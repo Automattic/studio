@@ -71,6 +71,7 @@ export default mergeConfig(
 		},
 		define: {
 			__IS_PACKAGED_FOR_NPM__: false,
+			__ENABLE_CLI_TELEMETRY__: false,
 		},
 	} )
 );

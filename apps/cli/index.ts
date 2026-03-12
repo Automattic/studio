@@ -70,7 +70,7 @@ async function main() {
 			},
 		} )
 		.middleware( async ( argv ) => {
-			if ( ! argv.avoidTelemetry ) {
+			if ( __ENABLE_CLI_TELEMETRY__ && ! argv.avoidTelemetry ) {
 				try {
 					await __bumpAggregatedUniqueStat(
 						StatsGroup.STUDIO_CLI_USAGE_UNIQUE,

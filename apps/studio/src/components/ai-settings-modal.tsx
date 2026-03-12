@@ -5,8 +5,9 @@ import Button from 'src/components/button';
 import Modal from 'src/components/modal';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import {
-	DEFAULT_AGENT_INSTRUCTIONS,
+	DEFAULT_INSTRUCTIONS_MAP,
 	INSTRUCTION_FILES,
+	INSTRUCTION_FILE_TYPES,
 	type InstructionFileType,
 } from 'src/modules/agent-instructions/constants';
 import { type InstructionFileStatus } from 'src/modules/agent-instructions/lib/instructions';
@@ -72,7 +73,11 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 				{ ! allInstalled && (
 					<Button
 						variant="link"
-						onClick={ () => handleInstallFile( 'agents', false ) }
+						onClick={ async () => {
+							for ( const fileType of INSTRUCTION_FILE_TYPES ) {
+								await handleInstallFile( fileType, false );
+							}
+						} }
 						disabled={ installingFile !== null }
 						className="text-sm"
 					>
@@ -114,7 +119,7 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 								<div className="text-xs text-gray-500">
 									{ status.isCustomized
 										? __(
-												'You are using a custom version of AGENTS.md. You can use the "Reinstall" option to use the newest Studio version. Your customizations will be overwritten.'
+												'You are using a custom version of this file. You can use the "Reinstall" option to use the newest Studio version. Your customizations will be overwritten.'
 										  )
 										: __( config.description ) }
 								</div>
@@ -147,16 +152,18 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 				} ) }
 			</div>
 
-			<details className="group">
-				<summary className="cursor-pointer text-xs text-gray-500 hover:text-gray-700">
-					{ __( 'View template content' ) }
-				</summary>
-				<div className="mt-2 border border-gray-200 rounded-md bg-gray-50 p-3 max-h-48 overflow-y-auto">
-					<pre className="text-xs text-gray-700 whitespace-pre-wrap font-mono">
-						{ DEFAULT_AGENT_INSTRUCTIONS }
-					</pre>
-				</div>
-			</details>
+			{ statuses.map( ( status ) => (
+				<details key={ `preview-${ status.id }` } className="group">
+					<summary className="cursor-pointer text-xs text-gray-500 hover:text-gray-700">
+						{ `${ __( 'View template content' ) } — ${ status.fileName }` }
+					</summary>
+					<div className="mt-2 border border-gray-200 rounded-md bg-gray-50 p-3 max-h-48 overflow-y-auto">
+						<pre className="text-xs text-gray-700 whitespace-pre-wrap font-mono">
+							{ DEFAULT_INSTRUCTIONS_MAP[ status.id ] }
+						</pre>
+					</div>
+				</details>
+			) ) }
 		</div>
 	);
 }

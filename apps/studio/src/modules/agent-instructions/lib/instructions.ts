@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import nodePath from 'path';
 import {
-	DEFAULT_AGENT_INSTRUCTIONS,
+	DEFAULT_INSTRUCTIONS_MAP,
 	INSTRUCTION_FILES,
 	INSTRUCTION_FILE_TYPES,
 	type InstructionFileType,
@@ -31,7 +31,8 @@ export async function getInstructionFileStatus(
 	try {
 		await fs.access( filePath );
 		const content = await fs.readFile( filePath, 'utf-8' );
-		const isCustomized = content.trim() !== DEFAULT_AGENT_INSTRUCTIONS.trim();
+		const defaultContent = DEFAULT_INSTRUCTIONS_MAP[ fileType ];
+		const isCustomized = content.trim() !== defaultContent.trim();
 
 		return {
 			id: config.id,

@@ -1,7 +1,10 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { vi } from 'vitest';
-import { DEFAULT_AGENT_INSTRUCTIONS } from 'src/modules/agent-instructions/constants';
+import {
+	DEFAULT_AGENT_INSTRUCTIONS,
+	DEFAULT_INSTRUCTIONS_MAP,
+} from 'src/modules/agent-instructions/constants';
 import {
 	getInstructionFilePath,
 	getInstructionFileStatus,
@@ -27,6 +30,12 @@ describe( 'getInstructionFilePath', () => {
 			path.join( SITE_PATH, 'AGENTS.md' )
 		);
 	} );
+
+	it( 'returns correct path for studio file', () => {
+		expect( getInstructionFilePath( SITE_PATH, 'studio' ) ).toBe(
+			path.join( SITE_PATH, 'STUDIO.md' )
+		);
+	} );
 } );
 
 describe( 'getInstructionFileStatus', () => {
@@ -45,11 +54,21 @@ describe( 'getInstructionFileStatus', () => {
 		expect( status.path ).toBe( path.join( SITE_PATH, 'AGENTS.md' ) );
 	} );
 
-	it( 'returns isCustomized: false when file matches the default template', async () => {
+	it( 'returns isCustomized: false when agents file matches the default template', async () => {
 		vi.mocked( fs.access ).mockResolvedValue( undefined );
 		vi.mocked( fs.readFile ).mockResolvedValue( DEFAULT_AGENT_INSTRUCTIONS as never );
 
 		const status = await getInstructionFileStatus( SITE_PATH, 'agents' );
+
+		expect( status.exists ).toBe( true );
+		expect( status.isCustomized ).toBe( false );
+	} );
+
+	it( 'returns isCustomized: false when studio file matches the default template', async () => {
+		vi.mocked( fs.access ).mockResolvedValue( undefined );
+		vi.mocked( fs.readFile ).mockResolvedValue( DEFAULT_INSTRUCTIONS_MAP.studio as never );
+
+		const status = await getInstructionFileStatus( SITE_PATH, 'studio' );
 
 		expect( status.exists ).toBe( true );
 		expect( status.isCustomized ).toBe( false );
@@ -88,8 +107,8 @@ describe( 'getAllInstructionFilesStatus', () => {
 
 		const statuses = await getAllInstructionFilesStatus( SITE_PATH );
 
-		expect( statuses ).toHaveLength( 1 );
-		expect( statuses.map( ( s ) => s.id ) ).toEqual( [ 'agents' ] );
+		expect( statuses ).toHaveLength( 2 );
+		expect( statuses.map( ( s ) => s.id ) ).toEqual( [ 'agents', 'studio' ] );
 	} );
 } );
 
@@ -107,6 +126,20 @@ describe( 'installInstructionFile', () => {
 		expect( fs.writeFile ).toHaveBeenCalledWith(
 			path.join( SITE_PATH, 'AGENTS.md' ),
 			'content',
+			'utf-8'
+		);
+		expect( result.overwritten ).toBe( false );
+	} );
+
+	it( 'writes studio file when file does not exist', async () => {
+		vi.mocked( fs.access ).mockRejectedValue( new Error( 'ENOENT' ) );
+		vi.mocked( fs.writeFile ).mockResolvedValue( undefined );
+
+		const result = await installInstructionFile( SITE_PATH, 'studio', 'studio content', false );
+
+		expect( fs.writeFile ).toHaveBeenCalledWith(
+			path.join( SITE_PATH, 'STUDIO.md' ),
+			'studio content',
 			'utf-8'
 		);
 		expect( result.overwritten ).toBe( false );
@@ -142,8 +175,8 @@ describe( 'installAllInstructionFiles', () => {
 
 		const results = await installAllInstructionFiles( SITE_PATH, 'content', false );
 
-		expect( results ).toHaveLength( 1 );
-		expect( results.map( ( r ) => r.fileType ) ).toEqual( [ 'agents' ] );
-		expect( fs.writeFile ).toHaveBeenCalledTimes( 1 );
+		expect( results ).toHaveLength( 2 );
+		expect( results.map( ( r ) => r.fileType ) ).toEqual( [ 'agents', 'studio' ] );
+		expect( fs.writeFile ).toHaveBeenCalledTimes( 2 );
 	} );
 } );

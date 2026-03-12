@@ -66,7 +66,7 @@ import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
 import {
-	DEFAULT_AGENT_INSTRUCTIONS,
+	DEFAULT_INSTRUCTIONS_MAP,
 	type InstructionFileType,
 } from 'src/modules/agent-instructions/constants';
 import {
@@ -156,12 +156,8 @@ export async function installAgentInstructions(
 	}
 	const overwrite = options?.overwrite ?? false;
 	const fileType = options?.fileType ?? 'agents';
-	return installInstructionFile(
-		server.details.path,
-		fileType,
-		DEFAULT_AGENT_INSTRUCTIONS,
-		overwrite
-	);
+	const content = DEFAULT_INSTRUCTIONS_MAP[ fileType ];
+	return installInstructionFile( server.details.path, fileType, content, overwrite );
 }
 
 const DEBUG_LOG_MAX_LINES = 50;

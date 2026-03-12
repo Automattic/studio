@@ -1,70 +1,35 @@
-import { execFileSync } from 'child_process';
-import { password } from '@inquirer/prompts';
 import { __ } from '@wordpress/i18n';
 import { AI_MODELS, DEFAULT_MODEL, startAiAgent, type AiModelId } from 'cli/ai/agent';
+import {
+	getAvailableAiProviders,
+	hasClaudeCodeAuth,
+	prepareAiProvider,
+	resolveAiEnvironment,
+	resolveInitialAiProvider,
+	saveSelectedAiProvider,
+} from 'cli/ai/auth';
 import {
 	AI_CHAT_BROWSER_COMMAND,
 	AI_CHAT_EXIT_COMMAND,
 	AI_CHAT_LOGIN_COMMAND,
 	AI_CHAT_LOGOUT_COMMAND,
 	AI_CHAT_MODEL_COMMAND,
+	AI_CHAT_PROVIDER_COMMAND,
 } from 'cli/ai/slash-commands';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { runCommand as runLogoutCommand } from 'cli/commands/auth/logout';
-import { getAnthropicApiKey, getAuthToken, saveAnthropicApiKey } from 'cli/lib/appdata';
+import { AI_PROVIDERS, type AiProviderId } from 'cli/lib/ai-provider';
+import { getAnthropicApiKey, getAuthToken } from 'cli/lib/appdata';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
 const logger = new Logger< string >();
 
-function isClaudeCodeAuthenticated(): boolean {
-	try {
-		const output = execFileSync( 'claude', [ 'auth', 'status' ], {
-			encoding: 'utf8',
-			timeout: 5000,
-			stdio: [ 'pipe', 'pipe', 'pipe' ],
-		} );
-		return (
-			output.toLowerCase().includes( 'authenticated' ) || ! output.toLowerCase().includes( 'not' )
-		);
-	} catch {
-		return false;
-	}
-}
-
-async function resolveApiKey(): Promise< string | undefined > {
-	// Check for saved API key first
-	const savedKey = await getAnthropicApiKey();
-	if ( savedKey ) {
-		return savedKey;
-	}
-
-	// If Claude Code is authenticated, use its auth
-	if ( isClaudeCodeAuthenticated() ) {
-		return undefined;
-	}
-
-	// Fall back to prompting for an API key
-	const apiKey = await password( {
-		message: __( 'Enter your Anthropic API key (will be saved for future use):' ),
-		mask: '*',
-		validate: ( value ) => {
-			if ( ! value.trim() ) {
-				return __( 'API key is required' );
-			}
-			return true;
-		},
-	} );
-
-	await saveAnthropicApiKey( apiKey );
-	return apiKey;
-}
-
 export async function runCommand(): Promise< void > {
-	const apiKey = await resolveApiKey();
-
 	const ui = new AiChatUI();
+	let currentProvider: AiProviderId = await resolveInitialAiProvider();
+	ui.currentProvider = currentProvider;
 	setProgressCallback( ( message ) => ui.setLoaderMessage( message ) );
 	ui.start();
 	ui.showWelcome();
@@ -76,10 +41,24 @@ export async function runCommand(): Promise< void > {
 		ui.showInfo( 'Not logged in to WordPress.com. Use /login to authenticate.' );
 	}
 
+	if ( currentProvider === 'anthropic-api-key' && ! ( await getAnthropicApiKey() ) ) {
+		ui.showInfo( 'No Anthropic API key saved. Use /provider to enter one.' );
+	}
+
 	let sessionId: string | undefined;
 	let currentModel: AiModelId = DEFAULT_MODEL;
 
+	async function prepareProviderSelection( provider: AiProviderId ): Promise< void > {
+		ui.stop();
+		try {
+			await prepareAiProvider( provider );
+		} finally {
+			ui.start();
+		}
+	}
+
 	async function runAgentTurn( prompt: string ): Promise< void > {
+		const env = await resolveAiEnvironment( currentProvider );
 		ui.beginAgentTurn();
 
 		// Prepend active site context to the prompt
@@ -93,7 +72,7 @@ export async function runCommand(): Promise< void > {
 
 		const agentQuery = startAiAgent( {
 			prompt: enrichedPrompt,
-			apiKey,
+			env,
 			model: currentModel,
 			resume: sessionId,
 			onAskUser: ( questions ) => ui.askUser( questions ),
@@ -199,6 +178,39 @@ export async function runCommand(): Promise< void > {
 					ui.showInfo( `Switched to ${ AI_MODELS[ currentModel ] }` );
 				}
 				continue;
+			}
+
+			if ( trimmedPrompt === AI_CHAT_PROVIDER_COMMAND ) {
+				const availableProviders = getAvailableAiProviders();
+				const providerOptions = availableProviders.map( ( id ) => ( {
+					label: id === currentProvider ? `${ AI_PROVIDERS[ id ] } (current)` : AI_PROVIDERS[ id ],
+					description: id,
+				} ) );
+				const answer = await ui.askUser( [
+					{ question: 'Select an AI provider', options: providerOptions },
+				] );
+				const selectedLabel = Object.values( answer )[ 0 ] as string;
+				const newProvider = availableProviders.find( ( id ) =>
+					selectedLabel.startsWith( AI_PROVIDERS[ id ] )
+				);
+				if ( newProvider && newProvider !== currentProvider ) {
+					await prepareProviderSelection( newProvider );
+					currentProvider = newProvider;
+					ui.currentProvider = currentProvider;
+					sessionId = undefined;
+					await saveSelectedAiProvider( currentProvider );
+					ui.showInfo( `Switched to ${ AI_PROVIDERS[ currentProvider ] }` );
+				}
+				continue;
+			}
+
+			if ( currentProvider === 'anthropic-claude' && ! hasClaudeCodeAuth() ) {
+				await prepareProviderSelection( 'anthropic-api-key' );
+				currentProvider = 'anthropic-api-key';
+				ui.currentProvider = currentProvider;
+				sessionId = undefined;
+				await saveSelectedAiProvider( currentProvider );
+				ui.showInfo( 'Claude auth is no longer available. Switched to Anthropic · API key.' );
 			}
 
 			ui.addUserMessage( prompt );

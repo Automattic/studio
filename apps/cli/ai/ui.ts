@@ -18,6 +18,7 @@ import {
 import chalk from 'chalk';
 import { AI_MODELS, DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
 import { AI_CHAT_SLASH_COMMANDS, type SlashCommandDef } from 'cli/ai/slash-commands';
+import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/lib/ai-provider';
 import { getSiteUrl, readAppdata, type SiteData } from 'cli/lib/appdata';
 import { openBrowser } from 'cli/lib/browser';
 import { isSiteRunning } from 'cli/lib/site-utils';
@@ -279,6 +280,7 @@ export class AiChatUI {
 		{ name: string; input: Record< string, unknown > }
 	>();
 	currentModel: AiModelId = DEFAULT_MODEL;
+	currentProvider: AiProviderId = DEFAULT_AI_PROVIDER;
 
 	private readonly thinkingMessages = [
 		'Thinking…',
@@ -769,7 +771,11 @@ export class AiChatUI {
 
 		const info = [
 			chalk.bold( 'WordPress Studio' ) + ( version ? chalk.dim( ` v${ version }` ) : '' ),
-			chalk.dim( `${ AI_MODELS[ this.currentModel ] } · ${ displayCwd }` ),
+			chalk.dim(
+				`${ AI_MODELS[ this.currentModel ] } · ${
+					AI_PROVIDERS[ this.currentProvider ]
+				} · ${ displayCwd }`
+			),
 			'',
 			chalk.dim.italic( 'Code is Poetry' ),
 		];

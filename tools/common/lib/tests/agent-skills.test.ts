@@ -48,29 +48,13 @@ describe( 'installSkillsToSite', () => {
 		vi.mocked( recursiveCopyDirectory ).mockResolvedValue( undefined );
 		vi.mocked( fs.mkdir ).mockResolvedValue( undefined );
 		vi.mocked( fs.rm ).mockResolvedValue( undefined );
-		vi.mocked( fs.lstat ).mockRejectedValue( new Error( 'ENOENT' ) );
 		vi.mocked( fs.symlink ).mockResolvedValue( undefined );
 	} );
 
-	it( 'skips installation when skill SKILL.md exists and overwrite is false', async () => {
-		// First pathExists call: source exists. Second: SKILL.md exists.
-		vi.mocked( pathExists )
-			.mockResolvedValueOnce( true ) // src exists
-			.mockResolvedValueOnce( true ); // SKILL.md exists — skip
-
-		await installSkillsToSite( SITE_PATH, BUNDLED_PATH, false );
-
-		// Should not copy for the first skill since it's already installed
-		expect( recursiveCopyDirectory ).not.toHaveBeenCalledWith(
-			path.join( BUNDLED_PATH, 'wp-plugin-development' ),
-			expect.any( String )
-		);
-	} );
-
-	it( 'installs skills when not present', async () => {
-		// Source exists, SKILL.md does not
+	it( 'skips copy but still creates symlink when SKILL.md exists and overwrite is false', async () => {
 		vi.mocked( pathExists ).mockImplementation( async ( p: string ) => {
-			if ( p.endsWith( 'SKILL.md' ) ) {
+			// Source exists, SKILL.md exists, but symlink does not exist
+			if ( p.includes( '.claude' ) ) {
 				return false;
 			}
 			return true;
@@ -78,15 +62,29 @@ describe( 'installSkillsToSite', () => {
 
 		await installSkillsToSite( SITE_PATH, BUNDLED_PATH, false );
 
-		// Should copy all 5 skills
+		// Should not copy since SKILL.md exists
+		expect( recursiveCopyDirectory ).not.toHaveBeenCalled();
+		// Should still create symlinks
+		expect( fs.symlink ).toHaveBeenCalledTimes( 5 );
+	} );
+
+	it( 'installs skills when not present', async () => {
+		vi.mocked( pathExists ).mockImplementation( async ( p: string ) => {
+			if ( p.endsWith( 'SKILL.md' ) || p.includes( '.claude' ) ) {
+				return false;
+			}
+			return true;
+		} );
+
+		await installSkillsToSite( SITE_PATH, BUNDLED_PATH, false );
+
 		expect( recursiveCopyDirectory ).toHaveBeenCalledTimes( 5 );
-		// Should create symlinks for all 5 skills
 		expect( fs.symlink ).toHaveBeenCalledTimes( 5 );
 	} );
 
 	it( 'creates symlink with correct relative path', async () => {
 		vi.mocked( pathExists ).mockImplementation( async ( p: string ) => {
-			if ( p.endsWith( 'SKILL.md' ) ) {
+			if ( p.endsWith( 'SKILL.md' ) || p.includes( '.claude' ) ) {
 				return false;
 			}
 			return true;
@@ -106,7 +104,6 @@ describe( 'installSkillsToSite', () => {
 
 	it( 'removes existing files when overwrite is true', async () => {
 		vi.mocked( pathExists ).mockResolvedValue( true );
-		vi.mocked( fs.lstat ).mockResolvedValue( {} as never );
 
 		await installSkillsToSite( SITE_PATH, BUNDLED_PATH, true );
 
@@ -124,5 +121,33 @@ describe( 'installSkillsToSite', () => {
 
 		expect( recursiveCopyDirectory ).not.toHaveBeenCalled();
 		expect( fs.symlink ).not.toHaveBeenCalled();
+	} );
+
+	it( 'falls back to junction on Windows EPERM', async () => {
+		const originalPlatform = process.platform;
+		Object.defineProperty( process, 'platform', { value: 'win32' } );
+
+		vi.mocked( pathExists ).mockImplementation( async ( p: string ) => {
+			if ( p.endsWith( 'SKILL.md' ) || p.includes( '.claude' ) ) {
+				return false;
+			}
+			return true;
+		} );
+
+		const epermError = Object.assign( new Error( 'EPERM' ), { code: 'EPERM' } );
+		vi.mocked( fs.symlink )
+			.mockRejectedValueOnce( epermError ) // First call fails with EPERM
+			.mockResolvedValue( undefined ); // Junction fallback succeeds
+
+		await installSkillsToSite( SITE_PATH, BUNDLED_PATH, false );
+
+		// First skill should have used junction fallback
+		expect( fs.symlink ).toHaveBeenCalledWith(
+			path.resolve( path.join( SITE_PATH, '.agents', 'skills', 'wp-plugin-development' ) ),
+			path.join( SITE_PATH, '.claude', 'skills', 'wp-plugin-development' ),
+			'junction'
+		);
+
+		Object.defineProperty( process, 'platform', { value: originalPlatform } );
 	} );
 } );

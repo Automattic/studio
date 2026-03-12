@@ -176,7 +176,7 @@ const config: ForgeConfig = {
 			// rerun `npm ci` from the repo root to reset the dependency tree after packaging.
 			await execAsync( 'npm run cli:package' );
 
-			console.log('Downloading language packs ...');
+			console.log( 'Downloading language packs ...' );
 			await execAsync( 'npm run download-language-packs' );
 
 			console.log( `Downloading Node.js binary for ${ platform }-${ arch }...` );

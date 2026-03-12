@@ -44,33 +44,50 @@ async function installSkillToSite(
 	const agentsSkillPath = path.join( sitePath, '.agents', 'skills', skillId );
 	const claudeSkillPath = path.join( sitePath, '.claude', 'skills', skillId );
 
-	// Check if already installed by verifying SKILL.md exists
-	if ( ! overwrite ) {
-		if ( await pathExists( path.join( agentsSkillPath, 'SKILL.md' ) ) ) {
-			return;
-		}
-	}
+	const isInstalled = await pathExists( path.join( agentsSkillPath, 'SKILL.md' ) );
 
 	// Copy skill files to .agents/skills/<skill-id>/
-	if ( overwrite ) {
-		await fs.rm( agentsSkillPath, { recursive: true, force: true } );
+	if ( ! isInstalled || overwrite ) {
+		if ( overwrite ) {
+			await fs.rm( agentsSkillPath, { recursive: true, force: true } );
+		}
+		await recursiveCopyDirectory( src, agentsSkillPath );
 	}
-	await recursiveCopyDirectory( src, agentsSkillPath );
 
-	// Create symlink at .claude/skills/<skill-id> → ../../.agents/skills/<skill-id>
+	// Ensure symlink at .claude/skills/<skill-id> exists, even if .agents/ copy was already present
+	await ensureSkillSymlink( sitePath, agentsSkillPath, claudeSkillPath, overwrite );
+}
+
+async function ensureSkillSymlink(
+	sitePath: string,
+	agentsSkillPath: string,
+	claudeSkillPath: string,
+	overwrite: boolean
+): Promise< void > {
 	await fs.mkdir( path.join( sitePath, '.claude', 'skills' ), { recursive: true } );
 	const relativePath = path.relative( path.join( sitePath, '.claude', 'skills' ), agentsSkillPath );
 
-	try {
-		await fs.lstat( claudeSkillPath );
-		if ( overwrite ) {
-			await fs.rm( claudeSkillPath, { recursive: true, force: true } );
-		} else {
-			return;
-		}
-	} catch {
-		// Symlink doesn't exist, proceed
+	const symlinkExists = await pathExists( claudeSkillPath );
+	if ( symlinkExists && ! overwrite ) {
+		return;
+	}
+	if ( symlinkExists && overwrite ) {
+		await fs.rm( claudeSkillPath, { recursive: true, force: true } );
 	}
 
-	await fs.symlink( relativePath, claudeSkillPath );
+	try {
+		await fs.symlink( relativePath, claudeSkillPath );
+	} catch ( error ) {
+		// On Windows, symlinks may require admin privileges or Developer Mode.
+		// Fall back to a directory junction which doesn't require elevated permissions.
+		if ( isErrnoException( error ) && error.code === 'EPERM' && process.platform === 'win32' ) {
+			await fs.symlink( path.resolve( agentsSkillPath ), claudeSkillPath, 'junction' );
+		} else {
+			throw error;
+		}
+	}
+}
+
+function isErrnoException( error: unknown ): error is NodeJS.ErrnoException {
+	return error instanceof Error && 'code' in error;
 }

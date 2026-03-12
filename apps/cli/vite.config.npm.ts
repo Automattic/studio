@@ -34,7 +34,8 @@ export default mergeConfig(
 						return false;
 					}
 
-					// Externalize @php-wasm/* and @wp-playground/* (transitive deps resolved by npm)
+					// Externalize @php-wasm/* and @wp-playground/* (includes transitive deps
+					// like @php-wasm/node-* that aren't listed in package.json directly)
 					if ( /^@php-wasm\//.test( id ) || /^@wp-playground\//.test( id ) ) {
 						return true;
 					}

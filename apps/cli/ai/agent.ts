@@ -75,6 +75,10 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 				'Glob',
 				'Grep',
 			],
+			// get_metadata responses are too large for the JSON transport and
+			// crash the session. Figma's own docs recommend get_design_context
+			// instead, which returns the same structural info in compact form.
+			disallowedTools: [ 'mcp__figma__get_metadata' ],
 			model,
 			resume,
 		},

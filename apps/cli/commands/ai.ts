@@ -14,11 +14,13 @@ import {
 	AI_CHAT_API_KEY_COMMAND,
 	AI_CHAT_BROWSER_COMMAND,
 	AI_CHAT_EXIT_COMMAND,
+	AI_CHAT_FIGMA_COMMAND,
 	AI_CHAT_LOGIN_COMMAND,
 	AI_CHAT_LOGOUT_COMMAND,
 	AI_CHAT_MODEL_COMMAND,
 	AI_CHAT_PROVIDER_COMMAND,
 } from 'cli/ai/slash-commands';
+import { buildFigmaPrompt } from 'cli/ai/system-prompt';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { runCommand as runLogoutCommand } from 'cli/commands/auth/logout';
@@ -140,17 +142,22 @@ export async function runCommand(): Promise< void > {
 
 		let maxTurnsResult: { numTurns: number; costUsd: number } | undefined;
 
-		for await ( const message of agentQuery ) {
-			const result = ui.handleMessage( message );
-			if ( result ) {
-				sessionId = result.sessionId;
-				if ( 'maxTurnsReached' in result && result.maxTurnsReached ) {
-					maxTurnsResult = {
-						numTurns: result.numTurns,
-						costUsd: result.costUsd,
-					};
+		try {
+			for await ( const message of agentQuery ) {
+				const result = ui.handleMessage( message );
+				if ( result ) {
+					sessionId = result.sessionId;
+					if ( 'maxTurnsReached' in result && result.maxTurnsReached ) {
+						maxTurnsResult = {
+							numTurns: result.numTurns,
+							costUsd: result.costUsd,
+						};
+					}
 				}
 			}
+		} catch ( error ) {
+			const errorMsg = error instanceof Error ? error.message : String( error );
+			ui.showError( `Agent error: ${ errorMsg }` );
 		}
 
 		ui.endAgentTurn();
@@ -208,6 +215,18 @@ export async function runCommand(): Promise< void > {
 					}
 					throw error;
 				}
+				continue;
+			}
+
+			if ( trimmedPrompt.startsWith( AI_CHAT_FIGMA_COMMAND ) ) {
+				const figmaUrl = trimmedPrompt.slice( AI_CHAT_FIGMA_COMMAND.length ).trim();
+				if ( ! figmaUrl ) {
+					ui.showInfo( 'Usage: /figma <figma-url>' );
+					continue;
+				}
+				const figmaPrompt = buildFigmaPrompt( figmaUrl );
+				ui.addUserMessage( trimmedPrompt );
+				await runAgentTurn( figmaPrompt );
 				continue;
 			}
 

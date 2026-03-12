@@ -11,6 +11,7 @@ import {
 } from 'cli/ai/auth';
 import { AI_PROVIDERS, type AiProviderId } from 'cli/ai/providers';
 import {
+	AI_CHAT_API_KEY_COMMAND,
 	AI_CHAT_BROWSER_COMMAND,
 	AI_CHAT_EXIT_COMMAND,
 	AI_CHAT_LOGIN_COMMAND,
@@ -45,10 +46,13 @@ export async function runCommand(): Promise< void > {
 	let sessionId: string | undefined;
 	let currentModel: AiModelId = DEFAULT_MODEL;
 
-	async function prepareProviderSelection( provider: AiProviderId ): Promise< void > {
+	async function prepareProviderSelection(
+		provider: AiProviderId,
+		options?: { force?: boolean }
+	): Promise< void > {
 		ui.stop();
 		try {
-			await prepareAiProvider( provider );
+			await prepareAiProvider( provider, options );
 		} finally {
 			ui.start();
 		}
@@ -75,6 +79,22 @@ export async function runCommand(): Promise< void > {
 		ui.showInfo(
 			`${ AI_PROVIDERS[ previousProvider ] } is no longer available. Switched to ${ AI_PROVIDERS[ currentProvider ] }.`
 		);
+	}
+
+	function handleAgentTurnError( error: unknown ): void {
+		sessionId = undefined;
+
+		if ( error instanceof LoggerError ) {
+			ui.showError( error.message );
+		} else if ( error instanceof Error ) {
+			ui.showError( error.message );
+		} else {
+			ui.showError( __( 'AI agent failed' ) );
+		}
+
+		if ( currentProvider === 'anthropic-api-key' ) {
+			ui.showInfo( 'Use /api-key or /provider to update the Anthropic API key.' );
+		}
 	}
 
 	if ( currentProvider === 'wpcom' ) {
@@ -170,6 +190,24 @@ export async function runCommand(): Promise< void > {
 				continue;
 			}
 
+			if ( trimmedPrompt === AI_CHAT_API_KEY_COMMAND ) {
+				try {
+					await prepareProviderSelection( 'anthropic-api-key', { force: true } );
+					ui.showInfo( 'Anthropic API key updated.' );
+				} catch ( error ) {
+					if ( isPromptAbortError( error ) ) {
+						ui.showInfo( 'API key update canceled.' );
+						continue;
+					}
+					if ( error instanceof LoggerError ) {
+						ui.showError( error.message );
+						continue;
+					}
+					throw error;
+				}
+				continue;
+			}
+
 			if ( trimmedPrompt === AI_CHAT_LOGIN_COMMAND ) {
 				ui.stop();
 				await runLoginCommand();
@@ -249,7 +287,11 @@ export async function runCommand(): Promise< void > {
 			await maybeAutoSwitchProvider();
 
 			ui.addUserMessage( prompt );
-			await runAgentTurn( prompt );
+			try {
+				await runAgentTurn( prompt );
+			} catch ( error ) {
+				handleAgentTurnError( error );
+			}
 		}
 	} finally {
 		ui.stop();

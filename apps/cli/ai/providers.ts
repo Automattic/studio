@@ -29,7 +29,7 @@ export interface AiProviderDefinition {
 	autoFallbackWhenUnavailable: boolean;
 	isVisible: () => Promise< boolean >;
 	isReady: () => Promise< boolean >;
-	prepare: () => Promise< void >;
+	prepare: ( options?: { force?: boolean } ) => Promise< void >;
 	resolveEnv: () => Promise< Record< string, string > >;
 }
 
@@ -48,9 +48,11 @@ export function hasClaudeCodeAuth(): boolean {
 	}
 }
 
-async function resolveAnthropicApiKey(): Promise< string | undefined > {
+async function resolveAnthropicApiKey( options?: {
+	force?: boolean;
+} ): Promise< string | undefined > {
 	const savedKey = await getAnthropicApiKey();
-	if ( savedKey ) {
+	if ( savedKey && ! options?.force ) {
 		return savedKey;
 	}
 
@@ -155,8 +157,8 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 		autoFallbackWhenUnavailable: false,
 		isVisible: async () => true,
 		isReady: async () => Boolean( await getAnthropicApiKey() ),
-		prepare: async () => {
-			await resolveAnthropicApiKey();
+		prepare: async ( options ) => {
+			await resolveAnthropicApiKey( options );
 		},
 		resolveEnv: async () => {
 			const apiKey = await getAnthropicApiKey();

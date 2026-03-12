@@ -81,6 +81,16 @@ describe( 'AI auth helpers', () => {
 		expect( saveAnthropicApiKey ).toHaveBeenCalledWith( 'prompted-key' );
 	} );
 
+	it( 'can force re-entering the API key even when one is already saved', async () => {
+		vi.mocked( getAnthropicApiKey ).mockResolvedValue( 'saved-key' );
+		vi.mocked( password ).mockResolvedValue( 'updated-key' );
+
+		await prepareAiProvider( 'anthropic-api-key', { force: true } );
+
+		expect( password ).toHaveBeenCalledOnce();
+		expect( saveAnthropicApiKey ).toHaveBeenCalledWith( 'updated-key' );
+	} );
+
 	it( 'lists Claude auth only when it is available', async () => {
 		vi.mocked( childProcess.execFileSync ).mockReturnValue( 'Authenticated' as never );
 		await expect( getAvailableAiProviders() ).resolves.toEqual( [

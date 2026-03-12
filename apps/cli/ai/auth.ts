@@ -76,8 +76,11 @@ export async function saveSelectedAiProvider( provider: AiProviderId ): Promise<
 	await saveAiProvider( provider );
 }
 
-export async function prepareAiProvider( provider: AiProviderId ): Promise< void > {
-	await getAiProviderDefinition( provider ).prepare();
+export async function prepareAiProvider(
+	provider: AiProviderId,
+	options?: { force?: boolean }
+): Promise< void > {
+	await getAiProviderDefinition( provider ).prepare( options );
 }
 
 export async function resolveAiEnvironment(

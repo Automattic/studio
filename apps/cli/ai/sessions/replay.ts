@@ -4,6 +4,7 @@ import type { AiSessionEvent } from './types';
 
 export function replaySessionHistory( ui: AiChatUI, events: AiSessionEvent[] ): void {
 	ui.prepareForReplay();
+	let isTurnOpen = false;
 
 	try {
 		for ( const event of events ) {
@@ -26,6 +27,11 @@ export function replaySessionHistory( ui: AiChatUI, events: AiSessionEvent[] ): 
 					continue;
 				}
 
+				// Defensive close if the previous turn never emitted turn.closed.
+				if ( isTurnOpen ) {
+					ui.endAgentTurn();
+				}
+
 				if ( event.sitePath && ( ! ui.activeSite || ui.activeSite.path !== event.sitePath ) ) {
 					ui.setActiveSite(
 						{
@@ -37,6 +43,7 @@ export function replaySessionHistory( ui: AiChatUI, events: AiSessionEvent[] ): 
 					);
 				}
 				ui.beginAgentTurn();
+				isTurnOpen = true;
 				ui.addUserMessage( event.text );
 				continue;
 			}
@@ -57,10 +64,16 @@ export function replaySessionHistory( ui: AiChatUI, events: AiSessionEvent[] ): 
 			}
 
 			if ( event.type === 'turn.closed' ) {
-				ui.endAgentTurn();
+				if ( isTurnOpen ) {
+					ui.endAgentTurn();
+					isTurnOpen = false;
+				}
 			}
 		}
 	} finally {
+		if ( isTurnOpen ) {
+			ui.endAgentTurn();
+		}
 		ui.finishReplay();
 	}
 }

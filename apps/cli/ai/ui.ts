@@ -1526,6 +1526,10 @@ export class AiChatUI {
 		this.toolDotText = new Text( '\n ' + '⏺' + ' ' + toolLabel, 0, 0 );
 		this.messages.addChild( this.toolDotText );
 		this.toolDotVisible = true;
+		if ( this.replayMode ) {
+			this.tui.requestRender();
+			return;
+		}
 		this.toolDotTimer = setInterval( () => {
 			if ( ! this.toolDotText ) {
 				return;

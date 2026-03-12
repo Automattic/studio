@@ -402,4 +402,49 @@ describe( 'ai-sessions', () => {
 		expect( ui.addUserMessage ).toHaveBeenCalledWith( 'top-level prompt' );
 		expect( ui.endAgentTurn ).toHaveBeenCalledTimes( 1 );
 	} );
+
+	it( 'closes an open replay turn when turn.closed is missing', () => {
+		const ui = {
+			activeSite: null,
+			prepareForReplay: vi.fn(),
+			finishReplay: vi.fn(),
+			setReplayTimestamp: vi.fn(),
+			setActiveSite: vi.fn(),
+			beginAgentTurn: vi.fn(),
+			addUserMessage: vi.fn(),
+			handleMessage: vi.fn(),
+			setLoaderMessage: vi.fn(),
+			showAgentQuestion: vi.fn(),
+			endAgentTurn: vi.fn(),
+		};
+		const events: AiSessionEvent[] = [
+			{
+				type: 'user.message',
+				timestamp: '2026-03-12T12:00:00.000Z',
+				text: 'top-level prompt',
+				source: 'prompt',
+			},
+			{
+				type: 'sdk.message',
+				timestamp: '2026-03-12T12:00:01.000Z',
+				message: {
+					type: 'assistant',
+					message: {
+						content: [
+							{
+								type: 'text',
+								text: 'partial response',
+							},
+						],
+					},
+				} as SDKMessage,
+			},
+		];
+
+		replaySessionHistory( ui as never, events );
+
+		expect( ui.beginAgentTurn ).toHaveBeenCalledTimes( 1 );
+		expect( ui.endAgentTurn ).toHaveBeenCalledTimes( 1 );
+		expect( ui.finishReplay ).toHaveBeenCalledTimes( 1 );
+	} );
 } );

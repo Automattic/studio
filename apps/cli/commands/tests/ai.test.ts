@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import yargs from 'yargs/yargs';
-import { registerCommand } from 'cli/commands/ai';
+import { registerCommand as registerAiCommand } from 'cli/commands/ai';
+import { registerCommand as registerAiSessionsCommand } from 'cli/commands/ai/sessions';
 import {
 	AiSessionRecorder,
 	deleteAiSession,
@@ -135,7 +136,25 @@ describe( 'CLI: studio ai sessions command', () => {
 
 	function buildParser(): StudioArgv {
 		const parser = yargs( [] ).scriptName( 'studio' ).strict().exitProcess( false ) as StudioArgv;
-		registerCommand( parser );
+		parser.command( 'ai', 'AI-powered WordPress assistant', ( aiYargs ) => {
+			registerAiCommand( aiYargs as StudioArgv );
+			aiYargs.command( 'sessions', 'Manage AI sessions', ( sessionsYargs ) => {
+				sessionsYargs
+					.option( 'path', {
+						hidden: true,
+					} )
+					.option( 'session-persistence', {
+						type: 'boolean',
+						default: true,
+						description: 'Record this AI chat session to disk',
+					} );
+				registerAiSessionsCommand( sessionsYargs as StudioArgv );
+				sessionsYargs
+					.version( false )
+					.demandCommand( 1, 'You must provide a valid ai sessions command' );
+			} );
+			aiYargs.version( false );
+		} );
 		return parser;
 	}
 

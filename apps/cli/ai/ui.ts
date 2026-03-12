@@ -636,10 +636,9 @@ export class AiChatUI {
 			return;
 		}
 
-		this.sitePickerTab = SITE_PICKER_TAB_REMOTE;
+		this.resetSitePickerTab( SITE_PICKER_TAB_REMOTE );
 		this.sitePickerRemoteLoading = true;
 		this.sitePickerRemoteItems = [];
-		this.sitePickerQuery = '';
 		this.renderSitePicker();
 
 		try {
@@ -655,23 +654,27 @@ export class AiChatUI {
 			this.sitePickerSelectedIndex = 0;
 			this.renderSitePicker();
 		} catch {
-			this.sitePickerRemoteLoading = false;
-			this.sitePickerRemoteItems = [];
 			this.showSitePickerError( 'Failed to load WordPress.com sites. Please try again.' );
 		}
 	}
 
 	private showSitePickerError( message: string ): void {
-		this.sitePickerTab = SITE_PICKER_TAB_LOCAL;
+		this.resetSitePickerTab( SITE_PICKER_TAB_LOCAL );
+		this.sitePickerRemoteItems = [];
 		this.renderSitePicker();
 		this.messages.addChild( new Text( `\n${ chalk.dim( message ) }\n`, 1, 0 ) );
 		this.tui.requestRender();
 	}
 
-	private switchToLocalSites(): void {
-		this.sitePickerTab = SITE_PICKER_TAB_LOCAL;
+	private resetSitePickerTab( tab: SitePickerTab ): void {
+		this.sitePickerTab = tab;
 		this.sitePickerSelectedIndex = 0;
 		this.sitePickerQuery = '';
+		this.sitePickerRemoteLoading = false;
+	}
+
+	private switchToLocalSites(): void {
+		this.resetSitePickerTab( SITE_PICKER_TAB_LOCAL );
 		this.renderSitePicker();
 	}
 
@@ -714,63 +717,60 @@ export class AiChatUI {
 		return Math.max( 5, ( process.stdout.rows ?? 24 ) - 4 );
 	}
 
+	private formatSiteRow( site: SiteInfo, index: number ): string {
+		const selected = index === this.sitePickerSelectedIndex;
+		const prefix = selected ? `  ${ chalk.blue( '❯' ) } ` : '    ';
+		const name = selected ? chalk.bold( site.name ) : site.name;
+		if ( site.remote ) {
+			const url = site.url ? ` ${ chalk.dim( site.url ) }` : '';
+			return `${ prefix }${ name }${ url }`;
+		}
+		const status = site.running ? `${ chalk.green( '●' ) } ` : '  ';
+		return `${ prefix }${ status }${ name }`;
+	}
+
+	// Returns the visible rows and scroll info for the current picker tab.
+	// Three modes: local list, remote loading, remote list.
+	private getSitePickerRows(): { items: string[]; scrollInfo: string } {
+		if ( ! ( this.sitePickerTab === SITE_PICKER_TAB_LOCAL ) && this.sitePickerRemoteLoading ) {
+			return { items: [ chalk.dim( '  Loading WordPress.com sites…' ) ], scrollInfo: '' };
+		}
+		const filtered = this.getFilteredSitePickerItems();
+		if ( filtered.length === 0 ) {
+			const emptyMessage =
+				this.sitePickerTab === SITE_PICKER_TAB_REMOTE && ! this.sitePickerQuery
+					? '  No WordPress.com sites found.'
+					: '  No matching sites.';
+			return { items: [ chalk.dim( emptyMessage ) ], scrollInfo: '' };
+		}
+		const { start, end } = this.getVisibleWindow( filtered.length );
+		const items = filtered
+			.slice( start, end )
+			.map( ( site, vi ) => this.formatSiteRow( site, start + vi ) );
+		const scrollInfo = this.getScrollInfo( filtered.length, start, end );
+		return { items, scrollInfo };
+	}
+
+	// Container doesn't expose a public clearChildren API, so we reach into
+	// the internal children array and remove items one at a time.
+	private clearContainer( container: Container ): void {
+		while ( ( container as Container & { children?: unknown[] } ).children?.length ) {
+			container.removeChild( ( container as Container & { children: Component[] } ).children[ 0 ] );
+		}
+	}
+
 	private renderSitePicker(): void {
 		if ( ! this.sitePickerContainer ) {
 			return;
 		}
-		// Clear previous children
-		while (
-			( this.sitePickerContainer as Container & { children?: unknown[] } ).children?.length
-		) {
-			this.sitePickerContainer.removeChild(
-				( this.sitePickerContainer as Container & { children: Component[] } ).children[ 0 ]
-			);
-		}
+		this.clearContainer( this.sitePickerContainer );
 
 		const isLocal = this.sitePickerTab === SITE_PICKER_TAB_LOCAL;
 		const localTab = isLocal ? chalk.bold( '[Local]' ) : chalk.dim( 'Local' );
 		const remoteTab = isLocal ? chalk.dim( 'WordPress.com' ) : chalk.bold( '[WordPress.com]' );
 		const header = `  ${ localTab }  ${ remoteTab }`;
 
-		const filtered = this.getFilteredSitePickerItems();
-
-		let items: string[];
-		let scrollInfo = '';
-		if ( isLocal ) {
-			if ( filtered.length === 0 ) {
-				items = [ chalk.dim( '  No matching sites.' ) ];
-			} else {
-				const { start, end } = this.getVisibleWindow( filtered.length );
-				items = filtered.slice( start, end ).map( ( site, vi ) => {
-					const i = start + vi;
-					const status = site.running ? chalk.green( '●' ) + ' ' : '  ';
-					if ( i === this.sitePickerSelectedIndex ) {
-						return `  ${ chalk.blue( '❯' ) } ${ status }${ chalk.bold( site.name ) }`;
-					}
-					return `    ${ status }${ site.name }`;
-				} );
-				scrollInfo = this.getScrollInfo( filtered.length, start, end );
-			}
-		} else if ( this.sitePickerRemoteLoading ) {
-			items = [ chalk.dim( '  Loading WordPress.com sites…' ) ];
-		} else if ( filtered.length === 0 ) {
-			items = [
-				chalk.dim(
-					this.sitePickerQuery ? '  No matching sites.' : '  No WordPress.com sites found.'
-				),
-			];
-		} else {
-			const { start, end } = this.getVisibleWindow( filtered.length );
-			items = filtered.slice( start, end ).map( ( site, vi ) => {
-				const i = start + vi;
-				const url = site.url ? ` ${ chalk.dim( site.url ) }` : '';
-				if ( i === this.sitePickerSelectedIndex ) {
-					return `  ${ chalk.blue( '❯' ) } ${ chalk.bold( site.name ) }${ url }`;
-				}
-				return `    ${ site.name }${ url }`;
-			} );
-			scrollInfo = this.getScrollInfo( filtered.length, start, end );
-		}
+		const { items, scrollInfo } = this.getSitePickerRows();
 
 		const searchLine = this.sitePickerQuery
 			? `  ${ chalk.dim( 'Search:' ) } ${ this.sitePickerQuery }`
@@ -1002,10 +1002,8 @@ export class AiChatUI {
 		this.sitePickerVisible = false;
 		this.sitePickerItems = [];
 		this.sitePickerSiteData = [];
-		this.sitePickerTab = SITE_PICKER_TAB_LOCAL;
 		this.sitePickerRemoteItems = [];
-		this.sitePickerRemoteLoading = false;
-		this.sitePickerQuery = '';
+		this.resetSitePickerTab( SITE_PICKER_TAB_LOCAL );
 		this.updateHints();
 		this.tui.requestRender();
 	}
@@ -1014,13 +1012,7 @@ export class AiChatUI {
 		if ( ! this.optionPickerContainer ) {
 			return;
 		}
-		while (
-			( this.optionPickerContainer as Container & { children?: unknown[] } ).children?.length
-		) {
-			this.optionPickerContainer.removeChild(
-				( this.optionPickerContainer as Container & { children: Component[] } ).children[ 0 ]
-			);
-		}
+		this.clearContainer( this.optionPickerContainer );
 
 		const items = this.optionPickerItems.map( ( opt, i ) => {
 			if ( i === this.optionPickerSelectedIndex ) {

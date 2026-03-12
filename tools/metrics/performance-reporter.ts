@@ -55,12 +55,15 @@ class PerformanceReporter implements Reporter {
 			const printableResults: Record< string, { value: string } > = {};
 
 			for ( const [ key, value ] of Object.entries( results ) ) {
-				printableResults[ key ] = { value: `${ value } ms` };
+				const isSizeMetric = key.toLowerCase().includes( 'size' );
+				const formatted = isSizeMetric
+					? `${ ( value / 1_048_576 ).toFixed( 2 ) } MB`
+					: `${ value } ms`;
+				printableResults[ key ] = { value: formatted };
 			}
 
-			// eslint-disable-next-line no-console
 			console.log( `\n${ testSuite }\n` );
-			// eslint-disable-next-line no-console
+
 			console.table( printableResults );
 		}
 	}

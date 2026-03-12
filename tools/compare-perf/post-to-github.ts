@@ -17,12 +17,35 @@ interface GitHubContext {
 	token: string;
 }
 
+interface MetricConfig {
+	label: string;
+	unit: 'ms' | 'MB';
+	threshold: number;
+}
+
+const METRIC_CONFIG: Record< string, MetricConfig > = {
+	appSizeMac: { label: 'App Size (Mac)', unit: 'MB', threshold: 1_048_576 },
+	appSizeWin: { label: 'App Size (Win)', unit: 'MB', threshold: 1_048_576 },
+};
+
+const BYTES_PER_MB = 1_048_576;
+
+function getMetricConfig( metric: string ): MetricConfig {
+	return METRIC_CONFIG[ metric ] ?? { label: metric, unit: 'ms', threshold: 50 };
+}
+
+function formatValue( value: number, unit: 'ms' | 'MB' ): string {
+	if ( unit === 'MB' ) {
+		return `${ ( value / BYTES_PER_MB ).toFixed( 2 ) } MB`;
+	}
+	return `${ value.toFixed( 2 ) } ms`;
+}
+
 function formatResultsAsMarkdown(
 	results: Record< string, PerformanceResults >,
 	baseBranch: string,
 	compareBranch: string
 ): string {
-	const CHANGE_THRESHOLD_MS = 50;
 	let markdown = `## 📊 Performance Test Results\n\n`;
 	markdown += `Comparing **${ compareBranch }** vs **${ baseBranch }**\n\n`;
 
@@ -37,10 +60,11 @@ function formatResultsAsMarkdown(
 		const compareMetrics = suiteResults[ compareBranch ] || {};
 
 		for ( const metric of Object.keys( { ...baseMetrics, ...compareMetrics } ) ) {
+			const { label, unit, threshold } = getMetricConfig( metric );
 			const baseValue = baseMetrics[ metric ] || 0;
 			const compareValue = compareMetrics[ metric ] || 0;
 			const diff = compareValue - baseValue;
-			const isNoChange = Math.abs( diff ) < CHANGE_THRESHOLD_MS;
+			const isNoChange = Math.abs( diff ) < threshold;
 			let percentChange = 'N/A';
 			if ( isNoChange ) {
 				percentChange = '0.0';
@@ -57,10 +81,15 @@ function formatResultsAsMarkdown(
 				}
 			}
 			const sign = diff > 0 ? '+' : '';
+			const diffFormatted =
+				unit === 'MB'
+					? `${ sign }${ ( diff / BYTES_PER_MB ).toFixed( 2 ) } MB`
+					: `${ sign }${ diff.toFixed( 2 ) } ms`;
 
-			markdown += `| ${ metric } | ${ baseValue.toFixed( 2 ) } ms | ${ compareValue.toFixed(
-				2
-			) } ms | ${ sign }${ diff.toFixed( 2 ) } ms | ${ emoji } ${ percentChange }% |\n`;
+			markdown += `| ${ label } | ${ formatValue( baseValue, unit ) } | ${ formatValue(
+				compareValue,
+				unit
+			) } | ${ diffFormatted } | ${ emoji } ${ percentChange }% |\n`;
 		}
 
 		markdown += `\n`;

@@ -1,6 +1,8 @@
+import { __ } from '@wordpress/i18n';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import yargs from 'yargs/yargs';
-import { AiSessionRecorder, deleteAiSession, listAiSessions, loadAiSession } from 'cli/ai/sessions';
+import { AiSessionRecorder } from 'cli/ai/sessions/recorder';
+import { deleteAiSession, listAiSessions, loadAiSession } from 'cli/ai/sessions/store';
 import { registerCommand as registerAiCommand } from 'cli/commands/ai';
 import { registerCommand as registerAiSessionsDeleteCommand } from 'cli/commands/ai/sessions/delete';
 import { registerCommand as registerAiSessionsListCommand } from 'cli/commands/ai/sessions/list';
@@ -102,7 +104,7 @@ vi.mock( 'cli/ai/ui', () => ( {
 		typeof input.detail === 'string' ? input.detail : '',
 } ) );
 
-vi.mock( 'cli/ai/sessions', () => {
+vi.mock( 'cli/ai/sessions/recorder', () => {
 	class MockAiSessionRecorder {
 		static create = vi.fn().mockResolvedValue( new MockAiSessionRecorder() );
 		static open = vi.fn().mockResolvedValue( new MockAiSessionRecorder() );
@@ -118,11 +120,23 @@ vi.mock( 'cli/ai/sessions', () => {
 
 	return {
 		AiSessionRecorder: MockAiSessionRecorder,
-		listAiSessions: vi.fn(),
-		loadAiSession: vi.fn(),
-		deleteAiSession: vi.fn(),
 	};
 } );
+
+vi.mock( 'cli/ai/sessions/store', () => ( {
+	listAiSessions: vi.fn(),
+	loadAiSession: vi.fn(),
+	deleteAiSession: vi.fn(),
+} ) );
+
+vi.mock( 'cli/ai/sessions/parser', () => ( {
+	extractAssistantMessageBlocks: vi.fn().mockReturnValue( [] ),
+	extractToolResult: vi.fn().mockReturnValue( undefined ),
+} ) );
+
+vi.mock( 'cli/ai/sessions/replay', () => ( {
+	replaySessionHistory: vi.fn(),
+} ) );
 
 describe( 'CLI: studio ai sessions command', () => {
 	beforeEach( () => {
@@ -133,9 +147,9 @@ describe( 'CLI: studio ai sessions command', () => {
 
 	function buildParser(): StudioArgv {
 		const parser = yargs( [] ).scriptName( 'studio' ).strict().exitProcess( false ) as StudioArgv;
-		parser.command( 'ai', 'AI-powered WordPress assistant', ( aiYargs ) => {
+		parser.command( 'ai', __( 'AI-powered WordPress assistant' ), ( aiYargs ) => {
 			registerAiCommand( aiYargs as StudioArgv );
-			aiYargs.command( 'sessions', 'Manage AI sessions', ( sessionsYargs ) => {
+			aiYargs.command( 'sessions', __( 'Manage AI sessions' ), ( sessionsYargs ) => {
 				sessionsYargs
 					.option( 'path', {
 						hidden: true,
@@ -143,14 +157,14 @@ describe( 'CLI: studio ai sessions command', () => {
 					.option( 'session-persistence', {
 						type: 'boolean',
 						default: true,
-						description: 'Record this AI chat session to disk',
+						description: __( 'Record this AI chat session to disk' ),
 					} );
 				registerAiSessionsListCommand( sessionsYargs as StudioArgv );
 				registerAiSessionsResumeCommand( sessionsYargs as StudioArgv );
 				registerAiSessionsDeleteCommand( sessionsYargs as StudioArgv );
 				sessionsYargs
 					.version( false )
-					.demandCommand( 1, 'You must provide a valid ai sessions command' );
+					.demandCommand( 1, __( 'You must provide a valid ai sessions command' ) );
 			} );
 			aiYargs.version( false );
 		} );

@@ -25,7 +25,6 @@ import { runCommand as runLogoutCommand } from 'cli/commands/auth/logout';
 import { getAnthropicApiKey, getAuthToken } from 'cli/lib/appdata';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
-import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 
 const logger = new Logger< string >();
 
@@ -309,7 +308,7 @@ export async function runCommand(): Promise< void > {
 
 		try {
 			for await ( const message of agentQuery ) {
-				const assistantBlocks = extractAssistantMessageBlocks( message );
+				const assistantBlocks = extractAssistantMessageBlocks( message, getToolDetail );
 				if ( assistantBlocks.length > 0 ) {
 					await persist( ( recorder ) => recorder.recordAssistantMessage( assistantBlocks ) );
 				}

@@ -1,5 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { deleteAiSession, listAiSessions } from 'cli/ai/sessions';
+import { deleteAiSession, listAiSessions } from 'cli/ai/sessions/store';
 import { chooseSessionForAction } from 'cli/commands/ai/sessions/helpers';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';

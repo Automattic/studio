@@ -2,15 +2,14 @@ import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { getAiSessionsDirectoryForDate, getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';
+import { AiSessionRecorder } from 'cli/ai/sessions/recorder';
 import {
-	AiSessionRecorder,
 	deleteAiSession,
-	getAiSessionsDirectoryForDate,
-	getAiSessionsRootDirectory,
-	loadAiSession,
 	listAiSessions,
+	loadAiSession,
 	readAiSessionEventsFromFile,
-} from 'cli/ai/sessions';
+} from 'cli/ai/sessions/store';
 
 describe( 'ai-sessions', () => {
 	let testRoot: string | undefined;

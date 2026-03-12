@@ -559,11 +559,9 @@ export class AiChatUI {
 					return { consume: true };
 				}
 				if ( matchesKey( data, 'space' ) ) {
-					// If there's an active search query, treat space as a search character
+					// Space opens browser unless a search is active, in which case it's a search character
 					if ( this.sitePickerQuery ) {
-						this.sitePickerQuery += ' ';
-						this.sitePickerSelectedIndex = 0;
-						this.renderSitePicker();
+						this.setSitePickerQuery( `${ this.sitePickerQuery } ` );
 					} else {
 						void this.openSelectedSite();
 					}
@@ -579,9 +577,7 @@ export class AiChatUI {
 				}
 				if ( matchesKey( data, 'escape' ) ) {
 					if ( this.sitePickerQuery ) {
-						this.sitePickerQuery = '';
-						this.sitePickerSelectedIndex = 0;
-						this.renderSitePicker();
+						this.setSitePickerQuery( '' );
 					} else {
 						this.closeSitePicker();
 					}
@@ -589,17 +585,13 @@ export class AiChatUI {
 				}
 				if ( matchesKey( data, 'backspace' ) ) {
 					if ( this.sitePickerQuery ) {
-						this.sitePickerQuery = this.sitePickerQuery.slice( 0, -1 );
-						this.sitePickerSelectedIndex = 0;
-						this.renderSitePicker();
+						this.setSitePickerQuery( this.sitePickerQuery.slice( 0, -1 ) );
 					}
 					return { consume: true };
 				}
 				// Printable character — append to search query
 				if ( data.length === 1 && data >= ' ' && data <= '~' ) {
-					this.sitePickerQuery += data;
-					this.sitePickerSelectedIndex = 0;
-					this.renderSitePicker();
+					this.setSitePickerQuery( `${ this.sitePickerQuery }${ data }` );
 					return { consume: true };
 				}
 				return { consume: true };
@@ -683,6 +675,12 @@ export class AiChatUI {
 		this.renderSitePicker();
 	}
 
+	private setSitePickerQuery( query: string ): void {
+		this.sitePickerQuery = query;
+		this.sitePickerSelectedIndex = 0;
+		this.renderSitePicker();
+	}
+
 	private getFilteredSitePickerItems(): SiteInfo[] {
 		const allItems =
 			this.sitePickerTab === SITE_PICKER_TAB_REMOTE
@@ -701,18 +699,13 @@ export class AiChatUI {
 
 	private selectFilteredSite( site: SiteInfo ): void {
 		if ( site.remote ) {
-			this._activeSite = site;
 			this._activeSiteData = null;
 		} else {
 			const originalIndex = this.sitePickerItems.indexOf( site );
-			this._activeSite = site;
 			this._activeSiteData =
 				originalIndex >= 0 ? this.sitePickerSiteData[ originalIndex ] ?? null : null;
 		}
-		this.editor.activeSiteName = site.name;
-		const suffix = site.remote ? ' (WordPress.com)' : '';
-		const label = ` ✻ Selected site: ${ site.name }${ suffix }`;
-		this.messages.addChild( new Text( `${ chalk.hex( '#8839ef' )( label ) }\n`, 0, 0 ) );
+		this.setActiveSite( site );
 		this.closeSitePicker();
 	}
 
@@ -831,9 +824,9 @@ export class AiChatUI {
 	private setActiveSite( site: SiteInfo ): void {
 		this._activeSite = site;
 		this.editor.activeSiteName = site.name;
-		this.messages.addChild(
-			new Text( chalk.hex( '#8839ef' )( ' ✻ Selected site: ' + site.name ) + '\n', 0, 0 )
-		);
+		const suffix = site.remote ? ' (WordPress.com)' : '';
+		const label = ` ✻ Selected site: ${ site.name }${ suffix }`;
+		this.messages.addChild( new Text( `${ chalk.hex( '#8839ef' )( label ) }\n`, 0, 0 ) );
 		this.tui.requestRender();
 	}
 

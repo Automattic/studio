@@ -6,7 +6,6 @@ import fs from 'fs';
 import { normalize } from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __bumpStat } from '@studio/common/lib/bump-stat';
-import { StatsGroup, StatsMetric } from '@studio/common/types/stats';
 import { readFile } from 'atomically';
 import { vi } from 'vitest';
 import {
@@ -16,6 +15,7 @@ import {
 	getXdebugEnabledSite,
 	loadThemeDetails,
 } from 'src/ipc-handlers';
+import { StatsGroup, StatsMetric } from 'src/lib/bump-stats';
 import { importBackup, defaultImporterOptions } from 'src/lib/import-export/import/import-manager';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { getMainWindow } from 'src/main-window';

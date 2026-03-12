@@ -1,5 +1,6 @@
 import { appendFileSync } from 'fs';
 import { tmpdir } from 'os';
+import { join } from 'path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock( 'fs', () => {
@@ -52,7 +53,7 @@ describe( 'createDebugLogger', () => {
 		logger.log( 'todo_tool_use_received', { input: 'test' } );
 
 		expect( logger.enabled ).toBe( false );
-		expect( logger.path ).toBe( '/tmp/studio-tests/studio-ai-debug.log' );
+		expect( logger.path ).toBe( join( '/tmp/studio-tests', 'studio-ai-debug.log' ) );
 		expect( appendFileSync ).not.toHaveBeenCalled();
 	} );
 
@@ -70,7 +71,7 @@ describe( 'createDebugLogger', () => {
 
 		expect( logger.enabled ).toBe( true );
 		expect( appendFileSync ).toHaveBeenCalledWith(
-			'/tmp/studio-tests/studio-ai-debug.log',
+			join( '/tmp/studio-tests', 'studio-ai-debug.log' ),
 			JSON.stringify( {
 				timestamp: '2026-03-12T10:00:00.000Z',
 				scope: 'todo-rendering',

@@ -91,6 +91,10 @@ export default defineConfig( {
 				'@wp-playground/cli',
 				'@wp-playground/blueprints',
 				'@wp-playground/wordpress',
+				'@anthropic-ai/claude-agent-sdk',
+				'koffi',
+				'playwright',
+				'playwright-core',
 			],
 			output: {
 				format: 'cjs',

@@ -1,13 +1,13 @@
 import { select } from '@inquirer/prompts';
 import { __ } from '@wordpress/i18n';
 import chalk from 'chalk';
-import { runCommand as runAiCommand } from 'cli/commands/ai';
 import {
 	deleteAiSession,
 	listAiSessions,
 	loadAiSession,
 	type AiSessionSummary,
-} from 'cli/lib/ai-sessions';
+} from 'cli/ai/sessions';
+import { runCommand as runAiCommand } from 'cli/commands/ai';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 

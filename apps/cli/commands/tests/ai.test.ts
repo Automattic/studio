@@ -1,13 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import yargs from 'yargs/yargs';
+import { AiSessionRecorder, deleteAiSession, listAiSessions, loadAiSession } from 'cli/ai/sessions';
 import { registerCommand as registerAiCommand } from 'cli/commands/ai';
 import { registerCommand as registerAiSessionsCommand } from 'cli/commands/ai/sessions';
-import {
-	AiSessionRecorder,
-	deleteAiSession,
-	listAiSessions,
-	loadAiSession,
-} from 'cli/lib/ai-sessions';
 import { getAnthropicApiKey } from 'cli/lib/appdata';
 import { StudioArgv } from 'cli/types';
 
@@ -105,7 +100,7 @@ vi.mock( 'cli/ai/ui', () => ( {
 		typeof input.detail === 'string' ? input.detail : '',
 } ) );
 
-vi.mock( 'cli/lib/ai-sessions', () => {
+vi.mock( 'cli/ai/sessions', () => {
 	class MockAiSessionRecorder {
 		static create = vi.fn().mockResolvedValue( new MockAiSessionRecorder() );
 		static open = vi.fn().mockResolvedValue( new MockAiSessionRecorder() );

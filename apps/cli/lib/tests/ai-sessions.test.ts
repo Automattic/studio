@@ -10,7 +10,7 @@ import {
 	loadAiSession,
 	listAiSessions,
 	readAiSessionEventsFromFile,
-} from 'cli/lib/ai-sessions';
+} from 'cli/ai/sessions';
 
 describe( 'ai-sessions', () => {
 	let testRoot: string | undefined;

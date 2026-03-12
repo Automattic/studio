@@ -50,6 +50,14 @@ interface ToolCheckpointEntry {
 	isClosed: boolean;
 }
 
+interface PendingToolCallEntry {
+	name: string;
+	input: Record< string, unknown >;
+	startedAt: number;
+	label: string;
+	progressLines: string[];
+}
+
 type ToolViewMode = 'hidden' | 'summary' | 'full';
 
 class PromptEditor implements Component, Focusable {
@@ -290,23 +298,18 @@ export class AiChatUI {
 	private lastToolName: string | null = null;
 	private hasShownResponseMarker = false;
 	private turnStartTime = 0;
-	private toolStartTime: number | null = null;
+	private activePendingToolCallId: string | null = null;
 	private toolDotText: Text | null = null;
 	private toolDotTimer: ReturnType< typeof setInterval > | null = null;
 	private toolDotVisible = true;
-	private toolDotLabel = '';
 	private toolProgressText: Text | null = null;
-	private pendingToolProgressLines: string[] = [];
 	private toolCheckpoints: ToolCheckpointEntry[] = [];
 	private activeToolCheckpoint: ToolCheckpointEntry | null = null;
 	private activeToolGroup: ToolGroupEntry | null = null;
 	private toolViewMode: ToolViewMode = 'summary';
 	private _activeSite: SiteInfo | null = null;
 	private _activeSiteData: SiteData | null = null;
-	private pendingToolCalls = new Map<
-		string,
-		{ name: string; input: Record< string, unknown > }
-	>();
+	private pendingToolCalls = new Map< string, PendingToolCallEntry >();
 	currentModel: AiModelId = DEFAULT_MODEL;
 
 	private readonly thinkingMessages = [
@@ -1108,11 +1111,13 @@ export class AiChatUI {
 	}
 
 	setLoaderMessage( message: string ): void {
-		if ( ! message ) {
+		const activeToolCall = this.getActivePendingToolCall();
+		if ( ! message || ! activeToolCall ) {
 			return;
 		}
-		this.pendingToolProgressLines.push( message );
-		const progressText = this.pendingToolProgressLines
+
+		activeToolCall.progressLines.push( message );
+		const progressText = activeToolCall.progressLines
 			.map( ( line ) => '   ' + chalk.dim( '⎿ ' ) + chalk.dim( line ) )
 			.join( '\n' );
 
@@ -1196,13 +1201,7 @@ export class AiChatUI {
 	endAgentTurn(): void {
 		this.closeToolCheckpoint();
 		this.hideLoader();
-		this.stopToolDotBlink();
-		if ( this.toolProgressText ) {
-			this.messages.removeChild( this.toolProgressText );
-			this.toolProgressText = null;
-		}
-		this.pendingToolProgressLines = [];
-		this.toolDotText = null;
+		this.clearActivePendingToolIndicator();
 		this.interruptCallback = null;
 		this.pendingToolCalls.clear();
 		this.updateHints();
@@ -1230,23 +1229,83 @@ export class AiChatUI {
 			this.toolDotTimer = null;
 		}
 		// Reset the active tool dot to the bright pulse frame before it is finalized/removed.
-		if ( this.toolDotText ) {
+		const activeToolCall = this.getActivePendingToolCall();
+		if ( this.toolDotText && activeToolCall ) {
 			this.toolDotVisible = true;
-			this.toolDotText.setText( this.formatActiveToolLine( this.toolDotLabel, true ) );
+			this.toolDotText.setText( this.formatActiveToolLine( activeToolCall.label, true ) );
 		}
 	}
 
-	private showToolResult(
-		message: SDKMessage & { type: 'user' },
-		toolName?: string,
-		toolInput?: Record< string, unknown > | null
-	): void {
+	private getActivePendingToolCall(): PendingToolCallEntry | null {
+		if ( ! this.activePendingToolCallId ) {
+			return null;
+		}
+		return this.pendingToolCalls.get( this.activePendingToolCallId ) ?? null;
+	}
+
+	private getMostRecentPendingToolCallId(): string | null {
+		let mostRecentToolCallId: string | null = null;
+		for ( const toolCallId of this.pendingToolCalls.keys() ) {
+			mostRecentToolCallId = toolCallId;
+		}
+		return mostRecentToolCallId;
+	}
+
+	private resolvePendingToolCall( toolCallId?: string | null ): {
+		resolvedToolCallId: string | null;
+		toolCall: PendingToolCallEntry | null;
+	} {
+		if ( toolCallId ) {
+			const toolCall = this.pendingToolCalls.get( toolCallId ) ?? null;
+			if ( toolCall ) {
+				return { resolvedToolCallId: toolCallId, toolCall };
+			}
+		}
+
+		if ( this.activePendingToolCallId ) {
+			const activeToolCall = this.pendingToolCalls.get( this.activePendingToolCallId ) ?? null;
+			if ( activeToolCall ) {
+				return {
+					resolvedToolCallId: this.activePendingToolCallId,
+					toolCall: activeToolCall,
+				};
+			}
+		}
+
+		const mostRecentToolCallId = this.getMostRecentPendingToolCallId();
+		if ( mostRecentToolCallId ) {
+			return {
+				resolvedToolCallId: mostRecentToolCallId,
+				toolCall: this.pendingToolCalls.get( mostRecentToolCallId ) ?? null,
+			};
+		}
+
+		return { resolvedToolCallId: null, toolCall: null };
+	}
+
+	private renderActiveToolIndicator( toolCallId: string ): void {
+		const toolCall = this.pendingToolCalls.get( toolCallId );
+		if ( ! toolCall ) {
+			return;
+		}
+
+		this.clearActivePendingToolIndicator();
+		this.activePendingToolCallId = toolCallId;
+		this.toolDotVisible = true;
+		this.toolDotText = new Text( this.formatActiveToolLine( toolCall.label, true ), 0, 0 );
+		this.messages.addChild( this.toolDotText );
+		this.toolDotTimer = setInterval( () => {
+			if ( ! this.toolDotText || this.activePendingToolCallId !== toolCallId ) {
+				return;
+			}
+			this.toolDotVisible = ! this.toolDotVisible;
+			this.toolDotText.setText( this.formatActiveToolLine( toolCall.label, this.toolDotVisible ) );
+			this.tui.requestRender();
+		}, 500 );
+	}
+
+	private clearActivePendingToolIndicator(): void {
 		this.stopToolDotBlink();
-		const result = message.tool_use_result;
-		const elapsed = this.toolStartTime ? Date.now() - this.toolStartTime : 0;
-		this.toolStartTime = null;
-		const label =
-			this.toolDotLabel || ( toolName ? formatToolName( toolName ) : chalk.bold( 'Tool' ) );
 		if ( this.toolDotText ) {
 			this.messages.removeChild( this.toolDotText );
 			this.toolDotText = null;
@@ -1255,10 +1314,39 @@ export class AiChatUI {
 			this.messages.removeChild( this.toolProgressText );
 			this.toolProgressText = null;
 		}
+		this.activePendingToolCallId = null;
+	}
+
+	private restorePendingToolIndicator(): void {
+		const toolCallId = this.getMostRecentPendingToolCallId();
+		if ( toolCallId ) {
+			this.renderActiveToolIndicator( toolCallId );
+		}
+	}
+
+	private showToolResult(
+		message: SDKMessage & { type: 'user' },
+		toolCallId?: string | null
+	): void {
+		const result = message.tool_use_result;
+		const { resolvedToolCallId, toolCall } = this.resolvePendingToolCall( toolCallId );
+		const elapsed = toolCall ? Date.now() - toolCall.startedAt : 0;
+		const label = toolCall?.label ?? chalk.bold( 'Tool' );
+		const pendingProgressLines = [ ...( toolCall?.progressLines ?? [] ) ];
+		const shouldRestorePendingIndicator =
+			resolvedToolCallId !== null && this.activePendingToolCallId === resolvedToolCallId;
+		if ( shouldRestorePendingIndicator ) {
+			this.clearActivePendingToolIndicator();
+		}
+		if ( resolvedToolCallId ) {
+			this.pendingToolCalls.delete( resolvedToolCallId );
+		}
 
 		if ( ! result || typeof result !== 'object' ) {
-			this.addToolInvocation( label, elapsed, false, this.pendingToolProgressLines );
-			this.pendingToolProgressLines = [];
+			this.addToolInvocation( label, elapsed, false, pendingProgressLines );
+			if ( shouldRestorePendingIndicator ) {
+				this.restorePendingToolIndicator();
+			}
 			return;
 		}
 
@@ -1269,8 +1357,8 @@ export class AiChatUI {
 		const isError = typedResult.isError === true;
 
 		// Auto-select the site that was operated on
-		if ( ! isError && toolName && toolInput ) {
-			void this.autoSelectSiteFromToolResult( toolName, toolInput );
+		if ( ! isError && toolCall ) {
+			void this.autoSelectSiteFromToolResult( toolCall.name, toolCall.input );
 		}
 
 		const content = typedResult.content;
@@ -1283,21 +1371,27 @@ export class AiChatUI {
 				.map( ( block ) => block.text )
 				.join( '\n' );
 		} else {
-			this.addToolInvocation( label, elapsed, isError, this.pendingToolProgressLines );
-			this.pendingToolProgressLines = [];
+			this.addToolInvocation( label, elapsed, isError, pendingProgressLines );
+			if ( shouldRestorePendingIndicator ) {
+				this.restorePendingToolIndicator();
+			}
 			return;
 		}
 		if ( ! text ) {
-			this.addToolInvocation( label, elapsed, isError, this.pendingToolProgressLines );
-			this.pendingToolProgressLines = [];
+			this.addToolInvocation( label, elapsed, isError, pendingProgressLines );
+			if ( shouldRestorePendingIndicator ) {
+				this.restorePendingToolIndicator();
+			}
 			return;
 		}
 		// Use a larger limit for validation results so they're fully visible
-		const maxLength = toolName === 'mcp__studio__validate_blocks' ? 2000 : 500;
+		const maxLength = toolCall?.name === 'mcp__studio__validate_blocks' ? 2000 : 500;
 		const truncated = text.length > maxLength ? text.slice( 0, maxLength ) + '…' : text;
-		const resultLines = [ ...this.pendingToolProgressLines, ...truncated.split( '\n' ) ];
-		this.pendingToolProgressLines = [];
+		const resultLines = [ ...pendingProgressLines, ...truncated.split( '\n' ) ];
 		this.addToolInvocation( label, elapsed, isError, resultLines );
+		if ( shouldRestorePendingIndicator ) {
+			this.restorePendingToolIndicator();
+		}
 	}
 
 	/**
@@ -1383,36 +1477,22 @@ export class AiChatUI {
 						this.tui.requestRender();
 					} else if ( block.type === 'tool_use' ) {
 						this.lastToolName = block.name;
-						this.toolStartTime = Date.now();
 						const typedBlock = block as {
 							id: string;
 							name: string;
 							input?: Record< string, unknown >;
 						};
 						const input = typedBlock.input;
+						const toolLabel = formatToolName( block.name, input );
 						this.pendingToolCalls.set( typedBlock.id, {
 							name: typedBlock.name,
 							input: input ?? {},
+							startedAt: Date.now(),
+							label: toolLabel,
+							progressLines: [],
 						} );
-						const toolLabel = formatToolName( block.name, input );
 						this.showLoader( this.randomThinkingMessage() );
-						this.stopToolDotBlink();
-						this.toolDotLabel = toolLabel;
-						this.pendingToolProgressLines = [];
-						this.toolProgressText = null;
-						this.toolDotText = new Text( this.formatActiveToolLine( toolLabel, true ), 0, 0 );
-						this.messages.addChild( this.toolDotText );
-						this.toolDotVisible = true;
-						this.toolDotTimer = setInterval( () => {
-							if ( ! this.toolDotText ) {
-								return;
-							}
-							this.toolDotVisible = ! this.toolDotVisible;
-							this.toolDotText.setText(
-								this.formatActiveToolLine( toolLabel, this.toolDotVisible )
-							);
-							this.tui.requestRender();
-						}, 500 );
+						this.renderActiveToolIndicator( typedBlock.id );
 					}
 				}
 				// Always show the loader after processing — the agent turn is still active
@@ -1424,11 +1504,7 @@ export class AiChatUI {
 			}
 			case 'user': {
 				const toolCallId = message.parent_tool_use_id;
-				const toolCall = toolCallId ? this.pendingToolCalls.get( toolCallId ) : null;
-				if ( toolCallId ) {
-					this.pendingToolCalls.delete( toolCallId );
-				}
-				this.showToolResult( message, toolCall?.name, toolCall?.input );
+				this.showToolResult( message, toolCallId );
 				this.lastToolName = null;
 				return undefined;
 			}

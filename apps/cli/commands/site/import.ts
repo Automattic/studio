@@ -21,6 +21,7 @@
  * the same command resumes from where it left off. The importer.phar
  * natively supports resuming partial file and database downloads.
  */
+import { spawnSync } from 'child_process';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
@@ -79,6 +80,95 @@ function decodeStateValue( value: string ): string {
 		return Buffer.from( value.slice( 7 ), 'base64' ).toString( 'utf-8' );
 	}
 	return value;
+}
+
+/**
+ * Patches wp-config.php to disable error display. Remote sites may have
+ * WP_DEBUG enabled or ini_set('display_errors', '1'). Studio controls
+ * these via Blueprint constants at runtime, but errors that occur very
+ * early in the PHP bootstrap (before WordPress applies its settings)
+ * can still leak through. Injecting @ini_set('display_errors', '0')
+ * right after the opening <?php tag catches those early errors.
+ */
+function disableErrorDisplayInWpConfig( documentRoot: string ): void {
+	const wpConfigPath = path.join( documentRoot, 'wp-config.php' );
+	if ( ! fs.existsSync( wpConfigPath ) ) {
+		return;
+	}
+
+	let content = fs.readFileSync( wpConfigPath, 'utf-8' );
+
+	// Inject display_errors = off right after the opening <?php tag
+	content = content.replace( /^<\?php\s*/, "<?php\n@ini_set('display_errors', '0');\n" );
+
+	fs.writeFileSync( wpConfigPath, content );
+}
+
+/**
+ * Parses a PHP serialized array of strings, e.g.:
+ *   a:2:{i:0;s:19:"akismet/akismet.php";i:1;s:33:"sg-security/sg-security.php";}
+ * Returns the string values as a plain array.
+ */
+function parsePhpSerializedStringArray( serialized: string ): string[] {
+	const items: string[] = [];
+	// Match each s:LENGTH:"VALUE"; entry
+	const regex = /s:(\d+):"([\s\S]*?)";/g;
+	let match;
+	while ( ( match = regex.exec( serialized ) ) !== null ) {
+		items.push( match[ 2 ] );
+	}
+	return items;
+}
+
+/**
+ * Serializes a plain array of strings into PHP serialized format, e.g.:
+ *   a:2:{i:0;s:19:"akismet/akismet.php";i:1;s:9:"hello.php";}
+ */
+function serializePhpStringArray( items: string[] ): string {
+	const entries = items.map( ( val, i ) => `i:${ i };s:${ val.length }:"${ val }";` ).join( '' );
+	return `a:${ items.length }:{${ entries }}`;
+}
+
+/**
+ * Deactivates a plugin by editing the active_plugins option directly
+ * in the SQLite database. This avoids loading WordPress/PHP which
+ * could itself fail due to the problematic plugin.
+ */
+function deactivatePluginInSqlite(
+	dbPath: string,
+	tablePrefix: string,
+	pluginSlug: string
+): boolean {
+	const optionName = 'active_plugins';
+	const table = `${ tablePrefix }options`;
+
+	// Read the current active_plugins value
+	const readResult = spawnSync( 'sqlite3', [
+		dbPath,
+		`SELECT option_value FROM ${ table } WHERE option_name = '${ optionName }';`,
+	] );
+	if ( readResult.status !== 0 || ! readResult.stdout ) {
+		return false;
+	}
+
+	const serialized = readResult.stdout.toString().trim();
+	const plugins = parsePhpSerializedStringArray( serialized );
+	const filtered = plugins.filter( ( p ) => ! p.startsWith( pluginSlug + '/' ) );
+
+	if ( filtered.length === plugins.length ) {
+		// Plugin was not active
+		return false;
+	}
+
+	const newSerialized = serializePhpStringArray( filtered );
+	// Use parameterized update via stdin to avoid shell quoting issues
+	// with the serialized PHP string.
+	const sql = `UPDATE ${ table } SET option_value = '${ newSerialized.replace(
+		/'/g,
+		"''"
+	) }' WHERE option_name = '${ optionName }';`;
+	const writeResult = spawnSync( 'sqlite3', [ dbPath ], { input: sql } );
+	return writeResult.status === 0;
 }
 
 /**
@@ -262,6 +352,10 @@ export async function runCommand( url: string, secret: string, name: string ): P
 		// mu-plugin to redirect WordPress to the SQLite database.
 		await installSqliteIntegration( documentRoot );
 
+		// Disable error display in wp-config.php so PHP errors from
+		// incompatible plugins don't leak into the browser.
+		disableErrorDisplayInWpConfig( documentRoot );
+
 		logger.reportSuccess( `Site "${ siteName }" created` );
 
 		// ── Step 5: Apply database directly to SQLite ──────────────
@@ -301,7 +395,22 @@ export async function runCommand( url: string, secret: string, name: string ): P
 
 		logger.reportSuccess( __( 'Database imported' ) );
 
-		// ── Step 6: Register site ───────────────────────────────────
+		// ── Step 6: Deactivate hosting-specific plugins ─────────────
+		// The sg-security plugin (SiteGround Security) logs every visit
+		// during WordPress boot, triggering NOT NULL constraint errors
+		// in the SQLite translator that prevent the site from starting.
+		// Deactivate it directly in the SQLite database to avoid loading
+		// WordPress/PHP, which could itself fail due to the plugin.
+		const sqliteDbPath = path.join( documentRoot, 'wp-content', 'database', '.ht.sqlite' );
+		const tablePrefix = preflight.table_prefix || 'wp_';
+		if ( deactivatePluginInSqlite( sqliteDbPath, tablePrefix, 'sg-security' ) ) {
+			logger.reportSuccess( 'Deactivated sg-security plugin' );
+		}
+		if ( deactivatePluginInSqlite( sqliteDbPath, tablePrefix, 'sg-cachepress' ) ) {
+			logger.reportSuccess( 'Deactivated sg-cachepress plugin' );
+		}
+
+		// ── Step 7: Register site ───────────────────────────────────
 		const siteDetails: SiteData = {
 			id: siteId,
 			name: siteName,

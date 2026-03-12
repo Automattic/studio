@@ -558,13 +558,8 @@ export class AiChatUI {
 					}
 					return { consume: true };
 				}
-				if ( matchesKey( data, 'space' ) ) {
-					// Space opens browser unless a search is active, in which case it's a search character
-					if ( this.sitePickerQuery ) {
-						this.setSitePickerQuery( `${ this.sitePickerQuery } ` );
-					} else {
-						void this.openSelectedSite();
-					}
+				if ( matchesKey( data, 'tab' ) ) {
+					void this.openSelectedSite();
 					return { consume: true };
 				}
 				if ( matchesKey( data, 'right' ) && this.sitePickerTab === SITE_PICKER_TAB_LOCAL ) {
@@ -777,8 +772,8 @@ export class AiChatUI {
 			: '';
 
 		const hints = isLocal
-			? '  ↑↓ navigate · → remote sites · enter select · space open in browser · esc cancel'
-			: '  ↑↓ navigate · ← local sites · enter select · space open in browser · esc cancel';
+			? '  ↑↓ navigate · → remote sites · enter select · tab open in browser · esc cancel'
+			: '  ↑↓ navigate · ← local sites · enter select · tab open in browser · esc cancel';
 
 		const lines = [ header ];
 		if ( searchLine ) {

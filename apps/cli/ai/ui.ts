@@ -18,10 +18,17 @@ import {
 import chalk from 'chalk';
 import { AI_MODELS, DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
 import { AI_CHAT_SLASH_COMMANDS, type SlashCommandDef } from 'cli/ai/slash-commands';
+import {
+	diffTodoSnapshot,
+	type TodoChange,
+	type TodoDiff,
+	type TodoEntry,
+} from 'cli/ai/todo-stream';
 import { getSiteUrl, readAppdata, type SiteData } from 'cli/lib/appdata';
 import { openBrowser } from 'cli/lib/browser';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
+import type { TodoWriteInput } from '@anthropic-ai/claude-agent-sdk/sdk-tools';
 
 export interface SiteInfo {
 	name: string;
@@ -262,6 +269,62 @@ function formatToolName( name: string, input?: Record< string, unknown > ): stri
 	return chalk.bold( displayName );
 }
 
+interface ToolUseResultContent {
+	content?: string | Array< { type: string; text?: string } >;
+	isError?: boolean;
+}
+
+interface PendingTodoRender {
+	diff: TodoDiff;
+	toolLabel: string;
+	shouldRender: boolean;
+}
+
+interface RenderableToolLine {
+	text: string;
+	dim?: boolean;
+}
+
+function isTodoWriteInput( input: unknown ): input is TodoWriteInput {
+	if (
+		! input ||
+		typeof input !== 'object' ||
+		! Array.isArray( ( input as TodoWriteInput ).todos )
+	) {
+		return false;
+	}
+
+	return ( input as TodoWriteInput ).todos.every(
+		( todo ) =>
+			typeof todo === 'object' &&
+			todo !== null &&
+			typeof todo.content === 'string' &&
+			typeof todo.activeForm === 'string' &&
+			( todo.status === 'pending' || todo.status === 'in_progress' || todo.status === 'completed' )
+	);
+}
+
+function formatTodoAction( action: 'added' | 'completed', todo: TodoChange ): string {
+	const verb = action === 'added' ? 'Added todo' : 'Completed todo';
+	return `${ verb }: ${ todo.content }`;
+}
+
+/**
+ * Format a single todo snapshot line for display.
+ * in_progress uses activeForm (present-tense "working on it" phrasing),
+ * while pending/completed use content (the canonical description).
+ */
+function formatTodoSnapshotLine( todo: TodoEntry ): string {
+	switch ( todo.status ) {
+		case 'completed':
+			return `${ chalk.green( '✓' ) } ${ chalk.dim( chalk.strikethrough( todo.content ) ) }`;
+		case 'in_progress':
+			return `${ chalk.yellow( '◐' ) } ${ chalk.dim( todo.activeForm ) }`;
+		default:
+			return `${ chalk.dim( '○' ) } ${ chalk.dim( todo.content ) }`;
+	}
+}
+
 export class AiChatUI {
 	private tui: TUI;
 	private editor: PromptEditor;
@@ -273,7 +336,6 @@ export class AiChatUI {
 	private loaderVisible = false;
 	private editorVisible = false;
 	private interruptCallback: ( () => void ) | null = null;
-	private lastToolName: string | null = null;
 	private hasShownResponseMarker = false;
 	private turnStartTime = 0;
 	private toolStartTime: number | null = null;
@@ -281,6 +343,11 @@ export class AiChatUI {
 	private toolDotTimer: ReturnType< typeof setInterval > | null = null;
 	private toolDotVisible = true;
 	private toolDotLabel = '';
+	private todoSnapshot: TodoEntry[] = [];
+	private latestTodoSnapshot: TodoEntry[] = [];
+	private lastRenderedTodoSignature: string | null = null;
+	private pendingTodoRenders = new Map< string, PendingTodoRender >();
+	private pendingTodoRenderOrder: string[] = [];
 	private _activeSite: SiteInfo | null = null;
 	private expandablePreview: ExpandablePreview | null = null;
 	private _inAgentTurn = false;
@@ -920,10 +987,18 @@ export class AiChatUI {
 		this.currentResponseText = '';
 		this.hasShownResponseMarker = false;
 		this.turnStartTime = Date.now();
+		this.todoSnapshot = [];
+		this.latestTodoSnapshot = [];
+		this.lastRenderedTodoSignature = null;
+		this.pendingTodoRenders.clear();
+		this.pendingTodoRenderOrder = [];
 	}
 
 	/**
 	 * End an agent turn: hide loader, clean up response state.
+	 * todoSnapshot, latestTodoSnapshot, and lastRenderedTodoSignature are deliberately
+	 * preserved across turns so the next turn's diff is computed against the latest
+	 * known state, rendering only genuinely new changes.
 	 */
 	endAgentTurn(): void {
 		this.hideLoader();
@@ -935,6 +1010,8 @@ export class AiChatUI {
 		this.updateHints();
 		this.currentMarkdown = null;
 		this.currentResponseText = '';
+		this.pendingTodoRenders.clear();
+		this.pendingTodoRenderOrder = [];
 	}
 
 	showError( message: string ): void {
@@ -1073,59 +1150,112 @@ export class AiChatUI {
 		}
 	}
 
-	private showToolResult(
-		message: SDKMessage & { type: 'user' },
-		toolName?: string,
-		toolInput?: Record< string, unknown > | null
-	): void {
+	private showToolUse( toolLabel: string ): void {
+		this.showLoader( this.randomThinkingMessage() );
 		this.stopToolDotBlink();
+		this.toolDotLabel = toolLabel;
+		this.toolDotText = new Text( '\n ' + '⏺' + ' ' + toolLabel, 0, 0 );
+		this.messages.addChild( this.toolDotText );
+		this.toolDotVisible = true;
+		this.toolDotTimer = setInterval( () => {
+			if ( ! this.toolDotText ) {
+				return;
+			}
+			this.toolDotVisible = ! this.toolDotVisible;
+			const dot = this.toolDotVisible ? '⏺' : ' ';
+			this.toolDotText.setText( '\n ' + dot + ' ' + toolLabel );
+			this.tui.requestRender();
+		}, 500 );
+	}
+
+	private getToolResultContent(
+		message: SDKMessage & { type: 'user' }
+	): ToolUseResultContent | null {
 		const result = message.tool_use_result;
 		if ( ! result || typeof result !== 'object' ) {
-			this.toolDotText = null;
-			return;
-		}
-		const typedResult = result as {
-			content?: string | Array< { type: string; text?: string } >;
-			isError?: boolean;
-		};
-		const isError = typedResult.isError === true;
-
-		// Auto-select the site that was operated on
-		if ( ! isError && toolName && toolInput ) {
-			void this.autoSelectSiteFromToolResult( toolName, toolInput );
+			return null;
 		}
 
-		// Show elapsed time
+		return result as ToolUseResultContent;
+	}
+
+	private finalizeToolUseLine( isError: boolean, label: string ): void {
 		const elapsed = this.toolStartTime ? Date.now() - this.toolStartTime : 0;
 		this.toolStartTime = null;
 		const elapsedStr = elapsed > 0 ? chalk.dim( ` (${ ( elapsed / 1000 ).toFixed( 1 ) }s)` ) : '';
 		const statusIcon = isError ? chalk.red( '⏺' ) : '⏺';
-		const label = this.toolDotLabel;
 
-		// Update the existing tool-use line in place
 		if ( this.toolDotText ) {
 			this.toolDotText.setText( '\n ' + statusIcon + ' ' + label + elapsedStr );
 			this.toolDotText = null;
+			return;
 		}
 
-		const content = typedResult.content;
+		if ( isError ) {
+			this.messages.addChild( new Text( '\n ' + statusIcon + ' ' + label + elapsedStr, 0, 0 ) );
+		}
+	}
+
+	private renderTodoUpdate( pendingTodoRender: PendingTodoRender ): void {
+		const lines: RenderableToolLine[] = [
+			...pendingTodoRender.diff.added.map( ( todo ) => ( {
+				text: formatTodoAction( 'added', todo ),
+			} ) ),
+			...pendingTodoRender.diff.completed.map( ( todo ) => ( {
+				text: formatTodoAction( 'completed', todo ),
+			} ) ),
+			...( pendingTodoRender.diff.snapshot.length > 0
+				? [
+						{ text: 'Todo list:', dim: true } as RenderableToolLine,
+						...pendingTodoRender.diff.snapshot.map( ( todo ) => ( {
+							text: formatTodoSnapshotLine( todo ),
+						} ) ),
+				  ]
+				: [] ),
+		];
+		const formatted = lines
+			.map(
+				( line ) => '   ' + chalk.dim( '⎿ ' ) + ( line.dim ? chalk.dim( line.text ) : line.text )
+			)
+			.join( '\n' );
+		this.messages.addChild( new Text( formatted, 0, 0 ) );
+	}
+
+	private syncLatestTodoSnapshot(): void {
+		let latestPendingSnapshot: TodoEntry[] | null = null;
+		for ( const toolUseId of this.pendingTodoRenderOrder ) {
+			const pendingTodoRender = this.pendingTodoRenders.get( toolUseId );
+			if ( pendingTodoRender ) {
+				latestPendingSnapshot = pendingTodoRender.diff.snapshot;
+			}
+		}
+		this.latestTodoSnapshot = latestPendingSnapshot ?? this.todoSnapshot;
+	}
+
+	private consumePendingTodoRender( toolUseId: string ): PendingTodoRender | null {
+		const pendingTodoRender = this.pendingTodoRenders.get( toolUseId ) ?? null;
+		this.pendingTodoRenders.delete( toolUseId );
+		this.pendingTodoRenderOrder = this.pendingTodoRenderOrder.filter( ( id ) => id !== toolUseId );
+		return pendingTodoRender;
+	}
+
+	private renderToolResultText(
+		content: string | Array< { type: string; text?: string } >,
+		toolName?: string
+	): void {
 		let text: string;
 		if ( typeof content === 'string' ) {
 			text = content;
-		} else if ( Array.isArray( content ) ) {
+		} else {
 			text = content
 				.filter( ( block ) => block.type === 'text' && block.text )
 				.map( ( block ) => block.text )
 				.join( '\n' );
-		} else {
-			this.tui.requestRender();
-			return;
 		}
 		if ( ! text ) {
-			this.tui.requestRender();
 			return;
 		}
-		// Use a larger limit for validation results so they're fully visible
+
 		const maxLength = toolName === 'mcp__studio__validate_blocks' ? 2000 : 500;
 		const truncated = text.length > maxLength ? text.slice( 0, maxLength ) + '…' : text;
 		const resultLines = truncated.split( '\n' );
@@ -1133,6 +1263,74 @@ export class AiChatUI {
 			.map( ( line ) => '   ' + chalk.dim( '⎿ ' ) + chalk.dim( line ) )
 			.join( '\n' );
 		this.messages.addChild( new Text( formatted, 0, 0 ) );
+	}
+
+	private showToolResult(
+		message: SDKMessage & { type: 'user' },
+		toolName?: string,
+		toolInput?: Record< string, unknown > | null
+	): void {
+		this.stopToolDotBlink();
+		const typedResult = this.getToolResultContent( message );
+		if ( ! typedResult ) {
+			this.toolDotText = null;
+			return;
+		}
+		const isError = typedResult.isError === true;
+
+		// Auto-select the site that was operated on
+		if ( ! isError && toolName && toolInput ) {
+			void this.autoSelectSiteFromToolResult( toolName, toolInput );
+		}
+
+		const label = this.toolDotLabel;
+
+		this.finalizeToolUseLine( isError, label );
+
+		const content = typedResult.content;
+		if ( content === undefined ) {
+			this.tui.requestRender();
+			return;
+		}
+		this.renderToolResultText( content, toolName );
+		this.tui.requestRender();
+	}
+
+	private showTodoToolResult( message: SDKMessage & { type: 'user' }, toolUseId: string ): void {
+		this.stopToolDotBlink();
+		const typedResult = this.getToolResultContent( message );
+		const pendingTodoRender = this.consumePendingTodoRender( toolUseId );
+
+		if ( ! typedResult || ! pendingTodoRender ) {
+			this.toolDotText = null;
+			return;
+		}
+
+		const isError = typedResult.isError === true;
+
+		if ( isError ) {
+			// Errors always finalize the tool-use line (showToolUse may or may not have been called)
+			this.finalizeToolUseLine( true, pendingTodoRender.toolLabel );
+			this.syncLatestTodoSnapshot();
+			if ( typedResult.content !== undefined ) {
+				this.renderToolResultText( typedResult.content, 'TodoWrite' );
+			}
+			this.tui.requestRender();
+			return;
+		}
+
+		this.todoSnapshot = pendingTodoRender.diff.snapshot;
+		this.syncLatestTodoSnapshot();
+
+		if ( ! pendingTodoRender.shouldRender ) {
+			// No showToolUse was called for suppressed renders, so don't touch toolStartTime
+			this.tui.requestRender();
+			return;
+		}
+
+		this.finalizeToolUseLine( false, pendingTodoRender.toolLabel );
+		this.lastRenderedTodoSignature = pendingTodoRender.diff.signature;
+		this.renderTodoUpdate( pendingTodoRender );
 		this.tui.requestRender();
 	}
 
@@ -1216,7 +1414,6 @@ export class AiChatUI {
 						);
 						this.tui.requestRender();
 					} else if ( block.type === 'tool_use' ) {
-						this.lastToolName = block.name;
 						this.toolStartTime = Date.now();
 						const typedBlock = block as {
 							id: string;
@@ -1229,21 +1426,23 @@ export class AiChatUI {
 							input: input ?? {},
 						} );
 						const toolLabel = formatToolName( block.name, input );
-						this.showLoader( this.randomThinkingMessage() );
-						this.stopToolDotBlink();
-						this.toolDotLabel = toolLabel;
-						this.toolDotText = new Text( '\n ' + '⏺' + ' ' + toolLabel, 0, 0 );
-						this.messages.addChild( this.toolDotText );
-						this.toolDotVisible = true;
-						this.toolDotTimer = setInterval( () => {
-							if ( ! this.toolDotText ) {
-								return;
+						if ( block.name === 'TodoWrite' && isTodoWriteInput( input ) ) {
+							const diff = diffTodoSnapshot( this.latestTodoSnapshot, input.todos );
+							const shouldRender =
+								diff.hasVisibleChanges && diff.signature !== this.lastRenderedTodoSignature;
+							this.pendingTodoRenders.set( typedBlock.id, {
+								diff,
+								toolLabel,
+								shouldRender,
+							} );
+							this.pendingTodoRenderOrder.push( typedBlock.id );
+							this.latestTodoSnapshot = diff.snapshot;
+							if ( shouldRender ) {
+								this.showToolUse( toolLabel );
 							}
-							this.toolDotVisible = ! this.toolDotVisible;
-							const dot = this.toolDotVisible ? '⏺' : ' ';
-							this.toolDotText.setText( '\n ' + dot + ' ' + toolLabel );
-							this.tui.requestRender();
-						}, 500 );
+						} else {
+							this.showToolUse( toolLabel );
+						}
 						if ( ( block.name === 'Write' || block.name === 'Edit' ) && input ) {
 							this.showFilePreview( block.name, input );
 						}
@@ -1262,8 +1461,15 @@ export class AiChatUI {
 				if ( toolCallId ) {
 					this.pendingToolCalls.delete( toolCallId );
 				}
-				this.showToolResult( message, toolCall?.name, toolCall?.input );
-				this.lastToolName = null;
+				// Direct ID match, or fallback for SDK-internal tools (e.g. TodoWrite)
+				// where parent_tool_use_id may be null.
+				if ( toolCallId && this.pendingTodoRenders.has( toolCallId ) ) {
+					this.showTodoToolResult( message, toolCallId );
+				} else if ( ! toolCallId && this.pendingTodoRenderOrder.length > 0 ) {
+					this.showTodoToolResult( message, this.pendingTodoRenderOrder[ 0 ] );
+				} else {
+					this.showToolResult( message, toolCall?.name, toolCall?.input );
+				}
 				return undefined;
 			}
 			case 'result': {

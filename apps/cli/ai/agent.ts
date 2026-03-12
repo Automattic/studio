@@ -45,6 +45,13 @@ const BUILTIN_TOOLS = [
 const PATH_GATED_TOOLS = [ 'Write', 'Edit', 'Bash' ] as const; // Tools that should not manipulate files outside of ~/Studio
 const ALLOWED_TOOLS = [ 'mcp__studio__*', 'Read', 'Glob', 'Grep', 'AskUserQuestion' ]; // Tools that can run without permissions
 
+const ACCESS_DENIED_MESSAGE = `Access denied outside ${ STUDIO_ROOT }`;
+const APPROVE_ONCE_LABEL = 'Allow once';
+const APPROVE_SESSION_LABEL = 'Allow for this session';
+const DENY_LABEL = 'Deny';
+
+type PathGatedApprovalDecision = 'allow_once' | 'allow_session' | 'deny';
+
 function isPathGatedTool( toolName: string ): boolean {
 	return ( PATH_GATED_TOOLS as readonly string[] ).includes( toolName );
 }
@@ -68,6 +75,69 @@ function getToolInputPaths( input: Record< string, unknown > ): string[] {
 		.filter( ( value ) => typeof value === 'string' )
 		.map( ( value ) => value as string )
 		.filter( ( value ) => value.trim().length > 0 );
+}
+
+function findFirstPathOutsideStudioRoot(
+	input: Record< string, unknown >,
+	blockedPath?: string
+): string | undefined {
+	if ( blockedPath && ! isPathWithinStudioRoot( blockedPath ) ) {
+		return blockedPath;
+	}
+
+	for ( const toolPath of getToolInputPaths( input ) ) {
+		if ( ! isPathWithinStudioRoot( toolPath ) ) {
+			return toolPath;
+		}
+	}
+
+	return undefined;
+}
+
+async function askForPathGatedToolApproval( {
+	toolName,
+	outsidePath,
+	onAskUser,
+}: {
+	toolName: string;
+	outsidePath: string;
+	onAskUser?: ( questions: AskUserQuestion[] ) => Promise< Record< string, string > >;
+} ): Promise< PathGatedApprovalDecision > {
+	if ( ! onAskUser ) {
+		return 'deny';
+	}
+
+	const normalizedPath = resolveToolPath( outsidePath );
+	const question = `Allow ${ toolName } to access ${ normalizedPath }?`;
+	const answers = await onAskUser( [
+		{
+			question,
+			options: [
+				{
+					label: APPROVE_ONCE_LABEL,
+					description: `Run ${ toolName } outside ${ STUDIO_ROOT } for this step.`,
+				},
+				{
+					label: APPROVE_SESSION_LABEL,
+					description: `Allow this kind of ${ toolName } action for the rest of this session.`,
+				},
+				{
+					label: DENY_LABEL,
+					description: 'Keep filesystem access restricted to Studio sites.',
+				},
+			],
+		},
+	] );
+
+	if ( answers[ question ] === APPROVE_ONCE_LABEL ) {
+		return 'allow_once';
+	}
+
+	if ( answers[ question ] === APPROVE_SESSION_LABEL ) {
+		return 'allow_session';
+	}
+
+	return 'deny';
 }
 
 /**
@@ -116,38 +186,37 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 					};
 				}
 
-				if ( isPathGatedTool( toolName ) ) {
-					if ( metadata.blockedPath && ! isPathWithinStudioRoot( metadata.blockedPath ) ) {
+				const outsidePath = findFirstPathOutsideStudioRoot( input, metadata.blockedPath );
+				if ( outsidePath && isPathGatedTool( toolName ) ) {
+					const approvalDecision = await askForPathGatedToolApproval( {
+						toolName,
+						outsidePath,
+						onAskUser,
+					} );
+
+					if ( approvalDecision === 'deny' ) {
 						return {
 							behavior: 'deny' as const,
-							message: `Access denied outside ${ STUDIO_ROOT }`,
+							message: ACCESS_DENIED_MESSAGE,
 						};
 					}
 
-					for ( const toolPath of getToolInputPaths( input ) ) {
-						if ( ! isPathWithinStudioRoot( toolPath ) ) {
-							return {
-								behavior: 'deny' as const,
-								message: `Access denied outside ${ STUDIO_ROOT }`,
-							};
-						}
+					if ( approvalDecision === 'allow_session' && metadata.suggestions?.length ) {
+						return {
+							behavior: 'allow' as const,
+							updatedInput: input,
+							updatedPermissions: metadata.suggestions,
+						};
 					}
+
+					return { behavior: 'allow' as const, updatedInput: input };
 				}
 
-				if ( metadata.blockedPath && ! isPathWithinStudioRoot( metadata.blockedPath ) ) {
+				if ( outsidePath ) {
 					return {
 						behavior: 'deny' as const,
-						message: `Access denied outside ${ STUDIO_ROOT }`,
+						message: ACCESS_DENIED_MESSAGE,
 					};
-				}
-
-				for ( const toolPath of getToolInputPaths( input ) ) {
-					if ( ! isPathWithinStudioRoot( toolPath ) ) {
-						return {
-							behavior: 'deny' as const,
-							message: `Access denied outside ${ STUDIO_ROOT }`,
-						};
-					}
 				}
 
 				return { behavior: 'allow' as const, updatedInput: input };

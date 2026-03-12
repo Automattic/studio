@@ -10,6 +10,6 @@
 		"resolveJsonModule": true,
 		"types": [ "node" ]
 	},
-	"include": [ "*.ts", "tests/*.ts" ],
+	"include": [ "*.ts" ],
 	"exclude": [ "node_modules" ]
 }

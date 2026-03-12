@@ -2,7 +2,7 @@ import {
 	__bumpAggregatedUniqueStat,
 	__bumpStat,
 	AggregateInterval,
-	ConfigFileProvider,
+	LastBumpStatsProvider,
 } from '@studio/common/lib/bump-stat';
 import { lockAppdata, readAppdata, saveAppdata, unlockAppdata } from 'cli/lib/appdata';
 
@@ -22,7 +22,7 @@ export enum StatsMetric {
 	UNKNOWN_PLATFORM = 'unknown-platform',
 }
 
-const configFileProvider: ConfigFileProvider = {
+const lastBumpStatsProvider: LastBumpStatsProvider = {
 	load: async () => {
 		const { lastBumpStats } = await readAppdata();
 		return lastBumpStats ?? {};
@@ -49,7 +49,7 @@ export async function bumpAggregatedUniqueStat(
 	aggregateBy: AggregateInterval,
 	bumpInDev = false
 ) {
-	return __bumpAggregatedUniqueStat( group, stat, aggregateBy, configFileProvider, bumpInDev );
+	return __bumpAggregatedUniqueStat( group, stat, aggregateBy, lastBumpStatsProvider, bumpInDev );
 }
 
 export function getPlatformMetric(): StatsMetric {

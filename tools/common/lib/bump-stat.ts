@@ -46,7 +46,7 @@ export function __bumpStat( group: string, stat: string, bumpInDev = false ) {
 export type LastBumpStats = Record< string, Partial< Record< string, number > > >;
 
 // Appdata provider interface for abstracting storage operations
-export interface ConfigFileProvider {
+export interface LastBumpStatsProvider {
 	load: () => Promise< LastBumpStats >;
 	save: ( lastBumpStats: LastBumpStats ) => Promise< void >;
 }
@@ -61,14 +61,14 @@ export async function __bumpAggregatedUniqueStat(
 	group: string,
 	stat: string,
 	aggregateBy: AggregateInterval,
-	configFileProvider: ConfigFileProvider,
+	provider: LastBumpStatsProvider,
 	bumpInDev = false
 ) {
-	const lastBump = await getLastBump( group, stat, configFileProvider );
+	const lastBump = await getLastBump( group, stat, provider );
 
 	if ( lastBump === null ) {
 		__bumpStat( group, stat, bumpInDev );
-		await updateLastBump( group, stat, configFileProvider );
+		await updateLastBump( group, stat, provider );
 		return;
 	}
 
@@ -86,7 +86,7 @@ export async function __bumpAggregatedUniqueStat(
 
 	const didBump = __bumpStat( group, stat, bumpInDev );
 	if ( didBump ) {
-		await updateLastBump( group, stat, configFileProvider );
+		await updateLastBump( group, stat, provider );
 	}
 }
 
@@ -94,20 +94,16 @@ export async function __bumpAggregatedUniqueStat(
 async function getLastBump(
 	group: string,
 	stat: string,
-	configFileProvider: ConfigFileProvider
+	provider: LastBumpStatsProvider
 ): Promise< number | null > {
-	const lastBumpStats = await configFileProvider.load();
+	const lastBumpStats = await provider.load();
 	return lastBumpStats?.[ group ]?.[ stat ] ?? null;
 }
 
 // Store this moment as the last time we bumped the state, in UTC time.
-async function updateLastBump(
-	group: string,
-	stat: string,
-	configFileProvider: ConfigFileProvider
-) {
-	const lastBumpStats = await configFileProvider.load();
+async function updateLastBump( group: string, stat: string, provider: LastBumpStatsProvider ) {
+	const lastBumpStats = await provider.load();
 	lastBumpStats[ group ] ??= {};
 	lastBumpStats[ group ][ stat ] = Date.now();
-	await configFileProvider.save( lastBumpStats );
+	await provider.save( lastBumpStats );
 }

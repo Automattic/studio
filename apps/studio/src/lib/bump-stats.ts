@@ -1,7 +1,7 @@
 import {
 	__bumpAggregatedUniqueStat,
 	__bumpStat,
-	ConfigFileProvider,
+	LastBumpStatsProvider,
 	AggregateInterval,
 } from '@studio/common/lib/bump-stat';
 import {
@@ -47,7 +47,7 @@ export enum StatsMetric {
 	NO_BLUEPRINT = 'no-blueprint',
 }
 
-const appdataProvider: ConfigFileProvider = {
+const lastBumpStatsProvider: LastBumpStatsProvider = {
 	load: async () => {
 		const { lastBumpStats } = await loadUserData();
 		return lastBumpStats ?? {};
@@ -74,7 +74,7 @@ export async function bumpAggregatedUniqueStat(
 	aggregateBy: AggregateInterval,
 	bumpInDev = false
 ) {
-	return __bumpAggregatedUniqueStat( group, stat, aggregateBy, appdataProvider, bumpInDev );
+	return __bumpAggregatedUniqueStat( group, stat, aggregateBy, lastBumpStatsProvider, bumpInDev );
 }
 
 export function getPlatformMetric(): StatsMetric {

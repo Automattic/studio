@@ -837,17 +837,17 @@ export class AiChatUI {
 
 		const b = chalk.blue;
 
-		// W logo in block characters
+		// WordPress logo in block characters, widened to avoid vertical stretching in terminals.
 		const logo = [
-			'  ▗▟▛▀▀▜▙▖',
-			' ▟▌     ▗█▙',
-			'▟██▘▝██ ▝██▙',
-			'▌▐█▖ ▐█▌ ▐▌▐',
-			'▌ ▜▙ ▐██ ▐▘▐',
-			'▜▖▝█▄▌▝█▄▌▗▛',
-			' ▜▖▜█  ▜█▗▛',
-			'  ▝▜█▄▄▟▛▘',
-		].map( ( s ) => b( s.padEnd( 12, ' ' ) ) );
+			'    ▄█▛▀▀▀▀█▙▖',
+			' ▗▟█        ▗██▄',
+			'▄███▛ ▝▜██  ▝███▙',
+			'█ ▐█▙   ███  ▐█ ▐',
+			'█  ▀█▄  ███▌ ▐▛ ▐',
+			'▀▙▖ ▜█▄▟ ▝█▙▄▌ ▄▛',
+			' ▝▜▄▝██▌  ▀██▗▟▀',
+			'    ▀██▙▄▄▄█▛▘',
+		].map( ( s ) => b( s ) );
 
 		const info = [
 			chalk.bold( 'WordPress Studio' ) + ( version ? chalk.dim( ` v${ version }` ) : '' ),

@@ -1,18 +1,12 @@
 import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
+import { buildAiSessionFileName } from './file-naming';
 import { getAiSessionsDirectoryForDate } from './paths';
 import type { AiSessionEvent, TurnStatus } from './types';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { AiModelId } from 'cli/ai/agent';
 import type { AiProviderId } from 'cli/ai/providers';
-
-function toSortableTimestampPrefix( date: Date ): string {
-	return date
-		.toISOString()
-		.replace( /:/g, '-' )
-		.replace( /\.\d{3}Z$/, '' );
-}
 
 function toIsoTimestamp( value?: Date ): string {
 	return ( value ?? new Date() ).toISOString();
@@ -34,7 +28,7 @@ export class AiSessionRecorder {
 		const startedAt = options.startedAt ?? new Date();
 		const sessionId = crypto.randomUUID();
 		const directory = getAiSessionsDirectoryForDate( startedAt );
-		const fileName = `${ toSortableTimestampPrefix( startedAt ) }-${ sessionId }.jsonl`;
+		const fileName = buildAiSessionFileName( startedAt, sessionId );
 		const filePath = path.join( directory, fileName );
 
 		await fs.mkdir( directory, { recursive: true } );

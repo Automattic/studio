@@ -1,14 +1,6 @@
 import fs from 'fs/promises';
-import path from 'path';
+import { extractAiSessionIdFromFilePath } from './file-naming';
 import type { AiSessionEvent, AiSessionSummary } from './types';
-
-function getSessionIdFromPath( filePath: string ): string {
-	const fileName = path.basename( filePath, '.jsonl' );
-	const uuidMatch = fileName.match(
-		/\b([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b/i
-	);
-	return uuidMatch?.[ 1 ] ?? fileName;
-}
 
 export async function readAiSessionSummaryFromEvents(
 	filePath: string,
@@ -21,7 +13,7 @@ export async function readAiSessionSummaryFromEvents(
 	const linkedAgentSessionIds: string[] = [];
 	let createdAt: string | undefined;
 	let updatedAt: string | undefined;
-	let sessionId = getSessionIdFromPath( filePath );
+	let sessionId = extractAiSessionIdFromFilePath( filePath );
 	let firstPrompt: string | undefined;
 	let selectedSiteName: string | undefined;
 	let endReason: 'error' | 'stopped' | undefined;

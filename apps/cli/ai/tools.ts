@@ -332,7 +332,7 @@ const deleteSiteTool = tool(
 
 const createPreviewTool = tool(
 	'preview_create',
-	'Creates a WordPress.com preview site from a local Studio site. Requires WordPress.com authentication.',
+	'Creates a WordPress.com preview site from a local Studio site. Requires WordPress.com authentication. This can take a few minutes, so tell the user to wait after starting it.',
 	{
 		nameOrPath: z.string().describe( 'The local site name or file system path to preview' ),
 	},
@@ -392,7 +392,7 @@ const listPreviewsTool = tool(
 
 const updatePreviewTool = tool(
 	'preview_update',
-	'Updates an existing WordPress.com preview site from a local Studio site. Requires WordPress.com authentication.',
+	'Updates an existing WordPress.com preview site from a local Studio site. Requires WordPress.com authentication. This can take a few minutes, so tell the user to wait after starting it.',
 	{
 		nameOrPath: z.string().describe( 'The local site name or file system path' ),
 		host: z

@@ -1111,13 +1111,21 @@ export class AiChatUI {
 			await openBrowser( this._activeSite.url );
 			return true;
 		}
-		if ( ! this._activeSiteData ) {
+		if ( ! this._activeSite && ! this._activeSiteData ) {
 			return false;
 		}
 		// Re-read appdata to get the current site state (port/domain may have changed)
 		const appdata = await readAppdata();
-		const freshSiteData = appdata.sites?.find( ( s ) => s.name === this._activeSite?.name );
+		const activeSiteName = this._activeSite?.name ?? this._activeSiteData?.name;
+		const freshSiteData = appdata.sites?.find( ( site ) => site.name === activeSiteName );
 		const siteData = freshSiteData ?? this._activeSiteData;
+		if ( siteData ) {
+			this._activeSiteData = siteData;
+		}
+		if ( ! siteData ) {
+			return false;
+		}
+
 		const url = getSiteUrl( siteData );
 		if ( url ) {
 			await openBrowser( url );

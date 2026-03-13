@@ -1,4 +1,4 @@
-#!/usr/bin/env tsx
+#!/usr/bin/env ts-node
 
 /**
  * Site Editor Performance Benchmark — Orchestration Script
@@ -7,9 +7,10 @@
  *   - Studio (bare, multi-worker, plugins, multi-worker+plugins)
  *   - Playground CLI (bare, multi-worker, plugins, multi-worker+plugins)
  *   - Playground Web (bare, plugins)
+ *   - Custom (any running WordPress site via --custom-url)
  *
  * Usage:
- *   cd scripts/benchmark-site-editor
+ *   cd tools/benchmark-site-editor
  *   npm install
  *   npm run benchmark
  *
@@ -18,6 +19,8 @@
  *   --skip-studio           Skip Studio environments
  *   --skip-playground-cli   Skip Playground CLI environments
  *   --skip-playground-web   Skip Playground web environments
+ *   --custom=<name>,<url>[,<user>,<password>]  Add a custom WordPress site (repeatable)
+ *   --install-plugins[=<name1>,<name2>]        Install plugins from blueprint via WP REST API
  *   --only=<env1,env2>      Run only these environments (comma-separated)
  *   --help                  Show help
  */
@@ -27,6 +30,9 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import chalk from 'chalk';
+import yargs from 'yargs';
+import { hideBin } from 'yargs/helpers';
+import { installPlugins } from './install-plugins.ts';
 import { measureSiteEditor, METRIC_NAMES, type MeasurementResult } from './measure-site-editor.ts';
 
 // ---------------------------------------------------------------------------
@@ -54,13 +60,17 @@ const PLAYGROUND_CLI_PORT_BASE = 9500;
 // Types
 // ---------------------------------------------------------------------------
 
-type EnvironmentType = 'studio' | 'playground-cli' | 'playground-web';
+type EnvironmentType = 'studio' | 'playground-cli' | 'playground-web' | 'custom';
 
 interface EnvironmentConfig {
 	name: string;
 	type: EnvironmentType;
 	plugins: boolean;
 	multiWorker: boolean;
+	/** Base URL for custom environments. */
+	customUrl?: string;
+	/** WordPress admin credentials for custom environments. */
+	credentials?: { username: string; password: string };
 }
 
 interface BenchmarkResult {
@@ -94,6 +104,13 @@ const ALL_ENVIRONMENTS: EnvironmentConfig[] = [
 // Argument parsing
 // ---------------------------------------------------------------------------
 
+interface CustomEnvInput {
+	name: string;
+	url: string;
+	user: string;
+	password: string;
+}
+
 interface Options {
 	rounds: number;
 	skipStudio: boolean;
@@ -101,59 +118,112 @@ interface Options {
 	skipPlaygroundWeb: boolean;
 	only: string[];
 	headed: boolean;
+	customs: CustomEnvInput[];
+	/** Names of custom environments to install plugins on, or 'all'. */
+	installPlugins: string[] | 'all' | false;
+}
+
+function parseCustomFlag( value: string ): CustomEnvInput {
+	const parts = value.split( ',' );
+	if ( parts.length < 2 ) {
+		throw new Error(
+			`Invalid --custom value: "${ value }"\nExpected: --custom=name,url[,user,password]`
+		);
+	}
+	return {
+		name: parts[ 0 ],
+		url: parts[ 1 ],
+		user: parts[ 2 ] || 'admin',
+		password: parts[ 3 ] || 'password',
+	};
 }
 
 function parseArgs(): Options {
-	const args = process.argv.slice( 2 );
-	const opts: Options = {
-		rounds: 1,
-		skipStudio: false,
-		skipPlaygroundCli: false,
-		skipPlaygroundWeb: false,
-		only: [],
-		headed: false,
-	};
+	const argv = yargs( hideBin( process.argv ) )
+		.usage( 'Usage: npm run benchmark [options]' )
+		.option( 'rounds', {
+			type: 'number',
+			default: 1,
+			describe: 'Number of benchmark runs per environment',
+		} )
+		.option( 'skip-studio', {
+			type: 'boolean',
+			default: false,
+			describe: 'Skip Studio environments',
+		} )
+		.option( 'skip-playground-cli', {
+			type: 'boolean',
+			default: false,
+			describe: 'Skip Playground CLI environments',
+		} )
+		.option( 'skip-playground-web', {
+			type: 'boolean',
+			default: false,
+			describe: 'Skip Playground web environments',
+		} )
+		.option( 'custom', {
+			type: 'string',
+			array: true,
+			default: [] as string[],
+			describe: 'Add a custom WordPress site: name,url[,user,password] (repeatable)',
+		} )
+		.option( 'install-plugins', {
+			type: 'string',
+			describe:
+				'Install blueprint plugins on custom environments. Pass without value for all, or comma-separated names.',
+		} )
+		.option( 'only', {
+			type: 'string',
+			describe: 'Run only named environments (comma-separated)',
+		} )
+		.option( 'headed', {
+			type: 'boolean',
+			default: false,
+			describe: 'Launch browser in headed mode for debugging',
+		} )
+		.example( [
+			[
+				'npm run benchmark -- --custom=my-site,http://localhost:10003',
+				'Benchmark a single custom WordPress site',
+			],
+			[
+				'npm run benchmark -- --custom=bare,http://localhost:10003 --custom=plugins,http://localhost:10004 --install-plugins=plugins',
+				'Two custom sites: bare vs with plugins',
+			],
+			[
+				'npm run benchmark -- --custom=my-site,http://localhost:10003,admin,secret',
+				'Custom site with non-default credentials',
+			],
+			[
+				'npm run benchmark -- --only=studio,my-site --custom=my-site,http://localhost:10003 --rounds=3',
+				'Compare Studio vs a custom site',
+			],
+		] )
+		.epilog( `Built-in environments: ${ ALL_ENVIRONMENTS.map( ( e ) => e.name ).join( ', ' ) }` )
+		.strict()
+		.parseSync();
 
-	for ( const arg of args ) {
-		if ( arg.startsWith( '--rounds=' ) ) {
-			opts.rounds = parseInt( arg.split( '=' )[ 1 ], 10 );
-		} else if ( arg === '--skip-studio' ) {
-			opts.skipStudio = true;
-		} else if ( arg === '--skip-playground-cli' ) {
-			opts.skipPlaygroundCli = true;
-		} else if ( arg === '--skip-playground-web' ) {
-			opts.skipPlaygroundWeb = true;
-		} else if ( arg.startsWith( '--only=' ) ) {
-			opts.only = arg
-				.split( '=' )[ 1 ]
-				.split( ',' )
-				.map( ( s ) => s.trim() );
-		} else if ( arg === '--headed' ) {
-			opts.headed = true;
-		} else if ( arg === '--help' ) {
-			printHelp();
-			process.exit( 0 );
+	// Parse --install-plugins: boolean true means "all", string means specific names
+	let installPluginsOpt: Options[ 'installPlugins' ] = false;
+	if ( argv[ 'install-plugins' ] !== undefined ) {
+		const val = argv[ 'install-plugins' ];
+		if ( val === '' || val === 'true' ) {
+			installPluginsOpt = 'all';
+		} else {
+			installPluginsOpt = val.split( ',' ).map( ( s: string ) => s.trim() );
 		}
 	}
 
-	return opts;
-}
-
-function printHelp() {
-	console.log( `
-Usage: npm run benchmark [options]
-
-Options:
-  --rounds=N              Number of benchmark runs per environment (default: 1)
-  --skip-studio           Skip Studio environments
-  --skip-playground-cli   Skip Playground CLI environments
-  --skip-playground-web   Skip Playground web environments
-  --only=<env1,env2>      Run only named environments (comma-separated)
-  --headed                Launch browser in headed mode for debugging
-  --help                  Show this help message
-
-Environments: ${ ALL_ENVIRONMENTS.map( ( e ) => e.name ).join( ', ' ) }
-` );
+	return {
+		rounds: argv.rounds,
+		skipStudio: argv[ 'skip-studio' ],
+		skipPlaygroundCli: argv[ 'skip-playground-cli' ],
+		skipPlaygroundWeb: argv[ 'skip-playground-web' ],
+		only: argv.only ? argv.only.split( ',' ).map( ( s: string ) => s.trim() ) : [],
+		headed: argv.headed,
+		customs: ( argv.custom as string[] ).map( parseCustomFlag ),
+		installPlugins: installPluginsOpt,
+	};
 }
 
 // ---------------------------------------------------------------------------
@@ -516,7 +586,13 @@ async function runBenchmark(
 		}
 		try {
 			const result = await Promise.race( [
-				measureSiteEditor( { url: benchmarkUrl, isPlaygroundWeb, isPlaygroundCli, headed } ),
+				measureSiteEditor( {
+					url: benchmarkUrl,
+					isPlaygroundWeb,
+					isPlaygroundCli,
+					credentials: env.credentials,
+					headed,
+				} ),
 				sleep( MEASUREMENT_TIMEOUT ).then( () => {
 					throw new Error( 'Measurement timed out' );
 				} ),
@@ -633,20 +709,6 @@ async function ensureStudioCLIBuilt(): Promise< boolean > {
 	return true;
 }
 
-async function ensurePlaygroundCLIInstalled(): Promise< boolean > {
-	if ( ! fs.existsSync( PLAYGROUND_CLI_PATH ) ) {
-		console.log( chalk.yellow( '  Installing dependencies (including @wp-playground/cli)...' ) );
-		try {
-			execSync( 'npm install', { cwd: import.meta.dirname, stdio: 'inherit' } );
-			return true;
-		} catch {
-			console.error( chalk.red( '  Failed to install Playground CLI' ) );
-			return false;
-		}
-	}
-	return true;
-}
-
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
@@ -655,7 +717,23 @@ async function main() {
 	const opts = parseArgs();
 
 	// Filter environments
-	let environments = ALL_ENVIRONMENTS;
+	let environments = [ ...ALL_ENVIRONMENTS ];
+
+	// Add custom environments from --custom flags
+	for ( const custom of opts.customs ) {
+		const shouldInstallPlugins =
+			opts.installPlugins === 'all' ||
+			( Array.isArray( opts.installPlugins ) && opts.installPlugins.includes( custom.name ) );
+
+		environments.push( {
+			name: custom.name,
+			type: 'custom',
+			plugins: shouldInstallPlugins,
+			multiWorker: false,
+			customUrl: custom.url,
+			credentials: { username: custom.user, password: custom.password },
+		} );
+	}
 
 	if ( opts.only.length > 0 ) {
 		environments = environments.filter( ( e ) => opts.only.includes( e.name ) );
@@ -699,20 +777,12 @@ async function main() {
 	}
 
 	const needsStudio = environments.some( ( e ) => e.type === 'studio' );
-	const needsPlaygroundCli = environments.some( ( e ) => e.type === 'playground-cli' );
 
 	if ( needsStudio ) {
 		if ( ! ( await ensureStudioCLIBuilt() ) ) {
 			process.exit( 1 );
 		}
 		console.log( chalk.green( '  Studio CLI ready' ) );
-	}
-
-	if ( needsPlaygroundCli ) {
-		if ( ! ( await ensurePlaygroundCLIInstalled() ) ) {
-			process.exit( 1 );
-		}
-		console.log( chalk.green( '  Playground CLI ready' ) );
 	}
 
 	fs.mkdirSync( ARTIFACTS_PATH, { recursive: true } );
@@ -744,6 +814,23 @@ async function main() {
 				const setup = await setupPlaygroundCliSite( env, port );
 				benchmarkUrl = setup.url;
 				teardownFn = () => teardownPlaygroundCliSite( setup.process, port, setup.siteDir );
+			} else if ( env.type === 'custom' ) {
+				benchmarkUrl = env.customUrl!;
+				console.log( chalk.gray( `    URL: ${ benchmarkUrl }` ) );
+
+				if ( env.plugins && env.credentials ) {
+					console.log( chalk.gray( `    Installing plugins via REST API...` ) );
+					try {
+						await installPlugins(
+							benchmarkUrl,
+							PLUGINS_BLUEPRINT_PATH,
+							env.credentials.username,
+							env.credentials.password
+						);
+					} catch ( err ) {
+						console.warn( chalk.yellow( `    Plugin installation failed: ${ err }` ) );
+					}
+				}
 			} else {
 				benchmarkUrl = getPlaygroundWebUrl( env );
 				console.log( chalk.gray( `    URL: ${ benchmarkUrl.slice( 0, 80 ) }...` ) );

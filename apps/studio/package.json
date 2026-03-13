@@ -58,7 +58,6 @@
 		"hpagent": "1.2.0",
 		"http-proxy": "^1.18.1",
 		"lockfile": "^1.0.4",
-		"ora": "^8.2.0",
 		"react": "^18.2.0",
 		"react-dom": "^18.2.0",
 		"react-markdown": "^9.0.1",

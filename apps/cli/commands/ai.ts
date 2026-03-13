@@ -100,9 +100,9 @@ export async function runCommand(): Promise< void > {
 	if ( currentProvider === 'wpcom' ) {
 		try {
 			const token = await getAuthToken();
-			ui.showInfo( `Logged in as ${ token.displayName } (${ token.email })` );
+			ui.setStatusMessage( `Logged in as ${ token.displayName } (${ token.email })` );
 		} catch {
-			ui.showInfo( 'WordPress.com provider selected. Use /login to authenticate.' );
+			ui.setStatusMessage( 'Use /login to authenticate to WordPress.com' );
 		}
 	}
 
@@ -114,10 +114,13 @@ export async function runCommand(): Promise< void > {
 		const env = await resolveAiEnvironment( currentProvider );
 		ui.beginAgentTurn();
 
-		// Prepend active site context to the prompt
+		// Prepend active site context to the prompt.
+		// Remote (WordPress.com) sites only have a URL; local sites have a filesystem path and running state.
 		let enrichedPrompt = prompt;
 		const site = ui.activeSite;
-		if ( site ) {
+		if ( site?.remote && site?.url ) {
+			enrichedPrompt = `[Active site: "${ site.name }" at ${ site.url } (WordPress.com)]\n\n${ prompt }`;
+		} else if ( site ) {
 			enrichedPrompt = `[Active site: "${ site.name }" at ${ site.path }${
 				site.running ? ' (running)' : ' (stopped)'
 			}]\n\n${ prompt }`;
@@ -214,9 +217,9 @@ export async function runCommand(): Promise< void > {
 				ui.start();
 				if ( await isAiProviderReady( 'wpcom' ) ) {
 					const token = await getAuthToken();
-					ui.showInfo( `Logged in as ${ token.displayName } (${ token.email })` );
+					ui.setStatusMessage( `Logged in as ${ token.displayName } (${ token.email })` );
 				} else {
-					ui.showInfo( 'Login failed or canceled.' );
+					ui.setStatusMessage( 'Login failed or canceled' );
 				}
 				continue;
 			}
@@ -225,7 +228,7 @@ export async function runCommand(): Promise< void > {
 				ui.stop();
 				await runLogoutCommand();
 				ui.start();
-				ui.showInfo( 'Logged out of WordPress.com.' );
+				ui.setStatusMessage( 'Logged out of WordPress.com' );
 				await maybeAutoSwitchProvider();
 				continue;
 			}

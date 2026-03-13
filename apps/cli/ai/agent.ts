@@ -190,13 +190,6 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 			},
 			maxTurns,
 			cwd: STUDIO_ROOT,
-			sandbox: {
-				enabled: true,
-				allowUnsandboxedCommands: false,
-				filesystem: {
-					allowWrite: [ STUDIO_ROOT ],
-				},
-			},
 			tools: [ ...BUILTIN_TOOLS ],
 			allowedTools: [ ...ALLOWED_TOOLS ],
 			permissionMode: 'default',

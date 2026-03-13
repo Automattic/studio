@@ -25,8 +25,8 @@ import {
 	type TodoDiff,
 	type TodoEntry,
 } from 'cli/ai/todo-stream';
-import { getSiteUrl, readAppdata, type SiteData } from 'cli/lib/appdata';
 import { openBrowser } from 'cli/lib/browser';
+import { getSiteUrl, readCliConfig, type SiteData } from 'cli/lib/cli-config';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { TodoWriteInput } from '@anthropic-ai/claude-agent-sdk/sdk-tools';
@@ -568,8 +568,8 @@ export class AiChatUI {
 	}
 
 	private async openSitePicker(): Promise< void > {
-		const appdata = await readAppdata();
-		const sites: SiteData[] = appdata.sites ?? [];
+		const config = await readCliConfig();
+		const sites: SiteData[] = config.sites ?? [];
 		if ( sites.length === 0 ) {
 			this.messages.addChild(
 				new Text( chalk.dim( '  No sites found. Create one first.' ), 1, 0 )
@@ -652,8 +652,8 @@ export class AiChatUI {
 	}
 
 	private async findSiteFromAppdata( nameOrPath: string ): Promise< SiteInfo | null > {
-		const appdata = await readAppdata();
-		const site = appdata.sites.find(
+		const config = await readCliConfig();
+		const site = config.sites.find(
 			( s ) => s.name.toLowerCase() === nameOrPath.toLowerCase() || s.path === nameOrPath
 		);
 		if ( ! site ) {
@@ -772,8 +772,8 @@ export class AiChatUI {
 			return false;
 		}
 		// Re-read appdata to get the current site state (port/domain may have changed)
-		const appdata = await readAppdata();
-		const freshSiteData = appdata.sites?.find( ( s ) => s.name === this._activeSite?.name );
+		const config = await readCliConfig();
+		const freshSiteData = config.sites?.find( ( s ) => s.name === this._activeSite?.name );
 		const siteData = freshSiteData ?? this._activeSiteData;
 		const url = getSiteUrl( siteData );
 		if ( url ) {

@@ -98,7 +98,7 @@
 		"@types/yauzl": "^2.10.3",
 		"@vitejs/plugin-react": "^5.1.4",
 		"@wp-playground/blueprints": "3.1.11",
-		"electron": "^40.8.0",
+		"electron": "^41.0.2",
 		"electron-devtools-installer": "^4.0.0",
 		"electron-vite": "^5.0.0",
 		"patch-package": "^8.0.1",

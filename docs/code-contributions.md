@@ -70,10 +70,10 @@ The CLI is built separately from the Electron app. There are two commands to be 
 - `npm run cli:build` runs a one-time build.
 - `npm run cli:watch` watches the source files and rebuilds automatically.
 
-Both commands output a `dist/cli/main.js` file. To test the newly built CLI code, run the following command:
+Both commands output a `apps/cli/dist/cli/main.js` file. To test the newly built CLI code, run the following command:
 
 ```
-node dist/cli/main.js
+node apps/cli/dist/cli/main.js
 ```
 
 ### Project Structure

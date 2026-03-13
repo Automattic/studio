@@ -304,6 +304,23 @@ interface ToolUseResultContent {
 	isError?: boolean;
 }
 
+interface MessageContentWithType {
+	type: string;
+}
+
+interface ToolResultBlock extends MessageContentWithType {
+	type: 'tool_result';
+	content?: unknown;
+	is_error?: boolean;
+}
+
+interface StdoutStderrToolResult {
+	stdout?: unknown;
+	stderr?: unknown;
+	is_error?: unknown;
+	noOutputExpected?: unknown;
+}
+
 interface PendingTodoRender {
 	diff: TodoDiff;
 	toolLabel: string;
@@ -353,6 +370,75 @@ function formatTodoSnapshotLine( todo: TodoEntry ): string {
 		default:
 			return `${ chalk.dim( '○' ) } ${ chalk.dim( todo.content ) }`;
 	}
+}
+
+function isMessageContentWithType( value: unknown ): value is MessageContentWithType {
+	return typeof value === 'object' && value !== null && 'type' in value;
+}
+
+function isToolResultBlock( value: unknown ): value is ToolResultBlock {
+	return isMessageContentWithType( value ) && value.type === 'tool_result';
+}
+
+function isStdoutStderrToolResult( value: unknown ): value is StdoutStderrToolResult {
+	return (
+		typeof value === 'object' &&
+		value !== null &&
+		( 'stdout' in value || 'stderr' in value || 'noOutputExpected' in value )
+	);
+}
+
+function normalizeToolResultContent(
+	content: unknown
+): ToolUseResultContent[ 'content' ] | undefined {
+	if ( typeof content === 'string' ) {
+		return content;
+	}
+
+	if ( Array.isArray( content ) ) {
+		return content.filter( isMessageContentWithType ).map( ( block ) => {
+			if ( 'text' in block && typeof block.text === 'string' ) {
+				return { type: block.type, text: block.text };
+			}
+			return { type: block.type };
+		} );
+	}
+
+	if ( content === undefined || content === null ) {
+		return undefined;
+	}
+
+	return String( content );
+}
+
+function normalizeToolUseResult( result: unknown ): ToolUseResultContent | null {
+	if ( ! result || typeof result !== 'object' ) {
+		return null;
+	}
+
+	if ( 'content' in result || 'isError' in result || 'is_error' in result ) {
+		const typedResult = result as {
+			content?: unknown;
+			isError?: unknown;
+			is_error?: unknown;
+		};
+		return {
+			content: normalizeToolResultContent( typedResult.content ),
+			isError: typedResult.isError === true || typedResult.is_error === true,
+		};
+	}
+
+	if ( isStdoutStderrToolResult( result ) ) {
+		const stdout = typeof result.stdout === 'string' ? result.stdout : '';
+		const stderr = typeof result.stderr === 'string' ? result.stderr : '';
+		const parts = [ stdout, stderr ? `stderr: ${ stderr }` : '' ].filter( Boolean );
+		return {
+			content: parts.join( '\n' ) || undefined,
+			isError: result.is_error === true,
+		};
+	}
+
+	return null;
 }
 
 export class AiChatUI {
@@ -1424,12 +1510,24 @@ export class AiChatUI {
 	private getToolResultContent(
 		message: SDKMessage & { type: 'user' }
 	): ToolUseResultContent | null {
-		const result = message.tool_use_result;
-		if ( ! result || typeof result !== 'object' ) {
+		const toolUseResult = normalizeToolUseResult( message.tool_use_result );
+		if (
+			toolUseResult &&
+			( toolUseResult.content !== undefined || toolUseResult.isError === true )
+		) {
+			return toolUseResult;
+		}
+
+		const contentBlocks = Array.isArray( message.message.content ) ? message.message.content : [];
+		const toolResultBlock = contentBlocks.find( isToolResultBlock );
+		if ( ! toolResultBlock ) {
 			return null;
 		}
 
-		return result as ToolUseResultContent;
+		return {
+			content: normalizeToolResultContent( toolResultBlock.content ),
+			isError: toolResultBlock.is_error === true,
+		};
 	}
 
 	private finalizeToolUseLine( isError: boolean, label: string ): void {

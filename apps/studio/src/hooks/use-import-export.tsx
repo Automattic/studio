@@ -1,7 +1,8 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { __, sprintf } from '@wordpress/i18n';
-import { createContext, useMemo, useState, useCallback, useContext } from 'react';
+import { createContext, useEffect, useMemo, useState, useCallback, useContext } from 'react';
 import { WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT_IN_HRS } from 'src/constants';
+import { useAuth } from 'src/hooks/use-auth';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
@@ -77,6 +78,14 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 	const [ importState, setImportState ] = useState< ImportProgressState >( {} );
 	const [ exportState, setExportState ] = useState< ExportProgressState >( {} );
 	const { startServer, stopServer, updateSite } = useSiteDetails();
+	const { isAuthenticated } = useAuth();
+
+	useEffect( () => {
+		if ( ! isAuthenticated ) {
+			setImportState( {} );
+			setExportState( {} );
+		}
+	}, [ isAuthenticated ] );
 
 	const importFile = useCallback(
 		async (

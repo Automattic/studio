@@ -38,7 +38,9 @@ export default defineConfig(
 			},
 			sourceType: 'commonjs',
 			parserOptions: {
-				projectService: true,
+				projectService: {
+					allowDefaultProject: [ 'apps/studio/tailwind.config.js' ],
+				},
 			},
 		},
 		settings: {

@@ -1,7 +1,7 @@
 /** @type {import('tailwindcss').Config} */
+import path from 'node:path';
 import palette from '@automattic/color-studio';
 import plugin from 'tailwindcss/plugin';
-import path from 'node:path';
 import { WINDOWS_TITLEBAR_HEIGHT, MAIN_MIN_WIDTH, APP_CHROME_SPACING } from './src/constants.ts';
 
 const BASE_FONT_SIZE = 16; // 1 rem

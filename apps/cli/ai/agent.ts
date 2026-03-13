@@ -213,41 +213,29 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 
 				const outsidePath = findFirstPathOutsideStudioRoot( input, metadata.blockedPath );
 				if ( outsidePath && isPathGatedTool( toolName ) ) {
-					if ( hasSessionApprovedPath( toolName, outsidePath ) ) {
-						return { behavior: 'allow' as const, updatedInput: input };
-					}
+					if ( ! hasSessionApprovedPath( toolName, outsidePath ) ) {
+						const approvalDecision = await askForPathGatedToolApproval( {
+							toolName,
+							outsidePath,
+							onAskUser,
+						} );
 
-					const approvalDecision = await askForPathGatedToolApproval( {
-						toolName,
-						outsidePath,
-						onAskUser,
-					} );
-
-					if ( approvalDecision === 'deny' ) {
-						return {
-							behavior: 'deny' as const,
-							message: ACCESS_DENIED_MESSAGE,
-						};
-					}
-
-					if ( approvalDecision === 'allow_session' ) {
-						rememberSessionApprovedPath( toolName, outsidePath );
-						if ( metadata.suggestions?.length ) {
+						if ( approvalDecision === 'deny' ) {
 							return {
-								behavior: 'allow' as const,
-								updatedInput: input,
-								updatedPermissions: metadata.suggestions,
+								behavior: 'deny' as const,
+								message: ACCESS_DENIED_MESSAGE,
 							};
+						}
+
+						if ( approvalDecision === 'allow_session' ) {
+							rememberSessionApprovedPath( toolName, outsidePath );
 						}
 					}
 
-					return { behavior: 'allow' as const, updatedInput: input };
-				}
-
-				if ( outsidePath ) {
 					return {
-						behavior: 'deny' as const,
-						message: ACCESS_DENIED_MESSAGE,
+						behavior: 'allow' as const,
+						updatedInput: input,
+						...( metadata.suggestions?.length && { updatedPermissions: metadata.suggestions } ),
 					};
 				}
 

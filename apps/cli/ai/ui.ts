@@ -54,6 +54,7 @@ class PromptEditor implements Component, Focusable {
 	activeSiteName: string | null = null;
 	hints: string[] = [];
 	slashCommands: SlashCommandDef[] = [];
+	statusMessage: string | null = null;
 
 	get focused(): boolean {
 		return this._focused;
@@ -144,7 +145,7 @@ class PromptEditor implements Component, Focusable {
 			return emptyPrefix + line;
 		} );
 
-		// Below the bottom border: show either our own suggestions or the hint bar
+		// Below the bottom border: show suggestions or hint bar (with optional status on the right)
 		if ( hasAutocomplete && this.slashCommands.length > 0 ) {
 			// Filter commands by what the user typed (e.g. "/mo" filters to "model")
 			const text = this.getText().trim();
@@ -158,8 +159,20 @@ class PromptEditor implements Component, Focusable {
 					' ' + chalk.dim( `/${ cmd.name.padEnd( maxLen ) }` ) + chalk.dim( '  ' + cmd.description )
 				);
 			}
-		} else if ( this.hints.length > 0 ) {
-			result.push( ' ' + this.hints.map( ( h ) => chalk.dim( h ) ).join( chalk.dim( ' · ' ) ) );
+		} else {
+			const leftPart =
+				this.hints.length > 0
+					? ' ' + this.hints.map( ( h ) => chalk.dim( h ) ).join( chalk.dim( ' · ' ) )
+					: '';
+			const rightPart = this.statusMessage ? chalk.dim( this.statusMessage ) + ' ' : '';
+			if ( leftPart || rightPart ) {
+				// eslint-disable-next-line no-control-regex
+				const stripAnsi = ( s: string ) => s.replace( /\x1b\[[0-9;]*m/g, '' );
+				const leftLen = stripAnsi( leftPart ).length;
+				const rightLen = stripAnsi( rightPart ).length;
+				const padding = Math.max( 1, width - leftLen - rightLen );
+				result.push( leftPart + ' '.repeat( padding ) + rightPart );
+			}
 		}
 
 		return result;
@@ -1032,6 +1045,11 @@ export class AiChatUI {
 
 	showInfo( message: string ): void {
 		this.messages.addChild( new Text( '\n' + chalk.dim( message ) + '\n', 1, 0 ) );
+		this.tui.requestRender();
+	}
+
+	setStatusMessage( message: string | null ): void {
+		this.editor.statusMessage = message;
 		this.tui.requestRender();
 	}
 

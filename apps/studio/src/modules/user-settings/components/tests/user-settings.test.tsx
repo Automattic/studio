@@ -33,7 +33,6 @@ vi.mock( 'src/lib/get-ipc-api', () => ( {
 			editors: [ 'vscode' ],
 		} ),
 		isStudioCliInstalled: vi.fn().mockResolvedValue( true ),
-		getMcpServerConfig: vi.fn().mockResolvedValue( '{}' ),
 		copyText: vi.fn().mockResolvedValue( undefined ),
 	} ),
 } ) );

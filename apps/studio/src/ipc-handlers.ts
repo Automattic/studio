@@ -134,8 +134,6 @@ export {
 	showUserSettings,
 } from 'src/modules/user-settings/lib/ipc-handlers';
 
-export { getMcpServerConfig } from 'src/modules/mcp/lib/ipc-handlers';
-
 export async function getAgentInstructionsStatus(
 	_event: IpcMainInvokeEvent,
 	siteId: string

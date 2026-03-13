@@ -1,30 +1,20 @@
+import { getMcpServerConfigJson } from '@studio/common/lib/mcp-config';
 import { useI18n } from '@wordpress/react-i18n';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Button from 'src/components/button';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { SettingsFormField } from 'src/modules/user-settings/components/settings-form-field';
 
 export function McpSettings() {
 	const { __ } = useI18n();
-	const [ configJson, setConfigJson ] = useState( '' );
 	const [ copied, setCopied ] = useState( false );
-
-	useEffect( () => {
-		getIpcApi()
-			.getMcpServerConfig()
-			.then( setConfigJson )
-			.catch( ( error ) => console.error( error ) );
-	}, [] );
+	const configJson = getMcpServerConfigJson();
 
 	const handleCopy = async () => {
 		await getIpcApi().copyText( configJson );
 		setCopied( true );
 		setTimeout( () => setCopied( false ), 2000 );
 	};
-
-	if ( ! configJson ) {
-		return null;
-	}
 
 	return (
 		<SettingsFormField label={ __( 'AI MCP Server' ) }>

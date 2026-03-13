@@ -44,13 +44,19 @@ export interface SiteInfo {
 	url?: string;
 }
 
-const FILE_PREVIEW_MAX_LINES = 10;
+const DEFAULT_COLLAPSE_THRESHOLD_LINES = 5;
 
 interface ExpandablePreview {
 	textComponent: Text;
 	collapsedContent: string;
 	expandedContent: string;
 	isExpanded: boolean;
+}
+
+function formatToolOutputLines( lines: string[] ): string {
+	return lines
+		.map( ( line, index ) => `${ index === 0 ? '   ' + chalk.dim( '⎿ ' ) : '     ' }${ line }` )
+		.join( '\n' );
 }
 
 class PromptEditor implements Component, Focusable {
@@ -298,6 +304,23 @@ interface ToolUseResultContent {
 	isError?: boolean;
 }
 
+interface MessageContentWithType {
+	type: string;
+}
+
+interface ToolResultBlock extends MessageContentWithType {
+	type: 'tool_result';
+	content?: unknown;
+	is_error?: boolean;
+}
+
+interface StdoutStderrToolResult {
+	stdout?: unknown;
+	stderr?: unknown;
+	is_error?: unknown;
+	noOutputExpected?: unknown;
+}
+
 interface PendingTodoRender {
 	diff: TodoDiff;
 	toolLabel: string;
@@ -349,6 +372,75 @@ function formatTodoSnapshotLine( todo: TodoEntry ): string {
 	}
 }
 
+function isMessageContentWithType( value: unknown ): value is MessageContentWithType {
+	return typeof value === 'object' && value !== null && 'type' in value;
+}
+
+function isToolResultBlock( value: unknown ): value is ToolResultBlock {
+	return isMessageContentWithType( value ) && value.type === 'tool_result';
+}
+
+function isStdoutStderrToolResult( value: unknown ): value is StdoutStderrToolResult {
+	return (
+		typeof value === 'object' &&
+		value !== null &&
+		( 'stdout' in value || 'stderr' in value || 'noOutputExpected' in value )
+	);
+}
+
+function normalizeToolResultContent(
+	content: unknown
+): ToolUseResultContent[ 'content' ] | undefined {
+	if ( typeof content === 'string' ) {
+		return content;
+	}
+
+	if ( Array.isArray( content ) ) {
+		return content.filter( isMessageContentWithType ).map( ( block ) => {
+			if ( 'text' in block && typeof block.text === 'string' ) {
+				return { type: block.type, text: block.text };
+			}
+			return { type: block.type };
+		} );
+	}
+
+	if ( content === undefined || content === null ) {
+		return undefined;
+	}
+
+	return String( content );
+}
+
+function normalizeToolUseResult( result: unknown ): ToolUseResultContent | null {
+	if ( ! result || typeof result !== 'object' ) {
+		return null;
+	}
+
+	if ( 'content' in result || 'isError' in result || 'is_error' in result ) {
+		const typedResult = result as {
+			content?: unknown;
+			isError?: unknown;
+			is_error?: unknown;
+		};
+		return {
+			content: normalizeToolResultContent( typedResult.content ),
+			isError: typedResult.isError === true || typedResult.is_error === true,
+		};
+	}
+
+	if ( isStdoutStderrToolResult( result ) ) {
+		const stdout = typeof result.stdout === 'string' ? result.stdout : '';
+		const stderr = typeof result.stderr === 'string' ? result.stderr : '';
+		const parts = [ stdout, stderr ? `stderr: ${ stderr }` : '' ].filter( Boolean );
+		return {
+			content: parts.join( '\n' ) || undefined,
+			isError: result.is_error === true,
+		};
+	}
+
+	return null;
+}
+
 export class AiChatUI {
 	private tui: TUI;
 	private editor: PromptEditor;
@@ -374,7 +466,7 @@ export class AiChatUI {
 	private pendingTodoRenders = new Map< string, PendingTodoRender >();
 	private pendingTodoRenderOrder: string[] = [];
 	private _activeSite: SiteInfo | null = null;
-	private expandablePreview: ExpandablePreview | null = null;
+	private activeExpandablePreview: ExpandablePreview | null = null;
 	private _inAgentTurn = false;
 	private _activeSiteData: SiteData | null = null;
 	private pendingToolCalls = new Map<
@@ -619,7 +711,7 @@ export class AiChatUI {
 				this.wasInterrupted = true;
 				this.interruptCallback();
 			}
-			if ( matchesKey( data, 'ctrl+o' ) && this.expandablePreview ) {
+			if ( matchesKey( data, 'ctrl+o' ) && this.activeExpandablePreview ) {
 				this.toggleExpandablePreview();
 				return { consume: true };
 			}
@@ -865,7 +957,7 @@ export class AiChatUI {
 		this.editor.activeSiteName = site.name;
 		const suffix = site.remote ? ' (WordPress.com)' : '';
 		const label = ` ✻ Selected site: ${ site.name }${ suffix }`;
-		this.messages.addChild( new Text( `${ chalk.hex( '#8839ef' )( label ) }\n`, 0, 0 ) );
+		this.messages.addChild( new Text( `${ chalk.hex( '#5b8db8' )( label ) }\n`, 0, 0 ) );
 		this.tui.requestRender();
 	}
 
@@ -1147,9 +1239,9 @@ export class AiChatUI {
 		const formatted = lines
 			.map( ( line, i ) => {
 				if ( i === 0 ) {
-					return ' ' + chalk.bgHex( '#eeeeee' ).black( '❯ ' + line + ' ' );
+					return ' ' + chalk.bgHex( '#ddeeff' ).black( '❯ ' + line + ' ' );
 				}
-				return ' ' + chalk.bgHex( '#eeeeee' ).black( '   ' + line + ' ' );
+				return ' ' + chalk.bgHex( '#ddeeff' ).black( '   ' + line + ' ' );
 			} )
 			.join( '\n' );
 		this.messages.addChild( new Text( '\n' + formatted, 0, 0 ) );
@@ -1202,10 +1294,8 @@ export class AiChatUI {
 		if ( ! this._inAgentTurn ) {
 			hints.push( '↓ select site' );
 		}
-		if ( this.expandablePreview && ! this.expandablePreview.isExpanded ) {
-			hints.push( 'ctrl+o expand' );
-		} else if ( this.expandablePreview?.isExpanded ) {
-			hints.push( 'ctrl+o collapse' );
+		if ( this.activeExpandablePreview ) {
+			hints.push( this.activeExpandablePreview.isExpanded ? 'ctrl+o collapse' : 'ctrl+o expand' );
 		}
 		hints.push( 'esc to interrupt' );
 		this.editor.hints = hints;
@@ -1303,22 +1393,43 @@ export class AiChatUI {
 			return;
 		}
 
+		this.addExpandablePreview( preview );
+	}
+
+	private addExpandablePreview( preview: { collapsed: string; expanded: string } ): void {
 		const textComponent = new Text( preview.collapsed, 0, 0 );
 		this.messages.addChild( textComponent );
 
 		if ( preview.collapsed !== preview.expanded ) {
-			this.expandablePreview = {
+			this.activeExpandablePreview = {
 				textComponent,
 				collapsedContent: preview.collapsed,
 				expandedContent: preview.expanded,
 				isExpanded: false,
 			};
 			this.updateHints();
-		} else {
-			this.expandablePreview = null;
 		}
 
 		this.tui.requestRender();
+	}
+
+	private generateExpandablePreview( lines: string[] ): { collapsed: string; expanded: string } {
+		const expanded = formatToolOutputLines( lines );
+
+		if ( lines.length <= DEFAULT_COLLAPSE_THRESHOLD_LINES ) {
+			return { collapsed: expanded, expanded };
+		}
+
+		const collapsed =
+			formatToolOutputLines( lines.slice( 0, DEFAULT_COLLAPSE_THRESHOLD_LINES ) ) +
+			'\n     ' +
+			chalk.dim(
+				'... ' +
+					( lines.length - DEFAULT_COLLAPSE_THRESHOLD_LINES ) +
+					' more lines · ctrl+o to expand'
+			);
+
+		return { collapsed, expanded };
 	}
 
 	private generateWritePreview( content: string ): { collapsed: string; expanded: string } {
@@ -1326,29 +1437,12 @@ export class AiChatUI {
 		const totalLines = lines.length;
 		const numWidth = String( totalLines ).length;
 
-		const formatLines = ( lineList: string[] ) => {
-			return lineList
-				.map( ( line, i ) => {
-					const lineNum = chalk.dim( String( i + 1 ).padStart( numWidth ) );
-					return '   ' + chalk.dim( '⎿ ' ) + lineNum + ' ' + chalk.green( line );
-				} )
-				.join( '\n' );
-		};
-
-		if ( totalLines <= FILE_PREVIEW_MAX_LINES ) {
-			const formatted = formatLines( lines );
-			return { collapsed: formatted, expanded: formatted };
-		}
-
-		const collapsed =
-			formatLines( lines.slice( 0, FILE_PREVIEW_MAX_LINES ) ) +
-			'\n   ' +
-			chalk.dim(
-				'⎿ ... ' + ( totalLines - FILE_PREVIEW_MAX_LINES ) + ' more lines · ctrl+o to expand'
-			);
-		const expanded = formatLines( lines );
-
-		return { collapsed, expanded };
+		return this.generateExpandablePreview(
+			lines.map( ( line, i ) => {
+				const lineNum = chalk.dim( String( i + 1 ).padStart( numWidth ) );
+				return lineNum + ' ' + chalk.green( line );
+			} )
+		);
 	}
 
 	private generateEditPreview(
@@ -1360,36 +1454,21 @@ export class AiChatUI {
 
 		const diffLines: string[] = [];
 		for ( const line of oldLines ) {
-			diffLines.push( '   ' + chalk.dim( '⎿ ' ) + chalk.red( '- ' + line ) );
+			diffLines.push( chalk.red( '- ' + line ) );
 		}
 		for ( const line of newLines ) {
-			diffLines.push( '   ' + chalk.dim( '⎿ ' ) + chalk.green( '+ ' + line ) );
+			diffLines.push( chalk.green( '+ ' + line ) );
 		}
 
-		const totalDiffLines = diffLines.length;
-
-		if ( totalDiffLines <= FILE_PREVIEW_MAX_LINES ) {
-			const formatted = diffLines.join( '\n' );
-			return { collapsed: formatted, expanded: formatted };
-		}
-
-		const collapsed =
-			diffLines.slice( 0, FILE_PREVIEW_MAX_LINES ).join( '\n' ) +
-			'\n   ' +
-			chalk.dim(
-				'⎿ ... ' + ( totalDiffLines - FILE_PREVIEW_MAX_LINES ) + ' more lines · ctrl+o to expand'
-			);
-		const expanded = diffLines.join( '\n' );
-
-		return { collapsed, expanded };
+		return this.generateExpandablePreview( diffLines );
 	}
 
 	private toggleExpandablePreview(): void {
-		if ( ! this.expandablePreview ) {
+		const preview = this.activeExpandablePreview;
+		if ( ! preview ) {
 			return;
 		}
 
-		const preview = this.expandablePreview;
 		preview.isExpanded = ! preview.isExpanded;
 		preview.textComponent.setText(
 			preview.isExpanded ? preview.expandedContent : preview.collapsedContent
@@ -1431,12 +1510,24 @@ export class AiChatUI {
 	private getToolResultContent(
 		message: SDKMessage & { type: 'user' }
 	): ToolUseResultContent | null {
-		const result = message.tool_use_result;
-		if ( ! result || typeof result !== 'object' ) {
+		const toolUseResult = normalizeToolUseResult( message.tool_use_result );
+		if (
+			toolUseResult &&
+			( toolUseResult.content !== undefined || toolUseResult.isError === true )
+		) {
+			return toolUseResult;
+		}
+
+		const contentBlocks = Array.isArray( message.message.content ) ? message.message.content : [];
+		const toolResultBlock = contentBlocks.find( isToolResultBlock );
+		if ( ! toolResultBlock ) {
 			return null;
 		}
 
-		return result as ToolUseResultContent;
+		return {
+			content: normalizeToolResultContent( toolResultBlock.content ),
+			isError: toolResultBlock.is_error === true,
+		};
 	}
 
 	private finalizeToolUseLine( isError: boolean, label: string ): void {
@@ -1473,12 +1564,9 @@ export class AiChatUI {
 				  ]
 				: [] ),
 		];
-		const formatted = lines
-			.map(
-				( line ) => '   ' + chalk.dim( '⎿ ' ) + ( line.dim ? chalk.dim( line.text ) : line.text )
-			)
-			.join( '\n' );
-		this.messages.addChild( new Text( formatted, 0, 0 ) );
+		const formatted = lines.map( ( line ) => ( line.dim ? chalk.dim( line.text ) : line.text ) );
+		const rendered = formatToolOutputLines( formatted );
+		this.messages.addChild( new Text( rendered, 0, 0 ) );
 	}
 
 	private syncLatestTodoSnapshot(): void {
@@ -1519,10 +1607,9 @@ export class AiChatUI {
 		const maxLength = toolName === 'mcp__studio__validate_blocks' ? 2000 : 500;
 		const truncated = text.length > maxLength ? text.slice( 0, maxLength ) + '…' : text;
 		const resultLines = truncated.split( '\n' );
-		const formatted = resultLines
-			.map( ( line ) => '   ' + chalk.dim( '⎿ ' ) + chalk.dim( line ) )
-			.join( '\n' );
-		this.messages.addChild( new Text( formatted, 0, 0 ) );
+		this.addExpandablePreview(
+			this.generateExpandablePreview( resultLines.map( ( line ) => chalk.dim( line ) ) )
+		);
 	}
 
 	private showToolResult(

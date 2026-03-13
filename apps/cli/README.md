@@ -1,5 +1,8 @@
 # WordPress Studio CLI
 
+> [!WARNING]  
+> Please note that this is still alpha software. It requires the Studio desktop app to be installed.
+
 The standalone, CLI-only version of [WordPress Studio](https://developer.wordpress.com/studio/).
 
 - Create, run, and manage local WordPress sites from the terminal.

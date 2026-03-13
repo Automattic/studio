@@ -17,6 +17,7 @@ import {
 } from '@mariozechner/pi-tui';
 import chalk from 'chalk';
 import { AI_MODELS, DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
+import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
 import { AI_CHAT_SLASH_COMMANDS, type SlashCommandDef } from 'cli/ai/slash-commands';
 import {
 	diffTodoSnapshot,
@@ -24,25 +25,38 @@ import {
 	type TodoDiff,
 	type TodoEntry,
 } from 'cli/ai/todo-stream';
-import { getSiteUrl, readAppdata, type SiteData } from 'cli/lib/appdata';
+import { getWpComSites } from 'cli/lib/api';
+import { getAuthToken, getSiteUrl, readAppdata, type SiteData } from 'cli/lib/appdata';
 import { openBrowser } from 'cli/lib/browser';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { TodoWriteInput } from '@anthropic-ai/claude-agent-sdk/sdk-tools';
 
+const SITE_PICKER_TAB_LOCAL = 'local' as const;
+const SITE_PICKER_TAB_REMOTE = 'remote' as const;
+type SitePickerTab = typeof SITE_PICKER_TAB_LOCAL | typeof SITE_PICKER_TAB_REMOTE;
+
 export interface SiteInfo {
 	name: string;
 	path: string;
 	running: boolean;
+	remote?: boolean;
+	url?: string;
 }
 
-const FILE_PREVIEW_MAX_LINES = 10;
+const DEFAULT_COLLAPSE_THRESHOLD_LINES = 5;
 
 interface ExpandablePreview {
 	textComponent: Text;
 	collapsedContent: string;
 	expandedContent: string;
 	isExpanded: boolean;
+}
+
+function formatToolOutputLines( lines: string[] ): string {
+	return lines
+		.map( ( line, index ) => `${ index === 0 ? '   ' + chalk.dim( '⎿ ' ) : '     ' }${ line }` )
+		.join( '\n' );
 }
 
 class PromptEditor implements Component, Focusable {
@@ -53,6 +67,8 @@ class PromptEditor implements Component, Focusable {
 	activeSiteName: string | null = null;
 	hints: string[] = [];
 	slashCommands: SlashCommandDef[] = [];
+	slashCommandSelectedIndex = -1;
+	statusMessage: string | null = null;
 
 	get focused(): boolean {
 		return this._focused;
@@ -77,8 +93,9 @@ class PromptEditor implements Component, Focusable {
 	}
 
 	handleInput( data: string ): void {
-		this.isEmpty = false;
 		this.editor.handleInput( data );
+		this.isEmpty = this.editor.getText() === '';
+		this.slashCommandSelectedIndex = -1;
 	}
 
 	setAutocompleteProvider( provider: CombinedAutocompleteProvider ): void {
@@ -87,6 +104,19 @@ class PromptEditor implements Component, Focusable {
 
 	getText(): string {
 		return this.editor.getText();
+	}
+
+	getMatchingSlashCommands(): SlashCommandDef[] {
+		const text = this.getText().trim();
+		if ( ! text.startsWith( '/' ) ) {
+			return [];
+		}
+		const prefix = text.slice( 1 ).toLowerCase();
+		return this.slashCommands.filter( ( cmd ) => cmd.name.toLowerCase().startsWith( prefix ) );
+	}
+
+	get isSlashMenuVisible(): boolean {
+		return this.getMatchingSlashCommands().length > 0;
 	}
 
 	invalidate(): void {
@@ -143,22 +173,33 @@ class PromptEditor implements Component, Focusable {
 			return emptyPrefix + line;
 		} );
 
-		// Below the bottom border: show either our own suggestions or the hint bar
+		// Below the bottom border: show suggestions or hint bar (with optional status on the right)
 		if ( hasAutocomplete && this.slashCommands.length > 0 ) {
-			// Filter commands by what the user typed (e.g. "/mo" filters to "model")
-			const text = this.getText().trim();
-			const prefix = text.startsWith( '/' ) ? text.slice( 1 ).toLowerCase() : '';
-			const matching = this.slashCommands.filter( ( cmd ) =>
-				cmd.name.toLowerCase().startsWith( prefix )
-			);
+			const matching = this.getMatchingSlashCommands();
 			const maxLen = Math.max( ...matching.map( ( c ) => c.name.length ) );
-			for ( const cmd of matching ) {
-				result.push(
-					' ' + chalk.dim( `/${ cmd.name.padEnd( maxLen ) }` ) + chalk.dim( '  ' + cmd.description )
-				);
+			for ( let i = 0; i < matching.length; i++ ) {
+				const cmd = matching[ i ];
+				const isSelected = i === this.slashCommandSelectedIndex;
+				const label = `/${ cmd.name.padEnd( maxLen ) }  ${ cmd.description }`;
+				result.push( ' ' + ( isSelected ? chalk.blue( label ) : chalk.dim( label ) ) );
 			}
-		} else if ( this.hints.length > 0 ) {
-			result.push( ' ' + this.hints.map( ( h ) => chalk.dim( h ) ).join( chalk.dim( ' · ' ) ) );
+		} else {
+			const activeHints = this.isEmpty
+				? this.hints
+				: this.hints.filter( ( h ) => h !== '↓ select site' );
+			const leftPart =
+				activeHints.length > 0
+					? ' ' + activeHints.map( ( h ) => chalk.dim( h ) ).join( chalk.dim( ' · ' ) )
+					: '';
+			const rightPart = this.statusMessage ? chalk.dim( this.statusMessage ) + ' ' : '';
+			if ( leftPart || rightPart ) {
+				// eslint-disable-next-line no-control-regex
+				const stripAnsi = ( s: string ) => s.replace( /\x1b\[[0-9;]*m/g, '' );
+				const leftLen = stripAnsi( leftPart ).length;
+				const rightLen = stripAnsi( rightPart ).length;
+				const padding = Math.max( 1, width - leftLen - rightLen );
+				result.push( leftPart + ' '.repeat( padding ) + rightPart );
+			}
 		}
 
 		return result;
@@ -274,6 +315,23 @@ interface ToolUseResultContent {
 	isError?: boolean;
 }
 
+interface MessageContentWithType {
+	type: string;
+}
+
+interface ToolResultBlock extends MessageContentWithType {
+	type: 'tool_result';
+	content?: unknown;
+	is_error?: boolean;
+}
+
+interface StdoutStderrToolResult {
+	stdout?: unknown;
+	stderr?: unknown;
+	is_error?: unknown;
+	noOutputExpected?: unknown;
+}
+
 interface PendingTodoRender {
 	diff: TodoDiff;
 	toolLabel: string;
@@ -325,6 +383,75 @@ function formatTodoSnapshotLine( todo: TodoEntry ): string {
 	}
 }
 
+function isMessageContentWithType( value: unknown ): value is MessageContentWithType {
+	return typeof value === 'object' && value !== null && 'type' in value;
+}
+
+function isToolResultBlock( value: unknown ): value is ToolResultBlock {
+	return isMessageContentWithType( value ) && value.type === 'tool_result';
+}
+
+function isStdoutStderrToolResult( value: unknown ): value is StdoutStderrToolResult {
+	return (
+		typeof value === 'object' &&
+		value !== null &&
+		( 'stdout' in value || 'stderr' in value || 'noOutputExpected' in value )
+	);
+}
+
+function normalizeToolResultContent(
+	content: unknown
+): ToolUseResultContent[ 'content' ] | undefined {
+	if ( typeof content === 'string' ) {
+		return content;
+	}
+
+	if ( Array.isArray( content ) ) {
+		return content.filter( isMessageContentWithType ).map( ( block ) => {
+			if ( 'text' in block && typeof block.text === 'string' ) {
+				return { type: block.type, text: block.text };
+			}
+			return { type: block.type };
+		} );
+	}
+
+	if ( content === undefined || content === null ) {
+		return undefined;
+	}
+
+	return String( content );
+}
+
+function normalizeToolUseResult( result: unknown ): ToolUseResultContent | null {
+	if ( ! result || typeof result !== 'object' ) {
+		return null;
+	}
+
+	if ( 'content' in result || 'isError' in result || 'is_error' in result ) {
+		const typedResult = result as {
+			content?: unknown;
+			isError?: unknown;
+			is_error?: unknown;
+		};
+		return {
+			content: normalizeToolResultContent( typedResult.content ),
+			isError: typedResult.isError === true || typedResult.is_error === true,
+		};
+	}
+
+	if ( isStdoutStderrToolResult( result ) ) {
+		const stdout = typeof result.stdout === 'string' ? result.stdout : '';
+		const stderr = typeof result.stderr === 'string' ? result.stderr : '';
+		const parts = [ stdout, stderr ? `stderr: ${ stderr }` : '' ].filter( Boolean );
+		return {
+			content: parts.join( '\n' ) || undefined,
+			isError: result.is_error === true,
+		};
+	}
+
+	return null;
+}
+
 export class AiChatUI {
 	private tui: TUI;
 	private editor: PromptEditor;
@@ -336,6 +463,7 @@ export class AiChatUI {
 	private loaderVisible = false;
 	private editorVisible = false;
 	private interruptCallback: ( () => void ) | null = null;
+	private wasInterrupted = false;
 	private hasShownResponseMarker = false;
 	private turnStartTime = 0;
 	private toolStartTime: number | null = null;
@@ -349,7 +477,7 @@ export class AiChatUI {
 	private pendingTodoRenders = new Map< string, PendingTodoRender >();
 	private pendingTodoRenderOrder: string[] = [];
 	private _activeSite: SiteInfo | null = null;
-	private expandablePreview: ExpandablePreview | null = null;
+	private activeExpandablePreview: ExpandablePreview | null = null;
 	private _inAgentTurn = false;
 	private _activeSiteData: SiteData | null = null;
 	private pendingToolCalls = new Map<
@@ -357,6 +485,7 @@ export class AiChatUI {
 		{ name: string; input: Record< string, unknown > }
 	>();
 	currentModel: AiModelId = DEFAULT_MODEL;
+	currentProvider: AiProviderId = DEFAULT_AI_PROVIDER;
 
 	private readonly thinkingMessages = [
 		'Thinking…',
@@ -423,6 +552,10 @@ export class AiChatUI {
 	private sitePickerItems: SiteInfo[] = [];
 	private sitePickerSiteData: SiteData[] = [];
 	private sitePickerSelectedIndex = 0;
+	private sitePickerTab: SitePickerTab = SITE_PICKER_TAB_LOCAL;
+	private sitePickerRemoteItems: SiteInfo[] = [];
+	private sitePickerRemoteLoading = false;
+	private sitePickerQuery = '';
 
 	get activeSite(): SiteInfo | null {
 		return this._activeSite;
@@ -518,8 +651,62 @@ export class AiChatUI {
 				}
 				return { consume: true };
 			}
-			// Down arrow to open site picker (when editor is visible and picker is not)
-			if ( matchesKey( data, 'down' ) && this.editorVisible && ! this.sitePickerVisible ) {
+			// Slash command menu navigation
+			if ( this.editorVisible && this.editor.isSlashMenuVisible ) {
+				const matching = this.editor.getMatchingSlashCommands();
+				if ( matchesKey( data, 'down' ) ) {
+					this.editor.slashCommandSelectedIndex = Math.min(
+						matching.length - 1,
+						this.editor.slashCommandSelectedIndex + 1
+					);
+					this.tui.requestRender();
+					return { consume: true };
+				}
+				if ( matchesKey( data, 'up' ) ) {
+					this.editor.slashCommandSelectedIndex = Math.max(
+						-1,
+						this.editor.slashCommandSelectedIndex - 1
+					);
+					this.tui.requestRender();
+					return { consume: true };
+				}
+				if (
+					( matchesKey( data, 'tab' ) || matchesKey( data, 'enter' ) ) &&
+					this.editor.slashCommandSelectedIndex >= 0 &&
+					this.editor.slashCommandSelectedIndex < matching.length
+				) {
+					const cmd = matching[ this.editor.slashCommandSelectedIndex ];
+					this.editor.slashCommandSelectedIndex = -1;
+					if ( matchesKey( data, 'enter' ) ) {
+						// Submit the command directly
+						this.editor.setText( '' );
+						if ( this.submitResolve ) {
+							const resolve = this.submitResolve;
+							this.submitResolve = null;
+							resolve( `/${ cmd.name }` );
+						}
+					} else {
+						// Tab: fill in the command text without submitting
+						this.editor.setText( `/${ cmd.name }` );
+						this.tui.requestRender();
+					}
+					return { consume: true };
+				}
+				// Tab to autocomplete when there's only one match (no selection needed)
+				if ( matchesKey( data, 'tab' ) && matching.length === 1 ) {
+					this.editor.setText( `/${ matching[ 0 ].name }` );
+					this.editor.slashCommandSelectedIndex = -1;
+					this.tui.requestRender();
+					return { consume: true };
+				}
+			}
+			// Down arrow to open site picker (only when prompt is empty)
+			if (
+				matchesKey( data, 'down' ) &&
+				this.editorVisible &&
+				! this.sitePickerVisible &&
+				this.editor.getText().trim() === ''
+			) {
 				void this.openSitePicker();
 				return { consume: true };
 			}
@@ -531,31 +718,60 @@ export class AiChatUI {
 					return { consume: true };
 				}
 				if ( matchesKey( data, 'down' ) ) {
+					const filtered = this.getFilteredSitePickerItems();
 					this.sitePickerSelectedIndex = Math.min(
-						this.sitePickerItems.length - 1,
+						filtered.length - 1,
 						this.sitePickerSelectedIndex + 1
 					);
 					this.renderSitePicker();
 					return { consume: true };
 				}
 				if ( matchesKey( data, 'enter' ) ) {
-					this.selectSite( this.sitePickerSelectedIndex );
+					const filtered = this.getFilteredSitePickerItems();
+					const selectedItem = filtered[ this.sitePickerSelectedIndex ];
+					if ( selectedItem ) {
+						this.selectFilteredSite( selectedItem );
+					}
 					return { consume: true };
 				}
-				if ( matchesKey( data, 'space' ) ) {
+				if ( matchesKey( data, 'tab' ) ) {
 					void this.openSelectedSite();
 					return { consume: true };
 				}
+				if ( matchesKey( data, 'right' ) && this.sitePickerTab === SITE_PICKER_TAB_LOCAL ) {
+					void this.switchToRemoteSites();
+					return { consume: true };
+				}
+				if ( matchesKey( data, 'left' ) && this.sitePickerTab === SITE_PICKER_TAB_REMOTE ) {
+					this.switchToLocalSites();
+					return { consume: true };
+				}
 				if ( matchesKey( data, 'escape' ) ) {
-					this.closeSitePicker();
+					if ( this.sitePickerQuery ) {
+						this.setSitePickerQuery( '' );
+					} else {
+						this.closeSitePicker();
+					}
+					return { consume: true };
+				}
+				if ( matchesKey( data, 'backspace' ) ) {
+					if ( this.sitePickerQuery ) {
+						this.setSitePickerQuery( this.sitePickerQuery.slice( 0, -1 ) );
+					}
+					return { consume: true };
+				}
+				// Printable character — append to search query
+				if ( data.length === 1 && data >= ' ' && data <= '~' ) {
+					this.setSitePickerQuery( `${ this.sitePickerQuery }${ data }` );
 					return { consume: true };
 				}
 				return { consume: true };
 			}
 			if ( matchesKey( data, 'escape' ) && this.interruptCallback ) {
+				this.wasInterrupted = true;
 				this.interruptCallback();
 			}
-			if ( matchesKey( data, 'ctrl+o' ) && this.expandablePreview ) {
+			if ( matchesKey( data, 'ctrl+o' ) && this.activeExpandablePreview ) {
 				this.toggleExpandablePreview();
 				return { consume: true };
 			}
@@ -566,13 +782,6 @@ export class AiChatUI {
 	private async openSitePicker(): Promise< void > {
 		const appdata = await readAppdata();
 		const sites: SiteData[] = appdata.sites ?? [];
-		if ( sites.length === 0 ) {
-			this.messages.addChild(
-				new Text( chalk.dim( '  No sites found. Create one first.' ), 1, 0 )
-			);
-			this.tui.requestRender();
-			return;
-		}
 
 		this.sitePickerSiteData = sites;
 		this.sitePickerItems = await Promise.all(
@@ -590,52 +799,225 @@ export class AiChatUI {
 		this.renderSitePicker();
 	}
 
+	private async switchToRemoteSites(): Promise< void > {
+		let token: Awaited< ReturnType< typeof getAuthToken > >;
+		try {
+			token = await getAuthToken();
+		} catch {
+			this.showSitePickerError( 'Not logged in. Use /login first.' );
+			return;
+		}
+
+		this.resetSitePickerTab( SITE_PICKER_TAB_REMOTE );
+		this.sitePickerRemoteLoading = true;
+		this.sitePickerRemoteItems = [];
+		this.renderSitePicker();
+
+		try {
+			const sites = await getWpComSites( token.accessToken );
+			this.sitePickerRemoteItems = sites.map( ( site ) => ( {
+				name: site.name,
+				path: '',
+				running: false,
+				remote: true,
+				url: site.url,
+			} ) );
+			this.sitePickerRemoteLoading = false;
+			this.sitePickerSelectedIndex = 0;
+			this.renderSitePicker();
+		} catch {
+			this.showSitePickerError( 'Failed to load WordPress.com sites. Please try again.' );
+		}
+	}
+
+	private showSitePickerError( message: string ): void {
+		this.resetSitePickerTab( SITE_PICKER_TAB_LOCAL );
+		this.sitePickerRemoteItems = [];
+		this.renderSitePicker();
+		this.messages.addChild( new Text( `\n${ chalk.dim( message ) }\n`, 1, 0 ) );
+		this.tui.requestRender();
+	}
+
+	private resetSitePickerTab( tab: SitePickerTab ): void {
+		this.sitePickerTab = tab;
+		this.sitePickerSelectedIndex = 0;
+		this.sitePickerQuery = '';
+		this.sitePickerRemoteLoading = false;
+	}
+
+	private switchToLocalSites(): void {
+		this.resetSitePickerTab( SITE_PICKER_TAB_LOCAL );
+		this.renderSitePicker();
+	}
+
+	private setSitePickerQuery( query: string ): void {
+		this.sitePickerQuery = query;
+		this.sitePickerSelectedIndex = 0;
+		this.renderSitePicker();
+	}
+
+	private getFilteredSitePickerItems(): SiteInfo[] {
+		const allItems =
+			this.sitePickerTab === SITE_PICKER_TAB_REMOTE
+				? this.sitePickerRemoteItems
+				: this.sitePickerItems;
+		if ( ! this.sitePickerQuery ) {
+			return allItems;
+		}
+		const query = this.sitePickerQuery.toLowerCase();
+		return allItems.filter(
+			( site ) =>
+				site.name.toLowerCase().includes( query ) ||
+				( site.url && site.url.toLowerCase().includes( query ) )
+		);
+	}
+
+	private selectFilteredSite( site: SiteInfo ): void {
+		if ( site.remote ) {
+			this._activeSiteData = null;
+		} else {
+			const originalIndex = this.sitePickerItems.indexOf( site );
+			this._activeSiteData =
+				originalIndex >= 0 ? this.sitePickerSiteData[ originalIndex ] ?? null : null;
+		}
+		this.setActiveSite( site );
+		this.closeSitePicker();
+	}
+
+	private sitePickerPageSize(): number {
+		// Reserve 4 lines for header, search, scroll info, and hints; use at least 5 visible items
+		return Math.max( 5, ( process.stdout.rows ?? 24 ) - 4 );
+	}
+
+	private formatSiteRow( site: SiteInfo, index: number ): string {
+		const selected = index === this.sitePickerSelectedIndex;
+		const prefix = selected ? `  ${ chalk.blue( '❯' ) } ` : '    ';
+		if ( site.remote ) {
+			const nameColumnWidth = 30;
+			const prefixWidth = 4; // "  ❯ " or "    "
+			const gap = 2;
+			const termWidth = process.stdout.columns ?? 80;
+			const urlColumnWidth = termWidth - prefixWidth - nameColumnWidth - gap;
+			const truncatedName =
+				site.name.length > nameColumnWidth
+					? site.name.slice( 0, nameColumnWidth - 1 ) + '…'
+					: site.name.padEnd( nameColumnWidth );
+			const name = selected ? chalk.bold( truncatedName ) : truncatedName;
+			const displayUrl = site.url ? site.url.replace( /^https?:\/\//, '' ) : '';
+			let url = '';
+			if ( displayUrl && urlColumnWidth > 3 ) {
+				const truncatedUrl =
+					displayUrl.length > urlColumnWidth
+						? displayUrl.slice( 0, urlColumnWidth - 1 ) + '…'
+						: displayUrl;
+				url = `  ${ chalk.dim( truncatedUrl ) }`;
+			}
+			return `${ prefix }${ name }${ url }`;
+		}
+		const name = selected ? chalk.bold( site.name ) : site.name;
+		const status = site.running ? `${ chalk.green( '●' ) } ` : '  ';
+		return `${ prefix }${ status }${ name }`;
+	}
+
+	// Returns the visible rows and scroll info for the current picker tab.
+	// Three modes: local list, remote loading, remote list.
+	private getSitePickerRows(): { items: string[]; scrollInfo: string } {
+		if ( ! ( this.sitePickerTab === SITE_PICKER_TAB_LOCAL ) && this.sitePickerRemoteLoading ) {
+			return { items: [ chalk.dim( '  Loading WordPress.com sites…' ) ], scrollInfo: '' };
+		}
+		const filtered = this.getFilteredSitePickerItems();
+		if ( filtered.length === 0 ) {
+			const emptyMessage =
+				this.sitePickerTab === SITE_PICKER_TAB_REMOTE && ! this.sitePickerQuery
+					? '  No WordPress.com sites found.'
+					: '  No matching sites.';
+			return { items: [ chalk.dim( emptyMessage ) ], scrollInfo: '' };
+		}
+		const { start, end } = this.getVisibleWindow( filtered.length );
+		const items = filtered
+			.slice( start, end )
+			.map( ( site, vi ) => this.formatSiteRow( site, start + vi ) );
+		const scrollInfo = this.getScrollInfo( filtered.length, start, end );
+		return { items, scrollInfo };
+	}
+
+	// Container doesn't expose a public clearChildren API, so we reach into
+	// the internal children array and remove items one at a time.
+	private clearContainer( container: Container ): void {
+		while ( ( container as Container & { children?: unknown[] } ).children?.length ) {
+			container.removeChild( ( container as Container & { children: Component[] } ).children[ 0 ] );
+		}
+	}
+
 	private renderSitePicker(): void {
 		if ( ! this.sitePickerContainer ) {
 			return;
 		}
-		// Clear previous children
-		while (
-			( this.sitePickerContainer as Container & { children?: unknown[] } ).children?.length
-		) {
-			this.sitePickerContainer.removeChild(
-				( this.sitePickerContainer as Container & { children: Component[] } ).children[ 0 ]
-			);
+		this.clearContainer( this.sitePickerContainer );
+
+		const isLocal = this.sitePickerTab === SITE_PICKER_TAB_LOCAL;
+		const localTab = isLocal ? chalk.bold( '[Local]' ) : chalk.dim( 'Local' );
+		const remoteTab = isLocal ? chalk.dim( 'WordPress.com' ) : chalk.bold( '[WordPress.com]' );
+		const header = `  ${ localTab }  ${ remoteTab }`;
+
+		const { items, scrollInfo } = this.getSitePickerRows();
+
+		const searchLine = this.sitePickerQuery
+			? `  ${ chalk.dim( 'Search:' ) } ${ this.sitePickerQuery }`
+			: '';
+
+		const hints = isLocal
+			? '  ↑↓ navigate · → remote sites · enter select · tab open in browser · esc cancel'
+			: '  ↑↓ navigate · ← local sites · enter select · tab open in browser · esc cancel';
+
+		const lines = [ header ];
+		if ( searchLine ) {
+			lines.push( searchLine );
 		}
+		lines.push( ...items );
+		if ( scrollInfo ) {
+			lines.push( chalk.dim( `  ${ scrollInfo }` ) );
+		}
+		lines.push( '' );
+		lines.push( chalk.dim( hints ) );
 
-		const header = chalk.dim( '  Select a site:' );
-		const items = this.sitePickerItems.map( ( site, i ) => {
-			const status = site.running ? chalk.green( '●' ) + ' ' : '  ';
-			if ( i === this.sitePickerSelectedIndex ) {
-				return `  ${ chalk.blue( '❯' ) } ${ status }${ chalk.bold( site.name ) }`;
-			}
-			return `    ${ status }${ site.name }`;
-		} );
-
-		const text = [
-			header,
-			...items,
-			chalk.dim( '  ↑↓ navigate · enter select · space open in browser · esc cancel' ),
-		].join( '\n' );
+		const text = lines.join( '\n' );
 		this.sitePickerContainer.addChild( new Text( text, 0, 0 ) );
 		this.tui.requestRender();
 	}
 
-	private selectSite( index: number ): void {
-		const site = this.sitePickerItems[ index ];
-		if ( site ) {
-			this.setActiveSite( site );
-			this._activeSiteData = this.sitePickerSiteData[ index ] ?? null;
+	private getVisibleWindow( totalItems: number ): { start: number; end: number } {
+		const pageSize = this.sitePickerPageSize();
+		if ( totalItems <= pageSize ) {
+			return { start: 0, end: totalItems };
 		}
-		this.closeSitePicker();
+		// Keep the selected item visible with some padding from the edges
+		let start = this.sitePickerSelectedIndex - Math.floor( pageSize / 2 );
+		start = Math.max( 0, Math.min( start, totalItems - pageSize ) );
+		return { start, end: start + pageSize };
+	}
+
+	private getScrollInfo( totalItems: number, start: number, end: number ): string {
+		const pageSize = this.sitePickerPageSize();
+		if ( totalItems <= pageSize ) {
+			return '';
+		}
+		const parts: string[] = [];
+		if ( start > 0 ) {
+			parts.push( `↑ ${ start } more` );
+		}
+		if ( end < totalItems ) {
+			parts.push( `↓ ${ totalItems - end } more` );
+		}
+		return parts.join( '  ' );
 	}
 
 	private setActiveSite( site: SiteInfo ): void {
 		this._activeSite = site;
 		this.editor.activeSiteName = site.name;
-		this.messages.addChild(
-			new Text( chalk.hex( '#8839ef' )( ' ✻ Selected site: ' + site.name ) + '\n', 0, 0 )
-		);
+		const suffix = site.remote ? ' (WordPress.com)' : '';
+		const label = ` ✻ Selected site: ${ site.name }${ suffix }`;
+		this.messages.addChild( new Text( `${ chalk.hex( '#5b8db8' )( label ) }\n`, 0, 0 ) );
 		this.tui.requestRender();
 	}
 
@@ -665,7 +1047,14 @@ export class AiChatUI {
 	}
 
 	private isSameSite( a: SiteInfo | null, b: SiteInfo ): boolean {
-		return !! a && ( a.name.toLowerCase() === b.name.toLowerCase() || a.path === b.path );
+		if ( ! a ) {
+			return false;
+		}
+		// Remote sites have no stable path, so never match them against local sites
+		if ( a.remote !== b.remote ) {
+			return false;
+		}
+		return a.path === b.path || a.name.toLowerCase() === b.name.toLowerCase();
 	}
 
 	private async autoSelectSiteFromToolResult(
@@ -753,7 +1142,20 @@ export class AiChatUI {
 	}
 
 	private async openSelectedSite(): Promise< void > {
-		const siteData = this.sitePickerSiteData[ this.sitePickerSelectedIndex ];
+		const filtered = this.getFilteredSitePickerItems();
+		const site = filtered[ this.sitePickerSelectedIndex ];
+		if ( ! site ) {
+			return;
+		}
+		if ( site.remote && site.url ) {
+			await openBrowser( site.url );
+			return;
+		}
+		if ( ! site.running ) {
+			return;
+		}
+		const originalIndex = this.sitePickerItems.indexOf( site );
+		const siteData = originalIndex >= 0 ? this.sitePickerSiteData[ originalIndex ] : undefined;
 		if ( ! siteData ) {
 			return;
 		}
@@ -764,6 +1166,10 @@ export class AiChatUI {
 	}
 
 	async openActiveSiteInBrowser(): Promise< boolean > {
+		if ( this._activeSite?.remote && this._activeSite?.url ) {
+			await openBrowser( this._activeSite.url );
+			return true;
+		}
 		if ( ! this._activeSiteData ) {
 			return false;
 		}
@@ -787,6 +1193,8 @@ export class AiChatUI {
 		this.sitePickerVisible = false;
 		this.sitePickerItems = [];
 		this.sitePickerSiteData = [];
+		this.sitePickerRemoteItems = [];
+		this.resetSitePickerTab( SITE_PICKER_TAB_LOCAL );
 		this.updateHints();
 		this.tui.requestRender();
 	}
@@ -795,13 +1203,7 @@ export class AiChatUI {
 		if ( ! this.optionPickerContainer ) {
 			return;
 		}
-		while (
-			( this.optionPickerContainer as Container & { children?: unknown[] } ).children?.length
-		) {
-			this.optionPickerContainer.removeChild(
-				( this.optionPickerContainer as Container & { children: Component[] } ).children[ 0 ]
-			);
-		}
+		this.clearContainer( this.optionPickerContainer );
 
 		const items = this.optionPickerItems.map( ( opt, i ) => {
 			if ( i === this.optionPickerSelectedIndex ) {
@@ -837,21 +1239,25 @@ export class AiChatUI {
 
 		const b = chalk.blue;
 
-		// W logo in block characters
+		// WordPress logo in block characters, widened to avoid vertical stretching in terminals.
 		const logo = [
-			'  ▗▟▛▀▀▜▙▖',
-			' ▟▌     ▗█▙',
-			'▟██▘▝██ ▝██▙',
-			'▌▐█▖ ▐█▌ ▐▌▐',
-			'▌ ▜▙ ▐██ ▐▘▐',
-			'▜▖▝█▄▌▝█▄▌▗▛',
-			' ▜▖▜█  ▜█▗▛',
-			'  ▝▜█▄▄▟▛▘',
-		].map( ( s ) => b( s.padEnd( 12, ' ' ) ) );
+			'    ▄█▛▀▀▀▀█▙▖',
+			' ▗▟█        ▗██▄',
+			'▄███▛ ▝▜██  ▝███▙',
+			'█ ▐█▙   ███  ▐█ ▐',
+			'█  ▀█▄  ███▌ ▐▛ ▐',
+			'▀▙▖ ▜█▄▟ ▝█▙▄▌ ▄▛',
+			' ▝▜▄▝██▌  ▀██▗▟▀',
+			'    ▀██▙▄▄▄█▛▘',
+		].map( ( s ) => b( s ) );
 
 		const info = [
 			chalk.bold( 'WordPress Studio' ) + ( version ? chalk.dim( ` v${ version }` ) : '' ),
-			chalk.dim( `${ AI_MODELS[ this.currentModel ] } · ${ displayCwd }` ),
+			chalk.dim(
+				`${ AI_MODELS[ this.currentModel ] } · ${
+					AI_PROVIDERS[ this.currentProvider ]
+				} · ${ displayCwd }`
+			),
 			'',
 			chalk.dim.italic( 'Code is Poetry' ),
 		];
@@ -893,9 +1299,9 @@ export class AiChatUI {
 		const formatted = lines
 			.map( ( line, i ) => {
 				if ( i === 0 ) {
-					return ' ' + chalk.bgHex( '#eeeeee' ).black( '❯ ' + line + ' ' );
+					return ' ' + chalk.bgHex( '#ddeeff' ).black( '❯ ' + line + ' ' );
 				}
-				return ' ' + chalk.bgHex( '#eeeeee' ).black( '   ' + line + ' ' );
+				return ' ' + chalk.bgHex( '#ddeeff' ).black( '   ' + line + ' ' );
 			} )
 			.join( '\n' );
 		this.messages.addChild( new Text( '\n' + formatted, 0, 0 ) );
@@ -948,10 +1354,8 @@ export class AiChatUI {
 		if ( ! this._inAgentTurn ) {
 			hints.push( '↓ select site' );
 		}
-		if ( this.expandablePreview && ! this.expandablePreview.isExpanded ) {
-			hints.push( 'ctrl+o expand' );
-		} else if ( this.expandablePreview?.isExpanded ) {
-			hints.push( 'ctrl+o collapse' );
+		if ( this.activeExpandablePreview ) {
+			hints.push( this.activeExpandablePreview.isExpanded ? 'ctrl+o collapse' : 'ctrl+o expand' );
 		}
 		hints.push( 'esc to interrupt' );
 		this.editor.hints = hints;
@@ -986,6 +1390,7 @@ export class AiChatUI {
 		this.showLoader( this.randomThinkingMessage() );
 		this.currentResponseText = '';
 		this.hasShownResponseMarker = false;
+		this.wasInterrupted = false;
 		this.turnStartTime = Date.now();
 		this.todoSnapshot = [];
 		this.latestTodoSnapshot = [];
@@ -1026,6 +1431,11 @@ export class AiChatUI {
 		this.tui.requestRender();
 	}
 
+	setStatusMessage( message: string | null ): void {
+		this.editor.statusMessage = message;
+		this.tui.requestRender();
+	}
+
 	private showFilePreview( toolName: string, input: Record< string, unknown > ): void {
 		let preview: { collapsed: string; expanded: string } | null = null;
 
@@ -1043,22 +1453,43 @@ export class AiChatUI {
 			return;
 		}
 
+		this.addExpandablePreview( preview );
+	}
+
+	private addExpandablePreview( preview: { collapsed: string; expanded: string } ): void {
 		const textComponent = new Text( preview.collapsed, 0, 0 );
 		this.messages.addChild( textComponent );
 
 		if ( preview.collapsed !== preview.expanded ) {
-			this.expandablePreview = {
+			this.activeExpandablePreview = {
 				textComponent,
 				collapsedContent: preview.collapsed,
 				expandedContent: preview.expanded,
 				isExpanded: false,
 			};
 			this.updateHints();
-		} else {
-			this.expandablePreview = null;
 		}
 
 		this.tui.requestRender();
+	}
+
+	private generateExpandablePreview( lines: string[] ): { collapsed: string; expanded: string } {
+		const expanded = formatToolOutputLines( lines );
+
+		if ( lines.length <= DEFAULT_COLLAPSE_THRESHOLD_LINES ) {
+			return { collapsed: expanded, expanded };
+		}
+
+		const collapsed =
+			formatToolOutputLines( lines.slice( 0, DEFAULT_COLLAPSE_THRESHOLD_LINES ) ) +
+			'\n     ' +
+			chalk.dim(
+				'... ' +
+					( lines.length - DEFAULT_COLLAPSE_THRESHOLD_LINES ) +
+					' more lines · ctrl+o to expand'
+			);
+
+		return { collapsed, expanded };
 	}
 
 	private generateWritePreview( content: string ): { collapsed: string; expanded: string } {
@@ -1066,29 +1497,12 @@ export class AiChatUI {
 		const totalLines = lines.length;
 		const numWidth = String( totalLines ).length;
 
-		const formatLines = ( lineList: string[] ) => {
-			return lineList
-				.map( ( line, i ) => {
-					const lineNum = chalk.dim( String( i + 1 ).padStart( numWidth ) );
-					return '   ' + chalk.dim( '⎿ ' ) + lineNum + ' ' + chalk.green( line );
-				} )
-				.join( '\n' );
-		};
-
-		if ( totalLines <= FILE_PREVIEW_MAX_LINES ) {
-			const formatted = formatLines( lines );
-			return { collapsed: formatted, expanded: formatted };
-		}
-
-		const collapsed =
-			formatLines( lines.slice( 0, FILE_PREVIEW_MAX_LINES ) ) +
-			'\n   ' +
-			chalk.dim(
-				'⎿ ... ' + ( totalLines - FILE_PREVIEW_MAX_LINES ) + ' more lines · ctrl+o to expand'
-			);
-		const expanded = formatLines( lines );
-
-		return { collapsed, expanded };
+		return this.generateExpandablePreview(
+			lines.map( ( line, i ) => {
+				const lineNum = chalk.dim( String( i + 1 ).padStart( numWidth ) );
+				return lineNum + ' ' + chalk.green( line );
+			} )
+		);
 	}
 
 	private generateEditPreview(
@@ -1100,36 +1514,21 @@ export class AiChatUI {
 
 		const diffLines: string[] = [];
 		for ( const line of oldLines ) {
-			diffLines.push( '   ' + chalk.dim( '⎿ ' ) + chalk.red( '- ' + line ) );
+			diffLines.push( chalk.red( '- ' + line ) );
 		}
 		for ( const line of newLines ) {
-			diffLines.push( '   ' + chalk.dim( '⎿ ' ) + chalk.green( '+ ' + line ) );
+			diffLines.push( chalk.green( '+ ' + line ) );
 		}
 
-		const totalDiffLines = diffLines.length;
-
-		if ( totalDiffLines <= FILE_PREVIEW_MAX_LINES ) {
-			const formatted = diffLines.join( '\n' );
-			return { collapsed: formatted, expanded: formatted };
-		}
-
-		const collapsed =
-			diffLines.slice( 0, FILE_PREVIEW_MAX_LINES ).join( '\n' ) +
-			'\n   ' +
-			chalk.dim(
-				'⎿ ... ' + ( totalDiffLines - FILE_PREVIEW_MAX_LINES ) + ' more lines · ctrl+o to expand'
-			);
-		const expanded = diffLines.join( '\n' );
-
-		return { collapsed, expanded };
+		return this.generateExpandablePreview( diffLines );
 	}
 
 	private toggleExpandablePreview(): void {
-		if ( ! this.expandablePreview ) {
+		const preview = this.activeExpandablePreview;
+		if ( ! preview ) {
 			return;
 		}
 
-		const preview = this.expandablePreview;
 		preview.isExpanded = ! preview.isExpanded;
 		preview.textComponent.setText(
 			preview.isExpanded ? preview.expandedContent : preview.collapsedContent
@@ -1171,12 +1570,24 @@ export class AiChatUI {
 	private getToolResultContent(
 		message: SDKMessage & { type: 'user' }
 	): ToolUseResultContent | null {
-		const result = message.tool_use_result;
-		if ( ! result || typeof result !== 'object' ) {
+		const toolUseResult = normalizeToolUseResult( message.tool_use_result );
+		if (
+			toolUseResult &&
+			( toolUseResult.content !== undefined || toolUseResult.isError === true )
+		) {
+			return toolUseResult;
+		}
+
+		const contentBlocks = Array.isArray( message.message.content ) ? message.message.content : [];
+		const toolResultBlock = contentBlocks.find( isToolResultBlock );
+		if ( ! toolResultBlock ) {
 			return null;
 		}
 
-		return result as ToolUseResultContent;
+		return {
+			content: normalizeToolResultContent( toolResultBlock.content ),
+			isError: toolResultBlock.is_error === true,
+		};
 	}
 
 	private finalizeToolUseLine( isError: boolean, label: string ): void {
@@ -1213,12 +1624,9 @@ export class AiChatUI {
 				  ]
 				: [] ),
 		];
-		const formatted = lines
-			.map(
-				( line ) => '   ' + chalk.dim( '⎿ ' ) + ( line.dim ? chalk.dim( line.text ) : line.text )
-			)
-			.join( '\n' );
-		this.messages.addChild( new Text( formatted, 0, 0 ) );
+		const formatted = lines.map( ( line ) => ( line.dim ? chalk.dim( line.text ) : line.text ) );
+		const rendered = formatToolOutputLines( formatted );
+		this.messages.addChild( new Text( rendered, 0, 0 ) );
 	}
 
 	private syncLatestTodoSnapshot(): void {
@@ -1259,10 +1667,9 @@ export class AiChatUI {
 		const maxLength = toolName === 'mcp__studio__validate_blocks' ? 2000 : 500;
 		const truncated = text.length > maxLength ? text.slice( 0, maxLength ) + '…' : text;
 		const resultLines = truncated.split( '\n' );
-		const formatted = resultLines
-			.map( ( line ) => '   ' + chalk.dim( '⎿ ' ) + chalk.dim( line ) )
-			.join( '\n' );
-		this.messages.addChild( new Text( formatted, 0, 0 ) );
+		this.addExpandablePreview(
+			this.generateExpandablePreview( resultLines.map( ( line ) => chalk.dim( line ) ) )
+		);
 	}
 
 	private showToolResult(
@@ -1470,6 +1877,10 @@ export class AiChatUI {
 				} else {
 					this.showToolResult( message, toolCall?.name, toolCall?.input );
 				}
+				// Close the current markdown block so the next assistant text
+				// creates a fresh visual block (mirrors askUser / endAgentTurn).
+				this.currentMarkdown = null;
+				this.currentResponseText = '';
 				return undefined;
 			}
 			case 'result': {
@@ -1485,6 +1896,16 @@ export class AiChatUI {
 						} turns · $${ message.total_cost_usd.toFixed( 4 ) }`
 					);
 					return { sessionId: message.session_id, success: true };
+				}
+
+				// User-initiated interruption: show friendly message instead of error
+				if ( this.wasInterrupted ) {
+					const thinkingSec = Math.round( ( Date.now() - this.turnStartTime ) / 1000 );
+					this.messages.addChild(
+						new Text( '\n ' + chalk.yellow( '⏺' ) + ' ' + chalk.yellow( 'Interrupted' ), 0, 0 )
+					);
+					this.showInfo( `Ran for ${ thinkingSec }s before interruption` );
+					return { sessionId: message.session_id, success: false };
 				}
 
 				// Build detailed error message

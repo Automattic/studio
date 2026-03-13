@@ -6,6 +6,12 @@
 env:
   IMAGE_ID: $IMAGE_ID
 
+notify:
+  - slack:
+      channels:
+        - "C056D54B98U"
+    if: build.state == 'passed'
+
 steps:
   - label: Lint
     agents:

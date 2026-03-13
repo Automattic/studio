@@ -33,17 +33,21 @@ const STUDIO_ROOT_PREFIX = STUDIO_ROOT.endsWith( path.sep )
 	: `${ STUDIO_ROOT }${ path.sep }`;
 
 const PATH_INPUT_KEYS = [ 'path', 'file_path', 'filePath' ] as const;
-const BUILTIN_TOOLS = [
+// Tools that can run without permissions (read access)
+const ALLOWED_TOOLS = [
+	'mcp__studio__*',
 	'Read',
-	'Write',
-	'Edit',
-	'Bash',
 	'Glob',
 	'Grep',
+	'WebFetch',
+	'WebSearch',
+	'TodoRead',
+	'NotebookRead',
 	'AskUserQuestion',
-] as const;
-const PATH_GATED_TOOLS = [ 'Write', 'Edit', 'Bash' ] as const; // Tools that should not manipulate files outside of ~/Studio
-const ALLOWED_TOOLS = [ 'mcp__studio__*', 'Read', 'Glob', 'Grep', 'AskUserQuestion' ]; // Tools that can run without permissions
+];
+// Tools that should not manipulate files outside of ~/Studio without permission (write access)
+const PATH_GATED_TOOLS = [ 'Write', 'Edit', 'Bash', 'NotebookEdit' ] as const;
+
 const sessionApprovedPathsByTool = new Map< string, Set< string > >();
 
 const ACCESS_DENIED_MESSAGE = `Access denied outside ${ STUDIO_ROOT }`;
@@ -190,7 +194,7 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 			},
 			maxTurns,
 			cwd: STUDIO_ROOT,
-			tools: [ ...BUILTIN_TOOLS ],
+			tools: { type: 'preset', preset: 'claude_code' },
 			allowedTools: [ ...ALLOWED_TOOLS ],
 			permissionMode: 'default',
 			canUseTool: async ( toolName, input, metadata ) => {

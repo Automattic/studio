@@ -12,7 +12,6 @@ import { LearnMoreLink } from 'src/components/learn-more';
 import ProgressBar from 'src/components/progress-bar';
 import { Tooltip } from 'src/components/tooltip';
 import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
-import { useSyncSites } from 'src/hooks/sync-sites/sync-sites-context';
 import { useAuth } from 'src/hooks/use-auth';
 import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
 import { useDragAndDropFile } from 'src/hooks/use-drag-and-drop-file';
@@ -20,6 +19,8 @@ import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useRootSelector } from 'src/stores';
+import { syncOperationsSelectors } from 'src/stores/sync';
 import { useGetConnectedSitesForLocalSiteQuery } from 'src/stores/sync/connected-sites';
 
 interface ContentTabImportExportProps {
@@ -228,8 +229,8 @@ const ImportSite = ( {
 		if ( ! file ) {
 			return;
 		}
+		clearImportFileInput();
 		void importConfirmation( async () => {
-			clearImportFileInput();
 			await importFile( file, selectedSite );
 		} );
 	};
@@ -343,14 +344,21 @@ const ImportSite = ( {
 export function ContentTabImportExport( { selectedSite }: ContentTabImportExportProps ) {
 	const { __ } = useI18n();
 	const [ isSupported, setIsSupported ] = useState< boolean | null >( null );
-	const { isSiteIdPulling, isSiteIdPushing } = useSyncSites();
 	const { user } = useAuth();
 	const { data: connectedSites = [] } = useGetConnectedSitesForLocalSiteQuery( {
 		localSiteId: selectedSite.id,
 		userId: user?.id,
 	} );
-	const isPulling = connectedSites.some( ( site ) => isSiteIdPulling( selectedSite.id, site.id ) );
-	const isPushing = connectedSites.some( ( site ) => isSiteIdPushing( selectedSite.id, site.id ) );
+	const isPulling = useRootSelector( ( state ) =>
+		connectedSites.some( ( site ) =>
+			syncOperationsSelectors.selectIsSiteIdPulling( selectedSite.id, site.id )( state )
+		)
+	);
+	const isPushing = useRootSelector( ( state ) =>
+		connectedSites.some( ( site ) =>
+			syncOperationsSelectors.selectIsSiteIdPushing( selectedSite.id, site.id )( state )
+		)
+	);
 	const isThisSiteSyncing = isPulling || isPushing;
 
 	useEffect( () => {

@@ -2,7 +2,9 @@ import { SupportedLocale } from '@studio/common/lib/locale';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState } from 'react';
 import Button from 'src/components/button';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { isWindowsStore } from 'src/lib/app-globals';
+import { McpSettings } from 'src/modules/mcp/components/mcp-settings';
 import { ColorSchemePicker } from 'src/modules/user-settings/components/color-scheme-picker';
 import { EditorPicker } from 'src/modules/user-settings/components/editor-picker';
 import { LanguagePicker } from 'src/modules/user-settings/components/language-picker';
@@ -25,6 +27,7 @@ import {
 
 export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const { __ } = useI18n();
+	const { enableAgentSuite } = useFeatureFlags();
 	const savedLocale = useI18nLocale();
 	const dispatch = useAppDispatch();
 
@@ -87,7 +90,10 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 				<TerminalPicker value={ terminalSelection } onChange={ setDirtyTerminal } />
 			</div>
 			{ ! isWindowsStore() && (
-				<StudioCliToggle value={ isCliInstalledSelection } onChange={ setDirtyIsCliInstalled } />
+				<>
+					<StudioCliToggle value={ isCliInstalledSelection } onChange={ setDirtyIsCliInstalled } />
+					{ enableAgentSuite && <McpSettings /> }
+				</>
 			) }
 			<div className="mt-auto pt-2 flex justify-end gap-3">
 				<Button

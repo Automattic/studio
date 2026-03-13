@@ -1,10 +1,11 @@
 import { DropdownMenu, MenuGroup, MenuItem } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
-import { Icon, moreVertical, keyboardReturn, reset } from '@wordpress/icons';
+import { Icon, moreVertical, keyboardReturn, reset, settings } from '@wordpress/icons';
 import React, { forwardRef, useRef, useEffect, useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import { TELEX_HOSTNAME, TELEX_UTM_PARAMS } from 'src/constants';
 import useAiIcon from 'src/hooks/use-ai-icon';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { addUrlParams } from 'src/lib/url-utils';
@@ -17,6 +18,7 @@ interface AIInputProps {
 	handleKeyDown: ( e: React.KeyboardEvent< HTMLTextAreaElement > ) => void;
 	clearConversation: () => void;
 	isAssistantThinking: boolean;
+	onOpenSettings: () => void;
 }
 
 const MAX_ROWS = 10;
@@ -54,9 +56,11 @@ const UnforwardedAIInput = (
 		handleKeyDown,
 		clearConversation,
 		isAssistantThinking,
+		onOpenSettings,
 	}: AIInputProps,
 	inputRef: React.RefObject< HTMLTextAreaElement > | React.RefCallback< HTMLTextAreaElement > | null
 ) => {
+	const { enableAgentSuite } = useFeatureFlags();
 	const [ isTyping, setIsTyping ] = useState( false );
 	const [ thinkingDuration, setThinkingDuration ] = useState<
 		'short' | 'medium' | 'long' | 'veryLong'
@@ -255,6 +259,18 @@ const UnforwardedAIInput = (
 				{ ( { onClose }: { onClose: () => void } ) => (
 					<>
 						<MenuGroup>
+							{ enableAgentSuite && (
+								<MenuItem
+									data-testid="ai-settings-button"
+									onClick={ () => {
+										onOpenSettings();
+										onClose();
+									} }
+								>
+									<Icon icon={ settings } />
+									<span className="ltr:pl-2 rtl:pl-2">{ __( 'AI settings' ) }</span>
+								</MenuItem>
+							) }
 							<MenuItem
 								data-testid="telex-link-button"
 								onClick={ () => {

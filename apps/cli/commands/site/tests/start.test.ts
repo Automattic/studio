@@ -5,9 +5,10 @@ import {
 	updateSiteAutoStart,
 	SiteData,
 } from 'cli/lib/appdata';
-import { connect, disconnect } from 'cli/lib/pm2-manager';
+import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
+import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { isServerRunning, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
 import { runCommand } from '../start';
@@ -19,7 +20,7 @@ vi.mock( 'cli/lib/appdata', async () => ( {
 	updateSiteAutoStart: vi.fn().mockResolvedValue( undefined ),
 	getAppdataDirectory: vi.fn().mockReturnValue( '/test/appdata' ),
 } ) );
-vi.mock( 'cli/lib/pm2-manager' );
+vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/site-utils' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
 vi.mock( 'cli/lib/sqlite-integration' );
@@ -41,7 +42,7 @@ describe( 'CLI: studio site start', () => {
 		customDomain: 'test.local',
 	};
 
-	const testProcessDescription = {
+	const testProcessDescription: ProcessDescription = {
 		name: 'test-site',
 		pmId: 0,
 		pid: 12345,
@@ -52,11 +53,11 @@ describe( 'CLI: studio site start', () => {
 		vi.clearAllMocks();
 
 		vi.mocked( getSiteByFolder ).mockResolvedValue( testSite );
-		vi.mocked( connect ).mockResolvedValue( undefined );
-		vi.mocked( disconnect ).mockResolvedValue( undefined );
+		vi.mocked( connectToDaemon ).mockResolvedValue( undefined );
+		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
 		vi.mocked( isServerRunning ).mockResolvedValue( undefined );
 		vi.mocked( setupCustomDomain ).mockResolvedValue( undefined );
-		vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( undefined );
+		vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( false );
 		vi.mocked( startWordPressServer ).mockResolvedValue( testProcessDescription );
 		vi.mocked( updateSiteLatestCliPid ).mockResolvedValue( undefined );
 		vi.mocked( logSiteDetails ).mockImplementation( () => {} );
@@ -72,14 +73,18 @@ describe( 'CLI: studio site start', () => {
 			vi.mocked( getSiteByFolder ).mockRejectedValue( new Error( 'Site not found' ) );
 
 			await expect( runCommand( '/invalid/path' ) ).rejects.toThrow( 'Site not found' );
-			expect( disconnect ).toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
-		it( 'should throw when PM2 connection fails', async () => {
-			vi.mocked( connect ).mockRejectedValue( new Error( 'PM2 connection failed' ) );
+		it( 'should throw when process manager connection fails', async () => {
+			vi.mocked( connectToDaemon ).mockRejectedValue(
+				new Error( 'process manager connection failed' )
+			);
 
-			await expect( runCommand( '/test/site' ) ).rejects.toThrow( 'PM2 connection failed' );
-			expect( disconnect ).toHaveBeenCalled();
+			await expect( runCommand( '/test/site' ) ).rejects.toThrow(
+				'process manager connection failed'
+			);
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
 		it( 'should throw when WordPress server fails to start', async () => {
@@ -88,7 +93,7 @@ describe( 'CLI: studio site start', () => {
 			await expect( runCommand( '/test/site' ) ).rejects.toThrow(
 				'Failed to start WordPress server'
 			);
-			expect( disconnect ).toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
 		it( 'should throw when custom domain setup fails', async () => {
@@ -98,7 +103,7 @@ describe( 'CLI: studio site start', () => {
 			);
 
 			await expect( runCommand( '/test/site' ) ).rejects.toThrow( 'Custom domain setup failed' );
-			expect( disconnect ).toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
 		it( 'should throw when SQLite integration setup fails', async () => {
@@ -107,14 +112,14 @@ describe( 'CLI: studio site start', () => {
 			);
 
 			await expect( runCommand( '/test/site' ) ).rejects.toThrow( 'SQLite setup failed' );
-			expect( disconnect ).toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
 		it( 'should throw when browser fails', async () => {
 			vi.mocked( openSiteInBrowser ).mockRejectedValue( new Error( 'Browser error' ) );
 
 			await expect( runCommand( '/test/site' ) ).rejects.toThrow( 'Browser error' );
-			expect( disconnect ).toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
 		it( 'should throw when browser fails while already running', async () => {
@@ -122,7 +127,7 @@ describe( 'CLI: studio site start', () => {
 			vi.mocked( openSiteInBrowser ).mockRejectedValue( new Error( 'Browser error' ) );
 
 			await expect( runCommand( '/test/site' ) ).rejects.toThrow( 'Browser error' );
-			expect( disconnect ).toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 	} );
 
@@ -131,7 +136,7 @@ describe( 'CLI: studio site start', () => {
 			await runCommand( '/test/site' );
 
 			expect( getSiteByFolder ).toHaveBeenCalledWith( '/test/site' );
-			expect( connect ).toHaveBeenCalled();
+			expect( connectToDaemon ).toHaveBeenCalled();
 			expect( isServerRunning ).toHaveBeenCalledWith( testSite.id );
 			expect( setupCustomDomain ).toHaveBeenCalledWith( testSite, expect.any( Logger ) );
 			expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( '/test/site' );
@@ -143,7 +148,7 @@ describe( 'CLI: studio site start', () => {
 			expect( updateSiteAutoStart ).toHaveBeenCalledWith( testSite.id, true );
 			expect( logSiteDetails ).toHaveBeenCalledWith( testSite );
 			expect( openSiteInBrowser ).toHaveBeenCalledWith( testSite );
-			expect( disconnect ).toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
 		it( 'should skip server start if already running', async () => {
@@ -159,7 +164,7 @@ describe( 'CLI: studio site start', () => {
 			);
 			expect( openSiteInBrowser ).toHaveBeenCalledWith( testSite );
 			expect( logSiteDetails ).toHaveBeenCalledWith( testSite );
-			expect( disconnect ).toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
 		it( 'should setup custom domain when present', async () => {
@@ -172,7 +177,7 @@ describe( 'CLI: studio site start', () => {
 				testSiteWithDomain,
 				expect.any( Logger )
 			);
-			expect( disconnect ).toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
 		it( 'should update SQLite integration', async () => {
@@ -187,7 +192,7 @@ describe( 'CLI: studio site start', () => {
 			expect( startWordPressServer ).toHaveBeenCalledWith( testSite, expect.any( Logger ) );
 			expect( openSiteInBrowser ).not.toHaveBeenCalled();
 			expect( logSiteDetails ).toHaveBeenCalledWith( testSite );
-			expect( disconnect ).toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
 		it( 'should skip browser when already running and skipBrowser is true', async () => {
@@ -198,7 +203,7 @@ describe( 'CLI: studio site start', () => {
 			expect( startWordPressServer ).not.toHaveBeenCalled();
 			expect( openSiteInBrowser ).not.toHaveBeenCalled();
 			expect( logSiteDetails ).toHaveBeenCalledWith( testSite );
-			expect( disconnect ).toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 	} );
 } );

@@ -3,19 +3,31 @@ import { renderHook, act } from '@testing-library/react';
 import nock from 'nock';
 import { Provider } from 'react-redux';
 import { vi } from 'vitest';
-import { useSyncSites } from 'src/hooks/sync-sites';
 import { useAddSite, CreateSiteFormValues } from 'src/hooks/use-add-site';
+import { useAuth } from 'src/hooks/use-auth';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { store } from 'src/stores';
-import { setProviderConstants } from 'src/stores/provider-constants-slice';
-import type { SyncSitesContextType } from 'src/hooks/sync-sites/sync-sites-context';
 import type { SyncSite } from 'src/modules/sync/types';
+import type { WPCOM } from 'wpcom/types';
 
 vi.mock( 'src/hooks/use-site-details' );
 vi.mock( 'src/hooks/use-feature-flags' );
-vi.mock( 'src/hooks/sync-sites' );
+vi.mock( 'src/hooks/use-auth' );
 vi.mock( 'src/hooks/use-content-tabs' );
+
+const mockPullSiteThunk = vi.hoisted( () => vi.fn() );
+
+vi.mock( 'src/stores/sync', async () => {
+	const actual = await vi.importActual< typeof import('src/stores/sync') >( 'src/stores/sync' );
+	return {
+		...actual,
+		syncOperationsThunks: {
+			...actual.syncOperationsThunks,
+			pullSite: mockPullSiteThunk,
+		},
+	};
+} );
 vi.mock( 'src/hooks/use-import-export', () => ( {
 	useImportExport: () => ( {
 		importFile: vi.fn(),
@@ -56,21 +68,14 @@ describe( 'useAddSite', () => {
 	const mockCreateSite = vi.fn();
 	const mockUpdateSite = vi.fn();
 	const mockStartServer = vi.fn();
-	const mockPullSite = vi.fn();
+	const mockClient = { req: { get: vi.fn(), post: vi.fn() } } as unknown as WPCOM;
 	const mockSetSelectedTab = vi.fn();
 
 	beforeEach( () => {
 		vi.clearAllMocks();
-
-		// Prepopulate store with provider constants
-		store.dispatch(
-			setProviderConstants( {
-				defaultPhpVersion: '8.3',
-				defaultWordPressVersion: 'latest',
-				allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
-				minimumWordPressVersion: '5.9.9',
-			} )
-		);
+		mockPullSiteThunk.mockImplementation( () => ( {
+			type: 'syncOperations/pullSite',
+		} ) );
 
 		mockGenerateProposedSitePath.mockResolvedValue( {
 			path: '/default/path',
@@ -87,24 +92,9 @@ describe( 'useAddSite', () => {
 			startServer: mockStartServer,
 		} );
 
-		mockPullSite.mockReset();
-		vi.mocked( useSyncSites, { partial: true } ).mockReturnValue( {
-			pullSite: mockPullSite,
-			isAnySitePulling: false,
-			isSiteIdPulling: vi.fn(),
-			clearPullState: vi.fn(),
-			cancelPull: vi.fn(),
-			getPullState: vi.fn(),
-			pushSite: vi.fn(),
-			isAnySitePushing: false,
-			isSiteIdPushing: vi.fn(),
-			clearPushState: vi.fn(),
-			getPushState: vi.fn(),
-			getLastSyncTimeText: vi.fn(),
-			cancelPush: vi.fn(),
-			pauseUpload: vi.fn(),
-			resumeUpload: vi.fn(),
-		} as SyncSitesContextType );
+		vi.mocked( useAuth, { partial: true } ).mockReturnValue( {
+			client: mockClient,
+		} );
 
 		mockSetSelectedTab.mockReset();
 		vi.mocked( useContentTabs, { partial: true } ).mockReturnValue( {
@@ -192,7 +182,10 @@ describe( 'useAddSite', () => {
 			undefined, // blueprint parameter
 			'8.2',
 			expect.any( Function ),
-			false
+			false,
+			undefined, // adminUsername
+			undefined, // adminPassword
+			undefined // adminEmail
 		);
 	} );
 
@@ -273,8 +266,11 @@ describe( 'useAddSite', () => {
 				localSiteId: createdSite.id,
 			},
 		] );
-		expect( mockPullSite ).toHaveBeenCalledWith( remoteSite, createdSite, {
-			optionsToSync: [ 'all' ],
+		expect( mockPullSiteThunk ).toHaveBeenCalledWith( {
+			client: mockClient,
+			connectedSite: remoteSite,
+			selectedSite: createdSite,
+			options: { optionsToSync: [ 'all' ] },
 		} );
 		expect( mockSetSelectedTab ).toHaveBeenCalledWith( 'sync' );
 	} );

@@ -9,7 +9,6 @@ import AuthProvider from 'src/components/auth-provider';
 import CrashTester from 'src/components/crash-tester';
 import ErrorBoundary from 'src/components/error-boundary';
 import { WordPressStyles } from 'src/components/wordpress-styles';
-import { SyncSitesProvider } from 'src/hooks/sync-sites/sync-sites-context';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { FeatureFlagsProvider } from 'src/hooks/use-feature-flags';
 import { ImportExportProvider } from 'src/hooks/use-import-export';
@@ -37,21 +36,19 @@ const Root = () => {
 					<I18nProvider i18n={ defaultI18n }>
 						<WordPressStyles />
 						<AuthProvider>
-							<ContentTabsProvider>
-								<SiteDetailsProvider>
-									<FeatureFlagsProvider>
+							<FeatureFlagsProvider>
+								<ContentTabsProvider>
+									<SiteDetailsProvider>
 										<ThemeDetailsProvider>
 											<OnboardingProvider>
 												<ImportExportProvider>
-													<SyncSitesProvider>
-														<App />
-													</SyncSitesProvider>
+													<App />
 												</ImportExportProvider>
 											</OnboardingProvider>
 										</ThemeDetailsProvider>
-									</FeatureFlagsProvider>
-								</SiteDetailsProvider>
-							</ContentTabsProvider>
+									</SiteDetailsProvider>
+								</ContentTabsProvider>
+							</FeatureFlagsProvider>
 						</AuthProvider>
 					</I18nProvider>
 				</ReduxProvider>

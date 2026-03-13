@@ -1,6 +1,8 @@
 import { __, sprintf } from '@wordpress/i18n';
 import validateBlueprintSchema from '@wp-playground/blueprints/blueprint-schema-validator';
-import type { Blueprint } from '@wp-playground/blueprints';
+import { SupportedPHPVersion } from '../types/php-versions';
+import { __isStepDefinition } from './blueprint-settings';
+import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 interface UnsupportedFeature {
 	type: 'step' | 'property';
@@ -11,18 +13,7 @@ interface UnsupportedFeature {
 /**
  * List of blueprint features that are not supported in Studio
  */
-const UNSUPPORTED_BLUEPRINT_FEATURES: UnsupportedFeature[] = [
-	{
-		type: 'step',
-		name: 'enableMultisite',
-		reason: __( 'Multisite functionality is not currently supported in Studio.' ),
-	},
-	{
-		type: 'step',
-		name: 'login',
-		reason: __( 'Studio automatically creates and logs in the admin user during site creation.' ),
-	},
-];
+const UNSUPPORTED_BLUEPRINT_FEATURES: UnsupportedFeature[] = [];
 
 /**
  * Blueprint properties that are not supported in Studio
@@ -55,20 +46,23 @@ function getUnsupportedFeatureInfo( name: string ): UnsupportedFeature | undefin
 }
 
 export type BlueprintPreferredVersions = {
-	php?: string;
+	php?: SupportedPHPVersion;
 	wp?: string;
 };
 
-export function scanBlueprintForUnsupportedFeatures( blueprint: Blueprint ): UnsupportedFeature[] {
+export function scanBlueprintForUnsupportedFeatures(
+	blueprint: BlueprintV1Declaration
+): UnsupportedFeature[] {
 	const foundUnsupported: UnsupportedFeature[] = [];
+	const steps = Array.isArray( blueprint.steps )
+		? blueprint.steps.filter( __isStepDefinition )
+		: [];
 
-	if ( blueprint.steps && Array.isArray( blueprint.steps ) ) {
-		for ( const step of blueprint.steps ) {
-			if ( step.step && ! isStepSupported( step.step ) ) {
-				const featureInfo = getUnsupportedFeatureInfo( step.step );
-				if ( featureInfo ) {
-					foundUnsupported.push( featureInfo );
-				}
+	for ( const step of steps ) {
+		if ( step.step && ! isStepSupported( step.step ) ) {
+			const featureInfo = getUnsupportedFeatureInfo( step.step );
+			if ( featureInfo ) {
+				foundUnsupported.push( featureInfo );
 			}
 		}
 	}
@@ -89,21 +83,19 @@ export function scanBlueprintForUnsupportedFeatures( blueprint: Blueprint ): Uns
 }
 
 export function filterUnsupportedBlueprintFeatures(
-	blueprint: Blueprint | undefined
-): Blueprint | undefined {
+	blueprint: BlueprintV1Declaration | undefined
+): BlueprintV1Declaration | undefined {
 	if ( ! blueprint ) {
 		return undefined;
 	}
 	const filtered = { ...blueprint };
-
-	if ( filtered.steps && Array.isArray( filtered.steps ) ) {
-		filtered.steps = filtered.steps.filter(
-			( step: { step: string } ) => step.step && isStepSupported( step.step )
-		);
-	}
+	const steps = Array.isArray( filtered.steps ) ? filtered.steps.filter( __isStepDefinition ) : [];
+	filtered.steps = steps.filter( ( step ) => step && step.step && isStepSupported( step.step ) );
 
 	for ( const [ key ] of Object.entries( filtered ) ) {
 		if ( ! isPropertySupported( key ) ) {
+			// @ts-expect-error We're not truly deleting unknown keys from `filtered` here, and even if we
+			// were, this would still be a safe operation.
 			delete filtered[ key ];
 		}
 	}
@@ -152,7 +144,10 @@ export async function validateBlueprintData(
 		};
 	}
 
-	const unsupportedFeatures = scanBlueprintForUnsupportedFeatures( blueprintJson as Blueprint );
+	const unsupportedFeatures = scanBlueprintForUnsupportedFeatures(
+		// `validateBlueprintSchema()` doesn't give us a proper type guard, but in reality, it ensures `blueprintJson` has the correct type
+		blueprintJson as BlueprintV1Declaration
+	);
 	const warnings = unsupportedFeatures.map( ( feature ) => ( {
 		feature: feature.name,
 		reason: feature.reason,

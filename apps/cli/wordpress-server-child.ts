@@ -1,11 +1,11 @@
 /**
  * WordPress Studio Server Child Process
  *
- * This child process is managed by PM2 and runs a single WordPress site server
- * using the Playground CLI provider. Each site runs in its own PM2 process.
+ * This child process is managed by the process manager daemon and runs a single WordPress site
+ * server using Playground CLI. Each site runs in its own process.
  *
- * Similar to Studio's playground-server-process-child.ts, this process:
- * - Listens for messages from the parent process (PM2)
+ * Similar to Studio's old playground-server-process-child.ts, this process:
+ * - Listens for messages from the parent process (the process manager daemon)
  * - Starts WordPress server when requested
  * - Sends response back when ready
  * - Sends activity heartbeats to prevent timeout during long operations
@@ -91,13 +91,22 @@ function escapePhpString( str: string ): string {
 	return str.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
 }
 
-async function setAdminPassword( server: RunCLIServer, adminPassword: string ): Promise< void > {
+async function setAdminCredentials(
+	server: RunCLIServer,
+	adminPassword?: string,
+	adminUsername?: string,
+	adminEmail?: string
+): Promise< void > {
 	await server.playground.request( {
 		url: '/?studio-admin-api',
 		method: 'POST',
 		body: {
 			action: 'set_admin_password',
-			password: escapePhpString( decodePassword( adminPassword ) ),
+			...( adminPassword && {
+				password: escapePhpString( decodePassword( adminPassword ) ),
+			} ),
+			...( adminUsername && { username: escapePhpString( adminUsername ) } ),
+			...( adminEmail && { email: escapePhpString( adminEmail ) } ),
 		},
 	} );
 }
@@ -283,8 +292,13 @@ const startServer = wrapWithStartingPromise(
 			lastCliArgs = sanitizeRunCLIArgs( args );
 			server = await runCLI( args );
 
-			if ( config.adminPassword ) {
-				await setAdminPassword( server, config.adminPassword );
+			if ( config.adminPassword || config.adminUsername || config.adminEmail ) {
+				await setAdminCredentials(
+					server,
+					config.adminPassword,
+					config.adminUsername,
+					config.adminEmail
+				);
 			}
 		} catch ( error ) {
 			server = null;

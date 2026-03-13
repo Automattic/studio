@@ -140,7 +140,7 @@ class PromptEditor implements Component, Focusable {
 					return (
 						' ' +
 						bc( '─'.repeat( leading ) ) +
-						chalk.hex( '#5b8db8' )( label ) +
+						chalk.hex( '#8839ef' )( label ) +
 						bc( '─'.repeat( trailing ) )
 					);
 				}
@@ -213,7 +213,7 @@ const markdownTheme: MarkdownTheme = {
 };
 
 const editorTheme: EditorTheme = {
-	borderColor: ( text ) => chalk.hex( '#4a7fa5' )( text ),
+	borderColor: ( text ) => chalk.white( text ),
 	selectList: {
 		selectedPrefix: ( text ) => chalk.cyan( text ),
 		selectedText: ( text ) => chalk.bold( text ),

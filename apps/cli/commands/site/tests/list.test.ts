@@ -47,11 +47,13 @@ describe( 'CLI: studio site list', () => {
 				customDomain: 'my-site.wp.local',
 			},
 		],
+		snapshots: [],
 	};
 
 	const emptyCliConfig = {
 		version: 1,
 		sites: [],
+		snapshots: [],
 	};
 
 	beforeEach( () => {

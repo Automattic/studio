@@ -16,7 +16,7 @@ import {
 import { connectToDaemon, disconnectFromDaemon, emitSiteEvent } from 'cli/lib/daemon-client';
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
-import { getSnapshotsFromAppdata, deleteSnapshotFromAppdata } from 'cli/lib/snapshots';
+import { getSnapshotsFromConfig, deleteSnapshotFromConfig } from 'cli/lib/snapshots';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -25,7 +25,7 @@ const logger = new Logger< LoggerAction >();
 
 async function deletePreviewSites( authToken: ValidatedAuthToken, siteFolder: string ) {
 	try {
-		const snapshots = await getSnapshotsFromAppdata( authToken.id, siteFolder );
+		const snapshots = await getSnapshotsFromConfig( authToken.id, siteFolder );
 
 		if ( snapshots.length > 0 ) {
 			logger.reportStart(
@@ -44,7 +44,7 @@ async function deletePreviewSites( authToken: ValidatedAuthToken, siteFolder: st
 			await Promise.all(
 				snapshots.map( async ( snapshot ) => {
 					await deleteSnapshot( snapshot.atomicSiteId, authToken.accessToken );
-					await deleteSnapshotFromAppdata( snapshot.url );
+					await deleteSnapshotFromConfig( snapshot.url );
 				} )
 			);
 

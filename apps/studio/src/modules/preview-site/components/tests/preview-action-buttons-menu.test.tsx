@@ -11,7 +11,7 @@ import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 
 vi.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: () => ( {
-		saveSnapshotsToStorage: vi.fn( () => Promise.resolve() ),
+		setSnapshot: vi.fn( () => Promise.resolve() ),
 	} ),
 } ) );
 

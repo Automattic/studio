@@ -1,9 +1,4 @@
-import {
-	combineReducers,
-	configureStore,
-	createListenerMiddleware,
-	isAnyOf,
-} from '@reduxjs/toolkit';
+import { combineReducers, configureStore, createListenerMiddleware } from '@reduxjs/toolkit';
 import { setupListeners } from '@reduxjs/toolkit/query';
 import { useDispatch, useSelector } from 'react-redux';
 import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
@@ -23,8 +18,8 @@ import onboardingReducer from 'src/stores/onboarding-slice';
 import { providerConstantsReducer } from 'src/stores/provider-constants-slice';
 import {
 	reducer as snapshotReducer,
+	refreshSnapshots,
 	updateSnapshotLocally,
-	snapshotActions,
 } from 'src/stores/snapshot-slice';
 import { syncReducer, syncOperationsActions } from 'src/stores/sync';
 import { connectedSitesApi, connectedSitesReducer } from 'src/stores/sync/connected-sites';
@@ -91,12 +86,16 @@ startAppListening( {
 	},
 } );
 
-// Save snapshots to user config
+// Save snapshot changes to CLI config via preview set command
 startAppListening( {
-	matcher: isAnyOf( updateSnapshotLocally, snapshotActions.deleteSnapshotLocally ),
-	async effect( action, listenerApi ) {
-		const state = listenerApi.getState();
-		await getIpcApi().saveSnapshotsToStorage( state.snapshot.snapshots );
+	actionCreator: updateSnapshotLocally,
+	async effect( action ) {
+		const { atomicSiteId, snapshot } = action.payload;
+		const state = store.getState();
+		const existing = state.snapshot.snapshots.find( ( s ) => s.atomicSiteId === atomicSiteId );
+		if ( existing?.url && snapshot.name !== undefined ) {
+			await getIpcApi().setSnapshot( existing.url, { name: snapshot.name } );
+		}
 	},
 } );
 
@@ -361,9 +360,10 @@ export const store = configureStore( {
 // Enable the refetchOnFocus behavior
 setupListeners( store.dispatch );
 
-// Initialize beta features on store initialization, but skip in test environment
+// Initialize beta features and fetch snapshots on store initialization, but skip in test environment
 if ( process.env.NODE_ENV !== 'test' ) {
 	void store.dispatch( loadBetaFeatures() );
+	void refreshSnapshots();
 }
 
 export type AppDispatch = typeof store.dispatch;

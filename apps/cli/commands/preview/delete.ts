@@ -2,7 +2,7 @@ import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logge
 import { __ } from '@wordpress/i18n';
 import { deleteSnapshot } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
-import { deleteSnapshotFromAppdata, getSnapshotsFromAppdata } from 'cli/lib/snapshots';
+import { deleteSnapshotFromConfig, getSnapshotsFromConfig } from 'cli/lib/snapshots';
 import { normalizeHostname } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -13,7 +13,7 @@ export async function runCommand( host: string ): Promise< void > {
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating…' ) );
 		const token = await getAuthToken();
-		const snapshots = await getSnapshotsFromAppdata( token.id );
+		const snapshots = await getSnapshotsFromConfig( token.id );
 		const snapshotToDelete = snapshots.find( ( s ) => s.url === host );
 		if ( ! snapshotToDelete ) {
 			throw new LoggerError(
@@ -27,7 +27,7 @@ export async function runCommand( host: string ): Promise< void > {
 
 		logger.reportStart( LoggerAction.DELETE, __( 'Deleting…' ) );
 		await deleteSnapshot( snapshotToDelete.atomicSiteId, token.accessToken );
-		await deleteSnapshotFromAppdata( snapshotToDelete.url );
+		await deleteSnapshotFromConfig( snapshotToDelete.url );
 		logger.reportSuccess( __( 'Deletion successful' ) );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {

@@ -1,4 +1,3 @@
-import { Snapshot } from '@studio/common/types/snapshot';
 import { StoredToken } from 'src/lib/oauth';
 import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import type { SyncSite } from 'src/modules/sync/types';
@@ -14,7 +13,6 @@ export interface WindowBounds {
 
 export interface UserData {
 	sites: SiteDetails[];
-	snapshots: Snapshot[];
 	devToolsOpen?: boolean;
 	windowBounds?: WindowBounds;
 	authToken?: StoredToken;

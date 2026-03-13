@@ -9,7 +9,6 @@ import {
 import { PreviewCommandLoggerAction } from '@studio/common/logger-actions';
 import { Snapshot } from '@studio/common/types/snapshot';
 import { __, sprintf } from '@wordpress/i18n';
-import fastDeepEqual from 'fast-deep-equal';
 import { LIMIT_OF_ZIP_SITES_PER_USER } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { RootState, store } from 'src/stores/index';
@@ -295,30 +294,25 @@ const selectSnapshotsBySiteAndUser = createSelector(
 		)
 );
 
-window.ipcListener.subscribe( 'user-data-updated', ( _, payload ) => {
+export async function refreshSnapshots() {
+	const snapshots = await getIpcApi().fetchSnapshots();
 	const state = store.getState();
-	const snapshots = payload.snapshots;
+	const countDiff = snapshots.length - state.snapshot.snapshots.length;
 
-	if ( ! fastDeepEqual( state.snapshot.snapshots, snapshots ) ) {
-		store.dispatch( snapshotSlice.actions.setSnapshots( { snapshots } ) );
+	store.dispatch( snapshotSlice.actions.setSnapshots( { snapshots } ) );
 
-		// Optimistically update the snapshot usage count
-		const countDiff = snapshots.length - state.snapshot.snapshots.length;
+	if ( countDiff !== 0 ) {
 		store.dispatch(
 			wpcomApi.util.updateQueryData( 'getSnapshotUsage', undefined, ( data ) => {
-				// There's a risk that more sites are deleted locally than the count returned by the
-				// API, because expired sites are preserved locally. Therefore, we need to ensure
-				// the count is non-negative.
 				data.siteCount = Math.max( 0, data.siteCount + countDiff );
 			} )
 		);
 
-		// Wait for changes to take effect on the back-end before invalidating the query
 		setTimeout( () => {
 			store.dispatch( wpcomApi.util.invalidateTags( [ 'SnapshotUsage' ] ) );
 		}, 8000 );
 	}
-} );
+}
 
 function getOperationProgress( action: PreviewCommandLoggerAction ): [ string, number ] {
 	switch ( action ) {
@@ -485,6 +479,9 @@ window.ipcListener.subscribe( 'snapshot-success', ( event, payload ) => {
 			} );
 		}
 	}
+
+	// Re-fetch snapshots from CLI after any successful operation
+	void refreshSnapshots();
 } );
 
 export const snapshotActions = {

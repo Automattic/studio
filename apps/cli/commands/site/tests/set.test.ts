@@ -78,7 +78,7 @@ describe( 'CLI: studio site set', () => {
 		vi.clearAllMocks();
 
 		const testSite = getTestSite();
-		const testCliConfig = { version: 1, sites: [ testSite ] };
+		const testCliConfig = { version: 1, sites: [ testSite ], snapshots: [] };
 
 		vi.mocked( arePathsEqual ).mockReturnValue( true );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( getTestSite() );
@@ -145,6 +145,7 @@ describe( 'CLI: studio site set', () => {
 			vi.mocked( readCliConfig ).mockResolvedValue( {
 				sites: [ siteWithDomain ],
 				version: 1,
+				snapshots: [],
 			} );
 
 			await runCommand( testSitePath, { https: true } );
@@ -200,6 +201,7 @@ describe( 'CLI: studio site set', () => {
 			vi.mocked( readCliConfig ).mockResolvedValue( {
 				sites: [ siteWithDomain ],
 				version: 1,
+				snapshots: [],
 			} );
 
 			await runCommand( testSitePath, { https: true } );
@@ -216,6 +218,7 @@ describe( 'CLI: studio site set', () => {
 			vi.mocked( readCliConfig ).mockResolvedValue( {
 				sites: [ siteWithDomain ],
 				version: 1,
+				snapshots: [],
 			} );
 			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
 
@@ -359,6 +362,7 @@ describe( 'CLI: studio site set', () => {
 			vi.mocked( readCliConfig ).mockResolvedValue( {
 				sites: [ testSite, otherSite ],
 				version: 1,
+				snapshots: [],
 			} );
 
 			await expect( runCommand( testSitePath, { xdebug: true } ) ).rejects.toThrow(
@@ -390,6 +394,7 @@ describe( 'CLI: studio site set', () => {
 			vi.mocked( readCliConfig ).mockResolvedValue( {
 				sites: [ siteWithXdebug ],
 				version: 1,
+				snapshots: [],
 			} );
 
 			await runCommand( testSitePath, { xdebug: false } );
@@ -404,6 +409,7 @@ describe( 'CLI: studio site set', () => {
 			vi.mocked( readCliConfig ).mockResolvedValue( {
 				sites: [ siteWithXdebug ],
 				version: 1,
+				snapshots: [],
 			} );
 
 			await expect( runCommand( testSitePath, { xdebug: true } ) ).rejects.toThrow(
@@ -417,6 +423,7 @@ describe( 'CLI: studio site set', () => {
 			vi.mocked( readCliConfig ).mockResolvedValue( {
 				sites: [ siteWithXdebugDisabled ],
 				version: 1,
+				snapshots: [],
 			} );
 
 			await expect( runCommand( testSitePath, { xdebug: false } ) ).rejects.toThrow(

@@ -57,7 +57,6 @@ vi.mock( 'atomically', () => ( {
 				{ name: 'Arthur', path: '/to/arthur' },
 				{ name: 'Lancelot', path: '/to/lancelot' },
 			],
-			snapshots: [],
 		} )
 	),
 	writeFile: vi.fn(),
@@ -69,7 +68,6 @@ const mockedUserData: RecursivePartial< UserData > = {
 		{ name: 'Arthur', path: '/to/arthur' },
 		{ name: 'Lancelot', path: '/to/lancelot' },
 	],
-	snapshots: [],
 };
 
 const defaultThemeDetails = {
@@ -117,7 +115,6 @@ platformTestSuite( 'User data', () => {
 							{ name: 'Lancelot', path: '/to/lancelot', phpVersion: '8.1' },
 							{ name: 'Tristan', path: '/to/tristan' },
 						],
-						snapshots: [],
 					} )
 				)
 			);
@@ -144,7 +141,6 @@ platformTestSuite( 'User data', () => {
 							...site,
 							themeDetails: defaultThemeDetails,
 						} ) ),
-						snapshots: [],
 					},
 					null,
 					2

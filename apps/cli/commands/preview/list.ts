@@ -3,10 +3,10 @@ import { __, _n, sprintf } from '@wordpress/i18n';
 import Table from 'cli-table3';
 import { format } from 'date-fns';
 import { getAuthToken } from 'cli/lib/appdata';
-import { getSiteByFolder } from 'cli/lib/cli-config';
+import { readCliConfig } from 'cli/lib/cli-config';
 import {
 	formatDurationUntilExpiry,
-	getSnapshotsFromAppdata,
+	getSnapshotsFromConfig,
 	isSnapshotExpired,
 } from 'cli/lib/snapshots';
 import { getColumnWidths } from 'cli/lib/utils';
@@ -20,13 +20,18 @@ export async function runCommand(
 	const logger = new Logger< LoggerAction >();
 
 	try {
+		if ( outputFormat === 'json' ) {
+			const config = await readCliConfig();
+			logger.reportKeyValuePair( 'snapshots', JSON.stringify( config.snapshots ) );
+			return;
+		}
+
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating…' ) );
-		await getSiteByFolder( siteFolder );
 		const token = await getAuthToken();
 		logger.reportSuccess( __( 'Validation successful' ), true );
 
 		logger.reportStart( LoggerAction.LOAD, __( 'Loading preview sites…' ) );
-		const snapshots = await getSnapshotsFromAppdata( token.id, siteFolder );
+		const snapshots = await getSnapshotsFromConfig( token.id, siteFolder );
 
 		if ( snapshots.length === 0 ) {
 			logger.reportSuccess( __( 'No preview sites found' ) );
@@ -51,42 +56,31 @@ export async function runCommand(
 			logger.reportSuccess( snapshotsMessage );
 		}
 
-		if ( outputFormat === 'table' ) {
-			const colWidths = getColumnWidths( [ 0.4, 0.25, 0.175, 0.175 ] );
-			const table = new Table( {
-				head: [ __( 'URL' ), __( 'Site Name' ), __( 'Updated' ), __( 'Expires in' ) ],
-				wordWrap: true,
-				wrapOnWordBoundary: false,
-				colWidths,
-				style: {
-					head: [],
-					border: [],
-				},
-			} );
+		const colWidths = getColumnWidths( [ 0.4, 0.25, 0.175, 0.175 ] );
+		const table = new Table( {
+			head: [ __( 'URL' ), __( 'Site Name' ), __( 'Updated' ), __( 'Expires in' ) ],
+			wordWrap: true,
+			wrapOnWordBoundary: false,
+			colWidths,
+			style: {
+				head: [],
+				border: [],
+			},
+		} );
 
-			for ( const snapshot of snapshots ) {
-				const durationUntilExpiry = formatDurationUntilExpiry( snapshot.date );
-				const url = `https://${ snapshot.url }`;
+		for ( const snapshot of snapshots ) {
+			const durationUntilExpiry = formatDurationUntilExpiry( snapshot.date );
+			const url = `https://${ snapshot.url }`;
 
-				table.push( [
-					{ href: url, content: url },
-					snapshot.name,
-					format( snapshot.date, 'yyyy-MM-dd HH:mm' ),
-					durationUntilExpiry,
-				] );
-			}
-
-			console.log( table.toString() );
-		} else {
-			const output = snapshots.map( ( snapshot ) => ( {
-				url: `https://${ snapshot.url }`,
-				name: snapshot.name,
-				date: format( snapshot.date, 'yyyy-MM-dd HH:mm' ),
-				expiresIn: formatDurationUntilExpiry( snapshot.date ),
-			} ) );
-
-			console.log( JSON.stringify( output, null, 2 ) );
+			table.push( [
+				{ href: url, content: url },
+				snapshot.name,
+				format( snapshot.date, 'yyyy-MM-dd HH:mm' ),
+				durationUntilExpiry,
+			] );
 		}
+
+		console.log( table.toString() );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );

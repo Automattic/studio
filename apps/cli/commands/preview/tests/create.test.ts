@@ -6,7 +6,7 @@ import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config';
-import { saveSnapshotToAppdata } from 'cli/lib/snapshots';
+import { saveSnapshotToConfig } from 'cli/lib/snapshots';
 import { LoggerError } from 'cli/logger';
 import { runCommand } from '../create';
 
@@ -92,7 +92,7 @@ describe( 'Preview Create Command', () => {
 			site_id: mockAtomicSiteId,
 		} );
 		vi.mocked( waitForSiteReady ).mockResolvedValue( true );
-		vi.mocked( saveSnapshotToAppdata ).mockResolvedValue( {
+		vi.mocked( saveSnapshotToConfig ).mockResolvedValue( {
 			url: mockSiteUrl,
 			atomicSiteId: mockAtomicSiteId,
 			localSiteId: 'site-123',
@@ -133,10 +133,12 @@ describe( 'Preview Create Command', () => {
 			`Preview site available at: https://${ mockSiteUrl }`,
 		] );
 
-		expect( saveSnapshotToAppdata ).toHaveBeenCalledWith(
+		expect( saveSnapshotToConfig ).toHaveBeenCalledWith(
 			mockFolder,
 			mockAtomicSiteId,
-			mockSiteUrl
+			mockSiteUrl,
+			mockAuthToken.id,
+			undefined
 		);
 		expect( mockReportStart.mock.calls[ 4 ] ).toEqual( [
 			'appdata',
@@ -217,12 +219,12 @@ describe( 'Preview Create Command', () => {
 
 		expect( mockReportError ).toHaveBeenCalled();
 		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
-		expect( saveSnapshotToAppdata ).not.toHaveBeenCalled();
+		expect( saveSnapshotToConfig ).not.toHaveBeenCalled();
 	} );
 
 	it( 'should handle appdata errors', async () => {
 		const errorMessage = 'Failed to save to appdata';
-		vi.mocked( saveSnapshotToAppdata ).mockImplementation( () => {
+		vi.mocked( saveSnapshotToConfig ).mockImplementation( () => {
 			throw new LoggerError( errorMessage );
 		} );
 

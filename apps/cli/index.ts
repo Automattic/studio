@@ -17,6 +17,7 @@ import { registerCommand as registerMcpCommand } from 'cli/commands/mcp';
 import { registerCommand as registerCreateCommand } from 'cli/commands/preview/create';
 import { registerCommand as registerDeleteCommand } from 'cli/commands/preview/delete';
 import { registerCommand as registerListCommand } from 'cli/commands/preview/list';
+import { registerCommand as registerPreviewSetCommand } from 'cli/commands/preview/set';
 import { registerCommand as registerUpdateCommand } from 'cli/commands/preview/update';
 import { registerCommand as registerSiteCreateCommand } from 'cli/commands/site/create';
 import { registerCommand as registerSiteDeleteCommand } from 'cli/commands/site/delete';
@@ -94,6 +95,7 @@ async function main() {
 			registerListCommand( previewYargs );
 			registerDeleteCommand( previewYargs );
 			registerUpdateCommand( previewYargs );
+			registerPreviewSetCommand( previewYargs );
 			previewYargs.version( false ).demandCommand( 1, __( 'You must provide a valid command' ) );
 		} )
 		.command( 'site', __( 'Manage sites' ), ( sitesYargs ) => {

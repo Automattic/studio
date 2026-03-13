@@ -1,7 +1,7 @@
 import { vi } from 'vitest';
 import { getAuthToken } from 'cli/lib/appdata';
 import { getSiteByFolder } from 'cli/lib/cli-config';
-import { getSnapshotsFromAppdata } from 'cli/lib/snapshots';
+import { getSnapshotsFromConfig } from 'cli/lib/snapshots';
 import {
 	mockReportStart,
 	mockReportSuccess,
@@ -25,6 +25,7 @@ vi.mock( 'cli/lib/cli-config', async () => {
 	return {
 		...actual,
 		getSiteByFolder: vi.fn(),
+		readCliConfig: vi.fn(),
 	};
 } );
 vi.mock( 'cli/lib/snapshots' );
@@ -85,7 +86,7 @@ describe( 'Preview List Command', () => {
 
 		vi.mocked( getSiteByFolder ).mockResolvedValue( mockSite );
 		vi.mocked( getAuthToken ).mockResolvedValue( mockAuthToken );
-		vi.mocked( getSnapshotsFromAppdata ).mockResolvedValue( mockSnapshots );
+		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( mockSnapshots );
 	} );
 
 	afterEach( () => {
@@ -95,8 +96,7 @@ describe( 'Preview List Command', () => {
 	it( 'should list preview sites successfully', async () => {
 		await runCommand( mockFolder, 'table' );
 
-		expect( getSiteByFolder ).toHaveBeenCalledWith( mockFolder );
-		expect( getSnapshotsFromAppdata ).toHaveBeenCalledWith( mockAuthToken.id, mockFolder );
+		expect( getSnapshotsFromConfig ).toHaveBeenCalledWith( mockAuthToken.id, mockFolder );
 		expect( mockReportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating…' ] );
 		expect( mockReportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful', true ] );
 		expect( mockReportStart.mock.calls[ 1 ] ).toEqual( [ 'load', 'Loading preview sites…' ] );
@@ -104,9 +104,7 @@ describe( 'Preview List Command', () => {
 	} );
 
 	it( 'should handle validation errors', async () => {
-		vi.mocked( getSiteByFolder ).mockImplementation( () => {
-			throw new Error( 'Invalid site folder' );
-		} );
+		vi.mocked( getAuthToken ).mockRejectedValue( new Error( 'Authentication required' ) );
 
 		await runCommand( mockFolder, 'table' );
 
@@ -114,7 +112,7 @@ describe( 'Preview List Command', () => {
 	} );
 
 	it( 'should handle no snapshots found', async () => {
-		vi.mocked( getSnapshotsFromAppdata ).mockResolvedValue( [] );
+		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [] );
 
 		await runCommand( mockFolder, 'table' );
 

@@ -35,23 +35,19 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 		return;
 	}
 
-	// Only register new sites on CREATED events to prevent duplicates
+	let server = SiteServer.get( siteId ) ?? SiteServer.getByPath( site.path );
+	if ( ! server ) {
+		// Sites started outside the desktop app are announced as UPDATED events.
+		// Register them here so startup sync and external CLI actions surface correctly.
+		server = SiteServer.register( siteDetailsToServerDetails( site, running ) );
+	}
+
 	if ( eventType === SITE_EVENTS.CREATED ) {
-		const existingServer = SiteServer.get( siteId ) ?? SiteServer.getByPath( site.path );
-		if ( ! existingServer ) {
-			SiteServer.register( siteDetailsToServerDetails( site, running ) );
-		}
 		// Don't send to renderer if site is being created by UI (createSite IPC will handle it)
-		if ( existingServer?.hasOngoingOperation ) {
+		if ( server.hasOngoingOperation ) {
 			return;
 		}
 		void sendIpcEventToRenderer( 'site-event', event );
-		return;
-	}
-
-	// For UPDATED events, only update if the site already exists
-	const server = SiteServer.get( siteId ) ?? SiteServer.getByPath( site.path );
-	if ( ! server ) {
 		return;
 	}
 

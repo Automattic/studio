@@ -82,7 +82,7 @@ npm install
 
 ```bash
 npm run cli:build
-node dist/cli/main.js site create --name test-site
+node apps/cli/dist/cli/main.js site create --name test-site
 ```
 
 ### 6. Start Studio (optional)

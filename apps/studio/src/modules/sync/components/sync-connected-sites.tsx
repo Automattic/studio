@@ -221,11 +221,15 @@ const SyncConnectedSitesSectionItem = ( {
 	const sitePullState = useRootSelector(
 		syncOperationsSelectors.selectPullState( selectedSite.id, connectedSite.id )
 	);
+	const pullImportFailed =
+		sitePullState?.status.key === 'importing' &&
+		importState[ connectedSite.localSiteId ]?.isError === true;
 	const isPulling =
-		sitePullState?.status.key === 'in-progress' ||
-		sitePullState?.status.key === 'downloading' ||
-		sitePullState?.status.key === 'importing';
-	const isPullError = sitePullState?.status.key === 'failed';
+		( sitePullState?.status.key === 'in-progress' ||
+			sitePullState?.status.key === 'downloading' ||
+			sitePullState?.status.key === 'importing' ) &&
+		! pullImportFailed;
+	const isPullError = sitePullState?.status.key === 'failed' || pullImportFailed;
 	const hasPullFinished = sitePullState?.status.key === 'finished';
 	const hasPullCancelled = sitePullState?.status.key === 'cancelled';
 	const pullImportState = importState[ connectedSite.localSiteId ];

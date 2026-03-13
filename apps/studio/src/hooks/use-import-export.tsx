@@ -26,6 +26,7 @@ export type ImportProgressState = {
 		statusMessage: string;
 		progress: number;
 		isNewSite?: boolean;
+		isError?: boolean;
 	};
 };
 
@@ -339,6 +340,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					[ siteId ]: {
 						...currentProgress,
 						statusMessage: __( 'Import failed. Please try again.' ),
+						isError: true,
 					},
 				} ) );
 				break;

@@ -79,8 +79,8 @@ class PromptEditor implements Component, Focusable {
 	}
 
 	handleInput( data: string ): void {
-		this.isEmpty = false;
 		this.editor.handleInput( data );
+		this.isEmpty = this.editor.getText() === '';
 	}
 
 	setAutocompleteProvider( provider: CombinedAutocompleteProvider ): void {
@@ -160,9 +160,12 @@ class PromptEditor implements Component, Focusable {
 				);
 			}
 		} else {
+			const activeHints = this.isEmpty
+				? this.hints
+				: this.hints.filter( ( h ) => h !== '↓ select site' );
 			const leftPart =
-				this.hints.length > 0
-					? ' ' + this.hints.map( ( h ) => chalk.dim( h ) ).join( chalk.dim( ' · ' ) )
+				activeHints.length > 0
+					? ' ' + activeHints.map( ( h ) => chalk.dim( h ) ).join( chalk.dim( ' · ' ) )
 					: '';
 			const rightPart = this.statusMessage ? chalk.dim( this.statusMessage ) + ' ' : '';
 			if ( leftPart || rightPart ) {
@@ -534,8 +537,13 @@ export class AiChatUI {
 				}
 				return { consume: true };
 			}
-			// Down arrow to open site picker (when editor is visible and picker is not)
-			if ( matchesKey( data, 'down' ) && this.editorVisible && ! this.sitePickerVisible ) {
+			// Down arrow to open site picker (only when prompt is empty)
+			if (
+				matchesKey( data, 'down' ) &&
+				this.editorVisible &&
+				! this.sitePickerVisible &&
+				this.editor.getText().trim() === ''
+			) {
 				void this.openSitePicker();
 				return { consume: true };
 			}

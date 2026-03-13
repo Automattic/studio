@@ -9,6 +9,8 @@ type ConnectedSitesState = {
 	isModalOpen: boolean;
 	modalMode: SyncModalMode | null;
 	selectedRemoteSiteId: number | null;
+	selectedLocalSiteId: string | null;
+	loadingSiteIds: Record< number, boolean >;
 };
 
 function getInitialState(): ConnectedSitesState {
@@ -16,6 +18,8 @@ function getInitialState(): ConnectedSitesState {
 		isModalOpen: false,
 		modalMode: null,
 		selectedRemoteSiteId: null,
+		selectedLocalSiteId: null,
+		loadingSiteIds: {},
 	};
 }
 
@@ -33,14 +37,28 @@ const connectedSitesSlice = createSlice( {
 		closeModal: ( state ) => {
 			state.isModalOpen = false;
 			state.selectedRemoteSiteId = null;
+			state.selectedLocalSiteId = null;
 		},
 
-		setSelectedRemoteSiteId: ( state, action: PayloadAction< number > ) => {
-			state.selectedRemoteSiteId = action.payload;
+		setSelectedRemoteSiteId: (
+			state,
+			action: PayloadAction< { remoteSiteId: number; localSiteId: string } >
+		) => {
+			state.selectedRemoteSiteId = action.payload.remoteSiteId;
+			state.selectedLocalSiteId = action.payload.localSiteId;
 		},
 
 		clearSelectedRemoteSiteId: ( state ) => {
 			state.selectedRemoteSiteId = null;
+			state.selectedLocalSiteId = null;
+		},
+
+		addLoadingSiteId: ( state, action: PayloadAction< number > ) => {
+			state.loadingSiteIds[ action.payload ] = true;
+		},
+
+		removeLoadingSiteId: ( state, action: PayloadAction< number > ) => {
+			delete state.loadingSiteIds[ action.payload ];
 		},
 	},
 	extraReducers: ( builder ) => {
@@ -54,6 +72,9 @@ export const connectedSitesSelectors = {
 	selectIsModalOpen: ( state: RootState ) => state.connectedSites.isModalOpen,
 	selectModalMode: ( state: RootState ) => state.connectedSites.modalMode,
 	selectSelectedRemoteSiteId: ( state: RootState ) => state.connectedSites.selectedRemoteSiteId,
+	selectSelectedLocalSiteId: ( state: RootState ) => state.connectedSites.selectedLocalSiteId,
+	selectIsLoadingSiteId: ( id: number ) => ( state: RootState ) =>
+		Boolean( state.connectedSites.loadingSiteIds[ id ] ),
 };
 
 export const connectedSitesApi = createApi( {

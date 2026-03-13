@@ -18,8 +18,11 @@ import { CreateButton } from 'src/modules/sync/components/create-button';
 import { EnvironmentBadge } from 'src/modules/sync/components/environment-badge';
 import { NoWpcomSitesModal } from 'src/modules/sync/components/no-wpcom-sites-modal';
 import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
-import { useI18nLocale } from 'src/stores';
-import { useGetConnectedSitesForLocalSiteQuery } from 'src/stores/sync/connected-sites';
+import { useI18nLocale, useRootSelector } from 'src/stores';
+import {
+	connectedSitesSelectors,
+	useGetConnectedSitesForLocalSiteQuery,
+} from 'src/stores/sync/connected-sites';
 import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
 import type { SyncSite, SyncModalMode } from 'src/modules/sync/types';
 
@@ -248,6 +251,7 @@ function SiteItem( {
 	onClick: () => void;
 } ) {
 	const { __ } = useI18n();
+	const isSiteLoading = useRootSelector( connectedSitesSelectors.selectIsLoadingSiteId( site.id ) );
 	const isAlreadyConnected = site.syncSupport === 'already-connected';
 	const isSyncable = site.syncSupport === 'syncable';
 	const isNeedsTransfer = site.syncSupport === 'needs-transfer';
@@ -287,48 +291,61 @@ function SiteItem( {
 			} }
 		>
 			<div className="flex flex-col gap-0.5 min-w-0">
-				<div
-					className={ cx(
-						'a8c-body truncate flex items-center',
-						! isSyncable && 'text-a8c-gray-30'
-					) }
-				>
-					{ isPressable && (
-						<span className="me-1.5">
-							<PressableLogo size={ 12 } />
-						</span>
-					) }
-					{ ! isPressable && (
-						<span className="me-1.5">
-							<WordPressLogoCircle
-								size={ 12 }
-								{ ...( isSelected && { color: '#fff' } ) }
-								{ ...( isDisabled && { color: '#8c8f94' } ) }
-							/>
-						</span>
-					) }
-					{ site.name }
-				</div>
-				<Button
-					variant="link"
-					className={ cx(
-						'a8c-body-small truncate !p-0 w-full !justify-start',
-						isSelected
-							? '!text-inherit hover:!text-a8c-blue-10'
-							: '!text-a8c-gray-30 hover:!text-a8c-blue-50'
-					) }
-					onClick={ () => getIpcApi().openURL( site.url ) }
-					onKeyDown={ ( e: React.KeyboardEvent ) => {
-						if ( e.code === 'Space' || e.code === 'Enter' ) {
-							e.preventDefault();
-							e.stopPropagation();
-							getIpcApi().openURL( site.url );
-						}
-					} }
-				>
-					<div className="truncate">{ site.url.replace( /^https?:\/\//, '' ) }</div>
-					<ArrowIcon />
-				</Button>
+				{ isSiteLoading ? (
+					<div className="flex items-center gap-1.5">
+						<div className="w-3 h-3 rounded-full skeleton-bg" aria-label={ __( 'Loading' ) } />
+						<div
+							className="h-4 w-48 rounded skeleton-bg"
+							aria-label={ __( 'Loading site name' ) }
+						/>
+					</div>
+				) : (
+					<div
+						className={ cx(
+							'a8c-body truncate flex items-center',
+							! isSyncable && 'text-a8c-gray-30'
+						) }
+					>
+						{ isPressable ? (
+							<span className="me-1.5">
+								<PressableLogo size={ 12 } />
+							</span>
+						) : (
+							<span className="me-1.5">
+								<WordPressLogoCircle
+									size={ 12 }
+									{ ...( isSelected && { color: '#fff' } ) }
+									{ ...( isDisabled && { color: '#8c8f94' } ) }
+								/>
+							</span>
+						) }
+						{ site.name }
+					</div>
+				) }
+				{ isSiteLoading ? (
+					<div className="h-3 w-36 rounded skeleton-bg" aria-label={ __( 'Loading site URL' ) } />
+				) : (
+					<Button
+						variant="link"
+						className={ cx(
+							'a8c-body-small truncate !p-0 w-full !justify-start',
+							isSelected
+								? '!text-inherit hover:!text-a8c-blue-10'
+								: '!text-a8c-gray-30 hover:!text-a8c-blue-50'
+						) }
+						onClick={ () => getIpcApi().openURL( site.url ) }
+						onKeyDown={ ( e: React.KeyboardEvent ) => {
+							if ( e.code === 'Space' || e.code === 'Enter' ) {
+								e.preventDefault();
+								e.stopPropagation();
+								getIpcApi().openURL( site.url );
+							}
+						} }
+					>
+						<div className="truncate">{ site.url.replace( /^https?:\/\//, '' ) }</div>
+						<ArrowIcon />
+					</Button>
+				) }
 			</div>
 			{ isSyncable && (
 				<div className="flex gap-2">

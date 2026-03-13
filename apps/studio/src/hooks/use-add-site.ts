@@ -2,6 +2,7 @@ import * as Sentry from '@sentry/electron/renderer';
 import { updateBlueprintWithFormValues } from '@studio/common/lib/blueprint-settings';
 import { BlueprintValidationWarning } from '@studio/common/lib/blueprint-validation';
 import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
+import { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useMemo, useState } from 'react';
 import { useAuth } from 'src/hooks/use-auth';
@@ -18,7 +19,6 @@ import { syncOperationsThunks } from 'src/stores/sync';
 import { useConnectSiteMutation } from 'src/stores/sync/connected-sites';
 import { Blueprint } from 'src/stores/wpcom-api';
 import type { BlueprintPreferredVersions } from '@studio/common/lib/blueprint-validation';
-import type { AllowedPHPVersion } from 'src/lib/wordpress-server-types';
 import type { SyncSite } from 'src/modules/sync/types';
 import type { SyncOption } from 'src/types';
 
@@ -28,7 +28,7 @@ import type { SyncOption } from 'src/types';
 export interface CreateSiteFormValues {
 	siteName: string;
 	sitePath: string;
-	phpVersion: AllowedPHPVersion;
+	phpVersion: SupportedPHPVersion;
 	wpVersion: string;
 	useCustomDomain: boolean;
 	customDomain: string | null;
@@ -76,6 +76,7 @@ export function useAddSite() {
 	const [ blueprintSuggestedSiteName, setBlueprintSuggestedSiteName ] = useState<
 		string | undefined
 	>();
+	const [ blueprintRequiresCustomDomain, setBlueprintRequiresCustomDomain ] = useState( false );
 	const [ isDeeplinkFlow, setIsDeeplinkFlow ] = useState( false );
 	const [ existingDomainNames, setExistingDomainNames ] = useState< string[] >( [] );
 
@@ -91,12 +92,12 @@ export function useAddSite() {
 		setBlueprintSuggestedDomain( undefined );
 		setBlueprintSuggestedHttps( undefined );
 		setBlueprintSuggestedSiteName( undefined );
+		setBlueprintRequiresCustomDomain( false );
 	}, [] );
 
 	// For blueprint deeplinks - we need temporary state for PHP/WP versions
-	const [ deeplinkPhpVersion, setDeeplinkPhpVersion ] = useState< AllowedPHPVersion >(
-		defaultPhpVersion as AllowedPHPVersion
-	);
+	const [ deeplinkPhpVersion, setDeeplinkPhpVersion ] =
+		useState< SupportedPHPVersion >( defaultPhpVersion );
 	const [ deeplinkWpVersion, setDeeplinkWpVersion ] = useState( defaultWordPressVersion );
 
 	const resetForm = useCallback( () => {
@@ -107,8 +108,9 @@ export function useAddSite() {
 		setBlueprintSuggestedDomain( undefined );
 		setBlueprintSuggestedHttps( undefined );
 		setBlueprintSuggestedSiteName( undefined );
+		setBlueprintRequiresCustomDomain( false );
 		setSelectedRemoteSite( undefined );
-		setDeeplinkPhpVersion( defaultPhpVersion as AllowedPHPVersion );
+		setDeeplinkPhpVersion( defaultPhpVersion );
 		setDeeplinkWpVersion( defaultWordPressVersion );
 		clearDeeplinkState();
 	}, [ clearDeeplinkState, defaultPhpVersion, defaultWordPressVersion ] );
@@ -329,7 +331,7 @@ export function useAddSite() {
 			handleCreateSite,
 			selectPath,
 			generateProposedPath,
-			defaultPhpVersion: defaultPhpVersion as AllowedPHPVersion,
+			defaultPhpVersion,
 			defaultWpVersion: defaultWordPressVersion,
 			deeplinkPhpVersion,
 			deeplinkWpVersion,
@@ -349,6 +351,8 @@ export function useAddSite() {
 			setBlueprintSuggestedHttps,
 			blueprintSuggestedSiteName,
 			setBlueprintSuggestedSiteName,
+			blueprintRequiresCustomDomain,
+			setBlueprintRequiresCustomDomain,
 			selectedRemoteSite,
 			setSelectedRemoteSite,
 			existingDomainNames,
@@ -376,6 +380,7 @@ export function useAddSite() {
 			blueprintSuggestedDomain,
 			blueprintSuggestedHttps,
 			blueprintSuggestedSiteName,
+			blueprintRequiresCustomDomain,
 			selectedRemoteSite,
 			existingDomainNames,
 			loadAllCustomDomains,

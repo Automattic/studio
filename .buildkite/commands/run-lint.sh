@@ -11,3 +11,6 @@ bash .buildkite/commands/install-node-dependencies.sh
 
 echo '--- :eslint: Lint'
 npm run lint
+
+echo '--- :typescript: Typecheck'
+npm run typecheck

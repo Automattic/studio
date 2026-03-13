@@ -1,16 +1,14 @@
+import { generateDefaultBlueprintDescription } from '@studio/common/lib/blueprint-settings';
 import {
-	extractFormValuesFromBlueprint,
-	generateDefaultBlueprintDescription,
-} from '@studio/common/lib/blueprint-settings';
-import {
-	BlueprintValidationWarning,
 	BlueprintPreferredVersions,
+	BlueprintValidationWarning,
 } from '@studio/common/lib/blueprint-validation';
-import { useI18n } from '@wordpress/react-i18n';
+import { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import { useCallback } from 'react';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { Blueprint } from 'src/stores/wpcom-api';
+import { applyBlueprintFormValues } from '../lib/apply-blueprint-form-values';
 
 type BlueprintMetadata = {
 	title?: string;
@@ -20,19 +18,19 @@ type BlueprintMetadata = {
 interface UseBlueprintDeeplinkOptions {
 	isAnySiteProcessing: boolean;
 	setSelectedBlueprint: ( blueprint?: Blueprint ) => void;
-	setPhpVersion: ( version: string ) => void;
+	setPhpVersion: ( version: SupportedPHPVersion ) => void;
 	setWpVersion: ( version: string ) => void;
 	setBlueprintPreferredVersions: ( versions: BlueprintPreferredVersions | undefined ) => void;
 	setBlueprintWarnings: ( warnings: BlueprintValidationWarning[] | undefined ) => void;
 	setBlueprintSuggestedDomain: ( domain: string | undefined ) => void;
 	setBlueprintSuggestedHttps: ( https: boolean | undefined ) => void;
 	setBlueprintSuggestedSiteName: ( name: string | undefined ) => void;
+	setBlueprintRequiresCustomDomain: ( requires: boolean ) => void;
 	setIsDeeplinkFlow: ( isDeeplink: boolean ) => void;
 	onModalOpen?: () => void;
 }
 
 export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): void {
-	const { __ } = useI18n();
 	const {
 		isAnySiteProcessing,
 		setSelectedBlueprint,
@@ -43,6 +41,7 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 		setBlueprintSuggestedDomain,
 		setBlueprintSuggestedHttps,
 		setBlueprintSuggestedSiteName,
+		setBlueprintRequiresCustomDomain,
 		setIsDeeplinkFlow,
 		onModalOpen,
 	} = options;
@@ -80,26 +79,15 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 
 					setSelectedBlueprint( fileBlueprint );
 
-					const formValues = extractFormValuesFromBlueprint( blueprintJson );
-
-					if ( blueprintJson.preferredVersions ) {
-						setBlueprintPreferredVersions(
-							blueprintJson.preferredVersions as BlueprintPreferredVersions
-						);
-					}
-					if ( formValues.phpVersion ) {
-						setPhpVersion( formValues.phpVersion );
-					}
-					if ( formValues.wpVersion ) {
-						setWpVersion( formValues.wpVersion );
-					}
-					if ( formValues.customDomain ) {
-						setBlueprintSuggestedDomain( formValues.customDomain );
-						setBlueprintSuggestedHttps( formValues.enableHttps );
-					}
-					if ( formValues.siteName ) {
-						setBlueprintSuggestedSiteName( formValues.siteName );
-					}
+					applyBlueprintFormValues( blueprintJson, {
+						setBlueprintPreferredVersions,
+						setPhpVersion,
+						setWpVersion,
+						setBlueprintSuggestedDomain,
+						setBlueprintSuggestedHttps,
+						setBlueprintSuggestedSiteName,
+						setBlueprintRequiresCustomDomain,
+					} );
 
 					setBlueprintWarnings( warnings );
 					setIsDeeplinkFlow( true );
@@ -118,6 +106,7 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 				setBlueprintSuggestedDomain,
 				setBlueprintSuggestedHttps,
 				setBlueprintSuggestedSiteName,
+				setBlueprintRequiresCustomDomain,
 				setIsDeeplinkFlow,
 				onModalOpen,
 			]

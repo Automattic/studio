@@ -8,7 +8,7 @@ import {
 	validateAdminEmail,
 	validateAdminUsername,
 } from '@studio/common/lib/passwords';
-import { SupportedPHPVersions } from '@studio/common/types/php-versions';
+import { SupportedPHPVersion, SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { Icon, SelectControl, Notice } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf, _n } from '@wordpress/i18n';
@@ -30,14 +30,13 @@ import {
 } from 'src/stores/provider-constants-slice';
 import type { BlueprintPreferredVersions } from '@studio/common/lib/blueprint-validation';
 import type { CreateSiteFormValues, PathValidationResult } from 'src/hooks/use-add-site';
-import type { AllowedPHPVersion } from 'src/lib/wordpress-server-types';
 
 interface CreateSiteFormProps {
 	/** Initial values and async updates (syncs before user interaction) */
 	defaultValues?: {
 		siteName?: string;
 		sitePath?: string;
-		phpVersion?: AllowedPHPVersion;
+		phpVersion?: SupportedPHPVersion;
 		wpVersion?: string;
 	};
 	/** Opens folder picker to select site path */
@@ -52,6 +51,8 @@ interface CreateSiteFormProps {
 	blueprintSuggestedDomain?: string;
 	/** Blueprint suggested HTTPS setting from defineSiteUrl step */
 	blueprintSuggestedHttps?: boolean;
+	/** Whether the blueprint requires a custom domain (e.g., multisite) */
+	blueprintRequiresCustomDomain?: boolean;
 	/** Blueprint login credentials for pre-filling admin fields */
 	blueprintCredentials?: { adminUsername?: string; adminPassword?: string };
 	/** Called when form is submitted */
@@ -164,10 +165,11 @@ export const CreateSiteForm = ( {
 	defaultValues = {},
 	onSelectPath,
 	onSiteNameChange,
-	existingDomainNames,
+	existingDomainNames = [],
 	blueprintPreferredVersions,
 	blueprintSuggestedDomain,
 	blueprintSuggestedHttps,
+	blueprintRequiresCustomDomain,
 	blueprintCredentials,
 	onSubmit,
 	onValidityChange,
@@ -180,8 +182,8 @@ export const CreateSiteForm = ( {
 
 	const [ siteName, setSiteName ] = useState( defaultValues.siteName ?? '' );
 	const [ sitePath, setSitePath ] = useState( defaultValues.sitePath ?? '' );
-	const [ phpVersion, setPhpVersion ] = useState< AllowedPHPVersion >(
-		defaultValues.phpVersion ?? ( allowedPhpVersions[ 0 ] as AllowedPHPVersion ) ?? '8.2'
+	const [ phpVersion, setPhpVersion ] = useState< SupportedPHPVersion >(
+		defaultValues.phpVersion ?? allowedPhpVersions[ 0 ] ?? '8.2'
 	);
 	const [ wpVersion, setWpVersion ] = useState(
 		defaultValues.wpVersion ?? defaultWordPressVersion
@@ -258,6 +260,14 @@ export const CreateSiteForm = ( {
 		}
 		setAdvancedSettingsVisible( true );
 	}, [ blueprintSuggestedDomain, blueprintSuggestedHttps ] );
+
+	useEffect( () => {
+		if ( ! blueprintRequiresCustomDomain ) {
+			return;
+		}
+		setUseCustomDomain( true );
+		setAdvancedSettingsVisible( true );
+	}, [ blueprintRequiresCustomDomain ] );
 
 	useEffect( () => {
 		if ( useCustomDomain && isCertificateTrusted ) {
@@ -525,14 +535,14 @@ export const CreateSiteForm = ( {
 										<label className="font-semibold" htmlFor="php-version-select">
 											{ __( 'PHP version' ) }
 										</label>
-										<SelectControl< string >
+										<SelectControl< SupportedPHPVersion >
 											id="php-version-select"
 											value={ phpVersion }
 											options={ SupportedPHPVersions.map( ( version ) => ( {
 												label: version,
 												value: version,
 											} ) ) }
-											onChange={ ( value: string ) => setPhpVersion( value as AllowedPHPVersion ) }
+											onChange={ ( value ) => setPhpVersion( value ) }
 											__next40pxDefaultSize
 											__nextHasNoMarginBottom
 										/>
@@ -645,10 +655,17 @@ export const CreateSiteForm = ( {
 										type="checkbox"
 										id="use-custom-domain"
 										checked={ useCustomDomain }
+										disabled={ blueprintRequiresCustomDomain }
 										onChange={ ( e ) => setUseCustomDomain( e.target.checked ) }
 									/>
 									<label htmlFor="use-custom-domain">{ __( 'Use custom domain' ) }</label>
 								</div>
+
+								{ blueprintRequiresCustomDomain && (
+									<Notice status="warning" isDismissible={ false } className="mt-2">
+										{ __( 'WordPress multisite requires a custom domain.' ) }
+									</Notice>
+								) }
 
 								<div className="text-a8c-gray-50 text-xs mt-2">
 									{ __( 'Your system password will be required to set up the domain.' ) }

@@ -1,7 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import * as Sentry from '@sentry/electron/renderer';
 import { __, sprintf } from '@wordpress/i18n';
-import { WPCOM } from 'wpcom/types';
 import { z } from 'zod';
 import { SYNC_PUSH_SIZE_LIMIT_BYTES, SYNC_PUSH_SIZE_LIMIT_GB } from 'src/constants';
 import { generateStateId } from 'src/hooks/sync-sites/use-pull-push-states';
@@ -17,6 +16,7 @@ import type {
 import type { SyncSite } from 'src/modules/sync/types';
 import type { AppDispatch, RootState } from 'src/stores';
 import type { SyncOption } from 'src/types';
+import type { WPCOM } from 'wpcom/types';
 
 export type SyncBackupState = {
 	remoteSiteId: number;

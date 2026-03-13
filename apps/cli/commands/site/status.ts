@@ -3,7 +3,7 @@ import { decodePassword } from '@studio/common/lib/passwords';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n } from '@wordpress/i18n';
 import CliTable3 from 'cli-table3';
-import { getSiteByFolder, getSiteUrl } from 'cli/lib/appdata';
+import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getPrettyPath } from 'cli/lib/utils';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';

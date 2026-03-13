@@ -13,7 +13,7 @@ import {
 	PROCESS_MANAGER_EVENTS_SOCKET_PATH,
 	PROCESS_MANAGER_CONTROL_SOCKET_PATH,
 	PROCESS_MANAGER_HOME,
-} from 'cli/lib/daemon-paths';
+} from 'cli/lib/paths';
 import { SocketStreamClient, SocketMessageDecoder, SocketRequestClient } from 'cli/lib/socket';
 import {
 	ProcessDescription,

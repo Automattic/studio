@@ -15,6 +15,7 @@ export class E2ESession {
 	sessionPath: string;
 	appDataPath: string;
 	homePath: string;
+	cliConfigPath: string;
 	private mainProcessLogs: string[] = [];
 	private readonly maxMainProcessLogChunks = 500;
 	private stdoutListener?: ( chunk: Buffer | string ) => void;
@@ -25,11 +26,13 @@ export class E2ESession {
 		this.sessionPath = path.join( tmpdir(), `studio-app-e2e-session-${ randomUUID() }` );
 		this.appDataPath = path.join( this.sessionPath, 'appData' );
 		this.homePath = path.join( this.sessionPath, 'home' );
+		this.cliConfigPath = path.join( this.sessionPath, 'cliConfig' );
 	}
 
 	async launch( testEnv: NodeJS.ProcessEnv = {} ) {
 		await fs.mkdir( this.appDataPath, { recursive: true } );
 		await fs.mkdir( this.homePath, { recursive: true } );
+		await fs.mkdir( this.cliConfigPath, { recursive: true } );
 
 		// Pre-create appdata file with beta features enabled for CLI testing
 		// Path must include 'Studio' subfolder to match Electron app's path structure
@@ -111,6 +114,7 @@ export class E2ESession {
 				E2E: 'true',
 				E2E_APP_DATA_PATH: this.appDataPath,
 				E2E_HOME_PATH: this.homePath,
+				E2E_CLI_CONFIG_PATH: this.cliConfigPath,
 			},
 			timeout: 60_000,
 		} );

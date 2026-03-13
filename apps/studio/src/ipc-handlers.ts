@@ -599,6 +599,19 @@ export async function deleteSite( event: IpcMainInvokeEvent, id: string, deleteF
 		throw new Error( 'Site not found.' );
 	}
 	await server.delete( deleteFiles );
+
+	// Clean up Studio-only data (sortOrder, themeDetails) from appdata
+	try {
+		await lockAppdata();
+		const userData = await loadUserData();
+		const siteIndex = userData.sites.findIndex( ( s ) => s.id === id );
+		if ( siteIndex !== -1 ) {
+			userData.sites.splice( siteIndex, 1 );
+			await saveUserData( userData );
+		}
+	} finally {
+		await unlockAppdata();
+	}
 }
 
 export async function copySite(

@@ -5,11 +5,11 @@ import { encodePassword } from '@studio/common/lib/passwords';
 import { vi } from 'vitest';
 import {
 	getSiteByFolder,
-	unlockAppdata,
-	readAppdata,
-	saveAppdata,
+	unlockCliConfig,
+	readCliConfig,
+	saveCliConfig,
 	SiteData,
-} from 'cli/lib/appdata';
+} from 'cli/lib/cli-config';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { updateDomainInHosts } from 'cli/lib/hosts-file';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
@@ -30,15 +30,15 @@ vi.mock( '@studio/common/lib/fs-utils', async () => {
 		arePathsEqual: vi.fn(),
 	};
 } );
-vi.mock( 'cli/lib/appdata', async () => {
-	const actual = await vi.importActual( 'cli/lib/appdata' );
+vi.mock( 'cli/lib/cli-config', async () => {
+	const actual = await vi.importActual( 'cli/lib/cli-config' );
 	return {
 		...actual,
 		getSiteByFolder: vi.fn(),
-		lockAppdata: vi.fn().mockResolvedValue( undefined ),
-		unlockAppdata: vi.fn().mockResolvedValue( undefined ),
-		readAppdata: vi.fn(),
-		saveAppdata: vi.fn().mockResolvedValue( undefined ),
+		lockCliConfig: vi.fn().mockResolvedValue( undefined ),
+		unlockCliConfig: vi.fn().mockResolvedValue( undefined ),
+		readCliConfig: vi.fn(),
+		saveCliConfig: vi.fn().mockResolvedValue( undefined ),
 		updateSiteLatestCliPid: vi.fn().mockResolvedValue( undefined ),
 	};
 } );
@@ -78,11 +78,11 @@ describe( 'CLI: studio site set', () => {
 		vi.clearAllMocks();
 
 		const testSite = getTestSite();
-		const testAppdata = { sites: [ testSite ], snapshots: [] };
+		const testCliConfig = { version: 1, sites: [ testSite ] };
 
 		vi.mocked( arePathsEqual ).mockReturnValue( true );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( getTestSite() );
-		vi.mocked( readAppdata ).mockResolvedValue( testAppdata );
+		vi.mocked( readCliConfig ).mockResolvedValue( testCliConfig );
 		vi.mocked( connectToDaemon ).mockResolvedValue( undefined );
 		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
 		vi.mocked( isServerRunning ).mockResolvedValue( undefined );
@@ -134,23 +134,23 @@ describe( 'CLI: studio site set', () => {
 		it( 'should allow enabling HTTPS when domain is being set', async () => {
 			await runCommand( testSitePath, { domain: 'new.local', https: true } );
 
-			const savedAppdata = vi.mocked( saveAppdata ).mock.calls[ 0 ][ 0 ];
-			expect( savedAppdata.sites[ 0 ].customDomain ).toBe( 'new.local' );
-			expect( savedAppdata.sites[ 0 ].enableHttps ).toBe( true );
+			const savedCliConfig = vi.mocked( saveCliConfig ).mock.calls[ 0 ][ 0 ];
+			expect( savedCliConfig.sites[ 0 ].customDomain ).toBe( 'new.local' );
+			expect( savedCliConfig.sites[ 0 ].enableHttps ).toBe( true );
 		} );
 
 		it( 'should allow enabling HTTPS when site already has domain', async () => {
 			const siteWithDomain = getTestSiteWithDomain();
 			vi.mocked( getSiteByFolder ).mockResolvedValue( siteWithDomain );
-			vi.mocked( readAppdata ).mockResolvedValue( {
+			vi.mocked( readCliConfig ).mockResolvedValue( {
 				sites: [ siteWithDomain ],
-				snapshots: [],
+				version: 1,
 			} );
 
 			await runCommand( testSitePath, { https: true } );
 
-			const savedAppdata = vi.mocked( saveAppdata ).mock.calls[ 0 ][ 0 ];
-			expect( savedAppdata.sites[ 0 ].enableHttps ).toBe( true );
+			const savedCliConfig = vi.mocked( saveCliConfig ).mock.calls[ 0 ][ 0 ];
+			expect( savedCliConfig.sites[ 0 ].enableHttps ).toBe( true );
 		} );
 	} );
 
@@ -160,8 +160,8 @@ describe( 'CLI: studio site set', () => {
 
 			await runCommand( testSitePath, { name: 'New Name' } );
 
-			const savedAppdata = vi.mocked( saveAppdata ).mock.calls[ 0 ][ 0 ];
-			expect( savedAppdata.sites[ 0 ].name ).toBe( 'New Name' );
+			const savedCliConfig = vi.mocked( saveCliConfig ).mock.calls[ 0 ][ 0 ];
+			expect( savedCliConfig.sites[ 0 ].name ).toBe( 'New Name' );
 			expect( stopWordPressServer ).not.toHaveBeenCalled();
 			expect( startWordPressServer ).not.toHaveBeenCalled();
 		} );
@@ -171,8 +171,8 @@ describe( 'CLI: studio site set', () => {
 		it( 'should update domain and hosts file', async () => {
 			await runCommand( testSitePath, { domain: 'new.local' } );
 
-			const savedAppdata = vi.mocked( saveAppdata ).mock.calls[ 0 ][ 0 ];
-			expect( savedAppdata.sites[ 0 ].customDomain ).toBe( 'new.local' );
+			const savedCliConfig = vi.mocked( saveCliConfig ).mock.calls[ 0 ][ 0 ];
+			expect( savedCliConfig.sites[ 0 ].customDomain ).toBe( 'new.local' );
 			expect( updateDomainInHosts ).toHaveBeenCalledWith( undefined, 'new.local', 8080 );
 		} );
 
@@ -197,15 +197,15 @@ describe( 'CLI: studio site set', () => {
 		it( 'should update HTTPS setting', async () => {
 			const siteWithDomain = getTestSiteWithDomain();
 			vi.mocked( getSiteByFolder ).mockResolvedValue( siteWithDomain );
-			vi.mocked( readAppdata ).mockResolvedValue( {
+			vi.mocked( readCliConfig ).mockResolvedValue( {
 				sites: [ siteWithDomain ],
-				snapshots: [],
+				version: 1,
 			} );
 
 			await runCommand( testSitePath, { https: true } );
 
-			const savedAppdata = vi.mocked( saveAppdata ).mock.calls[ 0 ][ 0 ];
-			expect( savedAppdata.sites[ 0 ].enableHttps ).toBe( true );
+			const savedCliConfig = vi.mocked( saveCliConfig ).mock.calls[ 0 ][ 0 ];
+			expect( savedCliConfig.sites[ 0 ].enableHttps ).toBe( true );
 			expect( stopWordPressServer ).not.toHaveBeenCalled();
 			expect( startWordPressServer ).not.toHaveBeenCalled();
 		} );
@@ -213,9 +213,9 @@ describe( 'CLI: studio site set', () => {
 		it( 'should restart running site when HTTPS changes', async () => {
 			const siteWithDomain = getTestSiteWithDomain();
 			vi.mocked( getSiteByFolder ).mockResolvedValue( siteWithDomain );
-			vi.mocked( readAppdata ).mockResolvedValue( {
+			vi.mocked( readCliConfig ).mockResolvedValue( {
 				sites: [ siteWithDomain ],
-				snapshots: [],
+				version: 1,
 			} );
 			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
 
@@ -230,8 +230,8 @@ describe( 'CLI: studio site set', () => {
 		it( 'should update PHP version', async () => {
 			await runCommand( testSitePath, { php: '8.2' } );
 
-			const savedAppdata = vi.mocked( saveAppdata ).mock.calls[ 0 ][ 0 ];
-			expect( savedAppdata.sites[ 0 ].phpVersion ).toBe( '8.2' );
+			const savedCliConfig = vi.mocked( saveCliConfig ).mock.calls[ 0 ][ 0 ];
+			expect( savedCliConfig.sites[ 0 ].phpVersion ).toBe( '8.2' );
 			expect( stopWordPressServer ).not.toHaveBeenCalled();
 			expect( startWordPressServer ).not.toHaveBeenCalled();
 		} );
@@ -294,7 +294,7 @@ describe( 'CLI: studio site set', () => {
 		it( 'should update isWpAutoUpdating to false when using specific version', async () => {
 			await runCommand( testSitePath, { wp: '6.8' } );
 
-			expect( saveAppdata ).toHaveBeenCalledWith(
+			expect( saveCliConfig ).toHaveBeenCalledWith(
 				expect.objectContaining( {
 					sites: expect.arrayContaining( [
 						expect.objectContaining( { isWpAutoUpdating: false } ),
@@ -312,10 +312,10 @@ describe( 'CLI: studio site set', () => {
 				php: '8.2',
 			} );
 
-			const savedAppdata = vi.mocked( saveAppdata ).mock.calls[ 0 ][ 0 ];
-			expect( savedAppdata.sites[ 0 ].name ).toBe( 'New Name' );
-			expect( savedAppdata.sites[ 0 ].customDomain ).toBe( 'new.local' );
-			expect( savedAppdata.sites[ 0 ].phpVersion ).toBe( '8.2' );
+			const savedCliConfig = vi.mocked( saveCliConfig ).mock.calls[ 0 ][ 0 ];
+			expect( savedCliConfig.sites[ 0 ].name ).toBe( 'New Name' );
+			expect( savedCliConfig.sites[ 0 ].customDomain ).toBe( 'new.local' );
+			expect( savedCliConfig.sites[ 0 ].phpVersion ).toBe( '8.2' );
 		} );
 
 		it( 'should only restart once when multiple changes need restart', async () => {
@@ -356,9 +356,9 @@ describe( 'CLI: studio site set', () => {
 				enableXdebug: true,
 			};
 			vi.mocked( getSiteByFolder ).mockResolvedValue( testSite );
-			vi.mocked( readAppdata ).mockResolvedValue( {
+			vi.mocked( readCliConfig ).mockResolvedValue( {
 				sites: [ testSite, otherSite ],
-				snapshots: [],
+				version: 1,
 			} );
 
 			await expect( runCommand( testSitePath, { xdebug: true } ) ).rejects.toThrow(
@@ -369,8 +369,8 @@ describe( 'CLI: studio site set', () => {
 		it( 'should update xdebug setting without restart when site is stopped', async () => {
 			await runCommand( testSitePath, { xdebug: true } );
 
-			const savedAppdata = vi.mocked( saveAppdata ).mock.calls[ 0 ][ 0 ];
-			expect( savedAppdata.sites[ 0 ].enableXdebug ).toBe( true );
+			const savedCliConfig = vi.mocked( saveCliConfig ).mock.calls[ 0 ][ 0 ];
+			expect( savedCliConfig.sites[ 0 ].enableXdebug ).toBe( true );
 			expect( stopWordPressServer ).not.toHaveBeenCalled();
 			expect( startWordPressServer ).not.toHaveBeenCalled();
 		} );
@@ -387,23 +387,23 @@ describe( 'CLI: studio site set', () => {
 		it( 'should disable xdebug', async () => {
 			const siteWithXdebug = { ...getTestSite(), enableXdebug: true };
 			vi.mocked( getSiteByFolder ).mockResolvedValue( siteWithXdebug );
-			vi.mocked( readAppdata ).mockResolvedValue( {
+			vi.mocked( readCliConfig ).mockResolvedValue( {
 				sites: [ siteWithXdebug ],
-				snapshots: [],
+				version: 1,
 			} );
 
 			await runCommand( testSitePath, { xdebug: false } );
 
-			const savedAppdata = vi.mocked( saveAppdata ).mock.calls[ 0 ][ 0 ];
-			expect( savedAppdata.sites[ 0 ].enableXdebug ).toBe( false );
+			const savedCliConfig = vi.mocked( saveCliConfig ).mock.calls[ 0 ][ 0 ];
+			expect( savedCliConfig.sites[ 0 ].enableXdebug ).toBe( false );
 		} );
 
 		it( 'should throw when xdebug is already enabled', async () => {
 			const siteWithXdebug = { ...getTestSite(), enableXdebug: true };
 			vi.mocked( getSiteByFolder ).mockResolvedValue( siteWithXdebug );
-			vi.mocked( readAppdata ).mockResolvedValue( {
+			vi.mocked( readCliConfig ).mockResolvedValue( {
 				sites: [ siteWithXdebug ],
-				snapshots: [],
+				version: 1,
 			} );
 
 			await expect( runCommand( testSitePath, { xdebug: true } ) ).rejects.toThrow(
@@ -414,9 +414,9 @@ describe( 'CLI: studio site set', () => {
 		it( 'should throw when xdebug is already disabled', async () => {
 			const siteWithXdebugDisabled = { ...getTestSite(), enableXdebug: false };
 			vi.mocked( getSiteByFolder ).mockResolvedValue( siteWithXdebugDisabled );
-			vi.mocked( readAppdata ).mockResolvedValue( {
+			vi.mocked( readCliConfig ).mockResolvedValue( {
 				sites: [ siteWithXdebugDisabled ],
-				snapshots: [],
+				version: 1,
 			} );
 
 			await expect( runCommand( testSitePath, { xdebug: false } ) ).rejects.toThrow(
@@ -431,8 +431,8 @@ describe( 'CLI: studio site set', () => {
 
 			await runCommand( testSitePath, { adminUsername: 'newadmin' } );
 
-			const savedAppdata = vi.mocked( saveAppdata ).mock.calls[ 0 ][ 0 ];
-			expect( savedAppdata.sites[ 0 ].adminUsername ).toBe( 'newadmin' );
+			const savedCliConfig = vi.mocked( saveCliConfig ).mock.calls[ 0 ][ 0 ];
+			expect( savedCliConfig.sites[ 0 ].adminUsername ).toBe( 'newadmin' );
 			expect( stopWordPressServer ).toHaveBeenCalledWith( 'site-1' );
 			expect( startWordPressServer ).toHaveBeenCalled();
 		} );
@@ -442,8 +442,8 @@ describe( 'CLI: studio site set', () => {
 
 			await runCommand( testSitePath, { adminPassword: 'newpass123' } );
 
-			const savedAppdata = vi.mocked( saveAppdata ).mock.calls[ 0 ][ 0 ];
-			expect( savedAppdata.sites[ 0 ].adminPassword ).toBe( encodePassword( 'newpass123' ) );
+			const savedCliConfig = vi.mocked( saveCliConfig ).mock.calls[ 0 ][ 0 ];
+			expect( savedCliConfig.sites[ 0 ].adminPassword ).toBe( encodePassword( 'newpass123' ) );
 			expect( stopWordPressServer ).toHaveBeenCalledWith( 'site-1' );
 			expect( startWordPressServer ).toHaveBeenCalled();
 		} );
@@ -451,8 +451,8 @@ describe( 'CLI: studio site set', () => {
 		it( 'should not restart stopped site when credentials change', async () => {
 			await runCommand( testSitePath, { adminUsername: 'newadmin' } );
 
-			const savedAppdata = vi.mocked( saveAppdata ).mock.calls[ 0 ][ 0 ];
-			expect( savedAppdata.sites[ 0 ].adminUsername ).toBe( 'newadmin' );
+			const savedCliConfig = vi.mocked( saveCliConfig ).mock.calls[ 0 ][ 0 ];
+			expect( savedCliConfig.sites[ 0 ].adminUsername ).toBe( 'newadmin' );
 			expect( stopWordPressServer ).not.toHaveBeenCalled();
 			expect( startWordPressServer ).not.toHaveBeenCalled();
 		} );
@@ -491,9 +491,9 @@ describe( 'CLI: studio site set', () => {
 		it( 'should update both credentials at once', async () => {
 			await runCommand( testSitePath, { adminUsername: 'newadmin', adminPassword: 'newpass' } );
 
-			const savedAppdata = vi.mocked( saveAppdata ).mock.calls[ 0 ][ 0 ];
-			expect( savedAppdata.sites[ 0 ].adminUsername ).toBe( 'newadmin' );
-			expect( savedAppdata.sites[ 0 ].adminPassword ).toBe( encodePassword( 'newpass' ) );
+			const savedCliConfig = vi.mocked( saveCliConfig ).mock.calls[ 0 ][ 0 ];
+			expect( savedCliConfig.sites[ 0 ].adminUsername ).toBe( 'newadmin' );
+			expect( savedCliConfig.sites[ 0 ].adminPassword ).toBe( encodePassword( 'newpass' ) );
 		} );
 	} );
 
@@ -503,8 +503,8 @@ describe( 'CLI: studio site set', () => {
 
 			await runCommand( testSitePath, { adminEmail: 'test@example.com' } );
 
-			const savedAppdata = vi.mocked( saveAppdata ).mock.calls[ 0 ][ 0 ];
-			expect( savedAppdata.sites[ 0 ].adminEmail ).toBe( 'test@example.com' );
+			const savedCliConfig = vi.mocked( saveCliConfig ).mock.calls[ 0 ][ 0 ];
+			expect( savedCliConfig.sites[ 0 ].adminEmail ).toBe( 'test@example.com' );
 			expect( stopWordPressServer ).toHaveBeenCalledWith( 'site-1' );
 			expect( startWordPressServer ).toHaveBeenCalled();
 		} );
@@ -512,17 +512,17 @@ describe( 'CLI: studio site set', () => {
 		it( 'should not restart stopped site when email changes', async () => {
 			await runCommand( testSitePath, { adminEmail: 'test@example.com' } );
 
-			const savedAppdata = vi.mocked( saveAppdata ).mock.calls[ 0 ][ 0 ];
-			expect( savedAppdata.sites[ 0 ].adminEmail ).toBe( 'test@example.com' );
+			const savedCliConfig = vi.mocked( saveCliConfig ).mock.calls[ 0 ][ 0 ];
+			expect( savedCliConfig.sites[ 0 ].adminEmail ).toBe( 'test@example.com' );
 			expect( stopWordPressServer ).not.toHaveBeenCalled();
 			expect( startWordPressServer ).not.toHaveBeenCalled();
 		} );
 
 		it( 'should ignore whitespace-only admin email', async () => {
 			await runCommand( testSitePath, { adminEmail: '  ', name: 'New Name' } );
-			const savedAppdata = vi.mocked( saveAppdata ).mock.calls[ 0 ][ 0 ];
-			expect( savedAppdata.sites[ 0 ].adminEmail ).toBeUndefined();
-			expect( savedAppdata.sites[ 0 ].name ).toBe( 'New Name' );
+			const savedCliConfig = vi.mocked( saveCliConfig ).mock.calls[ 0 ][ 0 ];
+			expect( savedCliConfig.sites[ 0 ].adminEmail ).toBeUndefined();
+			expect( savedCliConfig.sites[ 0 ].name ).toBe( 'New Name' );
 		} );
 
 		it( 'should throw when admin email is invalid', async () => {
@@ -543,7 +543,7 @@ describe( 'CLI: studio site set', () => {
 		} );
 
 		it( 'should always disconnect process manager on error', async () => {
-			vi.mocked( saveAppdata ).mockRejectedValue( new Error( 'Save failed' ) );
+			vi.mocked( saveCliConfig ).mockRejectedValue( new Error( 'Save failed' ) );
 
 			await expect( runCommand( testSitePath, { name: 'New Name' } ) ).rejects.toThrow(
 				'Save failed'
@@ -552,10 +552,10 @@ describe( 'CLI: studio site set', () => {
 		} );
 
 		it( 'should always unlock appdata on error', async () => {
-			vi.mocked( saveAppdata ).mockRejectedValue( new Error( 'Save failed' ) );
+			vi.mocked( saveCliConfig ).mockRejectedValue( new Error( 'Save failed' ) );
 
 			await expect( runCommand( testSitePath, { name: 'New Name' } ) ).rejects.toThrow();
-			expect( unlockAppdata ).toHaveBeenCalled();
+			expect( unlockCliConfig ).toHaveBeenCalled();
 		} );
 	} );
 } );

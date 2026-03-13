@@ -7,7 +7,8 @@ import packageJson from '../apps/studio/package.json' with { type: 'json' };
 import azureSigning from './azure-signing.cjs';
 
 const { assertAzureSigningEnv, getAzureSignArgs, getAzureSigningConfig } = azureSigning;
-const sideloadPublisher = process.env.AZURE_APPX_PUBLISHER;
+const sideloadPublisher =
+	'CN=Automattic Inc., O=Automattic Inc., L=San Francisco, S=California, C=US';
 
 console.log( '--- :electron: Packaging AppX' );
 
@@ -17,10 +18,6 @@ try {
 	assertAzureSigningEnv();
 } catch ( error ) {
 	console.error( error instanceof Error ? error.message : error );
-	process.exit( 1 );
-}
-if ( ! sideloadPublisher ) {
-	console.error( 'Required env var AZURE_APPX_PUBLISHER is not set!' );
 	process.exit( 1 );
 }
 

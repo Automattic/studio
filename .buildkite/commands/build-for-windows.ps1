@@ -31,7 +31,7 @@ if ($Architecture -notin $VALID_ARCHITECTURES) {
 Write-Host "--- :lock: Setting up Azure Trusted Signing"
 
 # Verify required env vars
-foreach ($var in @("AZURE_TENANT_ID", "AZURE_CLIENT_ID", "AZURE_CLIENT_SECRET", "AZURE_ENDPOINT", "AZURE_CODE_SIGNING_ACCOUNT", "AZURE_CERTIFICATE_PROFILE", "AZURE_APPX_PUBLISHER")) {
+foreach ($var in @("AZURE_TENANT_ID", "AZURE_CLIENT_ID", "AZURE_CLIENT_SECRET", "AZURE_ENDPOINT", "AZURE_CODE_SIGNING_ACCOUNT", "AZURE_CERTIFICATE_PROFILE")) {
     if (-not (Test-Path "env:$var")) {
         Write-Host "Error: Required environment variable $var is not set" -ForegroundColor Red
         Exit 1

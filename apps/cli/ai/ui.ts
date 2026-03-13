@@ -67,6 +67,7 @@ class PromptEditor implements Component, Focusable {
 	activeSiteName: string | null = null;
 	hints: string[] = [];
 	slashCommands: SlashCommandDef[] = [];
+	slashCommandSelectedIndex = -1;
 	statusMessage: string | null = null;
 
 	get focused(): boolean {
@@ -94,6 +95,7 @@ class PromptEditor implements Component, Focusable {
 	handleInput( data: string ): void {
 		this.editor.handleInput( data );
 		this.isEmpty = this.editor.getText() === '';
+		this.slashCommandSelectedIndex = -1;
 	}
 
 	setAutocompleteProvider( provider: CombinedAutocompleteProvider ): void {
@@ -102,6 +104,19 @@ class PromptEditor implements Component, Focusable {
 
 	getText(): string {
 		return this.editor.getText();
+	}
+
+	getMatchingSlashCommands(): SlashCommandDef[] {
+		const text = this.getText().trim();
+		if ( ! text.startsWith( '/' ) ) {
+			return [];
+		}
+		const prefix = text.slice( 1 ).toLowerCase();
+		return this.slashCommands.filter( ( cmd ) => cmd.name.toLowerCase().startsWith( prefix ) );
+	}
+
+	get isSlashMenuVisible(): boolean {
+		return this.getMatchingSlashCommands().length > 0;
 	}
 
 	invalidate(): void {
@@ -160,17 +175,13 @@ class PromptEditor implements Component, Focusable {
 
 		// Below the bottom border: show suggestions or hint bar (with optional status on the right)
 		if ( hasAutocomplete && this.slashCommands.length > 0 ) {
-			// Filter commands by what the user typed (e.g. "/mo" filters to "model")
-			const text = this.getText().trim();
-			const prefix = text.startsWith( '/' ) ? text.slice( 1 ).toLowerCase() : '';
-			const matching = this.slashCommands.filter( ( cmd ) =>
-				cmd.name.toLowerCase().startsWith( prefix )
-			);
+			const matching = this.getMatchingSlashCommands();
 			const maxLen = Math.max( ...matching.map( ( c ) => c.name.length ) );
-			for ( const cmd of matching ) {
-				result.push(
-					' ' + chalk.dim( `/${ cmd.name.padEnd( maxLen ) }` ) + chalk.dim( '  ' + cmd.description )
-				);
+			for ( let i = 0; i < matching.length; i++ ) {
+				const cmd = matching[ i ];
+				const isSelected = i === this.slashCommandSelectedIndex;
+				const label = `/${ cmd.name.padEnd( maxLen ) }  ${ cmd.description }`;
+				result.push( ' ' + ( isSelected ? chalk.blue( label ) : chalk.dim( label ) ) );
 			}
 		} else {
 			const activeHints = this.isEmpty
@@ -639,6 +650,55 @@ export class AiChatUI {
 					return { consume: true };
 				}
 				return { consume: true };
+			}
+			// Slash command menu navigation
+			if ( this.editorVisible && this.editor.isSlashMenuVisible ) {
+				const matching = this.editor.getMatchingSlashCommands();
+				if ( matchesKey( data, 'down' ) ) {
+					this.editor.slashCommandSelectedIndex = Math.min(
+						matching.length - 1,
+						this.editor.slashCommandSelectedIndex + 1
+					);
+					this.tui.requestRender();
+					return { consume: true };
+				}
+				if ( matchesKey( data, 'up' ) ) {
+					this.editor.slashCommandSelectedIndex = Math.max(
+						-1,
+						this.editor.slashCommandSelectedIndex - 1
+					);
+					this.tui.requestRender();
+					return { consume: true };
+				}
+				if (
+					( matchesKey( data, 'tab' ) || matchesKey( data, 'enter' ) ) &&
+					this.editor.slashCommandSelectedIndex >= 0 &&
+					this.editor.slashCommandSelectedIndex < matching.length
+				) {
+					const cmd = matching[ this.editor.slashCommandSelectedIndex ];
+					this.editor.slashCommandSelectedIndex = -1;
+					if ( matchesKey( data, 'enter' ) ) {
+						// Submit the command directly
+						this.editor.setText( '' );
+						if ( this.submitResolve ) {
+							const resolve = this.submitResolve;
+							this.submitResolve = null;
+							resolve( `/${ cmd.name }` );
+						}
+					} else {
+						// Tab: fill in the command text without submitting
+						this.editor.setText( `/${ cmd.name }` );
+						this.tui.requestRender();
+					}
+					return { consume: true };
+				}
+				// Tab to autocomplete when there's only one match (no selection needed)
+				if ( matchesKey( data, 'tab' ) && matching.length === 1 ) {
+					this.editor.setText( `/${ matching[ 0 ].name }` );
+					this.editor.slashCommandSelectedIndex = -1;
+					this.tui.requestRender();
+					return { consume: true };
+				}
 			}
 			// Down arrow to open site picker (only when prompt is empty)
 			if (

@@ -715,11 +715,29 @@ export class AiChatUI {
 	private formatSiteRow( site: SiteInfo, index: number ): string {
 		const selected = index === this.sitePickerSelectedIndex;
 		const prefix = selected ? `  ${ chalk.blue( '❯' ) } ` : '    ';
-		const name = selected ? chalk.bold( site.name ) : site.name;
 		if ( site.remote ) {
-			const url = site.url ? ` ${ chalk.dim( site.url ) }` : '';
+			const nameColumnWidth = 30;
+			const prefixWidth = 4; // "  ❯ " or "    "
+			const gap = 2;
+			const termWidth = process.stdout.columns ?? 80;
+			const urlColumnWidth = termWidth - prefixWidth - nameColumnWidth - gap;
+			const truncatedName =
+				site.name.length > nameColumnWidth
+					? site.name.slice( 0, nameColumnWidth - 1 ) + '…'
+					: site.name.padEnd( nameColumnWidth );
+			const name = selected ? chalk.bold( truncatedName ) : truncatedName;
+			const displayUrl = site.url ? site.url.replace( /^https?:\/\//, '' ) : '';
+			let url = '';
+			if ( displayUrl && urlColumnWidth > 3 ) {
+				const truncatedUrl =
+					displayUrl.length > urlColumnWidth
+						? displayUrl.slice( 0, urlColumnWidth - 1 ) + '…'
+						: displayUrl;
+				url = `  ${ chalk.dim( truncatedUrl ) }`;
+			}
 			return `${ prefix }${ name }${ url }`;
 		}
+		const name = selected ? chalk.bold( site.name ) : site.name;
 		const status = site.running ? `${ chalk.green( '●' ) } ` : '  ';
 		return `${ prefix }${ status }${ name }`;
 	}

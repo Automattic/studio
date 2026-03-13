@@ -44,7 +44,7 @@ export interface SiteInfo {
 	url?: string;
 }
 
-const FILE_PREVIEW_MAX_LINES = 10;
+const DEFAULT_COLLAPSE_THRESHOLD_LINES = 6;
 
 interface ExpandablePreview {
 	textComponent: Text;
@@ -140,7 +140,7 @@ class PromptEditor implements Component, Focusable {
 					return (
 						' ' +
 						bc( '─'.repeat( leading ) ) +
-						chalk.hex( '#8839ef' )( label ) +
+						chalk.hex( '#5b8db8' )( label ) +
 						bc( '─'.repeat( trailing ) )
 					);
 				}
@@ -199,7 +199,7 @@ const markdownTheme: MarkdownTheme = {
 	heading: ( text ) => chalk.bold( text ),
 	link: ( text ) => chalk.cyan.underline( text ),
 	linkUrl: ( text ) => chalk.dim( text ),
-	code: ( text ) => chalk.yellow( text ),
+	code: ( text ) => chalk.hex( '#7aacce' )( text ),
 	codeBlock: ( text ) => text,
 	codeBlockBorder: ( text ) => chalk.dim( text ),
 	quote: ( text ) => chalk.italic( text ),
@@ -213,7 +213,7 @@ const markdownTheme: MarkdownTheme = {
 };
 
 const editorTheme: EditorTheme = {
-	borderColor: ( text ) => chalk.white( text ),
+	borderColor: ( text ) => chalk.hex( '#4a7fa5' )( text ),
 	selectList: {
 		selectedPrefix: ( text ) => chalk.cyan( text ),
 		selectedText: ( text ) => chalk.bold( text ),
@@ -349,7 +349,7 @@ function formatTodoSnapshotLine( todo: TodoEntry ): string {
 		case 'completed':
 			return `${ chalk.green( '✓' ) } ${ chalk.dim( chalk.strikethrough( todo.content ) ) }`;
 		case 'in_progress':
-			return `${ chalk.yellow( '◐' ) } ${ chalk.dim( todo.activeForm ) }`;
+			return `${ chalk.hex( '#6699cc' )( '◐' ) } ${ chalk.dim( todo.activeForm ) }`;
 		default:
 			return `${ chalk.dim( '○' ) } ${ chalk.dim( todo.content ) }`;
 	}
@@ -380,7 +380,7 @@ export class AiChatUI {
 	private pendingTodoRenders = new Map< string, PendingTodoRender >();
 	private pendingTodoRenderOrder: string[] = [];
 	private _activeSite: SiteInfo | null = null;
-	private expandablePreviews: ExpandablePreview[] = [];
+	private activeExpandablePreview: ExpandablePreview | null = null;
 	private _inAgentTurn = false;
 	private _activeSiteData: SiteData | null = null;
 	private pendingToolCalls = new Map<
@@ -473,8 +473,8 @@ export class AiChatUI {
 
 		this.loader = new Loader(
 			this.tui,
-			( str ) => chalk.yellow( str ),
-			( str ) => chalk.yellow( str ),
+			( str ) => chalk.hex( '#6699cc' )( str ),
+			( str ) => chalk.hex( '#6699cc' )( str ),
 			'Thinking…'
 		);
 		// @ts-expect-error -- frames is private but has no public API to customize
@@ -625,10 +625,7 @@ export class AiChatUI {
 				this.wasInterrupted = true;
 				this.interruptCallback();
 			}
-			if (
-				matchesKey( data, 'ctrl+o' ) &&
-				( this.getLatestCollapsedPreview() || this.getLatestExpandedPreview() )
-			) {
+			if ( matchesKey( data, 'ctrl+o' ) && this.activeExpandablePreview ) {
 				this.toggleExpandablePreview();
 				return { consume: true };
 			}
@@ -874,7 +871,7 @@ export class AiChatUI {
 		this.editor.activeSiteName = site.name;
 		const suffix = site.remote ? ' (WordPress.com)' : '';
 		const label = ` ✻ Selected site: ${ site.name }${ suffix }`;
-		this.messages.addChild( new Text( `${ chalk.hex( '#8839ef' )( label ) }\n`, 0, 0 ) );
+		this.messages.addChild( new Text( `${ chalk.hex( '#5b8db8' )( label ) }\n`, 0, 0 ) );
 		this.tui.requestRender();
 	}
 
@@ -1156,9 +1153,9 @@ export class AiChatUI {
 		const formatted = lines
 			.map( ( line, i ) => {
 				if ( i === 0 ) {
-					return ' ' + chalk.bgHex( '#eeeeee' ).black( '❯ ' + line + ' ' );
+					return ' ' + chalk.bgHex( '#ddeeff' ).black( '❯ ' + line + ' ' );
 				}
-				return ' ' + chalk.bgHex( '#eeeeee' ).black( '   ' + line + ' ' );
+				return ' ' + chalk.bgHex( '#ddeeff' ).black( '   ' + line + ' ' );
 			} )
 			.join( '\n' );
 		this.messages.addChild( new Text( '\n' + formatted, 0, 0 ) );
@@ -1211,10 +1208,8 @@ export class AiChatUI {
 		if ( ! this._inAgentTurn ) {
 			hints.push( '↓ select site' );
 		}
-		if ( this.getLatestCollapsedPreview() ) {
-			hints.push( 'ctrl+o expand' );
-		} else if ( this.getLatestExpandedPreview() ) {
-			hints.push( 'ctrl+o collapse' );
+		if ( this.activeExpandablePreview ) {
+			hints.push( this.activeExpandablePreview.isExpanded ? 'ctrl+o collapse' : 'ctrl+o expand' );
 		}
 		hints.push( 'esc to interrupt' );
 		this.editor.hints = hints;
@@ -1312,20 +1307,43 @@ export class AiChatUI {
 			return;
 		}
 
+		this.addExpandablePreview( preview );
+	}
+
+	private addExpandablePreview( preview: { collapsed: string; expanded: string } ): void {
 		const textComponent = new Text( preview.collapsed, 0, 0 );
 		this.messages.addChild( textComponent );
 
 		if ( preview.collapsed !== preview.expanded ) {
-			this.expandablePreviews.push( {
+			this.activeExpandablePreview = {
 				textComponent,
 				collapsedContent: preview.collapsed,
 				expandedContent: preview.expanded,
 				isExpanded: false,
-			} );
+			};
 			this.updateHints();
 		}
 
 		this.tui.requestRender();
+	}
+
+	private generateExpandablePreview( lines: string[] ): { collapsed: string; expanded: string } {
+		const expanded = formatToolOutputLines( lines );
+
+		if ( lines.length <= DEFAULT_COLLAPSE_THRESHOLD_LINES ) {
+			return { collapsed: expanded, expanded };
+		}
+
+		const collapsed =
+			formatToolOutputLines( lines.slice( 0, DEFAULT_COLLAPSE_THRESHOLD_LINES ) ) +
+			'\n     ' +
+			chalk.dim(
+				'... ' +
+					( lines.length - DEFAULT_COLLAPSE_THRESHOLD_LINES ) +
+					' more lines · ctrl+o to expand'
+			);
+
+		return { collapsed, expanded };
 	}
 
 	private generateWritePreview( content: string ): { collapsed: string; expanded: string } {
@@ -1333,29 +1351,12 @@ export class AiChatUI {
 		const totalLines = lines.length;
 		const numWidth = String( totalLines ).length;
 
-		const formatLines = ( lineList: string[] ) => {
-			return formatToolOutputLines(
-				lineList.map( ( line, i ) => {
-					const lineNum = chalk.dim( String( i + 1 ).padStart( numWidth ) );
-					return lineNum + ' ' + chalk.green( line );
-				} )
-			);
-		};
-
-		if ( totalLines <= FILE_PREVIEW_MAX_LINES ) {
-			const formatted = formatLines( lines );
-			return { collapsed: formatted, expanded: formatted };
-		}
-
-		const collapsed =
-			formatLines( lines.slice( 0, FILE_PREVIEW_MAX_LINES ) ) +
-			'\n     ' +
-			chalk.dim(
-				'... ' + ( totalLines - FILE_PREVIEW_MAX_LINES ) + ' more lines · ctrl+o to expand'
-			);
-		const expanded = formatLines( lines );
-
-		return { collapsed, expanded };
+		return this.generateExpandablePreview(
+			lines.map( ( line, i ) => {
+				const lineNum = chalk.dim( String( i + 1 ).padStart( numWidth ) );
+				return lineNum + ' ' + chalk.green( line );
+			} )
+		);
 	}
 
 	private generateEditPreview(
@@ -1373,46 +1374,11 @@ export class AiChatUI {
 			diffLines.push( chalk.green( '+ ' + line ) );
 		}
 
-		const totalDiffLines = diffLines.length;
-
-		if ( totalDiffLines <= FILE_PREVIEW_MAX_LINES ) {
-			const formatted = formatToolOutputLines( diffLines );
-			return { collapsed: formatted, expanded: formatted };
-		}
-
-		const collapsed =
-			formatToolOutputLines( diffLines.slice( 0, FILE_PREVIEW_MAX_LINES ) ) +
-			'\n     ' +
-			chalk.dim(
-				'... ' + ( totalDiffLines - FILE_PREVIEW_MAX_LINES ) + ' more lines · ctrl+o to expand'
-			);
-		const expanded = formatToolOutputLines( diffLines );
-
-		return { collapsed, expanded };
-	}
-
-	private getLatestCollapsedPreview(): ExpandablePreview | null {
-		for ( let i = this.expandablePreviews.length - 1; i >= 0; i-- ) {
-			const preview = this.expandablePreviews[ i ];
-			if ( ! preview.isExpanded ) {
-				return preview;
-			}
-		}
-		return null;
-	}
-
-	private getLatestExpandedPreview(): ExpandablePreview | null {
-		for ( let i = this.expandablePreviews.length - 1; i >= 0; i-- ) {
-			const preview = this.expandablePreviews[ i ];
-			if ( preview.isExpanded ) {
-				return preview;
-			}
-		}
-		return null;
+		return this.generateExpandablePreview( diffLines );
 	}
 
 	private toggleExpandablePreview(): void {
-		const preview = this.getLatestCollapsedPreview() ?? this.getLatestExpandedPreview();
+		const preview = this.activeExpandablePreview;
 		if ( ! preview ) {
 			return;
 		}
@@ -1543,8 +1509,9 @@ export class AiChatUI {
 		const maxLength = toolName === 'mcp__studio__validate_blocks' ? 2000 : 500;
 		const truncated = text.length > maxLength ? text.slice( 0, maxLength ) + '…' : text;
 		const resultLines = truncated.split( '\n' );
-		const formatted = formatToolOutputLines( resultLines.map( ( line ) => chalk.dim( line ) ) );
-		this.messages.addChild( new Text( formatted, 0, 0 ) );
+		this.addExpandablePreview(
+			this.generateExpandablePreview( resultLines.map( ( line ) => chalk.dim( line ) ) )
+		);
 	}
 
 	private showToolResult(
@@ -1777,7 +1744,14 @@ export class AiChatUI {
 				if ( this.wasInterrupted ) {
 					const thinkingSec = Math.round( ( Date.now() - this.turnStartTime ) / 1000 );
 					this.messages.addChild(
-						new Text( '\n ' + chalk.yellow( '⏺' ) + ' ' + chalk.yellow( 'Interrupted' ), 0, 0 )
+						new Text(
+							'\n ' +
+								chalk.hex( '#7aacce' )( '⏺' ) +
+								' ' +
+								chalk.hex( '#7aacce' )( 'Interrupted' ),
+							0,
+							0
+						)
 					);
 					this.showInfo( `Ran for ${ thinkingSec }s before interruption` );
 					return { sessionId: message.session_id, success: false };

@@ -1,7 +1,7 @@
 {
 	"name": "@automattic/wp-studio",
 	"author": "Automattic Inc.",
-	"version": "1.7.5",
+	"version": "1.7.6-alpha1",
 	"productName": "Studio CLI",
 	"description": "WordPress Studio CLI",
 	"license": "GPL-2.0-or-later",

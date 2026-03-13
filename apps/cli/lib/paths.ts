@@ -1,8 +1,10 @@
 import os from 'os';
 import path from 'path';
 
+export const STUDIO_CLI_HOME = path.join( os.homedir(), '.studio' );
+
 export const PROCESS_MANAGER_HOME =
-	process.env.STUDIO_PROCESS_MANAGER_HOME ?? path.join( os.homedir(), '.studio', 'pm2' );
+	process.env.STUDIO_PROCESS_MANAGER_HOME ?? path.join( STUDIO_CLI_HOME, 'pm2' );
 export const PROCESS_MANAGER_LOGS_DIR = path.join( PROCESS_MANAGER_HOME, 'logs' );
 export const PROCESS_MANAGER_CONTROL_SOCKET_PATH =
 	process.platform === 'win32'

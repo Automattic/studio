@@ -221,9 +221,9 @@ test.describe( 'Sites without cleanup in-between', () => {
 		const siteContent = new SiteContent( session.mainWindow, siteName );
 		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 
-		const appDataFile = path.join( session.appDataPath, 'Studio', 'appdata-v1.json' );
-		const appData = await fs.readJson( appDataFile );
-		const site = appData.sites.find( ( s: { name: string } ) => s.name === siteName );
+		const cliConfigFile = path.join( session.cliConfigPath, 'cli.json' );
+		const cliConfig = await fs.readJson( cliConfigFile );
+		const site = cliConfig.sites.find( ( s: { name: string } ) => s.name === siteName );
 		const siteId = site.id;
 
 		const thumbnailsDir = path.join( session.appDataPath, 'Studio', 'thumbnails' );
@@ -252,8 +252,8 @@ test.describe( 'Sites without cleanup in-between', () => {
 		const copiedSiteContent = new SiteContent( session.mainWindow, expectedCopyName );
 		await expect( copiedSiteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 
-		const updatedAppData = await fs.readJson( appDataFile );
-		const copiedSite = updatedAppData.sites.find(
+		const updatedCliConfig = await fs.readJson( cliConfigFile );
+		const copiedSite = updatedCliConfig.sites.find(
 			( s: { name: string } ) => s.name === expectedCopyName
 		);
 		expect( copiedSite ).toBeDefined();

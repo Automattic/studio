@@ -11,7 +11,7 @@ import { SITE_EVENTS, siteDetailsSchema, SiteEvent } from '@studio/common/lib/si
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
-import { getSiteUrl, readAppdata, SiteData } from 'cli/lib/appdata';
+import { getSiteUrl, readCliConfig, SiteData } from 'cli/lib/cli-config';
 import {
 	connectToDaemon,
 	disconnectFromDaemon,
@@ -34,8 +34,8 @@ function toSiteDetails( site: SiteData ) {
 
 const emitSiteEvent = sequential(
 	async ( event: SITE_EVENTS, siteId: string, running?: boolean ): Promise< void > => {
-		const appdata = await readAppdata();
-		const site = appdata.sites.find( ( s ) => s.id === siteId );
+		const cliConfig = await readCliConfig();
+		const site = cliConfig.sites.find( ( s ) => s.id === siteId );
 		const payload: SiteEvent = {
 			event,
 			siteId,
@@ -49,15 +49,15 @@ const emitSiteEvent = sequential(
 );
 
 async function emitAllSitesStatus(): Promise< void > {
-	const appdata = await readAppdata();
-	for ( const site of appdata.sites ) {
+	const cliConfig = await readCliConfig();
+	for ( const site of cliConfig.sites ) {
 		await emitSiteEvent( SITE_EVENTS.UPDATED, site.id );
 	}
 }
 
 async function emitAllSitesStopped(): Promise< void > {
-	const appdata = await readAppdata();
-	for ( const site of appdata.sites ) {
+	const cliConfig = await readCliConfig();
+	for ( const site of cliConfig.sites ) {
 		const payload: SiteEvent = {
 			event: SITE_EVENTS.UPDATED,
 			siteId: site.id,

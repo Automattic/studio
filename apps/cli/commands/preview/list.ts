@@ -2,7 +2,8 @@ import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logge
 import { __, _n, sprintf } from '@wordpress/i18n';
 import Table from 'cli-table3';
 import { format } from 'date-fns';
-import { getAuthToken, getSiteByFolder } from 'cli/lib/appdata';
+import { getAuthToken } from 'cli/lib/appdata';
+import { getSiteByFolder } from 'cli/lib/cli-config';
 import {
 	formatDurationUntilExpiry,
 	getSnapshotsFromAppdata,

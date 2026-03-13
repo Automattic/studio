@@ -12,7 +12,7 @@ import { runCommand as runListSitesCommand } from 'cli/commands/site/list';
 import { runCommand as runStartSiteCommand } from 'cli/commands/site/start';
 import { runCommand as runStatusCommand } from 'cli/commands/site/status';
 import { runCommand as runStopSiteCommand, Mode as StopMode } from 'cli/commands/site/stop';
-import { getSiteByFolder, getSiteUrl, readAppdata, type SiteData } from 'cli/lib/appdata';
+import { getSiteByFolder, getSiteUrl, readCliConfig, type SiteData } from 'cli/lib/cli-config';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
 import { emitProgress } from 'cli/logger';
@@ -62,8 +62,8 @@ function splitCommandArgs( command: string ): string[] {
 }
 
 async function findSiteByName( name: string ): Promise< SiteData | undefined > {
-	const appdata = await readAppdata();
-	return appdata.sites.find( ( site ) => site.name.toLowerCase() === name.toLowerCase() );
+	const config = await readCliConfig();
+	return config.sites.find( ( site ) => site.name.toLowerCase() === name.toLowerCase() );
 }
 
 async function resolveSite( nameOrPath: string ): Promise< SiteData > {

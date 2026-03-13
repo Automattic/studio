@@ -4,12 +4,12 @@ import { __, sprintf } from '@wordpress/i18n';
 import { addDays, addHours, DurationUnit, formatDuration, intervalToDuration } from 'date-fns';
 import {
 	getAuthToken,
-	getSiteByFolder,
 	readAppdata,
 	lockAppdata,
 	unlockAppdata,
 	saveAppdata,
 } from 'cli/lib/appdata';
+import { getSiteByFolder } from 'cli/lib/cli-config';
 import { LoggerError } from 'cli/logger';
 
 export async function getSnapshotsFromAppdata(

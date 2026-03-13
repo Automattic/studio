@@ -5,8 +5,9 @@ import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { Archiver } from 'archiver';
 import { vi } from 'vitest';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
-import { getAuthToken, getSiteByFolder } from 'cli/lib/appdata';
+import { getAuthToken } from 'cli/lib/appdata';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
+import { getSiteByFolder } from 'cli/lib/cli-config';
 import { updateSnapshotInAppdata, getSnapshotsFromAppdata } from 'cli/lib/snapshots';
 import { LoggerError } from 'cli/logger';
 import { mockReportStart, mockReportSuccess, mockReportError } from 'cli/tests/test-utils';
@@ -19,6 +20,12 @@ vi.mock( 'cli/lib/appdata', async () => {
 		...actual,
 		getAppdataDirectory: vi.fn().mockReturnValue( '/test/appdata' ),
 		getAuthToken: vi.fn(),
+	};
+} );
+vi.mock( 'cli/lib/cli-config', async () => {
+	const actual = await vi.importActual( 'cli/lib/cli-config' );
+	return {
+		...actual,
 		getSiteByFolder: vi.fn(),
 	};
 } );

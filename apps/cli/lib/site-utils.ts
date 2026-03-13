@@ -1,9 +1,9 @@
 import { decodePassword } from '@studio/common/lib/passwords';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
-import { getSiteUrl, readAppdata, SiteData } from 'cli/lib/appdata';
 import { openBrowser } from 'cli/lib/browser';
 import { generateSiteCertificate } from 'cli/lib/certificate-manager';
+import { getSiteUrl, readCliConfig, SiteData } from 'cli/lib/cli-config';
 import { isProxyProcessRunning, startProxyProcess, stopProxyProcess } from 'cli/lib/daemon-client';
 import { addDomainToHosts } from 'cli/lib/hosts-file';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
@@ -101,9 +101,9 @@ export async function stopProxyIfNoSitesNeedIt(
 		return;
 	}
 
-	const appdata = await readAppdata();
+	const cliConfig = await readCliConfig();
 
-	const remainingSitesWithCustomDomains = appdata.sites.filter(
+	const remainingSitesWithCustomDomains = cliConfig.sites.filter(
 		( site ) => ! stoppedSiteIdsArray.includes( site.id ) && site.customDomain
 	);
 

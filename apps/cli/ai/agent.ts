@@ -213,10 +213,17 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 
 				const outsidePath = findFirstPathOutsideStudioRoot( input, metadata.blockedPath );
 				if ( outsidePath && isPathGatedTool( toolName ) ) {
-					if ( ! hasSessionApprovedPath( toolName, outsidePath ) ) {
+					// Prefer the suggested directory over the specific file path — it better represents
+					// the scope being approved and covers all files under it for session approval.
+					const suggestedDirectory = metadata.suggestions?.find(
+						( s ) => s.type === 'addDirectories'
+					)?.directories?.[ 0 ];
+					const approvalPath = suggestedDirectory ?? outsidePath;
+
+					if ( ! hasSessionApprovedPath( toolName, approvalPath ) ) {
 						const approvalDecision = await askForPathGatedToolApproval( {
 							toolName,
-							outsidePath,
+							outsidePath: approvalPath,
 							onAskUser,
 						} );
 
@@ -228,7 +235,7 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 						}
 
 						if ( approvalDecision === 'allow_session' ) {
-							rememberSessionApprovedPath( toolName, outsidePath );
+							rememberSessionApprovedPath( toolName, approvalPath );
 						}
 					}
 

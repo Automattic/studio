@@ -74,7 +74,16 @@ export async function runCommand(
 
 	if ( options.noSessionPersistence ) {
 		ui.showInfo( 'Session persistence disabled (--no-session-persistence).' );
-	} else {
+	}
+
+	const ensureSessionRecorder = async (): Promise< AiSessionRecorder | undefined > => {
+		if ( didDisableSessionPersistence ) {
+			return undefined;
+		}
+		if ( sessionRecorder ) {
+			return sessionRecorder;
+		}
+
 		try {
 			if ( options.resumeSession ) {
 				sessionRecorder = await AiSessionRecorder.open( {
@@ -89,16 +98,19 @@ export async function runCommand(
 			didDisableSessionPersistence = true;
 			ui.showError( `Session persistence disabled: ${ getErrorMessage( error ) }` );
 		}
-	}
+
+		return sessionRecorder;
+	};
 
 	const persist = ( callback: ( recorder: AiSessionRecorder ) => Promise< void > ) => {
 		persistQueue = persistQueue.then( async () => {
-			if ( ! sessionRecorder ) {
+			const recorder = await ensureSessionRecorder();
+			if ( ! recorder ) {
 				return;
 			}
 
 			try {
-				await callback( sessionRecorder );
+				await callback( recorder );
 			} catch ( error ) {
 				sessionRecorder = undefined;
 				if ( ! didDisableSessionPersistence ) {

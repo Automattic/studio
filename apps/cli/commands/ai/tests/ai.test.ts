@@ -184,7 +184,15 @@ describe( 'CLI: studio ai sessions command', () => {
 		return parser;
 	}
 
-	it( 'records sessions by default when running studio ai', async () => {
+	it( 'does not record an empty session when running studio ai and exiting immediately', async () => {
+		await buildParser().parseAsync( [ 'ai' ] );
+
+		expect( ( AiSessionRecorder as typeof AiSessionRecorder ).create ).not.toHaveBeenCalled();
+	} );
+
+	it( 'records sessions by default once a prompt is submitted', async () => {
+		waitForInputMock.mockResolvedValueOnce( 'Hello' ).mockResolvedValueOnce( '/exit' );
+
 		await buildParser().parseAsync( [ 'ai' ] );
 
 		expect( ( AiSessionRecorder as typeof AiSessionRecorder ).create ).toHaveBeenCalledTimes( 1 );
@@ -231,12 +239,7 @@ describe( 'CLI: studio ai sessions command', () => {
 		await buildParser().parseAsync( [ 'ai', 'sessions', 'resume', 'latest' ] );
 
 		expect( loadAiSession ).toHaveBeenCalledWith( 'session-latest' );
-		expect( ( AiSessionRecorder as typeof AiSessionRecorder ).open ).toHaveBeenCalledWith(
-			expect.objectContaining( {
-				sessionId: 'session-latest',
-				filePath: '/tmp/session-latest.jsonl',
-			} )
-		);
+		expect( ( AiSessionRecorder as typeof AiSessionRecorder ).open ).not.toHaveBeenCalled();
 		expect( process.exit ).toHaveBeenCalledWith( 0 );
 	} );
 
@@ -376,6 +379,12 @@ describe( 'CLI: studio ai sessions command', () => {
 		await buildParser().parseAsync( [ 'ai', 'sessions', 'resume', 'latest' ] );
 
 		expect( resolveAiEnvironment ).toHaveBeenCalledWith( 'anthropic-api-key' );
+		expect( ( AiSessionRecorder as typeof AiSessionRecorder ).open ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				sessionId: 'session-latest',
+				filePath: '/tmp/session-latest.jsonl',
+			} )
+		);
 		expect( startAiAgent ).toHaveBeenCalledWith(
 			expect.objectContaining( {
 				model: 'claude-opus-4-6',

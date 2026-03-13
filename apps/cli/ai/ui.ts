@@ -53,6 +53,12 @@ interface ExpandablePreview {
 	isExpanded: boolean;
 }
 
+function formatToolOutputLines( lines: string[] ): string {
+	return lines
+		.map( ( line, index ) => `${ index === 0 ? '   ' + chalk.dim( '⎿ ' ) : '     ' }${ line }` )
+		.join( '\n' );
+}
+
 class PromptEditor implements Component, Focusable {
 	private editor: Editor;
 	private borderColorFn: ( text: string ) => string;
@@ -374,7 +380,7 @@ export class AiChatUI {
 	private pendingTodoRenders = new Map< string, PendingTodoRender >();
 	private pendingTodoRenderOrder: string[] = [];
 	private _activeSite: SiteInfo | null = null;
-	private expandablePreview: ExpandablePreview | null = null;
+	private expandablePreviews: ExpandablePreview[] = [];
 	private _inAgentTurn = false;
 	private _activeSiteData: SiteData | null = null;
 	private pendingToolCalls = new Map<
@@ -619,7 +625,10 @@ export class AiChatUI {
 				this.wasInterrupted = true;
 				this.interruptCallback();
 			}
-			if ( matchesKey( data, 'ctrl+o' ) && this.expandablePreview ) {
+			if (
+				matchesKey( data, 'ctrl+o' ) &&
+				( this.getLatestCollapsedPreview() || this.getLatestExpandedPreview() )
+			) {
 				this.toggleExpandablePreview();
 				return { consume: true };
 			}
@@ -1202,9 +1211,9 @@ export class AiChatUI {
 		if ( ! this._inAgentTurn ) {
 			hints.push( '↓ select site' );
 		}
-		if ( this.expandablePreview && ! this.expandablePreview.isExpanded ) {
+		if ( this.getLatestCollapsedPreview() ) {
 			hints.push( 'ctrl+o expand' );
-		} else if ( this.expandablePreview?.isExpanded ) {
+		} else if ( this.getLatestExpandedPreview() ) {
 			hints.push( 'ctrl+o collapse' );
 		}
 		hints.push( 'esc to interrupt' );
@@ -1307,15 +1316,13 @@ export class AiChatUI {
 		this.messages.addChild( textComponent );
 
 		if ( preview.collapsed !== preview.expanded ) {
-			this.expandablePreview = {
+			this.expandablePreviews.push( {
 				textComponent,
 				collapsedContent: preview.collapsed,
 				expandedContent: preview.expanded,
 				isExpanded: false,
-			};
+			} );
 			this.updateHints();
-		} else {
-			this.expandablePreview = null;
 		}
 
 		this.tui.requestRender();
@@ -1327,12 +1334,12 @@ export class AiChatUI {
 		const numWidth = String( totalLines ).length;
 
 		const formatLines = ( lineList: string[] ) => {
-			return lineList
-				.map( ( line, i ) => {
+			return formatToolOutputLines(
+				lineList.map( ( line, i ) => {
 					const lineNum = chalk.dim( String( i + 1 ).padStart( numWidth ) );
-					return '   ' + chalk.dim( '⎿ ' ) + lineNum + ' ' + chalk.green( line );
+					return lineNum + ' ' + chalk.green( line );
 				} )
-				.join( '\n' );
+			);
 		};
 
 		if ( totalLines <= FILE_PREVIEW_MAX_LINES ) {
@@ -1342,9 +1349,9 @@ export class AiChatUI {
 
 		const collapsed =
 			formatLines( lines.slice( 0, FILE_PREVIEW_MAX_LINES ) ) +
-			'\n   ' +
+			'\n     ' +
 			chalk.dim(
-				'⎿ ... ' + ( totalLines - FILE_PREVIEW_MAX_LINES ) + ' more lines · ctrl+o to expand'
+				'... ' + ( totalLines - FILE_PREVIEW_MAX_LINES ) + ' more lines · ctrl+o to expand'
 			);
 		const expanded = formatLines( lines );
 
@@ -1360,36 +1367,56 @@ export class AiChatUI {
 
 		const diffLines: string[] = [];
 		for ( const line of oldLines ) {
-			diffLines.push( '   ' + chalk.dim( '⎿ ' ) + chalk.red( '- ' + line ) );
+			diffLines.push( chalk.red( '- ' + line ) );
 		}
 		for ( const line of newLines ) {
-			diffLines.push( '   ' + chalk.dim( '⎿ ' ) + chalk.green( '+ ' + line ) );
+			diffLines.push( chalk.green( '+ ' + line ) );
 		}
 
 		const totalDiffLines = diffLines.length;
 
 		if ( totalDiffLines <= FILE_PREVIEW_MAX_LINES ) {
-			const formatted = diffLines.join( '\n' );
+			const formatted = formatToolOutputLines( diffLines );
 			return { collapsed: formatted, expanded: formatted };
 		}
 
 		const collapsed =
-			diffLines.slice( 0, FILE_PREVIEW_MAX_LINES ).join( '\n' ) +
-			'\n   ' +
+			formatToolOutputLines( diffLines.slice( 0, FILE_PREVIEW_MAX_LINES ) ) +
+			'\n     ' +
 			chalk.dim(
-				'⎿ ... ' + ( totalDiffLines - FILE_PREVIEW_MAX_LINES ) + ' more lines · ctrl+o to expand'
+				'... ' + ( totalDiffLines - FILE_PREVIEW_MAX_LINES ) + ' more lines · ctrl+o to expand'
 			);
-		const expanded = diffLines.join( '\n' );
+		const expanded = formatToolOutputLines( diffLines );
 
 		return { collapsed, expanded };
 	}
 
+	private getLatestCollapsedPreview(): ExpandablePreview | null {
+		for ( let i = this.expandablePreviews.length - 1; i >= 0; i-- ) {
+			const preview = this.expandablePreviews[ i ];
+			if ( ! preview.isExpanded ) {
+				return preview;
+			}
+		}
+		return null;
+	}
+
+	private getLatestExpandedPreview(): ExpandablePreview | null {
+		for ( let i = this.expandablePreviews.length - 1; i >= 0; i-- ) {
+			const preview = this.expandablePreviews[ i ];
+			if ( preview.isExpanded ) {
+				return preview;
+			}
+		}
+		return null;
+	}
+
 	private toggleExpandablePreview(): void {
-		if ( ! this.expandablePreview ) {
+		const preview = this.getLatestCollapsedPreview() ?? this.getLatestExpandedPreview();
+		if ( ! preview ) {
 			return;
 		}
 
-		const preview = this.expandablePreview;
 		preview.isExpanded = ! preview.isExpanded;
 		preview.textComponent.setText(
 			preview.isExpanded ? preview.expandedContent : preview.collapsedContent
@@ -1473,12 +1500,9 @@ export class AiChatUI {
 				  ]
 				: [] ),
 		];
-		const formatted = lines
-			.map(
-				( line ) => '   ' + chalk.dim( '⎿ ' ) + ( line.dim ? chalk.dim( line.text ) : line.text )
-			)
-			.join( '\n' );
-		this.messages.addChild( new Text( formatted, 0, 0 ) );
+		const formatted = lines.map( ( line ) => ( line.dim ? chalk.dim( line.text ) : line.text ) );
+		const rendered = formatToolOutputLines( formatted );
+		this.messages.addChild( new Text( rendered, 0, 0 ) );
 	}
 
 	private syncLatestTodoSnapshot(): void {
@@ -1519,9 +1543,7 @@ export class AiChatUI {
 		const maxLength = toolName === 'mcp__studio__validate_blocks' ? 2000 : 500;
 		const truncated = text.length > maxLength ? text.slice( 0, maxLength ) + '…' : text;
 		const resultLines = truncated.split( '\n' );
-		const formatted = resultLines
-			.map( ( line ) => '   ' + chalk.dim( '⎿ ' ) + chalk.dim( line ) )
-			.join( '\n' );
+		const formatted = formatToolOutputLines( resultLines.map( ( line ) => chalk.dim( line ) ) );
 		this.messages.addChild( new Text( formatted, 0, 0 ) );
 	}
 

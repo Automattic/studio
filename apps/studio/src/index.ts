@@ -148,6 +148,16 @@ function launchExtensionBackgroundWorkers( appSession = session.defaultSession )
 	);
 }
 
+async function setupDevelopmentExtensions(): Promise< void > {
+	try {
+		await installExtension( REACT_DEVELOPER_TOOLS );
+		await installExtension( REDUX_DEVTOOLS );
+		await launchExtensionBackgroundWorkers();
+	} catch ( error ) {
+		console.warn( 'Failed to initialize development extensions:', error );
+	}
+}
+
 async function appBoot() {
 	app.setName( packageJson.productName );
 
@@ -263,9 +273,7 @@ async function appBoot() {
 	app.on( 'ready', async () => {
 		const locale = await getUserLocaleWithFallback();
 		if ( process.env.NODE_ENV === 'development' ) {
-			await installExtension( REACT_DEVELOPER_TOOLS );
-			await installExtension( REDUX_DEVTOOLS );
-			await launchExtensionBackgroundWorkers();
+			await setupDevelopmentExtensions();
 		}
 
 		console.log( `App version: ${ app.getVersion() }` );

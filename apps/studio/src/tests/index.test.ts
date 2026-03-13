@@ -178,6 +178,50 @@ describe( 'App initialization', () => {
 		await expect( import( '../index' ) ).resolves.toBeDefined();
 	} );
 
+	it( 'should continue booting when development extension workers fail to start', async () => {
+		const originalNodeEnv = process.env.NODE_ENV;
+		process.env.NODE_ENV = 'development';
+		const warnSpy = vi.spyOn( console, 'warn' ).mockImplementation( () => {} );
+
+		try {
+			const { mockedEvents } = mockElectron();
+			vi.resetModules();
+
+			const { session } = await import( 'electron' );
+			const serviceWorkerError = new Error( 'Failed to start service worker.' );
+			vi.mocked( session.defaultSession.extensions.getAllExtensions ).mockReturnValue( [
+				{
+					id: 'test-extension',
+					manifest: {
+						manifest_version: 3,
+						background: {
+							service_worker: 'background.js',
+						},
+					},
+					name: 'Test Extension',
+					path: '/mock/extensions/test-extension',
+					url: 'chrome-extension://test-extension/',
+					version: '1.0.0',
+				},
+			] );
+			vi.mocked( session.defaultSession.serviceWorkers.startWorkerForScope ).mockRejectedValue(
+				serviceWorkerError
+			);
+
+			await import( '../index' );
+			await expect( mockedEvents.ready() ).resolves.toBeUndefined();
+			expect( warnSpy ).toHaveBeenCalledWith(
+				'Failed to initialize development extensions:',
+				serviceWorkerError
+			);
+
+			await mockedEvents[ 'will-quit' ]( { preventDefault: vi.fn() } );
+		} finally {
+			process.env.NODE_ENV = originalNodeEnv;
+			warnSpy.mockRestore();
+		}
+	} );
+
 	it( 'should handle authentication deep links', async () => {
 		const originalProcessPlatform = process.platform;
 		Object.defineProperty( process, 'platform', { value: 'darwin' } );

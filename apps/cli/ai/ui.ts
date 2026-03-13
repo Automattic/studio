@@ -801,6 +801,7 @@ export class AiChatUI {
 		if ( scrollInfo ) {
 			lines.push( chalk.dim( `  ${ scrollInfo }` ) );
 		}
+		lines.push( '' );
 		lines.push( chalk.dim( hints ) );
 
 		const text = lines.join( '\n' );

@@ -6,6 +6,10 @@ import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { z } from 'zod/v4';
 import { validateBlocks, type ValidationReport } from 'cli/ai/block-validator';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
+import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
+import { runCommand as runDeletePreviewCommand } from 'cli/commands/preview/delete';
+import { runCommand as runListPreviewCommand } from 'cli/commands/preview/list';
+import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
 import { runCommand as runListSitesCommand } from 'cli/commands/site/list';
@@ -14,8 +18,9 @@ import { runCommand as runStatusCommand } from 'cli/commands/site/status';
 import { runCommand as runStopSiteCommand, Mode as StopMode } from 'cli/commands/site/stop';
 import { getSiteByFolder, getSiteUrl, readAppdata, type SiteData } from 'cli/lib/appdata';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { normalizeHostname } from 'cli/lib/utils';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
-import { emitProgress } from 'cli/logger';
+import { setProgressCallback, emitProgress } from 'cli/logger';
 
 const SITES_ROOT = path.join( os.homedir(), 'Studio' );
 
@@ -125,6 +130,53 @@ async function captureConsoleOutput( fn: () => Promise< void > ): Promise< strin
 		console.table = origTable;
 	}
 	return captured.trim();
+}
+
+async function captureCommandOutput( fn: () => Promise< void > ): Promise< {
+	consoleOutput: string;
+	progressOutput: string;
+	exitCode: number | undefined;
+} > {
+	let consoleOutput = '';
+	const progressMessages: string[] = [];
+	let thrownError: unknown;
+	const originalConsoleLog = console.log;
+	const originalConsoleTable = console.table;
+	const previousExitCode = process.exitCode;
+
+	console.log = ( ...args: unknown[] ) => {
+		consoleOutput += args.map( String ).join( ' ' ) + '\n';
+	};
+	console.table = ( ...args: unknown[] ) => {
+		consoleOutput += args.map( String ).join( ' ' ) + '\n';
+	};
+	process.exitCode = undefined;
+	setProgressCallback( ( message ) => {
+		progressMessages.push( message );
+	} );
+
+	try {
+		await fn();
+	} catch ( error ) {
+		thrownError = error;
+	} finally {
+		console.log = originalConsoleLog;
+		console.table = originalConsoleTable;
+		setProgressCallback( null );
+	}
+
+	const exitCode = process.exitCode;
+	process.exitCode = previousExitCode;
+
+	if ( thrownError ) {
+		throw thrownError;
+	}
+
+	return {
+		consoleOutput: consoleOutput.trim(),
+		progressOutput: progressMessages.join( '\n' ),
+		exitCode,
+	};
 }
 
 const createSiteTool = tool(
@@ -273,6 +325,140 @@ const deleteSiteTool = tool(
 		} catch ( error ) {
 			return errorResult(
 				`Failed to delete site: ${ error instanceof Error ? error.message : String( error ) }`
+			);
+		}
+	}
+);
+
+const createPreviewTool = tool(
+	'preview_create',
+	'Creates a WordPress.com preview site from a local Studio site. Requires WordPress.com authentication.',
+	{
+		nameOrPath: z.string().describe( 'The local site name or file system path to preview' ),
+	},
+	async ( args ) => {
+		try {
+			const site = await resolveSite( args.nameOrPath );
+			const result = await captureCommandOutput( () => runCreatePreviewCommand( site.path ) );
+			const output =
+				result.consoleOutput ||
+				result.progressOutput ||
+				`Preview site created for "${ site.name }".`;
+
+			if ( result.exitCode ) {
+				return errorResult( output );
+			}
+
+			return textResult( output );
+		} catch ( error ) {
+			return errorResult(
+				`Failed to create preview site: ${
+					error instanceof Error ? error.message : String( error )
+				}`
+			);
+		}
+	}
+);
+
+const listPreviewsTool = tool(
+	'preview_list',
+	'Lists WordPress.com preview sites associated with a local Studio site. Requires WordPress.com authentication.',
+	{
+		nameOrPath: z.string().describe( 'The local site name or file system path' ),
+	},
+	async ( args ) => {
+		try {
+			const site = await resolveSite( args.nameOrPath );
+			const result = await captureCommandOutput( () => runListPreviewCommand( site.path, 'json' ) );
+			const output =
+				result.consoleOutput ||
+				result.progressOutput ||
+				`No preview sites found for "${ site.name }".`;
+
+			if ( result.exitCode ) {
+				return errorResult( output );
+			}
+
+			return textResult( output );
+		} catch ( error ) {
+			return errorResult(
+				`Failed to list preview sites: ${
+					error instanceof Error ? error.message : String( error )
+				}`
+			);
+		}
+	}
+);
+
+const updatePreviewTool = tool(
+	'preview_update',
+	'Updates an existing WordPress.com preview site from a local Studio site. Requires WordPress.com authentication.',
+	{
+		nameOrPath: z.string().describe( 'The local site name or file system path' ),
+		host: z
+			.string()
+			.describe( 'The preview hostname or URL to update, for example "site.wordpress.com"' ),
+		overwrite: z
+			.boolean()
+			.optional()
+			.describe(
+				'Allow updating the preview from a different local directory. Defaults to false.'
+			),
+	},
+	async ( args ) => {
+		try {
+			const site = await resolveSite( args.nameOrPath );
+			const normalizedHost = normalizeHostname( args.host );
+			const result = await captureCommandOutput( () =>
+				runUpdatePreviewCommand( site.path, normalizedHost, args.overwrite ?? false )
+			);
+			const output =
+				result.consoleOutput ||
+				result.progressOutput ||
+				`Preview site "${ normalizedHost }" updated from "${ site.name }".`;
+
+			if ( result.exitCode ) {
+				return errorResult( output );
+			}
+
+			return textResult( output );
+		} catch ( error ) {
+			return errorResult(
+				`Failed to update preview site: ${
+					error instanceof Error ? error.message : String( error )
+				}`
+			);
+		}
+	}
+);
+
+const deletePreviewTool = tool(
+	'preview_delete',
+	'Deletes a WordPress.com preview site by hostname or URL. Requires WordPress.com authentication.',
+	{
+		host: z
+			.string()
+			.describe( 'The preview hostname or URL to delete, for example "site.wordpress.com"' ),
+	},
+	async ( args ) => {
+		try {
+			const normalizedHost = normalizeHostname( args.host );
+			const result = await captureCommandOutput( () => runDeletePreviewCommand( normalizedHost ) );
+			const output =
+				result.consoleOutput ||
+				result.progressOutput ||
+				`Preview site "${ normalizedHost }" deleted.`;
+
+			if ( result.exitCode ) {
+				return errorResult( output );
+			}
+
+			return textResult( output );
+		} catch ( error ) {
+			return errorResult(
+				`Failed to delete preview site: ${
+					error instanceof Error ? error.message : String( error )
+				}`
 			);
 		}
 	}
@@ -532,20 +718,26 @@ const takeScreenshotTool = tool(
 	}
 );
 
+export const studioToolDefinitions = [
+	createSiteTool,
+	listSitesTool,
+	getSiteInfoTool,
+	startSiteTool,
+	stopSiteTool,
+	deleteSiteTool,
+	createPreviewTool,
+	listPreviewsTool,
+	updatePreviewTool,
+	deletePreviewTool,
+	runWpCliTool,
+	validateBlocksTool,
+	takeScreenshotTool,
+];
+
 export function createStudioTools() {
 	return createSdkMcpServer( {
 		name: 'studio',
 		version: '1.0.0',
-		tools: [
-			createSiteTool,
-			listSitesTool,
-			getSiteInfoTool,
-			startSiteTool,
-			stopSiteTool,
-			deleteSiteTool,
-			runWpCliTool,
-			validateBlocksTool,
-			takeScreenshotTool,
-		],
+		tools: studioToolDefinitions,
 	} );
 }

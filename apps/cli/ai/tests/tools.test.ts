@@ -1,0 +1,177 @@
+import { vi } from 'vitest';
+import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
+import { runCommand as runDeletePreviewCommand } from 'cli/commands/preview/delete';
+import { runCommand as runListPreviewCommand } from 'cli/commands/preview/list';
+import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
+import { getSiteByFolder, readAppdata } from 'cli/lib/appdata';
+import { studioToolDefinitions } from '../tools';
+
+vi.mock( 'cli/ai/block-validator', () => ( {
+	validateBlocks: vi.fn(),
+} ) );
+
+vi.mock( 'cli/ai/browser-utils', () => ( {
+	getSharedBrowser: vi.fn(),
+} ) );
+
+vi.mock( 'cli/commands/preview/create', () => ( {
+	runCommand: vi.fn(),
+} ) );
+
+vi.mock( 'cli/commands/preview/delete', () => ( {
+	runCommand: vi.fn(),
+} ) );
+
+vi.mock( 'cli/commands/preview/list', () => ( {
+	runCommand: vi.fn(),
+} ) );
+
+vi.mock( 'cli/commands/preview/update', () => ( {
+	runCommand: vi.fn(),
+} ) );
+
+vi.mock( 'cli/commands/site/create', () => ( {
+	runCommand: vi.fn(),
+} ) );
+
+vi.mock( 'cli/commands/site/delete', () => ( {
+	runCommand: vi.fn(),
+} ) );
+
+vi.mock( 'cli/commands/site/list', () => ( {
+	runCommand: vi.fn(),
+} ) );
+
+vi.mock( 'cli/commands/site/start', () => ( {
+	runCommand: vi.fn(),
+} ) );
+
+vi.mock( 'cli/commands/site/status', () => ( {
+	runCommand: vi.fn(),
+} ) );
+
+vi.mock( 'cli/commands/site/stop', () => ( {
+	Mode: { STOP_SINGLE_SITE: 'stop_single_site' },
+	runCommand: vi.fn(),
+} ) );
+
+vi.mock( 'cli/lib/appdata', async () => ( {
+	...( await vi.importActual( 'cli/lib/appdata' ) ),
+	getSiteByFolder: vi.fn(),
+	readAppdata: vi.fn(),
+} ) );
+
+vi.mock( 'cli/lib/daemon-client', () => ( {
+	connectToDaemon: vi.fn(),
+	disconnectFromDaemon: vi.fn(),
+} ) );
+
+vi.mock( 'cli/lib/wordpress-server-manager', () => ( {
+	isServerRunning: vi.fn(),
+	sendWpCliCommand: vi.fn(),
+} ) );
+
+describe( 'Studio AI MCP tools', () => {
+	const mockSite = {
+		id: 'site-123',
+		name: 'My Site',
+		path: '/sites/my-site',
+		adminPassword: 'password',
+		port: 8888,
+		phpVersion: '8.3',
+	};
+
+	const getTool = ( name: string ) => {
+		const tool = studioToolDefinitions.find( ( definition ) => definition.name === name );
+		expect( tool ).toBeDefined();
+		return tool as ( typeof studioToolDefinitions )[ number ];
+	};
+
+	const getTextContent = ( result: { content?: Array< { type: string; text?: string } > } ) => {
+		const firstContent = result.content?.[ 0 ];
+		return firstContent && 'text' in firstContent ? firstContent.text : undefined;
+	};
+
+	beforeEach( () => {
+		vi.resetAllMocks();
+		process.exitCode = undefined;
+		vi.mocked( readAppdata ).mockResolvedValue( {
+			sites: [ mockSite ],
+		} as Awaited< ReturnType< typeof readAppdata > > );
+		vi.mocked( getSiteByFolder ).mockResolvedValue( mockSite );
+	} );
+
+	it( 'includes preview tools in the MCP registry', () => {
+		expect( studioToolDefinitions.map( ( tool ) => tool.name ) ).toEqual(
+			expect.arrayContaining( [
+				'preview_create',
+				'preview_list',
+				'preview_update',
+				'preview_delete',
+			] )
+		);
+	} );
+
+	it( 'creates previews for a resolved local site', async () => {
+		const result = await getTool( 'preview_create' ).handler(
+			{ nameOrPath: 'My Site' } as never,
+			null
+		);
+
+		expect( runCreatePreviewCommand ).toHaveBeenCalledWith( '/sites/my-site' );
+		expect( result.isError ).toBeUndefined();
+		expect( getTextContent( result ) ).toContain( 'Preview site created for "My Site".' );
+	} );
+
+	it( 'lists previews as JSON for a resolved local site', async () => {
+		vi.mocked( runListPreviewCommand ).mockImplementation( async () => {
+			console.log( '[{"url":"https://demo.wordpress.com"}]' );
+		} );
+
+		const result = await getTool( 'preview_list' ).handler(
+			{ nameOrPath: 'My Site' } as never,
+			null
+		);
+
+		expect( runListPreviewCommand ).toHaveBeenCalledWith( '/sites/my-site', 'json' );
+		expect( result.isError ).toBeUndefined();
+		expect( getTextContent( result ) ).toBe( '[{"url":"https://demo.wordpress.com"}]' );
+	} );
+
+	it( 'updates previews with a normalized hostname', async () => {
+		const result = await getTool( 'preview_update' ).handler(
+			{
+				nameOrPath: 'My Site',
+				host: 'https://demo.wordpress.com/',
+				overwrite: true,
+			} as never,
+			null
+		);
+
+		expect( runUpdatePreviewCommand ).toHaveBeenCalledWith(
+			'/sites/my-site',
+			'demo.wordpress.com',
+			true
+		);
+		expect( result.isError ).toBeUndefined();
+		expect( getTextContent( result ) ).toContain(
+			'Preview site "demo.wordpress.com" updated from "My Site".'
+		);
+	} );
+
+	it( 'returns preview delete failures as tool errors', async () => {
+		vi.mocked( runDeletePreviewCommand ).mockImplementation( async () => {
+			process.exitCode = 1;
+			console.log( 'Failed to delete preview site' );
+		} );
+
+		const result = await getTool( 'preview_delete' ).handler(
+			{ host: 'https://demo.wordpress.com/' } as never,
+			null
+		);
+
+		expect( runDeletePreviewCommand ).toHaveBeenCalledWith( 'demo.wordpress.com' );
+		expect( result.isError ).toBe( true );
+		expect( getTextContent( result ) ).toBe( 'Failed to delete preview site' );
+	} );
+} );

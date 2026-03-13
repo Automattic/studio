@@ -56,7 +56,6 @@ import { ExportOptions } from 'src/lib/import-export/export/types';
 import { ImportExportEventData } from 'src/lib/import-export/handle-events';
 import { defaultImporterOptions, importBackup } from 'src/lib/import-export/import/import-manager';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
-import { isInstalled } from 'src/lib/is-installed';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import * as oauthClient from 'src/lib/oauth';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
@@ -80,7 +79,7 @@ import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
 import { shouldExcludeFromSync, shouldLimitDepth } from 'src/modules/sync/lib/tree-utils';
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
-import { getUserTerminal } from 'src/modules/user-settings/lib/ipc-handlers';
+import { getUserEditor, getUserTerminal } from 'src/modules/user-settings/lib/ipc-handlers';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
 import { SiteServer, stopAllServers as triggerStopAllServers } from 'src/site-server';
 import { DEFAULT_SITE_PATH, getSiteThumbnailPath } from 'src/storage/paths';
@@ -1079,23 +1078,30 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 export async function openAppAtPath(
 	event: IpcMainInvokeEvent,
 	editorKey: SupportedEditor,
-	filePath: string
+	filePath: string,
+	otherFiles: string[] = []
 ): Promise< void > {
 	const platform = process.platform;
 	const editor = supportedEditorConfig[ editorKey ];
+	const allPaths = [ filePath, ...otherFiles ];
+	const quotedPaths = allPaths.map( ( p ) => `"${ p }"` ).join( ' ' );
 
 	if ( platform === 'darwin' ) {
-		return promiseExec( `open -b ${ editor.macOSBundleId } "${ filePath }"` );
+		const cmd = `open -b ${ editor.macOSBundleId } ${ quotedPaths }`;
+		return promiseExec( cmd );
 	}
 
 	if ( platform === 'win32' ) {
 		const editorPath = await winFindEditorPath( editorKey );
 		if ( ! editorPath ) {
-			// Fall back to using openURL if no editor path is found
-			return openURL( event, editor.url( filePath ) );
+			// Fall back to URL scheme for each path
+			for ( const p of allPaths ) {
+				openURL( event, editor.url( p ) );
+			}
+			return;
 		}
 
-		return promiseExec( `"${ editorPath }" "${ filePath }"` );
+		return promiseExec( `"${ editorPath }" ${ quotedPaths }` );
 	}
 
 	throw new Error( `Platform ${ platform } is not supported` );
@@ -1206,9 +1212,10 @@ export async function getAbsolutePathFromSite(
 
 /**
  * Opens a file in the IDE with the site context.
+ * Uses the user's preferred editor, falling back to the first installed editor.
  */
 export async function openFileInIDE(
-	_event: IpcMainInvokeEvent,
+	event: IpcMainInvokeEvent,
 	relativePath: string,
 	siteId: string
 ) {
@@ -1217,19 +1224,28 @@ export async function openFileInIDE(
 		throw new Error( 'Site not found.' );
 	}
 
-	const path = await getAbsolutePathFromSite( _event, siteId, relativePath );
-	if ( ! path ) {
+	const filepath = await getAbsolutePathFromSite( event, siteId, relativePath );
+	if ( ! filepath ) {
 		return;
 	}
 
-	if ( isInstalled( 'vscode' ) ) {
-		// Open site first to ensure the file is opened within the site context
-		await shellOpenExternalWrapper( `vscode://file/${ server.details.path }?windowId=_blank` );
-		await shellOpenExternalWrapper( `vscode://file/${ path }` );
-	} else if ( isInstalled( 'phpstorm' ) ) {
-		// Open site first to ensure the file is opened within the site context
-		await shellOpenExternalWrapper( `phpstorm://open?file=${ path }` );
+	const editorKey = await getUserEditor();
+	if ( ! editorKey ) {
+		return;
 	}
+
+	const openSingleFileExceptions = [ { platform: 'darwin', editorKey: 'phpstorm' } ];
+
+	if (
+		openSingleFileExceptions.some(
+			( f ) => f.platform === process.platform && f.editorKey === editorKey
+		)
+	) {
+		await openAppAtPath( event, editorKey, filepath );
+		return;
+	}
+	// Open site folder and file in a single call
+	await openAppAtPath( event, editorKey, server.details.path, [ filepath ] );
 }
 
 export async function isImportExportSupported( _event: IpcMainInvokeEvent, siteId: string ) {

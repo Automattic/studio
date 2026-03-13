@@ -8,7 +8,6 @@ import { useAuth } from 'src/hooks/use-auth';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { store } from 'src/stores';
-import { setProviderConstants } from 'src/stores/provider-constants-slice';
 import type { SyncSite } from 'src/modules/sync/types';
 import type { WPCOM } from 'wpcom/types';
 
@@ -77,16 +76,6 @@ describe( 'useAddSite', () => {
 		mockPullSiteThunk.mockImplementation( () => ( {
 			type: 'syncOperations/pullSite',
 		} ) );
-
-		// Prepopulate store with provider constants
-		store.dispatch(
-			setProviderConstants( {
-				defaultPhpVersion: '8.3',
-				defaultWordPressVersion: 'latest',
-				allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
-				minimumWordPressVersion: '5.9.9',
-			} )
-		);
 
 		mockGenerateProposedSitePath.mockResolvedValue( {
 			path: '/default/path',

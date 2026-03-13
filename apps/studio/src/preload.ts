@@ -101,8 +101,8 @@ const api: IpcApi = {
 	saveOnboarding: ( onboardingCompleted ) =>
 		ipcRendererInvoke( 'saveOnboarding', onboardingCompleted ),
 	getBetaFeatures: () => ipcRendererInvoke( 'getBetaFeatures' ),
-	openAppAtPath: ( editorKey, filePath ) =>
-		ipcRendererInvoke( 'openAppAtPath', editorKey, filePath ),
+	openAppAtPath: ( editorKey, filePath, otherFiles?: string[] ) =>
+		ipcRendererInvoke( 'openAppAtPath', editorKey, filePath, otherFiles ),
 	openTerminalAtPath: ( targetPath ) => ipcRendererInvoke( 'openTerminalAtPath', targetPath ),
 	showMessageBox: ( options ) => ipcRendererInvoke( 'showMessageBox', options ),
 	showErrorMessageBox: ( options ) => ipcRendererSend( 'showErrorMessageBox', options ),

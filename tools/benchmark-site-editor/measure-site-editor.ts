@@ -31,6 +31,8 @@ export interface MeasureOptions {
 	isPlaygroundWeb: boolean;
 	/** Whether this is a local Playground CLI site (127.0.0.1). Affects login flow. */
 	isPlaygroundCli: boolean;
+	/** WordPress admin credentials for wp-login.php authentication. When provided, logs in via the standard WordPress login form. */
+	credentials?: { username: string; password: string };
 	/** Launch browser in headed mode for debugging. */
 	headed?: boolean;
 }
@@ -97,7 +99,7 @@ function findEditorCanvasFrame(
  * The browser is always closed, even on error.
  */
 export async function measureSiteEditor( options: MeasureOptions ): Promise< MeasurementResult > {
-	const { isPlaygroundWeb, isPlaygroundCli } = options;
+	const { isPlaygroundWeb, isPlaygroundCli, credentials } = options;
 
 	// Normalize URL
 	let wpAdminUrl = options.url;
@@ -127,11 +129,6 @@ export async function measureSiteEditor( options: MeasureOptions ): Promise< Mea
 				.first();
 
 			await wordPressFrameLocator
-				.getByRole( 'menuitem', { name: 'My WordPress Website' } )
-				.first()
-				.click( { timeout: 30_000 } );
-
-			await wordPressFrameLocator
 				.getByRole( 'link', { name: 'Appearance' } )
 				.waitFor( { timeout: 30_000 } );
 
@@ -142,15 +139,30 @@ export async function measureSiteEditor( options: MeasureOptions ): Promise< Mea
 				timeout: 120_000,
 			} );
 			await page.waitForLoadState( 'networkidle', { timeout: 30_000 } ).catch( () => {} );
-
-			// Playground CLI may redirect to wp-login.php — handle login
-			if ( page.url().includes( 'wp-login.php' ) ) {
-				await page.fill( '#user_login', 'admin' );
-				await page.fill( '#user_pass', 'password' );
-				await page.click( '#wp-submit' );
-				await page.waitForLoadState( 'networkidle', { timeout: 30_000 } ).catch( () => {} );
-			}
-
+			await page.getByRole( 'link', { name: 'Appearance' } ).waitFor( {
+				state: 'visible',
+				timeout: 60_000,
+			} );
+		} else if ( credentials ) {
+			// Standard WordPress login via wp-login.php
+			await page.goto( `${ wpAdminUrl }/wp-login.php`, {
+				waitUntil: 'domcontentloaded',
+				timeout: 120_000,
+			} );
+			await page.waitForLoadState( 'networkidle', { timeout: 30_000 } ).catch( () => {} );
+			await page.fill( '#user_login', credentials.username );
+			await page.fill( '#user_pass', credentials.password );
+			await Promise.all( [
+				page.waitForURL( '**/wp-admin/**', { timeout: 60_000 } ),
+				page.click( '#wp-submit' ),
+			] );
+			// Navigate explicitly to wp-admin to bypass plugin setup wizard redirects
+			// (WooCommerce, Jetpack, etc. redirect to their own onboarding pages)
+			await page.goto( `${ wpAdminUrl }/wp-admin/`, {
+				waitUntil: 'domcontentloaded',
+				timeout: 60_000,
+			} );
+			await page.waitForLoadState( 'networkidle', { timeout: 30_000 } ).catch( () => {} );
 			await page.getByRole( 'link', { name: 'Appearance' } ).waitFor( {
 				state: 'visible',
 				timeout: 60_000,

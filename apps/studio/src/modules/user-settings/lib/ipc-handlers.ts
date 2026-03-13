@@ -3,7 +3,7 @@ import { DEFAULT_TERMINAL } from 'src/constants';
 import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { isInstalled } from 'src/lib/is-installed';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
-import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
+import { SUPPORTED_EDITORS, SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 import { UserSettingsTabName } from 'src/modules/user-settings/user-settings-types';
 import { loadUserData, updateAppdata } from 'src/storage/user-data';
@@ -54,8 +54,17 @@ export async function getUserLocale() {
 }
 
 export async function getUserEditor(): Promise< SupportedEditor | null > {
+	function getDefaultInstalledEditor(): SupportedEditor | null {
+		const installedApps = getInstalledAppsAndTerminals();
+		for ( const editor of SUPPORTED_EDITORS ) {
+			if ( installedApps[ editor ] ) {
+				return editor;
+			}
+		}
+		return null;
+	}
 	const userData = await loadUserData();
-	return userData.preferredEditor ?? null;
+	return userData.preferredEditor ?? getDefaultInstalledEditor();
 }
 
 export function showUserSettings( event: IpcMainInvokeEvent, tabName?: UserSettingsTabName ) {

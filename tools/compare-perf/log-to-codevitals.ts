@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* eslint-disable no-console */
+
 import fs from 'fs';
 import path from 'path';
 
@@ -14,13 +14,19 @@ const resultsFiles = [
 		file: 'site-editor.summary.json',
 		metricsPrefix: 'site-editor-',
 	},
+	{
+		file: 'app-size.summary.json',
+		metricsPrefix: '',
+	},
 ];
 
-const performanceResults = resultsFiles.map( ( { file } ) =>
-	JSON.parse(
-		fs.readFileSync( path.join( process.env.ARTIFACTS_PATH ?? 'artifacts', file ), 'utf8' )
-	)
-);
+const performanceResults = resultsFiles.map( ( { file } ) => {
+	const filePath = path.join( process.env.ARTIFACTS_PATH ?? 'artifacts', file );
+	if ( ! fs.existsSync( filePath ) ) {
+		return {};
+	}
+	return JSON.parse( fs.readFileSync( filePath, 'utf8' ) );
+} );
 
 const payload = {
 	branch,

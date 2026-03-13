@@ -10,6 +10,8 @@
  * - Sends response back when ready
  * - Sends activity heartbeats to prevent timeout during long operations
  */
+import { watch, type FSWatcher } from 'fs';
+import http, { type Server as HttpServer } from 'http';
 import { dirname } from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { isWordPressDirectory } from '@studio/common/lib/fs-utils';
@@ -40,6 +42,8 @@ import {
 let server: RunCLIServer | null = null;
 let startingPromise: Promise< void > | null = null;
 let lastCliArgs: Record< string, unknown > | null = null;
+let orphanedServer: HttpServer | null = null;
+let siteFileWatcher: FSWatcher | null = null;
 
 // Intercept and prefix all console output from playground-cli
 const originalConsoleLog = console.log;
@@ -272,6 +276,203 @@ function wrapWithStartingPromise< Args extends unknown[], Return extends void >(
 	};
 }
 
+/**
+ * Determines if an error from runCLI() is caused by user PHP code (themes/plugins)
+ * rather than an infrastructure issue (WASM memory, port conflicts, etc.).
+ */
+function isPhpUserError( error: unknown ): boolean {
+	if ( ! ( error instanceof Error ) ) {
+		return false;
+	}
+
+	const message = error.message;
+
+	// Infrastructure errors — should NOT trigger fallback
+	if (
+		message.includes( 'Cannot allocate Wasm memory' ) ||
+		message.includes( 'EADDRINUSE' ) ||
+		message.includes( 'Operation aborted' ) ||
+		message.includes( '"unreachable" WASM instruction' )
+	) {
+		return false;
+	}
+
+	// PHP user errors — should trigger fallback
+	if ( message.match( /PHP Fatal error:/i ) ) {
+		return true;
+	}
+	if ( message.match( /Fatal error/i ) ) {
+		return true;
+	}
+	if ( message.includes( 'wp-die-message' ) ) {
+		return true;
+	}
+	if ( message.includes( 'PHP.run() failed with exit code' ) ) {
+		return true;
+	}
+	// Intercepted process.exit(1) from @wp-playground/cli during server startup
+	if ( message.includes( 'WordPress server startup failed' ) ) {
+		return true;
+	}
+
+	return false;
+}
+
+function generateErrorPageHtml( errorMessage: string ): string {
+	const escaped = errorMessage
+		.replace( /&/g, '&amp;' )
+		.replace( /</g, '&lt;' )
+		.replace( />/g, '&gt;' );
+	return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>PHP Error</title>
+<style>html{background:#f1f1f1}body{background:#fff;border:1px solid #ccd0d4;color:#444;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;margin:2em auto;padding:1em 2em;max-width:700px}h1{color:#d63638;font-size:1.3em}pre{background:#f6f7f7;border:1px solid #dcdcde;padding:1em;white-space:pre-wrap;word-wrap:break-word;font-size:13px}.info{background:#f0f6fc;border-left:4px solid #72aee6;padding:12px 16px;margin:1.5em 0}</style>
+</head><body><h1>PHP Error Detected</h1><pre>${ escaped }</pre>
+<div class="info"><p><strong>Studio is watching for file changes.</strong> Fix the PHP error and the site will automatically restart.</p></div></body></html>`;
+}
+
+/**
+ * Replaces the request handler on an HTTP server to serve an error page.
+ */
+function serveErrorPage( httpServer: HttpServer, errorMessage: string ): void {
+	const html = generateErrorPageHtml( errorMessage );
+	httpServer.removeAllListeners( 'request' );
+	httpServer.on( 'request', ( _req, res ) => {
+		res.writeHead( 500, { 'Content-Type': 'text/html; charset=utf-8' } );
+		res.end( html );
+	} );
+}
+
+/**
+ * Watch for PHP file changes and attempt to restart the server.
+ */
+function watchForPhpChanges( config: ServerConfig ): void {
+	let debounce: ReturnType< typeof setTimeout > | null = null;
+	let retrying = false;
+
+	siteFileWatcher = watch( config.sitePath, { recursive: true }, ( _event, filename ) => {
+		if ( ! filename?.endsWith( '.php' ) || retrying ) {
+			return;
+		}
+		if ( debounce ) {
+			clearTimeout( debounce );
+		}
+		debounce = setTimeout( () => {
+			void ( async () => {
+				retrying = true;
+				logToConsole( 'PHP file change detected, restarting server…' );
+				try {
+					// Close orphaned server to free the port for the new runCLI
+					if ( orphanedServer ) {
+						orphanedServer.close();
+						orphanedServer = null;
+					}
+					const args = await getBaseRunCLIArgs( 'server', config );
+					lastCliArgs = sanitizeRunCLIArgs( args );
+					server = await runCLIWithoutExit( args );
+
+					// Success — clean up watcher
+					siteFileWatcher?.close();
+					siteFileWatcher = null;
+					logToConsole( 'Server restarted successfully' );
+
+					if ( config.adminPassword || config.adminUsername || config.adminEmail ) {
+						await setAdminCredentials(
+							server,
+							config.adminPassword,
+							config.adminUsername,
+							config.adminEmail
+						);
+					}
+				} catch {
+					// runCLIWithoutExit already repurposed the orphaned server with new error
+					logToConsole( 'Restart failed, still watching…' );
+				} finally {
+					retrying = false;
+				}
+			} )();
+		}, 2000 );
+	} );
+}
+
+/**
+ * Wraps runCLI to prevent @wp-playground/cli from calling process.exit(1) on
+ * PHP fatal errors, and to capture orphaned HTTP servers for reuse.
+ *
+ * Playground's internal error handler calls process.exit(1) directly in a .catch(),
+ * bypassing all try-catch blocks. This wrapper:
+ * 1. Overrides process.exit to throw instead of exiting
+ * 2. Captures stdout/console output so we get the actual PHP error message
+ * 3. Intercepts http.createServer to capture Playground's HTTP server reference
+ * 4. On failure, repurposes the orphaned server to serve an error page
+ */
+async function runCLIWithoutExit(
+	args: RunCLIArgs & { command: 'server' }
+): Promise< RunCLIServer > {
+	const originalExit = process.exit;
+	const capturedOutput: string[] = [];
+
+	// Capture all output channels — PHP WASM writes errors via process.stdout.write,
+	// while Playground's printError uses console.log/error.
+	const savedConsoleLog = console.log;
+	const savedConsoleError = console.error;
+	const savedStdoutWrite = process.stdout.write;
+	console.log = ( ...logArgs: unknown[] ) => {
+		capturedOutput.push( logArgs.map( String ).join( ' ' ) );
+		savedConsoleLog( ...logArgs );
+	};
+	console.error = ( ...errorArgs: unknown[] ) => {
+		capturedOutput.push( errorArgs.map( String ).join( ' ' ) );
+		savedConsoleError( ...errorArgs );
+	};
+	process.stdout.write = function ( ...writeArgs: Parameters< typeof savedStdoutWrite > ) {
+		capturedOutput.push( String( writeArgs[ 0 ] ) );
+		return savedStdoutWrite( ...writeArgs );
+	} as typeof process.stdout.write;
+
+	process.exit = ( ( code?: number ) => {
+		if ( code !== 0 ) {
+			const errorMsg =
+				capturedOutput.join( '\n' ) || `WordPress server startup failed (exit code ${ code })`;
+			throw new Error( errorMsg );
+		}
+		return originalExit( code );
+	} ) as typeof process.exit;
+
+	// Intercept HTTP servers created by Playground so we can repurpose them on failure.
+	// Playground binds an HTTP server to the port before booting WordPress — if boot fails,
+	// this orphaned server still holds the port.
+	const createdServers: HttpServer[] = [];
+	const originalCreateServer = http.createServer;
+	http.createServer = ( ( ...createArgs: unknown[] ) => {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const srv = ( originalCreateServer as any )( ...createArgs ) as HttpServer;
+		createdServers.push( srv );
+		return srv;
+	} ) as typeof http.createServer;
+
+	try {
+		return await runCLI( args );
+	} catch ( error ) {
+		// Repurpose Playground's orphaned HTTP server to serve our error page.
+		// This avoids EADDRINUSE — the server is already bound to the port.
+		if ( createdServers.length > 0 ) {
+			const srv = createdServers[ 0 ];
+			serveErrorPage( srv, parsePhpError( error ) );
+			orphanedServer = srv;
+			// Close any extra servers (unlikely, but be safe)
+			for ( let i = 1; i < createdServers.length; i++ ) {
+				createdServers[ i ].close();
+			}
+		}
+		throw error;
+	} finally {
+		process.exit = originalExit;
+		console.log = savedConsoleLog;
+		console.error = savedConsoleError;
+		process.stdout.write = savedStdoutWrite;
+		http.createServer = originalCreateServer;
+	}
+}
+
 const startServer = wrapWithStartingPromise(
 	async ( config: ServerConfig, signal: AbortSignal ): Promise< void > => {
 		if ( server ) {
@@ -290,7 +491,7 @@ const startServer = wrapWithStartingPromise(
 
 			const args = await getBaseRunCLIArgs( 'server', config );
 			lastCliArgs = sanitizeRunCLIArgs( args );
-			server = await runCLI( args );
+			server = await runCLIWithoutExit( args );
 
 			if ( config.adminPassword || config.adminUsername || config.adminEmail ) {
 				await setAdminCredentials(
@@ -302,6 +503,14 @@ const startServer = wrapWithStartingPromise(
 			}
 		} catch ( error ) {
 			server = null;
+
+			if ( isPhpUserError( error ) ) {
+				logToConsole( `PHP error detected during startup: ${ parsePhpError( error ) }` );
+				// orphanedServer is already serving the error page (set by runCLIWithoutExit)
+				watchForPhpChanges( config );
+				return;
+			}
+
 			errorToConsole( `Failed to start server:`, error );
 			throw error;
 		}
@@ -311,6 +520,17 @@ const startServer = wrapWithStartingPromise(
 const STOP_SERVER_TIMEOUT = 5000;
 
 async function stopServer(): Promise< void > {
+	if ( siteFileWatcher ) {
+		siteFileWatcher.close();
+		siteFileWatcher = null;
+	}
+	if ( orphanedServer ) {
+		orphanedServer.close();
+		orphanedServer = null;
+		logToConsole( 'Error page server stopped' );
+		return;
+	}
+
 	if ( ! server ) {
 		logToConsole( 'No server running, nothing to stop' );
 		return;
@@ -499,6 +719,18 @@ async function ipcMessageHandler( packet: unknown ) {
 		process.exit( 1 );
 	}
 }
+
+// Prevent the process from crashing on unhandled errors from worker threads
+// (e.g., PHP WASM fatal errors). These are handled by the startServer catch block
+// via the runCLI() promise rejection, but worker thread errors can also surface
+// as separate unhandled rejections that would otherwise crash the process.
+process.on( 'uncaughtException', ( error ) => {
+	errorToConsole( 'Uncaught exception in child process:', error );
+} );
+
+process.on( 'unhandledRejection', ( reason ) => {
+	errorToConsole( 'Unhandled rejection in child process:', reason );
+} );
 
 if ( process.send ) {
 	process.on( 'message', ipcMessageHandler );

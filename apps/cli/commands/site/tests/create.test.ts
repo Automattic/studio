@@ -18,7 +18,7 @@ import { vi, type MockInstance } from 'vitest';
 import {
 	lockCliConfig,
 	readCliConfig,
-	removeSite,
+	removeSiteFromConfig,
 	saveCliConfig,
 	unlockCliConfig,
 	updateSiteAutoStart,
@@ -57,7 +57,7 @@ vi.mock( 'cli/lib/cli-config', async () => {
 		unlockCliConfig: vi.fn(),
 		updateSiteLatestCliPid: vi.fn(),
 		updateSiteAutoStart: vi.fn().mockResolvedValue( undefined ),
-		removeSite: vi.fn(),
+		removeSiteFromConfig: vi.fn(),
 		getSiteUrl: vi.fn().mockImplementation( ( site ) => `http://localhost:${ site.port }` ),
 	};
 } );
@@ -819,7 +819,7 @@ describe( 'CLI: studio site create', () => {
 
 			await expect( runCommand( mockSitePath, { ...defaultTestOptions } ) ).rejects.toThrow();
 
-			expect( removeSite ).toHaveBeenCalled();
+			expect( removeSiteFromConfig ).toHaveBeenCalled();
 		} );
 
 		it( 'should remove site from appdata when Blueprint application fails', async () => {
@@ -837,7 +837,7 @@ describe( 'CLI: studio site create', () => {
 				} )
 			).rejects.toThrow();
 
-			expect( removeSite ).toHaveBeenCalled();
+			expect( removeSiteFromConfig ).toHaveBeenCalled();
 		} );
 
 		it( 'should delete site directory when server start fails for new directory', async () => {

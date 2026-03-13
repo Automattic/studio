@@ -1,5 +1,4 @@
 import fs from 'fs';
-import os from 'os';
 import path from 'path';
 import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from '@studio/common/constants';
 import { arePathsEqual, isWordPressDirectory } from '@studio/common/lib/fs-utils';
@@ -8,6 +7,7 @@ import { siteDetailsSchema } from '@studio/common/lib/site-events';
 import { __ } from '@wordpress/i18n';
 import { readFile, writeFile } from 'atomically';
 import { z } from 'zod';
+import { STUDIO_CLI_HOME } from 'cli/lib/paths';
 import { LoggerError } from 'cli/logger';
 
 const siteSchema = siteDetailsSchema
@@ -17,8 +17,12 @@ const siteSchema = siteDetailsSchema
 	} )
 	.loose();
 
-const cliConfigSchema = z.object( {
+const cliConfigWithJustVersion = z.object( {
 	version: z.number().default( 1 ),
+} );
+// IMPORTANT: Always consider that independently installed versions of the CLI (from npm) may also
+// read this file, and any updates to this schema may require updating the `version` field.
+const cliConfigSchema = cliConfigWithJustVersion.extend( {
 	sites: z.array( siteSchema ).default( () => [] ),
 } );
 
@@ -35,7 +39,7 @@ export function getCliConfigDirectory(): string {
 		return process.env.E2E_CLI_CONFIG_PATH;
 	}
 
-	return path.join( os.homedir(), '.studio' );
+	return STUDIO_CLI_HOME;
 }
 
 export function getCliConfigPath(): string {
@@ -46,15 +50,32 @@ export async function readCliConfig(): Promise< CliConfig > {
 	const configPath = getCliConfigPath();
 
 	if ( ! fs.existsSync( configPath ) ) {
-		return { ...DEFAULT_CLI_CONFIG };
+		return structuredClone( DEFAULT_CLI_CONFIG );
 	}
 
 	try {
 		const fileContent = await readFile( configPath, { encoding: 'utf8' } );
-		const data = JSON.parse( fileContent );
+		// eslint-disable-next-line no-var
+		var data = JSON.parse( fileContent );
+	} catch ( error ) {
+		throw new LoggerError( __( 'Failed to read CLI config file.' ), error );
+	}
+
+	try {
 		return cliConfigSchema.parse( data );
 	} catch ( error ) {
 		if ( error instanceof z.ZodError ) {
+			try {
+				cliConfigWithJustVersion.parse( data );
+			} catch ( versionError ) {
+				throw new LoggerError(
+					__(
+						'Invalid CLI config version. It looks like you have a different version of the `studio` CLI installed on your system. Please modify your $PATH environment variable to use the correct version.'
+					),
+					error
+				);
+			}
+
 			throw new LoggerError( __( 'Invalid CLI config file format.' ), error );
 		}
 
@@ -178,7 +199,7 @@ export async function updateSiteAutoStart( siteId: string, autoStart: boolean ):
 	}
 }
 
-export async function removeSite( siteId: string ): Promise< void > {
+export async function removeSiteFromConfig( siteId: string ): Promise< void > {
 	try {
 		await lockCliConfig();
 		const config = await readCliConfig();

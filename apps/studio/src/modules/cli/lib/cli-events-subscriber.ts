@@ -46,11 +46,10 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 		return;
 	}
 
-	// For UPDATED events, update existing server or register new one (e.g., during startup)
+	// For UPDATED events, update existing server details
 	const server = SiteServer.get( siteId ) ?? SiteServer.getByPath( site.path );
 	if ( ! server ) {
-		SiteServer.register( siteDetailsToServerDetails( site, running ) );
-		void sendIpcEventToRenderer( 'site-event', event );
+		console.warn( `Received UPDATED event for unknown site: ${ siteId }` );
 		return;
 	}
 

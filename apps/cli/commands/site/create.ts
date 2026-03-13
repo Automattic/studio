@@ -52,7 +52,7 @@ import {
 import {
 	lockCliConfig,
 	readCliConfig,
-	removeSite,
+	removeSiteFromConfig,
 	saveCliConfig,
 	SiteData,
 	unlockCliConfig,
@@ -400,7 +400,7 @@ export async function runCommand(
 					await openSiteInBrowser( siteDetails );
 				}
 			} catch ( error ) {
-				await removeSite( siteDetails.id );
+				await removeSiteFromConfig( siteDetails.id );
 				if ( ! isWordPressDirResult ) {
 					await fs.promises.rm( sitePath, { recursive: true, force: true } );
 				}
@@ -426,7 +426,7 @@ export async function runCommand(
 
 					stripWpConfigDbConstants( sitePath );
 				} catch ( error ) {
-					await removeSite( siteDetails.id );
+					await removeSiteFromConfig( siteDetails.id );
 					if ( ! isWordPressDirResult ) {
 						await fs.promises.rm( sitePath, { recursive: true, force: true } );
 					}

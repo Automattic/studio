@@ -44,7 +44,7 @@ export interface SiteInfo {
 	url?: string;
 }
 
-const DEFAULT_COLLAPSE_THRESHOLD_LINES = 6;
+const DEFAULT_COLLAPSE_THRESHOLD_LINES = 5;
 
 interface ExpandablePreview {
 	textComponent: Text;

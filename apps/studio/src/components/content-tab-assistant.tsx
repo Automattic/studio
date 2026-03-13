@@ -22,7 +22,6 @@ import { LIMIT_OF_PROMPTS_PER_USER, TELEX_HOSTNAME, TELEX_UTM_PARAMS } from 'src
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
-import { ToolCallCollapseProvider } from 'src/hooks/use-tool-calls-collapsed';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { addUrlParams } from 'src/lib/url-utils';
@@ -500,7 +499,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 			>
 				<div className="mt-auto w-full">
 					{ isAuthenticated ? (
-						<ToolCallCollapseProvider>
+						<>
 							<WelcomeComponent
 								key={ selectedSite.id }
 								onExampleClick={ ( prompt ) => {
@@ -522,7 +521,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 								submitPrompt={ submitPrompt }
 								wrapperRef={ wrapperRef }
 							/>
-						</ToolCallCollapseProvider>
+						</>
 					) : (
 						! isOffline && <UnauthenticatedView onAuthenticate={ authenticate } />
 					) }

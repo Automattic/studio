@@ -44,5 +44,9 @@ export default mergeConfig(
 				},
 			},
 		},
+		define: {
+			__ENABLE_STUDIO_AI__: false,
+			__ENABLE_AGENT_SUITE__: false,
+		},
 	} )
 );

@@ -9,11 +9,9 @@ import { StatsGroup, StatsMetric } from '@studio/common/types/stats';
 import { __ } from '@wordpress/i18n';
 import yargs from 'yargs';
 import { commandHandler as eventsCommandHandler } from 'cli/commands/_events';
-import { registerCommand as registerAiCommand } from 'cli/commands/ai';
 import { registerCommand as registerAuthLoginCommand } from 'cli/commands/auth/login';
 import { registerCommand as registerAuthLogoutCommand } from 'cli/commands/auth/logout';
 import { registerCommand as registerAuthStatusCommand } from 'cli/commands/auth/status';
-import { registerCommand as registerMcpCommand } from 'cli/commands/mcp';
 import { registerCommand as registerCreateCommand } from 'cli/commands/preview/create';
 import { registerCommand as registerDeleteCommand } from 'cli/commands/preview/delete';
 import { registerCommand as registerListCommand } from 'cli/commands/preview/list';
@@ -130,10 +128,12 @@ async function main() {
 		.demandCommand( 1, __( 'You must provide a valid command' ) )
 		.strict();
 
-	if ( process.env.ENABLE_STUDIO_AI === 'true' ) {
+	if ( __ENABLE_STUDIO_AI__ ) {
+		const { registerCommand: registerAiCommand } = await import( 'cli/commands/ai' );
 		registerAiCommand( studioArgv );
 	}
-	if ( process.env.ENABLE_AGENT_SUITE === 'true' ) {
+	if ( __ENABLE_AGENT_SUITE__ ) {
+		const { registerCommand: registerMcpCommand } = await import( 'cli/commands/mcp' );
 		registerMcpCommand( studioArgv );
 	}
 

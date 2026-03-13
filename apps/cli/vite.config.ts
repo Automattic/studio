@@ -63,6 +63,7 @@ export default mergeConfig(
 					'@wp-playground/blueprints',
 					'@wp-playground/wordpress',
 					'@anthropic-ai/claude-agent-sdk',
+					'@modelcontextprotocol/sdk',
 					'koffi',
 					'playwright',
 					'playwright-core',

@@ -17,7 +17,9 @@ vi.mock( 'src/lib/app-globals', () => ( {
 	isWindows: vi.fn( () => false ),
 	isWindowsStore: vi.fn( () => false ),
 } ) );
-vi.mock( 'src/hooks/use-feature-flags' );
+vi.mock( 'src/hooks/use-feature-flags', () => ( {
+	useFeatureFlags: vi.fn( () => ( { enableAgentSuite: false } ) ),
+} ) );
 vi.mock( 'src/hooks/use-auth' );
 vi.mock( 'src/hooks/use-ipc-listener' );
 vi.mock( 'src/hooks/use-offline' );
@@ -31,6 +33,7 @@ vi.mock( 'src/lib/get-ipc-api', () => ( {
 			editors: [ 'vscode' ],
 		} ),
 		isStudioCliInstalled: vi.fn().mockResolvedValue( true ),
+		copyText: vi.fn().mockResolvedValue( undefined ),
 	} ),
 } ) );
 

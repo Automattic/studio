@@ -21,11 +21,11 @@ class MockChildProcess extends EventEmitter {
 	} );
 }
 
-const forkMock = vi.fn();
+const spawnMock = vi.fn();
 
 vi.mock( 'child_process', () => {
 	const mockedModule = {
-		fork: forkMock,
+		spawn: spawnMock,
 	};
 	return {
 		...mockedModule,
@@ -53,7 +53,7 @@ describe( 'ProcessManagerDaemon', () => {
 
 	it( 'starts a process, emits events, and writes logs', async () => {
 		const child = new MockChildProcess();
-		forkMock.mockReturnValue( child );
+		spawnMock.mockReturnValue( child );
 		const { ProcessManagerDaemon } = await import( '../process-manager-daemon' );
 
 		const daemon = new ProcessManagerDaemon();
@@ -121,7 +121,7 @@ describe( 'ProcessManagerDaemon', () => {
 
 	it( 'reuses duplicate starts, forwards messages, and resolves missing stops', async () => {
 		const child = new MockChildProcess();
-		forkMock.mockReturnValue( child );
+		spawnMock.mockReturnValue( child );
 		const { ProcessManagerDaemon } = await import( '../process-manager-daemon' );
 
 		const daemon = new ProcessManagerDaemon();
@@ -155,7 +155,7 @@ describe( 'ProcessManagerDaemon', () => {
 		}
 
 		expect( secondProcess.pmId ).toBe( firstProcess.pmId );
-		expect( forkMock ).toHaveBeenCalledTimes( 1 );
+		expect( spawnMock ).toHaveBeenCalledTimes( 1 );
 
 		await daemonInternal.handleRequest( {
 			type: 'send-message-to-process',

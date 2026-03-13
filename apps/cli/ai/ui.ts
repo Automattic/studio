@@ -199,7 +199,7 @@ const markdownTheme: MarkdownTheme = {
 	heading: ( text ) => chalk.bold( text ),
 	link: ( text ) => chalk.cyan.underline( text ),
 	linkUrl: ( text ) => chalk.dim( text ),
-	code: ( text ) => chalk.hex( '#7aacce' )( text ),
+	code: ( text ) => chalk.yellow( text ),
 	codeBlock: ( text ) => text,
 	codeBlockBorder: ( text ) => chalk.dim( text ),
 	quote: ( text ) => chalk.italic( text ),
@@ -366,7 +366,7 @@ function formatTodoSnapshotLine( todo: TodoEntry ): string {
 		case 'completed':
 			return `${ chalk.green( '✓' ) } ${ chalk.dim( chalk.strikethrough( todo.content ) ) }`;
 		case 'in_progress':
-			return `${ chalk.hex( '#6699cc' )( '◐' ) } ${ chalk.dim( todo.activeForm ) }`;
+			return `${ chalk.yellow( '◐' ) } ${ chalk.dim( todo.activeForm ) }`;
 		default:
 			return `${ chalk.dim( '○' ) } ${ chalk.dim( todo.content ) }`;
 	}
@@ -559,8 +559,8 @@ export class AiChatUI {
 
 		this.loader = new Loader(
 			this.tui,
-			( str ) => chalk.hex( '#6699cc' )( str ),
-			( str ) => chalk.hex( '#6699cc' )( str ),
+			( str ) => chalk.yellow( str ),
+			( str ) => chalk.yellow( str ),
 			'Thinking…'
 		);
 		// @ts-expect-error -- frames is private but has no public API to customize
@@ -1842,14 +1842,7 @@ export class AiChatUI {
 				if ( this.wasInterrupted ) {
 					const thinkingSec = Math.round( ( Date.now() - this.turnStartTime ) / 1000 );
 					this.messages.addChild(
-						new Text(
-							'\n ' +
-								chalk.hex( '#7aacce' )( '⏺' ) +
-								' ' +
-								chalk.hex( '#7aacce' )( 'Interrupted' ),
-							0,
-							0
-						)
+						new Text( '\n ' + chalk.yellow( '⏺' ) + ' ' + chalk.yellow( 'Interrupted' ), 0, 0 )
 					);
 					this.showInfo( `Ran for ${ thinkingSec }s before interruption` );
 					return { sessionId: message.session_id, success: false };

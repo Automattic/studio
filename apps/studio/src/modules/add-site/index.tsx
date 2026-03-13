@@ -1,4 +1,8 @@
-import { MINIMUM_WORDPRESS_VERSION } from '@studio/common/constants';
+import {
+	DEFAULT_PHP_VERSION,
+	DEFAULT_WORDPRESS_VERSION,
+	MINIMUM_WORDPRESS_VERSION,
+} from '@studio/common/constants';
 import { extractFormValuesFromBlueprint } from '@studio/common/lib/blueprint-settings';
 import {
 	BlueprintPreferredVersions,
@@ -452,8 +456,6 @@ export function AddSiteModalContent( {
 		handleCreateSite,
 		selectPath,
 		generateProposedPath,
-		defaultPhpVersion,
-		defaultWpVersion,
 		deeplinkPhpVersion,
 		deeplinkWpVersion,
 		fileForImport,
@@ -534,16 +536,14 @@ export function AddSiteModalContent( {
 		() => ( {
 			siteName: defaultSiteName,
 			sitePath: defaultSitePath,
-			phpVersion: isDeeplinkFlow ? deeplinkPhpVersion : defaultPhpVersion,
+			phpVersion: isDeeplinkFlow ? deeplinkPhpVersion : DEFAULT_PHP_VERSION,
 			wpVersion: isDeeplinkFlow
 				? deeplinkWpVersion
-				: latestStableVersion?.value ?? defaultWpVersion,
+				: latestStableVersion?.value ?? DEFAULT_WORDPRESS_VERSION,
 		} ),
 		[
 			defaultSiteName,
 			defaultSitePath,
-			defaultPhpVersion,
-			defaultWpVersion,
 			deeplinkPhpVersion,
 			deeplinkWpVersion,
 			isDeeplinkFlow,

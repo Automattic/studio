@@ -326,8 +326,6 @@ export function useAddSite() {
 			handleCreateSite,
 			selectPath,
 			generateProposedPath,
-			defaultPhpVersion: DEFAULT_PHP_VERSION,
-			defaultWpVersion: DEFAULT_WORDPRESS_VERSION,
 			deeplinkPhpVersion,
 			deeplinkWpVersion,
 			setDeeplinkPhpVersion,

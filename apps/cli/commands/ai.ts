@@ -114,10 +114,13 @@ export async function runCommand(): Promise< void > {
 		const env = await resolveAiEnvironment( currentProvider );
 		ui.beginAgentTurn();
 
-		// Prepend active site context to the prompt
+		// Prepend active site context to the prompt.
+		// Remote (WordPress.com) sites only have a URL; local sites have a filesystem path and running state.
 		let enrichedPrompt = prompt;
 		const site = ui.activeSite;
-		if ( site ) {
+		if ( site?.remote && site?.url ) {
+			enrichedPrompt = `[Active site: "${ site.name }" at ${ site.url } (WordPress.com)]\n\n${ prompt }`;
+		} else if ( site ) {
 			enrichedPrompt = `[Active site: "${ site.name }" at ${ site.path }${
 				site.running ? ' (running)' : ' (stopped)'
 			}]\n\n${ prompt }`;

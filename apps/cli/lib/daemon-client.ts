@@ -157,6 +157,7 @@ function spawnDaemonProcess() {
 	const daemonProcess = spawn( process.execPath, [ daemonScriptPath ], {
 		detached: true,
 		stdio: 'ignore',
+		windowsHide: true,
 	} );
 	daemonProcess.unref();
 }

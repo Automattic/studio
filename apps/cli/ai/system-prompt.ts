@@ -36,6 +36,7 @@ Then continue with:
 - wp_cli: Run WP-CLI commands on a running site
 - validate_blocks: Validate block content for correctness on a running site (runs each block through its save() function in a real browser). Requires a site name or path. Call after every file write/edit that contains block content.
 - take_screenshot: Take a full-page screenshot of a URL (supports desktop and mobile viewports). Use this to visually check the site after building it.
+- compare_screenshots: Capture and compare screenshots to detect visual changes. Call once before making changes to store a baseline, then call again after changes to get a pixel-level diff image highlighting what changed. Use this to verify only intended areas were affected and catch unintended regressions.
 
 ## General rules
 

@@ -6,6 +6,7 @@ import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { z } from 'zod/v4';
 import { validateBlocks, type ValidationReport } from 'cli/ai/block-validator';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
+import { diffScreenshots, storeReference, getReference } from 'cli/ai/screenshot-diff';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
 import { runCommand as runListSitesCommand } from 'cli/commands/site/list';
@@ -453,6 +454,54 @@ const VIEWPORTS = {
 	mobile: { width: 390, height: 844 },
 } as const;
 
+/**
+ * Captures a full-page PNG screenshot of a URL using the shared Playwright browser.
+ * Returns the raw PNG buffer. Used by both take_screenshot and compare_screenshots.
+ */
+async function captureScreenshot(
+	url: string,
+	viewport: { width: number; height: number }
+): Promise< Buffer > {
+	const browser = await getSharedBrowser();
+	const page = await browser.newPage( { viewport } );
+
+	try {
+		// Reduce motion to avoid capturing mid-animation states
+		await page.emulateMedia( { reducedMotion: 'reduce' } );
+
+		await page.goto( url, { waitUntil: 'networkidle', timeout: 15000 } );
+
+		// Wait for all images to finish loading
+		await page.evaluate( () =>
+			Promise.all(
+				Array.from( document.images )
+					.filter( ( img ) => ! img.complete )
+					.map(
+						( img ) =>
+							new Promise< void >( ( resolve ) => {
+								img.addEventListener( 'load', () => resolve() );
+								img.addEventListener( 'error', () => resolve() );
+							} )
+					)
+			)
+		);
+
+		// Hide WordPress admin bar and scrollbars for cleaner screenshots
+		await page.addStyleTag( {
+			content: `
+				#wpadminbar { display: none !important; }
+				html { margin-top: 0 !important; }
+				::-webkit-scrollbar { display: none !important; }
+				html, body { scrollbar-width: none !important; }
+			`,
+		} );
+
+		return await page.screenshot( { fullPage: true, type: 'png' } );
+	} finally {
+		await page.close();
+	}
+}
+
 const takeScreenshotTool = tool(
 	'take_screenshot',
 	'Takes a full-page screenshot of a URL. Returns the screenshot as an image that you can analyze visually. ' +
@@ -473,60 +522,155 @@ const takeScreenshotTool = tool(
 
 			emitProgress( `Taking ${ viewportType } screenshot of ${ args.url }…` );
 
-			const browser = await getSharedBrowser();
-			const page = await browser.newPage( { viewport } );
+			const buffer = await captureScreenshot( args.url, viewport );
+			const base64 = buffer.toString( 'base64' );
 
-			try {
-				// Reduce motion to avoid capturing mid-animation states
-				await page.emulateMedia( { reducedMotion: 'reduce' } );
+			emitProgress( `Screenshot captured (${ viewportType })` );
 
-				await page.goto( args.url, { waitUntil: 'networkidle', timeout: 15000 } );
+			return {
+				content: [
+					{
+						type: 'image' as const,
+						data: base64,
+						mimeType: 'image/png',
+					},
+				],
+			};
+		} catch ( error ) {
+			return errorResult(
+				`Screenshot failed: ${ error instanceof Error ? error.message : String( error ) }`
+			);
+		}
+	}
+);
 
-				// Wait for all images to finish loading
-				await page.evaluate( () =>
-					Promise.all(
-						Array.from( document.images )
-							.filter( ( img ) => ! img.complete )
-							.map(
-								( img ) =>
-									new Promise< void >( ( resolve ) => {
-										img.addEventListener( 'load', () => resolve() );
-										img.addEventListener( 'error', () => resolve() );
-									} )
-							)
-					)
-				);
+const compareScreenshotsTool = tool(
+	'compare_screenshots',
+	'Compares the current appearance of a URL against a previously stored reference screenshot. ' +
+		'On the first call for a URL+viewport, it stores the screenshot as the baseline and returns it. ' +
+		'On subsequent calls, it captures a new screenshot, computes a pixel-level diff, and returns ' +
+		'the diff image (changed pixels highlighted in red/blue) along with change statistics. ' +
+		'Use this before and after making changes to verify only the intended areas were affected.',
+	{
+		url: z.string().describe( 'The URL to screenshot and compare' ),
+		viewport: z
+			.enum( [ 'desktop', 'mobile' ] )
+			.optional()
+			.describe(
+				'Viewport size: "desktop" (1040x1248) or "mobile" (390x844). Defaults to desktop.'
+			),
+		storeAsReference: z
+			.boolean()
+			.optional()
+			.describe(
+				'If true, stores the current screenshot as the new baseline without comparing. ' +
+					'Use this to reset the reference after intentional changes.'
+			),
+	},
+	async ( args ) => {
+		try {
+			const viewportType = args.viewport ?? 'desktop';
+			const viewport = VIEWPORTS[ viewportType ];
 
-				// Hide WordPress admin bar and scrollbars for cleaner screenshots
-				await page.addStyleTag( {
-					content: `
-						#wpadminbar { display: none !important; }
-						html { margin-top: 0 !important; }
-						::-webkit-scrollbar { display: none !important; }
-						html, body { scrollbar-width: none !important; }
-					`,
-				} );
+			emitProgress( `Capturing ${ viewportType } screenshot of ${ args.url }…` );
+			const currentPng = await captureScreenshot( args.url, viewport );
 
-				const buffer = await page.screenshot( { fullPage: true, type: 'png' } );
-				const base64 = buffer.toString( 'base64' );
-
-				emitProgress( `Screenshot captured (${ viewportType })` );
-
+			// If storeAsReference is set, just save and return the screenshot
+			if ( args.storeAsReference ) {
+				storeReference( args.url, viewportType, currentPng );
+				emitProgress( `Reference stored (${ viewportType })` );
 				return {
 					content: [
 						{
+							type: 'text' as const,
+							text: `Reference screenshot stored for ${ args.url } (${ viewportType }). Call again without storeAsReference to compare against this baseline.`,
+						},
+						{
 							type: 'image' as const,
-							data: base64,
+							data: currentPng.toString( 'base64' ),
 							mimeType: 'image/png',
 						},
 					],
 				};
-			} finally {
-				await page.close();
 			}
+
+			// Look up stored reference
+			const referencePng = getReference( args.url, viewportType );
+
+			if ( ! referencePng ) {
+				// No reference yet — store this as baseline
+				storeReference( args.url, viewportType, currentPng );
+				emitProgress( `Baseline stored (${ viewportType }) — call again after changes to compare` );
+				return {
+					content: [
+						{
+							type: 'text' as const,
+							text: `No reference screenshot found for this URL. This screenshot has been stored as the baseline. Make your changes, then call compare_screenshots again to see the diff.`,
+						},
+						{
+							type: 'image' as const,
+							data: currentPng.toString( 'base64' ),
+							mimeType: 'image/png',
+						},
+					],
+				};
+			}
+
+			// Compare against reference
+			emitProgress( 'Comparing against reference…' );
+			const result = await diffScreenshots( referencePng, currentPng );
+
+			// Update the reference to the current screenshot for next comparison
+			storeReference( args.url, viewportType, currentPng );
+
+			const summary = [
+				`Change: ${
+					result.changePercent
+				}% (${ result.changedPixels.toLocaleString() } of ${ result.totalPixels.toLocaleString() } pixels)`,
+				`Dimensions: ${ result.width }×${ result.height }px`,
+			];
+
+			if ( result.changePercent === 0 ) {
+				summary.push( 'No visual changes detected.' );
+			} else if ( result.changePercent < 1 ) {
+				summary.push( 'Minor changes detected (likely sub-pixel rendering or anti-aliasing).' );
+			} else if ( result.changePercent < 10 ) {
+				summary.push( 'Moderate changes detected — review the diff image for affected areas.' );
+			} else {
+				summary.push(
+					'Significant changes detected — review the diff carefully for unintended regressions.'
+				);
+			}
+
+			emitProgress( `Diff: ${ result.changePercent }% changed (${ viewportType })` );
+
+			const content: Array<
+				{ type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string }
+			> = [
+				{
+					type: 'text' as const,
+					text: summary.join( '\n' ),
+				},
+				{
+					type: 'image' as const,
+					data: result.diffPng.toString( 'base64' ),
+					mimeType: 'image/png',
+				},
+			];
+
+			// Also include the current screenshot so the agent can see the actual result
+			content.push( {
+				type: 'image' as const,
+				data: currentPng.toString( 'base64' ),
+				mimeType: 'image/png',
+			} );
+
+			return { content };
 		} catch ( error ) {
 			return errorResult(
-				`Screenshot failed: ${ error instanceof Error ? error.message : String( error ) }`
+				`Screenshot comparison failed: ${
+					error instanceof Error ? error.message : String( error )
+				}`
 			);
 		}
 	}
@@ -546,6 +690,7 @@ export function createStudioTools() {
 			runWpCliTool,
 			validateBlocksTool,
 			takeScreenshotTool,
+			compareScreenshotsTool,
 		],
 	} );
 }

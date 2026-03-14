@@ -51,17 +51,8 @@ const userDataSchema = z
 	} )
 	.loose();
 
-export interface FigmaOAuthData {
-	clientId?: string;
-	clientSecret?: string;
-	accessToken: string;
-	refreshToken?: string;
-	expiresAt?: number;
-}
-
 type UserData = z.infer< typeof userDataSchema > & {
 	anthropicApiKey?: string;
-	figmaOAuth?: FigmaOAuthData;
 };
 export type SiteData = z.infer< typeof siteSchema >;
 export type ValidatedAuthToken = Required< NonNullable< UserData[ 'authToken' ] > >;
@@ -284,33 +275,6 @@ export async function saveAiProvider( provider: AiProviderId ): Promise< void > 
 		await lockAppdata();
 		const userData = await readAppdata();
 		userData.aiProvider = provider;
-		await saveAppdata( userData );
-	} finally {
-		await unlockAppdata();
-	}
-}
-
-export async function getFigmaOAuthData(): Promise< FigmaOAuthData | undefined > {
-	const userData = await readAppdata();
-	return userData.figmaOAuth;
-}
-
-export async function saveFigmaOAuthData( data: FigmaOAuthData ): Promise< void > {
-	try {
-		await lockAppdata();
-		const userData = await readAppdata();
-		userData.figmaOAuth = data;
-		await saveAppdata( userData );
-	} finally {
-		await unlockAppdata();
-	}
-}
-
-export async function clearFigmaOAuthData(): Promise< void > {
-	try {
-		await lockAppdata();
-		const userData = await readAppdata();
-		delete userData.figmaOAuth;
 		await saveAppdata( userData );
 	} finally {
 		await unlockAppdata();

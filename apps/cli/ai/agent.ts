@@ -1,5 +1,4 @@
-import { query, type McpServerConfig, type Query } from '@anthropic-ai/claude-agent-sdk';
-import { getFigmaAccessToken } from 'cli/ai/figma-oauth';
+import { query, type Query } from '@anthropic-ai/claude-agent-sdk';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { createStudioTools } from 'cli/ai/tools';
 
@@ -27,29 +26,12 @@ export type AiModelId = keyof typeof AI_MODELS;
 export const DEFAULT_MODEL: AiModelId = 'claude-sonnet-4-6';
 
 /**
- * Build the Figma MCP server config with auth headers if a token is available.
- */
-async function buildFigmaMcpConfig(): Promise< McpServerConfig > {
-	const token = await getFigmaAccessToken();
-	const config: McpServerConfig = {
-		type: 'http',
-		url: 'https://mcp.figma.com/mcp',
-	};
-	if ( token ) {
-		config.headers = { Authorization: `Bearer ${ token }` };
-	}
-	return config;
-}
-
-/**
  * Start the AI agent and return the Query object.
  * Caller can iterate messages with `for await` and call `interrupt()` to stop.
  */
-export async function startAiAgent( config: AiAgentConfig ): Promise< Query > {
+export function startAiAgent( config: AiAgentConfig ): Query {
 	const { prompt, env, model = DEFAULT_MODEL, maxTurns = 50, resume, onAskUser } = config;
 	const resolvedEnv = env ?? { ...( process.env as Record< string, string > ) };
-
-	const figmaConfig = await buildFigmaMcpConfig();
 
 	return query( {
 		prompt,
@@ -62,7 +44,7 @@ export async function startAiAgent( config: AiAgentConfig ): Promise< Query > {
 			},
 			mcpServers: {
 				studio: createStudioTools(),
-				figma: figmaConfig,
+				figma: { type: 'http', url: 'https://mcp.figma.com/mcp' },
 			},
 			maxTurns,
 			cwd: process.cwd(),

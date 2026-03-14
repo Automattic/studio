@@ -3,22 +3,44 @@ export function buildFigmaPrompt( url: string ): string {
 
 The user wants to build a WordPress site from a Figma design. The Figma URL is: ${ url }
 
-### Fetching design data
+### Site setup
 
-Work frame-by-frame:
+After fetching the design data and identifying the frames, ask the user before creating anything:
+- If the prompt includes an **[Active site: ...]** context, confirm with the user: "You have site X selected. Should I build the Figma design into this site, or create a new one?"
+- If no active site is set, ask the user to name the new site (suggest a name based on the Figma file name).
+- If the chosen site already has a custom theme (not a default twentytwenty* theme), ask: "This site has a theme named X. Should I create a new theme or update the existing one?"
+- Do NOT silently create sites, reuse sites, or overwrite themes.
+
+### Step 1: Discover frames
+
+**IMPORTANT**: The user's URL often points to node 0:1 (or 0-1), which is the Figma canvas root — NOT a design frame. Never call get_design_context on the canvas root; it returns nothing useful.
 
 1. **Get a visual overview**: Call get_screenshot on the Figma URL to see the design.
-2. **Find frames**: Frames named with a "WP_" prefix are treated as pages (e.g., WP_Home -> "Home" page, WP_About -> "About" page). If no WP_ frames are found, treat top-level frames as pages.
-3. **For each frame**: Call get_design_context with the frame URL to get the styled layout structure. Call get_screenshot on the frame URL for a visual reference.
-4. **Get design tokens**: Call get_variable_defs on any frame to extract the color palette, typography, and spacing tokens.
+2. **Enumerate frames**: Call get_design_context on the canvas root (node 0:1) ONLY to discover child frame names and IDs. Only use frames named with a "WP_" prefix — these are the pages to build (e.g., WP_Home → "Home" page, WP_About → "About" page). Ignore all other frames.
+3. **Present the frames to the user** and ask them to confirm. Then follow the site setup instructions above to create or select a site.
 
-### Building the site
+### Step 2: Fetch detailed design data per frame
 
-5. **Build the theme**: Study the screenshots and design context carefully. Reproduce the exact visual design using a block theme with custom CSS. Use the exact design tokens (exact colors, exact fonts, exact spacing) — do NOT substitute with different fonts or colors. Do NOT substitute images with placeholders from Unsplash or elsewhere.
-6. **Build in HTML/CSS first**: For each frame, build the full page as plain HTML + CSS. Take a screenshot and compare against the Figma screenshot. The HTML/CSS version must be visually faithful to the Figma design before proceeding.
-7. **Convert to blocks bottom-up**: Convert the HTML to WordPress blocks. Start with content blocks (headings, paragraphs, images, buttons, lists), then wrap in layout blocks (groups, columns, covers). The block version must look identical to the HTML/CSS version — do not regress visual fidelity during conversion.
-8. **Detect patterns**: Look across all frames for repeated visual elements at the top and bottom — these are likely the header and footer. Implement them as theme template parts.
-9. **Validate and verify**: Run validate_blocks on every template and page. Take screenshots and compare against Figma.
+4. **For each frame**: Call get_design_context with the **frame's specific node URL** (not the canvas root). This returns the actual styles, layout, and design tokens for that frame. Also call get_screenshot on the frame URL for a visual reference.
+5. **Get design tokens**: Call get_variable_defs on any frame to extract the color palette, typography, and spacing tokens.
+6. **Fetch image assets**: For any image node in the design data (nodes with type IMAGE or fills with type IMAGE), call get_screenshot on that specific node to get the actual image. Save these images to the site's theme directory.
+
+### Step 3: Build the site section by section
+
+Work one section at a time (hero, features, footer, etc.), not the whole page at once.
+
+7. **Build the theme**: Study the screenshots and design context carefully. Reproduce the exact visual design using a block theme with custom CSS. Use the exact design tokens (exact colors, exact fonts, exact spacing).
+8. **Build each section in HTML/CSS first**: For each section, build it as plain HTML + CSS.
+9. **Mandatory comparison gate**: After building each section, take a screenshot of your implementation and compare it against the Figma screenshot of that same section. Explicitly describe what matches and what differs. Do NOT proceed until the section matches. Fix any differences before moving on.
+10. **Convert to blocks bottom-up**: Convert content blocks first (headings, paragraphs, images, buttons, lists), then wrap in layout blocks (groups, columns, covers). The block version must look identical to the HTML/CSS version.
+11. **Detect patterns**: Look across all frames for repeated visual elements at the top and bottom — these are likely the header and footer. Implement them as theme template parts.
+12. **Validate and verify**: Run validate_blocks on every template and page. Take screenshots and compare against Figma.
+
+### Figma image rules
+
+- **NEVER** substitute Figma images with stock photos from Unsplash or elsewhere.
+- Always fetch image assets from Figma using get_screenshot on the specific image node.
+- If an image can't be fetched, leave a clearly labeled placeholder with the node ID — don't silently swap it.
 
 Now begin by fetching the design from: ${ url }
 `;

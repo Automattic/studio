@@ -20,7 +20,7 @@ import { getSiteByFolder, getSiteUrl, readAppdata, type SiteData } from 'cli/lib
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { normalizeHostname } from 'cli/lib/utils';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
-import { setProgressCallback, emitProgress } from 'cli/logger';
+import { getProgressCallback, setProgressCallback, emitProgress } from 'cli/logger';
 
 const SITES_ROOT = path.join( os.homedir(), 'Studio' );
 
@@ -142,6 +142,7 @@ async function captureCommandOutput( fn: () => Promise< void > ): Promise< {
 	let thrownError: unknown;
 	const originalConsoleLog = console.log;
 	const originalConsoleTable = console.table;
+	const previousCallback = getProgressCallback();
 	const previousExitCode = process.exitCode;
 
 	console.log = ( ...args: unknown[] ) => {
@@ -162,7 +163,7 @@ async function captureCommandOutput( fn: () => Promise< void > ): Promise< {
 	} finally {
 		console.log = originalConsoleLog;
 		console.table = originalConsoleTable;
-		setProgressCallback( null );
+		setProgressCallback( previousCallback );
 	}
 
 	const exitCode = process.exitCode;
@@ -177,6 +178,27 @@ async function captureCommandOutput( fn: () => Promise< void > ): Promise< {
 		progressOutput: progressMessages.join( '\n' ),
 		exitCode,
 	};
+}
+
+async function runPreviewCommand(
+	fn: () => Promise< void >,
+	fallbackMessage: string,
+	errorPrefix: string
+) {
+	try {
+		const result = await captureCommandOutput( fn );
+		const output = result.consoleOutput || result.progressOutput || fallbackMessage;
+
+		if ( result.exitCode ) {
+			return errorResult( output );
+		}
+
+		return textResult( output );
+	} catch ( error ) {
+		return errorResult(
+			`${ errorPrefix }: ${ error instanceof Error ? error.message : String( error ) }`
+		);
+	}
 }
 
 const createSiteTool = tool(
@@ -337,26 +359,14 @@ const createPreviewTool = tool(
 		nameOrPath: z.string().describe( 'The local site name or file system path to preview' ),
 	},
 	async ( args ) => {
-		try {
-			const site = await resolveSite( args.nameOrPath );
-			const result = await captureCommandOutput( () => runCreatePreviewCommand( site.path ) );
-			const output =
-				result.consoleOutput ||
-				result.progressOutput ||
-				`Preview site created for "${ site.name }".`;
-
-			if ( result.exitCode ) {
-				return errorResult( output );
-			}
-
-			return textResult( output );
-		} catch ( error ) {
-			return errorResult(
-				`Failed to create preview site: ${
-					error instanceof Error ? error.message : String( error )
-				}`
-			);
-		}
+		return runPreviewCommand(
+			async () => {
+				const site = await resolveSite( args.nameOrPath );
+				await runCreatePreviewCommand( site.path );
+			},
+			`Preview site created for "${ args.nameOrPath }".`,
+			'Failed to create preview site'
+		);
 	}
 );
 
@@ -367,26 +377,14 @@ const listPreviewsTool = tool(
 		nameOrPath: z.string().describe( 'The local site name or file system path' ),
 	},
 	async ( args ) => {
-		try {
-			const site = await resolveSite( args.nameOrPath );
-			const result = await captureCommandOutput( () => runListPreviewCommand( site.path, 'json' ) );
-			const output =
-				result.consoleOutput ||
-				result.progressOutput ||
-				`No preview sites found for "${ site.name }".`;
-
-			if ( result.exitCode ) {
-				return errorResult( output );
-			}
-
-			return textResult( output );
-		} catch ( error ) {
-			return errorResult(
-				`Failed to list preview sites: ${
-					error instanceof Error ? error.message : String( error )
-				}`
-			);
-		}
+		return runPreviewCommand(
+			async () => {
+				const site = await resolveSite( args.nameOrPath );
+				await runListPreviewCommand( site.path, 'json' );
+			},
+			`No preview sites found for "${ args.nameOrPath }".`,
+			'Failed to list preview sites'
+		);
 	}
 );
 
@@ -406,29 +404,15 @@ const updatePreviewTool = tool(
 			),
 	},
 	async ( args ) => {
-		try {
-			const site = await resolveSite( args.nameOrPath );
-			const normalizedHost = normalizeHostname( args.host );
-			const result = await captureCommandOutput( () =>
-				runUpdatePreviewCommand( site.path, normalizedHost, args.overwrite ?? false )
-			);
-			const output =
-				result.consoleOutput ||
-				result.progressOutput ||
-				`Preview site "${ normalizedHost }" updated from "${ site.name }".`;
-
-			if ( result.exitCode ) {
-				return errorResult( output );
-			}
-
-			return textResult( output );
-		} catch ( error ) {
-			return errorResult(
-				`Failed to update preview site: ${
-					error instanceof Error ? error.message : String( error )
-				}`
-			);
-		}
+		const normalizedHost = normalizeHostname( args.host );
+		return runPreviewCommand(
+			async () => {
+				const site = await resolveSite( args.nameOrPath );
+				await runUpdatePreviewCommand( site.path, normalizedHost, args.overwrite ?? false );
+			},
+			`Preview site "${ normalizedHost }" updated from "${ args.nameOrPath }".`,
+			'Failed to update preview site'
+		);
 	}
 );
 
@@ -441,26 +425,12 @@ const deletePreviewTool = tool(
 			.describe( 'The preview hostname or URL to delete, for example "site.wordpress.com"' ),
 	},
 	async ( args ) => {
-		try {
-			const normalizedHost = normalizeHostname( args.host );
-			const result = await captureCommandOutput( () => runDeletePreviewCommand( normalizedHost ) );
-			const output =
-				result.consoleOutput ||
-				result.progressOutput ||
-				`Preview site "${ normalizedHost }" deleted.`;
-
-			if ( result.exitCode ) {
-				return errorResult( output );
-			}
-
-			return textResult( output );
-		} catch ( error ) {
-			return errorResult(
-				`Failed to delete preview site: ${
-					error instanceof Error ? error.message : String( error )
-				}`
-			);
-		}
+		const normalizedHost = normalizeHostname( args.host );
+		return runPreviewCommand(
+			() => runDeletePreviewCommand( normalizedHost ),
+			`Preview site "${ normalizedHost }" deleted.`,
+			'Failed to delete preview site'
+		);
 	}
 );
 

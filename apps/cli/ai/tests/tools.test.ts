@@ -4,6 +4,7 @@ import { runCommand as runDeletePreviewCommand } from 'cli/commands/preview/dele
 import { runCommand as runListPreviewCommand } from 'cli/commands/preview/list';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
 import { getSiteByFolder, readAppdata } from 'cli/lib/appdata';
+import { getProgressCallback, setProgressCallback } from 'cli/logger';
 import { studioToolDefinitions } from '../tools';
 
 vi.mock( 'cli/ai/block-validator', () => ( {
@@ -95,10 +96,15 @@ describe( 'Studio AI MCP tools', () => {
 	beforeEach( () => {
 		vi.resetAllMocks();
 		process.exitCode = undefined;
+		setProgressCallback( null );
 		vi.mocked( readAppdata ).mockResolvedValue( {
 			sites: [ mockSite ],
 		} as Awaited< ReturnType< typeof readAppdata > > );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( mockSite );
+	} );
+
+	afterEach( () => {
+		setProgressCallback( null );
 	} );
 
 	it( 'includes preview tools in the MCP registry', () => {
@@ -173,5 +179,14 @@ describe( 'Studio AI MCP tools', () => {
 		expect( runDeletePreviewCommand ).toHaveBeenCalledWith( 'demo.wordpress.com' );
 		expect( result.isError ).toBe( true );
 		expect( getTextContent( result ) ).toBe( 'Failed to delete preview site' );
+	} );
+
+	it( 'restores the previous progress callback after running a preview tool', async () => {
+		const previousCallback = vi.fn();
+		setProgressCallback( previousCallback );
+
+		await getTool( 'preview_create' ).handler( { nameOrPath: 'My Site' } as never, null );
+
+		expect( getProgressCallback() ).toBe( previousCallback );
 	} );
 } );

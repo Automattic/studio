@@ -11,7 +11,7 @@ export function formatTodoSnapshotLine( todo: TodoEntry ): string {
 		case 'completed':
 			return `${ chalk.green( '✓' ) } ${ chalk.dim( chalk.strikethrough( todo.content ) ) }`;
 		case 'in_progress':
-			return `${ chalk.yellow( '◐' ) } ${ chalk.dim( todo.activeForm ) }`;
+			return `${ chalk.bold( '→' ) } ${ chalk.bold( todo.activeForm ) }`;
 		default:
 			return `${ chalk.dim( '○' ) } ${ chalk.dim( todo.content ) }`;
 	}

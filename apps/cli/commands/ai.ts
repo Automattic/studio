@@ -9,6 +9,7 @@ import {
 	resolveUnavailableAiProvider,
 	saveSelectedAiProvider,
 } from 'cli/ai/auth';
+import { hasFigmaAuth, loginToFigma } from 'cli/ai/figma-oauth';
 import { AI_PROVIDERS, type AiProviderId } from 'cli/ai/providers';
 import {
 	AI_CHAT_API_KEY_COMMAND,
@@ -128,7 +129,7 @@ export async function runCommand(): Promise< void > {
 			}]\n\n${ prompt }`;
 		}
 
-		const agentQuery = startAiAgent( {
+		const agentQuery = await startAiAgent( {
 			prompt: enrichedPrompt,
 			env,
 			model: currentModel,
@@ -224,6 +225,21 @@ export async function runCommand(): Promise< void > {
 					ui.showInfo( 'Usage: /figma <figma-url>' );
 					continue;
 				}
+
+				// Ensure Figma is authenticated before starting the agent
+				if ( ! ( await hasFigmaAuth() ) ) {
+					ui.showInfo( 'Connecting to Figma — opening browser for authorization...' );
+					try {
+						await loginToFigma();
+						ui.showInfo( 'Connected to Figma!' );
+					} catch ( error ) {
+						ui.showError(
+							`Figma login failed: ${ error instanceof Error ? error.message : String( error ) }`
+						);
+						continue;
+					}
+				}
+
 				const figmaPrompt = buildFigmaPrompt( figmaUrl );
 				ui.addUserMessage( trimmedPrompt );
 				await runAgentTurn( figmaPrompt );

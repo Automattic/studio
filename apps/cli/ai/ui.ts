@@ -241,6 +241,10 @@ const toolDisplayNames: Record< string, string > = {
 	mcp__studio__site_start: 'Start site',
 	mcp__studio__site_stop: 'Stop site',
 	mcp__studio__site_delete: 'Delete site',
+	mcp__studio__preview_create: 'Create preview',
+	mcp__studio__preview_list: 'List previews',
+	mcp__studio__preview_update: 'Update preview',
+	mcp__studio__preview_delete: 'Delete preview',
 	mcp__studio__wp_cli: 'Run WP-CLI',
 	mcp__studio__validate_blocks: 'Validate blocks',
 	mcp__studio__take_screenshot: 'Take screenshot',
@@ -263,7 +267,12 @@ function getToolDetail( name: string, input: Record< string, unknown > ): string
 		case 'mcp__studio__site_start':
 		case 'mcp__studio__site_stop':
 		case 'mcp__studio__site_delete':
+		case 'mcp__studio__preview_create':
+		case 'mcp__studio__preview_list':
 			return typeof input.nameOrPath === 'string' ? input.nameOrPath : '';
+		case 'mcp__studio__preview_update':
+		case 'mcp__studio__preview_delete':
+			return typeof input.host === 'string' ? input.host : '';
 		case 'mcp__studio__wp_cli':
 			return typeof input.command === 'string' ? `wp ${ input.command }` : '';
 		case 'mcp__studio__validate_blocks':
@@ -1089,7 +1098,10 @@ export class AiChatUI {
 				}
 				break;
 			}
-			case 'mcp__studio__wp_cli': {
+			case 'mcp__studio__wp_cli':
+			case 'mcp__studio__preview_create':
+			case 'mcp__studio__preview_list':
+			case 'mcp__studio__preview_update': {
 				const nameOrPath = toolInput?.nameOrPath;
 				if ( typeof nameOrPath === 'string' ) {
 					if (

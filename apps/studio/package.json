@@ -74,7 +74,7 @@
 		"winreg": "1.2.4",
 		"yargs": "^18.0.0",
 		"yargs-parser": "^22.0.0",
-		"yauzl": "^3.2.0",
+		"yauzl": "^3.2.1",
 		"zod": "^4.0.0"
 	},
 	"devDependencies": {

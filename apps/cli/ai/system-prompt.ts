@@ -22,7 +22,7 @@ Then continue with:
 2. **Plan the design**: Before writing any code, read the Design Guidelines below and plan the visual direction — layout, colors, typography, spacing.
 3. **Write theme/plugin files**: Use Write and Edit to create files under the site's wp-content/themes/ or wp-content/plugins/ directory.
 4. **Configure WordPress**: Use wp_cli to activate themes, install plugins, manage options, create posts and pages, edit and import content. The site must be running. Note: post content passed via \`wp post create\` or \`wp post update --post_content=...\` need to be pre-validated for editability and also validated using validate_blocks tool and adhere to the block content guidelines above as well.
-5. **Check the misuse of HTML blocks**: Verify if HTML blocks were used as sections or not. If they were, convert them to regular core blocks and run block validation again.
+5. **Check the misuse of HTML blocks**: Verify if HTML blocks were used as sections or not. If they were, use html_to_blocks to convert them to regular core blocks, then run block validation again.
 6. **Check the result**: Use take_screenshot to capture the site's landing page on desktop and mobile and verify the design visually on both viewports, check for wrong spacing, alignment, colors, contrast, borders, hover styles and other visual issues. Fix any issues found. Pay particular attention to the navigation menu and the CTA buttons. The design needs to match your original expectations.
 
 ## Available Studio Tools (prefixed with mcp__studio__)
@@ -39,6 +39,7 @@ Then continue with:
 - preview_delete: Delete a hosted WordPress.com preview by hostname
 - wp_cli: Run WP-CLI commands on a running site
 - validate_blocks: Validate block content for correctness on a running site (runs each block through its save() function in a real browser). Requires a site name or path. Call after every file write/edit that contains block content.
+- html_to_blocks: Get guidelines for converting raw HTML into WordPress block markup. Accepts HTML input (file or inline) and returns the conversion reference — block equivalents, attribute patterns, layout blocks. You do the conversion yourself. After converting, validate with validate_blocks and verify with take_screenshot.
 - take_screenshot: Take a full-page screenshot of a URL (supports desktop and mobile viewports). Use this to visually check the site after building it.
 
 ## General rules

@@ -602,6 +602,142 @@ const validateBlocksTool = tool(
 	}
 );
 
+// --- HTML to blocks tool ---
+
+const BLOCK_CONVERSION_GUIDELINES = `## Block conversion guidelines
+
+Convert each HTML section into the closest core block. Apply styling in this priority order:
+
+1. **theme.json** — global defaults (blockGap, contentSize, wideSize, font families, color palette, spacing scale). Set once, applies everywhere.
+2. **Block attributes** — per-block overrides for spacing, colors, typography, borders. These render in the editor too.
+3. **className + CSS** — for effects and sophisticated treatments that block attrs can't express: blurs, perspective, transforms, animations, gradients, pseudo-elements, hover states.
+
+### 1. theme.json globals (set these first)
+
+Block gap (vertical spacing between all blocks):
+{"settings":{"spacing":{"blockGap":true}},"styles":{"spacing":{"blockGap":"1.5rem"}}}
+
+Content width:
+{"settings":{"layout":{"contentSize":"800px","wideSize":"1200px"}}}
+
+Font families (register once, reference by slug in block attrs):
+{"settings":{"typography":{"fontFamilies":[{"fontFamily":"Playfair Display, serif","slug":"playfair","name":"Playfair"}]}}}
+
+Color palette:
+{"settings":{"color":{"palette":[{"color":"#1a1a2e","slug":"primary","name":"Primary"}]}}}
+
+### 2. Block attributes (per-block overrides)
+
+Spacing (padding/margin):
+<!-- wp:group {"style":{"spacing":{"padding":{"top":"2rem","right":"2rem","bottom":"2rem","left":"2rem"},"margin":{"top":"0","bottom":"0"}}}} -->
+
+Colors (background/text — use palette slugs when available):
+<!-- wp:group {"backgroundColor":"primary","textColor":"white"} -->
+<!-- wp:group {"style":{"color":{"background":"#1a1a2e","text":"#ffffff"}}} -->
+
+Typography (size/family/weight):
+<!-- wp:paragraph {"style":{"typography":{"fontSize":"1.25rem","fontWeight":"700"}},"fontFamily":"playfair"} -->
+
+Border (radius/width/color):
+<!-- wp:group {"style":{"border":{"radius":"8px","width":"1px","color":"#e0e0e0"}}} -->
+
+### 3. className + CSS (effects and advanced styling)
+
+For anything block attrs can't handle — set className on the block, write CSS in style.css:
+<!-- wp:group {"className":"hero-section"} -->
+
+Target in style.css:
+.hero-section { backdrop-filter: blur(10px); transform: perspective(1000px) rotateY(2deg); }
+.hero-section:hover { transform: scale(1.02); transition: transform 0.3s ease; }
+
+### Layout blocks
+
+Horizontal flex row:
+<!-- wp:group {"layout":{"type":"flex","flexWrap":"nowrap","justifyContent":"space-between"}} -->
+
+Vertical stack:
+<!-- wp:group {"layout":{"type":"flex","orientation":"vertical"}} -->
+
+CSS grid (equal columns):
+<!-- wp:group {"layout":{"type":"grid","columnCount":3}} -->
+
+CSS grid (custom template):
+<!-- wp:group {"layout":{"type":"grid","columnCount":null,"minimumColumnWidth":null},"style":{"layout":{"columnSpan":2}}} -->
+
+Columns with ratios:
+<!-- wp:columns --><!-- wp:column {"width":"66.66%"} -->...<!-- /wp:column --><!-- wp:column {"width":"33.33%"} -->...<!-- /wp:column --><!-- /wp:columns -->
+
+### HTML element → block mapping
+
+<h1>–<h6> → core/heading (level attr)
+<p> → core/paragraph
+<img> → core/image (id, url, alt attrs; className + CSS for effects)
+<ul>/<ol> → core/list + core/list-item
+<blockquote> → core/quote
+<a> styled as button → core/buttons > core/button
+<div> wrapper/section → core/group (className for CSS targeting)
+<hr> → core/separator
+empty spacing → core/spacer (height attr, e.g. {"height":"4rem"})
+<video> → core/video
+<table> → core/table
+<figure> with caption → core/image or core/media-text
+
+### Rules
+
+- Only use core/html for: inline SVGs, <form> elements, <script> tags, interactive widgets with no block equivalent.
+- Never use core/html for text, headings, layout sections, images, or lists.
+- Never use inline style attributes in block HTML content.
+- Use core/spacer for empty spacing, not empty core/group blocks.
+- Custom class names go on the block's className attribute, never on inner DOM elements.`;
+
+const htmlToBlocksTool = tool(
+	'html_to_blocks',
+	'Returns guidelines for converting raw HTML into WordPress block markup. ' +
+		'Reads the HTML input and provides the conversion reference (block equivalents, ' +
+		'attribute patterns, layout blocks). You do the actual conversion yourself using these guidelines. ' +
+		'After converting, use validate_blocks to verify and take_screenshot to check visual fidelity.',
+	{
+		filePath: z.string().optional().describe( 'Path to a file containing HTML to convert' ),
+		content: z.string().optional().describe( 'Raw HTML content to convert into blocks' ),
+	},
+	async ( args ) => {
+		try {
+			let htmlContent: string;
+			let fileName = 'inline content';
+
+			if ( args.filePath ) {
+				htmlContent = await readFile( args.filePath, 'utf-8' );
+				fileName = args.filePath.split( '/' ).slice( -2 ).join( '/' );
+			} else if ( args.content ) {
+				htmlContent = args.content;
+			} else {
+				return errorResult( 'Either content or filePath must be provided.' );
+			}
+
+			emitProgress( `Loading block conversion guidelines for ${ fileName }…` );
+
+			const lines = [
+				'# HTML to blocks conversion',
+				'',
+				'Convert the following HTML into WordPress block markup using the guidelines below.',
+				'After converting, validate with validate_blocks and verify visually with take_screenshot.',
+				'',
+				'--- Source HTML ---',
+				'',
+				htmlContent,
+				'',
+				BLOCK_CONVERSION_GUIDELINES,
+			];
+
+			return textResult( lines.join( '\n' ) );
+		} catch ( error ) {
+			return errorResult(
+				`Failed to read HTML: ${ error instanceof Error ? error.message : String( error ) }`
+			);
+		}
+	}
+);
+
 // --- Screenshot tool ---
 
 const VIEWPORTS = {
@@ -701,6 +837,7 @@ export const studioToolDefinitions = [
 	deletePreviewTool,
 	runWpCliTool,
 	validateBlocksTool,
+	htmlToBlocksTool,
 	takeScreenshotTool,
 ];
 

@@ -1,14 +1,9 @@
 import { HOUR_MS, DAY_MS, DEMO_SITE_EXPIRATION_DAYS } from '@studio/common/constants';
+import { readAuthToken } from '@studio/common/lib/shared-config';
 import { Snapshot } from '@studio/common/types/snapshot';
 import { __, sprintf } from '@wordpress/i18n';
 import { addDays, addHours, DurationUnit, formatDuration, intervalToDuration } from 'date-fns';
-import {
-	getAuthToken,
-	readAppdata,
-	lockAppdata,
-	unlockAppdata,
-	saveAppdata,
-} from 'cli/lib/appdata';
+import { readAppdata, lockAppdata, unlockAppdata, saveAppdata } from 'cli/lib/appdata';
 import { getSiteByFolder } from 'cli/lib/cli-config';
 import { LoggerError } from 'cli/logger';
 
@@ -74,7 +69,12 @@ export async function saveSnapshotToAppdata(
 		const site = await getSiteByFolder( siteFolder );
 		await lockAppdata();
 		const userData = await readAppdata();
-		const authToken = await getAuthToken();
+		const authToken = await readAuthToken();
+		if ( ! authToken ) {
+			throw new LoggerError(
+				__( 'Authentication required. Please log in with `studio auth login`.' )
+			);
+		}
 
 		const nextSequenceNumber = getNextSequenceNumber( site.id, userData.snapshots, authToken.id );
 		const snapshot: Snapshot = {

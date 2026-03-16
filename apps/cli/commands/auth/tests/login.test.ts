@@ -1,14 +1,8 @@
 import { input } from '@inquirer/prompts';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
+import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
 import { getUserInfo } from 'cli/lib/api';
-import {
-	getAuthToken,
-	lockAppdata,
-	readAppdata,
-	saveAppdata,
-	unlockAppdata,
-} from 'cli/lib/appdata';
 import { openBrowser } from 'cli/lib/browser';
 import { getAppLocale } from 'cli/lib/i18n';
 import { LoggerError } from 'cli/logger';
@@ -24,8 +18,11 @@ import { runCommand } from '../login';
 
 vi.mock( '@inquirer/prompts' );
 vi.mock( '@studio/common/lib/oauth' );
+vi.mock( '@studio/common/lib/shared-config', () => ( {
+	readAuthToken: vi.fn(),
+	updateSharedConfig: vi.fn(),
+} ) );
 vi.mock( 'cli/lib/api' );
-vi.mock( 'cli/lib/appdata' );
 vi.mock( 'cli/lib/browser' );
 vi.mock( 'cli/lib/i18n' );
 vi.mock( 'cli/logger', () => ( {
@@ -51,15 +48,13 @@ describe( 'Auth Login Command', () => {
 		display_name: 'Test User',
 		username: 'testuser',
 	};
-	const mockAppdata = {
-		authToken: {
-			accessToken: 'existing-token',
-			id: 999,
-			email: 'existing@example.com',
-			displayName: 'Existing User',
-			expiresIn: 1209600,
-			expirationTime: Date.now() + 1209600000,
-		},
+	const mockExistingToken = {
+		accessToken: 'existing-token',
+		id: 999,
+		email: 'existing@example.com',
+		displayName: 'Existing User',
+		expiresIn: 1209600,
+		expirationTime: Date.now() + 1209600000,
 	};
 
 	beforeEach( () => {
@@ -70,11 +65,8 @@ describe( 'Auth Login Command', () => {
 		vi.mocked( getUserInfo ).mockResolvedValue( mockUserData );
 		vi.mocked( openBrowser ).mockResolvedValue( undefined );
 		vi.mocked( input ).mockResolvedValue( mockAccessToken );
-		vi.mocked( readAppdata, { partial: true } ).mockResolvedValue( mockAppdata );
-		vi.mocked( getAuthToken ).mockRejectedValue( new Error( 'Mock error' ) );
-		vi.mocked( lockAppdata ).mockResolvedValue( undefined );
-		vi.mocked( unlockAppdata ).mockResolvedValue( undefined );
-		vi.mocked( saveAppdata ).mockResolvedValue( undefined );
+		vi.mocked( readAuthToken ).mockResolvedValue( null );
+		vi.mocked( updateSharedConfig ).mockResolvedValue( undefined );
 	} );
 
 	afterEach( () => {
@@ -82,7 +74,7 @@ describe( 'Auth Login Command', () => {
 	} );
 
 	it( 'should skip login if already authenticated', async () => {
-		vi.mocked( getAuthToken ).mockResolvedValue( mockAppdata.authToken );
+		vi.mocked( readAuthToken ).mockResolvedValue( mockExistingToken );
 
 		await runCommand();
 
@@ -102,8 +94,7 @@ describe( 'Auth Login Command', () => {
 			message: 'Authentication token:',
 		} );
 		expect( getUserInfo ).toHaveBeenCalledWith( mockAccessToken );
-		expect( lockAppdata ).toHaveBeenCalled();
-		expect( saveAppdata ).toHaveBeenCalledWith( {
+		expect( updateSharedConfig ).toHaveBeenCalledWith( {
 			authToken: {
 				accessToken: mockAccessToken,
 				id: mockUserData.ID,
@@ -113,7 +104,6 @@ describe( 'Auth Login Command', () => {
 				expirationTime: expect.any( Number ),
 			},
 		} );
-		expect( unlockAppdata ).toHaveBeenCalled();
 	} );
 
 	it( 'should proceed with login if existing token is invalid', async () => {
@@ -143,21 +133,9 @@ describe( 'Auth Login Command', () => {
 		expect( getUserInfo ).toHaveBeenCalled();
 	} );
 
-	it( 'should unlock appdata even if save fails', async () => {
+	it( 'should report error if updateSharedConfig fails', async () => {
 		const saveError = new Error( 'Failed to save' );
-		vi.mocked( saveAppdata ).mockRejectedValue( saveError );
-
-		await runCommand();
-
-		expect( mockReportError ).toHaveBeenCalled();
-		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
-		expect( lockAppdata ).toHaveBeenCalled();
-		expect( unlockAppdata ).toHaveBeenCalled();
-	} );
-
-	it( 'should handle lock appdata failure', async () => {
-		const lockError = new Error( 'Failed to lock' );
-		vi.mocked( lockAppdata ).mockRejectedValue( lockError );
+		vi.mocked( updateSharedConfig ).mockRejectedValue( saveError );
 
 		await runCommand();
 

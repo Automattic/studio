@@ -1,18 +1,9 @@
 import * as Sentry from '@sentry/electron/main';
+import { updateSharedConfig, authTokenSchema } from '@studio/common/lib/shared-config';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { z } from 'zod';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
-import { updateAppdata } from 'src/storage/user-data';
-
-const authTokenSchema = z.object( {
-	accessToken: z.string(),
-	expiresIn: z.number(),
-	expirationTime: z.number(),
-	id: z.number(),
-	email: z.string(),
-	displayName: z.string().default( '' ),
-} );
 
 const meResponseSchema = z.object( {
 	ID: z.number(),
@@ -62,7 +53,7 @@ export async function handleAuthDeeplink( urlObject: URL ): Promise< void > {
 	const { hash } = urlObject;
 	try {
 		const authResult = await handleAuthCallback( hash );
-		await updateAppdata( { authToken: authResult } );
+		await updateSharedConfig( { authToken: authResult } );
 		void sendIpcEventToRenderer( 'auth-updated', { token: authResult } );
 	} catch ( error ) {
 		Sentry.captureException( error );

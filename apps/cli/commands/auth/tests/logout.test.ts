@@ -1,12 +1,6 @@
+import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
 import { revokeAuthToken } from 'cli/lib/api';
-import {
-	getAuthToken,
-	lockAppdata,
-	readAppdata,
-	saveAppdata,
-	unlockAppdata,
-} from 'cli/lib/appdata';
 import { LoggerError } from 'cli/logger';
 import {
 	mockReportStart,
@@ -18,7 +12,10 @@ import {
 } from 'cli/tests/test-utils';
 import { runCommand } from '../logout';
 
-vi.mock( 'cli/lib/appdata' );
+vi.mock( '@studio/common/lib/shared-config', () => ( {
+	readAuthToken: vi.fn(),
+	updateSharedConfig: vi.fn(),
+} ) );
 vi.mock( 'cli/lib/api' );
 vi.mock( 'cli/logger', () => ( {
 	Logger: class {
@@ -35,30 +32,21 @@ vi.mock( 'cli/logger', () => ( {
 } ) );
 
 describe( 'Auth Logout Command', () => {
-	function getMockAppdata() {
-		return {
-			sites: [],
-			snapshots: [],
-			authToken: {
-				accessToken: 'existing-token',
-				id: 999,
-				email: 'existing@example.com',
-				displayName: 'Existing User',
-				expiresIn: 1209600,
-				expirationTime: Date.now() + 1209600000,
-			},
-		};
-	}
+	const mockAuthToken = {
+		accessToken: 'existing-token',
+		id: 999,
+		email: 'existing@example.com',
+		displayName: 'Existing User',
+		expiresIn: 1209600,
+		expirationTime: Date.now() + 1209600000,
+	};
 
 	beforeEach( () => {
 		vi.clearAllMocks();
 
-		vi.mocked( getAuthToken ).mockResolvedValue( getMockAppdata().authToken );
+		vi.mocked( readAuthToken ).mockResolvedValue( mockAuthToken );
 		vi.mocked( revokeAuthToken ).mockResolvedValue( undefined );
-		vi.mocked( lockAppdata ).mockResolvedValue( undefined );
-		vi.mocked( unlockAppdata ).mockResolvedValue( undefined );
-		vi.mocked( readAppdata ).mockResolvedValue( getMockAppdata() );
-		vi.mocked( saveAppdata ).mockResolvedValue( undefined );
+		vi.mocked( updateSharedConfig ).mockResolvedValue( undefined );
 	} );
 
 	afterEach( () => {
@@ -68,14 +56,9 @@ describe( 'Auth Logout Command', () => {
 	it( 'should complete the logout process successfully', async () => {
 		await runCommand();
 
-		expect( getAuthToken ).toHaveBeenCalled();
+		expect( readAuthToken ).toHaveBeenCalled();
 		expect( revokeAuthToken ).toHaveBeenCalled();
-		expect( lockAppdata ).toHaveBeenCalled();
-		expect( readAppdata ).toHaveBeenCalled();
-		expect( saveAppdata ).toHaveBeenCalledWith(
-			expect.not.objectContaining( { authToken: expect.anything() } )
-		);
-		expect( unlockAppdata ).toHaveBeenCalled();
+		expect( updateSharedConfig ).toHaveBeenCalledWith( { authToken: undefined } );
 		expect( mockReportSuccess ).toHaveBeenCalledWith( 'Successfully logged out' );
 	} );
 
@@ -84,37 +67,18 @@ describe( 'Auth Logout Command', () => {
 
 		await runCommand();
 
-		expect( getAuthToken ).toHaveBeenCalled();
-		expect( lockAppdata ).toHaveBeenCalled();
-		expect( readAppdata ).not.toHaveBeenCalled();
-		expect( saveAppdata ).not.toHaveBeenCalledWith( {} );
-		expect( unlockAppdata ).toHaveBeenCalled();
+		expect( readAuthToken ).toHaveBeenCalled();
 		expect( mockReportError ).toHaveBeenCalled();
 		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 	} );
 
 	it( 'should report already logged out if no auth token exists', async () => {
-		vi.mocked( getAuthToken ).mockRejectedValue( new Error( 'No auth token' ) );
+		vi.mocked( readAuthToken ).mockResolvedValue( null );
 
 		await runCommand();
 
-		expect( getAuthToken ).toHaveBeenCalled();
+		expect( readAuthToken ).toHaveBeenCalled();
 		expect( revokeAuthToken ).not.toHaveBeenCalled();
-		expect( lockAppdata ).not.toHaveBeenCalled();
-		expect( readAppdata ).not.toHaveBeenCalled();
-		expect( saveAppdata ).not.toHaveBeenCalled();
 		expect( mockReportSuccess ).toHaveBeenCalledWith( 'Already logged out' );
-	} );
-
-	it( 'should unlock appdata even if save fails', async () => {
-		vi.mocked( saveAppdata ).mockRejectedValue( new Error( 'Failed to save' ) );
-
-		await runCommand();
-
-		expect( revokeAuthToken ).toHaveBeenCalled();
-		expect( lockAppdata ).toHaveBeenCalled();
-		expect( unlockAppdata ).toHaveBeenCalled();
-		expect( mockReportError ).toHaveBeenCalled();
-		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 	} );
 } );

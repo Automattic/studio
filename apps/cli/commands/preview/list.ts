@@ -1,8 +1,8 @@
+import { readAuthToken } from '@studio/common/lib/shared-config';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import Table from 'cli-table3';
 import { format } from 'date-fns';
-import { getAuthToken } from 'cli/lib/appdata';
 import { getSiteByFolder } from 'cli/lib/cli-config';
 import {
 	formatDurationUntilExpiry,
@@ -22,7 +22,12 @@ export async function runCommand(
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating…' ) );
 		await getSiteByFolder( siteFolder );
-		const token = await getAuthToken();
+		const token = await readAuthToken();
+		if ( ! token ) {
+			throw new LoggerError(
+				__( 'Authentication required. Please log in with `studio auth login`.' )
+			);
+		}
 		logger.reportSuccess( __( 'Validation successful' ), true );
 
 		logger.reportStart( LoggerAction.LOAD, __( 'Loading preview sites…' ) );

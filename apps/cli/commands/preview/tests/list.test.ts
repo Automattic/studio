@@ -1,5 +1,5 @@
+import { readAuthToken } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
-import { getAuthToken } from 'cli/lib/appdata';
 import { getSiteByFolder } from 'cli/lib/cli-config';
 import { getSnapshotsFromAppdata } from 'cli/lib/snapshots';
 import {
@@ -12,14 +12,9 @@ import {
 } from 'cli/tests/test-utils';
 import { runCommand } from '../list';
 
-vi.mock( 'cli/lib/appdata', async () => {
-	const actual = await vi.importActual( 'cli/lib/appdata' );
-	return {
-		...actual,
-		getAppdataDirectory: vi.fn().mockReturnValue( '/test/appdata' ),
-		getAuthToken: vi.fn(),
-	};
-} );
+vi.mock( '@studio/common/lib/shared-config', () => ( {
+	readAuthToken: vi.fn(),
+} ) );
 vi.mock( 'cli/lib/cli-config', async () => {
 	const actual = await vi.importActual( 'cli/lib/cli-config' );
 	return {
@@ -84,7 +79,7 @@ describe( 'Preview List Command', () => {
 		vi.spyOn( process, 'cwd' ).mockReturnValue( mockFolder );
 
 		vi.mocked( getSiteByFolder ).mockResolvedValue( mockSite );
-		vi.mocked( getAuthToken ).mockResolvedValue( mockAuthToken );
+		vi.mocked( readAuthToken ).mockResolvedValue( mockAuthToken );
 		vi.mocked( getSnapshotsFromAppdata ).mockResolvedValue( mockSnapshots );
 	} );
 

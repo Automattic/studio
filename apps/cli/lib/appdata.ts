@@ -3,35 +3,18 @@ import os from 'os';
 import path from 'path';
 import { LOCKFILE_NAME, LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from '@studio/common/constants';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
-import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { snapshotSchema } from '@studio/common/types/snapshot';
 import { StatsMetric } from '@studio/common/types/stats';
-import { __, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import { readFile, writeFile } from 'atomically';
 import { z } from 'zod';
-import { validateAccessToken } from 'cli/lib/api';
 import { LoggerError } from 'cli/logger';
-import type { AiProviderId } from 'cli/ai/providers';
 
 const betaFeaturesSchema = z.object( {} ).loose();
-const aiProviderSchema = z.enum( [ 'wpcom', 'anthropic-claude', 'anthropic-api-key' ] );
 
 const userDataSchema = z
 	.object( {
 		snapshots: z.array( snapshotSchema ).default( () => [] ),
-		locale: z.string().optional(),
-		aiProvider: aiProviderSchema.optional(),
-		authToken: z
-			.object( {
-				accessToken: z.string().min( 1, __( 'Access token cannot be empty' ) ),
-				expiresIn: z.number(), // Seconds
-				expirationTime: z.number(), // Milliseconds since the Unix epoch
-				id: z.number().optional(),
-				email: z.string(),
-				displayName: z.string().default( '' ),
-			} )
-			.loose()
-			.optional(),
 		lastBumpStats: z
 			.record( z.string(), z.partialRecord( z.enum( StatsMetric ), z.number() ) )
 			.optional(),
@@ -39,10 +22,7 @@ const userDataSchema = z
 	} )
 	.loose();
 
-type UserData = z.infer< typeof userDataSchema > & {
-	anthropicApiKey?: string;
-};
-export type ValidatedAuthToken = Required< NonNullable< UserData[ 'authToken' ] > >;
+type UserData = z.infer< typeof userDataSchema >;
 
 export function getAppdataDirectory(): string {
 	// Support E2E testing with custom appdata path
@@ -129,60 +109,4 @@ export async function lockAppdata(): Promise< void > {
 
 export async function unlockAppdata(): Promise< void > {
 	await unlockFileAsync( LOCKFILE_PATH );
-}
-
-export async function getAuthToken(): Promise< ValidatedAuthToken > {
-	try {
-		const { authToken } = await readAppdata();
-
-		if ( ! authToken?.accessToken || ! authToken?.id || Date.now() >= authToken?.expirationTime ) {
-			throw new Error( 'Authentication required' );
-		}
-
-		await validateAccessToken( authToken.accessToken );
-
-		return authToken as ValidatedAuthToken;
-	} catch ( error ) {
-		const authUrl = getAuthenticationUrl( 'en' );
-
-		throw new LoggerError(
-			sprintf(
-				// translators: %s is a URL to log in to WordPress.com
-				__( 'Authentication required. Please log in to WordPress.com first:\n%s' ),
-				authUrl
-			)
-		);
-	}
-}
-
-export async function getAnthropicApiKey(): Promise< string | undefined > {
-	const userData = await readAppdata();
-	return userData.anthropicApiKey;
-}
-
-export async function getAiProvider(): Promise< AiProviderId | undefined > {
-	const userData = await readAppdata();
-	return userData.aiProvider;
-}
-
-export async function saveAnthropicApiKey( apiKey: string ): Promise< void > {
-	try {
-		await lockAppdata();
-		const userData = await readAppdata();
-		userData.anthropicApiKey = apiKey;
-		await saveAppdata( userData );
-	} finally {
-		await unlockAppdata();
-	}
-}
-
-export async function saveAiProvider( provider: AiProviderId ): Promise< void > {
-	try {
-		await lockAppdata();
-		const userData = await readAppdata();
-		userData.aiProvider = provider;
-		await saveAppdata( userData );
-	} finally {
-		await unlockAppdata();
-	}
 }

@@ -22,8 +22,12 @@ const cliConfigWithJustVersion = z.object( {
 } );
 // IMPORTANT: Always consider that independently installed versions of the CLI (from npm) may also
 // read this file, and any updates to this schema may require updating the `version` field.
+const aiProviderSchema = z.enum( [ 'wpcom', 'anthropic-claude', 'anthropic-api-key' ] );
+
 const cliConfigSchema = cliConfigWithJustVersion.extend( {
 	sites: z.array( siteSchema ).default( () => [] ),
+	aiProvider: aiProviderSchema.optional(),
+	anthropicApiKey: z.string().optional(),
 } );
 
 type CliConfig = z.infer< typeof cliConfigSchema >;
@@ -116,6 +120,19 @@ export async function lockCliConfig(): Promise< void > {
 
 export async function unlockCliConfig(): Promise< void > {
 	await unlockFileAsync( LOCKFILE_PATH );
+}
+
+export async function updateCliConfig(
+	update: Partial< Omit< CliConfig, 'version' | 'sites' > >
+): Promise< void > {
+	try {
+		await lockCliConfig();
+		const config = await readCliConfig();
+		const updated = { ...config, ...update };
+		await saveCliConfig( updated );
+	} finally {
+		await unlockCliConfig();
+	}
 }
 
 export async function getSiteByFolder( siteFolder: string ): Promise< SiteData > {

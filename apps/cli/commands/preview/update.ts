@@ -2,12 +2,12 @@ import os from 'node:os';
 import path from 'node:path';
 import { DEMO_SITE_EXPIRATION_DAYS } from '@studio/common/constants';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
+import { readAuthToken } from '@studio/common/lib/shared-config';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { Snapshot } from '@studio/common/types/snapshot';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { addDays } from 'date-fns';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
-import { getAuthToken } from 'cli/lib/appdata';
 import { cleanup, archiveSiteContent } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config';
 import { getSnapshotsFromAppdata, updateSnapshotInAppdata } from 'cli/lib/snapshots';
@@ -53,7 +53,12 @@ export async function runCommand(
 
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating…' ) );
-		const token = await getAuthToken();
+		const token = await readAuthToken();
+		if ( ! token ) {
+			throw new LoggerError(
+				__( 'Authentication required. Please log in with `studio auth login`.' )
+			);
+		}
 		const snapshots = await getSnapshotsFromAppdata( token.id );
 		const snapshotToUpdate = await getSnapshotToUpdate( snapshots, host, siteFolder, overwrite );
 

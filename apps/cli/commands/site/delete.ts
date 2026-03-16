@@ -1,10 +1,10 @@
 import fs from 'fs';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
+import { readAuthToken, type StoredToken } from '@studio/common/lib/shared-config';
 import { SITE_EVENTS } from '@studio/common/lib/site-events';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { deleteSnapshot } from 'cli/lib/api';
-import { getAuthToken, ValidatedAuthToken } from 'cli/lib/appdata';
 import { deleteSiteCertificate } from 'cli/lib/certificate-manager';
 import {
 	getSiteByFolder,
@@ -23,7 +23,7 @@ import { StudioArgv } from 'cli/types';
 
 const logger = new Logger< LoggerAction >();
 
-async function deletePreviewSites( authToken: ValidatedAuthToken, siteFolder: string ) {
+async function deletePreviewSites( authToken: StoredToken, siteFolder: string ) {
 	try {
 		const snapshots = await getSnapshotsFromAppdata( authToken.id, siteFolder );
 
@@ -97,11 +97,9 @@ export async function runCommand(
 			}
 		}
 
-		try {
-			const authToken = await getAuthToken();
+		const authToken = await readAuthToken();
+		if ( authToken ) {
 			await deletePreviewSites( authToken, siteFolder );
-		} catch ( error ) {
-			// `getAuthToken` throws, but `deletePreviewSites` does not. Proceed anyway
 		}
 
 		try {

@@ -5,13 +5,7 @@ import { arePathsEqual } from '@studio/common/lib/fs-utils';
 import { StatsMetric } from '@studio/common/types/stats';
 import { readFile, writeFile } from 'atomically';
 import { vi } from 'vitest';
-import {
-	readAppdata,
-	saveAppdata,
-	getAuthToken,
-	lockAppdata,
-	unlockAppdata,
-} from 'cli/lib/appdata';
+import { readAppdata, saveAppdata, lockAppdata, unlockAppdata } from 'cli/lib/appdata';
 
 vi.mock( 'fs', () => ( {
 	default: {
@@ -175,64 +169,6 @@ describe( 'Appdata Module', () => {
 			expect( writeFile ).toHaveBeenCalled();
 			const savedData = JSON.parse( vi.mocked( writeFile ).mock.calls[ 0 ][ 1 ] as string );
 			expect( savedData.version ).toBe( 1 );
-		} );
-	} );
-
-	describe( 'getAuthToken', () => {
-		it( 'should return auth token when it exists', async () => {
-			const mockAuthToken = {
-				accessToken: 'valid-token',
-				displayName: 'User Name',
-				email: 'user@example.com',
-				expirationTime: Date.now() + 3600000, // 1 hour in the future
-				expiresIn: 3600,
-				id: 123,
-			};
-
-			vi.mocked( readFile ).mockResolvedValueOnce(
-				Buffer.from(
-					JSON.stringify( {
-						version: 1,
-						authToken: mockAuthToken,
-						sites: [],
-						snapshots: [],
-					} )
-				)
-			);
-
-			const result = await getAuthToken();
-			expect( result ).toEqual( mockAuthToken );
-		} );
-
-		it( 'should throw LoggerError when auth token is missing', async () => {
-			vi.mocked( readFile ).mockResolvedValueOnce(
-				Buffer.from(
-					JSON.stringify( {
-						version: 1,
-						sites: [],
-						snapshots: [],
-					} )
-				)
-			);
-
-			await expect( getAuthToken() ).rejects.toThrow( 'Authentication required' );
-		} );
-
-		it( 'should throw LoggerError when access token is missing', async () => {
-			vi.mocked( readFile ).mockResolvedValueOnce(
-				Buffer.from(
-					JSON.stringify( {
-						version: 1,
-						authToken: {
-							id: 123,
-						},
-						sites: [],
-						snapshots: [],
-					} )
-				)
-			);
-
-			await expect( getAuthToken() ).rejects.toThrow( 'Authentication required' );
 		} );
 	} );
 } );

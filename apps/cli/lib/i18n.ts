@@ -4,15 +4,15 @@ import {
 	DEFAULT_LOCALE,
 	isSupportedLocale,
 } from '@studio/common/lib/locale';
+import { readSharedConfig } from '@studio/common/lib/shared-config';
 import { defaultI18n } from '@wordpress/i18n';
-import { readAppdata } from 'cli/lib/appdata';
 
-async function getLocaleFromAppdata(): Promise< SupportedLocale | undefined > {
+async function getLocaleFromSharedConfig(): Promise< SupportedLocale | undefined > {
 	try {
-		const appdata = await readAppdata();
-		return isSupportedLocale( appdata.locale ) ? appdata.locale : undefined;
+		const config = await readSharedConfig();
+		return isSupportedLocale( config.locale ) ? config.locale : undefined;
 	} catch ( error ) {
-		console.error( 'Error reading appdata', error );
+		console.error( 'Error reading shared config', error );
 		return undefined;
 	}
 }
@@ -40,7 +40,7 @@ function mapToYargsLocale( locale: SupportedLocale ): string {
 }
 
 export async function getAppLocale(): Promise< SupportedLocale > {
-	const appdataLocale = await getLocaleFromAppdata();
+	const appdataLocale = await getLocaleFromSharedConfig();
 	const envLocale = getLocaleFromEnvironment();
 	return appdataLocale || envLocale || DEFAULT_LOCALE;
 }

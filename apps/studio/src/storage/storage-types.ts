@@ -1,5 +1,4 @@
 import { Snapshot } from '@studio/common/types/snapshot';
-import { StoredToken } from 'src/lib/oauth';
 import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import type { SyncSite } from 'src/modules/sync/types';
 import type { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
@@ -17,9 +16,7 @@ export interface UserData {
 	snapshots: Snapshot[];
 	devToolsOpen?: boolean;
 	windowBounds?: WindowBounds;
-	authToken?: StoredToken;
 	onboardingCompleted?: boolean;
-	locale?: string;
 	lastBumpStats?: {
 		[ group: string ]: {
 			[ stat: string ]: number;

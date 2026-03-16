@@ -1,7 +1,7 @@
+import { readAuthToken } from '@studio/common/lib/shared-config';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import { deleteSnapshot } from 'cli/lib/api';
-import { getAuthToken } from 'cli/lib/appdata';
 import { deleteSnapshotFromAppdata, getSnapshotsFromAppdata } from 'cli/lib/snapshots';
 import { normalizeHostname } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
@@ -12,7 +12,12 @@ export async function runCommand( host: string ): Promise< void > {
 
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating…' ) );
-		const token = await getAuthToken();
+		const token = await readAuthToken();
+		if ( ! token ) {
+			throw new LoggerError(
+				__( 'Authentication required. Please log in with `studio auth login`.' )
+			);
+		}
 		const snapshots = await getSnapshotsFromAppdata( token.id );
 		const snapshotToDelete = snapshots.find( ( s ) => s.url === host );
 		if ( ! snapshotToDelete ) {

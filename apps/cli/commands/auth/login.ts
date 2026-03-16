@@ -1,16 +1,10 @@
 import { input } from '@inquirer/prompts';
 import { DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
+import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-config';
 import { AuthCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
 import { getUserInfo } from 'cli/lib/api';
-import {
-	getAuthToken,
-	lockAppdata,
-	readAppdata,
-	saveAppdata,
-	unlockAppdata,
-} from 'cli/lib/appdata';
 import { openBrowser } from 'cli/lib/browser';
 import { getAppLocale } from 'cli/lib/i18n';
 import { Logger, LoggerError } from 'cli/logger';
@@ -21,12 +15,10 @@ const CLI_REDIRECT_URI = `https://developer.wordpress.com/copy-oauth-token`;
 export async function runCommand(): Promise< void > {
 	const logger = new Logger< LoggerAction >();
 
-	try {
-		await getAuthToken();
+	const existingToken = await readAuthToken();
+	if ( existingToken ) {
 		logger.reportSuccess( __( 'Already authenticated with WordPress.com' ) );
 		return;
-	} catch ( error ) {
-		// Assume the token is invalid and proceed with authentication
 	}
 
 	logger.reportStart( LoggerAction.LOGIN, __( 'Opening browser for authentication…' ) );
@@ -64,27 +56,22 @@ export async function runCommand(): Promise< void > {
 	}
 
 	try {
-		await lockAppdata();
-		const userData = await readAppdata();
-
-		userData.authToken = {
-			accessToken,
-			id: user.ID,
-			email: user.email,
-			displayName: user.display_name,
-			expiresIn: DEFAULT_TOKEN_LIFETIME_MS / 1000,
-			expirationTime: Date.now() + DEFAULT_TOKEN_LIFETIME_MS,
-		};
-
-		await saveAppdata( userData );
+		await updateSharedConfig( {
+			authToken: {
+				accessToken,
+				id: user.ID,
+				email: user.email,
+				displayName: user.display_name,
+				expiresIn: DEFAULT_TOKEN_LIFETIME_MS / 1000,
+				expirationTime: Date.now() + DEFAULT_TOKEN_LIFETIME_MS,
+			},
+		} );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );
 		} else {
 			logger.reportError( new LoggerError( __( 'Authentication failed' ), error ) );
 		}
-	} finally {
-		await unlockAppdata();
 	}
 }
 

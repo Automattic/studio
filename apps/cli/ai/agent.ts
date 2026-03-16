@@ -1,14 +1,17 @@
-import os from 'os';
-import path from 'path';
 import { query, type Query } from '@anthropic-ai/claude-agent-sdk';
+import {
+	ACCESS_DENIED_MESSAGE,
+	ALLOWED_TOOLS,
+	STUDIO_ROOT,
+	askForPathGatedToolApproval,
+	createPathApprovalSession,
+	getPathGatedPermissionRequest,
+	type AskUserQuestion,
+} from 'cli/ai/security';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { createStudioTools } from 'cli/ai/tools';
-import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 
-export interface AskUserQuestion {
-	question: string;
-	options: { label: string; description: string }[];
-}
+export type { AskUserQuestion } from 'cli/ai/security';
 
 export interface AiAgentConfig {
 	prompt: string;
@@ -27,150 +30,7 @@ export const AI_MODELS = {
 export type AiModelId = keyof typeof AI_MODELS;
 
 export const DEFAULT_MODEL: AiModelId = 'claude-sonnet-4-6';
-const STUDIO_ROOT = path.resolve( STUDIO_SITES_ROOT );
-const STUDIO_ROOT_PREFIX = STUDIO_ROOT.endsWith( path.sep )
-	? STUDIO_ROOT
-	: `${ STUDIO_ROOT }${ path.sep }`;
-
-const PATH_INPUT_KEYS = [ 'path', 'file_path', 'filePath' ] as const;
-// Tools that can run without permissions (read access)
-const ALLOWED_TOOLS = [
-	'mcp__studio__*',
-	'Read',
-	'Glob',
-	'Grep',
-	'WebFetch',
-	'WebSearch',
-	'TodoRead',
-	'NotebookRead',
-	'AskUserQuestion',
-];
-// Tools that should not manipulate files outside of ~/Studio without permission (write access)
-const PATH_GATED_TOOLS = [ 'Write', 'Edit', 'Bash', 'NotebookEdit' ] as const;
-
-const sessionApprovedPathsByTool = new Map< string, Set< string > >();
-
-const ACCESS_DENIED_MESSAGE = `Access denied outside ${ STUDIO_ROOT }`;
-const APPROVE_ONCE_LABEL = 'Allow once';
-const APPROVE_SESSION_LABEL = 'Allow for this session';
-const DENY_LABEL = 'Deny';
-
-type PathGatedApprovalDecision = 'allow_once' | 'allow_session' | 'deny';
-
-function isPathGatedTool( toolName: string ): boolean {
-	return ( PATH_GATED_TOOLS as readonly string[] ).includes( toolName );
-}
-
-function resolveToolPath( rawPath: string ): string {
-	const expandedPath = rawPath.startsWith( '~/' )
-		? path.join( os.homedir(), rawPath.slice( 2 ) )
-		: rawPath;
-	return path.isAbsolute( expandedPath )
-		? path.resolve( expandedPath )
-		: path.resolve( STUDIO_ROOT, expandedPath );
-}
-
-function isPathWithinScope( filePath: string, scopePath: string ): boolean {
-	return filePath === scopePath || filePath.startsWith( `${ scopePath }${ path.sep }` );
-}
-
-function rememberSessionApprovedPath( toolName: string, approvedPath: string ): void {
-	const normalizedPath = resolveToolPath( approvedPath );
-	const approvedPaths = sessionApprovedPathsByTool.get( toolName ) ?? new Set< string >();
-	approvedPaths.add( normalizedPath );
-	sessionApprovedPathsByTool.set( toolName, approvedPaths );
-}
-
-function hasSessionApprovedPath( toolName: string, requestedPath: string ): boolean {
-	const approvedPaths = sessionApprovedPathsByTool.get( toolName );
-	if ( ! approvedPaths?.size ) {
-		return false;
-	}
-
-	const normalizedRequestedPath = resolveToolPath( requestedPath );
-	for ( const approvedPath of approvedPaths ) {
-		if ( isPathWithinScope( normalizedRequestedPath, approvedPath ) ) {
-			return true;
-		}
-	}
-
-	return false;
-}
-
-function isPathWithinStudioRoot( filePath: string ): boolean {
-	const normalizedPath = resolveToolPath( filePath );
-	return normalizedPath === STUDIO_ROOT || normalizedPath.startsWith( STUDIO_ROOT_PREFIX );
-}
-
-function getToolInputPaths( input: Record< string, unknown > ): string[] {
-	return PATH_INPUT_KEYS.map( ( key ) => input[ key ] )
-		.filter( ( value ) => typeof value === 'string' )
-		.map( ( value ) => value as string )
-		.filter( ( value ) => value.trim().length > 0 );
-}
-
-function findFirstPathOutsideStudioRoot(
-	input: Record< string, unknown >,
-	blockedPath?: string
-): string | undefined {
-	if ( blockedPath && ! isPathWithinStudioRoot( blockedPath ) ) {
-		return blockedPath;
-	}
-
-	for ( const toolPath of getToolInputPaths( input ) ) {
-		if ( ! isPathWithinStudioRoot( toolPath ) ) {
-			return toolPath;
-		}
-	}
-
-	return undefined;
-}
-
-async function askForPathGatedToolApproval( {
-	toolName,
-	outsidePath,
-	onAskUser,
-}: {
-	toolName: string;
-	outsidePath: string;
-	onAskUser?: ( questions: AskUserQuestion[] ) => Promise< Record< string, string > >;
-} ): Promise< PathGatedApprovalDecision > {
-	if ( ! onAskUser ) {
-		return 'deny';
-	}
-
-	const normalizedPath = resolveToolPath( outsidePath );
-	const question = `Allow ${ toolName } to access ${ normalizedPath }?`;
-	const answers = await onAskUser( [
-		{
-			question,
-			options: [
-				{
-					label: APPROVE_ONCE_LABEL,
-					description: `Run ${ toolName } outside ${ STUDIO_ROOT } for this step.`,
-				},
-				{
-					label: APPROVE_SESSION_LABEL,
-					description: `Allow this kind of ${ toolName } action for the rest of this session.`,
-				},
-				{
-					label: DENY_LABEL,
-					description: 'Keep filesystem access restricted to Studio sites.',
-				},
-			],
-		},
-	] );
-
-	if ( answers[ question ] === APPROVE_ONCE_LABEL ) {
-		return 'allow_once';
-	}
-
-	if ( answers[ question ] === APPROVE_SESSION_LABEL ) {
-		return 'allow_session';
-	}
-
-	return 'deny';
-}
+const pathApprovalSession = createPathApprovalSession();
 
 /**
  * Start the AI agent and return the Query object.
@@ -211,19 +71,18 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 					};
 				}
 
-				const outsidePath = findFirstPathOutsideStudioRoot( input, metadata.blockedPath );
-				if ( outsidePath && isPathGatedTool( toolName ) ) {
-					// Prefer the suggested directory over the specific file path — it better represents
-					// the scope being approved and covers all files under it for session approval.
-					const suggestedDirectory = metadata.suggestions?.find(
-						( s ) => s.type === 'addDirectories'
-					)?.directories?.[ 0 ];
-					const approvalPath = suggestedDirectory ?? outsidePath;
+				const permissionRequest = getPathGatedPermissionRequest( {
+					toolName,
+					input,
+					blockedPath: metadata.blockedPath,
+					suggestions: metadata.suggestions,
+				} );
 
-					if ( ! hasSessionApprovedPath( toolName, approvalPath ) ) {
+				if ( permissionRequest ) {
+					if ( ! pathApprovalSession.hasApprovedPath( toolName, permissionRequest.approvalPath ) ) {
 						const approvalDecision = await askForPathGatedToolApproval( {
 							toolName,
-							outsidePath: approvalPath,
+							outsidePath: permissionRequest.approvalPath,
 							onAskUser,
 						} );
 
@@ -235,14 +94,16 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 						}
 
 						if ( approvalDecision === 'allow_session' ) {
-							rememberSessionApprovedPath( toolName, approvalPath );
+							pathApprovalSession.rememberApprovedPath( toolName, permissionRequest.approvalPath );
 						}
 					}
 
 					return {
 						behavior: 'allow' as const,
 						updatedInput: input,
-						...( metadata.suggestions?.length && { updatedPermissions: metadata.suggestions } ),
+						...( permissionRequest.updatedPermissions && {
+							updatedPermissions: permissionRequest.updatedPermissions,
+						} ),
 					};
 				}
 

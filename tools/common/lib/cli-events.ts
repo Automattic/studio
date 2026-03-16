@@ -4,8 +4,8 @@
  * The CLI emits these events via the `_events` command, and Studio
  * subscribes to them to maintain its state without reading config files.
  */
+import { snapshotSchema } from '@studio/common/types/snapshot';
 import { z } from 'zod';
-import { snapshotSchema, type Snapshot } from '@studio/common/types/snapshot';
 
 /**
  * Site data included in events. This is the data Studio needs to display sites.
@@ -67,3 +67,41 @@ export const snapshotEventSchema = z.object( {
 } );
 
 export type SnapshotEvent = z.infer< typeof snapshotEventSchema >;
+
+/**
+ * Socket-level schemas for events sent between daemon-client and the _events command.
+ */
+export const siteSocketEventSchema = z.object( {
+	event: z.string(),
+	data: z.object( {
+		siteId: z.string(),
+	} ),
+} );
+
+export const snapshotSocketEventSchema = z.object( {
+	event: z.nativeEnum( SNAPSHOT_EVENTS ),
+	data: z.object( {
+		snapshotUrl: z.string(),
+	} ),
+} );
+
+/**
+ * CLI stdout key-value pair schemas for events parsed by Studio's cli-events-subscriber.
+ */
+export const cliSiteEventSchema = z.object( {
+	action: z.literal( 'keyValuePair' ),
+	key: z.literal( 'site-event' ),
+	value: z
+		.string()
+		.transform( ( val ) => JSON.parse( val ) )
+		.pipe( siteEventSchema ),
+} );
+
+export const cliSnapshotEventSchema = z.object( {
+	action: z.literal( 'keyValuePair' ),
+	key: z.literal( 'snapshot-event' ),
+	value: z
+		.string()
+		.transform( ( val ) => JSON.parse( val ) )
+		.pipe( snapshotEventSchema ),
+} );

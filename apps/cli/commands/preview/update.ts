@@ -1,8 +1,8 @@
 import os from 'node:os';
 import path from 'node:path';
 import { DEMO_SITE_EXPIRATION_DAYS } from '@studio/common/constants';
-import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
+import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { Snapshot } from '@studio/common/types/snapshot';
 import { __, _n, sprintf } from '@wordpress/i18n';
@@ -11,7 +11,7 @@ import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { cleanup, archiveSiteContent } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config';
-import { emitSnapshotEvent } from 'cli/lib/daemon-client';
+import { emitCliEvent } from 'cli/lib/daemon-client';
 import { getSnapshotsFromConfig, updateSnapshotInConfig } from 'cli/lib/snapshots';
 import { normalizeHostname } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
@@ -89,7 +89,7 @@ export async function runCommand(
 
 		logger.reportStart( LoggerAction.APPDATA, __( 'Saving preview site to Studio…' ) );
 		const snapshot = await updateSnapshotInConfig( uploadResponse.site_id, siteFolder );
-		await emitSnapshotEvent( SNAPSHOT_EVENTS.UPDATED, { snapshotUrl: snapshot.url } );
+		await emitCliEvent( { event: SNAPSHOT_EVENTS.UPDATED, data: { snapshotUrl: snapshot.url } } );
 		logger.reportSuccess( __( 'Preview site saved to Studio' ) );
 
 		logger.reportKeyValuePair( 'name', snapshot.name ?? '' );

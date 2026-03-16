@@ -4,6 +4,24 @@ import { LoggerError } from 'cli/logger';
 import { lockCliConfig, readCliConfig, saveCliConfig, unlockCliConfig } from './core';
 import { getSiteByFolder } from './sites';
 
+export function getNextSnapshotSequence(
+	siteId: string,
+	snapshots: Snapshot[],
+	userId: number
+): number {
+	const siteSnapshots = snapshots.filter(
+		( s ) => s.localSiteId === siteId && s.userId === userId
+	);
+
+	const existingSequences = siteSnapshots
+		.map( ( s ) => s.sequence ?? 0 )
+		.filter( ( n ) => ! isNaN( n ) );
+
+	return existingSequences.length > 0
+		? Math.max( ...existingSequences ) + 1
+		: siteSnapshots.length + 1;
+}
+
 export async function getSnapshotsFromConfig(
 	userId: number,
 	siteFolder?: string
@@ -109,22 +127,4 @@ export async function setSnapshotInConfig(
 	} finally {
 		await unlockCliConfig();
 	}
-}
-
-export function getNextSnapshotSequence(
-	siteId: string,
-	snapshots: Snapshot[],
-	userId: number
-): number {
-	const siteSnapshots = snapshots.filter(
-		( s ) => s.localSiteId === siteId && s.userId === userId
-	);
-
-	const existingSequences = siteSnapshots
-		.map( ( s ) => s.sequence ?? 0 )
-		.filter( ( n ) => ! isNaN( n ) );
-
-	return existingSequences.length > 0
-		? Math.max( ...existingSequences ) + 1
-		: siteSnapshots.length + 1;
 }

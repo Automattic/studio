@@ -2,7 +2,7 @@ import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import { setSnapshotInConfig } from 'cli/lib/cli-config';
-import { emitSnapshotEvent } from 'cli/lib/daemon-client';
+import { emitCliEvent } from 'cli/lib/daemon-client';
 import { normalizeHostname } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -25,7 +25,7 @@ export async function runCommand( host: string, options: SetCommandOptions ): Pr
 
 	logger.reportStart( LoggerAction.SET, __( 'Updating preview site…' ) );
 	await setSnapshotInConfig( host, { name } );
-	await emitSnapshotEvent( SNAPSHOT_EVENTS.UPDATED, { snapshotUrl: host } );
+	await emitCliEvent( { event: SNAPSHOT_EVENTS.UPDATED, data: { snapshotUrl: host } } );
 	logger.reportSuccess( __( 'Preview site updated' ) );
 }
 

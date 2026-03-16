@@ -1,6 +1,6 @@
 import fs from 'fs';
-import { arePathsEqual } from '@studio/common/lib/fs-utils';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
+import { arePathsEqual } from '@studio/common/lib/fs-utils';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { deleteSnapshot } from 'cli/lib/api';
@@ -13,7 +13,7 @@ import {
 	saveCliConfig,
 	unlockCliConfig,
 } from 'cli/lib/cli-config';
-import { connectToDaemon, disconnectFromDaemon, emitSiteEvent } from 'cli/lib/daemon-client';
+import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { getSnapshotsFromConfig, deleteSnapshotFromConfig } from 'cli/lib/snapshots';
@@ -131,7 +131,7 @@ export async function runCommand(
 			}
 		}
 
-		await emitSiteEvent( SITE_EVENTS.DELETED, { siteId: site.id } );
+		await emitCliEvent( { event: SITE_EVENTS.DELETED, data: { siteId: site.id } } );
 	} finally {
 		await disconnectFromDaemon();
 	}

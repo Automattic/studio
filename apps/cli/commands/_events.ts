@@ -10,13 +10,14 @@ import {
 	SITE_EVENTS,
 	SNAPSHOT_EVENTS,
 	siteDetailsSchema,
+	siteSocketEventSchema,
+	snapshotSocketEventSchema,
 	SiteEvent,
 	SnapshotEvent,
 } from '@studio/common/lib/cli-events';
 import { sequential } from '@studio/common/lib/sequential';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
-import { z } from 'zod';
 import { getSiteUrl, readCliConfig, SiteData } from 'cli/lib/cli-config';
 import {
 	connectToDaemon,
@@ -74,20 +75,6 @@ async function emitAllSitesStopped(): Promise< void > {
 	}
 }
 
-const siteEventSchema = z.object( {
-	event: z.string(),
-	data: z.object( {
-		siteId: z.string(),
-	} ),
-} );
-
-const snapshotSocketEventSchema = z.object( {
-	event: z.nativeEnum( SNAPSHOT_EVENTS ),
-	data: z.object( {
-		snapshotUrl: z.string(),
-	} ),
-} );
-
 const emitSnapshotEvent = sequential(
 	async ( event: SNAPSHOT_EVENTS, snapshotUrl: string ): Promise< void > => {
 		const cliConfig = await readCliConfig();
@@ -112,7 +99,7 @@ export async function runCommand(): Promise< void > {
 				return;
 			}
 
-			const parsedPacket = siteEventSchema.parse( packet );
+			const parsedPacket = siteSocketEventSchema.parse( packet );
 			if (
 				parsedPacket.event === SITE_EVENTS.CREATED ||
 				parsedPacket.event === SITE_EVENTS.UPDATED ||

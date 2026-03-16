@@ -1,12 +1,11 @@
 import {
-	siteEventSchema,
-	snapshotEventSchema,
+	cliSiteEventSchema,
+	cliSnapshotEventSchema,
 	SiteEvent,
 	SITE_EVENTS,
 	SiteDetails,
 } from '@studio/common/lib/cli-events';
 import { sequential } from '@studio/common/lib/sequential';
-import { z } from 'zod';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { SiteServer } from 'src/site-server';
@@ -61,24 +60,6 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 	}
 
 	void sendIpcEventToRenderer( 'site-event', event );
-} );
-
-const cliSiteEventSchema = z.object( {
-	action: z.literal( 'keyValuePair' ),
-	key: z.literal( 'site-event' ),
-	value: z
-		.string()
-		.transform( ( val ) => JSON.parse( val ) )
-		.pipe( siteEventSchema ),
-} );
-
-const cliSnapshotEventSchema = z.object( {
-	action: z.literal( 'keyValuePair' ),
-	key: z.literal( 'snapshot-event' ),
-	value: z
-		.string()
-		.transform( ( val ) => JSON.parse( val ) )
-		.pipe( snapshotEventSchema ),
 } );
 
 let subscriber: ReturnType< typeof executeCliCommand > | null = null;

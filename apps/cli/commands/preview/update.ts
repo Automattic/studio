@@ -2,7 +2,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { DEMO_SITE_EXPIRATION_DAYS } from '@studio/common/constants';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
-import { SNAPSHOT_EVENTS } from '@studio/common/lib/site-events';
+import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { Snapshot } from '@studio/common/types/snapshot';
 import { __, _n, sprintf } from '@wordpress/i18n';
@@ -89,7 +89,7 @@ export async function runCommand(
 
 		logger.reportStart( LoggerAction.APPDATA, __( 'Saving preview site to Studio…' ) );
 		const snapshot = await updateSnapshotInConfig( uploadResponse.site_id, siteFolder );
-		await emitSnapshotEvent( SNAPSHOT_EVENTS.UPDATED );
+		await emitSnapshotEvent( SNAPSHOT_EVENTS.UPDATED, { snapshotUrl: snapshot.url } );
 		logger.reportSuccess( __( 'Preview site saved to Studio' ) );
 
 		logger.reportKeyValuePair( 'name', snapshot.name ?? '' );

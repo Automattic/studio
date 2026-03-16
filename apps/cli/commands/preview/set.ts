@@ -1,4 +1,4 @@
-import { SNAPSHOT_EVENTS } from '@studio/common/lib/site-events';
+import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import { setSnapshotInConfig } from 'cli/lib/cli-config';
@@ -26,7 +26,7 @@ export async function runCommand( host: string, options: SetCommandOptions ): Pr
 	try {
 		logger.reportStart( LoggerAction.SET, __( 'Updating preview site…' ) );
 		await setSnapshotInConfig( host, { name } );
-		await emitSnapshotEvent( SNAPSHOT_EVENTS.UPDATED );
+		await emitSnapshotEvent( SNAPSHOT_EVENTS.UPDATED, { snapshotUrl: host } );
 		logger.reportSuccess( __( 'Preview site updated' ) );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {

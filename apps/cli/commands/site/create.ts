@@ -35,7 +35,7 @@ import {
 	hasDefaultDbBlock,
 	removeDbConstants,
 } from '@studio/common/lib/remove-default-db-constants';
-import { SITE_EVENTS } from '@studio/common/lib/site-events';
+import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import {
 	isValidWordPressVersion,

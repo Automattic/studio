@@ -6,6 +6,7 @@ import {
 	isAnyOf,
 	PayloadAction,
 } from '@reduxjs/toolkit';
+import { SNAPSHOT_EVENTS, SnapshotEvent } from '@studio/common/lib/cli-events';
 import { PreviewCommandLoggerAction } from '@studio/common/logger-actions';
 import { Snapshot } from '@studio/common/types/snapshot';
 import { __, sprintf } from '@wordpress/i18n';
@@ -357,8 +358,63 @@ function isBulkOperationSettled( bulkOperation: BulkOperation ) {
 	} );
 }
 
-window.ipcListener.subscribe( 'snapshot-changed', () => {
-	void refreshSnapshots();
+window.ipcListener.subscribe( 'snapshot-changed', ( event, snapshotEvent: SnapshotEvent ) => {
+	const { event: eventType, snapshot, snapshotUrl } = snapshotEvent;
+
+	if ( eventType === SNAPSHOT_EVENTS.DELETED ) {
+		const state = store.getState();
+		const existing = state.snapshot.snapshots.find( ( s ) => s.url === snapshotUrl );
+		if ( existing ) {
+			store.dispatch(
+				snapshotSlice.actions.deleteSnapshotLocally( { atomicSiteId: existing.atomicSiteId } )
+			);
+			store.dispatch(
+				wpcomApi.util.updateQueryData( 'getSnapshotUsage', undefined, ( data ) => {
+					data.siteCount = Math.max( 0, data.siteCount - 1 );
+				} )
+			);
+			setTimeout( () => {
+				store.dispatch( wpcomApi.util.invalidateTags( [ 'SnapshotUsage' ] ) );
+			}, 8000 );
+		}
+		return;
+	}
+
+	if ( ! snapshot ) {
+		// Fallback to full refresh if no snapshot data included
+		void refreshSnapshots();
+		return;
+	}
+
+	if ( eventType === SNAPSHOT_EVENTS.CREATED ) {
+		const state = store.getState();
+		const existing = state.snapshot.snapshots.find( ( s ) => s.url === snapshot.url );
+		if ( ! existing ) {
+			store.dispatch(
+				snapshotSlice.actions.setSnapshots( {
+					snapshots: [ ...state.snapshot.snapshots, snapshot ],
+				} )
+			);
+			store.dispatch(
+				wpcomApi.util.updateQueryData( 'getSnapshotUsage', undefined, ( data ) => {
+					data.siteCount = data.siteCount + 1;
+				} )
+			);
+			setTimeout( () => {
+				store.dispatch( wpcomApi.util.invalidateTags( [ 'SnapshotUsage' ] ) );
+			}, 8000 );
+		}
+		return;
+	}
+
+	if ( eventType === SNAPSHOT_EVENTS.UPDATED ) {
+		store.dispatch(
+			snapshotActions.updateSnapshotLocally( {
+				atomicSiteId: snapshot.atomicSiteId,
+				snapshot,
+			} )
+		);
+	}
 } );
 
 window.ipcListener.subscribe( 'snapshot-output', ( event, payload ) => {

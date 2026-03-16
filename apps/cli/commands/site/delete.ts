@@ -1,6 +1,6 @@
 import fs from 'fs';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
-import { SITE_EVENTS } from '@studio/common/lib/site-events';
+import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { deleteSnapshot } from 'cli/lib/api';

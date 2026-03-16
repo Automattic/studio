@@ -3,7 +3,7 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { SQLITE_FILENAME } from '@studio/common/constants';
 import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
-import { siteListSchema, type SiteListItem } from '@studio/common/lib/site-events';
+import { siteListSchema, type SiteListItem } from '@studio/common/lib/cli-events';
 import fsExtra from 'fs-extra';
 import { parse } from 'shell-quote';
 import { z } from 'zod';

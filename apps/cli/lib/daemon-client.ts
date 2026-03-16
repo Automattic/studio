@@ -7,7 +7,7 @@ import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from '@studio/common/constant
 import { cacheFunctionTTL } from '@studio/common/lib/cache-function-ttl';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
-import { SITE_EVENTS, SNAPSHOT_EVENTS } from '@studio/common/lib/site-events';
+import { SITE_EVENTS, SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
 import { z } from 'zod';
 import {
 	PROCESS_MANAGER_EVENTS_SOCKET_PATH,
@@ -348,9 +348,12 @@ export async function emitSiteEvent(
 	}
 }
 
-export async function emitSnapshotEvent( event: SNAPSHOT_EVENTS ): Promise< void > {
+export async function emitSnapshotEvent(
+	event: SNAPSHOT_EVENTS,
+	data: { snapshotUrl: string }
+): Promise< void > {
 	try {
-		await eventsSocketClient.send( { event, data: {} } );
+		await eventsSocketClient.send( { event, data } );
 	} catch {
 		// Do nothing
 	}

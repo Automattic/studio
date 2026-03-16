@@ -7,7 +7,7 @@ import {
 	validateAdminEmail,
 	validateAdminUsername,
 } from '@studio/common/lib/passwords';
-import { SITE_EVENTS } from '@studio/common/lib/site-events';
+import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { siteNeedsRestart } from '@studio/common/lib/site-needs-restart';
 import {
 	getWordPressVersionUrl,

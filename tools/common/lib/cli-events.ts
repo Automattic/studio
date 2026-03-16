@@ -1,10 +1,11 @@
 /**
- * Shared types for site events between CLI and Studio app.
+ * Shared types for CLI events between CLI and Studio app.
  *
  * The CLI emits these events via the `_events` command, and Studio
- * subscribes to them to maintain its site state without reading appdata.
+ * subscribes to them to maintain its state without reading config files.
  */
 import { z } from 'zod';
+import { snapshotSchema, type Snapshot } from '@studio/common/types/snapshot';
 
 /**
  * Site data included in events. This is the data Studio needs to display sites.
@@ -58,3 +59,11 @@ export const siteEventSchema = z.object( {
 } );
 
 export type SiteEvent = z.infer< typeof siteEventSchema >;
+
+export const snapshotEventSchema = z.object( {
+	event: z.nativeEnum( SNAPSHOT_EVENTS ),
+	snapshot: snapshotSchema.optional(),
+	snapshotUrl: z.string(),
+} );
+
+export type SnapshotEvent = z.infer< typeof snapshotEventSchema >;

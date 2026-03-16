@@ -1,4 +1,4 @@
-import { type SiteDetails } from '@studio/common/lib/site-events';
+import { type SiteDetails } from '@studio/common/lib/cli-events';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import Table from 'cli-table3';

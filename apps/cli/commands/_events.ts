@@ -6,13 +6,14 @@
  * stdout key-value pairs that Studio parses.
  */
 
-import { sequential } from '@studio/common/lib/sequential';
 import {
 	SITE_EVENTS,
 	SNAPSHOT_EVENTS,
 	siteDetailsSchema,
 	SiteEvent,
-} from '@studio/common/lib/site-events';
+	SnapshotEvent,
+} from '@studio/common/lib/cli-events';
+import { sequential } from '@studio/common/lib/sequential';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
@@ -80,22 +81,34 @@ const siteEventSchema = z.object( {
 	} ),
 } );
 
-const snapshotEventSchema = z.object( {
+const snapshotSocketEventSchema = z.object( {
 	event: z.nativeEnum( SNAPSHOT_EVENTS ),
-	data: z.object( {} ),
+	data: z.object( {
+		snapshotUrl: z.string(),
+	} ),
 } );
 
-function emitSnapshotEvent( event: SNAPSHOT_EVENTS ): void {
-	logger.reportKeyValuePair( 'snapshot-event', JSON.stringify( { event } ) );
-}
+const emitSnapshotEvent = sequential(
+	async ( event: SNAPSHOT_EVENTS, snapshotUrl: string ): Promise< void > => {
+		const cliConfig = await readCliConfig();
+		const snapshot = cliConfig.snapshots.find( ( s ) => s.url === snapshotUrl );
+		const payload: SnapshotEvent = {
+			event,
+			snapshotUrl,
+			snapshot: snapshot ?? undefined,
+		};
+
+		logger.reportKeyValuePair( 'snapshot-event', JSON.stringify( payload ) );
+	}
+);
 
 export async function runCommand(): Promise< void > {
 	const eventsSocketServer = new SocketServer( SITE_EVENTS_SOCKET_PATH, 2500 );
 	eventsSocketServer.on( 'message', ( { message: packet } ) => {
 		try {
-			const snapshotParsed = snapshotEventSchema.safeParse( packet );
+			const snapshotParsed = snapshotSocketEventSchema.safeParse( packet );
 			if ( snapshotParsed.success ) {
-				emitSnapshotEvent( snapshotParsed.data.event );
+				void emitSnapshotEvent( snapshotParsed.data.event, snapshotParsed.data.data.snapshotUrl );
 				return;
 			}
 

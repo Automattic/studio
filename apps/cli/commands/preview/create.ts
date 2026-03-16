@@ -1,7 +1,7 @@
 import os from 'os';
 import path from 'path';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
-import { SNAPSHOT_EVENTS } from '@studio/common/lib/site-events';
+import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
@@ -64,7 +64,7 @@ export async function runCommand( siteFolder: string, name?: string ): Promise< 
 			snapshotName
 		);
 		logger.reportSuccess( __( 'Preview site saved to Studio' ) );
-		await emitSnapshotEvent( SNAPSHOT_EVENTS.CREATED );
+		await emitSnapshotEvent( SNAPSHOT_EVENTS.CREATED, { snapshotUrl: snapshot.url } );
 
 		logger.reportKeyValuePair( 'name', snapshot.name ?? '' );
 		logger.reportKeyValuePair( 'url', snapshot.url );

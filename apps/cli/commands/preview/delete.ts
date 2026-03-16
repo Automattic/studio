@@ -1,4 +1,4 @@
-import { SNAPSHOT_EVENTS } from '@studio/common/lib/site-events';
+import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import { deleteSnapshot } from 'cli/lib/api';
@@ -30,7 +30,7 @@ export async function runCommand( host: string ): Promise< void > {
 		logger.reportStart( LoggerAction.DELETE, __( 'Deleting…' ) );
 		await deleteSnapshot( snapshotToDelete.atomicSiteId, token.accessToken );
 		await deleteSnapshotFromConfig( snapshotToDelete.url );
-		await emitSnapshotEvent( SNAPSHOT_EVENTS.DELETED );
+		await emitSnapshotEvent( SNAPSHOT_EVENTS.DELETED, { snapshotUrl: snapshotToDelete.url } );
 		logger.reportSuccess( __( 'Deletion successful' ) );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {

@@ -14,6 +14,8 @@ import {
 	type EditorTheme,
 	type EditorOptions,
 	type MarkdownTheme,
+	truncateToWidth,
+	visibleWidth,
 } from '@mariozechner/pi-tui';
 import chalk from 'chalk';
 import { AI_MODELS, DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
@@ -189,10 +191,8 @@ class PromptEditor implements Component, Focusable {
 					: '';
 			const rightPart = this.statusMessage ? chalk.dim( this.statusMessage ) + ' ' : '';
 			if ( leftPart || rightPart ) {
-				// eslint-disable-next-line no-control-regex
-				const stripAnsi = ( s: string ) => s.replace( /\x1b\[[0-9;]*m/g, '' );
-				const leftLen = stripAnsi( leftPart ).length;
-				const rightLen = stripAnsi( rightPart ).length;
+				const leftLen = visibleWidth( leftPart );
+				const rightLen = visibleWidth( rightPart );
 				const padding = Math.max( 1, width - leftLen - rightLen );
 				result.push( leftPart + ' '.repeat( padding ) + rightPart );
 			}
@@ -876,19 +876,12 @@ export class AiChatUI {
 			const gap = 2;
 			const termWidth = process.stdout.columns ?? 80;
 			const urlColumnWidth = termWidth - prefixWidth - nameColumnWidth - gap;
-			const truncatedName =
-				site.name.length > nameColumnWidth
-					? site.name.slice( 0, nameColumnWidth - 1 ) + '…'
-					: site.name.padEnd( nameColumnWidth );
+			const truncatedName = truncateToWidth( site.name, nameColumnWidth, '…', true );
 			const name = selected ? chalk.bold( truncatedName ) : truncatedName;
 			const displayUrl = site.url ? site.url.replace( /^https?:\/\//, '' ) : '';
 			let url = '';
 			if ( displayUrl && urlColumnWidth > 3 ) {
-				const truncatedUrl =
-					displayUrl.length > urlColumnWidth
-						? displayUrl.slice( 0, urlColumnWidth - 1 ) + '…'
-						: displayUrl;
-				url = `  ${ chalk.dim( truncatedUrl ) }`;
+				url = `  ${ chalk.dim( truncateToWidth( displayUrl, urlColumnWidth, '…' ) ) }`;
 			}
 			return `${ prefix }${ name }${ url }`;
 		}
@@ -919,19 +912,11 @@ export class AiChatUI {
 		return { items, scrollInfo };
 	}
 
-	// Container doesn't expose a public clearChildren API, so we reach into
-	// the internal children array and remove items one at a time.
-	private clearContainer( container: Container ): void {
-		while ( ( container as Container & { children?: unknown[] } ).children?.length ) {
-			container.removeChild( ( container as Container & { children: Component[] } ).children[ 0 ] );
-		}
-	}
-
 	private renderSitePicker(): void {
 		if ( ! this.sitePickerContainer ) {
 			return;
 		}
-		this.clearContainer( this.sitePickerContainer );
+		this.sitePickerContainer.clear();
 
 		const isLocal = this.sitePickerTab === SITE_PICKER_TAB_LOCAL;
 		const localTab = isLocal ? chalk.bold( '[Local]' ) : chalk.dim( 'Local' );
@@ -1184,7 +1169,7 @@ export class AiChatUI {
 		if ( ! this.optionPickerContainer ) {
 			return;
 		}
-		this.clearContainer( this.optionPickerContainer );
+		this.optionPickerContainer.clear();
 
 		const items = this.optionPickerItems.map( ( opt, i ) => {
 			if ( i === this.optionPickerSelectedIndex ) {

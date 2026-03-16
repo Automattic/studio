@@ -8,22 +8,6 @@ import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-wa
 import { StatsGroup, StatsMetric } from '@studio/common/types/stats';
 import { __ } from '@wordpress/i18n';
 import yargs from 'yargs';
-import { commandHandler as eventsCommandHandler } from 'cli/commands/_events';
-import { registerCommand as registerAuthLoginCommand } from 'cli/commands/auth/login';
-import { registerCommand as registerAuthLogoutCommand } from 'cli/commands/auth/logout';
-import { registerCommand as registerAuthStatusCommand } from 'cli/commands/auth/status';
-import { registerCommand as registerCreateCommand } from 'cli/commands/preview/create';
-import { registerCommand as registerDeleteCommand } from 'cli/commands/preview/delete';
-import { registerCommand as registerListCommand } from 'cli/commands/preview/list';
-import { registerCommand as registerUpdateCommand } from 'cli/commands/preview/update';
-import { registerCommand as registerSiteCreateCommand } from 'cli/commands/site/create';
-import { registerCommand as registerSiteDeleteCommand } from 'cli/commands/site/delete';
-import { registerCommand as registerSiteListCommand } from 'cli/commands/site/list';
-import { registerCommand as registerSiteSetCommand } from 'cli/commands/site/set';
-import { registerCommand as registerSiteStartCommand } from 'cli/commands/site/start';
-import { registerCommand as registerSiteStatusCommand } from 'cli/commands/site/status';
-import { registerCommand as registerSiteStopCommand } from 'cli/commands/site/stop';
-import { commandHandler as wpCliCommandHandler } from 'cli/commands/wp';
 import { readAppdata, lockAppdata, unlockAppdata, saveAppdata } from 'cli/lib/appdata';
 import { loadTranslations } from 'cli/lib/i18n';
 import { untildify } from 'cli/lib/utils';
@@ -81,20 +65,60 @@ async function main() {
 				}
 			}
 		} )
-		.command( 'auth', __( 'Manage authentication' ), ( authYargs ) => {
+		.command( 'auth', __( 'Manage authentication' ), async ( authYargs ) => {
+			const [
+				{ registerCommand: registerAuthLoginCommand },
+				{ registerCommand: registerAuthLogoutCommand },
+				{ registerCommand: registerAuthStatusCommand },
+			] = await Promise.all( [
+				import( 'cli/commands/auth/login' ),
+				import( 'cli/commands/auth/logout' ),
+				import( 'cli/commands/auth/status' ),
+			] );
+
 			registerAuthLoginCommand( authYargs );
 			registerAuthLogoutCommand( authYargs );
 			registerAuthStatusCommand( authYargs );
 			authYargs.version( false ).demandCommand( 1, __( 'You must provide a valid auth command' ) );
 		} )
-		.command( 'preview', __( 'Manage preview sites' ), ( previewYargs ) => {
-			registerCreateCommand( previewYargs );
-			registerListCommand( previewYargs );
-			registerDeleteCommand( previewYargs );
-			registerUpdateCommand( previewYargs );
+		.command( 'preview', __( 'Manage preview sites' ), async ( previewYargs ) => {
+			const [
+				{ registerCommand: registerPreviewCreateCommand },
+				{ registerCommand: registerPreviewListCommand },
+				{ registerCommand: registerPreviewDeleteCommand },
+				{ registerCommand: registerPreviewUpdateCommand },
+			] = await Promise.all( [
+				import( 'cli/commands/preview/create' ),
+				import( 'cli/commands/preview/list' ),
+				import( 'cli/commands/preview/delete' ),
+				import( 'cli/commands/preview/update' ),
+			] );
+
+			registerPreviewCreateCommand( previewYargs );
+			registerPreviewListCommand( previewYargs );
+			registerPreviewDeleteCommand( previewYargs );
+			registerPreviewUpdateCommand( previewYargs );
 			previewYargs.version( false ).demandCommand( 1, __( 'You must provide a valid command' ) );
 		} )
-		.command( 'site', __( 'Manage sites' ), ( sitesYargs ) => {
+		.command( 'site', __( 'Manage sites' ), async ( sitesYargs ) => {
+			const [
+				{ registerCommand: registerSiteStatusCommand },
+				{ registerCommand: registerSiteCreateCommand },
+				{ registerCommand: registerSiteListCommand },
+				{ registerCommand: registerSiteStartCommand },
+				{ registerCommand: registerSiteStopCommand },
+				{ registerCommand: registerSiteDeleteCommand },
+				{ registerCommand: registerSiteSetCommand },
+			] = await Promise.all( [
+				import( 'cli/commands/site/status' ),
+				import( 'cli/commands/site/create' ),
+				import( 'cli/commands/site/list' ),
+				import( 'cli/commands/site/start' ),
+				import( 'cli/commands/site/stop' ),
+				import( 'cli/commands/site/delete' ),
+				import( 'cli/commands/site/set' ),
+			] );
+
 			registerSiteStatusCommand( sitesYargs );
 			registerSiteCreateCommand( sitesYargs );
 			registerSiteListCommand( sitesYargs );
@@ -118,12 +142,20 @@ async function main() {
 						hidden: true,
 					} );
 			},
-			handler: wpCliCommandHandler,
+			handler: async ( argv ) => {
+				const { commandHandler: wpCliCommandHandler } = await import( 'cli/commands/wp' );
+
+				return wpCliCommandHandler( argv );
+			},
 		} )
 		.command( {
 			command: '_events',
 			describe: false, // Hidden command
-			handler: eventsCommandHandler,
+			handler: async () => {
+				const { commandHandler: eventsCommandHandler } = await import( 'cli/commands/_events' );
+
+				return eventsCommandHandler();
+			},
 		} )
 		.demandCommand( 1, __( 'You must provide a valid command' ) )
 		.strict();

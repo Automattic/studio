@@ -1,7 +1,6 @@
 {
 	"extends": "../../tsconfig.base.json",
 	"compilerOptions": {
-		"composite": true,
 		"module": "ESNext",
 		"moduleResolution": "Bundler",
 		"baseUrl": "../..",
@@ -17,6 +16,5 @@
 		"**/dist/**/*",
 		"**/out/**/*",
 		"vitest.config.ts"
-	],
-	"references": [ { "path": "../../tools/common" } ]
+	]
 }

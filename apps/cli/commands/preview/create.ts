@@ -1,12 +1,14 @@
 import os from 'os';
 import path from 'path';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
+import { SNAPSHOT_EVENTS } from '@studio/common/lib/site-events';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config';
+import { emitSnapshotEvent } from 'cli/lib/daemon-client';
 import { saveSnapshotToConfig } from 'cli/lib/snapshots';
 import { validateSiteSize } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
@@ -50,6 +52,7 @@ export async function runCommand( siteFolder: string, name?: string ): Promise< 
 			name
 		);
 		logger.reportSuccess( __( 'Preview site saved to Studio' ) );
+		await emitSnapshotEvent( SNAPSHOT_EVENTS.CREATED );
 
 		logger.reportKeyValuePair( 'name', snapshot.name ?? '' );
 		logger.reportKeyValuePair( 'url', snapshot.url );

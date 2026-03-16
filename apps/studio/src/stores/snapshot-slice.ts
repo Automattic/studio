@@ -357,6 +357,10 @@ function isBulkOperationSettled( bulkOperation: BulkOperation ) {
 	} );
 }
 
+window.ipcListener.subscribe( 'snapshot-changed', () => {
+	void refreshSnapshots();
+} );
+
 window.ipcListener.subscribe( 'snapshot-output', ( event, payload ) => {
 	const operation = getOperation( payload.operationId );
 	if ( ! operation ) {

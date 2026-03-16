@@ -1,7 +1,9 @@
+import { SNAPSHOT_EVENTS } from '@studio/common/lib/site-events';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import { deleteSnapshot } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
+import { emitSnapshotEvent } from 'cli/lib/daemon-client';
 import { deleteSnapshotFromConfig, getSnapshotsFromConfig } from 'cli/lib/snapshots';
 import { normalizeHostname } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
@@ -28,6 +30,7 @@ export async function runCommand( host: string ): Promise< void > {
 		logger.reportStart( LoggerAction.DELETE, __( 'Deleting…' ) );
 		await deleteSnapshot( snapshotToDelete.atomicSiteId, token.accessToken );
 		await deleteSnapshotFromConfig( snapshotToDelete.url );
+		await emitSnapshotEvent( SNAPSHOT_EVENTS.DELETED );
 		logger.reportSuccess( __( 'Deletion successful' ) );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {

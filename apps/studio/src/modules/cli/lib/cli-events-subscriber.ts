@@ -3,6 +3,7 @@ import {
 	siteEventSchema,
 	SiteEvent,
 	SITE_EVENTS,
+	SNAPSHOT_EVENTS,
 	SiteDetails,
 } from '@studio/common/lib/site-events';
 import { z } from 'zod';
@@ -71,6 +72,19 @@ const cliSiteEventSchema = z.object( {
 		.pipe( siteEventSchema ),
 } );
 
+const snapshotEventPayloadSchema = z.object( {
+	event: z.nativeEnum( SNAPSHOT_EVENTS ),
+} );
+
+const cliSnapshotEventSchema = z.object( {
+	action: z.literal( 'keyValuePair' ),
+	key: z.literal( 'snapshot-event' ),
+	value: z
+		.string()
+		.transform( ( val ) => JSON.parse( val ) )
+		.pipe( snapshotEventPayloadSchema ),
+} );
+
 let subscriber: ReturnType< typeof executeCliCommand > | null = null;
 
 export async function startCliEventsSubscriber(): Promise< void > {
@@ -90,6 +104,12 @@ export async function startCliEventsSubscriber(): Promise< void > {
 		} );
 
 		eventEmitter.on( 'data', ( { data } ) => {
+			const snapshotParsed = cliSnapshotEventSchema.safeParse( data );
+			if ( snapshotParsed.success ) {
+				void sendIpcEventToRenderer( 'snapshot-changed' );
+				return;
+			}
+
 			const parsed = cliSiteEventSchema.safeParse( data );
 			if ( ! parsed.success ) {
 				return;

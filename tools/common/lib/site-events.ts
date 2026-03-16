@@ -44,6 +44,12 @@ export enum SITE_EVENTS {
 	DELETED = 'site-deleted',
 }
 
+export enum SNAPSHOT_EVENTS {
+	CREATED = 'snapshot-created',
+	UPDATED = 'snapshot-updated',
+	DELETED = 'snapshot-deleted',
+}
+
 export const siteEventSchema = z.object( {
 	event: z.enum( SITE_EVENTS ),
 	siteId: z.string(),

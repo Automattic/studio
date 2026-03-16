@@ -7,7 +7,12 @@
  */
 
 import { sequential } from '@studio/common/lib/sequential';
-import { SITE_EVENTS, siteDetailsSchema, SiteEvent } from '@studio/common/lib/site-events';
+import {
+	SITE_EVENTS,
+	SNAPSHOT_EVENTS,
+	siteDetailsSchema,
+	SiteEvent,
+} from '@studio/common/lib/site-events';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
@@ -75,10 +80,25 @@ const siteEventSchema = z.object( {
 	} ),
 } );
 
+const snapshotEventSchema = z.object( {
+	event: z.nativeEnum( SNAPSHOT_EVENTS ),
+	data: z.object( {} ),
+} );
+
+function emitSnapshotEvent( event: SNAPSHOT_EVENTS ): void {
+	logger.reportKeyValuePair( 'snapshot-event', JSON.stringify( { event } ) );
+}
+
 export async function runCommand(): Promise< void > {
 	const eventsSocketServer = new SocketServer( SITE_EVENTS_SOCKET_PATH, 2500 );
 	eventsSocketServer.on( 'message', ( { message: packet } ) => {
 		try {
+			const snapshotParsed = snapshotEventSchema.safeParse( packet );
+			if ( snapshotParsed.success ) {
+				emitSnapshotEvent( snapshotParsed.data.event );
+				return;
+			}
+
 			const parsedPacket = siteEventSchema.parse( packet );
 			if (
 				parsedPacket.event === SITE_EVENTS.CREATED ||

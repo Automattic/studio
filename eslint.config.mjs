@@ -1,5 +1,5 @@
 import { defineConfig, globalIgnores } from 'eslint/config';
-import pluginImport from 'eslint-plugin-import';
+import pluginImport from 'eslint-plugin-import-x';
 import pluginStudio from 'eslint-plugin-studio';
 import pluginPrettier from 'eslint-plugin-prettier/recommended';
 import globals from 'globals';
@@ -42,7 +42,7 @@ export default defineConfig(
 			},
 		},
 		settings: {
-			'import/resolver': {
+			'import-x/resolver': {
 				typescript: {
 					alwaysTryTypes: true,
 					project: [
@@ -70,8 +70,8 @@ export default defineConfig(
 					varsIgnorePattern: '^_',
 				},
 			],
-			'import/no-named-as-default-member': 'off',
-			'import/order': [
+			'import-x/no-named-as-default-member': 'off',
+			'import-x/order': [
 				'error',
 				{
 					'newlines-between': 'never',

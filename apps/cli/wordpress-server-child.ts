@@ -31,6 +31,7 @@ import {
 import { WordPressInstallMode } from '@wp-playground/wordpress';
 import { z } from 'zod';
 import { sanitizeRunCLIArgs } from 'cli/lib/cli-args-sanitizer';
+import { isPhpUserError, parsePhpError, serveErrorPage } from 'cli/lib/php-error-handling';
 import { getSqliteCommandPath, getWpCliPharPath } from 'cli/lib/server-files';
 import { isSqliteIntegrationInstalled } from 'cli/lib/sqlite-integration';
 import {
@@ -45,6 +46,11 @@ let lastCliArgs: Record< string, unknown > | null = null;
 let orphanedServer: HttpServer | null = null;
 let siteFileWatcher: FSWatcher | null = null;
 
+// Output capture for diagnosing PHP errors during boot.
+// When capturedBootOutput is non-null, all console/stdout output is recorded.
+let capturedBootOutput: string[] | null = null;
+let lastCapturedOutput: string | null = null;
+
 // Intercept and prefix all console output from playground-cli
 const originalConsoleLog = console.log;
 const originalConsoleError = console.error;
@@ -52,6 +58,7 @@ const originalConsoleWarn = console.warn;
 
 console.log = ( ...args: unknown[] ) => {
 	originalConsoleLog( '[playground-cli]', ...args );
+	capturedBootOutput?.push( args.map( String ).join( ' ' ) );
 	const message = args.join( ' ' );
 	process.send!( { topic: 'activity' } );
 	const formattedMessage = formatPlaygroundCliMessage( message );
@@ -62,6 +69,7 @@ console.log = ( ...args: unknown[] ) => {
 
 console.error = ( ...args: unknown[] ) => {
 	originalConsoleError( '[playground-cli]', ...args );
+	capturedBootOutput?.push( args.map( String ).join( ' ' ) );
 	process.send!( { topic: 'activity' } );
 };
 
@@ -74,6 +82,7 @@ const originalStdoutWrite = process.stdout.write.bind( process.stdout );
 const originalStderrWrite = process.stderr.write.bind( process.stderr );
 
 process.stdout.write = function ( ...args: Parameters< typeof originalStdoutWrite > ) {
+	capturedBootOutput?.push( String( args[ 0 ] ) );
 	process.send!( { topic: 'activity' } );
 	return originalStdoutWrite( ...args );
 } as typeof process.stdout.write;
@@ -277,71 +286,6 @@ function wrapWithStartingPromise< Args extends unknown[], Return extends void >(
 }
 
 /**
- * Determines if an error from runCLI() is caused by user PHP code (themes/plugins)
- * rather than an infrastructure issue (WASM memory, port conflicts, etc.).
- */
-function isPhpUserError( error: unknown ): boolean {
-	if ( ! ( error instanceof Error ) ) {
-		return false;
-	}
-
-	const message = error.message;
-
-	// Infrastructure errors — should NOT trigger fallback
-	if (
-		message.includes( 'Cannot allocate Wasm memory' ) ||
-		message.includes( 'EADDRINUSE' ) ||
-		message.includes( 'Operation aborted' ) ||
-		message.includes( '"unreachable" WASM instruction' )
-	) {
-		return false;
-	}
-
-	// PHP user errors — should trigger fallback
-	if ( message.match( /PHP Fatal error:/i ) ) {
-		return true;
-	}
-	if ( message.match( /Fatal error/i ) ) {
-		return true;
-	}
-	if ( message.includes( 'wp-die-message' ) ) {
-		return true;
-	}
-	if ( message.includes( 'PHP.run() failed with exit code' ) ) {
-		return true;
-	}
-	// Intercepted process.exit(1) from @wp-playground/cli during server startup
-	if ( message.includes( 'WordPress server startup failed' ) ) {
-		return true;
-	}
-
-	return false;
-}
-
-function generateErrorPageHtml( errorMessage: string ): string {
-	const escaped = errorMessage
-		.replace( /&/g, '&amp;' )
-		.replace( /</g, '&lt;' )
-		.replace( />/g, '&gt;' );
-	return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>PHP Error</title>
-<style>html{background:#f1f1f1}body{background:#fff;border:1px solid #ccd0d4;color:#444;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;margin:2em auto;padding:1em 2em;max-width:700px}h1{color:#d63638;font-size:1.3em}pre{background:#f6f7f7;border:1px solid #dcdcde;padding:1em;white-space:pre-wrap;word-wrap:break-word;font-size:13px}.info{background:#f0f6fc;border-left:4px solid #72aee6;padding:12px 16px;margin:1.5em 0}</style>
-</head><body><h1>PHP Error Detected</h1><pre>${ escaped }</pre>
-<div class="info"><p><strong>Studio is watching for file changes.</strong> Fix the PHP error and the site will automatically restart.</p></div></body></html>`;
-}
-
-/**
- * Replaces the request handler on an HTTP server to serve an error page.
- */
-function serveErrorPage( httpServer: HttpServer, errorMessage: string ): void {
-	const html = generateErrorPageHtml( errorMessage );
-	httpServer.removeAllListeners( 'request' );
-	httpServer.on( 'request', ( _req, res ) => {
-		res.writeHead( 500, { 'Content-Type': 'text/html; charset=utf-8' } );
-		res.end( html );
-	} );
-}
-
-/**
  * Watch for PHP file changes and attempt to restart the server.
  */
 function watchForPhpChanges( config: ServerConfig ): void {
@@ -383,8 +327,11 @@ function watchForPhpChanges( config: ServerConfig ): void {
 						);
 					}
 				} catch {
-					// runCLIWithoutExit already repurposed the orphaned server with new error
 					logToConsole( 'Restart failed, still watching…' );
+					if ( orphanedServer ) {
+						const errorMsg = parsePhpError( lastCapturedOutput || 'PHP error during startup' );
+						serveErrorPage( orphanedServer, errorMsg );
+					}
 				} finally {
 					retrying = false;
 				}
@@ -400,39 +347,22 @@ function watchForPhpChanges( config: ServerConfig ): void {
  * Playground's internal error handler calls process.exit(1) directly in a .catch(),
  * bypassing all try-catch blocks. This wrapper:
  * 1. Overrides process.exit to throw instead of exiting
- * 2. Captures stdout/console output so we get the actual PHP error message
+ * 2. Enables output capture via the global console/stdout interceptors
  * 3. Intercepts http.createServer to capture Playground's HTTP server reference
- * 4. On failure, repurposes the orphaned server to serve an error page
+ * 4. On failure, the orphaned server is repurposed to serve an error page
  */
+
 async function runCLIWithoutExit(
 	args: RunCLIArgs & { command: 'server' }
 ): Promise< RunCLIServer > {
 	const originalExit = process.exit;
-	const capturedOutput: string[] = [];
 
-	// Capture all output channels — PHP WASM writes errors via process.stdout.write,
-	// while Playground's printError uses console.log/error.
-	const savedConsoleLog = console.log;
-	const savedConsoleError = console.error;
-	const savedStdoutWrite = process.stdout.write;
-	console.log = ( ...logArgs: unknown[] ) => {
-		capturedOutput.push( logArgs.map( String ).join( ' ' ) );
-		savedConsoleLog( ...logArgs );
-	};
-	console.error = ( ...errorArgs: unknown[] ) => {
-		capturedOutput.push( errorArgs.map( String ).join( ' ' ) );
-		savedConsoleError( ...errorArgs );
-	};
-	process.stdout.write = function ( ...writeArgs: Parameters< typeof savedStdoutWrite > ) {
-		capturedOutput.push( String( writeArgs[ 0 ] ) );
-		return savedStdoutWrite( ...writeArgs );
-	} as typeof process.stdout.write;
+	// Enable output capture via the global interceptors
+	capturedBootOutput = [];
 
 	process.exit = ( ( code?: number ) => {
 		if ( code !== 0 ) {
-			const errorMsg =
-				capturedOutput.join( '\n' ) || `WordPress server startup failed (exit code ${ code })`;
-			throw new Error( errorMsg );
+			throw new Error( `WordPress server startup failed (exit code ${ code })` );
 		}
 		return originalExit( code );
 	} ) as typeof process.exit;
@@ -452,13 +382,13 @@ async function runCLIWithoutExit(
 	try {
 		return await runCLI( args );
 	} catch ( error ) {
-		// Repurpose Playground's orphaned HTTP server to serve our error page.
+		// Save captured output for error parsing
+		lastCapturedOutput = ( capturedBootOutput ?? [] ).join( '\n' );
+
+		// Keep Playground's orphaned HTTP server so the caller can repurpose it.
 		// This avoids EADDRINUSE — the server is already bound to the port.
 		if ( createdServers.length > 0 ) {
-			const srv = createdServers[ 0 ];
-			serveErrorPage( srv, parsePhpError( error ) );
-			orphanedServer = srv;
-			// Close any extra servers (unlikely, but be safe)
+			orphanedServer = createdServers[ 0 ];
 			for ( let i = 1; i < createdServers.length; i++ ) {
 				createdServers[ i ].close();
 			}
@@ -466,9 +396,7 @@ async function runCLIWithoutExit(
 		throw error;
 	} finally {
 		process.exit = originalExit;
-		console.log = savedConsoleLog;
-		console.error = savedConsoleError;
-		process.stdout.write = savedStdoutWrite;
+		capturedBootOutput = null;
 		http.createServer = originalCreateServer;
 	}
 }
@@ -505,8 +433,15 @@ const startServer = wrapWithStartingPromise(
 			server = null;
 
 			if ( isPhpUserError( error ) ) {
-				logToConsole( `PHP error detected during startup: ${ parsePhpError( error ) }` );
-				// orphanedServer is already serving the error page (set by runCLIWithoutExit)
+				const errorMessage = parsePhpError(
+					lastCapturedOutput || ( error instanceof Error ? error.message : '' )
+				);
+				logToConsole( `PHP error detected during startup: ${ errorMessage }` );
+
+				if ( orphanedServer ) {
+					serveErrorPage( orphanedServer, errorMessage );
+					logToConsole( 'Error page server listening. Watching for file changes…' );
+				}
 				watchForPhpChanges( config );
 				return;
 			}
@@ -607,48 +542,12 @@ const runWpCliCommand = sequential(
 	{ concurrent: 3, max: 100, deduplicateKey: ( args: string[] ) => args.join( ' ' ) }
 );
 
-function parsePhpError( error: unknown ): string {
-	if ( ! ( error instanceof Error ) ) {
-		return String( error );
-	}
-
-	const message = error.message;
-
-	// Check for WordPress critical error in HTML output
-	const wpDieMatch = message.match( /<div class="wp-die-message"[^>]*>([\s\S]*?)<\/div>/ );
-	if ( wpDieMatch ) {
-		// Extract text from HTML, removing tags
-		const htmlContent = wpDieMatch[ 1 ];
-		const textContent = htmlContent
-			.replace( /<[^>]+>/g, ' ' )
-			.replace( /\s+/g, ' ' )
-			.trim();
-		if ( textContent ) {
-			return `WordPress error: ${ textContent }`;
-		}
-	}
-
-	// Check for PHP fatal error pattern
-	const fatalMatch = message.match( /PHP Fatal error:\s*(.+?)(?:\sin\s|$)/i );
-	if ( fatalMatch ) {
-		return `PHP Fatal error: ${ fatalMatch[ 1 ].trim() }`;
-	}
-
-	// Check for generic PHP.run() failure - provide a cleaner message
-	if ( message.includes( 'PHP.run() failed with exit code' ) ) {
-		const exitCodeMatch = message.match( /exit code (\d+)/ );
-		const exitCode = exitCodeMatch ? exitCodeMatch[ 1 ] : 'unknown';
-		return `WordPress failed to start (PHP exit code ${ exitCode }). Check the site's debug.log for details.`;
-	}
-
-	return message;
-}
-
 function sendErrorMessage( messageId: string, error: unknown ) {
+	const errorMessage = error instanceof Error ? error.message : String( error );
 	const errorResponse: ChildMessageRaw = {
 		originalMessageId: messageId,
 		topic: 'error',
-		errorMessage: parsePhpError( error ),
+		errorMessage,
 		errorStack: error instanceof Error ? error.stack : undefined,
 		cliArgs: lastCliArgs ?? undefined,
 	};

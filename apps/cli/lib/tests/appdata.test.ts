@@ -11,7 +11,7 @@ import {
 	lockAppdata,
 	unlockAppdata,
 } from 'cli/lib/appdata';
-import { StatsMetric } from 'cli/lib/bump-stat';
+import { StatsMetric } from 'cli/lib/types/bump-stats';
 
 vi.mock( 'fs', () => ( {
 	default: {

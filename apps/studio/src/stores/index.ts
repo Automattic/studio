@@ -191,28 +191,25 @@ startAppListening( {
 	effect( action, listenerApi ) {
 		const state = listenerApi.getState();
 
-		// Collect all operation IDs from state and pollers
-		const allStateIds = new Set( [
-			...Object.keys( state.syncOperations.pushStates ),
-			...Object.keys( state.syncOperations.pullStates ),
-			...PUSH_POLLERS.keys(),
-			...PULL_POLLERS.keys(),
-		] );
-
-		// Cancel main process operations
-		for ( const stateId of allStateIds ) {
-			getIpcApi().cancelSyncOperation( stateId );
+		for ( const pullState of Object.values( state.syncOperations.pullStates ) ) {
+			void store.dispatch(
+				syncOperationsThunks.cancelPull( {
+					selectedSiteId: pullState.selectedSite.id,
+					remoteSiteId: pullState.remoteSiteId,
+					displayNotification: false,
+				} )
+			);
 		}
 
-		// Stop renderer-side pollers
-		for ( const controller of PUSH_POLLERS.values() ) {
-			controller.abort();
+		for ( const pushState of Object.values( state.syncOperations.pushStates ) ) {
+			void store.dispatch(
+				syncOperationsThunks.cancelPush( {
+					selectedSiteId: pushState.selectedSite.id,
+					remoteSiteId: pushState.remoteSiteId,
+					displayNotification: false,
+				} )
+			);
 		}
-		PUSH_POLLERS.clear();
-		for ( const controller of PULL_POLLERS.values() ) {
-			controller.abort();
-		}
-		PULL_POLLERS.clear();
 
 		// Reset authenticated RTK Query caches
 		listenerApi.dispatch( connectedSitesApi.util.resetApiState() );

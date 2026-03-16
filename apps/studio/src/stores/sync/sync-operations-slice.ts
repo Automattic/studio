@@ -272,11 +272,15 @@ const createTypedAsyncThunk = createAsyncThunk.withTypes< {
 type CancelOperationPayload = {
 	selectedSiteId: string;
 	remoteSiteId: number;
+	displayNotification?: boolean;
 };
 
 const cancelPushThunk = createTypedAsyncThunk(
 	'syncOperations/cancelPush',
-	async ( { selectedSiteId, remoteSiteId }: CancelOperationPayload, { dispatch } ) => {
+	async (
+		{ selectedSiteId, remoteSiteId, displayNotification = true }: CancelOperationPayload,
+		{ dispatch }
+	) => {
 		const operationId = generateStateId( selectedSiteId, remoteSiteId );
 		const abortCallback = PUSH_SITE_ABORT_CALLBACKS.get( operationId );
 
@@ -291,16 +295,21 @@ const cancelPushThunk = createTypedAsyncThunk(
 			} )
 		);
 
-		getIpcApi().showNotification( {
-			title: __( 'Push cancelled' ),
-			body: __( 'The push operation has been cancelled.' ),
-		} );
+		if ( displayNotification ) {
+			getIpcApi().showNotification( {
+				title: __( 'Push cancelled' ),
+				body: __( 'The push operation has been cancelled.' ),
+			} );
+		}
 	}
 );
 
 const cancelPullThunk = createTypedAsyncThunk(
 	'syncOperations/cancelPull',
-	async ( { selectedSiteId, remoteSiteId }: CancelOperationPayload, { dispatch } ) => {
+	async (
+		{ selectedSiteId, remoteSiteId, displayNotification = true }: CancelOperationPayload,
+		{ dispatch }
+	) => {
 		const operationId = generateStateId( selectedSiteId, remoteSiteId );
 		getIpcApi().cancelSyncOperation( operationId );
 
@@ -318,10 +327,12 @@ const cancelPullThunk = createTypedAsyncThunk(
 				// Ignore errors if file doesn't exist
 			} );
 
-		getIpcApi().showNotification( {
-			title: __( 'Pull cancelled' ),
-			body: __( 'The pull operation has been cancelled.' ),
-		} );
+		if ( displayNotification ) {
+			getIpcApi().showNotification( {
+				title: __( 'Pull cancelled' ),
+				body: __( 'The pull operation has been cancelled.' ),
+			} );
+		}
 	}
 );
 

@@ -1106,8 +1106,11 @@ export async function setupAppMenu(
 	await setupMenu( config );
 }
 
-export async function popupAppMenu( _event: IpcMainInvokeEvent ) {
-	await popupMenu();
+export async function popupAppMenu(
+	_event: IpcMainInvokeEvent,
+	position?: { x: number; y: number }
+) {
+	await popupMenu( position );
 }
 
 export async function promptWindowsSpeedUpSites(

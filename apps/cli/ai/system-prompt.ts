@@ -33,6 +33,10 @@ Then continue with:
 - site_start: Start a stopped site
 - site_stop: Stop a running site
 - site_delete: Delete a site from Studio and optionally move its files to trash
+- preview_create: Create a hosted WordPress.com preview for a local site; this can take a few minutes, so tell the user to wait
+- preview_list: List hosted WordPress.com previews for a local site
+- preview_update: Update an existing hosted WordPress.com preview from a local site; this can take a few minutes, so tell the user to wait
+- preview_delete: Delete a hosted WordPress.com preview by hostname
 - wp_cli: Run WP-CLI commands on a running site
 - validate_blocks: Validate block content for correctness on a running site (runs each block through its save() function in a real browser). Requires a site name or path. Call after every file write/edit that contains block content.
 - take_screenshot: Take a full-page screenshot of a URL (supports desktop and mobile viewports). Use this to visually check the site after building it.

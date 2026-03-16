@@ -74,7 +74,7 @@
 		"winreg": "1.2.4",
 		"yargs": "^18.0.0",
 		"yargs-parser": "^22.0.0",
-		"yauzl": "^3.2.0",
+		"yauzl": "^3.2.1",
 		"zod": "^4.0.0"
 	},
 	"devDependencies": {
@@ -97,7 +97,7 @@
 		"@types/winreg": "^1.2.36",
 		"@types/yauzl": "^2.10.3",
 		"@vitejs/plugin-react": "^5.1.4",
-		"@wp-playground/blueprints": "3.1.11",
+		"@wp-playground/blueprints": "3.1.12",
 		"electron": "^41.0.2",
 		"electron-devtools-installer": "^4.0.0",
 		"electron-vite": "^5.0.0",

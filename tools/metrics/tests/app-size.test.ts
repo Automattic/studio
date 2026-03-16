@@ -10,16 +10,11 @@ test.describe( 'App Size Metrics', () => {
 		const results: Record< string, number > = {};
 
 		const macDir = path.join( outDir, 'Studio-darwin-arm64', 'Studio.app' );
-		const winDir = path.join( outDir, 'Studio-win32-x64' );
 
 		if ( fs.existsSync( macDir ) ) {
 			results.appSizeMac = getDirSize( macDir );
-		} else if ( fs.existsSync( winDir ) ) {
-			results.appSizeWin = getDirSize( winDir );
 		} else {
-			throw new Error(
-				`Could not find packaged app directory under ${ outDir }. Run 'npm run package' first.`
-			);
+			throw new Error( `Could not find packaged app at ${ macDir }. Run 'npm run package' first.` );
 		}
 
 		await testInfo.attach( 'results', {

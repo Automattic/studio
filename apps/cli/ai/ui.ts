@@ -19,12 +19,8 @@ import chalk from 'chalk';
 import { AI_MODELS, DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
 import { AI_CHAT_SLASH_COMMANDS, type SlashCommandDef } from 'cli/ai/slash-commands';
-import {
-	diffTodoSnapshot,
-	type TodoChange,
-	type TodoDiff,
-	type TodoEntry,
-} from 'cli/ai/todo-stream';
+import { buildTodoUpdateLines, type TodoRenderLine } from 'cli/ai/todo-render';
+import { diffTodoSnapshot, type TodoDiff, type TodoEntry } from 'cli/ai/todo-stream';
 import { getWpComSites } from 'cli/lib/api';
 import { getAuthToken, getSiteUrl, readAppdata, type SiteData } from 'cli/lib/appdata';
 import { openBrowser } from 'cli/lib/browser';
@@ -347,11 +343,6 @@ interface PendingTodoRender {
 	shouldRender: boolean;
 }
 
-interface RenderableToolLine {
-	text: string;
-	dim?: boolean;
-}
-
 function isTodoWriteInput( input: unknown ): input is TodoWriteInput {
 	if (
 		! input ||
@@ -369,27 +360,6 @@ function isTodoWriteInput( input: unknown ): input is TodoWriteInput {
 			typeof todo.activeForm === 'string' &&
 			( todo.status === 'pending' || todo.status === 'in_progress' || todo.status === 'completed' )
 	);
-}
-
-function formatTodoAction( action: 'added' | 'completed', todo: TodoChange ): string {
-	const verb = action === 'added' ? 'Added todo' : 'Completed todo';
-	return `${ verb }: ${ todo.content }`;
-}
-
-/**
- * Format a single todo snapshot line for display.
- * in_progress uses activeForm (present-tense "working on it" phrasing),
- * while pending/completed use content (the canonical description).
- */
-function formatTodoSnapshotLine( todo: TodoEntry ): string {
-	switch ( todo.status ) {
-		case 'completed':
-			return `${ chalk.green( '✓' ) } ${ chalk.dim( chalk.strikethrough( todo.content ) ) }`;
-		case 'in_progress':
-			return `${ chalk.yellow( '◐' ) } ${ chalk.dim( todo.activeForm ) }`;
-		default:
-			return `${ chalk.dim( '○' ) } ${ chalk.dim( todo.content ) }`;
-	}
 }
 
 function isMessageContentWithType( value: unknown ): value is MessageContentWithType {
@@ -460,7 +430,6 @@ function normalizeToolUseResult( result: unknown ): ToolUseResultContent | null 
 
 	return null;
 }
-
 export class AiChatUI {
 	private tui: TUI;
 	private editor: PromptEditor;
@@ -1620,24 +1589,13 @@ export class AiChatUI {
 	}
 
 	private renderTodoUpdate( pendingTodoRender: PendingTodoRender ): void {
-		const lines: RenderableToolLine[] = [
-			...pendingTodoRender.diff.added.map( ( todo ) => ( {
-				text: formatTodoAction( 'added', todo ),
-			} ) ),
-			...pendingTodoRender.diff.completed.map( ( todo ) => ( {
-				text: formatTodoAction( 'completed', todo ),
-			} ) ),
-			...( pendingTodoRender.diff.snapshot.length > 0
-				? [
-						{ text: 'Todo list:', dim: true } as RenderableToolLine,
-						...pendingTodoRender.diff.snapshot.map( ( todo ) => ( {
-							text: formatTodoSnapshotLine( todo ),
-						} ) ),
-				  ]
-				: [] ),
-		];
-		const formatted = lines.map( ( line ) => ( line.dim ? chalk.dim( line.text ) : line.text ) );
-		const rendered = formatToolOutputLines( formatted );
+		const lines: TodoRenderLine[] = buildTodoUpdateLines( pendingTodoRender.diff.snapshot );
+		if ( lines.length === 0 ) {
+			return;
+		}
+		const rendered = formatToolOutputLines(
+			lines.map( ( line ) => ( line.dim ? chalk.dim( line.text ) : line.text ) )
+		);
 		this.messages.addChild( new Text( rendered, 0, 0 ) );
 	}
 

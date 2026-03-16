@@ -441,9 +441,17 @@ const startServer = wrapWithStartingPromise(
 				if ( orphanedServer ) {
 					serveErrorPage( orphanedServer, errorMessage );
 					logToConsole( 'Error page server listening. Watching for file changes…' );
+					watchForPhpChanges( config );
+					process.send!( {
+						topic: 'console-message',
+						message: `PHP error: ${ errorMessage }`,
+					} );
+					return;
 				}
-				watchForPhpChanges( config );
-				return;
+
+				// No orphaned server to serve an error page — rethrow so the parent
+				// receives an error and can show a dialog to the user.
+				throw error;
 			}
 
 			errorToConsole( `Failed to start server:`, error );

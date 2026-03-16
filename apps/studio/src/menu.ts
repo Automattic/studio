@@ -175,10 +175,6 @@ async function getAppMenu(
 				...( process.env.NODE_ENV === 'development'
 					? [
 							{
-								label: __( 'Feature Flags' ),
-								submenu: featureFlagsMenu,
-							},
-							{
 								label: __( 'Open Appdata File (dev only)' ),
 								click: async () => {
 									const appdataPath = getUserDataFilePath();
@@ -187,6 +183,10 @@ async function getAppMenu(
 										console.error( `Error opening appdata file: ${ appdataPath } ${ err }` );
 									}
 								},
+							},
+							{
+								label: __( 'Feature Flags' ),
+								submenu: featureFlagsMenu,
 							},
 					  ]
 					: [] ),

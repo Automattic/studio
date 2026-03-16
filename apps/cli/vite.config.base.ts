@@ -2,16 +2,15 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { defineConfig } from 'vite';
 
-const packageVersion = JSON.parse(
-	readFileSync( resolve( __dirname, '..', 'studio', 'package.json' ), 'utf-8' )
-).version;
-
-export const nodeBuiltinExternals = [
+const nodeBuiltinExternals: RegExp[] = [
 	/^node:/,
 	/^(path|fs|os|child_process|crypto|http|https|http2|url|querystring|stream|util|events|buffer|assert|net|tty|readline|zlib|constants|tls|domain|dns)$/,
-	'fs/promises',
-	'dns/promises',
+	/^fs\/promises$/,
+	/^dns\/promises$/,
 ];
+
+const packageJson = JSON.parse( readFileSync( resolve( __dirname, 'package.json' ), 'utf-8' ) );
+const packageJsonDependencies = Object.keys( packageJson.dependencies || {} );
 
 export const baseConfig = defineConfig( {
 	build: {
@@ -30,7 +29,21 @@ export const baseConfig = defineConfig( {
 		rollupOptions: {
 			output: {
 				format: 'cjs',
+				interop: 'auto',
 				entryFileNames: '[name].js',
+			},
+			external: ( id ) => {
+				// Bundle the `@wp-playground/blueprints/blueprint-schema-validator` module since we've defined
+				// that module ourselves
+				if ( id.includes( 'blueprint-schema-validator' ) ) {
+					return false;
+				}
+
+				if ( nodeBuiltinExternals.some( ( pattern ) => pattern.test( id ) ) ) {
+					return true;
+				}
+
+				return packageJsonDependencies.some( ( dep ) => id === dep || id.startsWith( dep + '/' ) );
 			},
 		},
 		commonjsOptions: {
@@ -52,7 +65,7 @@ export const baseConfig = defineConfig( {
 		mainFields: [ 'main' ],
 	},
 	define: {
-		__STUDIO_CLI_VERSION__: JSON.stringify( packageVersion ),
+		__STUDIO_CLI_VERSION__: JSON.stringify( packageJson.version ),
 		__ENABLE_STUDIO_AI__: true,
 		__ENABLE_AGENT_SUITE__: true,
 	},

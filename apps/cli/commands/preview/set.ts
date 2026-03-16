@@ -23,19 +23,10 @@ export async function runCommand( host: string, options: SetCommandOptions ): Pr
 		throw new LoggerError( __( 'Preview site name cannot be empty.' ) );
 	}
 
-	try {
-		logger.reportStart( LoggerAction.SET, __( 'Updating preview site…' ) );
-		await setSnapshotInConfig( host, { name } );
-		await emitSnapshotEvent( SNAPSHOT_EVENTS.UPDATED, { snapshotUrl: host } );
-		logger.reportSuccess( __( 'Preview site updated' ) );
-	} catch ( error ) {
-		if ( error instanceof LoggerError ) {
-			logger.reportError( error );
-		} else {
-			const loggerError = new LoggerError( __( 'Failed to update preview site' ), error );
-			logger.reportError( loggerError );
-		}
-	}
+	logger.reportStart( LoggerAction.SET, __( 'Updating preview site…' ) );
+	await setSnapshotInConfig( host, { name } );
+	await emitSnapshotEvent( SNAPSHOT_EVENTS.UPDATED, { snapshotUrl: host } );
+	logger.reportSuccess( __( 'Preview site updated' ) );
 }
 
 export const registerCommand = ( yargs: StudioArgv ) => {

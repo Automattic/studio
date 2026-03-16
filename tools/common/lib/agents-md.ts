@@ -89,6 +89,81 @@ studio wp db query "SELECT option_name, option_value FROM wp_options LIMIT 10;"
 - Do not reference \`DB_NAME\`, \`DB_HOST\`, \`DB_USER\`, or \`DB_PASSWORD\` constants — they are not defined on this site
 - Plugins that explicitly check for a MySQL connection and refuse to run may not be compatible
 
+## Version Control
+
+Studio sites are regular directories — you can use git for version control and safe experimentation.
+
+**Initialize a new site:**
+\`\`\`bash
+cd /path/to/site
+git init
+git add -A
+git commit -m "Initial WordPress installation"
+\`\`\`
+
+**Before making changes** to an existing site, commit the current state so you can revert if needed:
+\`\`\`bash
+git add -A && git commit -m "Pre-modification checkpoint"
+\`\`\`
+
+**After making changes**, commit your work:
+\`\`\`bash
+git add -A && git commit -m "Add blog section with custom styling"
+\`\`\`
+
+**If something breaks**, revert to the last checkpoint:
+\`\`\`bash
+git checkout .          # Discard uncommitted changes
+git revert HEAD         # Undo the last commit (keeps history)
+\`\`\`
+
+**Recommended .gitignore** for Studio sites:
+\`\`\`
+# WordPress core (managed by Studio)
+/wp-admin/
+/wp-includes/
+/wp-*.php
+/index.php
+/xmlrpc.php
+/license.txt
+/readme.html
+
+# Database
+wp-content/database/
+
+# Studio internals
+wp-content/mu-plugins/sqlite-database-integration/
+wp-content/db.php
+\`\`\`
+
+This keeps only your custom work (themes, plugins, uploads) under version control.
+
+## Quality Checks
+
+After making changes to a site, verify your work:
+
+**Check for PHP errors:**
+\`\`\`bash
+studio wp eval "error_reporting(E_ALL); ini_set('display_errors', 1);" 2>&1
+cat wp-content/debug.log 2>/dev/null | tail -30
+\`\`\`
+
+**Verify the site responds:**
+\`\`\`bash
+studio wp option get siteurl    # Should return the site URL without errors
+studio wp post list --format=count  # Quick check that the database is accessible
+\`\`\`
+
+**Before modifying an existing site**, understand what is already there:
+\`\`\`bash
+studio wp theme list --status=active --format=json
+studio wp plugin list --status=active --format=json
+studio wp post list --post_type=page --format=json
+cat wp-content/themes/$(studio wp option get stylesheet)/theme.json 2>/dev/null
+\`\`\`
+
+This helps you make targeted changes that respect the existing design system and avoid breaking what already works.
+
 ## Studio-Specific Notes
 
 **WordPress core:** Do not modify files inside \`wp-includes/\` or \`wp-admin/\`. Studio sites run on WordPress Playground (PHP WASM), and core changes will not persist as expected.

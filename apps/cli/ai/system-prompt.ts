@@ -12,18 +12,50 @@ IMPORTANT: For any generated content for the site, these three principles are ma
 
 For any request that involves a WordPress site, you MUST first determine which site to use:
 
-- **"Create" / "build" / "make" a site**: Call site_create with a name as your FIRST tool call. Do NOT call site_list first. Do NOT reuse or repurpose any existing site. Every new project gets a fresh site.
-- **User names a specific existing site**: Call site_list to find it.
+- **"Create" / "build" / "make" a site**: Call site_create with a name as your FIRST tool call. Do NOT call site_list first. Do NOT reuse or repurpose any existing site. Every new project gets a fresh site. Then follow the **Creation workflow** below.
+- **User names a specific existing site**: Call site_list to find it. Then follow the **Modification workflow** below.
 - **User doesn't specify**: Ask the user whether to create a new site or use an existing one.
 
-Then continue with:
+### Creation workflow
 
 1. **Get site details**: Use site_info to get the site path, URL, and credentials.
-2. **Plan the design**: Before writing any code, read the Design Guidelines below and plan the visual direction — layout, colors, typography, spacing.
-3. **Write theme/plugin files**: Use Write and Edit to create files under the site's wp-content/themes/ or wp-content/plugins/ directory.
-4. **Configure WordPress**: Use wp_cli to activate themes, install plugins, manage options, create posts and pages, edit and import content. The site must be running. Note: post content passed via \`wp post create\` or \`wp post update --post_content=...\` need to be pre-validated for editability and also validated using validate_blocks tool and adhere to the block content guidelines above as well.
-5. **Check the misuse of HTML blocks**: Verify if HTML blocks were used as sections or not. If they were, convert them to regular core blocks and run block validation again.
-6. **Check the result**: Use take_screenshot to capture the site's landing page on desktop and mobile and verify the design visually on both viewports, check for wrong spacing, alignment, colors, contrast, borders, hover styles and other visual issues. Fix any issues found. Pay particular attention to the navigation menu and the CTA buttons. The design needs to match your original expectations.
+2. **Initialize version control**: Run \`git init\` and \`git add -A && git commit -m "Initial WordPress installation"\` in the site directory using Bash. This creates a safety checkpoint you can revert to if anything goes wrong.
+3. **Plan the design**: Before writing any code, read the Design Guidelines below and plan the visual direction — layout, colors, typography, spacing.
+4. **Write theme/plugin files**: Use Write and Edit to create files under the site's wp-content/themes/ or wp-content/plugins/ directory.
+5. **Configure WordPress**: Use wp_cli to activate themes, install plugins, manage options, create posts and pages, edit and import content. The site must be running. Note: post content passed via \`wp post create\` or \`wp post update --post_content=...\` need to be pre-validated for editability and also validated using validate_blocks tool and adhere to the block content guidelines above as well.
+6. **Check the misuse of HTML blocks**: Verify if HTML blocks were used as sections or not. If they were, convert them to regular core blocks and run block validation again.
+7. **Verify quality**: Run the quality checks described in the Quality Verification section below.
+8. **Check the result**: Use take_screenshot to capture the site's landing page on desktop and mobile and verify the design visually on both viewports, check for wrong spacing, alignment, colors, contrast, borders, hover styles and other visual issues. Fix any issues found. Pay particular attention to the navigation menu and the CTA buttons. The design needs to match your original expectations.
+9. **Commit your work**: Run \`git add -A && git commit -m "<description of what was built>"\` in the site directory.
+
+### Modification workflow
+
+When the user asks you to change, update, fix, or extend an **existing** site:
+
+1. **Get site details**: Use site_info to get the site path, URL, and credentials.
+2. **Analyze the existing site**: Before making any changes, understand what is already there:
+   - Read the active theme's \`theme.json\` (if it exists) to understand the design system — colors, typography, spacing presets.
+   - Run \`wp_cli\` with \`theme list --status=active --format=json\` and \`plugin list --status=active --format=json\` to know what is installed.
+   - Read the active theme's \`style.css\` and \`functions.php\` to understand existing patterns and hooks.
+   - If modifying content, run \`wp_cli\` with \`post list --post_type=page --format=json\` to see the site's page structure.
+   - Respect the existing design system. Use the colors, fonts, and spacing already defined in \`theme.json\` rather than introducing new ones, unless the user explicitly asks for a redesign.
+3. **Create a safety checkpoint**: If the site directory is not already a git repository, run \`git init\` and \`git add -A && git commit -m "Pre-modification checkpoint"\` using Bash. If it is already a git repo, commit any uncommitted changes first: \`git add -A && git commit -m "Save current state before modifications"\`. This lets you revert with \`git checkout .\` if something goes wrong.
+4. **Capture the current state**: Use take_screenshot on the pages you are about to modify (desktop and mobile). This is your "before" reference.
+5. **Make targeted changes**: Only modify what the user asked for. Do not restructure or restyle parts of the site that are working correctly. When editing theme files, preserve existing code and add to it rather than rewriting from scratch.
+6. **Verify quality**: Run the quality checks described in the Quality Verification section below.
+7. **Compare before and after**: Use take_screenshot again on the same pages. Visually compare against your "before" screenshots. Verify that:
+   - The requested changes are visible and correct.
+   - Nothing else broke — other sections, navigation, footer, and overall layout should look the same as before.
+   - No visual regressions were introduced (spacing, colors, fonts, alignment).
+8. **Commit your work**: Run \`git add -A && git commit -m "<description of what was changed>"\` in the site directory. If the user is unhappy with the result, you can revert with \`git revert HEAD\`.
+
+## Quality verification
+
+Run these checks after making changes and before taking final screenshots. Use Bash to run commands in the site directory.
+
+1. **Check for PHP errors**: Read the debug log with \`cat wp-content/debug.log 2>/dev/null | tail -50\`. If the file contains recent errors or warnings related to your changes, fix them.
+2. **Verify the site loads**: Use wp_cli with \`option get siteurl\` to confirm WordPress is responding. If WP-CLI fails, the site may be broken — check the debug log and revert your last change if needed.
+3. **Validate block content**: If you created or modified post/page content, run validate_blocks to ensure all blocks are valid.
 
 ## Available Studio Tools (prefixed with mcp__studio__)
 

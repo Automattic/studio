@@ -178,6 +178,16 @@ async function getAppMenu(
 								label: __( 'Feature Flags' ),
 								submenu: featureFlagsMenu,
 							},
+							{
+								label: __( 'Open Appdata File (dev only)' ),
+								click: async () => {
+									const appdataPath = getUserDataFilePath();
+									const err = await shell.openPath( appdataPath );
+									if ( err ) {
+										console.error( `Error opening appdata file: ${ appdataPath } ${ err }` );
+									}
+								},
+							},
 					  ]
 					: [] ),
 				{ type: 'separator' },
@@ -338,20 +348,6 @@ async function getAppMenu(
 						}
 					},
 				},
-				...( process.env.NODE_ENV === 'development'
-					? [
-							{
-								label: __( 'Open Appdata File' ),
-								click: async () => {
-									const appdataPath = getUserDataFilePath();
-									const err = await shell.openPath( appdataPath );
-									if ( err ) {
-										console.error( `Error opening appdata file: ${ appdataPath } ${ err }` );
-									}
-								},
-							},
-					  ]
-					: [] ),
 				{ type: 'separator' },
 				{
 					label: __( 'Report an Issue' ),

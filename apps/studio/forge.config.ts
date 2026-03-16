@@ -97,9 +97,15 @@ const config: ForgeConfig = {
 
 				setupExe: 'studio-setup.exe',
 
-				// Squirrel uses a vendored signtool that's too old for /dlib.
-				// Use windowsSign to create a fake signtool via @electron/windows-sign
-				// that delegates to our Azure signing hook instead.
+				// Squirrel's vendored signtool is too old for /dlib, so we
+				// inject windowsSign to make @electron/windows-sign create a
+				// shim signtool that delegates to our Azure signing hook.
+				//
+				// In CI, windowsSign is always defined (the module throws if
+				// the Azure env vars are missing). Locally it's undefined and
+				// the spread keeps the property absent — some Electron Forge
+				// makers treat an explicit undefined differently from a
+				// missing key.
 				...( windowsSign ? { windowsSign } : {} ),
 			},
 			[ 'win32' ]

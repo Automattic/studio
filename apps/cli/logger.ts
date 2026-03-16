@@ -9,6 +9,10 @@ export function setProgressCallback( callback: ProgressCallback | null ): void {
 	progressCallback = callback;
 }
 
+export function getProgressCallback(): ProgressCallback | null {
+	return progressCallback;
+}
+
 export function emitProgress( message: string ): void {
 	progressCallback?.( message );
 }

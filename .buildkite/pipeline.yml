@@ -64,9 +64,7 @@ steps:
       queue: mac
     command: bash .buildkite/commands/run-metrics-tests.sh
     artifact_paths:
-      - artifacts/**/*.json
-      - artifacts/**/*.results.json
-      - artifacts/**/*.summary.json
+      - tools/metrics/artifacts/**/*.json
     plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
     if: build.branch == 'trunk' || (build.pull_request.base_branch == 'trunk' && !build.pull_request.draft)
     notify:

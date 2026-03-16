@@ -1,10 +1,11 @@
 {
 	"name": "@automattic/wp-studio",
 	"author": "Automattic Inc.",
-	"version": "1.7.6-alpha3",
+	"version": "1.7.6-alpha4",
 	"productName": "Studio CLI",
 	"description": "WordPress Studio CLI",
 	"license": "GPL-2.0-or-later",
+	"type": "module",
 	"bin": {
 		"studio": "dist/cli/main.js"
 	},
@@ -56,7 +57,8 @@
 		"package": "npm run install:bundle && npm run build",
 		"watch": "vite build --config ./vite.config.ts --watch",
 		"prepublishOnly": "npm run build:npm",
-		"postinstall": "node scripts/postinstall-npm.mjs"
+		"postinstall": "node scripts/postinstall-npm.mjs",
+		"typecheck": "tsc -p tsconfig.json --noEmit"
 	},
 	"devDependencies": {
 		"@studio/common": "file:../../tools/common",

@@ -60,7 +60,7 @@ export async function startWordPressServer(
 	logger: Logger< string >,
 	options?: StartServerOptions
 ): Promise< ProcessDescription > {
-	const wordPressServerChildPath = path.resolve( __dirname, 'wordpress-server-child.js' );
+	const wordPressServerChildPath = path.resolve( import.meta.dirname, 'wordpress-server-child.js' );
 	const processName = getProcessName( site.id );
 
 	const serverConfig: ServerConfig = {
@@ -314,7 +314,7 @@ export async function runBlueprint(
 	logger: Logger< string >,
 	options: RunBlueprintOptions
 ): Promise< void > {
-	const wordPressServerChildPath = path.resolve( __dirname, 'wordpress-server-child.js' );
+	const wordPressServerChildPath = path.resolve( import.meta.dirname, 'wordpress-server-child.js' );
 	const processName = getProcessName( site.id );
 
 	const serverConfig: ServerConfig = {

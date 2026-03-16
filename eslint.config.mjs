@@ -88,5 +88,22 @@ export default defineConfig(
 		rules: {
 			'@typescript-eslint/no-require-imports': 'off',
 		},
+	},
+	{
+		files: [ 'apps/cli/**/*.{ts,tsx}' ],
+		ignores: [ 'apps/cli/vite.config*.ts', 'apps/cli/vitest.config.ts' ],
+		rules: {
+			'no-restricted-globals': [
+				'error',
+				{
+					name: '__dirname',
+					message: 'Use import.meta.dirname in ESM modules.',
+				},
+				{
+					name: '__filename',
+					message: 'Use import.meta.filename in ESM modules.',
+				},
+			],
+		},
 	}
 );

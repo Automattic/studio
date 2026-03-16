@@ -3,8 +3,7 @@ import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/crea
 import { runCommand as runDeletePreviewCommand } from 'cli/commands/preview/delete';
 import { runCommand as runListPreviewCommand } from 'cli/commands/preview/list';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
-import { readAppdata } from 'cli/lib/appdata';
-import { getSiteByFolder } from 'cli/lib/cli-config';
+import { getSiteByFolder, readCliConfig } from 'cli/lib/cli-config';
 import { getProgressCallback, setProgressCallback } from 'cli/logger';
 import { studioToolDefinitions } from '../tools';
 
@@ -57,14 +56,10 @@ vi.mock( 'cli/commands/site/stop', () => ( {
 	runCommand: vi.fn(),
 } ) );
 
-vi.mock( 'cli/lib/appdata', async () => ( {
-	...( await vi.importActual( 'cli/lib/appdata' ) ),
-	readAppdata: vi.fn(),
-} ) );
-
 vi.mock( 'cli/lib/cli-config', async () => ( {
 	...( await vi.importActual( 'cli/lib/cli-config' ) ),
 	getSiteByFolder: vi.fn(),
+	readCliConfig: vi.fn(),
 } ) );
 
 vi.mock( 'cli/lib/daemon-client', () => ( {
@@ -102,9 +97,9 @@ describe( 'Studio AI MCP tools', () => {
 		vi.resetAllMocks();
 		process.exitCode = undefined;
 		setProgressCallback( null );
-		vi.mocked( readAppdata ).mockResolvedValue( {
+		vi.mocked( readCliConfig ).mockResolvedValue( {
 			sites: [ mockSite ],
-		} as Awaited< ReturnType< typeof readAppdata > > );
+		} as Awaited< ReturnType< typeof readCliConfig > > );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( mockSite );
 	} );
 

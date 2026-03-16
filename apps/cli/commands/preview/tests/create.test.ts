@@ -5,8 +5,8 @@ import { vi } from 'vitest';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
-import { getSiteByFolder } from 'cli/lib/cli-config';
-import { saveSnapshotToConfig } from 'cli/lib/snapshots';
+import { getSiteByFolder, getNextSnapshotSequence } from 'cli/lib/cli-config';
+import { getSnapshotsFromConfig, saveSnapshotToConfig } from 'cli/lib/snapshots';
 import { LoggerError } from 'cli/logger';
 import { runCommand } from '../create';
 
@@ -27,13 +27,18 @@ vi.mock( 'cli/lib/appdata', async () => ( {
 vi.mock( 'cli/lib/cli-config', async () => ( {
 	...( await vi.importActual( 'cli/lib/cli-config' ) ),
 	getSiteByFolder: vi.fn(),
+	getNextSnapshotSequence: vi.fn().mockReturnValue( 1 ),
 } ) );
 vi.mock( 'cli/lib/validation', () => ( {
 	validateSiteSize: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/archive' );
 vi.mock( 'cli/lib/api' );
-vi.mock( 'cli/lib/snapshots' );
+vi.mock( 'cli/lib/snapshots', async () => ( {
+	...( await vi.importActual( 'cli/lib/snapshots' ) ),
+	getSnapshotsFromConfig: vi.fn().mockResolvedValue( [] ),
+	saveSnapshotToConfig: vi.fn(),
+} ) );
 vi.mock( 'cli/logger', () => ( {
 	Logger: class {
 		reportStart = mockReportStart;
@@ -138,7 +143,7 @@ describe( 'Preview Create Command', () => {
 			mockAtomicSiteId,
 			mockSiteUrl,
 			mockAuthToken.id,
-			undefined
+			'Test Site Preview 1'
 		);
 		expect( mockReportStart.mock.calls[ 4 ] ).toEqual( [
 			'appdata',

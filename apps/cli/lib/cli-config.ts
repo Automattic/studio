@@ -5,7 +5,7 @@ import { arePathsEqual, isWordPressDirectory } from '@studio/common/lib/fs-utils
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
 import { siteDetailsSchema } from '@studio/common/lib/site-events';
 import { snapshotSchema, type Snapshot } from '@studio/common/types/snapshot';
-import { __, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import { readFile, writeFile } from 'atomically';
 import { z } from 'zod';
 import { STUDIO_CLI_HOME } from 'cli/lib/paths';
@@ -233,7 +233,7 @@ export async function saveSnapshotToConfig(
 	atomicSiteId: number,
 	previewUrl: string,
 	userId: number,
-	name?: string
+	name: string
 ): Promise< Snapshot > {
 	try {
 		const site = await getSiteByFolder( siteFolder );
@@ -246,14 +246,7 @@ export async function saveSnapshotToConfig(
 			atomicSiteId,
 			localSiteId: site.id,
 			date: Date.now(),
-			name:
-				name ||
-				sprintf(
-					/* translators: 1: Site name 2: Sequence number (e.g. "My Site Name Preview 1") */
-					__( '%1$s Preview %2$d' ),
-					site.name,
-					nextSequenceNumber
-				),
+			name,
 			sequence: nextSequenceNumber,
 			userId,
 		};
@@ -327,7 +320,11 @@ export async function setSnapshotInConfig(
 	}
 }
 
-function getNextSnapshotSequence( siteId: string, snapshots: Snapshot[], userId: number ): number {
+export function getNextSnapshotSequence(
+	siteId: string,
+	snapshots: Snapshot[],
+	userId: number
+): number {
 	const siteSnapshots = snapshots.filter(
 		( s ) => s.localSiteId === siteId && s.userId === userId
 	);

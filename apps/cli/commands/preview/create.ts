@@ -7,9 +7,9 @@ import { __, sprintf } from '@wordpress/i18n';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
-import { getSiteByFolder } from 'cli/lib/cli-config';
+import { getSiteByFolder, getNextSnapshotSequence } from 'cli/lib/cli-config';
 import { emitSnapshotEvent } from 'cli/lib/daemon-client';
-import { saveSnapshotToConfig } from 'cli/lib/snapshots';
+import { getSnapshotsFromConfig, saveSnapshotToConfig } from 'cli/lib/snapshots';
 import { validateSiteSize } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -44,12 +44,24 @@ export async function runCommand( siteFolder: string, name?: string ): Promise< 
 		);
 
 		logger.reportStart( LoggerAction.APPDATA, __( 'Saving preview site to Studio…' ) );
+		let snapshotName = name;
+		if ( ! snapshotName ) {
+			const site = await getSiteByFolder( siteFolder );
+			const snapshots = await getSnapshotsFromConfig( token.id );
+			const sequence = getNextSnapshotSequence( site.id, snapshots, token.id );
+			snapshotName = sprintf(
+				/* translators: 1: Site name 2: Sequence number (e.g. "My Site Name Preview 1") */
+				__( '%1$s Preview %2$d' ),
+				site.name,
+				sequence
+			);
+		}
 		const snapshot = await saveSnapshotToConfig(
 			siteFolder,
 			uploadResponse.site_id,
 			uploadResponse.site_url,
 			token.id,
-			name
+			snapshotName
 		);
 		logger.reportSuccess( __( 'Preview site saved to Studio' ) );
 		await emitSnapshotEvent( SNAPSHOT_EVENTS.CREATED );

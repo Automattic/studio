@@ -100,7 +100,13 @@ describe( 'Snapshots Module', () => {
 
 			mocks.readFile.mockResolvedValue( JSON.stringify( mockUserData ) );
 
-			await saveSnapshotToConfig( mockSiteFolder, mockAtomicSiteId, mockSiteUrl, mockUserId );
+			await saveSnapshotToConfig(
+				mockSiteFolder,
+				mockAtomicSiteId,
+				mockSiteUrl,
+				mockUserId,
+				'Test Site Preview 1'
+			);
 
 			expect( writeFile ).toHaveBeenCalled();
 			const savedData = JSON.parse( mocks.writeFile.mock.calls[ 0 ][ 1 ] );
@@ -149,7 +155,13 @@ describe( 'Snapshots Module', () => {
 
 			mocks.readFile.mockResolvedValue( JSON.stringify( mockUserData ) );
 
-			await saveSnapshotToConfig( mockSiteFolder, mockAtomicSiteId + 1, mockSiteUrl, mockUserId );
+			await saveSnapshotToConfig(
+				mockSiteFolder,
+				mockAtomicSiteId + 1,
+				mockSiteUrl,
+				mockUserId,
+				'Test Site Preview 2'
+			);
 
 			expect( writeFile ).toHaveBeenCalled();
 			const savedData = JSON.parse( mocks.writeFile.mock.calls[ 0 ][ 1 ] );
@@ -189,7 +201,7 @@ describe( 'Snapshots Module', () => {
 			mocks.readFile.mockResolvedValue( JSON.stringify( mockUserData ) );
 
 			await expect(
-				saveSnapshotToConfig( mockSiteFolder, mockAtomicSiteId, mockSiteUrl, mockUserId )
+				saveSnapshotToConfig( mockSiteFolder, mockAtomicSiteId, mockSiteUrl, mockUserId, 'Test' )
 			).rejects.toThrow( LoggerError );
 
 			expect( writeFile ).not.toHaveBeenCalled();
@@ -199,7 +211,7 @@ describe( 'Snapshots Module', () => {
 			mocks.existsSync.mockReturnValueOnce( false );
 
 			await expect(
-				saveSnapshotToConfig( mockSiteFolder, mockAtomicSiteId, mockSiteUrl, mockUserId )
+				saveSnapshotToConfig( mockSiteFolder, mockAtomicSiteId, mockSiteUrl, mockUserId, 'Test' )
 			).rejects.toThrow( LoggerError );
 		} );
 	} );

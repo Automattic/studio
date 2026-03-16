@@ -3,7 +3,8 @@ import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/crea
 import { runCommand as runDeletePreviewCommand } from 'cli/commands/preview/delete';
 import { runCommand as runListPreviewCommand } from 'cli/commands/preview/list';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
-import { getSiteByFolder, readAppdata } from 'cli/lib/appdata';
+import { readAppdata } from 'cli/lib/appdata';
+import { getSiteByFolder } from 'cli/lib/cli-config';
 import { getProgressCallback, setProgressCallback } from 'cli/logger';
 import { studioToolDefinitions } from '../tools';
 
@@ -58,8 +59,12 @@ vi.mock( 'cli/commands/site/stop', () => ( {
 
 vi.mock( 'cli/lib/appdata', async () => ( {
 	...( await vi.importActual( 'cli/lib/appdata' ) ),
-	getSiteByFolder: vi.fn(),
 	readAppdata: vi.fn(),
+} ) );
+
+vi.mock( 'cli/lib/cli-config', async () => ( {
+	...( await vi.importActual( 'cli/lib/cli-config' ) ),
+	getSiteByFolder: vi.fn(),
 } ) );
 
 vi.mock( 'cli/lib/daemon-client', () => ( {

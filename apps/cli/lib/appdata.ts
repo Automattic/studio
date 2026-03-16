@@ -4,7 +4,6 @@ import path from 'path';
 import { LOCKFILE_NAME, LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from '@studio/common/constants';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
 import { snapshotSchema } from '@studio/common/types/snapshot';
-import { StatsMetric } from '@studio/common/types/stats';
 import { __ } from '@wordpress/i18n';
 import { readFile, writeFile } from 'atomically';
 import { z } from 'zod';
@@ -15,9 +14,6 @@ const betaFeaturesSchema = z.object( {} ).loose();
 const userDataSchema = z
 	.object( {
 		snapshots: z.array( snapshotSchema ).default( () => [] ),
-		lastBumpStats: z
-			.record( z.string(), z.partialRecord( z.enum( StatsMetric ), z.number() ) )
-			.optional(),
 		betaFeatures: betaFeaturesSchema.optional(),
 	} )
 	.loose();

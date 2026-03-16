@@ -4,6 +4,7 @@ import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from '@studio/common/constant
 import { arePathsEqual, isWordPressDirectory } from '@studio/common/lib/fs-utils';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
 import { siteDetailsSchema } from '@studio/common/lib/site-events';
+import { StatsMetric } from '@studio/common/types/stats';
 import { __ } from '@wordpress/i18n';
 import { readFile, writeFile } from 'atomically';
 import { z } from 'zod';
@@ -28,6 +29,9 @@ const cliConfigSchema = cliConfigWithJustVersion.extend( {
 	sites: z.array( siteSchema ).default( () => [] ),
 	aiProvider: aiProviderSchema.optional(),
 	anthropicApiKey: z.string().optional(),
+	lastBumpStats: z
+		.record( z.string(), z.partialRecord( z.enum( StatsMetric ), z.number() ) )
+		.optional(),
 } );
 
 type CliConfig = z.infer< typeof cliConfigSchema >;

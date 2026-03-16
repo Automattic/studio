@@ -26,7 +26,7 @@ import { registerCommand as registerSiteStartCommand } from 'cli/commands/site/s
 import { registerCommand as registerSiteStatusCommand } from 'cli/commands/site/status';
 import { registerCommand as registerSiteStopCommand } from 'cli/commands/site/stop';
 import { commandHandler as wpCliCommandHandler } from 'cli/commands/wp';
-import { readAppdata, lockAppdata, unlockAppdata, saveAppdata } from 'cli/lib/appdata';
+import { readCliConfig, lockCliConfig, unlockCliConfig, saveCliConfig } from 'cli/lib/cli-config';
 import { loadTranslations } from 'cli/lib/i18n';
 import { untildify } from 'cli/lib/utils';
 import { StudioArgv } from 'cli/types';
@@ -35,15 +35,15 @@ const version = __STUDIO_CLI_VERSION__;
 
 suppressPunycodeWarning();
 
-const cliAppdataProvider: AppdataProvider< LastBumpStatsData > = {
-	load: readAppdata,
-	lock: lockAppdata,
-	unlock: unlockAppdata,
+const cliConfigProvider: AppdataProvider< LastBumpStatsData > = {
+	load: readCliConfig,
+	lock: lockCliConfig,
+	unlock: unlockCliConfig,
 	save: async ( data ) => {
-		// Cast is safe: data comes from readAppdata() which returns the full UserData type.
+		// Cast is safe: data comes from readCliConfig() which returns the full CliConfig type.
 		// The lock/unlock is already handled by the caller (updateLastBump in /common/lib/bump-stat.ts)
 		// eslint-disable-next-line studio/require-lock-before-save
-		await saveAppdata( data as never );
+		await saveCliConfig( data as never );
 	},
 };
 
@@ -76,7 +76,7 @@ async function main() {
 						StatsGroup.STUDIO_CLI_USAGE_UNIQUE,
 						StatsMetric.SUCCESS,
 						'weekly',
-						cliAppdataProvider
+						cliConfigProvider
 					);
 				} catch ( error ) {
 					console.error( 'Failed to bump stat:', error );

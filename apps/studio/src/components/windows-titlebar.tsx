@@ -31,8 +31,12 @@ export default function WindowsTitlebar( {
 		>
 			<Button
 				variant="icon"
-				onClick={ () => {
-					getIpcApi().popupAppMenu();
+				onClick={ ( e: React.MouseEvent< HTMLButtonElement > ) => {
+					const rect = e.currentTarget.getBoundingClientRect();
+					getIpcApi().popupAppMenu( {
+						x: Math.round( rect.left ),
+						y: Math.round( rect.bottom ),
+					} );
 				} }
 				className="!px-3 !py-2 app-no-drag-region"
 			>

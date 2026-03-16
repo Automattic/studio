@@ -131,18 +131,6 @@ describe( 'useAddSite', () => {
 		nock.cleanAll();
 	} );
 
-	it( 'should provide default PHP version', () => {
-		const { result } = renderHookWithProvider( () => useAddSite() );
-
-		expect( result.current.defaultPhpVersion ).toBe( '8.3' );
-	} );
-
-	it( 'should provide default WordPress version', () => {
-		const { result } = renderHookWithProvider( () => useAddSite() );
-
-		expect( result.current.defaultWpVersion ).toBe( 'latest' );
-	} );
-
 	it( 'should create site with provided form values', async () => {
 		mockCreateSite.mockImplementation(
 			( path, name, wpVersion, customDomain, enableHttps, blueprint, phpVersion, callback ) => {

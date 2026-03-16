@@ -1,4 +1,8 @@
-import { MINIMUM_WORDPRESS_VERSION } from '@studio/common/constants';
+import {
+	DEFAULT_PHP_VERSION,
+	DEFAULT_WORDPRESS_VERSION,
+	MINIMUM_WORDPRESS_VERSION,
+} from '@studio/common/constants';
 import { extractFormValuesFromBlueprint } from '@studio/common/lib/blueprint-settings';
 import {
 	BlueprintPreferredVersions,
@@ -20,7 +24,6 @@ import { useBlueprintDeeplink } from 'src/modules/add-site/hooks/use-blueprint-d
 import { SyncSite } from 'src/modules/sync/types';
 import { useRootSelector, useAppDispatch, useI18nLocale } from 'src/stores';
 import { formatRtkError } from 'src/stores/format-rtk-error';
-import { selectMinimumWordPressVersion } from 'src/stores/provider-constants-slice';
 import { openAddSiteModal, closeAddSiteModal, selectIsAddSiteModalOpen } from 'src/stores/ui-slice';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import { useGetBlueprints, Blueprint } from 'src/stores/wpcom-api';
@@ -449,14 +452,10 @@ export function AddSiteModalContent( {
 	} = useGetBlueprints( { locale } );
 
 	const { sites, loadingSites } = useSiteDetails();
-	const minimumWordPressVersion = useRootSelector( selectMinimumWordPressVersion );
-
 	const {
 		handleCreateSite,
 		selectPath,
 		generateProposedPath,
-		defaultPhpVersion,
-		defaultWpVersion,
 		deeplinkPhpVersion,
 		deeplinkWpVersion,
 		fileForImport,
@@ -484,7 +483,7 @@ export function AddSiteModalContent( {
 	} = addSiteProps;
 
 	const { data: versions = [] } = useGetWordPressVersions( {
-		minimumVersion: minimumWordPressVersion,
+		minimumVersion: MINIMUM_WORDPRESS_VERSION,
 	} );
 	const latestStableVersion = versions.find( ( version ) => version.value === 'latest' );
 
@@ -537,16 +536,14 @@ export function AddSiteModalContent( {
 		() => ( {
 			siteName: defaultSiteName,
 			sitePath: defaultSitePath,
-			phpVersion: isDeeplinkFlow ? deeplinkPhpVersion : defaultPhpVersion,
+			phpVersion: isDeeplinkFlow ? deeplinkPhpVersion : DEFAULT_PHP_VERSION,
 			wpVersion: isDeeplinkFlow
 				? deeplinkWpVersion
-				: latestStableVersion?.value ?? defaultWpVersion,
+				: latestStableVersion?.value ?? DEFAULT_WORDPRESS_VERSION,
 		} ),
 		[
 			defaultSiteName,
 			defaultSitePath,
-			defaultPhpVersion,
-			defaultWpVersion,
 			deeplinkPhpVersion,
 			deeplinkWpVersion,
 			isDeeplinkFlow,

@@ -2,13 +2,9 @@ import path from 'node:path';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
 import { __ } from '@wordpress/i18n';
 import yargs from 'yargs';
-import {
-	bumpAggregatedUniqueStat,
-	getPlatformMetric,
-	StatsGroup,
-	StatsMetric,
-} from 'cli/lib/bump-stat';
+import { bumpAggregatedUniqueStat, getPlatformMetric } from 'cli/lib/bump-stat';
 import { loadTranslations } from 'cli/lib/i18n';
+import { StatsGroup, StatsMetric } from 'cli/lib/types/bump-stats';
 import { untildify } from 'cli/lib/utils';
 import { StudioArgv } from 'cli/types';
 

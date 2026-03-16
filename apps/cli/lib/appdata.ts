@@ -11,7 +11,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { readFile, writeFile } from 'atomically';
 import { z } from 'zod';
 import { validateAccessToken } from 'cli/lib/api';
-import { StatsMetric } from 'cli/lib/bump-stat';
+import { StatsMetric } from 'cli/lib/types/bump-stats';
 import { LoggerError } from 'cli/logger';
 import type { AiProviderId } from 'cli/ai/providers';
 

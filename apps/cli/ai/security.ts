@@ -1,7 +1,11 @@
 import os from 'os';
 import path from 'path';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
-import type { PermissionUpdate } from '@anthropic-ai/claude-agent-sdk';
+import type {
+	CanUseTool,
+	PermissionResult,
+	PermissionUpdate,
+} from '@anthropic-ai/claude-agent-sdk';
 
 export interface AskUserQuestion {
 	question: string;
@@ -204,4 +208,56 @@ export async function askForPathGatedToolApproval( {
 	}
 
 	return 'deny';
+}
+
+export async function promptForApproval( {
+	toolName,
+	input,
+	metadata,
+	onAskUser,
+	pathApprovalSession,
+}: {
+	toolName: string;
+	input: Parameters< CanUseTool >[ 1 ];
+	metadata?: Parameters< CanUseTool >[ 2 ];
+	onAskUser?: AskUserHandler;
+	pathApprovalSession: PathApprovalSession;
+} ): Promise< PermissionResult > {
+	const permissionRequest = getPathGatedPermissionRequest( {
+		toolName,
+		input,
+		blockedPath: metadata?.blockedPath,
+		suggestions: metadata?.suggestions,
+	} );
+
+	if ( permissionRequest ) {
+		if ( ! pathApprovalSession.hasApprovedPath( toolName, permissionRequest.approvalPath ) ) {
+			const approvalDecision = await askForPathGatedToolApproval( {
+				toolName,
+				outsidePath: permissionRequest.approvalPath,
+				onAskUser,
+			} );
+
+			if ( approvalDecision === 'deny' ) {
+				return {
+					behavior: 'deny' as const,
+					message: ACCESS_DENIED_MESSAGE,
+				};
+			}
+
+			if ( approvalDecision === 'allow_session' ) {
+				pathApprovalSession.rememberApprovedPath( toolName, permissionRequest.approvalPath );
+			}
+		}
+
+		return {
+			behavior: 'allow' as const,
+			updatedInput: input,
+			...( permissionRequest.updatedPermissions && {
+				updatedPermissions: permissionRequest.updatedPermissions,
+			} ),
+		};
+	}
+
+	return { behavior: 'allow' as const, updatedInput: input };
 }

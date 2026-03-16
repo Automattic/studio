@@ -1,11 +1,9 @@
 import { query, type Query } from '@anthropic-ai/claude-agent-sdk';
 import {
-	ACCESS_DENIED_MESSAGE,
 	ALLOWED_TOOLS,
 	STUDIO_ROOT,
-	askForPathGatedToolApproval,
 	createPathApprovalSession,
-	getPathGatedPermissionRequest,
+	promptForApproval,
 	type AskUserQuestion,
 } from 'cli/ai/security';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
@@ -71,43 +69,13 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 					};
 				}
 
-				const permissionRequest = getPathGatedPermissionRequest( {
+				return promptForApproval( {
 					toolName,
 					input,
-					blockedPath: metadata.blockedPath,
-					suggestions: metadata.suggestions,
+					metadata,
+					onAskUser,
+					pathApprovalSession,
 				} );
-
-				if ( permissionRequest ) {
-					if ( ! pathApprovalSession.hasApprovedPath( toolName, permissionRequest.approvalPath ) ) {
-						const approvalDecision = await askForPathGatedToolApproval( {
-							toolName,
-							outsidePath: permissionRequest.approvalPath,
-							onAskUser,
-						} );
-
-						if ( approvalDecision === 'deny' ) {
-							return {
-								behavior: 'deny' as const,
-								message: ACCESS_DENIED_MESSAGE,
-							};
-						}
-
-						if ( approvalDecision === 'allow_session' ) {
-							pathApprovalSession.rememberApprovedPath( toolName, permissionRequest.approvalPath );
-						}
-					}
-
-					return {
-						behavior: 'allow' as const,
-						updatedInput: input,
-						...( permissionRequest.updatedPermissions && {
-							updatedPermissions: permissionRequest.updatedPermissions,
-						} ),
-					};
-				}
-
-				return { behavior: 'allow' as const, updatedInput: input };
 			},
 			model,
 			resume,

@@ -2,6 +2,7 @@ import os from 'os';
 import path from 'path';
 import { vi } from 'vitest';
 import {
+	ACCESS_DENIED_MESSAGE,
 	STUDIO_ROOT,
 	askForPathGatedToolApproval,
 	createPathApprovalSession,
@@ -9,10 +10,22 @@ import {
 	getPathGatedPermissionRequest,
 	isPathGatedTool,
 	isPathWithinStudioRoot,
+	promptForApproval,
 	resolveToolPath,
 	type AskUserQuestion,
 } from 'cli/ai/security';
-import type { PermissionUpdate } from '@anthropic-ai/claude-agent-sdk';
+import type { CanUseTool, PermissionUpdate } from '@anthropic-ai/claude-agent-sdk';
+
+function createCanUseToolMetadata(
+	overrides: Partial< Parameters< CanUseTool >[ 2 ] > = {}
+): Parameters< CanUseTool >[ 2 ] {
+	const abortController = new AbortController();
+	return {
+		signal: abortController.signal,
+		toolUseID: 'test-tool-use-id',
+		...overrides,
+	};
+}
 
 describe( 'AI security helpers', () => {
 	it( 'resolves home-relative and Studio-relative paths', () => {
@@ -157,5 +170,172 @@ describe( 'askForPathGatedToolApproval', () => {
 		} );
 
 		expect( result ).toBe( 'deny' );
+	} );
+} );
+
+describe( 'promptForApproval', () => {
+	it( 'allows when no permission request is needed', async () => {
+		const input = { questions: [] };
+
+		const result = await promptForApproval( {
+			toolName: 'AskUserQuestion',
+			input,
+			pathApprovalSession: createPathApprovalSession(),
+		} );
+
+		expect( result ).toEqual( {
+			behavior: 'allow',
+			updatedInput: input,
+		} );
+	} );
+
+	it( 'allows outside path access when user selects Allow once', async () => {
+		const outsidePath = path.resolve( os.homedir(), 'Downloads/outside.txt' );
+		const onAskUser = vi.fn( async ( questions: AskUserQuestion[] ) => ( {
+			[ questions[ 0 ].question ]: 'Allow once',
+		} ) );
+
+		const result = await promptForApproval( {
+			toolName: 'Write',
+			input: { path: outsidePath },
+			metadata: createCanUseToolMetadata( { blockedPath: outsidePath } ),
+			onAskUser,
+			pathApprovalSession: createPathApprovalSession(),
+		} );
+
+		expect( result ).toEqual( {
+			behavior: 'allow',
+			updatedInput: { path: outsidePath },
+		} );
+	} );
+
+	it( 'denies outside path access when user selects Deny', async () => {
+		const outsidePath = path.resolve( os.homedir(), 'Downloads/outside.txt' );
+		const onAskUser = vi.fn( async ( questions: AskUserQuestion[] ) => ( {
+			[ questions[ 0 ].question ]: 'Deny',
+		} ) );
+
+		const result = await promptForApproval( {
+			toolName: 'Write',
+			input: { path: outsidePath },
+			metadata: createCanUseToolMetadata( { blockedPath: outsidePath } ),
+			onAskUser,
+			pathApprovalSession: createPathApprovalSession(),
+		} );
+
+		expect( result ).toEqual( {
+			behavior: 'deny',
+			message: ACCESS_DENIED_MESSAGE,
+		} );
+	} );
+
+	it( 'reuses Allow for this session for repeated access in the same directory', async () => {
+		const outsideDirectory = path.resolve( os.homedir(), 'Downloads' );
+		const outsidePath = path.resolve( outsideDirectory, 'outside.txt' );
+		const nestedPath = path.resolve( outsideDirectory, 'nested/again.txt' );
+		const suggestions: PermissionUpdate[] = [
+			{
+				type: 'addDirectories',
+				directories: [ outsideDirectory ],
+				destination: 'session',
+			},
+		];
+		const session = createPathApprovalSession();
+		let askCount = 0;
+		const onAskUser = vi.fn( async ( questions: AskUserQuestion[] ) => {
+			const answer = askCount === 0 ? 'Allow for this session' : 'Deny';
+			askCount += 1;
+			return {
+				[ questions[ 0 ].question ]: answer,
+			};
+		} );
+
+		const firstResult = await promptForApproval( {
+			toolName: 'Write',
+			input: { path: outsidePath },
+			metadata: createCanUseToolMetadata( { blockedPath: outsidePath, suggestions } ),
+			onAskUser,
+			pathApprovalSession: session,
+		} );
+		const secondResult = await promptForApproval( {
+			toolName: 'Write',
+			input: { path: nestedPath },
+			metadata: createCanUseToolMetadata( {
+				blockedPath: nestedPath,
+				suggestions,
+			} ),
+			onAskUser,
+			pathApprovalSession: session,
+		} );
+
+		expect( firstResult ).toEqual( {
+			behavior: 'allow',
+			updatedInput: { path: outsidePath },
+			updatedPermissions: suggestions,
+		} );
+		expect( secondResult ).toEqual( {
+			behavior: 'allow',
+			updatedInput: { path: nestedPath },
+			updatedPermissions: suggestions,
+		} );
+	} );
+
+	it( 'does not reuse session approval for a different directory', async () => {
+		const downloadsDirectory = path.resolve( os.homedir(), 'Downloads' );
+		const desktopDirectory = path.resolve( os.homedir(), 'Desktop' );
+		const downloadsPath = path.resolve( downloadsDirectory, 'outside.txt' );
+		const desktopPath = path.resolve( desktopDirectory, 'outside.txt' );
+		const downloadsSuggestions: PermissionUpdate[] = [
+			{
+				type: 'addDirectories',
+				directories: [ downloadsDirectory ],
+				destination: 'session',
+			},
+		];
+		const desktopSuggestions: PermissionUpdate[] = [
+			{
+				type: 'addDirectories',
+				directories: [ desktopDirectory ],
+				destination: 'session',
+			},
+		];
+		const session = createPathApprovalSession();
+		const onAskUser = vi.fn( async ( questions: AskUserQuestion[] ) => {
+			const question = questions[ 0 ].question;
+			return {
+				[ question ]: question.includes( downloadsDirectory ) ? 'Allow for this session' : 'Deny',
+			};
+		} );
+
+		const firstResult = await promptForApproval( {
+			toolName: 'Write',
+			input: { path: downloadsPath },
+			metadata: createCanUseToolMetadata( {
+				blockedPath: downloadsPath,
+				suggestions: downloadsSuggestions,
+			} ),
+			onAskUser,
+			pathApprovalSession: session,
+		} );
+		const secondResult = await promptForApproval( {
+			toolName: 'Write',
+			input: { path: desktopPath },
+			metadata: createCanUseToolMetadata( {
+				blockedPath: desktopPath,
+				suggestions: desktopSuggestions,
+			} ),
+			onAskUser,
+			pathApprovalSession: session,
+		} );
+
+		expect( firstResult ).toEqual( {
+			behavior: 'allow',
+			updatedInput: { path: downloadsPath },
+			updatedPermissions: downloadsSuggestions,
+		} );
+		expect( secondResult ).toEqual( {
+			behavior: 'deny',
+			message: ACCESS_DENIED_MESSAGE,
+		} );
 	} );
 } );

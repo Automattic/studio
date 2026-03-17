@@ -78,19 +78,6 @@ function populatePhpVersion( sites: SiteDetails[] ) {
 	} );
 }
 
-function legacyPopulateSnapshotUserIds( data: UserData ): void {
-	const userId = data.authToken?.id;
-
-	if ( userId && data.snapshots ) {
-		data.snapshots = data.snapshots.map( ( snapshot ) => {
-			if ( ! snapshot.userId ) {
-				return { ...snapshot, userId };
-			}
-			return snapshot;
-		} );
-	}
-}
-
 export async function loadUserData(): Promise< UserData > {
 	migrateUserDataOldName();
 	const filePath = getUserDataFilePath();
@@ -101,9 +88,6 @@ export async function loadUserData(): Promise< UserData > {
 			const parsed = JSON.parse( asString );
 			const data = fromDiskFormat( parsed );
 
-			// Temporarily populate old snapshots with userId of authenticated user.
-			// See PR #937 for more context.
-			legacyPopulateSnapshotUserIds( data );
 			sortSites( data.sites );
 			populatePhpVersion( data.sites );
 			return data;
@@ -123,7 +107,6 @@ export async function loadUserData(): Promise< UserData > {
 		if ( isErrnoException( err ) && err.code === 'ENOENT' ) {
 			return {
 				sites: [],
-				snapshots: [],
 			};
 		}
 		console.error( `Failed to load file ${ sanitizeUserpath( filePath ) }: ${ err }` );
@@ -151,7 +134,6 @@ type UserDataSafeKeys =
 	| 'devToolsOpen'
 	| 'windowBounds'
 	| 'authToken'
-	| 'snapshots'
 	| 'onboardingCompleted'
 	| 'locale'
 	| 'promptWindowsSpeedUpResult'

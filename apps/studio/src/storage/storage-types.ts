@@ -1,4 +1,3 @@
-import { Snapshot } from '@studio/common/types/snapshot';
 import { StatsMetric } from 'src/lib/bump-stats';
 import { StoredToken } from 'src/lib/oauth';
 import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
@@ -15,7 +14,6 @@ export interface WindowBounds {
 
 export interface UserData {
 	sites: SiteDetails[];
-	snapshots: Snapshot[];
 	devToolsOpen?: boolean;
 	windowBounds?: WindowBounds;
 	authToken?: StoredToken;

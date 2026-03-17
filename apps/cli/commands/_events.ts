@@ -6,12 +6,20 @@
  * stdout key-value pairs that Studio parses.
  */
 
+import {
+	SITE_EVENTS,
+	SNAPSHOT_EVENTS,
+	siteDetailsSchema,
+	siteSocketEventSchema,
+	snapshotSocketEventSchema,
+	SiteEvent,
+	SnapshotEvent,
+} from '@studio/common/lib/cli-events';
 import { sequential } from '@studio/common/lib/sequential';
-import { SITE_EVENTS, siteDetailsSchema, SiteEvent } from '@studio/common/lib/site-events';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
-import { z } from 'zod';
-import { getSiteUrl, readCliConfig, SiteData } from 'cli/lib/cli-config';
+import { readCliConfig, SiteData } from 'cli/lib/cli-config/core';
+import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import {
 	connectToDaemon,
 	disconnectFromDaemon,
@@ -68,18 +76,31 @@ async function emitAllSitesStopped(): Promise< void > {
 	}
 }
 
-const siteEventSchema = z.object( {
-	event: z.string(),
-	data: z.object( {
-		siteId: z.string(),
-	} ),
-} );
+const emitSnapshotEvent = sequential(
+	async ( event: SNAPSHOT_EVENTS, snapshotUrl: string ): Promise< void > => {
+		const cliConfig = await readCliConfig();
+		const snapshot = cliConfig.snapshots.find( ( s ) => s.url === snapshotUrl );
+		const payload: SnapshotEvent = {
+			event,
+			snapshotUrl,
+			snapshot: snapshot ?? undefined,
+		};
+
+		logger.reportKeyValuePair( 'snapshot-event', JSON.stringify( payload ) );
+	}
+);
 
 export async function runCommand(): Promise< void > {
 	const eventsSocketServer = new SocketServer( SITE_EVENTS_SOCKET_PATH, 2500 );
 	eventsSocketServer.on( 'message', ( { message: packet } ) => {
 		try {
-			const parsedPacket = siteEventSchema.parse( packet );
+			const snapshotParsed = snapshotSocketEventSchema.safeParse( packet );
+			if ( snapshotParsed.success ) {
+				void emitSnapshotEvent( snapshotParsed.data.event, snapshotParsed.data.data.snapshotUrl );
+				return;
+			}
+
+			const parsedPacket = siteSocketEventSchema.parse( packet );
 			if (
 				parsedPacket.event === SITE_EVENTS.CREATED ||
 				parsedPacket.event === SITE_EVENTS.UPDATED ||

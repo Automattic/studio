@@ -3,7 +3,8 @@ import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-a
 import { __ } from '@wordpress/i18n';
 import { openBrowser } from 'cli/lib/browser';
 import { generateSiteCertificate } from 'cli/lib/certificate-manager';
-import { getSiteUrl, readCliConfig, SiteData } from 'cli/lib/cli-config';
+import { readCliConfig, SiteData } from 'cli/lib/cli-config/core';
+import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { isProxyProcessRunning, startProxyProcess, stopProxyProcess } from 'cli/lib/daemon-client';
 import { addDomainToHosts } from 'cli/lib/hosts-file';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';

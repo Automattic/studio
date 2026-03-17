@@ -1,5 +1,5 @@
 import { generateSiteName as generateSiteNameShared } from '@studio/common/lib/generate-site-name';
-import { readCliConfig } from 'cli/lib/cli-config';
+import { readCliConfig } from 'cli/lib/cli-config/core';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 
 export async function generateSiteName(): Promise< string > {

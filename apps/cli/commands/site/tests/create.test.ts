@@ -18,12 +18,11 @@ import { vi, type MockInstance } from 'vitest';
 import {
 	lockCliConfig,
 	readCliConfig,
-	removeSiteFromConfig,
 	saveCliConfig,
 	unlockCliConfig,
-	updateSiteAutoStart,
 	SiteData,
-} from 'cli/lib/cli-config';
+} from 'cli/lib/cli-config/core';
+import { removeSiteFromConfig, updateSiteAutoStart } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { getServerFilesPath } from 'cli/lib/server-files';
@@ -47,14 +46,20 @@ vi.mock( '@studio/common/lib/passwords', () => ( {
 	createPassword: vi.fn().mockReturnValue( 'generated-password-123' ),
 } ) );
 vi.mock( '@studio/common/lib/blueprint-validation' );
-vi.mock( 'cli/lib/cli-config', async () => {
-	const actual = await vi.importActual( 'cli/lib/cli-config' );
+vi.mock( 'cli/lib/cli-config/core', async () => {
+	const actual = await vi.importActual( 'cli/lib/cli-config/core' );
 	return {
 		...actual,
 		readCliConfig: vi.fn(),
 		saveCliConfig: vi.fn(),
 		lockCliConfig: vi.fn(),
 		unlockCliConfig: vi.fn(),
+	};
+} );
+vi.mock( 'cli/lib/cli-config/sites', async () => {
+	const actual = await vi.importActual( 'cli/lib/cli-config/sites' );
+	return {
+		...actual,
 		updateSiteLatestCliPid: vi.fn(),
 		updateSiteAutoStart: vi.fn().mockResolvedValue( undefined ),
 		removeSiteFromConfig: vi.fn(),

@@ -34,7 +34,6 @@ import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
-import { Snapshot } from '@studio/common/types/snapshot';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import { MACOS_TRAFFIC_LIGHT_POSITION, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
@@ -128,6 +127,8 @@ export {
 export {
 	createSnapshot,
 	deleteSnapshot,
+	fetchSnapshots,
+	setSnapshot,
 	updateSnapshot,
 } from 'src/modules/preview-site/lib/ipc-handlers';
 
@@ -767,25 +768,8 @@ export async function exportSite(
 	}
 }
 
-export async function saveSnapshotsToStorage( event: IpcMainInvokeEvent, snapshots: Snapshot[] ) {
-	try {
-		await lockAppdata();
-		const userData = await loadUserData();
-		userData.snapshots = snapshots;
-		await saveUserData( userData );
-	} finally {
-		await unlockAppdata();
-	}
-}
-
 export async function saveLastSeenVersion( event: IpcMainInvokeEvent, version: string ) {
 	await updateAppdata( { lastSeenVersion: version } );
-}
-
-export async function getSnapshots( _event: IpcMainInvokeEvent ): Promise< Snapshot[] > {
-	const userData = await loadUserData();
-	const { snapshots = [] } = userData;
-	return snapshots;
 }
 
 export async function getLastSeenVersion(

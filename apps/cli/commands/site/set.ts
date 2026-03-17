@@ -1,5 +1,6 @@
 import { SupportedPHPVersions } from '@php-wasm/universal';
 import { DEFAULT_WORDPRESS_VERSION, MINIMUM_WORDPRESS_VERSION } from '@studio/common/constants';
+import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { getDomainNameValidationError } from '@studio/common/lib/domains';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
 import {
@@ -7,7 +8,6 @@ import {
 	validateAdminEmail,
 	validateAdminUsername,
 } from '@studio/common/lib/passwords';
-import { SITE_EVENTS } from '@studio/common/lib/site-events';
 import { siteNeedsRestart } from '@studio/common/lib/site-needs-restart';
 import {
 	getWordPressVersionUrl,
@@ -17,14 +17,13 @@ import {
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
 import {
-	getSiteByFolder,
 	lockCliConfig,
 	readCliConfig,
 	saveCliConfig,
 	unlockCliConfig,
-	updateSiteLatestCliPid,
-} from 'cli/lib/cli-config';
-import { connectToDaemon, disconnectFromDaemon, emitSiteEvent } from 'cli/lib/daemon-client';
+} from 'cli/lib/cli-config/core';
+import { getSiteByFolder, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
+import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import { updateDomainInHosts } from 'cli/lib/hosts-file';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { setupCustomDomain } from 'cli/lib/site-utils';
@@ -315,7 +314,7 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 
 		logger.reportSuccess( __( 'Site configuration updated' ) );
 
-		await emitSiteEvent( SITE_EVENTS.UPDATED, { siteId: site.id } );
+		await emitCliEvent( { event: SITE_EVENTS.UPDATED, data: { siteId: site.id } } );
 
 		return;
 	} finally {

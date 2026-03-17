@@ -201,6 +201,7 @@ function toDiskFormat( { sites, ...rest }: UserData ): PersistedUserData {
 				enableXdebug,
 				enableDebugLog,
 				enableDebugDisplay,
+				enablePhpMyAdmin,
 				sortOrder,
 			} ) => {
 				// No object spreading allowed. TypeScript's structural typing is too permissive and
@@ -223,6 +224,7 @@ function toDiskFormat( { sites, ...rest }: UserData ): PersistedUserData {
 					enableXdebug,
 					enableDebugLog,
 					enableDebugDisplay,
+					enablePhpMyAdmin,
 					sortOrder,
 					themeDetails: {
 						name: themeDetails?.name || '',

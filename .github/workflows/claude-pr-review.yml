@@ -53,7 +53,7 @@ jobs:
                - Clean code principles and TypeScript best practices
                - Proper error handling and edge cases
                - Code readability and maintainability
-               - Following patterns in docs/ai-skills.md
+               - Following patterns in docs/ai-instructions.md
 
             3. **Security (OWASP Top 10)**
                - SQL injection, XSS, authentication/authorization flaws
@@ -76,7 +76,7 @@ jobs:
 
             6. **Documentation**
                - Code properly documented
-               - docs/ai-skills.md updates for new features or architectural changes
+               - docs/ai-instructions.md updates for new features or architectural changes
                - API documentation accuracy
                - README updates if needed
 

@@ -1,12 +1,10 @@
 import { vi } from 'vitest';
+import { SiteData, readCliConfig, saveCliConfig } from 'cli/lib/cli-config/core';
 import {
-	SiteData,
 	clearSiteLatestCliPid,
 	getSiteByFolder,
-	readCliConfig,
-	saveCliConfig,
 	updateSiteAutoStart,
-} from 'cli/lib/cli-config';
+} from 'cli/lib/cli-config/sites';
 import {
 	connectToDaemon,
 	disconnectFromDaemon,
@@ -17,15 +15,21 @@ import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Mode, runCommand } from '../stop';
 
-vi.mock( 'cli/lib/cli-config', async () => {
-	const actual = await vi.importActual( 'cli/lib/cli-config' );
+vi.mock( 'cli/lib/cli-config/core', async () => {
+	const actual = await vi.importActual( 'cli/lib/cli-config/core' );
+	return {
+		...actual,
+		readCliConfig: vi.fn(),
+		saveCliConfig: vi.fn().mockResolvedValue( undefined ),
+	};
+} );
+vi.mock( 'cli/lib/cli-config/sites', async () => {
+	const actual = await vi.importActual( 'cli/lib/cli-config/sites' );
 	return {
 		...actual,
 		getSiteByFolder: vi.fn(),
-		readCliConfig: vi.fn(),
 		clearSiteLatestCliPid: vi.fn(),
 		updateSiteAutoStart: vi.fn().mockResolvedValue( undefined ),
-		saveCliConfig: vi.fn().mockResolvedValue( undefined ),
 	};
 } );
 vi.mock( 'cli/lib/daemon-client' );

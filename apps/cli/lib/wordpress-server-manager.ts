@@ -12,7 +12,7 @@ import {
 } from '@studio/common/constants';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { z } from 'zod';
-import { SiteData } from 'cli/lib/cli-config';
+import { SiteData } from 'cli/lib/cli-config/core';
 import {
 	isProcessRunning,
 	startProcess,

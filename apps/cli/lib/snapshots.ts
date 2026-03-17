@@ -8,7 +8,7 @@ export {
 	saveSnapshotToConfig,
 	updateSnapshotInConfig,
 	deleteSnapshotFromConfig,
-} from 'cli/lib/cli-config';
+} from 'cli/lib/cli-config/snapshots';
 
 export function isSnapshotExpired( snapshot: Snapshot ) {
 	const now = new Date();

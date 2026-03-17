@@ -5,7 +5,8 @@ import { vi } from 'vitest';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
-import { getSiteByFolder, getNextSnapshotSequence } from 'cli/lib/cli-config';
+import { getSiteByFolder } from 'cli/lib/cli-config/sites';
+import { getNextSnapshotSequence } from 'cli/lib/cli-config/snapshots';
 import { getSnapshotsFromConfig, saveSnapshotToConfig } from 'cli/lib/snapshots';
 import { LoggerError } from 'cli/logger';
 import { runCommand } from '../create';
@@ -24,10 +25,13 @@ vi.mock( 'cli/lib/appdata', async () => ( {
 	getAppdataDirectory: vi.fn().mockReturnValue( '/test/appdata' ),
 	getAuthToken: vi.fn(),
 } ) );
-vi.mock( 'cli/lib/cli-config', async () => ( {
-	...( await vi.importActual( 'cli/lib/cli-config' ) ),
-	getSiteByFolder: vi.fn(),
+vi.mock( 'cli/lib/cli-config/snapshots', async () => ( {
+	...( await vi.importActual( 'cli/lib/cli-config/snapshots' ) ),
 	getNextSnapshotSequence: vi.fn().mockReturnValue( 1 ),
+} ) );
+vi.mock( 'cli/lib/cli-config/sites', async () => ( {
+	...( await vi.importActual( 'cli/lib/cli-config/sites' ) ),
+	getSiteByFolder: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/validation', () => ( {
 	validateSiteSize: vi.fn(),

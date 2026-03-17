@@ -52,13 +52,15 @@ import {
 import {
 	lockCliConfig,
 	readCliConfig,
-	removeSiteFromConfig,
 	saveCliConfig,
 	SiteData,
 	unlockCliConfig,
+} from 'cli/lib/cli-config/core';
+import {
+	removeSiteFromConfig,
 	updateSiteAutoStart,
 	updateSiteLatestCliPid,
-} from 'cli/lib/cli-config';
+} from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import { generateSiteName, getDefaultSitePath } from 'cli/lib/generate-site-name';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';

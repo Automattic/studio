@@ -1,11 +1,11 @@
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { vi } from 'vitest';
-import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config';
+import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { runCommand } from '../status';
-vi.mock( 'cli/lib/cli-config', async () => {
-	const actual = await vi.importActual( 'cli/lib/cli-config' );
+vi.mock( 'cli/lib/cli-config/sites', async () => {
+	const actual = await vi.importActual( 'cli/lib/cli-config/sites' );
 	return {
 		...actual,
 		getSiteByFolder: vi.fn(),

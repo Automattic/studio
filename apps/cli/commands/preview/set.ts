@@ -1,7 +1,7 @@
 import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
-import { setSnapshotInConfig } from 'cli/lib/cli-config';
+import { setSnapshotInConfig } from 'cli/lib/cli-config/snapshots';
 import { emitCliEvent } from 'cli/lib/daemon-client';
 import { normalizeHostname } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';

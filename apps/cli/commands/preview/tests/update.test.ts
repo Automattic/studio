@@ -7,7 +7,7 @@ import { vi } from 'vitest';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
-import { getSiteByFolder } from 'cli/lib/cli-config';
+import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { updateSnapshotInConfig, getSnapshotsFromConfig } from 'cli/lib/snapshots';
 import { LoggerError } from 'cli/logger';
 import { mockReportStart, mockReportSuccess, mockReportError } from 'cli/tests/test-utils';
@@ -22,8 +22,8 @@ vi.mock( 'cli/lib/appdata', async () => {
 		getAuthToken: vi.fn(),
 	};
 } );
-vi.mock( 'cli/lib/cli-config', async () => {
-	const actual = await vi.importActual( 'cli/lib/cli-config' );
+vi.mock( 'cli/lib/cli-config/sites', async () => {
+	const actual = await vi.importActual( 'cli/lib/cli-config/sites' );
 	return {
 		...actual,
 		getSiteByFolder: vi.fn(),

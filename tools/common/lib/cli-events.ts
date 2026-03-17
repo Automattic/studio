@@ -61,7 +61,7 @@ export const siteEventSchema = z.object( {
 export type SiteEvent = z.infer< typeof siteEventSchema >;
 
 export const snapshotEventSchema = z.object( {
-	event: z.nativeEnum( SNAPSHOT_EVENTS ),
+	event: z.enum( SNAPSHOT_EVENTS ),
 	snapshot: snapshotSchema.optional(),
 	snapshotUrl: z.string(),
 } );
@@ -79,7 +79,7 @@ export const siteSocketEventSchema = z.object( {
 } );
 
 export const snapshotSocketEventSchema = z.object( {
-	event: z.nativeEnum( SNAPSHOT_EVENTS ),
+	event: z.enum( SNAPSHOT_EVENTS ),
 	data: z.object( {
 		snapshotUrl: z.string(),
 	} ),

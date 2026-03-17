@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
 import { getAuthToken } from 'cli/lib/appdata';
-import { getSiteByFolder } from 'cli/lib/cli-config';
+import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { getSnapshotsFromConfig } from 'cli/lib/snapshots';
 import {
 	mockReportStart,
@@ -20,12 +20,18 @@ vi.mock( 'cli/lib/appdata', async () => {
 		getAuthToken: vi.fn(),
 	};
 } );
-vi.mock( 'cli/lib/cli-config', async () => {
-	const actual = await vi.importActual( 'cli/lib/cli-config' );
+vi.mock( 'cli/lib/cli-config/core', async () => {
+	const actual = await vi.importActual( 'cli/lib/cli-config/core' );
+	return {
+		...actual,
+		readCliConfig: vi.fn(),
+	};
+} );
+vi.mock( 'cli/lib/cli-config/sites', async () => {
+	const actual = await vi.importActual( 'cli/lib/cli-config/sites' );
 	return {
 		...actual,
 		getSiteByFolder: vi.fn(),
-		readCliConfig: vi.fn(),
 	};
 } );
 vi.mock( 'cli/lib/snapshots' );

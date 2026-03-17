@@ -7,12 +7,12 @@ import { deleteSnapshot } from 'cli/lib/api';
 import { getAuthToken, ValidatedAuthToken } from 'cli/lib/appdata';
 import { deleteSiteCertificate } from 'cli/lib/certificate-manager';
 import {
-	getSiteByFolder,
 	lockCliConfig,
 	readCliConfig,
 	saveCliConfig,
 	unlockCliConfig,
-} from 'cli/lib/cli-config';
+} from 'cli/lib/cli-config/core';
+import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';

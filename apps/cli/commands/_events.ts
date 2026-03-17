@@ -18,7 +18,8 @@ import {
 import { sequential } from '@studio/common/lib/sequential';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
-import { getSiteUrl, readCliConfig, SiteData } from 'cli/lib/cli-config';
+import { readCliConfig, SiteData } from 'cli/lib/cli-config/core';
+import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import {
 	connectToDaemon,
 	disconnectFromDaemon,

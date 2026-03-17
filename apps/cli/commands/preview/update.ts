@@ -10,7 +10,7 @@ import { addDays } from 'date-fns';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { cleanup, archiveSiteContent } from 'cli/lib/archive';
-import { getSiteByFolder } from 'cli/lib/cli-config';
+import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { emitCliEvent } from 'cli/lib/daemon-client';
 import { getSnapshotsFromConfig, updateSnapshotInConfig } from 'cli/lib/snapshots';
 import { normalizeHostname } from 'cli/lib/utils';

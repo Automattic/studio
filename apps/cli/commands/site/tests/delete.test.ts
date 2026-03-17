@@ -7,12 +7,12 @@ import { getAuthToken } from 'cli/lib/appdata';
 import { deleteSiteCertificate } from 'cli/lib/certificate-manager';
 import {
 	SiteData,
-	getSiteByFolder,
 	lockCliConfig,
 	readCliConfig,
 	saveCliConfig,
 	unlockCliConfig,
-} from 'cli/lib/cli-config';
+} from 'cli/lib/cli-config/core';
+import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
@@ -30,15 +30,21 @@ vi.mock( 'cli/lib/appdata', async () => {
 		getAuthToken: vi.fn(),
 	};
 } );
-vi.mock( 'cli/lib/cli-config', async () => {
-	const actual = await vi.importActual( 'cli/lib/cli-config' );
+vi.mock( 'cli/lib/cli-config/core', async () => {
+	const actual = await vi.importActual( 'cli/lib/cli-config/core' );
 	return {
 		...actual,
-		getSiteByFolder: vi.fn(),
 		lockCliConfig: vi.fn(),
 		readCliConfig: vi.fn(),
 		saveCliConfig: vi.fn(),
 		unlockCliConfig: vi.fn(),
+	};
+} );
+vi.mock( 'cli/lib/cli-config/sites', async () => {
+	const actual = await vi.importActual( 'cli/lib/cli-config/sites' );
+	return {
+		...actual,
+		getSiteByFolder: vi.fn(),
 	};
 } );
 vi.mock( 'cli/lib/certificate-manager' );

@@ -17,13 +17,12 @@ import {
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
 import {
-	getSiteByFolder,
 	lockCliConfig,
 	readCliConfig,
 	saveCliConfig,
 	unlockCliConfig,
-	updateSiteLatestCliPid,
-} from 'cli/lib/cli-config';
+} from 'cli/lib/cli-config/core';
+import { getSiteByFolder, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import { updateDomainInHosts } from 'cli/lib/hosts-file';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';

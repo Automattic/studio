@@ -1,3 +1,4 @@
+process.env.ENABLE_STUDIO_AI = 'true';
 import path from 'node:path';
 import {
 	bumpAggregatedUniqueStat,

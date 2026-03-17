@@ -244,6 +244,9 @@ const toolDisplayNames: Record< string, string > = {
 	mcp__studio__wp_cli: 'Run WP-CLI',
 	mcp__studio__validate_blocks: 'Validate blocks',
 	mcp__studio__take_screenshot: 'Take screenshot',
+	mcp__figma__get_design_context: 'Figma design',
+	mcp__figma__get_screenshot: 'Figma screenshot',
+	mcp__figma__get_variable_defs: 'Figma variables',
 	Read: 'Read',
 	Write: 'Write',
 	Edit: 'Edit',
@@ -278,6 +281,19 @@ function getToolDetail( name: string, input: Record< string, unknown > ): string
 			return 'inline content';
 		case 'mcp__studio__take_screenshot':
 			return typeof input.url === 'string' ? input.url : '';
+		case 'mcp__figma__get_design_context':
+		case 'mcp__figma__get_screenshot':
+		case 'mcp__figma__get_variable_defs': {
+			if ( typeof input.url !== 'string' ) {
+				return '';
+			}
+			try {
+				const segments = new URL( input.url ).pathname.split( '/' ).filter( Boolean );
+				return segments[ 2 ] ? decodeURIComponent( segments[ 2 ] ).replace( /-/g, ' ' ) : '';
+			} catch {
+				return '';
+			}
+		}
 		case 'Read':
 		case 'Write':
 		case 'Edit': {

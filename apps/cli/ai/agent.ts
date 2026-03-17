@@ -44,6 +44,7 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 			},
 			mcpServers: {
 				studio: createStudioTools(),
+				figma: { type: 'http', url: 'https://mcp.figma.com/mcp' },
 			},
 			maxTurns,
 			cwd: process.cwd(),
@@ -64,7 +65,20 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 				}
 				return { behavior: 'allow' as const, updatedInput: input };
 			},
-			allowedTools: [ 'mcp__studio__*', 'Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep' ],
+			allowedTools: [
+				'mcp__studio__*',
+				'mcp__figma__*',
+				'Read',
+				'Write',
+				'Edit',
+				'Bash',
+				'Glob',
+				'Grep',
+			],
+			// get_metadata responses are too large for the JSON transport and
+			// crash the session. Figma's own docs recommend get_design_context
+			// instead, which returns the same structural info in compact form.
+			disallowedTools: [ 'mcp__figma__get_metadata' ],
 			model,
 			resume,
 		},

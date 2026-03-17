@@ -70,6 +70,7 @@
 		"eslint-plugin-react-hooks": "^7.0.1",
 		"eslint-plugin-studio": "file:tools/eslint-plugin-studio",
 		"fs-extra": "^11.3.3",
+		"glob": "^13.0.6",
 		"isomorphic-fetch": "^3.0.0",
 		"jsdom": "^24.0.0",
 		"nock": "^13.5.6",

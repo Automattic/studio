@@ -611,6 +611,13 @@ const pollPushProgressThunk = createTypedAsyncThunk(
 			switch ( response.status ) {
 				case 'finished':
 					status = pushStatesProgressInfo.finished;
+					void dispatch(
+						connectedSitesApi.endpoints.updateSiteTimestamp.initiate( {
+							siteId: remoteSiteId,
+							localSiteId: selectedSiteId,
+							type: 'push',
+						} )
+					);
 					void dispatch( connectedSitesApi.util.invalidateTags( [ 'ConnectedSites' ] ) );
 					getIpcApi().showNotification( {
 						title: currentPushState.selectedSite.name,
@@ -823,6 +830,13 @@ const pollPullBackupThunk = createTypedAsyncThunk(
 
 				await getIpcApi().removeSyncBackup( remoteSiteId );
 
+				void dispatch(
+					connectedSitesApi.endpoints.updateSiteTimestamp.initiate( {
+						siteId: remoteSiteId,
+						localSiteId: selectedSiteId,
+						type: 'pull',
+					} )
+				);
 				void dispatch( connectedSitesApi.util.invalidateTags( [ 'ConnectedSites' ] ) );
 
 				dispatch(

@@ -491,6 +491,10 @@ export async function updateSite(
 		options.debugDisplay = updatedSite.enableDebugDisplay ?? false;
 	}
 
+	if ( updatedSite.enablePhpMyAdmin !== currentSite.enablePhpMyAdmin ) {
+		options.phpmyadmin = updatedSite.enablePhpMyAdmin ?? false;
+	}
+
 	const hasCliChanges = Object.keys( options ).length > 2;
 
 	if ( hasCliChanges ) {

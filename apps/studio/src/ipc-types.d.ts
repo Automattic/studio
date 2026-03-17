@@ -35,6 +35,7 @@ interface StoppedSiteDetails {
 	enableXdebug?: boolean;
 	enableDebugLog?: boolean;
 	enableDebugDisplay?: boolean;
+	enablePhpMyAdmin?: boolean;
 	sortOrder?: number;
 }
 

@@ -22,6 +22,7 @@ export interface EditSiteOptions {
 	adminEmail?: string;
 	debugLog?: boolean;
 	debugDisplay?: boolean;
+	phpmyadmin?: boolean;
 }
 
 export async function editSiteViaCli( options: EditSiteOptions ): Promise< void > {
@@ -102,6 +103,10 @@ function buildCliArgs( options: EditSiteOptions ): string[] {
 
 	if ( options.debugDisplay !== undefined ) {
 		args.push( options.debugDisplay ? '--debug-display' : '--no-debug-display' );
+	}
+
+	if ( options.phpmyadmin !== undefined ) {
+		args.push( options.phpmyadmin ? '--phpmyadmin' : '--no-phpmyadmin' );
 	}
 
 	return args;

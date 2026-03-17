@@ -54,6 +54,7 @@ export interface SetCommandOptions {
 	adminEmail?: string;
 	debugLog?: boolean;
 	debugDisplay?: boolean;
+	phpmyadmin?: boolean;
 }
 
 export async function runCommand( sitePath: string, options: SetCommandOptions ): Promise< void > {
@@ -68,6 +69,7 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 		adminPassword,
 		debugLog,
 		debugDisplay,
+		phpmyadmin,
 	} = options;
 	let { adminEmail } = options;
 
@@ -82,11 +84,12 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 		adminPassword === undefined &&
 		adminEmail === undefined &&
 		debugLog === undefined &&
-		debugDisplay === undefined
+		debugDisplay === undefined &&
+		phpmyadmin === undefined
 	) {
 		throw new LoggerError(
 			__(
-				'At least one option (--name, --domain, --https, --php, --wp, --xdebug, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display) is required.'
+				'At least one option (--name, --domain, --https, --php, --wp, --xdebug, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --phpmyadmin) is required.'
 			)
 		);
 	}
@@ -171,6 +174,7 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 		const debugLogChanged = debugLog !== undefined && debugLog !== site.enableDebugLog;
 		const debugDisplayChanged =
 			debugDisplay !== undefined && debugDisplay !== site.enableDebugDisplay;
+		const phpmyadminChanged = phpmyadmin !== undefined && phpmyadmin !== site.enablePhpMyAdmin;
 
 		const hasChanges =
 			nameChanged ||
@@ -181,7 +185,8 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 			xdebugChanged ||
 			credentialsChanged ||
 			debugLogChanged ||
-			debugDisplayChanged;
+			debugDisplayChanged ||
+			phpmyadminChanged;
 		if ( ! hasChanges ) {
 			throw new LoggerError(
 				__( 'No changes to apply. The site already has the specified settings.' )
@@ -197,6 +202,7 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 			credentialsChanged,
 			debugLogChanged,
 			debugDisplayChanged,
+			phpmyadminChanged,
 		} );
 		const oldDomain = site.customDomain;
 
@@ -237,6 +243,9 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 			}
 			if ( debugDisplayChanged ) {
 				foundSite.enableDebugDisplay = debugDisplay;
+			}
+			if ( phpmyadminChanged ) {
+				foundSite.enablePhpMyAdmin = phpmyadmin;
 			}
 
 			await saveAppdata( appdata );
@@ -392,6 +401,10 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'debug-display', {
 					type: 'boolean',
 					description: __( 'Enable WP_DEBUG_DISPLAY' ),
+				} )
+				.option( 'phpmyadmin', {
+					type: 'boolean',
+					description: __( 'Enable phpMyAdmin' ),
 				} );
 		},
 		handler: async ( argv ) => {
@@ -408,6 +421,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					adminEmail: argv.adminEmail,
 					debugLog: argv.debugLog,
 					debugDisplay: argv.debugDisplay,
+					phpmyadmin: argv.phpmyadmin,
 				} );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {

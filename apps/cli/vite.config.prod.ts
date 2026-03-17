@@ -1,6 +1,6 @@
 import { existsSync, rmSync } from 'fs';
 import { resolve } from 'path';
-import glob from 'glob';
+import { globSync } from 'glob';
 import { defineConfig, mergeConfig } from 'vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 import devConfig from './vite.config.dev';
@@ -30,7 +30,7 @@ export default mergeConfig(
 							name: 'prune-php-wasm',
 							apply: 'build' as const,
 							closeBundle() {
-								const asyncifyPaths = glob.sync( '@php-wasm/node-*/asyncify/', {
+								const asyncifyPaths = globSync( '@php-wasm/node-*/asyncify/', {
 									cwd: distCliNodeModulesPath,
 									absolute: true,
 								} );

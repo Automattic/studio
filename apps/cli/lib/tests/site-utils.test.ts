@@ -1,13 +1,13 @@
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { vi, type Mock } from 'vitest';
-import { SiteData, readCliConfig } from 'cli/lib/cli-config';
+import { SiteData, readCliConfig } from 'cli/lib/cli-config/core';
 import { isProxyProcessRunning, stopProxyProcess } from 'cli/lib/daemon-client';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
 
-vi.mock( 'cli/lib/cli-config', async () => {
-	const actual = await vi.importActual( 'cli/lib/cli-config' );
+vi.mock( 'cli/lib/cli-config/core', async () => {
+	const actual = await vi.importActual( 'cli/lib/cli-config/core' );
 	return {
 		...actual,
 		readCliConfig: vi.fn(),

@@ -1,10 +1,10 @@
 import { vi } from 'vitest';
+import { SiteData } from 'cli/lib/cli-config/core';
 import {
 	getSiteByFolder,
-	updateSiteLatestCliPid,
 	updateSiteAutoStart,
-	SiteData,
-} from 'cli/lib/cli-config';
+	updateSiteLatestCliPid,
+} from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
@@ -13,8 +13,8 @@ import { isServerRunning, startWordPressServer } from 'cli/lib/wordpress-server-
 import { Logger } from 'cli/logger';
 import { runCommand } from '../start';
 
-vi.mock( 'cli/lib/cli-config', async () => ( {
-	...( await vi.importActual( 'cli/lib/cli-config' ) ),
+vi.mock( 'cli/lib/cli-config/sites', async () => ( {
+	...( await vi.importActual( 'cli/lib/cli-config/sites' ) ),
 	getSiteByFolder: vi.fn(),
 	updateSiteLatestCliPid: vi.fn(),
 	updateSiteAutoStart: vi.fn().mockResolvedValue( undefined ),

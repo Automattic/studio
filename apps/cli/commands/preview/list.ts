@@ -1,12 +1,13 @@
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import Table from 'cli-table3';
+import CliTable3 from 'cli-table3';
 import { format } from 'date-fns';
-import { getSiteByFolder } from 'cli/lib/cli-config';
+import { readCliConfig } from 'cli/lib/cli-config/core';
+import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import {
 	formatDurationUntilExpiry,
-	getSnapshotsFromAppdata,
+	getSnapshotsFromConfig,
 	isSnapshotExpired,
 } from 'cli/lib/snapshots';
 import { getColumnWidths } from 'cli/lib/utils';
@@ -20,6 +21,14 @@ export async function runCommand(
 	const logger = new Logger< LoggerAction >();
 
 	try {
+		if ( outputFormat === 'json' ) {
+			const config = await readCliConfig();
+			const json = JSON.stringify( config.snapshots );
+			console.log( json );
+			logger.reportKeyValuePair( 'snapshots', json );
+			return;
+		}
+
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating…' ) );
 		await getSiteByFolder( siteFolder );
 		const token = await readAuthToken();
@@ -31,7 +40,7 @@ export async function runCommand(
 		logger.reportSuccess( __( 'Validation successful' ), true );
 
 		logger.reportStart( LoggerAction.LOAD, __( 'Loading preview sites…' ) );
-		const snapshots = await getSnapshotsFromAppdata( token.id, siteFolder );
+		const snapshots = await getSnapshotsFromConfig( token.id, siteFolder );
 
 		if ( snapshots.length === 0 ) {
 			logger.reportSuccess( __( 'No preview sites found' ) );
@@ -58,7 +67,7 @@ export async function runCommand(
 
 		if ( outputFormat === 'table' ) {
 			const colWidths = getColumnWidths( [ 0.4, 0.25, 0.175, 0.175 ] );
-			const table = new Table( {
+			const table = new CliTable3( {
 				head: [ __( 'URL' ), __( 'Site Name' ), __( 'Updated' ), __( 'Expires in' ) ],
 				wordWrap: true,
 				wrapOnWordBoundary: false,
@@ -82,15 +91,6 @@ export async function runCommand(
 			}
 
 			console.log( table.toString() );
-		} else {
-			const output = snapshots.map( ( snapshot ) => ( {
-				url: `https://${ snapshot.url }`,
-				name: snapshot.name,
-				date: format( snapshot.date, 'yyyy-MM-dd HH:mm' ),
-				expiresIn: formatDurationUntilExpiry( snapshot.date ),
-			} ) );
-
-			console.log( JSON.stringify( output, null, 2 ) );
 		}
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {

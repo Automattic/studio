@@ -1,12 +1,10 @@
 import { vi } from 'vitest';
+import { SiteData, readCliConfig, saveCliConfig } from 'cli/lib/cli-config/core';
 import {
-	SiteData,
 	clearSiteLatestCliPid,
 	getSiteByFolder,
-	readCliConfig,
-	saveCliConfig,
 	updateSiteAutoStart,
-} from 'cli/lib/cli-config';
+} from 'cli/lib/cli-config/sites';
 import {
 	connectToDaemon,
 	disconnectFromDaemon,
@@ -17,15 +15,21 @@ import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Mode, runCommand } from '../stop';
 
-vi.mock( 'cli/lib/cli-config', async () => {
-	const actual = await vi.importActual( 'cli/lib/cli-config' );
+vi.mock( 'cli/lib/cli-config/core', async () => {
+	const actual = await vi.importActual( 'cli/lib/cli-config/core' );
+	return {
+		...actual,
+		readCliConfig: vi.fn(),
+		saveCliConfig: vi.fn().mockResolvedValue( undefined ),
+	};
+} );
+vi.mock( 'cli/lib/cli-config/sites', async () => {
+	const actual = await vi.importActual( 'cli/lib/cli-config/sites' );
 	return {
 		...actual,
 		getSiteByFolder: vi.fn(),
-		readCliConfig: vi.fn(),
 		clearSiteLatestCliPid: vi.fn(),
 		updateSiteAutoStart: vi.fn().mockResolvedValue( undefined ),
-		saveCliConfig: vi.fn().mockResolvedValue( undefined ),
 	};
 } );
 vi.mock( 'cli/lib/daemon-client' );
@@ -238,7 +242,11 @@ describe( 'CLI: studio site stop --all', () => {
 		} );
 
 		it( 'should throw when process manager connection fails', async () => {
-			vi.mocked( readCliConfig ).mockResolvedValue( { version: 1, sites: testSites } );
+			vi.mocked( readCliConfig ).mockResolvedValue( {
+				version: 1,
+				sites: testSites,
+				snapshots: [],
+			} );
 			vi.mocked( connectToDaemon ).mockRejectedValue(
 				new Error( 'process manager connection failed' )
 			);
@@ -250,7 +258,11 @@ describe( 'CLI: studio site stop --all', () => {
 		} );
 
 		it( 'should throw when killDaemonAndAllChildren fails', async () => {
-			vi.mocked( readCliConfig ).mockResolvedValue( { version: 1, sites: testSites } );
+			vi.mocked( readCliConfig ).mockResolvedValue( {
+				version: 1,
+				sites: testSites,
+				snapshots: [],
+			} );
 			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
 			vi.mocked( killDaemonAndChildren ).mockRejectedValue( new Error( 'Failed to kill daemon' ) );
 
@@ -263,7 +275,7 @@ describe( 'CLI: studio site stop --all', () => {
 
 	describe( 'Success Cases', () => {
 		it( 'should kill daemon even with empty sites list', async () => {
-			vi.mocked( readCliConfig ).mockResolvedValue( { version: 1, sites: [] } );
+			vi.mocked( readCliConfig ).mockResolvedValue( { version: 1, sites: [], snapshots: [] } );
 
 			await runCommand( Mode.STOP_ALL_SITES, undefined, false );
 
@@ -272,7 +284,11 @@ describe( 'CLI: studio site stop --all', () => {
 		} );
 
 		it( 'should kill daemon even if no sites are running', async () => {
-			vi.mocked( readCliConfig ).mockResolvedValue( { version: 1, sites: testSites } );
+			vi.mocked( readCliConfig ).mockResolvedValue( {
+				version: 1,
+				sites: testSites,
+				snapshots: [],
+			} );
 
 			vi.mocked( isServerRunning ).mockResolvedValue( undefined );
 
@@ -285,7 +301,11 @@ describe( 'CLI: studio site stop --all', () => {
 		} );
 
 		it( 'should handle single site', async () => {
-			vi.mocked( readCliConfig ).mockResolvedValue( { version: 1, sites: [ testSites[ 0 ] ] } );
+			vi.mocked( readCliConfig ).mockResolvedValue( {
+				version: 1,
+				sites: [ testSites[ 0 ] ],
+				snapshots: [],
+			} );
 			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
 
 			await runCommand( Mode.STOP_ALL_SITES, undefined, false );
@@ -305,7 +325,11 @@ describe( 'CLI: studio site stop --all', () => {
 		} );
 
 		it( 'should stop all running sites', async () => {
-			vi.mocked( readCliConfig ).mockResolvedValue( { version: 1, sites: testSites } );
+			vi.mocked( readCliConfig ).mockResolvedValue( {
+				version: 1,
+				sites: testSites,
+				snapshots: [],
+			} );
 			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
 
 			await runCommand( Mode.STOP_ALL_SITES, undefined, false );
@@ -341,7 +365,11 @@ describe( 'CLI: studio site stop --all', () => {
 		} );
 
 		it( 'should stop only running sites (mixed state)', async () => {
-			vi.mocked( readCliConfig ).mockResolvedValue( { version: 1, sites: testSites } );
+			vi.mocked( readCliConfig ).mockResolvedValue( {
+				version: 1,
+				sites: testSites,
+				snapshots: [],
+			} );
 
 			vi.mocked( isServerRunning )
 				.mockResolvedValueOnce( testProcessDescription ) // site-1 running

@@ -1,11 +1,11 @@
 import { vi } from 'vitest';
-import { readCliConfig } from 'cli/lib/cli-config';
+import { readCliConfig } from 'cli/lib/cli-config/core';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { mockReportKeyValuePair } from 'cli/tests/test-utils';
 import { runCommand } from '../list';
-vi.mock( 'cli/lib/cli-config', async () => {
-	const actual = await vi.importActual( 'cli/lib/cli-config' );
+vi.mock( 'cli/lib/cli-config/core', async () => {
+	const actual = await vi.importActual( 'cli/lib/cli-config/core' );
 	return {
 		...actual,
 		readCliConfig: vi.fn(),
@@ -47,11 +47,13 @@ describe( 'CLI: studio site list', () => {
 				customDomain: 'my-site.wp.local',
 			},
 		],
+		snapshots: [],
 	};
 
 	const emptyCliConfig = {
 		version: 1,
 		sites: [],
+		snapshots: [],
 	};
 
 	beforeEach( () => {

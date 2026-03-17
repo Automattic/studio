@@ -3,13 +3,8 @@ import { getDomainNameValidationError } from '@studio/common/lib/domains';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
 import { encodePassword } from '@studio/common/lib/passwords';
 import { vi } from 'vitest';
-import {
-	getSiteByFolder,
-	unlockCliConfig,
-	readCliConfig,
-	saveCliConfig,
-	SiteData,
-} from 'cli/lib/cli-config';
+import { readCliConfig, saveCliConfig, unlockCliConfig, SiteData } from 'cli/lib/cli-config/core';
+import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { updateDomainInHosts } from 'cli/lib/hosts-file';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
@@ -30,15 +25,21 @@ vi.mock( '@studio/common/lib/fs-utils', async () => {
 		arePathsEqual: vi.fn(),
 	};
 } );
-vi.mock( 'cli/lib/cli-config', async () => {
-	const actual = await vi.importActual( 'cli/lib/cli-config' );
+vi.mock( 'cli/lib/cli-config/core', async () => {
+	const actual = await vi.importActual( 'cli/lib/cli-config/core' );
 	return {
 		...actual,
-		getSiteByFolder: vi.fn(),
 		lockCliConfig: vi.fn().mockResolvedValue( undefined ),
 		unlockCliConfig: vi.fn().mockResolvedValue( undefined ),
 		readCliConfig: vi.fn(),
 		saveCliConfig: vi.fn().mockResolvedValue( undefined ),
+	};
+} );
+vi.mock( 'cli/lib/cli-config/sites', async () => {
+	const actual = await vi.importActual( 'cli/lib/cli-config/sites' );
+	return {
+		...actual,
+		getSiteByFolder: vi.fn(),
 		updateSiteLatestCliPid: vi.fn().mockResolvedValue( undefined ),
 	};
 } );
@@ -78,7 +79,7 @@ describe( 'CLI: studio site set', () => {
 		vi.clearAllMocks();
 
 		const testSite = getTestSite();
-		const testCliConfig = { version: 1, sites: [ testSite ] };
+		const testCliConfig = { version: 1, sites: [ testSite ], snapshots: [] };
 
 		vi.mocked( arePathsEqual ).mockReturnValue( true );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( getTestSite() );
@@ -145,6 +146,7 @@ describe( 'CLI: studio site set', () => {
 			vi.mocked( readCliConfig ).mockResolvedValue( {
 				sites: [ siteWithDomain ],
 				version: 1,
+				snapshots: [],
 			} );
 
 			await runCommand( testSitePath, { https: true } );
@@ -200,6 +202,7 @@ describe( 'CLI: studio site set', () => {
 			vi.mocked( readCliConfig ).mockResolvedValue( {
 				sites: [ siteWithDomain ],
 				version: 1,
+				snapshots: [],
 			} );
 
 			await runCommand( testSitePath, { https: true } );
@@ -216,6 +219,7 @@ describe( 'CLI: studio site set', () => {
 			vi.mocked( readCliConfig ).mockResolvedValue( {
 				sites: [ siteWithDomain ],
 				version: 1,
+				snapshots: [],
 			} );
 			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
 
@@ -359,6 +363,7 @@ describe( 'CLI: studio site set', () => {
 			vi.mocked( readCliConfig ).mockResolvedValue( {
 				sites: [ testSite, otherSite ],
 				version: 1,
+				snapshots: [],
 			} );
 
 			await expect( runCommand( testSitePath, { xdebug: true } ) ).rejects.toThrow(
@@ -390,6 +395,7 @@ describe( 'CLI: studio site set', () => {
 			vi.mocked( readCliConfig ).mockResolvedValue( {
 				sites: [ siteWithXdebug ],
 				version: 1,
+				snapshots: [],
 			} );
 
 			await runCommand( testSitePath, { xdebug: false } );
@@ -404,6 +410,7 @@ describe( 'CLI: studio site set', () => {
 			vi.mocked( readCliConfig ).mockResolvedValue( {
 				sites: [ siteWithXdebug ],
 				version: 1,
+				snapshots: [],
 			} );
 
 			await expect( runCommand( testSitePath, { xdebug: true } ) ).rejects.toThrow(
@@ -417,6 +424,7 @@ describe( 'CLI: studio site set', () => {
 			vi.mocked( readCliConfig ).mockResolvedValue( {
 				sites: [ siteWithXdebugDisabled ],
 				version: 1,
+				snapshots: [],
 			} );
 
 			await expect( runCommand( testSitePath, { xdebug: false } ) ).rejects.toThrow(

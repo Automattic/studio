@@ -3,7 +3,7 @@ import { password } from '@inquirer/prompts';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
-import { readCliConfig, updateCliConfig } from 'cli/lib/cli-config';
+import { readCliConfig, updateCliConfig } from 'cli/lib/cli-config/core';
 import { LoggerError } from 'cli/logger';
 
 export const AI_PROVIDERS = {

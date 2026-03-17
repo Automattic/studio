@@ -23,7 +23,7 @@ import {
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { runCommand as runLogoutCommand } from 'cli/commands/auth/logout';
-import { readCliConfig } from 'cli/lib/cli-config';
+import { readCliConfig } from 'cli/lib/cli-config/core';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 

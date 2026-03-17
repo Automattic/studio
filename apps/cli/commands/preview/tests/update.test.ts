@@ -7,8 +7,8 @@ import { Archiver } from 'archiver';
 import { vi } from 'vitest';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
-import { getSiteByFolder } from 'cli/lib/cli-config';
-import { updateSnapshotInAppdata, getSnapshotsFromAppdata } from 'cli/lib/snapshots';
+import { getSiteByFolder } from 'cli/lib/cli-config/sites';
+import { updateSnapshotInConfig, getSnapshotsFromConfig } from 'cli/lib/snapshots';
 import { LoggerError } from 'cli/logger';
 import { mockReportStart, mockReportSuccess, mockReportError } from 'cli/tests/test-utils';
 import { runCommand } from '../update';
@@ -17,8 +17,8 @@ vi.mock( '@studio/common/lib/get-wordpress-version' );
 vi.mock( '@studio/common/lib/shared-config', () => ( {
 	readAuthToken: vi.fn(),
 } ) );
-vi.mock( 'cli/lib/cli-config', async () => {
-	const actual = await vi.importActual( 'cli/lib/cli-config' );
+vi.mock( 'cli/lib/cli-config/sites', async () => {
+	const actual = await vi.importActual( 'cli/lib/cli-config/sites' );
 	return {
 		...actual,
 		getSiteByFolder: vi.fn(),
@@ -75,14 +75,14 @@ describe( 'Preview Update Command', () => {
 		vi.spyOn( process, 'cwd' ).mockReturnValue( mockFolder );
 
 		vi.mocked( readAuthToken ).mockResolvedValue( mockAuthToken );
-		vi.mocked( getSnapshotsFromAppdata ).mockResolvedValue( [ mockSnapshot ] );
+		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [ mockSnapshot ] );
 		vi.mocked( archiveSiteContent ).mockResolvedValue( mockArchiver as Archiver );
 		vi.mocked( uploadArchive ).mockResolvedValue( {
 			site_url: mockSiteUrl,
 			site_id: mockAtomicSiteId,
 		} );
 		vi.mocked( waitForSiteReady ).mockResolvedValue( true );
-		vi.mocked( updateSnapshotInAppdata ).mockResolvedValue( mockSnapshot );
+		vi.mocked( updateSnapshotInConfig ).mockResolvedValue( mockSnapshot );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( {
 			id: mockSnapshot.localSiteId,
 			path: mockFolder,
@@ -122,7 +122,7 @@ describe( 'Preview Update Command', () => {
 			`Preview site available at: https://${ mockSiteUrl }`,
 		] );
 
-		expect( updateSnapshotInAppdata ).toHaveBeenCalledWith( mockAtomicSiteId, mockFolder );
+		expect( updateSnapshotInConfig ).toHaveBeenCalledWith( mockAtomicSiteId, mockFolder );
 		expect( mockReportStart.mock.calls[ 4 ] ).toEqual( [
 			'appdata',
 			'Saving preview site to Studio…',
@@ -147,7 +147,7 @@ describe( 'Preview Update Command', () => {
 	} );
 
 	it( 'should handle snapshot not found errors', async () => {
-		vi.mocked( getSnapshotsFromAppdata ).mockResolvedValue( [] );
+		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [] );
 
 		await runCommand( mockFolder, mockSiteUrl, false );
 
@@ -192,12 +192,12 @@ describe( 'Preview Update Command', () => {
 
 		expect( mockReportError ).toHaveBeenCalled();
 		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
-		expect( updateSnapshotInAppdata ).not.toHaveBeenCalled();
+		expect( updateSnapshotInConfig ).not.toHaveBeenCalled();
 	} );
 
 	it( 'should handle appdata errors', async () => {
 		const errorMessage = 'Failed to save to appdata';
-		vi.mocked( updateSnapshotInAppdata ).mockImplementation( () => {
+		vi.mocked( updateSnapshotInConfig ).mockImplementation( () => {
 			throw new LoggerError( errorMessage );
 		} );
 
@@ -220,7 +220,7 @@ describe( 'Preview Update Command', () => {
 	it( 'should not allow updating an expired preview site', async () => {
 		const expiredDate = mockDate - ( DEMO_SITE_EXPIRATION_DAYS + 1 ) * 24 * 60 * 60 * 1000;
 		const expiredSnapshot = { ...mockSnapshot, date: expiredDate };
-		vi.mocked( getSnapshotsFromAppdata ).mockResolvedValue( [ expiredSnapshot ] );
+		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [ expiredSnapshot ] );
 
 		await runCommand( mockFolder, mockSiteUrl, false );
 

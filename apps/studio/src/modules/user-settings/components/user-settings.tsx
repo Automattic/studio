@@ -60,7 +60,6 @@ export default function UserSettings() {
 		if ( response === DELETE_BUTTON_INDEX ) {
 			try {
 				await deleteAllSnapshots().unwrap();
-				await getIpcApi().saveSnapshotsToStorage( [] );
 			} catch ( error ) {
 				await getIpcApi().showMessageBox( {
 					type: 'warning',

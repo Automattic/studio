@@ -1,4 +1,4 @@
-import { Snapshot } from '@studio/common/types/snapshot';
+import { StatsMetric } from 'src/lib/bump-stats';
 import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import type { SyncSite } from 'src/modules/sync/types';
 import type { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
@@ -13,15 +13,10 @@ export interface WindowBounds {
 
 export interface UserData {
 	sites: SiteDetails[];
-	snapshots: Snapshot[];
 	devToolsOpen?: boolean;
 	windowBounds?: WindowBounds;
 	onboardingCompleted?: boolean;
-	lastBumpStats?: {
-		[ group: string ]: {
-			[ stat: string ]: number;
-		};
-	};
+	lastBumpStats?: Record< string, Partial< Record< StatsMetric, number > > >;
 	promptWindowsSpeedUpResult?: PromptWindowsSpeedUpResult;
 	connectedWpcomSites?: { [ userId: number ]: SyncSite[] };
 	sentryUserId?: string;

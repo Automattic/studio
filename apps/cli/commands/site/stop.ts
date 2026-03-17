@@ -1,15 +1,17 @@
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import {
-	clearSiteLatestCliPid,
-	getSiteByFolder,
 	lockCliConfig,
 	readCliConfig,
 	saveCliConfig,
 	unlockCliConfig,
-	updateSiteAutoStart,
 	type SiteData,
-} from 'cli/lib/cli-config';
+} from 'cli/lib/cli-config/core';
+import {
+	clearSiteLatestCliPid,
+	getSiteByFolder,
+	updateSiteAutoStart,
+} from 'cli/lib/cli-config/sites';
 import {
 	connectToDaemon,
 	disconnectFromDaemon,

@@ -2,7 +2,6 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
-import { StatsMetric } from '@studio/common/types/stats';
 import { readFile, writeFile } from 'atomically';
 import { vi } from 'vitest';
 import { readAppdata, saveAppdata, lockAppdata, unlockAppdata } from 'cli/lib/appdata';
@@ -64,33 +63,6 @@ describe( 'Appdata Module', () => {
 			const mockUserData = {
 				version: 1,
 				sites: [],
-				snapshots: [
-					{
-						url: 'example.com',
-						atomicSiteId: 123,
-						name: 'Example site',
-						localSiteId: 'site1',
-						date: 1234567,
-					},
-				],
-			};
-
-			vi.mocked( readFile ).mockResolvedValueOnce( Buffer.from( JSON.stringify( mockUserData ) ) );
-
-			const result = await readAppdata();
-			expect( result ).toEqual( mockUserData );
-		} );
-
-		it( 'should correctly validate lastBumpStats with local-environment-launch-uniques key', async () => {
-			const mockUserData = {
-				version: 1,
-				sites: [],
-				snapshots: [],
-				lastBumpStats: {
-					'local-environment-launch-uniques': {
-						[ StatsMetric.DARWIN ]: 5,
-					},
-				},
 			};
 
 			vi.mocked( readFile ).mockResolvedValueOnce( Buffer.from( JSON.stringify( mockUserData ) ) );
@@ -117,7 +89,6 @@ describe( 'Appdata Module', () => {
 			const mockUserData = {
 				version: 1,
 				sites: [],
-				snapshots: [],
 			};
 
 			try {
@@ -138,7 +109,6 @@ describe( 'Appdata Module', () => {
 			const mockUserData = {
 				version: 1,
 				sites: [],
-				snapshots: [],
 			};
 
 			vi.mocked( writeFile ).mockRejectedValue( new Error( 'Write error' ) );

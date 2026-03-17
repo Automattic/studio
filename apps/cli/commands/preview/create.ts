@@ -1,18 +1,21 @@
 import os from 'os';
 import path from 'path';
+import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
-import { getSiteByFolder } from 'cli/lib/cli-config';
-import { saveSnapshotToAppdata } from 'cli/lib/snapshots';
+import { getSiteByFolder } from 'cli/lib/cli-config/sites';
+import { getNextSnapshotSequence } from 'cli/lib/cli-config/snapshots';
+import { emitCliEvent } from 'cli/lib/daemon-client';
+import { getSnapshotsFromConfig, saveSnapshotToConfig } from 'cli/lib/snapshots';
 import { validateSiteSize } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
-export async function runCommand( siteFolder: string ): Promise< void > {
+export async function runCommand( siteFolder: string, name?: string ): Promise< void > {
 	const archivePath = path.join(
 		os.tmpdir(),
 		`${ path.basename( siteFolder ) }-${ Date.now() }.zip`
@@ -47,12 +50,27 @@ export async function runCommand( siteFolder: string ): Promise< void > {
 		);
 
 		logger.reportStart( LoggerAction.APPDATA, __( 'Saving preview site to Studio…' ) );
-		const snapshot = await saveSnapshotToAppdata(
+		let snapshotName = name;
+		if ( ! snapshotName ) {
+			const site = await getSiteByFolder( siteFolder );
+			const snapshots = await getSnapshotsFromConfig( token.id );
+			const sequence = getNextSnapshotSequence( site.id, snapshots, token.id );
+			snapshotName = sprintf(
+				/* translators: 1: Site name 2: Sequence number (e.g. "My Site Name Preview 1") */
+				__( '%1$s Preview %2$d' ),
+				site.name,
+				sequence
+			);
+		}
+		const snapshot = await saveSnapshotToConfig(
 			siteFolder,
 			uploadResponse.site_id,
-			uploadResponse.site_url
+			uploadResponse.site_url,
+			token.id,
+			snapshotName
 		);
 		logger.reportSuccess( __( 'Preview site saved to Studio' ) );
+		await emitCliEvent( { event: SNAPSHOT_EVENTS.CREATED, data: { snapshotUrl: snapshot.url } } );
 
 		logger.reportKeyValuePair( 'name', snapshot.name ?? '' );
 		logger.reportKeyValuePair( 'url', snapshot.url );
@@ -72,8 +90,14 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'create',
 		describe: __( 'Create a preview site' ),
+		builder: ( yargs ) => {
+			return yargs.option( 'name', {
+				type: 'string',
+				description: __( 'Preview site name' ),
+			} );
+		},
 		handler: async ( argv ) => {
-			await runCommand( argv.path );
+			await runCommand( argv.path, argv.name );
 		},
 	} );
 };

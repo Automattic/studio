@@ -10,7 +10,7 @@ import {
 	resolveInitialAiProvider,
 	resolveUnavailableAiProvider,
 } from 'cli/ai/auth';
-import { readCliConfig, updateCliConfig } from 'cli/lib/cli-config';
+import { readCliConfig, updateCliConfig } from 'cli/lib/cli-config/core';
 import { LoggerError } from 'cli/logger';
 
 vi.mock( 'child_process', () => ( {
@@ -28,7 +28,7 @@ vi.mock( '@studio/common/lib/shared-config', () => ( {
 	readAuthToken: vi.fn(),
 } ) );
 
-vi.mock( 'cli/lib/cli-config', () => ( {
+vi.mock( 'cli/lib/cli-config/core', () => ( {
 	readCliConfig: vi.fn().mockResolvedValue( { version: 1, sites: [] } ),
 	updateCliConfig: vi.fn(),
 } ) );
@@ -36,7 +36,7 @@ vi.mock( 'cli/lib/cli-config', () => ( {
 describe( 'AI auth helpers', () => {
 	beforeEach( () => {
 		vi.resetAllMocks();
-		vi.mocked( readCliConfig ).mockResolvedValue( { version: 1, sites: [] } );
+		vi.mocked( readCliConfig ).mockResolvedValue( { version: 1, sites: [], snapshots: [] } );
 		delete process.env.WPCOM_AI_PROXY_BASE_URL;
 	} );
 
@@ -44,6 +44,7 @@ describe( 'AI auth helpers', () => {
 		vi.mocked( readCliConfig ).mockResolvedValue( {
 			version: 1,
 			sites: [],
+			snapshots: [],
 			anthropicApiKey: 'saved-key',
 		} );
 
@@ -56,7 +57,7 @@ describe( 'AI auth helpers', () => {
 	} );
 
 	it( 'requires a saved Anthropic API key in API key mode', async () => {
-		vi.mocked( readCliConfig ).mockResolvedValue( { version: 1, sites: [] } );
+		vi.mocked( readCliConfig ).mockResolvedValue( { version: 1, sites: [], snapshots: [] } );
 
 		await expect( resolveAiEnvironment( 'anthropic-api-key' ) ).rejects.toBeInstanceOf(
 			LoggerError
@@ -74,7 +75,7 @@ describe( 'AI auth helpers', () => {
 	} );
 
 	it( 'prompts for the API key immediately when preparing the API key provider', async () => {
-		vi.mocked( readCliConfig ).mockResolvedValue( { version: 1, sites: [] } );
+		vi.mocked( readCliConfig ).mockResolvedValue( { version: 1, sites: [], snapshots: [] } );
 		vi.mocked( password ).mockResolvedValue( 'prompted-key' );
 
 		await prepareAiProvider( 'anthropic-api-key' );
@@ -87,6 +88,7 @@ describe( 'AI auth helpers', () => {
 		vi.mocked( readCliConfig ).mockResolvedValue( {
 			version: 1,
 			sites: [],
+			snapshots: [],
 			anthropicApiKey: 'saved-key',
 		} );
 		vi.mocked( password ).mockResolvedValue( 'updated-key' );
@@ -136,6 +138,7 @@ describe( 'AI auth helpers', () => {
 		vi.mocked( readCliConfig ).mockResolvedValue( {
 			version: 1,
 			sites: [],
+			snapshots: [],
 			aiProvider: 'anthropic-api-key',
 			anthropicApiKey: 'key',
 		} );
@@ -148,6 +151,7 @@ describe( 'AI auth helpers', () => {
 		vi.mocked( readCliConfig ).mockResolvedValue( {
 			version: 1,
 			sites: [],
+			snapshots: [],
 			aiProvider: 'anthropic-claude',
 		} );
 		vi.mocked( readAuthToken ).mockResolvedValue( null );
@@ -162,6 +166,7 @@ describe( 'AI auth helpers', () => {
 		vi.mocked( readCliConfig ).mockResolvedValue( {
 			version: 1,
 			sites: [],
+			snapshots: [],
 			aiProvider: 'wpcom',
 		} );
 		vi.mocked( readAuthToken ).mockResolvedValue( null );
@@ -171,7 +176,7 @@ describe( 'AI auth helpers', () => {
 	} );
 
 	it( 'defaults to WP.com when no provider is saved and a valid WP.com token exists', async () => {
-		vi.mocked( readCliConfig ).mockResolvedValue( { version: 1, sites: [] } );
+		vi.mocked( readCliConfig ).mockResolvedValue( { version: 1, sites: [], snapshots: [] } );
 		vi.mocked( readAuthToken ).mockResolvedValue( {
 			accessToken: 'wpcom-token',
 			displayName: 'User',
@@ -185,7 +190,7 @@ describe( 'AI auth helpers', () => {
 	} );
 
 	it( 'falls back to Anthropic API key when no other auth is available', async () => {
-		vi.mocked( readCliConfig ).mockResolvedValue( { version: 1, sites: [] } );
+		vi.mocked( readCliConfig ).mockResolvedValue( { version: 1, sites: [], snapshots: [] } );
 		vi.mocked( readAuthToken ).mockResolvedValue( null );
 		vi.mocked( childProcess.execFileSync ).mockImplementation( () => {
 			throw new Error( 'not authenticated' );
@@ -195,7 +200,7 @@ describe( 'AI auth helpers', () => {
 	} );
 
 	it( 'defaults to Claude auth when no provider is saved and Claude auth is available', async () => {
-		vi.mocked( readCliConfig ).mockResolvedValue( { version: 1, sites: [] } );
+		vi.mocked( readCliConfig ).mockResolvedValue( { version: 1, sites: [], snapshots: [] } );
 		vi.mocked( readAuthToken ).mockResolvedValue( null );
 		vi.mocked( childProcess.execFileSync ).mockReturnValue( 'Authenticated' as never );
 
@@ -223,6 +228,7 @@ describe( 'AI auth helpers', () => {
 		vi.mocked( readCliConfig ).mockResolvedValue( {
 			version: 1,
 			sites: [],
+			snapshots: [],
 			anthropicApiKey: 'saved-key',
 		} );
 

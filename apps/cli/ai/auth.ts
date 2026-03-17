@@ -4,7 +4,7 @@ import {
 	getAiProviderDefinition,
 	type AiProviderId,
 } from 'cli/ai/providers';
-import { readCliConfig, updateCliConfig } from 'cli/lib/cli-config';
+import { readCliConfig, updateCliConfig } from 'cli/lib/cli-config/core';
 
 async function getPreferredReadyProvider(
 	exclude?: AiProviderId

@@ -5,7 +5,6 @@ import * as Sentry from '@sentry/electron/main';
 import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from '@studio/common/constants';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
-import { getCurrentUserId } from '@studio/common/lib/shared-config';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { SupportedPHPVersion, SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { readFile, writeFile } from 'atomically';
@@ -79,17 +78,6 @@ function populatePhpVersion( sites: SiteDetails[] ) {
 	} );
 }
 
-function legacyPopulateSnapshotUserIds( data: UserData, userId: number | null ): void {
-	if ( userId && data.snapshots ) {
-		data.snapshots = data.snapshots.map( ( snapshot ) => {
-			if ( ! snapshot.userId ) {
-				return { ...snapshot, userId };
-			}
-			return snapshot;
-		} );
-	}
-}
-
 export async function loadUserData(): Promise< UserData > {
 	migrateUserDataOldName();
 	const filePath = getUserDataFilePath();
@@ -100,10 +88,6 @@ export async function loadUserData(): Promise< UserData > {
 			const parsed = JSON.parse( asString );
 			const data = fromDiskFormat( parsed );
 
-			// Temporarily populate old snapshots with userId of authenticated user.
-			// See PR #937 for more context.
-			const userId = await getCurrentUserId();
-			legacyPopulateSnapshotUserIds( data, userId );
 			sortSites( data.sites );
 			populatePhpVersion( data.sites );
 			return data;
@@ -123,7 +107,6 @@ export async function loadUserData(): Promise< UserData > {
 		if ( isErrnoException( err ) && err.code === 'ENOENT' ) {
 			return {
 				sites: [],
-				snapshots: [],
 			};
 		}
 		console.error( `Failed to load file ${ sanitizeUserpath( filePath ) }: ${ err }` );
@@ -150,7 +133,6 @@ export async function unlockAppdata() {
 type UserDataSafeKeys =
 	| 'devToolsOpen'
 	| 'windowBounds'
-	| 'snapshots'
 	| 'onboardingCompleted'
 	| 'promptWindowsSpeedUpResult'
 	| 'stopSitesOnQuit'

@@ -151,7 +151,7 @@ export const connectedSitesApi = createApi( {
 					[ timestampKey ]: new Date().toISOString(),
 				};
 
-				await getIpcApi().updateSingleConnectedWpcomSite( updatedConnectedSite );
+				await getIpcApi().updateConnectedWpcomSites( [ updatedConnectedSite ] );
 
 				return { data: undefined };
 			},

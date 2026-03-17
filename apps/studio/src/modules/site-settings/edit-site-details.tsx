@@ -1,4 +1,8 @@
-import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
+import {
+	DEFAULT_ENABLE_PHPMYADMIN,
+	DEFAULT_PHP_VERSION,
+	DEFAULT_WORDPRESS_VERSION,
+} from '@studio/common/constants';
 import {
 	generateCustomDomainFromSiteName,
 	getDomainNameValidationError,
@@ -20,10 +24,12 @@ import Button from 'src/components/button';
 import { ErrorInformation } from 'src/components/error-information';
 import { LearnMoreLink, LearnHowLink } from 'src/components/learn-more';
 import Modal from 'src/components/modal';
+import offlineIcon from 'src/components/offline-icon';
 import PasswordControl from 'src/components/password-control';
 import TextControlComponent from 'src/components/text-control';
 import { Tooltip } from 'src/components/tooltip';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
+import { useOffline } from 'src/hooks/use-offline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -37,6 +43,7 @@ type EditSiteDetailsProps = {
 const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) => {
 	const { __ } = useI18n();
 	const { updateSite, selectedSite, isEditModalOpen, setIsEditModalOpen } = useSiteDetails();
+	const isOffline = useOffline();
 	const [ errorUpdatingWpVersion, setErrorUpdatingWpVersion ] = useState< string | null >( null );
 	const [ isEditingSite, setIsEditingSite ] = useState( false );
 	const [ needsRestart, setNeedsRestart ] = useState( false );
@@ -44,6 +51,9 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 	const [ enableDebugLog, setEnableDebugLog ] = useState( selectedSite?.enableDebugLog ?? false );
 	const [ enableDebugDisplay, setEnableDebugDisplay ] = useState(
 		selectedSite?.enableDebugDisplay ?? false
+	);
+	const [ enablePhpMyAdmin, setEnablePhpMyAdmin ] = useState(
+		selectedSite?.enablePhpMyAdmin ?? DEFAULT_ENABLE_PHPMYADMIN
 	);
 	const [ xdebugEnabledSite, setXdebugEnabledSite ] = useState< SiteDetails | null >( null );
 	const [ adminUsername, setAdminUsername ] = useState( selectedSite?.adminUsername ?? 'admin' );
@@ -146,7 +156,8 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		( decodePassword( selectedSite.adminPassword ?? '' ) || 'password' ) === adminPassword &&
 		( selectedSite.adminEmail || 'admin@localhost.com' ) === adminEmail &&
 		!! selectedSite.enableDebugLog === enableDebugLog &&
-		!! selectedSite.enableDebugDisplay === enableDebugDisplay;
+		!! selectedSite.enableDebugDisplay === enableDebugDisplay &&
+		( selectedSite.enablePhpMyAdmin ?? DEFAULT_ENABLE_PHPMYADMIN ) === enablePhpMyAdmin;
 	const hasValidationErrors =
 		! selectedSite ||
 		! siteName.trim() ||
@@ -173,6 +184,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		setAdminEmail( selectedSite.adminEmail || 'admin@localhost.com' );
 		setEnableDebugLog( selectedSite.enableDebugLog ?? false );
 		setEnableDebugDisplay( selectedSite.enableDebugDisplay ?? false );
+		setEnablePhpMyAdmin( selectedSite.enablePhpMyAdmin ?? DEFAULT_ENABLE_PHPMYADMIN );
 	}, [ selectedSite, getEffectiveWpVersion ] );
 
 	const onSiteEdit = async ( event: FormEvent ) => {
@@ -189,6 +201,8 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		const hasDebugLogChanged = enableDebugLog !== ( selectedSite.enableDebugLog ?? false );
 		const hasDebugDisplayChanged =
 			enableDebugDisplay !== ( selectedSite.enableDebugDisplay ?? false );
+		const hasPhpMyAdminChanged =
+			enablePhpMyAdmin !== ( selectedSite.enablePhpMyAdmin ?? DEFAULT_ENABLE_PHPMYADMIN );
 		const hasDomainChanged =
 			Boolean( selectedSite.customDomain ) !== useCustomDomain ||
 			( useCustomDomain && customDomain !== selectedSite.customDomain );
@@ -210,6 +224,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 				credentialsChanged: hasCredentialsChanged,
 				debugLogChanged: hasDebugLogChanged,
 				debugDisplayChanged: hasDebugDisplayChanged,
+				phpmyadminChanged: hasPhpMyAdminChanged,
 			} );
 		setNeedsRestart( needsRestart );
 
@@ -235,6 +250,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 					adminEmail,
 					enableDebugLog,
 					enableDebugDisplay,
+					enablePhpMyAdmin,
 				},
 				hasWpVersionChanged ? selectedWpVersion : undefined
 			);
@@ -588,6 +604,43 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 														'Display PHP errors and warnings directly in the browser by setting the WP_DEBUG_DISPLAY constant.'
 													) }
 												</div>
+											</div>
+
+											<div
+												className={ cx(
+													'flex flex-col gap-2 mt-4',
+													isEditingSite || isOffline ? 'opacity-50 cursor-not-allowed' : ''
+												) }
+											>
+												<Tooltip
+													disabled={ ! isOffline }
+													text={ __( 'Enabling phpMyAdmin requires an internet connection.' ) }
+													icon={ offlineIcon }
+													placement="top-start"
+												>
+													<div className="flex items-center gap-2">
+														<input
+															type="checkbox"
+															id="enable-phpmyadmin"
+															checked={ enablePhpMyAdmin }
+															onChange={ ( e ) => setEnablePhpMyAdmin( e.target.checked ) }
+															disabled={ isEditingSite || isOffline }
+														/>
+														<label
+															htmlFor="enable-phpmyadmin"
+															className={ cx(
+																isEditingSite || isOffline ? 'cursor-not-allowed' : ''
+															) }
+														>
+															{ __( 'Enable phpMyAdmin' ) }
+														</label>
+													</div>
+													<div className="text-a8c-gray-50 text-xs mt-1">
+														{ __(
+															'Access phpMyAdmin to browse and manage your site database. Requires internet to download.'
+														) }
+													</div>
+												</Tooltip>
 											</div>
 										</>
 									) }

@@ -4,11 +4,11 @@ import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from '@studio/common/constant
 import { siteDetailsSchema } from '@studio/common/lib/cli-events';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
 import { snapshotSchema } from '@studio/common/types/snapshot';
-import { StatsMetric } from 'cli/lib/types/bump-stats';
 import { __ } from '@wordpress/i18n';
 import { readFile, writeFile } from 'atomically';
 import { z } from 'zod';
 import { STUDIO_CLI_HOME } from 'cli/lib/paths';
+import { StatsMetric } from 'cli/lib/types/bump-stats';
 import { LoggerError } from 'cli/logger';
 
 const siteSchema = siteDetailsSchema

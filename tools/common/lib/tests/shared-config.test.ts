@@ -1,6 +1,8 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { readFile, writeFile } from 'atomically';
+import { vi } from 'vitest';
 import {
 	readSharedConfig,
 	saveSharedConfig,
@@ -10,8 +12,6 @@ import {
 	getSharedConfigDirectory,
 	getSharedConfigPath,
 } from '@studio/common/lib/shared-config';
-import { readFile, writeFile } from 'atomically';
-import { vi } from 'vitest';
 
 vi.mock( 'fs', () => ( {
 	default: {

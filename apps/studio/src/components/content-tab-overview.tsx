@@ -4,6 +4,7 @@ import {
 	archive,
 	code,
 	desktop,
+	grid,
 	pencil,
 	layout,
 	navigation,
@@ -16,10 +17,7 @@ import {
 import { useI18n } from '@wordpress/react-i18n';
 import { useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
-import Button from 'src/components/button';
 import { ButtonsSection, ButtonsSectionProps } from 'src/components/buttons-section';
-import offlineIcon from 'src/components/offline-icon';
-import { Tooltip } from 'src/components/tooltip';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
@@ -183,41 +181,24 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 			}
 		},
 	} );
-	const phpMyAdminButton = selectedSite.enablePhpMyAdmin ? (
-		<Tooltip
-			disabled={ ! isOffline }
-			text={ __( 'Opening phpMyAdmin requires an internet connection.' ) }
-			icon={ offlineIcon }
-			placement="top-start"
-		>
-			<div>
-				<Button
-					variant="secondary"
-					disabled={ isServerLoading || isOffline }
-					className="w-full justify-center truncate"
-					onClick={ async () => {
-						if ( isServerLoading || isOffline ) return;
-						if ( ! selectedSite.running ) {
-							await startServer( selectedSite );
-						}
-						getIpcApi().openSiteURL(
-							selectedSite.id,
-							'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
-						);
-					} }
-				>
-					{ __( 'phpMyAdmin' ) }
-				</Button>
-			</div>
-		</Tooltip>
-	) : null;
 
-	return (
-		<div>
-			<ButtonsSection buttonsArray={ buttonsArray } title={ __( 'Open in…' ) } />
-			{ phpMyAdminButton && <div className="mt-3">{ phpMyAdminButton }</div> }
-		</div>
-	);
+	buttonsArray.push( {
+		label: __( 'phpMyAdmin' ),
+		className: 'text-nowrap',
+		icon: grid,
+		disabled: ! selectedSite.enablePhpMyAdmin || isServerLoading || isOffline,
+		onClick: async () => {
+			if ( ! selectedSite.running ) {
+				await startServer( selectedSite );
+			}
+			getIpcApi().openSiteURL(
+				selectedSite.id,
+				'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
+			);
+		},
+	} );
+
+	return <ButtonsSection buttonsArray={ buttonsArray } title={ __( 'Open in…' ) } />;
 }
 
 export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) {

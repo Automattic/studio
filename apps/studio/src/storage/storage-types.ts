@@ -2,6 +2,7 @@ import { Snapshot } from '@studio/common/types/snapshot';
 import { StatsMetric } from 'src/lib/bump-stats';
 import { StoredToken } from 'src/lib/oauth';
 import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
+import type { CpanelSyncSite } from 'src/modules/cpanel/types';
 import type { SyncSite } from 'src/modules/sync/types';
 import type { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 
@@ -24,6 +25,7 @@ export interface UserData {
 	lastBumpStats?: Record< string, Partial< Record< StatsMetric, number > > >;
 	promptWindowsSpeedUpResult?: PromptWindowsSpeedUpResult;
 	connectedWpcomSites?: { [ userId: number ]: SyncSite[] };
+	connectedCpanelSites?: CpanelSyncSite[];
 	sentryUserId?: string;
 	lastSeenVersion?: string;
 	preferredTerminal?: SupportedTerminal;

@@ -143,6 +143,17 @@ const api: IpcApi = {
 	getUserTerminal: () => ipcRendererInvoke( 'getUserTerminal' ),
 	getUserEditor: () => ipcRendererInvoke( 'getUserEditor' ),
 	saveUserEditor: ( editor ) => ipcRendererInvoke( 'saveUserEditor', editor ),
+	connectCpanelSite: ( site ) => ipcRendererInvoke( 'connectCpanelSite', site ),
+	disconnectCpanelSite: ( cpanelSiteId, localSiteId ) =>
+		ipcRendererInvoke( 'disconnectCpanelSite', cpanelSiteId, localSiteId ),
+	getConnectedCpanelSites: ( localSiteId ) =>
+		ipcRendererInvoke( 'getConnectedCpanelSites', localSiteId ),
+	updateConnectedCpanelSites: ( updatedSites ) =>
+		ipcRendererInvoke( 'updateConnectedCpanelSites', updatedSites ),
+	pullCpanelSite: ( cpanelSiteId, localSiteId ) =>
+		ipcRendererInvoke( 'pullCpanelSite', cpanelSiteId, localSiteId ),
+	cancelCpanelPull: ( localSiteId, cpanelSiteId ) =>
+		ipcRendererSend( 'cancelCpanelPull', localSiteId, cpanelSiteId ),
 	comparePaths: ( path1, path2 ) => ipcRendererInvoke( 'comparePaths', path1, path2 ),
 	listLocalFileTree: ( siteId, path, maxDepth ) =>
 		ipcRenderer.invoke( 'listLocalFileTree', siteId, path, maxDepth ),

@@ -8,6 +8,8 @@ import { Tooltip } from 'src/components/tooltip';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { CpanelConnectedSite } from 'src/modules/cpanel/components/cpanel-connected-site';
+import { CpanelCredentialsModal } from 'src/modules/cpanel/components/cpanel-credentials-modal';
 import { ConnectButton } from 'src/modules/sync/components/connect-button';
 import { SyncConnectedSites } from 'src/modules/sync/components/sync-connected-sites';
 import { SyncDialog } from 'src/modules/sync/components/sync-dialog';
@@ -18,6 +20,7 @@ import {
 	convertTreeToPushOptions,
 } from 'src/modules/sync/lib/convert-tree-to-sync-options';
 import { useAppDispatch, useRootSelector } from 'src/stores';
+import { useGetCpanelSitesForLocalSiteQuery } from 'src/stores/cpanel/cpanel-connected-sites';
 import { syncOperationsThunks } from 'src/stores/sync';
 import {
 	connectedSitesActions,
@@ -139,6 +142,11 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	const [ connectSite ] = useConnectSiteMutation();
 	const [ disconnectSite ] = useDisconnectSiteMutation();
 
+	const [ showCpanelModal, setShowCpanelModal ] = useState( false );
+	const { data: cpanelSites = [] } = useGetCpanelSitesForLocalSiteQuery( {
+		localSiteId: selectedSite.id,
+	} );
+
 	const connectedSiteIds = connectedSites.map( ( { id } ) => id );
 	const { data: syncSites = [] } = useGetWpComSitesQuery( {
 		connectedSiteIds,
@@ -193,37 +201,62 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		}
 	};
 
+	const hasAnyConnections = connectedSites.length > 0 || cpanelSites.length > 0;
+
 	return (
 		<div className="flex flex-col h-full overflow-y-auto">
-			{ connectedSites.length > 0 ? (
+			{ hasAnyConnections ? (
 				<div className="h-full relative">
-					<SyncConnectedSites
-						connectedSites={ connectedSites }
-						selectedSite={ selectedSite }
-						disconnectSite={ ( id ) =>
-							disconnectSite( { siteId: id, localSiteId: selectedSite.id } )
-						}
-					/>
-					<div className="sticky bottom-0 bg-white/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
+					{ connectedSites.length > 0 && (
+						<SyncConnectedSites
+							connectedSites={ connectedSites }
+							selectedSite={ selectedSite }
+							disconnectSite={ ( id ) =>
+								disconnectSite( { siteId: id, localSiteId: selectedSite.id } )
+							}
+						/>
+					) }
+					{ cpanelSites.map( ( cpanelSite ) => (
+						<CpanelConnectedSite
+							key={ cpanelSite.id }
+							cpanelSite={ cpanelSite }
+							selectedSite={ selectedSite }
+						/>
+					) ) }
+					<div className="sticky bottom-0 bg-white/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto flex gap-3">
 						<ConnectButton
 							variant="primary"
 							connectSite={ () => dispatch( connectedSitesActions.openModal( 'connect' ) ) }
 						>
-							{ __( 'Connect another site' ) }
+							{ __( 'Connect WordPress.com site' ) }
+						</ConnectButton>
+						<ConnectButton variant="secondary" connectSite={ () => setShowCpanelModal( true ) }>
+							{ __( 'Connect cPanel site' ) }
 						</ConnectButton>
 					</div>
 				</div>
 			) : isLoadingConnectedSites ? null : (
 				<SiteSyncDescription>
-					<div className="mt-8">
+					<div className="mt-8 flex gap-3">
 						<ConnectButton
 							variant="primary"
 							connectSite={ () => dispatch( connectedSitesActions.openModal( 'connect' ) ) }
 						>
-							{ __( 'Connect site' ) }
+							{ __( 'Connect WordPress.com site' ) }
+						</ConnectButton>
+						<ConnectButton variant="secondary" connectSite={ () => setShowCpanelModal( true ) }>
+							{ __( 'Connect cPanel site' ) }
 						</ConnectButton>
 					</div>
 				</SiteSyncDescription>
+			) }
+
+			{ showCpanelModal && (
+				<CpanelCredentialsModal
+					localSiteId={ selectedSite.id }
+					onClose={ () => setShowCpanelModal( false ) }
+					onConnected={ () => setShowCpanelModal( false ) }
+				/>
 			) }
 
 			{ isModalOpen && ! effectiveRemoteSite && (

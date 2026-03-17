@@ -33,6 +33,13 @@ export interface IpcEvents {
 	'on-site-create-progress': [ { siteId: string; message: string } ];
 	'site-context-menu-action': [ { action: string; siteId: string } ];
 	'site-event': [ SiteEvent ];
+	'cpanel-pull-progress': [
+		{
+			localSiteId: string;
+			cpanelSiteId: string;
+			status: import('src/modules/cpanel/types').CpanelPullStatusInfo;
+		},
+	];
 	'sync-upload-network-paused': [ { error: string; selectedSiteId: string; remoteSiteId: number } ];
 	'sync-upload-resumed': [ { selectedSiteId: string; remoteSiteId: number } ];
 	'sync-upload-progress': [ { selectedSiteId: string; remoteSiteId: number; progress: number } ];

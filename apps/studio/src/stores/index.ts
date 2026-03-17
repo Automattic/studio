@@ -17,6 +17,11 @@ import { appVersionApi } from 'src/stores/app-version-api';
 import { betaFeaturesReducer, loadBetaFeatures } from 'src/stores/beta-features-slice';
 import { certificateTrustApi } from 'src/stores/certificate-trust-api';
 import { reducer as chatReducer } from 'src/stores/chat-slice';
+import { cpanelConnectedSitesApi } from 'src/stores/cpanel/cpanel-connected-sites';
+import {
+	cpanelOperationsReducer,
+	cpanelOperationsThunks,
+} from 'src/stores/cpanel/cpanel-operations-slice';
 import i18nReducer from 'src/stores/i18n-slice';
 import { installedAppsApi } from 'src/stores/installed-apps-api';
 import onboardingReducer from 'src/stores/onboarding-slice';
@@ -41,6 +46,8 @@ import type { SupportedLocale } from '@studio/common/lib/locale';
 export type RootState = {
 	appVersionApi: ReturnType< typeof appVersionApi.reducer >;
 	betaFeatures: ReturnType< typeof betaFeaturesReducer >;
+	cpanelConnectedSitesApi: ReturnType< typeof cpanelConnectedSitesApi.reducer >;
+	cpanelOperations: ReturnType< typeof cpanelOperationsReducer >;
 	chat: ReturnType< typeof chatReducer >;
 	installedAppsApi: ReturnType< typeof installedAppsApi.reducer >;
 	onboarding: ReturnType< typeof onboardingReducer >;
@@ -177,6 +184,13 @@ startAppListening( {
 } );
 startAppListening( {
 	actionCreator: syncOperationsThunks.pollPullBackup.rejected,
+	effect( action ) {
+		maybeShowErrorMessageBox( action.payload, action.meta.aborted );
+	},
+} );
+
+startAppListening( {
+	actionCreator: cpanelOperationsThunks.pullSite.rejected,
 	effect( action ) {
 		maybeShowErrorMessageBox( action.payload, action.meta.aborted );
 	},
@@ -324,6 +338,8 @@ export const rootReducer = combineReducers( {
 	appVersionApi: appVersionApi.reducer,
 	betaFeatures: betaFeaturesReducer,
 	chat: chatReducer,
+	cpanelConnectedSitesApi: cpanelConnectedSitesApi.reducer,
+	cpanelOperations: cpanelOperationsReducer,
 	installedAppsApi: installedAppsApi.reducer,
 	connectedSitesApi: connectedSitesApi.reducer,
 	connectedSites: connectedSitesReducer,
@@ -346,6 +362,7 @@ export const store = configureStore( {
 		getDefaultMiddleware()
 			.prepend( listenerMiddleware.middleware )
 			.concat( appVersionApi.middleware )
+			.concat( cpanelConnectedSitesApi.middleware )
 			.concat( installedAppsApi.middleware )
 			.concat( connectedSitesApi.middleware )
 			.concat( wpcomSitesApi.middleware )

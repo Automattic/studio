@@ -126,6 +126,15 @@ export {
 } from 'src/modules/sync/lib/ipc-handlers';
 
 export {
+	cancelCpanelPull,
+	connectCpanelSite,
+	disconnectCpanelSite,
+	getConnectedCpanelSites,
+	pullCpanelSite,
+	updateConnectedCpanelSites,
+} from 'src/modules/cpanel/lib/ipc-handlers';
+
+export {
 	createSnapshot,
 	deleteSnapshot,
 	updateSnapshot,

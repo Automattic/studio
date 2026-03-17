@@ -635,12 +635,12 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 															{ __( 'Enable phpMyAdmin' ) }
 														</label>
 													</div>
-													<div className="text-a8c-gray-50 text-xs mt-1">
-														{ __(
-															'Access phpMyAdmin to browse and manage your site database. Requires internet to download.'
-														) }
-													</div>
 												</Tooltip>
+												<div className="text-a8c-gray-50 text-xs mt-1">
+													{ __(
+														'Access phpMyAdmin to browse and manage your site database. Requires internet to download.'
+													) }
+												</div>
 											</div>
 										</>
 									) }

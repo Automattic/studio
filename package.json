@@ -23,7 +23,7 @@
 		"start": "npm -w studio-app run start",
 		"start:test": "DEV_APP_DATA_PATH=/tmp/studio-test-appdata.json npm -w studio-app run start",
 		"start-wayland": "npm -w studio-app run start-wayland",
-		"postinstall": "patch-package --patch-dir apps/cli/patches && patch-package --patch-dir apps/studio/patches && node ./scripts/remove-fs-ext-other-platform-binaries.mjs && ts-node ./scripts/download-wp-server-files.ts && node ./scripts/download-available-site-translations.mjs && ts-node ./scripts/download-agent-skills.ts",
+		"postinstall": "patch-package --patch-dir apps/cli/patches && patch-package --patch-dir apps/studio/patches && node ./scripts/remove-fs-ext-other-platform-binaries.mjs && ts-node ./scripts/download-wp-server-files.ts && node ./scripts/download-available-site-translations.mjs && ts-node ./scripts/download-ai-skills.ts",
 		"package": "ts-node ./scripts/package-in-isolation.ts package",
 		"make": "ts-node ./scripts/package-in-isolation.ts make",
 		"make:windows-x64": "ts-node ./scripts/package-in-isolation.ts make:windows-x64",
@@ -46,7 +46,7 @@
 		"e2e": "npx playwright install && npx playwright test",
 		"test:metrics": "npx playwright test --config=./tools/metrics/playwright.metrics.config.ts",
 		"download-language-packs": "ts-node ./scripts/download-language-packs.ts",
-		"download-agent-skills": "ts-node ./scripts/download-agent-skills.ts"
+		"download-ai-skills": "ts-node ./scripts/download-ai-skills.ts"
 	},
 	"devDependencies": {
 		"@automattic/wp-babel-makepot": "^1.2.0",

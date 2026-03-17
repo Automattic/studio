@@ -9,7 +9,7 @@ import {
 	DEFAULT_WORDPRESS_VERSION,
 	MINIMUM_WORDPRESS_VERSION,
 } from '@studio/common/constants';
-import { installSkillsToSite } from '@studio/common/lib/agent-skills';
+import { installAiInstructionsToSite } from '@studio/common/lib/ai-skills';
 import { extractFormValuesFromBlueprint } from '@studio/common/lib/blueprint-settings';
 import {
 	filterUnsupportedBlueprintFeatures,
@@ -63,10 +63,9 @@ import {
 import { connectToDaemon, disconnectFromDaemon, emitSiteEvent } from 'cli/lib/daemon-client';
 import { generateSiteName, getDefaultSitePath } from 'cli/lib/generate-site-name';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
-import { getAgentSkillsPath, getServerFilesPath } from 'cli/lib/server-files';
+import { getAiInstructionsPath, getServerFilesPath } from 'cli/lib/server-files';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
-import { writeSkillMd } from 'cli/lib/skill-md';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { untildify } from 'cli/lib/utils';
 import { ValidationError } from 'cli/lib/validation-error';
@@ -229,10 +228,10 @@ export async function runCommand(
 
 		if ( process.env.ENABLE_AGENT_SUITE === 'true' ) {
 			try {
-				await writeSkillMd( sitePath );
+				await installAiInstructionsToSite( sitePath, getAiInstructionsPath() );
 			} catch ( error ) {
 				logger.reportError(
-					new LoggerError( __( 'Failed to write SKILL.md. Proceeding anyway…' ), error ),
+					new LoggerError( __( 'Failed to install AI instructions. Proceeding anyway…' ), error ),
 					false
 				);
 			}
@@ -441,11 +440,6 @@ export async function runCommand(
 				logSiteDetails( siteDetails );
 			}
 			console.log( __( 'Run "studio site start" to start the site.' ) );
-		}
-
-		// Install bundled WordPress agent skills
-		if ( process.env.ENABLE_AGENT_SUITE === 'true' ) {
-			await installSkillsToSite( sitePath, getAgentSkillsPath() );
 		}
 
 		logger.reportKeyValuePair( 'id', siteDetails.id );

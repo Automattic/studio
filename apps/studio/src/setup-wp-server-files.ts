@@ -4,7 +4,7 @@ import fs from 'fs-extra';
 import semver from 'semver';
 import { updateLatestWPCliVersion } from 'src/lib/download-utils';
 import {
-	getAgentSkillsPath,
+	getAiInstructionsPath,
 	getLanguagePacksPath,
 	getWordPressVersionPath,
 	getSqlitePath,
@@ -25,9 +25,22 @@ import { getResourcesPath } from 'src/storage/paths';
 // SQLite integration folder name
 const SQLITE_FILENAME = 'sqlite-database-integration';
 
+/**
+ * Returns the path to the bundled wp-files directory.
+ * In production, wp-files is an extraResource inside the resources directory.
+ * In development, wp-files lives at the monorepo root (two levels above apps/studio/).
+ */
+function getBundledWpFilesPath(): string {
+	const resourcesPath = getResourcesPath();
+	if ( process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test' ) {
+		return path.join( resourcesPath, '..', '..', 'wp-files' );
+	}
+	return path.join( resourcesPath, 'wp-files' );
+}
+
 // Tries to copy the app's bundled WordPress version to server files if needed
 async function copyBundledLatestWPVersion() {
-	const bundledWPVersionPath = path.join( getResourcesPath(), 'wp-files', 'latest', 'wordpress' );
+	const bundledWPVersionPath = path.join( getBundledWpFilesPath(), 'latest', 'wordpress' );
 	const bundledWPVersion = semver.coerce(
 		await getWordPressVersionFromInstallation( bundledWPVersionPath )
 	);
@@ -52,7 +65,7 @@ async function copyBundledLatestWPVersion() {
 }
 
 async function copyBundledSqlite() {
-	const bundledSqlitePath = path.join( getResourcesPath(), 'wp-files', SQLITE_FILENAME );
+	const bundledSqlitePath = path.join( getBundledWpFilesPath(), SQLITE_FILENAME );
 	const bundledSqliteVersion = semver.coerce(
 		await getSqliteVersionFromInstallation( bundledSqlitePath ),
 		{
@@ -83,12 +96,12 @@ async function copyBundledWPCLI() {
 	if ( bundledWPCLIInstalled ) {
 		return;
 	}
-	const bundledWPCLIPath = path.join( getResourcesPath(), 'wp-files', 'wp-cli', 'wp-cli.phar' );
+	const bundledWPCLIPath = path.join( getBundledWpFilesPath(), 'wp-cli', 'wp-cli.phar' );
 	await fs.copyFile( bundledWPCLIPath, getWpCliPath() );
 }
 
 async function copyBundledSQLiteCommand() {
-	const bundledSqliteCommandPath = path.join( getResourcesPath(), 'wp-files', 'sqlite-command' );
+	const bundledSqliteCommandPath = path.join( getBundledWpFilesPath(), 'sqlite-command' );
 	if ( ! ( await fs.pathExists( bundledSqliteCommandPath ) ) ) {
 		return;
 	}
@@ -98,8 +111,7 @@ async function copyBundledSQLiteCommand() {
 
 async function copyBundledTranslations() {
 	const bundledTranslationsPath = path.join(
-		getResourcesPath(),
-		'wp-files',
+		getBundledWpFilesPath(),
 		'latest',
 		'available-site-translations.json'
 	);
@@ -114,21 +126,18 @@ async function copyBundledTranslations() {
 	await fs.copyFile( bundledTranslationsPath, installedTranslationsPath );
 }
 
-async function copyBundledAgentSkills() {
-	const bundledAgentSkillsPath = path.join( getResourcesPath(), 'wp-files', 'agent-skills' );
-	if ( ! ( await fs.pathExists( bundledAgentSkillsPath ) ) ) {
+async function copyBundledAiInstructions() {
+	const bundledAiInstructionsPath = path.join( getBundledWpFilesPath(), 'skills' );
+	if ( ! ( await fs.pathExists( bundledAiInstructionsPath ) ) ) {
+		console.log( `Bundled AI instructions not found at ${ bundledAiInstructionsPath }` );
 		return;
 	}
-	await recursiveCopyDirectory( bundledAgentSkillsPath, getAgentSkillsPath() );
+	console.log( `Copying bundled AI instructions from ${ bundledAiInstructionsPath }…` );
+	await recursiveCopyDirectory( bundledAiInstructionsPath, getAiInstructionsPath() );
 }
 
 async function copyBundledLanguagePacks() {
-	const bundledLanguagePacksPath = path.join(
-		getResourcesPath(),
-		'wp-files',
-		'latest',
-		'languages'
-	);
+	const bundledLanguagePacksPath = path.join( getBundledWpFilesPath(), 'latest', 'languages' );
 	if ( ! ( await fs.pathExists( bundledLanguagePacksPath ) ) ) {
 		return;
 	}
@@ -145,7 +154,7 @@ export async function setupWPServerFiles() {
 		[ 'SQLite command', copyBundledSQLiteCommand ],
 		[ 'translations', copyBundledTranslations ],
 		[ 'language packs', copyBundledLanguagePacks ],
-		[ 'agent skills', copyBundledAgentSkills ],
+		[ 'AI instructions', copyBundledAiInstructions ],
 	];
 
 	for ( const [ name, step ] of steps ) {

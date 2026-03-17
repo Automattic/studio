@@ -17,6 +17,7 @@ import https from 'node:https';
 import os from 'os';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
+import { installAiInstructionsToSite } from '@studio/common/lib/ai-skills';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { bumpStat } from '@studio/common/lib/bump-stat';
 import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
@@ -58,6 +59,7 @@ import { defaultImporterOptions, importBackup } from 'src/lib/import-export/impo
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import * as oauthClient from 'src/lib/oauth';
+import { getAiInstructionsPath } from 'src/lib/server-files-paths';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import * as windowsHelpers from 'src/lib/windows-helpers';
@@ -65,20 +67,6 @@ import { setupWordPressFilesOnly } from 'src/lib/wordpress-setup';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
-import {
-	DEFAULT_INSTRUCTIONS_MAP,
-	type InstructionFileType,
-} from 'src/modules/agent-instructions/constants';
-import {
-	getAllInstructionFilesStatus,
-	installInstructionFile,
-	type InstructionFileStatus,
-} from 'src/modules/agent-instructions/lib/instructions';
-import {
-	getSkillsStatus,
-	installAllSkills,
-	type SkillStatus,
-} from 'src/modules/agent-instructions/lib/skills';
 import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
@@ -138,56 +126,6 @@ export {
 	saveUserTerminal,
 	showUserSettings,
 } from 'src/modules/user-settings/lib/ipc-handlers';
-
-export async function getAgentInstructionsStatus(
-	_event: IpcMainInvokeEvent,
-	siteId: string
-): Promise< InstructionFileStatus[] > {
-	const server = SiteServer.get( siteId );
-	if ( ! server ) {
-		throw new Error( `Site not found: ${ siteId }` );
-	}
-	return getAllInstructionFilesStatus( server.details.path );
-}
-
-export async function installAgentInstructions(
-	_event: IpcMainInvokeEvent,
-	siteId: string,
-	options?: { overwrite?: boolean; fileType?: InstructionFileType }
-): Promise< { path: string; overwritten: boolean } > {
-	const server = SiteServer.get( siteId );
-	if ( ! server ) {
-		throw new Error( `Site not found: ${ siteId }` );
-	}
-	const overwrite = options?.overwrite ?? false;
-	const fileType = options?.fileType ?? 'agents';
-	const content = DEFAULT_INSTRUCTIONS_MAP[ fileType ];
-	return installInstructionFile( server.details.path, fileType, content, overwrite );
-}
-
-export async function getWordPressSkillsStatus(
-	_event: IpcMainInvokeEvent,
-	siteId: string
-): Promise< SkillStatus[] > {
-	const server = SiteServer.get( siteId );
-	if ( ! server ) {
-		throw new Error( `Site not found: ${ siteId }` );
-	}
-	return getSkillsStatus( server.details.path );
-}
-
-export async function installWordPressSkills(
-	_event: IpcMainInvokeEvent,
-	siteId: string,
-	options?: { overwrite?: boolean }
-): Promise< void > {
-	const server = SiteServer.get( siteId );
-	if ( ! server ) {
-		throw new Error( `Site not found: ${ siteId }` );
-	}
-	const overwrite = options?.overwrite ?? false;
-	await installAllSkills( server.details.path, overwrite );
-}
 
 const DEBUG_LOG_MAX_LINES = 50;
 const PM2_HOME = nodePath.join( os.homedir(), '.studio', 'pm2' );
@@ -362,12 +300,9 @@ export async function createSite(
 			void loadThemeDetails( event, server.details.id );
 		}
 
-		// Install agent instructions and WordPress skills into the new site
+		// Install AI instructions and skills into the new site
 		if ( getFeatureFlagFromEnv( 'enableAgentSuite' ) ) {
-			void installInstructionFile( path, 'agents', DEFAULT_AGENT_INSTRUCTIONS, false ).catch(
-				() => {}
-			);
-			void installAllSkills( path, false ).catch( () => {} );
+			void installAiInstructionsToSite( path, getAiInstructionsPath() ).catch( () => {} );
 		}
 
 		return server.details;

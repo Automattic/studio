@@ -69,7 +69,7 @@ vi.mock( 'cli/lib/server-files', () => ( {
 } ) );
 vi.mock( 'cli/lib/site-language' );
 vi.mock( 'cli/lib/site-utils' );
-vi.mock( 'cli/lib/agents-md' );
+vi.mock( '@studio/common/lib/ai-skills' );
 vi.mock( 'cli/lib/sqlite-integration' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
 

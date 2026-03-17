@@ -1,52 +1,70 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { pathExists, recursiveCopyDirectory } from './fs-utils';
-
-export const BUNDLED_SKILL_IDS = [
-	'wp-plugin-development',
-	'wp-block-development',
-	'wp-block-themes',
-	'wp-rest-api',
-	'wp-wpcli-and-ops',
-] as const;
-
-export type BundledSkillId = ( typeof BUNDLED_SKILL_IDS )[ number ];
+import { isErrnoException } from './is-errno-exception';
 
 /**
- * Install all bundled agent skills from a source directory into a site's
- * `.agents/skills/` directory, with symlinks at `.claude/skills/`.
+ * Install all bundled AI instructions and skills from a source directory into a site.
+ *
+ * Source directory layout (flat):
+ *   AGENTS.md, STUDIO.md            — loose .md files copied to site root
+ *   studio-cli/SKILL.md             — directories are skills, installed to .agents/skills/
+ *   wp-plugin-development/SKILL.md
+ *
+ * Site directory layout after install:
+ *   AGENTS.md, STUDIO.md
+ *   .agents/skills/<id>/SKILL.md
+ *   .claude/skills/<id> -> ../../.agents/skills/<id>
  */
-export async function installSkillsToSite(
+export async function installAiInstructionsToSite(
 	sitePath: string,
-	bundledSkillsPath: string,
+	bundledPath: string,
 	overwrite: boolean = false
 ): Promise< void > {
-	for ( const skillId of BUNDLED_SKILL_IDS ) {
-		try {
-			await installSkillToSite( sitePath, bundledSkillsPath, skillId, overwrite );
-		} catch {
-			// Continue installing remaining skills if one fails
+	if ( ! ( await pathExists( bundledPath ) ) ) {
+		return;
+	}
+
+	const entries = await fs.readdir( bundledPath, { withFileTypes: true } );
+
+	for ( const entry of entries ) {
+		if ( entry.isFile() && entry.name.endsWith( '.md' ) ) {
+			await installInstructionFile( sitePath, bundledPath, entry.name, overwrite );
+		} else if ( entry.isDirectory() ) {
+			try {
+				await installSkillToSite( sitePath, bundledPath, entry.name, overwrite );
+			} catch {
+				// Continue installing remaining skills if one fails
+			}
 		}
 	}
 }
 
+async function installInstructionFile(
+	sitePath: string,
+	bundledPath: string,
+	fileName: string,
+	overwrite: boolean
+): Promise< void > {
+	const dest = path.join( sitePath, fileName );
+	if ( ( await pathExists( dest ) ) && ! overwrite ) {
+		return;
+	}
+	await fs.copyFile( path.join( bundledPath, fileName ), dest );
+}
+
 async function installSkillToSite(
 	sitePath: string,
-	bundledSkillsPath: string,
+	bundledPath: string,
 	skillId: string,
 	overwrite: boolean
 ): Promise< void > {
-	const src = path.join( bundledSkillsPath, skillId );
-	if ( ! ( await pathExists( src ) ) ) {
-		return;
-	}
-
+	const src = path.join( bundledPath, skillId );
 	const agentsSkillPath = path.join( sitePath, '.agents', 'skills', skillId );
 	const claudeSkillPath = path.join( sitePath, '.claude', 'skills', skillId );
 
 	const isInstalled = await pathExists( path.join( agentsSkillPath, 'SKILL.md' ) );
 
-	// Copy skill files to .agents/skills/<skill-id>/
 	if ( ! isInstalled || overwrite ) {
 		if ( overwrite ) {
 			await fs.rm( agentsSkillPath, { recursive: true, force: true } );
@@ -54,7 +72,6 @@ async function installSkillToSite(
 		await recursiveCopyDirectory( src, agentsSkillPath );
 	}
 
-	// Ensure symlink at .claude/skills/<skill-id> exists, even if .agents/ copy was already present
 	await ensureSkillSymlink( sitePath, agentsSkillPath, claudeSkillPath, overwrite );
 }
 
@@ -86,8 +103,4 @@ async function ensureSkillSymlink(
 			throw error;
 		}
 	}
-}
-
-function isErrnoException( error: unknown ): error is NodeJS.ErrnoException {
-	return error instanceof Error && 'code' in error;
 }

@@ -1,6 +1,6 @@
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import Table from 'cli-table3';
+import CliTable3 from 'cli-table3';
 import { format } from 'date-fns';
 import { getAuthToken } from 'cli/lib/appdata';
 import { readCliConfig } from 'cli/lib/cli-config/core';
@@ -58,31 +58,33 @@ export async function runCommand(
 			logger.reportSuccess( snapshotsMessage );
 		}
 
-		const colWidths = getColumnWidths( [ 0.4, 0.25, 0.175, 0.175 ] );
-		const table = new Table( {
-			head: [ __( 'URL' ), __( 'Site Name' ), __( 'Updated' ), __( 'Expires in' ) ],
-			wordWrap: true,
-			wrapOnWordBoundary: false,
-			colWidths,
-			style: {
-				head: [],
-				border: [],
-			},
-		} );
+		if ( outputFormat === 'table' ) {
+			const colWidths = getColumnWidths( [ 0.4, 0.25, 0.175, 0.175 ] );
+			const table = new CliTable3( {
+				head: [ __( 'URL' ), __( 'Site Name' ), __( 'Updated' ), __( 'Expires in' ) ],
+				wordWrap: true,
+				wrapOnWordBoundary: false,
+				colWidths,
+				style: {
+					head: [],
+					border: [],
+				},
+			} );
 
-		for ( const snapshot of snapshots ) {
-			const durationUntilExpiry = formatDurationUntilExpiry( snapshot.date );
-			const url = `https://${ snapshot.url }`;
+			for ( const snapshot of snapshots ) {
+				const durationUntilExpiry = formatDurationUntilExpiry( snapshot.date );
+				const url = `https://${ snapshot.url }`;
 
-			table.push( [
-				{ href: url, content: url },
-				snapshot.name,
-				format( snapshot.date, 'yyyy-MM-dd HH:mm' ),
-				durationUntilExpiry,
-			] );
+				table.push( [
+					{ href: url, content: url },
+					snapshot.name,
+					format( snapshot.date, 'yyyy-MM-dd HH:mm' ),
+					durationUntilExpiry,
+				] );
+			}
+
+			console.log( table.toString() );
 		}
-
-		console.log( table.toString() );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );

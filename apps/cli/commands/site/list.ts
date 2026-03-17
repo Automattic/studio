@@ -1,7 +1,7 @@
 import { type SiteDetails } from '@studio/common/lib/cli-events';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import Table from 'cli-table3';
+import CliTable3 from 'cli-table3';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
@@ -59,7 +59,7 @@ function displaySiteList(
 	if ( format === 'table' ) {
 		const colWidths = getColumnWidths( [ 0.1, 0.2, 0.3, 0.4 ] );
 
-		const table = new Table( {
+		const table = new CliTable3( {
 			head: [ __( 'Status' ), __( 'Name' ), __( 'Path' ), __( 'URL' ) ],
 			wordWrap: true,
 			wrapOnWordBoundary: false,

@@ -9,6 +9,7 @@ import {
 	DEFAULT_WORDPRESS_VERSION,
 	MINIMUM_WORDPRESS_VERSION,
 } from '@studio/common/constants';
+import { installSkillsToSite } from '@studio/common/lib/agent-skills';
 import { extractFormValuesFromBlueprint } from '@studio/common/lib/blueprint-settings';
 import {
 	filterUnsupportedBlueprintFeatures,
@@ -62,10 +63,11 @@ import {
 	updateSiteLatestCliPid,
 } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
-import { generateSiteName, getDefaultSitePath } from 'cli/lib/generate-site-name';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
-import { getServerFilesPath } from 'cli/lib/server-files';
+import { getAgentSkillsPath, getServerFilesPath } from 'cli/lib/server-files';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
+import { generateSiteName } from 'cli/lib/site-name';
+import { getDefaultSitePath } from 'cli/lib/site-paths';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { writeSkillMd } from 'cli/lib/skill-md';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
@@ -442,6 +444,11 @@ export async function runCommand(
 				logSiteDetails( siteDetails );
 			}
 			console.log( __( 'Run "studio site start" to start the site.' ) );
+		}
+
+		// Install bundled WordPress agent skills
+		if ( process.env.ENABLE_AGENT_SUITE === 'true' ) {
+			await installSkillsToSite( sitePath, getAgentSkillsPath() );
 		}
 
 		logger.reportKeyValuePair( 'id', siteDetails.id );

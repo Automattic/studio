@@ -1,5 +1,4 @@
 import { readFile } from 'fs/promises';
-import os from 'os';
 import path from 'path';
 import { tool, createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
@@ -19,11 +18,10 @@ import { runCommand as runStopSiteCommand, Mode as StopMode } from 'cli/commands
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { normalizeHostname } from 'cli/lib/utils';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
 import { getProgressCallback, setProgressCallback, emitProgress } from 'cli/logger';
-
-const SITES_ROOT = path.join( os.homedir(), 'Studio' );
 
 /**
  * Splits a command string into arguments, respecting quoted strings.
@@ -219,7 +217,7 @@ const createSiteTool = tool(
 					'Site name must contain at least one ASCII letter or digit (a-z, 0-9).'
 				);
 			}
-			const sitePath = path.join( SITES_ROOT, slug );
+			const sitePath = path.join( STUDIO_SITES_ROOT, slug );
 
 			await runCreateSiteCommand( sitePath, {
 				name: args.name,

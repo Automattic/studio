@@ -12,6 +12,14 @@ export default mergeConfig(
 	devConfig,
 	defineConfig( {
 		plugins: [
+			viteStaticCopy( {
+				targets: [
+					{
+						src: 'ai/plugin',
+						dest: '.',
+					},
+				],
+			} ),
 			...( existsSync( cliNodeModulesPath )
 				? [
 						viteStaticCopy( {

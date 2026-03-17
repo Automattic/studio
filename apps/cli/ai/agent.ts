@@ -1,3 +1,4 @@
+import path from 'path';
 import { query, type Query } from '@anthropic-ai/claude-agent-sdk';
 import {
 	ALLOWED_TOOLS,
@@ -61,7 +62,10 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 						questions?: AskUserQuestion[];
 						answers?: Record< string, string >;
 					};
-					const questions = typedInput.questions ?? [];
+					const questions = ( typedInput.questions ?? [] ).map( ( q ) => ( {
+						...q,
+						allowFreeForm: true,
+					} ) );
 					const answers = await onAskUser( questions );
 					return {
 						behavior: 'allow' as const,
@@ -77,6 +81,7 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 					pathApprovalSession,
 				} );
 			},
+			plugins: [ { type: 'local' as const, path: path.resolve( __dirname, 'plugin' ) } ],
 			model,
 			resume,
 		},

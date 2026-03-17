@@ -20,19 +20,11 @@ export async function startSharedConfigWatcher() {
 		await checkAuthChange();
 		if ( eventType === 'rename' && watcher ) {
 			watcher.close();
-			try {
-				watcher = fs.watch( filePath, fsEventHandler );
-			} catch {
-				watcher = null;
-			}
+			watcher = fs.watch( filePath, fsEventHandler );
 		}
 	};
 
-	try {
-		watcher = fs.watch( filePath, fsEventHandler );
-	} catch {
-		// File may not exist yet — that's fine, watcher will be started later if needed
-	}
+	watcher = fs.watch( filePath, fsEventHandler );
 }
 
 export function stopSharedConfigWatcher() {

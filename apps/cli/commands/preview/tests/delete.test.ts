@@ -1,7 +1,7 @@
 import { vi } from 'vitest';
 import { deleteSnapshot } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
-import { getSnapshotsFromAppdata, deleteSnapshotFromAppdata } from 'cli/lib/snapshots';
+import { getSnapshotsFromConfig, deleteSnapshotFromConfig } from 'cli/lib/snapshots';
 import { LoggerError } from 'cli/logger';
 import {
 	mockReportStart,
@@ -61,9 +61,9 @@ describe( 'Preview Delete Command', () => {
 		vi.clearAllMocks();
 
 		vi.mocked( getAuthToken ).mockResolvedValue( mockAuthToken );
-		vi.mocked( getSnapshotsFromAppdata ).mockResolvedValue( [ mockSnapshot ] );
+		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [ mockSnapshot ] );
 		vi.mocked( deleteSnapshot ).mockResolvedValue( undefined );
-		vi.mocked( deleteSnapshotFromAppdata ).mockResolvedValue( undefined );
+		vi.mocked( deleteSnapshotFromConfig ).mockResolvedValue( undefined );
 	} );
 
 	afterEach( () => {
@@ -74,9 +74,9 @@ describe( 'Preview Delete Command', () => {
 		await runCommand( mockSiteUrl );
 
 		expect( getAuthToken ).toHaveBeenCalled();
-		expect( getSnapshotsFromAppdata ).toHaveBeenCalledWith( mockAuthToken.id );
+		expect( getSnapshotsFromConfig ).toHaveBeenCalledWith( mockAuthToken.id );
 		expect( deleteSnapshot ).toHaveBeenCalledWith( mockAtomicSiteId, mockAuthToken.accessToken );
-		expect( deleteSnapshotFromAppdata ).toHaveBeenCalledWith( mockSiteUrl );
+		expect( deleteSnapshotFromConfig ).toHaveBeenCalledWith( mockSiteUrl );
 
 		expect( mockReportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating…' ] );
 		expect( mockReportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful', true ] );
@@ -99,7 +99,7 @@ describe( 'Preview Delete Command', () => {
 	} );
 
 	it( 'should handle snapshot not found errors', async () => {
-		vi.mocked( getSnapshotsFromAppdata ).mockResolvedValue( [] );
+		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [] );
 
 		await runCommand( mockSiteUrl );
 
@@ -118,12 +118,12 @@ describe( 'Preview Delete Command', () => {
 
 		expect( mockReportError ).toHaveBeenCalled();
 		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
-		expect( deleteSnapshotFromAppdata ).not.toHaveBeenCalled();
+		expect( deleteSnapshotFromConfig ).not.toHaveBeenCalled();
 	} );
 
 	it( 'should handle delete snapshot errors', async () => {
 		const errorMessage = 'Failed to delete snapshot';
-		vi.mocked( deleteSnapshotFromAppdata ).mockImplementation( () => {
+		vi.mocked( deleteSnapshotFromConfig ).mockImplementation( () => {
 			throw new LoggerError( errorMessage );
 		} );
 

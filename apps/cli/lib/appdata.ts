@@ -5,7 +5,6 @@ import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from '@studio/common/constant
 import { applyMigrations, type ConfigMigration } from '@studio/common/lib/config-migrator';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
-import { snapshotSchema } from '@studio/common/types/snapshot';
 import { __, sprintf } from '@wordpress/i18n';
 import { readFile, writeFile } from 'atomically';
 import { z } from 'zod';
@@ -19,7 +18,6 @@ const aiProviderSchema = z.enum( [ 'wpcom', 'anthropic-claude', 'anthropic-api-k
 
 const userDataSchema = z
 	.object( {
-		snapshots: z.array( snapshotSchema ).default( () => [] ),
 		locale: z.string().optional(),
 		aiProvider: aiProviderSchema.optional(),
 		authToken: z

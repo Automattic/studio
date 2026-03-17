@@ -92,17 +92,20 @@ async function main() {
 				{ registerCommand: registerPreviewListCommand },
 				{ registerCommand: registerPreviewDeleteCommand },
 				{ registerCommand: registerPreviewUpdateCommand },
+				{ registerCommand: registerPreviewSetCommand },
 			] = await Promise.all( [
 				import( 'cli/commands/preview/create' ),
 				import( 'cli/commands/preview/list' ),
 				import( 'cli/commands/preview/delete' ),
 				import( 'cli/commands/preview/update' ),
+				import( 'cli/commands/preview/set' ),
 			] );
 
 			registerPreviewCreateCommand( previewYargs );
 			registerPreviewListCommand( previewYargs );
 			registerPreviewDeleteCommand( previewYargs );
 			registerPreviewUpdateCommand( previewYargs );
+			registerPreviewSetCommand( previewYargs );
 			previewYargs.version( false ).demandCommand( 1, __( 'You must provide a valid command' ) );
 		} )
 		.command( 'site', __( 'Manage sites' ), async ( sitesYargs ) => {

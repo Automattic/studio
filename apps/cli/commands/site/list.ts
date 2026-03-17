@@ -1,8 +1,9 @@
-import { type SiteDetails } from '@studio/common/lib/site-events';
+import { type SiteDetails } from '@studio/common/lib/cli-events';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import CliTable3 from 'cli-table3';
-import { getSiteUrl, readCliConfig, type SiteData } from 'cli/lib/cli-config';
+import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
+import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import { getColumnWidths, getPrettyPath } from 'cli/lib/utils';
@@ -80,7 +81,9 @@ function displaySiteList(
 
 		console.log( table.toString() );
 	} else {
-		logger.reportKeyValuePair( 'sites', JSON.stringify( data.jsonEntries ) );
+		const json = JSON.stringify( data.jsonEntries );
+		console.log( json );
+		logger.reportKeyValuePair( 'sites', json );
 	}
 }
 

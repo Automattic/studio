@@ -5,8 +5,8 @@ import { vi } from 'vitest';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
-import { getSiteByFolder } from 'cli/lib/cli-config';
-import { saveSnapshotToAppdata } from 'cli/lib/snapshots';
+import { getSiteByFolder } from 'cli/lib/cli-config/sites';
+import { saveSnapshotToConfig } from 'cli/lib/snapshots';
 import { LoggerError } from 'cli/logger';
 import { runCommand } from '../create';
 
@@ -24,8 +24,12 @@ vi.mock( 'cli/lib/appdata', async () => ( {
 	getAppdataDirectory: vi.fn().mockReturnValue( '/test/appdata' ),
 	getAuthToken: vi.fn(),
 } ) );
-vi.mock( 'cli/lib/cli-config', async () => ( {
-	...( await vi.importActual( 'cli/lib/cli-config' ) ),
+vi.mock( 'cli/lib/cli-config/snapshots', async () => ( {
+	...( await vi.importActual( 'cli/lib/cli-config/snapshots' ) ),
+	getNextSnapshotSequence: vi.fn().mockReturnValue( 1 ),
+} ) );
+vi.mock( 'cli/lib/cli-config/sites', async () => ( {
+	...( await vi.importActual( 'cli/lib/cli-config/sites' ) ),
 	getSiteByFolder: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/validation', () => ( {
@@ -33,7 +37,11 @@ vi.mock( 'cli/lib/validation', () => ( {
 } ) );
 vi.mock( 'cli/lib/archive' );
 vi.mock( 'cli/lib/api' );
-vi.mock( 'cli/lib/snapshots' );
+vi.mock( 'cli/lib/snapshots', async () => ( {
+	...( await vi.importActual( 'cli/lib/snapshots' ) ),
+	getSnapshotsFromConfig: vi.fn().mockResolvedValue( [] ),
+	saveSnapshotToConfig: vi.fn(),
+} ) );
 vi.mock( 'cli/logger', () => ( {
 	Logger: class {
 		reportStart = mockReportStart;
@@ -92,7 +100,7 @@ describe( 'Preview Create Command', () => {
 			site_id: mockAtomicSiteId,
 		} );
 		vi.mocked( waitForSiteReady ).mockResolvedValue( true );
-		vi.mocked( saveSnapshotToAppdata ).mockResolvedValue( {
+		vi.mocked( saveSnapshotToConfig ).mockResolvedValue( {
 			url: mockSiteUrl,
 			atomicSiteId: mockAtomicSiteId,
 			localSiteId: 'site-123',
@@ -133,10 +141,12 @@ describe( 'Preview Create Command', () => {
 			`Preview site available at: https://${ mockSiteUrl }`,
 		] );
 
-		expect( saveSnapshotToAppdata ).toHaveBeenCalledWith(
+		expect( saveSnapshotToConfig ).toHaveBeenCalledWith(
 			mockFolder,
 			mockAtomicSiteId,
-			mockSiteUrl
+			mockSiteUrl,
+			mockAuthToken.id,
+			'Test Site Preview 1'
 		);
 		expect( mockReportStart.mock.calls[ 4 ] ).toEqual( [
 			'appdata',
@@ -217,12 +227,12 @@ describe( 'Preview Create Command', () => {
 
 		expect( mockReportError ).toHaveBeenCalled();
 		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
-		expect( saveSnapshotToAppdata ).not.toHaveBeenCalled();
+		expect( saveSnapshotToConfig ).not.toHaveBeenCalled();
 	} );
 
 	it( 'should handle appdata errors', async () => {
 		const errorMessage = 'Failed to save to appdata';
-		vi.mocked( saveSnapshotToAppdata ).mockImplementation( () => {
+		vi.mocked( saveSnapshotToConfig ).mockImplementation( () => {
 			throw new LoggerError( errorMessage );
 		} );
 

@@ -26,7 +26,8 @@ import { diffTodoSnapshot, type TodoDiff, type TodoEntry } from 'cli/ai/todo-str
 import { getWpComSites } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { openBrowser } from 'cli/lib/browser';
-import { getSiteUrl, readCliConfig, type SiteData } from 'cli/lib/cli-config';
+import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
+import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { TodoWriteInput } from '@anthropic-ai/claude-agent-sdk/sdk-tools';

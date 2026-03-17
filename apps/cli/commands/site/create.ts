@@ -15,6 +15,7 @@ import {
 	filterUnsupportedBlueprintFeatures,
 	validateBlueprintData,
 } from '@studio/common/lib/blueprint-validation';
+import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { getDomainNameValidationError } from '@studio/common/lib/domains';
 import {
 	arePathsEqual,
@@ -36,7 +37,6 @@ import {
 	hasDefaultDbBlock,
 	removeDbConstants,
 } from '@studio/common/lib/remove-default-db-constants';
-import { SITE_EVENTS } from '@studio/common/lib/site-events';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import {
 	isValidWordPressVersion,
@@ -53,14 +53,16 @@ import {
 import {
 	lockCliConfig,
 	readCliConfig,
-	removeSiteFromConfig,
 	saveCliConfig,
 	SiteData,
 	unlockCliConfig,
+} from 'cli/lib/cli-config/core';
+import {
+	removeSiteFromConfig,
 	updateSiteAutoStart,
 	updateSiteLatestCliPid,
-} from 'cli/lib/cli-config';
-import { connectToDaemon, disconnectFromDaemon, emitSiteEvent } from 'cli/lib/daemon-client';
+} from 'cli/lib/cli-config/sites';
+import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { getAgentSkillsPath, getServerFilesPath } from 'cli/lib/server-files';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
@@ -451,7 +453,7 @@ export async function runCommand(
 
 		logger.reportKeyValuePair( 'id', siteDetails.id );
 		logger.reportKeyValuePair( 'running', String( siteDetails.running ) );
-		await emitSiteEvent( SITE_EVENTS.CREATED, { siteId: siteDetails.id } );
+		await emitCliEvent( { event: SITE_EVENTS.CREATED, data: { siteId: siteDetails.id } } );
 	} finally {
 		await disconnectFromDaemon();
 	}

@@ -1,11 +1,11 @@
-import { sequential } from '@studio/common/lib/sequential';
 import {
-	siteEventSchema,
+	cliSiteEventSchema,
+	cliSnapshotEventSchema,
 	SiteEvent,
 	SITE_EVENTS,
 	SiteDetails,
-} from '@studio/common/lib/site-events';
-import { z } from 'zod';
+} from '@studio/common/lib/cli-events';
+import { sequential } from '@studio/common/lib/sequential';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { SiteServer } from 'src/site-server';
@@ -62,15 +62,6 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 	void sendIpcEventToRenderer( 'site-event', event );
 } );
 
-const cliSiteEventSchema = z.object( {
-	action: z.literal( 'keyValuePair' ),
-	key: z.literal( 'site-event' ),
-	value: z
-		.string()
-		.transform( ( val ) => JSON.parse( val ) )
-		.pipe( siteEventSchema ),
-} );
-
 let subscriber: ReturnType< typeof executeCliCommand > | null = null;
 
 export async function startCliEventsSubscriber(): Promise< void > {
@@ -90,6 +81,12 @@ export async function startCliEventsSubscriber(): Promise< void > {
 		} );
 
 		eventEmitter.on( 'data', ( { data } ) => {
+			const snapshotParsed = cliSnapshotEventSchema.safeParse( data );
+			if ( snapshotParsed.success ) {
+				void sendIpcEventToRenderer( 'snapshot-changed', snapshotParsed.data.value );
+				return;
+			}
+
 			const parsed = cliSiteEventSchema.safeParse( data );
 			if ( ! parsed.success ) {
 				return;

@@ -4,7 +4,7 @@ import { createSecureContext } from 'node:tls';
 import { domainToASCII } from 'node:url';
 import httpProxy from 'http-proxy';
 import { generateSiteCertificate } from 'cli/lib/certificate-manager';
-import { readCliConfig } from 'cli/lib/cli-config';
+import { readCliConfig } from 'cli/lib/cli-config/core';
 
 let httpProxyServer: http.Server | null = null;
 let httpsProxyServer: https.Server | null = null;

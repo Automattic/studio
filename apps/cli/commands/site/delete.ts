@@ -1,22 +1,22 @@
 import fs from 'fs';
+import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
-import { SITE_EVENTS } from '@studio/common/lib/site-events';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { deleteSnapshot } from 'cli/lib/api';
 import { getAuthToken, ValidatedAuthToken } from 'cli/lib/appdata';
 import { deleteSiteCertificate } from 'cli/lib/certificate-manager';
 import {
-	getSiteByFolder,
 	lockCliConfig,
 	readCliConfig,
 	saveCliConfig,
 	unlockCliConfig,
-} from 'cli/lib/cli-config';
-import { connectToDaemon, disconnectFromDaemon, emitSiteEvent } from 'cli/lib/daemon-client';
+} from 'cli/lib/cli-config/core';
+import { getSiteByFolder } from 'cli/lib/cli-config/sites';
+import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
-import { getSnapshotsFromAppdata, deleteSnapshotFromAppdata } from 'cli/lib/snapshots';
+import { getSnapshotsFromConfig, deleteSnapshotFromConfig } from 'cli/lib/snapshots';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -25,7 +25,7 @@ const logger = new Logger< LoggerAction >();
 
 async function deletePreviewSites( authToken: ValidatedAuthToken, siteFolder: string ) {
 	try {
-		const snapshots = await getSnapshotsFromAppdata( authToken.id, siteFolder );
+		const snapshots = await getSnapshotsFromConfig( authToken.id, siteFolder );
 
 		if ( snapshots.length > 0 ) {
 			logger.reportStart(
@@ -44,7 +44,7 @@ async function deletePreviewSites( authToken: ValidatedAuthToken, siteFolder: st
 			await Promise.all(
 				snapshots.map( async ( snapshot ) => {
 					await deleteSnapshot( snapshot.atomicSiteId, authToken.accessToken );
-					await deleteSnapshotFromAppdata( snapshot.url );
+					await deleteSnapshotFromConfig( snapshot.url );
 				} )
 			);
 
@@ -131,7 +131,7 @@ export async function runCommand(
 			}
 		}
 
-		await emitSiteEvent( SITE_EVENTS.DELETED, { siteId: site.id } );
+		await emitCliEvent( { event: SITE_EVENTS.DELETED, data: { siteId: site.id } } );
 	} finally {
 		await disconnectFromDaemon();
 	}

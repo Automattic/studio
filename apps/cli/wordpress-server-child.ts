@@ -82,7 +82,6 @@ const originalStdoutWrite = process.stdout.write.bind( process.stdout );
 const originalStderrWrite = process.stderr.write.bind( process.stderr );
 
 process.stdout.write = function ( ...args: Parameters< typeof originalStdoutWrite > ) {
-	capturedBootOutput?.push( String( args[ 0 ] ) );
 	process.send!( { topic: 'activity' } );
 	return originalStdoutWrite( ...args );
 } as typeof process.stdout.write;
@@ -313,9 +312,10 @@ function watchForPhpChanges( config: ServerConfig ): void {
 					lastCliArgs = sanitizeRunCLIArgs( args );
 					server = await runCLIWithoutExit( args );
 
-					// Success — clean up watcher
+					// Success — clean up watcher and stale state
 					siteFileWatcher?.close();
 					siteFileWatcher = null;
+					lastCapturedOutput = null;
 					logToConsole( 'Server restarted successfully' );
 
 					if ( config.adminPassword || config.adminUsername || config.adminEmail ) {
@@ -624,6 +624,8 @@ async function ipcMessageHandler( packet: unknown ) {
 		errorToConsole( `Error handling message ${ validMessage.topic }:`, error );
 		sendErrorMessage( validMessage.messageId, error );
 		process.exit( 1 );
+	} finally {
+		delete abortControllers[ validMessage.messageId ];
 	}
 }
 

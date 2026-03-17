@@ -14,7 +14,6 @@ export interface ResumeSessionContext {
 	sessionId?: string;
 	provider?: AiProviderId;
 	model?: AiModelId;
-	cwd?: string;
 }
 
 export function resolveResumeSessionContext(
@@ -47,12 +46,9 @@ export function resolveResumeSessionContext(
 			if ( ! context.model && isAiModelId( event.model ) ) {
 				context.model = event.model;
 			}
-			if ( ! context.cwd && event.cwd.trim().length > 0 ) {
-				context.cwd = event.cwd;
-			}
 		}
 
-		if ( context.sessionId && context.provider && context.model && context.cwd ) {
+		if ( context.sessionId && context.provider && context.model ) {
 			break;
 		}
 	}

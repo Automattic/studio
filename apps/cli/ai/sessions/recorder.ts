@@ -73,14 +73,12 @@ export class AiSessionRecorder {
 	async recordSessionContext( options: {
 		provider: AiProviderId;
 		model: AiModelId;
-		cwd: string;
 	} ): Promise< void > {
 		await this.appendEvent( {
 			type: 'session.context',
 			timestamp: toIsoTimestamp(),
 			provider: options.provider,
 			model: options.model,
-			cwd: options.cwd,
 		} );
 	}
 

@@ -19,7 +19,6 @@ export type AiSessionEvent =
 			timestamp: string;
 			provider: string;
 			model: string;
-			cwd: string;
 	  }
 	| {
 			type: 'site.selected';

@@ -47,7 +47,6 @@ describe( 'ai-sessions', () => {
 		await recorder.recordSessionContext( {
 			provider: 'anthropic-api-key',
 			model: 'claude-sonnet-4-6',
-			cwd: '/tmp/my-wordpress-website',
 		} );
 		await recorder.recordSdkMessage( {
 			type: 'assistant',
@@ -104,7 +103,6 @@ describe( 'ai-sessions', () => {
 			type: 'session.context',
 			provider: 'anthropic-api-key',
 			model: 'claude-sonnet-4-6',
-			cwd: '/tmp/my-wordpress-website',
 		} );
 		expect( events.find( ( event ) => event.type === 'tool.progress' ) ).toMatchObject( {
 			type: 'tool.progress',

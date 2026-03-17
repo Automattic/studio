@@ -61,7 +61,6 @@ export async function runCommand(
 	let currentProvider: AiProviderId =
 		resumeContext.provider ?? ( await resolveInitialAiProvider() );
 	let currentModel: AiModelId = resumeContext.model ?? DEFAULT_MODEL;
-	const currentWorkingDirectory = resumeContext.cwd ?? process.cwd();
 	ui.currentProvider = currentProvider;
 	ui.currentModel = currentModel;
 	ui.start();
@@ -264,7 +263,6 @@ export async function runCommand(
 			recorder.recordSessionContext( {
 				provider: currentProvider,
 				model: currentModel,
-				cwd: currentWorkingDirectory,
 			} )
 		);
 
@@ -280,7 +278,6 @@ export async function runCommand(
 			prompt: enrichedPrompt,
 			env,
 			model: currentModel,
-			cwd: currentWorkingDirectory,
 			resume: sessionId,
 			onAskUser: ( questions ) => askUserAndPersistAnswers( questions ),
 		} );

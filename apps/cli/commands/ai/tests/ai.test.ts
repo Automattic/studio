@@ -331,7 +331,7 @@ describe( 'CLI: studio ai sessions command', () => {
 		expect( reportErrorMock ).toHaveBeenCalled();
 	} );
 
-	it( 'restores provider, model, cwd, and resume session id from session events', async () => {
+	it( 'restores provider, model, and resume session id from session events', async () => {
 		vi.mocked( resolveInitialAiProvider ).mockResolvedValue( 'wpcom' );
 		waitForInputMock.mockResolvedValueOnce( 'Continue the task' ).mockResolvedValueOnce( '/exit' );
 
@@ -360,7 +360,6 @@ describe( 'CLI: studio ai sessions command', () => {
 					timestamp: '2026-03-11T11:00:00.000Z',
 					provider: 'anthropic-api-key',
 					model: 'claude-opus-4-6',
-					cwd: '/tmp/resume-cwd',
 				},
 				{
 					type: 'sdk.message',
@@ -388,7 +387,6 @@ describe( 'CLI: studio ai sessions command', () => {
 		expect( startAiAgent ).toHaveBeenCalledWith(
 			expect.objectContaining( {
 				model: 'claude-opus-4-6',
-				cwd: '/tmp/resume-cwd',
 				resume: 'session-from-sdk-message',
 			} )
 		);

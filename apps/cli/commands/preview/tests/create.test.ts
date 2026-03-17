@@ -6,8 +6,7 @@ import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
-import { getNextSnapshotSequence } from 'cli/lib/cli-config/snapshots';
-import { getSnapshotsFromConfig, saveSnapshotToConfig } from 'cli/lib/snapshots';
+import { saveSnapshotToConfig } from 'cli/lib/snapshots';
 import { LoggerError } from 'cli/logger';
 import { runCommand } from '../create';
 

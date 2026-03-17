@@ -4,8 +4,8 @@
  * The CLI emits these events via the `_events` command, and Studio
  * subscribes to them to maintain its state without reading config files.
  */
-import { snapshotSchema } from '@studio/common/types/snapshot';
 import { z } from 'zod';
+import { snapshotSchema } from '@studio/common/types/snapshot';
 
 /**
  * Site data included in events. This is the data Studio needs to display sites.

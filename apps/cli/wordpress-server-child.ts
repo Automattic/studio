@@ -82,6 +82,7 @@ const originalStdoutWrite = process.stdout.write.bind( process.stdout );
 const originalStderrWrite = process.stderr.write.bind( process.stderr );
 
 process.stdout.write = function ( ...args: Parameters< typeof originalStdoutWrite > ) {
+	capturedBootOutput?.push( String( args[ 0 ] ) );
 	process.send!( { topic: 'activity' } );
 	return originalStdoutWrite( ...args );
 } as typeof process.stdout.write;

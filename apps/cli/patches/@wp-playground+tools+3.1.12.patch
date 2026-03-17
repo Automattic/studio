@@ -1,0 +1,13 @@
+diff --git a/node_modules/@wp-playground/tools/DbiMysqli-CmlcCdDi.js b/node_modules/@wp-playground/tools/DbiMysqli-CmlcCdDi.js
+index f17cbe9..a8ac6d7 100644
+--- a/node_modules/@wp-playground/tools/DbiMysqli-CmlcCdDi.js
++++ b/node_modules/@wp-playground/tools/DbiMysqli-CmlcCdDi.js
+@@ -23,7 +23,7 @@ use WP_SQLite_Connection;
+ use WP_SQLite_Driver;
+ 
+ // Load the SQLite driver.
+-require_once '/internal/shared/sqlite-database-integration/wp-pdo-mysql-on-sqlite.php';
++require_once '/wordpress/wp-content/mu-plugins/sqlite-database-integration/wp-pdo-mysql-on-sqlite.php';
+ 
+ // Supress the following phpMyAdmin warning:
+ //   "The mysqlnd extension is missing. Please check your PHP configuration."

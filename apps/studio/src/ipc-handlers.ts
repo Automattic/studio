@@ -18,7 +18,6 @@ import os from 'os';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
-import { bumpStat } from '@studio/common/lib/bump-stat';
 import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
 import {
 	calculateDirectorySizeForArchive,
@@ -37,19 +36,24 @@ import { portFinder } from '@studio/common/lib/port-finder';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import { Snapshot } from '@studio/common/types/snapshot';
-import { StatsGroup, StatsMetric } from '@studio/common/types/stats';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import { MACOS_TRAFFIC_LIGHT_POSITION, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
-import { getImporterMetric, getBlueprintMetric } from 'src/lib/bump-stats/lib';
+import {
+	bumpStat,
+	getImporterMetric,
+	getBlueprintMetric,
+	StatsGroup,
+	StatsMetric,
+} from 'src/lib/bump-stats';
 import {
 	openCertificate as openCertificateDialog,
 	isRootCATrusted,
 	trustRootCA,
 } from 'src/lib/certificate-manager';
 import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
-import { buildFeatureFlags } from 'src/lib/feature-flags';
+import { buildFeatureFlags, getFeatureFlagFromEnv } from 'src/lib/feature-flags';
 import { getImageData } from 'src/lib/get-image-data';
 import { exportBackup } from 'src/lib/import-export/export/export-manager';
 import { ExportOptions } from 'src/lib/import-export/export/types';
@@ -74,6 +78,11 @@ import {
 	installInstructionFile,
 	type InstructionFileStatus,
 } from 'src/modules/agent-instructions/lib/instructions';
+import {
+	getSkillsStatus,
+	installAllSkills,
+	type SkillStatus,
+} from 'src/modules/agent-instructions/lib/skills';
 import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
@@ -162,6 +171,30 @@ export async function installAgentInstructions(
 		DEFAULT_AGENT_INSTRUCTIONS,
 		overwrite
 	);
+}
+
+export async function getWordPressSkillsStatus(
+	_event: IpcMainInvokeEvent,
+	siteId: string
+): Promise< SkillStatus[] > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( `Site not found: ${ siteId }` );
+	}
+	return getSkillsStatus( server.details.path );
+}
+
+export async function installWordPressSkills(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	options?: { overwrite?: boolean }
+): Promise< void > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( `Site not found: ${ siteId }` );
+	}
+	const overwrite = options?.overwrite ?? false;
+	await installAllSkills( server.details.path, overwrite );
 }
 
 const DEBUG_LOG_MAX_LINES = 50;
@@ -335,6 +368,14 @@ export async function createSite(
 		// If the site is running after creation, fetch theme details and update thumbnail
 		if ( server.details.running ) {
 			void loadThemeDetails( event, server.details.id );
+		}
+
+		// Install agent instructions and WordPress skills into the new site
+		if ( getFeatureFlagFromEnv( 'enableAgentSuite' ) ) {
+			void installInstructionFile( path, 'agents', DEFAULT_AGENT_INSTRUCTIONS, false ).catch(
+				() => {}
+			);
+			void installAllSkills( path, false ).catch( () => {} );
 		}
 
 		return server.details;

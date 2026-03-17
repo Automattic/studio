@@ -122,8 +122,8 @@ class PromptEditor implements Component, Focusable {
 	}
 
 	render( width: number ): string[] {
-		const promptPrefix = ' ' + chalk.bold( '❯ ' );
-		const promptWidth = 3; // space + ❯ + space
+		const promptPrefix = ' ' + chalk.bold( '〉' );
+		const promptWidth = 3; // space + 〉(2 cols)
 		const innerWidth = Math.max( 1, width - promptWidth );
 		const lines = this.editor.render( innerWidth );
 		const bc = this.borderColorFn;
@@ -869,10 +869,10 @@ export class AiChatUI {
 
 	private formatSiteRow( site: SiteInfo, index: number ): string {
 		const selected = index === this.sitePickerSelectedIndex;
-		const prefix = selected ? `  ${ chalk.blue( '❯' ) } ` : '    ';
+		const prefix = selected ? `  ${ chalk.blue( '〉' ) }` : '    ';
 		if ( site.remote ) {
 			const nameColumnWidth = 30;
-			const prefixWidth = 4; // "  ❯ " or "    "
+			const prefixWidth = 4; // "  〉(2 cols)" or "    "
 			const gap = 2;
 			const termWidth = process.stdout.columns ?? 80;
 			const urlColumnWidth = termWidth - prefixWidth - nameColumnWidth - gap;
@@ -1173,7 +1173,7 @@ export class AiChatUI {
 
 		const items = this.optionPickerItems.map( ( opt, i ) => {
 			if ( i === this.optionPickerSelectedIndex ) {
-				return `  ${ chalk.blue( '❯' ) } ${ i + 1 }. ${ chalk.blue( opt.label ) }`;
+				return `  ${ chalk.blue( '〉' ) }${ i + 1 }. ${ chalk.blue( opt.label ) }`;
 			}
 			return `    ${ i + 1 }. ${ opt.label }`;
 		} );
@@ -1265,9 +1265,9 @@ export class AiChatUI {
 		const formatted = lines
 			.map( ( line, i ) => {
 				if ( i === 0 ) {
-					return ' ' + chalk.bgHex( '#ddeeff' ).black( '❯ ' + line + ' ' );
+					return ' ' + chalk.bgHex( '#ddeeff' ).black( '〉' + line + ' ' );
 				}
-				return ' ' + chalk.bgHex( '#ddeeff' ).black( '   ' + line + ' ' );
+				return ' ' + chalk.bgHex( '#ddeeff' ).black( '  ' + line + ' ' );
 			} )
 			.join( '\n' );
 		this.messages.addChild( new Text( '\n' + formatted, 0, 0 ) );

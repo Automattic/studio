@@ -1,7 +1,6 @@
 {
 	"extends": "../../tsconfig.base.json",
 	"compilerOptions": {
-		"composite": true,
 		"baseUrl": "../..",
 		"paths": {
 			"src/*": [ "apps/studio/src/*" ],
@@ -9,6 +8,5 @@
 		}
 	},
 	"include": [ "src/**/*", "e2e/**/*" ],
-	"exclude": [ "**/__mocks__/**/*", "**/node_modules/**/*", "**/dist/**/*", "**/out/**/*" ],
-	"references": [ { "path": "../cli" }, { "path": "../../tools/common" } ]
+	"exclude": [ "**/__mocks__/**/*", "**/node_modules/**/*", "**/dist/**/*", "**/out/**/*" ]
 }

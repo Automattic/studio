@@ -1,33 +1,16 @@
 import path from 'node:path';
-import {
-	bumpAggregatedUniqueStat,
-	AppdataProvider,
-	LastBumpStatsData,
-} from '@studio/common/lib/bump-stat';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
-import { StatsGroup, StatsMetric } from '@studio/common/types/stats';
 import { __ } from '@wordpress/i18n';
 import yargs from 'yargs';
-import { readAppdata, lockAppdata, unlockAppdata, saveAppdata } from 'cli/lib/appdata';
+import { bumpAggregatedUniqueStat, getPlatformMetric } from 'cli/lib/bump-stat';
 import { loadTranslations } from 'cli/lib/i18n';
+import { StatsGroup, StatsMetric } from 'cli/lib/types/bump-stats';
 import { untildify } from 'cli/lib/utils';
 import { StudioArgv } from 'cli/types';
 
 const version = __STUDIO_CLI_VERSION__;
 
 suppressPunycodeWarning();
-
-const cliAppdataProvider: AppdataProvider< LastBumpStatsData > = {
-	load: readAppdata,
-	lock: lockAppdata,
-	unlock: unlockAppdata,
-	save: async ( data ) => {
-		// Cast is safe: data comes from readAppdata() which returns the full UserData type.
-		// The lock/unlock is already handled by the caller (updateLastBump in /common/lib/bump-stat.ts)
-		// eslint-disable-next-line studio/require-lock-before-save
-		await saveAppdata( data as never );
-	},
-};
 
 async function main() {
 	const yargsLocale = await loadTranslations();
@@ -52,14 +35,27 @@ async function main() {
 			},
 		} )
 		.middleware( async ( argv ) => {
-			if ( ! argv.avoidTelemetry ) {
+			if ( __ENABLE_CLI_TELEMETRY__ && ! argv.avoidTelemetry ) {
 				try {
 					await bumpAggregatedUniqueStat(
 						StatsGroup.STUDIO_CLI_USAGE_UNIQUE,
 						StatsMetric.SUCCESS,
-						'weekly',
-						cliAppdataProvider
+						'weekly'
 					);
+
+					if ( __IS_PACKAGED_FOR_NPM__ ) {
+						await bumpAggregatedUniqueStat(
+							StatsGroup.STUDIO_CLI_WEEKLY_UNIQUE_NPM,
+							getPlatformMetric(),
+							'weekly'
+						);
+					} else {
+						await bumpAggregatedUniqueStat(
+							StatsGroup.STUDIO_CLI_WEEKLY_UNIQUE_APP,
+							getPlatformMetric(),
+							'weekly'
+						);
+					}
 				} catch ( error ) {
 					console.error( 'Failed to bump stat:', error );
 				}

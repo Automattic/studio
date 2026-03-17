@@ -64,8 +64,8 @@ export const baseConfig = defineConfig( {
 		mainFields: [ 'main' ],
 	},
 	define: {
-		__STUDIO_CLI_VERSION__: JSON.stringify( packageJson.version ),
 		__ENABLE_STUDIO_AI__: true,
 		__ENABLE_AGENT_SUITE__: true,
+		__STUDIO_CLI_VERSION__: JSON.stringify( packageJson.version ),
 	},
 } );

@@ -3,13 +3,13 @@ import { resolve } from 'path';
 import glob from 'glob';
 import { defineConfig, mergeConfig } from 'vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
-import { baseConfig } from './vite.config.base';
+import devConfig from './vite.config.dev';
 
 const cliNodeModulesPath = resolve( __dirname, 'node_modules' );
 const distCliNodeModulesPath = resolve( __dirname, 'dist/cli/node_modules' );
 
 export default mergeConfig(
-	baseConfig,
+	devConfig,
 	defineConfig( {
 		plugins: [
 			...( existsSync( cliNodeModulesPath )
@@ -43,5 +43,8 @@ export default mergeConfig(
 				  ]
 				: [] ),
 		],
+		define: {
+			__ENABLE_CLI_TELEMETRY__: true,
+		},
 	} )
 );

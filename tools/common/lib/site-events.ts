@@ -26,6 +26,7 @@ export const siteDetailsSchema = z.object( {
 	enableXdebug: z.boolean().optional(),
 	enableDebugLog: z.boolean().optional(),
 	enableDebugDisplay: z.boolean().optional(),
+	enablePhpMyAdmin: z.boolean().optional(),
 } );
 
 export type SiteDetails = z.infer< typeof siteDetailsSchema >;

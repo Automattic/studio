@@ -260,6 +260,11 @@ async function getBaseRunCLIArgs(
 		args.xdebug = true;
 	}
 
+	if ( config.enablePhpMyAdmin ) {
+		logToConsole( 'Enabling phpMyAdmin support' );
+		args.phpmyadmin = true;
+	}
+
 	return args;
 }
 

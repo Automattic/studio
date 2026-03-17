@@ -115,6 +115,10 @@ export async function startWordPressServer(
 		serverConfig.enableDebugDisplay = true;
 	}
 
+	if ( site.enablePhpMyAdmin ) {
+		serverConfig.enablePhpMyAdmin = true;
+	}
+
 	const processDesc = await startProcess( processName, wordPressServerChildPath );
 	await waitForReadyMessage( processDesc.pmId );
 	await sendMessage(

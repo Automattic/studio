@@ -7,6 +7,7 @@ export interface SiteSettingChanges {
 	credentialsChanged?: boolean;
 	debugLogChanged?: boolean;
 	debugDisplayChanged?: boolean;
+	phpmyadminChanged?: boolean;
 }
 
 export function siteNeedsRestart( changes: SiteSettingChanges ): boolean {
@@ -19,6 +20,7 @@ export function siteNeedsRestart( changes: SiteSettingChanges ): boolean {
 		credentialsChanged,
 		debugLogChanged,
 		debugDisplayChanged,
+		phpmyadminChanged,
 	} = changes;
 
 	return !! (
@@ -29,6 +31,7 @@ export function siteNeedsRestart( changes: SiteSettingChanges ): boolean {
 		xdebugChanged ||
 		credentialsChanged ||
 		debugLogChanged ||
-		debugDisplayChanged
+		debugDisplayChanged ||
+		phpmyadminChanged
 	);
 }

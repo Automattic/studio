@@ -32,3 +32,6 @@ export const MINIMUM_WORDPRESS_VERSION = '6.2.1' as const; // https://wordpress.
 export const DEFAULT_WORDPRESS_VERSION = 'latest' as const;
 export const DEFAULT_PHP_VERSION: typeof RecommendedPHPVersion = RecommendedPHPVersion;
 export const SQLITE_FILENAME = 'sqlite-database-integration' as const;
+
+// phpMyAdmin - set to true to enable by default for all new sites
+export const DEFAULT_ENABLE_PHPMYADMIN = false;

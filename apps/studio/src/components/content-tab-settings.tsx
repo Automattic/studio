@@ -182,6 +182,9 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 					<SettingsRow label={ __( 'Debug display' ) }>
 						<span>{ selectedSite.enableDebugDisplay ? __( 'Enabled' ) : __( 'Disabled' ) }</span>
 					</SettingsRow>
+					<SettingsRow label={ __( 'phpMyAdmin' ) }>
+						<span>{ selectedSite.enablePhpMyAdmin ? __( 'Enabled' ) : __( 'Disabled' ) }</span>
+					</SettingsRow>
 
 					<tr>
 						<th colSpan={ 2 } className="pb-4 ltr:text-left rtl:text-right">

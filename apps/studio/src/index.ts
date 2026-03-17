@@ -35,6 +35,7 @@ import {
 import { handleDeeplink } from 'src/lib/deeplink';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
+import { startSharedConfigWatcher, stopSharedConfigWatcher } from 'src/lib/shared-config-watcher';
 import { startUserDataWatcher, stopUserDataWatcher } from 'src/lib/user-data-watcher';
 import { setupLogging } from 'src/logging';
 import { createMainWindow, getMainWindow } from 'src/main-window';
@@ -328,6 +329,7 @@ async function appBoot() {
 		await startCliEventsSubscriber();
 
 		await startUserDataWatcher();
+		await startSharedConfigWatcher();
 
 		await createMainWindow();
 
@@ -479,6 +481,7 @@ async function appBoot() {
 	app.on( 'will-quit', ( event ) => {
 		globalShortcut.unregisterAll();
 		stopUserDataWatcher();
+		stopSharedConfigWatcher();
 		stopCliEventsSubscriber();
 
 		if ( shouldStopSitesOnQuit ) {

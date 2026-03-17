@@ -27,7 +27,7 @@ export interface IpcEvents {
 			warnings?: BlueprintValidationWarning[];
 		},
 	];
-	'auth-updated': [ { token: StoredToken } | { error: unknown } ];
+	'auth-updated': [ { token: StoredToken } | { token: null } | { error: unknown } ];
 	'on-export': [ ImportExportEventData, string ];
 	'on-import': [ ImportExportEventData, string ];
 	'on-site-create-progress': [ { siteId: string; message: string } ];

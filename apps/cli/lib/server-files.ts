@@ -1,11 +1,11 @@
 import path from 'path';
-import { getAppdataDirectory } from 'cli/lib/appdata';
+import { STUDIO_CLI_HOME } from 'cli/lib/paths';
 
 const WP_CLI_PHAR_FILENAME = 'wp-cli.phar';
 const SQLITE_COMMAND_FOLDER = 'sqlite-command';
 
 export function getServerFilesPath(): string {
-	return path.join( getAppdataDirectory(), 'server-files' );
+	return path.join( STUDIO_CLI_HOME, 'server-files' );
 }
 
 export function getWpCliPharPath(): string {

@@ -419,14 +419,14 @@ export async function removeSyncBackup( event: IpcMainInvokeEvent, remoteSiteId:
 type WpcomSitesToConnect = { sites: SyncSite[]; localSiteId: string }[];
 
 export async function connectWpcomSites( event: IpcMainInvokeEvent, list: WpcomSitesToConnect ) {
-	const currentUserId = await getCurrentUserId();
-
-	if ( ! currentUserId ) {
-		throw new Error( 'User not authenticated' );
-	}
-
 	try {
 		await lockAppdata();
+		const currentUserId = await getCurrentUserId();
+
+		if ( ! currentUserId ) {
+			throw new Error( 'User not authenticated' );
+		}
+
 		const userData = await loadUserData();
 
 		userData.connectedWpcomSites = userData.connectedWpcomSites || {};
@@ -464,14 +464,14 @@ export async function disconnectWpcomSites(
 	event: IpcMainInvokeEvent,
 	list: WpcomSitesToDisconnect
 ) {
-	const currentUserId = await getCurrentUserId();
-
-	if ( ! currentUserId ) {
-		throw new Error( 'User not authenticated' );
-	}
-
 	try {
 		await lockAppdata();
+		const currentUserId = await getCurrentUserId();
+
+		if ( ! currentUserId ) {
+			throw new Error( 'User not authenticated' );
+		}
+
 		const userData = await loadUserData();
 
 		const connectedWpcomSites = userData.connectedWpcomSites;
@@ -501,14 +501,14 @@ export async function updateConnectedWpcomSites(
 	event: IpcMainInvokeEvent,
 	updatedSites: SyncSite[]
 ) {
-	const currentUserId = await getCurrentUserId();
-
-	if ( ! currentUserId ) {
-		throw new Error( 'User not authenticated' );
-	}
-
 	try {
 		await lockAppdata();
+		const currentUserId = await getCurrentUserId();
+
+		if ( ! currentUserId ) {
+			throw new Error( 'User not authenticated' );
+		}
+
 		const userData = await loadUserData();
 
 		const connections = userData.connectedWpcomSites?.[ currentUserId ] || [];
@@ -537,14 +537,14 @@ export async function updateSingleConnectedWpcomSite(
 	event: IpcMainInvokeEvent,
 	updatedSite: SyncSite
 ) {
-	const currentUserId = await getCurrentUserId();
-
-	if ( ! currentUserId ) {
-		throw new Error( 'User not authenticated' );
-	}
-
 	try {
 		await lockAppdata();
+		const currentUserId = await getCurrentUserId();
+
+		if ( ! currentUserId ) {
+			throw new Error( 'User not authenticated' );
+		}
+
 		const userData = await loadUserData();
 
 		const connections = userData.connectedWpcomSites?.[ currentUserId ] || [];

@@ -56,11 +56,8 @@ export async function readSharedConfig(): Promise< SharedConfig > {
 		const data = JSON.parse( fileContent );
 		return sharedConfigSchema.parse( data );
 	} catch ( error ) {
-		if ( error instanceof z.ZodError ) {
-			throw new Error( 'Invalid shared config file format.' );
-		}
-		if ( error instanceof SyntaxError ) {
-			throw new Error( 'Shared config file is corrupted.' );
+		if ( error instanceof z.ZodError || error instanceof SyntaxError ) {
+			return structuredClone( DEFAULT_SHARED_CONFIG );
 		}
 		throw new Error( 'Failed to read shared config file.' );
 	}

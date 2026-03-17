@@ -104,16 +104,18 @@ describe( 'Shared Config', () => {
 			expect( config.locale ).toBe( 'en' );
 		} );
 
-		it( 'should throw on malformed JSON', async () => {
+		it( 'should return defaults on malformed JSON', async () => {
 			vi.mocked( readFile ).mockResolvedValue( Buffer.from( 'not json' ) );
-			await expect( readSharedConfig() ).rejects.toThrow( 'Shared config file is corrupted.' );
+			const config = await readSharedConfig();
+			expect( config ).toEqual( { version: 1 } );
 		} );
 
-		it( 'should throw on invalid schema', async () => {
+		it( 'should return defaults on invalid schema', async () => {
 			vi.mocked( readFile ).mockResolvedValue(
 				Buffer.from( JSON.stringify( { version: 'invalid' } ) )
 			);
-			await expect( readSharedConfig() ).rejects.toThrow( 'Invalid shared config file format.' );
+			const config = await readSharedConfig();
+			expect( config ).toEqual( { version: 1 } );
 		} );
 
 		it( 'should preserve unknown fields with loose schema', async () => {

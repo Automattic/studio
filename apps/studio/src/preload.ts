@@ -109,7 +109,7 @@ const api: IpcApi = {
 	showNotification: ( options ) => ipcRendererSend( 'showNotification', options ),
 	logRendererMessage: ( level, ...args ) => ipcRendererSend( 'logRendererMessage', level, ...args ),
 	setupAppMenu: ( config ) => ipcRendererInvoke( 'setupAppMenu', config ),
-	popupAppMenu: () => ipcRendererSend( 'popupAppMenu' ),
+	popupAppMenu: ( position ) => ipcRendererSend( 'popupAppMenu', position ),
 	openCertificate: () => ipcRendererSend( 'openCertificate' ),
 	promptWindowsSpeedUpSites: ( ...args ) =>
 		ipcRendererInvoke( 'promptWindowsSpeedUpSites', ...args ),
@@ -161,6 +161,9 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'getAgentInstructionsStatus', siteId ),
 	installAgentInstructions: ( siteId, options ) =>
 		ipcRendererInvoke( 'installAgentInstructions', siteId, options ),
+	getWordPressSkillsStatus: ( siteId ) => ipcRendererInvoke( 'getWordPressSkillsStatus', siteId ),
+	installWordPressSkills: ( siteId, options ) =>
+		ipcRendererInvoke( 'installWordPressSkills', siteId, options ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

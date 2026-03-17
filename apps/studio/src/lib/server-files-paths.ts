@@ -71,3 +71,10 @@ export function getWpCliPath(): string {
 export function getLanguagePacksPath(): string {
 	return path.join( getBasePath(), 'language-packs' );
 }
+
+/**
+ * The path where bundled agent skills are stored.
+ */
+export function getAgentSkillsPath(): string {
+	return path.join( getBasePath(), 'agent-skills' );
+}

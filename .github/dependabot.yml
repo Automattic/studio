@@ -277,6 +277,7 @@ updates:
     ignore:
       - dependency-name: "eslint-plugin-studio"
       - dependency-name: "winreg" # v1.2.5 has a known issue: https://github.com/fresc81/node-winreg/issues/65
+      - dependency-name: "@types/glob" # glob@7 (transitive) has no bundled types; @types/glob@9 is a stub for glob@9+ only
 
   # Enable version updates for GitHub Actions
   - package-ecosystem: "github-actions"

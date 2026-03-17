@@ -1,6 +1,6 @@
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import Table from 'cli-table3';
+import CliTable3 from 'cli-table3';
 import { format } from 'date-fns';
 import { getAuthToken, getSiteByFolder } from 'cli/lib/appdata';
 import {
@@ -52,7 +52,7 @@ export async function runCommand(
 
 		if ( outputFormat === 'table' ) {
 			const colWidths = getColumnWidths( [ 0.4, 0.25, 0.175, 0.175 ] );
-			const table = new Table( {
+			const table = new CliTable3( {
 				head: [ __( 'URL' ), __( 'Site Name' ), __( 'Updated' ), __( 'Expires in' ) ],
 				wordWrap: true,
 				wrapOnWordBoundary: false,

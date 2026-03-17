@@ -14,17 +14,15 @@ import {
 	type EditorTheme,
 	type EditorOptions,
 	type MarkdownTheme,
+	truncateToWidth,
+	visibleWidth,
 } from '@mariozechner/pi-tui';
 import chalk from 'chalk';
 import { AI_MODELS, DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
 import { AI_CHAT_SLASH_COMMANDS, type SlashCommandDef } from 'cli/ai/slash-commands';
-import {
-	diffTodoSnapshot,
-	type TodoChange,
-	type TodoDiff,
-	type TodoEntry,
-} from 'cli/ai/todo-stream';
+import { buildTodoUpdateLines, type TodoRenderLine } from 'cli/ai/todo-render';
+import { diffTodoSnapshot, type TodoDiff, type TodoEntry } from 'cli/ai/todo-stream';
 import { getWpComSites } from 'cli/lib/api';
 import { getAuthToken, getSiteUrl, readAppdata, type SiteData } from 'cli/lib/appdata';
 import { openBrowser } from 'cli/lib/browser';
@@ -124,8 +122,8 @@ class PromptEditor implements Component, Focusable {
 	}
 
 	render( width: number ): string[] {
-		const promptPrefix = ' ' + chalk.bold( '❯ ' );
-		const promptWidth = 3; // space + ❯ + space
+		const promptPrefix = ' ' + chalk.bold( '〉' );
+		const promptWidth = 3; // space + 〉(2 cols)
 		const innerWidth = Math.max( 1, width - promptWidth );
 		const lines = this.editor.render( innerWidth );
 		const bc = this.borderColorFn;
@@ -193,10 +191,8 @@ class PromptEditor implements Component, Focusable {
 					: '';
 			const rightPart = this.statusMessage ? chalk.dim( this.statusMessage ) + ' ' : '';
 			if ( leftPart || rightPart ) {
-				// eslint-disable-next-line no-control-regex
-				const stripAnsi = ( s: string ) => s.replace( /\x1b\[[0-9;]*m/g, '' );
-				const leftLen = stripAnsi( leftPart ).length;
-				const rightLen = stripAnsi( rightPart ).length;
+				const leftLen = visibleWidth( leftPart );
+				const rightLen = visibleWidth( rightPart );
 				const padding = Math.max( 1, width - leftLen - rightLen );
 				result.push( leftPart + ' '.repeat( padding ) + rightPart );
 			}
@@ -241,6 +237,10 @@ const toolDisplayNames: Record< string, string > = {
 	mcp__studio__site_start: 'Start site',
 	mcp__studio__site_stop: 'Stop site',
 	mcp__studio__site_delete: 'Delete site',
+	mcp__studio__preview_create: 'Create preview',
+	mcp__studio__preview_list: 'List previews',
+	mcp__studio__preview_update: 'Update preview',
+	mcp__studio__preview_delete: 'Delete preview',
 	mcp__studio__wp_cli: 'Run WP-CLI',
 	mcp__studio__validate_blocks: 'Validate blocks',
 	mcp__studio__take_screenshot: 'Take screenshot',
@@ -263,7 +263,12 @@ function getToolDetail( name: string, input: Record< string, unknown > ): string
 		case 'mcp__studio__site_start':
 		case 'mcp__studio__site_stop':
 		case 'mcp__studio__site_delete':
+		case 'mcp__studio__preview_create':
+		case 'mcp__studio__preview_list':
 			return typeof input.nameOrPath === 'string' ? input.nameOrPath : '';
+		case 'mcp__studio__preview_update':
+		case 'mcp__studio__preview_delete':
+			return typeof input.host === 'string' ? input.host : '';
 		case 'mcp__studio__wp_cli':
 			return typeof input.command === 'string' ? `wp ${ input.command }` : '';
 		case 'mcp__studio__validate_blocks':
@@ -338,11 +343,6 @@ interface PendingTodoRender {
 	shouldRender: boolean;
 }
 
-interface RenderableToolLine {
-	text: string;
-	dim?: boolean;
-}
-
 function isTodoWriteInput( input: unknown ): input is TodoWriteInput {
 	if (
 		! input ||
@@ -360,27 +360,6 @@ function isTodoWriteInput( input: unknown ): input is TodoWriteInput {
 			typeof todo.activeForm === 'string' &&
 			( todo.status === 'pending' || todo.status === 'in_progress' || todo.status === 'completed' )
 	);
-}
-
-function formatTodoAction( action: 'added' | 'completed', todo: TodoChange ): string {
-	const verb = action === 'added' ? 'Added todo' : 'Completed todo';
-	return `${ verb }: ${ todo.content }`;
-}
-
-/**
- * Format a single todo snapshot line for display.
- * in_progress uses activeForm (present-tense "working on it" phrasing),
- * while pending/completed use content (the canonical description).
- */
-function formatTodoSnapshotLine( todo: TodoEntry ): string {
-	switch ( todo.status ) {
-		case 'completed':
-			return `${ chalk.green( '✓' ) } ${ chalk.dim( chalk.strikethrough( todo.content ) ) }`;
-		case 'in_progress':
-			return `${ chalk.yellow( '◐' ) } ${ chalk.dim( todo.activeForm ) }`;
-		default:
-			return `${ chalk.dim( '○' ) } ${ chalk.dim( todo.content ) }`;
-	}
 }
 
 function isMessageContentWithType( value: unknown ): value is MessageContentWithType {
@@ -451,7 +430,6 @@ function normalizeToolUseResult( result: unknown ): ToolUseResultContent | null 
 
 	return null;
 }
-
 export class AiChatUI {
 	private tui: TUI;
 	private editor: PromptEditor;
@@ -891,26 +869,19 @@ export class AiChatUI {
 
 	private formatSiteRow( site: SiteInfo, index: number ): string {
 		const selected = index === this.sitePickerSelectedIndex;
-		const prefix = selected ? `  ${ chalk.blue( '❯' ) } ` : '    ';
+		const prefix = selected ? `  ${ chalk.blue( '〉' ) }` : '    ';
 		if ( site.remote ) {
 			const nameColumnWidth = 30;
-			const prefixWidth = 4; // "  ❯ " or "    "
+			const prefixWidth = 4; // "  〉(2 cols)" or "    "
 			const gap = 2;
 			const termWidth = process.stdout.columns ?? 80;
 			const urlColumnWidth = termWidth - prefixWidth - nameColumnWidth - gap;
-			const truncatedName =
-				site.name.length > nameColumnWidth
-					? site.name.slice( 0, nameColumnWidth - 1 ) + '…'
-					: site.name.padEnd( nameColumnWidth );
+			const truncatedName = truncateToWidth( site.name, nameColumnWidth, '…', true );
 			const name = selected ? chalk.bold( truncatedName ) : truncatedName;
 			const displayUrl = site.url ? site.url.replace( /^https?:\/\//, '' ) : '';
 			let url = '';
 			if ( displayUrl && urlColumnWidth > 3 ) {
-				const truncatedUrl =
-					displayUrl.length > urlColumnWidth
-						? displayUrl.slice( 0, urlColumnWidth - 1 ) + '…'
-						: displayUrl;
-				url = `  ${ chalk.dim( truncatedUrl ) }`;
+				url = `  ${ chalk.dim( truncateToWidth( displayUrl, urlColumnWidth, '…' ) ) }`;
 			}
 			return `${ prefix }${ name }${ url }`;
 		}
@@ -941,19 +912,11 @@ export class AiChatUI {
 		return { items, scrollInfo };
 	}
 
-	// Container doesn't expose a public clearChildren API, so we reach into
-	// the internal children array and remove items one at a time.
-	private clearContainer( container: Container ): void {
-		while ( ( container as Container & { children?: unknown[] } ).children?.length ) {
-			container.removeChild( ( container as Container & { children: Component[] } ).children[ 0 ] );
-		}
-	}
-
 	private renderSitePicker(): void {
 		if ( ! this.sitePickerContainer ) {
 			return;
 		}
-		this.clearContainer( this.sitePickerContainer );
+		this.sitePickerContainer.clear();
 
 		const isLocal = this.sitePickerTab === SITE_PICKER_TAB_LOCAL;
 		const localTab = isLocal ? chalk.bold( '[Local]' ) : chalk.dim( 'Local' );
@@ -1089,7 +1052,10 @@ export class AiChatUI {
 				}
 				break;
 			}
-			case 'mcp__studio__wp_cli': {
+			case 'mcp__studio__wp_cli':
+			case 'mcp__studio__preview_create':
+			case 'mcp__studio__preview_list':
+			case 'mcp__studio__preview_update': {
 				const nameOrPath = toolInput?.nameOrPath;
 				if ( typeof nameOrPath === 'string' ) {
 					if (
@@ -1203,11 +1169,11 @@ export class AiChatUI {
 		if ( ! this.optionPickerContainer ) {
 			return;
 		}
-		this.clearContainer( this.optionPickerContainer );
+		this.optionPickerContainer.clear();
 
 		const items = this.optionPickerItems.map( ( opt, i ) => {
 			if ( i === this.optionPickerSelectedIndex ) {
-				return `  ${ chalk.blue( '❯' ) } ${ i + 1 }. ${ chalk.blue( opt.label ) }`;
+				return `  ${ chalk.blue( '〉' ) }${ i + 1 }. ${ chalk.blue( opt.label ) }`;
 			}
 			return `    ${ i + 1 }. ${ opt.label }`;
 		} );
@@ -1299,9 +1265,9 @@ export class AiChatUI {
 		const formatted = lines
 			.map( ( line, i ) => {
 				if ( i === 0 ) {
-					return ' ' + chalk.bgHex( '#ddeeff' ).black( '❯ ' + line + ' ' );
+					return ' ' + chalk.bgHex( '#ddeeff' ).black( '〉' + line + ' ' );
 				}
-				return ' ' + chalk.bgHex( '#ddeeff' ).black( '   ' + line + ' ' );
+				return ' ' + chalk.bgHex( '#ddeeff' ).black( '  ' + line + ' ' );
 			} )
 			.join( '\n' );
 		this.messages.addChild( new Text( '\n' + formatted, 0, 0 ) );
@@ -1608,24 +1574,13 @@ export class AiChatUI {
 	}
 
 	private renderTodoUpdate( pendingTodoRender: PendingTodoRender ): void {
-		const lines: RenderableToolLine[] = [
-			...pendingTodoRender.diff.added.map( ( todo ) => ( {
-				text: formatTodoAction( 'added', todo ),
-			} ) ),
-			...pendingTodoRender.diff.completed.map( ( todo ) => ( {
-				text: formatTodoAction( 'completed', todo ),
-			} ) ),
-			...( pendingTodoRender.diff.snapshot.length > 0
-				? [
-						{ text: 'Todo list:', dim: true } as RenderableToolLine,
-						...pendingTodoRender.diff.snapshot.map( ( todo ) => ( {
-							text: formatTodoSnapshotLine( todo ),
-						} ) ),
-				  ]
-				: [] ),
-		];
-		const formatted = lines.map( ( line ) => ( line.dim ? chalk.dim( line.text ) : line.text ) );
-		const rendered = formatToolOutputLines( formatted );
+		const lines: TodoRenderLine[] = buildTodoUpdateLines( pendingTodoRender.diff.snapshot );
+		if ( lines.length === 0 ) {
+			return;
+		}
+		const rendered = formatToolOutputLines(
+			lines.map( ( line ) => ( line.dim ? chalk.dim( line.text ) : line.text ) )
+		);
 		this.messages.addChild( new Text( rendered, 0, 0 ) );
 	}
 

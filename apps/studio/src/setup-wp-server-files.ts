@@ -4,6 +4,7 @@ import fs from 'fs-extra';
 import semver from 'semver';
 import { updateLatestWPCliVersion } from 'src/lib/download-utils';
 import {
+	getAgentSkillsPath,
 	getLanguagePacksPath,
 	getWordPressVersionPath,
 	getSqlitePath,
@@ -113,6 +114,14 @@ async function copyBundledTranslations() {
 	await fs.copyFile( bundledTranslationsPath, installedTranslationsPath );
 }
 
+async function copyBundledAgentSkills() {
+	const bundledAgentSkillsPath = path.join( getResourcesPath(), 'wp-files', 'agent-skills' );
+	if ( ! ( await fs.pathExists( bundledAgentSkillsPath ) ) ) {
+		return;
+	}
+	await recursiveCopyDirectory( bundledAgentSkillsPath, getAgentSkillsPath() );
+}
+
 async function copyBundledLanguagePacks() {
 	const bundledLanguagePacksPath = path.join(
 		getResourcesPath(),
@@ -136,6 +145,7 @@ export async function setupWPServerFiles() {
 		[ 'SQLite command', copyBundledSQLiteCommand ],
 		[ 'translations', copyBundledTranslations ],
 		[ 'language packs', copyBundledLanguagePacks ],
+		[ 'agent skills', copyBundledAgentSkills ],
 	];
 
 	for ( const [ name, step ] of steps ) {

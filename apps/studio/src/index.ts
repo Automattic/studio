@@ -38,6 +38,7 @@ import { getSentryReleaseInfo } from 'src/lib/sentry-release';
 import { startUserDataWatcher, stopUserDataWatcher } from 'src/lib/user-data-watcher';
 import { setupLogging } from 'src/logging';
 import { createMainWindow, getMainWindow } from 'src/main-window';
+import { migrateAppdataViaCli } from 'src/migrations/migrate-appdata-via-cli';
 import {
 	needsToMigrateFromWpNowFolder,
 	migrateFromWpNowFolder,
@@ -310,6 +311,8 @@ async function appBoot() {
 		await setupWPServerFiles().catch( Sentry.captureException );
 		// WordPress server files are updated asynchronously to avoid delaying app initialization
 		updateWPServerFiles().catch( Sentry.captureException );
+
+		await migrateAppdataViaCli().catch( Sentry.captureException );
 
 		if ( await needsToMigrateFromWpNowFolder() ) {
 			await migrateFromWpNowFolder();

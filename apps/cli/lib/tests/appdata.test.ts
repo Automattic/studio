@@ -28,6 +28,7 @@ vi.mock( 'path', () => ( {
 		join: vi.fn(),
 		basename: vi.fn(),
 		resolve: vi.fn(),
+		dirname: vi.fn(),
 	},
 } ) );
 vi.mock( 'atomically', () => ( {
@@ -52,6 +53,9 @@ describe( 'Appdata Module', () => {
 		vi.mocked( path.join ).mockImplementation( ( ...args ) => args.join( '/' ) );
 		vi.mocked( path.basename ).mockReturnValue( mockSiteFolderName );
 		vi.mocked( path.resolve ).mockImplementation( ( path ) => path );
+		vi.mocked( path.dirname ).mockImplementation( ( p ) =>
+			p.split( '/' ).slice( 0, -1 ).join( '/' )
+		);
 		vi.spyOn( Date, 'now' ).mockReturnValue( 1234567890 );
 
 		vi.mocked( fs.existsSync ).mockReturnValue( true );

@@ -13,6 +13,9 @@ const mocks = vi.hoisted( () => ( {
 	writeFile: vi.fn(),
 	pathJoin: vi.fn().mockImplementation( ( ...args: string[] ) => args.join( '/' ) ),
 	pathResolve: vi.fn().mockImplementation( ( path: string ) => path ),
+	pathDirname: vi
+		.fn()
+		.mockImplementation( ( p: string ) => p.split( '/' ).slice( 0, -1 ).join( '/' ) ),
 	pathBasename: vi.fn(),
 	lockfileLock: vi.fn().mockImplementation( ( path, options, callback ) => callback( null ) ),
 	lockfileUnlock: vi.fn().mockImplementation( ( path, callback ) => callback( null ) ),
@@ -28,9 +31,15 @@ vi.mock( 'fs', () => ( {
 } ) );
 vi.mock( 'os', () => ( { default: { homedir: mocks.homedir }, homedir: mocks.homedir } ) );
 vi.mock( 'path', () => ( {
-	default: { join: mocks.pathJoin, resolve: mocks.pathResolve, basename: mocks.pathBasename },
+	default: {
+		join: mocks.pathJoin,
+		resolve: mocks.pathResolve,
+		dirname: mocks.pathDirname,
+		basename: mocks.pathBasename,
+	},
 	join: mocks.pathJoin,
 	resolve: mocks.pathResolve,
+	dirname: mocks.pathDirname,
 	basename: mocks.pathBasename,
 } ) );
 vi.mock( 'atomically', () => ( {

@@ -1,7 +1,8 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { LOCKFILE_NAME, LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from '@studio/common/constants';
+import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from '@studio/common/constants';
+import { applyMigrations, type ConfigMigration } from '@studio/common/lib/config-migrator';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { snapshotSchema } from '@studio/common/types/snapshot';
@@ -9,6 +10,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { readFile, writeFile } from 'atomically';
 import { z } from 'zod';
 import { validateAccessToken } from 'cli/lib/api';
+import { STUDIO_CLI_HOME } from 'cli/lib/paths';
 import { LoggerError } from 'cli/logger';
 import type { AiProviderId } from 'cli/ai/providers';
 
@@ -63,8 +65,22 @@ export function getAppdataPath(): string {
 	if ( process.env.DEV_APP_DATA_PATH ) {
 		return process.env.DEV_APP_DATA_PATH;
 	}
+
+	// Prefer new shared location (~/.studio/appdata.json)
+	const sharedPath = path.join( STUDIO_CLI_HOME, 'appdata.json' );
+	if ( fs.existsSync( sharedPath ) ) {
+		return sharedPath;
+	}
+
+	// Fall back to platform-specific location (older Desktop versions)
 	return path.join( getAppdataDirectory(), 'appdata-v1.json' );
 }
+
+// Versioned data migrations for appdata.json.
+// Add new migrations here with incrementing version numbers.
+export const appdataMigrations: ConfigMigration[] = [
+	// Example: { version: 2, migrate: ( data ) => { /* transform */ return data; } },
+];
 
 export async function readAppdata(): Promise< UserData > {
 	const appDataPath = getAppdataPath();
@@ -75,7 +91,7 @@ export async function readAppdata(): Promise< UserData > {
 
 	try {
 		const fileContent = await readFile( appDataPath, { encoding: 'utf8' } );
-		const userData = JSON.parse( fileContent );
+		const userData = applyMigrations( JSON.parse( fileContent ), appdataMigrations );
 		return userDataSchema.parse( userData );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
@@ -118,14 +134,19 @@ export async function saveAppdata( userData: UserData ): Promise< void > {
 	}
 }
 
-const LOCKFILE_PATH = path.join( getAppdataDirectory(), LOCKFILE_NAME );
+function getAppdataLockfilePath(): string {
+	return path.join( path.dirname( getAppdataPath() ), 'appdata.json.lock' );
+}
 
 export async function lockAppdata(): Promise< void > {
-	await lockFileAsync( LOCKFILE_PATH, { wait: LOCKFILE_WAIT_TIME, stale: LOCKFILE_STALE_TIME } );
+	await lockFileAsync( getAppdataLockfilePath(), {
+		wait: LOCKFILE_WAIT_TIME,
+		stale: LOCKFILE_STALE_TIME,
+	} );
 }
 
 export async function unlockAppdata(): Promise< void > {
-	await unlockFileAsync( LOCKFILE_PATH );
+	await unlockFileAsync( getAppdataLockfilePath() );
 }
 
 export async function getAuthToken(): Promise< ValidatedAuthToken > {

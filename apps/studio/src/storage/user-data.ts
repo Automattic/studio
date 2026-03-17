@@ -3,6 +3,7 @@ import fs from 'fs';
 import nodePath from 'node:path';
 import * as Sentry from '@sentry/electron/main';
 import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from '@studio/common/constants';
+import { applyMigrations, type ConfigMigration } from '@studio/common/lib/config-migrator';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
 import { sortSites } from '@studio/common/lib/sort-sites';
@@ -24,9 +25,13 @@ const migrateUserData = ( appName: string ) => {
 	const newPath = getUserDataFilePath();
 
 	if ( fs.existsSync( oldPath ) && ! fs.existsSync( newPath ) ) {
-		fs.renameSync( oldPath, newPath );
+		const dir = nodePath.dirname( newPath );
+		if ( ! fs.existsSync( dir ) ) {
+			fs.mkdirSync( dir, { recursive: true } );
+		}
+		fs.copyFileSync( oldPath, newPath );
 		console.log(
-			`Moved user data from ${ sanitizeUserpath( oldPath ) } to ${ sanitizeUserpath( newPath ) }`
+			`Copied user data from ${ sanitizeUserpath( oldPath ) } to ${ sanitizeUserpath( newPath ) }`
 		);
 	}
 };
@@ -91,6 +96,14 @@ function legacyPopulateSnapshotUserIds( data: UserData ): void {
 	}
 }
 
+// Versioned data migrations for appdata.json.
+// Add new migrations here with incrementing version numbers.
+// Each migration receives the raw parsed JSON and returns transformed data.
+export const appdataMigrations: ConfigMigration[] = [
+	// Example for future use:
+	// { version: 2, migrate: ( data ) => { /* transform */ return data; } },
+];
+
 export async function loadUserData(): Promise< UserData > {
 	migrateUserDataOldName();
 	const filePath = getUserDataFilePath();
@@ -98,8 +111,8 @@ export async function loadUserData(): Promise< UserData > {
 	try {
 		const asString = await readFile( filePath, 'utf-8' );
 		try {
-			const parsed = JSON.parse( asString );
-			const data = fromDiskFormat( parsed );
+			const parsed = applyMigrations( JSON.parse( asString ), appdataMigrations );
+			const data = fromDiskFormat( parsed as unknown as PersistedUserData );
 
 			// Temporarily populate old snapshots with userId of authenticated user.
 			// See PR #937 for more context.

@@ -33,7 +33,7 @@ export interface UserData {
 }
 
 export interface PersistedUserData extends Omit< UserData, 'sites' > {
-	version: 1;
+	version: number;
 
 	// Users can edit the file system manually which would make UserData['name'] and UserData['path']
 	// get out of sync. `name` is redundant because it can be calculated from `path`, so we

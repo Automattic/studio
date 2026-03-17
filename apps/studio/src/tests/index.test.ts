@@ -17,10 +17,14 @@ vi.mock( '@sentry/electron/main', () => ( {
 	captureMessage: vi.fn(),
 	setUser: vi.fn(),
 } ) );
-vi.mock( '@studio/common/lib/bump-stat', () => ( {
-	bumpStat: vi.fn(),
-	bumpAggregatedUniqueStat: vi.fn().mockResolvedValue( undefined ),
-} ) );
+vi.mock( import( 'src/lib/bump-stats' ), async ( importOriginal ) => {
+	const actual = await importOriginal();
+	return {
+		...actual,
+		bumpStat: vi.fn(),
+		bumpAggregatedUniqueStat: vi.fn().mockResolvedValue( undefined ),
+	};
+} );
 vi.mock( 'src/lib/user-data-watcher' );
 vi.mock( 'src/setup-wp-server-files', () => ( {
 	setupWPServerFiles: vi.fn().mockResolvedValue( undefined ),

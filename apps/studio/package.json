@@ -3,7 +3,7 @@
 	"author": "Automattic Inc.",
 	"private": true,
 	"productName": "Studio",
-	"version": "1.7.6-beta3",
+	"version": "1.7.6",
 	"description": "Local WordPress development environment using Playgrounds",
 	"license": "GPL-2.0-or-later",
 	"main": "dist/main/index.js",
@@ -12,7 +12,7 @@
 	},
 	"scripts": {
 		"start": "electron-vite dev --config ./electron.vite.config.ts --outDir=dist --watch",
-		"prestart": "npm -w studio-cli run build",
+		"prestart": "npm -w @automattic/wp-studio run build",
 		"make": "electron-vite build --config ./electron.vite.config.ts --outDir=dist && electron-forge make .",
 		"make:windows-x64": "electron-vite build --config ./electron.vite.config.ts --outDir=dist && electron-forge make . --arch=x64 --platform=win32",
 		"make:windows-arm64": "electron-vite build --config ./electron.vite.config.ts --outDir=dist && electron-forge make . --arch=arm64 --platform=win32",
@@ -21,7 +21,7 @@
 		"install:bundle": "npm install --no-package-lock --no-progress --install-links --no-workspaces && patch-package && node ../../scripts/remove-fs-ext-other-platform-binaries.mjs",
 		"package": "electron-vite build --config ./electron.vite.config.ts --outDir=dist && electron-forge package .",
 		"publish": "electron-forge publish .",
-		"start-wayland": "npm -w studio-cli run build && electron-forge start . -- --enable-features=UseOzonePlatform --ozone-platform=wayland"
+		"start-wayland": "npm -w @automattic/wp-studio run build && electron-forge start . -- --enable-features=UseOzonePlatform --ozone-platform=wayland"
 	},
 	"dependencies": {
 		"@automattic/generate-password": "^0.1.0",
@@ -58,10 +58,9 @@
 		"hpagent": "1.2.0",
 		"http-proxy": "^1.18.1",
 		"lockfile": "^1.0.4",
-		"ora": "^8.2.0",
 		"react": "^18.2.0",
 		"react-dom": "^18.2.0",
-		"react-markdown": "^9.0.1",
+		"react-markdown": "^10.1.0",
 		"react-redux": "^9.2.0",
 		"rehype-raw": "^7.0.0",
 		"remark-gfm": "^4.0.1",

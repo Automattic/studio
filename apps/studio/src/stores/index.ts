@@ -87,12 +87,13 @@ startAppListening( {
 // Save snapshot changes to CLI config via preview set command
 startAppListening( {
 	actionCreator: updateSnapshotLocally,
-	async effect( action ) {
+	async effect( action, listenerApi ) {
 		const { atomicSiteId, snapshot } = action.payload;
-		const state = store.getState();
-		const existing = state.snapshot.snapshots.find( ( s ) => s.atomicSiteId === atomicSiteId );
-		if ( existing?.url && snapshot.name !== undefined && snapshot.name !== existing.name ) {
-			await getIpcApi().setSnapshot( existing.url, { name: snapshot.name } );
+		const previous = listenerApi
+			.getOriginalState()
+			.snapshot.snapshots.find( ( s ) => s.atomicSiteId === atomicSiteId );
+		if ( previous?.url && snapshot.name !== undefined && snapshot.name !== previous.name ) {
+			await getIpcApi().setSnapshot( previous.url, { name: snapshot.name } );
 		}
 	},
 } );

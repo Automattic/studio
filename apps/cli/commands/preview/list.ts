@@ -3,7 +3,7 @@ import { __, _n, sprintf } from '@wordpress/i18n';
 import Table from 'cli-table3';
 import { format } from 'date-fns';
 import { getAuthToken } from 'cli/lib/appdata';
-import { readCliConfig } from 'cli/lib/cli-config';
+import { readCliConfig } from 'cli/lib/cli-config/core';
 import {
 	formatDurationUntilExpiry,
 	getSnapshotsFromConfig,
@@ -22,7 +22,9 @@ export async function runCommand(
 	try {
 		if ( outputFormat === 'json' ) {
 			const config = await readCliConfig();
-			logger.reportKeyValuePair( 'snapshots', JSON.stringify( config.snapshots ) );
+			const json = JSON.stringify( config.snapshots );
+			console.log( json );
+			logger.reportKeyValuePair( 'snapshots', json );
 			return;
 		}
 

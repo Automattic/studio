@@ -6,7 +6,7 @@ import {
 	isAnyOf,
 	PayloadAction,
 } from '@reduxjs/toolkit';
-import { SNAPSHOT_EVENTS, SnapshotEvent } from '@studio/common/lib/cli-events';
+import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
 import { PreviewCommandLoggerAction } from '@studio/common/logger-actions';
 import { Snapshot } from '@studio/common/types/snapshot';
 import { __, sprintf } from '@wordpress/i18n';
@@ -144,6 +144,9 @@ const snapshotSlice = createSlice( {
 			state.snapshots = state.snapshots.filter(
 				( snapshot ) => snapshot.atomicSiteId !== action.payload.atomicSiteId
 			);
+		},
+		addSnapshot: ( state, action: PayloadAction< { snapshot: Snapshot } > ) => {
+			state.snapshots.push( action.payload.snapshot );
 		},
 		setSnapshots: ( state, action: PayloadAction< { snapshots: Snapshot[] } > ) => {
 			state.snapshots = action.payload.snapshots;
@@ -295,24 +298,34 @@ const selectSnapshotsBySiteAndUser = createSelector(
 		)
 );
 
+// Optimistically update the snapshot usage count and schedule a re-fetch.
+// There's a risk that more sites are deleted locally than the count returned by the
+// API, because expired sites are preserved locally. Therefore, we need to ensure
+// the count is non-negative.
+function updateSnapshotUsageCount( countDiff: number ) {
+	if ( countDiff === 0 ) {
+		return;
+	}
+
+	store.dispatch(
+		wpcomApi.util.updateQueryData( 'getSnapshotUsage', undefined, ( data ) => {
+			data.siteCount = Math.max( 0, data.siteCount + countDiff );
+		} )
+	);
+
+	// Wait for changes to take effect on the back-end before invalidating the query
+	setTimeout( () => {
+		store.dispatch( wpcomApi.util.invalidateTags( [ 'SnapshotUsage' ] ) );
+	}, 8000 );
+}
+
 export async function refreshSnapshots() {
 	const snapshots = await getIpcApi().fetchSnapshots();
 	const state = store.getState();
 	const countDiff = snapshots.length - state.snapshot.snapshots.length;
 
 	store.dispatch( snapshotSlice.actions.setSnapshots( { snapshots } ) );
-
-	if ( countDiff !== 0 ) {
-		store.dispatch(
-			wpcomApi.util.updateQueryData( 'getSnapshotUsage', undefined, ( data ) => {
-				data.siteCount = Math.max( 0, data.siteCount + countDiff );
-			} )
-		);
-
-		setTimeout( () => {
-			store.dispatch( wpcomApi.util.invalidateTags( [ 'SnapshotUsage' ] ) );
-		}, 8000 );
-	}
+	updateSnapshotUsageCount( countDiff );
 }
 
 function getOperationProgress( action: PreviewCommandLoggerAction ): [ string, number ] {
@@ -358,7 +371,7 @@ function isBulkOperationSettled( bulkOperation: BulkOperation ) {
 	} );
 }
 
-window.ipcListener.subscribe( 'snapshot-changed', ( event, snapshotEvent: SnapshotEvent ) => {
+window.ipcListener.subscribe( 'snapshot-changed', ( _, snapshotEvent ) => {
 	const { event: eventType, snapshot, snapshotUrl } = snapshotEvent;
 
 	if ( eventType === SNAPSHOT_EVENTS.DELETED ) {
@@ -368,14 +381,7 @@ window.ipcListener.subscribe( 'snapshot-changed', ( event, snapshotEvent: Snapsh
 			store.dispatch(
 				snapshotSlice.actions.deleteSnapshotLocally( { atomicSiteId: existing.atomicSiteId } )
 			);
-			store.dispatch(
-				wpcomApi.util.updateQueryData( 'getSnapshotUsage', undefined, ( data ) => {
-					data.siteCount = Math.max( 0, data.siteCount - 1 );
-				} )
-			);
-			setTimeout( () => {
-				store.dispatch( wpcomApi.util.invalidateTags( [ 'SnapshotUsage' ] ) );
-			}, 8000 );
+			updateSnapshotUsageCount( -1 );
 		}
 		return;
 	}
@@ -390,19 +396,8 @@ window.ipcListener.subscribe( 'snapshot-changed', ( event, snapshotEvent: Snapsh
 		const state = store.getState();
 		const existing = state.snapshot.snapshots.find( ( s ) => s.url === snapshot.url );
 		if ( ! existing ) {
-			store.dispatch(
-				snapshotSlice.actions.setSnapshots( {
-					snapshots: [ ...state.snapshot.snapshots, snapshot ],
-				} )
-			);
-			store.dispatch(
-				wpcomApi.util.updateQueryData( 'getSnapshotUsage', undefined, ( data ) => {
-					data.siteCount = data.siteCount + 1;
-				} )
-			);
-			setTimeout( () => {
-				store.dispatch( wpcomApi.util.invalidateTags( [ 'SnapshotUsage' ] ) );
-			}, 8000 );
+			store.dispatch( snapshotSlice.actions.addSnapshot( { snapshot } ) );
+			updateSnapshotUsageCount( 1 );
 		}
 		return;
 	}
@@ -539,9 +534,6 @@ window.ipcListener.subscribe( 'snapshot-success', ( event, payload ) => {
 			} );
 		}
 	}
-
-	// Re-fetch snapshots from CLI after any successful operation
-	void refreshSnapshots();
 } );
 
 export const snapshotActions = {

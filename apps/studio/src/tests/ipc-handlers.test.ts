@@ -5,8 +5,6 @@ import { IpcMainInvokeEvent } from 'electron';
 import fs from 'fs';
 import { normalize } from 'path';
 import * as Sentry from '@sentry/electron/main';
-import { bumpStat } from '@studio/common/lib/bump-stat';
-import { StatsGroup, StatsMetric } from '@studio/common/types/stats';
 import { readFile } from 'atomically';
 import { vi } from 'vitest';
 import {
@@ -16,6 +14,7 @@ import {
 	getXdebugEnabledSite,
 	loadThemeDetails,
 } from 'src/ipc-handlers';
+import { bumpStat, StatsGroup, StatsMetric } from 'src/lib/bump-stats';
 import { importBackup, defaultImporterOptions } from 'src/lib/import-export/import/import-manager';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { getMainWindow } from 'src/main-window';
@@ -45,7 +44,14 @@ vi.mock( 'src/lib/wordpress-setup', () => ( {
 } ) );
 vi.mock( 'src/main-window' );
 vi.mock( 'src/lib/import-export/import/import-manager' );
-vi.mock( '@studio/common/lib/bump-stat' );
+vi.mock( import( 'src/lib/bump-stats' ), async ( importOriginal ) => {
+	const actual = await importOriginal();
+	return {
+		...actual,
+		bumpStat: vi.fn(),
+		bumpAggregatedUniqueStat: vi.fn().mockResolvedValue( undefined ),
+	};
+} );
 vi.mock( 'atomically' );
 vi.mock( 'src/lib/get-image-data', () => ( {
 	getImageData: vi.fn().mockResolvedValue( 'data:image/png;base64,mock' ),

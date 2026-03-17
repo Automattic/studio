@@ -34,6 +34,7 @@
 		"make:dmg-arm64": "FILE_ARCHITECTURE=arm64 node ./scripts/make-dmg.mjs",
 		"publish": "npm -w studio-app run publish",
 		"cli:build": "npm -w @automattic/wp-studio run build",
+		"cli:build:prod": "npm -w @automattic/wp-studio run build:prod",
 		"cli:build:npm": "npm -w @automattic/wp-studio run build:npm",
 		"cli:package": "npm -w @automattic/wp-studio run package",
 		"cli:watch": "npm -w @automattic/wp-studio run watch",
@@ -63,7 +64,7 @@
 		"eslint": "^9.39.2",
 		"eslint-config-prettier": "^9.1.2",
 		"eslint-import-resolver-typescript": "^4.4.4",
-		"eslint-plugin-import": "^2.32.0",
+		"eslint-plugin-import-x": "^4.15.2",
 		"eslint-plugin-jest-dom": "^5.5.0",
 		"eslint-plugin-prettier": "^5.5.5",
 		"eslint-plugin-react-hooks": "^7.0.1",
@@ -76,7 +77,7 @@
 		"prettier": "npm:wp-prettier@3.0.3",
 		"ts-node": "^10.9.2",
 		"typescript": "~5.9.3",
-		"typescript-eslint": "^8.53.0",
+		"typescript-eslint": "^8.57.1",
 		"vitest": "^4.0.18",
 		"web-streams-polyfill": "^4.2.0"
 	}

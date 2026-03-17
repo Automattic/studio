@@ -1,11 +1,15 @@
 import { query, type Query } from '@anthropic-ai/claude-agent-sdk';
+import {
+	ALLOWED_TOOLS,
+	STUDIO_ROOT,
+	createPathApprovalSession,
+	promptForApproval,
+	type AskUserQuestion,
+} from 'cli/ai/security';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { createStudioTools } from 'cli/ai/tools';
 
-export interface AskUserQuestion {
-	question: string;
-	options: { label: string; description: string }[];
-}
+export type { AskUserQuestion } from 'cli/ai/security';
 
 export interface AiAgentConfig {
 	prompt: string;
@@ -24,6 +28,7 @@ export const AI_MODELS = {
 export type AiModelId = keyof typeof AI_MODELS;
 
 export const DEFAULT_MODEL: AiModelId = 'claude-sonnet-4-6';
+const pathApprovalSession = createPathApprovalSession();
 
 /**
  * Start the AI agent and return the Query object.
@@ -46,10 +51,11 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 				studio: createStudioTools(),
 			},
 			maxTurns,
-			cwd: process.cwd(),
-			permissionMode: 'bypassPermissions',
-			allowDangerouslySkipPermissions: true,
-			canUseTool: async ( toolName, input ) => {
+			cwd: STUDIO_ROOT,
+			tools: { type: 'preset', preset: 'claude_code' },
+			allowedTools: [ ...ALLOWED_TOOLS ],
+			permissionMode: 'default',
+			canUseTool: async ( toolName, input, metadata ) => {
 				if ( toolName === 'AskUserQuestion' && onAskUser ) {
 					const typedInput = input as {
 						questions?: AskUserQuestion[];
@@ -62,9 +68,15 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 						updatedInput: { ...input, answers },
 					};
 				}
-				return { behavior: 'allow' as const, updatedInput: input };
+
+				return promptForApproval( {
+					toolName,
+					input,
+					metadata,
+					onAskUser,
+					pathApprovalSession,
+				} );
 			},
-			allowedTools: [ 'mcp__studio__*', 'Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep' ],
 			model,
 			resume,
 		},

@@ -1,13 +1,15 @@
-import { AggregateInterval, StatsGroup, StatsMetric } from '@studio/common/types/stats';
 import { isSameDay, isSameMonth, isSameWeek } from 'date-fns';
+import { AggregateInterval, StatsGroup, StatsMetric } from '@studio/common/types/stats';
 
 // Database columns are varchar(32). Group limit is 27 to account for the '-a11n' suffix
 // added by the backend for Automattic requests (27 + 5 = 32).
 const MAX_GROUP_LENGTH = 27;
 const MAX_STAT_LENGTH = 32;
 
+export type AggregateInterval = 'daily' | 'weekly' | 'monthly';
+
 // Returns true if we attempted to bump the stat
-export function bumpStat( group: StatsGroup, stat: StatsMetric, bumpInDev = false ) {
+export function __bumpStat( group: string, stat: string, bumpInDev = false ) {
 	if ( group.length > MAX_GROUP_LENGTH ) {
 		console.error(
 			`Stat group "${ group }" exceeds maximum length of ${ MAX_GROUP_LENGTH } characters (actual: ${ group.length }). Stat will not be bumped.`
@@ -42,35 +44,34 @@ export function bumpStat( group: StatsGroup, stat: StatsMetric, bumpInDev = fals
 }
 
 // Base type for user data that can track bump stats
-export interface LastBumpStatsData {
-	lastBumpStats?: Record< string, Record< string, number > >;
-}
+export type LastBumpStats = Record< string, Record< string, number > >;
 
 // Appdata provider interface for abstracting storage operations
-export interface AppdataProvider< T extends LastBumpStatsData > {
-	load: () => Promise< T >;
+export interface LastBumpStatsProvider {
+	load: () => Promise< LastBumpStats >;
 	lock: () => Promise< void >;
 	unlock: () => Promise< void >;
-	save: ( data: T ) => Promise< void >;
+	save: ( lastBumpStats: LastBumpStats ) => Promise< void >;
 }
 
-// Bumps a stat if it hasn't been bumped within the current aggregate interval.
-// This allows us to approximate a 1-count-per-user stat without recording which
-// user the event came from (bump stats are anonymous).
+// Bumps a stat if it hasn't been bumped within the current aggregate interval. This allows us to
+// approximate a 1-count-per-user stat without recording which user the event came from (bump stats
+// are anonymous).
 //
-// NOTE: Error handling (e.g., Sentry) should be done by the consumer.
-export async function bumpAggregatedUniqueStat< T extends LastBumpStatsData >(
-	group: StatsGroup,
-	stat: StatsMetric,
+// IMPORTANT: You should use the type-safe wrappers in `apps/cli` and `apps/studio` instead of
+// calling this function directly.
+export async function __bumpAggregatedUniqueStat(
+	group: string,
+	stat: string,
 	aggregateBy: AggregateInterval,
-	appdataProvider: AppdataProvider< T >,
+	provider: LastBumpStatsProvider,
 	bumpInDev = false
 ) {
-	const lastBump = await getLastBump( group, stat, appdataProvider );
+	const lastBump = await getLastBump( group, stat, provider );
 
 	if ( lastBump === null ) {
-		bumpStat( group, stat, bumpInDev );
-		await updateLastBump( group, stat, appdataProvider );
+		__bumpStat( group, stat, bumpInDev );
+		await updateLastBump( group, stat, provider );
 		return;
 	}
 
@@ -86,36 +87,31 @@ export async function bumpAggregatedUniqueStat< T extends LastBumpStatsData >(
 		return;
 	}
 
-	const didBump = bumpStat( group, stat, bumpInDev );
+	const didBump = __bumpStat( group, stat, bumpInDev );
 	if ( didBump ) {
-		await updateLastBump( group, stat, appdataProvider );
+		await updateLastBump( group, stat, provider );
 	}
 }
 
 // Returns UTC timestamp of the last time the stat was bumped, or null if it has never been bumped.
-async function getLastBump< T extends LastBumpStatsData >(
-	group: StatsGroup,
-	stat: StatsMetric,
-	appdataProvider: AppdataProvider< T >
+async function getLastBump(
+	group: string,
+	stat: string,
+	provider: LastBumpStatsProvider
 ): Promise< number | null > {
-	const { lastBumpStats } = await appdataProvider.load();
+	const lastBumpStats = await provider.load();
 	return lastBumpStats?.[ group ]?.[ stat ] ?? null;
 }
 
 // Store this moment as the last time we bumped the state, in UTC time.
-async function updateLastBump< T extends LastBumpStatsData >(
-	group: StatsGroup,
-	stat: StatsMetric,
-	appdataProvider: AppdataProvider< T >
-) {
+async function updateLastBump( group: string, stat: string, provider: LastBumpStatsProvider ) {
 	try {
-		await appdataProvider.lock();
-		const userData = await appdataProvider.load();
-		userData.lastBumpStats ??= {};
-		userData.lastBumpStats[ group ] ??= {};
-		( userData.lastBumpStats[ group ] as Record< StatsMetric, number > )[ stat ] = Date.now();
-		await appdataProvider.save( userData );
+		await provider.lock();
+		const lastBumpStats = await provider.load();
+		lastBumpStats[ group ] ??= {};
+		lastBumpStats[ group ][ stat ] = Date.now();
+		await provider.save( lastBumpStats );
 	} finally {
-		await appdataProvider.unlock();
+		await provider.unlock();
 	}
 }

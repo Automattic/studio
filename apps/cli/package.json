@@ -50,11 +50,12 @@
 		"zod": "^4.3.6"
 	},
 	"scripts": {
-		"build": "vite build --config ./vite.config.ts",
+		"build": "vite build --config ./vite.config.dev.ts",
+		"build:prod": "vite build --config ./vite.config.prod.ts",
 		"build:npm": "vite build --config ./vite.config.npm.ts",
 		"install:bundle": "npm install --omit=dev --no-package-lock --no-progress --install-links --no-workspaces && patch-package && node ../../scripts/remove-fs-ext-other-platform-binaries.mjs",
-		"package": "npm run install:bundle && npm run build",
-		"watch": "vite build --config ./vite.config.ts --watch",
+		"package": "npm run install:bundle && npm run build:prod",
+		"watch": "vite build --config ./vite.config.dev.ts --watch",
 		"prepublishOnly": "npm run build:npm",
 		"postinstall": "node scripts/postinstall-npm.mjs"
 	},

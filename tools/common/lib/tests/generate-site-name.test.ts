@@ -1,5 +1,5 @@
-import { isEmptyDir, pathExists } from '@studio/common/lib/fs-utils';
 import { vi } from 'vitest';
+import { isEmptyDir, pathExists } from '@studio/common/lib/fs-utils';
 import { generateNumberedName, generateSiteName } from '../generate-site-name';
 
 vi.mock( '@studio/common/lib/fs-utils' );

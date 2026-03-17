@@ -1,4 +1,5 @@
 import { select } from '@inquirer/prompts';
+import { truncateToWidth, visibleWidth } from '@mariozechner/pi-tui';
 import { __ } from '@wordpress/i18n';
 import chalk from 'chalk';
 import { listAiSessions } from 'cli/ai/sessions/store';
@@ -47,19 +48,14 @@ function toSingleLine( text: string ): string {
 }
 
 function truncateWithEllipsis( text: string, maxLength: number ): string {
-	if ( text.length <= maxLength ) {
-		return text;
+	if ( maxLength <= 0 ) {
+		return '';
 	}
-
-	if ( maxLength <= 1 ) {
+	if ( maxLength === 1 ) {
 		return '…';
 	}
 
-	return text.slice( 0, maxLength - 1 ) + '…';
-}
-
-function visibleWidth( text: string ): number {
-	return Array.from( text ).length;
+	return truncateToWidth( text, maxLength, '…' );
 }
 
 function padEndVisible( text: string, width: number ): string {

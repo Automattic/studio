@@ -43,7 +43,7 @@ export function __bumpStat( group: string, stat: string, bumpInDev = false ) {
 }
 
 // Base type for user data that can track bump stats
-export type LastBumpStats = Record< string, Partial< Record< string, number > > >;
+export type LastBumpStats = Record< string, Record< string, number > >;
 
 // Appdata provider interface for abstracting storage operations
 export interface LastBumpStatsProvider {

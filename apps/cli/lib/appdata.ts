@@ -44,9 +44,7 @@ const userDataSchema = z
 			} )
 			.loose()
 			.optional(),
-		lastBumpStats: z
-			.record( z.string(), z.partialRecord( z.enum( StatsMetric ), z.number() ) )
-			.optional(),
+		lastBumpStats: z.record( z.string(), z.record( z.string(), z.number() ) ).optional(),
 		betaFeatures: betaFeaturesSchema.optional(),
 	} )
 	.loose();

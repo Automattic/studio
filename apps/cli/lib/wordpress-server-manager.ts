@@ -370,6 +370,10 @@ export async function runBlueprint(
 		serverConfig.enableDebugDisplay = true;
 	}
 
+	if ( site.enablePhpMyAdmin ) {
+		serverConfig.enablePhpMyAdmin = true;
+	}
+
 	const processDesc = await startProcess( processName, wordPressServerChildPath );
 	try {
 		await waitForReadyMessage( processDesc.pmId );

@@ -17,8 +17,8 @@ import { runCommand as runStatusCommand } from 'cli/commands/site/status';
 import { runCommand as runStopSiteCommand, Mode as StopMode } from 'cli/commands/site/stop';
 import { getSiteByFolder, getSiteUrl, readAppdata, type SiteData } from 'cli/lib/appdata';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
-import { normalizeHostname } from 'cli/lib/utils';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
+import { normalizeHostname } from 'cli/lib/utils';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
 import { getProgressCallback, setProgressCallback, emitProgress } from 'cli/logger';
 

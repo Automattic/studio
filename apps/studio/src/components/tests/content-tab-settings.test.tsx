@@ -88,6 +88,7 @@ const selectedSite: SiteDetails = {
 	running: false,
 	phpVersion: '8.3',
 	id: 'site-id',
+	enablePhpMyAdmin: false,
 };
 
 function renderWithProvider( component: React.ReactElement ) {

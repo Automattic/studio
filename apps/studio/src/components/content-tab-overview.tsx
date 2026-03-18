@@ -18,7 +18,6 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import { ButtonsSection, ButtonsSectionProps } from 'src/components/buttons-section';
-import { useOffline } from 'src/hooks/use-offline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { isWindows } from 'src/lib/app-globals';
@@ -137,7 +136,6 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 	const { data: editor } = useGetUserEditorQuery();
 	const { data: terminal } = useGetUserTerminalQuery();
 	const { startServer, loadingServer } = useSiteDetails();
-	const isOffline = useOffline();
 	const isServerLoading = loadingServer[ selectedSite.id ];
 
 	const buttonsArray: ButtonsSectionProps[ 'buttonsArray' ] = [
@@ -186,7 +184,7 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 		label: __( 'phpMyAdmin' ),
 		className: 'text-nowrap',
 		icon: grid,
-		disabled: ! selectedSite.enablePhpMyAdmin || isServerLoading || isOffline,
+		disabled: ! selectedSite.enablePhpMyAdmin || isServerLoading,
 		onClick: async () => {
 			if ( ! selectedSite.running ) {
 				await startServer( selectedSite );

@@ -23,3 +23,7 @@ export function getLanguagePacksPath(): string {
 export function getAgentSkillsPath(): string {
 	return path.join( getServerFilesPath(), 'agent-skills' );
 }
+
+export function getPhpMyAdminPath(): string {
+	return path.join( getServerFilesPath(), 'phpmyadmin' );
+}

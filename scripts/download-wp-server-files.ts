@@ -4,6 +4,11 @@ import fs from 'fs-extra';
 import { extractZip } from '../tools/common/lib/extract-zip';
 import { getLatestSQLiteCommandRelease } from '../apps/studio/src/lib/sqlite-command-release';
 import { SQLITE_DATABASE_INTEGRATION_RELEASE_URL } from '../apps/studio/src/constants';
+import {
+	PHPMYADMIN_DOWNLOAD_URL,
+	PHPMYADMIN_VERSION,
+	getPhpMyAdminInstallSteps,
+} from '@wp-playground/tools';
 
 const WP_SERVER_FILES_PATH = path.join( __dirname, '..', 'wp-files' );
 
@@ -41,6 +46,12 @@ const FILES_TO_DOWNLOAD: FileToDownload[] = [
 			return latestRelease.assets?.[ 0 ].browser_download_url ?? '';
 		},
 		destinationPath: path.join( WP_SERVER_FILES_PATH, 'sqlite-command' ),
+	},
+	{
+		name: 'phpmyadmin',
+		description: 'phpMyAdmin',
+		getUrl: () => PHPMYADMIN_DOWNLOAD_URL,
+		destinationPath: path.join( WP_SERVER_FILES_PATH, 'phpmyadmin' ),
 	},
 ];
 
@@ -89,6 +100,39 @@ async function downloadFile( file: FileToDownload ): Promise< void > {
 				fs.rmSync( targetPath, { recursive: true, force: true } );
 			}
 			fs.renameSync( sourcePath, targetPath );
+		}
+	} else if ( name === 'phpmyadmin' ) {
+		/**
+		 * phpMyAdmin is extracted into a folder like phpMyAdmin-5.2.3-english.
+		 * We extract to a temp dir, rename to the destination, then inject the
+		 * Playground-specific config and SQLite adapter from @wp-playground/tools.
+		 */
+		console.log( `[${ name }] Extracting files from zip ...` );
+		const tmpExtractPath = path.join( os.tmpdir(), 'phpmyadmin-extract' );
+		if ( fs.existsSync( tmpExtractPath ) ) {
+			fs.rmSync( tmpExtractPath, { recursive: true, force: true } );
+		}
+		await extractZip( zipPath, tmpExtractPath );
+
+		const innerFolder = `phpMyAdmin-${ PHPMYADMIN_VERSION }-english`;
+		const sourcePath = path.join( tmpExtractPath, innerFolder );
+		if ( fs.existsSync( extractedPath ) ) {
+			fs.rmSync( extractedPath, { recursive: true, force: true } );
+		}
+		fs.renameSync( sourcePath, extractedPath );
+		fs.rmSync( tmpExtractPath, { recursive: true, force: true } );
+
+		// Inject Playground-specific config and SQLite adapter
+		console.log( `[${ name }] Injecting Playground-specific files ...` );
+		const installSteps = await getPhpMyAdminInstallSteps();
+		for ( const step of installSteps ) {
+			if ( step.step === 'writeFile' && typeof step.data === 'string' ) {
+				// step.path is like /tools/phpmyadmin/config.inc.php — strip the /tools/phpmyadmin prefix
+				const relativePath = step.path.replace( '/tools/phpmyadmin/', '' );
+				const destFile = path.join( extractedPath, relativePath );
+				await fs.ensureDir( path.dirname( destFile ) );
+				await fs.writeFile( destFile, step.data );
+			}
 		}
 	} else {
 		console.log( `[${ name }] Extracting files from zip ...` );

@@ -78,3 +78,10 @@ export function getLanguagePacksPath(): string {
 export function getAgentSkillsPath(): string {
 	return path.join( getBasePath(), 'agent-skills' );
 }
+
+/**
+ * The path where bundled phpMyAdmin files are stored.
+ */
+export function getPhpMyAdminPath(): string {
+	return path.join( getBasePath(), 'phpmyadmin' );
+}

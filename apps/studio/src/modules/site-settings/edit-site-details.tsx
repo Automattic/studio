@@ -24,12 +24,10 @@ import Button from 'src/components/button';
 import { ErrorInformation } from 'src/components/error-information';
 import { LearnMoreLink, LearnHowLink } from 'src/components/learn-more';
 import Modal from 'src/components/modal';
-import offlineIcon from 'src/components/offline-icon';
 import PasswordControl from 'src/components/password-control';
 import TextControlComponent from 'src/components/text-control';
 import { Tooltip } from 'src/components/tooltip';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
-import { useOffline } from 'src/hooks/use-offline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -43,7 +41,6 @@ type EditSiteDetailsProps = {
 const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) => {
 	const { __ } = useI18n();
 	const { updateSite, selectedSite, isEditModalOpen, setIsEditModalOpen } = useSiteDetails();
-	const isOffline = useOffline();
 	const [ errorUpdatingWpVersion, setErrorUpdatingWpVersion ] = useState< string | null >( null );
 	const [ isEditingSite, setIsEditingSite ] = useState( false );
 	const [ needsRestart, setNeedsRestart ] = useState( false );
@@ -609,37 +606,26 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 											<div
 												className={ cx(
 													'flex flex-col gap-2 mt-4',
-													isEditingSite || isOffline ? 'opacity-50 cursor-not-allowed' : ''
+													isEditingSite ? 'opacity-50 cursor-not-allowed' : ''
 												) }
 											>
-												<Tooltip
-													disabled={ ! isOffline }
-													text={ __( 'Enabling phpMyAdmin requires an internet connection.' ) }
-													icon={ offlineIcon }
-													placement="top-start"
-												>
-													<div className="flex items-center gap-2">
-														<input
-															type="checkbox"
-															id="enable-phpmyadmin"
-															checked={ enablePhpMyAdmin }
-															onChange={ ( e ) => setEnablePhpMyAdmin( e.target.checked ) }
-															disabled={ isEditingSite || isOffline }
-														/>
-														<label
-															htmlFor="enable-phpmyadmin"
-															className={ cx(
-																isEditingSite || isOffline ? 'cursor-not-allowed' : ''
-															) }
-														>
-															{ __( 'Enable phpMyAdmin' ) }
-														</label>
-													</div>
-												</Tooltip>
+												<div className="flex items-center gap-2">
+													<input
+														type="checkbox"
+														id="enable-phpmyadmin"
+														checked={ enablePhpMyAdmin }
+														onChange={ ( e ) => setEnablePhpMyAdmin( e.target.checked ) }
+														disabled={ isEditingSite }
+													/>
+													<label
+														htmlFor="enable-phpmyadmin"
+														className={ cx( isEditingSite ? 'cursor-not-allowed' : '' ) }
+													>
+														{ __( 'Enable phpMyAdmin' ) }
+													</label>
+												</div>
 												<div className="text-a8c-gray-50 text-xs mt-1">
-													{ __(
-														'Access phpMyAdmin to browse and manage your site database. Requires internet to download.'
-													) }
+													{ __( 'Access phpMyAdmin to browse and manage your site database.' ) }
 												</div>
 											</div>
 										</>

@@ -6,6 +6,7 @@ import { updateLatestWPCliVersion } from 'src/lib/download-utils';
 import {
 	getAgentSkillsPath,
 	getLanguagePacksPath,
+	getPhpMyAdminPath,
 	getWordPressVersionPath,
 	getSqlitePath,
 	getWpCliPath,
@@ -122,6 +123,15 @@ async function copyBundledAgentSkills() {
 	await recursiveCopyDirectory( bundledAgentSkillsPath, getAgentSkillsPath() );
 }
 
+async function copyBundledPhpMyAdmin() {
+	const bundledPath = path.join( getResourcesPath(), 'wp-files', 'phpmyadmin' );
+	if ( ! ( await fs.pathExists( bundledPath ) ) ) {
+		return;
+	}
+	// Always copy to ensure files are complete and up-to-date
+	await recursiveCopyDirectory( bundledPath, getPhpMyAdminPath() );
+}
+
 async function copyBundledLanguagePacks() {
 	const bundledLanguagePacksPath = path.join(
 		getResourcesPath(),
@@ -146,6 +156,7 @@ export async function setupWPServerFiles() {
 		[ 'translations', copyBundledTranslations ],
 		[ 'language packs', copyBundledLanguagePacks ],
 		[ 'agent skills', copyBundledAgentSkills ],
+		[ 'phpMyAdmin', copyBundledPhpMyAdmin ],
 	];
 
 	for ( const [ name, step ] of steps ) {

@@ -27,9 +27,10 @@ import {
 	InMemoryFilesystem,
 } from '@wp-playground/storage';
 import { WordPressInstallMode } from '@wp-playground/wordpress';
+import fs from 'fs-extra';
 import { z } from 'zod';
 import { sanitizeRunCLIArgs } from 'cli/lib/cli-args-sanitizer';
-import { getSqliteCommandPath, getWpCliPharPath } from 'cli/lib/server-files';
+import { getPhpMyAdminPath, getSqliteCommandPath, getWpCliPharPath } from 'cli/lib/server-files';
 import { isSqliteIntegrationInstalled } from 'cli/lib/sqlite-integration';
 import {
 	ServerConfig,
@@ -261,6 +262,14 @@ async function getBaseRunCLIArgs(
 	}
 
 	if ( config.enablePhpMyAdmin ) {
+		const phpMyAdminHostPath = getPhpMyAdminPath();
+		if ( await fs.pathExists( phpMyAdminHostPath ) ) {
+			mounts.push( {
+				hostPath: phpMyAdminHostPath,
+				vfsPath: '/tools/phpmyadmin',
+			} );
+			logToConsole( 'Mounting bundled phpMyAdmin' );
+		}
 		logToConsole( 'Enabling phpMyAdmin support' );
 		args.phpmyadmin = true;
 	}

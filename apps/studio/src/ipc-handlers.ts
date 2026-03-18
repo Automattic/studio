@@ -33,6 +33,7 @@ import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
+import { updateSharedConfig } from '@studio/common/lib/shared-config';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import { MACOS_TRAFFIC_LIGHT_POSITION, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
@@ -732,7 +733,7 @@ export async function isAuthenticated() {
 }
 
 export async function clearAuthenticationToken() {
-	return await updateAppdata( { authToken: undefined } );
+	return await updateSharedConfig( { authToken: undefined } );
 }
 
 export async function exportSite(

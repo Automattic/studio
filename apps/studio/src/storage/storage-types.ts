@@ -1,5 +1,4 @@
 import { StatsMetric } from 'src/lib/bump-stats';
-import { StoredToken } from 'src/lib/oauth';
 import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import type { SyncSite } from 'src/modules/sync/types';
 import type { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
@@ -16,9 +15,7 @@ export interface UserData {
 	sites: SiteDetails[];
 	devToolsOpen?: boolean;
 	windowBounds?: WindowBounds;
-	authToken?: StoredToken;
 	onboardingCompleted?: boolean;
-	locale?: string;
 	lastBumpStats?: Record< string, Partial< Record< StatsMetric, number > > >;
 	promptWindowsSpeedUpResult?: PromptWindowsSpeedUpResult;
 	connectedWpcomSites?: { [ userId: number ]: SyncSite[] };

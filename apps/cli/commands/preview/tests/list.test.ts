@@ -1,5 +1,5 @@
+import { readAuthToken } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
-import { getAuthToken } from 'cli/lib/appdata';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { getSnapshotsFromConfig } from 'cli/lib/snapshots';
 import {
@@ -12,14 +12,10 @@ import {
 } from 'cli/tests/test-utils';
 import { runCommand } from '../list';
 
-vi.mock( 'cli/lib/appdata', async () => {
-	const actual = await vi.importActual( 'cli/lib/appdata' );
-	return {
-		...actual,
-		getAppdataDirectory: vi.fn().mockReturnValue( '/test/appdata' ),
-		getAuthToken: vi.fn(),
-	};
-} );
+vi.mock( import( '@studio/common/lib/shared-config' ), async ( importOriginal ) => ( {
+	...( await importOriginal() ),
+	readAuthToken: vi.fn(),
+} ) );
 vi.mock( 'cli/lib/cli-config/core', async () => {
 	const actual = await vi.importActual( 'cli/lib/cli-config/core' );
 	return {
@@ -91,7 +87,7 @@ describe( 'Preview List Command', () => {
 		vi.spyOn( process, 'cwd' ).mockReturnValue( mockFolder );
 
 		vi.mocked( getSiteByFolder ).mockResolvedValue( mockSite );
-		vi.mocked( getAuthToken ).mockResolvedValue( mockAuthToken );
+		vi.mocked( readAuthToken ).mockResolvedValue( mockAuthToken );
 		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( mockSnapshots );
 	} );
 
@@ -110,7 +106,7 @@ describe( 'Preview List Command', () => {
 	} );
 
 	it( 'should handle validation errors', async () => {
-		vi.mocked( getAuthToken ).mockRejectedValue( new Error( 'Authentication required' ) );
+		vi.mocked( readAuthToken ).mockResolvedValue( null );
 
 		await runCommand( mockFolder, 'table' );
 

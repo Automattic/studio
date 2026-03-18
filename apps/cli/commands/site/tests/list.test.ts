@@ -29,7 +29,7 @@ vi.mock( 'cli/logger', () => ( {
 
 describe( 'CLI: studio site list', () => {
 	const testCliConfig = {
-		version: 1,
+		version: 1 as const,
 		sites: [
 			{
 				id: 'site-1',
@@ -51,7 +51,7 @@ describe( 'CLI: studio site list', () => {
 	};
 
 	const emptyCliConfig = {
-		version: 1,
+		version: 1 as const,
 		sites: [],
 		snapshots: [],
 	};

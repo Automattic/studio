@@ -2,10 +2,10 @@ import os from 'os';
 import path from 'path';
 import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
+import { readAuthToken } from '@studio/common/lib/shared-config';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
-import { getAuthToken } from 'cli/lib/appdata';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { getNextSnapshotSequence } from 'cli/lib/cli-config/snapshots';
@@ -26,7 +26,12 @@ export async function runCommand( siteFolder: string, name?: string ): Promise< 
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating…' ) );
 		await getSiteByFolder( siteFolder );
 		await validateSiteSize( siteFolder );
-		const token = await getAuthToken();
+		const token = await readAuthToken();
+		if ( ! token ) {
+			throw new LoggerError(
+				__( 'Authentication required. Please log in with `studio auth login`.' )
+			);
+		}
 		logger.reportSuccess( __( 'Validation successful' ), true );
 
 		logger.reportStart( LoggerAction.ARCHIVE, __( 'Creating archive…' ) );

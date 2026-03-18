@@ -1,6 +1,6 @@
+import { readAuthToken } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
 import { deleteSnapshot } from 'cli/lib/api';
-import { getAuthToken } from 'cli/lib/appdata';
 import { getSnapshotsFromConfig, deleteSnapshotFromConfig } from 'cli/lib/snapshots';
 import { LoggerError } from 'cli/logger';
 import {
@@ -13,14 +13,10 @@ import {
 } from 'cli/tests/test-utils';
 import { runCommand } from '../delete';
 
-vi.mock( 'cli/lib/appdata', async () => {
-	const actual = await vi.importActual( 'cli/lib/appdata' );
-	return {
-		...actual,
-		getAppdataDirectory: vi.fn().mockReturnValue( '/test/appdata' ),
-		getAuthToken: vi.fn(),
-	};
-} );
+vi.mock( import( '@studio/common/lib/shared-config' ), async ( importOriginal ) => ( {
+	...( await importOriginal() ),
+	readAuthToken: vi.fn(),
+} ) );
 vi.mock( 'cli/lib/api' );
 vi.mock( 'cli/lib/snapshots' );
 vi.mock( 'cli/logger', () => ( {
@@ -60,7 +56,7 @@ describe( 'Preview Delete Command', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 
-		vi.mocked( getAuthToken ).mockResolvedValue( mockAuthToken );
+		vi.mocked( readAuthToken ).mockResolvedValue( mockAuthToken );
 		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [ mockSnapshot ] );
 		vi.mocked( deleteSnapshot ).mockResolvedValue( undefined );
 		vi.mocked( deleteSnapshotFromConfig ).mockResolvedValue( undefined );
@@ -73,7 +69,7 @@ describe( 'Preview Delete Command', () => {
 	it( 'should complete the preview deletion process successfully', async () => {
 		await runCommand( mockSiteUrl );
 
-		expect( getAuthToken ).toHaveBeenCalled();
+		expect( readAuthToken ).toHaveBeenCalled();
 		expect( getSnapshotsFromConfig ).toHaveBeenCalledWith( mockAuthToken.id );
 		expect( deleteSnapshot ).toHaveBeenCalledWith( mockAtomicSiteId, mockAuthToken.accessToken );
 		expect( deleteSnapshotFromConfig ).toHaveBeenCalledWith( mockSiteUrl );
@@ -85,11 +81,7 @@ describe( 'Preview Delete Command', () => {
 	} );
 
 	it( 'should handle authentication errors', async () => {
-		const errorMessage =
-			'Authentication required. Please run the Studio app and authenticate first.';
-		vi.mocked( getAuthToken ).mockImplementation( () => {
-			throw new LoggerError( errorMessage );
-		} );
+		vi.mocked( readAuthToken ).mockResolvedValue( null );
 
 		await runCommand( mockSiteUrl );
 

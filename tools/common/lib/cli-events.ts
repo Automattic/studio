@@ -5,6 +5,7 @@
  * subscribes to them to maintain its state without reading config files.
  */
 import { z } from 'zod';
+import { authTokenSchema } from '@studio/common/lib/auth-token-schema';
 import { snapshotSchema } from '@studio/common/types/snapshot';
 
 /**
@@ -45,6 +46,11 @@ export enum SITE_EVENTS {
 	DELETED = 'site-deleted',
 }
 
+export enum AUTH_EVENTS {
+	LOGIN = 'auth-login',
+	LOGOUT = 'auth-logout',
+}
+
 export enum SNAPSHOT_EVENTS {
 	CREATED = 'snapshot-created',
 	UPDATED = 'snapshot-updated',
@@ -68,6 +74,13 @@ export const snapshotEventSchema = z.object( {
 
 export type SnapshotEvent = z.infer< typeof snapshotEventSchema >;
 
+export const authEventSchema = z.object( {
+	event: z.enum( AUTH_EVENTS ),
+	token: authTokenSchema.optional(),
+} );
+
+export type AuthEvent = z.infer< typeof authEventSchema >;
+
 /**
  * Socket-level schemas for events sent between daemon-client and the _events command.
  */
@@ -82,6 +95,13 @@ export const snapshotSocketEventSchema = z.object( {
 	event: z.enum( SNAPSHOT_EVENTS ),
 	data: z.object( {
 		snapshotUrl: z.string(),
+	} ),
+} );
+
+export const authSocketEventSchema = z.object( {
+	event: z.enum( AUTH_EVENTS ),
+	data: z.object( {
+		token: authTokenSchema.optional(),
 	} ),
 } );
 
@@ -104,4 +124,13 @@ export const cliSnapshotEventSchema = z.object( {
 		.string()
 		.transform( ( val ) => JSON.parse( val ) )
 		.pipe( snapshotEventSchema ),
+} );
+
+export const cliAuthEventSchema = z.object( {
+	action: z.literal( 'keyValuePair' ),
+	key: z.literal( 'auth-event' ),
+	value: z
+		.string()
+		.transform( ( val ) => JSON.parse( val ) )
+		.pipe( authEventSchema ),
 } );

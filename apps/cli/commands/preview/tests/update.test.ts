@@ -2,10 +2,10 @@ import os from 'os';
 import path from 'path';
 import { DEMO_SITE_EXPIRATION_DAYS } from '@studio/common/constants';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
+import { readAuthToken } from '@studio/common/lib/shared-config';
 import { Archiver } from 'archiver';
 import { vi } from 'vitest';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
-import { getAuthToken } from 'cli/lib/appdata';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { updateSnapshotInConfig, getSnapshotsFromConfig } from 'cli/lib/snapshots';
@@ -14,14 +14,10 @@ import { mockReportStart, mockReportSuccess, mockReportError } from 'cli/tests/t
 import { runCommand } from '../update';
 
 vi.mock( '@studio/common/lib/get-wordpress-version' );
-vi.mock( 'cli/lib/appdata', async () => {
-	const actual = await vi.importActual( 'cli/lib/appdata' );
-	return {
-		...actual,
-		getAppdataDirectory: vi.fn().mockReturnValue( '/test/appdata' ),
-		getAuthToken: vi.fn(),
-	};
-} );
+vi.mock( import( '@studio/common/lib/shared-config' ), async ( importOriginal ) => ( {
+	...( await importOriginal() ),
+	readAuthToken: vi.fn(),
+} ) );
 vi.mock( 'cli/lib/cli-config/sites', async () => {
 	const actual = await vi.importActual( 'cli/lib/cli-config/sites' );
 	return {
@@ -79,7 +75,7 @@ describe( 'Preview Update Command', () => {
 		vi.spyOn( path, 'basename' ).mockReturnValue( mockBasename );
 		vi.spyOn( process, 'cwd' ).mockReturnValue( mockFolder );
 
-		vi.mocked( getAuthToken ).mockResolvedValue( mockAuthToken );
+		vi.mocked( readAuthToken ).mockResolvedValue( mockAuthToken );
 		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [ mockSnapshot ] );
 		vi.mocked( archiveSiteContent ).mockResolvedValue( mockArchiver as Archiver );
 		vi.mocked( uploadArchive ).mockResolvedValue( {
@@ -142,11 +138,7 @@ describe( 'Preview Update Command', () => {
 	} );
 
 	it( 'should handle authentication errors', async () => {
-		const errorMessage =
-			'Authentication required. Please run the Studio app and authenticate first.';
-		vi.mocked( getAuthToken ).mockImplementation( () => {
-			throw new LoggerError( errorMessage );
-		} );
+		vi.mocked( readAuthToken ).mockResolvedValue( null );
 
 		await runCommand( mockFolder, mockSiteUrl, false );
 

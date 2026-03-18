@@ -20,6 +20,7 @@ import {
 	type MarkdownTheme,
 	visibleWidth,
 } from '@mariozechner/pi-tui';
+import { readAuthToken } from '@studio/common/lib/shared-config';
 import chalk from 'chalk';
 import { AI_MODELS, DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
@@ -27,7 +28,6 @@ import { AI_CHAT_SLASH_COMMANDS, type SlashCommandDef } from 'cli/ai/slash-comma
 import { buildTodoUpdateLines, type TodoRenderLine } from 'cli/ai/todo-render';
 import { diffTodoSnapshot, type TodoDiff, type TodoEntry } from 'cli/ai/todo-stream';
 import { getWpComSites } from 'cli/lib/api';
-import { getAuthToken } from 'cli/lib/appdata';
 import { openBrowser } from 'cli/lib/browser';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
@@ -823,10 +823,8 @@ export class AiChatUI {
 		this.sitePickerRemoteItems = [];
 		this.renderSitePicker();
 
-		let token: Awaited< ReturnType< typeof getAuthToken > >;
-		try {
-			token = await getAuthToken();
-		} catch {
+		const token = await readAuthToken();
+		if ( ! token ) {
 			this.showSitePickerError( 'Not logged in. Use /login first.' );
 			return;
 		}

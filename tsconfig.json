@@ -16,6 +16,7 @@
 		"apps/studio/e2e/**/*",
 		"apps/cli/**/*",
 		"tools/common/**/*",
+		"scripts/**/*",
 		"./vitest.global-setup.ts"
 	],
 	"exclude": [ "**/__mocks__/**/*", "**/node_modules/**/*", "**/dist/**/*", "**/out/**/*" ]

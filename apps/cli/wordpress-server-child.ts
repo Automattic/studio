@@ -260,74 +260,84 @@ async function getBaseRunCLIArgs(
 		args.xdebug = true;
 	}
 
+	lastCliArgs = sanitizeRunCLIArgs( args );
 	return args;
 }
 
-function wrapWithStartingPromise< Args extends unknown[], Return extends void >(
-	callback: ( ...args: Args ) => Promise< Return >
-) {
-	return async ( ...args: Args ) => {
-		startingPromise = callback( ...args );
-		return startingPromise;
-	};
-}
-
-const startServer = wrapWithStartingPromise(
-	async ( config: ServerConfig, signal: AbortSignal ): Promise< void > => {
-		if ( server ) {
-			logToConsole( `Server already running for site ${ config.siteId }` );
-			return;
-		}
-
-		try {
-			signal.addEventListener(
-				'abort',
-				() => {
-					throw new Error( 'Operation aborted' );
-				},
-				{ once: true }
-			);
-
-			const args = await getBaseRunCLIArgs( 'server', config );
-			lastCliArgs = sanitizeRunCLIArgs( args );
-			server = await runCLI( args );
-
-			if ( config.adminPassword || config.adminUsername || config.adminEmail ) {
-				await setAdminCredentials(
-					server,
-					config.adminPassword,
-					config.adminUsername,
-					config.adminEmail
-				);
-			}
-		} catch ( error ) {
-			server = null;
-			errorToConsole( `Failed to start server:`, error );
-			throw error;
-		}
+async function startServer( config: ServerConfig, signal: AbortSignal ): Promise< void > {
+	if ( server ) {
+		logToConsole( `Server already running for site ${ config.siteId }` );
+		return;
 	}
-);
+
+	if ( startingPromise ) {
+		logToConsole( `Server startup already in progress for site ${ config.siteId }, waiting…` );
+		await startingPromise;
+		return;
+	}
+
+	signal.addEventListener(
+		'abort',
+		() => {
+			errorToConsole( `Failed to start server: Operation aborted` );
+			throw new Error( 'Operation aborted' );
+		},
+		{ once: true }
+	);
+
+	startingPromise = ( async () => {
+		const args = await getBaseRunCLIArgs( 'server', config );
+		server = await runCLI( args );
+
+		if ( config.adminPassword || config.adminUsername || config.adminEmail ) {
+			await setAdminCredentials(
+				server,
+				config.adminPassword,
+				config.adminUsername,
+				config.adminEmail
+			);
+		}
+	} )();
+
+	try {
+		await startingPromise;
+	} catch ( error ) {
+		server = null;
+		errorToConsole( `Failed to start server:`, error );
+		throw error;
+	} finally {
+		startingPromise = null;
+	}
+}
 
 const STOP_SERVER_TIMEOUT = 5000;
 
 async function stopServer(): Promise< void > {
+	if ( startingPromise ) {
+		logToConsole( 'Server startup in progress, waiting before stop' );
+		try {
+			await startingPromise;
+		} catch ( error ) {
+			errorToConsole( 'Startup failed while waiting to stop server:', error );
+		}
+	}
+
 	if ( ! server ) {
 		logToConsole( 'No server running, nothing to stop' );
 		return;
 	}
-
-	const serverToDispose = server;
-	server = null;
 
 	try {
 		const disposalTimeout = new Promise< void >( ( _, reject ) =>
 			setTimeout( () => reject( new Error( 'Server disposal timeout' ) ), STOP_SERVER_TIMEOUT )
 		);
 
-		await Promise.race( [ serverToDispose[ Symbol.asyncDispose ](), disposalTimeout ] );
+		await Promise.race( [ server[ Symbol.asyncDispose ](), disposalTimeout ] );
 		logToConsole( 'Server stopped gracefully' );
 	} catch ( error ) {
 		errorToConsole( 'Error during server disposal:', error );
+	} finally {
+		server = null;
 	}
 }
 
@@ -342,7 +352,6 @@ async function runBlueprint( config: ServerConfig, signal: AbortSignal ): Promis
 		);
 
 		const args = await getBaseRunCLIArgs( 'run-blueprint', config );
-		lastCliArgs = sanitizeRunCLIArgs( args );
 		await runCLI( args );
 
 		logToConsole( `Blueprint applied successfully for site ${ config.siteId }` );

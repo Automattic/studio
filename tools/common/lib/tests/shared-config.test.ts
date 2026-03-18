@@ -118,6 +118,29 @@ describe( 'Shared Config', () => {
 			expect( config ).toEqual( { version: 1 } );
 		} );
 
+		it( 'should warn when version differs from current', async () => {
+			const warnSpy = vi.spyOn( console, 'warn' ).mockImplementation( () => {} );
+			const data = { version: 2, authToken: validToken };
+			vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( data ) ) );
+
+			const config = await readSharedConfig();
+			expect( config.authToken?.accessToken ).toBe( 'valid-token' );
+			expect( warnSpy ).toHaveBeenCalledWith(
+				expect.stringContaining( 'newer version of Studio' )
+			);
+			warnSpy.mockRestore();
+		} );
+
+		it( 'should not warn when version matches', async () => {
+			const warnSpy = vi.spyOn( console, 'warn' ).mockImplementation( () => {} );
+			const data = { version: 1, authToken: validToken };
+			vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( data ) ) );
+
+			await readSharedConfig();
+			expect( warnSpy ).not.toHaveBeenCalled();
+			warnSpy.mockRestore();
+		} );
+
 		it( 'should preserve unknown fields with loose schema', async () => {
 			const data = { version: 1, unknownField: 'value' };
 			vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( data ) ) );

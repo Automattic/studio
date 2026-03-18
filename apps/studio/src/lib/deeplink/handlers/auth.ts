@@ -11,9 +11,9 @@ const meResponseSchema = z.object( {
 	display_name: z.string(),
 } );
 
-type StoredToken = z.infer< typeof authTokenSchema >;
+type StoredAuthToken = z.infer< typeof authTokenSchema >;
 
-async function handleAuthCallback( hash: string ): Promise< StoredToken > {
+async function handleAuthCallback( hash: string ): Promise< StoredAuthToken > {
 	const params = new URLSearchParams( hash.substring( 1 ) );
 	const error = params.get( 'error' );
 

@@ -4,11 +4,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { domainToASCII } from 'node:url';
 import { promisify } from 'node:util';
-import os from 'os';
 import sudo from '@vscode/sudo-prompt';
 import { __ } from '@wordpress/i18n';
 import forge from 'node-forge';
-import { LoggerError } from 'cli/logger';
+import { getAppdataDirectory } from 'cli/lib/server-files';
 
 const execFilePromise = promisify( execFile );
 
@@ -68,22 +67,6 @@ function createNameConstraintsExtension( domains: string[] ) {
 const CA_NAME = 'WordPress Studio CA';
 const CA_CERT_VALIDITY_DAYS = 3650; // 10 years
 const SITE_CERT_VALIDITY_DAYS = 825; // a little over 2 years
-function getAppdataDirectory(): string {
-	if ( process.env.E2E && process.env.E2E_APP_DATA_PATH ) {
-		return path.join( process.env.E2E_APP_DATA_PATH, 'Studio' );
-	}
-
-	if ( process.platform === 'win32' ) {
-		if ( ! process.env.APPDATA ) {
-			throw new LoggerError( __( 'Studio config file path not found.' ) );
-		}
-
-		return path.join( process.env.APPDATA, 'Studio' );
-	}
-
-	return path.join( os.homedir(), 'Library', 'Application Support', 'Studio' );
-}
-
 const CERT_DIRECTORY = path.join( getAppdataDirectory(), 'certificates' );
 const CA_CERT_PATH = path.join( CERT_DIRECTORY, 'studio-ca.crt' );
 const CA_KEY_PATH = path.join( CERT_DIRECTORY, 'studio-ca.key' );

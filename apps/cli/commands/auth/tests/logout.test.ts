@@ -12,11 +12,15 @@ import {
 } from 'cli/tests/test-utils';
 import { runCommand } from '../logout';
 
-vi.mock( '@studio/common/lib/shared-config', () => ( {
+vi.mock( '@studio/common/lib/shared-config', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/common/lib/shared-config') >() ),
 	readAuthToken: vi.fn(),
 	updateSharedConfig: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/api' );
+vi.mock( 'cli/lib/daemon-client', () => ( {
+	emitCliEvent: vi.fn(),
+} ) );
 vi.mock( 'cli/logger', () => ( {
 	Logger: class {
 		reportStart = mockReportStart;

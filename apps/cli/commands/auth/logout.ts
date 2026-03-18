@@ -1,7 +1,9 @@
+import { AUTH_EVENTS } from '@studio/common/lib/cli-events';
 import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-config';
 import { AuthCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import { revokeAuthToken } from 'cli/lib/api';
+import { emitCliEvent } from 'cli/lib/daemon-client';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -19,6 +21,7 @@ export async function runCommand(): Promise< void > {
 	try {
 		await revokeAuthToken( token.accessToken );
 		await updateSharedConfig( { authToken: undefined } );
+		await emitCliEvent( { event: AUTH_EVENTS.LOGOUT, data: {} } );
 
 		logger.reportSuccess( __( 'Successfully logged out' ) );
 	} catch ( error ) {

@@ -1,7 +1,7 @@
 import fs from 'fs';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
-import { readAuthToken, type StoredToken } from '@studio/common/lib/shared-config';
+import { readAuthToken, type StoredAuthToken } from '@studio/common/lib/shared-config';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { deleteSnapshot } from 'cli/lib/api';
@@ -23,7 +23,7 @@ import { StudioArgv } from 'cli/types';
 
 const logger = new Logger< LoggerAction >();
 
-async function deletePreviewSites( authToken: StoredToken, siteFolder: string ) {
+async function deletePreviewSites( authToken: StoredAuthToken, siteFolder: string ) {
 	try {
 		const snapshots = await getSnapshotsFromConfig( authToken.id, siteFolder );
 

@@ -18,12 +18,16 @@ import { runCommand } from '../login';
 
 vi.mock( '@inquirer/prompts' );
 vi.mock( '@studio/common/lib/oauth' );
-vi.mock( '@studio/common/lib/shared-config', () => ( {
+vi.mock( '@studio/common/lib/shared-config', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/common/lib/shared-config') >() ),
 	readAuthToken: vi.fn(),
 	updateSharedConfig: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/api' );
 vi.mock( 'cli/lib/browser' );
+vi.mock( 'cli/lib/daemon-client', () => ( {
+	emitCliEvent: vi.fn(),
+} ) );
 vi.mock( 'cli/lib/i18n' );
 vi.mock( 'cli/logger', () => ( {
 	Logger: class {

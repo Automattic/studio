@@ -8,6 +8,10 @@ import { lockFileAsync, unlockFileAsync } from './lockfile';
 
 const SHARED_CONFIG_FILENAME = 'shared.json';
 
+// Schema updates must maintain backwards compatibility. If a breaking change is needed,
+// increment SHARED_CONFIG_VERSION and add a data migration function.
+const SHARED_CONFIG_VERSION = 1;
+
 export const authTokenSchema = z.object( {
 	accessToken: z.string(),
 	expiresIn: z.number(),
@@ -17,11 +21,11 @@ export const authTokenSchema = z.object( {
 	displayName: z.string().default( '' ),
 } );
 
-export type StoredToken = z.infer< typeof authTokenSchema >;
+export type StoredAuthToken = z.infer< typeof authTokenSchema >;
 
 const sharedConfigSchema = z
 	.object( {
-		version: z.number().default( 1 ),
+		version: z.number().default( SHARED_CONFIG_VERSION ),
 		authToken: authTokenSchema.optional(),
 		locale: z.string().optional(),
 	} )
@@ -30,7 +34,7 @@ const sharedConfigSchema = z
 export type SharedConfig = z.infer< typeof sharedConfigSchema >;
 
 const DEFAULT_SHARED_CONFIG: SharedConfig = {
-	version: 1,
+	version: SHARED_CONFIG_VERSION,
 };
 
 export function getSharedConfigDirectory(): string {
@@ -54,7 +58,13 @@ export async function readSharedConfig(): Promise< SharedConfig > {
 	try {
 		const fileContent = await readFile( configPath, { encoding: 'utf8' } );
 		const data = JSON.parse( fileContent );
-		return sharedConfigSchema.parse( data );
+		const config = sharedConfigSchema.parse( data );
+		if ( config.version !== SHARED_CONFIG_VERSION ) {
+			console.warn(
+				'A newer version of Studio or the Studio CLI is installed on your system. Some features may not work as expected until all components are updated.'
+			);
+		}
+		return config;
 	} catch ( error ) {
 		if ( error instanceof z.ZodError || error instanceof SyntaxError ) {
 			return structuredClone( DEFAULT_SHARED_CONFIG );
@@ -64,7 +74,7 @@ export async function readSharedConfig(): Promise< SharedConfig > {
 }
 
 export async function saveSharedConfig( config: SharedConfig ): Promise< void > {
-	config.version = 1;
+	config.version = SHARED_CONFIG_VERSION;
 
 	const configDir = getSharedConfigDirectory();
 	if ( ! fs.existsSync( configDir ) ) {
@@ -104,7 +114,7 @@ export async function updateSharedConfig(
 	}
 }
 
-export async function readAuthToken(): Promise< StoredToken | null > {
+export async function readAuthToken(): Promise< StoredAuthToken | null > {
 	try {
 		const config = await readSharedConfig();
 		if ( ! config.authToken ) {

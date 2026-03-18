@@ -6,7 +6,7 @@ import { LoggerError } from 'cli/logger';
 const WP_CLI_PHAR_FILENAME = 'wp-cli.phar';
 const SQLITE_COMMAND_FOLDER = 'sqlite-command';
 
-function getAppdataDirectory(): string {
+export function getAppdataDirectory(): string {
 	if ( process.env.E2E && process.env.E2E_APP_DATA_PATH ) {
 		return path.join( process.env.E2E_APP_DATA_PATH, 'Studio' );
 	}

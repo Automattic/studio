@@ -1,11 +1,13 @@
 import { input } from '@inquirer/prompts';
 import { DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
+import { AUTH_EVENTS } from '@studio/common/lib/cli-events';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-config';
 import { AuthCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
 import { getUserInfo } from 'cli/lib/api';
 import { openBrowser } from 'cli/lib/browser';
+import { emitCliEvent } from 'cli/lib/daemon-client';
 import { getAppLocale } from 'cli/lib/i18n';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -56,16 +58,16 @@ export async function runCommand(): Promise< void > {
 	}
 
 	try {
-		await updateSharedConfig( {
-			authToken: {
-				accessToken,
-				id: user.ID,
-				email: user.email,
-				displayName: user.display_name,
-				expiresIn: DEFAULT_TOKEN_LIFETIME_MS / 1000,
-				expirationTime: Date.now() + DEFAULT_TOKEN_LIFETIME_MS,
-			},
-		} );
+		const authToken = {
+			accessToken,
+			id: user.ID,
+			email: user.email,
+			displayName: user.display_name,
+			expiresIn: DEFAULT_TOKEN_LIFETIME_MS / 1000,
+			expirationTime: Date.now() + DEFAULT_TOKEN_LIFETIME_MS,
+		};
+		await updateSharedConfig( { authToken } );
+		await emitCliEvent( { event: AUTH_EVENTS.LOGIN, data: { token: authToken } } );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );

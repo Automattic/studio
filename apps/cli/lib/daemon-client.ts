@@ -5,9 +5,14 @@ import fs from 'fs';
 import path from 'path';
 import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from '@studio/common/constants';
 import { cacheFunctionTTL } from '@studio/common/lib/cache-function-ttl';
-import { type SITE_EVENTS, type SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
+import {
+	type AUTH_EVENTS,
+	type SITE_EVENTS,
+	type SNAPSHOT_EVENTS,
+} from '@studio/common/lib/cli-events';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
+import { type StoredAuthToken } from '@studio/common/lib/shared-config';
 import { z } from 'zod';
 import {
 	PROCESS_MANAGER_EVENTS_SOCKET_PATH,
@@ -333,7 +338,8 @@ const eventsSocketClient = new SocketRequestClient( SITE_EVENTS_SOCKET_PATH );
 
 type CliEventPayload =
 	| { event: SITE_EVENTS; data: { siteId: string } }
-	| { event: SNAPSHOT_EVENTS; data: { snapshotUrl: string } };
+	| { event: SNAPSHOT_EVENTS; data: { snapshotUrl: string } }
+	| { event: AUTH_EVENTS; data: { token?: StoredAuthToken } };
 
 /**
  * Emit a CLI event via the events socket, for the `_events` command server to receive.

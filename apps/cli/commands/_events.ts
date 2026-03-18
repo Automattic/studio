@@ -7,13 +7,16 @@
  */
 
 import {
+	AUTH_EVENTS,
 	SITE_EVENTS,
 	SNAPSHOT_EVENTS,
 	siteDetailsSchema,
 	siteSocketEventSchema,
 	snapshotSocketEventSchema,
+	authSocketEventSchema,
 	SiteEvent,
 	SnapshotEvent,
+	AuthEvent,
 } from '@studio/common/lib/cli-events';
 import { sequential } from '@studio/common/lib/sequential';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
@@ -76,6 +79,11 @@ async function emitAllSitesStopped(): Promise< void > {
 	}
 }
 
+function emitAuthEvent( event: AUTH_EVENTS, token?: AuthEvent[ 'token' ] ): void {
+	const payload: AuthEvent = { event, token };
+	logger.reportKeyValuePair( 'auth-event', JSON.stringify( payload ) );
+}
+
 const emitSnapshotEvent = sequential(
 	async ( event: SNAPSHOT_EVENTS, snapshotUrl: string ): Promise< void > => {
 		const cliConfig = await readCliConfig();
@@ -94,6 +102,12 @@ export async function runCommand(): Promise< void > {
 	const eventsSocketServer = new SocketServer( SITE_EVENTS_SOCKET_PATH, 2500 );
 	eventsSocketServer.on( 'message', ( { message: packet } ) => {
 		try {
+			const authParsed = authSocketEventSchema.safeParse( packet );
+			if ( authParsed.success ) {
+				emitAuthEvent( authParsed.data.event, authParsed.data.data.token );
+				return;
+			}
+
 			const snapshotParsed = snapshotSocketEventSchema.safeParse( packet );
 			if ( snapshotParsed.success ) {
 				void emitSnapshotEvent( snapshotParsed.data.event, snapshotParsed.data.data.snapshotUrl );

@@ -10,7 +10,7 @@ import {
 	resolveInitialAiProvider,
 	resolveUnavailableAiProvider,
 } from 'cli/ai/auth';
-import { readCliConfig, updateCliConfig } from 'cli/lib/cli-config/core';
+import { readCliConfig, updateCliConfigWithPartial } from 'cli/lib/cli-config/core';
 import { LoggerError } from 'cli/logger';
 
 vi.mock( 'child_process', () => ( {
@@ -30,7 +30,7 @@ vi.mock( '@studio/common/lib/shared-config', () => ( {
 
 vi.mock( 'cli/lib/cli-config/core', () => ( {
 	readCliConfig: vi.fn().mockResolvedValue( { version: 1, sites: [] } ),
-	updateCliConfig: vi.fn(),
+	updateCliConfigWithPartial: vi.fn(),
 } ) );
 
 describe( 'AI auth helpers', () => {
@@ -53,7 +53,7 @@ describe( 'AI auth helpers', () => {
 		expect( env.ANTHROPIC_API_KEY ).toBe( 'saved-key' );
 		expect( env.ANTHROPIC_BASE_URL ).toBeUndefined();
 		expect( env.ANTHROPIC_AUTH_TOKEN ).toBeUndefined();
-		expect( updateCliConfig ).not.toHaveBeenCalled();
+		expect( updateCliConfigWithPartial ).not.toHaveBeenCalled();
 	} );
 
 	it( 'requires a saved Anthropic API key in API key mode', async () => {
@@ -81,7 +81,7 @@ describe( 'AI auth helpers', () => {
 		await prepareAiProvider( 'anthropic-api-key' );
 
 		expect( password ).toHaveBeenCalledOnce();
-		expect( updateCliConfig ).toHaveBeenCalledWith( { anthropicApiKey: 'prompted-key' } );
+		expect( updateCliConfigWithPartial ).toHaveBeenCalledWith( { anthropicApiKey: 'prompted-key' } );
 	} );
 
 	it( 'can force re-entering the API key even when one is already saved', async () => {
@@ -96,7 +96,7 @@ describe( 'AI auth helpers', () => {
 		await prepareAiProvider( 'anthropic-api-key', { force: true } );
 
 		expect( password ).toHaveBeenCalledOnce();
-		expect( updateCliConfig ).toHaveBeenCalledWith( { anthropicApiKey: 'updated-key' } );
+		expect( updateCliConfigWithPartial ).toHaveBeenCalledWith( { anthropicApiKey: 'updated-key' } );
 	} );
 
 	it( 'lists Claude auth only when it is available', async () => {

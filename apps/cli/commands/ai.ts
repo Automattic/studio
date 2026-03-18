@@ -101,7 +101,7 @@ export async function runCommand(): Promise< void > {
 	if ( currentProvider === 'wpcom' ) {
 		const token = await readAuthToken();
 		if ( token ) {
-			ui.setStatusMessage( `Logged in as ${ token.displayName } (${ token.email })` );
+			ui.setStatusMessage( `Logged in as ${ token.displayName }` );
 		} else {
 			ui.setStatusMessage( 'Use /login to authenticate to WordPress.com' );
 		}
@@ -221,7 +221,7 @@ export async function runCommand(): Promise< void > {
 					const token = await readAuthToken();
 					if ( token ) {
 						ui.showInfo( `Logged in as ${ token.displayName } (${ token.email })` );
-						ui.setStatusMessage( `Logged in as ${ token.displayName } (${ token.email })` );
+						ui.setStatusMessage( `Logged in as ${ token.displayName }` );
 					}
 				} else {
 					ui.setStatusMessage( 'Login failed or canceled' );

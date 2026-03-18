@@ -40,6 +40,25 @@ export async function installAiInstructionsToSite(
 	}
 }
 
+/**
+ * Update STUDIO.md in a site if it already exists, replacing it with the bundled version.
+ * This is called on server start to keep Studio-managed instructions current.
+ */
+export async function updateStudioMdIfExists(
+	sitePath: string,
+	bundledPath: string
+): Promise< void > {
+	const fileName = 'STUDIO.md';
+	const dest = path.join( sitePath, fileName );
+	const src = path.join( bundledPath, fileName );
+
+	if ( ! ( await pathExists( dest ) ) || ! ( await pathExists( src ) ) ) {
+		return;
+	}
+
+	await fs.copyFile( src, dest );
+}
+
 async function installInstructionFile(
 	sitePath: string,
 	bundledPath: string,

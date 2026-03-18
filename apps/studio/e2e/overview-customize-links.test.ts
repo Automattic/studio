@@ -185,4 +185,26 @@ test.describe( 'Overview customize links', () => {
 			await expect( headingLocator ).toBeVisible( { timeout: 120_000 } );
 		} );
 	} );
+
+	test.describe( 'phpMyAdmin shortcut link', () => {
+		test.beforeAll( async () => {
+			const siteContent = new SiteContent( session.mainWindow, siteName );
+			await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
+		} );
+
+		test( 'phpMyAdmin button is visible and enabled for a new site', async () => {
+			const siteContent = new SiteContent( session.mainWindow, siteName );
+			const phpMyAdminButton = siteContent.locator.getByRole( 'button', { name: 'phpMyAdmin' } );
+			await expect( phpMyAdminButton ).toBeVisible( { timeout: 120_000 } );
+			await expect( phpMyAdminButton ).toBeEnabled();
+		} );
+
+		test( 'opens phpMyAdmin shortcut', async ( { page } ) => {
+			const redirectUrl = await openShortcut( page, 'phpMyAdmin' );
+			expect( redirectUrl ).toContain( '/phpmyadmin/' );
+
+			// phpMyAdmin renders a table of database tables
+			await expect( page.locator( '#pma_navigation' ) ).toBeVisible( { timeout: 120_000 } );
+		} );
+	} );
 } );

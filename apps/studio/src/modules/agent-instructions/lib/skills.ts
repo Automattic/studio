@@ -1,6 +1,6 @@
 import fs from 'fs/promises';
 import nodePath from 'path';
-import { installSkillToSite } from '@studio/common/lib/ai-skills';
+import { installSkillToSite } from '@studio/common/lib/agent-skills';
 import { getAiInstructionsPath } from 'src/lib/server-files-paths';
 import { BUNDLED_SKILLS, type SkillStatus } from './skills-constants';
 

@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { vi } from 'vitest';
-import { installAiInstructionsToSite } from '../ai-skills';
+import { installAiInstructionsToSite } from '../agent-skills';
 import { pathExists, recursiveCopyDirectory } from '../fs-utils';
 
 vi.mock( 'fs/promises', () => ( {

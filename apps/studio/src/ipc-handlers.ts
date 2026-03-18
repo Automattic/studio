@@ -17,7 +17,10 @@ import https from 'node:https';
 import os from 'os';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
-import { installAiInstructionsToSite, updateStudioMdIfExists } from '@studio/common/lib/ai-skills';
+import {
+	installAiInstructionsToSite,
+	updateStudioMdIfExists,
+} from '@studio/common/lib/agent-skills';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
 import {

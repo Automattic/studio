@@ -21,15 +21,21 @@ export async function runCommand(): Promise< void > {
 	try {
 		await revokeAuthToken( token.accessToken );
 		await updateSharedConfig( { authToken: undefined } );
-		await emitCliEvent( { event: AUTH_EVENTS.LOGOUT, data: {} } );
-
-		logger.reportSuccess( __( 'Successfully logged out' ) );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );
 		} else {
 			logger.reportError( new LoggerError( __( 'Failed to log out' ), error ) );
 		}
+		return;
+	}
+
+	logger.reportSuccess( __( 'Successfully logged out' ) );
+
+	try {
+		await emitCliEvent( { event: AUTH_EVENTS.LOGOUT, data: {} } );
+	} catch {
+		// Best-effort: don't mask successful logout if event emission fails
 	}
 }
 

@@ -57,23 +57,30 @@ export async function runCommand(): Promise< void > {
 		return;
 	}
 
+	const authToken = {
+		accessToken,
+		id: user.ID,
+		email: user.email,
+		displayName: user.display_name,
+		expiresIn: DEFAULT_TOKEN_LIFETIME_MS / 1000,
+		expirationTime: Date.now() + DEFAULT_TOKEN_LIFETIME_MS,
+	};
+
 	try {
-		const authToken = {
-			accessToken,
-			id: user.ID,
-			email: user.email,
-			displayName: user.display_name,
-			expiresIn: DEFAULT_TOKEN_LIFETIME_MS / 1000,
-			expirationTime: Date.now() + DEFAULT_TOKEN_LIFETIME_MS,
-		};
 		await updateSharedConfig( { authToken } );
-		await emitCliEvent( { event: AUTH_EVENTS.LOGIN, data: { token: authToken } } );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );
 		} else {
 			logger.reportError( new LoggerError( __( 'Authentication failed' ), error ) );
 		}
+		return;
+	}
+
+	try {
+		await emitCliEvent( { event: AUTH_EVENTS.LOGIN, data: { token: authToken } } );
+	} catch {
+		// Best-effort: don't mask successful auth if event emission fails
 	}
 }
 

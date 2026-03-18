@@ -646,7 +646,7 @@ export class AiChatUI {
 					return { consume: true };
 				}
 
-				// If user starts typing while on a regular option, jump to "Other"
+				// If user starts typing while on a regular option, jump to "Other" (only if free-form is enabled)
 				if (
 					this.optionPickerHasFreeForm &&
 					! matchesKey( data, 'up' ) &&
@@ -670,9 +670,11 @@ export class AiChatUI {
 					return { consume: true };
 				}
 				// Check if we landed on "Other" after navigation
-				const selected = this.optionPickerSelectList.getSelectedItem();
-				if ( selected?.value === AiChatUI.OTHER_VALUE ) {
-					this.activateOptionPickerOther();
+				if ( this.optionPickerHasFreeForm ) {
+					const selected = this.optionPickerSelectList.getSelectedItem();
+					if ( selected?.value === AiChatUI.OTHER_VALUE ) {
+						this.activateOptionPickerOther();
+					}
 				}
 				this.renderOptionPicker();
 				return { consume: true };
@@ -1733,17 +1735,16 @@ export class AiChatUI {
 			this.tui.requestRender();
 
 			if ( q.options.length > 0 ) {
-				// Use SelectList with an automatic "Other" free-form option.
-				// When the user navigates to "Other" (or starts typing), an inline input
-				// appears so they can type immediately.
+				// Use SelectList for option-based questions.
+				// When allowFreeForm is true, append an "Other" option with inline input.
 				this.hideEditor();
 				const selectItems: SelectItem[] = q.options.map( ( opt, i ) => ( {
 					value: opt.label,
 					label: `${ i + 1 }. ${ opt.label }`,
 					description: opt.description,
 				} ) );
-				if ( q.allowFreeForm ) {
-					this.optionPickerHasFreeForm = true;
+				this.optionPickerHasFreeForm = q.allowFreeForm === true;
+				if ( this.optionPickerHasFreeForm ) {
 					selectItems.push( {
 						value: AiChatUI.OTHER_VALUE,
 						label: 'Other (type my own)',

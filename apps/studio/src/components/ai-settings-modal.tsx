@@ -63,6 +63,15 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 
 	const allInstalled = statuses.length > 0 && statuses.every( ( s ) => s.exists );
 
+	const handleInstallAll = useCallback( async () => {
+		setError( null );
+		for ( const status of statuses ) {
+			if ( ! status.exists ) {
+				await handleInstallFile( status.id, false );
+			}
+		}
+	}, [ statuses, handleInstallFile ] );
+
 	return (
 		<div className="flex flex-col gap-4">
 			<div className="flex items-center justify-between">
@@ -75,7 +84,7 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 				{ ! allInstalled && (
 					<Button
 						variant="link"
-						onClick={ () => handleInstallFile( 'agents', false ) }
+						onClick={ handleInstallAll }
 						disabled={ installingFile !== null }
 						className="text-sm"
 					>

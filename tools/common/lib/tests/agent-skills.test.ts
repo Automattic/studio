@@ -181,8 +181,13 @@ describe( 'installAiInstructionsToSite', () => {
 	} );
 
 	it( 'installs multiple skills with correct paths and symlinks', async () => {
+		const normalizedBundled = path.normalize( BUNDLED_PATH );
 		vi.mocked( pathExists ).mockImplementation( async ( p: string ) => {
-			if ( p === BUNDLED_PATH || p.startsWith( BUNDLED_PATH + path.sep ) ) {
+			if (
+				p === BUNDLED_PATH ||
+				p === normalizedBundled ||
+				p.startsWith( normalizedBundled + path.sep )
+			) {
 				return true;
 			}
 			return false;
@@ -223,8 +228,13 @@ describe( 'installAiInstructionsToSite', () => {
 	} );
 
 	it( 'continues installing remaining skills when one fails', async () => {
+		const normalizedBundled = path.normalize( BUNDLED_PATH );
 		vi.mocked( pathExists ).mockImplementation( async ( p: string ) => {
-			if ( p === BUNDLED_PATH || p.startsWith( BUNDLED_PATH + path.sep ) ) {
+			if (
+				p === BUNDLED_PATH ||
+				p === normalizedBundled ||
+				p.startsWith( normalizedBundled + path.sep )
+			) {
 				return true;
 			}
 			return false;
@@ -248,8 +258,13 @@ describe( 'installAiInstructionsToSite', () => {
 		const originalPlatform = process.platform;
 		Object.defineProperty( process, 'platform', { value: 'win32' } );
 
+		const normalizedBundled = path.normalize( BUNDLED_PATH );
 		vi.mocked( pathExists ).mockImplementation( async ( p: string ) => {
-			if ( p === BUNDLED_PATH || p.startsWith( BUNDLED_PATH + path.sep ) ) {
+			if (
+				p === BUNDLED_PATH ||
+				p === normalizedBundled ||
+				p.startsWith( normalizedBundled + path.sep )
+			) {
 				return true;
 			}
 			return false;

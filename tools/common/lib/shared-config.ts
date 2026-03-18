@@ -25,7 +25,7 @@ const SHARED_CONFIG_FILENAME = 'shared.json';
 // increment SHARED_CONFIG_VERSION and add a data migration function.
 const SHARED_CONFIG_VERSION = 1;
 
-const sharedConfigSchema = z
+export const sharedConfigSchema = z
 	.object( {
 		version: z.literal( SHARED_CONFIG_VERSION ),
 		authToken: authTokenSchema.optional(),

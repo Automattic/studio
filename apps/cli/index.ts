@@ -159,7 +159,7 @@ async function main() {
 		} )
 		.fail( ( msg, err ) => {
 			if ( err instanceof SharedConfigVersionMismatchError ) {
-				console.error( err.message );
+				console.error( `\n${ err.message }` );
 				process.exit( 1 );
 			}
 			if ( msg ) {

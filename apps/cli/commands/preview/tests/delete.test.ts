@@ -13,8 +13,8 @@ import {
 } from 'cli/tests/test-utils';
 import { runCommand } from '../delete';
 
-vi.mock( '@studio/common/lib/shared-config', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('@studio/common/lib/shared-config') >() ),
+vi.mock( import( '@studio/common/lib/shared-config' ), async ( importOriginal ) => ( {
+	...( await importOriginal() ),
 	readAuthToken: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/api' );

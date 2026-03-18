@@ -18,14 +18,16 @@ const siteSchema = siteDetailsSchema
 	} )
 	.loose();
 
-const cliConfigWithJustVersion = z.object( {
-	version: z.number().default( 1 ),
-} );
+// Schema updates must maintain backwards compatibility. If a breaking change is needed,
+// increment CLI_CONFIG_VERSION and add a data migration function.
+const CLI_CONFIG_VERSION = 1;
+
 // IMPORTANT: Always consider that independently installed versions of the CLI (from npm) may also
 // read this file, and any updates to this schema may require updating the `version` field.
 export const aiProviderSchema = z.enum( [ 'wpcom', 'anthropic-claude', 'anthropic-api-key' ] );
 
-const cliConfigSchema = cliConfigWithJustVersion.extend( {
+const cliConfigSchema = z.object( {
+	version: z.literal( CLI_CONFIG_VERSION ),
 	sites: z.array( siteSchema ).default( () => [] ),
 	snapshots: z.array( snapshotSchema ).default( () => [] ),
 	aiProvider: aiProviderSchema.optional(),
@@ -39,7 +41,7 @@ type CliConfig = z.infer< typeof cliConfigSchema >;
 export type SiteData = z.infer< typeof siteSchema >;
 
 const DEFAULT_CLI_CONFIG: CliConfig = {
-	version: 1,
+	version: CLI_CONFIG_VERSION,
 	sites: [],
 	snapshots: [],
 };
@@ -75,9 +77,10 @@ export async function readCliConfig(): Promise< CliConfig > {
 		return cliConfigSchema.parse( data );
 	} catch ( error ) {
 		if ( error instanceof z.ZodError ) {
-			try {
-				cliConfigWithJustVersion.parse( data );
-			} catch ( versionError ) {
+			const hasVersionMismatch = error.issues.some(
+				( issue ) => issue.path[ 0 ] === 'version' && issue.code === 'invalid_value'
+			);
+			if ( hasVersionMismatch ) {
 				throw new LoggerError(
 					__(
 						'Invalid CLI config version. It looks like you have a different version of the `studio` CLI installed on your system. Please modify your $PATH environment variable to use the correct version.'
@@ -99,7 +102,7 @@ export async function readCliConfig(): Promise< CliConfig > {
 
 export async function saveCliConfig( config: CliConfig ): Promise< void > {
 	try {
-		config.version = 1;
+		config.version = CLI_CONFIG_VERSION;
 
 		const configDir = getCliConfigDirectory();
 		if ( ! fs.existsSync( configDir ) ) {

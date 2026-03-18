@@ -25,7 +25,7 @@ export type StoredAuthToken = z.infer< typeof authTokenSchema >;
 
 const sharedConfigSchema = z
 	.object( {
-		version: z.number().default( SHARED_CONFIG_VERSION ),
+		version: z.literal( SHARED_CONFIG_VERSION ),
 		authToken: authTokenSchema.optional(),
 		locale: z.string().optional(),
 	} )
@@ -58,15 +58,20 @@ export async function readSharedConfig(): Promise< SharedConfig > {
 	try {
 		const fileContent = await readFile( configPath, { encoding: 'utf8' } );
 		const data = JSON.parse( fileContent );
-		const config = sharedConfigSchema.parse( data );
-		if ( config.version !== SHARED_CONFIG_VERSION ) {
-			console.warn(
-				'A newer version of Studio or the Studio CLI is installed on your system. Some features may not work as expected until all components are updated.'
-			);
-		}
-		return config;
+		return sharedConfigSchema.parse( data );
 	} catch ( error ) {
-		if ( error instanceof z.ZodError || error instanceof SyntaxError ) {
+		if ( error instanceof z.ZodError ) {
+			const hasVersionMismatch = error.issues.some(
+				( issue ) => issue.path[ 0 ] === 'version' && issue.code === 'invalid_value'
+			);
+			if ( hasVersionMismatch ) {
+				console.warn(
+					'A newer version of Studio or the Studio CLI is installed on your system. Some features may not work as expected until all components are updated.'
+				);
+			}
+			return structuredClone( DEFAULT_SHARED_CONFIG );
+		}
+		if ( error instanceof SyntaxError ) {
 			return structuredClone( DEFAULT_SHARED_CONFIG );
 		}
 		throw new Error( 'Failed to read shared config file.' );

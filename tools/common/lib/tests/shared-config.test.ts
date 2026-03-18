@@ -12,6 +12,7 @@ import {
 	getSharedConfigDirectory,
 	getSharedConfigPath,
 } from '@studio/common/lib/shared-config';
+import type { SharedConfig } from '@studio/common/lib/shared-config';
 
 vi.mock( 'fs', () => ( {
 	default: {
@@ -118,13 +119,13 @@ describe( 'Shared Config', () => {
 			expect( config ).toEqual( { version: 1 } );
 		} );
 
-		it( 'should warn when version differs from current', async () => {
+		it( 'should warn and return defaults when version differs from current', async () => {
 			const warnSpy = vi.spyOn( console, 'warn' ).mockImplementation( () => {} );
 			const data = { version: 2, authToken: validToken };
 			vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( data ) ) );
 
 			const config = await readSharedConfig();
-			expect( config.authToken?.accessToken ).toBe( 'valid-token' );
+			expect( config ).toEqual( { version: 1 } );
 			expect( warnSpy ).toHaveBeenCalledWith(
 				expect.stringContaining( 'newer version of Studio' )
 			);
@@ -152,7 +153,7 @@ describe( 'Shared Config', () => {
 
 	describe( 'saveSharedConfig', () => {
 		it( 'should write JSON to shared.json', async () => {
-			const config = { version: 1, locale: 'en' };
+			const config = { version: 1 as const, locale: 'en' };
 			await saveSharedConfig( config );
 
 			expect( writeFile ).toHaveBeenCalledWith(
@@ -172,7 +173,7 @@ describe( 'Shared Config', () => {
 		} );
 
 		it( 'should set version to 1', async () => {
-			const config = { version: 99 as number };
+			const config = { version: 99 } as unknown as SharedConfig;
 			await saveSharedConfig( config );
 
 			const written = vi.mocked( writeFile ).mock.calls[ 0 ][ 1 ] as string;

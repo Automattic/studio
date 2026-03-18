@@ -2,11 +2,7 @@ import childProcess from 'child_process';
 import { password } from '@inquirer/prompts';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __ } from '@wordpress/i18n';
-import {
-	aiProviderSchema,
-	readCliConfig,
-	updateCliConfigWithPartial,
-} from 'cli/lib/cli-config/core';
+import { readCliConfig, updateCliConfigWithPartial } from 'cli/lib/cli-config/core';
 import { LoggerError } from 'cli/logger';
 
 export const AI_PROVIDERS = {
@@ -17,7 +13,6 @@ export const AI_PROVIDERS = {
 
 export type AiProviderId = keyof typeof AI_PROVIDERS;
 
-export { aiProviderSchema };
 export const DEFAULT_AI_PROVIDER: AiProviderId = 'anthropic-api-key';
 export const AI_PROVIDER_PRIORITY: AiProviderId[] = [
 	'wpcom',

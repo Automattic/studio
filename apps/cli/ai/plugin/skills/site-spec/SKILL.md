@@ -60,7 +60,7 @@ Show the spec to the user, then use AskUserQuestion to ask for confirmation (e.g
 ## When to Skip Discovery
 
 Do NOT ask questions if:
-- The user already provided an asnwer for that specific question in the initial prompt. (e.g., "build me a dark minimalist portfolio for a photographer with these 5 pages using navy and gold colors"). Instead, synthesize the spec directly from their request and confirm.
+- The user already provided an answer for that specific question in the initial prompt. (e.g., "build me a dark minimalist portfolio for a photographer with these 5 pages using navy and gold colors"). Instead, synthesize the spec directly from their request and confirm.
 - The user says "just build something" or "surprise me". Pick a bold creative direction yourself and proceed.
 - The user explicitly asks to skip the setup or says they don't want questions.
 

@@ -457,13 +457,14 @@ async function ipcMessageHandler( packet: unknown ) {
 	}
 	const abortController = abortControllers[ validMessage.messageId ];
 
+	logToConsole( `Received ${ validMessage.topic } message` );
+
 	try {
 		let result: unknown;
 
 		switch ( validMessage.topic ) {
 			case 'abort':
 				abortController?.abort();
-				delete abortControllers[ validMessage.messageId ];
 				return;
 			case 'start-server':
 				result = await startServer( validMessage.data.config, abortController.signal );
@@ -497,6 +498,8 @@ async function ipcMessageHandler( packet: unknown ) {
 		errorToConsole( `Error handling message ${ validMessage.topic }:`, error );
 		sendErrorMessage( validMessage.messageId, error );
 		process.exit( 1 );
+	} finally {
+		delete abortControllers[ validMessage.messageId ];
 	}
 }
 

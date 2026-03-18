@@ -1,6 +1,6 @@
 ---
 name: studio-cli
-description: Use the Studio CLI to manage local WordPress sites, authentication, and preview sites.
+description: Use the Studio CLI to manage local WordPress sites, authentication, and preview sites. Invoke this skill when you need to run Studio CLI commands, manage sites, or troubleshoot site issues.
 ---
 
 # Studio CLI
@@ -120,7 +120,17 @@ studio wp --path ~/Studio/my-site user list
 - `--php-version <version>` — Run with a specific PHP version (overrides site config)
 - `--studio-no-path` — Run global WP-CLI without site context
 
-**Note:** `studio wp shell` is not supported. Use `studio wp eval` instead.
+**Note:** `studio wp shell` is NOT supported. Use `studio wp eval` instead.
+
+## Common Error Patterns
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `site not found` | Not in a site directory | Use `--path` to specify the site directory, or `cd` into it |
+| `site is not running` | Site server stopped | Run `studio site start --skip-browser` first |
+| `wp shell` errors | `wp shell` not supported | Use `studio wp eval '...'` instead |
+| `EADDRINUSE` / port conflict | Port already in use | Stop the conflicting process or restart Studio |
+| `command not found: studio` | CLI not in PATH | Ensure Studio desktop app is installed and CLI is linked |
 
 ## Tips
 

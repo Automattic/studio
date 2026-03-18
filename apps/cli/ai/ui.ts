@@ -753,6 +753,11 @@ export class AiChatUI {
 	}
 
 	private async switchToRemoteSites(): Promise< void > {
+		this.resetSitePickerTab( SITE_PICKER_TAB_REMOTE );
+		this.sitePickerRemoteLoading = true;
+		this.sitePickerRemoteItems = [];
+		this.renderSitePicker();
+
 		let token: Awaited< ReturnType< typeof getAuthToken > >;
 		try {
 			token = await getAuthToken();
@@ -760,11 +765,6 @@ export class AiChatUI {
 			this.showSitePickerError( 'Not logged in. Use /login first.' );
 			return;
 		}
-
-		this.resetSitePickerTab( SITE_PICKER_TAB_REMOTE );
-		this.sitePickerRemoteLoading = true;
-		this.sitePickerRemoteItems = [];
-		this.renderSitePicker();
 
 		try {
 			const sites = await getWpComSites( token.accessToken );

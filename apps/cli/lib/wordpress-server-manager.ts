@@ -6,6 +6,7 @@
  */
 import path from 'path';
 import {
+	DEFAULT_ENABLE_PHPMYADMIN,
 	PLAYGROUND_CLI_ACTIVITY_CHECK_INTERVAL,
 	PLAYGROUND_CLI_INACTIVITY_TIMEOUT,
 	PLAYGROUND_CLI_MAX_TIMEOUT,
@@ -115,7 +116,7 @@ export async function startWordPressServer(
 		serverConfig.enableDebugDisplay = true;
 	}
 
-	if ( site.enablePhpMyAdmin ) {
+	if ( site.enablePhpMyAdmin ?? DEFAULT_ENABLE_PHPMYADMIN ) {
 		serverConfig.enablePhpMyAdmin = true;
 	}
 
@@ -370,7 +371,7 @@ export async function runBlueprint(
 		serverConfig.enableDebugDisplay = true;
 	}
 
-	if ( site.enablePhpMyAdmin ) {
+	if ( site.enablePhpMyAdmin ?? DEFAULT_ENABLE_PHPMYADMIN ) {
 		serverConfig.enablePhpMyAdmin = true;
 	}
 

@@ -1,3 +1,4 @@
+import { DEFAULT_ENABLE_PHPMYADMIN } from '@studio/common/constants';
 import { decodePassword } from '@studio/common/lib/passwords';
 import {
 	DropdownMenu,
@@ -183,7 +184,11 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 						<span>{ selectedSite.enableDebugDisplay ? __( 'Enabled' ) : __( 'Disabled' ) }</span>
 					</SettingsRow>
 					<SettingsRow label={ __( 'phpMyAdmin' ) }>
-						<span>{ selectedSite.enablePhpMyAdmin ? __( 'Enabled' ) : __( 'Disabled' ) }</span>
+						<span>
+							{ selectedSite.enablePhpMyAdmin ?? DEFAULT_ENABLE_PHPMYADMIN
+								? __( 'Enabled' )
+								: __( 'Disabled' ) }
+						</span>
 					</SettingsRow>
 
 					<tr>

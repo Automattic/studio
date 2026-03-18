@@ -35,6 +35,7 @@ export async function installAiInstructionsToSite(
 				await installSkillToSite( sitePath, bundledPath, entry.name, overwrite );
 			} catch {
 				// Continue installing remaining skills if one fails
+				console.error( `[ai-skills] Failed to install skill ${ entry.name }` );
 			}
 		}
 	}

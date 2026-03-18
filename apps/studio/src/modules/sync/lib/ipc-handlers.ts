@@ -533,35 +533,6 @@ export async function updateConnectedWpcomSites(
 	}
 }
 
-export async function updateSingleConnectedWpcomSite(
-	event: IpcMainInvokeEvent,
-	updatedSite: SyncSite
-) {
-	try {
-		await lockAppdata();
-		const currentUserId = await getCurrentUserId();
-
-		if ( ! currentUserId ) {
-			throw new Error( 'User not authenticated' );
-		}
-
-		const userData = await loadUserData();
-
-		const connections = userData.connectedWpcomSites?.[ currentUserId ] || [];
-		const index = connections.findIndex(
-			( conn ) => conn.id === updatedSite.id && conn.localSiteId === updatedSite.localSiteId
-		);
-
-		if ( index !== -1 ) {
-			connections[ index ] = updatedSite;
-		}
-
-		await saveUserData( userData );
-	} finally {
-		await unlockAppdata();
-	}
-}
-
 export async function getConnectedWpcomSites(
 	event: IpcMainInvokeEvent,
 	localSiteId?: string

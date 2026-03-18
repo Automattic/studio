@@ -122,7 +122,6 @@ export {
 	removeSyncBackup,
 	resumeSyncUpload,
 	updateConnectedWpcomSites,
-	updateSingleConnectedWpcomSite,
 } from 'src/modules/sync/lib/ipc-handlers';
 
 export {

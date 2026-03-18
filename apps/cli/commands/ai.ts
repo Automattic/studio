@@ -220,6 +220,7 @@ export async function runCommand(): Promise< void > {
 				if ( await isAiProviderReady( 'wpcom' ) ) {
 					const token = await readAuthToken();
 					if ( token ) {
+						ui.showInfo( `Logged in as ${ token.displayName } (${ token.email })` );
 						ui.setStatusMessage( `Logged in as ${ token.displayName } (${ token.email })` );
 					}
 				} else {

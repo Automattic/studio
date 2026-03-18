@@ -6,11 +6,7 @@ import { sortSites } from '@studio/common/lib/sort-sites';
 
 describe( 'sortSites', () => {
 	it( 'should sort sites by name in ascending order', () => {
-		const sites = [
-			{ name: 'Tristan' },
-			{ name: 'Arthur' },
-			{ name: 'Lancelot' },
-		] as SiteDetails[];
+		const sites = [ { name: 'Tristan' }, { name: 'Arthur' }, { name: 'Lancelot' } ];
 
 		const sortedSites = sortSites( sites );
 
@@ -26,7 +22,7 @@ describe( 'sortSites', () => {
 			{ name: 'Charlie', sortOrder: 3000 },
 			{ name: 'Alpha', sortOrder: 1000 },
 			{ name: 'Bravo', sortOrder: 2000 },
-		] as SiteDetails[];
+		];
 
 		const sortedSites = sortSites( sites );
 
@@ -40,7 +36,7 @@ describe( 'sortSites', () => {
 			{ name: 'Alpha', sortOrder: 1000 },
 			{ name: 'Bravo' },
 			{ name: 'Beta', sortOrder: 2000 },
-		] as SiteDetails[];
+		];
 
 		const sortedSites = sortSites( sites );
 

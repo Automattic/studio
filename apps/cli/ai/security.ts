@@ -10,6 +10,7 @@ import type {
 export interface AskUserQuestion {
 	question: string;
 	options: { label: string; description: string }[];
+	allowFreeForm?: boolean;
 }
 
 export type AskUserHandler = (

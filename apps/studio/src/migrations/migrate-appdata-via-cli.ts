@@ -1,21 +1,46 @@
-import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
+/**
+ * Migrates appdata-v1.json from the platform-specific Electron location
+ * to ~/.studio/appdata.json on Desktop boot.
+ */
+
+import fs from 'fs';
+import path from 'path';
+import { readFile, writeFile } from 'atomically';
+import { getUserDataFilePath } from 'src/storage/paths';
 
 /**
- * Triggers the CLI `_migrate` command to copy appdata-v1.json from the
- * platform-specific Electron location to ~/.studio/appdata.json.
+ * Returns the old platform-specific appdata path used by previous Studio versions.
+ * macOS: ~/Library/Application Support/Studio/appdata-v1.json
+ * Windows: %APPDATA%\Studio\appdata-v1.json
  */
-export async function migrateAppdataViaCli(): Promise< void > {
-	return new Promise< void >( ( resolve ) => {
-		const [ emitter ] = executeCliCommand( [ '_migrate' ], { output: 'ignore' } );
+function getOldAppdataPath(): string {
+	if ( process.platform === 'win32' ) {
+		return path.join( process.env.APPDATA || '', 'Studio', 'appdata-v1.json' );
+	}
+	const os = require( 'os' );
+	return path.join( os.homedir(), 'Library', 'Application Support', 'Studio', 'appdata-v1.json' );
+}
 
-		emitter.on( 'success', () => resolve() );
-		emitter.on( 'failure', () => {
-			console.warn( 'CLI _migrate command failed. This may be expected with an older CLI.' );
-			resolve();
-		} );
-		emitter.on( 'error', () => {
-			console.warn( 'CLI _migrate command errored. This may be expected with an older CLI.' );
-			resolve();
-		} );
-	} );
+export async function migrateAppdata(): Promise< void > {
+	const newPath = getUserDataFilePath();
+
+	if ( fs.existsSync( newPath ) ) {
+		return;
+	}
+
+	const oldPath = getOldAppdataPath();
+
+	if ( ! fs.existsSync( oldPath ) ) {
+		return;
+	}
+
+	const dir = path.dirname( newPath );
+	if ( ! fs.existsSync( dir ) ) {
+		fs.mkdirSync( dir, { recursive: true } );
+	}
+
+	const content = await readFile( oldPath, { encoding: 'utf8' } );
+	await writeFile( newPath, content, { encoding: 'utf8' } );
+
+	console.log( `Migrated appdata from ${ oldPath } to ${ newPath }` );
 }

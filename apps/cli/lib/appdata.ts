@@ -64,14 +64,7 @@ export function getAppdataPath(): string {
 		return process.env.DEV_APP_DATA_PATH;
 	}
 
-	// Prefer new shared location (~/.studio/appdata.json)
-	const sharedPath = path.join( STUDIO_CLI_HOME, 'appdata.json' );
-	if ( fs.existsSync( sharedPath ) ) {
-		return sharedPath;
-	}
-
-	// Fall back to platform-specific location (older Desktop versions)
-	return path.join( getAppdataDirectory(), 'appdata-v1.json' );
+	return path.join( STUDIO_CLI_HOME, 'appdata.json' );
 }
 
 // Versioned data migrations for appdata.json.

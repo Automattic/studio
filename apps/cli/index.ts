@@ -34,14 +34,15 @@ async function main() {
 				return path.resolve( untildify( value ) );
 			},
 		} )
-		.middleware( async () => {
-			try {
-				const { migrateAppdata } = await import( 'cli/commands/_migrate' );
-				await migrateAppdata();
-			} catch ( error ) {
-				// Migration failure should not block CLI usage
-				console.error( 'Appdata migration failed:', error );
+		.middleware( async ( argv ) => {
+			// Skip check for internal commands triggered by Studio Desktop
+			const command = argv._[ 0 ];
+			if ( command === '_events' ) {
+				return;
 			}
+
+			const { checkStudioCompatibility } = await import( 'cli/lib/studio-compatibility' );
+			await checkStudioCompatibility();
 		} )
 		.middleware( async ( argv ) => {
 			if ( __ENABLE_CLI_TELEMETRY__ && ! argv.avoidTelemetry ) {
@@ -163,15 +164,6 @@ async function main() {
 				const { commandHandler: eventsCommandHandler } = await import( 'cli/commands/_events' );
 
 				return eventsCommandHandler();
-			},
-		} )
-		.command( {
-			command: '_migrate',
-			describe: false, // Hidden command
-			handler: async () => {
-				const { commandHandler: migrateCommandHandler } = await import( 'cli/commands/_migrate' );
-
-				return migrateCommandHandler();
 			},
 		} )
 		.demandCommand( 1, __( 'You must provide a valid command' ) )

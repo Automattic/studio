@@ -16,9 +16,10 @@ import { tip, cautionFilled, chevronRight, chevronDown, chevronLeft } from '@wor
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useState, useEffect, useCallback, useMemo, useRef, RefObject } from 'react';
 import Button from 'src/components/button';
-import FolderIcon from 'src/components/folder-icon';
+import { FormPathInputComponent } from 'src/components/form-path-input';
 import { LearnMoreLink, LearnHowLink } from 'src/components/learn-more';
 import PasswordControl from 'src/components/password-control';
+import { SiteFormError } from 'src/components/site-form-error';
 import TextControlComponent from 'src/components/text-control';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { cx } from 'src/lib/cx';

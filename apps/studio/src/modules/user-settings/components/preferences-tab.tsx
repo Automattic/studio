@@ -7,6 +7,7 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ColorSchemePicker } from 'src/modules/user-settings/components/color-scheme-picker';
 import { McpSettings } from 'src/modules/mcp/components/mcp-settings';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { McpSettings } from 'src/modules/mcp/components/mcp-settings';
 import { EditorPicker } from 'src/modules/user-settings/components/editor-picker';
 import { LanguagePicker } from 'src/modules/user-settings/components/language-picker';
 import { StudioCliToggle } from 'src/modules/user-settings/components/studio-cli-toggle';

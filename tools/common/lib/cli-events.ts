@@ -5,7 +5,7 @@
  * subscribes to them to maintain its state without reading config files.
  */
 import { z } from 'zod';
-import { authTokenSchema } from '@studio/common/lib/shared-config';
+import { authTokenSchema } from '@studio/common/lib/auth-token-schema';
 import { snapshotSchema } from '@studio/common/types/snapshot';
 
 /**

@@ -4,24 +4,17 @@ import path from 'path';
 import { readFile, writeFile } from 'atomically';
 import { z } from 'zod';
 import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME, SHARED_CONFIG_LOCKFILE_NAME } from '../constants';
+import { authTokenSchema, type StoredAuthToken } from './auth-token-schema';
 import { lockFileAsync, unlockFileAsync } from './lockfile';
+
+export { authTokenSchema };
+export type { StoredAuthToken };
 
 const SHARED_CONFIG_FILENAME = 'shared.json';
 
 // Schema updates must maintain backwards compatibility. If a breaking change is needed,
 // increment SHARED_CONFIG_VERSION and add a data migration function.
 const SHARED_CONFIG_VERSION = 1;
-
-export const authTokenSchema = z.object( {
-	accessToken: z.string(),
-	expiresIn: z.number(),
-	expirationTime: z.number(),
-	id: z.number(),
-	email: z.string(),
-	displayName: z.string().default( '' ),
-} );
-
-export type StoredAuthToken = z.infer< typeof authTokenSchema >;
 
 const sharedConfigSchema = z
 	.object( {

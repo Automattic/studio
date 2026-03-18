@@ -11,12 +11,12 @@ import { store } from 'src/stores';
 import { connectedSitesApi } from 'src/stores/sync/connected-sites';
 
 const mockGetConnectedWpcomSites = vi.fn();
-const mockUpdateSingleConnectedWpcomSite = vi.fn();
+const mockUpdateConnectedWpcomSites = vi.fn();
 
 vi.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: vi.fn( () => ( {
 		getConnectedWpcomSites: mockGetConnectedWpcomSites,
-		updateSingleConnectedWpcomSite: mockUpdateSingleConnectedWpcomSite,
+		updateConnectedWpcomSites: mockUpdateConnectedWpcomSites,
 	} ) ),
 } ) );
 
@@ -44,10 +44,10 @@ describe( 'SiteManagementActions', () => {
 	beforeEach( () => {
 		// Reset mock calls but preserve implementations
 		mockGetConnectedWpcomSites.mockClear();
-		mockUpdateSingleConnectedWpcomSite.mockClear();
+		mockUpdateConnectedWpcomSites.mockClear();
 		// Set default return values
 		mockGetConnectedWpcomSites.mockResolvedValue( [] );
-		mockUpdateSingleConnectedWpcomSite.mockResolvedValue( {} );
+		mockUpdateConnectedWpcomSites.mockResolvedValue( {} );
 		// Clear RTK Query cache between tests
 		store.dispatch( connectedSitesApi.util.resetApiState() );
 	} );

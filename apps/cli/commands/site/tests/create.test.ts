@@ -69,6 +69,7 @@ vi.mock( 'cli/lib/cli-config/sites', async () => {
 vi.mock( 'cli/lib/language-packs' );
 vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/server-files', () => ( {
+	getAppdataDirectory: vi.fn().mockReturnValue( '/test/appdata' ),
 	getServerFilesPath: vi.fn().mockReturnValue( '/test/server-files' ),
 } ) );
 vi.mock( 'cli/lib/site-language' );

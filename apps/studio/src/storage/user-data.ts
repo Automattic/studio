@@ -146,9 +146,7 @@ export async function unlockAppdata() {
 type UserDataSafeKeys =
 	| 'devToolsOpen'
 	| 'windowBounds'
-	| 'authToken'
 	| 'onboardingCompleted'
-	| 'locale'
 	| 'promptWindowsSpeedUpResult'
 	| 'stopSitesOnQuit'
 	| 'sentryUserId'

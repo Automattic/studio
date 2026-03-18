@@ -1,9 +1,9 @@
 import fs from 'fs';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
+import { readAuthToken } from '@studio/common/lib/shared-config';
 import trash from 'trash';
 import { vi } from 'vitest';
 import { deleteSnapshot } from 'cli/lib/api';
-import { getAuthToken } from 'cli/lib/appdata';
 import { deleteSiteCertificate } from 'cli/lib/certificate-manager';
 import {
 	SiteData,
@@ -23,13 +23,10 @@ import { runCommand } from '../delete';
 
 vi.mock( 'fs/promises' );
 vi.mock( 'cli/lib/api' );
-vi.mock( 'cli/lib/appdata', async () => {
-	const actual = await vi.importActual( 'cli/lib/appdata' );
-	return {
-		...actual,
-		getAuthToken: vi.fn(),
-	};
-} );
+vi.mock( import( '@studio/common/lib/shared-config' ), async ( importOriginal ) => ( {
+	...( await importOriginal() ),
+	readAuthToken: vi.fn(),
+} ) );
 vi.mock( 'cli/lib/cli-config/core', async () => {
 	const actual = await vi.importActual( 'cli/lib/cli-config/core' );
 	return {
@@ -114,7 +111,7 @@ describe( 'CLI: studio site delete', () => {
 		vi.mocked( getSiteByFolder ).mockResolvedValue( testSite );
 		vi.mocked( connectToDaemon ).mockResolvedValue( undefined );
 		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
-		vi.mocked( getAuthToken ).mockResolvedValue( testAuthToken );
+		vi.mocked( readAuthToken ).mockResolvedValue( testAuthToken );
 		vi.mocked( lockCliConfig ).mockResolvedValue( undefined );
 		vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
 			version: 1,
@@ -184,8 +181,8 @@ describe( 'CLI: studio site delete', () => {
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
-		it( 'should proceed when getAuthToken fails', async () => {
-			vi.mocked( getAuthToken ).mockRejectedValue( new Error( 'Auth failed' ) );
+		it( 'should proceed when readAuthToken returns null', async () => {
+			vi.mocked( readAuthToken ).mockResolvedValue( null );
 			vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [] );
 
 			await expect( runCommand( testSiteFolder, false ) ).resolves.not.toThrow();

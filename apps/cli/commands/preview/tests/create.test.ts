@@ -1,9 +1,9 @@
 import os from 'os';
 import path from 'path';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
+import { readAuthToken } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
-import { getAuthToken } from 'cli/lib/appdata';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { saveSnapshotToConfig } from 'cli/lib/snapshots';
@@ -19,10 +19,9 @@ const mockReportWarning = vi.fn();
 const mockReportKeyValuePair = vi.fn();
 
 vi.mock( '@studio/common/lib/get-wordpress-version' );
-vi.mock( 'cli/lib/appdata', async () => ( {
-	...( await vi.importActual( 'cli/lib/appdata' ) ),
-	getAppdataDirectory: vi.fn().mockReturnValue( '/test/appdata' ),
-	getAuthToken: vi.fn(),
+vi.mock( import( '@studio/common/lib/shared-config' ), async ( importOriginal ) => ( {
+	...( await importOriginal() ),
+	readAuthToken: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/cli-config/snapshots', async () => ( {
 	...( await vi.importActual( 'cli/lib/cli-config/snapshots' ) ),
@@ -85,7 +84,7 @@ describe( 'Preview Create Command', () => {
 		vi.spyOn( path, 'basename' ).mockReturnValue( mockBasename );
 		vi.spyOn( process, 'cwd' ).mockReturnValue( mockFolder );
 
-		vi.mocked( getAuthToken ).mockResolvedValue( mockAuthToken );
+		vi.mocked( readAuthToken ).mockResolvedValue( mockAuthToken );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( {
 			id: 'site-123',
 			path: mockFolder,
@@ -178,11 +177,7 @@ describe( 'Preview Create Command', () => {
 	} );
 
 	it( 'should handle authentication errors', async () => {
-		const errorMessage =
-			'Authentication required. Please run the Studio app and authenticate first.';
-		vi.mocked( getAuthToken ).mockImplementation( () => {
-			throw new LoggerError( errorMessage );
-		} );
+		vi.mocked( readAuthToken ).mockResolvedValue( null );
 
 		await runCommand( mockFolder );
 

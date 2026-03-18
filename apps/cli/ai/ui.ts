@@ -2,6 +2,10 @@ import {
 	TUI,
 	ProcessTerminal,
 	Editor,
+	Input,
+	SelectList,
+	type SelectItem,
+	type SelectListTheme,
 	Markdown,
 	Text,
 	Loader,
@@ -14,9 +18,9 @@ import {
 	type EditorTheme,
 	type EditorOptions,
 	type MarkdownTheme,
-	truncateToWidth,
 	visibleWidth,
 } from '@mariozechner/pi-tui';
+import { readAuthToken } from '@studio/common/lib/shared-config';
 import chalk from 'chalk';
 import { AI_MODELS, DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
@@ -24,7 +28,6 @@ import { AI_CHAT_SLASH_COMMANDS, type SlashCommandDef } from 'cli/ai/slash-comma
 import { buildTodoUpdateLines, type TodoRenderLine } from 'cli/ai/todo-render';
 import { diffTodoSnapshot, type TodoDiff, type TodoEntry } from 'cli/ai/todo-stream';
 import { getWpComSites } from 'cli/lib/api';
-import { getAuthToken } from 'cli/lib/appdata';
 import { openBrowser } from 'cli/lib/browser';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
@@ -35,6 +38,14 @@ import type { TodoWriteInput } from '@anthropic-ai/claude-agent-sdk/sdk-tools';
 const SITE_PICKER_TAB_LOCAL = 'local' as const;
 const SITE_PICKER_TAB_REMOTE = 'remote' as const;
 type SitePickerTab = typeof SITE_PICKER_TAB_LOCAL | typeof SITE_PICKER_TAB_REMOTE;
+
+const sitePickerTheme: SelectListTheme = {
+	selectedPrefix: ( text ) => chalk.blue( text ),
+	selectedText: ( text ) => chalk.bold( text ),
+	description: ( text ) => chalk.dim( text ),
+	scrollInfo: ( text ) => chalk.dim( text ),
+	noMatch: ( text ) => chalk.dim( text ),
+};
 
 export interface SiteInfo {
 	name: string;
@@ -69,6 +80,7 @@ class PromptEditor implements Component, Focusable {
 	slashCommands: SlashCommandDef[] = [];
 	slashCommandSelectedIndex = -1;
 	statusMessage: string | null = null;
+	showBottomBar = true;
 
 	get focused(): boolean {
 		return this._focused;
@@ -174,6 +186,9 @@ class PromptEditor implements Component, Focusable {
 		} );
 
 		// Below the bottom border: show suggestions or hint bar (with optional status on the right)
+		if ( ! this.showBottomBar ) {
+			return result;
+		}
 		if ( hasAutocomplete && this.slashCommands.length > 0 ) {
 			const matching = this.getMatchingSlashCommands();
 			const maxLen = Math.max( ...matching.map( ( c ) => c.name.length ) );
@@ -522,16 +537,28 @@ export class AiChatUI {
 	private randomThinkingMessage(): string {
 		return this.thinkingMessages[ Math.floor( Math.random() * this.thinkingMessages.length ) ];
 	}
-	private optionPickerVisible = false;
 	private optionPickerContainer: Container | null = null;
-	private optionPickerItems: { label: string; description: string }[] = [];
-	private optionPickerSelectedIndex = 0;
+	private optionPickerSelectList: SelectList | null = null;
+	private optionPickerVisible = false;
 	private optionPickerResolve: ( ( label: string ) => void ) | null = null;
+	private optionPickerOtherActive = false;
+	private optionPickerHasFreeForm = false;
+	private optionPickerItemCount = 0;
+	private optionPickerInput: Input | null = null;
+	private static readonly OTHER_VALUE = '__other__';
+	private static readonly OPTION_PICKER_THEME: SelectListTheme = {
+		selectedPrefix: ( text: string ) => chalk.blue( text ),
+		selectedText: ( text: string ) => chalk.blue( text ),
+		description: ( text: string ) => chalk.dim( text ),
+		scrollInfo: ( text: string ) => chalk.dim( text ),
+		noMatch: ( text: string ) => chalk.dim( text ),
+	};
 	private sitePickerVisible = false;
 	private sitePickerContainer: Container | null = null;
 	private sitePickerItems: SiteInfo[] = [];
 	private sitePickerSiteData: SiteData[] = [];
-	private sitePickerSelectedIndex = 0;
+	private sitePickerSelectList: SelectList | null = null;
+	private sitePickerItemMap: Map< string, SiteInfo > = new Map();
 	private sitePickerTab: SitePickerTab = SITE_PICKER_TAB_LOCAL;
 	private sitePickerRemoteItems: SiteInfo[] = [];
 	private sitePickerRemoteLoading = false;
@@ -606,29 +633,52 @@ export class AiChatUI {
 				process.exit( 0 );
 			}
 			// Option picker navigation (must be checked before site picker)
-			if ( this.optionPickerVisible ) {
-				if ( matchesKey( data, 'up' ) ) {
-					this.optionPickerSelectedIndex = Math.max( 0, this.optionPickerSelectedIndex - 1 );
-					this.renderOptionPicker();
-					return { consume: true };
-				}
-				if ( matchesKey( data, 'down' ) ) {
-					this.optionPickerSelectedIndex = Math.min(
-						this.optionPickerItems.length - 1,
-						this.optionPickerSelectedIndex + 1
-					);
-					this.renderOptionPicker();
-					return { consume: true };
-				}
-				if ( matchesKey( data, 'enter' ) ) {
-					const selected = this.optionPickerItems[ this.optionPickerSelectedIndex ];
-					this.closeOptionPicker();
-					if ( selected && this.optionPickerResolve ) {
-						this.optionPickerResolve( selected.label );
-						this.optionPickerResolve = null;
+			if ( this.optionPickerSelectList ) {
+				// When "Other" is active, let the inline input handle most keys
+				if ( this.optionPickerOtherActive && this.optionPickerInput ) {
+					if ( matchesKey( data, 'up' ) ) {
+						this.deactivateOptionPickerOther();
+						this.optionPickerSelectList.handleInput( data );
+						this.renderOptionPicker();
+						return { consume: true };
 					}
+					// Forward everything else to the inline input
+					this.optionPickerInput.handleInput( data );
+					this.renderOptionPicker();
 					return { consume: true };
 				}
+
+				// If user starts typing while on a regular option, jump to "Other" (only if free-form is enabled)
+				if (
+					this.optionPickerHasFreeForm &&
+					! matchesKey( data, 'up' ) &&
+					! matchesKey( data, 'down' ) &&
+					! matchesKey( data, 'enter' ) &&
+					! matchesKey( data, 'escape' ) &&
+					data.length === 1 &&
+					data >= ' '
+				) {
+					this.optionPickerSelectList.setSelectedIndex( this.optionPickerItemCount - 1 );
+					this.activateOptionPickerOther();
+					this.optionPickerInput?.handleInput( data );
+					this.renderOptionPicker();
+					return { consume: true };
+				}
+
+				// Let SelectList handle up/down/enter/escape
+				this.optionPickerSelectList.handleInput( data );
+				// onSelect may have closed the picker — bail if so
+				if ( ! this.optionPickerSelectList ) {
+					return { consume: true };
+				}
+				// Check if we landed on "Other" after navigation
+				if ( this.optionPickerHasFreeForm ) {
+					const selected = this.optionPickerSelectList.getSelectedItem();
+					if ( selected?.value === AiChatUI.OTHER_VALUE ) {
+						this.activateOptionPickerOther();
+					}
+				}
+				this.renderOptionPicker();
 				return { consume: true };
 			}
 			// Slash command menu navigation
@@ -691,29 +741,7 @@ export class AiChatUI {
 				return { consume: true };
 			}
 			// Site picker navigation
-			if ( this.sitePickerVisible ) {
-				if ( matchesKey( data, 'up' ) ) {
-					this.sitePickerSelectedIndex = Math.max( 0, this.sitePickerSelectedIndex - 1 );
-					this.renderSitePicker();
-					return { consume: true };
-				}
-				if ( matchesKey( data, 'down' ) ) {
-					const filtered = this.getFilteredSitePickerItems();
-					this.sitePickerSelectedIndex = Math.min(
-						filtered.length - 1,
-						this.sitePickerSelectedIndex + 1
-					);
-					this.renderSitePicker();
-					return { consume: true };
-				}
-				if ( matchesKey( data, 'enter' ) ) {
-					const filtered = this.getFilteredSitePickerItems();
-					const selectedItem = filtered[ this.sitePickerSelectedIndex ];
-					if ( selectedItem ) {
-						this.selectFilteredSite( selectedItem );
-					}
-					return { consume: true };
-				}
+			if ( this.sitePickerVisible && this.sitePickerSelectList ) {
 				if ( matchesKey( data, 'tab' ) ) {
 					void this.openSelectedSite();
 					return { consume: true };
@@ -745,6 +773,9 @@ export class AiChatUI {
 					this.setSitePickerQuery( `${ this.sitePickerQuery }${ data }` );
 					return { consume: true };
 				}
+				// Forward remaining input (up/down/enter) to SelectList
+				this.sitePickerSelectList.handleInput( data );
+				this.renderSitePicker();
 				return { consume: true };
 			}
 			if ( matchesKey( data, 'escape' ) && this.interruptCallback ) {
@@ -778,27 +809,25 @@ export class AiChatUI {
 				running: await isSiteRunning( site ),
 			} ) )
 		);
-		this.sitePickerSelectedIndex = 0;
 		this.sitePickerVisible = true;
-		this.updateHints();
+		this.editor.showBottomBar = false;
 		this.sitePickerContainer = new Container();
 		this.tui.addChild( this.sitePickerContainer );
+		this.rebuildSitePickerList();
 		this.renderSitePicker();
 	}
 
 	private async switchToRemoteSites(): Promise< void > {
-		let token: Awaited< ReturnType< typeof getAuthToken > >;
-		try {
-			token = await getAuthToken();
-		} catch {
-			this.showSitePickerError( 'Not logged in. Use /login first.' );
-			return;
-		}
-
 		this.resetSitePickerTab( SITE_PICKER_TAB_REMOTE );
 		this.sitePickerRemoteLoading = true;
 		this.sitePickerRemoteItems = [];
 		this.renderSitePicker();
+
+		const token = await readAuthToken();
+		if ( ! token ) {
+			this.showSitePickerError( 'Not logged in. Use /login first.' );
+			return;
+		}
 
 		try {
 			const sites = await getWpComSites( token.accessToken );
@@ -810,7 +839,7 @@ export class AiChatUI {
 				url: site.url,
 			} ) );
 			this.sitePickerRemoteLoading = false;
-			this.sitePickerSelectedIndex = 0;
+			this.rebuildSitePickerList();
 			this.renderSitePicker();
 		} catch {
 			this.showSitePickerError( 'Failed to load WordPress.com sites. Please try again.' );
@@ -820,6 +849,7 @@ export class AiChatUI {
 	private showSitePickerError( message: string ): void {
 		this.resetSitePickerTab( SITE_PICKER_TAB_LOCAL );
 		this.sitePickerRemoteItems = [];
+		this.rebuildSitePickerList();
 		this.renderSitePicker();
 		this.messages.addChild( new Text( `\n${ chalk.dim( message ) }\n`, 1, 0 ) );
 		this.tui.requestRender();
@@ -827,36 +857,20 @@ export class AiChatUI {
 
 	private resetSitePickerTab( tab: SitePickerTab ): void {
 		this.sitePickerTab = tab;
-		this.sitePickerSelectedIndex = 0;
 		this.sitePickerQuery = '';
 		this.sitePickerRemoteLoading = false;
 	}
 
 	private switchToLocalSites(): void {
 		this.resetSitePickerTab( SITE_PICKER_TAB_LOCAL );
+		this.rebuildSitePickerList();
 		this.renderSitePicker();
 	}
 
 	private setSitePickerQuery( query: string ): void {
 		this.sitePickerQuery = query;
-		this.sitePickerSelectedIndex = 0;
+		this.rebuildSitePickerList();
 		this.renderSitePicker();
-	}
-
-	private getFilteredSitePickerItems(): SiteInfo[] {
-		const allItems =
-			this.sitePickerTab === SITE_PICKER_TAB_REMOTE
-				? this.sitePickerRemoteItems
-				: this.sitePickerItems;
-		if ( ! this.sitePickerQuery ) {
-			return allItems;
-		}
-		const query = this.sitePickerQuery.toLowerCase();
-		return allItems.filter(
-			( site ) =>
-				site.name.toLowerCase().includes( query ) ||
-				( site.url && site.url.toLowerCase().includes( query ) )
-		);
 	}
 
 	private selectFilteredSite( site: SiteInfo ): void {
@@ -871,54 +885,50 @@ export class AiChatUI {
 		this.closeSitePicker();
 	}
 
-	private sitePickerPageSize(): number {
-		// Reserve 4 lines for header, search, scroll info, and hints; use at least 5 visible items
-		return Math.max( 5, ( process.stdout.rows ?? 24 ) - 4 );
-	}
-
-	private formatSiteRow( site: SiteInfo, index: number ): string {
-		const selected = index === this.sitePickerSelectedIndex;
-		const prefix = selected ? `  ${ chalk.blue( '〉' ) }` : '    ';
+	private siteInfoToSelectItem( site: SiteInfo ): SelectItem {
 		if ( site.remote ) {
-			const nameColumnWidth = 30;
-			const prefixWidth = 4; // "  〉(2 cols)" or "    "
-			const gap = 2;
-			const termWidth = process.stdout.columns ?? 80;
-			const urlColumnWidth = termWidth - prefixWidth - nameColumnWidth - gap;
-			const truncatedName = truncateToWidth( site.name, nameColumnWidth, '…', true );
-			const name = selected ? chalk.bold( truncatedName ) : truncatedName;
-			const displayUrl = site.url ? site.url.replace( /^https?:\/\//, '' ) : '';
-			let url = '';
-			if ( displayUrl && urlColumnWidth > 3 ) {
-				url = `  ${ chalk.dim( truncateToWidth( displayUrl, urlColumnWidth, '…' ) ) }`;
-			}
-			return `${ prefix }${ name }${ url }`;
+			return {
+				value: site.url ?? site.name,
+				label: site.name,
+				description: site.url?.replace( /^https?:\/\//, '' ),
+			};
 		}
-		const name = selected ? chalk.bold( site.name ) : site.name;
 		const status = site.running ? `${ chalk.green( '●' ) } ` : '  ';
-		return `${ prefix }${ status }${ name }`;
+		return {
+			value: site.path,
+			label: `${ status }${ site.name }`,
+		};
 	}
 
-	// Returns the visible rows and scroll info for the current picker tab.
-	// Three modes: local list, remote loading, remote list.
-	private getSitePickerRows(): { items: string[]; scrollInfo: string } {
-		if ( ! ( this.sitePickerTab === SITE_PICKER_TAB_LOCAL ) && this.sitePickerRemoteLoading ) {
-			return { items: [ chalk.dim( '  Loading WordPress.com sites…' ) ], scrollInfo: '' };
-		}
-		const filtered = this.getFilteredSitePickerItems();
-		if ( filtered.length === 0 ) {
-			const emptyMessage =
-				this.sitePickerTab === SITE_PICKER_TAB_REMOTE && ! this.sitePickerQuery
-					? '  No WordPress.com sites found.'
-					: '  No matching sites.';
-			return { items: [ chalk.dim( emptyMessage ) ], scrollInfo: '' };
-		}
-		const { start, end } = this.getVisibleWindow( filtered.length );
-		const items = filtered
-			.slice( start, end )
-			.map( ( site, vi ) => this.formatSiteRow( site, start + vi ) );
-		const scrollInfo = this.getScrollInfo( filtered.length, start, end );
-		return { items, scrollInfo };
+	private rebuildSitePickerList(): void {
+		const allItems =
+			this.sitePickerTab === SITE_PICKER_TAB_REMOTE
+				? this.sitePickerRemoteItems
+				: this.sitePickerItems;
+		const filtered = this.sitePickerQuery
+			? allItems.filter( ( site ) => {
+					const query = this.sitePickerQuery.toLowerCase();
+					return (
+						site.name.toLowerCase().includes( query ) ||
+						( site.url && site.url.toLowerCase().includes( query ) )
+					);
+			  } )
+			: allItems;
+		const selectItems = filtered.map( ( site ) => this.siteInfoToSelectItem( site ) );
+		this.sitePickerItemMap = new Map(
+			filtered.map( ( site, i ) => [ selectItems[ i ].value, site ] )
+		);
+		const maxVisible = Math.max( 5, ( process.stdout.rows ?? 24 ) - 4 );
+		this.sitePickerSelectList = new SelectList( selectItems, maxVisible, sitePickerTheme );
+		this.sitePickerSelectList.onSelect = ( item ) => {
+			const site = this.sitePickerItemMap.get( item.value );
+			if ( site ) {
+				this.selectFilteredSite( site );
+			}
+		};
+		this.sitePickerSelectList.onCancel = () => {
+			this.closeSitePicker();
+		};
 	}
 
 	private renderSitePicker(): void {
@@ -930,58 +940,37 @@ export class AiChatUI {
 		const isLocal = this.sitePickerTab === SITE_PICKER_TAB_LOCAL;
 		const localTab = isLocal ? chalk.bold( '[Local]' ) : chalk.dim( 'Local' );
 		const remoteTab = isLocal ? chalk.dim( 'WordPress.com' ) : chalk.bold( '[WordPress.com]' );
-		const header = `  ${ localTab }  ${ remoteTab }`;
-
-		const { items, scrollInfo } = this.getSitePickerRows();
+		const pad = ' ';
+		const header = `${ pad }${ localTab }  ${ remoteTab }`;
 
 		const searchLine = this.sitePickerQuery
-			? `  ${ chalk.dim( 'Search:' ) } ${ this.sitePickerQuery }`
+			? `${ pad }${ chalk.dim( 'Search:' ) } ${ this.sitePickerQuery }`
 			: '';
 
 		const hints = isLocal
-			? '  ↑↓ navigate · → remote sites · enter select · tab open in browser · esc cancel'
-			: '  ↑↓ navigate · ← local sites · enter select · tab open in browser · esc cancel';
+			? `${ pad }↑↓ navigate · → remote sites · enter select · tab open in browser · esc cancel`
+			: `${ pad }↑↓ navigate · ← local sites · enter select · tab open in browser · esc cancel`;
 
-		const lines = [ header ];
+		const lines = [ header, '' ];
 		if ( searchLine ) {
-			lines.push( searchLine );
+			lines.push( searchLine, '' );
 		}
-		lines.push( ...items );
-		if ( scrollInfo ) {
-			lines.push( chalk.dim( `  ${ scrollInfo }` ) );
+
+		if ( ! isLocal && this.sitePickerRemoteLoading ) {
+			lines.push( chalk.dim( `${ pad }  Loading WordPress.com sites…` ) );
+		} else if ( this.sitePickerSelectList ) {
+			const termWidth = process.stdout.columns ?? 80;
+			lines.push(
+				...this.sitePickerSelectList.render( termWidth - pad.length ).map( ( line ) => pad + line )
+			);
 		}
+
 		lines.push( '' );
 		lines.push( chalk.dim( hints ) );
 
 		const text = lines.join( '\n' );
 		this.sitePickerContainer.addChild( new Text( text, 0, 0 ) );
 		this.tui.requestRender();
-	}
-
-	private getVisibleWindow( totalItems: number ): { start: number; end: number } {
-		const pageSize = this.sitePickerPageSize();
-		if ( totalItems <= pageSize ) {
-			return { start: 0, end: totalItems };
-		}
-		// Keep the selected item visible with some padding from the edges
-		let start = this.sitePickerSelectedIndex - Math.floor( pageSize / 2 );
-		start = Math.max( 0, Math.min( start, totalItems - pageSize ) );
-		return { start, end: start + pageSize };
-	}
-
-	private getScrollInfo( totalItems: number, start: number, end: number ): string {
-		const pageSize = this.sitePickerPageSize();
-		if ( totalItems <= pageSize ) {
-			return '';
-		}
-		const parts: string[] = [];
-		if ( start > 0 ) {
-			parts.push( `↑ ${ start } more` );
-		}
-		if ( end < totalItems ) {
-			parts.push( `↓ ${ totalItems - end } more` );
-		}
-		return parts.join( '  ' );
 	}
 
 	private setActiveSite( site: SiteInfo ): void {
@@ -1117,8 +1106,8 @@ export class AiChatUI {
 	}
 
 	private async openSelectedSite(): Promise< void > {
-		const filtered = this.getFilteredSitePickerItems();
-		const site = filtered[ this.sitePickerSelectedIndex ];
+		const selectedItem = this.sitePickerSelectList?.getSelectedItem();
+		const site = selectedItem ? this.sitePickerItemMap.get( selectedItem.value ) : undefined;
 		if ( ! site ) {
 			return;
 		}
@@ -1169,27 +1158,57 @@ export class AiChatUI {
 		this.sitePickerItems = [];
 		this.sitePickerSiteData = [];
 		this.sitePickerRemoteItems = [];
+		this.sitePickerSelectList = null;
+		this.sitePickerItemMap = new Map();
 		this.resetSitePickerTab( SITE_PICKER_TAB_LOCAL );
+		this.editor.showBottomBar = true;
 		this.updateHints();
 		this.tui.requestRender();
 	}
 
 	private renderOptionPicker(): void {
-		if ( ! this.optionPickerContainer ) {
+		if ( ! this.optionPickerContainer || ! this.optionPickerSelectList ) {
 			return;
 		}
 		this.optionPickerContainer.clear();
 
-		const items = this.optionPickerItems.map( ( opt, i ) => {
-			if ( i === this.optionPickerSelectedIndex ) {
-				return `  ${ chalk.blue( '〉' ) }${ i + 1 }. ${ chalk.blue( opt.label ) }`;
-			}
-			return `    ${ i + 1 }. ${ opt.label }`;
-		} );
+		const width = ( process.stdout.columns ?? 80 ) - 1;
+		const lines = this.optionPickerSelectList.render( width );
 
-		const text = items.join( '\n' );
-		this.optionPickerContainer.addChild( new Text( text, 0, 0 ) );
+		// When "Other" is active, replace the last line with the inline input
+		if ( this.optionPickerOtherActive && this.optionPickerInput && lines.length > 0 ) {
+			const inputText = this.optionPickerInput.getValue();
+			const cursor = chalk.inverse( ' ' );
+			const display = inputText
+				? chalk.blue( inputText ) + cursor
+				: chalk.dim( 'Type your answer...' ) + cursor;
+			lines[ lines.length - 1 ] = `${ chalk.blue( '→' ) } ${ display }`;
+		}
+
+		this.optionPickerContainer.addChild( new Text( lines.join( '\n' ), 1, 0 ) );
 		this.tui.requestRender();
+	}
+
+	private activateOptionPickerOther(): void {
+		if ( this.optionPickerOtherActive ) {
+			return;
+		}
+		this.optionPickerOtherActive = true;
+		this.optionPickerInput = new Input();
+		this.optionPickerInput.onSubmit = ( value: string ) => {
+			const trimmed = value.trim();
+			if ( trimmed && this.optionPickerResolve ) {
+				const resolve = this.optionPickerResolve;
+				this.optionPickerResolve = null;
+				this.closeOptionPicker();
+				resolve( trimmed );
+			}
+		};
+	}
+
+	private deactivateOptionPickerOther(): void {
+		this.optionPickerOtherActive = false;
+		this.optionPickerInput = null;
 	}
 
 	private closeOptionPicker(): void {
@@ -1198,7 +1217,10 @@ export class AiChatUI {
 			this.optionPickerContainer = null;
 		}
 		this.optionPickerVisible = false;
-		this.optionPickerItems = [];
+		this.optionPickerSelectList = null;
+		this.optionPickerHasFreeForm = false;
+		this.optionPickerItemCount = 0;
+		this.deactivateOptionPickerOther();
 		this.tui.requestRender();
 	}
 
@@ -1321,10 +1343,6 @@ export class AiChatUI {
 	}
 
 	private updateHints(): void {
-		if ( this.sitePickerVisible ) {
-			this.editor.hints = [];
-			return;
-		}
 		const hints: string[] = [];
 		if ( ! this._inAgentTurn ) {
 			hints.push( '↓ select site' );
@@ -1720,21 +1738,53 @@ export class AiChatUI {
 
 		for ( const q of questions ) {
 			// Display the question
-			this.messages.addChild( new Text( '\n' + chalk.bold( q.question ), 0, 0 ) );
+			this.messages.addChild( new Text( '\n' + chalk.bold( q.question ), 1, 0 ) );
 			this.tui.requestRender();
 
 			if ( q.options.length > 0 ) {
-				// Use arrow-key option picker
+				// Use SelectList for option-based questions.
+				// When allowFreeForm is true, append an "Other" option with inline input.
 				this.hideEditor();
-				this.optionPickerItems = q.options;
-				this.optionPickerSelectedIndex = 0;
+				const selectItems: SelectItem[] = q.options.map( ( opt, i ) => ( {
+					value: opt.label,
+					label: `${ i + 1 }. ${ opt.label }`,
+					description: opt.description,
+				} ) );
+				this.optionPickerHasFreeForm = q.allowFreeForm === true;
+				if ( this.optionPickerHasFreeForm ) {
+					selectItems.push( {
+						value: AiChatUI.OTHER_VALUE,
+						label: 'Other (type my own)',
+					} );
+				}
+
+				this.optionPickerItemCount = selectItems.length;
+				const selectList = new SelectList(
+					selectItems,
+					selectItems.length,
+					AiChatUI.OPTION_PICKER_THEME
+				);
+
+				this.optionPickerSelectList = selectList;
 				this.optionPickerVisible = true;
 				this.optionPickerContainer = new Container();
 				this.tui.addChild( this.optionPickerContainer );
-				this.renderOptionPicker();
+				this.optionPickerContainer.addChild( this.optionPickerSelectList );
+				this.tui.requestRender();
 
 				const selected = await new Promise< string >( ( resolve ) => {
 					this.optionPickerResolve = resolve;
+					selectList.onSelect = ( item: SelectItem ) => {
+						if ( item.value === AiChatUI.OTHER_VALUE ) {
+							// "Other" selected via enter without typing — activate input
+							this.activateOptionPickerOther();
+							this.renderOptionPicker();
+							return;
+						}
+						this.optionPickerResolve = null;
+						this.closeOptionPicker();
+						resolve( item.value );
+					};
 				} );
 
 				answers[ q.question ] = selected;

@@ -79,7 +79,7 @@ describe( 'CLI: studio site set', () => {
 		vi.clearAllMocks();
 
 		const testSite = getTestSite();
-		const testCliConfig = { version: 1, sites: [ testSite ], snapshots: [] };
+		const testCliConfig = { version: 1 as const, sites: [ testSite ], snapshots: [] };
 
 		vi.mocked( arePathsEqual ).mockReturnValue( true );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( getTestSite() );

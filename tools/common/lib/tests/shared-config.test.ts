@@ -11,6 +11,7 @@ import {
 	getCurrentUserId,
 	getSharedConfigDirectory,
 	getSharedConfigPath,
+	SharedConfigVersionMismatchError,
 } from '@studio/common/lib/shared-config';
 import type { SharedConfig } from '@studio/common/lib/shared-config';
 
@@ -119,27 +120,11 @@ describe( 'Shared Config', () => {
 			expect( config ).toEqual( { version: 1 } );
 		} );
 
-		it( 'should warn and return defaults when version differs from current', async () => {
-			const warnSpy = vi.spyOn( console, 'warn' ).mockImplementation( () => {} );
+		it( 'should throw SharedConfigVersionMismatchError when version differs from current', async () => {
 			const data = { version: 2, authToken: validToken };
 			vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( data ) ) );
 
-			const config = await readSharedConfig();
-			expect( config ).toEqual( { version: 1 } );
-			expect( warnSpy ).toHaveBeenCalledWith(
-				expect.stringContaining( 'newer version of Studio' )
-			);
-			warnSpy.mockRestore();
-		} );
-
-		it( 'should not warn when version matches', async () => {
-			const warnSpy = vi.spyOn( console, 'warn' ).mockImplementation( () => {} );
-			const data = { version: 1, authToken: validToken };
-			vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( data ) ) );
-
-			await readSharedConfig();
-			expect( warnSpy ).not.toHaveBeenCalled();
-			warnSpy.mockRestore();
+			await expect( readSharedConfig() ).rejects.toThrow( SharedConfigVersionMismatchError );
 		} );
 
 		it( 'should preserve unknown fields with loose schema', async () => {
@@ -234,6 +219,13 @@ describe( 'Shared Config', () => {
 
 			const token = await readAuthToken();
 			expect( token ).toBeNull();
+		} );
+
+		it( 'should throw SharedConfigVersionMismatchError on version mismatch', async () => {
+			const data = { version: 2, authToken: validToken };
+			vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( data ) ) );
+
+			await expect( readAuthToken() ).rejects.toThrow( SharedConfigVersionMismatchError );
 		} );
 	} );
 

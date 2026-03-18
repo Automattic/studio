@@ -11,8 +11,7 @@ async function getLocaleFromSharedConfig(): Promise< SupportedLocale | undefined
 	try {
 		const config = await readSharedConfig();
 		return isSupportedLocale( config.locale ) ? config.locale : undefined;
-	} catch ( error ) {
-		console.error( 'Error reading shared config', error );
+	} catch {
 		return undefined;
 	}
 }

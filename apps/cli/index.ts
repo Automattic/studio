@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { SharedConfigVersionMismatchError } from '@studio/common/lib/shared-config';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
 import { __ } from '@wordpress/i18n';
 import yargs from 'yargs';
@@ -155,6 +156,18 @@ async function main() {
 
 				return eventsCommandHandler();
 			},
+		} )
+		.fail( ( msg, err ) => {
+			if ( err instanceof SharedConfigVersionMismatchError ) {
+				console.error( err.message );
+				process.exit( 1 );
+			}
+			if ( msg ) {
+				console.error( msg );
+			}
+			if ( err ) {
+				throw err;
+			}
 		} )
 		.demandCommand( 1, __( 'You must provide a valid command' ) )
 		.strict();

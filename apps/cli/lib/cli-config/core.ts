@@ -77,10 +77,7 @@ export async function readCliConfig(): Promise< CliConfig > {
 		return cliConfigSchema.parse( data );
 	} catch ( error ) {
 		if ( error instanceof z.ZodError ) {
-			const hasVersionMismatch = error.issues.some(
-				( issue ) => issue.path[ 0 ] === 'version' && issue.code === 'invalid_value'
-			);
-			if ( hasVersionMismatch ) {
+			if ( typeof data?.version === 'number' && data.version !== CLI_CONFIG_VERSION ) {
 				throw new LoggerError(
 					__(
 						'Invalid CLI config version. It looks like you have a different version of the `studio` CLI installed on your system. Please modify your $PATH environment variable to use the correct version.'

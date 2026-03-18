@@ -10,6 +10,15 @@ import { lockFileAsync, unlockFileAsync } from './lockfile';
 export { authTokenSchema };
 export type { StoredAuthToken };
 
+export class SharedConfigVersionMismatchError extends Error {
+	constructor() {
+		super(
+			'A newer version of Studio or the Studio CLI is installed on your system. Please update all components to the same version.'
+		);
+		this.name = 'SharedConfigVersionMismatchError';
+	}
+}
+
 const SHARED_CONFIG_FILENAME = 'shared.json';
 
 // Schema updates must maintain backwards compatibility. If a breaking change is needed,
@@ -48,19 +57,15 @@ export async function readSharedConfig(): Promise< SharedConfig > {
 		return structuredClone( DEFAULT_SHARED_CONFIG );
 	}
 
+	let data: Record< string, unknown > | undefined;
 	try {
 		const fileContent = await readFile( configPath, { encoding: 'utf8' } );
-		const data = JSON.parse( fileContent );
+		data = JSON.parse( fileContent );
 		return sharedConfigSchema.parse( data );
 	} catch ( error ) {
 		if ( error instanceof z.ZodError ) {
-			const hasVersionMismatch = error.issues.some(
-				( issue ) => issue.path[ 0 ] === 'version' && issue.code === 'invalid_value'
-			);
-			if ( hasVersionMismatch ) {
-				console.warn(
-					'A newer version of Studio or the Studio CLI is installed on your system. Some features may not work as expected until all components are updated.'
-				);
+			if ( typeof data?.version === 'number' && data.version !== SHARED_CONFIG_VERSION ) {
+				throw new SharedConfigVersionMismatchError();
 			}
 			return structuredClone( DEFAULT_SHARED_CONFIG );
 		}
@@ -123,7 +128,10 @@ export async function readAuthToken(): Promise< StoredAuthToken | null > {
 			return null;
 		}
 		return token;
-	} catch {
+	} catch ( error ) {
+		if ( error instanceof SharedConfigVersionMismatchError ) {
+			throw error;
+		}
 		return null;
 	}
 }

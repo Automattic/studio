@@ -2,6 +2,8 @@ import { SupportedLocale } from '@studio/common/lib/locale';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Button from 'src/components/button';
+import { FormPathInputComponent } from 'src/components/form-path-input';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { isWindowsStore } from 'src/lib/app-globals';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ColorSchemePicker } from 'src/modules/user-settings/components/color-scheme-picker';
@@ -26,7 +28,7 @@ import {
 	useGetStudioCliIsInstalledQuery,
 	useSaveStudioCliIsInstalledMutation,
 } from 'src/stores/installed-apps-api';
-import { DefaultDirectoryPicker } from './default-directory-picker';
+import { SettingsFormField } from './settings-form-field';
 
 export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const { __ } = useI18n();
@@ -51,7 +53,6 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const [ storedDefaultSiteDirectory, setStoredDefaultSiteDirectory ] = useState< string >();
 	const [ defaultSiteDirectory, setDefaultSiteDirectory ] = useState< string >();
 	const [ isLoadingDefaultSiteDirectory, setIsLoadingDefaultSiteDirectory ] = useState( true );
-	const [ isSelectingDefaultDirectory, setIsSelectingDefaultDirectory ] = useState( false );
 
 	const wasSavedRef = useRef( false );
 	const dirtyColorSchemeRef = useRef( dirtyColorScheme );
@@ -143,17 +144,12 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	}, [] );
 
 	const handleChangeDefaultDirectory = async () => {
-		setIsSelectingDefaultDirectory( true );
-		try {
-			const response = await getIpcApi().showOpenFolderDialog(
-				__( 'Select default site directory' ),
-				defaultSiteDirectory ?? ''
-			);
-			if ( response?.path ) {
-				setDefaultSiteDirectory( response.path );
-			}
-		} finally {
-			setIsSelectingDefaultDirectory( false );
+		const response = await getIpcApi().showOpenFolderDialog(
+			__( 'Select default site directory' ),
+			defaultSiteDirectory ?? ''
+		);
+		if ( response?.path ) {
+			setDefaultSiteDirectory( response.path );
 		}
 	};
 
@@ -172,12 +168,13 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 			{ ! isWindowsStore() && (
 				<StudioCliToggle value={ isCliInstalledSelection } onChange={ setDirtyIsCliInstalled } />
 			) }
-			<DefaultDirectoryPicker
-				directory={ defaultSiteDirectory }
-				isLoading={ isLoadingDefaultSiteDirectory }
-				isSelecting={ isSelectingDefaultDirectory }
-				onPick={ handleChangeDefaultDirectory }
-			/>
+			<SettingsFormField label={ __( 'Default site directory' ) }>
+				<FormPathInputComponent
+					value={ isLoadingDefaultSiteDirectory ? __( 'Loading...' ) : defaultSiteDirectory ?? '' }
+					onClick={ handleChangeDefaultDirectory }
+					doesPathContainWordPress={ false }
+				/>
+			</SettingsFormField>
 			<div className="mt-auto pt-2 flex justify-end gap-3">
 				<Button
 					variant="tertiary"

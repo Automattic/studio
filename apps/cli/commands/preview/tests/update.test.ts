@@ -14,7 +14,8 @@ import { mockReportStart, mockReportSuccess, mockReportError } from 'cli/tests/t
 import { runCommand } from '../update';
 
 vi.mock( '@studio/common/lib/get-wordpress-version' );
-vi.mock( '@studio/common/lib/shared-config', () => ( {
+vi.mock( '@studio/common/lib/shared-config', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/common/lib/shared-config') >() ),
 	readAuthToken: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/cli-config/sites', async () => {

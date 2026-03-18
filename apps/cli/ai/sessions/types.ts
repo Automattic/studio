@@ -25,6 +25,8 @@ export type AiSessionEvent =
 			timestamp: string;
 			siteName: string;
 			sitePath: string;
+			remote?: boolean;
+			url?: string;
 	  }
 	| {
 			type: 'user.message';

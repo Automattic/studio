@@ -144,6 +144,29 @@ describe( 'ai-sessions', () => {
 		] );
 	} );
 
+	it( 'persists remote site metadata in site.selected events', async () => {
+		testRoot = await fs.mkdtemp( path.join( os.tmpdir(), 'studio-ai-sessions-' ) );
+		process.env.E2E = '1';
+		process.env.E2E_APP_DATA_PATH = testRoot;
+
+		const recorder = await AiSessionRecorder.create();
+		await recorder.recordSiteSelected( {
+			name: 'my-remote-site',
+			path: '',
+			remote: true,
+			url: 'https://my-remote-site.wordpress.com',
+		} );
+
+		const events = await readAiSessionEventsFromFile( recorder.filePath );
+		expect( events.find( ( event ) => event.type === 'site.selected' ) ).toMatchObject( {
+			type: 'site.selected',
+			siteName: 'my-remote-site',
+			sitePath: '',
+			remote: true,
+			url: 'https://my-remote-site.wordpress.com',
+		} );
+	} );
+
 	it( 'loads sessions by id prefix with linked Claude session metadata', async () => {
 		testRoot = await fs.mkdtemp( path.join( os.tmpdir(), 'studio-ai-sessions-' ) );
 		process.env.E2E = '1';
@@ -455,5 +478,44 @@ describe( 'ai-sessions', () => {
 		expect( ui.beginAgentTurn ).toHaveBeenCalledTimes( 1 );
 		expect( ui.endAgentTurn ).toHaveBeenCalledTimes( 1 );
 		expect( ui.finishReplay ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'replays remote site metadata from site.selected events', () => {
+		const ui = {
+			activeSite: null,
+			prepareForReplay: vi.fn(),
+			finishReplay: vi.fn(),
+			setReplayTimestamp: vi.fn(),
+			setActiveSite: vi.fn(),
+			beginAgentTurn: vi.fn(),
+			addUserMessage: vi.fn(),
+			handleMessage: vi.fn(),
+			setLoaderMessage: vi.fn(),
+			showAgentQuestion: vi.fn(),
+			endAgentTurn: vi.fn(),
+		};
+		const events: AiSessionEvent[] = [
+			{
+				type: 'site.selected',
+				timestamp: '2026-03-12T13:00:00.000Z',
+				siteName: 'my-remote-site',
+				sitePath: '',
+				remote: true,
+				url: 'https://my-remote-site.wordpress.com',
+			},
+		];
+
+		replaySessionHistory( ui as never, events );
+
+		expect( ui.setActiveSite ).toHaveBeenCalledWith(
+			{
+				name: 'my-remote-site',
+				path: '',
+				running: false,
+				remote: true,
+				url: 'https://my-remote-site.wordpress.com',
+			},
+			{ announce: false, emitEvent: false }
+		);
 	} );
 } );

@@ -16,6 +16,8 @@ export function replaySessionHistory( ui: AiChatUI, events: AiSessionEvent[] ): 
 						name: event.siteName,
 						path: event.sitePath,
 						running: false,
+						remote: event.remote === true,
+						url: typeof event.url === 'string' ? event.url : undefined,
 					},
 					{ announce: false, emitEvent: false }
 				);

@@ -133,6 +133,8 @@ export async function runCommand(
 			recorder.recordSiteSelected( {
 				name: site.name,
 				path: site.path,
+				remote: site.remote,
+				url: site.url,
 			} )
 		);
 	};

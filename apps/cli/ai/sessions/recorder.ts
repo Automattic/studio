@@ -82,12 +82,19 @@ export class AiSessionRecorder {
 		} );
 	}
 
-	async recordSiteSelected( site: { name: string; path: string } ): Promise< void > {
+	async recordSiteSelected( site: {
+		name: string;
+		path: string;
+		remote?: boolean;
+		url?: string;
+	} ): Promise< void > {
 		await this.appendEvent( {
 			type: 'site.selected',
 			timestamp: toIsoTimestamp(),
 			siteName: site.name,
 			sitePath: site.path,
+			remote: site.remote,
+			url: site.url,
 		} );
 	}
 

@@ -1,51 +1,16 @@
 import path from 'node:path';
-import {
-	bumpAggregatedUniqueStat,
-	AppdataProvider,
-	LastBumpStatsData,
-} from '@studio/common/lib/bump-stat';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
-import { StatsGroup, StatsMetric } from '@studio/common/types/stats';
 import { __ } from '@wordpress/i18n';
 import yargs from 'yargs';
-import { commandHandler as eventsCommandHandler } from 'cli/commands/_events';
-import { registerCommand as registerAiCommand } from 'cli/commands/ai';
-import { registerCommand as registerAuthLoginCommand } from 'cli/commands/auth/login';
-import { registerCommand as registerAuthLogoutCommand } from 'cli/commands/auth/logout';
-import { registerCommand as registerAuthStatusCommand } from 'cli/commands/auth/status';
-import { registerCommand as registerMcpCommand } from 'cli/commands/mcp';
-import { registerCommand as registerCreateCommand } from 'cli/commands/preview/create';
-import { registerCommand as registerDeleteCommand } from 'cli/commands/preview/delete';
-import { registerCommand as registerListCommand } from 'cli/commands/preview/list';
-import { registerCommand as registerUpdateCommand } from 'cli/commands/preview/update';
-import { registerCommand as registerSiteCreateCommand } from 'cli/commands/site/create';
-import { registerCommand as registerSiteDeleteCommand } from 'cli/commands/site/delete';
-import { registerCommand as registerSiteListCommand } from 'cli/commands/site/list';
-import { registerCommand as registerSiteSetCommand } from 'cli/commands/site/set';
-import { registerCommand as registerSiteStartCommand } from 'cli/commands/site/start';
-import { registerCommand as registerSiteStatusCommand } from 'cli/commands/site/status';
-import { registerCommand as registerSiteStopCommand } from 'cli/commands/site/stop';
-import { commandHandler as wpCliCommandHandler } from 'cli/commands/wp';
-import { readAppdata, lockAppdata, unlockAppdata, saveAppdata } from 'cli/lib/appdata';
+import { bumpAggregatedUniqueStat, getPlatformMetric } from 'cli/lib/bump-stat';
 import { loadTranslations } from 'cli/lib/i18n';
+import { StatsGroup, StatsMetric } from 'cli/lib/types/bump-stats';
 import { untildify } from 'cli/lib/utils';
 import { StudioArgv } from 'cli/types';
 
 const version = __STUDIO_CLI_VERSION__;
 
 suppressPunycodeWarning();
-
-const cliAppdataProvider: AppdataProvider< LastBumpStatsData > = {
-	load: readAppdata,
-	lock: lockAppdata,
-	unlock: unlockAppdata,
-	save: async ( data ) => {
-		// Cast is safe: data comes from readAppdata() which returns the full UserData type.
-		// The lock/unlock is already handled by the caller (updateLastBump in /common/lib/bump-stat.ts)
-		// eslint-disable-next-line studio/require-lock-before-save
-		await saveAppdata( data as never );
-	},
-};
 
 async function main() {
 	const yargsLocale = await loadTranslations();
@@ -70,33 +35,86 @@ async function main() {
 			},
 		} )
 		.middleware( async ( argv ) => {
-			if ( ! argv.avoidTelemetry ) {
+			if ( __ENABLE_CLI_TELEMETRY__ && ! argv.avoidTelemetry ) {
 				try {
 					await bumpAggregatedUniqueStat(
 						StatsGroup.STUDIO_CLI_USAGE_UNIQUE,
 						StatsMetric.SUCCESS,
-						'weekly',
-						cliAppdataProvider
+						'weekly'
 					);
+
+					if ( __IS_PACKAGED_FOR_NPM__ ) {
+						await bumpAggregatedUniqueStat(
+							StatsGroup.STUDIO_CLI_WEEKLY_UNIQUE_NPM,
+							getPlatformMetric(),
+							'weekly'
+						);
+					} else {
+						await bumpAggregatedUniqueStat(
+							StatsGroup.STUDIO_CLI_WEEKLY_UNIQUE_APP,
+							getPlatformMetric(),
+							'weekly'
+						);
+					}
 				} catch ( error ) {
 					console.error( 'Failed to bump stat:', error );
 				}
 			}
 		} )
-		.command( 'auth', __( 'Manage authentication' ), ( authYargs ) => {
+		.command( 'auth', __( 'Manage authentication' ), async ( authYargs ) => {
+			const [
+				{ registerCommand: registerAuthLoginCommand },
+				{ registerCommand: registerAuthLogoutCommand },
+				{ registerCommand: registerAuthStatusCommand },
+			] = await Promise.all( [
+				import( 'cli/commands/auth/login' ),
+				import( 'cli/commands/auth/logout' ),
+				import( 'cli/commands/auth/status' ),
+			] );
+
 			registerAuthLoginCommand( authYargs );
 			registerAuthLogoutCommand( authYargs );
 			registerAuthStatusCommand( authYargs );
 			authYargs.version( false ).demandCommand( 1, __( 'You must provide a valid auth command' ) );
 		} )
-		.command( 'preview', __( 'Manage preview sites' ), ( previewYargs ) => {
-			registerCreateCommand( previewYargs );
-			registerListCommand( previewYargs );
-			registerDeleteCommand( previewYargs );
-			registerUpdateCommand( previewYargs );
+		.command( 'preview', __( 'Manage preview sites' ), async ( previewYargs ) => {
+			const [
+				{ registerCommand: registerPreviewCreateCommand },
+				{ registerCommand: registerPreviewListCommand },
+				{ registerCommand: registerPreviewDeleteCommand },
+				{ registerCommand: registerPreviewUpdateCommand },
+			] = await Promise.all( [
+				import( 'cli/commands/preview/create' ),
+				import( 'cli/commands/preview/list' ),
+				import( 'cli/commands/preview/delete' ),
+				import( 'cli/commands/preview/update' ),
+			] );
+
+			registerPreviewCreateCommand( previewYargs );
+			registerPreviewListCommand( previewYargs );
+			registerPreviewDeleteCommand( previewYargs );
+			registerPreviewUpdateCommand( previewYargs );
 			previewYargs.version( false ).demandCommand( 1, __( 'You must provide a valid command' ) );
 		} )
-		.command( 'site', __( 'Manage sites' ), ( sitesYargs ) => {
+		.command( 'site', __( 'Manage sites' ), async ( sitesYargs ) => {
+			const [
+				{ registerCommand: registerSiteStatusCommand },
+				{ registerCommand: registerSiteCreateCommand },
+				{ registerCommand: registerSiteListCommand },
+				{ registerCommand: registerSiteStartCommand },
+				{ registerCommand: registerSiteStopCommand },
+				{ registerCommand: registerSiteDeleteCommand },
+				{ registerCommand: registerSiteSetCommand },
+			] = await Promise.all( [
+				import( 'cli/commands/site/status' ),
+				import( 'cli/commands/site/create' ),
+				import( 'cli/commands/site/list' ),
+				import( 'cli/commands/site/start' ),
+				import( 'cli/commands/site/stop' ),
+				import( 'cli/commands/site/delete' ),
+				import( 'cli/commands/site/set' ),
+			] );
+
 			registerSiteStatusCommand( sitesYargs );
 			registerSiteCreateCommand( sitesYargs );
 			registerSiteListCommand( sitesYargs );
@@ -120,20 +138,30 @@ async function main() {
 						hidden: true,
 					} );
 			},
-			handler: wpCliCommandHandler,
+			handler: async ( argv ) => {
+				const { commandHandler: wpCliCommandHandler } = await import( 'cli/commands/wp' );
+
+				return wpCliCommandHandler( argv );
+			},
 		} )
 		.command( {
 			command: '_events',
 			describe: false, // Hidden command
-			handler: eventsCommandHandler,
+			handler: async () => {
+				const { commandHandler: eventsCommandHandler } = await import( 'cli/commands/_events' );
+
+				return eventsCommandHandler();
+			},
 		} )
 		.demandCommand( 1, __( 'You must provide a valid command' ) )
 		.strict();
 
-	if ( process.env.ENABLE_STUDIO_AI === 'true' ) {
+	if ( __ENABLE_STUDIO_AI__ ) {
+		const { registerCommand: registerAiCommand } = await import( 'cli/commands/ai' );
 		registerAiCommand( studioArgv );
 	}
-	if ( process.env.ENABLE_AGENT_SUITE === 'true' ) {
+	if ( __ENABLE_AGENT_SUITE__ ) {
+		const { registerCommand: registerMcpCommand } = await import( 'cli/commands/mcp' );
 		registerMcpCommand( studioArgv );
 	}
 

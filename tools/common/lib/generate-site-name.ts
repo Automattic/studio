@@ -1,7 +1,7 @@
 import path from 'path';
+import { __ } from '@wordpress/i18n';
 import { isEmptyDir, pathExists } from '@studio/common/lib/fs-utils';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
-import { __ } from '@wordpress/i18n';
 
 function getDefaultSiteName(): string {
 	return __( 'My WordPress Website' );

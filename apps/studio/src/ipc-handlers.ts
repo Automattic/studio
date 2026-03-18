@@ -19,7 +19,6 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { installAiInstructionsToSite, updateStudioMdIfExists } from '@studio/common/lib/ai-skills';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
-import { bumpStat } from '@studio/common/lib/bump-stat';
 import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
 import {
 	calculateDirectorySizeForArchive,
@@ -38,12 +37,17 @@ import { portFinder } from '@studio/common/lib/port-finder';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import { Snapshot } from '@studio/common/types/snapshot';
-import { StatsGroup, StatsMetric } from '@studio/common/types/stats';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import { MACOS_TRAFFIC_LIGHT_POSITION, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
-import { getImporterMetric, getBlueprintMetric } from 'src/lib/bump-stats/lib';
+import {
+	bumpStat,
+	getImporterMetric,
+	getBlueprintMetric,
+	StatsGroup,
+	StatsMetric,
+} from 'src/lib/bump-stats';
 import {
 	openCertificate as openCertificateDialog,
 	isRootCATrusted,
@@ -118,7 +122,6 @@ export {
 	removeSyncBackup,
 	resumeSyncUpload,
 	updateConnectedWpcomSites,
-	updateSingleConnectedWpcomSite,
 } from 'src/modules/sync/lib/ipc-handlers';
 
 export {

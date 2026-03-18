@@ -48,8 +48,6 @@ const api: IpcApi = {
 	disconnectWpcomSites: ( ...args ) => ipcRendererInvoke( 'disconnectWpcomSites', ...args ),
 	updateConnectedWpcomSites: ( ...args ) =>
 		ipcRendererInvoke( 'updateConnectedWpcomSites', ...args ),
-	updateSingleConnectedWpcomSite: ( updatedSite ) =>
-		ipcRendererInvoke( 'updateSingleConnectedWpcomSite', updatedSite ),
 	authenticate: ( isSignup ) => ipcRendererSend( 'authenticate', isSignup ),
 	exportSite: ( options ) => ipcRendererInvoke( 'exportSite', options ),
 	isAuthenticated: () => ipcRendererInvoke( 'isAuthenticated' ),

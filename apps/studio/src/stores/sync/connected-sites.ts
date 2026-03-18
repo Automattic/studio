@@ -130,35 +130,6 @@ export const connectedSitesApi = createApi( {
 				{ type: 'ConnectedSites', localSiteId },
 			],
 		} ),
-
-		updateSiteTimestamp: builder.mutation<
-			void,
-			{ siteId: number; localSiteId: string; type: 'pull' | 'push' }
-		>( {
-			queryFn: async ( { siteId, localSiteId, type } ) => {
-				const connectedSites = await getIpcApi().getConnectedWpcomSites( localSiteId );
-				const connectedSite = connectedSites.find(
-					( { id, localSiteId: siteLocalId } ) => siteId === id && localSiteId === siteLocalId
-				);
-
-				if ( ! connectedSite ) {
-					return { error: { status: 'CUSTOM_ERROR', error: 'Site not found' } };
-				}
-
-				const timestampKey = type === 'pull' ? 'lastPullTimestamp' : 'lastPushTimestamp';
-				const updatedConnectedSite = {
-					...connectedSite,
-					[ timestampKey ]: new Date().toISOString(),
-				};
-
-				await getIpcApi().updateSingleConnectedWpcomSite( updatedConnectedSite );
-
-				return { data: undefined };
-			},
-			invalidatesTags: ( result, error, { localSiteId } ) => [
-				{ type: 'ConnectedSites', localSiteId },
-			],
-		} ),
 	} ),
 } );
 
@@ -166,5 +137,4 @@ export const {
 	useGetConnectedSitesForLocalSiteQuery,
 	useConnectSiteMutation,
 	useDisconnectSiteMutation,
-	useUpdateSiteTimestampMutation,
 } = connectedSitesApi;

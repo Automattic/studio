@@ -69,29 +69,30 @@ test.describe( 'Overview customize links', () => {
 		}
 		return decoded;
 	};
+
+	test.beforeAll( async () => {
+		await session.launch();
+
+		const onboarding = new Onboarding( session.mainWindow );
+		await onboarding.completeOnboarding( { customSiteName: siteName } );
+		await onboarding.closeWhatsNew();
+
+		const siteContent = new SiteContent( session.mainWindow, siteName );
+		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
+	} );
+
+	test.afterEach( async ( { page: _page }, testInfo ) => {
+		await session.reportMainProcessLogsOnFailure( testInfo );
+	} );
+
+	test.afterAll( async () => {
+		if ( session.electronApp ) {
+			await restoreOpenExternal();
+		}
+		await session.cleanup();
+	} );
+
 	test.describe( 'Block theme customize shortcut links', () => {
-		test.beforeAll( async () => {
-			await session.launch();
-
-			const onboarding = new Onboarding( session.mainWindow );
-			await onboarding.completeOnboarding( { customSiteName: siteName } );
-			await onboarding.closeWhatsNew();
-
-			const siteContent = new SiteContent( session.mainWindow, siteName );
-			await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
-		} );
-
-		test.afterEach( async ( { page: _page }, testInfo ) => {
-			await session.reportMainProcessLogsOnFailure( testInfo );
-		} );
-
-		test.afterAll( async () => {
-			if ( session.electronApp ) {
-				await restoreOpenExternal();
-			}
-			await session.cleanup();
-		} );
-
 		test( 'shows overview shortcuts for a new site', async () => {
 			const siteContent = new SiteContent( session.mainWindow, siteName );
 			await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
@@ -187,11 +188,6 @@ test.describe( 'Overview customize links', () => {
 	} );
 
 	test.describe( 'phpMyAdmin shortcut link', () => {
-		test.beforeAll( async () => {
-			const siteContent = new SiteContent( session.mainWindow, siteName );
-			await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
-		} );
-
 		test( 'phpMyAdmin button is visible and enabled for a new site', async () => {
 			const siteContent = new SiteContent( session.mainWindow, siteName );
 			const phpMyAdminButton = siteContent.locator.getByRole( 'button', { name: 'phpMyAdmin' } );

@@ -17,9 +17,16 @@ const CLI_REDIRECT_URI = `https://developer.wordpress.com/copy-oauth-token`;
 export async function runCommand(): Promise< void > {
 	const logger = new Logger< LoggerAction >();
 
-	const existingToken = await readAuthToken();
-	if ( existingToken ) {
-		logger.reportSuccess( __( 'Already authenticated with WordPress.com' ) );
+	try {
+		const existingToken = await readAuthToken();
+		if ( existingToken ) {
+			logger.reportSuccess( __( 'Already authenticated with WordPress.com' ) );
+			return;
+		}
+	} catch ( error ) {
+		logger.reportError(
+			new LoggerError( error instanceof Error ? error.message : String( error ) )
+		);
 		return;
 	}
 

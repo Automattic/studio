@@ -11,14 +11,15 @@ export async function runCommand(): Promise< void > {
 	const logger = new Logger< LoggerAction >();
 
 	logger.reportStart( LoggerAction.LOGOUT, __( 'Logging out…' ) );
-	const token = await readAuthToken();
-
-	if ( ! token ) {
-		logger.reportSuccess( __( 'Already logged out' ) );
-		return;
-	}
 
 	try {
+		const token = await readAuthToken();
+
+		if ( ! token ) {
+			logger.reportSuccess( __( 'Already logged out' ) );
+			return;
+		}
+
 		await revokeAuthToken( token.accessToken );
 		await updateSharedConfig( { authToken: undefined } );
 	} catch ( error ) {

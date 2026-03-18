@@ -9,14 +9,15 @@ export async function runCommand(): Promise< void > {
 	const logger = new Logger< LoggerAction >();
 
 	logger.reportStart( LoggerAction.STATUS_CHECK, __( 'Checking authentication status…' ) );
-	const token = await readAuthToken();
-
-	if ( ! token ) {
-		logger.reportError( new LoggerError( __( 'Authentication token is invalid or expired' ) ) );
-		return;
-	}
 
 	try {
+		const token = await readAuthToken();
+
+		if ( ! token ) {
+			logger.reportError( new LoggerError( __( 'Authentication token is invalid or expired' ) ) );
+			return;
+		}
+
 		const userData = await getUserInfo( token.accessToken );
 		logger.reportSuccess(
 			sprintf( __( 'Authenticated with WordPress.com as `%s`' ), userData.username )

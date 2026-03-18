@@ -81,7 +81,9 @@ describe( 'AI auth helpers', () => {
 		await prepareAiProvider( 'anthropic-api-key' );
 
 		expect( password ).toHaveBeenCalledOnce();
-		expect( updateCliConfigWithPartial ).toHaveBeenCalledWith( { anthropicApiKey: 'prompted-key' } );
+		expect( updateCliConfigWithPartial ).toHaveBeenCalledWith( {
+			anthropicApiKey: 'prompted-key',
+		} );
 	} );
 
 	it( 'can force re-entering the API key even when one is already saved', async () => {

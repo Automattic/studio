@@ -1,11 +1,11 @@
 import path from 'path';
+import { pathExists } from '@studio/common/lib/fs-utils';
 import { vi } from 'vitest';
 import {
 	getInstructionFilePath,
 	getInstructionFileStatus,
 	getAllInstructionFilesStatus,
 } from 'src/modules/agent-instructions/lib/instructions';
-import { pathExists } from '@studio/common/lib/fs-utils';
 
 vi.mock( '@studio/common/lib/fs-utils', () => ( {
 	pathExists: vi.fn(),

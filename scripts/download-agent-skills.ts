@@ -23,6 +23,7 @@ async function downloadRemoteSkills(): Promise< void > {
 	const zipPath = path.join( os.tmpdir(), 'agent-skills.zip' );
 	const extractPath = path.join( os.tmpdir(), 'agent-skills-extracted' );
 
+	// Download the repository archive
 	const response = await fetch( REPO_ZIP_URL );
 	if ( ! response.ok ) {
 		throw new Error( `Failed to download agent-skills: ${ response.status }` );
@@ -30,10 +31,12 @@ async function downloadRemoteSkills(): Promise< void > {
 	const buffer = Buffer.from( await response.arrayBuffer() );
 	await fs.writeFile( zipPath, buffer );
 
+	// Extract to a temporary directory
 	await fs.remove( extractPath );
 	await fs.ensureDir( extractPath );
 	await extractZip( zipPath, extractPath );
 
+	// Find the extracted root directory (e.g., agent-skills-trunk/)
 	const extractedDirs = await fs.readdir( extractPath );
 	const repoDir = extractedDirs.find( ( dir ) => dir.startsWith( 'agent-skills-' ) );
 	if ( ! repoDir ) {
@@ -42,6 +45,7 @@ async function downloadRemoteSkills(): Promise< void > {
 
 	const skillsSourceDir = path.join( extractPath, repoDir, 'skills' );
 
+	// Copy each skill to the destination
 	for ( const skillId of REMOTE_SKILL_IDS ) {
 		const source = path.join( skillsSourceDir, skillId );
 		const destination = path.join( AI_SKILLS_PATH, skillId );
@@ -56,6 +60,7 @@ async function downloadRemoteSkills(): Promise< void > {
 		console.log( `[ai-skills] Downloaded ${ skillId }` );
 	}
 
+	// Clean up temporary files
 	await fs.remove( zipPath );
 	await fs.remove( extractPath );
 }

@@ -10,7 +10,12 @@ import {
 vi.mock( 'fs/promises', () => ( {
 	default: {
 		access: vi.fn(),
+		readFile: vi.fn(),
 	},
+} ) );
+
+vi.mock( 'src/lib/server-files-paths', () => ( {
+	getAiInstructionsPath: () => '/test/bundled-skills',
 } ) );
 
 const SITE_PATH = '/test/my-site';
@@ -47,6 +52,7 @@ describe( 'getInstructionFileStatus', () => {
 
 	it( 'returns exists: true when file is accessible', async () => {
 		vi.mocked( fs.access ).mockResolvedValue( undefined );
+		vi.mocked( fs.readFile ).mockResolvedValue( 'file content' );
 
 		const status = await getInstructionFileStatus( SITE_PATH, 'agents' );
 

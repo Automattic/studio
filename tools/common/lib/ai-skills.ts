@@ -72,7 +72,7 @@ async function installInstructionFile(
 	await fs.copyFile( path.join( bundledPath, fileName ), dest );
 }
 
-async function installSkillToSite(
+export async function installSkillToSite(
 	sitePath: string,
 	bundledPath: string,
 	skillId: string,

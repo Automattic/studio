@@ -48,7 +48,7 @@
 		"e2e": "npx playwright install && npx playwright test",
 		"test:metrics": "npx playwright test --config=./tools/metrics/playwright.metrics.config.ts",
 		"download-language-packs": "ts-node ./scripts/download-language-packs.ts",
-		"download-ai-skills": "ts-node ./scripts/download-ai-skills.ts"
+		"download-ai-skills": "ts-node ./scripts/download-agent-skills.ts"
 	},
 	"devDependencies": {
 		"@automattic/wp-babel-makepot": "^1.2.0",

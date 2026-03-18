@@ -10,23 +10,27 @@ Before creating a new WordPress site, gather the user's preferences through a sh
 
 ## How to Run
 
-Use AskUserQuestion to ask focused questions in 2-3 rounds, building on previous answers. Keep it concise — no more than 5-6 questions total.
+Gather preferences through 3-4 rounds, building on previous answers. Keep it concise — no more than 6-7 questions total.
 
 **AskUserQuestion constraints**: Each call supports 1-4 questions, each with 2-4 options. An "Other" free-form option is automatically provided by the system — do NOT add one yourself. Keep option labels short (1-5 words). Only use AskUserQuestion for questions that have meaningful predefined options. For open-ended questions (like asking for a name), just ask in your text output — the user will type their answer in the prompt.
 
-### Round 1 — Name & Purpose
+### Round 1 — Name
 
-First, ask the user for their business/site name in your text output (not via AskUserQuestion — it's open-ended with no predefined options). Then use AskUserQuestion for:
+Ask the user for their business/site name in your text output. **Stop here and wait for their reply** — do NOT call any tools or continue to the next round. The user needs a chance to type their answer in the prompt.
+
+### Round 2 — Purpose & Audience
+
+After the user provides the name, use AskUserQuestion for:
 - What is this site for? (e.g., business type, portfolio, blog, community, e-commerce, agency, restaurant, etc.)
 - Who is the target audience? (e.g., professionals, consumers, creatives, developers, local community, etc.)
 
-### Round 2 — Brand & Aesthetic Direction
+### Round 3 — Brand & Aesthetic Direction
 
-Adapt based on Round 1 answers. Ask about:
+Adapt based on previous answers. Ask about:
 - What tone or personality should the site convey? (e.g., professional, playful, minimalist, bold, luxurious, raw, editorial, retro, organic, etc.)
 - Any reference sites or brands you admire? Or styles you want to avoid?
 
-### Round 3 — Visual & Structural Preferences
+### Round 4 — Visual & Structural Preferences
 
 Adapt based on previous answers. Ask about:
 - Color preferences or existing brand colors? (or let the user say "surprise me")

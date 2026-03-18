@@ -2,12 +2,15 @@ import {
 	TUI,
 	ProcessTerminal,
 	Editor,
+	Input,
+	SelectList,
+	type SelectItem,
+	type SelectListTheme,
 	Markdown,
 	Text,
 	Loader,
 	Container,
 	CombinedAutocompleteProvider,
-	SelectList,
 	matchesKey,
 	isKeyRelease,
 	type Component,
@@ -15,8 +18,6 @@ import {
 	type EditorTheme,
 	type EditorOptions,
 	type MarkdownTheme,
-	type SelectItem,
-	type SelectListTheme,
 	visibleWidth,
 } from '@mariozechner/pi-tui';
 import chalk from 'chalk';
@@ -534,10 +535,22 @@ export class AiChatUI {
 	private randomThinkingMessage(): string {
 		return this.thinkingMessages[ Math.floor( Math.random() * this.thinkingMessages.length ) ];
 	}
-	private optionPickerVisible = false;
 	private optionPickerContainer: Container | null = null;
 	private optionPickerSelectList: SelectList | null = null;
+	private optionPickerVisible = false;
 	private optionPickerResolve: ( ( label: string ) => void ) | null = null;
+	private optionPickerOtherActive = false;
+	private optionPickerHasFreeForm = false;
+	private optionPickerItemCount = 0;
+	private optionPickerInput: Input | null = null;
+	private static readonly OTHER_VALUE = '__other__';
+	private static readonly OPTION_PICKER_THEME: SelectListTheme = {
+		selectedPrefix: ( text: string ) => chalk.blue( text ),
+		selectedText: ( text: string ) => chalk.blue( text ),
+		description: ( text: string ) => chalk.dim( text ),
+		scrollInfo: ( text: string ) => chalk.dim( text ),
+		noMatch: ( text: string ) => chalk.dim( text ),
+	};
 	private sitePickerVisible = false;
 	private sitePickerContainer: Container | null = null;
 	private sitePickerItems: SiteInfo[] = [];
@@ -618,9 +631,52 @@ export class AiChatUI {
 				process.exit( 0 );
 			}
 			// Option picker navigation (must be checked before site picker)
-			if ( this.optionPickerVisible && this.optionPickerSelectList ) {
+			if ( this.optionPickerSelectList ) {
+				// When "Other" is active, let the inline input handle most keys
+				if ( this.optionPickerOtherActive && this.optionPickerInput ) {
+					if ( matchesKey( data, 'up' ) ) {
+						this.deactivateOptionPickerOther();
+						this.optionPickerSelectList.handleInput( data );
+						this.renderOptionPicker();
+						return { consume: true };
+					}
+					// Forward everything else to the inline input
+					this.optionPickerInput.handleInput( data );
+					this.renderOptionPicker();
+					return { consume: true };
+				}
+
+				// If user starts typing while on a regular option, jump to "Other" (only if free-form is enabled)
+				if (
+					this.optionPickerHasFreeForm &&
+					! matchesKey( data, 'up' ) &&
+					! matchesKey( data, 'down' ) &&
+					! matchesKey( data, 'enter' ) &&
+					! matchesKey( data, 'escape' ) &&
+					data.length === 1 &&
+					data >= ' '
+				) {
+					this.optionPickerSelectList.setSelectedIndex( this.optionPickerItemCount - 1 );
+					this.activateOptionPickerOther();
+					this.optionPickerInput?.handleInput( data );
+					this.renderOptionPicker();
+					return { consume: true };
+				}
+
+				// Let SelectList handle up/down/enter/escape
 				this.optionPickerSelectList.handleInput( data );
-				this.tui.requestRender();
+				// onSelect may have closed the picker — bail if so
+				if ( ! this.optionPickerSelectList ) {
+					return { consume: true };
+				}
+				// Check if we landed on "Other" after navigation
+				if ( this.optionPickerHasFreeForm ) {
+					const selected = this.optionPickerSelectList.getSelectedItem();
+					if ( selected?.value === AiChatUI.OTHER_VALUE ) {
+						this.activateOptionPickerOther();
+					}
+				}
+				this.renderOptionPicker();
 				return { consume: true };
 			}
 			// Slash command menu navigation
@@ -1103,6 +1159,51 @@ export class AiChatUI {
 		this.tui.requestRender();
 	}
 
+	private renderOptionPicker(): void {
+		if ( ! this.optionPickerContainer || ! this.optionPickerSelectList ) {
+			return;
+		}
+		this.optionPickerContainer.clear();
+
+		const width = ( process.stdout.columns ?? 80 ) - 1;
+		const lines = this.optionPickerSelectList.render( width );
+
+		// When "Other" is active, replace the last line with the inline input
+		if ( this.optionPickerOtherActive && this.optionPickerInput && lines.length > 0 ) {
+			const inputText = this.optionPickerInput.getValue();
+			const cursor = chalk.inverse( ' ' );
+			const display = inputText
+				? chalk.blue( inputText ) + cursor
+				: chalk.dim( 'Type your answer...' ) + cursor;
+			lines[ lines.length - 1 ] = `${ chalk.blue( '→' ) } ${ display }`;
+		}
+
+		this.optionPickerContainer.addChild( new Text( lines.join( '\n' ), 1, 0 ) );
+		this.tui.requestRender();
+	}
+
+	private activateOptionPickerOther(): void {
+		if ( this.optionPickerOtherActive ) {
+			return;
+		}
+		this.optionPickerOtherActive = true;
+		this.optionPickerInput = new Input();
+		this.optionPickerInput.onSubmit = ( value: string ) => {
+			const trimmed = value.trim();
+			if ( trimmed && this.optionPickerResolve ) {
+				const resolve = this.optionPickerResolve;
+				this.optionPickerResolve = null;
+				this.closeOptionPicker();
+				resolve( trimmed );
+			}
+		};
+	}
+
+	private deactivateOptionPickerOther(): void {
+		this.optionPickerOtherActive = false;
+		this.optionPickerInput = null;
+	}
+
 	private closeOptionPicker(): void {
 		if ( this.optionPickerContainer ) {
 			this.tui.removeChild( this.optionPickerContainer );
@@ -1110,6 +1211,9 @@ export class AiChatUI {
 		}
 		this.optionPickerVisible = false;
 		this.optionPickerSelectList = null;
+		this.optionPickerHasFreeForm = false;
+		this.optionPickerItemCount = 0;
+		this.deactivateOptionPickerOther();
 		this.tui.requestRender();
 	}
 
@@ -1627,29 +1731,34 @@ export class AiChatUI {
 
 		for ( const q of questions ) {
 			// Display the question
-			this.messages.addChild( new Text( '\n' + chalk.bold( q.question ), 0, 0 ) );
+			this.messages.addChild( new Text( '\n' + chalk.bold( q.question ), 1, 0 ) );
 			this.tui.requestRender();
 
 			if ( q.options.length > 0 ) {
-				// Use arrow-key option picker
+				// Use SelectList for option-based questions.
+				// When allowFreeForm is true, append an "Other" option with inline input.
 				this.hideEditor();
-				const selectItems = q.options.map( ( opt, i ) => ( {
+				const selectItems: SelectItem[] = q.options.map( ( opt, i ) => ( {
 					value: opt.label,
 					label: `${ i + 1 }. ${ opt.label }`,
 					description: opt.description,
 				} ) );
-				this.optionPickerSelectList = new SelectList(
+				this.optionPickerHasFreeForm = q.allowFreeForm === true;
+				if ( this.optionPickerHasFreeForm ) {
+					selectItems.push( {
+						value: AiChatUI.OTHER_VALUE,
+						label: 'Other (type my own)',
+					} );
+				}
+
+				this.optionPickerItemCount = selectItems.length;
+				const selectList = new SelectList(
 					selectItems,
 					selectItems.length,
-					sitePickerTheme
+					AiChatUI.OPTION_PICKER_THEME
 				);
-				this.optionPickerSelectList.onSelect = ( item ) => {
-					this.closeOptionPicker();
-					if ( this.optionPickerResolve ) {
-						this.optionPickerResolve( item.value );
-						this.optionPickerResolve = null;
-					}
-				};
+
+				this.optionPickerSelectList = selectList;
 				this.optionPickerVisible = true;
 				this.optionPickerContainer = new Container();
 				this.tui.addChild( this.optionPickerContainer );
@@ -1658,6 +1767,17 @@ export class AiChatUI {
 
 				const selected = await new Promise< string >( ( resolve ) => {
 					this.optionPickerResolve = resolve;
+					selectList.onSelect = ( item: SelectItem ) => {
+						if ( item.value === AiChatUI.OTHER_VALUE ) {
+							// "Other" selected via enter without typing — activate input
+							this.activateOptionPickerOther();
+							this.renderOptionPicker();
+							return;
+						}
+						this.optionPickerResolve = null;
+						this.closeOptionPicker();
+						resolve( item.value );
+					};
 				} );
 
 				answers[ q.question ] = selected;

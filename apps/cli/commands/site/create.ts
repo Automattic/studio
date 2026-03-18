@@ -5,6 +5,7 @@ import path from 'path';
 import { confirm, input, password, select } from '@inquirer/prompts';
 import { SupportedPHPVersions } from '@php-wasm/universal';
 import {
+	DEFAULT_ENABLE_PHPMYADMIN,
 	DEFAULT_PHP_VERSION,
 	DEFAULT_WORDPRESS_VERSION,
 	MINIMUM_WORDPRESS_VERSION,
@@ -347,6 +348,7 @@ export async function runCommand(
 			isWpAutoUpdating: options.wpVersion === DEFAULT_WORDPRESS_VERSION,
 			customDomain: options.customDomain,
 			enableHttps: options.enableHttps,
+			enablePhpMyAdmin: DEFAULT_ENABLE_PHPMYADMIN,
 		};
 
 		logger.reportStart( LoggerAction.SAVE_SITE, __( 'Saving site…' ) );

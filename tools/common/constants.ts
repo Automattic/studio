@@ -34,4 +34,4 @@ export const DEFAULT_PHP_VERSION: typeof RecommendedPHPVersion = RecommendedPHPV
 export const SQLITE_FILENAME = 'sqlite-database-integration' as const;
 
 // phpMyAdmin - set to true to enable by default for all new sites
-export const DEFAULT_ENABLE_PHPMYADMIN = false;
+export const DEFAULT_ENABLE_PHPMYADMIN = true;

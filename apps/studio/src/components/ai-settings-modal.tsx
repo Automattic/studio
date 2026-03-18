@@ -12,7 +12,10 @@ import {
 	type InstructionFileType,
 } from 'src/modules/agent-instructions/constants';
 import { type InstructionFileStatus } from 'src/modules/agent-instructions/lib/instructions';
-import { SkillsPanel } from 'src/modules/agent-skills/components/skills-panel';
+import {
+	BUNDLED_SKILLS,
+	type SkillStatus,
+} from 'src/modules/agent-instructions/lib/skills-constants';
 
 interface AiSettingsModalProps {
 	isOpen: boolean;
@@ -164,6 +167,110 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 	);
 }
 
+function WordPressSkillsPanel( { siteId }: { siteId: string } ) {
+	const { __ } = useI18n();
+	const [ statuses, setStatuses ] = useState< SkillStatus[] >( [] );
+	const [ error, setError ] = useState< string | null >( null );
+	const [ installing, setInstalling ] = useState( false );
+
+	const refreshStatus = useCallback( async () => {
+		try {
+			const result = await getIpcApi().getWordPressSkillsStatus( siteId );
+			setStatuses( result as SkillStatus[] );
+			setError( null );
+		} catch ( err ) {
+			const errorMessage = err instanceof Error ? err.message : String( err );
+			setError( errorMessage );
+		}
+	}, [ siteId ] );
+
+	useEffect( () => {
+		void refreshStatus();
+		const handleFocus = () => void refreshStatus();
+		window.addEventListener( 'focus', handleFocus );
+		return () => window.removeEventListener( 'focus', handleFocus );
+	}, [ refreshStatus ] );
+
+	const handleInstall = useCallback(
+		async ( overwrite: boolean = false ) => {
+			setInstalling( true );
+			setError( null );
+			try {
+				await getIpcApi().installWordPressSkills( siteId, { overwrite } );
+				await refreshStatus();
+			} catch ( err ) {
+				const errorMessage = err instanceof Error ? err.message : String( err );
+				setError( errorMessage );
+			} finally {
+				setInstalling( false );
+			}
+		},
+		[ siteId, refreshStatus ]
+	);
+
+	const allInstalled = statuses.length > 0 && statuses.every( ( s ) => s.installed );
+	const installedCount = statuses.filter( ( s ) => s.installed ).length;
+
+	return (
+		<div className="flex flex-col gap-4">
+			<div className="flex items-center justify-between">
+				<div>
+					<h3 className="text-sm font-medium text-gray-900">{ __( 'WordPress skills' ) }</h3>
+					<p className="text-xs text-gray-500 mt-0.5">
+						{ __( 'WordPress development skills for AI agents' ) }
+					</p>
+				</div>
+			</div>
+
+			{ error && (
+				<div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">
+					{ error }
+				</div>
+			) }
+
+			<div className="border border-gray-200 rounded-md overflow-hidden">
+				<div className="flex items-center justify-between px-3 py-2.5">
+					<div className="flex-1 min-w-0 pr-3">
+						<div className="flex items-center gap-2">
+							<span className="text-sm font-medium text-gray-900">
+								{ __( 'WordPress Skills' ) }
+							</span>
+							{ allInstalled && (
+								<span className="inline-flex items-center gap-1 text-[11px] text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
+									<Icon icon={ check } size={ 12 } />
+									{ __( 'Installed' ) }
+								</span>
+							) }
+							{ ! allInstalled && installedCount > 0 && (
+								<span className="inline-flex items-center gap-1 text-[11px] text-orange-700 bg-orange-50 px-2 py-0.5 rounded-full">
+									{ `${ installedCount }/${ BUNDLED_SKILLS.length }` }
+								</span>
+							) }
+						</div>
+						<div className="text-xs text-gray-500">
+							{ __( 'Plugins, blocks, themes, REST API, and WP-CLI skills' ) }
+						</div>
+					</div>
+					<div className="flex items-center gap-2 flex-shrink-0">
+						<Button
+							variant="secondary"
+							onClick={ () => handleInstall( allInstalled ) }
+							disabled={ installing }
+							className="text-xs py-1 px-2"
+						>
+							{ installing
+								? __( 'Installing...' )
+								: allInstalled
+								? __( 'Reinstall' )
+								: __( 'Install' ) }
+						</Button>
+					</div>
+				</div>
+			</div>
+		</div>
+	);
+}
+
 export function AiSettingsModal( { isOpen, onClose, siteId }: AiSettingsModalProps ) {
 	const { __ } = useI18n();
 
@@ -184,14 +291,14 @@ export function AiSettingsModal( { isOpen, onClose, siteId }: AiSettingsModalPro
 			size="medium"
 			className={ cx( 'min-h-[350px] app-no-drag-region', '[&_[role="document"]]:px-0' ) }
 		>
-			<TabPanel className="w-full" tabs={ tabs } orientation="horizontal">
-				{ ( { name } ) => (
-					<div className="mt-6 px-8 pb-4 flex flex-col gap-4">
-						{ name === 'skills' && <SkillsPanel siteId={ siteId } /> }
-						{ name === 'instructions' && <AgentInstructionsPanel siteId={ siteId } /> }
-					</div>
-				) }
-			</TabPanel>
+		<TabPanel className="w-full" tabs={ tabs } orientation="horizontal">
+			{ ( { name } ) => (
+				<div className="mt-6 px-8 pb-4 flex flex-col gap-4">
+					{ name === 'skills' && <WordPressSkillsPanel siteId={ siteId } /> }
+					{ name === 'instructions' && <AgentInstructionsPanel siteId={ siteId } /> }
+				</div>
+			) }
+		</TabPanel>
 		</Modal>
 	);
 }

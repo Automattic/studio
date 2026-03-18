@@ -1,5 +1,5 @@
-import { cacheFunctionTTL, clearCache } from '@studio/common/lib/cache-function-ttl';
 import { vi } from 'vitest';
+import { cacheFunctionTTL, clearCache } from '@studio/common/lib/cache-function-ttl';
 
 describe( 'cacheFunctionTTL', () => {
 	beforeEach( () => {

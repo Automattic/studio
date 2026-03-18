@@ -7,12 +7,12 @@ import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { siteDetailsSchema } from '@studio/common/lib/site-events';
 import { snapshotSchema } from '@studio/common/types/snapshot';
-import { StatsMetric } from '@studio/common/types/stats';
 import { __, sprintf } from '@wordpress/i18n';
 import { readFile, writeFile } from 'atomically';
 import { z } from 'zod';
 import { validateAccessToken } from 'cli/lib/api';
 import { LoggerError } from 'cli/logger';
+import type { AiProviderId } from 'cli/ai/providers';
 
 const siteSchema = siteDetailsSchema
 	.extend( {
@@ -24,12 +24,14 @@ const siteSchema = siteDetailsSchema
 	.loose();
 
 const betaFeaturesSchema = z.object( {} ).loose();
+const aiProviderSchema = z.enum( [ 'wpcom', 'anthropic-claude', 'anthropic-api-key' ] );
 
 const userDataSchema = z
 	.object( {
 		sites: z.array( siteSchema ).default( () => [] ),
 		snapshots: z.array( snapshotSchema ).default( () => [] ),
 		locale: z.string().optional(),
+		aiProvider: aiProviderSchema.optional(),
 		authToken: z
 			.object( {
 				accessToken: z.string().min( 1, __( 'Access token cannot be empty' ) ),
@@ -41,9 +43,7 @@ const userDataSchema = z
 			} )
 			.loose()
 			.optional(),
-		lastBumpStats: z
-			.record( z.string(), z.partialRecord( z.enum( StatsMetric ), z.number() ) )
-			.optional(),
+		lastBumpStats: z.record( z.string(), z.record( z.string(), z.number() ) ).optional(),
 		betaFeatures: betaFeaturesSchema.optional(),
 	} )
 	.loose();
@@ -251,11 +251,27 @@ export async function getAnthropicApiKey(): Promise< string | undefined > {
 	return userData.anthropicApiKey;
 }
 
+export async function getAiProvider(): Promise< AiProviderId | undefined > {
+	const userData = await readAppdata();
+	return userData.aiProvider;
+}
+
 export async function saveAnthropicApiKey( apiKey: string ): Promise< void > {
 	try {
 		await lockAppdata();
 		const userData = await readAppdata();
 		userData.anthropicApiKey = apiKey;
+		await saveAppdata( userData );
+	} finally {
+		await unlockAppdata();
+	}
+}
+
+export async function saveAiProvider( provider: AiProviderId ): Promise< void > {
+	try {
+		await lockAppdata();
+		const userData = await readAppdata();
+		userData.aiProvider = provider;
 		await saveAppdata( userData );
 	} finally {
 		await unlockAppdata();

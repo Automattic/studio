@@ -1,10 +1,14 @@
-import { MINIMUM_WORDPRESS_VERSION } from '@studio/common/constants';
+import {
+	DEFAULT_PHP_VERSION,
+	DEFAULT_WORDPRESS_VERSION,
+	MINIMUM_WORDPRESS_VERSION,
+} from '@studio/common/constants';
 import { extractFormValuesFromBlueprint } from '@studio/common/lib/blueprint-settings';
 import {
 	BlueprintPreferredVersions,
 	BlueprintValidationWarning,
 } from '@studio/common/lib/blueprint-validation';
-import { SupportedPHPVersionsList } from '@studio/common/types/php-versions';
+import { SupportedPHPVersion, SupportedPHPVersionsList } from '@studio/common/types/php-versions';
 import { speak } from '@wordpress/a11y';
 import { Navigator, useNavigator } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
@@ -16,12 +20,10 @@ import { useAddSite, CreateSiteFormValues } from 'src/hooks/use-add-site';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { AllowedPHPVersion } from 'src/lib/wordpress-server-types';
 import { useBlueprintDeeplink } from 'src/modules/add-site/hooks/use-blueprint-deeplink';
 import { SyncSite } from 'src/modules/sync/types';
 import { useRootSelector, useAppDispatch, useI18nLocale } from 'src/stores';
 import { formatRtkError } from 'src/stores/format-rtk-error';
-import { selectMinimumWordPressVersion } from 'src/stores/provider-constants-slice';
 import { openAddSiteModal, closeAddSiteModal, selectIsAddSiteModalOpen } from 'src/stores/ui-slice';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import { useGetBlueprints, Blueprint } from 'src/stores/wpcom-api';
@@ -45,7 +47,7 @@ interface NavigationContentProps {
 	defaultValues: {
 		siteName: string;
 		sitePath: string;
-		phpVersion: AllowedPHPVersion;
+		phpVersion: SupportedPHPVersion;
 		wpVersion: string;
 	};
 	onSelectPath: ( currentPath: string ) => Promise< {
@@ -305,7 +307,7 @@ function NavigationContent( props: NavigationContentProps ) {
 			blueprintPreferredVersions?.php &&
 			SupportedPHPVersionsList.includes( blueprintPreferredVersions.php )
 		) {
-			values.phpVersion = blueprintPreferredVersions.php as AllowedPHPVersion;
+			values.phpVersion = blueprintPreferredVersions.php;
 		}
 		if (
 			blueprintPreferredVersions?.wp &&
@@ -450,14 +452,10 @@ export function AddSiteModalContent( {
 	} = useGetBlueprints( { locale } );
 
 	const { sites, loadingSites } = useSiteDetails();
-	const minimumWordPressVersion = useRootSelector( selectMinimumWordPressVersion );
-
 	const {
 		handleCreateSite,
 		selectPath,
 		generateProposedPath,
-		defaultPhpVersion,
-		defaultWpVersion,
 		deeplinkPhpVersion,
 		deeplinkWpVersion,
 		fileForImport,
@@ -485,7 +483,7 @@ export function AddSiteModalContent( {
 	} = addSiteProps;
 
 	const { data: versions = [] } = useGetWordPressVersions( {
-		minimumVersion: minimumWordPressVersion,
+		minimumVersion: MINIMUM_WORDPRESS_VERSION,
 	} );
 	const latestStableVersion = versions.find( ( version ) => version.value === 'latest' );
 
@@ -538,16 +536,14 @@ export function AddSiteModalContent( {
 		() => ( {
 			siteName: defaultSiteName,
 			sitePath: defaultSitePath,
-			phpVersion: isDeeplinkFlow ? deeplinkPhpVersion : defaultPhpVersion,
+			phpVersion: isDeeplinkFlow ? deeplinkPhpVersion : DEFAULT_PHP_VERSION,
 			wpVersion: isDeeplinkFlow
 				? deeplinkWpVersion
-				: latestStableVersion?.value ?? defaultWpVersion,
+				: latestStableVersion?.value ?? DEFAULT_WORDPRESS_VERSION,
 		} ),
 		[
 			defaultSiteName,
 			defaultSitePath,
-			defaultPhpVersion,
-			defaultWpVersion,
 			deeplinkPhpVersion,
 			deeplinkWpVersion,
 			isDeeplinkFlow,

@@ -63,7 +63,11 @@ const getInitialState = (): SnapshotState => {
 	};
 };
 
-const createSnapshot = createAsyncThunk(
+const createTypedAsyncThunk = createAsyncThunk.withTypes< {
+	state: RootState;
+} >();
+
+const createSnapshot = createTypedAsyncThunk(
 	'snapshot/createSnapshot',
 	async ( { siteId, siteFolder }: { siteId: string; siteFolder: string } ) => {
 		const { operationId } = await getIpcApi().createSnapshot( siteFolder );
@@ -71,23 +75,20 @@ const createSnapshot = createAsyncThunk(
 	}
 );
 
-const updateSnapshot = createAsyncThunk(
-	'snapshot/updateSnapshot',
-	async (
-		{ atomicSiteId, siteFolder }: { atomicSiteId: number; siteFolder: string },
-		thunkAPI
-	) => {
-		const state = thunkAPI.getState() as RootState;
-		const found = state.snapshot.snapshots.find( ( snap ) => snap.atomicSiteId === atomicSiteId );
-		if ( ! found ) {
-			throw new Error( 'Snapshot not found' );
-		}
-		const { operationId } = await getIpcApi().updateSnapshot( siteFolder, found.url );
-		return { operationId };
+const updateSnapshot = createTypedAsyncThunk<
+	{ operationId: UUID },
+	{ atomicSiteId: number; siteFolder: string }
+>( 'snapshot/updateSnapshot', async ( { atomicSiteId, siteFolder }, thunkAPI ) => {
+	const state = thunkAPI.getState();
+	const found = state.snapshot.snapshots.find( ( snap ) => snap.atomicSiteId === atomicSiteId );
+	if ( ! found ) {
+		throw new Error( 'Snapshot not found' );
 	}
-);
+	const { operationId } = await getIpcApi().updateSnapshot( siteFolder, found.url );
+	return { operationId };
+} );
 
-const deleteSnapshot = createAsyncThunk(
+const deleteSnapshot = createTypedAsyncThunk(
 	'snapshot/deleteSnapshot',
 	async ( { hostname }: { hostname: string } ) => {
 		const { operationId } = await getIpcApi().deleteSnapshot( hostname );
@@ -106,29 +107,29 @@ async function deleteMultipleSnapshots(
 	);
 }
 
-const deleteAllSnapshotsForSite = createAsyncThunk(
-	'snapshot/deleteAllSnapshotsForSite',
-	async ( { siteId }: { siteId: string }, thunkAPI ) => {
-		const state = thunkAPI.getState() as RootState;
-		const snapshots = snapshotSelectors.selectSnapshotsBySite( state, siteId );
-		const operations = await deleteMultipleSnapshots( snapshots );
-		const bulkOperationId = window.crypto.randomUUID();
+const deleteAllSnapshotsForSite = createTypedAsyncThunk<
+	{ operations: [ url: string, operationId: UUID ][]; bulkOperationId: UUID },
+	{ siteId: string }
+>( 'snapshot/deleteAllSnapshotsForSite', async ( { siteId }, thunkAPI ) => {
+	const state = thunkAPI.getState();
+	const snapshots = snapshotSelectors.selectSnapshotsBySite( state, siteId );
+	const operations = await deleteMultipleSnapshots( snapshots );
+	const bulkOperationId = window.crypto.randomUUID();
 
-		return { operations, bulkOperationId };
-	}
-);
+	return { operations, bulkOperationId };
+} );
 
-const deleteAllSnapshotsForUser = createAsyncThunk(
-	'snapshot/deleteAllSnapshotsForUser',
-	async ( { userId }: { userId: number }, thunkAPI ) => {
-		const state = thunkAPI.getState() as RootState;
-		const snapshots = snapshotSelectors.selectSnapshotsByUser( state, userId );
-		const operations = await deleteMultipleSnapshots( snapshots );
-		const bulkOperationId = window.crypto.randomUUID();
+const deleteAllSnapshotsForUser = createTypedAsyncThunk<
+	{ operations: [ url: string, operationId: UUID ][]; bulkOperationId: UUID },
+	{ userId: number }
+>( 'snapshot/deleteAllSnapshotsForUser', async ( { userId }, thunkAPI ) => {
+	const state = thunkAPI.getState();
+	const snapshots = snapshotSelectors.selectSnapshotsByUser( state, userId );
+	const operations = await deleteMultipleSnapshots( snapshots );
+	const bulkOperationId = window.crypto.randomUUID();
 
-		return { operations, bulkOperationId };
-	}
-);
+	return { operations, bulkOperationId };
+} );
 
 export const updateSnapshotLocally = createAction< {
 	atomicSiteId: number;
@@ -343,6 +344,7 @@ function getOperation( operationId: UUID ) {
 
 function getAssociatedBulkOperation( targetOperationId: UUID ): [ UUID, BulkOperation ] | [] {
 	const state = store.getState();
+	// `Object.entries()` always returns a string type for the key, but we know the type is actually constrained to UUID
 	const entries = Object.entries( state.snapshot.operations ) as [ UUID, SnapshotOperation ][];
 
 	for ( const [ operationId, operation ] of entries ) {

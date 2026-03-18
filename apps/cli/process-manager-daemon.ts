@@ -1,4 +1,4 @@
-import { ChildProcess, fork } from 'child_process';
+import { ChildProcess, spawn } from 'child_process';
 import fs, { createWriteStream, WriteStream } from 'fs';
 import net from 'net';
 import path from 'path';
@@ -183,12 +183,11 @@ export class ProcessManagerDaemon {
 		const stderrStream = createWriteStream( stderrLogPath, { flags: 'a' } );
 		// Node.js >=24 supports the JSPI (JavaScript Promises Integration) API
 		const doesCurrentNodeSupportJspi = semver.gte( process.version, '24.0.0' );
-		const execArgv = doesCurrentNodeSupportJspi ? [ '--experimental-wasm-jspi' ] : undefined;
-		const child = fork( scriptPath, args, {
-			execPath: process.execPath,
-			execArgv,
+		const execArgv = doesCurrentNodeSupportJspi ? [ '--experimental-wasm-jspi' ] : [];
+		const child = spawn( process.execPath, [ ...execArgv, scriptPath, ...args ], {
 			env: { ...process.env, ...env },
-			silent: true,
+			stdio: [ 'ignore', 'pipe', 'pipe', 'ipc' ],
+			windowsHide: true,
 		} );
 
 		const managedProcess: ManagedProcessRunning = {

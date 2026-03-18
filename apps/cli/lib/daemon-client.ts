@@ -153,10 +153,11 @@ async function waitForDaemonReady() {
 }
 
 function spawnDaemonProcess() {
-	const daemonScriptPath = path.resolve( __dirname, 'process-manager-daemon.js' );
+	const daemonScriptPath = path.resolve( import.meta.dirname, 'process-manager-daemon.js' );
 	const daemonProcess = spawn( process.execPath, [ daemonScriptPath ], {
 		detached: true,
 		stdio: 'ignore',
+		windowsHide: true,
 	} );
 	daemonProcess.unref();
 }
@@ -271,7 +272,7 @@ export async function sendMessageToProcess(
 }
 
 export async function startProxyProcess(): Promise< ProcessDescription > {
-	const proxyDaemonPath = path.resolve( __dirname, 'proxy-daemon.js' );
+	const proxyDaemonPath = path.resolve( import.meta.dirname, 'proxy-daemon.js' );
 
 	return startProcess( PROXY_PROCESS_NAME, proxyDaemonPath );
 }

@@ -1,15 +1,20 @@
+import path from 'path';
 import { query, type Query } from '@anthropic-ai/claude-agent-sdk';
+import {
+	ALLOWED_TOOLS,
+	STUDIO_ROOT,
+	createPathApprovalSession,
+	promptForApproval,
+	type AskUserQuestion,
+} from 'cli/ai/security';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { createStudioTools } from 'cli/ai/tools';
 
-export interface AskUserQuestion {
-	question: string;
-	options: { label: string; description: string }[];
-}
+export type { AskUserQuestion } from 'cli/ai/security';
 
 export interface AiAgentConfig {
 	prompt: string;
-	apiKey?: string;
+	env?: Record< string, string >;
 	model?: AiModelId;
 	maxTurns?: number;
 	resume?: string;
@@ -24,25 +29,20 @@ export const AI_MODELS = {
 export type AiModelId = keyof typeof AI_MODELS;
 
 export const DEFAULT_MODEL: AiModelId = 'claude-sonnet-4-6';
+const pathApprovalSession = createPathApprovalSession();
 
 /**
  * Start the AI agent and return the Query object.
  * Caller can iterate messages with `for await` and call `interrupt()` to stop.
  */
 export function startAiAgent( config: AiAgentConfig ): Query {
-	const { prompt, apiKey, model = DEFAULT_MODEL, maxTurns = 50, resume, onAskUser } = config;
-
-	// If an API key is provided, pass it via env. Otherwise, let the SDK
-	// use Claude Code's existing authentication.
-	const env = { ...( process.env as Record< string, string > ) };
-	if ( apiKey ) {
-		env.ANTHROPIC_API_KEY = apiKey;
-	}
+	const { prompt, env, model = DEFAULT_MODEL, maxTurns = 50, resume, onAskUser } = config;
+	const resolvedEnv = env ?? { ...( process.env as Record< string, string > ) };
 
 	return query( {
 		prompt,
 		options: {
-			env,
+			env: resolvedEnv,
 			systemPrompt: {
 				type: 'preset',
 				preset: 'claude_code',
@@ -52,25 +52,36 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 				studio: createStudioTools(),
 			},
 			maxTurns,
-			cwd: process.cwd(),
-			permissionMode: 'bypassPermissions',
-			allowDangerouslySkipPermissions: true,
-			canUseTool: async ( toolName, input ) => {
+			cwd: STUDIO_ROOT,
+			tools: { type: 'preset', preset: 'claude_code' },
+			allowedTools: [ ...ALLOWED_TOOLS ],
+			permissionMode: 'default',
+			canUseTool: async ( toolName, input, metadata ) => {
 				if ( toolName === 'AskUserQuestion' && onAskUser ) {
 					const typedInput = input as {
 						questions?: AskUserQuestion[];
 						answers?: Record< string, string >;
 					};
-					const questions = typedInput.questions ?? [];
+					const questions = ( typedInput.questions ?? [] ).map( ( q ) => ( {
+						...q,
+						allowFreeForm: true,
+					} ) );
 					const answers = await onAskUser( questions );
 					return {
 						behavior: 'allow' as const,
 						updatedInput: { ...input, answers },
 					};
 				}
-				return { behavior: 'allow' as const, updatedInput: input };
+
+				return promptForApproval( {
+					toolName,
+					input,
+					metadata,
+					onAskUser,
+					pathApprovalSession,
+				} );
 			},
-			allowedTools: [ 'mcp__studio__*', 'Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep' ],
+			plugins: [ { type: 'local' as const, path: path.resolve( import.meta.dirname, 'plugin' ) } ],
 			model,
 			resume,
 		},

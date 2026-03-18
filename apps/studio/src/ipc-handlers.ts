@@ -18,7 +18,6 @@ import os from 'os';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
-import { bumpStat } from '@studio/common/lib/bump-stat';
 import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
 import {
 	calculateDirectorySizeForArchive,
@@ -37,26 +36,30 @@ import { portFinder } from '@studio/common/lib/port-finder';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import { Snapshot } from '@studio/common/types/snapshot';
-import { StatsGroup, StatsMetric } from '@studio/common/types/stats';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import { MACOS_TRAFFIC_LIGHT_POSITION, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
-import { getImporterMetric, getBlueprintMetric } from 'src/lib/bump-stats/lib';
+import {
+	bumpStat,
+	getImporterMetric,
+	getBlueprintMetric,
+	StatsGroup,
+	StatsMetric,
+} from 'src/lib/bump-stats';
 import {
 	openCertificate as openCertificateDialog,
 	isRootCATrusted,
 	trustRootCA,
 } from 'src/lib/certificate-manager';
 import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
-import { buildFeatureFlags } from 'src/lib/feature-flags';
+import { buildFeatureFlags, getFeatureFlagFromEnv } from 'src/lib/feature-flags';
 import { getImageData } from 'src/lib/get-image-data';
 import { exportBackup } from 'src/lib/import-export/export/export-manager';
 import { ExportOptions } from 'src/lib/import-export/export/types';
 import { ImportExportEventData } from 'src/lib/import-export/handle-events';
 import { defaultImporterOptions, importBackup } from 'src/lib/import-export/import/import-manager';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
-import { isInstalled } from 'src/lib/is-installed';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import * as oauthClient from 'src/lib/oauth';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
@@ -75,18 +78,17 @@ import {
 	installInstructionFile,
 	type InstructionFileStatus,
 } from 'src/modules/agent-instructions/lib/instructions';
-import { discoverSiteSkills } from 'src/modules/agent-skills/lib/skill-discovery';
 import {
-	installSkillFromGitHub,
-	listAvailableSkills as listAvailableSkillsLib,
-	removeSkill as removeSkillLib,
-} from 'src/modules/agent-skills/lib/skill-installer';
+	getSkillsStatus,
+	installAllSkills,
+	type SkillStatus,
+} from 'src/modules/agent-instructions/lib/skills';
 import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
 import { shouldExcludeFromSync, shouldLimitDepth } from 'src/modules/sync/lib/tree-utils';
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
-import { getUserTerminal } from 'src/modules/user-settings/lib/ipc-handlers';
+import { getUserEditor, getUserTerminal } from 'src/modules/user-settings/lib/ipc-handlers';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
 import { SiteServer, stopAllServers as triggerStopAllServers } from 'src/site-server';
 import { DEFAULT_SITE_PATH, getSiteThumbnailPath } from 'src/storage/paths';
@@ -98,7 +100,6 @@ import {
 	updateAppdata,
 } from 'src/storage/user-data';
 import { Blueprint } from 'src/stores/wpcom-api';
-import type { AvailableSkill, Skill } from 'src/modules/agent-skills/types';
 import type { RawDirectoryEntry } from 'src/modules/sync/types';
 import type { WpCliResult } from 'src/site-server';
 
@@ -122,7 +123,6 @@ export {
 	removeSyncBackup,
 	resumeSyncUpload,
 	updateConnectedWpcomSites,
-	updateSingleConnectedWpcomSite,
 } from 'src/modules/sync/lib/ipc-handlers';
 
 export {
@@ -172,47 +172,28 @@ export async function installAgentInstructions(
 	);
 }
 
-export async function getSiteSkills(
+export async function getWordPressSkillsStatus(
 	_event: IpcMainInvokeEvent,
 	siteId: string
-): Promise< Skill[] > {
+): Promise< SkillStatus[] > {
 	const server = SiteServer.get( siteId );
 	if ( ! server ) {
 		throw new Error( `Site not found: ${ siteId }` );
 	}
-	return discoverSiteSkills( server.details.path );
+	return getSkillsStatus( server.details.path );
 }
 
-export async function installSkill(
+export async function installWordPressSkills(
 	_event: IpcMainInvokeEvent,
 	siteId: string,
-	repo: string,
-	skillPath: string
-) {
-	const server = SiteServer.get( siteId );
-	if ( ! server ) {
-		throw new Error( `Site not found: ${ siteId }` );
-	}
-	return installSkillFromGitHub( server.details.path, repo, skillPath );
-}
-
-export async function removeSkill(
-	_event: IpcMainInvokeEvent,
-	siteId: string,
-	skillName: string
+	options?: { overwrite?: boolean }
 ): Promise< void > {
 	const server = SiteServer.get( siteId );
 	if ( ! server ) {
 		throw new Error( `Site not found: ${ siteId }` );
 	}
-	return removeSkillLib( server.details.path, skillName );
-}
-
-export async function listAvailableSkills(
-	_event: IpcMainInvokeEvent,
-	repo?: string
-): Promise< AvailableSkill[] > {
-	return listAvailableSkillsLib( repo );
+	const overwrite = options?.overwrite ?? false;
+	await installAllSkills( server.details.path, overwrite );
 }
 
 const DEBUG_LOG_MAX_LINES = 50;
@@ -386,6 +367,14 @@ export async function createSite(
 		// If the site is running after creation, fetch theme details and update thumbnail
 		if ( server.details.running ) {
 			void loadThemeDetails( event, server.details.id );
+		}
+
+		// Install agent instructions and WordPress skills into the new site
+		if ( getFeatureFlagFromEnv( 'enableAgentSuite' ) ) {
+			void installInstructionFile( path, 'agents', DEFAULT_AGENT_INSTRUCTIONS, false ).catch(
+				() => {}
+			);
+			void installAllSkills( path, false ).catch( () => {} );
 		}
 
 		return server.details;
@@ -1127,23 +1116,30 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 export async function openAppAtPath(
 	event: IpcMainInvokeEvent,
 	editorKey: SupportedEditor,
-	filePath: string
+	filePath: string,
+	otherFiles: string[] = []
 ): Promise< void > {
 	const platform = process.platform;
 	const editor = supportedEditorConfig[ editorKey ];
+	const allPaths = [ filePath, ...otherFiles ];
+	const quotedPaths = allPaths.map( ( p ) => `"${ p }"` ).join( ' ' );
 
 	if ( platform === 'darwin' ) {
-		return promiseExec( `open -b ${ editor.macOSBundleId } "${ filePath }"` );
+		const cmd = `open -b ${ editor.macOSBundleId } ${ quotedPaths }`;
+		return promiseExec( cmd );
 	}
 
 	if ( platform === 'win32' ) {
 		const editorPath = await winFindEditorPath( editorKey );
 		if ( ! editorPath ) {
-			// Fall back to using openURL if no editor path is found
-			return openURL( event, editor.url( filePath ) );
+			// Fall back to URL scheme for each path
+			for ( const p of allPaths ) {
+				openURL( event, editor.url( p ) );
+			}
+			return;
 		}
 
-		return promiseExec( `"${ editorPath }" "${ filePath }"` );
+		return promiseExec( `"${ editorPath }" ${ quotedPaths }` );
 	}
 
 	throw new Error( `Platform ${ platform } is not supported` );
@@ -1202,8 +1198,11 @@ export async function setupAppMenu(
 	await setupMenu( config );
 }
 
-export async function popupAppMenu( _event: IpcMainInvokeEvent ) {
-	await popupMenu();
+export async function popupAppMenu(
+	_event: IpcMainInvokeEvent,
+	position?: { x: number; y: number }
+) {
+	await popupMenu( position );
 }
 
 export async function promptWindowsSpeedUpSites(
@@ -1254,9 +1253,10 @@ export async function getAbsolutePathFromSite(
 
 /**
  * Opens a file in the IDE with the site context.
+ * Uses the user's preferred editor, falling back to the first installed editor.
  */
 export async function openFileInIDE(
-	_event: IpcMainInvokeEvent,
+	event: IpcMainInvokeEvent,
 	relativePath: string,
 	siteId: string
 ) {
@@ -1265,19 +1265,28 @@ export async function openFileInIDE(
 		throw new Error( 'Site not found.' );
 	}
 
-	const path = await getAbsolutePathFromSite( _event, siteId, relativePath );
-	if ( ! path ) {
+	const filepath = await getAbsolutePathFromSite( event, siteId, relativePath );
+	if ( ! filepath ) {
 		return;
 	}
 
-	if ( isInstalled( 'vscode' ) ) {
-		// Open site first to ensure the file is opened within the site context
-		await shellOpenExternalWrapper( `vscode://file/${ server.details.path }?windowId=_blank` );
-		await shellOpenExternalWrapper( `vscode://file/${ path }` );
-	} else if ( isInstalled( 'phpstorm' ) ) {
-		// Open site first to ensure the file is opened within the site context
-		await shellOpenExternalWrapper( `phpstorm://open?file=${ path }` );
+	const editorKey = await getUserEditor();
+	if ( ! editorKey ) {
+		return;
 	}
+
+	const openSingleFileExceptions = [ { platform: 'darwin', editorKey: 'phpstorm' } ];
+
+	if (
+		openSingleFileExceptions.some(
+			( f ) => f.platform === process.platform && f.editorKey === editorKey
+		)
+	) {
+		await openAppAtPath( event, editorKey, filepath );
+		return;
+	}
+	// Open site folder and file in a single call
+	await openAppAtPath( event, editorKey, server.details.path, [ filepath ] );
 }
 
 export async function isImportExportSupported( _event: IpcMainInvokeEvent, siteId: string ) {

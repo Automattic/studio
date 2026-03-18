@@ -269,8 +269,9 @@ async function getBaseRunCLIArgs(
 				vfsPath: '/tools/phpmyadmin',
 			} );
 			logToConsole( 'Mounting bundled phpMyAdmin' );
+		} else {
+			logToConsole( 'Bundled phpMyAdmin not found, falling back to Playground download' );
 		}
-		logToConsole( 'Enabling phpMyAdmin support' );
 		args.phpmyadmin = true;
 	}
 

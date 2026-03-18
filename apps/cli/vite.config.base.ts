@@ -22,14 +22,13 @@ export const baseConfig = defineConfig( {
 				'wordpress-server-child': resolve( __dirname, 'wordpress-server-child.ts' ),
 			},
 			name: 'StudioCLI',
-			formats: [ 'cjs' ],
+			formats: [ 'es' ],
 		},
 		outDir: 'dist/cli',
 		target: 'node22',
 		rollupOptions: {
 			output: {
-				format: 'cjs',
-				interop: 'auto',
+				format: 'es',
 				entryFileNames: '[name].js',
 			},
 			external: ( id ) => {

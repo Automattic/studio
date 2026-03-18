@@ -3,6 +3,8 @@ import path from 'path';
 import { pathExists, recursiveCopyDirectory } from './fs-utils';
 import { isErrnoException } from './is-errno-exception';
 
+const STUDIO_MD_FILENAME = 'STUDIO.md';
+
 /**
  * Install all bundled AI instructions and skills from a source directory into a site.
  *
@@ -27,16 +29,19 @@ export async function installAiInstructionsToSite(
 
 	const entries = await fs.readdir( bundledPath, { withFileTypes: true } );
 
+	const tasks: Promise< void >[] = [];
 	for ( const entry of entries ) {
 		if ( entry.isFile() && entry.name.endsWith( '.md' ) ) {
-			await installInstructionFile( sitePath, bundledPath, entry.name, overwrite );
+			tasks.push( installInstructionFile( sitePath, bundledPath, entry.name, overwrite ) );
 		} else if ( entry.isDirectory() ) {
-			try {
-				await installSkillToSite( sitePath, bundledPath, entry.name, overwrite );
-			} catch {
-				// Continue installing remaining skills if one fails
-				console.error( `[ai-skills] Failed to install skill ${ entry.name }` );
-			}
+			tasks.push( installSkillToSite( sitePath, bundledPath, entry.name, overwrite ) );
+		}
+	}
+
+	const results = await Promise.allSettled( tasks );
+	for ( const result of results ) {
+		if ( result.status === 'rejected' ) {
+			console.error( '[ai-skills] Failed to install:', result.reason );
 		}
 	}
 }
@@ -49,9 +54,8 @@ export async function updateStudioMdIfExists(
 	sitePath: string,
 	bundledPath: string
 ): Promise< void > {
-	const fileName = 'STUDIO.md';
-	const dest = path.join( sitePath, fileName );
-	const src = path.join( bundledPath, fileName );
+	const dest = path.join( sitePath, STUDIO_MD_FILENAME );
+	const src = path.join( bundledPath, STUDIO_MD_FILENAME );
 
 	if ( ! ( await pathExists( dest ) ) || ! ( await pathExists( src ) ) ) {
 		return;
@@ -80,6 +84,10 @@ export async function installSkillToSite(
 	overwrite: boolean
 ): Promise< void > {
 	const src = path.join( bundledPath, skillId );
+	if ( ! ( await pathExists( src ) ) ) {
+		return;
+	}
+
 	const agentsSkillPath = path.join( sitePath, '.agents', 'skills', skillId );
 	const claudeSkillPath = path.join( sitePath, '.claude', 'skills', skillId );
 
@@ -104,12 +112,10 @@ async function ensureSkillSymlink(
 	await fs.mkdir( path.join( sitePath, '.claude', 'skills' ), { recursive: true } );
 	const relativePath = path.relative( path.join( sitePath, '.claude', 'skills' ), agentsSkillPath );
 
-	const symlinkExists = await pathExists( claudeSkillPath );
-	if ( symlinkExists && ! overwrite ) {
-		return;
-	}
-	if ( symlinkExists && overwrite ) {
+	if ( overwrite ) {
 		await fs.rm( claudeSkillPath, { recursive: true, force: true } );
+	} else if ( await pathExists( claudeSkillPath ) ) {
+		return;
 	}
 
 	try {

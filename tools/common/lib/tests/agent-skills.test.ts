@@ -84,7 +84,7 @@ describe( 'installAiInstructionsToSite', () => {
 
 	it( 'installs directories as skills with symlinks', async () => {
 		vi.mocked( pathExists ).mockImplementation( async ( p: string ) => {
-			if ( p === BUNDLED_PATH ) {
+			if ( p === BUNDLED_PATH || p === path.join( BUNDLED_PATH, 'studio-cli' ) ) {
 				return true;
 			}
 			return false;
@@ -141,7 +141,7 @@ describe( 'installAiInstructionsToSite', () => {
 
 	it( 'handles both .md files and skill directories in one pass', async () => {
 		vi.mocked( pathExists ).mockImplementation( async ( p: string ) => {
-			if ( p === BUNDLED_PATH ) {
+			if ( p === BUNDLED_PATH || p === path.join( BUNDLED_PATH, 'studio-cli' ) ) {
 				return true;
 			}
 			return false;
@@ -182,7 +182,7 @@ describe( 'installAiInstructionsToSite', () => {
 
 	it( 'installs multiple skills with correct paths and symlinks', async () => {
 		vi.mocked( pathExists ).mockImplementation( async ( p: string ) => {
-			if ( p === BUNDLED_PATH ) {
+			if ( p === BUNDLED_PATH || p.startsWith( BUNDLED_PATH + path.sep ) ) {
 				return true;
 			}
 			return false;
@@ -224,7 +224,7 @@ describe( 'installAiInstructionsToSite', () => {
 
 	it( 'continues installing remaining skills when one fails', async () => {
 		vi.mocked( pathExists ).mockImplementation( async ( p: string ) => {
-			if ( p === BUNDLED_PATH ) {
+			if ( p === BUNDLED_PATH || p.startsWith( BUNDLED_PATH + path.sep ) ) {
 				return true;
 			}
 			return false;
@@ -249,7 +249,7 @@ describe( 'installAiInstructionsToSite', () => {
 		Object.defineProperty( process, 'platform', { value: 'win32' } );
 
 		vi.mocked( pathExists ).mockImplementation( async ( p: string ) => {
-			if ( p === BUNDLED_PATH ) {
+			if ( p === BUNDLED_PATH || p.startsWith( BUNDLED_PATH + path.sep ) ) {
 				return true;
 			}
 			return false;

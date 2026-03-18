@@ -1,4 +1,3 @@
-import fs from 'fs/promises';
 import path from 'path';
 import { vi } from 'vitest';
 import {
@@ -6,10 +5,14 @@ import {
 	getInstructionFileStatus,
 	getAllInstructionFilesStatus,
 } from 'src/modules/agent-instructions/lib/instructions';
+import { pathExists } from '@studio/common/lib/fs-utils';
+
+vi.mock( '@studio/common/lib/fs-utils', () => ( {
+	pathExists: vi.fn(),
+} ) );
 
 vi.mock( 'fs/promises', () => ( {
 	default: {
-		access: vi.fn(),
 		readFile: vi.fn(),
 	},
 } ) );
@@ -39,8 +42,8 @@ describe( 'getInstructionFileStatus', () => {
 		vi.clearAllMocks();
 	} );
 
-	it( 'returns exists: false when file is not accessible', async () => {
-		vi.mocked( fs.access ).mockRejectedValue( new Error( 'ENOENT' ) );
+	it( 'returns exists: false when file does not exist', async () => {
+		vi.mocked( pathExists ).mockResolvedValue( false );
 
 		const status = await getInstructionFileStatus( SITE_PATH, 'agents' );
 
@@ -50,9 +53,8 @@ describe( 'getInstructionFileStatus', () => {
 		expect( status.path ).toBe( path.join( SITE_PATH, 'AGENTS.md' ) );
 	} );
 
-	it( 'returns exists: true when file is accessible', async () => {
-		vi.mocked( fs.access ).mockResolvedValue( undefined );
-		vi.mocked( fs.readFile ).mockResolvedValue( 'file content' );
+	it( 'returns exists: true when file exists', async () => {
+		vi.mocked( pathExists ).mockResolvedValue( true );
 
 		const status = await getInstructionFileStatus( SITE_PATH, 'agents' );
 
@@ -66,7 +68,7 @@ describe( 'getAllInstructionFilesStatus', () => {
 	} );
 
 	it( 'returns status for all instruction file types', async () => {
-		vi.mocked( fs.access ).mockRejectedValue( new Error( 'ENOENT' ) );
+		vi.mocked( pathExists ).mockResolvedValue( false );
 
 		const statuses = await getAllInstructionFilesStatus( SITE_PATH );
 

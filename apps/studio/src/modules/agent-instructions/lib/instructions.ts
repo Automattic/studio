@@ -36,27 +36,13 @@ export async function getInstructionFileStatus(
 	const config = INSTRUCTION_FILES[ fileType ];
 	const filePath = getInstructionFilePath( sitePath, fileType );
 
-	try {
-		await fs.access( filePath );
+	const exists = await pathExists( filePath );
 
-		return {
-			id: config.id,
-			fileName: config.fileName,
-			displayName: config.displayName,
-			description: config.description,
-			exists: true,
-			path: filePath,
-		};
-	} catch {
-		return {
-			id: config.id,
-			fileName: config.fileName,
-			displayName: config.displayName,
-			description: config.description,
-			exists: false,
-			path: filePath,
-		};
-	}
+	return {
+		...config,
+		exists,
+		path: filePath,
+	};
 }
 
 export async function getAllInstructionFilesStatus(

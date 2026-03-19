@@ -38,7 +38,8 @@ import {
 } from 'cli/lib/types/wordpress-server-ipc';
 
 let server: RunCLIServer | null = null;
-let startingPromise: Promise< void > | null = null;
+let startingPromise: Promise< void > = Promise.resolve();
+let startupAbortController: AbortController | null = null;
 let lastCliArgs: Record< string, unknown > | null = null;
 
 // Intercept and prefix all console output from playground-cli
@@ -264,67 +265,83 @@ async function getBaseRunCLIArgs(
 	return args;
 }
 
-async function startServer( config: ServerConfig, signal: AbortSignal ): Promise< void > {
-	if ( server ) {
-		logToConsole( `Server already running for site ${ config.siteId }` );
-		return;
-	}
-
-	if ( startingPromise ) {
-		logToConsole( `Server startup already in progress for site ${ config.siteId }, waiting…` );
-		await startingPromise;
-		return;
-	}
-
-	signal.addEventListener(
-		'abort',
-		() => {
-			errorToConsole( `Failed to start server: Operation aborted` );
-			throw new Error( 'Operation aborted' );
-		},
-		{ once: true }
-	);
-
-	startingPromise = ( async () => {
-		const args = await getBaseRunCLIArgs( 'server', config );
-		server = await runCLI( args );
-
-		if ( config.adminPassword || config.adminUsername || config.adminEmail ) {
-			await setAdminCredentials(
-				server,
-				config.adminPassword,
-				config.adminUsername,
-				config.adminEmail
-			);
-		}
-	} )();
-
-	try {
-		await startingPromise;
-	} catch ( error ) {
-		server = null;
-		errorToConsole( `Failed to start server:`, error );
-		throw error;
-	} finally {
-		startingPromise = null;
-	}
+function wrapWithStartingPromise< Args extends unknown[], Return extends void >(
+	callback: ( ...args: Args ) => Promise< Return >
+) {
+	return async ( ...args: Args ) => {
+		// Intentionally don't recover from errors, because we want the process to die if `startServer` fails
+		const promise = startingPromise.then( () => callback( ...args ) );
+		startingPromise = promise;
+		return await promise;
+	};
 }
+
+const startServer = wrapWithStartingPromise(
+	async ( config: ServerConfig, signal: AbortSignal ): Promise< void > => {
+		if ( server ) {
+			logToConsole( `Server already running for site ${ config.siteId }` );
+			return;
+		}
+
+		startupAbortController = new AbortController();
+		const stopSignal = AbortSignal.any( [ signal, startupAbortController.signal ] );
+
+		try {
+			stopSignal.throwIfAborted();
+
+			const args = await getBaseRunCLIArgs( 'server', config );
+			server = await runCLI( args );
+
+			stopSignal.throwIfAborted();
+
+			if ( config.adminPassword || config.adminUsername || config.adminEmail ) {
+				await setAdminCredentials(
+					server,
+					config.adminPassword,
+					config.adminUsername,
+					config.adminEmail
+				);
+			}
+
+			stopSignal.throwIfAborted();
+		} catch ( error ) {
+			if ( server ) {
+				await server[ Symbol.asyncDispose ]();
+				server = null;
+			}
+
+			if ( stopSignal.aborted ) {
+				logToConsole( `Aborted start server operation:`, error );
+			} else {
+				errorToConsole( `Failed to start server:`, error );
+				throw error;
+			}
+		} finally {
+			startupAbortController = null;
+		}
+	}
+);
 
 const STOP_SERVER_TIMEOUT = 5000;
 
-async function stopServer(): Promise< void > {
-	if ( startingPromise ) {
-		logToConsole( 'Server startup in progress, waiting before stop' );
-		try {
-			await startingPromise;
-		} catch ( error ) {
-			errorToConsole( 'Startup failed while waiting to stop server:', error );
-		}
+enum StopServerResult {
+	ABORTED_STARTUP,
+	ALREADY_STOPPED,
+	STOPPED,
+	ERROR,
+}
+
+async function stopServer(): Promise< StopServerResult > {
+	// If there's a startup in progress, abort and return gracefully
+	if ( startupAbortController ) {
+		logToConsole( 'Startup operation in progress. Aborting it to stop the server…' );
+		startupAbortController.abort();
+		return StopServerResult.ABORTED_STARTUP;
 	}
 
 	if ( ! server ) {
 		logToConsole( 'No server running, nothing to stop' );
-		return;
+		return StopServerResult.ALREADY_STOPPED;
 	}
 
 	try {
@@ -334,8 +351,10 @@ async function stopServer(): Promise< void > {
 
 		await Promise.race( [ server[ Symbol.asyncDispose ](), disposalTimeout ] );
 		logToConsole( 'Server stopped gracefully' );
+		return StopServerResult.STOPPED;
 	} catch ( error ) {
 		errorToConsole( 'Error during server disposal:', error );
+		return StopServerResult.ERROR;
 	} finally {
 		server = null;
 	}
@@ -343,16 +362,12 @@ async function stopServer(): Promise< void > {
 
 async function runBlueprint( config: ServerConfig, signal: AbortSignal ): Promise< void > {
 	try {
-		signal.addEventListener(
-			'abort',
-			() => {
-				throw new Error( 'Operation aborted' );
-			},
-			{ once: true }
-		);
+		signal.throwIfAborted();
 
 		const args = await getBaseRunCLIArgs( 'run-blueprint', config );
 		await runCLI( args );
+
+		signal.throwIfAborted();
 
 		logToConsole( `Blueprint applied successfully for site ${ config.siteId }` );
 	} catch ( error ) {
@@ -503,6 +518,10 @@ async function ipcMessageHandler( packet: unknown ) {
 			result,
 		};
 		process.send!( response );
+
+		if ( validMessage.topic === 'stop-server' && result === StopServerResult.ERROR ) {
+			process.exit( 1 );
+		}
 	} catch ( error ) {
 		errorToConsole( `Error handling message ${ validMessage.topic }:`, error );
 		sendErrorMessage( validMessage.messageId, error );

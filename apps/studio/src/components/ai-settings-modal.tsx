@@ -291,14 +291,14 @@ export function AiSettingsModal( { isOpen, onClose, siteId }: AiSettingsModalPro
 			size="medium"
 			className={ cx( 'min-h-[350px] app-no-drag-region', '[&_[role="document"]]:px-0' ) }
 		>
-		<TabPanel className="w-full" tabs={ tabs } orientation="horizontal">
-			{ ( { name } ) => (
-				<div className="mt-6 px-8 pb-4 flex flex-col gap-4">
-					{ name === 'skills' && <WordPressSkillsPanel siteId={ siteId } /> }
-					{ name === 'instructions' && <AgentInstructionsPanel siteId={ siteId } /> }
-				</div>
-			) }
-		</TabPanel>
+			<TabPanel className="w-full" tabs={ tabs } orientation="horizontal">
+				{ ( { name } ) => (
+					<div className="mt-6 px-8 pb-4 flex flex-col gap-4">
+						{ name === 'skills' && <WordPressSkillsPanel siteId={ siteId } /> }
+						{ name === 'instructions' && <AgentInstructionsPanel siteId={ siteId } /> }
+					</div>
+				) }
+			</TabPanel>
 		</Modal>
 	);
 }

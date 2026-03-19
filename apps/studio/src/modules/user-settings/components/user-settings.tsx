@@ -3,6 +3,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useMemo, useState } from 'react';
 import Modal from 'src/components/modal';
 import { useAuth } from 'src/hooks/use-auth';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
@@ -16,6 +17,7 @@ import { useDeleteAllSnapshots, useGetSnapshotUsage } from 'src/stores/wpcom-api
 
 export default function UserSettings() {
 	const { __ } = useI18n();
+	const { enableAgentSuite } = useFeatureFlags();
 	const { user } = useAuth();
 	const snapshotsByUser = useRootSelector( ( state ) =>
 		snapshotSelectors.selectSnapshotsByUser( state, user?.id ?? 0 )
@@ -70,19 +72,28 @@ export default function UserSettings() {
 		}
 	}, [ __, deleteAllSnapshots ] );
 
-	const tabs = useMemo(
-		(): UserSettingsTab[] => [
+	const tabs = useMemo( () => {
+		const result: UserSettingsTab[] = [
 			{
 				name: 'general',
 				title: __( 'General' ),
 			},
-			{
-				name: 'account',
-				title: __( 'Account' ),
-			},
-		],
-		[ __ ]
-	);
+		];
+
+		if ( enableAgentSuite ) {
+			result.push( {
+				name: 'skills',
+				title: __( 'Skills' ),
+			} );
+		}
+
+		result.push( {
+			name: 'account',
+			title: __( 'Account' ),
+		} );
+
+		return result;
+	}, [ __, enableAgentSuite ] );
 
 	return (
 		<>
@@ -106,6 +117,7 @@ export default function UserSettings() {
 						{ ( { name } ) => (
 							<div className="mt-6 px-8 flex gap-4 flex-col">
 								{ name === 'general' && <PreferencesTab onClose={ resetLocalState } /> }
+								{ name === 'skills' && <p> Skills Tab </p> }
 								{ name === 'account' && (
 									<AccountTab
 										loadingDeletingAllSnapshots={ isDeletingAllSnapshots }

@@ -448,15 +448,19 @@ function parsePhpError( error: unknown ): string {
 	return message;
 }
 
-function sendErrorMessage( messageId: string, error: unknown ) {
-	const errorResponse: ChildMessageRaw = {
-		originalMessageId: messageId,
-		topic: 'error',
-		errorMessage: parsePhpError( error ),
-		errorStack: error instanceof Error ? error.stack : undefined,
-		cliArgs: lastCliArgs ?? undefined,
-	};
-	process.send!( errorResponse );
+function sendErrorMessage( messageId: string, error: unknown ): Promise< void > {
+	return new Promise( ( resolve ) => {
+		const errorResponse: ChildMessageRaw = {
+			originalMessageId: messageId,
+			topic: 'error',
+			errorMessage: parsePhpError( error ),
+			errorStack: error instanceof Error ? error.stack : undefined,
+			cliArgs: lastCliArgs ?? undefined,
+		};
+		process.send!( errorResponse, () => {
+			resolve();
+		} );
+	} );
 }
 
 const abortControllers: Record< string, AbortController > = {};
@@ -470,7 +474,7 @@ async function ipcMessageHandler( packet: unknown ) {
 		const minimalMessageSchema = z.object( { id: z.string() } );
 		const minimalMessage = minimalMessageSchema.safeParse( packet );
 		if ( minimalMessage.success ) {
-			sendErrorMessage( minimalMessage.data.id, messageResult.error );
+			await sendErrorMessage( minimalMessage.data.id, messageResult.error );
 		}
 		return;
 	}
@@ -504,7 +508,7 @@ async function ipcMessageHandler( packet: unknown ) {
 					result = await runWpCliCommand( validMessage.data.args, abortController.signal );
 				} catch ( wpCliError ) {
 					errorToConsole( `WP-CLI error:`, wpCliError );
-					sendErrorMessage( validMessage.messageId, wpCliError );
+					await sendErrorMessage( validMessage.messageId, wpCliError );
 					return; // Don't crash, just return error to caller
 				}
 				break;
@@ -520,7 +524,7 @@ async function ipcMessageHandler( packet: unknown ) {
 		process.send!( response );
 	} catch ( error ) {
 		errorToConsole( `Error handling message ${ validMessage.topic }:`, error );
-		sendErrorMessage( validMessage.messageId, error );
+		await sendErrorMessage( validMessage.messageId, error );
 		process.exit( 1 );
 	} finally {
 		delete abortControllers[ validMessage.messageId ];

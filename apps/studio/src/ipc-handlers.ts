@@ -82,6 +82,7 @@ import {
 	getSkillsStatus,
 	installAllSkills,
 	installSkillById,
+	removeSkillById,
 	type SkillStatus,
 } from 'src/modules/agent-instructions/lib/skills';
 import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
@@ -209,6 +210,18 @@ export async function installWordPressSkillById(
 	}
 	const overwrite = options?.overwrite ?? false;
 	await installSkillById( server.details.path, skillId, overwrite );
+}
+
+export async function removeWordPressSkillById(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	skillId: string
+): Promise< void > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( `Site not found: ${ siteId }` );
+	}
+	await removeSkillById( server.details.path, skillId );
 }
 
 const DEBUG_LOG_MAX_LINES = 50;

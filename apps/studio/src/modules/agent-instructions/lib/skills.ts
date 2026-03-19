@@ -1,6 +1,10 @@
 import fs from 'fs/promises';
 import nodePath from 'path';
-import { installSkillsToSite, installSkillToSite } from '@studio/common/lib/agent-skills';
+import {
+	installSkillsToSite,
+	installSkillToSite,
+	removeSkillFromSite,
+} from '@studio/common/lib/agent-skills';
 import { getAgentSkillsPath } from 'src/lib/server-files-paths';
 import { BUNDLED_SKILLS, type SkillStatus } from './skills-constants';
 
@@ -39,4 +43,8 @@ export async function installSkillById(
 	overwrite: boolean = false
 ): Promise< void > {
 	await installSkillToSite( sitePath, getBundledSkillsPath(), skillId, overwrite );
+}
+
+export async function removeSkillById( sitePath: string, skillId: string ): Promise< void > {
+	await removeSkillFromSite( sitePath, skillId );
 }

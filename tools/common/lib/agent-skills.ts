@@ -16,6 +16,13 @@ export type BundledSkillId = ( typeof BUNDLED_SKILL_IDS )[ number ];
  * Install all bundled agent skills from a source directory into a site's
  * `.agents/skills/` directory, with symlinks at `.claude/skills/`.
  */
+export async function removeSkillFromSite( sitePath: string, skillId: string ): Promise< void > {
+	const agentsSkillPath = path.join( sitePath, '.agents', 'skills', skillId );
+	const claudeSkillPath = path.join( sitePath, '.claude', 'skills', skillId );
+	await fs.rm( agentsSkillPath, { recursive: true, force: true } );
+	await fs.rm( claudeSkillPath, { recursive: true, force: true } );
+}
+
 export async function installSkillsToSite(
 	sitePath: string,
 	bundledSkillsPath: string,

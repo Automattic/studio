@@ -164,6 +164,8 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'installWordPressSkills', siteId, options ),
 	installWordPressSkillById: ( siteId, skillId, options ) =>
 		ipcRendererInvoke( 'installWordPressSkillById', siteId, skillId, options ),
+	removeWordPressSkillById: ( siteId, skillId ) =>
+		ipcRendererInvoke( 'removeWordPressSkillById', siteId, skillId ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

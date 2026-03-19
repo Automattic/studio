@@ -169,6 +169,7 @@ function WordPressSkillsPanel( { siteId }: { siteId: string } ) {
 	const [ statuses, setStatuses ] = useState< SkillStatus[] >( [] );
 	const [ error, setError ] = useState< string | null >( null );
 	const [ installingSkillId, setInstallingSkillId ] = useState< string | null >( null );
+	const [ removingSkillId, setRemovingSkillId ] = useState< string | null >( null );
 
 	const refreshStatus = useCallback( async () => {
 		try {
@@ -205,6 +206,23 @@ function WordPressSkillsPanel( { siteId }: { siteId: string } ) {
 		[ siteId, refreshStatus ]
 	);
 
+	const handleRemoveSkill = useCallback(
+		async ( skillId: string ) => {
+			setRemovingSkillId( skillId );
+			setError( null );
+			try {
+				await getIpcApi().removeWordPressSkillById( siteId, skillId );
+				await refreshStatus();
+			} catch ( err ) {
+				const errorMessage = err instanceof Error ? err.message : String( err );
+				setError( errorMessage );
+			} finally {
+				setRemovingSkillId( null );
+			}
+		},
+		[ siteId, refreshStatus ]
+	);
+
 	const handleInstallAll = useCallback( async () => {
 		setInstallingSkillId( 'all' );
 		setError( null );
@@ -234,7 +252,7 @@ function WordPressSkillsPanel( { siteId }: { siteId: string } ) {
 					<Button
 						variant="link"
 						onClick={ handleInstallAll }
-						disabled={ installingSkillId !== null }
+						disabled={ installingSkillId !== null || removingSkillId !== null }
 						className="text-sm"
 					>
 						{ installingSkillId === 'all' ? __( 'Installing...' ) : __( 'Install All' ) }
@@ -270,15 +288,25 @@ function WordPressSkillsPanel( { siteId }: { siteId: string } ) {
 							</div>
 							<div className="flex items-center gap-2 flex-shrink-0">
 								{ skill.installed ? (
-									<Button
-										variant="link"
-										onClick={ () =>
-											getIpcApi().openFileInIDE( `.agents/skills/${ skill.id }/SKILL.md`, siteId )
-										}
-										className="text-xs"
-									>
-										{ __( 'Open' ) }
-									</Button>
+									<>
+										<Button
+											variant="link"
+											onClick={ () =>
+												getIpcApi().openFileInIDE( `.agents/skills/${ skill.id }/SKILL.md`, siteId )
+											}
+											className="text-xs"
+										>
+											{ __( 'Open' ) }
+										</Button>
+										<Button
+											variant="link"
+											onClick={ () => handleRemoveSkill( skill.id ) }
+											disabled={ removingSkillId !== null }
+											className="text-xs !text-a8c-red-50"
+										>
+											{ removingSkillId === skill.id ? __( 'Removing...' ) : __( 'Remove' ) }
+										</Button>
+									</>
 								) : (
 									<Button
 										variant="secondary"

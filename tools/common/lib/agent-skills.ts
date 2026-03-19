@@ -3,18 +3,22 @@ import path from 'path';
 import { pathExists, recursiveCopyDirectory } from './fs-utils';
 import { isErrnoException } from './is-errno-exception';
 
-const STUDIO_MD_FILENAME = 'STUDIO.md';
+/**
+ * Managed instruction files that are always kept up-to-date on server start.
+ * These are overwritten with the bundled version whenever they already exist in a site.
+ */
+const MANAGED_INSTRUCTION_FILES = [ 'STUDIO.md', 'CLAUDE.md' ];
 
 /**
  * Install all bundled AI instructions and skills from a source directory into a site.
  *
  * Source directory layout (flat):
- *   AGENTS.md, STUDIO.md            — loose .md files copied to site root
+ *   AGENTS.md, CLAUDE.md, STUDIO.md — loose .md files copied to site root
  *   studio-cli/SKILL.md             — directories are skills, installed to .agents/skills/
  *   wp-plugin-development/SKILL.md
  *
  * Site directory layout after install:
- *   AGENTS.md, STUDIO.md
+ *   AGENTS.md, CLAUDE.md, STUDIO.md
  *   .agents/skills/<id>/SKILL.md
  *   .claude/skills/<id> -> ../../.agents/skills/<id>
  */
@@ -47,21 +51,23 @@ export async function installAiInstructionsToSite(
 }
 
 /**
- * Update STUDIO.md in a site if it already exists, replacing it with the bundled version.
- * This is called on server start to keep Studio-managed instructions current.
+ * Update managed instruction files in a site if they already exist, replacing them
+ * with the bundled version. Called on server start to keep Studio-managed instructions current.
  */
-export async function updateStudioMdIfExists(
+export async function updateManagedInstructionFiles(
 	sitePath: string,
 	bundledPath: string
 ): Promise< void > {
-	const dest = path.join( sitePath, STUDIO_MD_FILENAME );
-	const src = path.join( bundledPath, STUDIO_MD_FILENAME );
+	for ( const fileName of MANAGED_INSTRUCTION_FILES ) {
+		const dest = path.join( sitePath, fileName );
+		const src = path.join( bundledPath, fileName );
 
-	if ( ! ( await pathExists( dest ) ) || ! ( await pathExists( src ) ) ) {
-		return;
+		if ( ! ( await pathExists( dest ) ) || ! ( await pathExists( src ) ) ) {
+			continue;
+		}
+
+		await fs.copyFile( src, dest );
 	}
-
-	await fs.copyFile( src, dest );
 }
 
 async function installInstructionFile(

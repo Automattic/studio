@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { vi } from 'vitest';
-import { installAiInstructionsToSite } from '../agent-skills';
+import { installAiInstructionsToSite, updateManagedInstructionFiles } from '../agent-skills';
 import { pathExists, recursiveCopyDirectory } from '../fs-utils';
 
 vi.mock( 'fs/promises', () => ( {
@@ -285,5 +285,75 @@ describe( 'installAiInstructionsToSite', () => {
 		);
 
 		Object.defineProperty( process, 'platform', { value: originalPlatform } );
+	} );
+} );
+
+describe( 'updateManagedInstructionFiles', () => {
+	beforeEach( () => {
+		vi.clearAllMocks();
+		vi.mocked( pathExists ).mockResolvedValue( false );
+		vi.mocked( fs.copyFile ).mockResolvedValue( undefined );
+	} );
+
+	it( 'updates STUDIO.md and CLAUDE.md when both exist in the site', async () => {
+		vi.mocked( pathExists ).mockResolvedValue( true );
+
+		await updateManagedInstructionFiles( SITE_PATH, BUNDLED_PATH );
+
+		expect( fs.copyFile ).toHaveBeenCalledWith(
+			path.join( BUNDLED_PATH, 'STUDIO.md' ),
+			path.join( SITE_PATH, 'STUDIO.md' )
+		);
+		expect( fs.copyFile ).toHaveBeenCalledWith(
+			path.join( BUNDLED_PATH, 'CLAUDE.md' ),
+			path.join( SITE_PATH, 'CLAUDE.md' )
+		);
+		expect( fs.copyFile ).toHaveBeenCalledTimes( 2 );
+	} );
+
+	it( 'skips files that do not exist in the site', async () => {
+		vi.mocked( pathExists ).mockImplementation( async ( p: string ) => {
+			// Only STUDIO.md exists in both site and bundled
+			if ( p === path.join( SITE_PATH, 'STUDIO.md' ) ) {
+				return true;
+			}
+			if ( p === path.join( BUNDLED_PATH, 'STUDIO.md' ) ) {
+				return true;
+			}
+			return false;
+		} );
+
+		await updateManagedInstructionFiles( SITE_PATH, BUNDLED_PATH );
+
+		expect( fs.copyFile ).toHaveBeenCalledTimes( 1 );
+		expect( fs.copyFile ).toHaveBeenCalledWith(
+			path.join( BUNDLED_PATH, 'STUDIO.md' ),
+			path.join( SITE_PATH, 'STUDIO.md' )
+		);
+	} );
+
+	it( 'skips files that do not exist in the bundled path', async () => {
+		vi.mocked( pathExists ).mockImplementation( async ( p: string ) => {
+			// CLAUDE.md exists in site but not in bundled
+			if ( p === path.join( SITE_PATH, 'CLAUDE.md' ) ) {
+				return true;
+			}
+			if ( p === path.join( BUNDLED_PATH, 'CLAUDE.md' ) ) {
+				return false;
+			}
+			return false;
+		} );
+
+		await updateManagedInstructionFiles( SITE_PATH, BUNDLED_PATH );
+
+		expect( fs.copyFile ).not.toHaveBeenCalled();
+	} );
+
+	it( 'does nothing when no managed files exist in the site', async () => {
+		vi.mocked( pathExists ).mockResolvedValue( false );
+
+		await updateManagedInstructionFiles( SITE_PATH, BUNDLED_PATH );
+
+		expect( fs.copyFile ).not.toHaveBeenCalled();
 	} );
 } );

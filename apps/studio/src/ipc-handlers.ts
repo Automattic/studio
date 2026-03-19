@@ -19,7 +19,7 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import {
 	installAiInstructionsToSite,
-	updateStudioMdIfExists,
+	updateManagedInstructionFiles,
 } from '@studio/common/lib/agent-skills';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
@@ -577,10 +577,12 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 		void loadThemeDetails( event, id );
 	}
 
-	// Keep STUDIO.md up-to-date if it was previously installed
-	void updateStudioMdIfExists( server.details.path, getAiInstructionsPath() ).catch( ( error ) => {
-		console.error( '[ai-instructions] Failed to update STUDIO.md:', error );
-	} );
+	// Keep managed instruction files (STUDIO.md, CLAUDE.md) up-to-date
+	void updateManagedInstructionFiles( server.details.path, getAiInstructionsPath() ).catch(
+		( error ) => {
+			console.error( '[ai-instructions] Failed to update managed instruction files:', error );
+		}
+	);
 
 	console.log( `Server started for '${ server.details.name }'` );
 }

@@ -72,7 +72,7 @@ describe( 'getAllInstructionFilesStatus', () => {
 
 		const statuses = await getAllInstructionFilesStatus( SITE_PATH );
 
-		expect( statuses ).toHaveLength( 2 );
-		expect( statuses.map( ( s ) => s.id ) ).toEqual( [ 'agents', 'studio' ] );
+		expect( statuses ).toHaveLength( 3 );
+		expect( statuses.map( ( s ) => s.id ) ).toEqual( [ 'agents', 'claude', 'studio' ] );
 	} );
 } );

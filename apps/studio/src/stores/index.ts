@@ -187,7 +187,8 @@ startAppListening( {
 startAppListening( {
 	actionCreator: userLoggedOut,
 	effect( action, listenerApi ) {
-		const state = listenerApi.getState();
+		// Use getOriginalState() to read state BEFORE the reducer cleared pullStates/pushStates
+		const state = listenerApi.getOriginalState();
 
 		for ( const pullState of Object.values( state.syncOperations.pullStates ) ) {
 			void store.dispatch(

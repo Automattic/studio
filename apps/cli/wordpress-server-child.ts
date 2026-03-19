@@ -529,6 +529,7 @@ async function ipcMessageHandler( packet: unknown ) {
 	} catch ( error ) {
 		errorToConsole( `Error handling message ${ validMessage.topic }:`, error );
 		await sendErrorMessage( validMessage.messageId, error );
+		originalConsoleLog( 'Killing process because of', error );
 		process.exit( 1 );
 	} finally {
 		delete abortControllers[ validMessage.messageId ];

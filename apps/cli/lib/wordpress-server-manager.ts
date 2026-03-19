@@ -281,20 +281,40 @@ export async function stopWordPressServer( siteId: string ): Promise< void > {
 	const processName = getProcessName( siteId );
 	const runningProcess = await isProcessRunning( processName );
 
-	if ( runningProcess ) {
-		try {
-			await sendMessage(
-				runningProcess.pmId,
-				processName,
-				{ topic: 'stop-server', data: {} },
-				{ maxTotalElapsedTime: GRACEFUL_STOP_TIMEOUT }
-			);
-		} catch {
-			// Graceful shutdown failed, `stopProcess()` will handle it
-		}
+	if ( ! runningProcess ) {
+		return;
 	}
 
-	return stopProcess( processName );
+	try {
+		const exitPromise = new Promise< void >( ( resolve, reject ) => {
+			getDaemonBus()
+				.then( ( bus ) => {
+					bus.on( 'process-event', ( event ) => {
+						if ( event.process.name === processName && event.event === 'exit' ) {
+							console.log( 'received exit even in `stopWordPressServer`' );
+							resolve();
+						}
+					} );
+				} )
+				.catch( reject );
+		} );
+
+		await sendMessage(
+			runningProcess.pmId,
+			processName,
+			{ topic: 'stop-server', data: {} },
+			{ maxTotalElapsedTime: GRACEFUL_STOP_TIMEOUT }
+		);
+
+		// Allow 5 seconds (arbitrary number) of cleanup time for the child process before throwing an
+		// exception and telling the process manager to send a SIGKILL signal.
+		await Promise.race( [
+			exitPromise,
+			new Promise( ( resolve, reject ) => setTimeout( reject, 5000 ) ),
+		] );
+	} catch {
+		return stopProcess( processName );
+	}
 }
 
 export interface RunBlueprintOptions {

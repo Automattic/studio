@@ -221,7 +221,7 @@ describe( 'migrateAppdata', () => {
 			}
 			return false;
 		} );
-		vi.mocked( readFile ).mockResolvedValue( JSON.stringify( createOldAppdata() ) );
+		vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( createOldAppdata() ) ) );
 	} );
 
 	it( 'skips migration if new appdata.json already exists', async () => {
@@ -248,7 +248,7 @@ describe( 'migrateAppdata', () => {
 	} );
 
 	it( 'skips migration if old appdata is not valid JSON', async () => {
-		vi.mocked( readFile ).mockResolvedValue( 'not valid json {{{' );
+		vi.mocked( readFile ).mockResolvedValue( Buffer.from( 'not valid json {{{' ) );
 		const consoleSpy = vi.spyOn( console, 'error' ).mockImplementation( () => {} );
 
 		await migrateAppdata();
@@ -295,7 +295,7 @@ describe( 'migrateAppdata', () => {
 			const oldData = createOldAppdata();
 
 			const { authToken, locale, ...rest } = oldData;
-			vi.mocked( readFile ).mockResolvedValue( JSON.stringify( rest ) );
+			vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( rest ) ) );
 
 			await migrateAppdata();
 
@@ -366,7 +366,7 @@ describe( 'migrateAppdata', () => {
 		it( 'handles empty sites and snapshots', async () => {
 			const oldData = createOldAppdata();
 			vi.mocked( readFile ).mockResolvedValue(
-				JSON.stringify( { ...oldData, sites: [], snapshots: [] } )
+				Buffer.from( JSON.stringify( { ...oldData, sites: [], snapshots: [] } ) )
 			);
 
 			await migrateAppdata();
@@ -381,7 +381,7 @@ describe( 'migrateAppdata', () => {
 			const oldData = createOldAppdata();
 
 			const { sites, snapshots, ...rest } = oldData;
-			vi.mocked( readFile ).mockResolvedValue( JSON.stringify( rest ) );
+			vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( rest ) ) );
 
 			await migrateAppdata();
 
@@ -462,7 +462,7 @@ describe( 'migrateAppdata', () => {
 				( { themeDetails, sortOrder, ...rest } ) => rest
 			);
 			vi.mocked( readFile ).mockResolvedValue(
-				JSON.stringify( { ...oldData, sites: sitesWithoutDesktopFields } )
+				Buffer.from( JSON.stringify( { ...oldData, sites: sitesWithoutDesktopFields } ) )
 			);
 
 			await migrateAppdata();
@@ -519,7 +519,7 @@ describe( 'migrateAppdata', () => {
 
 	describe( 'minimal old appdata', () => {
 		it( 'handles an old appdata with only version field', async () => {
-			vi.mocked( readFile ).mockResolvedValue( JSON.stringify( { version: 1 } ) );
+			vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( { version: 1 } ) ) );
 
 			await migrateAppdata();
 

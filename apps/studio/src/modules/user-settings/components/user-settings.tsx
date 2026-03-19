@@ -7,8 +7,8 @@ import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { AccountTab } from 'src/modules/user-settings/components/account-tab';
 import { PreferencesTab } from 'src/modules/user-settings/components/preferences-tab';
-import { UsageTab } from 'src/modules/user-settings/components/usage-tab';
 import { UserSettingsTab } from 'src/modules/user-settings/user-settings-types';
 import { useRootSelector } from 'src/stores';
 import { snapshotSelectors } from 'src/stores/snapshot-slice';
@@ -107,7 +107,7 @@ export default function UserSettings() {
 							<div className="mt-6 px-8 flex gap-4 flex-col">
 								{ name === 'general' && <PreferencesTab onClose={ resetLocalState } /> }
 								{ name === 'account' && (
-									<UsageTab
+									<AccountTab
 										loadingDeletingAllSnapshots={ isDeletingAllSnapshots }
 										activeSnapshotCount={ definitiveSnapshotCount }
 										isLoadingSnapshotUsage={ isLoadingSnapshotUsage }

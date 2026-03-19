@@ -6,11 +6,11 @@
  * stdout key-value pairs that Studio parses.
  */
 
+import fs from 'fs';
 import { sequential } from '@studio/common/lib/sequential';
 import { SITE_EVENTS, siteDetailsSchema, SiteEvent } from '@studio/common/lib/site-events';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
-import fs from 'fs';
 import { z } from 'zod';
 import { getSiteUrl, readAppdata, SiteData } from 'cli/lib/appdata';
 import {

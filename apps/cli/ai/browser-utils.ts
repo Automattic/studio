@@ -18,7 +18,7 @@ let browserPromise: Promise< Browser > | null = null;
 export async function getSharedBrowser(): Promise< Browser > {
 	if ( ! browserPromise ) {
 		browserPromise = ( async () => {
-			const { chromium } = require( 'playwright' ) as typeof import('playwright');
+			const { chromium } = await import( 'playwright' );
 			const browser = await chromium.launch( {
 				args: [ '--ignore-certificate-errors' ],
 			} );

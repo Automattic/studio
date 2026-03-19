@@ -4,7 +4,7 @@ import fs from 'fs-extra';
 import semver from 'semver';
 import { updateLatestWPCliVersion } from 'src/lib/download-utils';
 import {
-	getAgentSkillsPath,
+	getAiInstructionsPath,
 	getLanguagePacksPath,
 	getPhpMyAdminPath,
 	getWordPressVersionPath,
@@ -53,7 +53,7 @@ async function copyBundledLatestWPVersion() {
 }
 
 async function copyBundledSqlite() {
-	const bundledSqlitePath = path.join( getWpFilesPath(), SQLITE_FILENAME );
+	const bundledSqlitePath = path.join( getResourcesPath(), 'wp-files', SQLITE_FILENAME );
 	const bundledSqliteVersion = semver.coerce(
 		await getSqliteVersionFromInstallation( bundledSqlitePath ),
 		{
@@ -114,12 +114,12 @@ async function copyBundledTranslations() {
 	await fs.copyFile( bundledTranslationsPath, installedTranslationsPath );
 }
 
-async function copyBundledAgentSkills() {
-	const bundledAgentSkillsPath = path.join( getWpFilesPath(), 'agent-skills' );
-	if ( ! ( await fs.pathExists( bundledAgentSkillsPath ) ) ) {
+async function copyBundledAiInstructions() {
+	const bundledAiInstructionsPath = path.join( getWpFilesPath(), 'skills' );
+	if ( ! ( await fs.pathExists( bundledAiInstructionsPath ) ) ) {
 		return;
 	}
-	await recursiveCopyDirectory( bundledAgentSkillsPath, getAgentSkillsPath() );
+	await recursiveCopyDirectory( bundledAiInstructionsPath, getAiInstructionsPath() );
 }
 
 async function copyBundledPhpMyAdmin() {
@@ -149,7 +149,7 @@ export async function setupWPServerFiles() {
 		[ 'SQLite command', copyBundledSQLiteCommand ],
 		[ 'translations', copyBundledTranslations ],
 		[ 'language packs', copyBundledLanguagePacks ],
-		[ 'agent skills', copyBundledAgentSkills ],
+		[ 'AI instructions', copyBundledAiInstructions ],
 		[ 'phpMyAdmin', copyBundledPhpMyAdmin ],
 	];
 

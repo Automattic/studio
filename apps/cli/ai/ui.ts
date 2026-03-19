@@ -2,12 +2,15 @@ import {
 	TUI,
 	ProcessTerminal,
 	Editor,
+	Input,
+	SelectList,
+	type SelectItem,
+	type SelectListTheme,
 	Markdown,
 	Text,
 	Loader,
 	Container,
 	CombinedAutocompleteProvider,
-	SelectList,
 	matchesKey,
 	isKeyRelease,
 	type Component,
@@ -15,14 +18,12 @@ import {
 	type EditorTheme,
 	type EditorOptions,
 	type MarkdownTheme,
-	type SelectItem,
-	type SelectListTheme,
 	visibleWidth,
 } from '@mariozechner/pi-tui';
 import chalk from 'chalk';
 import { AI_MODELS, DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
-import { AI_CHAT_SLASH_COMMANDS, type SlashCommandDef } from 'cli/ai/slash-commands';
+import { AI_CHAT_SLASH_COMMANDS } from 'cli/ai/slash-commands';
 import { buildTodoUpdateLines, type TodoRenderLine } from 'cli/ai/todo-render';
 import { diffTodoSnapshot, type TodoDiff, type TodoEntry } from 'cli/ai/todo-stream';
 import { getWpComSites } from 'cli/lib/api';
@@ -74,8 +75,6 @@ class PromptEditor implements Component, Focusable {
 	private isEmpty = true;
 	activeSiteName: string | null = null;
 	hints: string[] = [];
-	slashCommands: SlashCommandDef[] = [];
-	slashCommandSelectedIndex = -1;
 	statusMessage: string | null = null;
 	showBottomBar = true;
 
@@ -104,7 +103,6 @@ class PromptEditor implements Component, Focusable {
 	handleInput( data: string ): void {
 		this.editor.handleInput( data );
 		this.isEmpty = this.editor.getText() === '';
-		this.slashCommandSelectedIndex = -1;
 	}
 
 	setAutocompleteProvider( provider: CombinedAutocompleteProvider ): void {
@@ -113,19 +111,6 @@ class PromptEditor implements Component, Focusable {
 
 	getText(): string {
 		return this.editor.getText();
-	}
-
-	getMatchingSlashCommands(): SlashCommandDef[] {
-		const text = this.getText().trim();
-		if ( ! text.startsWith( '/' ) ) {
-			return [];
-		}
-		const prefix = text.slice( 1 ).toLowerCase();
-		return this.slashCommands.filter( ( cmd ) => cmd.name.toLowerCase().startsWith( prefix ) );
-	}
-
-	get isSlashMenuVisible(): boolean {
-		return this.getMatchingSlashCommands().length > 0;
 	}
 
 	invalidate(): void {
@@ -150,8 +135,7 @@ class PromptEditor implements Component, Focusable {
 			}
 		}
 
-		const hasAutocomplete = bottomBorderIndex < lines.length - 1;
-		// Only keep lines up to (and including) the bottom border; drop editor autocomplete lines.
+		const autocompleteLines = lines.slice( bottomBorderIndex + 1 );
 		const editorLines = lines.slice( 0, bottomBorderIndex + 1 );
 		const emptyPrefix = ' '.repeat( promptWidth );
 		const result = editorLines.map( ( line, i ) => {
@@ -182,34 +166,27 @@ class PromptEditor implements Component, Focusable {
 			return emptyPrefix + line;
 		} );
 
-		// Below the bottom border: show suggestions or hint bar (with optional status on the right)
+		if ( autocompleteLines.length > 0 ) {
+			return [ ...result, ...autocompleteLines.map( ( line ) => ' ' + line ) ];
+		}
+
+		// Below the bottom border: show hint bar (with optional status on the right)
 		if ( ! this.showBottomBar ) {
 			return result;
 		}
-		if ( hasAutocomplete && this.slashCommands.length > 0 ) {
-			const matching = this.getMatchingSlashCommands();
-			const maxLen = Math.max( ...matching.map( ( c ) => c.name.length ) );
-			for ( let i = 0; i < matching.length; i++ ) {
-				const cmd = matching[ i ];
-				const isSelected = i === this.slashCommandSelectedIndex;
-				const label = `/${ cmd.name.padEnd( maxLen ) }  ${ cmd.description }`;
-				result.push( ' ' + ( isSelected ? chalk.blue( label ) : chalk.dim( label ) ) );
-			}
-		} else {
-			const activeHints = this.isEmpty
-				? this.hints
-				: this.hints.filter( ( h ) => h !== '↓ select site' );
-			const leftPart =
-				activeHints.length > 0
-					? ' ' + activeHints.map( ( h ) => chalk.dim( h ) ).join( chalk.dim( ' · ' ) )
-					: '';
-			const rightPart = this.statusMessage ? chalk.dim( this.statusMessage ) + ' ' : '';
-			if ( leftPart || rightPart ) {
-				const leftLen = visibleWidth( leftPart );
-				const rightLen = visibleWidth( rightPart );
-				const padding = Math.max( 1, width - leftLen - rightLen );
-				result.push( leftPart + ' '.repeat( padding ) + rightPart );
-			}
+		const activeHints = this.isEmpty
+			? this.hints
+			: this.hints.filter( ( h ) => h !== '↓ select site' );
+		const leftPart =
+			activeHints.length > 0
+				? ' ' + activeHints.map( ( h ) => chalk.dim( h ) ).join( chalk.dim( ' · ' ) )
+				: '';
+		const rightPart = this.statusMessage ? chalk.dim( this.statusMessage ) + ' ' : '';
+		if ( leftPart || rightPart ) {
+			const leftLen = visibleWidth( leftPart );
+			const rightLen = visibleWidth( rightPart );
+			const padding = Math.max( 1, width - leftLen - rightLen );
+			result.push( leftPart + ' '.repeat( padding ) + rightPart );
 		}
 
 		return result;
@@ -534,10 +511,22 @@ export class AiChatUI {
 	private randomThinkingMessage(): string {
 		return this.thinkingMessages[ Math.floor( Math.random() * this.thinkingMessages.length ) ];
 	}
-	private optionPickerVisible = false;
 	private optionPickerContainer: Container | null = null;
 	private optionPickerSelectList: SelectList | null = null;
+	private optionPickerVisible = false;
 	private optionPickerResolve: ( ( label: string ) => void ) | null = null;
+	private optionPickerOtherActive = false;
+	private optionPickerHasFreeForm = false;
+	private optionPickerItemCount = 0;
+	private optionPickerInput: Input | null = null;
+	private static readonly OTHER_VALUE = '__other__';
+	private static readonly OPTION_PICKER_THEME: SelectListTheme = {
+		selectedPrefix: ( text: string ) => chalk.blue( text ),
+		selectedText: ( text: string ) => chalk.blue( text ),
+		description: ( text: string ) => chalk.dim( text ),
+		scrollInfo: ( text: string ) => chalk.dim( text ),
+		noMatch: ( text: string ) => chalk.dim( text ),
+	};
 	private sitePickerVisible = false;
 	private sitePickerContainer: Container | null = null;
 	private sitePickerItems: SiteInfo[] = [];
@@ -594,7 +583,6 @@ export class AiChatUI {
 
 		this.editor = new PromptEditor( this.tui, editorTheme );
 
-		this.editor.slashCommands = AI_CHAT_SLASH_COMMANDS;
 		this.editor.setAutocompleteProvider(
 			new CombinedAutocompleteProvider( AI_CHAT_SLASH_COMMANDS )
 		);
@@ -618,59 +606,53 @@ export class AiChatUI {
 				process.exit( 0 );
 			}
 			// Option picker navigation (must be checked before site picker)
-			if ( this.optionPickerVisible && this.optionPickerSelectList ) {
-				this.optionPickerSelectList.handleInput( data );
-				this.tui.requestRender();
-				return { consume: true };
-			}
-			// Slash command menu navigation
-			if ( this.editorVisible && this.editor.isSlashMenuVisible ) {
-				const matching = this.editor.getMatchingSlashCommands();
-				if ( matchesKey( data, 'down' ) ) {
-					this.editor.slashCommandSelectedIndex = Math.min(
-						matching.length - 1,
-						this.editor.slashCommandSelectedIndex + 1
-					);
-					this.tui.requestRender();
-					return { consume: true };
-				}
-				if ( matchesKey( data, 'up' ) ) {
-					this.editor.slashCommandSelectedIndex = Math.max(
-						-1,
-						this.editor.slashCommandSelectedIndex - 1
-					);
-					this.tui.requestRender();
-					return { consume: true };
-				}
-				if (
-					( matchesKey( data, 'tab' ) || matchesKey( data, 'enter' ) ) &&
-					this.editor.slashCommandSelectedIndex >= 0 &&
-					this.editor.slashCommandSelectedIndex < matching.length
-				) {
-					const cmd = matching[ this.editor.slashCommandSelectedIndex ];
-					this.editor.slashCommandSelectedIndex = -1;
-					if ( matchesKey( data, 'enter' ) ) {
-						// Submit the command directly
-						this.editor.setText( '' );
-						if ( this.submitResolve ) {
-							const resolve = this.submitResolve;
-							this.submitResolve = null;
-							resolve( `/${ cmd.name }` );
-						}
-					} else {
-						// Tab: fill in the command text without submitting
-						this.editor.setText( `/${ cmd.name }` );
-						this.tui.requestRender();
+			if ( this.optionPickerSelectList ) {
+				// When "Other" is active, let the inline input handle most keys
+				if ( this.optionPickerOtherActive && this.optionPickerInput ) {
+					if ( matchesKey( data, 'up' ) ) {
+						this.deactivateOptionPickerOther();
+						this.optionPickerSelectList.handleInput( data );
+						this.renderOptionPicker();
+						return { consume: true };
 					}
+					// Forward everything else to the inline input
+					this.optionPickerInput.handleInput( data );
+					this.renderOptionPicker();
 					return { consume: true };
 				}
-				// Tab to autocomplete when there's only one match (no selection needed)
-				if ( matchesKey( data, 'tab' ) && matching.length === 1 ) {
-					this.editor.setText( `/${ matching[ 0 ].name }` );
-					this.editor.slashCommandSelectedIndex = -1;
-					this.tui.requestRender();
+
+				// If user starts typing while on a regular option, jump to "Other" (only if free-form is enabled)
+				if (
+					this.optionPickerHasFreeForm &&
+					! matchesKey( data, 'up' ) &&
+					! matchesKey( data, 'down' ) &&
+					! matchesKey( data, 'enter' ) &&
+					! matchesKey( data, 'escape' ) &&
+					data.length === 1 &&
+					data >= ' '
+				) {
+					this.optionPickerSelectList.setSelectedIndex( this.optionPickerItemCount - 1 );
+					this.activateOptionPickerOther();
+					this.optionPickerInput?.handleInput( data );
+					this.renderOptionPicker();
 					return { consume: true };
 				}
+
+				// Let SelectList handle up/down/enter/escape
+				this.optionPickerSelectList.handleInput( data );
+				// onSelect may have closed the picker — bail if so
+				if ( ! this.optionPickerSelectList ) {
+					return { consume: true };
+				}
+				// Check if we landed on "Other" after navigation
+				if ( this.optionPickerHasFreeForm ) {
+					const selected = this.optionPickerSelectList.getSelectedItem();
+					if ( selected?.value === AiChatUI.OTHER_VALUE ) {
+						this.activateOptionPickerOther();
+					}
+				}
+				this.renderOptionPicker();
+				return { consume: true };
 			}
 			// Down arrow to open site picker (only when prompt is empty)
 			if (
@@ -1103,6 +1085,51 @@ export class AiChatUI {
 		this.tui.requestRender();
 	}
 
+	private renderOptionPicker(): void {
+		if ( ! this.optionPickerContainer || ! this.optionPickerSelectList ) {
+			return;
+		}
+		this.optionPickerContainer.clear();
+
+		const width = ( process.stdout.columns ?? 80 ) - 1;
+		const lines = this.optionPickerSelectList.render( width );
+
+		// When "Other" is active, replace the last line with the inline input
+		if ( this.optionPickerOtherActive && this.optionPickerInput && lines.length > 0 ) {
+			const inputText = this.optionPickerInput.getValue();
+			const cursor = chalk.inverse( ' ' );
+			const display = inputText
+				? chalk.blue( inputText ) + cursor
+				: chalk.dim( 'Type your answer...' ) + cursor;
+			lines[ lines.length - 1 ] = `${ chalk.blue( '→' ) } ${ display }`;
+		}
+
+		this.optionPickerContainer.addChild( new Text( lines.join( '\n' ), 1, 0 ) );
+		this.tui.requestRender();
+	}
+
+	private activateOptionPickerOther(): void {
+		if ( this.optionPickerOtherActive ) {
+			return;
+		}
+		this.optionPickerOtherActive = true;
+		this.optionPickerInput = new Input();
+		this.optionPickerInput.onSubmit = ( value: string ) => {
+			const trimmed = value.trim();
+			if ( trimmed && this.optionPickerResolve ) {
+				const resolve = this.optionPickerResolve;
+				this.optionPickerResolve = null;
+				this.closeOptionPicker();
+				resolve( trimmed );
+			}
+		};
+	}
+
+	private deactivateOptionPickerOther(): void {
+		this.optionPickerOtherActive = false;
+		this.optionPickerInput = null;
+	}
+
 	private closeOptionPicker(): void {
 		if ( this.optionPickerContainer ) {
 			this.tui.removeChild( this.optionPickerContainer );
@@ -1110,6 +1137,9 @@ export class AiChatUI {
 		}
 		this.optionPickerVisible = false;
 		this.optionPickerSelectList = null;
+		this.optionPickerHasFreeForm = false;
+		this.optionPickerItemCount = 0;
+		this.deactivateOptionPickerOther();
 		this.tui.requestRender();
 	}
 
@@ -1627,29 +1657,34 @@ export class AiChatUI {
 
 		for ( const q of questions ) {
 			// Display the question
-			this.messages.addChild( new Text( '\n' + chalk.bold( q.question ), 0, 0 ) );
+			this.messages.addChild( new Text( '\n' + chalk.bold( q.question ), 1, 0 ) );
 			this.tui.requestRender();
 
 			if ( q.options.length > 0 ) {
-				// Use arrow-key option picker
+				// Use SelectList for option-based questions.
+				// When allowFreeForm is true, append an "Other" option with inline input.
 				this.hideEditor();
-				const selectItems = q.options.map( ( opt, i ) => ( {
+				const selectItems: SelectItem[] = q.options.map( ( opt, i ) => ( {
 					value: opt.label,
 					label: `${ i + 1 }. ${ opt.label }`,
 					description: opt.description,
 				} ) );
-				this.optionPickerSelectList = new SelectList(
+				this.optionPickerHasFreeForm = q.allowFreeForm === true;
+				if ( this.optionPickerHasFreeForm ) {
+					selectItems.push( {
+						value: AiChatUI.OTHER_VALUE,
+						label: 'Other (type my own)',
+					} );
+				}
+
+				this.optionPickerItemCount = selectItems.length;
+				const selectList = new SelectList(
 					selectItems,
 					selectItems.length,
-					sitePickerTheme
+					AiChatUI.OPTION_PICKER_THEME
 				);
-				this.optionPickerSelectList.onSelect = ( item ) => {
-					this.closeOptionPicker();
-					if ( this.optionPickerResolve ) {
-						this.optionPickerResolve( item.value );
-						this.optionPickerResolve = null;
-					}
-				};
+
+				this.optionPickerSelectList = selectList;
 				this.optionPickerVisible = true;
 				this.optionPickerContainer = new Container();
 				this.tui.addChild( this.optionPickerContainer );
@@ -1658,6 +1693,17 @@ export class AiChatUI {
 
 				const selected = await new Promise< string >( ( resolve ) => {
 					this.optionPickerResolve = resolve;
+					selectList.onSelect = ( item: SelectItem ) => {
+						if ( item.value === AiChatUI.OTHER_VALUE ) {
+							// "Other" selected via enter without typing — activate input
+							this.activateOptionPickerOther();
+							this.renderOptionPicker();
+							return;
+						}
+						this.optionPickerResolve = null;
+						this.closeOptionPicker();
+						resolve( item.value );
+					};
 				} );
 
 				answers[ q.question ] = selected;

@@ -73,10 +73,10 @@ export function getLanguagePacksPath(): string {
 }
 
 /**
- * The path where bundled agent skills are stored.
+ * The path where bundled AI instructions and skills are stored.
  */
-export function getAgentSkillsPath(): string {
-	return path.join( getBasePath(), 'agent-skills' );
+export function getAiInstructionsPath(): string {
+	return path.join( getBasePath(), 'skills' );
 }
 
 /**

@@ -1,8 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import { __ } from '@wordpress/i18n';
-import { getAppdataDirectory } from 'cli/lib/server-files';
 import { STUDIO_CLI_HOME } from 'cli/lib/paths';
+import { getAppdataDirectory } from 'cli/lib/server-files';
 import { LoggerError } from 'cli/logger';
 
 /**

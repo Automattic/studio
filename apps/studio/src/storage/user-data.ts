@@ -136,6 +136,10 @@ export async function saveUserData( data: UserData ): Promise< void > {
 const LOCKFILE_PATH = getUserDataLockFilePath();
 
 export async function lockAppdata() {
+	const dir = nodePath.dirname( LOCKFILE_PATH );
+	if ( ! fs.existsSync( dir ) ) {
+		fs.mkdirSync( dir, { recursive: true } );
+	}
 	return lockFileAsync( LOCKFILE_PATH, { stale: LOCKFILE_STALE_TIME, wait: LOCKFILE_WAIT_TIME } );
 }
 

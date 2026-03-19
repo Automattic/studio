@@ -2,7 +2,7 @@ import { HOUR_MS } from '@studio/common/constants';
 export const DEFAULT_WIDTH = 900;
 export const MAIN_MIN_HEIGHT = 600;
 export const SIDEBAR_WIDTH = 208;
-export const SIDEBAR_MIN_WIDTH = 150;
+export const SIDEBAR_MIN_WIDTH = 200;
 export const SIDEBAR_MAX_WIDTH = 400;
 export const SIDEBAR_SNAP_THRESHOLD = 100;
 export const MAIN_MIN_WIDTH = DEFAULT_WIDTH - SIDEBAR_WIDTH + 20;

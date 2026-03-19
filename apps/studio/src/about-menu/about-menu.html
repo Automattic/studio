@@ -19,6 +19,18 @@
 					local( 'LucidaGrandeUI' );
 			}
 
+			:root {
+				--color-frame-theme: #3858e9;
+				--color-frame-theme-hover: #2145e6;
+			}
+
+			@media ( prefers-color-scheme: dark ) {
+				:root {
+					--color-frame-theme: #6b8aff;
+					--color-frame-theme-hover: #8da6ff;
+				}
+			}
+
 			html,
 			body {
 				-webkit-touch-callout: none;
@@ -53,7 +65,7 @@
 
 			p a {
 				text-decoration: underline;
-				color: #3858e9;
+				color: var( --color-frame-theme );
 			}
 
 			.links {

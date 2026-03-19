@@ -1,4 +1,4 @@
-import { BrowserWindow, IpcMainInvokeEvent } from 'electron';
+import { BrowserWindow, IpcMainInvokeEvent, nativeTheme } from 'electron';
 import { DEFAULT_TERMINAL } from 'src/constants';
 import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { isInstalled } from 'src/lib/is-installed';
@@ -65,6 +65,19 @@ export async function getUserEditor(): Promise< SupportedEditor | null > {
 	}
 	const userData = await loadUserData();
 	return userData.preferredEditor ?? getDefaultInstalledEditor();
+}
+
+export async function saveColorScheme(
+	event: IpcMainInvokeEvent,
+	colorScheme: 'system' | 'light' | 'dark'
+) {
+	nativeTheme.themeSource = colorScheme;
+	await updateAppdata( { colorScheme } );
+}
+
+export async function getColorScheme(): Promise< 'system' | 'light' | 'dark' > {
+	const userData = await loadUserData();
+	return userData.colorScheme ?? 'system';
 }
 
 export function showUserSettings( event: IpcMainInvokeEvent, tabName?: UserSettingsTabName ) {

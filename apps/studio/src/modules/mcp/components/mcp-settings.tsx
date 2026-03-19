@@ -35,7 +35,7 @@ export function McpSettings() {
 
 	return (
 		<div className="flex flex-col gap-4">
-			<p className="a8c-body-small text-a8c-gray-700 m-0">
+			<p className="a8c-body-small text-frame-text-secondary m-0">
 				{ __(
 					"Copy the JSON configuration below and add it to your AI assistant's MCP settings. Setup guides:"
 				) }{ ' ' }
@@ -62,7 +62,7 @@ export function McpSettings() {
 				.
 			</p>
 			<div className="relative">
-				<pre className="bg-a8c-gray-0 border border-a8c-gray-200 rounded p-3 pr-16 text-xs overflow-x-auto whitespace-pre m-0 font-mono">
+				<pre className="bg-frame border border-frame-border rounded p-3 pr-16 text-xs overflow-x-auto whitespace-pre m-0 font-mono">
 					{ configJson }
 				</pre>
 				<div className="absolute top-2 right-2">

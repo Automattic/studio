@@ -14,7 +14,7 @@
 }
 
 .blueprints-container .dataviews-view-grid__card:has( .is-selected ) {
-	@apply outline outline-1 outline-a8c-blue-50;
+	@apply outline outline-1 outline-frame-theme;
 }
 
 /* Small icon on the bottom right of the card if selected (bottom left in RTL) */

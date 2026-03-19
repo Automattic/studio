@@ -368,7 +368,9 @@ export async function createSite(
 
 		// Install AI instructions and skills into the new site
 		if ( getFeatureFlagFromEnv( 'enableAgentSuite' ) ) {
-			void installAiInstructionsToSite( path, getAiInstructionsPath() ).catch( () => {} );
+			void installAiInstructionsToSite( path, getAiInstructionsPath() ).catch( ( error ) => {
+				console.error( '[ai-instructions] Failed to install AI instructions to new site:', error );
+			} );
 		}
 
 		return server.details;
@@ -576,7 +578,9 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 	}
 
 	// Keep STUDIO.md up-to-date if it was previously installed
-	void updateStudioMdIfExists( server.details.path, getAiInstructionsPath() ).catch( () => {} );
+	void updateStudioMdIfExists( server.details.path, getAiInstructionsPath() ).catch( ( error ) => {
+		console.error( '[ai-instructions] Failed to update STUDIO.md:', error );
+	} );
 
 	console.log( `Server started for '${ server.details.name }'` );
 }

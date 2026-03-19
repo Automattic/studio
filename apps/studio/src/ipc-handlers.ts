@@ -17,6 +17,10 @@ import https from 'node:https';
 import os from 'os';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
+import {
+	installAiInstructionsToSite,
+	updateManagedInstructionFiles,
+} from '@studio/common/lib/agent-skills';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
 import {
@@ -69,6 +73,7 @@ import {
 	startErrorRecovery,
 	stopErrorRecovery,
 } from 'src/lib/php-error-recovery';
+import { getAiInstructionsPath } from 'src/lib/server-files-paths';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import * as windowsHelpers from 'src/lib/windows-helpers';
@@ -76,10 +81,7 @@ import { setupWordPressFilesOnly } from 'src/lib/wordpress-setup';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
-import {
-	DEFAULT_AGENT_INSTRUCTIONS,
-	type InstructionFileType,
-} from 'src/modules/agent-instructions/constants';
+import { type InstructionFileType } from 'src/modules/agent-instructions/constants';
 import {
 	getAllInstructionFilesStatus,
 	installInstructionFile,
@@ -130,7 +132,6 @@ export {
 	removeSyncBackup,
 	resumeSyncUpload,
 	updateConnectedWpcomSites,
-	updateSingleConnectedWpcomSite,
 } from 'src/modules/sync/lib/ipc-handlers';
 
 export {
@@ -172,12 +173,7 @@ export async function installAgentInstructions(
 	}
 	const overwrite = options?.overwrite ?? false;
 	const fileType = options?.fileType ?? 'agents';
-	return installInstructionFile(
-		server.details.path,
-		fileType,
-		DEFAULT_AGENT_INSTRUCTIONS,
-		overwrite
-	);
+	return installInstructionFile( server.details.path, fileType, overwrite );
 }
 
 export async function getWordPressSkillsStatus(
@@ -379,12 +375,11 @@ export async function createSite(
 			void loadThemeDetails( event, server.details.id );
 		}
 
-		// Install agent instructions and WordPress skills into the new site
+		// Install AI instructions and skills into the new site
 		if ( getFeatureFlagFromEnv( 'enableAgentSuite' ) ) {
-			void installInstructionFile( path, 'agents', DEFAULT_AGENT_INSTRUCTIONS, false ).catch(
-				() => {}
-			);
-			void installAllSkills( path, false ).catch( () => {} );
+			void installAiInstructionsToSite( path, getAiInstructionsPath() ).catch( ( error ) => {
+				console.error( '[ai-instructions] Failed to install AI instructions to new site:', error );
+			} );
 		}
 
 		return server.details;
@@ -593,6 +588,13 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 	if ( server.details.running ) {
 		void loadThemeDetails( event, id );
 	}
+
+	// Keep managed instruction files (STUDIO.md, CLAUDE.md) up-to-date
+	void updateManagedInstructionFiles( server.details.path, getAiInstructionsPath() ).catch(
+		( error ) => {
+			console.error( '[ai-instructions] Failed to update managed instruction files:', error );
+		}
+	);
 
 	console.log( `Server started for '${ server.details.name }'` );
 }

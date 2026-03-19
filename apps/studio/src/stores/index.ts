@@ -211,7 +211,6 @@ startAppListening( {
 		}
 
 		// Reset authenticated RTK Query caches
-		listenerApi.dispatch( connectedSitesApi.util.resetApiState() );
 		listenerApi.dispatch( wpcomSitesApi.util.resetApiState() );
 		listenerApi.dispatch( wpcomApi.util.resetApiState() );
 	},

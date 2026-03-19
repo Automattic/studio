@@ -10,6 +10,7 @@ import { sequential } from '@studio/common/lib/sequential';
 import { SITE_EVENTS, siteDetailsSchema, SiteEvent } from '@studio/common/lib/site-events';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
+import fs from 'fs';
 import { z } from 'zod';
 import { getSiteUrl, readAppdata, SiteData } from 'cli/lib/appdata';
 import {
@@ -106,6 +107,14 @@ export async function runCommand(): Promise< void > {
 
 	process.on( 'SIGINT', () => void cleanup() );
 	process.on( 'SIGTERM', () => void cleanup() );
+
+	// Remove any stale socket from a previous Studio session. Studio is single-instance,
+	// so any existing events.sock belongs to a dead session and must be replaced.
+	try {
+		fs.unlinkSync( SITE_EVENTS_SOCKET_PATH );
+	} catch ( err ) {
+		// ENOENT is fine — socket didn't exist. Any other error is unexpected but non-fatal.
+	}
 
 	try {
 		await eventsSocketServer.listen();

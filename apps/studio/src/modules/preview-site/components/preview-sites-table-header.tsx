@@ -4,7 +4,7 @@ import { useI18n } from '@wordpress/react-i18n';
 export function PreviewSitesTableHeader() {
 	const { __ } = useI18n();
 	return (
-		<div className="border-b border-a8c-gray-5">
+		<div className="border-b border-frame-border">
 			<div className="flex items-center h-12 px-8 a8c-label uppercase">
 				<div className="w-[51%]">{ __( 'Preview site' ) }</div>
 				<div className="flex ltr:ml-auto rtl:mr-auto">

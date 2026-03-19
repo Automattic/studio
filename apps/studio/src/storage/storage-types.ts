@@ -23,6 +23,7 @@ export interface UserData {
 	lastSeenVersion?: string;
 	preferredTerminal?: SupportedTerminal;
 	preferredEditor?: SupportedEditor;
+	colorScheme?: 'system' | 'light' | 'dark';
 	betaFeatures?: BetaFeatures;
 	stopSitesOnQuit?: boolean;
 }

@@ -261,19 +261,17 @@ async function getBaseRunCLIArgs(
 		args.xdebug = true;
 	}
 
-	if ( config.enablePhpMyAdmin ) {
-		const phpMyAdminHostPath = getPhpMyAdminPath();
-		if ( await fs.pathExists( phpMyAdminHostPath ) ) {
-			mounts.push( {
-				hostPath: phpMyAdminHostPath,
-				vfsPath: '/tools/phpmyadmin',
-			} );
-			logToConsole( 'Mounting bundled phpMyAdmin' );
-		} else {
-			logToConsole( 'Bundled phpMyAdmin not found, falling back to Playground download' );
-		}
-		args.phpmyadmin = true;
+	const phpMyAdminHostPath = getPhpMyAdminPath();
+	if ( await fs.pathExists( phpMyAdminHostPath ) ) {
+		mounts.push( {
+			hostPath: phpMyAdminHostPath,
+			vfsPath: '/tools/phpmyadmin',
+		} );
+		logToConsole( 'Mounting bundled phpMyAdmin' );
+	} else {
+		logToConsole( 'Bundled phpMyAdmin not found, falling back to Playground download' );
 	}
+	args.phpmyadmin = true;
 
 	return args;
 }

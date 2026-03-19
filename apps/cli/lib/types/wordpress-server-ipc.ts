@@ -17,7 +17,6 @@ const serverConfig = z.object( {
 	enableXdebug: z.boolean().optional(),
 	enableDebugLog: z.boolean().optional(),
 	enableDebugDisplay: z.boolean().optional(),
-	enablePhpMyAdmin: z.boolean().optional(),
 	blueprint: z
 		.object( {
 			contents: z.any(), // Blueprint type is complex, allow any for now

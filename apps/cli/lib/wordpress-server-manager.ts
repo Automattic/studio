@@ -115,8 +115,6 @@ export async function startWordPressServer(
 		serverConfig.enableDebugDisplay = true;
 	}
 
-	serverConfig.enablePhpMyAdmin = true;
-
 	const processDesc = await startProcess( processName, wordPressServerChildPath );
 	await waitForReadyMessage( processDesc.pmId );
 	await sendMessage(
@@ -367,8 +365,6 @@ export async function runBlueprint(
 	if ( site.enableDebugDisplay ) {
 		serverConfig.enableDebugDisplay = true;
 	}
-
-	serverConfig.enablePhpMyAdmin = true;
 
 	const processDesc = await startProcess( processName, wordPressServerChildPath );
 	try {

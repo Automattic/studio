@@ -81,12 +81,15 @@ const SiteFormError = ( { error, tipMessage = '', className = '' }: SiteFormErro
 				aria-atomic="true"
 				className={ cx(
 					'flex items-start gap-1 text-xs',
-					error ? 'text-red-500' : 'text-a8c-gray-50',
+					error ? 'text-red-500' : 'text-frame-text-secondary',
 					className
 				) }
 			>
 				<Icon
-					className={ cx( 'shrink-0 basis-4', error ? 'fill-red-500' : 'fill-a8c-gray-50' ) }
+					className={ cx(
+						'shrink-0 basis-4',
+						error ? 'fill-red-500' : 'fill-frame-text-secondary'
+					) }
 					icon={ error ? cautionFilled : tip }
 					width={ 16 }
 					height={ 16 }
@@ -121,7 +124,7 @@ function FormPathInputComponent( {
 				type="button"
 				aria-label={ `${ value }, ${ __( 'Select different local path' ) }` }
 				className={ cx(
-					'flex flex-row items-stretch rounded-sm border border-frame-border focus:border-frame-theme focus:shadow-[0_0_0_0.5px_black] focus:shadow-frame-theme outline-none transition-shadow transition-linear duration-100 [&_.local-path-icon]:focus:border-l-frame-theme [&:disabled]:cursor-not-allowed',
+					'flex flex-row items-stretch rounded-sm border border-frame-border focus:border-frame-theme focus:shadow-[0_0_0_0.5px] focus:shadow-frame-theme outline-none transition-shadow transition-linear duration-100 [&_.local-path-icon]:focus:border-l-frame-theme [&:disabled]:cursor-not-allowed',
 					error && 'border-red-500 [&_.local-path-icon]:border-l-red-500'
 				) }
 				data-testid="select-path-button"
@@ -505,7 +508,7 @@ export const CreateSiteForm = ( {
 								<label className="font-semibold" htmlFor="local-path">
 									{ __( 'Local path' ) }
 								</label>
-								<span className="text-a8c-gray-50 text-xs">
+								<span className="text-frame-text-secondary text-xs">
 									{ createInterpolateElement(
 										__(
 											'Select an empty directory or a directory with an existing WordPress site. <learn_more_link />'
@@ -659,7 +662,7 @@ export const CreateSiteForm = ( {
 									</Notice>
 								) }
 
-								<div className="text-a8c-gray-50 text-xs mt-2">
+								<div className="text-frame-text-secondary text-xs mt-2">
 									{ __( 'Your system password will be required to set up the domain.' ) }
 								</div>
 
@@ -688,7 +691,7 @@ export const CreateSiteForm = ( {
 										</div>
 
 										{ ! isCertificateTrusted && (
-											<div className="text-a8c-gray-50 text-xs mt-2">
+											<div className="text-frame-text-secondary text-xs mt-2">
 												{ __(
 													'You need to manually add the Studio root certificate authority to your keychain and trust it to enable HTTPS.'
 												) }{ ' ' }

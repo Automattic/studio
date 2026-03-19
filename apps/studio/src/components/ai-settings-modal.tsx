@@ -91,14 +91,14 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 				</div>
 			) }
 
-			<div className="border border-gray-200 rounded-md overflow-hidden">
+			<div className="border border-frame-border rounded-md overflow-hidden">
 				{ statuses.map( ( status ) => {
 					const config = INSTRUCTION_FILES[ status.id ];
 					const isInstalling = installingFile === status.id;
 					return (
 						<div
 							key={ status.id }
-							className="flex items-center justify-between px-3 py-2.5 border-b border-gray-200 last:border-b-0"
+							className="flex items-center justify-between px-3 py-2.5 border-b border-frame-border last:border-b-0"
 						>
 							<div className="flex-1 min-w-0 pr-3">
 								<div className="flex items-center gap-2">
@@ -155,7 +155,7 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 				<summary className="cursor-pointer text-xs text-gray-500 hover:text-gray-700">
 					{ __( 'View template content' ) }
 				</summary>
-				<div className="mt-2 border border-gray-200 rounded-md bg-gray-50 p-3 max-h-48 overflow-y-auto">
+				<div className="mt-2 border border-frame-border rounded-md bg-frame-surface p-3 max-h-48 overflow-y-auto">
 					<pre className="text-xs text-gray-700 whitespace-pre-wrap font-mono">
 						{ DEFAULT_AGENT_INSTRUCTIONS }
 					</pre>
@@ -226,7 +226,7 @@ function WordPressSkillsPanel( { siteId }: { siteId: string } ) {
 				</div>
 			) }
 
-			<div className="border border-gray-200 rounded-md overflow-hidden">
+			<div className="border border-frame-border rounded-md overflow-hidden">
 				<div className="flex items-center justify-between px-3 py-2.5">
 					<div className="flex-1 min-w-0 pr-3">
 						<div className="flex items-center gap-2">

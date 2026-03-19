@@ -20,7 +20,7 @@ export function PromptInfo() {
 				<div className="flex w-full flex-col gap-2">
 					<div className="flex w-full flex-row justify-between gap-8 ">
 						<div className="flex flex-row items-center text-right">
-							<span className="text-a8c-gray-70">
+							<span className="text-frame-text-secondary">
 								{ isOffline
 									? __( "You're currently offline" )
 									: sprintf( __( '%1$d of %2$d monthly prompts used' ), promptCount, promptLimit ) }

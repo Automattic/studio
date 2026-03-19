@@ -316,7 +316,7 @@ const SyncConnectedSitesSectionItem = ( {
 				) : (
 					<Button
 						variant="link"
-						className="!text-a8c-gray-70 hover:!text-frame-theme max-w-full overflow-hidden"
+						className="!text-frame-text-secondary hover:!text-frame-theme max-w-full overflow-hidden"
 						onClick={ () => {
 							getIpcApi().openURL( connectedSite.url );
 						} }
@@ -482,7 +482,11 @@ const SyncConnectedSitesSectionItem = ( {
 								<div className="flex flex-col gap-2 min-w-44 flex-shrink">
 									<div className="a8c-body-small flex items-center gap-0.5">
 										{ isOffline ? (
-											<Icon icon={ offlineIcon } size={ 12 } className="fill-a8c-gray-70" />
+											<Icon
+												icon={ offlineIcon }
+												size={ 12 }
+												className="fill-frame-text-secondary"
+											/>
 										) : (
 											<Icon icon={ info } size={ 14 } />
 										) }

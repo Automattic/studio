@@ -150,7 +150,7 @@ export function AddSiteBlueprintSelector( {
 						</Heading>
 						<StudioButton
 							variant="link"
-							className="!p-0 text-[12px] [&.is-link]:text-a8c-gray-30 [&.is-link]:hover:text-frame-theme whitespace-nowrap"
+							className="!p-0 text-[12px] [&.is-link]:text-frame-text-secondary [&.is-link]:hover:text-frame-theme whitespace-nowrap"
 							onClick={ ( e: React.MouseEvent< HTMLButtonElement > ) =>
 								handlePreviewClick( e, item )
 							}

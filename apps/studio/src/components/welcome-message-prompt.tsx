@@ -138,7 +138,7 @@ const WelcomeComponent = React.forwardRef< HTMLDivElement, WelcomeComponentProps
 											<div className="mt-2 ml-2">
 												<Button
 													variant="secondary"
-													className="!text-a8c-gray-50 [&:not(:focus)]:shadow-none"
+													className="!text-frame-text-secondary [&:not(:focus)]:shadow-none"
 													onClick={ handleShowMore }
 												>
 													{ __( 'More suggestions' ) }

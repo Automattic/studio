@@ -70,7 +70,7 @@ const ExportSite = ( {
 		<div className="flex flex-col gap-4">
 			<div>
 				<h4 className="a8c-subtitle-small leading-5">{ __( 'Export' ) }</h4>
-				<p className="text-a8c-gray-70 leading-[140%] a8c-helper-text text-[13px]">
+				<p className="text-frame-text-secondary leading-[140%] a8c-helper-text text-[13px]">
 					{ __( 'Export your entire site or only the database.' ) }
 				</p>
 			</div>
@@ -79,7 +79,9 @@ const ExportSite = ( {
 					{ isExporting && (
 						<>
 							<ProgressBar />
-							<div className="text-a8c-gray-70 a8c-body">{ currentProgress.statusMessage }</div>
+							<div className="text-frame-text-secondary a8c-body">
+								{ currentProgress.statusMessage }
+							</div>
 						</>
 					) }
 					{ isExportCompleted && ! isExportError && (
@@ -259,7 +261,7 @@ const ImportSite = ( {
 	return (
 		<div className={ cx( 'flex flex-col w-full', startLoadingCursorClassName ) }>
 			<div className="a8c-subtitle-small mb-1">{ __( 'Import' ) }</div>
-			<div className="text-a8c-gray-70 a8c-body mb-4">
+			<div className="text-frame-text-secondary a8c-body mb-4">
 				{ createInterpolateElement(
 					__(
 						'Import a Jetpack backup, a full-site backup in another format, or a .sql database file. <learn_more_link />'
@@ -287,7 +289,7 @@ const ImportSite = ( {
 								<div className="w-[240px]">
 									<ProgressBar />
 								</div>
-								<div className="text-a8c-gray-70 a8c-body mt-4">
+								<div className="text-frame-text-secondary a8c-body mt-4">
 									{ currentProgress.statusMessage || __( 'Importing…' ) }
 								</div>
 							</>

@@ -35,7 +35,7 @@ function EmptyGeneric( {
 		<div className="p-8 flex justify-between max-w-3xl gap-4">
 			<div className="flex flex-col">
 				<div className="a8c-subtitle mb-1">{ __( 'Share a preview of your Studio site' ) }</div>
-				<div className="w-[40ch] text-a8c-gray-70 a8c-body">
+				<div className="w-[40ch] text-frame-text-secondary a8c-body">
 					{ __(
 						'Get feedback from anyone, anywhere with a free hosted preview of your Studio site.'
 					) }
@@ -60,7 +60,7 @@ function EmptyGeneric( {
 					].map( ( text ) => (
 						<div
 							key={ typeof text === 'string' ? text : 'wordpress-com' }
-							className="text-a8c-gray-70 a8c-body flex items-center"
+							className="text-frame-text-secondary a8c-body flex items-center"
 						>
 							<Icon className="fill-frame-theme ltr:mr-2 rtl:ml-2 shrink-0" icon={ check } />
 							{ text }
@@ -102,7 +102,7 @@ function NoAuth( { selectedSite }: React.ComponentProps< typeof EmptyGeneric > )
 					</Button>
 				</Tooltip>
 			</div>
-			<div className="mt-3 w-[40ch] text-a8c-gray-70 a8c-body">
+			<div className="mt-3 w-[40ch] text-frame-text-secondary a8c-body">
 				<Tooltip
 					disabled={ ! isOffline }
 					icon={ offlineIcon }

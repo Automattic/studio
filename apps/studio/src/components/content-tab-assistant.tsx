@@ -69,7 +69,7 @@ const ErrorNotice = ( {
 	const { __ } = useI18n();
 
 	return (
-		<div className="text-a8c-gray-50 flex justify-end py-2 text-xs">
+		<div className="text-frame-text-secondary flex justify-end py-2 text-xs">
 			{ createInterpolateElement(
 				__( "Oops! We couldn't get a response from the assistant. <a>Try again</a>" ),
 				{
@@ -104,7 +104,7 @@ const UsageLimitReached = () => {
 			  );
 
 	return (
-		<div className="text-center h-12 px-2 pt-6 text-a8c-gray-70">
+		<div className="text-center h-12 px-2 pt-6 text-frame-text-secondary">
 			{ createInterpolateElement( resetMessage, {
 				a: <Button onClick={ () => getIpcApi().showUserSettings( 'usage' ) } variant="link" />,
 			} ) }
@@ -116,8 +116,8 @@ const OfflineModeView = () => {
 	const offlineMessage = __( 'The AI assistant requires an internet connection.' );
 
 	return (
-		<div className="flex items-center justify-center h-12 px-2 pt-4 text-a8c-gray-70 gap-1">
-			<Icon className="m-1 fill-a8c-gray-70" size={ 24 } icon={ offlineIcon } />
+		<div className="flex items-center justify-center h-12 px-2 pt-4 text-frame-text-secondary gap-1">
+			<Icon className="m-1 fill-frame-text-secondary" size={ 24 } icon={ offlineIcon } />
 			<span className="text-[13px] leading-[16px]">{ offlineMessage }</span>
 		</div>
 	);
@@ -550,9 +550,11 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 						isAssistantThinking={ isAssistantThinking }
 						onOpenSettings={ () => setIsAiSettingsModalOpen( true ) }
 					/>
-					<div data-testid="guidelines-link" className="text-a8c-gray-50 self-end py-2">
+					<div data-testid="guidelines-link" className="text-frame-text-secondary self-end py-2">
 						{ createInterpolateElement( __( 'Powered by experimental AI. <learn_more_link />' ), {
-							learn_more_link: <LearnMoreLink docsLinksKey="a8cAiGuidelines" />,
+							learn_more_link: (
+								<LearnMoreLink docsLinksKey="a8cAiGuidelines" className="!text-frame-theme" />
+							),
 						} ) }
 					</div>
 				</div>

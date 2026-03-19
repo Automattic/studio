@@ -227,7 +227,7 @@ const UnforwardedAIInput = (
 				}`
 			) }
 		>
-			<div className={ `flex items-center h-12 ${ disabled && 'opacity-20 grayscale' }` }>
+			<div className={ cx( 'flex items-center h-12', disabled && 'opacity-20 grayscale' ) }>
 				<RiveComponent aria-hidden="true" style={ { width: 48, height: 48 } } />
 			</div>
 			<textarea

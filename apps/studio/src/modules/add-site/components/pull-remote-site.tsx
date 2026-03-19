@@ -28,7 +28,7 @@ function SiteSyncDescription( { children }: PropsWithChildren ) {
 						{ __( 'Create a new site from WordPress.com or Pressable' ) }
 					</div>
 				</div>
-				<div className="max-w-[40ch] text-a8c-gray-70 a8c-body">
+				<div className="max-w-[40ch] text-frame-text-secondary a8c-body">
 					{ __(
 						'Create a new local site and pull your WordPress.com or Pressable site with Jetpack activated.'
 					) }
@@ -39,7 +39,7 @@ function SiteSyncDescription( { children }: PropsWithChildren ) {
 						__( 'Pull content from your remote site.' ),
 						__( 'Start working locally with your site data.' ),
 					].map( ( text ) => (
-						<div key={ text } className="text-a8c-gray-70 a8c-body flex items-center">
+						<div key={ text } className="text-frame-text-secondary a8c-body flex items-center">
 							<Icon className="fill-frame-theme me-2 shrink-0" icon={ check } />
 							{ text }
 						</div>
@@ -96,7 +96,7 @@ function NoAuthPullRemoteSiteView() {
 					</Button>
 				</Tooltip>
 			</div>
-			<div className="mt-3 text-a8c-gray-70 a8c-body">
+			<div className="mt-3 text-frame-text-secondary a8c-body">
 				<Tooltip
 					disabled={ ! isOffline }
 					icon={ offlineIcon }

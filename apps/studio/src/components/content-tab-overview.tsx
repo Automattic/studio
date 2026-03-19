@@ -247,7 +247,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 								<ArrowIcon />
 							</div>
 							{ isThumbnailError ? (
-								<div className="flex w-full items-center justify-center h-64 leading-5 text-a8c-gray-50 text-center">
+								<div className="flex w-full items-center justify-center h-64 leading-5 text-frame-text-secondary text-center">
 									{ __( 'Preview unavailable' ) }
 								</div>
 							) : (

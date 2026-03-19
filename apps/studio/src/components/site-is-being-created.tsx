@@ -39,7 +39,7 @@ export function SiteIsBeingCreated( { siteName, statusMessage }: SiteIsBeingCrea
 			<div className="w-[300px] text-center">
 				<div className="text-frame-text a8c-subtitle-small mb-4">{ siteName }</div>
 				<ProgressBar className="w-full" />
-				<div className="text-a8c-gray-70 a8c-body mt-4">{ displayMessage }</div>
+				<div className="text-frame-text-secondary a8c-body mt-4">{ displayMessage }</div>
 			</div>
 		</div>
 	);

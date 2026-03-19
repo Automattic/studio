@@ -29,7 +29,7 @@ interface ContentTabSettingsProps {
 function SettingsRow( { children, label }: PropsWithChildren< { label: string } > ) {
 	return (
 		<tr className="align-top">
-			<th className="text-nowrap text-a8c-gray-50 pb-4 pe-10 ltr:text-left rtl:text-right font-normal">
+			<th className="text-nowrap text-frame-text-secondary pb-4 pe-10 ltr:text-left rtl:text-right font-normal">
 				{ label }
 			</th>
 			<td className="pb-4">{ children }</td>
@@ -137,7 +137,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 						</div>
 						{ ! isCertificateTrusted && selectedSite.enableHttps && (
 							<div className="mt-1 max-w-96">
-								<span className="text-a8c-gray-50 mt-1">
+								<span className="text-frame-text-secondary mt-1">
 									{ __(
 										'You need to trust this certificate to prevent your browser from showing a secure connection warning.'
 									) }

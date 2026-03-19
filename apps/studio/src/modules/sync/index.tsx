@@ -39,7 +39,7 @@ function SiteSyncDescription( { children }: PropsWithChildren ) {
 						{ __( 'Sync with WordPress.com or Pressable' ) }
 					</div>
 				</div>
-				<div className="max-w-[40ch] text-a8c-gray-70 a8c-body">
+				<div className="max-w-[40ch] text-frame-text-secondary a8c-body">
 					{ __(
 						'Launch your existing WordPress.com or Jetpack-activated Pressable sites, or import an existing one. Then, share your work with the world.'
 					) }
@@ -50,7 +50,7 @@ function SiteSyncDescription( { children }: PropsWithChildren ) {
 						__( 'Supports staging and production sites.' ),
 						__( 'Sync database and file changes.' ),
 					].map( ( text ) => (
-						<div key={ text } className="text-a8c-gray-70 a8c-body flex items-center">
+						<div key={ text } className="text-frame-text-secondary a8c-body flex items-center">
 							<Icon className="fill-frame-theme me-2 shrink-0" icon={ check } />
 							{ text }
 						</div>
@@ -91,7 +91,7 @@ function NoAuthSyncTab() {
 					</Button>
 				</Tooltip>
 			</div>
-			<div className="mt-3 text-a8c-gray-70 a8c-body">
+			<div className="mt-3 text-frame-text-secondary a8c-body">
 				<Tooltip
 					disabled={ ! isOffline }
 					icon={ offlineIcon }

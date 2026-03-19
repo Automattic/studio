@@ -20,14 +20,14 @@ import {
 	updateLatestWordPressVersion,
 } from 'src/lib/wp-versions';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
-import { getResourcesPath } from 'src/storage/paths';
+import { getWpFilesPath } from 'src/storage/paths';
 
 // SQLite integration folder name
 const SQLITE_FILENAME = 'sqlite-database-integration';
 
 // Tries to copy the app's bundled WordPress version to server files if needed
 async function copyBundledLatestWPVersion() {
-	const bundledWPVersionPath = path.join( getResourcesPath(), 'wp-files', 'latest', 'wordpress' );
+	const bundledWPVersionPath = path.join( getWpFilesPath(), 'latest', 'wordpress' );
 	const bundledWPVersion = semver.coerce(
 		await getWordPressVersionFromInstallation( bundledWPVersionPath )
 	);
@@ -52,7 +52,7 @@ async function copyBundledLatestWPVersion() {
 }
 
 async function copyBundledSqlite() {
-	const bundledSqlitePath = path.join( getResourcesPath(), 'wp-files', SQLITE_FILENAME );
+	const bundledSqlitePath = path.join( getWpFilesPath(), SQLITE_FILENAME );
 	const bundledSqliteVersion = semver.coerce(
 		await getSqliteVersionFromInstallation( bundledSqlitePath ),
 		{
@@ -83,12 +83,12 @@ async function copyBundledWPCLI() {
 	if ( bundledWPCLIInstalled ) {
 		return;
 	}
-	const bundledWPCLIPath = path.join( getResourcesPath(), 'wp-files', 'wp-cli', 'wp-cli.phar' );
+	const bundledWPCLIPath = path.join( getWpFilesPath(), 'wp-cli', 'wp-cli.phar' );
 	await fs.copyFile( bundledWPCLIPath, getWpCliPath() );
 }
 
 async function copyBundledSQLiteCommand() {
-	const bundledSqliteCommandPath = path.join( getResourcesPath(), 'wp-files', 'sqlite-command' );
+	const bundledSqliteCommandPath = path.join( getWpFilesPath(), 'sqlite-command' );
 	if ( ! ( await fs.pathExists( bundledSqliteCommandPath ) ) ) {
 		return;
 	}
@@ -98,8 +98,7 @@ async function copyBundledSQLiteCommand() {
 
 async function copyBundledTranslations() {
 	const bundledTranslationsPath = path.join(
-		getResourcesPath(),
-		'wp-files',
+		getWpFilesPath(),
 		'latest',
 		'available-site-translations.json'
 	);
@@ -115,7 +114,7 @@ async function copyBundledTranslations() {
 }
 
 async function copyBundledAiInstructions() {
-	const bundledAiInstructionsPath = path.join( getResourcesPath(), 'wp-files', 'skills' );
+	const bundledAiInstructionsPath = path.join( getWpFilesPath(), 'skills' );
 	if ( ! ( await fs.pathExists( bundledAiInstructionsPath ) ) ) {
 		return;
 	}
@@ -123,12 +122,7 @@ async function copyBundledAiInstructions() {
 }
 
 async function copyBundledLanguagePacks() {
-	const bundledLanguagePacksPath = path.join(
-		getResourcesPath(),
-		'wp-files',
-		'latest',
-		'languages'
-	);
+	const bundledLanguagePacksPath = path.join( getWpFilesPath(), 'latest', 'languages' );
 	if ( ! ( await fs.pathExists( bundledLanguagePacksPath ) ) ) {
 		return;
 	}

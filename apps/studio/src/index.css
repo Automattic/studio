@@ -50,7 +50,7 @@
 
 	.skeleton-bg {
 		animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-		background-image: linear-gradient(to right, #f6f7f7, #dcdcde, #f6f7f7);
+		background-image: linear-gradient(to right, var(--color-frame-surface), var(--color-frame-surface-alt), var(--color-frame-surface));
 	}
 }
 
@@ -391,20 +391,31 @@ div:has( > progress ) > div:first-child {
 	/* Element text cascade — WP Heading/Text set explicit color on elements.
 	   :is() groups the scopes; specificity = 0-1-1, same as [attr] element. */
 	:is( [data-testid='site-content'], .components-modal__frame, [data-fullscreen-modal] )
-		:is( h1, h2, h3, h4, h5, h6, p, span, label, li, td, th ) {
+		:is( h1, h2, h3, h4, h5, h6, p, label, li, td, th ) {
+		color: var( --color-frame-text );
+	}
+	:is( [data-testid='site-content'], .components-modal__frame, [data-fullscreen-modal] )
+		span:not( .components-button span, button span ) {
 		color: var( --color-frame-text );
 	}
 
 	/* Modal/fullscreen surfaces */
+	[role='dialog'].components-modal__frame {
+		background: var( --color-frame-bg ) !important;
+		box-shadow: 0 2px 12px rgba( 0, 0, 0, 0.4 ) !important;
+	}
 	.components-modal__frame,
 	.components-modal__content,
 	[data-fullscreen-modal] {
-		background-color: var( --color-frame-bg );
+		background: var( --color-frame-bg ) !important;
 		color: var( --color-frame-text );
 	}
 
-	/* Modal chrome */
+	/* Modal chrome — only show header border when content scrolls */
 	.components-modal__header {
+		border-bottom-color: transparent;
+	}
+	.components-modal__content.has-scrolled-content .components-modal__header {
 		border-bottom-color: var( --color-frame-border );
 	}
 
@@ -432,7 +443,7 @@ div:has( > progress ) > div:first-child {
 	}
 	.components-button.is-tertiary:hover,
 	.components-button.is-link:not( .is-destructive ):hover {
-		color: var( --color-frame-text );
+		color: var( --color-frame-theme );
 	}
 
 	/* Button SVG icons */
@@ -440,15 +451,26 @@ div:has( > progress ) > div:first-child {
 		fill: var( --color-frame-text );
 	}
 
-	/* Preserve primary/destructive button colors */
-	.components-button.is-primary,
-	.components-button.is-primary svg,
+	/* Primary button — force dark-mode theme blue */
+	.components-button.is-primary {
+		background-color: var( --color-frame-theme );
+		color: #fff;
+		fill: #fff;
+	}
+	.components-button.is-primary:hover:not( :disabled ) {
+		background-color: var( --color-frame-theme-hover );
+	}
+	.components-button.is-primary svg {
+		fill: #fff;
+	}
+
+	/* Preserve destructive button colors */
 	.components-button.is-destructive:not( .is-secondary ) {
 		color: #fff;
 		fill: #fff;
 	}
 
-	/* Input/select controls */
+	/* Input/select controls — override Emotion's white backgrounds */
 	.components-text-control__input,
 	.components-select-control__input,
 	.components-input-control__input,
@@ -457,11 +479,21 @@ div:has( > progress ) > div:first-child {
 		background-color: var( --color-frame-surface ) !important;
 		border-color: var( --color-frame-border );
 	}
-	.components-input-control__container {
-		background-color: var( --color-frame-surface );
+	[class*='components-input-control__container'][class*='Container'] {
+		background-color: var( --color-frame-surface ) !important;
 	}
 	.components-input-control__backdrop {
 		border-color: var( --color-frame-border ) !important;
+	}
+	/* Minimal (borderless) selects — no bg/border */
+	.select-minimal .components-select-control__input {
+		background-color: transparent !important;
+	}
+	.select-minimal [class*='components-input-control__container'] {
+		background-color: transparent !important;
+	}
+	.select-minimal .components-input-control__backdrop {
+		border-color: transparent !important;
 	}
 	.components-search-control__input::placeholder {
 		color: var( --color-frame-text-secondary );
@@ -514,6 +546,15 @@ div:has( > progress ) > div:first-child {
 	}
 	.components-menu-group + .components-menu-group {
 		border-top-color: var( --color-frame-border );
+	}
+
+	/* WP Notice */
+	.components-notice {
+		background-color: var( --color-frame-surface );
+		color: var( --color-frame-text );
+	}
+	.components-notice .components-notice__content {
+		color: var( --color-frame-text );
 	}
 
 	/* WP Guide (What's New modal) */

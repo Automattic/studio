@@ -1,7 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import yargs from 'yargs/yargs';
-import { startAiAgent } from 'cli/ai/agent';
+import { AI_MODELS, DEFAULT_MODEL, startAiAgent } from 'cli/ai/agent';
 import { resolveAiEnvironment, resolveInitialAiProvider } from 'cli/ai/auth';
 import { AiSessionRecorder } from 'cli/ai/sessions/recorder';
 import { deleteAiSession, listAiSessions, loadAiSession } from 'cli/ai/sessions/store';
@@ -12,19 +12,28 @@ import { registerCommand as registerAiSessionsResumeCommand } from 'cli/commands
 import { getAnthropicApiKey } from 'cli/lib/appdata';
 import { StudioArgv } from 'cli/types';
 
-const { reportErrorMock, waitForInputMock } = vi.hoisted( () => ( {
-	reportErrorMock: vi.fn(),
-	waitForInputMock: vi.fn(),
-} ) );
+const { askUserMock, recordSessionContextMock, reportErrorMock, waitForInputMock } = vi.hoisted(
+	() => ( {
+		askUserMock: vi.fn(),
+		recordSessionContextMock: vi.fn(),
+		reportErrorMock: vi.fn(),
+		waitForInputMock: vi.fn(),
+	} )
+);
 
-vi.mock( 'cli/lib/appdata', () => ( {
-	getAnthropicApiKey: vi.fn(),
-	getAuthToken: vi.fn().mockResolvedValue( {
-		displayName: 'Test User',
-		email: 'test@example.com',
-	} ),
-	saveAnthropicApiKey: vi.fn(),
-} ) );
+vi.mock( 'cli/lib/appdata', async () => {
+	const actual = await vi.importActual< typeof import('cli/lib/appdata') >( 'cli/lib/appdata' );
+
+	return {
+		...actual,
+		getAnthropicApiKey: vi.fn(),
+		getAuthToken: vi.fn().mockResolvedValue( {
+			displayName: 'Test User',
+			email: 'test@example.com',
+		} ),
+		saveAnthropicApiKey: vi.fn(),
+	};
+} );
 
 vi.mock( 'cli/ai/auth', () => ( {
 	getAvailableAiProviders: vi.fn().mockResolvedValue( [ 'anthropic-api-key', 'wpcom' ] ),
@@ -62,7 +71,8 @@ vi.mock( 'cli/logger', () => ( {
 	setProgressCallback: vi.fn(),
 } ) );
 
-vi.mock( 'cli/ai/agent', () => {
+vi.mock( 'cli/ai/agent', async () => {
+	const actual = await vi.importActual< typeof import('cli/ai/agent') >( 'cli/ai/agent' );
 	const emptyQuery = {
 		interrupt: vi.fn().mockResolvedValue( undefined ),
 		[ Symbol.asyncIterator ]() {
@@ -76,11 +86,7 @@ vi.mock( 'cli/ai/agent', () => {
 	};
 
 	return {
-		AI_MODELS: {
-			'claude-sonnet-4-6': 'Sonnet 4.6',
-			'claude-opus-4-6': 'Opus 4.6',
-		},
-		DEFAULT_MODEL: 'claude-sonnet-4-6',
+		...actual,
 		startAiAgent: vi.fn( () => emptyQuery ),
 	};
 } );
@@ -111,7 +117,7 @@ vi.mock( 'cli/ai/ui', () => ( {
 		}
 		showAgentQuestion() {}
 		async askUser() {
-			return {};
+			return askUserMock();
 		}
 		async waitForInput() {
 			return waitForInputMock();
@@ -127,7 +133,9 @@ vi.mock( 'cli/ai/sessions/recorder', () => {
 		static open = vi.fn().mockResolvedValue( new MockAiSessionRecorder() );
 		async recordSdkMessage() {}
 		async recordToolProgress() {}
-		async recordSessionContext() {}
+		async recordSessionContext( ...args: unknown[] ) {
+			return recordSessionContextMock( ...args );
+		}
 		async recordSiteSelected() {}
 		async recordUserMessage() {}
 		async recordAgentQuestion() {}
@@ -154,6 +162,7 @@ describe( 'CLI: studio ai sessions command', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		vi.mocked( getAnthropicApiKey ).mockResolvedValue( 'test-api-key' );
+		askUserMock.mockResolvedValue( {} );
 		waitForInputMock.mockResolvedValue( '/exit' );
 		vi.spyOn( process, 'exit' ).mockImplementation( () => undefined as never );
 	} );
@@ -196,6 +205,28 @@ describe( 'CLI: studio ai sessions command', () => {
 		await buildParser().parseAsync( [ 'ai' ] );
 
 		expect( ( AiSessionRecorder as typeof AiSessionRecorder ).create ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'persists selected model before the first prompt is sent', async () => {
+		const alternateModel = ( Object.entries( AI_MODELS ) as [ string, string ][] ).find(
+			( [ modelId ] ) => modelId !== DEFAULT_MODEL
+		);
+		expect( alternateModel ).toBeDefined();
+		const [ selectedModelId, selectedModelLabel ] = alternateModel!;
+
+		waitForInputMock.mockResolvedValueOnce( '/model' ).mockResolvedValueOnce( '/exit' );
+		askUserMock.mockResolvedValueOnce( {
+			'Select a model': selectedModelLabel,
+		} );
+
+		await buildParser().parseAsync( [ 'ai' ] );
+
+		expect( ( AiSessionRecorder as typeof AiSessionRecorder ).create ).toHaveBeenCalledTimes( 1 );
+		expect( recordSessionContextMock ).toHaveBeenCalledWith( {
+			provider: 'anthropic-api-key',
+			model: selectedModelId,
+		} );
+		expect( startAiAgent ).not.toHaveBeenCalled();
 	} );
 
 	it( 'disables session recording with --no-session-persistence', async () => {

@@ -122,6 +122,15 @@ export async function runCommand(
 		return persistQueue;
 	};
 
+	async function persistSessionContext(): Promise< void > {
+		await persist( ( recorder ) =>
+			recorder.recordSessionContext( {
+				provider: currentProvider,
+				model: currentModel,
+			} )
+		);
+	}
+
 	setProgressCallback( ( message ) => {
 		const timestamp = new Date().toISOString();
 		ui.setLoaderMessage( message );
@@ -261,12 +270,7 @@ export async function runCommand(
 			}]\n\n${ prompt }`;
 		}
 
-		await persist( ( recorder ) =>
-			recorder.recordSessionContext( {
-				provider: currentProvider,
-				model: currentModel,
-			} )
-		);
+		await persistSessionContext();
 
 		await persist( ( recorder ) =>
 			recorder.recordUserMessage( {
@@ -416,6 +420,7 @@ export async function runCommand(
 					currentModel = newModel[ 0 ];
 					ui.currentModel = currentModel;
 					ui.showInfo( `Switched to ${ AI_MODELS[ currentModel ] }` );
+					await persistSessionContext();
 				}
 				continue;
 			}

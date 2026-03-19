@@ -11,6 +11,7 @@ import {
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { removeMenu } from 'src/menu';
+import { SiteServer } from 'src/site-server';
 import {
 	loadUserData,
 	updateAppdata,
@@ -97,9 +98,8 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 	// Open the DevTools if the user had it open last time they used the app.
 	// During development the dev tools default to open.
 	void loadUserData().then( ( userData ) => {
-		const { devToolsOpen, sites } = userData;
-		setupDevTools( mainWindow, devToolsOpen );
-		initializePortFinder( sites );
+		setupDevTools( mainWindow, userData.devToolsOpen );
+		initializePortFinder( SiteServer.getAllDetails() );
 	} );
 
 	mainWindow.webContents.on( 'devtools-opened', async () => {

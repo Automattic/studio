@@ -412,10 +412,11 @@ export class SiteServer {
 		try {
 			await lockAppdata();
 			const userData = await loadUserData();
-			const existingSite = userData.sites.find( ( site ) => site.id === this.details.id );
-			if ( existingSite ) {
-				existingSite.themeDetails = this.details.themeDetails;
-			}
+			const siteId = this.details.id;
+			userData.sites[ siteId ] = {
+				...userData.sites[ siteId ],
+				themeDetails: this.details.themeDetails,
+			};
 			await saveUserData( userData );
 		} finally {
 			await unlockAppdata();

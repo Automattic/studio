@@ -127,13 +127,9 @@ const excludedSiteFields = new Set( [
 function pickAppdataSiteFields( site: Record< string, unknown > ): Record< string, unknown > {
 	const result: Record< string, unknown > = {};
 	for ( const key of Object.keys( site ) ) {
-		if ( ! excludedSiteFields.has( key ) ) {
+		if ( ! excludedSiteFields.has( key ) && key !== 'id' ) {
 			result[ key ] = site[ key ];
 		}
-	}
-	// Always keep id so we can correlate with cli.json sites
-	if ( site.id ) {
-		result.id = site.id;
 	}
 	return result;
 }
@@ -148,14 +144,20 @@ function buildAppdataConfig( oldData: Record< string, unknown > ): Record< strin
 	}
 
 	if ( Array.isArray( oldData.sites ) ) {
-		const sitesWithDesktopFields = oldData.sites
-			.map( ( site: Record< string, unknown > ) => pickAppdataSiteFields( site ) )
-			.filter( ( site: Record< string, unknown > ) =>
-				Object.keys( site ).some( ( key ) => key !== 'id' && site[ key ] !== undefined )
-			);
+		const sitesRecord: Record< string, Record< string, unknown > > = {};
+		for ( const site of oldData.sites ) {
+			const id = site.id as string;
+			if ( ! id ) {
+				continue;
+			}
+			const fields = pickAppdataSiteFields( site );
+			if ( Object.keys( fields ).length > 0 ) {
+				sitesRecord[ id ] = fields;
+			}
+		}
 
-		if ( sitesWithDesktopFields.length > 0 ) {
-			config.sites = sitesWithDesktopFields;
+		if ( Object.keys( sitesRecord ).length > 0 ) {
+			config.sites = sitesRecord;
 		}
 	}
 

@@ -18,11 +18,12 @@ import {
 	SnapshotEvent,
 	AuthEvent,
 } from '@studio/common/lib/cli-events';
+import { isEmptyDir } from '@studio/common/lib/fs-utils';
 import { sequential } from '@studio/common/lib/sequential';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import { readCliConfig, SiteData } from 'cli/lib/cli-config/core';
-import { getSiteUrl } from 'cli/lib/cli-config/sites';
+import { getSiteUrl, removeSiteFromConfig } from 'cli/lib/cli-config/sites';
 import {
 	connectToDaemon,
 	disconnectFromDaemon,
@@ -62,6 +63,10 @@ const emitSiteEvent = sequential(
 async function emitAllSitesStatus(): Promise< void > {
 	const cliConfig = await readCliConfig();
 	for ( const site of cliConfig.sites ) {
+		if ( site.path && ( await isEmptyDir( site.path ).catch( () => true ) ) ) {
+			await removeSiteFromConfig( site.id );
+			continue;
+		}
 		await emitSiteEvent( SITE_EVENTS.UPDATED, site.id );
 	}
 }

@@ -50,10 +50,9 @@ const cliConfigValidationSchema = z.object( {
 	snapshots: z.array( snapshotSchema ),
 } );
 
-// appdata.json schema — Desktop-only top-level fields + per-site Desktop fields
+// appdata.json schema — Desktop-only top-level fields + per-site Desktop fields (keyed by id)
 const appdataSiteValidationSchema = z
 	.object( {
-		id: z.string(),
 		themeDetails: z
 			.object( {
 				name: z.string(),
@@ -71,7 +70,7 @@ const appdataSiteValidationSchema = z
 const appdataValidationSchema = z
 	.object( {
 		version: z.literal( 1 ),
-		sites: z.array( appdataSiteValidationSchema ).optional(),
+		sites: z.record( z.string(), appdataSiteValidationSchema ).optional(),
 		devToolsOpen: z.boolean().optional(),
 		windowBounds: z
 			.object( {
@@ -433,27 +432,27 @@ describe( 'migrateAppdata', () => {
 			expect( appdata ).not.toHaveProperty( 'snapshots' );
 		} );
 
-		it( 'keeps per-site Desktop fields (themeDetails, sortOrder) with id', async () => {
+		it( 'keeps per-site Desktop fields (themeDetails, sortOrder) keyed by id', async () => {
 			await migrateAppdata();
 
 			const appdata = getWrittenJson( 'appdata.json' );
-			const sites = appdata?.sites as Record< string, unknown >[];
+			const sites = appdata?.sites as Record< string, Record< string, unknown > >;
 			const oldData = createOldAppdata();
 
-			expect( sites ).toHaveLength( 2 );
+			expect( Object.keys( sites ) ).toHaveLength( 2 );
 
-			// Should have Desktop-only fields
-			expect( sites[ 0 ] ).toEqual( {
-				id: 'site-1',
+			// Should have Desktop-only fields keyed by site id
+			expect( sites[ 'site-1' ] ).toEqual( {
 				themeDetails: oldData.sites[ 0 ].themeDetails,
 				sortOrder: 0,
 			} );
 
 			// Should NOT have CLI fields
-			expect( sites[ 0 ] ).not.toHaveProperty( 'name' );
-			expect( sites[ 0 ] ).not.toHaveProperty( 'path' );
-			expect( sites[ 0 ] ).not.toHaveProperty( 'port' );
-			expect( sites[ 0 ] ).not.toHaveProperty( 'running' );
+			expect( sites[ 'site-1' ] ).not.toHaveProperty( 'id' );
+			expect( sites[ 'site-1' ] ).not.toHaveProperty( 'name' );
+			expect( sites[ 'site-1' ] ).not.toHaveProperty( 'path' );
+			expect( sites[ 'site-1' ] ).not.toHaveProperty( 'port' );
+			expect( sites[ 'site-1' ] ).not.toHaveProperty( 'running' );
 		} );
 
 		it( 'omits sites array when no sites have Desktop-specific data', async () => {

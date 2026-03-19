@@ -43,7 +43,6 @@ import {
 	needsToMigrateFromWpNowFolder,
 	migrateFromWpNowFolder,
 } from 'src/migrations/migrate-from-wp-now-folder';
-import { removeSitesWithEmptyDirectories } from 'src/migrations/remove-sites-with-empty-dirs';
 import { renameLaunchUniquesStat } from 'src/migrations/rename-launch-uniques-stat';
 import {
 	startCliEventsSubscriber,
@@ -319,8 +318,6 @@ async function appBoot() {
 		}
 
 		await setupSentryUserId();
-
-		await removeSitesWithEmptyDirectories();
 
 		await renameLaunchUniquesStat();
 

@@ -11,8 +11,13 @@ export interface WindowBounds {
 	isFullScreen?: boolean;
 }
 
+export interface AppdataSiteData {
+	themeDetails?: SiteDetails[ 'themeDetails' ];
+	sortOrder?: number;
+}
+
 export interface UserData {
-	sites: SiteDetails[];
+	sites: Record< string, AppdataSiteData >;
 	devToolsOpen?: boolean;
 	windowBounds?: WindowBounds;
 	onboardingCompleted?: boolean;
@@ -27,13 +32,8 @@ export interface UserData {
 	stopSitesOnQuit?: boolean;
 }
 
-export interface PersistedUserData extends Omit< UserData, 'sites' > {
+export interface PersistedUserData extends UserData {
 	version: number;
-
-	// Users can edit the file system manually which would make UserData['name'] and UserData['path']
-	// get out of sync. `name` is redundant because it can be calculated from `path`, so we
-	// won't persist `name`.
-	sites: Omit< StoppedSiteDetails, 'running' >[];
 }
 
 export interface PromptWindowsSpeedUpResult {

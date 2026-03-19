@@ -88,8 +88,7 @@ describe( 'Installed Apps API', () => {
 
 		const mockUserData = ( preferredEditor?: string ) => {
 			vi.mocked( loadUserData ).mockResolvedValue( {
-				sites: [],
-				snapshots: [],
+				sites: {},
 				preferredEditor,
 			} as Awaited< ReturnType< typeof loadUserData > > );
 		};

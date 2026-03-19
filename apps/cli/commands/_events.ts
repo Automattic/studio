@@ -110,10 +110,12 @@ export async function runCommand(): Promise< void > {
 
 	// Remove any stale socket from a previous Studio session. Studio is single-instance,
 	// so any existing events.sock belongs to a dead session and must be replaced.
-	try {
-		fs.unlinkSync( SITE_EVENTS_SOCKET_PATH );
-	} catch ( err ) {
-		// ENOENT is fine — socket didn't exist. Any other error is unexpected but non-fatal.
+	if ( process.platform !== 'win32' ) {
+		try {
+			fs.unlinkSync( SITE_EVENTS_SOCKET_PATH );
+		} catch ( err ) {
+			// ENOENT is fine — socket didn't exist. Any other error is unexpected but non-fatal.
+		}
 	}
 
 	try {

@@ -5,7 +5,6 @@ import { I18nProvider } from '@wordpress/react-i18n';
 import { useEffect } from 'react';
 import { Provider as ReduxProvider } from 'react-redux';
 import App from 'src/components/app';
-import AuthProvider from 'src/components/auth-provider';
 import CrashTester from 'src/components/crash-tester';
 import ErrorBoundary from 'src/components/error-boundary';
 import { WordPressStyles } from 'src/components/wordpress-styles';
@@ -35,21 +34,19 @@ const Root = () => {
 				<ReduxProvider store={ store }>
 					<I18nProvider i18n={ defaultI18n }>
 						<WordPressStyles />
-						<AuthProvider>
-							<FeatureFlagsProvider>
-								<ContentTabsProvider>
-									<SiteDetailsProvider>
-										<ThemeDetailsProvider>
-											<OnboardingProvider>
-												<ImportExportProvider>
-													<App />
-												</ImportExportProvider>
-											</OnboardingProvider>
-										</ThemeDetailsProvider>
-									</SiteDetailsProvider>
-								</ContentTabsProvider>
-							</FeatureFlagsProvider>
-						</AuthProvider>
+						<FeatureFlagsProvider>
+							<ContentTabsProvider>
+								<SiteDetailsProvider>
+									<ThemeDetailsProvider>
+										<OnboardingProvider>
+											<ImportExportProvider>
+												<App />
+											</ImportExportProvider>
+										</OnboardingProvider>
+									</ThemeDetailsProvider>
+								</SiteDetailsProvider>
+							</ContentTabsProvider>
+						</FeatureFlagsProvider>
 					</I18nProvider>
 				</ReduxProvider>
 			</CacheProvider>

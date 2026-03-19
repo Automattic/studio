@@ -11,6 +11,7 @@ import TopBar from 'src/components/top-bar';
 import WindowsTitlebar from 'src/components/windows-titlebar';
 import { useListenDeepLinkConnection } from 'src/hooks/sync-sites/use-listen-deep-link-connection';
 import { useAuth } from 'src/hooks/use-auth';
+import { useAuthInit } from 'src/hooks/use-auth-init';
 import { useLocalizationSupport } from 'src/hooks/use-localization-support';
 import { useSidebarVisibility } from 'src/hooks/use-sidebar-visibility';
 import { useSiteDetails } from 'src/hooks/use-site-details';
@@ -27,6 +28,7 @@ import { syncOperationsThunks } from 'src/stores/sync';
 import 'src/index.css';
 
 export default function App() {
+	useAuthInit();
 	useLocalizationSupport();
 	const { needsOnboarding } = useOnboarding();
 	const isOnboardingLoading = useRootSelector( selectOnboardingLoading );

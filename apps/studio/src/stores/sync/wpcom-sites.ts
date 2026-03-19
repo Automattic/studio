@@ -5,7 +5,7 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { reconcileConnectedSites } from 'src/modules/sync/lib/reconcile-connected-sites';
 import { getSyncSupport, isPressableSite } from 'src/modules/sync/lib/sync-support';
 import { withOfflineCheck } from 'src/stores/utils/with-offline-check';
-import { getWpcomClient } from 'src/stores/wpcom-api';
+import { getWpcomClient } from 'src/stores/wpcom-client';
 import type { SyncSite, SyncSupport } from 'src/modules/sync/types';
 
 // Schema for WordPress.com sites endpoint

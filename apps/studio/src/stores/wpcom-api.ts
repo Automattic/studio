@@ -5,8 +5,8 @@ import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { z } from 'zod';
 import { withOfflineCheck, withOfflineCheckMutation } from 'src/stores/utils/with-offline-check';
+import { getWpcomClient } from 'src/stores/wpcom-client';
 import type { BaseQueryFn, FetchBaseQueryError } from '@reduxjs/toolkit/query';
-import type { WPCOM } from 'wpcom/types';
 
 const welcomeMessageSchema = z.object( {
 	messages: z.array( z.string() ),
@@ -70,16 +70,7 @@ const blueprintSchema = z.object( {
 
 export type Blueprint = z.infer< typeof blueprintSchema >;
 
-let wpcomClient: WPCOM | undefined;
 const publicWpcomClient = wpcomFactory( wpcomXhrRequest );
-
-export const setWpcomClient = ( client: WPCOM | undefined ) => {
-	wpcomClient = client;
-};
-
-export const getWpcomClient = (): WPCOM | undefined => {
-	return wpcomClient;
-};
 
 const wpcomBaseQuery: BaseQueryFn<
 	{ path: string; apiNamespace?: string },
@@ -87,7 +78,7 @@ const wpcomBaseQuery: BaseQueryFn<
 	FetchBaseQueryError
 > = async ( args ) => {
 	try {
-		const response = await wpcomClient!.req.get( args );
+		const response = await getWpcomClient()!.req.get( args );
 		return { data: response };
 	} catch ( error ) {
 		return {
@@ -247,7 +238,7 @@ function withWpcomClientCheck< TResult, TArg >(
 	return ( arg, options = {} ) => {
 		return useQueryHook( arg, {
 			...options,
-			skip: ! wpcomClient || options?.skip,
+			skip: ! getWpcomClient() || options?.skip,
 		} );
 	};
 }
@@ -258,7 +249,7 @@ function withWpcomClientCheckMutation< TResult, TArg >(
 	return ( options = {} ) => {
 		const [ trigger, result ] = useMutationHook( options );
 		const wrappedTrigger = ( ( ...args: Parameters< typeof trigger > ) => {
-			if ( ! wpcomClient ) {
+			if ( ! getWpcomClient() ) {
 				return Promise.reject( new Error( 'Not authenticated' ) ) as ReturnType< typeof trigger >;
 			}
 			return trigger( ...args );

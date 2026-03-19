@@ -5,7 +5,7 @@ import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { isInvalidTokenError } from 'src/lib/is-invalid-oauth-token-error';
 import { store, RootState } from 'src/stores';
-import { getWpcomClient, setWpcomClient } from 'src/stores/wpcom-api';
+import { getWpcomClient, setWpcomClient } from 'src/stores/wpcom-client';
 import type { StoredToken } from 'src/lib/oauth';
 import type { WPCOM } from 'wpcom/types';
 

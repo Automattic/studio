@@ -35,7 +35,8 @@ import {
 } from 'src/stores/sync/sync-operations-slice';
 import { wpcomSitesApi } from 'src/stores/sync/wpcom-sites';
 import uiReducer from 'src/stores/ui-slice';
-import { getWpcomClient, wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
+import { wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
+import { getWpcomClient } from 'src/stores/wpcom-client';
 import { wordpressVersionsApi } from './wordpress-versions-api';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 

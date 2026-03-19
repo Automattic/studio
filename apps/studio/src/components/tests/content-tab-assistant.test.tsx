@@ -7,13 +7,12 @@ import nock from 'nock';
 import { Provider } from 'react-redux';
 import { Dispatch } from 'redux';
 import { vi } from 'vitest';
-import { AuthContextType } from 'src/components/auth-provider';
 import {
 	ContentTabAssistant,
 	MIMIC_CONVERSATION_DELAY,
 } from 'src/components/content-tab-assistant';
 import { LOCAL_STORAGE_CHAT_MESSAGES_KEY, CLEAR_HISTORY_REMINDER_TIME } from 'src/constants';
-import { useAuth } from 'src/hooks/use-auth';
+import { AuthContextType, useAuth } from 'src/hooks/use-auth';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { useOffline } from 'src/hooks/use-offline';
 import { ThemeDetailsProvider } from 'src/hooks/use-theme-details';

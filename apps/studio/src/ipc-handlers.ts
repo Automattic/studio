@@ -984,8 +984,6 @@ export async function loadThemeDetails(
 		await server.persistThemeDetails();
 	}
 
-	// Thumbnail capture is handled by captureSiteThumbnail, which deduplicates
-	// concurrent captures. This is shared with the CLI events subscriber path.
 	void captureSiteThumbnail( id );
 
 	return themeDetails;

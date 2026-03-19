@@ -6,8 +6,6 @@ import { getSiteThumbnailPath } from 'src/storage/paths';
 // Track in-flight captures to avoid concurrent BrowserWindow creation for the same site.
 const pendingCaptures = new Set< string >();
 
-// Capture and cache a site's thumbnail without requiring an IPC event sender.
-// Used by the CLI events subscriber when sites are created or started outside the desktop UI.
 export async function captureSiteThumbnail( id: string ): Promise< void > {
 	if ( pendingCaptures.has( id ) ) {
 		return;

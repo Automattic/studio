@@ -78,7 +78,8 @@ type UserDataSafeKeys =
 	| 'lastSeenVersion'
 	| 'preferredTerminal'
 	| 'preferredEditor'
-	| 'betaFeatures';
+	| 'betaFeatures'
+	| 'colorScheme';
 
 type PartialUserDataWithSafeKeysToUpdate = Partial< Pick< UserData, UserDataSafeKeys > >;
 

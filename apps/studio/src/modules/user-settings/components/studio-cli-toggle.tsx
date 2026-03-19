@@ -16,8 +16,9 @@ export function StudioCliToggle( { value, onChange }: StudioCLIToggleProps ) {
 
 	return (
 		<SettingsFormField label={ __( 'Studio CLI' ) }>
-			<div className="flex justify-start items-center gap-2">
+			<div className="flex justify-start items-start gap-2">
 				<FormToggle
+					className="mt-0.5"
 					id="studio-cli-toggle"
 					checked={ value }
 					onChange={ ( event ) => onChange( event.target.checked ) }

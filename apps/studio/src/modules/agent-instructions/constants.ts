@@ -1,6 +1,4 @@
-import { AGENTS_MD_FILE_NAME, AGENTS_MD_TEMPLATE } from '@studio/common/lib/agents-md';
-
-export type InstructionFileType = 'agents';
+export type InstructionFileType = 'agents' | 'claude' | 'studio';
 
 export interface InstructionFileConfig {
 	id: InstructionFileType;
@@ -12,18 +10,22 @@ export interface InstructionFileConfig {
 export const INSTRUCTION_FILES: Record< InstructionFileType, InstructionFileConfig > = {
 	agents: {
 		id: 'agents',
-		fileName: AGENTS_MD_FILE_NAME,
-		displayName: AGENTS_MD_FILE_NAME,
+		fileName: 'AGENTS.md',
+		displayName: 'AGENTS.md',
 		description: 'Instructions for Codex, Goose, and other AI agents',
+	},
+	claude: {
+		id: 'claude',
+		fileName: 'CLAUDE.md',
+		displayName: 'CLAUDE.md',
+		description: 'Reference for Claude Code to read AGENTS.md',
+	},
+	studio: {
+		id: 'studio',
+		fileName: 'STUDIO.md',
+		displayName: 'STUDIO.md',
+		description: 'Detailed Studio-specific WordPress development instructions',
 	},
 };
 
-export const INSTRUCTION_FILE_TYPES: InstructionFileType[] = [ 'agents' ];
-
-/**
- * Template version - increment when making significant changes to instructions.
- * Format: YYYYMMDD.revision (e.g., 20250131.1)
- */
-export const AGENT_INSTRUCTIONS_VERSION = '20250131.1';
-
-export const DEFAULT_AGENT_INSTRUCTIONS = `<!-- Studio Instructions Version: ${ AGENT_INSTRUCTIONS_VERSION } -->\n${ AGENTS_MD_TEMPLATE }`;
+export const INSTRUCTION_FILE_TYPES: InstructionFileType[] = [ 'agents', 'claude', 'studio' ];

@@ -1,16 +1,24 @@
 import os from 'os';
 import path from 'path';
 import fs from 'fs-extra';
-import { BUNDLED_SKILL_IDS } from '../tools/common/lib/agent-skills';
 import { extractZip } from '../tools/common/lib/extract-zip';
 
 const WP_FILES_PATH = path.join( __dirname, '..', 'wp-files' );
-const AGENT_SKILLS_PATH = path.join( WP_FILES_PATH, 'agent-skills' );
+const AI_SKILLS_PATH = path.join( WP_FILES_PATH, 'skills' );
+const LOCAL_AI_SKILLS_PATH = path.join( __dirname, '..', 'skills' );
 
 const REPO_ZIP_URL = 'https://github.com/WordPress/agent-skills/archive/refs/heads/trunk.zip';
 
-async function downloadAgentSkills(): Promise< void > {
-	console.log( '[agent-skills] Downloading WordPress agent skills ...' );
+const REMOTE_SKILL_IDS = [
+	'wp-plugin-development',
+	'wp-block-development',
+	'wp-block-themes',
+	'wp-rest-api',
+	'wp-wpcli-and-ops',
+];
+
+async function downloadRemoteSkills(): Promise< void > {
+	console.log( '[ai-skills] Downloading remote WordPress skills...' );
 
 	const zipPath = path.join( os.tmpdir(), 'agent-skills.zip' );
 	const extractPath = path.join( os.tmpdir(), 'agent-skills-extracted' );
@@ -38,29 +46,51 @@ async function downloadAgentSkills(): Promise< void > {
 	const skillsSourceDir = path.join( extractPath, repoDir, 'skills' );
 
 	// Copy each skill to the destination
-	await fs.ensureDir( AGENT_SKILLS_PATH );
-	for ( const skillName of BUNDLED_SKILL_IDS ) {
-		const source = path.join( skillsSourceDir, skillName );
-		const destination = path.join( AGENT_SKILLS_PATH, skillName );
+	for ( const skillId of REMOTE_SKILL_IDS ) {
+		const source = path.join( skillsSourceDir, skillId );
+		const destination = path.join( AI_SKILLS_PATH, skillId );
 
 		if ( ! ( await fs.pathExists( source ) ) ) {
-			console.warn( `[agent-skills] Skill not found in repo: ${ skillName }` );
+			console.warn( `[ai-skills] Remote skill not found: ${ skillId }` );
 			continue;
 		}
 
 		await fs.remove( destination );
 		await fs.copy( source, destination );
-		console.log( `[agent-skills] Installed ${ skillName }` );
+		console.log( `[ai-skills] Downloaded ${ skillId }` );
 	}
 
 	// Clean up temporary files
 	await fs.remove( zipPath );
 	await fs.remove( extractPath );
-
-	console.log( '[agent-skills] Done' );
 }
 
-downloadAgentSkills().catch( ( err ) => {
+async function copyLocalContent(): Promise< void > {
+	console.log( '[ai-skills] Copying local content...' );
+
+	const entries = await fs.readdir( LOCAL_AI_SKILLS_PATH, { withFileTypes: true } );
+	for ( const entry of entries ) {
+		// Skip non-content files (e.g. .ts)
+		if ( entry.isFile() && ! entry.name.endsWith( '.md' ) ) {
+			continue;
+		}
+
+		const source = path.join( LOCAL_AI_SKILLS_PATH, entry.name );
+		const destination = path.join( AI_SKILLS_PATH, entry.name );
+		await fs.remove( destination );
+		await fs.copy( source, destination );
+		console.log( `[ai-skills] Copied ${ entry.name }` );
+	}
+}
+
+async function downloadAiSkills(): Promise< void > {
+	await fs.ensureDir( AI_SKILLS_PATH );
+	await copyLocalContent();
+	await downloadRemoteSkills();
+	console.log( '[ai-skills] Done' );
+}
+
+downloadAiSkills().catch( ( err ) => {
 	console.error( err );
 	process.exit( 1 );
 } );

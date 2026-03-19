@@ -38,6 +38,6 @@ export function getLanguagePacksPath(): string {
 	return path.join( getServerFilesPath(), 'language-packs' );
 }
 
-export function getAgentSkillsPath(): string {
-	return path.join( getServerFilesPath(), 'agent-skills' );
+export function getAiInstructionsPath(): string {
+	return path.join( getServerFilesPath(), 'skills' );
 }

@@ -38,8 +38,6 @@ import {
 } from 'cli/lib/types/wordpress-server-ipc';
 
 let server: RunCLIServer | null = null;
-let startingPromise: Promise< void > = Promise.resolve();
-let startupAbortController: AbortController | null = null;
 let lastCliArgs: Record< string, unknown > | null = null;
 
 // Intercept and prefix all console output from playground-cli
@@ -265,14 +263,21 @@ async function getBaseRunCLIArgs(
 	return args;
 }
 
+let startupAbortController: AbortController | null = null;
+let startingPromise: Promise< void > | null = null;
+
+// We allow a single `startServer` call per process. If that call throws, we expect
+// `ipcMessageHandler` to kill the process.
 function wrapWithStartingPromise< Args extends unknown[], Return extends void >(
 	callback: ( ...args: Args ) => Promise< Return >
 ) {
 	return async ( ...args: Args ) => {
-		// Intentionally don't recover from errors, because we want the process to die if `startServer` fails
-		const promise = startingPromise.then( () => callback( ...args ) );
-		startingPromise = promise;
-		return await promise;
+		if ( startingPromise ) {
+			return startingPromise;
+		}
+
+		startingPromise = callback( ...args );
+		return startingPromise;
 	};
 }
 

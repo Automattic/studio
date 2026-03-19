@@ -331,19 +331,25 @@ const startServer = wrapWithStartingPromise(
 
 const STOP_SERVER_TIMEOUT = 5000;
 
-async function stopServer(): Promise< void > {
+enum StopServerResult {
+	ABORTED_STARTUP = 'ABORTED_STARTUP',
+	ALREADY_STOPPED = 'ALREADY_STOPPED',
+	OK = 'OK',
+}
+
+async function stopServer(): Promise< StopServerResult > {
 	// If there's a startup in progress, abort and return gracefully. The `startServer` function will
 	// throw because of the aborted signal, leading `ipcMessageHandler` to return an error IPC
 	// response and killing the process.
 	if ( startupAbortController ) {
 		logToConsole( 'Startup operation in progress. Aborting it to stop the server…' );
 		startupAbortController.abort();
-		return;
+		return StopServerResult.ABORTED_STARTUP;
 	}
 
 	if ( ! server ) {
 		logToConsole( 'No server running, nothing to stop' );
-		return;
+		return StopServerResult.ALREADY_STOPPED;
 	}
 
 	try {
@@ -353,6 +359,7 @@ async function stopServer(): Promise< void > {
 
 		await Promise.race( [ server[ Symbol.asyncDispose ](), disposalTimeout ] );
 		logToConsole( 'Server stopped gracefully' );
+		return StopServerResult.OK;
 	} catch ( error ) {
 		errorToConsole( 'Error during server disposal:', error );
 		// Rethrowing the error so that `ipcMessageHandler` returns an error IPC response and kills the process
@@ -526,6 +533,12 @@ async function ipcMessageHandler( packet: unknown ) {
 			result,
 		};
 		process.send!( response );
+
+		// If the `stopServer` function ran successfully, the last open handle should be the IPC channel.
+		// Disconnect so that the process can exit cleanly.
+		if ( validMessage.topic === 'stop-server' && result === StopServerResult.OK ) {
+			process.disconnect();
+		}
 	} catch ( error ) {
 		errorToConsole( `Error handling message ${ validMessage.topic }:`, error );
 		await sendErrorMessage( validMessage.messageId, error );

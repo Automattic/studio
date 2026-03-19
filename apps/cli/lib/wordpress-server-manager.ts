@@ -286,17 +286,19 @@ export async function stopWordPressServer( siteId: string ): Promise< void > {
 	}
 
 	try {
-		const exitPromise = new Promise< void >( ( resolve, reject ) => {
-			getDaemonBus()
-				.then( ( bus ) => {
-					bus.on( 'process-event', ( event ) => {
-						if ( event.process.name === processName && event.event === 'exit' ) {
-							console.log( 'received exit even in `stopWordPressServer`' );
-							resolve();
-						}
-					} );
-				} )
-				.catch( reject );
+		const bus = await getDaemonBus();
+		let busExitEventListener: ( event: DaemonBusEventMap[ 'process-event' ] ) => void;
+
+		const exitPromise = new Promise< void >( ( resolve ) => {
+			busExitEventListener = ( event: DaemonBusEventMap[ 'process-event' ] ) => {
+				if ( event.process.name === processName && event.event === 'exit' ) {
+					resolve();
+				}
+			};
+
+			bus.on( 'process-event', busExitEventListener );
+		} ).finally( () => {
+			bus.off( 'process-event', busExitEventListener );
 		} );
 
 		await sendMessage(

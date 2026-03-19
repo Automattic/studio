@@ -115,7 +115,7 @@ export default function UserSettings() {
 						} }
 					>
 						{ ( { name } ) => (
-							<div className="mt-6 px-8 flex gap-4 flex-col">
+							<div className="mt-6 px-8 pb-8 flex gap-4 flex-col">
 								{ name === 'general' && <PreferencesTab onClose={ resetLocalState } /> }
 								{ name === 'skills' && <p> Skills Tab </p> }
 								{ name === 'account' && (

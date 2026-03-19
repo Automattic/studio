@@ -1,8 +1,4 @@
-import {
-	DEFAULT_ENABLE_PHPMYADMIN,
-	DEFAULT_PHP_VERSION,
-	DEFAULT_WORDPRESS_VERSION,
-} from '@studio/common/constants';
+import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import {
 	generateCustomDomainFromSiteName,
 	getDomainNameValidationError,
@@ -48,9 +44,6 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 	const [ enableDebugLog, setEnableDebugLog ] = useState( selectedSite?.enableDebugLog ?? false );
 	const [ enableDebugDisplay, setEnableDebugDisplay ] = useState(
 		selectedSite?.enableDebugDisplay ?? false
-	);
-	const [ enablePhpMyAdmin, setEnablePhpMyAdmin ] = useState(
-		selectedSite?.enablePhpMyAdmin ?? DEFAULT_ENABLE_PHPMYADMIN
 	);
 	const [ xdebugEnabledSite, setXdebugEnabledSite ] = useState< SiteDetails | null >( null );
 	const [ adminUsername, setAdminUsername ] = useState( selectedSite?.adminUsername ?? 'admin' );
@@ -153,8 +146,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		( decodePassword( selectedSite.adminPassword ?? '' ) || 'password' ) === adminPassword &&
 		( selectedSite.adminEmail || 'admin@localhost.com' ) === adminEmail &&
 		!! selectedSite.enableDebugLog === enableDebugLog &&
-		!! selectedSite.enableDebugDisplay === enableDebugDisplay &&
-		( selectedSite.enablePhpMyAdmin ?? DEFAULT_ENABLE_PHPMYADMIN ) === enablePhpMyAdmin;
+		!! selectedSite.enableDebugDisplay === enableDebugDisplay;
 	const hasValidationErrors =
 		! selectedSite ||
 		! siteName.trim() ||
@@ -181,7 +173,6 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		setAdminEmail( selectedSite.adminEmail || 'admin@localhost.com' );
 		setEnableDebugLog( selectedSite.enableDebugLog ?? false );
 		setEnableDebugDisplay( selectedSite.enableDebugDisplay ?? false );
-		setEnablePhpMyAdmin( selectedSite.enablePhpMyAdmin ?? DEFAULT_ENABLE_PHPMYADMIN );
 	}, [ selectedSite, getEffectiveWpVersion ] );
 
 	const onSiteEdit = async ( event: FormEvent ) => {
@@ -198,8 +189,6 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		const hasDebugLogChanged = enableDebugLog !== ( selectedSite.enableDebugLog ?? false );
 		const hasDebugDisplayChanged =
 			enableDebugDisplay !== ( selectedSite.enableDebugDisplay ?? false );
-		const hasPhpMyAdminChanged =
-			enablePhpMyAdmin !== ( selectedSite.enablePhpMyAdmin ?? DEFAULT_ENABLE_PHPMYADMIN );
 		const hasDomainChanged =
 			Boolean( selectedSite.customDomain ) !== useCustomDomain ||
 			( useCustomDomain && customDomain !== selectedSite.customDomain );
@@ -221,7 +210,6 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 				credentialsChanged: hasCredentialsChanged,
 				debugLogChanged: hasDebugLogChanged,
 				debugDisplayChanged: hasDebugDisplayChanged,
-				phpmyadminChanged: hasPhpMyAdminChanged,
 			} );
 		setNeedsRestart( needsRestart );
 
@@ -247,7 +235,6 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 					adminEmail,
 					enableDebugLog,
 					enableDebugDisplay,
-					enablePhpMyAdmin,
 				},
 				hasWpVersionChanged ? selectedWpVersion : undefined
 			);
@@ -600,32 +587,6 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 													{ __(
 														'Display PHP errors and warnings directly in the browser by setting the WP_DEBUG_DISPLAY constant.'
 													) }
-												</div>
-											</div>
-
-											<div
-												className={ cx(
-													'flex flex-col gap-2 mt-4',
-													isEditingSite ? 'opacity-50 cursor-not-allowed' : ''
-												) }
-											>
-												<div className="flex items-center gap-2">
-													<input
-														type="checkbox"
-														id="enable-phpmyadmin"
-														checked={ enablePhpMyAdmin }
-														onChange={ ( e ) => setEnablePhpMyAdmin( e.target.checked ) }
-														disabled={ isEditingSite }
-													/>
-													<label
-														htmlFor="enable-phpmyadmin"
-														className={ cx( isEditingSite ? 'cursor-not-allowed' : '' ) }
-													>
-														{ __( 'Enable phpMyAdmin' ) }
-													</label>
-												</div>
-												<div className="text-a8c-gray-50 text-xs mt-1">
-													{ __( 'Access phpMyAdmin to browse and manage your site database.' ) }
 												</div>
 											</div>
 										</>

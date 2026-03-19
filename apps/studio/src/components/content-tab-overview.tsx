@@ -1,5 +1,4 @@
 import * as Sentry from '@sentry/electron/renderer';
-import { DEFAULT_ENABLE_PHPMYADMIN } from '@studio/common/constants';
 import { __ } from '@wordpress/i18n';
 import {
 	archive,
@@ -185,7 +184,7 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 		label: __( 'phpMyAdmin' ),
 		className: 'text-nowrap',
 		icon: grid,
-		disabled: ! ( selectedSite.enablePhpMyAdmin ?? DEFAULT_ENABLE_PHPMYADMIN ) || isServerLoading,
+		disabled: isServerLoading,
 		onClick: async () => {
 			if ( ! selectedSite.running ) {
 				await startServer( selectedSite );

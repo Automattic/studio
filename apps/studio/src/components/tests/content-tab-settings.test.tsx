@@ -88,7 +88,6 @@ const selectedSite: SiteDetails = {
 	running: false,
 	phpVersion: '8.3',
 	id: 'site-id',
-	enablePhpMyAdmin: false,
 };
 
 function renderWithProvider( component: React.ReactElement ) {
@@ -159,8 +158,8 @@ describe( 'ContentTabSettings', () => {
 		).toHaveTextContent( 'localhost:8881' );
 		expect( screen.getByText( 'HTTPS' ) ).toBeVisible();
 		expect( screen.getByText( 'Xdebug' ) ).toBeVisible();
-		// HTTPS, Xdebug, Debug log, Debug display, and phpMyAdmin show "Disabled"
-		expect( screen.getAllByText( 'Disabled' ) ).toHaveLength( 5 );
+		// HTTPS, Xdebug, Debug log, and Debug display show "Disabled"
+		expect( screen.getAllByText( 'Disabled' ) ).toHaveLength( 4 );
 		expect( screen.getByRole( 'button', { name: 'Copy local path to clipboard' } ) ).toBeVisible();
 		expect( screen.getByText( '7.7.7' ) ).toBeVisible();
 		expect(

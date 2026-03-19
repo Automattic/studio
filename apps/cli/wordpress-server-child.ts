@@ -79,11 +79,11 @@ process.stderr.write = function ( ...args: Parameters< typeof originalStderrWrit
 } as typeof process.stderr.write;
 
 function logToConsole( ...args: Parameters< typeof console.log > ) {
-	originalConsoleLog( new Date().toISOString(), `[WordPress Server Child]`, ...args );
+	originalConsoleLog( `[WordPress Server Child]`, ...args );
 }
 
 function errorToConsole( ...args: Parameters< typeof console.error > ) {
-	originalConsoleError( new Date().toISOString(), `[WordPress Server Child]`, ...args );
+	originalConsoleError( `[WordPress Server Child]`, ...args );
 }
 
 function escapePhpString( str: string ): string {

@@ -1,9 +1,9 @@
+import { z } from 'zod';
 import { MINIMUM_WORDPRESS_VERSION } from '@studio/common/constants';
 import {
 	isWordPressBetaVersion,
 	isWordPressDevVersion,
 } from '@studio/common/lib/wordpress-version-utils';
-import { z } from 'zod';
 
 const WP_API_BASE_URL = 'https://api.wordpress.org/core/version-check/1.7/';
 

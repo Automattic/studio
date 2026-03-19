@@ -11,7 +11,6 @@ const timeFormatter = ( value: number ) => `${ value } ms`;
 
 export const METRIC_CONFIG: Record< string, MetricConfig > = {
 	appSizeMac: { label: 'App Size (Mac)', format: sizeFormatter, threshold: BYTES_PER_MB },
-	appSizeWin: { label: 'App Size (Win)', format: sizeFormatter, threshold: BYTES_PER_MB },
 };
 
 const DEFAULT_METRIC_CONFIG: MetricConfig = { label: '', format: timeFormatter, threshold: 50 };

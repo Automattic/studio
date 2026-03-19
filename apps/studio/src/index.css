@@ -556,6 +556,30 @@ div:has( > progress ) > div:first-child {
 	.components-notice .components-notice__content {
 		color: var( --color-frame-text );
 	}
+	.components-notice.is-warning {
+		background-color: #78350f;
+		border-left-color: #f59e0b;
+		color: #fef3c7;
+	}
+	.components-notice.is-warning .components-notice__content {
+		color: #fef3c7;
+	}
+	.components-notice.is-error {
+		background-color: #7f1d1d;
+		border-left-color: #f87171;
+		color: #fee2e2;
+	}
+	.components-notice.is-error .components-notice__content {
+		color: #fee2e2;
+	}
+	.components-notice.is-success {
+		background-color: #14532d;
+		border-left-color: #4ade80;
+		color: #dcfce7;
+	}
+	.components-notice.is-success .components-notice__content {
+		color: #dcfce7;
+	}
 
 	/* WP Guide (What's New modal) */
 	.components-guide {

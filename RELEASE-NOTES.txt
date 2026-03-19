@@ -1,6 +1,22 @@
 Unreleased
 ==========
 
+1.7.6
+=====
+* Added enableMultisite Blueprint step support #2470
+* Added admin credentials to interactive CLI site creation flow #2682
+* Prefilled admin email and made it mandatory during site creation #2681
+* Improved app quit reliability by always killing PM2 daemon on site stop #2683
+* Improved deeplink connection speed #2375
+* Fixed site processes opening terminals on Windows #2794
+* Fixed removing sites when site folder is already removed #2705
+* Fixed Open file in IDE to respect user's preferred editor #2730
+* Fixed re-selecting the same file not triggering the import #2768
+* Fixed unsafe type assertions #2719
+* Renamed VS Code labels to Visual Studio Code #2693
+* Replaced pm2 and pm2-axon with homegrown solutions for process management #2712, #2690
+* Updated multiple dependencies, including Electron, Sentry, WordPress packages, and PHP-WASM
+
 1.7.5
 =====
 * Added Redis and Memcached support #2554

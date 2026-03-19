@@ -28,20 +28,6 @@ const initialState: AuthState = {
 };
 
 function createWpcomClient( token?: string, locale?: string, onInvalidToken?: () => void ): WPCOM {
-	let isAuthErrorDialogOpen = false;
-	const handleInvalidTokenError = async ( response: unknown ) => {
-		if ( isInvalidTokenError( response ) && onInvalidToken && ! isAuthErrorDialogOpen ) {
-			isAuthErrorDialogOpen = true;
-			onInvalidToken();
-			await getIpcApi().showMessageBox( {
-				type: 'error',
-				message: 'Session Expired',
-				detail: 'Your session has expired. Please log in again.',
-			} );
-			isAuthErrorDialogOpen = false;
-		}
-	};
-
 	const addLocaleToParams = ( params: WpcomParams ) => {
 		if ( locale && locale !== 'en' ) {
 			const queryParams = new URLSearchParams(
@@ -64,8 +50,8 @@ function createWpcomClient( token?: string, locale?: string, onInvalidToken?: ()
 	) => {
 		const modifiedParams = addLocaleToParams( params as WpcomParams );
 		const wrappedCallback = ( err: unknown, response: unknown, headers: unknown ) => {
-			if ( err ) {
-				void handleInvalidTokenError( err );
+			if ( err && isInvalidTokenError( err ) && onInvalidToken ) {
+				onInvalidToken();
 			}
 			if ( typeof callback === 'function' ) {
 				callback( err, response, headers );
@@ -80,14 +66,27 @@ function createWpcomClient( token?: string, locale?: string, onInvalidToken?: ()
 
 const createTypedAsyncThunk = createAsyncThunk.withTypes< { state: RootState } >();
 
+let isAuthErrorDialogOpen = false;
+
 export const handleInvalidToken = createTypedAsyncThunk( 'auth/handleInvalidToken', async () => {
+	if ( isAuthErrorDialogOpen ) {
+		return;
+	}
+	isAuthErrorDialogOpen = true;
 	try {
 		void getIpcApi().logRendererMessage( 'info', 'Detected invalid token. Logging out.' );
 		await getIpcApi().clearAuthenticationToken();
 		setWpcomClient( undefined );
+		await getIpcApi().showMessageBox( {
+			type: 'error',
+			message: 'Session Expired',
+			detail: 'Your session has expired. Please log in again.',
+		} );
 	} catch ( err ) {
 		console.error( 'Failed to handle invalid token:', err );
 		Sentry.captureException( err );
+	} finally {
+		isAuthErrorDialogOpen = false;
 	}
 } );
 

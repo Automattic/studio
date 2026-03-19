@@ -2,6 +2,7 @@ import { createAsyncThunk, createSlice, isAnyOf } from '@reduxjs/toolkit';
 import * as Sentry from '@sentry/electron/renderer';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
+import { __ } from '@wordpress/i18n';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { isInvalidTokenError } from 'src/lib/is-invalid-oauth-token-error';
 import { store, RootState } from 'src/stores';
@@ -188,5 +189,27 @@ const authSlice = createSlice( {
 
 export const selectIsAuthenticated = ( state: RootState ) => state.auth.isAuthenticated;
 export const selectUser = ( state: RootState ) => state.auth.user ?? undefined;
+
+export function initializeAuthIpcListeners() {
+	window.ipcListener.subscribe( 'auth-updated', ( _event, payload ) => {
+		if ( 'error' in payload ) {
+			let title: string = __( 'Authentication error' );
+			let message: string = __( 'Please try again.' );
+
+			if ( payload.error instanceof Error && payload.error.message.includes( 'access_denied' ) ) {
+				title = __( 'Authorization denied' );
+				message = __(
+					'It looks like you denied the authorization request. To proceed, please click "Approve"'
+				);
+			}
+
+			void getIpcApi().showErrorMessageBox( { title, message } );
+			return;
+		}
+
+		const locale = store.getState().i18n.locale;
+		void store.dispatch( authTokenReceived( { token: payload.token, locale } ) );
+	} );
+}
 
 export default authSlice.reducer;

@@ -286,7 +286,7 @@ function WordPressSkillsPanel( { siteId }: { siteId: string } ) {
 								</div>
 								<div className="text-xs text-gray-500 truncate">{ skill.description }</div>
 							</div>
-							<div className="flex items-center gap-2 flex-shrink-0">
+							<div className="flex items-center gap-4 flex-shrink-0">
 								{ skill.installed ? (
 									<>
 										<Button

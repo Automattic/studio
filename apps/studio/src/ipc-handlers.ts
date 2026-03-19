@@ -35,12 +35,13 @@ import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
 import { portFinder } from '@studio/common/lib/port-finder';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
+import { SITE_EVENTS } from '@studio/common/lib/site-events';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import { Snapshot } from '@studio/common/types/snapshot';
 import { StatsGroup, StatsMetric } from '@studio/common/types/stats';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import { MACOS_TRAFFIC_LIGHT_POSITION, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
-import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
+import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
 import { getImporterMetric, getBlueprintMetric } from 'src/lib/bump-stats/lib';
 import {
@@ -58,6 +59,12 @@ import { defaultImporterOptions, importBackup } from 'src/lib/import-export/impo
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import * as oauthClient from 'src/lib/oauth';
+import {
+	isPhpUserError,
+	parsePhpError,
+	startErrorRecovery,
+	stopErrorRecovery,
+} from 'src/lib/php-error-recovery';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import * as windowsHelpers from 'src/lib/windows-helpers';
@@ -186,14 +193,16 @@ function readWordPressDebugLog( sitePath: string ): string[] | undefined {
 	return readLastLines( debugLogPath, DEBUG_LOG_MAX_LINES );
 }
 
+const PM2_LOG_MAX_LINES = 200;
+
 function readPm2Logs( siteId: string ): { stdout?: string[]; stderr?: string[] } {
 	const logsDir = nodePath.join( PM2_HOME, 'logs' );
 	const stdoutPath = nodePath.join( logsDir, `studio-site-${ siteId }-out.log` );
 	const stderrPath = nodePath.join( logsDir, `studio-site-${ siteId }-error.log` );
 
 	return {
-		stdout: readLastLines( stdoutPath, DEBUG_LOG_MAX_LINES ),
-		stderr: readLastLines( stderrPath, DEBUG_LOG_MAX_LINES ),
+		stdout: readLastLines( stdoutPath, PM2_LOG_MAX_LINES ),
+		stderr: readLastLines( stderrPath, PM2_LOG_MAX_LINES ),
 	};
 }
 
@@ -496,44 +505,47 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 			throw new Error( 'WASM_ERROR_NOT_ENOUGH_MEMORY' );
 		}
 
-		const contexts: Record< string, Record< string, unknown > > = {
-			server: {
-				running: server.details.running,
-				phpVersion: server.details.phpVersion,
-				port: server.details.port,
-				hasCustomDomain: !! server.details.customDomain,
-				httpsEnabled: !! server.details.enableHttps,
-			},
-		};
-
-		const cliError = parseCliError( error );
-		if ( cliError?.cliArgs ) {
-			contexts.startup = cliError.cliArgs;
-		}
-
-		const debugLog = readWordPressDebugLog( server.details.path );
-		if ( debugLog && debugLog.length > 0 ) {
-			contexts.debugLog = { entries: debugLog };
-		}
-
-		const pm2Logs = readPm2Logs( id );
-		if ( pm2Logs.stdout && pm2Logs.stdout.length > 0 ) {
-			contexts.playgroundLogs = { entries: pm2Logs.stdout };
-		}
-		if ( pm2Logs.stderr && pm2Logs.stderr.length > 0 ) {
-			contexts.playgroundErrors = { entries: pm2Logs.stderr };
-		}
-
-		Sentry.captureException( error, {
-			tags: {
-				provider: 'cli',
-			},
-			contexts,
-		} );
-
 		if ( errorMessageContains( error, '"unreachable" WASM instruction executed' ) ) {
+			captureStartServerException( error, server, id );
 			throw new Error( 'Please try disabling plugins and themes that might be causing the issue.' );
 		}
+
+		// Check PM2 logs for PHP errors — if found, serve an error page and watch for fixes
+		if ( isPhpUserError( error ) ) {
+			const pm2Logs = readPm2Logs( id );
+			const logContent = [ ...( pm2Logs.stdout ?? [] ), ...( pm2Logs.stderr ?? [] ) ].join( '\n' );
+			const errorMessage = parsePhpError( logContent );
+
+			try {
+				await startErrorRecovery( server, errorMessage, readPm2Logs );
+				console.log(
+					`[PHP Recovery - ${ id }] Error page serving on port ${ server.details.port }`
+				);
+
+				// Notify renderer that the site is "running" (serving the error page)
+				void sendIpcEventToRenderer( 'site-event', {
+					event: SITE_EVENTS.UPDATED,
+					siteId: id,
+					site: {
+						id: server.details.id,
+						name: server.details.name,
+						path: server.details.path,
+						port: server.details.port,
+						url:
+							( 'url' in server.details ? server.details.url : undefined ) ??
+							`http://localhost:${ server.details.port }`,
+						phpVersion: server.details.phpVersion,
+					},
+					running: true,
+				} );
+				return;
+			} catch ( recoveryError ) {
+				console.error( `[PHP Recovery - ${ id }] Failed to start recovery:`, recoveryError );
+				// Fall through to throw original error
+			}
+		}
+
+		captureStartServerException( error, server, id );
 		throw error;
 	}
 
@@ -544,12 +556,50 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 	console.log( `Server started for '${ server.details.name }'` );
 }
 
+function captureStartServerException( error: unknown, server: SiteServer, id: string ): void {
+	const contexts: Record< string, Record< string, unknown > > = {
+		server: {
+			running: server.details.running,
+			phpVersion: server.details.phpVersion,
+			port: server.details.port,
+			hasCustomDomain: !! server.details.customDomain,
+			httpsEnabled: !! server.details.enableHttps,
+		},
+	};
+
+	const cliError = parseCliError( error );
+	if ( cliError?.cliArgs ) {
+		contexts.startup = cliError.cliArgs;
+	}
+
+	const debugLog = readWordPressDebugLog( server.details.path );
+	if ( debugLog && debugLog.length > 0 ) {
+		contexts.debugLog = { entries: debugLog };
+	}
+
+	const pm2Logs = readPm2Logs( id );
+	if ( pm2Logs.stdout && pm2Logs.stdout.length > 0 ) {
+		contexts.playgroundLogs = { entries: pm2Logs.stdout };
+	}
+	if ( pm2Logs.stderr && pm2Logs.stderr.length > 0 ) {
+		contexts.playgroundErrors = { entries: pm2Logs.stderr };
+	}
+
+	Sentry.captureException( error, {
+		tags: {
+			provider: 'cli',
+		},
+		contexts,
+	} );
+}
+
 export async function stopServer( event: IpcMainInvokeEvent, id: string ): Promise< void > {
 	const server = SiteServer.get( id );
 	if ( ! server ) {
 		return;
 	}
 
+	stopErrorRecovery( id );
 	await server.stop();
 }
 

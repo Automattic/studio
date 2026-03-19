@@ -10,8 +10,6 @@
  * - Sends response back when ready
  * - Sends activity heartbeats to prevent timeout during long operations
  */
-import { watch, type FSWatcher } from 'fs';
-import http, { type Server as HttpServer } from 'http';
 import { dirname } from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { isWordPressDirectory } from '@studio/common/lib/fs-utils';
@@ -31,7 +29,6 @@ import {
 import { WordPressInstallMode } from '@wp-playground/wordpress';
 import { z } from 'zod';
 import { sanitizeRunCLIArgs } from 'cli/lib/cli-args-sanitizer';
-import { isPhpUserError, parsePhpError, serveErrorPage } from 'cli/lib/php-error-handling';
 import { getSqliteCommandPath, getWpCliPharPath } from 'cli/lib/server-files';
 import { isSqliteIntegrationInstalled } from 'cli/lib/sqlite-integration';
 import {
@@ -43,13 +40,6 @@ import {
 let server: RunCLIServer | null = null;
 let startingPromise: Promise< void > | null = null;
 let lastCliArgs: Record< string, unknown > | null = null;
-let orphanedServer: HttpServer | null = null;
-let siteFileWatcher: FSWatcher | null = null;
-
-// Output capture for diagnosing PHP errors during boot.
-// When capturedBootOutput is non-null, all console/stdout output is recorded.
-let capturedBootOutput: string[] | null = null;
-let lastCapturedOutput: string | null = null;
 
 // Intercept and prefix all console output from playground-cli
 const originalConsoleLog = console.log;
@@ -58,7 +48,6 @@ const originalConsoleWarn = console.warn;
 
 console.log = ( ...args: unknown[] ) => {
 	originalConsoleLog( '[playground-cli]', ...args );
-	capturedBootOutput?.push( args.map( String ).join( ' ' ) );
 	const message = args.join( ' ' );
 	process.send!( { topic: 'activity' } );
 	const formattedMessage = formatPlaygroundCliMessage( message );
@@ -69,7 +58,6 @@ console.log = ( ...args: unknown[] ) => {
 
 console.error = ( ...args: unknown[] ) => {
 	originalConsoleError( '[playground-cli]', ...args );
-	capturedBootOutput?.push( args.map( String ).join( ' ' ) );
 	process.send!( { topic: 'activity' } );
 };
 
@@ -82,7 +70,6 @@ const originalStdoutWrite = process.stdout.write.bind( process.stdout );
 const originalStderrWrite = process.stderr.write.bind( process.stderr );
 
 process.stdout.write = function ( ...args: Parameters< typeof originalStdoutWrite > ) {
-	capturedBootOutput?.push( String( args[ 0 ] ) );
 	process.send!( { topic: 'activity' } );
 	return originalStdoutWrite( ...args );
 } as typeof process.stdout.write;
@@ -285,123 +272,6 @@ function wrapWithStartingPromise< Args extends unknown[], Return extends void >(
 	};
 }
 
-/**
- * Watch for PHP file changes and attempt to restart the server.
- */
-function watchForPhpChanges( config: ServerConfig ): void {
-	let debounce: ReturnType< typeof setTimeout > | null = null;
-	let retrying = false;
-
-	siteFileWatcher = watch( config.sitePath, { recursive: true }, ( _event, filename ) => {
-		if ( ! filename?.endsWith( '.php' ) || retrying ) {
-			return;
-		}
-		if ( debounce ) {
-			clearTimeout( debounce );
-		}
-		debounce = setTimeout( () => {
-			void ( async () => {
-				retrying = true;
-				logToConsole( 'PHP file change detected, restarting server…' );
-				try {
-					// Close orphaned server to free the port for the new runCLI
-					if ( orphanedServer ) {
-						orphanedServer.close();
-						orphanedServer = null;
-					}
-					const args = await getBaseRunCLIArgs( 'server', config );
-					lastCliArgs = sanitizeRunCLIArgs( args );
-					server = await runCLIWithoutExit( args );
-
-					// Success — clean up watcher and stale state
-					siteFileWatcher?.close();
-					siteFileWatcher = null;
-					lastCapturedOutput = null;
-					logToConsole( 'Server restarted successfully' );
-
-					if ( config.adminPassword || config.adminUsername || config.adminEmail ) {
-						await setAdminCredentials(
-							server,
-							config.adminPassword,
-							config.adminUsername,
-							config.adminEmail
-						);
-					}
-				} catch {
-					logToConsole( 'Restart failed, still watching…' );
-					if ( orphanedServer ) {
-						const errorMsg = parsePhpError( lastCapturedOutput || 'PHP error during startup' );
-						serveErrorPage( orphanedServer, errorMsg );
-					}
-				} finally {
-					retrying = false;
-				}
-			} )();
-		}, 2000 );
-	} );
-}
-
-/**
- * Wraps runCLI to prevent @wp-playground/cli from calling process.exit(1) on
- * PHP fatal errors, and to capture orphaned HTTP servers for reuse.
- *
- * Playground's internal error handler calls process.exit(1) directly in a .catch(),
- * bypassing all try-catch blocks. This wrapper:
- * 1. Overrides process.exit to throw instead of exiting
- * 2. Enables output capture via the global console/stdout interceptors
- * 3. Intercepts http.createServer to capture Playground's HTTP server reference
- * 4. On failure, the orphaned server is repurposed to serve an error page
- */
-
-async function runCLIWithoutExit(
-	args: RunCLIArgs & { command: 'server' }
-): Promise< RunCLIServer > {
-	const originalExit = process.exit;
-
-	// Enable output capture via the global interceptors
-	capturedBootOutput = [];
-
-	process.exit = ( ( code?: number ) => {
-		if ( code !== 0 ) {
-			throw new Error( `WordPress server startup failed (exit code ${ code })` );
-		}
-		return originalExit( code );
-	} ) as typeof process.exit;
-
-	// Intercept HTTP servers created by Playground so we can repurpose them on failure.
-	// Playground binds an HTTP server to the port before booting WordPress — if boot fails,
-	// this orphaned server still holds the port.
-	const createdServers: HttpServer[] = [];
-	const originalCreateServer = http.createServer;
-	http.createServer = ( ( ...createArgs: unknown[] ) => {
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const srv = ( originalCreateServer as any )( ...createArgs ) as HttpServer;
-		createdServers.push( srv );
-		return srv;
-	} ) as typeof http.createServer;
-
-	try {
-		return await runCLI( args );
-	} catch ( error ) {
-		// Save captured output for error parsing
-		lastCapturedOutput = ( capturedBootOutput ?? [] ).join( '\n' );
-
-		// Keep Playground's orphaned HTTP server so the caller can repurpose it.
-		// This avoids EADDRINUSE — the server is already bound to the port.
-		if ( createdServers.length > 0 ) {
-			orphanedServer = createdServers[ 0 ];
-			for ( let i = 1; i < createdServers.length; i++ ) {
-				createdServers[ i ].close();
-			}
-		}
-		throw error;
-	} finally {
-		process.exit = originalExit;
-		capturedBootOutput = null;
-		http.createServer = originalCreateServer;
-	}
-}
-
 const startServer = wrapWithStartingPromise(
 	async ( config: ServerConfig, signal: AbortSignal ): Promise< void > => {
 		if ( server ) {
@@ -409,54 +279,25 @@ const startServer = wrapWithStartingPromise(
 			return;
 		}
 
-		try {
-			signal.addEventListener(
-				'abort',
-				() => {
-					throw new Error( 'Operation aborted' );
-				},
-				{ once: true }
+		signal.addEventListener(
+			'abort',
+			() => {
+				throw new Error( 'Operation aborted' );
+			},
+			{ once: true }
+		);
+
+		const args = await getBaseRunCLIArgs( 'server', config );
+		lastCliArgs = sanitizeRunCLIArgs( args );
+		server = await runCLI( args );
+
+		if ( config.adminPassword || config.adminUsername || config.adminEmail ) {
+			await setAdminCredentials(
+				server,
+				config.adminPassword,
+				config.adminUsername,
+				config.adminEmail
 			);
-
-			const args = await getBaseRunCLIArgs( 'server', config );
-			lastCliArgs = sanitizeRunCLIArgs( args );
-			server = await runCLIWithoutExit( args );
-
-			if ( config.adminPassword || config.adminUsername || config.adminEmail ) {
-				await setAdminCredentials(
-					server,
-					config.adminPassword,
-					config.adminUsername,
-					config.adminEmail
-				);
-			}
-		} catch ( error ) {
-			server = null;
-
-			if ( isPhpUserError( error ) ) {
-				const errorMessage = parsePhpError(
-					lastCapturedOutput || ( error instanceof Error ? error.message : '' )
-				);
-				logToConsole( `PHP error detected during startup: ${ errorMessage }` );
-
-				if ( orphanedServer ) {
-					serveErrorPage( orphanedServer, errorMessage );
-					logToConsole( 'Error page server listening. Watching for file changes…' );
-					watchForPhpChanges( config );
-					process.send!( {
-						topic: 'console-message',
-						message: `PHP error: ${ errorMessage }`,
-					} );
-					return;
-				}
-
-				// No orphaned server to serve an error page — rethrow so the parent
-				// receives an error and can show a dialog to the user.
-				throw error;
-			}
-
-			errorToConsole( `Failed to start server:`, error );
-			throw error;
 		}
 	}
 );
@@ -464,17 +305,6 @@ const startServer = wrapWithStartingPromise(
 const STOP_SERVER_TIMEOUT = 5000;
 
 async function stopServer(): Promise< void > {
-	if ( siteFileWatcher ) {
-		siteFileWatcher.close();
-		siteFileWatcher = null;
-	}
-	if ( orphanedServer ) {
-		orphanedServer.close();
-		orphanedServer = null;
-		logToConsole( 'Error page server stopped' );
-		return;
-	}
-
 	if ( ! server ) {
 		logToConsole( 'No server running, nothing to stop' );
 		return;

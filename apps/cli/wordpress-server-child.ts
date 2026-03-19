@@ -319,8 +319,9 @@ const startServer = wrapWithStartingPromise(
 				logToConsole( `Aborted start server operation:`, error );
 			} else {
 				errorToConsole( `Failed to start server:`, error );
-				throw error;
 			}
+
+			throw error;
 		} finally {
 			startupAbortController = null;
 		}
@@ -330,7 +331,9 @@ const startServer = wrapWithStartingPromise(
 const STOP_SERVER_TIMEOUT = 5000;
 
 async function stopServer(): Promise< void > {
-	// If there's a startup in progress, abort and return gracefully
+	// If there's a startup in progress, abort and return gracefully. The `startServer` function will
+	// throw because of the aborted signal, leading `ipcMessageHandler` to return an error IPC
+	// response and killing the process.
 	if ( startupAbortController ) {
 		logToConsole( 'Startup operation in progress. Aborting it to stop the server…' );
 		startupAbortController.abort();

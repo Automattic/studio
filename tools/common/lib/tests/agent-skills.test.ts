@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { vi } from 'vitest';
-import { BUNDLED_SKILL_IDS, installSkillsToSite } from '../agent-skills';
+import { installAiInstructionsToSite, updateManagedInstructionFiles } from '../agent-skills';
 import { pathExists, recursiveCopyDirectory } from '../fs-utils';
 
 vi.mock( 'fs/promises', () => ( {
@@ -11,9 +11,7 @@ vi.mock( 'fs/promises', () => ( {
 		readdir: vi.fn(),
 		copyFile: vi.fn(),
 		rm: vi.fn(),
-		lstat: vi.fn(),
 		symlink: vi.fn(),
-		stat: vi.fn(),
 	},
 } ) );
 
@@ -23,125 +21,263 @@ vi.mock( '../fs-utils', () => ( {
 } ) );
 
 const SITE_PATH = '/test/my-site';
-const BUNDLED_PATH = '/mock/server-files/agent-skills';
+const BUNDLED_PATH = '/mock/server-files/skills';
 
-describe( 'BUNDLED_SKILL_IDS', () => {
-	it( 'contains exactly 5 skills', () => {
-		expect( BUNDLED_SKILL_IDS ).toHaveLength( 5 );
-	} );
-
-	it( 'includes all expected skill IDs', () => {
-		expect( BUNDLED_SKILL_IDS ).toEqual( [
-			'wp-plugin-development',
-			'wp-block-development',
-			'wp-block-themes',
-			'wp-rest-api',
-			'wp-wpcli-and-ops',
-		] );
-	} );
-} );
-
-describe( 'installSkillsToSite', () => {
+describe( 'installAiInstructionsToSite', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
-		vi.mocked( pathExists ).mockResolvedValue( true );
+		vi.mocked( pathExists ).mockResolvedValue( false );
 		vi.mocked( recursiveCopyDirectory ).mockResolvedValue( undefined );
 		vi.mocked( fs.mkdir ).mockResolvedValue( undefined );
 		vi.mocked( fs.rm ).mockResolvedValue( undefined );
 		vi.mocked( fs.symlink ).mockResolvedValue( undefined );
+		vi.mocked( fs.copyFile ).mockResolvedValue( undefined );
 	} );
 
-	it( 'skips copy but still creates symlink when SKILL.md exists and overwrite is false', async () => {
+	it( 'copies loose .md files to site root', async () => {
 		vi.mocked( pathExists ).mockImplementation( async ( p: string ) => {
-			// Source exists, SKILL.md exists, but symlink does not exist
-			if ( p.includes( '.claude' ) ) {
-				return false;
+			if ( p === BUNDLED_PATH ) {
+				return true;
 			}
-			return true;
+			return false;
 		} );
+		vi.mocked( fs.readdir ).mockResolvedValue( [
+			{ name: 'AGENTS.md', isFile: () => true, isDirectory: () => false },
+			{ name: 'STUDIO.md', isFile: () => true, isDirectory: () => false },
+		] as never );
 
-		await installSkillsToSite( SITE_PATH, BUNDLED_PATH, false );
+		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH );
 
-		// Should not copy since SKILL.md exists
-		expect( recursiveCopyDirectory ).not.toHaveBeenCalled();
-		// Should still create symlinks
-		expect( fs.symlink ).toHaveBeenCalledTimes( 5 );
+		expect( fs.copyFile ).toHaveBeenCalledWith(
+			path.join( BUNDLED_PATH, 'AGENTS.md' ),
+			path.join( SITE_PATH, 'AGENTS.md' )
+		);
+		expect( fs.copyFile ).toHaveBeenCalledWith(
+			path.join( BUNDLED_PATH, 'STUDIO.md' ),
+			path.join( SITE_PATH, 'STUDIO.md' )
+		);
 	} );
 
-	it( 'installs skills when not present', async () => {
+	it( 'skips .md files that already exist when overwrite is false', async () => {
 		vi.mocked( pathExists ).mockImplementation( async ( p: string ) => {
-			if ( p.endsWith( 'SKILL.md' ) || p.includes( '.claude' ) ) {
-				return false;
+			if ( p === BUNDLED_PATH ) {
+				return true;
 			}
-			return true;
+			if ( p === path.join( SITE_PATH, 'AGENTS.md' ) ) {
+				return true;
+			}
+			return false;
 		} );
+		vi.mocked( fs.readdir ).mockResolvedValue( [
+			{ name: 'AGENTS.md', isFile: () => true, isDirectory: () => false },
+			{ name: 'STUDIO.md', isFile: () => true, isDirectory: () => false },
+		] as never );
 
-		await installSkillsToSite( SITE_PATH, BUNDLED_PATH, false );
+		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH, false );
 
-		expect( recursiveCopyDirectory ).toHaveBeenCalledTimes( 5 );
-		expect( fs.symlink ).toHaveBeenCalledTimes( 5 );
+		expect( fs.copyFile ).toHaveBeenCalledTimes( 1 );
+		expect( fs.copyFile ).toHaveBeenCalledWith(
+			path.join( BUNDLED_PATH, 'STUDIO.md' ),
+			path.join( SITE_PATH, 'STUDIO.md' )
+		);
 	} );
 
-	it( 'creates symlink with correct relative path', async () => {
+	it( 'installs directories as skills with symlinks', async () => {
 		vi.mocked( pathExists ).mockImplementation( async ( p: string ) => {
-			if ( p.endsWith( 'SKILL.md' ) || p.includes( '.claude' ) ) {
-				return false;
+			if ( p === BUNDLED_PATH || p === path.join( BUNDLED_PATH, 'studio-cli' ) ) {
+				return true;
 			}
-			return true;
+			return false;
 		} );
+		vi.mocked( fs.readdir ).mockResolvedValue( [
+			{ name: 'studio-cli', isFile: () => false, isDirectory: () => true },
+		] as never );
 
-		await installSkillsToSite( SITE_PATH, BUNDLED_PATH, false );
+		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH );
 
-		const expectedRelativePath = path.relative(
-			path.join( SITE_PATH, '.claude', 'skills' ),
-			path.join( SITE_PATH, '.agents', 'skills', 'wp-plugin-development' )
+		expect( recursiveCopyDirectory ).toHaveBeenCalledWith(
+			path.join( BUNDLED_PATH, 'studio-cli' ),
+			path.join( SITE_PATH, '.agents', 'skills', 'studio-cli' )
 		);
 		expect( fs.symlink ).toHaveBeenCalledWith(
-			expectedRelativePath,
-			path.join( SITE_PATH, '.claude', 'skills', 'wp-plugin-development' )
+			path.relative(
+				path.join( SITE_PATH, '.claude', 'skills' ),
+				path.join( SITE_PATH, '.agents', 'skills', 'studio-cli' )
+			),
+			path.join( SITE_PATH, '.claude', 'skills', 'studio-cli' )
 		);
 	} );
 
-	it( 'removes existing files when overwrite is true', async () => {
-		vi.mocked( pathExists ).mockResolvedValue( true );
+	it( 'removes existing skills when overwrite is true', async () => {
+		vi.mocked( pathExists ).mockImplementation( async ( p: string ) => {
+			if ( p === BUNDLED_PATH ) {
+				return true;
+			}
+			// SKILL.md exists, symlink exists
+			return true;
+		} );
+		vi.mocked( fs.readdir ).mockResolvedValue( [
+			{ name: 'wp-rest-api', isFile: () => false, isDirectory: () => true },
+		] as never );
 
-		await installSkillsToSite( SITE_PATH, BUNDLED_PATH, true );
+		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH, true );
 
 		expect( fs.rm ).toHaveBeenCalledWith(
-			path.join( SITE_PATH, '.agents', 'skills', 'wp-plugin-development' ),
+			path.join( SITE_PATH, '.agents', 'skills', 'wp-rest-api' ),
 			{ recursive: true, force: true }
 		);
-		expect( recursiveCopyDirectory ).toHaveBeenCalledTimes( 5 );
+		expect( recursiveCopyDirectory ).toHaveBeenCalledTimes( 1 );
 	} );
 
-	it( 'skips skills whose source does not exist', async () => {
+	it( 'skips when bundled path does not exist', async () => {
 		vi.mocked( pathExists ).mockResolvedValue( false );
 
-		await installSkillsToSite( SITE_PATH, BUNDLED_PATH, false );
+		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH );
 
 		expect( recursiveCopyDirectory ).not.toHaveBeenCalled();
 		expect( fs.symlink ).not.toHaveBeenCalled();
+		expect( fs.copyFile ).not.toHaveBeenCalled();
+	} );
+
+	it( 'handles both .md files and skill directories in one pass', async () => {
+		vi.mocked( pathExists ).mockImplementation( async ( p: string ) => {
+			if ( p === BUNDLED_PATH || p === path.join( BUNDLED_PATH, 'studio-cli' ) ) {
+				return true;
+			}
+			return false;
+		} );
+		vi.mocked( fs.readdir ).mockResolvedValue( [
+			{ name: 'AGENTS.md', isFile: () => true, isDirectory: () => false },
+			{ name: 'studio-cli', isFile: () => false, isDirectory: () => true },
+		] as never );
+
+		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH );
+
+		expect( fs.copyFile ).toHaveBeenCalledTimes( 1 );
+		expect( recursiveCopyDirectory ).toHaveBeenCalledTimes( 1 );
+		expect( fs.symlink ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'ignores non-.md files at the root level', async () => {
+		vi.mocked( pathExists ).mockImplementation( async ( p: string ) => {
+			if ( p === BUNDLED_PATH ) {
+				return true;
+			}
+			return false;
+		} );
+		vi.mocked( fs.readdir ).mockResolvedValue( [
+			{ name: 'AGENTS.md', isFile: () => true, isDirectory: () => false },
+			{ name: 'index.ts', isFile: () => true, isDirectory: () => false },
+			{ name: 'raw-imports.d.ts', isFile: () => true, isDirectory: () => false },
+		] as never );
+
+		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH );
+
+		expect( fs.copyFile ).toHaveBeenCalledTimes( 1 );
+		expect( fs.copyFile ).toHaveBeenCalledWith(
+			path.join( BUNDLED_PATH, 'AGENTS.md' ),
+			path.join( SITE_PATH, 'AGENTS.md' )
+		);
+	} );
+
+	it( 'installs multiple skills with correct paths and symlinks', async () => {
+		const normalizedBundled = path.normalize( BUNDLED_PATH );
+		vi.mocked( pathExists ).mockImplementation( async ( p: string ) => {
+			if (
+				p === BUNDLED_PATH ||
+				p === normalizedBundled ||
+				p.startsWith( normalizedBundled + path.sep )
+			) {
+				return true;
+			}
+			return false;
+		} );
+		vi.mocked( fs.readdir ).mockResolvedValue( [
+			{ name: 'AGENTS.md', isFile: () => true, isDirectory: () => false },
+			{ name: 'STUDIO.md', isFile: () => true, isDirectory: () => false },
+			{ name: 'studio-cli', isFile: () => false, isDirectory: () => true },
+			{ name: 'wp-plugin-development', isFile: () => false, isDirectory: () => true },
+			{ name: 'wp-block-development', isFile: () => false, isDirectory: () => true },
+		] as never );
+
+		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH );
+
+		// 2 .md files copied to site root
+		expect( fs.copyFile ).toHaveBeenCalledTimes( 2 );
+
+		// 3 skill directories copied to .agents/skills/
+		expect( recursiveCopyDirectory ).toHaveBeenCalledTimes( 3 );
+		expect( recursiveCopyDirectory ).toHaveBeenCalledWith(
+			path.join( BUNDLED_PATH, 'studio-cli' ),
+			path.join( SITE_PATH, '.agents', 'skills', 'studio-cli' )
+		);
+		expect( recursiveCopyDirectory ).toHaveBeenCalledWith(
+			path.join( BUNDLED_PATH, 'wp-plugin-development' ),
+			path.join( SITE_PATH, '.agents', 'skills', 'wp-plugin-development' )
+		);
+		expect( recursiveCopyDirectory ).toHaveBeenCalledWith(
+			path.join( BUNDLED_PATH, 'wp-block-development' ),
+			path.join( SITE_PATH, '.agents', 'skills', 'wp-block-development' )
+		);
+
+		// 3 symlinks created in .claude/skills/
+		expect( fs.symlink ).toHaveBeenCalledTimes( 3 );
+		expect( fs.mkdir ).toHaveBeenCalledWith( path.join( SITE_PATH, '.claude', 'skills' ), {
+			recursive: true,
+		} );
+	} );
+
+	it( 'continues installing remaining skills when one fails', async () => {
+		const normalizedBundled = path.normalize( BUNDLED_PATH );
+		vi.mocked( pathExists ).mockImplementation( async ( p: string ) => {
+			if (
+				p === BUNDLED_PATH ||
+				p === normalizedBundled ||
+				p.startsWith( normalizedBundled + path.sep )
+			) {
+				return true;
+			}
+			return false;
+		} );
+		vi.mocked( fs.readdir ).mockResolvedValue( [
+			{ name: 'broken-skill', isFile: () => false, isDirectory: () => true },
+			{ name: 'good-skill', isFile: () => false, isDirectory: () => true },
+		] as never );
+		vi.mocked( recursiveCopyDirectory )
+			.mockRejectedValueOnce( new Error( 'copy failed' ) )
+			.mockResolvedValueOnce( undefined );
+
+		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH );
+
+		// Both skills attempted, second one succeeds
+		expect( recursiveCopyDirectory ).toHaveBeenCalledTimes( 2 );
+		expect( fs.symlink ).toHaveBeenCalledTimes( 1 );
 	} );
 
 	it( 'falls back to junction on Windows EPERM', async () => {
 		const originalPlatform = process.platform;
 		Object.defineProperty( process, 'platform', { value: 'win32' } );
 
+		const normalizedBundled = path.normalize( BUNDLED_PATH );
 		vi.mocked( pathExists ).mockImplementation( async ( p: string ) => {
-			if ( p.endsWith( 'SKILL.md' ) || p.includes( '.claude' ) ) {
-				return false;
+			if (
+				p === BUNDLED_PATH ||
+				p === normalizedBundled ||
+				p.startsWith( normalizedBundled + path.sep )
+			) {
+				return true;
 			}
-			return true;
+			return false;
 		} );
+		vi.mocked( fs.readdir ).mockResolvedValue( [
+			{ name: 'wp-plugin-development', isFile: () => false, isDirectory: () => true },
+		] as never );
 
 		const epermError = Object.assign( new Error( 'EPERM' ), { code: 'EPERM' } );
-		vi.mocked( fs.symlink )
-			.mockRejectedValueOnce( epermError ) // First call fails with EPERM
-			.mockResolvedValue( undefined ); // Junction fallback succeeds
+		vi.mocked( fs.symlink ).mockRejectedValueOnce( epermError ).mockResolvedValue( undefined );
 
-		await installSkillsToSite( SITE_PATH, BUNDLED_PATH, false );
+		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH, false );
 
-		// First skill should have used junction fallback
 		expect( fs.symlink ).toHaveBeenCalledWith(
 			path.resolve( path.join( SITE_PATH, '.agents', 'skills', 'wp-plugin-development' ) ),
 			path.join( SITE_PATH, '.claude', 'skills', 'wp-plugin-development' ),
@@ -149,5 +285,75 @@ describe( 'installSkillsToSite', () => {
 		);
 
 		Object.defineProperty( process, 'platform', { value: originalPlatform } );
+	} );
+} );
+
+describe( 'updateManagedInstructionFiles', () => {
+	beforeEach( () => {
+		vi.clearAllMocks();
+		vi.mocked( pathExists ).mockResolvedValue( false );
+		vi.mocked( fs.copyFile ).mockResolvedValue( undefined );
+	} );
+
+	it( 'updates STUDIO.md and CLAUDE.md when both exist in the site', async () => {
+		vi.mocked( pathExists ).mockResolvedValue( true );
+
+		await updateManagedInstructionFiles( SITE_PATH, BUNDLED_PATH );
+
+		expect( fs.copyFile ).toHaveBeenCalledWith(
+			path.join( BUNDLED_PATH, 'STUDIO.md' ),
+			path.join( SITE_PATH, 'STUDIO.md' )
+		);
+		expect( fs.copyFile ).toHaveBeenCalledWith(
+			path.join( BUNDLED_PATH, 'CLAUDE.md' ),
+			path.join( SITE_PATH, 'CLAUDE.md' )
+		);
+		expect( fs.copyFile ).toHaveBeenCalledTimes( 2 );
+	} );
+
+	it( 'skips files that do not exist in the site', async () => {
+		vi.mocked( pathExists ).mockImplementation( async ( p: string ) => {
+			// Only STUDIO.md exists in both site and bundled
+			if ( p === path.join( SITE_PATH, 'STUDIO.md' ) ) {
+				return true;
+			}
+			if ( p === path.join( BUNDLED_PATH, 'STUDIO.md' ) ) {
+				return true;
+			}
+			return false;
+		} );
+
+		await updateManagedInstructionFiles( SITE_PATH, BUNDLED_PATH );
+
+		expect( fs.copyFile ).toHaveBeenCalledTimes( 1 );
+		expect( fs.copyFile ).toHaveBeenCalledWith(
+			path.join( BUNDLED_PATH, 'STUDIO.md' ),
+			path.join( SITE_PATH, 'STUDIO.md' )
+		);
+	} );
+
+	it( 'skips files that do not exist in the bundled path', async () => {
+		vi.mocked( pathExists ).mockImplementation( async ( p: string ) => {
+			// CLAUDE.md exists in site but not in bundled
+			if ( p === path.join( SITE_PATH, 'CLAUDE.md' ) ) {
+				return true;
+			}
+			if ( p === path.join( BUNDLED_PATH, 'CLAUDE.md' ) ) {
+				return false;
+			}
+			return false;
+		} );
+
+		await updateManagedInstructionFiles( SITE_PATH, BUNDLED_PATH );
+
+		expect( fs.copyFile ).not.toHaveBeenCalled();
+	} );
+
+	it( 'does nothing when no managed files exist in the site', async () => {
+		vi.mocked( pathExists ).mockResolvedValue( false );
+
+		await updateManagedInstructionFiles( SITE_PATH, BUNDLED_PATH );
+
+		expect( fs.copyFile ).not.toHaveBeenCalled();
 	} );
 } );

@@ -53,10 +53,7 @@ export function McpSettings() {
 					url="https://cursor.com/docs/mcp#installing-mcp-servers"
 				/>
 				{ ', ' }
-				<DocLink
-					label={ __( 'Windsurf' ) }
-					url="https://windsurf.com/university/tutorials/configuring-first-mcp-server"
-				/>
+				<DocLink label={ __( 'Windsurf' ) } url="https://docs.windsurf.com/windsurf/cascade/mcp" />
 				{ ', ' }
 				<DocLink
 					label={ __( 'VS Code' ) }

@@ -14,11 +14,11 @@ import {
 } from 'src/hooks/use-sync-states-progress-info';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { appVersionApi } from 'src/stores/app-version-api';
-import authReducer from 'src/stores/auth-slice';
+import authReducer, { initializeAuth } from 'src/stores/auth-slice';
 import { betaFeaturesReducer, loadBetaFeatures } from 'src/stores/beta-features-slice';
 import { certificateTrustApi } from 'src/stores/certificate-trust-api';
 import { reducer as chatReducer } from 'src/stores/chat-slice';
-import i18nReducer from 'src/stores/i18n-slice';
+import i18nReducer, { initializeUserLocale } from 'src/stores/i18n-slice';
 import { installedAppsApi } from 'src/stores/installed-apps-api';
 import onboardingReducer from 'src/stores/onboarding-slice';
 import {
@@ -292,6 +292,15 @@ async function startPullPoller( selectedSiteId: string, remoteSiteId: number ) {
 		}
 	}
 }
+
+// Initialize auth once locale is loaded
+startAppListening( {
+	actionCreator: initializeUserLocale.fulfilled,
+	effect( action, listenerApi ) {
+		const { locale } = listenerApi.getState().i18n;
+		void listenerApi.dispatch( initializeAuth( { locale } ) );
+	},
+} );
 
 // Poll push progress when state enters a pollable status
 startAppListening( {

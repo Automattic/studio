@@ -333,7 +333,6 @@ const STOP_SERVER_TIMEOUT = 5000;
 
 enum StopServerResult {
 	ABORTED_STARTUP = 'ABORTED_STARTUP',
-	ALREADY_STOPPED = 'ALREADY_STOPPED',
 	OK = 'OK',
 }
 
@@ -347,9 +346,12 @@ async function stopServer(): Promise< StopServerResult > {
 		return StopServerResult.ABORTED_STARTUP;
 	}
 
+	// If there's no `startupAbortController` and no `server` instance, then it's likely the client
+	// never sent a `start-server` message. Return gracefully so `ipcMessageHandler` can disconnect
+	// IPC and allow the process to (hopefully) exit cleanly.
 	if ( ! server ) {
 		logToConsole( 'No server running, nothing to stop' );
-		return StopServerResult.ALREADY_STOPPED;
+		return StopServerResult.OK;
 	}
 
 	try {

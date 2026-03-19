@@ -5,6 +5,7 @@ import Button from 'src/components/button';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { isWindowsStore } from 'src/lib/app-globals';
 import { McpSettings } from 'src/modules/mcp/components/mcp-settings';
+import { ColorSchemePicker } from 'src/modules/user-settings/components/color-scheme-picker';
 import { EditorPicker } from 'src/modules/user-settings/components/editor-picker';
 import { LanguagePicker } from 'src/modules/user-settings/components/language-picker';
 import { StudioCliToggle } from 'src/modules/user-settings/components/studio-cli-toggle';
@@ -14,8 +15,10 @@ import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 import { useAppDispatch, useI18nLocale } from 'src/stores';
 import { saveUserLocale } from 'src/stores/i18n-slice';
 import {
+	useGetColorSchemeQuery,
 	useGetUserEditorQuery,
 	useGetUserTerminalQuery,
+	useSaveColorSchemeMutation,
 	useSaveUserEditorMutation,
 	useSaveUserTerminalMutation,
 	useGetStudioCliIsInstalledQuery,
@@ -28,10 +31,12 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const savedLocale = useI18nLocale();
 	const dispatch = useAppDispatch();
 
+	const { data: colorScheme } = useGetColorSchemeQuery();
 	const { data: editor } = useGetUserEditorQuery();
 	const { data: terminal } = useGetUserTerminalQuery();
 	const { data: isCliInstalled } = useGetStudioCliIsInstalledQuery();
 
+	const [ saveColorSchemePreference ] = useSaveColorSchemeMutation();
 	const [ saveEditor ] = useSaveUserEditorMutation();
 	const [ saveTerminal ] = useSaveUserTerminalMutation();
 	const [ saveCliIsInstalled ] = useSaveStudioCliIsInstalledMutation();
@@ -71,13 +76,19 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 
 	return (
 		<>
-			<LanguagePicker value={ localeSelection } onChange={ setDirtyLocale } />
-			<EditorPicker
-				value={ editorSelection }
-				onChange={ setDirtyEditor }
-				disabled={ editor === undefined }
+			<ColorSchemePicker
+				value={ colorScheme ?? 'system' }
+				onChange={ ( value ) => saveColorSchemePreference( value ) }
 			/>
-			<TerminalPicker value={ terminalSelection } onChange={ setDirtyTerminal } />
+			<LanguagePicker value={ localeSelection } onChange={ setDirtyLocale } />
+			<div className="grid grid-cols-2 gap-3">
+				<EditorPicker
+					value={ editorSelection }
+					onChange={ setDirtyEditor }
+					disabled={ editor === undefined }
+				/>
+				<TerminalPicker value={ terminalSelection } onChange={ setDirtyTerminal } />
+			</div>
 			{ ! isWindowsStore() && (
 				<>
 					<StudioCliToggle value={ isCliInstalledSelection } onChange={ setDirtyIsCliInstalled } />

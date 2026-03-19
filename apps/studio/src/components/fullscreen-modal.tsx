@@ -58,10 +58,11 @@ export const FullscreenModal: React.FC< FullscreenModalProps > = ( {
 	return (
 		<VStack
 			ref={ modalRef }
-			className="fixed inset-0 bg-white z-[999999] flex flex-col"
+			className="fixed inset-0 bg-frame text-frame-text z-[999999] flex flex-col"
 			tabIndex={ -1 }
 			role="dialog"
 			aria-modal="true"
+			data-fullscreen-modal
 		>
 			<HStack className={ cx( 'flex justify-end p-4 app-drag-region', isWindows() && 'ltr:pt-8' ) }>
 				<Button

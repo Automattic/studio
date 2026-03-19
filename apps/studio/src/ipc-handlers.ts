@@ -134,10 +134,12 @@ export {
 } from 'src/modules/preview-site/lib/ipc-handlers';
 
 export {
+	getColorScheme,
 	getInstalledAppsAndTerminals,
 	getUserEditor,
 	getUserLocale,
 	getUserTerminal,
+	saveColorScheme,
 	saveUserEditor,
 	saveUserLocale,
 	saveUserTerminal,

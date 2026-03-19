@@ -18,13 +18,13 @@ export function McpSettings() {
 
 	return (
 		<SettingsFormField label={ __( 'AI MCP Server' ) }>
-			<div className="a8c-body-small text-a8c-gray-700">
+			<div className="a8c-body-small text-frame-text-secondary">
 				{ __(
 					'Copy the configuration below and add it under the "mcpServers" key in your AI assistant\'s MCP settings.'
 				) }
 			</div>
 			<div className="relative">
-				<pre className="bg-a8c-gray-0 border border-a8c-gray-200 rounded p-3 text-xs overflow-x-auto whitespace-pre m-0 font-mono">
+				<pre className="bg-frame border border-frame-border rounded p-3 text-xs overflow-x-auto whitespace-pre m-0 font-mono">
 					{ configJson }
 				</pre>
 				<div className="absolute top-2 right-2">

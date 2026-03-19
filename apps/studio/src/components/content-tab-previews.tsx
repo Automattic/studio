@@ -35,7 +35,7 @@ function EmptyGeneric( {
 		<div className="p-8 flex justify-between max-w-3xl gap-4">
 			<div className="flex flex-col">
 				<div className="a8c-subtitle mb-1">{ __( 'Share a preview of your Studio site' ) }</div>
-				<div className="w-[40ch] text-a8c-gray-70 a8c-body">
+				<div className="w-[40ch] text-frame-text-secondary a8c-body">
 					{ __(
 						'Get feedback from anyone, anywhere with a free hosted preview of your Studio site.'
 					) }
@@ -60,9 +60,9 @@ function EmptyGeneric( {
 					].map( ( text ) => (
 						<div
 							key={ typeof text === 'string' ? text : 'wordpress-com' }
-							className="text-a8c-gray-70 a8c-body flex items-center"
+							className="text-frame-text-secondary a8c-body flex items-center"
 						>
-							<Icon className="fill-a8c-blue-50 ltr:mr-2 rtl:ml-2 shrink-0" icon={ check } />
+							<Icon className="fill-frame-theme ltr:mr-2 rtl:ml-2 shrink-0" icon={ check } />
 							{ text }
 						</div>
 					) ) }
@@ -102,7 +102,7 @@ function NoAuth( { selectedSite }: React.ComponentProps< typeof EmptyGeneric > )
 					</Button>
 				</Tooltip>
 			</div>
-			<div className="mt-3 w-[40ch] text-a8c-gray-70 a8c-body">
+			<div className="mt-3 w-[40ch] text-frame-text-secondary a8c-body">
 				<Tooltip
 					disabled={ ! isOffline }
 					icon={ offlineIcon }
@@ -114,7 +114,7 @@ function NoAuth( { selectedSite }: React.ComponentProps< typeof EmptyGeneric > )
 						<Button
 							aria-description={ isOffline ? offlineMessage : '' }
 							aria-disabled={ isOffline }
-							className="!p-0 text-a8c-blue-50 hover:opacity-80 h-auto inline-flex items-center"
+							className="!p-0 text-frame-theme hover:opacity-80 h-auto inline-flex items-center"
 							onClick={ () => {
 								if ( isOffline ) {
 									return;
@@ -191,7 +191,7 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 		<div className="relative min-h-full flex flex-col">
 			<div className="w-full flex flex-col flex-1">
 				<PreviewSitesTableHeader />
-				<div className="[&>*:not(:last-child)]:border-b [&>*]:border-a8c-gray-5">
+				<div className="[&>*:not(:last-child)]:border-b [&>*]:border-frame-border">
 					{ activeOperation && (
 						<ProgressRow text={ activeOperation.detail } progress={ activeOperation.progress } />
 					) }
@@ -207,7 +207,7 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 								key={ snapshot.atomicSiteId }
 							/>
 						) ) }
-					<div className="sticky bottom-0 bg-white/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
+					<div className="sticky bottom-0 bg-frame/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
 						<CreatePreviewButton
 							onClick={ () => {
 								void dispatch(

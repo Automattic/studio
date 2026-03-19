@@ -3,10 +3,12 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useState } from 'react';
 import Modal from 'src/components/modal';
 import { useAuth } from 'src/hooks/use-auth';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { McpSettings } from 'src/modules/mcp/components/mcp-settings';
 import { AccountTab } from 'src/modules/user-settings/components/account-tab';
 import { NonAuthenticatedAccountTab } from 'src/modules/user-settings/components/non-authenticated-account-tab';
 import { PreferencesTab } from 'src/modules/user-settings/components/preferences-tab';
@@ -18,6 +20,7 @@ import { useDeleteAllSnapshots, useGetSnapshotUsage } from 'src/stores/wpcom-api
 
 export default function UserSettings() {
 	const { __ } = useI18n();
+	const { enableAgentSuite } = useFeatureFlags();
 	const { isAuthenticated, logout, user } = useAuth();
 	const snapshotsByUser = useRootSelector( ( state ) =>
 		snapshotSelectors.selectSnapshotsByUser( state, user?.id ?? 0 )
@@ -83,6 +86,13 @@ export default function UserSettings() {
 		},
 	];
 
+	if ( enableAgentSuite ) {
+		tabs.push( {
+			name: 'mcp',
+			title: __( 'MCP' ),
+		} );
+	}
+
 	if ( isAuthenticated ) {
 		tabs.push( {
 			name: 'usage',
@@ -118,6 +128,7 @@ export default function UserSettings() {
 										<NonAuthenticatedAccountTab />
 									) ) }
 								{ name === 'preferences' && <PreferencesTab onClose={ resetLocalState } /> }
+								{ name === 'mcp' && <McpSettings /> }
 								{ name === 'usage' && isAuthenticated && (
 									<UsageTab
 										loadingDeletingAllSnapshots={ isDeletingAllSnapshots }

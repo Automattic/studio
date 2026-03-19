@@ -34,7 +34,7 @@ function printInstallationInstructions(): void {
 		__( 'Run one of the following commands to add MCP support to your AI assistant:' ),
 		'',
 		`  ${ __( 'Claude Code' ) }`,
-		`    claude mcp add ${ MCP_SERVER_NAME } -- ${ launchCommand }`,
+		`    claude mcp add --scope user ${ MCP_SERVER_NAME } -- ${ launchCommand }`,
 		'',
 		`  ${ __( 'Codex' ) }`,
 		`    codex mcp add ${ MCP_SERVER_NAME } -- ${ launchCommand }`,

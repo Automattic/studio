@@ -113,8 +113,8 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'promptWindowsSpeedUpSites', ...args ),
 	setDefaultLocaleData: ( locale ) => ipcRendererInvoke( 'setDefaultLocaleData', locale ),
 	resetDefaultLocaleData: () => ipcRendererInvoke( 'resetDefaultLocaleData' ),
-	toggleMinWindowWidth: ( isSidebarVisible ) =>
-		ipcRendererInvoke( 'toggleMinWindowWidth', isSidebarVisible ),
+	toggleMinWindowWidth: ( isSidebarVisible, currentSidebarWidth? ) =>
+		ipcRendererInvoke( 'toggleMinWindowWidth', isSidebarVisible, currentSidebarWidth ),
 	getAbsolutePathFromSite: ( siteId, relativePath ) =>
 		ipcRendererInvoke( 'getAbsolutePathFromSite', siteId, relativePath ),
 	openFileInIDE: ( relativePath, siteId ) =>

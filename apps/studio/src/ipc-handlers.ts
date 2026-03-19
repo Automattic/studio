@@ -1223,15 +1223,20 @@ export function resetDefaultLocaleData( _event: IpcMainInvokeEvent ) {
 	defaultI18n.resetLocaleData();
 }
 
-export function toggleMinWindowWidth( event: IpcMainInvokeEvent, isSidebarVisible: boolean ) {
+export function toggleMinWindowWidth(
+	event: IpcMainInvokeEvent,
+	isSidebarVisible: boolean,
+	currentSidebarWidth?: number
+) {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	if ( ! parentWindow || parentWindow.isDestroyed() || event.sender.isDestroyed() ) {
 		return;
 	}
+	const sidebarW = currentSidebarWidth ?? SIDEBAR_WIDTH;
 	const [ currentWidth, currentHeight ] = parentWindow.getSize();
 	const newWidth = Math.max(
 		MAIN_MIN_WIDTH,
-		isSidebarVisible ? currentWidth - SIDEBAR_WIDTH : currentWidth + SIDEBAR_WIDTH
+		isSidebarVisible ? currentWidth - sidebarW : currentWidth + sidebarW
 	);
 	parentWindow.setSize( newWidth, currentHeight, true );
 }

@@ -4,8 +4,20 @@ import {
 	SIDEBAR_WIDTH,
 	MIN_WIDTH_SELECTOR_TO_MEASURE,
 	APP_CHROME_SPACING,
+	LOCAL_STORAGE_SIDEBAR_WIDTH_KEY,
 } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+
+function getCurrentSidebarWidth(): number {
+	const saved = localStorage.getItem( LOCAL_STORAGE_SIDEBAR_WIDTH_KEY );
+	if ( saved ) {
+		const parsed = Number( saved );
+		if ( ! isNaN( parsed ) && parsed > 0 ) {
+			return parsed;
+		}
+	}
+	return SIDEBAR_WIDTH;
+}
 
 const SIDEBAR_BREAKPOINT = DEFAULT_WIDTH;
 
@@ -35,7 +47,7 @@ export function useSidebarVisibility( elementSelector: string = MIN_WIDTH_SELECT
 				el?.clientWidth < el?.scrollWidth
 			) {
 				// The new breakpoint is the width of the element to measure plus the sidebar plus the right padding
-				setDynamicBreakPoint( el.clientWidth + SIDEBAR_WIDTH + APP_CHROME_SPACING );
+				setDynamicBreakPoint( el.clientWidth + getCurrentSidebarWidth() + APP_CHROME_SPACING );
 			}
 
 			setIsLowerThanBreakpoint( window.innerWidth < dynamicBreakPoint );
@@ -55,7 +67,7 @@ export function useSidebarVisibility( elementSelector: string = MIN_WIDTH_SELECT
 	}, [ isLowerThanBreakpoint ] );
 
 	const toggleSidebar = useCallback( () => {
-		void getIpcApi().toggleMinWindowWidth( isSidebarVisible );
+		void getIpcApi().toggleMinWindowWidth( isSidebarVisible, getCurrentSidebarWidth() );
 		setIsSidebarVisible( ! isSidebarVisible );
 	}, [ isSidebarVisible ] );
 

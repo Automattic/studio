@@ -12,6 +12,7 @@ import WindowsTitlebar from 'src/components/windows-titlebar';
 import { useListenDeepLinkConnection } from 'src/hooks/sync-sites/use-listen-deep-link-connection';
 import { useAuth } from 'src/hooks/use-auth';
 import { useLocalizationSupport } from 'src/hooks/use-localization-support';
+import { useSidebarResize } from 'src/hooks/use-sidebar-resize';
 import { useSidebarVisibility } from 'src/hooks/use-sidebar-visibility';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { isWindows } from 'src/lib/app-globals';
@@ -31,6 +32,10 @@ export default function App() {
 	const { needsOnboarding } = useOnboarding();
 	const isOnboardingLoading = useRootSelector( selectOnboardingLoading );
 	const { isSidebarVisible, toggleSidebar } = useSidebarVisibility();
+	const { sidebarWidth, isDragging, handleMouseDown } = useSidebarResize(
+		isSidebarVisible,
+		toggleSidebar
+	);
 	const { showWhatsNew, closeWhatsNew } = useWhatsNew();
 	const { sites: localSites, loadingSites } = useSiteDetails();
 	const isEmpty = ! loadingSites && ! localSites.length;
@@ -87,10 +92,27 @@ export default function App() {
 					<HStack spacing="0" alignment="left" className="flex-grow">
 						<MainSidebar
 							className={ cx(
-								'h-full transition-all duration-500',
-								isSidebarVisible ? 'basis-52 flex-shrink-0' : 'basis-0 !min-w-[10px]'
+								'h-full flex-shrink-0',
+								! isDragging && 'transition-all duration-500',
+								! isSidebarVisible && 'basis-0 !min-w-[10px]'
 							) }
+							style={ isSidebarVisible ? { flexBasis: `${ sidebarWidth }px` } : undefined }
 						/>
+						{ /* Resize handle */ }
+						<div
+							className="group h-full w-3 cursor-col-resize flex-shrink-0 z-20 flex items-stretch justify-start -ml-1.5 -mr-1.5"
+							onMouseDown={ handleMouseDown }
+						>
+							<div
+								className={ cx(
+									'w-[3px] rounded-[2px] transition-opacity duration-150',
+									isDragging
+										? 'bg-[#3858e9] opacity-100'
+										: 'bg-[#3858e9] opacity-0 group-hover:opacity-100'
+								) }
+							/>
+						</div>
+						{ isDragging && <div className="fixed inset-0 z-50 cursor-col-resize" /> }
 						<main
 							data-testid="site-content"
 							className="bg-white h-full flex-grow rounded-chrome overflow-hidden z-10"

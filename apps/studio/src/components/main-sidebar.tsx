@@ -8,9 +8,10 @@ import AddSite from 'src/modules/add-site';
 
 interface MainSidebarProps {
 	className?: string;
+	style?: React.CSSProperties;
 }
 
-export default function MainSidebar( { className }: MainSidebarProps ) {
+export default function MainSidebar( { className, style }: MainSidebarProps ) {
 	const { sites: localSites } = useSiteDetails();
 
 	return (
@@ -22,6 +23,7 @@ export default function MainSidebar( { className }: MainSidebarProps ) {
 				! isMac() && 'pt-[38px]',
 				className
 			) }
+			style={ style }
 		>
 			{ ! localSites.length ? (
 				<div className="flex h-full px-[20px] justify-center items-center app-no-drag-region text-center text-[12px] text-a8c-gray-50">

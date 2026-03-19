@@ -1,4 +1,3 @@
-import path from 'path';
 import { AiChatUI } from 'cli/ai/ui';
 import type { AiSessionEvent } from './types';
 
@@ -19,7 +18,7 @@ export function replaySessionHistory( ui: AiChatUI, events: AiSessionEvent[] ): 
 						remote: event.remote === true,
 						url: typeof event.url === 'string' ? event.url : undefined,
 					},
-					{ announce: false, emitEvent: false }
+					{ announce: true, emitEvent: false }
 				);
 				continue;
 			}
@@ -34,16 +33,6 @@ export function replaySessionHistory( ui: AiChatUI, events: AiSessionEvent[] ): 
 					ui.endAgentTurn();
 				}
 
-				if ( event.sitePath && ( ! ui.activeSite || ui.activeSite.path !== event.sitePath ) ) {
-					ui.setActiveSite(
-						{
-							name: path.basename( event.sitePath ),
-							path: event.sitePath,
-							running: false,
-						},
-						{ announce: false, emitEvent: false }
-					);
-				}
 				ui.beginAgentTurn();
 				isTurnOpen = true;
 				ui.addUserMessage( event.text );

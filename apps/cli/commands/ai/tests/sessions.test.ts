@@ -515,7 +515,7 @@ describe( 'ai-sessions', () => {
 				remote: true,
 				url: 'https://my-remote-site.wordpress.com',
 			},
-			{ announce: false, emitEvent: false }
+			{ announce: true, emitEvent: false }
 		);
 	} );
 } );

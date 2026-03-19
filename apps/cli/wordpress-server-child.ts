@@ -263,12 +263,18 @@ async function getBaseRunCLIArgs(
 	return args;
 }
 
+enum StartServerResult {
+	ALREADY_STARTED = 'ALREADY_STARTED',
+	ABORTED = 'ABORTED',
+	OK = 'OK',
+}
+
 let startupAbortController: AbortController | null = null;
-let startingPromise: Promise< void > | null = null;
+let startingPromise: Promise< StartServerResult > | null = null;
 
 // We allow a single `startServer` call per process. If that call throws, we expect
 // `ipcMessageHandler` to kill the process.
-function wrapWithStartingPromise< Args extends unknown[], Return extends void >(
+function wrapWithStartingPromise< Args extends unknown[], Return extends StartServerResult >(
 	callback: ( ...args: Args ) => Promise< Return >
 ) {
 	return async ( ...args: Args ) => {
@@ -282,10 +288,10 @@ function wrapWithStartingPromise< Args extends unknown[], Return extends void >(
 }
 
 const startServer = wrapWithStartingPromise(
-	async ( config: ServerConfig, signal: AbortSignal ): Promise< void > => {
+	async ( config: ServerConfig, signal: AbortSignal ): Promise< StartServerResult > => {
 		if ( server ) {
 			logToConsole( `Server already running for site ${ config.siteId }` );
-			return;
+			return StartServerResult.ALREADY_STARTED;
 		}
 
 		startupAbortController = new AbortController();
@@ -309,14 +315,17 @@ const startServer = wrapWithStartingPromise(
 			}
 
 			stopSignal.throwIfAborted();
+
+			return StartServerResult.OK;
 		} catch ( error ) {
 			if ( server ) {
 				await server[ Symbol.asyncDispose ]();
 				server = null;
 			}
 
-			if ( stopSignal.aborted ) {
+			if ( error instanceof Error && error.name === 'AbortError' ) {
 				logToConsole( `Aborted start server operation:`, error );
+				return StartServerResult.ABORTED;
 			} else {
 				errorToConsole( `Failed to start server:`, error );
 				throw error;
@@ -330,10 +339,9 @@ const startServer = wrapWithStartingPromise(
 const STOP_SERVER_TIMEOUT = 5000;
 
 enum StopServerResult {
-	ABORTED_STARTUP,
-	ALREADY_STOPPED,
-	STOPPED,
-	ERROR,
+	ABORTED_STARTUP = 'ABORTED_STARTUP',
+	ALREADY_STOPPED = 'ALREADY_STOPPED',
+	OK = 'OK',
 }
 
 async function stopServer(): Promise< StopServerResult > {
@@ -356,10 +364,10 @@ async function stopServer(): Promise< StopServerResult > {
 
 		await Promise.race( [ server[ Symbol.asyncDispose ](), disposalTimeout ] );
 		logToConsole( 'Server stopped gracefully' );
-		return StopServerResult.STOPPED;
+		return StopServerResult.OK;
 	} catch ( error ) {
 		errorToConsole( 'Error during server disposal:', error );
-		return StopServerResult.ERROR;
+		throw error;
 	} finally {
 		server = null;
 	}
@@ -523,10 +531,6 @@ async function ipcMessageHandler( packet: unknown ) {
 			result,
 		};
 		process.send!( response );
-
-		if ( validMessage.topic === 'stop-server' && result === StopServerResult.ERROR ) {
-			process.exit( 1 );
-		}
 	} catch ( error ) {
 		errorToConsole( `Error handling message ${ validMessage.topic }:`, error );
 		sendErrorMessage( validMessage.messageId, error );

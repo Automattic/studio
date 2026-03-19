@@ -321,6 +321,7 @@ const startServer = wrapWithStartingPromise(
 				errorToConsole( `Failed to start server:`, error );
 			}
 
+			// Rethrowing the error so that `ipcMessageHandler` returns an error IPC response and kills the process
 			throw error;
 		} finally {
 			startupAbortController = null;
@@ -354,6 +355,7 @@ async function stopServer(): Promise< void > {
 		logToConsole( 'Server stopped gracefully' );
 	} catch ( error ) {
 		errorToConsole( 'Error during server disposal:', error );
+		// Rethrowing the error so that `ipcMessageHandler` returns an error IPC response and kills the process
 		throw error;
 	} finally {
 		server = null;

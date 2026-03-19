@@ -5,7 +5,6 @@ import Button from 'src/components/button';
 import Modal from 'src/components/modal';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import {
-	DEFAULT_AGENT_INSTRUCTIONS,
 	INSTRUCTION_FILES,
 	type InstructionFileType,
 } from 'src/modules/agent-instructions/constants';
@@ -64,6 +63,15 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 
 	const allInstalled = statuses.length > 0 && statuses.every( ( s ) => s.exists );
 
+	const handleInstallAll = useCallback( async () => {
+		setError( null );
+		for ( const status of statuses ) {
+			if ( ! status.exists ) {
+				await handleInstallFile( status.id, false );
+			}
+		}
+	}, [ statuses, handleInstallFile ] );
+
 	return (
 		<div className="flex flex-col gap-4">
 			<div className="flex items-center justify-between">
@@ -76,7 +84,7 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 				{ ! allInstalled && (
 					<Button
 						variant="link"
-						onClick={ () => handleInstallFile( 'agents', false ) }
+						onClick={ handleInstallAll }
 						disabled={ installingFile !== null }
 						className="text-sm"
 					>
@@ -103,25 +111,14 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 							<div className="flex-1 min-w-0 pr-3">
 								<div className="flex items-center gap-2">
 									<span className="text-sm font-medium text-gray-900">{ config.displayName }</span>
-									{ status.exists && ! status.isCustomized && (
+									{ status.exists && (
 										<span className="inline-flex items-center gap-1 text-[11px] text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
 											<Icon icon={ check } size={ 12 } />
 											{ __( 'Installed' ) }
 										</span>
 									) }
-									{ status.exists && status.isCustomized && (
-										<span className="inline-flex items-center gap-1 text-[11px] text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
-											{ __( 'Custom' ) }
-										</span>
-									) }
 								</div>
-								<div className="text-xs text-gray-500">
-									{ status.isCustomized
-										? __(
-												'You are using a custom version of AGENTS.md. You can use the "Reinstall" option to use the newest Studio version. Your customizations will be overwritten.'
-										  )
-										: __( config.description ) }
-								</div>
+								<div className="text-xs text-gray-500">{ __( config.description ) }</div>
 							</div>
 							<div className="flex items-center gap-2 flex-shrink-0">
 								{ status.exists && (
@@ -150,17 +147,6 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 					);
 				} ) }
 			</div>
-
-			<details className="group">
-				<summary className="cursor-pointer text-xs text-gray-500 hover:text-gray-700">
-					{ __( 'View template content' ) }
-				</summary>
-				<div className="mt-2 border border-frame-border rounded-md bg-frame-surface p-3 max-h-48 overflow-y-auto">
-					<pre className="text-xs text-gray-700 whitespace-pre-wrap font-mono">
-						{ DEFAULT_AGENT_INSTRUCTIONS }
-					</pre>
-				</div>
-			</details>
 		</div>
 	);
 }

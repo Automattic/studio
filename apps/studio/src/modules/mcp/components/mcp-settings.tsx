@@ -1,25 +1,8 @@
 import { getMcpServerConfigJson } from '@studio/common/lib/mcp-config';
 import { useI18n } from '@wordpress/react-i18n';
-import { useState } from 'react';
 import Button from 'src/components/button';
+import { CopyTextButton } from 'src/components/copy-text-button';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-
-function CopyButton( { text }: { text: string } ) {
-	const { __ } = useI18n();
-	const [ copied, setCopied ] = useState( false );
-
-	const handleCopy = async () => {
-		await getIpcApi().copyText( text );
-		setCopied( true );
-		setTimeout( () => setCopied( false ), 2000 );
-	};
-
-	return (
-		<Button variant="secondary" onClick={ handleCopy } className="!text-xs !min-h-0 !px-2 !py-1">
-			{ copied ? __( 'Copied!' ) : __( 'Copy' ) }
-		</Button>
-	);
-}
 
 function DocLink( { label, url }: { label: string; url: string } ) {
 	return (
@@ -66,7 +49,14 @@ export function McpSettings() {
 					{ configJson }
 				</pre>
 				<div className="absolute top-2 right-2">
-					<CopyButton text={ configJson } />
+					<CopyTextButton
+						text={ configJson }
+						variant="secondary"
+						copyConfirmation={ __( 'Copied!' ) }
+						showText
+						label={ __( 'Copy' ) }
+						className="!text-xs !min-h-0 !px-2 !py-1"
+					/>
 				</div>
 			</div>
 		</div>

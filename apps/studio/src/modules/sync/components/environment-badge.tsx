@@ -15,16 +15,16 @@ interface EnvironmentBadgeProps {
 export function EnvironmentBadge( { type, selected, className }: EnvironmentBadgeProps ) {
 	const getClassName = () => {
 		if ( selected ) {
-			return 'bg-frame text-frame-theme text-frame-theme';
+			return 'bg-white text-frame-theme';
 		}
 
 		const classes: Record< string, string > = {
-			production: 'bg-a8c-green-5 text-a8c-green-80',
-			staging: 'text-a8c-yellow-80 bg-a8c-yellow-10',
+			production: 'bg-[#ceead6] text-[#1a6928]',
+			staging: 'bg-[#fef0c7] text-[#93590c]',
 			development: 'text-development-text bg-development-bg',
 		};
 
-		return classes[ type ] || 'text-a8c-gray-80 bg-a8c-gray-10';
+		return classes[ type ] || 'bg-frame-surface text-frame-text-secondary';
 	};
 
 	return (
@@ -34,7 +34,7 @@ export function EnvironmentBadge( { type, selected, className }: EnvironmentBadg
 
 export const StudioBadge = ( { className }: { className?: string } ) => {
 	return (
-		<Badge className={ cx( 'bg-a8c-gray-5 text-a8c-gray-80', className ) }>
+		<Badge className={ cx( 'bg-frame-surface text-frame-text-secondary', className ) }>
 			{ __( 'Studio' ) }
 		</Badge>
 	);

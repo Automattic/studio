@@ -268,7 +268,7 @@ function SiteItem( {
 				'flex py-3 px-8 items-center border-b justify-between gap-4',
 				isSelected && 'bg-frame-theme text-white border-frame-theme',
 				! isSelected && 'text-frame-text border-frame-border',
-				! isSelected && isSyncable && 'hover:bg-a8c-blue-5',
+				! isSelected && isSyncable && 'hover:bg-frame-surface',
 				isSyncable
 					? 'cursor-pointer focus:outline-none focus:ring-1 focus:ring-frame-theme focus:relative focus:z-10'
 					: 'cursor-default'
@@ -303,7 +303,8 @@ function SiteItem( {
 					<div
 						className={ cx(
 							'a8c-body truncate flex items-center',
-							! isSyncable && 'text-a8c-gray-30'
+							isSelected && '!text-white',
+							! isSyncable && 'text-frame-text-secondary'
 						) }
 					>
 						{ isPressable ? (
@@ -315,7 +316,7 @@ function SiteItem( {
 								<WordPressLogoCircle
 									size={ 12 }
 									{ ...( isSelected && { color: '#fff' } ) }
-									{ ...( isDisabled && { color: '#8c8f94' } ) }
+									{ ...( isDisabled && { color: 'var(--color-frame-text-secondary)' } ) }
 								/>
 							</span>
 						) }
@@ -330,8 +331,8 @@ function SiteItem( {
 						className={ cx(
 							'a8c-body-small truncate !p-0 w-full !justify-start',
 							isSelected
-								? '!text-inherit hover:!text-a8c-blue-10'
-								: '!text-a8c-gray-30 hover:!text-frame-theme'
+								? '!text-inherit hover:!text-white/70'
+								: '!text-frame-text-secondary hover:!text-frame-theme'
 						) }
 						onClick={ () => getIpcApi().openURL( site.url ) }
 						onKeyDown={ ( e: React.KeyboardEvent ) => {
@@ -353,12 +354,12 @@ function SiteItem( {
 				</div>
 			) }
 			{ isAlreadyConnected && (
-				<div className="a8c-body-small text-a8c-gray-30 shrink-0">
+				<div className="a8c-body-small text-frame-text-secondary shrink-0">
 					{ __( 'Already connected' ) }
 				</div>
 			) }
 			{ needsUpgrade && (
-				<div className="a8c-body-small text-a8c-gray-30 shrink-0 text-right">
+				<div className="a8c-body-small text-frame-text-secondary shrink-0 text-right">
 					<Tooltip
 						text={ __( 'Sync support is available only with Business plan and above' ) }
 						placement="bottom"
@@ -374,7 +375,7 @@ function SiteItem( {
 				</div>
 			) }
 			{ isNeedsTransfer && (
-				<div className="a8c-body-small text-a8c-gray-30 shrink-0 text-right">
+				<div className="a8c-body-small text-frame-text-secondary shrink-0 text-right">
 					<Button
 						variant="link"
 						onClick={ () =>
@@ -387,12 +388,12 @@ function SiteItem( {
 				</div>
 			) }
 			{ isMissingPermissions && (
-				<div className="a8c-body-small text-a8c-gray-30 shrink-0 text-right">
+				<div className="a8c-body-small text-frame-text-secondary shrink-0 text-right">
 					{ __( 'Missing permissions' ) }
 				</div>
 			) }
 			{ isDeleted && (
-				<div className="a8c-body-small text-a8c-gray-30 shrink-0 text-right">
+				<div className="a8c-body-small text-frame-text-secondary shrink-0 text-right">
 					{ __( 'Deleted' ) }
 				</div>
 			) }
@@ -401,7 +402,7 @@ function SiteItem( {
 					text={ __( 'Self-hosted (e.g. jurassic.ninja) sites are not supported' ) }
 					placement="bottom"
 				>
-					<div className="a8c-body-small text-a8c-gray-30 shrink-0">
+					<div className="a8c-body-small text-frame-text-secondary shrink-0">
 						{ __( 'Unsupported site' ) }
 					</div>
 				</Tooltip>
@@ -477,8 +478,8 @@ const SyncSitesOfflineView = ( { mode = 'connect' }: { mode?: SyncModalMode } ) 
 	};
 
 	return (
-		<div className="flex items-center justify-center h-12 px-2 pt-4 text-a8c-gray-70 gap-1">
-			<Icon className="m-1 fill-a8c-gray-70" size={ 24 } icon={ offlineIcon } />
+		<div className="flex items-center justify-center h-12 px-2 pt-4 text-frame-text-secondary gap-1">
+			<Icon className="m-1 fill-frame-text-secondary" size={ 24 } icon={ offlineIcon } />
 			<span className="text-[13px] leading-[16px]">{ getOfflineMessage() }</span>
 		</div>
 	);

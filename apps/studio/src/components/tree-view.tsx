@@ -130,7 +130,7 @@ const TreeItem = ( {
 							aria-hidden
 							icon={ TREE_NODE_ICONS[ node.type ] }
 							size={ 20 }
-							className="me-1.5"
+							className="me-1.5 fill-frame-text"
 						/>
 					) }
 					{ node.label }

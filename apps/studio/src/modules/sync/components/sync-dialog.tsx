@@ -306,7 +306,7 @@ export function SyncDialog( {
 						<div className="overflow-hidden max-w-[calc(50%-25px)]">
 							<div className="whitespace-nowrap truncate">{ syncFrom }</div>
 						</div>
-						<div className="w-[50px] flex items-center justify-center text-a8c-gray-600">
+						<div className="w-[50px] flex items-center justify-center text-frame-text-secondary">
 							<RightArrowIcon />
 						</div>
 						<div className="overflow-hidden max-w-[calc(50%-25px)]">
@@ -353,7 +353,7 @@ export function SyncDialog( {
 										__next40pxDefaultSize
 										__nextHasNoMarginBottom
 										aria-label={ __( 'Select files and folders to sync' ) }
-										className="h-9"
+										className="h-9 select-minimal"
 									/>
 								</div>
 								<TreeView

@@ -33,6 +33,12 @@ import {
 	syncOperationsSelectors,
 	syncOperationsThunks,
 } from 'src/stores/sync/sync-operations-slice';
+import {
+	PUSH_POLLERS,
+	PULL_POLLERS,
+	stopPushPoller,
+	stopPullPoller,
+} from 'src/stores/sync/sync-pollers';
 import { wpcomSitesApi } from 'src/stores/sync/wpcom-sites';
 import uiReducer from 'src/stores/ui-slice';
 import { getWpcomClient, wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
@@ -219,9 +225,6 @@ startAppListening( {
 const PUSH_POLLING_KEYS = [ 'creatingRemoteBackup', 'applyingChanges', 'finishing' ];
 const SYNC_POLLING_INTERVAL = 3000;
 
-const PUSH_POLLERS = new Map< string, AbortController >();
-const PULL_POLLERS = new Map< string, AbortController >();
-
 function isPushPollable( selectedSiteId: string, remoteSiteId: number ) {
 	const pushState = syncOperationsSelectors.selectPushState(
 		selectedSiteId,
@@ -236,16 +239,6 @@ function isPullPollable( selectedSiteId: string, remoteSiteId: number ) {
 		remoteSiteId
 	)( store.getState() );
 	return pullState?.status.key === 'in-progress' && !! pullState.backupId;
-}
-
-function stopPushPoller( stateId: string ) {
-	PUSH_POLLERS.get( stateId )?.abort();
-	PUSH_POLLERS.delete( stateId );
-}
-
-function stopPullPoller( stateId: string ) {
-	PULL_POLLERS.get( stateId )?.abort();
-	PULL_POLLERS.delete( stateId );
 }
 
 async function startPushPoller( selectedSiteId: string, remoteSiteId: number ) {

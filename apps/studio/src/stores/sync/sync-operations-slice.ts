@@ -9,6 +9,7 @@ import { getHostnameFromUrl } from 'src/lib/url-utils';
 import { store } from 'src/stores';
 import { userLoggedOut } from 'src/stores/auth-actions';
 import { connectedSitesApi } from 'src/stores/sync/connected-sites';
+import { stopPullPoller, stopPushPoller } from 'src/stores/sync/sync-pollers';
 import type {
 	PullStateProgressInfo,
 	PushStateProgressInfo,
@@ -311,6 +312,7 @@ const cancelPushThunk = createTypedAsyncThunk(
 		const operationId = generateStateId( selectedSiteId, remoteSiteId );
 		const abortCallback = PUSH_SITE_ABORT_CALLBACKS.get( operationId );
 
+		stopPushPoller( operationId );
 		abortCallback?.();
 		getIpcApi().cancelSyncOperation( operationId );
 
@@ -338,6 +340,7 @@ const cancelPullThunk = createTypedAsyncThunk(
 		{ dispatch }
 	) => {
 		const operationId = generateStateId( selectedSiteId, remoteSiteId );
+		stopPullPoller( operationId );
 		getIpcApi().cancelSyncOperation( operationId );
 
 		dispatch(

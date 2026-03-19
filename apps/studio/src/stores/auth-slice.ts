@@ -50,7 +50,7 @@ function createWpcomClient( token?: string, locale?: string, onInvalidToken?: ()
 	) => {
 		const modifiedParams = addLocaleToParams( params as WpcomParams );
 		const wrappedCallback = ( err: unknown, response: unknown, headers: unknown ) => {
-			if ( err && isInvalidTokenError( err ) && onInvalidToken ) {
+			if ( err && isInvalidTokenError( err ) && onInvalidToken && ! isAuthErrorDialogOpen ) {
 				onInvalidToken();
 			}
 			if ( typeof callback === 'function' ) {
@@ -79,8 +79,8 @@ export const handleInvalidToken = createTypedAsyncThunk( 'auth/handleInvalidToke
 		setWpcomClient( undefined );
 		await getIpcApi().showMessageBox( {
 			type: 'error',
-			message: 'Session Expired',
-			detail: 'Your session has expired. Please log in again.',
+			message: __( 'Session Expired' ),
+			detail: __( 'Your session has expired. Please log in again.' ),
 		} );
 	} catch ( err ) {
 		console.error( 'Failed to handle invalid token:', err );

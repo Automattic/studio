@@ -9,12 +9,12 @@ import { LoggerError } from 'cli/logger';
  * Checks compatibility between the standalone CLI and the installed Studio Desktop app.
  *
  * If Studio Desktop is installed (platform-specific appdata exists) but the shared
- * config at ~/.studio/appdata.json is missing, it means Studio hasn't been updated
+ * config at ~/.studio/app.json is missing, it means Studio hasn't been updated
  * to a version that supports the shared location. In that case, prompt the user
  * to update Studio.
  */
 export async function checkStudioCompatibility(): Promise< void > {
-	const sharedAppdataPath = path.join( STUDIO_CLI_HOME, 'appdata.json' );
+	const sharedAppdataPath = path.join( STUDIO_CLI_HOME, 'app.json' );
 	if ( fs.existsSync( sharedAppdataPath ) ) {
 		return;
 	}

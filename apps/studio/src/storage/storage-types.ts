@@ -17,7 +17,7 @@ export interface AppdataSiteData {
 }
 
 export interface UserData {
-	sites: Record< string, AppdataSiteData >;
+	siteMetadata: Record< string, AppdataSiteData >;
 	devToolsOpen?: boolean;
 	windowBounds?: WindowBounds;
 	onboardingCompleted?: boolean;

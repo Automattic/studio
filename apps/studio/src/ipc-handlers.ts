@@ -234,7 +234,7 @@ export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< Sit
 	const sites = SiteServer.getAllDetails();
 	const userData = await loadUserData();
 	for ( const site of sites ) {
-		const appdataSite = userData.sites[ site.id ];
+		const appdataSite = userData.siteMetadata[ site.id ];
 		if ( appdataSite ) {
 			site.sortOrder = appdataSite.sortOrder;
 			site.themeDetails = appdataSite.themeDetails;
@@ -646,8 +646,8 @@ export async function deleteSite( event: IpcMainInvokeEvent, id: string, deleteF
 	try {
 		await lockAppdata();
 		const userData = await loadUserData();
-		if ( userData.sites[ id ] ) {
-			delete userData.sites[ id ];
+		if ( userData.siteMetadata[ id ] ) {
+			delete userData.siteMetadata[ id ];
 			await saveUserData( userData );
 		}
 	} finally {
@@ -1657,7 +1657,7 @@ export async function updateSitesSortOrder(
 		const userData = await loadUserData();
 
 		for ( const { siteId, sortOrder } of updates ) {
-			userData.sites[ siteId ] = { ...userData.sites[ siteId ], sortOrder };
+			userData.siteMetadata[ siteId ] = { ...userData.siteMetadata[ siteId ], sortOrder };
 		}
 
 		await saveUserData( userData );

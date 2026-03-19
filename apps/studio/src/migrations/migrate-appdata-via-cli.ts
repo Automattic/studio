@@ -4,7 +4,7 @@
  *
  * - shared.json: auth token + locale
  * - cli.json: sites + snapshots
- * - appdata.json: Desktop-only state (UI prefs, sync, etc.)
+ * - app.json: Desktop-only state (UI prefs, sync, etc.)
  *
  * The old file is left intact intentionally — cleanup will happen
  * in a future release after migration is validated.
@@ -37,7 +37,7 @@ function getOldAppdataPath(): string {
 }
 
 function getNewAppdataPath(): string {
-	return path.join( getSharedConfigDirectory(), 'appdata.json' );
+	return path.join( getSharedConfigDirectory(), 'app.json' );
 }
 
 function getCliConfigPath(): string {
@@ -51,42 +51,22 @@ function ensureDirectory( filePath: string ): void {
 	}
 }
 
-// CLI site schema: siteDetailsSchema fields + latestCliPid (added by cli-config)
-const cliSiteSchema = siteDetailsSchema
-	.extend( {
-		latestCliPid: z.number().optional(),
-	} )
-	.partial();
+// Zod schemas used to extract and validate fields for each config file.
+// Using .parse() ensures only valid, expected fields are written.
 
-// Shared config fields (excluding version, which we set ourselves)
-const sharedConfigFields = Object.keys( sharedConfigSchema.shape ).filter(
-	( key ) => key !== 'version'
-);
+const sharedConfigExtractSchema = z.object( {
+	...sharedConfigSchema.omit( { version: true } ).shape,
+} );
 
-function pick(
-	obj: Record< string, unknown >,
-	keys: readonly string[]
-): Record< string, unknown > {
-	const result: Record< string, unknown > = {};
-	for ( const key of keys ) {
-		if ( key in obj ) {
-			result[ key ] = obj[ key ];
-		}
-	}
-	return result;
-}
+const cliSiteSchema = siteDetailsSchema.extend( {
+	url: z.string().optional(),
+	latestCliPid: z.number().optional(),
+} );
 
-/**
- * Fields from the old appdata that move to shared.json.
- */
 function buildSharedConfig( oldData: Record< string, unknown > ): Record< string, unknown > {
-	return { version: 1, ...pick( oldData, sharedConfigFields ) };
+	const parsed = sharedConfigExtractSchema.safeParse( oldData );
+	return { version: 1, ...( parsed.success ? parsed.data : {} ) };
 }
-
-/**
- * Fields from the old appdata that move to cli.json.
- */
-const cliSiteFields = Object.keys( cliSiteSchema.shape );
 
 function buildCliConfig( oldData: Record< string, unknown > ): Record< string, unknown > {
 	const config: Record< string, unknown > = {
@@ -96,38 +76,51 @@ function buildCliConfig( oldData: Record< string, unknown > ): Record< string, u
 	};
 
 	if ( Array.isArray( oldData.sites ) ) {
-		config.sites = oldData.sites.map( ( site: Record< string, unknown > ) =>
-			pick( site, cliSiteFields )
-		);
+		config.sites = oldData.sites.reduce( ( acc: unknown[], site: Record< string, unknown > ) => {
+			const result = cliSiteSchema.safeParse( site );
+			if ( result.success ) {
+				acc.push( result.data );
+			}
+			return acc;
+		}, [] );
 	}
 
 	if ( Array.isArray( oldData.snapshots ) ) {
-		config.snapshots = oldData.snapshots;
+		config.snapshots = oldData.snapshots.reduce(
+			( acc: unknown[], snapshot: Record< string, unknown > ) => {
+				const result = snapshotSchema.safeParse( snapshot );
+				if ( result.success ) {
+					acc.push( result.data );
+				}
+				return acc;
+			},
+			[]
+		);
 	}
 
 	return config;
 }
 
-/**
- * Fields from the old appdata that stay in the new appdata.json.
- * Sites keep only Desktop-specific fields (themeDetails, sortOrder).
- *
- * We derive the "keep" set by excluding fields that moved to shared.json or cli.json.
- */
-const movedTopLevelFields = new Set( [ ...sharedConfigFields, 'sites', 'snapshots', 'version' ] );
+// Top-level fields that moved to shared.json or cli.json (excluded from app.json).
+const movedTopLevelFields = new Set( [
+	...Object.keys( sharedConfigExtractSchema.shape ),
+	'sites',
+	'snapshots',
+	'version',
+] );
 
-// Per-site fields that stay in appdata.json: anything NOT in the CLI site schema,
-// NOT in the snapshot schema, and NOT runtime state.
+// Per-site fields managed by CLI or runtime — excluded from app.json site entries.
 const excludedSiteFields = new Set( [
-	...cliSiteFields,
+	...Object.keys( cliSiteSchema.shape ),
 	...Object.keys( snapshotSchema.shape ),
+	'id',
 	'running',
 ] );
 
-function pickAppdataSiteFields( site: Record< string, unknown > ): Record< string, unknown > {
+function pickAppdataSiteMetadata( site: Record< string, unknown > ): Record< string, unknown > {
 	const result: Record< string, unknown > = {};
 	for ( const key of Object.keys( site ) ) {
-		if ( ! excludedSiteFields.has( key ) && key !== 'id' ) {
+		if ( ! excludedSiteFields.has( key ) ) {
 			result[ key ] = site[ key ];
 		}
 	}
@@ -150,14 +143,14 @@ function buildAppdataConfig( oldData: Record< string, unknown > ): Record< strin
 			if ( ! id ) {
 				continue;
 			}
-			const fields = pickAppdataSiteFields( site );
+			const fields = pickAppdataSiteMetadata( site );
 			if ( Object.keys( fields ).length > 0 ) {
 				sitesRecord[ id ] = fields;
 			}
 		}
 
 		if ( Object.keys( sitesRecord ).length > 0 ) {
-			config.sites = sitesRecord;
+			config.siteMetadata = sitesRecord;
 		}
 	}
 
@@ -196,8 +189,8 @@ export async function migrateAppdata(): Promise< void > {
 	}
 
 	// Write shared.json and cli.json first — if the process crashes before writing
-	// appdata.json, the next boot will retry the migration since we check for
-	// appdata.json existence as the completion marker.
+	// app.json, the next boot will retry the migration since we check for
+	// app.json existence as the completion marker.
 	const sharedConfigPath = getSharedConfigPath();
 	if ( ! fs.existsSync( sharedConfigPath ) ) {
 		await writeJsonFile( sharedConfigPath, buildSharedConfig( oldData ) );

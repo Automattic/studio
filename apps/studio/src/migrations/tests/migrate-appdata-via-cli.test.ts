@@ -50,7 +50,7 @@ const cliConfigValidationSchema = z.object( {
 	snapshots: z.array( snapshotSchema ),
 } );
 
-// appdata.json schema — Desktop-only top-level fields + per-site Desktop fields (keyed by id)
+// app.json schema — Desktop-only top-level fields + per-site Desktop fields (keyed by id)
 const appdataSiteValidationSchema = z
 	.object( {
 		themeDetails: z
@@ -70,7 +70,7 @@ const appdataSiteValidationSchema = z
 const appdataValidationSchema = z
 	.object( {
 		version: z.literal( 1 ),
-		sites: z.record( z.string(), appdataSiteValidationSchema ).optional(),
+		siteMetadata: z.record( z.string(), appdataSiteValidationSchema ).optional(),
 		devToolsOpen: z.boolean().optional(),
 		windowBounds: z
 			.object( {
@@ -135,7 +135,7 @@ function createOldAppdata() {
 				enableXdebug: false,
 				enableDebugLog: true,
 				enableDebugDisplay: false,
-				// Fields → appdata.json (Desktop-only per-site)
+				// Fields → app.json (Desktop-only per-site)
 				themeDetails: {
 					name: 'Twenty Twenty-Four',
 					path: '/themes/twentytwentyfour',
@@ -176,7 +176,7 @@ function createOldAppdata() {
 				userId: 42,
 			},
 		],
-		// Fields → appdata.json (Desktop-only top-level)
+		// Fields → app.json (Desktop-only top-level)
 		devToolsOpen: true,
 		windowBounds: { x: 100, y: 200, width: 1200, height: 800 },
 		onboardingCompleted: true,
@@ -223,9 +223,9 @@ describe( 'migrateAppdata', () => {
 		vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( createOldAppdata() ) ) );
 	} );
 
-	it( 'skips migration if new appdata.json already exists', async () => {
+	it( 'skips migration if new app.json already exists', async () => {
 		mockFsExistsSync.mockImplementation( ( p: string ) => {
-			if ( p.endsWith( 'appdata.json' ) && p.includes( '.studio' ) ) {
+			if ( p.endsWith( 'app.json' ) && p.includes( '.studio' ) ) {
 				return true;
 			}
 			return false;
@@ -391,11 +391,11 @@ describe( 'migrateAppdata', () => {
 		} );
 	} );
 
-	describe( 'appdata.json', () => {
+	describe( 'app.json', () => {
 		it( 'contains Desktop-only fields matching the appdata schema', async () => {
 			await migrateAppdata();
 
-			const appdata = getWrittenJson( 'appdata.json' );
+			const appdata = getWrittenJson( 'app.json' );
 			expect( appdata ).toBeDefined();
 
 			const result = appdataValidationSchema.safeParse( appdata );
@@ -405,7 +405,7 @@ describe( 'migrateAppdata', () => {
 		it( 'preserves all Desktop-only top-level fields', async () => {
 			await migrateAppdata();
 
-			const appdata = getWrittenJson( 'appdata.json' );
+			const appdata = getWrittenJson( 'app.json' );
 			const oldData = createOldAppdata();
 
 			expect( appdata?.devToolsOpen ).toBe( oldData.devToolsOpen );
@@ -425,7 +425,7 @@ describe( 'migrateAppdata', () => {
 		it( 'does not include fields that moved to shared.json or cli.json', async () => {
 			await migrateAppdata();
 
-			const appdata = getWrittenJson( 'appdata.json' );
+			const appdata = getWrittenJson( 'app.json' );
 
 			expect( appdata ).not.toHaveProperty( 'authToken' );
 			expect( appdata ).not.toHaveProperty( 'locale' );
@@ -435,8 +435,8 @@ describe( 'migrateAppdata', () => {
 		it( 'keeps per-site Desktop fields (themeDetails, sortOrder) keyed by id', async () => {
 			await migrateAppdata();
 
-			const appdata = getWrittenJson( 'appdata.json' );
-			const sites = appdata?.sites as Record< string, Record< string, unknown > >;
+			const appdata = getWrittenJson( 'app.json' );
+			const sites = appdata?.siteMetadata as Record< string, Record< string, unknown > >;
 			const oldData = createOldAppdata();
 
 			expect( Object.keys( sites ) ).toHaveLength( 2 );
@@ -466,8 +466,8 @@ describe( 'migrateAppdata', () => {
 
 			await migrateAppdata();
 
-			const appdata = getWrittenJson( 'appdata.json' );
-			expect( appdata ).not.toHaveProperty( 'sites' );
+			const appdata = getWrittenJson( 'app.json' );
+			expect( appdata ).not.toHaveProperty( 'siteMetadata' );
 			expect( appdataValidationSchema.safeParse( appdata ).success ).toBe( true );
 		} );
 	} );
@@ -486,12 +486,12 @@ describe( 'migrateAppdata', () => {
 
 			await migrateAppdata();
 
-			// Should write cli.json and appdata.json but not shared.json
+			// Should write cli.json and app.json but not shared.json
 			expect( writeFile ).toHaveBeenCalledTimes( 2 );
 			const writtenPaths = vi.mocked( writeFile ).mock.calls.map( ( [ p ] ) => p as string );
 			expect( writtenPaths.some( ( p ) => p.endsWith( 'shared.json' ) ) ).toBe( false );
 			expect( writtenPaths.some( ( p ) => p.endsWith( 'cli.json' ) ) ).toBe( true );
-			expect( writtenPaths.some( ( p ) => p.endsWith( 'appdata.json' ) ) ).toBe( true );
+			expect( writtenPaths.some( ( p ) => p.endsWith( 'app.json' ) ) ).toBe( true );
 		} );
 
 		it( 'does not overwrite cli.json if it already exists', async () => {
@@ -507,12 +507,12 @@ describe( 'migrateAppdata', () => {
 
 			await migrateAppdata();
 
-			// Should write shared.json and appdata.json but not cli.json
+			// Should write shared.json and app.json but not cli.json
 			expect( writeFile ).toHaveBeenCalledTimes( 2 );
 			const writtenPaths = vi.mocked( writeFile ).mock.calls.map( ( [ p ] ) => p as string );
 			expect( writtenPaths.some( ( p ) => p.endsWith( 'cli.json' ) ) ).toBe( false );
 			expect( writtenPaths.some( ( p ) => p.endsWith( 'shared.json' ) ) ).toBe( true );
-			expect( writtenPaths.some( ( p ) => p.endsWith( 'appdata.json' ) ) ).toBe( true );
+			expect( writtenPaths.some( ( p ) => p.endsWith( 'app.json' ) ) ).toBe( true );
 		} );
 	} );
 
@@ -530,7 +530,7 @@ describe( 'migrateAppdata', () => {
 			expect( cli ).toEqual( { version: 1, sites: [], snapshots: [] } );
 			expect( cliConfigValidationSchema.safeParse( cli ).success ).toBe( true );
 
-			const appdata = getWrittenJson( 'appdata.json' );
+			const appdata = getWrittenJson( 'app.json' );
 			expect( appdata ).toEqual( { version: 1 } );
 			expect( appdataValidationSchema.safeParse( appdata ).success ).toBe( true );
 		} );

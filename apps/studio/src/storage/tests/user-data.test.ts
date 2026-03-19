@@ -10,10 +10,10 @@ import { UserData } from '../storage-types';
 const { getUserDataFilePathMock, getUserDataLockFilePathMock, mockFsExistsSync, mockFsMkdirSync } =
 	vi.hoisted( () => {
 		return {
-			getUserDataFilePathMock: vi.fn().mockReturnValue( '/path/to/app/.studio/appdata.json' ),
+			getUserDataFilePathMock: vi.fn().mockReturnValue( '/path/to/app/.studio/app.json' ),
 			getUserDataLockFilePathMock: vi
 				.fn()
-				.mockReturnValue( '/path/to/app/.studio/appdata.json.lock' ),
+				.mockReturnValue( '/path/to/app/.studio/app.json.lock' ),
 			mockFsExistsSync: vi.fn().mockReturnValue( true ),
 			mockFsMkdirSync: vi.fn(),
 		};
@@ -37,7 +37,7 @@ vi.mock( 'atomically', () => ( {
 		Buffer.from(
 			JSON.stringify( {
 				version: 1,
-				sites: {
+				siteMetadata: {
 					'site-1': { sortOrder: 0 },
 					'site-2': { sortOrder: 1 },
 				},
@@ -49,7 +49,7 @@ vi.mock( 'atomically', () => ( {
 } ) );
 
 const mockedUserData: UserData = {
-	sites: {
+	siteMetadata: {
 		'site-1': {
 			sortOrder: 0,
 			themeDetails: {
@@ -72,23 +72,23 @@ describe( 'User data', () => {
 	} );
 
 	describe( 'loadUserData', () => {
-		test( 'loads user data with sites as record', async () => {
+		test( 'loads user data with siteMetadata as record', async () => {
 			const result = await loadUserData();
 
-			expect( result.sites ).toEqual( {
+			expect( result.siteMetadata ).toEqual( {
 				'site-1': { sortOrder: 0 },
 				'site-2': { sortOrder: 1 },
 			} );
 			expect( result.onboardingCompleted ).toBe( true );
 		} );
 
-		test( 'returns empty sites record when file does not exist', async () => {
+		test( 'returns empty siteMetadata record when file does not exist', async () => {
 			vi.mocked( readFile ).mockRejectedValue(
 				Object.assign( new Error( 'ENOENT' ), { code: 'ENOENT' } )
 			);
 
 			const result = await loadUserData();
-			expect( result ).toEqual( { sites: {} } );
+			expect( result ).toEqual( { siteMetadata: {} } );
 		} );
 
 		test( 'strips version field from loaded data', async () => {
@@ -107,7 +107,7 @@ describe( 'User data', () => {
 			}
 
 			expect( writeFile ).toHaveBeenCalledWith(
-				'/path/to/app/.studio/appdata.json',
+				'/path/to/app/.studio/app.json',
 				JSON.stringify(
 					{
 						version: 1,

@@ -19,11 +19,11 @@ export function getUserDataFilePath(): string {
 	if ( process.env.DEV_APP_DATA_PATH ) {
 		return process.env.DEV_APP_DATA_PATH;
 	}
-	return path.join( getStudioHome(), 'appdata.json' );
+	return path.join( getStudioHome(), 'app.json' );
 }
 
 export function getUserDataLockFilePath(): string {
-	return path.join( getStudioHome(), 'appdata.json.lock' );
+	return path.join( getStudioHome(), 'app.json.lock' );
 }
 
 function getStudioHome(): string {

@@ -10,7 +10,7 @@ import { sanitizeUnstructuredData, sanitizeUserpath } from 'src/lib/sanitize-for
 import { getUserDataFilePath, getUserDataLockFilePath } from 'src/storage/paths';
 import type { PersistedUserData, UserData, WindowBounds } from 'src/storage/storage-types';
 
-// Versioned data migrations for appdata.json.
+// Versioned data migrations for app.json.
 // Add new migrations here with incrementing version numbers.
 // Each migration receives the raw parsed JSON and returns transformed data.
 export const appdataMigrations: ConfigMigration[] = [
@@ -25,8 +25,8 @@ export async function loadUserData(): Promise< UserData > {
 		const asString = await readFile( filePath, 'utf-8' );
 		try {
 			const parsed = applyMigrations( JSON.parse( asString ), appdataMigrations );
-			const { version, sites, ...data } = parsed as unknown as PersistedUserData;
-			return { sites: sites ?? {}, ...data };
+			const { version, siteMetadata, ...data } = parsed as unknown as PersistedUserData;
+			return { siteMetadata: siteMetadata ?? {}, ...data };
 		} catch ( err ) {
 			if ( err instanceof SyntaxError ) {
 				Sentry.addBreadcrumb( {
@@ -40,7 +40,7 @@ export async function loadUserData(): Promise< UserData > {
 		}
 	} catch ( err ) {
 		if ( isErrnoException( err ) && err.code === 'ENOENT' ) {
-			return { sites: {} };
+			return { siteMetadata: {} };
 		}
 		console.error( `Failed to load file ${ sanitizeUserpath( filePath ) }: ${ err }` );
 		throw err;

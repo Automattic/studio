@@ -21,8 +21,8 @@ export async function needsToMigrateFromWpNowFolder() {
 
 	// Only copy ~/.wp-now if at least one of those sites refers to a site
 	// in our app.
-	const { sites } = await loadUserData();
-	return Object.keys( sites ).length > 0;
+	const { siteMetadata } = await loadUserData();
+	return Object.keys( siteMetadata ).length > 0;
 }
 
 export async function migrateFromWpNowFolder() {

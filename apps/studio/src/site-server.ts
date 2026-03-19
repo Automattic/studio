@@ -413,8 +413,8 @@ export class SiteServer {
 			await lockAppdata();
 			const userData = await loadUserData();
 			const siteId = this.details.id;
-			userData.sites[ siteId ] = {
-				...userData.sites[ siteId ],
+			userData.siteMetadata[ siteId ] = {
+				...userData.siteMetadata[ siteId ],
 				themeDetails: this.details.themeDetails,
 			};
 			await saveUserData( userData );

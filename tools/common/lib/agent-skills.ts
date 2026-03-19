@@ -30,7 +30,7 @@ export async function installSkillsToSite(
 	}
 }
 
-async function installSkillToSite(
+export async function installSkillToSite(
 	sitePath: string,
 	bundledSkillsPath: string,
 	skillId: string,

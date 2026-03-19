@@ -12,10 +12,7 @@ import {
 	type InstructionFileType,
 } from 'src/modules/agent-instructions/constants';
 import { type InstructionFileStatus } from 'src/modules/agent-instructions/lib/instructions';
-import {
-	BUNDLED_SKILLS,
-	type SkillStatus,
-} from 'src/modules/agent-instructions/lib/skills-constants';
+import { type SkillStatus } from 'src/modules/agent-instructions/lib/skills-constants';
 
 interface AiSettingsModalProps {
 	isOpen: boolean;
@@ -171,7 +168,7 @@ function WordPressSkillsPanel( { siteId }: { siteId: string } ) {
 	const { __ } = useI18n();
 	const [ statuses, setStatuses ] = useState< SkillStatus[] >( [] );
 	const [ error, setError ] = useState< string | null >( null );
-	const [ installing, setInstalling ] = useState( false );
+	const [ installingSkillId, setInstallingSkillId ] = useState< string | null >( null );
 
 	const refreshStatus = useCallback( async () => {
 		try {
@@ -191,25 +188,38 @@ function WordPressSkillsPanel( { siteId }: { siteId: string } ) {
 		return () => window.removeEventListener( 'focus', handleFocus );
 	}, [ refreshStatus ] );
 
-	const handleInstall = useCallback(
-		async ( overwrite: boolean = false ) => {
-			setInstalling( true );
+	const handleInstallSkill = useCallback(
+		async ( skillId: string ) => {
+			setInstallingSkillId( skillId );
 			setError( null );
 			try {
-				await getIpcApi().installWordPressSkills( siteId, { overwrite } );
+				await getIpcApi().installWordPressSkillById( siteId, skillId );
 				await refreshStatus();
 			} catch ( err ) {
 				const errorMessage = err instanceof Error ? err.message : String( err );
 				setError( errorMessage );
 			} finally {
-				setInstalling( false );
+				setInstallingSkillId( null );
 			}
 		},
 		[ siteId, refreshStatus ]
 	);
 
+	const handleInstallAll = useCallback( async () => {
+		setInstallingSkillId( 'all' );
+		setError( null );
+		try {
+			await getIpcApi().installWordPressSkills( siteId );
+			await refreshStatus();
+		} catch ( err ) {
+			const errorMessage = err instanceof Error ? err.message : String( err );
+			setError( errorMessage );
+		} finally {
+			setInstallingSkillId( null );
+		}
+	}, [ siteId, refreshStatus ] );
+
 	const allInstalled = statuses.length > 0 && statuses.every( ( s ) => s.installed );
-	const installedCount = statuses.filter( ( s ) => s.installed ).length;
 
 	return (
 		<div className="flex flex-col gap-4">
@@ -220,6 +230,16 @@ function WordPressSkillsPanel( { siteId }: { siteId: string } ) {
 						{ __( 'WordPress development skills for AI agents' ) }
 					</p>
 				</div>
+				{ ! allInstalled && (
+					<Button
+						variant="link"
+						onClick={ handleInstallAll }
+						disabled={ installingSkillId !== null }
+						className="text-sm"
+					>
+						{ installingSkillId === 'all' ? __( 'Installing...' ) : __( 'Install All' ) }
+					</Button>
+				) }
 			</div>
 
 			{ error && (
@@ -229,43 +249,50 @@ function WordPressSkillsPanel( { siteId }: { siteId: string } ) {
 			) }
 
 			<div className="border border-gray-200 rounded-md overflow-hidden">
-				<div className="flex items-center justify-between px-3 py-2.5">
-					<div className="flex-1 min-w-0 pr-3">
-						<div className="flex items-center gap-2">
-							<span className="text-sm font-medium text-gray-900">
-								{ __( 'WordPress Skills' ) }
-							</span>
-							{ allInstalled && (
-								<span className="inline-flex items-center gap-1 text-[11px] text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
-									<Icon icon={ check } size={ 12 } />
-									{ __( 'Installed' ) }
-								</span>
-							) }
-							{ ! allInstalled && installedCount > 0 && (
-								<span className="inline-flex items-center gap-1 text-[11px] text-orange-700 bg-orange-50 px-2 py-0.5 rounded-full">
-									{ `${ installedCount }/${ BUNDLED_SKILLS.length }` }
-								</span>
-							) }
-						</div>
-						<div className="text-xs text-gray-500">
-							{ __( 'Plugins, blocks, themes, REST API, and WP-CLI skills' ) }
-						</div>
-					</div>
-					<div className="flex items-center gap-2 flex-shrink-0">
-						<Button
-							variant="secondary"
-							onClick={ () => handleInstall( allInstalled ) }
-							disabled={ installing }
-							className="text-xs py-1 px-2"
+				{ statuses.map( ( skill ) => {
+					const isInstalling = installingSkillId === skill.id;
+					return (
+						<div
+							key={ skill.id }
+							className="flex items-center justify-between px-3 py-2.5 border-b border-gray-200 last:border-b-0"
 						>
-							{ installing
-								? __( 'Installing...' )
-								: allInstalled
-								? __( 'Reinstall' )
-								: __( 'Install' ) }
-						</Button>
-					</div>
-				</div>
+							<div className="flex-1 min-w-0 pr-3">
+								<div className="flex items-center gap-2">
+									<span className="text-sm text-gray-900 truncate">{ skill.displayName }</span>
+									{ skill.installed && (
+										<span className="inline-flex items-center gap-1 text-[11px] text-green-700 bg-green-50 px-2 py-0.5 rounded-full flex-shrink-0">
+											<Icon icon={ check } size={ 12 } />
+											{ __( 'Installed' ) }
+										</span>
+									) }
+								</div>
+								<div className="text-xs text-gray-500 truncate">{ skill.description }</div>
+							</div>
+							<div className="flex items-center gap-2 flex-shrink-0">
+								{ skill.installed ? (
+									<Button
+										variant="link"
+										onClick={ () =>
+											getIpcApi().openFileInIDE( `.agents/skills/${ skill.id }/SKILL.md`, siteId )
+										}
+										className="text-xs"
+									>
+										{ __( 'Open' ) }
+									</Button>
+								) : (
+									<Button
+										variant="secondary"
+										onClick={ () => handleInstallSkill( skill.id ) }
+										disabled={ installingSkillId !== null }
+										className="text-xs py-1 px-2"
+									>
+										{ isInstalling ? __( 'Installing...' ) : __( 'Install' ) }
+									</Button>
+								) }
+							</div>
+						</div>
+					);
+				} ) }
 			</div>
 		</div>
 	);

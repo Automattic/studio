@@ -30,6 +30,9 @@ import { sanitizeUserpath } from 'src/lib/sanitize-for-logging';
  * Windows: %APPDATA%\Studio\appdata-v1.json
  */
 function getOldAppdataPath(): string {
+	if ( process.env.E2E && process.env.E2E_APP_DATA_PATH ) {
+		return path.join( process.env.E2E_APP_DATA_PATH, 'Studio', 'appdata-v1.json' );
+	}
 	if ( process.platform === 'win32' ) {
 		return path.join( process.env.APPDATA || '', 'Studio', 'appdata-v1.json' );
 	}

@@ -52,11 +52,11 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 	const handleInvalidToken = useCallback( async () => {
 		try {
 			void getIpcApi().logRendererMessage( 'info', 'Detected invalid token. Logging out.' );
+			setWpcomClient( undefined );
 			dispatch( userLoggedOut() );
 			await getIpcApi().clearAuthenticationToken();
 			setIsAuthenticated( false );
 			setClient( undefined );
-			setWpcomClient( undefined );
 			setUser( undefined );
 		} catch ( err ) {
 			console.error( 'Failed to handle invalid token:', err );
@@ -113,11 +113,11 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 		}
 
 		try {
+			setWpcomClient( undefined );
 			dispatch( userLoggedOut() );
 			await getIpcApi().clearAuthenticationToken();
 			setIsAuthenticated( false );
 			setClient( undefined );
-			setWpcomClient( undefined );
 			setUser( undefined );
 		} catch ( err ) {
 			console.error( err );

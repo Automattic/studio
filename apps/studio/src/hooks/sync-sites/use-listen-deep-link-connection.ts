@@ -102,7 +102,7 @@ export function useListenDeepLinkConnection() {
 						localSiteId: studioSiteId,
 						syncSupport: 'already-connected',
 					};
-					await getIpcApi().updateSingleConnectedWpcomSite( fullSiteData );
+					await getIpcApi().updateConnectedWpcomSites( [ fullSiteData ] );
 					dispatch( connectedSitesApi.util.invalidateTags( [ 'ConnectedSites' ] ) );
 				}
 			} catch ( error ) {

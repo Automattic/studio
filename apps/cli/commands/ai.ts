@@ -100,7 +100,7 @@ export async function runCommand(): Promise< void > {
 	if ( currentProvider === 'wpcom' ) {
 		try {
 			const token = await getAuthToken();
-			ui.setStatusMessage( `Logged in as ${ token.displayName } (${ token.email })` );
+			ui.setStatusMessage( `Logged in as ${ token.displayName }` );
 		} catch {
 			ui.setStatusMessage( 'Use /login to authenticate to WordPress.com' );
 		}
@@ -217,7 +217,8 @@ export async function runCommand(): Promise< void > {
 				ui.start();
 				if ( await isAiProviderReady( 'wpcom' ) ) {
 					const token = await getAuthToken();
-					ui.setStatusMessage( `Logged in as ${ token.displayName } (${ token.email })` );
+					ui.showInfo( `Logged in as ${ token.displayName } (${ token.email })` );
+					ui.setStatusMessage( `Logged in as ${ token.displayName }` );
 				} else {
 					ui.setStatusMessage( 'Login failed or canceled' );
 				}

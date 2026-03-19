@@ -1,4 +1,4 @@
-import { StatsGroup } from '@studio/common/types/stats';
+import { StatsGroup } from 'src/lib/bump-stats';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 
 export async function renameLaunchUniquesStat() {

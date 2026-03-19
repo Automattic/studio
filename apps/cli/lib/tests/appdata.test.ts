@@ -2,7 +2,6 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
-import { StatsMetric } from '@studio/common/types/stats';
 import { readFile, writeFile } from 'atomically';
 import { vi } from 'vitest';
 import {
@@ -12,6 +11,7 @@ import {
 	lockAppdata,
 	unlockAppdata,
 } from 'cli/lib/appdata';
+import { StatsMetric } from 'cli/lib/types/bump-stats';
 
 vi.mock( 'fs', () => ( {
 	default: {

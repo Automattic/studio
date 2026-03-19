@@ -8,5 +8,11 @@
 		"emitDeclarationOnly": true
 	},
 	"include": [ "**/*" ],
-	"exclude": [ "**/__mocks__/**/*", "**/node_modules/**/*", "**/dist/**/*", "**/out/**/*" ]
+	"exclude": [
+		"**/__mocks__/**/*",
+		"**/node_modules/**/*",
+		"**/dist/**/*",
+		"**/out/**/*",
+		"vitest.config.ts"
+	]
 }

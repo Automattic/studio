@@ -22,14 +22,13 @@ export const baseConfig = defineConfig( {
 				'wordpress-server-child': resolve( __dirname, 'wordpress-server-child.ts' ),
 			},
 			name: 'StudioCLI',
-			formats: [ 'cjs' ],
+			formats: [ 'es' ],
 		},
 		outDir: 'dist/cli',
 		target: 'node22',
 		rollupOptions: {
 			output: {
-				format: 'cjs',
-				interop: 'auto',
+				format: 'es',
 				entryFileNames: '[name].js',
 			},
 			external: ( id ) => {
@@ -65,8 +64,8 @@ export const baseConfig = defineConfig( {
 		mainFields: [ 'main' ],
 	},
 	define: {
-		__STUDIO_CLI_VERSION__: JSON.stringify( packageJson.version ),
 		__ENABLE_STUDIO_AI__: true,
 		__ENABLE_AGENT_SUITE__: true,
+		__STUDIO_CLI_VERSION__: JSON.stringify( packageJson.version ),
 	},
 } );

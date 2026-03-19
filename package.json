@@ -5,10 +5,15 @@
 	"productName": "Studio",
 	"description": "Local WordPress development environment using Playgrounds",
 	"license": "GPL-2.0-or-later",
-	"packageManager": "npm@10.9.4",
-	"engines": {
-		"npm": ">=10.0.0",
-		"node": ">=22.0.0"
+	"devEngines": {
+		"runtime": {
+			"name": "node",
+			"version": ">=22.0.0"
+		},
+		"packageManager": {
+			"name": "npm",
+			"version": ">=11.0.0"
+		}
 	},
 	"repository": {
 		"type": "git",
@@ -34,13 +39,14 @@
 		"make:dmg-arm64": "FILE_ARCHITECTURE=arm64 node ./scripts/make-dmg.mjs",
 		"publish": "npm -w studio-app run publish",
 		"cli:build": "npm -w @automattic/wp-studio run build",
+		"cli:build:prod": "npm -w @automattic/wp-studio run build:prod",
 		"cli:build:npm": "npm -w @automattic/wp-studio run build:npm",
 		"cli:package": "npm -w @automattic/wp-studio run package",
 		"cli:watch": "npm -w @automattic/wp-studio run watch",
 		"app:install:bundle": "npm -w studio-app run install:bundle",
 		"compare:perf": "npm -w compare-perf run compare",
 		"lint": "eslint {apps/cli,apps/studio/src,apps/studio/e2e,tools/common}",
-		"typecheck": "tsc -p tsconfig.json --noEmit",
+		"typecheck": "npm run typecheck --workspaces --if-present",
 		"format": "npm run lint -- --fix",
 		"test": "vitest run",
 		"test:watch": "vitest",
@@ -69,6 +75,7 @@
 		"eslint-plugin-react-hooks": "^7.0.1",
 		"eslint-plugin-studio": "file:tools/eslint-plugin-studio",
 		"fs-extra": "^11.3.3",
+		"glob": "^13.0.6",
 		"isomorphic-fetch": "^3.0.0",
 		"jsdom": "^24.0.0",
 		"nock": "^13.5.6",

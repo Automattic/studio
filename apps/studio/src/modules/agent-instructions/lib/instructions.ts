@@ -1,11 +1,8 @@
 import fs from 'fs/promises';
 import nodePath from 'path';
-import {
-	DEFAULT_AGENT_INSTRUCTIONS,
-	INSTRUCTION_FILES,
-	INSTRUCTION_FILE_TYPES,
-	type InstructionFileType,
-} from '../constants';
+import { pathExists } from '@studio/common/lib/fs-utils';
+import { getAiInstructionsPath } from 'src/lib/server-files-paths';
+import { INSTRUCTION_FILES, INSTRUCTION_FILE_TYPES, type InstructionFileType } from '../constants';
 
 export interface InstructionFileStatus {
 	id: InstructionFileType;
@@ -14,11 +11,22 @@ export interface InstructionFileStatus {
 	description: string;
 	exists: boolean;
 	path: string;
-	isCustomized?: boolean;
 }
 
 export function getInstructionFilePath( sitePath: string, fileType: InstructionFileType ): string {
 	return nodePath.join( sitePath, INSTRUCTION_FILES[ fileType ].fileName );
+}
+
+async function getBundledContent( fileType: InstructionFileType ): Promise< string | null > {
+	const bundledPath = nodePath.join(
+		getAiInstructionsPath(),
+		INSTRUCTION_FILES[ fileType ].fileName
+	);
+	try {
+		return await fs.readFile( bundledPath, 'utf-8' );
+	} catch {
+		return null;
+	}
 }
 
 export async function getInstructionFileStatus(
@@ -28,30 +36,13 @@ export async function getInstructionFileStatus(
 	const config = INSTRUCTION_FILES[ fileType ];
 	const filePath = getInstructionFilePath( sitePath, fileType );
 
-	try {
-		await fs.access( filePath );
-		const content = await fs.readFile( filePath, 'utf-8' );
-		const isCustomized = content.trim() !== DEFAULT_AGENT_INSTRUCTIONS.trim();
+	const exists = await pathExists( filePath );
 
-		return {
-			id: config.id,
-			fileName: config.fileName,
-			displayName: config.displayName,
-			description: config.description,
-			exists: true,
-			path: filePath,
-			isCustomized,
-		};
-	} catch {
-		return {
-			id: config.id,
-			fileName: config.fileName,
-			displayName: config.displayName,
-			description: config.description,
-			exists: false,
-			path: filePath,
-		};
-	}
+	return {
+		...config,
+		exists,
+		path: filePath,
+	};
 }
 
 export async function getAllInstructionFilesStatus(
@@ -65,37 +56,21 @@ export async function getAllInstructionFilesStatus(
 export async function installInstructionFile(
 	sitePath: string,
 	fileType: InstructionFileType,
-	content: string,
 	overwrite: boolean
 ): Promise< { path: string; overwritten: boolean } > {
 	const filePath = getInstructionFilePath( sitePath, fileType );
-	let overwritten = false;
+	const bundledContent = await getBundledContent( fileType );
 
-	if ( ! overwrite ) {
-		try {
-			await fs.access( filePath );
-			return { path: filePath, overwritten: false };
-		} catch {
-			// File does not exist, proceed with install.
-		}
-	} else {
-		overwritten = true;
+	if ( ! bundledContent ) {
+		throw new Error( `Bundled content not found for ${ fileType }` );
 	}
 
-	await fs.writeFile( filePath, content, 'utf-8' );
-	return { path: filePath, overwritten };
-}
+	if ( ! overwrite ) {
+		if ( await pathExists( filePath ) ) {
+			return { path: filePath, overwritten: false };
+		}
+	}
 
-export async function installAllInstructionFiles(
-	sitePath: string,
-	content: string,
-	overwrite: boolean
-): Promise< Array< { fileType: InstructionFileType; path: string; overwritten: boolean } > > {
-	const results = await Promise.all(
-		INSTRUCTION_FILE_TYPES.map( async ( fileType ) => {
-			const result = await installInstructionFile( sitePath, fileType, content, overwrite );
-			return { fileType, ...result };
-		} )
-	);
-	return results;
+	await fs.writeFile( filePath, bundledContent, 'utf-8' );
+	return { path: filePath, overwritten: overwrite };
 }

@@ -14,8 +14,10 @@ export default mergeConfig(
 			},
 		},
 		define: {
-			__ENABLE_STUDIO_AI__: false,
 			__ENABLE_AGENT_SUITE__: false,
+			__ENABLE_CLI_TELEMETRY__: true,
+			__ENABLE_STUDIO_AI__: false,
+			__IS_PACKAGED_FOR_NPM__: true,
 		},
 	} )
 );

@@ -50,7 +50,7 @@ WordPress Studio - Electron desktop app for managing local WordPress sites. Buil
 
 ## Build & Distribution
 
-**Build**: CLI (`vite build --config apps/cli/vite.config.ts`) → Electron (`electron-vite build --config apps/studio/electron.vite.config.ts`) → Package (`electron-forge make --config apps/studio/forge.config.ts`)
+**Build**: CLI (`vite build --config apps/cli/vite.config.dev.ts`) → Electron (`electron-vite build --config apps/studio/electron.vite.config.ts`) → Package (`electron-forge make --config apps/studio/forge.config.ts`)
 **Platforms**: macOS (x64/ARM64 DMG), Windows (x64/ARM64 MSIX), Linux (DEB)
 **Bundling**: Rollup (main), Vite (renderer with code splitting), ASAR (resources)
 

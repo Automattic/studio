@@ -11,9 +11,7 @@ const { getUserDataFilePathMock, getUserDataLockFilePathMock, mockFsExistsSync, 
 	vi.hoisted( () => {
 		return {
 			getUserDataFilePathMock: vi.fn().mockReturnValue( '/path/to/app/.studio/app.json' ),
-			getUserDataLockFilePathMock: vi
-				.fn()
-				.mockReturnValue( '/path/to/app/.studio/app.json.lock' ),
+			getUserDataLockFilePathMock: vi.fn().mockReturnValue( '/path/to/app/.studio/app.json.lock' ),
 			mockFsExistsSync: vi.fn().mockReturnValue( true ),
 			mockFsMkdirSync: vi.fn(),
 		};

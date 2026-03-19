@@ -389,6 +389,8 @@ const runWpCliCommand = sequential(
 			throw new Error( `Failed to run WP CLI command because server is not running` );
 		}
 
+		logToConsole( `Running WP-CLI command:`, args );
+
 		signal.addEventListener(
 			'abort',
 			() => {

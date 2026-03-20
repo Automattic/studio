@@ -67,6 +67,13 @@ export async function getUserEditor(): Promise< SupportedEditor | null > {
 	return userData.preferredEditor ?? getDefaultInstalledEditor();
 }
 
+export async function previewColorScheme(
+	_event: IpcMainInvokeEvent,
+	colorScheme: 'system' | 'light' | 'dark'
+) {
+	nativeTheme.themeSource = colorScheme;
+}
+
 export async function saveColorScheme(
 	event: IpcMainInvokeEvent,
 	colorScheme: 'system' | 'light' | 'dark'

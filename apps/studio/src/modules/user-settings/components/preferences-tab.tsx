@@ -1,8 +1,9 @@
 import { SupportedLocale } from '@studio/common/lib/locale';
 import { useI18n } from '@wordpress/react-i18n';
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Button from 'src/components/button';
 import { isWindowsStore } from 'src/lib/app-globals';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ColorSchemePicker } from 'src/modules/user-settings/components/color-scheme-picker';
 import { EditorPicker } from 'src/modules/user-settings/components/editor-picker';
 import { LanguagePicker } from 'src/modules/user-settings/components/language-picker';
@@ -44,7 +45,34 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const [ dirtyTerminal, setDirtyTerminal ] = useState< SupportedTerminal >();
 	const [ dirtyIsCliInstalled, setDirtyIsCliInstalled ] = useState< boolean >();
 
+	const wasSavedRef = useRef( false );
+	const dirtyColorSchemeRef = useRef( dirtyColorScheme );
+	const savedColorSchemeRef = useRef( colorScheme );
+
+	useEffect( () => {
+		dirtyColorSchemeRef.current = dirtyColorScheme;
+	}, [ dirtyColorScheme ] );
+
+	useEffect( () => {
+		savedColorSchemeRef.current = colorScheme;
+	}, [ colorScheme ] );
+
+	// Revert color scheme preview on unmount if not saved (handles Escape, click outside)
+	useEffect( () => {
+		return () => {
+			if ( ! wasSavedRef.current && dirtyColorSchemeRef.current ) {
+				void getIpcApi().previewColorScheme( savedColorSchemeRef.current ?? 'light' );
+			}
+		};
+	}, [] );
+
+	const handleColorSchemeChange = useCallback( ( scheme: 'system' | 'light' | 'dark' ) => {
+		setDirtyColorScheme( scheme );
+		void getIpcApi().previewColorScheme( scheme );
+	}, [] );
+
 	const savePreferences = async () => {
+		wasSavedRef.current = true;
 		if ( dirtyColorScheme ) {
 			await saveColorSchemePreference( dirtyColorScheme );
 		}
@@ -79,7 +107,7 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 
 	return (
 		<>
-			<ColorSchemePicker value={ colorSchemeSelection } onChange={ setDirtyColorScheme } />
+			<ColorSchemePicker value={ colorSchemeSelection } onChange={ handleColorSchemeChange } />
 			<LanguagePicker value={ localeSelection } onChange={ setDirtyLocale } />
 			<div className="grid grid-cols-2 gap-3">
 				<EditorPicker

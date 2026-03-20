@@ -67,7 +67,6 @@ describe( 'UserSettings', () => {
 			client: undefined,
 		} );
 		renderWithProvider( <UserSettings /> );
-		// Navigate to Account tab to find the login button
 		await userEvent.click( screen.getByText( 'Account' ) );
 		const loginButton = screen.getByRole( 'button', { name: 'Log in' } );
 		expect( loginButton ).toBeVisible();
@@ -136,7 +135,6 @@ describe( 'UserSettings', () => {
 				expect( screen.getByText( 'Studio CLI' ) ).toBeInTheDocument();
 			} );
 
-			// Navigate to Account tab (renamed from Usage, now includes login/logout + usage info)
 			await user.click( screen.getByText( 'Account' ) );
 
 			await waitFor( () => {

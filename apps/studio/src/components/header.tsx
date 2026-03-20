@@ -55,8 +55,8 @@ export default function Header() {
 							disabled={ isLoading }
 						>
 							{
-								// translators: "Open site" refers to the action, like "to open site"
-								__( 'Open site' )
+								// translators: "Open local site" refers to the action of opening the local site in a browser
+								__( 'Open local site' )
 							}
 							<ArrowIcon />
 						</Button>

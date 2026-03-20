@@ -13,6 +13,7 @@ import { AI_PROVIDERS, type AiProviderId } from 'cli/ai/providers';
 import {
 	AI_CHAT_API_KEY_COMMAND,
 	AI_CHAT_BROWSER_COMMAND,
+	AI_CHAT_DESELECT_COMMAND,
 	AI_CHAT_EXIT_COMMAND,
 	AI_CHAT_LOGIN_COMMAND,
 	AI_CHAT_LOGOUT_COMMAND,
@@ -189,6 +190,15 @@ export async function runCommand(): Promise< void > {
 				const opened = await ui.openActiveSiteInBrowser();
 				if ( ! opened ) {
 					ui.showInfo( 'No site selected. Use ↓ to select a site first.' );
+				}
+				continue;
+			}
+
+			if ( trimmedPrompt === AI_CHAT_DESELECT_COMMAND ) {
+				if ( ui.activeSite ) {
+					ui.clearActiveSite();
+				} else {
+					ui.showInfo( 'No site selected.' );
 				}
 				continue;
 			}

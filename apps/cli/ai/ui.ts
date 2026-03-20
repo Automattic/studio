@@ -901,7 +901,7 @@ export class AiChatUI {
 		this.tui.requestRender();
 	}
 
-	private clearActiveSite(): void {
+	clearActiveSite(): void {
 		this._activeSite = null;
 		this._activeSiteData = null;
 		this.editor.activeSiteName = null;

@@ -145,46 +145,44 @@ export function SkillsTab() {
 			) }
 
 			{ availableSkills.length > 0 && (
-				<div className="flex flex-col gap-2">
-					<div className="flex items-center justify-between px-1">
+				<div className="border border-frame-border rounded-md overflow-hidden">
+					<div className="flex items-center justify-between px-3 py-2 bg-frame-surface border-b border-frame-border">
 						<span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
 							{ __( 'Available' ) }
 						</span>
 						<Button
-							variant="link"
+							variant="secondary"
 							onClick={ handleInstallAll }
 							disabled={ isAnyInstalling }
-							className="text-xs"
+							className="text-xs py-1 px-2"
 						>
 							{ installingAll ? __( 'Installing...' ) : __( 'Install all' ) }
 						</Button>
 					</div>
-					<div className="border border-frame-border rounded-md overflow-hidden">
-						{ availableSkills.map( ( skill ) => {
-							const isInstallingThis = installingSkillId === skill.id;
-							return (
-								<div
-									key={ skill.id }
-									className="flex items-center justify-between px-3 py-2.5 border-b border-frame-border last:border-b-0"
-								>
-									<div className="flex-1 min-w-0 pr-3">
-										<div className="text-sm font-medium text-gray-900">{ skill.displayName }</div>
-										<div className="text-xs text-gray-500">{ skill.description }</div>
-									</div>
-									<div className="flex-shrink-0">
-										<Button
-											variant="secondary"
-											onClick={ () => handleInstallSkill( skill.id ) }
-											disabled={ isAnyInstalling }
-											className="text-xs py-1 px-2"
-										>
-											{ isInstallingThis ? __( 'Installing...' ) : __( 'Install' ) }
-										</Button>
-									</div>
+					{ availableSkills.map( ( skill ) => {
+						const isInstallingThis = installingSkillId === skill.id;
+						return (
+							<div
+								key={ skill.id }
+								className="flex items-center justify-between px-3 py-2.5 border-b border-frame-border last:border-b-0"
+							>
+								<div className="flex-1 min-w-0 pr-3">
+									<div className="text-sm font-medium text-gray-900">{ skill.displayName }</div>
+									<div className="text-xs text-gray-500">{ skill.description }</div>
 								</div>
-							);
-						} ) }
-					</div>
+								<div className="flex-shrink-0">
+									<Button
+										variant="secondary"
+										onClick={ () => handleInstallSkill( skill.id ) }
+										disabled={ isAnyInstalling }
+										className="text-xs py-1 px-2"
+									>
+										{ isInstallingThis ? __( 'Installing...' ) : __( 'Install' ) }
+									</Button>
+								</div>
+							</div>
+						);
+					} ) }
 				</div>
 			) }
 

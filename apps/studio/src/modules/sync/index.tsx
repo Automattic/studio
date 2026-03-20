@@ -9,8 +9,8 @@ import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ConnectButton } from 'src/modules/sync/components/connect-button';
-import { SyncConnectedSites } from 'src/modules/sync/components/sync-connected-sites';
 import { SyncDialog } from 'src/modules/sync/components/sync-dialog';
+import { SyncServerRack } from 'src/modules/sync/components/sync-server-rack';
 import { SyncSitesModalSelector } from 'src/modules/sync/components/sync-sites-modal-selector';
 import { SyncTabImage } from 'src/modules/sync/components/sync-tab-image';
 import {
@@ -196,15 +196,17 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	return (
 		<div className="flex flex-col h-full overflow-y-auto">
 			{ connectedSites.length > 0 ? (
-				<div className="h-full relative">
-					<SyncConnectedSites
-						connectedSites={ connectedSites }
-						selectedSite={ selectedSite }
-						disconnectSite={ ( id ) =>
-							disconnectSite( { siteId: id, localSiteId: selectedSite.id } )
-						}
-					/>
-					<div className="sticky bottom-0 bg-frame/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
+				<div className="h-full relative flex flex-col">
+					<div className="flex-1 flex items-center justify-center">
+						<SyncServerRack
+							connectedSites={ connectedSites }
+							selectedSite={ selectedSite }
+							disconnectSite={ ( id ) =>
+								disconnectSite( { siteId: id, localSiteId: selectedSite.id } )
+							}
+						/>
+					</div>
+					<div className="sticky bottom-0 bg-frame/[0.8] backdrop-blur-sm w-full px-8 py-6">
 						<ConnectButton
 							variant="primary"
 							connectSite={ () => dispatch( connectedSitesActions.openModal( 'connect' ) ) }

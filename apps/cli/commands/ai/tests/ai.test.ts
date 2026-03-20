@@ -2,7 +2,12 @@ import { __ } from '@wordpress/i18n';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import yargs from 'yargs/yargs';
 import { AI_MODELS, DEFAULT_MODEL, startAiAgent } from 'cli/ai/agent';
-import { resolveAiEnvironment, resolveInitialAiProvider } from 'cli/ai/auth';
+import {
+	resolveAiEnvironment,
+	resolveInitialAiProvider,
+	resolveUnavailableAiProvider,
+} from 'cli/ai/auth';
+import { AI_PROVIDERS } from 'cli/ai/providers';
 import { AiSessionRecorder } from 'cli/ai/sessions/recorder';
 import { deleteAiSession, listAiSessions, loadAiSession } from 'cli/ai/sessions/store';
 import { registerCommand as registerAiCommand } from 'cli/commands/ai';
@@ -103,6 +108,7 @@ vi.mock( 'cli/ai/ui', () => ( {
 		showWelcome() {}
 		showInfo() {}
 		showError() {}
+		setStatusMessage() {}
 		prepareForReplay() {}
 		finishReplay() {}
 		beginAgentTurn() {}
@@ -156,6 +162,14 @@ vi.mock( 'cli/ai/sessions/store', () => ( {
 
 vi.mock( 'cli/ai/sessions/replay', () => ( {
 	replaySessionHistory: vi.fn(),
+} ) );
+
+vi.mock( 'cli/commands/auth/login', () => ( {
+	runCommand: vi.fn().mockResolvedValue( undefined ),
+} ) );
+
+vi.mock( 'cli/commands/auth/logout', () => ( {
+	runCommand: vi.fn().mockResolvedValue( undefined ),
 } ) );
 
 describe( 'CLI: studio ai sessions command', () => {
@@ -225,6 +239,36 @@ describe( 'CLI: studio ai sessions command', () => {
 		expect( recordSessionContextMock ).toHaveBeenCalledWith( {
 			provider: 'anthropic-api-key',
 			model: selectedModelId,
+		} );
+		expect( startAiAgent ).not.toHaveBeenCalled();
+	} );
+
+	it( 'persists selected provider before the first prompt is sent', async () => {
+		waitForInputMock.mockResolvedValueOnce( '/provider' ).mockResolvedValueOnce( '/exit' );
+		askUserMock.mockResolvedValueOnce( {
+			'Select an AI provider': AI_PROVIDERS.wpcom,
+		} );
+
+		await buildParser().parseAsync( [ 'ai' ] );
+
+		expect( ( AiSessionRecorder as typeof AiSessionRecorder ).create ).toHaveBeenCalledTimes( 1 );
+		expect( recordSessionContextMock ).toHaveBeenCalledWith( {
+			provider: 'wpcom',
+			model: DEFAULT_MODEL,
+		} );
+		expect( startAiAgent ).not.toHaveBeenCalled();
+	} );
+
+	it( 'persists auto-switched provider after logout before any prompt is sent', async () => {
+		vi.mocked( resolveUnavailableAiProvider ).mockResolvedValueOnce( 'wpcom' );
+		waitForInputMock.mockResolvedValueOnce( '/logout' ).mockResolvedValueOnce( '/exit' );
+
+		await buildParser().parseAsync( [ 'ai' ] );
+
+		expect( ( AiSessionRecorder as typeof AiSessionRecorder ).create ).toHaveBeenCalledTimes( 1 );
+		expect( recordSessionContextMock ).toHaveBeenCalledWith( {
+			provider: 'wpcom',
+			model: DEFAULT_MODEL,
 		} );
 		expect( startAiAgent ).not.toHaveBeenCalled();
 	} );

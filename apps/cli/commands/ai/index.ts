@@ -173,6 +173,7 @@ export async function runCommand(
 		ui.currentProvider = currentProvider;
 		sessionId = undefined;
 		await saveSelectedAiProvider( currentProvider );
+		await persistSessionContext();
 		if ( announce ) {
 			ui.showInfo( `Switched to ${ AI_PROVIDERS[ currentProvider ] }` );
 		}

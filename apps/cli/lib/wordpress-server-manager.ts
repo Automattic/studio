@@ -209,7 +209,9 @@ export async function sendMessage(
 						? `Maximum timeout of ${ maxTotalElapsedTime / 1000 }s exceeded`
 						: `No activity for ${ PLAYGROUND_CLI_INACTIVITY_TIMEOUT / 1000 }s`;
 				reject(
-					new Error( `Timeout waiting for response to message ${ messageId }: ${ timeoutReason }` )
+					new Error(
+						`Timeout waiting for response to message ${ message.topic }: ${ timeoutReason }`
+					)
 				);
 			}
 		}, PLAYGROUND_CLI_ACTIVITY_CHECK_INTERVAL );
@@ -279,20 +281,42 @@ export async function stopWordPressServer( siteId: string ): Promise< void > {
 	const processName = getProcessName( siteId );
 	const runningProcess = await isProcessRunning( processName );
 
-	if ( runningProcess ) {
-		try {
-			await sendMessage(
-				runningProcess.pmId,
-				processName,
-				{ topic: 'stop-server', data: {} },
-				{ maxTotalElapsedTime: GRACEFUL_STOP_TIMEOUT }
-			);
-		} catch {
-			// Graceful shutdown failed, `stopProcess()` will handle it
-		}
+	if ( ! runningProcess ) {
+		return;
 	}
 
-	return stopProcess( processName );
+	try {
+		const bus = await getDaemonBus();
+		let busExitEventListener: ( event: DaemonBusEventMap[ 'process-event' ] ) => void;
+
+		const exitPromise = new Promise< void >( ( resolve ) => {
+			busExitEventListener = ( event: DaemonBusEventMap[ 'process-event' ] ) => {
+				if ( event.process.name === processName && event.event === 'exit' ) {
+					resolve();
+				}
+			};
+
+			bus.on( 'process-event', busExitEventListener );
+		} ).finally( () => {
+			bus.off( 'process-event', busExitEventListener );
+		} );
+
+		await sendMessage(
+			runningProcess.pmId,
+			processName,
+			{ topic: 'stop-server', data: {} },
+			{ maxTotalElapsedTime: GRACEFUL_STOP_TIMEOUT }
+		);
+
+		// Allow 5 seconds (arbitrary number) of cleanup time for the child process before throwing an
+		// exception and telling the process manager to send a SIGKILL signal.
+		await Promise.race( [
+			exitPromise,
+			new Promise( ( resolve, reject ) => setTimeout( reject, 5000 ) ),
+		] );
+	} catch {
+		return stopProcess( processName );
+	}
 }
 
 export interface RunBlueprintOptions {

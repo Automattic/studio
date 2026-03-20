@@ -75,7 +75,7 @@ vi.mock( 'electron', () => {
 			showMessageBox: vi.fn(),
 		},
 		nativeTheme: {
-			themeSource: 'system',
+			themeSource: 'light',
 		},
 		screen: {
 			getAllDisplays: vi.fn().mockReturnValue( [] ),

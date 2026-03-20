@@ -154,7 +154,7 @@ async function getAppMenu(
 					label: __( 'Settings…' ),
 					accelerator: 'CommandOrControl+,',
 					click: async () => {
-						void sendIpcEventToRenderer( 'user-settings', { tabName: 'preferences' } );
+						void sendIpcEventToRenderer( 'user-settings', { tabName: 'general' } );
 					},
 				},
 				{

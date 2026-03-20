@@ -38,7 +38,6 @@ import {
 } from 'cli/lib/types/wordpress-server-ipc';
 
 let server: RunCLIServer | null = null;
-let startingPromise: Promise< void > | null = null;
 let lastCliArgs: Record< string, unknown > | null = null;
 
 // Intercept and prefix all console output from playground-cli
@@ -80,11 +79,11 @@ process.stderr.write = function ( ...args: Parameters< typeof originalStderrWrit
 } as typeof process.stderr.write;
 
 function logToConsole( ...args: Parameters< typeof console.log > ) {
-	originalConsoleLog( new Date().toISOString(), `[WordPress Server Child]`, ...args );
+	originalConsoleLog( `[WordPress Server Child]`, ...args );
 }
 
 function errorToConsole( ...args: Parameters< typeof console.error > ) {
-	originalConsoleError( new Date().toISOString(), `[WordPress Server Child]`, ...args );
+	originalConsoleError( `[WordPress Server Child]`, ...args );
 }
 
 function escapePhpString( str: string ): string {
@@ -260,13 +259,23 @@ async function getBaseRunCLIArgs(
 		args.xdebug = true;
 	}
 
+	lastCliArgs = sanitizeRunCLIArgs( args );
 	return args;
 }
 
+let startupAbortController: AbortController | null = null;
+let startingPromise: Promise< void > | null = null;
+
+// We allow a single `startServer` call per process. If that call throws, we expect
+// `ipcMessageHandler` to kill the process.
 function wrapWithStartingPromise< Args extends unknown[], Return extends void >(
 	callback: ( ...args: Args ) => Promise< Return >
 ) {
 	return async ( ...args: Args ) => {
+		if ( startingPromise ) {
+			return startingPromise;
+		}
+
 		startingPromise = callback( ...args );
 		return startingPromise;
 	};
@@ -279,18 +288,16 @@ const startServer = wrapWithStartingPromise(
 			return;
 		}
 
+		startupAbortController = new AbortController();
+		const stopSignal = AbortSignal.any( [ signal, startupAbortController.signal ] );
+
 		try {
-			signal.addEventListener(
-				'abort',
-				() => {
-					throw new Error( 'Operation aborted' );
-				},
-				{ once: true }
-			);
+			stopSignal.throwIfAborted();
 
 			const args = await getBaseRunCLIArgs( 'server', config );
-			lastCliArgs = sanitizeRunCLIArgs( args );
 			server = await runCLI( args );
+
+			stopSignal.throwIfAborted();
 
 			if ( config.adminPassword || config.adminUsername || config.adminEmail ) {
 				await setAdminCredentials(
@@ -300,50 +307,78 @@ const startServer = wrapWithStartingPromise(
 					config.adminEmail
 				);
 			}
+
+			stopSignal.throwIfAborted();
 		} catch ( error ) {
-			server = null;
-			errorToConsole( `Failed to start server:`, error );
+			if ( server ) {
+				await server[ Symbol.asyncDispose ]();
+				server = null;
+			}
+
+			if ( error instanceof Error && error.name === 'AbortError' ) {
+				logToConsole( `Aborted start server operation:`, error );
+			} else {
+				errorToConsole( `Failed to start server:`, error );
+			}
+
+			// Rethrowing the error so that `ipcMessageHandler` returns an error IPC response and kills the process
 			throw error;
+		} finally {
+			startupAbortController = null;
 		}
 	}
 );
 
 const STOP_SERVER_TIMEOUT = 5000;
 
-async function stopServer(): Promise< void > {
-	if ( ! server ) {
-		logToConsole( 'No server running, nothing to stop' );
-		return;
+enum StopServerResult {
+	ABORTED_STARTUP = 'ABORTED_STARTUP',
+	OK = 'OK',
+}
+
+async function stopServer(): Promise< StopServerResult > {
+	// If there's a startup in progress, abort and return gracefully. The `startServer` function will
+	// throw because of the aborted signal, leading `ipcMessageHandler` to return an error IPC
+	// response and killing the process.
+	if ( startupAbortController ) {
+		logToConsole( 'Startup operation in progress. Aborting it to stop the server…' );
+		startupAbortController.abort();
+		return StopServerResult.ABORTED_STARTUP;
 	}
 
-	const serverToDispose = server;
-	server = null;
+	// If there's no `startupAbortController` and no `server` instance, then it's likely the client
+	// never sent a `start-server` message. Return gracefully so `ipcMessageHandler` can disconnect
+	// IPC and allow the process to (hopefully) exit cleanly.
+	if ( ! server ) {
+		logToConsole( 'No server running, nothing to stop' );
+		return StopServerResult.OK;
+	}
 
 	try {
 		const disposalTimeout = new Promise< void >( ( _, reject ) =>
 			setTimeout( () => reject( new Error( 'Server disposal timeout' ) ), STOP_SERVER_TIMEOUT )
 		);
 
-		await Promise.race( [ serverToDispose[ Symbol.asyncDispose ](), disposalTimeout ] );
+		await Promise.race( [ server[ Symbol.asyncDispose ](), disposalTimeout ] );
 		logToConsole( 'Server stopped gracefully' );
+		return StopServerResult.OK;
 	} catch ( error ) {
 		errorToConsole( 'Error during server disposal:', error );
+		// Rethrowing the error so that `ipcMessageHandler` returns an error IPC response and kills the process
+		throw error;
+	} finally {
+		server = null;
 	}
 }
 
 async function runBlueprint( config: ServerConfig, signal: AbortSignal ): Promise< void > {
 	try {
-		signal.addEventListener(
-			'abort',
-			() => {
-				throw new Error( 'Operation aborted' );
-			},
-			{ once: true }
-		);
+		signal.throwIfAborted();
 
 		const args = await getBaseRunCLIArgs( 'run-blueprint', config );
-		lastCliArgs = sanitizeRunCLIArgs( args );
 		await runCLI( args );
+
+		signal.throwIfAborted();
 
 		logToConsole( `Blueprint applied successfully for site ${ config.siteId }` );
 	} catch ( error ) {
@@ -362,6 +397,8 @@ const runWpCliCommand = sequential(
 		if ( ! server ) {
 			throw new Error( `Failed to run WP CLI command because server is not running` );
 		}
+
+		logToConsole( `Running WP-CLI command:`, args );
 
 		signal.addEventListener(
 			'abort',
@@ -424,15 +461,19 @@ function parsePhpError( error: unknown ): string {
 	return message;
 }
 
-function sendErrorMessage( messageId: string, error: unknown ) {
-	const errorResponse: ChildMessageRaw = {
-		originalMessageId: messageId,
-		topic: 'error',
-		errorMessage: parsePhpError( error ),
-		errorStack: error instanceof Error ? error.stack : undefined,
-		cliArgs: lastCliArgs ?? undefined,
-	};
-	process.send!( errorResponse );
+function sendErrorMessage( messageId: string, error: unknown ): Promise< void > {
+	return new Promise( ( resolve ) => {
+		const errorResponse: ChildMessageRaw = {
+			originalMessageId: messageId,
+			topic: 'error',
+			errorMessage: parsePhpError( error ),
+			errorStack: error instanceof Error ? error.stack : undefined,
+			cliArgs: lastCliArgs ?? undefined,
+		};
+		process.send!( errorResponse, () => {
+			resolve();
+		} );
+	} );
 }
 
 const abortControllers: Record< string, AbortController > = {};
@@ -446,7 +487,7 @@ async function ipcMessageHandler( packet: unknown ) {
 		const minimalMessageSchema = z.object( { id: z.string() } );
 		const minimalMessage = minimalMessageSchema.safeParse( packet );
 		if ( minimalMessage.success ) {
-			sendErrorMessage( minimalMessage.data.id, messageResult.error );
+			await sendErrorMessage( minimalMessage.data.id, messageResult.error );
 		}
 		return;
 	}
@@ -457,13 +498,14 @@ async function ipcMessageHandler( packet: unknown ) {
 	}
 	const abortController = abortControllers[ validMessage.messageId ];
 
+	logToConsole( `Received ${ validMessage.topic } message` );
+
 	try {
 		let result: unknown;
 
 		switch ( validMessage.topic ) {
 			case 'abort':
 				abortController?.abort();
-				delete abortControllers[ validMessage.messageId ];
 				return;
 			case 'start-server':
 				result = await startServer( validMessage.data.config, abortController.signal );
@@ -479,7 +521,7 @@ async function ipcMessageHandler( packet: unknown ) {
 					result = await runWpCliCommand( validMessage.data.args, abortController.signal );
 				} catch ( wpCliError ) {
 					errorToConsole( `WP-CLI error:`, wpCliError );
-					sendErrorMessage( validMessage.messageId, wpCliError );
+					await sendErrorMessage( validMessage.messageId, wpCliError );
 					return; // Don't crash, just return error to caller
 				}
 				break;
@@ -493,10 +535,19 @@ async function ipcMessageHandler( packet: unknown ) {
 			result,
 		};
 		process.send!( response );
+
+		// If the `stopServer` function ran successfully, the last open handle should be the IPC channel.
+		// Disconnect so that the process can exit cleanly.
+		if ( validMessage.topic === 'stop-server' && result === StopServerResult.OK ) {
+			process.disconnect();
+		}
 	} catch ( error ) {
 		errorToConsole( `Error handling message ${ validMessage.topic }:`, error );
-		sendErrorMessage( validMessage.messageId, error );
+		await sendErrorMessage( validMessage.messageId, error );
+		originalConsoleLog( 'Killing process because of', error );
 		process.exit( 1 );
+	} finally {
+		delete abortControllers[ validMessage.messageId ];
 	}
 }
 

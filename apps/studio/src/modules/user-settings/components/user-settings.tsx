@@ -8,6 +8,7 @@ import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { McpSettings } from 'src/modules/mcp/components/mcp-settings';
 import { AccountTab } from 'src/modules/user-settings/components/account-tab';
 import { PreferencesTab } from 'src/modules/user-settings/components/preferences-tab';
 import { UserSettingsTab } from 'src/modules/user-settings/user-settings-types';
@@ -92,6 +93,13 @@ export default function UserSettings() {
 			title: __( 'Account' ),
 		} );
 
+		if ( enableAgentSuite ) {
+			result.push( {
+				name: 'mcp',
+				title: __( 'MCP' ),
+			} );
+		}
+
 		return result;
 	}, [ __, enableAgentSuite ] );
 
@@ -118,6 +126,7 @@ export default function UserSettings() {
 							<div className="mt-6 px-8 pb-8 flex gap-4 flex-col">
 								{ name === 'general' && <PreferencesTab onClose={ resetLocalState } /> }
 								{ name === 'skills' && <p> Skills Tab </p> }
+								{ name === 'mcp' && <McpSettings /> }
 								{ name === 'account' && (
 									<AccountTab
 										loadingDeletingAllSnapshots={ isDeletingAllSnapshots }

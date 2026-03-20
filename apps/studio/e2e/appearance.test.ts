@@ -34,8 +34,8 @@ test.describe( 'Appearance', () => {
 		// Preferences tab should be active by default with appearance radio group visible
 		await expect( settings.appearanceRadioGroup ).toBeVisible();
 
-		// Default should be System
-		await expect( settings.getAppearanceOption( 'System' ) ).toHaveAttribute(
+		// Default should be Light
+		await expect( settings.getAppearanceOption( 'Light' ) ).toHaveAttribute(
 			'aria-checked',
 			'true'
 		);
@@ -54,9 +54,9 @@ test.describe( 'Appearance', () => {
 		);
 		expect( isLight ).toBe( false );
 
-		// Switch back to System
-		await settings.selectColorScheme( 'System' );
-		await expect( settings.getAppearanceOption( 'System' ) ).toHaveAttribute(
+		// Switch back to Light
+		await settings.selectColorScheme( 'Light' );
+		await expect( settings.getAppearanceOption( 'Light' ) ).toHaveAttribute(
 			'aria-checked',
 			'true'
 		);
@@ -100,8 +100,8 @@ test.describe( 'Appearance', () => {
 			'true'
 		);
 
-		// Reset to System for other tests
-		await settingsAfterRestart.selectColorScheme( 'System' );
+		// Reset to Light for other tests
+		await settingsAfterRestart.selectColorScheme( 'Light' );
 		await settingsAfterRestart.close();
 	} );
 } );

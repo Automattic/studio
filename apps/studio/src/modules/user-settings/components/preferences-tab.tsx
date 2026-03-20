@@ -74,7 +74,7 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	return (
 		<>
 			<ColorSchemePicker
-				value={ colorScheme ?? 'system' }
+				value={ colorScheme ?? 'light' }
 				onChange={ ( value ) => saveColorSchemePreference( value ) }
 			/>
 			<LanguagePicker value={ localeSelection } onChange={ setDirtyLocale } />

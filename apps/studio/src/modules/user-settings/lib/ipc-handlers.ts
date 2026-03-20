@@ -77,7 +77,7 @@ export async function saveColorScheme(
 
 export async function getColorScheme(): Promise< 'system' | 'light' | 'dark' > {
 	const userData = await loadUserData();
-	return userData.colorScheme ?? 'system';
+	return userData.colorScheme ?? 'light';
 }
 
 export function showUserSettings( event: IpcMainInvokeEvent, tabName?: UserSettingsTabName ) {

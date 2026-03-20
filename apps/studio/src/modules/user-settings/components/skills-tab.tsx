@@ -71,7 +71,9 @@ export function SkillsTab() {
 	return (
 		<div className="flex flex-col gap-4 pb-2">
 			<p className="text-xs text-gray-500">
-				{ __( 'WordPress development skills for AI agents, installed across all your local sites.' ) }
+				{ __(
+					'WordPress development skills for AI agents, installed across all your local sites.'
+				) }
 			</p>
 
 			{ error && (
@@ -93,9 +95,7 @@ export function SkillsTab() {
 							>
 								<div className="flex-1 min-w-0 pr-3">
 									<div className="flex items-center gap-2">
-										<span className="text-sm font-medium text-gray-900">
-											{ skill.displayName }
-										</span>
+										<span className="text-sm font-medium text-gray-900">{ skill.displayName }</span>
 										<span className="inline-flex items-center gap-1 text-[11px] text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
 											<Icon icon={ check } size={ 12 } />
 											{ __( 'Installed' ) }
@@ -133,9 +133,7 @@ export function SkillsTab() {
 									className="flex items-center justify-between px-3 py-2.5 border-b border-frame-border last:border-b-0"
 								>
 									<div className="flex-1 min-w-0 pr-3">
-										<div className="text-sm font-medium text-gray-900">
-											{ skill.displayName }
-										</div>
+										<div className="text-sm font-medium text-gray-900">{ skill.displayName }</div>
 										<div className="text-xs text-gray-500">{ skill.description }</div>
 									</div>
 									<div className="flex-shrink-0">
@@ -156,9 +154,7 @@ export function SkillsTab() {
 			) }
 
 			{ statuses.length === 0 && ! error && (
-				<div className="text-sm text-gray-500 text-center py-4">
-					{ __( 'Loading skills...' ) }
-				</div>
+				<div className="text-sm text-gray-500 text-center py-4">{ __( 'Loading skills...' ) }</div>
 			) }
 		</div>
 	);

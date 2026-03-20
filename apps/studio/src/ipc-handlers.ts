@@ -204,7 +204,9 @@ export async function getWordPressSkillsStatusAllSites(
 	if ( ! sites.length ) {
 		return BUNDLED_SKILLS.map( ( skill ) => ( { ...skill, installed: false } ) );
 	}
-	const allSiteStatuses = await Promise.all( sites.map( ( site ) => getSkillsStatus( site.path ) ) );
+	const allSiteStatuses = await Promise.all(
+		sites.map( ( site ) => getSkillsStatus( site.path ) )
+	);
 	return BUNDLED_SKILLS.map( ( skill ) => ( {
 		...skill,
 		installed: allSiteStatuses.every(

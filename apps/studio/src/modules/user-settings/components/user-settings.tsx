@@ -123,19 +123,19 @@ export default function UserSettings() {
 									) : (
 										<NonAuthenticatedAccountTab />
 									) ) }
-							{ name === 'preferences' && <PreferencesTab onClose={ resetLocalState } /> }
-							{ name === 'usage' && isAuthenticated && (
-								<UsageTab
-									loadingDeletingAllSnapshots={ isDeletingAllSnapshots }
-									activeSnapshotCount={ definitiveSnapshotCount }
-									isLoadingSnapshotUsage={ isLoadingSnapshotUsage }
-									isOffline={ isOffline }
-									snapshotQuota={ snapshotQuota }
-									onRemoveSnapshots={ onRemoveSnapshots }
-								/>
-							) }
-							{ name === 'skills' && <SkillsTab /> }
-						</div>
+								{ name === 'preferences' && <PreferencesTab onClose={ resetLocalState } /> }
+								{ name === 'usage' && isAuthenticated && (
+									<UsageTab
+										loadingDeletingAllSnapshots={ isDeletingAllSnapshots }
+										activeSnapshotCount={ definitiveSnapshotCount }
+										isLoadingSnapshotUsage={ isLoadingSnapshotUsage }
+										isOffline={ isOffline }
+										snapshotQuota={ snapshotQuota }
+										onRemoveSnapshots={ onRemoveSnapshots }
+									/>
+								) }
+								{ name === 'skills' && <SkillsTab /> }
+							</div>
 						) }
 					</TabPanel>
 				</Modal>

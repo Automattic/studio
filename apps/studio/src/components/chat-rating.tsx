@@ -14,7 +14,7 @@ interface ChatRatingProps {
 
 export const FeedbackThanks = () => {
 	return (
-		<div className="text-a8c-gray-70 italic text-xs flex justify-end mt-4">
+		<div className="text-frame-text-secondary italic text-xs flex justify-end mt-4">
 			{ __( 'Thanks for the feedback!' ) }
 		</div>
 	);
@@ -38,7 +38,7 @@ export const ChatRating = ( { messageApiId, feedbackReceived, instanceId }: Chat
 	) : (
 		<div className="flex flex-col mt-4 items-start gap-3">
 			<div className="flex items-center gap-3">
-				<span className="text-a8c-gray-70 text-xs">{ __( 'Was this helpful?' ) }</span>
+				<span className="text-frame-text-secondary text-xs">{ __( 'Was this helpful?' ) }</span>
 				<Button
 					variant="icon"
 					className="text-a8c-green-50 hover:!text-a8c-green-50 flex items-center gap-1"

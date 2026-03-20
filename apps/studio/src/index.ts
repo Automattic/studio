@@ -39,12 +39,7 @@ import { getSentryReleaseInfo } from 'src/lib/sentry-release';
 import { startUserDataWatcher, stopUserDataWatcher } from 'src/lib/user-data-watcher';
 import { setupLogging } from 'src/logging';
 import { createMainWindow, getMainWindow } from 'src/main-window';
-import { migrateAppdataMigration } from 'src/migrations/migrate-appdata-via-cli';
-import {
-	needsToMigrateFromWpNowFolder,
-	migrateFromWpNowFolder,
-} from 'src/migrations/migrate-from-wp-now-folder';
-import { renameLaunchUniquesStat } from 'src/migrations/rename-launch-uniques-stat';
+import { migrations } from 'src/migrations';
 import {
 	startCliEventsSubscriber,
 	stopCliEventsSubscriber,
@@ -312,15 +307,9 @@ async function appBoot() {
 		// WordPress server files are updated asynchronously to avoid delaying app initialization
 		updateWPServerFiles().catch( Sentry.captureException );
 
-		await runMigrations( [ migrateAppdataMigration ] ).catch( Sentry.captureException );
-
-		if ( await needsToMigrateFromWpNowFolder() ) {
-			await migrateFromWpNowFolder();
-		}
+		await runMigrations( migrations ).catch( Sentry.captureException );
 
 		await setupSentryUserId();
-
-		await renameLaunchUniquesStat();
 
 		// Fetch data from CLI and subscribe to CLI events before starting the user data
 		// watcher. The watcher can trigger getMainWindow() which creates the window early,

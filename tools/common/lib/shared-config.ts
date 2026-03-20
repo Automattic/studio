@@ -1,10 +1,10 @@
 import fs from 'fs';
-import os from 'os';
 import path from 'path';
 import { readFile, writeFile } from 'atomically';
 import { z } from 'zod';
 import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME, SHARED_CONFIG_LOCKFILE_NAME } from '../constants';
 import { authTokenSchema, type StoredAuthToken } from './auth-token-schema';
+import { getConfigDirectory, getSharedConfigPath } from './config-paths';
 import { lockFileAsync, unlockFileAsync } from './lockfile';
 
 export { authTokenSchema };
@@ -19,7 +19,10 @@ export class SharedConfigVersionMismatchError extends Error {
 	}
 }
 
-const SHARED_CONFIG_FILENAME = 'shared.json';
+export {
+	getConfigDirectory as getSharedConfigDirectory,
+	getSharedConfigPath,
+} from './config-paths';
 
 // Schema updates must maintain backwards compatibility. If a breaking change is needed,
 // increment SHARED_CONFIG_VERSION and add a data migration function.
@@ -38,17 +41,6 @@ export type SharedConfig = z.infer< typeof sharedConfigSchema >;
 const DEFAULT_SHARED_CONFIG: SharedConfig = {
 	version: SHARED_CONFIG_VERSION,
 };
-
-export function getSharedConfigDirectory(): string {
-	if ( process.env.E2E && process.env.E2E_SHARED_CONFIG_PATH ) {
-		return process.env.E2E_SHARED_CONFIG_PATH;
-	}
-	return path.join( os.homedir(), '.studio' );
-}
-
-export function getSharedConfigPath(): string {
-	return path.join( getSharedConfigDirectory(), SHARED_CONFIG_FILENAME );
-}
 
 export async function readSharedConfig(): Promise< SharedConfig > {
 	const configPath = getSharedConfigPath();
@@ -79,7 +71,7 @@ export async function readSharedConfig(): Promise< SharedConfig > {
 export async function saveSharedConfig( config: SharedConfig ): Promise< void > {
 	config.version = SHARED_CONFIG_VERSION;
 
-	const configDir = getSharedConfigDirectory();
+	const configDir = getConfigDirectory();
 	if ( ! fs.existsSync( configDir ) ) {
 		fs.mkdirSync( configDir, { recursive: true } );
 	}
@@ -90,7 +82,7 @@ export async function saveSharedConfig( config: SharedConfig ): Promise< void > 
 }
 
 function getLockfilePath(): string {
-	return path.join( getSharedConfigDirectory(), SHARED_CONFIG_LOCKFILE_NAME );
+	return path.join( getConfigDirectory(), SHARED_CONFIG_LOCKFILE_NAME );
 }
 
 export async function lockSharedConfig(): Promise< void > {

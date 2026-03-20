@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
+import { getAppConfigPath } from '@studio/common/lib/config-paths';
 import { __ } from '@wordpress/i18n';
-import { STUDIO_CLI_HOME } from 'cli/lib/paths';
 import { getAppdataDirectory } from 'cli/lib/server-files';
 import { LoggerError } from 'cli/logger';
 import type { Migration } from '@studio/common/lib/migration';
@@ -16,13 +16,12 @@ import type { Migration } from '@studio/common/lib/migration';
  *
  * Always needs to run. Throws if incompatible.
  */
-export const checkStudioCompatibility: Migration = {
+export const checkStudioCompatibilityForInitialMigration: Migration = {
 	async needsToRun() {
 		return true;
 	},
 	async run() {
-		const sharedAppdataPath = path.join( STUDIO_CLI_HOME, 'app.json' );
-		if ( fs.existsSync( sharedAppdataPath ) ) {
+		if ( fs.existsSync( getAppConfigPath() ) ) {
 			return;
 		}
 

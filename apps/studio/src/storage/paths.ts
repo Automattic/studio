@@ -1,5 +1,6 @@
-import os from 'os';
 import path from 'path';
+import { APP_CONFIG_LOCKFILE_NAME } from '@studio/common/constants';
+import { getAppConfigPath, getConfigDirectory } from '@studio/common/lib/config-paths';
 
 function inChildProcess() {
 	return process.env.STUDIO_IN_CHILD_PROCESS === 'true';
@@ -19,19 +20,11 @@ export function getUserDataFilePath(): string {
 	if ( process.env.DEV_APP_DATA_PATH ) {
 		return process.env.DEV_APP_DATA_PATH;
 	}
-	return path.join( getStudioHome(), 'app.json' );
+	return getAppConfigPath();
 }
 
 export function getUserDataLockFilePath(): string {
-	return path.join( getStudioHome(), 'app.json.lock' );
-}
-
-function getStudioHome(): string {
-	if ( process.env.E2E && process.env.E2E_HOME_PATH ) {
-		return path.join( process.env.E2E_HOME_PATH, '.studio' );
-	}
-	const homedir = app?.getPath( 'home' ) || os.homedir();
-	return path.join( homedir, '.studio' );
+	return path.join( getConfigDirectory(), APP_CONFIG_LOCKFILE_NAME );
 }
 
 export function getServerFilesPath(): string {

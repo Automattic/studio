@@ -1,4 +1,4 @@
-import { checkStudioCompatibility } from './00-check-studio-compatibility';
+import { checkStudioCompatibilityForInitialMigration } from './00-check-studio-compatibility';
 import type { Migration } from '@studio/common/lib/migration';
 
-export const migrations: Migration[] = [ checkStudioCompatibility ];
+export const migrations: Migration[] = [ checkStudioCompatibilityForInitialMigration ];

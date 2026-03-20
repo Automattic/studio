@@ -13,12 +13,14 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import * as Sentry from '@sentry/electron/main';
 import { siteDetailsSchema } from '@studio/common/lib/cli-events';
 import {
-	getSharedConfigDirectory,
+	getAppConfigPath,
+	getCliConfigPath,
 	getSharedConfigPath,
-	sharedConfigSchema,
-} from '@studio/common/lib/shared-config';
+} from '@studio/common/lib/config-paths';
+import { sharedConfigSchema } from '@studio/common/lib/shared-config';
 import { snapshotSchema } from '@studio/common/types/snapshot';
 import { readFile, writeFile } from 'atomically';
 import { z } from 'zod';
@@ -38,14 +40,6 @@ function getOldAppdataPath(): string {
 		return path.join( process.env.APPDATA || '', 'Studio', 'appdata-v1.json' );
 	}
 	return path.join( os.homedir(), 'Library', 'Application Support', 'Studio', 'appdata-v1.json' );
-}
-
-function getNewAppdataPath(): string {
-	return path.join( getSharedConfigDirectory(), 'app.json' );
-}
-
-function getCliConfigPath(): string {
-	return path.join( getSharedConfigDirectory(), 'cli.json' );
 }
 
 function ensureDirectory( filePath: string ): void {
@@ -84,6 +78,10 @@ function buildCliConfig( oldData: Record< string, unknown > ): Record< string, u
 			const result = cliSiteSchema.safeParse( site );
 			if ( result.success ) {
 				acc.push( result.data );
+			} else {
+				Sentry.captureException( result.error, {
+					extra: { siteId: site.id, context: 'migrate-to-split-config' },
+				} );
 			}
 			return acc;
 		}, [] );
@@ -95,6 +93,10 @@ function buildCliConfig( oldData: Record< string, unknown > ): Record< string, u
 				const result = snapshotSchema.safeParse( snapshot );
 				if ( result.success ) {
 					acc.push( result.data );
+				} else {
+					Sentry.captureException( result.error, {
+						extra: { snapshotUrl: snapshot.url, context: 'migrate-to-split-config' },
+					} );
 				}
 				return acc;
 			},
@@ -121,7 +123,7 @@ const excludedSiteFields = new Set( [
 	'running',
 ] );
 
-function pickAppdataSiteMetadata( site: Record< string, unknown > ): Record< string, unknown > {
+function pickAppSiteMetadata( site: Record< string, unknown > ): Record< string, unknown > {
 	const result: Record< string, unknown > = {};
 	for ( const key of Object.keys( site ) ) {
 		if ( ! excludedSiteFields.has( key ) ) {
@@ -131,7 +133,7 @@ function pickAppdataSiteMetadata( site: Record< string, unknown > ): Record< str
 	return result;
 }
 
-function buildAppdataConfig( oldData: Record< string, unknown > ): Record< string, unknown > {
+function buildAppConfig( oldData: Record< string, unknown > ): Record< string, unknown > {
 	const config: Record< string, unknown > = { version: 1 };
 
 	for ( const key of Object.keys( oldData ) ) {
@@ -147,7 +149,7 @@ function buildAppdataConfig( oldData: Record< string, unknown > ): Record< strin
 			if ( ! id ) {
 				continue;
 			}
-			const fields = pickAppdataSiteMetadata( site );
+			const fields = pickAppSiteMetadata( site );
 			if ( Object.keys( fields ).length > 0 ) {
 				sitesRecord[ id ] = fields;
 			}
@@ -167,9 +169,9 @@ async function writeJsonFile( filePath: string, data: Record< string, unknown > 
 	await writeFile( filePath, content, { encoding: 'utf8' } );
 }
 
-export const migrateAppdataMigration: Migration = {
+export const migrateAppConfig: Migration = {
 	async needsToRun() {
-		const newAppdataPath = getNewAppdataPath();
+		const newAppdataPath = getAppConfigPath();
 		if ( fs.existsSync( newAppdataPath ) ) {
 			return false;
 		}
@@ -196,8 +198,8 @@ export const migrateAppdataMigration: Migration = {
 			console.log( `Migrated sites/snapshots to ${ sanitizeUserpath( cliConfigPath ) }` );
 		}
 
-		const newAppdataPath = getNewAppdataPath();
-		await writeJsonFile( newAppdataPath, buildAppdataConfig( oldData ) );
+		const newAppdataPath = getAppConfigPath();
+		await writeJsonFile( newAppdataPath, buildAppConfig( oldData ) );
 		console.log(
 			`Migrated Desktop settings from ${ sanitizeUserpath( oldPath ) } to ${ sanitizeUserpath(
 				newAppdataPath

@@ -34,13 +34,7 @@ async function main() {
 				return path.resolve( untildify( value ) );
 			},
 		} )
-		.middleware( async ( argv ) => {
-			// Skip migrations for internal commands triggered by Studio Desktop
-			const command = argv._[ 0 ];
-			if ( command === '_events' ) {
-				return;
-			}
-
+		.middleware( async () => {
 			const { runMigrations } = await import( '@studio/common/lib/migration' );
 			const { migrations } = await import( 'cli/migrations' );
 			await runMigrations( migrations );

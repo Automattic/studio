@@ -7,11 +7,11 @@ import { snapshotSchema } from '@studio/common/types/snapshot';
 import { readFile, writeFile } from 'atomically';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { z } from 'zod';
-import { migrateAppdataMigration } from 'src/migrations/00-migrate-appdata-via-cli';
+import { migrateAppConfig } from 'src/migrations/00-migrate-to-split-config';
 
 async function runMigration() {
-	if ( await migrateAppdataMigration.needsToRun() ) {
-		await migrateAppdataMigration.run();
+	if ( await migrateAppConfig.needsToRun() ) {
+		await migrateAppConfig.run();
 	}
 }
 
@@ -57,7 +57,7 @@ const cliConfigValidationSchema = z.object( {
 } );
 
 // app.json schema — Desktop-only top-level fields + per-site Desktop fields (keyed by id)
-const appdataSiteValidationSchema = z
+const appSiteValidationSchema = z
 	.object( {
 		themeDetails: z
 			.object( {
@@ -73,10 +73,10 @@ const appdataSiteValidationSchema = z
 	} )
 	.strict();
 
-const appdataValidationSchema = z
+const appConfigValidationSchema = z
 	.object( {
 		version: z.literal( 1 ),
-		siteMetadata: z.record( z.string(), appdataSiteValidationSchema ).optional(),
+		siteMetadata: z.record( z.string(), appSiteValidationSchema ).optional(),
 		devToolsOpen: z.boolean().optional(),
 		windowBounds: z
 			.object( {
@@ -216,7 +216,7 @@ function getWrittenJson( filePath: string ): Record< string, unknown > | undefin
 	return JSON.parse( call[ 1 ] as string );
 }
 
-describe( 'migrateAppdata', () => {
+describe( 'migrateAppConfig', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		// By default: no new files exist, old file exists
@@ -237,20 +237,20 @@ describe( 'migrateAppdata', () => {
 			return false;
 		} );
 
-		expect( await migrateAppdataMigration.needsToRun() ).toBe( false );
+		expect( await migrateAppConfig.needsToRun() ).toBe( false );
 	} );
 
 	it( 'does not need to run if old appdata-v1.json does not exist', async () => {
 		mockFsExistsSync.mockReturnValue( false );
 
-		expect( await migrateAppdataMigration.needsToRun() ).toBe( false );
+		expect( await migrateAppConfig.needsToRun() ).toBe( false );
 	} );
 
 	it( 'throws when old appdata is not valid JSON', async () => {
 		vi.mocked( readFile ).mockResolvedValue( Buffer.from( 'not valid json {{{' ) );
 
-		expect( await migrateAppdataMigration.needsToRun() ).toBe( true );
-		await expect( migrateAppdataMigration.run() ).rejects.toThrow( SyntaxError );
+		expect( await migrateAppConfig.needsToRun() ).toBe( true );
+		await expect( migrateAppConfig.run() ).rejects.toThrow( SyntaxError );
 
 		expect( writeFile ).not.toHaveBeenCalled();
 	} );
@@ -388,51 +388,51 @@ describe( 'migrateAppdata', () => {
 	} );
 
 	describe( 'app.json', () => {
-		it( 'contains Desktop-only fields matching the appdata schema', async () => {
+		it( 'contains Desktop-only fields matching the app config schema', async () => {
 			await runMigration();
 
-			const appdata = getWrittenJson( 'app.json' );
-			expect( appdata ).toBeDefined();
+			const appConfig = getWrittenJson( 'app.json' );
+			expect( appConfig ).toBeDefined();
 
-			const result = appdataValidationSchema.safeParse( appdata );
+			const result = appConfigValidationSchema.safeParse( appConfig );
 			expect( result.success ).toBe( true );
 		} );
 
 		it( 'preserves all Desktop-only top-level fields', async () => {
 			await runMigration();
 
-			const appdata = getWrittenJson( 'app.json' );
+			const appConfig = getWrittenJson( 'app.json' );
 			const oldData = createOldAppdata();
 
-			expect( appdata?.devToolsOpen ).toBe( oldData.devToolsOpen );
-			expect( appdata?.windowBounds ).toEqual( oldData.windowBounds );
-			expect( appdata?.onboardingCompleted ).toBe( oldData.onboardingCompleted );
-			expect( appdata?.lastBumpStats ).toEqual( oldData.lastBumpStats );
-			expect( appdata?.promptWindowsSpeedUpResult ).toEqual( oldData.promptWindowsSpeedUpResult );
-			expect( appdata?.connectedWpcomSites ).toEqual( oldData.connectedWpcomSites );
-			expect( appdata?.sentryUserId ).toBe( oldData.sentryUserId );
-			expect( appdata?.lastSeenVersion ).toBe( oldData.lastSeenVersion );
-			expect( appdata?.preferredTerminal ).toBe( oldData.preferredTerminal );
-			expect( appdata?.preferredEditor ).toBe( oldData.preferredEditor );
-			expect( appdata?.betaFeatures ).toEqual( oldData.betaFeatures );
-			expect( appdata?.stopSitesOnQuit ).toBe( oldData.stopSitesOnQuit );
+			expect( appConfig?.devToolsOpen ).toBe( oldData.devToolsOpen );
+			expect( appConfig?.windowBounds ).toEqual( oldData.windowBounds );
+			expect( appConfig?.onboardingCompleted ).toBe( oldData.onboardingCompleted );
+			expect( appConfig?.lastBumpStats ).toEqual( oldData.lastBumpStats );
+			expect( appConfig?.promptWindowsSpeedUpResult ).toEqual( oldData.promptWindowsSpeedUpResult );
+			expect( appConfig?.connectedWpcomSites ).toEqual( oldData.connectedWpcomSites );
+			expect( appConfig?.sentryUserId ).toBe( oldData.sentryUserId );
+			expect( appConfig?.lastSeenVersion ).toBe( oldData.lastSeenVersion );
+			expect( appConfig?.preferredTerminal ).toBe( oldData.preferredTerminal );
+			expect( appConfig?.preferredEditor ).toBe( oldData.preferredEditor );
+			expect( appConfig?.betaFeatures ).toEqual( oldData.betaFeatures );
+			expect( appConfig?.stopSitesOnQuit ).toBe( oldData.stopSitesOnQuit );
 		} );
 
 		it( 'does not include fields that moved to shared.json or cli.json', async () => {
 			await runMigration();
 
-			const appdata = getWrittenJson( 'app.json' );
+			const appConfig = getWrittenJson( 'app.json' );
 
-			expect( appdata ).not.toHaveProperty( 'authToken' );
-			expect( appdata ).not.toHaveProperty( 'locale' );
-			expect( appdata ).not.toHaveProperty( 'snapshots' );
+			expect( appConfig ).not.toHaveProperty( 'authToken' );
+			expect( appConfig ).not.toHaveProperty( 'locale' );
+			expect( appConfig ).not.toHaveProperty( 'snapshots' );
 		} );
 
 		it( 'keeps per-site Desktop fields (themeDetails, sortOrder) keyed by id', async () => {
 			await runMigration();
 
-			const appdata = getWrittenJson( 'app.json' );
-			const sites = appdata?.siteMetadata as Record< string, Record< string, unknown > >;
+			const appConfig = getWrittenJson( 'app.json' );
+			const sites = appConfig?.siteMetadata as Record< string, Record< string, unknown > >;
 			const oldData = createOldAppdata();
 
 			expect( Object.keys( sites ) ).toHaveLength( 2 );
@@ -462,9 +462,9 @@ describe( 'migrateAppdata', () => {
 
 			await runMigration();
 
-			const appdata = getWrittenJson( 'app.json' );
-			expect( appdata ).not.toHaveProperty( 'siteMetadata' );
-			expect( appdataValidationSchema.safeParse( appdata ).success ).toBe( true );
+			const appConfig = getWrittenJson( 'app.json' );
+			expect( appConfig ).not.toHaveProperty( 'siteMetadata' );
+			expect( appConfigValidationSchema.safeParse( appConfig ).success ).toBe( true );
 		} );
 	} );
 
@@ -526,9 +526,9 @@ describe( 'migrateAppdata', () => {
 			expect( cli ).toEqual( { version: 1, sites: [], snapshots: [] } );
 			expect( cliConfigValidationSchema.safeParse( cli ).success ).toBe( true );
 
-			const appdata = getWrittenJson( 'app.json' );
-			expect( appdata ).toEqual( { version: 1 } );
-			expect( appdataValidationSchema.safeParse( appdata ).success ).toBe( true );
+			const appConfig = getWrittenJson( 'app.json' );
+			expect( appConfig ).toEqual( { version: 1 } );
+			expect( appConfigValidationSchema.safeParse( appConfig ).success ).toBe( true );
 		} );
 	} );
 } );

@@ -41,7 +41,7 @@ import {
 } from 'src/stores/sync/sync-pollers';
 import { wpcomSitesApi } from 'src/stores/sync/wpcom-sites';
 import uiReducer from 'src/stores/ui-slice';
-import { getWpcomClient, wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
+import { getWpcomClient, setWpcomClient, wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
 import { wordpressVersionsApi } from './wordpress-versions-api';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 
@@ -193,6 +193,8 @@ startAppListening( {
 startAppListening( {
 	actionCreator: userLoggedOut,
 	effect( action, listenerApi ) {
+		setWpcomClient( undefined );
+
 		// Use getOriginalState() to read state BEFORE the reducer cleared pullStates/pushStates
 		const state = listenerApi.getOriginalState();
 

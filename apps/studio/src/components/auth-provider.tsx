@@ -52,7 +52,6 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 	const handleInvalidToken = useCallback( async () => {
 		try {
 			void getIpcApi().logRendererMessage( 'info', 'Detected invalid token. Logging out.' );
-			setWpcomClient( undefined );
 			dispatch( userLoggedOut() );
 			await getIpcApi().clearAuthenticationToken();
 			setIsAuthenticated( false );
@@ -113,7 +112,6 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 		}
 
 		try {
-			setWpcomClient( undefined );
 			dispatch( userLoggedOut() );
 			await getIpcApi().clearAuthenticationToken();
 			setIsAuthenticated( false );

@@ -111,7 +111,7 @@ function SettingsButton() {
 	const { __ } = useI18n();
 	return (
 		<Button
-			onClick={ () => getIpcApi().showUserSettings( 'preferences' ) }
+			onClick={ () => getIpcApi().showUserSettings( 'general' ) }
 			aria-label={ __( 'Open settings' ) }
 			variant="icon"
 			data-testid="settings-button"

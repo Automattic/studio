@@ -2,7 +2,6 @@ import fs from 'fs';
 import nodePath from 'node:path';
 import * as Sentry from '@sentry/electron/main';
 import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from '@studio/common/constants';
-import { applyMigrations, type ConfigMigration } from '@studio/common/lib/config-migrator';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
 import { readFile, writeFile } from 'atomically';
@@ -10,22 +9,14 @@ import { sanitizeUnstructuredData, sanitizeUserpath } from 'src/lib/sanitize-for
 import { getUserDataFilePath, getUserDataLockFilePath } from 'src/storage/paths';
 import type { PersistedUserData, UserData, WindowBounds } from 'src/storage/storage-types';
 
-// Versioned data migrations for app.json.
-// Add new migrations here with incrementing version numbers.
-// Each migration receives the raw parsed JSON and returns transformed data.
-export const appdataMigrations: ConfigMigration[] = [
-	// Example for future use:
-	// { version: 2, migrate: ( data ) => { /* transform */ return data; } },
-];
-
 export async function loadUserData(): Promise< UserData > {
 	const filePath = getUserDataFilePath();
 
 	try {
 		const asString = await readFile( filePath, 'utf-8' );
 		try {
-			const parsed = applyMigrations( JSON.parse( asString ), appdataMigrations );
-			const { version, siteMetadata, ...data } = parsed as unknown as PersistedUserData;
+			const parsed = JSON.parse( asString );
+			const { version, siteMetadata, ...data } = parsed as PersistedUserData;
 			return { siteMetadata: siteMetadata ?? {}, ...data };
 		} catch ( err ) {
 			if ( err instanceof SyntaxError ) {

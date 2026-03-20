@@ -7,7 +7,13 @@ import { snapshotSchema } from '@studio/common/types/snapshot';
 import { readFile, writeFile } from 'atomically';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { z } from 'zod';
-import { migrateAppdata } from 'src/migrations/migrate-appdata-via-cli';
+import { migrateAppdataMigration } from 'src/migrations/migrate-appdata-via-cli';
+
+async function runMigration() {
+	if ( await migrateAppdataMigration.needsToRun() ) {
+		await migrateAppdataMigration.run();
+	}
+}
 
 const { mockFsExistsSync, mockFsMkdirSync } = vi.hoisted( () => ( {
 	mockFsExistsSync: vi.fn(),
@@ -223,7 +229,7 @@ describe( 'migrateAppdata', () => {
 		vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( createOldAppdata() ) ) );
 	} );
 
-	it( 'skips migration if new app.json already exists', async () => {
+	it( 'does not need to run if new app.json already exists', async () => {
 		mockFsExistsSync.mockImplementation( ( p: string ) => {
 			if ( p.endsWith( 'app.json' ) && p.includes( '.studio' ) ) {
 				return true;
@@ -231,43 +237,33 @@ describe( 'migrateAppdata', () => {
 			return false;
 		} );
 
-		await migrateAppdata();
-
-		expect( readFile ).not.toHaveBeenCalled();
-		expect( writeFile ).not.toHaveBeenCalled();
+		expect( await migrateAppdataMigration.needsToRun() ).toBe( false );
 	} );
 
-	it( 'skips migration if old appdata-v1.json does not exist', async () => {
+	it( 'does not need to run if old appdata-v1.json does not exist', async () => {
 		mockFsExistsSync.mockReturnValue( false );
 
-		await migrateAppdata();
-
-		expect( readFile ).not.toHaveBeenCalled();
-		expect( writeFile ).not.toHaveBeenCalled();
+		expect( await migrateAppdataMigration.needsToRun() ).toBe( false );
 	} );
 
-	it( 'skips migration if old appdata is not valid JSON', async () => {
+	it( 'throws when old appdata is not valid JSON', async () => {
 		vi.mocked( readFile ).mockResolvedValue( Buffer.from( 'not valid json {{{' ) );
-		const consoleSpy = vi.spyOn( console, 'error' ).mockImplementation( () => {} );
 
-		await migrateAppdata();
+		expect( await migrateAppdataMigration.needsToRun() ).toBe( true );
+		await expect( migrateAppdataMigration.run() ).rejects.toThrow( SyntaxError );
 
 		expect( writeFile ).not.toHaveBeenCalled();
-		expect( consoleSpy ).toHaveBeenCalledWith(
-			expect.stringContaining( 'Failed to parse old appdata' )
-		);
-		consoleSpy.mockRestore();
 	} );
 
 	it( 'writes three config files from old appdata', async () => {
-		await migrateAppdata();
+		await runMigration();
 
 		expect( writeFile ).toHaveBeenCalledTimes( 3 );
 	} );
 
 	describe( 'shared.json', () => {
 		it( 'contains auth token and locale matching the shared config schema', async () => {
-			await migrateAppdata();
+			await runMigration();
 
 			const shared = getWrittenJson( 'shared.json' );
 			expect( shared ).toBeDefined();
@@ -278,7 +274,7 @@ describe( 'migrateAppdata', () => {
 		} );
 
 		it( 'preserves the auth token data', async () => {
-			await migrateAppdata();
+			await runMigration();
 
 			const shared = getWrittenJson( 'shared.json' );
 			const oldData = createOldAppdata();
@@ -296,7 +292,7 @@ describe( 'migrateAppdata', () => {
 			const { authToken, locale, ...rest } = oldData;
 			vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( rest ) ) );
 
-			await migrateAppdata();
+			await runMigration();
 
 			const shared = getWrittenJson( 'shared.json' );
 			expect( shared ).toEqual( { version: 1 } );
@@ -304,7 +300,7 @@ describe( 'migrateAppdata', () => {
 		} );
 
 		it( 'does not include non-shared fields', async () => {
-			await migrateAppdata();
+			await runMigration();
 
 			const shared = getWrittenJson( 'shared.json' );
 			expect( shared ).not.toHaveProperty( 'sites' );
@@ -316,7 +312,7 @@ describe( 'migrateAppdata', () => {
 
 	describe( 'cli.json', () => {
 		it( 'contains sites and snapshots matching the CLI config schema', async () => {
-			await migrateAppdata();
+			await runMigration();
 
 			const cli = getWrittenJson( 'cli.json' );
 			expect( cli ).toBeDefined();
@@ -326,7 +322,7 @@ describe( 'migrateAppdata', () => {
 		} );
 
 		it( 'includes only CLI-relevant site fields', async () => {
-			await migrateAppdata();
+			await runMigration();
 
 			const cli = getWrittenJson( 'cli.json' );
 			const sites = cli?.sites as Record< string, unknown >[];
@@ -348,7 +344,7 @@ describe( 'migrateAppdata', () => {
 		} );
 
 		it( 'preserves snapshots as-is', async () => {
-			await migrateAppdata();
+			await runMigration();
 
 			const cli = getWrittenJson( 'cli.json' );
 			const oldData = createOldAppdata();
@@ -368,7 +364,7 @@ describe( 'migrateAppdata', () => {
 				Buffer.from( JSON.stringify( { ...oldData, sites: [], snapshots: [] } ) )
 			);
 
-			await migrateAppdata();
+			await runMigration();
 
 			const cli = getWrittenJson( 'cli.json' );
 			expect( cli?.sites ).toEqual( [] );
@@ -382,7 +378,7 @@ describe( 'migrateAppdata', () => {
 			const { sites, snapshots, ...rest } = oldData;
 			vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( rest ) ) );
 
-			await migrateAppdata();
+			await runMigration();
 
 			const cli = getWrittenJson( 'cli.json' );
 			expect( cli?.sites ).toEqual( [] );
@@ -393,7 +389,7 @@ describe( 'migrateAppdata', () => {
 
 	describe( 'app.json', () => {
 		it( 'contains Desktop-only fields matching the appdata schema', async () => {
-			await migrateAppdata();
+			await runMigration();
 
 			const appdata = getWrittenJson( 'app.json' );
 			expect( appdata ).toBeDefined();
@@ -403,7 +399,7 @@ describe( 'migrateAppdata', () => {
 		} );
 
 		it( 'preserves all Desktop-only top-level fields', async () => {
-			await migrateAppdata();
+			await runMigration();
 
 			const appdata = getWrittenJson( 'app.json' );
 			const oldData = createOldAppdata();
@@ -423,7 +419,7 @@ describe( 'migrateAppdata', () => {
 		} );
 
 		it( 'does not include fields that moved to shared.json or cli.json', async () => {
-			await migrateAppdata();
+			await runMigration();
 
 			const appdata = getWrittenJson( 'app.json' );
 
@@ -433,7 +429,7 @@ describe( 'migrateAppdata', () => {
 		} );
 
 		it( 'keeps per-site Desktop fields (themeDetails, sortOrder) keyed by id', async () => {
-			await migrateAppdata();
+			await runMigration();
 
 			const appdata = getWrittenJson( 'app.json' );
 			const sites = appdata?.siteMetadata as Record< string, Record< string, unknown > >;
@@ -464,7 +460,7 @@ describe( 'migrateAppdata', () => {
 				Buffer.from( JSON.stringify( { ...oldData, sites: sitesWithoutDesktopFields } ) )
 			);
 
-			await migrateAppdata();
+			await runMigration();
 
 			const appdata = getWrittenJson( 'app.json' );
 			expect( appdata ).not.toHaveProperty( 'siteMetadata' );
@@ -484,7 +480,7 @@ describe( 'migrateAppdata', () => {
 				return false;
 			} );
 
-			await migrateAppdata();
+			await runMigration();
 
 			// Should write cli.json and app.json but not shared.json
 			expect( writeFile ).toHaveBeenCalledTimes( 2 );
@@ -505,7 +501,7 @@ describe( 'migrateAppdata', () => {
 				return false;
 			} );
 
-			await migrateAppdata();
+			await runMigration();
 
 			// Should write shared.json and app.json but not cli.json
 			expect( writeFile ).toHaveBeenCalledTimes( 2 );
@@ -520,7 +516,7 @@ describe( 'migrateAppdata', () => {
 		it( 'handles an old appdata with only version field', async () => {
 			vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( { version: 1 } ) ) );
 
-			await migrateAppdata();
+			await runMigration();
 
 			const shared = getWrittenJson( 'shared.json' );
 			expect( shared ).toEqual( { version: 1 } );

@@ -2,7 +2,6 @@ import fs from 'fs';
 import path from 'path';
 import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from '@studio/common/constants';
 import { siteDetailsSchema } from '@studio/common/lib/cli-events';
-import { applyMigrations, type ConfigMigration } from '@studio/common/lib/config-migrator';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
 import { snapshotSchema } from '@studio/common/types/snapshot';
 import { __ } from '@wordpress/i18n';
@@ -59,12 +58,6 @@ export function getCliConfigPath(): string {
 	return path.join( getCliConfigDirectory(), 'cli.json' );
 }
 
-// Versioned data migrations for cli.json.
-// Add new migrations here with incrementing version numbers.
-export const cliConfigMigrations: ConfigMigration[] = [
-	// Example: { version: 2, migrate: ( data ) => { /* transform */ return data; } },
-];
-
 export async function readCliConfig(): Promise< CliConfig > {
 	const configPath = getCliConfigPath();
 
@@ -72,10 +65,10 @@ export async function readCliConfig(): Promise< CliConfig > {
 		return structuredClone( DEFAULT_CLI_CONFIG );
 	}
 
+	let data: Record< string, unknown >;
 	try {
 		const fileContent = await readFile( configPath, { encoding: 'utf8' } );
-		// eslint-disable-next-line no-var
-		var data = applyMigrations( JSON.parse( fileContent ), cliConfigMigrations );
+		data = JSON.parse( fileContent );
 	} catch ( error ) {
 		throw new LoggerError( __( 'Failed to read CLI config file.' ), error );
 	}

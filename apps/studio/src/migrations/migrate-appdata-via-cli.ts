@@ -23,6 +23,7 @@ import { snapshotSchema } from '@studio/common/types/snapshot';
 import { readFile, writeFile } from 'atomically';
 import { z } from 'zod';
 import { sanitizeUserpath } from 'src/lib/sanitize-for-logging';
+import type { Migration } from '@studio/common/lib/migration';
 
 /**
  * Returns the old platform-specific appdata path used by previous Studio versions.
@@ -166,50 +167,41 @@ async function writeJsonFile( filePath: string, data: Record< string, unknown > 
 	await writeFile( filePath, content, { encoding: 'utf8' } );
 }
 
-export async function migrateAppdata(): Promise< void > {
-	const newAppdataPath = getNewAppdataPath();
+export const migrateAppdataMigration: Migration = {
+	async needsToRun() {
+		const newAppdataPath = getNewAppdataPath();
+		if ( fs.existsSync( newAppdataPath ) ) {
+			return false;
+		}
+		const oldPath = getOldAppdataPath();
+		return fs.existsSync( oldPath );
+	},
+	async run() {
+		const oldPath = getOldAppdataPath();
+		const rawContent = await readFile( oldPath, { encoding: 'utf8' } );
+		const oldData: Record< string, unknown > = JSON.parse( rawContent );
 
-	// If new appdata already exists, migration was already completed.
-	if ( fs.existsSync( newAppdataPath ) ) {
-		return;
-	}
+		// Write shared.json and cli.json first — if the process crashes before writing
+		// app.json, the next boot will retry the migration since we check for
+		// app.json existence as the completion marker.
+		const sharedConfigPath = getSharedConfigPath();
+		if ( ! fs.existsSync( sharedConfigPath ) ) {
+			await writeJsonFile( sharedConfigPath, buildSharedConfig( oldData ) );
+			console.log( `Migrated auth/locale to ${ sanitizeUserpath( sharedConfigPath ) }` );
+		}
 
-	const oldPath = getOldAppdataPath();
+		const cliConfigPath = getCliConfigPath();
+		if ( ! fs.existsSync( cliConfigPath ) ) {
+			await writeJsonFile( cliConfigPath, buildCliConfig( oldData ) );
+			console.log( `Migrated sites/snapshots to ${ sanitizeUserpath( cliConfigPath ) }` );
+		}
 
-	if ( ! fs.existsSync( oldPath ) ) {
-		return;
-	}
-
-	const rawContent = await readFile( oldPath, { encoding: 'utf8' } );
-	let oldData: Record< string, unknown >;
-	try {
-		oldData = JSON.parse( rawContent );
-	} catch {
-		console.error(
-			`Failed to parse old appdata at ${ sanitizeUserpath( oldPath ) }, skipping migration`
+		const newAppdataPath = getNewAppdataPath();
+		await writeJsonFile( newAppdataPath, buildAppdataConfig( oldData ) );
+		console.log(
+			`Migrated Desktop settings from ${ sanitizeUserpath( oldPath ) } to ${ sanitizeUserpath(
+				newAppdataPath
+			) }`
 		);
-		return;
-	}
-
-	// Write shared.json and cli.json first — if the process crashes before writing
-	// app.json, the next boot will retry the migration since we check for
-	// app.json existence as the completion marker.
-	const sharedConfigPath = getSharedConfigPath();
-	if ( ! fs.existsSync( sharedConfigPath ) ) {
-		await writeJsonFile( sharedConfigPath, buildSharedConfig( oldData ) );
-		console.log( `Migrated auth/locale to ${ sanitizeUserpath( sharedConfigPath ) }` );
-	}
-
-	const cliConfigPath = getCliConfigPath();
-	if ( ! fs.existsSync( cliConfigPath ) ) {
-		await writeJsonFile( cliConfigPath, buildCliConfig( oldData ) );
-		console.log( `Migrated sites/snapshots to ${ sanitizeUserpath( cliConfigPath ) }` );
-	}
-
-	await writeJsonFile( newAppdataPath, buildAppdataConfig( oldData ) );
-	console.log(
-		`Migrated Desktop settings from ${ sanitizeUserpath( oldPath ) } to ${ sanitizeUserpath(
-			newAppdataPath
-		) }`
-	);
-}
+	},
+};

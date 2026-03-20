@@ -13,6 +13,7 @@ import path from 'path';
 import { pathToFileURL } from 'url';
 import * as Sentry from '@sentry/electron/main';
 import { PROTOCOL_PREFIX } from '@studio/common/constants';
+import { runMigrations } from '@studio/common/lib/migration';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import {
@@ -38,7 +39,7 @@ import { getSentryReleaseInfo } from 'src/lib/sentry-release';
 import { startUserDataWatcher, stopUserDataWatcher } from 'src/lib/user-data-watcher';
 import { setupLogging } from 'src/logging';
 import { createMainWindow, getMainWindow } from 'src/main-window';
-import { migrateAppdata } from 'src/migrations/migrate-appdata-via-cli';
+import { migrateAppdataMigration } from 'src/migrations/migrate-appdata-via-cli';
 import {
 	needsToMigrateFromWpNowFolder,
 	migrateFromWpNowFolder,
@@ -311,7 +312,7 @@ async function appBoot() {
 		// WordPress server files are updated asynchronously to avoid delaying app initialization
 		updateWPServerFiles().catch( Sentry.captureException );
 
-		await migrateAppdata().catch( Sentry.captureException );
+		await runMigrations( [ migrateAppdataMigration ] ).catch( Sentry.captureException );
 
 		if ( await needsToMigrateFromWpNowFolder() ) {
 			await migrateFromWpNowFolder();

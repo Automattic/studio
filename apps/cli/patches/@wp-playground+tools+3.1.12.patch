@@ -1,26 +1,50 @@
 diff --git a/node_modules/@wp-playground/tools/DbiMysqli-CmlcCdDi.js b/node_modules/@wp-playground/tools/DbiMysqli-CmlcCdDi.js
-index f17cbe9..a8ac6d7 100644
+index f17cbe9..7319b2c 100644
 --- a/node_modules/@wp-playground/tools/DbiMysqli-CmlcCdDi.js
 +++ b/node_modules/@wp-playground/tools/DbiMysqli-CmlcCdDi.js
-@@ -23,7 +23,7 @@ use WP_SQLite_Connection;
+@@ -22,8 +22,18 @@ use Throwable;
+ use WP_SQLite_Connection;
  use WP_SQLite_Driver;
-
- // Load the SQLite driver.
+ 
+-// Load the SQLite driver.
 -require_once '/internal/shared/sqlite-database-integration/wp-pdo-mysql-on-sqlite.php';
-+require_once '/wordpress/wp-content/mu-plugins/sqlite-database-integration/wp-pdo-mysql-on-sqlite.php';
-
++// Load the SQLite driver from the first available location.
++// The path varies depending on the environment (Playground, Studio, etc.).
++$sqlite_driver_locations = array(
++	'/internal/shared/sqlite-database-integration/wp-pdo-mysql-on-sqlite.php',
++	defined( 'WP_SQLITE_LOCATION' ) ? WP_SQLITE_LOCATION . '/wp-pdo-mysql-on-sqlite.php' : false,
++);
++foreach ($sqlite_driver_locations as $sqlite_driver_path) {
++	if ($sqlite_driver_path && file_exists($sqlite_driver_path)) {
++		require_once $sqlite_driver_path;
++		break;
++	}
++}
+ 
  // Supress the following phpMyAdmin warning:
  //   "The mysqlnd extension is missing. Please check your PHP configuration."
 diff --git a/node_modules/@wp-playground/tools/DbiMysqli-IfZRkV2V.cjs b/node_modules/@wp-playground/tools/DbiMysqli-IfZRkV2V.cjs
-index 02572b2..f17cbe9 100644
+index 02572b2..c958d5d 100644
 --- a/node_modules/@wp-playground/tools/DbiMysqli-IfZRkV2V.cjs
 +++ b/node_modules/@wp-playground/tools/DbiMysqli-IfZRkV2V.cjs
-@@ -23,7 +23,7 @@ use WP_SQLite_Connection;
+@@ -22,8 +22,18 @@ use Throwable;
+ use WP_SQLite_Connection;
  use WP_SQLite_Driver;
-
- // Load the SQLite driver.
+ 
+-// Load the SQLite driver.
 -require_once '/internal/shared/sqlite-database-integration/wp-pdo-mysql-on-sqlite.php';
-+require_once '/wordpress/wp-content/mu-plugins/sqlite-database-integration/wp-pdo-mysql-on-sqlite.php';
-
++// Load the SQLite driver from the first available location.
++// The path varies depending on the environment (Playground, Studio, etc.).
++$sqlite_driver_locations = array(
++	'/internal/shared/sqlite-database-integration/wp-pdo-mysql-on-sqlite.php',
++	defined( 'WP_SQLITE_LOCATION' ) ? WP_SQLITE_LOCATION . '/wp-pdo-mysql-on-sqlite.php' : false,
++);
++foreach ($sqlite_driver_locations as $sqlite_driver_path) {
++	if ($sqlite_driver_path && file_exists($sqlite_driver_path)) {
++		require_once $sqlite_driver_path;
++		break;
++	}
++}
+ 
  // Supress the following phpMyAdmin warning:
  //   "The mysqlnd extension is missing. Please check your PHP configuration."

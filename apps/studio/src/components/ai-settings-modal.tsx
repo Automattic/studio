@@ -114,8 +114,8 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 										{ config.displayName }
 									</span>
 									{ status.exists && (
-										<span className="inline-flex items-center gap-1 text-[11px] text-[#1a6928] bg-[#ceead6] dark:text-[#6ee7a0] dark:bg-[#1a3a24] px-2 py-0.5 rounded-full">
-											<Icon icon={ check } size={ 12 } />
+										<span className="inline-flex items-center gap-1 text-[11px] text-green-900 bg-green-50 dark:!text-green-300 dark:bg-green-950 px-2 py-0.5 rounded-full">
+											<Icon className="dark:fill-green-300" icon={ check } size={ 12 } />
 											{ __( 'Installed' ) }
 										</span>
 									) }

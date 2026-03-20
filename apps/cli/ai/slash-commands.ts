@@ -9,10 +9,12 @@ export const AI_CHAT_LOGIN_COMMAND = '/login';
 export const AI_CHAT_LOGOUT_COMMAND = '/logout';
 export const AI_CHAT_MODEL_COMMAND = '/model';
 export const AI_CHAT_PROVIDER_COMMAND = '/provider';
+export const AI_CHAT_DESELECT_COMMAND = '/deselect';
 export const AI_CHAT_EXIT_COMMAND = '/exit';
 
 export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 	{ name: 'browser', description: 'Open the active site in the browser' },
+	{ name: 'deselect', description: 'Deselect the active site' },
 	{ name: 'api-key', description: 'Set or update the Anthropic API key' },
 	{ name: 'login', description: 'Log in to WordPress.com' },
 	{ name: 'logout', description: 'Log out of WordPress.com' },

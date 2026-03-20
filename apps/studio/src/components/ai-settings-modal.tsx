@@ -76,8 +76,8 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 		<div className="flex flex-col gap-4">
 			<div className="flex items-center justify-between">
 				<div>
-					<h3 className="text-sm font-medium text-gray-900">{ __( 'Agent instructions' ) }</h3>
-					<p className="text-xs text-gray-500 mt-0.5">
+					<h3 className="text-sm font-medium text-frame-text">{ __( 'Agent instructions' ) }</h3>
+					<p className="text-xs text-frame-text-secondary mt-0.5">
 						{ __( 'Install instructions so agents know how to use Studio' ) }
 					</p>
 				</div>
@@ -94,31 +94,35 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 			</div>
 
 			{ error && (
-				<div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">
+				<div className="bg-frame-surface border border-frame-error/30 text-frame-error px-3 py-2 rounded text-sm">
 					{ error }
 				</div>
 			) }
 
-			<div className="border border-gray-200 rounded-md overflow-hidden">
+			<div className="border border-frame-border rounded-md overflow-hidden">
 				{ statuses.map( ( status ) => {
 					const config = INSTRUCTION_FILES[ status.id ];
 					const isInstalling = installingFile === status.id;
 					return (
 						<div
 							key={ status.id }
-							className="flex items-center justify-between px-3 py-2.5 border-b border-gray-200 last:border-b-0"
+							className="flex items-center justify-between px-3 py-2.5 border-b border-frame-border last:border-b-0"
 						>
 							<div className="flex-1 min-w-0 pr-3">
 								<div className="flex items-center gap-2">
-									<span className="text-sm font-medium text-gray-900">{ config.displayName }</span>
+									<span className="text-sm font-medium text-frame-text">
+										{ config.displayName }
+									</span>
 									{ status.exists && (
-										<span className="inline-flex items-center gap-1 text-[11px] text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
-											<Icon icon={ check } size={ 12 } />
+										<span className="inline-flex items-center gap-1 text-[11px] text-green-900 bg-green-50 dark:!text-green-300 dark:bg-green-950 px-2 py-0.5 rounded-full">
+											<Icon className="dark:fill-green-300" icon={ check } size={ 12 } />
 											{ __( 'Installed' ) }
 										</span>
 									) }
 								</div>
-								<div className="text-xs text-gray-500">{ __( config.description ) }</div>
+								<div className="text-xs text-frame-text-secondary">
+									{ __( config.description ) }
+								</div>
 							</div>
 							<div className="flex items-center gap-2 flex-shrink-0">
 								{ status.exists && (
@@ -199,39 +203,39 @@ function WordPressSkillsPanel( { siteId }: { siteId: string } ) {
 		<div className="flex flex-col gap-4">
 			<div className="flex items-center justify-between">
 				<div>
-					<h3 className="text-sm font-medium text-gray-900">{ __( 'WordPress skills' ) }</h3>
-					<p className="text-xs text-gray-500 mt-0.5">
+					<h3 className="text-sm font-medium text-frame-text">{ __( 'WordPress skills' ) }</h3>
+					<p className="text-xs text-frame-text-secondary mt-0.5">
 						{ __( 'WordPress development skills for AI agents' ) }
 					</p>
 				</div>
 			</div>
 
 			{ error && (
-				<div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">
+				<div className="bg-frame-surface border border-frame-error/30 text-frame-error px-3 py-2 rounded text-sm">
 					{ error }
 				</div>
 			) }
 
-			<div className="border border-gray-200 rounded-md overflow-hidden">
+			<div className="border border-frame-border rounded-md overflow-hidden">
 				<div className="flex items-center justify-between px-3 py-2.5">
 					<div className="flex-1 min-w-0 pr-3">
 						<div className="flex items-center gap-2">
-							<span className="text-sm font-medium text-gray-900">
+							<span className="text-sm font-medium text-frame-text">
 								{ __( 'WordPress Skills' ) }
 							</span>
 							{ allInstalled && (
-								<span className="inline-flex items-center gap-1 text-[11px] text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
+								<span className="inline-flex items-center gap-1 text-[11px] text-[#1a6928] bg-[#ceead6] dark:text-[#6ee7a0] dark:bg-[#1a3a24] px-2 py-0.5 rounded-full">
 									<Icon icon={ check } size={ 12 } />
 									{ __( 'Installed' ) }
 								</span>
 							) }
 							{ ! allInstalled && installedCount > 0 && (
-								<span className="inline-flex items-center gap-1 text-[11px] text-orange-700 bg-orange-50 px-2 py-0.5 rounded-full">
+								<span className="inline-flex items-center gap-1 text-[11px] text-frame-text-secondary bg-frame-surface px-2 py-0.5 rounded-full">
 									{ `${ installedCount }/${ BUNDLED_SKILLS.length }` }
 								</span>
 							) }
 						</div>
-						<div className="text-xs text-gray-500">
+						<div className="text-xs text-frame-text-secondary">
 							{ __( 'Plugins, blocks, themes, REST API, and WP-CLI skills' ) }
 						</div>
 					</div>

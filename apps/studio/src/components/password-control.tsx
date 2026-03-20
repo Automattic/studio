@@ -34,10 +34,10 @@ const PasswordControl = ( {
 				disabled={ disabled }
 				autoComplete="new-password"
 				className={ cx(
-					'w-full h-10 px-4 py-3 pr-10 rounded-sm border border-[#949494] outline-none',
-					'focus:border-a8c-blue-50 focus:shadow-[0_0_0_0.5px_black] focus:shadow-a8c-blue-50',
+					'w-full h-10 px-4 py-3 pr-10 rounded-sm border border-frame-border bg-frame-surface text-frame-text outline-none',
+					'focus:border-a8c-blue-50 focus:shadow-[0_0_0_0.5px] focus:shadow-a8c-blue-50',
 					'transition-shadow transition-linear duration-100',
-					disabled && 'bg-a8c-gray-100 text-a8c-gray-600 border-a8c-gray-400 cursor-not-allowed'
+					disabled && 'opacity-60 cursor-not-allowed'
 				) }
 			/>
 			<button
@@ -46,12 +46,16 @@ const PasswordControl = ( {
 				disabled={ disabled }
 				className={ cx(
 					'absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded',
-					'hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-a8c-blue-50',
+					'hover:bg-frame-surface-alt focus:outline-none focus:ring-2 focus:ring-a8c-blue-50',
 					disabled && 'cursor-not-allowed opacity-50'
 				) }
 				aria-label={ isVisible ? __( 'Hide password' ) : __( 'Show password' ) }
 			>
-				<Icon icon={ isVisible ? unseen : seen } size={ 20 } className="text-gray-500" />
+				<Icon
+					icon={ isVisible ? unseen : seen }
+					size={ 20 }
+					className="fill-frame-text-secondary"
+				/>
 			</button>
 		</div>
 	);

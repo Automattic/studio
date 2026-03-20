@@ -67,6 +67,7 @@ describe( 'UserSettings', () => {
 			client: undefined,
 		} );
 		renderWithProvider( <UserSettings /> );
+		await userEvent.click( screen.getByText( 'Account' ) );
 		const loginButton = screen.getByRole( 'button', { name: 'Log in' } );
 		expect( loginButton ).toBeVisible();
 		await userEvent.click( loginButton );
@@ -82,6 +83,8 @@ describe( 'UserSettings', () => {
 			client: undefined,
 		} );
 		renderWithProvider( <UserSettings /> );
+		// Navigate to Account tab to find the logout button
+		await userEvent.click( screen.getByText( 'Account' ) );
 		const logoutButton = screen.getByRole( 'button', { name: 'Log out' } );
 		expect( logoutButton ).toBeVisible();
 		await userEvent.click( logoutButton );
@@ -98,6 +101,8 @@ describe( 'UserSettings', () => {
 			client: undefined,
 		} );
 		renderWithProvider( <UserSettings /> );
+		// Navigate to Account tab
+		await userEvent.click( screen.getByText( 'Account' ) );
 		const loginButton = screen.getByRole( 'button', { name: 'Log in' } );
 		expect( loginButton ).toHaveAttribute( 'aria-disabled', 'true' );
 		await userEvent.click( loginButton );
@@ -122,24 +127,19 @@ describe( 'UserSettings', () => {
 
 			renderWithProvider( <UserSettings /> );
 
+			// General tab (renamed from Preferences) should be selected first
 			await waitFor( () => {
-				expect( screen.getByText( 'Account' ) ).toHaveAttribute( 'aria-selected', 'true' );
-				expect( screen.getByText( 'Log out' ) ).toBeInTheDocument();
-			} );
-
-			await user.click( screen.getByText( 'Preferences' ) );
-
-			await waitFor( () => {
-				expect( screen.getByText( 'Preferences' ) ).toHaveAttribute( 'aria-selected', 'true' );
+				expect( screen.getByText( 'General' ) ).toHaveAttribute( 'aria-selected', 'true' );
 				expect( screen.getByText( 'Language' ) ).toBeInTheDocument();
 				expect( screen.getByText( 'Terminal application' ) ).toBeInTheDocument();
 				expect( screen.getByText( 'Studio CLI' ) ).toBeInTheDocument();
 			} );
 
-			await user.click( screen.getByText( 'Usage' ) );
+			await user.click( screen.getByText( 'Account' ) );
 
 			await waitFor( () => {
-				expect( screen.getByText( 'Usage' ) ).toHaveAttribute( 'aria-selected', 'true' );
+				expect( screen.getByText( 'Account' ) ).toHaveAttribute( 'aria-selected', 'true' );
+				expect( screen.getByText( 'Log out' ) ).toBeInTheDocument();
 				expect( screen.getByText( 'Preview sites' ) ).toBeInTheDocument();
 				expect( screen.getByText( 'AI assistant' ) ).toBeInTheDocument();
 			} );
@@ -147,11 +147,10 @@ describe( 'UserSettings', () => {
 	} );
 
 	describe( 'Tab Selection via IPC', () => {
-		it( 'should open with specified tab when tabName is provided via IPC', async () => {
-			// Mock IPC listener with specific tab name and trigger modal show
+		it( 'should open with General tab when tabName is general', async () => {
 			vi.mocked( useIpcListener ).mockImplementation( ( listener, callback ) => {
 				if ( listener === 'user-settings' ) {
-					setTimeout( () => callback( mockIpcEvent, { tabName: 'preferences' } ), 0 );
+					setTimeout( () => callback( mockIpcEvent, { tabName: 'general' } ), 0 );
 				}
 			} );
 			vi.mocked( useAuth ).mockReturnValue( {
@@ -164,15 +163,15 @@ describe( 'UserSettings', () => {
 			renderWithProvider( <UserSettings /> );
 
 			await waitFor( () => {
-				expect( screen.getByText( 'Preferences' ) ).toHaveAttribute( 'aria-selected', 'true' );
+				expect( screen.getByText( 'General' ) ).toHaveAttribute( 'aria-selected', 'true' );
 				expect( screen.getByText( 'Language' ) ).toBeInTheDocument();
 			} );
 		} );
 
-		it( 'should open with usage tab when tabName is usage and user is authenticated', async () => {
+		it( 'should open with Account tab when tabName is account', async () => {
 			vi.mocked( useIpcListener ).mockImplementation( ( listener, callback ) => {
 				if ( listener === 'user-settings' ) {
-					setTimeout( () => callback( mockIpcEvent, { tabName: 'usage' } ), 0 );
+					setTimeout( () => callback( mockIpcEvent, { tabName: 'account' } ), 0 );
 				}
 			} );
 			vi.mocked( useAuth ).mockReturnValue( {
@@ -185,7 +184,7 @@ describe( 'UserSettings', () => {
 			renderWithProvider( <UserSettings /> );
 
 			await waitFor( () => {
-				expect( screen.getByText( 'Usage' ) ).toHaveAttribute( 'aria-selected', 'true' );
+				expect( screen.getByText( 'Account' ) ).toHaveAttribute( 'aria-selected', 'true' );
 				expect( screen.getByText( 'Preview sites' ) ).toBeInTheDocument();
 			} );
 		} );
@@ -206,14 +205,14 @@ describe( 'UserSettings', () => {
 			renderWithProvider( <UserSettings /> );
 
 			await waitFor( () => {
-				expect( screen.getByText( 'Account' ) ).toHaveAttribute( 'aria-selected', 'true' );
+				expect( screen.getByText( 'General' ) ).toHaveAttribute( 'aria-selected', 'true' );
 			} );
 		} );
 
-		it( 'should not show usage tab for unauthenticated users even if specified', async () => {
+		it( 'should show account tab for unauthenticated users with login button', async () => {
 			vi.mocked( useIpcListener ).mockImplementation( ( listener, callback ) => {
 				if ( listener === 'user-settings' ) {
-					setTimeout( () => callback( mockIpcEvent, { tabName: 'usage' } ), 0 );
+					setTimeout( () => callback( mockIpcEvent, { tabName: 'account' } ), 0 );
 				}
 			} );
 			vi.mocked( useAuth ).mockReturnValue( {
@@ -226,8 +225,8 @@ describe( 'UserSettings', () => {
 			renderWithProvider( <UserSettings /> );
 
 			await waitFor( () => {
-				expect( screen.queryByText( 'Usage' ) ).not.toBeInTheDocument();
 				expect( screen.getByText( 'Account' ) ).toHaveAttribute( 'aria-selected', 'true' );
+				expect( screen.getByRole( 'button', { name: 'Log in' } ) ).toBeInTheDocument();
 			} );
 		} );
 	} );

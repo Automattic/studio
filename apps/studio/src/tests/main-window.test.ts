@@ -74,6 +74,12 @@ vi.mock( 'electron', () => {
 		dialog: {
 			showMessageBox: vi.fn(),
 		},
+		nativeTheme: {
+			themeSource: 'light',
+		},
+		screen: {
+			getAllDisplays: vi.fn().mockReturnValue( [] ),
+		},
 		BrowserWindow: MockBrowserWindow,
 		shell: {
 			trashItem: vi.fn(),

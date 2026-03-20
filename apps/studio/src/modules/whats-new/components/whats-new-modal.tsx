@@ -7,8 +7,7 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import blueprintsIllustration from 'src/modules/whats-new/assets/blueprints-illustration.svg';
 import cliIllustration from 'src/modules/whats-new/assets/cli-illustration.svg';
-import pressableSyncIllustration from 'src/modules/whats-new/assets/pressable-sync-illustration.svg';
-import selectiveSyncIllustration from 'src/modules/whats-new/assets/selective-sync-illustration.svg';
+import darkModeIllustration from 'src/modules/whats-new/assets/dark-mode-illustration.svg';
 import { useI18nLocale } from 'src/stores';
 
 interface WhatsNewPage {
@@ -32,10 +31,10 @@ const PageContent = ( {
 	isIntroPage = false,
 }: Omit< WhatsNewPage, 'image' > & { isIntroPage?: boolean } ) => (
 	<div className="px-8 pt-3 pb-2 flex flex-col h-full">
-		<h2 className="text-xl mb-2 text-gray-900 line-clamp-2">{ title }</h2>
+		<h2 className="text-xl mb-2 text-frame-text line-clamp-2">{ title }</h2>
 		<p
 			className={ cx(
-				'text-gray-900 text-m leading-s',
+				'text-frame-text text-m leading-s',
 				isIntroPage ? 'line-clamp-5' : 'line-clamp-3'
 			) }
 		>
@@ -45,7 +44,7 @@ const PageContent = ( {
 			{ learnMoreUrl && (
 				<button
 					onClick={ () => getIpcApi().openURL( learnMoreUrl ) }
-					className="text-a8c-blue-50 text-m leading-s cursor-pointer"
+					className="text-frame-theme text-m leading-s cursor-pointer"
 				>
 					{ learnMoreLabel || __( 'Learn more' ) }
 				</button>
@@ -57,6 +56,13 @@ const PageContent = ( {
 export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProps ) {
 	const locale = useI18nLocale();
 	const whatsNewPages: WhatsNewPage[] = [
+		{
+			image: darkModeIllustration,
+			title: __( 'Dark mode is here' ),
+			description: __(
+				'Studio now supports light, dark, and system appearance modes. Head to Settings to choose your preferred look.'
+			),
+		},
 		{
 			image: cliIllustration,
 			title: __( 'WP-CLI support and CLI site management' ),
@@ -82,22 +88,6 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 			),
 			learnMoreUrl: getLocalizedLink( locale, 'docsBlueprints' ),
 		},
-		{
-			image: selectiveSyncIllustration,
-			title: __( 'Synchronize with precision' ),
-			description: __(
-				'Synchronize specific plugins, themes, or the database for fast, precise updates to your WordPress.com or Pressable sites.'
-			),
-			learnMoreUrl: `${ getLocalizedLink( locale, 'docsSync' ) }#pull`,
-		},
-		{
-			image: pressableSyncIllustration,
-			title: __( 'Sync to your favorite host' ),
-			description: __(
-				'Pull and push your Studio sites to WordPress.com or Pressable with a single click. No more manual uploads or FTP transfers!'
-			),
-			learnMoreUrl: getLocalizedLink( locale, 'docsSync' ),
-		},
 	];
 
 	if ( ! showModal ) {
@@ -109,7 +99,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 			onFinish={ onClose }
 			contentLabel={ __( "What's New in Studio" ) }
 			className={ cx(
-				'whats-new-modal !w-[360px] !h-[470px] overflow-hidden [&_.components-button.is-compact.has-icon_svg]:!fill-white [&_.components-button.is-tertiary]:!outline-1 [&_.components-button.is-tertiary]:!outline-solid [&_.components-button.is-tertiary]:!outline-a8c-blue-50',
+				'whats-new-modal !w-[360px] !h-[470px] overflow-hidden [&_.components-button.is-compact.has-icon_svg]:!fill-white [&_.components-button.is-tertiary]:!outline-1 [&_.components-button.is-tertiary]:!outline-solid [&_.components-button.is-tertiary]:!outline-frame-theme',
 				'[&_*]:select-none',
 				'focus:outline-none'
 			) }

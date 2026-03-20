@@ -446,6 +446,14 @@ div:has( > progress ) > div:first-child {
 		color: var( --color-frame-theme );
 	}
 
+	/* External doc links (Learn more / Learn how) always render in theme blue */
+	.components-button.is-link.learn-more-link:not( .is-destructive ) {
+		color: var( --color-frame-theme );
+	}
+	.components-button.is-link.learn-more-link:not( .is-destructive ):hover {
+		color: var( --color-frame-theme-hover );
+	}
+
 	/* Button SVG icons */
 	.components-button svg {
 		fill: var( --color-frame-text );

@@ -34,43 +34,39 @@ test.describe( 'Appearance', () => {
 		// Preferences tab should be active by default with appearance radio group visible
 		await expect( settings.appearanceRadioGroup ).toBeVisible();
 
-		// Default should be System
-		await expect( settings.getAppearanceOption( 'System' ) ).toHaveAttribute(
+		// Default should be Light
+		await expect( settings.getAppearanceOption( 'Light' ) ).toHaveAttribute(
 			'aria-checked',
 			'true'
 		);
 
-		// Switch to Dark
+		// Switch to Dark and save
 		await settings.selectColorScheme( 'Dark' );
+		await settings.save();
 		const isDark = await session.electronApp.evaluate(
 			( { nativeTheme } ) => nativeTheme.shouldUseDarkColors
 		);
 		expect( isDark ).toBe( true );
 
-		// Switch to Light
-		await settings.selectColorScheme( 'Light' );
+		// Switch to Light and save
+		await openSettings( session.mainWindow );
+		const settingsLight = new UserSettingsModal( session.mainWindow );
+		await expect( settingsLight.locator ).toBeVisible( { timeout: 10_000 } );
+		await settingsLight.selectColorScheme( 'Light' );
+		await settingsLight.save();
 		const isLight = await session.electronApp.evaluate(
 			( { nativeTheme } ) => nativeTheme.shouldUseDarkColors
 		);
 		expect( isLight ).toBe( false );
-
-		// Switch back to System
-		await settings.selectColorScheme( 'System' );
-		await expect( settings.getAppearanceOption( 'System' ) ).toHaveAttribute(
-			'aria-checked',
-			'true'
-		);
-
-		await settings.close();
 	} );
 
 	test( 'persists color scheme across app restart', async () => {
-		// Select Dark
+		// Select Dark and save
 		await openSettings( session.mainWindow );
 		const settings = new UserSettingsModal( session.mainWindow );
 		await expect( settings.locator ).toBeVisible( { timeout: 10_000 } );
 		await settings.selectColorScheme( 'Dark' );
-		await settings.close();
+		await settings.save();
 
 		// Restart the app
 		await session.restart();
@@ -100,8 +96,8 @@ test.describe( 'Appearance', () => {
 			'true'
 		);
 
-		// Reset to System for other tests
-		await settingsAfterRestart.selectColorScheme( 'System' );
-		await settingsAfterRestart.close();
+		// Reset to Light for other tests
+		await settingsAfterRestart.selectColorScheme( 'Light' );
+		await settingsAfterRestart.save();
 	} );
 } );

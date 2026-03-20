@@ -1,10 +1,9 @@
 import { SupportedLocale } from '@studio/common/lib/locale';
 import { useI18n } from '@wordpress/react-i18n';
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Button from 'src/components/button';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { isWindowsStore } from 'src/lib/app-globals';
-import { McpSettings } from 'src/modules/mcp/components/mcp-settings';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ColorSchemePicker } from 'src/modules/user-settings/components/color-scheme-picker';
 import { EditorPicker } from 'src/modules/user-settings/components/editor-picker';
 import { LanguagePicker } from 'src/modules/user-settings/components/language-picker';
@@ -27,7 +26,6 @@ import {
 
 export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const { __ } = useI18n();
-	const { enableAgentSuite } = useFeatureFlags();
 	const savedLocale = useI18nLocale();
 	const dispatch = useAppDispatch();
 
@@ -41,12 +39,43 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const [ saveTerminal ] = useSaveUserTerminalMutation();
 	const [ saveCliIsInstalled ] = useSaveStudioCliIsInstalledMutation();
 
+	const [ dirtyColorScheme, setDirtyColorScheme ] = useState< 'system' | 'light' | 'dark' >();
 	const [ dirtyLocale, setDirtyLocale ] = useState< SupportedLocale >();
 	const [ dirtyEditor, setDirtyEditor ] = useState< SupportedEditor | null >();
 	const [ dirtyTerminal, setDirtyTerminal ] = useState< SupportedTerminal >();
 	const [ dirtyIsCliInstalled, setDirtyIsCliInstalled ] = useState< boolean >();
 
+	const wasSavedRef = useRef( false );
+	const dirtyColorSchemeRef = useRef( dirtyColorScheme );
+	const savedColorSchemeRef = useRef( colorScheme );
+
+	useEffect( () => {
+		dirtyColorSchemeRef.current = dirtyColorScheme;
+	}, [ dirtyColorScheme ] );
+
+	useEffect( () => {
+		savedColorSchemeRef.current = colorScheme;
+	}, [ colorScheme ] );
+
+	// Revert color scheme preview on unmount if not saved (handles Escape, click outside)
+	useEffect( () => {
+		return () => {
+			if ( ! wasSavedRef.current && dirtyColorSchemeRef.current ) {
+				void getIpcApi().previewColorScheme( savedColorSchemeRef.current ?? 'light' );
+			}
+		};
+	}, [] );
+
+	const handleColorSchemeChange = useCallback( ( scheme: 'system' | 'light' | 'dark' ) => {
+		setDirtyColorScheme( scheme );
+		void getIpcApi().previewColorScheme( scheme );
+	}, [] );
+
 	const savePreferences = async () => {
+		wasSavedRef.current = true;
+		if ( dirtyColorScheme ) {
+			await saveColorSchemePreference( dirtyColorScheme );
+		}
 		if ( dirtyLocale ) {
 			await dispatch( saveUserLocale( dirtyLocale ) );
 		}
@@ -62,12 +91,14 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 		onClose();
 	};
 
+	const colorSchemeSelection = dirtyColorScheme ?? colorScheme ?? 'light';
 	const localeSelection = dirtyLocale ?? savedLocale ?? 'en';
 	const editorSelection = dirtyEditor ?? editor ?? 'vscode';
 	const terminalSelection = dirtyTerminal ?? terminal ?? 'terminal';
 	const isCliInstalledSelection = dirtyIsCliInstalled ?? isCliInstalled ?? false;
 
 	const hasChanges = [
+		[ dirtyColorScheme, colorScheme ],
 		[ dirtyLocale, savedLocale ],
 		[ dirtyEditor, editor ],
 		[ dirtyTerminal, terminal ],
@@ -76,10 +107,7 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 
 	return (
 		<>
-			<ColorSchemePicker
-				value={ colorScheme ?? 'system' }
-				onChange={ ( value ) => saveColorSchemePreference( value ) }
-			/>
+			<ColorSchemePicker value={ colorSchemeSelection } onChange={ handleColorSchemeChange } />
 			<LanguagePicker value={ localeSelection } onChange={ setDirtyLocale } />
 			<div className="grid grid-cols-2 gap-3">
 				<EditorPicker
@@ -90,10 +118,7 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 				<TerminalPicker value={ terminalSelection } onChange={ setDirtyTerminal } />
 			</div>
 			{ ! isWindowsStore() && (
-				<>
-					<StudioCliToggle value={ isCliInstalledSelection } onChange={ setDirtyIsCliInstalled } />
-					{ enableAgentSuite && <McpSettings /> }
-				</>
+				<StudioCliToggle value={ isCliInstalledSelection } onChange={ setDirtyIsCliInstalled } />
 			) }
 			<div className="mt-auto pt-2 flex justify-end gap-3">
 				<Button

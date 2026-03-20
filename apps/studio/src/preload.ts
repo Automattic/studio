@@ -164,6 +164,10 @@ const api: IpcApi = {
 	getWordPressSkillsStatus: ( siteId ) => ipcRendererInvoke( 'getWordPressSkillsStatus', siteId ),
 	installWordPressSkills: ( siteId, options ) =>
 		ipcRendererInvoke( 'installWordPressSkills', siteId, options ),
+	getWordPressSkillsStatusAllSites: () =>
+		ipcRendererInvoke( 'getWordPressSkillsStatusAllSites' ),
+	installWordPressSkillsToAllSites: ( options ) =>
+		ipcRendererInvoke( 'installWordPressSkillsToAllSites', options ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

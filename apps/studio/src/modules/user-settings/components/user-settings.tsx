@@ -10,6 +10,7 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { AccountTab } from 'src/modules/user-settings/components/account-tab';
 import { NonAuthenticatedAccountTab } from 'src/modules/user-settings/components/non-authenticated-account-tab';
 import { PreferencesTab } from 'src/modules/user-settings/components/preferences-tab';
+import { SkillsTab } from 'src/modules/user-settings/components/skills-tab';
 import { UsageTab } from 'src/modules/user-settings/components/usage-tab';
 import { UserSettingsTab } from 'src/modules/user-settings/user-settings-types';
 import { useRootSelector } from 'src/stores';
@@ -90,6 +91,11 @@ export default function UserSettings() {
 		} );
 	}
 
+	tabs.push( {
+		name: 'skills',
+		title: __( 'Skills' ),
+	} );
+
 	return (
 		<>
 			{ needsToOpenUserSettings && (
@@ -117,18 +123,19 @@ export default function UserSettings() {
 									) : (
 										<NonAuthenticatedAccountTab />
 									) ) }
-								{ name === 'preferences' && <PreferencesTab onClose={ resetLocalState } /> }
-								{ name === 'usage' && isAuthenticated && (
-									<UsageTab
-										loadingDeletingAllSnapshots={ isDeletingAllSnapshots }
-										activeSnapshotCount={ definitiveSnapshotCount }
-										isLoadingSnapshotUsage={ isLoadingSnapshotUsage }
-										isOffline={ isOffline }
-										snapshotQuota={ snapshotQuota }
-										onRemoveSnapshots={ onRemoveSnapshots }
-									/>
-								) }
-							</div>
+							{ name === 'preferences' && <PreferencesTab onClose={ resetLocalState } /> }
+							{ name === 'usage' && isAuthenticated && (
+								<UsageTab
+									loadingDeletingAllSnapshots={ isDeletingAllSnapshots }
+									activeSnapshotCount={ definitiveSnapshotCount }
+									isLoadingSnapshotUsage={ isLoadingSnapshotUsage }
+									isOffline={ isOffline }
+									snapshotQuota={ snapshotQuota }
+									onRemoveSnapshots={ onRemoveSnapshots }
+								/>
+							) }
+							{ name === 'skills' && <SkillsTab /> }
+						</div>
 						) }
 					</TabPanel>
 				</Modal>

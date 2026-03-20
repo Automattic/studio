@@ -35,14 +35,15 @@ async function main() {
 			},
 		} )
 		.middleware( async ( argv ) => {
-			// Skip check for internal commands triggered by Studio Desktop
+			// Skip migrations for internal commands triggered by Studio Desktop
 			const command = argv._[ 0 ];
 			if ( command === '_events' ) {
 				return;
 			}
 
-			const { checkStudioCompatibility } = await import( 'cli/lib/studio-compatibility' );
-			await checkStudioCompatibility();
+			const { runMigrations } = await import( '@studio/common/lib/migration' );
+			const { migrations } = await import( 'cli/migrations' );
+			await runMigrations( migrations );
 		} )
 		.middleware( async ( argv ) => {
 			if ( __ENABLE_CLI_TELEMETRY__ && ! argv.avoidTelemetry ) {

@@ -2,11 +2,13 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { RootState } from 'src/stores';
+import type { SlotType } from 'src/modules/sync/lib/environment-utils';
 import type { SyncSite, SyncModalMode } from 'src/modules/sync/types';
 
 type ConnectedSitesState = {
 	isModalOpen: boolean;
 	modalMode: SyncModalMode | null;
+	connectingSlot: SlotType | null;
 	selectedRemoteSiteId: number | null;
 	selectedLocalSiteId: string | null;
 	loadingSiteIds: Record< number, boolean >;
@@ -16,6 +18,7 @@ function getInitialState(): ConnectedSitesState {
 	return {
 		isModalOpen: false,
 		modalMode: null,
+		connectingSlot: null,
 		selectedRemoteSiteId: null,
 		selectedLocalSiteId: null,
 		loadingSiteIds: {},
@@ -33,8 +36,18 @@ const connectedSitesSlice = createSlice( {
 			}
 		},
 
+		openModalForSlot: (
+			state,
+			action: PayloadAction< { mode: SyncModalMode; slot: SlotType } >
+		) => {
+			state.isModalOpen = true;
+			state.modalMode = action.payload.mode;
+			state.connectingSlot = action.payload.slot;
+		},
+
 		closeModal: ( state ) => {
 			state.isModalOpen = false;
+			state.connectingSlot = null;
 			state.selectedRemoteSiteId = null;
 			state.selectedLocalSiteId = null;
 		},
@@ -69,6 +82,7 @@ export const connectedSitesSelectors = {
 	selectModalMode: ( state: RootState ) => state.connectedSites.modalMode,
 	selectSelectedRemoteSiteId: ( state: RootState ) => state.connectedSites.selectedRemoteSiteId,
 	selectSelectedLocalSiteId: ( state: RootState ) => state.connectedSites.selectedLocalSiteId,
+	selectConnectingSlot: ( state: RootState ) => state.connectedSites.connectingSlot,
 	selectIsLoadingSiteId: ( id: number ) => ( state: RootState ) =>
 		Boolean( state.connectedSites.loadingSiteIds[ id ] ),
 };

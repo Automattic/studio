@@ -8,7 +8,6 @@ import { Tooltip } from 'src/components/tooltip';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { ConnectButton } from 'src/modules/sync/components/connect-button';
 import { SyncDialog } from 'src/modules/sync/components/sync-dialog';
 import { SyncServerRack } from 'src/modules/sync/components/sync-server-rack';
 import { SyncSitesModalSelector } from 'src/modules/sync/components/sync-sites-modal-selector';
@@ -17,6 +16,7 @@ import {
 	convertTreeToPullOptions,
 	convertTreeToPushOptions,
 } from 'src/modules/sync/lib/convert-tree-to-sync-options';
+import { getSlotForSite, type SlotType } from 'src/modules/sync/lib/environment-utils';
 import { useAppDispatch, useRootSelector } from 'src/stores';
 import { syncOperationsThunks } from 'src/stores/sync';
 import {
@@ -126,6 +126,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	const dispatch = useAppDispatch();
 	const isModalOpen = useRootSelector( connectedSitesSelectors.selectIsModalOpen );
 	const reduxModalMode = useRootSelector( connectedSitesSelectors.selectModalMode );
+	const connectingSlot = useRootSelector( connectedSitesSelectors.selectConnectingSlot );
 	const selectedRemoteSiteId = useRootSelector(
 		connectedSitesSelectors.selectSelectedRemoteSiteId
 	);
@@ -188,14 +189,34 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 			dispatch( connectedSitesActions.openModal( reduxModalMode ) );
 			setSelectedRemoteSite( selectedSiteFromList );
 		} else {
+			// If connecting to a specific slot and a site already occupies it, disconnect old first
+			if ( connectingSlot ) {
+				const existingOccupant = connectedSites.find(
+					( s ) => getSlotForSite( s ) === connectingSlot
+				);
+				if ( existingOccupant ) {
+					await disconnectSite( {
+						siteId: existingOccupant.id,
+						localSiteId: selectedSite.id,
+					} );
+				}
+			}
 			await handleConnect( selectedSiteFromList );
 			dispatch( connectedSitesActions.closeModal() );
 		}
 	};
 
+	const handleConnectSlot = ( slot: SlotType ) => {
+		dispatch( connectedSitesActions.openModalForSlot( { mode: 'connect', slot } ) );
+	};
+
+	const handleReplaceSlot = ( slot: SlotType ) => {
+		dispatch( connectedSitesActions.openModalForSlot( { mode: 'connect', slot } ) );
+	};
+
 	return (
 		<div className="flex flex-col h-full overflow-y-auto">
-			{ connectedSites.length > 0 ? (
+			{ connectedSites.length > 0 || ! isLoadingConnectedSites ? (
 				<div className="h-full relative flex flex-col">
 					<div className="flex-1 flex items-center justify-center">
 						<SyncServerRack
@@ -204,29 +225,12 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 							disconnectSite={ ( id ) =>
 								disconnectSite( { siteId: id, localSiteId: selectedSite.id } )
 							}
+							onConnectSlot={ handleConnectSlot }
+							onReplaceSlot={ handleReplaceSlot }
 						/>
 					</div>
-					<div className="sticky bottom-0 bg-frame/[0.8] backdrop-blur-sm w-full px-8 py-6">
-						<ConnectButton
-							variant="primary"
-							connectSite={ () => dispatch( connectedSitesActions.openModal( 'connect' ) ) }
-						>
-							{ __( 'Connect another site' ) }
-						</ConnectButton>
-					</div>
 				</div>
-			) : isLoadingConnectedSites ? null : (
-				<SiteSyncDescription>
-					<div className="mt-8">
-						<ConnectButton
-							variant="primary"
-							connectSite={ () => dispatch( connectedSitesActions.openModal( 'connect' ) ) }
-						>
-							{ __( 'Connect site' ) }
-						</ConnectButton>
-					</div>
-				</SiteSyncDescription>
-			) }
+			) : null }
 
 			{ isModalOpen && ! effectiveRemoteSite && (
 				<SyncSitesModalSelector
@@ -238,6 +242,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 						await handleSiteSelection( siteId );
 					} }
 					selectedSite={ selectedSite }
+					environmentFilter={ connectingSlot ?? undefined }
 				/>
 			) }
 

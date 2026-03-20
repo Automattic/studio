@@ -17,27 +17,13 @@ import {
 	convertTreeToPushOptions,
 } from 'src/modules/sync/lib/convert-tree-to-sync-options';
 import {
-	getSiteEnvironment,
+	getSlotForSite,
 	getEnvironmentLabel,
-	EnvironmentType,
+	type SlotType,
 } from 'src/modules/sync/lib/environment-utils';
 import { useAppDispatch } from 'src/stores';
 import { syncOperationsThunks } from 'src/stores/sync';
 import type { SyncSite } from 'src/modules/sync/types';
-
-const ENVIRONMENT_ORDER: Record< EnvironmentType, number > = {
-	development: 0,
-	staging: 1,
-	production: 2,
-};
-
-function sortByEnvironment( sites: SyncSite[] ): SyncSite[] {
-	return [ ...sites ].sort( ( a, b ) => {
-		const envA = getSiteEnvironment( a );
-		const envB = getSiteEnvironment( b );
-		return ENVIRONMENT_ORDER[ envA ] - ENVIRONMENT_ORDER[ envB ];
-	} );
-}
 
 function SiteRack( {
 	badge,
@@ -85,6 +71,118 @@ function SiteRack( {
 	);
 }
 
+function EmptySlot( {
+	slot,
+	onConnect,
+}: {
+	slot: SlotType;
+	onConnect: ( slot: SlotType ) => void;
+} ) {
+	const { __ } = useI18n();
+	const isOffline = useOffline();
+
+	const variantClasses = {
+		staging: 'border-[#93590c]/25',
+		production: 'border-[#1a6928]/25',
+	};
+
+	const label = slot === 'staging' ? __( 'Staging' ) : __( 'Production' );
+
+	return (
+		<div
+			className={ cx(
+				'flex items-center gap-3 px-5 py-4 border border-dashed rounded-lg min-h-[60px]',
+				variantClasses[ slot ]
+			) }
+		>
+			<EnvironmentBadge type={ slot } />
+			<span className="text-frame-text-secondary a8c-body">
+				{ sprintf(
+					// translators: %s is the environment type (Staging or Production)
+					__( 'No %s site connected' ),
+					label.toLowerCase()
+				) }
+			</span>
+			<div className="ml-auto shrink-0">
+				<Button variant="secondary" onClick={ () => onConnect( slot ) } disabled={ isOffline }>
+					{ __( 'Connect' ) }
+				</Button>
+			</div>
+		</div>
+	);
+}
+
+function FilledSlot( {
+	site,
+	slot,
+	onPull,
+	onPush,
+	onReplace,
+	onDisconnect,
+}: {
+	site: SyncSite;
+	slot: SlotType;
+	onPull: () => void;
+	onPush: () => void;
+	onReplace: ( slot: SlotType ) => void;
+	onDisconnect: ( site: SyncSite ) => void;
+} ) {
+	const { __ } = useI18n();
+	const isOffline = useOffline();
+
+	return (
+		<SiteRack
+			badge={ <EnvironmentBadge type={ slot } /> }
+			url={ site.url.replace( /^https?:\/\//, '' ) }
+			onOpenUrl={ () => getIpcApi().openURL( site.url ) }
+			variant={ slot === 'staging' ? 'staging' : 'production' }
+			actions={
+				<>
+					<Button
+						variant="secondary"
+						onClick={ onPull }
+						disabled={ isOffline }
+						data-testid="sync-list-pull-button"
+					>
+						{ __( 'Pull' ) }
+					</Button>
+					<Button
+						variant="secondary"
+						onClick={ onPush }
+						disabled={ isOffline }
+						data-testid="sync-list-push-button"
+					>
+						{ __( 'Push' ) }
+					</Button>
+					<DropdownMenu icon={ moreVertical } label={ __( 'More actions' ) }>
+						{ ( { onClose } ) => (
+							<MenuGroup>
+								<MenuItem
+									onClick={ () => {
+										onClose();
+										onReplace( slot );
+									} }
+								>
+									{ __( 'Replace' ) }
+								</MenuItem>
+								<MenuItem
+									onClick={ () => {
+										onClose();
+										void onDisconnect( site );
+									} }
+									className="!text-a8c-red-50"
+								>
+									{ __( 'Disconnect' ) }
+								</MenuItem>
+							</MenuGroup>
+						) }
+					</DropdownMenu>
+				</>
+			}
+		/>
+	);
+}
+
 function PushArrow( {
 	fromLabel,
 	toLabel,
@@ -126,10 +224,14 @@ export function SyncServerRack( {
 	connectedSites,
 	selectedSite,
 	disconnectSite,
+	onConnectSlot,
+	onReplaceSlot,
 }: {
 	connectedSites: SyncSite[];
 	selectedSite: SiteDetails;
 	disconnectSite: ( id: number ) => void;
+	onConnectSlot: ( slot: SlotType ) => void;
+	onReplaceSlot: ( slot: SlotType ) => void;
 } ) {
 	const { __ } = useI18n();
 	const dispatch = useAppDispatch();
@@ -139,11 +241,10 @@ export function SyncServerRack( {
 		remoteSite: SyncSite;
 	} | null >( null );
 
-	const sortedSites = sortByEnvironment( connectedSites );
+	const stagingSite = connectedSites.find( ( s ) => getSlotForSite( s ) === 'staging' );
+	const productionSite = connectedSites.find( ( s ) => getSlotForSite( s ) === 'production' );
 
 	const localUrl = `localhost:${ selectedSite.port ?? '' }`;
-
-	const isOffline = useOffline();
 
 	const handleDisconnect = async ( site: SyncSite ) => {
 		const dontShowDisconnectWarning = localStorage.getItem( 'dontShowDisconnectWarning' );
@@ -186,64 +287,57 @@ export function SyncServerRack( {
 				onOpenUrl={ () => getIpcApi().openSiteURL( selectedSite.id ) }
 			/>
 
-			{ /* Connected sites with push arrows */ }
-			{ sortedSites.map( ( site, index ) => {
-				const env = getSiteEnvironment( site );
-				const envLabel = getEnvironmentLabel( env );
-				const prevLabel =
-					index === 0
-						? __( 'Local' )
-						: getEnvironmentLabel( getSiteEnvironment( sortedSites[ index - 1 ] ) );
-
-				return (
-					<div key={ site.id }>
-						<PushArrow
-							fromLabel={ prevLabel }
-							toLabel={ envLabel }
-							onClick={ () => setSyncDialogState( { type: 'push', remoteSite: site } ) }
-						/>
-						<SiteRack
-							badge={ <EnvironmentBadge type={ env } /> }
-							url={ site.url.replace( /^https?:\/\//, '' ) }
-							onOpenUrl={ () => getIpcApi().openURL( site.url ) }
-							variant={ env === 'staging' ? 'staging' : env === 'production' ? 'production' : 'default' }
-							actions={
-								<>
-									<Button
-										variant="secondary"
-										onClick={ () => setSyncDialogState( { type: 'pull', remoteSite: site } ) }
-										disabled={ isOffline }
-									>
-										{ __( 'Pull' ) }
-									</Button>
-									<Button
-										variant="secondary"
-										onClick={ () => setSyncDialogState( { type: 'push', remoteSite: site } ) }
-										disabled={ isOffline }
-									>
-										{ __( 'Push' ) }
-									</Button>
-									<DropdownMenu icon={ moreVertical } label={ __( 'More actions' ) }>
-										{ ( { onClose } ) => (
-											<MenuGroup>
-												<MenuItem
-													onClick={ () => {
-														onClose();
-														void handleDisconnect( site );
-													} }
-													className="!text-a8c-red-50"
-												>
-													{ __( 'Disconnect' ) }
-												</MenuItem>
-											</MenuGroup>
-										) }
-									</DropdownMenu>
-								</>
-							}
-						/>
+			{ /* Staging slot */ }
+			{ stagingSite ? (
+				<>
+					<PushArrow
+						fromLabel={ __( 'Local' ) }
+						toLabel={ getEnvironmentLabel( 'staging' ) }
+						onClick={ () => setSyncDialogState( { type: 'push', remoteSite: stagingSite } ) }
+					/>
+					<FilledSlot
+						site={ stagingSite }
+						slot="staging"
+						onPull={ () => setSyncDialogState( { type: 'pull', remoteSite: stagingSite } ) }
+						onPush={ () => setSyncDialogState( { type: 'push', remoteSite: stagingSite } ) }
+						onReplace={ onReplaceSlot }
+						onDisconnect={ handleDisconnect }
+					/>
+				</>
+			) : (
+				<>
+					<div className="flex flex-col items-center py-3">
+						<div className="w-px h-6 bg-frame-border" />
 					</div>
-				);
-			} ) }
+					<EmptySlot slot="staging" onConnect={ onConnectSlot } />
+				</>
+			) }
+
+			{ /* Production slot */ }
+			{ productionSite ? (
+				<>
+					<PushArrow
+						fromLabel={ stagingSite ? getEnvironmentLabel( 'staging' ) : __( 'Local' ) }
+						toLabel={ getEnvironmentLabel( 'production' ) }
+						onClick={ () => setSyncDialogState( { type: 'push', remoteSite: productionSite } ) }
+					/>
+					<FilledSlot
+						site={ productionSite }
+						slot="production"
+						onPull={ () => setSyncDialogState( { type: 'pull', remoteSite: productionSite } ) }
+						onPush={ () => setSyncDialogState( { type: 'push', remoteSite: productionSite } ) }
+						onReplace={ onReplaceSlot }
+						onDisconnect={ handleDisconnect }
+					/>
+				</>
+			) : (
+				<>
+					<div className="flex flex-col items-center py-3">
+						<div className="w-px h-6 bg-frame-border" />
+					</div>
+					<EmptySlot slot="production" onConnect={ onConnectSlot } />
+				</>
+			) }
 
 			{ syncDialogState && (
 				<SyncDialog

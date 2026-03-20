@@ -17,7 +17,7 @@ import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { CreateButton } from 'src/modules/sync/components/create-button';
 import { EnvironmentBadge } from 'src/modules/sync/components/environment-badge';
 import { NoWpcomSitesModal } from 'src/modules/sync/components/no-wpcom-sites-modal';
-import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
+import { getSiteEnvironment, type SlotType } from 'src/modules/sync/lib/environment-utils';
 import { useI18nLocale, useRootSelector } from 'src/stores';
 import {
 	connectedSitesSelectors,
@@ -38,11 +38,13 @@ export function SyncSitesModalSelector( {
 	onConnect,
 	selectedSite,
 	mode = 'connect',
+	environmentFilter,
 }: {
 	onRequestClose: () => void;
 	onConnect: ( siteId: number ) => void;
 	selectedSite: SiteDetails;
 	mode?: SyncModalMode;
+	environmentFilter?: SlotType;
 } ) {
 	const { __ } = useI18n();
 	const { user } = useAuth();
@@ -69,6 +71,12 @@ export function SyncSitesModalSelector( {
 	}
 
 	const getModalTitle = () => {
+		if ( environmentFilter === 'staging' ) {
+			return __( 'Connect a staging site' );
+		}
+		if ( environmentFilter === 'production' ) {
+			return __( 'Connect a production site' );
+		}
 		switch ( mode ) {
 			case 'push':
 				return __( 'Publish your site' );
@@ -92,6 +100,7 @@ export function SyncSitesModalSelector( {
 					syncSites={ syncSites }
 					selectedSiteId={ selectedSiteId }
 					onSelectSite={ setSelectedSiteId }
+					environmentFilter={ environmentFilter }
 				/>
 				<Footer
 					onRequestClose={ onRequestClose }
@@ -159,11 +168,13 @@ export function SitesListContent( {
 	syncSites,
 	selectedSiteId,
 	onSelectSite,
+	environmentFilter,
 }: {
 	isLoading: boolean;
 	syncSites: SyncSite[];
 	selectedSiteId: number | null;
 	onSelectSite: ( id: number ) => void;
+	environmentFilter?: SlotType;
 } ) {
 	const { __ } = useI18n();
 	const [ searchQuery, setSearchQuery ] = useState< string >( '' );
@@ -195,6 +206,7 @@ export function SitesListContent( {
 						syncSites={ filteredSites }
 						selectedSiteId={ selectedSiteId }
 						onSelectSite={ onSelectSite }
+						environmentFilter={ environmentFilter }
 					/>
 				) }
 			</div>
@@ -202,7 +214,7 @@ export function SitesListContent( {
 	);
 }
 
-const getSortedSites = ( sites: SyncSite[] ) => {
+const getSortedSites = ( sites: SyncSite[], environmentFilter?: SlotType ) => {
 	const order: Record< SyncSite[ 'syncSupport' ], number > = {
 		syncable: 1,
 		'already-connected': 2,
@@ -213,19 +225,41 @@ const getSortedSites = ( sites: SyncSite[] ) => {
 		unsupported: 7,
 	};
 
-	return [ ...sites ].sort( ( a, b ) => order[ a.syncSupport ] - order[ b.syncSupport ] );
+	return [ ...sites ].sort( ( a, b ) => {
+		const supportDiff = order[ a.syncSupport ] - order[ b.syncSupport ];
+		if ( supportDiff !== 0 ) {
+			return supportDiff;
+		}
+		if ( environmentFilter ) {
+			const envA = getSiteEnvironment( a );
+			const envB = getSiteEnvironment( b );
+			const matchesA =
+				envA === environmentFilter || ( environmentFilter === 'staging' && envA === 'development' );
+			const matchesB =
+				envB === environmentFilter || ( environmentFilter === 'staging' && envB === 'development' );
+			if ( matchesA && ! matchesB ) {
+				return -1;
+			}
+			if ( ! matchesA && matchesB ) {
+				return 1;
+			}
+		}
+		return 0;
+	} );
 };
 
 function ListSites( {
 	syncSites,
 	selectedSiteId,
 	onSelectSite,
+	environmentFilter,
 }: {
 	syncSites: SyncSite[];
 	selectedSiteId: null | number;
 	onSelectSite: ( id: number ) => void;
+	environmentFilter?: SlotType;
 } ) {
-	const sortedSites = getSortedSites( syncSites );
+	const sortedSites = getSortedSites( syncSites, environmentFilter );
 
 	return (
 		<div className="flex flex-col overflow-y-auto h-full pt-px">

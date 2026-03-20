@@ -13,6 +13,13 @@ export const getSiteEnvironment = ( site: SyncSite ): EnvironmentType => {
 	return site.isStaging ? 'staging' : 'production';
 };
 
+export type SlotType = 'staging' | 'production';
+
+export const getSlotForSite = ( site: SyncSite ): SlotType => {
+	const env = getSiteEnvironment( site );
+	return env === 'production' ? 'production' : 'staging';
+};
+
 export const getEnvironmentLabel = ( type: EnvironmentType ): string => {
 	const labels: Record< EnvironmentType, string > = {
 		production: __( 'Production' ),

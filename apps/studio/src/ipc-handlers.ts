@@ -140,6 +140,7 @@ export {
 	getUserEditor,
 	getUserLocale,
 	getUserTerminal,
+	previewColorScheme,
 	saveColorScheme,
 	saveUserEditor,
 	saveUserLocale,

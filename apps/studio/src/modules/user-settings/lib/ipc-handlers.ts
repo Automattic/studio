@@ -67,6 +67,13 @@ export async function getUserEditor(): Promise< SupportedEditor | null > {
 	return userData.preferredEditor ?? getDefaultInstalledEditor();
 }
 
+export async function previewColorScheme(
+	_event: IpcMainInvokeEvent,
+	colorScheme: 'system' | 'light' | 'dark'
+) {
+	nativeTheme.themeSource = colorScheme;
+}
+
 export async function saveColorScheme(
 	event: IpcMainInvokeEvent,
 	colorScheme: 'system' | 'light' | 'dark'
@@ -77,7 +84,9 @@ export async function saveColorScheme(
 
 export async function getColorScheme(): Promise< 'system' | 'light' | 'dark' > {
 	const userData = await loadUserData();
-	return userData.colorScheme ?? 'system';
+	const colorScheme = userData.colorScheme ?? 'light';
+	nativeTheme.themeSource = colorScheme;
+	return colorScheme;
 }
 
 export function showUserSettings( event: IpcMainInvokeEvent, tabName?: UserSettingsTabName ) {

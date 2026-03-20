@@ -16,7 +16,6 @@ export interface AiAgentConfig {
 	prompt: string;
 	env?: Record< string, string >;
 	model?: AiModelId;
-	cwd?: string;
 	maxTurns?: number;
 	resume?: string;
 	onAskUser?: ( questions: AskUserQuestion[] ) => Promise< Record< string, string > >;

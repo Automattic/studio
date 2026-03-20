@@ -5,9 +5,7 @@ import { IpcMainInvokeEvent } from 'electron';
 import fs from 'fs';
 import { normalize } from 'path';
 import * as Sentry from '@sentry/electron/main';
-import { bumpStat } from '@studio/common/lib/bump-stat';
 import { recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
-import { StatsGroup, StatsMetric } from '@studio/common/types/stats';
 import { readFile } from 'atomically';
 import { vi } from 'vitest';
 import {

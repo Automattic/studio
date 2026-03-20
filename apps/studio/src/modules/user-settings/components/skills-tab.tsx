@@ -1,4 +1,5 @@
-import { Icon, check } from '@wordpress/icons';
+import { DropdownMenu, MenuGroup, MenuItem } from '@wordpress/components';
+import { Icon, check, moreVertical } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useState } from 'react';
 import Button from 'src/components/button';
@@ -29,6 +30,20 @@ export function SkillsTab() {
 		window.addEventListener( 'focus', handleFocus );
 		return () => window.removeEventListener( 'focus', handleFocus );
 	}, [ refreshStatus ] );
+
+	const handleRemoveSkill = useCallback(
+		async ( skillId: string ) => {
+			setError( null );
+			try {
+				await getIpcApi().removeWordPressSkillFromAllSites( skillId );
+				await refreshStatus();
+			} catch ( err ) {
+				const errorMessage = err instanceof Error ? err.message : String( err );
+				setError( errorMessage );
+			}
+		},
+		[ refreshStatus ]
+	);
 
 	const handleInstallSkill = useCallback(
 		async ( skillId: string ) => {
@@ -103,6 +118,26 @@ export function SkillsTab() {
 									</div>
 									<div className="text-xs text-gray-500">{ skill.description }</div>
 								</div>
+								<DropdownMenu
+									icon={ moreVertical }
+									label={ __( 'Skill actions' ) }
+									className="flex items-center"
+									popoverProps={ { position: 'bottom left', resize: true } }
+								>
+									{ ( { onClose }: { onClose: () => void } ) => (
+										<MenuGroup>
+											<MenuItem
+												isDestructive
+												onClick={ () => {
+													void handleRemoveSkill( skill.id );
+													onClose();
+												} }
+											>
+												{ __( 'Remove' ) }
+											</MenuItem>
+										</MenuGroup>
+									) }
+								</DropdownMenu>
 							</div>
 						) ) }
 					</div>

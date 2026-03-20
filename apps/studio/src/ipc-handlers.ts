@@ -20,6 +20,7 @@ import * as Sentry from '@sentry/electron/main';
 import {
 	installAiInstructionsToSite,
 	installSkillToSite,
+	removeSkillFromSite,
 	updateManagedInstructionFiles,
 } from '@studio/common/lib/agent-skills';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
@@ -229,6 +230,15 @@ export async function installWordPressSkillsToAllSites(
 					installSkillToSite( site.path, bundledPath, skill.id, overwrite )
 			  )
 	);
+	await Promise.allSettled( tasks );
+}
+
+export async function removeWordPressSkillFromAllSites(
+	_event: IpcMainInvokeEvent,
+	skillId: string
+): Promise< void > {
+	const { sites } = await loadUserData();
+	const tasks = sites.map( ( site ) => removeSkillFromSite( site.path, skillId ) );
 	await Promise.allSettled( tasks );
 }
 

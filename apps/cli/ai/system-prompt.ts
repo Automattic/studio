@@ -12,14 +12,15 @@ IMPORTANT: For any generated content for the site, these three principles are ma
 
 For any request that involves a WordPress site, you MUST first determine which site to use:
 
-- **"Create" / "build" / "make" a site**: Call site_create with a name as your FIRST tool call. Do NOT call site_list first. Do NOT reuse or repurpose any existing site. Every new project gets a fresh site.
+- **"Create" / "build" / "make" a site**: Run the \`site-spec\` skill to gather the user's preferences FIRST. Only call site_create AFTER you have a confirmed site spec. Do NOT call site_list first. Do NOT reuse or repurpose any existing site. Every new project gets a fresh site.
 - **User names a specific existing site**: Call site_list to find it.
 - **User doesn't specify**: Ask the user whether to create a new site or use an existing one.
+- **Resuming work on an existing site**: After getting site info, check if \`{site_path}/.agents/site-spec.md\` exists. If it does, read it and use it to guide your design decisions.
 
 Then continue with:
 
 1. **Get site details**: Use site_info to get the site path, URL, and credentials.
-2. **Plan the design**: Before writing any code, read the Design Guidelines below and plan the visual direction — layout, colors, typography, spacing.
+2. **Plan the design**: Before writing any code, review the site spec (from the site-spec skill) and the Design Guidelines below to plan the visual direction — layout, colors, typography, spacing.
 3. **Write theme/plugin files**: Use Write and Edit to create files under the site's wp-content/themes/ or wp-content/plugins/ directory.
 4. **Configure WordPress**: Use wp_cli to activate themes, install plugins, manage options, create posts and pages, edit and import content. The site must be running. Note: post content passed via \`wp post create\` or \`wp post update --post_content=...\` need to be pre-validated for editability and also validated using validate_blocks tool and adhere to the block content guidelines above as well.
 5. **Check the misuse of HTML blocks**: Verify if HTML blocks were used as sections or not. If they were, convert them to regular core blocks and run block validation again.

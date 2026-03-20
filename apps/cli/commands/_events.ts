@@ -6,6 +6,7 @@
  * stdout key-value pairs that Studio parses.
  */
 
+import fs from 'fs';
 import { sequential } from '@studio/common/lib/sequential';
 import { SITE_EVENTS, siteDetailsSchema, SiteEvent } from '@studio/common/lib/site-events';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
@@ -106,6 +107,16 @@ export async function runCommand(): Promise< void > {
 
 	process.on( 'SIGINT', () => void cleanup() );
 	process.on( 'SIGTERM', () => void cleanup() );
+
+	// Remove any stale socket from a previous Studio session. Studio is single-instance,
+	// so any existing events.sock belongs to a dead session and must be replaced.
+	if ( process.platform !== 'win32' ) {
+		try {
+			fs.unlinkSync( SITE_EVENTS_SOCKET_PATH );
+		} catch ( err ) {
+			// ENOENT is fine — socket didn't exist. Any other error is unexpected but non-fatal.
+		}
+	}
 
 	try {
 		await eventsSocketServer.listen();

@@ -74,7 +74,7 @@ import { setupWordPressFilesOnly } from 'src/lib/wordpress-setup';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
-import { type InstructionFileType } from 'src/modules/agent-instructions/constants';
+import { INSTRUCTION_FILE_TYPES, type InstructionFileType } from 'src/modules/agent-instructions/constants';
 import {
 	getAllInstructionFilesStatus,
 	installInstructionFile,
@@ -1117,6 +1117,119 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 		console.error( 'Unsupported platform:', platform );
 		return;
 	}
+}
+
+async function openTerminalAtPathWithCommand(
+	targetPath: string,
+	command: string
+): Promise< void > {
+	const platform = process.platform;
+	const preferredTerminal = await getUserTerminal();
+
+	if ( platform === 'darwin' ) {
+		if ( preferredTerminal === 'warp' ) {
+			const encodedPath = encodeURIComponent( targetPath );
+			return promiseExec( `open "warp://action/new_tab?path=${ encodedPath }"` );
+		}
+
+		// Use AppleScript to open terminal and run command at path.
+		// `quoted form of` properly shell-quotes the path, handling spaces and special chars.
+		const escapedPath = targetPath.replace( /\\/g, '\\\\' ).replace( /"/g, '\\"' );
+		let appleScript: string;
+		if ( preferredTerminal === 'iterm' ) {
+			appleScript = `tell application "iTerm2"
+  create window with default profile command ("cd " & quoted form of "${ escapedPath }" & " && ${ command }")
+  activate
+end tell`;
+		} else {
+			// Terminal.app and Ghostty both support AppleScript do script
+			const appName = preferredTerminal === 'ghostty' ? 'Ghostty' : 'Terminal';
+			appleScript = `tell application "${ appName }"
+  do script ("cd " & quoted form of "${ escapedPath }" & " && ${ command }")
+  activate
+end tell`;
+		}
+
+		return new Promise( ( resolve, reject ) => {
+			const proc = exec( 'osascript -', ( error ) => {
+				if ( error ) {
+					reject( error );
+				} else {
+					resolve();
+				}
+			} );
+			proc.stdin?.end( appleScript );
+		} );
+	} else if ( platform === 'win32' ) {
+		const userData = await loadUserData();
+		const winTerminal = userData.preferredTerminal;
+		const defaultShell = process.env.ComSpec || 'cmd.exe';
+
+		if ( winTerminal === 'warp' ) {
+			const encodedPath = encodeURIComponent( targetPath );
+			return promiseExec( `start "" "warp://action/new_tab?path=${ encodedPath }"` );
+		}
+
+		const isCliInstalled = await isStudioCliInstalled();
+		let env: NodeJS.ProcessEnv | undefined;
+		if ( isCliInstalled ) {
+			const currentPath = process.env.PATH || '';
+			const pathEntries = currentPath.split( ';' ).map( ( p ) => p.toLowerCase() );
+			if ( ! pathEntries.includes( STABLE_BIN_DIR_PATH.toLowerCase() ) ) {
+				env = { ...process.env };
+				delete env.PATH;
+				delete env.Path;
+				env.PATH = `${ STABLE_BIN_DIR_PATH };${ currentPath }`;
+			}
+		}
+
+		return promiseExec( `start "Command Prompt" ${ defaultShell } /k "${ command }"`, {
+			cwd: targetPath,
+			env,
+		} );
+	} else if ( platform === 'linux' ) {
+		if ( preferredTerminal === 'warp' ) {
+			const encodedPath = encodeURIComponent( targetPath );
+			return promiseExec( `xdg-open "warp://action/new_tab?path=${ encodedPath }"` );
+		}
+
+		const escapedPath = targetPath.replace( /"/g, '\\"' );
+		const escapedCommand = command.replace( /"/g, '\\"' );
+		return promiseExec(
+			`gnome-terminal --working-directory="${ escapedPath }" -- bash -c "${ escapedCommand }; exec bash"`
+		);
+	} else {
+		console.error( 'Unsupported platform:', platform );
+	}
+}
+
+export async function openSiteInClaude(
+	_event: IpcMainInvokeEvent,
+	siteId: string
+): Promise< void > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( `Site not found: ${ siteId }` );
+	}
+	const sitePath = server.details.path;
+
+	// Install AI instruction files (AGENTS.md, CLAUDE.md, STUDIO.md) if not present
+	for ( const fileType of INSTRUCTION_FILE_TYPES ) {
+		try {
+			await installInstructionFile( sitePath, fileType, false );
+		} catch ( error ) {
+			console.error( `[openSiteInClaude] Failed to install ${ fileType } instructions:`, error );
+		}
+	}
+
+	// Install WordPress skills if not present
+	try {
+		await installAllSkills( sitePath, false );
+	} catch ( error ) {
+		console.error( '[openSiteInClaude] Failed to install WordPress skills:', error );
+	}
+
+	await openTerminalAtPathWithCommand( sitePath, 'claude' );
 }
 
 export async function openAppAtPath(

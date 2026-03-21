@@ -102,6 +102,7 @@ const api: IpcApi = {
 	openAppAtPath: ( editorKey, filePath, otherFiles?: string[] ) =>
 		ipcRendererInvoke( 'openAppAtPath', editorKey, filePath, otherFiles ),
 	openTerminalAtPath: ( targetPath ) => ipcRendererInvoke( 'openTerminalAtPath', targetPath ),
+	openSiteInClaude: ( siteId ) => ipcRendererInvoke( 'openSiteInClaude', siteId ),
 	showMessageBox: ( options ) => ipcRendererInvoke( 'showMessageBox', options ),
 	showErrorMessageBox: ( options ) => ipcRendererSend( 'showErrorMessageBox', options ),
 	showNotification: ( options ) => ipcRendererSend( 'showNotification', options ),

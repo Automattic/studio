@@ -176,6 +176,21 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 			}
 		},
 	} );
+
+	buttonsArray.push( {
+		label: __( 'Claude' ),
+		className: 'text-nowrap',
+		icon: symbolFilled,
+		onClick: async () => {
+			try {
+				await getIpcApi().openSiteInClaude( selectedSite.id );
+			} catch ( error ) {
+				Sentry.captureException( error );
+				alert( __( 'Could not open Claude.' ) );
+			}
+		},
+	} );
+
 	return <ButtonsSection buttonsArray={ buttonsArray } title={ __( 'Open in…' ) } />;
 }
 

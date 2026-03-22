@@ -161,7 +161,8 @@ type UserDataSafeKeys =
 	| 'preferredTerminal'
 	| 'preferredEditor'
 	| 'betaFeatures'
-	| 'colorScheme';
+	| 'colorScheme'
+	| 'preferredAiEngine';
 
 type PartialUserDataWithSafeKeysToUpdate = Partial< Pick< UserData, UserDataSafeKeys > >;
 

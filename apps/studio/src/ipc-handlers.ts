@@ -147,6 +147,15 @@ export {
 	showUserSettings,
 } from 'src/modules/user-settings/lib/ipc-handlers';
 
+export {
+	studioCodeStart,
+	studioCodeSend,
+	studioCodeStop,
+	studioCodeCheckProvider,
+	getAiEngine,
+	saveAiEngine,
+} from 'src/modules/studio-code/ipc-handlers';
+
 export async function getAgentInstructionsStatus(
 	_event: IpcMainInvokeEvent,
 	siteId: string

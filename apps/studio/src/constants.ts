@@ -97,6 +97,7 @@ export const IPC_VOID_HANDLERS = < const >[
 	'showItemInFolder',
 	'showNotification',
 	'authenticate',
+	'studioCodeStop',
 ];
 
 // What's New

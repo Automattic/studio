@@ -50,6 +50,7 @@ import {
 } from 'src/modules/cli/lib/cli-events-subscriber';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { updateWindowsCliVersionedPathIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
+import { stopAllProcesses as stopAllStudioCodeProcesses } from 'src/modules/studio-code';
 import { setupWPServerFiles, updateWPServerFiles } from 'src/setup-wp-server-files';
 import { getRunningSiteCount, stopAllServers } from 'src/site-server';
 import {
@@ -475,6 +476,7 @@ async function appBoot() {
 		globalShortcut.unregisterAll();
 		stopUserDataWatcher();
 		stopCliEventsSubscriber();
+		stopAllStudioCodeProcesses();
 
 		if ( shouldStopSitesOnQuit ) {
 			event.preventDefault();

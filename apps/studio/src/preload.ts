@@ -4,6 +4,7 @@
 import '@sentry/electron/preload';
 import { IpcRendererEvent, contextBridge, ipcRenderer, webUtils } from 'electron';
 import { IpcEvents } from 'src/ipc-utils';
+import type { StudioCodeCommand, AiEngine } from 'src/modules/studio-code/studio-code-types';
 
 function ipcRendererInvoke< T extends keyof IpcHandlers >(
 	channel: T,
@@ -165,6 +166,14 @@ const api: IpcApi = {
 	getWordPressSkillsStatus: ( siteId ) => ipcRendererInvoke( 'getWordPressSkillsStatus', siteId ),
 	installWordPressSkills: ( siteId, options ) =>
 		ipcRendererInvoke( 'installWordPressSkills', siteId, options ),
+	studioCodeStart: ( siteId: string, sitePath: string, siteName: string, siteUrl: string ) =>
+		ipcRendererInvoke( 'studioCodeStart', siteId, sitePath, siteName, siteUrl ),
+	studioCodeSend: ( siteId: string, command: StudioCodeCommand ) =>
+		ipcRendererInvoke( 'studioCodeSend', siteId, command ),
+	studioCodeStop: ( siteId: string ) => ipcRendererSend( 'studioCodeStop', siteId ),
+	studioCodeCheckProvider: () => ipcRendererInvoke( 'studioCodeCheckProvider' ),
+	getAiEngine: () => ipcRendererInvoke( 'getAiEngine' ),
+	saveAiEngine: ( engine: AiEngine ) => ipcRendererInvoke( 'saveAiEngine', engine ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

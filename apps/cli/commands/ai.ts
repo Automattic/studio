@@ -308,13 +308,39 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		command: 'ai',
 		describe: __( 'AI-powered WordPress assistant' ),
 		builder: ( yargs ) => {
-			return yargs.option( 'path', {
-				hidden: true,
-			} );
+			return yargs
+				.option( 'path', {
+					hidden: true,
+				} )
+				.option( 'headless', {
+					type: 'boolean',
+					default: false,
+					describe: __( 'Run in headless mode with NDJSON communication on stdin/stdout' ),
+				} )
+				.option( 'site', {
+					type: 'string',
+					describe: __( 'Path to the active WordPress site' ),
+				} )
+				.option( 'site-name', {
+					type: 'string',
+					describe: __( 'Name of the active WordPress site' ),
+				} )
+				.option( 'site-url', {
+					type: 'string',
+					describe: __( 'URL of the active WordPress site' ),
+				} );
 		},
-		handler: async () => {
+		handler: async ( argv ) => {
 			try {
-				await runCommand();
+				if ( argv.headless ) {
+					const { runHeadlessCommand } = await import( 'cli/ai/headless' );
+					await runHeadlessCommand( {
+						siteName: argv[ 'site-name' ] as string | undefined,
+						siteUrl: argv[ 'site-url' ] as string | undefined,
+					} );
+				} else {
+					await runCommand();
+				}
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );

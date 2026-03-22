@@ -6,6 +6,7 @@ import { PreviewCommandLoggerAction } from '@studio/common/logger-actions';
 import { ImportExportEventData } from 'src/lib/import-export/handle-events';
 import { StoredToken } from 'src/lib/oauth';
 import { getMainWindow } from 'src/main-window';
+import type { StudioCodeEvent } from 'src/modules/studio-code/studio-code-types';
 import type { UserData } from 'src/storage/storage-types';
 
 type SnapshotEventData = {
@@ -63,6 +64,7 @@ export interface IpcEvents {
 	'user-data-error': [ string ];
 	'refresh-app-globals': [ void ];
 	'beta-features-updated': [ void ];
+	'studio-code-event': [ { siteId: string; event: StudioCodeEvent } ];
 }
 
 export async function sendIpcEventToRenderer< T extends keyof IpcEvents >(

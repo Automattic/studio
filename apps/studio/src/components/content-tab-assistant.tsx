@@ -17,6 +17,7 @@ import { ChatMessage, MarkDownWithCode } from 'src/components/chat-message';
 import { ChatRating } from 'src/components/chat-rating';
 import { LearnMoreLink } from 'src/components/learn-more';
 import offlineIcon from 'src/components/offline-icon';
+import { StudioCodeChat } from 'src/components/studio-code-chat';
 import WelcomeComponent from 'src/components/welcome-message-prompt';
 import { LIMIT_OF_PROMPTS_PER_USER, TELEX_HOSTNAME, TELEX_UTM_PARAMS } from 'src/constants';
 import { useAuth } from 'src/hooks/use-auth';
@@ -25,6 +26,7 @@ import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { addUrlParams } from 'src/lib/url-utils';
+import { type AiEngine } from 'src/modules/studio-code/studio-code-types';
 import { useAppDispatch, useRootSelector } from 'src/stores';
 import {
 	chatThunks,
@@ -358,6 +360,22 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 );
 
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
+	const [ aiEngine, setAiEngine ] = useState< AiEngine >( 'wpcom-assistant' );
+	const [ engineChecked, setEngineChecked ] = useState( false );
+
+	useEffect( () => {
+		void Promise.all( [ getIpcApi().getAiEngine(), getIpcApi().studioCodeCheckProvider() ] ).then(
+			( [ engine, provider ] ) => {
+				if ( provider.available && engine === 'studio-code' ) {
+					setAiEngine( 'studio-code' );
+				} else {
+					setAiEngine( 'wpcom-assistant' );
+				}
+				setEngineChecked( true );
+			}
+		);
+	}, [] );
+
 	const inputRef = useRef< HTMLTextAreaElement >( null );
 	const wrapperRef = useRef< HTMLDivElement >( null );
 	const dispatch = useAppDispatch();
@@ -453,6 +471,10 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		localStorage.setItem( 'dontShowTelexBanner', 'true' );
 		setIsTelexBannerVisible( false );
 	};
+
+	if ( engineChecked && aiEngine === 'studio-code' ) {
+		return <StudioCodeChat selectedSite={ selectedSite } />;
+	}
 
 	return (
 		<div className="relative min-h-full flex flex-col" ref={ wrapperRef }>

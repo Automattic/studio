@@ -57,7 +57,7 @@ class StudioCodeProcess {
 					event,
 				} );
 			} catch {
-				console.warn( `[StudioCode - ${ this.siteId }] Non-JSON stdout line:`, line );
+				console.error( `[StudioCode - ${ this.siteId }] Non-JSON stdout line:`, line );
 			}
 		} );
 
@@ -86,7 +86,7 @@ class StudioCodeProcess {
 
 	send( command: StudioCodeCommand ): void {
 		if ( ! this.child?.stdin?.writable ) {
-			console.warn(
+			console.error(
 				`[StudioCode - ${ this.siteId }] Cannot send command: process stdin not writable`
 			);
 			return;

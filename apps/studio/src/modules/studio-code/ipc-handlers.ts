@@ -13,8 +13,8 @@ export async function studioCodeStart(
 	siteName: string,
 	siteUrl: string
 ): Promise< void > {
-	const proc = getOrCreateProcess( siteId, sitePath, siteName, siteUrl );
-	await proc.start();
+	// getOrCreateProcess handles both creation and starting
+	getOrCreateProcess( siteId, sitePath, siteName, siteUrl );
 }
 
 export async function studioCodeSend(

@@ -243,7 +243,9 @@ export function StudioCodeChat( { selectedSite }: StudioCodeChatProps ) {
 		return () => {
 			getIpcApi().studioCodeStop( selectedSite.id );
 		};
-	}, [ selectedSite.id, selectedSite.path, selectedSite.name, selectedSite ] );
+		// Only depend on individual properties, not the full object reference
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [ selectedSite.id, selectedSite.path, selectedSite.name ] );
 
 	// Listen for IPC events
 	const handleEvent = useCallback(

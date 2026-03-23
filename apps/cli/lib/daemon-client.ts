@@ -8,6 +8,8 @@ import {
 	type AUTH_EVENTS,
 	type SITE_EVENTS,
 	type SNAPSHOT_EVENTS,
+	type SYNC_EVENTS,
+	type SyncEvent,
 } from '@studio/common/lib/cli-events';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
@@ -341,7 +343,8 @@ const eventsSocketClient = new SocketRequestClient( SITE_EVENTS_SOCKET_PATH );
 type CliEventPayload =
 	| { event: SITE_EVENTS; data: { siteId: string } }
 	| { event: SNAPSHOT_EVENTS; data: { snapshotUrl: string } }
-	| { event: AUTH_EVENTS; data: { token?: StoredAuthToken } };
+	| { event: AUTH_EVENTS; data: { token?: StoredAuthToken } }
+	| { event: SYNC_EVENTS; data: SyncEvent };
 
 /**
  * Emit a CLI event via the events socket, for the `_events` command server to receive.

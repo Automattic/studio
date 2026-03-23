@@ -41,3 +41,15 @@ export enum SiteCommandLoggerAction {
 	DELETE_PREVIEW_SITES = 'deletePreviewSites',
 	DELETE_FILES = 'deleteFiles',
 }
+
+export enum SyncCommandLoggerAction {
+	FETCH_SITES = 'fetchSites',
+	ARCHIVE = 'archive',
+	UPLOAD = 'upload',
+	INITIATE_IMPORT = 'initiateImport',
+	POLL_IMPORT = 'pollImport',
+	INITIATE_BACKUP = 'initiateBackup',
+	POLL_BACKUP = 'pollBackup',
+	DOWNLOAD = 'download',
+	IMPORT = 'import',
+}

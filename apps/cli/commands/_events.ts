@@ -15,6 +15,7 @@ import {
 	siteSocketEventSchema,
 	snapshotSocketEventSchema,
 	authSocketEventSchema,
+	syncSocketEventSchema,
 	SiteEvent,
 	SnapshotEvent,
 	AuthEvent,
@@ -108,6 +109,12 @@ export async function runCommand(): Promise< void > {
 	const eventsSocketServer = new SocketServer( SITE_EVENTS_SOCKET_PATH, 2500 );
 	eventsSocketServer.on( 'message', ( { message: packet } ) => {
 		try {
+			const syncParsed = syncSocketEventSchema.safeParse( packet );
+			if ( syncParsed.success ) {
+				logger.reportKeyValuePair( 'sync-event', JSON.stringify( syncParsed.data.data ) );
+				return;
+			}
+
 			const authParsed = authSocketEventSchema.safeParse( packet );
 			if ( authParsed.success ) {
 				emitAuthEvent( authParsed.data.event, authParsed.data.data.token );

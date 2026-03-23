@@ -134,3 +134,40 @@ export const cliAuthEventSchema = z.object( {
 		.transform( ( val ) => JSON.parse( val ) )
 		.pipe( authEventSchema ),
 } );
+
+/**
+ * Sync events — emitted by CLI sync commands to notify Studio of ongoing operations.
+ */
+export enum SYNC_EVENTS {
+	STARTED = 'sync-started',
+	PROGRESS = 'sync-progress',
+	COMPLETED = 'sync-completed',
+	FAILED = 'sync-failed',
+}
+
+export const syncEventSchema = z.object( {
+	event: z.nativeEnum( SYNC_EVENTS ),
+	type: z.enum( [ 'push', 'pull' ] ),
+	localSiteId: z.string(),
+	remoteSiteId: z.number(),
+	remoteSiteName: z.string(),
+	progress: z.number().optional(),
+	statusMessage: z.string().optional(),
+	error: z.string().optional(),
+} );
+
+export type SyncEvent = z.infer< typeof syncEventSchema >;
+
+export const syncSocketEventSchema = z.object( {
+	event: z.nativeEnum( SYNC_EVENTS ),
+	data: syncEventSchema,
+} );
+
+export const cliSyncEventSchema = z.object( {
+	action: z.literal( 'keyValuePair' ),
+	key: z.literal( 'sync-event' ),
+	value: z
+		.string()
+		.transform( ( val ) => JSON.parse( val ) )
+		.pipe( syncEventSchema ),
+} );

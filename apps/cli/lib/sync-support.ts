@@ -14,13 +14,10 @@ function hasSupportedPlan( site: SitesEndpointSite ): boolean {
 	return site.plan?.features.active.includes( STUDIO_SYNC_FEATURE_NAME ) ?? false;
 }
 
-// Sites hosted outside wp.com and Pressable (e.g. jurassic.ninja).
 function isUnsupported( site: SitesEndpointSite ): boolean {
 	return !! site.jetpack && ! isAtomicSite( site );
 }
 
-// needsTransfer means that the site was reverted to "simple" via "bulk-delete-test-sites" tool.
-// Activating e.g. "VaultPress Backup" or "Hosting features" returns "is_wpcom_atomic === true && jetpack === true".
 function needsTransfer( site: SitesEndpointSite ): boolean {
 	return ! site.jetpack && ! isAtomicSite( site );
 }

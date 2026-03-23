@@ -1,60 +1,17 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import * as Sentry from '@sentry/electron/renderer';
-import { z } from 'zod';
+import {
+	sitesEndpointSiteSchema,
+	sitesEndpointResponseSchema,
+} from '@studio/common/types/sync';
+import type { SitesEndpointSite, SyncSite, SyncSupport } from '@studio/common/types/sync';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { reconcileConnectedSites } from 'src/modules/sync/lib/reconcile-connected-sites';
 import { getSyncSupport, isPressableSite } from 'src/modules/sync/lib/sync-support';
 import { withOfflineCheck } from 'src/stores/utils/with-offline-check';
 import { getWpcomClient } from 'src/stores/wpcom-api';
-import type { SyncSite, SyncSupport } from 'src/modules/sync/types';
 
-// Schema for WordPress.com sites endpoint
-const sitesEndpointSiteSchema = z.object( {
-	ID: z.number(),
-	is_wpcom_atomic: z.boolean(),
-	name: z.string(),
-	URL: z.string(),
-	jetpack: z.boolean().optional(),
-	is_deleted: z.boolean(),
-	hosting_provider_guess: z.string().optional(),
-	environment_type: z
-		.enum( [ 'production', 'staging', 'development', 'sandbox', 'local' ] )
-		.nullable()
-		.optional(),
-	is_a8c: z.boolean().optional(),
-	options: z
-		.object( {
-			created_at: z.string(),
-			wpcom_staging_blog_ids: z.array( z.number() ),
-		} )
-		.optional(),
-	capabilities: z
-		.object( {
-			manage_options: z.boolean(),
-		} )
-		.optional(),
-	plan: z
-		.object( {
-			expired: z.boolean().optional(),
-			features: z.object( {
-				active: z.array( z.string() ),
-				available: z.record( z.string(), z.array( z.string() ) ).optional(),
-			} ),
-			is_free: z.boolean().optional(),
-			product_id: z.coerce.number(),
-			product_name_short: z.string(),
-			product_slug: z.string(),
-			user_is_owner: z.boolean().optional(),
-		} )
-		.optional(),
-} );
-
-export type SitesEndpointSite = z.infer< typeof sitesEndpointSiteSchema >;
-
-// We use a permissive schema for the API response to fail gracefully if a single site is malformed
-const sitesEndpointResponseSchema = z.object( {
-	sites: z.array( z.unknown() ),
-} );
+export type { SitesEndpointSite } from '@studio/common/types/sync';
 
 function transformSingleSiteResponse(
 	site: SitesEndpointSite,

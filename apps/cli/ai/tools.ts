@@ -15,7 +15,8 @@ import { runCommand as runListSitesCommand } from 'cli/commands/site/list';
 import { runCommand as runStartSiteCommand } from 'cli/commands/site/start';
 import { runCommand as runStatusCommand } from 'cli/commands/site/status';
 import { runCommand as runStopSiteCommand, Mode as StopMode } from 'cli/commands/site/stop';
-import { getSiteByFolder, getSiteUrl, readAppdata, type SiteData } from 'cli/lib/appdata';
+import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
+import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { normalizeHostname } from 'cli/lib/utils';
@@ -65,8 +66,8 @@ function splitCommandArgs( command: string ): string[] {
 }
 
 async function findSiteByName( name: string ): Promise< SiteData | undefined > {
-	const appdata = await readAppdata();
-	return appdata.sites.find( ( site ) => site.name.toLowerCase() === name.toLowerCase() );
+	const config = await readCliConfig();
+	return config.sites.find( ( site ) => site.name.toLowerCase() === name.toLowerCase() );
 }
 
 async function resolveSite( nameOrPath: string ): Promise< SiteData > {

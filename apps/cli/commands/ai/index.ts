@@ -1,3 +1,4 @@
+import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __ } from '@wordpress/i18n';
 import {
 	AI_MODELS,
@@ -32,7 +33,7 @@ import {
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { runCommand as runLogoutCommand } from 'cli/commands/auth/logout';
-import { getAnthropicApiKey, getAuthToken } from 'cli/lib/appdata';
+import { readCliConfig } from 'cli/lib/cli-config/core';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -209,15 +210,16 @@ export async function runCommand(
 	}
 
 	if ( currentProvider === 'wpcom' ) {
-		try {
-			const token = await getAuthToken();
+		const token = await readAuthToken();
+		if ( token ) {
 			ui.setStatusMessage( `Logged in as ${ token.displayName }` );
-		} catch {
+		} else {
 			ui.setStatusMessage( 'Use /login to authenticate to WordPress.com' );
 		}
 	}
 
-	if ( currentProvider === 'anthropic-api-key' && ! ( await getAnthropicApiKey() ) ) {
+	const { anthropicApiKey } = await readCliConfig();
+	if ( currentProvider === 'anthropic-api-key' && ! anthropicApiKey ) {
 		ui.showInfo( 'No Anthropic API key saved. Use /provider to enter one.' );
 	}
 
@@ -385,9 +387,11 @@ export async function runCommand(
 				await runLoginCommand();
 				ui.start();
 				if ( await isAiProviderReady( 'wpcom' ) ) {
-					const token = await getAuthToken();
-					ui.showInfo( `Logged in as ${ token.displayName } (${ token.email })` );
-					ui.setStatusMessage( `Logged in as ${ token.displayName }` );
+					const token = await readAuthToken();
+					if ( token ) {
+						ui.showInfo( `Logged in as ${ token.displayName } (${ token.email })` );
+						ui.setStatusMessage( `Logged in as ${ token.displayName }` );
+					}
 				} else {
 					ui.setStatusMessage( 'Login failed or canceled' );
 				}

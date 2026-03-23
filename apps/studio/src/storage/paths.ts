@@ -1,5 +1,5 @@
 import path from 'path';
-import { LOCKFILE_NAME } from '@studio/common/constants';
+import { getAppConfigPath } from '@studio/common/lib/config-paths';
 
 function inChildProcess() {
 	return process.env.STUDIO_IN_CHILD_PROCESS === 'true';
@@ -19,11 +19,7 @@ export function getUserDataFilePath(): string {
 	if ( process.env.DEV_APP_DATA_PATH ) {
 		return process.env.DEV_APP_DATA_PATH;
 	}
-	return path.join( getAppDataPath(), getAppName(), 'appdata-v1.json' );
-}
-
-export function getUserDataLockFilePath(): string {
-	return path.join( getAppDataPath(), getAppName(), LOCKFILE_NAME );
+	return getAppConfigPath();
 }
 
 export function getServerFilesPath(): string {

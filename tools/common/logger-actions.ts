@@ -15,6 +15,7 @@ export enum PreviewCommandLoggerAction {
 	UPLOAD = 'upload',
 	READY = 'ready',
 	APPDATA = 'appdata',
+	SET = 'set',
 }
 
 export enum SiteCommandLoggerAction {

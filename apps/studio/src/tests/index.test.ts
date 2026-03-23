@@ -37,7 +37,6 @@ vi.mock( 'atomically', () => ( {
 vi.mock( 'src/storage/paths', () => ( {
 	getResourcesPath: vi.fn().mockReturnValue( '/mock/resources' ),
 	getUserDataFilePath: vi.fn().mockReturnValue( '/mock/userdata.json' ),
-	getUserDataLockFilePath: vi.fn().mockReturnValue( '/mock/userdata.json.lock' ),
 	getUserDataCertificatesPath: vi.fn().mockReturnValue( '/mock/certificates' ),
 	getServerFilesPath: vi.fn().mockReturnValue( '/mock/server/files' ),
 	getCliPath: vi.fn().mockReturnValue( '/mock/cli/path' ),
@@ -47,10 +46,12 @@ vi.mock( 'src/storage/paths', () => ( {
 } ) );
 vi.mock( 'src/modules/cli/lib/execute-command', () => {
 	const mockEventEmitter = {
-		on: vi.fn().mockImplementation( ( event: string, callback: () => void ) => {
+		on: vi.fn().mockImplementation( ( event: string, callback: ( ...args: any[] ) => void ) => {
 			if ( event === 'started' ) {
-				// Call started callback immediately
 				setTimeout( () => callback(), 0 );
+			}
+			if ( event === 'success' ) {
+				setTimeout( () => callback( { result: { stdout: '[]', stderr: '' } } ), 0 );
 			}
 			return mockEventEmitter;
 		} ),
@@ -114,6 +115,7 @@ function mockElectron() {
 				} ),
 				requestSingleInstanceLock: vi.fn().mockReturnValue( true ),
 				quit: vi.fn(),
+				exit: vi.fn(),
 				setName: vi.fn(),
 				setAsDefaultProtocolClient: vi.fn(),
 				enableSandbox: vi.fn(),

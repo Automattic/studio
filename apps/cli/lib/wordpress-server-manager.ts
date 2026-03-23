@@ -10,9 +10,9 @@ import {
 	PLAYGROUND_CLI_INACTIVITY_TIMEOUT,
 	PLAYGROUND_CLI_MAX_TIMEOUT,
 } from '@studio/common/constants';
-import { SITE_EVENTS } from '@studio/common/lib/site-events';
+import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { z } from 'zod';
-import { SiteData } from 'cli/lib/appdata';
+import { SiteData } from 'cli/lib/cli-config/core';
 import {
 	isProcessRunning,
 	startProcess,

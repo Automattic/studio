@@ -15,9 +15,6 @@ vi.mock( 'src/storage/paths', () => ( {
 	getUserDataCertificatesPath: vi
 		.fn()
 		.mockReturnValue( '/path/to/app/appData/App Name/certificates' ),
-	getUserDataLockFilePath: vi
-		.fn()
-		.mockReturnValue( '/path/to/app/appData/App Name/appdata-v1.json.lock' ),
 } ) );
 vi.mock( 'src/lib/import-export/import/handlers/backup-handler-factory' );
 vi.mock( 'fs/promises', () => ( {
@@ -30,6 +27,7 @@ vi.mock( 'fs/promises', () => ( {
 vi.mock( 'os', () => ( {
 	default: {
 		tmpdir: vi.fn(),
+		homedir: vi.fn().mockReturnValue( '/mock/home' ),
 	},
 } ) );
 vi.mock( 'path', () => ( {

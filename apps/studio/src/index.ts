@@ -44,6 +44,7 @@ import {
 	startCliEventsSubscriber,
 	stopCliEventsSubscriber,
 } from 'src/modules/cli/lib/cli-events-subscriber';
+import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { updateWindowsCliVersionedPathIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
 import { getRunningSiteCount, SiteServer, stopAllServers } from 'src/site-server';
@@ -56,7 +57,6 @@ import {
 } from 'src/storage/user-data';
 import { getAutoUpdaterState, setupUpdates } from 'src/updates';
 import packageJson from '../package.json';
-import { executeCliCommand } from './modules/cli/lib/execute-command';
 
 // Helper function to get the actual URL for validation
 function getRendererUrl(): string {

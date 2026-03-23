@@ -1,13 +1,9 @@
+import { AUTH_EVENTS } from '@studio/common/lib/cli-events';
+import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-config';
 import { AuthCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import { revokeAuthToken } from 'cli/lib/api';
-import {
-	readAppdata,
-	saveAppdata,
-	lockAppdata,
-	unlockAppdata,
-	getAuthToken,
-} from 'cli/lib/appdata';
+import { emitCliEvent } from 'cli/lib/daemon-client';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -15,31 +11,32 @@ export async function runCommand(): Promise< void > {
 	const logger = new Logger< LoggerAction >();
 
 	logger.reportStart( LoggerAction.LOGOUT, __( 'Logging out…' ) );
-	let token: Awaited< ReturnType< typeof getAuthToken > >;
 
 	try {
-		token = await getAuthToken();
-	} catch ( error ) {
-		logger.reportSuccess( __( 'Already logged out' ) );
-		return;
-	}
+		const token = await readAuthToken();
 
-	try {
-		await lockAppdata();
+		if ( ! token ) {
+			logger.reportSuccess( __( 'Already logged out' ) );
+			return;
+		}
+
 		await revokeAuthToken( token.accessToken );
-		const userData = await readAppdata();
-		delete userData.authToken;
-		await saveAppdata( userData );
-
-		logger.reportSuccess( __( 'Successfully logged out' ) );
+		await updateSharedConfig( { authToken: undefined } );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );
 		} else {
 			logger.reportError( new LoggerError( __( 'Failed to log out' ), error ) );
 		}
-	} finally {
-		await unlockAppdata();
+		return;
+	}
+
+	logger.reportSuccess( __( 'Successfully logged out' ) );
+
+	try {
+		await emitCliEvent( { event: AUTH_EVENTS.LOGOUT, data: {} } );
+	} catch {
+		// Best-effort: don't mask successful logout if event emission fails
 	}
 }
 

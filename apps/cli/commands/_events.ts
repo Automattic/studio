@@ -7,12 +7,24 @@
  */
 
 import fs from 'fs';
+import {
+	AUTH_EVENTS,
+	SITE_EVENTS,
+	SNAPSHOT_EVENTS,
+	siteDetailsSchema,
+	siteSocketEventSchema,
+	snapshotSocketEventSchema,
+	authSocketEventSchema,
+	SiteEvent,
+	SnapshotEvent,
+	AuthEvent,
+} from '@studio/common/lib/cli-events';
+import { isEmptyDir } from '@studio/common/lib/fs-utils';
 import { sequential } from '@studio/common/lib/sequential';
-import { SITE_EVENTS, siteDetailsSchema, SiteEvent } from '@studio/common/lib/site-events';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
-import { z } from 'zod';
-import { getSiteUrl, readAppdata, SiteData } from 'cli/lib/appdata';
+import { readCliConfig, SiteData } from 'cli/lib/cli-config/core';
+import { getSiteUrl, removeSiteFromConfig } from 'cli/lib/cli-config/sites';
 import {
 	connectToDaemon,
 	disconnectFromDaemon,
@@ -35,8 +47,8 @@ function toSiteDetails( site: SiteData ) {
 
 const emitSiteEvent = sequential(
 	async ( event: SITE_EVENTS, siteId: string, running?: boolean ): Promise< void > => {
-		const appdata = await readAppdata();
-		const site = appdata.sites.find( ( s ) => s.id === siteId );
+		const cliConfig = await readCliConfig();
+		const site = cliConfig.sites.find( ( s ) => s.id === siteId );
 		const payload: SiteEvent = {
 			event,
 			siteId,
@@ -50,15 +62,19 @@ const emitSiteEvent = sequential(
 );
 
 async function emitAllSitesStatus(): Promise< void > {
-	const appdata = await readAppdata();
-	for ( const site of appdata.sites ) {
+	const cliConfig = await readCliConfig();
+	for ( const site of cliConfig.sites ) {
+		if ( site.path && ( await isEmptyDir( site.path ).catch( () => true ) ) ) {
+			await removeSiteFromConfig( site.id );
+			continue;
+		}
 		await emitSiteEvent( SITE_EVENTS.UPDATED, site.id );
 	}
 }
 
 async function emitAllSitesStopped(): Promise< void > {
-	const appdata = await readAppdata();
-	for ( const site of appdata.sites ) {
+	const cliConfig = await readCliConfig();
+	for ( const site of cliConfig.sites ) {
 		const payload: SiteEvent = {
 			event: SITE_EVENTS.UPDATED,
 			siteId: site.id,
@@ -69,18 +85,42 @@ async function emitAllSitesStopped(): Promise< void > {
 	}
 }
 
-const siteEventSchema = z.object( {
-	event: z.string(),
-	data: z.object( {
-		siteId: z.string(),
-	} ),
-} );
+function emitAuthEvent( event: AUTH_EVENTS, token?: AuthEvent[ 'token' ] ): void {
+	const payload: AuthEvent = { event, token };
+	logger.reportKeyValuePair( 'auth-event', JSON.stringify( payload ) );
+}
+
+const emitSnapshotEvent = sequential(
+	async ( event: SNAPSHOT_EVENTS, snapshotUrl: string ): Promise< void > => {
+		const cliConfig = await readCliConfig();
+		const snapshot = cliConfig.snapshots.find( ( s ) => s.url === snapshotUrl );
+		const payload: SnapshotEvent = {
+			event,
+			snapshotUrl,
+			snapshot: snapshot ?? undefined,
+		};
+
+		logger.reportKeyValuePair( 'snapshot-event', JSON.stringify( payload ) );
+	}
+);
 
 export async function runCommand(): Promise< void > {
 	const eventsSocketServer = new SocketServer( SITE_EVENTS_SOCKET_PATH, 2500 );
 	eventsSocketServer.on( 'message', ( { message: packet } ) => {
 		try {
-			const parsedPacket = siteEventSchema.parse( packet );
+			const authParsed = authSocketEventSchema.safeParse( packet );
+			if ( authParsed.success ) {
+				emitAuthEvent( authParsed.data.event, authParsed.data.data.token );
+				return;
+			}
+
+			const snapshotParsed = snapshotSocketEventSchema.safeParse( packet );
+			if ( snapshotParsed.success ) {
+				void emitSnapshotEvent( snapshotParsed.data.event, snapshotParsed.data.data.snapshotUrl );
+				return;
+			}
+
+			const parsedPacket = siteSocketEventSchema.parse( packet );
 			if (
 				parsedPacket.event === SITE_EVENTS.CREATED ||
 				parsedPacket.event === SITE_EVENTS.UPDATED ||

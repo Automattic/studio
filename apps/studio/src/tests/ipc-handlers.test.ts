@@ -28,17 +28,6 @@ vi.mock( '@sentry/electron/main', () => ( {
 	captureException: vi.fn(),
 	captureMessage: vi.fn(),
 } ) );
-vi.mock( 'src/storage/paths', () => ( {
-	getResourcesPath: vi.fn().mockReturnValue( '/mock/resources' ),
-	getUserDataFilePath: vi.fn().mockReturnValue( '/mock/userdata.json' ),
-	getUserDataLockFilePath: vi.fn().mockReturnValue( '/mock/userdata.json.lock' ),
-	getUserDataCertificatesPath: vi.fn().mockReturnValue( '/mock/certificates' ),
-	getServerFilesPath: vi.fn().mockReturnValue( '/mock/server/files' ),
-	getCliPath: vi.fn().mockReturnValue( '/mock/cli/path' ),
-	getBundledNodeBinaryPath: vi.fn().mockReturnValue( '/mock/node/binary' ),
-	getSiteThumbnailPath: vi.fn().mockReturnValue( '/mock/thumbnail.png' ),
-	DEFAULT_SITE_PATH: '/mock/default/site/path',
-} ) );
 vi.mock( 'src/site-server' );
 vi.mock( 'src/lib/wordpress-setup', () => ( {
 	setupWordPressFilesOnly: vi.fn().mockResolvedValue( undefined ),
@@ -278,16 +267,25 @@ describe( 'importSite', () => {
 
 describe( 'getXdebugEnabledSite', () => {
 	it( 'should return null when no site has Xdebug enabled', async () => {
-		const mockUserDataWithoutXdebug = {
-			sites: [
-				{ id: 'site-1', name: 'Site 1', path: '/path/to/site-1', enableXdebug: false },
-				{ id: 'site-2', name: 'Site 2', path: '/path/to/site-2' },
-			],
-		};
-		vi.mocked( readFile ).mockResolvedValue(
-			Buffer.from( JSON.stringify( mockUserDataWithoutXdebug ) )
-		);
-		vi.mocked( fs.existsSync ).mockReturnValue( true );
+		vi.mocked( SiteServer.getAllDetails ).mockReturnValue( [
+			{
+				id: 'site-1',
+				name: 'Site 1',
+				path: '/path/to/site-1',
+				enableXdebug: false,
+				running: false,
+				phpVersion: '8.3',
+				port: 9999,
+			},
+			{
+				id: 'site-2',
+				name: 'Site 2',
+				path: '/path/to/site-2',
+				running: false,
+				phpVersion: '8.3',
+				port: 9998,
+			},
+		] as SiteDetails[] );
 
 		const result = await getXdebugEnabledSite( mockIpcMainInvokeEvent );
 
@@ -295,28 +293,27 @@ describe( 'getXdebugEnabledSite', () => {
 	} );
 
 	it( 'should return the site that has Xdebug enabled', async () => {
-		const mockUserDataWithXdebug = {
-			sites: [
-				{ id: 'site-1', name: 'Site 1', path: '/path/to/site-1', enableXdebug: false },
-				{ id: 'site-2', name: 'Site 2', path: '/path/to/site-2', enableXdebug: true },
-			],
-		};
-		vi.mocked( readFile ).mockResolvedValue(
-			Buffer.from( JSON.stringify( mockUserDataWithXdebug ) )
-		);
-		vi.mocked( fs.existsSync ).mockReturnValue( true );
-		vi.mocked( SiteServer.get, { partial: true } ).mockReturnValue( {
-			details: {
+		vi.mocked( SiteServer.getAllDetails ).mockReturnValue( [
+			{
+				id: 'site-1',
+				name: 'Site 1',
+				path: '/path/to/site-1',
+				enableXdebug: false,
+				running: false,
+				phpVersion: '8.3',
+				port: 9999,
+			},
+			{
 				id: 'site-2',
 				name: 'Site 2',
 				path: '/path/to/site-2',
-				running: true,
 				enableXdebug: true,
+				running: true,
 				phpVersion: '8.3',
 				port: 9999,
 				url: 'https://site-2.test',
 			},
-		} );
+		] as SiteDetails[] );
 
 		const result = await getXdebugEnabledSite( mockIpcMainInvokeEvent );
 
@@ -333,27 +330,26 @@ describe( 'getXdebugEnabledSite', () => {
 	} );
 
 	it( 'should return the first site when multiple have Xdebug enabled', async () => {
-		const mockUserDataWithMultipleXdebug = {
-			sites: [
-				{ id: 'site-1', name: 'Site 1', path: '/path/to/site-1', enableXdebug: true },
-				{ id: 'site-2', name: 'Site 2', path: '/path/to/site-2', enableXdebug: true },
-			],
-		};
-		vi.mocked( readFile ).mockResolvedValue(
-			Buffer.from( JSON.stringify( mockUserDataWithMultipleXdebug ) )
-		);
-		vi.mocked( fs.existsSync ).mockReturnValue( true );
-		vi.mocked( SiteServer.get, { partial: true } ).mockReturnValue( {
-			details: {
+		vi.mocked( SiteServer.getAllDetails ).mockReturnValue( [
+			{
 				id: 'site-1',
 				name: 'Site 1',
 				path: '/path/to/site-1',
-				running: false,
 				enableXdebug: true,
+				running: false,
 				phpVersion: '8.3',
 				port: 9999,
 			},
-		} );
+			{
+				id: 'site-2',
+				name: 'Site 2',
+				path: '/path/to/site-2',
+				enableXdebug: true,
+				running: true,
+				phpVersion: '8.3',
+				port: 9998,
+			},
+		] as SiteDetails[] );
 
 		const result = await getXdebugEnabledSite( mockIpcMainInvokeEvent );
 

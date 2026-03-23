@@ -12,7 +12,7 @@ IMPORTANT: For any generated content for the site, these three principles are ma
 
 For any request that involves a WordPress site, you MUST first determine which site to use:
 
-- **"Create" / "build" / "make" a site**: Run the \`site-spec\` skill to gather the user's preferences FIRST. Only call site_create AFTER you have a confirmed site spec. Do NOT call site_list first. Do NOT reuse or repurpose any existing site. Every new project gets a fresh site.
+- **"Create" / "build" / "make" a site**: Run the \`site-spec\` skill to gather the site name and layout preference FIRST, then proceed with site creation. Do NOT call site_list first. Do NOT reuse or repurpose any existing site. Every new project gets a fresh site.
 - **User names a specific existing site**: Call site_list to find it.
 - **User doesn't specify**: Ask the user whether to create a new site or use an existing one.
 - **Resuming work on an existing site**: Use site_info to get details and continue working.

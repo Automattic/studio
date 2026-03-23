@@ -2,30 +2,20 @@ import path from 'path';
 import { recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
 import fs from 'fs-extra';
 import semver from 'semver';
-import { updateLatestWPCliVersion } from 'src/lib/download-utils';
+import { getSqliteVersionFromInstallation } from 'cli/lib/sqlite-integration';
 import {
 	getAiInstructionsPath,
 	getLanguagePacksPath,
-	getWordPressVersionPath,
-	getSqlitePath,
-	getWpCliPath,
-} from 'src/lib/server-files-paths';
-import {
 	getSqliteCommandPath,
-	updateLatestSQLiteCommandVersion,
-} from 'src/lib/sqlite-command-versions';
-import { getSqliteVersionFromInstallation } from 'src/lib/sqlite-versions';
-import {
-	getWordPressVersionFromInstallation,
-	updateLatestWordPressVersion,
-} from 'src/lib/wp-versions';
-import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
-import { getWpFilesPath } from 'src/storage/paths';
+	getSqlitePluginPath,
+	getWordPressVersionPath,
+	getWpCliPharPath,
+	getWpFilesPath,
+} from '../server-files';
+import { updateLatestSqliteCommandVersion } from './sqlite-command';
+import { getWordPressVersionFromInstallation, updateLatestWordPressVersion } from './wordpress';
+import { updateLatestWpCliVersion } from './wp-cli';
 
-// SQLite integration folder name
-const SQLITE_FILENAME = 'sqlite-database-integration';
-
-// Tries to copy the app's bundled WordPress version to server files if needed
 async function copyBundledLatestWPVersion() {
 	const bundledWPVersionPath = path.join( getWpFilesPath(), 'latest', 'wordpress' );
 	const bundledWPVersion = semver.coerce(
@@ -51,43 +41,41 @@ async function copyBundledLatestWPVersion() {
 	}
 }
 
+const SQLITE_FILENAME = 'sqlite-database-integration';
+
 async function copyBundledSqlite() {
 	const bundledSqlitePath = path.join( getWpFilesPath(), SQLITE_FILENAME );
 	const bundledSqliteVersion = semver.coerce(
 		await getSqliteVersionFromInstallation( bundledSqlitePath ),
-		{
-			includePrerelease: true,
-		}
+		{ includePrerelease: true }
 	);
 	if ( ! bundledSqliteVersion ) {
 		return;
 	}
-	const installedSqlitePath = getSqlitePath();
+	const installedSqlitePath = getSqlitePluginPath();
 	const isSqliteInstalled = await fs.pathExists( installedSqlitePath );
 	const installedSqliteVersion = semver.coerce(
 		await getSqliteVersionFromInstallation( installedSqlitePath ),
-		{
-			includePrerelease: true,
-		}
+		{ includePrerelease: true }
 	);
 	const isBundledVersionNewer =
 		installedSqliteVersion && semver.gt( bundledSqliteVersion, installedSqliteVersion );
 	if ( ! isSqliteInstalled || isBundledVersionNewer ) {
 		console.log( `Copying bundled SQLite version ${ bundledSqliteVersion }…` );
-		await recursiveCopyDirectory( bundledSqlitePath, getSqlitePath() );
+		await recursiveCopyDirectory( bundledSqlitePath, getSqlitePluginPath() );
 	}
 }
 
 async function copyBundledWPCLI() {
-	const bundledWPCLIInstalled = await fs.pathExists( getWpCliPath() );
+	const bundledWPCLIInstalled = await fs.pathExists( getWpCliPharPath() );
 	if ( bundledWPCLIInstalled ) {
 		return;
 	}
 	const bundledWPCLIPath = path.join( getWpFilesPath(), 'wp-cli', 'wp-cli.phar' );
-	await fs.copyFile( bundledWPCLIPath, getWpCliPath() );
+	await fs.copyFile( bundledWPCLIPath, getWpCliPharPath() );
 }
 
-async function copyBundledSQLiteCommand() {
+async function copyBundledSqliteCommand() {
 	const bundledSqliteCommandPath = path.join( getWpFilesPath(), 'sqlite-command' );
 	if ( ! ( await fs.pathExists( bundledSqliteCommandPath ) ) ) {
 		return;
@@ -109,7 +97,7 @@ async function copyBundledTranslations() {
 		getWordPressVersionPath( 'latest' ),
 		'available-site-translations.json'
 	);
-	// Always copy the bundled translations file to ensure CLI has access to it
+
 	await fs.copyFile( bundledTranslationsPath, installedTranslationsPath );
 }
 
@@ -131,12 +119,12 @@ async function copyBundledLanguagePacks() {
 	await recursiveCopyDirectory( bundledLanguagePacksPath, installedLanguagePacksPath );
 }
 
-export async function setupWPServerFiles() {
+export async function setupServerFiles() {
 	const steps: Array< [ string, () => Promise< void > ] > = [
 		[ 'WordPress version', copyBundledLatestWPVersion ],
 		[ 'SQLite integration', copyBundledSqlite ],
 		[ 'WP-CLI', copyBundledWPCLI ],
-		[ 'SQLite command', copyBundledSQLiteCommand ],
+		[ 'SQLite command', copyBundledSqliteCommand ],
 		[ 'translations', copyBundledTranslations ],
 		[ 'language packs', copyBundledLanguagePacks ],
 		[ 'AI instructions', copyBundledAiInstructions ],
@@ -151,32 +139,8 @@ export async function setupWPServerFiles() {
 	}
 }
 
-/**
- * Get WP-CLI version from installation by running wp-cli --version
- */
-async function getWPCliVersionFromInstallation(): Promise< string > {
-	return new Promise( ( resolve ) => {
-		const [ emitter ] = executeCliCommand( [ 'wp', '--studio-no-path', '--version' ], {
-			output: 'capture',
-		} );
-
-		emitter.on( 'success', ( { result } ) => {
-			const stdout = result?.stdout || '';
-			if ( stdout.startsWith( 'WP-CLI ' ) ) {
-				const version = stdout.split( ' ' )[ 1 ];
-				resolve( version ? `v${ version }` : '' );
-			} else {
-				resolve( '' );
-			}
-		} );
-
-		emitter.on( 'failure', () => resolve( '' ) );
-		emitter.on( 'error', () => resolve( '' ) );
-	} );
-}
-
-export async function updateWPServerFiles() {
+export async function updateServerFiles() {
 	await updateLatestWordPressVersion();
-	await updateLatestWPCliVersion( getWPCliVersionFromInstallation );
-	await updateLatestSQLiteCommandVersion();
+	await updateLatestWpCliVersion();
+	await updateLatestSqliteCommandVersion();
 }

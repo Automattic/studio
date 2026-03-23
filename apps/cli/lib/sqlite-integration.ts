@@ -34,3 +34,7 @@ export async function keepSqliteIntegrationUpdated( sitePath: string ) {
 export async function isSqliteIntegrationInstalled( sitePath: string ) {
 	return provider.isSqliteInstalled( sitePath );
 }
+
+export async function getSqliteVersionFromInstallation( sqlitePath: string ) {
+	return provider.getSqliteVersionFromInstallation( sqlitePath );
+}

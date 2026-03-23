@@ -3,6 +3,7 @@ import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-wa
 import { __ } from '@wordpress/i18n';
 import yargs from 'yargs';
 import { bumpAggregatedUniqueStat, getPlatformMetric } from 'cli/lib/bump-stat';
+import { setupServerFiles } from 'cli/lib/dependency-management/setup';
 import { loadTranslations } from 'cli/lib/i18n';
 import { StatsGroup, StatsMetric } from 'cli/lib/types/bump-stats';
 import { untildify } from 'cli/lib/utils';
@@ -105,6 +106,8 @@ async function main() {
 			previewYargs.version( false ).demandCommand( 1, __( 'You must provide a valid command' ) );
 		} )
 		.command( 'site', __( 'Manage sites' ), async ( sitesYargs ) => {
+			await setupServerFiles();
+
 			const [
 				{ registerCommand: registerSiteStatusCommand },
 				{ registerCommand: registerSiteCreateCommand },

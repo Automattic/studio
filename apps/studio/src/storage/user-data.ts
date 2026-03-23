@@ -2,11 +2,12 @@ import fs from 'fs';
 import nodePath from 'node:path';
 import * as Sentry from '@sentry/electron/main';
 import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from '@studio/common/constants';
+import { getAppConfigLockFilePath } from '@studio/common/lib/config-paths';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
 import { readFile, writeFile } from 'atomically';
 import { sanitizeUnstructuredData, sanitizeUserpath } from 'src/lib/sanitize-for-logging';
-import { getUserDataFilePath, getUserDataLockFilePath } from 'src/storage/paths';
+import { getUserDataFilePath } from 'src/storage/paths';
 import { EMPTY_USER_DATA, type UserData, type WindowBounds } from 'src/storage/storage-types';
 
 export async function loadUserData(): Promise< UserData > {
@@ -45,7 +46,7 @@ export async function saveUserData( data: UserData ): Promise< void > {
 	await writeFile( filePath, asString, 'utf-8' );
 }
 
-const LOCKFILE_PATH = getUserDataLockFilePath();
+const LOCKFILE_PATH = getAppConfigLockFilePath();
 
 export async function lockAppdata() {
 	const dir = nodePath.dirname( LOCKFILE_PATH );

@@ -1,6 +1,6 @@
 import path from 'path';
 import { APP_CONFIG_LOCKFILE_NAME } from '@studio/common/constants';
-import { getAppConfigPath, getConfigDirectory } from '@studio/common/lib/well-known-paths';
+import { getAppConfigPath } from '@studio/common/lib/config-paths';
 
 function inChildProcess() {
 	return process.env.STUDIO_IN_CHILD_PROCESS === 'true';
@@ -21,10 +21,6 @@ export function getUserDataFilePath(): string {
 		return process.env.DEV_APP_DATA_PATH;
 	}
 	return getAppConfigPath();
-}
-
-export function getUserDataLockFilePath(): string {
-	return path.join( getConfigDirectory(), APP_CONFIG_LOCKFILE_NAME );
 }
 
 export function getOldServerFilesPath(): string {

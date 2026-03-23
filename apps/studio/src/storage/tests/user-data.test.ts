@@ -7,11 +7,11 @@ import { vi } from 'vitest';
 import { loadUserData, lockAppdata, unlockAppdata, saveUserData } from 'src/storage/user-data';
 import { UserData } from '../storage-types';
 
-const { getUserDataFilePathMock, getUserDataLockFilePathMock, mockFsExistsSync, mockFsMkdirSync } =
+const { getUserDataFilePathMock, getAppConfigLockFilePathMock, mockFsExistsSync, mockFsMkdirSync } =
 	vi.hoisted( () => {
 		return {
 			getUserDataFilePathMock: vi.fn().mockReturnValue( '/path/to/app/.studio/app.json' ),
-			getUserDataLockFilePathMock: vi.fn().mockReturnValue( '/path/to/app/.studio/app.json.lock' ),
+			getAppConfigLockFilePathMock: vi.fn().mockReturnValue( '/path/to/app/.studio/app.json.lock' ),
 			mockFsExistsSync: vi.fn().mockReturnValue( true ),
 			mockFsMkdirSync: vi.fn(),
 		};
@@ -27,7 +27,9 @@ vi.mock( 'fs', () => ( {
 } ) );
 vi.mock( 'src/storage/paths', () => ( {
 	getUserDataFilePath: getUserDataFilePathMock,
-	getUserDataLockFilePath: getUserDataLockFilePathMock,
+} ) );
+vi.mock( '@studio/common/lib/config-paths', () => ( {
+	getAppConfigLockFilePath: getAppConfigLockFilePathMock,
 } ) );
 
 vi.mock( 'atomically', () => ( {

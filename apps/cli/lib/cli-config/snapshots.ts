@@ -44,8 +44,8 @@ export async function saveSnapshotToConfig(
 	userId: number,
 	name: string
 ): Promise< Snapshot > {
+	const site = await getSiteByFolder( siteFolder );
 	try {
-		const site = await getSiteByFolder( siteFolder );
 		await lockCliConfig();
 		const config = await readCliConfig();
 
@@ -72,8 +72,8 @@ export async function updateSnapshotInConfig(
 	atomicSiteId: number,
 	siteFolder: string
 ): Promise< Snapshot > {
+	const site = await getSiteByFolder( siteFolder );
 	try {
-		const site = await getSiteByFolder( siteFolder );
 		await lockCliConfig();
 		const config = await readCliConfig();
 		const snapshot = config.snapshots.find( ( s ) => s.atomicSiteId === atomicSiteId );

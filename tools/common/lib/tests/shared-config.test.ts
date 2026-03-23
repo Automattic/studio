@@ -6,6 +6,8 @@ import { vi } from 'vitest';
 import {
 	readSharedConfig,
 	saveSharedConfig,
+	lockSharedConfig,
+	unlockSharedConfig,
 	updateSharedConfig,
 	readAuthToken,
 	getCurrentUserId,
@@ -141,7 +143,12 @@ describe( 'Shared Config', () => {
 	describe( 'saveSharedConfig', () => {
 		it( 'should write JSON to shared.json', async () => {
 			const config = { version: 1 as const, locale: 'en' };
-			await saveSharedConfig( config );
+			try {
+				await lockSharedConfig();
+				await saveSharedConfig( config );
+			} finally {
+				await unlockSharedConfig();
+			}
 
 			expect( writeFile ).toHaveBeenCalledWith(
 				`${ mockHomeDir }/.studio/shared.json`,
@@ -152,7 +159,12 @@ describe( 'Shared Config', () => {
 
 		it( 'should create directory if it does not exist', async () => {
 			vi.mocked( fs.existsSync ).mockReturnValue( false );
-			await saveSharedConfig( { version: 1 } );
+			try {
+				await lockSharedConfig();
+				await saveSharedConfig( { version: 1 } );
+			} finally {
+				await unlockSharedConfig();
+			}
 
 			expect( fs.mkdirSync ).toHaveBeenCalledWith( `${ mockHomeDir }/.studio`, {
 				recursive: true,
@@ -161,7 +173,12 @@ describe( 'Shared Config', () => {
 
 		it( 'should set version to 1', async () => {
 			const config = { version: 99 } as unknown as SharedConfig;
-			await saveSharedConfig( config );
+			try {
+				await lockSharedConfig();
+				await saveSharedConfig( config );
+			} finally {
+				await unlockSharedConfig();
+			}
 
 			const written = vi.mocked( writeFile ).mock.calls[ 0 ][ 1 ] as string;
 			expect( JSON.parse( written ).version ).toBe( 1 );

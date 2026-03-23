@@ -25,6 +25,7 @@ import {
 } from 'cli/lib/cli-config/core';
 import { removeSiteFromConfig, updateSiteAutoStart } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
@@ -68,6 +69,7 @@ vi.mock( 'cli/lib/cli-config/sites', async () => {
 } );
 vi.mock( 'cli/lib/language-packs' );
 vi.mock( 'cli/lib/daemon-client' );
+vi.mock( 'cli/lib/dependency-management/setup' );
 vi.mock( import( '@studio/common/lib/well-known-paths' ), async ( importOriginal ) => {
 	const actual = await importOriginal();
 	return {
@@ -159,6 +161,7 @@ describe( 'CLI: studio site create', () => {
 		vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( true );
 		vi.mocked( connectToDaemon ).mockResolvedValue( undefined );
 		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
+		vi.mocked( updateServerFiles ).mockResolvedValue( undefined );
 		vi.mocked( setupCustomDomain ).mockResolvedValue( undefined );
 		vi.mocked( startWordPressServer ).mockResolvedValue( mockProcessDescription );
 		vi.mocked( runBlueprint ).mockResolvedValue( undefined );

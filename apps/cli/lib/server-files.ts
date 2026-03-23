@@ -19,3 +19,7 @@ export function getSqliteCommandPath(): string {
 export function getLanguagePacksPath(): string {
 	return path.join( getServerFilesPath(), 'language-packs' );
 }
+
+export function getAiInstructionsPath(): string {
+	return path.join( getServerFilesPath(), 'skills' );
+}

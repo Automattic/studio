@@ -1,5 +1,5 @@
 import { defineConfig, globalIgnores } from 'eslint/config';
-import pluginImport from 'eslint-plugin-import';
+import pluginImport from 'eslint-plugin-import-x';
 import pluginStudio from 'eslint-plugin-studio';
 import pluginPrettier from 'eslint-plugin-prettier/recommended';
 import globals from 'globals';
@@ -38,11 +38,13 @@ export default defineConfig(
 			},
 			sourceType: 'commonjs',
 			parserOptions: {
-				projectService: true,
+				projectService: {
+					allowDefaultProject: [ 'apps/studio/tailwind.config.js' ],
+				},
 			},
 		},
 		settings: {
-			'import/resolver': {
+			'import-x/resolver': {
 				typescript: {
 					alwaysTryTypes: true,
 					project: [
@@ -50,6 +52,8 @@ export default defineConfig(
 						path.join( import.meta.dirname, 'apps/cli/tsconfig.json' ),
 						path.join( import.meta.dirname, 'apps/studio/tsconfig.json' ),
 						path.join( import.meta.dirname, 'tools/common/tsconfig.json' ),
+						path.join( import.meta.dirname, 'tools/compare-perf/tsconfig.json' ),
+						path.join( import.meta.dirname, 'tools/metrics/tsconfig.json' ),
 					],
 				},
 			},
@@ -68,8 +72,10 @@ export default defineConfig(
 					varsIgnorePattern: '^_',
 				},
 			],
-			'import/no-named-as-default-member': 'off',
-			'import/order': [
+			'import-x/no-named-as-default-member': 'off',
+			// @wp-playground/blueprints ships blueprint-schema-validator outside its package.json exports map
+			'import-x/no-unresolved': [ 'error', { ignore: [ '@wp-playground/blueprints/blueprint-schema-validator' ] } ],
+			'import-x/order': [
 				'error',
 				{
 					'newlines-between': 'never',
@@ -85,6 +91,23 @@ export default defineConfig(
 		files: [ '**/*.ts', 'src/tests/**/*.{ts,tsx}' ],
 		rules: {
 			'@typescript-eslint/no-require-imports': 'off',
+		},
+	},
+	{
+		files: [ 'apps/cli/**/*.{ts,tsx}' ],
+		ignores: [ 'apps/cli/vite.config*.ts', 'apps/cli/vitest.config.ts' ],
+		rules: {
+			'no-restricted-globals': [
+				'error',
+				{
+					name: '__dirname',
+					message: 'Use import.meta.dirname in ESM modules.',
+				},
+				{
+					name: '__filename',
+					message: 'Use import.meta.filename in ESM modules.',
+				},
+			],
 		},
 	}
 );

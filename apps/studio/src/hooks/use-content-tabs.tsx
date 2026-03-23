@@ -1,7 +1,6 @@
 import { TabPanel } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { createContext, ReactNode, useContext, useMemo, useState } from 'react';
-
 export type TabName = 'overview' | 'sync' | 'settings' | 'assistant' | 'import-export' | 'previews';
 type Tab = React.ComponentProps< typeof TabPanel >[ 'tabs' ][ number ] & {
 	name: TabName;

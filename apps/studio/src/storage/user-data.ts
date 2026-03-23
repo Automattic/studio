@@ -160,7 +160,8 @@ type UserDataSafeKeys =
 	| 'lastSeenVersion'
 	| 'preferredTerminal'
 	| 'preferredEditor'
-	| 'betaFeatures';
+	| 'betaFeatures'
+	| 'colorScheme';
 
 type PartialUserDataWithSafeKeysToUpdate = Partial< Pick< UserData, UserDataSafeKeys > >;
 
@@ -186,7 +187,9 @@ function toDiskFormat( { sites, ...rest }: UserData ): PersistedUserData {
 			( {
 				id,
 				path,
+				adminUsername,
 				adminPassword,
+				adminEmail,
 				port,
 				phpVersion,
 				isWpAutoUpdating,
@@ -208,7 +211,9 @@ function toDiskFormat( { sites, ...rest }: UserData ): PersistedUserData {
 					id,
 					name,
 					path,
+					adminUsername,
 					adminPassword,
+					adminEmail,
 					port,
 					phpVersion,
 					isWpAutoUpdating,

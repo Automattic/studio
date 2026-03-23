@@ -2,13 +2,15 @@ import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { confirm, input, select } from '@inquirer/prompts';
+import { confirm, input, password, select } from '@inquirer/prompts';
 import { SupportedPHPVersions } from '@php-wasm/universal';
 import {
 	DEFAULT_PHP_VERSION,
 	DEFAULT_WORDPRESS_VERSION,
 	MINIMUM_WORDPRESS_VERSION,
 } from '@studio/common/constants';
+import { installAiInstructionsToSite } from '@studio/common/lib/agent-skills';
+import { extractFormValuesFromBlueprint } from '@studio/common/lib/blueprint-settings';
 import {
 	filterUnsupportedBlueprintFeatures,
 	validateBlueprintData,
@@ -23,7 +25,12 @@ import {
 } from '@studio/common/lib/fs-utils';
 import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
 import { isOnline } from '@studio/common/lib/network-utils';
-import { createPassword } from '@studio/common/lib/passwords';
+import {
+	createPassword,
+	encodePassword,
+	validateAdminEmail,
+	validateAdminUsername,
+} from '@studio/common/lib/passwords';
 import { portFinder } from '@studio/common/lib/port-finder';
 import {
 	hasDefaultDbBlock,
@@ -38,7 +45,11 @@ import {
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
-import { Blueprint, StepDefinition } from '@wp-playground/blueprints';
+import {
+	isStepDefinition,
+	type BlueprintV1Declaration,
+	type StepDefinition,
+} from '@wp-playground/blueprints';
 import {
 	lockAppdata,
 	readAppdata,
@@ -49,11 +60,12 @@ import {
 	updateSiteAutoStart,
 	updateSiteLatestCliPid,
 } from 'cli/lib/appdata';
-import { generateSiteName, getDefaultSitePath } from 'cli/lib/generate-site-name';
+import { connectToDaemon, disconnectFromDaemon, emitSiteEvent } from 'cli/lib/daemon-client';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
-import { connect, disconnect, emitSiteEvent } from 'cli/lib/pm2-manager';
-import { getServerFilesPath } from 'cli/lib/server-files';
+import { getAiInstructionsPath, getServerFilesPath } from 'cli/lib/server-files';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
+import { generateSiteName } from 'cli/lib/site-name';
+import { getDefaultSitePath } from 'cli/lib/site-paths';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { untildify } from 'cli/lib/utils';
@@ -77,6 +89,9 @@ type CreateCommandOptions = {
 		contents: unknown;
 		uri: string;
 	};
+	adminUsername?: string;
+	adminPassword?: string;
+	adminEmail?: string;
 	noStart: boolean;
 	skipBrowser: boolean;
 	skipLogDetails: boolean;
@@ -100,7 +115,8 @@ export async function runCommand(
 		}
 
 		let blueprintUri: string | undefined;
-		let blueprint: Blueprint | undefined;
+		let blueprint: BlueprintV1Declaration | undefined;
+		let blueprintCredentials: { adminUsername?: string; adminPassword?: string } | null = null;
 
 		if ( options.blueprint ) {
 			const validation = await validateBlueprintData( options.blueprint.contents );
@@ -119,10 +135,35 @@ export async function runCommand(
 				);
 			}
 
+			// Extract login credentials from blueprint before filtering
+			const formValues = extractFormValuesFromBlueprint(
+				// `validateBlueprintData()` does not give us a proper type guard, but in reality, it ensures
+				// `options.blueprint.contents` conforms to the `BlueprintV1Declaration` schema.
+				options.blueprint.contents as BlueprintV1Declaration
+			);
+			if ( formValues.adminUsername || formValues.adminPassword ) {
+				blueprintCredentials = {
+					adminUsername: formValues.adminUsername,
+					adminPassword: formValues.adminPassword,
+				};
+			}
+
 			blueprintUri = options.blueprint.uri;
 			blueprint = filterUnsupportedBlueprintFeatures(
-				options.blueprint.contents as Record< string, unknown >
+				options.blueprint.contents as BlueprintV1Declaration
 			);
+
+			const blueprintHasMultisite = blueprint?.steps
+				?.filter( isStepDefinition )
+				.some( ( step ) => step.step === 'enableMultisite' );
+
+			if ( blueprintHasMultisite && ! options.customDomain ) {
+				throw new LoggerError(
+					__(
+						'The enableMultisite Blueprint step requires a custom domain. WordPress multisite does not support custom ports. Use --domain <name>.local to set a custom domain.'
+					)
+				);
+			}
 		}
 
 		const appdata = await readAppdata();
@@ -186,6 +227,17 @@ export async function runCommand(
 			isSqliteUpdated ? __( 'SQLite integration configured' ) : __( 'SQLite integration skipped' )
 		);
 
+		if ( process.env.ENABLE_AGENT_SUITE === 'true' ) {
+			try {
+				await installAiInstructionsToSite( sitePath, getAiInstructionsPath() );
+			} catch ( error ) {
+				logger.reportError(
+					new LoggerError( __( 'Failed to install AI instructions. Proceeding anyway…' ), error ),
+					false
+				);
+			}
+		}
+
 		logger.reportStart( LoggerAction.ASSIGN_PORT, __( 'Assigning port…' ) );
 		const port = await portFinder.getOpenPort();
 		// translators: %d is the port number
@@ -193,7 +245,26 @@ export async function runCommand(
 
 		const siteName = options.name || path.basename( sitePath );
 		const siteId = options.siteId || crypto.randomUUID();
-		const adminPassword = createPassword();
+
+		// Determine admin credentials: CLI args > Blueprint > defaults
+		// External passwords need to be encoded; createPassword() already returns encoded
+		const adminUsername = options.adminUsername || blueprintCredentials?.adminUsername || undefined;
+		if ( adminUsername ) {
+			const usernameError = validateAdminUsername( adminUsername );
+			if ( usernameError ) {
+				throw new LoggerError( usernameError );
+			}
+		}
+		const adminEmail = options.adminEmail?.trim() || undefined;
+		if ( adminEmail ) {
+			const emailError = validateAdminEmail( adminEmail );
+			if ( emailError ) {
+				throw new LoggerError( emailError );
+			}
+		}
+
+		const externalPassword = options.adminPassword || blueprintCredentials?.adminPassword;
+		const adminPassword = externalPassword ? encodePassword( externalPassword ) : createPassword();
 
 		const setupSteps: StepDefinition[] = [];
 
@@ -258,15 +329,17 @@ export async function runCommand(
 				const blueprintDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-empty-blueprint-' ) );
 				blueprintUri = path.join( blueprintDir, 'blueprint.json' );
 			}
-			const existingSteps = blueprint.steps || [];
-			blueprint.steps = [ ...setupSteps, ...existingSteps ];
+			const existingSteps = Array.isArray( blueprint.steps ) ? blueprint.steps : [];
+			blueprint = { ...blueprint, steps: [ ...setupSteps, ...existingSteps ] };
 		}
 
 		const siteDetails: SiteData = {
 			id: siteId,
 			name: siteName,
 			path: sitePath,
+			adminUsername,
 			adminPassword,
+			adminEmail,
 			port,
 			phpVersion: options.phpVersion,
 			running: false,
@@ -292,7 +365,7 @@ export async function runCommand(
 
 		if ( ! options.noStart ) {
 			logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
-			await connect();
+			await connectToDaemon();
 			logger.reportSuccess( __( 'Process daemon started' ) );
 
 			await setupCustomDomain( siteDetails, logger );
@@ -311,7 +384,7 @@ export async function runCommand(
 
 				stripWpConfigDbConstants( sitePath );
 
-				if ( processDesc.pid ) {
+				if ( processDesc.status === 'online' ) {
 					await updateSiteLatestCliPid( siteDetails.id, processDesc.pid );
 				}
 				await updateSiteAutoStart( siteDetails.id, true );
@@ -337,15 +410,18 @@ export async function runCommand(
 		} else {
 			if ( blueprint ) {
 				logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
-				await connect();
+				await connectToDaemon();
 				logger.reportSuccess( __( 'Process daemon started' ) );
 
 				logger.reportStart( LoggerAction.START_SITE, __( 'Applying Blueprint…' ) );
 				try {
+					if ( ! blueprintUri ) {
+						throw new LoggerError( __( 'Blueprint source path is missing' ) );
+					}
 					await runBlueprint( siteDetails, logger, {
 						wpVersion: options.wpVersion,
 						blueprint,
-						blueprintUri: blueprintUri as string,
+						blueprintUri,
 					} );
 					logger.reportSuccess( __( 'Blueprint applied successfully' ) );
 
@@ -371,7 +447,7 @@ export async function runCommand(
 		logger.reportKeyValuePair( 'running', String( siteDetails.running ) );
 		await emitSiteEvent( SITE_EVENTS.CREATED, { siteId: siteDetails.id } );
 	} finally {
-		await disconnect();
+		await disconnectFromDaemon();
 	}
 }
 
@@ -488,6 +564,20 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'string',
 					describe: __( 'Path or URL to Blueprint JSON file' ),
 				} )
+				.option( 'admin-username', {
+					type: 'string',
+					describe: __( 'Admin username (defaults to "admin")' ),
+				} )
+				.option( 'admin-password', {
+					type: 'string',
+					describe: __(
+						'Admin password (auto-generated if not provided). Note: passwords in CLI arguments may be visible in process lists; consider using a Blueprint file for sensitive passwords.'
+					),
+				} )
+				.option( 'admin-email', {
+					type: 'string',
+					describe: __( 'Admin email (defaults to "admin@localhost.com")' ),
+				} )
 				.option( 'start', {
 					type: 'boolean',
 					describe: __( 'Start the site after creation' ),
@@ -511,6 +601,9 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			let phpVersion = argv.php;
 			let customDomain = argv.domain;
 			let enableHttps = !! argv.https;
+			let adminUsername = argv.adminUsername;
+			let adminPassword = argv.adminPassword;
+			let adminEmail = argv.adminEmail;
 
 			try {
 				if ( process.stdin.isTTY ) {
@@ -587,6 +680,32 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 							default: false,
 						} );
 					}
+
+					if ( ! adminUsername ) {
+						adminUsername = await input( {
+							message: __( 'Admin username:' ),
+							default: 'admin',
+							validate: ( value ) => validateAdminUsername( value ) || true,
+						} );
+					}
+
+					if ( ! adminPassword ) {
+						adminPassword = await password( {
+							message: __( 'Admin password (leave empty to auto-generate):' ),
+							mask: true,
+						} );
+						if ( ! adminPassword ) {
+							adminPassword = undefined;
+						}
+					}
+
+					if ( ! adminEmail ) {
+						adminEmail = await input( {
+							message: __( 'Admin email:' ),
+							default: 'admin@localhost.com',
+							validate: ( value ) => validateAdminEmail( value ) || true,
+						} );
+					}
 				}
 			} catch {
 				// User cancelled the prompt (Ctrl+C)
@@ -604,6 +723,9 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				phpVersion,
 				customDomain,
 				enableHttps,
+				adminUsername,
+				adminPassword,
+				adminEmail,
 				noStart: ! argv.start,
 				skipBrowser: !! argv.skipBrowser,
 				skipLogDetails: !! argv.skipLogDetails,

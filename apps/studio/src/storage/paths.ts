@@ -16,6 +16,9 @@ try {
 }
 
 export function getUserDataFilePath(): string {
+	if ( process.env.DEV_APP_DATA_PATH ) {
+		return process.env.DEV_APP_DATA_PATH;
+	}
 	return path.join( getAppDataPath(), getAppName(), 'appdata-v1.json' );
 }
 
@@ -58,6 +61,19 @@ export function getResourcesPath(): string {
 	}
 
 	return path.join( exePath, 'resources' );
+}
+
+export function getWpFilesPath(): string {
+	if ( ! app ) {
+		throw new Error( 'Electron app not available in child process' );
+	}
+
+	if ( process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test' ) {
+		// In dev, app.getAppPath() is apps/studio/ — wp-files/ is at the repo root (two levels up)
+		return path.join( app.getAppPath(), '..', '..', 'wp-files' );
+	}
+
+	return path.join( getResourcesPath(), 'wp-files' );
 }
 
 export function getCliPath(): string {

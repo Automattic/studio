@@ -1,61 +1,43 @@
 Unreleased
 ==========
 
+1.7.6
+=====
+* Added enableMultisite Blueprint step support #2470
+* Added admin credentials to interactive CLI site creation flow #2682
+* Prefilled admin email and made it mandatory during site creation #2681
+* Improved app quit reliability by always killing PM2 daemon on site stop #2683
+* Improved deeplink connection speed #2375
+* Fixed site processes opening terminals on Windows #2794
+* Fixed removing sites when site folder is already removed #2705
+* Fixed Open file in IDE to respect user's preferred editor #2730
+* Fixed re-selecting the same file not triggering the import #2768
+* Fixed unsafe type assertions #2719
+* Renamed VS Code labels to Visual Studio Code #2693
+* Replaced pm2 and pm2-axon with homegrown solutions for process management #2712, #2690
+* Updated multiple dependencies, including Electron, Sentry, WordPress packages, and PHP-WASM
+
 1.7.5
 =====
-* Update release notes for 1.7.4 #2591
-* Bundle WordPress translation files with download retry and failure handling #2575
-* Bump the wp-playground-php-wasm group with 29 updates #2585
-* Bump the testing group with 11 updates #2569
-* Timeout `site stop --all` after 6s when quitting #2475
-* Add Blueprint details step to blueprint selection flow #2571
-* Bump the electron group with 5 updates #2566
-* Bump tar from 7.5.2 to 7.5.8 #2601
-* Disable Copy and Delete in context menu when any site is being added #2596
-* Fix Preview site and Push size validation to exclude archived-out directories #2598
-* Add Site Editor performance benchmark across environments #2600
-* Add default Blueprint description from steps #2602
-* Update @php-wasm and @wp-playground packages from 3.0.53 to 3.1.1 #2610
-* Fix Studio CLI yargs locale strings displaying in English #2609
-* Bump nokogiri from 1.19.0 to 1.19.1 #2613
-* Adopt monorepo structure #2565
-* Patch fs-ext-extra-prebuilt to remove other-platform binaries on install #2615
-* Bump the electron group with 5 updates #2622
-* Use JSX children syntax instead of children prop in tests #2621
-* Remove useEffect state resets in WelcomeComponent and AIInput #2619
-* Fix performance tests to support pre-monorepo commits #2627
-* Fix performance test to support old structure for both build and test runner paths #2629
-* Bump @types/node from 20.19.33 to 25.3.0 in the typescript group #2624
-* Fix missing aria-level on heading role in site settings #2618
-* Add JSPI support for PHP WASM extensions #2560
-* Studio: Fix toBeInDocument warnings in tests #2628
-* Bump the wordpress group with 29 updates #2623
-* Bump the sentry group with 12 updates #2626
-* Document how to trigger E2E and performance tests on PR review #2635
-* Fix flaky blueprint plugin activate E2E test #2634
-* Fix push cancellation error dialog #2633
-* Add @yao-pkg/pkg to dependabot allow list #2639
-* Add Redis and Memcached support #2554
-* Add drag-and-drop site reordering with sortOrder persistence #2498
-* Exclude @php-wasm packages from app.asar bundle #2641
-* Bump @inquirer/prompts from 7.10.1 to 8.3.0 in the inquirer group #2647
-* Remove PHP-WASM web builds from output #2644
-* Add WP_DEBUG_LOG and WP_DEBUG_DISPLAY toggles #2553
-* Fix toggle sidebar icon alignment after Add Site modal #2636
-* Studio: Add time display over pull and push completed notification #2653
-* Bump electron-to-chromium from 1.5.286 to 1.5.302 in the electron group #2642
-* Fix CLI uninstall on Windows not removing bin directory #2608
-* Fix React performance and accessibility issues from react-doctor #2654
-* Remove dead code: unused exports, types, and files #2620
-* Add open debug log file button in Settings #2649
-* Bump the wp-playground-php-wasm group with 33 updates #2643
-* Add "Open Application Logs" to Help menu #2656
-* Delete legacy mu-plugin files that lived in site filesystem #2655
-* [Tooling] Add Buildkite release pipelines and fastlane lanes for ReleasesV2 #2583
-* Add initial .pot file and extract pot generation to a reusable lane #2658
-* Fix code_freeze lane committing beta bump to wrong branch #2668
-* @mikaoelitiana made their first contribution in https://github.com/Automattic/studio/pull/2498
-**Full Changelog**: https://github.com/Automattic/studio/compare/v1.7.4...v1.7.5
+* Added Redis and Memcached support #2554
+* Added drag-and-drop site reordering #2498
+* Added WP_DEBUG_LOG and WP_DEBUG_DISPLAY toggles in site settings #2553
+* Added support for editing admin credentials during site creation and in site settings #2527
+* Added "Open Debug Log" button in Settings and "Open Application Logs" to the Help menu #2649, #2656
+* Added a time tooltip to the pull and push completion notification #2653
+* Added Blueprint details step to the blueprint selection flow #2571
+* Made CLI site create command interactive #2657
+* Improved app quit speed by timing out site stop after 6 seconds #2475
+* Disabled Copy and Delete in context menu while a site is being added #2596
+* Fixed import to include hidden files within wp-content #2663
+* Fixed push cancellation error dialog #2633
+* Fixed Preview site and Push size validation to exclude archived-out directories #2598
+* Fixed CLI uninstall on Windows not removing bin directory #2608
+* Fixed CLI locale strings displaying in English #2609
+* Fixed toggle sidebar icon alignment after the Add Site modal #2636
+* Improved accessibility attributes in site settings #2618, #2654
+* Improved compatibility of Studio sites with legacy mu-plugin in the filesystem #2655
+* Updated multiple dependencies, including Electron, WordPress Playground, PHP-WASM, Sentry, and WordPress packages
 
 1.7.4
 =====

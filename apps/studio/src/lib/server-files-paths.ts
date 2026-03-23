@@ -71,3 +71,10 @@ export function getWpCliPath(): string {
 export function getLanguagePacksPath(): string {
 	return path.join( getBasePath(), 'language-packs' );
 }
+
+/**
+ * The path where bundled AI instructions and skills are stored.
+ */
+export function getAiInstructionsPath(): string {
+	return path.join( getBasePath(), 'skills' );
+}

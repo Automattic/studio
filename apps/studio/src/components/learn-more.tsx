@@ -1,5 +1,6 @@
 import { useI18n } from '@wordpress/react-i18n';
 import Button from 'src/components/button';
+import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink, type DocsLinkKey } from 'src/lib/get-localized-link';
 import { useI18nLocale } from 'src/stores';
@@ -15,7 +16,7 @@ function MoreLink( { docsLinksKey, className, label }: LinkProps & { label: stri
 
 	return (
 		<Button
-			className={ className }
+			className={ cx( 'learn-more-link', className ) }
 			onClick={ ( e: React.MouseEvent ) => {
 				e.stopPropagation();
 

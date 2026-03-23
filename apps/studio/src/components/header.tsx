@@ -16,7 +16,7 @@ export default function Header() {
 		if ( ! site.running ) {
 			await startServer( site );
 		}
-		getIpcApi().openSiteURL( site.id, '/wp-admin' );
+		getIpcApi().openSiteURL( site.id, '/wp-admin/' );
 	};
 
 	const handleOpenSiteClick = async () => {
@@ -40,7 +40,7 @@ export default function Header() {
 					</h1>
 					<div className="flex mt-1 gap-x-4">
 						<Button
-							className="[&.is-link]:text-a8c-gray-70 [&.is-link]:hover:text-a8c-blue-50 !px-0 h-0 leading-4"
+							className="[&.is-link]:text-frame-text-secondary [&.is-link]:hover:text-frame-theme !px-0 h-0 leading-4"
 							onClick={ handleWpAdminClick }
 							variant="link"
 							disabled={ isLoading }
@@ -49,14 +49,14 @@ export default function Header() {
 							<ArrowIcon />
 						</Button>
 						<Button
-							className="[&.is-link]:text-a8c-gray-70 [&.is-link]:hover:text-a8c-blue-50 !px-0 h-0 leading-4"
+							className="[&.is-link]:text-frame-text-secondary [&.is-link]:hover:text-frame-theme !px-0 h-0 leading-4"
 							onClick={ handleOpenSiteClick }
 							variant="link"
 							disabled={ isLoading }
 						>
 							{
-								// translators: "Open site" refers to the action, like "to open site"
-								__( 'Open site' )
+								// translators: "Open local site" refers to the action of opening the local site in a browser
+								__( 'Open local site' )
 							}
 							<ArrowIcon />
 						</Button>

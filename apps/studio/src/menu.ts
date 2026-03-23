@@ -29,6 +29,7 @@ import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { getLogsFilePath } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
+import { getUserDataFilePath } from 'src/storage/paths';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from 'src/updates';
 
 export async function setupMenu( config: {
@@ -57,10 +58,10 @@ export function removeMenu() {
 	Menu.setApplicationMenu( null );
 }
 
-export async function popupMenu() {
+export async function popupMenu( position?: { x: number; y: number } ) {
 	const window = await getMainWindow();
 	const menu = await getAppMenu( window );
-	menu.popup();
+	menu.popup( { window: window ?? undefined, ...position } );
 }
 
 async function buildBetaFeaturesMenu(): Promise< MenuItemConstructorOptions[] > {
@@ -153,7 +154,7 @@ async function getAppMenu(
 					label: __( 'Settings…' ),
 					accelerator: 'CommandOrControl+,',
 					click: async () => {
-						void sendIpcEventToRenderer( 'user-settings', { tabName: 'preferences' } );
+						void sendIpcEventToRenderer( 'user-settings', { tabName: 'general' } );
 					},
 				},
 				{
@@ -173,6 +174,16 @@ async function getAppMenu(
 				...( process.env.NODE_ENV === 'development' ? crashTestMenuItems : [] ),
 				...( process.env.NODE_ENV === 'development'
 					? [
+							{
+								label: __( 'Open Appdata File (dev only)' ),
+								click: async () => {
+									const appdataPath = getUserDataFilePath();
+									const err = await shell.openPath( appdataPath );
+									if ( err ) {
+										console.error( `Error opening appdata file: ${ appdataPath } ${ err }` );
+									}
+								},
+							},
 							{
 								label: __( 'Feature Flags' ),
 								submenu: featureFlagsMenu,

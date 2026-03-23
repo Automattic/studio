@@ -5,7 +5,6 @@ import {
 	SupportedEditorConfig,
 	SupportedEditor,
 	supportedEditorConfig,
-	SUPPORTED_EDITORS,
 } from 'src/modules/user-settings/lib/editor';
 import {
 	SupportedTerminal,
@@ -13,21 +12,16 @@ import {
 	getTerminalsSupportedOnPlatform,
 } from 'src/modules/user-settings/lib/terminal';
 
-const getFirstInstalledEditor = async (): Promise< SupportedEditor | null > => {
-	const installedApps = await getIpcApi().getInstalledAppsAndTerminals();
-	for ( const editor of SUPPORTED_EDITORS ) {
-		if ( installedApps[ editor ] ) {
-			return editor;
-		}
-	}
-
-	return null;
-};
-
 export const installedAppsApi = createApi( {
 	reducerPath: 'installedAppsApi',
 	baseQuery: fetchBaseQuery(),
-	tagTypes: [ 'StudioCliIsInstalled', 'InstalledApps', 'UserEditor', 'UserTerminal' ],
+	tagTypes: [
+		'StudioCliIsInstalled',
+		'InstalledApps',
+		'UserEditor',
+		'UserTerminal',
+		'ColorScheme',
+	],
 	endpoints: ( builder ) => ( {
 		getStudioCliIsInstalled: builder.query< boolean, void >( {
 			queryFn: async () => {
@@ -46,16 +40,7 @@ export const installedAppsApi = createApi( {
 		getUserEditor: builder.query< SupportedEditor | null, void >( {
 			queryFn: async () => {
 				const editor = await getIpcApi().getUserEditor();
-				// Respect user preference if it is set
-				if ( editor ) {
-					return { data: editor };
-				}
-
-				// If no user preference is set, check for installed editors
-				// and set the default to the first one found in priority order
-				const defaultEditor = await getFirstInstalledEditor();
-
-				return { data: defaultEditor };
+				return { data: editor };
 			},
 			providesTags: [ 'UserEditor' ],
 		} ),
@@ -91,6 +76,20 @@ export const installedAppsApi = createApi( {
 			},
 			invalidatesTags: [ 'UserTerminal' ],
 		} ),
+		getColorScheme: builder.query< 'system' | 'light' | 'dark', void >( {
+			queryFn: async () => {
+				const colorScheme = await getIpcApi().getColorScheme();
+				return { data: colorScheme };
+			},
+			providesTags: [ 'ColorScheme' ],
+		} ),
+		saveColorScheme: builder.mutation< 'system' | 'light' | 'dark', 'system' | 'light' | 'dark' >( {
+			queryFn: async ( colorScheme ) => {
+				await getIpcApi().saveColorScheme( colorScheme );
+				return { data: colorScheme };
+			},
+			invalidatesTags: [ 'ColorScheme' ],
+		} ),
 	} ),
 } );
 
@@ -102,6 +101,8 @@ export const {
 	useSaveUserTerminalMutation,
 	useGetStudioCliIsInstalledQuery,
 	useSaveStudioCliIsInstalledMutation,
+	useGetColorSchemeQuery,
+	useSaveColorSchemeMutation,
 } = installedAppsApi;
 
 export const selectInstalledEditors = createSelector(

@@ -3,7 +3,12 @@ import {
 	generateCustomDomainFromSiteName,
 	getDomainNameValidationError,
 } from '@studio/common/lib/domains';
-import { SupportedPHPVersions } from '@studio/common/types/php-versions';
+import {
+	generatePassword,
+	validateAdminEmail,
+	validateAdminUsername,
+} from '@studio/common/lib/passwords';
+import { SupportedPHPVersion, SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { Icon, SelectControl, Notice } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf, _n } from '@wordpress/i18n';
@@ -13,25 +18,20 @@ import { FormEvent, useState, useEffect, useCallback, useMemo, useRef, RefObject
 import Button from 'src/components/button';
 import FolderIcon from 'src/components/folder-icon';
 import { LearnMoreLink, LearnHowLink } from 'src/components/learn-more';
+import PasswordControl from 'src/components/password-control';
 import TextControlComponent from 'src/components/text-control';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { cx } from 'src/lib/cx';
-import { useRootSelector } from 'src/stores';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
-import {
-	selectDefaultWordPressVersion,
-	selectAllowedPhpVersions,
-} from 'src/stores/provider-constants-slice';
 import type { BlueprintPreferredVersions } from '@studio/common/lib/blueprint-validation';
 import type { CreateSiteFormValues, PathValidationResult } from 'src/hooks/use-add-site';
-import type { AllowedPHPVersion } from 'src/lib/wordpress-server-types';
 
 interface CreateSiteFormProps {
 	/** Initial values and async updates (syncs before user interaction) */
 	defaultValues?: {
 		siteName?: string;
 		sitePath?: string;
-		phpVersion?: AllowedPHPVersion;
+		phpVersion?: SupportedPHPVersion;
 		wpVersion?: string;
 	};
 	/** Opens folder picker to select site path */
@@ -46,6 +46,10 @@ interface CreateSiteFormProps {
 	blueprintSuggestedDomain?: string;
 	/** Blueprint suggested HTTPS setting from defineSiteUrl step */
 	blueprintSuggestedHttps?: boolean;
+	/** Whether the blueprint requires a custom domain (e.g., multisite) */
+	blueprintRequiresCustomDomain?: boolean;
+	/** Blueprint login credentials for pre-filling admin fields */
+	blueprintCredentials?: { adminUsername?: string; adminPassword?: string };
 	/** Called when form is submitted */
 	onSubmit: ( values: CreateSiteFormValues ) => void;
 	/** Called when form validity changes */
@@ -77,12 +81,15 @@ const SiteFormError = ( { error, tipMessage = '', className = '' }: SiteFormErro
 				aria-atomic="true"
 				className={ cx(
 					'flex items-start gap-1 text-xs',
-					error ? 'text-red-500' : 'text-a8c-gray-50',
+					error ? 'text-red-500' : 'text-frame-text-secondary',
 					className
 				) }
 			>
 				<Icon
-					className={ cx( 'shrink-0 basis-4', error ? 'fill-red-500' : 'fill-a8c-gray-50' ) }
+					className={ cx(
+						'shrink-0 basis-4',
+						error ? 'fill-red-500' : 'fill-frame-text-secondary'
+					) }
 					icon={ error ? cautionFilled : tip }
 					width={ 16 }
 					height={ 16 }
@@ -117,7 +124,7 @@ function FormPathInputComponent( {
 				type="button"
 				aria-label={ `${ value }, ${ __( 'Select different local path' ) }` }
 				className={ cx(
-					'flex flex-row items-stretch rounded-sm border border-[#949494] focus:border-a8c-blue-50 focus:shadow-[0_0_0_0.5px_black] focus:shadow-a8c-blue-50 outline-none transition-shadow transition-linear duration-100 [&_.local-path-icon]:focus:border-l-a8c-blue-50 [&:disabled]:cursor-not-allowed',
+					'flex flex-row items-stretch rounded-sm border border-frame-border focus:border-frame-theme focus:shadow-[0_0_0_0.5px] focus:shadow-frame-theme outline-none transition-shadow transition-linear duration-100 [&_.local-path-icon]:focus:border-l-frame-theme [&:disabled]:cursor-not-allowed',
 					error && 'border-red-500 [&_.local-path-icon]:border-l-red-500'
 				) }
 				data-testid="select-path-button"
@@ -136,7 +143,7 @@ function FormPathInputComponent( {
 					aria-hidden="true"
 					className="local-path-icon flex items-center py-[9px] px-2.5 self-center"
 				>
-					<FolderIcon className="text-[#3C434A]" />
+					<FolderIcon className="text-frame-text-secondary" />
 				</div>
 			</button>
 			<SiteFormError
@@ -156,30 +163,36 @@ export const CreateSiteForm = ( {
 	defaultValues = {},
 	onSelectPath,
 	onSiteNameChange,
-	existingDomainNames,
+	existingDomainNames = [],
 	blueprintPreferredVersions,
 	blueprintSuggestedDomain,
 	blueprintSuggestedHttps,
+	blueprintRequiresCustomDomain,
+	blueprintCredentials,
 	onSubmit,
 	onValidityChange,
 	formRef,
 }: CreateSiteFormProps ) => {
 	const { __, isRTL } = useI18n();
 	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
-	const allowedPhpVersions = useRootSelector( selectAllowedPhpVersions );
-	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
-
 	const [ siteName, setSiteName ] = useState( defaultValues.siteName ?? '' );
 	const [ sitePath, setSitePath ] = useState( defaultValues.sitePath ?? '' );
-	const [ phpVersion, setPhpVersion ] = useState< AllowedPHPVersion >(
-		defaultValues.phpVersion ?? ( allowedPhpVersions[ 0 ] as AllowedPHPVersion ) ?? '8.2'
+	const [ phpVersion, setPhpVersion ] = useState< SupportedPHPVersion >(
+		defaultValues.phpVersion ?? SupportedPHPVersions[ 0 ] ?? '8.2'
 	);
 	const [ wpVersion, setWpVersion ] = useState(
-		defaultValues.wpVersion ?? defaultWordPressVersion
+		defaultValues.wpVersion ?? DEFAULT_WORDPRESS_VERSION
 	);
 	const [ useCustomDomain, setUseCustomDomain ] = useState( false );
 	const [ customDomain, setCustomDomain ] = useState< string | null >( null );
 	const [ enableHttps, setEnableHttps ] = useState( false );
+	const [ adminUsername, setAdminUsername ] = useState(
+		blueprintCredentials?.adminUsername ?? 'admin'
+	);
+	const [ adminPassword, setAdminPassword ] = useState(
+		() => blueprintCredentials?.adminPassword ?? generatePassword()
+	);
+	const [ adminEmail, setAdminEmail ] = useState( 'admin@localhost.com' );
 
 	const [ pathError, setPathError ] = useState( '' );
 	const [ doesPathContainWordPress, setDoesPathContainWordPress ] = useState( false );
@@ -190,6 +203,7 @@ export const CreateSiteForm = ( {
 
 	// Prevent overwriting user input when defaultValues change asynchronously
 	const hasUserInteracted = useRef( false );
+	const hasUserEditedCredentials = useRef( false );
 
 	// Sync name/path only before user interaction (allows async loading)
 	useEffect( () => {
@@ -215,6 +229,21 @@ export const CreateSiteForm = ( {
 		}
 	}, [ defaultValues.phpVersion, defaultValues.wpVersion ] );
 
+	// Sync admin credentials from Blueprint when they change (only if user hasn't edited)
+	useEffect( () => {
+		if ( hasUserEditedCredentials.current ) {
+			return;
+		}
+		if ( blueprintCredentials?.adminUsername !== undefined ) {
+			setAdminUsername( blueprintCredentials.adminUsername );
+			setAdvancedSettingsVisible( true );
+		}
+		if ( blueprintCredentials?.adminPassword !== undefined ) {
+			setAdminPassword( blueprintCredentials.adminPassword );
+			setAdvancedSettingsVisible( true );
+		}
+	}, [ blueprintCredentials?.adminUsername, blueprintCredentials?.adminPassword ] );
+
 	useEffect( () => {
 		if ( hasUserInteracted.current || ! blueprintSuggestedDomain ) {
 			return;
@@ -226,6 +255,14 @@ export const CreateSiteForm = ( {
 		}
 		setAdvancedSettingsVisible( true );
 	}, [ blueprintSuggestedDomain, blueprintSuggestedHttps ] );
+
+	useEffect( () => {
+		if ( ! blueprintRequiresCustomDomain ) {
+			return;
+		}
+		setUseCustomDomain( true );
+		setAdvancedSettingsVisible( true );
+	}, [ blueprintRequiresCustomDomain ] );
 
 	useEffect( () => {
 		if ( useCustomDomain && isCertificateTrusted ) {
@@ -255,7 +292,12 @@ export const CreateSiteForm = ( {
 			return;
 		}
 
-		const hasErrors = !! pathError || ( useCustomDomain && !! customDomainError );
+		const hasErrors =
+			!! pathError ||
+			( useCustomDomain && !! customDomainError ) ||
+			! adminUsername.trim() ||
+			! adminPassword.trim() ||
+			!! adminEmailError;
 		const isValid = ! hasErrors;
 
 		// Only notify if validity has actually changed
@@ -264,7 +306,7 @@ export const CreateSiteForm = ( {
 			onValidityChange( isValid );
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [ pathError, customDomainError, useCustomDomain ] );
+	}, [ pathError, customDomainError, useCustomDomain, adminUsername, adminPassword, adminEmail ] );
 
 	const handleSiteNameChange = useCallback(
 		async ( name: string ) => {
@@ -338,8 +380,22 @@ export const CreateSiteForm = ( {
 			useCustomDomain,
 			customDomain,
 			enableHttps,
+			adminUsername: adminUsername || undefined,
+			adminPassword: adminPassword || undefined,
+			adminEmail,
 		} ),
-		[ siteName, sitePath, phpVersion, wpVersion, useCustomDomain, customDomain, enableHttps ]
+		[
+			siteName,
+			sitePath,
+			phpVersion,
+			wpVersion,
+			useCustomDomain,
+			customDomain,
+			enableHttps,
+			adminUsername,
+			adminPassword,
+			adminEmail,
+		]
 	);
 
 	const handleFormSubmit = useCallback(
@@ -351,7 +407,16 @@ export const CreateSiteForm = ( {
 	);
 
 	const shouldShowCustomDomainError = useCustomDomain && customDomainError;
-	const errorCount = [ pathError, shouldShowCustomDomainError ].filter( Boolean ).length;
+	const adminUsernameError = validateAdminUsername( adminUsername );
+	const adminPasswordError = ! adminPassword.trim() ? __( 'Admin password is required' ) : '';
+	const adminEmailError = validateAdminEmail( adminEmail );
+	const errorCount = [
+		pathError,
+		shouldShowCustomDomainError,
+		adminUsernameError,
+		adminPasswordError,
+		adminEmailError,
+	].filter( Boolean ).length;
 
 	const handleAdvancedSettingsClick = () => {
 		setAdvancedSettingsVisible( ! isAdvancedSettingsVisible );
@@ -401,7 +466,7 @@ export const CreateSiteForm = ( {
 					<>
 						<div className="flex flex-row items-center mb-1">
 							<Button
-								className="pl-0"
+								className="pl-0 !text-frame-text-secondary"
 								onClick={ handleAdvancedSettingsClick }
 								data-testid="advanced-settings-button"
 							>
@@ -443,7 +508,7 @@ export const CreateSiteForm = ( {
 								<label className="font-semibold" htmlFor="local-path">
 									{ __( 'Local path' ) }
 								</label>
-								<span className="text-a8c-gray-50 text-xs">
+								<span className="text-frame-text-secondary text-xs">
 									{ createInterpolateElement(
 										__(
 											'Select an empty directory or a directory with an existing WordPress site. <learn_more_link />'
@@ -465,14 +530,14 @@ export const CreateSiteForm = ( {
 										<label className="font-semibold" htmlFor="php-version-select">
 											{ __( 'PHP version' ) }
 										</label>
-										<SelectControl< string >
+										<SelectControl< SupportedPHPVersion >
 											id="php-version-select"
 											value={ phpVersion }
 											options={ SupportedPHPVersions.map( ( version ) => ( {
 												label: version,
 												value: version,
 											} ) ) }
-											onChange={ ( value: string ) => setPhpVersion( value as AllowedPHPVersion ) }
+											onChange={ ( value ) => setPhpVersion( value ) }
 											__next40pxDefaultSize
 											__nextHasNoMarginBottom
 										/>
@@ -488,6 +553,65 @@ export const CreateSiteForm = ( {
 											'You are currently offline so your site will be created with the latest version. Selecting a different WordPress version requires an internet connection.'
 										) }
 									/>
+								</div>
+
+								<div className="flex flex-col gap-2 mt-4">
+									<span className="font-semibold">{ __( 'Admin credentials' ) }</span>
+									<div className="grid grid-cols-2 gap-4">
+										<div className="flex flex-col gap-1.5 leading-4">
+											<label className="text-sm" htmlFor="admin-username">
+												{ __( 'Username' ) }
+											</label>
+											<TextControlComponent
+												id="admin-username"
+												value={ adminUsername }
+												onChange={ ( value: string ) => {
+													hasUserEditedCredentials.current = true;
+													setAdminUsername( value );
+												} }
+												className={ adminUsernameError ? '[&_input]:!border-red-500' : '' }
+											/>
+										</div>
+
+										<div className="flex flex-col gap-1.5 leading-4">
+											<label className="text-sm" htmlFor="admin-password">
+												{ __( 'Password' ) }
+											</label>
+											<PasswordControl
+												id="admin-password"
+												value={ adminPassword }
+												onChange={ ( value: string ) => {
+													hasUserEditedCredentials.current = true;
+													setAdminPassword( value );
+												} }
+												className={ adminPasswordError ? '[&_input]:!border-red-500' : '' }
+											/>
+										</div>
+									</div>
+									{ ( adminUsernameError || adminPasswordError ) && (
+										<span className="text-red-500 text-xs">
+											{ adminUsernameError || adminPasswordError }
+										</span>
+									) }
+								</div>
+
+								<div className="flex flex-col gap-1.5 leading-4 mt-4">
+									<label className="text-sm" htmlFor="admin-email">
+										{ __( 'Email' ) }
+									</label>
+									<TextControlComponent
+										id="admin-email"
+										value={ adminEmail }
+										onChange={ ( value: string ) => {
+											hasUserEditedCredentials.current = true;
+											setAdminEmail( value );
+										} }
+										placeholder="admin@localhost.com"
+										className={ adminEmailError ? '[&_input]:!border-red-500' : '' }
+									/>
+									{ adminEmailError && (
+										<span className="text-red-500 text-xs">{ adminEmailError }</span>
+									) }
 								</div>
 
 								{ showBlueprintVersionWarning && (
@@ -526,12 +650,19 @@ export const CreateSiteForm = ( {
 										type="checkbox"
 										id="use-custom-domain"
 										checked={ useCustomDomain }
+										disabled={ blueprintRequiresCustomDomain }
 										onChange={ ( e ) => setUseCustomDomain( e.target.checked ) }
 									/>
 									<label htmlFor="use-custom-domain">{ __( 'Use custom domain' ) }</label>
 								</div>
 
-								<div className="text-a8c-gray-50 text-xs mt-2">
+								{ blueprintRequiresCustomDomain && (
+									<Notice status="warning" isDismissible={ false } className="mt-2">
+										{ __( 'WordPress multisite requires a custom domain.' ) }
+									</Notice>
+								) }
+
+								<div className="text-frame-text-secondary text-xs mt-2">
 									{ __( 'Your system password will be required to set up the domain.' ) }
 								</div>
 
@@ -560,7 +691,7 @@ export const CreateSiteForm = ( {
 										</div>
 
 										{ ! isCertificateTrusted && (
-											<div className="text-a8c-gray-50 text-xs mt-2">
+											<div className="text-frame-text-secondary text-xs mt-2">
 												{ __(
 													'You need to manually add the Studio root certificate authority to your keychain and trust it to enable HTTPS.'
 												) }{ ' ' }

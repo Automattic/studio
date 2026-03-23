@@ -17,8 +17,11 @@ import https from 'node:https';
 import os from 'os';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
+import {
+	installAiInstructionsToSite,
+	updateManagedInstructionFiles,
+} from '@studio/common/lib/agent-skills';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
-import { bumpStat } from '@studio/common/lib/bump-stat';
 import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
 import {
 	calculateDirectorySizeForArchive,
@@ -32,32 +35,38 @@ import { generateNumberedName, generateSiteName } from '@studio/common/lib/gener
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
+import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
 import { portFinder } from '@studio/common/lib/port-finder';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import { Snapshot } from '@studio/common/types/snapshot';
-import { StatsGroup, StatsMetric } from '@studio/common/types/stats';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import { MACOS_TRAFFIC_LIGHT_POSITION, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
-import { getImporterMetric, getBlueprintMetric } from 'src/lib/bump-stats/lib';
+import {
+	bumpStat,
+	getImporterMetric,
+	getBlueprintMetric,
+	StatsGroup,
+	StatsMetric,
+} from 'src/lib/bump-stats';
 import {
 	openCertificate as openCertificateDialog,
 	isRootCATrusted,
 	trustRootCA,
 } from 'src/lib/certificate-manager';
 import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
-import { buildFeatureFlags } from 'src/lib/feature-flags';
+import { buildFeatureFlags, getFeatureFlagFromEnv } from 'src/lib/feature-flags';
 import { getImageData } from 'src/lib/get-image-data';
 import { exportBackup } from 'src/lib/import-export/export/export-manager';
 import { ExportOptions } from 'src/lib/import-export/export/types';
 import { ImportExportEventData } from 'src/lib/import-export/handle-events';
 import { defaultImporterOptions, importBackup } from 'src/lib/import-export/import/import-manager';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
-import { isInstalled } from 'src/lib/is-installed';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import * as oauthClient from 'src/lib/oauth';
+import { getAiInstructionsPath } from 'src/lib/server-files-paths';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import * as windowsHelpers from 'src/lib/windows-helpers';
@@ -65,12 +74,23 @@ import { setupWordPressFilesOnly } from 'src/lib/wordpress-setup';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
+import { type InstructionFileType } from 'src/modules/agent-instructions/constants';
+import {
+	getAllInstructionFilesStatus,
+	installInstructionFile,
+	type InstructionFileStatus,
+} from 'src/modules/agent-instructions/lib/instructions';
+import {
+	getSkillsStatus,
+	installAllSkills,
+	type SkillStatus,
+} from 'src/modules/agent-instructions/lib/skills';
 import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
 import { shouldExcludeFromSync, shouldLimitDepth } from 'src/modules/sync/lib/tree-utils';
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
-import { getUserTerminal } from 'src/modules/user-settings/lib/ipc-handlers';
+import { getUserEditor, getUserTerminal } from 'src/modules/user-settings/lib/ipc-handlers';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
 import { SiteServer, stopAllServers as triggerStopAllServers } from 'src/site-server';
 import { DEFAULT_SITE_PATH, getSiteThumbnailPath } from 'src/storage/paths';
@@ -102,11 +122,9 @@ export {
 	getConnectedWpcomSites,
 	pauseSyncUpload,
 	pushArchive,
-	removeExportedSiteTmpFile,
 	removeSyncBackup,
 	resumeSyncUpload,
 	updateConnectedWpcomSites,
-	updateSingleConnectedWpcomSite,
 } from 'src/modules/sync/lib/ipc-handlers';
 
 export {
@@ -116,18 +134,71 @@ export {
 } from 'src/modules/preview-site/lib/ipc-handlers';
 
 export {
+	getColorScheme,
 	getInstalledAppsAndTerminals,
 	getUserEditor,
 	getUserLocale,
 	getUserTerminal,
+	previewColorScheme,
+	saveColorScheme,
 	saveUserEditor,
 	saveUserLocale,
 	saveUserTerminal,
 	showUserSettings,
 } from 'src/modules/user-settings/lib/ipc-handlers';
 
+export async function getAgentInstructionsStatus(
+	_event: IpcMainInvokeEvent,
+	siteId: string
+): Promise< InstructionFileStatus[] > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( `Site not found: ${ siteId }` );
+	}
+	return getAllInstructionFilesStatus( server.details.path );
+}
+
+export async function installAgentInstructions(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	options?: { overwrite?: boolean; fileType?: InstructionFileType }
+): Promise< { path: string; overwritten: boolean } > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( `Site not found: ${ siteId }` );
+	}
+	const overwrite = options?.overwrite ?? false;
+	const fileType = options?.fileType ?? 'agents';
+	return installInstructionFile( server.details.path, fileType, overwrite );
+}
+
+export async function getWordPressSkillsStatus(
+	_event: IpcMainInvokeEvent,
+	siteId: string
+): Promise< SkillStatus[] > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( `Site not found: ${ siteId }` );
+	}
+	return getSkillsStatus( server.details.path );
+}
+
+export async function installWordPressSkills(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	options?: { overwrite?: boolean }
+): Promise< void > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( `Site not found: ${ siteId }` );
+	}
+	const overwrite = options?.overwrite ?? false;
+	await installAllSkills( server.details.path, overwrite );
+}
+
 const DEBUG_LOG_MAX_LINES = 50;
 const PM2_HOME = nodePath.join( os.homedir(), '.studio', 'pm2' );
+const DEFAULT_ENCODED_PASSWORD = encodePassword( 'password' );
 
 function readLastLines( filePath: string, maxLines: number ): string[] | undefined {
 	try {
@@ -249,6 +320,9 @@ export async function createSite(
 		siteId?: string;
 		phpVersion?: string;
 		blueprint?: Blueprint;
+		adminUsername?: string;
+		adminPassword?: string;
+		adminEmail?: string;
 		noStart?: boolean;
 	} = {}
 ): Promise< SiteDetails > {
@@ -260,6 +334,9 @@ export async function createSite(
 		siteId: providedSiteId,
 		blueprint,
 		phpVersion,
+		adminUsername,
+		adminPassword,
+		adminEmail,
 		noStart = false,
 	} = config;
 
@@ -279,6 +356,9 @@ export async function createSite(
 				enableHttps,
 				siteId,
 				blueprint: blueprint?.blueprint,
+				adminUsername,
+				adminPassword,
+				adminEmail,
 				noStart,
 			},
 			{ wpVersion, blueprint: blueprint?.blueprint }
@@ -287,6 +367,13 @@ export async function createSite(
 		// If the site is running after creation, fetch theme details and update thumbnail
 		if ( server.details.running ) {
 			void loadThemeDetails( event, server.details.id );
+		}
+
+		// Install AI instructions and skills into the new site
+		if ( getFeatureFlagFromEnv( 'enableAgentSuite' ) ) {
+			void installAiInstructionsToSite( path, getAiInstructionsPath() ).catch( ( error ) => {
+				console.error( '[ai-instructions] Failed to install AI instructions to new site:', error );
+			} );
 		}
 
 		return server.details;
@@ -376,6 +463,22 @@ export async function updateSite(
 
 	if ( updatedSite.enableXdebug !== currentSite.enableXdebug ) {
 		options.xdebug = updatedSite.enableXdebug ?? false;
+	}
+
+	if ( ( updatedSite.adminUsername ?? 'admin' ) !== ( currentSite.adminUsername ?? 'admin' ) ) {
+		options.adminUsername = updatedSite.adminUsername;
+	}
+
+	if (
+		( updatedSite.adminPassword ?? DEFAULT_ENCODED_PASSWORD ) !==
+		( currentSite.adminPassword ?? DEFAULT_ENCODED_PASSWORD )
+	) {
+		// CLI set expects plain text password (it encodes before saving)
+		options.adminPassword = decodePassword( updatedSite.adminPassword ?? DEFAULT_ENCODED_PASSWORD );
+	}
+
+	if ( ( updatedSite.adminEmail ?? '' ) !== ( currentSite.adminEmail ?? '' ) ) {
+		options.adminEmail = updatedSite.adminEmail;
 	}
 
 	if ( updatedSite.enableDebugLog !== currentSite.enableDebugLog ) {
@@ -476,6 +579,13 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 	if ( server.details.running ) {
 		void loadThemeDetails( event, id );
 	}
+
+	// Keep managed instruction files (STUDIO.md, CLAUDE.md) up-to-date
+	void updateManagedInstructionFiles( server.details.path, getAiInstructionsPath() ).catch(
+		( error ) => {
+			console.error( '[ai-instructions] Failed to update managed instruction files:', error );
+		}
+	);
 
 	console.log( `Server started for '${ server.details.name }'` );
 }
@@ -618,7 +728,9 @@ export async function copySite(
 		port,
 		phpVersion: sourceSite.phpVersion,
 		running: false,
+		adminUsername: sourceSite.adminUsername,
 		adminPassword: sourceSite.adminPassword,
+		adminEmail: sourceSite.adminEmail,
 		themeDetails: sourceSite.themeDetails,
 	};
 
@@ -1010,23 +1122,30 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 export async function openAppAtPath(
 	event: IpcMainInvokeEvent,
 	editorKey: SupportedEditor,
-	filePath: string
+	filePath: string,
+	otherFiles: string[] = []
 ): Promise< void > {
 	const platform = process.platform;
 	const editor = supportedEditorConfig[ editorKey ];
+	const allPaths = [ filePath, ...otherFiles ];
+	const quotedPaths = allPaths.map( ( p ) => `"${ p }"` ).join( ' ' );
 
 	if ( platform === 'darwin' ) {
-		return promiseExec( `open -b ${ editor.macOSBundleId } "${ filePath }"` );
+		const cmd = `open -b ${ editor.macOSBundleId } ${ quotedPaths }`;
+		return promiseExec( cmd );
 	}
 
 	if ( platform === 'win32' ) {
 		const editorPath = await winFindEditorPath( editorKey );
 		if ( ! editorPath ) {
-			// Fall back to using openURL if no editor path is found
-			return openURL( event, editor.url( filePath ) );
+			// Fall back to URL scheme for each path
+			for ( const p of allPaths ) {
+				openURL( event, editor.url( p ) );
+			}
+			return;
 		}
 
-		return promiseExec( `"${ editorPath }" "${ filePath }"` );
+		return promiseExec( `"${ editorPath }" ${ quotedPaths }` );
 	}
 
 	throw new Error( `Platform ${ platform } is not supported` );
@@ -1085,8 +1204,11 @@ export async function setupAppMenu(
 	await setupMenu( config );
 }
 
-export async function popupAppMenu( _event: IpcMainInvokeEvent ) {
-	await popupMenu();
+export async function popupAppMenu(
+	_event: IpcMainInvokeEvent,
+	position?: { x: number; y: number }
+) {
+	await popupMenu( position );
 }
 
 export async function promptWindowsSpeedUpSites(
@@ -1137,9 +1259,10 @@ export async function getAbsolutePathFromSite(
 
 /**
  * Opens a file in the IDE with the site context.
+ * Uses the user's preferred editor, falling back to the first installed editor.
  */
 export async function openFileInIDE(
-	_event: IpcMainInvokeEvent,
+	event: IpcMainInvokeEvent,
 	relativePath: string,
 	siteId: string
 ) {
@@ -1148,19 +1271,28 @@ export async function openFileInIDE(
 		throw new Error( 'Site not found.' );
 	}
 
-	const path = await getAbsolutePathFromSite( _event, siteId, relativePath );
-	if ( ! path ) {
+	const filepath = await getAbsolutePathFromSite( event, siteId, relativePath );
+	if ( ! filepath ) {
 		return;
 	}
 
-	if ( isInstalled( 'vscode' ) ) {
-		// Open site first to ensure the file is opened within the site context
-		await shellOpenExternalWrapper( `vscode://file/${ server.details.path }?windowId=_blank` );
-		await shellOpenExternalWrapper( `vscode://file/${ path }` );
-	} else if ( isInstalled( 'phpstorm' ) ) {
-		// Open site first to ensure the file is opened within the site context
-		await shellOpenExternalWrapper( `phpstorm://open?file=${ path }` );
+	const editorKey = await getUserEditor();
+	if ( ! editorKey ) {
+		return;
 	}
+
+	const openSingleFileExceptions = [ { platform: 'darwin', editorKey: 'phpstorm' } ];
+
+	if (
+		openSingleFileExceptions.some(
+			( f ) => f.platform === process.platform && f.editorKey === editorKey
+		)
+	) {
+		await openAppAtPath( event, editorKey, filepath );
+		return;
+	}
+	// Open site folder and file in a single call
+	await openAppAtPath( event, editorKey, server.details.path, [ filepath ] );
 }
 
 export async function isImportExportSupported( _event: IpcMainInvokeEvent, siteId: string ) {

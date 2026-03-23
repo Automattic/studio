@@ -8,7 +8,9 @@ const serverConfig = z.object( {
 	phpVersion: z.string().optional(),
 	wpVersion: z.string().optional(),
 	absoluteUrl: z.string().optional(),
+	adminUsername: z.string().optional(),
 	adminPassword: z.string().optional(),
+	adminEmail: z.string().optional(),
 	siteTitle: z.string().optional(),
 	siteLanguage: z.string().optional(),
 	isWpAutoUpdating: z.boolean().optional(),
@@ -152,19 +154,10 @@ const childMessageRaw = z.discriminatedUnion( 'topic', [
 	childMessageSiteStopped,
 ] );
 export type ChildMessageRaw = z.infer< typeof childMessageRaw >;
-export const childMessagePm2Schema = z.object( {
+export const childMessageFromProcessManagerSchema = z.object( {
 	process: z.object( {
 		name: z.string(),
 		pm_id: z.number(),
 	} ),
 	raw: childMessageRaw,
-} );
-
-// Zod schemas for PM2 process events (online, exit, stop, restart)
-export const pm2ProcessEventSchema = z.object( {
-	process: z.object( {
-		name: z.string(),
-		pm_id: z.number().optional(),
-	} ),
-	event: z.string(),
 } );

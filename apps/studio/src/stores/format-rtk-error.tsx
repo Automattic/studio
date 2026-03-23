@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import type { SerializedError } from '@reduxjs/toolkit';
 import type { FetchBaseQueryError } from '@reduxjs/toolkit/query';
 
@@ -23,23 +24,32 @@ const mapLowLevelFetchError = ( code: unknown ): string => {
 	}
 };
 
+const errorPayloadSchema = z.object( {
+	message: z.string().optional(),
+	error: z.string().optional(),
+	errors: z.array( z.object( { message: z.string() } ) ).optional(),
+} );
+
 const extractMsg = ( data: unknown ): string | undefined => {
-	if ( ! data ) return;
-
-	if ( typeof data === 'string' ) return data;
-	if ( typeof ( data as { message: string } )?.message === 'string' ) {
-		return ( data as { message: string } ).message;
+	if ( ! data ) {
+		return;
 	}
 
-	if ( typeof ( data as { error: string } )?.error === 'string' ) {
-		return ( data as { error: string } ).error;
+	if ( typeof data === 'string' ) {
+		return data;
 	}
 
-	if (
-		Array.isArray( ( data as { errors: { message: string }[] } )?.errors ) &&
-		typeof ( data as { errors: { message: string }[] } ).errors[ 0 ]?.message === 'string'
-	) {
-		return ( data as { errors: { message: string }[] } ).errors[ 0 ].message;
+	const parsedPayload = errorPayloadSchema.safeParse( data );
+	if ( parsedPayload.success ) {
+		if ( parsedPayload.data.message ) {
+			return parsedPayload.data.message;
+		}
+		if ( parsedPayload.data.error ) {
+			return parsedPayload.data.error;
+		}
+		if ( parsedPayload.data.errors?.[ 0 ]?.message ) {
+			return parsedPayload.data.errors[ 0 ].message;
+		}
 	}
 
 	try {

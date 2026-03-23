@@ -4,23 +4,23 @@
  * This command subscribes to CLI events and streams them back to Studio.
  * It's designed to be executed by Studio's main process and communicates via
  * stdout key-value pairs that Studio parses.
- *
  */
+
 import fs from 'fs';
 import { sequential } from '@studio/common/lib/sequential';
 import { SITE_EVENTS, siteDetailsSchema, SiteEvent } from '@studio/common/lib/site-events';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
-import axon from 'pm2-axon';
 import { z } from 'zod';
 import { getSiteUrl, readAppdata, SiteData } from 'cli/lib/appdata';
 import {
-	connect,
-	disconnect,
-	subscribePm2KillEvent,
-	EVENTS_SOCKET_PATH,
-} from 'cli/lib/pm2-manager';
+	connectToDaemon,
+	disconnectFromDaemon,
+	SITE_EVENTS_SOCKET_PATH,
+	getDaemonBus,
+} from 'cli/lib/daemon-client';
 import { isSiteRunning } from 'cli/lib/site-utils';
+import { SocketServer } from 'cli/lib/socket';
 import { subscribeSiteEvents } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 
@@ -40,7 +40,7 @@ const emitSiteEvent = sequential(
 		const payload: SiteEvent = {
 			event,
 			siteId,
-			// Use provided running status, or query PM2 if not provided
+			// Use provided running status, or query process manager if not provided
 			running: running ?? ( site ? await isSiteRunning( site ) : false ),
 			site: site ? toSiteDetails( site ) : undefined,
 		};
@@ -77,93 +77,8 @@ const siteEventSchema = z.object( {
 } );
 
 export async function runCommand(): Promise< void > {
-	const socket = axon.socket( 'pull' );
-	const bindAbortController = new AbortController();
-
-	async function cleanup() {
-		if ( bindAbortController.signal.aborted ) {
-			return;
-		}
-
-		bindAbortController.abort();
-
-		await new Promise< void >( ( resolve ) => {
-			// Only try to close if socket is actually bound
-			if ( socket.type !== 'server' ) {
-				return resolve();
-			}
-
-			socket.once( 'close', () => {
-				clearTimeout( timeoutId );
-				resolve();
-			} );
-
-			const timeoutId = setTimeout( () => {
-				socket.destroy?.();
-				resolve();
-			}, 250 );
-
-			socket.close();
-		} );
-
-		try {
-			await disconnect();
-		} catch ( err ) {
-			// Do nothing
-		}
-
-		process.exit();
-	}
-
-	process.on( 'SIGINT', () => void cleanup() );
-	process.on( 'SIGTERM', () => void cleanup() );
-
-	try {
-		await new Promise< void >( ( resolve, reject ) => {
-			bindAbortController.signal.throwIfAborted();
-
-			const timeout = setTimeout( () => {
-				bindAbortController.signal.removeEventListener( 'abort', onAbort );
-				reject( new Error( 'Socket bind timeout' ) );
-			}, 2500 );
-
-			function onAbort() {
-				clearTimeout( timeout );
-				reject( new Error( 'Bind aborted due to signal' ) );
-			}
-			bindAbortController.signal.addEventListener( 'abort', onAbort );
-
-			socket.once( 'bind', () => {
-				clearTimeout( timeout );
-				bindAbortController.signal.removeEventListener( 'abort', onAbort );
-				resolve();
-			} );
-
-			// Remove stale socket file before binding (Unix only).
-			// If Studio crashes or is killed, the socket file may be left behind,
-			// preventing the new _events process from binding.
-			if ( process.platform !== 'win32' ) {
-				try {
-					fs.unlinkSync( EVENTS_SOCKET_PATH );
-				} catch {
-					// File doesn't exist or can't be removed - that's fine
-				}
-			}
-
-			socket.bind( EVENTS_SOCKET_PATH, ( error: unknown ) => {
-				if ( error ) {
-					clearTimeout( timeout );
-					bindAbortController.signal.removeEventListener( 'abort', onAbort );
-					reject( error );
-				}
-			} );
-		} );
-	} catch ( error ) {
-		await cleanup();
-		return;
-	}
-
-	socket.on( 'message', ( packet: unknown ) => {
+	const eventsSocketServer = new SocketServer( SITE_EVENTS_SOCKET_PATH, 2500 );
+	eventsSocketServer.on( 'message', ( { message: packet } ) => {
 		try {
 			const parsedPacket = siteEventSchema.parse( packet );
 			if (
@@ -178,8 +93,42 @@ export async function runCommand(): Promise< void > {
 		}
 	} );
 
+	async function cleanup() {
+		await eventsSocketServer.close();
+
+		try {
+			await disconnectFromDaemon();
+		} catch ( err ) {
+			// Do nothing
+		}
+
+		process.exit();
+	}
+
+	process.on( 'SIGINT', () => void cleanup() );
+	process.on( 'SIGTERM', () => void cleanup() );
+
+	// Remove any stale socket from a previous Studio session. Studio is single-instance,
+	// so any existing events.sock belongs to a dead session and must be replaced.
+	if ( process.platform !== 'win32' ) {
+		try {
+			fs.unlinkSync( SITE_EVENTS_SOCKET_PATH );
+		} catch ( err ) {
+			// ENOENT is fine — socket didn't exist. Any other error is unexpected but non-fatal.
+		}
+	}
+
+	try {
+		await eventsSocketServer.listen();
+	} catch ( error ) {
+		console.error( 'Failed to bind to events socket', error );
+
+		await cleanup();
+		return;
+	}
+
 	logger.reportStart( LoggerAction.START_DAEMON, __( 'Connecting to process daemon…' ) );
-	await connect();
+	await connectToDaemon();
 	logger.reportSuccess( __( 'Connected to process daemon' ) );
 
 	await emitAllSitesStatus();
@@ -188,7 +137,9 @@ export async function runCommand(): Promise< void > {
 		void emitSiteEvent( event, siteId, running );
 	} );
 
-	await subscribePm2KillEvent( () => {
+	const bus = await getDaemonBus();
+
+	bus.on( 'daemon-kill', () => {
 		void emitAllSitesStopped();
 	} );
 }

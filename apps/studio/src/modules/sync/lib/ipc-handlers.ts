@@ -1,9 +1,8 @@
 import { app, IpcMainInvokeEvent } from 'electron';
 import fs from 'fs';
 import fsPromises from 'fs/promises';
+import { randomUUID } from 'node:crypto';
 import path from 'node:path';
-import * as Sentry from '@sentry/electron/main';
-import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { Upload } from 'tus-js-client';
@@ -24,12 +23,6 @@ import { SyncSite } from 'src/modules/sync/types';
 import { SiteServer } from 'src/site-server';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 import { SyncOption } from 'src/types';
-
-const TEMP_DIR = path.join( app.getPath( 'temp' ), 'com.wordpress.studio' );
-
-if ( ! fs.existsSync( TEMP_DIR ) ) {
-	fs.mkdirSync( TEMP_DIR );
-}
 
 /**
  * Registry to store AbortControllers for ongoing sync operations (push/pull).
@@ -154,8 +147,10 @@ export async function exportSiteForPush(
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
 	}
-	const extension = 'tar.gz';
-	const archivePath = path.join( TEMP_DIR, `site_${ id }.${ extension }` );
+
+	const tempDir = path.join( app.getPath( 'temp' ), 'com.wordpress.studio', randomUUID() );
+	fs.mkdirSync( tempDir, { recursive: true } );
+	const archivePath = path.join( tempDir, `site_${ id }.tar.gz` );
 
 	const abortController = new AbortController();
 	SYNC_ABORT_CONTROLLERS.set( operationId, abortController );
@@ -206,20 +201,6 @@ export async function exportSiteForPush(
 		return { archivePath, archiveSizeInBytes: stats.size };
 	} finally {
 		SYNC_ABORT_CONTROLLERS.delete( operationId );
-	}
-}
-
-export function removeExportedSiteTmpFile( event: IpcMainInvokeEvent, path: string ) {
-	if ( ! path.includes( TEMP_DIR ) ) {
-		throw new Error( 'The given path is not a temporary file' );
-	}
-	try {
-		fs.unlinkSync( path );
-	} catch ( error ) {
-		if ( isErrnoException( error ) && error.code === 'ENOENT' ) {
-			// Silently ignore if the temporary file doesn't exist
-			Sentry.captureException( error );
-		}
 	}
 }
 
@@ -338,7 +319,7 @@ export async function pushArchive(
 
 		abortController.signal.addEventListener( 'abort', () => {
 			void upload.abort();
-			reject( new Error( 'Upload Aborted' ) );
+			reject( new Error( 'Export aborted' ) );
 		} );
 
 		const existingUploadState = SYNC_TUS_UPLOADS.get( uploadKey );
@@ -359,6 +340,7 @@ export async function pushArchive(
 		SYNC_TUS_UPLOADS.delete( uploadKey );
 		file.destroy();
 		file.close();
+		fs.unlinkSync( archivePath );
 	} );
 
 	const wpcom = wpcomFactory( token.accessToken, wpcomXhrRequest );
@@ -385,6 +367,10 @@ export async function pushArchive(
 
 		return { success: true };
 	} catch ( error ) {
+		if ( abortController.signal.aborted ) {
+			throw error;
+		}
+
 		const parseResult = z.object( { error: z.string() } ).safeParse( error );
 
 		if ( parseResult.success ) {
@@ -536,34 +522,6 @@ export async function updateConnectedWpcomSites(
 				connections[ index ] = updatedSite;
 			}
 		} );
-
-		await saveUserData( userData );
-	} finally {
-		await unlockAppdata();
-	}
-}
-
-export async function updateSingleConnectedWpcomSite(
-	event: IpcMainInvokeEvent,
-	updatedSite: SyncSite
-) {
-	try {
-		await lockAppdata();
-		const userData = await loadUserData();
-		const currentUserId = userData.authToken?.id;
-
-		if ( ! currentUserId ) {
-			throw new Error( 'User not authenticated' );
-		}
-
-		const connections = userData.connectedWpcomSites?.[ currentUserId ] || [];
-		const index = connections.findIndex(
-			( conn ) => conn.id === updatedSite.id && conn.localSiteId === updatedSite.localSiteId
-		);
-
-		if ( index !== -1 ) {
-			connections[ index ] = updatedSite;
-		}
 
 		await saveUserData( userData );
 	} finally {

@@ -48,8 +48,6 @@ const api: IpcApi = {
 	disconnectWpcomSites: ( ...args ) => ipcRendererInvoke( 'disconnectWpcomSites', ...args ),
 	updateConnectedWpcomSites: ( ...args ) =>
 		ipcRendererInvoke( 'updateConnectedWpcomSites', ...args ),
-	updateSingleConnectedWpcomSite: ( updatedSite ) =>
-		ipcRendererInvoke( 'updateSingleConnectedWpcomSite', updatedSite ),
 	authenticate: ( isSignup ) => ipcRendererSend( 'authenticate', isSignup ),
 	exportSite: ( options ) => ipcRendererInvoke( 'exportSite', options ),
 	isAuthenticated: () => ipcRendererInvoke( 'isAuthenticated' ),
@@ -82,7 +80,6 @@ const api: IpcApi = {
 	stopAllServers: () => ipcRendererInvoke( 'stopAllServers' ),
 	copyText: ( text ) => ipcRendererInvoke( 'copyText', text ),
 	getAppGlobals: () => ipcRendererInvoke( 'getAppGlobals' ),
-	removeExportedSiteTmpFile: ( path ) => ipcRendererInvoke( 'removeExportedSiteTmpFile', path ),
 	getWpVersion: ( id ) => ipcRendererInvoke( 'getWpVersion', id ),
 	generateProposedSitePath: ( siteName ) =>
 		ipcRendererInvoke( 'generateProposedSitePath', siteName ),
@@ -102,15 +99,15 @@ const api: IpcApi = {
 	saveOnboarding: ( onboardingCompleted ) =>
 		ipcRendererInvoke( 'saveOnboarding', onboardingCompleted ),
 	getBetaFeatures: () => ipcRendererInvoke( 'getBetaFeatures' ),
-	openAppAtPath: ( editorKey, filePath ) =>
-		ipcRendererInvoke( 'openAppAtPath', editorKey, filePath ),
+	openAppAtPath: ( editorKey, filePath, otherFiles?: string[] ) =>
+		ipcRendererInvoke( 'openAppAtPath', editorKey, filePath, otherFiles ),
 	openTerminalAtPath: ( targetPath ) => ipcRendererInvoke( 'openTerminalAtPath', targetPath ),
 	showMessageBox: ( options ) => ipcRendererInvoke( 'showMessageBox', options ),
 	showErrorMessageBox: ( options ) => ipcRendererSend( 'showErrorMessageBox', options ),
 	showNotification: ( options ) => ipcRendererSend( 'showNotification', options ),
 	logRendererMessage: ( level, ...args ) => ipcRendererSend( 'logRendererMessage', level, ...args ),
 	setupAppMenu: ( config ) => ipcRendererInvoke( 'setupAppMenu', config ),
-	popupAppMenu: () => ipcRendererSend( 'popupAppMenu' ),
+	popupAppMenu: ( position ) => ipcRendererSend( 'popupAppMenu', position ),
 	openCertificate: () => ipcRendererSend( 'openCertificate' ),
 	promptWindowsSpeedUpSites: ( ...args ) =>
 		ipcRendererInvoke( 'promptWindowsSpeedUpSites', ...args ),
@@ -144,6 +141,9 @@ const api: IpcApi = {
 	saveUserTerminal: ( preferredTerminal ) =>
 		ipcRendererInvoke( 'saveUserTerminal', preferredTerminal ),
 	getUserTerminal: () => ipcRendererInvoke( 'getUserTerminal' ),
+	previewColorScheme: ( colorScheme ) => ipcRendererInvoke( 'previewColorScheme', colorScheme ),
+	saveColorScheme: ( colorScheme ) => ipcRendererInvoke( 'saveColorScheme', colorScheme ),
+	getColorScheme: () => ipcRendererInvoke( 'getColorScheme' ),
 	getUserEditor: () => ipcRendererInvoke( 'getUserEditor' ),
 	saveUserEditor: ( editor ) => ipcRendererInvoke( 'saveUserEditor', editor ),
 	comparePaths: ( path1, path2 ) => ipcRendererInvoke( 'comparePaths', path1, path2 ),
@@ -158,6 +158,13 @@ const api: IpcApi = {
 	isStudioCliInstalled: () => ipcRendererInvoke( 'isStudioCliInstalled' ),
 	installStudioCli: () => ipcRendererInvoke( 'installStudioCli' ),
 	uninstallStudioCli: () => ipcRendererInvoke( 'uninstallStudioCli' ),
+	getAgentInstructionsStatus: ( siteId ) =>
+		ipcRendererInvoke( 'getAgentInstructionsStatus', siteId ),
+	installAgentInstructions: ( siteId, options ) =>
+		ipcRendererInvoke( 'installAgentInstructions', siteId, options ),
+	getWordPressSkillsStatus: ( siteId ) => ipcRendererInvoke( 'getWordPressSkillsStatus', siteId ),
+	installWordPressSkills: ( siteId, options ) =>
+		ipcRendererInvoke( 'installWordPressSkills', siteId, options ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

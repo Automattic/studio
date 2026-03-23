@@ -29,7 +29,7 @@ interface ContentTabSettingsProps {
 function SettingsRow( { children, label }: PropsWithChildren< { label: string } > ) {
 	return (
 		<tr className="align-top">
-			<th className="text-nowrap text-a8c-gray-50 pb-4 pe-10 ltr:text-left rtl:text-right font-normal">
+			<th className="text-nowrap text-frame-text-secondary pb-4 pe-10 ltr:text-left rtl:text-right font-normal">
 				{ label }
 			</th>
 			<td className="pb-4">{ children }</td>
@@ -41,10 +41,11 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 	const dispatch = useAppDispatch();
 	const { __ } = useI18n();
 	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
-	const username = 'admin';
+	const username = selectedSite.adminUsername || 'admin';
 	// Empty strings account for legacy sites lacking a stored password.
 	const storedPassword = decodePassword( selectedSite.adminPassword ?? '' );
 	const password = storedPassword === '' ? 'password' : storedPassword;
+	const email = selectedSite.adminEmail || 'admin@localhost.com';
 	const [ wpVersion, refreshWpVersion ] = useGetWpVersion( selectedSite );
 	const domain = selectedSite.customDomain
 		? `${ selectedSite.customDomain }`
@@ -80,7 +81,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 	return (
 		<div className="p-8 ltr:pr-4 rtl:pl-4">
 			<div className="flex justify-between items-center mb-4">
-				<Heading level={ 3 } className="text-black text-sm font-semibold">
+				<Heading level={ 3 } className="text-frame-text text-sm font-semibold">
 					{ __( 'Site details' ) }
 				</Heading>
 				<div className="flex items-center gap-1">
@@ -136,7 +137,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 						</div>
 						{ ! isCertificateTrusted && selectedSite.enableHttps && (
 							<div className="mt-1 max-w-96">
-								<span className="text-a8c-gray-50 mt-1">
+								<span className="text-frame-text-secondary mt-1">
 									{ __(
 										'You need to trust this certificate to prevent your browser from showing a secure connection warning.'
 									) }
@@ -162,7 +163,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 					</SettingsRow>
 					<tr>
 						<th colSpan={ 2 } className="pb-4 ltr:text-left rtl:text-right">
-							<h3 className="text-black text-sm font-semibold mt-4">{ __( 'Debugging' ) }</h3>
+							<h3 className="text-frame-text text-sm font-semibold mt-4">{ __( 'Debugging' ) }</h3>
 						</th>
 					</tr>
 					<SettingsRow label={ __( 'Xdebug' ) }>
@@ -184,7 +185,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 
 					<tr>
 						<th colSpan={ 2 } className="pb-4 ltr:text-left rtl:text-right">
-							<h3 className="text-black text-sm font-semibold mt-4">{ __( 'WP Admin' ) }</h3>
+							<h3 className="text-frame-text text-sm font-semibold mt-4">{ __( 'WP Admin' ) }</h3>
 						</th>
 					</tr>
 					<SettingsRow label={ __( 'Username' ) }>
@@ -205,14 +206,23 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 							************
 						</CopyTextButton>
 					</SettingsRow>
+					<SettingsRow label={ __( 'Email' ) }>
+						<CopyTextButton
+							copyConfirmation={ __( 'Copied!' ) }
+							label={ `${ email }, ${ __( 'Copy admin email to clipboard' ) }` }
+							text={ email }
+						>
+							{ email }
+						</CopyTextButton>
+					</SettingsRow>
 					<SettingsRow label={ __( 'Admin URL' ) }>
 						<CopyTextButton
-							text={ `${ protocol }://${ domain }/wp-admin` }
-							label={ `${ domain }/wp-admin, ${ __( 'Copy wp-admin url to clipboard' ) }` }
+							text={ `${ protocol }://${ domain }/wp-admin/` }
+							label={ `${ domain }/wp-admin/, ${ __( 'Copy wp-admin url to clipboard' ) }` }
 							copyConfirmation={ __( 'Copied!' ) }
 							data-testid="copy-wp-admin-url"
 						>
-							{ `${ domain }/wp-admin` }
+							{ `${ domain }/wp-admin/` }
 						</CopyTextButton>
 					</SettingsRow>
 				</tbody>

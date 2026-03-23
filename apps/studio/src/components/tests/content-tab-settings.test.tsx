@@ -132,6 +132,7 @@ describe( 'ContentTabSettings', () => {
 			getAllCustomDomains,
 			getXdebugEnabledSite,
 			isCATrusted: vi.fn( () => Promise.resolve( true ) ),
+			executeWPCLiInline: vi.fn( () => Promise.resolve( { stdout: '', stderr: '', exitCode: 0 } ) ),
 		} );
 
 		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
@@ -163,9 +164,9 @@ describe( 'ContentTabSettings', () => {
 		expect( screen.getByText( '7.7.7' ) ).toBeVisible();
 		expect(
 			screen.getByRole( 'button', {
-				name: 'localhost:8881/wp-admin, Copy wp-admin url to clipboard',
+				name: 'localhost:8881/wp-admin/, Copy wp-admin url to clipboard',
 			} )
-		).toHaveTextContent( 'localhost:8881/wp-admin' );
+		).toHaveTextContent( 'localhost:8881/wp-admin/' );
 	} );
 
 	test( 'allows copying the site path', async () => {
@@ -206,12 +207,12 @@ describe( 'ContentTabSettings', () => {
 		expect( copyText ).toHaveBeenCalledWith( 'http://localhost:8881' );
 
 		const wpAdminButton = screen.getByRole( 'button', {
-			name: 'localhost:8881/wp-admin, Copy wp-admin url to clipboard',
+			name: 'localhost:8881/wp-admin/, Copy wp-admin url to clipboard',
 		} );
 		expect( wpAdminButton ).toBeVisible();
 		await user.click( wpAdminButton );
 		expect( copyText ).toHaveBeenCalledTimes( 2 );
-		expect( copyText ).toHaveBeenCalledWith( 'http://localhost:8881/wp-admin' );
+		expect( copyText ).toHaveBeenCalledWith( 'http://localhost:8881/wp-admin/' );
 	} );
 
 	test( 'allows copying the site password', async () => {

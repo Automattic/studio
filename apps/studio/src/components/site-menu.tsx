@@ -5,7 +5,6 @@ import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useState } from 'react';
 import { XDebugIcon } from 'src/components/icons/xdebug-icon';
 import { Tooltip } from 'src/components/tooltip';
-import { useSyncSites } from 'src/hooks/sync-sites';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useDeleteSite } from 'src/hooks/use-delete-site';
 import { useImportExport } from 'src/hooks/use-import-export';
@@ -15,7 +14,9 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
 import { getTerminalName } from 'src/modules/user-settings/lib/terminal';
+import { useRootSelector } from 'src/stores';
 import { useGetUserEditorQuery, useGetUserTerminalQuery } from 'src/stores/installed-apps-api';
+import { syncOperationsSelectors } from 'src/stores/sync';
 
 interface SiteMenuProps {
 	className?: string;
@@ -94,7 +95,7 @@ function ButtonToRun( site: SiteDetails ) {
 					}
 					return running ? stopServer( id ) : startServer( site );
 				} }
-				className="w-7 h-8 rounded-tr rounded-br group grid focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-a8c-blue-50"
+				className="w-7 h-8 rounded-tr rounded-br group grid focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme"
 				aria-label={ sprintf( running ? __( 'stop %s site' ) : __( 'start %s site' ), name ) }
 			>
 				{ /* Circle or Xdebug icon */ }
@@ -114,8 +115,9 @@ function ButtonToRun( site: SiteDetails ) {
 							'w-2.5 h-2.5 transition-opacity group-hover:opacity-0 group-focus-visible:opacity-0 border-[0.5px]',
 							'row-start-1 col-start-1 place-self-center',
 							classCircle,
-							loadingServer[ id ] && 'animate-pulse border-[#00BA3775] bg-[#1ED15A75] duration-100',
-							running && 'border-[#00BA37] bg-[#1ED15A] duration-100',
+							loadingServer[ id ] &&
+								'animate-pulse border-a8c-green-20/50 bg-a8c-green-20/50 duration-100',
+							running && 'border-a8c-green-20 bg-a8c-green-20 duration-100',
 							! running && ! loadingServer[ id ] && 'border-[#ffffff19] bg-[#ffffff26]'
 						) }
 					>
@@ -158,13 +160,12 @@ function SiteItem( {
 		useSiteDetails();
 	const isSelected = site === selectedSite;
 	const { isSiteImporting, isSiteExporting } = useImportExport();
-	const { isSiteIdPulling, isSiteIdPushing } = useSyncSites();
 	const { data: editor } = useGetUserEditorQuery();
 	const { data: terminal } = useGetUserTerminalQuery();
 	const isImporting = isSiteImporting( site.id );
 	const isExporting = isSiteExporting( site.id );
-	const isPulling = isSiteIdPulling( site.id );
-	const isPushing = isSiteIdPushing( site.id );
+	const isPulling = useRootSelector( syncOperationsSelectors.selectIsSiteIdPulling( site.id ) );
+	const isPushing = useRootSelector( syncOperationsSelectors.selectIsSiteIdPushing( site.id ) );
 	const isSyncing = isPulling || isPushing;
 	const isDeleting = isSiteDeleting( site.id );
 	const showSpinner =
@@ -222,7 +223,7 @@ function SiteItem( {
 		>
 			<button
 				type="button"
-				className="p-2 text-xs rounded-tl rounded-bl whitespace-nowrap overflow-hidden text-ellipsis w-full text-left rtl:text-right focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-a8c-blue-50"
+				className="p-2 text-xs rounded-tl rounded-bl whitespace-nowrap overflow-hidden text-ellipsis w-full text-left rtl:text-right focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme"
 				onClick={ () => {
 					setSelectedSiteId( site.id );
 				} }

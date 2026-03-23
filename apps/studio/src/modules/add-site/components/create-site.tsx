@@ -1,10 +1,10 @@
+import { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import {
 	__experimentalVStack as VStack,
 	__experimentalHeading as Heading,
 } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { RefObject } from 'react';
-import { AllowedPHPVersion } from 'src/lib/wordpress-server-types';
 import { CreateSiteForm } from 'src/modules/add-site/components/create-site-form';
 import type { BlueprintPreferredVersions } from '@studio/common/lib/blueprint-validation';
 import type { CreateSiteFormValues, PathValidationResult } from 'src/hooks/use-add-site';
@@ -13,7 +13,7 @@ interface CreateSiteProps {
 	defaultValues?: {
 		siteName?: string;
 		sitePath?: string;
-		phpVersion?: AllowedPHPVersion;
+		phpVersion?: SupportedPHPVersion;
 		wpVersion?: string;
 	};
 	onSelectPath: ( currentPath: string ) => Promise< PathValidationResult | null >;
@@ -22,8 +22,10 @@ interface CreateSiteProps {
 	blueprintPreferredVersions?: BlueprintPreferredVersions;
 	blueprintSuggestedDomain?: string;
 	blueprintSuggestedHttps?: boolean;
+	blueprintRequiresCustomDomain?: boolean;
+	blueprintCredentials?: { adminUsername?: string; adminPassword?: string };
 	originalDefaultVersions?: {
-		phpVersion?: AllowedPHPVersion;
+		phpVersion?: SupportedPHPVersion;
 		wpVersion?: string;
 	};
 	onSubmit: ( values: CreateSiteFormValues ) => void;
@@ -39,6 +41,8 @@ export default function CreateSite( {
 	blueprintPreferredVersions,
 	blueprintSuggestedDomain,
 	blueprintSuggestedHttps,
+	blueprintRequiresCustomDomain,
+	blueprintCredentials,
 	onSubmit,
 	onValidityChange,
 	formRef,
@@ -46,8 +50,8 @@ export default function CreateSite( {
 	const { __ } = useI18n();
 
 	return (
-		<VStack className="w-full max-w-[402px] mx-auto text-black" spacing={ 6 }>
-			<Heading className="text-[32px] text-gray-900 text-center" weight={ 500 }>
+		<VStack className="w-full max-w-[402px] mx-auto text-frame-text" spacing={ 6 }>
+			<Heading className="text-[32px] text-frame-text text-center" weight={ 500 }>
 				{ __( 'Add a site' ) }
 			</Heading>
 
@@ -59,6 +63,8 @@ export default function CreateSite( {
 				blueprintPreferredVersions={ blueprintPreferredVersions }
 				blueprintSuggestedDomain={ blueprintSuggestedDomain }
 				blueprintSuggestedHttps={ blueprintSuggestedHttps }
+				blueprintRequiresCustomDomain={ blueprintRequiresCustomDomain }
+				blueprintCredentials={ blueprintCredentials }
 				onSubmit={ onSubmit }
 				onValidityChange={ onValidityChange }
 				formRef={ formRef }

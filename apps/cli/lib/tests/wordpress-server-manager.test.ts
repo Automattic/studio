@@ -1,15 +1,16 @@
 import { EventEmitter } from 'events';
 import { vi } from 'vitest';
-// Mock the pm2-manager module BEFORE importing wordpress-server-manager
-vi.mock( 'cli/lib/pm2-manager' );
 import { SiteData } from 'cli/lib/appdata';
-import * as pm2Manager from 'cli/lib/pm2-manager';
+import * as daemonClient from 'cli/lib/daemon-client';
+import { DaemonBus } from 'cli/lib/daemon-client';
 import {
 	isServerRunning,
 	startWordPressServer,
 	stopWordPressServer,
 } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
+
+vi.mock( 'cli/lib/daemon-client' );
 
 describe( 'WordPress Server Manager', () => {
 	const mockLogger = {
@@ -32,7 +33,7 @@ describe( 'WordPress Server Manager', () => {
 		pmId: 5,
 		status: 'online',
 		pid: 12345,
-	};
+	} as const;
 
 	let mockBus: EventEmitter;
 
@@ -41,10 +42,11 @@ describe( 'WordPress Server Manager', () => {
 
 		mockBus = new EventEmitter();
 
-		vi.mocked( pm2Manager.isProcessRunning ).mockResolvedValue( undefined );
-		vi.mocked( pm2Manager.startProcess ).mockResolvedValue( mockProcessDescription );
-		vi.mocked( pm2Manager.stopProcess ).mockResolvedValue( undefined );
-		vi.mocked( pm2Manager.getPm2Bus ).mockResolvedValue( mockBus );
+		vi.mocked( daemonClient.isProcessRunning ).mockResolvedValue( undefined );
+		vi.mocked( daemonClient.startProcess ).mockResolvedValue( mockProcessDescription );
+		vi.mocked( daemonClient.stopProcess ).mockResolvedValue( undefined );
+		vi.mocked( daemonClient.getDaemonBus ).mockResolvedValue( mockBus as DaemonBus );
+		vi.mocked( daemonClient.sendMessageToProcess ).mockReturnValue( Promise.resolve() );
 	} );
 
 	afterEach( () => {
@@ -54,17 +56,17 @@ describe( 'WordPress Server Manager', () => {
 	function setupIpcMocks(): void {
 		// Emit "ready" repeatedly to avoid races where the listener is attached after one-shot emission.
 		const readyInterval = setInterval( () => {
-			mockBus.emit( 'process:msg', {
+			mockBus.emit( 'process-message', {
 				process: { name: mockProcessDescription.name, pm_id: mockProcessDescription.pmId },
 				raw: { topic: 'ready' },
 			} );
 		}, 1 );
 
-		vi.mocked( pm2Manager.sendMessageToProcess ).mockImplementation( ( pmId, message ) => {
+		vi.mocked( daemonClient.sendMessageToProcess ).mockImplementation( ( pmId, message ) => {
 			clearInterval( readyInterval );
 			// Send result message only after sendMessageToProcess is called
 			setImmediate( () => {
-				mockBus.emit( 'process:msg', {
+				mockBus.emit( 'process-message', {
 					process: { name: mockProcessDescription.name, pm_id: mockProcessDescription.pmId },
 					raw: {
 						topic: 'result',
@@ -84,20 +86,20 @@ describe( 'WordPress Server Manager', () => {
 				pmId: 5,
 				status: 'online',
 				pid: 12345,
-			};
+			} as const;
 
-			vi.mocked( pm2Manager.isProcessRunning ).mockResolvedValue( mockProcess );
+			vi.mocked( daemonClient.isProcessRunning ).mockResolvedValue( mockProcess );
 
 			const result = await isServerRunning( 'test-site-id' );
 
-			expect( vi.mocked( pm2Manager.isProcessRunning ) ).toHaveBeenCalledWith(
+			expect( vi.mocked( daemonClient.isProcessRunning ) ).toHaveBeenCalledWith(
 				'studio-site-test-site-id'
 			);
 			expect( result ).toEqual( mockProcess );
 		} );
 
 		it( 'should return undefined when process is not running', async () => {
-			vi.mocked( pm2Manager.isProcessRunning ).mockResolvedValue( undefined );
+			vi.mocked( daemonClient.isProcessRunning ).mockResolvedValue( undefined );
 
 			const result = await isServerRunning( 'test-site-id' );
 
@@ -111,100 +113,73 @@ describe( 'WordPress Server Manager', () => {
 
 			const result = await startWordPressServer( mockSiteData, mockLogger );
 
-			expect( vi.mocked( pm2Manager.startProcess ) ).toHaveBeenCalledWith(
+			expect( vi.mocked( daemonClient.startProcess ) ).toHaveBeenCalledWith(
 				'studio-site-test-site-id',
-				expect.stringContaining( 'wordpress-server-child.js' ),
-				expect.objectContaining( {
-					STUDIO_WORDPRESS_SERVER_CONFIG: expect.any( String ),
-				} )
-			);
-
-			const callArgs = vi.mocked( pm2Manager.startProcess ).mock.calls[ 0 ];
-			const configJson = JSON.parse( callArgs[ 2 ]!.STUDIO_WORDPRESS_SERVER_CONFIG );
-			expect( configJson ).toEqual(
-				expect.objectContaining( {
-					siteId: 'test-site-id',
-					sitePath: '/test/site/path',
-					port: 8881,
-					phpVersion: '8.0',
-					siteTitle: 'Test Site',
-					adminPassword: 'password123',
-				} )
+				expect.stringContaining( 'wordpress-server-child.js' )
 			);
 
 			expect( result ).toEqual( mockProcessDescription );
 		} );
 
-		it( 'should start WordPress server with custom domain (HTTP)', async () => {
-			setupIpcMocks();
-
-			await startWordPressServer(
-				{
-					...mockSiteData,
-					customDomain: 'testsite.local',
-				},
-				mockLogger
-			);
-
-			const callArgs = vi.mocked( pm2Manager.startProcess ).mock.calls[ 0 ];
-			const configJson = JSON.parse( callArgs[ 2 ]!.STUDIO_WORDPRESS_SERVER_CONFIG );
-			expect( configJson.absoluteUrl ).toBe( 'http://testsite.local' );
-		} );
-
-		it( 'should start WordPress server with custom domain (HTTPS)', async () => {
-			setupIpcMocks();
-
-			await startWordPressServer(
-				{
-					...mockSiteData,
-					customDomain: 'testsite.local',
-					enableHttps: true,
-				},
-				mockLogger
-			);
-
-			const callArgs = vi.mocked( pm2Manager.startProcess ).mock.calls[ 0 ];
-			const configJson = JSON.parse( callArgs[ 2 ]!.STUDIO_WORDPRESS_SERVER_CONFIG );
-			expect( configJson.absoluteUrl ).toBe( 'https://testsite.local' );
-		} );
-
-		it( 'should handle PM2 start process failure', async () => {
-			vi.mocked( pm2Manager.startProcess ).mockRejectedValue(
-				new Error( 'Failed to start PM2 process' )
+		it( 'should handle start process failure', async () => {
+			vi.mocked( daemonClient.startProcess ).mockRejectedValue(
+				new Error( 'Failed to start process' )
 			);
 
 			await expect( startWordPressServer( mockSiteData, mockLogger ) ).rejects.toThrow(
-				'Failed to start PM2 process'
+				'Failed to start process'
 			);
-		} );
-
-		it( 'should send correct config via environment variable', async () => {
-			setupIpcMocks();
-
-			const siteWithOptions: SiteData = {
-				...mockSiteData,
-				isWpAutoUpdating: false,
-			};
-
-			await startWordPressServer( siteWithOptions, mockLogger );
-
-			const callArgs = vi.mocked( pm2Manager.startProcess ).mock.calls[ 0 ];
-			const configJson = JSON.parse( callArgs[ 2 ]!.STUDIO_WORDPRESS_SERVER_CONFIG );
-			expect( configJson.isWpAutoUpdating ).toBe( false );
 		} );
 	} );
 
 	describe( 'stopWordPressServer', () => {
 		it( 'should stop WordPress server with correct process name', async () => {
-			await stopWordPressServer( 'test-site-id' );
+			vi.mocked( daemonClient.isProcessRunning ).mockResolvedValue( {
+				name: 'studio-site-test-site-id',
+				pmId: 1,
+				status: 'online',
+				pid: 1234,
+			} );
 
-			expect( vi.mocked( pm2Manager.stopProcess ) ).toHaveBeenCalledWith(
-				'studio-site-test-site-id'
-			);
+			vi.mocked( daemonClient.sendMessageToProcess ).mockImplementation( ( processId, message ) => {
+				setImmediate( () => {
+					mockBus.emit( 'process-message', {
+						process: { name: 'studio-site-test-site-id', pm_id: 1 },
+						raw: {
+							topic: 'result',
+							originalMessageId: message.messageId,
+						},
+					} );
+				} );
+
+				return Promise.resolve();
+			} );
+
+			const promise = stopWordPressServer( 'test-site-id' );
+
+			setTimeout( () => {
+				mockBus.emit( 'process-event', {
+					process: { name: 'studio-site-test-site-id', pm_id: 1 },
+					event: 'exit',
+				} );
+			}, 500 );
+
+			await promise;
+
+			expect( vi.mocked( daemonClient.stopProcess ) ).not.toHaveBeenCalled();
 		} );
 
-		it( 'should propagate stopProcess errors', async () => {
-			vi.mocked( pm2Manager.stopProcess ).mockRejectedValue(
+		it( 'should propagate errors from fallback `stopProcess` call', async () => {
+			vi.mocked( daemonClient.isProcessRunning ).mockResolvedValue( {
+				name: 'studio-site-test-site-id',
+				pmId: 1,
+				status: 'online',
+				pid: 1234,
+			} );
+			vi.mocked( daemonClient.sendMessageToProcess ).mockRejectedValue(
+				new Error( 'Failed to send stop message' )
+			);
+			vi.mocked( daemonClient.stopProcess ).mockRejectedValue(
 				new Error( 'Failed to stop process' )
 			);
 

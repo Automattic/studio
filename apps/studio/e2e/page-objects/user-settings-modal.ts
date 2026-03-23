@@ -7,16 +7,12 @@ export default class UserSettingsModal {
 		return this.page.getByRole( 'dialog', { name: 'Settings' } );
 	}
 
-	get preferencesTab() {
-		return this.locator.getByRole( 'tab', { name: 'Preferences' } );
+	get generalTab() {
+		return this.locator.getByRole( 'tab', { name: 'General' } );
 	}
 
 	get accountTab() {
 		return this.locator.getByRole( 'tab', { name: 'Account' } );
-	}
-
-	get usageTab() {
-		return this.locator.getByRole( 'tab', { name: 'Usage' } );
 	}
 
 	get languageSelect() {
@@ -33,6 +29,20 @@ export default class UserSettingsModal {
 
 	get closeButton() {
 		return this.locator.getByRole( 'button', { name: 'Close' } );
+	}
+
+	get appearanceRadioGroup() {
+		return this.locator.getByRole( 'radiogroup', { name: 'Appearance' } );
+	}
+
+	getAppearanceOption( name: string ) {
+		return this.appearanceRadioGroup.getByRole( 'radio', { name } );
+	}
+
+	async selectColorScheme( scheme: 'System' | 'Light' | 'Dark' ) {
+		const option = this.getAppearanceOption( scheme );
+		await option.click();
+		await expect( option ).toHaveAttribute( 'aria-checked', 'true' );
 	}
 
 	async selectLanguage( language: string ) {

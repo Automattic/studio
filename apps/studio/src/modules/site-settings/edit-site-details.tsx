@@ -1,10 +1,16 @@
-import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
+import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import {
 	generateCustomDomainFromSiteName,
 	getDomainNameValidationError,
 } from '@studio/common/lib/domains';
+import {
+	decodePassword,
+	encodePassword,
+	validateAdminEmail,
+	validateAdminUsername,
+} from '@studio/common/lib/passwords';
 import { siteNeedsRestart } from '@studio/common/lib/site-needs-restart';
-import { SupportedPHPVersions } from '@studio/common/types/php-versions';
+import { SupportedPHPVersion, SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { SelectControl, TabPanel } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { sprintf } from '@wordpress/i18n';
@@ -14,16 +20,14 @@ import Button from 'src/components/button';
 import { ErrorInformation } from 'src/components/error-information';
 import { LearnMoreLink, LearnHowLink } from 'src/components/learn-more';
 import Modal from 'src/components/modal';
+import PasswordControl from 'src/components/password-control';
 import TextControlComponent from 'src/components/text-control';
 import { Tooltip } from 'src/components/tooltip';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { useRootSelector } from 'src/stores';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
-import { selectDefaultWordPressVersion } from 'src/stores/provider-constants-slice';
-import type { AllowedPHPVersion } from 'src/lib/wordpress-server-types';
 
 type EditSiteDetailsProps = {
 	currentWpVersion: string;
@@ -33,7 +37,6 @@ type EditSiteDetailsProps = {
 const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) => {
 	const { __ } = useI18n();
 	const { updateSite, selectedSite, isEditModalOpen, setIsEditModalOpen } = useSiteDetails();
-	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
 	const [ errorUpdatingWpVersion, setErrorUpdatingWpVersion ] = useState< string | null >( null );
 	const [ isEditingSite, setIsEditingSite ] = useState( false );
 	const [ needsRestart, setNeedsRestart ] = useState( false );
@@ -43,6 +46,34 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		selectedSite?.enableDebugDisplay ?? false
 	);
 	const [ xdebugEnabledSite, setXdebugEnabledSite ] = useState< SiteDetails | null >( null );
+	const [ adminUsername, setAdminUsername ] = useState( selectedSite?.adminUsername ?? 'admin' );
+	const [ adminPassword, setAdminPassword ] = useState(
+		() => decodePassword( selectedSite?.adminPassword ?? '' ) || 'password'
+	);
+	const [ adminEmail, setAdminEmail ] = useState(
+		selectedSite?.adminEmail || 'admin@localhost.com'
+	);
+
+	useEffect( () => {
+		if ( selectedSite?.adminEmail || ! selectedSite?.id ) {
+			return;
+		}
+		const username = selectedSite?.adminUsername ?? 'admin';
+		getIpcApi()
+			.executeWPCLiInline( {
+				siteId: selectedSite.id,
+				args: `user get ${ username } --field=user_email`,
+				skipPluginsAndThemes: true,
+			} )
+			.then( ( { stdout, stderr } ) => {
+				if ( ! stderr && stdout.trim() ) {
+					setAdminEmail( stdout.trim() );
+				}
+			} )
+			.catch( () => {
+				// Keep the default value
+			} );
+	}, [ selectedSite?.id, selectedSite?.adminEmail, selectedSite?.adminUsername ] );
 
 	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
 	const closeModal = useCallback( () => {
@@ -52,16 +83,16 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		setIsEditModalOpen( false );
 	}, [ isEditingSite, setIsEditModalOpen ] );
 	const [ siteName, setSiteName ] = useState( selectedSite?.name ?? '' );
-	const [ selectedPhpVersion, setSelectedPhpVersion ] = useState< AllowedPHPVersion >(
-		( selectedSite?.phpVersion as AllowedPHPVersion ) ?? DEFAULT_PHP_VERSION
+	const [ selectedPhpVersion, setSelectedPhpVersion ] = useState< SupportedPHPVersion >(
+		( selectedSite?.phpVersion as SupportedPHPVersion ) ?? DEFAULT_PHP_VERSION
 	);
 	const getEffectiveWpVersion = useCallback(
 		() =>
 			// undefined means that this site was created before the isWpAutoUpdating option was introduced to Studio
 			[ undefined, true ].includes( selectedSite?.isWpAutoUpdating )
-				? defaultWordPressVersion
+				? DEFAULT_WORDPRESS_VERSION
 				: currentWpVersion,
-		[ selectedSite, currentWpVersion, defaultWordPressVersion ]
+		[ selectedSite, currentWpVersion ]
 	);
 	const [ selectedWpVersion, setSelectedWpVersion ] = useState( () => getEffectiveWpVersion() );
 	const [ useCustomDomain, setUseCustomDomain ] = useState( Boolean( selectedSite?.customDomain ) );
@@ -97,6 +128,11 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 
 	const generatedDomainName = generateCustomDomainFromSiteName( siteName );
 	const usedCustomDomain = ! useCustomDomain ? customDomain : undefined;
+	const adminUsernameError = validateAdminUsername( adminUsername );
+	const adminPasswordError = ! adminPassword.trim() ? __( 'Admin password is required' ) : '';
+	const adminEmailError = validateAdminEmail( adminEmail );
+	const isUsernameChanged =
+		! adminUsernameError && adminUsername !== ( selectedSite?.adminUsername ?? 'admin' );
 	const isFormUnchanged =
 		!! selectedSite &&
 		selectedSite.name === siteName &&
@@ -106,17 +142,25 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		usedCustomDomain === customDomain &&
 		!! selectedSite.enableHttps === ( !! usedCustomDomain && enableHttps ) &&
 		!! selectedSite.enableXdebug === enableXdebug &&
+		( selectedSite.adminUsername ?? 'admin' ) === adminUsername &&
+		( decodePassword( selectedSite.adminPassword ?? '' ) || 'password' ) === adminPassword &&
+		( selectedSite.adminEmail || 'admin@localhost.com' ) === adminEmail &&
 		!! selectedSite.enableDebugLog === enableDebugLog &&
 		!! selectedSite.enableDebugDisplay === enableDebugDisplay;
 	const hasValidationErrors =
-		! selectedSite || ! siteName.trim() || ( useCustomDomain && !! customDomainError );
+		! selectedSite ||
+		! siteName.trim() ||
+		( useCustomDomain && !! customDomainError ) ||
+		!! adminUsernameError ||
+		!! adminPasswordError ||
+		!! adminEmailError;
 
 	const resetFormState = useCallback( () => {
 		if ( ! selectedSite ) {
 			return;
 		}
 		setSiteName( selectedSite.name );
-		setSelectedPhpVersion( selectedSite.phpVersion as AllowedPHPVersion );
+		setSelectedPhpVersion( selectedSite.phpVersion as SupportedPHPVersion );
 		setSelectedWpVersion( getEffectiveWpVersion() );
 		setUseCustomDomain( Boolean( selectedSite.customDomain ) );
 		setCustomDomain( selectedSite.customDomain ?? null );
@@ -124,6 +168,9 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		setErrorUpdatingWpVersion( null );
 		setEnableHttps( selectedSite.enableHttps ?? false );
 		setEnableXdebug( selectedSite.enableXdebug ?? false );
+		setAdminUsername( selectedSite.adminUsername ?? 'admin' );
+		setAdminPassword( decodePassword( selectedSite.adminPassword ?? '' ) || 'password' );
+		setAdminEmail( selectedSite.adminEmail || 'admin@localhost.com' );
 		setEnableDebugLog( selectedSite.enableDebugLog ?? false );
 		setEnableDebugDisplay( selectedSite.enableDebugDisplay ?? false );
 	}, [ selectedSite, getEffectiveWpVersion ] );
@@ -147,6 +194,10 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 			( useCustomDomain && customDomain !== selectedSite.customDomain );
 		const hasHttpsChanged =
 			useCustomDomain && enableHttps !== ( selectedSite.enableHttps ?? false );
+		const hasCredentialsChanged =
+			adminUsername !== ( selectedSite.adminUsername ?? 'admin' ) ||
+			adminPassword !== ( decodePassword( selectedSite.adminPassword ?? '' ) || 'password' ) ||
+			adminEmail !== ( selectedSite.adminEmail || 'admin@localhost.com' );
 
 		const needsRestart =
 			selectedSite.running &&
@@ -156,6 +207,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 				phpChanged: hasPhpVersionChanged,
 				wpChanged: hasWpVersionChanged,
 				xdebugChanged: hasXdebugChanged,
+				credentialsChanged: hasCredentialsChanged,
 				debugLogChanged: hasDebugLogChanged,
 				debugDisplayChanged: hasDebugDisplayChanged,
 			} );
@@ -173,10 +225,14 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 					...selectedSite,
 					name: siteName,
 					phpVersion: selectedPhpVersion,
-					isWpAutoUpdating: selectedWpVersion === defaultWordPressVersion,
+					isWpAutoUpdating: selectedWpVersion === DEFAULT_WORDPRESS_VERSION,
 					customDomain: usedCustomDomain,
 					enableHttps: !! usedCustomDomain && enableHttps,
 					enableXdebug,
+					adminUsername,
+					// Encode for IPC storage; IPC handler decodes back to plain text for the CLI set command
+					adminPassword: encodePassword( adminPassword ),
+					adminEmail,
 					enableDebugLog,
 					enableDebugDisplay,
 				},
@@ -253,7 +309,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 													className="flex flex-1 flex-col gap-1.5 leading-4"
 												>
 													<span className="font-semibold">{ __( 'PHP version' ) }</span>
-													<SelectControl< string >
+													<SelectControl< SupportedPHPVersion >
 														id="php-version-select"
 														disabled={ isEditingSite }
 														value={ selectedPhpVersion }
@@ -261,9 +317,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 															label: version,
 															value: version,
 														} ) ) }
-														onChange={ ( version ) =>
-															setSelectedPhpVersion( version as AllowedPHPVersion )
-														}
+														onChange={ ( version ) => setSelectedPhpVersion( version ) }
 														__next40pxDefaultSize
 														__nextHasNoMarginBottom
 													/>
@@ -322,7 +376,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 																{ customDomainError }
 															</ErrorInformation>
 														) }
-														<div className="text-a8c-gray-50 text-xs mt-1">
+														<div className="text-frame-text-secondary text-xs mt-1">
 															{ __(
 																'Your system password will be required to set up the domain.'
 															) }
@@ -344,13 +398,74 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 												) }
 
 												{ ! isCertificateTrusted && useCustomDomain && (
-													<div className="text-a8c-gray-50 text-xs mt-2">
+													<div className="text-frame-text-secondary text-xs mt-2">
 														{ __(
 															'You need to manually add the Studio certificate authority to your keychain and trust it.'
 														) }{ ' ' }
 														<LearnHowLink docsLinksKey="docsSslInStudio" />
 													</div>
 												) }
+											</div>
+
+											<div className="flex flex-col gap-2 mt-4">
+												<span className="font-semibold">{ __( 'Admin credentials' ) }</span>
+												<div className="grid grid-cols-2 gap-4">
+													<div className="flex flex-col gap-1.5 leading-4">
+														<label className="text-sm" htmlFor="edit-admin-username">
+															{ __( 'Username' ) }
+														</label>
+														<TextControlComponent
+															id="edit-admin-username"
+															disabled={ isEditingSite }
+															value={ adminUsername }
+															onChange={ setAdminUsername }
+															className={ adminUsernameError ? '[&_input]:!border-red-500' : '' }
+														/>
+													</div>
+													<div className="flex flex-col gap-1.5 leading-4">
+														<label className="text-sm" htmlFor="edit-admin-password">
+															{ __( 'Password' ) }
+														</label>
+														<PasswordControl
+															id="edit-admin-password"
+															disabled={ isEditingSite }
+															value={ adminPassword }
+															onChange={ setAdminPassword }
+															className={ adminPasswordError ? '[&_input]:!border-red-500' : '' }
+														/>
+													</div>
+												</div>
+												{ ( adminUsernameError || adminPasswordError ) && (
+													<span className="text-red-500 text-xs">
+														{ adminUsernameError || adminPasswordError }
+													</span>
+												) }
+												{ isUsernameChanged && (
+													<span className="text-frame-text-secondary text-xs">
+														{ __(
+															'A new admin user will be created. WordPress does not support renaming usernames.'
+														) }
+													</span>
+												) }
+											</div>
+
+											<div className="flex flex-col gap-1.5 leading-4 mt-4">
+												<label className="text-sm" htmlFor="edit-admin-email">
+													{ __( 'Email' ) }
+												</label>
+												<TextControlComponent
+													id="edit-admin-email"
+													disabled={ isEditingSite }
+													value={ adminEmail }
+													onChange={ setAdminEmail }
+													placeholder="admin@localhost.com"
+													className={ adminEmailError ? '[&_input]:!border-red-500' : '' }
+												/>
+												<div className="h-4">
+													{ adminEmailError && (
+														<span className="text-red-500 text-xs">{ adminEmailError }</span>
+													) }
+												</div>
 											</div>
 										</>
 									) }
@@ -405,7 +520,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 																{ __( 'Enable Xdebug' ) }
 															</label>
 														</div>
-														<div className="text-a8c-gray-50 text-xs mt-2">
+														<div className="text-frame-text-secondary text-xs mt-2">
 															{ createInterpolateElement(
 																__(
 																	'Enable PHP debugging with Xdebug. Only one site can have Xdebug enabled at a time. Note that Xdebug may slow down site performance. <learn_more_link />'
@@ -440,7 +555,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 														{ __( 'Enable debug log' ) }
 													</label>
 												</div>
-												<div className="text-a8c-gray-50 text-xs mt-1">
+												<div className="text-frame-text-secondary text-xs mt-1">
 													{ __(
 														"Log PHP errors and warnings to a debug.log file in your site's wp-content directory by setting the WP_DEBUG_LOG constant."
 													) }
@@ -468,7 +583,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 														{ __( 'Show errors in browser' ) }
 													</label>
 												</div>
-												<div className="text-a8c-gray-50 text-xs mt-1">
+												<div className="text-frame-text-secondary text-xs mt-1">
 													{ __(
 														'Display PHP errors and warnings directly in the browser by setting the WP_DEBUG_DISPLAY constant.'
 													) }

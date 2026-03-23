@@ -114,7 +114,7 @@ function SettingsButton() {
 	return (
 		<Tooltip text={ __( 'Settings' ) } placement="bottom-end">
 			<Button
-				onClick={ () => getIpcApi().showUserSettings( 'preferences' ) }
+				onClick={ () => getIpcApi().showUserSettings( 'general' ) }
 				aria-label={ __( 'Open settings' ) }
 				variant="icon"
 				className="!p-1.5 !rounded-lg"

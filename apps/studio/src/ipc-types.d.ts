@@ -16,7 +16,9 @@ interface StoppedSiteDetails {
 	isWpAutoUpdating?: boolean;
 	customDomain?: string;
 	enableHttps?: boolean;
+	adminUsername?: string;
 	adminPassword?: string;
+	adminEmail?: string;
 	tlsKey?: string;
 	tlsCert?: string;
 	themeDetails?: {
@@ -86,6 +88,7 @@ type IpcApi = {
 
 interface FeatureFlags {
 	enableBlueprints: boolean;
+	enableAgentSuite: boolean;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type

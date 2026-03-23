@@ -122,7 +122,7 @@ export function AddSiteBlueprintSelector( {
 				render: ( { item }: { item: DataViewBlueprint } ) => (
 					<div
 						className={ cx(
-							'w-full bg-gray-50 h-32 rounded-t overflow-hidden',
+							'w-full bg-frame-surface h-32 rounded-t overflow-hidden',
 							'[@media(min-height:680px)]:h-[175px]',
 							item.isSelected && 'is-selected'
 						) }
@@ -145,12 +145,12 @@ export function AddSiteBlueprintSelector( {
 						style={ { alignItems: 'baseline', paddingTop: '24px', paddingBottom: '10px' } }
 						wrap
 					>
-						<Heading level={ 3 } className="text-[13px] text-a8c-gray-800" weight={ 500 }>
+						<Heading level={ 3 } className="text-[13px] text-frame-text" weight={ 500 }>
 							{ item.title }
 						</Heading>
 						<StudioButton
 							variant="link"
-							className="!p-0 text-[12px] [&.is-link]:text-a8c-gray-30 [&.is-link]:hover:text-a8c-blue-50 whitespace-nowrap"
+							className="!p-0 text-[12px] [&.is-link]:text-frame-text-secondary [&.is-link]:hover:text-frame-theme whitespace-nowrap"
 							onClick={ ( e: React.MouseEvent< HTMLButtonElement > ) =>
 								handlePreviewClick( e, item )
 							}
@@ -168,7 +168,7 @@ export function AddSiteBlueprintSelector( {
 				render: ( { item }: { item: DataViewBlueprint } ) => (
 					<div className="px-5 pb-5" onClick={ () => handleBlueprintClick( item ) }>
 						<Text
-							className="text-[13px] text-a8c-gray-700 h-[80px] leading-5"
+							className="text-[13px] text-frame-text-secondary h-[80px] leading-5"
 							weight={ 400 }
 							truncate
 							numberOfLines={ 4 }
@@ -270,7 +270,7 @@ export function AddSiteBlueprintSelector( {
 	if ( isLoading ) {
 		return (
 			<VStack className="w-full max-w-6xl mx-auto">
-				<Heading className="text-center text-[32px] text-gray-900 mb-[28px]" weight={ 500 }>
+				<Heading className="text-center text-[32px] text-frame-text mb-[28px]" weight={ 500 }>
 					{ __( 'Start from a Blueprint' ) }
 				</Heading>
 				<Text>{ __( 'Loading Blueprints...' ) }</Text>
@@ -280,10 +280,10 @@ export function AddSiteBlueprintSelector( {
 
 	return (
 		<VStack className="w-full max-w-4xl mx-auto px-0.5" spacing={ 0 }>
-			<Heading className="text-center text-[32px] text-gray-900 mb-1" weight={ 500 }>
+			<Heading className="text-center text-[32px] text-frame-text mb-1" weight={ 500 }>
 				{ __( 'Start from a Blueprint' ) }
 			</Heading>
-			<Text className="text-center text-a8c-gray-700 mb-4">
+			<Text className="text-center text-frame-text-secondary mb-4">
 				{ createInterpolateElement(
 					__( 'Create a new site from a featured Blueprint on your own. <learn_more_link />' ),
 					{
@@ -314,7 +314,7 @@ export function AddSiteBlueprintSelector( {
 				{ selectedFileName ? (
 					<HStack className="flex-1 items-center justify-end gap-1">
 						<Text
-							className="text-sm font-medium text-gray-900 truncate max-w-48"
+							className="text-sm font-medium text-frame-text truncate max-w-48"
 							title={ selectedFileName }
 						>
 							{ selectedFileName }

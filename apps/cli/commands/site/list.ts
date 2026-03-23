@@ -1,8 +1,8 @@
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import Table from 'cli-table3';
+import CliTable3 from 'cli-table3';
 import { getSiteUrl, readAppdata, type SiteData } from 'cli/lib/appdata';
-import { connect, disconnect } from 'cli/lib/pm2-manager';
+import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import { getColumnWidths, getPrettyPath } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
@@ -40,7 +40,7 @@ function displaySiteList( sitesData: SiteListEntry[], format: 'table' | 'json' )
 	if ( format === 'table' ) {
 		const colWidths = getColumnWidths( [ 0.1, 0.2, 0.3, 0.4 ] );
 
-		const table = new Table( {
+		const table = new CliTable3( {
 			head: [ __( 'Status' ), __( 'Name' ), __( 'Path' ), __( 'URL' ) ],
 			wordWrap: true,
 			wrapOnWordBoundary: false,
@@ -85,13 +85,13 @@ export async function runCommand( format: 'table' | 'json' ): Promise< void > {
 		logger.reportSuccess( sitesMessage );
 
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Connecting to process daemon…' ) );
-		await connect();
+		await connectToDaemon();
 		logger.reportSuccess( __( 'Connected to process daemon' ) );
 
 		const sitesData = await getSiteListData( appdata.sites );
 		displaySiteList( sitesData, format );
 	} finally {
-		await disconnect();
+		await disconnectFromDaemon();
 	}
 }
 

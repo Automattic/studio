@@ -12,6 +12,12 @@ export const FEATURE_FLAGS: Record< keyof FeatureFlags, FeatureFlagDefinition > 
 		flag: 'enableBlueprints',
 		default: true,
 	},
+	enableAgentSuite: {
+		label: 'Enable Agent Suite',
+		env: 'ENABLE_AGENT_SUITE',
+		flag: 'enableAgentSuite',
+		default: false,
+	},
 } as const;
 
 export function getFeatureFlagFromEnv( flag: keyof FeatureFlags ): boolean {

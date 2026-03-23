@@ -18,8 +18,11 @@ import { CreateButton } from 'src/modules/sync/components/create-button';
 import { EnvironmentBadge } from 'src/modules/sync/components/environment-badge';
 import { NoWpcomSitesModal } from 'src/modules/sync/components/no-wpcom-sites-modal';
 import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
-import { useI18nLocale } from 'src/stores';
-import { useGetConnectedSitesForLocalSiteQuery } from 'src/stores/sync/connected-sites';
+import { useI18nLocale, useRootSelector } from 'src/stores';
+import {
+	connectedSitesSelectors,
+	useGetConnectedSitesForLocalSiteQuery,
+} from 'src/stores/sync/connected-sites';
 import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
 import type { SyncSite, SyncModalMode } from 'src/modules/sync/types';
 
@@ -104,7 +107,7 @@ export function SyncSitesModalSelector( {
 				/>
 
 				{ isOffline && (
-					<div className="absolute inset-0 bg-white/80 z-10 flex items-center justify-center">
+					<div className="absolute inset-0 bg-frame/80 z-10 flex items-center justify-center">
 						<SyncSitesOfflineView mode={ mode } />
 					</div>
 				) }
@@ -123,9 +126,9 @@ function SearchSites( {
 	const { __ } = useI18n();
 	const locale = useI18nLocale();
 	return (
-		<div className="flex flex-col px-8 pb-6 border-b border-a8c-gray-5 shrink-0">
+		<div className="flex flex-col px-8 pb-6 border-b border-frame-border shrink-0">
 			<SearchControl
-				className="w-full mt-0.5 mb-2 text-black"
+				className="w-full mt-0.5 mb-2 text-frame-text"
 				placeholder={ __( 'Search sites' ) }
 				onChange={ ( value ) => {
 					setSearchQuery( value );
@@ -134,7 +137,7 @@ function SearchSites( {
 				autoFocus
 				__nextHasNoMarginBottom={ true }
 			/>
-			<p className="a8c-helper-text text-gray-500">
+			<p className="a8c-helper-text text-frame-text-secondary">
 				{ __( "Can't find your site?" ) }{ ' ' }
 				<Button
 					variant="link"
@@ -248,6 +251,7 @@ function SiteItem( {
 	onClick: () => void;
 } ) {
 	const { __ } = useI18n();
+	const isSiteLoading = useRootSelector( connectedSitesSelectors.selectIsLoadingSiteId( site.id ) );
 	const isAlreadyConnected = site.syncSupport === 'already-connected';
 	const isSyncable = site.syncSupport === 'syncable';
 	const isNeedsTransfer = site.syncSupport === 'needs-transfer';
@@ -262,11 +266,11 @@ function SiteItem( {
 		<div
 			className={ cx(
 				'flex py-3 px-8 items-center border-b justify-between gap-4',
-				isSelected && 'bg-a8c-blue-50 text-white border-a8c-blue-50',
-				! isSelected && 'text-black border-a8c-gray-0',
-				! isSelected && isSyncable && 'hover:bg-a8c-blue-5',
+				isSelected && 'bg-frame-theme text-white border-frame-theme',
+				! isSelected && 'text-frame-text border-frame-border',
+				! isSelected && isSyncable && 'hover:bg-frame-surface',
 				isSyncable
-					? 'cursor-pointer focus:outline-none focus:ring-1 focus:ring-a8c-blue-50 focus:relative focus:z-10'
+					? 'cursor-pointer focus:outline-none focus:ring-1 focus:ring-frame-theme focus:relative focus:z-10'
 					: 'cursor-default'
 			) }
 			role="button"
@@ -287,48 +291,62 @@ function SiteItem( {
 			} }
 		>
 			<div className="flex flex-col gap-0.5 min-w-0">
-				<div
-					className={ cx(
-						'a8c-body truncate flex items-center',
-						! isSyncable && 'text-a8c-gray-30'
-					) }
-				>
-					{ isPressable && (
-						<span className="me-1.5">
-							<PressableLogo size={ 12 } />
-						</span>
-					) }
-					{ ! isPressable && (
-						<span className="me-1.5">
-							<WordPressLogoCircle
-								size={ 12 }
-								{ ...( isSelected && { color: '#fff' } ) }
-								{ ...( isDisabled && { color: '#8c8f94' } ) }
-							/>
-						</span>
-					) }
-					{ site.name }
-				</div>
-				<Button
-					variant="link"
-					className={ cx(
-						'a8c-body-small truncate !p-0 w-full !justify-start',
-						isSelected
-							? '!text-inherit hover:!text-a8c-blue-10'
-							: '!text-a8c-gray-30 hover:!text-a8c-blue-50'
-					) }
-					onClick={ () => getIpcApi().openURL( site.url ) }
-					onKeyDown={ ( e: React.KeyboardEvent ) => {
-						if ( e.code === 'Space' || e.code === 'Enter' ) {
-							e.preventDefault();
-							e.stopPropagation();
-							getIpcApi().openURL( site.url );
-						}
-					} }
-				>
-					<div className="truncate">{ site.url.replace( /^https?:\/\//, '' ) }</div>
-					<ArrowIcon />
-				</Button>
+				{ isSiteLoading ? (
+					<div className="flex items-center gap-1.5">
+						<div className="w-3 h-3 rounded-full skeleton-bg" aria-label={ __( 'Loading' ) } />
+						<div
+							className="h-4 w-48 rounded skeleton-bg"
+							aria-label={ __( 'Loading site name' ) }
+						/>
+					</div>
+				) : (
+					<div
+						className={ cx(
+							'a8c-body truncate flex items-center',
+							isSelected && '!text-white',
+							! isSyncable && 'text-frame-text-secondary'
+						) }
+					>
+						{ isPressable ? (
+							<span className="me-1.5">
+								<PressableLogo size={ 12 } />
+							</span>
+						) : (
+							<span className="me-1.5">
+								<WordPressLogoCircle
+									size={ 12 }
+									{ ...( isSelected && { color: '#fff' } ) }
+									{ ...( isDisabled && { color: 'var(--color-frame-text-secondary)' } ) }
+								/>
+							</span>
+						) }
+						{ site.name }
+					</div>
+				) }
+				{ isSiteLoading ? (
+					<div className="h-3 w-36 rounded skeleton-bg" aria-label={ __( 'Loading site URL' ) } />
+				) : (
+					<Button
+						variant="link"
+						className={ cx(
+							'a8c-body-small truncate !p-0 w-full !justify-start',
+							isSelected
+								? '!text-inherit hover:!text-white/70'
+								: '!text-frame-text-secondary hover:!text-frame-theme'
+						) }
+						onClick={ () => getIpcApi().openURL( site.url ) }
+						onKeyDown={ ( e: React.KeyboardEvent ) => {
+							if ( e.code === 'Space' || e.code === 'Enter' ) {
+								e.preventDefault();
+								e.stopPropagation();
+								getIpcApi().openURL( site.url );
+							}
+						} }
+					>
+						<div className="truncate">{ site.url.replace( /^https?:\/\//, '' ) }</div>
+						<ArrowIcon />
+					</Button>
+				) }
 			</div>
 			{ isSyncable && (
 				<div className="flex gap-2">
@@ -336,12 +354,12 @@ function SiteItem( {
 				</div>
 			) }
 			{ isAlreadyConnected && (
-				<div className="a8c-body-small text-a8c-gray-30 shrink-0">
+				<div className="a8c-body-small text-frame-text-secondary shrink-0">
 					{ __( 'Already connected' ) }
 				</div>
 			) }
 			{ needsUpgrade && (
-				<div className="a8c-body-small text-a8c-gray-30 shrink-0 text-right">
+				<div className="a8c-body-small text-frame-text-secondary shrink-0 text-right">
 					<Tooltip
 						text={ __( 'Sync support is available only with Business plan and above' ) }
 						placement="bottom"
@@ -357,7 +375,7 @@ function SiteItem( {
 				</div>
 			) }
 			{ isNeedsTransfer && (
-				<div className="a8c-body-small text-a8c-gray-30 shrink-0 text-right">
+				<div className="a8c-body-small text-frame-text-secondary shrink-0 text-right">
 					<Button
 						variant="link"
 						onClick={ () =>
@@ -370,12 +388,12 @@ function SiteItem( {
 				</div>
 			) }
 			{ isMissingPermissions && (
-				<div className="a8c-body-small text-a8c-gray-30 shrink-0 text-right">
+				<div className="a8c-body-small text-frame-text-secondary shrink-0 text-right">
 					{ __( 'Missing permissions' ) }
 				</div>
 			) }
 			{ isDeleted && (
-				<div className="a8c-body-small text-a8c-gray-30 shrink-0 text-right">
+				<div className="a8c-body-small text-frame-text-secondary shrink-0 text-right">
 					{ __( 'Deleted' ) }
 				</div>
 			) }
@@ -384,7 +402,7 @@ function SiteItem( {
 					text={ __( 'Self-hosted (e.g. jurassic.ninja) sites are not supported' ) }
 					placement="bottom"
 				>
-					<div className="a8c-body-small text-a8c-gray-30 shrink-0">
+					<div className="a8c-body-small text-frame-text-secondary shrink-0">
 						{ __( 'Unsupported site' ) }
 					</div>
 				</Tooltip>
@@ -426,12 +444,12 @@ function Footer( {
 	}, [ disabled ] );
 
 	return (
-		<div className="flex px-8 py-4 border-t border-a8c-gray-5 justify-between items-center">
+		<div className="flex px-8 py-4 border-t border-frame-border justify-between items-center">
 			<CreateButton
 				variant="link"
 				selectedSite={ selectedSite }
 				text={ __( 'Create a new WordPress.com site' ) }
-				className="!text-a8c-blue-50 !shadow-a8c-blue-50"
+				className="!text-frame-theme !shadow-frame-theme"
 			/>
 			<div className="flex gap-4">
 				<Button variant="link" onClick={ onRequestClose }>
@@ -460,8 +478,8 @@ const SyncSitesOfflineView = ( { mode = 'connect' }: { mode?: SyncModalMode } ) 
 	};
 
 	return (
-		<div className="flex items-center justify-center h-12 px-2 pt-4 text-a8c-gray-70 gap-1">
-			<Icon className="m-1 fill-a8c-gray-70" size={ 24 } icon={ offlineIcon } />
+		<div className="flex items-center justify-center h-12 px-2 pt-4 text-frame-text-secondary gap-1">
+			<Icon className="m-1 fill-frame-text-secondary" size={ 24 } icon={ offlineIcon } />
 			<span className="text-[13px] leading-[16px]">{ getOfflineMessage() }</span>
 		</div>
 	);

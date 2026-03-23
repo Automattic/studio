@@ -1,11 +1,10 @@
 import { check, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { PropsWithChildren, useEffect, useState } from 'react';
+import { PropsWithChildren, useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
-import { useSyncSites } from 'src/hooks/sync-sites';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -19,6 +18,7 @@ import {
 	convertTreeToPushOptions,
 } from 'src/modules/sync/lib/convert-tree-to-sync-options';
 import { useAppDispatch, useRootSelector } from 'src/stores';
+import { syncOperationsThunks } from 'src/stores/sync';
 import {
 	connectedSitesActions,
 	connectedSitesSelectors,
@@ -39,7 +39,7 @@ function SiteSyncDescription( { children }: PropsWithChildren ) {
 						{ __( 'Sync with WordPress.com or Pressable' ) }
 					</div>
 				</div>
-				<div className="max-w-[40ch] text-a8c-gray-70 a8c-body">
+				<div className="max-w-[40ch] text-frame-text-secondary a8c-body">
 					{ __(
 						'Launch your existing WordPress.com or Jetpack-activated Pressable sites, or import an existing one. Then, share your work with the world.'
 					) }
@@ -50,8 +50,8 @@ function SiteSyncDescription( { children }: PropsWithChildren ) {
 						__( 'Supports staging and production sites.' ),
 						__( 'Sync database and file changes.' ),
 					].map( ( text ) => (
-						<div key={ text } className="text-a8c-gray-70 a8c-body flex items-center">
-							<Icon className="fill-a8c-blue-50 me-2 shrink-0" icon={ check } />
+						<div key={ text } className="text-frame-text-secondary a8c-body flex items-center">
+							<Icon className="fill-frame-theme me-2 shrink-0" icon={ check } />
 							{ text }
 						</div>
 					) ) }
@@ -91,7 +91,7 @@ function NoAuthSyncTab() {
 					</Button>
 				</Tooltip>
 			</div>
-			<div className="mt-3 text-a8c-gray-70 a8c-body">
+			<div className="mt-3 text-frame-text-secondary a8c-body">
 				<Tooltip
 					disabled={ ! isOffline }
 					icon={ offlineIcon }
@@ -103,7 +103,7 @@ function NoAuthSyncTab() {
 						<Button
 							aria-description={ isOffline ? offlineMessage : '' }
 							aria-disabled={ isOffline }
-							className="!p-0 text-a8c-blue-50 hover:opacity-80 h-auto inline-flex items-center"
+							className="!p-0 text-frame-theme hover:opacity-80 h-auto inline-flex items-center"
 							onClick={ () => {
 								if ( isOffline ) {
 									return;
@@ -129,14 +129,15 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	const selectedRemoteSiteId = useRootSelector(
 		connectedSitesSelectors.selectSelectedRemoteSiteId
 	);
-	const { isAuthenticated, user } = useAuth();
-	const { data: connectedSites = [] } = useGetConnectedSitesForLocalSiteQuery( {
-		localSiteId: selectedSite.id,
-		userId: user?.id,
-	} );
+	const selectedLocalSiteId = useRootSelector( connectedSitesSelectors.selectSelectedLocalSiteId );
+	const { isAuthenticated, user, client } = useAuth();
+	const { data: connectedSites = [], isLoading: isLoadingConnectedSites } =
+		useGetConnectedSitesForLocalSiteQuery( {
+			localSiteId: selectedSite.id,
+			userId: user?.id,
+		} );
 	const [ connectSite ] = useConnectSiteMutation();
 	const [ disconnectSite ] = useDisconnectSiteMutation();
-	const { pushSite, pullSite } = useSyncSites();
 
 	const connectedSiteIds = connectedSites.map( ( { id } ) => id );
 	const { data: syncSites = [] } = useGetWpComSitesQuery( {
@@ -146,17 +147,17 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 
 	const [ selectedRemoteSite, setSelectedRemoteSite ] = useState< SyncSite | null >( null );
 
-	// Auto-select remote site when set via Redux (e.g., from deep link connection)
-	useEffect( () => {
-		if ( selectedRemoteSiteId ) {
-			const siteToSelect = syncSites.find( ( site ) => site.id === selectedRemoteSiteId );
-			if ( siteToSelect ) {
-				setSelectedRemoteSite( siteToSelect );
-				dispatch( connectedSitesActions.openModal( 'push' ) );
-				dispatch( connectedSitesActions.clearSelectedRemoteSiteId() );
-			}
-		}
-	}, [ selectedRemoteSiteId, syncSites, dispatch ] );
+	// Derived inline from Redux + connectedSites (storage) rather than stored in local state.
+	// Local state would reset on remount — SiteContentTabs causes a second TabPanel remount
+	// on programmatic tab changes, which would lose the value before the dialog could open.
+	// connectedSites is used instead of syncSites because the /me/sites?filter=atomic,wpcom
+	// endpoint excludes some site types (e.g. Pressable) that can still be connected.
+	const deepLinkRemoteSite =
+		selectedRemoteSiteId && selectedLocalSiteId === selectedSite.id
+			? connectedSites.find( ( site ) => site.id === selectedRemoteSiteId ) ?? null
+			: null;
+
+	const effectiveRemoteSite = deepLinkRemoteSite || selectedRemoteSite;
 
 	if ( ! isAuthenticated ) {
 		return <NoAuthSyncTab />;
@@ -203,7 +204,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 							disconnectSite( { siteId: id, localSiteId: selectedSite.id } )
 						}
 					/>
-					<div className="sticky bottom-0 bg-white/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
+					<div className="sticky bottom-0 bg-frame/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
 						<ConnectButton
 							variant="primary"
 							connectSite={ () => dispatch( connectedSitesActions.openModal( 'connect' ) ) }
@@ -212,7 +213,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 						</ConnectButton>
 					</div>
 				</div>
-			) : (
+			) : isLoadingConnectedSites ? null : (
 				<SiteSyncDescription>
 					<div className="mt-8">
 						<ConnectButton
@@ -225,7 +226,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 				</SiteSyncDescription>
 			) }
 
-			{ isModalOpen && ! selectedRemoteSite && (
+			{ isModalOpen && ! effectiveRemoteSite && (
 				<SyncSitesModalSelector
 					mode={ reduxModalMode || 'connect' }
 					onRequestClose={ () => {
@@ -238,27 +239,48 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 				/>
 			) }
 
-			{ reduxModalMode && reduxModalMode !== 'connect' && selectedRemoteSite && (
-				<SyncDialog
-					type={ reduxModalMode }
-					localSite={ selectedSite }
-					remoteSite={ selectedRemoteSite }
-					onPush={ async ( tree ) => {
-						await handleConnect( selectedRemoteSite );
-						const pushOptions = convertTreeToPushOptions( tree );
-						void pushSite( selectedRemoteSite, selectedSite, pushOptions );
-					} }
-					onPull={ async ( tree ) => {
-						await handleConnect( selectedRemoteSite );
-						const pullOptions = convertTreeToPullOptions( tree );
-						void pullSite( selectedRemoteSite, selectedSite, pullOptions );
-					} }
-					onRequestClose={ () => {
-						setSelectedRemoteSite( null );
-						dispatch( connectedSitesActions.closeModal() );
-					} }
-				/>
-			) }
+			{ effectiveRemoteSite &&
+				( deepLinkRemoteSite || ( reduxModalMode && reduxModalMode !== 'connect' ) ) && (
+					<SyncDialog
+						type={ deepLinkRemoteSite ? 'push' : ( reduxModalMode as 'push' | 'pull' ) }
+						localSite={ selectedSite }
+						remoteSite={ effectiveRemoteSite }
+						onPush={ async ( tree ) => {
+							await handleConnect( effectiveRemoteSite );
+							const pushOptions = convertTreeToPushOptions( tree );
+							void dispatch(
+								syncOperationsThunks.pushSite( {
+									connectedSite: effectiveRemoteSite,
+									selectedSite,
+									options: pushOptions,
+								} )
+							);
+						} }
+						onPull={ async ( tree ) => {
+							if ( ! client ) {
+								return;
+							}
+							await handleConnect( effectiveRemoteSite );
+							const pullOptions = convertTreeToPullOptions( tree );
+							void dispatch(
+								syncOperationsThunks.pullSite( {
+									client,
+									connectedSite: effectiveRemoteSite,
+									selectedSite,
+									options: pullOptions,
+								} )
+							);
+						} }
+						onRequestClose={ () => {
+							if ( deepLinkRemoteSite ) {
+								dispatch( connectedSitesActions.clearSelectedRemoteSiteId() );
+							} else {
+								setSelectedRemoteSite( null );
+								dispatch( connectedSitesActions.closeModal() );
+							}
+						} }
+					/>
+				) }
 		</div>
 	);
 }

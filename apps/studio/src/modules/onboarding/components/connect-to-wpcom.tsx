@@ -22,7 +22,7 @@ export function OnboardingConnectToWpcom( { onSkip }: { onSkip: () => void } ) {
 					{ __( 'Welcome to WordPress Studio' ) }
 				</Heading>
 
-				<div className="text-a8c-gray-70 a8c-body">
+				<div className="text-frame-text-secondary a8c-body">
 					{ __(
 						'Start by connecting your WordPress.com account to unlock the full power of WordPress Studio.'
 					) }
@@ -34,8 +34,8 @@ export function OnboardingConnectToWpcom( { onSkip }: { onSkip: () => void } ) {
 						__( 'Seamlessly sync with WordPress.com and Pressable' ),
 						__( 'Get smart suggestions from the Studio Assistant' ),
 					].map( ( text ) => (
-						<div key={ text } className="text-a8c-gray-70 a8c-body flex items-start">
-							<Icon className="fill-a8c-blue-50 me-2 shrink-0" icon={ check } />
+						<div key={ text } className="text-frame-text-secondary a8c-body flex items-start">
+							<Icon className="fill-frame-theme me-2 shrink-0" icon={ check } />
 							{ text }
 						</div>
 					) ) }
@@ -72,12 +72,12 @@ export function OnboardingConnectToWpcom( { onSkip }: { onSkip: () => void } ) {
 					text={ offlineMessage }
 					placement="bottom-start"
 				>
-					<div className="text-a8c-gray-70 a8c-body">
+					<div className="text-frame-text-secondary a8c-body">
 						{ __( 'New to WordPress.com?' ) }{ ' ' }
 						<Button
 							aria-description={ isOffline ? offlineMessage : '' }
 							aria-disabled={ isOffline }
-							className="!p-0 text-a8c-blue-50 hover:opacity-80 h-auto inline-flex items-center"
+							className="!p-0 text-frame-theme hover:opacity-80 h-auto inline-flex items-center"
 							onClick={ () => {
 								if ( isOffline ) {
 									return;

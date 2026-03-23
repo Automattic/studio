@@ -24,6 +24,10 @@ test.describe( 'Import / Export', () => {
 		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
 	} );
 
+	test.afterEach( async ( { page: _page }, testInfo ) => {
+		await session.reportMainProcessLogsOnFailure( testInfo );
+	} );
+
 	test.afterAll( async () => {
 		await session.cleanup();
 	} );

@@ -1,6 +1,6 @@
 export function WordPressLogoCircle( {
 	size = 16,
-	color = '#3858E9',
+	color = 'var(--color-frame-theme)',
 }: {
 	size?: number;
 	color?: string;

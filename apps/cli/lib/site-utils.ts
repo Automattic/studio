@@ -4,8 +4,8 @@ import { __ } from '@wordpress/i18n';
 import { getSiteUrl, readAppdata, SiteData } from 'cli/lib/appdata';
 import { openBrowser } from 'cli/lib/browser';
 import { generateSiteCertificate } from 'cli/lib/certificate-manager';
+import { isProxyProcessRunning, startProxyProcess, stopProxyProcess } from 'cli/lib/daemon-client';
 import { addDomainToHosts } from 'cli/lib/hosts-file';
-import { isProxyProcessRunning, startProxyProcess, stopProxyProcess } from 'cli/lib/pm2-manager';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 
@@ -44,7 +44,7 @@ export async function openSiteInBrowser( site: SiteData ): Promise< void > {
 export function logSiteDetails( site: SiteData ): void {
 	const siteUrl = getSiteUrl( site );
 	console.log( __( 'Site URL: ' ), siteUrl );
-	console.log( __( 'Username: ' ), 'admin' );
+	console.log( __( 'Username: ' ), site.adminUsername || 'admin' );
 	if ( site.adminPassword ) {
 		console.log( __( 'Password: ' ), decodePassword( site.adminPassword ) );
 	}
@@ -124,6 +124,7 @@ export const isSiteRunning = async ( site: SiteData ): Promise< boolean > => {
 	const processInfo = await isServerRunning( site.id );
 	return !! (
 		processInfo &&
+		processInfo.status === 'online' &&
 		site.latestCliPid !== undefined &&
 		processInfo.pid === site.latestCliPid
 	);

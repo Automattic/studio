@@ -29,6 +29,9 @@ class CliCommandError extends Error {
 		this.exitCode = options.exitCode;
 		this.signal = options.signal;
 		this.name = 'CliCommandError';
+		// The stack trace for this error is misleading, because it's not actually thrown where the error
+		// happened - it's just a representation of an error that happened in a different process.
+		this.stack = undefined;
 	}
 
 	get message(): string {
@@ -139,6 +142,7 @@ export function executeCliCommand(
 		stdio,
 		execPath: getBundledNodeBinaryPath(),
 		execArgv: [ '--experimental-wasm-jspi' ],
+		env: { ...process.env },
 	} );
 	const eventEmitter = new CliCommandEventEmitter< boolean >();
 

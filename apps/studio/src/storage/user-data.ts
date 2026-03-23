@@ -7,7 +7,7 @@ import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
 import { readFile, writeFile } from 'atomically';
 import { sanitizeUnstructuredData, sanitizeUserpath } from 'src/lib/sanitize-for-logging';
 import { getUserDataFilePath, getUserDataLockFilePath } from 'src/storage/paths';
-import type { PersistedUserData, UserData, WindowBounds } from 'src/storage/storage-types';
+import { EMPTY_USER_DATA, type UserData, type WindowBounds } from 'src/storage/storage-types';
 
 export async function loadUserData(): Promise< UserData > {
 	const filePath = getUserDataFilePath();
@@ -16,8 +16,8 @@ export async function loadUserData(): Promise< UserData > {
 		const asString = await readFile( filePath, 'utf-8' );
 		try {
 			const parsed = JSON.parse( asString );
-			const { version, siteMetadata, ...data } = parsed as PersistedUserData;
-			return { siteMetadata: siteMetadata ?? {}, ...data };
+			const { siteMetadata, ...data } = parsed;
+			return { ...data, version: 1, siteMetadata: siteMetadata ?? {} };
 		} catch ( err ) {
 			if ( err instanceof SyntaxError ) {
 				Sentry.addBreadcrumb( {
@@ -31,7 +31,7 @@ export async function loadUserData(): Promise< UserData > {
 		}
 	} catch ( err ) {
 		if ( isErrnoException( err ) && err.code === 'ENOENT' ) {
-			return { siteMetadata: {} };
+			return EMPTY_USER_DATA;
 		}
 		console.error( `Failed to load file ${ sanitizeUserpath( filePath ) }: ${ err }` );
 		throw err;
@@ -40,7 +40,7 @@ export async function loadUserData(): Promise< UserData > {
 
 export async function saveUserData( data: UserData ): Promise< void > {
 	const filePath = getUserDataFilePath();
-	const persisted: PersistedUserData = { version: 1, ...data };
+	const persisted: UserData = { ...data };
 	const asString = JSON.stringify( persisted, null, 2 ) + '\n';
 	await writeFile( filePath, asString, 'utf-8' );
 }

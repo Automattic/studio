@@ -158,9 +158,10 @@ export class SiteServer {
 		return server;
 	}
 
-	static unregister( id: string ): void {
+	static async unregister( id: string ): Promise< void > {
 		deletedServers.push( id );
 		servers.delete( id );
+		await SiteServer.deleteSiteMetadata( id );
 	}
 
 	static async create(
@@ -196,6 +197,20 @@ export class SiteServer {
 		await this.server.delete( deleteFiles );
 		deletedServers.push( this.details.id );
 		servers.delete( this.details.id );
+		await SiteServer.deleteSiteMetadata( this.details.id );
+	}
+
+	private static async deleteSiteMetadata( id: string ) {
+		try {
+			await lockAppdata();
+			const userData = await loadUserData();
+			if ( userData.siteMetadata[ id ] ) {
+				delete userData.siteMetadata[ id ];
+				await saveUserData( userData );
+			}
+		} finally {
+			await unlockAppdata();
+		}
 	}
 
 	async start() {

@@ -42,16 +42,6 @@ function getOldAppdataPath(): string {
 	return path.join( os.homedir(), 'Library', 'Application Support', 'Studio', 'appdata-v1.json' );
 }
 
-function ensureDirectory( filePath: string ): void {
-	const dir = path.dirname( filePath );
-	if ( ! fs.existsSync( dir ) ) {
-		fs.mkdirSync( dir, { recursive: true } );
-	}
-}
-
-// Zod schemas used to extract and validate fields for each config file.
-// Using .parse() ensures only valid, expected fields are written.
-
 const sharedConfigExtractSchema = z.object( {
 	...sharedConfigSchema.omit( { version: true } ).shape,
 } );
@@ -102,6 +92,14 @@ function buildCliConfig( oldData: Record< string, unknown > ): Record< string, u
 			},
 			[]
 		);
+	}
+
+	if ( typeof oldData.aiProvider === 'string' ) {
+		config.aiProvider = oldData.aiProvider;
+	}
+
+	if ( typeof oldData.anthropicApiKey === 'string' ) {
+		config.anthropicApiKey = oldData.anthropicApiKey;
 	}
 
 	return config;
@@ -164,7 +162,10 @@ function buildAppConfig( oldData: Record< string, unknown > ): Record< string, u
 }
 
 async function writeJsonFile( filePath: string, data: Record< string, unknown > ): Promise< void > {
-	ensureDirectory( filePath );
+	const dir = path.dirname( filePath );
+	if ( ! fs.existsSync( dir ) ) {
+		fs.mkdirSync( dir, { recursive: true } );
+	}
 	const content = JSON.stringify( data, null, 2 ) + '\n';
 	await writeFile( filePath, content, { encoding: 'utf8' } );
 }

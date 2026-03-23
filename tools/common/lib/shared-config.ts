@@ -19,11 +19,6 @@ export class SharedConfigVersionMismatchError extends Error {
 	}
 }
 
-export {
-	getConfigDirectory as getSharedConfigDirectory,
-	getSharedConfigPath,
-} from './config-paths';
-
 // Schema updates must maintain backwards compatibility. If a breaking change is needed,
 // increment SHARED_CONFIG_VERSION and add a data migration function.
 const SHARED_CONFIG_VERSION = 1;
@@ -69,15 +64,14 @@ export async function readSharedConfig(): Promise< SharedConfig > {
 }
 
 export async function saveSharedConfig( config: SharedConfig ): Promise< void > {
-	config.version = SHARED_CONFIG_VERSION;
-
 	const configDir = getConfigDirectory();
 	if ( ! fs.existsSync( configDir ) ) {
 		fs.mkdirSync( configDir, { recursive: true } );
 	}
 
 	const configPath = getSharedConfigPath();
-	const fileContent = JSON.stringify( config, null, 2 ) + '\n';
+	const persisted = { ...config, version: SHARED_CONFIG_VERSION };
+	const fileContent = JSON.stringify( persisted, null, 2 ) + '\n';
 	await writeFile( configPath, fileContent, { encoding: 'utf8' } );
 }
 
@@ -96,9 +90,7 @@ export async function unlockSharedConfig(): Promise< void > {
 	await unlockFileAsync( getLockfilePath() );
 }
 
-export async function updateSharedConfig(
-	update: Partial< Omit< SharedConfig, 'version' > >
-): Promise< void > {
+export async function updateSharedConfig( update: Partial< SharedConfig > ): Promise< void > {
 	try {
 		await lockSharedConfig();
 		const config = await readSharedConfig();

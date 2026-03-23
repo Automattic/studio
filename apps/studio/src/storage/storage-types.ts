@@ -17,6 +17,7 @@ export interface AppdataSiteData {
 }
 
 export interface UserData {
+	version: 1;
 	siteMetadata: Record< string, AppdataSiteData >;
 	devToolsOpen?: boolean;
 	windowBounds?: WindowBounds;
@@ -33,12 +34,13 @@ export interface UserData {
 	stopSitesOnQuit?: boolean;
 }
 
-export interface PersistedUserData extends UserData {
-	version: number;
-}
-
 export interface PromptWindowsSpeedUpResult {
 	response: 'yes' | 'no';
 	appVersion: string;
 	dontAskAgain: boolean;
 }
+
+export const EMPTY_USER_DATA: UserData = {
+	version: 1,
+	siteMetadata: {},
+};

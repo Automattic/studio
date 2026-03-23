@@ -7,7 +7,7 @@ import { snapshotSchema } from '@studio/common/types/snapshot';
 import { readFile, writeFile } from 'atomically';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { z } from 'zod';
-import { migrateAppConfig } from 'src/migrations/00-migrate-to-split-config';
+import { migrateAppConfig } from 'src/migrations/02-migrate-to-split-config';
 
 async function runMigration() {
 	if ( await migrateAppConfig.needsToRun() ) {

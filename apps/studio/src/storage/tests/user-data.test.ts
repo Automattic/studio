@@ -47,6 +47,7 @@ vi.mock( 'atomically', () => ( {
 } ) );
 
 const mockedUserData: UserData = {
+	version: 1,
 	siteMetadata: {
 		'site-1': {
 			sortOrder: 0,
@@ -86,12 +87,12 @@ describe( 'User data', () => {
 			);
 
 			const result = await loadUserData();
-			expect( result ).toEqual( { siteMetadata: {} } );
+			expect( result ).toEqual( { version: 1, siteMetadata: {} } );
 		} );
 
-		test( 'strips version field from loaded data', async () => {
+		test( 'normalizes version to 1', async () => {
 			const result = await loadUserData();
-			expect( result ).not.toHaveProperty( 'version' );
+			expect( result.version ).toBe( 1 );
 		} );
 	} );
 
@@ -106,14 +107,7 @@ describe( 'User data', () => {
 
 			expect( writeFile ).toHaveBeenCalledWith(
 				'/path/to/app/.studio/app.json',
-				JSON.stringify(
-					{
-						version: 1,
-						...mockedUserData,
-					},
-					null,
-					2
-				) + '\n',
+				JSON.stringify( mockedUserData, null, 2 ) + '\n',
 				'utf-8'
 			);
 		} );

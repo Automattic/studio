@@ -34,16 +34,6 @@ vi.mock( 'atomically', () => ( {
 	readFile: vi.fn().mockResolvedValue( Buffer.from( JSON.stringify( { sites: [] } ) ) ),
 	writeFile: vi.fn(),
 } ) );
-vi.mock( 'src/storage/paths', () => ( {
-	getResourcesPath: vi.fn().mockReturnValue( '/mock/resources' ),
-	getUserDataFilePath: vi.fn().mockReturnValue( '/mock/userdata.json' ),
-	getUserDataCertificatesPath: vi.fn().mockReturnValue( '/mock/certificates' ),
-	getServerFilesPath: vi.fn().mockReturnValue( '/mock/server/files' ),
-	getCliPath: vi.fn().mockReturnValue( '/mock/cli/path' ),
-	getBundledNodeBinaryPath: vi.fn().mockReturnValue( '/mock/node/binary' ),
-	getSiteThumbnailPath: vi.fn().mockReturnValue( '/mock/thumbnail.png' ),
-	DEFAULT_SITE_PATH: '/mock/default/site/path',
-} ) );
 vi.mock( 'src/modules/cli/lib/execute-command', () => {
 	const mockEventEmitter = {
 		on: vi.fn().mockImplementation( ( event: string, callback: ( ...args: any[] ) => void ) => {

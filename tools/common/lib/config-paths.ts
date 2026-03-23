@@ -27,3 +27,7 @@ export function getCliConfigPath(): string {
 	}
 	return path.join( getConfigDirectory(), 'cli.json' );
 }
+
+export function getCertificatesPath(): string {
+	return path.join( getConfigDirectory(), 'certificates' );
+}

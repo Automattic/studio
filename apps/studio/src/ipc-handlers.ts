@@ -203,12 +203,12 @@ export async function installWordPressSkills(
 export async function getWordPressSkillsStatusAllSites(
 	_event: IpcMainInvokeEvent
 ): Promise< SkillStatus[] > {
-	const sites = SiteServer.getAllDetails();
+	const sites = SiteServer.getAll();
 	if ( ! sites.length ) {
 		return BUNDLED_SKILLS.map( ( skill ) => ( { ...skill, installed: false } ) );
 	}
 	const allSiteStatuses = await Promise.all(
-		sites.map( ( site ) => getSkillsStatus( site.path ) )
+		sites.map( ( site ) => getSkillsStatus( site.details.path ) )
 	);
 	return BUNDLED_SKILLS.map( ( skill ) => ( {
 		...skill,
@@ -222,14 +222,14 @@ export async function installWordPressSkillsToAllSites(
 	_event: IpcMainInvokeEvent,
 	options?: { skillId?: string; overwrite?: boolean }
 ): Promise< void > {
-	const sites = SiteServer.getAllDetails();
+	const sites = SiteServer.getAll();
 	const overwrite = options?.overwrite ?? false;
 	const bundledPath = getAiInstructionsPath();
 	const tasks = sites.flatMap( ( site ) =>
 		options?.skillId
-			? [ installSkillToSite( site.path, bundledPath, options.skillId, overwrite ) ]
+			? [ installSkillToSite( site.details.path, bundledPath, options.skillId, overwrite ) ]
 			: BUNDLED_SKILLS.map( ( skill ) =>
-					installSkillToSite( site.path, bundledPath, skill.id, overwrite )
+					installSkillToSite( site.details.path, bundledPath, skill.id, overwrite )
 			  )
 	);
 	const results = await Promise.allSettled( tasks );
@@ -244,8 +244,8 @@ export async function removeWordPressSkillFromAllSites(
 	_event: IpcMainInvokeEvent,
 	skillId: string
 ): Promise< void > {
-	const sites = SiteServer.getAllDetails();
-	const tasks = sites.map( ( site ) => removeSkillFromSite( site.path, skillId ) );
+	const sites = SiteServer.getAll();
+	const tasks = sites.map( ( site ) => removeSkillFromSite( site.details.path, skillId ) );
 	const results = await Promise.allSettled( tasks );
 	results.forEach( ( result ) => {
 		if ( result.status === 'rejected' ) {

@@ -266,10 +266,12 @@ function WordPressSkillsPanel( { siteId }: { siteId: string } ) {
 						>
 							<div className="flex-1 min-w-0 pr-3">
 								<div className="flex items-center gap-2">
-									<span className="text-sm text-frame-text truncate">{ skill.displayName }</span>
+									<span className="text-sm font-medium text-frame-text truncate">
+										{ skill.displayName }
+									</span>
 									{ skill.installed && (
-										<span className="inline-flex items-center gap-1 text-[11px] text-[#1a6928] bg-[#ceead6] dark:text-[#6ee7a0] dark:bg-[#1a3a24] px-2 py-0.5 rounded-full flex-shrink-0">
-											<Icon icon={ check } size={ 12 } />
+										<span className="inline-flex items-center gap-1 text-[11px] text-green-900 bg-green-50 dark:!text-green-300 dark:bg-green-950 px-2 py-0.5 rounded-full flex-shrink-0">
+											<Icon className="dark:fill-green-300" icon={ check } size={ 12 } />
 											{ __( 'Installed' ) }
 										</span>
 									) }
@@ -278,7 +280,7 @@ function WordPressSkillsPanel( { siteId }: { siteId: string } ) {
 									{ skill.description }
 								</div>
 							</div>
-							<div className="flex items-center gap-4 flex-shrink-0">
+							<div className="flex items-center gap-2 flex-shrink-0">
 								{ skill.installed ? (
 									<>
 										<Button

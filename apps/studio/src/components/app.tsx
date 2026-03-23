@@ -93,7 +93,7 @@ export default function App() {
 						/>
 						<main
 							data-testid="site-content"
-							className="bg-white h-full flex-grow rounded-chrome overflow-hidden z-10"
+							className="bg-frame text-frame-text h-full flex-grow rounded-chrome overflow-hidden z-10"
 						>
 							<SiteContentTabs />
 						</main>

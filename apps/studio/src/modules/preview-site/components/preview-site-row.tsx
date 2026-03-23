@@ -125,7 +125,7 @@ export function PreviewSiteRow( {
 							<div
 								className={ cx(
 									'text-[13px] leading-5 line-clamp-1 break-all',
-									isExpired && 'line-through text-a8c-gray-700',
+									isExpired && 'line-through text-frame-text-secondary',
 									! isExpired && isDeleted && 'line-through text-a8c-red-50'
 								) }
 							>
@@ -136,13 +136,16 @@ export function PreviewSiteRow( {
 								variant="link"
 								disabled={ isSiteInactive }
 								className={ cx(
-									'!text-a8c-gray-700 max-w-full',
-									isSiteInactive ? 'pointer-events-none' : 'hover:!text-a8c-blue-50'
+									'!text-frame-text-secondary max-w-full',
+									isSiteInactive ? 'pointer-events-none' : 'hover:!text-frame-theme'
 								) }
 								onClick={ () => getIpcApi().openURL( `https://${ url }` ) }
 							>
 								<span
-									className={ cx( 'truncate', isSiteInactive && 'line-through text-a8c-gray-700' ) }
+									className={ cx(
+										'truncate',
+										isSiteInactive && 'line-through text-frame-text-secondary'
+									) }
 								>
 									{ url }
 								</span>
@@ -152,9 +155,9 @@ export function PreviewSiteRow( {
 					</Tooltip>
 				</div>
 				<div className="flex ltr:ml-auto rtl:mr-auto">
-					<div className="w-[150px] text-a8c-gray-700 flex items-center pl-4">
+					<div className="w-[150px] text-frame-text-secondary flex items-center pl-4">
 						{ updateOperation?.status === 'pending' ? (
-							<div className="flex items-center text-gray-900">
+							<div className="flex items-center text-frame-text">
 								<Spinner className="!mt-0 !mx-2" />
 								{ __( 'Updating' ) }
 							</div>
@@ -166,7 +169,7 @@ export function PreviewSiteRow( {
 					</div>
 					<div className="flex items-center">
 						<Tooltip text={ expireDateString } disabled={ isSiteInactive }>
-							<div className="w-[150px] text-a8c-gray-700 pl-4">
+							<div className="w-[150px] text-frame-text-secondary pl-4">
 								{ isDeleted ? __( 'Deleted' ) : countDown }
 							</div>
 						</Tooltip>
@@ -182,7 +185,7 @@ export function PreviewSiteRow( {
 										} )
 									);
 								} }
-								className={ '!text-a8c-blue-50 hover:!text-a8c-red-50' }
+								className={ '!text-frame-theme hover:!text-a8c-red-50' }
 							>
 								{ __( 'Clear' ) }
 							</Button>

@@ -376,7 +376,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 																{ customDomainError }
 															</ErrorInformation>
 														) }
-														<div className="text-a8c-gray-50 text-xs mt-1">
+														<div className="text-frame-text-secondary text-xs mt-1">
 															{ __(
 																'Your system password will be required to set up the domain.'
 															) }
@@ -398,7 +398,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 												) }
 
 												{ ! isCertificateTrusted && useCustomDomain && (
-													<div className="text-a8c-gray-50 text-xs mt-2">
+													<div className="text-frame-text-secondary text-xs mt-2">
 														{ __(
 															'You need to manually add the Studio certificate authority to your keychain and trust it.'
 														) }{ ' ' }
@@ -441,7 +441,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 													</span>
 												) }
 												{ isUsernameChanged && (
-													<span className="text-a8c-gray-50 text-xs">
+													<span className="text-frame-text-secondary text-xs">
 														{ __(
 															'A new admin user will be created. WordPress does not support renaming usernames.'
 														) }
@@ -520,7 +520,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 																{ __( 'Enable Xdebug' ) }
 															</label>
 														</div>
-														<div className="text-a8c-gray-50 text-xs mt-2">
+														<div className="text-frame-text-secondary text-xs mt-2">
 															{ createInterpolateElement(
 																__(
 																	'Enable PHP debugging with Xdebug. Only one site can have Xdebug enabled at a time. Note that Xdebug may slow down site performance. <learn_more_link />'
@@ -555,7 +555,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 														{ __( 'Enable debug log' ) }
 													</label>
 												</div>
-												<div className="text-a8c-gray-50 text-xs mt-1">
+												<div className="text-frame-text-secondary text-xs mt-1">
 													{ __(
 														"Log PHP errors and warnings to a debug.log file in your site's wp-content directory by setting the WP_DEBUG_LOG constant."
 													) }
@@ -583,7 +583,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 														{ __( 'Show errors in browser' ) }
 													</label>
 												</div>
-												<div className="text-a8c-gray-50 text-xs mt-1">
+												<div className="text-frame-text-secondary text-xs mt-1">
 													{ __(
 														'Display PHP errors and warnings directly in the browser by setting the WP_DEBUG_DISPLAY constant.'
 													) }

@@ -141,6 +141,9 @@ const api: IpcApi = {
 	saveUserTerminal: ( preferredTerminal ) =>
 		ipcRendererInvoke( 'saveUserTerminal', preferredTerminal ),
 	getUserTerminal: () => ipcRendererInvoke( 'getUserTerminal' ),
+	previewColorScheme: ( colorScheme ) => ipcRendererInvoke( 'previewColorScheme', colorScheme ),
+	saveColorScheme: ( colorScheme ) => ipcRendererInvoke( 'saveColorScheme', colorScheme ),
+	getColorScheme: () => ipcRendererInvoke( 'getColorScheme' ),
 	getUserEditor: () => ipcRendererInvoke( 'getUserEditor' ),
 	saveUserEditor: ( editor ) => ipcRendererInvoke( 'saveUserEditor', editor ),
 	comparePaths: ( path1, path2 ) => ipcRendererInvoke( 'comparePaths', path1, path2 ),

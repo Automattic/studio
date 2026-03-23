@@ -7,7 +7,6 @@ import Modal from 'src/components/modal';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import {
-	DEFAULT_AGENT_INSTRUCTIONS,
 	INSTRUCTION_FILES,
 	type InstructionFileType,
 } from 'src/modules/agent-instructions/constants';
@@ -63,19 +62,28 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 
 	const allInstalled = statuses.length > 0 && statuses.every( ( s ) => s.exists );
 
+	const handleInstallAll = useCallback( async () => {
+		setError( null );
+		for ( const status of statuses ) {
+			if ( ! status.exists ) {
+				await handleInstallFile( status.id, false );
+			}
+		}
+	}, [ statuses, handleInstallFile ] );
+
 	return (
 		<div className="flex flex-col gap-4">
 			<div className="flex items-center justify-between">
 				<div>
-					<h3 className="text-sm font-medium text-gray-900">{ __( 'Agent instructions' ) }</h3>
-					<p className="text-xs text-gray-500 mt-0.5">
+					<h3 className="text-sm font-medium text-frame-text">{ __( 'Agent instructions' ) }</h3>
+					<p className="text-xs text-frame-text-secondary mt-0.5">
 						{ __( 'Install instructions so agents know how to use Studio' ) }
 					</p>
 				</div>
 				{ ! allInstalled && (
 					<Button
 						variant="link"
-						onClick={ () => handleInstallFile( 'agents', false ) }
+						onClick={ handleInstallAll }
 						disabled={ installingFile !== null }
 						className="text-sm"
 					>
@@ -85,41 +93,34 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 			</div>
 
 			{ error && (
-				<div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">
+				<div className="bg-frame-surface border border-frame-error/30 text-frame-error px-3 py-2 rounded text-sm">
 					{ error }
 				</div>
 			) }
 
-			<div className="border border-gray-200 rounded-md overflow-hidden">
+			<div className="border border-frame-border rounded-md overflow-hidden">
 				{ statuses.map( ( status ) => {
 					const config = INSTRUCTION_FILES[ status.id ];
 					const isInstalling = installingFile === status.id;
 					return (
 						<div
 							key={ status.id }
-							className="flex items-center justify-between px-3 py-2.5 border-b border-gray-200 last:border-b-0"
+							className="flex items-center justify-between px-3 py-2.5 border-b border-frame-border last:border-b-0"
 						>
 							<div className="flex-1 min-w-0 pr-3">
 								<div className="flex items-center gap-2">
-									<span className="text-sm font-medium text-gray-900">{ config.displayName }</span>
-									{ status.exists && ! status.isCustomized && (
-										<span className="inline-flex items-center gap-1 text-[11px] text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
-											<Icon icon={ check } size={ 12 } />
+									<span className="text-sm font-medium text-frame-text">
+										{ config.displayName }
+									</span>
+									{ status.exists && (
+										<span className="inline-flex items-center gap-1 text-[11px] text-green-900 bg-green-50 dark:!text-green-300 dark:bg-green-950 px-2 py-0.5 rounded-full">
+											<Icon className="dark:fill-green-300" icon={ check } size={ 12 } />
 											{ __( 'Installed' ) }
 										</span>
 									) }
-									{ status.exists && status.isCustomized && (
-										<span className="inline-flex items-center gap-1 text-[11px] text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
-											{ __( 'Custom' ) }
-										</span>
-									) }
 								</div>
-								<div className="text-xs text-gray-500">
-									{ status.isCustomized
-										? __(
-												'You are using a custom version of AGENTS.md. You can use the "Reinstall" option to use the newest Studio version. Your customizations will be overwritten.'
-										  )
-										: __( config.description ) }
+								<div className="text-xs text-frame-text-secondary">
+									{ __( config.description ) }
 								</div>
 							</div>
 							<div className="flex items-center gap-2 flex-shrink-0">
@@ -149,17 +150,6 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 					);
 				} ) }
 			</div>
-
-			<details className="group">
-				<summary className="cursor-pointer text-xs text-gray-500 hover:text-gray-700">
-					{ __( 'View template content' ) }
-				</summary>
-				<div className="mt-2 border border-gray-200 rounded-md bg-gray-50 p-3 max-h-48 overflow-y-auto">
-					<pre className="text-xs text-gray-700 whitespace-pre-wrap font-mono">
-						{ DEFAULT_AGENT_INSTRUCTIONS }
-					</pre>
-				</div>
-			</details>
 		</div>
 	);
 }
@@ -243,8 +233,8 @@ function WordPressSkillsPanel( { siteId }: { siteId: string } ) {
 		<div className="flex flex-col gap-4">
 			<div className="flex items-center justify-between">
 				<div>
-					<h3 className="text-sm font-medium text-gray-900">{ __( 'WordPress skills' ) }</h3>
-					<p className="text-xs text-gray-500 mt-0.5">
+					<h3 className="text-sm font-medium text-frame-text">{ __( 'WordPress skills' ) }</h3>
+					<p className="text-xs text-frame-text-secondary mt-0.5">
 						{ __( 'WordPress development skills for AI agents' ) }
 					</p>
 				</div>
@@ -261,30 +251,32 @@ function WordPressSkillsPanel( { siteId }: { siteId: string } ) {
 			</div>
 
 			{ error && (
-				<div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">
+				<div className="bg-frame-surface border border-frame-error/30 text-frame-error px-3 py-2 rounded text-sm">
 					{ error }
 				</div>
 			) }
 
-			<div className="border border-gray-200 rounded-md overflow-hidden">
+			<div className="border border-frame-border rounded-md overflow-hidden">
 				{ statuses.map( ( skill ) => {
 					const isInstalling = installingSkillId === skill.id;
 					return (
 						<div
 							key={ skill.id }
-							className="flex items-center justify-between px-3 py-2.5 border-b border-gray-200 last:border-b-0"
+							className="flex items-center justify-between px-3 py-2.5 border-b border-frame-border last:border-b-0"
 						>
 							<div className="flex-1 min-w-0 pr-3">
 								<div className="flex items-center gap-2">
-									<span className="text-sm text-gray-900 truncate">{ skill.displayName }</span>
+									<span className="text-sm text-frame-text truncate">{ skill.displayName }</span>
 									{ skill.installed && (
-										<span className="inline-flex items-center gap-1 text-[11px] text-green-700 bg-green-50 px-2 py-0.5 rounded-full flex-shrink-0">
+										<span className="inline-flex items-center gap-1 text-[11px] text-[#1a6928] bg-[#ceead6] dark:text-[#6ee7a0] dark:bg-[#1a3a24] px-2 py-0.5 rounded-full flex-shrink-0">
 											<Icon icon={ check } size={ 12 } />
 											{ __( 'Installed' ) }
 										</span>
 									) }
 								</div>
-								<div className="text-xs text-gray-500 truncate">{ skill.description }</div>
+								<div className="text-xs text-frame-text-secondary truncate">
+									{ skill.description }
+								</div>
 							</div>
 							<div className="flex items-center gap-4 flex-shrink-0">
 								{ skill.installed ? (

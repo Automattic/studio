@@ -111,6 +111,8 @@ const movedTopLevelFields = new Set( [
 	'sites',
 	'snapshots',
 	'version',
+	'aiProvider',
+	'anthropicApiKey',
 ] );
 
 // Per-site fields managed by CLI or runtime — excluded from app.json site entries.

@@ -83,6 +83,13 @@ async function installInstructionFile(
 	await fs.copyFile( path.join( bundledPath, fileName ), dest );
 }
 
+export async function removeSkillFromSite( sitePath: string, skillId: string ): Promise< void > {
+	const agentsSkillPath = path.join( sitePath, '.agents', 'skills', skillId );
+	const claudeSkillPath = path.join( sitePath, '.claude', 'skills', skillId );
+	await fs.rm( agentsSkillPath, { recursive: true, force: true } );
+	await fs.rm( claudeSkillPath, { recursive: true, force: true } );
+}
+
 export async function installSkillToSite(
 	sitePath: string,
 	bundledPath: string,

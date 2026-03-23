@@ -231,7 +231,12 @@ export async function installWordPressSkillsToAllSites(
 					installSkillToSite( site.path, bundledPath, skill.id, overwrite )
 			  )
 	);
-	await Promise.allSettled( tasks );
+	const results = await Promise.allSettled( tasks );
+	results.forEach( ( result ) => {
+		if ( result.status === 'rejected' ) {
+			console.error( '[skills] Failed to install skill:', result.reason );
+		}
+	} );
 }
 
 export async function removeWordPressSkillFromAllSites(
@@ -240,7 +245,12 @@ export async function removeWordPressSkillFromAllSites(
 ): Promise< void > {
 	const { sites } = await loadUserData();
 	const tasks = sites.map( ( site ) => removeSkillFromSite( site.path, skillId ) );
-	await Promise.allSettled( tasks );
+	const results = await Promise.allSettled( tasks );
+	results.forEach( ( result ) => {
+		if ( result.status === 'rejected' ) {
+			console.error( '[skills] Failed to remove skill:', result.reason );
+		}
+	} );
 }
 
 const DEBUG_LOG_MAX_LINES = 50;

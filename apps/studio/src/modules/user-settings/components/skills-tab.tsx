@@ -111,8 +111,8 @@ export function SkillsTab() {
 							<div className="flex-1 min-w-0 pr-3">
 								<div className="flex items-center gap-2">
 									<span className="text-sm font-medium text-frame-text">{ skill.displayName }</span>
-									<span className="inline-flex items-center gap-1 text-[11px] text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
-										<Icon icon={ check } size={ 12 } />
+									<span className="inline-flex items-center gap-1 text-[11px] text-green-900 bg-green-50 dark:!text-green-300 dark:bg-green-950 px-2 py-0.5 rounded-full">
+										<Icon className="dark:fill-green-300" icon={ check } size={ 12 } />
 										{ __( 'Installed' ) }
 									</span>
 								</div>

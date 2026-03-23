@@ -182,6 +182,9 @@ function createOldAppdata() {
 				userId: 42,
 			},
 		],
+		// Fields → cli.json (AI config)
+		aiProvider: 'anthropic',
+		anthropicApiKey: 'sk-ant-test-key-123',
 		// Fields → app.json (Desktop-only top-level)
 		devToolsOpen: true,
 		windowBounds: { x: 100, y: 200, width: 1200, height: 800 },
@@ -426,6 +429,8 @@ describe( 'migrateAppConfig', () => {
 			expect( appConfig ).not.toHaveProperty( 'authToken' );
 			expect( appConfig ).not.toHaveProperty( 'locale' );
 			expect( appConfig ).not.toHaveProperty( 'snapshots' );
+			expect( appConfig ).not.toHaveProperty( 'aiProvider' );
+			expect( appConfig ).not.toHaveProperty( 'anthropicApiKey' );
 		} );
 
 		it( 'keeps per-site Desktop fields (themeDetails, sortOrder) keyed by id', async () => {

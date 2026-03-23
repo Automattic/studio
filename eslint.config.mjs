@@ -98,6 +98,11 @@ export default defineConfig(
 							lock: 'lockCliConfig',
 							unlock: 'unlockCliConfig',
 						},
+						{
+							save: 'saveSharedConfig',
+							lock: 'lockSharedConfig',
+							unlock: 'unlockSharedConfig',
+						},
 					],
 				},
 			],

@@ -7,16 +7,12 @@ export default class UserSettingsModal {
 		return this.page.getByRole( 'dialog', { name: 'Settings' } );
 	}
 
-	get preferencesTab() {
-		return this.locator.getByRole( 'tab', { name: 'Preferences' } );
+	get generalTab() {
+		return this.locator.getByRole( 'tab', { name: 'General' } );
 	}
 
 	get accountTab() {
 		return this.locator.getByRole( 'tab', { name: 'Account' } );
-	}
-
-	get usageTab() {
-		return this.locator.getByRole( 'tab', { name: 'Usage' } );
 	}
 
 	get languageSelect() {

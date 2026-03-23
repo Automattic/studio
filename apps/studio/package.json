@@ -12,7 +12,7 @@
 	},
 	"scripts": {
 		"start": "electron-vite dev --config ./electron.vite.config.ts --outDir=dist --watch",
-		"prestart": "npm -w @automattic/wp-studio run build",
+		"prestart": "npm -w wp-studio run build",
 		"make": "electron-vite build --config ./electron.vite.config.ts --outDir=dist && electron-forge make .",
 		"make:windows-x64": "electron-vite build --config ./electron.vite.config.ts --outDir=dist && electron-forge make . --arch=x64 --platform=win32",
 		"make:windows-arm64": "electron-vite build --config ./electron.vite.config.ts --outDir=dist && electron-forge make . --arch=arm64 --platform=win32",
@@ -21,7 +21,7 @@
 		"install:bundle": "npm install --no-package-lock --no-progress --install-links --no-workspaces && patch-package && node ../../scripts/remove-fs-ext-other-platform-binaries.mjs",
 		"package": "electron-vite build --config ./electron.vite.config.ts --outDir=dist && electron-forge package .",
 		"publish": "electron-forge publish .",
-		"start-wayland": "npm -w @automattic/wp-studio run build && electron-forge start . -- --enable-features=UseOzonePlatform --ozone-platform=wayland",
+		"start-wayland": "npm -w wp-studio run build && electron-forge start . -- --enable-features=UseOzonePlatform --ozone-platform=wayland",
 		"typecheck": "tsc -p tsconfig.json --noEmit"
 	},
 	"dependencies": {

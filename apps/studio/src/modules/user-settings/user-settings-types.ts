@@ -1,4 +1,4 @@
-export type UserSettingsTabName = 'account' | 'preferences' | 'usage' | 'skills';
+export type UserSettingsTabName = 'general' | 'skills' | 'account' | 'mcp';
 export type UserSettingsTab = {
 	name: UserSettingsTabName;
 	title: string;

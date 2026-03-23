@@ -38,6 +38,7 @@ import {
 	removeDbConstants,
 } from '@studio/common/lib/remove-default-db-constants';
 import { sortSites } from '@studio/common/lib/sort-sites';
+import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 import {
 	isValidWordPressVersion,
 	isWordPressVersionAtLeast,
@@ -64,7 +65,7 @@ import {
 } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
-import { getAiInstructionsPath, getServerFilesPath } from 'cli/lib/server-files';
+import { getAiInstructionsPath } from 'cli/lib/server-files';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { generateSiteName } from 'cli/lib/site-name';
 import { getDefaultSitePath } from 'cli/lib/site-paths';

@@ -26,3 +26,7 @@ export function getCliConfigPath(): string {
 export function getCertificatesPath(): string {
 	return path.join( getConfigDirectory(), 'certificates' );
 }
+
+export function getServerFilesPath(): string {
+	return path.join( getConfigDirectory(), 'server-files' );
+}

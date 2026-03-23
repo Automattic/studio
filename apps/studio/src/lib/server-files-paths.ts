@@ -5,7 +5,7 @@
 
 import os from 'os';
 import path from 'path';
-import { getServerFilesPath } from 'src/storage/paths';
+import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 
 // SQLite integration folder name
 const SQLITE_FILENAME = 'sqlite-database-integration';

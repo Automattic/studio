@@ -13,6 +13,7 @@ import {
 import { isOnline } from '@studio/common/lib/network-utils';
 import { portFinder } from '@studio/common/lib/port-finder';
 import { normalizeLineEndings } from '@studio/common/lib/remove-default-db-constants';
+import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 import { Blueprint, BlueprintV1Declaration, StepDefinition } from '@wp-playground/blueprints';
 import { vi, type MockInstance } from 'vitest';
 import {
@@ -25,7 +26,6 @@ import {
 import { removeSiteFromConfig, updateSiteAutoStart } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
-import { getServerFilesPath } from 'cli/lib/server-files';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
@@ -68,10 +68,13 @@ vi.mock( 'cli/lib/cli-config/sites', async () => {
 } );
 vi.mock( 'cli/lib/language-packs' );
 vi.mock( 'cli/lib/daemon-client' );
-vi.mock( 'cli/lib/server-files', () => ( {
-	getAppdataDirectory: vi.fn().mockReturnValue( '/test/appdata' ),
-	getServerFilesPath: vi.fn().mockReturnValue( '/test/server-files' ),
-} ) );
+vi.mock( import( '@studio/common/lib/well-known-paths' ), async ( importOriginal ) => {
+	const actual = await importOriginal();
+	return {
+		...actual,
+		getServerFilesPath: vi.fn().mockReturnValue( '/test/server-files' ),
+	};
+} );
 vi.mock( 'cli/lib/site-language' );
 vi.mock( 'cli/lib/site-utils' );
 vi.mock( '@studio/common/lib/agent-skills' );

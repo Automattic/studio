@@ -4,10 +4,6 @@ import path from 'path';
 import { readFile, writeFile } from 'atomically';
 import { vi } from 'vitest';
 import {
-	getConfigDirectory as getSharedConfigDirectory,
-	getSharedConfigPath,
-} from '@studio/common/lib/config-paths';
-import {
 	readSharedConfig,
 	saveSharedConfig,
 	updateSharedConfig,
@@ -15,6 +11,10 @@ import {
 	getCurrentUserId,
 	SharedConfigVersionMismatchError,
 } from '@studio/common/lib/shared-config';
+import {
+	getConfigDirectory as getSharedConfigDirectory,
+	getSharedConfigPath,
+} from '@studio/common/lib/well-known-paths';
 import type { SharedConfig } from '@studio/common/lib/shared-config';
 
 vi.mock( 'fs', () => ( {

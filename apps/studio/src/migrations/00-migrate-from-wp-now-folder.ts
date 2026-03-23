@@ -1,7 +1,7 @@
 import { app } from 'electron';
 import path from 'path';
 import { pathExists, recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
-import { getServerFilesPath } from 'src/storage/paths';
+import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 import { loadUserData } from 'src/storage/user-data';
 import type { Migration } from '@studio/common/lib/migration';
 

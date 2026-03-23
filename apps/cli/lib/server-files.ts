@@ -1,5 +1,6 @@
 import os from 'os';
 import path from 'path';
+import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 import { __ } from '@wordpress/i18n';
 import { LoggerError } from 'cli/logger';
 
@@ -20,10 +21,6 @@ export function getAppdataDirectory(): string {
 	}
 
 	return path.join( os.homedir(), 'Library', 'Application Support', 'Studio' );
-}
-
-export function getServerFilesPath(): string {
-	return path.join( getAppdataDirectory(), 'server-files' );
 }
 
 export function getWpCliPharPath(): string {

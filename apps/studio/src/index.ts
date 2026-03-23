@@ -56,6 +56,7 @@ import {
 	updateAppdata,
 } from 'src/storage/user-data';
 import { getAutoUpdaterState, setupUpdates } from 'src/updates';
+// eslint-disable-next-line import-x/order
 import packageJson from '../package.json';
 
 // Helper function to get the actual URL for validation

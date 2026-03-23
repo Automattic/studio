@@ -4,13 +4,15 @@ import path from 'path';
 import { readFile, writeFile } from 'atomically';
 import { vi } from 'vitest';
 import {
+	getConfigDirectory as getSharedConfigDirectory,
+	getSharedConfigPath,
+} from '@studio/common/lib/config-paths';
+import {
 	readSharedConfig,
 	saveSharedConfig,
 	updateSharedConfig,
 	readAuthToken,
 	getCurrentUserId,
-	getSharedConfigDirectory,
-	getSharedConfigPath,
 	SharedConfigVersionMismatchError,
 } from '@studio/common/lib/shared-config';
 import type { SharedConfig } from '@studio/common/lib/shared-config';

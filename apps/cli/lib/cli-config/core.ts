@@ -1,13 +1,17 @@
 import fs from 'fs';
 import path from 'path';
-import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from '@studio/common/constants';
+import {
+	CLI_CONFIG_LOCKFILE_NAME,
+	LOCKFILE_STALE_TIME,
+	LOCKFILE_WAIT_TIME,
+} from '@studio/common/constants';
 import { siteDetailsSchema } from '@studio/common/lib/cli-events';
+import { getCliConfigPath, getConfigDirectory } from '@studio/common/lib/config-paths';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
 import { snapshotSchema } from '@studio/common/types/snapshot';
 import { __ } from '@wordpress/i18n';
 import { readFile, writeFile } from 'atomically';
 import { z } from 'zod';
-import { STUDIO_CLI_HOME } from 'cli/lib/paths';
 import { StatsMetric } from 'cli/lib/types/bump-stats';
 import { LoggerError } from 'cli/logger';
 
@@ -46,18 +50,6 @@ const DEFAULT_CLI_CONFIG: CliConfig = {
 	snapshots: [],
 };
 
-export function getCliConfigDirectory(): string {
-	if ( process.env.E2E && process.env.E2E_CLI_CONFIG_PATH ) {
-		return process.env.E2E_CLI_CONFIG_PATH;
-	}
-
-	return STUDIO_CLI_HOME;
-}
-
-export function getCliConfigPath(): string {
-	return path.join( getCliConfigDirectory(), 'cli.json' );
-}
-
 export async function readCliConfig(): Promise< CliConfig > {
 	const configPath = getCliConfigPath();
 
@@ -65,10 +57,10 @@ export async function readCliConfig(): Promise< CliConfig > {
 		return structuredClone( DEFAULT_CLI_CONFIG );
 	}
 
+	let data: Record< string, unknown >;
 	try {
 		const fileContent = await readFile( configPath, { encoding: 'utf8' } );
-		// eslint-disable-next-line no-var
-		var data = JSON.parse( fileContent );
+		data = JSON.parse( fileContent );
 	} catch ( error ) {
 		throw new LoggerError( __( 'Failed to read CLI config file.' ), error );
 	}
@@ -101,7 +93,7 @@ export async function saveCliConfig( config: CliConfig ): Promise< void > {
 	try {
 		config.version = CLI_CONFIG_VERSION;
 
-		const configDir = getCliConfigDirectory();
+		const configDir = getConfigDirectory();
 		if ( ! fs.existsSync( configDir ) ) {
 			fs.mkdirSync( configDir, { recursive: true } );
 		}
@@ -118,7 +110,7 @@ export async function saveCliConfig( config: CliConfig ): Promise< void > {
 	}
 }
 
-const LOCKFILE_PATH = path.join( getCliConfigDirectory(), 'cli.json.lock' );
+const LOCKFILE_PATH = path.join( getConfigDirectory(), CLI_CONFIG_LOCKFILE_NAME );
 
 export async function lockCliConfig(): Promise< void > {
 	await lockFileAsync( LOCKFILE_PATH, { wait: LOCKFILE_WAIT_TIME, stale: LOCKFILE_STALE_TIME } );

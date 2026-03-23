@@ -34,6 +34,11 @@ async function main() {
 				return path.resolve( untildify( value ) );
 			},
 		} )
+		.middleware( async () => {
+			const { runMigrations } = await import( '@studio/common/lib/migration' );
+			const { migrations } = await import( 'cli/migrations' );
+			await runMigrations( migrations );
+		} )
 		.middleware( async ( argv ) => {
 			if ( __ENABLE_CLI_TELEMETRY__ && ! argv.avoidTelemetry ) {
 				try {

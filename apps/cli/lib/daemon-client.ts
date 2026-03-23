@@ -4,7 +4,6 @@ import { EventEmitter } from 'events';
 import fs from 'fs';
 import path from 'path';
 import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from '@studio/common/constants';
-import { cacheFunctionTTL } from '@studio/common/lib/cache-function-ttl';
 import {
 	type AUTH_EVENTS,
 	type SITE_EVENTS,

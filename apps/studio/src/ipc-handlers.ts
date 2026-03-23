@@ -234,7 +234,7 @@ export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< Sit
 	const sites = SiteServer.getAllDetails();
 	const userData = await loadUserData();
 	for ( const site of sites ) {
-		const appdataSite = userData.sites.find( ( s ) => s.id === site.id );
+		const appdataSite = userData.siteMetadata[ site.id ];
 		if ( appdataSite ) {
 			site.sortOrder = appdataSite.sortOrder;
 			site.themeDetails = appdataSite.themeDetails;
@@ -647,19 +647,6 @@ export async function deleteSite( event: IpcMainInvokeEvent, id: string, deleteF
 		throw new Error( 'Site not found.' );
 	}
 	await server.delete( deleteFiles );
-
-	// Clean up Studio-only data (sortOrder, themeDetails) from appdata
-	try {
-		await lockAppdata();
-		const userData = await loadUserData();
-		const siteIndex = userData.sites.findIndex( ( s ) => s.id === id );
-		if ( siteIndex !== -1 ) {
-			userData.sites.splice( siteIndex, 1 );
-			await saveUserData( userData );
-		}
-	} finally {
-		await unlockAppdata();
-	}
 }
 
 export async function copySite(
@@ -1557,9 +1544,7 @@ export async function isFullscreen( _event: IpcMainInvokeEvent ): Promise< boole
 }
 
 export async function getAllCustomDomains(): Promise< string[] > {
-	const userData = await loadUserData();
-
-	return userData.sites
+	return SiteServer.getAllDetails()
 		.map( ( site ) => site.customDomain )
 		.filter( ( domain ): domain is string => domain !== undefined );
 }
@@ -1665,15 +1650,11 @@ export async function updateSitesSortOrder(
 		await lockAppdata();
 		const userData = await loadUserData();
 
-		const updatedSites = userData.sites.map( ( site ) => {
-			const update = updates.find( ( u ) => u.siteId === site.id );
-			if ( update ) {
-				return { ...site, sortOrder: update.sortOrder };
-			}
-			return site;
-		} );
+		for ( const { siteId, sortOrder } of updates ) {
+			userData.siteMetadata[ siteId ] = { ...userData.siteMetadata[ siteId ], sortOrder };
+		}
 
-		await saveUserData( { ...userData, sites: updatedSites } );
+		await saveUserData( userData );
 	} finally {
 		await unlockAppdata();
 	}

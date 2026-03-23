@@ -169,9 +169,9 @@ vi.mock( 'electron', () => {
 vi.mock( 'src/storage/paths', () => ( {
 	getResourcesPath: vi.fn().mockReturnValue( '/mock/resources' ),
 	getUserDataFilePath: vi.fn().mockReturnValue( '/mock/userdata.json' ),
-	getUserDataLockFilePath: vi.fn().mockReturnValue( '/mock/userdata.json.lock' ),
 	getUserDataCertificatesPath: vi.fn().mockReturnValue( '/mock/certificates' ),
 } ) );
+
 
 vi.mock( 'lockfile', () => {
 	const lock = vi.fn( ( file, options, callback ) => callback( null ) );

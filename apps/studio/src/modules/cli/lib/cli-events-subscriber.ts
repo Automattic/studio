@@ -28,7 +28,7 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 	const { event: eventType, siteId, site, running } = event;
 
 	if ( eventType === SITE_EVENTS.DELETED ) {
-		SiteServer.unregister( siteId );
+		await SiteServer.unregister( siteId );
 		void sendIpcEventToRenderer( 'site-event', event );
 		return;
 	}

@@ -38,7 +38,6 @@ vi.mock( '@sentry/electron/main', () => ( {
 vi.mock( 'src/storage/paths', () => ( {
 	getResourcesPath: vi.fn().mockReturnValue( '/mock/resources' ),
 	getUserDataFilePath: vi.fn().mockReturnValue( '/mock/userdata.json' ),
-	getUserDataLockFilePath: vi.fn().mockReturnValue( '/mock/userdata.json.lock' ),
 	getUserDataCertificatesPath: vi.fn().mockReturnValue( '/mock/certificates' ),
 	getServerFilesPath: vi.fn().mockReturnValue( '/mock/server/files' ),
 	getCliPath: vi.fn().mockReturnValue( '/mock/cli/path' ),

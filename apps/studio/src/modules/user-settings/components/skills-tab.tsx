@@ -1,7 +1,7 @@
 import { DropdownMenu, MenuGroup, MenuItem } from '@wordpress/components';
 import { Icon, check, moreVertical } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Button from 'src/components/button';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { type SkillStatus } from 'src/modules/agent-instructions/lib/skills-constants';
@@ -62,9 +62,18 @@ export function SkillsTab() {
 		[ refreshStatus ]
 	);
 
-	const wordPressSkills = statuses.filter( ( s ) => s.id !== 'studio-cli' );
-	const installedSkills = wordPressSkills.filter( ( s ) => s.installed );
-	const availableSkills = wordPressSkills.filter( ( s ) => ! s.installed );
+	const wordPressSkills = useMemo(
+		() => statuses.filter( ( s ) => s.id !== 'studio-cli' ),
+		[ statuses ]
+	);
+	const installedSkills = useMemo(
+		() => wordPressSkills.filter( ( s ) => s.installed ),
+		[ wordPressSkills ]
+	);
+	const availableSkills = useMemo(
+		() => wordPressSkills.filter( ( s ) => ! s.installed ),
+		[ wordPressSkills ]
+	);
 
 	const handleInstallAll = useCallback( async () => {
 		setInstallingAll( true );

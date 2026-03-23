@@ -74,7 +74,10 @@ export default defineConfig(
 			],
 			'import-x/no-named-as-default-member': 'off',
 			// @wp-playground/blueprints ships blueprint-schema-validator outside its package.json exports map
-			'import-x/no-unresolved': [ 'error', { ignore: [ '@wp-playground/blueprints/blueprint-schema-validator' ] } ],
+			'import-x/no-unresolved': [
+				'error',
+				{ ignore: [ '@wp-playground/blueprints/blueprint-schema-validator' ] },
+			],
 			'import-x/order': [
 				'error',
 				{

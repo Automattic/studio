@@ -15,16 +15,6 @@ vi.mock( 'atomically' );
 vi.mock( 'src/lib/app-globals', () => ( {
 	saveWindowBounds: vi.fn(),
 } ) );
-vi.mock( 'src/storage/paths', () => ( {
-	getResourcesPath: vi.fn().mockReturnValue( '/mock/resources' ),
-	getUserDataFilePath: vi.fn().mockReturnValue( '/mock/userdata.json' ),
-	getUserDataCertificatesPath: vi.fn().mockReturnValue( '/mock/certificates' ),
-	getServerFilesPath: vi.fn().mockReturnValue( '/mock/server/files' ),
-	getCliPath: vi.fn().mockReturnValue( '/mock/cli/path' ),
-	getBundledNodeBinaryPath: vi.fn().mockReturnValue( '/mock/node/binary' ),
-	getSiteThumbnailPath: vi.fn().mockReturnValue( '/mock/thumbnail.png' ),
-	DEFAULT_SITE_PATH: '/mock/default/site/path',
-} ) );
 
 // Create a simpler mock that tracks event handlers
 const mockEventHandlers = new Map< string, ( ( ...args: any[] ) => void )[] >();

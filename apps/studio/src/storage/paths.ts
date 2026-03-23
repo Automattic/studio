@@ -26,7 +26,7 @@ export function getServerFilesPath(): string {
 	return path.join( getAppDataPath(), getAppName(), 'server-files' );
 }
 
-export function getUserDataCertificatesPath(): string {
+export function getOldUserDataCertificatesPath(): string {
 	return path.join( getAppDataPath(), getAppName(), 'certificates' );
 }
 

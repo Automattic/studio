@@ -1,7 +1,11 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { vi } from 'vitest';
-import { installAiInstructionsToSite, updateManagedInstructionFiles } from '../agent-skills';
+import {
+	installAiInstructionsToSite,
+	installSkillToSite,
+	updateManagedInstructionFiles,
+} from '../agent-skills';
 import { pathExists, recursiveCopyDirectory } from '../fs-utils';
 
 vi.mock( 'fs/promises', () => ( {
@@ -82,7 +86,7 @@ describe( 'installAiInstructionsToSite', () => {
 		);
 	} );
 
-	it( 'installs directories as skills with symlinks', async () => {
+	it( 'skips skill directories not in the user-selected list', async () => {
 		vi.mocked( pathExists ).mockImplementation( async ( p: string ) => {
 			if ( p === BUNDLED_PATH || p === path.join( BUNDLED_PATH, 'studio-cli' ) ) {
 				return true;
@@ -95,25 +99,15 @@ describe( 'installAiInstructionsToSite', () => {
 
 		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH );
 
-		expect( recursiveCopyDirectory ).toHaveBeenCalledWith(
-			path.join( BUNDLED_PATH, 'studio-cli' ),
-			path.join( SITE_PATH, '.agents', 'skills', 'studio-cli' )
-		);
-		expect( fs.symlink ).toHaveBeenCalledWith(
-			path.relative(
-				path.join( SITE_PATH, '.claude', 'skills' ),
-				path.join( SITE_PATH, '.agents', 'skills', 'studio-cli' )
-			),
-			path.join( SITE_PATH, '.claude', 'skills', 'studio-cli' )
-		);
+		expect( recursiveCopyDirectory ).not.toHaveBeenCalled();
+		expect( fs.symlink ).not.toHaveBeenCalled();
 	} );
 
-	it( 'removes existing skills when overwrite is true', async () => {
+	it( 'skips skill directories even with overwrite when not in user-selected list', async () => {
 		vi.mocked( pathExists ).mockImplementation( async ( p: string ) => {
 			if ( p === BUNDLED_PATH ) {
 				return true;
 			}
-			// SKILL.md exists, symlink exists
 			return true;
 		} );
 		vi.mocked( fs.readdir ).mockResolvedValue( [
@@ -122,11 +116,8 @@ describe( 'installAiInstructionsToSite', () => {
 
 		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH, true );
 
-		expect( fs.rm ).toHaveBeenCalledWith(
-			path.join( SITE_PATH, '.agents', 'skills', 'wp-rest-api' ),
-			{ recursive: true, force: true }
-		);
-		expect( recursiveCopyDirectory ).toHaveBeenCalledTimes( 1 );
+		expect( fs.rm ).not.toHaveBeenCalled();
+		expect( recursiveCopyDirectory ).not.toHaveBeenCalled();
 	} );
 
 	it( 'skips when bundled path does not exist', async () => {
@@ -139,7 +130,7 @@ describe( 'installAiInstructionsToSite', () => {
 		expect( fs.copyFile ).not.toHaveBeenCalled();
 	} );
 
-	it( 'handles both .md files and skill directories in one pass', async () => {
+	it( 'copies .md files but skips unselected skill directories', async () => {
 		vi.mocked( pathExists ).mockImplementation( async ( p: string ) => {
 			if ( p === BUNDLED_PATH || p === path.join( BUNDLED_PATH, 'studio-cli' ) ) {
 				return true;
@@ -154,8 +145,8 @@ describe( 'installAiInstructionsToSite', () => {
 		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH );
 
 		expect( fs.copyFile ).toHaveBeenCalledTimes( 1 );
-		expect( recursiveCopyDirectory ).toHaveBeenCalledTimes( 1 );
-		expect( fs.symlink ).toHaveBeenCalledTimes( 1 );
+		expect( recursiveCopyDirectory ).not.toHaveBeenCalled();
+		expect( fs.symlink ).not.toHaveBeenCalled();
 	} );
 
 	it( 'ignores non-.md files at the root level', async () => {
@@ -180,14 +171,9 @@ describe( 'installAiInstructionsToSite', () => {
 		);
 	} );
 
-	it( 'installs multiple skills with correct paths and symlinks', async () => {
-		const normalizedBundled = path.normalize( BUNDLED_PATH );
+	it( 'copies only .md files when skill directories are not user-selected', async () => {
 		vi.mocked( pathExists ).mockImplementation( async ( p: string ) => {
-			if (
-				p === BUNDLED_PATH ||
-				p === normalizedBundled ||
-				p.startsWith( normalizedBundled + path.sep )
-			) {
+			if ( p === BUNDLED_PATH ) {
 				return true;
 			}
 			return false;
@@ -205,36 +191,14 @@ describe( 'installAiInstructionsToSite', () => {
 		// 2 .md files copied to site root
 		expect( fs.copyFile ).toHaveBeenCalledTimes( 2 );
 
-		// 3 skill directories copied to .agents/skills/
-		expect( recursiveCopyDirectory ).toHaveBeenCalledTimes( 3 );
-		expect( recursiveCopyDirectory ).toHaveBeenCalledWith(
-			path.join( BUNDLED_PATH, 'studio-cli' ),
-			path.join( SITE_PATH, '.agents', 'skills', 'studio-cli' )
-		);
-		expect( recursiveCopyDirectory ).toHaveBeenCalledWith(
-			path.join( BUNDLED_PATH, 'wp-plugin-development' ),
-			path.join( SITE_PATH, '.agents', 'skills', 'wp-plugin-development' )
-		);
-		expect( recursiveCopyDirectory ).toHaveBeenCalledWith(
-			path.join( BUNDLED_PATH, 'wp-block-development' ),
-			path.join( SITE_PATH, '.agents', 'skills', 'wp-block-development' )
-		);
-
-		// 3 symlinks created in .claude/skills/
-		expect( fs.symlink ).toHaveBeenCalledTimes( 3 );
-		expect( fs.mkdir ).toHaveBeenCalledWith( path.join( SITE_PATH, '.claude', 'skills' ), {
-			recursive: true,
-		} );
+		// No skill directories installed
+		expect( recursiveCopyDirectory ).not.toHaveBeenCalled();
+		expect( fs.symlink ).not.toHaveBeenCalled();
 	} );
 
-	it( 'continues installing remaining skills when one fails', async () => {
-		const normalizedBundled = path.normalize( BUNDLED_PATH );
+	it( 'does not attempt to install any skills when none are user-selected', async () => {
 		vi.mocked( pathExists ).mockImplementation( async ( p: string ) => {
-			if (
-				p === BUNDLED_PATH ||
-				p === normalizedBundled ||
-				p.startsWith( normalizedBundled + path.sep )
-			) {
+			if ( p === BUNDLED_PATH ) {
 				return true;
 			}
 			return false;
@@ -243,28 +207,16 @@ describe( 'installAiInstructionsToSite', () => {
 			{ name: 'broken-skill', isFile: () => false, isDirectory: () => true },
 			{ name: 'good-skill', isFile: () => false, isDirectory: () => true },
 		] as never );
-		vi.mocked( recursiveCopyDirectory )
-			.mockRejectedValueOnce( new Error( 'copy failed' ) )
-			.mockResolvedValueOnce( undefined );
 
 		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH );
 
-		// Both skills attempted, second one succeeds
-		expect( recursiveCopyDirectory ).toHaveBeenCalledTimes( 2 );
-		expect( fs.symlink ).toHaveBeenCalledTimes( 1 );
+		expect( recursiveCopyDirectory ).not.toHaveBeenCalled();
+		expect( fs.symlink ).not.toHaveBeenCalled();
 	} );
 
-	it( 'falls back to junction on Windows EPERM', async () => {
-		const originalPlatform = process.platform;
-		Object.defineProperty( process, 'platform', { value: 'win32' } );
-
-		const normalizedBundled = path.normalize( BUNDLED_PATH );
+	it( 'skips skill directories on any platform when not user-selected', async () => {
 		vi.mocked( pathExists ).mockImplementation( async ( p: string ) => {
-			if (
-				p === BUNDLED_PATH ||
-				p === normalizedBundled ||
-				p.startsWith( normalizedBundled + path.sep )
-			) {
+			if ( p === BUNDLED_PATH ) {
 				return true;
 			}
 			return false;
@@ -273,10 +225,82 @@ describe( 'installAiInstructionsToSite', () => {
 			{ name: 'wp-plugin-development', isFile: () => false, isDirectory: () => true },
 		] as never );
 
+		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH, false );
+
+		expect( recursiveCopyDirectory ).not.toHaveBeenCalled();
+		expect( fs.symlink ).not.toHaveBeenCalled();
+	} );
+} );
+
+describe( 'installSkillToSite', () => {
+	beforeEach( () => {
+		vi.clearAllMocks();
+		vi.mocked( pathExists ).mockResolvedValue( false );
+		vi.mocked( recursiveCopyDirectory ).mockResolvedValue( undefined );
+		vi.mocked( fs.mkdir ).mockResolvedValue( undefined );
+		vi.mocked( fs.rm ).mockResolvedValue( undefined );
+		vi.mocked( fs.symlink ).mockResolvedValue( undefined );
+	} );
+
+	it( 'installs a skill directory with symlink', async () => {
+		vi.mocked( pathExists ).mockImplementation( async ( p: string ) => {
+			if ( p === path.join( BUNDLED_PATH, 'studio-cli' ) ) {
+				return true;
+			}
+			return false;
+		} );
+
+		await installSkillToSite( SITE_PATH, BUNDLED_PATH, 'studio-cli', false );
+
+		expect( recursiveCopyDirectory ).toHaveBeenCalledWith(
+			path.join( BUNDLED_PATH, 'studio-cli' ),
+			path.join( SITE_PATH, '.agents', 'skills', 'studio-cli' )
+		);
+		expect( fs.symlink ).toHaveBeenCalledWith(
+			path.relative(
+				path.join( SITE_PATH, '.claude', 'skills' ),
+				path.join( SITE_PATH, '.agents', 'skills', 'studio-cli' )
+			),
+			path.join( SITE_PATH, '.claude', 'skills', 'studio-cli' )
+		);
+	} );
+
+	it( 'removes existing skill when overwrite is true', async () => {
+		vi.mocked( pathExists ).mockImplementation( async ( p: string ) => {
+			if ( p === path.join( BUNDLED_PATH, 'wp-rest-api' ) ) {
+				return true;
+			}
+			// SKILL.md exists
+			if ( p === path.join( SITE_PATH, '.agents', 'skills', 'wp-rest-api', 'SKILL.md' ) ) {
+				return true;
+			}
+			return false;
+		} );
+
+		await installSkillToSite( SITE_PATH, BUNDLED_PATH, 'wp-rest-api', true );
+
+		expect( fs.rm ).toHaveBeenCalledWith(
+			path.join( SITE_PATH, '.agents', 'skills', 'wp-rest-api' ),
+			{ recursive: true, force: true }
+		);
+		expect( recursiveCopyDirectory ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'falls back to junction on Windows EPERM', async () => {
+		const originalPlatform = process.platform;
+		Object.defineProperty( process, 'platform', { value: 'win32' } );
+
+		vi.mocked( pathExists ).mockImplementation( async ( p: string ) => {
+			if ( p === path.join( BUNDLED_PATH, 'wp-plugin-development' ) ) {
+				return true;
+			}
+			return false;
+		} );
+
 		const epermError = Object.assign( new Error( 'EPERM' ), { code: 'EPERM' } );
 		vi.mocked( fs.symlink ).mockRejectedValueOnce( epermError ).mockResolvedValue( undefined );
 
-		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH, false );
+		await installSkillToSite( SITE_PATH, BUNDLED_PATH, 'wp-plugin-development', false );
 
 		expect( fs.symlink ).toHaveBeenCalledWith(
 			path.resolve( path.join( SITE_PATH, '.agents', 'skills', 'wp-plugin-development' ) ),

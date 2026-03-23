@@ -153,7 +153,7 @@ export function SkillsTab() {
 							variant="secondary"
 							onClick={ handleInstallAll }
 							disabled={ isAnyInstalling }
-							className="text-xs py-1 px-2"
+							className="text-xs py-1 px-2 [&.is-secondary]:bg-frame"
 						>
 							{ installingAll ? __( 'Installing...' ) : __( 'Install all' ) }
 						</Button>

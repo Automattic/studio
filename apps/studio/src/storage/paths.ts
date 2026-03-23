@@ -1,6 +1,5 @@
 import path from 'path';
-import { APP_CONFIG_LOCKFILE_NAME } from '@studio/common/constants';
-import { getAppConfigPath } from '@studio/common/lib/config-paths';
+import { getAppConfigPath } from '@studio/common/lib/well-known-paths';
 
 function inChildProcess() {
 	return process.env.STUDIO_IN_CHILD_PROCESS === 'true';

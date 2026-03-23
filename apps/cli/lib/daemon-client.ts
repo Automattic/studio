@@ -246,12 +246,13 @@ const daemonListProcessesSuccessResponseSchema = z.object( {
 
 // Cache the process list returned from the process manager for a very short time to make multiple
 // calls in quick succession more efficient
-const listProcesses = cacheFunctionTTL( async () => {
+async function listProcesses() {
+	await connectToDaemon();
 	const response = await sendDaemonRequest( {
 		type: 'list-processes',
 	} );
 	return daemonListProcessesSuccessResponseSchema.parse( response ).processes;
-} );
+}
 
 export async function getDaemonBus(): Promise< DaemonBus > {
 	if ( ! daemonBus ) {
@@ -289,10 +290,6 @@ export async function isProcessRunning(
 	processName: string
 ): Promise< ProcessDescription | undefined > {
 	try {
-		if ( ! isConnected ) {
-			return undefined;
-		}
-
 		const processes = await listProcesses();
 		return processes.find( ( p ) => p.name === processName && p.status === 'online' );
 	} catch ( error ) {
@@ -322,6 +319,12 @@ export async function startProcess(
 }
 
 export async function stopProcess( processName: string ): Promise< void > {
+	const runningProcess = await isProcessRunning( processName );
+
+	if ( ! runningProcess ) {
+		return;
+	}
+
 	await connectToDaemon();
 	await sendDaemonRequest( {
 		type: 'stop-process',

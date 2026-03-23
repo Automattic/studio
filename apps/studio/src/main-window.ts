@@ -64,7 +64,7 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 	}
 
 	const userData = await loadUserData();
-	nativeTheme.themeSource = userData.colorScheme ?? 'system';
+	nativeTheme.themeSource = userData.colorScheme ?? 'light';
 
 	const savedBounds = await loadWindowBounds();
 	let windowOptions: BrowserWindowConstructorOptions = {

@@ -59,7 +59,7 @@ export const baseConfig = defineConfig( {
 		commonjsOptions: {
 			ignoreDynamicRequires: true,
 		},
-		sourcemap: true,
+		sourcemap: false,
 		minify: false,
 	},
 	resolve: {

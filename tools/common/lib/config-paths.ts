@@ -1,5 +1,6 @@
 import os from 'os';
 import path from 'path';
+import { APP_CONFIG_LOCKFILE_NAME } from '../constants';
 
 export function getConfigDirectory(): string {
 	if ( process.env.E2E && process.env.E2E_SHARED_CONFIG_PATH ) {
@@ -14,6 +15,10 @@ export function getSharedConfigPath(): string {
 
 export function getAppConfigPath(): string {
 	return path.join( getConfigDirectory(), 'app.json' );
+}
+
+export function getAppConfigLockFilePath(): string {
+	return path.join( getConfigDirectory(), APP_CONFIG_LOCKFILE_NAME );
 }
 
 export function getCliConfigPath(): string {

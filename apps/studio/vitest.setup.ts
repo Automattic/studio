@@ -166,7 +166,7 @@ vi.mock( 'electron', () => {
 	};
 } );
 
-vi.mock( import('./src/storage/paths'), () => ( {
+vi.mock( import( './src/storage/paths' ), () => ( {
 	getResourcesPath: vi.fn().mockReturnValue( '/mock/resources' ),
 	getUserDataFilePath: vi.fn().mockReturnValue( '/mock/userdata.json' ),
 	getUserDataLockFilePath: vi.fn().mockReturnValue( '/mock/userdata.json.lock' ),

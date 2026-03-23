@@ -21,6 +21,7 @@ vi.mock( 'fs/promises', () => ( {
 vi.mock( 'os', () => ( {
 	default: {
 		tmpdir: vi.fn(),
+		homedir: vi.fn().mockReturnValue( '/mock/home' ),
 	},
 } ) );
 vi.mock( 'path', () => ( {

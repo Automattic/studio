@@ -19,6 +19,8 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import {
 	installAiInstructionsToSite,
+	installSkillToSite,
+	removeSkillFromSite,
 	updateManagedInstructionFiles,
 } from '@studio/common/lib/agent-skills';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
@@ -81,6 +83,7 @@ import {
 	type InstructionFileStatus,
 } from 'src/modules/agent-instructions/lib/instructions';
 import {
+	BUNDLED_SKILLS,
 	getSkillsStatus,
 	installAllSkills,
 	type SkillStatus,
@@ -194,6 +197,60 @@ export async function installWordPressSkills(
 	}
 	const overwrite = options?.overwrite ?? false;
 	await installAllSkills( server.details.path, overwrite );
+}
+
+export async function getWordPressSkillsStatusAllSites(
+	_event: IpcMainInvokeEvent
+): Promise< SkillStatus[] > {
+	const { sites } = await loadUserData();
+	if ( ! sites.length ) {
+		return BUNDLED_SKILLS.map( ( skill ) => ( { ...skill, installed: false } ) );
+	}
+	const allSiteStatuses = await Promise.all(
+		sites.map( ( site ) => getSkillsStatus( site.path ) )
+	);
+	return BUNDLED_SKILLS.map( ( skill ) => ( {
+		...skill,
+		installed: allSiteStatuses.every(
+			( siteStatuses ) => siteStatuses.find( ( s ) => s.id === skill.id )?.installed ?? false
+		),
+	} ) );
+}
+
+export async function installWordPressSkillsToAllSites(
+	_event: IpcMainInvokeEvent,
+	options?: { skillId?: string; overwrite?: boolean }
+): Promise< void > {
+	const { sites } = await loadUserData();
+	const overwrite = options?.overwrite ?? false;
+	const bundledPath = getAiInstructionsPath();
+	const tasks = sites.flatMap( ( site ) =>
+		options?.skillId
+			? [ installSkillToSite( site.path, bundledPath, options.skillId, overwrite ) ]
+			: BUNDLED_SKILLS.map( ( skill ) =>
+					installSkillToSite( site.path, bundledPath, skill.id, overwrite )
+			  )
+	);
+	const results = await Promise.allSettled( tasks );
+	results.forEach( ( result ) => {
+		if ( result.status === 'rejected' ) {
+			console.error( '[skills] Failed to install skill:', result.reason );
+		}
+	} );
+}
+
+export async function removeWordPressSkillFromAllSites(
+	_event: IpcMainInvokeEvent,
+	skillId: string
+): Promise< void > {
+	const { sites } = await loadUserData();
+	const tasks = sites.map( ( site ) => removeSkillFromSite( site.path, skillId ) );
+	const results = await Promise.allSettled( tasks );
+	results.forEach( ( result ) => {
+		if ( result.status === 'rejected' ) {
+			console.error( '[skills] Failed to remove skill:', result.reason );
+		}
+	} );
 }
 
 const DEBUG_LOG_MAX_LINES = 50;

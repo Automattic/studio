@@ -55,8 +55,8 @@ import {
 	updateAppdata,
 } from 'src/storage/user-data';
 import { getAutoUpdaterState, setupUpdates } from 'src/updates';
-// eslint-disable-next-line import-x/order
 import packageJson from '../package.json';
+import { executeCliCommand } from './modules/cli/lib/execute-command';
 
 // Helper function to get the actual URL for validation
 function getRendererUrl(): string {
@@ -125,6 +125,15 @@ function launchExtensionBackgroundWorkers( appSession = session.defaultSession )
 			}
 		} )
 	);
+}
+
+async function updateServerFiles(): Promise< void > {
+	return new Promise< void >( ( resolve, reject ) => {
+		const [ emitter ] = executeCliCommand( [ '_update-deps' ] );
+		emitter.on( 'success', () => resolve() );
+		emitter.on( 'failure', ( { error } ) => reject( error ) );
+		emitter.on( 'error', ( { error } ) => reject( error ) );
+	} );
 }
 
 async function appBoot() {
@@ -301,6 +310,9 @@ async function appBoot() {
 		} );
 
 		setupIpc();
+
+		// WordPress server files are updated asynchronously to avoid delaying app initialization
+		void updateServerFiles().catch( Sentry.captureException );
 
 		await runMigrations( migrations ).catch( Sentry.captureException );
 

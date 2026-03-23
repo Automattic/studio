@@ -3,7 +3,7 @@ import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-wa
 import { __ } from '@wordpress/i18n';
 import yargs from 'yargs';
 import { bumpAggregatedUniqueStat, getPlatformMetric } from 'cli/lib/bump-stat';
-import { setupServerFiles } from 'cli/lib/dependency-management/setup';
+import { setupServerFiles, updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { loadTranslations } from 'cli/lib/i18n';
 import { StatsGroup, StatsMetric } from 'cli/lib/types/bump-stats';
 import { untildify } from 'cli/lib/utils';
@@ -150,9 +150,19 @@ async function main() {
 					} );
 			},
 			handler: async ( argv ) => {
+				await setupServerFiles();
+
 				const { commandHandler: wpCliCommandHandler } = await import( 'cli/commands/wp' );
 
 				return wpCliCommandHandler( argv );
+			},
+		} )
+		.command( {
+			command: '_update-deps',
+			describe: false,
+			handler: async () => {
+				await setupServerFiles();
+				await updateServerFiles();
 			},
 		} )
 		.command( {

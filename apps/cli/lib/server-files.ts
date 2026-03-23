@@ -24,6 +24,8 @@ export function getAppdataDirectory(): string {
 	return path.join( os.homedir(), 'Library', 'Application Support', 'Studio' );
 }
 
+// The `wp-files` directory is located in the same directory as the CLI code. It ships with the
+// installer and contains the unaltered dependencies.
 export function getWpFilesPath(): string {
 	return path.join( import.meta.dirname, 'wp-files' );
 }

@@ -33,12 +33,10 @@ async function getSqliteCommandVersion( installationPath: string ) {
 	}
 }
 
-const sqliteGithubReleaseSchema = z.array(
-	z.object( {
-		tag_name: z.string(),
-		assets: z.array( z.object( { name: z.string(), browser_download_url: z.string() } ) ),
-	} )
-);
+const sqliteGithubReleaseSchema = z.object( {
+	tag_name: z.string(),
+	assets: z.array( z.object( { name: z.string(), browser_download_url: z.string() } ) ),
+} );
 
 const getLatestSqliteCommandRelease = cacheFunctionTTL( async () => {
 	const headers: HeadersInit = {
@@ -65,9 +63,8 @@ const getLatestSqliteCommandRelease = cacheFunctionTTL( async () => {
 	}
 
 	const rawResponse: unknown = await response.json();
-	const parsed = sqliteGithubReleaseSchema.parse( rawResponse );
 
-	return parsed[ 0 ];
+	return sqliteGithubReleaseSchema.parse( rawResponse );
 } );
 
 export async function updateLatestSqliteCommandVersion() {

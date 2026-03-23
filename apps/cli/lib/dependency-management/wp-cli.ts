@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { cacheFunctionTTL } from '@studio/common/lib/cache-function-ttl';
 import semver from 'semver';
 import { z } from 'zod';
 import { runGlobalWpCliCommand } from '../run-wp-cli-command';
@@ -23,27 +24,36 @@ async function getWPCliVersionFromInstallation(): Promise< string > {
 	return '';
 }
 
-let latestWPCliVersionCache = '';
-const wpCliVersionsSchema = z.array( z.object( { tag_name: z.string() } ) );
+const wpCliVersionsSchema = z.object( { tag_name: z.string() } );
 
-async function getLatestWPCliVersion(): Promise< string > {
-	if ( latestWPCliVersionCache ) {
-		return latestWPCliVersionCache;
+const getLatestWPCliVersion = cacheFunctionTTL( async (): Promise< string > => {
+	const headers: HeadersInit = {
+		Accept: 'application/vnd.github.v3+json',
+		'User-Agent': 'wp-now-cli',
+	};
+
+	// GitHub API has rate limits:
+	// - 60 requests/hour for unauthenticated requests
+	// - 5,000 requests/hour with token authentication
+	// In CI environments, the IP-based rate limit is shared across runners,
+	// so we authenticate with GITHUB_TOKEN when available.
+	if ( process.env.GITHUB_TOKEN ) {
+		headers.Authorization = `token ${ process.env.GITHUB_TOKEN }`;
 	}
 
-	try {
-		const response = await fetch(
-			'https://api.github.com/repos/wp-cli/wp-cli/releases?per_page=1'
-		);
-		const data: unknown = await response.json();
-		const parsed = wpCliVersionsSchema.parse( data );
-		latestWPCliVersionCache = parsed[ 0 ].tag_name;
-	} catch {
-		// Discard the failed fetch, return the cache
+	const response = await fetch( 'https://api.github.com/repos/wp-cli/wp-cli/releases/latest', {
+		headers,
+	} );
+
+	if ( ! response.ok ) {
+		throw new Error( `GitHub API request failed: ${ response.status } ${ response.statusText }` );
 	}
 
-	return latestWPCliVersionCache;
-}
+	const rawResponse: unknown = await response.json();
+
+	const parsed = wpCliVersionsSchema.parse( rawResponse );
+	return parsed.tag_name;
+} );
 
 async function isWPCliInstallationOutdated(): Promise< boolean > {
 	const installedVersion = await getWPCliVersionFromInstallation();

@@ -14,7 +14,7 @@ import { registerCommand as registerAiCommand } from 'cli/commands/ai';
 import { registerCommand as registerAiSessionsDeleteCommand } from 'cli/commands/ai/sessions/delete';
 import { registerCommand as registerAiSessionsListCommand } from 'cli/commands/ai/sessions/list';
 import { registerCommand as registerAiSessionsResumeCommand } from 'cli/commands/ai/sessions/resume';
-import { getAnthropicApiKey } from 'cli/lib/appdata';
+import { readCliConfig } from 'cli/lib/cli-config/core';
 import { StudioArgv } from 'cli/types';
 
 const { askUserMock, recordSessionContextMock, reportErrorMock, waitForInputMock } = vi.hoisted(
@@ -26,17 +26,13 @@ const { askUserMock, recordSessionContextMock, reportErrorMock, waitForInputMock
 	} )
 );
 
-vi.mock( 'cli/lib/appdata', async () => {
-	const actual = await vi.importActual< typeof import('cli/lib/appdata') >( 'cli/lib/appdata' );
+vi.mock( 'cli/lib/cli-config/core', async () => {
+	const actual =
+		await vi.importActual< typeof import('cli/lib/cli-config/core') >( 'cli/lib/cli-config/core' );
 
 	return {
 		...actual,
-		getAnthropicApiKey: vi.fn(),
-		getAuthToken: vi.fn().mockResolvedValue( {
-			displayName: 'Test User',
-			email: 'test@example.com',
-		} ),
-		saveAnthropicApiKey: vi.fn(),
+		readCliConfig: vi.fn(),
 	};
 } );
 
@@ -175,7 +171,10 @@ vi.mock( 'cli/commands/auth/logout', () => ( {
 describe( 'CLI: studio ai sessions command', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
-		vi.mocked( getAnthropicApiKey ).mockResolvedValue( 'test-api-key' );
+		vi.mocked( readCliConfig ).mockResolvedValue( {
+			sites: [],
+			anthropicApiKey: 'test-api-key',
+		} as never );
 		askUserMock.mockResolvedValue( {} );
 		waitForInputMock.mockResolvedValue( '/exit' );
 		vi.spyOn( process, 'exit' ).mockImplementation( () => undefined as never );

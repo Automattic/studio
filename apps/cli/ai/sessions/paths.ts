@@ -1,5 +1,5 @@
 import path from 'path';
-import { getAppdataDirectory } from 'cli/lib/appdata';
+import { getAppdataDirectory } from 'cli/lib/server-files';
 
 // Keep month/day segments zero-padded so directory names sort chronologically.
 function formatDatePart( value: number ): string {

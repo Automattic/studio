@@ -1,6 +1,10 @@
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
-import { getSiteByFolder, updateSiteAutoStart, updateSiteLatestCliPid } from 'cli/lib/appdata';
+import {
+	getSiteByFolder,
+	updateSiteAutoStart,
+	updateSiteLatestCliPid,
+} from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';

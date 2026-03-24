@@ -81,7 +81,7 @@ function Authentication() {
 					onClick={ () => getIpcApi().showUserSettings() }
 					aria-label={ __( 'Open account settings' ) }
 					variant="icon"
-					className="!p-1.5 !rounded-lg"
+					className="!p-[8px] !rounded-lg"
 				>
 					<Gravatar size={ 20 } className="border-white border-[1.5px]" />
 				</Button>

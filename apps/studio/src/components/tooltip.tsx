@@ -51,12 +51,12 @@ const Tooltip = ( {
 				<Popover
 					role="tooltip"
 					noArrow={ true }
-					offset={ 8 }
+					offset={ 3 }
 					className="[&_div]:!shadow-none [&>div]:bg-transparent"
 					animate={ false }
 					placement={ placement }
 				>
-					<div className="inline-flex items-center gap-2 max-w-80 rounded py-2 px-2.5 bg-[#101517] text-white animate-[fade_0.5s_ease-in-out_1]">
+					<div className="inline-flex items-center gap-2 max-w-80 rounded py-2 px-2.5 bg-[#101517] border border-white/15 text-white animate-[fade_0.5s_ease-in-out_1]">
 						{ icon && <Icon className="fill-white shrink-0  m-[2px]" size={ 16 } icon={ icon } /> }
 						<span className="text-left text-xs break-words overflow-hidden">{ text }</span>
 					</div>

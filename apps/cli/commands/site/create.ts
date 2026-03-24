@@ -97,7 +97,7 @@ type CreateCommandOptions = {
 	noStart: boolean;
 	skipBrowser: boolean;
 	skipLogDetails: boolean;
-	skills: string[];
+	skills?: string[];
 };
 
 export async function runCommand(
@@ -232,7 +232,7 @@ export async function runCommand(
 
 		if ( process.env.ENABLE_AGENT_SUITE === 'true' ) {
 			try {
-				await installAiInstructionsToSite( sitePath, getAiInstructionsPath(), options.skills );
+				await installAiInstructionsToSite( sitePath, getAiInstructionsPath(), options.skills ?? [] );
 			} catch ( error ) {
 				logger.reportError(
 					new LoggerError( __( 'Failed to install AI instructions. Proceeding anyway…' ), error ),

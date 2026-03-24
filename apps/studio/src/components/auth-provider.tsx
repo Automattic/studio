@@ -79,6 +79,15 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 		}
 
 		const { token } = payload;
+
+		if ( ! token ) {
+			setIsAuthenticated( false );
+			setClient( undefined );
+			setWpcomClient( undefined );
+			setUser( undefined );
+			return;
+		}
+
 		const newClient = createWpcomClient( token.accessToken, locale, handleInvalidToken );
 
 		setIsAuthenticated( true );

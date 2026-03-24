@@ -1,15 +1,17 @@
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import {
+	lockCliConfig,
+	readCliConfig,
+	saveCliConfig,
+	unlockCliConfig,
+	type SiteData,
+} from 'cli/lib/cli-config/core';
+import {
 	clearSiteLatestCliPid,
 	getSiteByFolder,
-	lockAppdata,
-	readAppdata,
-	saveAppdata,
-	unlockAppdata,
 	updateSiteAutoStart,
-	type SiteData,
-} from 'cli/lib/appdata';
+} from 'cli/lib/cli-config/sites';
 import {
 	connectToDaemon,
 	disconnectFromDaemon,
@@ -65,10 +67,10 @@ export async function runCommand(
 				throw new LoggerError( __( 'Failed to stop WordPress server' ), error );
 			}
 		} else {
-			const appdata = await readAppdata();
+			const cliConfig = await readCliConfig();
 			const runningSites: SiteData[] = [];
 
-			for ( const site of appdata.sites ) {
+			for ( const site of cliConfig.sites ) {
 				const runningProcess = await isServerRunning( site.id );
 
 				if ( runningProcess ) {
@@ -81,17 +83,17 @@ export async function runCommand(
 				logger.reportSuccess( __( 'No sites are currently running' ) );
 			} else {
 				try {
-					await lockAppdata();
-					const appdata = await readAppdata();
-					for ( const site of appdata.sites ) {
+					await lockCliConfig();
+					const cliConfig = await readCliConfig();
+					for ( const site of cliConfig.sites ) {
 						if ( runningSites.find( ( r ) => r.id === site.id ) ) {
 							delete site.latestCliPid;
 							site.autoStart = autoStart;
 						}
 					}
-					await saveAppdata( appdata );
+					await saveCliConfig( cliConfig );
 				} finally {
-					await unlockAppdata();
+					await unlockCliConfig();
 				}
 
 				logger.reportStart( LoggerAction.STOP_ALL_SITES, __( 'Stopping all WordPress servers…' ) );

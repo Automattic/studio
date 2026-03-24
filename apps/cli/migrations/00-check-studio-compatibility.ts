@@ -5,7 +5,6 @@ import { confirm } from '@inquirer/prompts';
 import { getAppConfigPath } from '@studio/common/lib/well-known-paths';
 import { __ } from '@wordpress/i18n';
 import { getAppdataDirectory } from 'cli/lib/server-files';
-import { LoggerError } from 'cli/logger';
 import type { Migration } from '@studio/common/lib/migration';
 
 function isInstalledOnMacOs() {
@@ -79,21 +78,22 @@ export const checkStudioCompatibilityForInitialMigration: Migration = {
 		}
 
 		if ( await isStudioInstalled() ) {
-			throw new LoggerError(
+			console.error(
 				__(
-					`Studio is installed, but your config needs a Studio update before this CLI can run. Open Studio, update it, then try again.`
+					`Studio is installed, but your config must be migrated by Studio before this CLI can run. Open Studio, update it, then try again.`
 				)
 			);
+			process.exit( 1 );
 		}
 
 		console.log(
 			__(
-				'Old Studio config files were found, but Studio does not appear to be installed. Start clean by resetting this config? You can re-add your site directories later.\n\nIf Studio is installed, open it, update it, then run the CLI again.'
+				"Old Studio config was found, but Studio doesn't appear to be installed. Reset this config and start clean? You can re-add site directories later.\n\nIf Studio is installed, open it, update it, then run the CLI again."
 			)
 		);
 
 		const shouldRenameOldConfigFile = await confirm( {
-			message: __( 'Start clean?' ),
+			message: __( 'Reset config and start clean? (Choosing No will exit the CLI.' ),
 			default: false,
 		} );
 
@@ -102,6 +102,8 @@ export const checkStudioCompatibilityForInitialMigration: Migration = {
 				oldAppdataPath,
 				path.join( getAppdataDirectory(), 'appdata-v1.deprecated.json' )
 			);
+		} else {
+			process.exit( 1 );
 		}
 	},
 };

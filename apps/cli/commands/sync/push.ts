@@ -111,7 +111,8 @@ export async function runCommand(
 			if ( event === 'warning' && ( args[ 0 ] as { code?: string } )?.code === 'DEP0169' ) {
 				return false;
 			}
-			return originalEmit( event, ...args );
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		return ( originalEmit as ( ...a: any[] ) => boolean )( event, ...args );
 		};
 
 		logger.reportStart( LoggerAction.UPLOAD, sprintf( __( 'Uploading archive… (%d%%)' ), 20 ) );

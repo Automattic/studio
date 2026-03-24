@@ -118,7 +118,7 @@ async function copyBundledLanguagePacks() {
 }
 
 export async function setupServerFiles() {
-	const steps: Array< [ string, () => Promise< void > ] > = [
+	const steps: [ string, () => Promise< void > ][] = [
 		[ 'WordPress version', copyBundledLatestWPVersion ],
 		[ 'SQLite integration', copyBundledSqlite ],
 		[ 'WP-CLI', copyBundledWPCLI ],
@@ -132,13 +132,23 @@ export async function setupServerFiles() {
 		try {
 			await step();
 		} catch ( error ) {
-			console.error( `Failed to set up bundled ${ name }:`, error );
+			console.error( `Failed to set up dependency ${ name }:`, error );
 		}
 	}
 }
 
 export async function updateServerFiles() {
-	await updateLatestWordPressVersion();
-	await updateLatestWpCliVersion();
-	await updateLatestSqliteCommandVersion();
+	const steps: [ string, () => Promise< void > ][] = [
+		[ 'WordPress version', updateLatestWordPressVersion ],
+		[ 'SQLite integration', updateLatestWpCliVersion ],
+		[ 'WP-CLI', updateLatestSqliteCommandVersion ],
+	];
+
+	for ( const [ name, step ] of steps ) {
+		try {
+			await step();
+		} catch ( error ) {
+			console.error( `Failed to upgrade dependency ${ name }:`, error );
+		}
+	}
 }

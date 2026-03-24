@@ -38,7 +38,7 @@ export abstract class SqliteIntegrationProvider {
 
 	async installSqliteIntegration( sitePath: string ): Promise< void > {
 		if ( ! ( await this.isSqliteIntegrationAvailable() ) ) {
-			throw new Error( 'SQLite integration files not found. Please ensure Studio is installed.' );
+			throw new Error( 'SQLite integration files not found.' );
 		}
 
 		const wpContentPath = path.join( sitePath, 'wp-content' );
@@ -64,7 +64,10 @@ export abstract class SqliteIntegrationProvider {
 		await fs.promises.writeFile( path.join( wpContentPath, 'db.php' ), updatedContent );
 
 		const sqliteDestPath = path.join( wpContentPath, 'mu-plugins', sqliteDirname );
-		await fs.promises.copyFile( sqliteSourcePath, sqliteDestPath );
+		await fs.promises.cp( sqliteSourcePath, sqliteDestPath, {
+			recursive: true,
+			verbatimSymlinks: true,
+		} );
 	}
 
 	async keepSqliteIntegrationUpdated( sitePath: string ): Promise< boolean > {

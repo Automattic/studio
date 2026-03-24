@@ -131,7 +131,15 @@ async function downloadFile( file: FileToDownload ): Promise< void > {
 				const relativePath = step.path.replace( '/tools/phpmyadmin/', '' );
 				const destFile = path.join( extractedPath, relativePath );
 				await fs.ensureDir( path.dirname( destFile ) );
-				await fs.writeFile( destFile, step.data );
+
+				// The upstream DbiMysqli.php hardcodes a Playground-internal path for the
+				// SQLite driver. Replace it with the Studio path.
+				const fileData = step.data.replace(
+					/\/internal\/shared\/sqlite-database-integration\//g,
+					'/wordpress/wp-content/mu-plugins/sqlite-database-integration/'
+				);
+
+				await fs.writeFile( destFile, fileData );
 			}
 		}
 	} else {

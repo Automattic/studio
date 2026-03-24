@@ -182,7 +182,6 @@ async function getBaseRunCLIArgs(
 
 	const defaultConstants: Record< string, boolean | string > = {
 		WP_SQLITE_AST_DRIVER: true,
-		WP_SQLITE_LOCATION: '/wordpress/wp-content/mu-plugins/sqlite-database-integration',
 		WP_DEBUG: enableDebugLog || enableDebugDisplay,
 		WP_DEBUG_LOG: enableDebugLog,
 		WP_DEBUG_DISPLAY: enableDebugDisplay,

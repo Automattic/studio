@@ -59,6 +59,7 @@ const __clearMockFiles = () => {
 export default {
 	promises: {
 		copyFile: copyFileMock,
+		cp: copyFileMock,
 		mkdir: vi.fn().mockResolvedValue( undefined ),
 		readFile: readFileMock,
 		readdir: readdirMock,

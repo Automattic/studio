@@ -99,9 +99,10 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 		it( 'should copy SQLite plugin to mu-plugins', async () => {
 			await provider.installSqliteIntegration( MOCK_SITE_PATH );
 
-			expect( vi.mocked( fs.promises.copyFile ) ).toHaveBeenCalledWith(
+			expect( vi.mocked( fs.promises.cp ) ).toHaveBeenCalledWith(
 				normalize( `server-files/${ SQLITE_DIRNAME }` ),
-				normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_DIRNAME }` )
+				normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_DIRNAME }` ),
+				expect.any( Object )
 			);
 		} );
 
@@ -128,18 +129,20 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 
 			await provider.keepSqliteIntegrationUpdated( MOCK_SITE_PATH );
 
-			expect( vi.mocked( fs.promises.copyFile ) ).toHaveBeenCalledWith(
+			expect( vi.mocked( fs.promises.cp ) ).toHaveBeenCalledWith(
 				normalize( `server-files/${ SQLITE_DIRNAME }` ),
-				normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_DIRNAME }` )
+				normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_DIRNAME }` ),
+				expect.any( Object )
 			);
 		} );
 
 		it( 'should install when wp-config.php does not exist', async () => {
 			await provider.keepSqliteIntegrationUpdated( MOCK_SITE_PATH );
 
-			expect( vi.mocked( fs.promises.copyFile ) ).toHaveBeenCalledWith(
+			expect( vi.mocked( fs.promises.cp ) ).toHaveBeenCalledWith(
 				normalize( `server-files/${ SQLITE_DIRNAME }` ),
-				normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_DIRNAME }` )
+				normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_DIRNAME }` ),
+				expect.any( Object )
 			);
 		} );
 
@@ -148,7 +151,7 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 
 			await provider.keepSqliteIntegrationUpdated( MOCK_SITE_PATH );
 
-			expect( vi.mocked( fs.promises.copyFile ) ).not.toHaveBeenCalled();
+			expect( vi.mocked( fs.promises.cp ) ).not.toHaveBeenCalled();
 		} );
 	} );
 

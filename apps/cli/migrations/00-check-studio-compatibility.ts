@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { getAppConfigPath } from '@studio/common/lib/config-paths';
+import { getAppConfigPath } from '@studio/common/lib/well-known-paths';
 import { __ } from '@wordpress/i18n';
 import { getAppdataDirectory } from 'cli/lib/server-files';
 import { LoggerError } from 'cli/logger';

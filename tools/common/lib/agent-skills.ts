@@ -32,12 +32,13 @@ export async function installAiInstructionsToSite(
 	}
 
 	const entries = await fs.readdir( bundledPath, { withFileTypes: true } );
+	const userSelectedGlobalSkills: string[] = [];
 
 	const tasks: Promise< void >[] = [];
 	for ( const entry of entries ) {
 		if ( entry.isFile() && entry.name.endsWith( '.md' ) ) {
 			tasks.push( installInstructionFile( sitePath, bundledPath, entry.name, overwrite ) );
-		} else if ( entry.isDirectory() ) {
+		} else if ( entry.isDirectory() && userSelectedGlobalSkills.includes( entry.name ) ) {
 			tasks.push( installSkillToSite( sitePath, bundledPath, entry.name, overwrite ) );
 		}
 	}

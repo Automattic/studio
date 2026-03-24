@@ -15,12 +15,12 @@ import os from 'os';
 import path from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { siteDetailsSchema } from '@studio/common/lib/cli-events';
+import { sharedConfigSchema } from '@studio/common/lib/shared-config';
 import {
 	getAppConfigPath,
 	getCliConfigPath,
 	getSharedConfigPath,
-} from '@studio/common/lib/config-paths';
-import { sharedConfigSchema } from '@studio/common/lib/shared-config';
+} from '@studio/common/lib/well-known-paths';
 import { snapshotSchema } from '@studio/common/types/snapshot';
 import { readFile, writeFile } from 'atomically';
 import { z } from 'zod';

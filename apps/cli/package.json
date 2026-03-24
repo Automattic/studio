@@ -11,6 +11,7 @@
 	},
 	"files": [
 		"dist/cli/*.js",
+		"dist/cli/wp-files/",
 		"patches/",
 		"scripts/"
 	],

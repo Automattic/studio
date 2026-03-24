@@ -2,6 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { cacheFunctionTTL } from '@studio/common/lib/cache-function-ttl';
+import { extractZip } from '@studio/common/lib/extract-zip';
 import semver from 'semver';
 import { getSqliteCommandPath } from '../server-files';
 import { downloadFile, fetchLatestGithubRelease } from './utils';
@@ -52,7 +53,7 @@ export async function updateLatestSqliteCommandVersion() {
 
 	try {
 		await downloadFile( downloadUrl, tmpDownloadPath );
-		await fs.promises.copyFile( tmpDownloadPath, getSqliteCommandPath() );
+		await extractZip( tmpDownloadPath, getSqliteCommandPath() );
 	} finally {
 		await fs.promises.unlink( tmpDownloadPath );
 	}

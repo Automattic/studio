@@ -140,8 +140,8 @@ export async function setupServerFiles() {
 export async function updateServerFiles() {
 	const steps: [ string, () => Promise< void > ][] = [
 		[ 'WordPress version', updateLatestWordPressVersion ],
-		[ 'SQLite integration', updateLatestWpCliVersion ],
-		[ 'WP-CLI', updateLatestSqliteCommandVersion ],
+		[ 'WP-CLI', updateLatestWpCliVersion ],
+		[ 'SQLite integration', updateLatestSqliteCommandVersion ],
 	];
 
 	for ( const [ name, step ] of steps ) {

@@ -4,6 +4,14 @@
 @tailwind utilities;
 
 :root {
+	/* Chrome surface tokens (the dark app shell behind sidebar + frame) */
+	--color-chrome-bg: rgba( 30, 30, 30, 1 );
+	--color-chrome-fg: #fff;
+	--color-chrome-fg-muted: rgba( 255, 255, 255, 0.5 );
+	--color-chrome-hover: rgba( 255, 255, 255, 0.08 );
+	--color-chrome-active: rgba( 255, 255, 255, 0.12 );
+	--color-chrome-border: rgba( 255, 255, 255, 0.1 );
+
 	--color-frame-bg: #fff;
 	--color-frame-text: #1e1e1e;
 	--color-frame-text-secondary: #757575;
@@ -74,6 +82,55 @@ body {
 
 .app-no-drag-region {
 	-webkit-app-region: no-drag;
+}
+
+/* Settings chrome surface: remap tokens to work on dark chrome background */
+.settings-chrome-surface {
+	/* Studio frame tokens */
+	--color-frame-bg: rgba( 255, 255, 255, 0.06 );
+	--color-frame-text: #fff;
+	--color-frame-text-secondary: rgba( 255, 255, 255, 0.5 );
+	--color-frame-border: rgba( 255, 255, 255, 0.12 );
+	--color-frame-surface: rgba( 255, 255, 255, 0.06 );
+	--color-frame-surface-alt: rgba( 255, 255, 255, 0.1 );
+	--color-frame-theme: #6b8aff;
+	--color-frame-theme-hover: #8da6ff;
+	--color-frame-code-text: #e0e0e0;
+	--color-frame-tab-active: #fff;
+
+	/* WordPress component tokens */
+	--wp-components-color-background: rgba( 255, 255, 255, 0.08 );
+	--wp-components-color-foreground: #fff;
+	--wp-components-color-foreground-inverted: #1e1e1e;
+	--wp-components-color-accent: #6b8aff;
+	--wp-components-color-accent-inverted: #fff;
+	--wp-components-color-accent-darker-10: #8da6ff;
+	--wp-components-color-accent-darker-20: #8da6ff;
+	--wp-admin-theme-color: #6b8aff;
+	--wp-admin-theme-color-darker-10: #8da6ff;
+	--wp-admin-theme-color-darker-20: #8da6ff;
+}
+
+/* Settings chrome surface transitions */
+.settings-slideable {
+	transition: transform 300ms cubic-bezier( 0.16, 1, 0.3, 1 );
+}
+
+.settings-slide-left {
+	transform: translateX( calc( -100% - 16px ) );
+}
+
+.settings-slideable.settings-slide-right {
+	transform: translateX( calc( 100% + 16px ) );
+}
+
+.settings-topbar-fade {
+	transition: opacity 200ms ease;
+}
+
+.settings-topbar-fade.is-settings-open {
+	opacity: 0;
+	pointer-events: none;
 }
 
 h1,

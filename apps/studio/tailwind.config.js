@@ -147,8 +147,13 @@ module.exports = {
 		extend: {
 			colors: {
 				...a8cToTailwindColors,
-				chrome: 'rgba(30, 30, 30, 1)',
-				'chrome-inverted': '#fff',
+				chrome: 'var(--color-chrome-bg)',
+				'chrome-fg': 'var(--color-chrome-fg)',
+				'chrome-fg-muted': 'var(--color-chrome-fg-muted)',
+				'chrome-hover': 'var(--color-chrome-hover)',
+				'chrome-active': 'var(--color-chrome-active)',
+				'chrome-border': 'var(--color-chrome-border)',
+				'chrome-inverted': 'var(--color-chrome-fg)',
 				'development-bg': 'hsl(200, 95%, 85%)',
 				'development-text': 'hsl(200, 95%, 28%)',
 				'circle-env-production': '#069e08',

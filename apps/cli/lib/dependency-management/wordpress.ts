@@ -23,7 +23,7 @@ export async function downloadWordPress(
 	}
 
 	const tempDir = path.join( os.tmpdir(), 'wordpress-download-', crypto.randomUUID() );
-	await fs.promises.mkdir( tempDir );
+	await fs.promises.mkdir( tempDir, { recursive: true } );
 
 	try {
 		const tmpDownloadPath = path.join( os.tmpdir(), `wordpress-${ crypto.randomUUID() }.zip` );
@@ -43,7 +43,7 @@ export async function downloadWordPress(
 		} );
 	} finally {
 		try {
-			await fs.promises.rmdir( tempDir );
+			await fs.promises.rm( tempDir, { force: true, recursive: true } );
 		} catch {
 			// Do nothing
 		}

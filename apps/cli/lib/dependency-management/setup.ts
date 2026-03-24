@@ -16,26 +16,32 @@ import { updateLatestSqliteCommandVersion } from './sqlite-command';
 import { getWordPressVersionFromInstallation, updateLatestWordPressVersion } from './wordpress';
 import { updateLatestWpCliVersion } from './wp-cli';
 
-async function copyBundledLatestWPVersion() {
-	const bundledWPVersionPath = path.join( getWpFilesPath(), 'latest', 'wordpress' );
-	const bundledWPVersion = semver.coerce(
-		await getWordPressVersionFromInstallation( bundledWPVersionPath )
-	);
-	if ( ! bundledWPVersion ) {
+// Compare the WordPress version in the bundled `wp-files/latest/wordpress` directory (that ships
+// with the CLI) to `~/.studio/server-files/wordpress-versions/latest`. If the bundled directory is
+// newer, rename the old `wordpress-versions/latest` directory to `wordpress-versions/$VERSION` and
+// copy the bundled directory to `wordpress-versions/latest`.
+async function copyBundledLatestWpVersion() {
+	const bundledWpVersionPath = path.join( getWpFilesPath(), 'latest', 'wordpress' );
+	const bundledWpVersion = await getWordPressVersionFromInstallation( bundledWpVersionPath );
+	const bundledWpSemver = semver.coerce( bundledWpVersion );
+
+	if ( ! bundledWpVersion || ! bundledWpSemver ) {
 		return;
 	}
-	const latestWPVersionPath = getWordPressVersionPath( 'latest' );
-	const latestWPVersion = await getWordPressVersionFromInstallation( latestWPVersionPath );
-	const latestWPSemVersion = semver.coerce( latestWPVersion );
-	const isBundledVersionNewer =
-		latestWPVersion && latestWPSemVersion && semver.gt( bundledWPVersion, latestWPSemVersion );
-	if ( ! latestWPVersion || isBundledVersionNewer ) {
-		if ( isBundledVersionNewer ) {
-			// We keep a copy of the latest installed version instead of removing it.
-			await fs.promises.rename( latestWPVersionPath, getWordPressVersionPath( latestWPVersion ) );
+
+	const latestWpVersionPath = getWordPressVersionPath( 'latest' );
+	const latestWpVersion = await getWordPressVersionFromInstallation( latestWpVersionPath );
+	const latestWpSemver = semver.coerce( latestWpVersion );
+
+	if ( ! latestWpVersion || ! latestWpSemver ) {
+		await recursiveCopyDirectory( bundledWpVersionPath, latestWpVersionPath );
+	} else if ( semver.gt( bundledWpSemver, latestWpSemver ) ) {
+		try {
+			await fs.promises.rename( latestWpVersionPath, getWordPressVersionPath( latestWpVersion ) );
+		} catch {
+			// Assume the target directory already exists. Do nothing
 		}
-		console.log( `Copying bundled WP version ${ bundledWPVersion } as 'latest' version…` );
-		await recursiveCopyDirectory( bundledWPVersionPath, latestWPVersionPath );
+		await recursiveCopyDirectory( bundledWpVersionPath, latestWpVersionPath );
 	}
 }
 
@@ -64,13 +70,13 @@ async function copyBundledSqlite() {
 	}
 }
 
-async function copyBundledWPCLI() {
-	const bundledWPCLIInstalled = fs.existsSync( getWpCliPharPath() );
-	if ( bundledWPCLIInstalled ) {
+async function copyBundledWpCli() {
+	const bundledWpCLIInstalled = fs.existsSync( getWpCliPharPath() );
+	if ( bundledWpCLIInstalled ) {
 		return;
 	}
-	const bundledWPCLIPath = path.join( getWpFilesPath(), 'wp-cli', 'wp-cli.phar' );
-	await fs.promises.copyFile( bundledWPCLIPath, getWpCliPharPath() );
+	const bundledWpCLIPath = path.join( getWpFilesPath(), 'wp-cli', 'wp-cli.phar' );
+	await fs.promises.copyFile( bundledWpCLIPath, getWpCliPharPath() );
 }
 
 async function copyBundledSqliteCommand() {
@@ -119,9 +125,9 @@ async function copyBundledLanguagePacks() {
 
 export async function setupServerFiles() {
 	const steps: [ string, () => Promise< void > ][] = [
-		[ 'WordPress version', copyBundledLatestWPVersion ],
+		[ 'WordPress version', copyBundledLatestWpVersion ],
 		[ 'SQLite integration', copyBundledSqlite ],
-		[ 'WP-CLI', copyBundledWPCLI ],
+		[ 'WP-CLI', copyBundledWpCli ],
 		[ 'SQLite command', copyBundledSqliteCommand ],
 		[ 'translations', copyBundledTranslations ],
 		[ 'language packs', copyBundledLanguagePacks ],

@@ -10,6 +10,7 @@ import {
 	syncBackupResponseSchema,
 	importResponseSchema,
 } from '@studio/common/types/sync';
+import { BackupLsItemSchema, BackupLsResponseSchema } from '@studio/common/types/sync-tree';
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
 import { getSyncSupport, isPressableSite } from 'cli/lib/sync-support';
@@ -20,6 +21,7 @@ import type {
 	ImportResponse,
 	SyncOption,
 } from '@studio/common/types/sync';
+import type { BackupLsItem } from '@studio/common/types/sync-tree';
 
 const SITE_FIELDS = [
 	'name',
@@ -301,4 +303,83 @@ export async function downloadBackup( url: string, destPath: string ): Promise< 
 		fileStream.on( 'error', reject );
 		readable.on( 'error', reject );
 	} );
+}
+
+export async function fetchLatestRewindId(
+	token: string,
+	remoteSiteId: number
+): Promise< string > {
+	const wpcom = wpcomFactory( token, wpcomXhrRequest );
+
+	try {
+		const rawResponse = await wpcom.req.get(
+			`/sites/${ remoteSiteId }/studio-app/sync/get-latest-rewind-id`,
+			{ apiNamespace: 'wpcom/v2' }
+		);
+
+		const parsed = z.object( { success: z.boolean(), rewind_id: z.string() } ).parse( rawResponse );
+
+		if ( ! parsed.success || ! parsed.rewind_id ) {
+			throw new Error( 'No rewind ID available' );
+		}
+
+		return parsed.rewind_id;
+	} catch ( error ) {
+		if ( error instanceof LoggerError ) {
+			throw error;
+		}
+		throw new LoggerError( __( 'Failed to fetch latest rewind ID' ), error );
+	}
+}
+
+export type RemoteFileEntry = {
+	name: string;
+	isDirectory: boolean;
+	pathId: string;
+	path: string;
+};
+
+export async function fetchRemoteFileTree(
+	token: string,
+	remoteSiteId: number,
+	rewindId: string,
+	treePath: string = 'wp-content/'
+): Promise< RemoteFileEntry[] > {
+	const wpcom = wpcomFactory( token, wpcomXhrRequest );
+
+	try {
+		const rawResponse = await wpcom.req.post( {
+			path: `/sites/${ remoteSiteId }/rewind/backup/ls`,
+			apiNamespace: 'wpcom/v2',
+			body: { backup_id: rewindId, path: treePath },
+		} );
+
+		const parsed = BackupLsResponseSchema.shape.body.parse( rawResponse );
+
+		if ( ! parsed.ok ) {
+			throw new Error( parsed.error || 'Failed to fetch remote file tree' );
+		}
+
+		const entries: RemoteFileEntry[] = [];
+		for ( const [ name, rawItem ] of Object.entries( parsed.contents ) ) {
+			const itemResult = BackupLsItemSchema.safeParse( rawItem );
+			if ( itemResult.success ) {
+				const item: BackupLsItem = itemResult.data;
+				const isDirectory = item.type === 'dir' || item.has_children === true;
+				entries.push( {
+					name,
+					isDirectory,
+					pathId: item.id,
+					path: `${ treePath }${ name }${ isDirectory ? '/' : '' }`,
+				} );
+			}
+		}
+
+		return entries;
+	} catch ( error ) {
+		if ( error instanceof LoggerError ) {
+			throw error;
+		}
+		throw new LoggerError( __( 'Failed to fetch remote file tree' ), error );
+	}
 }

@@ -12,6 +12,7 @@ import {
 	pollBackupStatus,
 	downloadBackup,
 } from 'cli/lib/sync-api';
+import { selectSyncItemsForPull } from 'cli/lib/sync-selector';
 import { pickSyncSite } from 'cli/lib/sync-site-picker';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -55,7 +56,6 @@ export async function runCommand( siteFolder: string, optionsString?: string ): 
 		}
 
 		const site = await getSiteByFolder( siteFolder );
-		const optionsToSync = parseOptions( optionsString );
 
 		logger.reportStart( LoggerAction.FETCH_SITES, __( 'Fetching WordPress.com sites…' ) );
 		const sites = await fetchSyncableSites( token.accessToken );
@@ -65,6 +65,19 @@ export async function runCommand( siteFolder: string, optionsString?: string ): 
 		const selectedSite = await pickSyncSite( sites, __( 'Select a site to pull from' ) );
 		if ( ! selectedSite ) {
 			return;
+		}
+
+		let optionsToSync: SyncOption[];
+		let includePathList: string[] | undefined;
+
+		if ( optionsString ) {
+			optionsToSync = parseOptions( optionsString );
+		} else {
+			logger.reportStart( LoggerAction.FETCH_SITES, __( 'Fetching file tree…' ) );
+			const selection = await selectSyncItemsForPull( token.accessToken, selectedSite.id );
+			logger.spinner.stop();
+			optionsToSync = selection.optionsToSync;
+			includePathList = selection.includePathList;
 		}
 
 		void emitCliEvent( {
@@ -83,7 +96,10 @@ export async function runCommand( siteFolder: string, optionsString?: string ): 
 			LoggerAction.INITIATE_BACKUP,
 			sprintf( __( 'Initializing remote backup… (%d%%)' ), 0 )
 		);
-		const backupId = await initiateBackup( token.accessToken, selectedSite.id, { optionsToSync } );
+		const backupId = await initiateBackup( token.accessToken, selectedSite.id, {
+			optionsToSync,
+			includePathList,
+		} );
 
 		let downloadUrl: string | null = null;
 		for ( let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++ ) {

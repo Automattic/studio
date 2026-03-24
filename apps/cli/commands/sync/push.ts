@@ -6,6 +6,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { emitCliEvent } from 'cli/lib/daemon-client';
 import { fetchSyncableSites, tusUpload, initiateImport, pollImportStatus } from 'cli/lib/sync-api';
+import { selectSyncItemsForPush } from 'cli/lib/sync-selector';
 import { pickSyncSite } from 'cli/lib/sync-site-picker';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -53,7 +54,6 @@ export async function runCommand(
 		}
 
 		const site = await getSiteByFolder( siteFolder );
-		const optionsToSync = parseOptions( optionsString );
 
 		if ( ! archivePath ) {
 			// TODO: Export local site to tar.gz archive (requires export-manager)
@@ -78,6 +78,17 @@ export async function runCommand(
 			return;
 		}
 
+		let optionsToSync: SyncOption[];
+		let specificSelectionPaths: string[] | undefined;
+
+		if ( optionsString ) {
+			optionsToSync = parseOptions( optionsString );
+		} else {
+			const selection = await selectSyncItemsForPush( site.path );
+			optionsToSync = selection.optionsToSync;
+			specificSelectionPaths = selection.specificSelectionPaths;
+		}
+
 		void emitCliEvent( {
 			event: SYNC_EVENTS.STARTED,
 			data: {
@@ -96,10 +107,7 @@ export async function runCommand(
 		const originalEmit = process.emit.bind( process );
 		// @ts-expect-error Overriding process.emit to filter deprecation warnings
 		process.emit = ( event: string, ...args: unknown[] ) => {
-			if (
-				event === 'warning' &&
-				( args[ 0 ] as { code?: string } )?.code === 'DEP0169'
-			) {
+			if ( event === 'warning' && ( args[ 0 ] as { code?: string } )?.code === 'DEP0169' ) {
 				return false;
 			}
 			return originalEmit( event, ...args );
@@ -134,7 +142,10 @@ export async function runCommand(
 
 		// Initiate import: 40%
 		logger.spinner.text = sprintf( __( 'Initiating import… (%d%%)' ), 40 );
-		await initiateImport( token.accessToken, selectedSite.id, attachmentId, { optionsToSync } );
+		await initiateImport( token.accessToken, selectedSite.id, attachmentId, {
+			optionsToSync,
+			specificSelectionPaths,
+		} );
 
 		// Poll import: 40-99%
 		for ( let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++ ) {

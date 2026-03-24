@@ -57,14 +57,11 @@ function isStudioInstalled() {
 }
 
 /**
- * Checks compatibility between the standalone CLI and the installed Studio Desktop app.
+ * Ensures CLI/Studio config compatibility during initial migration.
  *
- * If Studio Desktop is installed (platform-specific appdata exists) but the shared
- * config at ~/.studio/app.json is missing, it means Studio hasn't been updated
- * to a version that supports the shared location. In that case, prompt the user
- * to update Studio.
- *
- * Always needs to run. Throws if incompatible.
+ * If `~/.studio/app.json` is missing but legacy appdata exists:
+ * - throw when Studio is installed (Studio must migrate first)
+ * - otherwise offer to reset the legacy config
  */
 export const checkStudioCompatibilityForInitialMigration: Migration = {
 	async needsToRun() {
@@ -84,14 +81,14 @@ export const checkStudioCompatibilityForInitialMigration: Migration = {
 		if ( await isStudioInstalled() ) {
 			throw new LoggerError(
 				__(
-					`It looks like you have Studio installed and you're trying to run a newer version of the CLI. Your config data needs to be updated to the new CLI-compatible format first. Please open Studio and update to the latest version before running the CLI.`
+					`Studio is installed, but your config needs a Studio update before this CLI can run. Open Studio, update it, then try again.`
 				)
 			);
 		}
 
 		console.log(
 			__(
-				'It looks like there are old Studio config files on your system, but the Studio app is not installed. Would you like to reset your config and start with a clean slate? You can always add your existing site directories to Studio again.\n\nIf we are wrong, and Studio is in fact installed, then please open Studio and update to the latest version before running the CLI.'
+				'Old Studio config files were found, but Studio does not appear to be installed. Start clean by resetting this config? You can re-add your site directories later.\n\nIf Studio is installed, open it, update it, then run the CLI again.'
 			)
 		);
 

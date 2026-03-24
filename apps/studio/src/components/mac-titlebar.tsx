@@ -22,7 +22,7 @@ export default function MacTitlebar( {
 				! isFullscreen &&
 					! isRtl &&
 					'ltr:pl-window-controls-width-mac rtl:pl-window-controls-width-excl-chrome-mac rtl:pr-chrome',
-				isFullscreen && 'ltr:pl-4 rtl:pr-4',
+				isFullscreen && '',
 				className
 			) }
 		>

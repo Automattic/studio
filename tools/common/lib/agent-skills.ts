@@ -25,6 +25,7 @@ const MANAGED_INSTRUCTION_FILES = [ 'STUDIO.md', 'CLAUDE.md' ];
 export async function installAiInstructionsToSite(
 	sitePath: string,
 	bundledPath: string,
+	userSelectedGlobalSkills: string[] = [],
 	overwrite: boolean = false
 ): Promise< void > {
 	if ( ! ( await pathExists( bundledPath ) ) ) {
@@ -32,7 +33,6 @@ export async function installAiInstructionsToSite(
 	}
 
 	const entries = await fs.readdir( bundledPath, { withFileTypes: true } );
-	const userSelectedGlobalSkills: string[] = [];
 
 	const tasks: Promise< void >[] = [];
 	for ( const entry of entries ) {

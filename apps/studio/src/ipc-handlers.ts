@@ -238,6 +238,12 @@ export async function installWordPressSkillsToAllSites(
 			console.error( '[skills] Failed to install skill:', result.reason );
 		}
 	} );
+
+	const installedIds = options?.skillId ? [ options.skillId ] : BUNDLED_SKILLS.map( ( s ) => s.id );
+	const userData = await loadUserData();
+	const existing = userData.selectedSkills ?? [];
+	const merged = Array.from( new Set( [ ...existing, ...installedIds ] ) );
+	await updateAppdata( { selectedSkills: merged } );
 }
 
 export async function removeWordPressSkillFromAllSites(
@@ -252,6 +258,10 @@ export async function removeWordPressSkillFromAllSites(
 			console.error( '[skills] Failed to remove skill:', result.reason );
 		}
 	} );
+
+	const userData = await loadUserData();
+	const updated = ( userData.selectedSkills ?? [] ).filter( ( id ) => id !== skillId );
+	await updateAppdata( { selectedSkills: updated } );
 }
 
 const DEBUG_LOG_MAX_LINES = 50;
@@ -414,9 +424,13 @@ export async function createSite(
 
 		// Install AI instructions and skills into the new site
 		if ( getFeatureFlagFromEnv( 'enableAgentSuite' ) ) {
-			void installAiInstructionsToSite( path, getAiInstructionsPath() ).catch( ( error ) => {
-				console.error( '[ai-instructions] Failed to install AI instructions to new site:', error );
-			} );
+			const userData = await loadUserData();
+			const selectedSkills = userData.selectedSkills ?? [];
+			void installAiInstructionsToSite( path, getAiInstructionsPath(), selectedSkills ).catch(
+				( error ) => {
+					console.error( '[ai-instructions] Failed to install AI instructions to new site:', error );
+				}
+			);
 		}
 
 		return server.details;

@@ -32,6 +32,7 @@ export interface UserData {
 	colorScheme?: 'system' | 'light' | 'dark';
 	betaFeatures?: BetaFeatures;
 	stopSitesOnQuit?: boolean;
+	selectedSkills?: string[];
 }
 
 export interface PromptWindowsSpeedUpResult {

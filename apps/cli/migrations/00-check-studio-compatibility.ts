@@ -98,7 +98,7 @@ export const checkStudioCompatibilityForInitialMigration: Migration = {
 
 		console.log(
 			__(
-				'Old Studio config was found, but Studio no longer appears to be installed.\nReset this config and start clean? You can re-add site directories later.\n\nIf Studio is installed, open it, update it, then run the CLI again.\n'
+				'Old Studio config was found, but Studio no longer appears to be installed.\nReset this config and start clean? You can re-add site directories later.\n\nIf Studio is actually installed, open it, update it, then run the CLI again.\n'
 			)
 		);
 

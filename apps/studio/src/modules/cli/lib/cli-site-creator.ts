@@ -39,6 +39,7 @@ export interface CreateSiteOptions {
 	adminPassword?: string;
 	adminEmail?: string;
 	noStart?: boolean;
+	skills?: string[];
 }
 
 export async function createSiteViaCli( options: CreateSiteOptions ): Promise< CreateSiteResult > {
@@ -146,6 +147,10 @@ function buildCliArgs( options: CreateSiteOptions ): string[] {
 
 	if ( options.noStart ) {
 		args.push( '--no-start' );
+	}
+
+	if ( options.skills && options.skills.length > 0 ) {
+		args.push( '--skills', options.skills.join( ',' ) );
 	}
 
 	return args;

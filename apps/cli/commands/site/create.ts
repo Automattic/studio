@@ -9,7 +9,7 @@ import {
 	DEFAULT_WORDPRESS_VERSION,
 	MINIMUM_WORDPRESS_VERSION,
 } from '@studio/common/constants';
-import { installAiInstructionsToSite } from '@studio/common/lib/agent-skills';
+import { BUNDLED_SKILL_IDS, installAiInstructionsToSite } from '@studio/common/lib/agent-skills';
 import { extractFormValuesFromBlueprint } from '@studio/common/lib/blueprint-settings';
 import {
 	filterUnsupportedBlueprintFeatures,
@@ -99,6 +99,7 @@ type CreateCommandOptions = {
 	noStart: boolean;
 	skipBrowser: boolean;
 	skipLogDetails: boolean;
+	skills: string[];
 };
 
 export async function runCommand(
@@ -250,7 +251,7 @@ export async function runCommand(
 		);
 
 		try {
-			await installAiInstructionsToSite( sitePath, getAiInstructionsPath() );
+			await installAiInstructionsToSite( sitePath, getAiInstructionsPath(), options.skills );
 		} catch ( error ) {
 			logger.reportError(
 				new LoggerError( __( 'Failed to install AI instructions. Proceeding anyway…' ), error ),
@@ -512,6 +513,28 @@ function readBlueprint( blueprintPath: string ) {
 	}
 }
 
+function coerceSkills( value: string ): string[] {
+	const ids = value
+		.split( ',' )
+		.map( ( id ) => id.trim() )
+		.filter( Boolean );
+	const validIds = BUNDLED_SKILL_IDS as readonly string[];
+	const invalid = ids.filter( ( id ) => ! validIds.includes( id ) );
+	if ( invalid.length > 0 ) {
+		throw new ValidationError(
+			'skills',
+			value,
+			sprintf(
+				/* translators: %1$s: invalid skill ID(s), %2$s: list of valid skill IDs */
+				__( 'Unknown skill(s): %1$s. Valid skill IDs are: %2$s' ),
+				invalid.join( ', ' ),
+				validIds.join( ', ' )
+			)
+		);
+	}
+	return ids;
+}
+
 function coerceSiteId( value: string ) {
 	// Validate UUID format (8-4-4-4-12 hex characters)
 	const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -612,6 +635,15 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'boolean',
 					describe: __( 'Skip printing site URL and admin credentials after creating' ),
 					default: false,
+				} )
+				.option( 'skills', {
+					type: 'string',
+					describe: sprintf(
+						/* translators: %s: list of valid skill IDs */
+						__( 'Comma-separated skill IDs to install (e.g., "wp-plugin-development,wp-rest-api"). Valid IDs: %s' ),
+						( BUNDLED_SKILL_IDS as readonly string[] ).join( ', ' )
+					),
+					coerce: coerceSkills,
 				} );
 		},
 		handler: async ( argv ) => {
@@ -749,6 +781,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				noStart: ! argv.start,
 				skipBrowser: !! argv.skipBrowser,
 				skipLogDetails: !! argv.skipLogDetails,
+				skills: argv.skills ?? [],
 			};
 
 			if ( argv.blueprint ) {

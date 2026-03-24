@@ -1,6 +1,6 @@
+import fs from 'fs';
 import path from 'path';
 import { recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
-import fs from 'fs-extra';
 import semver from 'semver';
 import { getSqliteVersionFromInstallation } from 'cli/lib/sqlite-integration';
 import {
@@ -32,9 +32,7 @@ async function copyBundledLatestWPVersion() {
 	if ( ! latestWPVersion || isBundledVersionNewer ) {
 		if ( isBundledVersionNewer ) {
 			// We keep a copy of the latest installed version instead of removing it.
-			await fs.move( latestWPVersionPath, getWordPressVersionPath( latestWPVersion ), {
-				overwrite: true,
-			} );
+			await fs.promises.rename( latestWPVersionPath, getWordPressVersionPath( latestWPVersion ) );
 		}
 		console.log( `Copying bundled WP version ${ bundledWPVersion } as 'latest' version…` );
 		await recursiveCopyDirectory( bundledWPVersionPath, latestWPVersionPath );
@@ -53,7 +51,7 @@ async function copyBundledSqlite() {
 		return;
 	}
 	const installedSqlitePath = getSqlitePluginPath();
-	const isSqliteInstalled = await fs.pathExists( installedSqlitePath );
+	const isSqliteInstalled = fs.existsSync( installedSqlitePath );
 	const installedSqliteVersion = semver.coerce(
 		await getSqliteVersionFromInstallation( installedSqlitePath ),
 		{ includePrerelease: true }
@@ -67,17 +65,17 @@ async function copyBundledSqlite() {
 }
 
 async function copyBundledWPCLI() {
-	const bundledWPCLIInstalled = await fs.pathExists( getWpCliPharPath() );
+	const bundledWPCLIInstalled = fs.existsSync( getWpCliPharPath() );
 	if ( bundledWPCLIInstalled ) {
 		return;
 	}
 	const bundledWPCLIPath = path.join( getWpFilesPath(), 'wp-cli', 'wp-cli.phar' );
-	await fs.copyFile( bundledWPCLIPath, getWpCliPharPath() );
+	await fs.promises.copyFile( bundledWPCLIPath, getWpCliPharPath() );
 }
 
 async function copyBundledSqliteCommand() {
 	const bundledSqliteCommandPath = path.join( getWpFilesPath(), 'sqlite-command' );
-	if ( ! ( await fs.pathExists( bundledSqliteCommandPath ) ) ) {
+	if ( ! fs.existsSync( bundledSqliteCommandPath ) ) {
 		return;
 	}
 	// Always copy to ensure files are complete and up-to-date
@@ -90,7 +88,7 @@ async function copyBundledTranslations() {
 		'latest',
 		'available-site-translations.json'
 	);
-	if ( ! ( await fs.pathExists( bundledTranslationsPath ) ) ) {
+	if ( ! fs.existsSync( bundledTranslationsPath ) ) {
 		return;
 	}
 	const installedTranslationsPath = path.join(
@@ -98,12 +96,12 @@ async function copyBundledTranslations() {
 		'available-site-translations.json'
 	);
 
-	await fs.copyFile( bundledTranslationsPath, installedTranslationsPath );
+	await fs.promises.copyFile( bundledTranslationsPath, installedTranslationsPath );
 }
 
 async function copyBundledAiInstructions() {
 	const bundledAiInstructionsPath = path.join( getWpFilesPath(), 'skills' );
-	if ( ! ( await fs.pathExists( bundledAiInstructionsPath ) ) ) {
+	if ( ! fs.existsSync( bundledAiInstructionsPath ) ) {
 		return;
 	}
 	await recursiveCopyDirectory( bundledAiInstructionsPath, getAiInstructionsPath() );
@@ -111,11 +109,11 @@ async function copyBundledAiInstructions() {
 
 async function copyBundledLanguagePacks() {
 	const bundledLanguagePacksPath = path.join( getWpFilesPath(), 'latest', 'languages' );
-	if ( ! ( await fs.pathExists( bundledLanguagePacksPath ) ) ) {
+	if ( ! fs.existsSync( bundledLanguagePacksPath ) ) {
 		return;
 	}
 	const installedLanguagePacksPath = getLanguagePacksPath();
-	await fs.ensureDir( installedLanguagePacksPath );
+	await fs.promises.mkdir( installedLanguagePacksPath, { recursive: true } );
 	await recursiveCopyDirectory( bundledLanguagePacksPath, installedLanguagePacksPath );
 }
 

@@ -1,7 +1,7 @@
+import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { cacheFunctionTTL } from '@studio/common/lib/cache-function-ttl';
-import fs from 'fs-extra';
 import semver from 'semver';
 import { z } from 'zod';
 import { getSqliteCommandPath } from '../server-files';
@@ -26,7 +26,10 @@ async function needsUpdate(): Promise< boolean > {
 
 async function getSqliteCommandVersion( installationPath: string ) {
 	try {
-		const versionValue = await fs.readFile( path.join( installationPath, 'version' ), 'utf8' );
+		const versionValue = await fs.promises.readFile(
+			path.join( installationPath, 'version' ),
+			'utf8'
+		);
 		return semver.coerce( versionValue );
 	} catch ( _error ) {
 		return null;

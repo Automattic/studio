@@ -1,5 +1,5 @@
+import fs from 'fs';
 import path from 'path';
-import fs from 'fs-extra';
 
 // Abstract base class for SQLite integration across different contexts
 export abstract class SqliteIntegrationProvider {
@@ -13,19 +13,19 @@ export abstract class SqliteIntegrationProvider {
 	async isSqliteIntegrationAvailable(): Promise< boolean > {
 		const sqliteSourcePath = this.getSqlitePluginSourcePath();
 		const dbCopyPath = path.join( sqliteSourcePath, 'db.copy' );
-		return ( await fs.pathExists( sqliteSourcePath ) ) && ( await fs.pathExists( dbCopyPath ) );
+		return fs.existsSync( sqliteSourcePath ) && fs.existsSync( dbCopyPath );
 	}
 
 	// Returns true if site has db.php or no wp-config.php
 	async needsSqliteSetup( sitePath: string ): Promise< boolean > {
-		const hasDbPhp = await fs.pathExists( path.join( sitePath, 'wp-content', 'db.php' ) );
-		const hasWpConfig = await fs.pathExists( path.join( sitePath, 'wp-config.php' ) );
+		const hasDbPhp = fs.existsSync( path.join( sitePath, 'wp-content', 'db.php' ) );
+		const hasWpConfig = fs.existsSync( path.join( sitePath, 'wp-config.php' ) );
 		return hasDbPhp || ! hasWpConfig;
 	}
 
 	async getSqliteVersionFromInstallation( sqliteMuPluginPath: string ): Promise< string > {
 		try {
-			const versionFileContent = await fs.readFile(
+			const versionFileContent = await fs.promises.readFile(
 				path.join( sqliteMuPluginPath, 'load.php' ),
 				'utf8'
 			);
@@ -44,10 +44,13 @@ export abstract class SqliteIntegrationProvider {
 		const wpContentPath = path.join( sitePath, 'wp-content' );
 		const databasePath = path.join( wpContentPath, 'database' );
 
-		await fs.mkdir( databasePath, { recursive: true } );
+		await fs.promises.mkdir( databasePath, { recursive: true } );
 
 		const sqliteSourcePath = this.getSqlitePluginSourcePath();
-		const dbCopyContent = await fs.readFile( path.join( sqliteSourcePath, 'db.copy' ), 'utf8' );
+		const dbCopyContent = await fs.promises.readFile(
+			path.join( sqliteSourcePath, 'db.copy' ),
+			'utf8'
+		);
 		const sqliteDirname = this.getSqliteDirname();
 		const updatedContent = dbCopyContent
 			.replace(
@@ -58,10 +61,10 @@ export abstract class SqliteIntegrationProvider {
 				"define( 'SQLITE_DB_DROPIN_VERSION'",
 				`define( 'SQLITE_MAIN_FILE', __FILE__ );\ndefine( 'SQLITE_DB_DROPIN_VERSION'`
 			);
-		await fs.writeFile( path.join( wpContentPath, 'db.php' ), updatedContent );
+		await fs.promises.writeFile( path.join( wpContentPath, 'db.php' ), updatedContent );
 
 		const sqliteDestPath = path.join( wpContentPath, 'mu-plugins', sqliteDirname );
-		await fs.copy( sqliteSourcePath, sqliteDestPath );
+		await fs.promises.copyFile( sqliteSourcePath, sqliteDestPath );
 	}
 
 	async keepSqliteIntegrationUpdated( sitePath: string ): Promise< boolean > {

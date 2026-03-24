@@ -1,4 +1,4 @@
-import fs from 'fs-extra';
+import fs from 'fs';
 import { vi } from 'vitest';
 import { SqliteIntegrationProvider } from '../sqlite-integration';
 import { platformTestSuite } from './utils/platform-test-suite';
@@ -6,13 +6,12 @@ import { platformTestSuite } from './utils/platform-test-suite';
 const SQLITE_DIRNAME = 'sqlite-database-integration';
 const MOCK_SITE_PATH = 'mock-site-path';
 
-vi.mock( 'fs-extra', async () => await import( './utils/fs-extra-mock' ) );
-
-// Import the mock helpers directly from the mocked fs-extra module
 const mockFs = fs as typeof fs & {
 	__setFileContents: ( path: string, fileContents: string | string[] ) => void;
 	__clearMockFiles: () => void;
 };
+
+vi.mock( 'fs' );
 
 class TestSqliteProvider extends SqliteIntegrationProvider {
 	getServerFilesPath(): string {
@@ -82,7 +81,7 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 		it( 'should create database directory', async () => {
 			await provider.installSqliteIntegration( MOCK_SITE_PATH );
 
-			expect( vi.mocked( fs.mkdir ) ).toHaveBeenCalledWith(
+			expect( vi.mocked( fs.promises.mkdir ) ).toHaveBeenCalledWith(
 				normalize( `${ MOCK_SITE_PATH }/wp-content/database` ),
 				{ recursive: true }
 			);
@@ -91,7 +90,7 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 		it( 'should write db.php with correct path', async () => {
 			await provider.installSqliteIntegration( MOCK_SITE_PATH );
 
-			expect( vi.mocked( fs.writeFile ) ).toHaveBeenCalledWith(
+			expect( vi.mocked( fs.promises.writeFile ) ).toHaveBeenCalledWith(
 				normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ),
 				`SQLIntegration path: realpath( __DIR__ . '/mu-plugins/${ SQLITE_DIRNAME }' )`
 			);
@@ -100,7 +99,7 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 		it( 'should copy SQLite plugin to mu-plugins', async () => {
 			await provider.installSqliteIntegration( MOCK_SITE_PATH );
 
-			expect( vi.mocked( fs.copy ) ).toHaveBeenCalledWith(
+			expect( vi.mocked( fs.promises.copyFile ) ).toHaveBeenCalledWith(
 				normalize( `server-files/${ SQLITE_DIRNAME }` ),
 				normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_DIRNAME }` )
 			);
@@ -129,7 +128,7 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 
 			await provider.keepSqliteIntegrationUpdated( MOCK_SITE_PATH );
 
-			expect( vi.mocked( fs.copy ) ).toHaveBeenCalledWith(
+			expect( vi.mocked( fs.promises.copyFile ) ).toHaveBeenCalledWith(
 				normalize( `server-files/${ SQLITE_DIRNAME }` ),
 				normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_DIRNAME }` )
 			);
@@ -138,7 +137,7 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 		it( 'should install when wp-config.php does not exist', async () => {
 			await provider.keepSqliteIntegrationUpdated( MOCK_SITE_PATH );
 
-			expect( vi.mocked( fs.copy ) ).toHaveBeenCalledWith(
+			expect( vi.mocked( fs.promises.copyFile ) ).toHaveBeenCalledWith(
 				normalize( `server-files/${ SQLITE_DIRNAME }` ),
 				normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_DIRNAME }` )
 			);
@@ -149,7 +148,7 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 
 			await provider.keepSqliteIntegrationUpdated( MOCK_SITE_PATH );
 
-			expect( vi.mocked( fs.copy ) ).not.toHaveBeenCalled();
+			expect( vi.mocked( fs.promises.copyFile ) ).not.toHaveBeenCalled();
 		} );
 	} );
 

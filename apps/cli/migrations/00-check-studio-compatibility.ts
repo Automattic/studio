@@ -98,12 +98,12 @@ export const checkStudioCompatibilityForInitialMigration: Migration = {
 
 		console.log(
 			__(
-				"Old Studio config was found, but Studio doesn't appear to be installed. Reset this config and start clean? You can re-add site directories later.\n\nIf Studio is installed, open it, update it, then run the CLI again."
+				'Old Studio config was found, but Studio no longer appears to be installed.\nReset this config and start clean? You can re-add site directories later.\n\nIf Studio is installed, open it, update it, then run the CLI again.\n'
 			)
 		);
 
 		const shouldRenameOldConfigFile = await confirm( {
-			message: __( 'Reset config and start clean? (Choosing No will exit the CLI.' ),
+			message: __( 'Reset config and start clean? (Choosing No will exit the CLI)' ),
 			default: false,
 		} ).catch( () => false );
 
@@ -113,6 +113,7 @@ export const checkStudioCompatibilityForInitialMigration: Migration = {
 				path.join( getAppdataDirectory(), 'appdata-v1.deprecated.json' )
 			);
 		} else {
+			console.log( __( 'Exiting…' ) );
 			process.exit( 1 );
 		}
 	},

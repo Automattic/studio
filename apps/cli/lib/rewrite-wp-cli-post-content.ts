@@ -46,8 +46,15 @@ export function rewriteWpCliPostContentArgs( args: string[] ): {
 }
 
 /**
- * Extracts `--post_content=...` from WP-CLI args and writes it to a temp file
- * to avoid shell escaping issues with long HTML content.
+ * For `post create` and `post update` commands, extracts `--post_content=...` from the args
+ * and writes it to a temp file in the virtual filesystem. This avoids shell escaping issues
+ * and argument length limits when dealing with long HTML content.
+ *
+ * WP-CLI accepts a file path as a positional argument for post content:
+ *   - `wp post create <file>` reads content from file
+ *   - `wp post update <id> <file>` reads content from file
+ *
+ * Returns the rewritten args array with the temp file as a positional argument.
  */
 export async function rewriteWpCliPostContentToFile(
 	args: string[],

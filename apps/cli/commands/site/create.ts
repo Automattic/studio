@@ -38,6 +38,7 @@ import {
 	removeDbConstants,
 } from '@studio/common/lib/remove-default-db-constants';
 import { sortSites } from '@studio/common/lib/sort-sites';
+import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 import {
 	isValidWordPressVersion,
 	isWordPressVersionAtLeast,
@@ -63,8 +64,9 @@ import {
 	updateSiteLatestCliPid,
 } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
+import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
-import { getAiInstructionsPath, getServerFilesPath } from 'cli/lib/server-files';
+import { getAiInstructionsPath } from 'cli/lib/server-files';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { generateSiteName } from 'cli/lib/site-name';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
@@ -103,6 +105,26 @@ export async function runCommand(
 	sitePath: string,
 	options: CreateCommandOptions
 ): Promise< void > {
+	const isOnlineStatus = await isOnline();
+
+	try {
+		if ( isOnlineStatus ) {
+			logger.reportStart(
+				LoggerAction.CHECKING_DEPENDENCY_UPDATES,
+				__( 'Checking for dependency updates…' )
+			);
+
+			await updateServerFiles();
+		}
+	} catch ( error ) {
+		// Swallow errors in production. They aren't critical and likely relate to things outside the
+		// user's control, like network issues or bad API responses.
+		if ( process.env.NODE_ENV !== 'production' ) {
+			const loggerError = new LoggerError( 'Failed to update dependencies', error );
+			logger.reportError( loggerError );
+		}
+	}
+
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating site configuration…' ) );
 
@@ -199,8 +221,6 @@ export async function runCommand(
 			logger.reportSuccess( __( 'Site directory created' ) );
 		}
 
-		const isOnlineStatus = await isOnline();
-
 		if ( options.wpVersion === 'latest' ) {
 			const bundledWPPath = path.join( getServerFilesPath(), 'wordpress-versions', 'latest' );
 
@@ -229,15 +249,13 @@ export async function runCommand(
 			isSqliteUpdated ? __( 'SQLite integration configured' ) : __( 'SQLite integration skipped' )
 		);
 
-		if ( process.env.ENABLE_AGENT_SUITE === 'true' ) {
-			try {
-				await installAiInstructionsToSite( sitePath, getAiInstructionsPath() );
-			} catch ( error ) {
-				logger.reportError(
-					new LoggerError( __( 'Failed to install AI instructions. Proceeding anyway…' ), error ),
-					false
-				);
-			}
+		try {
+			await installAiInstructionsToSite( sitePath, getAiInstructionsPath() );
+		} catch ( error ) {
+			logger.reportError(
+				new LoggerError( __( 'Failed to install AI instructions. Proceeding anyway…' ), error ),
+				false
+			);
 		}
 
 		logger.reportStart( LoggerAction.ASSIGN_PORT, __( 'Assigning port…' ) );

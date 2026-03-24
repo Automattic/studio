@@ -182,7 +182,6 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 					<SettingsRow label={ __( 'Debug display' ) }>
 						<span>{ selectedSite.enableDebugDisplay ? __( 'Enabled' ) : __( 'Disabled' ) }</span>
 					</SettingsRow>
-
 					<tr>
 						<th colSpan={ 2 } className="pb-4 ltr:text-left rtl:text-right">
 							<h3 className="text-frame-text text-sm font-semibold mt-4">{ __( 'WP Admin' ) }</h3>

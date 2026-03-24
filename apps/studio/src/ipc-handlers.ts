@@ -18,10 +18,8 @@ import os from 'os';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import {
-	installAiInstructionsToSite,
 	installSkillToSite,
 	removeSkillFromSite,
-	updateManagedInstructionFiles,
 } from '@studio/common/lib/agent-skills';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
@@ -59,7 +57,7 @@ import {
 	trustRootCA,
 } from 'src/lib/certificate-manager';
 import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
-import { buildFeatureFlags, getFeatureFlagFromEnv } from 'src/lib/feature-flags';
+import { buildFeatureFlags } from 'src/lib/feature-flags';
 import { getImageData } from 'src/lib/get-image-data';
 import { exportBackup } from 'src/lib/import-export/export/export-manager';
 import { ExportOptions } from 'src/lib/import-export/export/types';
@@ -413,13 +411,6 @@ export async function createSite(
 			void loadThemeDetails( event, server.details.id );
 		}
 
-		// Install AI instructions and skills into the new site
-		if ( getFeatureFlagFromEnv( 'enableAgentSuite' ) ) {
-			void installAiInstructionsToSite( path, getAiInstructionsPath() ).catch( ( error ) => {
-				console.error( '[ai-instructions] Failed to install AI instructions to new site:', error );
-			} );
-		}
-
 		return server.details;
 	} catch ( error ) {
 		// Skip WASM memory errors - they're user system issues, not bugs
@@ -598,13 +589,6 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 	if ( server.details.running ) {
 		void loadThemeDetails( event, id );
 	}
-
-	// Keep managed instruction files (STUDIO.md, CLAUDE.md) up-to-date
-	void updateManagedInstructionFiles( server.details.path, getAiInstructionsPath() ).catch(
-		( error ) => {
-			console.error( '[ai-instructions] Failed to update managed instruction files:', error );
-		}
-	);
 
 	console.log( `Server started for '${ server.details.name }'` );
 }

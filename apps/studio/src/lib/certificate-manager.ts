@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import * as Sentry from '@sentry/electron/main';
-import { getCertificatesPath } from '@studio/common/lib/config-paths';
+import { getCertificatesPath } from '@studio/common/lib/well-known-paths';
 import sudo from '@vscode/sudo-prompt';
 
 const execFilePromise = promisify( execFile );

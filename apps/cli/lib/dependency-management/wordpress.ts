@@ -32,7 +32,7 @@ export async function downloadWordPress(
 			await downloadFile( getWordPressVersionUrl( wordPressVersion ), tmpDownloadPath );
 			await extractZip( tmpDownloadPath, tempDir );
 		} finally {
-			await fs.promises.unlink( tmpDownloadPath );
+			await fs.promises.rm( tmpDownloadPath, { force: true } );
 		}
 
 		const wpSourcePath = path.join( tempDir, 'wordpress' );

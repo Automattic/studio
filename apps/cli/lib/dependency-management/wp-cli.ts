@@ -57,7 +57,7 @@ export async function updateLatestWpCliVersion(): Promise< void > {
 			await downloadFile( WP_CLI_URL, tmpDownloadPath );
 			await fs.promises.copyFile( tmpDownloadPath, getWpCliPharPath() );
 		} finally {
-			await fs.promises.unlink( tmpDownloadPath );
+			await fs.promises.rm( tmpDownloadPath, { force: true } );
 		}
 	}
 }

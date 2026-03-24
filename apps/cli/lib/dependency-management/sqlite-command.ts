@@ -55,6 +55,6 @@ export async function updateLatestSqliteCommandVersion() {
 		await downloadFile( downloadUrl, tmpDownloadPath );
 		await extractZip( tmpDownloadPath, getSqliteCommandPath() );
 	} finally {
-		await fs.promises.unlink( tmpDownloadPath );
+		await fs.promises.rm( tmpDownloadPath, { force: true } );
 	}
 }

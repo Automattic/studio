@@ -241,6 +241,7 @@ export async function installWordPressSkillsToAllSites(
 		const existing = userData.selectedSkills ?? [];
 		const merged = Array.from( new Set( [ ...existing, options.skillId ] ) );
 		await saveUserData( { ...userData, selectedSkills: merged } );
+		await updateSharedConfig( { selectedSkills: merged } );
 	} finally {
 		await unlockAppdata();
 	}
@@ -264,6 +265,7 @@ export async function removeWordPressSkillFromAllSites(
 		const userData = await loadUserData();
 		const updated = ( userData.selectedSkills ?? [] ).filter( ( id ) => id !== skillId );
 		await saveUserData( { ...userData, selectedSkills: updated } );
+		await updateSharedConfig( { selectedSkills: updated } );
 	} finally {
 		await unlockAppdata();
 	}

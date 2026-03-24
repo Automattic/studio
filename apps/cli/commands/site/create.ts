@@ -10,6 +10,7 @@ import {
 	MINIMUM_WORDPRESS_VERSION,
 } from '@studio/common/constants';
 import { BUNDLED_SKILL_IDS, installAiInstructionsToSite } from '@studio/common/lib/agent-skills';
+import { readSharedConfig } from '@studio/common/lib/shared-config';
 import { extractFormValuesFromBlueprint } from '@studio/common/lib/blueprint-settings';
 import {
 	filterUnsupportedBlueprintFeatures,
@@ -251,10 +252,15 @@ export async function runCommand(
 		);
 
 		try {
+			let skills = options.skills;
+			if ( ! skills ) {
+				const sharedConfig = await readSharedConfig();
+				skills = sharedConfig.selectedSkills ?? [];
+			}
 			await installAiInstructionsToSite(
 				sitePath,
 				getAiInstructionsPath(),
-				options.skills ?? []
+				skills
 			);
 		} catch ( error ) {
 			logger.reportError(

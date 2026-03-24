@@ -69,29 +69,30 @@ test.describe( 'Overview customize links', () => {
 		}
 		return decoded;
 	};
+
+	test.beforeAll( async () => {
+		await session.launch();
+
+		const onboarding = new Onboarding( session.mainWindow );
+		await onboarding.completeOnboarding( { customSiteName: siteName } );
+		await onboarding.closeWhatsNew();
+
+		const siteContent = new SiteContent( session.mainWindow, siteName );
+		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
+	} );
+
+	test.afterEach( async ( { page: _page }, testInfo ) => {
+		await session.reportMainProcessLogsOnFailure( testInfo );
+	} );
+
+	test.afterAll( async () => {
+		if ( session.electronApp ) {
+			await restoreOpenExternal();
+		}
+		await session.cleanup();
+	} );
+
 	test.describe( 'Block theme customize shortcut links', () => {
-		test.beforeAll( async () => {
-			await session.launch();
-
-			const onboarding = new Onboarding( session.mainWindow );
-			await onboarding.completeOnboarding( { customSiteName: siteName } );
-			await onboarding.closeWhatsNew();
-
-			const siteContent = new SiteContent( session.mainWindow, siteName );
-			await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
-		} );
-
-		test.afterEach( async ( { page: _page }, testInfo ) => {
-			await session.reportMainProcessLogsOnFailure( testInfo );
-		} );
-
-		test.afterAll( async () => {
-			if ( session.electronApp ) {
-				await restoreOpenExternal();
-			}
-			await session.cleanup();
-		} );
-
 		test( 'shows overview shortcuts for a new site', async () => {
 			const siteContent = new SiteContent( session.mainWindow, siteName );
 			await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
@@ -183,6 +184,23 @@ test.describe( 'Overview customize links', () => {
 
 			const headingLocator = page.locator( 'h1', { hasText: 'Pages' } );
 			await expect( headingLocator ).toBeVisible( { timeout: 120_000 } );
+		} );
+	} );
+
+	test.describe( 'phpMyAdmin shortcut link', () => {
+		test( 'phpMyAdmin button is visible and enabled for a new site', async () => {
+			const siteContent = new SiteContent( session.mainWindow, siteName );
+			const phpMyAdminButton = siteContent.locator.getByRole( 'button', { name: 'phpMyAdmin' } );
+			await expect( phpMyAdminButton ).toBeVisible( { timeout: 120_000 } );
+			await expect( phpMyAdminButton ).toBeEnabled();
+		} );
+
+		test( 'opens phpMyAdmin shortcut', async ( { page } ) => {
+			const redirectUrl = await openShortcut( page, 'phpMyAdmin' );
+			expect( redirectUrl ).toContain( '/phpmyadmin/' );
+
+			// phpMyAdmin renders a table of database tables
+			await expect( page.locator( '#pma_navigation' ) ).toBeVisible( { timeout: 120_000 } );
 		} );
 	} );
 } );

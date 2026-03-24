@@ -6,7 +6,7 @@ import {
 	SupportedLocale,
 	supportedLocales,
 } from '@studio/common/lib/locale';
-import { loadUserData } from 'src/storage/user-data';
+import { readSharedConfig } from '@studio/common/lib/shared-config';
 
 export function getSupportedLocale() {
 	// `app.getLocale` returns the current application locale, acquired using
@@ -17,7 +17,7 @@ export function getSupportedLocale() {
 
 export async function getUserLocaleWithFallback() {
 	try {
-		const { locale } = await loadUserData();
+		const { locale } = await readSharedConfig();
 		if ( ! locale || ! isSupportedLocale( locale ) ) {
 			return getSupportedLocale();
 		}

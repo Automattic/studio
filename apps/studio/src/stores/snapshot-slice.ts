@@ -6,10 +6,10 @@ import {
 	isAnyOf,
 	PayloadAction,
 } from '@reduxjs/toolkit';
+import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
 import { PreviewCommandLoggerAction } from '@studio/common/logger-actions';
 import { Snapshot } from '@studio/common/types/snapshot';
 import { __, sprintf } from '@wordpress/i18n';
-import fastDeepEqual from 'fast-deep-equal';
 import { LIMIT_OF_ZIP_SITES_PER_USER } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { RootState, store } from 'src/stores/index';
@@ -144,6 +144,9 @@ const snapshotSlice = createSlice( {
 			state.snapshots = state.snapshots.filter(
 				( snapshot ) => snapshot.atomicSiteId !== action.payload.atomicSiteId
 			);
+		},
+		addSnapshot: ( state, action: PayloadAction< { snapshot: Snapshot } > ) => {
+			state.snapshots.push( action.payload.snapshot );
 		},
 		setSnapshots: ( state, action: PayloadAction< { snapshots: Snapshot[] } > ) => {
 			state.snapshots = action.payload.snapshots;
@@ -295,30 +298,35 @@ const selectSnapshotsBySiteAndUser = createSelector(
 		)
 );
 
-window.ipcListener.subscribe( 'user-data-updated', ( _, payload ) => {
-	const state = store.getState();
-	const snapshots = payload.snapshots;
-
-	if ( ! fastDeepEqual( state.snapshot.snapshots, snapshots ) ) {
-		store.dispatch( snapshotSlice.actions.setSnapshots( { snapshots } ) );
-
-		// Optimistically update the snapshot usage count
-		const countDiff = snapshots.length - state.snapshot.snapshots.length;
-		store.dispatch(
-			wpcomApi.util.updateQueryData( 'getSnapshotUsage', undefined, ( data ) => {
-				// There's a risk that more sites are deleted locally than the count returned by the
-				// API, because expired sites are preserved locally. Therefore, we need to ensure
-				// the count is non-negative.
-				data.siteCount = Math.max( 0, data.siteCount + countDiff );
-			} )
-		);
-
-		// Wait for changes to take effect on the back-end before invalidating the query
-		setTimeout( () => {
-			store.dispatch( wpcomApi.util.invalidateTags( [ 'SnapshotUsage' ] ) );
-		}, 8000 );
+// Optimistically update the snapshot usage count and schedule a re-fetch.
+// There's a risk that more sites are deleted locally than the count returned by the
+// API, because expired sites are preserved locally. Therefore, we need to ensure
+// the count is non-negative.
+function updateSnapshotUsageCount( countDiff: number ) {
+	if ( countDiff === 0 ) {
+		return;
 	}
-} );
+
+	store.dispatch(
+		wpcomApi.util.updateQueryData( 'getSnapshotUsage', undefined, ( data ) => {
+			data.siteCount = Math.max( 0, data.siteCount + countDiff );
+		} )
+	);
+
+	// Wait for changes to take effect on the back-end before invalidating the query
+	setTimeout( () => {
+		store.dispatch( wpcomApi.util.invalidateTags( [ 'SnapshotUsage' ] ) );
+	}, 8000 );
+}
+
+export async function refreshSnapshots() {
+	const snapshots = await getIpcApi().fetchSnapshots();
+	const state = store.getState();
+	const countDiff = snapshots.length - state.snapshot.snapshots.length;
+
+	store.dispatch( snapshotSlice.actions.setSnapshots( { snapshots } ) );
+	updateSnapshotUsageCount( countDiff );
+}
 
 function getOperationProgress( action: PreviewCommandLoggerAction ): [ string, number ] {
 	switch ( action ) {
@@ -362,6 +370,47 @@ function isBulkOperationSettled( bulkOperation: BulkOperation ) {
 		return operation && operation.status !== 'pending';
 	} );
 }
+
+window.ipcListener.subscribe( 'snapshot-changed', ( _, snapshotEvent ) => {
+	const { event: eventType, snapshot, snapshotUrl } = snapshotEvent;
+
+	if ( eventType === SNAPSHOT_EVENTS.DELETED ) {
+		const state = store.getState();
+		const existing = state.snapshot.snapshots.find( ( s ) => s.url === snapshotUrl );
+		if ( existing ) {
+			store.dispatch(
+				snapshotSlice.actions.deleteSnapshotLocally( { atomicSiteId: existing.atomicSiteId } )
+			);
+			updateSnapshotUsageCount( -1 );
+		}
+		return;
+	}
+
+	if ( ! snapshot ) {
+		// Fallback to full refresh if no snapshot data included
+		void refreshSnapshots();
+		return;
+	}
+
+	if ( eventType === SNAPSHOT_EVENTS.CREATED ) {
+		const state = store.getState();
+		const existing = state.snapshot.snapshots.find( ( s ) => s.url === snapshot.url );
+		if ( ! existing ) {
+			store.dispatch( snapshotSlice.actions.addSnapshot( { snapshot } ) );
+			updateSnapshotUsageCount( 1 );
+		}
+		return;
+	}
+
+	if ( eventType === SNAPSHOT_EVENTS.UPDATED ) {
+		store.dispatch(
+			snapshotActions.updateSnapshotLocally( {
+				atomicSiteId: snapshot.atomicSiteId,
+				snapshot,
+			} )
+		);
+	}
+} );
 
 window.ipcListener.subscribe( 'snapshot-output', ( event, payload ) => {
 	const operation = getOperation( payload.operationId );

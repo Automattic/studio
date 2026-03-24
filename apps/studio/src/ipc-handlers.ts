@@ -38,10 +38,9 @@ import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
-import { portFinder } from '@studio/common/lib/port-finder';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
+import { updateSharedConfig } from '@studio/common/lib/shared-config';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
-import { Snapshot } from '@studio/common/types/snapshot';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import { MACOS_TRAFFIC_LIGHT_POSITION, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
@@ -133,6 +132,8 @@ export {
 export {
 	createSnapshot,
 	deleteSnapshot,
+	fetchSnapshots,
+	setSnapshot,
 	updateSnapshot,
 } from 'src/modules/preview-site/lib/ipc-handlers';
 
@@ -202,12 +203,12 @@ export async function installWordPressSkills(
 export async function getWordPressSkillsStatusAllSites(
 	_event: IpcMainInvokeEvent
 ): Promise< SkillStatus[] > {
-	const { sites } = await loadUserData();
+	const sites = SiteServer.getAll();
 	if ( ! sites.length ) {
 		return BUNDLED_SKILLS.map( ( skill ) => ( { ...skill, installed: false } ) );
 	}
 	const allSiteStatuses = await Promise.all(
-		sites.map( ( site ) => getSkillsStatus( site.path ) )
+		sites.map( ( site ) => getSkillsStatus( site.details.path ) )
 	);
 	return BUNDLED_SKILLS.map( ( skill ) => ( {
 		...skill,
@@ -221,14 +222,14 @@ export async function installWordPressSkillsToAllSites(
 	_event: IpcMainInvokeEvent,
 	options?: { skillId?: string; overwrite?: boolean }
 ): Promise< void > {
-	const { sites } = await loadUserData();
+	const sites = SiteServer.getAll();
 	const overwrite = options?.overwrite ?? false;
 	const bundledPath = getAiInstructionsPath();
 	const tasks = sites.flatMap( ( site ) =>
 		options?.skillId
-			? [ installSkillToSite( site.path, bundledPath, options.skillId, overwrite ) ]
+			? [ installSkillToSite( site.details.path, bundledPath, options.skillId, overwrite ) ]
 			: BUNDLED_SKILLS.map( ( skill ) =>
-					installSkillToSite( site.path, bundledPath, skill.id, overwrite )
+					installSkillToSite( site.details.path, bundledPath, skill.id, overwrite )
 			  )
 	);
 	const results = await Promise.allSettled( tasks );
@@ -243,8 +244,8 @@ export async function removeWordPressSkillFromAllSites(
 	_event: IpcMainInvokeEvent,
 	skillId: string
 ): Promise< void > {
-	const { sites } = await loadUserData();
-	const tasks = sites.map( ( site ) => removeSkillFromSite( site.path, skillId ) );
+	const sites = SiteServer.getAll();
+	const tasks = sites.map( ( site ) => removeSkillFromSite( site.details.path, skillId ) );
 	const results = await Promise.allSettled( tasks );
 	results.forEach( ( result ) => {
 		if ( result.status === 'rejected' ) {
@@ -286,41 +287,26 @@ function readPm2Logs( siteId: string ): { stdout?: string[]; stderr?: string[] }
 	};
 }
 
-function mergeSiteDetailsWithRunningDetails( sites: SiteDetails[] ): SiteDetails[] {
-	return sites.map( ( site ) => {
-		const server = SiteServer.get( site.id );
-		if ( server ) {
-			return server.details;
-		}
-		return site;
-	} );
-}
-
 export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< SiteDetails[] > {
+	const sites = SiteServer.getAllDetails();
 	const userData = await loadUserData();
-
-	const { sites } = userData;
-
-	// Ensure we have an instance of a server for each site we know about
 	for ( const site of sites ) {
-		if ( ! SiteServer.get( site.id ) && ! site.running ) {
-			SiteServer.register( site );
+		const appdataSite = userData.siteMetadata[ site.id ];
+		if ( appdataSite ) {
+			site.sortOrder = appdataSite.sortOrder;
+			site.themeDetails = appdataSite.themeDetails;
 		}
 	}
 
-	return mergeSiteDetailsWithRunningDetails( sites );
+	return sites;
 }
 
 export async function getXdebugEnabledSite(
 	_event: IpcMainInvokeEvent
 ): Promise< SiteDetails | null > {
-	const userData = await loadUserData();
-	const { sites } = userData;
+	const sites = SiteServer.getAllDetails();
 	const xdebugSite = sites.find( ( site ) => site.enableXdebug );
-	if ( ! xdebugSite ) {
-		return null;
-	}
-	return mergeSiteDetailsWithRunningDetails( [ xdebugSite ] )[ 0 ] || null;
+	return xdebugSite || null;
 }
 
 export async function importSite(
@@ -550,31 +536,6 @@ export async function updateSite(
 
 	if ( hasCliChanges ) {
 		await editSiteViaCli( options );
-
-		const userData = await loadUserData();
-		const freshSiteData = userData.sites.find( ( s ) => s.id === updatedSite.id );
-		if ( freshSiteData ) {
-			const wasRunning = server.details.running;
-
-			if ( wasRunning ) {
-				const url = freshSiteData.customDomain
-					? `${ freshSiteData.enableHttps ? 'https' : 'http' }://${ freshSiteData.customDomain }`
-					: `http://localhost:${ freshSiteData.port }`;
-
-				server.details = {
-					...freshSiteData,
-					running: true,
-					url,
-				};
-
-				server.server.url = url;
-			} else {
-				server.details = {
-					...freshSiteData,
-					running: false,
-				};
-			}
-		}
 	}
 }
 
@@ -767,7 +728,6 @@ export async function copySite(
 	const newThumbnailPath = getSiteThumbnailPath( newSiteId );
 	if ( fs.existsSync( sourceThumbnailPath ) ) {
 		await fs.promises.copyFile( sourceThumbnailPath, newThumbnailPath );
-		// Send thumbnail-loaded event so UI updates immediately
 		const thumbnailData = await getImageData( newThumbnailPath );
 		sendIpcEventToRendererWithWindow(
 			BrowserWindow.fromWebContents( event.sender ),
@@ -776,33 +736,26 @@ export async function copySite(
 		);
 	}
 
-	const port = await portFinder.getOpenPort();
-
-	const newSiteDetails: StoppedSiteDetails = {
-		id: newSiteId,
-		name: siteName,
+	const { server, details } = await SiteServer.create( {
 		path: finalSitePath,
-		port,
+		name: siteName,
+		siteId: newSiteId,
 		phpVersion: sourceSite.phpVersion,
-		running: false,
 		adminUsername: sourceSite.adminUsername,
-		adminPassword: sourceSite.adminPassword,
+		adminPassword: sourceSite.adminPassword
+			? decodePassword( sourceSite.adminPassword )
+			: undefined,
 		adminEmail: sourceSite.adminEmail,
-		themeDetails: sourceSite.themeDetails,
-	};
+		noStart: true,
+	} );
 
-	try {
-		await lockAppdata();
-		const userData = await loadUserData();
-		userData.sites.push( newSiteDetails );
-		await saveUserData( userData );
-	} finally {
-		await unlockAppdata();
+	// Persist themeDetails to appdata (Studio-only data)
+	if ( sourceSite.themeDetails ) {
+		server.details.themeDetails = sourceSite.themeDetails;
+		await server.persistThemeDetails();
 	}
 
-	SiteServer.register( newSiteDetails );
-
-	return newSiteDetails;
+	return details;
 }
 
 export function logRendererMessage(
@@ -830,7 +783,7 @@ export async function isAuthenticated() {
 }
 
 export async function clearAuthenticationToken() {
-	return await updateAppdata( { authToken: undefined } );
+	return await updateSharedConfig( { authToken: undefined } );
 }
 
 export async function exportSite(
@@ -865,25 +818,8 @@ export async function exportSite(
 	}
 }
 
-export async function saveSnapshotsToStorage( event: IpcMainInvokeEvent, snapshots: Snapshot[] ) {
-	try {
-		await lockAppdata();
-		const userData = await loadUserData();
-		userData.snapshots = snapshots;
-		await saveUserData( userData );
-	} finally {
-		await unlockAppdata();
-	}
-}
-
 export async function saveLastSeenVersion( event: IpcMainInvokeEvent, version: string ) {
 	await updateAppdata( { lastSeenVersion: version } );
-}
-
-export async function getSnapshots( _event: IpcMainInvokeEvent ): Promise< Snapshot[] > {
-	const userData = await loadUserData();
-	const { snapshots = [] } = userData;
-	return snapshots;
 }
 
 export async function getLastSeenVersion(
@@ -1665,9 +1601,7 @@ export async function isFullscreen( _event: IpcMainInvokeEvent ): Promise< boole
 }
 
 export async function getAllCustomDomains(): Promise< string[] > {
-	const userData = await loadUserData();
-
-	return userData.sites
+	return SiteServer.getAllDetails()
 		.map( ( site ) => site.customDomain )
 		.filter( ( domain ): domain is string => domain !== undefined );
 }
@@ -1773,15 +1707,11 @@ export async function updateSitesSortOrder(
 		await lockAppdata();
 		const userData = await loadUserData();
 
-		const updatedSites = userData.sites.map( ( site ) => {
-			const update = updates.find( ( u ) => u.siteId === site.id );
-			if ( update ) {
-				return { ...site, sortOrder: update.sortOrder };
-			}
-			return site;
-		} );
+		for ( const { siteId, sortOrder } of updates ) {
+			userData.siteMetadata[ siteId ] = { ...userData.siteMetadata[ siteId ], sortOrder };
+		}
 
-		await saveUserData( { ...userData, sites: updatedSites } );
+		await saveUserData( userData );
 	} finally {
 		await unlockAppdata();
 	}

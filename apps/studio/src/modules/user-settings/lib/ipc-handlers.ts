@@ -1,4 +1,5 @@
 import { BrowserWindow, IpcMainInvokeEvent, nativeTheme } from 'electron';
+import { updateSharedConfig } from '@studio/common/lib/shared-config';
 import { DEFAULT_TERMINAL } from 'src/constants';
 import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { isInstalled } from 'src/lib/is-installed';
@@ -39,7 +40,7 @@ export async function getUserTerminal() {
 }
 
 export async function saveUserLocale( event: IpcMainInvokeEvent, locale: string ) {
-	await updateAppdata( { locale } );
+	await updateSharedConfig( { locale } );
 }
 
 export async function saveUserEditor( event: IpcMainInvokeEvent, editor: SupportedEditor ) {

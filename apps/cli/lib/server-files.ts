@@ -1,8 +1,26 @@
+import os from 'os';
 import path from 'path';
-import { getAppdataDirectory } from 'cli/lib/appdata';
+import { __ } from '@wordpress/i18n';
+import { LoggerError } from 'cli/logger';
 
 const WP_CLI_PHAR_FILENAME = 'wp-cli.phar';
 const SQLITE_COMMAND_FOLDER = 'sqlite-command';
+
+export function getAppdataDirectory(): string {
+	if ( process.env.E2E && process.env.E2E_APP_DATA_PATH ) {
+		return path.join( process.env.E2E_APP_DATA_PATH, 'Studio' );
+	}
+
+	if ( process.platform === 'win32' ) {
+		if ( ! process.env.APPDATA ) {
+			throw new LoggerError( __( 'Studio config file path not found.' ) );
+		}
+
+		return path.join( process.env.APPDATA, 'Studio' );
+	}
+
+	return path.join( os.homedir(), 'Library', 'Application Support', 'Studio' );
+}
 
 export function getServerFilesPath(): string {
 	return path.join( getAppdataDirectory(), 'server-files' );
@@ -22,4 +40,8 @@ export function getLanguagePacksPath(): string {
 
 export function getAiInstructionsPath(): string {
 	return path.join( getServerFilesPath(), 'skills' );
+}
+
+export function getPhpMyAdminPath(): string {
+	return path.join( getServerFilesPath(), 'phpmyadmin' );
 }

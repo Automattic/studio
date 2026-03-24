@@ -10,15 +10,6 @@ import { BackupContents, BackupArchiveInfo } from 'src/lib/import-export/import/
 import { Validator } from 'src/lib/import-export/import/validators/validator';
 import type { Stats } from 'fs';
 
-vi.mock( 'src/storage/paths', () => ( {
-	getResourcesPath: vi.fn().mockReturnValue( '/path/to/app/appData/App Name' ),
-	getUserDataCertificatesPath: vi
-		.fn()
-		.mockReturnValue( '/path/to/app/appData/App Name/certificates' ),
-	getUserDataLockFilePath: vi
-		.fn()
-		.mockReturnValue( '/path/to/app/appData/App Name/appdata-v1.json.lock' ),
-} ) );
 vi.mock( 'src/lib/import-export/import/handlers/backup-handler-factory' );
 vi.mock( 'fs/promises', () => ( {
 	default: {
@@ -30,6 +21,7 @@ vi.mock( 'fs/promises', () => ( {
 vi.mock( 'os', () => ( {
 	default: {
 		tmpdir: vi.fn(),
+		homedir: vi.fn().mockReturnValue( '/mock/home' ),
 	},
 } ) );
 vi.mock( 'path', () => ( {

@@ -1,13 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AiChatUI } from 'cli/ai/ui';
-import { getSiteUrl, readAppdata } from 'cli/lib/appdata';
 import { openBrowser } from 'cli/lib/browser';
+import { readCliConfig } from 'cli/lib/cli-config/core';
+import { getSiteUrl } from 'cli/lib/cli-config/sites';
 
-vi.mock( 'cli/lib/appdata', async ( importOriginal ) => {
-	const actual = await importOriginal< typeof import('cli/lib/appdata') >();
+vi.mock( 'cli/lib/cli-config/core', async ( importOriginal ) => {
+	const actual = await importOriginal< typeof import('cli/lib/cli-config/core') >();
 	return {
 		...actual,
-		readAppdata: vi.fn(),
+		readCliConfig: vi.fn(),
+	};
+} );
+
+vi.mock( 'cli/lib/cli-config/sites', async ( importOriginal ) => {
+	const actual = await importOriginal< typeof import('cli/lib/cli-config/sites') >();
+	return {
+		...actual,
 		getSiteUrl: vi.fn(),
 	};
 } );
@@ -41,7 +49,7 @@ describe( 'AiChatUI.openActiveSiteInBrowser', () => {
 		ui._activeSite = restoredSite;
 		ui._activeSiteData = null;
 
-		vi.mocked( readAppdata ).mockResolvedValue( {
+		vi.mocked( readCliConfig ).mockResolvedValue( {
 			sites: [ siteData ],
 		} as never );
 		vi.mocked( getSiteUrl ).mockReturnValue( 'http://localhost:8080' );
@@ -49,7 +57,7 @@ describe( 'AiChatUI.openActiveSiteInBrowser', () => {
 		const opened = await ui.openActiveSiteInBrowser();
 
 		expect( opened ).toBe( true );
-		expect( readAppdata ).toHaveBeenCalledTimes( 1 );
+		expect( readCliConfig ).toHaveBeenCalledTimes( 1 );
 		expect( openBrowser ).toHaveBeenCalledWith( 'http://localhost:8080' );
 		expect( ui._activeSiteData ).toEqual( siteData );
 	} );

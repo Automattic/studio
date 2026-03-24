@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
 import { vi } from 'vitest';
-import { SiteData } from 'cli/lib/appdata';
+import { SiteData } from 'cli/lib/cli-config/core';
 import * as daemonClient from 'cli/lib/daemon-client';
 import { DaemonBus } from 'cli/lib/daemon-client';
 import {

@@ -640,7 +640,9 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'string',
 					describe: sprintf(
 						/* translators: %s: list of valid skill IDs */
-						__( 'Comma-separated skill IDs to install (e.g., "wp-plugin-development,wp-rest-api"). Valid IDs: %s' ),
+						__(
+							'Comma-separated skill IDs to install (e.g., "wp-plugin-development,wp-rest-api"). Valid IDs: %s'
+						),
 						( BUNDLED_SKILL_IDS as readonly string[] ).join( ', ' )
 					),
 					coerce: coerceSkills,

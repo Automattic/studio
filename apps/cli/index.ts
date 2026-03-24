@@ -3,7 +3,7 @@ import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-wa
 import { __ } from '@wordpress/i18n';
 import yargs from 'yargs';
 import { bumpAggregatedUniqueStat, getPlatformMetric } from 'cli/lib/bump-stat';
-import { setupServerFiles, updateServerFiles } from 'cli/lib/dependency-management/setup';
+import { setupServerFiles } from 'cli/lib/dependency-management/setup';
 import { loadTranslations } from 'cli/lib/i18n';
 import { StatsGroup, StatsMetric } from 'cli/lib/types/bump-stats';
 import { untildify } from 'cli/lib/utils';
@@ -67,6 +67,9 @@ async function main() {
 				}
 			}
 		} )
+		.middleware( async () => {
+			await setupServerFiles();
+		} )
 		.command( 'auth', __( 'Manage authentication' ), async ( authYargs ) => {
 			const [
 				{ registerCommand: registerAuthLoginCommand },
@@ -106,8 +109,6 @@ async function main() {
 			previewYargs.version( false ).demandCommand( 1, __( 'You must provide a valid command' ) );
 		} )
 		.command( 'site', __( 'Manage sites' ), async ( sitesYargs ) => {
-			await setupServerFiles();
-
 			const [
 				{ registerCommand: registerSiteStatusCommand },
 				{ registerCommand: registerSiteCreateCommand },
@@ -150,19 +151,9 @@ async function main() {
 					} );
 			},
 			handler: async ( argv ) => {
-				await setupServerFiles();
-
 				const { commandHandler: wpCliCommandHandler } = await import( 'cli/commands/wp' );
 
 				return wpCliCommandHandler( argv );
-			},
-		} )
-		.command( {
-			command: '_update-deps',
-			describe: false,
-			handler: async () => {
-				await setupServerFiles();
-				await updateServerFiles();
 			},
 		} )
 		.command( {

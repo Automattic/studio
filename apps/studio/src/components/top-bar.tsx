@@ -131,12 +131,12 @@ function WindowTitle() {
 	const { selectedSite } = useSiteDetails();
 	return (
 		<div className="fixed top-0 left-0 right-0 h-[52px] flex items-center justify-center pointer-events-none">
-			<span className="text-[13px] truncate max-w-[50%]">
-				<span className="text-white/50 font-light">{ __( 'Studio' ) }</span>
+			<span className="text-[13px] flex items-center max-w-[50%]">
+				<span className="text-white/50 font-light whitespace-nowrap">{ __( 'Studio' ) }</span>
 				{ selectedSite && (
 					<>
-						<span className="text-white/30 mx-2.5">{ '\u2022' }</span>
-						<span className="text-white">{ selectedSite.name }</span>
+						<span className="text-white/30 mx-2.5 whitespace-nowrap">{ '\u2022' }</span>
+						<span className="text-white truncate">{ selectedSite.name }</span>
 					</>
 				) }
 			</span>

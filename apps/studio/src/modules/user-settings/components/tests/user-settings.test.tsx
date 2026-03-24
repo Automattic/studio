@@ -132,7 +132,7 @@ describe( 'UserSettings', () => {
 				expect( screen.getByText( 'General' ) ).toHaveAttribute( 'aria-selected', 'true' );
 				expect( screen.getByText( 'Language' ) ).toBeInTheDocument();
 				expect( screen.getByText( 'Terminal application' ) ).toBeInTheDocument();
-				expect( screen.getByText( 'Studio CLI' ) ).toBeInTheDocument();
+				expect( screen.getByText( 'Studio CLI for terminal' ) ).toBeInTheDocument();
 			} );
 
 			await user.click( screen.getByText( 'Account' ) );

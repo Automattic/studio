@@ -436,6 +436,14 @@ div:has( > progress ) > div:first-child {
 		background: var( --color-frame-tab-active );
 	}
 
+	/* Secondary button — use the same border token as the rest of the UI.
+	   !important is required because the WP components <link> is appended to the
+	   DOM after the app CSS, so it wins same-specificity battles regardless of order.
+	   :not(:focus-visible) preserves the keyboard-focus ring. */
+	.components-button.is-secondary:not( :focus-visible ) {
+		box-shadow: inset 0 0 0 1px var( --color-frame-border ) !important;
+	}
+
 	/* Buttons — tertiary/link get secondary text, hover brightens */
 	.components-button.is-tertiary,
 	.components-button.is-link:not( .is-destructive ) {

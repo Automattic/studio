@@ -1,4 +1,4 @@
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { confirm } from '@inquirer/prompts';
@@ -9,13 +9,17 @@ import type { Migration } from '@studio/common/lib/migration';
 
 function isInstalledOnMacOs() {
 	return new Promise< boolean >( ( resolve, reject ) => {
-		exec( `mdfind "kMDItemCFBundleIdentifier == 'com.electron.studio'"`, ( error, stdout ) => {
-			if ( error ) {
-				reject( error );
-			} else {
-				resolve( stdout.trim() !== '' );
+		execFile(
+			'mdfind',
+			[ "kMDItemCFBundleIdentifier == 'com.electron.studio'" ],
+			( error, stdout ) => {
+				if ( error ) {
+					reject( error );
+				} else {
+					resolve( stdout.trim() !== '' );
+				}
 			}
-		} );
+		);
 	} );
 }
 
@@ -31,8 +35,14 @@ function isInstalledOnWindows() {
 	}
 
 	return new Promise< boolean >( ( resolve, reject ) => {
-		exec(
-			`powershell -NoProfile -Command 'Get-AppxPackage -Name "${ MICROSOFT_STORE_IDENTITY_NAME }" -ErrorAction SilentlyContinue'`,
+		execFile(
+			'powershell.exe',
+			[
+				'-NoProfile',
+				'-NonInteractive',
+				'-Command',
+				`Get-AppxPackage -Name "${ MICROSOFT_STORE_IDENTITY_NAME }" -ErrorAction SilentlyContinue`,
+			],
 			( error, stdout ) => {
 				if ( error ) {
 					reject( error );

@@ -29,6 +29,7 @@ import {
 import { WordPressInstallMode } from '@wp-playground/wordpress';
 import { z } from 'zod';
 import { sanitizeRunCLIArgs } from 'cli/lib/cli-args-sanitizer';
+import { rewriteWpCliPostContentToFile } from 'cli/lib/rewrite-wp-cli-post-content';
 import { getSqliteCommandPath, getWpCliPharPath } from 'cli/lib/server-files';
 import { isSqliteIntegrationInstalled } from 'cli/lib/sqlite-integration';
 import {
@@ -387,59 +388,6 @@ async function runBlueprint( config: ServerConfig, signal: AbortSignal ): Promis
 	}
 }
 
-const POST_CONTENT_TEMP_FILE = '/tmp/wp-cli-post-content.html';
-
-/**
- * For `post create` and `post update` commands, extracts `--post_content=...` from the args
- * and writes it to a temp file in the virtual filesystem. This avoids shell escaping issues
- * and argument length limits when dealing with long HTML content.
- *
- * WP-CLI accepts a file path as a positional argument for post content:
- *   - `wp post create <file>` reads content from file
- *   - `wp post update <id> <file>` reads content from file
- *
- * Returns the rewritten args array with the temp file as a positional argument.
- */
-async function rewritePostContentToFile( args: string[] ): Promise< string[] > {
-	if ( ! server ) {
-		return args;
-	}
-
-	const isPostCommand =
-		args[ 0 ] === 'post' && ( args[ 1 ] === 'create' || args[ 1 ] === 'update' );
-	if ( ! isPostCommand ) {
-		return args;
-	}
-
-	const contentArgIndex = args.findIndex( ( arg ) => arg.startsWith( '--post_content=' ) );
-	if ( contentArgIndex === -1 ) {
-		return args;
-	}
-
-	const content = args[ contentArgIndex ].slice( '--post_content='.length );
-	await server.playground.writeFile( POST_CONTENT_TEMP_FILE, content );
-
-	const rewrittenArgs = args.filter( ( _, i ) => i !== contentArgIndex );
-
-	if ( args[ 1 ] === 'create' ) {
-		// Insert file path right after `post create`
-		rewrittenArgs.splice( 2, 0, POST_CONTENT_TEMP_FILE );
-	} else {
-		// For `post update <id>`, insert file path after the post ID (index 3)
-		// Find the post ID position — it's the first non-flag arg after `post update`
-		let insertIndex = 2;
-		for ( let i = 2; i < rewrittenArgs.length; i++ ) {
-			if ( ! rewrittenArgs[ i ].startsWith( '--' ) ) {
-				insertIndex = i + 1;
-				break;
-			}
-		}
-		rewrittenArgs.splice( insertIndex, 0, POST_CONTENT_TEMP_FILE );
-	}
-
-	return rewrittenArgs;
-}
-
 const runWpCliCommand = sequential(
 	async (
 		args: string[],
@@ -461,7 +409,7 @@ const runWpCliCommand = sequential(
 			{ once: true }
 		);
 
-		const rewrittenArgs = await rewritePostContentToFile( args );
+		const rewrittenArgs = await rewriteWpCliPostContentToFile( args, server.playground.writeFile );
 
 		const response = await server.playground.cli( [
 			'php',

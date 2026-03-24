@@ -6,6 +6,7 @@ import { getSqliteVersionFromInstallation } from 'cli/lib/sqlite-integration';
 import {
 	getAiInstructionsPath,
 	getLanguagePacksPath,
+	getPhpMyAdminPath,
 	getSqliteCommandPath,
 	getSqlitePluginPath,
 	getWordPressVersionPath,
@@ -113,6 +114,15 @@ async function copyBundledAiInstructions() {
 	await recursiveCopyDirectory( bundledAiInstructionsPath, getAiInstructionsPath() );
 }
 
+async function copyBundledPhpMyAdmin() {
+	const bundledPath = path.join( getWpFilesPath(), 'phpmyadmin' );
+	if ( ! fs.existsSync( bundledPath ) ) {
+		return;
+	}
+	// Always copy to ensure files are complete and up-to-date
+	await recursiveCopyDirectory( bundledPath, getPhpMyAdminPath() );
+}
+
 async function copyBundledLanguagePacks() {
 	const bundledLanguagePacksPath = path.join( getWpFilesPath(), 'latest', 'languages' );
 	if ( ! fs.existsSync( bundledLanguagePacksPath ) ) {
@@ -132,6 +142,7 @@ export async function setupServerFiles() {
 		[ 'translations', copyBundledTranslations ],
 		[ 'language packs', copyBundledLanguagePacks ],
 		[ 'AI instructions', copyBundledAiInstructions ],
+		[ 'phpMyAdmin', copyBundledPhpMyAdmin ],
 	];
 
 	await Promise.all(

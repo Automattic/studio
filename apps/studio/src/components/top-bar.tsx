@@ -8,6 +8,8 @@ import { Tooltip } from 'src/components/tooltip';
 import { WordPressLogo } from 'src/components/wordpress-logo';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
+import { useSettingsPanel } from 'src/hooks/use-settings-panel';
+import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { useI18nLocale } from 'src/stores';
@@ -73,10 +75,11 @@ function Authentication() {
 	const { __ } = useI18n();
 	const { isAuthenticated, user } = useAuth();
 	const isOffline = useOffline();
+	const { openSettings } = useSettingsPanel();
 	if ( isAuthenticated ) {
 		return (
 			<Button
-				onClick={ () => getIpcApi().showUserSettings() }
+				onClick={ () => openSettings( 'account' ) }
 				aria-label={ __( 'Open account settings' ) }
 				variant="icon"
 				className="text-white hover:!text-white !px-1 py-1 !h-6 gap-2"
@@ -109,9 +112,10 @@ function Authentication() {
 
 function SettingsButton() {
 	const { __ } = useI18n();
+	const { openSettings } = useSettingsPanel();
 	return (
 		<Button
-			onClick={ () => getIpcApi().showUserSettings( 'general' ) }
+			onClick={ () => openSettings( 'general' ) }
 			aria-label={ __( 'Open settings' ) }
 			variant="icon"
 			data-testid="settings-button"
@@ -124,6 +128,7 @@ function SettingsButton() {
 export default function TopBar( { onToggleSidebar }: TopBarProps ) {
 	const { __ } = useI18n();
 	const locale = useI18nLocale();
+	const { isSettingsOpen } = useSettingsPanel();
 
 	const openDocs = () => {
 		getIpcApi().openURL( getLocalizedLink( locale, 'docsStudio' ) );
@@ -131,12 +136,22 @@ export default function TopBar( { onToggleSidebar }: TopBarProps ) {
 
 	return (
 		<div className="flex justify-between items-center text-white px-2 pb-2 pt-1.5">
-			<div className="flex items-center space-x-1.5 rtl:space-x-reverse">
+			<div
+				className={ cx(
+					'flex items-center space-x-1.5 rtl:space-x-reverse settings-topbar-fade',
+					isSettingsOpen && 'is-settings-open'
+				) }
+			>
 				<ToggleSidebar onToggleSidebar={ onToggleSidebar } />
 				<OfflineIndicator />
 			</div>
 
-			<div className="app-no-drag-region flex items-center space-x-1.5 rtl:space-x-reverse">
+			<div
+				className={ cx(
+					'app-no-drag-region flex items-center space-x-1.5 rtl:space-x-reverse settings-topbar-fade',
+					isSettingsOpen && 'is-settings-open'
+				) }
+			>
 				<Authentication />
 				<SettingsButton />
 				<Tooltip text={ __( 'Get help' ) } placement="bottom-start">

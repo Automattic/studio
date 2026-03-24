@@ -1,7 +1,4 @@
-import {
-	__experimentalVStack as VStack,
-	__experimentalHStack as HStack,
-} from '@wordpress/components';
+import { __experimentalVStack as VStack } from '@wordpress/components';
 import { useEffect } from 'react';
 import MacTitlebar from 'src/components/mac-titlebar';
 import MainSidebar from 'src/components/main-sidebar';
@@ -12,6 +9,7 @@ import WindowsTitlebar from 'src/components/windows-titlebar';
 import { useListenDeepLinkConnection } from 'src/hooks/sync-sites/use-listen-deep-link-connection';
 import { useAuth } from 'src/hooks/use-auth';
 import { useLocalizationSupport } from 'src/hooks/use-localization-support';
+import { useSettingsPanel } from 'src/hooks/use-settings-panel';
 import { useSidebarVisibility } from 'src/hooks/use-sidebar-visibility';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { isWindows } from 'src/lib/app-globals';
@@ -19,7 +17,7 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { Onboarding } from 'src/modules/onboarding';
 import { useOnboarding } from 'src/modules/onboarding/hooks/use-onboarding';
-import { UserSettings } from 'src/modules/user-settings';
+import { SettingsPanel } from 'src/modules/user-settings/components/settings-panel';
 import { WhatsNewModal, useWhatsNew } from 'src/modules/whats-new';
 import { useAppDispatch, useRootSelector } from 'src/stores';
 import { selectOnboardingLoading } from 'src/stores/onboarding-slice';
@@ -31,6 +29,7 @@ export default function App() {
 	const { needsOnboarding } = useOnboarding();
 	const isOnboardingLoading = useRootSelector( selectOnboardingLoading );
 	const { isSidebarVisible, toggleSidebar } = useSidebarVisibility();
+	const { isSettingsOpen } = useSettingsPanel();
 	const { showWhatsNew, closeWhatsNew } = useWhatsNew();
 	const { sites: localSites, loadingSites } = useSiteDetails();
 	const isEmpty = ! loadingSites && ! localSites.length;
@@ -84,23 +83,35 @@ export default function App() {
 						</MacTitlebar>
 					) }
 
-					<HStack spacing="0" alignment="left" className="flex-grow">
+					<div className={ cx(
+						'relative flex-grow flex overflow-hidden transition-[padding] duration-300',
+						! isSidebarVisible && ! isSettingsOpen && 'ltr:pl-chrome rtl:pr-chrome'
+					) }>
+						{ /* Settings surface: lives behind sidebar + frame on the chrome */ }
+						{ isSettingsOpen && <SettingsPanel /> }
+
 						<MainSidebar
 							className={ cx(
-								'h-full transition-all duration-500',
-								isSidebarVisible ? 'basis-52 flex-shrink-0' : 'basis-0 !min-w-[10px]'
+								'relative z-[1] h-full basis-52 flex-shrink-0 bg-chrome transition-[transform,margin] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]',
+								isSettingsOpen
+									? 'settings-slide-left'
+									: isSidebarVisible
+										? 'translate-x-0 ml-0'
+										: '-translate-x-full -ml-52'
 							) }
 						/>
 						<main
 							data-testid="site-content"
-							className="bg-frame text-frame-text h-full flex-grow rounded-chrome overflow-hidden z-10"
+							className={ cx(
+								'relative z-[1] bg-frame text-frame-text h-full flex-grow rounded-chrome overflow-hidden settings-slideable',
+								isSettingsOpen && 'settings-slide-right'
+							) }
 						>
 							<SiteContentTabs />
 						</main>
-					</HStack>
+					</div>
 				</VStack>
 			) }
-			<UserSettings />
 			<WhatsNewModal showModal={ shouldShowWhatsNew } onClose={ closeWhatsNew } />
 		</>
 	);

@@ -12,6 +12,7 @@ import { WordPressStyles } from 'src/components/wordpress-styles';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { FeatureFlagsProvider } from 'src/hooks/use-feature-flags';
 import { ImportExportProvider } from 'src/hooks/use-import-export';
+import { SettingsPanelProvider } from 'src/hooks/use-settings-panel';
 import { SiteDetailsProvider } from 'src/hooks/use-site-details';
 import { ThemeDetailsProvider } from 'src/hooks/use-theme-details';
 import { OnboardingProvider } from 'src/modules/onboarding/hooks/use-onboarding';
@@ -42,7 +43,9 @@ const Root = () => {
 										<ThemeDetailsProvider>
 											<OnboardingProvider>
 												<ImportExportProvider>
-													<App />
+													<SettingsPanelProvider>
+														<App />
+													</SettingsPanelProvider>
 												</ImportExportProvider>
 											</OnboardingProvider>
 										</ThemeDetailsProvider>

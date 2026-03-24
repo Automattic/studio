@@ -17,7 +17,7 @@ export default function MainSidebar( { className }: MainSidebarProps ) {
 		<div
 			data-testid="main-sidebar"
 			className={ cx(
-				'text-chrome-inverted relative',
+				'text-chrome-inverted relative overflow-hidden',
 				isMac() && 'pt-[10px]',
 				! isMac() && 'pt-[38px]',
 				className

@@ -252,7 +252,11 @@ export async function runCommand(
 
 		if ( process.env.ENABLE_AGENT_SUITE === 'true' ) {
 			try {
-				await installAiInstructionsToSite( sitePath, getAiInstructionsPath(), options.skills ?? [] );
+				await installAiInstructionsToSite(
+					sitePath,
+					getAiInstructionsPath(),
+					options.skills ?? []
+				);
 			} catch ( error ) {
 				logger.reportError(
 					new LoggerError( __( 'Failed to install AI instructions. Proceeding anyway…' ), error ),

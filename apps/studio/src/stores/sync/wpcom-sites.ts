@@ -1,15 +1,12 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import * as Sentry from '@sentry/electron/renderer';
-import {
-	sitesEndpointSiteSchema,
-	sitesEndpointResponseSchema,
-} from '@studio/common/types/sync';
-import type { SitesEndpointSite, SyncSite, SyncSupport } from '@studio/common/types/sync';
+import { sitesEndpointSiteSchema, sitesEndpointResponseSchema } from '@studio/common/types/sync';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { reconcileConnectedSites } from 'src/modules/sync/lib/reconcile-connected-sites';
 import { getSyncSupport, isPressableSite } from 'src/modules/sync/lib/sync-support';
 import { withOfflineCheck } from 'src/stores/utils/with-offline-check';
 import { getWpcomClient } from 'src/stores/wpcom-api';
+import type { SitesEndpointSite, SyncSite, SyncSupport } from '@studio/common/types/sync';
 
 export type { SitesEndpointSite } from '@studio/common/types/sync';
 

@@ -19,6 +19,7 @@ import {
 	type EditorOptions,
 	type MarkdownTheme,
 	visibleWidth,
+	truncateToWidth,
 } from '@mariozechner/pi-tui';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import chalk from 'chalk';
@@ -125,6 +126,7 @@ class PromptEditor implements Component, Focusable {
 		const innerWidth = Math.max( 1, width - promptWidth );
 		const lines = this.editor.render( innerWidth );
 		const bc = this.borderColorFn;
+		const borderWidth = Math.max( 0, width - 2 );
 
 		// The Editor renders: [top_border, ...content, bottom_border, ...autocomplete]
 		// Find the bottom border index: it's the last line containing ─ (U+2500).
@@ -143,10 +145,10 @@ class PromptEditor implements Component, Focusable {
 		const result = editorLines.map( ( line, i ) => {
 			if ( i === 0 ) {
 				// Top border with active site name on the right
-				if ( this.activeSiteName ) {
+				if ( this.activeSiteName && borderWidth > 4 ) {
 					const label = ` ${ this.activeSiteName } `;
-					const trailing = 3;
-					const leading = Math.max( 0, width - 2 - label.length - trailing );
+					const trailing = Math.min( 3, borderWidth );
+					const leading = Math.max( 0, borderWidth - label.length - trailing );
 					return (
 						' ' +
 						bc( '─'.repeat( leading ) ) +
@@ -154,10 +156,10 @@ class PromptEditor implements Component, Focusable {
 						bc( '─'.repeat( trailing ) )
 					);
 				}
-				return ' ' + bc( '─'.repeat( width - 2 ) );
+				return ' ' + bc( '─'.repeat( borderWidth ) );
 			}
 			if ( i === bottomBorderIndex ) {
-				return ' ' + bc( '─'.repeat( width - 2 ) );
+				return ' ' + bc( '─'.repeat( borderWidth ) );
 			}
 			if ( this.isEmpty && i === 1 ) {
 				return promptPrefix + chalk.dim( 'Type your prompt…' );
@@ -169,12 +171,14 @@ class PromptEditor implements Component, Focusable {
 		} );
 
 		if ( autocompleteLines.length > 0 ) {
-			return [ ...result, ...autocompleteLines.map( ( line ) => ' ' + line ) ];
+			return [ ...result, ...autocompleteLines.map( ( line ) => ' ' + line ) ].map( ( line ) =>
+				truncateToWidth( line, width )
+			);
 		}
 
 		// Below the bottom border: show hint bar (with optional status on the right)
 		if ( ! this.showBottomBar ) {
-			return result;
+			return result.map( ( line ) => truncateToWidth( line, width ) );
 		}
 		const activeHints = this.isEmpty
 			? this.hints
@@ -191,7 +195,7 @@ class PromptEditor implements Component, Focusable {
 			result.push( leftPart + ' '.repeat( padding ) + rightPart );
 		}
 
-		return result;
+		return result.map( ( line ) => truncateToWidth( line, width ) );
 	}
 }
 

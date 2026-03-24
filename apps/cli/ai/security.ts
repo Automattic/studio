@@ -37,6 +37,9 @@ export const ALLOWED_TOOLS = [
 	'TodoRead',
 	'NotebookRead',
 	'AskUserQuestion',
+	'Skill',
+	'Agent',
+	'Task',
 ] as const;
 
 // Tools that should not manipulate files outside of ~/Studio without permission (write access)

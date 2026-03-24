@@ -1,5 +1,6 @@
 import path from 'path';
 import { query, type Query } from '@anthropic-ai/claude-agent-sdk';
+import { getClaudeCodePlugins, isClaudeCodePluginProvider } from 'cli/ai/claude-code-plugins';
 import {
 	ALLOWED_TOOLS,
 	STUDIO_ROOT,
@@ -9,11 +10,14 @@ import {
 } from 'cli/ai/security';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { createStudioTools } from 'cli/ai/tools';
+import type { AiProviderId } from 'cli/ai/providers';
 
 export type { AskUserQuestion } from 'cli/ai/security';
 
 export interface AiAgentConfig {
 	prompt: string;
+	provider?: AiProviderId;
+	siteContext?: string;
 	env?: Record< string, string >;
 	model?: AiModelId;
 	maxTurns?: number;
@@ -36,7 +40,16 @@ const pathApprovalSession = createPathApprovalSession();
  * Caller can iterate messages with `for await` and call `interrupt()` to stop.
  */
 export function startAiAgent( config: AiAgentConfig ): Query {
-	const { prompt, env, model = DEFAULT_MODEL, maxTurns = 50, resume, onAskUser } = config;
+	const {
+		prompt,
+		provider,
+		siteContext,
+		env,
+		model = DEFAULT_MODEL,
+		maxTurns = 50,
+		resume,
+		onAskUser,
+	} = config;
 	const resolvedEnv = env ?? { ...( process.env as Record< string, string > ) };
 
 	return query( {
@@ -46,7 +59,7 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 			systemPrompt: {
 				type: 'preset',
 				preset: 'claude_code',
-				append: buildSystemPrompt(),
+				append: buildSystemPrompt( siteContext ),
 			},
 			mcpServers: {
 				studio: createStudioTools(),
@@ -81,7 +94,10 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 					pathApprovalSession,
 				} );
 			},
-			plugins: [ { type: 'local' as const, path: path.resolve( import.meta.dirname, 'plugin' ) } ],
+			plugins: [
+				{ type: 'local' as const, path: path.resolve( import.meta.dirname, 'plugin' ) },
+				...( isClaudeCodePluginProvider( provider ) ? getClaudeCodePlugins() : [] ),
+			],
 			model,
 			resume,
 		},

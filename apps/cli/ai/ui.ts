@@ -24,6 +24,7 @@ import {
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import chalk from 'chalk';
 import { AI_MODELS, DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
+import { getClaudeCodeSkillCommands, isClaudeCodePluginProvider } from 'cli/ai/claude-code-plugins';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
 import { AI_CHAT_SLASH_COMMANDS } from 'cli/ai/slash-commands';
 import { buildTodoUpdateLines, type TodoRenderLine } from 'cli/ai/todo-render';
@@ -463,7 +464,28 @@ export class AiChatUI {
 		{ name: string; input: Record< string, unknown > }
 	>();
 	currentModel: AiModelId = DEFAULT_MODEL;
-	currentProvider: AiProviderId = DEFAULT_AI_PROVIDER;
+	private _currentProvider: AiProviderId = DEFAULT_AI_PROVIDER;
+
+	get currentProvider(): AiProviderId {
+		return this._currentProvider;
+	}
+
+	set currentProvider( provider: AiProviderId ) {
+		this._currentProvider = provider;
+		this.updateAutocomplete();
+	}
+
+	private updateAutocomplete(): void {
+		if ( ! this.editor ) {
+			return;
+		}
+		const skillCommands = isClaudeCodePluginProvider( this._currentProvider )
+			? getClaudeCodeSkillCommands()
+			: [];
+		this.editor.setAutocompleteProvider(
+			new CombinedAutocompleteProvider( [ ...AI_CHAT_SLASH_COMMANDS, ...skillCommands ] )
+		);
+	}
 
 	private readonly thinkingMessages = [
 		'Thinking…',
@@ -641,9 +663,7 @@ export class AiChatUI {
 
 		this.editor = new PromptEditor( this.tui, editorTheme );
 
-		this.editor.setAutocompleteProvider(
-			new CombinedAutocompleteProvider( AI_CHAT_SLASH_COMMANDS )
-		);
+		this.updateAutocomplete();
 
 		this.editor.onSubmit = ( text ) => {
 			const trimmed = text.trim();

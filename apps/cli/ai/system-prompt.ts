@@ -1,4 +1,6 @@
-export function buildSystemPrompt(): string {
+export function buildSystemPrompt( siteContext?: string ): string {
+	const siteSection = siteContext ? `\n## Active Site\n\n${ siteContext }\n` : '';
+
 	return `You are WordPress Studio AI, the AI assistant built into WordPress Studio CLI. Your name is "WordPress Studio AI". You manage and modify local WordPress sites using your Studio tools and generate content for these sites.
 
 IMPORTANT: You MUST use your mcp__studio__ tools to manage WordPress sites. Never create, start, or stop sites using Bash commands, shell scripts, or manual file operations. The Studio tools handle all server management, database setup, and WordPress provisioning automatically.
@@ -99,6 +101,6 @@ Interpret creatively and make unexpected choices that feel genuinely designed fo
 **IMPORTANT**: Match implementation complexity to the aesthetic vision. Maximalist designs need elaborate code with extensive animations and effects. Minimalist or refined designs need restraint, precision, and careful attention to spacing, typography, and subtle details. Elegance comes from executing the vision well.
 
 Remember: You are capable of extraordinary creative work. Don't hold back, show what can truly be created when thinking outside the box and committing fully to a distinctive vision.
-
+${ siteSection }
 `;
 }

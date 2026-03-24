@@ -261,16 +261,24 @@ export async function runCommand(
 		const env = await resolveAiEnvironment( currentProvider );
 		ui.beginAgentTurn();
 
-		// Prepend active site context to the prompt.
-		// Remote (WordPress.com) sites only have a URL; local sites have a filesystem path and running state.
-		let enrichedPrompt = prompt;
 		const site = ui.activeSite;
-		if ( site?.remote && site?.url ) {
-			enrichedPrompt = `[Active site: "${ site.name }" at ${ site.url } (WordPress.com)]\n\n${ prompt }`;
-		} else if ( site ) {
-			enrichedPrompt = `[Active site: "${ site.name }" at ${ site.path }${
-				site.running ? ' (running)' : ' (stopped)'
-			}]\n\n${ prompt }`;
+		let enrichedPrompt = prompt;
+		let siteContext: string | undefined;
+
+		if ( site ) {
+			const siteDescription =
+				site.remote && site.url
+					? `"${ site.name }" at ${ site.url } (WordPress.com)`
+					: `"${ site.name }" at ${ site.path }${ site.running ? ' (running)' : ' (stopped)' }`;
+
+			if ( prompt.trimStart().startsWith( '/' ) ) {
+				// Slash commands/skills: site context in system prompt
+				// (SDK needs the prompt to start with "/" for routing)
+				siteContext = siteDescription;
+			} else {
+				// Regular prompts: site context prepended for maximum visibility
+				enrichedPrompt = `[Active site: ${ siteDescription }]\n\n${ prompt }`;
+			}
 		}
 
 		await persistSessionContext();
@@ -285,6 +293,8 @@ export async function runCommand(
 
 		const agentQuery = startAiAgent( {
 			prompt: enrichedPrompt,
+			provider: currentProvider,
+			siteContext,
 			env,
 			model: currentModel,
 			resume: sessionId,

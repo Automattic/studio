@@ -169,7 +169,6 @@ export async function tusUpload(
 	archivePath: string,
 	onProgress?: ( percent: number ) => void
 ): Promise< string > {
-	// Dynamic import to handle tus-js-client availability
 	const { Upload } = await import( 'tus-js-client' );
 
 	const file = fs.createReadStream( archivePath );
@@ -258,6 +257,14 @@ export async function initiateImport(
 			formData,
 		} );
 	} catch ( error ) {
+		const statusCode = ( error as { statusCode?: number } )?.statusCode;
+		if ( statusCode === 409 ) {
+			throw new LoggerError(
+				__(
+					'A sync operation is already in progress on this site. Please wait for it to finish and try again.'
+				)
+			);
+		}
 		throw new LoggerError( __( 'Failed to initiate import on remote site' ), error );
 	}
 }

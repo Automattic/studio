@@ -1,14 +1,18 @@
+import fs from 'fs';
 import { SYNC_EVENTS } from '@studio/common/lib/cli-events';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { SyncCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { emitCliEvent } from 'cli/lib/daemon-client';
-import { fetchSyncableSites } from 'cli/lib/sync-api';
+import { fetchSyncableSites, tusUpload, initiateImport, pollImportStatus } from 'cli/lib/sync-api';
 import { pickSyncSite } from 'cli/lib/sync-site-picker';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 import type { SyncOption } from '@studio/common/types/sync';
+
+const POLL_INTERVAL_MS = 3000;
+const MAX_POLL_ATTEMPTS = 200;
 
 const VALID_OPTIONS: SyncOption[] = [ 'all', 'sqls', 'uploads', 'plugins', 'themes', 'contents' ];
 
@@ -33,7 +37,11 @@ function parseOptions( optionsString?: string ): SyncOption[] {
 	return options;
 }
 
-export async function runCommand( siteFolder: string, optionsString?: string ): Promise< void > {
+export async function runCommand(
+	siteFolder: string,
+	optionsString?: string,
+	archivePath?: string
+): Promise< void > {
 	const logger = new Logger< LoggerAction >();
 
 	try {
@@ -45,10 +53,24 @@ export async function runCommand( siteFolder: string, optionsString?: string ): 
 		}
 
 		const site = await getSiteByFolder( siteFolder );
-		parseOptions( optionsString );
+		const optionsToSync = parseOptions( optionsString );
+
+		if ( ! archivePath ) {
+			// TODO: Export local site to tar.gz archive (requires export-manager)
+			throw new LoggerError(
+				__(
+					'Local site export is not yet implemented in CLI. Use --archive to provide an existing archive file.'
+				)
+			);
+		}
+
+		if ( ! fs.existsSync( archivePath ) ) {
+			throw new LoggerError( sprintf( __( 'Archive file not found: %s' ), archivePath ) );
+		}
 
 		logger.reportStart( LoggerAction.FETCH_SITES, __( 'Fetching WordPress.com sites…' ) );
 		const sites = await fetchSyncableSites( token.accessToken );
+		logger.spinner.stop();
 		logger.reportSuccess( sprintf( __( 'Found %d sites' ), sites.length ), true );
 
 		const selectedSite = await pickSyncSite( sites, __( 'Select a site to push to' ) );
@@ -67,19 +89,107 @@ export async function runCommand( siteFolder: string, optionsString?: string ): 
 			},
 		} );
 
-		// TODO: Implement push flow once the export/import module is available in CLI.
-		// Steps needed:
-		// 1. Export local site to tar.gz archive (requires export-manager)
-		// 2. Validate archive size (< SYNC_PUSH_SIZE_LIMIT_BYTES)
-		// 3. TUS upload via tusUpload() from sync-api.ts
-		// 4. Initiate import via initiateImport() from sync-api.ts
-		// 5. Poll import status via pollImportStatus() from sync-api.ts
-		// 6. Emit SYNC_EVENTS.COMPLETED on success
-		throw new LoggerError(
-			__(
-				'Local site export is not yet implemented in CLI. This feature requires the export/import module.'
-			)
+		// Push progress: Export (0-20%) → Upload (20-40%) → Remote backup (40-60%) → Import (60-99%) → Done (100%)
+		// Export phase skipped when using --archive, so upload starts at 20%
+
+		// Suppress DEP0169 warning from tus-js-client's internal use of url.parse()
+		const originalEmit = process.emit.bind( process );
+		// @ts-expect-error Overriding process.emit to filter deprecation warnings
+		process.emit = ( event: string, ...args: unknown[] ) => {
+			if (
+				event === 'warning' &&
+				( args[ 0 ] as { code?: string } )?.code === 'DEP0169'
+			) {
+				return false;
+			}
+			return originalEmit( event, ...args );
+		};
+
+		logger.reportStart( LoggerAction.UPLOAD, sprintf( __( 'Uploading archive… (%d%%)' ), 20 ) );
+		const attachmentId = await tusUpload(
+			token.accessToken,
+			selectedSite.id,
+			archivePath,
+			( percent ) => {
+				// Upload phase: 20-40%
+				const progress = Math.round( 20 + percent * 0.2 );
+				logger.spinner.text = sprintf( __( 'Uploading archive… (%d%%)' ), progress );
+
+				void emitCliEvent( {
+					event: SYNC_EVENTS.PROGRESS,
+					data: {
+						event: SYNC_EVENTS.PROGRESS,
+						type: 'push',
+						localSiteId: site.id,
+						remoteSiteId: selectedSite.id,
+						remoteSiteName: selectedSite.name,
+						progress,
+						statusMessage: __( 'Uploading…' ),
+					},
+				} );
+			}
 		);
+
+		process.emit = originalEmit;
+
+		// Initiate import: 40%
+		logger.spinner.text = sprintf( __( 'Initiating import… (%d%%)' ), 40 );
+		await initiateImport( token.accessToken, selectedSite.id, attachmentId, { optionsToSync } );
+
+		// Poll import: 40-99%
+		for ( let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++ ) {
+			const status = await pollImportStatus( token.accessToken, selectedSite.id );
+
+			if ( status.status === 'failed' ) {
+				throw new LoggerError( sprintf( __( 'Import failed on %s' ), selectedSite.name ) );
+			}
+
+			if ( status.status === 'finished' ) {
+				break;
+			}
+
+			let statusMessage: string;
+			let progress: number;
+
+			switch ( status.status ) {
+				case 'started':
+				case 'initial_backup_started':
+				case 'initial_backup_finished':
+					statusMessage = __( 'Backing up remote site…' );
+					progress = 40 + ( ( status.backup_progress ?? 0 ) / 100 ) * 20;
+					break;
+				case 'archive_import_started':
+					statusMessage = __( 'Applying changes…' );
+					progress = 60 + ( ( status.import_progress ?? 0 ) / 100 ) * 35;
+					break;
+				case 'archive_import_finished':
+					statusMessage = __( 'Almost there…' );
+					progress = 99;
+					break;
+				default:
+					statusMessage = __( 'Applying changes…' );
+					progress = 50;
+			}
+
+			logger.spinner.text = sprintf( '%s (%d%%)', statusMessage, Math.round( progress ) );
+
+			await new Promise( ( resolve ) => setTimeout( resolve, POLL_INTERVAL_MS ) );
+		}
+		logger.spinner.stop();
+		logger.reportSuccess(
+			sprintf( __( 'Successfully pushed to %s (%s)' ), selectedSite.name, selectedSite.url )
+		);
+
+		void emitCliEvent( {
+			event: SYNC_EVENTS.COMPLETED,
+			data: {
+				event: SYNC_EVENTS.COMPLETED,
+				type: 'push',
+				localSiteId: site.id,
+				remoteSiteId: selectedSite.id,
+				remoteSiteName: selectedSite.name,
+			},
+		} );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );
@@ -95,15 +205,20 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		command: 'push',
 		describe: __( 'Push your local site to a WordPress.com site' ),
 		builder: ( yargs ) => {
-			return yargs.option( 'options', {
-				type: 'string',
-				description: __(
-					'Comma-separated sync options: all, sqls, uploads, plugins, themes, contents'
-				),
-			} );
+			return yargs
+				.option( 'options', {
+					type: 'string',
+					description: __(
+						'Comma-separated sync options: all, sqls, uploads, plugins, themes, contents'
+					),
+				} )
+				.option( 'archive', {
+					type: 'string',
+					description: __( 'Path to an existing tar.gz archive to push (skips local export)' ),
+				} );
 		},
 		handler: async ( argv ) => {
-			await runCommand( argv.path, argv.options );
+			await runCommand( argv.path, argv.options, argv.archive );
 		},
 	} );
 };

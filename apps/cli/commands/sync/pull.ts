@@ -59,6 +59,7 @@ export async function runCommand( siteFolder: string, optionsString?: string ): 
 
 		logger.reportStart( LoggerAction.FETCH_SITES, __( 'Fetching WordPress.com sites…' ) );
 		const sites = await fetchSyncableSites( token.accessToken );
+		logger.spinner.stop();
 		logger.reportSuccess( sprintf( __( 'Found %d sites' ), sites.length ), true );
 
 		const selectedSite = await pickSyncSite( sites, __( 'Select a site to pull from' ) );
@@ -77,11 +78,13 @@ export async function runCommand( siteFolder: string, optionsString?: string ): 
 			},
 		} );
 
-		logger.reportStart( LoggerAction.INITIATE_BACKUP, __( 'Initiating remote backup…' ) );
+		// Pull progress: Backup (0-50%) → Download (50-80%) → Import (80-100%)
+		logger.reportStart(
+			LoggerAction.INITIATE_BACKUP,
+			sprintf( __( 'Initializing remote backup… (%d%%)' ), 0 )
+		);
 		const backupId = await initiateBackup( token.accessToken, selectedSite.id, { optionsToSync } );
-		logger.reportSuccess( __( 'Backup initiated' ), true );
 
-		logger.reportStart( LoggerAction.POLL_BACKUP, __( 'Waiting for backup to complete…' ) );
 		let downloadUrl: string | null = null;
 		for ( let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++ ) {
 			const status = await pollBackupStatus( token.accessToken, selectedSite.id, backupId );
@@ -95,6 +98,10 @@ export async function runCommand( siteFolder: string, optionsString?: string ): 
 				break;
 			}
 
+			// Backup phase: 0-50%
+			const backupProgress = Math.round( status.percent * 0.5 );
+			logger.spinner.text = sprintf( __( 'Creating remote backup… (%d%%)' ), backupProgress );
+
 			void emitCliEvent( {
 				event: SYNC_EVENTS.PROGRESS,
 				data: {
@@ -103,7 +110,7 @@ export async function runCommand( siteFolder: string, optionsString?: string ): 
 					localSiteId: site.id,
 					remoteSiteId: selectedSite.id,
 					remoteSiteName: selectedSite.name,
-					progress: status.percent,
+					progress: backupProgress,
 					statusMessage: __( 'Creating backup…' ),
 				},
 			} );
@@ -114,20 +121,24 @@ export async function runCommand( siteFolder: string, optionsString?: string ): 
 		if ( ! downloadUrl ) {
 			throw new LoggerError( __( 'Backup timed out' ) );
 		}
-		logger.reportSuccess( __( 'Backup ready' ), true );
 
-		logger.reportStart( LoggerAction.DOWNLOAD, __( 'Downloading backup…' ) );
+		// Download phase: 50-80%
+		logger.spinner.text = sprintf( __( 'Downloading backup… (%d%%)' ), 50 );
 		const tempDir = path.join( os.tmpdir(), 'studio-sync' );
 		const { mkdirSync } = await import( 'fs' );
 		mkdirSync( tempDir, { recursive: true } );
 		const destPath = path.join( tempDir, `pull-${ selectedSite.id }-${ Date.now() }.tar.gz` );
 		await downloadBackup( downloadUrl, destPath );
-		logger.reportSuccess( __( 'Backup downloaded' ), true );
 
-		// TODO: Import backup into local site
-		logger.reportStart( LoggerAction.IMPORT, __( 'Importing backup…' ) );
+		// TODO: Import backup into local site (80-100%)
+		logger.spinner.stop();
 		logger.reportSuccess(
-			sprintf( __( 'Backup downloaded to %s. Import not yet implemented in CLI.' ), destPath )
+			sprintf(
+				__( 'Pulled from %s (%s). Backup saved to %s. Import not yet implemented in CLI.' ),
+				selectedSite.name,
+				selectedSite.url,
+				destPath
+			)
 		);
 
 		void emitCliEvent( {

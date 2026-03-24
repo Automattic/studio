@@ -105,14 +105,27 @@ export async function runCommand(
 	sitePath: string,
 	options: CreateCommandOptions
 ): Promise< void > {
+	const isOnlineStatus = await isOnline();
+
 	try {
-		logger.reportStart(
-			LoggerAction.CHECKING_DEPENDENCY_UPDATES,
-			__( 'Checking for dependency updates…' )
-		);
+		if ( isOnlineStatus ) {
+			logger.reportStart(
+				LoggerAction.CHECKING_DEPENDENCY_UPDATES,
+				__( 'Checking for dependency updates…' )
+			);
 
-		await updateServerFiles();
+			await updateServerFiles();
+		}
+	} catch ( error ) {
+		// Swallow errors in production. They aren't critical and likely relate to things outside the
+		// user's control, like network issues or bad API responses.
+		if ( process.env.NODE_ENV !== 'production' ) {
+			const loggerError = new LoggerError( 'Failed to update dependencies', error );
+			logger.reportError( loggerError );
+		}
+	}
 
+	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating site configuration…' ) );
 
 		const pathExistsResult = await pathExists( sitePath );
@@ -207,8 +220,6 @@ export async function runCommand(
 			fs.mkdirSync( sitePath, { recursive: true } );
 			logger.reportSuccess( __( 'Site directory created' ) );
 		}
-
-		const isOnlineStatus = await isOnline();
 
 		if ( options.wpVersion === 'latest' ) {
 			const bundledWPPath = path.join( getServerFilesPath(), 'wordpress-versions', 'latest' );

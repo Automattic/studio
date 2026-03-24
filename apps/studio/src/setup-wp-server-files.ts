@@ -6,6 +6,7 @@ import { updateLatestWPCliVersion } from 'src/lib/download-utils';
 import {
 	getAiInstructionsPath,
 	getLanguagePacksPath,
+	getPhpMyAdminPath,
 	getWordPressVersionPath,
 	getSqlitePath,
 	getWpCliPath,
@@ -121,6 +122,15 @@ async function copyBundledAiInstructions() {
 	await recursiveCopyDirectory( bundledAiInstructionsPath, getAiInstructionsPath() );
 }
 
+async function copyBundledPhpMyAdmin() {
+	const bundledPath = path.join( getWpFilesPath(), 'phpmyadmin' );
+	if ( ! ( await fs.pathExists( bundledPath ) ) ) {
+		return;
+	}
+	// Always copy to ensure files are complete and up-to-date
+	await recursiveCopyDirectory( bundledPath, getPhpMyAdminPath() );
+}
+
 async function copyBundledLanguagePacks() {
 	const bundledLanguagePacksPath = path.join( getWpFilesPath(), 'latest', 'languages' );
 	if ( ! ( await fs.pathExists( bundledLanguagePacksPath ) ) ) {
@@ -140,6 +150,7 @@ export async function setupWPServerFiles() {
 		[ 'translations', copyBundledTranslations ],
 		[ 'language packs', copyBundledLanguagePacks ],
 		[ 'AI instructions', copyBundledAiInstructions ],
+		[ 'phpMyAdmin', copyBundledPhpMyAdmin ],
 	];
 
 	for ( const [ name, step ] of steps ) {

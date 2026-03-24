@@ -41,3 +41,7 @@ export function getLanguagePacksPath(): string {
 export function getAiInstructionsPath(): string {
 	return path.join( getServerFilesPath(), 'skills' );
 }
+
+export function getPhpMyAdminPath(): string {
+	return path.join( getServerFilesPath(), 'phpmyadmin' );
+}

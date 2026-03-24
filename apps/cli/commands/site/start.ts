@@ -1,3 +1,4 @@
+import { updateManagedInstructionFiles } from '@studio/common/lib/agent-skills';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import {
@@ -6,6 +7,7 @@ import {
 	updateSiteLatestCliPid,
 } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { getAiInstructionsPath } from 'cli/lib/server-files';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { isServerRunning, startWordPressServer } from 'cli/lib/wordpress-server-manager';
@@ -51,6 +53,15 @@ export async function runCommand(
 		);
 		await keepSqliteIntegrationUpdated( sitePath );
 		logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
+
+		try {
+			await updateManagedInstructionFiles( sitePath, getAiInstructionsPath() );
+		} catch ( error ) {
+			logger.reportError(
+				new LoggerError( __( 'Failed to update AI instructions. Proceeding anyway…' ), error ),
+				false
+			);
+		}
 
 		logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
 		try {

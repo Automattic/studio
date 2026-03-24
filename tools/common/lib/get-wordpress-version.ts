@@ -1,5 +1,5 @@
+import fs from 'fs';
 import nodePath from 'path';
-import fs from 'fs-extra';
 
 export function getWordPressVersion( wordPressPath: string ) {
 	let versionFileContent = '';

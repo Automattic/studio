@@ -428,7 +428,10 @@ export async function createSite(
 			const selectedSkills = userData.selectedSkills ?? [];
 			void installAiInstructionsToSite( path, getAiInstructionsPath(), selectedSkills ).catch(
 				( error ) => {
-					console.error( '[ai-instructions] Failed to install AI instructions to new site:', error );
+					console.error(
+						'[ai-instructions] Failed to install AI instructions to new site:',
+						error
+					);
 				}
 			);
 		}

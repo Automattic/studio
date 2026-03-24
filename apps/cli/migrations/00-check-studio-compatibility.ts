@@ -95,7 +95,7 @@ export const checkStudioCompatibilityForInitialMigration: Migration = {
 		const shouldRenameOldConfigFile = await confirm( {
 			message: __( 'Reset config and start clean? (Choosing No will exit the CLI.' ),
 			default: false,
-		} );
+		} ).catch( () => false );
 
 		if ( shouldRenameOldConfigFile ) {
 			fs.renameSync(

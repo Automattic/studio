@@ -1,6 +1,65 @@
 Unreleased
 ==========
 
+1.7.7
+=====
+* Bundle WordPress agent skills into Studio binary #2741
+* Bump the markdown group with 10 updates #2816
+* Configure CLI build pipeline for npm publishing #2697
+* Replace eslint-plugin-import with eslint-plugin-import-x #2817
+* Harden Studio AI permissions #2764
+* Update minimatch to fix multiple dependabot vulnerabilities #2824
+* Update symbol used for prompt indicator #2828
+* Separate telemetry handling between CLI and the app #2780
+* Fix lint errors and warnings #2833
+* Output ESM in CLI build #2818
+* Bump rollup from 4.50.2 to 4.59.0 #2830
+* Remove updateSingleConnectedWpcomSite IPC handler #2823
+* Replace custom site and option pickers with pi-tui SelectList #2812
+* Update diff library to fix dependabot issue #2829
+* Make DB_NAME constants removal logic language-agnostic #2822
+* Refactor option picker to use SelectList and add site-spec skill #2832
+* Update login message status to be more concise #2838
+* Fix: Replace require() with dynamic import() for ESM compatibility #2839
+* Remove peer true from package-lock.json and update package.json devEngines to use npm >11 #2837
+* Update package-lock.json after devEngines migration #2841
+* Update Xcode to 26.3 #2842
+* Move AI instruction files to a dedicated folder structure #2788
+* Bump json from 2.19.1 to 2.19.2 #2846
+* Use pi-tui autocomplete for AI slash commands #2843
+* Add security notes to studio-cli skill for prompt injection mitigation #2848
+* Add .sock cleanup to ensure Studio uses new _events after unclean shutdown #2847
+* Add different MCP configuration options #2840
+* Add dark mode support for content frame #2652
+* Move login into Account tab and rename settings tabs #2854
+* Add dedicated MCP tab to user settings #2852
+* Update simple-git and enable autoupdates #2858
+* Update fast-xml-parser to fix Dependabot issue #2860
+* Update lodash to fix Dependabot issue #2863
+* Improve Playground CLI child process error handling #2844
+* Use light mode as the default color scheme #2861
+* Use sidebar chrome color for onboarding left panel in dark mode #2865
+* Rename 'Open site' to 'Open local site' in header #2856
+* Studio: Fix color of Learn more links in the dark mode #2857
+* Fix Installed labels in the dark mode #2866
+* Update `apps/cli` documentation and prep publishing #2867
+* Simplify site-spec step to name and layout only #2845
+* Add AI session storage, resume, and deletion commands to Studio CLI #2767
+* Update Playground and PHP-WASM packages to 3.1.13 #2872
+* Implement AI Skills Studio settings #2862
+* CLI: Implement decoupled config file strategy #2793
+* Migrate HTTPS certificates to `~/.studio/certificates` #2871
+* Avoid installing skills by default #2874
+* Bump activesupport from 7.2.3 to 7.2.3.1 #2879
+* Add phpMyAdmin support #2834
+* Move WordPress dependencies (server-files) to CLI #2873
+* Update dev release version script to cover release process change #2882
+* Add Installed badge to fix WordPress Skills styling consistency #2876
+* Remove feature flag from AI instructions install in CLI #2886
+* Update STUDIO.md to CLI site start #2889
+* Improve CLI config migration prompt #2888
+* Fix TUI crash when terminal is resized to narrow width #2883
+
 1.7.6
 =====
 * Added enableMultisite Blueprint step support #2470

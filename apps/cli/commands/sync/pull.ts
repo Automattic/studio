@@ -12,7 +12,7 @@ import {
 	pollBackupStatus,
 	downloadBackup,
 } from 'cli/lib/sync-api';
-import { selectSyncItemsForPull } from 'cli/lib/sync-selector';
+import { fetchPullTree, selectSyncItemsForPull } from 'cli/lib/sync-selector';
 import { pickSyncSite } from 'cli/lib/sync-site-picker';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -74,8 +74,10 @@ export async function runCommand( siteFolder: string, optionsString?: string ): 
 			optionsToSync = parseOptions( optionsString );
 		} else {
 			logger.reportStart( LoggerAction.FETCH_SITES, __( 'Fetching file tree…' ) );
-			const selection = await selectSyncItemsForPull( token.accessToken, selectedSite.id );
+			const { tree } = await fetchPullTree( token.accessToken, selectedSite.id );
 			logger.spinner.stop();
+
+			const selection = await selectSyncItemsForPull( token.accessToken, selectedSite.id, tree );
 			optionsToSync = selection.optionsToSync;
 			includePathList = selection.includePathList;
 		}

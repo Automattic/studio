@@ -1,11 +1,12 @@
 import fs from 'fs';
 import { SYNC_EVENTS } from '@studio/common/lib/cli-events';
 import { readAuthToken } from '@studio/common/lib/shared-config';
+import { createTusUpload } from '@studio/common/lib/sync/tus-upload';
 import { SyncCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { emitCliEvent } from 'cli/lib/daemon-client';
-import { fetchSyncableSites, tusUpload, initiateImport, pollImportStatus } from 'cli/lib/sync-api';
+import { fetchSyncableSites, initiateImport, pollImportStatus } from 'cli/lib/sync-api';
 import { selectSyncItemsForPush } from 'cli/lib/sync-selector';
 import { pickSyncSite } from 'cli/lib/sync-site-picker';
 import { Logger, LoggerError } from 'cli/logger';
@@ -114,11 +115,11 @@ export async function runCommand(
 		};
 
 		logger.reportStart( LoggerAction.UPLOAD, sprintf( __( 'Uploading archive… (%d%%)' ), 20 ) );
-		const attachmentId = await tusUpload(
-			token.accessToken,
-			selectedSite.id,
+		const { promise: uploadPromise, abort: abortUpload } = createTusUpload( {
+			token: token.accessToken,
+			remoteSiteId: selectedSite.id,
 			archivePath,
-			( percent ) => {
+			onProgress: ( percent ) => {
 				// Upload phase: 20-40%
 				const progress = Math.round( 20 + percent * 0.2 );
 				logger.spinner.text = sprintf( __( 'Uploading archive… (%d%%)' ), progress );
@@ -135,8 +136,22 @@ export async function runCommand(
 						statusMessage: __( 'Uploading…' ),
 					},
 				} );
-			}
-		);
+			},
+		} );
+
+		const onSigint = () => {
+			abortUpload();
+			logger.spinner.stop();
+			logger.reportError( new LoggerError( __( 'Upload cancelled' ) ) );
+		};
+		process.once( 'SIGINT', onSigint );
+
+		let attachmentId: string;
+		try {
+			attachmentId = await uploadPromise;
+		} finally {
+			process.removeListener( 'SIGINT', onSigint );
+		}
 
 		process.emit = originalEmit;
 

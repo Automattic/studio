@@ -1,5 +1,5 @@
+import { getSyncSupport } from '@studio/common/lib/sync/sync-support';
 import { vi } from 'vitest';
-import { getSyncSupport } from 'src/modules/sync/lib/sync-support';
 
 // Mocks for site shapes
 const baseSite = {

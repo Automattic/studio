@@ -1,3 +1,4 @@
+import { categorizePath } from '@studio/common/lib/sync/tree-utils';
 import { SYNC_OPTIONS } from 'src/constants';
 import { PullSiteOptions } from 'src/stores/sync';
 import type { TreeNode } from 'src/components/tree-view';
@@ -44,17 +45,7 @@ const convertTreeToSyncCategories = (
 
 		const nodePath = node.path.replace( /^\/?wp-content\//, '' );
 		paths.add( nodePath );
-
-		// Determine which category this belongs to for optionsToSync
-		if ( nodePath.startsWith( 'plugins/' ) || nodePath === 'plugins' ) {
-			options.add( SYNC_OPTIONS.plugins );
-		} else if ( nodePath.startsWith( 'themes/' ) || nodePath === 'themes' ) {
-			options.add( SYNC_OPTIONS.themes );
-		} else if ( nodePath.startsWith( 'uploads/' ) || nodePath === 'uploads' ) {
-			options.add( SYNC_OPTIONS.uploads );
-		} else {
-			options.add( SYNC_OPTIONS.contents );
-		}
+		options.add( categorizePath( nodePath ) );
 	}
 
 	return { paths: [ ...paths ], options: [ ...options ] };

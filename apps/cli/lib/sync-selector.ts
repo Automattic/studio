@@ -1,114 +1,87 @@
-import { checkbox, Separator } from '@inquirer/prompts';
+import { categorizePath } from '@studio/common/lib/sync/tree-utils';
 import { __ } from '@wordpress/i18n';
 import { fetchLatestRewindId, fetchRemoteFileTree } from 'cli/lib/sync-api';
 import { listLocalFileTree } from 'cli/lib/sync-file-tree';
+import treeCheckbox from 'cli/lib/tree-checkbox';
+import type { RemoteFileEntry } from '@studio/common/lib/sync/sync-api';
 import type { SyncOption } from '@studio/common/types/sync';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
-import type { RemoteFileEntry } from 'cli/lib/sync-api';
+import type { TreeNode } from 'cli/lib/tree-checkbox';
 
-type SyncSelection = {
-	type: 'database' | 'wp-content';
-	path?: string;
-	pathId?: string;
-};
-
-function categorizePath( relativePath: string ): SyncOption {
-	if ( relativePath.startsWith( 'plugins/' ) || relativePath === 'plugins' ) {
-		return 'plugins';
-	}
-	if ( relativePath.startsWith( 'themes/' ) || relativePath === 'themes' ) {
-		return 'themes';
-	}
-	if ( relativePath.startsWith( 'uploads/' ) || relativePath === 'uploads' ) {
-		return 'uploads';
-	}
-	return 'contents';
-}
-
-function buildChoicesFromLocal( entries: RawDirectoryEntry[] ): {
-	choices: ( { name: string; value: SyncSelection; checked: boolean } | Separator )[];
-} {
-	const choices: ( { name: string; value: SyncSelection; checked: boolean } | Separator )[] = [];
-
-	choices.push( {
-		name: __( 'Database (SQL)' ),
-		value: { type: 'database' },
-		checked: true,
-	} );
-
-	choices.push( new Separator( '── wp-content ──' ) );
-
-	const sorted = [ ...entries ].sort( ( a, b ) => {
+function sortNodes( nodes: TreeNode[] ): TreeNode[] {
+	return [ ...nodes ].sort( ( a, b ) => {
 		if ( a.isDirectory !== b.isDirectory ) {
 			return a.isDirectory ? -1 : 1;
 		}
 		return a.name.localeCompare( b.name );
 	} );
+}
 
-	for ( const entry of sorted ) {
-		const relativePath = entry.path.replace( /^wp-content\//, '' );
-
-		if ( entry.isDirectory && entry.children?.length ) {
-			for ( const child of entry.children ) {
-				const childRelativePath = child.path.replace( /^wp-content\//, '' );
-				choices.push( {
-					name: childRelativePath,
-					value: { type: 'wp-content', path: childRelativePath },
-					checked: true,
-				} );
-			}
-		} else {
-			choices.push( {
-				name: relativePath + ( entry.isDirectory ? '/' : '' ),
-				value: { type: 'wp-content', path: relativePath },
+function buildTreeFromLocal( entries: RawDirectoryEntry[], depth: number = 1 ): TreeNode[] {
+	return sortNodes(
+		entries.map( ( entry ) => {
+			const relativePath = entry.path.replace( /^wp-content\//, '' );
+			return {
+				name: entry.name + ( entry.isDirectory ? '/' : '' ),
+				value: relativePath,
+				isDirectory: entry.isDirectory,
 				checked: true,
-			} );
-		}
-	}
-
-	return { choices };
+				expanded: false,
+				depth,
+				children: entry.children?.length
+					? buildTreeFromLocal( entry.children, depth + 1 )
+					: undefined,
+			};
+		} )
+	);
 }
 
-function buildChoicesFromRemote( entries: RemoteFileEntry[] ): {
-	choices: ( { name: string; value: SyncSelection; checked: boolean } | Separator )[];
-} {
-	const choices: ( { name: string; value: SyncSelection; checked: boolean } | Separator )[] = [];
-
-	choices.push( {
-		name: __( 'Database (SQL)' ),
-		value: { type: 'database' },
-		checked: true,
-	} );
-
-	choices.push( new Separator( '── wp-content ──' ) );
-
-	const sorted = [ ...entries ].sort( ( a, b ) => {
-		if ( a.isDirectory !== b.isDirectory ) {
-			return a.isDirectory ? -1 : 1;
-		}
-		return a.name.localeCompare( b.name );
-	} );
-
-	for ( const entry of sorted ) {
-		const relativePath = entry.path.replace( /^wp-content\//, '' );
-		choices.push( {
-			name: relativePath,
-			value: { type: 'wp-content', path: relativePath, pathId: entry.pathId },
+function buildTreeFromRemote( entries: RemoteFileEntry[], depth: number = 1 ): TreeNode[] {
+	return sortNodes(
+		entries.map( ( entry ) => ( {
+			name: entry.name + ( entry.isDirectory ? '/' : '' ),
+			value: entry.path.replace( /^\/?wp-content\//, '' ),
+			isDirectory: entry.isDirectory,
 			checked: true,
-		} );
-	}
-
-	return { choices };
+			expanded: false,
+			depth,
+			pathId: entry.pathId,
+		} ) )
+	);
 }
 
-function convertSelectionsToSyncOptions( selections: SyncSelection[] ): {
+function buildRootTree( wpContentChildren: TreeNode[] ): TreeNode[] {
+	return [
+		{
+			name: __( 'Database (SQL)' ),
+			value: 'database',
+			isDirectory: false,
+			checked: true,
+			expanded: false,
+			depth: 0,
+		},
+		{
+			name: 'wp-content/',
+			value: 'wp-content',
+			isDirectory: true,
+			checked: true,
+			expanded: true,
+			depth: 0,
+			children: wpContentChildren,
+		},
+	];
+}
+
+function convertCheckedToSyncOptions( selected: TreeNode[] ): {
 	optionsToSync: SyncOption[];
 	specificSelectionPaths?: string[];
 } {
-	const hasDatabase = selections.some( ( s ) => s.type === 'database' );
-	const wpContentSelections = selections.filter( ( s ) => s.type === 'wp-content' );
+	const hasDatabase = selected.some( ( n ) => n.value === 'database' );
+	const wpContentItems = selected.filter(
+		( n ) => n.value !== 'database' && n.value !== 'wp-content'
+	);
 
-	if ( hasDatabase && wpContentSelections.length === 0 ) {
+	if ( hasDatabase && wpContentItems.length === 0 ) {
 		return { optionsToSync: [ 'sqls' ] };
 	}
 
@@ -120,11 +93,9 @@ function convertSelectionsToSyncOptions( selections: SyncSelection[] ): {
 	}
 
 	const categories = new Set< SyncOption >();
-	for ( const selection of wpContentSelections ) {
-		if ( selection.path ) {
-			categories.add( categorizePath( selection.path ) );
-			specificSelectionPaths.push( selection.path );
-		}
+	for ( const node of wpContentItems ) {
+		categories.add( categorizePath( node.value ) );
+		specificSelectionPaths.push( node.value );
 	}
 
 	optionsToSync.push( ...categories );
@@ -135,14 +106,16 @@ function convertSelectionsToSyncOptions( selections: SyncSelection[] ): {
 	};
 }
 
-function convertSelectionsToPullOptions( selections: SyncSelection[] ): {
+function convertCheckedToPullOptions( selected: TreeNode[] ): {
 	optionsToSync: SyncOption[];
 	includePathList?: string[];
 } {
-	const hasDatabase = selections.some( ( s ) => s.type === 'database' );
-	const wpContentSelections = selections.filter( ( s ) => s.type === 'wp-content' );
+	const hasDatabase = selected.some( ( n ) => n.value === 'database' );
+	const wpContentItems = selected.filter(
+		( n ) => n.value !== 'database' && n.value !== 'wp-content'
+	);
 
-	if ( hasDatabase && wpContentSelections.length === 0 ) {
+	if ( hasDatabase && wpContentItems.length === 0 ) {
 		return { optionsToSync: [ 'sqls' ] };
 	}
 
@@ -153,9 +126,9 @@ function convertSelectionsToPullOptions( selections: SyncSelection[] ): {
 		optionsToSync.push( 'sqls' );
 	}
 
-	for ( const selection of wpContentSelections ) {
-		if ( selection.pathId ) {
-			pathIds.push( selection.pathId );
+	for ( const node of wpContentItems ) {
+		if ( node.pathId ) {
+			pathIds.push( node.pathId );
 		}
 	}
 
@@ -169,59 +142,83 @@ function convertSelectionsToPullOptions( selections: SyncSelection[] ): {
 	};
 }
 
+function isAllSelected( selected: TreeNode[] ): boolean {
+	const hasDatabase = selected.some( ( n ) => n.value === 'database' );
+	const hasWpContent = selected.some( ( n ) => n.value === 'wp-content' && n.checked );
+	return hasDatabase && hasWpContent;
+}
+
 export async function selectSyncItemsForPush(
 	sitePath: string
 ): Promise< { optionsToSync: SyncOption[]; specificSelectionPaths?: string[] } > {
 	const entries = await listLocalFileTree( sitePath, 'wp-content', 2 );
-	const { choices } = buildChoicesFromLocal( entries );
 
-	if ( choices.length <= 2 ) {
-		// Only database + separator, no wp-content entries
+	if ( entries.length === 0 ) {
 		return { optionsToSync: [ 'all' ] };
 	}
 
-	const selections = await checkbox< SyncSelection >( {
+	const wpContentChildren = buildTreeFromLocal( entries );
+	const tree = buildRootTree( wpContentChildren );
+
+	const selected = await treeCheckbox( {
 		message: __( 'Select items to sync' ),
-		choices,
+		tree,
 	} );
 
-	if ( selections.length === 0 ) {
+	if ( selected.length === 0 ) {
 		throw new Error( __( 'No items selected for sync' ) );
 	}
 
-	const totalSelectable = choices.filter( ( c ) => ! ( c instanceof Separator ) ).length;
-	if ( selections.length === totalSelectable ) {
+	if ( isAllSelected( selected ) ) {
 		return { optionsToSync: [ 'all' ] };
 	}
 
-	return convertSelectionsToSyncOptions( selections );
+	return convertCheckedToSyncOptions( selected );
+}
+
+export async function fetchPullTree(
+	token: string,
+	remoteSiteId: number
+): Promise< { tree: TreeNode[]; rewindId: string } > {
+	const rewindId = await fetchLatestRewindId( token, remoteSiteId );
+	const entries = await fetchRemoteFileTree( token, remoteSiteId, rewindId, '/wp-content/' );
+
+	const wpContentChildren = buildTreeFromRemote( entries );
+	const tree = buildRootTree( wpContentChildren );
+	return { tree, rewindId };
 }
 
 export async function selectSyncItemsForPull(
 	token: string,
-	remoteSiteId: number
+	remoteSiteId: number,
+	tree: TreeNode[]
 ): Promise< { optionsToSync: SyncOption[]; includePathList?: string[] } > {
-	const rewindId = await fetchLatestRewindId( token, remoteSiteId );
-	const entries = await fetchRemoteFileTree( token, remoteSiteId, rewindId, 'wp-content/' );
-	const { choices } = buildChoicesFromRemote( entries );
-
-	if ( choices.length <= 2 ) {
+	if ( tree.length === 0 ) {
 		return { optionsToSync: [ 'all' ] };
 	}
 
-	const selections = await checkbox< SyncSelection >( {
+	const selected = await treeCheckbox( {
 		message: __( 'Select items to sync' ),
-		choices,
+		tree,
+		onExpand: async ( node ) => {
+			const rewindId = await fetchLatestRewindId( token, remoteSiteId );
+			const entries = await fetchRemoteFileTree(
+				token,
+				remoteSiteId,
+				rewindId,
+				`/wp-content/${ node.value }`
+			);
+			return buildTreeFromRemote( entries, node.depth + 1 );
+		},
 	} );
 
-	if ( selections.length === 0 ) {
+	if ( selected.length === 0 ) {
 		throw new Error( __( 'No items selected for sync' ) );
 	}
 
-	const totalSelectable = choices.filter( ( c ) => ! ( c instanceof Separator ) ).length;
-	if ( selections.length === totalSelectable ) {
+	if ( isAllSelected( selected ) ) {
 		return { optionsToSync: [ 'all' ] };
 	}
 
-	return convertSelectionsToPullOptions( selections );
+	return convertCheckedToPullOptions( selected );
 }

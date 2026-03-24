@@ -1,4 +1,5 @@
 import { SYNC_EXCLUSIONS } from './constants';
+import type { SyncOption } from '@studio/common/types/sync';
 
 export const shouldExcludeFromSync = ( itemName: string ): boolean => {
 	if ( itemName.startsWith( '.' ) ) {
@@ -32,3 +33,16 @@ export const shouldLimitDepth = ( relativePath: string ): boolean => {
 
 	return false;
 };
+
+export function categorizePath( relativePath: string ): SyncOption {
+	if ( relativePath.startsWith( 'plugins/' ) || relativePath === 'plugins' ) {
+		return 'plugins';
+	}
+	if ( relativePath.startsWith( 'themes/' ) || relativePath === 'themes' ) {
+		return 'themes';
+	}
+	if ( relativePath.startsWith( 'uploads/' ) || relativePath === 'uploads' ) {
+		return 'uploads';
+	}
+	return 'contents';
+}

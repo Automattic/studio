@@ -23,12 +23,14 @@ export const BackupLsItemSchema = z.object( {
 	manifest_path: z.string().optional(),
 } );
 
+export const BackupLsResponseBodySchema = z.object( {
+	ok: z.boolean(),
+	error: z.string(),
+	contents: z.record( z.string(), z.unknown() ),
+} );
+
 export const BackupLsResponseSchema = z.object( {
-	body: z.object( {
-		ok: z.boolean(),
-		error: z.string(),
-		contents: z.record( z.string(), BackupLsItemSchema ),
-	} ),
+	body: BackupLsResponseBodySchema,
 	status: z.number(),
 	headers: z.object( {
 		Allow: z.string(),

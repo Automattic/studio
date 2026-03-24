@@ -30,6 +30,7 @@ import { WordPressInstallMode } from '@wp-playground/wordpress';
 import fs from 'fs-extra';
 import { z } from 'zod';
 import { sanitizeRunCLIArgs } from 'cli/lib/cli-args-sanitizer';
+import { rewriteWpCliPostContentToFile } from 'cli/lib/rewrite-wp-cli-post-content';
 import { getPhpMyAdminPath, getSqliteCommandPath, getWpCliPharPath } from 'cli/lib/server-files';
 import { isSqliteIntegrationInstalled } from 'cli/lib/sqlite-integration';
 import {
@@ -421,11 +422,13 @@ const runWpCliCommand = sequential(
 			{ once: true }
 		);
 
+		const rewrittenArgs = await rewriteWpCliPostContentToFile( args, server.playground.writeFile );
+
 		const response = await server.playground.cli( [
 			'php',
 			'/tmp/wp-cli.phar',
 			`--path=${ await server.playground.documentRoot }`,
-			...args,
+			...rewrittenArgs,
 		] );
 
 		return {

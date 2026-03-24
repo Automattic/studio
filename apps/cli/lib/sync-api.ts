@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { pipeline } from 'stream/promises';
+import { Readable } from 'stream';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import {
@@ -285,8 +285,13 @@ export async function downloadBackup( url: string, destPath: string ): Promise< 
 		throw new LoggerError( __( 'Failed to download backup' ) );
 	}
 
-	const { Readable } = await import( 'stream' );
 	const fileStream = fs.createWriteStream( destPath );
 	const readable = Readable.fromWeb( response.body as import('stream/web').ReadableStream );
-	await pipeline( readable, fileStream );
+
+	return new Promise< void >( ( resolve, reject ) => {
+		readable.pipe( fileStream );
+		fileStream.on( 'finish', resolve );
+		fileStream.on( 'error', reject );
+		readable.on( 'error', reject );
+	} );
 }

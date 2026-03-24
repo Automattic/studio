@@ -7,7 +7,7 @@ import { isErrnoException } from './is-errno-exception';
  * Managed instruction files that are always kept up-to-date on server start.
  * These are overwritten with the bundled version whenever they already exist in a site.
  */
-const MANAGED_INSTRUCTION_FILES = [ 'STUDIO.md', 'CLAUDE.md' ];
+const MANAGED_INSTRUCTION_FILES = [ 'STUDIO.md' ];
 
 /**
  * Install all bundled AI instructions and skills from a source directory into a site.

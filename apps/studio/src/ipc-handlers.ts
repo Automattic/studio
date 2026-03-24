@@ -20,7 +20,6 @@ import * as Sentry from '@sentry/electron/main';
 import {
 	installSkillToSite,
 	removeSkillFromSite,
-	updateManagedInstructionFiles,
 } from '@studio/common/lib/agent-skills';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
@@ -589,13 +588,6 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 	if ( server.details.running ) {
 		void loadThemeDetails( event, id );
 	}
-
-	// Keep managed instruction files (STUDIO.md, CLAUDE.md) up-to-date
-	void updateManagedInstructionFiles( server.details.path, getAiInstructionsPath() ).catch(
-		( error ) => {
-			console.error( '[ai-instructions] Failed to update managed instruction files:', error );
-		}
-	);
 
 	console.log( `Server started for '${ server.details.name }'` );
 }

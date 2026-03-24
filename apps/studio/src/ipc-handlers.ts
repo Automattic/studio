@@ -398,6 +398,9 @@ export async function createSite(
 	const metric = getBlueprintMetric( blueprint?.slug );
 	bumpStat( StatsGroup.STUDIO_SITE_CREATE, metric );
 
+	const agentSuiteEnabled = getFeatureFlagFromEnv( 'enableAgentSuite' );
+	const selectedSkills = agentSuiteEnabled ? ( await loadUserData() ).selectedSkills ?? [] : [];
+
 	try {
 		const { server } = await SiteServer.create(
 			{
@@ -413,6 +416,7 @@ export async function createSite(
 				adminPassword,
 				adminEmail,
 				noStart,
+				skills: selectedSkills,
 			},
 			{ wpVersion, blueprint: blueprint?.blueprint }
 		);
@@ -422,10 +426,10 @@ export async function createSite(
 			void loadThemeDetails( event, server.details.id );
 		}
 
-		// Install AI instructions and skills into the new site
-		if ( getFeatureFlagFromEnv( 'enableAgentSuite' ) ) {
-			const userData = await loadUserData();
-			const selectedSkills = userData.selectedSkills ?? [];
+		// Install AI instructions and skills into the new site. This runs in the Studio
+		// process after the CLI returns, ensuring skills are installed even if the CLI
+		// was run with a different bundled path.
+		if ( agentSuiteEnabled ) {
 			void installAiInstructionsToSite( path, getAiInstructionsPath(), selectedSkills ).catch(
 				( error ) => {
 					console.error(

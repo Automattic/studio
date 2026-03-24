@@ -6,7 +6,7 @@
  */
 
 import fs from 'node:fs';
-import { getCertificatesPath } from '@studio/common/lib/config-paths';
+import { getCertificatesPath } from '@studio/common/lib/well-known-paths';
 import { getOldUserDataCertificatesPath } from 'src/storage/paths';
 import type { Migration } from '@studio/common/lib/migration';
 

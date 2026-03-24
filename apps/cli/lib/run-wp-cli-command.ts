@@ -109,8 +109,8 @@ export async function runGlobalWpCliCommand(
 ): Promise< [ StreamedPHPResponse, exitPhp: () => void ] > {
 	const id = await loadNodeRuntime( LatestSupportedPHPVersion, {
 		followSymlinks: true,
-		withRedis: true,
-		withMemcached: true,
+		withRedis: false,
+		withMemcached: false,
 		emscriptenOptions: {
 			processId: processIdAllocator.claim(),
 		},

@@ -4,6 +4,7 @@ import {
 	archive,
 	code,
 	desktop,
+	grid,
 	pencil,
 	layout,
 	navigation,
@@ -134,6 +135,8 @@ function CustomizeSection( {
 function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'selectedSite' > ) {
 	const { data: editor } = useGetUserEditorQuery();
 	const { data: terminal } = useGetUserTerminalQuery();
+	const { startServer, loadingServer } = useSiteDetails();
+	const isServerLoading = loadingServer[ selectedSite.id ];
 
 	const buttonsArray: ButtonsSectionProps[ 'buttonsArray' ] = [
 		{
@@ -176,6 +179,23 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 			}
 		},
 	} );
+
+	buttonsArray.push( {
+		label: __( 'phpMyAdmin' ),
+		className: 'text-nowrap',
+		icon: grid,
+		disabled: isServerLoading,
+		onClick: async () => {
+			if ( ! selectedSite.running ) {
+				await startServer( selectedSite );
+			}
+			getIpcApi().openSiteURL(
+				selectedSite.id,
+				'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
+			);
+		},
+	} );
+
 	return <ButtonsSection buttonsArray={ buttonsArray } title={ __( 'Open in…' ) } />;
 }
 

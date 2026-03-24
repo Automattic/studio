@@ -46,7 +46,6 @@ import {
 } from 'src/modules/cli/lib/cli-events-subscriber';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { updateWindowsCliVersionedPathIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
-import { setupWPServerFiles, updateWPServerFiles } from 'src/setup-wp-server-files';
 import { getRunningSiteCount, SiteServer, stopAllServers } from 'src/site-server';
 import {
 	loadUserData,
@@ -302,10 +301,6 @@ async function appBoot() {
 		} );
 
 		setupIpc();
-
-		await setupWPServerFiles().catch( Sentry.captureException );
-		// WordPress server files are updated asynchronously to avoid delaying app initialization
-		updateWPServerFiles().catch( Sentry.captureException );
 
 		await runMigrations( migrations ).catch( Sentry.captureException );
 

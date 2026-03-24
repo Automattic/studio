@@ -249,15 +249,13 @@ export async function runCommand(
 			isSqliteUpdated ? __( 'SQLite integration configured' ) : __( 'SQLite integration skipped' )
 		);
 
-		if ( process.env.ENABLE_AGENT_SUITE === 'true' ) {
-			try {
-				await installAiInstructionsToSite( sitePath, getAiInstructionsPath() );
-			} catch ( error ) {
-				logger.reportError(
-					new LoggerError( __( 'Failed to install AI instructions. Proceeding anyway…' ), error ),
-					false
-				);
-			}
+		try {
+			await installAiInstructionsToSite( sitePath, getAiInstructionsPath() );
+		} catch ( error ) {
+			logger.reportError(
+				new LoggerError( __( 'Failed to install AI instructions. Proceeding anyway…' ), error ),
+				false
+			);
 		}
 
 		logger.reportStart( LoggerAction.ASSIGN_PORT, __( 'Assigning port…' ) );

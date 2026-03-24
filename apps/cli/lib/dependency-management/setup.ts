@@ -66,7 +66,6 @@ async function copyBundledSqlite() {
 	const isBundledVersionNewer =
 		installedSqliteVersion && semver.gt( bundledSqliteVersion, installedSqliteVersion );
 	if ( ! isSqliteInstalled || isBundledVersionNewer ) {
-		console.log( `Copying bundled SQLite version ${ bundledSqliteVersion }…` );
 		await recursiveCopyDirectory( bundledSqlitePath, getSqlitePluginPath() );
 	}
 }
@@ -145,13 +144,13 @@ export async function setupServerFiles() {
 		[ 'phpMyAdmin', copyBundledPhpMyAdmin ],
 	];
 
-	await Promise.all(
-		steps.map( ( [ name, step ] ) =>
-			step().catch( ( error ) => {
-				console.error( `Failed to set up dependency ${ name }:`, error );
-			} )
-		)
-	);
+	for ( const [ name, step ] of steps ) {
+		try {
+			await step();
+		} catch ( error ) {
+			console.error( `Failed to set up dependency ${ name }:`, error );
+		}
+	}
 }
 
 export async function updateServerFiles() {

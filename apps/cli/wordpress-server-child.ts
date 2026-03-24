@@ -31,7 +31,6 @@ import fs from 'fs-extra';
 import { z } from 'zod';
 import { sanitizeRunCLIArgs } from 'cli/lib/cli-args-sanitizer';
 import { rewriteWpCliPostContentToFile } from 'cli/lib/rewrite-wp-cli-post-content';
-import { getSqliteCommandPath, getWpCliPharPath } from 'cli/lib/server-files';
 import { getPhpMyAdminPath, getSqliteCommandPath, getWpCliPharPath } from 'cli/lib/server-files';
 import { isSqliteIntegrationInstalled } from 'cli/lib/sqlite-integration';
 import {

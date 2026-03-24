@@ -134,13 +134,13 @@ export async function setupServerFiles() {
 		[ 'AI instructions', copyBundledAiInstructions ],
 	];
 
-	for ( const [ name, step ] of steps ) {
-		try {
-			await step();
-		} catch ( error ) {
-			console.error( `Failed to set up dependency ${ name }:`, error );
-		}
-	}
+	await Promise.all(
+		steps.map( ( [ name, step ] ) =>
+			step().catch( ( error ) => {
+				console.error( `Failed to set up dependency ${ name }:`, error );
+			} )
+		)
+	);
 }
 
 export async function updateServerFiles() {
@@ -150,11 +150,11 @@ export async function updateServerFiles() {
 		[ 'SQLite integration', updateLatestSqliteCommandVersion ],
 	];
 
-	for ( const [ name, step ] of steps ) {
-		try {
-			await step();
-		} catch ( error ) {
-			console.error( `Failed to upgrade dependency ${ name }:`, error );
-		}
-	}
+	await Promise.all(
+		steps.map( ( [ name, step ] ) =>
+			step().catch( ( error ) => {
+				console.error( `Failed to update dependency ${ name }:`, error );
+			} )
+		)
+	);
 }

@@ -17,10 +17,7 @@ import https from 'node:https';
 import os from 'os';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
-import {
-	installSkillToSite,
-	removeSkillFromSite,
-} from '@studio/common/lib/agent-skills';
+import { installSkillToSite, removeSkillFromSite } from '@studio/common/lib/agent-skills';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
 import {

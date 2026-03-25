@@ -1,5 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import yargs from 'yargs/yargs';
 import { AI_MODELS, DEFAULT_MODEL, startAiAgent } from 'cli/ai/agent';
 import {
@@ -465,5 +465,171 @@ describe( 'CLI: studio ai sessions command', () => {
 			} )
 		);
 		expect( process.exit ).toHaveBeenCalledWith( 0 );
+	} );
+} );
+
+describe( 'CLI: studio ai --json mode', () => {
+	let stdoutChunks: string[];
+	let originalWrite: typeof process.stdout.write;
+
+	beforeEach( () => {
+		vi.clearAllMocks();
+		vi.mocked( readCliConfig ).mockResolvedValue( {
+			sites: [],
+			anthropicApiKey: 'test-api-key',
+		} as never );
+		vi.spyOn( process, 'exit' ).mockImplementation( () => undefined as never );
+
+		stdoutChunks = [];
+		originalWrite = process.stdout.write;
+		process.stdout.write = ( chunk: string | Uint8Array ) => {
+			stdoutChunks.push( typeof chunk === 'string' ? chunk : new TextDecoder().decode( chunk ) );
+			return true;
+		};
+	} );
+
+	afterEach( () => {
+		process.stdout.write = originalWrite;
+	} );
+
+	function buildParser(): StudioArgv {
+		const parser = yargs( [] ).scriptName( 'studio' ).strict().exitProcess( false ) as StudioArgv;
+		parser.command( 'ai', __( 'AI-powered WordPress assistant' ), ( aiYargs ) => {
+			registerAiCommand( aiYargs as StudioArgv );
+			aiYargs.version( false );
+		} );
+		return parser;
+	}
+
+	function parseNdjsonEvents(): Array< Record< string, unknown > > {
+		return stdoutChunks
+			.join( '' )
+			.split( '\n' )
+			.filter( ( line ) => line.trim() )
+			.map( ( line ) => JSON.parse( line ) );
+	}
+
+	it( 'runs a single turn and emits turn.started and turn.completed events', async () => {
+		const resultMessage = {
+			type: 'result' as const,
+			subtype: 'success' as const,
+			session_id: 'json-session-1',
+			num_turns: 1,
+			total_cost_usd: 0.001,
+		};
+		vi.mocked( startAiAgent ).mockReturnValueOnce( {
+			interrupt: vi.fn().mockResolvedValue( undefined ),
+			[ Symbol.asyncIterator ]() {
+				let emitted = false;
+				return {
+					next: async () => {
+						if ( ! emitted ) {
+							emitted = true;
+							return { done: false as const, value: resultMessage };
+						}
+						return { done: true as const, value: undefined };
+					},
+				};
+			},
+		} as never );
+
+		await buildParser().parseAsync( [ 'ai', 'hello world', '--json' ] );
+
+		const events = parseNdjsonEvents();
+		expect( events[ 0 ] ).toMatchObject( { type: 'turn.started' } );
+		expect( events[ events.length - 1 ] ).toMatchObject( {
+			type: 'turn.completed',
+			status: 'success',
+		} );
+		expect( startAiAgent ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				autoApprove: true,
+			} )
+		);
+		expect( process.exit ).toHaveBeenCalledWith( 0 );
+	} );
+
+	it( 'streams SDK messages as NDJSON', async () => {
+		const resultMessage = {
+			type: 'result' as const,
+			subtype: 'success' as const,
+			session_id: 'test-session-123',
+			num_turns: 3,
+			total_cost_usd: 0.005,
+		};
+
+		vi.mocked( startAiAgent ).mockReturnValueOnce( {
+			interrupt: vi.fn().mockResolvedValue( undefined ),
+			[ Symbol.asyncIterator ]() {
+				let emitted = false;
+				return {
+					next: async () => {
+						if ( ! emitted ) {
+							emitted = true;
+							return { done: false as const, value: resultMessage };
+						}
+						return { done: true as const, value: undefined };
+					},
+				};
+			},
+		} as never );
+
+		await buildParser().parseAsync( [ 'ai', 'test prompt', '--json' ] );
+
+		const events = parseNdjsonEvents();
+		const messageEvent = events.find( ( e ) => e.type === 'message' );
+		expect( messageEvent ).toBeDefined();
+		expect( ( messageEvent as Record< string, unknown > ).message ).toMatchObject( {
+			type: 'result',
+			session_id: 'test-session-123',
+		} );
+
+		const completedEvent = events.find( ( e ) => e.type === 'turn.completed' );
+		expect( completedEvent ).toMatchObject( {
+			type: 'turn.completed',
+			sessionId: 'test-session-123',
+			status: 'success',
+		} );
+	} );
+
+	it( 'emits error event and exits with code 1 on agent failure', async () => {
+		vi.mocked( startAiAgent ).mockReturnValueOnce( {
+			interrupt: vi.fn().mockResolvedValue( undefined ),
+			[ Symbol.asyncIterator ]() {
+				return {
+					next: async () => {
+						throw new Error( 'API connection failed' );
+					},
+				};
+			},
+		} as never );
+
+		await buildParser().parseAsync( [ 'ai', 'test prompt', '--json' ] );
+
+		const events = parseNdjsonEvents();
+		const errorEvent = events.find( ( e ) => e.type === 'error' );
+		expect( errorEvent ).toMatchObject( {
+			type: 'error',
+			message: 'API connection failed',
+		} );
+
+		const completedEvent = events.find( ( e ) => e.type === 'turn.completed' );
+		expect( completedEvent ).toMatchObject( {
+			type: 'turn.completed',
+			status: 'error',
+		} );
+		expect( process.exit ).toHaveBeenCalledWith( 1 );
+	} );
+
+	it( 'does not call autoApprove in interactive mode', async () => {
+		waitForInputMock.mockResolvedValueOnce( 'Hello' ).mockResolvedValueOnce( '/exit' );
+
+		await buildParser().parseAsync( [ 'ai' ] );
+
+		expect( startAiAgent ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				autoApprove: false,
+			} )
+		);
 	} );
 } );

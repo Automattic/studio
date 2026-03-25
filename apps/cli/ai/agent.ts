@@ -18,6 +18,7 @@ export interface AiAgentConfig {
 	model?: AiModelId;
 	maxTurns?: number;
 	resume?: string;
+	autoApprove?: boolean;
 	onAskUser?: ( questions: AskUserQuestion[] ) => Promise< Record< string, string > >;
 }
 
@@ -36,7 +37,15 @@ const pathApprovalSession = createPathApprovalSession();
  * Caller can iterate messages with `for await` and call `interrupt()` to stop.
  */
 export function startAiAgent( config: AiAgentConfig ): Query {
-	const { prompt, env, model = DEFAULT_MODEL, maxTurns = 50, resume, onAskUser } = config;
+	const {
+		prompt,
+		env,
+		model = DEFAULT_MODEL,
+		maxTurns = 50,
+		resume,
+		autoApprove,
+		onAskUser,
+	} = config;
 	const resolvedEnv = env ?? { ...( process.env as Record< string, string > ) };
 
 	return query( {
@@ -57,6 +66,10 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 			allowedTools: [ ...ALLOWED_TOOLS ],
 			permissionMode: 'default',
 			canUseTool: async ( toolName, input, metadata ) => {
+				if ( autoApprove ) {
+					return { behavior: 'allow' as const };
+				}
+
 				if ( toolName === 'AskUserQuestion' && onAskUser ) {
 					const typedInput = input as {
 						questions?: AskUserQuestion[];

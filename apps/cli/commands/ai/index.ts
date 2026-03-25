@@ -16,6 +16,7 @@ import {
 	resolveUnavailableAiProvider,
 	saveSelectedAiProvider,
 } from 'cli/ai/auth';
+import { type AiOutputAdapter, InteractiveAdapter, JsonAdapter } from 'cli/ai/output-adapter';
 import { AI_PROVIDERS, type AiProviderId } from 'cli/ai/providers';
 import { resolveResumeSessionContext } from 'cli/ai/sessions/context';
 import { AiSessionRecorder } from 'cli/ai/sessions/recorder';
@@ -30,7 +31,6 @@ import {
 	AI_CHAT_MODEL_COMMAND,
 	AI_CHAT_PROVIDER_COMMAND,
 } from 'cli/ai/slash-commands';
-import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { runCommand as runLogoutCommand } from 'cli/commands/auth/logout';
 import { readCliConfig } from 'cli/lib/cli-config/core';
@@ -54,10 +54,14 @@ function getErrorMessage( error: unknown ): string {
 	return String( error );
 }
 
-export async function runCommand(
-	options: { resumeSession?: LoadedAiSession; noSessionPersistence?: boolean } = {}
-): Promise< void > {
-	const ui = new AiChatUI();
+export async function runCommand( options: {
+	adapter: AiOutputAdapter;
+	initialMessage?: string;
+	resumeSession?: LoadedAiSession;
+	noSessionPersistence?: boolean;
+} ): Promise< void > {
+	const ui = options.adapter;
+	const isJsonMode = ui instanceof JsonAdapter;
 	const resumeContext = resolveResumeSessionContext( options.resumeSession );
 	let currentProvider: AiProviderId =
 		resumeContext.provider ?? ( await resolveInitialAiProvider() );
@@ -151,7 +155,9 @@ export async function runCommand(
 
 	if ( options.resumeSession ) {
 		ui.showInfo( `Resuming session ${ options.resumeSession.summary.id }` );
-		replaySessionHistory( ui, options.resumeSession.events );
+		if ( ui instanceof InteractiveAdapter ) {
+			replaySessionHistory( ui.chatUI, options.resumeSession.events );
+		}
 		if ( ! sessionId ) {
 			ui.showInfo( 'No linked Claude session was found. Continuing from transcript only.' );
 		}
@@ -257,7 +263,9 @@ export async function runCommand(
 		return answers;
 	}
 
-	async function runAgentTurn( prompt: string ): Promise< void > {
+	async function runAgentTurn(
+		prompt: string
+	): Promise< { status: TurnStatus; usage?: { numTurns: number; costUsd: number } } > {
 		const env = await resolveAiEnvironment( currentProvider );
 		ui.beginAgentTurn();
 
@@ -288,6 +296,7 @@ export async function runCommand(
 			env,
 			model: currentModel,
 			resume: sessionId,
+			autoApprove: isJsonMode,
 			onAskUser: ( questions ) => askUserAndPersistAnswers( questions ),
 		} );
 
@@ -342,11 +351,41 @@ export async function runCommand(
 			const choice = Object.values( answer )[ 0 ]?.toLowerCase();
 			if ( choice === 'yes' ) {
 				ui.addUserMessage( 'Continue' );
-				await runAgentTurn( 'Continue from where you left off.' );
+				return runAgentTurn( 'Continue from where you left off.' );
 			}
 		}
+
+		return {
+			status: turnStatus,
+			usage: maxTurnsResult,
+		};
 	}
 
+	// JSON mode: single turn, then exit
+	if ( options.initialMessage ) {
+		let exitCode = 0;
+		try {
+			ui.addUserMessage( options.initialMessage );
+			const result = await runAgentTurn( options.initialMessage );
+			if ( isJsonMode ) {
+				const jsonStatus = result.status === 'interrupted' ? 'error' : result.status;
+				( ui as JsonAdapter ).emitTurnCompleted( jsonStatus, result.usage );
+			}
+		} catch ( error ) {
+			exitCode = 1;
+			handleAgentTurnError( error );
+			if ( isJsonMode ) {
+				( ui as JsonAdapter ).emitTurnCompleted( 'error' );
+			}
+		} finally {
+			await persistQueue;
+			ui.stop();
+			process.exit( exitCode );
+		}
+		return;
+	}
+
+	// Interactive mode: input loop
 	try {
 		while ( true ) {
 			const prompt = await ui.waitForInput();
@@ -480,24 +519,47 @@ export async function runCommand(
 
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
-		command: '$0',
+		command: '$0 [message]',
 		describe: __( 'AI-powered WordPress assistant' ),
 		builder: ( yargs ) => {
 			return yargs
+				.positional( 'message', {
+					type: 'string',
+					description: __( 'Initial message to send to the AI agent' ),
+				} )
 				.option( 'path', {
 					hidden: true,
+				} )
+				.option( 'json', {
+					type: 'boolean',
+					default: false,
+					description: __( 'Output events as NDJSON to stdout (headless mode)' ),
 				} )
 				.option( 'session-persistence', {
 					type: 'boolean',
 					default: true,
 					description: __( 'Record this AI chat session to disk' ),
+				} )
+				.check( ( argv ) => {
+					if ( argv.json && ! argv.message ) {
+						throw new Error( __( '--json requires an initial message argument' ) );
+					}
+					return true;
 				} );
 		},
 		handler: async ( argv ) => {
 			try {
-				const noSessionPersistence =
-					( argv as { sessionPersistence?: boolean } ).sessionPersistence === false;
+				const typedArgv = argv as {
+					message?: string;
+					json?: boolean;
+					sessionPersistence?: boolean;
+				};
+				const noSessionPersistence = typedArgv.sessionPersistence === false;
+				const adapter = typedArgv.json ? new JsonAdapter() : new InteractiveAdapter();
+
 				await runCommand( {
+					adapter,
+					initialMessage: typedArgv.message,
 					noSessionPersistence,
 				} );
 			} catch ( error ) {

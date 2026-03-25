@@ -96,7 +96,7 @@ import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-setting
 import { getUserEditor, getUserTerminal } from 'src/modules/user-settings/lib/ipc-handlers';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
 import { SiteServer, stopAllServers as triggerStopAllServers } from 'src/site-server';
-import { DEFAULT_SITE_PATH, getSiteThumbnailPath } from 'src/storage/paths';
+import { DEFAULT_SITE_PATH, getSiteThumbnailPath, getUserDataFilePath } from 'src/storage/paths';
 import {
 	loadUserData,
 	lockAppdata,
@@ -204,18 +204,11 @@ export async function installWordPressSkills(
 export async function getWordPressSkillsStatusAllSites(
 	_event: IpcMainInvokeEvent
 ): Promise< SkillStatus[] > {
-	const sites = SiteServer.getAll();
-	if ( ! sites.length ) {
-		return BUNDLED_SKILLS.map( ( skill ) => ( { ...skill, installed: false } ) );
-	}
-	const allSiteStatuses = await Promise.all(
-		sites.map( ( site ) => getSkillsStatus( site.details.path ) )
-	);
+	const userData = await loadUserData();
+	const selectedSkills = userData.selectedSkills ?? [];
 	return BUNDLED_SKILLS.map( ( skill ) => ( {
 		...skill,
-		installed: allSiteStatuses.every(
-			( siteStatuses ) => siteStatuses.find( ( s ) => s.id === skill.id )?.installed ?? false
-		),
+		installed: selectedSkills.includes( skill.id ),
 	} ) );
 }
 

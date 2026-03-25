@@ -1,6 +1,7 @@
-import { Icon, check } from '@wordpress/icons';
+import { DropdownMenu, MenuGroup, MenuItem } from '@wordpress/components';
+import { moreVertical } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Button from 'src/components/button';
 import { InstalledBadge } from 'src/components/installed-badge';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -146,7 +147,7 @@ export function WordPressSkillsPanel( { siteId }: { siteId: string } ) {
 	const [ statuses, setStatuses ] = useState< SkillStatus[] >( [] );
 	const [ error, setError ] = useState< string | null >( null );
 	const [ installingSkillId, setInstallingSkillId ] = useState< string | null >( null );
-	const [ removingSkillId, setRemovingSkillId ] = useState< string | null >( null );
+	const [ installingAll, setInstallingAll ] = useState( false );
 
 	const refreshStatus = useCallback( async () => {
 		try {
@@ -185,7 +186,6 @@ export function WordPressSkillsPanel( { siteId }: { siteId: string } ) {
 
 	const handleRemoveSkill = useCallback(
 		async ( skillId: string ) => {
-			setRemovingSkillId( skillId );
 			setError( null );
 			try {
 				await getIpcApi().removeWordPressSkillById( siteId, skillId );
@@ -193,116 +193,146 @@ export function WordPressSkillsPanel( { siteId }: { siteId: string } ) {
 			} catch ( err ) {
 				const errorMessage = err instanceof Error ? err.message : String( err );
 				setError( errorMessage );
-			} finally {
-				setRemovingSkillId( null );
 			}
 		},
 		[ siteId, refreshStatus ]
 	);
 
+	const installedSkills = useMemo( () => statuses.filter( ( s ) => s.installed ), [ statuses ] );
+	const availableSkills = useMemo( () => statuses.filter( ( s ) => ! s.installed ), [ statuses ] );
+
 	const handleInstallAll = useCallback( async () => {
-		setInstallingSkillId( 'all' );
+		setInstallingAll( true );
 		setError( null );
 		try {
-			await getIpcApi().installWordPressSkills( siteId );
+			for ( const skill of availableSkills ) {
+				await getIpcApi().installWordPressSkillById( siteId, skill.id );
+			}
 			await refreshStatus();
 		} catch ( err ) {
 			const errorMessage = err instanceof Error ? err.message : String( err );
 			setError( errorMessage );
 		} finally {
-			setInstallingSkillId( null );
+			setInstallingAll( false );
 		}
-	}, [ siteId, refreshStatus ] );
+	}, [ siteId, availableSkills, refreshStatus ] );
 
-	const allInstalled = statuses.length > 0 && statuses.every( ( s ) => s.installed );
+	const isAnyInstalling = installingSkillId !== null || installingAll;
 
 	return (
-		<div className="flex flex-col gap-4">
-			<div className="flex items-center justify-between">
-				<div>
-					<h3 className="text-sm font-medium text-frame-text">{ __( 'WordPress skills' ) }</h3>
-					<p className="text-xs text-frame-text-secondary mt-0.5">
-						{ __( 'WordPress development skills for AI agents' ) }
-					</p>
-				</div>
-				{ ! allInstalled && (
-					<Button
-						variant="link"
-						onClick={ handleInstallAll }
-						disabled={ installingSkillId !== null || removingSkillId !== null }
-						className="text-sm"
-					>
-						{ installingSkillId === 'all' ? __( 'Installing...' ) : __( 'Install All' ) }
-					</Button>
+		<div className="flex flex-col gap-4 pb-2">
+			<p className="text-xs text-frame-text-secondary text-center">
+				{ __(
+					'Manage skills for this site. These override the global skills from Studio Settings.'
 				) }
-			</div>
+			</p>
 
 			{ error && (
-				<div className="bg-frame-surface border border-frame-error/30 text-frame-error px-3 py-2 rounded text-sm">
+				<div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">
 					{ error }
 				</div>
 			) }
 
-			<div className="border border-frame-border rounded-md overflow-hidden">
-				{ statuses.map( ( skill ) => {
-					const isInstalling = installingSkillId === skill.id;
-					return (
+			{ installedSkills.length > 0 && (
+				<div className="border border-frame-border rounded-md overflow-hidden">
+					<div className="flex items-center px-3 py-2 bg-frame-surface border-b border-frame-border">
+						<span className="text-[11px] font-semibold uppercase tracking-wide text-frame-text-secondary">
+							{ __( 'Installed' ) }
+						</span>
+					</div>
+					{ installedSkills.map( ( skill ) => (
 						<div
 							key={ skill.id }
 							className="flex items-center justify-between px-3 py-2.5 border-b border-frame-border last:border-b-0"
 						>
 							<div className="flex-1 min-w-0 pr-3">
 								<div className="flex items-center gap-2">
-									<span className="text-sm font-medium text-frame-text truncate">
-										{ skill.displayName }
-									</span>
-									{ skill.installed && (
-										<span className="inline-flex items-center gap-1 text-[11px] text-green-900 bg-green-50 dark:!text-green-300 dark:bg-green-950 px-2 py-0.5 rounded-full flex-shrink-0">
-											<Icon className="dark:fill-green-300" icon={ check } size={ 12 } />
-											{ __( 'Installed' ) }
-										</span>
-									) }
+									<span className="text-sm font-medium text-frame-text">{ skill.displayName }</span>
+									<InstalledBadge />
 								</div>
-								<div className="text-xs text-frame-text-secondary truncate">
-									{ skill.description }
-								</div>
+								<div className="text-xs text-frame-text-secondary">{ skill.description }</div>
 							</div>
-							<div className="flex items-center gap-2 flex-shrink-0">
-								{ skill.installed ? (
-									<>
-										<Button
-											variant="link"
-											onClick={ () =>
-												getIpcApi().openFileInIDE( `.agents/skills/${ skill.id }/SKILL.md`, siteId )
-											}
-											className="text-xs"
+							<DropdownMenu
+								icon={ moreVertical }
+								label={ __( 'Skill actions' ) }
+								className="flex items-center"
+								popoverProps={ { position: 'bottom left', resize: true } }
+							>
+								{ ( { onClose }: { onClose: () => void } ) => (
+									<MenuGroup>
+										<MenuItem
+											onClick={ () => {
+												getIpcApi().openFileInIDE(
+													`.agents/skills/${ skill.id }/SKILL.md`,
+													siteId
+												);
+												onClose();
+											} }
 										>
 											{ __( 'Open' ) }
-										</Button>
-										<Button
-											variant="link"
-											onClick={ () => handleRemoveSkill( skill.id ) }
-											disabled={ removingSkillId !== null }
-											className="text-xs !text-a8c-red-50"
+										</MenuItem>
+										<MenuItem
+											isDestructive
+											onClick={ () => {
+												void handleRemoveSkill( skill.id );
+												onClose();
+											} }
 										>
-											{ removingSkillId === skill.id ? __( 'Removing...' ) : __( 'Remove' ) }
-										</Button>
-									</>
-								) : (
+											{ __( 'Remove' ) }
+										</MenuItem>
+									</MenuGroup>
+								) }
+							</DropdownMenu>
+						</div>
+					) ) }
+				</div>
+			) }
+
+			{ availableSkills.length > 0 && (
+				<div className="border border-frame-border rounded-md overflow-hidden">
+					<div className="flex items-center justify-between px-3 py-2 bg-frame-surface border-b border-frame-border">
+						<span className="text-[11px] font-semibold uppercase tracking-wide text-frame-text-secondary">
+							{ __( 'Available' ) }
+						</span>
+						<Button
+							variant="secondary"
+							onClick={ handleInstallAll }
+							disabled={ isAnyInstalling }
+							className="text-xs py-1 px-2 [&.is-secondary]:bg-frame"
+						>
+							{ installingAll ? __( 'Installing...' ) : __( 'Install all' ) }
+						</Button>
+					</div>
+					{ availableSkills.map( ( skill ) => {
+						const isInstallingThis = installingSkillId === skill.id;
+						return (
+							<div
+								key={ skill.id }
+								className="flex items-center justify-between px-3 py-2.5 border-b border-frame-border last:border-b-0"
+							>
+								<div className="flex-1 min-w-0 pr-3">
+									<div className="text-sm font-medium text-frame-text">{ skill.displayName }</div>
+									<div className="text-xs text-frame-text-secondary">{ skill.description }</div>
+								</div>
+								<div className="flex-shrink-0">
 									<Button
 										variant="secondary"
 										onClick={ () => handleInstallSkill( skill.id ) }
-										disabled={ installingSkillId !== null }
+										disabled={ isAnyInstalling }
 										className="text-xs py-1 px-2"
 									>
-										{ isInstalling ? __( 'Installing...' ) : __( 'Install' ) }
+										{ isInstallingThis ? __( 'Installing...' ) : __( 'Install' ) }
 									</Button>
-								) }
+								</div>
 							</div>
-						</div>
-					);
-				} ) }
-			</div>
+						);
+					} ) }
+				</div>
+			) }
+
+			{ statuses.length === 0 && ! error && (
+				<div className="text-sm text-gray-500 text-center py-4">{ __( 'Loading skills...' ) }</div>
+			) }
 		</div>
 	);
 }

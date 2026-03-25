@@ -11,7 +11,7 @@ import {
 	mockReportWarning,
 	mockReportKeyValuePair,
 } from 'cli/tests/test-utils';
-import { runCommand } from '../delete';
+import { Mode, runCommand } from '../delete';
 
 vi.mock( import( '@studio/common/lib/shared-config' ), async ( importOriginal ) => ( {
 	...( await importOriginal() ),
@@ -67,7 +67,7 @@ describe( 'Preview Delete Command', () => {
 	} );
 
 	it( 'should complete the preview deletion process successfully', async () => {
-		await runCommand( mockSiteUrl );
+		await runCommand( Mode.DELETE_SINGLE_SNAPSHOT, mockSiteUrl );
 
 		expect( readAuthToken ).toHaveBeenCalled();
 		expect( getSnapshotsFromConfig ).toHaveBeenCalledWith( mockAuthToken.id );
@@ -83,7 +83,7 @@ describe( 'Preview Delete Command', () => {
 	it( 'should handle authentication errors', async () => {
 		vi.mocked( readAuthToken ).mockResolvedValue( null );
 
-		await runCommand( mockSiteUrl );
+		await runCommand( Mode.DELETE_SINGLE_SNAPSHOT, mockSiteUrl );
 
 		expect( mockReportError ).toHaveBeenCalled();
 		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -93,7 +93,7 @@ describe( 'Preview Delete Command', () => {
 	it( 'should handle snapshot not found errors', async () => {
 		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [] );
 
-		await runCommand( mockSiteUrl );
+		await runCommand( Mode.DELETE_SINGLE_SNAPSHOT, mockSiteUrl );
 
 		expect( mockReportError ).toHaveBeenCalled();
 		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -106,7 +106,7 @@ describe( 'Preview Delete Command', () => {
 			throw new LoggerError( errorMessage );
 		} );
 
-		await runCommand( mockSiteUrl );
+		await runCommand( Mode.DELETE_SINGLE_SNAPSHOT, mockSiteUrl );
 
 		expect( mockReportError ).toHaveBeenCalled();
 		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -119,7 +119,7 @@ describe( 'Preview Delete Command', () => {
 			throw new LoggerError( errorMessage );
 		} );
 
-		await runCommand( mockSiteUrl );
+		await runCommand( Mode.DELETE_SINGLE_SNAPSHOT, mockSiteUrl );
 
 		expect( mockReportError ).toHaveBeenCalled();
 		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );

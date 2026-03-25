@@ -1,6 +1,9 @@
 import { vi } from 'vitest';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
-import { runCommand as runDeletePreviewCommand } from 'cli/commands/preview/delete';
+import {
+	Mode as PreviewDeleteMode,
+	runCommand as runDeletePreviewCommand,
+} from 'cli/commands/preview/delete';
 import { runCommand as runListPreviewCommand } from 'cli/commands/preview/list';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
 import { readCliConfig } from 'cli/lib/cli-config/core';
@@ -20,9 +23,13 @@ vi.mock( 'cli/commands/preview/create', () => ( {
 	runCommand: vi.fn(),
 } ) );
 
-vi.mock( 'cli/commands/preview/delete', () => ( {
-	runCommand: vi.fn(),
-} ) );
+vi.mock( import( 'cli/commands/preview/delete' ), async ( importActual ) => {
+	const actual = await importActual();
+	return {
+		Mode: actual.Mode,
+		runCommand: vi.fn(),
+	};
+} );
 
 vi.mock( 'cli/commands/preview/list', () => ( {
 	runCommand: vi.fn(),
@@ -180,7 +187,10 @@ describe( 'Studio AI MCP tools', () => {
 			null
 		);
 
-		expect( runDeletePreviewCommand ).toHaveBeenCalledWith( 'demo.wordpress.com' );
+		expect( runDeletePreviewCommand ).toHaveBeenCalledWith(
+			PreviewDeleteMode.DELETE_SINGLE_SNAPSHOT,
+			'demo.wordpress.com'
+		);
 		expect( result.isError ).toBe( true );
 		expect( getTextContent( result ) ).toBe( 'Failed to delete preview site' );
 	} );

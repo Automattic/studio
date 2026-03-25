@@ -68,6 +68,15 @@ export async function deleteSnapshot( event: IpcMainInvokeEvent, hostname: strin
 	return executePreviewCliCommand( [ 'preview', 'delete', hostname ], parentWindow );
 }
 
+export async function deleteAllSnapshots() {
+	return new Promise< void >( ( resolve, reject ) => {
+		const [ cliEventEmitter ] = executeCliCommand( [ 'preview', 'delete', '--all' ] );
+		cliEventEmitter.on( 'error', ( error ) => reject( error ) );
+		cliEventEmitter.on( 'failure', ( error ) => reject( error ) );
+		cliEventEmitter.on( 'success', () => resolve() );
+	} );
+}
+
 export async function setSnapshot(
 	event: IpcMainInvokeEvent,
 	hostname: string,

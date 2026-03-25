@@ -18,7 +18,7 @@ import onboardingReducer from 'src/stores/onboarding-slice';
 import {
 	reducer as snapshotReducer,
 	refreshSnapshots,
-	updateSnapshotLocally,
+	snapshotActions,
 } from 'src/stores/snapshot-slice';
 import { syncReducer, syncOperationsActions } from 'src/stores/sync';
 import { connectedSitesApi, connectedSitesReducer } from 'src/stores/sync/connected-sites';
@@ -86,14 +86,15 @@ startAppListening( {
 
 // Save snapshot changes to CLI config via preview set command
 startAppListening( {
-	actionCreator: updateSnapshotLocally,
+	actionCreator: snapshotActions.updateSnapshotLocally,
 	async effect( action, listenerApi ) {
-		const { atomicSiteId, snapshot } = action.payload;
-		const previous = listenerApi
-			.getOriginalState()
-			.snapshot.snapshots.find( ( s ) => s.atomicSiteId === atomicSiteId );
-		if ( previous?.url && snapshot.name !== undefined && snapshot.name !== previous.name ) {
-			await getIpcApi().setSnapshot( previous.url, { name: snapshot.name } );
+		const state = listenerApi.getState();
+		const snapshot = state.snapshot.snapshots.find(
+			( snapshot ) => snapshot.atomicSiteId === action.payload.atomicSiteId
+		);
+
+		if ( snapshot && snapshot.name ) {
+			await getIpcApi().setSnapshot( snapshot.url, { name: snapshot.name } );
 		}
 	},
 } );

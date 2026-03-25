@@ -55,6 +55,7 @@ export enum SNAPSHOT_EVENTS {
 	CREATED = 'snapshot-created',
 	UPDATED = 'snapshot-updated',
 	DELETED = 'snapshot-deleted',
+	DELETED_ALL = 'snapshot-deleted-all',
 }
 
 export const siteEventSchema = z.object( {

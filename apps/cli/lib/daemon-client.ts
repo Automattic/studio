@@ -341,6 +341,7 @@ const eventsSocketClient = new SocketRequestClient( SITE_EVENTS_SOCKET_PATH );
 type CliEventPayload =
 	| { event: SITE_EVENTS; data: { siteId: string } }
 	| { event: SNAPSHOT_EVENTS; data: { snapshotUrl: string } }
+	| { event: SNAPSHOT_EVENTS.DELETED_ALL }
 	| { event: AUTH_EVENTS; data: { token?: StoredAuthToken } };
 
 /**

@@ -13,7 +13,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { LIMIT_OF_ZIP_SITES_PER_USER } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { RootState, store } from 'src/stores/index';
-import { wpcomApi } from 'src/stores/wpcom-api';
+import { getWpcomClient, wpcomApi } from 'src/stores/wpcom-api';
 import type { UUID } from 'crypto';
 
 type BaseOperation = {
@@ -38,6 +38,7 @@ type UpdateOperation = BaseOperation & {
 type DeleteOperation = BaseOperation & {
 	snapshotUrl: string;
 	type: 'delete';
+	optimistic?: boolean;
 };
 
 type BulkOperation = Omit< BaseOperation, 'progress' > & {
@@ -90,7 +91,7 @@ const updateSnapshot = createTypedAsyncThunk<
 
 const deleteSnapshot = createTypedAsyncThunk(
 	'snapshot/deleteSnapshot',
-	async ( { hostname }: { hostname: string } ) => {
+	async ( { hostname }: { hostname: string; optimistic?: boolean } ) => {
 		const { operationId } = await getIpcApi().deleteSnapshot( hostname );
 		return { operationId };
 	}
@@ -131,7 +132,7 @@ const deleteAllSnapshotsForUser = createTypedAsyncThunk<
 	return { operations, bulkOperationId };
 } );
 
-export const updateSnapshotLocally = createAction< {
+const updateSnapshotLocally = createAction< {
 	atomicSiteId: number;
 	snapshot: Partial< Omit< Snapshot, 'atomicSiteId' > >;
 } >( 'snapshot/updateSnapshot' );
@@ -144,6 +145,9 @@ const snapshotSlice = createSlice( {
 			state.snapshots = state.snapshots.filter(
 				( snapshot ) => snapshot.atomicSiteId !== action.payload.atomicSiteId
 			);
+		},
+		deleteAllSnapshots: ( state ) => {
+			state.snapshots = [];
 		},
 		addSnapshot: ( state, action: PayloadAction< { snapshot: Snapshot } > ) => {
 			state.snapshots.push( action.payload.snapshot );
@@ -194,6 +198,7 @@ const snapshotSlice = createSlice( {
 					snapshotUrl: action.meta.arg.hostname,
 					status: 'pending',
 					type: 'delete',
+					optimistic: action.meta.arg.optimistic ?? false,
 				};
 			} )
 			.addMatcher(
@@ -263,10 +268,14 @@ const snapshotSlice = createSlice( {
 	},
 } );
 
-const selectActiveOperationsForAnySite = createSelector(
+const selectActiveCreateUpdateOperationsForAnySite = createSelector(
 	[ ( state: RootState ) => state.snapshot.operations ],
 	( operations ) =>
-		Object.values( operations ).filter( ( operation ) => operation.status === 'pending' )
+		Object.values( operations ).filter(
+			( operation ) =>
+				( operation.type === 'update' || operation.type === 'create' ) &&
+				operation.status === 'pending'
+		)
 );
 
 const selectSnapshotsBySite = createSelector(
@@ -291,25 +300,39 @@ const selectSnapshotsBySiteAndUser = createSelector(
 		( state: RootState ) => state.snapshot.snapshots,
 		( state: RootState, localSiteId: string ) => localSiteId,
 		( state: RootState, localSiteId: string, userId: number ) => userId,
+		( state: RootState ) => state.snapshot.operations,
 	],
-	( snapshots = [], localSiteId, userId ) =>
-		snapshots.filter(
-			( snapshot ) => snapshot.localSiteId === localSiteId && snapshot.userId === userId
-		)
+	( snapshots = [], localSiteId, userId, operations ) =>
+		snapshots
+			.filter( ( snapshot ) => snapshot.localSiteId === localSiteId && snapshot.userId === userId )
+			// Filter out any snapshots that are currently being deleted optimistically
+			.filter(
+				( snapshot ) =>
+					! Object.values( operations ).some(
+						( operation ) =>
+							operation.snapshotUrl === snapshot.url &&
+							operation.type === 'delete' &&
+							operation.optimistic
+					)
+			)
 );
 
 // Optimistically update the snapshot usage count and schedule a re-fetch.
 // There's a risk that more sites are deleted locally than the count returned by the
 // API, because expired sites are preserved locally. Therefore, we need to ensure
 // the count is non-negative.
-function updateSnapshotUsageCount( countDiff: number ) {
-	if ( countDiff === 0 ) {
+function updateSnapshotUsageCount( countDiff: number, isAbsolute = false ) {
+	if ( countDiff === 0 && ! isAbsolute ) {
 		return;
 	}
 
 	store.dispatch(
 		wpcomApi.util.updateQueryData( 'getSnapshotUsage', undefined, ( data ) => {
-			data.siteCount = Math.max( 0, data.siteCount + countDiff );
+			if ( isAbsolute ) {
+				data.siteCount = countDiff;
+			} else {
+				data.siteCount = Math.max( 0, data.siteCount + countDiff );
+			}
 		} )
 	);
 
@@ -371,7 +394,7 @@ function isBulkOperationSettled( bulkOperation: BulkOperation ) {
 	} );
 }
 
-window.ipcListener.subscribe( 'snapshot-changed', ( _, snapshotEvent ) => {
+window.ipcListener.subscribe( 'snapshot-event', ( _, snapshotEvent ) => {
 	const { event: eventType, snapshot, snapshotUrl } = snapshotEvent;
 
 	if ( eventType === SNAPSHOT_EVENTS.DELETED ) {
@@ -383,6 +406,12 @@ window.ipcListener.subscribe( 'snapshot-changed', ( _, snapshotEvent ) => {
 			);
 			updateSnapshotUsageCount( -1 );
 		}
+		return;
+	}
+
+	if ( eventType === SNAPSHOT_EVENTS.DELETED_ALL ) {
+		store.dispatch( snapshotSlice.actions.deleteAllSnapshots() );
+		updateSnapshotUsageCount( 0, true );
 		return;
 	}
 
@@ -522,7 +551,9 @@ window.ipcListener.subscribe( 'snapshot-success', ( event, payload ) => {
 			body: sprintf( __( "Preview site '%s' has been updated." ), snapshotUrl ),
 		} );
 	} else if ( operation.type === 'delete' ) {
-		if ( ! bulkOperation ) {
+		if ( operation.optimistic ) {
+			// Do nothing
+		} else if ( ! bulkOperation ) {
 			getIpcApi().showNotification( {
 				title: operation.snapshotName,
 				body: sprintf( __( "Preview site '%s' has been deleted." ), snapshotUrl ),
@@ -542,7 +573,7 @@ export const snapshotActions = {
 };
 export const snapshotSelectors = {
 	...snapshotSlice.selectors,
-	selectActiveOperationsForAnySite,
+	selectActiveCreateUpdateOperationsForAnySite,
 	selectSnapshotsBySite,
 	selectSnapshotsByUser,
 	selectSnapshotsBySiteAndUser,

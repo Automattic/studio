@@ -6,7 +6,10 @@ import { z } from 'zod/v4';
 import { validateBlocks, type ValidationReport } from 'cli/ai/block-validator';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
-import { runCommand as runDeletePreviewCommand } from 'cli/commands/preview/delete';
+import {
+	Mode as PreviewDeleteMode,
+	runCommand as runDeletePreviewCommand,
+} from 'cli/commands/preview/delete';
 import { runCommand as runListPreviewCommand } from 'cli/commands/preview/list';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
@@ -426,7 +429,7 @@ const deletePreviewTool = tool(
 	async ( args ) => {
 		const normalizedHost = normalizeHostname( args.host );
 		return runPreviewCommand(
-			() => runDeletePreviewCommand( normalizedHost ),
+			() => runDeletePreviewCommand( PreviewDeleteMode.DELETE_SINGLE_SNAPSHOT, normalizedHost ),
 			`Preview site "${ normalizedHost }" deleted.`,
 			'Failed to delete preview site'
 		);

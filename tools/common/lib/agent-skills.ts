@@ -25,6 +25,21 @@ export const BUNDLED_SKILL_IDS = [
 export type BundledSkillId = ( typeof BUNDLED_SKILL_IDS )[ number ];
 
 /**
+ * The canonical list of bundled skill IDs. Used for validation in the CLI and as the
+ * source of truth for the Studio app's skill registry.
+ */
+export const BUNDLED_SKILL_IDS = [
+	'studio-cli',
+	'wp-plugin-development',
+	'wp-block-development',
+	'wp-block-themes',
+	'wp-rest-api',
+	'wp-wpcli-and-ops',
+] as const;
+
+export type BundledSkillId = ( typeof BUNDLED_SKILL_IDS )[ number ];
+
+/**
  * Install all bundled AI instructions and skills from a source directory into a site.
  *
  * Source directory layout (flat):

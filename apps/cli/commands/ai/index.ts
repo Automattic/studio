@@ -1,5 +1,5 @@
 import { readAuthToken } from '@studio/common/lib/shared-config';
-import { __ } from '@wordpress/i18n';
+import { __, _n, sprintf } from '@wordpress/i18n';
 import {
 	AI_MODELS,
 	DEFAULT_MODEL,
@@ -326,7 +326,13 @@ export async function runCommand(
 		}
 
 		if ( maxTurnsResult ) {
-			ui.showInfo( `Used ${ maxTurnsResult.numTurns } turns` );
+			ui.showInfo(
+				sprintf(
+					/* translators: %d: number of turns used */
+					_n( 'Used %d turn', 'Used %d turns', maxTurnsResult.numTurns ),
+					maxTurnsResult.numTurns
+				)
+			);
 			const answer = await ui.askUser( [
 				{
 					question: 'Reached the turn limit. Continue?',

@@ -16,7 +16,6 @@ const config: ForgeConfig = {
 	packagerConfig: {
 		asar: true,
 		extraResource: [
-			path.join( repoRoot, 'wp-files' ),
 			path.join( __dirname, 'assets' ),
 			path.join( __dirname, 'bin' ),
 			path.join( repoRoot, 'apps', 'cli', 'dist', 'cli' ),
@@ -72,7 +71,6 @@ const config: ForgeConfig = {
 			// External resources (shouldn't be in asar)
 			/^\/assets/,
 			/^\/bin/,
-			/^\/wp-files/,
 			/^\/apps\/cli\/dist\/cli/,
 			/^\/dist\/playground-cli/,
 		],
@@ -157,14 +155,6 @@ const config: ForgeConfig = {
 						}
 					);
 				} );
-
-			console.log( "Ensuring latest WordPress zip isn't included in production build ..." );
-			const zipPath = path.join( repoRoot, 'wp-files', 'latest.zip' );
-			try {
-				fs.unlinkSync( zipPath );
-			} catch ( err ) {
-				if ( isErrnoException( err ) && err.code !== 'ENOENT' ) throw err;
-			}
 
 			console.log( 'Installing Studio app dependencies for bundling ...' );
 			// NOTE: The `app:install:bundle` script mutates the `apps/studio/node_modules` directory. You

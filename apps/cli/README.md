@@ -1,8 +1,5 @@
 # WordPress Studio CLI
 
-> [!WARNING]  
-> Please note that this is still alpha software that requires the Studio desktop app to be installed.
-
 `wp-studio` is the standalone, CLI-only version of [WordPress Studio](https://developer.wordpress.com/studio/) – a fast, free, open source tool for local WordPress development all powered by WordPress Playground and WordPress.com.
 
 If you already have Studio installed, then the easiest way to use the CLI is to open Studio, go to the settings modal and ensure that the "Studio CLI" toggle is enabled.

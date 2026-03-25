@@ -40,4 +40,5 @@ export enum SiteCommandLoggerAction {
 	APPLY_BLUEPRINT = 'applyBlueprint',
 	DELETE_PREVIEW_SITES = 'deletePreviewSites',
 	DELETE_FILES = 'deleteFiles',
+	CHECKING_DEPENDENCY_UPDATES = 'checkingDependencyUpdates',
 }

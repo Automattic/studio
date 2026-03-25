@@ -319,7 +319,7 @@ describe( 'updateManagedInstructionFiles', () => {
 		vi.mocked( fs.copyFile ).mockResolvedValue( undefined );
 	} );
 
-	it( 'updates STUDIO.md and CLAUDE.md when both exist in the site', async () => {
+	it( 'updates STUDIO.md when it exists in the site', async () => {
 		vi.mocked( pathExists ).mockResolvedValue( true );
 
 		await updateManagedInstructionFiles( SITE_PATH, BUNDLED_PATH );
@@ -328,11 +328,7 @@ describe( 'updateManagedInstructionFiles', () => {
 			path.join( BUNDLED_PATH, 'STUDIO.md' ),
 			path.join( SITE_PATH, 'STUDIO.md' )
 		);
-		expect( fs.copyFile ).toHaveBeenCalledWith(
-			path.join( BUNDLED_PATH, 'CLAUDE.md' ),
-			path.join( SITE_PATH, 'CLAUDE.md' )
-		);
-		expect( fs.copyFile ).toHaveBeenCalledTimes( 2 );
+		expect( fs.copyFile ).toHaveBeenCalledTimes( 1 );
 	} );
 
 	it( 'skips files that do not exist in the site', async () => {

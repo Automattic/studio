@@ -5,7 +5,6 @@ import fs from 'fs';
 import { normalize } from 'path';
 import { vi, beforeAll, afterAll } from 'vitest';
 import { createMainWindow, getMainWindow } from 'src/main-window';
-import { setupWPServerFiles } from 'src/setup-wp-server-files';
 
 vi.mock( 'fs' );
 vi.mock( 'file-stream-rotator' );
@@ -191,25 +190,6 @@ describe( 'App initialization', () => {
 		expect( mockHandleDeeplink ).toHaveBeenCalledWith( testUrl );
 
 		Object.defineProperty( process, 'platform', { value: originalProcessPlatform } );
-	} );
-
-	it( 'should setup server files before creating main window', async () => {
-		const { mockedEvents } = mockElectron();
-		const setupSpy = vi.fn();
-		vi.mocked( setupWPServerFiles ).mockImplementation( () => {
-			setupSpy();
-			return Promise.resolve();
-		} );
-
-		vi.resetModules();
-		await import( '../index' );
-		await mockedEvents.ready();
-
-		expect( setupSpy ).toHaveBeenCalled();
-		expect( setupSpy.mock.calls.length ).toBeGreaterThan( 0 );
-		expect( vi.mocked( createMainWindow ).mock.calls.length ).toBeGreaterThan( 0 );
-
-		await mockedEvents[ 'will-quit' ]( { preventDefault: vi.fn() } );
 	} );
 
 	it( 'should wait for app initialization before handling window events', async () => {

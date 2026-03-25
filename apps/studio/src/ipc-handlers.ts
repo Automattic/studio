@@ -52,6 +52,7 @@ import {
 	StatsGroup,
 	StatsMetric,
 } from 'src/lib/bump-stats';
+import { captureSiteThumbnail } from 'src/lib/capture-site-thumbnail';
 import {
 	openCertificate as openCertificateDialog,
 	isRootCATrusted,
@@ -989,7 +990,6 @@ export async function loadThemeDetails(
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	if ( emitThemeDetailsLoadingEvent ) {
 		sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-loading', { id } );
-		sendIpcEventToRendererWithWindow( parentWindow, 'thumbnail-loading', { id } );
 	}
 
 	const oldThemePath = server.details.themeDetails?.path;
@@ -1001,24 +1001,11 @@ export async function loadThemeDetails(
 		details: themeDetails,
 	} );
 
-	try {
-		if ( hasThemeChanged ) {
-			if ( ! emitThemeDetailsLoadingEvent ) {
-				sendIpcEventToRendererWithWindow( parentWindow, 'thumbnail-loading', { id } );
-			}
-			await server.persistThemeDetails();
-		}
-		await server.updateCachedThumbnail();
-		const thumbnailPath = getSiteThumbnailPath( id );
-		const thumbnailData = await getImageData( thumbnailPath );
-		sendIpcEventToRendererWithWindow( parentWindow, 'thumbnail-loaded', {
-			id,
-			imageData: thumbnailData,
-		} );
-	} catch ( error ) {
-		sendIpcEventToRendererWithWindow( parentWindow, 'thumbnail-load-error', { id } );
-		console.error( `Failed to update thumbnail for server ${ id }:`, error );
+	if ( hasThemeChanged ) {
+		await server.persistThemeDetails();
 	}
+
+	void captureSiteThumbnail( id );
 
 	return themeDetails;
 }

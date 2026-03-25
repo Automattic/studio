@@ -63,14 +63,8 @@ export function SkillsTab() {
 		[ refreshStatus ]
 	);
 
-	const installedSkills = useMemo(
-		() => statuses.filter( ( s ) => s.installed ),
-		[ statuses ]
-	);
-	const availableSkills = useMemo(
-		() => statuses.filter( ( s ) => ! s.installed ),
-		[ statuses ]
-	);
+	const installedSkills = useMemo( () => statuses.filter( ( s ) => s.installed ), [ statuses ] );
+	const availableSkills = useMemo( () => statuses.filter( ( s ) => ! s.installed ), [ statuses ] );
 
 	const handleInstallAll = useCallback( async () => {
 		setInstallingAll( true );
@@ -93,7 +87,9 @@ export function SkillsTab() {
 	return (
 		<div className="flex flex-col gap-4 pb-2">
 			<p className="text-xs text-frame-text-secondary text-center">
-				{ __( 'Agents can decide to use skills to help them accomplish specialized tasks. Select the skills that will be placed in all existing and new sites.' ) }
+				{ __(
+					'Agents can decide to use skills to help them accomplish specialized tasks. Select the skills that will be placed in all existing and new sites.'
+				) }
 			</p>
 
 			{ error && (

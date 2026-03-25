@@ -18,7 +18,6 @@ import os from 'os';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import {
-	installAiInstructionsToSite,
 	installSkillToSite,
 	removeSkillFromSite,
 	updateManagedInstructionFiles,
@@ -59,7 +58,7 @@ import {
 	trustRootCA,
 } from 'src/lib/certificate-manager';
 import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
-import { buildFeatureFlags, getFeatureFlagFromEnv } from 'src/lib/feature-flags';
+import { buildFeatureFlags } from 'src/lib/feature-flags';
 import { getImageData } from 'src/lib/get-image-data';
 import { exportBackup } from 'src/lib/import-export/export/export-manager';
 import { ExportOptions } from 'src/lib/import-export/export/types';
@@ -409,20 +408,6 @@ export async function createSite(
 		// If the site is running after creation, fetch theme details and update thumbnail
 		if ( server.details.running ) {
 			void loadThemeDetails( event, server.details.id );
-		}
-
-		// Install AI instructions and skills into the new site
-		if ( getFeatureFlagFromEnv( 'enableAgentSuite' ) ) {
-			const sharedConfig = await readSharedConfig();
-			const selectedSkills = sharedConfig.selectedSkills ?? [];
-			void installAiInstructionsToSite( path, getAiInstructionsPath(), selectedSkills ).catch(
-				( error ) => {
-					console.error(
-						'[ai-instructions] Failed to install AI instructions to new site:',
-						error
-					);
-				}
-			);
 		}
 
 		return server.details;

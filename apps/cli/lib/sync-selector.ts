@@ -150,7 +150,7 @@ function isAllSelected( selected: TreeNode[] ): boolean {
 
 export async function selectSyncItemsForPush(
 	sitePath: string
-): Promise< { optionsToSync: SyncOption[]; specificSelectionPaths?: string[] } > {
+): Promise< { optionsToSync: SyncOption[]; specificSelectionPaths?: string[] } | undefined > {
 	const entries = await listLocalFileTree( sitePath, 'wp-content', 2 );
 
 	if ( entries.length === 0 ) {
@@ -192,7 +192,7 @@ export async function selectSyncItemsForPull(
 	token: string,
 	remoteSiteId: number,
 	tree: TreeNode[]
-): Promise< { optionsToSync: SyncOption[]; includePathList?: string[] } > {
+): Promise< { optionsToSync: SyncOption[]; includePathList?: string[] } | undefined > {
 	if ( tree.length === 0 ) {
 		return { optionsToSync: [ 'all' ] };
 	}

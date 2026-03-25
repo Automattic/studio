@@ -1810,7 +1810,7 @@ export class AiChatUI {
 		message: SDKMessage
 	):
 		| { sessionId: string; success: boolean; maxTurnsReached?: undefined }
-		| { sessionId: string; maxTurnsReached: true; numTurns: number; costUsd: number }
+		| { sessionId: string; maxTurnsReached: true; numTurns: number }
 		| undefined {
 		switch ( message.type ) {
 			case 'assistant': {
@@ -1906,11 +1906,7 @@ export class AiChatUI {
 					if ( ! this.hasShownResponseMarker ) {
 						this.messages.addChild( new Text( '\n ' + chalk.blue( '⏺' ) + ' Done', 0, 0 ) );
 					}
-					this.showInfo(
-						`Thought for ${ thinkingSec }s · ${
-							message.num_turns
-						} turns · $${ message.total_cost_usd.toFixed( 4 ) }`
-					);
+					this.showInfo( `Thought for ${ thinkingSec }s · ${ message.num_turns } turns` );
 					return { sessionId: message.session_id, success: true };
 				}
 
@@ -1934,7 +1930,6 @@ export class AiChatUI {
 						sessionId: message.session_id,
 						maxTurnsReached: true,
 						numTurns: message.num_turns,
-						costUsd: message.total_cost_usd,
 					};
 				} else if ( message.subtype ) {
 					parts.push( `(${ message.subtype })` );

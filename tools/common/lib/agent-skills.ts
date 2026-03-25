@@ -7,7 +7,7 @@ import { isErrnoException } from './is-errno-exception';
  * Managed instruction files that are always kept up-to-date on server start.
  * These are overwritten with the bundled version whenever they already exist in a site.
  */
-const MANAGED_INSTRUCTION_FILES = [ 'STUDIO.md', 'CLAUDE.md' ];
+const MANAGED_INSTRUCTION_FILES = [ 'STUDIO.md' ];
 
 /**
  * Install all bundled AI instructions and skills from a source directory into a site.
@@ -32,12 +32,13 @@ export async function installAiInstructionsToSite(
 	}
 
 	const entries = await fs.readdir( bundledPath, { withFileTypes: true } );
+	const userSelectedGlobalSkills: string[] = [];
 
 	const tasks: Promise< void >[] = [];
 	for ( const entry of entries ) {
 		if ( entry.isFile() && entry.name.endsWith( '.md' ) ) {
 			tasks.push( installInstructionFile( sitePath, bundledPath, entry.name, overwrite ) );
-		} else if ( entry.isDirectory() ) {
+		} else if ( entry.isDirectory() && userSelectedGlobalSkills.includes( entry.name ) ) {
 			tasks.push( installSkillToSite( sitePath, bundledPath, entry.name, overwrite ) );
 		}
 	}
@@ -81,6 +82,13 @@ async function installInstructionFile(
 		return;
 	}
 	await fs.copyFile( path.join( bundledPath, fileName ), dest );
+}
+
+export async function removeSkillFromSite( sitePath: string, skillId: string ): Promise< void > {
+	const agentsSkillPath = path.join( sitePath, '.agents', 'skills', skillId );
+	const claudeSkillPath = path.join( sitePath, '.claude', 'skills', skillId );
+	await fs.rm( agentsSkillPath, { recursive: true, force: true } );
+	await fs.rm( claudeSkillPath, { recursive: true, force: true } );
 }
 
 export async function installSkillToSite(

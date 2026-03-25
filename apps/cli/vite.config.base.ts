@@ -1,6 +1,7 @@
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { defineConfig } from 'vite';
+import { viteStaticCopy } from 'vite-plugin-static-copy';
 
 const nodeBuiltinExternals: RegExp[] = [
 	/^node:/,
@@ -13,6 +14,16 @@ const packageJson = JSON.parse( readFileSync( resolve( __dirname, 'package.json'
 const packageJsonDependencies = Object.keys( packageJson.dependencies || {} );
 
 export const baseConfig = defineConfig( {
+	plugins: [
+		viteStaticCopy( {
+			targets: [
+				{
+					src: '../../wp-files',
+					dest: '.',
+				},
+			],
+		} ),
+	],
 	build: {
 		lib: {
 			entry: {
@@ -48,7 +59,7 @@ export const baseConfig = defineConfig( {
 		commonjsOptions: {
 			ignoreDynamicRequires: true,
 		},
-		sourcemap: true,
+		sourcemap: false,
 		minify: false,
 	},
 	resolve: {

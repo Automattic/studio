@@ -19,7 +19,9 @@ import {
 	type EditorOptions,
 	type MarkdownTheme,
 	visibleWidth,
+	truncateToWidth,
 } from '@mariozechner/pi-tui';
+import { readAuthToken } from '@studio/common/lib/shared-config';
 import chalk from 'chalk';
 import { AI_MODELS, DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
@@ -27,8 +29,9 @@ import { AI_CHAT_SLASH_COMMANDS } from 'cli/ai/slash-commands';
 import { buildTodoUpdateLines, type TodoRenderLine } from 'cli/ai/todo-render';
 import { diffTodoSnapshot, type TodoDiff, type TodoEntry } from 'cli/ai/todo-stream';
 import { getWpComSites } from 'cli/lib/api';
-import { getAuthToken, getSiteUrl, readAppdata, type SiteData } from 'cli/lib/appdata';
 import { openBrowser } from 'cli/lib/browser';
+import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
+import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { TodoWriteInput } from '@anthropic-ai/claude-agent-sdk/sdk-tools';
@@ -123,6 +126,7 @@ class PromptEditor implements Component, Focusable {
 		const innerWidth = Math.max( 1, width - promptWidth );
 		const lines = this.editor.render( innerWidth );
 		const bc = this.borderColorFn;
+		const borderWidth = Math.max( 0, width - 2 );
 
 		// The Editor renders: [top_border, ...content, bottom_border, ...autocomplete]
 		// Find the bottom border index: it's the last line containing ─ (U+2500).
@@ -141,10 +145,10 @@ class PromptEditor implements Component, Focusable {
 		const result = editorLines.map( ( line, i ) => {
 			if ( i === 0 ) {
 				// Top border with active site name on the right
-				if ( this.activeSiteName ) {
+				if ( this.activeSiteName && borderWidth > 4 ) {
 					const label = ` ${ this.activeSiteName } `;
-					const trailing = 3;
-					const leading = Math.max( 0, width - 2 - label.length - trailing );
+					const trailing = Math.min( 3, borderWidth );
+					const leading = Math.max( 0, borderWidth - label.length - trailing );
 					return (
 						' ' +
 						bc( '─'.repeat( leading ) ) +
@@ -152,10 +156,10 @@ class PromptEditor implements Component, Focusable {
 						bc( '─'.repeat( trailing ) )
 					);
 				}
-				return ' ' + bc( '─'.repeat( width - 2 ) );
+				return ' ' + bc( '─'.repeat( borderWidth ) );
 			}
 			if ( i === bottomBorderIndex ) {
-				return ' ' + bc( '─'.repeat( width - 2 ) );
+				return ' ' + bc( '─'.repeat( borderWidth ) );
 			}
 			if ( this.isEmpty && i === 1 ) {
 				return promptPrefix + chalk.dim( 'Type your prompt…' );
@@ -167,12 +171,14 @@ class PromptEditor implements Component, Focusable {
 		} );
 
 		if ( autocompleteLines.length > 0 ) {
-			return [ ...result, ...autocompleteLines.map( ( line ) => ' ' + line ) ];
+			return [ ...result, ...autocompleteLines.map( ( line ) => ' ' + line ) ].map( ( line ) =>
+				truncateToWidth( line, width )
+			);
 		}
 
 		// Below the bottom border: show hint bar (with optional status on the right)
 		if ( ! this.showBottomBar ) {
-			return result;
+			return result.map( ( line ) => truncateToWidth( line, width ) );
 		}
 		const activeHints = this.isEmpty
 			? this.hints
@@ -189,7 +195,7 @@ class PromptEditor implements Component, Focusable {
 			result.push( leftPart + ' '.repeat( padding ) + rightPart );
 		}
 
-		return result;
+		return result.map( ( line ) => truncateToWidth( line, width ) );
 	}
 }
 
@@ -767,8 +773,15 @@ export class AiChatUI {
 	}
 
 	private async openSitePicker(): Promise< void > {
-		const appdata = await readAppdata();
-		const sites: SiteData[] = appdata.sites ?? [];
+		const config = await readCliConfig();
+		const sites: SiteData[] = config.sites ?? [];
+		if ( sites.length === 0 ) {
+			this.messages.addChild(
+				new Text( chalk.dim( '  No sites found. Create one first.' ), 1, 0 )
+			);
+			this.tui.requestRender();
+			return;
+		}
 
 		this.sitePickerSiteData = sites;
 		this.sitePickerItems = await Promise.all(
@@ -792,10 +805,8 @@ export class AiChatUI {
 		this.sitePickerRemoteItems = [];
 		this.renderSitePicker();
 
-		let token: Awaited< ReturnType< typeof getAuthToken > >;
-		try {
-			token = await getAuthToken();
-		} catch {
+		const token = await readAuthToken();
+		if ( ! token ) {
 			this.showSitePickerError( 'Not logged in. Use /login first.' );
 			return;
 		}
@@ -968,8 +979,8 @@ export class AiChatUI {
 	}
 
 	private async findSiteFromAppdata( nameOrPath: string ): Promise< SiteInfo | null > {
-		const appdata = await readAppdata();
-		const site = appdata.sites.find(
+		const config = await readCliConfig();
+		const site = config.sites.find(
 			( s ) => s.name.toLowerCase() === nameOrPath.toLowerCase() || s.path === nameOrPath
 		);
 		if ( ! site ) {
@@ -1115,9 +1126,9 @@ export class AiChatUI {
 			return false;
 		}
 		// Re-read appdata to get the current site state (port/domain may have changed)
-		const appdata = await readAppdata();
+		const config = await readCliConfig();
 		const activeSiteName = this._activeSite?.name ?? this._activeSiteData?.name;
-		const freshSiteData = appdata.sites?.find( ( site ) => site.name === activeSiteName );
+		const freshSiteData = config.sites?.find( ( site ) => site.name === activeSiteName );
 		const siteData = freshSiteData ?? this._activeSiteData;
 		if ( siteData ) {
 			this._activeSiteData = siteData;

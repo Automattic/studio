@@ -1,7 +1,7 @@
-import { Icon, check } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useState } from 'react';
 import Button from 'src/components/button';
+import { InstalledBadge } from 'src/components/installed-badge';
 import Modal from 'src/components/modal';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import {
@@ -113,12 +113,7 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 									<span className="text-sm font-medium text-frame-text">
 										{ config.displayName }
 									</span>
-									{ status.exists && (
-										<span className="inline-flex items-center gap-1 text-[11px] text-green-900 bg-green-50 dark:!text-green-300 dark:bg-green-950 px-2 py-0.5 rounded-full">
-											<Icon className="dark:fill-green-300" icon={ check } size={ 12 } />
-											{ __( 'Installed' ) }
-										</span>
-									) }
+									{ status.exists && <InstalledBadge /> }
 								</div>
 								<div className="text-xs text-frame-text-secondary">
 									{ __( config.description ) }
@@ -223,12 +218,7 @@ function WordPressSkillsPanel( { siteId }: { siteId: string } ) {
 							<span className="text-sm font-medium text-frame-text">
 								{ __( 'WordPress Skills' ) }
 							</span>
-							{ allInstalled && (
-								<span className="inline-flex items-center gap-1 text-[11px] text-[#1a6928] bg-[#ceead6] dark:text-[#6ee7a0] dark:bg-[#1a3a24] px-2 py-0.5 rounded-full">
-									<Icon icon={ check } size={ 12 } />
-									{ __( 'Installed' ) }
-								</span>
-							) }
+							{ allInstalled && <InstalledBadge /> }
 							{ ! allInstalled && installedCount > 0 && (
 								<span className="inline-flex items-center gap-1 text-[11px] text-frame-text-secondary bg-frame-surface px-2 py-0.5 rounded-full">
 									{ `${ installedCount }/${ BUNDLED_SKILLS.length }` }

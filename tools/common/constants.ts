@@ -15,7 +15,9 @@ export const PROTOCOL_PREFIX = 'wp-studio';
 export const DEFAULT_TOKEN_LIFETIME_MS = DAY_MS * 14;
 
 // Lockfile constants
-export const LOCKFILE_NAME = 'appdata-v1.json.lock';
+export const APP_CONFIG_LOCKFILE_NAME = 'app.json.lock';
+export const CLI_CONFIG_LOCKFILE_NAME = 'cli.json.lock';
+export const SHARED_CONFIG_LOCKFILE_NAME = 'shared.json.lock';
 export const LOCKFILE_STALE_TIME = 5000;
 export const LOCKFILE_WAIT_TIME = 5000;
 

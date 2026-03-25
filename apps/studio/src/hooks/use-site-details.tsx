@@ -1,4 +1,4 @@
-import { SITE_EVENTS, SiteEvent } from '@studio/common/lib/site-events';
+import { SITE_EVENTS, SiteEvent } from '@studio/common/lib/cli-events';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { __, sprintf } from '@wordpress/i18n';
 import {

@@ -39,7 +39,7 @@ import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
-import { updateSharedConfig } from '@studio/common/lib/shared-config';
+import { readSharedConfig, updateSharedConfig } from '@studio/common/lib/shared-config';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import { MACOS_TRAFFIC_LIGHT_POSITION, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
@@ -96,7 +96,7 @@ import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-setting
 import { getUserEditor, getUserTerminal } from 'src/modules/user-settings/lib/ipc-handlers';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
 import { SiteServer, stopAllServers as triggerStopAllServers } from 'src/site-server';
-import { DEFAULT_SITE_PATH, getSiteThumbnailPath, getUserDataFilePath } from 'src/storage/paths';
+import { DEFAULT_SITE_PATH, getSiteThumbnailPath } from 'src/storage/paths';
 import {
 	loadUserData,
 	lockAppdata,
@@ -204,8 +204,8 @@ export async function installWordPressSkills(
 export async function getWordPressSkillsStatusAllSites(
 	_event: IpcMainInvokeEvent
 ): Promise< SkillStatus[] > {
-	const userData = await loadUserData();
-	const selectedSkills = userData.selectedSkills ?? [];
+	const sharedConfig = await readSharedConfig();
+	const selectedSkills = sharedConfig.selectedSkills ?? [];
 	return BUNDLED_SKILLS.map( ( skill ) => ( {
 		...skill,
 		installed: selectedSkills.includes( skill.id ),
@@ -229,15 +229,10 @@ export async function installWordPressSkillsToAllSites(
 		}
 	} );
 
-	try {
-		await lockAppdata();
-		const userData = await loadUserData();
-		const existing = userData.selectedSkills ?? [];
-		const merged = Array.from( new Set( [ ...existing, options.skillId ] ) );
-		await saveUserData( { ...userData, selectedSkills: merged } );
-	} finally {
-		await unlockAppdata();
-	}
+	const sharedConfig = await readSharedConfig();
+	const existing = sharedConfig.selectedSkills ?? [];
+	const merged = Array.from( new Set( [ ...existing, options.skillId ] ) );
+	await updateSharedConfig( { selectedSkills: merged } );
 }
 
 export async function removeWordPressSkillFromAllSites(
@@ -253,14 +248,9 @@ export async function removeWordPressSkillFromAllSites(
 		}
 	} );
 
-	try {
-		await lockAppdata();
-		const userData = await loadUserData();
-		const updated = ( userData.selectedSkills ?? [] ).filter( ( id ) => id !== skillId );
-		await saveUserData( { ...userData, selectedSkills: updated } );
-	} finally {
-		await unlockAppdata();
-	}
+	const sharedConfig = await readSharedConfig();
+	const updated = ( sharedConfig.selectedSkills ?? [] ).filter( ( id: string ) => id !== skillId );
+	await updateSharedConfig( { selectedSkills: updated } );
 }
 
 const DEBUG_LOG_MAX_LINES = 50;
@@ -423,8 +413,8 @@ export async function createSite(
 
 		// Install AI instructions and skills into the new site
 		if ( getFeatureFlagFromEnv( 'enableAgentSuite' ) ) {
-			const userData = await loadUserData();
-			const selectedSkills = userData.selectedSkills ?? [];
+			const sharedConfig = await readSharedConfig();
+			const selectedSkills = sharedConfig.selectedSkills ?? [];
 			void installAiInstructionsToSite( path, getAiInstructionsPath(), selectedSkills ).catch(
 				( error ) => {
 					console.error(

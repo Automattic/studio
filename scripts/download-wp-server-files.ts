@@ -99,7 +99,7 @@ async function downloadFile( file: FileToDownload ): Promise< void > {
 			if ( fs.existsSync( targetPath ) ) {
 				fs.rmSync( targetPath, { recursive: true, force: true } );
 			}
-			fs.renameSync( sourcePath, targetPath );
+			fs.moveSync( sourcePath, targetPath );
 		}
 	} else if ( name === 'phpmyadmin' ) {
 		/**

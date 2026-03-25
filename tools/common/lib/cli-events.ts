@@ -90,14 +90,14 @@ export type AuthEvent = z.infer< typeof authEventSchema >;
 /**
  * Socket-level schemas for events sent between daemon-client and the _events command.
  */
-export const siteSocketEventSchema = z.object( {
-	event: z.string(),
+const siteSocketEventSchema = z.object( {
+	event: z.enum( SITE_EVENTS ),
 	data: z.object( {
 		siteId: z.string(),
 	} ),
 } );
 
-export const snapshotSocketEventSchema = z.union( [
+const snapshotSocketEventSchema = z.union( [
 	z.object( {
 		event: z.literal( SNAPSHOT_EVENTS.DELETED_ALL ),
 	} ),
@@ -108,14 +108,20 @@ export const snapshotSocketEventSchema = z.union( [
 		} ),
 	} ),
 ] );
-export type SnapshotSocketEvent = z.infer< typeof snapshotSocketEventSchema >;
 
-export const authSocketEventSchema = z.object( {
+const authSocketEventSchema = z.object( {
 	event: z.enum( AUTH_EVENTS ),
 	data: z.object( {
 		token: authTokenSchema.optional(),
 	} ),
 } );
+
+export const socketEventSchema = z.union( [
+	siteSocketEventSchema,
+	snapshotSocketEventSchema,
+	authSocketEventSchema,
+] );
+export type SocketEvent = z.infer< typeof socketEventSchema >;
 
 /**
  * CLI stdout key-value pair schemas for events parsed by Studio's cli-events-subscriber.

@@ -12,13 +12,10 @@ import {
 	SITE_EVENTS,
 	SNAPSHOT_EVENTS,
 	siteDetailsSchema,
-	siteSocketEventSchema,
-	snapshotSocketEventSchema,
-	authSocketEventSchema,
+	socketEventSchema,
 	SiteEvent,
 	SnapshotEvent,
 	AuthEvent,
-	SnapshotSocketEvent,
 } from '@studio/common/lib/cli-events';
 import { isEmptyDir } from '@studio/common/lib/fs-utils';
 import { sequential } from '@studio/common/lib/sequential';
@@ -91,22 +88,24 @@ function emitAuthEvent( event: AUTH_EVENTS, token?: AuthEvent[ 'token' ] ): void
 	logger.reportKeyValuePair( 'auth-event', JSON.stringify( payload ) );
 }
 
-const emitSnapshotEvent = sequential(
-	async ( incomingEvent: SnapshotSocketEvent ): Promise< void > => {
-		if ( incomingEvent.event === SNAPSHOT_EVENTS.DELETED_ALL ) {
-			const outgoingEvent: SnapshotEvent = {
-				event: SNAPSHOT_EVENTS.DELETED_ALL,
-			};
-			logger.reportKeyValuePair( 'snapshot-event', JSON.stringify( outgoingEvent ) );
-			return;
-		}
+const emitDeletedAllSnapshotsEvent = sequential(
+	async ( event: SNAPSHOT_EVENTS.DELETED_ALL ): Promise< void > => {
+		const outgoingEvent: SnapshotEvent = { event };
+		logger.reportKeyValuePair( 'snapshot-event', JSON.stringify( outgoingEvent ) );
+	}
+);
 
+const emitSingleSnapshotEvent = sequential(
+	async (
+		event: SNAPSHOT_EVENTS.CREATED | SNAPSHOT_EVENTS.UPDATED | SNAPSHOT_EVENTS.DELETED,
+		snapshotUrl: string
+	): Promise< void > => {
 		const cliConfig = await readCliConfig();
 
-		const snapshot = cliConfig.snapshots.find( ( s ) => s.url === incomingEvent.data.snapshotUrl );
+		const snapshot = cliConfig.snapshots.find( ( s ) => s.url === snapshotUrl );
 		const outgoingEvent: SnapshotEvent = {
-			event: incomingEvent.event,
-			snapshotUrl: incomingEvent.data.snapshotUrl,
+			event,
+			snapshotUrl,
 			snapshot: snapshot ?? undefined,
 		};
 		logger.reportKeyValuePair( 'snapshot-event', JSON.stringify( outgoingEvent ) );
@@ -117,25 +116,29 @@ export async function runCommand(): Promise< void > {
 	const eventsSocketServer = new SocketServer( SITE_EVENTS_SOCKET_PATH, 2500 );
 	eventsSocketServer.on( 'message', ( { message: packet } ) => {
 		try {
-			const authParsed = authSocketEventSchema.safeParse( packet );
-			if ( authParsed.success ) {
-				emitAuthEvent( authParsed.data.event, authParsed.data.data.token );
-				return;
-			}
+			const parsed = socketEventSchema.parse( packet );
 
-			const snapshotParsed = snapshotSocketEventSchema.safeParse( packet );
-			if ( snapshotParsed.success ) {
-				void emitSnapshotEvent( snapshotParsed.data );
-				return;
-			}
+			switch ( parsed.event ) {
+				case AUTH_EVENTS.LOGIN:
+				case AUTH_EVENTS.LOGOUT:
+					void emitAuthEvent( parsed.event, parsed.data.token );
+					break;
 
-			const parsedPacket = siteSocketEventSchema.parse( packet );
-			if (
-				parsedPacket.event === SITE_EVENTS.CREATED ||
-				parsedPacket.event === SITE_EVENTS.UPDATED ||
-				parsedPacket.event === SITE_EVENTS.DELETED
-			) {
-				void emitSiteEvent( parsedPacket.event, parsedPacket.data.siteId );
+				case SNAPSHOT_EVENTS.CREATED:
+				case SNAPSHOT_EVENTS.UPDATED:
+				case SNAPSHOT_EVENTS.DELETED:
+					void emitSingleSnapshotEvent( parsed.event, parsed.data.snapshotUrl );
+					break;
+
+				case SNAPSHOT_EVENTS.DELETED_ALL:
+					void emitDeletedAllSnapshotsEvent( parsed.event );
+					break;
+
+				case SITE_EVENTS.CREATED:
+				case SITE_EVENTS.UPDATED:
+				case SITE_EVENTS.DELETED:
+					void emitSiteEvent( parsed.event, parsed.data.siteId );
+					break;
 			}
 		} catch ( error ) {
 			// Do nothing

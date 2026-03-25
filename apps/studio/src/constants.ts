@@ -16,8 +16,8 @@ export const SYNC_PUSH_SIZE_LIMIT_BYTES = SYNC_PUSH_SIZE_LIMIT_GB * 1024 * 1024 
 export const AUTO_UPDATE_INTERVAL_MS = 60 * 60 * 1000;
 export const MACOS_TRAFFIC_LIGHT_POSITION = { x: 20, y: 20 };
 export const WINDOWS_TITLEBAR_HEIGHT = 32;
-export const ABOUT_WINDOW_WIDTH = 300;
-export const ABOUT_WINDOW_HEIGHT = 350;
+export const ABOUT_WINDOW_WIDTH = 310;
+export const ABOUT_WINDOW_HEIGHT = 380;
 export const TELEX_HOSTNAME = 'telex.automattic.ai';
 export const TELEX_UTM_PARAMS = {
 	utm_source: 'studio',

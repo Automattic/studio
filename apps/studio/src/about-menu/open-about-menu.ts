@@ -1,9 +1,10 @@
 import { BrowserWindow, app } from 'electron';
 import path from 'path';
 import * as Sentry from '@sentry/electron/renderer';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { ABOUT_WINDOW_HEIGHT, ABOUT_WINDOW_WIDTH } from 'src/constants';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
+import { loadUserData } from 'src/storage/user-data';
 
 let aboutWindow: BrowserWindow | null = null;
 
@@ -61,7 +62,7 @@ export function openAboutWindow() {
 	// Read package.json and pass version to about window
 	const packageJson = app.getVersion();
 
-	aboutWindow.webContents.on( 'dom-ready', () => {
+	aboutWindow.webContents.on( 'dom-ready', async () => {
 		if ( aboutWindow ) {
 			//When updating these strings, make sure to update the corresponding strings in the about-menu.html file
 			const versionText = escapeSingleQuotes( `${ packageJson } (${ getPlatformLabel() })` );
@@ -72,10 +73,21 @@ export function openAboutWindow() {
 			const demoSitesText = escapeSingleQuotes( __( 'Preview sites powered by' ) );
 			const localSitesText = escapeSingleQuotes( __( 'Local sites powered by' ) );
 
+			let userIdText = '';
+			try {
+				const userData = await loadUserData();
+				if ( userData.sentryUserId ) {
+					userIdText = escapeSingleQuotes( sprintf( __( 'User ID: %s' ), userData.sentryUserId ) );
+				}
+			} catch {
+				// Non-critical, leave empty
+			}
+
 			const script = `
 				document.title = '${ aboutStudioText }';
 				document.getElementById('studio-by-wpcom').innerText = '${ studioByWpcomText }';
 				document.getElementById('version-text').innerText = '${ versionText }';
+				document.getElementById('user-id-text').innerText = '${ userIdText }';
 				document.getElementById('share-feedback').innerText = '${ shareFeedbackText }';
 				document.getElementById('release-notes').innerText = '${ releasesText }';
 				document.getElementById('demo-sites').innerText = '${ demoSitesText }';

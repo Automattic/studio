@@ -220,17 +220,13 @@ export async function getWordPressSkillsStatusAllSites(
 
 export async function installWordPressSkillsToAllSites(
 	_event: IpcMainInvokeEvent,
-	options?: { skillId?: string; overwrite?: boolean }
+	options: { skillId: string; overwrite?: boolean }
 ): Promise< void > {
 	const sites = SiteServer.getAll();
-	const overwrite = options?.overwrite ?? false;
+	const overwrite = options.overwrite ?? false;
 	const bundledPath = getAiInstructionsPath();
-	const tasks = sites.flatMap( ( site ) =>
-		options?.skillId
-			? [ installSkillToSite( site.details.path, bundledPath, options.skillId, overwrite ) ]
-			: BUNDLED_SKILLS.map( ( skill ) =>
-					installSkillToSite( site.details.path, bundledPath, skill.id, overwrite )
-			  )
+	const tasks = sites.map( ( site ) =>
+		installSkillToSite( site.details.path, bundledPath, options.skillId, overwrite )
 	);
 	const results = await Promise.allSettled( tasks );
 	results.forEach( ( result ) => {
@@ -239,12 +235,11 @@ export async function installWordPressSkillsToAllSites(
 		}
 	} );
 
-	const installedIds = options?.skillId ? [ options.skillId ] : BUNDLED_SKILLS.map( ( s ) => s.id );
 	try {
 		await lockAppdata();
 		const userData = await loadUserData();
 		const existing = userData.selectedSkills ?? [];
-		const merged = Array.from( new Set( [ ...existing, ...installedIds ] ) );
+		const merged = Array.from( new Set( [ ...existing, options.skillId ] ) );
 		await saveUserData( { ...userData, selectedSkills: merged } );
 	} finally {
 		await unlockAppdata();

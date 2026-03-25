@@ -240,10 +240,15 @@ export async function installWordPressSkillsToAllSites(
 	} );
 
 	const installedIds = options?.skillId ? [ options.skillId ] : BUNDLED_SKILLS.map( ( s ) => s.id );
-	const userData = await loadUserData();
-	const existing = userData.selectedSkills ?? [];
-	const merged = Array.from( new Set( [ ...existing, ...installedIds ] ) );
-	await updateAppdata( { selectedSkills: merged } );
+	try {
+		await lockAppdata();
+		const userData = await loadUserData();
+		const existing = userData.selectedSkills ?? [];
+		const merged = Array.from( new Set( [ ...existing, ...installedIds ] ) );
+		await saveUserData( { ...userData, selectedSkills: merged } );
+	} finally {
+		await unlockAppdata();
+	}
 }
 
 export async function removeWordPressSkillFromAllSites(
@@ -259,9 +264,14 @@ export async function removeWordPressSkillFromAllSites(
 		}
 	} );
 
-	const userData = await loadUserData();
-	const updated = ( userData.selectedSkills ?? [] ).filter( ( id ) => id !== skillId );
-	await updateAppdata( { selectedSkills: updated } );
+	try {
+		await lockAppdata();
+		const userData = await loadUserData();
+		const updated = ( userData.selectedSkills ?? [] ).filter( ( id ) => id !== skillId );
+		await saveUserData( { ...userData, selectedSkills: updated } );
+	} finally {
+		await unlockAppdata();
+	}
 }
 
 const DEBUG_LOG_MAX_LINES = 50;

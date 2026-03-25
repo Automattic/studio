@@ -22,6 +22,7 @@ import {
 	truncateToWidth,
 } from '@mariozechner/pi-tui';
 import { readAuthToken } from '@studio/common/lib/shared-config';
+import { _n, sprintf } from '@wordpress/i18n';
 import chalk from 'chalk';
 import { AI_MODELS, DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
@@ -1810,7 +1811,7 @@ export class AiChatUI {
 		message: SDKMessage
 	):
 		| { sessionId: string; success: boolean; maxTurnsReached?: undefined }
-		| { sessionId: string; maxTurnsReached: true; numTurns: number; costUsd: number }
+		| { sessionId: string; maxTurnsReached: true; numTurns: number }
 		| undefined {
 		switch ( message.type ) {
 			case 'assistant': {
@@ -1907,9 +1908,16 @@ export class AiChatUI {
 						this.messages.addChild( new Text( '\n ' + chalk.blue( '⏺' ) + ' Done', 0, 0 ) );
 					}
 					this.showInfo(
-						`Thought for ${ thinkingSec }s · ${
+						sprintf(
+							/* translators: 1: seconds spent thinking, 2: number of turns */
+							_n(
+								'Thought for %1$ds · %2$d turn',
+								'Thought for %1$ds · %2$d turns',
+								message.num_turns
+							),
+							thinkingSec,
 							message.num_turns
-						} turns · $${ message.total_cost_usd.toFixed( 4 ) }`
+						)
 					);
 					return { sessionId: message.session_id, success: true };
 				}
@@ -1934,7 +1942,6 @@ export class AiChatUI {
 						sessionId: message.session_id,
 						maxTurnsReached: true,
 						numTurns: message.num_turns,
-						costUsd: message.total_cost_usd,
 					};
 				} else if ( message.subtype ) {
 					parts.push( `(${ message.subtype })` );

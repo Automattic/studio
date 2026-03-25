@@ -12,7 +12,7 @@ import { cleanupLegacyMuPlugins, getMuPlugins } from '@studio/common/lib/mu-plug
 import { LatestSupportedPHPVersion } from '@studio/common/types/php-versions';
 import { __ } from '@wordpress/i18n';
 import { setupPlatformLevelMuPlugins } from '@wp-playground/wordpress';
-import semver from 'semver';
+import { isJspiAvailable } from '@studio/common/lib/jspi';
 import { getSqliteCommandPath, getWpCliPharPath } from 'cli/lib/server-files';
 
 const processIdAllocator = new ProcessIdAllocator();
@@ -48,11 +48,10 @@ export async function runWpCliCommand(
 	phpVersion: SupportedPHPVersion,
 	args: string[]
 ): Promise< [ StreamedPHPResponse, exitPhp: () => void ] > {
-	const doesCurrentNodeSupportJspi = semver.gte( process.version, '24.0.0' );
 	const id = await loadNodeRuntime( phpVersion, {
 		followSymlinks: true,
-		withRedis: doesCurrentNodeSupportJspi,
-		withMemcached: doesCurrentNodeSupportJspi,
+		withRedis: isJspiAvailable,
+		withMemcached: isJspiAvailable,
 		emscriptenOptions: {
 			processId: processIdAllocator.claim(),
 		},

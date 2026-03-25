@@ -37,8 +37,14 @@ type EditSiteDetailsProps = {
 
 const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) => {
 	const { __ } = useI18n();
-	const { updateSite, selectedSite, isEditModalOpen, setIsEditModalOpen, editModalInitialTab } =
-		useSiteDetails();
+	const {
+		updateSite,
+		selectedSite,
+		isEditModalOpen,
+		setIsEditModalOpen,
+		editModalInitialTab,
+		setEditModalInitialTab,
+	} = useSiteDetails();
 	const [ errorUpdatingWpVersion, setErrorUpdatingWpVersion ] = useState< string | null >( null );
 	const [ isEditingSite, setIsEditingSite ] = useState( false );
 	const [ needsRestart, setNeedsRestart ] = useState( false );
@@ -627,6 +633,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 				disabled={ ! selectedSite }
 				className="shrink-0"
 				onClick={ () => {
+					setEditModalInitialTab( 'general' );
 					setIsEditModalOpen( true );
 					resetFormState();
 				} }

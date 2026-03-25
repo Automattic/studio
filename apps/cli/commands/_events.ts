@@ -90,8 +90,8 @@ function emitAuthEvent( event: AUTH_EVENTS, token?: AuthEvent[ 'token' ] ): void
 
 const emitDeletedAllSnapshotsEvent = sequential(
 	async ( event: SNAPSHOT_EVENTS.DELETED_ALL ): Promise< void > => {
-		const outgoingEvent: SnapshotEvent = { event };
-		logger.reportKeyValuePair( 'snapshot-event', JSON.stringify( outgoingEvent ) );
+		const payload: SnapshotEvent = { event };
+		logger.reportKeyValuePair( 'snapshot-event', JSON.stringify( payload ) );
 	}
 );
 
@@ -103,12 +103,12 @@ const emitSingleSnapshotEvent = sequential(
 		const cliConfig = await readCliConfig();
 
 		const snapshot = cliConfig.snapshots.find( ( s ) => s.url === snapshotUrl );
-		const outgoingEvent: SnapshotEvent = {
+		const payload: SnapshotEvent = {
 			event,
 			snapshotUrl,
 			snapshot: snapshot ?? undefined,
 		};
-		logger.reportKeyValuePair( 'snapshot-event', JSON.stringify( outgoingEvent ) );
+		logger.reportKeyValuePair( 'snapshot-event', JSON.stringify( payload ) );
 	}
 );
 

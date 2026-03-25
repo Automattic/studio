@@ -793,7 +793,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				noStart: ! argv.start,
 				skipBrowser: !! argv.skipBrowser,
 				skipLogDetails: !! argv.skipLogDetails,
-				skills: argv.skills ?? [],
+				skills: argv.skills,
 			};
 
 			if ( argv.blueprint ) {

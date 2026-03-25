@@ -9,6 +9,10 @@ import { store } from 'src/stores';
 
 vi.mock( 'src/hooks/use-auth' );
 vi.mock( 'src/hooks/use-offline' );
+vi.mock( 'src/lib/app-globals', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('src/lib/app-globals') >() ),
+	isWindows: () => false,
+} ) );
 
 const mockOpenURL = vi.fn();
 const mockAuthenticate = vi.fn();

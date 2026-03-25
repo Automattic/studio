@@ -166,7 +166,7 @@ export async function selectSyncItemsForPush(
 	} );
 
 	if ( selected.length === 0 ) {
-		throw new Error( __( 'No items selected for sync' ) );
+		return undefined;
 	}
 
 	if ( isAllSelected( selected ) ) {
@@ -213,7 +213,7 @@ export async function selectSyncItemsForPull(
 	} );
 
 	if ( selected.length === 0 ) {
-		throw new Error( __( 'No items selected for sync' ) );
+		return undefined;
 	}
 
 	if ( isAllSelected( selected ) ) {

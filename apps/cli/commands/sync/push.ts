@@ -86,6 +86,9 @@ export async function runCommand(
 			optionsToSync = parseOptions( optionsString );
 		} else {
 			const selection = await selectSyncItemsForPush( site.path );
+			if ( ! selection ) {
+				return;
+			}
 			optionsToSync = selection.optionsToSync;
 			specificSelectionPaths = selection.specificSelectionPaths;
 		}

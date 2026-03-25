@@ -51,11 +51,9 @@ export async function pickSyncSite(
 			value: site.id,
 		} ) ),
 		...nonSyncable.map( ( site ) => ( {
-			name: `${ formatSiteChoice( site ) } ${ chalk.red(
-				`(${ getSyncSupportLabel( site.syncSupport ) })`
-			) }`,
+			name: formatSiteChoice( site ),
 			value: site.id,
-			disabled: getSyncSupportLabel( site.syncSupport ),
+			disabled: chalk.red( `(${ getSyncSupportLabel( site.syncSupport ) })` ),
 		} ) ),
 	];
 

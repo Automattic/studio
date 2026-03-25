@@ -137,6 +137,12 @@ export default createPrompt< TreeNode[], TreeCheckboxConfig >( ( config, done ) 
 			return;
 		}
 
+		if ( key.name === 'escape' ) {
+			setStatus( 'done' );
+			done( [] );
+			return;
+		}
+
 		if ( isEnterKey( key ) ) {
 			setStatus( 'done' );
 			done( collectCheckedValues( tree ) );
@@ -298,14 +304,8 @@ export default createPrompt< TreeNode[], TreeCheckboxConfig >( ( config, done ) 
 	} );
 
 	const helpTip = colors.dim(
-		`(${ [
-			`${ colors.bold( 'space' ) } toggle`,
-			`${ colors.bold( '→' ) } expand`,
-			`${ colors.bold( '←' ) } collapse`,
-			`${ colors.bold( 'a' ) } all`,
-			`${ colors.bold( 'enter' ) } confirm`,
-		].join( ' • ' ) })`
+		'↑↓ navigate · space toggle · →← expand/collapse · a all · ⏎ confirm · esc cancel'
 	);
 
-	return `${ prefix } ${ message }${ cursorHide }\n${ helpTip }\n${ page }`;
+	return `${ prefix } ${ message }${ cursorHide }\n${ page }\n${ helpTip }`;
 } );

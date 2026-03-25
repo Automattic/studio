@@ -78,6 +78,9 @@ export async function runCommand( siteFolder: string, optionsString?: string ): 
 			logger.spinner.stop();
 
 			const selection = await selectSyncItemsForPull( token.accessToken, selectedSite.id, tree );
+			if ( ! selection ) {
+				return;
+			}
 			optionsToSync = selection.optionsToSync;
 			includePathList = selection.includePathList;
 		}

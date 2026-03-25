@@ -8,7 +8,7 @@ import {
 	PROCESS_MANAGER_LOGS_DIR,
 	PROCESS_MANAGER_CONTROL_SOCKET_PATH,
 	PROCESS_MANAGER_EVENTS_SOCKET_PATH,
-} from 'cli/lib/daemon-paths';
+} from 'cli/lib/paths';
 import { SocketServer } from 'cli/lib/socket';
 import {
 	ProcessDescription,

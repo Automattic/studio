@@ -1,4 +1,4 @@
-import { SITE_EVENTS, SiteEvent } from '@studio/common/lib/site-events';
+import { SITE_EVENTS, SiteEvent } from '@studio/common/lib/cli-events';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { __, sprintf } from '@wordpress/i18n';
 import {
@@ -247,7 +247,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		async ( id: string, removeLocal: boolean ) => {
 			await deleteSite( id, removeLocal );
 			const newSites = await getIpcApi().getSiteDetails();
-			setSites( newSites );
+			setSites( sortSites( newSites ) );
 			// Use functional update to access current selectedSiteId value
 			// Tab reset is handled in SiteContentTabs when it detects the previous site was deleted
 			setSelectedSiteId( ( currentSelectedId ) => {
@@ -403,7 +403,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	const updateSite = useCallback( async ( site: SiteDetails, wpVersion?: string ) => {
 		await getIpcApi().updateSite( site, wpVersion );
 		const updatedSites = await getIpcApi().getSiteDetails();
-		setSites( updatedSites );
+		setSites( sortSites( updatedSites ) );
 	}, [] );
 
 	const saveTimeoutRef = useRef< ReturnType< typeof setTimeout > >();
@@ -581,7 +581,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			.getSiteDetails()
 			.then( async ( data ) => {
 				if ( ! cancel ) {
-					setSites( data );
+					setSites( sortSites( data ) );
 					setLoadingSites( false );
 					const autoStartSites = data.filter( ( site ) => site.autoStart );
 					void Promise.all( autoStartSites.map( ( site ) => startServer( site ) ) );

@@ -53,12 +53,12 @@ const api: IpcApi = {
 	isAuthenticated: () => ipcRendererInvoke( 'isAuthenticated' ),
 	getAuthenticationToken: () => ipcRendererInvoke( 'getAuthenticationToken' ),
 	clearAuthenticationToken: () => ipcRendererInvoke( 'clearAuthenticationToken' ),
-	saveSnapshotsToStorage: ( snapshots ) => ipcRendererInvoke( 'saveSnapshotsToStorage', snapshots ),
-	getSnapshots: () => ipcRendererInvoke( 'getSnapshots' ),
-	createSnapshot: ( siteFolder ) => ipcRendererInvoke( 'createSnapshot', siteFolder ),
+	fetchSnapshots: () => ipcRendererInvoke( 'fetchSnapshots' ),
+	createSnapshot: ( siteFolder, name ) => ipcRendererInvoke( 'createSnapshot', siteFolder, name ),
 	updateSnapshot: ( siteFolder, hostname ) =>
 		ipcRendererInvoke( 'updateSnapshot', siteFolder, hostname ),
 	deleteSnapshot: ( hostname ) => ipcRendererInvoke( 'deleteSnapshot', hostname ),
+	setSnapshot: ( hostname, options ) => ipcRendererInvoke( 'setSnapshot', hostname, options ),
 	getLastSeenVersion: () => ipcRendererInvoke( 'getLastSeenVersion' ),
 	saveLastSeenVersion: ( version ) => ipcRendererInvoke( 'saveLastSeenVersion', version ),
 	getSiteDetails: () => ipcRendererInvoke( 'getSiteDetails' ),
@@ -169,6 +169,11 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'installWordPressSkillById', siteId, skillId, options ),
 	removeWordPressSkillById: ( siteId, skillId ) =>
 		ipcRendererInvoke( 'removeWordPressSkillById', siteId, skillId ),
+	getWordPressSkillsStatusAllSites: () => ipcRendererInvoke( 'getWordPressSkillsStatusAllSites' ),
+	installWordPressSkillsToAllSites: ( options ) =>
+		ipcRendererInvoke( 'installWordPressSkillsToAllSites', options ),
+	removeWordPressSkillFromAllSites: ( skillId ) =>
+		ipcRendererInvoke( 'removeWordPressSkillFromAllSites', skillId ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

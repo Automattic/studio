@@ -1,7 +1,7 @@
 {
 	"name": "wp-studio",
 	"author": "Automattic Inc.",
-	"version": "1.7.7-alpha1",
+	"version": "1.7.7-beta1",
 	"productName": "Studio CLI",
 	"description": "WordPress Studio CLI",
 	"license": "GPL-2.0-or-later",
@@ -11,6 +11,7 @@
 	},
 	"files": [
 		"dist/cli/*.js",
+		"dist/cli/wp-files/",
 		"patches/",
 		"scripts/"
 	],

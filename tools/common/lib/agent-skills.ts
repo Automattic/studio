@@ -7,7 +7,7 @@ import { isErrnoException } from './is-errno-exception';
  * Managed instruction files that are always kept up-to-date on server start.
  * These are overwritten with the bundled version whenever they already exist in a site.
  */
-const MANAGED_INSTRUCTION_FILES = [ 'STUDIO.md', 'CLAUDE.md' ];
+const MANAGED_INSTRUCTION_FILES = [ 'STUDIO.md' ];
 
 export async function removeSkillFromSite( sitePath: string, skillId: string ): Promise< void > {
 	const agentsSkillPath = path.join( sitePath, '.agents', 'skills', skillId );
@@ -32,6 +32,7 @@ export async function removeSkillFromSite( sitePath: string, skillId: string ): 
 export async function installAiInstructionsToSite(
 	sitePath: string,
 	bundledPath: string,
+	userSelectedGlobalSkills: string[] = [],
 	overwrite: boolean = false
 ): Promise< void > {
 	if ( ! ( await pathExists( bundledPath ) ) ) {
@@ -44,7 +45,7 @@ export async function installAiInstructionsToSite(
 	for ( const entry of entries ) {
 		if ( entry.isFile() && entry.name.endsWith( '.md' ) ) {
 			tasks.push( installInstructionFile( sitePath, bundledPath, entry.name, overwrite ) );
-		} else if ( entry.isDirectory() ) {
+		} else if ( entry.isDirectory() && userSelectedGlobalSkills.includes( entry.name ) ) {
 			tasks.push( installSkillToSite( sitePath, bundledPath, entry.name, overwrite ) );
 		}
 	}

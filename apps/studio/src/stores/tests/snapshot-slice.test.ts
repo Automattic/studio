@@ -14,14 +14,14 @@ import {
 } from 'src/stores/snapshot-slice';
 import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 
-const mockGetSnapshots = vi.fn();
-const mockCreateSnapshot = vi.fn();
+vi.mock( 'src/lib/get-ipc-api', () => ( {
+	getIpcApi: vi.fn().mockReturnValue( {
+		fetchSnapshots: vi.fn().mockResolvedValue( [] ),
+		createSnapshot: vi.fn(),
+	} ),
+} ) );
 
-vi.mock( 'src/lib/get-ipc-api' );
-vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
-	getSnapshots: mockGetSnapshots,
-	createSnapshot: mockCreateSnapshot,
-} );
+const mockCreateSnapshot = vi.mocked( getIpcApi )().createSnapshot as ReturnType< typeof vi.fn >;
 
 function snapshotTestReducer( state: RootState | undefined, action: UnknownAction ) {
 	if ( action.type === 'snapshot/addOperation' ) {

@@ -27,9 +27,12 @@ import {
 	InMemoryFilesystem,
 } from '@wp-playground/storage';
 import { WordPressInstallMode } from '@wp-playground/wordpress';
+import fs from 'fs-extra';
+import semver from 'semver';
 import { z } from 'zod';
 import { sanitizeRunCLIArgs } from 'cli/lib/cli-args-sanitizer';
-import { getSqliteCommandPath, getWpCliPharPath } from 'cli/lib/server-files';
+import { rewriteWpCliPostContentToFile } from 'cli/lib/rewrite-wp-cli-post-content';
+import { getPhpMyAdminPath, getSqliteCommandPath, getWpCliPharPath } from 'cli/lib/server-files';
 import { isSqliteIntegrationInstalled } from 'cli/lib/sqlite-integration';
 import {
 	ServerConfig,
@@ -179,7 +182,7 @@ async function getBaseRunCLIArgs(
 	const enableDebugLog = config.enableDebugLog ?? false;
 	const enableDebugDisplay = config.enableDebugDisplay ?? false;
 
-	const defaultConstants: Record< string, boolean > = {
+	const defaultConstants: Record< string, boolean | string > = {
 		WP_SQLITE_AST_DRIVER: true,
 		WP_DEBUG: enableDebugLog || enableDebugDisplay,
 		WP_DEBUG_LOG: enableDebugLog,
@@ -231,6 +234,7 @@ async function getBaseRunCLIArgs(
 		} );
 	}
 
+	const doesCurrentNodeSupportJspi = semver.gte( process.version, '24.0.0' );
 	const args: RunCLIArgs = {
 		command,
 		internalCookieStore: false,
@@ -242,8 +246,8 @@ async function getBaseRunCLIArgs(
 		'site-url': config.absoluteUrl || `http://localhost:${ config.port }`,
 		blueprint: blueprintBundle,
 		wordpressInstallMode,
-		redis: true,
-		memcached: true,
+		redis: doesCurrentNodeSupportJspi,
+		memcached: doesCurrentNodeSupportJspi,
 	};
 
 	if ( config.wpVersion ) {
@@ -258,6 +262,18 @@ async function getBaseRunCLIArgs(
 		logToConsole( 'Enabling Xdebug support' );
 		args.xdebug = true;
 	}
+
+	const phpMyAdminHostPath = getPhpMyAdminPath();
+	if ( await fs.pathExists( phpMyAdminHostPath ) ) {
+		mounts.push( {
+			hostPath: phpMyAdminHostPath,
+			vfsPath: '/tools/phpmyadmin',
+		} );
+		logToConsole( 'Mounting bundled phpMyAdmin' );
+	} else {
+		logToConsole( 'Bundled phpMyAdmin not found, falling back to Playground download' );
+	}
+	args.phpmyadmin = true;
 
 	lastCliArgs = sanitizeRunCLIArgs( args );
 	return args;
@@ -408,11 +424,13 @@ const runWpCliCommand = sequential(
 			{ once: true }
 		);
 
+		const rewrittenArgs = await rewriteWpCliPostContentToFile( args, server.playground.writeFile );
+
 		const response = await server.playground.cli( [
 			'php',
 			'/tmp/wp-cli.phar',
 			`--path=${ await server.playground.documentRoot }`,
-			...args,
+			...rewrittenArgs,
 		] );
 
 		return {

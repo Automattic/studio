@@ -8,6 +8,8 @@ import {
 import { moreVertical } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren, useCallback, useEffect, useState } from 'react';
+import { AiSettingsModal } from 'src/components/ai-settings-modal';
+import StudioButton from 'src/components/button';
 import { CopyTextButton } from 'src/components/copy-text-button';
 import { LearnHowLink } from 'src/components/learn-more';
 import { SettingsMenuItem } from 'src/components/settings-site-menu';
@@ -61,6 +63,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 	const { handleDeleteSite } = useDeleteSite();
 	const { copySite } = useSiteDetails();
 	const [ debugLogPath, setDebugLogPath ] = useState< string | null >( null );
+	const [ aiSettingsTab, setAiSettingsTab ] = useState< 'skills' | 'instructions' | null >( null );
 
 	const checkDebugLogExists = useCallback( async () => {
 		if ( ! selectedSite.enableDebugLog ) {
@@ -226,6 +229,39 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 					</SettingsRow>
 				</tbody>
 			</table>
+			<div className="mt-4">
+				<h3 className="text-frame-text text-sm font-semibold mb-2">{ __( 'AI Skills' ) }</h3>
+				<p className="text-sm text-frame-text-secondary mb-3 max-w-96">
+					{ __( "Your task agents make use of skills you've installed in" ) }{ ' ' }
+					<Button variant="link" onClick={ () => getIpcApi().showUserSettings( 'skills' ) }>
+						{ __( 'Studio Settings' ) }
+					</Button>
+					{ '. ' }
+					{ __( 'You can override global skills for this site.' ) }
+				</p>
+				<StudioButton variant="secondary" onClick={ () => setAiSettingsTab( 'skills' ) }>
+					{ __( 'Manage site skills' ) }
+				</StudioButton>
+			</div>
+			<div className="mt-4">
+				<h3 className="text-frame-text text-sm font-semibold mb-2">
+					{ __( 'Agent Instructions' ) }
+				</h3>
+				<p className="text-sm text-frame-text-secondary mb-3 max-w-96">
+					{ __(
+						'Install instruction files like AGENTS.md so AI agents know how to work with this site.'
+					) }
+				</p>
+				<StudioButton variant="secondary" onClick={ () => setAiSettingsTab( 'instructions' ) }>
+					{ __( 'Manage instructions' ) }
+				</StudioButton>
+			</div>
+			<AiSettingsModal
+				isOpen={ aiSettingsTab !== null }
+				onClose={ () => setAiSettingsTab( null ) }
+				siteId={ selectedSite.id }
+				initialTab={ aiSettingsTab ?? 'skills' }
+			/>
 		</div>
 	);
 }

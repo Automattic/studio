@@ -63,17 +63,13 @@ export function SkillsTab() {
 		[ refreshStatus ]
 	);
 
-	const wordPressSkills = useMemo(
-		() => statuses.filter( ( s ) => s.id !== 'studio-cli' ),
+	const installedSkills = useMemo(
+		() => statuses.filter( ( s ) => s.installed ),
 		[ statuses ]
 	);
-	const installedSkills = useMemo(
-		() => wordPressSkills.filter( ( s ) => s.installed ),
-		[ wordPressSkills ]
-	);
 	const availableSkills = useMemo(
-		() => wordPressSkills.filter( ( s ) => ! s.installed ),
-		[ wordPressSkills ]
+		() => statuses.filter( ( s ) => ! s.installed ),
+		[ statuses ]
 	);
 
 	const handleInstallAll = useCallback( async () => {

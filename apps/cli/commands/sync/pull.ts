@@ -2,14 +2,15 @@ import os from 'os';
 import path from 'path';
 import { SYNC_EVENTS } from '@studio/common/lib/cli-events';
 import { readAuthToken } from '@studio/common/lib/shared-config';
+import { SYNC_MAX_POLL_ATTEMPTS, SYNC_POLL_INTERVAL_MS } from '@studio/common/lib/sync/constants';
 import { SyncCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
-import { SyncOptionSchema } from '@studio/common/types/sync';
 import { __, sprintf } from '@wordpress/i18n';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { emitCliEvent } from 'cli/lib/daemon-client';
 import {
 	fetchSyncableSites,
 	initiateBackup,
+	parseSyncOptions,
 	pollBackupStatus,
 	downloadBackup,
 } from 'cli/lib/sync-api';
@@ -19,31 +20,10 @@ import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 import type { SyncOption } from '@studio/common/types/sync';
 
-const POLL_INTERVAL_MS = 3000;
-const MAX_POLL_ATTEMPTS = 200;
-
-function parseOptions( optionsString?: string ): SyncOption[] {
-	if ( ! optionsString ) {
-		return [ 'all' ];
-	}
-
-	return optionsString.split( ',' ).map( ( o ) => {
-		const result = SyncOptionSchema.safeParse( o.trim() );
-		if ( ! result.success ) {
-			throw new LoggerError(
-				sprintf(
-					__( 'Invalid sync option: %s. Valid options: %s' ),
-					o.trim(),
-					SyncOptionSchema.options.join( ', ' )
-				)
-			);
-		}
-		return result.data;
-	} );
-}
-
 export async function runCommand( siteFolder: string, optionsString?: string ): Promise< void > {
 	const logger = new Logger< LoggerAction >();
+	let site: Awaited< ReturnType< typeof getSiteByFolder > > | undefined;
+	let selectedSite: Awaited< ReturnType< typeof pickSyncSite > > | undefined;
 
 	try {
 		const token = await readAuthToken();
@@ -53,14 +33,14 @@ export async function runCommand( siteFolder: string, optionsString?: string ): 
 			);
 		}
 
-		const site = await getSiteByFolder( siteFolder );
+		site = await getSiteByFolder( siteFolder );
 
 		logger.reportStart( LoggerAction.FETCH_SITES, __( 'Fetching WordPress.com sites…' ) );
 		const sites = await fetchSyncableSites( token.accessToken );
 		logger.spinner.stop();
 		logger.reportSuccess( sprintf( __( 'Found %d sites' ), sites.length ), true );
 
-		const selectedSite = await pickSyncSite( sites, __( 'Select a site to pull from' ) );
+		selectedSite = await pickSyncSite( sites, __( 'Select a site to pull from' ) );
 		if ( ! selectedSite ) {
 			return;
 		}
@@ -69,7 +49,7 @@ export async function runCommand( siteFolder: string, optionsString?: string ): 
 		let includePathList: string[] | undefined;
 
 		if ( optionsString ) {
-			optionsToSync = parseOptions( optionsString );
+			optionsToSync = parseSyncOptions( optionsString );
 		} else {
 			logger.reportStart( LoggerAction.FETCH_SITES, __( 'Fetching file tree…' ) );
 			const { tree } = await fetchPullTree( token.accessToken, selectedSite.id );
@@ -83,14 +63,19 @@ export async function runCommand( siteFolder: string, optionsString?: string ): 
 			includePathList = selection.includePathList;
 		}
 
+		const localSiteId = site.id;
+		const remoteSiteId = selectedSite.id;
+		const remoteSiteName = selectedSite.name;
+		const remoteSiteUrl = selectedSite.url;
+
 		void emitCliEvent( {
 			event: SYNC_EVENTS.STARTED,
 			data: {
 				event: SYNC_EVENTS.STARTED,
 				type: 'pull',
-				localSiteId: site.id,
-				remoteSiteId: selectedSite.id,
-				remoteSiteName: selectedSite.name,
+				localSiteId,
+				remoteSiteId,
+				remoteSiteName,
 			},
 		} );
 
@@ -99,14 +84,14 @@ export async function runCommand( siteFolder: string, optionsString?: string ): 
 			LoggerAction.INITIATE_BACKUP,
 			sprintf( __( 'Initializing remote backup… (%d%%)' ), 0 )
 		);
-		const backupId = await initiateBackup( token.accessToken, selectedSite.id, {
+		const backupId = await initiateBackup( token.accessToken, remoteSiteId, {
 			optionsToSync,
 			includePathList,
 		} );
 
 		let downloadUrl: string | null = null;
-		for ( let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++ ) {
-			const status = await pollBackupStatus( token.accessToken, selectedSite.id, backupId );
+		for ( let attempt = 0; attempt < SYNC_MAX_POLL_ATTEMPTS; attempt++ ) {
+			const status = await pollBackupStatus( token.accessToken, remoteSiteId, backupId );
 
 			if ( status.status === 'failed' ) {
 				throw new LoggerError( __( 'Remote backup failed' ) );
@@ -126,15 +111,15 @@ export async function runCommand( siteFolder: string, optionsString?: string ): 
 				data: {
 					event: SYNC_EVENTS.PROGRESS,
 					type: 'pull',
-					localSiteId: site.id,
-					remoteSiteId: selectedSite.id,
-					remoteSiteName: selectedSite.name,
+					localSiteId,
+					remoteSiteId,
+					remoteSiteName,
 					progress: backupProgress,
 					statusMessage: __( 'Creating backup…' ),
 				},
 			} );
 
-			await new Promise( ( resolve ) => setTimeout( resolve, POLL_INTERVAL_MS ) );
+			await new Promise( ( resolve ) => setTimeout( resolve, SYNC_POLL_INTERVAL_MS ) );
 		}
 
 		if ( ! downloadUrl ) {
@@ -146,7 +131,7 @@ export async function runCommand( siteFolder: string, optionsString?: string ): 
 		const tempDir = path.join( os.tmpdir(), 'studio-sync' );
 		const { mkdirSync } = await import( 'fs' );
 		mkdirSync( tempDir, { recursive: true } );
-		const destPath = path.join( tempDir, `pull-${ selectedSite.id }-${ Date.now() }.tar.gz` );
+		const destPath = path.join( tempDir, `pull-${ remoteSiteId }-${ Date.now() }.tar.gz` );
 		await downloadBackup( downloadUrl, destPath );
 
 		// TODO: Import backup into local site (80-100%)
@@ -154,8 +139,8 @@ export async function runCommand( siteFolder: string, optionsString?: string ): 
 		logger.reportSuccess(
 			sprintf(
 				__( 'Pulled from %s (%s). Backup saved to %s. Import not yet implemented in CLI.' ),
-				selectedSite.name,
-				selectedSite.url,
+				remoteSiteName,
+				remoteSiteUrl,
 				destPath
 			)
 		);
@@ -165,12 +150,26 @@ export async function runCommand( siteFolder: string, optionsString?: string ): 
 			data: {
 				event: SYNC_EVENTS.COMPLETED,
 				type: 'pull',
-				localSiteId: site.id,
-				remoteSiteId: selectedSite.id,
-				remoteSiteName: selectedSite.name,
+				localSiteId,
+				remoteSiteId,
+				remoteSiteName,
 			},
 		} );
 	} catch ( error ) {
+		if ( site && selectedSite ) {
+			void emitCliEvent( {
+				event: SYNC_EVENTS.FAILED,
+				data: {
+					event: SYNC_EVENTS.FAILED,
+					type: 'pull',
+					localSiteId: site.id,
+					remoteSiteId: selectedSite.id,
+					remoteSiteName: selectedSite.name,
+					error: error instanceof Error ? error.message : __( 'Pull failed' ),
+				},
+			} );
+		}
+
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );
 		} else {

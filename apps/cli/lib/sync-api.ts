@@ -8,11 +8,32 @@ import {
 	fetchLatestRewindId as fetchLatestRewindIdBase,
 	fetchRemoteFileTree as fetchRemoteFileTreeBase,
 } from '@studio/common/lib/sync/sync-api';
-import { __ } from '@wordpress/i18n';
+import { SyncOptionSchema } from '@studio/common/types/sync';
+import { __, sprintf } from '@wordpress/i18n';
 import { z } from 'zod';
 import { LoggerError } from 'cli/logger';
 import type { SyncSite, ImportResponse, SyncOption } from '@studio/common/types/sync';
 export type { BackupStatus, RemoteFileEntry } from '@studio/common/lib/sync/sync-api';
+
+export function parseSyncOptions( optionsString?: string ): SyncOption[] {
+	if ( ! optionsString ) {
+		return [ 'all' ];
+	}
+
+	return optionsString.split( ',' ).map( ( o ) => {
+		const result = SyncOptionSchema.safeParse( o.trim() );
+		if ( ! result.success ) {
+			throw new LoggerError(
+				sprintf(
+					__( 'Invalid sync option: %s. Valid options: %s' ),
+					o.trim(),
+					SyncOptionSchema.options.join( ', ' )
+				)
+			);
+		}
+		return result.data;
+	} );
+}
 
 function wrapError( message: string, error: unknown ): LoggerError {
 	if ( error instanceof LoggerError ) {

@@ -67,7 +67,10 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 			permissionMode: 'default',
 			canUseTool: async ( toolName, input, metadata ) => {
 				if ( autoApprove ) {
-					return { behavior: 'allow' as const };
+					return {
+						behavior: 'allow' as const,
+						updatedInput: input as Record< string, unknown >,
+					};
 				}
 
 				if ( toolName === 'AskUserQuestion' && onAskUser ) {

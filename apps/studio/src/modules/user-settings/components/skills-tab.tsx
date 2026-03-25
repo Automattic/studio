@@ -63,18 +63,8 @@ export function SkillsTab() {
 		[ refreshStatus ]
 	);
 
-	const wordPressSkills = useMemo(
-		() => statuses.filter( ( s ) => s.id !== 'studio-cli' ),
-		[ statuses ]
-	);
-	const installedSkills = useMemo(
-		() => wordPressSkills.filter( ( s ) => s.installed ),
-		[ wordPressSkills ]
-	);
-	const availableSkills = useMemo(
-		() => wordPressSkills.filter( ( s ) => ! s.installed ),
-		[ wordPressSkills ]
-	);
+	const installedSkills = useMemo( () => statuses.filter( ( s ) => s.installed ), [ statuses ] );
+	const availableSkills = useMemo( () => statuses.filter( ( s ) => ! s.installed ), [ statuses ] );
 
 	const handleInstallAll = useCallback( async () => {
 		setInstallingAll( true );
@@ -97,7 +87,9 @@ export function SkillsTab() {
 	return (
 		<div className="flex flex-col gap-4 pb-2">
 			<p className="text-xs text-frame-text-secondary text-center">
-				{ __( 'Agents can decide to use skills to help them accomplish specialized tasks.' ) }
+				{ __(
+					'Agents can decide to use skills to help them accomplish specialized tasks. Select the skills that will be placed in all existing and new sites.'
+				) }
 			</p>
 
 			{ error && (

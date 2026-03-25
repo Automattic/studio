@@ -17,7 +17,12 @@ import https from 'node:https';
 import os from 'os';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
-import { installSkillToSite, removeSkillFromSite } from '@studio/common/lib/agent-skills';
+import {
+	installAiInstructionsToSite,
+	installSkillToSite,
+	removeSkillFromSite,
+	updateManagedInstructionFiles,
+} from '@studio/common/lib/agent-skills';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
 import {
@@ -54,7 +59,7 @@ import {
 	trustRootCA,
 } from 'src/lib/certificate-manager';
 import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
-import { buildFeatureFlags } from 'src/lib/feature-flags';
+import { buildFeatureFlags, getFeatureFlagFromEnv } from 'src/lib/feature-flags';
 import { getImageData } from 'src/lib/get-image-data';
 import { exportBackup } from 'src/lib/import-export/export/export-manager';
 import { ExportOptions } from 'src/lib/import-export/export/types';
@@ -199,34 +204,23 @@ export async function installWordPressSkills(
 export async function getWordPressSkillsStatusAllSites(
 	_event: IpcMainInvokeEvent
 ): Promise< SkillStatus[] > {
-	const sites = SiteServer.getAll();
-	if ( ! sites.length ) {
-		return BUNDLED_SKILLS.map( ( skill ) => ( { ...skill, installed: false } ) );
-	}
-	const allSiteStatuses = await Promise.all(
-		sites.map( ( site ) => getSkillsStatus( site.details.path ) )
-	);
+	const userData = await loadUserData();
+	const selectedSkills = userData.selectedSkills ?? [];
 	return BUNDLED_SKILLS.map( ( skill ) => ( {
 		...skill,
-		installed: allSiteStatuses.every(
-			( siteStatuses ) => siteStatuses.find( ( s ) => s.id === skill.id )?.installed ?? false
-		),
+		installed: selectedSkills.includes( skill.id ),
 	} ) );
 }
 
 export async function installWordPressSkillsToAllSites(
 	_event: IpcMainInvokeEvent,
-	options?: { skillId?: string; overwrite?: boolean }
+	options: { skillId: string; overwrite?: boolean }
 ): Promise< void > {
 	const sites = SiteServer.getAll();
-	const overwrite = options?.overwrite ?? false;
+	const overwrite = options.overwrite ?? false;
 	const bundledPath = getAiInstructionsPath();
-	const tasks = sites.flatMap( ( site ) =>
-		options?.skillId
-			? [ installSkillToSite( site.details.path, bundledPath, options.skillId, overwrite ) ]
-			: BUNDLED_SKILLS.map( ( skill ) =>
-					installSkillToSite( site.details.path, bundledPath, skill.id, overwrite )
-			  )
+	const tasks = sites.map( ( site ) =>
+		installSkillToSite( site.details.path, bundledPath, options.skillId, overwrite )
 	);
 	const results = await Promise.allSettled( tasks );
 	results.forEach( ( result ) => {
@@ -234,6 +228,16 @@ export async function installWordPressSkillsToAllSites(
 			console.error( '[skills] Failed to install skill:', result.reason );
 		}
 	} );
+
+	try {
+		await lockAppdata();
+		const userData = await loadUserData();
+		const existing = userData.selectedSkills ?? [];
+		const merged = Array.from( new Set( [ ...existing, options.skillId ] ) );
+		await saveUserData( { ...userData, selectedSkills: merged } );
+	} finally {
+		await unlockAppdata();
+	}
 }
 
 export async function removeWordPressSkillFromAllSites(
@@ -248,6 +252,15 @@ export async function removeWordPressSkillFromAllSites(
 			console.error( '[skills] Failed to remove skill:', result.reason );
 		}
 	} );
+
+	try {
+		await lockAppdata();
+		const userData = await loadUserData();
+		const updated = ( userData.selectedSkills ?? [] ).filter( ( id ) => id !== skillId );
+		await saveUserData( { ...userData, selectedSkills: updated } );
+	} finally {
+		await unlockAppdata();
+	}
 }
 
 const DEBUG_LOG_MAX_LINES = 50;
@@ -406,6 +419,20 @@ export async function createSite(
 		// If the site is running after creation, fetch theme details and update thumbnail
 		if ( server.details.running ) {
 			void loadThemeDetails( event, server.details.id );
+		}
+
+		// Install AI instructions and skills into the new site
+		if ( getFeatureFlagFromEnv( 'enableAgentSuite' ) ) {
+			const userData = await loadUserData();
+			const selectedSkills = userData.selectedSkills ?? [];
+			void installAiInstructionsToSite( path, getAiInstructionsPath(), selectedSkills ).catch(
+				( error ) => {
+					console.error(
+						'[ai-instructions] Failed to install AI instructions to new site:',
+						error
+					);
+				}
+			);
 		}
 
 		return server.details;
@@ -586,6 +613,13 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 	if ( server.details.running ) {
 		void loadThemeDetails( event, id );
 	}
+
+	// Keep managed instruction files (STUDIO.md, CLAUDE.md) up-to-date
+	void updateManagedInstructionFiles( server.details.path, getAiInstructionsPath() ).catch(
+		( error ) => {
+			console.error( '[ai-instructions] Failed to update managed instruction files:', error );
+		}
+	);
 
 	console.log( `Server started for '${ server.details.name }'` );
 }

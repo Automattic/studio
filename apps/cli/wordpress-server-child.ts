@@ -28,6 +28,7 @@ import {
 } from '@wp-playground/storage';
 import { WordPressInstallMode } from '@wp-playground/wordpress';
 import fs from 'fs-extra';
+import semver from 'semver';
 import { z } from 'zod';
 import { sanitizeRunCLIArgs } from 'cli/lib/cli-args-sanitizer';
 import { getPhpMyAdminPath, getSqliteCommandPath, getWpCliPharPath } from 'cli/lib/server-files';
@@ -232,6 +233,7 @@ async function getBaseRunCLIArgs(
 		} );
 	}
 
+	const doesCurrentNodeSupportJspi = semver.gte( process.version, '24.0.0' );
 	const args: RunCLIArgs = {
 		command,
 		internalCookieStore: false,
@@ -243,8 +245,8 @@ async function getBaseRunCLIArgs(
 		'site-url': config.absoluteUrl || `http://localhost:${ config.port }`,
 		blueprint: blueprintBundle,
 		wordpressInstallMode,
-		redis: true,
-		memcached: true,
+		redis: doesCurrentNodeSupportJspi,
+		memcached: doesCurrentNodeSupportJspi,
 	};
 
 	if ( config.wpVersion ) {

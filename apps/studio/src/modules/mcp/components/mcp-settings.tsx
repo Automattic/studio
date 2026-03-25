@@ -38,30 +38,6 @@ export function McpSettings() {
 					/>
 				</div>
 			</div>
-			<p className="a8c-body-small text-frame-text-secondary m-0">
-				{ __( 'Setup guides:' ) }{ ' ' }
-				<DocLink label={ __( 'Claude Code' ) } url="https://code.claude.com/docs/en/mcp" />
-				{ ', ' }
-				<DocLink
-					label={ __( 'Claude Desktop' ) }
-					url="https://modelcontextprotocol.io/quickstart/user"
-				/>
-				{ ', ' }
-				<DocLink label={ __( 'Codex' ) } url="https://developers.openai.com/codex/mcp" />
-				{ ', ' }
-				<DocLink
-					label={ __( 'Cursor' ) }
-					url="https://cursor.com/docs/mcp#installing-mcp-servers"
-				/>
-				{ ', ' }
-				<DocLink label={ __( 'Windsurf' ) } url="https://docs.windsurf.com/windsurf/cascade/mcp" />
-				{ ', ' }
-				<DocLink
-					label={ __( 'VS Code' ) }
-					url="https://code.visualstudio.com/docs/copilot/chat/mcp-servers"
-				/>
-				.
-			</p>
 		</div>
 	);
 }

@@ -18,6 +18,7 @@ import {
 	SiteEvent,
 	SnapshotEvent,
 	AuthEvent,
+	SnapshotSocketEvent,
 } from '@studio/common/lib/cli-events';
 import { isEmptyDir } from '@studio/common/lib/fs-utils';
 import { sequential } from '@studio/common/lib/sequential';
@@ -91,16 +92,24 @@ function emitAuthEvent( event: AUTH_EVENTS, token?: AuthEvent[ 'token' ] ): void
 }
 
 const emitSnapshotEvent = sequential(
-	async ( event: SNAPSHOT_EVENTS, snapshotUrl: string ): Promise< void > => {
+	async ( incomingEvent: SnapshotSocketEvent ): Promise< void > => {
+		if ( incomingEvent.event === SNAPSHOT_EVENTS.DELETED_ALL ) {
+			const outgoingEvent: SnapshotEvent = {
+				event: SNAPSHOT_EVENTS.DELETED_ALL,
+			};
+			logger.reportKeyValuePair( 'snapshot-event', JSON.stringify( outgoingEvent ) );
+			return;
+		}
+
 		const cliConfig = await readCliConfig();
-		const snapshot = cliConfig.snapshots.find( ( s ) => s.url === snapshotUrl );
-		const payload: SnapshotEvent = {
-			event,
-			snapshotUrl,
+
+		const snapshot = cliConfig.snapshots.find( ( s ) => s.url === incomingEvent.data.snapshotUrl );
+		const outgoingEvent: SnapshotEvent = {
+			event: incomingEvent.event,
+			snapshotUrl: incomingEvent.data.snapshotUrl,
 			snapshot: snapshot ?? undefined,
 		};
-
-		logger.reportKeyValuePair( 'snapshot-event', JSON.stringify( payload ) );
+		logger.reportKeyValuePair( 'snapshot-event', JSON.stringify( outgoingEvent ) );
 	}
 );
 
@@ -116,7 +125,7 @@ export async function runCommand(): Promise< void > {
 
 			const snapshotParsed = snapshotSocketEventSchema.safeParse( packet );
 			if ( snapshotParsed.success ) {
-				void emitSnapshotEvent( snapshotParsed.data.event, snapshotParsed.data.data.snapshotUrl );
+				void emitSnapshotEvent( snapshotParsed.data );
 				return;
 			}
 

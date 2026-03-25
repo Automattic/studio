@@ -395,7 +395,15 @@ function isBulkOperationSettled( bulkOperation: BulkOperation ) {
 }
 
 window.ipcListener.subscribe( 'snapshot-event', ( _, snapshotEvent ) => {
-	const { event: eventType, snapshot, snapshotUrl } = snapshotEvent;
+	const { event: eventType } = snapshotEvent;
+
+	if ( eventType === SNAPSHOT_EVENTS.DELETED_ALL ) {
+		store.dispatch( snapshotSlice.actions.deleteAllSnapshots() );
+		updateSnapshotUsageCount( 0, true );
+		return;
+	}
+
+	const { snapshot, snapshotUrl } = snapshotEvent;
 
 	if ( eventType === SNAPSHOT_EVENTS.DELETED ) {
 		const state = store.getState();
@@ -406,12 +414,6 @@ window.ipcListener.subscribe( 'snapshot-event', ( _, snapshotEvent ) => {
 			);
 			updateSnapshotUsageCount( -1 );
 		}
-		return;
-	}
-
-	if ( eventType === SNAPSHOT_EVENTS.DELETED_ALL ) {
-		store.dispatch( snapshotSlice.actions.deleteAllSnapshots() );
-		updateSnapshotUsageCount( 0, true );
 		return;
 	}
 

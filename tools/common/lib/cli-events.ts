@@ -67,11 +67,16 @@ export const siteEventSchema = z.object( {
 
 export type SiteEvent = z.infer< typeof siteEventSchema >;
 
-export const snapshotEventSchema = z.object( {
-	event: z.enum( SNAPSHOT_EVENTS ),
-	snapshot: snapshotSchema.optional(),
-	snapshotUrl: z.string(),
-} );
+export const snapshotEventSchema = z.union( [
+	z.object( {
+		event: z.literal( SNAPSHOT_EVENTS.DELETED_ALL ),
+	} ),
+	z.object( {
+		event: z.enum( SNAPSHOT_EVENTS ),
+		snapshot: snapshotSchema.optional(),
+		snapshotUrl: z.string(),
+	} ),
+] );
 
 export type SnapshotEvent = z.infer< typeof snapshotEventSchema >;
 
@@ -92,12 +97,18 @@ export const siteSocketEventSchema = z.object( {
 	} ),
 } );
 
-export const snapshotSocketEventSchema = z.object( {
-	event: z.enum( SNAPSHOT_EVENTS ),
-	data: z.object( {
-		snapshotUrl: z.string(),
+export const snapshotSocketEventSchema = z.union( [
+	z.object( {
+		event: z.literal( SNAPSHOT_EVENTS.DELETED_ALL ),
 	} ),
-} );
+	z.object( {
+		event: z.enum( SNAPSHOT_EVENTS ),
+		data: z.object( {
+			snapshotUrl: z.string(),
+		} ),
+	} ),
+] );
+export type SnapshotSocketEvent = z.infer< typeof snapshotSocketEventSchema >;
 
 export const authSocketEventSchema = z.object( {
 	event: z.enum( AUTH_EVENTS ),

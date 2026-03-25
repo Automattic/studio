@@ -90,7 +90,7 @@ export function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 
 	return (
 		<div className="flex flex-col gap-4 pb-2">
-			<p className="text-xs text-frame-text-secondary text-center">
+			<p className="a8c-body-small m-0">
 				{ __( 'Install instruction files so AI agents know how to work with this site.' ) }
 			</p>
 
@@ -292,7 +292,7 @@ export function WordPressSkillsPanel( { siteId }: { siteId: string } ) {
 
 	return (
 		<div className="flex flex-col gap-4 pb-2">
-			<p className="text-xs text-frame-text-secondary text-center">
+			<p className="a8c-body-small m-0">
 				{ __(
 					'Manage skills for this site. These override the global skills from Studio Settings.'
 				) }

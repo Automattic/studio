@@ -123,4 +123,13 @@ export const importResponseSchema = z.discriminatedUnion( 'status', [
 export type ImportResponse = z.infer< typeof importResponseSchema >;
 
 // Sync option types (shared between push/pull)
-export type SyncOption = 'all' | 'sqls' | 'paths' | 'uploads' | 'plugins' | 'themes' | 'contents';
+export const SyncOptionSchema = z.enum( [
+	'all',
+	'sqls',
+	'paths',
+	'uploads',
+	'plugins',
+	'themes',
+	'contents',
+] );
+export type SyncOption = z.infer< typeof SyncOptionSchema >;

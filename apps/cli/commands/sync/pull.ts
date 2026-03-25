@@ -3,6 +3,7 @@ import path from 'path';
 import { SYNC_EVENTS } from '@studio/common/lib/cli-events';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { SyncCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
+import { SyncOptionSchema } from '@studio/common/types/sync';
 import { __, sprintf } from '@wordpress/i18n';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { emitCliEvent } from 'cli/lib/daemon-client';
@@ -21,27 +22,24 @@ import type { SyncOption } from '@studio/common/types/sync';
 const POLL_INTERVAL_MS = 3000;
 const MAX_POLL_ATTEMPTS = 200;
 
-const VALID_OPTIONS: SyncOption[] = [ 'all', 'sqls', 'uploads', 'plugins', 'themes', 'contents' ];
-
 function parseOptions( optionsString?: string ): SyncOption[] {
 	if ( ! optionsString ) {
 		return [ 'all' ];
 	}
 
-	const options = optionsString.split( ',' ).map( ( o ) => o.trim() ) as SyncOption[];
-	for ( const option of options ) {
-		if ( ! VALID_OPTIONS.includes( option ) ) {
+	return optionsString.split( ',' ).map( ( o ) => {
+		const result = SyncOptionSchema.safeParse( o.trim() );
+		if ( ! result.success ) {
 			throw new LoggerError(
 				sprintf(
 					__( 'Invalid sync option: %s. Valid options: %s' ),
-					option,
-					VALID_OPTIONS.join( ', ' )
+					o.trim(),
+					SyncOptionSchema.options.join( ', ' )
 				)
 			);
 		}
-	}
-
-	return options;
+		return result.data;
+	} );
 }
 
 export async function runCommand( siteFolder: string, optionsString?: string ): Promise< void > {

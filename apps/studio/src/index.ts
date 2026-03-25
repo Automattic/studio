@@ -36,8 +36,8 @@ import {
 } from 'src/lib/bump-stats';
 import { handleDeeplink } from 'src/lib/deeplink';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
-import { getSentryReleaseInfo } from 'src/lib/sentry-release';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
+import { getSentryReleaseInfo } from 'src/lib/sentry-release';
 import { startUserDataWatcher, stopUserDataWatcher } from 'src/lib/user-data-watcher';
 import { setupLogging } from 'src/logging';
 import { createMainWindow, getMainWindow } from 'src/main-window';

@@ -62,6 +62,7 @@ import { defaultImporterOptions, importBackup } from 'src/lib/import-export/impo
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import * as oauthClient from 'src/lib/oauth';
+import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import { getAiInstructionsPath } from 'src/lib/server-files-paths';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
@@ -764,6 +765,7 @@ export async function isAuthenticated() {
 }
 
 export async function clearAuthenticationToken() {
+	setSentryWpcomUserIdMain( undefined );
 	return await updateSharedConfig( { authToken: undefined } );
 }
 

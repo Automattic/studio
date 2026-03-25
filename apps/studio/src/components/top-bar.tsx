@@ -5,9 +5,11 @@ import { Gravatar } from 'src/components/gravatar';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
 import { WordPressLogo } from 'src/components/wordpress-logo';
+import { WINDOWS_TITLEBAR_HEIGHT } from 'src/constants';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
+import { isWindows } from 'src/lib/app-globals';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { useI18nLocale } from 'src/stores';
@@ -130,7 +132,10 @@ function WindowTitle() {
 	const { __ } = useI18n();
 	const { selectedSite } = useSiteDetails();
 	return (
-		<div className="fixed top-0 left-0 right-0 h-[52px] flex items-center justify-center pointer-events-none">
+		<div
+			className="fixed top-0 left-0 right-0 flex items-center justify-center pointer-events-none"
+			style={ { height: isWindows() ? `${ WINDOWS_TITLEBAR_HEIGHT }px` : '52px' } }
+		>
 			<span className="text-[13px] flex items-center max-w-[50%]">
 				<span className="text-white/50 font-light whitespace-nowrap">{ __( 'Studio' ) }</span>
 				{ selectedSite && (
@@ -153,7 +158,7 @@ export default function TopBar( { onToggleSidebar }: TopBarProps ) {
 	};
 
 	return (
-		<div className="flex justify-between items-center text-white pl-2 pr-0.5 pb-2">
+		<div className="flex justify-between items-center text-white pl-2 pr-0.5">
 			<div className="flex items-center space-x-1.5 rtl:space-x-reverse">
 				<ToggleSidebar onToggleSidebar={ onToggleSidebar } />
 				<OfflineIndicator />

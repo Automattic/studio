@@ -55,6 +55,8 @@ interface SiteDetailsContext {
 	setUploadingSites: React.Dispatch< React.SetStateAction< { [ siteId: string ]: boolean } > >;
 	isEditModalOpen: boolean;
 	setIsEditModalOpen: React.Dispatch< React.SetStateAction< boolean > >;
+	editModalInitialTab: string;
+	setEditModalInitialTab: React.Dispatch< React.SetStateAction< string > >;
 	siteCreationMessages: { [ siteId: string ]: string };
 }
 
@@ -80,6 +82,8 @@ const defaultContext: SiteDetailsContext = {
 	setUploadingSites: () => undefined,
 	isEditModalOpen: false,
 	setIsEditModalOpen: () => undefined,
+	editModalInitialTab: 'general',
+	setEditModalInitialTab: () => undefined,
 };
 
 export const siteDetailsContext = createContext< SiteDetailsContext >( defaultContext );
@@ -617,6 +621,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	}, [ sites, startServer ] );
 
 	const [ isEditModalOpen, setIsEditModalOpen ] = useState( false );
+	const [ editModalInitialTab, setEditModalInitialTab ] = useState( 'general' );
 	const selectedSite = sites.find( ( site ) => site.id === selectedSiteId ) || firstSite;
 
 	const isSiteDeleting = useCallback(
@@ -646,6 +651,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			setUploadingSites,
 			isEditModalOpen,
 			setIsEditModalOpen,
+			editModalInitialTab,
+			setEditModalInitialTab,
 			siteCreationMessages,
 		} ),
 		[
@@ -669,6 +676,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			uploadingSites,
 			isEditModalOpen,
 			setIsEditModalOpen,
+			editModalInitialTab,
 			siteCreationMessages,
 		]
 	);

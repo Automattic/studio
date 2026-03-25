@@ -1,11 +1,8 @@
-import { TabPanel } from '@wordpress/components';
 import { Icon, check } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useState } from 'react';
 import Button from 'src/components/button';
 import { InstalledBadge } from 'src/components/installed-badge';
-import Modal from 'src/components/modal';
-import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import {
 	INSTRUCTION_FILES,
@@ -14,14 +11,7 @@ import {
 import { type InstructionFileStatus } from 'src/modules/agent-instructions/lib/instructions';
 import { type SkillStatus } from 'src/modules/agent-instructions/lib/skills-constants';
 
-interface AiSettingsModalProps {
-	isOpen: boolean;
-	onClose: () => void;
-	siteId: string;
-	initialTab?: 'skills' | 'instructions';
-}
-
-function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
+export function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 	const { __ } = useI18n();
 	const [ statuses, setStatuses ] = useState< InstructionFileStatus[] >( [] );
 	const [ error, setError ] = useState< string | null >( null );
@@ -151,7 +141,7 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 	);
 }
 
-function WordPressSkillsPanel( { siteId }: { siteId: string } ) {
+export function WordPressSkillsPanel( { siteId }: { siteId: string } ) {
 	const { __ } = useI18n();
 	const [ statuses, setStatuses ] = useState< SkillStatus[] >( [] );
 	const [ error, setError ] = useState< string | null >( null );
@@ -314,47 +304,5 @@ function WordPressSkillsPanel( { siteId }: { siteId: string } ) {
 				} ) }
 			</div>
 		</div>
-	);
-}
-
-export function AiSettingsModal( {
-	isOpen,
-	onClose,
-	siteId,
-	initialTab = 'skills',
-}: AiSettingsModalProps ) {
-	const { __ } = useI18n();
-
-	if ( ! isOpen ) {
-		return null;
-	}
-
-	const tabs = [
-		{ name: 'skills', title: __( 'Skills' ) },
-		{ name: 'instructions', title: __( 'Instructions' ) },
-	];
-
-	return (
-		<Modal
-			title={ __( 'AI settings' ) }
-			isDismissible
-			onRequestClose={ onClose }
-			size="medium"
-			className={ cx( 'min-h-[350px] app-no-drag-region', '[&_[role="document"]]:px-0' ) }
-		>
-			<TabPanel
-				className="w-full"
-				tabs={ tabs }
-				initialTabName={ initialTab }
-				orientation="horizontal"
-			>
-				{ ( { name } ) => (
-					<div className="mt-6 px-8 pb-4 flex flex-col gap-4">
-						{ name === 'skills' && <WordPressSkillsPanel siteId={ siteId } /> }
-						{ name === 'instructions' && <AgentInstructionsPanel siteId={ siteId } /> }
-					</div>
-				) }
-			</TabPanel>
-		</Modal>
 	);
 }

@@ -1,8 +1,5 @@
 import nodePath from 'path';
-import {
-	installSkillToSite,
-	removeSkillFromSite,
-} from '@studio/common/lib/agent-skills';
+import { installSkillToSite, removeSkillFromSite } from '@studio/common/lib/agent-skills';
 import { pathExists } from '@studio/common/lib/fs-utils';
 import { getAiInstructionsPath } from 'src/lib/server-files-paths';
 import { BUNDLED_SKILLS, type SkillStatus } from './skills-constants';

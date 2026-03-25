@@ -9,7 +9,6 @@ import { useI18n } from '@wordpress/react-i18n';
 import React, { useState, useEffect, useRef, memo, useCallback, useMemo, forwardRef } from 'react';
 import ClearHistoryReminder from 'src/components/ai-clear-history-reminder';
 import { AIInput } from 'src/components/ai-input';
-import { AiSettingsModal } from 'src/components/ai-settings-modal';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import { MessageThinking } from 'src/components/assistant-thinking';
 import Button from 'src/components/button';
@@ -428,8 +427,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		dispatch( chatActions.setChatApiId( { instanceId, chatApiId: undefined } ) );
 	};
 
-	const [ isAiSettingsModalOpen, setIsAiSettingsModalOpen ] = useState( false );
-
 	// We should render only one notice at a time in the bottom area
 	const renderNotice = () => {
 		if ( isOffline ) {
@@ -548,7 +545,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 						} }
 						clearConversation={ clearConversation }
 						isAssistantThinking={ isAssistantThinking }
-						onOpenSettings={ () => setIsAiSettingsModalOpen( true ) }
 					/>
 					<div data-testid="guidelines-link" className="text-frame-text-secondary self-end py-2">
 						{ createInterpolateElement( __( 'Powered by experimental AI. <learn_more_link />' ), {
@@ -559,11 +555,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 					</div>
 				</div>
 			</div>
-			<AiSettingsModal
-				isOpen={ isAiSettingsModalOpen }
-				onClose={ () => setIsAiSettingsModalOpen( false ) }
-				siteId={ selectedSite.id }
-			/>
 		</div>
 	);
 }

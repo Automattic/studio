@@ -8,7 +8,6 @@ import {
 import { moreVertical } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren, useCallback, useEffect, useState } from 'react';
-import { AiSettingsModal } from 'src/components/ai-settings-modal';
 import StudioButton from 'src/components/button';
 import { CopyTextButton } from 'src/components/copy-text-button';
 import { LearnHowLink } from 'src/components/learn-more';
@@ -61,9 +60,13 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 		await dispatch( certificateTrustApi.util.invalidateTags( [ 'CertificateTrust' ] ) );
 	};
 	const { handleDeleteSite } = useDeleteSite();
-	const { copySite } = useSiteDetails();
+	const { copySite, setIsEditModalOpen, setEditModalInitialTab } = useSiteDetails();
 	const [ debugLogPath, setDebugLogPath ] = useState< string | null >( null );
-	const [ aiSettingsTab, setAiSettingsTab ] = useState< 'skills' | 'instructions' | null >( null );
+
+	const openEditModal = ( tab: string ) => {
+		setEditModalInitialTab( tab );
+		setIsEditModalOpen( true );
+	};
 
 	const checkDebugLogExists = useCallback( async () => {
 		if ( ! selectedSite.enableDebugLog ) {
@@ -239,7 +242,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 					{ '. ' }
 					{ __( 'You can override global skills for this site.' ) }
 				</p>
-				<StudioButton variant="secondary" onClick={ () => setAiSettingsTab( 'skills' ) }>
+				<StudioButton variant="secondary" onClick={ () => openEditModal( 'skills' ) }>
 					{ __( 'Manage site skills' ) }
 				</StudioButton>
 			</div>
@@ -252,16 +255,10 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 						'Install instruction files like AGENTS.md so AI agents know how to work with this site.'
 					) }
 				</p>
-				<StudioButton variant="secondary" onClick={ () => setAiSettingsTab( 'instructions' ) }>
+				<StudioButton variant="secondary" onClick={ () => openEditModal( 'instructions' ) }>
 					{ __( 'Manage instructions' ) }
 				</StudioButton>
 			</div>
-			<AiSettingsModal
-				isOpen={ aiSettingsTab !== null }
-				onClose={ () => setAiSettingsTab( null ) }
-				siteId={ selectedSite.id }
-				initialTab={ aiSettingsTab ?? 'skills' }
-			/>
 		</div>
 	);
 }

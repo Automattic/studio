@@ -88,7 +88,7 @@ export function SkillsTab() {
 		<div className="flex flex-col gap-4 pb-2">
 			<p className="a8c-body-small m-0">
 				{ __(
-					'Agents can decide to use skills to help them accomplish specialized tasks. Select the skills that will be placed in all existing and new sites.'
+					'Select the skills that will be placed in all existing and new sites. Agents can decide to use skills to help them accomplish specialized tasks.'
 				) }
 			</p>
 

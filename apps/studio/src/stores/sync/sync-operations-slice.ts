@@ -487,8 +487,6 @@ type PullSiteResult = {
 	remoteSiteId: number;
 };
 
-// Zod schemas imported from @studio/common/types/sync
-
 export const pullSiteThunk = createTypedAsyncThunk< PullSiteResult, PullSitePayload >(
 	'syncOperations/pullSite',
 	async ( { client, connectedSite, selectedSite, options }, { dispatch, rejectWithValue } ) => {

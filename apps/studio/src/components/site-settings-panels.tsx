@@ -17,6 +17,7 @@ export function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 	const [ statuses, setStatuses ] = useState< InstructionFileStatus[] >( [] );
 	const [ error, setError ] = useState< string | null >( null );
 	const [ installingFile, setInstallingFile ] = useState< InstructionFileType | null >( null );
+	const [ installingAll, setInstallingAll ] = useState( false );
 
 	const refreshStatus = useCallback( async () => {
 		try {
@@ -37,11 +38,11 @@ export function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 	}, [ refreshStatus ] );
 
 	const handleInstallFile = useCallback(
-		async ( fileType: InstructionFileType, overwrite: boolean ) => {
+		async ( fileType: InstructionFileType ) => {
 			setInstallingFile( fileType );
 			setError( null );
 			try {
-				await getIpcApi().installAgentInstructions( siteId, { overwrite, fileType } );
+				await getIpcApi().installAgentInstructions( siteId, { fileType } );
 				await refreshStatus();
 			} catch ( err ) {
 				const errorMessage = err instanceof Error ? err.message : String( err );
@@ -53,91 +54,161 @@ export function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 		[ siteId, refreshStatus ]
 	);
 
-	const allInstalled = statuses.length > 0 && statuses.every( ( s ) => s.exists );
+	const handleRemoveFile = useCallback(
+		async ( fileType: InstructionFileType ) => {
+			setError( null );
+			try {
+				await getIpcApi().removeAgentInstruction( siteId, fileType );
+				await refreshStatus();
+			} catch ( err ) {
+				const errorMessage = err instanceof Error ? err.message : String( err );
+				setError( errorMessage );
+			}
+		},
+		[ siteId, refreshStatus ]
+	);
+
+	const installedFiles = useMemo( () => statuses.filter( ( s ) => s.exists ), [ statuses ] );
+	const availableFiles = useMemo( () => statuses.filter( ( s ) => ! s.exists ), [ statuses ] );
 
 	const handleInstallAll = useCallback( async () => {
+		setInstallingAll( true );
 		setError( null );
-		for ( const status of statuses ) {
-			if ( ! status.exists ) {
-				await handleInstallFile( status.id, false );
+		try {
+			for ( const status of availableFiles ) {
+				await handleInstallFile( status.id );
 			}
+		} catch ( err ) {
+			const errorMessage = err instanceof Error ? err.message : String( err );
+			setError( errorMessage );
+		} finally {
+			setInstallingAll( false );
 		}
-	}, [ statuses, handleInstallFile ] );
+	}, [ availableFiles, handleInstallFile ] );
+
+	const isAnyInstalling = installingFile !== null || installingAll;
 
 	return (
-		<div className="flex flex-col gap-4">
-			<div className="flex items-center justify-between">
-				<div>
-					<h3 className="text-sm font-medium text-frame-text">{ __( 'Agent instructions' ) }</h3>
-					<p className="text-xs text-frame-text-secondary mt-0.5">
-						{ __( 'Install instructions so agents know how to use Studio' ) }
-					</p>
-				</div>
-				{ ! allInstalled && (
-					<Button
-						variant="link"
-						onClick={ handleInstallAll }
-						disabled={ installingFile !== null }
-						className="text-sm"
-					>
-						{ installingFile !== null ? __( 'Installing...' ) : __( 'Install All' ) }
-					</Button>
-				) }
-			</div>
+		<div className="flex flex-col gap-4 pb-2">
+			<p className="text-xs text-frame-text-secondary text-center">
+				{ __( 'Install instruction files so AI agents know how to work with this site.' ) }
+			</p>
 
 			{ error && (
-				<div className="bg-frame-surface border border-frame-error/30 text-frame-error px-3 py-2 rounded text-sm">
+				<div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">
 					{ error }
 				</div>
 			) }
 
-			<div className="border border-frame-border rounded-md overflow-hidden">
-				{ statuses.map( ( status ) => {
-					const config = INSTRUCTION_FILES[ status.id ];
-					const isInstalling = installingFile === status.id;
-					return (
-						<div
-							key={ status.id }
-							className="flex items-center justify-between px-3 py-2.5 border-b border-frame-border last:border-b-0"
-						>
-							<div className="flex-1 min-w-0 pr-3">
-								<div className="flex items-center gap-2">
-									<span className="text-sm font-medium text-frame-text">
-										{ config.displayName }
-									</span>
-									{ status.exists && <InstalledBadge /> }
+			{ installedFiles.length > 0 && (
+				<div className="border border-frame-border rounded-md overflow-hidden">
+					<div className="flex items-center px-3 py-2 bg-frame-surface border-b border-frame-border">
+						<span className="text-[11px] font-semibold uppercase tracking-wide text-frame-text-secondary">
+							{ __( 'Installed' ) }
+						</span>
+					</div>
+					{ installedFiles.map( ( status ) => {
+						const config = INSTRUCTION_FILES[ status.id ];
+						return (
+							<div
+								key={ status.id }
+								className="flex items-center justify-between px-3 py-2.5 border-b border-frame-border last:border-b-0"
+							>
+								<div className="flex-1 min-w-0 pr-3">
+									<div className="flex items-center gap-2">
+										<span className="text-sm font-medium text-frame-text">
+											{ config.displayName }
+										</span>
+										<InstalledBadge />
+									</div>
+									<div className="text-xs text-frame-text-secondary">
+										{ __( config.description ) }
+									</div>
 								</div>
-								<div className="text-xs text-frame-text-secondary">
-									{ __( config.description ) }
-								</div>
-							</div>
-							<div className="flex items-center gap-2 flex-shrink-0">
-								{ status.exists && (
-									<Button
-										variant="link"
-										onClick={ () => getIpcApi().openFileInIDE( config.fileName, siteId ) }
-										className="text-xs"
-									>
-										{ __( 'Open' ) }
-									</Button>
-								) }
-								<Button
-									variant="secondary"
-									onClick={ () => handleInstallFile( status.id, status.exists ) }
-									disabled={ isInstalling }
-									className="text-xs py-1 px-2"
+								<DropdownMenu
+									icon={ moreVertical }
+									label={ __( 'Instruction actions' ) }
+									className="flex items-center"
+									popoverProps={ { position: 'bottom left', resize: true } }
 								>
-									{ isInstalling
-										? __( 'Installing...' )
-										: status.exists
-										? __( 'Reinstall' )
-										: __( 'Install' ) }
-								</Button>
+									{ ( { onClose }: { onClose: () => void } ) => (
+										<MenuGroup>
+											<MenuItem
+												onClick={ () => {
+													getIpcApi().openFileInIDE( config.fileName, siteId );
+													onClose();
+												} }
+											>
+												{ __( 'Open' ) }
+											</MenuItem>
+											<MenuItem
+												isDestructive
+												onClick={ () => {
+													void handleRemoveFile( status.id );
+													onClose();
+												} }
+											>
+												{ __( 'Remove' ) }
+											</MenuItem>
+										</MenuGroup>
+									) }
+								</DropdownMenu>
 							</div>
-						</div>
-					);
-				} ) }
-			</div>
+						);
+					} ) }
+				</div>
+			) }
+
+			{ availableFiles.length > 0 && (
+				<div className="border border-frame-border rounded-md overflow-hidden">
+					<div className="flex items-center justify-between px-3 py-2 bg-frame-surface border-b border-frame-border">
+						<span className="text-[11px] font-semibold uppercase tracking-wide text-frame-text-secondary">
+							{ __( 'Available' ) }
+						</span>
+						<Button
+							variant="secondary"
+							onClick={ handleInstallAll }
+							disabled={ isAnyInstalling }
+							className="text-xs py-1 px-2 [&.is-secondary]:bg-frame"
+						>
+							{ installingAll ? __( 'Installing...' ) : __( 'Install all' ) }
+						</Button>
+					</div>
+					{ availableFiles.map( ( status ) => {
+						const config = INSTRUCTION_FILES[ status.id ];
+						const isInstallingThis = installingFile === status.id;
+						return (
+							<div
+								key={ status.id }
+								className="flex items-center justify-between px-3 py-2.5 border-b border-frame-border last:border-b-0"
+							>
+								<div className="flex-1 min-w-0 pr-3">
+									<div className="text-sm font-medium text-frame-text">{ config.displayName }</div>
+									<div className="text-xs text-frame-text-secondary">
+										{ __( config.description ) }
+									</div>
+								</div>
+								<div className="flex-shrink-0">
+									<Button
+										variant="secondary"
+										onClick={ () => handleInstallFile( status.id ) }
+										disabled={ isAnyInstalling }
+										className="text-xs py-1 px-2"
+									>
+										{ isInstallingThis ? __( 'Installing...' ) : __( 'Install' ) }
+									</Button>
+								</div>
+							</div>
+						);
+					} ) }
+				</div>
+			) }
+
+			{ statuses.length === 0 && ! error && (
+				<div className="text-sm text-gray-500 text-center py-4">
+					{ __( 'Loading instructions...' ) }
+				</div>
+			) }
 		</div>
 	);
 }

@@ -80,6 +80,7 @@ import { type InstructionFileType } from 'src/modules/agent-instructions/constan
 import {
 	getAllInstructionFilesStatus,
 	installInstructionFile,
+	removeInstructionFile,
 	type InstructionFileStatus,
 } from 'src/modules/agent-instructions/lib/instructions';
 import {
@@ -177,6 +178,18 @@ export async function installAgentInstructions(
 	const overwrite = options?.overwrite ?? false;
 	const fileType = options?.fileType ?? 'agents';
 	return installInstructionFile( server.details.path, fileType, overwrite );
+}
+
+export async function removeAgentInstruction(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	fileType: InstructionFileType
+): Promise< void > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( `Site not found: ${ siteId }` );
+	}
+	await removeInstructionFile( server.details.path, fileType );
 }
 
 export async function getWordPressSkillsStatus(

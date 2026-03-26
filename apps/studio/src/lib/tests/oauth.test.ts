@@ -1,11 +1,11 @@
 import { SupportedLocale } from '@studio/common/lib/locale';
-import { readFile } from 'atomically';
+import { readAuthToken } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
 import { getAuthenticationToken, getSignUpUrl } from 'src/lib/oauth';
 
 vi.mock( 'src/lib/certificate-manager', () => ( {} ) );
-vi.mock( 'atomically', () => ( {
-	readFile: vi.fn(),
+vi.mock( '@studio/common/lib/shared-config', () => ( {
+	readAuthToken: vi.fn(),
 } ) );
 vi.mock( '@studio/common/lib/wpcom-factory', () => ( {
 	__esModule: true,
@@ -26,46 +26,28 @@ describe( 'getAuthenticationToken', () => {
 			email: 'user@example.com',
 			displayName: 'Test User',
 		};
-		vi.mocked( readFile ).mockResolvedValue(
-			Buffer.from( JSON.stringify( { authToken: validToken, sites: [] } ) )
-		);
+		vi.mocked( readAuthToken ).mockResolvedValue( validToken );
 
 		const result = await getAuthenticationToken();
 		expect( result ).toEqual( validToken );
 	} );
 
 	it( 'should return null for expired token', async () => {
-		const expiredToken = {
-			accessToken: 'expired-token',
-			expiresIn: 3600,
-			expirationTime: new Date().getTime() - 1000, // Past time
-			id: 123,
-			email: 'user@example.com',
-			displayName: 'Test User',
-		};
-		vi.mocked( readFile ).mockResolvedValue(
-			Buffer.from( JSON.stringify( { authToken: expiredToken, sites: [] } ) )
-		);
+		vi.mocked( readAuthToken ).mockResolvedValue( null );
 
 		const result = await getAuthenticationToken();
 		expect( result ).toBeNull();
 	} );
 
 	it( 'should return null for malformed token data', async () => {
-		const malformedToken = {
-			accessToken: 'token',
-			// Missing required fields
-		};
-		vi.mocked( readFile ).mockResolvedValue(
-			Buffer.from( JSON.stringify( { authToken: malformedToken, sites: [] } ) )
-		);
+		vi.mocked( readAuthToken ).mockResolvedValue( null );
 
 		const result = await getAuthenticationToken();
 		expect( result ).toBeNull();
 	} );
 
 	it( 'should return null when no token exists', async () => {
-		vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( { sites: [] } ) ) );
+		vi.mocked( readAuthToken ).mockResolvedValue( null );
 
 		const result = await getAuthenticationToken();
 		expect( result ).toBeNull();

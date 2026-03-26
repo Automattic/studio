@@ -4,14 +4,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import * as Sentry from '@sentry/electron/main';
+import { getCertificatesPath } from '@studio/common/lib/well-known-paths';
 import sudo from '@vscode/sudo-prompt';
-import { getUserDataCertificatesPath } from 'src/storage/paths';
 
 const execFilePromise = promisify( execFile );
 
 // Certificate configuration
-const CERT_DIRECTORY = getUserDataCertificatesPath();
-const CA_CERT_PATH = path.join( CERT_DIRECTORY, 'studio-ca.crt' );
+const CA_CERT_PATH = path.join( getCertificatesPath(), 'studio-ca.crt' );
 
 export async function openCertificate() {
 	shell.showItemInFolder( CA_CERT_PATH );

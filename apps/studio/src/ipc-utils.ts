@@ -1,10 +1,10 @@
 import crypto from 'crypto';
 import { BrowserWindow } from 'electron';
 import { BlueprintValidationWarning } from '@studio/common/lib/blueprint-validation';
-import { SiteEvent } from '@studio/common/lib/site-events';
+import { SiteEvent, SnapshotEvent } from '@studio/common/lib/cli-events';
 import { PreviewCommandLoggerAction } from '@studio/common/logger-actions';
 import { ImportExportEventData } from 'src/lib/import-export/handle-events';
-import { StoredToken } from 'src/lib/oauth';
+import { StoredAuthToken } from 'src/lib/oauth';
 import { getMainWindow } from 'src/main-window';
 import type { StudioCodeEvent } from 'src/modules/studio-code/studio-code-types';
 import type { UserData } from 'src/storage/storage-types';
@@ -28,12 +28,13 @@ export interface IpcEvents {
 			warnings?: BlueprintValidationWarning[];
 		},
 	];
-	'auth-updated': [ { token: StoredToken } | { error: unknown } ];
+	'auth-updated': [ { token: StoredAuthToken } | { token: null } | { error: unknown } ];
 	'on-export': [ ImportExportEventData, string ];
 	'on-import': [ ImportExportEventData, string ];
 	'on-site-create-progress': [ { siteId: string; message: string } ];
 	'site-context-menu-action': [ { action: string; siteId: string } ];
 	'site-event': [ SiteEvent ];
+	'snapshot-event': [ SnapshotEvent ];
 	'sync-upload-network-paused': [ { error: string; selectedSiteId: string; remoteSiteId: number } ];
 	'sync-upload-resumed': [ { selectedSiteId: string; remoteSiteId: number } ];
 	'sync-upload-progress': [ { selectedSiteId: string; remoteSiteId: number; progress: number } ];

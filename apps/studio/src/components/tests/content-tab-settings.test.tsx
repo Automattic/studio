@@ -307,6 +307,8 @@ describe( 'ContentTabSettings', () => {
 				stopServer,
 				isEditModalOpen: false,
 				setIsEditModalOpen: vi.fn(),
+				editModalInitialTab: 'general',
+				setEditModalInitialTab: vi.fn(),
 			} );
 
 			const { rerender } = renderWithProvider(
@@ -321,6 +323,8 @@ describe( 'ContentTabSettings', () => {
 				stopServer,
 				isEditModalOpen: true,
 				setIsEditModalOpen: vi.fn(),
+				editModalInitialTab: 'general',
+				setEditModalInitialTab: vi.fn(),
 			} );
 			rerenderWithProvider( rerender, <ContentTabSettings selectedSite={ selectedSite } /> );
 			await waitFor( () => {
@@ -343,6 +347,8 @@ describe( 'ContentTabSettings', () => {
 				stopServer,
 				isEditModalOpen: false,
 				setIsEditModalOpen: vi.fn(),
+				editModalInitialTab: 'general',
+				setEditModalInitialTab: vi.fn(),
 			} );
 			rerenderWithProvider( rerender, <ContentTabSettings selectedSite={ selectedSite } /> );
 
@@ -379,6 +385,8 @@ describe( 'ContentTabSettings', () => {
 				stopServer,
 				isEditModalOpen: false,
 				setIsEditModalOpen: vi.fn(),
+				editModalInitialTab: 'general',
+				setEditModalInitialTab: vi.fn(),
 			} );
 
 			const { rerender } = renderWithProvider(
@@ -393,6 +401,8 @@ describe( 'ContentTabSettings', () => {
 				stopServer,
 				isEditModalOpen: true,
 				setIsEditModalOpen: vi.fn(),
+				editModalInitialTab: 'general',
+				setEditModalInitialTab: vi.fn(),
 			} );
 			rerenderWithProvider( rerender, <ContentTabSettings selectedSite={ selectedSite } /> );
 			await waitFor( () => {
@@ -414,6 +424,8 @@ describe( 'ContentTabSettings', () => {
 				stopServer,
 				isEditModalOpen: false,
 				setIsEditModalOpen: vi.fn(),
+				editModalInitialTab: 'general',
+				setEditModalInitialTab: vi.fn(),
 			} );
 			rerenderWithProvider( rerender, <ContentTabSettings selectedSite={ selectedSite } /> );
 

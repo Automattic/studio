@@ -57,7 +57,6 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 			setUser( undefined );
 		} catch ( err ) {
 			console.error( 'Failed to handle invalid token:', err );
-			Sentry.captureException( err );
 		}
 	}, [] );
 
@@ -79,6 +78,15 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 		}
 
 		const { token } = payload;
+
+		if ( ! token ) {
+			setIsAuthenticated( false );
+			setClient( undefined );
+			setWpcomClient( undefined );
+			setUser( undefined );
+			return;
+		}
+
 		const newClient = createWpcomClient( token.accessToken, locale, handleInvalidToken );
 
 		setIsAuthenticated( true );
@@ -103,7 +111,6 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 				console.log( 'Token revoked' );
 			} catch ( err ) {
 				console.error( 'Failed to revoke token:', err );
-				Sentry.captureException( err );
 			}
 		} else if ( isOffline ) {
 			console.log( 'Offline: Skipping token revocation request' );
@@ -117,7 +124,6 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 			setUser( undefined );
 		} catch ( err ) {
 			console.error( err );
-			Sentry.captureException( err );
 		}
 	}, [ client, isOffline ] );
 

@@ -3,6 +3,7 @@ import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-wa
 import { __ } from '@wordpress/i18n';
 import yargs from 'yargs';
 import { bumpAggregatedUniqueStat, getPlatformMetric } from 'cli/lib/bump-stat';
+import { setupServerFiles } from 'cli/lib/dependency-management/setup';
 import { loadTranslations } from 'cli/lib/i18n';
 import { StatsGroup, StatsMetric } from 'cli/lib/types/bump-stats';
 import { untildify } from 'cli/lib/utils';
@@ -34,6 +35,11 @@ async function main() {
 				return path.resolve( untildify( value ) );
 			},
 		} )
+		.middleware( async () => {
+			const { runMigrations } = await import( '@studio/common/lib/migration' );
+			const { migrations } = await import( 'cli/migrations' );
+			await runMigrations( migrations );
+		} )
 		.middleware( async ( argv ) => {
 			if ( __ENABLE_CLI_TELEMETRY__ && ! argv.avoidTelemetry ) {
 				try {
@@ -61,6 +67,9 @@ async function main() {
 				}
 			}
 		} )
+		.middleware( async () => {
+			await setupServerFiles();
+		} )
 		.command( 'auth', __( 'Manage authentication' ), async ( authYargs ) => {
 			const [
 				{ registerCommand: registerAuthLoginCommand },
@@ -83,17 +92,20 @@ async function main() {
 				{ registerCommand: registerPreviewListCommand },
 				{ registerCommand: registerPreviewDeleteCommand },
 				{ registerCommand: registerPreviewUpdateCommand },
+				{ registerCommand: registerPreviewSetCommand },
 			] = await Promise.all( [
 				import( 'cli/commands/preview/create' ),
 				import( 'cli/commands/preview/list' ),
 				import( 'cli/commands/preview/delete' ),
 				import( 'cli/commands/preview/update' ),
+				import( 'cli/commands/preview/set' ),
 			] );
 
 			registerPreviewCreateCommand( previewYargs );
 			registerPreviewListCommand( previewYargs );
 			registerPreviewDeleteCommand( previewYargs );
 			registerPreviewUpdateCommand( previewYargs );
+			registerPreviewSetCommand( previewYargs );
 			previewYargs.version( false ).demandCommand( 1, __( 'You must provide a valid command' ) );
 		} )
 		.command( 'site', __( 'Manage sites' ), async ( sitesYargs ) => {
@@ -157,8 +169,38 @@ async function main() {
 		.strict();
 
 	if ( __ENABLE_STUDIO_AI__ ) {
-		const { registerCommand: registerAiCommand } = await import( 'cli/commands/ai' );
-		registerAiCommand( studioArgv );
+		studioArgv.command( 'ai', __( 'AI-powered WordPress assistant' ), async ( aiYargs ) => {
+			const { registerCommand: registerAiCommand } = await import( 'cli/commands/ai' );
+			registerAiCommand( aiYargs );
+			aiYargs.command( 'sessions', __( 'Manage AI sessions' ), async ( sessionsYargs ) => {
+				const [
+					{ registerCommand: registerAiSessionsListCommand },
+					{ registerCommand: registerAiSessionsResumeCommand },
+					{ registerCommand: registerAiSessionsDeleteCommand },
+				] = await Promise.all( [
+					import( 'cli/commands/ai/sessions/list' ),
+					import( 'cli/commands/ai/sessions/resume' ),
+					import( 'cli/commands/ai/sessions/delete' ),
+				] );
+
+				sessionsYargs
+					.option( 'path', {
+						hidden: true,
+					} )
+					.option( 'session-persistence', {
+						type: 'boolean',
+						default: true,
+						description: __( 'Record this AI chat session to disk' ),
+					} );
+				registerAiSessionsListCommand( sessionsYargs );
+				registerAiSessionsResumeCommand( sessionsYargs );
+				registerAiSessionsDeleteCommand( sessionsYargs );
+				sessionsYargs
+					.version( false )
+					.demandCommand( 1, __( 'You must provide a valid ai sessions command' ) );
+			} );
+			aiYargs.version( false );
+		} );
 	}
 	if ( __ENABLE_AGENT_SUITE__ ) {
 		const { registerCommand: registerMcpCommand } = await import( 'cli/commands/mcp' );

@@ -30,15 +30,15 @@ const mockedSites: SiteDetails[] = [
 ];
 
 function mockGetIpcApi( mocks: Record< string, Mock > ) {
-	vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+	vi.mocked( getIpcApi ).mockReturnValue( {
 		getConnectedWpcomSites: vi.fn().mockResolvedValue( [] ),
 		getSiteDetails: vi.fn( () => Promise.resolve( mockedSites ) ),
-		getSnapshots: vi.fn( () => Promise.resolve( [] ) ),
-		saveSnapshotsToStorage: vi.fn( () => Promise.resolve() ),
+		fetchSnapshots: vi.fn( () => Promise.resolve( [] ) ),
+		setSnapshot: vi.fn(),
 		startServer: vi.fn( () => Promise.resolve() ),
 		showErrorMessageBox: vi.fn(),
 		...mocks,
-	} );
+	} as unknown as IpcApi );
 }
 
 const renderWithProvider = ( children: React.ReactElement ) => {

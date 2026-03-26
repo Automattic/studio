@@ -436,6 +436,11 @@ div:has( > progress ) > div:first-child {
 		background: var( --color-frame-tab-active );
 	}
 
+	/* Secondary button border — !important overrides WP CSS loaded after app CSS. */
+	.components-button.is-secondary:not( :focus-visible ) {
+		box-shadow: inset 0 0 0 1px var( --color-frame-border ) !important;
+	}
+
 	/* Buttons — tertiary/link get secondary text, hover brightens */
 	.components-button.is-tertiary,
 	.components-button.is-link:not( .is-destructive ) {
@@ -457,6 +462,11 @@ div:has( > progress ) > div:first-child {
 	/* Button SVG icons */
 	.components-button svg {
 		fill: var( --color-frame-text );
+	}
+
+	/* What's new step */
+	[aria-current='step'] .components-button svg {
+		fill: var( --color-frame-theme );
 	}
 
 	/* Primary button — force dark-mode theme blue */

@@ -9,6 +9,15 @@ vi.mock( 'atomically', () => ( {
 	writeFile: vi.fn(),
 } ) );
 
+vi.mock( 'fs', () => ( {
+	default: {
+		existsSync: vi.fn().mockReturnValue( true ),
+		mkdirSync: vi.fn(),
+	},
+	existsSync: vi.fn().mockReturnValue( true ),
+	mkdirSync: vi.fn(),
+} ) );
+
 // Store original fetch to restore later
 const originalFetch = global.fetch;
 

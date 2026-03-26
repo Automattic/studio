@@ -2,6 +2,7 @@ import fs from 'fs';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { SQLITE_FILENAME } from '@studio/common/constants';
+import { siteListSchema, type SiteListItem } from '@studio/common/lib/cli-events';
 import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
 import fsExtra from 'fs-extra';
 import { parse } from 'shell-quote';
@@ -80,13 +81,6 @@ type SiteServerMeta = {
 export class SiteServer {
 	server: CliServerProcess;
 
-	/**
-	 * Indicates whether a Studio-managed operation (start/stop) is in progress.
-	 * When true, file watchers should ignore site events to prevent interference
-	 * with the ongoing operation.
-	 */
-	hasOngoingOperation = false;
-
 	private constructor(
 		public details: SiteDetails,
 		public meta: SiteServerMeta
@@ -108,8 +102,54 @@ export class SiteServer {
 		return undefined;
 	}
 
+	static getAll(): SiteServer[] {
+		return Array.from( servers.values() );
+	}
+
+	static getAllDetails(): SiteDetails[] {
+		return Array.from( servers.values() ).map( ( server ) => server.details );
+	}
+
 	static isDeleted( id: string ) {
 		return deletedServers.includes( id );
+	}
+
+	private static siteListKeyValueSchema = z.object( {
+		action: z.literal( 'keyValuePair' ),
+		key: z.literal( 'sites' ),
+		value: z
+			.string()
+			.transform( ( val ) => JSON.parse( val ) )
+			.pipe( siteListSchema ),
+	} );
+
+	static async fetchAll(): Promise< void > {
+		try {
+			const sites = await new Promise< SiteListItem[] >( ( resolve, reject ) => {
+				const [ emitter ] = executeCliCommand( [ 'site', 'list', '--format', 'json' ], {
+					output: 'capture',
+				} );
+
+				emitter.on( 'data', ( { data } ) => {
+					const parsed = SiteServer.siteListKeyValueSchema.safeParse( data );
+					if ( parsed.success ) {
+						resolve( parsed.data.value );
+					}
+				} );
+
+				emitter.on( 'success', () => resolve( [] ) );
+				emitter.on( 'failure', ( { error } ) => reject( error ) );
+				emitter.on( 'error', ( { error } ) => reject( error ) );
+			} );
+
+			for ( const site of sites ) {
+				if ( ! SiteServer.get( site.id ) ) {
+					SiteServer.register( site );
+				}
+			}
+		} catch ( error ) {
+			console.error( 'Failed to fetch sites from CLI:', error );
+		}
 	}
 
 	static register( details: SiteDetails, meta: SiteServerMeta = {} ): SiteServer {
@@ -118,9 +158,10 @@ export class SiteServer {
 		return server;
 	}
 
-	static unregister( id: string ): void {
+	static async unregister( id: string ): Promise< void > {
 		deletedServers.push( id );
 		servers.delete( id );
+		await SiteServer.deleteSiteMetadata( id );
 	}
 
 	static async create(
@@ -137,46 +178,14 @@ export class SiteServer {
 			running: false,
 		};
 		const server = SiteServer.register( placeholderDetails, meta );
-		server.hasOngoingOperation = true;
 
-		try {
-			const result = await createSiteViaCli( { ...options, siteId } );
-			const userData = await loadUserData();
-			const siteData = userData.sites.find( ( s ) => s.id === result.id );
-			if ( ! siteData ) {
-				throw new Error( `Site with ID ${ result.id } not found in appdata after CLI creation` );
-			}
+		const result = await createSiteViaCli( { ...options, siteId } );
 
-			let siteDetails: SiteDetails;
-			if ( result.running ) {
-				const url = siteData.customDomain
-					? `${ siteData.enableHttps ? 'https' : 'http' }://${ siteData.customDomain }`
-					: `http://localhost:${ siteData.port }`;
-				siteDetails = {
-					...siteData,
-					running: true,
-					url,
-				};
-			} else {
-				siteDetails = {
-					...siteData,
-					running: false,
-				};
-			}
-
-			// Update the server with the real details from CLI
-			servers.delete( placeholderDetails.id );
-			servers.set( siteDetails.id, server );
-			server.details = siteDetails;
-
-			if ( siteDetails.running && siteDetails.url ) {
-				server.server.url = siteDetails.url;
-			}
-
-			return { server, details: siteDetails };
-		} finally {
-			server.hasOngoingOperation = false;
+		if ( result.running ) {
+			server.details.running = true;
 		}
+
+		return { server, details: server.details };
 	}
 
 	async delete( deleteFiles: boolean ) {
@@ -188,6 +197,20 @@ export class SiteServer {
 		await this.server.delete( deleteFiles );
 		deletedServers.push( this.details.id );
 		servers.delete( this.details.id );
+		await SiteServer.deleteSiteMetadata( this.details.id );
+	}
+
+	private static async deleteSiteMetadata( id: string ) {
+		try {
+			await lockAppdata();
+			const userData = await loadUserData();
+			if ( userData.siteMetadata[ id ] ) {
+				delete userData.siteMetadata[ id ];
+				await saveUserData( userData );
+			}
+		} finally {
+			await unlockAppdata();
+		}
 	}
 
 	async start() {
@@ -197,25 +220,6 @@ export class SiteServer {
 
 		console.log( `Starting server for '${ this.details.name }'` );
 		await this.server.start();
-
-		const userData = await loadUserData();
-		const freshSiteData = userData.sites.find( ( s ) => s.id === this.details.id );
-
-		if ( freshSiteData?.port ) {
-			this.details.port = freshSiteData.port;
-		}
-
-		const url = getAbsoluteUrl( this.details );
-
-		this.details = {
-			...this.details,
-			url,
-			running: true,
-			autoStart: true,
-			latestCliPid: freshSiteData?.latestCliPid,
-		};
-
-		this.server.url = url;
 	}
 
 	updateSiteDetails( site: SiteDetails ) {
@@ -278,8 +282,7 @@ export class SiteServer {
 				capturedImage = image;
 				return fs.promises.writeFile( outPath, image.toPNG() );
 			} )
-			.catch( async ( error ) => {
-				Sentry.captureException( error );
+			.catch( async () => {
 				if ( capturedImage ) {
 					try {
 						await fs.promises.unlink( outPath );
@@ -423,10 +426,11 @@ export class SiteServer {
 		try {
 			await lockAppdata();
 			const userData = await loadUserData();
-			const existingSite = userData.sites.find( ( site ) => site.id === this.details.id );
-			if ( existingSite ) {
-				existingSite.themeDetails = this.details.themeDetails;
-			}
+			const siteId = this.details.id;
+			userData.siteMetadata[ siteId ] = {
+				...userData.siteMetadata[ siteId ],
+				themeDetails: this.details.themeDetails,
+			};
 			await saveUserData( userData );
 		} finally {
 			await unlockAppdata();

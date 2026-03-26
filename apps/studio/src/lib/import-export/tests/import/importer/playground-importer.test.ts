@@ -1,4 +1,4 @@
-import * as fs from 'fs/promises';
+import fs from 'fs';
 import { platformTestSuite } from '@studio/common/lib/tests/utils/platform-test-suite';
 import { lstat, move, Stats } from 'fs-extra';
 import { vi } from 'vitest';
@@ -6,20 +6,7 @@ import { PlaygroundImporter } from 'src/lib/import-export/import/importers';
 import { BackupContents } from 'src/lib/import-export/import/types';
 import { SiteServer } from 'src/site-server';
 
-vi.mock( 'fs/promises', () => {
-	const mockFns = {
-		mkdir: vi.fn(),
-		copyFile: vi.fn(),
-		writeFile: vi.fn(),
-		readFile: vi.fn(),
-		readdir: vi.fn(),
-		rm: vi.fn(),
-	};
-	return {
-		default: mockFns,
-		...mockFns,
-	};
-} );
+vi.mock( 'fs' );
 vi.mock( 'src/site-server' );
 vi.mock( 'fs-extra', () => ( {
 	lstat: vi.fn(),
@@ -85,9 +72,9 @@ platformTestSuite( 'PlaygroundImporter', ( { normalize } ) => {
 	describe( 'import', () => {
 		it( 'should copy wp-config, wp-content files and read meta file', async () => {
 			const importer = new PlaygroundImporter( mockBackupContents );
-			vi.mocked( fs.mkdir ).mockResolvedValue( undefined );
-			vi.mocked( fs.copyFile ).mockResolvedValue( undefined );
-			vi.mocked( fs.readFile ).mockResolvedValue(
+			vi.mocked( fs.promises.mkdir ).mockResolvedValue( undefined );
+			vi.mocked( fs.promises.copyFile ).mockResolvedValue( undefined );
+			vi.mocked( fs.promises.readFile ).mockResolvedValue(
 				JSON.stringify( {
 					phpVersion: '8.3',
 					wordpressVersion: '5.8',
@@ -96,8 +83,8 @@ platformTestSuite( 'PlaygroundImporter', ( { normalize } ) => {
 
 			await importer.import( mockStudioSitePath, mockStudioSiteId );
 
-			expect( fs.mkdir ).toHaveBeenCalled();
-			expect( fs.copyFile ).toHaveBeenCalledTimes( 5 ); // One for each wp-content file + wp-config.php
+			expect( fs.promises.mkdir ).toHaveBeenCalled();
+			expect( fs.promises.copyFile ).toHaveBeenCalledTimes( 5 ); // One for each wp-content file + wp-config.php
 		} );
 
 		it( 'should handle sqlite,copies them in the correct folder, and rename the urls', async () => {
@@ -121,13 +108,13 @@ platformTestSuite( 'PlaygroundImporter', ( { normalize } ) => {
 
 		it( 'should properly import fonts directory', async () => {
 			const importer = new PlaygroundImporter( mockBackupContents );
-			vi.mocked( fs.mkdir ).mockResolvedValue( undefined );
-			vi.mocked( fs.copyFile ).mockResolvedValue( undefined );
+			vi.mocked( fs.promises.mkdir ).mockResolvedValue( undefined );
+			vi.mocked( fs.promises.copyFile ).mockResolvedValue( undefined );
 
 			await importer.import( mockStudioSitePath, mockStudioSiteId );
 
 			// Verify font file was copied
-			expect( fs.copyFile ).toHaveBeenCalledWith(
+			expect( fs.promises.copyFile ).toHaveBeenCalledWith(
 				normalize( '/tmp/extracted/wp-content/fonts/open-sans.woff2' ),
 				normalize( '/path/to/studio/site/wp-content/fonts/open-sans.woff2' )
 			);
@@ -141,14 +128,14 @@ platformTestSuite( 'PlaygroundImporter', ( { normalize } ) => {
 				),
 			};
 			const importer = new PlaygroundImporter( backupWithoutFonts );
-			vi.mocked( fs.mkdir ).mockResolvedValue( undefined );
-			vi.mocked( fs.copyFile ).mockResolvedValue( undefined );
+			vi.mocked( fs.promises.mkdir ).mockResolvedValue( undefined );
+			vi.mocked( fs.promises.copyFile ).mockResolvedValue( undefined );
 
 			await importer.import( mockStudioSitePath, mockStudioSiteId );
 
 			// Should still create other directories and copy other files
-			expect( fs.mkdir ).toHaveBeenCalled();
-			expect( fs.copyFile ).toHaveBeenCalledTimes( 4 ); // One for each wp-content file + wp-config.php - fonts
+			expect( fs.promises.mkdir ).toHaveBeenCalled();
+			expect( fs.promises.copyFile ).toHaveBeenCalledTimes( 4 ); // One for each wp-content file + wp-config.php - fonts
 		} );
 	} );
 } );

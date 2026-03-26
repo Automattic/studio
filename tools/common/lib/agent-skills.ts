@@ -1,4 +1,4 @@
-import fs from 'fs/promises';
+import fs from 'fs';
 import path from 'path';
 import { pathExists, recursiveCopyDirectory } from './fs-utils';
 import { isErrnoException } from './is-errno-exception';
@@ -31,7 +31,7 @@ export async function installAiInstructionsToSite(
 		return;
 	}
 
-	const entries = await fs.readdir( bundledPath, { withFileTypes: true } );
+	const entries = await fs.promises.readdir( bundledPath, { withFileTypes: true } );
 	const userSelectedGlobalSkills: string[] = [];
 
 	const tasks: Promise< void >[] = [];
@@ -67,7 +67,7 @@ export async function updateManagedInstructionFiles(
 			continue;
 		}
 
-		await fs.copyFile( src, dest );
+		await fs.promises.copyFile( src, dest );
 	}
 }
 
@@ -81,14 +81,14 @@ async function installInstructionFile(
 	if ( ( await pathExists( dest ) ) && ! overwrite ) {
 		return;
 	}
-	await fs.copyFile( path.join( bundledPath, fileName ), dest );
+	await fs.promises.copyFile( path.join( bundledPath, fileName ), dest );
 }
 
 export async function removeSkillFromSite( sitePath: string, skillId: string ): Promise< void > {
 	const agentsSkillPath = path.join( sitePath, '.agents', 'skills', skillId );
 	const claudeSkillPath = path.join( sitePath, '.claude', 'skills', skillId );
-	await fs.rm( agentsSkillPath, { recursive: true, force: true } );
-	await fs.rm( claudeSkillPath, { recursive: true, force: true } );
+	await fs.promises.rm( agentsSkillPath, { recursive: true, force: true } );
+	await fs.promises.rm( claudeSkillPath, { recursive: true, force: true } );
 }
 
 export async function installSkillToSite(
@@ -109,7 +109,7 @@ export async function installSkillToSite(
 
 	if ( ! isInstalled || overwrite ) {
 		if ( overwrite ) {
-			await fs.rm( agentsSkillPath, { recursive: true, force: true } );
+			await fs.promises.rm( agentsSkillPath, { recursive: true, force: true } );
 		}
 		await recursiveCopyDirectory( src, agentsSkillPath );
 	}
@@ -123,22 +123,22 @@ async function ensureSkillSymlink(
 	claudeSkillPath: string,
 	overwrite: boolean
 ): Promise< void > {
-	await fs.mkdir( path.join( sitePath, '.claude', 'skills' ), { recursive: true } );
+	await fs.promises.mkdir( path.join( sitePath, '.claude', 'skills' ), { recursive: true } );
 	const relativePath = path.relative( path.join( sitePath, '.claude', 'skills' ), agentsSkillPath );
 
 	if ( overwrite ) {
-		await fs.rm( claudeSkillPath, { recursive: true, force: true } );
+		await fs.promises.rm( claudeSkillPath, { recursive: true, force: true } );
 	} else if ( await pathExists( claudeSkillPath ) ) {
 		return;
 	}
 
 	try {
-		await fs.symlink( relativePath, claudeSkillPath );
+		await fs.promises.symlink( relativePath, claudeSkillPath );
 	} catch ( error ) {
 		// On Windows, symlinks may require admin privileges or Developer Mode.
 		// Fall back to a directory junction which doesn't require elevated permissions.
 		if ( isErrnoException( error ) && error.code === 'EPERM' && process.platform === 'win32' ) {
-			await fs.symlink( path.resolve( agentsSkillPath ), claudeSkillPath, 'junction' );
+			await fs.promises.symlink( path.resolve( agentsSkillPath ), claudeSkillPath, 'junction' );
 		} else {
 			throw error;
 		}

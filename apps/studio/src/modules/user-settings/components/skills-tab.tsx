@@ -1,9 +1,10 @@
 import { DropdownMenu, MenuGroup, MenuItem } from '@wordpress/components';
+import { createInterpolateElement } from '@wordpress/element';
 import { moreVertical } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Button from 'src/components/button';
-import { InstalledBadge } from 'src/components/installed-badge';
+import { LearnMoreLink } from 'src/components/learn-more';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { type SkillStatus } from 'src/modules/agent-instructions/lib/skills-constants';
 
@@ -86,9 +87,14 @@ export function SkillsTab() {
 
 	return (
 		<div className="flex flex-col gap-4 pb-2">
-			<p className="text-xs text-frame-text-secondary text-center">
-				{ __(
-					'Agents can decide to use skills to help them accomplish specialized tasks. Select the skills that will be placed in all existing and new sites.'
+			<p className="a8c-body-small m-0">
+				{ createInterpolateElement(
+					__(
+						'Select the skills that will be placed in all existing and new sites. Agents can decide to use skills to help them accomplish specialized tasks. <learn_more_link />'
+					),
+					{
+						learn_more_link: <LearnMoreLink docsLinksKey="docsSkills" />,
+					}
 				) }
 			</p>
 
@@ -111,10 +117,7 @@ export function SkillsTab() {
 							className="flex items-center justify-between px-3 py-2.5 border-b border-frame-border last:border-b-0"
 						>
 							<div className="flex-1 min-w-0 pr-3">
-								<div className="flex items-center gap-2">
-									<span className="text-sm font-medium text-frame-text">{ skill.displayName }</span>
-									<InstalledBadge />
-								</div>
+								<div className="text-sm font-medium text-frame-text">{ skill.displayName }</div>
 								<div className="text-xs text-frame-text-secondary">{ skill.description }</div>
 							</div>
 							<DropdownMenu

@@ -55,6 +55,7 @@ export enum SNAPSHOT_EVENTS {
 	CREATED = 'snapshot-created',
 	UPDATED = 'snapshot-updated',
 	DELETED = 'snapshot-deleted',
+	DELETED_ALL = 'snapshot-deleted-all',
 }
 
 export const siteEventSchema = z.object( {
@@ -66,11 +67,16 @@ export const siteEventSchema = z.object( {
 
 export type SiteEvent = z.infer< typeof siteEventSchema >;
 
-export const snapshotEventSchema = z.object( {
-	event: z.enum( SNAPSHOT_EVENTS ),
-	snapshot: snapshotSchema.optional(),
-	snapshotUrl: z.string(),
-} );
+export const snapshotEventSchema = z.union( [
+	z.object( {
+		event: z.literal( SNAPSHOT_EVENTS.DELETED_ALL ),
+	} ),
+	z.object( {
+		event: z.enum( SNAPSHOT_EVENTS ),
+		snapshot: snapshotSchema.optional(),
+		snapshotUrl: z.string(),
+	} ),
+] );
 
 export type SnapshotEvent = z.infer< typeof snapshotEventSchema >;
 
@@ -82,28 +88,69 @@ export const authEventSchema = z.object( {
 export type AuthEvent = z.infer< typeof authEventSchema >;
 
 /**
+ * Sync events — emitted by CLI sync commands to notify Studio of ongoing operations.
+ */
+export enum SYNC_EVENTS {
+	STARTED = 'sync-started',
+	PROGRESS = 'sync-progress',
+	COMPLETED = 'sync-completed',
+	FAILED = 'sync-failed',
+}
+
+export const syncEventSchema = z.object( {
+	event: z.nativeEnum( SYNC_EVENTS ),
+	type: z.enum( [ 'push', 'pull' ] ),
+	localSiteId: z.string(),
+	remoteSiteId: z.number(),
+	remoteSiteName: z.string(),
+	progress: z.number().optional(),
+	statusMessage: z.string().optional(),
+	error: z.string().optional(),
+} );
+
+export type SyncEvent = z.infer< typeof syncEventSchema >;
+
+/**
  * Socket-level schemas for events sent between daemon-client and the _events command.
  */
-export const siteSocketEventSchema = z.object( {
-	event: z.string(),
+const siteSocketEventSchema = z.object( {
+	event: z.enum( SITE_EVENTS ),
 	data: z.object( {
 		siteId: z.string(),
 	} ),
 } );
 
-export const snapshotSocketEventSchema = z.object( {
-	event: z.enum( SNAPSHOT_EVENTS ),
-	data: z.object( {
-		snapshotUrl: z.string(),
+const snapshotSocketEventSchema = z.union( [
+	z.object( {
+		event: z.literal( SNAPSHOT_EVENTS.DELETED_ALL ),
 	} ),
-} );
+	z.object( {
+		event: z.enum( SNAPSHOT_EVENTS ),
+		data: z.object( {
+			snapshotUrl: z.string(),
+		} ),
+	} ),
+] );
 
-export const authSocketEventSchema = z.object( {
+const authSocketEventSchema = z.object( {
 	event: z.enum( AUTH_EVENTS ),
 	data: z.object( {
 		token: authTokenSchema.optional(),
 	} ),
 } );
+
+const syncSocketEventSchema = z.object( {
+	event: z.nativeEnum( SYNC_EVENTS ),
+	data: syncEventSchema,
+} );
+
+export const socketEventSchema = z.union( [
+	syncSocketEventSchema,
+	siteSocketEventSchema,
+	snapshotSocketEventSchema,
+	authSocketEventSchema,
+] );
+export type SocketEvent = z.infer< typeof socketEventSchema >;
 
 /**
  * CLI stdout key-value pair schemas for events parsed by Studio's cli-events-subscriber.
@@ -133,34 +180,6 @@ export const cliAuthEventSchema = z.object( {
 		.string()
 		.transform( ( val ) => JSON.parse( val ) )
 		.pipe( authEventSchema ),
-} );
-
-/**
- * Sync events — emitted by CLI sync commands to notify Studio of ongoing operations.
- */
-export enum SYNC_EVENTS {
-	STARTED = 'sync-started',
-	PROGRESS = 'sync-progress',
-	COMPLETED = 'sync-completed',
-	FAILED = 'sync-failed',
-}
-
-export const syncEventSchema = z.object( {
-	event: z.nativeEnum( SYNC_EVENTS ),
-	type: z.enum( [ 'push', 'pull' ] ),
-	localSiteId: z.string(),
-	remoteSiteId: z.number(),
-	remoteSiteName: z.string(),
-	progress: z.number().optional(),
-	statusMessage: z.string().optional(),
-	error: z.string().optional(),
-} );
-
-export type SyncEvent = z.infer< typeof syncEventSchema >;
-
-export const syncSocketEventSchema = z.object( {
-	event: z.nativeEnum( SYNC_EVENTS ),
-	data: syncEventSchema,
 } );
 
 export const cliSyncEventSchema = z.object( {

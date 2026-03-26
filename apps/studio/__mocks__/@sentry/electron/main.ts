@@ -1,4 +1,4 @@
-import { vi } from 'vitest';
+/// <reference types="vitest/globals" />
 
 export const init = vi.fn();
 export const addBreadcrumb = vi.fn();

@@ -4,16 +4,8 @@ import { EventEmitter } from 'events';
 import fs from 'fs';
 import path from 'path';
 import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from '@studio/common/constants';
-import {
-	type AUTH_EVENTS,
-	type SITE_EVENTS,
-	type SNAPSHOT_EVENTS,
-	type SYNC_EVENTS,
-	type SyncEvent,
-} from '@studio/common/lib/cli-events';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
-import { type StoredAuthToken } from '@studio/common/lib/shared-config';
 import { z } from 'zod';
 import {
 	PROCESS_MANAGER_EVENTS_SOCKET_PATH,
@@ -33,6 +25,7 @@ import {
 	ManagerMessage,
 	childMessageFromProcessManagerSchema,
 } from 'cli/lib/types/wordpress-server-ipc';
+import type { SocketEvent } from '@studio/common/lib/cli-events';
 
 const PROXY_PROCESS_NAME = 'studio-proxy';
 const CONNECTION_TIMEOUT_MS = 10_000;
@@ -340,16 +333,10 @@ export async function stopProcess( processName: string ): Promise< void > {
 
 const eventsSocketClient = new SocketRequestClient( SITE_EVENTS_SOCKET_PATH );
 
-type CliEventPayload =
-	| { event: SITE_EVENTS; data: { siteId: string } }
-	| { event: SNAPSHOT_EVENTS; data: { snapshotUrl: string } }
-	| { event: AUTH_EVENTS; data: { token?: StoredAuthToken } }
-	| { event: SYNC_EVENTS; data: SyncEvent };
-
 /**
  * Emit a CLI event via the events socket, for the `_events` command server to receive.
  */
-export async function emitCliEvent( payload: CliEventPayload ): Promise< void > {
+export async function emitCliEvent( payload: SocketEvent ): Promise< void > {
 	try {
 		await eventsSocketClient.send( payload );
 	} catch {

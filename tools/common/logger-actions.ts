@@ -12,6 +12,7 @@ export enum PreviewCommandLoggerAction {
 	ARCHIVE = 'archive',
 	LOAD = 'load',
 	DELETE = 'delete',
+	DELETE_ALL = 'deleteAll',
 	UPLOAD = 'upload',
 	READY = 'ready',
 	APPDATA = 'appdata',

@@ -33,7 +33,7 @@ export interface IpcEvents {
 	'on-site-create-progress': [ { siteId: string; message: string } ];
 	'site-context-menu-action': [ { action: string; siteId: string } ];
 	'site-event': [ SiteEvent ];
-	'snapshot-changed': [ SnapshotEvent ];
+	'snapshot-event': [ SnapshotEvent ];
 	'sync-upload-network-paused': [ { error: string; selectedSiteId: string; remoteSiteId: number } ];
 	'sync-upload-resumed': [ { selectedSiteId: string; remoteSiteId: number } ];
 	'sync-upload-progress': [ { selectedSiteId: string; remoteSiteId: number; progress: number } ];

@@ -18,7 +18,6 @@ import os from 'os';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import {
-	installAiInstructionsToSite,
 	installSkillToSite,
 	removeSkillFromSite,
 	updateManagedInstructionFiles,
@@ -39,7 +38,7 @@ import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
-import { updateSharedConfig } from '@studio/common/lib/shared-config';
+import { readSharedConfig, updateSharedConfig } from '@studio/common/lib/shared-config';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import { MACOS_TRAFFIC_LIGHT_POSITION, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
@@ -59,7 +58,7 @@ import {
 	trustRootCA,
 } from 'src/lib/certificate-manager';
 import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
-import { buildFeatureFlags, getFeatureFlagFromEnv } from 'src/lib/feature-flags';
+import { buildFeatureFlags } from 'src/lib/feature-flags';
 import { getImageData } from 'src/lib/get-image-data';
 import { exportBackup } from 'src/lib/import-export/export/export-manager';
 import { ExportOptions } from 'src/lib/import-export/export/types';
@@ -133,6 +132,7 @@ export {
 export {
 	createSnapshot,
 	deleteSnapshot,
+	deleteAllSnapshots,
 	fetchSnapshots,
 	setSnapshot,
 	updateSnapshot,
@@ -204,8 +204,8 @@ export async function installWordPressSkills(
 export async function getWordPressSkillsStatusAllSites(
 	_event: IpcMainInvokeEvent
 ): Promise< SkillStatus[] > {
-	const userData = await loadUserData();
-	const selectedSkills = userData.selectedSkills ?? [];
+	const sharedConfig = await readSharedConfig();
+	const selectedSkills = sharedConfig.selectedSkills ?? [];
 	return BUNDLED_SKILLS.map( ( skill ) => ( {
 		...skill,
 		installed: selectedSkills.includes( skill.id ),
@@ -229,15 +229,10 @@ export async function installWordPressSkillsToAllSites(
 		}
 	} );
 
-	try {
-		await lockAppdata();
-		const userData = await loadUserData();
-		const existing = userData.selectedSkills ?? [];
-		const merged = Array.from( new Set( [ ...existing, options.skillId ] ) );
-		await saveUserData( { ...userData, selectedSkills: merged } );
-	} finally {
-		await unlockAppdata();
-	}
+	const sharedConfig = await readSharedConfig();
+	const existing = sharedConfig.selectedSkills ?? [];
+	const merged = Array.from( new Set( [ ...existing, options.skillId ] ) );
+	await updateSharedConfig( { selectedSkills: merged } );
 }
 
 export async function removeWordPressSkillFromAllSites(
@@ -253,14 +248,9 @@ export async function removeWordPressSkillFromAllSites(
 		}
 	} );
 
-	try {
-		await lockAppdata();
-		const userData = await loadUserData();
-		const updated = ( userData.selectedSkills ?? [] ).filter( ( id ) => id !== skillId );
-		await saveUserData( { ...userData, selectedSkills: updated } );
-	} finally {
-		await unlockAppdata();
-	}
+	const sharedConfig = await readSharedConfig();
+	const updated = ( sharedConfig.selectedSkills ?? [] ).filter( ( id ) => id !== skillId );
+	await updateSharedConfig( { selectedSkills: updated } );
 }
 
 const DEBUG_LOG_MAX_LINES = 50;
@@ -419,20 +409,6 @@ export async function createSite(
 		// If the site is running after creation, fetch theme details and update thumbnail
 		if ( server.details.running ) {
 			void loadThemeDetails( event, server.details.id );
-		}
-
-		// Install AI instructions and skills into the new site
-		if ( getFeatureFlagFromEnv( 'enableAgentSuite' ) ) {
-			const userData = await loadUserData();
-			const selectedSkills = userData.selectedSkills ?? [];
-			void installAiInstructionsToSite( path, getAiInstructionsPath(), selectedSkills ).catch(
-				( error ) => {
-					console.error(
-						'[ai-instructions] Failed to install AI instructions to new site:',
-						error
-					);
-				}
-			);
 		}
 
 		return server.details;

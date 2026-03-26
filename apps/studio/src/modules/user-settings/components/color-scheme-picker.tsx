@@ -52,7 +52,7 @@ export const ColorSchemePicker = ( { value, onChange }: ColorSchemePickerProps )
 							<span
 								className={ cx(
 									'text-sm mt-1.5 text-frame-text group-focus:text-frame-theme',
-									isSelected && 'font-bold'
+									isSelected && 'font-medium'
 								) }
 							>
 								{ option.label }

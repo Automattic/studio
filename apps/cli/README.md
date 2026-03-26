@@ -9,7 +9,7 @@ The Studio CLI lets you:
 - Create, run, and manage local WordPress sites from the terminal.
 - Run WP-CLI commands.
 - Publish ephemeral preview sites to share (requires WordPress.com login).
-- Integrate with AI coding agents. Every site comes with `AGENTS.md` file.
+- Integrate with AI coding agents. Every site comes with an `AGENTS.md` file.
 
 # Table of contents
 

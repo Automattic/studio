@@ -1,6 +1,6 @@
 import { DropdownMenu, MenuGroup, MenuItem } from '@wordpress/components';
-import { moreVertical } from '@wordpress/icons';
 import { createInterpolateElement } from '@wordpress/element';
+import { moreVertical } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Button from 'src/components/button';

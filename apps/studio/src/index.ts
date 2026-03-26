@@ -47,7 +47,6 @@ import {
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { updateWindowsCliVersionedPathIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
 import { stopAllProcesses as stopAllStudioCodeProcesses } from 'src/modules/studio-code';
-import { setupWPServerFiles, updateWPServerFiles } from 'src/setup-wp-server-files';
 import { getRunningSiteCount, SiteServer, stopAllServers } from 'src/site-server';
 import {
 	loadUserData,

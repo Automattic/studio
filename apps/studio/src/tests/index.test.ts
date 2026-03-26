@@ -25,10 +25,6 @@ vi.mock( import( 'src/lib/bump-stats' ), async ( importOriginal ) => {
 	};
 } );
 vi.mock( 'src/lib/user-data-watcher' );
-vi.mock( 'src/setup-wp-server-files', () => ( {
-	setupWPServerFiles: vi.fn().mockResolvedValue( undefined ),
-	updateWPServerFiles: vi.fn().mockResolvedValue( undefined ),
-} ) );
 vi.mock( 'atomically', () => ( {
 	readFile: vi.fn().mockResolvedValue( Buffer.from( JSON.stringify( { sites: [] } ) ) ),
 	writeFile: vi.fn(),

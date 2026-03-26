@@ -2,6 +2,7 @@ import { IpcMainInvokeEvent } from 'electron';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { readSharedConfig } from '@studio/common/lib/shared-config';
 import { loadUserData, updateAppdata } from 'src/storage/user-data';
 import { getOrCreateProcess, getProcess, stopProcess } from './studio-code-process';
 import type { AiEngine, StudioCodeCommand } from './studio-code-types';
@@ -36,10 +37,10 @@ export async function studioCodeCheckProvider(
 	_event: IpcMainInvokeEvent
 ): Promise< { available: boolean; providers: string[] } > {
 	const providers: string[] = [];
-	const userData = await loadUserData();
+	const sharedConfig = await readSharedConfig();
 
 	// Check for wpcom auth
-	if ( userData.authToken ) {
+	if ( sharedConfig.authToken ) {
 		providers.push( 'wpcom' );
 	}
 

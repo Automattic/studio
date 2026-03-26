@@ -218,7 +218,7 @@ interface StudioCodeChatProps {
 export function StudioCodeChat( { selectedSite }: StudioCodeChatProps ) {
 	const [ state, dispatch ] = useReducer( reducer, initialState );
 	const [ inputValue, setInputValue ] = useState( '' );
-	const [ showSettings, setShowSettings ] = useState( false );
+
 	const messagesEndRef = useRef< HTMLDivElement >( null );
 	const wrapperRef = useRef< HTMLDivElement >( null );
 
@@ -343,10 +343,6 @@ export function StudioCodeChat( { selectedSite }: StudioCodeChatProps ) {
 		dispatch( { type: 'CLEAR' } );
 	}, [] );
 
-	const onOpenSettings = useCallback( () => {
-		setShowSettings( ! showSettings );
-	}, [ showSettings ] );
-
 	const handlePermissionRespond = useCallback(
 		( id: string, allowed: boolean ) => {
 			dispatch( { type: 'PERMISSION_RESOLVED' } );
@@ -394,7 +390,6 @@ export function StudioCodeChat( { selectedSite }: StudioCodeChatProps ) {
 					handleKeyDown={ handleKeyDown }
 					clearConversation={ clearConversation }
 					isAssistantThinking={ state.isStreaming }
-					onOpenSettings={ onOpenSettings }
 				/>
 			</div>
 		</div>

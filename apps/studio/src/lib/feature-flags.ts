@@ -18,6 +18,12 @@ export const FEATURE_FLAGS: Record< keyof FeatureFlags, FeatureFlagDefinition > 
 		flag: 'enableAgentSuite',
 		default: false,
 	},
+	enableStudioCode: {
+		label: 'Enable Studio Code',
+		env: 'ENABLE_STUDIO_CODE',
+		flag: 'enableStudioCode',
+		default: false,
+	},
 } as const;
 
 export function getFeatureFlagFromEnv( flag: keyof FeatureFlags ): boolean {

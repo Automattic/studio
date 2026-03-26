@@ -4,6 +4,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useState } from 'react';
 import Button from 'src/components/button';
 import Modal from 'src/components/modal';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import {
 	INSTRUCTION_FILES,
@@ -317,6 +318,7 @@ function WordPressSkillsPanel( { siteId }: { siteId: string } ) {
 
 export function AiSettingsModal( { isOpen, onClose, siteId }: AiSettingsModalProps ) {
 	const { __ } = useI18n();
+	const { enableStudioCode } = useFeatureFlags();
 
 	if ( ! isOpen ) {
 		return null;
@@ -331,7 +333,7 @@ export function AiSettingsModal( { isOpen, onClose, siteId }: AiSettingsModalPro
 			className="min-h-[350px] app-no-drag-region"
 		>
 			<div className="px-2 pb-4 flex gap-6 flex-col">
-				<AiEnginePanel />
+				{ enableStudioCode && <AiEnginePanel /> }
 				<AgentInstructionsPanel siteId={ siteId } />
 				<WordPressSkillsPanel siteId={ siteId } />
 			</div>

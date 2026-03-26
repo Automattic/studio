@@ -20,6 +20,7 @@ import { StudioCodeChat } from 'src/components/studio-code-chat';
 import WelcomeComponent from 'src/components/welcome-message-prompt';
 import { LIMIT_OF_PROMPTS_PER_USER, TELEX_HOSTNAME, TELEX_UTM_PARAMS } from 'src/constants';
 import { useAuth } from 'src/hooks/use-auth';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useOffline } from 'src/hooks/use-offline';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { cx } from 'src/lib/cx';
@@ -359,10 +360,15 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 );
 
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
+	const { enableStudioCode } = useFeatureFlags();
 	const [ aiEngine, setAiEngine ] = useState< AiEngine >( 'wpcom-assistant' );
 	const [ engineChecked, setEngineChecked ] = useState( false );
 
 	useEffect( () => {
+		if ( ! enableStudioCode ) {
+			setEngineChecked( true );
+			return;
+		}
 		void Promise.all( [ getIpcApi().getAiEngine(), getIpcApi().studioCodeCheckProvider() ] ).then(
 			( [ engine, provider ] ) => {
 				if ( provider.available && engine === 'studio-code' ) {
@@ -373,7 +379,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				setEngineChecked( true );
 			}
 		);
-	}, [] );
+	}, [ enableStudioCode ] );
 
 	const inputRef = useRef< HTMLTextAreaElement >( null );
 	const wrapperRef = useRef< HTMLDivElement >( null );

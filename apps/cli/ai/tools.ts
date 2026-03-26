@@ -6,7 +6,10 @@ import { z } from 'zod/v4';
 import { validateBlocks, type ValidationReport } from 'cli/ai/block-validator';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
-import { runCommand as runDeletePreviewCommand } from 'cli/commands/preview/delete';
+import {
+	Mode as PreviewDeleteMode,
+	runCommand as runDeletePreviewCommand,
+} from 'cli/commands/preview/delete';
 import { runCommand as runListPreviewCommand } from 'cli/commands/preview/list';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
@@ -426,38 +429,17 @@ const deletePreviewTool = tool(
 	async ( args ) => {
 		const normalizedHost = normalizeHostname( args.host );
 		return runPreviewCommand(
-			() => runDeletePreviewCommand( normalizedHost ),
+			() => runDeletePreviewCommand( PreviewDeleteMode.DELETE_SINGLE_SNAPSHOT, normalizedHost ),
 			`Preview site "${ normalizedHost }" deleted.`,
 			'Failed to delete preview site'
 		);
 	}
 );
 
-const BLOCK_COMMENT_PATTERN = /<!-- wp:/;
-
-function extractPostContent( command: string ): string | undefined {
-	const args = splitCommandArgs( command );
-	for ( const arg of args ) {
-		if ( arg.startsWith( '--post_content=' ) ) {
-			return arg.slice( '--post_content='.length );
-		}
-	}
-	return undefined;
-}
-
-function isPostContentCommand( command: string ): boolean {
-	const trimmed = command.trimStart();
-	return (
-		( trimmed.startsWith( 'post create' ) || trimmed.startsWith( 'post update' ) ) &&
-		trimmed.includes( '--post_content=' )
-	);
-}
-
 // Note: wp.ts runCommand calls process.exit(), so we use the lower-level sendWpCliCommand directly.
 const runWpCliTool = tool(
 	'wp_cli',
 	'Runs a WP-CLI command on a specific WordPress site. The site must be running. ' +
-		'Post content (in post create/update with --post_content) is automatically validated for block correctness before execution. ' +
 		'Examples: "plugin install woocommerce --activate", "option get blogname", "user list".',
 	{
 		nameOrPath: z.string().describe( 'The site name or file system path to the site' ),
@@ -470,25 +452,6 @@ const runWpCliTool = tool(
 	async ( args ) => {
 		try {
 			const site = await resolveSite( args.nameOrPath );
-
-			// Validate block content in post create/update commands before executing
-			if ( isPostContentCommand( args.command ) ) {
-				const postContent = extractPostContent( args.command );
-				if ( postContent && BLOCK_COMMENT_PATTERN.test( postContent ) ) {
-					emitProgress( 'Validating post content blocks…' );
-					const siteUrl = getSiteUrl( site );
-					const report = await validateBlocks( postContent, siteUrl );
-					if ( report.invalidBlocks > 0 ) {
-						const lines = [
-							`Block validation failed: ${ report.invalidBlocks }/${ report.totalBlocks } blocks invalid. Fix the content before creating/updating the post.`,
-							'',
-							...formatInvalidBlocks( report ),
-						];
-						return errorResult( lines.join( '\n' ) );
-					}
-					emitProgress( `Post content: all ${ report.totalBlocks } blocks valid` );
-				}
-			}
 
 			try {
 				await connectToDaemon();

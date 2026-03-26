@@ -1,5 +1,5 @@
 // To run tests, execute `npm run test -- src/lib/tests/import-export/tests/import-manager.test.ts`
-import fsPromises from 'fs/promises';
+import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { vi } from 'vitest';
@@ -11,13 +11,7 @@ import { Validator } from 'src/lib/import-export/import/validators/validator';
 import type { Stats } from 'fs';
 
 vi.mock( 'src/lib/import-export/import/handlers/backup-handler-factory' );
-vi.mock( 'fs/promises', () => ( {
-	default: {
-		mkdtemp: vi.fn(),
-		stat: vi.fn(),
-		rm: vi.fn(),
-	},
-} ) );
+vi.mock( 'fs' );
 vi.mock( 'os', () => ( {
 	default: {
 		tmpdir: vi.fn(),
@@ -105,7 +99,7 @@ describe( 'importManager', () => {
 			vi.clearAllMocks();
 			vi.mocked( os.tmpdir ).mockReturnValue( '/tmp' );
 			vi.mocked( path.join ).mockImplementation( ( ...args ) => args.join( '/' ) );
-			vi.mocked( fsPromises.mkdtemp ).mockResolvedValue( mockExtractDir );
+			vi.mocked( fs.promises.mkdtemp ).mockResolvedValue( mockExtractDir );
 		} );
 
 		it( 'should successfully import a backup', async () => {
@@ -139,11 +133,11 @@ describe( 'importManager', () => {
 			const result = await importBackup( mockFile, mockSite, vi.fn(), options );
 
 			expect( result ).toBeTruthy();
-			expect( fsPromises.mkdtemp ).toHaveBeenCalledWith( '/tmp/studio_backup' );
+			expect( fs.promises.mkdtemp ).toHaveBeenCalledWith( '/tmp/studio_backup' );
 			expect( mockBackupHandler.listFiles ).toHaveBeenCalledWith( mockFile );
 			expect( mockBackupHandler.extractFiles ).toHaveBeenCalledWith( mockFile, mockExtractDir );
 			expect( mockImporter.import ).toHaveBeenCalledWith( mockSite.path, mockSite.id );
-			expect( fsPromises.rm ).toHaveBeenCalledWith( mockExtractDir, {
+			expect( fs.promises.rm ).toHaveBeenCalledWith( mockExtractDir, {
 				recursive: true,
 			} );
 		} );
@@ -169,20 +163,20 @@ describe( 'importManager', () => {
 				] )
 			).rejects.toThrow( 'No suitable importer found for the provided backup contents' );
 
-			expect( fsPromises.mkdtemp ).toHaveBeenCalled();
-			expect( fsPromises.rm ).not.toHaveBeenCalled();
+			expect( fs.promises.mkdtemp ).toHaveBeenCalled();
+			expect( fs.promises.rm ).not.toHaveBeenCalled();
 		} );
 
 		it( 'should throw error if no suitable backup handler is found', async () => {
 			vi.mocked( BackupHandlerFactory.create ).mockReturnValue( undefined );
-			vi.mocked( fsPromises.stat ).mockResolvedValue( { size: 1024 } as Stats );
+			vi.mocked( fs.promises.stat ).mockResolvedValue( { size: 1024 } as Stats );
 
 			await expect( importBackup( mockFile, mockSite, vi.fn(), [] ) ).rejects.toThrow(
 				'No suitable backup handler found for the provided backup file'
 			);
 
-			expect( fsPromises.mkdtemp ).not.toHaveBeenCalled();
-			expect( fsPromises.rm ).not.toHaveBeenCalled();
+			expect( fs.promises.mkdtemp ).not.toHaveBeenCalled();
+			expect( fs.promises.rm ).not.toHaveBeenCalled();
 		} );
 	} );
 } );

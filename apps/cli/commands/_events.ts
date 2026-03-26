@@ -12,9 +12,7 @@ import {
 	SITE_EVENTS,
 	SNAPSHOT_EVENTS,
 	siteDetailsSchema,
-	siteSocketEventSchema,
-	snapshotSocketEventSchema,
-	authSocketEventSchema,
+	socketEventSchema,
 	SiteEvent,
 	SnapshotEvent,
 	AuthEvent,
@@ -90,16 +88,26 @@ function emitAuthEvent( event: AUTH_EVENTS, token?: AuthEvent[ 'token' ] ): void
 	logger.reportKeyValuePair( 'auth-event', JSON.stringify( payload ) );
 }
 
-const emitSnapshotEvent = sequential(
-	async ( event: SNAPSHOT_EVENTS, snapshotUrl: string ): Promise< void > => {
+const emitDeletedAllSnapshotsEvent = sequential(
+	async ( event: SNAPSHOT_EVENTS.DELETED_ALL ): Promise< void > => {
+		const payload: SnapshotEvent = { event };
+		logger.reportKeyValuePair( 'snapshot-event', JSON.stringify( payload ) );
+	}
+);
+
+const emitSingleSnapshotEvent = sequential(
+	async (
+		event: SNAPSHOT_EVENTS.CREATED | SNAPSHOT_EVENTS.UPDATED | SNAPSHOT_EVENTS.DELETED,
+		snapshotUrl: string
+	): Promise< void > => {
 		const cliConfig = await readCliConfig();
+
 		const snapshot = cliConfig.snapshots.find( ( s ) => s.url === snapshotUrl );
 		const payload: SnapshotEvent = {
 			event,
 			snapshotUrl,
 			snapshot: snapshot ?? undefined,
 		};
-
 		logger.reportKeyValuePair( 'snapshot-event', JSON.stringify( payload ) );
 	}
 );
@@ -108,25 +116,29 @@ export async function runCommand(): Promise< void > {
 	const eventsSocketServer = new SocketServer( SITE_EVENTS_SOCKET_PATH, 2500 );
 	eventsSocketServer.on( 'message', ( { message: packet } ) => {
 		try {
-			const authParsed = authSocketEventSchema.safeParse( packet );
-			if ( authParsed.success ) {
-				emitAuthEvent( authParsed.data.event, authParsed.data.data.token );
-				return;
-			}
+			const parsed = socketEventSchema.parse( packet );
 
-			const snapshotParsed = snapshotSocketEventSchema.safeParse( packet );
-			if ( snapshotParsed.success ) {
-				void emitSnapshotEvent( snapshotParsed.data.event, snapshotParsed.data.data.snapshotUrl );
-				return;
-			}
+			switch ( parsed.event ) {
+				case AUTH_EVENTS.LOGIN:
+				case AUTH_EVENTS.LOGOUT:
+					void emitAuthEvent( parsed.event, parsed.data.token );
+					break;
 
-			const parsedPacket = siteSocketEventSchema.parse( packet );
-			if (
-				parsedPacket.event === SITE_EVENTS.CREATED ||
-				parsedPacket.event === SITE_EVENTS.UPDATED ||
-				parsedPacket.event === SITE_EVENTS.DELETED
-			) {
-				void emitSiteEvent( parsedPacket.event, parsedPacket.data.siteId );
+				case SNAPSHOT_EVENTS.CREATED:
+				case SNAPSHOT_EVENTS.UPDATED:
+				case SNAPSHOT_EVENTS.DELETED:
+					void emitSingleSnapshotEvent( parsed.event, parsed.data.snapshotUrl );
+					break;
+
+				case SNAPSHOT_EVENTS.DELETED_ALL:
+					void emitDeletedAllSnapshotsEvent( parsed.event );
+					break;
+
+				case SITE_EVENTS.CREATED:
+				case SITE_EVENTS.UPDATED:
+				case SITE_EVENTS.DELETED:
+					void emitSiteEvent( parsed.event, parsed.data.siteId );
+					break;
 			}
 		} catch ( error ) {
 			// Do nothing

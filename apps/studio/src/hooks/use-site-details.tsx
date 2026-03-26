@@ -11,14 +11,10 @@ import {
 	useRef,
 	useState,
 } from 'react';
-import { useAuth } from 'src/hooks/use-auth';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
-import { useOffline } from 'src/hooks/use-offline';
 import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { useAppDispatch } from 'src/stores';
-import { snapshotThunks } from 'src/stores/snapshot-slice';
 import type { Blueprint } from 'src/stores/wpcom-api';
 
 interface SiteDetailsContext {
@@ -114,61 +110,6 @@ function useSelectedSite( firstSiteId: string | null ) {
 	};
 }
 
-function useDeleteSite() {
-	const [ isLoading, setIsLoading ] = useState< Record< string, boolean > >( {} );
-	const dispatch = useAppDispatch();
-	const isOffline = useOffline();
-	const { isAuthenticated } = useAuth();
-
-	const deleteSite = useCallback(
-		async ( siteId: string, removeLocal: boolean ): Promise< void > => {
-			if ( ! siteId ) {
-				return;
-			}
-
-			const shouldDeletePreviewSites = ! isOffline && isAuthenticated;
-
-			const allSiteRemovePromises = shouldDeletePreviewSites
-				? dispatch( snapshotThunks.deleteAllSnapshotsForSite( { siteId } ) )
-				: Promise.resolve();
-
-			try {
-				setIsLoading( ( loading ) => ( { ...loading, [ siteId ]: true } ) );
-
-				await getIpcApi().deleteSite( siteId, removeLocal );
-
-				if ( shouldDeletePreviewSites ) {
-					await allSiteRemovePromises;
-				}
-
-				// After site is deleted successfully, clean up wpcom connections
-				try {
-					const connectedSites = await getIpcApi().getConnectedWpcomSites( siteId );
-					const connectedSiteIds = connectedSites.map( ( site ) => site.id );
-					if ( connectedSiteIds.length > 0 ) {
-						await getIpcApi().disconnectWpcomSites( [
-							{
-								siteIds: connectedSiteIds,
-								localSiteId: siteId,
-							},
-						] );
-					}
-				} catch ( error ) {
-					// If disconnection fails, log but don't fail the deletion
-					console.error( 'Failed to disconnect wpcom sites:', error );
-				}
-			} catch ( error ) {
-				console.error( 'Error during site deletion:', error );
-				throw error;
-			} finally {
-				setIsLoading( ( loading ) => ( { ...loading, [ siteId ]: false } ) );
-			}
-		},
-		[ dispatch, isOffline, isAuthenticated ]
-	);
-	return { deleteSite, isLoading };
-}
-
 export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	const { Provider } = siteDetailsContext;
 
@@ -187,7 +128,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	);
 	const { selectedSiteId, setSelectedSiteId } = useSelectedSite( firstSite?.id );
 	const [ uploadingSites, setUploadingSites ] = useState< { [ siteId: string ]: boolean } >( {} );
-	const { deleteSite, isLoading: isDeleting } = useDeleteSite();
+	const [ isDeleting, setIsDeleting ] = useState< Record< string, boolean > >( {} );
 	const { setSelectedTab, selectedTab } = useContentTabs();
 
 	useIpcListener( 'on-site-create-progress', ( _, { siteId, message } ) => {
@@ -244,12 +185,42 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	}, [] );
 
 	const onDeleteSite = useCallback(
-		async ( id: string, removeLocal: boolean ) => {
-			await deleteSite( id, removeLocal );
+		async ( siteId: string, shouldDeleteFiles: boolean ) => {
+			if ( ! siteId ) {
+				return;
+			}
+
+			try {
+				setIsDeleting( ( prev ) => ( { ...prev, [ siteId ]: true } ) );
+
+				await getIpcApi().deleteSite( siteId, shouldDeleteFiles );
+
+				// After site is deleted successfully, clean up wpcom connections
+				try {
+					const connectedSites = await getIpcApi().getConnectedWpcomSites( siteId );
+					const connectedSiteIds = connectedSites.map( ( site ) => site.id );
+					if ( connectedSiteIds.length > 0 ) {
+						await getIpcApi().disconnectWpcomSites( [
+							{
+								siteIds: connectedSiteIds,
+								localSiteId: siteId,
+							},
+						] );
+					}
+				} catch ( error ) {
+					// If disconnection fails, log but don't fail the deletion
+					console.error( 'Failed to disconnect wpcom sites:', error );
+				}
+			} catch ( error ) {
+				console.error( 'Error during site deletion:', error );
+				throw error;
+			} finally {
+				setIsDeleting( ( prev ) => ( { ...prev, [ siteId ]: false } ) );
+			}
+
+			// No need to update the `sites` state. That's handled in the `site-event` listener.
+
 			const newSites = await getIpcApi().getSiteDetails();
-			setSites( newSites );
-			// Use functional update to access current selectedSiteId value
-			// Tab reset is handled in SiteContentTabs when it detects the previous site was deleted
 			setSelectedSiteId( ( currentSelectedId ) => {
 				const selectedSiteStillExists = newSites.some( ( site ) => site.id === currentSelectedId );
 				if ( ! selectedSiteStillExists ) {
@@ -258,7 +229,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				return currentSelectedId;
 			} );
 		},
-		[ deleteSite, setSelectedSiteId ]
+		[ setSelectedSiteId ]
 	);
 
 	const createSite = useCallback(
@@ -403,7 +374,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	const updateSite = useCallback( async ( site: SiteDetails, wpVersion?: string ) => {
 		await getIpcApi().updateSite( site, wpVersion );
 		const updatedSites = await getIpcApi().getSiteDetails();
-		setSites( updatedSites );
+		setSites( sortSites( updatedSites ) );
 	}, [] );
 
 	const saveTimeoutRef = useRef< ReturnType< typeof setTimeout > >();
@@ -581,7 +552,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			.getSiteDetails()
 			.then( async ( data ) => {
 				if ( ! cancel ) {
-					setSites( data );
+					setSites( sortSites( data ) );
 					setLoadingSites( false );
 					const autoStartSites = data.filter( ( site ) => site.autoStart );
 					void Promise.all( autoStartSites.map( ( site ) => startServer( site ) ) );

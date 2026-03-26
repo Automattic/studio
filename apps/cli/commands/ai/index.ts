@@ -1,5 +1,5 @@
 import { readAuthToken } from '@studio/common/lib/shared-config';
-import { __ } from '@wordpress/i18n';
+import { __, _n, sprintf } from '@wordpress/i18n';
 import {
 	AI_MODELS,
 	DEFAULT_MODEL,
@@ -295,7 +295,7 @@ export async function runCommand(
 			void agentQuery.interrupt();
 		};
 
-		let maxTurnsResult: { numTurns: number; costUsd: number } | undefined;
+		let maxTurnsResult: { numTurns: number } | undefined;
 		let turnStatus: TurnStatus = 'interrupted';
 
 		try {
@@ -310,7 +310,6 @@ export async function runCommand(
 					if ( 'maxTurnsReached' in result && result.maxTurnsReached ) {
 						maxTurnsResult = {
 							numTurns: result.numTurns,
-							costUsd: result.costUsd,
 						};
 						turnStatus = 'max_turns';
 					} else {
@@ -328,7 +327,11 @@ export async function runCommand(
 
 		if ( maxTurnsResult ) {
 			ui.showInfo(
-				`Used ${ maxTurnsResult.numTurns } turns · $${ maxTurnsResult.costUsd.toFixed( 4 ) }`
+				sprintf(
+					/* translators: %d: number of turns used */
+					_n( 'Used %d turn', 'Used %d turns', maxTurnsResult.numTurns ),
+					maxTurnsResult.numTurns
+				)
 			);
 			const answer = await ui.askUser( [
 				{

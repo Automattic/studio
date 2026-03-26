@@ -17,7 +17,6 @@ type State = {
 	isProcessRunning: boolean;
 	sessionId?: string;
 	pendingPermission?: PermissionRequest;
-	turnCost?: number;
 };
 
 type Action =
@@ -29,7 +28,7 @@ type Action =
 	| { type: 'TEXT_COMPLETE' }
 	| { type: 'TOOL_USE_START'; id: string; name: string; input: Record< string, unknown > }
 	| { type: 'TOOL_RESULT'; id: string; output: string; isError: boolean }
-	| { type: 'TURN_COMPLETE'; sessionId: string; cost: number }
+	| { type: 'TURN_COMPLETE'; sessionId: string }
 	| { type: 'PERMISSION_REQUEST'; request: PermissionRequest }
 	| { type: 'PERMISSION_RESOLVED' }
 	| { type: 'ERROR'; message: string }
@@ -174,7 +173,6 @@ function reducer( state: State, action: Action ): State {
 				...state,
 				isStreaming: false,
 				sessionId: action.sessionId,
-				turnCost: action.cost,
 			};
 
 		case 'PERMISSION_REQUEST':
@@ -290,7 +288,6 @@ export function StudioCodeChat( { selectedSite }: StudioCodeChatProps ) {
 					dispatch( {
 						type: 'TURN_COMPLETE',
 						sessionId: evt.sessionId,
-						cost: evt.cost,
 					} );
 					break;
 
@@ -373,11 +370,6 @@ export function StudioCodeChat( { selectedSite }: StudioCodeChatProps ) {
 						permission={ state.pendingPermission }
 						onRespond={ handlePermissionRespond }
 					/>
-				) }
-				{ state.turnCost !== undefined && state.turnCost > 0 && ! state.isStreaming && (
-					<div className="text-center text-xs text-frame-text-secondary py-1">
-						{ `${ __( 'Turn cost:' ) } $${ state.turnCost.toFixed( 4 ) }` }
-					</div>
 				) }
 				<div ref={ messagesEndRef } />
 			</div>

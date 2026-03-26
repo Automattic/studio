@@ -7,5 +7,4 @@
  * flag. Once it ships unflagged, this helper will return `true`
  * automatically — no code changes needed.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const isJspiAvailable = typeof ( WebAssembly as any ).promising === 'function';
+export const IS_JSPI_AVAILABLE = 'Suspending' in WebAssembly;

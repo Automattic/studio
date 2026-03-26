@@ -3,17 +3,14 @@ Unreleased
 
 1.7.7
 =====
-* Move AI instruction files to a dedicated folder structure #2788
-* Bundle WordPress agent skills into Studio binary #2741 #2848
-* Implement AI Skills Studio settings #2862
+* Added dark mode support #2652 #2865 #2857 #2866
+* Added phpMyAdmin support #2834
+* Ship AI instructions with every newly created site #2886 #2889
 * Fixed issue where site status wouldn't show up correctly in app #2847
 * Rename 'Open site' to 'Open local site' in header #2856
 * Improve Playground CLI child process error handling #2844
-* Added dark mode support #2652 #2865 #2857 #2866
-* Update Playground and PHP-WASM packages to 3.1.13 #2872
-* Added phpMyAdmin support #2834
+* Move login into Account tab and rename settings tabs #2854
 * Migrated config files, HTTPS certificates, and WordPress dependencies `~/.studio` #2793 #2871 #2873
-* Ship AI instructions with every newly created site #2886 #2889
 * Updated multiple dependencies, including WordPress packages, and PHP-WASM
 
 1.7.6

@@ -128,6 +128,7 @@ export {
 export {
 	createSnapshot,
 	deleteSnapshot,
+	deleteAllSnapshots,
 	fetchSnapshots,
 	setSnapshot,
 	updateSnapshot,

@@ -103,7 +103,7 @@ export async function startCliEventsSubscriber(): Promise< void > {
 
 			const snapshotParsed = cliSnapshotEventSchema.safeParse( data );
 			if ( snapshotParsed.success ) {
-				void sendIpcEventToRenderer( 'snapshot-changed', snapshotParsed.data.value );
+				void sendIpcEventToRenderer( 'snapshot-event', snapshotParsed.data.value );
 				return;
 			}
 

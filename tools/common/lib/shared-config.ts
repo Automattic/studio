@@ -28,6 +28,7 @@ export const sharedConfigSchema = z
 		version: z.literal( SHARED_CONFIG_VERSION ),
 		authToken: authTokenSchema.optional(),
 		locale: z.string().optional(),
+		selectedSkills: z.array( z.string() ).optional(),
 	} )
 	.loose();
 

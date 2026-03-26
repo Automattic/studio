@@ -81,19 +81,17 @@ export default function UserSettings() {
 			},
 		];
 
-		if ( enableAgentSuite ) {
-			result.push( {
-				name: 'skills',
-				title: __( 'Skills' ),
-			} );
-		}
-
 		result.push( {
 			name: 'account',
 			title: __( 'Account' ),
 		} );
 
 		if ( enableAgentSuite ) {
+			result.push( {
+				name: 'skills',
+				title: __( 'Skills' ),
+			} );
+
 			result.push( {
 				name: 'mcp',
 				title: __( 'MCP' ),

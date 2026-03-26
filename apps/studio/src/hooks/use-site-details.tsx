@@ -191,7 +191,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			}
 
 			try {
-				setIsDeleting( ( loading ) => ( { ...loading, [ siteId ]: true } ) );
+				setIsDeleting( ( prev ) => ( { ...prev, [ siteId ]: true } ) );
 
 				await getIpcApi().deleteSite( siteId, shouldDeleteFiles );
 
@@ -215,7 +215,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				console.error( 'Error during site deletion:', error );
 				throw error;
 			} finally {
-				setIsDeleting( ( loading ) => ( { ...loading, [ siteId ]: false } ) );
+				setIsDeleting( ( prev ) => ( { ...prev, [ siteId ]: false } ) );
 			}
 
 			// No need to update the `sites` state. That's handled in the `site-event` listener.

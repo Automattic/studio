@@ -1,0 +1,78 @@
+<svg width="360" height="195" viewBox="0 0 360 195" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g clip-path="url(#clip0_phpmyadmin)">
+<rect width="360" height="195" fill="black"/>
+<rect opacity="0.4" x="4.769" y="6.923" width="354.231" height="188.077" fill="url(#pattern0_phpmyadmin)" fill-opacity="0.7"/>
+<!-- Browser window frame -->
+<rect x="60" y="32" width="240" height="148" rx="5" fill="black" stroke="url(#paint0_linear_phpmyadmin)" stroke-width="1.38"/>
+<!-- Title bar -->
+<rect x="60" y="32" width="240" height="22" rx="5" fill="#1a1a1a" stroke="url(#paint0_linear_phpmyadmin)" stroke-width="1.38"/>
+<rect x="60" y="44" width="240" height="10" fill="#1a1a1a"/>
+<!-- Window dots -->
+<circle cx="74" cy="43" r="3.5" fill="black" stroke="#3C434A" stroke-width="1"/>
+<circle cx="85" cy="43" r="3.5" fill="black" stroke="#3C434A" stroke-width="1"/>
+<circle cx="96" cy="43" r="3.5" fill="black" stroke="#3C434A" stroke-width="1"/>
+<!-- Table header row -->
+<rect x="72" y="62" width="216" height="16" rx="2" fill="#1a1a1a" stroke="#3C434A" stroke-width="0.8"/>
+<rect x="72" y="62" width="44" height="16" fill="url(#paint1_linear_phpmyadmin)" fill-opacity="0.3"/>
+<!-- Header text lines -->
+<rect x="80" y="67.5" width="28" height="5" rx="1.5" fill="#3858E9" fill-opacity="0.8"/>
+<rect x="126" y="67.5" width="36" height="5" rx="1.5" fill="white" fill-opacity="0.3"/>
+<rect x="182" y="67.5" width="28" height="5" rx="1.5" fill="white" fill-opacity="0.3"/>
+<rect x="224" y="67.5" width="36" height="5" rx="1.5" fill="white" fill-opacity="0.3"/>
+<!-- Table rows -->
+<rect x="72" y="79" width="216" height="13" fill="black" stroke="#3C434A" stroke-width="0.8"/>
+<rect x="72" y="79" width="44" height="13" fill="#3C434A" fill-opacity="0.2"/>
+<rect x="80" y="83" width="20" height="4" rx="1.5" fill="white" fill-opacity="0.5"/>
+<rect x="126" y="83" width="48" height="4" rx="1.5" fill="white" fill-opacity="0.4"/>
+<rect x="182" y="83" width="20" height="4" rx="1.5" fill="white" fill-opacity="0.4"/>
+<rect x="224" y="83" width="42" height="4" rx="1.5" fill="white" fill-opacity="0.4"/>
+
+<rect x="72" y="93" width="216" height="13" fill="#0d0d0d" stroke="#3C434A" stroke-width="0.8"/>
+<rect x="72" y="93" width="44" height="13" fill="#3C434A" fill-opacity="0.2"/>
+<rect x="80" y="97" width="20" height="4" rx="1.5" fill="white" fill-opacity="0.5"/>
+<rect x="126" y="97" width="36" height="4" rx="1.5" fill="white" fill-opacity="0.4"/>
+<rect x="182" y="97" width="28" height="4" rx="1.5" fill="white" fill-opacity="0.4"/>
+<rect x="224" y="97" width="30" height="4" rx="1.5" fill="white" fill-opacity="0.4"/>
+
+<rect x="72" y="107" width="216" height="13" fill="black" stroke="#3C434A" stroke-width="0.8"/>
+<rect x="72" y="107" width="44" height="13" fill="#3C434A" fill-opacity="0.2"/>
+<rect x="80" y="111" width="20" height="4" rx="1.5" fill="white" fill-opacity="0.5"/>
+<rect x="126" y="111" width="52" height="4" rx="1.5" fill="white" fill-opacity="0.4"/>
+<rect x="182" y="111" width="16" height="4" rx="1.5" fill="white" fill-opacity="0.4"/>
+<rect x="224" y="111" width="38" height="4" rx="1.5" fill="white" fill-opacity="0.4"/>
+
+<rect x="72" y="121" width="216" height="13" fill="#0d0d0d" stroke="#3C434A" stroke-width="0.8"/>
+<rect x="72" y="121" width="44" height="13" fill="#3C434A" fill-opacity="0.2"/>
+<rect x="80" y="125" width="20" height="4" rx="1.5" fill="white" fill-opacity="0.5"/>
+<rect x="126" y="125" width="42" height="4" rx="1.5" fill="white" fill-opacity="0.4"/>
+<rect x="182" y="125" width="24" height="4" rx="1.5" fill="white" fill-opacity="0.4"/>
+<rect x="224" y="125" width="46" height="4" rx="1.5" fill="white" fill-opacity="0.4"/>
+
+<!-- Action buttons row -->
+<rect x="72" y="144" width="70" height="14" rx="3" fill="#3858E9" fill-opacity="0.8"/>
+<rect x="80" y="148" width="54" height="5" rx="1.5" fill="white" fill-opacity="0.9"/>
+<rect x="150" y="144" width="46" height="14" rx="3" fill="black" stroke="#3C434A" stroke-width="0.8"/>
+<rect x="158" y="148" width="30" height="5" rx="1.5" fill="white" fill-opacity="0.4"/>
+<!-- Column dividers -->
+<line x1="116" y1="62" x2="116" y2="135" stroke="#3C434A" stroke-width="0.8"/>
+<line x1="172" y1="62" x2="172" y2="135" stroke="#3C434A" stroke-width="0.8"/>
+<line x1="214" y1="62" x2="214" y2="135" stroke="#3C434A" stroke-width="0.8"/>
+</g>
+<defs>
+<pattern id="pattern0_phpmyadmin" patternContentUnits="objectBoundingBox" width="0.0521173" height="0.0981595">
+<use xlink:href="#image0_phpmyadmin" transform="scale(0.000407166 0.000766871)"/>
+</pattern>
+<linearGradient id="paint0_linear_phpmyadmin" x1="60" y1="32" x2="300" y2="180" gradientUnits="userSpaceOnUse">
+<stop stop-color="#4458E4"/>
+<stop offset="1" stop-color="#069E08"/>
+</linearGradient>
+<linearGradient id="paint1_linear_phpmyadmin" x1="72" y1="62" x2="116" y2="78" gradientUnits="userSpaceOnUse">
+<stop stop-color="#3858E9"/>
+<stop offset="1" stop-color="#3858E9" stop-opacity="0.4"/>
+</linearGradient>
+<clipPath id="clip0_phpmyadmin">
+<rect width="360" height="195" fill="white"/>
+</clipPath>
+<image id="image0_phpmyadmin" width="128" height="128" preserveAspectRatio="none" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAACXBIWXMAABYlAAAWJQFJUiTwAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAD7SURBVHgB7djBTcNAEAXQCRWkBJdACe4AOqIE3AG0QCWmg9DJsFEsIYREnE0uGb8nzW1v/+8cJgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADgRjJzbPPa5pA/5jZvbYagphbufgn+nOObfVDHEv6c681KUEiu+/l/NkFw/1qQQ/Ybo7iHqO8l+j1HcVsowGP0e4ridlHccY/HFXZNFLaFDcA/tlCAr+j3GcVtoQAf0a98AcrL0+m31xDcvxbklJebghrSKZilBGs2wST8wvJ0Gn7P3xvhsAQ/BgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMCNfANoz/IwJL551QAAAABJRU5ErkJggg=="/>
+</defs>
+</svg>

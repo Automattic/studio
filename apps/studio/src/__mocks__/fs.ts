@@ -45,6 +45,7 @@ export default {
 	promises: {
 		readFile: readFileMock,
 		readdir: readdirMock,
+		rename: vi.fn().mockResolvedValue( undefined ),
 		stat: statMock,
 	},
 	readFileSync: readFileSyncMock,

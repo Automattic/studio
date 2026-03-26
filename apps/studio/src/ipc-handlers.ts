@@ -248,7 +248,7 @@ export async function removeWordPressSkillFromAllSites(
 	} );
 
 	const sharedConfig = await readSharedConfig();
-	const updated = ( sharedConfig.selectedSkills ?? [] ).filter( ( id: string ) => id !== skillId );
+	const updated = ( sharedConfig.selectedSkills ?? [] ).filter( ( id ) => id !== skillId );
 	await updateSharedConfig( { selectedSkills: updated } );
 }
 

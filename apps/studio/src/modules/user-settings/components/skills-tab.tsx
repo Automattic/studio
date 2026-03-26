@@ -1,8 +1,10 @@
 import { DropdownMenu, MenuGroup, MenuItem } from '@wordpress/components';
 import { moreVertical } from '@wordpress/icons';
+import { createInterpolateElement } from '@wordpress/element';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Button from 'src/components/button';
+import { LearnMoreLink } from 'src/components/learn-more';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { type SkillStatus } from 'src/modules/agent-instructions/lib/skills-constants';
 
@@ -86,8 +88,13 @@ export function SkillsTab() {
 	return (
 		<div className="flex flex-col gap-4 pb-2">
 			<p className="a8c-body-small m-0">
-				{ __(
-					'Select the skills that will be placed in all existing and new sites. Agents can decide to use skills to help them accomplish specialized tasks.'
+				{ createInterpolateElement(
+					__(
+						'Select the skills that will be placed in all existing and new sites. Agents can decide to use skills to help them accomplish specialized tasks. <learn_more_link />'
+					),
+					{
+						learn_more_link: <LearnMoreLink docsLinksKey="docsSkills" />,
+					}
 				) }
 			</p>
 

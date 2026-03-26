@@ -15,7 +15,7 @@ import { SelectControl, TabPanel } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import Button from 'src/components/button';
 import { ErrorInformation } from 'src/components/error-information';
 import { LearnMoreLink, LearnHowLink } from 'src/components/learn-more';
@@ -110,6 +110,11 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 	const [ customDomainError, setCustomDomainError ] = useState( '' );
 	const [ existingDomainNames, setExistingDomainNames ] = useState< string[] >( [] );
 	const [ enableHttps, setEnableHttps ] = useState( false );
+	const [ activeTab, setActiveTab ] = useState( editModalInitialTab || 'general' );
+	const isFormTab = useMemo(
+		() => activeTab === 'general' || activeTab === 'debugging',
+		[ activeTab ]
+	);
 
 	useEffect( () => {
 		getIpcApi()
@@ -299,6 +304,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 								{ name: 'instructions', title: __( 'Instructions' ) },
 							] }
 							initialTabName={ editModalInitialTab }
+							onSelect={ ( tabName: string ) => setActiveTab( tabName ) }
 							orientation="horizontal"
 						>
 							{ ( { name } ) => (
@@ -612,19 +618,21 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 							) }
 						</TabPanel>
 
-						<div className="flex flex-row justify-end gap-x-5 mt-8 px-8">
-							<Button onClick={ closeModal } disabled={ isEditingSite } variant="tertiary">
-								{ __( 'Cancel' ) }
-							</Button>
-							<Button
-								type="submit"
-								variant="primary"
-								isBusy={ isEditingSite }
-								disabled={ isEditingSite || isFormUnchanged || hasValidationErrors }
-							>
-								{ getEditSiteButtonText() }
-							</Button>
-						</div>
+						{ isFormTab && (
+							<div className="flex flex-row justify-end gap-x-5 mt-8 px-8">
+								<Button onClick={ closeModal } disabled={ isEditingSite } variant="tertiary">
+									{ __( 'Cancel' ) }
+								</Button>
+								<Button
+									type="submit"
+									variant="primary"
+									isBusy={ isEditingSite }
+									disabled={ isEditingSite || isFormUnchanged || hasValidationErrors }
+								>
+									{ getEditSiteButtonText() }
+								</Button>
+							</div>
+						) }
 						<div className="components-popover__fallback-container"></div>
 					</form>
 				</Modal>

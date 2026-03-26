@@ -1,7 +1,7 @@
 import fs from 'fs';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import {
-	SYNC_MAX_POLL_ATTEMPTS,
+	SYNC_MAX_STALLED_ATTEMPTS,
 	SYNC_POLL_INTERVAL_MS,
 	SYNC_PUSH_SIZE_LIMIT_BYTES,
 	SYNC_PUSH_SIZE_LIMIT_GB,
@@ -17,7 +17,7 @@ import {
 	pollImportStatus,
 } from 'cli/lib/sync-api';
 import { selectSyncItemsForPush } from 'cli/lib/sync-selector';
-import { pickSyncSite } from 'cli/lib/sync-site-picker';
+import { findSyncSiteByIdentifier, pickSyncSite } from 'cli/lib/sync-site-picker';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 import type { SyncOption } from '@studio/common/types/sync';
@@ -25,7 +25,8 @@ import type { SyncOption } from '@studio/common/types/sync';
 export async function runCommand(
 	siteFolder: string,
 	optionsString?: string,
-	archivePath?: string
+	archivePath?: string,
+	siteIdentifier?: string
 ): Promise< void > {
 	const logger = new Logger< LoggerAction >();
 
@@ -69,23 +70,34 @@ export async function runCommand(
 		logger.spinner.stop();
 		logger.reportSuccess( sprintf( __( 'Found %d sites' ), sites.length ), true );
 
-		const selectedSite = await pickSyncSite( sites, __( 'Select a site to push to' ) );
-		if ( ! selectedSite ) {
-			return;
+		let selectedSite;
+		if ( siteIdentifier ) {
+			selectedSite = findSyncSiteByIdentifier( sites, siteIdentifier );
+		} else {
+			selectedSite = await pickSyncSite( sites, __( 'Select a site to push to' ) );
+			if ( ! selectedSite ) {
+				return;
+			}
 		}
 
+		// When --archive is provided, use --options to describe archive contents (or default to 'all').
+		// Interactive selection only makes sense when building the archive from local files.
 		let optionsToSync: SyncOption[];
 		let specificSelectionPaths: string[] | undefined;
 
-		if ( optionsString ) {
+		if ( archivePath ) {
 			optionsToSync = parseSyncOptions( optionsString );
 		} else {
-			const selection = await selectSyncItemsForPush( site.path );
-			if ( ! selection ) {
-				return;
+			if ( optionsString ) {
+				optionsToSync = parseSyncOptions( optionsString );
+			} else {
+				const selection = await selectSyncItemsForPush( site.path );
+				if ( ! selection ) {
+					return;
+				}
+				optionsToSync = selection.optionsToSync;
+				specificSelectionPaths = selection.specificSelectionPaths;
 			}
-			optionsToSync = selection.optionsToSync;
-			specificSelectionPaths = selection.specificSelectionPaths;
 		}
 
 		const remoteSiteId = selectedSite.id;
@@ -139,8 +151,12 @@ export async function runCommand(
 			specificSelectionPaths,
 		} );
 
-		// Poll import: 40-99%
-		for ( let attempt = 0; attempt < SYNC_MAX_POLL_ATTEMPTS; attempt++ ) {
+		// Poll import with stale-progress detection
+		let lastProgress = -1;
+		let stalledAttempts = 0;
+		let importFinished = false;
+
+		while ( stalledAttempts < SYNC_MAX_STALLED_ATTEMPTS ) {
 			const status = await pollImportStatus( token.accessToken, remoteSiteId );
 
 			if ( status.status === 'failed' ) {
@@ -148,6 +164,7 @@ export async function runCommand(
 			}
 
 			if ( status.status === 'finished' ) {
+				importFinished = true;
 				break;
 			}
 
@@ -174,10 +191,25 @@ export async function runCommand(
 					progress = 50;
 			}
 
-			logger.spinner.text = sprintf( '%s (%d%%)', statusMessage, Math.round( progress ) );
+			const roundedProgress = Math.round( progress );
+			if ( roundedProgress !== lastProgress ) {
+				stalledAttempts = 0;
+				lastProgress = roundedProgress;
+			} else {
+				stalledAttempts++;
+			}
+
+			logger.spinner.text = sprintf( '%s (%d%%)', statusMessage, roundedProgress );
 
 			await new Promise( ( resolve ) => setTimeout( resolve, SYNC_POLL_INTERVAL_MS ) );
 		}
+
+		if ( ! importFinished ) {
+			throw new LoggerError(
+				sprintf( __( 'Import timed out on %s — no progress detected' ), remoteSiteName )
+			);
+		}
+
 		logger.spinner.stop();
 		logger.reportSuccess(
 			sprintf( __( 'Successfully pushed to %s (%s)' ), remoteSiteName, remoteSiteUrl )
@@ -207,10 +239,14 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'archive', {
 					type: 'string',
 					description: __( 'Path to an existing tar.gz archive to push (skips local export)' ),
+				} )
+				.option( 'site', {
+					type: 'string',
+					description: __( 'Remote site URL or ID (skips interactive site selection)' ),
 				} );
 		},
 		handler: async ( argv ) => {
-			await runCommand( argv.path, argv.options, argv.archive );
+			await runCommand( argv.path, argv.options, argv.archive, argv.site );
 		},
 	} );
 };

@@ -1,7 +1,54 @@
 import { select } from '@inquirer/prompts';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import chalk from 'chalk';
+import { LoggerError } from 'cli/logger';
 import type { SyncSite } from '@studio/common/types/sync';
+
+export function findSyncSiteByIdentifier( sites: SyncSite[], identifier: string ): SyncSite {
+	// Try numeric ID match first
+	const numericId = Number( identifier );
+	if ( ! isNaN( numericId ) ) {
+		const site = sites.find( ( s ) => s.id === numericId );
+		if ( site ) {
+			if ( site.syncSupport !== 'syncable' ) {
+				throw new LoggerError(
+					sprintf( __( 'Site %s is not syncable (%s)' ), site.name, site.syncSupport )
+				);
+			}
+			return site;
+		}
+	}
+
+	// Try URL/hostname match
+	const normalizedIdentifier = identifier.replace( /^https?:\/\//, '' ).replace( /\/$/, '' );
+	const matched = sites.filter( ( s ) => {
+		const hostname = s.url.replace( /^https?:\/\//, '' ).replace( /\/$/, '' );
+		return hostname === normalizedIdentifier;
+	} );
+
+	if ( matched.length === 0 ) {
+		throw new LoggerError( sprintf( __( 'No site found matching "%s"' ), identifier ) );
+	}
+
+	if ( matched.length > 1 ) {
+		throw new LoggerError(
+			sprintf(
+				__( 'Multiple sites match "%s". Use the site ID instead: %s' ),
+				identifier,
+				matched.map( ( s ) => `${ s.name } (ID: ${ s.id })` ).join( ', ' )
+			)
+		);
+	}
+
+	const site = matched[ 0 ];
+	if ( site.syncSupport !== 'syncable' ) {
+		throw new LoggerError(
+			sprintf( __( 'Site %s is not syncable (%s)' ), site.name, site.syncSupport )
+		);
+	}
+
+	return site;
+}
 
 function getSyncSupportLabel( syncSupport: string ): string {
 	switch ( syncSupport ) {

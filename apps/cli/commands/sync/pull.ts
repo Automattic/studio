@@ -3,7 +3,7 @@ import path from 'path';
 import { confirm } from '@inquirer/prompts';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import {
-	SYNC_MAX_POLL_ATTEMPTS,
+	SYNC_MAX_STALLED_ATTEMPTS,
 	SYNC_POLL_INTERVAL_MS,
 	SYNC_PUSH_SIZE_LIMIT_BYTES,
 	SYNC_PUSH_SIZE_LIMIT_GB,
@@ -20,12 +20,16 @@ import {
 	downloadBackup,
 } from 'cli/lib/sync-api';
 import { fetchPullTree, selectSyncItemsForPull } from 'cli/lib/sync-selector';
-import { pickSyncSite } from 'cli/lib/sync-site-picker';
+import { findSyncSiteByIdentifier, pickSyncSite } from 'cli/lib/sync-site-picker';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 import type { SyncOption } from '@studio/common/types/sync';
 
-export async function runCommand( siteFolder: string, optionsString?: string ): Promise< void > {
+export async function runCommand(
+	siteFolder: string,
+	optionsString?: string,
+	siteIdentifier?: string
+): Promise< void > {
 	const logger = new Logger< LoggerAction >();
 
 	try {
@@ -43,9 +47,14 @@ export async function runCommand( siteFolder: string, optionsString?: string ): 
 		logger.spinner.stop();
 		logger.reportSuccess( sprintf( __( 'Found %d sites' ), sites.length ), true );
 
-		const selectedSite = await pickSyncSite( sites, __( 'Select a site to pull from' ) );
-		if ( ! selectedSite ) {
-			return;
+		let selectedSite;
+		if ( siteIdentifier ) {
+			selectedSite = findSyncSiteByIdentifier( sites, siteIdentifier );
+		} else {
+			selectedSite = await pickSyncSite( sites, __( 'Select a site to pull from' ) );
+			if ( ! selectedSite ) {
+				return;
+			}
 		}
 
 		let optionsToSync: SyncOption[];
@@ -81,7 +90,10 @@ export async function runCommand( siteFolder: string, optionsString?: string ): 
 		} );
 
 		let downloadUrl: string | null = null;
-		for ( let attempt = 0; attempt < SYNC_MAX_POLL_ATTEMPTS; attempt++ ) {
+		let lastPercent = -1;
+		let stalledAttempts = 0;
+
+		while ( stalledAttempts < SYNC_MAX_STALLED_ATTEMPTS ) {
 			const status = await pollBackupStatus( token.accessToken, remoteSiteId, backupId );
 
 			if ( status.status === 'failed' ) {
@@ -93,6 +105,14 @@ export async function runCommand( siteFolder: string, optionsString?: string ): 
 				break;
 			}
 
+			const currentPercent = Math.round( status.percent );
+			if ( currentPercent !== lastPercent ) {
+				stalledAttempts = 0;
+				lastPercent = currentPercent;
+			} else {
+				stalledAttempts++;
+			}
+
 			// Backup phase: 0-50%
 			const backupProgress = Math.round( status.percent * 0.5 );
 			logger.spinner.text = sprintf( __( 'Creating remote backup… (%d%%)' ), backupProgress );
@@ -101,7 +121,7 @@ export async function runCommand( siteFolder: string, optionsString?: string ): 
 		}
 
 		if ( ! downloadUrl ) {
-			throw new LoggerError( __( 'Backup timed out' ) );
+			throw new LoggerError( __( 'Backup timed out — no progress detected' ) );
 		}
 
 		// Check backup size before downloading
@@ -155,15 +175,20 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		command: 'pull',
 		describe: __( 'Pull a WordPress.com site to your local site' ),
 		builder: ( yargs ) => {
-			return yargs.option( 'options', {
-				type: 'string',
-				description: __(
-					'Comma-separated sync options: all, sqls, uploads, plugins, themes, contents'
-				),
-			} );
+			return yargs
+				.option( 'options', {
+					type: 'string',
+					description: __(
+						'Comma-separated sync options: all, sqls, uploads, plugins, themes, contents'
+					),
+				} )
+				.option( 'site', {
+					type: 'string',
+					description: __( 'Remote site URL or ID (skips interactive site selection)' ),
+				} );
 		},
 		handler: async ( argv ) => {
-			await runCommand( argv.path, argv.options );
+			await runCommand( argv.path, argv.options, argv.site );
 		},
 	} );
 };

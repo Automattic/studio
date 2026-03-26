@@ -22,7 +22,7 @@ import {
 	truncateToWidth,
 } from '@mariozechner/pi-tui';
 import { readAuthToken } from '@studio/common/lib/shared-config';
-import { _n, sprintf } from '@wordpress/i18n';
+import { __, _n, sprintf } from '@wordpress/i18n';
 import chalk from 'chalk';
 import { AI_MODELS, DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
@@ -163,7 +163,7 @@ class PromptEditor implements Component, Focusable {
 				return ' ' + bc( '─'.repeat( borderWidth ) );
 			}
 			if ( this.isEmpty && i === 1 ) {
-				return promptPrefix + chalk.dim( 'Type your prompt…' );
+				return promptPrefix + chalk.dim( __( 'Type your prompt…' ) );
 			}
 			if ( i === 1 ) {
 				return promptPrefix + line;
@@ -183,7 +183,7 @@ class PromptEditor implements Component, Focusable {
 		}
 		const activeHints = this.isEmpty
 			? this.hints
-			: this.hints.filter( ( h ) => h !== '↓ select site' );
+			: this.hints.filter( ( h ) => h !== __( '↓ select site' ) );
 		const leftPart =
 			activeHints.length > 0
 				? ' ' + activeHints.map( ( h ) => chalk.dim( h ) ).join( chalk.dim( ' · ' ) )
@@ -778,7 +778,7 @@ export class AiChatUI {
 		const sites: SiteData[] = config.sites ?? [];
 		if ( sites.length === 0 ) {
 			this.messages.addChild(
-				new Text( chalk.dim( '  No sites found. Create one first.' ), 1, 0 )
+				new Text( chalk.dim( '  ' + __( 'No sites found. Create one first.' ) ), 1, 0 )
 			);
 			this.tui.requestRender();
 			return;
@@ -808,7 +808,7 @@ export class AiChatUI {
 
 		const token = await readAuthToken();
 		if ( ! token ) {
-			this.showSitePickerError( 'Not logged in. Use /login first.' );
+			this.showSitePickerError( __( 'Not logged in. Use /login first.' ) );
 			return;
 		}
 
@@ -825,7 +825,7 @@ export class AiChatUI {
 			this.rebuildSitePickerList();
 			this.renderSitePicker();
 		} catch {
-			this.showSitePickerError( 'Failed to load WordPress.com sites. Please try again.' );
+			this.showSitePickerError( __( 'Failed to load WordPress.com sites. Please try again.' ) );
 		}
 	}
 
@@ -921,18 +921,22 @@ export class AiChatUI {
 		this.sitePickerContainer.clear();
 
 		const isLocal = this.sitePickerTab === SITE_PICKER_TAB_LOCAL;
-		const localTab = isLocal ? chalk.bold( '[Local]' ) : chalk.dim( 'Local' );
+		const localTab = isLocal ? chalk.bold( __( '[Local]' ) ) : chalk.dim( __( 'Local' ) );
 		const remoteTab = isLocal ? chalk.dim( 'WordPress.com' ) : chalk.bold( '[WordPress.com]' );
 		const pad = ' ';
 		const header = `${ pad }${ localTab }  ${ remoteTab }`;
 
 		const searchLine = this.sitePickerQuery
-			? `${ pad }${ chalk.dim( 'Search:' ) } ${ this.sitePickerQuery }`
+			? `${ pad }${ chalk.dim( __( 'Search:' ) ) } ${ this.sitePickerQuery }`
 			: '';
 
 		const hints = isLocal
-			? `${ pad }↑↓ navigate · → remote sites · enter select · tab open in browser · esc cancel`
-			: `${ pad }↑↓ navigate · ← local sites · enter select · tab open in browser · esc cancel`;
+			? `${ pad }${ __(
+					'↑↓ navigate · → remote sites · enter select · tab open in browser · esc cancel'
+			  ) }`
+			: `${ pad }${ __(
+					'↑↓ navigate · ← local sites · enter select · tab open in browser · esc cancel'
+			  ) }`;
 
 		const lines = [ header, '' ];
 		if ( searchLine ) {
@@ -940,7 +944,7 @@ export class AiChatUI {
 		}
 
 		if ( ! isLocal && this.sitePickerRemoteLoading ) {
-			lines.push( chalk.dim( `${ pad }  Loading WordPress.com sites…` ) );
+			lines.push( chalk.dim( `${ pad }  ${ __( 'Loading WordPress.com sites…' ) }` ) );
 		} else if ( this.sitePickerSelectList ) {
 			const termWidth = process.stdout.columns ?? 80;
 			lines.push(
@@ -960,8 +964,17 @@ export class AiChatUI {
 		const { announce = true, emitEvent = true } = options;
 		this._activeSite = site;
 		this.editor.activeSiteName = site.name;
-		const suffix = site.remote ? ' (WordPress.com)' : '';
-		const label = ` ✻ Selected site: ${ site.name }${ suffix }`;
+		const label = site.remote
+			? sprintf(
+					/* translators: %s: site name */
+					__( ' ✻ Selected site: %s (WordPress.com)' ),
+					site.name
+			  )
+			: sprintf(
+					/* translators: %s: site name */
+					__( ' ✻ Selected site: %s' ),
+					site.name
+			  );
 		if ( announce ) {
 			this.messages.addChild( new Text( `${ chalk.hex( '#5b8db8' )( label ) }\n`, 0, 0 ) );
 		}
@@ -975,7 +988,7 @@ export class AiChatUI {
 		this._activeSite = null;
 		this._activeSiteData = null;
 		this.editor.activeSiteName = null;
-		this.messages.addChild( new Text( chalk.dim( ' ✻ Site deselected' ) + '\n', 0, 0 ) );
+		this.messages.addChild( new Text( chalk.dim( __( ' ✻ Site deselected' ) ) + '\n', 0, 0 ) );
 		this.tui.requestRender();
 	}
 
@@ -1178,7 +1191,7 @@ export class AiChatUI {
 			const cursor = chalk.inverse( ' ' );
 			const display = inputText
 				? chalk.blue( inputText ) + cursor
-				: chalk.dim( 'Type your answer...' ) + cursor;
+				: chalk.dim( __( 'Type your answer…' ) ) + cursor;
 			lines[ lines.length - 1 ] = `${ chalk.blue( '→' ) } ${ display }`;
 		}
 
@@ -1342,12 +1355,14 @@ export class AiChatUI {
 	private updateHints(): void {
 		const hints: string[] = [];
 		if ( ! this._inAgentTurn ) {
-			hints.push( '↓ select site' );
+			hints.push( __( '↓ select site' ) );
 		}
 		if ( this.activeExpandablePreview ) {
-			hints.push( this.activeExpandablePreview.isExpanded ? 'ctrl+o collapse' : 'ctrl+o expand' );
+			hints.push(
+				this.activeExpandablePreview.isExpanded ? __( 'ctrl+o collapse' ) : __( 'ctrl+o expand' )
+			);
 		}
-		hints.push( 'esc to interrupt' );
+		hints.push( __( 'esc to interrupt' ) );
 		this.editor.hints = hints;
 	}
 
@@ -1757,7 +1772,7 @@ export class AiChatUI {
 				if ( this.optionPickerHasFreeForm ) {
 					selectItems.push( {
 						value: AiChatUI.OTHER_VALUE,
-						label: 'Other (type my own)',
+						label: __( 'Other (type my own)' ),
 					} );
 				}
 
@@ -1905,7 +1920,9 @@ export class AiChatUI {
 				if ( message.subtype === 'success' ) {
 					const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
 					if ( ! this.hasShownResponseMarker ) {
-						this.messages.addChild( new Text( '\n ' + chalk.blue( '⏺' ) + ' Done', 0, 0 ) );
+						this.messages.addChild(
+							new Text( '\n ' + chalk.blue( '⏺' ) + ' ' + __( 'Done' ), 0, 0 )
+						);
 					}
 					this.showInfo(
 						sprintf(
@@ -1926,9 +1943,19 @@ export class AiChatUI {
 				if ( this.wasInterrupted ) {
 					const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
 					this.messages.addChild(
-						new Text( '\n ' + chalk.yellow( '⏺' ) + ' ' + chalk.yellow( 'Interrupted' ), 0, 0 )
+						new Text(
+							'\n ' + chalk.yellow( '⏺' ) + ' ' + chalk.yellow( __( 'Interrupted' ) ),
+							0,
+							0
+						)
 					);
-					this.showInfo( `Ran for ${ thinkingSec }s before interruption` );
+					this.showInfo(
+						sprintf(
+							/* translators: %d: number of seconds */
+							__( 'Ran for %ds before interruption' ),
+							thinkingSec
+						)
+					);
 					return { sessionId: message.session_id, success: false };
 				}
 
@@ -1948,10 +1975,16 @@ export class AiChatUI {
 				}
 				if ( 'permission_denials' in message && message.permission_denials?.length ) {
 					for ( const denial of message.permission_denials ) {
-						parts.push( `Permission denied: ${ denial.tool_name }` );
+						parts.push(
+							sprintf(
+								/* translators: %s: tool name */
+								__( 'Permission denied: %s' ),
+								denial.tool_name
+							)
+						);
 					}
 				}
-				this.showError( parts.length > 0 ? parts.join( '\n' ) : 'Unknown error' );
+				this.showError( parts.length > 0 ? parts.join( '\n' ) : __( 'Unknown error' ) );
 				return { sessionId: message.session_id, success: false };
 			}
 		}

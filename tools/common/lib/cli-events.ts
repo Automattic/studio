@@ -88,29 +88,6 @@ export const authEventSchema = z.object( {
 export type AuthEvent = z.infer< typeof authEventSchema >;
 
 /**
- * Sync events — emitted by CLI sync commands to notify Studio of ongoing operations.
- */
-export enum SYNC_EVENTS {
-	STARTED = 'sync-started',
-	PROGRESS = 'sync-progress',
-	COMPLETED = 'sync-completed',
-	FAILED = 'sync-failed',
-}
-
-export const syncEventSchema = z.object( {
-	event: z.nativeEnum( SYNC_EVENTS ),
-	type: z.enum( [ 'push', 'pull' ] ),
-	localSiteId: z.string(),
-	remoteSiteId: z.number(),
-	remoteSiteName: z.string(),
-	progress: z.number().optional(),
-	statusMessage: z.string().optional(),
-	error: z.string().optional(),
-} );
-
-export type SyncEvent = z.infer< typeof syncEventSchema >;
-
-/**
  * Socket-level schemas for events sent between daemon-client and the _events command.
  */
 const siteSocketEventSchema = z.object( {
@@ -139,13 +116,7 @@ const authSocketEventSchema = z.object( {
 	} ),
 } );
 
-const syncSocketEventSchema = z.object( {
-	event: z.nativeEnum( SYNC_EVENTS ),
-	data: syncEventSchema,
-} );
-
 export const socketEventSchema = z.union( [
-	syncSocketEventSchema,
 	siteSocketEventSchema,
 	snapshotSocketEventSchema,
 	authSocketEventSchema,
@@ -180,13 +151,4 @@ export const cliAuthEventSchema = z.object( {
 		.string()
 		.transform( ( val ) => JSON.parse( val ) )
 		.pipe( authEventSchema ),
-} );
-
-export const cliSyncEventSchema = z.object( {
-	action: z.literal( 'keyValuePair' ),
-	key: z.literal( 'sync-event' ),
-	value: z
-		.string()
-		.transform( ( val ) => JSON.parse( val ) )
-		.pipe( syncEventSchema ),
 } );

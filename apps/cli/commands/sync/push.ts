@@ -1,5 +1,4 @@
 import fs from 'fs';
-import { SYNC_EVENTS } from '@studio/common/lib/cli-events';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import {
 	SYNC_MAX_POLL_ATTEMPTS,
@@ -11,7 +10,6 @@ import { createTusUpload } from '@studio/common/lib/sync/tus-upload';
 import { SyncCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
-import { emitCliEvent } from 'cli/lib/daemon-client';
 import {
 	fetchSyncableSites,
 	initiateImport,
@@ -22,8 +20,7 @@ import { selectSyncItemsForPush } from 'cli/lib/sync-selector';
 import { pickSyncSite } from 'cli/lib/sync-site-picker';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
-import type { SyncOption, SyncSite } from '@studio/common/types/sync';
-import type { SiteData } from 'cli/lib/cli-config/core';
+import type { SyncOption } from '@studio/common/types/sync';
 
 export async function runCommand(
 	siteFolder: string,
@@ -31,8 +28,6 @@ export async function runCommand(
 	archivePath?: string
 ): Promise< void > {
 	const logger = new Logger< LoggerAction >();
-	let site: SiteData | undefined;
-	let selectedSite: SyncSite | undefined;
 
 	try {
 		const token = await readAuthToken();
@@ -42,7 +37,7 @@ export async function runCommand(
 			);
 		}
 
-		site = await getSiteByFolder( siteFolder );
+		const site = await getSiteByFolder( siteFolder );
 
 		if ( ! archivePath ) {
 			// TODO: Export local site to tar.gz archive (requires export-manager)
@@ -74,7 +69,7 @@ export async function runCommand(
 		logger.spinner.stop();
 		logger.reportSuccess( sprintf( __( 'Found %d sites' ), sites.length ), true );
 
-		selectedSite = await pickSyncSite( sites, __( 'Select a site to push to' ) );
+		const selectedSite = await pickSyncSite( sites, __( 'Select a site to push to' ) );
 		if ( ! selectedSite ) {
 			return;
 		}
@@ -93,21 +88,9 @@ export async function runCommand(
 			specificSelectionPaths = selection.specificSelectionPaths;
 		}
 
-		const localSiteId = site.id;
 		const remoteSiteId = selectedSite.id;
 		const remoteSiteName = selectedSite.name;
 		const remoteSiteUrl = selectedSite.url;
-
-		void emitCliEvent( {
-			event: SYNC_EVENTS.STARTED,
-			data: {
-				event: SYNC_EVENTS.STARTED,
-				type: 'push',
-				localSiteId,
-				remoteSiteId,
-				remoteSiteName,
-			},
-		} );
 
 		// Push progress: Export (0-20%) → Upload (20-40%) → Remote backup (40-60%) → Import (60-99%) → Done (100%)
 		// Export phase skipped when using --archive, so upload starts at 20%
@@ -131,19 +114,6 @@ export async function runCommand(
 				// Upload phase: 20-40%
 				const progress = Math.round( 20 + percent * 0.2 );
 				logger.spinner.text = sprintf( __( 'Uploading archive… (%d%%)' ), progress );
-
-				void emitCliEvent( {
-					event: SYNC_EVENTS.PROGRESS,
-					data: {
-						event: SYNC_EVENTS.PROGRESS,
-						type: 'push',
-						localSiteId,
-						remoteSiteId,
-						remoteSiteName,
-						progress,
-						statusMessage: __( 'Uploading…' ),
-					},
-				} );
 			},
 		} );
 
@@ -212,32 +182,7 @@ export async function runCommand(
 		logger.reportSuccess(
 			sprintf( __( 'Successfully pushed to %s (%s)' ), remoteSiteName, remoteSiteUrl )
 		);
-
-		void emitCliEvent( {
-			event: SYNC_EVENTS.COMPLETED,
-			data: {
-				event: SYNC_EVENTS.COMPLETED,
-				type: 'push',
-				localSiteId,
-				remoteSiteId,
-				remoteSiteName,
-			},
-		} );
 	} catch ( error ) {
-		if ( site && selectedSite ) {
-			void emitCliEvent( {
-				event: SYNC_EVENTS.FAILED,
-				data: {
-					event: SYNC_EVENTS.FAILED,
-					type: 'push',
-					localSiteId: site.id,
-					remoteSiteId: selectedSite.id,
-					remoteSiteName: selectedSite.name,
-					error: error instanceof Error ? error.message : __( 'Push failed' ),
-				},
-			} );
-		}
-
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );
 		} else {

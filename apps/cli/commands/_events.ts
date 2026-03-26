@@ -11,7 +11,6 @@ import {
 	AUTH_EVENTS,
 	SITE_EVENTS,
 	SNAPSHOT_EVENTS,
-	SYNC_EVENTS,
 	siteDetailsSchema,
 	socketEventSchema,
 	SiteEvent,
@@ -120,13 +119,6 @@ export async function runCommand(): Promise< void > {
 			const parsed = socketEventSchema.parse( packet );
 
 			switch ( parsed.event ) {
-				case SYNC_EVENTS.STARTED:
-				case SYNC_EVENTS.PROGRESS:
-				case SYNC_EVENTS.COMPLETED:
-				case SYNC_EVENTS.FAILED:
-					logger.reportKeyValuePair( 'sync-event', JSON.stringify( parsed.data ) );
-					break;
-
 				case AUTH_EVENTS.LOGIN:
 				case AUTH_EVENTS.LOGOUT:
 					void emitAuthEvent( parsed.event, parsed.data.token );

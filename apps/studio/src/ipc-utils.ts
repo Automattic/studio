@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { BrowserWindow } from 'electron';
 import { BlueprintValidationWarning } from '@studio/common/lib/blueprint-validation';
-import { SiteEvent, SnapshotEvent, SyncEvent } from '@studio/common/lib/cli-events';
+import { SiteEvent, SnapshotEvent } from '@studio/common/lib/cli-events';
 import { PreviewCommandLoggerAction } from '@studio/common/logger-actions';
 import { ImportExportEventData } from 'src/lib/import-export/handle-events';
 import { StoredAuthToken } from 'src/lib/oauth';
@@ -64,7 +64,6 @@ export interface IpcEvents {
 	'user-data-error': [ string ];
 	'refresh-app-globals': [ void ];
 	'beta-features-updated': [ void ];
-	'sync-event-from-cli': [ SyncEvent ];
 }
 
 export async function sendIpcEventToRenderer< T extends keyof IpcEvents >(

@@ -106,6 +106,21 @@ export async function deleteSnapshotFromConfig( snapshotUrl: string ): Promise< 
 	}
 }
 
+export async function deleteAllSnapshotsForUserFromConfig( userId: number ): Promise< void > {
+	try {
+		await lockCliConfig();
+		const config = await readCliConfig();
+		const filtered = config.snapshots.filter( ( s ) => s.userId !== userId );
+		if ( filtered.length === config.snapshots.length ) {
+			return;
+		}
+		config.snapshots = filtered;
+		await saveCliConfig( config );
+	} finally {
+		await unlockCliConfig();
+	}
+}
+
 export async function setSnapshotInConfig(
 	snapshotUrl: string,
 	updates: { name?: string }

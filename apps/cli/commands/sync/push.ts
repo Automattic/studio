@@ -1,7 +1,12 @@
 import fs from 'fs';
 import { SYNC_EVENTS } from '@studio/common/lib/cli-events';
 import { readAuthToken } from '@studio/common/lib/shared-config';
-import { SYNC_MAX_POLL_ATTEMPTS, SYNC_POLL_INTERVAL_MS } from '@studio/common/lib/sync/constants';
+import {
+	SYNC_MAX_POLL_ATTEMPTS,
+	SYNC_POLL_INTERVAL_MS,
+	SYNC_PUSH_SIZE_LIMIT_BYTES,
+	SYNC_PUSH_SIZE_LIMIT_GB,
+} from '@studio/common/lib/sync/constants';
 import { createTusUpload } from '@studio/common/lib/sync/tus-upload';
 import { SyncCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
@@ -49,6 +54,18 @@ export async function runCommand(
 
 		if ( ! fs.existsSync( archivePath ) ) {
 			throw new LoggerError( sprintf( __( 'Archive file not found: %s' ), archivePath ) );
+		}
+
+		const archiveSize = fs.statSync( archivePath ).size;
+		if ( archiveSize > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
+			throw new LoggerError(
+				sprintf(
+					__(
+						'The archive exceeds the %d GB size limit. Please reduce the size of your site and try again.'
+					),
+					SYNC_PUSH_SIZE_LIMIT_GB
+				)
+			);
 		}
 
 		logger.reportStart( LoggerAction.FETCH_SITES, __( 'Fetching WordPress.com sites…' ) );

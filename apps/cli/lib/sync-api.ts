@@ -1,4 +1,5 @@
 import {
+	checkBackupSize as checkBackupSizeBase,
 	fetchSyncableSites as fetchSyncableSitesBase,
 	initiateBackup as initiateBackupBase,
 	pollBackupStatus as pollBackupStatusBase,
@@ -124,6 +125,14 @@ export async function pollImportStatus(
 		return await pollImportStatusBase( token, remoteSiteId );
 	} catch ( error ) {
 		throw wrapError( __( 'Failed to check import status' ), error );
+	}
+}
+
+export async function checkBackupSize( url: string ): Promise< number > {
+	try {
+		return await checkBackupSizeBase( url );
+	} catch ( error ) {
+		throw wrapError( __( 'Failed to check backup size' ), error );
 	}
 }
 

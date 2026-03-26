@@ -1,12 +1,15 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import * as Sentry from '@sentry/electron/renderer';
 import {
+	SYNC_PUSH_SIZE_LIMIT_BYTES,
+	SYNC_PUSH_SIZE_LIMIT_GB,
+} from '@studio/common/lib/sync/constants';
+import {
 	pullSiteResponseSchema,
 	syncBackupResponseSchema,
 	importResponseSchema,
 } from '@studio/common/types/sync';
 import { __, sprintf } from '@wordpress/i18n';
-import { SYNC_PUSH_SIZE_LIMIT_BYTES, SYNC_PUSH_SIZE_LIMIT_GB } from 'src/constants';
 import { generateStateId } from 'src/hooks/sync-sites/use-pull-push-states';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getHostnameFromUrl } from 'src/lib/url-utils';

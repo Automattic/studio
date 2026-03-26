@@ -1,6 +1,6 @@
+import { SYNC_PUSH_SIZE_LIMIT_BYTES } from '@studio/common/lib/sync/constants';
 import { useState, useEffect, useCallback } from 'react';
 import { TreeNode } from 'src/components/tree-view';
-import { SYNC_PUSH_SIZE_LIMIT_BYTES } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
 const formatFileSize = ( bytes: number ) => {

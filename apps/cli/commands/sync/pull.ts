@@ -1,13 +1,20 @@
 import os from 'os';
 import path from 'path';
+import { confirm } from '@inquirer/prompts';
 import { SYNC_EVENTS } from '@studio/common/lib/cli-events';
 import { readAuthToken } from '@studio/common/lib/shared-config';
-import { SYNC_MAX_POLL_ATTEMPTS, SYNC_POLL_INTERVAL_MS } from '@studio/common/lib/sync/constants';
+import {
+	SYNC_MAX_POLL_ATTEMPTS,
+	SYNC_POLL_INTERVAL_MS,
+	SYNC_PUSH_SIZE_LIMIT_BYTES,
+	SYNC_PUSH_SIZE_LIMIT_GB,
+} from '@studio/common/lib/sync/constants';
 import { SyncCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { emitCliEvent } from 'cli/lib/daemon-client';
 import {
+	checkBackupSize,
 	fetchSyncableSites,
 	initiateBackup,
 	parseSyncOptions,
@@ -124,6 +131,24 @@ export async function runCommand( siteFolder: string, optionsString?: string ): 
 
 		if ( ! downloadUrl ) {
 			throw new LoggerError( __( 'Backup timed out' ) );
+		}
+
+		// Check backup size before downloading
+		const backupFileSize = await checkBackupSize( downloadUrl );
+		if ( backupFileSize > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
+			logger.spinner.stop();
+			const shouldContinue = await confirm( {
+				message: sprintf(
+					__(
+						"Your site's backup exceeds %d GB. Pulling it will prevent you from pushing the site back. Do you want to continue?"
+					),
+					SYNC_PUSH_SIZE_LIMIT_GB
+				),
+				default: true,
+			} );
+			if ( ! shouldContinue ) {
+				return;
+			}
 		}
 
 		// Download phase: 50-80%

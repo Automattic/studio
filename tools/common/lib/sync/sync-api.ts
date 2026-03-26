@@ -140,6 +140,18 @@ export async function pollImportStatus(
 	return importResponseSchema.parse( rawResponse );
 }
 
+export async function checkBackupSize( url: string ): Promise< number > {
+	const response = await fetch( url, { method: 'HEAD' } );
+	if ( ! response.ok ) {
+		throw new Error( `Failed to fetch backup size: ${ response.statusText }` );
+	}
+	const contentLength = response.headers.get( 'content-length' );
+	if ( ! contentLength ) {
+		return 0;
+	}
+	return parseInt( contentLength, 10 );
+}
+
 export async function downloadBackup( url: string, destPath: string ): Promise< void > {
 	const response = await fetch( url );
 	if ( ! response.ok || ! response.body ) {

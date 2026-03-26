@@ -22,7 +22,8 @@ import { selectSyncItemsForPush } from 'cli/lib/sync-selector';
 import { pickSyncSite } from 'cli/lib/sync-site-picker';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
-import type { SyncOption } from '@studio/common/types/sync';
+import type { SyncOption, SyncSite } from '@studio/common/types/sync';
+import type { SiteData } from 'cli/lib/cli-config/core';
 
 export async function runCommand(
 	siteFolder: string,
@@ -30,8 +31,8 @@ export async function runCommand(
 	archivePath?: string
 ): Promise< void > {
 	const logger = new Logger< LoggerAction >();
-	let site: Awaited< ReturnType< typeof getSiteByFolder > > | undefined;
-	let selectedSite: Awaited< ReturnType< typeof pickSyncSite > > | undefined;
+	let site: SiteData | undefined;
+	let selectedSite: SyncSite | undefined;
 
 	try {
 		const token = await readAuthToken();

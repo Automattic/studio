@@ -24,6 +24,7 @@ import {
 } from '@studio/common/lib/agent-skills';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
+import { createDeployIgnoreFilter, type Ignore } from '@studio/common/lib/deploy-ignore';
 import {
 	calculateDirectorySizeForArchive,
 	isWordPressDirectory,
@@ -90,6 +91,7 @@ import {
 import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
+import { SYNC_ADDITIONAL_DEFAULTS } from 'src/modules/sync/constants';
 import { shouldExcludeFromSync, shouldLimitDepth } from 'src/modules/sync/lib/tree-utils';
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { getUserEditor, getUserTerminal } from 'src/modules/user-settings/lib/ipc-handlers';
@@ -1593,10 +1595,15 @@ export async function listLocalFileTree(
 	siteId: string,
 	path: string,
 	maxDepth: number = 3,
-	currentDepth: number = 0
+	currentDepth: number = 0,
+	deployIgnore?: Ignore
 ): Promise< RawDirectoryEntry[] > {
 	const server = SiteServer.get( siteId );
 	if ( ! server ) throw new Error( 'Site not found' );
+
+	if ( ! deployIgnore ) {
+		deployIgnore = await createDeployIgnoreFilter( server.details.path, SYNC_ADDITIONAL_DEFAULTS );
+	}
 
 	const fullPath = nodePath.join( server.details.path, path );
 
@@ -1605,12 +1612,13 @@ export async function listLocalFileTree(
 		const result = [];
 
 		for ( const entry of entries ) {
-			if ( shouldExcludeFromSync( entry.name ) ) {
+			const itemPath = nodePath.join( path, entry.name ).replace( /\\/g, '/' );
+
+			if ( shouldExcludeFromSync( itemPath, deployIgnore ) ) {
 				continue;
 			}
 
 			const isDirectory = entry.isDirectory();
-			const itemPath = nodePath.join( path, entry.name ).replace( /\\/g, '/' );
 
 			const directoryEntry: RawDirectoryEntry = {
 				name: entry.name,
@@ -1626,7 +1634,8 @@ export async function listLocalFileTree(
 						siteId,
 						itemPath,
 						maxDepth,
-						currentDepth + 1
+						currentDepth + 1,
+						deployIgnore
 					);
 				} catch ( childErr ) {
 					console.warn( `Failed to load children for ${ itemPath }:`, childErr );

@@ -1,0 +1,40 @@
+import { promises as fsPromises } from 'fs';
+import path from 'path';
+import ignore, { Ignore } from 'ignore';
+
+export type { Ignore };
+
+/**
+ * Default patterns that are always excluded from deploys,
+ * regardless of whether a .deployignore file exists.
+ */
+const DEPLOY_IGNORE_DEFAULTS = [ '.git', 'node_modules', '.DS_Store', 'Thumbs.db' ];
+
+const DEPLOY_IGNORE_FILENAME = '.deployignore';
+
+/**
+ * Creates an Ignore instance seeded with hardcoded defaults
+ * and any patterns from a .deployignore file at the given root.
+ *
+ * @param rootPath - The site root directory to look for .deployignore in
+ * @param additionalDefaults - Extra patterns to include as built-in defaults
+ */
+export async function createDeployIgnoreFilter(
+	rootPath: string,
+	additionalDefaults?: string[]
+): Promise< Ignore > {
+	const ig = ignore().add( DEPLOY_IGNORE_DEFAULTS );
+	if ( additionalDefaults ) {
+		ig.add( additionalDefaults );
+	}
+
+	const deployIgnorePath = path.join( rootPath, DEPLOY_IGNORE_FILENAME );
+	try {
+		const content = await fsPromises.readFile( deployIgnorePath, 'utf-8' );
+		ig.add( content );
+	} catch {
+		// .deployignore doesn't exist — use defaults only
+	}
+
+	return ig;
+}

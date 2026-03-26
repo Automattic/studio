@@ -1,37 +1,53 @@
 import fs, { promises as fsPromises } from 'fs';
 import path from 'path';
 import { isErrnoException } from './is-errno-exception';
+import type { Ignore } from './deploy-ignore';
 
-const ARCHIVE_EXCLUDED_DIRECTORIES = [ '.git', 'node_modules' ];
-
-export function isExcludedFromArchive( name: string ): boolean {
-	return ARCHIVE_EXCLUDED_DIRECTORIES.some( ( excluded ) => name.includes( excluded ) );
-}
+const DEFAULT_EXCLUDED_DIRECTORIES = [ '.git', 'node_modules' ];
 
 /**
  * Calculates the total size of a directory by recursively traversing its contents.
- * Excludes directories that are not included in archives (e.g., .git, node_modules).
+ * When a deploy-ignore filter is provided, uses it to determine which files to exclude.
+ * Otherwise, falls back to excluding .git and node_modules directories.
  *
  * @param directoryPath - The path to the directory to calculate the size of
+ * @param deployIgnore - Optional Ignore instance from createDeployIgnoreFilter
+ * @param pathPrefix - Optional prefix for relative paths when matching against deployIgnore
+ *                     (e.g., 'wp-content' when scanning the wp-content directory)
  * @returns A promise that resolves to the total size in bytes
  */
-export function calculateDirectorySizeForArchive( directoryPath: string ): Promise< number > {
+export function calculateDirectorySizeForArchive(
+	directoryPath: string,
+	deployIgnore?: Ignore,
+	pathPrefix?: string
+): Promise< number > {
 	return new Promise( ( resolve, reject ) => {
 		let totalSize = 0;
 
-		async function calculateSize( dirPath: string ): Promise< void > {
+		async function calculateSize( dirPath: string, relativePath: string ): Promise< void > {
 			try {
 				const files = await fsPromises.readdir( dirPath, { withFileTypes: true } );
 
 				await Promise.all(
 					files.map( async ( file ) => {
 						const filePath = path.join( dirPath, file.name );
+						const fileRelativePath = relativePath ? `${ relativePath }/${ file.name }` : file.name;
 						try {
-							if ( file.isDirectory() ) {
-								if ( isExcludedFromArchive( file.name ) ) {
+							if ( deployIgnore ) {
+								const ignorePath = pathPrefix
+									? `${ pathPrefix }/${ fileRelativePath }`
+									: fileRelativePath;
+								if ( deployIgnore.ignores( ignorePath ) ) {
 									return;
 								}
-								await calculateSize( filePath );
+							} else if (
+								file.isDirectory() &&
+								DEFAULT_EXCLUDED_DIRECTORIES.includes( file.name )
+							) {
+								return;
+							}
+							if ( file.isDirectory() ) {
+								await calculateSize( filePath, fileRelativePath );
 							} else {
 								const stats = await fsPromises.stat( filePath );
 								totalSize += stats.size;
@@ -46,7 +62,7 @@ export function calculateDirectorySizeForArchive( directoryPath: string ): Promi
 			}
 		}
 
-		calculateSize( directoryPath )
+		calculateSize( directoryPath, '' )
 			.then( () => resolve( totalSize ) )
 			.catch( reject );
 	} );

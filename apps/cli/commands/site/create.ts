@@ -37,6 +37,7 @@ import {
 	hasDefaultDbBlock,
 	removeDbConstants,
 } from '@studio/common/lib/remove-default-db-constants';
+import { readSharedConfig } from '@studio/common/lib/shared-config';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 import {
@@ -250,7 +251,9 @@ export async function runCommand(
 		);
 
 		try {
-			await installAiInstructionsToSite( sitePath, getAiInstructionsPath() );
+			const sharedConfig = await readSharedConfig();
+			const selectedSkills = sharedConfig.selectedSkills ?? [];
+			await installAiInstructionsToSite( sitePath, getAiInstructionsPath(), selectedSkills );
 		} catch ( error ) {
 			logger.reportError(
 				new LoggerError( __( 'Failed to install AI instructions. Proceeding anyway…' ), error ),

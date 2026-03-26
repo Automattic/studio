@@ -4,12 +4,13 @@ import { vi } from 'vitest';
 import {
 	ACCESS_DENIED_MESSAGE,
 	STUDIO_ROOT,
+	TMP_ROOT,
 	askForPathGatedToolApproval,
 	createPathApprovalSession,
-	findFirstPathOutsideStudioRoot,
+	findFirstPathOutsideTrustedRoots,
 	getPathGatedPermissionRequest,
 	isPathGatedTool,
-	isPathWithinStudioRoot,
+	isPathWithinTrustedRoot,
 	promptForApproval,
 	resolveToolPath,
 	type AskUserQuestion,
@@ -40,18 +41,33 @@ describe( 'AI security helpers', () => {
 		);
 	} );
 
-	it( 'identifies paths inside and outside of the Studio root', () => {
-		expect( isPathWithinStudioRoot( 'example-site/wp-config.php' ) ).toBe( true );
-		expect( isPathWithinStudioRoot( path.resolve( STUDIO_ROOT, 'example-site' ) ) ).toBe( true );
-		expect( isPathWithinStudioRoot( path.resolve( os.homedir(), 'Downloads/outside.txt' ) ) ).toBe(
+	it( 'identifies paths inside trusted roots and outside paths', () => {
+		expect( isPathWithinTrustedRoot( 'example-site/wp-config.php' ) ).toBe( true );
+		expect( isPathWithinTrustedRoot( path.resolve( STUDIO_ROOT, 'example-site' ) ) ).toBe( true );
+		expect( isPathWithinTrustedRoot( path.resolve( TMP_ROOT, 'studio-ai-temp.txt' ) ) ).toBe(
+			true
+		);
+		expect( isPathWithinTrustedRoot( path.resolve( os.homedir(), 'Downloads/outside.txt' ) ) ).toBe(
 			false
 		);
 	} );
 
-	it( 'prefers blockedPath when it is outside the Studio root', () => {
+	it( 'does not treat temporary directory paths as outside', () => {
+		const tempPath = path.resolve( TMP_ROOT, 'studio-ai-temp.txt' );
+
+		expect( findFirstPathOutsideTrustedRoots( { path: tempPath } ) ).toBeUndefined();
+	} );
+
+	it( 'does not treat /tmp paths as outside', () => {
+		expect(
+			findFirstPathOutsideTrustedRoots( { path: '/tmp/studio-ai-temp.txt' } )
+		).toBeUndefined();
+	} );
+
+	it( 'prefers blockedPath when it is outside trusted roots', () => {
 		const outsidePath = path.resolve( os.homedir(), 'Downloads/outside.txt' );
 		expect(
-			findFirstPathOutsideStudioRoot(
+			findFirstPathOutsideTrustedRoots(
 				{ path: path.resolve( STUDIO_ROOT, 'inside.txt' ) },
 				outsidePath
 			)

@@ -42,7 +42,7 @@ export const ALLOWED_TOOLS = [
 	'Task',
 ] as const;
 
-// Tools that should not manipulate files outside of ~/Studio without permission (write access)
+// Tools that should not manipulate files outside trusted roots without permission (write access)
 const PATH_GATED_TOOLS = [ 'Write', 'Edit', 'Bash', 'NotebookEdit' ] as const;
 const PATH_INPUT_KEYS = [ 'path', 'file_path', 'filePath' ] as const;
 
@@ -51,11 +51,18 @@ const APPROVE_SESSION_LABEL = 'Allow for this session';
 const DENY_LABEL = 'Deny';
 
 export const STUDIO_ROOT = path.resolve( STUDIO_SITES_ROOT );
-const STUDIO_ROOT_PREFIX = STUDIO_ROOT.endsWith( path.sep )
-	? STUDIO_ROOT
-	: `${ STUDIO_ROOT }${ path.sep }`;
+export const TMP_ROOT = path.resolve( os.tmpdir() );
+const TRUSTED_TEMP_ROOT_CANDIDATES = [ TMP_ROOT, '/tmp' ];
+export const TRUSTED_TEMP_ROOTS = Array.from(
+	new Set( TRUSTED_TEMP_ROOT_CANDIDATES.map( ( trustedRoot ) => path.resolve( trustedRoot ) ) )
+);
 
-export const ACCESS_DENIED_MESSAGE = `Access denied outside ${ STUDIO_ROOT }`;
+const TRUSTED_ROOTS = [ STUDIO_ROOT, ...TRUSTED_TEMP_ROOTS ];
+const TRUSTED_ROOT_PREFIXES = TRUSTED_ROOTS.map( ( trustedRoot ) =>
+	trustedRoot.endsWith( path.sep ) ? trustedRoot : `${ trustedRoot }${ path.sep }`
+);
+
+export const ACCESS_DENIED_MESSAGE = 'Access denied outside trusted directories';
 
 export interface PathApprovalSession {
 	hasApprovedPath: ( toolName: string, requestedPath: string ) => boolean;
@@ -76,9 +83,12 @@ export function resolveToolPath( rawPath: string ): string {
 		: path.resolve( STUDIO_ROOT, expandedPath );
 }
 
-export function isPathWithinStudioRoot( filePath: string ): boolean {
+export function isPathWithinTrustedRoot( filePath: string ): boolean {
 	const normalizedPath = resolveToolPath( filePath );
-	return normalizedPath === STUDIO_ROOT || normalizedPath.startsWith( STUDIO_ROOT_PREFIX );
+	return TRUSTED_ROOTS.some(
+		( trustedRoot, index ) =>
+			normalizedPath === trustedRoot || normalizedPath.startsWith( TRUSTED_ROOT_PREFIXES[ index ] )
+	);
 }
 
 function getToolInputPaths( input: Record< string, unknown > ): string[] {
@@ -88,16 +98,16 @@ function getToolInputPaths( input: Record< string, unknown > ): string[] {
 		.filter( ( value ) => value.trim().length > 0 );
 }
 
-export function findFirstPathOutsideStudioRoot(
+export function findFirstPathOutsideTrustedRoots(
 	input: Record< string, unknown >,
 	blockedPath?: string
 ): string | undefined {
-	if ( blockedPath && ! isPathWithinStudioRoot( blockedPath ) ) {
+	if ( blockedPath && ! isPathWithinTrustedRoot( blockedPath ) ) {
 		return blockedPath;
 	}
 
 	for ( const toolPath of getToolInputPaths( input ) ) {
-		if ( ! isPathWithinStudioRoot( toolPath ) ) {
+		if ( ! isPathWithinTrustedRoot( toolPath ) ) {
 			return toolPath;
 		}
 	}
@@ -155,7 +165,7 @@ export function getPathGatedPermissionRequest( {
 	blockedPath?: string;
 	suggestions?: PermissionUpdate[];
 } ): PathGatedPermissionRequest | undefined {
-	const outsidePath = findFirstPathOutsideStudioRoot( input, blockedPath );
+	const outsidePath = findFirstPathOutsideTrustedRoots( input, blockedPath );
 	if ( ! outsidePath || ! isPathGatedTool( toolName ) ) {
 		return undefined;
 	}
@@ -189,7 +199,7 @@ export async function askForPathGatedToolApproval( {
 			options: [
 				{
 					label: APPROVE_ONCE_LABEL,
-					description: `Run ${ toolName } outside ${ STUDIO_ROOT } for this step.`,
+					description: `Run ${ toolName } outside trusted directories for this step.`,
 				},
 				{
 					label: APPROVE_SESSION_LABEL,
@@ -197,7 +207,7 @@ export async function askForPathGatedToolApproval( {
 				},
 				{
 					label: DENY_LABEL,
-					description: 'Keep filesystem access restricted to Studio sites.',
+					description: 'Keep filesystem access restricted to trusted directories.',
 				},
 			],
 		},

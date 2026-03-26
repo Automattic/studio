@@ -8,6 +8,7 @@ import {
 	ProcessIdAllocator,
 } from '@php-wasm/universal';
 import { createSpawnHandler } from '@php-wasm/util';
+import { IS_JSPI_AVAILABLE } from '@studio/common/lib/jspi';
 import { cleanupLegacyMuPlugins, getMuPlugins } from '@studio/common/lib/mu-plugins';
 import { LatestSupportedPHPVersion } from '@studio/common/types/php-versions';
 import { __ } from '@wordpress/i18n';
@@ -49,8 +50,8 @@ export async function runWpCliCommand(
 ): Promise< [ StreamedPHPResponse, exitPhp: () => void ] > {
 	const id = await loadNodeRuntime( phpVersion, {
 		followSymlinks: true,
-		withRedis: true,
-		withMemcached: true,
+		withRedis: IS_JSPI_AVAILABLE,
+		withMemcached: IS_JSPI_AVAILABLE,
 		emscriptenOptions: {
 			processId: processIdAllocator.claim(),
 		},

@@ -1,5 +1,5 @@
 import nodePath from 'path';
-import { installSkillToSite } from '@studio/common/lib/agent-skills';
+import { installSkillToSite, removeSkillFromSite } from '@studio/common/lib/agent-skills';
 import { pathExists } from '@studio/common/lib/fs-utils';
 import { getAiInstructionsPath } from 'src/lib/server-files-paths';
 import { BUNDLED_SKILLS, type SkillStatus } from './skills-constants';
@@ -30,4 +30,16 @@ export async function installAllSkills(
 			console.error( '[ai-skills] Failed to install skill:', result.reason );
 		}
 	}
+}
+
+export async function installSkillById(
+	sitePath: string,
+	skillId: string,
+	overwrite: boolean = false
+): Promise< void > {
+	await installSkillToSite( sitePath, getAiInstructionsPath(), skillId, overwrite );
+}
+
+export async function removeSkillById( sitePath: string, skillId: string ): Promise< void > {
+	await removeSkillFromSite( sitePath, skillId );
 }

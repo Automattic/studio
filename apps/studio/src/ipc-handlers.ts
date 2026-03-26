@@ -79,12 +79,15 @@ import { type InstructionFileType } from 'src/modules/agent-instructions/constan
 import {
 	getAllInstructionFilesStatus,
 	installInstructionFile,
+	removeInstructionFile,
 	type InstructionFileStatus,
 } from 'src/modules/agent-instructions/lib/instructions';
 import {
 	BUNDLED_SKILLS,
 	getSkillsStatus,
 	installAllSkills,
+	installSkillById,
+	removeSkillById,
 	type SkillStatus,
 } from 'src/modules/agent-instructions/lib/skills';
 import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
@@ -177,6 +180,18 @@ export async function installAgentInstructions(
 	return installInstructionFile( server.details.path, fileType, overwrite );
 }
 
+export async function removeAgentInstruction(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	fileType: InstructionFileType
+): Promise< void > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( `Site not found: ${ siteId }` );
+	}
+	await removeInstructionFile( server.details.path, fileType );
+}
+
 export async function getWordPressSkillsStatus(
 	_event: IpcMainInvokeEvent,
 	siteId: string
@@ -199,6 +214,32 @@ export async function installWordPressSkills(
 	}
 	const overwrite = options?.overwrite ?? false;
 	await installAllSkills( server.details.path, overwrite );
+}
+
+export async function installWordPressSkillById(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	skillId: string,
+	options?: { overwrite?: boolean }
+): Promise< void > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( `Site not found: ${ siteId }` );
+	}
+	const overwrite = options?.overwrite ?? false;
+	await installSkillById( server.details.path, skillId, overwrite );
+}
+
+export async function removeWordPressSkillById(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	skillId: string
+): Promise< void > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( `Site not found: ${ siteId }` );
+	}
+	await removeSkillById( server.details.path, skillId );
 }
 
 export async function getWordPressSkillsStatusAllSites(

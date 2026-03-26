@@ -163,9 +163,15 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'getAgentInstructionsStatus', siteId ),
 	installAgentInstructions: ( siteId, options ) =>
 		ipcRendererInvoke( 'installAgentInstructions', siteId, options ),
+	removeAgentInstruction: ( siteId, fileType ) =>
+		ipcRendererInvoke( 'removeAgentInstruction', siteId, fileType ),
 	getWordPressSkillsStatus: ( siteId ) => ipcRendererInvoke( 'getWordPressSkillsStatus', siteId ),
 	installWordPressSkills: ( siteId, options ) =>
 		ipcRendererInvoke( 'installWordPressSkills', siteId, options ),
+	installWordPressSkillById: ( siteId, skillId, options ) =>
+		ipcRendererInvoke( 'installWordPressSkillById', siteId, skillId, options ),
+	removeWordPressSkillById: ( siteId, skillId ) =>
+		ipcRendererInvoke( 'removeWordPressSkillById', siteId, skillId ),
 	getWordPressSkillsStatusAllSites: () => ipcRendererInvoke( 'getWordPressSkillsStatusAllSites' ),
 	installWordPressSkillsToAllSites: ( options ) =>
 		ipcRendererInvoke( 'installWordPressSkillsToAllSites', options ),

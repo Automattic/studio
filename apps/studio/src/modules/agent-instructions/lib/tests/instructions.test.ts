@@ -11,11 +11,7 @@ vi.mock( '@studio/common/lib/fs-utils', () => ( {
 	pathExists: vi.fn(),
 } ) );
 
-vi.mock( 'fs/promises', () => ( {
-	default: {
-		readFile: vi.fn(),
-	},
-} ) );
+vi.mock( 'fs' );
 
 vi.mock( 'src/lib/server-files-paths', () => ( {
 	getAiInstructionsPath: () => '/test/bundled-skills',

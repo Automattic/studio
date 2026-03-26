@@ -44,9 +44,13 @@ const existsSyncMock = vi.fn( ( path: string ): boolean => {
 	return path in mockFiles;
 } );
 
+const mkdirSyncMock = vi.fn();
+
 const statMock = vi.fn().mockResolvedValue( {
 	isDirectory: () => true,
 } );
+
+const renameMock = vi.fn().mockResolvedValue( undefined );
 
 const __setFileContents = ( path: string, fileContents: string | string[] ) => {
 	mockFiles[ path ] = fileContents;
@@ -56,29 +60,39 @@ const __clearMockFiles = () => {
 	Object.keys( mockFiles ).forEach( ( key ) => delete mockFiles[ key ] );
 };
 
+const promisesMock = {
+	cp: vi.fn(),
+	copyFile: copyFileMock,
+	mkdir: vi.fn(),
+	mkdtemp: vi.fn(),
+	readdir: readdirMock,
+	readFile: readFileMock,
+	rename: renameMock,
+	rm: vi.fn(),
+	stat: statMock,
+	symlink: vi.fn(),
+	unlink: vi.fn(),
+	writeFile: vi.fn(),
+};
+
 export default {
-	promises: {
-		copyFile: copyFileMock,
-		cp: copyFileMock,
-		mkdir: vi.fn().mockResolvedValue( undefined ),
-		readFile: readFileMock,
-		readdir: readdirMock,
-		stat: statMock,
-		writeFile: vi.fn().mockResolvedValue( undefined ),
-	},
-	readFileSync: readFileSyncMock,
-	watch: watchMock,
-	existsSync: existsSyncMock,
-	__setFileContents,
 	__clearMockFiles,
+	__setFileContents,
+	createReadStream: vi.fn(),
+	createWriteStream: vi.fn(),
+	existsSync: existsSyncMock,
+	mkdirSync: mkdirSyncMock,
+	promises: promisesMock,
+	readdirSync: vi.fn(),
+	readFileSync: readFileSyncMock,
+	statSync: vi.fn(),
+	watch: watchMock,
+	writeFileSync: vi.fn(),
 };
 
 // Export named for easier access
-export const promises = {
-	readFile: readFileMock,
-	readdir: readdirMock,
-	stat: statMock,
-};
+export const existsSync = existsSyncMock;
+export const mkdirSync = mkdirSyncMock;
+export const promises = promisesMock;
 export const readFileSync = readFileSyncMock;
 export const watch = watchMock;
-export const existsSync = existsSyncMock;

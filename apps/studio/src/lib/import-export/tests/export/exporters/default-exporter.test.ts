@@ -1,5 +1,4 @@
 import fs from 'fs';
-import fsPromises from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import {
@@ -15,29 +14,7 @@ import { ExportOptions, BackupContents } from 'src/lib/import-export/export/type
 import { getWordPressVersionFromInstallation } from 'src/lib/wp-versions';
 import { SiteServer } from 'src/site-server';
 
-vi.mock( 'fs', () => ( {
-	default: {
-		existsSync: vi.fn(),
-		statSync: vi.fn(),
-		readFileSync: vi.fn(),
-		createWriteStream: vi.fn(),
-		writeFileSync: vi.fn(),
-		readdirSync: vi.fn(),
-	},
-} ) );
-vi.mock( 'fs/promises', () => ( {
-	default: {
-		readdir: vi.fn(),
-		readFile: vi.fn(),
-		writeFile: vi.fn(),
-		mkdir: vi.fn(),
-		mkdtemp: vi.fn(),
-		copyFile: vi.fn(),
-		rm: vi.fn(),
-		stat: vi.fn(),
-		unlink: vi.fn(),
-	},
-} ) );
+vi.mock( 'fs' );
 vi.mock( 'os', () => ( {
 	default: {
 		tmpdir: vi.fn(),
@@ -191,7 +168,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 			},
 		];
 
-		( fsPromises.readdir as Mock ).mockResolvedValue( mockFiles );
+		( fs.promises.readdir as Mock ).mockResolvedValue( mockFiles );
 
 		function pathExistsMockImplementation( pathToCheck: string ): boolean {
 			const normalizedPath = normalize( pathToCheck );
@@ -202,7 +179,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 			} );
 		}
 
-		( fsPromises.stat as Mock ).mockImplementation( async ( filePath: string ) => {
+		( fs.promises.stat as Mock ).mockImplementation( async ( filePath: string ) => {
 			const normalizedPath = normalize( filePath );
 			if (
 				mockFiles.some(
@@ -302,9 +279,9 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		};
 		( fs.readFileSync as Mock ).mockReturnValue( '<?php // wp-config without DB constants' );
 		( fs.createWriteStream as Mock ).mockReturnValue( mockWriteStream );
-		( fsPromises.unlink as Mock ).mockResolvedValue( undefined );
-		( fsPromises.mkdtemp as Mock ).mockResolvedValue( '/tmp/studio_export_123' );
-		( fsPromises.writeFile as Mock ).mockResolvedValue( undefined );
+		( fs.promises.unlink as Mock ).mockResolvedValue( undefined );
+		( fs.promises.mkdtemp as Mock ).mockResolvedValue( '/tmp/studio_export_123' );
+		( fs.promises.writeFile as Mock ).mockResolvedValue( undefined );
 		( os.tmpdir as Mock ).mockReturnValue( '/tmp' );
 		( format as Mock ).mockReturnValue( '2023-07-31-12-00-00' );
 
@@ -469,7 +446,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				wpContent: false,
 			},
 		};
-		( fsPromises.mkdtemp as Mock ).mockResolvedValue( normalize( '/tmp/studio_export_123' ) );
+		( fs.promises.mkdtemp as Mock ).mockResolvedValue( normalize( '/tmp/studio_export_123' ) );
 
 		const exporter = new DefaultExporter( options );
 		await exporter.export();
@@ -500,7 +477,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 			},
 			splitDatabaseDumpByTable: true,
 		};
-		( fsPromises.mkdtemp as Mock ).mockResolvedValue( normalize( '/tmp/studio_export_123' ) );
+		( fs.promises.mkdtemp as Mock ).mockResolvedValue( normalize( '/tmp/studio_export_123' ) );
 
 		const exporter = new DefaultExporter( options );
 		await exporter.export();
@@ -536,7 +513,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 
 		await exporter.export();
 
-		expect( fsPromises.unlink ).toHaveBeenCalledWith(
+		expect( fs.promises.unlink ).toHaveBeenCalledWith(
 			normalize( '/tmp/studio_export_123/studio-backup-db-export-2023-07-31-12-00-00.sql' )
 		);
 	} );
@@ -689,7 +666,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		const exporter = new DefaultExporter( options );
 		await exporter.export();
 
-		expect( fsPromises.stat ).toHaveBeenCalledWith(
+		expect( fs.promises.stat ).toHaveBeenCalledWith(
 			normalize( '/path/to/site/wp-content/debug.log' )
 		);
 		expect( mockArchiver.file ).not.toHaveBeenCalledWith(
@@ -697,7 +674,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 			{ name: 'wp-content/debug.log' }
 		);
 
-		expect( fsPromises.stat ).toHaveBeenCalledWith(
+		expect( fs.promises.stat ).toHaveBeenCalledWith(
 			normalize( '/path/to/site/wp-content/db.php' )
 		);
 		expect( mockArchiver.file ).not.toHaveBeenCalledWith(
@@ -705,7 +682,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 			{ name: 'wp-content/db.php' }
 		);
 
-		expect( fsPromises.stat ).toHaveBeenCalledWith(
+		expect( fs.promises.stat ).toHaveBeenCalledWith(
 			normalize( '/path/to/site/wp-content/database/.ht.sqlite' )
 		);
 		expect( mockArchiver.file ).not.toHaveBeenCalledWith(
@@ -713,7 +690,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 			{ name: 'wp-content/database/.ht.sqlite' }
 		);
 
-		expect( fsPromises.stat ).toHaveBeenCalledWith(
+		expect( fs.promises.stat ).toHaveBeenCalledWith(
 			normalize(
 				'/path/to/site/wp-content/mu-plugins/sqlite-database-integration/example-load.php'
 			)

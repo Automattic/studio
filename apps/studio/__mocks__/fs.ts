@@ -1,4 +1,5 @@
-import { vi } from 'vitest';
+/// <reference types="vitest/globals" />
+
 import type { PathLike } from 'fs';
 
 const mockFiles: Record< string, string | string[] > = {};

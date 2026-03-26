@@ -1,4 +1,4 @@
-import { vi } from 'vitest';
+/// <reference types="vitest/globals" />
 
 // Extend globalThis to include our mock file system
 declare global {

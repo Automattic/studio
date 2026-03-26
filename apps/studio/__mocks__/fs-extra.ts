@@ -1,4 +1,4 @@
-import { vi } from 'vitest';
+/// <reference types="vitest/globals" />
 
 // Extend globalThis to include our mock file system
 declare global {
@@ -12,6 +12,15 @@ if ( ! globalThis.__fsExtraMockFiles ) {
 	globalThis.__fsExtraMockFiles = {};
 }
 const mockFiles = globalThis.__fsExtraMockFiles;
+
+const move = vi.fn( async ( source: string, destination: string ): Promise< void > => {
+	mockFiles[ destination ] = mockFiles[ source ];
+	delete mockFiles[ source ];
+} );
+
+const remove = vi.fn( async ( path: string ): Promise< void > => {
+	delete mockFiles[ path ];
+} );
 
 const readFile = vi.fn( async ( path: string ): Promise< string > => {
 	const fileContents = mockFiles[ path ];
@@ -42,7 +51,9 @@ const pathExists = vi.fn( async ( path: string ): Promise< boolean > => {
 } );
 
 const mkdir = vi.fn();
+const readJson = vi.fn();
 const writeFile = vi.fn();
+const writeJson = vi.fn();
 const copy = vi.fn();
 
 const __setFileContents = ( path: string, fileContents: string | string[] ) => {
@@ -54,26 +65,34 @@ const __clearMockFiles = () => {
 };
 
 export default {
+	__clearMockFiles,
 	__mockFiles: mockFiles,
 	__setFileContents,
-	__clearMockFiles,
+	copy,
+	mkdir,
+	move,
+	pathExists,
+	readdir,
 	readFile,
 	readFileSync,
-	readdir,
-	pathExists,
-	mkdir,
+	readJson,
+	remove,
 	writeFile,
-	copy,
+	writeJson,
 };
 
 export {
+	__clearMockFiles,
+	__setFileContents,
+	copy,
+	mkdir,
+	move,
+	pathExists,
+	readdir,
 	readFile,
 	readFileSync,
-	readdir,
-	pathExists,
-	mkdir,
+	readJson,
+	remove,
 	writeFile,
-	copy,
-	__setFileContents,
-	__clearMockFiles,
+	writeJson,
 };

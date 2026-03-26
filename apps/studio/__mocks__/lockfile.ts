@@ -1,4 +1,4 @@
-import { vi } from 'vitest';
+/// <reference types="vitest/globals" />
 
 export const lock = vi.fn().mockImplementation( ( path, options, callback ) => callback( null ) );
 export const unlock = vi.fn().mockImplementation( ( path, callback ) => callback( null ) );

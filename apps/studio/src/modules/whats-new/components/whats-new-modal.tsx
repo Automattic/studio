@@ -68,7 +68,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 			image: phpMyAdminIllustration,
 			title: __( 'Manage your database with phpMyAdmin' ),
 			description: __(
-				"Studio now includes phpMyAdmin, giving you a visual interface to manage your site's database directly from the Overview tab."
+				"Studio now includes phpMyAdmin, giving you a visual interface to manage your site's database. Access it from the Overview tab."
 			),
 		},
 		{

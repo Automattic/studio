@@ -1,4 +1,3 @@
-import * as Sentry from '@sentry/electron/renderer';
 import { __, sprintf } from '@wordpress/i18n';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -44,7 +43,6 @@ export function useDeleteSite() {
 					),
 					error,
 				} );
-				Sentry.captureException( error );
 			}
 		}
 	};

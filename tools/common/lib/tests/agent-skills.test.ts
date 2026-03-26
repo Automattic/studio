@@ -68,7 +68,7 @@ describe( 'installAiInstructionsToSite', () => {
 			{ name: 'STUDIO.md', isFile: () => true, isDirectory: () => false },
 		] as never );
 
-		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH, false );
+		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH, [], false );
 
 		expect( fs.promises.copyFile ).toHaveBeenCalledTimes( 1 );
 		expect( fs.promises.copyFile ).toHaveBeenCalledWith(
@@ -105,7 +105,7 @@ describe( 'installAiInstructionsToSite', () => {
 			{ name: 'wp-rest-api', isFile: () => false, isDirectory: () => true },
 		] as never );
 
-		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH, true );
+		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH, [], true );
 
 		expect( fs.promises.rm ).not.toHaveBeenCalled();
 		expect( recursiveCopyDirectory ).not.toHaveBeenCalled();
@@ -216,7 +216,7 @@ describe( 'installAiInstructionsToSite', () => {
 			{ name: 'wp-plugin-development', isFile: () => false, isDirectory: () => true },
 		] as never );
 
-		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH, false );
+		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH, [], false );
 
 		expect( recursiveCopyDirectory ).not.toHaveBeenCalled();
 		expect( fs.promises.symlink ).not.toHaveBeenCalled();

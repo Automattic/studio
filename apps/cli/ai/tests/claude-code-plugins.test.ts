@@ -22,7 +22,7 @@ function mockManifest(
 	plugins: Record< string, Array< { scope: string; installPath: string } > >
 ) {
 	vi.mocked( fs.readFileSync ).mockImplementation( ( filePath ) => {
-		if ( filePath === MANIFEST_PATH ) {
+		if ( toForwardSlash( String( filePath ) ) === toForwardSlash( MANIFEST_PATH ) ) {
 			return JSON.stringify( { version: 2, plugins } );
 		}
 		throw new Error( `Unexpected readFileSync: ${ filePath }` );
@@ -30,20 +30,27 @@ function mockManifest(
 	vi.mocked( fs.existsSync ).mockReturnValue( true );
 }
 
+function toForwardSlash( p: string ): string {
+	return p.replace( /\\/g, '/' );
+}
+
 function mockPluginFiles( fileMap: Record< string, string > ) {
 	vi.mocked( fs.readFileSync ).mockImplementation( ( filePath ) => {
-		const content = fileMap[ filePath as string ];
+		const content = fileMap[ toForwardSlash( String( filePath ) ) ];
 		if ( content !== undefined ) {
 			return content;
 		}
 		throw new Error( `ENOENT: ${ filePath }` );
 	} );
 	vi.mocked( fs.existsSync ).mockImplementation( ( filePath ) => {
-		const path = String( filePath );
-		return path in fileMap || Object.keys( fileMap ).some( ( key ) => key.startsWith( path ) );
+		const normalized = toForwardSlash( String( filePath ) );
+		return (
+			normalized in fileMap ||
+			Object.keys( fileMap ).some( ( key ) => key.startsWith( normalized ) )
+		);
 	} );
 	vi.mocked( fs.readdirSync ).mockImplementation( ( ( dirPath: fs.PathLike ) => {
-		const prefix = String( dirPath ) + '/';
+		const prefix = toForwardSlash( String( dirPath ) ) + '/';
 		const entries = new Set< string >();
 		for ( const key of Object.keys( fileMap ) ) {
 			if ( key.startsWith( prefix ) ) {
@@ -100,7 +107,7 @@ describe( 'getClaudeCodePlugins', () => {
 
 	it( 'skips entries where installPath does not exist on disk', () => {
 		vi.mocked( fs.readFileSync ).mockImplementation( ( filePath ) => {
-			if ( filePath === MANIFEST_PATH ) {
+			if ( toForwardSlash( String( filePath ) ) === toForwardSlash( MANIFEST_PATH ) ) {
 				return JSON.stringify( {
 					version: 2,
 					plugins: {

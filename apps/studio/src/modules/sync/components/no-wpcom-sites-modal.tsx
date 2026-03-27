@@ -20,7 +20,7 @@ export function NoWpcomSitesModal( { onRequestClose, selectedSite }: NoWpcomSite
 				<NoWpcomSitesContent
 					selectedSite={ selectedSite }
 					onButtonClick={ onRequestClose }
-					buttonClassName="w-full !text-white !shadow-a8c-blue-50"
+					buttonClassName="w-full !text-white !shadow-frame-theme"
 				/>
 			</div>
 		</Modal>

@@ -53,12 +53,13 @@ const api: IpcApi = {
 	isAuthenticated: () => ipcRendererInvoke( 'isAuthenticated' ),
 	getAuthenticationToken: () => ipcRendererInvoke( 'getAuthenticationToken' ),
 	clearAuthenticationToken: () => ipcRendererInvoke( 'clearAuthenticationToken' ),
-	saveSnapshotsToStorage: ( snapshots ) => ipcRendererInvoke( 'saveSnapshotsToStorage', snapshots ),
-	getSnapshots: () => ipcRendererInvoke( 'getSnapshots' ),
-	createSnapshot: ( siteFolder ) => ipcRendererInvoke( 'createSnapshot', siteFolder ),
+	fetchSnapshots: () => ipcRendererInvoke( 'fetchSnapshots' ),
+	createSnapshot: ( siteFolder, name ) => ipcRendererInvoke( 'createSnapshot', siteFolder, name ),
 	updateSnapshot: ( siteFolder, hostname ) =>
 		ipcRendererInvoke( 'updateSnapshot', siteFolder, hostname ),
 	deleteSnapshot: ( hostname ) => ipcRendererInvoke( 'deleteSnapshot', hostname ),
+	deleteAllSnapshots: () => ipcRendererInvoke( 'deleteAllSnapshots' ),
+	setSnapshot: ( hostname, options ) => ipcRendererInvoke( 'setSnapshot', hostname, options ),
 	getLastSeenVersion: () => ipcRendererInvoke( 'getLastSeenVersion' ),
 	saveLastSeenVersion: ( version ) => ipcRendererInvoke( 'saveLastSeenVersion', version ),
 	getSiteDetails: () => ipcRendererInvoke( 'getSiteDetails' ),
@@ -141,6 +142,9 @@ const api: IpcApi = {
 	saveUserTerminal: ( preferredTerminal ) =>
 		ipcRendererInvoke( 'saveUserTerminal', preferredTerminal ),
 	getUserTerminal: () => ipcRendererInvoke( 'getUserTerminal' ),
+	previewColorScheme: ( colorScheme ) => ipcRendererInvoke( 'previewColorScheme', colorScheme ),
+	saveColorScheme: ( colorScheme ) => ipcRendererInvoke( 'saveColorScheme', colorScheme ),
+	getColorScheme: () => ipcRendererInvoke( 'getColorScheme' ),
 	getUserEditor: () => ipcRendererInvoke( 'getUserEditor' ),
 	saveUserEditor: ( editor ) => ipcRendererInvoke( 'saveUserEditor', editor ),
 	comparePaths: ( path1, path2 ) => ipcRendererInvoke( 'comparePaths', path1, path2 ),
@@ -159,9 +163,20 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'getAgentInstructionsStatus', siteId ),
 	installAgentInstructions: ( siteId, options ) =>
 		ipcRendererInvoke( 'installAgentInstructions', siteId, options ),
+	removeAgentInstruction: ( siteId, fileType ) =>
+		ipcRendererInvoke( 'removeAgentInstruction', siteId, fileType ),
 	getWordPressSkillsStatus: ( siteId ) => ipcRendererInvoke( 'getWordPressSkillsStatus', siteId ),
 	installWordPressSkills: ( siteId, options ) =>
 		ipcRendererInvoke( 'installWordPressSkills', siteId, options ),
+	installWordPressSkillById: ( siteId, skillId, options ) =>
+		ipcRendererInvoke( 'installWordPressSkillById', siteId, skillId, options ),
+	removeWordPressSkillById: ( siteId, skillId ) =>
+		ipcRendererInvoke( 'removeWordPressSkillById', siteId, skillId ),
+	getWordPressSkillsStatusAllSites: () => ipcRendererInvoke( 'getWordPressSkillsStatusAllSites' ),
+	installWordPressSkillsToAllSites: ( options ) =>
+		ipcRendererInvoke( 'installWordPressSkillsToAllSites', options ),
+	removeWordPressSkillFromAllSites: ( skillId ) =>
+		ipcRendererInvoke( 'removeWordPressSkillFromAllSites', skillId ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

@@ -16,7 +16,7 @@ export const SiteNameBox = ( { siteName, envType }: SiteNameBoxProps ) => {
 					<EnvironmentBadge type={ envType } className="h-6" />
 				) }
 			</span>
-			<span className="text-gray-600"> { siteName } </span>
+			<span className="text-frame-text-secondary"> { siteName } </span>
 		</>
 	);
 };

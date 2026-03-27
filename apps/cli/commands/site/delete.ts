@@ -1,32 +1,31 @@
 import fs from 'fs';
+import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
-import { SITE_EVENTS } from '@studio/common/lib/site-events';
+import { readAuthToken, type StoredAuthToken } from '@studio/common/lib/shared-config';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { deleteSnapshot } from 'cli/lib/api';
-import {
-	getSiteByFolder,
-	lockAppdata,
-	readAppdata,
-	saveAppdata,
-	unlockAppdata,
-	getAuthToken,
-	ValidatedAuthToken,
-} from 'cli/lib/appdata';
 import { deleteSiteCertificate } from 'cli/lib/certificate-manager';
-import { connectToDaemon, disconnectFromDaemon, emitSiteEvent } from 'cli/lib/daemon-client';
+import {
+	lockCliConfig,
+	readCliConfig,
+	saveCliConfig,
+	unlockCliConfig,
+} from 'cli/lib/cli-config/core';
+import { getSiteByFolder } from 'cli/lib/cli-config/sites';
+import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
-import { getSnapshotsFromAppdata, deleteSnapshotFromAppdata } from 'cli/lib/snapshots';
+import { getSnapshotsFromConfig, deleteSnapshotFromConfig } from 'cli/lib/snapshots';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
 const logger = new Logger< LoggerAction >();
 
-async function deletePreviewSites( authToken: ValidatedAuthToken, siteFolder: string ) {
+async function deletePreviewSites( authToken: StoredAuthToken, siteFolder: string ) {
 	try {
-		const snapshots = await getSnapshotsFromAppdata( authToken.id, siteFolder );
+		const snapshots = await getSnapshotsFromConfig( authToken.id, siteFolder );
 
 		if ( snapshots.length > 0 ) {
 			logger.reportStart(
@@ -45,7 +44,7 @@ async function deletePreviewSites( authToken: ValidatedAuthToken, siteFolder: st
 			await Promise.all(
 				snapshots.map( async ( snapshot ) => {
 					await deleteSnapshot( snapshot.atomicSiteId, authToken.accessToken );
-					await deleteSnapshotFromAppdata( snapshot.url );
+					await deleteSnapshotFromConfig( snapshot.url );
 				} )
 			);
 
@@ -98,24 +97,22 @@ export async function runCommand(
 			}
 		}
 
-		try {
-			const authToken = await getAuthToken();
+		const authToken = await readAuthToken();
+		if ( authToken ) {
 			await deletePreviewSites( authToken, siteFolder );
-		} catch ( error ) {
-			// `getAuthToken` throws, but `deletePreviewSites` does not. Proceed anyway
 		}
 
 		try {
-			await lockAppdata();
-			const appdata = await readAppdata();
-			const siteIndex = appdata.sites.findIndex( ( s ) => arePathsEqual( s.path, siteFolder ) );
+			await lockCliConfig();
+			const cliConfig = await readCliConfig();
+			const siteIndex = cliConfig.sites.findIndex( ( s ) => arePathsEqual( s.path, siteFolder ) );
 			if ( siteIndex === -1 ) {
 				throw new LoggerError( __( 'The specified directory is not added to Studio.' ) );
 			}
-			appdata.sites.splice( siteIndex, 1 );
-			await saveAppdata( appdata );
+			cliConfig.sites.splice( siteIndex, 1 );
+			await saveCliConfig( cliConfig );
 		} finally {
-			await unlockAppdata();
+			await unlockCliConfig();
 		}
 
 		if ( deleteFiles ) {
@@ -132,7 +129,7 @@ export async function runCommand(
 			}
 		}
 
-		await emitSiteEvent( SITE_EVENTS.DELETED, { siteId: site.id } );
+		await emitCliEvent( { event: SITE_EVENTS.DELETED, data: { siteId: site.id } } );
 	} finally {
 		await disconnectFromDaemon();
 	}

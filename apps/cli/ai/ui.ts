@@ -19,16 +19,20 @@ import {
 	type EditorOptions,
 	type MarkdownTheme,
 	visibleWidth,
+	truncateToWidth,
 } from '@mariozechner/pi-tui';
+import { readAuthToken } from '@studio/common/lib/shared-config';
+import { _n, sprintf } from '@wordpress/i18n';
 import chalk from 'chalk';
 import { AI_MODELS, DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
-import { AI_CHAT_SLASH_COMMANDS, type SlashCommandDef } from 'cli/ai/slash-commands';
+import { AI_CHAT_SLASH_COMMANDS } from 'cli/ai/slash-commands';
 import { buildTodoUpdateLines, type TodoRenderLine } from 'cli/ai/todo-render';
 import { diffTodoSnapshot, type TodoDiff, type TodoEntry } from 'cli/ai/todo-stream';
 import { getWpComSites } from 'cli/lib/api';
-import { getAuthToken, getSiteUrl, readAppdata, type SiteData } from 'cli/lib/appdata';
 import { openBrowser } from 'cli/lib/browser';
+import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
+import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { TodoWriteInput } from '@anthropic-ai/claude-agent-sdk/sdk-tools';
@@ -75,8 +79,6 @@ class PromptEditor implements Component, Focusable {
 	private isEmpty = true;
 	activeSiteName: string | null = null;
 	hints: string[] = [];
-	slashCommands: SlashCommandDef[] = [];
-	slashCommandSelectedIndex = -1;
 	statusMessage: string | null = null;
 	showBottomBar = true;
 
@@ -105,7 +107,6 @@ class PromptEditor implements Component, Focusable {
 	handleInput( data: string ): void {
 		this.editor.handleInput( data );
 		this.isEmpty = this.editor.getText() === '';
-		this.slashCommandSelectedIndex = -1;
 	}
 
 	setAutocompleteProvider( provider: CombinedAutocompleteProvider ): void {
@@ -114,19 +115,6 @@ class PromptEditor implements Component, Focusable {
 
 	getText(): string {
 		return this.editor.getText();
-	}
-
-	getMatchingSlashCommands(): SlashCommandDef[] {
-		const text = this.getText().trim();
-		if ( ! text.startsWith( '/' ) ) {
-			return [];
-		}
-		const prefix = text.slice( 1 ).toLowerCase();
-		return this.slashCommands.filter( ( cmd ) => cmd.name.toLowerCase().startsWith( prefix ) );
-	}
-
-	get isSlashMenuVisible(): boolean {
-		return this.getMatchingSlashCommands().length > 0;
 	}
 
 	invalidate(): void {
@@ -139,6 +127,7 @@ class PromptEditor implements Component, Focusable {
 		const innerWidth = Math.max( 1, width - promptWidth );
 		const lines = this.editor.render( innerWidth );
 		const bc = this.borderColorFn;
+		const borderWidth = Math.max( 0, width - 2 );
 
 		// The Editor renders: [top_border, ...content, bottom_border, ...autocomplete]
 		// Find the bottom border index: it's the last line containing ─ (U+2500).
@@ -151,17 +140,16 @@ class PromptEditor implements Component, Focusable {
 			}
 		}
 
-		const hasAutocomplete = bottomBorderIndex < lines.length - 1;
-		// Only keep lines up to (and including) the bottom border; drop editor autocomplete lines.
+		const autocompleteLines = lines.slice( bottomBorderIndex + 1 );
 		const editorLines = lines.slice( 0, bottomBorderIndex + 1 );
 		const emptyPrefix = ' '.repeat( promptWidth );
 		const result = editorLines.map( ( line, i ) => {
 			if ( i === 0 ) {
 				// Top border with active site name on the right
-				if ( this.activeSiteName ) {
+				if ( this.activeSiteName && borderWidth > 4 ) {
 					const label = ` ${ this.activeSiteName } `;
-					const trailing = 3;
-					const leading = Math.max( 0, width - 2 - label.length - trailing );
+					const trailing = Math.min( 3, borderWidth );
+					const leading = Math.max( 0, borderWidth - label.length - trailing );
 					return (
 						' ' +
 						bc( '─'.repeat( leading ) ) +
@@ -169,10 +157,10 @@ class PromptEditor implements Component, Focusable {
 						bc( '─'.repeat( trailing ) )
 					);
 				}
-				return ' ' + bc( '─'.repeat( width - 2 ) );
+				return ' ' + bc( '─'.repeat( borderWidth ) );
 			}
 			if ( i === bottomBorderIndex ) {
-				return ' ' + bc( '─'.repeat( width - 2 ) );
+				return ' ' + bc( '─'.repeat( borderWidth ) );
 			}
 			if ( this.isEmpty && i === 1 ) {
 				return promptPrefix + chalk.dim( 'Type your prompt…' );
@@ -183,37 +171,32 @@ class PromptEditor implements Component, Focusable {
 			return emptyPrefix + line;
 		} );
 
-		// Below the bottom border: show suggestions or hint bar (with optional status on the right)
-		if ( ! this.showBottomBar ) {
-			return result;
-		}
-		if ( hasAutocomplete && this.slashCommands.length > 0 ) {
-			const matching = this.getMatchingSlashCommands();
-			const maxLen = Math.max( ...matching.map( ( c ) => c.name.length ) );
-			for ( let i = 0; i < matching.length; i++ ) {
-				const cmd = matching[ i ];
-				const isSelected = i === this.slashCommandSelectedIndex;
-				const label = `/${ cmd.name.padEnd( maxLen ) }  ${ cmd.description }`;
-				result.push( ' ' + ( isSelected ? chalk.blue( label ) : chalk.dim( label ) ) );
-			}
-		} else {
-			const activeHints = this.isEmpty
-				? this.hints
-				: this.hints.filter( ( h ) => h !== '↓ select site' );
-			const leftPart =
-				activeHints.length > 0
-					? ' ' + activeHints.map( ( h ) => chalk.dim( h ) ).join( chalk.dim( ' · ' ) )
-					: '';
-			const rightPart = this.statusMessage ? chalk.dim( this.statusMessage ) + ' ' : '';
-			if ( leftPart || rightPart ) {
-				const leftLen = visibleWidth( leftPart );
-				const rightLen = visibleWidth( rightPart );
-				const padding = Math.max( 1, width - leftLen - rightLen );
-				result.push( leftPart + ' '.repeat( padding ) + rightPart );
-			}
+		if ( autocompleteLines.length > 0 ) {
+			return [ ...result, ...autocompleteLines.map( ( line ) => ' ' + line ) ].map( ( line ) =>
+				truncateToWidth( line, width )
+			);
 		}
 
-		return result;
+		// Below the bottom border: show hint bar (with optional status on the right)
+		if ( ! this.showBottomBar ) {
+			return result.map( ( line ) => truncateToWidth( line, width ) );
+		}
+		const activeHints = this.isEmpty
+			? this.hints
+			: this.hints.filter( ( h ) => h !== '↓ select site' );
+		const leftPart =
+			activeHints.length > 0
+				? ' ' + activeHints.map( ( h ) => chalk.dim( h ) ).join( chalk.dim( ' · ' ) )
+				: '';
+		const rightPart = this.statusMessage ? chalk.dim( this.statusMessage ) + ' ' : '';
+		if ( leftPart || rightPart ) {
+			const leftLen = visibleWidth( leftPart );
+			const rightLen = visibleWidth( rightPart );
+			const padding = Math.max( 1, width - leftLen - rightLen );
+			result.push( leftPart + ' '.repeat( padding ) + rightPart );
+		}
+
+		return result.map( ( line ) => truncateToWidth( line, width ) );
 	}
 }
 
@@ -473,6 +456,9 @@ export class AiChatUI {
 	private activeExpandablePreview: ExpandablePreview | null = null;
 	private _inAgentTurn = false;
 	private _activeSiteData: SiteData | null = null;
+	private siteSelectedCallback: ( ( site: SiteInfo ) => void ) | null = null;
+	private replayMode = false;
+	private replayTimestampMs: number | null = null;
 	private pendingToolCalls = new Map<
 		string,
 		{ name: string; input: Record< string, unknown > }
@@ -566,6 +552,55 @@ export class AiChatUI {
 		return this._activeSite;
 	}
 
+	set onSiteSelected( fn: ( ( site: SiteInfo ) => void ) | null ) {
+		this.siteSelectedCallback = fn;
+	}
+
+	private nowMs(): number {
+		return this.replayTimestampMs ?? Date.now();
+	}
+
+	setReplayTimestamp( timestamp?: string ): void {
+		if ( ! this.replayMode ) {
+			return;
+		}
+
+		if ( ! timestamp ) {
+			this.replayTimestampMs = null;
+			return;
+		}
+
+		const parsedTimestamp = Date.parse( timestamp );
+		this.replayTimestampMs = Number.isNaN( parsedTimestamp ) ? null : parsedTimestamp;
+	}
+
+	prepareForReplay(): void {
+		this.replayMode = true;
+		this.replayTimestampMs = null;
+		this.hideLoader();
+		this.currentMarkdown = null;
+		this.currentResponseText = '';
+	}
+
+	finishReplay(): void {
+		this.replayMode = false;
+		this.replayTimestampMs = null;
+		this.hideLoader();
+		this.currentMarkdown = null;
+		this.currentResponseText = '';
+	}
+
+	showAgentQuestion(
+		question: string,
+		_options: Array< { label: string; description: string } >
+	): void {
+		this.hideLoader();
+		this.currentMarkdown = null;
+		this.currentResponseText = '';
+		this.messages.addChild( new Text( '\n' + chalk.bold( question ), 0, 0 ) );
+		this.tui.requestRender();
+	}
+
 	constructor() {
 		const terminal = new ProcessTerminal();
 		this.tui = new TUI( terminal );
@@ -607,7 +642,6 @@ export class AiChatUI {
 
 		this.editor = new PromptEditor( this.tui, editorTheme );
 
-		this.editor.slashCommands = AI_CHAT_SLASH_COMMANDS;
 		this.editor.setAutocompleteProvider(
 			new CombinedAutocompleteProvider( AI_CHAT_SLASH_COMMANDS )
 		);
@@ -679,55 +713,6 @@ export class AiChatUI {
 				this.renderOptionPicker();
 				return { consume: true };
 			}
-			// Slash command menu navigation
-			if ( this.editorVisible && this.editor.isSlashMenuVisible ) {
-				const matching = this.editor.getMatchingSlashCommands();
-				if ( matchesKey( data, 'down' ) ) {
-					this.editor.slashCommandSelectedIndex = Math.min(
-						matching.length - 1,
-						this.editor.slashCommandSelectedIndex + 1
-					);
-					this.tui.requestRender();
-					return { consume: true };
-				}
-				if ( matchesKey( data, 'up' ) ) {
-					this.editor.slashCommandSelectedIndex = Math.max(
-						-1,
-						this.editor.slashCommandSelectedIndex - 1
-					);
-					this.tui.requestRender();
-					return { consume: true };
-				}
-				if (
-					( matchesKey( data, 'tab' ) || matchesKey( data, 'enter' ) ) &&
-					this.editor.slashCommandSelectedIndex >= 0 &&
-					this.editor.slashCommandSelectedIndex < matching.length
-				) {
-					const cmd = matching[ this.editor.slashCommandSelectedIndex ];
-					this.editor.slashCommandSelectedIndex = -1;
-					if ( matchesKey( data, 'enter' ) ) {
-						// Submit the command directly
-						this.editor.setText( '' );
-						if ( this.submitResolve ) {
-							const resolve = this.submitResolve;
-							this.submitResolve = null;
-							resolve( `/${ cmd.name }` );
-						}
-					} else {
-						// Tab: fill in the command text without submitting
-						this.editor.setText( `/${ cmd.name }` );
-						this.tui.requestRender();
-					}
-					return { consume: true };
-				}
-				// Tab to autocomplete when there's only one match (no selection needed)
-				if ( matchesKey( data, 'tab' ) && matching.length === 1 ) {
-					this.editor.setText( `/${ matching[ 0 ].name }` );
-					this.editor.slashCommandSelectedIndex = -1;
-					this.tui.requestRender();
-					return { consume: true };
-				}
-			}
 			// Down arrow to open site picker (only when prompt is empty)
 			if (
 				matchesKey( data, 'down' ) &&
@@ -789,8 +774,15 @@ export class AiChatUI {
 	}
 
 	private async openSitePicker(): Promise< void > {
-		const appdata = await readAppdata();
-		const sites: SiteData[] = appdata.sites ?? [];
+		const config = await readCliConfig();
+		const sites: SiteData[] = config.sites ?? [];
+		if ( sites.length === 0 ) {
+			this.messages.addChild(
+				new Text( chalk.dim( '  No sites found. Create one first.' ), 1, 0 )
+			);
+			this.tui.requestRender();
+			return;
+		}
 
 		this.sitePickerSiteData = sites;
 		this.sitePickerItems = await Promise.all(
@@ -814,10 +806,8 @@ export class AiChatUI {
 		this.sitePickerRemoteItems = [];
 		this.renderSitePicker();
 
-		let token: Awaited< ReturnType< typeof getAuthToken > >;
-		try {
-			token = await getAuthToken();
-		} catch {
+		const token = await readAuthToken();
+		if ( ! token ) {
 			this.showSitePickerError( 'Not logged in. Use /login first.' );
 			return;
 		}
@@ -966,12 +956,18 @@ export class AiChatUI {
 		this.tui.requestRender();
 	}
 
-	private setActiveSite( site: SiteInfo ): void {
+	setActiveSite( site: SiteInfo, options: { announce?: boolean; emitEvent?: boolean } = {} ): void {
+		const { announce = true, emitEvent = true } = options;
 		this._activeSite = site;
 		this.editor.activeSiteName = site.name;
 		const suffix = site.remote ? ' (WordPress.com)' : '';
 		const label = ` ✻ Selected site: ${ site.name }${ suffix }`;
-		this.messages.addChild( new Text( `${ chalk.hex( '#5b8db8' )( label ) }\n`, 0, 0 ) );
+		if ( announce ) {
+			this.messages.addChild( new Text( `${ chalk.hex( '#5b8db8' )( label ) }\n`, 0, 0 ) );
+		}
+		if ( emitEvent ) {
+			this.siteSelectedCallback?.( site );
+		}
 		this.tui.requestRender();
 	}
 
@@ -984,8 +980,8 @@ export class AiChatUI {
 	}
 
 	private async findSiteFromAppdata( nameOrPath: string ): Promise< SiteInfo | null > {
-		const appdata = await readAppdata();
-		const site = appdata.sites.find(
+		const config = await readCliConfig();
+		const site = config.sites.find(
 			( s ) => s.name.toLowerCase() === nameOrPath.toLowerCase() || s.path === nameOrPath
 		);
 		if ( ! site ) {
@@ -1127,13 +1123,21 @@ export class AiChatUI {
 			await openBrowser( this._activeSite.url );
 			return true;
 		}
-		if ( ! this._activeSiteData ) {
+		if ( ! this._activeSite && ! this._activeSiteData ) {
 			return false;
 		}
 		// Re-read appdata to get the current site state (port/domain may have changed)
-		const appdata = await readAppdata();
-		const freshSiteData = appdata.sites?.find( ( s ) => s.name === this._activeSite?.name );
+		const config = await readCliConfig();
+		const activeSiteName = this._activeSite?.name ?? this._activeSiteData?.name;
+		const freshSiteData = config.sites?.find( ( site ) => site.name === activeSiteName );
 		const siteData = freshSiteData ?? this._activeSiteData;
+		if ( siteData ) {
+			this._activeSiteData = siteData;
+		}
+		if ( ! siteData ) {
+			return false;
+		}
+
 		const url = getSiteUrl( siteData );
 		if ( url ) {
 			await openBrowser( url );
@@ -1377,7 +1381,7 @@ export class AiChatUI {
 		this.currentResponseText = '';
 		this.hasShownResponseMarker = false;
 		this.wasInterrupted = false;
-		this.turnStartTime = Date.now();
+		this.turnStartTime = this.nowMs();
 		this.todoSnapshot = [];
 		this.latestTodoSnapshot = [];
 		this.lastRenderedTodoSignature = null;
@@ -1542,6 +1546,10 @@ export class AiChatUI {
 		this.toolDotText = new Text( '\n ' + '⏺' + ' ' + toolLabel, 0, 0 );
 		this.messages.addChild( this.toolDotText );
 		this.toolDotVisible = true;
+		if ( this.replayMode ) {
+			this.tui.requestRender();
+			return;
+		}
 		this.toolDotTimer = setInterval( () => {
 			if ( ! this.toolDotText ) {
 				return;
@@ -1577,9 +1585,11 @@ export class AiChatUI {
 	}
 
 	private finalizeToolUseLine( isError: boolean, label: string ): void {
-		const elapsed = this.toolStartTime ? Date.now() - this.toolStartTime : 0;
+		const elapsed = this.toolStartTime ? this.nowMs() - this.toolStartTime : 0;
 		this.toolStartTime = null;
-		const elapsedStr = elapsed > 0 ? chalk.dim( ` (${ ( elapsed / 1000 ).toFixed( 1 ) }s)` ) : '';
+		const elapsedSeconds = Math.max( elapsed, 0 ) / 1000;
+		const elapsedStr =
+			elapsed > 0 || this.replayMode ? chalk.dim( ` (${ elapsedSeconds.toFixed( 1 ) }s)` ) : '';
 		const statusIcon = isError ? chalk.red( '⏺' ) : '⏺';
 
 		if ( this.toolDotText ) {
@@ -1801,7 +1811,7 @@ export class AiChatUI {
 		message: SDKMessage
 	):
 		| { sessionId: string; success: boolean; maxTurnsReached?: undefined }
-		| { sessionId: string; maxTurnsReached: true; numTurns: number; costUsd: number }
+		| { sessionId: string; maxTurnsReached: true; numTurns: number }
 		| undefined {
 		switch ( message.type ) {
 			case 'assistant': {
@@ -1828,7 +1838,7 @@ export class AiChatUI {
 						);
 						this.tui.requestRender();
 					} else if ( block.type === 'tool_use' ) {
-						this.toolStartTime = Date.now();
+						this.toolStartTime = this.nowMs();
 						const typedBlock = block as {
 							id: string;
 							name: string;
@@ -1864,7 +1874,7 @@ export class AiChatUI {
 				}
 				// Always show the loader after processing — the agent turn is still active
 				// and more messages are coming (next API call, tool execution, etc.)
-				if ( ! this.loaderVisible ) {
+				if ( ! this.replayMode && ! this.loaderVisible ) {
 					this.showLoader( this.randomThinkingMessage() );
 				}
 				return undefined;
@@ -1893,21 +1903,28 @@ export class AiChatUI {
 			case 'result': {
 				this.hideLoader();
 				if ( message.subtype === 'success' ) {
-					const thinkingSec = Math.round( ( Date.now() - this.turnStartTime ) / 1000 );
+					const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
 					if ( ! this.hasShownResponseMarker ) {
 						this.messages.addChild( new Text( '\n ' + chalk.blue( '⏺' ) + ' Done', 0, 0 ) );
 					}
 					this.showInfo(
-						`Thought for ${ thinkingSec }s · ${
+						sprintf(
+							/* translators: 1: seconds spent thinking, 2: number of turns */
+							_n(
+								'Thought for %1$ds · %2$d turn',
+								'Thought for %1$ds · %2$d turns',
+								message.num_turns
+							),
+							thinkingSec,
 							message.num_turns
-						} turns · $${ message.total_cost_usd.toFixed( 4 ) }`
+						)
 					);
 					return { sessionId: message.session_id, success: true };
 				}
 
 				// User-initiated interruption: show friendly message instead of error
 				if ( this.wasInterrupted ) {
-					const thinkingSec = Math.round( ( Date.now() - this.turnStartTime ) / 1000 );
+					const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
 					this.messages.addChild(
 						new Text( '\n ' + chalk.yellow( '⏺' ) + ' ' + chalk.yellow( 'Interrupted' ), 0, 0 )
 					);
@@ -1925,7 +1942,6 @@ export class AiChatUI {
 						sessionId: message.session_id,
 						maxTurnsReached: true,
 						numTurns: message.num_turns,
-						costUsd: message.total_cost_usd,
 					};
 				} else if ( message.subtype ) {
 					parts.push( `(${ message.subtype })` );

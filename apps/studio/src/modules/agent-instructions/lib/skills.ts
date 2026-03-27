@@ -1,26 +1,16 @@
-import fs from 'fs/promises';
 import nodePath from 'path';
-import { installSkillsToSite } from '@studio/common/lib/agent-skills';
-import { getAgentSkillsPath } from 'src/lib/server-files-paths';
+import { installSkillToSite, removeSkillFromSite } from '@studio/common/lib/agent-skills';
+import { pathExists } from '@studio/common/lib/fs-utils';
+import { getAiInstructionsPath } from 'src/lib/server-files-paths';
 import { BUNDLED_SKILLS, type SkillStatus } from './skills-constants';
 
 export { BUNDLED_SKILLS, type SkillConfig, type SkillStatus } from './skills-constants';
-
-export function getBundledSkillsPath(): string {
-	return getAgentSkillsPath();
-}
 
 export async function getSkillsStatus( sitePath: string ): Promise< SkillStatus[] > {
 	return Promise.all(
 		BUNDLED_SKILLS.map( async ( skill ) => {
 			const skillMdPath = nodePath.join( sitePath, '.agents', 'skills', skill.id, 'SKILL.md' );
-			let installed = false;
-			try {
-				await fs.access( skillMdPath );
-				installed = true;
-			} catch {
-				// Skill not installed or incomplete
-			}
+			const installed = await pathExists( skillMdPath );
 			return { ...skill, installed };
 		} )
 	);
@@ -30,5 +20,26 @@ export async function installAllSkills(
 	sitePath: string,
 	overwrite: boolean = false
 ): Promise< void > {
-	await installSkillsToSite( sitePath, getBundledSkillsPath(), overwrite );
+	const bundledPath = getAiInstructionsPath();
+	const tasks = BUNDLED_SKILLS.map( ( skill ) =>
+		installSkillToSite( sitePath, bundledPath, skill.id, overwrite )
+	);
+	const results = await Promise.allSettled( tasks );
+	for ( const result of results ) {
+		if ( result.status === 'rejected' ) {
+			console.error( '[ai-skills] Failed to install skill:', result.reason );
+		}
+	}
+}
+
+export async function installSkillById(
+	sitePath: string,
+	skillId: string,
+	overwrite: boolean = false
+): Promise< void > {
+	await installSkillToSite( sitePath, getAiInstructionsPath(), skillId, overwrite );
+}
+
+export async function removeSkillById( sitePath: string, skillId: string ): Promise< void > {
+	await removeSkillFromSite( sitePath, skillId );
 }

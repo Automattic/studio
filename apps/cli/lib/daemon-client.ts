@@ -4,16 +4,14 @@ import { EventEmitter } from 'events';
 import fs from 'fs';
 import path from 'path';
 import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from '@studio/common/constants';
-import { cacheFunctionTTL } from '@studio/common/lib/cache-function-ttl';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
-import { SITE_EVENTS } from '@studio/common/lib/site-events';
 import { z } from 'zod';
 import {
 	PROCESS_MANAGER_EVENTS_SOCKET_PATH,
 	PROCESS_MANAGER_CONTROL_SOCKET_PATH,
 	PROCESS_MANAGER_HOME,
-} from 'cli/lib/daemon-paths';
+} from 'cli/lib/paths';
 import { SocketStreamClient, SocketMessageDecoder, SocketRequestClient } from 'cli/lib/socket';
 import {
 	ProcessDescription,
@@ -27,6 +25,7 @@ import {
 	ManagerMessage,
 	childMessageFromProcessManagerSchema,
 } from 'cli/lib/types/wordpress-server-ipc';
+import type { SocketEvent } from '@studio/common/lib/cli-events';
 
 const PROXY_PROCESS_NAME = 'studio-proxy';
 const CONNECTION_TIMEOUT_MS = 10_000;
@@ -246,12 +245,13 @@ const daemonListProcessesSuccessResponseSchema = z.object( {
 
 // Cache the process list returned from the process manager for a very short time to make multiple
 // calls in quick succession more efficient
-const listProcesses = cacheFunctionTTL( async () => {
+async function listProcesses() {
+	await connectToDaemon();
 	const response = await sendDaemonRequest( {
 		type: 'list-processes',
 	} );
 	return daemonListProcessesSuccessResponseSchema.parse( response ).processes;
-} );
+}
 
 export async function getDaemonBus(): Promise< DaemonBus > {
 	if ( ! daemonBus ) {
@@ -289,10 +289,6 @@ export async function isProcessRunning(
 	processName: string
 ): Promise< ProcessDescription | undefined > {
 	try {
-		if ( ! isConnected ) {
-			return undefined;
-		}
-
 		const processes = await listProcesses();
 		return processes.find( ( p ) => p.name === processName && p.status === 'online' );
 	} catch ( error ) {
@@ -322,6 +318,12 @@ export async function startProcess(
 }
 
 export async function stopProcess( processName: string ): Promise< void > {
+	const runningProcess = await isProcessRunning( processName );
+
+	if ( ! runningProcess ) {
+		return;
+	}
+
 	await connectToDaemon();
 	await sendDaemonRequest( {
 		type: 'stop-process',
@@ -332,17 +334,11 @@ export async function stopProcess( processName: string ): Promise< void > {
 const eventsSocketClient = new SocketRequestClient( SITE_EVENTS_SOCKET_PATH );
 
 /**
- * Emit a site event via the events socket, for the `_events` command server to receive.
- *
- * @param event - The event topic (e.g., 'site-created', 'site-updated', 'site-deleted')
- * @param data - The event data (must include siteId)
+ * Emit a CLI event via the events socket, for the `_events` command server to receive.
  */
-export async function emitSiteEvent(
-	event: SITE_EVENTS,
-	data: { siteId: string }
-): Promise< void > {
+export async function emitCliEvent( payload: SocketEvent ): Promise< void > {
 	try {
-		await eventsSocketClient.send( { event, data } );
+		await eventsSocketClient.send( payload );
 	} catch {
 		// Do nothing
 	}

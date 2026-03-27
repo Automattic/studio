@@ -1,6 +1,7 @@
+import { readAuthToken } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
-import { getAuthToken, getSiteByFolder } from 'cli/lib/appdata';
-import { getSnapshotsFromAppdata } from 'cli/lib/snapshots';
+import { getSiteByFolder } from 'cli/lib/cli-config/sites';
+import { getSnapshotsFromConfig } from 'cli/lib/snapshots';
 import {
 	mockReportStart,
 	mockReportSuccess,
@@ -11,12 +12,21 @@ import {
 } from 'cli/tests/test-utils';
 import { runCommand } from '../list';
 
-vi.mock( 'cli/lib/appdata', async () => {
-	const actual = await vi.importActual( 'cli/lib/appdata' );
+vi.mock( import( '@studio/common/lib/shared-config' ), async ( importOriginal ) => ( {
+	...( await importOriginal() ),
+	readAuthToken: vi.fn(),
+} ) );
+vi.mock( 'cli/lib/cli-config/core', async () => {
+	const actual = await vi.importActual( 'cli/lib/cli-config/core' );
 	return {
 		...actual,
-		getAppdataDirectory: vi.fn().mockReturnValue( '/test/appdata' ),
-		getAuthToken: vi.fn(),
+		readCliConfig: vi.fn(),
+	};
+} );
+vi.mock( 'cli/lib/cli-config/sites', async () => {
+	const actual = await vi.importActual( 'cli/lib/cli-config/sites' );
+	return {
+		...actual,
 		getSiteByFolder: vi.fn(),
 	};
 } );
@@ -77,8 +87,8 @@ describe( 'Preview List Command', () => {
 		vi.spyOn( process, 'cwd' ).mockReturnValue( mockFolder );
 
 		vi.mocked( getSiteByFolder ).mockResolvedValue( mockSite );
-		vi.mocked( getAuthToken ).mockResolvedValue( mockAuthToken );
-		vi.mocked( getSnapshotsFromAppdata ).mockResolvedValue( mockSnapshots );
+		vi.mocked( readAuthToken ).mockResolvedValue( mockAuthToken );
+		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( mockSnapshots );
 	} );
 
 	afterEach( () => {
@@ -88,8 +98,7 @@ describe( 'Preview List Command', () => {
 	it( 'should list preview sites successfully', async () => {
 		await runCommand( mockFolder, 'table' );
 
-		expect( getSiteByFolder ).toHaveBeenCalledWith( mockFolder );
-		expect( getSnapshotsFromAppdata ).toHaveBeenCalledWith( mockAuthToken.id, mockFolder );
+		expect( getSnapshotsFromConfig ).toHaveBeenCalledWith( mockAuthToken.id, mockFolder );
 		expect( mockReportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating…' ] );
 		expect( mockReportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful', true ] );
 		expect( mockReportStart.mock.calls[ 1 ] ).toEqual( [ 'load', 'Loading preview sites…' ] );
@@ -97,9 +106,7 @@ describe( 'Preview List Command', () => {
 	} );
 
 	it( 'should handle validation errors', async () => {
-		vi.mocked( getSiteByFolder ).mockImplementation( () => {
-			throw new Error( 'Invalid site folder' );
-		} );
+		vi.mocked( readAuthToken ).mockResolvedValue( null );
 
 		await runCommand( mockFolder, 'table' );
 
@@ -107,7 +114,7 @@ describe( 'Preview List Command', () => {
 	} );
 
 	it( 'should handle no snapshots found', async () => {
-		vi.mocked( getSnapshotsFromAppdata ).mockResolvedValue( [] );
+		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [] );
 
 		await runCommand( mockFolder, 'table' );
 

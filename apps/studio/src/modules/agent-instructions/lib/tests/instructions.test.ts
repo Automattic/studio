@@ -1,30 +1,34 @@
-import fs from 'fs/promises';
 import path from 'path';
+import { pathExists } from '@studio/common/lib/fs-utils';
 import { vi } from 'vitest';
-import { DEFAULT_AGENT_INSTRUCTIONS } from 'src/modules/agent-instructions/constants';
 import {
 	getInstructionFilePath,
 	getInstructionFileStatus,
 	getAllInstructionFilesStatus,
-	installInstructionFile,
-	installAllInstructionFiles,
 } from 'src/modules/agent-instructions/lib/instructions';
 
-vi.mock( 'fs/promises', () => ( {
-	default: {
-		access: vi.fn(),
-		readFile: vi.fn(),
-		writeFile: vi.fn(),
-	},
+vi.mock( '@studio/common/lib/fs-utils', () => ( {
+	pathExists: vi.fn(),
+} ) );
+
+vi.mock( 'fs' );
+
+vi.mock( 'src/lib/server-files-paths', () => ( {
+	getAiInstructionsPath: () => '/test/bundled-skills',
 } ) );
 
 const SITE_PATH = '/test/my-site';
-const CUSTOM_CONTENT = `# My custom AI Instructions\n`;
 
 describe( 'getInstructionFilePath', () => {
 	it( 'returns correct path for agents file', () => {
 		expect( getInstructionFilePath( SITE_PATH, 'agents' ) ).toBe(
 			path.join( SITE_PATH, 'AGENTS.md' )
+		);
+	} );
+
+	it( 'returns correct path for studio file', () => {
+		expect( getInstructionFilePath( SITE_PATH, 'studio' ) ).toBe(
+			path.join( SITE_PATH, 'STUDIO.md' )
 		);
 	} );
 } );
@@ -34,8 +38,8 @@ describe( 'getInstructionFileStatus', () => {
 		vi.clearAllMocks();
 	} );
 
-	it( 'returns exists: false when file is not accessible', async () => {
-		vi.mocked( fs.access ).mockRejectedValue( new Error( 'ENOENT' ) );
+	it( 'returns exists: false when file does not exist', async () => {
+		vi.mocked( pathExists ).mockResolvedValue( false );
 
 		const status = await getInstructionFileStatus( SITE_PATH, 'agents' );
 
@@ -45,36 +49,12 @@ describe( 'getInstructionFileStatus', () => {
 		expect( status.path ).toBe( path.join( SITE_PATH, 'AGENTS.md' ) );
 	} );
 
-	it( 'returns isCustomized: false when file matches the default template', async () => {
-		vi.mocked( fs.access ).mockResolvedValue( undefined );
-		vi.mocked( fs.readFile ).mockResolvedValue( DEFAULT_AGENT_INSTRUCTIONS as never );
+	it( 'returns exists: true when file exists', async () => {
+		vi.mocked( pathExists ).mockResolvedValue( true );
 
 		const status = await getInstructionFileStatus( SITE_PATH, 'agents' );
 
 		expect( status.exists ).toBe( true );
-		expect( status.isCustomized ).toBe( false );
-	} );
-
-	it( 'returns isCustomized: true when file content differs from the default template', async () => {
-		vi.mocked( fs.access ).mockResolvedValue( undefined );
-		vi.mocked( fs.readFile ).mockResolvedValue( CUSTOM_CONTENT as never );
-
-		const status = await getInstructionFileStatus( SITE_PATH, 'agents' );
-
-		expect( status.exists ).toBe( true );
-		expect( status.isCustomized ).toBe( true );
-	} );
-
-	it( 'returns isCustomized: true when file has an outdated Studio version', async () => {
-		vi.mocked( fs.access ).mockResolvedValue( undefined );
-		vi.mocked( fs.readFile ).mockResolvedValue(
-			`<!-- Studio Instructions Version: 19990101.1 -->\n# AI Instructions\n` as never
-		);
-
-		const status = await getInstructionFileStatus( SITE_PATH, 'agents' );
-
-		expect( status.exists ).toBe( true );
-		expect( status.isCustomized ).toBe( true );
 	} );
 } );
 
@@ -84,66 +64,11 @@ describe( 'getAllInstructionFilesStatus', () => {
 	} );
 
 	it( 'returns status for all instruction file types', async () => {
-		vi.mocked( fs.access ).mockRejectedValue( new Error( 'ENOENT' ) );
+		vi.mocked( pathExists ).mockResolvedValue( false );
 
 		const statuses = await getAllInstructionFilesStatus( SITE_PATH );
 
-		expect( statuses ).toHaveLength( 1 );
-		expect( statuses.map( ( s ) => s.id ) ).toEqual( [ 'agents' ] );
-	} );
-} );
-
-describe( 'installInstructionFile', () => {
-	beforeEach( () => {
-		vi.clearAllMocks();
-	} );
-
-	it( 'writes file and returns overwritten: false when file does not exist', async () => {
-		vi.mocked( fs.access ).mockRejectedValue( new Error( 'ENOENT' ) );
-		vi.mocked( fs.writeFile ).mockResolvedValue( undefined );
-
-		const result = await installInstructionFile( SITE_PATH, 'agents', 'content', false );
-
-		expect( fs.writeFile ).toHaveBeenCalledWith(
-			path.join( SITE_PATH, 'AGENTS.md' ),
-			'content',
-			'utf-8'
-		);
-		expect( result.overwritten ).toBe( false );
-	} );
-
-	it( 'skips write and returns overwritten: false when file exists and overwrite is false', async () => {
-		vi.mocked( fs.access ).mockResolvedValue( undefined );
-
-		const result = await installInstructionFile( SITE_PATH, 'agents', 'content', false );
-
-		expect( fs.writeFile ).not.toHaveBeenCalled();
-		expect( result.overwritten ).toBe( false );
-	} );
-
-	it( 'overwrites file and returns overwritten: true when overwrite is true', async () => {
-		vi.mocked( fs.writeFile ).mockResolvedValue( undefined );
-
-		const result = await installInstructionFile( SITE_PATH, 'agents', 'content', true );
-
-		expect( fs.writeFile ).toHaveBeenCalled();
-		expect( result.overwritten ).toBe( true );
-	} );
-} );
-
-describe( 'installAllInstructionFiles', () => {
-	beforeEach( () => {
-		vi.clearAllMocks();
-	} );
-
-	it( 'installs all instruction files and returns results for each', async () => {
-		vi.mocked( fs.access ).mockRejectedValue( new Error( 'ENOENT' ) );
-		vi.mocked( fs.writeFile ).mockResolvedValue( undefined );
-
-		const results = await installAllInstructionFiles( SITE_PATH, 'content', false );
-
-		expect( results ).toHaveLength( 1 );
-		expect( results.map( ( r ) => r.fileType ) ).toEqual( [ 'agents' ] );
-		expect( fs.writeFile ).toHaveBeenCalledTimes( 1 );
+		expect( statuses ).toHaveLength( 3 );
+		expect( statuses.map( ( s ) => s.id ) ).toEqual( [ 'agents', 'claude', 'studio' ] );
 	} );
 } );

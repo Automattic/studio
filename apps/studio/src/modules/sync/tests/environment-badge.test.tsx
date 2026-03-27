@@ -26,8 +26,8 @@ describe( 'EnvironmentBadge', () => {
 		const badgeElement = container.firstChild as HTMLElement;
 		expect( badgeElement ).toBeInTheDocument();
 
-		expect( badgeElement.className ).toContain( 'bg-a8c-green-5' );
-		expect( badgeElement.className ).toContain( 'text-a8c-green-80' );
+		expect( badgeElement.className ).toContain( 'bg-[#ceead6]' );
+		expect( badgeElement.className ).toContain( 'text-[#1a6928]' );
 	} );
 
 	it( 'applies specific classes for the Staging badge', () => {
@@ -36,8 +36,8 @@ describe( 'EnvironmentBadge', () => {
 		const badgeElement = container.firstChild as HTMLElement;
 		expect( badgeElement ).toBeInTheDocument();
 
-		expect( badgeElement.className ).toContain( 'text-a8c-yellow-80' );
-		expect( badgeElement.className ).toContain( 'bg-a8c-yellow-10' );
+		expect( badgeElement.className ).toContain( 'text-[#93590c]' );
+		expect( badgeElement.className ).toContain( 'bg-[#fef0c7]' );
 	} );
 
 	it( 'applies specific classes for the Development badge', () => {
@@ -57,6 +57,6 @@ describe( 'EnvironmentBadge', () => {
 		expect( badgeElement ).toBeInTheDocument();
 
 		expect( badgeElement.className ).toContain( 'bg-white' );
-		expect( badgeElement.className ).toContain( 'text-a8c-blue-50' );
+		expect( badgeElement.className ).toContain( 'text-frame-theme' );
 	} );
 } );

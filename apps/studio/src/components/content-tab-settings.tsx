@@ -8,6 +8,7 @@ import {
 import { moreVertical } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren, useCallback, useEffect, useState } from 'react';
+import StudioButton from 'src/components/button';
 import { CopyTextButton } from 'src/components/copy-text-button';
 import { LearnHowLink } from 'src/components/learn-more';
 import { SettingsMenuItem } from 'src/components/settings-site-menu';
@@ -29,7 +30,7 @@ interface ContentTabSettingsProps {
 function SettingsRow( { children, label }: PropsWithChildren< { label: string } > ) {
 	return (
 		<tr className="align-top">
-			<th className="text-nowrap text-a8c-gray-50 pb-4 pe-10 ltr:text-left rtl:text-right font-normal">
+			<th className="text-nowrap text-frame-text-secondary pb-4 pe-10 ltr:text-left rtl:text-right font-normal">
 				{ label }
 			</th>
 			<td className="pb-4">{ children }</td>
@@ -59,8 +60,13 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 		await dispatch( certificateTrustApi.util.invalidateTags( [ 'CertificateTrust' ] ) );
 	};
 	const { handleDeleteSite } = useDeleteSite();
-	const { copySite } = useSiteDetails();
+	const { copySite, setIsEditModalOpen, setEditModalInitialTab } = useSiteDetails();
 	const [ debugLogPath, setDebugLogPath ] = useState< string | null >( null );
+
+	const openEditModal = ( tab: string ) => {
+		setEditModalInitialTab( tab );
+		setIsEditModalOpen( true );
+	};
 
 	const checkDebugLogExists = useCallback( async () => {
 		if ( ! selectedSite.enableDebugLog ) {
@@ -81,7 +87,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 	return (
 		<div className="p-8 ltr:pr-4 rtl:pl-4">
 			<div className="flex justify-between items-center mb-4">
-				<Heading level={ 3 } className="text-black text-sm font-semibold">
+				<Heading level={ 3 } className="text-frame-text text-sm font-semibold">
 					{ __( 'Site details' ) }
 				</Heading>
 				<div className="flex items-center gap-1">
@@ -137,7 +143,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 						</div>
 						{ ! isCertificateTrusted && selectedSite.enableHttps && (
 							<div className="mt-1 max-w-96">
-								<span className="text-a8c-gray-50 mt-1">
+								<span className="text-frame-text-secondary mt-1">
 									{ __(
 										'You need to trust this certificate to prevent your browser from showing a secure connection warning.'
 									) }
@@ -163,7 +169,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 					</SettingsRow>
 					<tr>
 						<th colSpan={ 2 } className="pb-4 ltr:text-left rtl:text-right">
-							<h3 className="text-black text-sm font-semibold mt-4">{ __( 'Debugging' ) }</h3>
+							<h3 className="text-frame-text text-sm font-semibold mt-4">{ __( 'Debugging' ) }</h3>
 						</th>
 					</tr>
 					<SettingsRow label={ __( 'Xdebug' ) }>
@@ -182,10 +188,9 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 					<SettingsRow label={ __( 'Debug display' ) }>
 						<span>{ selectedSite.enableDebugDisplay ? __( 'Enabled' ) : __( 'Disabled' ) }</span>
 					</SettingsRow>
-
 					<tr>
 						<th colSpan={ 2 } className="pb-4 ltr:text-left rtl:text-right">
-							<h3 className="text-black text-sm font-semibold mt-4">{ __( 'WP Admin' ) }</h3>
+							<h3 className="text-frame-text text-sm font-semibold mt-4">{ __( 'WP Admin' ) }</h3>
 						</th>
 					</tr>
 					<SettingsRow label={ __( 'Username' ) }>
@@ -227,6 +232,33 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 					</SettingsRow>
 				</tbody>
 			</table>
+			<div className="mt-4">
+				<h3 className="text-frame-text text-sm font-semibold mb-2">{ __( 'AI Skills' ) }</h3>
+				<p className="text-sm text-frame-text-secondary mb-3 max-w-96">
+					{ __( "Your task agents make use of skills you've installed in" ) }{ ' ' }
+					<Button variant="link" onClick={ () => getIpcApi().showUserSettings( 'skills' ) }>
+						{ __( 'Studio Settings' ) }
+					</Button>
+					{ '. ' }
+					{ __( 'You can override global skills for this site.' ) }
+				</p>
+				<StudioButton variant="secondary" onClick={ () => openEditModal( 'skills' ) }>
+					{ __( 'Manage site skills' ) }
+				</StudioButton>
+			</div>
+			<div className="mt-4">
+				<h3 className="text-frame-text text-sm font-semibold mb-2">
+					{ __( 'Agent Instructions' ) }
+				</h3>
+				<p className="text-sm text-frame-text-secondary mb-3 max-w-96">
+					{ __(
+						'Install instruction files like AGENTS.md so AI agents know how to work with this site.'
+					) }
+				</p>
+				<StudioButton variant="secondary" onClick={ () => openEditModal( 'instructions' ) }>
+					{ __( 'Manage instructions' ) }
+				</StudioButton>
+			</div>
 		</div>
 	);
 }

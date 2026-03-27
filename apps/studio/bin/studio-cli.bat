@@ -15,12 +15,12 @@ rem Prevent node from printing warnings about NODE_OPTIONS being ignored
 set NODE_OPTIONS=
 
 if exist "%BUNDLED_NODE_EXECUTABLE%" (
-	"!BUNDLED_NODE_EXECUTABLE!" "!CLI_SCRIPT!" %*
+	"!BUNDLED_NODE_EXECUTABLE!" --experimental-wasm-jspi "!CLI_SCRIPT!" %*
 ) else (
 	if not exist "!CLI_SCRIPT!" (
 		set "CLI_SCRIPT=%~dp0..\dist\cli\main.js"
 	)
-	node "!CLI_SCRIPT!" %*
+	node --experimental-wasm-jspi "!CLI_SCRIPT!" %*
 )
 
 set "EXIT_CODE=!ERRORLEVEL!"

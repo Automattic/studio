@@ -1,7 +1,10 @@
+import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
+import { readAuthToken } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
-import { deleteSnapshot } from 'cli/lib/api';
-import { getAuthToken } from 'cli/lib/appdata';
-import { getSnapshotsFromAppdata, deleteSnapshotFromAppdata } from 'cli/lib/snapshots';
+import { deleteAllSnapshots, deleteSnapshot } from 'cli/lib/api';
+import { deleteAllSnapshotsForUserFromConfig } from 'cli/lib/cli-config/snapshots';
+import { emitCliEvent } from 'cli/lib/daemon-client';
+import { getSnapshotsFromConfig, deleteSnapshotFromConfig } from 'cli/lib/snapshots';
 import { LoggerError } from 'cli/logger';
 import {
 	mockReportStart,
@@ -11,17 +14,15 @@ import {
 	mockReportWarning,
 	mockReportKeyValuePair,
 } from 'cli/tests/test-utils';
-import { runCommand } from '../delete';
+import { Mode, runCommand } from '../delete';
 
-vi.mock( 'cli/lib/appdata', async () => {
-	const actual = await vi.importActual( 'cli/lib/appdata' );
-	return {
-		...actual,
-		getAppdataDirectory: vi.fn().mockReturnValue( '/test/appdata' ),
-		getAuthToken: vi.fn(),
-	};
-} );
+vi.mock( import( '@studio/common/lib/shared-config' ), async ( importOriginal ) => ( {
+	...( await importOriginal() ),
+	readAuthToken: vi.fn(),
+} ) );
 vi.mock( 'cli/lib/api' );
+vi.mock( 'cli/lib/cli-config/snapshots' );
+vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/snapshots' );
 vi.mock( 'cli/logger', () => ( {
 	Logger: class {
@@ -60,10 +61,13 @@ describe( 'Preview Delete Command', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 
-		vi.mocked( getAuthToken ).mockResolvedValue( mockAuthToken );
-		vi.mocked( getSnapshotsFromAppdata ).mockResolvedValue( [ mockSnapshot ] );
+		vi.mocked( readAuthToken ).mockResolvedValue( mockAuthToken );
+		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [ mockSnapshot ] );
+		vi.mocked( deleteAllSnapshots ).mockResolvedValue( undefined );
 		vi.mocked( deleteSnapshot ).mockResolvedValue( undefined );
-		vi.mocked( deleteSnapshotFromAppdata ).mockResolvedValue( undefined );
+		vi.mocked( deleteAllSnapshotsForUserFromConfig ).mockResolvedValue( undefined );
+		vi.mocked( deleteSnapshotFromConfig ).mockResolvedValue( undefined );
+		vi.mocked( emitCliEvent ).mockResolvedValue( undefined );
 	} );
 
 	afterEach( () => {
@@ -71,12 +75,16 @@ describe( 'Preview Delete Command', () => {
 	} );
 
 	it( 'should complete the preview deletion process successfully', async () => {
-		await runCommand( mockSiteUrl );
+		await runCommand( Mode.DELETE_SINGLE_SNAPSHOT, mockSiteUrl );
 
-		expect( getAuthToken ).toHaveBeenCalled();
-		expect( getSnapshotsFromAppdata ).toHaveBeenCalledWith( mockAuthToken.id );
+		expect( readAuthToken ).toHaveBeenCalled();
+		expect( getSnapshotsFromConfig ).toHaveBeenCalledWith( mockAuthToken.id );
 		expect( deleteSnapshot ).toHaveBeenCalledWith( mockAtomicSiteId, mockAuthToken.accessToken );
-		expect( deleteSnapshotFromAppdata ).toHaveBeenCalledWith( mockSiteUrl );
+		expect( deleteSnapshotFromConfig ).toHaveBeenCalledWith( mockSiteUrl );
+		expect( emitCliEvent ).toHaveBeenCalledWith( {
+			event: SNAPSHOT_EVENTS.DELETED,
+			data: { snapshotUrl: mockSiteUrl },
+		} );
 
 		expect( mockReportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating…' ] );
 		expect( mockReportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful', true ] );
@@ -85,13 +93,9 @@ describe( 'Preview Delete Command', () => {
 	} );
 
 	it( 'should handle authentication errors', async () => {
-		const errorMessage =
-			'Authentication required. Please run the Studio app and authenticate first.';
-		vi.mocked( getAuthToken ).mockImplementation( () => {
-			throw new LoggerError( errorMessage );
-		} );
+		vi.mocked( readAuthToken ).mockResolvedValue( null );
 
-		await runCommand( mockSiteUrl );
+		await runCommand( Mode.DELETE_SINGLE_SNAPSHOT, mockSiteUrl );
 
 		expect( mockReportError ).toHaveBeenCalled();
 		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -99,9 +103,9 @@ describe( 'Preview Delete Command', () => {
 	} );
 
 	it( 'should handle snapshot not found errors', async () => {
-		vi.mocked( getSnapshotsFromAppdata ).mockResolvedValue( [] );
+		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [] );
 
-		await runCommand( mockSiteUrl );
+		await runCommand( Mode.DELETE_SINGLE_SNAPSHOT, mockSiteUrl );
 
 		expect( mockReportError ).toHaveBeenCalled();
 		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -114,22 +118,46 @@ describe( 'Preview Delete Command', () => {
 			throw new LoggerError( errorMessage );
 		} );
 
-		await runCommand( mockSiteUrl );
+		await runCommand( Mode.DELETE_SINGLE_SNAPSHOT, mockSiteUrl );
 
 		expect( mockReportError ).toHaveBeenCalled();
 		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
-		expect( deleteSnapshotFromAppdata ).not.toHaveBeenCalled();
+		expect( deleteSnapshotFromConfig ).not.toHaveBeenCalled();
 	} );
 
 	it( 'should handle delete snapshot errors', async () => {
 		const errorMessage = 'Failed to delete snapshot';
-		vi.mocked( deleteSnapshotFromAppdata ).mockImplementation( () => {
+		vi.mocked( deleteSnapshotFromConfig ).mockImplementation( () => {
 			throw new LoggerError( errorMessage );
 		} );
 
-		await runCommand( mockSiteUrl );
+		await runCommand( Mode.DELETE_SINGLE_SNAPSHOT, mockSiteUrl );
 
 		expect( mockReportError ).toHaveBeenCalled();
 		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
+	} );
+
+	it( 'should complete deleting all preview sites successfully', async () => {
+		await runCommand( Mode.DELETE_ALL_SNAPSHOT, undefined );
+
+		expect( readAuthToken ).toHaveBeenCalled();
+		expect( deleteAllSnapshots ).toHaveBeenCalledWith( mockAuthToken.accessToken );
+		expect( deleteAllSnapshotsForUserFromConfig ).toHaveBeenCalledWith( mockAuthToken.id );
+		expect( emitCliEvent ).toHaveBeenCalledWith( { event: SNAPSHOT_EVENTS.DELETED_ALL } );
+		expect( deleteSnapshot ).not.toHaveBeenCalled();
+		expect( deleteSnapshotFromConfig ).not.toHaveBeenCalled();
+	} );
+
+	it( 'should handle delete all preview sites errors', async () => {
+		const errorMessage = 'Failed to delete all preview sites';
+		vi.mocked( deleteAllSnapshots ).mockImplementation( () => {
+			throw new LoggerError( errorMessage );
+		} );
+
+		await runCommand( Mode.DELETE_ALL_SNAPSHOT, undefined );
+
+		expect( mockReportError ).toHaveBeenCalled();
+		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
+		expect( deleteAllSnapshotsForUserFromConfig ).not.toHaveBeenCalled();
 	} );
 } );

@@ -9,12 +9,13 @@ import {
 	DEFAULT_WORDPRESS_VERSION,
 	MINIMUM_WORDPRESS_VERSION,
 } from '@studio/common/constants';
-import { installSkillsToSite } from '@studio/common/lib/agent-skills';
+import { installAiInstructionsToSite } from '@studio/common/lib/agent-skills';
 import { extractFormValuesFromBlueprint } from '@studio/common/lib/blueprint-settings';
 import {
 	filterUnsupportedBlueprintFeatures,
 	validateBlueprintData,
 } from '@studio/common/lib/blueprint-validation';
+import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { getDomainNameValidationError } from '@studio/common/lib/domains';
 import {
 	arePathsEqual,
@@ -36,8 +37,9 @@ import {
 	hasDefaultDbBlock,
 	removeDbConstants,
 } from '@studio/common/lib/remove-default-db-constants';
-import { SITE_EVENTS } from '@studio/common/lib/site-events';
+import { readSharedConfig } from '@studio/common/lib/shared-config';
 import { sortSites } from '@studio/common/lib/sort-sites';
+import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 import {
 	isValidWordPressVersion,
 	isWordPressVersionAtLeast,
@@ -51,23 +53,25 @@ import {
 	type StepDefinition,
 } from '@wp-playground/blueprints';
 import {
-	lockAppdata,
-	readAppdata,
-	removeSiteFromAppdata,
-	saveAppdata,
+	lockCliConfig,
+	readCliConfig,
+	saveCliConfig,
 	SiteData,
-	unlockAppdata,
+	unlockCliConfig,
+} from 'cli/lib/cli-config/core';
+import {
+	removeSiteFromConfig,
 	updateSiteAutoStart,
 	updateSiteLatestCliPid,
-} from 'cli/lib/appdata';
-import { connectToDaemon, disconnectFromDaemon, emitSiteEvent } from 'cli/lib/daemon-client';
+} from 'cli/lib/cli-config/sites';
+import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
+import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
-import { getAgentSkillsPath, getServerFilesPath } from 'cli/lib/server-files';
+import { getAiInstructionsPath } from 'cli/lib/server-files';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { generateSiteName } from 'cli/lib/site-name';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
-import { writeSkillMd } from 'cli/lib/skill-md';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { untildify } from 'cli/lib/utils';
 import { ValidationError } from 'cli/lib/validation-error';
@@ -102,6 +106,26 @@ export async function runCommand(
 	sitePath: string,
 	options: CreateCommandOptions
 ): Promise< void > {
+	const isOnlineStatus = await isOnline();
+
+	try {
+		if ( isOnlineStatus ) {
+			logger.reportStart(
+				LoggerAction.CHECKING_DEPENDENCY_UPDATES,
+				__( 'Checking for dependency updates…' )
+			);
+
+			await updateServerFiles();
+		}
+	} catch ( error ) {
+		// Swallow errors in production. They aren't critical and likely relate to things outside the
+		// user's control, like network issues or bad API responses.
+		if ( process.env.NODE_ENV !== 'production' ) {
+			const loggerError = new LoggerError( 'Failed to update dependencies', error );
+			logger.reportError( loggerError );
+		}
+	}
+
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating site configuration…' ) );
 
@@ -167,17 +191,17 @@ export async function runCommand(
 			}
 		}
 
-		const appdata = await readAppdata();
-		if ( appdata.sites.some( ( site ) => arePathsEqual( site.path, sitePath ) ) ) {
+		const cliConfig = await readCliConfig();
+		if ( cliConfig.sites.some( ( site ) => arePathsEqual( site.path, sitePath ) ) ) {
 			throw new LoggerError( __( 'The selected directory is already in use.' ) );
 		}
 
-		for ( const site of appdata.sites ) {
+		for ( const site of cliConfig.sites ) {
 			portFinder.addUnavailablePort( site.port );
 		}
 
 		if ( options.customDomain ) {
-			const existingDomains = appdata.sites
+			const existingDomains = cliConfig.sites
 				.map( ( site ) => site.customDomain )
 				.filter( ( domain ): domain is string => Boolean( domain ) );
 			const domainError = getDomainNameValidationError(
@@ -197,8 +221,6 @@ export async function runCommand(
 			fs.mkdirSync( sitePath, { recursive: true } );
 			logger.reportSuccess( __( 'Site directory created' ) );
 		}
-
-		const isOnlineStatus = await isOnline();
 
 		if ( options.wpVersion === 'latest' ) {
 			const bundledWPPath = path.join( getServerFilesPath(), 'wordpress-versions', 'latest' );
@@ -228,15 +250,15 @@ export async function runCommand(
 			isSqliteUpdated ? __( 'SQLite integration configured' ) : __( 'SQLite integration skipped' )
 		);
 
-		if ( process.env.ENABLE_AGENT_SUITE === 'true' ) {
-			try {
-				await writeSkillMd( sitePath );
-			} catch ( error ) {
-				logger.reportError(
-					new LoggerError( __( 'Failed to write SKILL.md. Proceeding anyway…' ), error ),
-					false
-				);
-			}
+		try {
+			const sharedConfig = await readSharedConfig();
+			const selectedSkills = sharedConfig.selectedSkills ?? [];
+			await installAiInstructionsToSite( sitePath, getAiInstructionsPath(), selectedSkills );
+		} catch ( error ) {
+			logger.reportError(
+				new LoggerError( __( 'Failed to install AI instructions. Proceeding anyway…' ), error ),
+				false
+			);
 		}
 
 		logger.reportStart( LoggerAction.ASSIGN_PORT, __( 'Assigning port…' ) );
@@ -352,16 +374,16 @@ export async function runCommand(
 		logger.reportStart( LoggerAction.SAVE_SITE, __( 'Saving site…' ) );
 
 		try {
-			await lockAppdata();
-			const userData = await readAppdata();
+			await lockCliConfig();
+			const userData = await readCliConfig();
 
 			userData.sites.push( siteDetails );
 			sortSites( userData.sites );
 
-			await saveAppdata( userData );
+			await saveCliConfig( userData );
 			logger.reportSuccess( __( 'Site created successfully' ) );
 		} finally {
-			await unlockAppdata();
+			await unlockCliConfig();
 		}
 
 		if ( ! options.noStart ) {
@@ -402,7 +424,7 @@ export async function runCommand(
 					await openSiteInBrowser( siteDetails );
 				}
 			} catch ( error ) {
-				await removeSiteFromAppdata( siteDetails.id );
+				await removeSiteFromConfig( siteDetails.id );
 				if ( ! isWordPressDirResult ) {
 					await fs.promises.rm( sitePath, { recursive: true, force: true } );
 				}
@@ -428,7 +450,7 @@ export async function runCommand(
 
 					stripWpConfigDbConstants( sitePath );
 				} catch ( error ) {
-					await removeSiteFromAppdata( siteDetails.id );
+					await removeSiteFromConfig( siteDetails.id );
 					if ( ! isWordPressDirResult ) {
 						await fs.promises.rm( sitePath, { recursive: true, force: true } );
 					}
@@ -444,14 +466,9 @@ export async function runCommand(
 			console.log( __( 'Run "studio site start" to start the site.' ) );
 		}
 
-		// Install bundled WordPress agent skills
-		if ( process.env.ENABLE_AGENT_SUITE === 'true' ) {
-			await installSkillsToSite( sitePath, getAgentSkillsPath() );
-		}
-
 		logger.reportKeyValuePair( 'id', siteDetails.id );
 		logger.reportKeyValuePair( 'running', String( siteDetails.running ) );
-		await emitSiteEvent( SITE_EVENTS.CREATED, { siteId: siteDetails.id } );
+		await emitCliEvent( { event: SITE_EVENTS.CREATED, data: { siteId: siteDetails.id } } );
 	} finally {
 		await disconnectFromDaemon();
 	}
@@ -668,8 +685,8 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					}
 
 					if ( ! customDomain ) {
-						const appdata = await readAppdata();
-						const existingDomains = appdata.sites
+						const cliConfig = await readCliConfig();
+						const existingDomains = cliConfig.sites
 							.map( ( site ) => site.customDomain )
 							.filter( ( domain ): domain is string => Boolean( domain ) );
 

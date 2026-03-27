@@ -84,7 +84,6 @@ export const handleInvalidToken = createTypedAsyncThunk( 'auth/handleInvalidToke
 		} );
 	} catch ( err ) {
 		console.error( 'Failed to handle invalid token:', err );
-		Sentry.captureException( err );
 	} finally {
 		isAuthErrorDialogOpen = false;
 	}
@@ -149,7 +148,6 @@ export const authLogout = createTypedAsyncThunk(
 				console.log( 'Token revoked' );
 			} catch ( err ) {
 				console.error( 'Failed to revoke token:', err );
-				Sentry.captureException( err );
 			}
 		} else if ( isOffline ) {
 			console.log( 'Offline: Skipping token revocation request' );
@@ -160,7 +158,6 @@ export const authLogout = createTypedAsyncThunk(
 			setWpcomClient( undefined );
 		} catch ( err ) {
 			console.error( err );
-			Sentry.captureException( err );
 		}
 	}
 );

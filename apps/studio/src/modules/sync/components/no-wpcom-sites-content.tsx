@@ -24,14 +24,14 @@ export function NoWpcomSitesContent( {
 
 	return (
 		<>
-			<div className="text-a8c-gray-70 a8c-body">
+			<div className="text-frame-text-secondary a8c-body">
 				{ __( 'Unlock the power of WordPress and share your work with the world with' ) }{ ' ' }
 				<WordPressShortLogo className="inline-block h-4 align-middle" />
 			</div>
 			<div>
 				{ features.map( ( text ) => (
-					<div key={ text } className="text-a8c-gray-70 a8c-body flex items-center">
-						<Icon className="fill-a8c-blue-50 me-2 shrink-0" icon={ check } />
+					<div key={ text } className="text-frame-text-secondary a8c-body flex items-center">
+						<Icon className="fill-frame-theme me-2 shrink-0" icon={ check } />
 						{ text }
 					</div>
 				) ) }

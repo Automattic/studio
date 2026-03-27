@@ -5,7 +5,7 @@
 
 import os from 'os';
 import path from 'path';
-import { getServerFilesPath } from 'src/storage/paths';
+import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 
 // SQLite integration folder name
 const SQLITE_FILENAME = 'sqlite-database-integration';
@@ -49,32 +49,8 @@ export function getSqlitePath(): string {
 }
 
 /**
- * The path to the wp-cli folder.
+ * The path where bundled AI instructions and skills are stored.
  */
-function getWpCliFolderPath(): string {
-	if ( process.env.NODE_ENV === 'test' ) {
-		return getTmpPath( 'wp-cli' );
-	}
-	return getServerFilesPath();
-}
-
-/**
- * The path for wp-cli.phar file.
- */
-export function getWpCliPath(): string {
-	return path.join( getWpCliFolderPath(), 'wp-cli.phar' );
-}
-
-/**
- * The path where bundled WordPress language packs are stored.
- */
-export function getLanguagePacksPath(): string {
-	return path.join( getBasePath(), 'language-packs' );
-}
-
-/**
- * The path where bundled agent skills are stored.
- */
-export function getAgentSkillsPath(): string {
-	return path.join( getBasePath(), 'agent-skills' );
+export function getAiInstructionsPath(): string {
+	return path.join( getBasePath(), 'skills' );
 }

@@ -1,114 +1,25 @@
-import { app } from 'electron';
 import fs from 'fs';
 import nodePath from 'node:path';
 import * as Sentry from '@sentry/electron/main';
 import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from '@studio/common/constants';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
-import { sortSites } from '@studio/common/lib/sort-sites';
-import { SupportedPHPVersion, SupportedPHPVersions } from '@studio/common/types/php-versions';
+import { getAppConfigLockFilePath } from '@studio/common/lib/well-known-paths';
 import { readFile, writeFile } from 'atomically';
-import semver from 'semver';
 import { sanitizeUnstructuredData, sanitizeUserpath } from 'src/lib/sanitize-for-logging';
-import { getUserDataFilePath, getUserDataLockFilePath } from 'src/storage/paths';
-import type { PersistedUserData, UserData, WindowBounds } from 'src/storage/storage-types';
-
-// Before persisting the PHP version of sites, the default PHP version used was 8.0.
-// In case we can't retrieve the PHP version from site details, we assume it was created
-// with version 8.0.
-const DEFAULT_PHP_VERSION_WHEN_UNKNOWN: SupportedPHPVersion = '8.0';
-
-const migrateUserData = ( appName: string ) => {
-	const appDataPath = app.getPath( 'appData' );
-	const oldPath = nodePath.join( appDataPath, appName, 'appdata-v1.json' );
-	const newPath = getUserDataFilePath();
-
-	if ( fs.existsSync( oldPath ) && ! fs.existsSync( newPath ) ) {
-		fs.renameSync( oldPath, newPath );
-		console.log(
-			`Moved user data from ${ sanitizeUserpath( oldPath ) } to ${ sanitizeUserpath( newPath ) }`
-		);
-	}
-};
-
-// Temporary function to migrate old user data to the new location
-// This function will be removed in a future release
-function migrateUserDataOldName() {
-	migrateUserData( 'Local Environment' );
-	migrateUserData( 'Build' );
-}
-
-/**
- * Ensures each site has a valid PHP version. If the stored version is unsupported,
- * it selects the closest supported version (min if too low, max if too high).
- */
-function populatePhpVersion( sites: SiteDetails[] ) {
-	// Sort versions to reliably find min and max
-	const sortedVersions = [ ...SupportedPHPVersions ].sort( ( a, b ) =>
-		semver.compare( semver.coerce( a )!, semver.coerce( b )! )
-	);
-	const minVersion = sortedVersions[ 0 ];
-	const maxVersion = sortedVersions[ sortedVersions.length - 1 ];
-	const minCoerced = semver.coerce( minVersion )!;
-	const maxCoerced = semver.coerce( maxVersion )!;
-
-	sites.forEach( ( site ) => {
-		if ( typeof site.phpVersion === 'undefined' ) {
-			site.phpVersion = DEFAULT_PHP_VERSION_WHEN_UNKNOWN;
-			return;
-		}
-
-		if ( SupportedPHPVersions.includes( site.phpVersion as SupportedPHPVersion ) ) {
-			return;
-		}
-
-		const coercedPhpVersion = semver.coerce( site.phpVersion );
-		if ( ! coercedPhpVersion ) {
-			site.phpVersion = DEFAULT_PHP_VERSION_WHEN_UNKNOWN;
-			return;
-		}
-
-		if ( semver.lt( coercedPhpVersion, minCoerced ) ) {
-			site.phpVersion = minVersion;
-		} else if ( semver.gt( coercedPhpVersion, maxCoerced ) ) {
-			site.phpVersion = maxVersion;
-		} else {
-			site.phpVersion = DEFAULT_PHP_VERSION_WHEN_UNKNOWN;
-		}
-	} );
-}
-
-function legacyPopulateSnapshotUserIds( data: UserData ): void {
-	const userId = data.authToken?.id;
-
-	if ( userId && data.snapshots ) {
-		data.snapshots = data.snapshots.map( ( snapshot ) => {
-			if ( ! snapshot.userId ) {
-				return { ...snapshot, userId };
-			}
-			return snapshot;
-		} );
-	}
-}
+import { getUserDataFilePath } from 'src/storage/paths';
+import { EMPTY_USER_DATA, type UserData, type WindowBounds } from 'src/storage/storage-types';
 
 export async function loadUserData(): Promise< UserData > {
-	migrateUserDataOldName();
 	const filePath = getUserDataFilePath();
 
 	try {
 		const asString = await readFile( filePath, 'utf-8' );
 		try {
 			const parsed = JSON.parse( asString );
-			const data = fromDiskFormat( parsed );
-
-			// Temporarily populate old snapshots with userId of authenticated user.
-			// See PR #937 for more context.
-			legacyPopulateSnapshotUserIds( data );
-			sortSites( data.sites );
-			populatePhpVersion( data.sites );
-			return data;
+			const { siteMetadata, ...data } = parsed;
+			return { ...data, version: 1, siteMetadata: siteMetadata ?? {} };
 		} catch ( err ) {
-			// Awkward double try-catch needed to have access to the file contents
 			if ( err instanceof SyntaxError ) {
 				Sentry.addBreadcrumb( {
 					data: {
@@ -121,10 +32,7 @@ export async function loadUserData(): Promise< UserData > {
 		}
 	} catch ( err ) {
 		if ( isErrnoException( err ) && err.code === 'ENOENT' ) {
-			return {
-				sites: [],
-				snapshots: [],
-			};
+			return EMPTY_USER_DATA;
 		}
 		console.error( `Failed to load file ${ sanitizeUserpath( filePath ) }: ${ err }` );
 		throw err;
@@ -133,13 +41,18 @@ export async function loadUserData(): Promise< UserData > {
 
 export async function saveUserData( data: UserData ): Promise< void > {
 	const filePath = getUserDataFilePath();
-	const asString = JSON.stringify( toDiskFormat( data ), null, 2 ) + '\n';
+	const persisted: UserData = { ...data };
+	const asString = JSON.stringify( persisted, null, 2 ) + '\n';
 	await writeFile( filePath, asString, 'utf-8' );
 }
 
-const LOCKFILE_PATH = getUserDataLockFilePath();
+const LOCKFILE_PATH = getAppConfigLockFilePath();
 
 export async function lockAppdata() {
+	const dir = nodePath.dirname( LOCKFILE_PATH );
+	if ( ! fs.existsSync( dir ) ) {
+		fs.mkdirSync( dir, { recursive: true } );
+	}
 	return lockFileAsync( LOCKFILE_PATH, { stale: LOCKFILE_STALE_TIME, wait: LOCKFILE_WAIT_TIME } );
 }
 
@@ -150,17 +63,15 @@ export async function unlockAppdata() {
 type UserDataSafeKeys =
 	| 'devToolsOpen'
 	| 'windowBounds'
-	| 'authToken'
-	| 'snapshots'
 	| 'onboardingCompleted'
-	| 'locale'
 	| 'promptWindowsSpeedUpResult'
 	| 'stopSitesOnQuit'
 	| 'sentryUserId'
 	| 'lastSeenVersion'
 	| 'preferredTerminal'
 	| 'preferredEditor'
-	| 'betaFeatures';
+	| 'betaFeatures'
+	| 'colorScheme';
 
 type PartialUserDataWithSafeKeysToUpdate = Partial< Pick< UserData, UserDataSafeKeys > >;
 
@@ -177,83 +88,6 @@ export async function updateAppdata(
 	} finally {
 		await unlockAppdata();
 	}
-}
-
-function toDiskFormat( { sites, ...rest }: UserData ): PersistedUserData {
-	return {
-		version: 1,
-		sites: sites.map(
-			( {
-				id,
-				path,
-				adminUsername,
-				adminPassword,
-				adminEmail,
-				port,
-				phpVersion,
-				isWpAutoUpdating,
-				name,
-				themeDetails,
-				customDomain,
-				enableHttps,
-				autoStart,
-				latestCliPid,
-				enableXdebug,
-				enableDebugLog,
-				enableDebugDisplay,
-				sortOrder,
-			} ) => {
-				// No object spreading allowed. TypeScript's structural typing is too permissive and
-				// will permit us to persist properties that aren't in the type definition.
-				// Add each property explicitly instead.
-				const persistedSiteDetails: PersistedUserData[ 'sites' ][ number ] = {
-					id,
-					name,
-					path,
-					adminUsername,
-					adminPassword,
-					adminEmail,
-					port,
-					phpVersion,
-					isWpAutoUpdating,
-					customDomain,
-					enableHttps,
-					autoStart,
-					latestCliPid,
-					enableXdebug,
-					enableDebugLog,
-					enableDebugDisplay,
-					sortOrder,
-					themeDetails: {
-						name: themeDetails?.name || '',
-						path: themeDetails?.path || '',
-						slug: themeDetails?.slug || '',
-						isBlockTheme: themeDetails?.isBlockTheme || false,
-						supportsWidgets: themeDetails?.supportsWidgets || false,
-						supportsMenus: themeDetails?.supportsMenus || false,
-					},
-				};
-
-				return persistedSiteDetails;
-			}
-		),
-		...rest,
-	};
-}
-
-function fromDiskFormat( { version, sites, ...rest }: PersistedUserData ): UserData {
-	return {
-		sites: sites
-			.filter( ( site ) => fs.existsSync( site.path ) ) // Remove sites the user has deleted from disk
-			.map( ( { path, name, autoStart, ...restOfSite } ) => ( {
-				name: name || nodePath.basename( path ),
-				path,
-				running: false,
-				autoStart: autoStart || false,
-				...restOfSite,
-			} ) ),
-		...rest,
-	};
 }
 
 export async function saveWindowBounds( bounds: WindowBounds ): Promise< void > {

@@ -2,12 +2,13 @@ import { ChildProcess, spawn } from 'child_process';
 import fs, { createWriteStream, WriteStream } from 'fs';
 import net from 'net';
 import path from 'path';
+import readline from 'readline';
 import semver from 'semver';
 import {
 	PROCESS_MANAGER_LOGS_DIR,
 	PROCESS_MANAGER_CONTROL_SOCKET_PATH,
 	PROCESS_MANAGER_EVENTS_SOCKET_PATH,
-} from 'cli/lib/daemon-paths';
+} from 'cli/lib/paths';
 import { SocketServer } from 'cli/lib/socket';
 import {
 	ProcessDescription,
@@ -49,6 +50,19 @@ function getProcessLogPaths( processName: string ) {
 		stdoutLogPath: path.join( PROCESS_MANAGER_LOGS_DIR, `${ processName }-out.log` ),
 		stderrLogPath: path.join( PROCESS_MANAGER_LOGS_DIR, `${ processName }-error.log` ),
 	};
+}
+
+function timestampLogLine( line: string ): string {
+	return `${ new Date().toISOString() } ${ line }\n`;
+}
+
+function writeTimestampedLines( target: WriteStream, content: string ) {
+	const normalizedContent = content.split( '\r\n' ).join( '\n' );
+	const lines = normalizedContent.trimEnd().split( '\n' );
+
+	lines.forEach( ( line ) => {
+		target.write( timestampLogLine( line ) );
+	} );
 }
 
 export class ProcessManagerDaemon {
@@ -210,8 +224,8 @@ export class ProcessManagerDaemon {
 
 		this.managedProcesses.set( pmId, managedProcess );
 
-		child.stdout?.pipe( stdoutStream );
-		child.stderr?.pipe( stderrStream );
+		this.pipeOutputWithTimestamp( child.stdout, stdoutStream );
+		this.pipeOutputWithTimestamp( child.stderr, stderrStream );
 
 		child.on( 'message', ( raw ) => {
 			const event = daemonEventSchema.safeParse( {
@@ -228,7 +242,7 @@ export class ProcessManagerDaemon {
 		} );
 
 		child.on( 'error', ( error ) => {
-			void stderrStream.write( `${ error.stack ?? error.message }\n` );
+			writeTimestampedLines( stderrStream, error.stack ?? error.message );
 			void this.handleProcessExit( managedProcess );
 		} );
 
@@ -318,6 +332,24 @@ export class ProcessManagerDaemon {
 
 	private async broadcastEvent( event: DaemonEvent ): Promise< void > {
 		this.eventsServer.broadcast( event );
+	}
+
+	private pipeOutputWithTimestamp(
+		input: NodeJS.ReadableStream | null,
+		target: WriteStream
+	): void {
+		if ( ! input ) {
+			return;
+		}
+
+		const lineReader = readline.createInterface( {
+			input,
+			crlfDelay: Infinity,
+		} );
+
+		lineReader.on( 'line', ( line ) => {
+			void target.write( timestampLogLine( line ) );
+		} );
 	}
 
 	private toProcessDescription( managedProcess: ManagedProcess ): ProcessDescription {

@@ -4,6 +4,7 @@ import { DAY_MS } from '@studio/common/constants';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { z } from 'zod';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 import { withOfflineCheck, withOfflineCheckMutation } from 'src/stores/utils/with-offline-check';
 import { getWpcomClient } from 'src/stores/wpcom-client';
 import type { BaseQueryFn, FetchBaseQueryError } from '@reduxjs/toolkit/query';
@@ -169,11 +170,12 @@ export const wpcomApi = createApi( {
 			keepUnusedDataFor: 60 * 60,
 		} ),
 		deleteAllSnapshots: builder.mutation< void, void >( {
-			query: () => ( {
-				path: '/jurassic-ninja/delete/all',
-				apiNamespace: 'wpcom/v2',
-				method: 'POST',
-			} ),
+			queryFn: async () => {
+				await getIpcApi().deleteAllSnapshots();
+				return { data: undefined };
+			},
+			// We don't invalidate the `SnapshotUsage` tag because the API won't return the correct data
+			// until we've waited a few seconds. `snapshot-slice.ts` handles the invalidation.
 		} ),
 	} ),
 } );

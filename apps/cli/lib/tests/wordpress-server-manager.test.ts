@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
 import { vi } from 'vitest';
-import { SiteData } from 'cli/lib/appdata';
+import { SiteData } from 'cli/lib/cli-config/core';
 import * as daemonClient from 'cli/lib/daemon-client';
 import { DaemonBus } from 'cli/lib/daemon-client';
 import {
@@ -46,6 +46,7 @@ describe( 'WordPress Server Manager', () => {
 		vi.mocked( daemonClient.startProcess ).mockResolvedValue( mockProcessDescription );
 		vi.mocked( daemonClient.stopProcess ).mockResolvedValue( undefined );
 		vi.mocked( daemonClient.getDaemonBus ).mockResolvedValue( mockBus as DaemonBus );
+		vi.mocked( daemonClient.sendMessageToProcess ).mockReturnValue( Promise.resolve() );
 	} );
 
 	afterEach( () => {
@@ -133,14 +134,51 @@ describe( 'WordPress Server Manager', () => {
 
 	describe( 'stopWordPressServer', () => {
 		it( 'should stop WordPress server with correct process name', async () => {
-			await stopWordPressServer( 'test-site-id' );
+			vi.mocked( daemonClient.isProcessRunning ).mockResolvedValue( {
+				name: 'studio-site-test-site-id',
+				pmId: 1,
+				status: 'online',
+				pid: 1234,
+			} );
 
-			expect( vi.mocked( daemonClient.stopProcess ) ).toHaveBeenCalledWith(
-				'studio-site-test-site-id'
-			);
+			vi.mocked( daemonClient.sendMessageToProcess ).mockImplementation( ( processId, message ) => {
+				setImmediate( () => {
+					mockBus.emit( 'process-message', {
+						process: { name: 'studio-site-test-site-id', pm_id: 1 },
+						raw: {
+							topic: 'result',
+							originalMessageId: message.messageId,
+						},
+					} );
+				} );
+
+				return Promise.resolve();
+			} );
+
+			const promise = stopWordPressServer( 'test-site-id' );
+
+			setTimeout( () => {
+				mockBus.emit( 'process-event', {
+					process: { name: 'studio-site-test-site-id', pm_id: 1 },
+					event: 'exit',
+				} );
+			}, 500 );
+
+			await promise;
+
+			expect( vi.mocked( daemonClient.stopProcess ) ).not.toHaveBeenCalled();
 		} );
 
-		it( 'should propagate stopProcess errors', async () => {
+		it( 'should propagate errors from fallback `stopProcess` call', async () => {
+			vi.mocked( daemonClient.isProcessRunning ).mockResolvedValue( {
+				name: 'studio-site-test-site-id',
+				pmId: 1,
+				status: 'online',
+				pid: 1234,
+			} );
+			vi.mocked( daemonClient.sendMessageToProcess ).mockRejectedValue(
+				new Error( 'Failed to send stop message' )
+			);
 			vi.mocked( daemonClient.stopProcess ).mockRejectedValue(
 				new Error( 'Failed to stop process' )
 			);

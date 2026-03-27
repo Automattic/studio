@@ -214,7 +214,7 @@ npm install
 npm run package
 ```
 
-After building, the executable will be located at `out/Studio-linux-x64/studio`.
+After building, the executable will be located at `apps/studio/out/Studio-linux-x64/studio`.
 
 **Important considerations:**
 

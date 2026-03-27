@@ -1,38 +1,47 @@
 import fs from 'fs';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
+import { readAuthToken } from '@studio/common/lib/shared-config';
 import trash from 'trash';
 import { vi } from 'vitest';
 import { deleteSnapshot } from 'cli/lib/api';
+import { deleteSiteCertificate } from 'cli/lib/certificate-manager';
 import {
 	SiteData,
-	getSiteByFolder,
-	lockAppdata,
-	readAppdata,
-	saveAppdata,
-	unlockAppdata,
-	getAuthToken,
-} from 'cli/lib/appdata';
-import { deleteSiteCertificate } from 'cli/lib/certificate-manager';
+	lockCliConfig,
+	readCliConfig,
+	saveCliConfig,
+	unlockCliConfig,
+} from 'cli/lib/cli-config/core';
+import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
-import { getSnapshotsFromAppdata, deleteSnapshotFromAppdata } from 'cli/lib/snapshots';
+import { getSnapshotsFromConfig, deleteSnapshotFromConfig } from 'cli/lib/snapshots';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { runCommand } from '../delete';
 
-vi.mock( 'fs/promises' );
+vi.mock( 'fs' );
 vi.mock( 'cli/lib/api' );
-vi.mock( 'cli/lib/appdata', async () => {
-	const actual = await vi.importActual( 'cli/lib/appdata' );
+vi.mock( import( '@studio/common/lib/shared-config' ), async ( importOriginal ) => ( {
+	...( await importOriginal() ),
+	readAuthToken: vi.fn(),
+} ) );
+vi.mock( 'cli/lib/cli-config/core', async () => {
+	const actual = await vi.importActual( 'cli/lib/cli-config/core' );
+	return {
+		...actual,
+		lockCliConfig: vi.fn(),
+		readCliConfig: vi.fn(),
+		saveCliConfig: vi.fn(),
+		unlockCliConfig: vi.fn(),
+	};
+} );
+vi.mock( 'cli/lib/cli-config/sites', async () => {
+	const actual = await vi.importActual( 'cli/lib/cli-config/sites' );
 	return {
 		...actual,
 		getSiteByFolder: vi.fn(),
-		lockAppdata: vi.fn(),
-		readAppdata: vi.fn(),
-		saveAppdata: vi.fn(),
-		unlockAppdata: vi.fn(),
-		getAuthToken: vi.fn(),
 	};
 } );
 vi.mock( 'cli/lib/certificate-manager' );
@@ -102,21 +111,22 @@ describe( 'CLI: studio site delete', () => {
 		vi.mocked( getSiteByFolder ).mockResolvedValue( testSite );
 		vi.mocked( connectToDaemon ).mockResolvedValue( undefined );
 		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
-		vi.mocked( getAuthToken ).mockResolvedValue( testAuthToken );
-		vi.mocked( lockAppdata ).mockResolvedValue( undefined );
-		vi.mocked( readAppdata, { partial: true } ).mockResolvedValue( {
+		vi.mocked( readAuthToken ).mockResolvedValue( testAuthToken );
+		vi.mocked( lockCliConfig ).mockResolvedValue( undefined );
+		vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
+			version: 1,
 			sites: [ testSite ],
 			snapshots: [],
 		} );
-		vi.mocked( saveAppdata ).mockResolvedValue( undefined );
-		vi.mocked( unlockAppdata ).mockResolvedValue( undefined );
+		vi.mocked( saveCliConfig ).mockResolvedValue( undefined );
+		vi.mocked( unlockCliConfig ).mockResolvedValue( undefined );
 		vi.mocked( isServerRunning ).mockResolvedValue( undefined );
 		vi.mocked( stopWordPressServer ).mockResolvedValue( undefined );
 		vi.mocked( removeDomainFromHosts ).mockResolvedValue( undefined );
 		vi.mocked( deleteSiteCertificate ).mockReturnValue( true );
-		vi.mocked( getSnapshotsFromAppdata ).mockResolvedValue( [] );
+		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [] );
 		vi.mocked( deleteSnapshot ).mockResolvedValue( undefined );
-		vi.mocked( deleteSnapshotFromAppdata ).mockResolvedValue( undefined );
+		vi.mocked( deleteSnapshotFromConfig ).mockResolvedValue( undefined );
 		vi.mocked( stopProxyIfNoSitesNeedIt ).mockResolvedValue( undefined );
 		vi.mocked( arePathsEqual ).mockImplementation( ( a: string, b: string ) => a === b );
 		vi.spyOn( fs, 'existsSync' ).mockReturnValue( true );
@@ -137,14 +147,15 @@ describe( 'CLI: studio site delete', () => {
 		} );
 
 		it( 'should throw when appdata read fails', async () => {
-			vi.mocked( readAppdata ).mockRejectedValue( new Error( 'Read failed' ) );
+			vi.mocked( readCliConfig ).mockRejectedValue( new Error( 'Read failed' ) );
 
 			await expect( runCommand( testSiteFolder ) ).rejects.toThrow();
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
 		it( 'should throw when site not found in appdata', async () => {
-			vi.mocked( readAppdata, { partial: true } ).mockResolvedValue( {
+			vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
+				version: 1,
 				sites: [],
 				snapshots: [],
 			} );
@@ -170,67 +181,67 @@ describe( 'CLI: studio site delete', () => {
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
-		it( 'should proceed when getAuthToken fails', async () => {
-			vi.mocked( getAuthToken ).mockRejectedValue( new Error( 'Auth failed' ) );
-			vi.mocked( getSnapshotsFromAppdata ).mockResolvedValue( [] );
+		it( 'should proceed when readAuthToken returns null', async () => {
+			vi.mocked( readAuthToken ).mockResolvedValue( null );
+			vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [] );
 
 			await expect( runCommand( testSiteFolder, false ) ).resolves.not.toThrow();
-			expect( saveAppdata ).toHaveBeenCalled();
+			expect( saveCliConfig ).toHaveBeenCalled();
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 	} );
 
 	describe( 'Success Cases', () => {
 		it( 'should delete a stopped site without removing files and no preview sites', async () => {
-			vi.mocked( getSnapshotsFromAppdata ).mockResolvedValue( [] );
+			vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [] );
 
 			await runCommand( testSiteFolder, false );
 
 			expect( connectToDaemon ).toHaveBeenCalled();
 			expect( isServerRunning ).toHaveBeenCalledWith( testSite.id );
 			expect( stopWordPressServer ).not.toHaveBeenCalled();
-			expect( lockAppdata ).toHaveBeenCalled();
-			expect( readAppdata ).toHaveBeenCalled();
-			expect( saveAppdata ).toHaveBeenCalled();
-			const savedAppdata = vi.mocked( saveAppdata ).mock.calls[ 0 ][ 0 ];
-			expect( savedAppdata.sites ).toHaveLength( 0 );
-			expect( unlockAppdata ).toHaveBeenCalled();
+			expect( lockCliConfig ).toHaveBeenCalled();
+			expect( readCliConfig ).toHaveBeenCalled();
+			expect( saveCliConfig ).toHaveBeenCalled();
+			const savedCliConfig = vi.mocked( saveCliConfig ).mock.calls[ 0 ][ 0 ];
+			expect( savedCliConfig.sites ).toHaveLength( 0 );
+			expect( unlockCliConfig ).toHaveBeenCalled();
 			expect( deleteSnapshot ).not.toHaveBeenCalled();
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
 		it( 'should delete a running site and stop it first', async () => {
 			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
-			vi.mocked( getSnapshotsFromAppdata ).mockResolvedValue( [] );
+			vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [] );
 
 			await runCommand( testSiteFolder, false );
 
 			expect( isServerRunning ).toHaveBeenCalledWith( testSite.id );
 			expect( stopWordPressServer ).toHaveBeenCalledWith( testSite.id );
-			expect( saveAppdata ).toHaveBeenCalled();
-			const savedAppdata = vi.mocked( saveAppdata ).mock.calls[ 0 ][ 0 ];
-			expect( savedAppdata.sites ).toHaveLength( 0 );
+			expect( saveCliConfig ).toHaveBeenCalled();
+			const savedCliConfig = vi.mocked( saveCliConfig ).mock.calls[ 0 ][ 0 ];
+			expect( savedCliConfig.sites ).toHaveLength( 0 );
 			expect( stopProxyIfNoSitesNeedIt ).toHaveBeenCalled();
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
 		it( 'should delete a site and remove files when files flag is set', async () => {
-			vi.mocked( getSnapshotsFromAppdata ).mockResolvedValue( [] );
+			vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [] );
 
 			await runCommand( testSiteFolder, true );
 
-			expect( saveAppdata ).toHaveBeenCalled();
-			const savedAppdata = vi.mocked( saveAppdata ).mock.calls[ 0 ][ 0 ];
-			expect( savedAppdata.sites ).toHaveLength( 0 );
+			expect( saveCliConfig ).toHaveBeenCalled();
+			const savedCliConfig = vi.mocked( saveCliConfig ).mock.calls[ 0 ][ 0 ];
+			expect( savedCliConfig.sites ).toHaveLength( 0 );
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
 		it( 'should delete associated preview sites', async () => {
-			vi.mocked( getSnapshotsFromAppdata ).mockResolvedValue( [ testSnapshot1, testSnapshot2 ] );
+			vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [ testSnapshot1, testSnapshot2 ] );
 
 			await runCommand( testSiteFolder );
 
-			expect( getSnapshotsFromAppdata ).toHaveBeenCalledWith( testAuthToken.id, testSiteFolder );
+			expect( getSnapshotsFromConfig ).toHaveBeenCalledWith( testAuthToken.id, testSiteFolder );
 			expect( deleteSnapshot ).toHaveBeenCalledWith(
 				testSnapshot1.atomicSiteId,
 				testAuthToken.accessToken
@@ -239,14 +250,14 @@ describe( 'CLI: studio site delete', () => {
 				testSnapshot2.atomicSiteId,
 				testAuthToken.accessToken
 			);
-			expect( deleteSnapshotFromAppdata ).toHaveBeenCalledWith( testSnapshot1.url );
-			expect( deleteSnapshotFromAppdata ).toHaveBeenCalledWith( testSnapshot2.url );
+			expect( deleteSnapshotFromConfig ).toHaveBeenCalledWith( testSnapshot1.url );
+			expect( deleteSnapshotFromConfig ).toHaveBeenCalledWith( testSnapshot2.url );
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
 		it( 'should delete a running site and remove files along with preview sites', async () => {
 			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
-			vi.mocked( getSnapshotsFromAppdata ).mockResolvedValue( [ testSnapshot1 ] );
+			vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [ testSnapshot1 ] );
 
 			await runCommand( testSiteFolder, true );
 
@@ -255,7 +266,7 @@ describe( 'CLI: studio site delete', () => {
 				testSnapshot1.atomicSiteId,
 				testAuthToken.accessToken
 			);
-			expect( deleteSnapshotFromAppdata ).toHaveBeenCalledWith( testSnapshot1.url );
+			expect( deleteSnapshotFromConfig ).toHaveBeenCalledWith( testSnapshot1.url );
 			expect( stopProxyIfNoSitesNeedIt ).toHaveBeenCalled();
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
@@ -263,11 +274,11 @@ describe( 'CLI: studio site delete', () => {
 		it( 'should remove custom domain from hosts file if present', async () => {
 			testSite = createTestSite( { customDomain: 'example.local' } );
 			vi.mocked( getSiteByFolder ).mockResolvedValue( testSite );
-			vi.mocked( readAppdata, { partial: true } ).mockResolvedValue( {
+			vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
+				version: 1,
 				sites: [ testSite ],
-				snapshots: [],
 			} );
-			vi.mocked( getSnapshotsFromAppdata ).mockResolvedValue( [] );
+			vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [] );
 
 			await runCommand( testSiteFolder, false );
 
@@ -279,11 +290,11 @@ describe( 'CLI: studio site delete', () => {
 		it( 'should delete SSL certificate if custom domain and HTTPS are enabled', async () => {
 			testSite = createTestSite( { customDomain: 'example.local', enableHttps: true } );
 			vi.mocked( getSiteByFolder ).mockResolvedValue( testSite );
-			vi.mocked( readAppdata, { partial: true } ).mockResolvedValue( {
+			vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
+				version: 1,
 				sites: [ testSite ],
-				snapshots: [],
 			} );
-			vi.mocked( getSnapshotsFromAppdata ).mockResolvedValue( [] );
+			vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [] );
 
 			await runCommand( testSiteFolder, false );
 
@@ -294,19 +305,19 @@ describe( 'CLI: studio site delete', () => {
 
 		it( 'should skip file deletion when site directory no longer exists', async () => {
 			vi.spyOn( fs, 'existsSync' ).mockReturnValue( false );
-			vi.mocked( getSnapshotsFromAppdata ).mockResolvedValue( [] );
+			vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [] );
 
 			await runCommand( testSiteFolder, true );
 
-			expect( saveAppdata ).toHaveBeenCalled();
-			const savedAppdata = vi.mocked( saveAppdata ).mock.calls[ 0 ][ 0 ];
-			expect( savedAppdata.sites ).toHaveLength( 0 );
+			expect( saveCliConfig ).toHaveBeenCalled();
+			const savedCliConfig = vi.mocked( saveCliConfig ).mock.calls[ 0 ][ 0 ];
+			expect( savedCliConfig.sites ).toHaveLength( 0 );
 			expect( trash ).not.toHaveBeenCalled();
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
 		it( 'should not remove domain or certificate if no custom domain', async () => {
-			vi.mocked( getSnapshotsFromAppdata ).mockResolvedValue( [] );
+			vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [] );
 
 			await runCommand( testSiteFolder, false );
 

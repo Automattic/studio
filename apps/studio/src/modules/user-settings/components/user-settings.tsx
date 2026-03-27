@@ -1,16 +1,16 @@
 import { TabPanel } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import Modal from 'src/components/modal';
 import { useAuth } from 'src/hooks/use-auth';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { McpSettings } from 'src/modules/mcp/components/mcp-settings';
 import { AccountTab } from 'src/modules/user-settings/components/account-tab';
-import { NonAuthenticatedAccountTab } from 'src/modules/user-settings/components/non-authenticated-account-tab';
 import { PreferencesTab } from 'src/modules/user-settings/components/preferences-tab';
-import { UsageTab } from 'src/modules/user-settings/components/usage-tab';
+import { SkillsTab } from 'src/modules/user-settings/components/skills-tab';
 import { UserSettingsTab } from 'src/modules/user-settings/user-settings-types';
 import { useRootSelector } from 'src/stores';
 import { snapshotSelectors } from 'src/stores/snapshot-slice';
@@ -18,7 +18,7 @@ import { useDeleteAllSnapshots, useGetSnapshotUsage } from 'src/stores/wpcom-api
 
 export default function UserSettings() {
 	const { __ } = useI18n();
-	const { isAuthenticated, logout, user } = useAuth();
+	const { user } = useAuth();
 	const snapshotsByUser = useRootSelector( ( state ) =>
 		snapshotSelectors.selectSnapshotsByUser( state, user?.id ?? 0 )
 	);
@@ -60,7 +60,6 @@ export default function UserSettings() {
 		if ( response === DELETE_BUTTON_INDEX ) {
 			try {
 				await deleteAllSnapshots().unwrap();
-				await getIpcApi().saveSnapshotsToStorage( [] );
 			} catch ( error ) {
 				await getIpcApi().showMessageBox( {
 					type: 'warning',
@@ -72,23 +71,31 @@ export default function UserSettings() {
 		}
 	}, [ __, deleteAllSnapshots ] );
 
-	const tabs: UserSettingsTab[] = [
-		{
+	const tabs = useMemo( () => {
+		const result: UserSettingsTab[] = [
+			{
+				name: 'general',
+				title: __( 'General' ),
+			},
+		];
+
+		result.push( {
 			name: 'account',
 			title: __( 'Account' ),
-		},
-		{
-			name: 'preferences',
-			title: __( 'Preferences' ),
-		},
-	];
-
-	if ( isAuthenticated ) {
-		tabs.push( {
-			name: 'usage',
-			title: __( 'Usage' ),
 		} );
-	}
+
+		result.push( {
+			name: 'skills',
+			title: __( 'Skills' ),
+		} );
+
+		result.push( {
+			name: 'mcp',
+			title: __( 'MCP' ),
+		} );
+
+		return result;
+	}, [ __ ] );
 
 	return (
 		<>
@@ -110,16 +117,12 @@ export default function UserSettings() {
 						} }
 					>
 						{ ( { name } ) => (
-							<div className="mt-6 px-8 flex gap-4 flex-col">
-								{ name === 'account' &&
-									( isAuthenticated ? (
-										<AccountTab user={ user } logout={ logout } />
-									) : (
-										<NonAuthenticatedAccountTab />
-									) ) }
-								{ name === 'preferences' && <PreferencesTab onClose={ resetLocalState } /> }
-								{ name === 'usage' && isAuthenticated && (
-									<UsageTab
+							<div className="mt-6 px-8 pb-8 flex gap-4 flex-col">
+								{ name === 'general' && <PreferencesTab onClose={ resetLocalState } /> }
+								{ name === 'skills' && <SkillsTab /> }
+								{ name === 'mcp' && <McpSettings /> }
+								{ name === 'account' && (
+									<AccountTab
 										loadingDeletingAllSnapshots={ isDeletingAllSnapshots }
 										activeSnapshotCount={ definitiveSnapshotCount }
 										isLoadingSnapshotUsage={ isLoadingSnapshotUsage }

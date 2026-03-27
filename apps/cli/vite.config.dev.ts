@@ -12,6 +12,10 @@ export default mergeConfig(
 						src: 'ai/plugin',
 						dest: '.',
 					},
+					{
+						src: '../../apps/ai-canvas/dist',
+						dest: 'ai-canvas',
+					},
 				],
 			} ),
 		],

@@ -16,6 +16,7 @@ import {
 	resolveUnavailableAiProvider,
 	saveSelectedAiProvider,
 } from 'cli/ai/auth';
+import { ElementPicker, type PickedElement } from 'cli/ai/element-picker';
 import { AI_PROVIDERS, type AiProviderId } from 'cli/ai/providers';
 import { resolveResumeSessionContext } from 'cli/ai/sessions/context';
 import { AiSessionRecorder } from 'cli/ai/sessions/recorder';
@@ -28,12 +29,14 @@ import {
 	AI_CHAT_LOGIN_COMMAND,
 	AI_CHAT_LOGOUT_COMMAND,
 	AI_CHAT_MODEL_COMMAND,
+	AI_CHAT_GRAB_COMMAND,
 	AI_CHAT_PROVIDER_COMMAND,
 } from 'cli/ai/slash-commands';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { runCommand as runLogoutCommand } from 'cli/commands/auth/logout';
 import { readCliConfig } from 'cli/lib/cli-config/core';
+import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -218,6 +221,9 @@ export async function runCommand(
 		}
 	}
 
+	let pendingElementContext: PickedElement | null = null;
+	const elementPicker = new ElementPicker();
+
 	const { anthropicApiKey } = await readCliConfig();
 	if ( currentProvider === 'anthropic-api-key' && ! anthropicApiKey ) {
 		ui.showInfo( 'No Anthropic API key saved. Use /provider to enter one.' );
@@ -271,6 +277,22 @@ export async function runCommand(
 			enrichedPrompt = `[Active site: "${ site.name }" at ${ site.path }${
 				site.running ? ' (running)' : ' (stopped)'
 			}]\n\n${ prompt }`;
+		}
+
+		if ( pendingElementContext ) {
+			const el = pendingElementContext;
+			enrichedPrompt +=
+				`\n\n[Selected element on the page:\n` +
+				`  tag: <${ el.tagName.toLowerCase() }>\n` +
+				`  selector: "${ el.selector }"\n` +
+				`  wp_block_type: ${ el.wpBlockType ?? 'none' }\n` +
+				`  html: ${ el.outerHTML.slice( 0, 2000 ) }\n` +
+				`  text: "${ el.innerText.slice( 0, 500 ) }"\n` +
+				`  styles: ${ JSON.stringify( el.computedStyles ) }\n` +
+				`  ancestors: ${ el.ancestors.join( ' > ' ) }\n` +
+				`]`;
+			pendingElementContext = null;
+			ui.setSelectedElementLabel( null );
 		}
 
 		await persistSessionContext();
@@ -360,6 +382,56 @@ export async function runCommand(
 				const opened = await ui.openActiveSiteInBrowser();
 				if ( ! opened ) {
 					ui.showInfo( 'No site selected. Use ↓ to select a site first.' );
+				}
+				continue;
+			}
+
+			if ( trimmedPrompt === AI_CHAT_GRAB_COMMAND ) {
+				const site = ui.activeSite;
+				if ( ! site ) {
+					ui.showInfo( 'No site selected. Use ↓ to select a site first.' );
+					continue;
+				}
+				if ( ! site.running ) {
+					ui.showInfo( 'Site is not running. Start it first.' );
+					continue;
+				}
+
+				// Resolve URL: remote sites have url directly, local sites need config lookup.
+				let siteUrl = site.url;
+				if ( ! siteUrl ) {
+					const config = await readCliConfig();
+					const siteData = config.sites?.find( ( s ) => s.name === site.name );
+					if ( siteData ) {
+						siteUrl = getSiteUrl( siteData );
+					}
+				}
+				if ( ! siteUrl ) {
+					ui.showInfo( 'Could not determine site URL.' );
+					continue;
+				}
+
+				try {
+					await elementPicker.open( siteUrl, ( picked ) => {
+						pendingElementContext = picked;
+						const preview = picked.innerText.slice( 0, 40 ).trim();
+						const tag = picked.tagName.toLowerCase();
+						const shortLabel = preview
+							? `<${ tag }> "${ preview }${ picked.innerText.length > 40 ? '…' : '' }"`
+							: `<${ tag }> ${ picked.selector }`;
+						ui.setSelectedElementLabel( shortLabel );
+					} );
+					if ( ! elementPicker.isOpen ) {
+						ui.showError( 'Failed to open browser.' );
+					} else {
+						ui.showInfo(
+							'Browser opened — click any element to select it. You can keep chatting.'
+						);
+					}
+				} catch ( error ) {
+					ui.showError(
+						`Failed to open browser: ${ error instanceof Error ? error.message : String( error ) }`
+					);
 				}
 				continue;
 			}
@@ -472,6 +544,7 @@ export async function runCommand(
 			}
 		}
 	} finally {
+		await elementPicker.close();
 		await persistQueue;
 		ui.stop();
 		process.exit( 0 );

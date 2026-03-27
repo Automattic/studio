@@ -77,6 +77,7 @@ class PromptEditor implements Component, Focusable {
 	private _focused = false;
 	private isEmpty = true;
 	activeSiteName: string | null = null;
+	selectedElementLabel: string | null = null;
 	hints: string[] = [];
 	statusMessage: string | null = null;
 	showBottomBar = true;
@@ -159,6 +160,17 @@ class PromptEditor implements Component, Focusable {
 				return ' ' + bc( '─'.repeat( borderWidth ) );
 			}
 			if ( i === bottomBorderIndex ) {
+				if ( this.selectedElementLabel && borderWidth > 4 ) {
+					const label = ` ${ this.selectedElementLabel } `;
+					const trailing = Math.min( 3, borderWidth );
+					const leading = Math.max( 0, borderWidth - label.length - trailing );
+					return (
+						' ' +
+						bc( '─'.repeat( leading ) ) +
+						chalk.hex( '#1a7e3c' )( label ) +
+						bc( '─'.repeat( trailing ) )
+					);
+				}
 				return ' ' + bc( '─'.repeat( borderWidth ) );
 			}
 			if ( this.isEmpty && i === 1 ) {
@@ -1422,6 +1434,11 @@ export class AiChatUI {
 
 	setStatusMessage( message: string | null ): void {
 		this.editor.statusMessage = message;
+		this.tui.requestRender();
+	}
+
+	setSelectedElementLabel( label: string | null ): void {
+		this.editor.selectedElementLabel = label;
 		this.tui.requestRender();
 	}
 

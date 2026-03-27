@@ -12,6 +12,7 @@
 	"files": [
 		"dist/cli/*.js",
 		"dist/cli/wp-files/",
+		"dist/cli/ai-canvas/",
 		"patches/",
 		"scripts/"
 	],
@@ -52,9 +53,10 @@
 		"zod": "^4.3.6"
 	},
 	"scripts": {
-		"build": "vite build --config ./vite.config.dev.ts",
-		"build:prod": "vite build --config ./vite.config.prod.ts",
-		"build:npm": "vite build --config ./vite.config.npm.ts",
+		"build:ai-canvas": "cd ../ai-canvas && npm run build",
+		"build": "npm run build:ai-canvas && vite build --config ./vite.config.dev.ts",
+		"build:prod": "npm run build:ai-canvas && vite build --config ./vite.config.prod.ts",
+		"build:npm": "npm run build:ai-canvas && vite build --config ./vite.config.npm.ts",
 		"install:bundle": "npm install --omit=dev --no-package-lock --no-progress --install-links --no-workspaces && patch-package && node ../../scripts/remove-fs-ext-other-platform-binaries.mjs",
 		"package": "npm run install:bundle && npm run build:prod",
 		"watch": "vite build --config ./vite.config.dev.ts --watch",

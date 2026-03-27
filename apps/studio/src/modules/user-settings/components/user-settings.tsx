@@ -3,7 +3,6 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useMemo, useState } from 'react';
 import Modal from 'src/components/modal';
 import { useAuth } from 'src/hooks/use-auth';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
@@ -19,7 +18,6 @@ import { useDeleteAllSnapshots, useGetSnapshotUsage } from 'src/stores/wpcom-api
 
 export default function UserSettings() {
 	const { __ } = useI18n();
-	const { enableAgentSuite } = useFeatureFlags();
 	const { user } = useAuth();
 	const snapshotsByUser = useRootSelector( ( state ) =>
 		snapshotSelectors.selectSnapshotsByUser( state, user?.id ?? 0 )
@@ -86,20 +84,18 @@ export default function UserSettings() {
 			title: __( 'Account' ),
 		} );
 
-		if ( enableAgentSuite ) {
-			result.push( {
-				name: 'skills',
-				title: __( 'Skills' ),
-			} );
+		result.push( {
+			name: 'skills',
+			title: __( 'Skills' ),
+		} );
 
-			result.push( {
-				name: 'mcp',
-				title: __( 'MCP' ),
-			} );
-		}
+		result.push( {
+			name: 'mcp',
+			title: __( 'MCP' ),
+		} );
 
 		return result;
-	}, [ __, enableAgentSuite ] );
+	}, [ __ ] );
 
 	return (
 		<>

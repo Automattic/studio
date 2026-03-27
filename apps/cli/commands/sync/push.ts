@@ -240,13 +240,13 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'string',
 					description: __( 'Path to an existing tar.gz archive to push (skips local export)' ),
 				} )
-				.option( 'site', {
+				.option( 'remote-site', {
 					type: 'string',
-					description: __( 'Remote site URL or ID (skips interactive site selection)' ),
+					description: __( 'Remote site URL or ID' ),
 				} );
 		},
 		handler: async ( argv ) => {
-			await runCommand( argv.path, argv.options, argv.archive, argv.site );
+			await runCommand( argv.path, argv.options, argv.archive, argv.remoteSite );
 		},
 	} );
 };

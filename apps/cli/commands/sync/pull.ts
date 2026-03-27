@@ -182,13 +182,13 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 						'Comma-separated sync options: all, sqls, uploads, plugins, themes, contents'
 					),
 				} )
-				.option( 'site', {
+				.option( 'remote-site', {
 					type: 'string',
-					description: __( 'Remote site URL or ID (skips interactive site selection)' ),
+					description: __( 'Remote site URL or ID' ),
 				} );
 		},
 		handler: async ( argv ) => {
-			await runCommand( argv.path, argv.options, argv.site );
+			await runCommand( argv.path, argv.options, argv.remoteSite );
 		},
 	} );
 };

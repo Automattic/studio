@@ -349,19 +349,29 @@ describe.skipIf( isNonDarwin )( 'MacOSCliInstallationManager', () => {
 
 describe( 'autoInstallMacOSCliIfNeeded', () => {
 	const originalPlatform = process.platform;
+	const originalEnv = { ...process.env };
 
 	beforeEach( () => {
 		vi.clearAllMocks();
 		mockLoadUserData.mockResolvedValue( { version: 1, siteMetadata: {} } );
 		mockUpdateAppdata.mockResolvedValue( undefined );
+		process.env.NODE_ENV = 'production';
 	} );
 
 	afterEach( () => {
 		Object.defineProperty( process, 'platform', { value: originalPlatform } );
+		process.env = { ...originalEnv };
 	} );
 
 	it( 'does nothing on non-darwin platforms', async () => {
 		Object.defineProperty( process, 'platform', { value: 'win32' } );
+		await autoInstallMacOSCliIfNeeded();
+		expect( mockReadlink ).not.toHaveBeenCalled();
+	} );
+
+	it( 'does nothing in development mode', async () => {
+		Object.defineProperty( process, 'platform', { value: 'darwin' } );
+		process.env.NODE_ENV = 'development';
 		await autoInstallMacOSCliIfNeeded();
 		expect( mockReadlink ).not.toHaveBeenCalled();
 	} );

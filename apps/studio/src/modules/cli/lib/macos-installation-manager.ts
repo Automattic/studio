@@ -257,7 +257,7 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 }
 
 export async function autoInstallMacOSCliIfNeeded(): Promise< void > {
-	if ( process.platform !== 'darwin' ) {
+	if ( process.platform !== 'darwin' || process.env.NODE_ENV !== 'production' ) {
 		return;
 	}
 

@@ -290,8 +290,8 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 					) }
 				>
 					<form onSubmit={ onSiteEdit }>
-						<TabPanel
-							className="w-full [&>[role=tabpanel]]:h-64 [&>[role=tabpanel]]:overflow-auto"
+					<TabPanel
+						className="w-full"
 							tabs={ [
 								{ name: 'general', title: __( 'General' ) },
 								{ name: 'debugging', title: __( 'Debugging' ) },
@@ -302,7 +302,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 							orientation="horizontal"
 						>
 							{ ( { name } ) => (
-								<div className="mt-6 px-8 flex flex-col">
+								<div className="mt-6 px-8 pb-8 flex flex-col">
 									{ name === 'general' && (
 										<>
 											<label className="flex flex-col gap-1.5 leading-4 mb-6">

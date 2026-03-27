@@ -419,7 +419,11 @@ export const CreateSiteForm = ( {
 									) }
 								</span>
 								<FormPathInputComponent
-									doesPathContainWordPress={ doesPathContainWordPress }
+									tipMessage={
+										doesPathContainWordPress
+											? __( 'The existing WordPress site at this path will be added.' )
+											: ''
+									}
 									error={ pathError }
 									value={ sitePath }
 									onClick={ handleSelectPath }

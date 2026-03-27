@@ -168,7 +168,6 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 				<FormPathInputComponent
 					value={ isLoadingDefaultSiteDirectory ? __( 'Loading...' ) : defaultSiteDirectory ?? '' }
 					onClick={ handleChangeDefaultDirectory }
-					doesPathContainWordPress={ false }
 				/>
 			</SettingsFormField>
 			<div className="mt-auto pt-2 flex justify-end gap-3">

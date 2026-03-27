@@ -7,7 +7,7 @@ export interface FormPathInputComponentProps {
 	value: string;
 	onClick: () => void;
 	error?: string;
-	doesPathContainWordPress: boolean;
+	tipMessage?: string;
 	id?: string;
 }
 
@@ -15,7 +15,7 @@ export function FormPathInputComponent( {
 	value,
 	onClick,
 	error,
-	doesPathContainWordPress,
+	tipMessage,
 	id = 'site-path',
 }: FormPathInputComponentProps ) {
 	const { __ } = useI18n();
@@ -54,15 +54,7 @@ export function FormPathInputComponent( {
 					<FolderIcon className="text-frame-text-secondary" />
 				</div>
 			</button>
-			<SiteFormError
-				error={ error }
-				tipMessage={
-					doesPathContainWordPress
-						? __( 'The existing WordPress site at this path will be added.' )
-						: ''
-				}
-				id={ errorId }
-			/>
+			<SiteFormError error={ error } tipMessage={ tipMessage } id={ errorId } />
 			<input type="hidden" data-testid="local-path-input" value={ value } />
 		</div>
 	);

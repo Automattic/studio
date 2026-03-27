@@ -6,13 +6,19 @@ export interface SiteFormErrorProps {
 	error?: string;
 	tipMessage?: string;
 	className?: string;
+	id?: string;
 }
 
-export const SiteFormError = ( { error, tipMessage = '', className = '' }: SiteFormErrorProps ) => {
+export const SiteFormError = ( {
+	error,
+	tipMessage = '',
+	className = '',
+	id = 'site-path-error',
+}: SiteFormErrorProps ) => {
 	return (
 		( error || tipMessage ) && (
 			<div
-				id="site-path-error"
+				id={ id }
 				role="alert"
 				aria-atomic="true"
 				className={ cx(

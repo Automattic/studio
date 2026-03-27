@@ -16,9 +16,11 @@ export function FormPathInputComponent( {
 	onClick,
 	error,
 	doesPathContainWordPress,
-	id,
+	id = 'site-path',
 }: FormPathInputComponentProps ) {
 	const { __ } = useI18n();
+	const errorId = `${ id }-error`;
+
 	return (
 		<div className="flex flex-col gap-2">
 			<button
@@ -31,7 +33,7 @@ export function FormPathInputComponent( {
 				 * `aria-describedby` attribute so that it only targets relevant error
 				 * messages.
 				 */
-				aria-describedby={ error ? 'site-path-error' : undefined }
+				aria-describedby={ error ? errorId : undefined }
 				type="button"
 				aria-label={ `${ value }, ${ __( 'Select different local path' ) }` }
 				className={ cx(
@@ -59,6 +61,7 @@ export function FormPathInputComponent( {
 						? __( 'The existing WordPress site at this path will be added.' )
 						: ''
 				}
+				id={ errorId }
 			/>
 			<input type="hidden" data-testid="local-path-input" value={ value } />
 		</div>

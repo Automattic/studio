@@ -21,6 +21,8 @@ const {
 	mockDialog,
 	mockGetMainWindow,
 	mockCaptureException,
+	mockLoadUserData,
+	mockUpdateAppdata,
 } = vi.hoisted( () => ( {
 	mockAccess: vi.fn(),
 	mockLstat: vi.fn(),
@@ -35,6 +37,8 @@ const {
 	mockDialog: { showMessageBox: vi.fn().mockResolvedValue( { response: 0 } ) },
 	mockGetMainWindow: vi.fn().mockResolvedValue( {} ),
 	mockCaptureException: vi.fn(),
+	mockLoadUserData: vi.fn().mockResolvedValue( { version: 1, siteMetadata: {} } ),
+	mockUpdateAppdata: vi.fn().mockResolvedValue( undefined ),
 } ) );
 
 vi.mock( 'node:fs/promises', () => ( {
@@ -84,6 +88,11 @@ vi.mock( 'src/modules/cli/lib/ipc-handlers', () => ( {
 	StudioCliInstallationManager: class {},
 } ) );
 
+vi.mock( 'src/storage/user-data', () => ( {
+	loadUserData: mockLoadUserData,
+	updateAppdata: mockUpdateAppdata,
+} ) );
+
 vi.mock( '@studio/common/lib/is-errno-exception', () => ( {
 	isErrnoException: ( error: unknown ): error is NodeJS.ErrnoException =>
 		error instanceof Error && 'code' in error,
@@ -115,6 +124,8 @@ describe( 'MacOSCliInstallationManager', () => {
 		Object.defineProperty( process, 'platform', { value: 'darwin' } );
 		process.env.PATH = '/usr/bin:/bin:/usr/sbin:/sbin';
 		process.env.NODE_ENV = 'production';
+		mockLoadUserData.mockResolvedValue( { version: 1, siteMetadata: {} } );
+		mockUpdateAppdata.mockResolvedValue( undefined );
 		manager = new MacOSCliInstallationManager();
 	} );
 
@@ -205,7 +216,7 @@ describe( 'MacOSCliInstallationManager', () => {
 	} );
 
 	describe( 'autoInstallIfNeeded', () => {
-		it( 'installs CLI when not already installed', async () => {
+		it( 'installs CLI on first launch when not already installed', async () => {
 			// isCliInstalled returns false
 			mockReadlink.mockRejectedValue( enoentError() );
 			// installCli - lstat shows no file
@@ -225,6 +236,7 @@ describe( 'MacOSCliInstallationManager', () => {
 				recursive: true,
 			} );
 			expect( mockSymlink ).toHaveBeenCalledWith( CLI_PACKAGED_PATH, CLI_SYMLINK_PATH );
+			expect( mockUpdateAppdata ).toHaveBeenCalledWith( { cliAutoInstalled: true } );
 		} );
 
 		it( 'skips installation when CLI is already installed', async () => {
@@ -232,6 +244,23 @@ describe( 'MacOSCliInstallationManager', () => {
 			mockLstat.mockRejectedValue( enoentError() );
 			// isCliInstalled returns true
 			mockReadlink.mockResolvedValue( CLI_PACKAGED_PATH );
+
+			await manager.autoInstallIfNeeded();
+
+			expect( mockSymlink ).not.toHaveBeenCalled();
+		} );
+
+		it( 'does not reinstall when user has explicitly disabled CLI', async () => {
+			// CLI was previously auto-installed but user disabled it
+			mockLoadUserData.mockResolvedValue( {
+				version: 1,
+				siteMetadata: {},
+				cliAutoInstalled: true,
+			} );
+			// cleanupLegacySymlink - no legacy symlink
+			mockLstat.mockRejectedValue( enoentError() );
+			// isCliInstalled returns false (user disabled it)
+			mockReadlink.mockRejectedValue( enoentError() );
 
 			await manager.autoInstallIfNeeded();
 
@@ -373,8 +402,16 @@ describe( 'MacOSCliInstallationManager', () => {
 } );
 
 describe( 'autoInstallMacOSCliIfNeeded', () => {
+	const originalPlatform = process.platform;
+
 	beforeEach( () => {
 		vi.clearAllMocks();
+		mockLoadUserData.mockResolvedValue( { version: 1, siteMetadata: {} } );
+		mockUpdateAppdata.mockResolvedValue( undefined );
+	} );
+
+	afterEach( () => {
+		Object.defineProperty( process, 'platform', { value: originalPlatform } );
 	} );
 
 	it( 'does nothing on non-darwin platforms', async () => {

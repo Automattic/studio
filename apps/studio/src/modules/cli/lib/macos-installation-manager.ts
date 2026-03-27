@@ -17,6 +17,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { getMainWindow } from 'src/main-window';
 import { StudioCliInstallationManager } from 'src/modules/cli/lib/ipc-handlers';
 import { getResourcesPath } from 'src/storage/paths';
+import { loadUserData, updateAppdata } from 'src/storage/user-data';
 
 const cliSymlinkPath = path.join( os.homedir(), '.local', 'bin', 'studio' );
 const legacyCliSymlinkPath = '/usr/local/bin/studio';
@@ -138,7 +139,15 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 			return;
 		}
 
+		// Only auto-install on first launch. If the flag is already set but the CLI isn't
+		// installed, the user must have explicitly disabled it — respect their choice.
+		const userData = await loadUserData();
+		if ( userData.cliAutoInstalled ) {
+			return;
+		}
+
 		await this.installCli();
+		await updateAppdata( { cliAutoInstalled: true } );
 	}
 
 	private async installCli(): Promise< void > {

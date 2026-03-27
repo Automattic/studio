@@ -202,10 +202,8 @@ async function main() {
 			aiYargs.version( false );
 		} );
 	}
-	if ( __ENABLE_AGENT_SUITE__ ) {
-		const { registerCommand: registerMcpCommand } = await import( 'cli/commands/mcp' );
-		registerMcpCommand( studioArgv );
-	}
+	const { registerCommand: registerMcpCommand } = await import( 'cli/commands/mcp' );
+	registerMcpCommand( studioArgv );
 
 	await studioArgv.argv;
 }

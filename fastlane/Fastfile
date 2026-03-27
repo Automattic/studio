@@ -656,9 +656,9 @@ end
 # Used by new_beta_release, finalize_release, and new_hotfix_release.
 def bump_version_commit_and_push(version:, set_upstream: false)
   set_package_json_version(version: version)
-  git_add(path: ['apps/studio/package.json', 'package-lock.json'])
+  git_add(path: ['apps/studio/package.json', 'apps/cli/package.json', 'package-lock.json'])
   git_commit(
-    path: ['apps/studio/package.json', 'package-lock.json'],
+    path: ['apps/studio/package.json', 'apps/cli/package.json', 'package-lock.json'],
     message: "[skip ci] Bump version to #{version}"
   )
   push_to_git_remote(set_upstream: set_upstream)
@@ -669,9 +669,10 @@ def read_package_json_version
   JSON.parse(File.read(PACKAGE_JSON_PATH))['version']
 end
 
-# Set the version in apps/studio/package.json (and update root package-lock.json via npm workspaces)
+# Set the version in apps/studio/package.json and apps/cli/package.json (and update root package-lock.json via npm workspaces)
 def set_package_json_version(version:)
   sh('npm', 'version', version, '--no-git-tag-version', '-w', 'studio-app', '--prefix', PROJECT_ROOT_FOLDER)
+  sh('npm', 'version', version, '--no-git-tag-version', '-w', 'wp-studio', '--prefix', PROJECT_ROOT_FOLDER)
 end
 
 # Extract release notes for a specific version from RELEASE-NOTES.txt

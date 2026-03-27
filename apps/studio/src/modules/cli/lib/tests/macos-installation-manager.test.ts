@@ -236,8 +236,6 @@ describe.skipIf( isNonDarwin )( 'MacOSCliInstallationManager', () => {
 		} );
 
 		it( 'skips installation when CLI is already installed', async () => {
-			// cleanupLegacySymlink - no legacy symlink
-			mockLstat.mockRejectedValue( enoentError() );
 			// isCliInstalled returns true
 			mockReadlink.mockResolvedValue( CLI_PACKAGED_PATH );
 

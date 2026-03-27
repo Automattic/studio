@@ -43,3 +43,13 @@ export enum SiteCommandLoggerAction {
 	DELETE_FILES = 'deleteFiles',
 	CHECKING_DEPENDENCY_UPDATES = 'checkingDependencyUpdates',
 }
+
+export enum ImportCommandLoggerAction {
+	PREFLIGHT = 'preflight',
+	CREATE_SITE = 'createSite',
+	DOWNLOAD_FILES = 'downloadFiles',
+	DOWNLOAD_SQL = 'downloadSql',
+	START_SITE = 'startSite',
+	IMPORT_SQL = 'importSql',
+	URL_REWRITE = 'urlRewrite',
+}

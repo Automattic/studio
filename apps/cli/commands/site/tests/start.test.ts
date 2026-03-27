@@ -1,3 +1,4 @@
+import fs from 'fs';
 import { vi } from 'vitest';
 import { SiteData } from 'cli/lib/cli-config/core';
 import {
@@ -61,6 +62,8 @@ describe( 'CLI: studio site start', () => {
 		vi.mocked( updateSiteLatestCliPid ).mockResolvedValue( undefined );
 		vi.mocked( logSiteDetails ).mockImplementation( () => {} );
 		vi.mocked( openSiteInBrowser ).mockResolvedValue( undefined );
+		vi.spyOn( fs, 'existsSync' ).mockReturnValue( true );
+		vi.spyOn( fs, 'readFileSync' ).mockReturnValue( '{"steps":[]}' );
 	} );
 
 	afterEach( () => {
@@ -139,7 +142,11 @@ describe( 'CLI: studio site start', () => {
 			expect( isServerRunning ).toHaveBeenCalledWith( testSite.id );
 			expect( setupCustomDomain ).toHaveBeenCalledWith( testSite, expect.any( Logger ) );
 			expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( '/test/site' );
-			expect( startWordPressServer ).toHaveBeenCalledWith( testSite, expect.any( Logger ) );
+			expect( startWordPressServer ).toHaveBeenCalledWith(
+				testSite,
+				expect.any( Logger ),
+				undefined
+			);
 			expect( updateSiteLatestCliPid ).toHaveBeenCalledWith(
 				testSite.id,
 				testProcessDescription.pid
@@ -174,7 +181,8 @@ describe( 'CLI: studio site start', () => {
 			expect( setupCustomDomain ).toHaveBeenCalledWith( testSiteWithDomain, expect.any( Logger ) );
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				testSiteWithDomain,
-				expect.any( Logger )
+				expect.any( Logger ),
+				undefined
 			);
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
@@ -185,10 +193,36 @@ describe( 'CLI: studio site start', () => {
 			expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( '/test/site' );
 		} );
 
+		it( 'should start imported sites with their runtime Blueprint and skip sqlite setup', async () => {
+			vi.mocked( getSiteByFolder ).mockResolvedValue( {
+				...testSite,
+				runtimeBlueprintPath: '/test/import/runtime/blueprint.json',
+				technicalSiteDirectory: '/test/import',
+			} );
+
+			await runCommand( '/test/site' );
+
+			expect( keepSqliteIntegrationUpdated ).not.toHaveBeenCalled();
+			expect( startWordPressServer ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					runtimeBlueprintPath: '/test/import/runtime/blueprint.json',
+				} ),
+				expect.any( Logger ),
+				expect.objectContaining( {
+					blueprintUri: '/test/import/runtime/blueprint.json',
+					blueprint: { steps: [] },
+				} )
+			);
+		} );
+
 		it( 'should skip browser when skipBrowser is true', async () => {
 			await runCommand( '/test/site', true );
 
-			expect( startWordPressServer ).toHaveBeenCalledWith( testSite, expect.any( Logger ) );
+			expect( startWordPressServer ).toHaveBeenCalledWith(
+				testSite,
+				expect.any( Logger ),
+				undefined
+			);
 			expect( openSiteInBrowser ).not.toHaveBeenCalled();
 			expect( logSiteDetails ).toHaveBeenCalledWith( testSite );
 			expect( disconnectFromDaemon ).toHaveBeenCalled();

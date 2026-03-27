@@ -1,0 +1,870 @@
+/**
+ * CLI command: studio site import
+ *
+ * Imports a remote WordPress site into a local Studio site using the
+ * streaming site migration protocol and the importer's two-phase file
+ * filtering support.
+ */
+import { spawnSync } from 'child_process';
+import crypto from 'crypto';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
+import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
+import { SITE_EVENTS } from '@studio/common/lib/cli-events';
+import { arePathsEqual, isEmptyDir, pathExists } from '@studio/common/lib/fs-utils';
+import { generateNumberedName } from '@studio/common/lib/generate-site-name';
+import { portFinder } from '@studio/common/lib/port-finder';
+import { sortSites } from '@studio/common/lib/sort-sites';
+import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
+import { ImportCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
+import type { Blueprint } from '@wp-playground/blueprints';
+import { __ } from '@wordpress/i18n';
+import chalk from 'chalk';
+import {
+	lockCliConfig,
+	readCliConfig,
+	saveCliConfig,
+	type SiteData,
+	unlockCliConfig,
+} from 'cli/lib/cli-config/core';
+import {
+	getSiteUrl,
+	updateSiteAutoStart,
+	updateSiteLatestCliPid,
+} from 'cli/lib/cli-config/sites';
+import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
+import {
+	downloadLatestImporterPhar,
+	type ImporterResult,
+	runImporterCommandUntilComplete,
+} from 'cli/lib/import/migration-client';
+import { getDefaultSitePath } from 'cli/lib/site-paths';
+import { startWordPressServer } from 'cli/lib/wordpress-server-manager';
+import { Logger, LoggerError } from 'cli/logger';
+import { StudioArgv } from 'cli/types';
+
+const logger = new Logger< LoggerAction >();
+
+const PLUGIN_INSTALL_HINT =
+	'Make sure the streaming-site-migration plugin is installed and activated.\n' +
+	'Download the latest version from:\n' +
+	'https://github.com/adamziel/streaming-site-migration/releases/latest';
+
+const IMPORTS_ROOT = path.join( os.homedir(), '.studio', 'imports' );
+const SKIPPED_DOWNLOAD_LIST = '.import-download-list-skipped.jsonl';
+
+const importStageOrder = [
+	'initialized',
+	'essential-files-complete',
+	'flattened',
+	'db-downloaded',
+	'db-applied',
+	'runtime-generated',
+	'site-registered',
+	'site-started',
+	'completed',
+] as const;
+
+type ImportStage = ( typeof importStageOrder )[ number ];
+
+const IMPORT_METADATA_VERSION = 1;
+
+interface ImportMetadata {
+	version: number;
+	importKey: string;
+	normalizedUrl: string;
+	siteName: string;
+	sitePath: string;
+	technicalSiteDirectory: string;
+	rawDirectory: string;
+	stateDirectory: string;
+	runtimeDirectory: string;
+	runtimeBlueprintPath: string;
+	stage: ImportStage;
+	siteId?: string;
+	port?: number;
+	localUrl?: string;
+	remoteSiteUrl?: string;
+	tablePrefix?: string;
+}
+
+interface ResolveImportMetadataResult {
+	created: boolean;
+	metadata: ImportMetadata;
+}
+
+class ImportError extends LoggerError {
+	technicalDetails: string;
+
+	constructor( userMessage: string, technicalDetails: string ) {
+		super( userMessage );
+		this.technicalDetails = technicalDetails;
+	}
+}
+
+function redBox( message: string ): string {
+	const lines = message.split( '\n' );
+	const maxLen = Math.max( ...lines.map( ( line ) => line.length ) );
+	const top = chalk.red( '┌' + '─'.repeat( maxLen + 2 ) + '┐' );
+	const bottom = chalk.red( '└' + '─'.repeat( maxLen + 2 ) + '┘' );
+	const body = lines
+		.map( ( line ) => chalk.red( '│' ) + ' ' + line.padEnd( maxLen ) + ' ' + chalk.red( '│' ) )
+		.join( '\n' );
+	return `${ top }\n${ body }\n${ bottom }`;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function parseImporterJson( result: ImporterResult ): any {
+	const raw = result.stdout.trim();
+	try {
+		return JSON.parse( raw );
+	} catch {
+		const jsonStart = raw.indexOf( '{' );
+		if ( jsonStart >= 0 ) {
+			return JSON.parse( raw.slice( jsonStart ) );
+		}
+		throw new LoggerError(
+			`importer.phar did not return valid JSON.\nstdout: ${ raw }\nstderr: ${ result.stderr }`
+		);
+	}
+}
+
+function getStageRank( stage: ImportStage ): number {
+	return importStageOrder.indexOf( stage );
+}
+
+function hasReachedStage( metadata: ImportMetadata, stage: ImportStage ): boolean {
+	return getStageRank( metadata.stage ) >= getStageRank( stage );
+}
+
+function parsePhpSerializedStringArray( serialized: string ): string[] {
+	const items: string[] = [];
+	const regex = /s:(\d+):"([\s\S]*?)";/g;
+	let match;
+
+	while ( ( match = regex.exec( serialized ) ) !== null ) {
+		items.push( match[ 2 ] );
+	}
+
+	return items;
+}
+
+function serializePhpStringArray( items: string[] ): string {
+	const entries = items
+		.map( ( value, index ) => `i:${ index };s:${ value.length }:"${ value }";` )
+		.join( '' );
+	return `a:${ items.length }:{${ entries }}`;
+}
+
+function deactivatePluginInSqlite(
+	dbPath: string,
+	tablePrefix: string,
+	pluginSlug: string
+): boolean {
+	const table = `${ tablePrefix }options`;
+	const readResult = spawnSync( 'sqlite3', [
+		dbPath,
+		`SELECT option_value FROM ${ table } WHERE option_name = 'active_plugins';`,
+	] );
+
+	if ( readResult.status !== 0 || ! readResult.stdout ) {
+		return false;
+	}
+
+	const plugins = parsePhpSerializedStringArray( readResult.stdout.toString().trim() );
+	const filtered = plugins.filter( ( plugin ) => ! plugin.startsWith( `${ pluginSlug }/` ) );
+
+	if ( filtered.length === plugins.length ) {
+		return false;
+	}
+
+	const serialized = serializePhpStringArray( filtered );
+	const sql = `UPDATE ${ table } SET option_value = '${ serialized.replace(
+		/'/g,
+		"''"
+	) }' WHERE option_name = 'active_plugins';`;
+	const writeResult = spawnSync( 'sqlite3', [ dbPath ], { input: sql } );
+	return writeResult.status === 0;
+}
+
+function getMetadataPath( technicalSiteDirectory: string ): string {
+	return path.join( technicalSiteDirectory, 'import.json' );
+}
+
+function saveImportMetadata( metadata: ImportMetadata ): void {
+	fs.mkdirSync( metadata.technicalSiteDirectory, { recursive: true } );
+	const metadataPath = getMetadataPath( metadata.technicalSiteDirectory );
+	const tempPath = `${ metadataPath }.tmp`;
+	fs.writeFileSync( tempPath, JSON.stringify( metadata, null, 2 ) + '\n' );
+	fs.renameSync( tempPath, metadataPath );
+}
+
+function readImportMetadata( metadataPath: string ): ImportMetadata | null {
+	try {
+		const metadata = JSON.parse( fs.readFileSync( metadataPath, 'utf-8' ) ) as ImportMetadata;
+		if ( metadata.version !== IMPORT_METADATA_VERSION ) {
+			return null;
+		}
+		return metadata;
+	} catch {
+		return null;
+	}
+}
+
+export function normalizeImportUrl( url: string ): string {
+	const normalized = new URL( url );
+	normalized.hash = '';
+	normalized.pathname = normalized.pathname.replace( /\/+$/, '' ) || '/';
+	return normalized.toString();
+}
+
+export function inferSiteNameFromUrl( url: string ): string {
+	return new URL( url ).hostname;
+}
+
+export function getImportKey( normalizedUrl: string, explicitName?: string ): string {
+	return crypto
+		.createHash( 'sha256' )
+		.update( `${ normalizedUrl }\n${ explicitName || '__auto__' }` )
+		.digest( 'hex' )
+		.slice( 0, 12 );
+}
+
+async function resolveSiteName( normalizedUrl: string, explicitName?: string ): Promise< string > {
+	if ( explicitName ) {
+		return explicitName;
+	}
+
+	const cliConfig = await readCliConfig();
+	const baseName = inferSiteNameFromUrl( normalizedUrl );
+	return generateNumberedName(
+		baseName,
+		cliConfig.sites.map( ( site ) => site.name ),
+		path.dirname( getDefaultSitePath( baseName ) )
+	);
+}
+
+export async function resolveImportMetadata(
+	url: string,
+	explicitName?: string
+): Promise< ResolveImportMetadataResult > {
+	const normalizedUrl = normalizeImportUrl( url );
+	const importKey = getImportKey( normalizedUrl, explicitName );
+	const technicalSiteDirectory = path.join( IMPORTS_ROOT, importKey );
+	const metadataPath = getMetadataPath( technicalSiteDirectory );
+	const existing = readImportMetadata( metadataPath );
+
+	if ( existing ) {
+		return { created: false, metadata: existing };
+	}
+
+	const siteName = await resolveSiteName( normalizedUrl, explicitName );
+	const sitePath = getDefaultSitePath( siteName );
+	if ( ( await pathExists( sitePath ) ) && ! ( await isEmptyDir( sitePath ) ) ) {
+		throw new LoggerError( __( 'Site directory already exists and is not empty.' ) );
+	}
+	const metadata: ImportMetadata = {
+		version: IMPORT_METADATA_VERSION,
+		importKey,
+		normalizedUrl,
+		siteName,
+		sitePath,
+		technicalSiteDirectory,
+		rawDirectory: path.join( technicalSiteDirectory, 'raw' ),
+		stateDirectory: path.join( technicalSiteDirectory, 'state' ),
+		runtimeDirectory: path.join( technicalSiteDirectory, 'runtime' ),
+		runtimeBlueprintPath: path.join( technicalSiteDirectory, 'runtime', 'blueprint.json' ),
+		stage: 'initialized',
+	};
+
+	saveImportMetadata( metadata );
+	return { created: true, metadata };
+}
+
+function getApiUrl( normalizedUrl: string ): string {
+	return normalizedUrl.replace( /\/+$/, '' ) + '/?site-export-api';
+}
+
+function setStage( metadata: ImportMetadata, stage: ImportStage ): void {
+	metadata.stage = stage;
+	saveImportMetadata( metadata );
+}
+
+async function ensureFreshSitePath( metadata: ImportMetadata ): Promise< void > {
+	if ( hasReachedStage( metadata, 'flattened' ) ) {
+		return;
+	}
+
+	if ( ( await pathExists( metadata.sitePath ) ) && ! ( await isEmptyDir( metadata.sitePath ) ) ) {
+		throw new LoggerError( __( 'Site directory already exists and is not empty.' ) );
+	}
+}
+
+function getPreflightCachePath( metadata: ImportMetadata ): string {
+	return path.join( metadata.stateDirectory, 'preflight.json' );
+}
+
+async function runPreflight(
+	metadata: ImportMetadata,
+	apiUrl: string,
+	secret: string
+): Promise< {
+	siteurl?: string;
+	wp_version?: string;
+	php_version?: string;
+	table_prefix?: string;
+} > {
+	const preflightCachePath = getPreflightCachePath( metadata );
+
+	if ( fs.existsSync( preflightCachePath ) ) {
+		return JSON.parse( fs.readFileSync( preflightCachePath, 'utf-8' ) );
+	}
+
+	logger.reportStart( LoggerAction.PREFLIGHT, __( 'Connecting to remote site…' ) );
+
+	let preflightResult: ImporterResult;
+	try {
+		preflightResult = await runImporterCommandUntilComplete(
+			metadata.stateDirectory,
+			metadata.rawDirectory,
+			[
+				'preflight',
+				apiUrl,
+				`--secret=${ secret }`,
+				'--no-adaptive',
+				'--state-dir=/state',
+				'--fs-root=/docroot',
+			]
+		);
+	} catch ( preflightError ) {
+		const details =
+			preflightError instanceof Error ? preflightError.message : String( preflightError );
+		throw new ImportError(
+			__( 'Could not connect to the remote site.' ) + '\n\n' + PLUGIN_INSTALL_HINT,
+			details
+		);
+	}
+
+	let envelope;
+	try {
+		envelope = parseImporterJson( preflightResult );
+	} catch {
+		throw new ImportError(
+			__( 'The remote site did not respond with a recognized format.' ) +
+				'\n\n' +
+				PLUGIN_INSTALL_HINT,
+			`stdout: ${ preflightResult.stdout }\nstderr: ${ preflightResult.stderr }`
+		);
+	}
+
+	const preflightData = envelope.data ?? envelope;
+	if ( ! preflightData.ok ) {
+		const errorDetail = preflightData.error || '';
+		const isJsonParseError = /^Invalid JSON\b/i.test( errorDetail );
+		const userMessage = isJsonParseError
+			? __( 'The remote site responded with HTML instead of the expected export API.' )
+			: __( 'Remote site preflight check failed.' );
+
+		throw new ImportError(
+			userMessage + '\n\n' + PLUGIN_INSTALL_HINT,
+			preflightResult.stdout.trim() + '\n' + preflightResult.stderr.trim()
+		);
+	}
+
+	const preflight = {
+		siteurl: preflightData.database?.wp?.siteurl || undefined,
+		wp_version: preflightData.database?.wp?.wp_version || undefined,
+		php_version: preflightData.php?.version || undefined,
+		table_prefix: preflightData.database?.wp?.table_prefix || undefined,
+	};
+
+	fs.writeFileSync( preflightCachePath, JSON.stringify( preflight, null, 2 ) + '\n' );
+	logger.reportSuccess(
+		`Connected – WordPress ${ preflight.wp_version || 'unknown' }, PHP ${
+			preflight.php_version || 'unknown'
+		}`
+	);
+	return preflight;
+}
+
+function ensureImportDirectories( metadata: ImportMetadata ): void {
+	fs.mkdirSync( metadata.rawDirectory, { recursive: true } );
+	fs.mkdirSync( metadata.stateDirectory, { recursive: true } );
+	fs.mkdirSync( metadata.runtimeDirectory, { recursive: true } );
+	fs.mkdirSync( metadata.sitePath, { recursive: true } );
+}
+
+async function ensurePort( metadata: ImportMetadata ): Promise< void > {
+	if ( metadata.port && metadata.localUrl ) {
+		return;
+	}
+
+	const cliConfig = await readCliConfig();
+	for ( const site of cliConfig.sites ) {
+		portFinder.addUnavailablePort( site.port );
+	}
+
+	const existingSite = cliConfig.sites.find(
+		( site ) =>
+			( metadata.siteId && site.id === metadata.siteId ) ||
+			arePathsEqual( site.path, metadata.sitePath ) ||
+			site.technicalSiteDirectory === metadata.technicalSiteDirectory
+	);
+
+	const port = existingSite?.port ?? ( await portFinder.getOpenPort() );
+	metadata.port = port;
+	metadata.localUrl = existingSite ? getSiteUrl( existingSite ) : `http://localhost:${ port }`;
+	saveImportMetadata( metadata );
+}
+
+function hasSkippedFiles( metadata: ImportMetadata ): boolean {
+	const skippedListPath = path.join( metadata.stateDirectory, SKIPPED_DOWNLOAD_LIST );
+	return fs.existsSync( skippedListPath ) && fs.statSync( skippedListPath ).size > 0;
+}
+
+async function findExistingSite( metadata: ImportMetadata ): Promise< SiteData | undefined > {
+	const cliConfig = await readCliConfig();
+	return cliConfig.sites.find(
+		( site ) =>
+			( metadata.siteId && site.id === metadata.siteId ) ||
+			arePathsEqual( site.path, metadata.sitePath ) ||
+			site.technicalSiteDirectory === metadata.technicalSiteDirectory
+	);
+}
+
+async function syncMetadataWithExistingSite(
+	metadata: ImportMetadata
+): Promise< SiteData | undefined > {
+	const site = await findExistingSite( metadata );
+	if ( ! site ) {
+		return undefined;
+	}
+
+	let changed = false;
+	if ( metadata.siteId !== site.id ) {
+		metadata.siteId = site.id;
+		changed = true;
+	}
+	if ( metadata.port !== site.port ) {
+		metadata.port = site.port;
+		changed = true;
+	}
+	const localUrl = getSiteUrl( site );
+	if ( metadata.localUrl !== localUrl ) {
+		metadata.localUrl = localUrl;
+		changed = true;
+	}
+	if ( ! hasReachedStage( metadata, 'site-registered' ) ) {
+		metadata.stage = 'site-registered';
+		changed = true;
+	}
+	if ( changed ) {
+		saveImportMetadata( metadata );
+	}
+
+	return site;
+}
+
+function loadRuntimeBlueprint( runtimeBlueprintPath: string ): Blueprint {
+	if ( ! fs.existsSync( runtimeBlueprintPath ) ) {
+		throw new LoggerError( `Runtime Blueprint not found: ${ runtimeBlueprintPath }` );
+	}
+
+	try {
+		return JSON.parse( fs.readFileSync( runtimeBlueprintPath, 'utf-8' ) ) as Blueprint;
+	} catch ( error ) {
+		throw new LoggerError( `Failed to parse runtime Blueprint: ${ runtimeBlueprintPath }`, error );
+	}
+}
+
+function printReadyMessage( metadata: ImportMetadata ): void {
+	if ( ! metadata.localUrl ) {
+		return;
+	}
+
+	console.log( '' );
+	console.log( `Site "${ metadata.siteName }" is ready.` );
+	console.log( '' );
+	console.log( __( 'Site URL: ' ), metadata.localUrl );
+	console.log( __( 'WP Admin: ' ), `${ metadata.localUrl }/wp-admin/` );
+	console.log( '' );
+}
+
+function printCompletionMessage( metadata: ImportMetadata ): void {
+	console.log( '' );
+	console.log( `Site "${ metadata.siteName }" imported successfully.` );
+	console.log( '' );
+	if ( metadata.localUrl ) {
+		console.log( __( 'Site URL: ' ), metadata.localUrl );
+		console.log( __( 'WP Admin: ' ), `${ metadata.localUrl }/wp-admin/` );
+		console.log( '' );
+	}
+}
+
+function printResumeMessage( url: string, providedName?: string ): void {
+	const command = [ 'studio site import', `--url ${ url }`, '--secret <secret>' ];
+	if ( providedName ) {
+		command.push( `--name "${ providedName }"` );
+	}
+
+	console.log( '' );
+	console.log( 'To resume this import, re-run the same command:' );
+	console.log( `  ${ command.join( ' ' ) }` );
+	console.log( '' );
+}
+
+async function registerSite(
+	metadata: ImportMetadata
+): Promise< { created: boolean; site: SiteData } > {
+	const existingSite = await syncMetadataWithExistingSite( metadata );
+	if ( existingSite ) {
+		return { created: false, site: existingSite };
+	}
+
+	await ensurePort( metadata );
+
+	const siteId = metadata.siteId || crypto.randomUUID();
+	const siteDetails: SiteData = {
+		id: siteId,
+		name: metadata.siteName,
+		path: metadata.sitePath,
+		port: metadata.port!,
+		phpVersion: DEFAULT_PHP_VERSION,
+		running: false,
+		isWpAutoUpdating: true,
+		enableHttps: false,
+		technicalSiteDirectory: metadata.technicalSiteDirectory,
+		runtimeBlueprintPath: metadata.runtimeBlueprintPath,
+	};
+
+	try {
+		await lockCliConfig();
+		const cliConfig = await readCliConfig();
+		const existingByPath = cliConfig.sites.find(
+			( site ) =>
+				arePathsEqual( site.path, metadata.sitePath ) ||
+				site.technicalSiteDirectory === metadata.technicalSiteDirectory
+		);
+
+		if ( existingByPath ) {
+			metadata.siteId = existingByPath.id;
+			metadata.port = existingByPath.port;
+			metadata.localUrl = getSiteUrl( existingByPath );
+			saveImportMetadata( metadata );
+			return { created: false, site: existingByPath };
+		}
+
+		cliConfig.sites.push( siteDetails );
+		sortSites( cliConfig.sites );
+		await saveCliConfig( cliConfig );
+	} finally {
+		await unlockCliConfig();
+	}
+
+	metadata.siteId = siteId;
+	saveImportMetadata( metadata );
+	return { created: true, site: siteDetails };
+}
+
+export async function runCommand(
+	url: string,
+	secret: string,
+	providedName?: string
+): Promise< void > {
+	const { created, metadata } = await resolveImportMetadata( url, providedName );
+	const apiUrl = getApiUrl( metadata.normalizedUrl );
+
+	await ensureFreshSitePath( metadata );
+	ensureImportDirectories( metadata );
+
+	try {
+		fs.unlinkSync( path.join( getConfigDirectory(), 'importer.phar' ) );
+	} catch {
+		// Ignore missing cache file.
+	}
+	await downloadLatestImporterPhar();
+
+	if ( metadata.stage === 'completed' ) {
+		await syncMetadataWithExistingSite( metadata );
+		printCompletionMessage( metadata );
+		return;
+	}
+
+	const isResume = ! created || fs.readdirSync( metadata.stateDirectory ).length > 0;
+	if ( isResume ) {
+		console.log( `Resuming previous import for ${ metadata.normalizedUrl }` );
+		console.log( '' );
+	}
+
+	console.log( `Importing "${ metadata.siteName }" from ${ metadata.normalizedUrl }` );
+	console.log( `Technical directory: ${ metadata.technicalSiteDirectory }` );
+	console.log( `Site directory: ${ metadata.sitePath }` );
+	console.log( '' );
+
+	try {
+		const preflight = await runPreflight( metadata, apiUrl, secret );
+		metadata.remoteSiteUrl = preflight.siteurl || metadata.normalizedUrl;
+		metadata.tablePrefix = preflight.table_prefix || undefined;
+		saveImportMetadata( metadata );
+
+		if ( ! hasReachedStage( metadata, 'essential-files-complete' ) ) {
+			logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Downloading essential files…' ) );
+			await runImporterCommandUntilComplete(
+				metadata.stateDirectory,
+				metadata.rawDirectory,
+				[
+					'files-sync',
+					apiUrl,
+					`--secret=${ secret }`,
+					'--filter=essential-files',
+					'--no-adaptive',
+					'--state-dir=/state',
+					'--fs-root=/docroot',
+				],
+				( progress ) => logger.reportProgress( progress ),
+				{
+					progressRoot: metadata.rawDirectory,
+					progressLabel: 'Essential files',
+				}
+			);
+			logger.reportSuccess( __( 'Essential files downloaded' ) );
+			setStage( metadata, 'essential-files-complete' );
+		}
+
+		if ( ! hasReachedStage( metadata, 'flattened' ) ) {
+			logger.reportStart( LoggerAction.CREATE_SITE, __( 'Preparing site directory…' ) );
+			await runImporterCommandUntilComplete(
+				metadata.stateDirectory,
+				metadata.rawDirectory,
+				[
+					'flat-document-root',
+					apiUrl,
+					'--state-dir=/state',
+					'--fs-root=/docroot',
+					'--flatten-to=/flat',
+				],
+				undefined,
+				{
+					mounts: [ { hostPath: metadata.sitePath, vfsPath: '/flat' } ],
+				}
+			);
+			logger.reportSuccess( __( 'Site directory prepared' ) );
+			setStage( metadata, 'flattened' );
+		}
+
+		if ( ! hasReachedStage( metadata, 'db-downloaded' ) ) {
+			logger.reportStart( LoggerAction.DOWNLOAD_SQL, __( 'Downloading database…' ) );
+			await runImporterCommandUntilComplete(
+				metadata.stateDirectory,
+				metadata.rawDirectory,
+				[
+					'db-sync',
+					apiUrl,
+					`--secret=${ secret }`,
+					'--sql-output=file',
+					'--no-adaptive',
+					'--state-dir=/state',
+					'--fs-root=/docroot',
+				],
+				( progress ) => logger.reportProgress( progress )
+			);
+			logger.reportSuccess( __( 'Database downloaded' ) );
+			setStage( metadata, 'db-downloaded' );
+		}
+
+		await ensurePort( metadata );
+
+		if ( ! hasReachedStage( metadata, 'db-applied' ) ) {
+			logger.reportStart( LoggerAction.IMPORT_SQL, __( 'Importing database…' ) );
+			await runImporterCommandUntilComplete(
+				metadata.stateDirectory,
+				metadata.rawDirectory,
+				[
+					'db-apply',
+					apiUrl,
+					`--secret=${ secret }`,
+					'--state-dir=/state',
+					'--fs-root=/docroot',
+					'--target-engine=sqlite',
+					'--target-sqlite-path=/site/wp-content/database/.ht.sqlite',
+					'--rewrite-url',
+					`https://${ new URL( metadata.remoteSiteUrl || metadata.normalizedUrl ).host }`,
+					metadata.localUrl!,
+					'--rewrite-url',
+					`http://${ new URL( metadata.remoteSiteUrl || metadata.normalizedUrl ).host }`,
+					metadata.localUrl!,
+				],
+				undefined,
+				{
+					mounts: [ { hostPath: metadata.sitePath, vfsPath: '/site' } ],
+				}
+			);
+			logger.reportSuccess( __( 'Database imported' ) );
+			setStage( metadata, 'db-applied' );
+		}
+
+		if ( ! hasReachedStage( metadata, 'runtime-generated' ) ) {
+			logger.reportStart( LoggerAction.URL_REWRITE, __( 'Generating runtime configuration…' ) );
+			await runImporterCommandUntilComplete(
+				metadata.stateDirectory,
+				metadata.rawDirectory,
+				[
+					'apply-runtime',
+					'--state-dir=/state',
+					'--flat-document-root=/flat',
+					'--output-dir=/output',
+					'--runtime=playground-cli',
+				],
+				undefined,
+				{
+					mounts: [
+						{ hostPath: metadata.sitePath, vfsPath: '/flat' },
+						{ hostPath: metadata.runtimeDirectory, vfsPath: '/output' },
+					],
+				}
+			);
+			logger.reportSuccess( __( 'Runtime configuration generated' ) );
+			setStage( metadata, 'runtime-generated' );
+		}
+
+		const sqliteDbPath = path.join( metadata.sitePath, 'wp-content', 'database', '.ht.sqlite' );
+		const tablePrefix = metadata.tablePrefix || 'wp_';
+		if ( deactivatePluginInSqlite( sqliteDbPath, tablePrefix, 'sg-security' ) ) {
+			logger.reportSuccess( 'Deactivated sg-security plugin' );
+		}
+		if ( deactivatePluginInSqlite( sqliteDbPath, tablePrefix, 'sg-cachepress' ) ) {
+			logger.reportSuccess( 'Deactivated sg-cachepress plugin' );
+		}
+
+		let createdSiteRecord = false;
+		if ( ! hasReachedStage( metadata, 'site-registered' ) ) {
+			logger.reportStart( LoggerAction.CREATE_SITE, `Creating site "${ metadata.siteName }"…` );
+			const result = await registerSite( metadata );
+			createdSiteRecord = result.created;
+			logger.reportSuccess( `Site "${ metadata.siteName }" created` );
+			setStage( metadata, 'site-registered' );
+			logger.reportKeyValuePair( 'id', result.site.id );
+
+			if ( createdSiteRecord ) {
+				await emitCliEvent( { event: SITE_EVENTS.CREATED, data: { siteId: result.site.id } } );
+			}
+		}
+
+		const site = ( await syncMetadataWithExistingSite( metadata ) )!;
+		if ( ! hasReachedStage( metadata, 'site-started' ) ) {
+			const blueprint = loadRuntimeBlueprint( metadata.runtimeBlueprintPath );
+			logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
+
+			try {
+				await connectToDaemon();
+				const processDesc = await startWordPressServer( site, logger, {
+					blueprint,
+					blueprintUri: metadata.runtimeBlueprintPath,
+				} );
+				logger.reportSuccess( __( 'WordPress server started' ) );
+
+				if ( processDesc.status === 'online' ) {
+					await updateSiteLatestCliPid( site.id, processDesc.pid );
+				}
+				await updateSiteAutoStart( site.id, true );
+				metadata.localUrl = getSiteUrl( site );
+				saveImportMetadata( metadata );
+				setStage( metadata, 'site-started' );
+			} finally {
+				await disconnectFromDaemon();
+			}
+		}
+
+		printReadyMessage( metadata );
+
+		if ( ! hasReachedStage( metadata, 'completed' ) ) {
+			if ( hasSkippedFiles( metadata ) ) {
+				logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Downloading remaining files…' ) );
+				await runImporterCommandUntilComplete(
+					metadata.stateDirectory,
+					metadata.rawDirectory,
+					[
+						'files-sync',
+						apiUrl,
+						`--secret=${ secret }`,
+						'--filter=skipped-earlier',
+						'--no-adaptive',
+						'--state-dir=/state',
+						'--fs-root=/docroot',
+					],
+					( progress ) => logger.reportProgress( progress ),
+					{
+						progressRoot: metadata.rawDirectory,
+						progressLabel: 'Remaining files',
+					}
+				);
+				logger.reportSuccess( __( 'Remaining files downloaded' ) );
+			}
+
+			setStage( metadata, 'completed' );
+		}
+
+		printCompletionMessage( metadata );
+	} catch ( error ) {
+		printResumeMessage( metadata.normalizedUrl, providedName );
+		if ( error instanceof LoggerError ) {
+			throw error;
+		}
+		throw new LoggerError( __( 'Failed to import site' ), error );
+	}
+}
+
+export const registerCommand = ( yargs: StudioArgv ) => {
+	return yargs.command( {
+		command: 'import',
+		describe: __( 'Import a remote WordPress site' ),
+		builder: ( builderYargs ) => {
+			return builderYargs
+				.option( 'url', {
+					type: 'string',
+					describe: __( 'URL of the remote WordPress site' ),
+					demandOption: true,
+				} )
+				.option( 'secret', {
+					type: 'string',
+					describe: __( 'Shared HMAC secret configured in the migration plugin' ),
+					demandOption: true,
+				} )
+				.option( 'name', {
+					type: 'string',
+					describe: __( 'Local site name' ),
+				} )
+				.option( 'verbose', {
+					type: 'boolean',
+					describe: __( 'Show detailed error information' ),
+					default: false,
+				} );
+		},
+		handler: async ( argv ) => {
+			const verbose = argv.verbose as boolean;
+
+			try {
+				await runCommand(
+					argv.url as string,
+					argv.secret as string,
+					argv.name as string | undefined
+				);
+			} catch ( error ) {
+				if ( error instanceof ImportError ) {
+					logger.spinner.fail( __( 'Import failed' ) );
+					console.error( '\n' + redBox( error.message ) );
+					if ( verbose && error.technicalDetails ) {
+						console.error( '\n' + chalk.dim( error.technicalDetails ) );
+					} else if ( error.technicalDetails ) {
+						console.error( chalk.dim( '\nRun with --verbose for detailed error output.' ) );
+					}
+				} else if ( error instanceof LoggerError ) {
+					logger.reportError( error );
+				} else {
+					logger.reportError( new LoggerError( __( 'Failed to import site' ), error ) );
+				}
+			}
+		},
+	} );
+};

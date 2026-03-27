@@ -1,4 +1,5 @@
 import { updateManagedInstructionFiles } from '@studio/common/lib/agent-skills';
+import fs from 'fs';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import {
@@ -13,8 +14,21 @@ import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { isServerRunning, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
+import type { Blueprint } from '@wp-playground/blueprints';
 
 const logger = new Logger< LoggerAction >();
+
+function loadRuntimeBlueprint( runtimeBlueprintPath: string ): Blueprint {
+	if ( ! fs.existsSync( runtimeBlueprintPath ) ) {
+		throw new LoggerError( `Runtime Blueprint not found: ${ runtimeBlueprintPath }` );
+	}
+
+	try {
+		return JSON.parse( fs.readFileSync( runtimeBlueprintPath, 'utf-8' ) ) as Blueprint;
+	} catch ( error ) {
+		throw new LoggerError( `Failed to parse runtime Blueprint: ${ runtimeBlueprintPath }`, error );
+	}
+}
 
 export async function runCommand(
 	sitePath: string,
@@ -47,12 +61,20 @@ export async function runCommand(
 
 		await setupCustomDomain( site, logger );
 
-		logger.reportStart(
-			LoggerAction.INSTALL_SQLITE,
-			__( 'Setting up SQLite integration, if needed…' )
-		);
-		await keepSqliteIntegrationUpdated( sitePath );
-		logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
+		let startOptions;
+		if ( site.runtimeBlueprintPath ) {
+			startOptions = {
+				blueprint: loadRuntimeBlueprint( site.runtimeBlueprintPath ),
+				blueprintUri: site.runtimeBlueprintPath,
+			};
+		} else {
+			logger.reportStart(
+				LoggerAction.INSTALL_SQLITE,
+				__( 'Setting up SQLite integration, if needed…' )
+			);
+			await keepSqliteIntegrationUpdated( sitePath );
+			logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
+		}
 
 		try {
 			await updateManagedInstructionFiles( sitePath, getAiInstructionsPath() );
@@ -65,7 +87,7 @@ export async function runCommand(
 
 		logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
 		try {
-			const processDesc = await startWordPressServer( site, logger );
+			const processDesc = await startWordPressServer( site, logger, startOptions );
 
 			logger.reportSuccess( __( 'WordPress server started' ) );
 			if ( processDesc.status === 'online' ) {

@@ -27,7 +27,7 @@ import { useI18nLocale } from 'src/stores';
 import { useLatestRewindId, useRemoteFileTree, useLocalFileTree } from 'src/stores/sync';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import { TreeViewLoadingSkeleton } from './tree-view-loading-skeleton';
-import type { SyncSite } from 'src/modules/sync/types';
+import type { SyncSite } from '@studio/common/types/sync';
 
 type SyncDialogProps = {
 	type: 'push' | 'pull';

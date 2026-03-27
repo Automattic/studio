@@ -107,7 +107,7 @@ import {
 	updateAppdata,
 } from 'src/storage/user-data';
 import { Blueprint } from 'src/stores/wpcom-api';
-import type { RawDirectoryEntry } from 'src/modules/sync/types';
+import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { WpCliResult } from 'src/site-server';
 
 export {

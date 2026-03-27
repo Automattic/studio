@@ -12,8 +12,6 @@ import { withOfflineCheck } from 'src/stores/utils/with-offline-check';
 import { getWpcomClient } from 'src/stores/wpcom-api';
 import type { SyncSite } from '@studio/common/types/sync';
 
-export type { SitesEndpointSite } from '@studio/common/types/sync';
-
 const SITE_FIELDS = [
 	'name',
 	'ID',

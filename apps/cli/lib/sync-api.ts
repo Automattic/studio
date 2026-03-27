@@ -14,7 +14,6 @@ import { __, sprintf } from '@wordpress/i18n';
 import { z } from 'zod';
 import { LoggerError } from 'cli/logger';
 import type { SyncSite, ImportResponse, SyncOption } from '@studio/common/types/sync';
-export type { BackupStatus, RemoteFileEntry } from '@studio/common/lib/sync/sync-api';
 
 export function parseSyncOptions( optionsString?: string ): SyncOption[] {
 	if ( ! optionsString ) {

@@ -4,11 +4,10 @@ import { SYNC_OPTIONS } from 'src/constants';
 import { wpcomApi } from 'src/stores/wpcom-api';
 import {
 	BackupLsItemSchema,
-	BackupLsRequest,
 	BackupLsResponseSchema,
 	LatestRewindIdResponseSchema,
-	type BackupLsItem,
 } from './sync-types';
+import type { BackupLsItem, BackupLsRequest } from '@studio/common/types/sync-tree';
 
 const getParentFolder = ( parentPath: string ) => {
 	return parentPath.split( '/' ).filter( Boolean ).pop() ?? '';

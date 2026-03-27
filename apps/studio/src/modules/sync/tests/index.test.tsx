@@ -9,7 +9,7 @@ import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ContentTabSync } from 'src/modules/sync';
 import { useSelectedItemsPushSize } from 'src/modules/sync/hooks/use-selected-items-push-size';
-import { SyncSite } from 'src/modules/sync/types';
+import { SyncSite } from '@studio/common/types/sync';
 import { store } from 'src/stores';
 import { syncOperationsActions, useLatestRewindId, useRemoteFileTree } from 'src/stores/sync';
 import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';

@@ -15,12 +15,11 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getHostnameFromUrl } from 'src/lib/url-utils';
 import { store } from 'src/stores';
 import { connectedSitesApi } from 'src/stores/sync/connected-sites';
-import type { ImportResponse } from '@studio/common/types/sync';
+import type { ImportResponse, SyncSite } from '@studio/common/types/sync';
 import type {
 	PullStateProgressInfo,
 	PushStateProgressInfo,
 } from 'src/hooks/use-sync-states-progress-info';
-import type { SyncSite } from 'src/modules/sync/types';
 import type { AppDispatch, RootState } from 'src/stores';
 import type { SyncOption } from 'src/types';
 import type { WPCOM } from 'wpcom/types';

@@ -1,5 +1,5 @@
 import { reconcileConnectedSites } from 'src/modules/sync/lib/reconcile-connected-sites';
-import type { SyncSite } from 'src/modules/sync/types';
+import type { SyncSite } from '@studio/common/types/sync';
 
 describe( 'reconcileConnectedSites', () => {
 	test( 'should update relevant properties', () => {

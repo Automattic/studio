@@ -24,7 +24,8 @@ import {
 	useGetConnectedSitesForLocalSiteQuery,
 } from 'src/stores/sync/connected-sites';
 import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
-import type { SyncSite, SyncModalMode } from 'src/modules/sync/types';
+import type { SyncSite } from '@studio/common/types/sync';
+import type { SyncModalMode } from 'src/modules/sync/types';
 
 const SearchControl = process.env.NODE_ENV === 'test' ? () => null : SearchControlWp;
 

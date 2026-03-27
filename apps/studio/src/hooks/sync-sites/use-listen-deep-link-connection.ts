@@ -1,9 +1,9 @@
+import { SyncSite } from '@studio/common/types/sync';
 import { useAuth } from 'src/hooks/use-auth';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { SyncSite } from 'src/modules/sync/types';
 import { useAppDispatch } from 'src/stores';
 import {
 	connectedSitesActions,

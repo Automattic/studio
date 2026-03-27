@@ -1,6 +1,7 @@
 import { promises as fsPromises } from 'fs';
 import path from 'path';
 import ignore, { Ignore } from 'ignore';
+import { isErrnoException } from './is-errno-exception';
 
 export type { Ignore };
 
@@ -32,8 +33,10 @@ export async function createDeployIgnoreFilter(
 	try {
 		const content = await fsPromises.readFile( deployIgnorePath, 'utf-8' );
 		ig.add( content );
-	} catch {
-		// .deployignore doesn't exist — use defaults only
+	} catch ( error: unknown ) {
+		if ( ! isErrnoException( error ) || error.code !== 'ENOENT' ) {
+			console.warn( `Failed to read ${ deployIgnorePath }:`, error );
+		}
 	}
 
 	return ig;

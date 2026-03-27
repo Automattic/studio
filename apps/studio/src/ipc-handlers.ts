@@ -631,6 +631,11 @@ export interface FolderDialogResponse {
 	isNameTooLong?: boolean;
 }
 
+async function getDefaultSiteDirectory(): Promise< string > {
+	const userData = await loadUserData();
+	return resolveDefaultSiteDirectory( userData.defaultSiteDirectory );
+}
+
 export async function showSaveAsDialog( event: IpcMainInvokeEvent, options: SaveDialogOptions ) {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	if ( ! parentWindow ) {
@@ -642,7 +647,7 @@ export async function showSaveAsDialog( event: IpcMainInvokeEvent, options: Save
 		typeof options.defaultPath === 'string' &&
 		options.defaultPath === nodePath.basename( options.defaultPath )
 	) {
-		const defaultSiteDirectory = await resolveDefaultSiteDirectory();
+		const defaultSiteDirectory = await getDefaultSiteDirectory();
 		defaultPath = nodePath.join( defaultSiteDirectory, options.defaultPath );
 	}
 	const { canceled, filePath } = await dialog.showSaveDialog( parentWindow, {
@@ -679,7 +684,7 @@ export async function showOpenFolderDialog(
 	}
 
 	const defaultPath =
-		defaultDialogPath !== '' ? defaultDialogPath : await resolveDefaultSiteDirectory();
+		defaultDialogPath !== '' ? defaultDialogPath : await getDefaultSiteDirectory();
 	const { canceled, filePaths } = await dialog.showOpenDialog( parentWindow, {
 		title,
 		defaultPath,
@@ -726,7 +731,7 @@ export async function copySite(
 	}
 	const sourceSite = sourceServer.details;
 
-	const defaultSiteDirectory = await resolveDefaultSiteDirectory();
+	const defaultSiteDirectory = await getDefaultSiteDirectory();
 	const finalSitePath = nodePath.join( defaultSiteDirectory, sanitizeFolderName( siteName ) );
 
 	console.log( `Copying site '${ sourceSite.name }' to '${ siteName }'` );
@@ -900,7 +905,7 @@ export async function generateProposedSitePath(
 	_event: IpcMainInvokeEvent,
 	siteName: string
 ): Promise< FolderDialogResponse > {
-	const defaultSiteDirectory = await resolveDefaultSiteDirectory();
+	const defaultSiteDirectory = await getDefaultSiteDirectory();
 	const path = nodePath.join( defaultSiteDirectory, sanitizeFolderName( siteName ) );
 
 	try {
@@ -936,7 +941,7 @@ export async function generateSiteNameFromList(
 	_event: IpcMainInvokeEvent,
 	usedSites: SiteDetails[]
 ): Promise< string > {
-	const defaultSiteDirectory = await resolveDefaultSiteDirectory();
+	const defaultSiteDirectory = await getDefaultSiteDirectory();
 	return generateSiteName(
 		usedSites.map( ( s ) => s.name ),
 		defaultSiteDirectory
@@ -948,7 +953,7 @@ export async function generateNumberedNameFromList(
 	baseName: string,
 	usedSites: SiteDetails[]
 ): Promise< string > {
-	const defaultSiteDirectory = await resolveDefaultSiteDirectory();
+	const defaultSiteDirectory = await getDefaultSiteDirectory();
 	return generateNumberedName(
 		baseName,
 		usedSites.map( ( s ) => s.name ),

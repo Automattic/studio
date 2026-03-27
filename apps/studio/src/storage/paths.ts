@@ -144,24 +144,7 @@ export async function ensureWritableDirectory( directory: string ) {
 	await ensurePathIsWritable( directory );
 }
 
-async function getStoredDefaultSiteDirectory(): Promise< string | undefined > {
-	const { loadUserData } = await import( 'src/storage/user-data' );
-	const userData = await loadUserData();
-	return userData.defaultSiteDirectory;
-}
-
-export async function resolveDefaultSiteDirectory(): Promise< string > {
-	let storedPath: string | undefined;
-	try {
-		storedPath = await getStoredDefaultSiteDirectory();
-	} catch ( error ) {
-		console.warn(
-			'Failed to load stored default site directory, falling back to built-in path.',
-			error
-		);
-		return defaultSitePath;
-	}
-
+export async function resolveDefaultSiteDirectory( storedPath?: string ): Promise< string > {
 	if ( storedPath ) {
 		try {
 			await ensureWritableDirectory( storedPath );

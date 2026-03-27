@@ -52,7 +52,8 @@ export async function saveUserEditor( event: IpcMainInvokeEvent, editor: Support
 }
 
 export async function getDefaultSiteDirectory(): Promise< string > {
-	return resolveDefaultSiteDirectory();
+	const userData = await loadUserData();
+	return resolveDefaultSiteDirectory( userData.defaultSiteDirectory );
 }
 
 export async function saveDefaultSiteDirectory( event: IpcMainInvokeEvent, directory: string ) {

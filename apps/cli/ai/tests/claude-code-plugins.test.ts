@@ -34,7 +34,11 @@ function toForwardSlash( p: string ): string {
 	return p.replace( /\\/g, '/' );
 }
 
-function mockPluginFiles( fileMap: Record< string, string > ) {
+function mockPluginFiles( rawFileMap: Record< string, string > ) {
+	const fileMap: Record< string, string > = {};
+	for ( const [ key, value ] of Object.entries( rawFileMap ) ) {
+		fileMap[ toForwardSlash( key ) ] = value;
+	}
 	vi.mocked( fs.readFileSync ).mockImplementation( ( filePath ) => {
 		const content = fileMap[ toForwardSlash( String( filePath ) ) ];
 		if ( content !== undefined ) {

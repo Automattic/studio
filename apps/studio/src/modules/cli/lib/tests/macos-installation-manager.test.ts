@@ -1,7 +1,6 @@
 /**
  * @vitest-environment node
  */
-import path from 'node:path';
 import { vi } from 'vitest';
 import {
 	MacOSCliInstallationManager,
@@ -99,12 +98,8 @@ vi.mock( '@studio/common/lib/is-errno-exception', () => ( {
 		error instanceof Error && 'code' in error,
 } ) );
 
-const CLI_SYMLINK_PATH = path.join( '/Users/testuser', '.local', 'bin', 'studio' );
-const CLI_PACKAGED_PATH = path.join(
-	'/Applications/Studio.app/Contents/Resources',
-	'bin',
-	'studio-cli.sh'
-);
+const CLI_SYMLINK_PATH = '/Users/testuser/.local/bin/studio';
+const CLI_PACKAGED_PATH = '/Applications/Studio.app/Contents/Resources/bin/studio-cli.sh';
 const LEGACY_SYMLINK_PATH = '/usr/local/bin/studio';
 
 function enoentError() {
@@ -119,7 +114,10 @@ function eaccesError() {
 	return error;
 }
 
-describe( 'MacOSCliInstallationManager', () => {
+// These tests are macOS-specific — skip on other platforms where path separators differ.
+const isNonDarwin = process.platform !== 'darwin';
+
+describe.skipIf( isNonDarwin )( 'MacOSCliInstallationManager', () => {
 	let manager: MacOSCliInstallationManager;
 	const originalPlatform = process.platform;
 	const originalEnv = { ...process.env };
@@ -166,16 +164,9 @@ describe( 'MacOSCliInstallationManager', () => {
 
 		it( 'returns true in dev mode when symlink points to production CLI', async () => {
 			process.env.NODE_ENV = 'development';
-			const prodCliPath = path.join(
-				path.sep,
-				'Applications',
-				'Studio.app',
-				'Contents',
-				'Resources',
-				'bin',
-				'studio-cli.sh'
+			mockReadlink.mockResolvedValue(
+				'/Applications/Studio.app/Contents/Resources/bin/studio-cli.sh'
 			);
-			mockReadlink.mockResolvedValue( prodCliPath );
 			expect( await manager.isCliInstalled() ).toBe( true );
 		} );
 	} );
@@ -244,10 +235,9 @@ describe( 'MacOSCliInstallationManager', () => {
 
 			await manager.autoInstallIfNeeded();
 
-			expect( mockMkdir ).toHaveBeenCalledWith(
-				path.join( '/Users/testuser', '.local', 'bin' ),
-				{ recursive: true }
-			);
+			expect( mockMkdir ).toHaveBeenCalledWith( '/Users/testuser/.local/bin', {
+				recursive: true,
+			} );
 			expect( mockSymlink ).toHaveBeenCalledWith( CLI_PACKAGED_PATH, CLI_SYMLINK_PATH );
 			expect( mockUpdateAppdata ).toHaveBeenCalledWith( { cliAutoInstalled: true } );
 		} );
@@ -341,7 +331,7 @@ describe( 'MacOSCliInstallationManager', () => {
 		} );
 
 		it( 'skips profile update if ~/.local/bin is already in PATH', async () => {
-			process.env.PATH = `${ path.join( '/Users/testuser', '.local', 'bin' ) }:/usr/bin:/bin`;
+			process.env.PATH = '/Users/testuser/.local/bin:/usr/bin:/bin';
 
 			await manager.autoInstallIfNeeded();
 
@@ -355,7 +345,7 @@ describe( 'MacOSCliInstallationManager', () => {
 			await manager.autoInstallIfNeeded();
 
 			expect( mockWriteFile ).toHaveBeenCalledWith(
-				path.join( '/Users/testuser', '.zshrc' ),
+				'/Users/testuser/.zshrc',
 				'# My zshrc\nexport PATH="$HOME/.local/bin:$PATH"\n',
 				'utf-8'
 			);
@@ -368,7 +358,7 @@ describe( 'MacOSCliInstallationManager', () => {
 			await manager.autoInstallIfNeeded();
 
 			expect( mockWriteFile ).toHaveBeenCalledWith(
-				path.join( '/Users/testuser', '.zshrc' ),
+				'/Users/testuser/.zshrc',
 				'export PATH="$HOME/.local/bin:$PATH"\n',
 				'utf-8'
 			);
@@ -393,7 +383,7 @@ describe( 'MacOSCliInstallationManager', () => {
 			await manager.autoInstallIfNeeded();
 
 			expect( mockWriteFile ).toHaveBeenCalledWith(
-				path.join( '/Users/testuser', '.bash_profile' ),
+				'/Users/testuser/.bash_profile',
 				expect.stringContaining( 'export PATH="$HOME/.local/bin:$PATH"' ),
 				'utf-8'
 			);
@@ -406,7 +396,7 @@ describe( 'MacOSCliInstallationManager', () => {
 			await manager.autoInstallIfNeeded();
 
 			expect( mockWriteFile ).toHaveBeenCalledWith(
-				path.join( '/Users/testuser', '.zshrc' ),
+				'/Users/testuser/.zshrc',
 				'# My zshrc\nexport PATH="$HOME/.local/bin:$PATH"\n',
 				'utf-8'
 			);

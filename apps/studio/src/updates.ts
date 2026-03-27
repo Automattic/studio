@@ -233,8 +233,6 @@ async function showReadOnlyVolumeError( err: Error ) {
 		);
 		detailPath = sprintf( __( 'Studio is running from: %s' ), app.getPath( 'exe' ) );
 
-		// this case is not expected, so we want to capture it
-		Sentry.captureException( err );
 		console.error( err );
 	}
 

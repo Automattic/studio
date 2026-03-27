@@ -76,7 +76,7 @@ function Authentication() {
 	if ( isAuthenticated ) {
 		return (
 			<Button
-				onClick={ () => getIpcApi().showUserSettings() }
+				onClick={ () => getIpcApi().showUserSettings( 'account' ) }
 				aria-label={ __( 'Open account settings' ) }
 				variant="icon"
 				className="text-white hover:!text-white !px-1 py-1 !h-6 gap-2"

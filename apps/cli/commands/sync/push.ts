@@ -22,14 +22,14 @@ import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 import type { SyncOption } from '@studio/common/types/sync';
 
+const logger = new Logger< LoggerAction >();
+
 export async function runCommand(
 	siteFolder: string,
 	syncOptions?: SyncOption[],
 	archivePath?: string,
 	siteIdentifier?: string
 ): Promise< void > {
-	const logger = new Logger< LoggerAction >();
-
 	const token = await readAuthToken();
 	if ( ! token ) {
 		throw new LoggerError(
@@ -247,7 +247,6 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} );
 		},
 		handler: async ( argv ) => {
-			const logger = new Logger< LoggerAction >();
 			try {
 				await runCommand(
 					argv.path,

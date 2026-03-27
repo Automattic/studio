@@ -46,7 +46,7 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const [ dirtyEditor, setDirtyEditor ] = useState< SupportedEditor | null >();
 	const [ dirtyTerminal, setDirtyTerminal ] = useState< SupportedTerminal >();
 	const [ dirtyIsCliInstalled, setDirtyIsCliInstalled ] = useState< boolean >();
-	const [ storedDefaultSiteDirectory, setStoredDefaultSiteDirectory ] = useState< string >();
+	const [ dirtyDefaultSiteDirectory, setDirtyDefaultSiteDirectory ] = useState< string >();
 	const [ defaultSiteDirectory, setDefaultSiteDirectory ] = useState< string >();
 	const [ isLoadingDefaultSiteDirectory, setIsLoadingDefaultSiteDirectory ] = useState( true );
 
@@ -93,12 +93,8 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 		if ( dirtyIsCliInstalled !== undefined ) {
 			await saveCliIsInstalled( dirtyIsCliInstalled );
 		}
-		const isDefaultDirectoryDirty =
-			storedDefaultSiteDirectory !== undefined &&
-			defaultSiteDirectory !== undefined &&
-			storedDefaultSiteDirectory !== defaultSiteDirectory;
-		if ( isDefaultDirectoryDirty && defaultSiteDirectory ) {
-			await getIpcApi().saveDefaultSiteDirectory( defaultSiteDirectory );
+		if ( dirtyDefaultSiteDirectory ) {
+			await getIpcApi().saveDefaultSiteDirectory( dirtyDefaultSiteDirectory );
 		}
 		onClose();
 	};
@@ -108,6 +104,7 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const editorSelection = dirtyEditor ?? editor ?? 'vscode';
 	const terminalSelection = dirtyTerminal ?? terminal ?? 'terminal';
 	const isCliInstalledSelection = dirtyIsCliInstalled ?? isCliInstalled ?? false;
+	const defaultSiteDirectorySelection = dirtyDefaultSiteDirectory ?? defaultSiteDirectory ?? '';
 
 	const hasChanges = [
 		[ dirtyColorScheme, colorScheme ],
@@ -115,7 +112,7 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 		[ dirtyEditor, editor ],
 		[ dirtyTerminal, terminal ],
 		[ dirtyIsCliInstalled, isCliInstalled ],
-		[ defaultSiteDirectory, storedDefaultSiteDirectory ],
+		[ dirtyDefaultSiteDirectory, defaultSiteDirectory ],
 	].some( ( [ a, b ] ) => a !== undefined && a !== b );
 
 	useEffect( () => {
@@ -126,7 +123,6 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 				if ( ! isMounted ) {
 					return;
 				}
-				setStoredDefaultSiteDirectory( directory );
 				setDefaultSiteDirectory( directory );
 			} finally {
 				if ( isMounted ) {
@@ -142,10 +138,10 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const handleChangeDefaultDirectory = async () => {
 		const response = await getIpcApi().showOpenFolderDialog(
 			__( 'Select default site directory' ),
-			defaultSiteDirectory ?? ''
+			defaultSiteDirectorySelection
 		);
 		if ( response?.path ) {
-			setDefaultSiteDirectory( response.path );
+			setDirtyDefaultSiteDirectory( response.path );
 		}
 	};
 
@@ -166,7 +162,9 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 			) }
 			<SettingsFormField label={ __( 'Default site directory' ) }>
 				<FormPathInputComponent
-					value={ isLoadingDefaultSiteDirectory ? __( 'Loading...' ) : defaultSiteDirectory ?? '' }
+					value={
+						isLoadingDefaultSiteDirectory ? __( 'Loading...' ) : defaultSiteDirectorySelection
+					}
 					onClick={ handleChangeDefaultDirectory }
 				/>
 			</SettingsFormField>

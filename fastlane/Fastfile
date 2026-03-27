@@ -267,6 +267,8 @@ lane :new_beta_release do |version:, skip_confirm: false, github_username: nil|
 
   trigger_release_build(version: new_version)
 
+  trigger_npm_publish(ref: "release/#{version}", npm_tag: 'next')
+
   UI.success("New beta release created: v#{new_version}")
 
   # Create backmerge PR so that translations and version bump get merged back to trunk
@@ -331,11 +333,14 @@ lane :publish_release do |version:, skip_confirm: false, github_username: nil|
   PROMPT
   next unless skip_confirm || UI.confirm('Continue?')
 
-  # Publish the draft GitHub release
+  # Publish the draft GitHub release — this creates the release tag (e.g., v1.7.4)
   publish_github_release(
     repository: GITHUB_REPO,
     name: github_release_name(version:)
   )
+
+  # Trigger npm publish using the tag created above
+  trigger_npm_publish(ref: "v#{version}")
 
   create_backmerge_pr(source_branch: release_branch, github_username: github_username)
 
@@ -815,5 +820,49 @@ def trigger_release_build(version:)
       buildkite_pipeline: BUILDKITE_PIPELINE,
       **common_args
     )
+  end
+end
+
+# Trigger the GitHub Actions workflow that publishes the wp-studio npm package.
+#
+# Uses the workflow_dispatch API with `return_run_details` to get the run URL,
+# then annotates the Buildkite build with a link to the workflow run.
+#
+# The GHA workflow uses npm trusted publishing (OIDC) so no npm token is needed.
+#
+# @param ref [String] The git ref (branch or tag) to run the workflow on (e.g., 'release/1.7.4' or 'v1.7.4')
+# @param npm_tag [String, nil] The npm dist-tag (e.g., 'next' for prereleases, nil for 'latest')
+#
+def trigger_npm_publish(ref:, npm_tag: nil)
+  if DRY_RUN
+    UI.message("[DRY RUN] Would trigger npm publish workflow on #{ref} with tag=#{npm_tag || 'latest'}")
+    return
+  end
+
+  github_helper = Fastlane::Helper::GithubHelper.new(github_token: get_required_env('GITHUB_TOKEN'))
+  workflow_file = 'publish-npm-package.yml'
+
+  # We use client.post instead of client.workflow_dispatch because the latter
+  # uses boolean_from_response and discards the body — we need the run URL
+  # returned by the `return_run_details` parameter.
+  response = github_helper.client.post(
+    "#{Octokit::Repository.path(GITHUB_REPO)}/actions/workflows/#{workflow_file}/dispatches",
+    { ref: ref, return_run_details: true, inputs: npm_tag ? { 'npm-tag' => npm_tag } : {} }.to_json
+  )
+
+  html_url = response&.html_url
+  if html_url
+    UI.success("npm publish workflow triggered: #{html_url}")
+
+    if is_ci?
+      tag_label = npm_tag ? "prerelease (#{npm_tag})" : 'latest'
+      buildkite_annotate(
+        context: 'npm-publish',
+        style: 'info',
+        message: ":npm: [npm publish (#{tag_label})](#{html_url})"
+      )
+    end
+  else
+    UI.important('npm publish workflow triggered (no run details returned — check GitHub Actions)')
   end
 end

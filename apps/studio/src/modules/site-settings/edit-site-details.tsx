@@ -296,7 +296,10 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 				>
 					<form onSubmit={ onSiteEdit }>
 						<TabPanel
-							className="w-full [&>[role=tabpanel]]:h-64 [&>[role=tabpanel]]:overflow-auto"
+							className={ cx(
+								'w-full [&>[role=tabpanel]]:overflow-auto',
+								isFormTab ? '[&>[role=tabpanel]]:h-64' : '[&>[role=tabpanel]]:h-80'
+							) }
 							tabs={ [
 								{ name: 'general', title: __( 'General' ) },
 								{ name: 'debugging', title: __( 'Debugging' ) },

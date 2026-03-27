@@ -190,10 +190,10 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 			}
 		} catch ( error ) {
 			if ( isErrnoException( error ) && error.code === 'ENOENT' ) {
-				// File does not exist, which means we can proceed
-			} else {
-				throw error;
+				// File does not exist, nothing to uninstall.
+				return;
 			}
+			throw error;
 		}
 
 		await unlink( cliSymlinkPath );

@@ -107,10 +107,10 @@ function enoentError() {
 	return error;
 }
 
-// These tests are macOS-specific — skip on other platforms where path separators differ.
-const isNonDarwin = process.platform !== 'darwin';
+// These tests use POSIX paths — skip on Windows where path separators differ.
+const isWindows = process.platform === 'win32';
 
-describe.skipIf( isNonDarwin )( 'MacOSCliInstallationManager', () => {
+describe.skipIf( isWindows )( 'MacOSCliInstallationManager', () => {
 	let manager: MacOSCliInstallationManager;
 	const originalPlatform = process.platform;
 	const originalEnv = { ...process.env };

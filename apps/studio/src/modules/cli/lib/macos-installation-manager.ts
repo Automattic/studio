@@ -20,7 +20,6 @@ import { getResourcesPath } from 'src/storage/paths';
 import { loadUserData, updateAppdata } from 'src/storage/user-data';
 
 const cliSymlinkPath = path.join( os.homedir(), '.local', 'bin', 'studio' );
-const legacyCliSymlinkPath = '/usr/local/bin/studio';
 
 const binPath = path.join( getResourcesPath(), 'bin' );
 const cliPackagedPath = path.join( binPath, 'studio-cli.sh' );
@@ -133,8 +132,6 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 	}
 
 	async autoInstallIfNeeded(): Promise< void > {
-		await this.cleanupLegacySymlink();
-
 		if ( await this.isCliInstalled() ) {
 			return;
 		}
@@ -248,23 +245,6 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 				: `\n${ PATH_EXPORT_LINE }\n`;
 
 		await writeFile( profilePath, existingContent + lineToAppend, 'utf-8' );
-	}
-
-	private async cleanupLegacySymlink(): Promise< void > {
-		try {
-			const stats = await lstat( legacyCliSymlinkPath );
-			if ( ! stats.isSymbolicLink() ) {
-				return;
-			}
-
-			const target = await readlink( legacyCliSymlinkPath );
-			// Only remove if it points to a Studio CLI path
-			if ( target.includes( 'Studio.app' ) || target.includes( 'studio-cli' ) ) {
-				await unlink( legacyCliSymlinkPath );
-			}
-		} catch {
-			// Best-effort cleanup: silently ignore permission errors or missing files.
-		}
 	}
 
 	private async getCurrentSymlinkDestination(): Promise< string | null > {

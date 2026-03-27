@@ -100,17 +100,10 @@ vi.mock( '@studio/common/lib/is-errno-exception', () => ( {
 
 const CLI_SYMLINK_PATH = '/Users/testuser/.local/bin/studio';
 const CLI_PACKAGED_PATH = '/Applications/Studio.app/Contents/Resources/bin/studio-cli.sh';
-const LEGACY_SYMLINK_PATH = '/usr/local/bin/studio';
 
 function enoentError() {
 	const error = new Error( 'ENOENT' ) as NodeJS.ErrnoException;
 	error.code = 'ENOENT';
-	return error;
-}
-
-function eaccesError() {
-	const error = new Error( 'EACCES' ) as NodeJS.ErrnoException;
-	error.code = 'EACCES';
 	return error;
 }
 
@@ -260,62 +253,12 @@ describe.skipIf( isNonDarwin )( 'MacOSCliInstallationManager', () => {
 				siteMetadata: {},
 				cliAutoInstalled: true,
 			} );
-			// cleanupLegacySymlink - no legacy symlink
-			mockLstat.mockRejectedValue( enoentError() );
 			// isCliInstalled returns false (user disabled it)
 			mockReadlink.mockRejectedValue( enoentError() );
 
 			await manager.autoInstallIfNeeded();
 
 			expect( mockSymlink ).not.toHaveBeenCalled();
-		} );
-
-		it( 'cleans up legacy symlink before installing', async () => {
-			// First lstat call is for legacy cleanup, second is for installCli
-			mockLstat
-				.mockResolvedValueOnce( { isSymbolicLink: () => true } ) // legacy exists
-				.mockRejectedValueOnce( enoentError() ); // new path doesn't exist
-
-			// readlink: first for legacy check, then for isCliInstalled (x2 in autoInstall + installCli)
-			mockReadlink
-				.mockResolvedValueOnce( '/Applications/Studio.app/Contents/Resources/bin/studio-cli.sh' ) // legacy target
-				.mockRejectedValueOnce( enoentError() ) // isCliInstalled in autoInstall
-				.mockRejectedValueOnce( enoentError() ); // isCliInstalled in installCli
-
-			mockUnlink
-				.mockResolvedValueOnce( undefined ) // legacy unlink
-				.mockRejectedValueOnce( enoentError() ); // new path unlink (doesn't exist)
-
-			mockMkdir.mockResolvedValue( undefined );
-			mockSymlink.mockResolvedValue( undefined );
-			mockAccess.mockRejectedValue( enoentError() );
-			mockReadFile.mockRejectedValue( enoentError() );
-			mockWriteFile.mockResolvedValue( undefined );
-
-			await manager.autoInstallIfNeeded();
-
-			// Legacy symlink should be removed
-			expect( mockUnlink ).toHaveBeenCalledWith( LEGACY_SYMLINK_PATH );
-			// New symlink should be created
-			expect( mockSymlink ).toHaveBeenCalledWith( CLI_PACKAGED_PATH, CLI_SYMLINK_PATH );
-		} );
-
-		it( 'silently handles legacy cleanup permission errors', async () => {
-			// Legacy symlink cleanup throws EACCES
-			mockLstat.mockRejectedValueOnce( eaccesError() ).mockRejectedValueOnce( enoentError() );
-
-			// isCliInstalled returns false then installCli checks again
-			mockReadlink.mockRejectedValue( enoentError() );
-			mockUnlink.mockRejectedValue( enoentError() );
-			mockMkdir.mockResolvedValue( undefined );
-			mockSymlink.mockResolvedValue( undefined );
-			mockAccess.mockRejectedValue( enoentError() );
-			mockReadFile.mockRejectedValue( enoentError() );
-			mockWriteFile.mockResolvedValue( undefined );
-
-			// Should not throw
-			await expect( manager.autoInstallIfNeeded() ).resolves.not.toThrow();
-			expect( mockSymlink ).toHaveBeenCalled();
 		} );
 	} );
 

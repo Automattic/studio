@@ -1,5 +1,5 @@
-import { updateManagedInstructionFiles } from '@studio/common/lib/agent-skills';
 import fs from 'fs';
+import { updateManagedInstructionFiles } from '@studio/common/lib/agent-skills';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import {

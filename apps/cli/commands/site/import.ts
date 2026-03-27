@@ -18,7 +18,6 @@ import { portFinder } from '@studio/common/lib/port-finder';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import { ImportCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
-import type { Blueprint } from '@wp-playground/blueprints';
 import { __ } from '@wordpress/i18n';
 import chalk from 'chalk';
 import {
@@ -28,11 +27,7 @@ import {
 	type SiteData,
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
-import {
-	getSiteUrl,
-	updateSiteAutoStart,
-	updateSiteLatestCliPid,
-} from 'cli/lib/cli-config/sites';
+import { getSiteUrl, updateSiteAutoStart, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import {
 	downloadLatestImporterPhar,
@@ -43,6 +38,7 @@ import { getDefaultSitePath } from 'cli/lib/site-paths';
 import { startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
+import type { Blueprint } from '@wp-playground/blueprints';
 
 const logger = new Logger< LoggerAction >();
 

@@ -39,13 +39,11 @@ function mockPluginFiles( fileMap: Record< string, string > ) {
 		throw new Error( `ENOENT: ${ filePath }` );
 	} );
 	vi.mocked( fs.existsSync ).mockImplementation( ( filePath ) => {
-		return (
-			filePath in fileMap ||
-			Object.keys( fileMap ).some( ( key ) => key.startsWith( filePath as string ) )
-		);
+		const path = String( filePath );
+		return path in fileMap || Object.keys( fileMap ).some( ( key ) => key.startsWith( path ) );
 	} );
-	vi.mocked( fs.readdirSync ).mockImplementation( ( dirPath ) => {
-		const prefix = ( dirPath as string ) + '/';
+	vi.mocked( fs.readdirSync ).mockImplementation( ( ( dirPath: fs.PathLike ) => {
+		const prefix = String( dirPath ) + '/';
 		const entries = new Set< string >();
 		for ( const key of Object.keys( fileMap ) ) {
 			if ( key.startsWith( prefix ) ) {
@@ -58,7 +56,7 @@ function mockPluginFiles( fileMap: Record< string, string > ) {
 			throw new Error( `ENOENT: ${ dirPath }` );
 		}
 		return [ ...entries ] as unknown as fs.Dirent[];
-	} );
+	} ) as unknown as typeof fs.readdirSync );
 }
 
 describe( 'isClaudeCodePluginProvider', () => {

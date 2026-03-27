@@ -46,7 +46,7 @@
 		"app:install:bundle": "npm -w studio-app run install:bundle",
 		"compare:perf": "npm -w compare-perf run compare",
 		"lint": "eslint {apps/cli,apps/studio/src,apps/studio/e2e,tools/common}",
-		"typecheck": "tsc -p scripts/tsconfig.json --noEmit && npm run typecheck --workspaces --if-present",
+		"typecheck": "npm run typecheck --workspaces --if-present && tsc -p scripts/tsconfig.json --noEmit",
 		"format": "npm run lint -- --fix",
 		"test": "vitest run",
 		"test:watch": "vitest",

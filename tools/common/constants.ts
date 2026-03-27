@@ -26,6 +26,11 @@ export const PLAYGROUND_CLI_INACTIVITY_TIMEOUT = 2 * 60 * 1000; // 2 minutes of 
 export const PLAYGROUND_CLI_MAX_TIMEOUT = 10 * 60 * 1000; // 10 minutes absolute maximum
 export const PLAYGROUND_CLI_ACTIVITY_CHECK_INTERVAL = 5 * 1000; // Check for inactivity every 5 seconds
 
+// Certificate validation — OID from RFC 5280 §4.2.1.12 (id-kp-serverAuth).
+// We match on the OID rather than the human-readable label because Windows
+// localizes policy names (e.g. "Autenticação de servidor" in Portuguese).
+export const SERVER_AUTH_OID = '1.3.6.1.5.5.7.3.1';
+
 // Custom domains
 export const DEFAULT_CUSTOM_DOMAIN_SUFFIX = '.wp.local';
 

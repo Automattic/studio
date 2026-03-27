@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { domainToASCII } from 'node:url';
 import { promisify } from 'node:util';
+import { SERVER_AUTH_OID } from '@studio/common/constants';
 import { getCertificatesPath } from '@studio/common/lib/well-known-paths';
 import sudo from '@vscode/sudo-prompt';
 import { __ } from '@wordpress/i18n';
@@ -159,14 +160,11 @@ export async function isRootCATrusted(): Promise< boolean > {
 
 	if ( process.platform === 'win32' ) {
 		try {
-			// Execute certutil with more specific validation
 			const { stdout } = await execFilePromise( 'certutil', [ '-verify', CA_CERT_PATH ] );
 
 			const hasValidPolicies =
-				stdout.includes( 'Verified Application Policies:' ) &&
-				stdout.includes( 'Server Authentication' );
+				stdout.includes( 'Verified Application Policies:' ) && stdout.includes( SERVER_AUTH_OID );
 
-			// Only consider the certificate trusted if it has the Server Authentication policy.
 			return hasValidPolicies;
 		} catch ( error ) {
 			return false;

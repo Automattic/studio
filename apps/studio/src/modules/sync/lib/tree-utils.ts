@@ -2,8 +2,6 @@ import { shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
 import { TreeNode } from 'src/components/tree-view';
 import type { RawDirectoryEntry } from '../types';
 
-export { shouldExcludeFromSync, shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
-
 export const convertRawToTreeNodes = ( rawNodes: RawDirectoryEntry[] ): TreeNode[] => {
 	const pluginRegex = /^plugins\/[^/]+$/;
 	const themeRegex = /^themes\/[^/]+$/;

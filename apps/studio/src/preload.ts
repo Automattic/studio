@@ -58,6 +58,7 @@ const api: IpcApi = {
 	updateSnapshot: ( siteFolder, hostname ) =>
 		ipcRendererInvoke( 'updateSnapshot', siteFolder, hostname ),
 	deleteSnapshot: ( hostname ) => ipcRendererInvoke( 'deleteSnapshot', hostname ),
+	deleteAllSnapshots: () => ipcRendererInvoke( 'deleteAllSnapshots' ),
 	setSnapshot: ( hostname, options ) => ipcRendererInvoke( 'setSnapshot', hostname, options ),
 	getLastSeenVersion: () => ipcRendererInvoke( 'getLastSeenVersion' ),
 	saveLastSeenVersion: ( version ) => ipcRendererInvoke( 'saveLastSeenVersion', version ),
@@ -162,9 +163,15 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'getAgentInstructionsStatus', siteId ),
 	installAgentInstructions: ( siteId, options ) =>
 		ipcRendererInvoke( 'installAgentInstructions', siteId, options ),
+	removeAgentInstruction: ( siteId, fileType ) =>
+		ipcRendererInvoke( 'removeAgentInstruction', siteId, fileType ),
 	getWordPressSkillsStatus: ( siteId ) => ipcRendererInvoke( 'getWordPressSkillsStatus', siteId ),
 	installWordPressSkills: ( siteId, options ) =>
 		ipcRendererInvoke( 'installWordPressSkills', siteId, options ),
+	installWordPressSkillById: ( siteId, skillId, options ) =>
+		ipcRendererInvoke( 'installWordPressSkillById', siteId, skillId, options ),
+	removeWordPressSkillById: ( siteId, skillId ) =>
+		ipcRendererInvoke( 'removeWordPressSkillById', siteId, skillId ),
 	getWordPressSkillsStatusAllSites: () => ipcRendererInvoke( 'getWordPressSkillsStatusAllSites' ),
 	installWordPressSkillsToAllSites: ( options ) =>
 		ipcRendererInvoke( 'installWordPressSkillsToAllSites', options ),

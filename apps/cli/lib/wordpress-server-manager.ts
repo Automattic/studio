@@ -10,7 +10,6 @@ import {
 	PLAYGROUND_CLI_INACTIVITY_TIMEOUT,
 	PLAYGROUND_CLI_MAX_TIMEOUT,
 } from '@studio/common/constants';
-import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { z } from 'zod';
 import { SiteData } from 'cli/lib/cli-config/core';
 import {
@@ -431,51 +430,4 @@ export async function sendWpCliCommand(
 	} );
 
 	return wpCliResultSchema.parse( result );
-}
-
-/**
- * Subscribe to site server events
- *
- * Listens for process events and emits 'site-updated' when site status changes.
- * All process manager daemon events are mapped to 'site-updated'.
- *
- * @param handler - Callback invoked when a site event occurs
- * @returns Unsubscribe function to stop listening
- */
-export async function subscribeSiteEvents(
-	handler: ( data: { siteId: string; event: SITE_EVENTS; running: boolean } ) => void
-): Promise< () => void > {
-	const bus = await getDaemonBus();
-
-	const messageHandler = ( message: DaemonBusEventMap[ 'process-message' ] ) => {
-		const processName = message.process.name;
-		if ( ! processName.startsWith( SITE_PROCESS_PREFIX ) ) {
-			return;
-		}
-
-		if ( message.raw.topic === 'result' ) {
-			const siteId = processName.replace( SITE_PROCESS_PREFIX, '' );
-			// 'result' message means server started successfully
-			handler( { siteId, event: SITE_EVENTS.UPDATED, running: true } );
-		}
-	};
-	bus.on( 'process-message', messageHandler );
-
-	const eventHandler = ( event: DaemonBusEventMap[ 'process-event' ] ) => {
-		const processName = event.process.name;
-		if ( ! processName.startsWith( SITE_PROCESS_PREFIX ) ) {
-			return;
-		}
-
-		if ( event.event !== 'online' ) {
-			const siteId = processName.replace( SITE_PROCESS_PREFIX, '' );
-			handler( { siteId, event: SITE_EVENTS.UPDATED, running: false } );
-		}
-	};
-	bus.on( 'process-event', eventHandler );
-
-	return () => {
-		bus.off( 'process-message', messageHandler );
-		bus.off( 'process-event', eventHandler );
-	};
 }

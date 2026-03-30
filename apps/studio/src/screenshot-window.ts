@@ -18,7 +18,17 @@ export function createScreenshotWindow( captureUrl: string ) {
 	} );
 
 	const waitForCapture = async () => {
+		let mainFrameStatusCode: number = 0;
+
+		window.webContents.on( 'did-navigate', ( event, url, httpResponseCode ) => {
+			mainFrameStatusCode = httpResponseCode;
+		} );
+
 		await window.loadURL( captureUrl );
+
+		if ( mainFrameStatusCode >= 500 ) {
+			throw new Error( `Failed to load screenshot URL with status ${ mainFrameStatusCode }` );
+		}
 
 		await window.webContents.insertCSS( `
 			body, html {

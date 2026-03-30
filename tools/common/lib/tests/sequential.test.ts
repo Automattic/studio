@@ -62,7 +62,7 @@ describe( 'sequential', () => {
 					await new Promise( ( r ) => setTimeout( r, 50 ) );
 					return `result-${ key }`;
 				},
-				{ deduplicateKey: ( key: string ) => key }
+				{ deduplicateKey: ( key ) => key }
 			);
 
 			const [ r1, r2, r3 ] = await Promise.all( [ fn( 'a' ), fn( 'a' ), fn( 'a' ) ] );
@@ -81,7 +81,7 @@ describe( 'sequential', () => {
 					await new Promise( ( r ) => setTimeout( r, 10 ) );
 					return `result-${ key }`;
 				},
-				{ concurrent: 3, deduplicateKey: ( key: string ) => key }
+				{ concurrent: 3, deduplicateKey: ( key ) => key }
 			);
 
 			const [ r1, r2 ] = await Promise.all( [ fn( 'a' ), fn( 'b' ) ] );
@@ -99,7 +99,7 @@ describe( 'sequential', () => {
 					await new Promise( ( r ) => setTimeout( r, 10 ) );
 					return `result-${ callCount }`;
 				},
-				{ deduplicateKey: ( key: string ) => key }
+				{ deduplicateKey: ( key ) => key }
 			);
 
 			const r1 = await fn( 'a' );
@@ -154,7 +154,7 @@ describe( 'sequential', () => {
 					await new Promise( ( r ) => setTimeout( r, 50 ) );
 					return `result-${ key }`;
 				},
-				{ concurrent: 1, deduplicateKey: ( key: string ) => key }
+				{ concurrent: 1, deduplicateKey: ( key ) => key }
 			);
 
 			const p1 = fn( 'a' ); // running (takes slot)
@@ -175,7 +175,7 @@ describe( 'sequential', () => {
 					await new Promise( ( r ) => setTimeout( r, 50 ) );
 					return `result-${ key }`;
 				},
-				{ concurrent: 1, max: 1, deduplicateKey: ( key: string ) => key }
+				{ concurrent: 1, max: 1, deduplicateKey: ( key ) => key }
 			);
 
 			const p1 = fn( 'a' ); // running (takes the slot)
@@ -198,7 +198,7 @@ describe( 'sequential', () => {
 					await new Promise( ( r ) => setTimeout( r, 50 ) );
 					return key;
 				},
-				{ concurrent: 1, max: 2, deduplicateKey: ( key: string ) => key }
+				{ concurrent: 1, max: 2, deduplicateKey: ( key ) => key }
 			);
 
 			// First call runs, second and third queue, but 'a' duplicates share a promise

@@ -1266,7 +1266,7 @@ export class AiChatUI {
 				} · ${ displayCwd }`
 			),
 			'',
-			chalk.dim.italic( 'Code is Poetry' ),
+			chalk.dim.italic( __( 'Code is Poetry' ) ),
 		];
 
 		// Lay out logo on the left, info on the right (vertically centered)

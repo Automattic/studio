@@ -19,9 +19,9 @@ const exeDir = path.dirname( process.execPath );
 // Paths relative to bin directory (mirrors studio-cli.bat layout):
 // resources/bin/studio-cli.exe  <- this file
 // resources/bin/node.exe        <- bundled Node
-// resources/cli/main.js         <- CLI entry point
+// resources/cli/main.mjs        <- CLI entry point
 const nodeExe = path.join( exeDir, 'node.exe' );
-const cliScript = path.join( exeDir, '..', 'cli', 'main.js' );
+const cliScript = path.join( exeDir, '..', 'cli', 'main.mjs' );
 
 if ( ! fs.existsSync( nodeExe ) ) {
 	process.stderr.write( 'Error: Node.js runtime not found at: ' + nodeExe + '\n' );

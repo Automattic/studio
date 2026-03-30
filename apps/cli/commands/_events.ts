@@ -64,6 +64,7 @@ async function emitAllSitesStatus(): Promise< void > {
 	for ( const site of cliConfig.sites ) {
 		if ( site.path && ( await isEmptyDir( site.path ).catch( () => true ) ) ) {
 			await removeSiteFromConfig( site.id );
+			await emitSiteEvent( SITE_EVENTS.DELETED, site.id );
 			continue;
 		}
 		await emitSiteEvent( SITE_EVENTS.UPDATED, site.id );

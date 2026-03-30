@@ -21,6 +21,7 @@ import { ErrorInformation } from 'src/components/error-information';
 import { LearnMoreLink, LearnHowLink } from 'src/components/learn-more';
 import Modal from 'src/components/modal';
 import PasswordControl from 'src/components/password-control';
+import { AgentInstructionsPanel, WordPressSkillsPanel } from 'src/components/site-settings-panels';
 import TextControlComponent from 'src/components/text-control';
 import { Tooltip } from 'src/components/tooltip';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
@@ -36,7 +37,14 @@ type EditSiteDetailsProps = {
 
 const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) => {
 	const { __ } = useI18n();
-	const { updateSite, selectedSite, isEditModalOpen, setIsEditModalOpen } = useSiteDetails();
+	const {
+		updateSite,
+		selectedSite,
+		isEditModalOpen,
+		setIsEditModalOpen,
+		editModalInitialTab,
+		setEditModalInitialTab,
+	} = useSiteDetails();
 	const [ errorUpdatingWpVersion, setErrorUpdatingWpVersion ] = useState< string | null >( null );
 	const [ isEditingSite, setIsEditingSite ] = useState( false );
 	const [ needsRestart, setNeedsRestart ] = useState( false );
@@ -287,7 +295,10 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 							tabs={ [
 								{ name: 'general', title: __( 'General' ) },
 								{ name: 'debugging', title: __( 'Debugging' ) },
+								{ name: 'skills', title: __( 'Skills' ) },
+								{ name: 'instructions', title: __( 'Instructions' ) },
 							] }
+							initialTabName={ editModalInitialTab }
 							orientation="horizontal"
 						>
 							{ ( { name } ) => (
@@ -591,6 +602,12 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 											</div>
 										</>
 									) }
+									{ name === 'skills' && selectedSite && (
+										<WordPressSkillsPanel siteId={ selectedSite.id } />
+									) }
+									{ name === 'instructions' && selectedSite && (
+										<AgentInstructionsPanel siteId={ selectedSite.id } />
+									) }
 								</div>
 							) }
 						</TabPanel>
@@ -616,6 +633,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 				disabled={ ! selectedSite }
 				className="shrink-0"
 				onClick={ () => {
+					setEditModalInitialTab( 'general' );
 					setIsEditModalOpen( true );
 					resetFormState();
 				} }

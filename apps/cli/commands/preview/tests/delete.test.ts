@@ -4,7 +4,7 @@ import { vi } from 'vitest';
 import { deleteAllSnapshots, deleteSnapshot } from 'cli/lib/api';
 import { deleteAllSnapshotsForUserFromConfig } from 'cli/lib/cli-config/snapshots';
 import { emitCliEvent } from 'cli/lib/daemon-client';
-import { getSnapshotsFromConfig, deleteSnapshotFromConfig } from 'cli/lib/snapshots';
+import { getSnapshotsFromConfig, deleteSnapshotFromConfig, isSnapshotExpired } from 'cli/lib/snapshots';
 import { LoggerError } from 'cli/logger';
 import {
 	mockReportStart,
@@ -68,6 +68,7 @@ describe( 'Preview Delete Command', () => {
 		vi.mocked( deleteAllSnapshotsForUserFromConfig ).mockResolvedValue( undefined );
 		vi.mocked( deleteSnapshotFromConfig ).mockResolvedValue( undefined );
 		vi.mocked( emitCliEvent ).mockResolvedValue( undefined );
+		vi.mocked( isSnapshotExpired ).mockReturnValue( false );
 	} );
 
 	afterEach( () => {
@@ -110,6 +111,20 @@ describe( 'Preview Delete Command', () => {
 		expect( mockReportError ).toHaveBeenCalled();
 		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 		expect( deleteSnapshot ).not.toHaveBeenCalled();
+	} );
+
+	it( 'should skip the API call and succeed when the snapshot is expired', async () => {
+		vi.mocked( isSnapshotExpired ).mockReturnValue( true );
+
+		await runCommand( Mode.DELETE_SINGLE_SNAPSHOT, mockSiteUrl );
+
+		expect( deleteSnapshot ).not.toHaveBeenCalled();
+		expect( deleteSnapshotFromConfig ).toHaveBeenCalledWith( mockSiteUrl );
+		expect( emitCliEvent ).toHaveBeenCalledWith( {
+			event: SNAPSHOT_EVENTS.DELETED,
+			data: { snapshotUrl: mockSiteUrl },
+		} );
+		expect( mockReportSuccess.mock.calls[ 1 ] ).toEqual( [ 'Deletion successful' ] );
 	} );
 
 	it( 'should handle delete preview site errors', async () => {

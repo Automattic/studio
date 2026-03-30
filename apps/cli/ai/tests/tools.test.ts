@@ -8,6 +8,7 @@ import { runCommand as runListPreviewCommand } from 'cli/commands/preview/list';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
+import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
 import { getProgressCallback, setProgressCallback } from 'cli/logger';
 import { studioToolDefinitions } from '../tools';
 
@@ -202,5 +203,60 @@ describe( 'Studio AI MCP tools', () => {
 		await getTool( 'preview_create' ).handler( { nameOrPath: 'My Site' } as never, null );
 
 		expect( getProgressCallback() ).toBe( previousCallback );
+	} );
+
+	it( 'rejects shell syntax in wp_cli post content before dispatching to WP-CLI', async () => {
+		vi.mocked( isServerRunning ).mockResolvedValue( {
+			name: 'site-123',
+			pmId: 1,
+			status: 'online',
+			pid: 1234,
+		} );
+
+		const result = await getTool( 'wp_cli' ).handler(
+			{
+				nameOrPath: 'My Site',
+				command:
+					'post create --post_type=page --post_title=Home --post_content="$(cat /tmp/ane-page-content.txt)"',
+			} as never,
+			null
+		);
+
+		expect( sendWpCliCommand ).not.toHaveBeenCalled();
+		expect( result.isError ).toBe( true );
+		expect( getTextContent( result ) ).toContain( 'does not run in a shell' );
+	} );
+
+	it( 'treats unquoted post_content as a single trailing literal argument', async () => {
+		vi.mocked( isServerRunning ).mockResolvedValue( {
+			name: 'site-123',
+			pmId: 1,
+			status: 'online',
+			pid: 1234,
+		} );
+		vi.mocked( sendWpCliCommand ).mockResolvedValue( {
+			stdout: '123',
+			stderr: '',
+			exitCode: 0,
+		} );
+
+		await getTool( 'wp_cli' ).handler(
+			{
+				nameOrPath: 'My Site',
+				command: `post create --post_type=page --post_title="About" --post_status=publish --post_content=<!-- wp:paragraph -->
+<p>Hello world</p>
+<!-- /wp:paragraph -->`,
+			} as never,
+			null
+		);
+
+		expect( sendWpCliCommand ).toHaveBeenCalledWith( 'site-123', [
+			'post',
+			'create',
+			'--post_type=page',
+			'--post_title=About',
+			'--post_status=publish',
+			'--post_content=<!-- wp:paragraph -->\n<p>Hello world</p>\n<!-- /wp:paragraph -->',
+		] );
 	} );
 } );

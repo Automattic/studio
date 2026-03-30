@@ -6,10 +6,133 @@
  * backend could be added behind the same interface.
  */
 
+import { existsSync } from 'fs';
+import os from 'os';
+
 type Browser = Awaited< ReturnType< ( typeof import('playwright') )[ 'chromium' ][ 'launch' ] > >;
 type Page = Awaited< ReturnType< Browser[ 'newPage' ] > >;
+type Chromium = Awaited< typeof import( 'playwright' ) >[ 'chromium' ];
+type ChromiumLaunchOptions = Parameters< Chromium[ 'launch' ] >[ 0 ];
+
+const DEFAULT_BROWSER_ARGS = [ '--ignore-certificate-errors' ];
+const SUPPORTED_CHANNELS = [
+	'chrome',
+	'chrome-beta',
+	'chrome-dev',
+	'msedge',
+	'msedge-beta',
+	'msedge-dev',
+] as const;
+const ENV_EXECUTABLE_KEYS = [
+	'STUDIO_MCP_BROWSER_EXECUTABLE_PATH',
+	'PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH',
+	'CHROME_EXECUTABLE_PATH',
+] as const;
+const ENV_CHANNEL_KEYS = [ 'STUDIO_MCP_BROWSER_CHANNEL', 'PLAYWRIGHT_CHROMIUM_CHANNEL' ] as const;
 
 let browserPromise: Promise< Browser > | null = null;
+
+function getEnvValue( keys: readonly string[] ): string | undefined {
+	for ( const key of keys ) {
+		const value = process.env[ key ]?.trim();
+		if ( value ) {
+			return value;
+		}
+	}
+}
+
+function getCandidateExecutablePaths(
+	chromium: Pick< Chromium, 'executablePath' >
+): string[] {
+	const systemCandidatesByPlatform: Record< string, string[] > = {
+		darwin: [
+			'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+			'/Applications/Chromium.app/Contents/MacOS/Chromium',
+			'/Applications/Google Chrome Beta.app/Contents/MacOS/Google Chrome Beta',
+			'/Applications/Google Chrome Dev.app/Contents/MacOS/Google Chrome Dev',
+			'/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+			'/Applications/Brave Browser.app/Contents/MacOS/Brave Browser',
+		],
+		linux: [
+			'/usr/bin/google-chrome',
+			'/usr/bin/google-chrome-stable',
+			'/usr/bin/chromium',
+			'/usr/bin/chromium-browser',
+			'/snap/bin/chromium',
+			'/usr/bin/microsoft-edge',
+			'/usr/bin/brave-browser',
+		],
+		win32: [
+			'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+			'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+			'C:\\Program Files\\Chromium\\Application\\chrome.exe',
+			'C:\\Program Files (x86)\\Chromium\\Application\\chrome.exe',
+			'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+			'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+		],
+	};
+
+	const candidates = [
+		getEnvValue( ENV_EXECUTABLE_KEYS ),
+		chromium.executablePath(),
+		...( systemCandidatesByPlatform[ os.platform() ] ?? [] ),
+	];
+
+	return [ ...new Set( candidates.filter( Boolean ) ) ].filter( ( candidate ): candidate is string =>
+		existsSync( candidate )
+	);
+}
+
+function getChannelCandidates(): Array< ( typeof SUPPORTED_CHANNELS )[ number ] > {
+	const configuredChannel = getEnvValue( ENV_CHANNEL_KEYS );
+	const channels = configuredChannel
+		? [ configuredChannel, ...SUPPORTED_CHANNELS ]
+		: [ ...SUPPORTED_CHANNELS ];
+
+	return [ ...new Set( channels ) ].filter(
+		( channel ): channel is ( typeof SUPPORTED_CHANNELS )[ number ] =>
+			SUPPORTED_CHANNELS.includes( channel as ( typeof SUPPORTED_CHANNELS )[ number ] )
+	);
+}
+
+export function getChromiumLaunchCandidates(
+	chromium: Pick< Chromium, 'executablePath' >
+): ChromiumLaunchOptions[] {
+	const executableCandidates = getCandidateExecutablePaths( chromium ).map( ( executablePath ) => ( {
+		args: DEFAULT_BROWSER_ARGS,
+		executablePath,
+	} ) );
+	const channelCandidates = getChannelCandidates().map( ( channel ) => ( {
+		args: DEFAULT_BROWSER_ARGS,
+		channel,
+	} ) );
+
+	return [
+		...executableCandidates,
+		...channelCandidates,
+		{
+			args: DEFAULT_BROWSER_ARGS,
+		},
+	];
+}
+
+export function getPreferredChromiumLaunchOptions(
+	chromium: Pick< Chromium, 'executablePath' >
+): ChromiumLaunchOptions {
+	return getChromiumLaunchCandidates( chromium )[ 0 ] ?? {
+		args: DEFAULT_BROWSER_ARGS,
+	};
+}
+
+function describeLaunchOptions( options: ChromiumLaunchOptions ): string {
+	if ( options?.executablePath ) {
+		return `executablePath=${ options.executablePath }`;
+	}
+	if ( options?.channel ) {
+		return `channel=${ options.channel }`;
+	}
+	return 'playwright-default';
+}
 
 /**
  * Returns (and lazily launches) a shared Chromium browser instance.
@@ -19,9 +142,32 @@ export async function getSharedBrowser(): Promise< Browser > {
 	if ( ! browserPromise ) {
 		browserPromise = ( async () => {
 			const { chromium } = await import( 'playwright' );
-			const browser = await chromium.launch( {
-				args: [ '--ignore-certificate-errors' ],
-			} );
+			const launchCandidates = getChromiumLaunchCandidates( chromium );
+			const launchErrors: string[] = [];
+			let browser: Browser | undefined;
+
+			for ( const options of launchCandidates ) {
+				try {
+					browser = await chromium.launch( options );
+					break;
+				} catch ( error ) {
+					launchErrors.push(
+						`${ describeLaunchOptions( options ) }: ${
+							error instanceof Error ? error.message : String( error )
+						}`
+					);
+				}
+			}
+
+			if ( ! browser ) {
+				throw new Error(
+					'Unable to launch a browser for Studio MCP screenshot/validation tools. ' +
+						`Tried ${ launchCandidates.map( describeLaunchOptions ).join( ', ' ) }. ` +
+						'Set STUDIO_MCP_BROWSER_EXECUTABLE_PATH to a local Chrome/Chromium-compatible browser, ' +
+						'or STUDIO_MCP_BROWSER_CHANNEL to a Playwright-supported channel like "chrome". ' +
+						`Launch errors: ${ launchErrors.join( ' | ' ) }`
+				);
+			}
 
 			const cleanup = () => {
 				browser.close().catch( () => {} );

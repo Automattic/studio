@@ -1,13 +1,17 @@
 import { TreeNode } from 'src/components/tree-view';
+import { SYNC_EXCLUSIONS } from '../constants';
 import type { RawDirectoryEntry } from '../types';
-import type { Ignore } from '@studio/common/lib/deploy-ignore';
 
-export const shouldExcludeFromSync = ( relativePath: string, deployIgnore: Ignore ): boolean => {
-	const itemName = relativePath.split( '/' ).pop() || '';
+export const shouldExcludeFromSync = ( itemName: string ): boolean => {
 	if ( itemName.startsWith( '.' ) ) {
 		return true;
 	}
-	return deployIgnore.ignores( relativePath );
+
+	if ( SYNC_EXCLUSIONS.includes( itemName ) ) {
+		return true;
+	}
+
+	return false;
 };
 
 export const shouldLimitDepth = ( relativePath: string ): boolean => {

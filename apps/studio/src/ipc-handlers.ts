@@ -24,7 +24,6 @@ import {
 } from '@studio/common/lib/agent-skills';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
-import { createDeployIgnoreFilter, type Ignore } from '@studio/common/lib/deploy-ignore';
 import {
 	calculateDirectorySizeForArchive,
 	isWordPressDirectory,
@@ -80,18 +79,20 @@ import { type InstructionFileType } from 'src/modules/agent-instructions/constan
 import {
 	getAllInstructionFilesStatus,
 	installInstructionFile,
+	removeInstructionFile,
 	type InstructionFileStatus,
 } from 'src/modules/agent-instructions/lib/instructions';
 import {
 	BUNDLED_SKILLS,
 	getSkillsStatus,
 	installAllSkills,
+	installSkillById,
+	removeSkillById,
 	type SkillStatus,
 } from 'src/modules/agent-instructions/lib/skills';
 import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
-import { SYNC_ADDITIONAL_DEFAULTS } from 'src/modules/sync/constants';
 import { shouldExcludeFromSync, shouldLimitDepth } from 'src/modules/sync/lib/tree-utils';
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { getUserEditor, getUserTerminal } from 'src/modules/user-settings/lib/ipc-handlers';
@@ -179,6 +180,18 @@ export async function installAgentInstructions(
 	return installInstructionFile( server.details.path, fileType, overwrite );
 }
 
+export async function removeAgentInstruction(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	fileType: InstructionFileType
+): Promise< void > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( `Site not found: ${ siteId }` );
+	}
+	await removeInstructionFile( server.details.path, fileType );
+}
+
 export async function getWordPressSkillsStatus(
 	_event: IpcMainInvokeEvent,
 	siteId: string
@@ -201,6 +214,32 @@ export async function installWordPressSkills(
 	}
 	const overwrite = options?.overwrite ?? false;
 	await installAllSkills( server.details.path, overwrite );
+}
+
+export async function installWordPressSkillById(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	skillId: string,
+	options?: { overwrite?: boolean }
+): Promise< void > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( `Site not found: ${ siteId }` );
+	}
+	const overwrite = options?.overwrite ?? false;
+	await installSkillById( server.details.path, skillId, overwrite );
+}
+
+export async function removeWordPressSkillById(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	skillId: string
+): Promise< void > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( `Site not found: ${ siteId }` );
+	}
+	await removeSkillById( server.details.path, skillId );
 }
 
 export async function getWordPressSkillsStatusAllSites(
@@ -1595,15 +1634,10 @@ export async function listLocalFileTree(
 	siteId: string,
 	path: string,
 	maxDepth: number = 3,
-	currentDepth: number = 0,
-	deployIgnore?: Ignore
+	currentDepth: number = 0
 ): Promise< RawDirectoryEntry[] > {
 	const server = SiteServer.get( siteId );
 	if ( ! server ) throw new Error( 'Site not found' );
-
-	if ( ! deployIgnore ) {
-		deployIgnore = await createDeployIgnoreFilter( server.details.path, SYNC_ADDITIONAL_DEFAULTS );
-	}
 
 	const fullPath = nodePath.join( server.details.path, path );
 
@@ -1612,13 +1646,12 @@ export async function listLocalFileTree(
 		const result = [];
 
 		for ( const entry of entries ) {
-			const itemPath = nodePath.join( path, entry.name ).replace( /\\/g, '/' );
-
-			if ( shouldExcludeFromSync( itemPath, deployIgnore ) ) {
+			if ( shouldExcludeFromSync( entry.name ) ) {
 				continue;
 			}
 
 			const isDirectory = entry.isDirectory();
+			const itemPath = nodePath.join( path, entry.name ).replace( /\\/g, '/' );
 
 			const directoryEntry: RawDirectoryEntry = {
 				name: entry.name,
@@ -1634,8 +1667,7 @@ export async function listLocalFileTree(
 						siteId,
 						itemPath,
 						maxDepth,
-						currentDepth + 1,
-						deployIgnore
+						currentDepth + 1
 					);
 				} catch ( childErr ) {
 					console.warn( `Failed to load children for ${ itemPath }:`, childErr );

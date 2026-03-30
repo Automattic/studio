@@ -1,50 +1,36 @@
 /// <reference types="vitest/globals" />
 
-import type { PathLike } from 'fs';
+import { fs as memfsFs, vol } from 'memfs';
 
-const mockFiles: Record< string, string | string[] > = {};
+export { vol };
 
-const readFileMock = vi.fn( async ( path: string ): Promise< string > => {
-	const fileContents = mockFiles[ path ];
-	if ( typeof fileContents === 'string' ) {
-		return fileContents;
-	}
-	return '';
-} );
-
-const readdirMock = vi.fn( async ( path: string ): Promise< string[] > => {
-	const dirContents = mockFiles[ path ];
-	if ( Array.isArray( dirContents ) ) {
-		return dirContents;
-	}
-	return [];
-} );
-
-const readFileSyncMock = vi.fn( ( path: string ): string => {
-	const fileContents = mockFiles[ path ];
-	if ( typeof fileContents === 'string' ) {
-		return fileContents;
-	}
-	return '';
-} );
-
-const watchMock = vi.fn< ( path: PathLike ) => { close: () => void } >();
-
-const existsSyncMock = vi.fn( ( path: string ): boolean => {
-	return path in mockFiles;
-} );
+const existsSyncMock = vi.fn( ( path: string ) => memfsFs.existsSync( path ) );
 
 const mkdirSyncMock = vi.fn();
 
-const statMock = vi.fn().mockResolvedValue( {
-	isDirectory: () => true,
-} );
+const readFileSyncMock = vi.fn( ( path: string, options?: Parameters< typeof memfsFs.readFileSync >[ 1 ] ) =>
+	memfsFs.readFileSync( path, options ) as string
+);
 
-const renameMock = vi.fn().mockResolvedValue( undefined );
+const readdirSyncMock = vi.fn();
 
-const __setFileContents = ( path: string, fileContents: string | string[] ) => {
-	mockFiles[ path ] = fileContents;
-};
+const statSyncMock = vi.fn( ( path: string ) => memfsFs.statSync( path ) );
+
+const watchMock = vi.fn( ( ...args: Parameters< typeof memfsFs.watch > ) =>
+	memfsFs.watch( ...args )
+);
+
+const readdirMock = vi.fn( ( ...args: Parameters< typeof memfsFs.promises.readdir > ) =>
+	memfsFs.promises.readdir( ...args )
+);
+
+const readFileMock = vi.fn( ( ...args: Parameters< typeof memfsFs.promises.readFile > ) =>
+	memfsFs.promises.readFile( ...args )
+);
+
+const renameMock = vi.fn();
+
+const statMock = vi.fn( ( path: string ) => memfsFs.promises.stat( path ) );
 
 const promisesMock = {
 	cp: vi.fn(),
@@ -62,20 +48,19 @@ const promisesMock = {
 };
 
 export default {
-	__setFileContents,
 	createReadStream: vi.fn(),
 	createWriteStream: vi.fn(),
 	existsSync: existsSyncMock,
 	mkdirSync: mkdirSyncMock,
 	promises: promisesMock,
-	readdirSync: vi.fn(),
+	readdirSync: readdirSyncMock,
 	readFileSync: readFileSyncMock,
-	statSync: vi.fn(),
+	statSync: statSyncMock,
+	unlinkSync: vi.fn(),
 	watch: watchMock,
 	writeFileSync: vi.fn(),
 };
 
-// Export named for easier access
 export const existsSync = existsSyncMock;
 export const mkdirSync = mkdirSyncMock;
 export const promises = promisesMock;

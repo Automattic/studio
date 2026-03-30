@@ -3,10 +3,10 @@
  */
 import { exec } from 'child_process';
 import { IpcMainInvokeEvent } from 'electron';
-import fs from 'fs';
 import { normalize, join } from 'path';
 import { readFile } from 'atomically';
 import { vi } from 'vitest';
+import { vol } from 'memfs';
 import { openFileInIDE } from 'src/ipc-handlers';
 import { isInstalled } from 'src/lib/is-installed';
 import { getUserEditor } from 'src/modules/user-settings/lib/ipc-handlers';
@@ -57,14 +57,6 @@ vi.mock( '@studio/common/lib/port-finder', () => ( {
 } ) );
 
 const mockUserData = { sites: [] };
-if ( '__setFileContents' in fs ) {
-	(
-		fs as typeof fs & { __setFileContents: ( path: string, contents: string | string[] ) => void }
-	 ).__setFileContents(
-		normalize( '/path/to/app/appData/App Name/appdata-v1.json' ),
-		JSON.stringify( mockUserData )
-	);
-}
 vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( mockUserData ) ) );
 
 const mockIpcMainInvokeEvent = {
@@ -92,6 +84,8 @@ function getExecCalls(): string[] {
 describe( 'openFileInIDE', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
+		vol.reset();
+		vol.fromJSON( { [ normalize( '/path/to/app/appData/App Name/appdata-v1.json' ) ]: JSON.stringify( mockUserData ) } );
 		setupMockServer();
 	} );
 

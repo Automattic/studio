@@ -1,7 +1,9 @@
 import { AggregateInterval } from '@studio/common/lib/bump-stat';
 import { waitFor } from '@testing-library/react';
 import { readFile, writeFile } from 'atomically';
+import fs from 'fs';
 import { vi } from 'vitest';
+import { vol } from 'memfs';
 import { bumpStat, bumpAggregatedUniqueStat, StatsGroup, StatsMetric } from '../bump-stats';
 
 vi.mock( 'atomically', () => ( {
@@ -9,19 +11,17 @@ vi.mock( 'atomically', () => ( {
 	writeFile: vi.fn(),
 } ) );
 
-vi.mock( 'fs', () => ( {
-	default: {
-		existsSync: vi.fn().mockReturnValue( true ),
-		mkdirSync: vi.fn(),
-	},
-	existsSync: vi.fn().mockReturnValue( true ),
-	mkdirSync: vi.fn(),
-} ) );
+vi.mock( 'fs' );
 
 // Store original fetch to restore later
 const originalFetch = global.fetch;
 
 const originalEnv = { ...process.env };
+
+beforeEach( () => {
+	vol.reset();
+	vi.mocked( fs.existsSync ).mockReturnValue( true );
+} );
 
 afterEach( () => {
 	vi.spyOn( Date, 'now' ).mockRestore();

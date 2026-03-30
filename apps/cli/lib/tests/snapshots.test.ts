@@ -1,5 +1,7 @@
+import fs from 'fs';
 import { writeFile } from 'atomically';
 import { vi } from 'vitest';
+import { vol } from 'memfs';
 import {
 	deleteSnapshotFromConfig,
 	getSnapshotsFromConfig,
@@ -21,14 +23,10 @@ const mocks = vi.hoisted( () => ( {
 	lockfileUnlock: vi.fn().mockImplementation( ( path, callback ) => callback( null ) ),
 	arePathsEqual: vi.fn(),
 	isWordPressDirectory: vi.fn(),
-	existsSync: vi.fn(),
 	homedir: vi.fn(),
 } ) );
 
-vi.mock( 'fs', () => ( {
-	default: { existsSync: mocks.existsSync },
-	existsSync: mocks.existsSync,
-} ) );
+vi.mock( 'fs' );
 vi.mock( 'os', () => ( { default: { homedir: mocks.homedir }, homedir: mocks.homedir } ) );
 vi.mock( 'path', () => ( {
 	default: {
@@ -76,11 +74,12 @@ describe( 'Snapshots Module', () => {
 
 	beforeEach( () => {
 		vi.clearAllMocks();
+		vol.reset();
 		mocks.homedir.mockReturnValue( mockHomeDir );
 		mocks.pathBasename.mockReturnValue( mockSiteFolderName );
 		vi.spyOn( Date, 'now' ).mockReturnValue( 1234567890 );
 
-		mocks.existsSync.mockReturnValue( true );
+		vi.mocked( fs.existsSync ).mockReturnValue( true );
 		mocks.arePathsEqual.mockImplementation( ( path1, path2 ) => path1 === path2 );
 		mocks.readFile.mockResolvedValue( '{}' );
 		mocks.writeFile.mockResolvedValue( undefined );
@@ -217,7 +216,7 @@ describe( 'Snapshots Module', () => {
 		} );
 
 		it( 'should handle errors correctly', async () => {
-			mocks.existsSync.mockReturnValueOnce( false );
+			vi.mocked( fs.existsSync ).mockReturnValueOnce( false );
 
 			await expect(
 				saveSnapshotToConfig( mockSiteFolder, mockAtomicSiteId, mockSiteUrl, mockUserId, 'Test' )

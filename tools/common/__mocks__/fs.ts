@@ -5,13 +5,11 @@ export { vol };
 
 // memfs uses POSIX paths; normalize Windows-style backslashes so tests work
 // under the Windows platform simulation in platformTestSuite.
-const toUnixPath = ( p: string | Buffer | URL ): string =>
+const toUnixPath = ( p: string | Uint8Array | URL ): string =>
 	typeof p === 'string' ? p.replace( /\\/g, '/' ) : String( p );
 
 const existsSyncMock = vi.fn( ( path: string ) => {
 	const result = memfsFs.existsSync( toUnixPath( path ) );
-	// eslint-disable-next-line no-console
-	console.log( `[fs mock] existsSync("${ path }") -> toUnix("${ toUnixPath( path ) }") -> ${ result }` );
 	return result;
 } );
 
@@ -39,7 +37,7 @@ const readdirMock = vi.fn( ( ...args: Parameters< typeof memfsFs.promises.readdi
 	memfsFs.promises.readdir( ...args )
 );
 
-const readFileMock = vi.fn( ( path: string | Buffer | URL, options?: Parameters< typeof memfsFs.promises.readFile >[ 1 ] ) =>
+const readFileMock = vi.fn( ( path: string | Uint8Array | URL, options?: Parameters< typeof memfsFs.promises.readFile >[ 1 ] ) =>
 	memfsFs.promises.readFile( toUnixPath( path ), options as Parameters< typeof memfsFs.promises.readFile >[ 1 ] )
 );
 

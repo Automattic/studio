@@ -1,6 +1,7 @@
 import {
 	findMatchingWpComSite,
 	formatWpComSitesList,
+	getApiUrl,
 	getImportKey,
 	inferSiteNameFromUrl,
 	normalizeImportUrl,
@@ -10,6 +11,22 @@ describe( 'CLI: studio site import helpers', () => {
 	it( 'normalizes URLs by stripping hashes and trailing slashes', () => {
 		expect( normalizeImportUrl( 'https://example.com/foo//#section' ) ).toBe(
 			'https://example.com/foo'
+		);
+	} );
+
+	it( 'accepts a bare domain and defaults it to https', () => {
+		expect( normalizeImportUrl( 'example.com/foo' ) ).toBe( 'https://example.com/foo' );
+	} );
+
+	it( 'strips the site export API marker from the canonical site URL', () => {
+		expect( normalizeImportUrl( 'https://example.com/?site-export-api' ) ).toBe(
+			'https://example.com/'
+		);
+	} );
+
+	it( 'adds the site export API marker exactly once to the importer URL', () => {
+		expect( getApiUrl( normalizeImportUrl( 'https://example.com/?site-export-api' ) ) ).toBe(
+			'https://example.com/?site-export-api'
 		);
 	} );
 

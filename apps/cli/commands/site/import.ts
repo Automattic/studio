@@ -217,14 +217,18 @@ function readImportMetadata( metadataPath: string ): ImportMetadata | null {
 }
 
 export function normalizeImportUrl( url: string ): string {
-	const normalized = new URL( url );
+	const trimmedUrl = url.trim();
+	const normalized = new URL(
+		/^[a-z][a-z\d+.-]*:\/\//i.test( trimmedUrl ) ? trimmedUrl : `https://${ trimmedUrl }`
+	);
 	normalized.hash = '';
 	normalized.pathname = normalized.pathname.replace( /\/+$/, '' ) || '/';
+	normalized.searchParams.delete( 'site-export-api' );
 	return normalized.toString();
 }
 
 export function inferSiteNameFromUrl( url: string ): string {
-	return new URL( url ).hostname;
+	return new URL( normalizeImportUrl( url ) ).hostname;
 }
 
 export function getImportKey( normalizedUrl: string, explicitName?: string ): string {
@@ -434,8 +438,10 @@ export async function resolveImportMetadata(
 	return { created: true, metadata };
 }
 
-function getApiUrl( normalizedUrl: string ): string {
-	return normalizedUrl.replace( /\/+$/, '' ) + '/?site-export-api';
+export function getApiUrl( normalizedUrl: string ): string {
+	const apiUrl = new URL( normalizedUrl );
+	apiUrl.search = '?site-export-api';
+	return apiUrl.toString();
 }
 
 function setStage( metadata: ImportMetadata, stage: ImportStage ): void {

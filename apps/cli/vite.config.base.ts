@@ -1,4 +1,4 @@
-import { readFileSync } from 'fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
 import { defineConfig } from 'vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
@@ -12,6 +12,7 @@ const nodeBuiltinExternals: RegExp[] = [
 
 const packageJson = JSON.parse( readFileSync( resolve( __dirname, 'package.json' ), 'utf-8' ) );
 const packageJsonDependencies = Object.keys( packageJson.dependencies || {} );
+const distCliPackageJsonPath = resolve( __dirname, 'dist/cli/package.json' );
 
 export const baseConfig = defineConfig( {
 	plugins: [
@@ -23,6 +24,17 @@ export const baseConfig = defineConfig( {
 				},
 			],
 		} ),
+		{
+			name: 'write-dist-package-json',
+			apply: 'build',
+			closeBundle() {
+				mkdirSync( resolve( __dirname, 'dist/cli' ), { recursive: true } );
+				writeFileSync(
+					distCliPackageJsonPath,
+					JSON.stringify( { type: 'commonjs' }, null, 2 ) + '\n'
+				);
+			},
+		},
 	],
 	build: {
 		lib: {

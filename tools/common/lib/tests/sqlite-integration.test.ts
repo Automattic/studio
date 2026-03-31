@@ -5,23 +5,21 @@ import { vi } from 'vitest';
 import { SqliteIntegrationProvider } from '../sqlite-integration';
 import { platformTestSuite } from './utils/platform-test-suite';
 
-// memfs's mkdirp uses path.sep directly. platformTestSuite overrides path.sep to
-// '\\' for Windows tests, which breaks vol.fromJSON. Temporarily restore POSIX sep
-// around every vol.fromJSON call.
+// memfs path resolution uses path.sep. platformTestSuite overrides path.sep to
+// '\\' for Windows tests, which breaks vol operations. Restore POSIX sep
+// temporarily around every vol call so memfs parses paths correctly.
 function volFromJSON( files: Record< string, string > ): void {
 	const savedSep = path.sep;
 	// @ts-expect-error — Temporarily restore POSIX separator for memfs compatibility
 	path.sep = '/';
 	try {
-		// Normalize Windows-style backslashes in keys before passing to memfs,
-		// since memfs uses path.resolve (POSIX) and treats backslashes as part of filenames.
 		const posixFiles: Record< string, string > = {};
 		for ( const [ key, value ] of Object.entries( files ) ) {
 			posixFiles[ key.replace( /\\/g, '/' ) ] = value;
 		}
 		vol.fromJSON( posixFiles );
 	} finally {
-		// @ts-expect-error — Restore original separator after memfs compatibility workaround
+		// @ts-expect-error — Restore original separator
 		path.sep = savedSep;
 	}
 }

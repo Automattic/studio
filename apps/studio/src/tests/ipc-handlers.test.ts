@@ -89,9 +89,15 @@ vi.mocked( SiteServer.register, { partial: true } ).mockImplementation( ( detail
 const mockUserData = {
 	sites: [],
 };
-vol.fromJSON( {
-	[ normalize( '/path/to/app/appData/App Name/appdata-v1.json' ) ]: JSON.stringify( mockUserData ),
+
+beforeEach( () => {
+	vol.reset();
+	vol.fromJSON( {
+		[ normalize( '/path/to/app/appData/App Name/appdata-v1.json' ) ]:
+			JSON.stringify( mockUserData ),
+	} );
 } );
+
 vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( mockUserData ) ) );
 
 const mockIpcMainInvokeEvent = {

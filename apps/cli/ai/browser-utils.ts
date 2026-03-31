@@ -8,8 +8,8 @@
 
 import { execFile } from 'child_process';
 import { existsSync } from 'fs';
-import { createRequire } from 'module';
 import os from 'os';
+import { fileURLToPath } from 'url';
 import { promisify } from 'util';
 
 type Browser = Awaited< ReturnType< ( typeof import('playwright') )[ 'chromium' ][ 'launch' ] > >;
@@ -42,7 +42,6 @@ const ENV_CHANNEL_KEYS = [ 'STUDIO_MCP_BROWSER_CHANNEL', 'PLAYWRIGHT_CHROMIUM_CH
 
 let browserPromise: Promise< Browser > | null = null;
 const execFileAsync = promisify( execFile );
-const require = createRequire( import.meta.url );
 const SYSTEM_BROWSER_CANDIDATES_BY_PLATFORM: Record< string, string[] > = {
 	darwin: [
 		'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
@@ -138,7 +137,7 @@ export function buildChromiumLaunchAttempts(
 }
 
 async function installPlaywrightChromium(): Promise< void > {
-	const cliPath = require.resolve( 'playwright/cli' );
+	const cliPath = fileURLToPath( import.meta.resolve( 'playwright/cli' ) );
 
 	await execFileAsync( process.execPath, [ cliPath, 'install', 'chromium' ], {
 		env: {

@@ -461,7 +461,14 @@ export async function runCommand(
 			if ( trimmedPrompt === AI_CHAT_MODEL_COMMAND ) {
 				const modelOptions = ( Object.entries( AI_MODELS ) as [ AiModelId, string ][] ).map(
 					( [ id, label ] ) => ( {
-						label: id === currentModel ? `${ label } ${ __( '(current)' ) }` : label,
+						label:
+							id === currentModel
+								? sprintf(
+										/* translators: %s: model name */
+										__( '%s (current)' ),
+										label
+								  )
+								: label,
 						description: id,
 					} )
 				);
@@ -492,7 +499,11 @@ export async function runCommand(
 				const providerOptions = availableProviders.map( ( id ) => ( {
 					label:
 						id === currentProvider
-							? `${ AI_PROVIDERS[ id ] } ${ __( '(current)' ) }`
+							? sprintf(
+									/* translators: %s: provider name */
+									__( '%s (current)' ),
+									AI_PROVIDERS[ id ]
+							  )
 							: AI_PROVIDERS[ id ],
 					description: id,
 				} ) );

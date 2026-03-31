@@ -229,28 +229,28 @@ const editorTheme: EditorTheme = {
 };
 
 const toolDisplayNames: Record< string, string > = {
-	mcp__studio__site_create: 'Create site',
-	mcp__studio__site_list: 'List sites',
-	mcp__studio__site_info: 'Get site info',
-	mcp__studio__site_start: 'Start site',
-	mcp__studio__site_stop: 'Stop site',
-	mcp__studio__site_delete: 'Delete site',
-	mcp__studio__preview_create: 'Create preview',
-	mcp__studio__preview_list: 'List previews',
-	mcp__studio__preview_update: 'Update preview',
-	mcp__studio__preview_delete: 'Delete preview',
-	mcp__studio__wp_cli: 'Run WP-CLI',
-	mcp__studio__validate_blocks: 'Validate blocks',
-	mcp__studio__take_screenshot: 'Take screenshot',
-	Read: 'Read',
-	Write: 'Write',
-	Edit: 'Edit',
-	Bash: 'Run',
-	Glob: 'Search',
-	Grep: 'Search',
-	Skill: 'Load skill',
-	Task: 'Run task',
-	TodoWrite: 'Update todo list',
+	mcp__studio__site_create: __( 'Create site' ),
+	mcp__studio__site_list: __( 'List sites' ),
+	mcp__studio__site_info: __( 'Get site info' ),
+	mcp__studio__site_start: __( 'Start site' ),
+	mcp__studio__site_stop: __( 'Stop site' ),
+	mcp__studio__site_delete: __( 'Delete site' ),
+	mcp__studio__preview_create: __( 'Create preview' ),
+	mcp__studio__preview_list: __( 'List previews' ),
+	mcp__studio__preview_update: __( 'Update preview' ),
+	mcp__studio__preview_delete: __( 'Delete preview' ),
+	mcp__studio__wp_cli: __( 'Run WP-CLI' ),
+	mcp__studio__validate_blocks: __( 'Validate blocks' ),
+	mcp__studio__take_screenshot: __( 'Take screenshot' ),
+	Read: __( 'Read' ),
+	Write: __( 'Write' ),
+	Edit: __( 'Edit' ),
+	Bash: __( 'Run' ),
+	Glob: __( 'Search' ),
+	Grep: __( 'Search' ),
+	Skill: __( 'Load skill' ),
+	Task: __( 'Run task' ),
+	TodoWrite: __( 'Update todo list' ),
 };
 
 function getToolDetail( name: string, input: Record< string, unknown > ): string {
@@ -273,7 +273,7 @@ function getToolDetail( name: string, input: Record< string, unknown > ): string
 			if ( typeof input.filePath === 'string' ) {
 				return input.filePath.split( '/' ).slice( -2 ).join( '/' );
 			}
-			return 'inline content';
+			return __( 'inline content' );
 		case 'mcp__studio__take_screenshot':
 			return typeof input.url === 'string' ? input.url : '';
 		case 'Read':
@@ -612,7 +612,7 @@ export class AiChatUI {
 			this.tui,
 			( str ) => chalk.yellow( str ),
 			( str ) => chalk.yellow( str ),
-			'Thinking…'
+			__( 'Thinking…' )
 		);
 		// @ts-expect-error -- frames is private but has no public API to customize
 		this.loader.frames = [
@@ -1489,9 +1489,11 @@ export class AiChatUI {
 			formatToolOutputLines( lines.slice( 0, DEFAULT_COLLAPSE_THRESHOLD_LINES ) ) +
 			'\n     ' +
 			chalk.dim(
-				'... ' +
-					( lines.length - DEFAULT_COLLAPSE_THRESHOLD_LINES ) +
-					' more lines · ctrl+o to expand'
+				sprintf(
+					/* translators: %d: number of hidden lines */
+					__( '... %d more lines · ctrl+o to expand' ),
+					lines.length - DEFAULT_COLLAPSE_THRESHOLD_LINES
+				)
 			);
 
 		return { collapsed, expanded };

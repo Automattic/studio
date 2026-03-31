@@ -55,7 +55,6 @@ export async function runCommand( mode: Mode, host: string | undefined ): Promis
 			logger.reportSuccess( __( 'Validation successful' ), true );
 
 			logger.reportStart( LoggerAction.DELETE, __( 'Deleting…' ) );
-			console.error( ' WHAT IS GOING ON HERE?', isSnapshotExpired( snapshotToDelete ) );
 			if ( ! isSnapshotExpired( snapshotToDelete ) ) {
 				await deleteSnapshot( snapshotToDelete.atomicSiteId, token.accessToken );
 			}

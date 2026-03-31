@@ -217,7 +217,7 @@ describe( 'Studio AI MCP tools', () => {
 			{
 				nameOrPath: 'My Site',
 				command:
-					'post create --post_type=page --post_title=Home --post_content="$(cat /tmp/ane-page-content.txt)"',
+					'post create --post_type=page --post_title=Home --post_content="$(cat /tmp/one-page-content.txt)"',
 			} as never,
 			null
 		);

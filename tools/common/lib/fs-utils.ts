@@ -25,23 +25,25 @@ export function calculateDirectorySizeForArchive(
 	return new Promise( ( resolve, reject ) => {
 		let totalSize = 0;
 
-		async function calculateSize( dirPath: string, relativePath: string ): Promise< void > {
+		async function calculateSize( dirPath: string ): Promise< void > {
 			try {
 				const files = await fsPromises.readdir( dirPath, { withFileTypes: true } );
 
 				await Promise.all(
 					files.map( async ( file ) => {
 						const filePath = path.join( dirPath, file.name );
-						const fileRelativePath = relativePath ? `${ relativePath }/${ file.name }` : file.name;
+						const fileRelativeToRoot = path
+							.relative( directoryPath, filePath )
+							.replace( /\\/g, '/' );
 						const ignorePath = pathPrefix
-							? `${ pathPrefix }/${ fileRelativePath }`
-							: fileRelativePath;
+							? `${ pathPrefix }/${ fileRelativeToRoot }`
+							: fileRelativeToRoot;
 						try {
 							if ( ig.ignores( ignorePath ) ) {
 								return;
 							}
 							if ( file.isDirectory() ) {
-								await calculateSize( filePath, fileRelativePath );
+								await calculateSize( filePath );
 							} else {
 								const stats = await fsPromises.stat( filePath );
 								totalSize += stats.size;
@@ -56,7 +58,7 @@ export function calculateDirectorySizeForArchive(
 			}
 		}
 
-		calculateSize( directoryPath, '' )
+		calculateSize( directoryPath )
 			.then( () => resolve( totalSize ) )
 			.catch( reject );
 	} );

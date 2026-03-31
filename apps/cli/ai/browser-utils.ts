@@ -6,13 +6,17 @@
  * backend could be added behind the same interface.
  */
 
+import { execFile } from 'child_process';
 import { existsSync } from 'fs';
+import { createRequire } from 'module';
 import os from 'os';
+import { promisify } from 'util';
 
 type Browser = Awaited< ReturnType< ( typeof import('playwright') )[ 'chromium' ][ 'launch' ] > >;
 type Page = Awaited< ReturnType< Browser[ 'newPage' ] > >;
 type Chromium = Awaited< typeof import( 'playwright' ) >[ 'chromium' ];
 type ChromiumLaunchOptions = Parameters< Chromium[ 'launch' ] >[ 0 ];
+type InstallBrowserFn = () => Promise< void >;
 
 const DEFAULT_BROWSER_ARGS = [ '--ignore-certificate-errors' ];
 const SUPPORTED_CHANNELS = [
@@ -31,6 +35,8 @@ const ENV_EXECUTABLE_KEYS = [
 const ENV_CHANNEL_KEYS = [ 'STUDIO_MCP_BROWSER_CHANNEL', 'PLAYWRIGHT_CHROMIUM_CHANNEL' ] as const;
 
 let browserPromise: Promise< Browser > | null = null;
+const execFileAsync = promisify( execFile );
+const require = createRequire( import.meta.url );
 
 function getEnvValue( keys: readonly string[] ): string | undefined {
 	for ( const key of keys ) {
@@ -78,9 +84,15 @@ function getCandidateExecutablePaths(
 		...( systemCandidatesByPlatform[ os.platform() ] ?? [] ),
 	];
 
-	return [ ...new Set( candidates.filter( Boolean ) ) ].filter( ( candidate ): candidate is string =>
-		existsSync( candidate )
+	const definedCandidates = [ ...new Set( candidates ) ].filter(
+		( candidate ): candidate is string => Boolean( candidate )
 	);
+
+	return definedCandidates.filter( ( candidate ) => existsSync( candidate ) );
+}
+
+function hasExternalBrowserOverride(): boolean {
+	return Boolean( getEnvValue( ENV_EXECUTABLE_KEYS ) || getEnvValue( ENV_CHANNEL_KEYS ) );
 }
 
 function getChannelCandidates(): Array< ( typeof SUPPORTED_CHANNELS )[ number ] > {
@@ -134,6 +146,47 @@ function describeLaunchOptions( options: ChromiumLaunchOptions ): string {
 	return 'playwright-default';
 }
 
+async function installPlaywrightChromium(): Promise< void > {
+	const cliPath = require.resolve( 'playwright/cli' );
+
+	await execFileAsync( process.execPath, [ cliPath, 'install', 'chromium' ], {
+		env: {
+			...process.env,
+			CI: process.env.CI ?? '1',
+		},
+		maxBuffer: 10 * 1024 * 1024,
+	} );
+}
+
+export async function ensurePlaywrightChromiumInstalled(
+	chromium: Pick< Chromium, 'executablePath' >,
+	installBrowser: InstallBrowserFn = installPlaywrightChromium
+): Promise< string | null > {
+	if ( hasExternalBrowserOverride() ) {
+		return null;
+	}
+
+	const executablePath = chromium.executablePath();
+	if ( existsSync( executablePath ) ) {
+		return null;
+	}
+
+	try {
+		await installBrowser();
+	} catch ( error ) {
+		return (
+			'Studio MCP could not auto-install Playwright Chromium. ' +
+			`${ error instanceof Error ? error.message : String( error ) }`
+		);
+	}
+
+	if ( ! existsSync( chromium.executablePath() ) ) {
+		return 'Studio MCP attempted to install Playwright Chromium, but the browser executable is still unavailable.';
+	}
+
+	return null;
+}
+
 /**
  * Returns (and lazily launches) a shared Chromium browser instance.
  * The browser is cleaned up automatically on process exit.
@@ -142,6 +195,7 @@ export async function getSharedBrowser(): Promise< Browser > {
 	if ( ! browserPromise ) {
 		browserPromise = ( async () => {
 			const { chromium } = await import( 'playwright' );
+			const installError = await ensurePlaywrightChromiumInstalled( chromium );
 			const launchCandidates = getChromiumLaunchCandidates( chromium );
 			const launchErrors: string[] = [];
 			let browser: Browser | undefined;
@@ -160,11 +214,16 @@ export async function getSharedBrowser(): Promise< Browser > {
 			}
 
 			if ( ! browser ) {
+				const repairGuidance =
+					installError ??
+					'If Playwright Chromium is missing, run `studio mcp` again with network access so Studio can install it automatically.';
+
 				throw new Error(
 					'Unable to launch a browser for Studio MCP screenshot/validation tools. ' +
 						`Tried ${ launchCandidates.map( describeLaunchOptions ).join( ', ' ) }. ` +
 						'Set STUDIO_MCP_BROWSER_EXECUTABLE_PATH to a local Chrome/Chromium-compatible browser, ' +
 						'or STUDIO_MCP_BROWSER_CHANNEL to a Playwright-supported channel like "chrome". ' +
+						`${ repairGuidance } ` +
 						`Launch errors: ${ launchErrors.join( ' | ' ) }`
 				);
 			}

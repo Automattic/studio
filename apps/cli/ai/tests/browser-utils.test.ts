@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+	ensurePlaywrightChromiumInstalled,
 	getChromiumLaunchCandidates,
 	getPreferredChromiumLaunchOptions,
 } from '../browser-utils';
@@ -68,5 +69,52 @@ describe( 'browser-utils', () => {
 			args: [ '--ignore-certificate-errors' ],
 			channel: 'chrome',
 		} );
+	} );
+
+	it( 'tries to install Playwright Chromium when the managed browser is missing', async () => {
+		const installBrowser = vi.fn().mockResolvedValue( undefined );
+		let installed = false;
+
+		const error = await ensurePlaywrightChromiumInstalled(
+			{
+				executablePath: () => ( installed ? '/bin/sh' : '/missing/chromium' ),
+			},
+			async () => {
+				installed = true;
+				await installBrowser();
+			}
+		);
+
+		expect( error ).toBeNull();
+		expect( installBrowser ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'returns a helpful error when auto-install fails', async () => {
+		const error = await ensurePlaywrightChromiumInstalled(
+			{
+				executablePath: () => '/missing/chromium',
+			},
+			async () => {
+				throw new Error( 'network unavailable' );
+			}
+		);
+
+		expect( error ).toContain( 'auto-install Playwright Chromium' );
+		expect( error ).toContain( 'network unavailable' );
+	} );
+
+	it( 'skips Playwright auto-install when an explicit browser override is configured', async () => {
+		vi.stubEnv( 'STUDIO_MCP_BROWSER_CHANNEL', 'chrome' );
+		const installBrowser = vi.fn().mockResolvedValue( undefined );
+
+		const error = await ensurePlaywrightChromiumInstalled(
+			{
+				executablePath: () => '/missing/chromium',
+			},
+			installBrowser
+		);
+
+		expect( error ).toBeNull();
+		expect( installBrowser ).not.toHaveBeenCalled();
 	} );
 } );

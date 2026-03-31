@@ -14,9 +14,15 @@ import { promisify } from 'util';
 
 type Browser = Awaited< ReturnType< ( typeof import('playwright') )[ 'chromium' ][ 'launch' ] > >;
 type Page = Awaited< ReturnType< Browser[ 'newPage' ] > >;
-type Chromium = Awaited< typeof import( 'playwright' ) >[ 'chromium' ];
+type Chromium = Awaited< typeof import('playwright') >[ 'chromium' ];
 type ChromiumLaunchOptions = Parameters< Chromium[ 'launch' ] >[ 0 ];
 type InstallBrowserFn = () => Promise< void >;
+type SupportedChannel = ( typeof SUPPORTED_CHANNELS )[ number ];
+type BrowserOverrides = {
+	executablePath?: string;
+	configuredChannel?: string;
+	channel?: SupportedChannel;
+};
 
 const DEFAULT_BROWSER_ARGS = [ '--ignore-certificate-errors' ];
 const SUPPORTED_CHANNELS = [
@@ -37,8 +43,35 @@ const ENV_CHANNEL_KEYS = [ 'STUDIO_MCP_BROWSER_CHANNEL', 'PLAYWRIGHT_CHROMIUM_CH
 let browserPromise: Promise< Browser > | null = null;
 const execFileAsync = promisify( execFile );
 const require = createRequire( import.meta.url );
+const SYSTEM_BROWSER_CANDIDATES_BY_PLATFORM: Record< string, string[] > = {
+	darwin: [
+		'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+		'/Applications/Chromium.app/Contents/MacOS/Chromium',
+		'/Applications/Google Chrome Beta.app/Contents/MacOS/Google Chrome Beta',
+		'/Applications/Google Chrome Dev.app/Contents/MacOS/Google Chrome Dev',
+		'/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+		'/Applications/Brave Browser.app/Contents/MacOS/Brave Browser',
+	],
+	linux: [
+		'/usr/bin/google-chrome',
+		'/usr/bin/google-chrome-stable',
+		'/usr/bin/chromium',
+		'/usr/bin/chromium-browser',
+		'/snap/bin/chromium',
+		'/usr/bin/microsoft-edge',
+		'/usr/bin/brave-browser',
+	],
+	win32: [
+		'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+		'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+		'C:\\Program Files\\Chromium\\Application\\chrome.exe',
+		'C:\\Program Files (x86)\\Chromium\\Application\\chrome.exe',
+		'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+		'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+	],
+};
 
-function getEnvValue( keys: readonly string[] ): string | undefined {
+function getFirstEnvValue( keys: readonly string[] ): string | undefined {
 	for ( const key of keys ) {
 		const value = process.env[ key ]?.trim();
 		if ( value ) {
@@ -47,103 +80,61 @@ function getEnvValue( keys: readonly string[] ): string | undefined {
 	}
 }
 
-function getCandidateExecutablePaths(
-	chromium: Pick< Chromium, 'executablePath' >
-): string[] {
-	const systemCandidatesByPlatform: Record< string, string[] > = {
-		darwin: [
-			'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-			'/Applications/Chromium.app/Contents/MacOS/Chromium',
-			'/Applications/Google Chrome Beta.app/Contents/MacOS/Google Chrome Beta',
-			'/Applications/Google Chrome Dev.app/Contents/MacOS/Google Chrome Dev',
-			'/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
-			'/Applications/Brave Browser.app/Contents/MacOS/Brave Browser',
-		],
-		linux: [
-			'/usr/bin/google-chrome',
-			'/usr/bin/google-chrome-stable',
-			'/usr/bin/chromium',
-			'/usr/bin/chromium-browser',
-			'/snap/bin/chromium',
-			'/usr/bin/microsoft-edge',
-			'/usr/bin/brave-browser',
-		],
-		win32: [
-			'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-			'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-			'C:\\Program Files\\Chromium\\Application\\chrome.exe',
-			'C:\\Program Files (x86)\\Chromium\\Application\\chrome.exe',
-			'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
-			'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
-		],
-	};
+function getBrowserOverrides(): BrowserOverrides {
+	const executablePath = getFirstEnvValue( ENV_EXECUTABLE_KEYS );
+	const configuredChannel = getFirstEnvValue( ENV_CHANNEL_KEYS );
+	const channel = SUPPORTED_CHANNELS.includes( configuredChannel as SupportedChannel )
+		? ( configuredChannel as SupportedChannel )
+		: undefined;
 
-	const candidates = [
-		getEnvValue( ENV_EXECUTABLE_KEYS ),
-		chromium.executablePath(),
-		...( systemCandidatesByPlatform[ os.platform() ] ?? [] ),
-	];
-
-	const definedCandidates = [ ...new Set( candidates ) ].filter(
-		( candidate ): candidate is string => Boolean( candidate )
-	);
-
-	return definedCandidates.filter( ( candidate ) => existsSync( candidate ) );
-}
-
-function hasExternalBrowserOverride(): boolean {
-	return Boolean( getEnvValue( ENV_EXECUTABLE_KEYS ) || getEnvValue( ENV_CHANNEL_KEYS ) );
-}
-
-function getChannelCandidates(): Array< ( typeof SUPPORTED_CHANNELS )[ number ] > {
-	const configuredChannel = getEnvValue( ENV_CHANNEL_KEYS );
-	const channels = configuredChannel
-		? [ configuredChannel, ...SUPPORTED_CHANNELS ]
-		: [ ...SUPPORTED_CHANNELS ];
-
-	return [ ...new Set( channels ) ].filter(
-		( channel ): channel is ( typeof SUPPORTED_CHANNELS )[ number ] =>
-			SUPPORTED_CHANNELS.includes( channel as ( typeof SUPPORTED_CHANNELS )[ number ] )
-	);
-}
-
-export function getChromiumLaunchCandidates(
-	chromium: Pick< Chromium, 'executablePath' >
-): ChromiumLaunchOptions[] {
-	const executableCandidates = getCandidateExecutablePaths( chromium ).map( ( executablePath ) => ( {
-		args: DEFAULT_BROWSER_ARGS,
+	return {
 		executablePath,
-	} ) );
-	const channelCandidates = getChannelCandidates().map( ( channel ) => ( {
-		args: DEFAULT_BROWSER_ARGS,
+		configuredChannel,
 		channel,
-	} ) );
-
-	return [
-		...executableCandidates,
-		...channelCandidates,
-		{
-			args: DEFAULT_BROWSER_ARGS,
-		},
-	];
-}
-
-export function getPreferredChromiumLaunchOptions(
-	chromium: Pick< Chromium, 'executablePath' >
-): ChromiumLaunchOptions {
-	return getChromiumLaunchCandidates( chromium )[ 0 ] ?? {
-		args: DEFAULT_BROWSER_ARGS,
 	};
 }
 
-function describeLaunchOptions( options: ChromiumLaunchOptions ): string {
-	if ( options?.executablePath ) {
-		return `executablePath=${ options.executablePath }`;
+export function buildChromiumLaunchAttempts(
+	chromium: Pick< Chromium, 'executablePath' >,
+	overrides: BrowserOverrides = getBrowserOverrides()
+): ChromiumLaunchOptions[] {
+	const attempts: ChromiumLaunchOptions[] = [];
+	const seen = new Set< string >();
+
+	const addExecutableAttempt = ( executablePath?: string ) => {
+		if ( ! executablePath || ! existsSync( executablePath ) || seen.has( executablePath ) ) {
+			return;
+		}
+		seen.add( executablePath );
+		attempts.push( {
+			args: DEFAULT_BROWSER_ARGS,
+			executablePath,
+		} );
+	};
+
+	addExecutableAttempt( overrides.executablePath );
+	addExecutableAttempt( chromium.executablePath() );
+
+	for ( const executablePath of SYSTEM_BROWSER_CANDIDATES_BY_PLATFORM[ os.platform() ] ?? [] ) {
+		addExecutableAttempt( executablePath );
 	}
-	if ( options?.channel ) {
-		return `channel=${ options.channel }`;
+
+	for ( const channel of [ overrides.channel, ...SUPPORTED_CHANNELS ] ) {
+		if ( ! channel || seen.has( channel ) ) {
+			continue;
+		}
+		seen.add( channel );
+		attempts.push( {
+			args: DEFAULT_BROWSER_ARGS,
+			channel,
+		} );
 	}
-	return 'playwright-default';
+
+	attempts.push( {
+		args: DEFAULT_BROWSER_ARGS,
+	} );
+
+	return attempts;
 }
 
 async function installPlaywrightChromium(): Promise< void > {
@@ -160,9 +151,10 @@ async function installPlaywrightChromium(): Promise< void > {
 
 export async function ensurePlaywrightChromiumInstalled(
 	chromium: Pick< Chromium, 'executablePath' >,
+	overrides: BrowserOverrides = getBrowserOverrides(),
 	installBrowser: InstallBrowserFn = installPlaywrightChromium
 ): Promise< string | null > {
-	if ( hasExternalBrowserOverride() ) {
+	if ( overrides.executablePath || overrides.configuredChannel ) {
 		return null;
 	}
 
@@ -195,20 +187,28 @@ export async function getSharedBrowser(): Promise< Browser > {
 	if ( ! browserPromise ) {
 		browserPromise = ( async () => {
 			const { chromium } = await import( 'playwright' );
-			const installError = await ensurePlaywrightChromiumInstalled( chromium );
-			const launchCandidates = getChromiumLaunchCandidates( chromium );
+			const overrides = getBrowserOverrides();
+			const installError = await ensurePlaywrightChromiumInstalled( chromium, overrides );
+			const launchCandidates = buildChromiumLaunchAttempts( chromium, overrides );
 			const launchErrors: string[] = [];
 			let browser: Browser | undefined;
 
-			for ( const options of launchCandidates ) {
+			for ( const attempt of launchCandidates ) {
+				if ( ! attempt ) {
+					continue;
+				}
+				const attemptedTarget = attempt.executablePath
+					? `executablePath=${ attempt.executablePath }`
+					: attempt.channel
+					? `channel=${ attempt.channel }`
+					: 'playwright-default';
+
 				try {
-					browser = await chromium.launch( options );
+					browser = await chromium.launch( attempt );
 					break;
 				} catch ( error ) {
 					launchErrors.push(
-						`${ describeLaunchOptions( options ) }: ${
-							error instanceof Error ? error.message : String( error )
-						}`
+						`${ attemptedTarget }: ${ error instanceof Error ? error.message : String( error ) }`
 					);
 				}
 			}
@@ -220,7 +220,9 @@ export async function getSharedBrowser(): Promise< Browser > {
 
 				throw new Error(
 					'Unable to launch a browser for Studio MCP screenshot/validation tools. ' +
-						`Tried ${ launchCandidates.map( describeLaunchOptions ).join( ', ' ) }. ` +
+						`Tried ${ launchErrors
+							.map( ( error ) => error.split( ': ', 1 )[ 0 ] )
+							.join( ', ' ) }. ` +
 						'Set STUDIO_MCP_BROWSER_EXECUTABLE_PATH to a local Chrome/Chromium-compatible browser, ' +
 						'or STUDIO_MCP_BROWSER_CHANNEL to a Playwright-supported channel like "chrome". ' +
 						`${ repairGuidance } ` +

@@ -1,9 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-	ensurePlaywrightChromiumInstalled,
-	getChromiumLaunchCandidates,
-	getPreferredChromiumLaunchOptions,
-} from '../browser-utils';
+import { buildChromiumLaunchAttempts, ensurePlaywrightChromiumInstalled } from '../browser-utils';
 
 describe( 'browser-utils', () => {
 	beforeEach( () => {
@@ -17,9 +13,9 @@ describe( 'browser-utils', () => {
 	it( 'prefers the resolved Chromium executable when it exists', () => {
 		const executablePath = '/bin/sh';
 
-		const options = getPreferredChromiumLaunchOptions( {
+		const options = buildChromiumLaunchAttempts( {
 			executablePath: () => executablePath,
-		} );
+		} )[ 0 ];
 
 		expect( options ).toEqual( {
 			args: [ '--ignore-certificate-errors' ],
@@ -28,7 +24,7 @@ describe( 'browser-utils', () => {
 	} );
 
 	it( 'always includes a default Playwright launch fallback', () => {
-		const candidates = getChromiumLaunchCandidates( {
+		const candidates = buildChromiumLaunchAttempts( {
 			executablePath: () => '/missing/chromium',
 		} );
 
@@ -38,9 +34,9 @@ describe( 'browser-utils', () => {
 	} );
 
 	it( 'can resolve another local browser when Playwright executable is unavailable', () => {
-		const options = getPreferredChromiumLaunchOptions( {
+		const options = buildChromiumLaunchAttempts( {
 			executablePath: () => '/missing/chromium',
-		} );
+		} )[ 0 ];
 
 		expect( options?.args ).toEqual( [ '--ignore-certificate-errors' ] );
 	} );
@@ -48,9 +44,9 @@ describe( 'browser-utils', () => {
 	it( 'prefers an explicit MCP browser executable path override', () => {
 		vi.stubEnv( 'STUDIO_MCP_BROWSER_EXECUTABLE_PATH', '/bin/sh' );
 
-		const options = getPreferredChromiumLaunchOptions( {
+		const options = buildChromiumLaunchAttempts( {
 			executablePath: () => '/missing/chromium',
-		} );
+		} )[ 0 ];
 
 		expect( options ).toEqual( {
 			args: [ '--ignore-certificate-errors' ],
@@ -61,7 +57,7 @@ describe( 'browser-utils', () => {
 	it( 'includes configured channels as fallbacks for external environments', () => {
 		vi.stubEnv( 'STUDIO_MCP_BROWSER_CHANNEL', 'chrome' );
 
-		const options = getChromiumLaunchCandidates( {
+		const options = buildChromiumLaunchAttempts( {
 			executablePath: () => '/missing/chromium',
 		} );
 
@@ -79,6 +75,7 @@ describe( 'browser-utils', () => {
 			{
 				executablePath: () => ( installed ? '/bin/sh' : '/missing/chromium' ),
 			},
+			{},
 			async () => {
 				installed = true;
 				await installBrowser();
@@ -94,6 +91,7 @@ describe( 'browser-utils', () => {
 			{
 				executablePath: () => '/missing/chromium',
 			},
+			{},
 			async () => {
 				throw new Error( 'network unavailable' );
 			}
@@ -110,6 +108,9 @@ describe( 'browser-utils', () => {
 		const error = await ensurePlaywrightChromiumInstalled(
 			{
 				executablePath: () => '/missing/chromium',
+			},
+			{
+				configuredChannel: 'chrome',
 			},
 			installBrowser
 		);

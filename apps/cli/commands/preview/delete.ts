@@ -5,7 +5,11 @@ import { __ } from '@wordpress/i18n';
 import { deleteAllSnapshots, deleteSnapshot } from 'cli/lib/api';
 import { deleteAllSnapshotsForUserFromConfig } from 'cli/lib/cli-config/snapshots';
 import { emitCliEvent } from 'cli/lib/daemon-client';
-import { deleteSnapshotFromConfig, getSnapshotsFromConfig, isSnapshotExpired } from 'cli/lib/snapshots';
+import {
+	deleteSnapshotFromConfig,
+	getSnapshotsFromConfig,
+	isSnapshotExpired,
+} from 'cli/lib/snapshots';
 import { normalizeHostname } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -51,6 +55,7 @@ export async function runCommand( mode: Mode, host: string | undefined ): Promis
 			logger.reportSuccess( __( 'Validation successful' ), true );
 
 			logger.reportStart( LoggerAction.DELETE, __( 'Deleting…' ) );
+			console.error( ' WHAT IS GOING ON HERE?', isSnapshotExpired( snapshotToDelete ) );
 			if ( ! isSnapshotExpired( snapshotToDelete ) ) {
 				await deleteSnapshot( snapshotToDelete.atomicSiteId, token.accessToken );
 			}

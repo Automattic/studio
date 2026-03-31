@@ -4,7 +4,11 @@ import { vi } from 'vitest';
 import { deleteAllSnapshots, deleteSnapshot } from 'cli/lib/api';
 import { deleteAllSnapshotsForUserFromConfig } from 'cli/lib/cli-config/snapshots';
 import { emitCliEvent } from 'cli/lib/daemon-client';
-import { getSnapshotsFromConfig, deleteSnapshotFromConfig, isSnapshotExpired } from 'cli/lib/snapshots';
+import {
+	getSnapshotsFromConfig,
+	deleteSnapshotFromConfig,
+	isSnapshotExpired,
+} from 'cli/lib/snapshots';
 import { LoggerError } from 'cli/logger';
 import {
 	mockReportStart,

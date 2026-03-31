@@ -259,4 +259,34 @@ describe( 'Studio AI MCP tools', () => {
 			'--post_content=<!-- wp:paragraph -->\n<p>Hello world</p>\n<!-- /wp:paragraph -->',
 		] );
 	} );
+
+	it( 'strips matching outer quotes from trailing post_content', async () => {
+		vi.mocked( isServerRunning ).mockResolvedValue( {
+			name: 'site-123',
+			pmId: 1,
+			status: 'online',
+			pid: 1234,
+		} );
+		vi.mocked( sendWpCliCommand ).mockResolvedValue( {
+			stdout: '123',
+			stderr: '',
+			exitCode: 0,
+		} );
+
+		await getTool( 'wp_cli' ).handler(
+			{
+				nameOrPath: 'My Site',
+				command: 'post create --post_type=page --post_title="About" --post_content="Hello world"',
+			} as never,
+			null
+		);
+
+		expect( sendWpCliCommand ).toHaveBeenCalledWith( 'site-123', [
+			'post',
+			'create',
+			'--post_type=page',
+			'--post_title=About',
+			'--post_content=Hello world',
+		] );
+	} );
 } );

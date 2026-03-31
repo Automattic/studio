@@ -69,6 +69,20 @@ function splitBasicCommandArgs( command: string ): string[] {
 	return args;
 }
 
+function stripMatchingOuterQuotes( value: string ): string {
+	if ( value.length < 2 ) {
+		return value;
+	}
+
+	const firstChar = value[ 0 ];
+	const lastChar = value[ value.length - 1 ];
+	if ( ( firstChar === '"' || firstChar === "'" ) && firstChar === lastChar ) {
+		return value.slice( 1, -1 );
+	}
+
+	return value;
+}
+
 function splitCommandArgs( command: string ): string[] {
 	const postContentMarker = '--post_content=';
 	const postContentIndex = command.indexOf( postContentMarker );
@@ -77,7 +91,9 @@ function splitCommandArgs( command: string ): string[] {
 	// be treated as a single literal argument that consumes the rest of the command.
 	if ( postContentIndex !== -1 ) {
 		const prefix = command.slice( 0, postContentIndex ).trim();
-		const postContent = command.slice( postContentIndex + postContentMarker.length ).trim();
+		const postContent = stripMatchingOuterQuotes(
+			command.slice( postContentIndex + postContentMarker.length ).trim()
+		);
 
 		return [ ...splitBasicCommandArgs( prefix ), `${ postContentMarker }${ postContent }` ];
 	}

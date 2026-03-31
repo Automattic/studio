@@ -24,7 +24,6 @@ vi.mock( import( 'src/lib/bump-stats' ), async ( importOriginal ) => {
 		bumpAggregatedUniqueStat: vi.fn().mockResolvedValue( undefined ),
 	};
 } );
-vi.mock( 'src/lib/user-data-watcher' );
 vi.mock( 'src/setup-wp-server-files', () => ( {
 	setupWPServerFiles: vi.fn().mockResolvedValue( undefined ),
 	updateWPServerFiles: vi.fn().mockResolvedValue( undefined ),

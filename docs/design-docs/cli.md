@@ -10,7 +10,7 @@ The Studio CLI (invoked with the `studio` command) is a globally available CLI u
 
 ## High level approach
 
-The CLI is independent of the main desktop app, but is written using mostly the same conventions. It's a node.js app written in Typescript, that's bundled into a single JS file using Webpack. Vitest is used to test CLI modules in the same way as for regular Studio modules.
+The CLI is independent of the main desktop app, but is written using mostly the same conventions. It's a node.js app written in Typescript, that's transpiled and bundled using Vite. Vitest is used to test CLI modules in the same way as for regular Studio modules.
 
 To run the CLI, we first add a script to a directory on `$PATH`. This script runs the CLI JS file using the node runtime bundled with Studio. Running JS files independently of the main Studio app is possible thanks to the `ELECTRON_RUN_AS_NODE=1` option.
 
@@ -32,9 +32,11 @@ The first iteration of the CLI shipped commands to create, read, update, and del
    - The renderer process uses "logger action" definitions from the `common` folder to determine command progress based on incoming IPC events.
 
 3. Studio reacts when the CLI modifies preview sites:
-   - `src/lib/user-data-watcher.ts` watches the Studio config file and emits `user-data-updated` IPC renderer events.
-   - State handlers (primarily Redux slices) listen to `user-data-updated` events and update the state accordingly.
-   - Because state changes trigger writes to the Studio config file, event handlers have to first run a deep diff on the incoming payload to ensure that the data has truly changed. Without this, there'd be infinite watch/write loops.
+
+   - Studio spawns the `_events` CLI command when the application starts.
+   - The `_events` command runs a local ICP server that other CLI processes send events to. Those events are passed back to Studio over standard `process.send` IPC.
+   - Studio parses and validates the events and emits `snapshot-event` IPC renderer events.
+   - State handlers (primarily Redux slices) listen to `snapshot-event` events and update the state accordingly.
 
 ## Implementation details
 
@@ -48,7 +50,9 @@ Modifying the `$PATH` environment variable programmatically on macOS is much mor
 
 ### Why bundle the CLI?
 
-Node apps don't technically need to be bundled, but we chose this approach with the CLI to minimize the amount of code we ship in the installer. If we didn't bundle the CLI files, we would need to figure out a way to ship a `node_modules` folder containing only the dependencies needed by the CLI (and ideally no superfluous files inside those dependencies, either).
+We could almost ship the CLI source code as-is. We know which Node.js version interprets and runs the code, and we always ship the CLI with an accompanying `node_modules` directory. The only bundling we really _need_ is Typescript, and `--experimental-strip-types` might even let us skip that.
+
+Long-term, we might want to move in that direction, but for now, we are still bundling. It offers us some flexibility around which exact code we ship to users (by allowing us to define globals that act as feature flags), and we've seen in testing that bundled code uses less memory, presumably because of code splitting and tree shaking. 
 
 ### Studio calling the CLI
 

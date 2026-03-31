@@ -185,6 +185,15 @@ export interface WpComSiteInfo {
 	url: string;
 }
 
+const rotateStreamingExportSecretResponseSchema = z.object( {
+	code: z.number(),
+	body: z.object( {
+		data: z.object( {
+			secret: z.string().min( 1, __( 'Secret cannot be empty' ) ),
+		} ),
+	} ),
+} );
+
 const wpComSitesResponseSchema = z.object( {
 	sites: z.array(
 		z.object( {
@@ -223,6 +232,63 @@ export async function getWpComSites( token: string ): Promise< WpComSiteInfo[] >
 			throw new LoggerError( __( 'Invalid API response format' ), error );
 		}
 		throw new LoggerError( __( 'Failed to fetch WordPress.com sites' ), error );
+	}
+}
+
+export async function rotateStreamingExportSecret(
+	siteId: number,
+	token: string
+): Promise< string > {
+	const response = await fetch(
+		`https://public-api.wordpress.com/rest/v1.1/jetpack-blogs/${ siteId }/rest-api?http_envelope=1&`,
+		{
+			method: 'POST',
+			headers: {
+				Authorization: `Bearer ${ token }`,
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify( {
+				path: '/wp/v2/streaming-export/rotate-secret',
+			} ),
+		}
+	);
+
+	if ( ! response.ok ) {
+		throw new LoggerError(
+			__( 'Failed to rotate the WordPress.com site secret' ),
+			new Error( `HTTP ${ response.status }` )
+		);
+	}
+
+	let rawResponse: unknown;
+	try {
+		rawResponse = await response.json();
+	} catch ( error ) {
+		throw new LoggerError(
+			__( 'Invalid API response format' ),
+			error instanceof Error ? error : new Error( String( error ) )
+		);
+	}
+
+	try {
+		const result = rotateStreamingExportSecretResponseSchema.parse( rawResponse );
+
+		if ( result.code !== 200 ) {
+			throw new LoggerError(
+				__( 'Failed to rotate the WordPress.com site secret' ),
+				new Error( `Unexpected response code ${ result.code }` )
+			);
+		}
+
+		return result.body.data.secret;
+	} catch ( error ) {
+		if ( error instanceof LoggerError ) {
+			throw error;
+		}
+		if ( error instanceof z.ZodError ) {
+			throw new LoggerError( __( 'Invalid API response format' ), error );
+		}
+		throw new LoggerError( __( 'Failed to rotate the WordPress.com site secret' ), error );
 	}
 }
 

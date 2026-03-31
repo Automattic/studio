@@ -1,4 +1,10 @@
-import { getImportKey, inferSiteNameFromUrl, normalizeImportUrl } from '../import';
+import {
+	findMatchingWpComSite,
+	formatWpComSitesList,
+	getImportKey,
+	inferSiteNameFromUrl,
+	normalizeImportUrl,
+} from '../import';
 
 describe( 'CLI: studio site import helpers', () => {
 	it( 'normalizes URLs by stripping hashes and trailing slashes', () => {
@@ -20,5 +26,36 @@ describe( 'CLI: studio site import helpers', () => {
 		expect( getImportKey( 'https://example.com/', 'Explicit Name' ) ).not.toBe(
 			getImportKey( 'https://example.com/', undefined )
 		);
+	} );
+
+	it( 'matches WordPress.com sites by normalized URL or host', () => {
+		expect(
+			findMatchingWpComSite(
+				[
+					{
+						id: 1,
+						name: 'Example',
+						url: 'https://example.wordpress.com/',
+					},
+				],
+				'https://example.wordpress.com'
+			)
+		).toEqual( {
+			id: 1,
+			name: 'Example',
+			url: 'https://example.wordpress.com/',
+		} );
+	} );
+
+	it( 'formats the truncated WordPress.com site list with a full-list hint', () => {
+		expect(
+			formatWpComSitesList(
+				[
+					{ id: 1, name: 'One', url: 'https://one.wordpress.com' },
+					{ id: 2, name: 'Two', url: 'https://two.wordpress.com' },
+				],
+				1
+			)
+		).toContain( '--list-wpcom-sites' );
 	} );
 } );

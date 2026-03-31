@@ -46,6 +46,8 @@ export enum SiteCommandLoggerAction {
 
 export enum ImportCommandLoggerAction {
 	PREFLIGHT = 'preflight',
+	LOAD_WPCOM_SITES = 'loadWpComSites',
+	ROTATE_SECRET = 'rotateSecret',
 	CREATE_SITE = 'createSite',
 	DOWNLOAD_FILES = 'downloadFiles',
 	DOWNLOAD_SQL = 'downloadSql',

@@ -15,11 +15,13 @@ import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { arePathsEqual, isEmptyDir, pathExists } from '@studio/common/lib/fs-utils';
 import { generateNumberedName } from '@studio/common/lib/generate-site-name';
 import { portFinder } from '@studio/common/lib/port-finder';
+import { readAuthToken, type StoredAuthToken } from '@studio/common/lib/shared-config';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import { ImportCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import chalk from 'chalk';
+import { getWpComSites, rotateStreamingExportSecret, type WpComSiteInfo } from 'cli/lib/api';
 import {
 	lockCliConfig,
 	readCliConfig,
@@ -49,6 +51,7 @@ const PLUGIN_INSTALL_HINT =
 
 const IMPORTS_ROOT = path.join( os.homedir(), '.studio', 'imports' );
 const SKIPPED_DOWNLOAD_LIST = '.import-download-list-skipped.jsonl';
+const DEFAULT_WPCOM_SITE_LIST_LIMIT = 15;
 
 const importStageOrder = [
 	'initialized',
@@ -88,6 +91,11 @@ interface ImportMetadata {
 interface ResolveImportMetadataResult {
 	created: boolean;
 	metadata: ImportMetadata;
+}
+
+interface ResolvedImportSource {
+	secret: string;
+	url: string;
 }
 
 class ImportError extends LoggerError {
@@ -239,6 +247,154 @@ async function resolveSiteName( normalizedUrl: string, explicitName?: string ): 
 		cliConfig.sites.map( ( site ) => site.name ),
 		path.dirname( getDefaultSitePath( baseName ) )
 	);
+}
+
+export function findMatchingWpComSite(
+	sites: WpComSiteInfo[],
+	url: string
+): WpComSiteInfo | undefined {
+	const normalizedUrl = normalizeImportUrl( url );
+	const target = new URL( normalizedUrl );
+
+	return sites.find( ( site ) => {
+		try {
+			const normalizedSiteUrl = normalizeImportUrl( site.url );
+			if ( normalizedSiteUrl === normalizedUrl ) {
+				return true;
+			}
+
+			return new URL( normalizedSiteUrl ).host === target.host;
+		} catch {
+			return false;
+		}
+	} );
+}
+
+export function formatWpComSitesList(
+	sites: WpComSiteInfo[],
+	limit = DEFAULT_WPCOM_SITE_LIST_LIMIT
+): string {
+	const visibleSites = sites.slice( 0, limit );
+	const lines = visibleSites.map(
+		( site, index ) => `${ index + 1 }. ${ site.name } - ${ site.url }`
+	);
+
+	if ( sites.length > visibleSites.length ) {
+		lines.push(
+			`... and ${
+				sites.length - visibleSites.length
+			} more. Run \`studio site import --list-wpcom-sites\` to see the full list.`
+		);
+	}
+
+	return lines.join( '\n' );
+}
+
+async function loadWpComSites(): Promise< { sites: WpComSiteInfo[]; token: StoredAuthToken } > {
+	const token = await readAuthToken();
+	if ( ! token ) {
+		throw new LoggerError(
+			__(
+				'WordPress.com authentication is required. Run `studio auth login` to import a connected WordPress.com site, or provide both `--url` and `--secret` for a non-WordPress.com site.'
+			)
+		);
+	}
+
+	logger.reportStart( LoggerAction.LOAD_WPCOM_SITES, __( 'Loading WordPress.com sites…' ) );
+	try {
+		const sites = await getWpComSites( token.accessToken );
+		logger.reportSuccess( `${ __( 'Loaded WordPress.com sites' ) }: ${ sites.length }` );
+		return { token, sites };
+	} catch ( error ) {
+		throw new LoggerError( __( 'Failed to load WordPress.com sites' ), error );
+	}
+}
+
+async function rotateWpComSecret( site: WpComSiteInfo, token: StoredAuthToken ): Promise< string > {
+	logger.reportStart( LoggerAction.ROTATE_SECRET, __( 'Rotating WordPress.com site secret…' ) );
+	try {
+		const secret = await rotateStreamingExportSecret( site.id, token.accessToken );
+		logger.reportSuccess( __( 'WordPress.com site secret rotated' ) );
+		return secret;
+	} catch ( error ) {
+		throw new LoggerError( __( 'Failed to rotate the WordPress.com site secret' ), error );
+	}
+}
+
+async function listWpComSites( limit?: number ): Promise< WpComSiteInfo[] > {
+	const { sites } = await loadWpComSites();
+
+	if ( sites.length === 0 ) {
+		console.log( __( 'No active WordPress.com sites found.' ) );
+		return sites;
+	}
+
+	console.log( __( 'Connected WordPress.com sites:' ) );
+	console.log( formatWpComSitesList( sites, limit ?? sites.length ) );
+	console.log( '' );
+
+	return sites;
+}
+
+async function resolveImportSource(
+	url?: string,
+	providedSecret?: string,
+	listWpComSitesOnly = false
+): Promise< ResolvedImportSource | null > {
+	if ( listWpComSitesOnly ) {
+		await listWpComSites();
+		return null;
+	}
+
+	if ( url ) {
+		if ( providedSecret ) {
+			return { url, secret: providedSecret };
+		}
+
+		const { token, sites } = await loadWpComSites();
+		const wpComSite = findMatchingWpComSite( sites, url );
+		if ( ! wpComSite ) {
+			throw new LoggerError(
+				__(
+					'No secret was provided, and this URL is not one of your connected WordPress.com sites. Provide `--secret` for a non-WordPress.com site.'
+				)
+			);
+		}
+
+		return {
+			url,
+			secret: await rotateWpComSecret( wpComSite, token ),
+		};
+	}
+
+	const { token, sites } = await loadWpComSites();
+	if ( sites.length === 0 ) {
+		throw new LoggerError(
+			__(
+				'No active WordPress.com sites found. Provide both `--url` and `--secret` to import a non-WordPress.com site.'
+			)
+		);
+	}
+
+	if ( sites.length > 1 ) {
+		console.log( __( 'Connected WordPress.com sites:' ) );
+		console.log( formatWpComSitesList( sites ) );
+		console.log( '' );
+		throw new LoggerError(
+			__(
+				'Multiple WordPress.com sites are available. Re-run with `--url <site-url>`, or use `--list-wpcom-sites` to see the full list.'
+			)
+		);
+	}
+
+	const wpComSite = sites[ 0 ];
+	console.log( `${ __( 'Using your only connected WordPress.com site:' ) } ${ wpComSite.url }` );
+	console.log( '' );
+
+	return {
+		url: wpComSite.url,
+		secret: providedSecret ?? ( await rotateWpComSecret( wpComSite, token ) ),
+	};
 }
 
 export async function resolveImportMetadata(
@@ -498,8 +654,11 @@ function printCompletionMessage( metadata: ImportMetadata ): void {
 	}
 }
 
-function printResumeMessage( url: string, providedName?: string ): void {
-	const command = [ 'studio site import', `--url ${ url }`, '--secret <secret>' ];
+function printResumeMessage( url: string, providedName?: string, requiresSecret = false ): void {
+	const command = [ 'studio site import', `--url ${ url }` ];
+	if ( requiresSecret ) {
+		command.push( '--secret <secret>' );
+	}
 	if ( providedName ) {
 		command.push( `--name "${ providedName }"` );
 	}
@@ -564,11 +723,18 @@ async function registerSite(
 }
 
 export async function runCommand(
-	url: string,
-	secret: string,
-	providedName?: string
+	url?: string,
+	providedSecret?: string,
+	providedName?: string,
+	listWpComSitesOnly = false
 ): Promise< void > {
-	const { created, metadata } = await resolveImportMetadata( url, providedName );
+	const resolvedSource = await resolveImportSource( url, providedSecret, listWpComSitesOnly );
+	if ( ! resolvedSource ) {
+		return;
+	}
+
+	const { url: resolvedUrl, secret } = resolvedSource;
+	const { created, metadata } = await resolveImportMetadata( resolvedUrl, providedName );
 	const apiUrl = getApiUrl( metadata.normalizedUrl );
 
 	await ensureFreshSitePath( metadata );
@@ -803,7 +969,7 @@ export async function runCommand(
 
 		printCompletionMessage( metadata );
 	} catch ( error ) {
-		printResumeMessage( metadata.normalizedUrl, providedName );
+		printResumeMessage( metadata.normalizedUrl, providedName, Boolean( providedSecret ) );
 		if ( error instanceof LoggerError ) {
 			throw error;
 		}
@@ -820,16 +986,19 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'url', {
 					type: 'string',
 					describe: __( 'URL of the remote WordPress site' ),
-					demandOption: true,
 				} )
 				.option( 'secret', {
 					type: 'string',
 					describe: __( 'Shared HMAC secret configured in the migration plugin' ),
-					demandOption: true,
 				} )
 				.option( 'name', {
 					type: 'string',
 					describe: __( 'Local site name' ),
+				} )
+				.option( 'list-wpcom-sites', {
+					type: 'boolean',
+					describe: __( 'List connected WordPress.com sites and exit' ),
+					default: false,
 				} )
 				.option( 'verbose', {
 					type: 'boolean',
@@ -842,9 +1011,10 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 
 			try {
 				await runCommand(
-					argv.url as string,
-					argv.secret as string,
-					argv.name as string | undefined
+					argv.url as string | undefined,
+					argv.secret as string | undefined,
+					argv.name as string | undefined,
+					argv.listWpcomSites as boolean
 				);
 			} catch ( error ) {
 				if ( error instanceof ImportError ) {

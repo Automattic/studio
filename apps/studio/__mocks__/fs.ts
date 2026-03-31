@@ -12,7 +12,9 @@ const readFileSyncMock = vi.fn( ( path: string, options?: Parameters< typeof mem
 	memfsFs.readFileSync( path, options ) as string
 );
 
-const readdirSyncMock = vi.fn();
+const readdirSyncMock = vi.fn( ( ...args: Parameters< typeof memfsFs.readdirSync > ) =>
+	memfsFs.readdirSync( ...args ) as string[]
+);
 
 const statSyncMock = vi.fn( ( path: string ) => memfsFs.statSync( path ) );
 
@@ -28,7 +30,9 @@ const readFileMock = vi.fn( ( ...args: Parameters< typeof memfsFs.promises.readF
 	memfsFs.promises.readFile( ...args )
 );
 
-const renameMock = vi.fn();
+const renameMock = vi.fn( async ( oldPath: string, newPath: string ) =>
+	memfsFs.promises.rename( oldPath, newPath )
+);
 
 const statMock = vi.fn( ( path: string ) => memfsFs.promises.stat( path ) );
 

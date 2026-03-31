@@ -8,10 +8,7 @@ export { vol };
 const toUnixPath = ( p: string | Uint8Array | URL ): string =>
 	typeof p === 'string' ? p.replace( /\\/g, '/' ) : String( p );
 
-const existsSyncMock = vi.fn( ( path: string ) => {
-	const result = memfsFs.existsSync( toUnixPath( path ) );
-	return result;
-} );
+const existsSyncMock = vi.fn( ( path: string ) => memfsFs.existsSync( toUnixPath( path ) ) );
 
 const mkdirSyncMock = vi.fn();
 

@@ -2,10 +2,10 @@
  * @vitest-environment node
  */
 // To run tests, execute `npm run test -- src/storage/user-data.test.ts` from the root directory
-import { readFile, writeFile } from 'atomically';
 import fs from 'fs';
-import { vi } from 'vitest';
+import { readFile, writeFile } from 'atomically';
 import { vol } from 'memfs';
+import { vi } from 'vitest';
 import { loadUserData, lockAppdata, unlockAppdata, saveUserData } from 'src/storage/user-data';
 import { UserData } from '../storage-types';
 

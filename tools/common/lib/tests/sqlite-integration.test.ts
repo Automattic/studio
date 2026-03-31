@@ -1,7 +1,7 @@
-import path from 'path';
 import fs from 'fs';
-import { vi } from 'vitest';
+import path from 'path';
 import { vol } from 'memfs';
+import { vi } from 'vitest';
 import { SqliteIntegrationProvider } from '../sqlite-integration';
 import { platformTestSuite } from './utils/platform-test-suite';
 
@@ -21,7 +21,7 @@ function volFromJSON( files: Record< string, string > ): void {
 		}
 		vol.fromJSON( posixFiles );
 	} finally {
-		// @ts-expect-error
+		// @ts-expect-error — Restore original separator after memfs compatibility workaround
 		path.sep = savedSep;
 	}
 }
@@ -88,7 +88,8 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 	describe( 'installSqliteIntegration', () => {
 		beforeEach( () => {
 			volFromJSON( {
-				[ normalize( `server-files/${ SQLITE_DIRNAME }/db.copy` ) ]: "SQLIntegration path: '{SQLITE_IMPLEMENTATION_FOLDER_PATH}'",
+				[ normalize( `server-files/${ SQLITE_DIRNAME }/db.copy` ) ]:
+					"SQLIntegration path: '{SQLITE_IMPLEMENTATION_FOLDER_PATH}'",
 			} );
 		} );
 
@@ -132,7 +133,8 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 	describe( 'keepSqliteIntegrationUpdated', () => {
 		beforeEach( () => {
 			volFromJSON( {
-				[ normalize( `server-files/${ SQLITE_DIRNAME }/db.copy` ) ]: "SQLIntegration path: '{SQLITE_IMPLEMENTATION_FOLDER_PATH}'",
+				[ normalize( `server-files/${ SQLITE_DIRNAME }/db.copy` ) ]:
+					"SQLIntegration path: '{SQLITE_IMPLEMENTATION_FOLDER_PATH}'",
 			} );
 		} );
 
@@ -193,9 +195,9 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 		} );
 
 		it( 'should return empty string if version cannot be parsed', async () => {
-		volFromJSON( {
-			[ normalize( 'mu-plugins/sqlite/load.php' ) ]: '<?php // No version here',
-		} );
+			volFromJSON( {
+				[ normalize( 'mu-plugins/sqlite/load.php' ) ]: '<?php // No version here',
+			} );
 
 			const version = await provider.getSqliteVersionFromInstallation(
 				normalize( 'mu-plugins/sqlite' )

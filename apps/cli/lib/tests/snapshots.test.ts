@@ -1,7 +1,7 @@
 import fs from 'fs';
 import { writeFile } from 'atomically';
-import { vi } from 'vitest';
 import { vol } from 'memfs';
+import { vi } from 'vitest';
 import {
 	deleteSnapshotFromConfig,
 	getSnapshotsFromConfig,

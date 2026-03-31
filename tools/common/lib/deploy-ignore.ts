@@ -3,13 +3,11 @@ import path from 'path';
 import ignore, { Ignore } from 'ignore';
 import { isErrnoException } from './is-errno-exception';
 
-export type { Ignore };
-
 /**
  * Default patterns excluded from deploys. These are pre-seeded
  * but can be overridden via negation patterns in .deployignore.
  */
-const DEPLOY_IGNORE_DEFAULTS = [ '.git', 'node_modules', '.DS_Store', 'Thumbs.db' ];
+export const DEPLOY_IGNORE_DEFAULTS = [ '.git', 'node_modules', '.DS_Store', 'Thumbs.db' ];
 
 const DEPLOY_IGNORE_FILENAME = '.deployignore';
 

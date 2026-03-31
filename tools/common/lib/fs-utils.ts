@@ -1,14 +1,13 @@
 import fs, { promises as fsPromises } from 'fs';
 import path from 'path';
+import ignore, { Ignore } from 'ignore';
+import { DEPLOY_IGNORE_DEFAULTS } from './deploy-ignore';
 import { isErrnoException } from './is-errno-exception';
-import type { Ignore } from './deploy-ignore';
-
-const DEFAULT_EXCLUDED_DIRECTORIES = [ '.git', 'node_modules' ];
 
 /**
  * Calculates the total size of a directory by recursively traversing its contents.
- * When a deploy-ignore filter is provided, uses it to determine which files to exclude.
- * Otherwise, falls back to excluding .git and node_modules directories.
+ * Uses the provided deploy-ignore filter to determine which files to exclude,
+ * or falls back to a default filter seeded with DEPLOY_IGNORE_DEFAULTS.
  *
  * @param directoryPath - The path to the directory to calculate the size of
  * @param deployIgnore - Optional Ignore instance from createDeployIgnoreFilter
@@ -21,6 +20,8 @@ export function calculateDirectorySizeForArchive(
 	deployIgnore?: Ignore,
 	pathPrefix?: string
 ): Promise< number > {
+	const ig = deployIgnore ?? ignore().add( DEPLOY_IGNORE_DEFAULTS );
+
 	return new Promise( ( resolve, reject ) => {
 		let totalSize = 0;
 
@@ -32,18 +33,11 @@ export function calculateDirectorySizeForArchive(
 					files.map( async ( file ) => {
 						const filePath = path.join( dirPath, file.name );
 						const fileRelativePath = relativePath ? `${ relativePath }/${ file.name }` : file.name;
+						const ignorePath = pathPrefix
+							? `${ pathPrefix }/${ fileRelativePath }`
+							: fileRelativePath;
 						try {
-							if ( deployIgnore ) {
-								const ignorePath = pathPrefix
-									? `${ pathPrefix }/${ fileRelativePath }`
-									: fileRelativePath;
-								if ( deployIgnore.ignores( ignorePath ) ) {
-									return;
-								}
-							} else if (
-								file.isDirectory() &&
-								DEFAULT_EXCLUDED_DIRECTORIES.includes( file.name )
-							) {
+							if ( ig.ignores( ignorePath ) ) {
 								return;
 							}
 							if ( file.isDirectory() ) {

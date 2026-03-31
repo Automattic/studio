@@ -7,11 +7,10 @@
 	"license": "GPL-2.0-or-later",
 	"type": "module",
 	"bin": {
-		"studio": "dist/cli/main.js"
+		"studio": "dist/cli/main.mjs"
 	},
 	"files": [
-		"dist/cli/*.js",
-		"dist/cli/wp-files/",
+		"dist/cli/",
 		"patches/",
 		"scripts/"
 	],
@@ -25,6 +24,7 @@
 	},
 	"dependencies": {
 		"@anthropic-ai/claude-agent-sdk": "^0.2.45",
+		"@inquirer/prompts": "^8.3.2",
 		"@mariozechner/pi-tui": "^0.54.0",
 		"@modelcontextprotocol/sdk": "^1.27.1",
 		"@php-wasm/node": "3.1.13",

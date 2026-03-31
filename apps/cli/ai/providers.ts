@@ -39,9 +39,8 @@ export function hasClaudeCodeAuth(): boolean {
 			timeout: 5000,
 			stdio: [ 'pipe', 'pipe', 'pipe' ],
 		} );
-		return (
-			output.toLowerCase().includes( 'authenticated' ) || ! output.toLowerCase().includes( 'not' )
-		);
+		const status = JSON.parse( output );
+		return status.loggedIn === true;
 	} catch {
 		return false;
 	}

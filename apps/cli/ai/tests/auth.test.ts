@@ -66,7 +66,9 @@ describe( 'AI auth helpers', () => {
 	} );
 
 	it( 'uses Claude auth when the Claude auth provider is selected', async () => {
-		vi.mocked( childProcess.execFileSync ).mockReturnValue( 'Authenticated' as never );
+		vi.mocked( childProcess.execFileSync ).mockReturnValue(
+			JSON.stringify( { loggedIn: true } ) as never
+		);
 
 		const env = await resolveAiEnvironment( 'anthropic-claude' );
 
@@ -102,7 +104,9 @@ describe( 'AI auth helpers', () => {
 	} );
 
 	it( 'lists Claude auth only when it is available', async () => {
-		vi.mocked( childProcess.execFileSync ).mockReturnValue( 'Authenticated' as never );
+		vi.mocked( childProcess.execFileSync ).mockReturnValue(
+			JSON.stringify( { loggedIn: true } ) as never
+		);
 		await expect( getAvailableAiProviders() ).resolves.toEqual( [
 			'wpcom',
 			'anthropic-claude',
@@ -172,7 +176,9 @@ describe( 'AI auth helpers', () => {
 			aiProvider: 'wpcom',
 		} );
 		vi.mocked( readAuthToken ).mockResolvedValue( null );
-		vi.mocked( childProcess.execFileSync ).mockReturnValue( 'Authenticated' as never );
+		vi.mocked( childProcess.execFileSync ).mockReturnValue(
+			JSON.stringify( { loggedIn: true } ) as never
+		);
 
 		await expect( resolveInitialAiProvider() ).resolves.toBe( 'anthropic-claude' );
 	} );
@@ -204,7 +210,9 @@ describe( 'AI auth helpers', () => {
 	it( 'defaults to Claude auth when no provider is saved and Claude auth is available', async () => {
 		vi.mocked( readCliConfig ).mockResolvedValue( { version: 1, sites: [], snapshots: [] } );
 		vi.mocked( readAuthToken ).mockResolvedValue( null );
-		vi.mocked( childProcess.execFileSync ).mockReturnValue( 'Authenticated' as never );
+		vi.mocked( childProcess.execFileSync ).mockReturnValue(
+			JSON.stringify( { loggedIn: true } ) as never
+		);
 
 		await expect( resolveInitialAiProvider() ).resolves.toBe( 'anthropic-claude' );
 	} );

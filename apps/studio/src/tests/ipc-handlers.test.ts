@@ -5,8 +5,8 @@ import { IpcMainInvokeEvent } from 'electron';
 import { normalize } from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { readFile } from 'atomically';
-import { vi } from 'vitest';
 import { vol } from 'memfs';
+import { vi } from 'vitest';
 import {
 	createSite,
 	isFullscreen,
@@ -89,7 +89,9 @@ vi.mocked( SiteServer.register, { partial: true } ).mockImplementation( ( detail
 const mockUserData = {
 	sites: [],
 };
-vol.fromJSON( { [ normalize( '/path/to/app/appData/App Name/appdata-v1.json' ) ]: JSON.stringify( mockUserData ) } );
+vol.fromJSON( {
+	[ normalize( '/path/to/app/appData/App Name/appdata-v1.json' ) ]: JSON.stringify( mockUserData ),
+} );
 vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( mockUserData ) ) );
 
 const mockIpcMainInvokeEvent = {

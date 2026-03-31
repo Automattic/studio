@@ -5,8 +5,8 @@ import { exec } from 'child_process';
 import { IpcMainInvokeEvent } from 'electron';
 import { normalize, join } from 'path';
 import { readFile } from 'atomically';
-import { vi } from 'vitest';
 import { vol } from 'memfs';
+import { vi } from 'vitest';
 import { openFileInIDE } from 'src/ipc-handlers';
 import { isInstalled } from 'src/lib/is-installed';
 import { getUserEditor } from 'src/modules/user-settings/lib/ipc-handlers';
@@ -85,7 +85,10 @@ describe( 'openFileInIDE', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		vol.reset();
-		vol.fromJSON( { [ normalize( '/path/to/app/appData/App Name/appdata-v1.json' ) ]: JSON.stringify( mockUserData ) } );
+		vol.fromJSON( {
+			[ normalize( '/path/to/app/appData/App Name/appdata-v1.json' ) ]:
+				JSON.stringify( mockUserData ),
+		} );
 		setupMockServer();
 	} );
 

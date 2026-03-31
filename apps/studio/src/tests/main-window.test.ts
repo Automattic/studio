@@ -2,10 +2,9 @@
  * @vitest-environment node
  */
 import { BrowserWindow } from 'electron';
-import { normalize } from 'path';
 import { readFile } from 'atomically';
-import { vi } from 'vitest';
 import { vol } from 'memfs';
+import { vi } from 'vitest';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { createMainWindow, getMainWindow, __resetMainWindow } from 'src/main-window';
 

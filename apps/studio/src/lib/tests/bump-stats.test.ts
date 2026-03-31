@@ -1,9 +1,9 @@
+import fs from 'fs';
 import { AggregateInterval } from '@studio/common/lib/bump-stat';
 import { waitFor } from '@testing-library/react';
 import { readFile, writeFile } from 'atomically';
-import fs from 'fs';
-import { vi } from 'vitest';
 import { vol } from 'memfs';
+import { vi } from 'vitest';
 import { bumpStat, bumpAggregatedUniqueStat, StatsGroup, StatsMetric } from '../bump-stats';
 
 vi.mock( 'atomically', () => ( {

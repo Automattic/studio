@@ -3,8 +3,8 @@
  */
 import fs from 'fs';
 import { normalize } from 'path';
-import { vi, beforeAll, afterAll } from 'vitest';
 import { vol } from 'memfs';
+import { vi, beforeAll, afterAll } from 'vitest';
 import { createMainWindow, getMainWindow } from 'src/main-window';
 
 vi.mock( 'fs' );

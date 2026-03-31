@@ -119,19 +119,84 @@ function redBox( message: string ): string {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function parseImporterJson( result: ImporterResult ): any {
+export function parseImporterJson( result: ImporterResult ): any {
 	const raw = result.stdout.trim();
-	try {
-		return JSON.parse( raw );
-	} catch {
-		const jsonStart = raw.indexOf( '{' );
-		if ( jsonStart >= 0 ) {
-			return JSON.parse( raw.slice( jsonStart ) );
+	const parsedValues: unknown[] = [];
+	let index = 0;
+
+	while ( index < raw.length ) {
+		while ( /\s/.test( raw[ index ] ?? '' ) ) {
+			index++;
 		}
-		throw new LoggerError(
-			`importer.phar did not return valid JSON.\nstdout: ${ raw }\nstderr: ${ result.stderr }`
-		);
+
+		if ( index >= raw.length ) {
+			break;
+		}
+
+		if ( raw[ index ] !== '{' && raw[ index ] !== '[' ) {
+			index++;
+			continue;
+		}
+
+		let depth = 0;
+		let inString = false;
+		let isEscaped = false;
+		let endIndex = index;
+
+		for ( ; endIndex < raw.length; endIndex++ ) {
+			const char = raw[ endIndex ];
+
+			if ( inString ) {
+				if ( isEscaped ) {
+					isEscaped = false;
+					continue;
+				}
+
+				if ( char === '\\' ) {
+					isEscaped = true;
+					continue;
+				}
+
+				if ( char === '"' ) {
+					inString = false;
+				}
+				continue;
+			}
+
+			if ( char === '"' ) {
+				inString = true;
+				continue;
+			}
+
+			if ( char === '{' || char === '[' ) {
+				depth++;
+				continue;
+			}
+
+			if ( char === '}' || char === ']' ) {
+				depth--;
+				if ( depth === 0 ) {
+					endIndex++;
+					break;
+				}
+			}
+		}
+
+		try {
+			parsedValues.push( JSON.parse( raw.slice( index, endIndex ) ) );
+			index = endIndex;
+		} catch {
+			index++;
+		}
 	}
+
+	if ( parsedValues.length > 0 ) {
+		return parsedValues.at( -1 );
+	}
+
+	throw new LoggerError(
+		`importer.phar did not return valid JSON.\nstdout: ${ raw }\nstderr: ${ result.stderr }`
+	);
 }
 
 function getStageRank( stage: ImportStage ): number {

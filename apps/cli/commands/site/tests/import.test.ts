@@ -5,6 +5,7 @@ import {
 	getImportKey,
 	inferSiteNameFromUrl,
 	normalizeImportUrl,
+	parseImporterJson,
 } from '../import';
 
 describe( 'CLI: studio site import helpers', () => {
@@ -28,6 +29,22 @@ describe( 'CLI: studio site import helpers', () => {
 		expect( getApiUrl( normalizeImportUrl( 'https://example.com/?site-export-api' ) ) ).toBe(
 			'https://example.com/?site-export-api'
 		);
+	} );
+
+	it( 'parses the final JSON envelope from a JSON stream on stdout', () => {
+		expect(
+			parseImporterJson( {
+				stdout:
+					'{"debug":"Waiting for server response..."}\n' +
+					'{\n  "ok": true,\n  "data": {\n    "protocol_version": 1\n  }\n}',
+				stderr: '',
+			} as never )
+		).toEqual( {
+			ok: true,
+			data: {
+				protocol_version: 1,
+			},
+		} );
 	} );
 
 	it( 'infers the default site name from the URL host only', () => {

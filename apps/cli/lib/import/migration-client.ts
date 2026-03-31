@@ -121,6 +121,17 @@ async function ensureImporterPhar(): Promise< string > {
 	return pharPath;
 }
 
+function getImporterChildPath(): string {
+	for ( const filename of [ 'importer-child.mjs', 'importer-child.js' ] ) {
+		const candidate = path.resolve( import.meta.dirname, filename );
+		if ( fs.existsSync( candidate ) ) {
+			return candidate;
+		}
+	}
+
+	return path.resolve( import.meta.dirname, 'importer-child.mjs' );
+}
+
 export async function runImporterCommandUntilComplete(
 	stateDir: string,
 	docroot: string,
@@ -132,7 +143,7 @@ export async function runImporterCommandUntilComplete(
 	const tmpDir = path.join( path.dirname( stateDir ), 'tmp' );
 	fs.mkdirSync( tmpDir, { recursive: true } );
 
-	const childPath = path.resolve( import.meta.dirname, 'importer-child.js' );
+	const childPath = getImporterChildPath();
 	const isFilesSync = args[ 0 ] === 'files-sync';
 	const progressRoot = options.progressRoot ?? docroot;
 	const progressLabel = options.progressLabel ?? args[ 0 ] ?? 'Importing';

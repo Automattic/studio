@@ -552,6 +552,10 @@ export class AiChatUI {
 		return this._activeSite;
 	}
 
+	private refreshPromptChrome(): void {
+		this.editor.invalidate();
+	}
+
 	set onSiteSelected( fn: ( ( site: SiteInfo ) => void ) | null ) {
 		this.siteSelectedCallback = fn;
 	}
@@ -964,6 +968,7 @@ export class AiChatUI {
 		const { announce = true, emitEvent = true } = options;
 		this._activeSite = site;
 		this.editor.activeSiteName = site.name;
+		this.refreshPromptChrome();
 		const label = site.remote
 			? sprintf(
 					/* translators: %s: site name */
@@ -988,6 +993,7 @@ export class AiChatUI {
 		this._activeSite = null;
 		this._activeSiteData = null;
 		this.editor.activeSiteName = null;
+		this.refreshPromptChrome();
 		this.messages.addChild( new Text( chalk.dim( __( ' ✻ Site deselected' ) ) + '\n', 0, 0 ) );
 		this.tui.requestRender();
 	}
@@ -1020,72 +1026,67 @@ export class AiChatUI {
 		return a.path === b.path || a.name.toLowerCase() === b.name.toLowerCase();
 	}
 
+	private async selectLocalSiteFromTool(
+		nameOrPath: string,
+		options: { running?: boolean } = {}
+	): Promise< void > {
+		const site = await this.findSiteFromAppdata( nameOrPath );
+		if ( ! site ) {
+			return;
+		}
+
+		if ( typeof options.running === 'boolean' ) {
+			site.running = options.running;
+		}
+
+		if ( this.isSameSite( this._activeSite, site ) ) {
+			this._activeSite = site;
+			this.editor.activeSiteName = site.name;
+			this.refreshPromptChrome();
+			this.tui.requestRender();
+			return;
+		}
+
+		this.setActiveSite( site );
+	}
+
 	private async autoSelectSiteFromToolResult(
 		toolName: string,
 		toolInput: Record< string, unknown > | null
 	): Promise< void > {
 		switch ( toolName ) {
 			case 'mcp__studio__site_create': {
-				// site_create tool input has { name: string }
 				const name = toolInput?.name;
 				if ( typeof name === 'string' ) {
-					const site = await this.findSiteFromAppdata( name );
-					if ( site ) {
-						site.running = true; // site_create auto-starts the site
-						this.setActiveSite( site );
-					}
+					await this.selectLocalSiteFromTool( name, { running: true } );
 				}
 				break;
 			}
+			case 'mcp__studio__site_info':
 			case 'mcp__studio__site_start': {
 				const nameOrPath = toolInput?.nameOrPath;
 				if ( typeof nameOrPath === 'string' ) {
-					const site = await this.findSiteFromAppdata( nameOrPath );
-					if ( site ) {
-						site.running = true;
-						if ( this.isSameSite( this._activeSite, site ) ) {
-							this._activeSite = site; // Update running status in-place
-						} else {
-							this.setActiveSite( site );
-						}
-					}
+					await this.selectLocalSiteFromTool( nameOrPath, {
+						running: toolName === 'mcp__studio__site_start' ? true : undefined,
+					} );
 				}
 				break;
 			}
 			case 'mcp__studio__wp_cli':
 			case 'mcp__studio__preview_create':
 			case 'mcp__studio__preview_list':
-			case 'mcp__studio__preview_update': {
+			case 'mcp__studio__preview_update':
+			case 'mcp__studio__validate_blocks': {
 				const nameOrPath = toolInput?.nameOrPath;
 				if ( typeof nameOrPath === 'string' ) {
-					if (
-						! this._activeSite ||
-						! this.isSameSite( this._activeSite, {
-							name: nameOrPath,
-							path: nameOrPath,
-							running: true,
-						} )
-					) {
-						const site = await this.findSiteFromAppdata( nameOrPath );
-						if ( site ) {
-							this.setActiveSite( site );
-						}
-					}
+					await this.selectLocalSiteFromTool( nameOrPath );
 				}
 				break;
 			}
 			case 'mcp__studio__site_stop': {
 				const nameOrPath = toolInput?.nameOrPath;
-				if (
-					typeof nameOrPath === 'string' &&
-					this._activeSite &&
-					this.isSameSite( this._activeSite, {
-						name: nameOrPath,
-						path: nameOrPath,
-						running: false,
-					} )
-				) {
-					this._activeSite = { ...this._activeSite, running: false };
+				if ( typeof nameOrPath === 'string' ) {
+					await this.selectLocalSiteFromTool( nameOrPath, { running: false } );
 				}
 				break;
 			}
@@ -1649,6 +1650,28 @@ export class AiChatUI {
 		return pendingTodoRender;
 	}
 
+	private consumeLatestPendingToolCall(): {
+		id: string;
+		name: string;
+		input: Record< string, unknown >;
+	} | null {
+		let latestPendingToolCall: {
+			id: string;
+			name: string;
+			input: Record< string, unknown >;
+		} | null = null;
+
+		for ( const [ id, toolCall ] of this.pendingToolCalls.entries() ) {
+			latestPendingToolCall = { id, ...toolCall };
+		}
+
+		if ( latestPendingToolCall ) {
+			this.pendingToolCalls.delete( latestPendingToolCall.id );
+		}
+
+		return latestPendingToolCall;
+	}
+
 	private renderToolResultText(
 		content: string | Array< { type: string; text?: string } >,
 		toolName?: string
@@ -1909,7 +1932,8 @@ export class AiChatUI {
 				} else if ( ! toolCallId && this.pendingTodoRenderOrder.length > 0 ) {
 					this.showTodoToolResult( message, this.pendingTodoRenderOrder[ 0 ] );
 				} else {
-					this.showToolResult( message, toolCall?.name, toolCall?.input );
+					const fallbackToolCall = toolCall ?? this.consumeLatestPendingToolCall();
+					this.showToolResult( message, fallbackToolCall?.name, fallbackToolCall?.input );
 				}
 				// Close the current markdown block so the next assistant text
 				// creates a fresh visual block (mirrors askUser / endAgentTurn).

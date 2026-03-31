@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
 import { defineConfig } from 'vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
@@ -13,17 +13,22 @@ const nodeBuiltinExternals: RegExp[] = [
 const packageJson = JSON.parse( readFileSync( resolve( __dirname, 'package.json' ), 'utf-8' ) );
 const packageJsonDependencies = Object.keys( packageJson.dependencies || {} );
 const distCliPackageJsonPath = resolve( __dirname, 'dist/cli/package.json' );
+const bundledWpFilesPath = resolve( __dirname, 'wp-files' );
 
 export const baseConfig = defineConfig( {
 	plugins: [
-		viteStaticCopy( {
-			targets: [
-				{
-					src: '../../wp-files',
-					dest: '.',
-				},
-			],
-		} ),
+		...( existsSync( bundledWpFilesPath )
+			? [
+					viteStaticCopy( {
+						targets: [
+							{
+								src: bundledWpFilesPath,
+								dest: '.',
+							},
+						],
+					} ),
+			  ]
+			: [] ),
 		{
 			name: 'write-dist-package-json',
 			apply: 'build',
@@ -31,7 +36,7 @@ export const baseConfig = defineConfig( {
 				mkdirSync( resolve( __dirname, 'dist/cli' ), { recursive: true } );
 				writeFileSync(
 					distCliPackageJsonPath,
-					JSON.stringify( { type: 'commonjs' }, null, 2 ) + '\n'
+					JSON.stringify( { type: 'module' }, null, 2 ) + '\n'
 				);
 			},
 		},

@@ -6,7 +6,10 @@ import { z } from 'zod/v4';
 import { validateBlocks, type ValidationReport } from 'cli/ai/block-validator';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
-import { runCommand as runDeletePreviewCommand } from 'cli/commands/preview/delete';
+import {
+	Mode as PreviewDeleteMode,
+	runCommand as runDeletePreviewCommand,
+} from 'cli/commands/preview/delete';
 import { runCommand as runListPreviewCommand } from 'cli/commands/preview/list';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
@@ -18,6 +21,7 @@ import { runCommand as runStopSiteCommand, Mode as StopMode } from 'cli/commands
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { getUnsupportedWpCliPostContentMessage } from 'cli/lib/rewrite-wp-cli-post-content';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { normalizeHostname } from 'cli/lib/utils';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
@@ -29,7 +33,7 @@ import { getProgressCallback, setProgressCallback, emitProgress } from 'cli/logg
  *   post create --post_title="Ember & Oak" --post_type=page
  *   → ['post', 'create', '--post_title=Ember & Oak', '--post_type=page']
  */
-function splitCommandArgs( command: string ): string[] {
+function splitBasicCommandArgs( command: string ): string[] {
 	const args: string[] = [];
 	let current = '';
 	let inQuote: string | null = null;
@@ -63,6 +67,38 @@ function splitCommandArgs( command: string ): string[] {
 	}
 
 	return args;
+}
+
+function stripMatchingOuterQuotes( value: string ): string {
+	if ( value.length < 2 ) {
+		return value;
+	}
+
+	const firstChar = value[ 0 ];
+	const lastChar = value[ value.length - 1 ];
+	if ( ( firstChar === '"' || firstChar === "'" ) && firstChar === lastChar ) {
+		return value.slice( 1, -1 );
+	}
+
+	return value;
+}
+
+function splitCommandArgs( command: string ): string[] {
+	const postContentMarker = '--post_content=';
+	const postContentIndex = command.indexOf( postContentMarker );
+
+	// Large block content is commonly emitted without shell quoting and should
+	// be treated as a single literal argument that consumes the rest of the command.
+	if ( postContentIndex !== -1 ) {
+		const prefix = command.slice( 0, postContentIndex ).trim();
+		const postContent = stripMatchingOuterQuotes(
+			command.slice( postContentIndex + postContentMarker.length ).trim()
+		);
+
+		return [ ...splitBasicCommandArgs( prefix ), `${ postContentMarker }${ postContent }` ];
+	}
+
+	return splitBasicCommandArgs( command );
 }
 
 async function findSiteByName( name: string ): Promise< SiteData | undefined > {
@@ -426,38 +462,17 @@ const deletePreviewTool = tool(
 	async ( args ) => {
 		const normalizedHost = normalizeHostname( args.host );
 		return runPreviewCommand(
-			() => runDeletePreviewCommand( normalizedHost ),
+			() => runDeletePreviewCommand( PreviewDeleteMode.DELETE_SINGLE_SNAPSHOT, normalizedHost ),
 			`Preview site "${ normalizedHost }" deleted.`,
 			'Failed to delete preview site'
 		);
 	}
 );
 
-const BLOCK_COMMENT_PATTERN = /<!-- wp:/;
-
-function extractPostContent( command: string ): string | undefined {
-	const args = splitCommandArgs( command );
-	for ( const arg of args ) {
-		if ( arg.startsWith( '--post_content=' ) ) {
-			return arg.slice( '--post_content='.length );
-		}
-	}
-	return undefined;
-}
-
-function isPostContentCommand( command: string ): boolean {
-	const trimmed = command.trimStart();
-	return (
-		( trimmed.startsWith( 'post create' ) || trimmed.startsWith( 'post update' ) ) &&
-		trimmed.includes( '--post_content=' )
-	);
-}
-
 // Note: wp.ts runCommand calls process.exit(), so we use the lower-level sendWpCliCommand directly.
 const runWpCliTool = tool(
 	'wp_cli',
 	'Runs a WP-CLI command on a specific WordPress site. The site must be running. ' +
-		'Post content (in post create/update with --post_content) is automatically validated for block correctness before execution. ' +
 		'Examples: "plugin install woocommerce --activate", "option get blogname", "user list".',
 	{
 		nameOrPath: z.string().describe( 'The site name or file system path to the site' ),
@@ -471,25 +486,6 @@ const runWpCliTool = tool(
 		try {
 			const site = await resolveSite( args.nameOrPath );
 
-			// Validate block content in post create/update commands before executing
-			if ( isPostContentCommand( args.command ) ) {
-				const postContent = extractPostContent( args.command );
-				if ( postContent && BLOCK_COMMENT_PATTERN.test( postContent ) ) {
-					emitProgress( 'Validating post content blocks…' );
-					const siteUrl = getSiteUrl( site );
-					const report = await validateBlocks( postContent, siteUrl );
-					if ( report.invalidBlocks > 0 ) {
-						const lines = [
-							`Block validation failed: ${ report.invalidBlocks }/${ report.totalBlocks } blocks invalid. Fix the content before creating/updating the post.`,
-							'',
-							...formatInvalidBlocks( report ),
-						];
-						return errorResult( lines.join( '\n' ) );
-					}
-					emitProgress( `Post content: all ${ report.totalBlocks } blocks valid` );
-				}
-			}
-
 			try {
 				await connectToDaemon();
 
@@ -501,6 +497,11 @@ const runWpCliTool = tool(
 				}
 
 				const wpCliArgs = splitCommandArgs( args.command );
+				const unsupportedPostContentMessage = getUnsupportedWpCliPostContentMessage( wpCliArgs );
+				if ( unsupportedPostContentMessage ) {
+					return errorResult( unsupportedPostContentMessage );
+				}
+
 				const result = await sendWpCliCommand( site.id, wpCliArgs );
 
 				let output = '';

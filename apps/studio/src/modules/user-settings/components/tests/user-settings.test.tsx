@@ -17,9 +17,6 @@ vi.mock( 'src/lib/app-globals', () => ( {
 	isWindows: vi.fn( () => false ),
 	isWindowsStore: vi.fn( () => false ),
 } ) );
-vi.mock( 'src/hooks/use-feature-flags', () => ( {
-	useFeatureFlags: vi.fn( () => ( { enableAgentSuite: false } ) ),
-} ) );
 vi.mock( 'src/hooks/use-auth' );
 vi.mock( 'src/hooks/use-ipc-listener' );
 vi.mock( 'src/hooks/use-offline' );
@@ -133,7 +130,7 @@ describe( 'UserSettings', () => {
 				expect( screen.getByText( 'General' ) ).toHaveAttribute( 'aria-selected', 'true' );
 				expect( screen.getByText( 'Language' ) ).toBeInTheDocument();
 				expect( screen.getByText( 'Terminal application' ) ).toBeInTheDocument();
-				expect( screen.getByText( 'Studio CLI' ) ).toBeInTheDocument();
+				expect( screen.getByText( 'Studio CLI for terminal' ) ).toBeInTheDocument();
 			} );
 
 			await user.click( screen.getByText( 'Account' ) );

@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { domainToASCII } from 'node:url';
 import { promisify } from 'node:util';
-import { getCertificatesPath } from '@studio/common/lib/config-paths';
+import { getCertificatesPath } from '@studio/common/lib/well-known-paths';
 import sudo from '@vscode/sudo-prompt';
 import { __ } from '@wordpress/i18n';
 import forge from 'node-forge';

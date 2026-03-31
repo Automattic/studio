@@ -3,6 +3,7 @@ import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-wa
 import { __ } from '@wordpress/i18n';
 import yargs from 'yargs';
 import { bumpAggregatedUniqueStat, getPlatformMetric } from 'cli/lib/bump-stat';
+import { setupServerFiles } from 'cli/lib/dependency-management/setup';
 import { loadTranslations } from 'cli/lib/i18n';
 import { StatsGroup, StatsMetric } from 'cli/lib/types/bump-stats';
 import { untildify } from 'cli/lib/utils';
@@ -65,6 +66,9 @@ async function main() {
 					console.error( 'Failed to bump stat:', error );
 				}
 			}
+		} )
+		.middleware( async () => {
+			await setupServerFiles();
 		} )
 		.command( 'auth', __( 'Manage authentication' ), async ( authYargs ) => {
 			const [
@@ -198,10 +202,8 @@ async function main() {
 			aiYargs.version( false );
 		} );
 	}
-	if ( __ENABLE_AGENT_SUITE__ ) {
-		const { registerCommand: registerMcpCommand } = await import( 'cli/commands/mcp' );
-		registerMcpCommand( studioArgv );
-	}
+	const { registerCommand: registerMcpCommand } = await import( 'cli/commands/mcp' );
+	registerMcpCommand( studioArgv );
 
 	await studioArgv.argv;
 }

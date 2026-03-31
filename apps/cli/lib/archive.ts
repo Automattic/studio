@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { isExcludedFromArchive } from '@studio/common/lib/fs-utils';
+import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import { __ } from '@wordpress/i18n';
 import archiver, { EntryData } from 'archiver';
 import { LoggerError } from 'cli/logger';
@@ -11,6 +11,8 @@ export async function archiveSiteContent(
 	siteFolder: string,
 	archivePath: string
 ): Promise< archiver.Archiver > {
+	const deployIgnore = await createDeployIgnoreFilter( siteFolder );
+
 	return new Promise( ( resolve, reject ) => {
 		const output = fs.createWriteStream( archivePath );
 		const archiveBuilder = archiver( 'zip', {
@@ -30,7 +32,7 @@ export async function archiveSiteContent(
 			path.join( siteFolder, 'wp-content' ),
 			'wp-content',
 			( entry: EntryData ) => {
-				if ( isExcludedFromArchive( entry.name ) ) {
+				if ( deployIgnore.ignores( `wp-content/${ entry.name }` ) ) {
 					return false;
 				}
 				return entry;

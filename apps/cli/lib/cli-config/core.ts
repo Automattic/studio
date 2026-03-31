@@ -6,8 +6,8 @@ import {
 	LOCKFILE_WAIT_TIME,
 } from '@studio/common/constants';
 import { siteDetailsSchema } from '@studio/common/lib/cli-events';
-import { getCliConfigPath, getConfigDirectory } from '@studio/common/lib/config-paths';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
+import { getCliConfigPath, getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import { snapshotSchema } from '@studio/common/types/snapshot';
 import { __ } from '@wordpress/i18n';
 import { readFile, writeFile } from 'atomically';

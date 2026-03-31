@@ -94,6 +94,8 @@ describe( 'EditSiteDetails', () => {
 		startServer: mockStartServer,
 		setIsEditModalOpen: vi.fn(),
 		isEditModalOpen: false,
+		editModalInitialTab: 'general',
+		setEditModalInitialTab: vi.fn(),
 	};
 
 	beforeEach( () => {

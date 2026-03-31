@@ -6,8 +6,8 @@
  * - cli.json: sites + snapshots
  * - app.json: Desktop-only state (UI prefs, sync, etc.)
  *
- * The old file is left intact intentionally — cleanup will happen
- * in a future release after migration is validated.
+ * The old file is intentionally left intact. All we do is rename it to appdata-v1.deprecated.json.
+ * Cleanup will happen in a future release after migration is validated at scale.
  */
 
 import fs from 'fs';
@@ -15,12 +15,12 @@ import os from 'os';
 import path from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { siteDetailsSchema } from '@studio/common/lib/cli-events';
+import { sharedConfigSchema } from '@studio/common/lib/shared-config';
 import {
 	getAppConfigPath,
 	getCliConfigPath,
 	getSharedConfigPath,
-} from '@studio/common/lib/config-paths';
-import { sharedConfigSchema } from '@studio/common/lib/shared-config';
+} from '@studio/common/lib/well-known-paths';
 import { snapshotSchema } from '@studio/common/types/snapshot';
 import { readFile, writeFile } from 'atomically';
 import { z } from 'zod';
@@ -206,6 +206,15 @@ export const migrateAppConfig: Migration = {
 		console.log(
 			`Migrated Desktop settings from ${ sanitizeUserpath( oldPath ) } to ${ sanitizeUserpath(
 				newAppdataPath
+			) }`
+		);
+
+		const oldPathDirname = path.dirname( oldPath );
+		const deprecatedOldAppdataPath = path.join( oldPathDirname, 'appdata-v1.deprecated.json' );
+		await fs.promises.rename( oldPath, deprecatedOldAppdataPath );
+		console.log(
+			`Migrated old appdata file from ${ sanitizeUserpath( oldPath ) } to ${ sanitizeUserpath(
+				deprecatedOldAppdataPath
 			) }`
 		);
 	},

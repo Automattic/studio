@@ -1,7 +1,7 @@
 import fs from 'fs';
 import fsPromises from 'fs/promises';
 import path from 'path';
-import { getAppConfigPath } from '@studio/common/lib/config-paths';
+import { getAppConfigPath } from '@studio/common/lib/well-known-paths';
 
 function inChildProcess() {
 	return process.env.STUDIO_IN_CHILD_PROCESS === 'true';
@@ -24,7 +24,7 @@ export function getUserDataFilePath(): string {
 	return getAppConfigPath();
 }
 
-export function getServerFilesPath(): string {
+export function getOldServerFilesPath(): string {
 	return path.join( getAppDataPath(), getAppName(), 'server-files' );
 }
 
@@ -61,23 +61,10 @@ export function getResourcesPath(): string {
 	return path.join( exePath, 'resources' );
 }
 
-export function getWpFilesPath(): string {
-	if ( ! app ) {
-		throw new Error( 'Electron app not available in child process' );
-	}
-
-	if ( process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test' ) {
-		// In dev, app.getAppPath() is apps/studio/ — wp-files/ is at the repo root (two levels up)
-		return path.join( app.getAppPath(), '..', '..', 'wp-files' );
-	}
-
-	return path.join( getResourcesPath(), 'wp-files' );
-}
-
 export function getCliPath(): string {
 	return process.env.NODE_ENV === 'development'
-		? path.join( getResourcesPath(), '..', 'cli', 'dist', 'cli', 'main.js' )
-		: path.join( getResourcesPath(), 'cli', 'main.js' );
+		? path.join( getResourcesPath(), '..', 'cli', 'dist', 'cli', 'main.mjs' )
+		: path.join( getResourcesPath(), 'cli', 'main.mjs' );
 }
 
 export function getBundledNodeBinaryPath(): string {

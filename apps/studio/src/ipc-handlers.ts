@@ -18,7 +18,6 @@ import os from 'os';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import {
-	installAiInstructionsToSite,
 	installSkillToSite,
 	removeSkillFromSite,
 	updateManagedInstructionFiles,
@@ -39,7 +38,7 @@ import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
-import { updateSharedConfig } from '@studio/common/lib/shared-config';
+import { readSharedConfig, updateSharedConfig } from '@studio/common/lib/shared-config';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import { MACOS_TRAFFIC_LIGHT_POSITION, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
@@ -52,13 +51,14 @@ import {
 	StatsGroup,
 	StatsMetric,
 } from 'src/lib/bump-stats';
+import { captureSiteThumbnail } from 'src/lib/capture-site-thumbnail';
 import {
 	openCertificate as openCertificateDialog,
 	isRootCATrusted,
 	trustRootCA,
 } from 'src/lib/certificate-manager';
 import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
-import { buildFeatureFlags, getFeatureFlagFromEnv } from 'src/lib/feature-flags';
+import { buildFeatureFlags } from 'src/lib/feature-flags';
 import { getImageData } from 'src/lib/get-image-data';
 import { exportBackup } from 'src/lib/import-export/export/export-manager';
 import { ExportOptions } from 'src/lib/import-export/export/types';
@@ -79,12 +79,15 @@ import { type InstructionFileType } from 'src/modules/agent-instructions/constan
 import {
 	getAllInstructionFilesStatus,
 	installInstructionFile,
+	removeInstructionFile,
 	type InstructionFileStatus,
 } from 'src/modules/agent-instructions/lib/instructions';
 import {
 	BUNDLED_SKILLS,
 	getSkillsStatus,
 	installAllSkills,
+	installSkillById,
+	removeSkillById,
 	type SkillStatus,
 } from 'src/modules/agent-instructions/lib/skills';
 import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
@@ -132,6 +135,7 @@ export {
 export {
 	createSnapshot,
 	deleteSnapshot,
+	deleteAllSnapshots,
 	fetchSnapshots,
 	setSnapshot,
 	updateSnapshot,
@@ -178,6 +182,18 @@ export async function installAgentInstructions(
 	return installInstructionFile( server.details.path, fileType, overwrite );
 }
 
+export async function removeAgentInstruction(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	fileType: InstructionFileType
+): Promise< void > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( `Site not found: ${ siteId }` );
+	}
+	await removeInstructionFile( server.details.path, fileType );
+}
+
 export async function getWordPressSkillsStatus(
 	_event: IpcMainInvokeEvent,
 	siteId: string
@@ -202,37 +218,52 @@ export async function installWordPressSkills(
 	await installAllSkills( server.details.path, overwrite );
 }
 
+export async function installWordPressSkillById(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	skillId: string,
+	options?: { overwrite?: boolean }
+): Promise< void > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( `Site not found: ${ siteId }` );
+	}
+	const overwrite = options?.overwrite ?? false;
+	await installSkillById( server.details.path, skillId, overwrite );
+}
+
+export async function removeWordPressSkillById(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	skillId: string
+): Promise< void > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( `Site not found: ${ siteId }` );
+	}
+	await removeSkillById( server.details.path, skillId );
+}
+
 export async function getWordPressSkillsStatusAllSites(
 	_event: IpcMainInvokeEvent
 ): Promise< SkillStatus[] > {
-	const sites = SiteServer.getAll();
-	if ( ! sites.length ) {
-		return BUNDLED_SKILLS.map( ( skill ) => ( { ...skill, installed: false } ) );
-	}
-	const allSiteStatuses = await Promise.all(
-		sites.map( ( site ) => getSkillsStatus( site.details.path ) )
-	);
+	const sharedConfig = await readSharedConfig();
+	const selectedSkills = sharedConfig.selectedSkills ?? [];
 	return BUNDLED_SKILLS.map( ( skill ) => ( {
 		...skill,
-		installed: allSiteStatuses.every(
-			( siteStatuses ) => siteStatuses.find( ( s ) => s.id === skill.id )?.installed ?? false
-		),
+		installed: selectedSkills.includes( skill.id ),
 	} ) );
 }
 
 export async function installWordPressSkillsToAllSites(
 	_event: IpcMainInvokeEvent,
-	options?: { skillId?: string; overwrite?: boolean }
+	options: { skillId: string; overwrite?: boolean }
 ): Promise< void > {
 	const sites = SiteServer.getAll();
-	const overwrite = options?.overwrite ?? false;
+	const overwrite = options.overwrite ?? false;
 	const bundledPath = getAiInstructionsPath();
-	const tasks = sites.flatMap( ( site ) =>
-		options?.skillId
-			? [ installSkillToSite( site.details.path, bundledPath, options.skillId, overwrite ) ]
-			: BUNDLED_SKILLS.map( ( skill ) =>
-					installSkillToSite( site.details.path, bundledPath, skill.id, overwrite )
-			  )
+	const tasks = sites.map( ( site ) =>
+		installSkillToSite( site.details.path, bundledPath, options.skillId, overwrite )
 	);
 	const results = await Promise.allSettled( tasks );
 	results.forEach( ( result ) => {
@@ -240,6 +271,11 @@ export async function installWordPressSkillsToAllSites(
 			console.error( '[skills] Failed to install skill:', result.reason );
 		}
 	} );
+
+	const sharedConfig = await readSharedConfig();
+	const existing = sharedConfig.selectedSkills ?? [];
+	const merged = Array.from( new Set( [ ...existing, options.skillId ] ) );
+	await updateSharedConfig( { selectedSkills: merged } );
 }
 
 export async function removeWordPressSkillFromAllSites(
@@ -254,6 +290,10 @@ export async function removeWordPressSkillFromAllSites(
 			console.error( '[skills] Failed to remove skill:', result.reason );
 		}
 	} );
+
+	const sharedConfig = await readSharedConfig();
+	const updated = ( sharedConfig.selectedSkills ?? [] ).filter( ( id ) => id !== skillId );
+	await updateSharedConfig( { selectedSkills: updated } );
 }
 
 const DEBUG_LOG_MAX_LINES = 50;
@@ -401,6 +441,7 @@ export async function createSite(
 				enableHttps,
 				siteId,
 				blueprint: blueprint?.blueprint,
+				originalBlueprintPath: blueprint?.filePath,
 				adminUsername,
 				adminPassword,
 				adminEmail,
@@ -412,13 +453,6 @@ export async function createSite(
 		// If the site is running after creation, fetch theme details and update thumbnail
 		if ( server.details.running ) {
 			void loadThemeDetails( event, server.details.id );
-		}
-
-		// Install AI instructions and skills into the new site
-		if ( getFeatureFlagFromEnv( 'enableAgentSuite' ) ) {
-			void installAiInstructionsToSite( path, getAiInstructionsPath() ).catch( ( error ) => {
-				console.error( '[ai-instructions] Failed to install AI instructions to new site:', error );
-			} );
 		}
 
 		return server.details;
@@ -984,7 +1018,6 @@ export async function loadThemeDetails(
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	if ( emitThemeDetailsLoadingEvent ) {
 		sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-loading', { id } );
-		sendIpcEventToRendererWithWindow( parentWindow, 'thumbnail-loading', { id } );
 	}
 
 	const oldThemePath = server.details.themeDetails?.path;
@@ -996,24 +1029,11 @@ export async function loadThemeDetails(
 		details: themeDetails,
 	} );
 
-	try {
-		if ( hasThemeChanged ) {
-			if ( ! emitThemeDetailsLoadingEvent ) {
-				sendIpcEventToRendererWithWindow( parentWindow, 'thumbnail-loading', { id } );
-			}
-			await server.persistThemeDetails();
-		}
-		await server.updateCachedThumbnail();
-		const thumbnailPath = getSiteThumbnailPath( id );
-		const thumbnailData = await getImageData( thumbnailPath );
-		sendIpcEventToRendererWithWindow( parentWindow, 'thumbnail-loaded', {
-			id,
-			imageData: thumbnailData,
-		} );
-	} catch ( error ) {
-		sendIpcEventToRendererWithWindow( parentWindow, 'thumbnail-load-error', { id } );
-		console.error( `Failed to update thumbnail for server ${ id }:`, error );
+	if ( hasThemeChanged ) {
+		await server.persistThemeDetails();
 	}
+
+	void captureSiteThumbnail( id );
 
 	return themeDetails;
 }

@@ -4,8 +4,8 @@ import { readFile, writeFile } from 'atomically';
 import { z } from 'zod';
 import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME, SHARED_CONFIG_LOCKFILE_NAME } from '../constants';
 import { authTokenSchema, type StoredAuthToken } from './auth-token-schema';
-import { getConfigDirectory, getSharedConfigPath } from './config-paths';
 import { lockFileAsync, unlockFileAsync } from './lockfile';
+import { getConfigDirectory, getSharedConfigPath } from './well-known-paths';
 
 export { authTokenSchema };
 export type { StoredAuthToken };
@@ -28,6 +28,7 @@ export const sharedConfigSchema = z
 		version: z.literal( SHARED_CONFIG_VERSION ),
 		authToken: authTokenSchema.optional(),
 		locale: z.string().optional(),
+		selectedSkills: z.array( z.string() ).optional(),
 	} )
 	.loose();
 

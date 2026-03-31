@@ -9,6 +9,7 @@
 import { execFile } from 'child_process';
 import { existsSync } from 'fs';
 import os from 'os';
+import path from 'path';
 import { fileURLToPath } from 'url';
 import { promisify } from 'util';
 
@@ -93,6 +94,19 @@ function getBrowserOverrides(): BrowserOverrides {
 	};
 }
 
+function describeLaunchAttempt( attempt: ChromiumLaunchOptions | undefined ): string {
+	if ( ! attempt ) {
+		return 'undefined';
+	}
+	if ( attempt.executablePath ) {
+		return `executablePath=${ attempt.executablePath }`;
+	}
+	if ( attempt.channel ) {
+		return `channel=${ attempt.channel }`;
+	}
+	return 'playwright-default';
+}
+
 export function buildChromiumLaunchAttempts(
 	chromium: Pick< Chromium, 'executablePath' >,
 	overrides: BrowserOverrides = getBrowserOverrides()
@@ -137,7 +151,8 @@ export function buildChromiumLaunchAttempts(
 }
 
 async function installPlaywrightChromium(): Promise< void > {
-	const cliPath = fileURLToPath( import.meta.resolve( 'playwright/cli' ) );
+	const packageJsonPath = fileURLToPath( import.meta.resolve( 'playwright/package.json' ) );
+	const cliPath = path.join( path.dirname( packageJsonPath ), 'cli.js' );
 
 	await execFileAsync( process.execPath, [ cliPath, 'install', 'chromium' ], {
 		env: {
@@ -196,11 +211,7 @@ export async function getSharedBrowser(): Promise< Browser > {
 				if ( ! attempt ) {
 					continue;
 				}
-				const attemptedTarget = attempt.executablePath
-					? `executablePath=${ attempt.executablePath }`
-					: attempt.channel
-					? `channel=${ attempt.channel }`
-					: 'playwright-default';
+				const attemptedTarget = describeLaunchAttempt( attempt );
 
 				try {
 					browser = await chromium.launch( attempt );

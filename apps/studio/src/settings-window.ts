@@ -37,8 +37,22 @@ function getOSWindowOptions(): Partial< BrowserWindowConstructorOptions > {
 	}
 }
 
-export function openSettingsWindow( preloadPath: string, rendererUrl?: string ) {
+export function openSettingsWindow( preloadPath: string, rendererUrl?: string, tab?: string ) {
+	const search = tab ? `view=settings&tab=${ tab }` : 'view=settings';
+
 	if ( settingsWindow && ! settingsWindow.isDestroyed() ) {
+		// Reload with the requested tab if specified, otherwise just focus
+		if ( tab ) {
+			if ( rendererUrl ) {
+				void settingsWindow.loadURL( `${ rendererUrl }?${ search }` );
+			} else {
+				const path = require( 'path' );
+				void settingsWindow.loadFile(
+					path.join( path.dirname( preloadPath ), '../renderer/index.html' ),
+					{ search }
+				);
+			}
+		}
 		settingsWindow.focus();
 		return;
 	}
@@ -57,15 +71,13 @@ export function openSettingsWindow( preloadPath: string, rendererUrl?: string ) 
 	} );
 
 	if ( rendererUrl ) {
-		void settingsWindow.loadURL( `${ rendererUrl }?view=settings` );
+		void settingsWindow.loadURL( `${ rendererUrl }?${ search }` );
 	} else {
 		// Production: load from built files relative to the preload path
 		const path = require( 'path' );
 		void settingsWindow.loadFile(
 			path.join( path.dirname( preloadPath ), '../renderer/index.html' ),
-			{
-				search: 'view=settings',
-			}
+			{ search }
 		);
 	}
 

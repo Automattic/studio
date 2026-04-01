@@ -152,7 +152,6 @@ export {
 	saveUserEditor,
 	saveUserLocale,
 	saveUserTerminal,
-	showUserSettings,
 } from 'src/modules/user-settings/lib/ipc-handlers';
 
 export async function getAgentInstructionsStatus(
@@ -1737,10 +1736,13 @@ export async function updateSitesSortOrder(
 	}
 }
 
-export async function openSettingsWindow( _event: IpcMainInvokeEvent ): Promise< void > {
+export async function openSettingsWindow(
+	_event: IpcMainInvokeEvent,
+	tab?: string
+): Promise< void > {
 	const { openSettingsWindow: open } = await import( 'src/settings-window' );
 	const preloadPath = nodePath.join( __dirname, '../preload/preload.js' );
 	const rendererUrl =
 		process.env.NODE_ENV !== 'production' ? process.env[ 'ELECTRON_RENDERER_URL' ] : undefined;
-	open( preloadPath, rendererUrl );
+	open( preloadPath, rendererUrl, tab );
 }

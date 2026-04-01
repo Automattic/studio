@@ -1,11 +1,13 @@
 /**
  * Migration Client – thin wrapper around importer.phar
  *
- * Downloads and runs the streaming-site-migration CLI tool via PHP WASM
- * in a child process. The child process isolates PHP WASM execution so
- * the main process stays responsive for Ctrl+C and progress reporting.
+ * Downloads and runs the streaming-site-migration CLI tool.
+ *
+ * Prefer native PHP when available so the importer can use host tools
+ * like external sort for large indexes. Fall back to a PHP WASM child
+ * process when native PHP is unavailable.
  */
-import { ChildProcess, fork } from 'node:child_process';
+import { ChildProcess, fork, spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
@@ -29,6 +31,11 @@ export interface RunImporterOptions {
 	progressRoot?: string;
 	progressLabel?: string;
 	verboseCommands?: boolean;
+}
+
+interface NativeImporterCommand {
+	command: string;
+	args: string[];
 }
 
 interface ImporterProgressSnapshot {
@@ -359,6 +366,361 @@ function getImporterChildPath(): string {
 	return path.resolve( import.meta.dirname, 'importer-child.mjs' );
 }
 
+function getNativePhpCommand(): string | null {
+	const candidates = [ process.env.STUDIO_IMPORTER_PHP, 'php' ].filter(
+		( value ): value is string => typeof value === 'string' && value.length > 0
+	);
+
+	for ( const candidate of candidates ) {
+		const result = spawnSync( candidate, [ '-v' ], {
+			stdio: 'ignore',
+		} );
+		if ( result.status === 0 ) {
+			return candidate;
+		}
+	}
+
+	return null;
+}
+
+function rewriteImporterPathValue(
+	value: string,
+	pathMappings: Array< readonly [ string, string ] >
+): string {
+	for ( const [ virtualPath, hostPath ] of pathMappings ) {
+		if ( value === virtualPath ) {
+			return hostPath;
+		}
+
+		if ( value.startsWith( `${ virtualPath }/` ) ) {
+			return path.join( hostPath, value.slice( virtualPath.length + 1 ) );
+		}
+	}
+
+	return value;
+}
+
+export function resolveNativeImporterInvocation(
+	pharPath: string,
+	stateDir: string,
+	docroot: string,
+	tmpDir: string,
+	args: string[],
+	mounts: ImporterMount[] = []
+): NativeImporterCommand {
+	const phpCommand = getNativePhpCommand();
+	if ( ! phpCommand ) {
+		throw new Error( 'No native PHP executable was found in PATH.' );
+	}
+
+	const pathMappings = [
+		[ '/state', stateDir ] as const,
+		[ '/docroot', docroot ] as const,
+		[ '/tmp', tmpDir ] as const,
+		...mounts
+			.map( ( mount ) => [ mount.vfsPath, mount.hostPath ] as const )
+			.sort( ( left, right ) => right[ 0 ].length - left[ 0 ].length ),
+	];
+
+	const resolvedArgs = args.map( ( arg ) => {
+		const equalsIndex = arg.indexOf( '=' );
+		if ( equalsIndex === -1 ) {
+			return rewriteImporterPathValue( arg, pathMappings );
+		}
+
+		const option = arg.slice( 0, equalsIndex + 1 );
+		const value = arg.slice( equalsIndex + 1 );
+		return `${ option }${ rewriteImporterPathValue( value, pathMappings ) }`;
+	} );
+
+	return {
+		command: phpCommand,
+		args: [ pharPath, ...resolvedArgs ],
+	};
+}
+
+function createProgressReporter(
+	progressLabel: string,
+	defaultPhase: string | undefined,
+	startTime: number,
+	onProgress?: ( output: string ) => void
+) {
+	let stdoutLineBuffer = '';
+	let progressSnapshot: ImporterProgressSnapshot | null = defaultPhase
+		? { phase: defaultPhase }
+		: null;
+	let lastRenderedSecond = -1;
+
+	const reportLines = ( lines: string[] ) => {
+		if ( ! onProgress ) {
+			return;
+		}
+
+		for ( const line of lines ) {
+			const record = parseJsonlRecord( line );
+			const nextSnapshot = updateImporterProgressSnapshot( record, progressSnapshot ?? undefined );
+			if ( nextSnapshot ) {
+				progressSnapshot = nextSnapshot;
+			}
+			const progressMessage =
+				progressSnapshot &&
+				formatImporterProgressSnapshot(
+					progressSnapshot,
+					progressLabel,
+					Math.floor( ( Date.now() - startTime ) / 1000 )
+				);
+
+			if ( progressMessage ) {
+				onProgress( progressMessage );
+			}
+		}
+	};
+
+	const pushStdoutChunk = ( chunk: string ) => {
+		stdoutLineBuffer += chunk;
+		const lines = stdoutLineBuffer.split( '\n' );
+		stdoutLineBuffer = lines.pop() ?? '';
+		reportLines( lines );
+	};
+
+	const flush = () => {
+		if ( stdoutLineBuffer.trim().length > 0 ) {
+			reportLines( [ stdoutLineBuffer.trim() ] );
+		}
+	};
+
+	const progressTicker =
+		onProgress &&
+		setInterval( () => {
+			if ( ! progressSnapshot ) {
+				return;
+			}
+
+			const elapsedSeconds = Math.floor( ( Date.now() - startTime ) / 1000 );
+			if ( elapsedSeconds === lastRenderedSecond ) {
+				return;
+			}
+
+			const progressMessage = formatImporterProgressSnapshot(
+				progressSnapshot,
+				progressLabel,
+				elapsedSeconds
+			);
+			if ( progressMessage ) {
+				lastRenderedSecond = elapsedSeconds;
+				onProgress( progressMessage );
+			}
+		}, 250 );
+
+	return {
+		pushStdoutChunk,
+		flush,
+		cleanup() {
+			if ( progressTicker ) {
+				clearInterval( progressTicker );
+			}
+		},
+	};
+}
+
+async function runImporterCommandWithNativePhp(
+	pharPath: string,
+	stateDir: string,
+	docroot: string,
+	tmpDir: string,
+	args: string[],
+	onProgress: ( ( output: string ) => void ) | undefined,
+	options: RunImporterOptions,
+	progressLabel: string,
+	defaultPhase: string | undefined,
+	startTime: number
+): Promise< ImporterResult > {
+	const command = resolveNativeImporterInvocation(
+		pharPath,
+		stateDir,
+		docroot,
+		tmpDir,
+		args,
+		options.mounts ?? []
+	);
+
+	if ( options.verboseCommands ) {
+		console.error( `[importer] ${ [ command.command, ...command.args ].join( ' ' ) }` );
+	}
+
+	return await new Promise< ImporterResult >( ( resolve, reject ) => {
+		const child = spawn( command.command, command.args, {
+			stdio: [ 'ignore', 'pipe', 'pipe' ],
+		} );
+		const stdoutChunks: string[] = [];
+		const stderrChunks: string[] = [];
+		const progressReporter = createProgressReporter(
+			progressLabel,
+			defaultPhase,
+			startTime,
+			onProgress
+		);
+
+		const sigintHandler = () => {
+			child.kill( 'SIGKILL' );
+			process.exit( 130 );
+		};
+		process.on( 'SIGINT', sigintHandler );
+
+		const cleanup = () => {
+			process.removeListener( 'SIGINT', sigintHandler );
+			progressReporter.cleanup();
+		};
+
+		child.stdout?.on( 'data', ( chunk: Buffer ) => {
+			const text = chunk.toString();
+			stdoutChunks.push( text );
+			progressReporter.pushStdoutChunk( text );
+		} );
+
+		child.stderr?.on( 'data', ( chunk: Buffer ) => {
+			stderrChunks.push( chunk.toString() );
+		} );
+
+		child.on( 'error', ( error ) => {
+			cleanup();
+			reject( error );
+		} );
+
+		child.on( 'exit', ( exitCode ) => {
+			cleanup();
+			progressReporter.flush();
+			resolve( {
+				stdout: stdoutChunks.join( '' ),
+				stderr: stderrChunks.join( '' ),
+				exitCode: exitCode ?? 1,
+			} );
+		} );
+	} );
+}
+
+async function runImporterCommandWithWasmChild(
+	pharPath: string,
+	stateDir: string,
+	docroot: string,
+	tmpDir: string,
+	args: string[],
+	onProgress: ( ( output: string ) => void ) | undefined,
+	options: RunImporterOptions,
+	progressLabel: string,
+	defaultPhase: string | undefined,
+	startTime: number
+): Promise< ImporterResult > {
+	const childPath = getImporterChildPath();
+
+	if ( options.verboseCommands ) {
+		const mountsSuffix =
+			options.mounts && options.mounts.length > 0
+				? ` mounts=${ options.mounts
+						.map( ( mount ) => `${ mount.hostPath }:${ mount.vfsPath }` )
+						.join( ',' ) }`
+				: '';
+		console.error( `[importer] php importer.phar ${ args.join( ' ' ) }${ mountsSuffix }` );
+	}
+
+	return await new Promise< ImporterResult >( ( resolve, reject ) => {
+		const child: ChildProcess = fork( childPath, [], {
+			stdio: [ 'pipe', 'pipe', 'pipe', 'ipc' ],
+		} );
+		let settled = false;
+		const childStderrChunks: string[] = [];
+		const progressReporter = createProgressReporter(
+			progressLabel,
+			defaultPhase,
+			startTime,
+			onProgress
+		);
+
+		child.stderr?.on( 'data', ( chunk: Buffer ) => {
+			childStderrChunks.push( chunk.toString() );
+		} );
+
+		const sigintHandler = () => {
+			child.kill( 'SIGKILL' );
+			process.exit( 130 );
+		};
+		process.on( 'SIGINT', sigintHandler );
+
+		const cleanup = () => {
+			process.removeListener( 'SIGINT', sigintHandler );
+			progressReporter.cleanup();
+		};
+
+		child.on(
+			'message',
+			( msg: {
+				type: string;
+				stdout?: string;
+				stderr?: string;
+				chunk?: string;
+				exitCode?: number;
+				message?: string;
+			} ) => {
+				if ( msg.type === 'stdout' ) {
+					progressReporter.pushStdoutChunk( msg.chunk || '' );
+					return;
+				}
+
+				if ( msg.type === 'stderr' ) {
+					return;
+				}
+
+				cleanup();
+				settled = true;
+
+				if ( msg.type === 'result' ) {
+					progressReporter.flush();
+					resolve( {
+						stdout: msg.stdout || '',
+						stderr: msg.stderr || '',
+						exitCode: msg.exitCode ?? 1,
+					} );
+					return;
+				}
+
+				if ( msg.type === 'error' ) {
+					reject( new Error( msg.message || 'importer child process error' ) );
+				}
+			}
+		);
+
+		child.on( 'error', ( err ) => {
+			cleanup();
+			if ( ! settled ) {
+				settled = true;
+				reject( err );
+			}
+		} );
+
+		child.on( 'exit', ( code ) => {
+			cleanup();
+			if ( ! settled ) {
+				settled = true;
+				const childStderr = childStderrChunks.join( '' ).trim();
+				const details = childStderr
+					? `Child process stderr:\n${ childStderr }`
+					: 'No error details available';
+				reject( new Error( `importer child process exited with code ${ code }. ${ details }` ) );
+			}
+		} );
+
+		child.send( {
+			type: 'run',
+			pharPath,
+			stateDir,
+			docroot,
+			tmpDir,
+			args,
+			mounts: options.mounts ?? [],
+		} );
+	} );
+}
+
 export async function runImporterCommandUntilComplete(
 	stateDir: string,
 	docroot: string,
@@ -370,177 +732,41 @@ export async function runImporterCommandUntilComplete(
 	const tmpDir = path.join( path.dirname( stateDir ), 'tmp' );
 	fs.mkdirSync( tmpDir, { recursive: true } );
 
-	const childPath = getImporterChildPath();
 	const progressLabel = options.progressLabel ?? args[ 0 ] ?? 'Importing';
 	const defaultPhase = getDefaultPhaseForCommand( args[ 0 ] );
+	const startTime = Date.now();
+	const nativePhpCommand = getNativePhpCommand();
 
 	let lastResult: ImporterResult | undefined;
-	const startTime = Date.now();
 
 	do {
-		if ( options.verboseCommands ) {
-			const mountsSuffix =
-				options.mounts && options.mounts.length > 0
-					? ` mounts=${ options.mounts
-							.map( ( mount ) => `${ mount.hostPath }:${ mount.vfsPath }` )
-							.join( ',' ) }`
-					: '';
-			console.error( `[importer] php importer.phar ${ args.join( ' ' ) }${ mountsSuffix }` );
-		}
-
-		lastResult = await new Promise< ImporterResult >( ( resolve, reject ) => {
-			const child: ChildProcess = fork( childPath, [], {
-				stdio: [ 'pipe', 'pipe', 'pipe', 'ipc' ],
-			} );
-			let settled = false;
-			let stdoutLineBuffer = '';
-			const childStderrChunks: string[] = [];
-			let progressSnapshot: ImporterProgressSnapshot | null = defaultPhase
-				? { phase: defaultPhase }
-				: null;
-			let lastRenderedSecond = -1;
-
-			const reportBufferedProgress = ( lines: string[] ) => {
-				if ( ! onProgress ) {
-					return;
-				}
-
-				for ( const line of lines ) {
-					const record = parseJsonlRecord( line );
-					const nextSnapshot = updateImporterProgressSnapshot(
-						record,
-						progressSnapshot ?? undefined
-					);
-					if ( nextSnapshot ) {
-						progressSnapshot = nextSnapshot;
-					}
-					const progressMessage =
-						progressSnapshot &&
-						formatImporterProgressSnapshot(
-							progressSnapshot,
-							progressLabel,
-							Math.floor( ( Date.now() - startTime ) / 1000 )
-						);
-
-					if ( progressMessage ) {
-						onProgress( progressMessage );
-					}
-				}
-			};
-
-			const progressTicker =
-				onProgress &&
-				setInterval( () => {
-					if ( ! progressSnapshot ) {
-						return;
-					}
-
-					const elapsedSeconds = Math.floor( ( Date.now() - startTime ) / 1000 );
-					if ( elapsedSeconds === lastRenderedSecond ) {
-						return;
-					}
-
-					const progressMessage = formatImporterProgressSnapshot(
-						progressSnapshot,
-						progressLabel,
-						elapsedSeconds
-					);
-					if ( progressMessage ) {
-						lastRenderedSecond = elapsedSeconds;
-						onProgress( progressMessage );
-					}
-				}, 250 );
-
-			child.stderr?.on( 'data', ( chunk: Buffer ) => {
-				childStderrChunks.push( chunk.toString() );
-			} );
-
-			const sigintHandler = () => {
-				child.kill( 'SIGKILL' );
-				process.exit( 130 );
-			};
-			process.on( 'SIGINT', sigintHandler );
-
-			const cleanup = () => {
-				process.removeListener( 'SIGINT', sigintHandler );
-				if ( progressTicker ) {
-					clearInterval( progressTicker );
-				}
-			};
-
-			child.on(
-				'message',
-				( msg: {
-					type: string;
-					stdout?: string;
-					stderr?: string;
-					chunk?: string;
-					exitCode?: number;
-					message?: string;
-				} ) => {
-					if ( msg.type === 'stdout' ) {
-						stdoutLineBuffer += msg.chunk || '';
-						const lines = stdoutLineBuffer.split( '\n' );
-						stdoutLineBuffer = lines.pop() ?? '';
-						reportBufferedProgress( lines );
-						return;
-					}
-
-					if ( msg.type === 'stderr' ) {
-						return;
-					}
-
-					cleanup();
-					settled = true;
-
-					if ( msg.type === 'result' ) {
-						if ( stdoutLineBuffer.trim().length > 0 ) {
-							reportBufferedProgress( [ stdoutLineBuffer.trim() ] );
-						}
-						resolve( {
-							stdout: msg.stdout || '',
-							stderr: msg.stderr || '',
-							exitCode: msg.exitCode ?? 1,
-						} );
-						return;
-					}
-
-					if ( msg.type === 'error' ) {
-						reject( new Error( msg.message || 'importer child process error' ) );
-					}
-				}
-			);
-
-			child.on( 'error', ( err ) => {
-				cleanup();
-				if ( ! settled ) {
-					settled = true;
-					reject( err );
-				}
-			} );
-
-			child.on( 'exit', ( code ) => {
-				cleanup();
-				if ( ! settled ) {
-					settled = true;
-					const childStderr = childStderrChunks.join( '' ).trim();
-					const details = childStderr
-						? `Child process stderr:\n${ childStderr }`
-						: 'No error details available';
-					reject( new Error( `importer child process exited with code ${ code }. ${ details }` ) );
-				}
-			} );
-
-			child.send( {
-				type: 'run',
+		if ( nativePhpCommand ) {
+			lastResult = await runImporterCommandWithNativePhp(
 				pharPath,
 				stateDir,
 				docroot,
 				tmpDir,
 				args,
-				mounts: options.mounts ?? [],
-			} );
-		} );
+				onProgress,
+				options,
+				progressLabel,
+				defaultPhase,
+				startTime
+			);
+		} else {
+			lastResult = await runImporterCommandWithWasmChild(
+				pharPath,
+				stateDir,
+				docroot,
+				tmpDir,
+				args,
+				onProgress,
+				options,
+				progressLabel,
+				defaultPhase,
+				startTime
+			);
+		}
 
 		if ( lastResult.exitCode === 1 ) {
 			const details = [ lastResult.stderr, lastResult.stdout ].filter( Boolean ).join( '\n' );

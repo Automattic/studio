@@ -184,6 +184,9 @@ async function main() {
 	const { registerCommand: registerImportCommand } = await import( 'cli/commands/import' );
 	registerImportCommand( studioArgv );
 
+	const { registerCommand: registerExportCommand } = await import( 'cli/commands/export' );
+	registerExportCommand( studioArgv );
+
 	if ( __ENABLE_STUDIO_AI__ ) {
 		studioArgv.command( 'ai', __( 'AI-powered WordPress assistant' ), async ( aiYargs ) => {
 			const { registerCommand: registerAiCommand } = await import( 'cli/commands/ai' );

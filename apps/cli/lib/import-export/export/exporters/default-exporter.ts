@@ -158,7 +158,6 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 	private setupArchiveListeners( output: fs.WriteStream ): Promise< void > {
 		return new Promise( ( resolve, reject ) => {
 			output.on( 'close', () => {
-				console.log( `Backup created at: ${ output.path }` );
 				resolve();
 			} );
 

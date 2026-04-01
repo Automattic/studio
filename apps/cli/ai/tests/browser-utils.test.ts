@@ -11,7 +11,7 @@ describe( 'browser-utils', () => {
 	} );
 
 	it( 'prefers the resolved Chromium executable when it exists', () => {
-		const executablePath = '/bin/sh';
+		const executablePath = process.execPath;
 
 		const options = buildChromiumLaunchAttempts( {
 			executablePath: () => executablePath,
@@ -42,7 +42,7 @@ describe( 'browser-utils', () => {
 	} );
 
 	it( 'prefers an explicit MCP browser executable path override', () => {
-		vi.stubEnv( 'STUDIO_MCP_BROWSER_EXECUTABLE_PATH', '/bin/sh' );
+		vi.stubEnv( 'STUDIO_MCP_BROWSER_EXECUTABLE_PATH', process.execPath );
 
 		const options = buildChromiumLaunchAttempts( {
 			executablePath: () => '/missing/chromium',
@@ -50,7 +50,7 @@ describe( 'browser-utils', () => {
 
 		expect( options ).toEqual( {
 			args: [ '--ignore-certificate-errors' ],
-			executablePath: '/bin/sh',
+			executablePath: process.execPath,
 		} );
 	} );
 
@@ -73,7 +73,7 @@ describe( 'browser-utils', () => {
 
 		const error = await ensurePlaywrightChromiumInstalled(
 			{
-				executablePath: () => ( installed ? '/bin/sh' : '/missing/chromium' ),
+				executablePath: () => ( installed ? process.execPath : '/missing/chromium' ),
 			},
 			{},
 			async () => {

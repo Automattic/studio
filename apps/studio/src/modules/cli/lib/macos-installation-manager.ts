@@ -29,6 +29,18 @@ const SHELL_PROFILE_FILES = [ '.zshrc', '.zprofile', '.bash_profile', '.bashrc' 
 
 const ERROR_FILE_ALREADY_EXISTS = 'Studio CLI symlink path already occupied by non-symlink';
 
+function isLocalBinInPath(): boolean {
+	const localBinPath = path.join( os.homedir(), '.local', 'bin' );
+	const pathEntries = ( process.env.PATH ?? '' ).split( ':' ).map( ( entry ) => {
+		// Normalize entries: expand ~ and $HOME, then resolve to absolute path.
+		const expanded = entry
+			.replace( /^~(?=\/|$)/, os.homedir() )
+			.replace( /\$HOME(?=\/|$)/, os.homedir() );
+		return path.resolve( expanded );
+	} );
+	return pathEntries.includes( localBinPath );
+}
+
 export class MacOSCliInstallationManager implements StudioCliInstallationManager {
 	constructor() {
 		if ( process.platform !== 'darwin' ) {
@@ -37,6 +49,10 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 	}
 
 	async isCliInstalled(): Promise< boolean > {
+		if ( ! isLocalBinInPath() ) {
+			return false;
+		}
+
 		const currentSymlinkDestination = await this.getCurrentSymlinkDestination();
 
 		// Return true if we are running the development version of the app and the production CLI is installed
@@ -196,10 +212,8 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 	}
 
 	private async ensurePathInProfile(): Promise< void > {
-		const localBinPath = path.join( os.homedir(), '.local', 'bin' );
-
 		// If ~/.local/bin is already in PATH, no need to modify the shell profile.
-		if ( process.env.PATH?.split( ':' ).includes( localBinPath ) ) {
+		if ( isLocalBinInPath() ) {
 			return;
 		}
 

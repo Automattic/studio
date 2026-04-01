@@ -118,7 +118,7 @@ describe.skipIf( isWindows )( 'MacOSCliInstallationManager', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		Object.defineProperty( process, 'platform', { value: 'darwin' } );
-		process.env.PATH = '/usr/bin:/bin:/usr/sbin:/sbin';
+		process.env.PATH = '/Users/testuser/.local/bin:/usr/bin:/bin:/usr/sbin:/sbin';
 		process.env.NODE_ENV = 'production';
 		mockLoadUserData.mockResolvedValue( { version: 1, siteMetadata: {} } );
 		mockUpdateAppdata.mockResolvedValue( undefined );
@@ -161,6 +161,12 @@ describe.skipIf( isWindows )( 'MacOSCliInstallationManager', () => {
 				'/Applications/Studio.app/Contents/Resources/bin/studio-cli.sh'
 			);
 			expect( await manager.isCliInstalled() ).toBe( true );
+		} );
+
+		it( 'returns false when symlink is valid but ~/.local/bin is not in PATH', async () => {
+			process.env.PATH = '/usr/bin:/bin';
+			mockReadlink.mockResolvedValue( CLI_PACKAGED_PATH );
+			expect( await manager.isCliInstalled() ).toBe( false );
 		} );
 	} );
 
@@ -262,6 +268,8 @@ describe.skipIf( isWindows )( 'MacOSCliInstallationManager', () => {
 
 	describe( 'ensurePathInProfile (via installCli)', () => {
 		beforeEach( () => {
+			// Remove ~/.local/bin from PATH so ensurePathInProfile is triggered
+			process.env.PATH = '/usr/bin:/bin:/usr/sbin:/sbin';
 			// Set up for a successful install to trigger ensurePathInProfile
 			mockLstat.mockRejectedValue( enoentError() );
 			mockReadlink.mockRejectedValue( enoentError() );

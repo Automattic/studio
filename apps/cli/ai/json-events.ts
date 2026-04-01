@@ -52,7 +52,7 @@ export type JsonEvent =
 			status: TurnCompletedStatus;
 			usage?: {
 				numTurns: number;
-				costUsd: number;
+				costUsd?: number;
 			};
 	  };
 

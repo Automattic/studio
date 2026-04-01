@@ -6,7 +6,7 @@ import type { AiProviderId } from 'cli/ai/providers';
 
 export type HandleMessageResult =
 	| { sessionId: string; success: boolean; maxTurnsReached?: undefined }
-	| { sessionId: string; maxTurnsReached: true; numTurns: number; costUsd: number };
+	| { sessionId: string; maxTurnsReached: true; numTurns: number; costUsd?: number };
 
 export interface AiOutputAdapter {
 	currentProvider: AiProviderId;
@@ -207,7 +207,7 @@ export class JsonAdapter implements AiOutputAdapter {
 
 	emitTurnCompleted(
 		status: TurnCompletedStatus,
-		usage?: { numTurns: number; costUsd: number }
+		usage?: { numTurns: number; costUsd?: number }
 	): void {
 		emitEvent( {
 			type: 'turn.completed',

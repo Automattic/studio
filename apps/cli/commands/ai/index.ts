@@ -173,7 +173,9 @@ export async function runCommand( options: {
 				options.resumeSession.summary.id
 			)
 		);
-		replaySessionHistory( ui, options.resumeSession.events );
+		if ( ui instanceof InteractiveAdapter ) {
+			replaySessionHistory( ui.chatUI, options.resumeSession.events );
+		}
 		if ( ! sessionId ) {
 			ui.showInfo( __( 'No linked Claude session was found. Continuing from transcript only.' ) );
 		}
@@ -298,7 +300,7 @@ export async function runCommand( options: {
 
 	async function runAgentTurn(
 		prompt: string
-	): Promise< { status: TurnStatus; usage?: { numTurns: number; costUsd: number } } > {
+	): Promise< { status: TurnStatus; usage?: { numTurns: number; costUsd?: number } } > {
 		const env = await resolveAiEnvironment( currentProvider );
 		ui.beginAgentTurn();
 

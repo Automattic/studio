@@ -293,6 +293,61 @@ function getRemoteIndexPath( stateDirectory: string ): string {
 	return path.join( stateDirectory, '.import-remote-index.jsonl' );
 }
 
+function getLegacyStateDirectory( technicalSiteDirectory: string ): string {
+	return path.join( technicalSiteDirectory, 'tmp', 'export', 'state' );
+}
+
+function getLegacyRawDirectory( technicalSiteDirectory: string ): string {
+	return path.join( technicalSiteDirectory, 'tmp', 'export', 'docroot' );
+}
+
+function moveDirectoryContents( sourceDirectory: string, targetDirectory: string ): boolean {
+	if ( ! fs.existsSync( sourceDirectory ) ) {
+		return false;
+	}
+
+	fs.mkdirSync( targetDirectory, { recursive: true } );
+
+	let moved = false;
+	for ( const entry of fs.readdirSync( sourceDirectory ) ) {
+		const sourcePath = path.join( sourceDirectory, entry );
+		const targetPath = path.join( targetDirectory, entry );
+
+		if ( ! fs.existsSync( targetPath ) ) {
+			fs.renameSync( sourcePath, targetPath );
+			moved = true;
+			continue;
+		}
+
+		if ( fs.statSync( sourcePath ).isDirectory() && fs.statSync( targetPath ).isDirectory() ) {
+			moved = moveDirectoryContents( sourcePath, targetPath ) || moved;
+		}
+	}
+
+	if ( fs.readdirSync( sourceDirectory ).length === 0 ) {
+		fs.rmSync( sourceDirectory, { recursive: true, force: true } );
+	}
+
+	return moved;
+}
+
+export function migrateLegacyImporterLayout(
+	technicalSiteDirectory: string,
+	stateDirectory: string,
+	rawDirectory: string
+): boolean {
+	const movedState = moveDirectoryContents(
+		getLegacyStateDirectory( technicalSiteDirectory ),
+		stateDirectory
+	);
+	const movedRaw = moveDirectoryContents(
+		getLegacyRawDirectory( technicalSiteDirectory ),
+		rawDirectory
+	);
+
+	return movedState || movedRaw;
+}
+
 function saveImportMetadata( metadata: ImportMetadata ): void {
 	fs.mkdirSync( metadata.technicalSiteDirectory, { recursive: true } );
 	const metadataPath = getMetadataPath( metadata.technicalSiteDirectory );
@@ -845,6 +900,12 @@ async function abortImport(
 		);
 	}
 
+	migrateLegacyImporterLayout(
+		metadata.technicalSiteDirectory,
+		metadata.stateDirectory,
+		metadata.rawDirectory
+	);
+
 	logger.reportStart(
 		LoggerAction.ABORT_IMPORT,
 		__( 'Aborting import and cleaning up local files…' )
@@ -981,6 +1042,18 @@ export async function runCommand(
 	const { url: resolvedUrl, secret } = resolvedSource;
 	const { created, metadata } = await resolveImportMetadata( resolvedUrl, providedName );
 	const apiUrl = getApiUrl( metadata.normalizedUrl );
+
+	if (
+		migrateLegacyImporterLayout(
+			metadata.technicalSiteDirectory,
+			metadata.stateDirectory,
+			metadata.rawDirectory
+		)
+	) {
+		logger.reportWarning(
+			__( 'Recovered importer state from an older Studio runtime layout before continuing.' )
+		);
+	}
 
 	await ensureFreshSitePath( metadata );
 	ensureImportDirectories( metadata );

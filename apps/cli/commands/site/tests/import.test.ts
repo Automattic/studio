@@ -7,6 +7,7 @@ import {
 	getApiUrl,
 	getImportKey,
 	inferSiteNameFromUrl,
+	migrateLegacyImporterLayout,
 	normalizeImportUrl,
 	parseImporterJson,
 	shouldRestartFilesSyncIndex,
@@ -130,6 +131,46 @@ describe( 'CLI: studio site import helpers', () => {
 			expect( shouldRestartFilesSyncIndex( stateDirectory ) ).toBe( false );
 		} finally {
 			fs.rmSync( stateDirectory, { recursive: true, force: true } );
+		}
+	} );
+
+	it( 'migrates importer state from the legacy /tmp/export mount layout', () => {
+		const technicalSiteDirectory = fs.mkdtempSync(
+			path.join( os.tmpdir(), 'studio-import-legacy-layout-' )
+		);
+		const stateDirectory = path.join( technicalSiteDirectory, 'state' );
+		const rawDirectory = path.join( technicalSiteDirectory, 'raw' );
+		const legacyStateDirectory = path.join( technicalSiteDirectory, 'tmp', 'export', 'state' );
+		const legacyRawDirectory = path.join( technicalSiteDirectory, 'tmp', 'export', 'docroot' );
+
+		try {
+			fs.mkdirSync( stateDirectory, { recursive: true } );
+			fs.mkdirSync( legacyStateDirectory, { recursive: true } );
+			fs.mkdirSync( legacyRawDirectory, { recursive: true } );
+
+			fs.writeFileSync( path.join( stateDirectory, 'preflight.json' ), '{}' );
+			fs.writeFileSync(
+				path.join( legacyStateDirectory, '.import-state.json' ),
+				JSON.stringify( { command: 'files-sync' } )
+			);
+			fs.writeFileSync(
+				path.join( legacyStateDirectory, '.import-remote-index.jsonl' ),
+				'{"type":"file"}\n'
+			);
+			fs.mkdirSync( path.join( legacyRawDirectory, 'wp-content' ), { recursive: true } );
+			fs.writeFileSync( path.join( legacyRawDirectory, 'wp-content', 'index.php' ), '<?php' );
+
+			expect(
+				migrateLegacyImporterLayout( technicalSiteDirectory, stateDirectory, rawDirectory )
+			).toBe( true );
+			expect( fs.existsSync( path.join( stateDirectory, '.import-state.json' ) ) ).toBe( true );
+			expect( fs.existsSync( path.join( stateDirectory, '.import-remote-index.jsonl' ) ) ).toBe(
+				true
+			);
+			expect( fs.existsSync( path.join( rawDirectory, 'wp-content', 'index.php' ) ) ).toBe( true );
+			expect( fs.existsSync( legacyStateDirectory ) ).toBe( false );
+		} finally {
+			fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
 		}
 	} );
 } );

@@ -1736,3 +1736,11 @@ export async function updateSitesSortOrder(
 		await unlockAppdata();
 	}
 }
+
+export async function openSettingsWindow( _event: IpcMainInvokeEvent ): Promise< void > {
+	const { openSettingsWindow: open } = await import( 'src/settings-window' );
+	const preloadPath = nodePath.join( __dirname, '../preload/preload.js' );
+	const rendererUrl =
+		process.env.NODE_ENV !== 'production' ? process.env[ 'ELECTRON_RENDERER_URL' ] : undefined;
+	open( preloadPath, rendererUrl );
+}

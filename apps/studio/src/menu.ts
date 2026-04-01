@@ -158,7 +158,14 @@ async function getAppMenu(
 					label: __( 'Settings…' ),
 					accelerator: 'CommandOrControl+,',
 					click: async () => {
-						void sendIpcEventToRenderer( 'user-settings', { tabName: 'general' } );
+						const path = await import( 'path' );
+						const { openSettingsWindow } = await import( 'src/settings-window' );
+						const preloadPath = path.join( __dirname, '../preload/preload.js' );
+						const rendererUrl =
+							process.env.NODE_ENV !== 'production'
+								? process.env[ 'ELECTRON_RENDERER_URL' ]
+								: undefined;
+						openSettingsWindow( preloadPath, rendererUrl );
 					},
 				},
 				{

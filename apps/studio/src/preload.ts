@@ -76,6 +76,7 @@ const api: IpcApi = {
 	getSentryUserId: () => ipcRendererInvoke( 'getSentryUserId' ),
 	getUserLocale: () => ipcRendererInvoke( 'getUserLocale' ),
 	showUserSettings: ( tabName ) => ipcRendererInvoke( 'showUserSettings', tabName ),
+	openSettingsWindow: () => ipcRendererInvoke( 'openSettingsWindow' ),
 	startServer: ( id ) => ipcRendererInvoke( 'startServer', id ),
 	stopServer: ( id ) => ipcRendererInvoke( 'stopServer', id ),
 	stopAllServers: () => ipcRendererInvoke( 'stopAllServers' ),

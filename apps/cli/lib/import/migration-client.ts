@@ -33,6 +33,7 @@ export interface RunImporterOptions {
 
 interface ImporterProgressSnapshot {
 	bytesReceived?: number;
+	currentRequestBytesReceived?: number;
 	downloadedBytes?: number;
 	downloadedFiles?: number;
 	event?: string;
@@ -212,7 +213,15 @@ export function updateImporterProgressSnapshot(
 		nextSnapshot.totalBytes = totalBytes;
 	}
 	if ( bytesReceived !== undefined ) {
-		nextSnapshot.bytesReceived = bytesReceived;
+		const previousRequestBytes = snapshot.currentRequestBytesReceived ?? 0;
+		const previousCumulativeBytes = snapshot.bytesReceived ?? 0;
+		const requestRestarted = bytesReceived < previousRequestBytes;
+		const byteBase = requestRestarted
+			? previousCumulativeBytes
+			: previousCumulativeBytes - previousRequestBytes;
+
+		nextSnapshot.currentRequestBytesReceived = bytesReceived;
+		nextSnapshot.bytesReceived = byteBase + bytesReceived;
 	}
 	if ( rateBps !== undefined ) {
 		nextSnapshot.rateBps = rateBps;
@@ -410,11 +419,10 @@ export async function runImporterCommandUntilComplete(
 						formatImporterProgressSnapshot(
 							progressSnapshot,
 							progressLabel,
-							Math.round( ( Date.now() - startTime ) / 1000 )
+							Math.floor( ( Date.now() - startTime ) / 1000 )
 						);
 
 					if ( progressMessage ) {
-						lastRenderedSecond = Math.round( ( Date.now() - startTime ) / 1000 );
 						onProgress( progressMessage );
 					}
 				}

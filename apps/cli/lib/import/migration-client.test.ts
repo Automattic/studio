@@ -71,6 +71,31 @@ describe( 'formatImporterJsonlProgress', () => {
 		);
 	} );
 
+	it( 'accumulates bytes across request restarts when the importer heartbeat resets', () => {
+		const firstRequest = updateImporterProgressSnapshot( {
+			heartbeat: true,
+			bytes_received: 1024 * 1024 * 6,
+		} );
+		const secondRequest = updateImporterProgressSnapshot(
+			{
+				type: 'symlink_follow',
+				directory: '/wordpress/plugins/jetpack/15.7-a.7',
+			},
+			firstRequest!
+		);
+		const restartedHeartbeat = updateImporterProgressSnapshot(
+			{
+				heartbeat: true,
+				bytes_received: 1024 * 512,
+			},
+			secondRequest!
+		);
+
+		expect( formatImporterProgressSnapshot( restartedHeartbeat!, 'Essential files', 7 ) ).toBe(
+			'Essential files · indexing files · 6.5 MB received · following symlink .../plugins/jetpack/15.7-a.7 · 7s'
+		);
+	} );
+
 	it( 'prefers phase text over a generic starting status', () => {
 		const snapshot = updateImporterProgressSnapshot( {
 			status: 'starting',

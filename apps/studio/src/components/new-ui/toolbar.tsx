@@ -10,7 +10,7 @@ interface ToolbarProps {
 
 export function Toolbar( { start, middle, end, className, startInset }: ToolbarProps ) {
 	return (
-		<div className={ cx( 'relative flex items-center p-2 flex-shrink-0 border-b', className ) }>
+		<div className={ cx( 'relative flex items-center p-2 flex-shrink-0 min-h-[40px]', className ) }>
 			{ /* Start — left-aligned */ }
 			<div
 				className="flex items-center gap-1 z-10 transition-[padding] duration-200 ease-in-out"

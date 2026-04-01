@@ -455,7 +455,9 @@ export const CreateSiteForm = ( {
 						onKeyDown={ ( event ) => {
 							if ( event.key === 'Enter' ) {
 								event.preventDefault();
-								handleFormSubmit( event as FormEvent );
+								if ( siteName.trim() && errorCount === 0 ) {
+									handleFormSubmit( event as FormEvent );
+								}
 							}
 						} }
 						data-testid="site-name-input"

@@ -1,5 +1,6 @@
+/// <reference types="vitest/globals" />
+
 import { fs as memfsFs } from 'memfs';
-import { vi } from 'vitest';
 
 type NormalizePath = ( p: string | Uint8Array | URL ) => string;
 

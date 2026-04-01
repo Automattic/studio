@@ -66,10 +66,7 @@ vi.mock( 'electron-devtools-installer', () => ( {
 	REDUX_DEVTOOLS: { id: 'lmhkpmbekcpmknklioeibfkpmmfibljd' },
 } ) );
 
-beforeEach( () => {
-	vol.reset();
-	vol.mkdirSync( normalize( '/path/to/app/temp/com.wordpress.studio' ), { recursive: true } );
-} );
+vol.mkdirSync( normalize( '/path/to/app/temp/com.wordpress.studio' ), { recursive: true } );
 
 const mockWatcher = {
 	close: vi.fn(),

@@ -3,6 +3,7 @@ import { CacheProvider } from '@emotion/react';
 import { useEffect, useState } from 'react';
 import { ColorSystemReference } from 'src/components/new-ui/color-system-reference';
 import { ComponentLibrary } from 'src/components/new-ui/component-library';
+import { StudioComponentLibrary } from 'src/components/new-ui/studio-component-library';
 import { Toolbar } from 'src/components/new-ui/toolbar';
 import { WordPressStyles } from 'src/components/wordpress-styles';
 import { cx } from 'src/lib/cx';
@@ -14,7 +15,7 @@ const emotionCache = createCache( {
 	prepend: true,
 } );
 
-type SettingsTab = 'general' | 'account' | 'colors' | 'components';
+type SettingsTab = 'general' | 'account' | 'colors' | 'components' | 'studio-components';
 
 function GeneralTab() {
 	const [ colorScheme, setColorScheme ] = useState< string >( 'system' );
@@ -75,7 +76,8 @@ const TABS: { key: SettingsTab; label: string }[] = [
 	{ key: 'general', label: 'General' },
 	{ key: 'account', label: 'Account' },
 	{ key: 'colors', label: 'Colors' },
-	{ key: 'components', label: 'Components' },
+	{ key: 'components', label: 'WP Components' },
+	{ key: 'studio-components', label: 'Studio Components' },
 ];
 
 export default function SettingsRoot() {
@@ -84,17 +86,14 @@ export default function SettingsRoot() {
 	return (
 		<CacheProvider value={ emotionCache }>
 			<WordPressStyles />
-			<div
-				className={ cx(
-					'h-screen bg-chrome flex flex-col app-drag-region select-none'
-				) }
-			>
+			<div className="bg-chrome">
+				<Toolbar className="app-drag-region" middle={ <span className="a8c-subtitle-small text-chrome-text">Settings</span> } />
+			</div>
+			<div className={ cx( 'h-screen bg-chrome flex flex-col app-drag-region select-none' ) }>
 				<div className="flex flex-1 min-h-0">
 					{ /* Sidebar nav */ }
-					<div className="w-[180px] flex-shrink-0 border-r border-chrome-border flex flex-col">
-						<Toolbar className="app-drag-region" />
-						<nav className="p-3 flex flex-col gap-1 app-no-drag-region">
-							<h2 className="a8c-subtitle-small text-chrome-text px-2 py-2">Settings</h2>
+					<div className="w-[180px] flex-shrink-0 flex flex-col p-3">
+						<nav className="flex flex-col gap-1 app-no-drag-region">
 							{ TABS.map( ( tab ) => (
 								<button
 									key={ tab.key }
@@ -114,12 +113,12 @@ export default function SettingsRoot() {
 
 					{ /* Content */ }
 					<div className="flex-1 flex flex-col min-h-0">
-						<Toolbar className="app-drag-region" />
-						<div className="flex-1 overflow-y-auto p-6 app-no-drag-region">
+						<div className="flex-1 overflow-y-auto app-no-drag-region p-3">
 							{ activeTab === 'general' && <GeneralTab /> }
 							{ activeTab === 'account' && <AccountTab /> }
 							{ activeTab === 'colors' && <ColorSystemReference /> }
 							{ activeTab === 'components' && <ComponentLibrary /> }
+							{ activeTab === 'studio-components' && <StudioComponentLibrary /> }
 						</div>
 					</div>
 				</div>

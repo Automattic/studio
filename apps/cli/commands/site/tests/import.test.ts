@@ -5,6 +5,7 @@ import {
 	findMatchingWpComSite,
 	formatWpComSitesList,
 	getApiUrl,
+	getFlattenSourceDirectory,
 	getImportKey,
 	inferSiteNameFromUrl,
 	migrateLegacyImporterLayout,
@@ -129,6 +130,33 @@ describe( 'CLI: studio site import helpers', () => {
 			);
 
 			expect( shouldRestartFilesSyncIndex( stateDirectory ) ).toBe( false );
+		} finally {
+			fs.rmSync( stateDirectory, { recursive: true, force: true } );
+		}
+	} );
+
+	it( 'uses the remote document root as the flatten source directory when available', () => {
+		const stateDirectory = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-import-state-' ) );
+		const rawDirectory = path.join( stateDirectory, 'raw' );
+
+		try {
+			fs.mkdirSync( rawDirectory, { recursive: true } );
+			fs.writeFileSync(
+				path.join( stateDirectory, '.import-state.json' ),
+				JSON.stringify( {
+					preflight: {
+						data: {
+							runtime: {
+								document_root: `base64:${ Buffer.from( '/srv/htdocs' ).toString( 'base64' ) }`,
+							},
+						},
+					},
+				} )
+			);
+
+			expect( getFlattenSourceDirectory( stateDirectory, rawDirectory ) ).toBe(
+				path.join( rawDirectory, 'srv', 'htdocs' )
+			);
 		} finally {
 			fs.rmSync( stateDirectory, { recursive: true, force: true } );
 		}

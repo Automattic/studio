@@ -93,6 +93,13 @@ interface ImporterStateSnapshot {
 	status?: string | null;
 	cursor?: unknown;
 	stage?: string | null;
+	preflight?: {
+		data?: {
+			runtime?: {
+				document_root?: string | null;
+			};
+		};
+	};
 }
 
 interface ResolveImportMetadataResult {
@@ -376,6 +383,35 @@ function readImporterState( stateDirectory: string ): ImporterStateSnapshot | nu
 	} catch {
 		return null;
 	}
+}
+
+function decodeImporterStatePath( value: string | null | undefined ): string | null {
+	if ( ! value ) {
+		return null;
+	}
+
+	if ( ! value.startsWith( 'base64:' ) ) {
+		return value;
+	}
+
+	try {
+		return Buffer.from( value.slice( 'base64:'.length ), 'base64' ).toString( 'utf8' );
+	} catch {
+		return null;
+	}
+}
+
+export function getFlattenSourceDirectory( stateDirectory: string, rawDirectory: string ): string {
+	const state = readImporterState( stateDirectory );
+	const remoteDocumentRoot = decodeImporterStatePath(
+		state?.preflight?.data?.runtime?.document_root
+	);
+
+	if ( ! remoteDocumentRoot || remoteDocumentRoot === '/' ) {
+		return rawDirectory;
+	}
+
+	return path.join( rawDirectory, remoteDocumentRoot.replace( /^\/+/, '' ) );
 }
 
 export function shouldRestartFilesSyncIndex( stateDirectory: string ): boolean {
@@ -1116,9 +1152,13 @@ export async function runCommand(
 
 		if ( ! hasReachedStage( metadata, 'flattened' ) ) {
 			logger.reportStart( LoggerAction.CREATE_SITE, __( 'Preparing site directory…' ) );
+			const flattenSourceDirectory = getFlattenSourceDirectory(
+				metadata.stateDirectory,
+				metadata.rawDirectory
+			);
 			await runImporterCommandUntilComplete(
 				metadata.stateDirectory,
-				metadata.rawDirectory,
+				flattenSourceDirectory,
 				[
 					'flat-document-root',
 					apiUrl,

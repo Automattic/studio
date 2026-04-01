@@ -81,6 +81,28 @@ describe( 'formatImporterJsonlProgress', () => {
 		);
 	} );
 
+	it( 'uses lifecycle records to expose resumable phase information', () => {
+		const snapshot = updateImporterProgressSnapshot( {
+			type: 'lifecycle',
+			event: 'resuming',
+			command: 'files-sync',
+			stage: 'index',
+		} );
+		expect( formatImporterProgressSnapshot( snapshot!, 'Essential files', 4 ) ).toBe(
+			'Essential files · indexing files · resuming · 4s'
+		);
+	} );
+
+	it( 'formats symlink-follow events as indexing progress details', () => {
+		const snapshot = updateImporterProgressSnapshot( {
+			type: 'symlink_follow',
+			directory: '/wordpress/plugins/jetpack/15.7-a.7',
+		} );
+		expect( formatImporterProgressSnapshot( snapshot!, 'Essential files', 8 ) ).toBe(
+			'Essential files · indexing files · following symlink .../plugins/jetpack/15.7-a.7 · 8s'
+		);
+	} );
+
 	it( 'ignores the final response envelope records', () => {
 		expect(
 			formatImporterJsonlProgress(

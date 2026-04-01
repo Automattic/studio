@@ -35,6 +35,7 @@ interface ImporterProgressSnapshot {
 	bytesReceived?: number;
 	downloadedBytes?: number;
 	downloadedFiles?: number;
+	event?: string;
 	message?: string;
 	phase?: string;
 	rateBps?: number;
@@ -99,6 +100,32 @@ function mapImporterPhase( phase: string | undefined ): string | undefined {
 	}
 }
 
+function getDefaultPhaseForCommand( command: string | undefined ): string | undefined {
+	switch ( command ) {
+		case 'files-sync':
+			return 'indexing files';
+		case 'db-sync':
+			return 'downloading database';
+		case 'db-apply':
+			return 'importing database';
+		default:
+			return undefined;
+	}
+}
+
+function shortenImporterPath( value: string | undefined ): string | undefined {
+	if ( ! value ) {
+		return undefined;
+	}
+
+	const segments = value.split( '/' ).filter( Boolean );
+	if ( segments.length <= 3 ) {
+		return value;
+	}
+
+	return `.../${ segments.slice( -3 ).join( '/' ) }`;
+}
+
 export function updateImporterProgressSnapshot(
 	record: unknown,
 	snapshot: ImporterProgressSnapshot = {}
@@ -114,10 +141,39 @@ export function updateImporterProgressSnapshot(
 	}
 
 	const nextSnapshot: ImporterProgressSnapshot = { ...snapshot };
+	const type = readString( object.type );
+	if ( type ) {
+		nextSnapshot.event = type;
+	}
 
 	const phase = mapImporterPhase( readString( object.phase ) );
 	if ( phase ) {
 		nextSnapshot.phase = phase;
+	}
+
+	if ( type === 'lifecycle' ) {
+		nextSnapshot.phase = mapImporterPhase( readString( object.stage ) ) ?? nextSnapshot.phase;
+		const event = readString( object.event );
+		if ( event ) {
+			nextSnapshot.message = event;
+		}
+		return nextSnapshot;
+	}
+
+	if ( type === 'symlink_follow' ) {
+		nextSnapshot.phase = nextSnapshot.phase ?? 'indexing files';
+		nextSnapshot.message = `following symlink ${ shortenImporterPath(
+			readString( object.directory )
+		) }`;
+		return nextSnapshot;
+	}
+
+	if ( type === 'symlink_follow_rejected' ) {
+		nextSnapshot.phase = nextSnapshot.phase ?? 'indexing files';
+		nextSnapshot.message = `skipped symlink ${ shortenImporterPath(
+			readString( object.directory )
+		) }`;
+		return nextSnapshot;
 	}
 
 	const debug = readString( object.debug );
@@ -221,6 +277,23 @@ export function formatImporterProgressSnapshot(
 	}
 
 	if (
+		snapshot.message &&
+		( segments.length > 1 ||
+			! snapshot.phase ||
+			snapshot.message !== `starting ${ snapshot.phase }` )
+	) {
+		if (
+			! (
+				snapshot.message === snapshot.phase ||
+				snapshot.message === `starting ${ snapshot.phase }` ||
+				snapshot.message === `${ snapshot.phase } complete`
+			)
+		) {
+			segments.push( snapshot.message );
+		}
+	}
+
+	if (
 		segments.length === 1 &&
 		snapshot.message &&
 		( ! snapshot.phase || snapshot.message !== `starting ${ snapshot.phase }` )
@@ -290,6 +363,7 @@ export async function runImporterCommandUntilComplete(
 
 	const childPath = getImporterChildPath();
 	const progressLabel = options.progressLabel ?? args[ 0 ] ?? 'Importing';
+	const defaultPhase = getDefaultPhaseForCommand( args[ 0 ] );
 
 	let lastResult: ImporterResult | undefined;
 	const startTime = Date.now();
@@ -312,7 +386,10 @@ export async function runImporterCommandUntilComplete(
 			let settled = false;
 			let stdoutLineBuffer = '';
 			const childStderrChunks: string[] = [];
-			let progressSnapshot: ImporterProgressSnapshot | null = null;
+			let progressSnapshot: ImporterProgressSnapshot | null = defaultPhase
+				? { phase: defaultPhase }
+				: null;
+			let lastRenderedSecond = -1;
 
 			const reportBufferedProgress = ( lines: string[] ) => {
 				if ( ! onProgress ) {
@@ -337,6 +414,7 @@ export async function runImporterCommandUntilComplete(
 						);
 
 					if ( progressMessage ) {
+						lastRenderedSecond = Math.round( ( Date.now() - startTime ) / 1000 );
 						onProgress( progressMessage );
 					}
 				}
@@ -349,15 +427,21 @@ export async function runImporterCommandUntilComplete(
 						return;
 					}
 
+					const elapsedSeconds = Math.floor( ( Date.now() - startTime ) / 1000 );
+					if ( elapsedSeconds === lastRenderedSecond ) {
+						return;
+					}
+
 					const progressMessage = formatImporterProgressSnapshot(
 						progressSnapshot,
 						progressLabel,
-						Math.round( ( Date.now() - startTime ) / 1000 )
+						elapsedSeconds
 					);
 					if ( progressMessage ) {
+						lastRenderedSecond = elapsedSeconds;
 						onProgress( progressMessage );
 					}
-				}, 1000 );
+				}, 250 );
 
 			child.stderr?.on( 'data', ( chunk: Buffer ) => {
 				childStderrChunks.push( chunk.toString() );

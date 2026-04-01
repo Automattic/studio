@@ -226,12 +226,25 @@ function serializePhpStringArray( items: string[] ): string {
 	return `a:${ items.length }:{${ entries }}`;
 }
 
+function reportVerboseCommand( verbose: boolean, command: string, args: string[] = [] ): void {
+	if ( ! verbose ) {
+		return;
+	}
+
+	console.error( `[command] ${ [ command, ...args ].join( ' ' ) }` );
+}
+
 function deactivatePluginInSqlite(
 	dbPath: string,
 	tablePrefix: string,
-	pluginSlug: string
+	pluginSlug: string,
+	verbose = false
 ): boolean {
 	const table = `${ tablePrefix }options`;
+	reportVerboseCommand( verbose, 'sqlite3', [
+		dbPath,
+		`SELECT option_value FROM ${ table } WHERE option_name = 'active_plugins';`,
+	] );
 	const readResult = spawnSync( 'sqlite3', [
 		dbPath,
 		`SELECT option_value FROM ${ table } WHERE option_name = 'active_plugins';`,
@@ -253,6 +266,10 @@ function deactivatePluginInSqlite(
 		/'/g,
 		"''"
 	) }' WHERE option_name = 'active_plugins';`;
+	reportVerboseCommand( verbose, 'sqlite3', [ dbPath, '<stdin>' ] );
+	if ( verbose ) {
+		console.error( sql );
+	}
 	const writeResult = spawnSync( 'sqlite3', [ dbPath ], { input: sql } );
 	return writeResult.status === 0;
 }
@@ -531,7 +548,8 @@ function getPreflightCachePath( metadata: ImportMetadata ): string {
 async function runPreflight(
 	metadata: ImportMetadata,
 	apiUrl: string,
-	secret: string
+	secret: string,
+	verbose = false
 ): Promise< {
 	siteurl?: string;
 	wp_version?: string;
@@ -558,7 +576,11 @@ async function runPreflight(
 				'--no-adaptive',
 				'--state-dir=/state',
 				'--fs-root=/docroot',
-			]
+			],
+			undefined,
+			{
+				verboseCommands: verbose,
+			}
 		);
 	} catch ( preflightError ) {
 		const details =
@@ -740,6 +762,70 @@ function printResumeMessage( url: string, providedName?: string, requiresSecret 
 	console.log( '' );
 }
 
+async function trashImportPaths( paths: string[], verbose = false ): Promise< void > {
+	const deleteTargets = paths
+		.filter( ( value ): value is string => Boolean( value ) )
+		.filter(
+			( value, index, values ) =>
+				values.findIndex( ( other ) => arePathsEqual( other, value ) ) === index
+		)
+		.filter( ( value ) => fs.existsSync( value ) );
+
+	if ( deleteTargets.length === 0 ) {
+		return;
+	}
+
+	reportVerboseCommand( verbose, 'trash', deleteTargets );
+	const trash = ( await import( 'trash' ) ).default;
+	await trash( deleteTargets );
+}
+
+async function abortImport(
+	url: string | undefined,
+	providedName?: string,
+	verbose = false
+): Promise< void > {
+	if ( ! url ) {
+		throw new LoggerError(
+			__( 'Provide `--url` to abort an import and clean up its local state.' )
+		);
+	}
+
+	const normalizedUrl = normalizeImportUrl( url );
+	const importKey = getImportKey( normalizedUrl, providedName );
+	const technicalSiteDirectory = path.join( IMPORTS_ROOT, importKey );
+	const metadata = readImportMetadata( getMetadataPath( technicalSiteDirectory ) );
+
+	if ( ! metadata ) {
+		throw new LoggerError(
+			__( 'No matching import state was found for that URL. Nothing to abort.' )
+		);
+	}
+
+	logger.reportStart(
+		LoggerAction.ABORT_IMPORT,
+		__( 'Aborting import and cleaning up local files…' )
+	);
+
+	const existingSite = await findExistingSite( metadata );
+	if ( existingSite ) {
+		reportVerboseCommand( verbose, 'studio', [
+			'site',
+			'delete',
+			'--path',
+			existingSite.path,
+			'--files',
+		] );
+		const { runCommand: deleteSiteCommand } = await import( 'cli/commands/site/delete' );
+		await deleteSiteCommand( existingSite.path, true );
+		logger.reportSuccess( __( 'Import aborted and local files removed' ) );
+		return;
+	}
+
+	await trashImportPaths( [ metadata.sitePath, metadata.technicalSiteDirectory ], verbose );
+	logger.reportSuccess( __( 'Import aborted and local files removed' ) );
+}
+
 async function registerSite(
 	metadata: ImportMetadata
 ): Promise< { created: boolean; site: SiteData } > {
@@ -797,8 +883,19 @@ export async function runCommand(
 	url?: string,
 	providedSecret?: string,
 	providedName?: string,
-	listWpComSitesOnly = false
+	listWpComSitesOnly = false,
+	verbose = false,
+	abort = false
 ): Promise< void > {
+	if ( abort ) {
+		if ( listWpComSitesOnly ) {
+			throw new LoggerError( __( '`--abort` cannot be combined with `--list-wpcom-sites`.' ) );
+		}
+
+		await abortImport( url, providedName, verbose );
+		return;
+	}
+
 	const resolvedSource = await resolveImportSource( url, providedSecret, listWpComSitesOnly );
 	if ( ! resolvedSource ) {
 		return;
@@ -836,7 +933,7 @@ export async function runCommand(
 	console.log( '' );
 
 	try {
-		const preflight = await runPreflight( metadata, apiUrl, secret );
+		const preflight = await runPreflight( metadata, apiUrl, secret, verbose );
 		metadata.remoteSiteUrl = preflight.siteurl || metadata.normalizedUrl;
 		metadata.tablePrefix = preflight.table_prefix || undefined;
 		saveImportMetadata( metadata );
@@ -857,8 +954,8 @@ export async function runCommand(
 				],
 				( progress ) => logger.reportProgress( progress ),
 				{
-					progressRoot: metadata.rawDirectory,
 					progressLabel: 'Essential files',
+					verboseCommands: verbose,
 				}
 			);
 			logger.reportSuccess( __( 'Essential files downloaded' ) );
@@ -880,6 +977,7 @@ export async function runCommand(
 				undefined,
 				{
 					mounts: [ { hostPath: metadata.sitePath, vfsPath: '/flat' } ],
+					verboseCommands: verbose,
 				}
 			);
 			logger.reportSuccess( __( 'Site directory prepared' ) );
@@ -900,7 +998,10 @@ export async function runCommand(
 					'--state-dir=/state',
 					'--fs-root=/docroot',
 				],
-				( progress ) => logger.reportProgress( progress )
+				( progress ) => logger.reportProgress( progress ),
+				{
+					verboseCommands: verbose,
+				}
 			);
 			logger.reportSuccess( __( 'Database downloaded' ) );
 			setStage( metadata, 'db-downloaded' );
@@ -931,6 +1032,7 @@ export async function runCommand(
 				undefined,
 				{
 					mounts: [ { hostPath: metadata.sitePath, vfsPath: '/site' } ],
+					verboseCommands: verbose,
 				}
 			);
 			logger.reportSuccess( __( 'Database imported' ) );
@@ -955,6 +1057,7 @@ export async function runCommand(
 						{ hostPath: metadata.sitePath, vfsPath: '/flat' },
 						{ hostPath: metadata.runtimeDirectory, vfsPath: '/output' },
 					],
+					verboseCommands: verbose,
 				}
 			);
 			logger.reportSuccess( __( 'Runtime configuration generated' ) );
@@ -963,10 +1066,10 @@ export async function runCommand(
 
 		const sqliteDbPath = path.join( metadata.sitePath, 'wp-content', 'database', '.ht.sqlite' );
 		const tablePrefix = metadata.tablePrefix || 'wp_';
-		if ( deactivatePluginInSqlite( sqliteDbPath, tablePrefix, 'sg-security' ) ) {
+		if ( deactivatePluginInSqlite( sqliteDbPath, tablePrefix, 'sg-security', verbose ) ) {
 			logger.reportSuccess( 'Deactivated sg-security plugin' );
 		}
-		if ( deactivatePluginInSqlite( sqliteDbPath, tablePrefix, 'sg-cachepress' ) ) {
+		if ( deactivatePluginInSqlite( sqliteDbPath, tablePrefix, 'sg-cachepress', verbose ) ) {
 			logger.reportSuccess( 'Deactivated sg-cachepress plugin' );
 		}
 
@@ -1028,8 +1131,8 @@ export async function runCommand(
 					],
 					( progress ) => logger.reportProgress( progress ),
 					{
-						progressRoot: metadata.rawDirectory,
 						progressLabel: 'Remaining files',
+						verboseCommands: verbose,
 					}
 				);
 				logger.reportSuccess( __( 'Remaining files downloaded' ) );
@@ -1071,9 +1174,14 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					describe: __( 'List connected WordPress.com sites and exit' ),
 					default: false,
 				} )
+				.option( 'abort', {
+					type: 'boolean',
+					describe: __( 'Abort a matching import and remove its local files' ),
+					default: false,
+				} )
 				.option( 'verbose', {
 					type: 'boolean',
-					describe: __( 'Show detailed error information' ),
+					describe: __( 'Show detailed error information and executed commands' ),
 					default: false,
 				} );
 		},
@@ -1085,7 +1193,9 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					argv.url as string | undefined,
 					argv.secret as string | undefined,
 					argv.name as string | undefined,
-					argv.listWpcomSites as boolean
+					argv.listWpcomSites as boolean,
+					verbose,
+					argv.abort as boolean
 				);
 			} catch ( error ) {
 				if ( error instanceof ImportError ) {

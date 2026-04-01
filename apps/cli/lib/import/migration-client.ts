@@ -28,97 +28,7 @@ export interface RunImporterOptions {
 	mounts?: ImporterMount[];
 	progressRoot?: string;
 	progressLabel?: string;
-}
-
-interface ImporterStatus {
-	command?: string | null;
-	phase?: string | null;
-	status?: string | null;
-}
-
-interface DirectoryStats {
-	files: number;
-	bytes: number;
-}
-
-interface ImporterProgressSnapshot {
-	downloaded: DirectoryStats;
-	elapsedSeconds: number;
-	importerStatus: ImporterStatus | null;
-	isFilesSync: boolean;
-	isFilteredFilesSync: boolean;
-	progressLabel: string;
-	remoteIndex: DirectoryStats | null;
-	stallTicks: number;
-	totalBytes: number;
-}
-
-function getDirectoryStats( dir: string ): DirectoryStats {
-	let files = 0;
-	let bytes = 0;
-
-	try {
-		for ( const entry of fs.readdirSync( dir, { withFileTypes: true } ) ) {
-			const fullPath = path.join( dir, entry.name );
-			if ( entry.isDirectory() ) {
-				const sub = getDirectoryStats( fullPath );
-				files += sub.files;
-				bytes += sub.bytes;
-			} else {
-				try {
-					files++;
-					bytes += fs.statSync( fullPath ).size;
-				} catch {
-					// File may have changed during scanning.
-				}
-			}
-		}
-	} catch {
-		// Directory may not exist yet.
-	}
-
-	return { files, bytes };
-}
-
-function readRemoteIndex( stateDir: string ): DirectoryStats | null {
-	const indexPath = path.join( stateDir, '.import-remote-index.jsonl' );
-	let content: string;
-
-	try {
-		content = fs.readFileSync( indexPath, 'utf-8' );
-	} catch {
-		return null;
-	}
-
-	let files = 0;
-	let bytes = 0;
-	for ( const line of content.split( '\n' ) ) {
-		if ( ! line.trim() ) {
-			continue;
-		}
-
-		try {
-			const entry = JSON.parse( line );
-			if ( entry.type === 'file' ) {
-				files++;
-				bytes += entry.size || 0;
-			}
-		} catch {
-			// Ignore malformed lines in partially-written state.
-		}
-	}
-
-	return files > 0 ? { files, bytes } : null;
-}
-
-function readImporterStatus( stateDir: string ): ImporterStatus | null {
-	const statusPath = path.join( stateDir, '.import-status.json' );
-
-	try {
-		return JSON.parse( fs.readFileSync( statusPath, 'utf-8' ) ) as ImporterStatus;
-	} catch {
-		return null;
-	}
+	verboseCommands?: boolean;
 }
 
 function formatBytes( bytes: number ): string {
@@ -133,32 +43,101 @@ function formatBytes( bytes: number ): string {
 	return `${ ( bytes / ( 1024 * 1024 ) ).toFixed( 1 ) } MB`;
 }
 
-function hasFilterArg( args: string[] ): boolean {
-	return args.some( ( arg ) => arg.startsWith( '--filter=' ) );
+function parseJsonlRecord( line: string ): unknown | null {
+	try {
+		return JSON.parse( line );
+	} catch {
+		return null;
+	}
 }
 
-export function formatImporterProgress( snapshot: ImporterProgressSnapshot ): string {
-	const mins = Math.floor( snapshot.elapsedSeconds / 60 );
-	const secs = snapshot.elapsedSeconds % 60;
-	const timeStr = mins > 0 ? `${ mins }m ${ secs }s` : `${ secs }s`;
-	const stallHint = snapshot.stallTicks >= 3 ? ' · processing' : '';
+function readNumber( value: unknown ): number | undefined {
+	return typeof value === 'number' && Number.isFinite( value ) ? value : undefined;
+}
 
-	if ( snapshot.isFilteredFilesSync && snapshot.importerStatus?.phase === 'index' ) {
-		return `${ snapshot.progressLabel } · indexing remote files${ stallHint } · ${ timeStr }`;
+function readString( value: unknown ): string | undefined {
+	return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
+function formatElapsedSeconds( elapsedSeconds: number ): string {
+	const mins = Math.floor( elapsedSeconds / 60 );
+	const secs = elapsedSeconds % 60;
+	return mins > 0 ? `${ mins }m ${ secs }s` : `${ secs }s`;
+}
+
+export function formatImporterJsonlProgress(
+	record: unknown,
+	progressLabel: string,
+	elapsedSeconds: number
+): string | null {
+	if ( ! record || typeof record !== 'object' || Array.isArray( record ) ) {
+		return null;
 	}
 
-	if ( snapshot.remoteIndex ) {
-		return `${ snapshot.progressLabel } · ${ snapshot.downloaded.files }/${
-			snapshot.remoteIndex.files
-		} files · ${ formatBytes( snapshot.downloaded.bytes ) }/${ formatBytes(
-			snapshot.remoteIndex.bytes
-		) }${ stallHint } · ${ timeStr }`;
+	const object = record as Record< string, unknown >;
+	const elapsed = formatElapsedSeconds( elapsedSeconds );
+
+	if ( 'http_code' in object || 'protocol_version' in object ) {
+		return null;
 	}
 
-	const progressBytes = snapshot.isFilesSync ? snapshot.downloaded.bytes : snapshot.totalBytes;
-	return `${ snapshot.progressLabel } · ${ formatBytes(
-		progressBytes
-	) } downloaded${ stallHint } · ${ timeStr }`;
+	const debug = readString( object.debug );
+	if ( debug ) {
+		return `${ progressLabel } · ${ debug } · ${ elapsed }`;
+	}
+
+	const phase = readString( object.phase );
+	if ( phase === 'index' ) {
+		return `${ progressLabel } · indexing remote files · ${ elapsed }`;
+	}
+
+	const downloadedFiles =
+		readNumber( object.downloaded_files ) ??
+		readNumber( object.files_done ) ??
+		readNumber( object.completed_files );
+	const totalFiles = readNumber( object.total_files ) ?? readNumber( object.files_total );
+	const downloadedBytes =
+		readNumber( object.downloaded_bytes ) ??
+		readNumber( object.bytes_done ) ??
+		readNumber( object.completed_bytes );
+	const totalBytes = readNumber( object.total_bytes ) ?? readNumber( object.bytes_total );
+
+	if (
+		downloadedFiles !== undefined ||
+		totalFiles !== undefined ||
+		downloadedBytes !== undefined ||
+		totalBytes !== undefined
+	) {
+		const segments = [ progressLabel ];
+
+		if ( downloadedFiles !== undefined && totalFiles !== undefined ) {
+			segments.push( `${ downloadedFiles }/${ totalFiles } files` );
+		} else if ( downloadedFiles !== undefined ) {
+			segments.push( `${ downloadedFiles } files` );
+		}
+
+		if ( downloadedBytes !== undefined && totalBytes !== undefined ) {
+			segments.push( `${ formatBytes( downloadedBytes ) }/${ formatBytes( totalBytes ) }` );
+		} else if ( downloadedBytes !== undefined ) {
+			segments.push( `${ formatBytes( downloadedBytes ) } downloaded` );
+		}
+
+		segments.push( elapsed );
+		return segments.join( ' · ' );
+	}
+
+	const message =
+		readString( object.progress ) ??
+		readString( object.message ) ??
+		readString( object.status ) ??
+		readString( object.event ) ??
+		readString( object.type );
+
+	if ( message ) {
+		return `${ progressLabel } · ${ message } · ${ elapsed }`;
+	}
+
+	return null;
 }
 
 export async function downloadLatestImporterPhar(): Promise< string > {
@@ -205,144 +184,139 @@ export async function runImporterCommandUntilComplete(
 	fs.mkdirSync( tmpDir, { recursive: true } );
 
 	const childPath = getImporterChildPath();
-	const isFilesSync = args[ 0 ] === 'files-sync';
-	const isFilteredFilesSync = isFilesSync && hasFilterArg( args );
-	const progressRoot = options.progressRoot ?? docroot;
 	const progressLabel = options.progressLabel ?? args[ 0 ] ?? 'Importing';
 
-	let lastResult: ImporterResult;
+	let lastResult: ImporterResult | undefined;
 	const startTime = Date.now();
-	let lastBytes = 0;
-	let stallTicks = 0;
 
-	const progressTimer = onProgress
-		? setInterval( () => {
-				const downloaded = getDirectoryStats( progressRoot );
-				const stateStats = isFilesSync ? { files: 0, bytes: 0 } : getDirectoryStats( stateDir );
-				const totalBytes = downloaded.bytes + stateStats.bytes;
-				const progressBytes = isFilesSync ? downloaded.bytes : totalBytes;
-				const elapsed = Math.round( ( Date.now() - startTime ) / 1000 );
+	do {
+		if ( options.verboseCommands ) {
+			const mountsSuffix =
+				options.mounts && options.mounts.length > 0
+					? ` mounts=${ options.mounts
+							.map( ( mount ) => `${ mount.hostPath }:${ mount.vfsPath }` )
+							.join( ',' ) }`
+					: '';
+			console.error( `[importer] php importer.phar ${ args.join( ' ' ) }${ mountsSuffix }` );
+		}
 
-				if ( progressBytes === lastBytes ) {
-					stallTicks++;
-				} else {
-					stallTicks = 0;
-					lastBytes = progressBytes;
+		lastResult = await new Promise< ImporterResult >( ( resolve, reject ) => {
+			const child: ChildProcess = fork( childPath, [], {
+				stdio: [ 'pipe', 'pipe', 'pipe', 'ipc' ],
+			} );
+			let settled = false;
+			let stdoutLineBuffer = '';
+			const childStderrChunks: string[] = [];
+
+			const reportBufferedProgress = ( lines: string[] ) => {
+				if ( ! onProgress ) {
+					return;
 				}
 
-				const remoteIndex = isFilteredFilesSync
-					? null
-					: isFilesSync
-					? readRemoteIndex( stateDir )
-					: null;
-				const importerStatus = isFilesSync ? readImporterStatus( stateDir ) : null;
-				onProgress(
-					formatImporterProgress( {
-						downloaded,
-						elapsedSeconds: elapsed,
-						importerStatus,
-						isFilesSync,
-						isFilteredFilesSync,
+				for ( const line of lines ) {
+					const progressMessage = formatImporterJsonlProgress(
+						parseJsonlRecord( line ),
 						progressLabel,
-						remoteIndex,
-						stallTicks,
-						totalBytes,
-					} )
-				);
-		  }, 1000 )
-		: undefined;
+						Math.round( ( Date.now() - startTime ) / 1000 )
+					);
 
-	try {
-		do {
-			lastResult = await new Promise< ImporterResult >( ( resolve, reject ) => {
-				const child: ChildProcess = fork( childPath, [], {
-					stdio: [ 'pipe', 'pipe', 'pipe', 'ipc' ],
-				} );
-				let settled = false;
-				const childStderrChunks: string[] = [];
-
-				child.stderr?.on( 'data', ( chunk: Buffer ) => {
-					childStderrChunks.push( chunk.toString() );
-				} );
-
-				const sigintHandler = () => {
-					child.kill( 'SIGKILL' );
-					process.exit( 130 );
-				};
-				process.on( 'SIGINT', sigintHandler );
-
-				const cleanup = () => process.removeListener( 'SIGINT', sigintHandler );
-
-				child.on(
-					'message',
-					( msg: {
-						type: string;
-						stdout?: string;
-						stderr?: string;
-						exitCode?: number;
-						message?: string;
-					} ) => {
-						cleanup();
-						settled = true;
-
-						if ( msg.type === 'result' ) {
-							resolve( {
-								stdout: msg.stdout || '',
-								stderr: msg.stderr || '',
-								exitCode: msg.exitCode ?? 1,
-							} );
-							return;
-						}
-
-						if ( msg.type === 'error' ) {
-							reject( new Error( msg.message || 'importer child process error' ) );
-						}
+					if ( progressMessage ) {
+						onProgress( progressMessage );
 					}
-				);
+				}
+			};
 
-				child.on( 'error', ( err ) => {
-					cleanup();
-					if ( ! settled ) {
-						settled = true;
-						reject( err );
-					}
-				} );
-
-				child.on( 'exit', ( code ) => {
-					cleanup();
-					if ( ! settled ) {
-						settled = true;
-						const childStderr = childStderrChunks.join( '' ).trim();
-						const details = childStderr
-							? `Child process stderr:\n${ childStderr }`
-							: 'No error details available';
-						reject(
-							new Error( `importer child process exited with code ${ code }. ${ details }` )
-						);
-					}
-				} );
-
-				child.send( {
-					type: 'run',
-					pharPath,
-					stateDir,
-					docroot,
-					tmpDir,
-					args,
-					mounts: options.mounts ?? [],
-				} );
+			child.stderr?.on( 'data', ( chunk: Buffer ) => {
+				childStderrChunks.push( chunk.toString() );
 			} );
 
-			if ( lastResult.exitCode === 1 ) {
-				const details = [ lastResult.stderr, lastResult.stdout ].filter( Boolean ).join( '\n' );
-				throw new Error( details || 'importer.phar failed' );
-			}
-		} while ( lastResult.exitCode === 2 );
+			const sigintHandler = () => {
+				child.kill( 'SIGKILL' );
+				process.exit( 130 );
+			};
+			process.on( 'SIGINT', sigintHandler );
 
-		return lastResult;
-	} finally {
-		if ( progressTimer ) {
-			clearInterval( progressTimer );
+			const cleanup = () => process.removeListener( 'SIGINT', sigintHandler );
+
+			child.on(
+				'message',
+				( msg: {
+					type: string;
+					stdout?: string;
+					stderr?: string;
+					chunk?: string;
+					exitCode?: number;
+					message?: string;
+				} ) => {
+					if ( msg.type === 'stdout' ) {
+						stdoutLineBuffer += msg.chunk || '';
+						const lines = stdoutLineBuffer.split( '\n' );
+						stdoutLineBuffer = lines.pop() ?? '';
+						reportBufferedProgress( lines );
+						return;
+					}
+
+					if ( msg.type === 'stderr' ) {
+						return;
+					}
+
+					cleanup();
+					settled = true;
+
+					if ( msg.type === 'result' ) {
+						if ( stdoutLineBuffer.trim().length > 0 ) {
+							reportBufferedProgress( [ stdoutLineBuffer.trim() ] );
+						}
+						resolve( {
+							stdout: msg.stdout || '',
+							stderr: msg.stderr || '',
+							exitCode: msg.exitCode ?? 1,
+						} );
+						return;
+					}
+
+					if ( msg.type === 'error' ) {
+						reject( new Error( msg.message || 'importer child process error' ) );
+					}
+				}
+			);
+
+			child.on( 'error', ( err ) => {
+				cleanup();
+				if ( ! settled ) {
+					settled = true;
+					reject( err );
+				}
+			} );
+
+			child.on( 'exit', ( code ) => {
+				cleanup();
+				if ( ! settled ) {
+					settled = true;
+					const childStderr = childStderrChunks.join( '' ).trim();
+					const details = childStderr
+						? `Child process stderr:\n${ childStderr }`
+						: 'No error details available';
+					reject( new Error( `importer child process exited with code ${ code }. ${ details }` ) );
+				}
+			} );
+
+			child.send( {
+				type: 'run',
+				pharPath,
+				stateDir,
+				docroot,
+				tmpDir,
+				args,
+				mounts: options.mounts ?? [],
+			} );
+		} );
+
+		if ( lastResult.exitCode === 1 ) {
+			const details = [ lastResult.stderr, lastResult.stdout ].filter( Boolean ).join( '\n' );
+			throw new Error( details || 'importer.phar failed' );
 		}
-	}
+	} while ( lastResult.exitCode === 2 );
+
+	return lastResult;
 }

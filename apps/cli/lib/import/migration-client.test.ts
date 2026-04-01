@@ -1,52 +1,60 @@
 import { describe, expect, it } from 'vitest';
-import { formatImporterProgress } from './migration-client';
+import { formatImporterJsonlProgress } from './migration-client';
 
-describe( 'formatImporterProgress', () => {
-	it( 'shows indexing text for filtered file sync while the importer is indexing', () => {
+describe( 'formatImporterJsonlProgress', () => {
+	it( 'shows streamed debug messages from the importer', () => {
 		expect(
-			formatImporterProgress( {
-				downloaded: { files: 0, bytes: 0 },
-				elapsedSeconds: 7,
-				importerStatus: { phase: 'index' },
-				isFilesSync: true,
-				isFilteredFilesSync: true,
-				progressLabel: 'Essential files',
-				remoteIndex: null,
-				stallTicks: 0,
-				totalBytes: 0,
-			} )
-		).toBe( 'Essential files · indexing remote files · 7s' );
+			formatImporterJsonlProgress(
+				{ debug: 'Waiting for server response...' },
+				'Essential files',
+				3
+			)
+		).toBe( 'Essential files · Waiting for server response... · 3s' );
 	} );
 
-	it( 'shows downloaded bytes only for filtered file sync after indexing', () => {
-		expect(
-			formatImporterProgress( {
-				downloaded: { files: 42, bytes: 1024 * 1024 * 12.5 },
-				elapsedSeconds: 12,
-				importerStatus: { phase: 'download' },
-				isFilesSync: true,
-				isFilteredFilesSync: true,
-				progressLabel: 'Essential files',
-				remoteIndex: null,
-				stallTicks: 0,
-				totalBytes: 1024 * 1024 * 99,
-			} )
-		).toBe( 'Essential files · 12.5 MB downloaded · 12s' );
+	it( 'shows indexing text when the importer reports the index phase', () => {
+		expect( formatImporterJsonlProgress( { phase: 'index' }, 'Essential files', 7 ) ).toBe(
+			'Essential files · indexing remote files · 7s'
+		);
 	} );
 
-	it( 'keeps total file counts for unfiltered file sync when a remote index is available', () => {
+	it( 'formats streamed file and byte counts when present', () => {
 		expect(
-			formatImporterProgress( {
-				downloaded: { files: 20, bytes: 1024 * 1024 * 5 },
-				elapsedSeconds: 9,
-				importerStatus: { phase: 'download' },
-				isFilesSync: true,
-				isFilteredFilesSync: false,
-				progressLabel: 'Files',
-				remoteIndex: { files: 100, bytes: 1024 * 1024 * 25 },
-				stallTicks: 0,
-				totalBytes: 1024 * 1024 * 5,
-			} )
-		).toBe( 'Files · 20/100 files · 5.0 MB/25.0 MB · 9s' );
+			formatImporterJsonlProgress(
+				{
+					downloaded_files: 42,
+					total_files: 100,
+					downloaded_bytes: 1024 * 1024 * 12.5,
+					total_bytes: 1024 * 1024 * 50,
+				},
+				'Essential files',
+				12
+			)
+		).toBe( 'Essential files · 42/100 files · 12.5 MB/50.0 MB · 12s' );
+	} );
+
+	it( 'falls back to a generic progress message when only a message field is available', () => {
+		expect(
+			formatImporterJsonlProgress(
+				{
+					message: 'Downloading file batches',
+				},
+				'Essential files',
+				9
+			)
+		).toBe( 'Essential files · Downloading file batches · 9s' );
+	} );
+
+	it( 'ignores the final response envelope records', () => {
+		expect(
+			formatImporterJsonlProgress(
+				{
+					http_code: 200,
+					data: { ok: true },
+				},
+				'Essential files',
+				9
+			)
+		).toBeNull();
 	} );
 } );

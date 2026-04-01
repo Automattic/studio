@@ -41,9 +41,67 @@ interface RunMessage {
 	mounts?: ImporterMount[];
 }
 
+type ImporterChildMessage =
+	| {
+			type: 'result';
+			stdout: string;
+			stderr: string;
+			exitCode: number;
+	  }
+	| {
+			type: 'error';
+			message: string;
+	  }
+	| {
+			type: 'stdout';
+			chunk: string;
+	  }
+	| {
+			type: 'stderr';
+			chunk: string;
+	  };
+
 async function mountDirectory( php: PHP, mount: ImporterMount ) {
 	php.mkdir( mount.vfsPath );
 	await php.mount( mount.vfsPath, createNodeFsMountHandler( mount.hostPath ) );
+}
+
+async function pipePhpStream(
+	stream: ReadableStream< Uint8Array >,
+	type: 'stdout' | 'stderr',
+	buffer: string[]
+) {
+	const reader = stream.getReader();
+	const decoder = new TextDecoder();
+
+	try {
+		while ( true ) {
+			const { done, value } = await reader.read();
+
+			if ( done ) {
+				return;
+			}
+
+			if ( ! value ) {
+				continue;
+			}
+
+			const chunk = decoder.decode( value, { stream: true } );
+			if ( ! chunk ) {
+				continue;
+			}
+
+			buffer.push( chunk );
+			await sendAndFlush( { type, chunk } satisfies ImporterChildMessage );
+		}
+	} finally {
+		const remaining = decoder.decode();
+		if ( remaining ) {
+			buffer.push( remaining );
+			await sendAndFlush( { type, chunk: remaining } satisfies ImporterChildMessage );
+		}
+		reader.releaseLock();
+	}
 }
 
 async function runImporter( msg: RunMessage ) {
@@ -83,19 +141,26 @@ async function runImporter( msg: RunMessage ) {
 		await php.setSpawnHandler( createNoopSpawnHandler() );
 
 		const response = await php.cli( [ 'php', '/tmp/importer.phar', ...args ] );
+		const stdoutChunks: string[] = [];
+		const stderrChunks: string[] = [];
 
-		const [ stdout, stderr, exitCode ] = await Promise.all( [
-			response.stdoutText,
-			response.stderrText,
+		const [ exitCode ] = await Promise.all( [
 			response.exitCode,
+			pipePhpStream( response.stdout, 'stdout', stdoutChunks ),
+			pipePhpStream( response.stderr, 'stderr', stderrChunks ),
 		] );
 
-		await sendAndFlush( { type: 'result', stdout, stderr, exitCode } );
+		await sendAndFlush( {
+			type: 'result',
+			stdout: stdoutChunks.join( '' ),
+			stderr: stderrChunks.join( '' ),
+			exitCode,
+		} satisfies ImporterChildMessage );
 	} catch ( error ) {
 		await sendAndFlush( {
 			type: 'error',
 			message: error instanceof Error ? error.message : String( error ),
-		} );
+		} satisfies ImporterChildMessage );
 	}
 
 	php.exit();

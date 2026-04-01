@@ -87,7 +87,10 @@ export default function SettingsRoot() {
 		<CacheProvider value={ emotionCache }>
 			<WordPressStyles />
 			<div className="bg-chrome">
-				<Toolbar className="app-drag-region" middle={ <span className="a8c-subtitle-small text-chrome-text">Settings</span> } />
+				<Toolbar
+					className="app-drag-region"
+					middle={ <span className="a8c-subtitle-small text-chrome-text">Settings</span> }
+				/>
 			</div>
 			<div className={ cx( 'h-screen bg-chrome flex flex-col app-drag-region select-none' ) }>
 				<div className="flex flex-1 min-h-0">

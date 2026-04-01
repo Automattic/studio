@@ -16,11 +16,11 @@ import {
 	Separator,
 	useDefaultLayout,
 } from 'react-resizable-panels';
+import { SiteContentTabs } from 'src/components/site-content-tabs';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { isMac } from 'src/lib/app-globals';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { Sidebar } from './sidebar';
-import { SiteContent } from './site-details';
 import { Toolbar } from './toolbar';
 
 export function togglePanel(
@@ -197,15 +197,7 @@ export function PanelLayout( {
 							/>
 						}
 					/>
-					{ selectedSite ? (
-						<SiteContent key={ selectedSite.id } site={ selectedSite } />
-					) : (
-						<div className="flex-1 flex items-center justify-center">
-							<span className="text-xs text-frame-text-secondary">
-								Select a project to view details
-							</span>
-						</div>
-					) }
+					<SiteContentTabs />
 				</div>
 			</Panel>
 

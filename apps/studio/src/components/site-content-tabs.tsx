@@ -77,7 +77,7 @@ export function SiteContentTabs() {
 	}
 
 	return (
-		<div className="flex flex-col w-full h-full app-no-drag-region pt-8 overflow-y-auto">
+		<div className="flex flex-col w-full h-full app-no-drag-region pt-4 overflow-y-auto">
 			<Header />
 			<TabPanel
 				className={ `mt-6 h-full flex flex-col overflow-hidden ${ MIN_WIDTH_CLASS_TO_MEASURE }` }

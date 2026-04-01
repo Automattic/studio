@@ -63,6 +63,7 @@
 		"react-dom": "^18.2.0",
 		"react-markdown": "^10.1.0",
 		"react-redux": "^9.2.0",
+		"react-resizable-panels": "^4.8.0",
 		"rehype-raw": "^7.0.0",
 		"remark-gfm": "^4.0.1",
 		"resize-observer-polyfill": "^1.5.1",

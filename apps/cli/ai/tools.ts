@@ -21,6 +21,7 @@ import { runCommand as runStopSiteCommand, Mode as StopMode } from 'cli/commands
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { getUnsupportedWpCliPostContentMessage } from 'cli/lib/rewrite-wp-cli-post-content';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { normalizeHostname } from 'cli/lib/utils';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
@@ -32,7 +33,7 @@ import { getProgressCallback, setProgressCallback, emitProgress } from 'cli/logg
  *   post create --post_title="Ember & Oak" --post_type=page
  *   → ['post', 'create', '--post_title=Ember & Oak', '--post_type=page']
  */
-function splitCommandArgs( command: string ): string[] {
+function splitBasicCommandArgs( command: string ): string[] {
 	const args: string[] = [];
 	let current = '';
 	let inQuote: string | null = null;
@@ -66,6 +67,38 @@ function splitCommandArgs( command: string ): string[] {
 	}
 
 	return args;
+}
+
+function stripMatchingOuterQuotes( value: string ): string {
+	if ( value.length < 2 ) {
+		return value;
+	}
+
+	const firstChar = value[ 0 ];
+	const lastChar = value[ value.length - 1 ];
+	if ( ( firstChar === '"' || firstChar === "'" ) && firstChar === lastChar ) {
+		return value.slice( 1, -1 );
+	}
+
+	return value;
+}
+
+function splitCommandArgs( command: string ): string[] {
+	const postContentMarker = '--post_content=';
+	const postContentIndex = command.indexOf( postContentMarker );
+
+	// Large block content is commonly emitted without shell quoting and should
+	// be treated as a single literal argument that consumes the rest of the command.
+	if ( postContentIndex !== -1 ) {
+		const prefix = command.slice( 0, postContentIndex ).trim();
+		const postContent = stripMatchingOuterQuotes(
+			command.slice( postContentIndex + postContentMarker.length ).trim()
+		);
+
+		return [ ...splitBasicCommandArgs( prefix ), `${ postContentMarker }${ postContent }` ];
+	}
+
+	return splitBasicCommandArgs( command );
 }
 
 async function findSiteByName( name: string ): Promise< SiteData | undefined > {
@@ -464,6 +497,11 @@ const runWpCliTool = tool(
 				}
 
 				const wpCliArgs = splitCommandArgs( args.command );
+				const unsupportedPostContentMessage = getUnsupportedWpCliPostContentMessage( wpCliArgs );
+				if ( unsupportedPostContentMessage ) {
+					return errorResult( unsupportedPostContentMessage );
+				}
+
 				const result = await sendWpCliCommand( site.id, wpCliArgs );
 
 				let output = '';

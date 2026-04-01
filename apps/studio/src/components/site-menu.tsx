@@ -2,14 +2,14 @@ import * as Sentry from '@sentry/electron/renderer';
 import { speak } from '@wordpress/a11y';
 import { Spinner } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { XDebugIcon } from 'src/components/icons/xdebug-icon';
 import { Tooltip } from 'src/components/tooltip';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useDeleteSite } from 'src/hooks/use-delete-site';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
-import { isMac, isWindows } from 'src/lib/app-globals';
+import { isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
@@ -118,7 +118,7 @@ function ButtonToRun( site: SiteDetails ) {
 							loadingServer[ id ] &&
 								'animate-pulse border-a8c-green-20/50 bg-a8c-green-20/50 duration-100',
 							running && 'border-a8c-green-20 bg-a8c-green-20 duration-100',
-							! running && ! loadingServer[ id ] && 'border-[#ffffff19] bg-[#ffffff26]'
+							! running && ! loadingServer[ id ] && 'border-chrome-border bg-chrome-surface'
 						) }
 					>
 						&nbsp;
@@ -141,20 +141,20 @@ function ButtonToRun( site: SiteDetails ) {
 }
 function SiteItem( {
 	site,
-	index,
 	onDragStart,
 	onDragOver,
 	onDrop,
 	onDragEnd,
-	isDragOver,
+	isDragging,
+	offset,
 }: {
 	site: SiteDetails;
-	index: number;
-	onDragStart: ( e: React.DragEvent, index: number ) => void;
-	onDragOver: ( e: React.DragEvent, index: number ) => void;
-	onDrop: ( e: React.DragEvent, index: number ) => void;
+	onDragStart: ( e: React.DragEvent ) => void;
+	onDragOver: ( e: React.DragEvent ) => void;
+	onDrop: ( e: React.DragEvent ) => void;
 	onDragEnd: () => void;
-	isDragOver: boolean;
+	isDragging: boolean;
+	offset: number;
 } ) {
 	const { sites, selectedSite, setSelectedSiteId, loadingServer, isSiteDeleting } =
 		useSiteDetails();
@@ -209,21 +209,24 @@ function SiteItem( {
 	return (
 		<li
 			className={ cx(
-				'flex flex-row min-w-[168px] h-8 hover:bg-[#ffffff0C] rounded transition-all ms-1 items-center',
-				isMac() ? 'me-5' : 'me-4',
-				isSelected && 'bg-[#ffffff19] hover:bg-[#ffffff19]',
-				isDragOver && 'bg-[#ffffff26]'
+				'flex flex-row hover:bg-chrome-surface-hover rounded items-center transition-transform duration-200 ease-in-out',
+				isSelected && 'bg-chrome-surface hover:bg-chrome-surface',
+				isDragging && 'opacity-30'
 			) }
+			style={ offset ? { transform: `translateY(${ offset }px)` } : undefined }
 			onContextMenu={ handleContextMenu }
 			draggable
-			onDragStart={ ( e ) => onDragStart( e, index ) }
-			onDragOver={ ( e ) => onDragOver( e, index ) }
-			onDrop={ ( e ) => onDrop( e, index ) }
+			onDragStart={ onDragStart }
+			onDragOver={ onDragOver }
+			onDrop={ onDrop }
 			onDragEnd={ onDragEnd }
 		>
 			<button
 				type="button"
-				className="p-2 text-xs rounded-tl rounded-bl whitespace-nowrap overflow-hidden text-ellipsis w-full text-left rtl:text-right focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme"
+				className={ cx(
+					'p-2 text-xs rounded-tl rounded-bl whitespace-nowrap overflow-hidden text-ellipsis w-full text-left rtl:text-right focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme',
+					isSelected ? 'text-chrome-text' : 'text-chrome-text-secondary'
+				) }
 				onClick={ () => {
 					setSelectedSiteId( site.id );
 				} }
@@ -233,7 +236,7 @@ function SiteItem( {
 			{ showSpinner ? (
 				<Tooltip text={ tooltipText }>
 					<div className="grid place-items-center">
-						<Spinner className="!w-2.5 !h-2.5 !mt-0 !mr-2 [&>circle]:stroke-a8c-gray-70" />
+						<Spinner className="!w-2.5 !h-2.5 !mt-0 !mr-2 [&>circle]:stroke-chrome-text-secondary" />
 					</div>
 				</Tooltip>
 			) : (
@@ -257,41 +260,77 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 	const { setSelectedTab } = useContentTabs();
 	const { handleDeleteSite } = useDeleteSite();
 	const { data: editor } = useGetUserEditorQuery();
-	const [ draggedIndex, setDraggedIndex ] = useState< number | null >( null );
-	const [ dragOverIndex, setDragOverIndex ] = useState< number | null >( null );
+	const [ draggedSiteId, setDraggedSiteId ] = useState< string | null >( null );
+	const [ orderMap, setOrderMap ] = useState< Map< string, number > | null >( null );
+	const [ itemHeight, setItemHeight ] = useState( 0 );
+	const listRef = useRef< HTMLUListElement >( null );
 
-	const handleDragStart = ( e: React.DragEvent, index: number ) => {
-		setDraggedIndex( index );
+	const handleDragStart = ( e: React.DragEvent, siteId: string ) => {
+		// Measure item height at drag start (safe — this is an event handler, not render)
+		const firstItem = listRef.current?.querySelector( 'li' );
+		if ( firstItem && listRef.current ) {
+			const style = window.getComputedStyle( listRef.current );
+			const gap = parseFloat( style.gap ) || 0;
+			setItemHeight( firstItem.getBoundingClientRect().height + gap );
+		}
+		setDraggedSiteId( siteId );
+		// Initialize order map: site id → current visual position
+		const map = new Map< string, number >();
+		sites.forEach( ( site, i ) => map.set( site.id, i ) );
+		setOrderMap( map );
 		e.dataTransfer.effectAllowed = 'move';
 	};
 
-	const handleDragOver = ( e: React.DragEvent, index: number ) => {
+	const handleDragOver = ( e: React.DragEvent, siteId: string ) => {
 		e.preventDefault();
 		e.dataTransfer.dropEffect = 'move';
-		if ( draggedIndex !== null && draggedIndex !== index ) {
-			setDragOverIndex( index );
-		}
-	};
-
-	const handleDrop = ( e: React.DragEvent, targetIndex: number ) => {
-		e.preventDefault();
-		setDragOverIndex( null );
-		if ( draggedIndex === null || draggedIndex === targetIndex ) {
+		if ( draggedSiteId === null || ! orderMap ) {
 			return;
 		}
 
-		const updatedSites = [ ...sites ];
-		const [ movedSite ] = updatedSites.splice( draggedIndex, 1 );
-		updatedSites.splice( targetIndex, 0, movedSite );
+		// Work out target position from cursor vs element midpoint
+		const rect = ( e.currentTarget as HTMLElement ).getBoundingClientRect();
+		const midY = rect.top + rect.height / 2;
+		const targetPos = orderMap.get( siteId ) ?? 0;
+		const insertPos = e.clientY < midY ? targetPos : targetPos + 1;
 
-		updateSitesSortOrder( updatedSites ).catch( ( error ) => {
-			console.error( 'Failed to save site order:', error );
-		} );
+		const draggedPos = orderMap.get( draggedSiteId ) ?? 0;
+		if ( draggedPos === insertPos || draggedPos + 1 === insertPos ) {
+			return;
+		}
+
+		// Build new order: remove dragged, insert at new position
+		const ordered = [ ...orderMap.entries() ].sort( ( a, b ) => a[ 1 ] - b[ 1 ] );
+		const ids = ordered.map( ( [ id ] ) => id );
+		const fromIndex = ids.indexOf( draggedSiteId );
+		ids.splice( fromIndex, 1 );
+		const toIndex = fromIndex < insertPos ? insertPos - 1 : insertPos;
+		ids.splice( toIndex, 0, draggedSiteId );
+
+		const newMap = new Map< string, number >();
+		ids.forEach( ( id, i ) => newMap.set( id, i ) );
+		setOrderMap( newMap );
+	};
+
+	const handleDrop = ( e: React.DragEvent ) => {
+		e.preventDefault();
+		if ( orderMap ) {
+			// Convert order map back to sorted site array
+			const ordered = sites
+				.map( ( site ) => ( { site, pos: orderMap.get( site.id ) ?? 0 } ) )
+				.sort( ( a, b ) => a.pos - b.pos )
+				.map( ( { site } ) => site );
+			updateSitesSortOrder( ordered ).catch( ( error ) => {
+				console.error( 'Failed to save site order:', error );
+			} );
+		}
+		setDraggedSiteId( null );
+		setOrderMap( null );
 	};
 
 	const handleDragEnd = () => {
-		setDraggedIndex( null );
-		setDragOverIndex( null );
+		setDraggedSiteId( null );
+		setOrderMap( null );
 	};
 
 	useEffect( () => {
@@ -387,29 +426,27 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 				scrollbarGutter: 'stable',
 			} }
 			className={ cx(
-				'w-full overflow-y-auto overflow-x-hidden flex flex-col gap-0.5 pb-4',
+				'w-full overflow-y-auto overflow-x-hidden flex flex-col gap-0.5',
 				className
 			) }
 		>
-			<ul className="pt-px">
-				{ sites.map( ( site, index ) => (
-					<SiteItem
-						key={ site.id }
-						site={ site }
-						index={ index }
-						onDragStart={ handleDragStart }
-						onDragOver={ handleDragOver }
-						onDrop={ handleDrop }
-						onDragEnd={ handleDragEnd }
-						isDragOver={ dragOverIndex === index }
-					/>
-				) ) }
-				{ /* Drop zone for dragging to bottom of list */ }
-				<li
-					className="h-8"
-					onDragOver={ ( e ) => handleDragOver( e, sites.length ) }
-					onDrop={ ( e ) => handleDrop( e, sites.length ) }
-				/>
+			<ul ref={ listRef } className="flex flex-col gap-0.5">
+				{ sites.map( ( site, index ) => {
+					const visualPos = orderMap?.get( site.id ) ?? index;
+					const offset = ( visualPos - index ) * itemHeight;
+					return (
+						<SiteItem
+							key={ site.id }
+							site={ site }
+							onDragStart={ ( e ) => handleDragStart( e, site.id ) }
+							onDragOver={ ( e ) => handleDragOver( e, site.id ) }
+							onDrop={ handleDrop }
+							onDragEnd={ handleDragEnd }
+							isDragging={ site.id === draggedSiteId }
+							offset={ offset }
+						/>
+					);
+				} ) }
 			</ul>
 		</nav>
 	);

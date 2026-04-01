@@ -4,7 +4,7 @@ This branch (`new-app-interface`) is a ground-up redesign of the Studio desktop 
 
 ## Status
 
-**Proof of Concept** — The panel structure, color system, and component scaffolding are in place. Content panels are placeholders. None of the existing site management functionality is wired up yet.
+**Proof of Concept** — The panel structure, color system, and navigation sidebar are functional. The nav panel displays real site data with full site management controls. The primary panel renders the existing SiteContentTabs. The secondary panel is still a placeholder.
 
 ## Architecture
 
@@ -12,15 +12,31 @@ This branch (`new-app-interface`) is a ground-up redesign of the Studio desktop 
 
 The app is built around three resizable panels using `react-resizable-panels`:
 
-- **PanelNavigation** — Left sidebar for project/chat navigation. Transparent background (shows the chrome/window color). Collapsible via `Cmd+B`.
-- **PanelPrimary** — Main content area. White/frame background. Always visible. Shows the active view for the selected project.
+- **PanelNavigation** — Left sidebar with Tasks (placeholder) and Sites sections. Shows real site data via `SiteMenu` with drag-and-drop reordering and start/stop controls. Collapsible via `Cmd+B` or by dragging narrow.
+- **PanelPrimary** — Main content area. White/frame background. Always visible. Renders `SiteContentTabs` for the selected site.
 - **PanelSecondary** — Optional right panel for contextual content (browser preview, agent activity, etc). Collapsible via `Cmd+Shift+B`.
 
-Each panel has min/max width constraints and drag-to-resize handles between them. Collapse/expand is animated. The primary panel toolbar adapts on macOS to make room for traffic lights when the nav panel is collapsed.
+Each panel has min/max width constraints and drag-to-resize handles between them. Collapse/expand is animated. The primary panel toolbar adapts on macOS to make room for traffic lights when the nav panel is collapsed (including when collapsed via drag).
+
+**Panel persistence**: Panel sizes are saved/restored via `react-resizable-panels`' `useDefaultLayout` hook using `localStorage`. Collapsed state is tracked separately under the `panelLayout:collapsed` key so panels restore correctly on reload.
+
+### Navigation Sidebar
+
+The sidebar (`sidebar.tsx`) has two sections:
+
+- **Tasks** (top) — Placeholder section for future task/chat functionality.
+- **Sites** (bottom, pinned) — Header with site count and Start all / Stop all toggle. Renders the existing `SiteMenu` component which provides drag-and-drop reordering, context menus, start/stop controls, and spinner states for operations in progress.
+
+### Site Menu Updates
+
+The `SiteMenu` component (`site-menu.tsx`) has been updated for the new UI:
+
+- **Design tokens**: All hardcoded hex colors replaced with `chrome-*` tokens for proper light/dark mode support.
+- **Animated drag-and-drop**: Items animate into position during drag using `translateY` transitions. An `orderMap` tracks each site's visual position while a `previewSites` state shows the reordered list. No empty spacer elements needed.
 
 ### Toolbar
 
-A shared `Toolbar` component provides three slots — `start`, `middle`, `end` — where `middle` is absolutely centered regardless of the other slots' content width. Each panel has its own toolbar:
+A shared `Toolbar` component provides three slots -- `start`, `middle`, `end` -- where `middle` is absolutely centered regardless of the other slots' content width. Each panel has its own toolbar:
 
 - **Nav toolbar**: Settings button (end)
 - **Primary toolbar**: Nav toggle (start), project name (middle), secondary toggle (end)
@@ -32,29 +48,31 @@ Toolbars use `@wordpress/components` `Button` with `icon` prop and icons from `@
 
 Two token families, both defined as CSS custom properties with light/dark mode variants:
 
-**Chrome tokens** (`--color-chrome-*`) — For the window background and navigation panel. Light mode uses a warm gray; dark mode uses near-black with white text at varying opacities.
+**Chrome tokens** (`--color-chrome-*`) -- For the window background and navigation panel. Light mode uses a warm gray; dark mode uses near-black with white text at varying opacities.
 
-**Frame tokens** (`--color-frame-*`) — For content panels. These existed before and are unchanged.
+**Frame tokens** (`--color-frame-*`) -- For content panels. These existed before and are unchanged.
 
-All tokens are mapped to Tailwind classes (e.g., `bg-chrome`, `text-chrome-text-secondary`, `bg-frame`, `text-frame-text`).
+All tokens are mapped to Tailwind classes (e.g., `bg-chrome`, `text-chrome-text-secondary`, `bg-frame`, `text-frame-text`). Panel separator handles also use these tokens.
 
 ### Settings Window
 
-Settings now opens in its own `BrowserWindow` rather than an in-app overlay. The renderer routes between the main app and settings based on a `?view=settings` URL parameter. Tabs: General, Account, Colors (token reference).
+Settings opens in its own `BrowserWindow` rather than an in-app overlay. The renderer routes between the main app and settings based on a `?view=settings` URL parameter. Tabs: General, Account, Colors (token reference), WP Components, Studio Components.
+
+The **Studio Components** tab renders real Studio components (SiteMenu, Sidebar) with mock data using `MockProviders` that supply a fake `siteDetailsContext`, Redux store, and other required providers.
 
 ## Key Files
 
 ```
 apps/studio/src/
 ├── components/
-│   ├── app.tsx                      # Root — keyboard shortcuts, panel refs
+│   ├── app.tsx                      # Root -- keyboard shortcuts, panel refs
+│   ├── site-menu.tsx                # Site list with drag-and-drop (updated for tokens)
 │   └── new-ui/
-│       ├── panel-layout.tsx         # Three-panel layout with react-resizable-panels
+│       ├── panel-layout.tsx         # Three-panel layout with persistence
 │       ├── toolbar.tsx              # Start/middle/end toolbar component
-│       ├── sidebar.tsx              # Navigation panel content (placeholder)
-│       ├── site-details.tsx         # Primary panel content (placeholder)
-│       ├── browser-panel.tsx        # Secondary panel content (placeholder)
-│       ├── settings-root.tsx        # Settings window root
+│       ├── sidebar.tsx              # Navigation: Tasks + Sites sections
+│       ├── settings-root.tsx        # Settings window with 5 tabs
+│       ├── studio-component-library.tsx # Studio component demos with mock data
 │       ├── color-system-reference.tsx # Color token docs (in settings)
 │       └── dev-controller.tsx       # Dev-only platform switcher
 ├── settings-window.ts               # Electron BrowserWindow for settings
@@ -64,11 +82,11 @@ apps/studio/src/
 
 ## Dev Tools
 
-A floating dev controller (bottom-right, development builds only) lets you switch between macOS and Windows platform modes to test how the UI adapts — traffic light insets, titlebar behavior, etc.
+A floating dev controller (bottom-right, development builds only) lets you switch between macOS and Windows platform modes to test how the UI adapts -- traffic light insets, titlebar behavior, etc.
 
 ## What's Next
 
-- Wire up site data to the navigation panel
-- Build out the primary panel views (site details, chat)
+- Build out the Tasks section (chat/agent integration)
 - Connect the browser preview in the secondary panel
+- Add site creation flow to the sidebar
 - Port remaining functionality from the legacy UI

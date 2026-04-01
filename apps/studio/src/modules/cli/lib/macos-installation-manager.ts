@@ -132,10 +132,6 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 	}
 
 	async autoInstallIfNeeded(): Promise< void > {
-		if ( await this.isCliInstalled() ) {
-			return;
-		}
-
 		// Only auto-install on first launch. If the flag is already set but the CLI isn't
 		// installed, the user must have explicitly disabled it — respect their choice.
 		const userData = await loadUserData();

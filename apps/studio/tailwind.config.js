@@ -147,7 +147,16 @@ module.exports = {
 		extend: {
 			colors: {
 				...a8cToTailwindColors,
-				chrome: 'rgba(30, 30, 30, 1)',
+				// Chrome colors (window background, navigation panel)
+				chrome: 'var(--color-chrome-bg)',
+				'chrome-text': 'var(--color-chrome-text)',
+				'chrome-text-secondary': 'var(--color-chrome-text-secondary)',
+				'chrome-text-tertiary': 'var(--color-chrome-text-tertiary)',
+				'chrome-surface': 'var(--color-chrome-surface)',
+				'chrome-surface-hover': 'var(--color-chrome-surface-hover)',
+				'chrome-border': 'var(--color-chrome-border)',
+				'chrome-active': 'var(--color-chrome-active)',
+				// Legacy aliases (remove once migrated)
 				'chrome-inverted': '#fff',
 				'development-bg': 'hsl(200, 95%, 85%)',
 				'development-text': 'hsl(200, 95%, 28%)',

@@ -4,6 +4,17 @@
 @tailwind utilities;
 
 :root {
+	/* Chrome (window background, navigation panel) */
+	--color-chrome-bg: #e0e0e0;
+	--color-chrome-text: rgba(0, 0, 0, 0.8);
+	--color-chrome-text-secondary: rgba(0, 0, 0, 0.45);
+	--color-chrome-text-tertiary: rgba(0, 0, 0, 0.25);
+	--color-chrome-surface: rgba(0, 0, 0, 0.06);
+	--color-chrome-surface-hover: rgba(0, 0, 0, 0.03);
+	--color-chrome-border: rgba(0, 0, 0, 0.1);
+	--color-chrome-active: rgba(0, 0, 0, 0.1);
+
+	/* Frame (content panels) */
 	--color-frame-bg: #fff;
 	--color-frame-text: #1e1e1e;
 	--color-frame-text-secondary: #757575;
@@ -25,6 +36,15 @@
 
 @media ( prefers-color-scheme: dark ) {
 	:root {
+		--color-chrome-bg: #1a1a1a;
+		--color-chrome-text: rgba(255, 255, 255, 0.8);
+		--color-chrome-text-secondary: rgba(255, 255, 255, 0.4);
+		--color-chrome-text-tertiary: rgba(255, 255, 255, 0.2);
+		--color-chrome-surface: rgba(255, 255, 255, 0.1);
+		--color-chrome-surface-hover: rgba(255, 255, 255, 0.05);
+		--color-chrome-border: rgba(255, 255, 255, 0.08);
+		--color-chrome-active: rgba(255, 255, 255, 0.12);
+
 		--color-frame-bg: #2f2f2f;
 		--color-frame-text: #e0e0e0;
 		--color-frame-text-secondary: #949494;
@@ -41,6 +61,11 @@
 		--color-frame-error: #f87171;
 		--color-frame-tab-active: #fff;
 	}
+}
+
+/* Animate panel collapse/expand — only when class is present */
+[data-panel].panel-animating {
+	transition: flex-grow 200ms ease;
 }
 
 @layer utilities {

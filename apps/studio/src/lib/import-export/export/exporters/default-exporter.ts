@@ -216,6 +216,10 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 					continue;
 				}
 
+				if ( this.options.deployIgnore?.ignores( archivePath.replace( /\\/g, '/' ) ) ) {
+					continue;
+				}
+
 				const stat = await fs.promises.stat( fullPath );
 				if ( stat.isDirectory() ) {
 					this.archiveBuilder.directory( fullPath, archivePath, ( entry ) => {

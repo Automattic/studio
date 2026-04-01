@@ -18,6 +18,9 @@ vi.mock( 'path', () => ( {
 		join: vi.fn(),
 	},
 } ) );
+vi.mock( '@studio/common/lib/deploy-ignore', () => ( {
+	createDeployIgnoreFilter: vi.fn().mockResolvedValue( { ignores: vi.fn() } ),
+} ) );
 vi.mock( '@studio/common/lib/fs-utils', () => ( {
 	calculateDirectorySizeForArchive: vi.fn(),
 	isWordPressDirectory: vi.fn(),
@@ -43,7 +46,9 @@ describe( 'Validation Module', () => {
 				'Your site exceeds the 2 GB size limit. Please, consider removing unnecessary media files, plugins, or themes from wp-content.'
 			);
 			expect( calculateDirectorySizeForArchive ).toHaveBeenCalledWith(
-				mockSiteFolder + '/wp-content'
+				mockSiteFolder + '/wp-content',
+				expect.anything(),
+				'wp-content'
 			);
 		} );
 
@@ -52,7 +57,9 @@ describe( 'Validation Module', () => {
 
 			expect( await validateSiteSize( mockSiteFolder ) ).toBe( true );
 			expect( calculateDirectorySizeForArchive ).toHaveBeenCalledWith(
-				mockSiteFolder + '/wp-content'
+				mockSiteFolder + '/wp-content',
+				expect.anything(),
+				'wp-content'
 			);
 		} );
 	} );

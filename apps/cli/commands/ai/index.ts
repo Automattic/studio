@@ -77,7 +77,7 @@ export async function runCommand( options: {
 	let persistQueue: Promise< void > = Promise.resolve();
 
 	if ( options.noSessionPersistence ) {
-		ui.showInfo( 'Session persistence disabled (--no-session-persistence).' );
+		ui.showInfo( __( 'Session persistence disabled (--no-session-persistence).' ) );
 	}
 
 	const ensureSessionRecorder = async (): Promise< AiSessionRecorder | undefined > => {
@@ -100,7 +100,13 @@ export async function runCommand( options: {
 			}
 		} catch ( error ) {
 			didDisableSessionPersistence = true;
-			ui.showError( `Session persistence disabled: ${ getErrorMessage( error ) }` );
+			ui.showError(
+				sprintf(
+					/* translators: %s: error message */
+					__( 'Session persistence disabled: %s' ),
+					getErrorMessage( error )
+				)
+			);
 		}
 
 		return sessionRecorder;
@@ -119,7 +125,13 @@ export async function runCommand( options: {
 				sessionRecorder = undefined;
 				if ( ! didDisableSessionPersistence ) {
 					didDisableSessionPersistence = true;
-					ui.showError( `Session persistence disabled: ${ getErrorMessage( error ) }` );
+					ui.showError(
+						sprintf(
+							/* translators: %s: error message */
+							__( 'Session persistence disabled: %s' ),
+							getErrorMessage( error )
+						)
+					);
 				}
 			}
 		} );
@@ -154,12 +166,16 @@ export async function runCommand( options: {
 	};
 
 	if ( options.resumeSession ) {
-		ui.showInfo( `Resuming session ${ options.resumeSession.summary.id }` );
-		if ( ui instanceof InteractiveAdapter ) {
-			replaySessionHistory( ui.chatUI, options.resumeSession.events );
-		}
+		ui.showInfo(
+			sprintf(
+				/* translators: %s: session ID */
+				__( 'Resuming session %s' ),
+				options.resumeSession.summary.id
+			)
+		);
+		replaySessionHistory( ui, options.resumeSession.events );
 		if ( ! sessionId ) {
-			ui.showInfo( 'No linked Claude session was found. Continuing from transcript only.' );
+			ui.showInfo( __( 'No linked Claude session was found. Continuing from transcript only.' ) );
 		}
 	}
 
@@ -182,7 +198,13 @@ export async function runCommand( options: {
 		await saveSelectedAiProvider( currentProvider );
 		await persistSessionContext();
 		if ( announce ) {
-			ui.showInfo( `Switched to ${ AI_PROVIDERS[ currentProvider ] }` );
+			ui.showInfo(
+				sprintf(
+					/* translators: %s: provider name */
+					__( 'Switched to %s' ),
+					AI_PROVIDERS[ currentProvider ]
+				)
+			);
 		}
 	}
 
@@ -195,7 +217,12 @@ export async function runCommand( options: {
 		const previousProvider = currentProvider;
 		await switchProvider( fallbackProvider, false );
 		ui.showInfo(
-			`${ AI_PROVIDERS[ previousProvider ] } is no longer available. Switched to ${ AI_PROVIDERS[ currentProvider ] }.`
+			sprintf(
+				/* translators: 1: previous provider name, 2: new provider name */
+				__( '%1$s is no longer available. Switched to %2$s.' ),
+				AI_PROVIDERS[ previousProvider ],
+				AI_PROVIDERS[ currentProvider ]
+			)
 		);
 	}
 
@@ -211,22 +238,28 @@ export async function runCommand( options: {
 		}
 
 		if ( currentProvider === 'anthropic-api-key' ) {
-			ui.showInfo( 'Use /api-key to update the Anthropic API key.' );
+			ui.showInfo( __( 'Use /api-key to update the Anthropic API key.' ) );
 		}
 	}
 
 	if ( currentProvider === 'wpcom' ) {
 		const token = await readAuthToken();
 		if ( token ) {
-			ui.setStatusMessage( `Logged in as ${ token.displayName }` );
+			ui.setStatusMessage(
+				sprintf(
+					/* translators: %s: user display name */
+					__( 'Logged in as %s' ),
+					token.displayName
+				)
+			);
 		} else {
-			ui.setStatusMessage( 'Use /login to authenticate to WordPress.com' );
+			ui.setStatusMessage( __( 'Use /login to authenticate to WordPress.com' ) );
 		}
 	}
 
 	const { anthropicApiKey } = await readCliConfig();
 	if ( currentProvider === 'anthropic-api-key' && ! anthropicApiKey ) {
-		ui.showInfo( 'No Anthropic API key saved. Use /provider to enter one.' );
+		ui.showInfo( __( 'No Anthropic API key saved. Use /provider to enter one.' ) );
 	}
 
 	async function askUserAndPersistAnswers(
@@ -344,10 +377,10 @@ export async function runCommand( options: {
 			);
 			const answer = await ui.askUser( [
 				{
-					question: 'Reached the turn limit. Continue?',
+					question: __( 'Reached the turn limit. Continue?' ),
 					options: [
-						{ label: 'Yes', description: 'Resume where the agent left off' },
-						{ label: 'No', description: 'Stop here' },
+						{ label: 'Yes', description: __( 'Resume where the agent left off' ) },
+						{ label: 'No', description: __( 'Stop here' ) },
 					],
 				},
 			] );
@@ -401,7 +434,7 @@ export async function runCommand( options: {
 			if ( trimmedPrompt === AI_CHAT_BROWSER_COMMAND ) {
 				const opened = await ui.openActiveSiteInBrowser();
 				if ( ! opened ) {
-					ui.showInfo( 'No site selected. Use ↓ to select a site first.' );
+					ui.showInfo( __( 'No site selected. Use ↓ to select a site first.' ) );
 				}
 				continue;
 			}
@@ -409,10 +442,10 @@ export async function runCommand( options: {
 			if ( trimmedPrompt === AI_CHAT_API_KEY_COMMAND ) {
 				try {
 					await prepareProviderSelection( 'anthropic-api-key', { force: true } );
-					ui.showInfo( 'Anthropic API key updated.' );
+					ui.showInfo( __( 'Anthropic API key updated.' ) );
 				} catch ( error ) {
 					if ( isPromptAbortError( error ) ) {
-						ui.showInfo( 'API key update canceled.' );
+						ui.showInfo( __( 'API key update canceled.' ) );
 						continue;
 					}
 					if ( error instanceof LoggerError ) {
@@ -431,11 +464,24 @@ export async function runCommand( options: {
 				if ( await isAiProviderReady( 'wpcom' ) ) {
 					const token = await readAuthToken();
 					if ( token ) {
-						ui.showInfo( `Logged in as ${ token.displayName } (${ token.email })` );
-						ui.setStatusMessage( `Logged in as ${ token.displayName }` );
+						ui.showInfo(
+							sprintf(
+								/* translators: 1: display name, 2: email */
+								__( 'Logged in as %1$s (%2$s)' ),
+								token.displayName,
+								token.email
+							)
+						);
+						ui.setStatusMessage(
+							sprintf(
+								/* translators: %s: display name */
+								__( 'Logged in as %s' ),
+								token.displayName
+							)
+						);
 					}
 				} else {
-					ui.setStatusMessage( 'Login failed or canceled' );
+					ui.setStatusMessage( __( 'Login failed or canceled' ) );
 				}
 				continue;
 			}
@@ -444,7 +490,7 @@ export async function runCommand( options: {
 				ui.stop();
 				await runLogoutCommand();
 				ui.start();
-				ui.setStatusMessage( 'Logged out of WordPress.com' );
+				ui.setStatusMessage( __( 'Logged out of WordPress.com' ) );
 				await maybeAutoSwitchProvider();
 				continue;
 			}
@@ -452,12 +498,19 @@ export async function runCommand( options: {
 			if ( trimmedPrompt === AI_CHAT_MODEL_COMMAND ) {
 				const modelOptions = ( Object.entries( AI_MODELS ) as [ AiModelId, string ][] ).map(
 					( [ id, label ] ) => ( {
-						label: id === currentModel ? `${ label } (current)` : label,
+						label:
+							id === currentModel
+								? sprintf(
+										/* translators: %s: model name */
+										__( '%s (current)' ),
+										label
+								  )
+								: label,
 						description: id,
 					} )
 				);
 				const answer = await ui.askUser( [
-					{ question: 'Select a model', options: modelOptions },
+					{ question: __( 'Select a model' ), options: modelOptions },
 				] );
 				const selectedId = Object.values( answer )[ 0 ] as string;
 				const newModel = ( Object.entries( AI_MODELS ) as [ AiModelId, string ][] ).find(
@@ -466,7 +519,13 @@ export async function runCommand( options: {
 				if ( newModel && newModel[ 0 ] !== currentModel ) {
 					currentModel = newModel[ 0 ];
 					ui.currentModel = currentModel;
-					ui.showInfo( `Switched to ${ AI_MODELS[ currentModel ] }` );
+					ui.showInfo(
+						sprintf(
+							/* translators: %s: model name */
+							__( 'Switched to %s' ),
+							AI_MODELS[ currentModel ]
+						)
+					);
 					await persistSessionContext();
 				}
 				continue;
@@ -475,11 +534,18 @@ export async function runCommand( options: {
 			if ( trimmedPrompt === AI_CHAT_PROVIDER_COMMAND ) {
 				const availableProviders = await getAvailableAiProviders();
 				const providerOptions = availableProviders.map( ( id ) => ( {
-					label: id === currentProvider ? `${ AI_PROVIDERS[ id ] } (current)` : AI_PROVIDERS[ id ],
+					label:
+						id === currentProvider
+							? sprintf(
+									/* translators: %s: provider name */
+									__( '%s (current)' ),
+									AI_PROVIDERS[ id ]
+							  )
+							: AI_PROVIDERS[ id ],
 					description: id,
 				} ) );
 				const answer = await ui.askUser( [
-					{ question: 'Select an AI provider', options: providerOptions },
+					{ question: __( 'Select an AI provider' ), options: providerOptions },
 				] );
 				const selectedLabel = Object.values( answer )[ 0 ] as string;
 				const newProvider = availableProviders.find( ( id ) =>
@@ -491,7 +557,13 @@ export async function runCommand( options: {
 						await switchProvider( newProvider );
 					} catch ( error ) {
 						if ( isPromptAbortError( error ) ) {
-							ui.showInfo( `Provider setup canceled. Kept ${ AI_PROVIDERS[ currentProvider ] }.` );
+							ui.showInfo(
+								sprintf(
+									/* translators: %s: provider name */
+									__( 'Provider setup canceled. Kept %s.' ),
+									AI_PROVIDERS[ currentProvider ]
+								)
+							);
 							continue;
 						}
 						if ( error instanceof LoggerError ) {

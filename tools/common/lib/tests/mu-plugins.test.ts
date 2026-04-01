@@ -1,8 +1,22 @@
-import { existsSync, mkdirSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { mkdtemp, readdir } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { cleanupLegacyMuPlugins } from '@studio/common/lib/mu-plugins';
+import { cleanupLegacyMuPlugins, getMuPlugins } from '@studio/common/lib/mu-plugins';
+
+describe( 'getMuPlugins', () => {
+	it( 'should include the tunnel URL rewrite mu-plugin', async () => {
+		const [ muPluginsDir ] = await getMuPlugins( {} );
+		const files = await readdir( muPluginsDir );
+		expect( files ).toContain( '0-tunnel-url-rewrite.php' );
+
+		const content = readFileSync( join( muPluginsDir, '0-tunnel-url-rewrite.php' ), 'utf-8' );
+		expect( content ).toContain( 'HTTP_X_FORWARDED_HOST' );
+		expect( content ).toContain( 'option_siteurl' );
+		expect( content ).toContain( 'option_home' );
+		expect( content ).toContain( 'redirect_canonical' );
+	} );
+} );
 
 describe( 'cleanupLegacyMuPlugins', () => {
 	let sitePath: string;

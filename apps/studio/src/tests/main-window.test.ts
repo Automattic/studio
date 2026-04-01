@@ -2,9 +2,8 @@
  * @vitest-environment node
  */
 import { BrowserWindow } from 'electron';
-import fs from 'fs';
-import { normalize } from 'path';
 import { readFile } from 'atomically';
+import { vol } from 'memfs';
 import { vi } from 'vitest';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { createMainWindow, getMainWindow, __resetMainWindow } from 'src/main-window';
@@ -85,20 +84,13 @@ vi.mock( 'electron', () => {
 const mockUserData = {
 	sites: [],
 };
-if ( '__setFileContents' in fs ) {
-	(
-		fs as typeof fs & { __setFileContents: ( path: string, contents: string | string[] ) => void }
-	 ).__setFileContents(
-		normalize( '/path/to/app/appData/App Name/appdata-v1.json' ),
-		JSON.stringify( mockUserData )
-	);
-}
 vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( mockUserData ) ) );
 
 describe( 'getMainWindow', () => {
 	let createdWindow: BrowserWindow;
 
 	beforeEach( async () => {
+		vol.reset();
 		createdWindow = await createMainWindow();
 	} );
 

@@ -3,6 +3,7 @@
  */
 import fs from 'fs';
 import { normalize } from 'path';
+import { vol } from 'memfs';
 import { vi, beforeAll, afterAll } from 'vitest';
 import { createMainWindow, getMainWindow } from 'src/main-window';
 
@@ -65,12 +66,7 @@ vi.mock( 'electron-devtools-installer', () => ( {
 	REDUX_DEVTOOLS: { id: 'lmhkpmbekcpmknklioeibfkpmmfibljd' },
 } ) );
 
-// Setup fs mock file contents
-if ( '__setFileContents' in fs ) {
-	(
-		fs as typeof fs & { __setFileContents: ( path: string, contents: string | string[] ) => void }
-	 ).__setFileContents( normalize( '/path/to/app/temp/com.wordpress.studio/' ), '' );
-}
+vol.mkdirSync( normalize( '/path/to/app/temp/com.wordpress.studio' ), { recursive: true } );
 
 const mockWatcher = {
 	close: vi.fn(),

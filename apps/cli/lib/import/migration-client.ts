@@ -30,7 +30,30 @@ export interface RunImporterOptions {
 	progressLabel?: string;
 }
 
-function getDirectoryStats( dir: string ): { files: number; bytes: number } {
+interface ImporterStatus {
+	command?: string | null;
+	phase?: string | null;
+	status?: string | null;
+}
+
+interface DirectoryStats {
+	files: number;
+	bytes: number;
+}
+
+interface ImporterProgressSnapshot {
+	downloaded: DirectoryStats;
+	elapsedSeconds: number;
+	importerStatus: ImporterStatus | null;
+	isFilesSync: boolean;
+	isFilteredFilesSync: boolean;
+	progressLabel: string;
+	remoteIndex: DirectoryStats | null;
+	stallTicks: number;
+	totalBytes: number;
+}
+
+function getDirectoryStats( dir: string ): DirectoryStats {
 	let files = 0;
 	let bytes = 0;
 
@@ -57,7 +80,7 @@ function getDirectoryStats( dir: string ): { files: number; bytes: number } {
 	return { files, bytes };
 }
 
-function readRemoteIndex( stateDir: string ): { files: number; bytes: number } | null {
+function readRemoteIndex( stateDir: string ): DirectoryStats | null {
 	const indexPath = path.join( stateDir, '.import-remote-index.jsonl' );
 	let content: string;
 
@@ -88,6 +111,16 @@ function readRemoteIndex( stateDir: string ): { files: number; bytes: number } |
 	return files > 0 ? { files, bytes } : null;
 }
 
+function readImporterStatus( stateDir: string ): ImporterStatus | null {
+	const statusPath = path.join( stateDir, '.import-status.json' );
+
+	try {
+		return JSON.parse( fs.readFileSync( statusPath, 'utf-8' ) ) as ImporterStatus;
+	} catch {
+		return null;
+	}
+}
+
 function formatBytes( bytes: number ): string {
 	if ( bytes < 1024 ) {
 		return `${ bytes } B`;
@@ -98,6 +131,34 @@ function formatBytes( bytes: number ): string {
 	}
 
 	return `${ ( bytes / ( 1024 * 1024 ) ).toFixed( 1 ) } MB`;
+}
+
+function hasFilterArg( args: string[] ): boolean {
+	return args.some( ( arg ) => arg.startsWith( '--filter=' ) );
+}
+
+export function formatImporterProgress( snapshot: ImporterProgressSnapshot ): string {
+	const mins = Math.floor( snapshot.elapsedSeconds / 60 );
+	const secs = snapshot.elapsedSeconds % 60;
+	const timeStr = mins > 0 ? `${ mins }m ${ secs }s` : `${ secs }s`;
+	const stallHint = snapshot.stallTicks >= 3 ? ' · processing' : '';
+
+	if ( snapshot.isFilteredFilesSync && snapshot.importerStatus?.phase === 'index' ) {
+		return `${ snapshot.progressLabel } · indexing remote files${ stallHint } · ${ timeStr }`;
+	}
+
+	if ( snapshot.remoteIndex ) {
+		return `${ snapshot.progressLabel } · ${ snapshot.downloaded.files }/${
+			snapshot.remoteIndex.files
+		} files · ${ formatBytes( snapshot.downloaded.bytes ) }/${ formatBytes(
+			snapshot.remoteIndex.bytes
+		) }${ stallHint } · ${ timeStr }`;
+	}
+
+	const progressBytes = snapshot.isFilesSync ? snapshot.downloaded.bytes : snapshot.totalBytes;
+	return `${ snapshot.progressLabel } · ${ formatBytes(
+		progressBytes
+	) } downloaded${ stallHint } · ${ timeStr }`;
 }
 
 export async function downloadLatestImporterPhar(): Promise< string > {
@@ -145,6 +206,7 @@ export async function runImporterCommandUntilComplete(
 
 	const childPath = getImporterChildPath();
 	const isFilesSync = args[ 0 ] === 'files-sync';
+	const isFilteredFilesSync = isFilesSync && hasFilterArg( args );
 	const progressRoot = options.progressRoot ?? docroot;
 	const progressLabel = options.progressLabel ?? args[ 0 ] ?? 'Importing';
 
@@ -156,38 +218,37 @@ export async function runImporterCommandUntilComplete(
 	const progressTimer = onProgress
 		? setInterval( () => {
 				const downloaded = getDirectoryStats( progressRoot );
-				const stateStats = getDirectoryStats( stateDir );
+				const stateStats = isFilesSync ? { files: 0, bytes: 0 } : getDirectoryStats( stateDir );
 				const totalBytes = downloaded.bytes + stateStats.bytes;
+				const progressBytes = isFilesSync ? downloaded.bytes : totalBytes;
 				const elapsed = Math.round( ( Date.now() - startTime ) / 1000 );
-				const mins = Math.floor( elapsed / 60 );
-				const secs = elapsed % 60;
-				const timeStr = mins > 0 ? `${ mins }m ${ secs }s` : `${ secs }s`;
 
-				if ( totalBytes === lastBytes ) {
+				if ( progressBytes === lastBytes ) {
 					stallTicks++;
 				} else {
 					stallTicks = 0;
-					lastBytes = totalBytes;
+					lastBytes = progressBytes;
 				}
 
-				const stallHint = stallTicks >= 3 ? ' · processing' : '';
-				const remoteIndex = isFilesSync ? readRemoteIndex( stateDir ) : null;
-
-				if ( remoteIndex ) {
-					onProgress(
-						`${ progressLabel } · ${ downloaded.files }/${
-							remoteIndex.files
-						} files · ${ formatBytes( downloaded.bytes ) }/${ formatBytes(
-							remoteIndex.bytes
-						) }${ stallHint } · ${ timeStr }`
-					);
-				} else {
-					onProgress(
-						`${ progressLabel } · ${ formatBytes(
-							totalBytes
-						) } downloaded${ stallHint } · ${ timeStr }`
-					);
-				}
+				const remoteIndex = isFilteredFilesSync
+					? null
+					: isFilesSync
+					? readRemoteIndex( stateDir )
+					: null;
+				const importerStatus = isFilesSync ? readImporterStatus( stateDir ) : null;
+				onProgress(
+					formatImporterProgress( {
+						downloaded,
+						elapsedSeconds: elapsed,
+						importerStatus,
+						isFilesSync,
+						isFilteredFilesSync,
+						progressLabel,
+						remoteIndex,
+						stallTicks,
+						totalBytes,
+					} )
+				);
 		  }, 1000 )
 		: undefined;
 

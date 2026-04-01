@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { formatImporterJsonlProgress } from './migration-client';
+import {
+	formatImporterJsonlProgress,
+	formatImporterProgressSnapshot,
+	updateImporterProgressSnapshot,
+} from './migration-client';
 
 describe( 'formatImporterJsonlProgress', () => {
 	it( 'shows streamed debug messages from the importer', () => {
@@ -14,7 +18,7 @@ describe( 'formatImporterJsonlProgress', () => {
 
 	it( 'shows indexing text when the importer reports the index phase', () => {
 		expect( formatImporterJsonlProgress( { phase: 'index' }, 'Essential files', 7 ) ).toBe(
-			'Essential files · indexing remote files · 7s'
+			'Essential files · indexing files · 7s'
 		);
 	} );
 
@@ -43,6 +47,38 @@ describe( 'formatImporterJsonlProgress', () => {
 				9
 			)
 		).toBe( 'Essential files · Downloading file batches · 9s' );
+	} );
+
+	it( 'formats heartbeat and progress-check records as byte/rate progress', () => {
+		const heartbeatSnapshot = updateImporterProgressSnapshot( {
+			heartbeat: true,
+			bytes_received: 1024 * 1024 * 6,
+		} );
+		expect( formatImporterProgressSnapshot( heartbeatSnapshot!, 'Essential files', 4 ) ).toBe(
+			'Essential files · 6.0 MB received · 4s'
+		);
+
+		const progressSnapshot = updateImporterProgressSnapshot(
+			{
+				progress_check: true,
+				bytes_received: 1024 * 1024 * 8,
+				rate_bps: 1024 * 512,
+			},
+			heartbeatSnapshot!
+		);
+		expect( formatImporterProgressSnapshot( progressSnapshot!, 'Essential files', 5 ) ).toBe(
+			'Essential files · 8.0 MB received · 512 KB/s · 5s'
+		);
+	} );
+
+	it( 'prefers phase text over a generic starting status', () => {
+		const snapshot = updateImporterProgressSnapshot( {
+			status: 'starting',
+			phase: 'fetch',
+		} );
+		expect( formatImporterProgressSnapshot( snapshot!, 'Essential files', 4 ) ).toBe(
+			'Essential files · downloading files · 4s'
+		);
 	} );
 
 	it( 'ignores the final response envelope records', () => {

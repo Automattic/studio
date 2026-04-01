@@ -1,3 +1,6 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import {
 	findMatchingWpComSite,
 	formatWpComSitesList,
@@ -6,6 +9,7 @@ import {
 	inferSiteNameFromUrl,
 	normalizeImportUrl,
 	parseImporterJson,
+	shouldRestartFilesSyncIndex,
 } from '../import';
 
 describe( 'CLI: studio site import helpers', () => {
@@ -91,5 +95,41 @@ describe( 'CLI: studio site import helpers', () => {
 				1
 			)
 		).toContain( '--list-wpcom-sites' );
+	} );
+
+	it( 'restarts files-sync indexing only when the saved state has no resumable cursor', () => {
+		const stateDirectory = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-import-state-' ) );
+
+		try {
+			fs.writeFileSync(
+				path.join( stateDirectory, '.import-state.json' ),
+				JSON.stringify( {
+					command: 'files-sync',
+					status: 'in_progress',
+					stage: 'index',
+					cursor: null,
+				} )
+			);
+			fs.writeFileSync(
+				path.join( stateDirectory, '.import-remote-index.jsonl' ),
+				'{"type":"file"}\n'
+			);
+
+			expect( shouldRestartFilesSyncIndex( stateDirectory ) ).toBe( true );
+
+			fs.writeFileSync(
+				path.join( stateDirectory, '.import-state.json' ),
+				JSON.stringify( {
+					command: 'files-sync',
+					status: 'in_progress',
+					stage: 'index',
+					cursor: { path: 'saved' },
+				} )
+			);
+
+			expect( shouldRestartFilesSyncIndex( stateDirectory ) ).toBe( false );
+		} finally {
+			fs.rmSync( stateDirectory, { recursive: true, force: true } );
+		}
 	} );
 } );

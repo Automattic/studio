@@ -88,6 +88,13 @@ interface ImportMetadata {
 	tablePrefix?: string;
 }
 
+interface ImporterStateSnapshot {
+	command?: string | null;
+	status?: string | null;
+	cursor?: unknown;
+	stage?: string | null;
+}
+
 interface ResolveImportMetadataResult {
 	created: boolean;
 	metadata: ImportMetadata;
@@ -278,6 +285,14 @@ function getMetadataPath( technicalSiteDirectory: string ): string {
 	return path.join( technicalSiteDirectory, 'import.json' );
 }
 
+function getImporterStatePath( stateDirectory: string ): string {
+	return path.join( stateDirectory, '.import-state.json' );
+}
+
+function getRemoteIndexPath( stateDirectory: string ): string {
+	return path.join( stateDirectory, '.import-remote-index.jsonl' );
+}
+
 function saveImportMetadata( metadata: ImportMetadata ): void {
 	fs.mkdirSync( metadata.technicalSiteDirectory, { recursive: true } );
 	const metadataPath = getMetadataPath( metadata.technicalSiteDirectory );
@@ -296,6 +311,34 @@ function readImportMetadata( metadataPath: string ): ImportMetadata | null {
 	} catch {
 		return null;
 	}
+}
+
+function readImporterState( stateDirectory: string ): ImporterStateSnapshot | null {
+	try {
+		return JSON.parse(
+			fs.readFileSync( getImporterStatePath( stateDirectory ), 'utf-8' )
+		) as ImporterStateSnapshot;
+	} catch {
+		return null;
+	}
+}
+
+export function shouldRestartFilesSyncIndex( stateDirectory: string ): boolean {
+	const state = readImporterState( stateDirectory );
+	if ( ! state ) {
+		return false;
+	}
+
+	if ( state.command !== 'files-sync' || state.status === 'complete' ) {
+		return false;
+	}
+
+	if ( state.stage !== 'index' || state.cursor !== null ) {
+		return false;
+	}
+
+	const remoteIndexPath = getRemoteIndexPath( stateDirectory );
+	return fs.existsSync( remoteIndexPath ) && fs.statSync( remoteIndexPath ).size > 0;
 }
 
 export function normalizeImportUrl( url: string ): string {
@@ -826,6 +869,40 @@ async function abortImport(
 	logger.reportSuccess( __( 'Import aborted and local files removed' ) );
 }
 
+async function restartUnresumableFilesSync(
+	metadata: ImportMetadata,
+	apiUrl: string,
+	secret: string,
+	verbose = false
+): Promise< void > {
+	if ( ! shouldRestartFilesSyncIndex( metadata.stateDirectory ) ) {
+		return;
+	}
+
+	logger.reportWarning(
+		__(
+			'Restarting remote file indexing before resume because the previous run did not save a resumable cursor.'
+		)
+	);
+	await runImporterCommandUntilComplete(
+		metadata.stateDirectory,
+		metadata.rawDirectory,
+		[
+			'files-sync',
+			apiUrl,
+			`--secret=${ secret }`,
+			'--abort',
+			'--state-dir=/state',
+			'--fs-root=/docroot',
+		],
+		undefined,
+		{
+			verboseCommands: verbose,
+		}
+	);
+	logger.reportSuccess( __( 'Interrupted file indexing state cleared' ) );
+}
+
 async function registerSite(
 	metadata: ImportMetadata
 ): Promise< { created: boolean; site: SiteData } > {
@@ -939,6 +1016,7 @@ export async function runCommand(
 		saveImportMetadata( metadata );
 
 		if ( ! hasReachedStage( metadata, 'essential-files-complete' ) ) {
+			await restartUnresumableFilesSync( metadata, apiUrl, secret, verbose );
 			logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Downloading essential files…' ) );
 			await runImporterCommandUntilComplete(
 				metadata.stateDirectory,
@@ -949,6 +1027,7 @@ export async function runCommand(
 					`--secret=${ secret }`,
 					'--filter=essential-files',
 					'--no-adaptive',
+					'--on-fs-root-nonempty=preserve-local',
 					'--state-dir=/state',
 					'--fs-root=/docroot',
 				],
@@ -1126,6 +1205,7 @@ export async function runCommand(
 						`--secret=${ secret }`,
 						'--filter=skipped-earlier',
 						'--no-adaptive',
+						'--on-fs-root-nonempty=preserve-local',
 						'--state-dir=/state',
 						'--fs-root=/docroot',
 					],

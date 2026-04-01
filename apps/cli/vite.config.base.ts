@@ -76,7 +76,7 @@ export const baseConfig = defineConfig( {
 		mainFields: [ 'main' ],
 	},
 	define: {
-		__ENABLE_STUDIO_AI__: true,
+		__ENABLE_STUDIO_AI__: false,
 		__STUDIO_CLI_VERSION__: JSON.stringify( packageJson.version ),
 	},
 } );

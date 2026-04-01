@@ -12,8 +12,8 @@ describe( 'getMuPlugins', () => {
 
 		const content = readFileSync( join( muPluginsDir, '0-tunnel-url-rewrite.php' ), 'utf-8' );
 		expect( content ).toContain( 'HTTP_X_FORWARDED_HOST' );
-		expect( content ).toContain( 'option_siteurl' );
-		expect( content ).toContain( 'option_home' );
+		expect( content ).toContain( "'home_url'" );
+		expect( content ).toContain( "'site_url'" );
 		expect( content ).toContain( 'redirect_canonical' );
 	} );
 } );

@@ -131,11 +131,11 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 			$tunnel_origin .= ':' . $tunnel_port;
 		}
 
-		// Rewrite siteurl and home options dynamically (no DB changes)
-		foreach ( array( 'option_siteurl', 'option_home' ) as $filter ) {
-			add_filter( $filter, function() use ( $tunnel_url ) {
-				return $tunnel_url;
-			}, 1 );
+		// Rewrite site_url() and home_url() output (works even when WP_SITEURL/WP_HOME constants are defined)
+		foreach ( array( 'home_url', 'site_url' ) as $filter ) {
+			add_filter( $filter, function( $url ) use ( $tunnel_scheme, $tunnel_host, $tunnel_port ) {
+				return studio_tunnel_replace_host( $url, $tunnel_scheme, $tunnel_host, $tunnel_port );
+			}, 1, 1 );
 		}
 
 		// Rewrite asset URLs

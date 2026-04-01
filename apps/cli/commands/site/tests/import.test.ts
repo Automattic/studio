@@ -11,6 +11,7 @@ import {
 	migrateLegacyImporterLayout,
 	normalizeImportUrl,
 	parseImporterJson,
+	prepareSkippedEarlierState,
 	shouldRestartFilesSyncIndex,
 } from '../import';
 
@@ -199,6 +200,42 @@ describe( 'CLI: studio site import helpers', () => {
 			expect( fs.existsSync( legacyStateDirectory ) ).toBe( false );
 		} finally {
 			fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
+		}
+	} );
+
+	it( 'restores files-sync completion state before downloading skipped files', () => {
+		const stateDirectory = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-import-state-' ) );
+
+		try {
+			fs.writeFileSync(
+				path.join( stateDirectory, '.import-state.json' ),
+				JSON.stringify( {
+					command: 'db-apply',
+					status: 'complete',
+					stage: 'sql',
+					filter: 'skipped-earlier',
+					preflight: { data: { ok: true } },
+				} )
+			);
+			fs.writeFileSync(
+				path.join( stateDirectory, '.import-download-list-skipped.jsonl' ),
+				'{"path":"foo"}\n'
+			);
+
+			prepareSkippedEarlierState( {
+				stateDirectory,
+			} as never );
+
+			const nextState = JSON.parse(
+				fs.readFileSync( path.join( stateDirectory, '.import-state.json' ), 'utf-8' )
+			);
+			expect( nextState.command ).toBe( 'files-sync' );
+			expect( nextState.status ).toBe( 'complete' );
+			expect( nextState.stage ).toBeNull();
+			expect( nextState.filter ).toBe( 'essential-files' );
+			expect( nextState.preflight ).toEqual( { data: { ok: true } } );
+		} finally {
+			fs.rmSync( stateDirectory, { recursive: true, force: true } );
 		}
 	} );
 } );

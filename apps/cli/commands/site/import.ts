@@ -385,6 +385,27 @@ function readImporterState( stateDirectory: string ): ImporterStateSnapshot | nu
 	}
 }
 
+function updateImporterState(
+	stateDirectory: string,
+	update: ( state: Record< string, unknown > ) => Record< string, unknown >
+): void {
+	const statePath = getImporterStatePath( stateDirectory );
+	if ( ! fs.existsSync( statePath ) ) {
+		return;
+	}
+
+	try {
+		const currentState = JSON.parse( fs.readFileSync( statePath, 'utf-8' ) ) as Record<
+			string,
+			unknown
+		>;
+		const nextState = update( currentState );
+		fs.writeFileSync( statePath, JSON.stringify( nextState, null, 2 ) + '\n' );
+	} catch {
+		// Leave importer state untouched if it cannot be parsed.
+	}
+}
+
 function decodeImporterStatePath( value: string | null | undefined ): string | null {
 	if ( ! value ) {
 		return null;
@@ -800,6 +821,20 @@ async function ensurePort( metadata: ImportMetadata ): Promise< void > {
 function hasSkippedFiles( metadata: ImportMetadata ): boolean {
 	const skippedListPath = path.join( metadata.stateDirectory, SKIPPED_DOWNLOAD_LIST );
 	return fs.existsSync( skippedListPath ) && fs.statSync( skippedListPath ).size > 0;
+}
+
+export function prepareSkippedEarlierState( metadata: ImportMetadata ): void {
+	if ( ! hasSkippedFiles( metadata ) ) {
+		return;
+	}
+
+	updateImporterState( metadata.stateDirectory, ( state ) => ( {
+		...state,
+		command: 'files-sync',
+		status: 'complete',
+		stage: null,
+		filter: 'essential-files',
+	} ) );
 }
 
 async function findExistingSite( metadata: ImportMetadata ): Promise< SiteData | undefined > {
@@ -1308,6 +1343,7 @@ export async function runCommand(
 
 		if ( ! hasReachedStage( metadata, 'completed' ) ) {
 			if ( hasSkippedFiles( metadata ) ) {
+				prepareSkippedEarlierState( metadata );
 				logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Downloading remaining files…' ) );
 				await runImporterCommandUntilComplete(
 					metadata.stateDirectory,

@@ -4,7 +4,7 @@ This branch (`new-app-interface`) is a ground-up redesign of the Studio desktop 
 
 ## Status
 
-**Proof of Concept** — The panel structure, color system, and navigation sidebar are functional. The nav panel displays real site data with full site management controls. The primary panel renders the existing SiteContentTabs. The secondary panel is still a placeholder.
+**Proof of Concept** — The panel structure, color system, navigation sidebar, and settings window are functional. The nav panel displays real site data with full site management controls. The primary panel renders the existing SiteContentTabs. The settings window contains all app settings (migrated from the old modal). The secondary panel is still a placeholder.
 
 ## Architecture
 
@@ -56,7 +56,23 @@ All tokens are mapped to Tailwind classes (e.g., `bg-chrome`, `text-chrome-text-
 
 ### Settings Window
 
-Settings opens in its own `BrowserWindow` rather than an in-app overlay. The renderer routes between the main app and settings based on a `?view=settings` URL parameter. Tabs: General, Account, Colors (token reference), WP Components, Studio Components.
+Settings opens in its own `BrowserWindow` rather than an in-app overlay. The renderer routes between the main app and settings based on a `?view=settings` URL parameter. The old modal-based settings UI has been fully removed — all settings now live in this window.
+
+**Tabs (user-facing):**
+- **General** — Appearance (color scheme), language, code editor, terminal, Studio CLI toggle. All settings save instantly on change (no Save/Cancel buttons).
+- **Account** — User info with Gravatar, logout, preview site quota/management, AI assistant prompt usage. Shows login prompt when not authenticated.
+- **Skills** — Global WordPress skills management (install/remove across all sites).
+- **MCP** — MCP server configuration JSON with copy button.
+
+**Tabs (dev-only, development builds):**
+- **Automattician** — Platform override for UI testing (replaces the old floating DevController).
+- **Colors** — Color token reference documentation.
+- **WP Components** — WordPress component library showcase.
+- **Studio Components** — Studio component demos with mock data.
+
+**Tab deep-linking:** `openSettingsWindow('skills')` opens the window directly to a specific tab via URL parameter (`?view=settings&tab=skills`). If the window is already open, it reloads to the requested tab and focuses.
+
+**Providers:** The settings window wraps with Redux, I18n, and Auth providers (minimal subset of the main app's provider stack — no site/theme/onboarding providers needed).
 
 The **Studio Components** tab renders real Studio components (SiteMenu, Sidebar) with mock data using `MockProviders` that supply a fake `siteDetailsContext`, Redux store, and other required providers.
 
@@ -71,10 +87,9 @@ apps/studio/src/
 │       ├── panel-layout.tsx         # Three-panel layout with persistence
 │       ├── toolbar.tsx              # Start/middle/end toolbar component
 │       ├── sidebar.tsx              # Navigation: Tasks + Sites sections
-│       ├── settings-root.tsx        # Settings window with 5 tabs
+│       ├── settings-root.tsx        # Settings window with all app settings
 │       ├── studio-component-library.tsx # Studio component demos with mock data
-│       ├── color-system-reference.tsx # Color token docs (in settings)
-│       └── dev-controller.tsx       # Dev-only platform switcher
+│       └── color-system-reference.tsx # Color token docs (in settings)
 ├── settings-window.ts               # Electron BrowserWindow for settings
 ├── index.css                        # Color token definitions
 └── renderer.ts                      # Entry point with view routing
@@ -82,7 +97,7 @@ apps/studio/src/
 
 ## Dev Tools
 
-A floating dev controller (bottom-right, development builds only) lets you switch between macOS and Windows platform modes to test how the UI adapts -- traffic light insets, titlebar behavior, etc.
+Platform switching for UI testing lives in the settings window's **Automattician** tab (dev builds only). Changes propagate to the main window via `localStorage` cross-window events.
 
 ## What's Next
 

@@ -26,6 +26,13 @@ import {
 } from 'src/storage/user-data';
 import type { WindowBounds } from 'src/storage/storage-types';
 
+const CHROME_BG_LIGHT = '#e0e0e0';
+const CHROME_BG_DARK = '#1a1a1a';
+
+function getChromeBg() {
+	return nativeTheme.shouldUseDarkColors ? CHROME_BG_DARK : CHROME_BG_LIGHT;
+}
+
 let mainWindow: BrowserWindow | null;
 
 function setupDevTools( mainWindow: BrowserWindow | null, devToolsOpen?: boolean ) {
@@ -71,7 +78,7 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 	let windowOptions: BrowserWindowConstructorOptions = {
 		height: MAIN_MIN_HEIGHT,
 		width: DEFAULT_WIDTH,
-		backgroundColor: 'rgba(30, 30, 30, 1)',
+		backgroundColor: getChromeBg(),
 		minHeight: MAIN_MIN_HEIGHT,
 		minWidth: MAIN_MIN_WIDTH,
 		webPreferences: {
@@ -178,8 +185,8 @@ function getOSWindowOptions(): Partial< BrowserWindowConstructorOptions > {
 			return {
 				titleBarStyle: 'hidden',
 				titleBarOverlay: {
-					color: 'rgba(30, 30, 30, 1)',
-					symbolColor: 'white',
+					color: getChromeBg(),
+					symbolColor: nativeTheme.shouldUseDarkColors ? 'white' : 'black',
 					height: WINDOWS_TITLEBAR_HEIGHT,
 				},
 				minHeight: MAIN_MIN_HEIGHT + WINDOWS_TITLEBAR_HEIGHT,

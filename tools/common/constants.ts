@@ -34,3 +34,19 @@ export const MINIMUM_WORDPRESS_VERSION = '6.2.1' as const; // https://wordpress.
 export const DEFAULT_WORDPRESS_VERSION = 'latest' as const;
 export const DEFAULT_PHP_VERSION: typeof RecommendedPHPVersion = RecommendedPHPVersion;
 export const SQLITE_FILENAME = 'sqlite-database-integration' as const;
+
+// Import file constants
+export const ACCEPTED_IMPORT_FILE_TYPES = [ '.zip', '.gz', '.gzip', '.tar', '.tar.gz', '.wpress' ];
+
+// Archiver options
+export const ARCHIVER_OPTIONS = {
+	zip: {
+		zlib: { level: 9 },
+		followSymlinks: true,
+	},
+	tar: {
+		gzip: true,
+		gzipOptions: { level: 9 },
+		followSymlinks: true,
+	},
+};

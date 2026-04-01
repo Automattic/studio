@@ -255,10 +255,10 @@ describe( 'CLI: studio site set', () => {
 			const mockResponse: Partial< StreamedPHPResponse > = {
 				exitCode: Promise.resolve( 0 ),
 			};
-			vi.mocked( runWpCliCommand ).mockResolvedValue( [
-				mockResponse as StreamedPHPResponse,
-				vi.fn().mockResolvedValue( undefined ),
-			] );
+			vi.mocked( runWpCliCommand ).mockResolvedValue( {
+				response: mockResponse as StreamedPHPResponse,
+				[ Symbol.asyncDispose ]: vi.fn().mockResolvedValue( undefined ),
+			} );
 		} );
 
 		it( 'should run WP-CLI to update WordPress version', async () => {
@@ -285,10 +285,10 @@ describe( 'CLI: studio site set', () => {
 			const mockResponse: Partial< StreamedPHPResponse > = {
 				exitCode: Promise.resolve( 1 ),
 			};
-			vi.mocked( runWpCliCommand ).mockResolvedValue( [
-				mockResponse as StreamedPHPResponse,
-				vi.fn().mockResolvedValue( undefined ),
-			] );
+			vi.mocked( runWpCliCommand ).mockResolvedValue( {
+				response: mockResponse as StreamedPHPResponse,
+				[ Symbol.asyncDispose ]: vi.fn().mockResolvedValue( undefined ),
+			} );
 
 			await expect( runCommand( testSitePath, { wp: '6.7' } ) ).rejects.toThrow(
 				'Failed to update WordPress version to 6.7'

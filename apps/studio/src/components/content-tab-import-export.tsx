@@ -1,3 +1,4 @@
+import { ACCEPTED_IMPORT_FILE_TYPES } from '@studio/common/constants';
 import { speak } from '@wordpress/a11y';
 import { Notice } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
@@ -11,7 +12,6 @@ import { ErrorIcon } from 'src/components/error-icon';
 import { LearnMoreLink } from 'src/components/learn-more';
 import ProgressBar from 'src/components/progress-bar';
 import { Tooltip } from 'src/components/tooltip';
-import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
 import { useAuth } from 'src/hooks/use-auth';
 import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
 import { useDragAndDropFile } from 'src/hooks/use-drag-and-drop-file';

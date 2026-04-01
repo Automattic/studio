@@ -181,6 +181,9 @@ async function main() {
 		.demandCommand( 1, __( 'You must provide a valid command' ) )
 		.strict();
 
+	const { registerCommand: registerImportCommand } = await import( 'cli/commands/import' );
+	registerImportCommand( studioArgv );
+
 	if ( __ENABLE_STUDIO_AI__ ) {
 		studioArgv.command( 'ai', __( 'AI-powered WordPress assistant' ), async ( aiYargs ) => {
 			const { registerCommand: registerAiCommand } = await import( 'cli/commands/ai' );

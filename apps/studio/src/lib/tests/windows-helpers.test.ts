@@ -9,13 +9,12 @@ import { promptWindowsSpeedUpSites } from '../windows-helpers';
 
 vi.mock( 'src/main-window' );
 vi.mock( 'src/storage/user-data' );
-vi.mock( 'electron', async () => {
-	const actual = await vi.importActual< typeof import('electron') >( 'electron' );
-	// Mock BrowserWindow class
+vi.mock( import( 'electron' ), async ( importActual ) => {
+	const actual = await importActual();
 	class MockBrowserWindow {}
 	return {
 		...actual,
-		BrowserWindow: MockBrowserWindow,
+		BrowserWindow: MockBrowserWindow as typeof actual.BrowserWindow,
 		app: {
 			...actual.app,
 			getVersion: vi.fn(),

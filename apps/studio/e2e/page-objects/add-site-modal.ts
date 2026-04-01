@@ -1,5 +1,5 @@
 import { type Page } from '@playwright/test';
-import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
+import { ACCEPTED_IMPORT_FILE_TYPES } from '@studio/common/constants';
 import SiteForm from './site-form';
 
 export default class AddSiteModal {

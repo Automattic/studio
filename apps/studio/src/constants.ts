@@ -31,23 +31,6 @@ export const LOCAL_STORAGE_CHAT_MESSAGES_KEY = 'ai_chat_messages';
 export const LOCAL_STORAGE_CHAT_API_IDS_KEY = 'ai_chat_ids';
 export const DEFAULT_TERMINAL = 'terminal';
 
-//Import file constants
-
-export const ACCEPTED_IMPORT_FILE_TYPES = [ '.zip', '.gz', '.gzip', '.tar', '.tar.gz', '.wpress' ];
-
-// Archiver options
-export const ARCHIVER_OPTIONS = {
-	zip: {
-		zlib: { level: 9 },
-		followSymlinks: true,
-	},
-	tar: {
-		gzip: true,
-		gzipOptions: { level: 9 },
-		followSymlinks: true,
-	},
-};
-
 export const SYNC_OPTIONS = {
 	// Options sent for pull and push
 	all: 'all',

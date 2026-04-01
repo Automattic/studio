@@ -1,30 +1,28 @@
 import { EventEmitter } from 'events';
 import fs from 'fs';
+import fsPromises from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { ARCHIVER_OPTIONS } from '@studio/common/constants';
+import { ARCHIVER_OPTIONS, DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
 import {
 	hasDefaultDbBlock,
 	removeDbConstants,
 } from '@studio/common/lib/remove-default-db-constants';
 import archiver from 'archiver';
-import { getSiteUrl } from 'src/lib/get-site-url';
-import { ExportEvents } from 'src/lib/import-export/export/events';
-import {
-	exportDatabaseToFile,
-	exportDatabaseToMultipleFiles,
-} from 'src/lib/import-export/export/export-database';
-import { generateBackupFilename } from 'src/lib/import-export/export/generate-backup-filename';
+import { getSiteUrl } from 'cli/lib/cli-config/sites';
+import { getWordPressVersionFromInstallation } from 'cli/lib/dependency-management/wordpress';
+import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
+import { ExportEvents } from '../events';
+import { exportDatabaseToFile, exportDatabaseToMultipleFiles } from '../export-database';
+import { generateBackupFilename } from '../generate-backup-filename';
 import {
 	ExportOptions,
 	BackupContents,
 	Exporter,
 	BackupCreateProgressEventData,
 	StudioJson,
-} from 'src/lib/import-export/export/types';
-import { getWordPressVersionFromInstallation } from 'src/lib/wp-versions';
-import { SiteServer } from 'src/site-server';
+} from '../types';
 
 export class DefaultExporter extends EventEmitter implements Exporter {
 	private archiveBuilder!: archiver.Archiver;
@@ -104,7 +102,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 
 		try {
 			for ( const requiredPath of requiredPaths ) {
-				const stats = await fs.promises.stat(
+				const stats = await fsPromises.stat(
 					path.join( this.options.site.path, requiredPath.path )
 				);
 				if ( requiredPath.isDir && ! stats.isDirectory() ) {
@@ -216,7 +214,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 					continue;
 				}
 
-				const stat = await fs.promises.stat( fullPath );
+				const stat = await fsPromises.stat( fullPath );
 				if ( stat.isDirectory() ) {
 					this.archiveBuilder.directory( fullPath, archivePath, ( entry ) => {
 						const entryPathRelativeToArchiveRoot = path.join( archivePath, entry.name );
@@ -250,10 +248,10 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		}
 
 		this.emit( ExportEvents.DATABASE_EXPORT_START );
-		const tmpFolder = await fs.promises.mkdtemp( path.join( os.tmpdir(), 'studio_export' ) );
+		const tmpFolder = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio_export' ) );
 
 		if ( this.options.splitDatabaseDumpByTable ) {
-			const sqlFiles = await exportDatabaseToMultipleFiles( this.options.site, tmpFolder );
+			const sqlFiles = await exportDatabaseToMultipleFiles( this.options.site.path, tmpFolder );
 			sqlFiles.forEach( ( file ) =>
 				this.archiveBuilder.file( file, { name: `sql/${ path.basename( file ) }` } )
 			);
@@ -261,7 +259,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		} else {
 			const fileName = `${ generateBackupFilename( 'db-export' ) }.sql`;
 			const sqlDumpPath = path.join( tmpFolder, fileName );
-			await exportDatabaseToFile( this.options.site, sqlDumpPath );
+			await exportDatabaseToFile( this.options.site.path, sqlDumpPath );
 			this.archiveBuilder.file( sqlDumpPath, { name: `sql/${ fileName }` } );
 			this.backup.sqlFiles.push( sqlDumpPath );
 		}
@@ -271,7 +269,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 
 	private async cleanupTempFiles(): Promise< void > {
 		for ( const sqlFile of this.backup.sqlFiles ) {
-			await fs.promises
+			await fsPromises
 				.unlink( sqlFile )
 				.catch( ( err ) => console.error( `Failed to delete temporary file ${ sqlFile }:`, err ) );
 		}
@@ -288,77 +286,80 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		};
 
 		const [ plugins, themes ] = await Promise.all( [
-			this.getSitePlugins( this.options.site.id ),
-			this.getSiteThemes( this.options.site.id ),
+			this.getSitePlugins( this.options.site.path ),
+			this.getSiteThemes( this.options.site.path ),
 		] );
 
 		studioJson.plugins = plugins;
 		studioJson.themes = themes;
 
-		const tempDir = await fs.promises.mkdtemp( path.join( os.tmpdir(), 'studio-export-' ) );
+		const tempDir = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio-export-' ) );
 		const studioJsonPath = path.join( tempDir, 'meta.json' );
-		await fs.promises.writeFile( studioJsonPath, JSON.stringify( studioJson, null, 2 ) );
+		await fsPromises.writeFile( studioJsonPath, JSON.stringify( studioJson, null, 2 ) );
 		return studioJsonPath;
 	}
 
-	private async getSitePlugins( site_id: string ) {
-		const server = SiteServer.get( site_id );
+	private async getSitePlugins( siteFolder: string ) {
+		await using command = await runWpCliCommand( siteFolder, DEFAULT_PHP_VERSION, [
+			'plugin',
+			'list',
+			'--status=active,inactive',
+			'--fields=name,status,version',
+			'--format=json',
+			'--skip-plugins',
+			'--skip-themes',
+		] );
 
-		if ( ! server ) {
-			return [];
+		const exitCode = await command.response.exitCode;
+		if ( exitCode !== 0 ) {
+			throw new Error( `Failed to get site plugins` );
 		}
 
-		const { stderr, stdout } = await server.executeWpCliCommand(
-			'plugin list --status=active,inactive --fields=name,status,version --format=json',
-			{
-				skipPluginsAndThemes: true,
-			}
-		);
+		const stdout = await command.response.stdoutText;
+		const stderr = await command.response.stderrText;
 
-		// Try to parse stdout first. WordPress may produce warnings on stderr (e.g., when offline
-		// and can't check for updates) while still returning valid JSON data on stdout.
 		try {
 			return parseJsonFromPhpOutput( stdout );
 		} catch ( error ) {
 			if ( stderr ) {
 				console.error( `Could not get information about plugins: ${ stderr }` );
-				throw new Error(
-					'Could not get information about installed plugins to create meta.json file.'
-				);
+			} else {
+				console.error( `Could not parse plugins list. The WP CLI output: ${ stdout }` );
 			}
-			console.error( `Could not parse plugins list. The WP CLI output: ${ stdout }` );
+
 			throw new Error(
 				'Could not parse information about installed plugins to create meta.json file.'
 			);
 		}
 	}
 
-	private async getSiteThemes( site_id: string ) {
-		const server = SiteServer.get( site_id );
+	private async getSiteThemes( siteFolder: string ) {
+		await using command = await runWpCliCommand( siteFolder, DEFAULT_PHP_VERSION, [
+			'theme',
+			'list',
+			'--fields=name,status,version',
+			'--format=json',
+			'--skip-plugins',
+			'--skip-themes',
+		] );
 
-		if ( ! server ) {
-			return [];
+		const exitCode = await command.response.exitCode;
+		if ( exitCode !== 0 ) {
+			throw new Error( `Failed to get site plugins` );
 		}
 
-		const { stderr, stdout } = await server.executeWpCliCommand(
-			'theme list --fields=name,status,version --format=json',
-			{
-				skipPluginsAndThemes: true,
-			}
-		);
+		const stdout = await command.response.stdoutText;
+		const stderr = await command.response.stderrText;
 
-		// Try to parse stdout first. WordPress may produce warnings on stderr (e.g., when offline
-		// and can't check for updates) while still returning valid JSON data on stdout.
 		try {
 			return parseJsonFromPhpOutput( stdout );
 		} catch ( error ) {
 			if ( stderr ) {
 				console.error( `Could not get information about themes: ${ stderr }` );
-				throw new Error(
-					'Could not get information about installed themes to create meta.json file.'
-				);
+			} else {
+				console.error( `Could not parse themes list. The WP CLI output: ${ stdout }` );
 			}
-			console.error( `Could not parse themes list. The WP CLI output: ${ stdout }` );
+
 			throw new Error(
 				'Could not parse information about installed themes to create meta.json file.'
 			);

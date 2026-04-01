@@ -1,14 +1,5 @@
 import { dialog } from 'electron';
-import {
-	access,
-	mkdir,
-	readFile,
-	readlink,
-	symlink,
-	unlink,
-	lstat,
-	writeFile,
-} from 'node:fs/promises';
+import { mkdir, readFile, readlink, symlink, unlink, lstat, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import * as Sentry from '@sentry/electron/main';
@@ -25,7 +16,12 @@ const binPath = path.join( getResourcesPath(), 'bin' );
 const cliPackagedPath = path.join( binPath, 'studio-cli.sh' );
 
 const PATH_EXPORT_LINE = 'export PATH="$HOME/.local/bin:$PATH"';
-const SHELL_PROFILE_FILES = [ '.zshrc', '.zprofile', '.bash_profile', '.bashrc' ];
+
+const SHELL_PROFILE_MAP: Record< string, string > = {
+	'/bin/zsh': '.zshrc',
+	'/bin/bash': '.bash_profile',
+};
+const DEFAULT_PROFILE = '.zshrc';
 
 const ERROR_FILE_ALREADY_EXISTS = 'Studio CLI symlink path already occupied by non-symlink';
 
@@ -218,24 +214,9 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 		}
 
 		const homeDir = os.homedir();
-		let profilePath: string | null = null;
-
-		// Find the first existing shell profile file.
-		for ( const file of SHELL_PROFILE_FILES ) {
-			const filePath = path.join( homeDir, file );
-			try {
-				await access( filePath );
-				profilePath = filePath;
-				break;
-			} catch {
-				// File doesn't exist, try the next one.
-			}
-		}
-
-		// Default to ~/.zshrc if no profile file exists (zsh is the default macOS shell).
-		if ( ! profilePath ) {
-			profilePath = path.join( homeDir, '.zshrc' );
-		}
+		const shell = process.env.SHELL ?? '';
+		const profileFile = SHELL_PROFILE_MAP[ shell ] ?? DEFAULT_PROFILE;
+		const profilePath = path.join( homeDir, profileFile );
 
 		// Check if the export line is already present to avoid duplicates.
 		let existingContent = '';

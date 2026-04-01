@@ -8,7 +8,6 @@ import {
 } from 'src/modules/cli/lib/macos-installation-manager';
 
 const {
-	mockAccess,
 	mockLstat,
 	mockMkdir,
 	mockReadFile,
@@ -24,7 +23,6 @@ const {
 	mockLoadUserData,
 	mockUpdateAppdata,
 } = vi.hoisted( () => ( {
-	mockAccess: vi.fn(),
 	mockLstat: vi.fn(),
 	mockMkdir: vi.fn(),
 	mockReadFile: vi.fn(),
@@ -42,7 +40,6 @@ const {
 } ) );
 
 vi.mock( 'node:fs/promises', () => ( {
-	access: mockAccess,
 	lstat: mockLstat,
 	mkdir: mockMkdir,
 	readFile: mockReadFile,
@@ -120,6 +117,7 @@ describe.skipIf( isWindows )( 'MacOSCliInstallationManager', () => {
 		Object.defineProperty( process, 'platform', { value: 'darwin' } );
 		process.env.PATH = '/Users/testuser/.local/bin:/usr/bin:/bin:/usr/sbin:/sbin';
 		process.env.NODE_ENV = 'production';
+		process.env.SHELL = '/bin/zsh';
 		mockLoadUserData.mockResolvedValue( { version: 1, siteMetadata: {} } );
 		mockUpdateAppdata.mockResolvedValue( undefined );
 		manager = new MacOSCliInstallationManager();
@@ -177,7 +175,6 @@ describe.skipIf( isWindows )( 'MacOSCliInstallationManager', () => {
 			mockUnlink.mockRejectedValue( enoentError() );
 			mockMkdir.mockResolvedValue( undefined );
 			mockSymlink.mockResolvedValue( undefined );
-			mockAccess.mockRejectedValue( enoentError() );
 			mockReadFile.mockRejectedValue( enoentError() );
 			mockWriteFile.mockResolvedValue( undefined );
 
@@ -228,7 +225,6 @@ describe.skipIf( isWindows )( 'MacOSCliInstallationManager', () => {
 			mockMkdir.mockResolvedValue( undefined );
 			mockSymlink.mockResolvedValue( undefined );
 			// ensurePathInProfile
-			mockAccess.mockRejectedValue( enoentError() );
 			mockReadFile.mockRejectedValue( enoentError() );
 			mockWriteFile.mockResolvedValue( undefined );
 
@@ -288,7 +284,6 @@ describe.skipIf( isWindows )( 'MacOSCliInstallationManager', () => {
 		} );
 
 		it( 'appends export to existing .zshrc', async () => {
-			mockAccess.mockResolvedValueOnce( undefined ); // .zshrc exists
 			mockReadFile.mockResolvedValueOnce( '# My zshrc\n' );
 
 			await manager.autoInstallIfNeeded();
@@ -300,9 +295,8 @@ describe.skipIf( isWindows )( 'MacOSCliInstallationManager', () => {
 			);
 		} );
 
-		it( 'creates .zshrc with export when no profile exists', async () => {
-			mockAccess.mockRejectedValue( enoentError() ); // No profile files exist
-			mockReadFile.mockRejectedValueOnce( enoentError() ); // .zshrc doesn't exist yet
+		it( 'creates .zshrc with export when profile does not exist', async () => {
+			mockReadFile.mockRejectedValueOnce( enoentError() );
 
 			await manager.autoInstallIfNeeded();
 
@@ -314,7 +308,6 @@ describe.skipIf( isWindows )( 'MacOSCliInstallationManager', () => {
 		} );
 
 		it( 'does not duplicate export if already present in profile', async () => {
-			mockAccess.mockResolvedValueOnce( undefined );
 			mockReadFile.mockResolvedValueOnce( '# My zshrc\nexport PATH="$HOME/.local/bin:$PATH"\n' );
 
 			await manager.autoInstallIfNeeded();
@@ -322,11 +315,8 @@ describe.skipIf( isWindows )( 'MacOSCliInstallationManager', () => {
 			expect( mockWriteFile ).not.toHaveBeenCalled();
 		} );
 
-		it( 'uses .bash_profile if .zshrc and .zprofile do not exist', async () => {
-			mockAccess
-				.mockRejectedValueOnce( enoentError() ) // .zshrc
-				.mockRejectedValueOnce( enoentError() ) // .zprofile
-				.mockResolvedValueOnce( undefined ); // .bash_profile exists
+		it( 'uses .bash_profile when SHELL is /bin/bash', async () => {
+			process.env.SHELL = '/bin/bash';
 			mockReadFile.mockResolvedValueOnce( '# Bash profile\n' );
 
 			await manager.autoInstallIfNeeded();
@@ -338,8 +328,20 @@ describe.skipIf( isWindows )( 'MacOSCliInstallationManager', () => {
 			);
 		} );
 
+		it( 'defaults to .zshrc when SHELL is not recognized', async () => {
+			process.env.SHELL = '/bin/fish';
+			mockReadFile.mockRejectedValueOnce( enoentError() );
+
+			await manager.autoInstallIfNeeded();
+
+			expect( mockWriteFile ).toHaveBeenCalledWith(
+				'/Users/testuser/.zshrc',
+				'export PATH="$HOME/.local/bin:$PATH"\n',
+				'utf-8'
+			);
+		} );
+
 		it( 'adds newline before export if file does not end with newline', async () => {
-			mockAccess.mockResolvedValueOnce( undefined );
 			mockReadFile.mockResolvedValueOnce( '# My zshrc' ); // No trailing newline
 
 			await manager.autoInstallIfNeeded();

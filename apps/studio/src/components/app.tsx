@@ -57,6 +57,7 @@ export default function App() {
 				navPanelRef={ navPanelRef }
 				secondaryPanelRef={ secondaryPanelRef }
 				navCollapsed={ navCollapsed }
+				setNavCollapsed={ setNavCollapsed }
 				onToggleNav={ toggleNav }
 			/>
 			<DevController />

@@ -8,9 +8,19 @@ import {
 	moreHorizontal,
 	reset,
 } from '@wordpress/icons';
-import { type RefObject } from 'react';
-import { Group, Panel, type PanelImperativeHandle, Separator } from 'react-resizable-panels';
+import { type RefObject, useEffect, useMemo, useRef } from 'react';
+import {
+	Group,
+	Panel,
+	type PanelImperativeHandle,
+	Separator,
+	useDefaultLayout,
+} from 'react-resizable-panels';
+import { useSiteDetails } from 'src/hooks/use-site-details';
 import { isMac } from 'src/lib/app-globals';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+import { Sidebar } from './sidebar';
+import { SiteContent } from './site-details';
 import { Toolbar } from './toolbar';
 
 export function togglePanel(
@@ -43,21 +53,89 @@ interface PanelLayoutProps {
 	navPanelRef: RefObject< PanelImperativeHandle | null >;
 	secondaryPanelRef: RefObject< PanelImperativeHandle | null >;
 	navCollapsed: boolean;
+	setNavCollapsed: ( collapsed: boolean ) => void;
 	onToggleNav: () => void;
 }
 
 const MAC_TRAFFIC_LIGHT_INSET = 80;
 
+const PANEL_IDS = [ 'nav', 'primary', 'secondary' ] as const;
+const COLLAPSED_KEY = 'panelLayout:collapsed';
+
+function loadCollapsedState(): { nav: boolean; secondary: boolean } {
+	try {
+		const stored = localStorage.getItem( COLLAPSED_KEY );
+		if ( stored ) {
+			return JSON.parse( stored );
+		}
+	} catch {
+		// ignore
+	}
+	return { nav: false, secondary: false };
+}
+
+function saveCollapsedState( nav: boolean, secondary: boolean ) {
+	localStorage.setItem( COLLAPSED_KEY, JSON.stringify( { nav, secondary } ) );
+}
+
 export function PanelLayout( {
 	navPanelRef,
 	secondaryPanelRef,
 	navCollapsed,
+	setNavCollapsed,
 	onToggleNav,
 }: PanelLayoutProps ) {
+	const { selectedSite } = useSiteDetails();
 	const primaryStartInset = isMac() && navCollapsed ? MAC_TRAFFIC_LIGHT_INSET : undefined;
 
+	const initialCollapsed = useRef( loadCollapsedState() );
+
+	const { defaultLayout: savedLayout, onLayoutChanged: saveLayout } = useDefaultLayout( {
+		id: 'studio-panels',
+		panelIds: [ ...PANEL_IDS ],
+	} );
+
+	// Apply collapsed state to the default layout so panels start collapsed
+	const defaultLayout = useMemo( () => {
+		if ( ! savedLayout ) {
+			return undefined;
+		}
+		const layout = { ...savedLayout };
+		if ( initialCollapsed.current.nav ) {
+			layout.nav = 0;
+		}
+		if ( initialCollapsed.current.secondary ) {
+			layout.secondary = 0;
+		}
+		return layout;
+	}, [ savedLayout ] );
+
+	const handleLayoutChanged = ( layout: Record< string, number > ) => {
+		saveLayout( layout );
+		const isNavCollapsed = layout.nav === 0;
+		saveCollapsedState( isNavCollapsed, layout.secondary === 0 );
+		// Sync navCollapsed state when panels collapse/expand via drag
+		if ( isNavCollapsed !== navCollapsed ) {
+			setNavCollapsed( isNavCollapsed );
+		}
+	};
+
+	// Sync navCollapsed state on mount if nav starts collapsed
+	useEffect( () => {
+		if ( initialCollapsed.current.nav ) {
+			setNavCollapsed( true );
+		}
+		// Only run on mount
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [] );
+
 	return (
-		<Group orientation="horizontal" className="flex-1">
+		<Group
+			orientation="horizontal"
+			className="flex-1"
+			defaultLayout={ defaultLayout }
+			onLayoutChanged={ handleLayoutChanged }
+		>
 			{ /* PanelNavigation */ }
 			<Panel
 				id="nav"
@@ -72,17 +150,22 @@ export function PanelLayout( {
 				<div className="h-full flex flex-col overflow-hidden">
 					<Toolbar
 						className="app-drag-region"
-						end={ <Button icon={ cog } label="Settings" className={ ICON_CHROME } /> }
+						end={
+							<Button
+								icon={ cog }
+								label="Settings"
+								className={ ICON_CHROME }
+								onClick={ () => getIpcApi().openSettingsWindow() }
+							/>
+						}
 					/>
-					<div className="flex-1 flex items-end p-4">
-						<span className="text-xs text-chrome-text-tertiary">PanelNavigation</span>
-					</div>
+					<Sidebar className="flex-1" />
 				</div>
 			</Panel>
 
 			<Separator className="w-0 relative z-10 app-no-drag-region">
 				<div className="absolute inset-y-0 -left-[4px] w-[9px] flex items-center justify-center cursor-col-resize group">
-					<div className="w-px h-full bg-gray-200 group-hover:bg-gray-400 transition-colors" />
+					<div className="w-px h-full bg-chrome-border group-hover:bg-chrome-text-tertiary transition-colors" />
 				</div>
 			</Separator>
 
@@ -100,7 +183,11 @@ export function PanelLayout( {
 								className={ ICON_FRAME }
 							/>
 						}
-						middle={ <span className="text-xs text-frame-text-secondary">Project Name</span> }
+						middle={
+							selectedSite ? (
+								<span className="text-xs text-frame-text">{ selectedSite.name }</span>
+							) : undefined
+						}
 						end={
 							<Button
 								icon={ drawerRight }
@@ -110,15 +197,21 @@ export function PanelLayout( {
 							/>
 						}
 					/>
-					<div className="flex-1 flex items-center justify-center">
-						<span className="text-xs text-frame-text-secondary">PanelPrimary</span>
-					</div>
+					{ selectedSite ? (
+						<SiteContent key={ selectedSite.id } site={ selectedSite } />
+					) : (
+						<div className="flex-1 flex items-center justify-center">
+							<span className="text-xs text-frame-text-secondary">
+								Select a project to view details
+							</span>
+						</div>
+					) }
 				</div>
 			</Panel>
 
 			<Separator className="w-0 relative z-10 app-no-drag-region">
 				<div className="absolute inset-y-0 -left-[4px] w-[9px] flex items-center justify-center cursor-col-resize group">
-					<div className="w-px h-full bg-gray-200 group-hover:bg-gray-400 transition-colors" />
+					<div className="w-px h-full bg-chrome-border group-hover:bg-chrome-text-tertiary transition-colors" />
 				</div>
 			</Separator>
 
@@ -143,7 +236,9 @@ export function PanelLayout( {
 							</div>
 						}
 						middle={
-							<span className="text-xs text-frame-text-secondary">http://localhost:8881</span>
+							<span className="text-xs text-frame-text-secondary">
+								{ selectedSite?.running ? selectedSite.url : '' }
+							</span>
 						}
 						end={ <Button icon={ moreHorizontal } label="More options" className={ ICON_FRAME } /> }
 					/>

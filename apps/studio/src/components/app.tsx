@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import { usePanelRef } from 'react-resizable-panels';
-import { DevController } from 'src/components/new-ui/dev-controller';
 import { PanelLayout, togglePanel } from 'src/components/new-ui/panel-layout';
 import WindowsTitlebar from 'src/components/windows-titlebar';
 import { isWindows } from 'src/lib/app-globals';
@@ -12,12 +11,20 @@ export default function App() {
 	const secondaryPanelRef = usePanelRef();
 	const [ navCollapsed, setNavCollapsed ] = useState( false );
 
-	// Re-render when dev controller changes platform
+	// Re-render when dev platform changes via settings window (localStorage cross-window event)
 	const [ , forceRender ] = useState( 0 );
 	useEffect( () => {
-		const handler = () => forceRender( ( n ) => n + 1 );
-		window.addEventListener( 'dev-platform-change', handler );
-		return () => window.removeEventListener( 'dev-platform-change', handler );
+		const handler = ( e: StorageEvent ) => {
+			if ( e.key === 'devPlatform' && e.newValue ) {
+				window.appGlobals = {
+					...window.appGlobals,
+					platform: e.newValue as NodeJS.Platform,
+				};
+				forceRender( ( n ) => n + 1 );
+			}
+		};
+		window.addEventListener( 'storage', handler );
+		return () => window.removeEventListener( 'storage', handler );
 	}, [] );
 
 	useEffect( () => {
@@ -60,7 +67,6 @@ export default function App() {
 				setNavCollapsed={ setNavCollapsed }
 				onToggleNav={ toggleNav }
 			/>
-			<DevController />
 		</div>
 	);
 }

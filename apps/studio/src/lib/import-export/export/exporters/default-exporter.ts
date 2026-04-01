@@ -226,14 +226,20 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 						);
 						if (
 							this.isExactPathExcluded( entryPathRelativeToArchiveRoot ) ||
-							this.isPathExcludedByPattern( fullEntryPathOnDisk )
+							this.isPathExcludedByPattern( fullEntryPathOnDisk ) ||
+							this.options.deployIgnore?.ignores(
+								entryPathRelativeToArchiveRoot.replace( /\\/g, '/' )
+							)
 						) {
 							return false;
 						}
 						return entry;
 					} );
 				} else {
-					if ( this.isExactPathExcluded( archivePath ) ) {
+					if (
+						this.isExactPathExcluded( archivePath ) ||
+						this.options.deployIgnore?.ignores( archivePath.replace( /\\/g, '/' ) )
+					) {
 						continue;
 					}
 					this.archiveBuilder.file( fullPath, { name: archivePath } );

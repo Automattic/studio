@@ -3,6 +3,7 @@ import fs from 'fs';
 import fsPromises from 'fs/promises';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
+import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
@@ -20,6 +21,7 @@ import { exportBackup } from 'src/lib/import-export/export/export-manager';
 import { ExportOptions } from 'src/lib/import-export/export/types';
 import { getAuthenticationToken } from 'src/lib/oauth';
 import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
+import { SYNC_ADDITIONAL_DEFAULTS } from 'src/modules/sync/constants';
 import { SyncSite } from 'src/modules/sync/types';
 import { SiteServer } from 'src/site-server';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
@@ -163,6 +165,11 @@ export async function exportSiteForPush(
 
 		await keepSqliteIntegrationUpdated( site.details.path );
 
+		const deployIgnore = await createDeployIgnoreFilter(
+			site.details.path,
+			SYNC_ADDITIONAL_DEFAULTS
+		);
+
 		const shouldIncludeSyncOption = (
 			optionsToSync: SyncOption[] | undefined,
 			option: SyncOption
@@ -186,6 +193,7 @@ export async function exportSiteForPush(
 			phpVersion: site.details.phpVersion,
 			splitDatabaseDumpByTable: true,
 			specificSelectionPaths: configuration?.specificSelectionPaths,
+			deployIgnore,
 		};
 
 		const onEvent = () => {};

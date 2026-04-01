@@ -16,9 +16,16 @@ const DEPLOY_IGNORE_FILENAME = '.deployignore';
  * and any patterns from a .deployignore file at the given root.
  *
  * @param rootPath - The site root directory to look for .deployignore in
+ * @param additionalDefaults - Extra patterns to include as built-in defaults
  */
-export async function createDeployIgnoreFilter( rootPath: string ): Promise< Ignore > {
+export async function createDeployIgnoreFilter(
+	rootPath: string,
+	additionalDefaults?: string[]
+): Promise< Ignore > {
 	const ig = ignore().add( DEPLOY_IGNORE_DEFAULTS );
+	if ( additionalDefaults ) {
+		ig.add( additionalDefaults );
+	}
 
 	const deployIgnorePath = path.join( rootPath, DEPLOY_IGNORE_FILENAME );
 	try {

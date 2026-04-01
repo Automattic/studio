@@ -22,6 +22,7 @@ import {
 	Exporter,
 	BackupCreateProgressEventData,
 	StudioJson,
+	StudioJsonPluginOrTheme,
 } from 'src/lib/import-export/export/types';
 import { getWordPressVersionFromInstallation } from 'src/lib/wp-versions';
 import { SiteServer } from 'src/site-server';
@@ -302,8 +303,18 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			this.getSiteThemes( this.options.site.id ),
 		] );
 
-		studioJson.plugins = plugins;
-		studioJson.themes = themes;
+		studioJson.plugins = this.options.deployIgnore
+			? plugins.filter(
+					( p: StudioJsonPluginOrTheme ) =>
+						! this.options.deployIgnore!.ignores( `wp-content/plugins/${ p.name }` )
+			  )
+			: plugins;
+		studioJson.themes = this.options.deployIgnore
+			? themes.filter(
+					( t: StudioJsonPluginOrTheme ) =>
+						! this.options.deployIgnore!.ignores( `wp-content/themes/${ t.name }` )
+			  )
+			: themes;
 
 		const tempDir = await fs.promises.mkdtemp( path.join( os.tmpdir(), 'studio-export-' ) );
 		const studioJsonPath = path.join( tempDir, 'meta.json' );

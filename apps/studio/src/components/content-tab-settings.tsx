@@ -236,7 +236,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 				<h3 className="text-frame-text text-sm font-semibold mb-2">{ __( 'AI Skills' ) }</h3>
 				<p className="text-sm text-frame-text-secondary mb-3 max-w-96">
 					{ __( "Your task agents make use of skills you've installed in" ) }{ ' ' }
-					<Button variant="link" onClick={ () => getIpcApi().showUserSettings( 'skills' ) }>
+					<Button variant="link" onClick={ () => getIpcApi().openSettingsWindow( 'skills' ) }>
 						{ __( 'Studio Settings' ) }
 					</Button>
 					{ '. ' }

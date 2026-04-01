@@ -76,7 +76,7 @@ function Authentication() {
 	if ( isAuthenticated ) {
 		return (
 			<Button
-				onClick={ () => getIpcApi().showUserSettings( 'account' ) }
+				onClick={ () => getIpcApi().openSettingsWindow( 'account' ) }
 				aria-label={ __( 'Open account settings' ) }
 				variant="icon"
 				className="text-white hover:!text-white !px-1 py-1 !h-6 gap-2"
@@ -111,7 +111,7 @@ function SettingsButton() {
 	const { __ } = useI18n();
 	return (
 		<Button
-			onClick={ () => getIpcApi().showUserSettings( 'general' ) }
+			onClick={ () => getIpcApi().openSettingsWindow( 'general' ) }
 			aria-label={ __( 'Open settings' ) }
 			variant="icon"
 			data-testid="settings-button"

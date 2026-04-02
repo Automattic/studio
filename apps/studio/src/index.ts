@@ -40,7 +40,7 @@ import { startUserDataWatcher, stopUserDataWatcher } from 'src/lib/user-data-wat
 import { setupLogging } from 'src/logging';
 import { createMainWindow, getMainWindow } from 'src/main-window';
 import { migrations } from 'src/migrations';
-import { BrowserInspector } from 'src/modules/ai/lib/browser-inspector';
+import { cleanupAllAgents } from 'src/modules/ai/lib/agent-manager';
 import {
 	startCliEventsSubscriber,
 	stopCliEventsSubscriber,
@@ -479,7 +479,7 @@ async function appBoot() {
 		globalShortcut.unregisterAll();
 		stopUserDataWatcher();
 		stopCliEventsSubscriber();
-		BrowserInspector.getInstance().destroyAll();
+		cleanupAllAgents();
 
 		if ( shouldStopSitesOnQuit ) {
 			event.preventDefault();

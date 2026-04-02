@@ -1,112 +1,57 @@
-import crypto from 'crypto';
-import os from 'os';
-import path from 'path';
-import { query, type Query, type PermissionResult } from '@anthropic-ai/claude-agent-sdk';
-import { buildSystemPrompt as buildCliSystemPrompt } from '@studio/common/ai/system-prompt';
+import { app } from 'electron';
+import { fork, type ChildProcess } from 'node:child_process';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { SiteServer } from 'src/site-server';
+import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 import { serializeSDKMessage } from './message-serializer';
-import { resolveAgentEnv } from './provider-resolver';
-import { createDesktopStudioTools } from './tools';
-
-const DEFAULT_MODEL = 'claude-sonnet-4-6';
-const MAX_TURNS = 50;
-
-// Resolve the path to the SDK's bundled cli.js.
-// After Vite bundles the main process, relative paths inside the SDK break,
-// so we need to point it to the real location in node_modules.
-function resolveClaudeCodeExecutable(): string {
-	// require.resolve works in Electron main process and survives bundling
-	try {
-		const sdkEntry = require.resolve( '@anthropic-ai/claude-agent-sdk' );
-		return path.join( path.dirname( sdkEntry ), 'cli.js' );
-	} catch {
-		// Fallback: resolve from process.cwd() (the project root at dev time)
-		return path.resolve(
-			process.cwd(),
-			'node_modules',
-			'@anthropic-ai',
-			'claude-agent-sdk',
-			'cli.js'
-		);
-	}
-}
-
-const CLAUDE_CODE_EXECUTABLE = resolveClaudeCodeExecutable();
-
-// Studio sites root — same as CLI's STUDIO_SITES_ROOT
-const STUDIO_SITES_ROOT = path.join( os.homedir(), 'Studio' );
-const STUDIO_ROOT = path.resolve( STUDIO_SITES_ROOT );
-
-// Tools allowed without permission
-const ALLOWED_TOOLS = [
-	'mcp__studio__*',
-	'Read',
-	'Glob',
-	'Grep',
-	'WebFetch',
-	'WebSearch',
-	'TodoRead',
-	'NotebookRead',
-	'AskUserQuestion',
-] as const;
-
-// Tools that require permission for paths outside trusted roots
-const PATH_GATED_TOOLS = [ 'Write', 'Edit', 'Bash', 'NotebookEdit' ];
-const PATH_INPUT_KEYS = [ 'path', 'file_path', 'filePath' ];
-
-const TRUSTED_ROOTS = [
-	STUDIO_ROOT,
-	path.resolve( os.tmpdir() ),
-	...( os.tmpdir() !== '/tmp' ? [ '/tmp' ] : [] ),
-];
-
-function isPathWithinTrustedRoots( filePath: string ): boolean {
-	const resolved = path.isAbsolute( filePath )
-		? path.resolve( filePath )
-		: path.resolve( STUDIO_ROOT, filePath );
-
-	return TRUSTED_ROOTS.some(
-		( root ) => resolved === root || resolved.startsWith( `${ root }${ path.sep }` )
-	);
-}
-
-function getToolPaths( input: Record< string, unknown > ): string[] {
-	return PATH_INPUT_KEYS.map( ( key ) => input[ key ] ).filter(
-		( v ): v is string => typeof v === 'string' && v.trim().length > 0
-	);
-}
 
 interface ActiveTask {
-	query: Query;
+	child: ChildProcess;
 	sessionId?: string;
-	approvedPaths: Map< string, Set< string > >;
 }
 
 const activeTasks = new Map< string, ActiveTask >();
 
-// Pending permission requests — keyed by requestId
-const pendingPermissions = new Map<
-	string,
-	{
-		resolve: ( result: PermissionResult ) => void;
-		toolName: string;
-	}
->();
+/**
+ * Fork the CLI in headless agent mode with an IPC channel.
+ */
+function forkCliAgent(): ChildProcess {
+	const cliPath = getCliPath();
+	const child = fork( cliPath, [ 'ai', 'agent', '--avoid-telemetry' ], {
+		stdio: [ 'ignore', 'pipe', 'pipe', 'ipc' ],
+		execPath: getBundledNodeBinaryPath(),
+		execArgv: [ '--experimental-wasm-jspi' ],
+		env: { ...process.env },
+	} );
 
-function buildSystemPrompt( sitePath?: string, siteName?: string ): string {
-	// Use the full CLI system prompt (workflow, design guidelines, block rules, etc.)
-	const cliPrompt = buildCliSystemPrompt();
+	// Clean up on app quit
+	const quitHandler = () => {
+		child.removeAllListeners();
+		child.kill();
+	};
+	app.on( 'will-quit', quitHandler );
 
-	// Add desktop-specific context
-	const desktopContext = sitePath
-		? `\n\n## Current Site Context\n\nThe user is working on "${
-				siteName ?? 'their site'
-		  }" located at: ${ sitePath }\nYour working directory is set to this site's root. Work within wp-content/.\n\nBefore making changes to content, use wp_cli to check existing content and revisions.\n\n## Editing Page/Post Content\n\nWhen editing specific blocks within a post or page, use post_blocks_read to see all blocks with their indices, then post_block_update to replace a specific block by index. This is much safer than wp post update --post_content which replaces the entire page content. Only use wp post update --post_content when creating new posts or doing full page rewrites.\n\n## Browser Preview\n\nYou have access to a browser that previews the site. After making visual or content changes, use browser_reload to refresh the preview and browser_screenshot to verify the result. Use browser_navigate to visit specific pages (e.g. "/wp-admin/", "/sample-page/"). Use browser_read_page to read page text and structure, and browser_console to check for JavaScript errors.\n`
-		: '';
+	child.on( 'close', () => {
+		child.removeAllListeners();
+		app.off( 'will-quit', quitHandler );
+	} );
 
-	return cliPrompt + desktopContext;
+	// Log CLI stdout/stderr for debugging
+	child.stdout?.on( 'data', ( data: Buffer ) => {
+		const text = data.toString().trimEnd();
+		if ( text ) {
+			console.log( `[AI Agent] ${ text }` );
+		}
+	} );
+	child.stderr?.on( 'data', ( data: Buffer ) => {
+		const text = data.toString().trimEnd();
+		if ( text ) {
+			console.error( `[AI Agent] ${ text }` );
+		}
+	} );
+
+	return child;
 }
 
 /**
@@ -121,128 +66,121 @@ export async function startTaskAgent(
 	const existing = activeTasks.get( taskId );
 	if ( existing ) {
 		try {
-			existing.query.close();
+			existing.child.send( { type: 'ai:kill' } );
 		} catch {
-			// ignore
+			// ignore — child may have already exited
 		}
+		existing.child.kill();
 		activeTasks.delete( taskId );
 	}
 
-	const { env } = await resolveAgentEnv();
-
-	// Look up the task's site to get its path for cwd and system prompt context
+	// Look up the task's site for context
 	const userData = await loadUserData();
 	const taskMeta = ( userData.tasks ?? [] ).find( ( t ) => t.id === taskId );
 	const siteServer = taskMeta ? SiteServer.get( taskMeta.siteId ) : undefined;
 	const sitePath = siteServer?.details.path;
-	const agentCwd = sitePath ?? STUDIO_ROOT;
+	const siteName = siteServer?.details.name;
 
-	const agentQuery = query( {
-		prompt,
-		options: {
-			env,
-			systemPrompt: {
-				type: 'preset',
-				preset: 'claude_code',
-				append: buildSystemPrompt( sitePath, siteServer?.details.name ),
-			},
-			mcpServers: {
-				studio: createDesktopStudioTools(),
-			},
-			maxTurns: MAX_TURNS,
-			cwd: agentCwd,
-			tools: { type: 'preset', preset: 'claude_code' },
-			allowedTools: [ ...ALLOWED_TOOLS ],
-			permissionMode: 'default',
-			canUseTool: async ( toolName, input, metadata ) => {
-				// Check if this is a path-gated tool accessing outside trusted roots
-				if ( PATH_GATED_TOOLS.includes( toolName ) ) {
-					const paths = getToolPaths( input );
-					const blockedPath = metadata?.blockedPath;
-					const outsidePath =
-						( blockedPath && ! isPathWithinTrustedRoots( blockedPath ) && blockedPath ) ||
-						paths.find( ( p ) => ! isPathWithinTrustedRoots( p ) );
-
-					if ( outsidePath ) {
-						const task = activeTasks.get( taskId );
-						// Check session-level approval
-						if ( task?.approvedPaths.get( toolName )?.has( path.resolve( outsidePath ) ) ) {
-							const result: PermissionResult = {
-								behavior: 'allow',
-								updatedInput: input,
-							};
-							if ( metadata?.suggestions?.length ) {
-								result.updatedPermissions = metadata.suggestions;
-							}
-							return result;
-						}
-
-						// Ask the renderer for permission
-						const requestId = crypto.randomUUID();
-						const permissionPromise = new Promise< PermissionResult >( ( resolve ) => {
-							pendingPermissions.set( requestId, { resolve, toolName } );
-						} );
-
-						await sendIpcEventToRenderer( 'task-permission-request', {
-							requestId,
-							taskId,
-							toolName,
-							input,
-							description: `Allow ${ toolName } to access ${ outsidePath }?`,
-						} );
-
-						return permissionPromise;
-					}
-				}
-
-				return { behavior: 'allow' as const, updatedInput: input } as PermissionResult;
-			},
-			pathToClaudeCodeExecutable: CLAUDE_CODE_EXECUTABLE,
-			model: DEFAULT_MODEL,
-			...( resumeSessionId && { resume: resumeSessionId } ),
-		},
-	} );
-
-	const activeTask: ActiveTask = {
-		query: agentQuery,
-		approvedPaths: new Map(),
-	};
+	const child = forkCliAgent();
+	const activeTask: ActiveTask = { child };
 	activeTasks.set( taskId, activeTask );
 
 	// Update task status to in-progress
 	await sendIpcEventToRenderer( 'task-status-changed', { taskId, status: 'in-progress' } );
 
-	// Run the message loop in the background
-	void runMessageLoop( taskId, agentQuery );
-}
+	// Wait for the CLI to signal ready, then send the start message
+	const onReady = () => {
+		child.send( {
+			type: 'ai:start',
+			prompt,
+			...( resumeSessionId && { resume: resumeSessionId } ),
+			...( sitePath && { sitePath } ),
+			...( siteName && { siteName } ),
+		} );
+	};
 
-async function runMessageLoop( taskId: string, agentQuery: Query ): Promise< void > {
-	try {
-		for await ( const message of agentQuery ) {
-			const taskMessages = serializeSDKMessage( message );
+	// Handle IPC messages from the CLI child
+	child.on( 'message', ( raw: unknown ) => {
+		const message = raw as { type: string; [ key: string ]: unknown };
 
-			// Capture session ID from result messages
-			if ( message.session_id ) {
-				const task = activeTasks.get( taskId );
-				if ( task && ! task.sessionId ) {
-					task.sessionId = message.session_id;
-					// Persist session ID for resume
-					void persistSessionId( taskId, message.session_id );
+		switch ( message.type ) {
+			case 'ai:ready':
+				onReady();
+				break;
+
+			case 'ai:sdk-message': {
+				const taskMessages = serializeSDKMessage( message.message as never );
+				for ( const msg of taskMessages ) {
+					void sendIpcEventToRenderer( 'task-message', { taskId, message: msg } );
 				}
+				break;
 			}
 
-			// Forward each serialized message to the renderer
-			for ( const msg of taskMessages ) {
-				await sendIpcEventToRenderer( 'task-message', { taskId, message: msg } );
+			case 'ai:session-id': {
+				const sessionId = message.sessionId as string;
+				activeTask.sessionId = sessionId;
+				void persistSessionId( taskId, sessionId );
+				break;
 			}
+
+			case 'ai:permission-request':
+				void sendIpcEventToRenderer( 'task-permission-request', {
+					requestId: message.requestId as string,
+					taskId,
+					toolName: ( message.toolName as string ) ?? 'unknown',
+					input: {},
+					description: message.description as string,
+				} );
+				break;
+
+			case 'ai:error':
+				void sendIpcEventToRenderer( 'task-error', {
+					taskId,
+					error: message.error as string,
+				} );
+				break;
+
+			case 'ai:done':
+				activeTasks.delete( taskId );
+				void sendIpcEventToRenderer( 'task-status-changed', {
+					taskId,
+					status: 'waiting',
+				} );
+				break;
 		}
-	} catch ( error ) {
-		const errorMessage = error instanceof Error ? error.message : String( error );
-		await sendIpcEventToRenderer( 'task-error', { taskId, error: errorMessage } );
-	} finally {
-		activeTasks.delete( taskId );
-		await sendIpcEventToRenderer( 'task-status-changed', { taskId, status: 'waiting' } );
-	}
+	} );
+
+	// Handle child process crash
+	child.on( 'close', ( exitCode ) => {
+		if ( activeTasks.has( taskId ) ) {
+			activeTasks.delete( taskId );
+			if ( exitCode !== 0 ) {
+				void sendIpcEventToRenderer( 'task-error', {
+					taskId,
+					error: `Agent process exited unexpectedly (code ${ exitCode })`,
+				} );
+			}
+			void sendIpcEventToRenderer( 'task-status-changed', {
+				taskId,
+				status: 'waiting',
+			} );
+		}
+	} );
+
+	child.on( 'error', ( error ) => {
+		console.error( 'AI agent child process error:', error );
+		if ( activeTasks.has( taskId ) ) {
+			activeTasks.delete( taskId );
+			void sendIpcEventToRenderer( 'task-error', {
+				taskId,
+				error: error.message,
+			} );
+			void sendIpcEventToRenderer( 'task-status-changed', {
+				taskId,
+				status: 'waiting',
+			} );
+		}
+	} );
 }
 
 async function persistSessionId( taskId: string, sessionId: string ): Promise< void > {
@@ -262,24 +200,20 @@ async function persistSessionId( taskId: string, sessionId: string ): Promise< v
 
 /**
  * Send a follow-up message to an active task agent.
- * If no agent is active, starts a new one.
+ * If no agent is active, starts a new one with session resume.
  */
 export async function sendTaskMessage( taskId: string, message: string ): Promise< void > {
 	const active = activeTasks.get( taskId );
 
 	if ( active ) {
-		// Use streamInput to send follow-up message
-		const sdkMessage = {
-			type: 'user' as const,
-			message: { role: 'user' as const, content: message },
-			parent_tool_use_id: null,
-			session_id: active.sessionId ?? '',
-		};
-		await active.query.streamInput(
-			( async function* () {
-				yield sdkMessage;
-			} )()
-		);
+		try {
+			active.child.send( { type: 'ai:follow-up', message } );
+		} catch {
+			// Child may have exited — start a new one
+			const userData = await loadUserData();
+			const task = ( userData.tasks ?? [] ).find( ( t ) => t.id === taskId );
+			await startTaskAgent( taskId, message, task?.sessionId );
+		}
 	} else {
 		// Look up the task to get its session ID for resuming
 		const userData = await loadUserData();
@@ -294,39 +228,43 @@ export async function sendTaskMessage( taskId: string, message: string ): Promis
 export function interruptTask( taskId: string ): void {
 	const active = activeTasks.get( taskId );
 	if ( active ) {
-		void active.query.interrupt();
+		try {
+			active.child.send( { type: 'ai:interrupt' } );
+		} catch {
+			// ignore — child may have already exited
+		}
 	}
 }
 
 /**
- * Respond to a pending permission request from the renderer.
+ * Respond to a pending permission request — forwarded to the CLI child.
  */
 export function respondToPermissionRequest(
 	requestId: string,
 	response: 'allow_once' | 'allow_session' | 'deny',
 	taskId?: string
 ): void {
-	const pending = pendingPermissions.get( requestId );
-	if ( ! pending ) {
+	// Find which task's child process owns this permission request
+	if ( taskId ) {
+		const active = activeTasks.get( taskId );
+		if ( active ) {
+			try {
+				active.child.send( { type: 'ai:permission-response', requestId, decision: response } );
+			} catch {
+				// ignore
+			}
+		}
 		return;
 	}
-	pendingPermissions.delete( requestId );
 
-	if ( response === 'deny' ) {
-		pending.resolve( { behavior: 'deny', message: 'Access denied by user' } );
-		return;
-	}
-
-	// For allow_session, remember the approval
-	if ( response === 'allow_session' && taskId ) {
-		const task = activeTasks.get( taskId );
-		if ( task ) {
-			const approved = task.approvedPaths.get( pending.toolName ) ?? new Set();
-			task.approvedPaths.set( pending.toolName, approved );
+	// If no taskId, broadcast to all active tasks (one will match)
+	for ( const [ , task ] of activeTasks ) {
+		try {
+			task.child.send( { type: 'ai:permission-response', requestId, decision: response } );
+		} catch {
+			// ignore
 		}
 	}
-
-	pending.resolve( { behavior: 'allow' } );
 }
 
 /**
@@ -335,10 +273,11 @@ export function respondToPermissionRequest(
 export function cleanupAllAgents(): void {
 	for ( const [ , task ] of activeTasks ) {
 		try {
-			task.query.close();
+			task.child.send( { type: 'ai:kill' } );
 		} catch {
 			// ignore
 		}
+		task.child.kill();
 	}
 	activeTasks.clear();
 }

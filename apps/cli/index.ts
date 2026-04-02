@@ -199,6 +199,14 @@ async function main() {
 					.version( false )
 					.demandCommand( 1, __( 'You must provide a valid ai sessions command' ) );
 			} );
+			aiYargs.command( {
+				command: 'agent',
+				describe: false, // hidden — only called by the desktop app
+				handler: async () => {
+					const { runHeadlessAgent } = await import( 'cli/commands/ai/headless' );
+					await runHeadlessAgent();
+				},
+			} );
 			aiYargs.version( false );
 		} );
 	}

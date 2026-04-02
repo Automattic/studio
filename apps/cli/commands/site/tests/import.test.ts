@@ -275,7 +275,7 @@ describe( 'CLI: studio site import helpers', () => {
 				runtimeBlueprintPath: path.join( runtimeDirectory, 'blueprint.json' ),
 				tablePrefix: 'wp_',
 				technicalSiteDirectory,
-			} as any;
+			} as Parameters< typeof repairCompletedImportState >[ 0 ];
 
 			expect( repairCompletedImportState( metadata ) ).toContain(
 				'Reapplying the imported database'

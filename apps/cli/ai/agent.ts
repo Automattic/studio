@@ -7,7 +7,7 @@ import {
 	promptForApproval,
 	type AskUserQuestion,
 } from 'cli/ai/security';
-import { buildSystemPrompt } from 'cli/ai/system-prompt';
+import { buildSystemPrompt } from '@studio/common/ai/system-prompt';
 import { createStudioTools } from 'cli/ai/tools';
 
 export type { AskUserQuestion } from 'cli/ai/security';

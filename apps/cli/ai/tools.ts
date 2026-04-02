@@ -602,6 +602,58 @@ const validateBlocksTool = tool(
 	}
 );
 
+// --- Browser control tools (IPC to desktop app) ---
+
+/**
+ * Send a message to the desktop app via Node IPC.
+ * Only available when spawned as a child process by the desktop (fork with IPC channel).
+ */
+function sendToDesktop( message: Record< string, unknown > ): boolean {
+	if ( process.send ) {
+		process.send( message );
+		return true;
+	}
+	return false;
+}
+
+const browserNavigateTool = tool(
+	'browser_navigate',
+	'Navigates the in-app browser preview to a URL or path (e.g. "/wp-admin/", "/wp-admin/post-new.php"). ' +
+		'Use this after making changes to reload the preview at the right page. ' +
+		'Only available when running inside the Studio desktop app.',
+	{
+		url: z
+			.string()
+			.describe(
+				'The URL or path to navigate to (e.g. "/wp-admin/" or "http://localhost:8881/wp-admin/")'
+			),
+	},
+	async ( args ) => {
+		if ( ! sendToDesktop( { type: 'ai:browser-navigate', url: args.url } ) ) {
+			return errorResult(
+				'Browser control is only available when running inside the Studio desktop app.'
+			);
+		}
+		return textResult( `Navigated browser to ${ args.url }` );
+	}
+);
+
+const browserReloadTool = tool(
+	'browser_reload',
+	'Reloads the current page in the in-app browser preview. ' +
+		'Use this after making changes to refresh the preview. ' +
+		'Only available when running inside the Studio desktop app.',
+	{},
+	async () => {
+		if ( ! sendToDesktop( { type: 'ai:browser-reload' } ) ) {
+			return errorResult(
+				'Browser control is only available when running inside the Studio desktop app.'
+			);
+		}
+		return textResult( 'Browser preview reloaded.' );
+	}
+);
+
 // --- Screenshot tool ---
 
 const VIEWPORTS = {
@@ -702,6 +754,8 @@ export const studioToolDefinitions = [
 	runWpCliTool,
 	validateBlocksTool,
 	takeScreenshotTool,
+	browserNavigateTool,
+	browserReloadTool,
 ];
 
 export function createStudioTools() {

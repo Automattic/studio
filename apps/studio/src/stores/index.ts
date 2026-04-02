@@ -431,11 +431,15 @@ if ( typeof window !== 'undefined' && window.ipcListener ) {
 		store.dispatch( setTaskStreaming( { taskId, streaming: false } ) );
 	} );
 
-	// Listen for browser navigation commands from the agent
+	// Listen for browser control commands from the agent
 	window.ipcListener.subscribe( 'browser-navigate', ( _, { siteId, url } ) => {
 		window.dispatchEvent(
 			new CustomEvent( 'studio:browser-navigate', { detail: { siteId, url } } )
 		);
+	} );
+
+	window.ipcListener.subscribe( 'browser-reload', ( _, { siteId } ) => {
+		window.dispatchEvent( new CustomEvent( 'studio:browser-reload', { detail: { siteId } } ) );
 	} );
 }
 

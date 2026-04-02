@@ -5,6 +5,7 @@ import { SiteServer } from 'src/site-server';
 import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 import { serializeSDKMessage } from './message-serializer';
+import type { ImageAttachment } from '../types';
 
 interface ActiveTask {
 	child: ChildProcess;
@@ -60,7 +61,8 @@ function forkCliAgent(): ChildProcess {
 export async function startTaskAgent(
 	taskId: string,
 	prompt: string,
-	resumeSessionId?: string
+	resumeSessionId?: string,
+	images?: ImageAttachment[]
 ): Promise< void > {
 	// Clean up any existing agent for this task
 	const existing = activeTasks.get( taskId );
@@ -96,6 +98,7 @@ export async function startTaskAgent(
 			...( resumeSessionId && { resume: resumeSessionId } ),
 			...( sitePath && { sitePath } ),
 			...( siteName && { siteName } ),
+			...( images?.length && { images } ),
 		} );
 	};
 
@@ -132,6 +135,29 @@ export async function startTaskAgent(
 					description: message.description as string,
 				} );
 				break;
+
+			case 'ai:browser-navigate': {
+				const siteId = taskMeta?.siteId;
+				if ( siteId ) {
+					let url = message.url as string;
+					// Resolve relative paths to full URLs using the site's base URL
+					const details = SiteServer.get( siteId )?.details;
+					const siteUrl = details?.running ? details.url : undefined;
+					if ( siteUrl && url.startsWith( '/' ) ) {
+						url = new URL( url, siteUrl ).toString();
+					}
+					void sendIpcEventToRenderer( 'browser-navigate', { siteId, url } );
+				}
+				break;
+			}
+
+			case 'ai:browser-reload': {
+				const siteId = taskMeta?.siteId;
+				if ( siteId ) {
+					void sendIpcEventToRenderer( 'browser-reload', { siteId } );
+				}
+				break;
+			}
 
 			case 'ai:error':
 				void sendIpcEventToRenderer( 'task-error', {
@@ -202,23 +228,31 @@ async function persistSessionId( taskId: string, sessionId: string ): Promise< v
  * Send a follow-up message to an active task agent.
  * If no agent is active, starts a new one with session resume.
  */
-export async function sendTaskMessage( taskId: string, message: string ): Promise< void > {
+export async function sendTaskMessage(
+	taskId: string,
+	message: string,
+	images?: ImageAttachment[]
+): Promise< void > {
 	const active = activeTasks.get( taskId );
 
 	if ( active ) {
 		try {
-			active.child.send( { type: 'ai:follow-up', message } );
+			active.child.send( {
+				type: 'ai:follow-up',
+				message,
+				...( images?.length && { images } ),
+			} );
 		} catch {
 			// Child may have exited — start a new one
 			const userData = await loadUserData();
 			const task = ( userData.tasks ?? [] ).find( ( t ) => t.id === taskId );
-			await startTaskAgent( taskId, message, task?.sessionId );
+			await startTaskAgent( taskId, message, task?.sessionId, images );
 		}
 	} else {
 		// Look up the task to get its session ID for resuming
 		const userData = await loadUserData();
 		const task = ( userData.tasks ?? [] ).find( ( t ) => t.id === taskId );
-		await startTaskAgent( taskId, message, task?.sessionId );
+		await startTaskAgent( taskId, message, task?.sessionId, images );
 	}
 }
 

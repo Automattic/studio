@@ -341,7 +341,33 @@ const startServer = wrapWithStartingPromise(
 
 			const args = await getBaseRunCLIArgs( 'server', config );
 
-			server = await runCLI( args );
+			// Playground CLI has an internal .catch() handler that calls process.exit(1)
+			// on certain non-fatal errors (e.g. a background worker exit race). Intercept
+			// process.exit during runCLI so those don't kill the process before we can
+			// check whether the server actually started.
+			const realExit = process.exit;
+			let interceptedExitCode: number | undefined;
+			process.exit = ( ( code?: number ) => {
+				interceptedExitCode = code ?? 0;
+				logToConsole( `Intercepted process.exit(${ code }) from Playground CLI` );
+			} ) as never;
+
+			try {
+				server = await runCLI( args );
+			} finally {
+				process.exit = realExit;
+			}
+
+			// If Playground CLI called process.exit but runCLI still resolved (server started),
+			// log it and continue. If it didn't resolve, the catch block below handles it.
+			if ( interceptedExitCode !== undefined && ! server ) {
+				throw new Error(
+					`Playground CLI exited with code ${ interceptedExitCode }`
+				);
+			}
+			if ( interceptedExitCode !== undefined ) {
+				logToConsole( `Playground CLI called process.exit(${ interceptedExitCode }) but the server started — continuing` );
+			}
 
 			stopSignal.throwIfAborted();
 

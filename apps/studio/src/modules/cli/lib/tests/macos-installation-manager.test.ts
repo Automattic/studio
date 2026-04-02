@@ -226,24 +226,17 @@ describe.skipIf( isWindows )( 'MacOSCliInstallationManager', () => {
 
 	describe( 'autoInstallIfNeeded', () => {
 		it( 'installs CLI on first launch when not already installed', async () => {
+			// isCliInstalled returns false
+			mockReadlink.mockRejectedValue( enoentError() );
 			// installCli - lstat shows no file
 			mockLstat.mockRejectedValue( enoentError() );
 			// unlink during install
 			mockUnlink.mockRejectedValue( enoentError() );
 			mockMkdir.mockResolvedValue( undefined );
 			mockSymlink.mockResolvedValue( undefined );
+			// ensurePathInProfile
+			mockReadFile.mockRejectedValue( enoentError() );
 			mockWriteFile.mockResolvedValue( undefined );
-			// readProfileContent is called 3 times:
-			// 1. isCliInstalled() inside installCli() — no profile yet
-			// 2. ensurePathInProfile() — no profile yet, triggers write
-			// 3. isCliInstalled() after install — profile now has export line
-			mockReadFile
-				.mockRejectedValueOnce( enoentError() )
-				.mockRejectedValueOnce( enoentError() )
-				.mockResolvedValueOnce( 'export PATH="$HOME/.local/bin:$PATH"\n' );
-			// readlink is called once: isCliInstalled() after install — symlink exists
-			// (the isCliInstalled() inside installCli() returns false early due to missing profile)
-			mockReadlink.mockResolvedValueOnce( CLI_PACKAGED_PATH );
 
 			await manager.autoInstallIfNeeded();
 

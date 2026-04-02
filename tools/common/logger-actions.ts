@@ -55,6 +55,8 @@ export enum SiteCommandLoggerAction {
 }
 
 export enum SyncCommandLoggerAction {
+	LOAD_SITES = 'loadSites',
+	INSTALL_SQLITE = 'installSqlite',
 	FETCH_SITES = 'fetchSites',
 	ARCHIVE = 'archive',
 	UPLOAD = 'upload',

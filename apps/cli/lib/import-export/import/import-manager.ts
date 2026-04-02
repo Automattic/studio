@@ -79,7 +79,7 @@ export async function importBackup(
 	}
 }
 
-export const defaultImporterOptions: ImporterOption[] = [
+export const DEFAULT_IMPORTER_OPTIONS: ImporterOption[] = [
 	{ validator: new PlaygroundValidator(), importer: PlaygroundImporter },
 	{ validator: new JetpackValidator(), importer: JetpackImporter },
 	{ validator: new LocalValidator(), importer: LocalImporter },

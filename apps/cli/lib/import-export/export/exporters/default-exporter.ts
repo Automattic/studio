@@ -310,12 +310,12 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		] );
 
 		const exitCode = await command.response.exitCode;
-		if ( exitCode !== 0 ) {
-			throw new Error( `Failed to get site plugins` );
-		}
-
-		const stdout = await command.response.stdoutText;
 		const stderr = await command.response.stderrText;
+		const stdout = await command.response.stdoutText;
+
+		if ( exitCode !== 0 ) {
+			throw new Error( `Failed to get site plugins: ${ stderr }` );
+		}
 
 		try {
 			return parseJsonFromPhpOutput( stdout );
@@ -343,12 +343,12 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		] );
 
 		const exitCode = await command.response.exitCode;
-		if ( exitCode !== 0 ) {
-			throw new Error( `Failed to get site plugins` );
-		}
-
-		const stdout = await command.response.stdoutText;
 		const stderr = await command.response.stderrText;
+		const stdout = await command.response.stdoutText;
+
+		if ( exitCode !== 0 ) {
+			throw new Error( `Failed to get site themes: ${ stderr }` );
+		}
 
 		try {
 			return parseJsonFromPhpOutput( stdout );

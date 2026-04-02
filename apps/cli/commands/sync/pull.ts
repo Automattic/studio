@@ -1,3 +1,4 @@
+import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { confirm } from '@inquirer/prompts';
@@ -10,7 +11,11 @@ import {
 } from '@studio/common/lib/sync/constants';
 import { SyncCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
-import { getSiteByFolder } from 'cli/lib/cli-config/sites';
+import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
+import {
+	DEFAULT_IMPORTER_OPTIONS,
+	importBackup,
+} from 'cli/lib/import-export/import/import-manager';
 import {
 	checkBackupSize,
 	fetchSyncableSites,
@@ -23,6 +28,7 @@ import { fetchPullTree, selectSyncItemsForPull } from 'cli/lib/sync-selector';
 import { findSyncSiteByIdentifier, pickSyncSite } from 'cli/lib/sync-site-picker';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
+import { importEventHandler } from '../site/import';
 import type { SyncOption } from '@studio/common/types/sync';
 
 const logger = new Logger< LoggerAction >();
@@ -39,19 +45,19 @@ export async function runCommand(
 		);
 	}
 
-	await getSiteByFolder( siteFolder );
+	const site = await getSiteByFolder( siteFolder );
 
 	logger.reportStart( LoggerAction.FETCH_SITES, __( 'Fetching WordPress.com sites…' ) );
-	const sites = await fetchSyncableSites( token.accessToken );
+	const remoteSites = await fetchSyncableSites( token.accessToken );
 	logger.spinner.stop();
-	logger.reportSuccess( sprintf( __( 'Found %d sites' ), sites.length ), true );
+	logger.reportSuccess( sprintf( __( 'Found %d sites' ), remoteSites.length ), true );
 
-	let selectedSite;
+	let remoteSite;
 	if ( siteIdentifier ) {
-		selectedSite = findSyncSiteByIdentifier( sites, siteIdentifier );
+		remoteSite = findSyncSiteByIdentifier( remoteSites, siteIdentifier );
 	} else {
-		selectedSite = await pickSyncSite( sites, __( 'Select a site to pull from' ) );
-		if ( ! selectedSite ) {
+		remoteSite = await pickSyncSite( remoteSites, __( 'Select a site to pull from' ) );
+		if ( ! remoteSite ) {
 			return;
 		}
 	}
@@ -63,10 +69,10 @@ export async function runCommand(
 		optionsToSync = syncOptions;
 	} else {
 		logger.reportStart( LoggerAction.FETCH_SITES, __( 'Fetching file tree…' ) );
-		const { tree } = await fetchPullTree( token.accessToken, selectedSite.id );
+		const { tree } = await fetchPullTree( token.accessToken, remoteSite.id );
 		logger.spinner.stop();
 
-		const selection = await selectSyncItemsForPull( token.accessToken, selectedSite.id, tree );
+		const selection = await selectSyncItemsForPull( token.accessToken, remoteSite.id, tree );
 		if ( ! selection ) {
 			return;
 		}
@@ -74,16 +80,12 @@ export async function runCommand(
 		includePathList = selection.includePathList;
 	}
 
-	const remoteSiteId = selectedSite.id;
-	const remoteSiteName = selectedSite.name;
-	const remoteSiteUrl = selectedSite.url;
-
 	// Pull progress: Backup (0-50%) → Download (50-80%) → Import (80-100%)
 	logger.reportStart(
 		LoggerAction.INITIATE_BACKUP,
 		sprintf( __( 'Initializing remote backup… (%d%%)' ), 0 )
 	);
-	const backupId = await initiateBackup( token.accessToken, remoteSiteId, {
+	const backupId = await initiateBackup( token.accessToken, remoteSite.id, {
 		optionsToSync,
 		includePathList,
 	} );
@@ -93,7 +95,7 @@ export async function runCommand(
 	let stalledAttempts = 0;
 
 	while ( stalledAttempts < SYNC_MAX_STALLED_ATTEMPTS ) {
-		const status = await pollBackupStatus( token.accessToken, remoteSiteId, backupId );
+		const status = await pollBackupStatus( token.accessToken, remoteSite.id, backupId );
 
 		if ( status.status === 'failed' ) {
 			throw new LoggerError( __( 'Remote backup failed' ) );
@@ -142,23 +144,30 @@ export async function runCommand(
 	}
 
 	// Download phase: 50-80%
-	logger.spinner.text = sprintf( __( 'Downloading backup… (%d%%)' ), 50 );
+	logger.reportProgress( sprintf( __( 'Downloading backup… (%d%%)' ), 50 ) );
 	const tempDir = path.join( os.tmpdir(), 'studio-sync' );
-	const { mkdirSync } = await import( 'fs' );
-	mkdirSync( tempDir, { recursive: true } );
-	const destPath = path.join( tempDir, `pull-${ remoteSiteId }-${ Date.now() }.tar.gz` );
-	await downloadBackup( downloadUrl, destPath );
 
-	// TODO: Import backup into local site (80-100%)
-	logger.spinner.stop();
-	logger.reportSuccess(
-		sprintf(
-			__( 'Pulled from %s (%s). Backup saved to %s. Import not yet implemented in CLI.' ),
-			remoteSiteName,
-			remoteSiteUrl,
-			destPath
-		)
-	);
+	try {
+		fs.mkdirSync( tempDir, { recursive: true } );
+		const destPath = path.join( tempDir, `pull-${ remoteSite.id }-${ Date.now() }.tar.gz` );
+		await downloadBackup( downloadUrl, destPath );
+
+		await importBackup(
+			{ path: destPath, type: 'application/gzip' },
+			site,
+			importEventHandler,
+			DEFAULT_IMPORTER_OPTIONS
+		);
+
+		// Something in Playground makes it so the front-end of the site sometimes returns an error page
+		// on the first request. Send that first request from here to hide the error from the user.
+		const siteUrl = getSiteUrl( site );
+		await fetch( siteUrl ).catch( () => {} );
+
+		logger.reportSuccess( sprintf( __( 'Pulled from %s (%s)' ), remoteSite.name, remoteSite.url ) );
+	} finally {
+		fs.rmSync( tempDir, { recursive: true, force: true } );
+	}
 }
 
 export const registerCommand = ( yargs: StudioArgv ) => {

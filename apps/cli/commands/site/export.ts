@@ -15,75 +15,69 @@ import { StudioArgv } from 'cli/types';
 
 const logger = new Logger< LoggerAction >();
 
+export function exportEventHandler( { event, data }: ImportExportEventData ): void {
+	switch ( event ) {
+		case ExportEvents.EXPORT_START:
+			logger.reportStart( LoggerAction.EXPORT_SITE, __( 'Starting export…' ) );
+			break;
+
+		case ExportEvents.BACKUP_CREATE_START:
+			logger.reportStart( LoggerAction.CREATE_BACKUP, __( 'Creating backup file…' ) );
+			break;
+
+		case ExportEvents.WP_CONTENT_EXPORT_START:
+			logger.reportStart( LoggerAction.EXPORT_WP_CONTENT, __( 'Traversing WordPress content…' ) );
+			break;
+		case ExportEvents.WP_CONTENT_EXPORT_COMPLETE:
+			logger.reportSuccess( __( 'WordPress content traversed' ) );
+			break;
+
+		case ExportEvents.DATABASE_EXPORT_START:
+			logger.reportStart( LoggerAction.EXPORT_DATABASE, __( 'Exporting database…' ) );
+			break;
+		case ExportEvents.DATABASE_EXPORT_COMPLETE:
+			logger.reportSuccess( __( 'Database exported' ) );
+			break;
+
+		case ExportEvents.BACKUP_CREATE_PROGRESS: {
+			const progressData = data as BackupCreateProgressEventData;
+			const processed = progressData?.progress?.entries?.processed;
+
+			if ( processed != null ) {
+				logger.reportProgress(
+					sprintf(
+						_n( 'Backing up file… (%d processed)', 'Backing up files… (%d processed)', processed ),
+						processed
+					)
+				);
+			}
+			break;
+		}
+		case ExportEvents.BACKUP_CREATE_COMPLETE:
+			logger.reportSuccess( __( 'Backup file created' ) );
+			break;
+
+		case ExportEvents.CONFIG_EXPORT_START:
+			logger.reportStart( LoggerAction.EXPORT_CONFIG, __( 'Exporting configuration…' ) );
+			break;
+		case ExportEvents.CONFIG_EXPORT_COMPLETE:
+			logger.reportSuccess( __( 'Configuration exported' ) );
+			break;
+
+		case ExportEvents.EXPORT_COMPLETE:
+			logger.reportSuccess( __( 'Site exported successfully' ) );
+			break;
+
+		case ExportEvents.EXPORT_ERROR:
+			throw new LoggerError( __( 'Export failed' ), data instanceof Error ? data : undefined );
+	}
+}
+
 export async function runCommand(
 	siteFolder: string,
 	exportPath: string,
 	includeOnly?: 'content' | 'db'
 ): Promise< void > {
-	function handleExportEvent( { event, data }: ImportExportEventData ): void {
-		switch ( event ) {
-			case ExportEvents.EXPORT_START:
-				logger.reportSuccess(
-					sprintf( __( 'Starting export to %s…' ), path.basename( exportPath ) )
-				);
-				break;
-
-			case ExportEvents.BACKUP_CREATE_START:
-				logger.reportStart( LoggerAction.CREATE_BACKUP, __( 'Creating backup file…' ) );
-				break;
-
-			case ExportEvents.WP_CONTENT_EXPORT_START:
-				logger.reportStart( LoggerAction.EXPORT_WP_CONTENT, __( 'Traversing WordPress content…' ) );
-				break;
-			case ExportEvents.WP_CONTENT_EXPORT_COMPLETE:
-				logger.reportSuccess( __( 'WordPress content traversed' ) );
-				break;
-
-			case ExportEvents.DATABASE_EXPORT_START:
-				logger.reportStart( LoggerAction.EXPORT_DATABASE, __( 'Exporting database…' ) );
-				break;
-			case ExportEvents.DATABASE_EXPORT_COMPLETE:
-				logger.reportSuccess( __( 'Database exported' ) );
-				break;
-
-			case ExportEvents.BACKUP_CREATE_PROGRESS: {
-				const progressData = data as BackupCreateProgressEventData;
-				const processed = progressData?.progress?.entries?.processed;
-
-				if ( processed != null ) {
-					logger.reportProgress(
-						sprintf(
-							_n(
-								'Backing up file… (%d processed)',
-								'Backing up files… (%d processed)',
-								processed
-							),
-							processed
-						)
-					);
-				}
-				break;
-			}
-			case ExportEvents.BACKUP_CREATE_COMPLETE:
-				logger.reportSuccess( __( 'Backup file created' ) );
-				break;
-
-			case ExportEvents.CONFIG_EXPORT_START:
-				logger.reportStart( LoggerAction.EXPORT_CONFIG, __( 'Exporting configuration…' ) );
-				break;
-			case ExportEvents.CONFIG_EXPORT_COMPLETE:
-				logger.reportSuccess( __( 'Configuration exported' ) );
-				break;
-
-			case ExportEvents.EXPORT_COMPLETE:
-				logger.reportSuccess( __( 'Site exported successfully' ) );
-				break;
-
-			case ExportEvents.EXPORT_ERROR:
-				throw new LoggerError( __( 'Export failed' ), data instanceof Error ? data : undefined );
-		}
-	}
-
 	try {
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
 		await connectToDaemon();
@@ -115,7 +109,7 @@ export async function runCommand(
 				phpVersion: DEFAULT_PHP_VERSION,
 				includes,
 			},
-			handleExportEvent
+			exportEventHandler
 		);
 
 		if ( ! isExported ) {

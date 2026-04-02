@@ -7,7 +7,10 @@ import { vi } from 'vitest';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { ImporterEvents, ValidatorEvents } from 'cli/lib/import-export/import/events';
-import { defaultImporterOptions, importBackup } from 'cli/lib/import-export/import/import-manager';
+import {
+	DEFAULT_IMPORTER_OPTIONS,
+	importBackup,
+} from 'cli/lib/import-export/import/import-manager';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
@@ -88,7 +91,7 @@ describe( 'CLI: studio import', () => {
 			},
 			testSite,
 			expect.any( Function ),
-			defaultImporterOptions
+			DEFAULT_IMPORTER_OPTIONS
 		);
 		expect( disconnectFromDaemon ).toHaveBeenCalled();
 	} );

@@ -118,11 +118,11 @@ describe( 'CLI: studio export', () => {
 		const argv = getYargsArgvMock();
 		registerCommand( argv );
 
-		await argv.parse( [ 'export', '/tmp/site-backup.sql', '--path', testSitePath ] );
+		await argv.parse( [ 'export', 'site-backup.sql', '--path', testSitePath ] );
 
 		expect( exportBackup ).toHaveBeenCalledWith(
 			expect.objectContaining( {
-				backupFile: '/tmp/site-backup.sql',
+				backupFile: expect.stringContaining( 'site-backup.sql' ),
 			} ),
 			expect.any( Function )
 		);
@@ -137,7 +137,7 @@ describe( 'CLI: studio export', () => {
 
 		await argv.parse( [
 			'export',
-			'/tmp/site-backup.sql',
+			'site-backup.sql',
 			'--path',
 			testSitePath,
 			'--only',

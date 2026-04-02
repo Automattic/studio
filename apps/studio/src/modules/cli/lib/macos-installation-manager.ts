@@ -34,8 +34,11 @@ function getProfilePath(): string {
 async function readProfileContent(): Promise< string > {
 	try {
 		return await readFile( getProfilePath(), 'utf-8' );
-	} catch {
-		return '';
+	} catch ( error ) {
+		if ( isErrnoException( error ) && error.code === 'ENOENT' ) {
+			return '';
+		}
+		throw error;
 	}
 }
 

@@ -27,7 +27,11 @@ const {
 	mockExistsSync: vi.fn().mockReturnValue( true ),
 	mockDialog: { showMessageBox: vi.fn().mockResolvedValue( { response: 0 } ) },
 	mockGetMainWindow: vi.fn().mockResolvedValue( {} ),
-	mockApp: { getPath: vi.fn().mockReturnValue( 'C:\\Users\\testuser\\AppData\\Local\\studio\\app-1.0.0\\Studio.exe' ) },
+	mockApp: {
+		getPath: vi
+			.fn()
+			.mockReturnValue( 'C:\\Users\\testuser\\AppData\\Local\\studio\\app-1.0.0\\Studio.exe' ),
+	},
 	mockCaptureException: vi.fn(),
 	mockLoadUserData: vi.fn().mockResolvedValue( { version: 1, siteMetadata: {} } ),
 	mockUpdateAppdata: vi.fn().mockResolvedValue( undefined ),
@@ -119,11 +123,13 @@ describe.skipIf( isNonWindows )( 'WindowsCliInstallationManager', () => {
 	describe( 'autoInstallIfNeeded', () => {
 		it( 'installs CLI on first launch when not already installed', async () => {
 			// Registry PATH doesn't contain studio bin dir
-			mockRegistryGet.mockImplementation( ( _key: string, cb: Function ) =>
-				cb( null, { value: 'C:\\Windows\\system32' } )
+			mockRegistryGet.mockImplementation(
+				( _key: string, cb: ( err: Error | null, item?: { value: string } ) => void ) =>
+					cb( null, { value: 'C:\\Windows\\system32' } )
 			);
-			mockRegistrySet.mockImplementation( ( _key: string, _type: string, _value: string, cb: Function ) =>
-				cb( null )
+			mockRegistrySet.mockImplementation(
+				( _key: string, _type: string, _value: string, cb: ( err: Error | null ) => void ) =>
+					cb( null )
 			);
 
 			await manager.autoInstallIfNeeded();
@@ -139,8 +145,11 @@ describe.skipIf( isNonWindows )( 'WindowsCliInstallationManager', () => {
 				cliAutoInstalled: true,
 			} );
 			// Studio bin dir is in registry PATH
-			mockRegistryGet.mockImplementation( ( _key: string, cb: Function ) =>
-				cb( null, { value: 'C:\\Users\\testuser\\AppData\\Local\\studio\\bin;C:\\Windows\\system32' } )
+			mockRegistryGet.mockImplementation(
+				( _key: string, cb: ( err: Error | null, item?: { value: string } ) => void ) =>
+					cb( null, {
+						value: 'C:\\Users\\testuser\\AppData\\Local\\studio\\bin;C:\\Windows\\system32',
+					} )
 			);
 
 			await manager.autoInstallIfNeeded();
@@ -157,8 +166,9 @@ describe.skipIf( isNonWindows )( 'WindowsCliInstallationManager', () => {
 				cliAutoInstalled: true,
 			} );
 			// Studio bin dir is NOT in registry PATH (user uninstalled)
-			mockRegistryGet.mockImplementation( ( _key: string, cb: Function ) =>
-				cb( null, { value: 'C:\\Windows\\system32' } )
+			mockRegistryGet.mockImplementation(
+				( _key: string, cb: ( err: Error | null, item?: { value: string } ) => void ) =>
+					cb( null, { value: 'C:\\Windows\\system32' } )
 			);
 
 			await manager.autoInstallIfNeeded();

@@ -48,7 +48,10 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 		}
 
 		await this.installCli();
-		await updateAppdata( { cliAutoInstalled: true } );
+
+		if ( await this.isCliInstalled() ) {
+			await updateAppdata( { cliAutoInstalled: true } );
+		}
 	}
 
 	async installCliWithConfirmation(): Promise< void > {

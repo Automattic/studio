@@ -19,12 +19,7 @@ import {
 } from '@studio/common/lib/well-known-paths';
 import type { SharedConfig } from '@studio/common/lib/shared-config';
 
-vi.mock( 'fs', () => ( {
-	default: {
-		existsSync: vi.fn(),
-		mkdirSync: vi.fn(),
-	},
-} ) );
+vi.mock( 'fs' );
 vi.mock( 'os', () => ( {
 	default: {
 		homedir: vi.fn(),

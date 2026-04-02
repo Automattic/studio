@@ -177,24 +177,6 @@ describe.skipIf( isNonWindows )( 'WindowsCliInstallationManager', () => {
 			expect( mockRegistrySet ).not.toHaveBeenCalled();
 			expect( mockUpdateAppdata ).not.toHaveBeenCalled();
 		} );
-
-		it( 'does not set cliAutoInstalled flag when install fails', async () => {
-			// Registry PATH doesn't contain studio bin dir
-			mockRegistryGet.mockImplementation(
-				( _key: string, cb: ( err: Error | null, item?: { value: string } ) => void ) =>
-					cb( null, { value: 'C:\\Windows\\system32' } )
-			);
-			mockRegistrySet.mockImplementation(
-				( _key: string, _type: string, _value: string, cb: ( err: Error | null ) => void ) =>
-					cb( null )
-			);
-			// Simulate failure: bin dir doesn't exist after install
-			mockExistsSync.mockReturnValue( false );
-
-			await manager.autoInstallIfNeeded();
-
-			expect( mockUpdateAppdata ).not.toHaveBeenCalled();
-		} );
 	} );
 } );
 

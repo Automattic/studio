@@ -103,7 +103,7 @@ function buildSystemPrompt( sitePath?: string, siteName?: string ): string {
 	const desktopContext = sitePath
 		? `\n\n## Current Site Context\n\nThe user is working on "${
 				siteName ?? 'their site'
-		  }" located at: ${ sitePath }\nYour working directory is set to this site's root. Work within wp-content/.\n\nBefore making changes to content, use wp_cli to check existing content and revisions. When editing posts or pages, prefer wp_cli (wp post update) over direct file manipulation for content changes.\n`
+		  }" located at: ${ sitePath }\nYour working directory is set to this site's root. Work within wp-content/.\n\nBefore making changes to content, use wp_cli to check existing content and revisions.\n\n## Editing Page/Post Content\n\nWhen editing specific blocks within a post or page, use post_blocks_read to see all blocks with their indices, then post_block_update to replace a specific block by index. This is much safer than wp post update --post_content which replaces the entire page content. Only use wp post update --post_content when creating new posts or doing full page rewrites.\n`
 		: '';
 
 	return cliPrompt + desktopContext;

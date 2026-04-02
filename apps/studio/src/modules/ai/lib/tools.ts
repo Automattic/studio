@@ -181,12 +181,161 @@ const wpCliTool = tool(
 	}
 );
 
+/**
+ * Helper: find a running site's server by name, or throw with a descriptive message.
+ */
+function getRunningSiteServer( name: string ): SiteServer {
+	const sites = SiteServer.getAllDetails();
+	const site = sites.find( ( s ) => s.name.toLowerCase() === name.toLowerCase() );
+	if ( ! site ) {
+		throw new Error( `Site "${ name }" not found. Use site_list to see available sites.` );
+	}
+	if ( ! site.running ) {
+		throw new Error( `Site "${ site.name }" is not running. Use site_start first.` );
+	}
+	const server = SiteServer.get( site.id );
+	if ( ! server ) {
+		throw new Error( `Could not find server for site "${ site.name }".` );
+	}
+	return server;
+}
+
+const postBlocksReadTool = tool(
+	'post_blocks_read',
+	'List all Gutenberg blocks in a WordPress post or page, with their index, type, and a content preview. Use this to understand page structure before editing specific blocks with post_block_update.',
+	{
+		name: z.string().describe( 'The name of the site' ),
+		post_id: z.number().describe( 'The post or page ID' ),
+	},
+	async ( args ) => {
+		let server: SiteServer;
+		try {
+			server = getRunningSiteServer( args.name );
+		} catch ( error ) {
+			return errorResult( error instanceof Error ? error.message : String( error ) );
+		}
+
+		const php = `
+$post = get_post( ${ args.post_id } );
+if ( ! $post ) { echo json_encode( [ 'error' => 'Post not found' ] ); exit; }
+$blocks = parse_blocks( $post->post_content );
+$output = [];
+$index = 0;
+foreach ( $blocks as $block ) {
+	if ( empty( $block['blockName'] ) ) {
+		$index++;
+		continue;
+	}
+	$preview = wp_strip_all_tags( $block['innerHTML'] );
+	$preview = preg_replace( '/\\s+/', ' ', trim( $preview ) );
+	if ( strlen( $preview ) > 200 ) { $preview = substr( $preview, 0, 197 ) . '...'; }
+	$entry = [
+		'index' => $index,
+		'type'  => $block['blockName'],
+	];
+	if ( ! empty( $block['attrs'] ) ) { $entry['attrs'] = $block['attrs']; }
+	if ( $preview !== '' ) { $entry['preview'] = $preview; }
+	if ( ! empty( $block['innerBlocks'] ) ) { $entry['innerBlockCount'] = count( $block['innerBlocks'] ); }
+	$output[] = $entry;
+	$index++;
+}
+echo json_encode( $output, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES );
+`;
+
+		try {
+			const cliResult = await server.executeWpCliCommand( [ 'eval', php.trim() ] );
+			if ( cliResult.stderr ) {
+				return errorResult( cliResult.stderr );
+			}
+			return textResult( cliResult.stdout || 'No blocks found.' );
+		} catch ( error ) {
+			return errorResult(
+				`Failed to read blocks: ${ error instanceof Error ? error.message : String( error ) }`
+			);
+		}
+	}
+);
+
+const postBlockUpdateTool = tool(
+	'post_block_update',
+	'Replace a specific Gutenberg block in a post or page by its index. Use post_blocks_read first to find the target block index. The new_markup should be valid block markup (e.g. <!-- wp:paragraph --><p>Hello</p><!-- /wp:paragraph -->).',
+	{
+		name: z.string().describe( 'The name of the site' ),
+		post_id: z.number().describe( 'The post or page ID' ),
+		block_index: z.number().describe( 'The block index (from post_blocks_read) to replace' ),
+		new_markup: z.string().describe( 'The new block markup to replace the block with' ),
+	},
+	async ( args ) => {
+		let server: SiteServer;
+		try {
+			server = getRunningSiteServer( args.name );
+		} catch ( error ) {
+			return errorResult( error instanceof Error ? error.message : String( error ) );
+		}
+
+		// Base64-encode the markup to avoid quoting/escaping issues in PHP
+		const encodedMarkup = Buffer.from( args.new_markup ).toString( 'base64' );
+
+		const php = `
+$post = get_post( ${ args.post_id } );
+if ( ! $post ) { echo json_encode( [ 'error' => 'Post not found' ] ); exit; }
+$blocks = parse_blocks( $post->post_content );
+$target = ${ args.block_index };
+if ( ! isset( $blocks[ $target ] ) ) {
+	echo json_encode( [ 'error' => 'Block index ' . $target . ' not found. Post has ' . count( $blocks ) . ' blocks.' ] );
+	exit;
+}
+$new_markup = base64_decode( '${ encodedMarkup }' );
+$new_blocks = parse_blocks( $new_markup );
+if ( empty( $new_blocks ) ) {
+	echo json_encode( [ 'error' => 'Could not parse the provided markup into a valid block.' ] );
+	exit;
+}
+array_splice( $blocks, $target, 1, $new_blocks );
+$content = serialize_blocks( $blocks );
+$updated = wp_update_post( [
+	'ID'           => ${ args.post_id },
+	'post_content' => $content,
+], true );
+if ( is_wp_error( $updated ) ) {
+	echo json_encode( [ 'error' => $updated->get_error_message() ] );
+	exit;
+}
+echo 'Block ' . $target . ' updated successfully.';
+`;
+
+		try {
+			const cliResult = await server.executeWpCliCommand( [ 'eval', php.trim() ] );
+			if ( cliResult.stderr ) {
+				return errorResult( cliResult.stderr );
+			}
+			const output = cliResult.stdout || '';
+			// Check if the PHP returned a JSON error
+			try {
+				const parsed = JSON.parse( output );
+				if ( parsed.error ) {
+					return errorResult( parsed.error );
+				}
+			} catch {
+				// Not JSON — it's the success message
+			}
+			return textResult( output );
+		} catch ( error ) {
+			return errorResult(
+				`Failed to update block: ${ error instanceof Error ? error.message : String( error ) }`
+			);
+		}
+	}
+);
+
 const studioToolDefinitions = [
 	siteListTool,
 	siteInfoTool,
 	siteStartTool,
 	siteStopTool,
 	wpCliTool,
+	postBlocksReadTool,
+	postBlockUpdateTool,
 ];
 
 /**

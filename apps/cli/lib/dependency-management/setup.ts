@@ -1,5 +1,7 @@
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
+import { extractZip } from '@studio/common/lib/extract-zip';
 import { recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
 import semver from 'semver';
 import { getSqliteVersionFromInstallation } from 'cli/lib/sqlite-integration';
@@ -14,6 +16,7 @@ import {
 	getWpFilesPath,
 } from '../server-files';
 import { updateLatestSqliteCommandVersion } from './sqlite-command';
+import { downloadFile } from './utils';
 import { getWordPressVersionFromInstallation, updateLatestWordPressVersion } from './wordpress';
 import { updateLatestWpCliVersion } from './wp-cli';
 
@@ -47,18 +50,44 @@ async function copyBundledLatestWpVersion() {
 }
 
 const SQLITE_FILENAME = 'sqlite-database-integration';
+const SQLITE_PLUGIN_DOWNLOAD_URL =
+	'https://downloads.wordpress.org/plugin/sqlite-database-integration.latest-stable.zip';
+
+async function downloadSqliteIntegration(): Promise< void > {
+	const tmpDownloadPath = path.join( os.tmpdir(), `sqlite-integration-${ crypto.randomUUID() }.zip` );
+	const tmpExtractPath = path.join( os.tmpdir(), `sqlite-integration-${ crypto.randomUUID() }` );
+
+	try {
+		await downloadFile( SQLITE_PLUGIN_DOWNLOAD_URL, tmpDownloadPath );
+		await extractZip( tmpDownloadPath, tmpExtractPath );
+		const extractedDir = path.join( tmpExtractPath, SQLITE_FILENAME );
+		if ( fs.existsSync( extractedDir ) ) {
+			await recursiveCopyDirectory( extractedDir, getSqlitePluginPath() );
+		}
+	} finally {
+		await fs.promises.rm( tmpDownloadPath, { force: true } );
+		await fs.promises.rm( tmpExtractPath, { recursive: true, force: true } );
+	}
+}
 
 async function copyBundledSqlite() {
+	const installedSqlitePath = getSqlitePluginPath();
+	const isSqliteInstalled = fs.existsSync( installedSqlitePath );
+
 	const bundledSqlitePath = path.join( getWpFilesPath(), SQLITE_FILENAME );
 	const bundledSqliteVersion = semver.coerce(
 		await getSqliteVersionFromInstallation( bundledSqlitePath ),
 		{ includePrerelease: true }
 	);
+
+	// No bundled version available (e.g. dev build) — download if not already installed.
 	if ( ! bundledSqliteVersion ) {
+		if ( ! isSqliteInstalled ) {
+			await downloadSqliteIntegration();
+		}
 		return;
 	}
-	const installedSqlitePath = getSqlitePluginPath();
-	const isSqliteInstalled = fs.existsSync( installedSqlitePath );
+
 	const installedSqliteVersion = semver.coerce(
 		await getSqliteVersionFromInstallation( installedSqlitePath ),
 		{ includePrerelease: true }

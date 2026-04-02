@@ -1555,11 +1555,11 @@ export async function runCommand(
 				],
 				( progress ) => logger.reportProgress( progress ),
 				{
-					progressLabel: 'Downloading essential files',
+					progressLabel: 'Essential files',
 					verboseCommands: verbose,
 				}
 			);
-			logger.reportSuccess( __( 'Downloading essential files downloaded' ) );
+			logger.reportSuccess( __( 'Essential files downloaded' ) );
 
 			setStage( metadata, 'essential-files-complete' );
 		}

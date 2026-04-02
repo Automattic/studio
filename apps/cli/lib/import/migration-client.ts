@@ -90,19 +90,19 @@ function formatElapsedSeconds( elapsedSeconds: number ): string {
 function mapImporterPhase( phase: string | undefined ): string | undefined {
 	switch ( phase ) {
 		case 'index':
-			return 'indexing files';
+			return 'indexing remote files';
 		case 'diff':
-			return 'building download list';
+			return 'preparing download list';
 		case 'fetch':
-			return 'downloading files';
+			return 'streaming';
 		case 'fetch-skipped':
-			return 'downloading skipped files';
+			return 'streaming';
 		case 'db-index':
-			return 'indexing database';
+			return 'indexing tables';
 		case 'sql':
-			return 'downloading database';
+			return 'downloading';
 		case 'db-apply':
-			return 'importing database';
+			return 'applying';
 		default:
 			return phase;
 	}
@@ -111,11 +111,11 @@ function mapImporterPhase( phase: string | undefined ): string | undefined {
 function getDefaultPhaseForCommand( command: string | undefined ): string | undefined {
 	switch ( command ) {
 		case 'files-sync':
-			return 'indexing files';
+			return 'starting';
 		case 'db-sync':
-			return 'downloading database';
+			return 'starting';
 		case 'db-apply':
-			return 'importing database';
+			return 'starting';
 		default:
 			return undefined;
 	}
@@ -169,7 +169,7 @@ export function updateImporterProgressSnapshot(
 	}
 
 	if ( type === 'symlink_follow' ) {
-		nextSnapshot.phase = nextSnapshot.phase ?? 'indexing files';
+		nextSnapshot.phase = nextSnapshot.phase ?? 'indexing remote files';
 		nextSnapshot.message = `following symlink ${ shortenImporterPath(
 			readString( object.directory )
 		) }`;
@@ -177,7 +177,7 @@ export function updateImporterProgressSnapshot(
 	}
 
 	if ( type === 'symlink_follow_rejected' ) {
-		nextSnapshot.phase = nextSnapshot.phase ?? 'indexing files';
+		nextSnapshot.phase = nextSnapshot.phase ?? 'indexing remote files';
 		nextSnapshot.message = `skipped symlink ${ shortenImporterPath(
 			readString( object.directory )
 		) }`;
@@ -190,10 +190,10 @@ export function updateImporterProgressSnapshot(
 	}
 
 	const status = readString( object.status );
-	if ( status === 'starting' && nextSnapshot.phase ) {
-		nextSnapshot.message = `starting ${ nextSnapshot.phase }`;
+	if ( status === 'starting' ) {
+		nextSnapshot.message = 'starting';
 	} else if ( status === 'complete' && nextSnapshot.phase ) {
-		nextSnapshot.message = `${ nextSnapshot.phase } complete`;
+		nextSnapshot.message = 'complete';
 	} else if ( status && ! nextSnapshot.message ) {
 		nextSnapshot.message = status;
 	}
@@ -294,28 +294,7 @@ export function formatImporterProgressSnapshot(
 		}
 	}
 
-	if (
-		snapshot.message &&
-		( segments.length > 1 ||
-			! snapshot.phase ||
-			snapshot.message !== `starting ${ snapshot.phase }` )
-	) {
-		if (
-			! (
-				snapshot.message === snapshot.phase ||
-				snapshot.message === `starting ${ snapshot.phase }` ||
-				snapshot.message === `${ snapshot.phase } complete`
-			)
-		) {
-			segments.push( snapshot.message );
-		}
-	}
-
-	if (
-		segments.length === 1 &&
-		snapshot.message &&
-		( ! snapshot.phase || snapshot.message !== `starting ${ snapshot.phase }` )
-	) {
+	if ( snapshot.message && snapshot.message !== snapshot.phase ) {
 		segments.push( snapshot.message );
 	}
 

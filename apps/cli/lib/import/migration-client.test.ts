@@ -19,7 +19,7 @@ describe( 'formatImporterJsonlProgress', () => {
 
 	it( 'shows indexing text when the importer reports the index phase', () => {
 		expect( formatImporterJsonlProgress( { phase: 'index' }, 'Downloading essential files', 7 ) ).toBe(
-			'Downloading essential files · indexing files · 7s'
+			'Downloading essential files · indexing remote files · 7s'
 		);
 	} );
 
@@ -93,7 +93,7 @@ describe( 'formatImporterJsonlProgress', () => {
 		);
 
 		expect( formatImporterProgressSnapshot( restartedHeartbeat!, 'Downloading essential files', 7 ) ).toBe(
-			'Downloading essential files · indexing files · 6.5 MB received · following symlink .../plugins/jetpack/15.7-a.7 · 7s'
+			'Downloading essential files · indexing remote files · 6.5 MB received · following symlink .../plugins/jetpack/15.7-a.7 · 7s'
 		);
 	} );
 
@@ -103,7 +103,7 @@ describe( 'formatImporterJsonlProgress', () => {
 			phase: 'fetch',
 		} );
 		expect( formatImporterProgressSnapshot( snapshot!, 'Downloading essential files', 4 ) ).toBe(
-			'Downloading essential files · downloading files · 4s'
+			'Downloading essential files · streaming · starting · 4s'
 		);
 	} );
 
@@ -115,7 +115,7 @@ describe( 'formatImporterJsonlProgress', () => {
 			stage: 'index',
 		} );
 		expect( formatImporterProgressSnapshot( snapshot!, 'Downloading essential files', 4 ) ).toBe(
-			'Downloading essential files · indexing files · resuming · 4s'
+			'Downloading essential files · indexing remote files · resuming · 4s'
 		);
 	} );
 
@@ -125,7 +125,7 @@ describe( 'formatImporterJsonlProgress', () => {
 			directory: '/wordpress/plugins/jetpack/15.7-a.7',
 		} );
 		expect( formatImporterProgressSnapshot( snapshot!, 'Downloading essential files', 8 ) ).toBe(
-			'Downloading essential files · indexing files · following symlink .../plugins/jetpack/15.7-a.7 · 8s'
+			'Downloading essential files · indexing remote files · following symlink .../plugins/jetpack/15.7-a.7 · 8s'
 		);
 	} );
 

@@ -38,6 +38,7 @@ const serverConfig = z.object( {
 	mounts: z.array( mountSchema ).optional(),
 	mountsBeforeInstall: z.array( mountSchema ).optional(),
 	wordpressInstallMode: wordpressInstallModeSchema.optional(),
+	skipSqliteSetup: z.boolean().optional(),
 	useExactMountLayout: z.boolean().optional(),
 } );
 

@@ -30,14 +30,25 @@ describe( 'imported runtime start options', () => {
 			( filePath ) =>
 				filePath === '/test/runtime/blueprint.json' ||
 				filePath === '/test/runtime/start.sh' ||
+				filePath === '/test/runtime/runtime.php' ||
 				filePath === '/test/raw/core' ||
 				filePath === 'C:\\\\Sites\\\\test\\\\wp-content' ||
-				filePath === '/test/runtime/runtime.php' ||
 				filePath === '/test/state/.import-state.json'
 		);
 		vi.spyOn( fs, 'readFileSync' ).mockImplementation( ( filePath ) => {
 			if ( filePath === '/test/runtime/blueprint.json' ) {
 				return '{"landingPage":"/"}';
+			}
+
+			if ( filePath === '/test/runtime/runtime.php' ) {
+				return `<?php
+if (!defined('WP_CONTENT_DIR')) {
+    define('WP_CONTENT_DIR', '/wordpress/wp-content');
+}
+if (!defined('STREAMING_SITE_MIGRATION_REMOTE_UPLOAD_PROXY_STATE_FILE')) {
+    define('STREAMING_SITE_MIGRATION_REMOTE_UPLOAD_PROXY_STATE_FILE', '/tmp/streaming-site-migration/.import-state.json');
+}
+`;
 			}
 
 			return `npx @wp-playground/cli@latest server \\
@@ -54,6 +65,13 @@ describe( 'imported runtime start options', () => {
 		expect( loadImportedRuntimeStartOptions( '/test/runtime/blueprint.json' ) ).toEqual( {
 			blueprint: {
 				landingPage: '/',
+				constants: {
+					WP_CONTENT_DIR: '/wordpress/wp-content',
+					WP_PLUGIN_DIR: '/wordpress/wp-content/plugins',
+					WPMU_PLUGIN_DIR: '/wordpress/wp-content/mu-plugins',
+					STREAMING_SITE_MIGRATION_REMOTE_UPLOAD_PROXY_STATE_FILE:
+						'/tmp/streaming-site-migration/.import-state.json',
+				},
 			},
 			blueprintUri: '/test/runtime/blueprint.json',
 			mountsBeforeInstall: [
@@ -71,6 +89,7 @@ describe( 'imported runtime start options', () => {
 				},
 			],
 			wordpressInstallMode: 'do-not-attempt-installing',
+			skipSqliteSetup: true,
 			useExactMountLayout: true,
 		} );
 	} );

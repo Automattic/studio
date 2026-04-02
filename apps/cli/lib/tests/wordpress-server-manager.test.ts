@@ -138,6 +138,7 @@ describe( 'WordPress Server Manager', () => {
 					},
 				],
 				wordpressInstallMode: 'do-not-attempt-installing',
+				skipSqliteSetup: false,
 				useExactMountLayout: true,
 			} );
 
@@ -162,6 +163,7 @@ describe( 'WordPress Server Manager', () => {
 								},
 							],
 							wordpressInstallMode: 'do-not-attempt-installing',
+							skipSqliteSetup: false,
 							useExactMountLayout: true,
 						} ),
 					},

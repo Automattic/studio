@@ -57,6 +57,7 @@ export interface StartServerOptions {
 	mounts?: ServerConfig[ 'mounts' ];
 	mountsBeforeInstall?: ServerConfig[ 'mountsBeforeInstall' ];
 	wordpressInstallMode?: WordPressInstallMode;
+	skipSqliteSetup?: boolean;
 	useExactMountLayout?: boolean;
 }
 
@@ -121,6 +122,10 @@ export async function startWordPressServer(
 
 	if ( options?.wordpressInstallMode ) {
 		serverConfig.wordpressInstallMode = options.wordpressInstallMode;
+	}
+
+	if ( options?.skipSqliteSetup !== undefined ) {
+		serverConfig.skipSqliteSetup = options.skipSqliteSetup;
 	}
 
 	if ( options?.useExactMountLayout ) {

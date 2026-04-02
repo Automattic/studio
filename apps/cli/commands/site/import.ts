@@ -1497,7 +1497,9 @@ export async function runCommand(
 					`--secret=${ secret }`,
 					'--filter=essential-files',
 					'--no-adaptive',
+					'--follow-symlinks',
 					'--on-fs-root-nonempty=preserve-local',
+					'--no-adaptive', // Don't do backoffs on WP.com sites
 					'--state-dir=/state',
 					'--fs-root=/docroot',
 				],
@@ -1508,6 +1510,7 @@ export async function runCommand(
 				}
 			);
 			logger.reportSuccess( __( 'Essential files downloaded' ) );
+
 			setStage( metadata, 'essential-files-complete' );
 		}
 

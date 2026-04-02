@@ -73,6 +73,14 @@ describe( 'CLI: studio site start', () => {
 `;
 			}
 
+			if ( filePath === '/test/import/runtime/runtime.php' ) {
+				return `<?php
+if (!defined('WP_CONTENT_DIR')) {
+    define('WP_CONTENT_DIR', '/wordpress/wp-content');
+}
+`;
+			}
+
 			return '{"steps":[]}';
 		} );
 	} );
@@ -221,7 +229,14 @@ describe( 'CLI: studio site start', () => {
 				expect.any( Logger ),
 				expect.objectContaining( {
 					blueprintUri: '/test/import/runtime/blueprint.json',
-					blueprint: { steps: [] },
+					blueprint: {
+						steps: [],
+						constants: {
+							WP_CONTENT_DIR: '/wordpress/wp-content',
+							WP_PLUGIN_DIR: '/wordpress/wp-content/plugins',
+							WPMU_PLUGIN_DIR: '/wordpress/wp-content/mu-plugins',
+						},
+					},
 					mountsBeforeInstall: [
 						{ hostPath: '/test/import/raw/core', vfsPath: '/wordpress' },
 						{ hostPath: '/test/site/wp-content', vfsPath: '/wordpress/wp-content' },
@@ -233,6 +248,7 @@ describe( 'CLI: studio site start', () => {
 						},
 					],
 					wordpressInstallMode: 'do-not-attempt-installing',
+					skipSqliteSetup: true,
 					useExactMountLayout: true,
 				} )
 			);

@@ -33,6 +33,84 @@ function filterExistingMounts(
 	return mounts.filter( ( mount ) => fs.existsSync( mount.hostPath ) );
 }
 
+type RuntimeConstantValue = string | number | boolean;
+type BlueprintWithConstants = Blueprint & {
+	constants?: Record< string, RuntimeConstantValue >;
+};
+
+function decodePhpScalarValue( rawValue: string ): RuntimeConstantValue | null {
+	if ( rawValue === 'true' ) {
+		return true;
+	}
+
+	if ( rawValue === 'false' ) {
+		return false;
+	}
+
+	if ( /^-?\d+(?:\.\d+)?$/.test( rawValue ) ) {
+		return Number( rawValue );
+	}
+
+	if ( rawValue.startsWith( "'" ) && rawValue.endsWith( "'" ) ) {
+		return rawValue.slice( 1, -1 ).replace( /\\\\/g, '\\' ).replace( /\\'/g, "'" );
+	}
+
+	return null;
+}
+
+function parseRuntimePhpConstants( runtimePhp: string ): Record< string, RuntimeConstantValue > {
+	const constants: Record< string, RuntimeConstantValue > = {};
+	const defineRegex = /define\('([^']+)',\s*('(?:\\.|[^'])*'|true|false|-?\d+(?:\.\d+)?)\s*\);/g;
+
+	for ( const match of runtimePhp.matchAll( defineRegex ) ) {
+		const value = decodePhpScalarValue( match[ 2 ] );
+		if ( value === null ) {
+			continue;
+		}
+
+		constants[ match[ 1 ] ] = value;
+	}
+
+	return constants;
+}
+
+function getMountedWordPressPathConstants(
+	mountsBeforeInstall: Array< { hostPath: string; vfsPath: string } >,
+	mounts: Array< { hostPath: string; vfsPath: string } >
+): Record< string, string > {
+	const allMounts = [ ...mountsBeforeInstall, ...mounts ];
+	const wpContentMount = allMounts.find( ( mount ) => mount.vfsPath === '/wordpress/wp-content' );
+
+	if ( ! wpContentMount ) {
+		return {};
+	}
+
+	return {
+		WP_CONTENT_DIR: '/wordpress/wp-content',
+		WP_PLUGIN_DIR: '/wordpress/wp-content/plugins',
+		WPMU_PLUGIN_DIR: '/wordpress/wp-content/mu-plugins',
+	};
+}
+
+function mergeBlueprintConstants(
+	blueprint: Blueprint,
+	constants: Record< string, RuntimeConstantValue >
+): Blueprint {
+	if ( Object.keys( constants ).length === 0 ) {
+		return blueprint;
+	}
+
+	const blueprintWithConstants = blueprint as BlueprintWithConstants;
+
+	return {
+		...blueprintWithConstants,
+		constants: {
+			...( blueprintWithConstants.constants ?? {} ),
+			...constants,
+		},
+	};
+}
+
 export function normalizeImportedSqliteDatabasePath( sitePath: string ): string {
 	const databaseDirectory = path.join( sitePath, 'wp-content', 'database' );
 	const sqlitePath = path.join( databaseDirectory, '.ht.sqlite' );
@@ -66,13 +144,26 @@ export function loadRuntimeBlueprint( runtimeBlueprintPath: string ): Blueprint 
 export function loadImportedRuntimeStartOptions(
 	runtimeBlueprintPath: string
 ): StartServerOptions {
+	const runtimeDirectory = path.dirname( runtimeBlueprintPath );
+	const runtimeStartScriptPath = path.join( runtimeDirectory, 'start.sh' );
+	const runtimePhpPath = path.join( runtimeDirectory, 'runtime.php' );
+
+	let blueprint = loadRuntimeBlueprint( runtimeBlueprintPath );
 	const startOptions: StartServerOptions = {
-		blueprint: loadRuntimeBlueprint( runtimeBlueprintPath ),
+		blueprint,
 		blueprintUri: runtimeBlueprintPath,
 	};
 
-	const runtimeStartScriptPath = path.join( path.dirname( runtimeBlueprintPath ), 'start.sh' );
 	if ( ! fs.existsSync( runtimeStartScriptPath ) ) {
+		if ( fs.existsSync( runtimePhpPath ) ) {
+			blueprint = mergeBlueprintConstants(
+				blueprint,
+				parseRuntimePhpConstants( fs.readFileSync( runtimePhpPath, 'utf-8' ) )
+			);
+			startOptions.blueprint = blueprint;
+		}
+
+		startOptions.skipSqliteSetup = true;
 		return startOptions;
 	}
 
@@ -99,6 +190,18 @@ export function loadImportedRuntimeStartOptions(
 		startOptions.wordpressInstallMode = wordpressInstallMode;
 	}
 
+	const runtimeConstants = {
+		...getMountedWordPressPathConstants( mountsBeforeInstall, mounts ),
+		...( fs.existsSync( runtimePhpPath )
+			? parseRuntimePhpConstants( fs.readFileSync( runtimePhpPath, 'utf-8' ) )
+			: {} ),
+	};
+	if ( Object.keys( runtimeConstants ).length > 0 ) {
+		blueprint = mergeBlueprintConstants( blueprint, runtimeConstants );
+		startOptions.blueprint = blueprint;
+	}
+
+	startOptions.skipSqliteSetup = true;
 	startOptions.useExactMountLayout = true;
 
 	return startOptions;

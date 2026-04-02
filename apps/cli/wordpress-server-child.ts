@@ -266,7 +266,7 @@ async function getBaseRunCLIArgs(
 		internalCookieStore: false,
 		login: false,
 		followSymlinks: true,
-		skipSqliteSetup: true,
+		skipSqliteSetup: config.skipSqliteSetup ?? ! useExactMountLayout,
 		port: config.port,
 		'mount-before-install': mountsBeforeInstall,
 		...( mounts.length > 0 ? { mount: mounts } : {} ),
@@ -340,6 +340,7 @@ const startServer = wrapWithStartingPromise(
 			stopSignal.throwIfAborted();
 
 			const args = await getBaseRunCLIArgs( 'server', config );
+
 			server = await runCLI( args );
 
 			stopSignal.throwIfAborted();

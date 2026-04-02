@@ -45,7 +45,7 @@ import {
 } from 'src/modules/cli/lib/cli-events-subscriber';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { autoInstallMacOSCliIfNeeded } from 'src/modules/cli/lib/macos-installation-manager';
-import { updateWindowsCliVersionedPathIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
+import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
 import { getRunningSiteCount, SiteServer, stopAllServers } from 'src/site-server';
 import {
 	loadUserData,
@@ -335,7 +335,7 @@ async function appBoot() {
 			'monthly'
 		).catch( ( err ) => Sentry.captureException( err ) );
 
-		await updateWindowsCliVersionedPathIfNeeded();
+		await autoInstallWindowsCliIfNeeded();
 		await autoInstallMacOSCliIfNeeded();
 
 		finishedInitialization = true;

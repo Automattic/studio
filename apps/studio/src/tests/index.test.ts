@@ -57,7 +57,7 @@ vi.mock( 'src/modules/cli/lib/execute-command', () => {
 	};
 } );
 vi.mock( 'src/modules/cli/lib/windows-installation-manager', () => ( {
-	updateWindowsCliVersionedPathIfNeeded: vi.fn().mockResolvedValue( undefined ),
+	autoInstallWindowsCliIfNeeded: vi.fn().mockResolvedValue( undefined ),
 } ) );
 vi.mock( 'electron-devtools-installer', () => ( {
 	installExtension: vi.fn().mockResolvedValue( { id: 'test-extension' } ),

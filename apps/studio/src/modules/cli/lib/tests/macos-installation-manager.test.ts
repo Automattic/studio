@@ -115,7 +115,6 @@ describe.skipIf( isWindows )( 'MacOSCliInstallationManager', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		Object.defineProperty( process, 'platform', { value: 'darwin' } );
-		process.env.PATH = '/Users/testuser/.local/bin:/usr/bin:/bin:/usr/sbin:/sbin';
 		process.env.NODE_ENV = 'production';
 		process.env.SHELL = '/bin/zsh';
 		mockLoadUserData.mockResolvedValue( { version: 1, siteMetadata: {} } );

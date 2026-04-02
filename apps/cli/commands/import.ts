@@ -244,20 +244,22 @@ export async function runCommand( siteFolder: string, importFile: string ): Prom
 		};
 		await importBackup( backupFile, site, handleImportEvent, defaultImporterOptions );
 	} finally {
-		if ( site && wasServerRunning ) {
-			logger.reportStart(
-				LoggerAction.INSTALL_SQLITE,
-				__( 'Setting up SQLite integration, if needed…' )
-			);
-			await keepSqliteIntegrationUpdated( siteFolder );
-			logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
+		try {
+			if ( site && wasServerRunning ) {
+				logger.reportStart(
+					LoggerAction.INSTALL_SQLITE,
+					__( 'Setting up SQLite integration, if needed…' )
+				);
+				await keepSqliteIntegrationUpdated( siteFolder );
+				logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
 
-			logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
-			await startWordPressServer( site, logger );
-			logger.reportSuccess( __( 'WordPress server started' ) );
+				logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
+				await startWordPressServer( site, logger );
+				logger.reportSuccess( __( 'WordPress server started' ) );
+			}
+		} finally {
+			await disconnectFromDaemon();
 		}
-
-		await disconnectFromDaemon();
 	}
 }
 

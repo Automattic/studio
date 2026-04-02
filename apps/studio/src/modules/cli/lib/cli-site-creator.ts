@@ -35,6 +35,7 @@ export interface CreateSiteOptions {
 	enableHttps?: boolean;
 	siteId?: string;
 	blueprint?: Blueprint;
+	originalBlueprintPath?: string;
 	adminUsername?: string;
 	adminPassword?: string;
 	adminEmail?: string;
@@ -50,6 +51,9 @@ export async function createSiteViaCli( options: CreateSiteOptions ): Promise< C
 		blueprintTempPath = path.join( os.tmpdir(), `studio-blueprint-${ Date.now() }.json` );
 		fs.writeFileSync( blueprintTempPath, JSON.stringify( options.blueprint ) );
 		args.push( '--blueprint', blueprintTempPath );
+		if ( options.originalBlueprintPath ) {
+			args.push( '--original-blueprint-path', options.originalBlueprintPath );
+		}
 	}
 
 	return new Promise( ( resolve, reject ) => {

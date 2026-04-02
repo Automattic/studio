@@ -60,8 +60,6 @@ export interface IpcEvents {
 	'user-settings': [ { tabName?: string } ];
 	'window-fullscreen-change': [ boolean ];
 	'user-preference-changed': [ void ];
-	'user-data-updated': [ UserData ];
-	'user-data-error': [ string ];
 	'refresh-app-globals': [ void ];
 	'beta-features-updated': [ void ];
 }

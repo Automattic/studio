@@ -1,3 +1,4 @@
+import path from 'path';
 import { tool, createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod/v4';
 import { SiteServer } from 'src/site-server';
@@ -13,6 +14,20 @@ function textResult( text: string ) {
 	return {
 		content: [ { type: 'text' as const, text } ],
 	};
+}
+
+/**
+ * Find a site by display name or directory name (path basename).
+ * Allows the agent to use either "Next to Kin" or "my-serene-website".
+ */
+function findSiteByName( name: string ) {
+	const sites = SiteServer.getAllDetails();
+	const lower = name.toLowerCase();
+	return (
+		sites.find( ( s ) => s.name.toLowerCase() === lower ) ??
+		sites.find( ( s ) => path.basename( s.path ).toLowerCase() === lower ) ??
+		null
+	);
 }
 
 const siteListTool = tool(
@@ -41,8 +56,7 @@ const siteInfoTool = tool(
 		name: z.string().describe( 'The name of the site to get info for' ),
 	},
 	async ( args ) => {
-		const sites = SiteServer.getAllDetails();
-		const site = sites.find( ( s ) => s.name.toLowerCase() === args.name.toLowerCase() );
+		const site = findSiteByName( args.name );
 		if ( ! site ) {
 			return errorResult(
 				`Site "${ args.name }" not found. Use site_list to see available sites.`
@@ -79,8 +93,7 @@ const siteStartTool = tool(
 		name: z.string().describe( 'The name of the site to start' ),
 	},
 	async ( args ) => {
-		const sites = SiteServer.getAllDetails();
-		const site = sites.find( ( s ) => s.name.toLowerCase() === args.name.toLowerCase() );
+		const site = findSiteByName( args.name );
 		if ( ! site ) {
 			return errorResult( `Site "${ args.name }" not found.` );
 		}
@@ -114,8 +127,7 @@ const siteStopTool = tool(
 		name: z.string().describe( 'The name of the site to stop' ),
 	},
 	async ( args ) => {
-		const sites = SiteServer.getAllDetails();
-		const site = sites.find( ( s ) => s.name.toLowerCase() === args.name.toLowerCase() );
+		const site = findSiteByName( args.name );
 		if ( ! site ) {
 			return errorResult( `Site "${ args.name }" not found.` );
 		}
@@ -152,8 +164,7 @@ const wpCliTool = tool(
 			),
 	},
 	async ( args ) => {
-		const sites = SiteServer.getAllDetails();
-		const site = sites.find( ( s ) => s.name.toLowerCase() === args.name.toLowerCase() );
+		const site = findSiteByName( args.name );
 		if ( ! site ) {
 			return errorResult( `Site "${ args.name }" not found.` );
 		}
@@ -185,8 +196,7 @@ const wpCliTool = tool(
  * Helper: find a running site's server by name, or throw with a descriptive message.
  */
 function getRunningSiteServer( name: string ): SiteServer {
-	const sites = SiteServer.getAllDetails();
-	const site = sites.find( ( s ) => s.name.toLowerCase() === name.toLowerCase() );
+	const site = findSiteByName( name );
 	if ( ! site ) {
 		throw new Error( `Site "${ name }" not found. Use site_list to see available sites.` );
 	}

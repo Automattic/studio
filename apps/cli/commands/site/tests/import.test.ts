@@ -7,14 +7,15 @@ import {
 	findMatchingWpComSite,
 	formatWpComSitesList,
 	getApiUrl,
-	getFlattenSourceDirectory,
 	getImportKey,
 	inferSiteNameFromUrl,
 	migrateLegacyImporterLayout,
 	normalizeImportUrl,
 	parseImporterJson,
 	prepareSkippedEarlierState,
+	repairBlockingRawImportPaths,
 	repairCompletedImportState,
+	shouldRefreshFlattenedSite,
 	shouldRestartFilesSyncIndex,
 } from '../import';
 
@@ -139,28 +140,34 @@ describe( 'CLI: studio site import helpers', () => {
 		}
 	} );
 
-	it( 'uses the remote document root as the flatten source directory when available', () => {
+	it( 'repairs blocking raw root files for directories referenced by preflight paths', () => {
 		const stateDirectory = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-import-state-' ) );
 		const rawDirectory = path.join( stateDirectory, 'raw' );
 
 		try {
 			fs.mkdirSync( rawDirectory, { recursive: true } );
+			fs.writeFileSync( path.join( rawDirectory, 'wordpress' ), '' );
 			fs.writeFileSync(
 				path.join( stateDirectory, '.import-state.json' ),
 				JSON.stringify( {
 					preflight: {
 						data: {
-							runtime: {
-								document_root: `base64:${ Buffer.from( '/srv/htdocs' ).toString( 'base64' ) }`,
+							wp_detect: {
+								roots: [
+									{
+										path: `base64:${ Buffer.from( '/wordpress/core/6.9.4' ).toString( 'base64' ) }`,
+									},
+								],
 							},
 						},
 					},
 				} )
 			);
 
-			expect( getFlattenSourceDirectory( stateDirectory, rawDirectory ) ).toBe(
-				path.join( rawDirectory, 'srv', 'htdocs' )
-			);
+			expect( repairBlockingRawImportPaths( stateDirectory, rawDirectory ) ).toEqual( [
+				path.join( rawDirectory, 'wordpress' ),
+			] );
+			expect( fs.existsSync( path.join( rawDirectory, 'wordpress' ) ) ).toBe( false );
 		} finally {
 			fs.rmSync( stateDirectory, { recursive: true, force: true } );
 		}
@@ -302,6 +309,148 @@ describe( 'CLI: studio site import helpers', () => {
 			);
 			expect( metadata.stage ).toBe( 'db-downloaded' );
 			expect( fs.existsSync( sqlitePath ) ).toBe( false );
+		} finally {
+			fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
+		}
+	} );
+
+	it( 'repairs a completed import when the imported database still has the remote site URL', () => {
+		const technicalSiteDirectory = fs.mkdtempSync(
+			path.join( os.tmpdir(), 'studio-import-rewrite-repair-' )
+		);
+		const sitePath = path.join( technicalSiteDirectory, 'site' );
+		const stateDirectory = path.join( technicalSiteDirectory, 'state' );
+		const runtimeDirectory = path.join( technicalSiteDirectory, 'runtime' );
+		const sqlitePath = path.join( sitePath, 'wp-content', 'database', '.ht.sqlite' );
+
+		try {
+			fs.mkdirSync( path.dirname( sqlitePath ), { recursive: true } );
+			fs.mkdirSync( stateDirectory, { recursive: true } );
+			fs.mkdirSync( runtimeDirectory, { recursive: true } );
+			fs.writeFileSync( path.join( stateDirectory, 'db.sql' ), '-- imported dump' );
+			fs.writeFileSync( path.join( runtimeDirectory, 'blueprint.json' ), '{}' );
+
+			spawnSync( 'sqlite3', [
+				sqlitePath,
+				[
+					'CREATE TABLE wp_options (option_name TEXT, option_value TEXT);',
+					"INSERT INTO wp_options VALUES ('home','https://example.com');",
+					"INSERT INTO wp_options VALUES ('siteurl','https://example.com');",
+				].join( ' ' ),
+			] );
+
+			const metadata = {
+				stage: 'completed',
+				sitePath,
+				stateDirectory,
+				runtimeBlueprintPath: path.join( runtimeDirectory, 'blueprint.json' ),
+				tablePrefix: 'wp_',
+				technicalSiteDirectory,
+				localUrl: 'http://localhost:8881',
+				rawDirectory: path.join( technicalSiteDirectory, 'raw' ),
+			} as Parameters< typeof repairCompletedImportState >[ 0 ];
+
+			expect( repairCompletedImportState( metadata ) ).toContain(
+				'Reapplying the imported database with the local Studio URL'
+			);
+			expect( metadata.stage ).toBe( 'db-downloaded' );
+			expect( fs.existsSync( sqlitePath ) ).toBe( false );
+		} finally {
+			fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
+		}
+	} );
+
+	it( 'repairs a completed import when the raw importer tree has a blocking root file', () => {
+		const technicalSiteDirectory = fs.mkdtempSync(
+			path.join( os.tmpdir(), 'studio-import-layout-repair-' )
+		);
+		const sitePath = path.join( technicalSiteDirectory, 'site' );
+		const stateDirectory = path.join( technicalSiteDirectory, 'state' );
+		const runtimeDirectory = path.join( technicalSiteDirectory, 'runtime' );
+		const rawDirectory = path.join( technicalSiteDirectory, 'raw' );
+		const sqlitePath = path.join( sitePath, 'wp-content', 'database', '.ht.sqlite' );
+
+		try {
+			fs.mkdirSync( path.dirname( sqlitePath ), { recursive: true } );
+			fs.mkdirSync( stateDirectory, { recursive: true } );
+			fs.mkdirSync( runtimeDirectory, { recursive: true } );
+			fs.mkdirSync( rawDirectory, { recursive: true } );
+			fs.writeFileSync( path.join( runtimeDirectory, 'blueprint.json' ), '{}' );
+			fs.writeFileSync( path.join( rawDirectory, 'wordpress' ), '' );
+			fs.writeFileSync( path.join( stateDirectory, '.import-index.jsonl' ), '{"path":"foo"}\n' );
+			fs.writeFileSync(
+				path.join( stateDirectory, '.import-state.json' ),
+				JSON.stringify( {
+					preflight: {
+						data: {
+							wp_detect: {
+								roots: [
+									{
+										path: `base64:${ Buffer.from( '/wordpress/core/6.9.4' ).toString( 'base64' ) }`,
+									},
+								],
+							},
+						},
+					},
+				} )
+			);
+
+			spawnSync( 'sqlite3', [
+				sqlitePath,
+				[
+					'CREATE TABLE wp_options (option_name TEXT, option_value TEXT);',
+					"INSERT INTO wp_options VALUES ('home','http://localhost:8881');",
+					"INSERT INTO wp_options VALUES ('siteurl','http://localhost:8881');",
+				].join( ' ' ),
+			] );
+
+			const metadata = {
+				stage: 'completed',
+				sitePath,
+				stateDirectory,
+				runtimeBlueprintPath: path.join( runtimeDirectory, 'blueprint.json' ),
+				tablePrefix: 'wp_',
+				technicalSiteDirectory,
+				localUrl: 'http://localhost:8881',
+				rawDirectory,
+			} as Parameters< typeof repairCompletedImportState >[ 0 ];
+
+			expect( repairCompletedImportState( metadata ) ).toContain(
+				'Re-downloading essential files'
+			);
+			expect( metadata.stage ).toBe( 'initialized' );
+			expect( fs.existsSync( path.join( rawDirectory, 'wordpress' ) ) ).toBe( false );
+			expect( fs.existsSync( path.join( stateDirectory, '.import-index.jsonl' ) ) ).toBe( false );
+		} finally {
+			fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
+		}
+	} );
+
+	it( 'detects when the flattened site has broken theme or plugin symlinks', () => {
+		const technicalSiteDirectory = fs.mkdtempSync(
+			path.join( os.tmpdir(), 'studio-import-flatten-refresh-' )
+		);
+		const sitePath = path.join( technicalSiteDirectory, 'site' );
+
+		try {
+			fs.mkdirSync( path.join( sitePath, 'wp-content', 'themes' ), { recursive: true } );
+			fs.mkdirSync( path.join( sitePath, 'wp-content', 'plugins' ), { recursive: true } );
+			fs.symlinkSync(
+				path.join( technicalSiteDirectory, 'missing-theme' ),
+				path.join( sitePath, 'wp-content', 'themes', 'iotix' )
+			);
+			fs.symlinkSync(
+				path.join( technicalSiteDirectory, 'missing-plugin' ),
+				path.join( sitePath, 'wp-content', 'plugins', 'jetpack' )
+			);
+
+			expect(
+				shouldRefreshFlattenedSite( {
+					stateDirectory: path.join( technicalSiteDirectory, 'state' ),
+					rawDirectory: path.join( technicalSiteDirectory, 'raw' ),
+					sitePath,
+				} as never )
+			).toBe( true );
 		} finally {
 			fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
 		}

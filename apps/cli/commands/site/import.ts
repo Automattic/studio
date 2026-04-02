@@ -42,7 +42,11 @@ import {
 	normalizeImportedSqliteDatabasePath,
 } from 'cli/lib/import/runtime-start-options';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
-import { startWordPressServer } from 'cli/lib/wordpress-server-manager';
+import {
+	isServerRunning,
+	startWordPressServer,
+	stopWordPressServer,
+} from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -426,17 +430,64 @@ function decodeImporterStatePath( value: string | null | undefined ): string | n
 	}
 }
 
-export function getFlattenSourceDirectory( stateDirectory: string, rawDirectory: string ): string {
-	const state = readImporterState( stateDirectory );
-	const remoteDocumentRoot = decodeImporterStatePath(
-		state?.preflight?.data?.runtime?.document_root
-	);
+function getRequiredRawRootDirectoryNames( stateDirectory: string ): string[] {
+	const state = readImporterState( stateDirectory ) as
+		| ( ImporterStateSnapshot & Record< string, unknown > )
+		| null;
+	const preflight = state?.preflight?.data as Record< string, unknown > | undefined;
+	const wpDetect = preflight?.wp_detect as Record< string, unknown > | undefined;
+	const runtime = preflight?.runtime as Record< string, unknown > | undefined;
+	const constantValues = runtime?.constant_values as Record< string, unknown > | undefined;
+	const roots = Array.isArray( wpDetect?.roots ) ? wpDetect.roots : [];
 
-	if ( ! remoteDocumentRoot || remoteDocumentRoot === '/' ) {
-		return rawDirectory;
+	const paths = roots
+		.map( ( root ) => {
+			if ( ! root || typeof root !== 'object' || Array.isArray( root ) ) {
+				return null;
+			}
+
+			return decodeImporterStatePath( typeof root.path === 'string' ? root.path : null );
+		} )
+		.concat(
+			[
+				constantValues?.ABSPATH,
+				constantValues?.WP_CONTENT_DIR,
+				constantValues?.WP_PLUGIN_DIR,
+				constantValues?.WPMU_PLUGIN_DIR,
+				constantValues?.TEMPLATEPATH,
+				constantValues?.STYLESHEETPATH,
+			].map( ( value ) => ( typeof value === 'string' ? value : null ) )
+		)
+		.filter( ( value ): value is string => Boolean( value && value.startsWith( '/' ) ) );
+
+	return [ ...new Set( paths.map( ( value ) => value.replace( /^\/+/, '' ).split( '/' )[ 0 ] ) ) ];
+}
+
+export function repairBlockingRawImportPaths(
+	stateDirectory: string,
+	rawDirectory: string
+): string[] {
+	const repairedPaths: string[] = [];
+
+	for ( const directoryName of getRequiredRawRootDirectoryNames( stateDirectory ) ) {
+		const blockedPath = path.join( rawDirectory, directoryName );
+		if ( ! fs.existsSync( blockedPath ) ) {
+			continue;
+		}
+
+		try {
+			if ( fs.statSync( blockedPath ).isDirectory() ) {
+				continue;
+			}
+		} catch {
+			// Broken symlinks and unreadable paths must be repaired below.
+		}
+
+		fs.rmSync( blockedPath, { recursive: true, force: true } );
+		repairedPaths.push( blockedPath );
 	}
 
-	return path.join( rawDirectory, remoteDocumentRoot.replace( /^\/+/, '' ) );
+	return repairedPaths;
 }
 
 export function buildDbApplyArgs(
@@ -451,6 +502,38 @@ export function buildDbApplyArgs(
 		'--target-sqlite-path=/site/wp-content/database/.ht.sqlite',
 		`--new-site-url=${ metadata.localUrl! }`,
 	];
+}
+
+export function shouldRefreshFlattenedSite(
+	metadata: Pick< ImportMetadata, 'stateDirectory' | 'rawDirectory' | 'sitePath' >
+): boolean {
+	const flattenedWpContentDirectory = path.join( metadata.sitePath, 'wp-content' );
+	if ( ! fs.existsSync( flattenedWpContentDirectory ) ) {
+		return true;
+	}
+
+	for ( const directoryName of [ 'themes', 'plugins' ] ) {
+		const flattenedDirectory = path.join( flattenedWpContentDirectory, directoryName );
+		if ( ! fs.existsSync( flattenedDirectory ) ) {
+			return true;
+		}
+
+		for ( const entry of fs.readdirSync( flattenedDirectory ) ) {
+			const entryPath = path.join( flattenedDirectory, entry );
+			let stats;
+			try {
+				stats = fs.lstatSync( entryPath );
+			} catch {
+				return true;
+			}
+
+			if ( stats.isSymbolicLink() && ! fs.existsSync( entryPath ) ) {
+				return true;
+			}
+		}
+	}
+
+	return false;
 }
 
 export function shouldRestartFilesSyncIndex( stateDirectory: string ): boolean {
@@ -855,6 +938,28 @@ export function prepareSkippedEarlierState( metadata: ImportMetadata ): void {
 	} ) );
 }
 
+function resetEssentialFilesRepairState( stateDirectory: string ): void {
+	const existingState = readImporterState( stateDirectory ) as Record< string, unknown > | null;
+	const preflight = existingState?.preflight;
+
+	for ( const fileName of [
+		'.import-index.jsonl',
+		'.import-remote-index.jsonl',
+		'.import-download-list.jsonl',
+		'.import-download-list-skipped.jsonl',
+		'.import-status.json',
+	] ) {
+		fs.rmSync( path.join( stateDirectory, fileName ), { force: true } );
+	}
+
+	const statePath = getImporterStatePath( stateDirectory );
+	if ( preflight ) {
+		fs.writeFileSync( statePath, JSON.stringify( { preflight }, null, 2 ) + '\n' );
+	} else {
+		fs.rmSync( statePath, { force: true } );
+	}
+}
+
 function getDownloadedSqlDumpPath( metadata: ImportMetadata ): string {
 	return path.join( metadata.stateDirectory, 'db.sql' );
 }
@@ -866,6 +971,10 @@ function querySqliteValue( dbPath: string, sql: string ): string | null {
 	}
 
 	return result.stdout.toString().trim();
+}
+
+function normalizeComparableUrl( value: string ): string {
+	return value.trim().replace( /\/+$/, '' );
 }
 
 function isFreshWordPressInstallDatabase( dbPath: string, tablePrefix: string ): boolean {
@@ -890,6 +999,29 @@ function isFreshWordPressInstallDatabase( dbPath: string, tablePrefix: string ):
 		posts?.includes( 'Hello world!|publish|post' ) === true &&
 		posts.includes( 'Sample Page|publish|page' )
 	);
+}
+
+function needsLocalUrlRewrite(
+	dbPath: string,
+	tablePrefix: string,
+	localUrl: string | undefined
+): boolean {
+	if ( ! localUrl || ! fs.existsSync( dbPath ) ) {
+		return false;
+	}
+
+	const expectedLocalUrl = normalizeComparableUrl( localUrl );
+	for ( const optionName of [ 'home', 'siteurl' ] ) {
+		const optionValue = querySqliteValue(
+			dbPath,
+			`SELECT option_value FROM ${ tablePrefix }options WHERE option_name = '${ optionName }';`
+		);
+		if ( optionValue && normalizeComparableUrl( optionValue ) !== expectedLocalUrl ) {
+			return true;
+		}
+	}
+
+	return false;
 }
 
 function removeImportedSqliteDatabase( sitePath: string ): void {
@@ -932,7 +1064,69 @@ export function repairCompletedImportState( metadata: ImportMetadata ): string |
 		return 'Detected a fresh local WordPress database instead of the imported database. Reapplying the imported database.';
 	}
 
+	if ( needsLocalUrlRewrite( sqlitePath, tablePrefix, metadata.localUrl ) ) {
+		removeImportedSqliteDatabase( metadata.sitePath );
+		metadata.stage = 'db-downloaded';
+		saveImportMetadata( metadata );
+		return 'Imported database still references the remote site URL. Reapplying the imported database with the local Studio URL.';
+	}
+
+	const repairedRawPaths = repairBlockingRawImportPaths(
+		metadata.stateDirectory,
+		metadata.rawDirectory
+	);
+	if ( repairedRawPaths.length > 0 || shouldRefreshFlattenedSite( metadata ) ) {
+		resetEssentialFilesRepairState( metadata.stateDirectory );
+		metadata.stage = 'initialized';
+		saveImportMetadata( metadata );
+		return repairedRawPaths.length > 0
+			? 'Imported file layout is incomplete. Re-downloading essential files and rebuilding the flattened site structure.'
+			: 'Flattened site structure is incomplete. Rebuilding the flattened site from the importer output.';
+	}
+
 	return null;
+}
+
+async function rebuildFlattenedSiteDirectory( metadata: ImportMetadata ): Promise< void > {
+	const site = await findExistingSite( metadata );
+	if ( site?.id ) {
+		try {
+			await connectToDaemon();
+			if ( await isServerRunning( site.id ) ) {
+				await stopWordPressServer( site.id );
+			}
+		} finally {
+			await disconnectFromDaemon();
+		}
+	}
+
+	fs.rmSync( metadata.sitePath, { recursive: true, force: true } );
+	fs.mkdirSync( metadata.sitePath, { recursive: true } );
+}
+
+async function refreshFlattenedSiteDirectory(
+	metadata: Pick<
+		ImportMetadata,
+		'stateDirectory' | 'rawDirectory' | 'sitePath' | 'runtimeBlueprintPath' | 'normalizedUrl'
+	>,
+	verbose: boolean
+): Promise< void > {
+	await runImporterCommandUntilComplete(
+		metadata.stateDirectory,
+		metadata.rawDirectory,
+		[
+			'flat-document-root',
+			getApiUrl( metadata.normalizedUrl ),
+			'--state-dir=/state',
+			'--fs-root=/docroot',
+			'--flatten-to=/flat',
+		],
+		undefined,
+		{
+			mounts: [ { hostPath: metadata.sitePath, vfsPath: '/flat' } ],
+			verboseCommands: verbose,
+		}
+	);
 }
 
 async function findExistingSite( metadata: ImportMetadata ): Promise< SiteData | undefined > {
@@ -1225,9 +1419,18 @@ export async function runCommand(
 	const repairedCompletedImportMessage = repairCompletedImportState( metadata );
 	if ( repairedCompletedImportMessage ) {
 		logger.reportWarning( __( repairedCompletedImportMessage ) );
+		if ( metadata.stage === 'initialized' ) {
+			await rebuildFlattenedSiteDirectory( metadata );
+		}
 	}
 
 	if ( metadata.stage === 'completed' ) {
+		if ( shouldRefreshFlattenedSite( metadata ) ) {
+			logger.reportStart( LoggerAction.CREATE_SITE, __( 'Refreshing site directory…' ) );
+			await rebuildFlattenedSiteDirectory( metadata );
+			await refreshFlattenedSiteDirectory( metadata, verbose );
+			logger.reportSuccess( __( 'Site directory refreshed' ) );
+		}
 		await syncMetadataWithExistingSite( metadata );
 		printCompletionMessage( metadata );
 		return;
@@ -1249,6 +1452,38 @@ export async function runCommand(
 		metadata.remoteSiteUrl = preflight.siteurl || metadata.normalizedUrl;
 		metadata.tablePrefix = preflight.table_prefix || undefined;
 		saveImportMetadata( metadata );
+
+		const repairedRawPaths = repairBlockingRawImportPaths(
+			metadata.stateDirectory,
+			metadata.rawDirectory
+		);
+		if ( repairedRawPaths.length > 0 && hasReachedStage( metadata, 'essential-files-complete' ) ) {
+			logger.reportWarning(
+				__(
+					'Recovered a broken importer filesystem layout. Re-downloading essential files and rebuilding the flattened site.'
+				)
+			);
+			resetEssentialFilesRepairState( metadata.stateDirectory );
+			metadata.stage = 'initialized';
+			saveImportMetadata( metadata );
+			await rebuildFlattenedSiteDirectory( metadata );
+		}
+
+		const importerState = readImporterState( metadata.stateDirectory );
+		if (
+			! importerState?.command &&
+			hasReachedStage( metadata, 'essential-files-complete' ) &&
+			shouldRefreshFlattenedSite( metadata )
+		) {
+			logger.reportWarning(
+				__(
+					'Rebuilding essential files because the importer state was reset during a previous repair.'
+				)
+			);
+			metadata.stage = 'initialized';
+			saveImportMetadata( metadata );
+			await rebuildFlattenedSiteDirectory( metadata );
+		}
 
 		if ( ! hasReachedStage( metadata, 'essential-files-complete' ) ) {
 			await restartUnresumableFilesSync( metadata, apiUrl, secret, verbose );
@@ -1278,26 +1513,7 @@ export async function runCommand(
 
 		if ( ! hasReachedStage( metadata, 'flattened' ) ) {
 			logger.reportStart( LoggerAction.CREATE_SITE, __( 'Preparing site directory…' ) );
-			const flattenSourceDirectory = getFlattenSourceDirectory(
-				metadata.stateDirectory,
-				metadata.rawDirectory
-			);
-			await runImporterCommandUntilComplete(
-				metadata.stateDirectory,
-				flattenSourceDirectory,
-				[
-					'flat-document-root',
-					apiUrl,
-					'--state-dir=/state',
-					'--fs-root=/docroot',
-					'--flatten-to=/flat',
-				],
-				undefined,
-				{
-					mounts: [ { hostPath: metadata.sitePath, vfsPath: '/flat' } ],
-					verboseCommands: verbose,
-				}
-			);
+			await refreshFlattenedSiteDirectory( metadata, verbose );
 			logger.reportSuccess( __( 'Site directory prepared' ) );
 			setStage( metadata, 'flattened' );
 		}

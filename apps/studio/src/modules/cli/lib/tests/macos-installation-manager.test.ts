@@ -286,9 +286,7 @@ describe.skipIf( isWindows )( 'MacOSCliInstallationManager', () => {
 		} );
 
 		it( 'appends export to existing .zshrc', async () => {
-			// 1st readFile: isLocalBinInProfile (no export line)
-			// 2nd readFile: ensurePathInProfile reads existing content
-			mockReadFile.mockResolvedValueOnce( '# My zshrc\n' ).mockResolvedValueOnce( '# My zshrc\n' );
+			mockReadFile.mockResolvedValue( '# My zshrc\n' );
 
 			await manager.autoInstallIfNeeded();
 
@@ -300,7 +298,6 @@ describe.skipIf( isWindows )( 'MacOSCliInstallationManager', () => {
 		} );
 
 		it( 'creates .zshrc with export when profile does not exist', async () => {
-			// Both reads fail: profile doesn't exist
 			mockReadFile.mockRejectedValue( enoentError() );
 
 			await manager.autoInstallIfNeeded();
@@ -313,23 +310,16 @@ describe.skipIf( isWindows )( 'MacOSCliInstallationManager', () => {
 		} );
 
 		it( 'does not duplicate export if already present in profile', async () => {
-			const profileContent = '# My zshrc\nexport PATH="$HOME/.local/bin:$PATH"\n';
-			// Both reads return the same content with export line
-			mockReadFile.mockResolvedValue( profileContent );
+			mockReadFile.mockResolvedValue( '# My zshrc\nexport PATH="$HOME/.local/bin:$PATH"\n' );
 
 			await manager.autoInstallIfNeeded();
 
-			// writeFile should not be called for the profile (only symlink matters)
 			expect( mockWriteFile ).not.toHaveBeenCalled();
 		} );
 
 		it( 'uses .bash_profile when SHELL is /bin/bash', async () => {
 			process.env.SHELL = '/bin/bash';
-			// 1st readFile: isLocalBinInProfile (no export line)
-			// 2nd readFile: ensurePathInProfile reads existing content
-			mockReadFile
-				.mockResolvedValueOnce( '# Bash profile\n' )
-				.mockResolvedValueOnce( '# Bash profile\n' );
+			mockReadFile.mockResolvedValue( '# Bash profile\n' );
 
 			await manager.autoInstallIfNeeded();
 
@@ -342,7 +332,6 @@ describe.skipIf( isWindows )( 'MacOSCliInstallationManager', () => {
 
 		it( 'defaults to .zshrc when SHELL is not recognized', async () => {
 			process.env.SHELL = '/bin/fish';
-			// Both reads fail: profile doesn't exist
 			mockReadFile.mockRejectedValue( enoentError() );
 
 			await manager.autoInstallIfNeeded();
@@ -355,9 +344,7 @@ describe.skipIf( isWindows )( 'MacOSCliInstallationManager', () => {
 		} );
 
 		it( 'adds newline before export if file does not end with newline', async () => {
-			// 1st readFile: isLocalBinInProfile (no export line)
-			// 2nd readFile: ensurePathInProfile reads existing content
-			mockReadFile.mockResolvedValueOnce( '# My zshrc' ).mockResolvedValueOnce( '# My zshrc' );
+			mockReadFile.mockResolvedValue( '# My zshrc' );
 
 			await manager.autoInstallIfNeeded();
 

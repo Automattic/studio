@@ -1548,7 +1548,6 @@ export async function runCommand(
 					`--secret=${ secret }`,
 					'--filter=essential-files',
 					'--follow-symlinks',
-					'--on-fs-root-nonempty=preserve-local',
 					'--no-adaptive', // Don't do backoffs on WP.com sites
 					'--state-dir=/state',
 					'--fs-root=/docroot',
@@ -1698,7 +1697,6 @@ export async function runCommand(
 						`--secret=${ secret }`,
 						'--filter=skipped-earlier',
 						'--no-adaptive',
-						'--on-fs-root-nonempty=preserve-local',
 						'--state-dir=/state',
 						'--fs-root=/docroot',
 					],

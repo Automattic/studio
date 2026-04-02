@@ -47,17 +47,22 @@ async function isWPCliInstallationOutdated(): Promise< boolean > {
 
 const WP_CLI_URL = 'https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar';
 
+export async function downloadWpCli(): Promise< void > {
+	const tmpDownloadPath = path.join( os.tmpdir(), `wp-cli-${ crypto.randomUUID() }.phar` );
+
+	try {
+		await downloadFile( WP_CLI_URL, tmpDownloadPath );
+		await fs.promises.mkdir( path.dirname( getWpCliPharPath() ), { recursive: true } );
+		await fs.promises.copyFile( tmpDownloadPath, getWpCliPharPath() );
+	} finally {
+		await fs.promises.rm( tmpDownloadPath, { force: true } );
+	}
+}
+
 export async function updateLatestWpCliVersion(): Promise< void > {
 	const isOutdated = await isWPCliInstallationOutdated();
 
 	if ( isOutdated ) {
-		const tmpDownloadPath = path.join( os.tmpdir(), `wp-cli-${ crypto.randomUUID() }.zip` );
-
-		try {
-			await downloadFile( WP_CLI_URL, tmpDownloadPath );
-			await fs.promises.copyFile( tmpDownloadPath, getWpCliPharPath() );
-		} finally {
-			await fs.promises.rm( tmpDownloadPath, { force: true } );
-		}
+		await downloadWpCli();
 	}
 }

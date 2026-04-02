@@ -18,7 +18,7 @@ import {
 import { updateLatestSqliteCommandVersion } from './sqlite-command';
 import { downloadFile } from './utils';
 import { getWordPressVersionFromInstallation, updateLatestWordPressVersion } from './wordpress';
-import { updateLatestWpCliVersion } from './wp-cli';
+import { downloadWpCli, updateLatestWpCliVersion } from './wp-cli';
 
 // Compare the WordPress version in the bundled `wp-files/latest/wordpress` directory (that ships
 // with the CLI) to `~/.studio/server-files/wordpress-versions/latest`. If the bundled directory is
@@ -108,7 +108,7 @@ async function copyBundledWpCli() {
 		await fs.promises.copyFile( bundledWpCLIPath, getWpCliPharPath() );
 	} else {
 		// Bundled WP-CLI not available (e.g. dev build) — download it directly.
-		await updateLatestWpCliVersion();
+		await downloadWpCli();
 	}
 }
 

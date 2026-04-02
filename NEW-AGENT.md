@@ -33,7 +33,7 @@ Authentication mirrors the CLI's provider fallback chain (`provider-resolver.ts`
 
 ### MCP Tools (Desktop-Native)
 
-The agent has access to 7 Studio tools via an MCP server (`tools.ts`), all using `SiteServer` directly (not the CLI daemon):
+The agent has access to 12 Studio tools via an MCP server (`tools.ts`), all using `SiteServer` directly (not the CLI daemon):
 
 - **site_list** — Lists all sites with status, paths, URLs.
 - **site_info** — Detailed info for a specific site (path, URL, credentials, PHP version).
@@ -41,6 +41,13 @@ The agent has access to 7 Studio tools via an MCP server (`tools.ts`), all using
 - **wp_cli** — Execute WP-CLI commands on a running site (plugin install, post create, etc.).
 - **post_blocks_read** — List all Gutenberg blocks in a post/page with indices, types, attributes, and content previews. Uses WordPress's `parse_blocks()` via `wp eval`.
 - **post_block_update** — Replace a specific block by index with new block markup. Uses `parse_blocks()` / `serialize_blocks()` / `wp_update_post()` via `wp eval`. Markup is base64-encoded to avoid escaping issues.
+- **browser_navigate** — Navigate the site preview browser to a URL or path. Syncs the visible preview iframe.
+- **browser_reload** — Reload the current page. Syncs the visible preview iframe.
+- **browser_screenshot** — Take a PNG screenshot via a hidden BrowserWindow's `webContents.capturePage()`. Returns an MCP image content block.
+- **browser_read_page** — Read page title, URL, text content, and a structural DOM outline (headings, links, forms, buttons).
+- **browser_console** — Read recent console messages (log/warning/error) with optional clear.
+
+The browser tools use a `BrowserInspector` singleton (`browser-inspector.ts`) that manages hidden `BrowserWindow` instances per site. See `NEW-BROWSER.md` for details on the architecture.
 
 The agent also has Claude Code's built-in file tools (Read, Write, Edit, Glob, Grep, Bash) for direct file manipulation. The agent's `cwd` is set to the task's site path so file operations work relative to the site.
 
@@ -128,12 +135,11 @@ IPC event listeners in `stores/index.ts` dispatch actions for `task-updated`, `t
 The sidebar's Tasks section (`tasks/task-list.tsx`) replaces the former placeholder:
 
 - Header with "Tasks" label, archive toggle, and `+` button for creating new tasks
-- Site picker dropdown when multiple sites exist (single site skips the picker)
+- Clicking `+` enters a "pending new task" state — the primary panel shows a site picker dropdown ("A new task for... [choose a site]") instead of an inline sidebar picker
 - Task items show title, site name, and a status dot (blue pulsing = in-progress, gray = waiting, green = done)
-- Archive button appears on hover for each task item
+- Archive button appears when hovering the status dot (not the whole row), replacing the dot
 - Non-archived tasks sorted by `updatedAt` descending
-- Archive toggle (visible when archived tasks exist) switches between active and archived views
-- Archived view shows count and "Clear all" button to permanently delete all archived tasks
+- Archive toggle opens a Popover flyout listing archived tasks with count and "Clear all" button
 
 ### Chat Panel
 
@@ -177,6 +183,7 @@ The site overview tab includes a "New task" button in the shortcuts section that
 | `task-status-changed` | `{ taskId, status }` | Agent status transition |
 | `task-permission-request` | `PermissionRequest` | Agent needs user approval |
 | `task-error` | `{ taskId, error }` | Agent error |
+| `browser-navigate` | `{ siteId, url }` | Agent navigated the browser (syncs preview iframe) |
 
 ## Key Files
 
@@ -188,15 +195,17 @@ apps/studio/src/
 │       ├── ipc-handlers.ts             # Task CRUD + agent lifecycle handlers
 │       ├── agent-manager.ts            # Active Query management, message loop, permissions
 │       ├── tools.ts                    # Desktop MCP tools (site_list, wp_cli, etc.)
+│       ├── browser-inspector.ts        # Hidden BrowserWindow manager for agent inspection
+│       ├── browser-tools.ts            # Browser MCP tools (navigate, screenshot, etc.)
 │       ├── provider-resolver.ts        # Auth provider fallback (wpcom/claude/api-key)
 │       └── message-serializer.ts       # SDKMessage -> TaskMessage conversion
 ├── components/site-menu.tsx                # Updated: clears task selection on site click
 ├── stores/
 │   └── tasks-slice.ts                  # Redux state for tasks, messages, permissions
 ├── components/new-ui/tasks/
-│   ├── task-list.tsx                   # Sidebar task list with + button
+│   ├── task-list.tsx                   # Sidebar task list with + button and archive flyout
 │   ├── task-list-item.tsx              # Individual task item with status dot
-│   ├── task-site-picker.tsx            # Site picker for new task creation
+│   ├── task-new-panel.tsx              # New task site picker (primary panel)
 │   ├── task-chat-panel.tsx             # Chat panel (primary panel replacement)
 │   ├── task-chat-input.tsx             # Message input with agent IPC
 │   ├── task-message-list.tsx           # Message bubbles (user/assistant/tool)
@@ -217,7 +226,7 @@ apps/cli/ai/
 ## What's Next
 
 - Session resume on app restart (sessionId is persisted, `query({ resume })` is wired)
-- More MCP tools (site_create, site_delete, preview_create/update/delete, take_screenshot, validate_blocks)
+- More MCP tools (site_create, site_delete, preview_create/update/delete, validate_blocks)
 - Markdown rendering in assistant messages
 - Streaming partial text (SDKPartialAssistantMessage events)
 - Auto-title refinement (use agent to generate a better title after first exchange)

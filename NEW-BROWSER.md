@@ -50,9 +50,46 @@ Back, Forward, and Reload buttons in the toolbar use the iframe's `contentWindow
 - `apps/studio/index.html` — Static CSP with `frame-src http://localhost:*`.
 - `apps/studio/src/index.css` — `browser-progress` keyframe animation for the loading bar.
 
+## Agent Browser Control
+
+The AI agent can control the browser preview through a set of MCP tools. Under the hood, a `BrowserInspector` singleton in the main process manages hidden `BrowserWindow` instances (one per site, created on demand) that provide full `webContents` access for screenshots, DOM reading, and console capture.
+
+### Tools
+
+| Tool | Description |
+|------|-------------|
+| `browser_navigate` | Navigate to a URL or path (e.g. `/wp-admin/`). Syncs the visible preview. |
+| `browser_reload` | Reload the current page. Syncs the visible preview. |
+| `browser_screenshot` | Take a PNG screenshot via `webContents.capturePage()`. Returns an MCP image block. |
+| `browser_read_page` | Read page title, URL, text content, and DOM outline (headings, links, forms, buttons). |
+| `browser_console` | Read buffered console messages (log/warning/error) with optional clear. |
+
+### Hidden BrowserWindow Architecture
+
+The visible iframe preview stays unchanged. The agent operates on a separate hidden `BrowserWindow` for each site:
+
+- **Window config** — `show: false`, 1280x800 viewport, full sandbox (`nodeIntegration: false`, `contextIsolation: true`, `sandbox: true`), no preload script.
+- **Auto-login** — Same `/studio-auto-login?redirect_to=URL` pattern as the iframe.
+- **URL validation** — Only same-origin navigation allowed (prevents browsing external sites).
+- **Console capture** — `console-message` event on `webContents` buffers the last 100 messages per site.
+- **Operation queue** — Per-site promise chain serializes concurrent tool calls.
+- **Idle cleanup** — Windows auto-destroy after 5 minutes of inactivity. Sweeper runs every 60 seconds.
+- **Navigation timeout** — 15-second timeout on `loadURL` to prevent hanging tool calls.
+
+### Preview Sync
+
+When the agent navigates or reloads, the hidden window fires a `browser-navigate` IPC event to the renderer. The `useBrowserPanel` hook listens for `studio:browser-navigate` custom events (dispatched from the store's IPC subscription) and navigates the visible iframe to match.
+
+### Key Files
+
+- `apps/studio/src/modules/ai/lib/browser-inspector.ts` — BrowserInspector singleton managing hidden windows.
+- `apps/studio/src/modules/ai/lib/browser-tools.ts` — MCP tool definitions for the five browser tools.
+- `apps/studio/src/modules/ai/lib/tools.ts` — Includes browser tools in `studioToolDefinitions`.
+
 ## Design Decisions
 
 - **iframe over webview/BrowserView** — Simpler integration, works within the existing React panel layout, and localhost sites don't have the security concerns that would warrant a separate process.
+- **Hidden BrowserWindow for agent inspection** — The agent needs `capturePage()`, `executeJavaScript()`, and `console-message` events, none of which are available through an iframe. A hidden BrowserWindow provides full `webContents` access without changing the preview UI. Zero migration risk.
 - **Dark toolbar (`#1d2327`)** — Matches the WordPress admin bar color so the toolbar and admin bar blend together visually.
 - **Auto-login on every load** — The iframe `src` always goes through `/studio-auto-login` to ensure the session stays authenticated, even after reload.
 - **No fake progress bar** — The loading indicator is an honest indeterminate bar (bouncing animation) since iframes don't expose real loading progress.

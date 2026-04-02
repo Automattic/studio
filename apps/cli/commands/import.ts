@@ -4,6 +4,7 @@ import { isWordPressDirectory, recursiveCopyDirectory } from '@studio/common/lib
 import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
+import { SiteData } from 'cli/lib/cli-config/core';
 import { clearSiteLatestCliPid, getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { ImportExportEventData } from 'cli/lib/import-export/handle-events';
@@ -201,16 +202,19 @@ export async function runCommand( siteFolder: string, importFile: string ): Prom
 		}
 	}
 
+	let site: SiteData | undefined;
+	let wasServerRunning = false;
+
 	try {
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
 		await connectToDaemon();
 		logger.reportSuccess( __( 'Process daemon started' ) );
 
 		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
-		const site = await getSiteByFolder( siteFolder );
+		site = await getSiteByFolder( siteFolder );
 		logger.reportSuccess( __( 'Site loaded' ) );
 
-		const wasServerRunning = await isServerRunning( site.id );
+		wasServerRunning = !! ( await isServerRunning( site.id ) );
 
 		if ( wasServerRunning ) {
 			logger.reportStart( LoggerAction.STOP_SITE, __( 'Stopping WordPress server…' ) );
@@ -239,8 +243,8 @@ export async function runCommand( siteFolder: string, importFile: string ): Prom
 			type: getBackupFileType( importFile ),
 		};
 		await importBackup( backupFile, site, handleImportEvent, defaultImporterOptions );
-
-		if ( wasServerRunning ) {
+	} finally {
+		if ( site && wasServerRunning ) {
 			logger.reportStart(
 				LoggerAction.INSTALL_SQLITE,
 				__( 'Setting up SQLite integration, if needed…' )
@@ -252,7 +256,7 @@ export async function runCommand( siteFolder: string, importFile: string ): Prom
 			await startWordPressServer( site, logger );
 			logger.reportSuccess( __( 'WordPress server started' ) );
 		}
-	} finally {
+
 		await disconnectFromDaemon();
 	}
 }

@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -12,6 +13,7 @@ import {
 	normalizeImportUrl,
 	parseImporterJson,
 	prepareSkippedEarlierState,
+	repairCompletedImportState,
 	shouldRestartFilesSyncIndex,
 } from '../import';
 
@@ -236,6 +238,52 @@ describe( 'CLI: studio site import helpers', () => {
 			expect( nextState.preflight ).toEqual( { data: { ok: true } } );
 		} finally {
 			fs.rmSync( stateDirectory, { recursive: true, force: true } );
+		}
+	} );
+
+	it( 'repairs a completed import when the local database is a fresh WordPress install', () => {
+		const technicalSiteDirectory = fs.mkdtempSync(
+			path.join( os.tmpdir(), 'studio-import-repair-' )
+		);
+		const sitePath = path.join( technicalSiteDirectory, 'site' );
+		const stateDirectory = path.join( technicalSiteDirectory, 'state' );
+		const runtimeDirectory = path.join( technicalSiteDirectory, 'runtime' );
+		const sqlitePath = path.join( sitePath, 'wp-content', 'database', '.ht.sqlite' );
+
+		try {
+			fs.mkdirSync( path.dirname( sqlitePath ), { recursive: true } );
+			fs.mkdirSync( stateDirectory, { recursive: true } );
+			fs.mkdirSync( runtimeDirectory, { recursive: true } );
+			fs.writeFileSync( path.join( stateDirectory, 'db.sql' ), '-- imported dump' );
+			fs.writeFileSync( path.join( runtimeDirectory, 'blueprint.json' ), '{}' );
+
+			spawnSync( 'sqlite3', [
+				sqlitePath,
+				[
+					'CREATE TABLE wp_options (option_name TEXT, option_value TEXT);',
+					'CREATE TABLE wp_posts (ID INTEGER, post_title TEXT, post_status TEXT, post_type TEXT);',
+					"INSERT INTO wp_options VALUES ('blogname','My WordPress Website');",
+					"INSERT INTO wp_posts VALUES (1,'Hello world!','publish','post');",
+					"INSERT INTO wp_posts VALUES (2,'Sample Page','publish','page');",
+				].join( ' ' ),
+			] );
+
+			const metadata = {
+				stage: 'completed',
+				sitePath,
+				stateDirectory,
+				runtimeBlueprintPath: path.join( runtimeDirectory, 'blueprint.json' ),
+				tablePrefix: 'wp_',
+				technicalSiteDirectory,
+			} as never;
+
+			expect( repairCompletedImportState( metadata ) ).toContain(
+				'Reapplying the imported database'
+			);
+			expect( metadata.stage ).toBe( 'db-downloaded' );
+			expect( fs.existsSync( sqlitePath ) ).toBe( false );
+		} finally {
+			fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
 		}
 	} );
 } );

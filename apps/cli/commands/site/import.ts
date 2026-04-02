@@ -39,6 +39,7 @@ import {
 import {
 	ensureImportedSiteSqliteReady,
 	loadImportedRuntimeStartOptions,
+	normalizeImportedSqliteDatabasePath,
 } from 'cli/lib/import/runtime-start-options';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
 import { startWordPressServer } from 'cli/lib/wordpress-server-manager';
@@ -840,6 +841,86 @@ export function prepareSkippedEarlierState( metadata: ImportMetadata ): void {
 	} ) );
 }
 
+function getDownloadedSqlDumpPath( metadata: ImportMetadata ): string {
+	return path.join( metadata.stateDirectory, 'db.sql' );
+}
+
+function querySqliteValue( dbPath: string, sql: string ): string | null {
+	const result = spawnSync( 'sqlite3', [ dbPath, sql ] );
+	if ( result.status !== 0 ) {
+		return null;
+	}
+
+	return result.stdout.toString().trim();
+}
+
+function isFreshWordPressInstallDatabase( dbPath: string, tablePrefix: string ): boolean {
+	if ( ! fs.existsSync( dbPath ) ) {
+		return false;
+	}
+
+	const blogname = querySqliteValue(
+		dbPath,
+		`SELECT option_value FROM ${ tablePrefix }options WHERE option_name = 'blogname';`
+	);
+	if ( blogname !== 'My WordPress Website' ) {
+		return false;
+	}
+
+	const posts = querySqliteValue(
+		dbPath,
+		`SELECT post_title || '|' || post_status || '|' || post_type FROM ${ tablePrefix }posts ORDER BY ID LIMIT 5;`
+	);
+
+	return (
+		posts?.includes( 'Hello world!|publish|post' ) === true &&
+		posts.includes( 'Sample Page|publish|page' )
+	);
+}
+
+function removeImportedSqliteDatabase( sitePath: string ): void {
+	const databaseDirectory = path.join( sitePath, 'wp-content', 'database' );
+	fs.rmSync( path.join( databaseDirectory, '.ht.sqlite' ), { force: true } );
+	fs.rmSync( path.join( databaseDirectory, '.ht.sqlite.php' ), { force: true } );
+}
+
+export function repairCompletedImportState( metadata: ImportMetadata ): string | null {
+	if ( metadata.stage !== 'completed' ) {
+		return null;
+	}
+
+	if ( ! fs.existsSync( metadata.runtimeBlueprintPath ) ) {
+		metadata.stage = 'db-applied';
+		saveImportMetadata( metadata );
+		return 'Runtime configuration is missing. Resuming from runtime generation.';
+	}
+
+	const sqlitePath = normalizeImportedSqliteDatabasePath( metadata.sitePath );
+	if ( ! fs.existsSync( sqlitePath ) ) {
+		if ( fs.existsSync( getDownloadedSqlDumpPath( metadata ) ) ) {
+			metadata.stage = 'db-downloaded';
+			saveImportMetadata( metadata );
+			return 'Imported database is missing. Resuming from database apply.';
+		}
+
+		metadata.stage = 'flattened';
+		saveImportMetadata( metadata );
+		return 'Imported database is missing. Resuming from database download.';
+	}
+
+	const tablePrefix = metadata.tablePrefix || 'wp_';
+	if ( isFreshWordPressInstallDatabase( sqlitePath, tablePrefix ) ) {
+		removeImportedSqliteDatabase( metadata.sitePath );
+		metadata.stage = fs.existsSync( getDownloadedSqlDumpPath( metadata ) )
+			? 'db-downloaded'
+			: 'flattened';
+		saveImportMetadata( metadata );
+		return 'Detected a fresh local WordPress database instead of the imported database. Reapplying the imported database.';
+	}
+
+	return null;
+}
+
 async function findExistingSite( metadata: ImportMetadata ): Promise< SiteData | undefined > {
 	const cliConfig = await readCliConfig();
 	return cliConfig.sites.find(
@@ -1126,6 +1207,11 @@ export async function runCommand(
 		// Ignore missing cache file.
 	}
 	await downloadLatestImporterPhar();
+
+	const repairedCompletedImportMessage = repairCompletedImportState( metadata );
+	if ( repairedCompletedImportMessage ) {
+		logger.reportWarning( __( repairedCompletedImportMessage ) );
+	}
 
 	if ( metadata.stage === 'completed' ) {
 		await syncMetadataWithExistingSite( metadata );

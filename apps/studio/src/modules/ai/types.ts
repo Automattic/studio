@@ -12,11 +12,19 @@ export interface TaskMetadata {
 	sessionId?: string;
 }
 
+export interface ImageAttachment {
+	/** Base64-encoded image data (no data-URI prefix) */
+	data: string;
+	/** MIME type, e.g. 'image/png', 'image/jpeg', 'image/webp', 'image/gif' */
+	mediaType: string;
+}
+
 export interface TaskMessage {
 	id: string;
 	role: 'user' | 'assistant' | 'tool' | 'system';
 	content: string;
 	timestamp: number;
+	images?: ImageAttachment[];
 	toolName?: string;
 	toolInput?: unknown;
 	toolResult?: string;

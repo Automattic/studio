@@ -1,5 +1,6 @@
 import path from 'path';
 import { query, type Query } from '@anthropic-ai/claude-agent-sdk';
+import { buildSystemPrompt } from '@studio/common/ai/system-prompt';
 import {
 	ALLOWED_TOOLS,
 	STUDIO_ROOT,
@@ -7,13 +8,12 @@ import {
 	promptForApproval,
 	type AskUserQuestion,
 } from 'cli/ai/security';
-import { buildSystemPrompt } from '@studio/common/ai/system-prompt';
 import { createStudioTools } from 'cli/ai/tools';
 
 export type { AskUserQuestion } from 'cli/ai/security';
 
 export interface AiAgentConfig {
-	prompt: string;
+	prompt: string | AsyncIterable< import('@anthropic-ai/claude-agent-sdk').SDKUserMessage >;
 	env?: Record< string, string >;
 	model?: AiModelId;
 	maxTurns?: number;

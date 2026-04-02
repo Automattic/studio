@@ -7,7 +7,7 @@ import {
 	interruptTask as interrupt,
 	respondToPermissionRequest as respondPermission,
 } from './agent-manager';
-import type { PermissionResponse, TaskMetadata, TaskStatus } from '../types';
+import type { ImageAttachment, PermissionResponse, TaskMetadata, TaskStatus } from '../types';
 import type { IpcMainInvokeEvent } from 'electron';
 
 export async function createTask(
@@ -148,17 +148,19 @@ export async function startTaskAgentHandler(
 	_event: IpcMainInvokeEvent,
 	taskId: string,
 	prompt: string,
-	resumeSessionId?: string
+	resumeSessionId?: string,
+	images?: ImageAttachment[]
 ): Promise< void > {
-	await startAgent( taskId, prompt, resumeSessionId );
+	await startAgent( taskId, prompt, resumeSessionId, images );
 }
 
 export async function sendTaskMessageHandler(
 	_event: IpcMainInvokeEvent,
 	taskId: string,
-	message: string
+	message: string,
+	images?: ImageAttachment[]
 ): Promise< void > {
-	await sendMessage( taskId, message );
+	await sendMessage( taskId, message, images );
 }
 
 export async function interruptTaskHandler(

@@ -185,10 +185,10 @@ const api: IpcApi = {
 	updateTaskStatus: ( taskId, status ) => ipcRendererInvoke( 'updateTaskStatus', taskId, status ),
 
 	// Agent lifecycle
-	startTaskAgentHandler: ( taskId, prompt, resumeSessionId ) =>
-		ipcRendererInvoke( 'startTaskAgentHandler', taskId, prompt, resumeSessionId ),
-	sendTaskMessageHandler: ( taskId, message ) =>
-		ipcRendererInvoke( 'sendTaskMessageHandler', taskId, message ),
+	startTaskAgentHandler: ( taskId, prompt, resumeSessionId, images ) =>
+		ipcRendererInvoke( 'startTaskAgentHandler', taskId, prompt, resumeSessionId, images ),
+	sendTaskMessageHandler: ( taskId, message, images ) =>
+		ipcRendererInvoke( 'sendTaskMessageHandler', taskId, message, images ),
 	interruptTaskHandler: ( taskId ) => ipcRendererInvoke( 'interruptTaskHandler', taskId ),
 	respondToPermissionRequestHandler: ( requestId, response, taskId ) =>
 		ipcRendererInvoke( 'respondToPermissionRequestHandler', requestId, response, taskId ),

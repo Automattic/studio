@@ -12,6 +12,11 @@ import type { AiProviderId } from 'cli/ai/providers';
 
 // --- IPC Message Types ---
 
+interface ImageAttachment {
+	data: string;
+	mediaType: string;
+}
+
 interface StartMessage {
 	type: 'ai:start';
 	prompt: string;
@@ -20,11 +25,13 @@ interface StartMessage {
 	sitePath?: string;
 	siteName?: string;
 	provider?: AiProviderId;
+	images?: ImageAttachment[];
 }
 
 interface FollowUpMessage {
 	type: 'ai:follow-up';
 	message: string;
+	images?: ImageAttachment[];
 }
 
 interface InterruptMessage {
@@ -106,8 +113,45 @@ function createIpcAskUserHandler(): (
 	};
 }
 
+/**
+ * Build Anthropic API content blocks from text and optional images.
+ */
+function buildContentBlocks(
+	text: string,
+	images?: ImageAttachment[]
+): Array<
+	| { type: 'text'; text: string }
+	| { type: 'image'; source: { type: 'base64'; media_type: string; data: string } }
+> {
+	const blocks: Array<
+		| { type: 'text'; text: string }
+		| { type: 'image'; source: { type: 'base64'; media_type: string; data: string } }
+	> = [];
+
+	if ( images?.length ) {
+		for ( const img of images ) {
+			blocks.push( {
+				type: 'image',
+				source: { type: 'base64', media_type: img.mediaType, data: img.data },
+			} );
+		}
+	}
+
+	blocks.push( { type: 'text', text } );
+
+	return blocks;
+}
+
 async function handleStart( message: StartMessage ): Promise< void > {
-	const { prompt, model, resume, sitePath, siteName, provider: requestedProvider } = message;
+	const {
+		prompt,
+		model,
+		resume,
+		sitePath,
+		siteName,
+		provider: requestedProvider,
+		images,
+	} = message;
 
 	try {
 		// Resolve provider and environment
@@ -122,8 +166,24 @@ async function handleStart( message: StartMessage ): Promise< void > {
 			}" at ${ sitePath } (running)]\n\n${ prompt }`;
 		}
 
+		// If images are attached, use the async iterable form with multimodal content
+		const hasImages = images && images.length > 0;
+		const promptOrStream = hasImages
+			? ( async function* () {
+					yield {
+						type: 'user' as const,
+						message: {
+							role: 'user' as const,
+							content: buildContentBlocks( enrichedPrompt, images ),
+						},
+						parent_tool_use_id: null,
+						session_id: '',
+					};
+			  } )()
+			: enrichedPrompt;
+
 		const agentQuery = startAiAgent( {
-			prompt: enrichedPrompt,
+			prompt: promptOrStream,
 			env,
 			model,
 			resume,
@@ -157,9 +217,14 @@ function handleFollowUp( message: FollowUpMessage ): void {
 		return;
 	}
 
+	const hasImages = message.images && message.images.length > 0;
+	const content = hasImages
+		? buildContentBlocks( message.message, message.images )
+		: message.message;
+
 	const sdkMessage = {
 		type: 'user' as const,
-		message: { role: 'user' as const, content: message.message },
+		message: { role: 'user' as const, content },
 		parent_tool_use_id: null,
 		session_id: '',
 	};

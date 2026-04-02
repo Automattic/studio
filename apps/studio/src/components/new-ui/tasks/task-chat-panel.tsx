@@ -7,9 +7,10 @@ import { TaskPermissionPrompt } from './task-permission-prompt';
 
 interface TaskChatPanelProps {
 	taskId: string;
+	toolbar?: React.ReactNode;
 }
 
-export function TaskChatPanel( { taskId }: TaskChatPanelProps ) {
+export function TaskChatPanel( { taskId, toolbar }: TaskChatPanelProps ) {
 	const task = useRootSelector( ( state ) => state.tasks.tasks.find( ( t ) => t.id === taskId ) );
 	const messages = useRootSelector( ( state ) => state.tasks.messagesByTask[ taskId ] ?? [] );
 	const isStreaming = useRootSelector(
@@ -39,10 +40,10 @@ export function TaskChatPanel( { taskId }: TaskChatPanelProps ) {
 
 	return (
 		<div ref={ scrollRef } className="flex-1 overflow-y-auto" style={ { scrollbarWidth: 'thin' } }>
-			{ /* Blur overlay — sticks under toolbar, blurs content scrolling behind it */ }
-			<div className="task-chat-blur-top" />
+			<div className="flex flex-col min-h-full">
+				{ /* Sticky toolbar with progressive blur */ }
+				{ toolbar && <div className="sticky top-0 z-10 task-toolbar-blur">{ toolbar }</div> }
 
-			<div className="flex flex-col min-h-full pt-10">
 				<div className="flex-1">
 					{ messages.length === 0 ? (
 						<EmptyState siteName={ site?.name } />

@@ -227,8 +227,8 @@ function SiteItem( {
 			<button
 				type="button"
 				className={ cx(
-					'p-2 text-xs rounded-tl rounded-bl whitespace-nowrap overflow-hidden text-ellipsis w-full text-left rtl:text-right focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme',
-					isSelected ? 'text-chrome-text' : 'text-chrome-text-secondary'
+					'p-2 text-sm rounded-tl rounded-bl whitespace-nowrap overflow-hidden text-ellipsis w-full text-left rtl:text-right focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme',
+					'text-chrome-text'
 				) }
 				onClick={ () => {
 					dispatch( setSelectedTaskId( null ) );

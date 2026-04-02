@@ -4,9 +4,6 @@
 @tailwind utilities;
 
 :root {
-	/* Tint (semi-transparent frame background for glassmorphic effects) */
-	--color-frame-tint: rgba(255, 255, 255, 0.7);
-
 	/* Chrome (window background, navigation panel) */
 	--color-chrome-bg: #e0e0e0;
 	--color-chrome-text: rgba(0, 0, 0, 0.8);
@@ -63,7 +60,6 @@
 		--color-frame-running: #1ed15a;
 		--color-frame-error: #f87171;
 		--color-frame-tab-active: #fff;
-		--color-frame-tint: rgba(47, 47, 47, 0.7);
 	}
 }
 
@@ -635,23 +631,27 @@ div:has( > progress ) > div:first-child {
 	}
 }
 
-/* Toolbar — transparent when floating over task chat */
+/* Progressive blur — toolbar wrapper inside task chat scroll container.
+   The wrapper (sticky top-0 z-10) creates a stacking context.
+   ::before at z-index:-1 sits behind toolbar content but inside that context,
+   so backdrop-filter blurs the scrolling content beneath. */
 .task-toolbar-blur {
-	background: transparent !important;
+	background: transparent;
 }
 
-/* Progressive blur — top of task chat (lives inside scroll container) */
-.task-chat-blur-top {
-	position: sticky;
+.task-toolbar-blur::before {
+	content: '';
+	position: absolute;
 	top: 0;
-	height: 64px;
-	margin-bottom: -64px;
-	z-index: 10;
-	pointer-events: none;
+	left: 0;
+	right: 0;
+	bottom: -24px;
+	z-index: -1;
 	backdrop-filter: blur(12px);
 	-webkit-backdrop-filter: blur(12px);
-	mask-image: linear-gradient(to bottom, black 40px, transparent);
-	-webkit-mask-image: linear-gradient(to bottom, black 40px, transparent);
+	mask-image: linear-gradient(to bottom, black 40%, transparent);
+	-webkit-mask-image: linear-gradient(to bottom, black 40%, transparent);
+	pointer-events: none;
 }
 
 /* Progressive blur — bottom of task chat (content fades under input) */
@@ -668,6 +668,13 @@ div:has( > progress ) > div:first-child {
 	mask-image: linear-gradient(to bottom, transparent, black 40px);
 	-webkit-mask-image: linear-gradient(to bottom, transparent, black 40px);
 	pointer-events: none;
+}
+
+/* Task chat input — frosted card */
+.task-chat-input-card {
+	background: color-mix(in srgb, var(--color-frame-surface) 70%, transparent);
+	backdrop-filter: blur(20px);
+	-webkit-backdrop-filter: blur(20px);
 }
 
 /* Browser panel — indeterminate loading bar */

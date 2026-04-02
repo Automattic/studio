@@ -1,6 +1,6 @@
 import { Button, Popover } from '@wordpress/components';
-import { archive, plus } from '@wordpress/icons';
-import { useMemo, useState } from 'react';
+import { archive, chevronRight, Icon, plus } from '@wordpress/icons';
+import { useCallback, useMemo, useState } from 'react';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { useAppDispatch, useRootSelector } from 'src/stores';
@@ -31,6 +31,26 @@ export function TaskList() {
 		[ tasks ]
 	);
 
+	const groupedTasks = useMemo( () => {
+		const groups: { siteId: string; siteName: string; tasks: typeof activeTasks }[] = [];
+		const map = new Map< string, typeof activeTasks >();
+		for ( const task of activeTasks ) {
+			const existing = map.get( task.siteId );
+			if ( existing ) {
+				existing.push( task );
+			} else {
+				const list = [ task ];
+				map.set( task.siteId, list );
+				groups.push( {
+					siteId: task.siteId,
+					siteName: siteNameMap[ task.siteId ] || 'Unknown',
+					tasks: list,
+				} );
+			}
+		}
+		return groups;
+	}, [ activeTasks, siteNameMap ] );
+
 	const archivedTasks = useMemo(
 		() => tasks.filter( ( t ) => t.archived ).sort( ( a, b ) => b.updatedAt - a.updatedAt ),
 		[ tasks ]
@@ -44,11 +64,24 @@ export function TaskList() {
 		void dispatch( clearArchivedTasksThunk() );
 	};
 
+	const [ collapsedSites, setCollapsedSites ] = useState< Set< string > >( new Set() );
+	const toggleSite = useCallback( ( siteId: string ) => {
+		setCollapsedSites( ( prev ) => {
+			const next = new Set( prev );
+			if ( next.has( siteId ) ) {
+				next.delete( siteId );
+			} else {
+				next.add( siteId );
+			}
+			return next;
+		} );
+	}, [] );
+
 	return (
 		<div className="flex flex-col gap-1">
 			<header className="flex items-center justify-between pl-2 pr-0">
 				<h3 className="a8c-label text-chrome-text">Tasks</h3>
-				<div className="flex items-center gap-1">
+				<div className="flex items-center">
 					{ archivedTasks.length > 0 && (
 						<div className="relative">
 							<Button
@@ -87,7 +120,6 @@ export function TaskList() {
 												<TaskListItem
 													key={ task.id }
 													task={ task }
-													siteName={ siteNameMap[ task.siteId ] }
 													isSelected={ task.id === selectedTaskId }
 													onClick={ () => {
 														dispatch( setSelectedTaskId( task.id ) );
@@ -116,17 +148,48 @@ export function TaskList() {
 				<div className="text-chrome-text-tertiary text-xs px-2">No tasks yet</div>
 			) }
 
-			<div className="flex flex-col">
-				{ activeTasks.map( ( task ) => (
-					<TaskListItem
-						key={ task.id }
-						task={ task }
-						siteName={ siteNameMap[ task.siteId ] }
-						isSelected={ task.id === selectedTaskId }
-						onClick={ () => dispatch( setSelectedTaskId( task.id ) ) }
-						onArchive={ () => handleArchiveTask( task.id ) }
-					/>
-				) ) }
+			<div className="flex flex-col gap-2">
+				{ groupedTasks.map( ( group ) => {
+					const isOpen = ! collapsedSites.has( group.siteId );
+					return (
+						<div key={ group.siteId } className="flex flex-col">
+							<button
+								onClick={ () => toggleSite( group.siteId ) }
+								className="flex items-center px-2 py-1 text-xs text-chrome-text-secondary"
+							>
+								<span>{ group.siteName }</span>
+								<Icon
+									icon={ chevronRight }
+									size={ 16 }
+									className={ cx(
+										'fill-chrome-text-secondary transition-transform duration-200',
+										isOpen ? 'rotate-90' : 'rotate-0'
+									) }
+								/>
+							</button>
+							<div
+								className={ cx(
+									'grid transition-[grid-template-rows] duration-200 ease-in-out',
+									isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+								) }
+							>
+								<div className="overflow-hidden">
+									<div className="flex flex-col gap-0.5">
+										{ group.tasks.map( ( task ) => (
+											<TaskListItem
+												key={ task.id }
+												task={ task }
+												isSelected={ task.id === selectedTaskId }
+												onClick={ () => dispatch( setSelectedTaskId( task.id ) ) }
+												onArchive={ () => handleArchiveTask( task.id ) }
+											/>
+										) ) }
+									</div>
+								</div>
+							</div>
+						</div>
+					);
+				} ) }
 			</div>
 		</div>
 	);

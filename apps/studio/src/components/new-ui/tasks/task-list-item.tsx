@@ -1,71 +1,74 @@
-import { archive } from '@wordpress/icons';
+import { DropdownMenu, MenuGroup, MenuItem } from '@wordpress/components';
+import { archive, moreVertical } from '@wordpress/icons';
+import { useState } from 'react';
 import { cx } from 'src/lib/cx';
 import type { TaskMetadata } from 'src/modules/ai/types';
 
 interface TaskListItemProps {
 	task: TaskMetadata;
-	siteName?: string;
 	isSelected: boolean;
 	onClick: () => void;
 	onArchive?: () => void;
 }
 
-function StatusDot( { status }: { status: TaskMetadata[ 'status' ] } ) {
-	return (
-		<span
-			className={ cx(
-				'inline-block w-1.5 h-1.5 rounded-full flex-shrink-0',
-				status === 'in-progress' && 'bg-[#4f94f8] animate-pulse',
-				status === 'waiting' && 'bg-chrome-text-tertiary',
-				status === 'done' && 'bg-[#4ab866]'
-			) }
-		/>
-	);
-}
+export function TaskListItem( { task, isSelected, onClick, onArchive }: TaskListItemProps ) {
+	const [ menuOpen, setMenuOpen ] = useState( false );
 
-export function TaskListItem( {
-	task,
-	siteName,
-	isSelected,
-	onClick,
-	onArchive,
-}: TaskListItemProps ) {
 	return (
 		<div
 			className={ cx(
-				'w-full flex items-center gap-2 px-2 py-1.5 rounded-sm text-left transition-colors',
+				'group flex items-center w-full h-9 rounded-md text-left transition-colors',
 				'hover:bg-chrome-surface',
 				isSelected && 'bg-chrome-surface'
 			) }
 		>
-			<button onClick={ onClick } className="flex-1 min-w-0 text-left">
-				<div
+			<button
+				onClick={ onClick }
+				className="flex-1 min-w-0 text-left px-2 py-1.5 flex items-center gap-2"
+			>
+				<span
 					className={ cx(
-						'text-xs truncate',
-						isSelected ? 'text-chrome-text' : 'text-chrome-text-secondary'
+						'text-sm truncate',
+						isSelected ? 'text-chrome-text' : 'text-chrome-text'
 					) }
 				>
 					{ task.title }
-				</div>
-				{ siteName && (
-					<div className="text-[10px] text-chrome-text-tertiary truncate">{ siteName }</div>
+				</span>
+				{ task.status === 'in-progress' && (
+					<span className="w-1.5 h-1.5 rounded-full bg-[#4f94f8] animate-pulse flex-shrink-0" />
 				) }
 			</button>
-			<div className="group relative flex-shrink-0 w-5 h-5 flex items-center justify-center">
-				<StatusDot status={ task.status } />
-				{ onArchive && (
-					<button
-						onClick={ ( e ) => {
-							e.stopPropagation();
-							onArchive();
-						} }
-						className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 text-chrome-text-tertiary hover:text-chrome-text transition-opacity"
-						title="Archive task"
+			{ onArchive && (
+				<div
+					className={ cx(
+						'flex-shrink-0',
+						menuOpen
+							? 'relative'
+							: 'absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:relative group-hover:top-auto group-hover:translate-y-0 group-hover:opacity-100'
+					) }
+				>
+					<DropdownMenu
+						icon={ moreVertical }
+						label="Task options"
+						className="text-chrome-text-tertiary hover:text-chrome-text"
+						onToggle={ setMenuOpen }
 					>
-						<span className="[&>svg]:w-5 [&>svg]:h-5 [&>svg]:fill-current">{ archive }</span>
-					</button>
-				) }
-			</div>
+						{ ( { onClose }: { onClose: () => void } ) => (
+							<MenuGroup>
+								<MenuItem
+									icon={ archive }
+									onClick={ () => {
+										onArchive();
+										onClose();
+									} }
+								>
+									Archive
+								</MenuItem>
+							</MenuGroup>
+						) }
+					</DropdownMenu>
+				</div>
+			) }
 		</div>
 	);
 }

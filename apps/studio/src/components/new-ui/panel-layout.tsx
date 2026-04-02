@@ -4,7 +4,7 @@ import {
 	chevronRight,
 	cog,
 	drawerLeft,
-	drawerRight,
+	navigation,
 	rotateRight,
 } from '@wordpress/icons';
 import { type RefObject, useEffect, useMemo, useRef } from 'react';
@@ -165,7 +165,7 @@ export function PanelLayout( {
 						end={
 							<Button
 								icon={ cog }
-								label="Settings"
+								label={ `Settings (${ isMac() ? '⌘,' : 'Ctrl+,' })` }
 								className={ ICON_CHROME }
 								onClick={ () => getIpcApi().openSettingsWindow() }
 							/>
@@ -183,50 +183,56 @@ export function PanelLayout( {
 
 			{ /* PanelPrimary */ }
 			<Panel id="primary" minSize="300px">
-				<div
-					className={ `h-full flex flex-col overflow-hidden bg-frame ${
-						isTaskChat ? 'relative' : ''
-					}` }
-				>
-					<Toolbar
-						className={ `app-drag-region ${
-							isTaskChat ? 'absolute top-0 left-0 right-0 z-20 task-toolbar-blur' : ''
-						}` }
-						startInset={ primaryStartInset }
-						start={
-							<Button
-								icon={ drawerLeft }
-								onClick={ onToggleNav }
-								label="Toggle navigation"
-								className={ ICON_FRAME }
-							/>
-						}
-						middle={
-							pendingNewTask ? (
-								<span className="text-xs text-frame-text">New Task</span>
-							) : selectedTask ? (
-								<span className="text-xs text-frame-text">{ selectedTask.title }</span>
-							) : selectedSite ? (
-								<span className="text-xs text-frame-text">{ selectedSite.name }</span>
-							) : undefined
-						}
-						end={
-							<Button
-								icon={ drawerRight }
-								onClick={ () => togglePanel( secondaryPanelRef.current ) }
-								label="Toggle secondary panel"
-								className={ ICON_FRAME }
-							/>
-						}
-					/>
-					{ pendingNewTask ? (
-						<TaskNewPanel />
-					) : selectedTaskId ? (
-						<TaskChatPanel taskId={ selectedTaskId } />
-					) : (
-						<SiteContentTabs />
-					) }
-				</div>
+				{ ( () => {
+					const primaryToolbar = (
+						<Toolbar
+							className="app-drag-region"
+							startInset={ primaryStartInset }
+							start={
+								<Button
+									icon={ drawerLeft }
+									onClick={ onToggleNav }
+									label={ `${ navCollapsed ? 'Show' : 'Hide' } navigation (${
+										isMac() ? '⌘B' : 'Ctrl+B'
+									})` }
+									className={ ICON_FRAME }
+								/>
+							}
+							middle={
+								pendingNewTask ? (
+									<span className="text-xs text-frame-text">New Task</span>
+								) : selectedTask ? (
+									<span className="text-xs text-frame-text">{ selectedTask.title }</span>
+								) : selectedSite ? (
+									<span className="text-xs text-frame-text">{ selectedSite.name }</span>
+								) : undefined
+							}
+							end={
+								<Button
+									icon={ navigation }
+									onClick={ () => togglePanel( secondaryPanelRef.current ) }
+									label={ `${
+										secondaryPanelRef.current?.isCollapsed() ? 'Show' : 'Hide'
+									} browser (${ isMac() ? '⌘⇧B' : 'Ctrl+Shift+B' })` }
+									className={ ICON_FRAME }
+								/>
+							}
+						/>
+					);
+
+					return (
+						<div className="h-full flex flex-col overflow-hidden bg-frame">
+							{ ! isTaskChat && primaryToolbar }
+							{ pendingNewTask ? (
+								<TaskNewPanel />
+							) : selectedTaskId ? (
+								<TaskChatPanel taskId={ selectedTaskId } toolbar={ primaryToolbar } />
+							) : (
+								<SiteContentTabs />
+							) }
+						</div>
+					);
+				} )() }
 			</Panel>
 
 			<Separator className="w-0 relative z-10 app-no-drag-region">
@@ -247,7 +253,7 @@ export function PanelLayout( {
 				<div className="h-full flex flex-col overflow-hidden bg-[#1d2327]">
 					{ browser.autoLoginSrc ? (
 						<>
-							<div className="relative flex items-center gap-1 p-2 flex-shrink-0">
+							<div className="relative flex items-center gap-1 p-2 flex-shrink-0 app-drag-region">
 								{ browser.isNavigating && (
 									<div className="absolute bottom-0 left-0 right-0 h-0.5 overflow-hidden">
 										<div className="absolute h-full w-[30%] bg-frame-theme animate-[browser-progress_1.5s_ease-in-out_infinite]" />

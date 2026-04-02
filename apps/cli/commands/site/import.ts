@@ -1180,8 +1180,8 @@ function printReadyMessage( metadata: ImportMetadata ): void {
 	console.log( '' );
 	console.log( `Site "${ metadata.siteName }" is ready.` );
 	console.log( '' );
-	console.log( __( 'Site URL: ' ), metadata.localUrl );
-	console.log( __( 'WP Admin: ' ), `${ metadata.localUrl }/wp-admin/` );
+	console.log( __( 'Site URL: ' ), `${ metadata.localUrl }?studio-auto-login` );
+	console.log( __( 'WP Admin: ' ), `${ metadata.localUrl }/wp-admin/?studio-auto-login` );
 	console.log( '' );
 }
 
@@ -1190,8 +1190,8 @@ function printCompletionMessage( metadata: ImportMetadata ): void {
 	console.log( `Site "${ metadata.siteName }" imported successfully.` );
 	console.log( '' );
 	if ( metadata.localUrl ) {
-		console.log( __( 'Site URL: ' ), metadata.localUrl );
-		console.log( __( 'WP Admin: ' ), `${ metadata.localUrl }/wp-admin/` );
+		console.log( __( 'Site URL: ' ), `${ metadata.localUrl }?studio-auto-login` );
+		console.log( __( 'WP Admin: ' ), `${ metadata.localUrl }/wp-admin/?studio-auto-login` );
 		console.log( '' );
 	}
 }
@@ -1304,6 +1304,7 @@ async function restartUnresumableFilesSync(
 			apiUrl,
 			`--secret=${ secret }`,
 			'--abort',
+			'--no-adaptive',
 			'--state-dir=/state',
 			'--fs-root=/docroot',
 		],
@@ -1496,7 +1497,6 @@ export async function runCommand(
 					apiUrl,
 					`--secret=${ secret }`,
 					'--filter=essential-files',
-					'--no-adaptive',
 					'--follow-symlinks',
 					'--on-fs-root-nonempty=preserve-local',
 					'--no-adaptive', // Don't do backoffs on WP.com sites
@@ -1551,7 +1551,7 @@ export async function runCommand(
 			await runImporterCommandUntilComplete(
 				metadata.stateDirectory,
 				metadata.rawDirectory,
-				[ ...buildDbApplyArgs( metadata ), `--secret=${ secret }` ],
+				[ ...buildDbApplyArgs( metadata ), `--secret=${ secret }`, '--no-adaptive' ],
 				undefined,
 				{
 					mounts: [ { hostPath: metadata.sitePath, vfsPath: '/site' } ],

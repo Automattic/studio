@@ -269,6 +269,8 @@ export function formatImporterProgressSnapshot(
 		segments.push( `${ snapshot.downloadedFiles }/${ snapshot.totalFiles } files` );
 	} else if ( snapshot.downloadedFiles !== undefined ) {
 		segments.push( `${ snapshot.downloadedFiles } files` );
+	} else if ( snapshot.totalFiles !== undefined ) {
+		segments.push( `${ snapshot.totalFiles } files` );
 	}
 
 	if ( snapshot.downloadedBytes !== undefined && snapshot.totalBytes !== undefined ) {
@@ -523,17 +525,16 @@ function createProgressReporter(
 	};
 }
 
+type ProgressReporter = ReturnType< typeof createProgressReporter >;
+
 async function runImporterCommandWithNativePhp(
 	pharPath: string,
 	stateDir: string,
 	docroot: string,
 	tmpDir: string,
 	args: string[],
-	onProgress: ( ( output: string ) => void ) | undefined,
 	options: RunImporterOptions,
-	progressLabel: string,
-	defaultPhase: string | undefined,
-	startTime: number
+	progressReporter: ProgressReporter
 ): Promise< ImporterResult > {
 	const command = resolveNativeImporterInvocation(
 		pharPath,
@@ -554,12 +555,6 @@ async function runImporterCommandWithNativePhp(
 		} );
 		const stdoutChunks: string[] = [];
 		const stderrChunks: string[] = [];
-		const progressReporter = createProgressReporter(
-			progressLabel,
-			defaultPhase,
-			startTime,
-			onProgress
-		);
 
 		const sigintHandler = () => {
 			child.kill( 'SIGKILL' );
@@ -569,7 +564,6 @@ async function runImporterCommandWithNativePhp(
 
 		const cleanup = () => {
 			process.removeListener( 'SIGINT', sigintHandler );
-			progressReporter.cleanup();
 		};
 
 		child.stdout?.on( 'data', ( chunk: Buffer ) => {
@@ -605,11 +599,8 @@ async function runImporterCommandWithWasmChild(
 	docroot: string,
 	tmpDir: string,
 	args: string[],
-	onProgress: ( ( output: string ) => void ) | undefined,
 	options: RunImporterOptions,
-	progressLabel: string,
-	defaultPhase: string | undefined,
-	startTime: number
+	progressReporter: ProgressReporter
 ): Promise< ImporterResult > {
 	const childPath = getImporterChildPath();
 
@@ -629,12 +620,6 @@ async function runImporterCommandWithWasmChild(
 		} );
 		let settled = false;
 		const childStderrChunks: string[] = [];
-		const progressReporter = createProgressReporter(
-			progressLabel,
-			defaultPhase,
-			startTime,
-			onProgress
-		);
 
 		child.stderr?.on( 'data', ( chunk: Buffer ) => {
 			childStderrChunks.push( chunk.toString() );
@@ -648,7 +633,6 @@ async function runImporterCommandWithWasmChild(
 
 		const cleanup = () => {
 			process.removeListener( 'SIGINT', sigintHandler );
-			progressReporter.cleanup();
 		};
 
 		child.on(
@@ -737,42 +721,49 @@ export async function runImporterCommandUntilComplete(
 	const startTime = Date.now();
 	const nativePhpCommand = getNativePhpCommand();
 
+	// Create the progress reporter once so cumulative counters (bytes received,
+	// file counts) survive across importer restarts (exit code 2).
+	const progressReporter = createProgressReporter(
+		progressLabel,
+		defaultPhase,
+		startTime,
+		onProgress
+	);
+
 	let lastResult: ImporterResult | undefined;
 
-	do {
-		if ( nativePhpCommand ) {
-			lastResult = await runImporterCommandWithNativePhp(
-				pharPath,
-				stateDir,
-				docroot,
-				tmpDir,
-				args,
-				onProgress,
-				options,
-				progressLabel,
-				defaultPhase,
-				startTime
-			);
-		} else {
-			lastResult = await runImporterCommandWithWasmChild(
-				pharPath,
-				stateDir,
-				docroot,
-				tmpDir,
-				args,
-				onProgress,
-				options,
-				progressLabel,
-				defaultPhase,
-				startTime
-			);
-		}
+	try {
+		do {
+			if ( nativePhpCommand ) {
+				lastResult = await runImporterCommandWithNativePhp(
+					pharPath,
+					stateDir,
+					docroot,
+					tmpDir,
+					args,
+					options,
+					progressReporter
+				);
+			} else {
+				lastResult = await runImporterCommandWithWasmChild(
+					pharPath,
+					stateDir,
+					docroot,
+					tmpDir,
+					args,
+					options,
+					progressReporter
+				);
+			}
 
-		if ( lastResult.exitCode === 1 ) {
-			const details = [ lastResult.stderr, lastResult.stdout ].filter( Boolean ).join( '\n' );
-			throw new Error( details || 'importer.phar failed' );
-		}
-	} while ( lastResult.exitCode === 2 );
+			if ( lastResult.exitCode === 1 ) {
+				const details = [ lastResult.stderr, lastResult.stdout ].filter( Boolean ).join( '\n' );
+				throw new Error( details || 'importer.phar failed' );
+			}
+		} while ( lastResult.exitCode === 2 );
 
-	return lastResult;
+		return lastResult;
+	} finally {
+		progressReporter.cleanup();
+	}
 }

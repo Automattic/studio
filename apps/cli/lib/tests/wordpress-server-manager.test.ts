@@ -178,6 +178,38 @@ describe( 'WordPress Server Manager', () => {
 				'Failed to start process'
 			);
 		} );
+
+		it( 'should prefer the child error message over a following exit event', async () => {
+			const readyInterval = setInterval( () => {
+				mockBus.emit( 'process-message', {
+					process: { name: mockProcessDescription.name, pm_id: mockProcessDescription.pmId },
+					raw: { topic: 'ready' },
+				} );
+			}, 1 );
+
+			vi.mocked( daemonClient.sendMessageToProcess ).mockImplementation( ( pmId, message ) => {
+				clearInterval( readyInterval );
+				setImmediate( () => {
+					mockBus.emit( 'process-message', {
+						process: { name: mockProcessDescription.name, pm_id: mockProcessDescription.pmId },
+						raw: {
+							topic: 'error',
+							originalMessageId: message.messageId,
+							errorMessage: 'Error connecting to the SQLite database.',
+						},
+					} );
+					mockBus.emit( 'process-event', {
+						process: { name: mockProcessDescription.name, pm_id: mockProcessDescription.pmId },
+						event: 'exit',
+					} );
+				} );
+				return Promise.resolve();
+			} );
+
+			await expect( startWordPressServer( mockSiteData, mockLogger ) ).rejects.toThrow(
+				'Error connecting to the SQLite database.'
+			);
+		} );
 	} );
 
 	describe( 'stopWordPressServer', () => {

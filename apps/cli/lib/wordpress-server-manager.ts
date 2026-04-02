@@ -189,6 +189,7 @@ const messageActivityTrackers = new Map<
 		activityCheckIntervalId: NodeJS.Timeout;
 	}
 >();
+const CHILD_EXIT_ERROR_GRACE_MS = 100;
 
 export interface SendMessageOptions {
 	maxTotalElapsedTime?: number;
@@ -214,6 +215,7 @@ export async function sendMessage(
 	let responseHandler: ( packet: DaemonBusEventMap[ 'process-message' ] ) => void;
 	let processEventHandler: ( event: DaemonBusEventMap[ 'process-event' ] ) => void;
 	let abortListener: () => void;
+	let exitRejectTimeoutId: NodeJS.Timeout | undefined;
 
 	return new Promise( ( resolve, reject ) => {
 		const startTime = Date.now();
@@ -246,7 +248,9 @@ export async function sendMessage(
 
 		processEventHandler = ( event ) => {
 			if ( event.process.name === processName && event.event === 'exit' ) {
-				reject( new Error( 'WordPress server process exited unexpectedly' ) );
+				exitRejectTimeoutId = setTimeout( () => {
+					reject( new Error( 'WordPress server process exited unexpectedly' ) );
+				}, CHILD_EXIT_ERROR_GRACE_MS );
 			}
 		};
 
@@ -261,6 +265,10 @@ export async function sendMessage(
 				lastActivityTimestamp = Date.now();
 				logger?.reportProgress( packet.raw.message );
 			} else if ( packet.raw.topic === 'error' && packet.raw.originalMessageId === messageId ) {
+				if ( exitRejectTimeoutId ) {
+					clearTimeout( exitRejectTimeoutId );
+					exitRejectTimeoutId = undefined;
+				}
 				const error = new Error( packet.raw.errorMessage ) as Error & {
 					cliArgs?: Record< string, unknown >;
 				};
@@ -272,6 +280,10 @@ export async function sendMessage(
 				}
 				reject( error );
 			} else if ( packet.raw.topic === 'result' && packet.raw.originalMessageId === messageId ) {
+				if ( exitRejectTimeoutId ) {
+					clearTimeout( exitRejectTimeoutId );
+					exitRejectTimeoutId = undefined;
+				}
 				resolve( packet.raw.result );
 			}
 		};
@@ -295,6 +307,9 @@ export async function sendMessage(
 		if ( tracker ) {
 			clearInterval( tracker.activityCheckIntervalId );
 			messageActivityTrackers.delete( messageId );
+		}
+		if ( exitRejectTimeoutId ) {
+			clearTimeout( exitRejectTimeoutId );
 		}
 	} );
 }

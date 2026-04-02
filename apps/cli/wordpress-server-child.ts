@@ -31,6 +31,7 @@ import { WordPressInstallMode } from '@wp-playground/wordpress';
 import fs from 'fs-extra';
 import { z } from 'zod';
 import { sanitizeRunCLIArgs } from 'cli/lib/cli-args-sanitizer';
+import { loadImportedRuntimeStartOptions } from 'cli/lib/import/runtime-start-options';
 import { rewriteWpCliPostContentToFile } from 'cli/lib/rewrite-wp-cli-post-content';
 import { getPhpMyAdminPath, getSqliteCommandPath, getWpCliPharPath } from 'cli/lib/server-files';
 import { isSqliteIntegrationInstalled } from 'cli/lib/sqlite-integration';
@@ -148,6 +149,24 @@ async function getBaseRunCLIArgs(
 	command: RunCLIArgs[ 'command' ],
 	config: ServerConfig
 ): Promise< RunCLIArgs > {
+	if ( ! config.useExactMountLayout && config.blueprint?.uri ) {
+		try {
+			const importedRuntime = loadImportedRuntimeStartOptions( config.blueprint.uri );
+			if ( importedRuntime.useExactMountLayout ) {
+				config.mountsBeforeInstall = importedRuntime.mountsBeforeInstall;
+				config.mounts = importedRuntime.mounts;
+				config.wordpressInstallMode =
+					importedRuntime.wordpressInstallMode ?? config.wordpressInstallMode;
+				config.useExactMountLayout = true;
+				logToConsole(
+					`Recovered imported runtime mounts from ${ config.blueprint.uri } before startup`
+				);
+			}
+		} catch {
+			// Ignore missing or invalid imported runtime metadata and continue with the provided config.
+		}
+	}
+
 	const wordpressInstallMode =
 		config.wordpressInstallMode ?? ( await getWordPressInstallMode( config.sitePath ) );
 	const useExactMountLayout = config.useExactMountLayout ?? false;

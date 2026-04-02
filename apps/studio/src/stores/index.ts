@@ -28,6 +28,16 @@ import {
 	syncOperationsThunks,
 } from 'src/stores/sync/sync-operations-slice';
 import { wpcomSitesApi } from 'src/stores/sync/wpcom-sites';
+import {
+	tasksReducer,
+	loadTasks,
+	taskUpdatedFromMain,
+	taskDeletedFromMain,
+	appendTaskMessage,
+	setTaskStatus,
+	setTaskStreaming,
+	addPermissionRequest,
+} from 'src/stores/tasks-slice';
 import uiReducer from 'src/stores/ui-slice';
 import { getWpcomClient, wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
 import { wordpressVersionsApi } from './wordpress-versions-api';
@@ -49,6 +59,7 @@ export type RootState = {
 	wpcomApi: ReturnType< typeof wpcomApi.reducer >;
 	wpcomPublicApi: ReturnType< typeof wpcomPublicApi.reducer >;
 	certificateTrustApi: ReturnType< typeof certificateTrustApi.reducer >;
+	tasks: ReturnType< typeof tasksReducer >;
 	i18n: ReturnType< typeof i18nReducer >;
 	ui: ReturnType< typeof uiReducer >;
 };
@@ -337,6 +348,7 @@ export const rootReducer = combineReducers( {
 	wpcomApi: wpcomApi.reducer,
 	wpcomPublicApi: wpcomPublicApi.reducer,
 	certificateTrustApi: certificateTrustApi.reducer,
+	tasks: tasksReducer,
 	i18n: i18nReducer,
 	ui: uiReducer,
 } );
@@ -359,9 +371,53 @@ export const store = configureStore( {
 // Enable the refetchOnFocus behavior
 setupListeners( store.dispatch );
 
+// Listen for task events from main process
+if ( typeof window !== 'undefined' && window.ipcListener ) {
+	window.ipcListener.subscribe( 'task-updated', ( _, task ) => {
+		store.dispatch( taskUpdatedFromMain( task ) );
+	} );
+	window.ipcListener.subscribe( 'task-deleted', ( _, taskId ) => {
+		store.dispatch( taskDeletedFromMain( taskId ) );
+	} );
+	window.ipcListener.subscribe( 'task-message', ( _, { taskId, message } ) => {
+		store.dispatch( appendTaskMessage( { taskId, message } ) );
+	} );
+	window.ipcListener.subscribe( 'task-status-changed', ( _, { taskId, status } ) => {
+		store.dispatch(
+			setTaskStatus( {
+				taskId,
+				status: status as import('src/modules/ai/types').TaskStatus,
+			} )
+		);
+		// Clear streaming when the agent turn completes
+		if ( status === 'waiting' || status === 'done' ) {
+			store.dispatch( setTaskStreaming( { taskId, streaming: false } ) );
+		}
+	} );
+	window.ipcListener.subscribe( 'task-permission-request', ( _, request ) => {
+		store.dispatch( addPermissionRequest( request ) );
+	} );
+	window.ipcListener.subscribe( 'task-error', ( _, { taskId, error } ) => {
+		store.dispatch(
+			appendTaskMessage( {
+				taskId,
+				message: {
+					id: `error-${ Date.now() }`,
+					role: 'system',
+					content: error,
+					timestamp: Date.now(),
+					isError: true,
+				},
+			} )
+		);
+		store.dispatch( setTaskStreaming( { taskId, streaming: false } ) );
+	} );
+}
+
 // Initialize beta features and fetch snapshots on store initialization, but skip in test environment
 if ( process.env.NODE_ENV !== 'test' ) {
 	void store.dispatch( loadBetaFeatures() );
+	void store.dispatch( loadTasks() );
 	void refreshSnapshots();
 }
 

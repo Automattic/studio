@@ -16,6 +16,7 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useRootSelector } from 'src/stores';
 import { Sidebar } from './sidebar';
 import { TaskChatPanel } from './tasks/task-chat-panel';
+import { TaskNewPanel } from './tasks/task-new-panel';
 import { Toolbar } from './toolbar';
 
 export function togglePanel(
@@ -82,6 +83,7 @@ export function PanelLayout( {
 }: PanelLayoutProps ) {
 	const { selectedSite } = useSiteDetails();
 	const selectedTaskId = useRootSelector( ( state ) => state.tasks.selectedTaskId );
+	const pendingNewTask = useRootSelector( ( state ) => state.tasks.pendingNewTask );
 	const selectedTask = useRootSelector( ( state ) =>
 		state.tasks.tasks.find( ( t ) => t.id === state.tasks.selectedTaskId )
 	);
@@ -184,7 +186,9 @@ export function PanelLayout( {
 							/>
 						}
 						middle={
-							selectedTask ? (
+							pendingNewTask ? (
+								<span className="text-xs text-frame-text">New Task</span>
+							) : selectedTask ? (
 								<span className="text-xs text-frame-text">{ selectedTask.title }</span>
 							) : selectedSite ? (
 								<span className="text-xs text-frame-text">{ selectedSite.name }</span>
@@ -199,7 +203,13 @@ export function PanelLayout( {
 							/>
 						}
 					/>
-					{ selectedTaskId ? <TaskChatPanel taskId={ selectedTaskId } /> : <SiteContentTabs /> }
+					{ pendingNewTask ? (
+						<TaskNewPanel />
+					) : selectedTaskId ? (
+						<TaskChatPanel taskId={ selectedTaskId } />
+					) : (
+						<SiteContentTabs />
+					) }
 				</div>
 			</Panel>
 

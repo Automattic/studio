@@ -33,39 +33,39 @@ export function TaskListItem( {
 	return (
 		<div
 			className={ cx(
-				'group w-full flex items-center gap-2 px-4 py-1.5 rounded-sm text-left transition-colors',
+				'w-full flex items-center gap-2 px-2 py-1.5 rounded-sm text-left transition-colors',
 				'hover:bg-chrome-surface',
 				isSelected && 'bg-chrome-surface'
 			) }
 		>
-			<button onClick={ onClick } className="flex items-center gap-2 flex-1 min-w-0">
-				<StatusDot status={ task.status } />
-				<div className="flex-1 min-w-0">
-					<div
-						className={ cx(
-							'text-xs truncate',
-							isSelected ? 'text-chrome-text' : 'text-chrome-text-secondary'
-						) }
-					>
-						{ task.title }
-					</div>
-					{ siteName && (
-						<div className="text-[10px] text-chrome-text-tertiary truncate">{ siteName }</div>
+			<button onClick={ onClick } className="flex-1 min-w-0 text-left">
+				<div
+					className={ cx(
+						'text-xs truncate',
+						isSelected ? 'text-chrome-text' : 'text-chrome-text-secondary'
 					) }
-				</div>
-			</button>
-			{ onArchive && (
-				<button
-					onClick={ ( e ) => {
-						e.stopPropagation();
-						onArchive();
-					} }
-					className="opacity-0 group-hover:opacity-100 flex-shrink-0 text-chrome-text-tertiary hover:text-chrome-text transition-opacity"
-					title="Archive task"
 				>
-					<span className="[&>svg]:w-4 [&>svg]:h-4 [&>svg]:fill-current">{ archive }</span>
-				</button>
-			) }
+					{ task.title }
+				</div>
+				{ siteName && (
+					<div className="text-[10px] text-chrome-text-tertiary truncate">{ siteName }</div>
+				) }
+			</button>
+			<div className="group relative flex-shrink-0 w-5 h-5 flex items-center justify-center">
+				<StatusDot status={ task.status } />
+				{ onArchive && (
+					<button
+						onClick={ ( e ) => {
+							e.stopPropagation();
+							onArchive();
+						} }
+						className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 text-chrome-text-tertiary hover:text-chrome-text transition-opacity"
+						title="Archive task"
+					>
+						<span className="[&>svg]:w-5 [&>svg]:h-5 [&>svg]:fill-current">{ archive }</span>
+					</button>
+				) }
+			</div>
 		</div>
 	);
 }

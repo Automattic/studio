@@ -11,6 +11,7 @@ import type {
 export interface TasksState {
 	tasks: TaskMetadata[];
 	selectedTaskId: string | null;
+	pendingNewTask: boolean;
 	messagesByTask: Record< string, TaskMessage[] >;
 	streamingByTask: Record< string, boolean >;
 	pendingPermissions: PermissionRequest[];
@@ -32,6 +33,7 @@ function loadPersistedMessages(): Record< string, TaskMessage[] > {
 const initialState: TasksState = {
 	tasks: [],
 	selectedTaskId: null,
+	pendingNewTask: false,
 	messagesByTask: typeof window !== 'undefined' ? loadPersistedMessages() : {},
 	streamingByTask: {},
 	pendingPermissions: [],
@@ -66,6 +68,13 @@ const tasksSlice = createSlice( {
 	reducers: {
 		setSelectedTaskId( state, action: PayloadAction< string | null > ) {
 			state.selectedTaskId = action.payload;
+			state.pendingNewTask = false;
+		},
+		setPendingNewTask( state, action: PayloadAction< boolean > ) {
+			state.pendingNewTask = action.payload;
+			if ( action.payload ) {
+				state.selectedTaskId = null;
+			}
 		},
 		taskUpdatedFromMain( state, action: PayloadAction< TaskMetadata > ) {
 			const index = state.tasks.findIndex( ( t ) => t.id === action.payload.id );
@@ -158,6 +167,7 @@ const tasksSlice = createSlice( {
 				state.tasks.push( action.payload );
 			}
 			state.selectedTaskId = action.payload.id;
+			state.pendingNewTask = false;
 		} );
 		builder.addCase( archiveTaskThunk.fulfilled, ( state, action ) => {
 			const task = state.tasks.find( ( t ) => t.id === action.payload );
@@ -191,6 +201,7 @@ const tasksSlice = createSlice( {
 
 export const {
 	setSelectedTaskId,
+	setPendingNewTask,
 	taskUpdatedFromMain,
 	taskDeletedFromMain,
 	appendTaskMessage,

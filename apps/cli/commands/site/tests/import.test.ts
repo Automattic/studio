@@ -166,7 +166,7 @@ describe( 'CLI: studio site import helpers', () => {
 		}
 	} );
 
-	it( 'builds db-apply args for SQLite with both http and https URL rewrites', () => {
+	it( 'builds db-apply args for SQLite with the new site URL', () => {
 		expect(
 			buildDbApplyArgs( {
 				normalizedUrl: 'https://example.com/',
@@ -174,33 +174,6 @@ describe( 'CLI: studio site import helpers', () => {
 				localUrl: 'http://localhost:8881',
 				sitePath: '/tmp/site',
 			} as never )
-		).toEqual( [
-			'db-apply',
-			'https://example.com/?site-export-api',
-			'--state-dir=/state',
-			'--fs-root=/docroot',
-			'--target-engine=sqlite',
-			'--target-sqlite-path=/site/wp-content/database/.ht.sqlite',
-			'--rewrite-url',
-			'https://example.com',
-			'http://localhost:8881',
-			'--rewrite-url',
-			'http://example.com',
-			'http://localhost:8881',
-		] );
-	} );
-
-	it( 'builds db-apply args with --new-site-url when supported by the importer', () => {
-		expect(
-			buildDbApplyArgs(
-				{
-					normalizedUrl: 'https://example.com/',
-					remoteSiteUrl: 'https://example.com',
-					localUrl: 'http://localhost:8881',
-					sitePath: '/tmp/site',
-				} as never,
-				true
-			)
 		).toEqual( [
 			'db-apply',
 			'https://example.com/?site-export-api',

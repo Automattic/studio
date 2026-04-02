@@ -25,16 +25,22 @@ const DEFAULT_PROFILE = '.zshrc';
 
 const ERROR_FILE_ALREADY_EXISTS = 'Studio CLI symlink path already occupied by non-symlink';
 
-function isLocalBinInPath(): boolean {
-	const localBinPath = path.join( os.homedir(), '.local', 'bin' );
-	const pathEntries = ( process.env.PATH ?? '' ).split( ':' ).map( ( entry ) => {
-		// Normalize entries: expand ~ and $HOME, then resolve to absolute path.
-		const expanded = entry
-			.replace( /^~(?=\/|$)/, os.homedir() )
-			.replace( /\$HOME(?=\/|$)/, os.homedir() );
-		return path.resolve( expanded );
-	} );
-	return pathEntries.includes( localBinPath );
+function getProfilePath(): string {
+	const shell = process.env.SHELL ?? '';
+	const profileFile = SHELL_PROFILE_MAP[ shell ] ?? DEFAULT_PROFILE;
+	return path.join( os.homedir(), profileFile );
+}
+
+async function readProfileContent(): Promise< string > {
+	try {
+		return await readFile( getProfilePath(), 'utf-8' );
+	} catch {
+		return '';
+	}
+}
+
+function hasLocalBinInContent( content: string ): boolean {
+	return content.includes( '$HOME/.local/bin' );
 }
 
 export class MacOSCliInstallationManager implements StudioCliInstallationManager {
@@ -45,7 +51,7 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 	}
 
 	async isCliInstalled(): Promise< boolean > {
-		if ( ! isLocalBinInPath() ) {
+		if ( ! hasLocalBinInContent( await readProfileContent() ) ) {
 			return false;
 		}
 
@@ -208,27 +214,13 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 	}
 
 	private async ensurePathInProfile(): Promise< void > {
-		// If ~/.local/bin is already in PATH, no need to modify the shell profile.
-		if ( isLocalBinInPath() ) {
+		const existingContent = await readProfileContent();
+
+		if ( hasLocalBinInContent( existingContent ) ) {
 			return;
 		}
 
-		const homeDir = os.homedir();
-		const shell = process.env.SHELL ?? '';
-		const profileFile = SHELL_PROFILE_MAP[ shell ] ?? DEFAULT_PROFILE;
-		const profilePath = path.join( homeDir, profileFile );
-
-		// Check if the export line is already present to avoid duplicates.
-		let existingContent = '';
-		try {
-			existingContent = await readFile( profilePath, 'utf-8' );
-		} catch {
-			// File doesn't exist yet, which is fine.
-		}
-
-		if ( existingContent.includes( '$HOME/.local/bin' ) ) {
-			return;
-		}
+		const profilePath = getProfilePath();
 
 		const lineToAppend =
 			existingContent.endsWith( '\n' ) || existingContent === ''

@@ -105,7 +105,6 @@ export async function runWpCliCommand(
 			},
 		};
 	} catch ( error ) {
-		console.error( 'CAUGHT ERROR' );
 		php.exit();
 		throw new Error( __( 'An error occurred while running the WP-CLI command.' ) );
 	}

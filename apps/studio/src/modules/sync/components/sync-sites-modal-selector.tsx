@@ -219,7 +219,7 @@ export function SitesListContent( {
 				) }
 				{ isRefetchingSites && (
 					<div
-						className="absolute inset-0 z-[1] flex items-center justify-center bg-frame/60 backdrop-blur-[1px]"
+						className="absolute inset-0 z-[1] flex items-center justify-center bg-frame/60 backdrop-blur-[8px]"
 						aria-busy="true"
 						aria-live="polite"
 					>

@@ -54,7 +54,7 @@ export async function runCommand(
 	await keepSqliteIntegrationUpdated( siteFolder );
 	logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
 
-	logger.reportStart( LoggerAction.FETCH_SITES, __( 'Fetching WordPress.com sites…' ) );
+	logger.reportStart( LoggerAction.FETCH_REMOTE_SITES, __( 'Fetching WordPress.com sites…' ) );
 	const remoteSites = await fetchSyncableSites( token.accessToken );
 	logger.spinner.stop();
 	logger.reportSuccess( sprintf( __( 'Found %d sites' ), remoteSites.length ), true );
@@ -84,171 +84,176 @@ export async function runCommand(
 	}
 
 	const tempDir = path.join( os.tmpdir(), 'studio-sync' );
-	fs.mkdirSync( tempDir, { recursive: true } );
-	const archivePath = path.join( tempDir, `push-${ site.id }-${ Date.now() }.tar.gz` );
 
-	let includes: ExportOptions[ 'includes' ];
-
-	if ( optionsToSync.includes( 'all' ) ) {
-		includes = {
-			database: true,
-			wpContent: true,
-		};
-	} else {
-		includes = {
-			database: optionsToSync.includes( 'sqls' ),
-			wpContent:
-				optionsToSync.includes( 'uploads' ) ||
-				optionsToSync.includes( 'plugins' ) ||
-				optionsToSync.includes( 'themes' ) ||
-				optionsToSync.includes( 'contents' ),
-		};
-	}
-
-	const isExported = await exportBackup(
-		{
-			site,
-			backupFile: archivePath,
-			includes,
-			phpVersion: DEFAULT_PHP_VERSION,
-			splitDatabaseDumpByTable: true,
-			specificSelectionPaths,
-		},
-		exportEventHandler
-	);
-
-	if ( ! isExported ) {
-		throw new LoggerError( __( 'No suitable exporter found for the provided backup file' ) );
-	}
-
-	const archiveSize = fs.statSync( archivePath ).size;
-	if ( archiveSize > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
-		throw new LoggerError(
-			sprintf(
-				__(
-					'The archive exceeds the %d GB size limit. Please reduce the size of your site and try again.'
-				),
-				SYNC_PUSH_SIZE_LIMIT_GB
-			)
-		);
-	}
-
-	// Push progress: Export (0-20%) → Upload (20-40%) → Remote backup (40-60%) → Import (60-99%) → Done (100%)
-	// Export phase skipped when using --archive, so upload starts at 20%
-
-	// Suppress DEP0169 warning from tus-js-client's internal use of url.parse()
-	const originalEmit = process.emit.bind( process );
-	// @ts-expect-error Overriding process.emit to filter deprecation warnings
-	process.emit = ( event: string, ...args: unknown[] ) => {
-		if ( event === 'warning' && ( args[ 0 ] as { code?: string } )?.code === 'DEP0169' ) {
-			return false;
-		}
-		return ( originalEmit as ( ...a: any[] ) => boolean )( event, ...args );
-	};
-
-	logger.reportStart( LoggerAction.UPLOAD, sprintf( __( 'Uploading archive… (%d%%)' ), 20 ) );
-	const { promise: uploadPromise, abort: abortUpload } = createTusUpload( {
-		token: token.accessToken,
-		remoteSiteId: remoteSite.id,
-		archivePath,
-		onProgress: ( percent ) => {
-			// Upload phase: 20-40%
-			const progress = Math.round( 20 + percent * 0.2 );
-			logger.spinner.text = sprintf( __( 'Uploading archive… (%d%%)' ), progress );
-		},
-	} );
-
-	let cancelCount = 0;
-	const onSigint = () => {
-		cancelCount++;
-		if ( cancelCount === 1 ) {
-			console.error(
-				__( 'Press Ctrl+C again to cancel. The upload cannot be safely cancelled mid-transfer.' )
-			);
-		} else {
-			abortUpload();
-			logger.reportError( new LoggerError( __( 'Upload cancelled' ) ) );
-		}
-	};
-	process.on( 'SIGINT', onSigint );
-
-	let attachmentId: string;
 	try {
-		attachmentId = await uploadPromise;
-	} finally {
-		process.removeListener( 'SIGINT', onSigint );
-		process.emit = originalEmit;
-	}
+		fs.mkdirSync( tempDir, { recursive: true } );
+		const archivePath = path.join( tempDir, `push-${ site.id }-${ Date.now() }.tar.gz` );
 
-	// Initiate import: 40%
-	logger.spinner.text = sprintf( __( 'Initiating import… (%d%%)' ), 40 );
-	await initiateImport( token.accessToken, remoteSite.id, attachmentId, {
-		optionsToSync,
-		specificSelectionPaths,
-	} );
+		let includes: ExportOptions[ 'includes' ];
 
-	// Poll import with stale-progress detection
-	let lastProgress = -1;
-	let stalledAttempts = 0;
-	let importFinished = false;
-
-	while ( stalledAttempts < SYNC_MAX_STALLED_ATTEMPTS ) {
-		const status = await pollImportStatus( token.accessToken, remoteSite.id );
-
-		if ( status.status === 'failed' ) {
-			throw new LoggerError( sprintf( __( 'Import failed on %s' ), remoteSite.name ) );
-		}
-
-		if ( status.status === 'finished' ) {
-			importFinished = true;
-			break;
-		}
-
-		let statusMessage: string;
-		let progress: number;
-
-		switch ( status.status ) {
-			case 'started':
-			case 'initial_backup_started':
-			case 'initial_backup_finished':
-				statusMessage = __( 'Backing up remote site…' );
-				progress = 40 + ( ( status.backup_progress ?? 0 ) / 100 ) * 20;
-				break;
-			case 'archive_import_started':
-				statusMessage = __( 'Applying changes…' );
-				progress = 60 + ( ( status.import_progress ?? 0 ) / 100 ) * 35;
-				break;
-			case 'archive_import_finished':
-				statusMessage = __( 'Almost there…' );
-				progress = 99;
-				break;
-			default:
-				statusMessage = __( 'Applying changes…' );
-				progress = 50;
-		}
-
-		const roundedProgress = Math.round( progress );
-		if ( roundedProgress !== lastProgress ) {
-			stalledAttempts = 0;
-			lastProgress = roundedProgress;
+		if ( optionsToSync.includes( 'all' ) ) {
+			includes = {
+				database: true,
+				wpContent: true,
+			};
 		} else {
-			stalledAttempts++;
+			includes = {
+				database: optionsToSync.includes( 'sqls' ),
+				wpContent:
+					optionsToSync.includes( 'uploads' ) ||
+					optionsToSync.includes( 'plugins' ) ||
+					optionsToSync.includes( 'themes' ) ||
+					optionsToSync.includes( 'contents' ),
+			};
 		}
 
-		logger.spinner.text = sprintf( '%s (%d%%)', statusMessage, roundedProgress );
-
-		await new Promise( ( resolve ) => setTimeout( resolve, SYNC_POLL_INTERVAL_MS ) );
-	}
-
-	if ( ! importFinished ) {
-		throw new LoggerError(
-			sprintf( __( 'Import timed out on %s — no progress detected' ), remoteSite.name )
+		const isExported = await exportBackup(
+			{
+				site,
+				backupFile: archivePath,
+				includes,
+				phpVersion: DEFAULT_PHP_VERSION,
+				splitDatabaseDumpByTable: true,
+				specificSelectionPaths,
+			},
+			exportEventHandler
 		);
-	}
 
-	logger.reportSuccess(
-		sprintf( __( 'Successfully pushed to %s (%s)' ), remoteSite.name, remoteSite.url )
-	);
+		if ( ! isExported ) {
+			throw new LoggerError( __( 'No suitable exporter found for the provided backup file' ) );
+		}
+
+		const archiveSize = fs.statSync( archivePath ).size;
+		if ( archiveSize > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
+			throw new LoggerError(
+				sprintf(
+					__(
+						'The archive exceeds the %d GB size limit. Please reduce the size of your site and try again.'
+					),
+					SYNC_PUSH_SIZE_LIMIT_GB
+				)
+			);
+		}
+
+		// Push progress: Export (0-20%) → Upload (20-40%) → Remote backup (40-60%) → Import (60-99%) → Done (100%)
+		// Export phase skipped when using --archive, so upload starts at 20%
+
+		// Suppress DEP0169 warning from tus-js-client's internal use of url.parse()
+		const originalEmit = process.emit.bind( process );
+		// @ts-expect-error Overriding process.emit to filter deprecation warnings
+		process.emit = ( event: string, ...args: unknown[] ) => {
+			if ( event === 'warning' && ( args[ 0 ] as { code?: string } )?.code === 'DEP0169' ) {
+				return false;
+			}
+			return ( originalEmit as ( ...a: any[] ) => boolean )( event, ...args );
+		};
+
+		logger.reportStart( LoggerAction.UPLOAD, sprintf( __( 'Uploading archive… (%d%%)' ), 20 ) );
+		const { promise: uploadPromise, abort: abortUpload } = createTusUpload( {
+			token: token.accessToken,
+			remoteSiteId: remoteSite.id,
+			archivePath,
+			onProgress: ( percent ) => {
+				// Upload phase: 20-40%
+				const progress = Math.round( 20 + percent * 0.2 );
+				logger.spinner.text = sprintf( __( 'Uploading archive… (%d%%)' ), progress );
+			},
+		} );
+
+		let cancelCount = 0;
+		const onSigint = () => {
+			cancelCount++;
+			if ( cancelCount === 1 ) {
+				console.error(
+					__( 'Press Ctrl+C again to cancel. The upload cannot be safely cancelled mid-transfer.' )
+				);
+			} else {
+				abortUpload();
+				logger.reportError( new LoggerError( __( 'Upload cancelled' ) ) );
+			}
+		};
+		process.on( 'SIGINT', onSigint );
+
+		let attachmentId: string;
+		try {
+			attachmentId = await uploadPromise;
+		} finally {
+			process.removeListener( 'SIGINT', onSigint );
+			process.emit = originalEmit;
+		}
+
+		// Initiate import: 40%
+		logger.spinner.text = sprintf( __( 'Initiating import… (%d%%)' ), 40 );
+		await initiateImport( token.accessToken, remoteSite.id, attachmentId, {
+			optionsToSync,
+			specificSelectionPaths,
+		} );
+
+		// Poll import with stale-progress detection
+		let lastProgress = -1;
+		let stalledAttempts = 0;
+		let importFinished = false;
+
+		while ( stalledAttempts < SYNC_MAX_STALLED_ATTEMPTS ) {
+			const status = await pollImportStatus( token.accessToken, remoteSite.id );
+
+			if ( status.status === 'failed' ) {
+				throw new LoggerError( sprintf( __( 'Import failed on %s' ), remoteSite.name ) );
+			}
+
+			if ( status.status === 'finished' ) {
+				importFinished = true;
+				break;
+			}
+
+			let statusMessage: string;
+			let progress: number;
+
+			switch ( status.status ) {
+				case 'started':
+				case 'initial_backup_started':
+				case 'initial_backup_finished':
+					statusMessage = __( 'Backing up remote site…' );
+					progress = 40 + ( ( status.backup_progress ?? 0 ) / 100 ) * 20;
+					break;
+				case 'archive_import_started':
+					statusMessage = __( 'Applying changes…' );
+					progress = 60 + ( ( status.import_progress ?? 0 ) / 100 ) * 35;
+					break;
+				case 'archive_import_finished':
+					statusMessage = __( 'Almost there…' );
+					progress = 99;
+					break;
+				default:
+					statusMessage = __( 'Applying changes…' );
+					progress = 50;
+			}
+
+			const roundedProgress = Math.round( progress );
+			if ( roundedProgress !== lastProgress ) {
+				stalledAttempts = 0;
+				lastProgress = roundedProgress;
+			} else {
+				stalledAttempts++;
+			}
+
+			logger.spinner.text = sprintf( '%s (%d%%)', statusMessage, roundedProgress );
+
+			await new Promise( ( resolve ) => setTimeout( resolve, SYNC_POLL_INTERVAL_MS ) );
+		}
+
+		if ( ! importFinished ) {
+			throw new LoggerError(
+				sprintf( __( 'Import timed out on %s — no progress detected' ), remoteSite.name )
+			);
+		}
+
+		logger.reportSuccess(
+			sprintf( __( 'Successfully pushed to %s (%s)' ), remoteSite.name, remoteSite.url )
+		);
+	} finally {
+		fs.rmSync( tempDir, { recursive: true, force: true } );
+	}
 }
 
 export const registerCommand = ( yargs: StudioArgv ) => {

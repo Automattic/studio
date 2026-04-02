@@ -55,15 +55,18 @@ export enum SiteCommandLoggerAction {
 }
 
 export enum SyncCommandLoggerAction {
+	START_DAEMON = 'startDaemon',
+	STOP_SITE = 'stopSite',
 	LOAD_SITES = 'loadSites',
 	INSTALL_SQLITE = 'installSqlite',
-	FETCH_SITES = 'fetchSites',
+	FETCH_REMOTE_SITES = 'fetchRemoteSites',
 	ARCHIVE = 'archive',
 	UPLOAD = 'upload',
 	INITIATE_IMPORT = 'initiateImport',
 	POLL_IMPORT = 'pollImport',
 	INITIATE_BACKUP = 'initiateBackup',
 	POLL_BACKUP = 'pollBackup',
+	START_SITE = 'startSite',
 	DOWNLOAD = 'download',
 	IMPORT = 'import',
 }

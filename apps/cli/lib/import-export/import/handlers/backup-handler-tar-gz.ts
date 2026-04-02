@@ -64,7 +64,7 @@ export class BackupHandlerTarGz extends EventEmitter implements BackupHandler {
 					tar.extract( {
 						cwd: extractionDirectory,
 						onwarn: ( _code, message ) => {
-							this.emit( ImportEvents.BACKUP_EXTRACT_WARNING, { message } );
+							this.emit( ImportEvents.BACKUP_EXTRACT_WARNING, message );
 						},
 						onReadEntry: ( entry ) => {
 							if ( isFileAllowed( entry.path ) ) {

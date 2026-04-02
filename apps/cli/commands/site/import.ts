@@ -100,7 +100,7 @@ export function importEventHandler( { event, data }: ImportExportEventData ): vo
 			break;
 		case BackupExtractEvents.BACKUP_EXTRACT_WARNING:
 			logger.reportWarning(
-				( data as string ) || __( 'A warning occurred while extracting backup' )
+				typeof data === 'string' ? data : __( 'A warning occurred while extracting backup' )
 			);
 			break;
 		case BackupExtractEvents.BACKUP_EXTRACT_ERROR:
@@ -188,7 +188,7 @@ export async function runCommand( siteFolder: string, importFile: string ): Prom
 	let site: SiteData | undefined;
 	let wasServerRunning = false;
 	let importError: unknown;
-	let restartError: unknown;
+	let restartSiteError: unknown;
 
 	try {
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
@@ -248,22 +248,22 @@ export async function runCommand( siteFolder: string, importFile: string ): Prom
 				logger.reportSuccess( __( 'WordPress server started' ) );
 			}
 		} catch ( error ) {
-			restartError = error;
+			restartSiteError = error;
 		} finally {
 			await disconnectFromDaemon();
 		}
 	}
 
-	if ( importError instanceof LoggerError && restartError instanceof Error ) {
-		importError.previousError = restartError;
+	if ( importError instanceof LoggerError && restartSiteError instanceof Error ) {
+		importError.previousError = restartSiteError;
 	}
 
 	if ( importError instanceof Error ) {
 		throw importError;
 	}
 
-	if ( restartError instanceof Error ) {
-		throw restartError;
+	if ( restartSiteError instanceof Error ) {
+		throw restartSiteError;
 	}
 }
 

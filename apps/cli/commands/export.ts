@@ -6,7 +6,7 @@ import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { ExportEvents } from 'cli/lib/import-export/export/events';
 import { exportBackup } from 'cli/lib/import-export/export/export-manager';
-import { BackupCreateProgressEventData } from 'cli/lib/import-export/export/types';
+import { BackupCreateProgressEventData, ExportOptions } from 'cli/lib/import-export/export/types';
 import { ImportExportEventData } from 'cli/lib/import-export/handle-events';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { untildify } from 'cli/lib/utils';
@@ -15,58 +15,75 @@ import { StudioArgv } from 'cli/types';
 
 const logger = new Logger< LoggerAction >();
 
-function handleExportEvent( { event, data }: ImportExportEventData ): void {
-	switch ( event ) {
-		case ExportEvents.EXPORT_START:
-			logger.reportStart( LoggerAction.EXPORT_SITE, __( 'Starting export…' ) );
-			break;
-		case ExportEvents.BACKUP_CREATE_START:
-			logger.reportStart( LoggerAction.CREATE_BACKUP, __( 'Creating backup…' ) );
-			break;
-		case ExportEvents.BACKUP_CREATE_PROGRESS: {
-			const progressData = data as BackupCreateProgressEventData;
-			const processed = progressData?.progress?.entries?.processed;
-
-			if ( processed != null ) {
-				logger.reportProgress(
-					sprintf(
-						_n( 'Backing up file… (%d processed)', 'Backing up files… (%d processed)', processed ),
-						processed
-					)
+export async function runCommand(
+	siteFolder: string,
+	exportPath: string,
+	includeOnly?: 'content' | 'db'
+): Promise< void > {
+	function handleExportEvent( { event, data }: ImportExportEventData ): void {
+		switch ( event ) {
+			case ExportEvents.EXPORT_START:
+				logger.reportSuccess(
+					sprintf( __( 'Starting export to %s…' ), path.basename( exportPath ) )
 				);
-			}
-			break;
-		}
-		case ExportEvents.BACKUP_CREATE_COMPLETE:
-			logger.reportSuccess( __( 'Backup file created' ) );
-			break;
-		case ExportEvents.WP_CONTENT_EXPORT_START:
-			logger.reportStart( LoggerAction.EXPORT_WP_CONTENT, __( 'Exporting WordPress content…' ) );
-			break;
-		case ExportEvents.WP_CONTENT_EXPORT_COMPLETE:
-			logger.reportSuccess( __( 'WordPress content exported' ) );
-			break;
-		case ExportEvents.DATABASE_EXPORT_START:
-			logger.reportStart( LoggerAction.EXPORT_DATABASE, __( 'Exporting database…' ) );
-			break;
-		case ExportEvents.DATABASE_EXPORT_COMPLETE:
-			logger.reportSuccess( __( 'Database exported' ) );
-			break;
-		case ExportEvents.CONFIG_EXPORT_START:
-			logger.reportStart( LoggerAction.EXPORT_CONFIG, __( 'Exporting configuration…' ) );
-			break;
-		case ExportEvents.CONFIG_EXPORT_COMPLETE:
-			logger.reportSuccess( __( 'Configuration exported' ) );
-			break;
-		case ExportEvents.EXPORT_COMPLETE:
-			logger.reportSuccess( __( 'Site exported successfully' ) );
-			break;
-		case ExportEvents.EXPORT_ERROR:
-			throw new LoggerError( __( 'Export failed' ), data instanceof Error ? data : undefined );
-	}
-}
+				break;
 
-export async function runCommand( siteFolder: string, exportPath: string ): Promise< void > {
+			case ExportEvents.BACKUP_CREATE_START:
+				logger.reportStart( LoggerAction.CREATE_BACKUP, __( 'Creating backup file…' ) );
+				break;
+
+			case ExportEvents.WP_CONTENT_EXPORT_START:
+				logger.reportStart( LoggerAction.EXPORT_WP_CONTENT, __( 'Traversing WordPress content…' ) );
+				break;
+			case ExportEvents.WP_CONTENT_EXPORT_COMPLETE:
+				logger.reportSuccess( __( 'WordPress content traversed' ) );
+				break;
+
+			case ExportEvents.DATABASE_EXPORT_START:
+				logger.reportStart( LoggerAction.EXPORT_DATABASE, __( 'Exporting database…' ) );
+				break;
+			case ExportEvents.DATABASE_EXPORT_COMPLETE:
+				logger.reportSuccess( __( 'Database exported' ) );
+				break;
+
+			case ExportEvents.BACKUP_CREATE_PROGRESS: {
+				const progressData = data as BackupCreateProgressEventData;
+				const processed = progressData?.progress?.entries?.processed;
+
+				if ( processed != null ) {
+					logger.reportProgress(
+						sprintf(
+							_n(
+								'Backing up file… (%d processed)',
+								'Backing up files… (%d processed)',
+								processed
+							),
+							processed
+						)
+					);
+				}
+				break;
+			}
+			case ExportEvents.BACKUP_CREATE_COMPLETE:
+				logger.reportSuccess( __( 'Backup file created' ) );
+				break;
+
+			case ExportEvents.CONFIG_EXPORT_START:
+				logger.reportStart( LoggerAction.EXPORT_CONFIG, __( 'Exporting configuration…' ) );
+				break;
+			case ExportEvents.CONFIG_EXPORT_COMPLETE:
+				logger.reportSuccess( __( 'Configuration exported' ) );
+				break;
+
+			case ExportEvents.EXPORT_COMPLETE:
+				logger.reportSuccess( __( 'Site exported successfully' ) );
+				break;
+
+			case ExportEvents.EXPORT_ERROR:
+				throw new LoggerError( __( 'Export failed' ), data instanceof Error ? data : undefined );
+		}
+	}
+
 	try {
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
 		await connectToDaemon();
@@ -83,15 +100,20 @@ export async function runCommand( siteFolder: string, exportPath: string ): Prom
 		await keepSqliteIntegrationUpdated( siteFolder );
 		logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
 
+		const includes: ExportOptions[ 'includes' ] = { database: true, wpContent: true };
+
+		if ( includeOnly === 'content' ) {
+			includes.database = false;
+		} else if ( includeOnly === 'db' ) {
+			includes.wpContent = false;
+		}
+
 		const isExported = await exportBackup(
 			{
 				site,
 				backupFile: exportPath,
 				phpVersion: DEFAULT_PHP_VERSION,
-				includes: {
-					wpContent: true,
-					database: true,
-				},
+				includes,
 			},
 			handleExportEvent
 		);
@@ -106,22 +128,32 @@ export async function runCommand( siteFolder: string, exportPath: string ): Prom
 
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
-		command: 'export',
+		command: 'export <export-file>',
 		describe: __( 'Export a site to a backup file' ),
 		builder: ( yargs ) => {
-			return yargs.option( 'export-file', {
-				type: 'string',
-				normalize: true,
-				required: true,
-				description: __( 'Path to the export file' ),
-				coerce: ( value ) => {
-					return path.resolve( untildify( value ) );
-				},
-			} );
+			return yargs
+				.positional( 'export-file', {
+					type: 'string',
+					normalize: true,
+					demandOption: true,
+					description: __( 'Path to the export file. Can be a .zip or .tar.gz file.' ),
+					coerce: ( value ) => {
+						const resolved = path.resolve( untildify( value ) );
+						if ( ! ( resolved.endsWith( '.zip' ) || resolved.endsWith( '.tar.gz' ) ) ) {
+							throw new Error( __( 'Invalid export file extension. Must be .zip or .tar.gz' ) );
+						}
+						return resolved;
+					},
+				} )
+				.option( 'only', {
+					type: 'string',
+					choices: [ 'content', 'db' ] as const,
+					description: __( 'Export only the content or the database' ),
+				} );
 		},
 		handler: async ( argv ) => {
 			try {
-				await runCommand( argv.path, argv.exportFile );
+				await runCommand( argv.path, argv.exportFile, argv.only );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );

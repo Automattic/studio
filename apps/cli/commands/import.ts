@@ -70,134 +70,137 @@ async function setupWordPressFilesOnly( sitePath: string ): Promise< void > {
 	await recursiveCopyDirectory( bundledWpPath, sitePath );
 }
 
-function handleImportEvent( { event, data }: ImportExportEventData ): void {
-	switch ( event ) {
-		case ImporterEvents.IMPORT_START:
-			logger.reportStart( LoggerAction.IMPORT_SITE, __( 'Importing backup…' ) );
-			break;
-
-		case ValidatorEvents.IMPORT_VALIDATION_START:
-			logger.reportStart( LoggerAction.VALIDATE, __( 'Validating backup…' ) );
-			break;
-		case ValidatorEvents.IMPORT_VALIDATION_COMPLETE:
-			logger.reportSuccess( __( 'Backup validated' ) );
-			break;
-		case ValidatorEvents.IMPORT_VALIDATION_ERROR:
-			throw new LoggerError(
-				__( 'Backup validation failed' ),
-				data instanceof Error ? data : undefined
-			);
-
-		case BackupExtractEvents.BACKUP_EXTRACT_START:
-			logger.reportStart( LoggerAction.EXTRACT_BACKUP, __( 'Extracting backup files…' ) );
-			break;
-		case BackupExtractEvents.BACKUP_EXTRACT_PROGRESS: {
-			const progressData = data as BackupExtractProgressEventData;
-			if (
-				progressData.processedFiles != null &&
-				progressData.totalFiles != null &&
-				progressData.totalFiles > 0
-			) {
-				logger.reportProgress(
-					sprintf(
-						_n(
-							'Extracting backup file… (%1$d/%2$d)',
-							'Extracting backup files… (%1$d/%2$d)',
-							progressData.totalFiles
-						),
-						progressData.processedFiles,
-						progressData.totalFiles
-					)
-				);
-			}
-			break;
-		}
-		case BackupExtractEvents.BACKUP_EXTRACT_COMPLETE:
-			logger.reportSuccess( __( 'Backup extraction completed' ) );
-			break;
-		case BackupExtractEvents.BACKUP_EXTRACT_WARNING:
-			logger.reportWarning(
-				( data as string ) || __( 'A warning occurred while extracting backup' )
-			);
-			break;
-		case BackupExtractEvents.BACKUP_EXTRACT_ERROR:
-			throw new LoggerError(
-				__( 'Failed to extract backup' ),
-				data instanceof Error ? data : undefined
-			);
-
-		case ImporterEvents.IMPORT_DATABASE_START:
-			logger.reportStart( LoggerAction.IMPORT_DATABASE, __( 'Importing database…' ) );
-			break;
-		case ImporterEvents.IMPORT_DATABASE_PROGRESS: {
-			const progressData = data as ImportDatabaseProgressEventData;
-			if (
-				progressData.processedFiles != null &&
-				progressData.totalFiles != null &&
-				progressData.totalFiles > 0
-			) {
-				logger.reportProgress(
-					sprintf(
-						_n(
-							'Importing database file… (%1$d/%2$d)',
-							'Importing database files… (%1$d/%2$d)',
-							progressData.totalFiles
-						),
-						progressData.processedFiles,
-						progressData.totalFiles
-					)
-				);
-			}
-			break;
-		}
-		case ImporterEvents.IMPORT_DATABASE_COMPLETE:
-			logger.reportSuccess( __( 'Database import completed' ) );
-			break;
-
-		case ImporterEvents.IMPORT_WP_CONTENT_START:
-			logger.reportStart( LoggerAction.IMPORT_WP_CONTENT, __( 'Importing WordPress content…' ) );
-			break;
-		case ImporterEvents.IMPORT_WP_CONTENT_PROGRESS: {
-			const progressData = data as ImportWpContentProgressEventData;
-			if (
-				progressData.processedItems != null &&
-				progressData.totalItems != null &&
-				progressData.totalItems > 0
-			) {
-				const baseMessage =
-					WP_CONTENT_TYPE_LABELS[ progressData.type || 'other' ] ||
-					__( 'Importing WordPress content…' );
-				logger.reportProgress(
-					sprintf(
-						/* translators: %1$s is a content type label, %2$d is processed items, %3$d is total items */
-						__( '%1$s (%2$d/%3$d)' ),
-						baseMessage,
-						progressData.processedItems,
-						progressData.totalItems
-					)
-				);
-			}
-			break;
-		}
-		case ImporterEvents.IMPORT_WP_CONTENT_COMPLETE:
-			logger.reportSuccess( __( 'WordPress content import completed' ) );
-			break;
-
-		case ImporterEvents.IMPORT_META_START:
-			logger.reportStart( LoggerAction.IMPORT_META, __( 'Importing metadata…' ) );
-			break;
-		case ImporterEvents.IMPORT_META_COMPLETE:
-			logger.reportSuccess( __( 'Metadata import completed' ) );
-			break;
-		case ImporterEvents.IMPORT_COMPLETE:
-			logger.reportSuccess( __( 'Site imported successfully' ) );
-			break;
-		case ImporterEvents.IMPORT_ERROR:
-			throw new LoggerError( __( 'Import failed' ), data instanceof Error ? data : undefined );
-	}
-}
-
 export async function runCommand( siteFolder: string, importFile: string ): Promise< void > {
+	function handleImportEvent( { event, data }: ImportExportEventData ): void {
+		switch ( event ) {
+			case ValidatorEvents.IMPORT_VALIDATION_START:
+				logger.reportSuccess(
+					sprintf( __( 'Started import from %s…' ), path.basename( importFile ) )
+				);
+				logger.reportStart( LoggerAction.VALIDATE, __( 'Validating backup…' ) );
+				break;
+			case ValidatorEvents.IMPORT_VALIDATION_COMPLETE:
+				logger.reportSuccess( __( 'Backup validated' ) );
+				break;
+			case ValidatorEvents.IMPORT_VALIDATION_ERROR:
+				throw new LoggerError(
+					__( 'Backup validation failed' ),
+					data instanceof Error ? data : undefined
+				);
+
+			case BackupExtractEvents.BACKUP_EXTRACT_START:
+				logger.reportStart( LoggerAction.EXTRACT_BACKUP, __( 'Extracting backup files…' ) );
+				break;
+			case BackupExtractEvents.BACKUP_EXTRACT_PROGRESS: {
+				const progressData = data as BackupExtractProgressEventData;
+				if (
+					progressData.processedFiles != null &&
+					progressData.totalFiles != null &&
+					progressData.totalFiles > 0
+				) {
+					logger.reportProgress(
+						sprintf(
+							_n(
+								'Extracting backup file… (%1$d/%2$d)',
+								'Extracting backup files… (%1$d/%2$d)',
+								progressData.totalFiles
+							),
+							progressData.processedFiles,
+							progressData.totalFiles
+						)
+					);
+				}
+				break;
+			}
+			case BackupExtractEvents.BACKUP_EXTRACT_COMPLETE:
+				logger.reportSuccess( __( 'Backup extraction completed' ) );
+				break;
+			case BackupExtractEvents.BACKUP_EXTRACT_WARNING:
+				logger.reportWarning(
+					( data as string ) || __( 'A warning occurred while extracting backup' )
+				);
+				break;
+			case BackupExtractEvents.BACKUP_EXTRACT_ERROR:
+				throw new LoggerError(
+					__( 'Failed to extract backup' ),
+					data instanceof Error ? data : undefined
+				);
+
+			case ImporterEvents.IMPORT_START:
+				logger.reportStart( LoggerAction.IMPORT_SITE, __( 'Importing backup…' ) );
+				break;
+			case ImporterEvents.IMPORT_DATABASE_START:
+				logger.reportStart( LoggerAction.IMPORT_DATABASE, __( 'Importing database…' ) );
+				break;
+			case ImporterEvents.IMPORT_DATABASE_PROGRESS: {
+				const progressData = data as ImportDatabaseProgressEventData;
+				if (
+					progressData.processedFiles != null &&
+					progressData.totalFiles != null &&
+					progressData.totalFiles > 0
+				) {
+					logger.reportProgress(
+						sprintf(
+							_n(
+								'Importing database file… (%1$d/%2$d)',
+								'Importing database files… (%1$d/%2$d)',
+								progressData.totalFiles
+							),
+							progressData.processedFiles,
+							progressData.totalFiles
+						)
+					);
+				}
+				break;
+			}
+			case ImporterEvents.IMPORT_DATABASE_COMPLETE:
+				logger.reportSuccess( __( 'Database import completed' ) );
+				break;
+
+			case ImporterEvents.IMPORT_WP_CONTENT_START:
+				logger.reportStart( LoggerAction.IMPORT_WP_CONTENT, __( 'Importing WordPress content…' ) );
+				break;
+			case ImporterEvents.IMPORT_WP_CONTENT_PROGRESS: {
+				const progressData = data as ImportWpContentProgressEventData;
+				if (
+					progressData.processedItems != null &&
+					progressData.totalItems != null &&
+					progressData.totalItems > 0
+				) {
+					const baseMessage =
+						WP_CONTENT_TYPE_LABELS[ progressData.type || 'other' ] ||
+						__( 'Importing WordPress content…' );
+					logger.reportProgress(
+						sprintf(
+							/* translators: %1$s is a content type label, %2$d is processed items, %3$d is total items */
+							__( '%1$s (%2$d/%3$d)' ),
+							baseMessage,
+							progressData.processedItems,
+							progressData.totalItems
+						)
+					);
+				}
+				break;
+			}
+			case ImporterEvents.IMPORT_WP_CONTENT_COMPLETE:
+				logger.reportSuccess( __( 'WordPress content import completed' ) );
+				break;
+
+			case ImporterEvents.IMPORT_META_START:
+				logger.reportStart( LoggerAction.IMPORT_META, __( 'Importing metadata…' ) );
+				break;
+			case ImporterEvents.IMPORT_META_COMPLETE:
+				logger.reportSuccess( __( 'Metadata import completed' ) );
+				break;
+			case ImporterEvents.IMPORT_COMPLETE:
+				logger.reportSuccess( __( 'Site imported successfully' ) );
+				break;
+
+			case ImporterEvents.IMPORT_ERROR:
+				throw new LoggerError( __( 'Import failed' ), data instanceof Error ? data : undefined );
+		}
+	}
+
 	try {
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
 		await connectToDaemon();
@@ -226,7 +229,10 @@ export async function runCommand( siteFolder: string, importFile: string ): Prom
 			logger.reportSuccess( __( 'WordPress files copied' ) );
 		}
 
-		logger.reportStart( LoggerAction.IMPORT_SITE, __( 'Starting import…' ) );
+		logger.reportStart(
+			LoggerAction.IMPORT_SITE,
+			sprintf( __( 'Starting import from %s…' ), path.basename( importFile ) )
+		);
 
 		const backupFile: BackupArchiveInfo = {
 			path: importFile,
@@ -253,13 +259,13 @@ export async function runCommand( siteFolder: string, importFile: string ): Prom
 
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
-		command: 'import',
+		command: 'import <import-file>',
 		describe: __( 'Import a backup file to a site' ),
 		builder: ( yargs ) => {
-			return yargs.option( 'import-file', {
+			return yargs.positional( 'import-file', {
 				type: 'string',
 				normalize: true,
-				required: true,
+				demandOption: true,
 				description: __( 'Path to the import file' ),
 				coerce: ( value ) => {
 					return path.resolve( untildify( value ) );

@@ -1,5 +1,12 @@
-import { Button, Spinner } from '@wordpress/components';
-import { chevronLeft, chevronRight, cog, drawerLeft, drawerRight, reset } from '@wordpress/icons';
+import { Button } from '@wordpress/components';
+import {
+	chevronLeft,
+	chevronRight,
+	cog,
+	drawerLeft,
+	drawerRight,
+	rotateRight,
+} from '@wordpress/icons';
 import { type RefObject, useEffect, useMemo, useRef } from 'react';
 import {
 	Group,
@@ -14,6 +21,8 @@ import { useSiteDetails } from 'src/hooks/use-site-details';
 import { isMac } from 'src/lib/app-globals';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useRootSelector } from 'src/stores';
+import { BrowserIframeContainer } from './browser-iframe-container';
+import { BrowserTabBar } from './browser-tab-bar';
 import { Sidebar } from './sidebar';
 import { TaskChatPanel } from './tasks/task-chat-panel';
 import { TaskNewPanel } from './tasks/task-new-panel';
@@ -238,63 +247,50 @@ export function PanelLayout( {
 				<div className="h-full flex flex-col overflow-hidden bg-[#1d2327]">
 					{ browser.autoLoginSrc ? (
 						<>
-							{ ! browser.isInitialLoad && (
-								<div className="relative flex items-center gap-1 p-2 flex-shrink-0">
-									{ browser.isNavigating && (
-										<div className="absolute bottom-0 left-0 right-0 h-0.5 overflow-hidden">
-											<div className="absolute h-full w-[30%] bg-frame-theme animate-[browser-progress_1.5s_ease-in-out_infinite]" />
-										</div>
-									) }
-									<div className="flex items-center app-no-drag-region">
-										<Button
-											icon={ chevronLeft }
-											label="Back"
-											className="app-no-drag-region text-[#a7aaad] hover:text-white"
-											onClick={ browser.handleBack }
-										/>
-										<Button
-											icon={ chevronRight }
-											label="Forward"
-											className="app-no-drag-region text-[#a7aaad] hover:text-white"
-											onClick={ browser.handleForward }
-										/>
-										<Button
-											icon={ reset }
-											label="Reload"
-											className="app-no-drag-region text-[#a7aaad] hover:text-white"
-											onClick={ browser.handleReload }
-										/>
-									</div>
-									<input
-										type="text"
-										value={ browser.displayUrl }
-										onChange={ ( e ) => browser.setDisplayUrl( e.target.value ) }
-										onKeyDown={ ( e ) => {
-											if ( e.key === 'Enter' ) {
-												browser.handleNavigate( browser.displayUrl );
-											}
-										} }
-										className="flex-1 min-w-0 text-xs text-[#a7aaad] bg-transparent outline-none app-no-drag-region"
-										aria-label="URL"
-									/>
-								</div>
-							) }
-							<div className="flex-1 overflow-hidden relative">
-								{ browser.isInitialLoad && (
-									<div className="absolute inset-0 flex items-center justify-center z-10">
-										<Spinner className="!mt-0 [&>circle]:stroke-[#a7aaad]" />
+							<div className="relative flex items-center gap-1 p-2 flex-shrink-0">
+								{ browser.isNavigating && (
+									<div className="absolute bottom-0 left-0 right-0 h-0.5 overflow-hidden">
+										<div className="absolute h-full w-[30%] bg-frame-theme animate-[browser-progress_1.5s_ease-in-out_infinite]" />
 									</div>
 								) }
-								<iframe
-									ref={ browser.iframeRef }
-									src={ browser.autoLoginSrc }
-									onLoad={ browser.handleIframeLoad }
-									className={ `w-full h-full border-0 transition-opacity duration-150 ${
-										browser.isInitialLoad ? 'opacity-0' : 'opacity-100'
-									}` }
-									title={ browser.siteName || 'Site preview' }
+								<div className="flex items-center app-no-drag-region flex-shrink-0">
+									<Button
+										icon={ chevronLeft }
+										label="Back"
+										className="app-no-drag-region text-[#a7aaad] hover:text-white"
+										onClick={ browser.handleBack }
+									/>
+									<Button
+										icon={ chevronRight }
+										label="Forward"
+										className="app-no-drag-region text-[#a7aaad] hover:text-white"
+										onClick={ browser.handleForward }
+									/>
+									<Button
+										icon={ rotateRight }
+										label="Reload"
+										className="app-no-drag-region text-[#a7aaad] hover:text-white"
+										onClick={ browser.handleReload }
+									/>
+								</div>
+								<BrowserTabBar
+									tabs={ browser.tabs }
+									activeTabId={ browser.activeTabId }
+									onSelectTab={ browser.selectTab }
+									onCloseTab={ browser.closeTab }
+									onNewTab={ browser.addTab }
+									canAddTab={ browser.canAddTab }
 								/>
 							</div>
+							<BrowserIframeContainer
+								tabs={ browser.tabs }
+								activeTabId={ browser.activeTabId }
+								autoLoginSrc={ browser.autoLoginSrc }
+								siteName={ browser.siteName }
+								setIframeRef={ browser.setIframeRef }
+								onLoad={ browser.handleIframeLoad }
+								onBeforeUnload={ browser.handleBeforeUnload }
+							/>
 						</>
 					) : (
 						<div className="flex-1 flex items-center justify-center">

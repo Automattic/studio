@@ -906,14 +906,20 @@ const pollPullBackupThunk = createTypedAsyncThunk(
 				);
 			}
 		} catch ( error ) {
-			if ( signal.aborted ) {
+			const currentState = syncOperationsSelectors.selectPullState(
+				selectedSiteId,
+				remoteSiteId
+			)( getState() );
+
+			if ( signal.aborted && currentState?.status.key === 'cancelled' ) {
 				return;
 			}
+
 
 			Sentry.captureException( error );
 			return rejectWithValue( {
 				title: sprintf( __( 'Error pulling from %s' ), currentPullState.selectedSite.name ),
-				message: __( 'Failed to check backup file size. Please try again.' ),
+				message: error instanceof Error ? error.message : String( error ),
 			} );
 		}
 	}

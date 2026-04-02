@@ -4,7 +4,7 @@ This branch (`new-app-interface`) is a ground-up redesign of the Studio desktop 
 
 ## Status
 
-**Proof of Concept** — The panel structure, color system, navigation sidebar, and settings window are functional. The nav panel displays real site data with full site management controls. The primary panel renders the existing SiteContentTabs. The settings window contains all app settings (migrated from the old modal). The secondary panel is still a placeholder.
+**Proof of Concept** — The panel structure, color system, navigation sidebar, settings window, and embedded browser are functional. The nav panel displays real site data with full site management controls. The primary panel renders SiteContentTabs or the Task chat. The secondary panel is a live browser preview of the active site with auto-authentication.
 
 ## Architecture
 
@@ -12,9 +12,9 @@ This branch (`new-app-interface`) is a ground-up redesign of the Studio desktop 
 
 The app is built around three resizable panels using `react-resizable-panels`:
 
-- **PanelNavigation** — Left sidebar with Tasks (placeholder) and Sites sections. Shows real site data via `SiteMenu` with drag-and-drop reordering and start/stop controls. Collapsible via `Cmd+B` or by dragging narrow.
-- **PanelPrimary** — Main content area. White/frame background. Always visible. Renders `SiteContentTabs` for the selected site.
-- **PanelSecondary** — Optional right panel for contextual content (browser preview, agent activity, etc). Collapsible via `Cmd+Shift+B`.
+- **PanelNavigation** — Left sidebar with Tasks and Sites sections. Shows real site data via `SiteMenu` with drag-and-drop reordering and start/stop controls. Collapsible via `Cmd+B` or by dragging narrow.
+- **PanelPrimary** — Main content area. White/frame background. Always visible. Renders `SiteContentTabs` for the selected site, or `TaskChatPanel` when a task is selected.
+- **PanelSecondary** — Embedded browser preview of the active site. Auto-authenticates via `/studio-auto-login` so the WP admin bar is visible. Includes back/forward/reload controls and an editable URL bar. Collapsible via `Cmd+Shift+B`. See `NEW-BROWSER.md` for full details.
 
 Each panel has min/max width constraints and drag-to-resize handles between them. Collapse/expand is animated. The primary panel toolbar adapts on macOS to make room for traffic lights when the nav panel is collapsed (including when collapsed via drag).
 
@@ -40,7 +40,7 @@ A shared `Toolbar` component provides three slots -- `start`, `middle`, `end` --
 
 - **Nav toolbar**: Settings button (end)
 - **Primary toolbar**: Nav toggle (start), project name (middle), secondary toggle (end)
-- **Secondary toolbar**: Back/forward/refresh (start), URL bar (middle), more options (end)
+- **Secondary toolbar**: Back/forward/reload (start), editable URL input (fills remaining space). Styled with WP admin bar colors (`#1d2327` bg, `#a7aaad` text). Hidden during initial load; shows an indeterminate progress bar at the bottom during navigation.
 
 Toolbars use `@wordpress/components` `Button` with `icon` prop and icons from `@wordpress/icons`.
 
@@ -84,9 +84,11 @@ apps/studio/src/
 │   ├── app.tsx                      # Root -- keyboard shortcuts, panel refs
 │   ├── site-menu.tsx                # Site list with drag-and-drop (updated for tokens)
 │   └── new-ui/
-│       ├── panel-layout.tsx         # Three-panel layout with persistence
+│       ├── panel-layout.tsx         # Three-panel layout with persistence + browser
 │       ├── toolbar.tsx              # Start/middle/end toolbar component
 │       ├── sidebar.tsx              # Navigation: Tasks + Sites sections
+├── hooks/
+│   └── use-browser-panel.ts         # Browser panel state, navigation, auto-login
 │       ├── settings-root.tsx        # Settings window with all app settings
 │       ├── studio-component-library.tsx # Studio component demos with mock data
 │       └── color-system-reference.tsx # Color token docs (in settings)
@@ -101,7 +103,5 @@ Platform switching for UI testing lives in the settings window's **Automattician
 
 ## What's Next
 
-- Build out the Tasks section (chat/agent integration)
-- Connect the browser preview in the secondary panel
 - Add site creation flow to the sidebar
 - Port remaining functionality from the legacy UI

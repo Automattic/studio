@@ -2,15 +2,16 @@ import path from 'path';
 import { tool, createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod/v4';
 import { SiteServer } from 'src/site-server';
+import { browserToolDefinitions } from './browser-tools';
 
-function errorResult( message: string ) {
+export function errorResult( message: string ) {
 	return {
 		content: [ { type: 'text' as const, text: message } ],
 		isError: true,
 	};
 }
 
-function textResult( text: string ) {
+export function textResult( text: string ) {
 	return {
 		content: [ { type: 'text' as const, text } ],
 	};
@@ -20,7 +21,7 @@ function textResult( text: string ) {
  * Find a site by display name or directory name (path basename).
  * Allows the agent to use either "Next to Kin" or "my-serene-website".
  */
-function findSiteByName( name: string ) {
+export function findSiteByName( name: string ) {
 	const sites = SiteServer.getAllDetails();
 	const lower = name.toLowerCase();
 	return (
@@ -346,6 +347,7 @@ const studioToolDefinitions = [
 	wpCliTool,
 	postBlocksReadTool,
 	postBlockUpdateTool,
+	...browserToolDefinitions,
 ];
 
 /**

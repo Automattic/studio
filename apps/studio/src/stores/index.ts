@@ -430,6 +430,13 @@ if ( typeof window !== 'undefined' && window.ipcListener ) {
 		);
 		store.dispatch( setTaskStreaming( { taskId, streaming: false } ) );
 	} );
+
+	// Listen for browser navigation commands from the agent
+	window.ipcListener.subscribe( 'browser-navigate', ( _, { siteId, url } ) => {
+		window.dispatchEvent(
+			new CustomEvent( 'studio:browser-navigate', { detail: { siteId, url } } )
+		);
+	} );
 }
 
 // Initialize beta features and fetch snapshots on store initialization, but skip in test environment

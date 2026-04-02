@@ -65,6 +65,7 @@ export interface IpcEvents {
 	'task-status-changed': [ { taskId: string; status: string } ];
 	'task-permission-request': [ PermissionRequest ];
 	'task-error': [ { taskId: string; error: string } ];
+	'browser-navigate': [ { siteId: string; url: string } ];
 }
 
 export async function sendIpcEventToRenderer< T extends keyof IpcEvents >(

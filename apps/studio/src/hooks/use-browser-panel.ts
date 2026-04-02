@@ -140,6 +140,20 @@ export function useBrowserPanel() {
 		}
 	}, [] );
 
+	// Listen for agent-initiated browser navigation
+	useEffect( () => {
+		const handler = ( e: Event ) => {
+			const { siteId, url } = ( e as CustomEvent ).detail;
+			if ( resolvedSite?.id === siteId && iframeRef.current ) {
+				setIsNavigating( true );
+				iframeRef.current.src = url;
+				setDisplayUrl( url );
+			}
+		};
+		window.addEventListener( 'studio:browser-navigate', handler );
+		return () => window.removeEventListener( 'studio:browser-navigate', handler );
+	}, [ resolvedSite?.id ] );
+
 	return {
 		iframeRef,
 		autoLoginSrc,

@@ -139,7 +139,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			this.emit( ExportEvents.EXPORT_COMPLETE );
 		} catch ( error ) {
 			this.archiveBuilder.abort();
-			this.emit( ExportEvents.EXPORT_ERROR );
+			this.emit( ExportEvents.EXPORT_ERROR, error );
 			throw error;
 		} finally {
 			if ( this.options.includes.database ) {

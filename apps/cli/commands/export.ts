@@ -136,13 +136,9 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'string',
 					normalize: true,
 					demandOption: true,
-					description: __( 'Path to the export file. Can be a .zip or .tar.gz file.' ),
+					description: __( 'Path to the export file. Can be a .zip, .tar.gz or .sql file.' ),
 					coerce: ( value ) => {
-						const resolved = path.resolve( untildify( value ) );
-						if ( ! ( resolved.endsWith( '.zip' ) || resolved.endsWith( '.tar.gz' ) ) ) {
-							throw new Error( __( 'Invalid export file extension. Must be .zip or .tar.gz' ) );
-						}
-						return resolved;
+						return path.resolve( untildify( value ) );
 					},
 				} )
 				.option( 'only', {
@@ -153,6 +149,27 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		},
 		handler: async ( argv ) => {
 			try {
+				if ( argv.only === 'db' ) {
+					if (
+						! argv.exportFile.endsWith( '.sql' ) &&
+						! argv.exportFile.endsWith( '.zip' ) &&
+						! argv.exportFile.endsWith( '.tar.gz' )
+					) {
+						throw new LoggerError(
+							__( 'Invalid export file extension. Must be .zip, .tar.gz or .sql.' )
+						);
+					}
+				} else if (
+					! argv.exportFile.endsWith( '.zip' ) &&
+					! argv.exportFile.endsWith( '.tar.gz' )
+				) {
+					throw new LoggerError(
+						__(
+							'Invalid export file extension. Must be .zip or .tar.gz when exporting site content.'
+						)
+					);
+				}
+
 				await runCommand( argv.path, argv.exportFile, argv.only );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {

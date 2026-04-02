@@ -33,7 +33,7 @@ export class BackupHandlerTarGz extends EventEmitter implements BackupHandler {
 		try {
 			totalSize = fs.statSync( file.path ).size;
 		} catch ( error ) {
-			this.emit( ImportEvents.BACKUP_EXTRACT_ERROR, { error } );
+			this.emit( ImportEvents.BACKUP_EXTRACT_ERROR, error );
 			throw error;
 		}
 
@@ -56,7 +56,7 @@ export class BackupHandlerTarGz extends EventEmitter implements BackupHandler {
 					} as BackupExtractProgressEventData );
 				} )
 				.on( 'error', ( error ) => {
-					this.emit( ImportEvents.BACKUP_EXTRACT_ERROR, { error } );
+					this.emit( ImportEvents.BACKUP_EXTRACT_ERROR, error );
 					reject( error );
 				} )
 				.pipe( zlib.createGunzip() )

@@ -124,7 +124,7 @@ export class BackupHandlerZip extends EventEmitter implements BackupHandler {
 
 			zipFile.on( 'error', ( error ) => {
 				failOnce( error );
-				this.emit( ImportEvents.BACKUP_EXTRACT_ERROR, { error } );
+				this.emit( ImportEvents.BACKUP_EXTRACT_ERROR, error );
 			} );
 
 			zipFile.readEntry();

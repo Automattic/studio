@@ -9,15 +9,11 @@ import { getWpCliPharPath } from '../server-files';
 import { downloadFile, fetchLatestGithubRelease } from './utils';
 
 async function getWPCliVersionFromInstallation(): Promise< string > {
-	const [ response, exitPhp ] = await runGlobalWpCliCommand( [ 'wp', '--version' ] );
+	await using command = await runGlobalWpCliCommand( [ 'wp', '--version' ] );
+	const stdout = await command.response.stdoutText;
 
-	try {
-		const stdout = await response.stdoutText;
-		if ( stdout.startsWith( 'WP-CLI ' ) ) {
-			return stdout.split( ' ' )[ 1 ];
-		}
-	} finally {
-		exitPhp();
+	if ( stdout.startsWith( 'WP-CLI ' ) ) {
+		return stdout.split( ' ' )[ 1 ];
 	}
 
 	return '';

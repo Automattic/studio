@@ -84,9 +84,12 @@ describe( 'CLI: studio export', () => {
 
 		await runCommand( testSitePath, testExportPath );
 
-		expect( reportStartSpy ).toHaveBeenCalledWith( LoggerAction.EXPORT_SITE, 'Starting export…' );
-		expect( reportStartSpy ).toHaveBeenCalledWith( LoggerAction.CREATE_BACKUP, 'Creating backup…' );
+		expect( reportStartSpy ).toHaveBeenCalledWith(
+			LoggerAction.CREATE_BACKUP,
+			'Creating backup file…'
+		);
 		expect( reportProgressSpy ).toHaveBeenCalledWith( 'Backing up file… (1 processed)' );
+		expect( reportSuccessSpy ).toHaveBeenCalledWith( 'Starting export to site-backup.zip…' );
 		expect( reportSuccessSpy ).toHaveBeenCalledWith( 'Site exported successfully' );
 	} );
 

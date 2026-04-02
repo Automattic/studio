@@ -13,7 +13,7 @@ export class SqlExporter extends EventEmitter implements Exporter {
 			await exportDatabaseToFile( this.options.site.path, this.options.backupFile );
 			this.emit( ExportEvents.EXPORT_COMPLETE );
 		} catch ( error ) {
-			this.emit( ExportEvents.EXPORT_ERROR );
+			this.emit( ExportEvents.EXPORT_ERROR, error );
 			throw error;
 		}
 	}

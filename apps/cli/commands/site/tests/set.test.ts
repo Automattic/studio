@@ -257,7 +257,7 @@ describe( 'CLI: studio site set', () => {
 			};
 			vi.mocked( runWpCliCommand ).mockResolvedValue( {
 				response: mockResponse as StreamedPHPResponse,
-				[ Symbol.asyncDispose ]: vi.fn().mockResolvedValue( undefined ),
+				[ Symbol.dispose ]: vi.fn().mockResolvedValue( undefined ),
 			} );
 		} );
 
@@ -287,7 +287,7 @@ describe( 'CLI: studio site set', () => {
 			};
 			vi.mocked( runWpCliCommand ).mockResolvedValue( {
 				response: mockResponse as StreamedPHPResponse,
-				[ Symbol.asyncDispose ]: vi.fn().mockResolvedValue( undefined ),
+				[ Symbol.dispose ]: vi.fn().mockResolvedValue( undefined ),
 			} );
 
 			await expect( runCommand( testSitePath, { wp: '6.7' } ) ).rejects.toThrow(

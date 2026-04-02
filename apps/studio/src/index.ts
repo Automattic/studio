@@ -36,7 +36,6 @@ import {
 import { handleDeeplink } from 'src/lib/deeplink';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
-import { startUserDataWatcher, stopUserDataWatcher } from 'src/lib/user-data-watcher';
 import { setupLogging } from 'src/logging';
 import { createMainWindow, getMainWindow } from 'src/main-window';
 import { migrations } from 'src/migrations';
@@ -313,8 +312,6 @@ async function appBoot() {
 		await SiteServer.fetchAll();
 		await startCliEventsSubscriber();
 
-		await startUserDataWatcher();
-
 		await createMainWindow();
 
 		const userData = await loadUserData();
@@ -465,7 +462,6 @@ async function appBoot() {
 
 	app.on( 'will-quit', ( event ) => {
 		globalShortcut.unregisterAll();
-		stopUserDataWatcher();
 		stopCliEventsSubscriber();
 
 		if ( shouldStopSitesOnQuit ) {

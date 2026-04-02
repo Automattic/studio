@@ -1,6 +1,7 @@
 import SiteMenu from 'src/components/site-menu';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
+import { TaskList } from './tasks/task-list';
 
 interface SidebarProps {
 	className?: string;
@@ -16,12 +17,9 @@ export function Sidebar( { className }: SidebarProps ) {
 
 	return (
 		<nav className={ cx( 'flex flex-col flex-1 overflow-hidden', className ) }>
-			{ /* Tasks section — placeholder */ }
+			{ /* Tasks section */ }
 			<div className="flex flex-col p-2 gap-2">
-				<header className="flex items-center justify-between px-4">
-					<h3 className="a8c-label text-chrome-text">Tasks</h3>
-				</header>
-				<div className="text-chrome-text-tertiary px-4">No tasks yet</div>
+				<TaskList />
 			</div>
 
 			{ /* Flexible spacer — pushes sites to the bottom */ }

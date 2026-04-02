@@ -3,6 +3,7 @@ import { __ } from '@wordpress/i18n';
 import {
 	archive,
 	code,
+	commentContent,
 	desktop,
 	grid,
 	pencil,
@@ -25,7 +26,9 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
 import { getTerminalName } from 'src/modules/user-settings/lib/terminal';
+import { useAppDispatch } from 'src/stores';
 import { useGetUserEditorQuery, useGetUserTerminalQuery } from 'src/stores/installed-apps-api';
+import { createNewTask } from 'src/stores/tasks-slice';
 
 interface ContentTabOverviewProps {
 	selectedSite: SiteDetails;
@@ -136,9 +139,18 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 	const { data: editor } = useGetUserEditorQuery();
 	const { data: terminal } = useGetUserTerminalQuery();
 	const { startServer, loadingServer } = useSiteDetails();
+	const dispatch = useAppDispatch();
 	const isServerLoading = loadingServer[ selectedSite.id ];
 
 	const buttonsArray: ButtonsSectionProps[ 'buttonsArray' ] = [
+		{
+			label: __( 'New task' ),
+			className: 'text-nowrap',
+			icon: commentContent,
+			onClick: () => {
+				void dispatch( createNewTask( selectedSite.id ) );
+			},
+		},
 		{
 			label: isWindows()
 				? // translators: name of app used to navigate files and folders on Windows

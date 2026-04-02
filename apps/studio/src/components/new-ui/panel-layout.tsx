@@ -20,7 +20,9 @@ import { SiteContentTabs } from 'src/components/site-content-tabs';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { isMac } from 'src/lib/app-globals';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useRootSelector } from 'src/stores';
 import { Sidebar } from './sidebar';
+import { TaskChatPanel } from './tasks/task-chat-panel';
 import { Toolbar } from './toolbar';
 
 export function togglePanel(
@@ -86,6 +88,10 @@ export function PanelLayout( {
 	onToggleNav,
 }: PanelLayoutProps ) {
 	const { selectedSite } = useSiteDetails();
+	const selectedTaskId = useRootSelector( ( state ) => state.tasks.selectedTaskId );
+	const selectedTask = useRootSelector( ( state ) =>
+		state.tasks.tasks.find( ( t ) => t.id === state.tasks.selectedTaskId )
+	);
 	const primaryStartInset = isMac() && navCollapsed ? MAC_TRAFFIC_LIGHT_INSET : undefined;
 
 	const initialCollapsed = useRef( loadCollapsedState() );
@@ -184,7 +190,9 @@ export function PanelLayout( {
 							/>
 						}
 						middle={
-							selectedSite ? (
+							selectedTask ? (
+								<span className="text-xs text-frame-text">{ selectedTask.title }</span>
+							) : selectedSite ? (
 								<span className="text-xs text-frame-text">{ selectedSite.name }</span>
 							) : undefined
 						}
@@ -197,7 +205,7 @@ export function PanelLayout( {
 							/>
 						}
 					/>
-					<SiteContentTabs />
+					{ selectedTaskId ? <TaskChatPanel taskId={ selectedTaskId } /> : <SiteContentTabs /> }
 				</div>
 			</Panel>
 

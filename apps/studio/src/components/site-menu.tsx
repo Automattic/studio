@@ -14,9 +14,10 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
 import { getTerminalName } from 'src/modules/user-settings/lib/terminal';
-import { useRootSelector } from 'src/stores';
+import { useAppDispatch, useRootSelector } from 'src/stores';
 import { useGetUserEditorQuery, useGetUserTerminalQuery } from 'src/stores/installed-apps-api';
 import { syncOperationsSelectors } from 'src/stores/sync';
+import { setSelectedTaskId } from 'src/stores/tasks-slice';
 
 interface SiteMenuProps {
 	className?: string;
@@ -158,7 +159,9 @@ function SiteItem( {
 } ) {
 	const { sites, selectedSite, setSelectedSiteId, loadingServer, isSiteDeleting } =
 		useSiteDetails();
-	const isSelected = site === selectedSite;
+	const dispatch = useAppDispatch();
+	const selectedTaskId = useRootSelector( ( state ) => state.tasks.selectedTaskId );
+	const isSelected = ! selectedTaskId && site === selectedSite;
 	const { isSiteImporting, isSiteExporting } = useImportExport();
 	const { data: editor } = useGetUserEditorQuery();
 	const { data: terminal } = useGetUserTerminalQuery();
@@ -228,6 +231,7 @@ function SiteItem( {
 					isSelected ? 'text-chrome-text' : 'text-chrome-text-secondary'
 				) }
 				onClick={ () => {
+					dispatch( setSelectedTaskId( null ) );
 					setSelectedSiteId( site.id );
 				} }
 			>
@@ -259,6 +263,7 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 	} = useSiteDetails();
 	const { setSelectedTab } = useContentTabs();
 	const { handleDeleteSite } = useDeleteSite();
+	const menuDispatch = useAppDispatch();
 	const { data: editor } = useGetUserEditorQuery();
 	const [ draggedSiteId, setDraggedSiteId ] = useState< string | null >( null );
 	const [ orderMap, setOrderMap ] = useState< Map< string, number > | null >( null );
@@ -381,6 +386,7 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 						} )();
 						break;
 					case 'edit-site':
+						menuDispatch( setSelectedTaskId( null ) );
 						if ( site.id !== selectedSite?.id ) {
 							setSelectedSiteId( site.id );
 						}
@@ -417,6 +423,7 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 		stopServer,
 		copySite,
 		handleDeleteSite,
+		menuDispatch,
 	] );
 
 	return (

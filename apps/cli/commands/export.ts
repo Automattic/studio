@@ -149,24 +149,21 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		},
 		handler: async ( argv ) => {
 			try {
-				if ( argv.only === 'db' ) {
-					if (
-						! argv.exportFile.endsWith( '.sql' ) &&
-						! argv.exportFile.endsWith( '.zip' ) &&
-						! argv.exportFile.endsWith( '.tar.gz' )
-					) {
-						throw new LoggerError(
-							__( 'Invalid export file extension. Must be .zip, .tar.gz or .sql.' )
-						);
-					}
-				} else if (
-					! argv.exportFile.endsWith( '.zip' ) &&
-					! argv.exportFile.endsWith( '.tar.gz' )
-				) {
+				if ( argv.only === 'content' && argv.exportFile.endsWith( '.sql' ) ) {
 					throw new LoggerError(
 						__(
 							'Invalid export file extension. Must be .zip or .tar.gz when exporting site content.'
 						)
+					);
+				}
+
+				if (
+					! argv.exportFile.endsWith( '.sql' ) &&
+					! argv.exportFile.endsWith( '.zip' ) &&
+					! argv.exportFile.endsWith( '.tar.gz' )
+				) {
+					throw new LoggerError(
+						__( 'Invalid export file extension. Must be .zip, .tar.gz or .sql.' )
 					);
 				}
 

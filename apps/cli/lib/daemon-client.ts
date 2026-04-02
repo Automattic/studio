@@ -153,7 +153,7 @@ async function waitForDaemonReady() {
 
 function spawnDaemonProcess() {
 	const daemonScriptPath = path.resolve( import.meta.dirname, 'process-manager-daemon.mjs' );
-	const daemonProcess = spawn( process.execPath, [ daemonScriptPath ], {
+	const daemonProcess = spawn( process.execPath, [ ...process.execArgv, daemonScriptPath ], {
 		detached: true,
 		stdio: 'ignore',
 		windowsHide: true,

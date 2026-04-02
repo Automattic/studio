@@ -54,6 +54,8 @@ describe( 'ProcessManagerDaemon', () => {
 	} );
 
 	it( 'starts a process, emits events, and writes logs', async () => {
+		const originalExecArgv = process.execArgv;
+		process.execArgv = [ '--experimental-wasm-jspi' ];
 		const child = new MockChildProcess();
 		spawnMock.mockReturnValue( child );
 		const { ProcessManagerDaemon } = await import( '../process-manager-daemon' );
@@ -70,14 +72,19 @@ describe( 'ProcessManagerDaemon', () => {
 			.spyOn( daemonInternal, 'broadcastEvent' )
 			.mockResolvedValue( undefined );
 
-		const response = await daemonInternal.handleRequest( {
-			type: 'start-process',
-			requestId: '1',
-			processName: testProcessName,
-			scriptPath: '/tmp/test-child.js',
-			env: {},
-			args: [],
-		} );
+		let response;
+		try {
+			response = await daemonInternal.handleRequest( {
+				type: 'start-process',
+				requestId: '1',
+				processName: testProcessName,
+				scriptPath: '/tmp/test-child.js',
+				env: {},
+				args: [],
+			} );
+		} finally {
+			process.execArgv = originalExecArgv;
+		}
 
 		expect( response ).toEqual(
 			expect.objectContaining( {
@@ -89,6 +96,15 @@ describe( 'ProcessManagerDaemon', () => {
 						pid: 4321,
 					} ),
 				} ),
+			} )
+		);
+		expect( spawnMock ).toHaveBeenCalledWith(
+			process.execPath,
+			expect.arrayContaining( [ '--experimental-wasm-jspi', '/tmp/test-child.js' ] ),
+			expect.objectContaining( {
+				env: expect.any( Object ),
+				stdio: [ 'ignore', 'pipe', 'pipe', 'ipc' ],
+				windowsHide: true,
 			} )
 		);
 

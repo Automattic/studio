@@ -115,6 +115,8 @@ describe( 'process manager daemon client', () => {
 	} );
 
 	it( 'connectToDaemon() auto-starts the daemon when the socket is missing', async () => {
+		const originalExecArgv = process.execArgv;
+		process.execArgv = [ '--experimental-wasm-jspi' ];
 		createConnectionMock.mockImplementationOnce( () => {
 			const error = new Error( 'missing' ) as NodeJS.ErrnoException;
 			error.code = 'ENOENT';
@@ -133,9 +135,22 @@ describe( 'process manager daemon client', () => {
 		} );
 
 		const { connectToDaemon } = await import( '../daemon-client' );
-		await connectToDaemon();
+		try {
+			await connectToDaemon();
+		} finally {
+			process.execArgv = originalExecArgv;
+		}
 
 		expect( spawnMock ).toHaveBeenCalledTimes( 1 );
+		expect( spawnMock ).toHaveBeenCalledWith(
+			process.execPath,
+			expect.arrayContaining( [ '--experimental-wasm-jspi' ] ),
+			expect.objectContaining( {
+				detached: true,
+				stdio: 'ignore',
+				windowsHide: true,
+			} )
+		);
 	} );
 
 	it( 'startProcess() validates the daemon response structure', async () => {

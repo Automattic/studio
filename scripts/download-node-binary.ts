@@ -32,6 +32,7 @@ const arch = process.argv[ 3 ] || process.arch;
 const platformMap: Record< string, string > = {
 	darwin: 'darwin',
 	win32: 'win',
+	linux: 'linux',
 };
 
 // Map architecture names to nodejs.org download naming

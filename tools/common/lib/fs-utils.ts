@@ -1,21 +1,27 @@
 import fs, { promises as fsPromises } from 'fs';
 import path from 'path';
+import ignore, { Ignore } from 'ignore';
+import { DEPLOY_IGNORE_DEFAULTS } from './deploy-ignore';
 import { isErrnoException } from './is-errno-exception';
-
-const ARCHIVE_EXCLUDED_DIRECTORIES = [ '.git', 'node_modules' ];
-
-export function isExcludedFromArchive( name: string ): boolean {
-	return ARCHIVE_EXCLUDED_DIRECTORIES.some( ( excluded ) => name.includes( excluded ) );
-}
 
 /**
  * Calculates the total size of a directory by recursively traversing its contents.
- * Excludes directories that are not included in archives (e.g., .git, node_modules).
+ * Uses the provided deploy-ignore filter to determine which files to exclude,
+ * or falls back to a default filter seeded with DEPLOY_IGNORE_DEFAULTS.
  *
  * @param directoryPath - The path to the directory to calculate the size of
+ * @param deployIgnore - Optional Ignore instance from createDeployIgnoreFilter
+ * @param pathPrefix - Optional prefix for relative paths when matching against deployIgnore
+ *                     (e.g., 'wp-content' when scanning the wp-content directory)
  * @returns A promise that resolves to the total size in bytes
  */
-export function calculateDirectorySizeForArchive( directoryPath: string ): Promise< number > {
+export function calculateDirectorySizeForArchive(
+	directoryPath: string,
+	deployIgnore?: Ignore,
+	pathPrefix?: string
+): Promise< number > {
+	const ig = deployIgnore ?? ignore().add( DEPLOY_IGNORE_DEFAULTS );
+
 	return new Promise( ( resolve, reject ) => {
 		let totalSize = 0;
 
@@ -26,11 +32,17 @@ export function calculateDirectorySizeForArchive( directoryPath: string ): Promi
 				await Promise.all(
 					files.map( async ( file ) => {
 						const filePath = path.join( dirPath, file.name );
+						const fileRelativeToRoot = path
+							.relative( directoryPath, filePath )
+							.replace( /\\/g, '/' );
+						const ignorePath = pathPrefix
+							? `${ pathPrefix }/${ fileRelativeToRoot }`
+							: fileRelativeToRoot;
 						try {
+							if ( ig.ignores( ignorePath ) ) {
+								return;
+							}
 							if ( file.isDirectory() ) {
-								if ( isExcludedFromArchive( file.name ) ) {
-									return;
-								}
 								await calculateSize( filePath );
 							} else {
 								const stats = await fsPromises.stat( filePath );

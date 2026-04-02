@@ -38,25 +38,26 @@ export function TaskChatPanel( { taskId }: TaskChatPanelProps ) {
 	}
 
 	return (
-		<div className="flex-1 flex flex-col overflow-hidden">
-			{ /* Chat messages area */ }
-			<div
-				ref={ scrollRef }
-				className="flex-1 overflow-y-auto"
-				style={ { scrollbarWidth: 'thin' } }
-			>
-				{ messages.length === 0 ? (
-					<EmptyState siteName={ site?.name } />
-				) : (
-					<TaskMessageList messages={ messages } isStreaming={ isStreaming } />
-				) }
+		<div ref={ scrollRef } className="flex-1 overflow-y-auto" style={ { scrollbarWidth: 'thin' } }>
+			<div className="flex flex-col min-h-full pt-10">
+				{ /* Chat messages area — pt-10 offsets for the floating toolbar above */ }
+				<div className="flex-1">
+					{ messages.length === 0 ? (
+						<EmptyState siteName={ site?.name } />
+					) : (
+						<TaskMessageList messages={ messages } isStreaming={ isStreaming } />
+					) }
+				</div>
+
+				{ /* Sticky footer — input with progressive blur */ }
+				<div className="sticky bottom-0 z-10 pointer-events-none task-chat-footer">
+					<div className="pointer-events-auto">
+						{ /* Permission prompt — shown above input when agent needs approval */ }
+						{ hasPendingPermissions && <TaskPermissionPrompt taskId={ taskId } /> }
+						<TaskChatInput taskId={ taskId } isStreaming={ isStreaming } />
+					</div>
+				</div>
 			</div>
-
-			{ /* Permission prompt — shown above input when agent needs approval */ }
-			{ hasPendingPermissions && <TaskPermissionPrompt taskId={ taskId } /> }
-
-			{ /* Input area */ }
-			<TaskChatInput taskId={ taskId } isStreaming={ isStreaming } />
 		</div>
 	);
 }

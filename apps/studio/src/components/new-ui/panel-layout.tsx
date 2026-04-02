@@ -87,6 +87,7 @@ export function PanelLayout( {
 	const selectedTask = useRootSelector( ( state ) =>
 		state.tasks.tasks.find( ( t ) => t.id === state.tasks.selectedTaskId )
 	);
+	const isTaskChat = ! pendingNewTask && !! selectedTaskId;
 	const primaryStartInset = isMac() && navCollapsed ? MAC_TRAFFIC_LIGHT_INSET : undefined;
 	const browser = useBrowserPanel();
 
@@ -173,9 +174,15 @@ export function PanelLayout( {
 
 			{ /* PanelPrimary */ }
 			<Panel id="primary" minSize="300px">
-				<div className="h-full flex flex-col overflow-hidden bg-frame">
+				<div
+					className={ `h-full flex flex-col overflow-hidden bg-frame ${
+						isTaskChat ? 'relative' : ''
+					}` }
+				>
 					<Toolbar
-						className="app-drag-region"
+						className={ `app-drag-region ${
+							isTaskChat ? 'absolute top-0 left-0 right-0 z-20 task-toolbar-blur' : ''
+						}` }
 						startInset={ primaryStartInset }
 						start={
 							<Button

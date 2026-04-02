@@ -4,6 +4,9 @@
 @tailwind utilities;
 
 :root {
+	/* Tint (semi-transparent frame background for glassmorphic effects) */
+	--color-frame-tint: rgba(255, 255, 255, 0.7);
+
 	/* Chrome (window background, navigation panel) */
 	--color-chrome-bg: #e0e0e0;
 	--color-chrome-text: rgba(0, 0, 0, 0.8);
@@ -60,6 +63,7 @@
 		--color-frame-running: #1ed15a;
 		--color-frame-error: #f87171;
 		--color-frame-tab-active: #fff;
+		--color-frame-tint: rgba(47, 47, 47, 0.7);
 	}
 }
 
@@ -629,6 +633,42 @@ div:has( > progress ) > div:first-child {
 		background-color: var( --color-frame-bg );
 		color: var( --color-frame-text );
 	}
+}
+
+/* Progressive blur — toolbar floats over task chat with backdrop blur */
+.task-toolbar-blur {
+	background: transparent !important;
+}
+
+.task-toolbar-blur::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: -24px;
+	z-index: -1;
+	backdrop-filter: blur(12px);
+	-webkit-backdrop-filter: blur(12px);
+	mask-image: linear-gradient(to bottom, black 40%, transparent);
+	-webkit-mask-image: linear-gradient(to bottom, black 40%, transparent);
+	pointer-events: none;
+}
+
+/* Progressive blur — bottom of task chat (content fades under input) */
+.task-chat-footer::before {
+	content: '';
+	position: absolute;
+	top: -40px;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	z-index: -1;
+	backdrop-filter: blur(8px);
+	-webkit-backdrop-filter: blur(8px);
+	mask-image: linear-gradient(to bottom, transparent, black 40px);
+	-webkit-mask-image: linear-gradient(to bottom, transparent, black 40px);
+	pointer-events: none;
 }
 
 /* Browser panel — indeterminate loading bar */

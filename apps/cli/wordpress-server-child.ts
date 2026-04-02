@@ -148,36 +148,44 @@ async function getBaseRunCLIArgs(
 	command: RunCLIArgs[ 'command' ],
 	config: ServerConfig
 ): Promise< RunCLIArgs > {
-	const wordpressInstallMode = await getWordPressInstallMode( config.sitePath );
+	const wordpressInstallMode =
+		config.wordpressInstallMode ?? ( await getWordPressInstallMode( config.sitePath ) );
+	const useExactMountLayout = config.useExactMountLayout ?? false;
+	let mountsBeforeInstall = [ ...( config.mountsBeforeInstall ?? [] ) ];
+	const mounts = [ ...( config.mounts ?? [] ) ];
 
-	await cleanupLegacyMuPlugins( config.sitePath );
+	if ( ! useExactMountLayout ) {
+		await cleanupLegacyMuPlugins( config.sitePath );
 
-	const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( {
-		isWpAutoUpdating: config.isWpAutoUpdating,
-	} );
+		const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( {
+			isWpAutoUpdating: config.isWpAutoUpdating,
+		} );
 
-	const mounts = [
-		{
-			hostPath: config.sitePath,
-			vfsPath: '/wordpress',
-		},
-		{
-			hostPath: studioMuPluginsHostPath,
-			vfsPath: '/internal/studio/mu-plugins',
-		},
-		{
-			hostPath: loaderMuPluginHostPath,
-			vfsPath: '/internal/shared/mu-plugins/99-studio-loader.php',
-		},
-		{
-			hostPath: getWpCliPharPath(),
-			vfsPath: '/tmp/wp-cli.phar',
-		},
-		{
-			hostPath: getSqliteCommandPath(),
-			vfsPath: '/tmp/sqlite-command',
-		},
-	];
+		mountsBeforeInstall = [
+			...( config.mountsBeforeInstall ?? [
+				{
+					hostPath: config.sitePath,
+					vfsPath: '/wordpress',
+				},
+			] ),
+			{
+				hostPath: studioMuPluginsHostPath,
+				vfsPath: '/internal/studio/mu-plugins',
+			},
+			{
+				hostPath: loaderMuPluginHostPath,
+				vfsPath: '/internal/shared/mu-plugins/99-studio-loader.php',
+			},
+			{
+				hostPath: getWpCliPharPath(),
+				vfsPath: '/tmp/wp-cli.phar',
+			},
+			{
+				hostPath: getSqliteCommandPath(),
+				vfsPath: '/tmp/sqlite-command',
+			},
+		];
+	}
 
 	const enableDebugLog = config.enableDebugLog ?? false;
 	const enableDebugDisplay = config.enableDebugDisplay ?? false;
@@ -241,7 +249,8 @@ async function getBaseRunCLIArgs(
 		followSymlinks: true,
 		skipSqliteSetup: true,
 		port: config.port,
-		'mount-before-install': mounts,
+		'mount-before-install': mountsBeforeInstall,
+		...( mounts.length > 0 ? { mount: mounts } : {} ),
 		'site-url': config.absoluteUrl || `http://localhost:${ config.port }`,
 		blueprint: blueprintBundle,
 		wordpressInstallMode,
@@ -262,17 +271,19 @@ async function getBaseRunCLIArgs(
 		args.xdebug = true;
 	}
 
-	const phpMyAdminHostPath = getPhpMyAdminPath();
-	if ( await fs.pathExists( phpMyAdminHostPath ) ) {
-		mounts.push( {
-			hostPath: phpMyAdminHostPath,
-			vfsPath: '/tools/phpmyadmin',
-		} );
-		logToConsole( 'Mounting bundled phpMyAdmin' );
-	} else {
-		logToConsole( 'Bundled phpMyAdmin not found, falling back to Playground download' );
+	if ( ! useExactMountLayout ) {
+		const phpMyAdminHostPath = getPhpMyAdminPath();
+		if ( await fs.pathExists( phpMyAdminHostPath ) ) {
+			mountsBeforeInstall.push( {
+				hostPath: phpMyAdminHostPath,
+				vfsPath: '/tools/phpmyadmin',
+			} );
+			logToConsole( 'Mounting bundled phpMyAdmin' );
+		} else {
+			logToConsole( 'Bundled phpMyAdmin not found, falling back to Playground download' );
+		}
+		args.phpmyadmin = true;
 	}
-	args.phpmyadmin = true;
 
 	lastCliArgs = sanitizeRunCLIArgs( args );
 	return args;

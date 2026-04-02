@@ -63,7 +63,18 @@ describe( 'CLI: studio site start', () => {
 		vi.mocked( logSiteDetails ).mockImplementation( () => {} );
 		vi.mocked( openSiteInBrowser ).mockResolvedValue( undefined );
 		vi.spyOn( fs, 'existsSync' ).mockReturnValue( true );
-		vi.spyOn( fs, 'readFileSync' ).mockReturnValue( '{"steps":[]}' );
+		vi.spyOn( fs, 'readFileSync' ).mockImplementation( ( filePath ) => {
+			if ( filePath === '/test/import/runtime/start.sh' ) {
+				return `npx @wp-playground/cli@latest server \\
+    --mount-before-install='/test/import/raw/core:/wordpress' \\
+    --mount-before-install='/test/site/wp-content:/wordpress/wp-content' \\
+    --mount='/test/import/runtime/runtime.php:/wordpress/wp-content/mu-plugins/0-playground-runtime.php' \\
+    --wordpress-install-mode=do-not-attempt-installing
+`;
+			}
+
+			return '{"steps":[]}';
+		} );
 	} );
 
 	afterEach( () => {
@@ -193,7 +204,7 @@ describe( 'CLI: studio site start', () => {
 			expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( '/test/site' );
 		} );
 
-		it( 'should start imported sites with their runtime Blueprint and skip sqlite setup', async () => {
+		it( 'should start imported sites with their runtime Blueprint and imported sqlite setup', async () => {
 			vi.mocked( getSiteByFolder ).mockResolvedValue( {
 				...testSite,
 				runtimeBlueprintPath: '/test/import/runtime/blueprint.json',
@@ -202,7 +213,7 @@ describe( 'CLI: studio site start', () => {
 
 			await runCommand( '/test/site' );
 
-			expect( keepSqliteIntegrationUpdated ).not.toHaveBeenCalled();
+			expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( '/test/site' );
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				expect.objectContaining( {
 					runtimeBlueprintPath: '/test/import/runtime/blueprint.json',
@@ -211,6 +222,18 @@ describe( 'CLI: studio site start', () => {
 				expect.objectContaining( {
 					blueprintUri: '/test/import/runtime/blueprint.json',
 					blueprint: { steps: [] },
+					mountsBeforeInstall: [
+						{ hostPath: '/test/import/raw/core', vfsPath: '/wordpress' },
+						{ hostPath: '/test/site/wp-content', vfsPath: '/wordpress/wp-content' },
+					],
+					mounts: [
+						{
+							hostPath: '/test/import/runtime/runtime.php',
+							vfsPath: '/wordpress/wp-content/mu-plugins/0-playground-runtime.php',
+						},
+					],
+					wordpressInstallMode: 'do-not-attempt-installing',
+					useExactMountLayout: true,
 				} )
 			);
 		} );

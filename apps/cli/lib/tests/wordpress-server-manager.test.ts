@@ -121,6 +121,54 @@ describe( 'WordPress Server Manager', () => {
 			expect( result ).toEqual( mockProcessDescription );
 		} );
 
+		it( 'should pass imported runtime mounts and install mode to the child process', async () => {
+			setupIpcMocks();
+
+			await startWordPressServer( mockSiteData, mockLogger, {
+				blueprint: { landingPage: '/' },
+				blueprintUri: '/test/runtime/blueprint.json',
+				mountsBeforeInstall: [
+					{ hostPath: '/test/raw/core', vfsPath: '/wordpress' },
+					{ hostPath: '/test/site/wp-content', vfsPath: '/wordpress/wp-content' },
+				],
+				mounts: [
+					{
+						hostPath: '/test/runtime/runtime.php',
+						vfsPath: '/wordpress/wp-content/mu-plugins/0-playground-runtime.php',
+					},
+				],
+				wordpressInstallMode: 'do-not-attempt-installing',
+				useExactMountLayout: true,
+			} );
+
+			expect( vi.mocked( daemonClient.sendMessageToProcess ) ).toHaveBeenCalledWith(
+				mockProcessDescription.pmId,
+				expect.objectContaining( {
+					topic: 'start-server',
+					data: {
+						config: expect.objectContaining( {
+							blueprint: {
+								contents: { landingPage: '/' },
+								uri: '/test/runtime/blueprint.json',
+							},
+							mountsBeforeInstall: [
+								{ hostPath: '/test/raw/core', vfsPath: '/wordpress' },
+								{ hostPath: '/test/site/wp-content', vfsPath: '/wordpress/wp-content' },
+							],
+							mounts: [
+								{
+									hostPath: '/test/runtime/runtime.php',
+									vfsPath: '/wordpress/wp-content/mu-plugins/0-playground-runtime.php',
+								},
+							],
+							wordpressInstallMode: 'do-not-attempt-installing',
+							useExactMountLayout: true,
+						} ),
+					},
+				} )
+			);
+		} );
+
 		it( 'should handle start process failure', async () => {
 			vi.mocked( daemonClient.startProcess ).mockRejectedValue(
 				new Error( 'Failed to start process' )

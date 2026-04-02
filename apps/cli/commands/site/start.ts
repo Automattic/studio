@@ -1,4 +1,3 @@
-import fs from 'fs';
 import { updateManagedInstructionFiles } from '@studio/common/lib/agent-skills';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
@@ -8,27 +7,18 @@ import {
 	updateSiteLatestCliPid,
 } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import {
+	ensureImportedSiteSqliteReady,
+	loadImportedRuntimeStartOptions,
+} from 'cli/lib/import/runtime-start-options';
 import { getAiInstructionsPath } from 'cli/lib/server-files';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { isServerRunning, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
-import type { Blueprint } from '@wp-playground/blueprints';
 
 const logger = new Logger< LoggerAction >();
-
-function loadRuntimeBlueprint( runtimeBlueprintPath: string ): Blueprint {
-	if ( ! fs.existsSync( runtimeBlueprintPath ) ) {
-		throw new LoggerError( `Runtime Blueprint not found: ${ runtimeBlueprintPath }` );
-	}
-
-	try {
-		return JSON.parse( fs.readFileSync( runtimeBlueprintPath, 'utf-8' ) ) as Blueprint;
-	} catch ( error ) {
-		throw new LoggerError( `Failed to parse runtime Blueprint: ${ runtimeBlueprintPath }`, error );
-	}
-}
 
 export async function runCommand(
 	sitePath: string,
@@ -63,10 +53,8 @@ export async function runCommand(
 
 		let startOptions;
 		if ( site.runtimeBlueprintPath ) {
-			startOptions = {
-				blueprint: loadRuntimeBlueprint( site.runtimeBlueprintPath ),
-				blueprintUri: site.runtimeBlueprintPath,
-			};
+			await ensureImportedSiteSqliteReady( sitePath );
+			startOptions = loadImportedRuntimeStartOptions( site.runtimeBlueprintPath );
 		} else {
 			logger.reportStart(
 				LoggerAction.INSTALL_SQLITE,

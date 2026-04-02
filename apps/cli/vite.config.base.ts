@@ -42,6 +42,7 @@ export const baseConfig = defineConfig( {
 		},
 	],
 	build: {
+		emptyOutDir: true,
 		lib: {
 			entry: {
 				main: resolve( __dirname, 'index.ts' ),

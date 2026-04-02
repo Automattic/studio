@@ -24,6 +24,7 @@ import {
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { ServerConfig, ManagerMessagePayload } from 'cli/lib/types/wordpress-server-ipc';
 import { Logger } from 'cli/logger';
+import type { WordPressInstallMode } from '@wp-playground/wordpress';
 
 export const SITE_PROCESS_PREFIX = 'studio-site-';
 
@@ -53,6 +54,10 @@ export interface StartServerOptions {
 	wpVersion?: string;
 	blueprint?: unknown;
 	blueprintUri?: string;
+	mounts?: ServerConfig[ 'mounts' ];
+	mountsBeforeInstall?: ServerConfig[ 'mountsBeforeInstall' ];
+	wordpressInstallMode?: WordPressInstallMode;
+	useExactMountLayout?: boolean;
 }
 
 export async function startWordPressServer(
@@ -104,6 +109,22 @@ export async function startWordPressServer(
 			contents: options.blueprint,
 			uri: options.blueprintUri,
 		};
+	}
+
+	if ( options?.mounts ) {
+		serverConfig.mounts = options.mounts;
+	}
+
+	if ( options?.mountsBeforeInstall ) {
+		serverConfig.mountsBeforeInstall = options.mountsBeforeInstall;
+	}
+
+	if ( options?.wordpressInstallMode ) {
+		serverConfig.wordpressInstallMode = options.wordpressInstallMode;
+	}
+
+	if ( options?.useExactMountLayout ) {
+		serverConfig.useExactMountLayout = true;
 	}
 
 	if ( site.enableXdebug ) {

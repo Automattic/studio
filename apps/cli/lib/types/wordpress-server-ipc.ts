@@ -1,6 +1,18 @@
 import { z } from 'zod';
 
 // Zod schemas for validating IPC messages from wordpress-server-manager
+const mountSchema = z.object( {
+	hostPath: z.string(),
+	vfsPath: z.string(),
+} );
+
+const wordpressInstallModeSchema = z.enum( [
+	'download-and-install',
+	'install-from-existing-files',
+	'install-from-existing-files-if-needed',
+	'do-not-attempt-installing',
+] );
+
 const serverConfig = z.object( {
 	siteId: z.string(),
 	sitePath: z.string(),
@@ -23,6 +35,10 @@ const serverConfig = z.object( {
 			uri: z.string(),
 		} )
 		.optional(),
+	mounts: z.array( mountSchema ).optional(),
+	mountsBeforeInstall: z.array( mountSchema ).optional(),
+	wordpressInstallMode: wordpressInstallModeSchema.optional(),
+	useExactMountLayout: z.boolean().optional(),
 } );
 
 export type ServerConfig = z.infer< typeof serverConfig >;

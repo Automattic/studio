@@ -36,11 +36,14 @@ import {
 	type ImporterResult,
 	runImporterCommandUntilComplete,
 } from 'cli/lib/import/migration-client';
+import {
+	ensureImportedSiteSqliteReady,
+	loadImportedRuntimeStartOptions,
+} from 'cli/lib/import/runtime-start-options';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
 import { startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
-import type { Blueprint } from '@wp-playground/blueprints';
 
 const logger = new Logger< LoggerAction >();
 
@@ -880,18 +883,6 @@ async function syncMetadataWithExistingSite(
 	return site;
 }
 
-function loadRuntimeBlueprint( runtimeBlueprintPath: string ): Blueprint {
-	if ( ! fs.existsSync( runtimeBlueprintPath ) ) {
-		throw new LoggerError( `Runtime Blueprint not found: ${ runtimeBlueprintPath }` );
-	}
-
-	try {
-		return JSON.parse( fs.readFileSync( runtimeBlueprintPath, 'utf-8' ) ) as Blueprint;
-	} catch ( error ) {
-		throw new LoggerError( `Failed to parse runtime Blueprint: ${ runtimeBlueprintPath }`, error );
-	}
-}
-
 function printReadyMessage( metadata: ImportMetadata ): void {
 	if ( ! metadata.localUrl ) {
 		return;
@@ -1291,7 +1282,7 @@ export async function runCommand(
 			setStage( metadata, 'runtime-generated' );
 		}
 
-		const sqliteDbPath = path.join( metadata.sitePath, 'wp-content', 'database', '.ht.sqlite' );
+		const sqliteDbPath = await ensureImportedSiteSqliteReady( metadata.sitePath );
 		const tablePrefix = metadata.tablePrefix || 'wp_';
 		if ( deactivatePluginInSqlite( sqliteDbPath, tablePrefix, 'sg-security', verbose ) ) {
 			logger.reportSuccess( 'Deactivated sg-security plugin' );
@@ -1316,15 +1307,12 @@ export async function runCommand(
 
 		const site = ( await syncMetadataWithExistingSite( metadata ) )!;
 		if ( ! hasReachedStage( metadata, 'site-started' ) ) {
-			const blueprint = loadRuntimeBlueprint( metadata.runtimeBlueprintPath );
+			const runtimeStartOptions = loadImportedRuntimeStartOptions( metadata.runtimeBlueprintPath );
 			logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
 
 			try {
 				await connectToDaemon();
-				const processDesc = await startWordPressServer( site, logger, {
-					blueprint,
-					blueprintUri: metadata.runtimeBlueprintPath,
-				} );
+				const processDesc = await startWordPressServer( site, logger, runtimeStartOptions );
 				logger.reportSuccess( __( 'WordPress server started' ) );
 
 				if ( processDesc.status === 'online' ) {

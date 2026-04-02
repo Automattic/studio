@@ -1147,6 +1147,7 @@ async function refreshFlattenedSiteDirectory(
 		[
 			'flat-document-root',
 			getApiUrl( metadata.normalizedUrl ),
+			'--no-adaptive',
 			'--state-dir=/state',
 			'--fs-root=/docroot',
 			'--flatten-to=/flat',
@@ -1618,6 +1619,7 @@ export async function runCommand(
 				metadata.rawDirectory,
 				[
 					'apply-runtime',
+					'--no-adaptive',
 					'--state-dir=/state',
 					'--flat-document-root=/flat',
 					'--output-dir=/output',

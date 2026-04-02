@@ -18,8 +18,9 @@ import { runCommand } from '../import';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
 vi.mock( 'cli/lib/cli-config/sites', () => ( {
-	getSiteByFolder: vi.fn(),
 	clearSiteLatestCliPid: vi.fn(),
+	getSiteByFolder: vi.fn(),
+	getSiteUrl: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/sqlite-integration', () => ( {
@@ -30,7 +31,7 @@ vi.mock( 'cli/lib/wordpress-server-manager', () => ( {
 	stopWordPressServer: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/import-export/import/import-manager', () => ( {
-	defaultImporterOptions: [],
+	DEFAULT_IMPORTER_OPTIONS: [],
 	importBackup: vi.fn(),
 } ) );
 vi.mock( '@studio/common/lib/well-known-paths' );

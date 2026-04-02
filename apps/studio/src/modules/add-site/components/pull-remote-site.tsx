@@ -139,7 +139,9 @@ export function PullRemoteSite( {
 	const {
 		data: syncSites = [],
 		isLoading,
+		isFetching,
 		isSuccess,
+		refetch: refetchWpComSites,
 	} = useGetWpComSitesQuery(
 		{
 			userId: user?.id,
@@ -167,9 +169,11 @@ export function PullRemoteSite( {
 					) : (
 						<SitesListContent
 							isLoading={ isLoading }
+							isFetching={ isFetching }
 							syncSites={ syncSites }
 							selectedSiteId={ selectedRemoteSite?.id || null }
 							onSelectSite={ handleSiteSelect }
+							refetchSites={ refetchWpComSites }
 						/>
 					) }
 				</VStack>

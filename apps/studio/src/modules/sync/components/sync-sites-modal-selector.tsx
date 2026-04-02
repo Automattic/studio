@@ -58,7 +58,9 @@ export function SyncSitesModalSelector( {
 	const {
 		data: syncSites = [],
 		isLoading,
+		isFetching,
 		isSuccess,
+		refetch: refetchWpComSites,
 	} = useGetWpComSitesQuery(
 		{ connectedSiteIds, userId: user?.id },
 		{ refetchOnMountOrArgChange: true }
@@ -89,9 +91,11 @@ export function SyncSitesModalSelector( {
 			<div className="relative" data-testid="sync-sites-modal-selector">
 				<SitesListContent
 					isLoading={ isLoading }
+					isFetching={ isFetching }
 					syncSites={ syncSites }
 					selectedSiteId={ selectedSiteId }
 					onSelectSite={ setSelectedSiteId }
+					refetchSites={ refetchWpComSites }
 				/>
 				<Footer
 					onRequestClose={ onRequestClose }
@@ -156,17 +160,33 @@ function SearchSites( {
 
 export function SitesListContent( {
 	isLoading,
+	isFetching,
 	syncSites,
 	selectedSiteId,
 	onSelectSite,
+	refetchSites,
 }: {
 	isLoading: boolean;
+	isFetching: boolean;
 	syncSites: SyncSite[];
 	selectedSiteId: number | null;
 	onSelectSite: ( id: number ) => void;
+	refetchSites: () => void | Promise< unknown >;
 } ) {
 	const { __ } = useI18n();
+	const isOffline = useOffline();
 	const [ searchQuery, setSearchQuery ] = useState< string >( '' );
+
+	useEffect( () => {
+		if ( isOffline ) {
+			return;
+		}
+		const handleWindowFocus = () => {
+			void refetchSites();
+		};
+		window.addEventListener( 'focus', handleWindowFocus );
+		return () => window.removeEventListener( 'focus', handleWindowFocus );
+	}, [ isOffline, refetchSites ] );
 
 	const filteredSites = syncSites.filter( ( site ) => {
 		const searchQueryLower = searchQuery.toLowerCase();
@@ -180,22 +200,31 @@ export function SitesListContent( {
 		? sprintf( __( 'No sites found for "%s"' ), searchQuery )
 		: __( 'No sites found' );
 
+	const isRefetchingSites = isFetching && ! isLoading;
+
 	return (
 		<>
 			<SearchSites searchQuery={ searchQuery } setSearchQuery={ setSearchQuery } />
-			<div className="h-[calc(84vh-232px)]">
-				{ isLoading && (
+			<div className="relative h-[calc(84vh-232px)]">
+				{ isLoading ? (
 					<div className="flex justify-center items-center h-full">{ __( 'Loading sites…' ) }</div>
-				) }
-				{ ! isLoading && isEmpty && (
+				) : isEmpty ? (
 					<div className="flex justify-center items-center h-full">{ emptyMessage }</div>
-				) }
-				{ ! isLoading && ! isEmpty && (
+				) : (
 					<ListSites
 						syncSites={ filteredSites }
 						selectedSiteId={ selectedSiteId }
 						onSelectSite={ onSelectSite }
 					/>
+				) }
+				{ isRefetchingSites && (
+					<div
+						className="absolute inset-0 z-[1] flex items-center justify-center bg-frame/60 backdrop-blur-[1px]"
+						aria-busy="true"
+						aria-live="polite"
+					>
+						<span className="a8c-body text-frame-text">{ __( 'Refreshing sites…' ) }</span>
+					</div>
 				) }
 			</div>
 		</>

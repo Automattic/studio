@@ -630,3 +630,16 @@ div:has( > progress ) > div:first-child {
 		color: var( --color-frame-text );
 	}
 }
+
+/* Browser panel — indeterminate loading bar */
+@keyframes browser-progress {
+	0% {
+		left: -30%;
+	}
+	50% {
+		left: 100%;
+	}
+	100% {
+		left: -30%;
+	}
+}

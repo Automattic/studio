@@ -263,6 +263,18 @@ async function appBoot() {
 		} );
 
 		session.defaultSession.webRequest.onHeadersReceived( ( details, callback ) => {
+			// Strip framing restrictions from local site responses so wp-admin
+			// can load inside the browser panel iframe.
+			if ( /^https?:\/\/localhost(:\d+)?\//.test( details.url ) ) {
+				const headers = { ...details.responseHeaders };
+				delete headers[ 'X-Frame-Options' ];
+				delete headers[ 'x-frame-options' ];
+				delete headers[ 'Content-Security-Policy' ];
+				delete headers[ 'content-security-policy' ];
+				callback( { ...details, responseHeaders: headers } );
+				return;
+			}
+
 			// Only set a custom CSP header the main window UI. For other pages (like login) we should
 			// use the CSP provided by the server, which is more likely to be up-to-date and complete.
 			if ( details.url !== getRendererUrl() ) {
@@ -276,6 +288,7 @@ async function appBoot() {
 				"img-src 'self' https://*.gravatar.com https://*.wp.com https://blueprintlibrary.wordpress.com data:",
 				"style-src 'self' 'unsafe-inline'", // unsafe-inline used by tailwindcss in development, and also in production after the app rename
 				"script-src 'self' 'wasm-unsafe-eval'", // allow WebAssembly to compile and instantiate
+				'frame-src http://localhost:*', // allow iframe preview of local WordPress sites
 			];
 			const prodPolicies = [
 				"connect-src 'self' https://public-api.wordpress.com https://api.wordpress.org",

@@ -199,11 +199,20 @@ export function useBrowserPanel() {
 
 	const handleReload = useCallback( () => {
 		const iframe = iframeElements.current.get( activeTabId );
-		if ( iframe && autoLoginSrc ) {
-			updateTab( activeTabId, { isLoading: true } );
-			iframe.src = autoLoginSrc;
+		if ( ! iframe ) {
+			return;
 		}
-	}, [ activeTabId, autoLoginSrc, updateTab ] );
+		updateTab( activeTabId, { isLoading: true } );
+		try {
+			iframe.contentWindow?.location.reload();
+		} catch {
+			// Cross-origin fallback: re-assign current src to force reload
+			const currentSrc = iframe.src;
+			if ( currentSrc ) {
+				iframe.src = currentSrc;
+			}
+		}
+	}, [ activeTabId, updateTab ] );
 
 	const handleNavigate = useCallback(
 		( url: string ) => {
@@ -244,6 +253,27 @@ export function useBrowserPanel() {
 		};
 		window.addEventListener( 'studio:browser-navigate', handler );
 		return () => window.removeEventListener( 'studio:browser-navigate', handler );
+	}, [ resolvedSite?.id, activeTabId, updateTab ] );
+
+	// Listen for agent-initiated browser reload (reloads active tab)
+	useEffect( () => {
+		const handler = ( e: Event ) => {
+			const { siteId } = ( e as CustomEvent ).detail;
+			const iframe = iframeElements.current.get( activeTabId );
+			if ( resolvedSite?.id === siteId && iframe ) {
+				updateTab( activeTabId, { isLoading: true } );
+				try {
+					iframe.contentWindow?.location.reload();
+				} catch {
+					const currentSrc = iframe.src;
+					if ( currentSrc ) {
+						iframe.src = currentSrc;
+					}
+				}
+			}
+		};
+		window.addEventListener( 'studio:browser-reload', handler );
+		return () => window.removeEventListener( 'studio:browser-reload', handler );
 	}, [ resolvedSite?.id, activeTabId, updateTab ] );
 
 	// Keyboard shortcuts: Cmd+Shift+[ and Cmd+Shift+] to switch tabs

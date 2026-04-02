@@ -30,7 +30,7 @@ export function BrowserTabBar( {
 	canAddTab,
 }: BrowserTabBarProps ) {
 	return (
-		<div className="flex items-center flex-1 min-w-0 overflow-x-auto app-no-drag-region [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+		<div className="flex items-center flex-1 min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
 			{ tabs.map( ( tab ) => {
 				const isActive = tab.id === activeTabId;
 				return (

@@ -439,6 +439,27 @@ export function getFlattenSourceDirectory( stateDirectory: string, rawDirectory:
 	return path.join( rawDirectory, remoteDocumentRoot.replace( /^\/+/, '' ) );
 }
 
+export function buildDbApplyArgs(
+	metadata: Pick< ImportMetadata, 'normalizedUrl' | 'remoteSiteUrl' | 'localUrl' | 'sitePath' >
+): string[] {
+	const remoteHost = new URL( metadata.remoteSiteUrl || metadata.normalizedUrl ).host;
+
+	return [
+		'db-apply',
+		getApiUrl( metadata.normalizedUrl ),
+		'--state-dir=/state',
+		'--fs-root=/docroot',
+		'--target-engine=sqlite',
+		'--target-sqlite-path=/site/wp-content/database/.ht.sqlite',
+		'--rewrite-url',
+		`https://${ remoteHost }`,
+		metadata.localUrl!,
+		'--rewrite-url',
+		`http://${ remoteHost }`,
+		metadata.localUrl!,
+	];
+}
+
 export function shouldRestartFilesSyncIndex( stateDirectory: string ): boolean {
 	const state = readImporterState( stateDirectory );
 	if ( ! state ) {
@@ -1319,19 +1340,8 @@ export async function runCommand(
 				metadata.stateDirectory,
 				metadata.rawDirectory,
 				[
-					'db-apply',
-					apiUrl,
+					...buildDbApplyArgs( metadata ),
 					`--secret=${ secret }`,
-					'--state-dir=/state',
-					'--fs-root=/docroot',
-					'--target-engine=sqlite',
-					'--target-sqlite-path=/site/wp-content/database/.ht.sqlite',
-					'--rewrite-url',
-					`https://${ new URL( metadata.remoteSiteUrl || metadata.normalizedUrl ).host }`,
-					metadata.localUrl!,
-					'--rewrite-url',
-					`http://${ new URL( metadata.remoteSiteUrl || metadata.normalizedUrl ).host }`,
-					metadata.localUrl!,
 				],
 				undefined,
 				{

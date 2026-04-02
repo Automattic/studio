@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {
+	buildDbApplyArgs,
 	findMatchingWpComSite,
 	formatWpComSitesList,
 	getApiUrl,
@@ -163,6 +164,30 @@ describe( 'CLI: studio site import helpers', () => {
 		} finally {
 			fs.rmSync( stateDirectory, { recursive: true, force: true } );
 		}
+	} );
+
+	it( 'builds db-apply args for SQLite with both http and https URL rewrites', () => {
+		expect(
+			buildDbApplyArgs( {
+				normalizedUrl: 'https://example.com/',
+				remoteSiteUrl: 'https://example.com',
+				localUrl: 'http://localhost:8881',
+				sitePath: '/tmp/site',
+			} as never )
+		).toEqual( [
+			'db-apply',
+			'https://example.com/?site-export-api',
+			'--state-dir=/state',
+			'--fs-root=/docroot',
+			'--target-engine=sqlite',
+			'--target-sqlite-path=/site/wp-content/database/.ht.sqlite',
+			'--rewrite-url',
+			'https://example.com',
+			'http://localhost:8881',
+			'--rewrite-url',
+			'http://example.com',
+			'http://localhost:8881',
+		] );
 	} );
 
 	it( 'migrates importer state from the legacy /tmp/export mount layout', () => {

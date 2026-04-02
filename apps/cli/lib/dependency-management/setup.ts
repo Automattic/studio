@@ -71,12 +71,16 @@ async function copyBundledSqlite() {
 }
 
 async function copyBundledWpCli() {
-	const bundledWpCLIInstalled = fs.existsSync( getWpCliPharPath() );
-	if ( bundledWpCLIInstalled ) {
+	if ( fs.existsSync( getWpCliPharPath() ) ) {
 		return;
 	}
 	const bundledWpCLIPath = path.join( getWpFilesPath(), 'wp-cli', 'wp-cli.phar' );
-	await fs.promises.copyFile( bundledWpCLIPath, getWpCliPharPath() );
+	if ( fs.existsSync( bundledWpCLIPath ) ) {
+		await fs.promises.copyFile( bundledWpCLIPath, getWpCliPharPath() );
+	} else {
+		// Bundled WP-CLI not available (e.g. dev build) — download it directly.
+		await updateLatestWpCliVersion();
+	}
 }
 
 async function copyBundledSqliteCommand() {

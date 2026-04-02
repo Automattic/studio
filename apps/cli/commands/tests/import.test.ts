@@ -8,14 +8,24 @@ import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { ImporterEvents, ValidatorEvents } from 'cli/lib/import-export/import/events';
 import { defaultImporterOptions, importBackup } from 'cli/lib/import-export/import/import-manager';
+import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
+import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { runCommand } from '../import';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
 vi.mock( 'cli/lib/cli-config/sites', () => ( {
 	getSiteByFolder: vi.fn(),
+	clearSiteLatestCliPid: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/daemon-client' );
+vi.mock( 'cli/lib/sqlite-integration', () => ( {
+	keepSqliteIntegrationUpdated: vi.fn(),
+} ) );
+vi.mock( 'cli/lib/wordpress-server-manager', () => ( {
+	isServerRunning: vi.fn(),
+	stopWordPressServer: vi.fn(),
+} ) );
 vi.mock( 'cli/lib/import-export/import/import-manager', () => ( {
 	defaultImporterOptions: [],
 	importBackup: vi.fn(),
@@ -45,6 +55,9 @@ describe( 'CLI: studio import', () => {
 		vi.mocked( connectToDaemon ).mockResolvedValue( undefined );
 		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( testSite );
+		vi.mocked( isServerRunning ).mockResolvedValue( undefined );
+		vi.mocked( stopWordPressServer ).mockResolvedValue( undefined );
+		vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( false );
 		vi.mocked( isWordPressDirectory ).mockReturnValue( true );
 		vi.mocked( getServerFilesPath ).mockReturnValue( '/server-files' );
 		vi.mocked( recursiveCopyDirectory ).mockResolvedValue( undefined );
@@ -145,5 +158,14 @@ describe( 'CLI: studio import', () => {
 		);
 		expect( reportProgressSpy ).toHaveBeenCalledWith( 'Importing database files… (1/2)' );
 		expect( reportSuccessSpy ).toHaveBeenCalledWith( 'Site imported successfully' );
+	} );
+
+	it( 'preserves import error when restore steps fail', async () => {
+		vi.mocked( isServerRunning ).mockResolvedValue( { pid: 1234 } as never );
+		vi.mocked( importBackup ).mockRejectedValue( new Error( 'import failed' ) );
+		vi.mocked( keepSqliteIntegrationUpdated ).mockRejectedValue( new Error( 'restart failed' ) );
+
+		await expect( runCommand( testSitePath, testImportPath ) ).rejects.toThrow( 'import failed' );
+		expect( stopWordPressServer ).toHaveBeenCalledWith( testSite.id );
 	} );
 } );

@@ -204,6 +204,8 @@ export async function runCommand( siteFolder: string, importFile: string ): Prom
 
 	let site: SiteData | undefined;
 	let wasServerRunning = false;
+	let importError: unknown;
+	let restartError: unknown;
 
 	try {
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
@@ -243,6 +245,8 @@ export async function runCommand( siteFolder: string, importFile: string ): Prom
 			type: getBackupFileType( importFile ),
 		};
 		await importBackup( backupFile, site, handleImportEvent, defaultImporterOptions );
+	} catch ( error ) {
+		importError = error;
 	} finally {
 		try {
 			if ( site && wasServerRunning ) {
@@ -257,9 +261,23 @@ export async function runCommand( siteFolder: string, importFile: string ): Prom
 				await startWordPressServer( site, logger );
 				logger.reportSuccess( __( 'WordPress server started' ) );
 			}
+		} catch ( error ) {
+			restartError = error;
 		} finally {
 			await disconnectFromDaemon();
 		}
+	}
+
+	if ( importError instanceof LoggerError && restartError instanceof Error ) {
+		importError.previousError = restartError;
+	}
+
+	if ( importError instanceof Error ) {
+		throw importError;
+	}
+
+	if ( restartError instanceof Error ) {
+		throw importError;
 	}
 }
 

@@ -33,12 +33,14 @@ Authentication mirrors the CLI's provider fallback chain (`provider-resolver.ts`
 
 ### MCP Tools (Desktop-Native)
 
-The agent has access to 5 Studio tools via an MCP server (`tools.ts`), all using `SiteServer` directly (not the CLI daemon):
+The agent has access to 7 Studio tools via an MCP server (`tools.ts`), all using `SiteServer` directly (not the CLI daemon):
 
 - **site_list** — Lists all sites with status, paths, URLs.
 - **site_info** — Detailed info for a specific site (path, URL, credentials, PHP version).
 - **site_start** / **site_stop** — Start or stop a site's server.
 - **wp_cli** — Execute WP-CLI commands on a running site (plugin install, post create, etc.).
+- **post_blocks_read** — List all Gutenberg blocks in a post/page with indices, types, attributes, and content previews. Uses WordPress's `parse_blocks()` via `wp eval`.
+- **post_block_update** — Replace a specific block by index with new block markup. Uses `parse_blocks()` / `serialize_blocks()` / `wp_update_post()` via `wp eval`. Markup is base64-encoded to avoid escaping issues.
 
 The agent also has Claude Code's built-in file tools (Read, Write, Edit, Glob, Grep, Bash) for direct file manipulation. The agent's `cwd` is set to the task's site path so file operations work relative to the site.
 
@@ -68,7 +70,7 @@ Session-level approvals are cached per tool name so the user isn't prompted repe
 | `updatedAt` | `number` | Timestamp |
 | `sessionId` | `string?` | SDK session ID for resuming conversations |
 
-**TaskMessage** (held in Redux, not persisted to disk):
+**TaskMessage** (persisted to `localStorage` via Redux listener, survives app restarts):
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -99,7 +101,7 @@ SDK messages (`SDKMessage` union type) are converted to flat `TaskMessage` objec
 
 - `assistant` messages — extracts text content and tool use blocks
 - `user` messages (synthetic) — extracts tool result content blocks with `tool_use_id` matching
-- `result` messages — extracts final result text or error messages
+- `result` messages — surfaces error messages only (successful results are already shown via the preceding `assistant` message)
 - `tool_use_summary` — shows tool execution summaries
 - `tool_progress` — shows tool running indicators
 
@@ -125,10 +127,13 @@ IPC event listeners in `stores/index.ts` dispatch actions for `task-updated`, `t
 
 The sidebar's Tasks section (`tasks/task-list.tsx`) replaces the former placeholder:
 
-- Header with "Tasks" label and `+` button for creating new tasks
+- Header with "Tasks" label, archive toggle, and `+` button for creating new tasks
 - Site picker dropdown when multiple sites exist (single site skips the picker)
 - Task items show title, site name, and a status dot (blue pulsing = in-progress, gray = waiting, green = done)
+- Archive button appears on hover for each task item
 - Non-archived tasks sorted by `updatedAt` descending
+- Archive toggle (visible when archived tasks exist) switches between active and archived views
+- Archived view shows count and "Clear all" button to permanently delete all archived tasks
 
 ### Chat Panel
 
@@ -155,6 +160,7 @@ The site overview tab includes a "New task" button in the shortcuts section that
 | `updateTask(taskId, updates)` | Partial update (title, status, archived, sessionId) |
 | `archiveTask(taskId)` | Set archived=true |
 | `deleteTask(taskId)` | Remove from appdata |
+| `clearArchivedTasks()` | Delete all archived tasks, returns removed IDs |
 | `updateTaskStatus(taskId, status)` | Update status field |
 | `startTaskAgentHandler(taskId, prompt, resumeSessionId?)` | Start agent session |
 | `sendTaskMessageHandler(taskId, message)` | Send follow-up message |
@@ -212,7 +218,6 @@ apps/cli/ai/
 
 - Session resume on app restart (sessionId is persisted, `query({ resume })` is wired)
 - More MCP tools (site_create, site_delete, preview_create/update/delete, take_screenshot, validate_blocks)
-- Task archiving UI (currently only programmatic)
 - Markdown rendering in assistant messages
 - Streaming partial text (SDKPartialAssistantMessage events)
 - Auto-title refinement (use agent to generate a better title after first exchange)

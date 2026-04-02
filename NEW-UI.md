@@ -24,7 +24,7 @@ Each panel has min/max width constraints and drag-to-resize handles between them
 
 The sidebar (`sidebar.tsx`) has two sections:
 
-- **Tasks** (top) — Placeholder section for future task/chat functionality.
+- **Tasks** (top) — Task list with create, archive, and clear-archived controls. See `NEW-AGENT.md` for full details.
 - **Sites** (bottom, pinned) — Header with site count and Start all / Stop all toggle. Renders the existing `SiteMenu` component which provides drag-and-drop reordering, context menus, start/stop controls, and spinner states for operations in progress.
 
 ### Site Menu Updates

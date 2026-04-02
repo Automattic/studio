@@ -52,7 +52,7 @@ See the `onHeadersReceived` handler in `apps/studio/src/index.ts`.
 
 Loading states are tracked per-tab. The toolbar reflects whichever tab is active.
 
-- **Initial load** — Shows a WordPress `<Spinner>` centered on the dark panel background. The iframe is hidden (`opacity-0`) until it fires `onLoad`. The toolbar is also hidden during this phase.
+- **Initial load** — Shows a WordPress `<Spinner>` centered on the dark panel background. The iframe is hidden (`opacity-0`) until it fires `onLoad`. The toolbar is always visible so tabs remain accessible.
 - **In-page navigation** — When the user clicks links inside the iframe, a `beforeunload` listener detects the navigation start and shows an indeterminate progress bar (bouncing left-to-right) at the bottom of the toolbar. The bar disappears when the iframe's `onLoad` fires. A blue pulsing dot also appears in the tab strip next to the loading tab's title.
 
 ### URL Bar
@@ -61,7 +61,7 @@ The toolbar at the top of the panel includes an editable URL input. It updates a
 
 ### Navigation Controls
 
-Back, Forward, and Reload buttons in the toolbar use the iframe's `contentWindow.history` API. Reload re-authenticates by navigating back to the auto-login URL.
+Back, Forward, and Reload buttons in the toolbar use the iframe's `contentWindow.history` API. Reload calls `contentWindow.location.reload()` to refresh the current page in-place (not the homepage).
 
 ## Key Files
 
@@ -75,46 +75,42 @@ Back, Forward, and Reload buttons in the toolbar use the iframe's `contentWindow
 
 ## Agent Browser Control
 
-The AI agent can control the browser preview through a set of MCP tools. Under the hood, a `BrowserInspector` singleton in the main process manages hidden `BrowserWindow` instances (one per site, created on demand) that provide full `webContents` access for screenshots, DOM reading, and console capture.
+The AI agent can navigate and reload the in-app browser preview. These tools control the actual preview the user sees — when the agent navigates, the user watches it happen in their active tab.
 
 ### Tools
 
 | Tool | Description |
 |------|-------------|
-| `browser_navigate` | Navigate to a URL or path (e.g. `/wp-admin/`). Syncs the visible preview. |
-| `browser_reload` | Reload the current page. Syncs the visible preview. |
-| `browser_screenshot` | Take a PNG screenshot via `webContents.capturePage()`. Returns an MCP image block. |
-| `browser_read_page` | Read page title, URL, text content, and DOM outline (headings, links, forms, buttons). |
-| `browser_console` | Read buffered console messages (log/warning/error) with optional clear. |
+| `browser_navigate` | Navigate the active tab to a URL or path (e.g. `/wp-admin/`). Relative paths are resolved against the site's base URL. |
+| `browser_reload` | Reload the current page in the active tab. |
 
-### Hidden BrowserWindow Architecture
+Screenshots and page reading use separate Playwright-based tools (`take_screenshot`, `validate_blocks`) that run in the CLI subprocess.
 
-The visible iframe preview stays unchanged. The agent operates on a separate hidden `BrowserWindow` for each site:
+### IPC Flow
 
-- **Window config** — `show: false`, 1280x800 viewport, full sandbox (`nodeIntegration: false`, `contextIsolation: true`, `sandbox: true`), no preload script.
-- **Auto-login** — Same `/studio-auto-login?redirect_to=URL` pattern as the iframe.
-- **URL validation** — Only same-origin navigation allowed (prevents browsing external sites).
-- **Console capture** — `console-message` event on `webContents` buffers the last 100 messages per site.
-- **Operation queue** — Per-site promise chain serializes concurrent tool calls.
-- **Idle cleanup** — Windows auto-destroy after 5 minutes of inactivity. Sweeper runs every 60 seconds.
-- **Navigation timeout** — 15-second timeout on `loadURL` to prevent hanging tool calls.
+The agent runs in a forked CLI subprocess. Browser control messages flow through an IPC bridge:
 
-### Preview Sync
-
-When the agent navigates or reloads, the hidden window fires a `browser-navigate` IPC event to the renderer. The `useBrowserPanel` hook listens for `studio:browser-navigate` custom events (dispatched from the store's IPC subscription) and navigates the **active tab's** iframe to match.
+1. CLI tool calls `process.send({ type: 'ai:browser-navigate', url })` or `process.send({ type: 'ai:browser-reload' })`
+2. Desktop main process (`agent-manager.ts`) receives the message, resolves the `siteId` from the task metadata, resolves relative paths to full URLs using the site's base URL
+3. Main process sends `browser-navigate` or `browser-reload` IPC event to the renderer via `sendIpcEventToRenderer`
+4. Store listener (`stores/index.ts`) dispatches a `studio:browser-navigate` or `studio:browser-reload` custom DOM event
+5. `useBrowserPanel` hook handles the event — navigates or reloads the active tab's iframe
 
 ### Key Files
 
-- `apps/studio/src/modules/ai/lib/browser-inspector.ts` — BrowserInspector singleton managing hidden windows.
-- `apps/studio/src/modules/ai/lib/browser-tools.ts` — MCP tool definitions for the five browser tools.
-- `apps/studio/src/modules/ai/lib/tools.ts` — Includes browser tools in `studioToolDefinitions`.
+- `apps/cli/ai/tools.ts` — `browserNavigateTool` and `browserReloadTool` definitions (send IPC via `process.send`).
+- `apps/studio/src/modules/ai/lib/agent-manager.ts` — Handles `ai:browser-navigate` and `ai:browser-reload` messages from the CLI child process.
+- `apps/studio/src/ipc-utils.ts` — Defines `browser-navigate` and `browser-reload` IPC event types.
+- `apps/studio/src/stores/index.ts` — Subscribes to IPC events and dispatches DOM custom events.
+- `apps/studio/src/hooks/use-browser-panel.ts` — Listens for custom events and controls the active tab's iframe.
+- `tools/common/ai/system-prompt.ts` — Agent system prompt listing available tools.
 
 ## Design Decisions
 
 - **iframe over webview/BrowserView** — Simpler integration, works within the existing React panel layout, and localhost sites don't have the security concerns that would warrant a separate process.
 - **Multiple hidden iframes for tabs** — All tab iframes stay mounted in the DOM (inactive ones use `display: none`). This is the simplest way to preserve full page state (scroll position, form inputs, JavaScript state, history) when switching tabs. Memory cost is negligible for the expected 2–5 tabs.
 - **Tab state in the hook, not Redux** — Browser tabs are local UI state within the panel. No other component needs to know about them, so Redux would be unnecessary indirection.
-- **Hidden BrowserWindow for agent inspection** — The agent needs `capturePage()`, `executeJavaScript()`, and `console-message` events, none of which are available through an iframe. A hidden BrowserWindow provides full `webContents` access without changing the preview UI. Zero migration risk.
+- **Agent controls the real preview, not a hidden browser** — Navigate and reload go through the in-app browser so the user sees the agent's actions in real-time. Heavier inspection (screenshots, block validation) uses Playwright in the CLI subprocess, which doesn't need Electron APIs.
 - **Dark toolbar (`#1d2327`)** — Matches the WordPress admin bar color so the toolbar and admin bar blend together visually.
 - **Auto-login on every load** — The iframe `src` always goes through `/studio-auto-login` to ensure the session stays authenticated, even after reload.
 - **No fake progress bar** — The loading indicator is an honest indeterminate bar (bouncing animation) since iframes don't expose real loading progress.

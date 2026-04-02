@@ -439,6 +439,7 @@ export async function createSite(
 				enableHttps,
 				siteId,
 				blueprint: blueprint?.blueprint,
+				originalBlueprintPath: blueprint?.filePath,
 				adminUsername,
 				adminPassword,
 				adminEmail,

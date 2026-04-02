@@ -36,6 +36,7 @@ interface Blueprint {
 		};
 		[ key: string ]: unknown;
 	};
+	filePath?: string;
 }
 
 interface DataViewBlueprint extends Blueprint {
@@ -225,6 +226,7 @@ export function AddSiteBlueprintSelector( {
 					image: '', // No image for file-based blueprints
 					playground_url: '', // No playground URL for file-based blueprints
 					blueprint: blueprintJson, // The actual blueprint JSON
+					filePath: getIpcApi().getPathForFile( file ),
 				};
 
 				setUploadedFileName( null );

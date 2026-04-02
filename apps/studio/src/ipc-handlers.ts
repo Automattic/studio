@@ -154,6 +154,19 @@ export {
 	saveUserTerminal,
 } from 'src/modules/user-settings/lib/ipc-handlers';
 
+export {
+	createTask,
+	getAllTasks,
+	updateTask,
+	archiveTask,
+	deleteTask,
+	updateTaskStatus,
+	startTaskAgentHandler,
+	sendTaskMessageHandler,
+	interruptTaskHandler,
+	respondToPermissionRequestHandler,
+} from 'src/modules/ai/lib/ipc-handlers';
+
 export async function getAgentInstructionsStatus(
 	_event: IpcMainInvokeEvent,
 	siteId: string

@@ -177,6 +177,23 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'installWordPressSkillsToAllSites', options ),
 	removeWordPressSkillFromAllSites: ( skillId ) =>
 		ipcRendererInvoke( 'removeWordPressSkillFromAllSites', skillId ),
+
+	// Tasks
+	createTask: ( siteId ) => ipcRendererInvoke( 'createTask', siteId ),
+	getAllTasks: () => ipcRendererInvoke( 'getAllTasks' ),
+	updateTask: ( taskId, updates ) => ipcRendererInvoke( 'updateTask', taskId, updates ),
+	archiveTask: ( taskId ) => ipcRendererInvoke( 'archiveTask', taskId ),
+	deleteTask: ( taskId ) => ipcRendererInvoke( 'deleteTask', taskId ),
+	updateTaskStatus: ( taskId, status ) => ipcRendererInvoke( 'updateTaskStatus', taskId, status ),
+
+	// Agent lifecycle
+	startTaskAgentHandler: ( taskId, prompt, resumeSessionId ) =>
+		ipcRendererInvoke( 'startTaskAgentHandler', taskId, prompt, resumeSessionId ),
+	sendTaskMessageHandler: ( taskId, message ) =>
+		ipcRendererInvoke( 'sendTaskMessageHandler', taskId, message ),
+	interruptTaskHandler: ( taskId ) => ipcRendererInvoke( 'interruptTaskHandler', taskId ),
+	respondToPermissionRequestHandler: ( requestId, response, taskId ) =>
+		ipcRendererInvoke( 'respondToPermissionRequestHandler', requestId, response, taskId ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

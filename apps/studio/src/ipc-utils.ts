@@ -6,6 +6,7 @@ import { PreviewCommandLoggerAction } from '@studio/common/logger-actions';
 import { ImportExportEventData } from 'src/lib/import-export/handle-events';
 import { StoredAuthToken } from 'src/lib/oauth';
 import { getMainWindow } from 'src/main-window';
+import type { PermissionRequest, TaskMessage, TaskMetadata } from 'src/modules/ai/types';
 import type { UserData } from 'src/storage/storage-types';
 
 type SnapshotEventData = {
@@ -63,6 +64,12 @@ export interface IpcEvents {
 	'user-data-error': [ string ];
 	'refresh-app-globals': [ void ];
 	'beta-features-updated': [ void ];
+	'task-updated': [ TaskMetadata ];
+	'task-deleted': [ string ];
+	'task-message': [ { taskId: string; message: TaskMessage } ];
+	'task-status-changed': [ { taskId: string; status: string } ];
+	'task-permission-request': [ PermissionRequest ];
+	'task-error': [ { taskId: string; error: string } ];
 }
 
 export async function sendIpcEventToRenderer< T extends keyof IpcEvents >(

@@ -3,6 +3,9 @@ import path from 'path';
 import { APP_CONFIG_LOCKFILE_NAME } from '../constants';
 
 export function getConfigDirectory(): string {
+	if ( process.env.DEV_CONFIG_DIR ) {
+		return process.env.DEV_CONFIG_DIR;
+	}
 	if ( process.env.E2E && process.env.E2E_SHARED_CONFIG_PATH ) {
 		return process.env.E2E_SHARED_CONFIG_PATH;
 	}

@@ -161,8 +161,10 @@ export function updateImporterProgressSnapshot(
 
 	if ( type === 'lifecycle' ) {
 		nextSnapshot.phase = mapImporterPhase( readString( object.stage ) ) ?? nextSnapshot.phase;
+		// Don't overwrite the last meaningful message with "resuming" — the user
+		// doesn't need to know about internal importer restarts.
 		const event = readString( object.event );
-		if ( event ) {
+		if ( event && event !== 'resuming' ) {
 			nextSnapshot.message = event;
 		}
 		return nextSnapshot;
@@ -260,10 +262,6 @@ export function formatImporterProgressSnapshot(
 ): string | null {
 	const elapsed = formatElapsedSeconds( elapsedSeconds );
 	const segments = [ progressLabel ];
-
-	if ( snapshot.phase ) {
-		segments.push( snapshot.phase );
-	}
 
 	if ( snapshot.downloadedFiles !== undefined && snapshot.totalFiles !== undefined ) {
 		segments.push( `${ snapshot.downloadedFiles }/${ snapshot.totalFiles } files` );

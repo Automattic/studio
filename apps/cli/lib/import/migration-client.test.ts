@@ -17,10 +17,10 @@ describe( 'formatImporterJsonlProgress', () => {
 		).toBe( 'Downloading essential files · Waiting for server response... · 3s' );
 	} );
 
-	it( 'shows indexing text when the importer reports the index phase', () => {
-		expect( formatImporterJsonlProgress( { phase: 'index' }, 'Downloading essential files', 7 ) ).toBe(
-			'Downloading essential files · indexing remote files · 7s'
-		);
+	it( 'suppresses bare phase-only records without additional data', () => {
+		expect(
+			formatImporterJsonlProgress( { phase: 'index' }, 'Downloading essential files', 7 )
+		).toBeNull();
 	} );
 
 	it( 'formats streamed file and byte counts when present', () => {
@@ -93,7 +93,7 @@ describe( 'formatImporterJsonlProgress', () => {
 		);
 
 		expect( formatImporterProgressSnapshot( restartedHeartbeat!, 'Downloading essential files', 7 ) ).toBe(
-			'Downloading essential files · indexing remote files · 6.5 MB received · following symlink .../plugins/jetpack/15.7-a.7 · 7s'
+			'Downloading essential files · 6.5 MB received · following symlink .../plugins/jetpack/15.7-a.7 · 7s'
 		);
 	} );
 
@@ -103,29 +103,28 @@ describe( 'formatImporterJsonlProgress', () => {
 			phase: 'fetch',
 		} );
 		expect( formatImporterProgressSnapshot( snapshot!, 'Downloading essential files', 4 ) ).toBe(
-			'Downloading essential files · streaming · starting · 4s'
+			'Downloading essential files · starting · 4s'
 		);
 	} );
 
-	it( 'uses lifecycle records to expose resumable phase information', () => {
+	it( 'does not surface resuming lifecycle events to the user', () => {
 		const snapshot = updateImporterProgressSnapshot( {
 			type: 'lifecycle',
 			event: 'resuming',
 			command: 'files-sync',
 			stage: 'index',
 		} );
-		expect( formatImporterProgressSnapshot( snapshot!, 'Downloading essential files', 4 ) ).toBe(
-			'Downloading essential files · indexing remote files · resuming · 4s'
-		);
+		// "resuming" is suppressed — the snapshot keeps whatever message was there before
+		expect( snapshot!.message ).toBeUndefined();
 	} );
 
-	it( 'formats symlink-follow events as indexing progress details', () => {
+	it( 'formats symlink-follow events as progress details', () => {
 		const snapshot = updateImporterProgressSnapshot( {
 			type: 'symlink_follow',
 			directory: '/wordpress/plugins/jetpack/15.7-a.7',
 		} );
 		expect( formatImporterProgressSnapshot( snapshot!, 'Downloading essential files', 8 ) ).toBe(
-			'Downloading essential files · indexing remote files · following symlink .../plugins/jetpack/15.7-a.7 · 8s'
+			'Downloading essential files · following symlink .../plugins/jetpack/15.7-a.7 · 8s'
 		);
 	} );
 

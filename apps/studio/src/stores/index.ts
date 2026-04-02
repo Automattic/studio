@@ -1,7 +1,11 @@
 import { combineReducers, configureStore, createListenerMiddleware } from '@reduxjs/toolkit';
 import { setupListeners } from '@reduxjs/toolkit/query';
 import { useDispatch, useSelector } from 'react-redux';
-import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
+import {
+	LOCAL_STORAGE_CHAT_API_IDS_KEY,
+	LOCAL_STORAGE_CHAT_MESSAGES_KEY,
+	LOCAL_STORAGE_TASK_MESSAGES_KEY,
+} from 'src/constants';
 import { generateStateId } from 'src/hooks/sync-sites/use-pull-push-states';
 import {
 	PullStateProgressInfo,
@@ -77,6 +81,20 @@ startAppListening( {
 		localStorage.setItem(
 			LOCAL_STORAGE_CHAT_MESSAGES_KEY,
 			JSON.stringify( state.chat.messagesDict )
+		);
+	},
+} );
+
+// Save task messages to local storage
+startAppListening( {
+	predicate( action, currentState, previousState ) {
+		return currentState.tasks.messagesByTask !== previousState.tasks.messagesByTask;
+	},
+	effect( action, listenerApi ) {
+		const state = listenerApi.getState();
+		localStorage.setItem(
+			LOCAL_STORAGE_TASK_MESSAGES_KEY,
+			JSON.stringify( state.tasks.messagesByTask )
 		);
 	},
 } );

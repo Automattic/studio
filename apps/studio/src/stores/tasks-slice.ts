@@ -1,4 +1,5 @@
 import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { LOCAL_STORAGE_TASK_MESSAGES_KEY } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import type {
 	PermissionRequest,
@@ -16,10 +17,22 @@ export interface TasksState {
 	loaded: boolean;
 }
 
+function loadPersistedMessages(): Record< string, TaskMessage[] > {
+	try {
+		const stored = localStorage.getItem( LOCAL_STORAGE_TASK_MESSAGES_KEY );
+		if ( stored ) {
+			return JSON.parse( stored );
+		}
+	} catch {
+		// Ignore corrupt data
+	}
+	return {};
+}
+
 const initialState: TasksState = {
 	tasks: [],
 	selectedTaskId: null,
-	messagesByTask: {},
+	messagesByTask: typeof window !== 'undefined' ? loadPersistedMessages() : {},
 	streamingByTask: {},
 	pendingPermissions: [],
 	loaded: false,
@@ -41,6 +54,10 @@ export const archiveTaskThunk = createAsyncThunk( 'tasks/archive', async ( taskI
 export const deleteTaskThunk = createAsyncThunk( 'tasks/delete', async ( taskId: string ) => {
 	await getIpcApi().deleteTask( taskId );
 	return taskId;
+} );
+
+export const clearArchivedTasksThunk = createAsyncThunk( 'tasks/clearArchived', async () => {
+	return await getIpcApi().clearArchivedTasks();
 } );
 
 const tasksSlice = createSlice( {
@@ -155,6 +172,17 @@ const tasksSlice = createSlice( {
 			state.tasks = state.tasks.filter( ( t ) => t.id !== action.payload );
 			delete state.messagesByTask[ action.payload ];
 			if ( state.selectedTaskId === action.payload ) {
+				state.selectedTaskId = null;
+			}
+		} );
+		builder.addCase( clearArchivedTasksThunk.fulfilled, ( state, action ) => {
+			const removedIds = new Set( action.payload );
+			state.tasks = state.tasks.filter( ( t ) => ! removedIds.has( t.id ) );
+			for ( const id of removedIds ) {
+				delete state.messagesByTask[ id ];
+				delete state.streamingByTask[ id ];
+			}
+			if ( state.selectedTaskId && removedIds.has( state.selectedTaskId ) ) {
 				state.selectedTaskId = null;
 			}
 		} );

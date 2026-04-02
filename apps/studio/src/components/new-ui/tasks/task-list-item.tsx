@@ -1,3 +1,4 @@
+import { archive } from '@wordpress/icons';
 import { cx } from 'src/lib/cx';
 import type { TaskMetadata } from 'src/modules/ai/types';
 
@@ -6,6 +7,7 @@ interface TaskListItemProps {
 	siteName?: string;
 	isSelected: boolean;
 	onClick: () => void;
+	onArchive?: () => void;
 }
 
 function StatusDot( { status }: { status: TaskMetadata[ 'status' ] } ) {
@@ -21,30 +23,49 @@ function StatusDot( { status }: { status: TaskMetadata[ 'status' ] } ) {
 	);
 }
 
-export function TaskListItem( { task, siteName, isSelected, onClick }: TaskListItemProps ) {
+export function TaskListItem( {
+	task,
+	siteName,
+	isSelected,
+	onClick,
+	onArchive,
+}: TaskListItemProps ) {
 	return (
-		<button
-			onClick={ onClick }
+		<div
 			className={ cx(
-				'w-full flex items-center gap-2 px-4 py-1.5 rounded-sm text-left transition-colors',
+				'group w-full flex items-center gap-2 px-4 py-1.5 rounded-sm text-left transition-colors',
 				'hover:bg-chrome-surface',
 				isSelected && 'bg-chrome-surface'
 			) }
 		>
-			<StatusDot status={ task.status } />
-			<div className="flex-1 min-w-0">
-				<div
-					className={ cx(
-						'text-xs truncate',
-						isSelected ? 'text-chrome-text' : 'text-chrome-text-secondary'
+			<button onClick={ onClick } className="flex items-center gap-2 flex-1 min-w-0">
+				<StatusDot status={ task.status } />
+				<div className="flex-1 min-w-0">
+					<div
+						className={ cx(
+							'text-xs truncate',
+							isSelected ? 'text-chrome-text' : 'text-chrome-text-secondary'
+						) }
+					>
+						{ task.title }
+					</div>
+					{ siteName && (
+						<div className="text-[10px] text-chrome-text-tertiary truncate">{ siteName }</div>
 					) }
-				>
-					{ task.title }
 				</div>
-				{ siteName && (
-					<div className="text-[10px] text-chrome-text-tertiary truncate">{ siteName }</div>
-				) }
-			</div>
-		</button>
+			</button>
+			{ onArchive && (
+				<button
+					onClick={ ( e ) => {
+						e.stopPropagation();
+						onArchive();
+					} }
+					className="opacity-0 group-hover:opacity-100 flex-shrink-0 text-chrome-text-tertiary hover:text-chrome-text transition-opacity"
+					title="Archive task"
+				>
+					<span className="[&>svg]:w-4 [&>svg]:h-4 [&>svg]:fill-current">{ archive }</span>
+				</button>
+			) }
+		</div>
 	);
 }

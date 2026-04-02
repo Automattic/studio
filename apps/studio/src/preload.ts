@@ -184,6 +184,7 @@ const api: IpcApi = {
 	updateTask: ( taskId, updates ) => ipcRendererInvoke( 'updateTask', taskId, updates ),
 	archiveTask: ( taskId ) => ipcRendererInvoke( 'archiveTask', taskId ),
 	deleteTask: ( taskId ) => ipcRendererInvoke( 'deleteTask', taskId ),
+	clearArchivedTasks: () => ipcRendererInvoke( 'clearArchivedTasks' ),
 	updateTaskStatus: ( taskId, status ) => ipcRendererInvoke( 'updateTaskStatus', taskId, status ),
 
 	// Agent lifecycle

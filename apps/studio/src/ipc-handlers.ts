@@ -160,6 +160,7 @@ export {
 	updateTask,
 	archiveTask,
 	deleteTask,
+	clearArchivedTasks,
 	updateTaskStatus,
 	startTaskAgentHandler,
 	sendTaskMessageHandler,

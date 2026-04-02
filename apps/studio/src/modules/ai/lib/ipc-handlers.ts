@@ -121,6 +121,27 @@ export async function updateTaskStatus(
 	}
 }
 
+export async function clearArchivedTasks( _event: IpcMainInvokeEvent ): Promise< string[] > {
+	let removedIds: string[] = [];
+
+	try {
+		await lockAppdata();
+		const userData = await loadUserData();
+		const allTasks = userData.tasks ?? [];
+		const archived = allTasks.filter( ( t ) => t.archived );
+		removedIds = archived.map( ( t ) => t.id );
+		const remaining = allTasks.filter( ( t ) => ! t.archived );
+		await saveUserData( { ...userData, tasks: remaining } );
+	} finally {
+		await unlockAppdata();
+	}
+
+	for ( const id of removedIds ) {
+		await sendIpcEventToRenderer( 'task-deleted', id );
+	}
+	return removedIds;
+}
+
 // Agent lifecycle handlers
 
 export async function startTaskAgentHandler(

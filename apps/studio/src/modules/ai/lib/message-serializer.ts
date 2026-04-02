@@ -143,16 +143,8 @@ export function serializeSDKMessage( sdkMessage: SDKMessage ): TaskMessage[] {
 			];
 
 		case 'result': {
-			if ( sdkMessage.subtype === 'success' && sdkMessage.result ) {
-				return [
-					{
-						id: sdkMessage.uuid ?? crypto.randomUUID(),
-						role: 'assistant',
-						content: sdkMessage.result,
-						timestamp: Date.now(),
-					},
-				];
-			}
+			// Successful results are not displayed — the text is already shown
+			// via the preceding 'assistant' message. Only surface errors.
 			if ( sdkMessage.is_error && 'errors' in sdkMessage ) {
 				return [
 					{

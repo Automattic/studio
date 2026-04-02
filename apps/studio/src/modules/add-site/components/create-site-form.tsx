@@ -307,7 +307,15 @@ export const CreateSiteForm = ( {
 			onValidityChange( isValid );
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [ siteName, pathError, customDomainError, useCustomDomain, adminUsername, adminPassword, adminEmail ] );
+	}, [
+		siteName,
+		pathError,
+		customDomainError,
+		useCustomDomain,
+		adminUsername,
+		adminPassword,
+		adminEmail,
+	] );
 
 	const handleSiteNameChange = useCallback(
 		async ( name: string ) => {

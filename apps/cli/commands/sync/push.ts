@@ -109,8 +109,10 @@ export async function runCommand(
 		{
 			site,
 			backupFile: archivePath,
-			phpVersion: DEFAULT_PHP_VERSION,
 			includes,
+			phpVersion: DEFAULT_PHP_VERSION,
+			splitDatabaseDumpByTable: true,
+			specificSelectionPaths,
 		},
 		exportEventHandler
 	);

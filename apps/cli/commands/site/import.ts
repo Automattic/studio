@@ -263,7 +263,7 @@ export async function runCommand( siteFolder: string, importFile: string ): Prom
 	}
 
 	if ( restartError instanceof Error ) {
-		throw importError;
+		throw restartError;
 	}
 }
 

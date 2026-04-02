@@ -34,9 +34,9 @@ The first iteration of the CLI shipped commands to create, read, update, and del
 3. Studio reacts when the CLI modifies preview sites:
 
    - Studio spawns the `_events` CLI command when the application starts.
-   - The `_events` command runs a local ICP server that other CLI processes send events to. Those events are passed back to Studio over standard `process.send` IPC.
-   - Studio parses and validates the events and emits `snapshot-event` IPC renderer events.
-   - State handlers (primarily Redux slices) listen to `snapshot-event` events and update the state accordingly.
+   - The `_events` command runs a local IPC server that other CLI processes send events to. Those events are passed back to Studio over standard `process.send` IPC.
+   - Studio parses and validates the events and emits `snapshot-event` events to the renderer process.
+   - State handlers in the renderer process (primarily Redux slices) listen to `snapshot-event` events and update the state accordingly.
 
 ## Implementation details
 

@@ -94,6 +94,7 @@ interface ImportMetadata {
 	localUrl?: string;
 	remoteSiteUrl?: string;
 	tablePrefix?: string;
+	secret?: string;
 }
 
 interface ImporterStateSnapshot {
@@ -118,6 +119,12 @@ interface ResolveImportMetadataResult {
 interface ResolvedImportSource {
 	secret: string;
 	url: string;
+	/**
+	 * When the source is a WP.com site, carry the site info and token so the
+	 * caller can rotate the secret if the stored one turns out to be stale.
+	 */
+	wpComSite?: WpComSiteInfo;
+	wpComToken?: StoredAuthToken;
 }
 
 class ImportError extends LoggerError {
@@ -577,6 +584,15 @@ export function getImportKey( normalizedUrl: string, explicitName?: string ): st
 		.slice( 0, 12 );
 }
 
+function readStoredSecret( url: string, explicitName?: string ): string | undefined {
+	const normalizedUrl = normalizeImportUrl( url );
+	const importKey = getImportKey( normalizedUrl, explicitName );
+	const technicalSiteDirectory = path.join( IMPORTS_ROOT, importKey );
+	const metadataPath = getMetadataPath( technicalSiteDirectory );
+	const metadata = readImportMetadata( metadataPath );
+	return metadata?.secret;
+}
+
 async function resolveSiteName( normalizedUrl: string, explicitName?: string ): Promise< string > {
 	if ( explicitName ) {
 		return explicitName;
@@ -681,61 +697,75 @@ async function listWpComSites( limit?: number ): Promise< WpComSiteInfo[] > {
 async function resolveImportSource(
 	url?: string,
 	providedSecret?: string,
-	listWpComSitesOnly = false
+	listWpComSitesOnly = false,
+	providedName?: string
 ): Promise< ResolvedImportSource | null > {
 	if ( listWpComSitesOnly ) {
 		await listWpComSites();
 		return null;
 	}
 
-	if ( url ) {
-		if ( providedSecret ) {
-			return { url, secret: providedSecret };
-		}
+	// When the caller provides an explicit secret, use it directly.
+	if ( url && providedSecret ) {
+		return { url, secret: providedSecret };
+	}
 
-		const { token, sites } = await loadWpComSites();
-		const wpComSite = findMatchingWpComSite( sites, url );
-		if ( ! wpComSite ) {
+	// Resolve the WP.com site that matches the requested URL (or pick the
+	// only connected site when no URL is given).
+	const { token, sites } = await loadWpComSites();
+	let resolvedUrl: string;
+	let wpComSite: WpComSiteInfo;
+
+	if ( url ) {
+		const matched = findMatchingWpComSite( sites, url );
+		if ( ! matched ) {
 			throw new LoggerError(
 				__(
 					'No secret was provided, and this URL is not one of your connected WordPress.com sites. Provide `--secret` for a non-WordPress.com site.'
 				)
 			);
 		}
+		resolvedUrl = url;
+		wpComSite = matched;
+	} else {
+		if ( sites.length === 0 ) {
+			throw new LoggerError(
+				__(
+					'No active WordPress.com sites found. Provide both `--url` and `--secret` to import a non-WordPress.com site.'
+				)
+			);
+		}
 
-		return {
-			url,
-			secret: await rotateWpComSecret( wpComSite, token ),
-		};
-	}
+		if ( sites.length > 1 ) {
+			console.log( __( 'Connected WordPress.com sites:' ) );
+			console.log( formatWpComSitesList( sites ) );
+			console.log( '' );
+			throw new LoggerError(
+				__(
+					'Multiple WordPress.com sites are available. Re-run with `--url <site-url>`, or use `--list-wpcom-sites` to see the full list.'
+				)
+			);
+		}
 
-	const { token, sites } = await loadWpComSites();
-	if ( sites.length === 0 ) {
-		throw new LoggerError(
-			__(
-				'No active WordPress.com sites found. Provide both `--url` and `--secret` to import a non-WordPress.com site.'
-			)
-		);
-	}
-
-	if ( sites.length > 1 ) {
-		console.log( __( 'Connected WordPress.com sites:' ) );
-		console.log( formatWpComSitesList( sites ) );
+		wpComSite = sites[ 0 ];
+		resolvedUrl = wpComSite.url;
+		console.log( `${ __( 'Using your only connected WordPress.com site:' ) } ${ resolvedUrl }` );
 		console.log( '' );
-		throw new LoggerError(
-			__(
-				'Multiple WordPress.com sites are available. Re-run with `--url <site-url>`, or use `--list-wpcom-sites` to see the full list.'
-			)
-		);
 	}
 
-	const wpComSite = sites[ 0 ];
-	console.log( `${ __( 'Using your only connected WordPress.com site:' ) } ${ wpComSite.url }` );
-	console.log( '' );
+	// Reuse a secret from a previous import run when one exists, so we don't
+	// rotate on every resume. The caller will retry with a fresh secret if
+	// this one turns out to be stale.
+	const storedSecret = readStoredSecret( resolvedUrl, providedName );
+	if ( storedSecret ) {
+		return { url: resolvedUrl, secret: storedSecret, wpComSite, wpComToken: token };
+	}
 
 	return {
-		url: wpComSite.url,
-		secret: providedSecret ?? ( await rotateWpComSecret( wpComSite, token ) ),
+		url: resolvedUrl,
+		secret: await rotateWpComSecret( wpComSite, token ),
+		wpComSite,
+		wpComToken: token,
 	};
 }
 
@@ -1386,12 +1416,18 @@ export async function runCommand(
 		return;
 	}
 
-	const resolvedSource = await resolveImportSource( url, providedSecret, listWpComSitesOnly );
+	const resolvedSource = await resolveImportSource(
+		url,
+		providedSecret,
+		listWpComSitesOnly,
+		providedName
+	);
 	if ( ! resolvedSource ) {
 		return;
 	}
 
-	const { url: resolvedUrl, secret } = resolvedSource;
+	const { url: resolvedUrl } = resolvedSource;
+	let secret = resolvedSource.secret;
 	const { created, metadata } = await resolveImportMetadata( resolvedUrl, providedName );
 	const apiUrl = getApiUrl( metadata.normalizedUrl );
 
@@ -1449,9 +1485,22 @@ export async function runCommand(
 	console.log( '' );
 
 	try {
-		const preflight = await runPreflight( metadata, apiUrl, secret, verbose );
+		let preflight;
+		try {
+			preflight = await runPreflight( metadata, apiUrl, secret, verbose );
+		} catch ( preflightError ) {
+			// If we used a stored secret and have WP.com credentials, try
+			// rotating the secret once before giving up — the old one may
+			// have expired.
+			if ( ! resolvedSource.wpComSite || ! resolvedSource.wpComToken ) {
+				throw preflightError;
+			}
+			secret = await rotateWpComSecret( resolvedSource.wpComSite, resolvedSource.wpComToken );
+			preflight = await runPreflight( metadata, apiUrl, secret, verbose );
+		}
 		metadata.remoteSiteUrl = preflight.siteurl || metadata.normalizedUrl;
 		metadata.tablePrefix = preflight.table_prefix || undefined;
+		metadata.secret = secret;
 		saveImportMetadata( metadata );
 
 		const repairedRawPaths = repairBlockingRawImportPaths(
@@ -1505,11 +1554,11 @@ export async function runCommand(
 				],
 				( progress ) => logger.reportProgress( progress ),
 				{
-					progressLabel: 'Essential files',
+					progressLabel: 'Downloading essential files',
 					verboseCommands: verbose,
 				}
 			);
-			logger.reportSuccess( __( 'Essential files downloaded' ) );
+			logger.reportSuccess( __( 'Downloading essential files downloaded' ) );
 
 			setStage( metadata, 'essential-files-complete' );
 		}

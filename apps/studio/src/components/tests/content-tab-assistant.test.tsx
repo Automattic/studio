@@ -15,7 +15,6 @@ import {
 import { LOCAL_STORAGE_CHAT_MESSAGES_KEY, CLEAR_HISTORY_REMINDER_TIME } from 'src/constants';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { useOffline } from 'src/hooks/use-offline';
-import { ThemeDetailsProvider } from 'src/hooks/use-theme-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { store } from 'src/stores';
 import { generateMessage, chatActions } from 'src/stores/chat-slice';
@@ -133,9 +132,7 @@ describe( 'ContentTabAssistant', () => {
 		return (
 			<Provider store={ store }>
 				<AuthContext.Provider value={ authContextValue }>
-					<ThemeDetailsProvider>
-						<ContentTabAssistant selectedSite={ selectedSite } />
-					</ThemeDetailsProvider>
+					<ContentTabAssistant selectedSite={ selectedSite } />
 				</AuthContext.Provider>
 			</Provider>
 		);

@@ -142,8 +142,6 @@ const fetchAssistant = createTypedAsyncThunk(
 			php_version: state.chat.phpVersion,
 			plugins: state.chat.pluginListDict[ siteId ] || [],
 			themes: state.chat.themeListDict[ siteId ] || [],
-			current_theme: state.chat.themeName,
-			is_block_theme: state.chat.isBlockTheme,
 			ide: state.chat.availableEditors,
 			site_name: state.chat.siteName,
 			os: state.chat.os,
@@ -240,8 +238,6 @@ type ChatState = {
 	numberOfSites: number;
 	phpVersion: string;
 	siteName: string;
-	themeName: string;
-	isBlockTheme: boolean;
 	os: string;
 	availableEditors: string[];
 	wpVersion: string;
@@ -272,10 +268,8 @@ const getInitialState = (): ChatState => {
 		pluginListDict: {},
 		themeListDict: {},
 		numberOfSites: 0,
-		themeName: '',
 		wpVersion: '',
 		phpVersion: DEFAULT_PHP_VERSION,
-		isBlockTheme: false,
 		os: window.appGlobals?.platform || '',
 		availableEditors: [],
 		siteName: '',
@@ -309,13 +303,6 @@ const chatSlice = createSlice( {
 	name: 'chat',
 	initialState: getInitialState(),
 	reducers: {
-		updateFromTheme: (
-			state,
-			action: PayloadAction< NonNullable< SiteDetails[ 'themeDetails' ] > >
-		) => {
-			state.themeName = action.payload.name;
-			state.isBlockTheme = action.payload.isBlockTheme;
-		},
 		setChatApiId: (
 			state,
 			action: PayloadAction< { instanceId: string; chatApiId: number | undefined } >

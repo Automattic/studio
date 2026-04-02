@@ -4,7 +4,6 @@ import { Provider } from 'react-redux';
 import { vi } from 'vitest';
 import { ContentTabOverview } from 'src/components/content-tab-overview';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
-import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { isMac } from 'src/lib/app-globals';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { store } from 'src/stores';
@@ -26,7 +25,6 @@ const selectedSite: StartedSiteDetails = {
 };
 
 vi.mock( 'src/lib/get-ipc-api' );
-vi.mock( 'src/hooks/use-theme-details' );
 vi.mock( 'src/stores/sync', async () => ( {
 	...( await vi.importActual( 'src/stores/sync' ) ),
 	useConnectedSitesData: vi.fn().mockReturnValue( {
@@ -49,16 +47,6 @@ function renderWithProvider( component: React.ReactElement ) {
 describe( 'ShortcutsSection', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
-		vi.mocked( useThemeDetails, { partial: true } ).mockReturnValue( {
-			selectedThemeDetails: {
-				name: 'Test Theme',
-				path: '/path/to/theme',
-				slug: 'test-theme',
-				isBlockTheme: true,
-				supportsWidgets: false,
-				supportsMenus: false,
-			},
-		} );
 
 		// Reset the store state before each test
 		store.dispatch( { type: 'test/resetState' } );

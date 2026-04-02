@@ -21,14 +21,6 @@ interface StoppedSiteDetails {
 	adminEmail?: string;
 	tlsKey?: string;
 	tlsCert?: string;
-	themeDetails?: {
-		name: string;
-		path: string;
-		slug: string;
-		isBlockTheme: boolean;
-		supportsWidgets: boolean;
-		supportsMenus: boolean;
-	};
 	isAddingSite?: boolean;
 	autoStart?: boolean;
 	latestCliPid?: number;

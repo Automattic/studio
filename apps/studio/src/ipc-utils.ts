@@ -53,11 +53,6 @@ export interface IpcEvents {
 		},
 	];
 	'test-render-failure': [ void ];
-	'theme-details-loading': [ { id: string } ];
-	'theme-details-loaded': [ { id: string; details: StartedSiteDetails[ 'themeDetails' ] } ];
-	'thumbnail-loading': [ { id: string } ];
-	'thumbnail-loaded': [ { id: string; imageData: string | null } ];
-	'thumbnail-load-error': [ { id: string } ];
 	'window-fullscreen-change': [ boolean ];
 	'user-preference-changed': [ void ];
 	'user-data-updated': [ UserData ];

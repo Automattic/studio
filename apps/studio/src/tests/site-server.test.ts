@@ -89,7 +89,6 @@ describe( 'SiteServer', () => {
 				adminPassword: 'test-password',
 				phpVersion: '8.3',
 				running: false,
-				themeDetails: undefined,
 			} );
 
 			await expect( server.start() ).rejects.toThrow(

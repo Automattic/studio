@@ -20,7 +20,6 @@ import WelcomeComponent from 'src/components/welcome-message-prompt';
 import { LIMIT_OF_PROMPTS_PER_USER, TELEX_HOSTNAME, TELEX_UTM_PARAMS } from 'src/constants';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
-import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { addUrlParams } from 'src/lib/url-utils';
@@ -382,18 +381,10 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const hasFailedMessage = messages.some( ( msg ) => msg.failedMessage );
 	const { data, isLoading } = useGetWelcomeMessages();
 
-	const { selectedThemeDetails: themeDetails } = useThemeDetails();
-
 	useEffect( () => {
 		void dispatch( chatThunks.updateFromSite( { site: selectedSite } ) );
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [ dispatch, selectedSite.id ] );
-
-	useEffect( () => {
-		if ( themeDetails ) {
-			dispatch( chatActions.updateFromTheme( themeDetails ) );
-		}
-	}, [ dispatch, themeDetails ] );
 
 	const submitPrompt = useCallback(
 		( chatMessage: string, isRetry?: boolean ) => {

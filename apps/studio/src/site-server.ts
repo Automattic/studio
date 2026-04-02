@@ -1,9 +1,7 @@
-import fs from 'fs';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { SQLITE_FILENAME } from '@studio/common/constants';
 import { siteListSchema, type SiteListItem } from '@studio/common/lib/cli-events';
-import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
 import fsExtra from 'fs-extra';
 import { parse } from 'shell-quote';
 import { z } from 'zod';
@@ -14,8 +12,6 @@ import {
 import { CliServerProcess } from 'src/modules/cli/lib/cli-server-process';
 import { createSiteViaCli, type CreateSiteOptions } from 'src/modules/cli/lib/cli-site-creator';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
-import { createScreenshotWindow } from 'src/screenshot-window';
-import { getSiteThumbnailPath } from 'src/storage/paths';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
@@ -189,11 +185,6 @@ export class SiteServer {
 	}
 
 	async delete( deleteFiles: boolean ) {
-		const thumbnailPath = getSiteThumbnailPath( this.details.id );
-		if ( fs.existsSync( thumbnailPath ) ) {
-			await fs.promises.unlink( thumbnailPath );
-		}
-
 		await this.server.delete( deleteFiles );
 		deletedServers.push( this.details.id );
 		servers.delete( this.details.id );
@@ -257,44 +248,6 @@ export class SiteServer {
 		} catch ( error ) {
 			console.error( error );
 		}
-	}
-
-	async updateCachedThumbnail() {
-		if ( ! this.details.running ) {
-			console.warn( `Thumbnail update skipped: server ${ this.details.id } is not running.` );
-			return;
-		}
-
-		const captureUrl = new URL( '/?studio-hide-adminbar', this.details.url );
-		const { window, waitForCapture } = createScreenshotWindow( captureUrl.href );
-
-		const outPath = getSiteThumbnailPath( this.details.id );
-		const outDir = nodePath.dirname( outPath );
-
-		let capturedImage: Electron.NativeImage | null = null;
-
-		// Continue taking the screenshot asynchronously so we don't prevent the
-		// UI from showing the server is now available.
-		return fs.promises
-			.mkdir( outDir, { recursive: true } )
-			.then( waitForCapture )
-			.then( ( image ) => {
-				capturedImage = image;
-				return fs.promises.writeFile( outPath, image.toPNG() );
-			} )
-			.catch( async () => {
-				if ( capturedImage ) {
-					try {
-						await fs.promises.unlink( outPath );
-					} catch ( unlinkError ) {
-						// Ignore ENOENT errors as the file might not exist
-						if ( ( unlinkError as NodeJS.ErrnoException ).code !== 'ENOENT' ) {
-							console.error( 'Failed to cleanup thumbnail file:', unlinkError );
-						}
-					}
-				}
-			} )
-			.finally( () => window.destroy() );
 	}
 
 	async executeWpCliCommand(
@@ -386,55 +339,6 @@ export class SiteServer {
 		} ).finally( () => {
 			clearTimeout( timeoutId );
 		} );
-	}
-
-	private static themeDetailsSchema = z.object( {
-		name: z.string().catch( '' ),
-		path: z.string(),
-		slug: z.string(),
-		isBlockTheme: z.boolean(),
-		supportsWidgets: z.boolean(),
-		supportsMenus: z.boolean(),
-	} );
-
-	async getThemeDetails(): Promise< SiteDetails[ 'themeDetails' ] > {
-		if ( ! this.details.running ) {
-			return undefined;
-		}
-
-		try {
-			const { stdout, stderr, exitCode } = await this.executeWpCliCommand( [
-				'studio',
-				'get-theme-details',
-			] );
-
-			if ( exitCode !== 0 || ! stdout ) {
-				console.error( 'Failed to get theme details via WP-CLI', { exitCode, stdout, stderr } );
-				return this.details.themeDetails;
-			}
-
-			const themeDetailsParsed = parseJsonFromPhpOutput( stdout );
-			this.details.themeDetails = SiteServer.themeDetailsSchema.parse( themeDetailsParsed );
-		} catch ( error ) {
-			console.error( 'Failed to get theme details:', error );
-		}
-
-		return this.details.themeDetails;
-	}
-
-	async persistThemeDetails(): Promise< void > {
-		try {
-			await lockAppdata();
-			const userData = await loadUserData();
-			const siteId = this.details.id;
-			userData.siteMetadata[ siteId ] = {
-				...userData.siteMetadata[ siteId ],
-				themeDetails: this.details.themeDetails,
-			};
-			await saveUserData( userData );
-		} finally {
-			await unlockAppdata();
-		}
 	}
 
 	async hasSQLitePlugin(): Promise< boolean > {

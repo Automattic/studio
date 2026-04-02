@@ -9,7 +9,6 @@ import {
 } from '@studio/common/lib/cli-events';
 import { sequential } from '@studio/common/lib/sequential';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
-import { captureSiteThumbnail } from 'src/lib/capture-site-thumbnail';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { SiteServer } from 'src/site-server';
 
@@ -46,9 +45,6 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 			existingServer.details = siteDetailsToServerDetails( site, running, existingServer.details );
 		}
 		void sendIpcEventToRenderer( 'site-event', event );
-		if ( running ) {
-			void captureSiteThumbnail( siteId );
-		}
 		return;
 	}
 
@@ -66,9 +62,6 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 	}
 
 	void sendIpcEventToRenderer( 'site-event', event );
-	if ( running ) {
-		void captureSiteThumbnail( siteId );
-	}
 } );
 
 let subscriber: ReturnType< typeof executeCliCommand > | null = null;

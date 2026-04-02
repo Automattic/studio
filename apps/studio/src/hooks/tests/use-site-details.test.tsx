@@ -19,7 +19,6 @@ const mockSites: SiteDetails[] = [
 		phpVersion: '8.3',
 		running: false as const,
 		autoStart: true,
-		themeDetails: undefined,
 	},
 	{
 		id: 'site-2',
@@ -29,7 +28,6 @@ const mockSites: SiteDetails[] = [
 		phpVersion: '8.3',
 		running: false as const,
 		autoStart: false,
-		themeDetails: undefined,
 	},
 	{
 		id: 'site-3',
@@ -39,7 +37,6 @@ const mockSites: SiteDetails[] = [
 		phpVersion: '8.3',
 		running: false as const,
 		autoStart: true,
-		themeDetails: undefined,
 	},
 ];
 

@@ -90,9 +90,6 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'generateNumberedNameFromList', baseName, usedSites ),
 	openLocalPath: ( path ) => ipcRendererSend( 'openLocalPath', path ),
 	showItemInFolder: ( path ) => ipcRendererSend( 'showItemInFolder', path ),
-	loadThemeDetails: ( id, emitThemeDetailsLoadingEvent = true ) =>
-		ipcRendererInvoke( 'loadThemeDetails', id, emitThemeDetailsLoadingEvent ),
-	getThumbnailData: ( id ) => ipcRendererInvoke( 'getThumbnailData', id ),
 	getInstalledAppsAndTerminals: () => ipcRendererInvoke( 'getInstalledAppsAndTerminals' ),
 	importSite: ( { id, backupFile } ) => ipcRendererInvoke( 'importSite', { id, backupFile } ),
 	executeWPCLiInline: ( options ) => ipcRendererInvoke( 'executeWPCLiInline', options ),

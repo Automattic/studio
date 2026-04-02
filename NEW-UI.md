@@ -4,7 +4,7 @@ This branch (`new-app-interface`) is a ground-up redesign of the Studio desktop 
 
 ## Status
 
-**Proof of Concept** — The panel structure, color system, navigation sidebar, settings window, and embedded browser are functional. The nav panel displays real site data with full site management controls. The primary panel renders SiteContentTabs or the Task chat. The secondary panel is a live browser preview of the active site with auto-authentication.
+**Proof of Concept** — The panel structure, color system, navigation sidebar, settings window, and embedded browser are functional. The nav panel displays real site data with full site management controls. The primary panel renders SiteContentTabs or the Task chat. The secondary panel is a live browser preview of the active site with auto-authentication. The overview tab has been simplified to only show "Open in..." shortcuts (theme screenshot preview, Customize section, and all related thumbnail/theme-details infrastructure have been removed).
 
 ## Architecture
 
@@ -72,7 +72,7 @@ Settings opens in its own `BrowserWindow` rather than an in-app overlay. The ren
 
 **Tab deep-linking:** `openSettingsWindow('skills')` opens the window directly to a specific tab via URL parameter (`?view=settings&tab=skills`). If the window is already open, it reloads to the requested tab and focuses.
 
-**Providers:** The settings window wraps with Redux, I18n, and Auth providers (minimal subset of the main app's provider stack — no site/theme/onboarding providers needed).
+**Providers:** The settings window wraps with Redux, I18n, and Auth providers (minimal subset of the main app's provider stack — no site/onboarding providers needed).
 
 The **Studio Components** tab renders real Studio components (SiteMenu, Sidebar) with mock data using `MockProviders` that supply a fake `siteDetailsContext`, Redux store, and other required providers.
 

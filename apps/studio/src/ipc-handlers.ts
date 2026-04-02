@@ -51,7 +51,6 @@ import {
 	StatsGroup,
 	StatsMetric,
 } from 'src/lib/bump-stats';
-import { captureSiteThumbnail } from 'src/lib/capture-site-thumbnail';
 import {
 	openCertificate as openCertificateDialog,
 	isRootCATrusted,
@@ -59,7 +58,6 @@ import {
 } from 'src/lib/certificate-manager';
 import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
 import { buildFeatureFlags } from 'src/lib/feature-flags';
-import { getImageData } from 'src/lib/get-image-data';
 import { exportBackup } from 'src/lib/import-export/export/export-manager';
 import { ExportOptions } from 'src/lib/import-export/export/types';
 import { ImportExportEventData } from 'src/lib/import-export/handle-events';
@@ -98,7 +96,7 @@ import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-setting
 import { getUserEditor, getUserTerminal } from 'src/modules/user-settings/lib/ipc-handlers';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
 import { SiteServer, stopAllServers as triggerStopAllServers } from 'src/site-server';
-import { DEFAULT_SITE_PATH, getSiteThumbnailPath } from 'src/storage/paths';
+import { DEFAULT_SITE_PATH } from 'src/storage/paths';
 import {
 	loadUserData,
 	lockAppdata,
@@ -347,7 +345,6 @@ export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< Sit
 		const appdataSite = userData.siteMetadata[ site.id ];
 		if ( appdataSite ) {
 			site.sortOrder = appdataSite.sortOrder;
-			site.themeDetails = appdataSite.themeDetails;
 		}
 	}
 
@@ -460,11 +457,6 @@ export async function createSite(
 			},
 			{ wpVersion, blueprint: blueprint?.blueprint }
 		);
-
-		// If the site is running after creation, fetch theme details and update thumbnail
-		if ( server.details.running ) {
-			void loadThemeDetails( event, server.details.id );
-		}
 
 		return server.details;
 	} catch ( error ) {
@@ -641,10 +633,6 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 		throw error;
 	}
 
-	if ( server.details.running ) {
-		void loadThemeDetails( event, id );
-	}
-
 	// Keep managed instruction files (STUDIO.md, CLAUDE.md) up-to-date
 	void updateManagedInstructionFiles( server.details.path, getAiInstructionsPath() ).catch(
 		( error ) => {
@@ -771,18 +759,6 @@ export async function copySite(
 
 	await recursiveCopyDirectory( sourceSite.path, finalSitePath );
 
-	const sourceThumbnailPath = getSiteThumbnailPath( sourceSiteId );
-	const newThumbnailPath = getSiteThumbnailPath( newSiteId );
-	if ( fs.existsSync( sourceThumbnailPath ) ) {
-		await fs.promises.copyFile( sourceThumbnailPath, newThumbnailPath );
-		const thumbnailData = await getImageData( newThumbnailPath );
-		sendIpcEventToRendererWithWindow(
-			BrowserWindow.fromWebContents( event.sender ),
-			'thumbnail-loaded',
-			{ id: newSiteId, imageData: thumbnailData }
-		);
-	}
-
 	const { server, details } = await SiteServer.create( {
 		path: finalSitePath,
 		name: siteName,
@@ -795,12 +771,6 @@ export async function copySite(
 		adminEmail: sourceSite.adminEmail,
 		noStart: true,
 	} );
-
-	// Persist themeDetails to appdata (Studio-only data)
-	if ( sourceSite.themeDetails ) {
-		server.details.themeDetails = sourceSite.themeDetails;
-		await server.persistThemeDetails();
-	}
 
 	return details;
 }
@@ -999,41 +969,6 @@ export function showItemInFolder( _event: IpcMainInvokeEvent, path: string ) {
 	shell.showItemInFolder( path );
 }
 
-// Update a site's theme details and thumbnail. Emit the appropriate IPC events to the renderer
-// process.
-export async function loadThemeDetails(
-	event: IpcMainInvokeEvent,
-	id: string,
-	emitThemeDetailsLoadingEvent = true
-): Promise< StartedSiteDetails[ 'themeDetails' ] > {
-	const server = SiteServer.get( id );
-	if ( ! server ) {
-		throw new Error( 'Site not found.' );
-	}
-
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( emitThemeDetailsLoadingEvent ) {
-		sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-loading', { id } );
-	}
-
-	const oldThemePath = server.details.themeDetails?.path;
-	const themeDetails = await server.getThemeDetails();
-	const hasThemeChanged = themeDetails?.path !== oldThemePath;
-
-	sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-loaded', {
-		id,
-		details: themeDetails,
-	} );
-
-	if ( hasThemeChanged ) {
-		await server.persistThemeDetails();
-	}
-
-	void captureSiteThumbnail( id );
-
-	return themeDetails;
-}
-
 export async function getOnboardingData( _event: IpcMainInvokeEvent ): Promise< boolean > {
 	const userData = await loadUserData();
 	const { onboardingCompleted = false } = userData;
@@ -1074,11 +1009,6 @@ export async function executeWPCLiInline(
 	return server.executeWpCliCommand( args, {
 		skipPluginsAndThemes,
 	} );
-}
-
-export function getThumbnailData( _event: IpcMainInvokeEvent, id: string ) {
-	const path = getSiteThumbnailPath( id );
-	return getImageData( path );
 }
 
 function promiseExec( command: string, options: ExecOptions = {} ): Promise< void > {

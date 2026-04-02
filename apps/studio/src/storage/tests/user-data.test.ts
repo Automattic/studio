@@ -53,14 +53,6 @@ const mockedUserData: UserData = {
 	siteMetadata: {
 		'site-1': {
 			sortOrder: 0,
-			themeDetails: {
-				name: 'Twenty Twenty-Four',
-				path: '/themes/twentytwentyfour',
-				slug: 'twentytwentyfour',
-				isBlockTheme: true,
-				supportsWidgets: false,
-				supportsMenus: false,
-			},
 		},
 		'site-2': { sortOrder: 1 },
 	},

@@ -190,6 +190,28 @@ describe( 'CLI: studio site import helpers', () => {
 		] );
 	} );
 
+	it( 'builds db-apply args with --new-site-url when supported by the importer', () => {
+		expect(
+			buildDbApplyArgs(
+				{
+					normalizedUrl: 'https://example.com/',
+					remoteSiteUrl: 'https://example.com',
+					localUrl: 'http://localhost:8881',
+					sitePath: '/tmp/site',
+				} as never,
+				true
+			)
+		).toEqual( [
+			'db-apply',
+			'https://example.com/?site-export-api',
+			'--state-dir=/state',
+			'--fs-root=/docroot',
+			'--target-engine=sqlite',
+			'--target-sqlite-path=/site/wp-content/database/.ht.sqlite',
+			'--new-site-url=http://localhost:8881',
+		] );
+	} );
+
 	it( 'migrates importer state from the legacy /tmp/export mount layout', () => {
 		const technicalSiteDirectory = fs.mkdtempSync(
 			path.join( os.tmpdir(), 'studio-import-legacy-layout-' )

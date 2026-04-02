@@ -439,25 +439,46 @@ export function getFlattenSourceDirectory( stateDirectory: string, rawDirectory:
 	return path.join( rawDirectory, remoteDocumentRoot.replace( /^\/+/, '' ) );
 }
 
+export function detectImporterSupportsNewSiteUrl( pharPath: string ): boolean {
+	const result = spawnSync( 'php', [ pharPath, 'db-apply', '--help' ] );
+	if ( result.status !== 0 ) {
+		return false;
+	}
+
+	const helpOutput = `${ result.stdout.toString() }\n${ result.stderr.toString() }`;
+	return helpOutput.includes( '--new-site-url' );
+}
+
 export function buildDbApplyArgs(
-	metadata: Pick< ImportMetadata, 'normalizedUrl' | 'remoteSiteUrl' | 'localUrl' | 'sitePath' >
+	metadata: Pick< ImportMetadata, 'normalizedUrl' | 'remoteSiteUrl' | 'localUrl' | 'sitePath' >,
+	useNewSiteUrl = false
 ): string[] {
 	const remoteHost = new URL( metadata.remoteSiteUrl || metadata.normalizedUrl ).host;
 
-	return [
+	const args = [
 		'db-apply',
 		getApiUrl( metadata.normalizedUrl ),
 		'--state-dir=/state',
 		'--fs-root=/docroot',
 		'--target-engine=sqlite',
 		'--target-sqlite-path=/site/wp-content/database/.ht.sqlite',
+	];
+
+	if ( useNewSiteUrl ) {
+		args.push( `--new-site-url=${ metadata.localUrl! }` );
+		return args;
+	}
+
+	args.push(
 		'--rewrite-url',
 		`https://${ remoteHost }`,
 		metadata.localUrl!,
 		'--rewrite-url',
 		`http://${ remoteHost }`,
-		metadata.localUrl!,
-	];
+		metadata.localUrl!
+	);
+
+	return args;
 }
 
 export function shouldRestartFilesSyncIndex( stateDirectory: string ): boolean {
@@ -1227,7 +1248,8 @@ export async function runCommand(
 	} catch {
 		// Ignore missing cache file.
 	}
-	await downloadLatestImporterPhar();
+	const importerPharPath = await downloadLatestImporterPhar();
+	const importerSupportsNewSiteUrl = detectImporterSupportsNewSiteUrl( importerPharPath );
 
 	const repairedCompletedImportMessage = repairCompletedImportState( metadata );
 	if ( repairedCompletedImportMessage ) {
@@ -1339,10 +1361,7 @@ export async function runCommand(
 			await runImporterCommandUntilComplete(
 				metadata.stateDirectory,
 				metadata.rawDirectory,
-				[
-					...buildDbApplyArgs( metadata ),
-					`--secret=${ secret }`,
-				],
+				[ ...buildDbApplyArgs( metadata, importerSupportsNewSiteUrl ), `--secret=${ secret }` ],
 				undefined,
 				{
 					mounts: [ { hostPath: metadata.sitePath, vfsPath: '/site' } ],

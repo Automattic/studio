@@ -284,7 +284,7 @@ export async function runCommand( siteFolder: string, importFile: string ): Prom
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'import <import-file>',
-		describe: __( 'Import a backup file to a site' ),
+		describe: __( 'Import a backup file to site' ),
 		builder: ( yargs ) => {
 			return yargs.positional( 'import-file', {
 				type: 'string',

@@ -129,7 +129,7 @@ export async function runCommand(
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'export <export-file>',
-		describe: __( 'Export a site to a backup file' ),
+		describe: __( 'Export site to a backup file' ),
 		builder: ( yargs ) => {
 			return yargs
 				.positional( 'export-file', {

@@ -161,7 +161,10 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 		}
 
 		await this.installCli();
-		await updateAppdata( { cliAutoInstalled: true } );
+
+		if ( await this.isCliInstalled() ) {
+			await updateAppdata( { cliAutoInstalled: true } );
+		}
 	}
 
 	private async installCli(): Promise< void > {

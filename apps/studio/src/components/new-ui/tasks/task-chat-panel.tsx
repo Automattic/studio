@@ -39,8 +39,10 @@ export function TaskChatPanel( { taskId }: TaskChatPanelProps ) {
 
 	return (
 		<div ref={ scrollRef } className="flex-1 overflow-y-auto" style={ { scrollbarWidth: 'thin' } }>
+			{ /* Blur overlay — sticks under toolbar, blurs content scrolling behind it */ }
+			<div className="task-chat-blur-top" />
+
 			<div className="flex flex-col min-h-full pt-10">
-				{ /* Chat messages area — pt-10 offsets for the floating toolbar above */ }
 				<div className="flex-1">
 					{ messages.length === 0 ? (
 						<EmptyState siteName={ site?.name } />

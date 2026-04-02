@@ -56,7 +56,7 @@ export function TaskChatInput( { taskId, isStreaming }: TaskChatInputProps ) {
 	};
 
 	return (
-		<div className="p-4" style={ { background: 'var(--color-frame-tint)' } }>
+		<div className="p-4">
 			<div className="flex items-end gap-2">
 				<textarea
 					ref={ textareaRef }

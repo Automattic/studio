@@ -635,24 +635,23 @@ div:has( > progress ) > div:first-child {
 	}
 }
 
-/* Progressive blur — toolbar floats over task chat with backdrop blur */
+/* Toolbar — transparent when floating over task chat */
 .task-toolbar-blur {
 	background: transparent !important;
 }
 
-.task-toolbar-blur::before {
-	content: '';
-	position: absolute;
+/* Progressive blur — top of task chat (lives inside scroll container) */
+.task-chat-blur-top {
+	position: sticky;
 	top: 0;
-	left: 0;
-	right: 0;
-	bottom: -24px;
-	z-index: -1;
+	height: 64px;
+	margin-bottom: -64px;
+	z-index: 10;
+	pointer-events: none;
 	backdrop-filter: blur(12px);
 	-webkit-backdrop-filter: blur(12px);
-	mask-image: linear-gradient(to bottom, black 40%, transparent);
-	-webkit-mask-image: linear-gradient(to bottom, black 40%, transparent);
-	pointer-events: none;
+	mask-image: linear-gradient(to bottom, black 40px, transparent);
+	-webkit-mask-image: linear-gradient(to bottom, black 40px, transparent);
 }
 
 /* Progressive blur — bottom of task chat (content fades under input) */

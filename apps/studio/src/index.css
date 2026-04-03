@@ -133,6 +133,7 @@ blockquote {
 .components-tab-panel__tabs {
 	padding: 0 theme( 'spacing.4' );
 	border-bottom: 1px solid var( --color-frame-border );
+	justify-content: center;
 }
 
 .components-tab-panel__tabs-item {
@@ -688,4 +689,14 @@ div:has( > progress ) > div:first-child {
 	100% {
 		left: -30%;
 	}
+}
+
+/* Keyboard-only focus rings
+   Show focus indicators only during keyboard navigation.
+   :focus-visible is natively applied by browsers for keyboard focus. */
+:focus:not(:focus-visible) {
+	outline: none !important;
+}
+:focus:not(:focus-visible):not(.components-tab-panel__tabs-item) {
+	--wp-admin-border-width-focus: 0;
 }

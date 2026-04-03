@@ -76,6 +76,8 @@ const api: IpcApi = {
 	getSentryUserId: () => ipcRendererInvoke( 'getSentryUserId' ),
 	getUserLocale: () => ipcRendererInvoke( 'getUserLocale' ),
 	openSettingsWindow: ( tab ) => ipcRendererInvoke( 'openSettingsWindow', tab ),
+	openAddSiteWindow: () => ipcRendererInvoke( 'openAddSiteWindow' ),
+	closeAddSiteWindow: () => ipcRendererInvoke( 'closeAddSiteWindow' ),
 	startServer: ( id ) => ipcRendererInvoke( 'startServer', id ),
 	stopServer: ( id ) => ipcRendererInvoke( 'stopServer', id ),
 	stopAllServers: () => ipcRendererInvoke( 'stopAllServers' ),
@@ -183,6 +185,9 @@ const api: IpcApi = {
 	deleteTask: ( taskId ) => ipcRendererInvoke( 'deleteTask', taskId ),
 	clearArchivedTasks: () => ipcRendererInvoke( 'clearArchivedTasks' ),
 	updateTaskStatus: ( taskId, status ) => ipcRendererInvoke( 'updateTaskStatus', taskId, status ),
+	generateTaskTitle: ( taskId, prompt ) => ipcRendererInvoke( 'generateTaskTitle', taskId, prompt ),
+	generateTaskSummary: ( taskId, context ) =>
+		ipcRendererInvoke( 'generateTaskSummary', taskId, context ),
 
 	// Agent lifecycle
 	startTaskAgentHandler: ( taskId, prompt, resumeSessionId, images, elements ) =>

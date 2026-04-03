@@ -7,6 +7,7 @@ import {
 	interruptTask as interrupt,
 	respondToPermissionRequest as respondPermission,
 } from './agent-manager';
+import { generateTitle, generateSummary } from './metadata-generator';
 import type {
 	ElementAttachment,
 	ImageAttachment,
@@ -53,7 +54,9 @@ export async function getAllTasks( _event: IpcMainInvokeEvent ): Promise< TaskMe
 export async function updateTask(
 	_event: IpcMainInvokeEvent,
 	taskId: string,
-	updates: Partial< Pick< TaskMetadata, 'title' | 'status' | 'archived' | 'sessionId' > >
+	updates: Partial<
+		Pick< TaskMetadata, 'title' | 'summary' | 'status' | 'archived' | 'sessionId' >
+	>
 ): Promise< TaskMetadata | null > {
 	let updated: TaskMetadata | null = null;
 
@@ -146,6 +149,63 @@ export async function clearArchivedTasks( _event: IpcMainInvokeEvent ): Promise<
 		await sendIpcEventToRenderer( 'task-deleted', id );
 	}
 	return removedIds;
+}
+
+// Metadata generation handlers
+
+export async function generateTaskTitle(
+	_event: IpcMainInvokeEvent,
+	taskId: string,
+	prompt: string
+): Promise< void > {
+	const title = await generateTitle( prompt );
+	if ( ! title ) {
+		return;
+	}
+
+	try {
+		await lockAppdata();
+		const userData = await loadUserData();
+		const tasks = userData.tasks ?? [];
+		const index = tasks.findIndex( ( t ) => t.id === taskId );
+		if ( index !== -1 ) {
+			tasks[ index ] = { ...tasks[ index ], title, updatedAt: Date.now() };
+			await saveUserData( { ...userData, tasks } );
+			await sendIpcEventToRenderer( 'task-updated', tasks[ index ] );
+		}
+	} finally {
+		await unlockAppdata();
+	}
+}
+
+export async function generateTaskSummary(
+	_event: IpcMainInvokeEvent,
+	taskId: string,
+	context: {
+		title: string;
+		firstMessage: string;
+		firstResponse?: string;
+		siteName?: string;
+	}
+): Promise< void > {
+	const summary = await generateSummary( context );
+	if ( ! summary ) {
+		return;
+	}
+
+	try {
+		await lockAppdata();
+		const userData = await loadUserData();
+		const tasks = userData.tasks ?? [];
+		const index = tasks.findIndex( ( t ) => t.id === taskId );
+		if ( index !== -1 ) {
+			tasks[ index ] = { ...tasks[ index ], summary, updatedAt: Date.now() };
+			await saveUserData( { ...userData, tasks } );
+			await sendIpcEventToRenderer( 'task-updated', tasks[ index ] );
+		}
+	} finally {
+		await unlockAppdata();
+	}
 }
 
 // Agent lifecycle handlers

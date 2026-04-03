@@ -4,6 +4,7 @@ export interface TaskMetadata {
 	id: string;
 	siteId: string;
 	title: string;
+	summary?: string;
 	status: TaskStatus;
 	archived: boolean;
 	createdAt: number;

@@ -160,6 +160,8 @@ export {
 	deleteTask,
 	clearArchivedTasks,
 	updateTaskStatus,
+	generateTaskTitle,
+	generateTaskSummary,
 	startTaskAgentHandler,
 	sendTaskMessageHandler,
 	interruptTaskHandler,
@@ -1689,6 +1691,19 @@ export async function openSettingsWindow(
 	const rendererUrl =
 		process.env.NODE_ENV !== 'production' ? process.env[ 'ELECTRON_RENDERER_URL' ] : undefined;
 	open( preloadPath, rendererUrl, tab );
+}
+
+export async function openAddSiteWindow( _event: IpcMainInvokeEvent ): Promise< void > {
+	const { openAddSiteWindow: open } = await import( 'src/add-site-window' );
+	const preloadPath = nodePath.join( __dirname, '../preload/preload.js' );
+	const rendererUrl =
+		process.env.NODE_ENV !== 'production' ? process.env[ 'ELECTRON_RENDERER_URL' ] : undefined;
+	open( preloadPath, rendererUrl );
+}
+
+export async function closeAddSiteWindow( _event: IpcMainInvokeEvent ): Promise< void > {
+	const { closeAddSiteWindow: close } = await import( 'src/add-site-window' );
+	close();
 }
 
 export async function captureScreenRegion(

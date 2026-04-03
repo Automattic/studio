@@ -61,12 +61,27 @@ interface KillMessage {
 	type: 'ai:kill';
 }
 
+interface GenerateTitleMessage {
+	type: 'ai:generate-title';
+	prompt: string;
+}
+
+interface GenerateSummaryMessage {
+	type: 'ai:generate-summary';
+	title: string;
+	firstMessage: string;
+	firstResponse?: string;
+	siteName?: string;
+}
+
 type DesktopToCliMessage =
 	| StartMessage
 	| FollowUpMessage
 	| InterruptMessage
 	| PermissionResponseMessage
-	| KillMessage;
+	| KillMessage
+	| GenerateTitleMessage
+	| GenerateSummaryMessage;
 
 // Pending permission requests — keyed by requestId
 const pendingPermissions = new Map<
@@ -248,6 +263,8 @@ async function handleStart( message: StartMessage ): Promise< void > {
 	} catch ( error ) {
 		const errorMessage = error instanceof Error ? error.message : String( error );
 		send( { type: 'ai:error', error: errorMessage } );
+		// Signal completion so the desktop cleans up and can resume on follow-up
+		send( { type: 'ai:done' } );
 	} finally {
 		activeQuery = null;
 	}
@@ -294,6 +311,105 @@ function handlePermissionResponse( message: PermissionResponseMessage ): void {
 	}
 }
 
+const METADATA_MODEL = 'claude-haiku-4-5-20251001';
+
+async function callAnthropicApi(
+	env: Record< string, string >,
+	systemPrompt: string,
+	userMessage: string
+): Promise< string | null > {
+	const baseUrl = env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com';
+	const url = `${ baseUrl }/v1/messages`;
+
+	const headers: Record< string, string > = {
+		'content-type': 'application/json',
+		'anthropic-version': '2023-06-01',
+	};
+
+	if ( env.ANTHROPIC_API_KEY ) {
+		headers[ 'x-api-key' ] = env.ANTHROPIC_API_KEY;
+	}
+	if ( env.ANTHROPIC_AUTH_TOKEN ) {
+		headers.Authorization = `Bearer ${ env.ANTHROPIC_AUTH_TOKEN }`;
+	}
+	if ( env.ANTHROPIC_CUSTOM_HEADERS ) {
+		for ( const pair of env.ANTHROPIC_CUSTOM_HEADERS.split( ',' ) ) {
+			const [ key, ...rest ] = pair.split( ':' );
+			if ( key && rest.length ) {
+				headers[ key.trim() ] = rest.join( ':' ).trim();
+			}
+		}
+	}
+
+	try {
+		const response = await fetch( url, {
+			method: 'POST',
+			headers,
+			body: JSON.stringify( {
+				model: METADATA_MODEL,
+				max_tokens: 256,
+				system: systemPrompt,
+				messages: [ { role: 'user', content: userMessage } ],
+			} ),
+		} );
+
+		if ( ! response.ok ) {
+			return null;
+		}
+
+		const data = ( await response.json() ) as {
+			content?: { type: string; text: string }[];
+		};
+		return data.content?.find( ( b ) => b.type === 'text' )?.text?.trim() ?? null;
+	} catch {
+		return null;
+	}
+}
+
+async function handleGenerateTitle( message: GenerateTitleMessage ): Promise< void > {
+	try {
+		const provider = await resolveInitialAiProvider();
+		const env = await resolveAiEnvironment( provider );
+
+		const title = await callAnthropicApi(
+			env,
+			'Generate a short title (5-10 words max) for a task based on the user message below. The task is about modifying a WordPress site. Output ONLY the title text, nothing else. No quotes, no prefixes.',
+			message.prompt
+		);
+
+		send( { type: 'ai:title-result', title } );
+	} catch {
+		send( { type: 'ai:title-result', title: null } );
+	}
+}
+
+async function handleGenerateSummary( message: GenerateSummaryMessage ): Promise< void > {
+	try {
+		const provider = await resolveInitialAiProvider();
+		const env = await resolveAiEnvironment( provider );
+
+		const parts = [ `Task title: ${ message.title }`, `User request: ${ message.firstMessage }` ];
+		if ( message.firstResponse ) {
+			parts.push(
+				`Assistant response (first 500 chars): ${ message.firstResponse.slice( 0, 500 ) }`
+			);
+		}
+		if ( message.siteName ) {
+			parts.push( `WordPress site: ${ message.siteName }` );
+		}
+
+		const summary = await callAnthropicApi(
+			env,
+			'Generate a 1-2 sentence summary of this task. Describe what was requested and what action was taken. Be concise and factual. Output ONLY the summary text.',
+			parts.join( '\n' )
+		);
+
+		send( { type: 'ai:summary-result', summary } );
+	} catch {
+		send( { type: 'ai:summary-result', summary: null } );
+	}
+}
+
 function handleKill(): void {
 	if ( activeQuery ) {
 		activeQuery.close();
@@ -334,6 +450,12 @@ export async function runHeadlessAgent(): Promise< void > {
 				break;
 			case 'ai:kill':
 				handleKill();
+				break;
+			case 'ai:generate-title':
+				void handleGenerateTitle( message );
+				break;
+			case 'ai:generate-summary':
+				void handleGenerateSummary( message );
 				break;
 		}
 	} );

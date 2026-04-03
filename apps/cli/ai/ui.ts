@@ -1439,9 +1439,11 @@ export class AiChatUI {
 			' ' +
 				__( 'To get started, run ' ) +
 				b( '/login' ) +
-				__( ' to connect your WordPress.com account, or ' ) +
+				__( ' to connect your WordPress.com account.' ),
+			' ' +
+				__( 'If you want to use your own Anthropic API key you can run ' ) +
 				b( '/api-key' ) +
-				__( ' if you have an Anthropic API key.' ),
+				__( '.' ),
 		];
 
 		this.messages.addChild( new Text( '\n' + lines.join( '\n' ) + '\n', 0, 0 ) );

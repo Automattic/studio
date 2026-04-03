@@ -49,7 +49,6 @@ while ( true ) {
 	);
 
 	if ( $last_id > 0 ) {
-		$query_args['post__not_in'] = array();
 		add_filter(
 			'posts_where',
 			$keyset_filter = function ( $where ) use ( $last_id ) {

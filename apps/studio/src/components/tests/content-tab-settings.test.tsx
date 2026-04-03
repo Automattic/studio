@@ -131,6 +131,8 @@ describe( 'ContentTabSettings', () => {
 			generateProposedSitePath,
 			getAllCustomDomains,
 			getXdebugEnabledSite,
+			getConnectedWpcomSites: vi.fn( () => Promise.resolve( [] ) ),
+			isImportExportSupported: vi.fn( () => Promise.resolve( true ) ),
 			isCATrusted: vi.fn( () => Promise.resolve( true ) ),
 			executeWPCLiInline: vi.fn( () => Promise.resolve( { stdout: '', stderr: '', exitCode: 0 } ) ),
 		} );
@@ -141,6 +143,7 @@ describe( 'ContentTabSettings', () => {
 			deleteSite: vi.fn(),
 			isDeleting: false,
 			updateSite: vi.fn(),
+			loadingServer: {},
 		} );
 	} );
 
@@ -309,6 +312,7 @@ describe( 'ContentTabSettings', () => {
 				setIsEditModalOpen: vi.fn(),
 				editModalInitialTab: 'general',
 				setEditModalInitialTab: vi.fn(),
+				loadingServer: {},
 			} );
 
 			const { rerender } = renderWithProvider(
@@ -325,6 +329,7 @@ describe( 'ContentTabSettings', () => {
 				setIsEditModalOpen: vi.fn(),
 				editModalInitialTab: 'general',
 				setEditModalInitialTab: vi.fn(),
+				loadingServer: {},
 			} );
 			rerenderWithProvider( rerender, <ContentTabSettings selectedSite={ selectedSite } /> );
 			await waitFor( () => {
@@ -349,6 +354,7 @@ describe( 'ContentTabSettings', () => {
 				setIsEditModalOpen: vi.fn(),
 				editModalInitialTab: 'general',
 				setEditModalInitialTab: vi.fn(),
+				loadingServer: {},
 			} );
 			rerenderWithProvider( rerender, <ContentTabSettings selectedSite={ selectedSite } /> );
 
@@ -387,6 +393,7 @@ describe( 'ContentTabSettings', () => {
 				setIsEditModalOpen: vi.fn(),
 				editModalInitialTab: 'general',
 				setEditModalInitialTab: vi.fn(),
+				loadingServer: {},
 			} );
 
 			const { rerender } = renderWithProvider(
@@ -403,6 +410,7 @@ describe( 'ContentTabSettings', () => {
 				setIsEditModalOpen: vi.fn(),
 				editModalInitialTab: 'general',
 				setEditModalInitialTab: vi.fn(),
+				loadingServer: {},
 			} );
 			rerenderWithProvider( rerender, <ContentTabSettings selectedSite={ selectedSite } /> );
 			await waitFor( () => {
@@ -426,6 +434,7 @@ describe( 'ContentTabSettings', () => {
 				setIsEditModalOpen: vi.fn(),
 				editModalInitialTab: 'general',
 				setEditModalInitialTab: vi.fn(),
+				loadingServer: {},
 			} );
 			rerenderWithProvider( rerender, <ContentTabSettings selectedSite={ selectedSite } /> );
 

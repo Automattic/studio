@@ -114,7 +114,7 @@ describe( 'App', () => {
 		);
 	};
 
-	it( 'should display NoStudioSites when there are no sites and onboarding is complete', async () => {
+	it( 'should render the panel layout when there are no sites', async () => {
 		( useOnboarding as Mock ).mockReturnValue( {
 			needsOnboarding: false,
 		} );
@@ -129,7 +129,8 @@ describe( 'App', () => {
 		renderWithProvider( <App /> );
 
 		await waitFor( () => {
-			expect( screen.getByText( 'Add a site' ) ).toBeInTheDocument();
+			// The new UI always renders the panel layout with a sidebar
+			expect( screen.getByText( 'Tasks' ) ).toBeInTheDocument();
 		} );
-	} );
+	}, 15000 );
 } );

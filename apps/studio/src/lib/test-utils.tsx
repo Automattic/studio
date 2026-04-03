@@ -3,6 +3,8 @@ import { rootReducer } from 'src/stores';
 import { appVersionApi } from 'src/stores/app-version-api';
 import { certificateTrustApi } from 'src/stores/certificate-trust-api';
 import { installedAppsApi } from 'src/stores/installed-apps-api';
+import { connectedSitesApi } from 'src/stores/sync/connected-sites';
+import { wpcomSitesApi } from 'src/stores/sync/wpcom-sites';
 import { wordpressVersionsApi } from 'src/stores/wordpress-versions-api';
 import { wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
 
@@ -32,6 +34,8 @@ export function createTestStore( options: TestStoreOptions = {} ) {
 			getDefaultMiddleware( { immutableCheck: false, serializableCheck: false } )
 				.concat( appVersionApi.middleware )
 				.concat( installedAppsApi.middleware )
+				.concat( connectedSitesApi.middleware )
+				.concat( wpcomSitesApi.middleware )
 				.concat( wordpressVersionsApi.middleware )
 				.concat( wpcomApi.middleware )
 				.concat( wpcomPublicApi.middleware )

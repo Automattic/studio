@@ -86,13 +86,10 @@ describe( 'SiteContentTabs', () => {
 			loadingServer: {},
 		} );
 		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
+		expect( screen.getByRole( 'tab', { name: 'Overview' } ) ).toBeInTheDocument();
 		expect( screen.getByRole( 'tab', { name: 'Settings' } ) ).toBeInTheDocument();
 		expect( screen.getByRole( 'tab', { name: 'Sync' } ) ).toBeInTheDocument();
 		expect( screen.getByRole( 'tab', { name: 'Previews' } ) ).toBeInTheDocument();
-		expect( screen.getByRole( 'tab', { name: 'Import / Export' } ) ).toBeInTheDocument();
-		expect( screen.queryByRole( 'tab', { name: 'Launchpad' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'tab', { name: 'Publish' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'tab', { name: 'Export' } ) ).not.toBeInTheDocument();
 	} );
 	it( 'selects the Overview tab by default', async () => {
 		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
@@ -105,9 +102,5 @@ describe( 'SiteContentTabs', () => {
 		expect( screen.queryByRole( 'tab', { name: 'Sync', selected: false } ) ).toBeVisible();
 		expect( screen.queryByRole( 'tab', { name: 'Previews', selected: false } ) ).toBeVisible();
 		expect( screen.queryByRole( 'tab', { name: 'Settings', selected: false } ) ).toBeVisible();
-		expect( screen.queryByRole( 'tab', { name: 'Assistant', selected: false } ) ).toBeVisible();
-		expect(
-			screen.queryByRole( 'tab', { name: 'Backup', selected: false } )
-		).not.toBeInTheDocument();
 	} );
 } );

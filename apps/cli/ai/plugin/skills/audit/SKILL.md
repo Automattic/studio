@@ -1,5 +1,5 @@
 ---
-name: audit
+name: need-for-speed
 description: Run a frontend performance audit on a WordPress site and get actionable optimization recommendations.
 user-invokable: true
 ---

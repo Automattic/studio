@@ -4,13 +4,15 @@ import { useRootSelector } from 'src/stores';
 import { TaskChatInput } from './task-chat-input';
 import { TaskMessageList } from './task-message-list';
 import { TaskPermissionPrompt } from './task-permission-prompt';
+import type { UseElementSelectorReturn } from 'src/hooks/use-element-selector';
 
 interface TaskChatPanelProps {
 	taskId: string;
 	toolbar?: React.ReactNode;
+	elementSelector?: UseElementSelectorReturn;
 }
 
-export function TaskChatPanel( { taskId, toolbar }: TaskChatPanelProps ) {
+export function TaskChatPanel( { taskId, toolbar, elementSelector }: TaskChatPanelProps ) {
 	const task = useRootSelector( ( state ) => state.tasks.tasks.find( ( t ) => t.id === taskId ) );
 	const messages = useRootSelector( ( state ) => state.tasks.messagesByTask[ taskId ] ?? [] );
 	const isStreaming = useRootSelector(
@@ -57,7 +59,11 @@ export function TaskChatPanel( { taskId, toolbar }: TaskChatPanelProps ) {
 					<div className="pointer-events-auto">
 						{ /* Permission prompt — shown above input when agent needs approval */ }
 						{ hasPendingPermissions && <TaskPermissionPrompt taskId={ taskId } /> }
-						<TaskChatInput taskId={ taskId } isStreaming={ isStreaming } />
+						<TaskChatInput
+							taskId={ taskId }
+							isStreaming={ isStreaming }
+							elementSelector={ elementSelector }
+						/>
 					</div>
 				</div>
 			</div>

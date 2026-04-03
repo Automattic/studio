@@ -19,12 +19,32 @@ export interface ImageAttachment {
 	mediaType: string;
 }
 
+export interface ElementAttachment {
+	/** Unique CSS selector path for the element */
+	cssSelector: string;
+	/** HTML tag name (lowercase) */
+	tagName: string;
+	/** Truncated outer HTML of the element */
+	outerHTML: string;
+	/** Truncated text content */
+	textContent: string;
+	/** Key computed CSS properties */
+	computedStyles: Record< string, string >;
+	/** Element bounding box */
+	boundingBox: { x: number; y: number; width: number; height: number };
+	/** DOM ancestor path, e.g. ["body", "div.site", "main", "h1"] */
+	domPath: string[];
+	/** WordPress block name if element is inside a block, e.g. "core/button" */
+	wpBlockName?: string;
+}
+
 export interface TaskMessage {
 	id: string;
 	role: 'user' | 'assistant' | 'tool' | 'system';
 	content: string;
 	timestamp: number;
 	images?: ImageAttachment[];
+	elements?: ElementAttachment[];
 	toolName?: string;
 	toolInput?: unknown;
 	toolResult?: string;

@@ -17,6 +17,17 @@ interface ImageAttachment {
 	mediaType: string;
 }
 
+interface ElementAttachment {
+	cssSelector: string;
+	tagName: string;
+	outerHTML: string;
+	textContent: string;
+	computedStyles: Record< string, string >;
+	boundingBox: { x: number; y: number; width: number; height: number };
+	domPath: string[];
+	wpBlockName?: string;
+}
+
 interface StartMessage {
 	type: 'ai:start';
 	prompt: string;
@@ -26,12 +37,14 @@ interface StartMessage {
 	siteName?: string;
 	provider?: AiProviderId;
 	images?: ImageAttachment[];
+	elements?: ElementAttachment[];
 }
 
 interface FollowUpMessage {
 	type: 'ai:follow-up';
 	message: string;
 	images?: ImageAttachment[];
+	elements?: ElementAttachment[];
 }
 
 interface InterruptMessage {
@@ -114,11 +127,35 @@ function createIpcAskUserHandler(): (
 }
 
 /**
- * Build Anthropic API content blocks from text and optional images.
+ * Serialize selected elements into a structured text block for the agent prompt.
+ */
+function serializeElementContext( elements: ElementAttachment[] ): string {
+	const sections = elements.map( ( el, i ) => {
+		const lines = [
+			`## Selected Element ${ i + 1 }`,
+			`- Selector: \`${ el.cssSelector }\``,
+			`- Tag: <${ el.tagName }>`,
+			`- WordPress Block: ${ el.wpBlockName || 'none' }`,
+			`- Bounding Box: ${ el.boundingBox.width }x${ el.boundingBox.height } at (${ el.boundingBox.x }, ${ el.boundingBox.y })`,
+			`- Styles: ${ JSON.stringify( el.computedStyles ) }`,
+			`- DOM Path: ${ el.domPath.join( ' > ' ) }`,
+			`- HTML:\n\`\`\`html\n${ el.outerHTML }\n\`\`\``,
+		];
+		if ( el.textContent ) {
+			lines.splice( 3, 0, `- Text: "${ el.textContent }"` );
+		}
+		return lines.join( '\n' );
+	} );
+	return `<element-context>\n${ sections.join( '\n\n' ) }\n</element-context>`;
+}
+
+/**
+ * Build Anthropic API content blocks from text, optional images, and optional elements.
  */
 function buildContentBlocks(
 	text: string,
-	images?: ImageAttachment[]
+	images?: ImageAttachment[],
+	elements?: ElementAttachment[]
 ): Array<
 	| { type: 'text'; text: string }
 	| { type: 'image'; source: { type: 'base64'; media_type: string; data: string } }
@@ -127,6 +164,10 @@ function buildContentBlocks(
 		| { type: 'text'; text: string }
 		| { type: 'image'; source: { type: 'base64'; media_type: string; data: string } }
 	> = [];
+
+	if ( elements?.length ) {
+		blocks.push( { type: 'text', text: serializeElementContext( elements ) } );
+	}
 
 	if ( images?.length ) {
 		for ( const img of images ) {
@@ -151,6 +192,7 @@ async function handleStart( message: StartMessage ): Promise< void > {
 		siteName,
 		provider: requestedProvider,
 		images,
+		elements,
 	} = message;
 
 	try {
@@ -166,15 +208,15 @@ async function handleStart( message: StartMessage ): Promise< void > {
 			}" at ${ sitePath } (running)]\n\n${ prompt }`;
 		}
 
-		// If images are attached, use the async iterable form with multimodal content
-		const hasImages = images && images.length > 0;
-		const promptOrStream = hasImages
+		// If images or elements are attached, use the async iterable form with multimodal content
+		const hasAttachments = ( images && images.length > 0 ) || ( elements && elements.length > 0 );
+		const promptOrStream = hasAttachments
 			? ( async function* () {
 					yield {
 						type: 'user' as const,
 						message: {
 							role: 'user' as const,
-							content: buildContentBlocks( enrichedPrompt, images ),
+							content: buildContentBlocks( enrichedPrompt, images, elements ),
 						},
 						parent_tool_use_id: null,
 						session_id: '',
@@ -217,9 +259,11 @@ function handleFollowUp( message: FollowUpMessage ): void {
 		return;
 	}
 
-	const hasImages = message.images && message.images.length > 0;
-	const content = hasImages
-		? buildContentBlocks( message.message, message.images )
+	const hasAttachments =
+		( message.images && message.images.length > 0 ) ||
+		( message.elements && message.elements.length > 0 );
+	const content = hasAttachments
+		? buildContentBlocks( message.message, message.images, message.elements )
 		: message.message;
 
 	const sdkMessage = {

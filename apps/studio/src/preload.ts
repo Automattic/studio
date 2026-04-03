@@ -185,13 +185,16 @@ const api: IpcApi = {
 	updateTaskStatus: ( taskId, status ) => ipcRendererInvoke( 'updateTaskStatus', taskId, status ),
 
 	// Agent lifecycle
-	startTaskAgentHandler: ( taskId, prompt, resumeSessionId, images ) =>
-		ipcRendererInvoke( 'startTaskAgentHandler', taskId, prompt, resumeSessionId, images ),
-	sendTaskMessageHandler: ( taskId, message, images ) =>
-		ipcRendererInvoke( 'sendTaskMessageHandler', taskId, message, images ),
+	startTaskAgentHandler: ( taskId, prompt, resumeSessionId, images, elements ) =>
+		ipcRendererInvoke( 'startTaskAgentHandler', taskId, prompt, resumeSessionId, images, elements ),
+	sendTaskMessageHandler: ( taskId, message, images, elements ) =>
+		ipcRendererInvoke( 'sendTaskMessageHandler', taskId, message, images, elements ),
 	interruptTaskHandler: ( taskId ) => ipcRendererInvoke( 'interruptTaskHandler', taskId ),
 	respondToPermissionRequestHandler: ( requestId, response, taskId ) =>
 		ipcRendererInvoke( 'respondToPermissionRequestHandler', requestId, response, taskId ),
+
+	// Screen capture
+	captureScreenRegion: ( rect ) => ipcRendererInvoke( 'captureScreenRegion', rect ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

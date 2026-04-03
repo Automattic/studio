@@ -480,6 +480,272 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		`,
 	} );
 
+	// Element selector bridge for AI agent context
+	muPlugins.push( {
+		filename: '0-element-selector-bridge.php',
+		content: `<?php
+		/**
+		 * Element Selector Bridge
+		 *
+		 * Injects a lightweight JavaScript bridge that allows the Studio desktop app
+		 * to activate element selection mode via postMessage. When active, users can
+		 * hover to highlight elements and click to capture element metadata, which is
+		 * sent back to the parent frame for use as AI agent context.
+		 *
+		 * The script is dormant until activated — zero overhead on normal browsing.
+		 */
+		function studio_element_selector_script() {
+			?>
+			<script>
+			(function() {
+				var active = false;
+				var overlay = null;
+				var currentTarget = null;
+				var selectionHighlights = [];
+
+				window.addEventListener('message', function(event) {
+					if (!event.data || !event.data.type) return;
+					if (event.data.type === 'studio:select-element:activate') activateSelection();
+					if (event.data.type === 'studio:select-element:deactivate') deactivateSelection();
+					if (event.data.type === 'studio:select-element:clear') clearHighlights();
+				});
+
+				function activateSelection() {
+					if (active) return;
+					active = true;
+					clearHighlights();
+					createOverlay();
+					document.addEventListener('mousemove', onMouseMove, true);
+					document.addEventListener('click', onClick, true);
+					document.addEventListener('keydown', onKeyDown, true);
+					document.body.style.cursor = 'crosshair';
+				}
+
+				function deactivateSelection() {
+					if (!active) return;
+					active = false;
+					currentTarget = null;
+					document.removeEventListener('mousemove', onMouseMove, true);
+					document.removeEventListener('click', onClick, true);
+					document.removeEventListener('keydown', onKeyDown, true);
+					document.body.style.cursor = '';
+					removeOverlay();
+					window.parent.postMessage({ type: 'studio:select-element:deactivated' }, '*');
+				}
+
+				function createOverlay() {
+					if (overlay) return;
+					overlay = document.createElement('div');
+					overlay.id = 'studio-element-selector-overlay';
+					var s = overlay.style;
+					s.position = 'absolute';
+					s.pointerEvents = 'none';
+					s.zIndex = '2147483647';
+					s.border = '2px solid rgba(59, 130, 246, 0.8)';
+					s.backgroundColor = 'rgba(59, 130, 246, 0.1)';
+					s.borderRadius = '2px';
+					s.transition = 'all 0.05s ease-out';
+					s.display = 'none';
+					document.body.appendChild(overlay);
+				}
+
+				function removeOverlay() {
+					if (overlay && overlay.parentNode) {
+						overlay.parentNode.removeChild(overlay);
+					}
+					overlay = null;
+				}
+
+				function addSelectionHighlight(el) {
+					clearHighlights();
+					el.setAttribute('data-studio-selected', 'true');
+					el.style.outline = '2px solid rgba(59, 130, 246, 0.7)';
+					el.style.outlineOffset = '2px';
+					selectionHighlights.push(el);
+				}
+
+				function clearHighlights() {
+					for (var i = 0; i < selectionHighlights.length; i++) {
+						var el = selectionHighlights[i];
+						el.removeAttribute('data-studio-selected');
+						el.style.outline = '';
+						el.style.outlineOffset = '';
+					}
+					selectionHighlights = [];
+				}
+
+				function resolveTarget(el) {
+					if (!el || el === document.body || el === document.documentElement) return null;
+					if (el.id === 'studio-element-selector-overlay') return null;
+					// Walk up to find semantic elements when clicking on inline text
+					var semantic = ['A', 'BUTTON', 'INPUT', 'SELECT', 'TEXTAREA', 'IMG', 'VIDEO', 'AUDIO', 'LABEL'];
+					var check = el;
+					for (var i = 0; i < 3 && check && check !== document.body; i++) {
+						if (semantic.indexOf(check.tagName) !== -1) return check;
+						check = check.parentElement;
+					}
+					// Skip very small or invisible elements
+					var rect = el.getBoundingClientRect();
+					if (rect.width < 4 || rect.height < 4) {
+						return el.parentElement && el.parentElement !== document.body ? el.parentElement : null;
+					}
+					return el;
+				}
+
+				function onMouseMove(e) {
+					var el = document.elementFromPoint(e.clientX, e.clientY);
+					var target = resolveTarget(el);
+					if (!target || target === currentTarget) return;
+					currentTarget = target;
+					positionOverlay(target);
+				}
+
+				function positionOverlay(el) {
+					if (!overlay) return;
+					var rect = el.getBoundingClientRect();
+					var scrollX = window.scrollX || window.pageXOffset;
+					var scrollY = window.scrollY || window.pageYOffset;
+					overlay.style.left = (rect.left + scrollX - 2) + 'px';
+					overlay.style.top = (rect.top + scrollY - 2) + 'px';
+					overlay.style.width = (rect.width + 4) + 'px';
+					overlay.style.height = (rect.height + 4) + 'px';
+					overlay.style.display = 'block';
+				}
+
+				function onClick(e) {
+					e.preventDefault();
+					e.stopPropagation();
+					e.stopImmediatePropagation();
+					var target = resolveTarget(e.target);
+					if (!target) return;
+					addSelectionHighlight(target);
+					var data = extractElementData(target);
+					window.parent.postMessage({ type: 'studio:select-element:selected', element: data }, '*');
+					deactivateSelection();
+				}
+
+				function onKeyDown(e) {
+					if (e.key === 'Escape') {
+						e.preventDefault();
+						clearHighlights();
+						deactivateSelection();
+					}
+				}
+
+				function extractElementData(el) {
+					var rect = el.getBoundingClientRect();
+					var cs = window.getComputedStyle(el);
+					return {
+						tagName: el.tagName.toLowerCase(),
+						id: el.id || '',
+						className: typeof el.className === 'string' ? el.className : '',
+						cssSelector: buildCssSelector(el),
+						boundingBox: {
+							x: Math.round(rect.x),
+							y: Math.round(rect.y),
+							width: Math.round(rect.width),
+							height: Math.round(rect.height)
+						},
+						computedStyles: {
+							color: cs.color,
+							backgroundColor: cs.backgroundColor,
+							fontSize: cs.fontSize,
+							fontFamily: cs.fontFamily,
+							fontWeight: cs.fontWeight,
+							lineHeight: cs.lineHeight,
+							padding: cs.padding,
+							margin: cs.margin,
+							border: cs.border,
+							borderRadius: cs.borderRadius,
+							display: cs.display,
+							position: cs.position,
+							width: cs.width,
+							height: cs.height
+						},
+						outerHTML: el.outerHTML.substring(0, 2000),
+						textContent: (el.textContent || '').trim().substring(0, 500),
+						domPath: buildDomPath(el),
+						wpBlockName: findWpBlockName(el)
+					};
+				}
+
+				function buildCssSelector(el) {
+					if (el.id) return '#' + CSS.escape(el.id);
+					var parts = [];
+					var current = el;
+					while (current && current !== document.body && current !== document.documentElement) {
+						var tag = current.tagName.toLowerCase();
+						if (current.id) {
+							parts.unshift('#' + CSS.escape(current.id));
+							break;
+						}
+						// Use meaningful class names (skip utility/generated ones if possible)
+						var classes = Array.from(current.classList || [])
+							.filter(function(c) { return c.length > 1 && !/^[0-9]/.test(c); })
+							.slice(0, 2)
+							.map(function(c) { return '.' + CSS.escape(c); })
+							.join('');
+						if (classes) {
+							parts.unshift(tag + classes);
+						} else {
+							var parent = current.parentElement;
+							if (parent) {
+								var siblings = Array.from(parent.children).filter(function(c) {
+									return c.tagName === current.tagName;
+								});
+								if (siblings.length > 1) {
+									var idx = siblings.indexOf(current) + 1;
+									parts.unshift(tag + ':nth-of-type(' + idx + ')');
+								} else {
+									parts.unshift(tag);
+								}
+							} else {
+								parts.unshift(tag);
+							}
+						}
+						current = current.parentElement;
+						if (parts.length >= 4) break;
+					}
+					return parts.join(' > ');
+				}
+
+				function buildDomPath(el) {
+					var path = [];
+					var current = el;
+					while (current && current !== document.documentElement) {
+						var tag = current.tagName.toLowerCase();
+						var classes = Array.from(current.classList || []).slice(0, 2).join('.');
+						path.unshift(classes ? tag + '.' + classes : tag);
+						current = current.parentElement;
+					}
+					return path;
+				}
+
+				function findWpBlockName(el) {
+					var current = el;
+					while (current && current !== document.body) {
+						// Check for block editor data attribute
+						var blockName = current.getAttribute && current.getAttribute('data-type');
+						if (blockName) return blockName;
+						// Check for wp-block-* class pattern
+						var classes = current.className;
+						if (typeof classes === 'string') {
+							var match = classes.match(/wp-block-([a-z0-9-]+)/);
+							if (match) return 'core/' + match[1];
+						}
+						current = current.parentElement;
+					}
+					return null;
+				}
+			})();
+			</script>
+			<?php
+		}
+		add_action( 'wp_footer', 'studio_element_selector_script', 9999 );
+		add_action( 'admin_footer', 'studio_element_selector_script', 9999 );
+		`,
+	} );
+
 	// Auto-login functionality via dedicated endpoint
 	muPlugins.push( {
 		filename: '0-auto-login.php',
@@ -570,6 +836,7 @@ const LEGACY_MU_PLUGIN_FILENAMES = [
 	'0-check-theme-availability.php',
 	'0-deactivate-jetpack-modules.php',
 	'0-disable-auto-updates.php',
+	'0-element-selector-bridge.php',
 	'0-enable-auto-updates.php',
 	'0-http-request-timeout.php',
 	'0-https-for-reverse-proxy.php',

@@ -5,7 +5,7 @@ import { SiteServer } from 'src/site-server';
 import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 import { serializeSDKMessage } from './message-serializer';
-import type { ImageAttachment } from '../types';
+import type { ElementAttachment, ImageAttachment } from '../types';
 
 interface ActiveTask {
 	child: ChildProcess;
@@ -62,7 +62,8 @@ export async function startTaskAgent(
 	taskId: string,
 	prompt: string,
 	resumeSessionId?: string,
-	images?: ImageAttachment[]
+	images?: ImageAttachment[],
+	elements?: ElementAttachment[]
 ): Promise< void > {
 	// Clean up any existing agent for this task
 	const existing = activeTasks.get( taskId );
@@ -99,6 +100,7 @@ export async function startTaskAgent(
 			...( sitePath && { sitePath } ),
 			...( siteName && { siteName } ),
 			...( images?.length && { images } ),
+			...( elements?.length && { elements } ),
 		} );
 	};
 
@@ -231,7 +233,8 @@ async function persistSessionId( taskId: string, sessionId: string ): Promise< v
 export async function sendTaskMessage(
 	taskId: string,
 	message: string,
-	images?: ImageAttachment[]
+	images?: ImageAttachment[],
+	elements?: ElementAttachment[]
 ): Promise< void > {
 	const active = activeTasks.get( taskId );
 
@@ -241,18 +244,19 @@ export async function sendTaskMessage(
 				type: 'ai:follow-up',
 				message,
 				...( images?.length && { images } ),
+				...( elements?.length && { elements } ),
 			} );
 		} catch {
 			// Child may have exited — start a new one
 			const userData = await loadUserData();
 			const task = ( userData.tasks ?? [] ).find( ( t ) => t.id === taskId );
-			await startTaskAgent( taskId, message, task?.sessionId, images );
+			await startTaskAgent( taskId, message, task?.sessionId, images, elements );
 		}
 	} else {
 		// Look up the task to get its session ID for resuming
 		const userData = await loadUserData();
 		const task = ( userData.tasks ?? [] ).find( ( t ) => t.id === taskId );
-		await startTaskAgent( taskId, message, task?.sessionId, images );
+		await startTaskAgent( taskId, message, task?.sessionId, images, elements );
 	}
 }
 

@@ -44,6 +44,17 @@ Then continue with:
 - browser_navigate: Navigate the in-app browser preview to a URL or path (e.g. "/wp-admin/"). Use after making changes to show the user the result.
 - browser_reload: Reload the current page in the in-app browser preview. Use after making changes to refresh what the user sees.
 
+## Element Context
+
+Users can select elements from the browser preview to attach as context to their messages. When element context is provided, you receive structured data wrapped in \`<element-context>\` tags including:
+- **CSS selector**: Use this to grep through theme files and find the relevant code
+- **Computed styles**: Current styling — helps you understand what to change
+- **HTML content**: The element's markup, useful for identifying the block or template part
+- **WordPress block name**: If the element is inside a WordPress block (e.g. "core/button"), this tells you which block type to target
+- **DOM path**: The ancestor chain, helping you understand the element's structural context
+
+Use this information to precisely locate and modify the relevant theme template, template part, block pattern, or CSS. The CSS selector is especially useful for targeting specific elements in style.css.
+
 ## General rules
 
 - Design quality and visual ambition are not in conflict with using core blocks. Custom CSS targeting block classNames can achieve any visual design. The block structure is for editability; the CSS is for aesthetics.

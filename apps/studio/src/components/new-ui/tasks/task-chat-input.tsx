@@ -1,9 +1,10 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useMemo } from 'react';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useAppDispatch, useRootSelector } from 'src/stores';
 import { appendTaskMessage, setTaskStreaming } from 'src/stores/tasks-slice';
-import type { ImageAttachment, TaskMessage } from 'src/modules/ai/types';
+import type { UseElementSelectorReturn } from 'src/hooks/use-element-selector';
+import type { ElementAttachment, ImageAttachment, TaskMessage } from 'src/modules/ai/types';
 
 const ACCEPTED_IMAGE_TYPES = [ 'image/png', 'image/jpeg', 'image/webp', 'image/gif' ];
 const MAX_IMAGES = 5;
@@ -11,9 +12,10 @@ const MAX_IMAGES = 5;
 interface TaskChatInputProps {
 	taskId: string;
 	isStreaming: boolean;
+	elementSelector?: UseElementSelectorReturn;
 }
 
-export function TaskChatInput( { taskId, isStreaming }: TaskChatInputProps ) {
+export function TaskChatInput( { taskId, isStreaming, elementSelector }: TaskChatInputProps ) {
 	const [ value, setValue ] = useState( '' );
 	const [ images, setImages ] = useState< ImageAttachment[] >( [] );
 	const [ imagePreviews, setImagePreviews ] = useState< string[] >( [] );
@@ -52,31 +54,48 @@ export function TaskChatInput( { taskId, isStreaming }: TaskChatInputProps ) {
 		setImagePreviews( ( prev ) => prev.filter( ( _, i ) => i !== index ) );
 	}, [] );
 
+	const selectedElements = useMemo(
+		() => elementSelector?.selectedElements ?? [],
+		[ elementSelector?.selectedElements ]
+	);
+
 	const handleSend = useCallback( () => {
 		const trimmed = value.trim();
-		if ( ( ! trimmed && images.length === 0 ) || isStreaming ) {
+		const hasAttachments = images.length > 0 || selectedElements.length > 0;
+		if ( ( ! trimmed && ! hasAttachments ) || isStreaming ) {
 			return;
+		}
+
+		// Build content description for display
+		const parts: string[] = [];
+		if ( images.length > 0 ) {
+			parts.push( `${ images.length } image${ images.length > 1 ? 's' : '' }` );
+		}
+		if ( selectedElements.length > 0 ) {
+			parts.push(
+				`${ selectedElements.length } element${ selectedElements.length > 1 ? 's' : '' }`
+			);
 		}
 
 		// Add user message to local state immediately
 		const userMessage: TaskMessage = {
 			id: `user-${ Date.now() }`,
 			role: 'user',
-			content:
-				trimmed ||
-				( images.length > 0
-					? `[Attached ${ images.length } image${ images.length > 1 ? 's' : '' }]`
-					: '' ),
+			content: trimmed || ( parts.length > 0 ? `[Attached ${ parts.join( ' and ' ) }]` : '' ),
 			timestamp: Date.now(),
 			...( images.length > 0 && { images: [ ...images ] } ),
+			...( selectedElements.length > 0 && { elements: [ ...selectedElements ] } ),
 		};
 		dispatch( appendTaskMessage( { taskId, message: userMessage } ) );
 		dispatch( setTaskStreaming( { taskId, streaming: true } ) );
 
 		const messageImages = images.length > 0 ? [ ...images ] : undefined;
+		const messageElements: ElementAttachment[] | undefined =
+			selectedElements.length > 0 ? [ ...selectedElements ] : undefined;
 		setValue( '' );
 		setImages( [] );
 		setImagePreviews( [] );
+		elementSelector?.clearElements();
 
 		// Send to the agent via IPC
 		const isFirstMessage = messages.length === 0;
@@ -88,12 +107,27 @@ export function TaskChatInput( { taskId, isStreaming }: TaskChatInputProps ) {
 			}
 
 			// First message — start a new agent session
-			void getIpcApi().startTaskAgentHandler( taskId, trimmed, undefined, messageImages );
+			void getIpcApi().startTaskAgentHandler(
+				taskId,
+				trimmed,
+				undefined,
+				messageImages,
+				messageElements
+			);
 		} else {
 			// Follow-up — send to the existing agent
-			void getIpcApi().sendTaskMessageHandler( taskId, trimmed, messageImages );
+			void getIpcApi().sendTaskMessageHandler( taskId, trimmed, messageImages, messageElements );
 		}
-	}, [ value, images, isStreaming, taskId, dispatch, messages.length ] );
+	}, [
+		value,
+		images,
+		selectedElements,
+		isStreaming,
+		taskId,
+		dispatch,
+		messages.length,
+		elementSelector,
+	] );
 
 	const handleKeyDown = ( e: React.KeyboardEvent ) => {
 		if ( e.key === 'Enter' && ! e.shiftKey ) {
@@ -126,7 +160,7 @@ export function TaskChatInput( { taskId, isStreaming }: TaskChatInputProps ) {
 		[ addImages ]
 	);
 
-	const hasContent = value.trim() || images.length > 0;
+	const hasContent = value.trim() || images.length > 0 || selectedElements.length > 0;
 
 	return (
 		<div className="p-4">
@@ -158,6 +192,29 @@ export function TaskChatInput( { taskId, isStreaming }: TaskChatInputProps ) {
 								<button
 									onClick={ () => removeImage( index ) }
 									className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-frame-surface border border-frame-border text-frame-text-secondary text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-frame-border"
+								>
+									&times;
+								</button>
+							</div>
+						) ) }
+					</div>
+				) }
+
+				{ /* Element selection chips */ }
+				{ selectedElements.length > 0 && (
+					<div className="flex gap-2 px-4 pt-3 flex-wrap">
+						{ selectedElements.map( ( el, index ) => (
+							<div
+								key={ index }
+								className="relative group flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-xs"
+							>
+								<span className="text-blue-400 font-mono">&lt;{ el.tagName }&gt;</span>
+								<span className="text-frame-text-secondary truncate max-w-[120px]">
+									{ el.textContent || el.cssSelector }
+								</span>
+								<button
+									onClick={ () => elementSelector?.removeElement( index ) }
+									className="w-4 h-4 rounded-full text-frame-text-tertiary flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:text-frame-text-secondary"
 								>
 									&times;
 								</button>

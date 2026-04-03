@@ -303,6 +303,11 @@ export function useBrowserPanel() {
 		return () => window.removeEventListener( 'keydown', handler );
 	}, [ tabs, activeTabId, selectTab ] );
 
+	// Get the active tab's iframe element (for postMessage communication)
+	const getActiveIframe = useCallback( () => {
+		return iframeElements.current.get( activeTabId ) ?? null;
+	}, [ activeTabId ] );
+
 	return {
 		// Tab management
 		tabs,
@@ -318,6 +323,7 @@ export function useBrowserPanel() {
 		handleIframeLoad,
 		handleBeforeUnload,
 		autoLoginSrc,
+		getActiveIframe,
 
 		// Navigation (operates on active tab)
 		displayUrl: activeTab?.displayUrl ?? '',

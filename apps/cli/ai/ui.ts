@@ -1524,6 +1524,11 @@ export class AiChatUI {
 		this.tui.requestRender();
 	}
 
+	showSuccess( message: string ): void {
+		this.messages.addChild( new Text( '\n ' + chalk.green( '⏺' ) + ' ' + message + '\n', 0, 0 ) );
+		this.tui.requestRender();
+	}
+
 	showError( message: string ): void {
 		this.messages.addChild(
 			new Text( '\n ' + chalk.red( '⏺' ) + ' ' + chalk.red( message ) + '\n', 0, 0 )

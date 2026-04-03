@@ -434,7 +434,7 @@ export async function runCommand(
 				if ( await isAiProviderReady( 'wpcom' ) ) {
 					const token = await readAuthToken();
 					if ( token ) {
-						ui.showInfo(
+						ui.showSuccess(
 							sprintf(
 								/* translators: 1: display name, 2: email */
 								__( 'Logged in as %1$s (%2$s)' ),

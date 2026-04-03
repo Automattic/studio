@@ -1425,6 +1425,102 @@ export class AiChatUI {
 		this.pendingTodoRenderOrder = [];
 	}
 
+	showOnboarding(): void {
+		const b = chalk.bold;
+
+		const lines = [
+			' ' +
+				chalk.blue( '⏺' ) +
+				__( " Hello, I'm " ) +
+				b( __( 'WordPress Studio' ) ) +
+				__( ', your local WordPress agent and builder.' ),
+			'',
+			' ' +
+				__( 'To get started, run ' ) +
+				b( '/login' ) +
+				__( ' to connect your WordPress.com account, or ' ) +
+				b( '/api-key' ) +
+				__( ' if you have an Anthropic API key.' ),
+		];
+
+		this.messages.addChild( new Text( '\n' + lines.join( '\n' ) + '\n', 0, 0 ) );
+		this.tui.requestRender();
+	}
+
+	showCapabilities(): void {
+		const b = chalk.bold;
+		const d = chalk.dim;
+		const separator = d( ' ─'.padEnd( 80, '─' ) );
+
+		const lines = [
+			' ' +
+				chalk.blue( '⏺' ) +
+				__( " Great, you're connected now! Let me tell you what I can do:" ),
+			'',
+			'  ' + b( __( 'Site Management' ) ),
+			'',
+			'  - ' +
+				b( __( 'Create' ) ) +
+				__( ' new WordPress sites instantly (fully configured, ready to use)' ),
+			'  - ' + b( __( 'Start / stop' ) ) + __( ' existing sites' ),
+			'  - ' + b( __( 'List' ) ) + __( ' all your local sites and their status' ),
+			'',
+			'  ' + b( __( 'Design & Development' ) ),
+			'',
+			'  - ' + b( __( 'Build' ) ) + __( ' block themes with striking, memorable designs' ),
+			'  - ' +
+				__( 'Write custom ' ) +
+				b( __( 'CSS, PHP, and JavaScript' ) ) +
+				__( ' for themes and plugins' ),
+			'  - ' +
+				__( 'Create ' ) +
+				b( __( 'pages and posts' ) ) +
+				__( ' with valid Gutenberg block content' ),
+			'  - ' + __( 'Install and activate ' ) + b( __( 'plugins' ) ) + __( ' via WP-CLI' ),
+			'',
+			'  ' + b( __( 'Content' ) ),
+			'',
+			'  - ' +
+				__( 'Generate and import ' ) +
+				b( __( 'page content' ) ) +
+				__( ' using core blocks' ),
+			'  - ' +
+				__( 'Set up ' ) +
+				b( __( 'navigation menus, site options, post types, taxonomies, and settings' ) ),
+			'  - ' + __( "Create realistic placeholder content tailored to your site's purpose" ),
+			'  - ' +
+				__( 'Upload ' ) +
+				b( __( 'images and videos' ) ) +
+				__( ' to your site, using local media files or remote URLs' ),
+			'',
+			'  ' + b( __( 'Preview & Publishing' ) ),
+			'',
+			'  - ' +
+				__( 'Take ' ) +
+				b( __( 'screenshots' ) ) +
+				__( ' (desktop + mobile) to verify the design is well crafted' ),
+			'  - ' + b( __( 'Validate' ) ) + __( " all block content to ensure it's editor-compatible" ),
+			'  - ' + b( __( 'Push' ) ) + __( ' your local site to the cloud in WordPress.com' ),
+			'',
+			separator,
+			'',
+			__( '  Just tell me what you want to build — for example:' ),
+			'',
+			'  ' + d( chalk.italic( __( '"Create a portfolio site for a photographer"' ) ) ),
+			'  ' + d( chalk.italic( __( '"Build a landing page for a SaaS product"' ) ) ),
+			'  ' + d( chalk.italic( __( '"Make a blog for a coffee shop"' ) ) ),
+			'',
+			'  ' +
+				__(
+					"I'll ask a few quick questions about the name and layout, then build the whole thing for"
+				),
+			'  ' +
+				__( 'you. The more precise you are about what you want, the better the result will be.' ),
+		];
+		this.messages.addChild( new Text( '\n' + lines.join( '\n' ) + '\n', 0, 0 ) );
+		this.tui.requestRender();
+	}
+
 	showError( message: string ): void {
 		this.messages.addChild(
 			new Text( '\n ' + chalk.red( '⏺' ) + ' ' + chalk.red( message ) + '\n', 0, 0 )

@@ -1,8 +1,14 @@
 import { DropdownMenu, MenuGroup, MenuItem } from '@wordpress/components';
 import { archive, moreVertical } from '@wordpress/icons';
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { cx } from 'src/lib/cx';
+import { TaskPreviewCard } from './task-preview-card';
 import type { TaskMetadata } from 'src/modules/ai/types';
+
+const SHOW_DELAY = 150;
+const SKIP_WINDOW = 500;
+
+let lastHideTime = 0;
 
 interface TaskListItemProps {
 	task: TaskMetadata;
@@ -13,6 +19,57 @@ interface TaskListItemProps {
 
 export function TaskListItem( { task, isSelected, onClick, onArchive }: TaskListItemProps ) {
 	const [ menuOpen, setMenuOpen ] = useState( false );
+	const [ previewVisible, setPreviewVisible ] = useState( false );
+	const [ mousePos, setMousePos ] = useState( { x: 0, y: 0 } );
+	const timerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
+
+	const clearTimer = useCallback( () => {
+		if ( timerRef.current ) {
+			clearTimeout( timerRef.current );
+			timerRef.current = null;
+		}
+	}, [] );
+
+	const handleMouseEnter = useCallback(
+		( e: React.MouseEvent ) => {
+			// Capture position immediately so we never show at {0,0}
+			setMousePos( { x: e.clientX, y: e.clientY } );
+			if ( menuOpen ) {
+				return;
+			}
+			const elapsed = Date.now() - lastHideTime;
+			if ( elapsed < SKIP_WINDOW ) {
+				setPreviewVisible( true );
+			} else {
+				clearTimer();
+				timerRef.current = setTimeout( () => setPreviewVisible( true ), SHOW_DELAY );
+			}
+		},
+		[ menuOpen, clearTimer ]
+	);
+
+	const handleMouseLeave = useCallback( () => {
+		clearTimer();
+		if ( previewVisible ) {
+			lastHideTime = Date.now();
+		}
+		setPreviewVisible( false );
+	}, [ clearTimer, previewVisible ] );
+
+	const handleMouseMove = useCallback( ( e: React.MouseEvent ) => {
+		setMousePos( { x: e.clientX, y: e.clientY } );
+	}, [] );
+
+	useEffect( () => {
+		if ( menuOpen ) {
+			clearTimer();
+			setPreviewVisible( false );
+		}
+	}, [ menuOpen, clearTimer ] );
+
+	useEffect( () => {
+		return () => clearTimer();
+	}, [ clearTimer ] );
 
 	return (
 		<div
@@ -21,6 +78,9 @@ export function TaskListItem( { task, isSelected, onClick, onArchive }: TaskList
 				'hover:bg-chrome-surface',
 				isSelected && 'bg-chrome-surface'
 			) }
+			onMouseEnter={ handleMouseEnter }
+			onMouseLeave={ handleMouseLeave }
+			onMouseMove={ handleMouseMove }
 		>
 			<button
 				onClick={ onClick }
@@ -69,6 +129,12 @@ export function TaskListItem( { task, isSelected, onClick, onArchive }: TaskList
 					</DropdownMenu>
 				</div>
 			) }
+			<TaskPreviewCard
+				task={ task }
+				visible={ previewVisible }
+				mouseX={ mousePos.x }
+				mouseY={ mousePos.y }
+			/>
 		</div>
 	);
 }

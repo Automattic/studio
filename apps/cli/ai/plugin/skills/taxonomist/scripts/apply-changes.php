@@ -57,11 +57,6 @@ foreach ( $all_cats as $t ) {
 	$slug_to_name[ $t->slug ] = $t->name;
 }
 
-$name_to_slug = array();
-foreach ( $all_cats as $t ) {
-	$name_to_slug[ strtolower( $t->name ) ] = $t->slug;
-}
-
 $remove_slugs = array_filter( array_map( 'trim', explode( ',', $remove_cats_str ) ) );
 $remove_ids   = array();
 foreach ( $remove_slugs as $slug ) {

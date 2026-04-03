@@ -1690,3 +1690,12 @@ export async function openSettingsWindow(
 		process.env.NODE_ENV !== 'production' ? process.env[ 'ELECTRON_RENDERER_URL' ] : undefined;
 	open( preloadPath, rendererUrl, tab );
 }
+
+export async function captureScreenRegion(
+	_event: IpcMainInvokeEvent,
+	rect: { x: number; y: number; width: number; height: number }
+): Promise< string > {
+	const window = await getMainWindow();
+	const image = await window.webContents.capturePage( rect );
+	return image.toPNG().toString( 'base64' );
+}

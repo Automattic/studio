@@ -9,6 +9,7 @@ import { moreVertical } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren, useCallback, useEffect, useState } from 'react';
 import StudioButton from 'src/components/button';
+import { ContentTabImportExport } from 'src/components/content-tab-import-export';
 import { CopyTextButton } from 'src/components/copy-text-button';
 import { LearnHowLink } from 'src/components/learn-more';
 import { SettingsMenuItem } from 'src/components/settings-site-menu';
@@ -259,6 +260,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 					{ __( 'Manage instructions' ) }
 				</StudioButton>
 			</div>
+			<ContentTabImportExport selectedSite={ selectedSite } />
 		</div>
 	);
 }

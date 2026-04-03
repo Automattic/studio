@@ -1,10 +1,13 @@
-import { useState, useRef, useCallback, useMemo } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { resizeImageIfNeeded } from 'src/lib/resize-image';
 import { useAppDispatch, useRootSelector } from 'src/stores';
-import { appendTaskMessage, setTaskStreaming } from 'src/stores/tasks-slice';
+import { appendTaskMessage, enqueueMessage, setTaskStreaming } from 'src/stores/tasks-slice';
+import type { UseAreaScreenshotReturn } from 'src/hooks/use-area-screenshot';
 import type { UseElementSelectorReturn } from 'src/hooks/use-element-selector';
 import type { ElementAttachment, ImageAttachment, TaskMessage } from 'src/modules/ai/types';
+import type { QueuedMessage } from 'src/stores/tasks-slice';
 
 const ACCEPTED_IMAGE_TYPES = [ 'image/png', 'image/jpeg', 'image/webp', 'image/gif' ];
 const MAX_IMAGES = 5;
@@ -13,9 +16,19 @@ interface TaskChatInputProps {
 	taskId: string;
 	isStreaming: boolean;
 	elementSelector?: UseElementSelectorReturn;
+	areaScreenshot?: UseAreaScreenshotReturn;
+	restoredMessage?: QueuedMessage | null;
+	onRestoredConsumed?: () => void;
 }
 
-export function TaskChatInput( { taskId, isStreaming, elementSelector }: TaskChatInputProps ) {
+export function TaskChatInput( {
+	taskId,
+	isStreaming,
+	elementSelector,
+	areaScreenshot,
+	restoredMessage,
+	onRestoredConsumed,
+}: TaskChatInputProps ) {
 	const [ value, setValue ] = useState( '' );
 	const [ images, setImages ] = useState< ImageAttachment[] >( [] );
 	const [ imagePreviews, setImagePreviews ] = useState< string[] >( [] );
@@ -34,14 +47,20 @@ export function TaskChatInput( { taskId, isStreaming, elementSelector }: TaskCha
 
 			for ( const file of toAdd ) {
 				const reader = new FileReader();
-				reader.onload = () => {
+				reader.onload = async () => {
 					const dataUrl = reader.result as string;
-					// Extract base64 data after the data URI prefix
 					const base64 = dataUrl.split( ',' )[ 1 ];
-					const attachment: ImageAttachment = { data: base64, mediaType: file.type };
+
+					// Resize if the image exceeds the API size limit
+					const resized = await resizeImageIfNeeded( base64, file.type );
+					const attachment: ImageAttachment = {
+						data: resized.data,
+						mediaType: resized.mediaType,
+					};
+					const previewUrl = `data:${ resized.mediaType };base64,${ resized.data }`;
 
 					setImages( ( prev ) => [ ...prev, attachment ] );
-					setImagePreviews( ( prev ) => [ ...prev, dataUrl ] );
+					setImagePreviews( ( prev ) => [ ...prev, previewUrl ] );
 				};
 				reader.readAsDataURL( file );
 			}
@@ -54,15 +73,68 @@ export function TaskChatInput( { taskId, isStreaming, elementSelector }: TaskCha
 		setImagePreviews( ( prev ) => prev.filter( ( _, i ) => i !== index ) );
 	}, [] );
 
+	// Auto-import screenshot from browser capture into image attachments
+	useEffect( () => {
+		if ( ! areaScreenshot?.screenshot ) {
+			return;
+		}
+		const { data, rect } = areaScreenshot.screenshot;
+		if ( ! data || ( rect.width < 10 && rect.height < 10 ) ) {
+			return;
+		}
+		if ( images.length >= MAX_IMAGES ) {
+			areaScreenshot.clearScreenshot();
+			return;
+		}
+		const attachment: ImageAttachment = { data, mediaType: 'image/png' };
+		const previewUrl = `data:image/png;base64,${ data }`;
+		setImages( ( prev ) => [ ...prev, attachment ] );
+		setImagePreviews( ( prev ) => [ ...prev, previewUrl ] );
+		areaScreenshot.clearScreenshot();
+		textareaRef.current?.focus();
+	}, [ areaScreenshot?.screenshot, areaScreenshot, images.length ] );
+
 	const selectedElements = useMemo(
 		() => elementSelector?.selectedElements ?? [],
 		[ elementSelector?.selectedElements ]
 	);
 
+	// Restore a queued message into the input when clicked
+	useEffect( () => {
+		if ( ! restoredMessage ) {
+			return;
+		}
+		setValue( restoredMessage.text );
+		if ( restoredMessage.images?.length ) {
+			setImages( restoredMessage.images );
+			setImagePreviews(
+				restoredMessage.images.map( ( img ) => `data:${ img.mediaType };base64,${ img.data }` )
+			);
+		}
+		onRestoredConsumed?.();
+		textareaRef.current?.focus();
+	}, [ restoredMessage, onRestoredConsumed ] );
+
 	const handleSend = useCallback( () => {
 		const trimmed = value.trim();
 		const hasAttachments = images.length > 0 || selectedElements.length > 0;
-		if ( ( ! trimmed && ! hasAttachments ) || isStreaming ) {
+		if ( ! trimmed && ! hasAttachments ) {
+			return;
+		}
+
+		// Queue the message if the agent is busy
+		if ( isStreaming ) {
+			const queued: QueuedMessage = {
+				id: `queued-${ Date.now() }-${ Math.random().toString( 36 ).slice( 2, 8 ) }`,
+				text: trimmed,
+				...( images.length > 0 && { images: [ ...images ] } ),
+				...( selectedElements.length > 0 && { elements: [ ...selectedElements ] } ),
+			};
+			dispatch( enqueueMessage( { taskId, message: queued } ) );
+			setValue( '' );
+			setImages( [] );
+			setImagePreviews( [] );
+			elementSelector?.clearElements();
 			return;
 		}
 
@@ -100,10 +172,13 @@ export function TaskChatInput( { taskId, isStreaming, elementSelector }: TaskCha
 		// Send to the agent via IPC
 		const isFirstMessage = messages.length === 0;
 		if ( isFirstMessage ) {
-			// Auto-generate task title from first message
-			const title = trimmed.length > 50 ? trimmed.slice( 0, 47 ) + '...' : trimmed;
-			if ( title ) {
-				void getIpcApi().updateTask( taskId, { title } );
+			// Set a temporary title immediately, then generate an AI title in the background
+			const tempTitle = trimmed.length > 50 ? trimmed.slice( 0, 47 ) + '...' : trimmed;
+			if ( tempTitle ) {
+				void getIpcApi().updateTask( taskId, { title: tempTitle } );
+			}
+			if ( trimmed ) {
+				void getIpcApi().generateTaskTitle( taskId, trimmed );
 			}
 
 			// First message — start a new agent session
@@ -163,7 +238,7 @@ export function TaskChatInput( { taskId, isStreaming, elementSelector }: TaskCha
 	const hasContent = value.trim() || images.length > 0 || selectedElements.length > 0;
 
 	return (
-		<div className="p-4">
+		<div className="px-4 pt-1 pb-4">
 			<input
 				ref={ fileInputRef }
 				type="file"
@@ -230,14 +305,12 @@ export function TaskChatInput( { taskId, isStreaming, elementSelector }: TaskCha
 					onChange={ ( e ) => setValue( e.target.value ) }
 					onKeyDown={ handleKeyDown }
 					onPaste={ handlePaste }
-					placeholder="Ask the agent..."
-					disabled={ isStreaming }
+					placeholder={ isStreaming ? 'Queue a follow-up message...' : 'Ask the agent...' }
 					rows={ 1 }
 					className={ cx(
 						'w-full resize-none bg-transparent px-4 pt-3 pb-1',
 						'text-sm text-frame-text placeholder:text-frame-text-tertiary',
 						'focus:outline-none',
-						'disabled:opacity-50',
 						'max-h-32'
 					) }
 					style={ { fieldSizing: 'content' } as React.CSSProperties }
@@ -248,7 +321,7 @@ export function TaskChatInput( { taskId, isStreaming, elementSelector }: TaskCha
 					<div className="flex items-center">
 						<button
 							onClick={ () => fileInputRef.current?.click() }
-							disabled={ isStreaming || images.length >= MAX_IMAGES }
+							disabled={ images.length >= MAX_IMAGES }
 							title="Attach images"
 							className={ cx(
 								'w-7 h-7 flex items-center justify-center rounded-md transition-colors',
@@ -273,10 +346,10 @@ export function TaskChatInput( { taskId, isStreaming, elementSelector }: TaskCha
 
 					<button
 						onClick={ handleSend }
-						disabled={ ! hasContent || isStreaming }
+						disabled={ ! hasContent }
 						className={ cx(
 							'w-8 h-8 flex items-center justify-center rounded-full transition-colors',
-							hasContent && ! isStreaming
+							hasContent
 								? 'bg-frame-theme text-white'
 								: 'bg-frame-surface-alt text-frame-text-tertiary',
 							'disabled:cursor-not-allowed'

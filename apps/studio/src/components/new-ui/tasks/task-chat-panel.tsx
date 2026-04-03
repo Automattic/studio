@@ -1,18 +1,28 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { useRootSelector } from 'src/stores';
+import { TaskActivityIndicator } from './task-activity-indicator';
 import { TaskChatInput } from './task-chat-input';
 import { TaskMessageList } from './task-message-list';
 import { TaskPermissionPrompt } from './task-permission-prompt';
+import { TaskQueuedMessages } from './task-queued-messages';
+import type { UseAreaScreenshotReturn } from 'src/hooks/use-area-screenshot';
 import type { UseElementSelectorReturn } from 'src/hooks/use-element-selector';
+import type { QueuedMessage } from 'src/stores/tasks-slice';
 
 interface TaskChatPanelProps {
 	taskId: string;
 	toolbar?: React.ReactNode;
 	elementSelector?: UseElementSelectorReturn;
+	areaScreenshot?: UseAreaScreenshotReturn;
 }
 
-export function TaskChatPanel( { taskId, toolbar, elementSelector }: TaskChatPanelProps ) {
+export function TaskChatPanel( {
+	taskId,
+	toolbar,
+	elementSelector,
+	areaScreenshot,
+}: TaskChatPanelProps ) {
 	const task = useRootSelector( ( state ) => state.tasks.tasks.find( ( t ) => t.id === taskId ) );
 	const messages = useRootSelector( ( state ) => state.tasks.messagesByTask[ taskId ] ?? [] );
 	const isStreaming = useRootSelector(
@@ -24,6 +34,8 @@ export function TaskChatPanel( { taskId, toolbar, elementSelector }: TaskChatPan
 	const { sites } = useSiteDetails();
 	const site = sites.find( ( s ) => s.id === task?.siteId );
 	const scrollRef = useRef< HTMLDivElement >( null );
+	const [ restoredMessage, setRestoredMessage ] = useState< QueuedMessage | null >( null );
+	const clearRestoredMessage = useCallback( () => setRestoredMessage( null ), [] );
 
 	// Auto-scroll to bottom when new messages arrive
 	useEffect( () => {
@@ -59,10 +71,19 @@ export function TaskChatPanel( { taskId, toolbar, elementSelector }: TaskChatPan
 					<div className="pointer-events-auto">
 						{ /* Permission prompt — shown above input when agent needs approval */ }
 						{ hasPendingPermissions && <TaskPermissionPrompt taskId={ taskId } /> }
+						<TaskActivityIndicator
+							taskId={ taskId }
+							messages={ messages }
+							isStreaming={ isStreaming }
+						/>
+						<TaskQueuedMessages taskId={ taskId } onRestore={ setRestoredMessage } />
 						<TaskChatInput
 							taskId={ taskId }
 							isStreaming={ isStreaming }
 							elementSelector={ elementSelector }
+							areaScreenshot={ areaScreenshot }
+							restoredMessage={ restoredMessage }
+							onRestoredConsumed={ clearRestoredMessage }
 						/>
 					</div>
 				</div>

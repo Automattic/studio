@@ -659,15 +659,15 @@ div:has( > progress ) > div:first-child {
 .task-chat-footer::before {
 	content: '';
 	position: absolute;
-	top: -40px;
+	top: -24px;
 	left: 0;
 	right: 0;
 	bottom: 0;
 	z-index: -1;
 	backdrop-filter: blur(8px);
 	-webkit-backdrop-filter: blur(8px);
-	mask-image: linear-gradient(to bottom, transparent, black 40px);
-	-webkit-mask-image: linear-gradient(to bottom, transparent, black 40px);
+	mask-image: linear-gradient(to bottom, transparent, black 24px);
+	-webkit-mask-image: linear-gradient(to bottom, transparent, black 24px);
 	pointer-events: none;
 }
 

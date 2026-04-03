@@ -10,15 +10,7 @@ interface BrowserTabBarProps {
 }
 
 function tabLabel( tab: BrowserTab ): string {
-	if ( tab.title ) {
-		return tab.title;
-	}
-	try {
-		const url = new URL( tab.displayUrl );
-		return url.pathname === '/' ? url.host : url.pathname;
-	} catch {
-		return tab.displayUrl || 'New Tab';
-	}
+	return tab.displayUrl || 'New Tab';
 }
 
 export function BrowserTabBar( {
@@ -37,7 +29,7 @@ export function BrowserTabBar( {
 					<button
 						key={ tab.id }
 						onClick={ () => onSelectTab( tab.id ) }
-						className={ `group flex items-center gap-1.5 px-2.5 h-6 text-[11px] min-w-0 max-w-[180px] rounded transition-colors cursor-default select-none app-no-drag-region ${
+						className={ `group flex items-center gap-1.5 px-2.5 h-7 text-[11px] min-w-0 max-w-[180px] rounded transition-colors cursor-default select-none app-no-drag-region ${
 							isActive
 								? 'text-white bg-white/10'
 								: 'text-[#a7aaad] hover:text-white/80 hover:bg-white/5'
@@ -76,7 +68,7 @@ export function BrowserTabBar( {
 			{ canAddTab && (
 				<button
 					onClick={ onNewTab }
-					className="flex-shrink-0 flex items-center justify-center w-6 h-6 text-[#a7aaad] hover:text-white/80 rounded hover:bg-white/5 transition-colors app-no-drag-region"
+					className="flex-shrink-0 ml-1 flex items-center justify-center w-6 h-7 text-[#a7aaad] hover:text-white/80 rounded hover:bg-white/5 transition-colors app-no-drag-region"
 					aria-label="New tab"
 				>
 					<svg width="12" height="12" viewBox="0 0 12 12" className="block">

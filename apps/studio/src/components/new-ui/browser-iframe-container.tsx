@@ -10,6 +10,7 @@ interface BrowserIframeProps {
 	setIframeRef: ( tabId: string, el: HTMLIFrameElement | null ) => void;
 	onLoad: ( tabId: string ) => void;
 	onBeforeUnload: ( tabId: string ) => void;
+	onUrlChange: ( tabId: string, url: string ) => void;
 }
 
 function BrowserIframe( {
@@ -20,8 +21,30 @@ function BrowserIframe( {
 	setIframeRef,
 	onLoad,
 	onBeforeUnload,
+	onUrlChange,
 }: BrowserIframeProps ) {
 	const localRef = useRef< HTMLIFrameElement | null >( null );
+	const lastUrlRef = useRef< string >( '' );
+
+	// Poll for URL changes to catch SPA navigation (pushState/replaceState)
+	useEffect( () => {
+		const interval = setInterval( () => {
+			const iframe = localRef.current;
+			if ( ! iframe ) {
+				return;
+			}
+			try {
+				const currentUrl = iframe.contentWindow?.location.href;
+				if ( currentUrl && currentUrl !== lastUrlRef.current ) {
+					lastUrlRef.current = currentUrl;
+					onUrlChange( tab.id, currentUrl );
+				}
+			} catch {
+				// Cross-origin restriction
+			}
+		}, 500 );
+		return () => clearInterval( interval );
+	}, [ tab.id, onUrlChange ] );
 
 	// Manage beforeunload listener for this iframe
 	useEffect( () => {
@@ -86,6 +109,7 @@ interface BrowserIframeContainerProps {
 	setIframeRef: ( tabId: string, el: HTMLIFrameElement | null ) => void;
 	onLoad: ( tabId: string ) => void;
 	onBeforeUnload: ( tabId: string ) => void;
+	onUrlChange: ( tabId: string, url: string ) => void;
 }
 
 export function BrowserIframeContainer( {
@@ -96,6 +120,7 @@ export function BrowserIframeContainer( {
 	setIframeRef,
 	onLoad,
 	onBeforeUnload,
+	onUrlChange,
 }: BrowserIframeContainerProps ) {
 	return (
 		<div className="flex-1 overflow-hidden relative">
@@ -109,6 +134,7 @@ export function BrowserIframeContainer( {
 					setIframeRef={ setIframeRef }
 					onLoad={ onLoad }
 					onBeforeUnload={ onBeforeUnload }
+					onUrlChange={ onUrlChange }
 				/>
 			) ) }
 		</div>

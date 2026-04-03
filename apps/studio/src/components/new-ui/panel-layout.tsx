@@ -293,6 +293,7 @@ export function PanelLayout( {
 									taskId={ selectedTaskId }
 									toolbar={ primaryToolbar }
 									elementSelector={ elementSelector }
+									areaScreenshot={ areaScreenshot }
 								/>
 							) : (
 								<SiteContentTabs />
@@ -345,6 +346,16 @@ export function PanelLayout( {
 										className="app-no-drag-region text-[#a7aaad] hover:text-white"
 										onClick={ browser.handleReload }
 									/>
+								</div>
+								<BrowserTabBar
+									tabs={ browser.tabs }
+									activeTabId={ browser.activeTabId }
+									onSelectTab={ browser.selectTab }
+									onCloseTab={ browser.closeTab }
+									onNewTab={ browser.addTab }
+									canAddTab={ browser.canAddTab }
+								/>
+								<div className="flex items-center app-no-drag-region flex-shrink-0">
 									<Button
 										icon={ sidesAxial }
 										label="Select element"
@@ -378,14 +389,6 @@ export function PanelLayout( {
 										}
 									/>
 								</div>
-								<BrowserTabBar
-									tabs={ browser.tabs }
-									activeTabId={ browser.activeTabId }
-									onSelectTab={ browser.selectTab }
-									onCloseTab={ browser.closeTab }
-									onNewTab={ browser.addTab }
-									canAddTab={ browser.canAddTab }
-								/>
 							</div>
 							<div className="relative flex-1 flex flex-col">
 								<BrowserIframeContainer
@@ -396,6 +399,7 @@ export function PanelLayout( {
 									setIframeRef={ browser.setIframeRef }
 									onLoad={ browser.handleIframeLoad }
 									onBeforeUnload={ browser.handleBeforeUnload }
+									onUrlChange={ browser.handleUrlChange }
 								/>
 								<BrowserCaptureOverlay areaScreenshot={ areaScreenshot } />
 								{ ! isTaskChat && selectedSite && (

@@ -118,6 +118,14 @@ export function useBrowserPanel() {
 		[ updateTab ]
 	);
 
+	// Handle URL change detected by polling (SPA navigation)
+	const handleUrlChange = useCallback(
+		( tabId: string, url: string ) => {
+			updateTab( tabId, { displayUrl: url } );
+		},
+		[ updateTab ]
+	);
+
 	// Handle beforeunload for a specific tab (link click detected)
 	const handleBeforeUnload = useCallback(
 		( tabId: string ) => {
@@ -322,6 +330,7 @@ export function useBrowserPanel() {
 		setIframeRef,
 		handleIframeLoad,
 		handleBeforeUnload,
+		handleUrlChange,
 		autoLoginSrc,
 		getActiveIframe,
 

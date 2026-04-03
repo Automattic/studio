@@ -5,6 +5,7 @@ import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { z } from 'zod/v4';
 import { validateBlocks, type ValidationReport } from 'cli/ai/block-validator';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
+import { auditPerformance } from 'cli/ai/performance-audit';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
 import {
 	Mode as PreviewDeleteMode,
@@ -720,6 +721,46 @@ const installTaxonomyScriptsTool = tool(
 	}
 );
 
+const auditPerformanceTool = tool(
+	'audit_performance',
+	'Measures frontend performance metrics for a WordPress site page. Returns Core Web Vitals ' +
+		'(TTFB, FCP, LCP, CLS), page weight, DOM size, request count, and a breakdown of JS, CSS, ' +
+		'image, and font assets. The site must be running. Use this to identify performance issues.',
+	{
+		nameOrPath: z
+			.string()
+			.describe( 'The site name or file system path — the site must be running' ),
+		path: z
+			.string()
+			.optional()
+			.describe( 'URL path to audit (e.g., "/", "/about", "/wp-admin/"). Defaults to "/".' ),
+	},
+	async ( args ) => {
+		try {
+			const site = await resolveSite( args.nameOrPath );
+			const siteUrl = getSiteUrl( site );
+			const urlPath = args.path ?? '/';
+
+			emitProgress( `Auditing performance of ${ siteUrl }${ urlPath }…` );
+
+			const result = await auditPerformance( siteUrl, urlPath );
+
+			if ( result.error ) {
+				emitProgress( `Audit failed: ${ result.error.slice( 0, 80 ) }` );
+				return errorResult( `Performance audit failed: ${ result.error }` );
+			}
+
+			emitProgress( `Audit complete for ${ urlPath }` );
+
+			return textResult( JSON.stringify( result, null, 2 ) );
+		} catch ( error ) {
+			return errorResult(
+				`Performance audit failed: ${ error instanceof Error ? error.message : String( error ) }`
+			);
+		}
+	}
+);
+
 export const studioToolDefinitions = [
 	createSiteTool,
 	listSitesTool,
@@ -735,6 +776,7 @@ export const studioToolDefinitions = [
 	validateBlocksTool,
 	takeScreenshotTool,
 	installTaxonomyScriptsTool,
+	auditPerformanceTool,
 ];
 
 export function createStudioTools() {

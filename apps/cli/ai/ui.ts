@@ -1432,18 +1432,25 @@ export class AiChatUI {
 		const lines = [
 			' ' +
 				chalk.blue( '⏺' ) +
-				__( " Hello, I'm " ) +
-				b( __( 'WordPress Studio' ) ) +
-				__( ', your local WordPress agent and builder.' ),
+				' ' +
+				sprintf(
+					/* translators: %s: product name (WordPress Studio) */
+					__( "Hello, I'm %s, your local WordPress agent and builder." ),
+					b( 'WordPress Studio' )
+				),
 			'',
 			' ' +
-				__( 'To get started, run ' ) +
-				b( '/login' ) +
-				__( ' to connect your WordPress.com account.' ),
+				sprintf(
+					/* translators: %s: slash command (/login) */
+					__( 'To get started, run %s to connect your WordPress.com account.' ),
+					b( '/login' )
+				),
 			' ' +
-				__( 'If you want to use your own Anthropic API key you can run ' ) +
-				b( '/api-key' ) +
-				__( '.' ),
+				sprintf(
+					/* translators: %s: slash command (/api-key) */
+					__( 'If you want to use your own Anthropic API key you can run %s.' ),
+					b( '/api-key' )
+				),
 		];
 
 		this.messages.addChild( new Text( '\n' + lines.join( '\n' ) + '\n', 0, 0 ) );
@@ -1458,56 +1465,103 @@ export class AiChatUI {
 		const lines = [
 			' ' +
 				chalk.blue( '⏺' ) +
-				__( " Great, you're connected now! Let me tell you what I can do:" ),
+				' ' +
+				__( "Great, you're connected now! Let me tell you what I can do:" ),
 			'',
 			'  ' + b( __( 'Site Management' ) ),
 			'',
 			'  - ' +
-				b( __( 'Create' ) ) +
-				__( ' new WordPress sites instantly (fully configured, ready to use)' ),
-			'  - ' + b( __( 'Start / stop' ) ) + __( ' existing sites' ),
-			'  - ' + b( __( 'List' ) ) + __( ' all your local sites and their status' ),
+				sprintf(
+					/* translators: %s: bold "Create" */
+					__( '%s new WordPress sites instantly (fully configured, ready to use)' ),
+					b( __( 'Create' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "Start / stop" */
+					__( '%s existing sites' ),
+					b( __( 'Start / stop' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "List" */
+					__( '%s all your local sites and their status' ),
+					b( __( 'List' ) )
+				),
 			'',
 			'  ' + b( __( 'Design & Development' ) ),
 			'',
-			'  - ' + b( __( 'Build' ) ) + __( ' block themes with striking, memorable designs' ),
 			'  - ' +
-				__( 'Write custom ' ) +
-				b( __( 'CSS, PHP, and JavaScript' ) ) +
-				__( ' for themes and plugins' ),
+				sprintf(
+					/* translators: %s: bold "Build" */
+					__( '%s block themes with striking, memorable designs' ),
+					b( __( 'Build' ) )
+				),
 			'  - ' +
-				__( 'Create ' ) +
-				b( __( 'pages and posts' ) ) +
-				__( ' with valid Gutenberg block content' ),
-			'  - ' + __( 'Install and activate ' ) + b( __( 'plugins' ) ) + __( ' via WP-CLI' ),
+				sprintf(
+					/* translators: %s: bold "CSS, PHP, and JavaScript" */
+					__( 'Write custom %s for themes and plugins' ),
+					b( __( 'CSS, PHP, and JavaScript' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "pages and posts" */
+					__( 'Create %s with valid Gutenberg block content' ),
+					b( __( 'pages and posts' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "plugins" */
+					__( 'Install and activate %s via WP-CLI' ),
+					b( __( 'plugins' ) )
+				),
 			'',
 			'  ' + b( __( 'Content' ) ),
 			'',
 			'  - ' +
-				__( 'Generate and import ' ) +
-				b( __( 'page content' ) ) +
-				__( ' using core blocks' ),
+				sprintf(
+					/* translators: %s: bold "page content" */
+					__( 'Generate and import %s using core blocks' ),
+					b( __( 'page content' ) )
+				),
 			'  - ' +
-				__( 'Set up ' ) +
-				b( __( 'navigation menus, site options, post types, taxonomies, and settings' ) ),
+				sprintf(
+					/* translators: %s: bold "navigation menus, site options, post types, taxonomies, and settings" */
+					__( 'Set up %s' ),
+					b( __( 'navigation menus, site options, post types, taxonomies, and settings' ) )
+				),
 			'  - ' + __( "Create realistic placeholder content tailored to your site's purpose" ),
 			'  - ' +
-				__( 'Upload ' ) +
-				b( __( 'images and videos' ) ) +
-				__( ' to your site, using local media files or remote URLs' ),
+				sprintf(
+					/* translators: %s: bold "images and videos" */
+					__( 'Upload %s to your site, using local media files or remote URLs' ),
+					b( __( 'images and videos' ) )
+				),
 			'',
 			'  ' + b( __( 'Preview & Publishing' ) ),
 			'',
 			'  - ' +
-				__( 'Take ' ) +
-				b( __( 'screenshots' ) ) +
-				__( ' (desktop + mobile) to verify the design is well crafted' ),
-			'  - ' + b( __( 'Validate' ) ) + __( " all block content to ensure it's editor-compatible" ),
-			'  - ' + b( __( 'Push' ) ) + __( ' your local site to the cloud in WordPress.com' ),
+				sprintf(
+					/* translators: %s: bold "screenshots" */
+					__( 'Take %s (desktop + mobile) to verify the design is well crafted' ),
+					b( __( 'screenshots' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "Validate" */
+					__( "%s all block content to ensure it's editor-compatible" ),
+					b( __( 'Validate' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "Push" */
+					__( '%s your local site to the cloud in WordPress.com' ),
+					b( __( 'Push' ) )
+				),
 			'',
 			separator,
 			'',
-			__( '  Just tell me what you want to build — for example:' ),
+			'  ' + __( 'Just tell me what you want to build — for example:' ),
 			'',
 			'  ' + d( chalk.italic( __( '"Create a portfolio site for a photographer"' ) ) ),
 			'  ' + d( chalk.italic( __( '"Build a landing page for a SaaS product"' ) ) ),
@@ -1515,10 +1569,8 @@ export class AiChatUI {
 			'',
 			'  ' +
 				__(
-					"I'll ask a few quick questions about the name and layout, then build the whole thing for"
+					"I'll ask a few quick questions about the name and layout, then build the whole thing for you. The more precise you are about what you want, the better the result will be."
 				),
-			'  ' +
-				__( 'you. The more precise you are about what you want, the better the result will be.' ),
 		];
 		this.messages.addChild( new Text( '\n' + lines.join( '\n' ) + '\n', 0, 0 ) );
 		this.tui.requestRender();

@@ -105,6 +105,78 @@ The agent runs in a forked CLI subprocess. Browser control messages flow through
 - `apps/studio/src/hooks/use-browser-panel.ts` — Listens for custom events and controls the active tab's iframe.
 - `tools/common/ai/system-prompt.ts` — Agent system prompt listing available tools.
 
+## Element Selection for AI Context
+
+Users can select elements from the browser preview to provide as structured context when chatting with the AI agent. This bridges the gap between "I want to change this thing" and the agent knowing exactly which element, styles, and block to target.
+
+### How It Works
+
+A WordPress mu-plugin (`0-element-selector-bridge.php`) injects a lightweight JavaScript bridge into every page via `wp_footer` and `admin_footer`. The script is dormant until activated — zero overhead on normal browsing.
+
+Communication between the Electron renderer and the iframe uses `postMessage`, which works cross-origin by design (unlike direct DOM access via `contentDocument`/`contentWindow.location`, which is blocked).
+
+### User Flow
+
+1. User clicks the **Select Element** button (`sidesAxial` icon) in the browser toolbar — always visible, not just during active tasks.
+2. The renderer posts `studio:select-element:activate` to the active tab's iframe. Any previous selection highlight is cleared.
+3. Inside the iframe, hovering highlights elements with a blue overlay. Smart targeting resolves clicks on inline text to their parent semantic element (button, link, etc.).
+4. User clicks an element → the bridge applies a persistent `outline` highlight directly on the element, extracts metadata, and posts `studio:select-element:selected` back to the parent.
+5. Only one element can be selected at a time. Selecting a new element replaces the previous one — its highlight is cleared and the new one takes its place.
+6. **With an active task** — the element appears as a chip in the task chat input.
+7. **Without an active task** — a glassmorphic floating chat input appears near the selected element in the browser panel. Sending from it creates a new task and starts the agent with the element context.
+8. Pressing **Escape** clears the selection highlight and exits selection mode (handled in both the iframe and the parent frame).
+9. The selection highlight persists until the user sends the message, selects a different element, presses Escape, or dismisses the chip.
+
+### Element Data Captured
+
+| Field | Description |
+|-------|-------------|
+| `cssSelector` | Unique selector path using id, classes, and nth-of-type |
+| `tagName` | HTML tag name (lowercase) |
+| `outerHTML` | Element markup, truncated to 2000 chars |
+| `textContent` | Text content, truncated to 500 chars |
+| `computedStyles` | Key CSS properties: color, background, font, padding, margin, border, display, position, dimensions |
+| `boundingBox` | Position and size from `getBoundingClientRect()` |
+| `domPath` | Ancestor chain, e.g. `["body", "div.site", "main", "section.hero", "h1"]` |
+| `wpBlockName` | WordPress block name from `data-type` attribute or `wp-block-*` class pattern |
+
+### Data Flow
+
+```
+mu-plugin JS (iframe)
+  → window.parent.postMessage({ type: 'studio:select-element:selected', element })
+  → useElementSelector hook (renderer) stores single element (replaces any previous)
+  → Chat input or floating input displays chip
+  → On send: element threaded through IPC (same path as images)
+  → headless.ts serializes as <element-context> text block prepended to the prompt
+  → Agent receives structured element data alongside the user's message
+```
+
+### Selection Highlight
+
+The selected element keeps a visible `outline` directly applied to the DOM element (not a separate overlay div). This is more reliable than positioned overlays — outlines aren't clipped by `overflow: hidden` on ancestors and don't require z-index management.
+
+Highlights are cleared via `studio:select-element:clear` postMessage in these cases:
+- Entering selection mode (to replace any stale highlight)
+- Selecting a new element (clear previous before applying new)
+- Pressing Escape during selection
+- Dismissing the element chip or sending the message
+
+### Floating Input
+
+When an element is selected without an active task, a compact floating input appears positioned near the selected element (below it, or above if insufficient space). It uses glassmorphism (`backdrop-blur-xl` with semi-transparent background) to stay readable over any page content. The input auto-focuses and supports Enter to send, Escape to dismiss. Sending creates a new task and starts the agent.
+
+### Key Files
+
+- `tools/common/lib/mu-plugins.ts` — `0-element-selector-bridge.php` mu-plugin with the in-iframe JS bridge (hover overlay, click handler, element data extraction, postMessage communication).
+- `apps/studio/src/hooks/use-element-selector.ts` — Hook managing selection state, postMessage listener, and selected elements collection.
+- `apps/studio/src/hooks/use-browser-panel.ts` — Exposes `getActiveIframe()` for the element selector to post messages to the active tab.
+- `apps/studio/src/components/new-ui/browser-floating-input.tsx` — Floating chat input that appears in the browser panel when elements are selected without an active task. Creates a new task on send.
+- `apps/studio/src/components/new-ui/panel-layout.tsx` — Select Element button in the browser toolbar.
+- `apps/studio/src/modules/ai/types.ts` — `ElementAttachment` interface.
+- `apps/cli/commands/ai/headless.ts` — `serializeElementContext()` and updated `buildContentBlocks()` for threading element data into agent prompts.
+- `tools/common/ai/system-prompt.ts` — Documents element context usage for the agent.
+
 ## Design Decisions
 
 - **iframe over webview/BrowserView** — Simpler integration, works within the existing React panel layout, and localhost sites don't have the security concerns that would warrant a separate process.
@@ -115,3 +187,8 @@ The agent runs in a forked CLI subprocess. Browser control messages flow through
 - **Auto-login on every load** — The iframe `src` always goes through `/studio-auto-login` to ensure the session stays authenticated, even after reload.
 - **No fake progress bar** — The loading indicator is an honest indeterminate bar (bouncing animation) since iframes don't expose real loading progress.
 - **Tabs reset on site switch** — When the user selects a different site or task, all tabs are replaced with a single fresh tab. Preserving tabs across site switches would be confusing since each site has its own localhost URL.
+- **postMessage for element selection** — The iframe's cross-origin restrictions block direct DOM access, but `postMessage` works across origins by design. A mu-plugin injects the bridge script into every WordPress page, keeping the iframe architecture intact while enabling rich element inspection. This avoids a costly migration to `<webview>` or BrowserView.
+- **Element selector always available** — The select element button is visible in the browser toolbar regardless of whether a task is active. When no task exists, a floating input in the browser panel creates one on send. This keeps the interaction discoverable and reduces friction — users don't need to start a task first just to point at something.
+- **One element at a time** — Multi-select was removed after testing. Sending multiple elements created confusing context for the agent — it wasn't clear which element the user's message referred to. Single selection keeps the interaction simple and the agent's response focused.
+- **Outline over overlay divs for selection highlight** — The persistent selection highlight uses `el.style.outline` directly on the element rather than a positioned overlay div. Outlines are immune to `overflow: hidden` clipping, don't require scroll-position calculations, and don't need z-index management.
+- **Glassmorphic floating input** — The browser panel floating input uses `backdrop-blur-xl` with a semi-transparent background so it stays readable regardless of the page content behind it. Positioned near the selected element to keep the spatial connection obvious.

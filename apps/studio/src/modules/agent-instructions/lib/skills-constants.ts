@@ -41,4 +41,9 @@ export const BUNDLED_SKILLS: SkillConfig[] = [
 		displayName: __( 'WP-CLI & Ops' ),
 		description: __( 'CLI commands, automation, and search-replace' ),
 	},
+	{
+		id: 'taxonomist',
+		displayName: __( 'Taxonomist' ),
+		description: __( 'AI-powered category taxonomy optimizer' ),
+	},
 ];

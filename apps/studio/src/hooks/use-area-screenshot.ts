@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { resizeImageIfNeeded } from 'src/lib/resize-image';
 
 export interface SelectionRect {
 	x: number;
@@ -129,8 +130,9 @@ export function useAreaScreenshot(): UseAreaScreenshotReturn {
 			};
 
 			try {
-				const base64 = await getIpcApi().captureScreenRegion( windowRect );
-				setScreenshot( { data: base64, rect: finalRect } );
+				const raw = await getIpcApi().captureScreenRegion( windowRect );
+				const resized = await resizeImageIfNeeded( raw, 'image/png' );
+				setScreenshot( { data: resized.data, rect: finalRect } );
 			} catch {
 				// Capture failed — clear selection
 				setCurrentRect( null );

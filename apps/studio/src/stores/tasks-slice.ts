@@ -2,11 +2,20 @@ import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { LOCAL_STORAGE_TASK_MESSAGES_KEY } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import type {
+	ElementAttachment,
+	ImageAttachment,
 	PermissionRequest,
 	TaskMessage,
 	TaskMetadata,
 	TaskStatus,
 } from 'src/modules/ai/types';
+
+export interface QueuedMessage {
+	id: string;
+	text: string;
+	images?: ImageAttachment[];
+	elements?: ElementAttachment[];
+}
 
 export interface TasksState {
 	tasks: TaskMetadata[];
@@ -14,6 +23,7 @@ export interface TasksState {
 	pendingNewTask: boolean;
 	messagesByTask: Record< string, TaskMessage[] >;
 	streamingByTask: Record< string, boolean >;
+	queuedMessagesByTask: Record< string, QueuedMessage[] >;
 	pendingPermissions: PermissionRequest[];
 	loaded: boolean;
 }
@@ -36,6 +46,7 @@ const initialState: TasksState = {
 	pendingNewTask: false,
 	messagesByTask: typeof window !== 'undefined' ? loadPersistedMessages() : {},
 	streamingByTask: {},
+	queuedMessagesByTask: {},
 	pendingPermissions: [],
 	loaded: false,
 };
@@ -88,6 +99,7 @@ const tasksSlice = createSlice( {
 			state.tasks = state.tasks.filter( ( t ) => t.id !== action.payload );
 			delete state.messagesByTask[ action.payload ];
 			delete state.streamingByTask[ action.payload ];
+			delete state.queuedMessagesByTask[ action.payload ];
 			if ( state.selectedTaskId === action.payload ) {
 				state.selectedTaskId = null;
 			}
@@ -154,6 +166,24 @@ const tasksSlice = createSlice( {
 				task.updatedAt = Date.now();
 			}
 		},
+		enqueueMessage( state, action: PayloadAction< { taskId: string; message: QueuedMessage } > ) {
+			const { taskId, message } = action.payload;
+			if ( ! state.queuedMessagesByTask[ taskId ] ) {
+				state.queuedMessagesByTask[ taskId ] = [];
+			}
+			state.queuedMessagesByTask[ taskId ].push( message );
+		},
+		dequeueMessage( state, action: PayloadAction< { taskId: string; messageId: string } > ) {
+			const { taskId, messageId } = action.payload;
+			if ( state.queuedMessagesByTask[ taskId ] ) {
+				state.queuedMessagesByTask[ taskId ] = state.queuedMessagesByTask[ taskId ].filter(
+					( m ) => m.id !== messageId
+				);
+			}
+		},
+		clearQueuedMessages( state, action: PayloadAction< { taskId: string } > ) {
+			delete state.queuedMessagesByTask[ action.payload.taskId ];
+		},
 	},
 	extraReducers: ( builder ) => {
 		builder.addCase( loadTasks.fulfilled, ( state, action ) => {
@@ -181,6 +211,7 @@ const tasksSlice = createSlice( {
 		builder.addCase( deleteTaskThunk.fulfilled, ( state, action ) => {
 			state.tasks = state.tasks.filter( ( t ) => t.id !== action.payload );
 			delete state.messagesByTask[ action.payload ];
+			delete state.queuedMessagesByTask[ action.payload ];
 			if ( state.selectedTaskId === action.payload ) {
 				state.selectedTaskId = null;
 			}
@@ -191,6 +222,7 @@ const tasksSlice = createSlice( {
 			for ( const id of removedIds ) {
 				delete state.messagesByTask[ id ];
 				delete state.streamingByTask[ id ];
+				delete state.queuedMessagesByTask[ id ];
 			}
 			if ( state.selectedTaskId && removedIds.has( state.selectedTaskId ) ) {
 				state.selectedTaskId = null;
@@ -209,6 +241,9 @@ export const {
 	addPermissionRequest,
 	removePermissionRequest,
 	setTaskStatus,
+	enqueueMessage,
+	dequeueMessage,
+	clearQueuedMessages,
 } = tasksSlice.actions;
 
 export const tasksReducer = tasksSlice.reducer;

@@ -41,6 +41,7 @@ import {
 	setTaskStatus,
 	setTaskStreaming,
 	addPermissionRequest,
+	dequeueMessage,
 } from 'src/stores/tasks-slice';
 import uiReducer from 'src/stores/ui-slice';
 import { getWpcomClient, wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
@@ -410,6 +411,57 @@ if ( typeof window !== 'undefined' && window.ipcListener ) {
 		// Clear streaming when the agent turn completes
 		if ( status === 'waiting' || status === 'done' ) {
 			store.dispatch( setTaskStreaming( { taskId, streaming: false } ) );
+		}
+		// Generate summary after first agent turn completes
+		if ( status === 'waiting' ) {
+			const state = store.getState();
+			const task = state.tasks.tasks.find( ( t ) => t.id === taskId );
+			if ( task && ! task.summary ) {
+				const messages = state.tasks.messagesByTask[ taskId ] ?? [];
+				const firstUserMsg = messages.find( ( m ) => m.role === 'user' );
+				const firstAssistantMsg = messages.find( ( m ) => m.role === 'assistant' );
+				if ( firstUserMsg ) {
+					void getIpcApi().generateTaskSummary( taskId, {
+						title: task.title,
+						firstMessage: firstUserMsg.content,
+						firstResponse: firstAssistantMsg?.content,
+					} );
+				}
+			}
+
+			// Auto-send next queued message
+			const currentState = store.getState();
+			const messages = currentState.tasks.messagesByTask[ taskId ] ?? [];
+			const lastMessage = messages[ messages.length - 1 ];
+			if ( lastMessage?.isError ) {
+				return; // Don't auto-send after errors
+			}
+			const queue = currentState.tasks.queuedMessagesByTask[ taskId ];
+			if ( queue && queue.length > 0 ) {
+				const next = queue[ 0 ];
+				store.dispatch( dequeueMessage( { taskId, messageId: next.id } ) );
+
+				// Build content description for display
+				const parts: string[] = [];
+				if ( next.images?.length ) {
+					parts.push( `${ next.images.length } image${ next.images.length > 1 ? 's' : '' }` );
+				}
+				if ( next.elements?.length ) {
+					parts.push( `${ next.elements.length } element${ next.elements.length > 1 ? 's' : '' }` );
+				}
+
+				const userMessage = {
+					id: `user-${ Date.now() }`,
+					role: 'user' as const,
+					content: next.text || ( parts.length > 0 ? `[Attached ${ parts.join( ' and ' ) }]` : '' ),
+					timestamp: Date.now(),
+					...( next.images?.length && { images: next.images } ),
+					...( next.elements?.length && { elements: next.elements } ),
+				};
+				store.dispatch( appendTaskMessage( { taskId, message: userMessage } ) );
+				store.dispatch( setTaskStreaming( { taskId, streaming: true } ) );
+				void getIpcApi().sendTaskMessageHandler( taskId, next.text, next.images, next.elements );
+			}
 		}
 	} );
 	window.ipcListener.subscribe( 'task-permission-request', ( _, request ) => {

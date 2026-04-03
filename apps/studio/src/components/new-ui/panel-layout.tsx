@@ -3,10 +3,13 @@ import {
 	chevronLeft,
 	chevronRight,
 	cog,
+	crop,
 	drawerLeft,
 	navigation,
 	rotateRight,
+	sidesAxial,
 } from '@wordpress/icons';
+import { useI18n } from '@wordpress/react-i18n';
 import { type RefObject, useEffect, useMemo, useRef } from 'react';
 import {
 	Group,
@@ -16,11 +19,16 @@ import {
 	useDefaultLayout,
 } from 'react-resizable-panels';
 import { SiteContentTabs } from 'src/components/site-content-tabs';
+import { useAreaScreenshot } from 'src/hooks/use-area-screenshot';
 import { useBrowserPanel } from 'src/hooks/use-browser-panel';
+import { useElementSelector } from 'src/hooks/use-element-selector';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { isMac } from 'src/lib/app-globals';
+import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useRootSelector } from 'src/stores';
+import { BrowserCaptureOverlay } from './browser-capture-overlay';
+import { BrowserFloatingInput } from './browser-floating-input';
 import { BrowserIframeContainer } from './browser-iframe-container';
 import { BrowserTabBar } from './browser-tab-bar';
 import { Sidebar } from './sidebar';
@@ -83,6 +91,54 @@ function saveCollapsedState( nav: boolean, secondary: boolean ) {
 	localStorage.setItem( COLLAPSED_KEY, JSON.stringify( { nav, secondary } ) );
 }
 
+function StartStopButton() {
+	const { __ } = useI18n();
+	const { selectedSite, startServer, stopServer, loadingServer } = useSiteDetails();
+	if ( ! selectedSite ) return null;
+
+	const isLoading = loadingServer[ selectedSite.id ];
+	const isRunning = selectedSite.running;
+
+	const handleClick = () => {
+		if ( isLoading ) return;
+		if ( isRunning ) {
+			void stopServer( selectedSite.id );
+		} else {
+			void startServer( selectedSite );
+		}
+	};
+
+	let label: string;
+	if ( isLoading ) {
+		label = isRunning ? __( 'Stopping…' ) : __( 'Starting…' );
+	} else if ( isRunning ) {
+		label = __( 'Stop site' );
+	} else {
+		label = __( 'Start site' );
+	}
+
+	return (
+		<Button
+			label={ label }
+			className={ cx(
+				ICON_FRAME,
+				isRunning && ! isLoading && '!text-frame-running',
+				isLoading && 'animate-pulse'
+			) }
+			onClick={ handleClick }
+			disabled={ isLoading }
+		>
+			{ isRunning ? (
+				<span className="block w-3 h-3 rounded-full bg-current" />
+			) : (
+				<svg width="12" height="14" viewBox="0 0 8 10" fill="none">
+					<path d="M0 0L8 5L0 10V0Z" fill="currentColor" />
+				</svg>
+			) }
+		</Button>
+	);
+}
+
 export function PanelLayout( {
 	navPanelRef,
 	secondaryPanelRef,
@@ -99,6 +155,10 @@ export function PanelLayout( {
 	const isTaskChat = ! pendingNewTask && !! selectedTaskId;
 	const primaryStartInset = isMac() && navCollapsed ? MAC_TRAFFIC_LIGHT_INSET : undefined;
 	const browser = useBrowserPanel();
+	const elementSelector = useElementSelector( {
+		getActiveIframe: browser.getActiveIframe,
+	} );
+	const areaScreenshot = useAreaScreenshot();
 
 	const initialCollapsed = useRef( loadCollapsedState() );
 
@@ -189,33 +249,36 @@ export function PanelLayout( {
 							className="app-drag-region"
 							startInset={ primaryStartInset }
 							start={
-								<Button
-									icon={ drawerLeft }
-									onClick={ onToggleNav }
-									label={ `${ navCollapsed ? 'Show' : 'Hide' } navigation (${
-										isMac() ? '⌘B' : 'Ctrl+B'
-									})` }
-									className={ ICON_FRAME }
-								/>
-							}
-							middle={
-								pendingNewTask ? (
-									<span className="text-xs text-frame-text">New Task</span>
-								) : selectedTask ? (
-									<span className="text-xs text-frame-text">{ selectedTask.title }</span>
-								) : selectedSite ? (
-									<span className="text-xs text-frame-text">{ selectedSite.name }</span>
-								) : undefined
+								<>
+									<Button
+										icon={ drawerLeft }
+										onClick={ onToggleNav }
+										label={ `${ navCollapsed ? 'Show' : 'Hide' } navigation (${
+											isMac() ? '⌘B' : 'Ctrl+B'
+										})` }
+										className={ ICON_FRAME }
+									/>
+									{ pendingNewTask ? (
+										<span className="text-xs text-frame-text truncate">New Task</span>
+									) : selectedTask ? (
+										<span className="text-xs text-frame-text truncate">{ selectedTask.title }</span>
+									) : selectedSite ? (
+										<span className="text-xs text-frame-text truncate">{ selectedSite.name }</span>
+									) : undefined }
+								</>
 							}
 							end={
-								<Button
-									icon={ navigation }
-									onClick={ () => togglePanel( secondaryPanelRef.current ) }
-									label={ `${
-										secondaryPanelRef.current?.isCollapsed() ? 'Show' : 'Hide'
-									} browser (${ isMac() ? '⌘⇧B' : 'Ctrl+Shift+B' })` }
-									className={ ICON_FRAME }
-								/>
+								<>
+									<StartStopButton />
+									<Button
+										icon={ navigation }
+										onClick={ () => togglePanel( secondaryPanelRef.current ) }
+										label={ `${
+											secondaryPanelRef.current?.isCollapsed() ? 'Show' : 'Hide'
+										} browser (${ isMac() ? '⌘⇧B' : 'Ctrl+Shift+B' })` }
+										className={ ICON_FRAME }
+									/>
+								</>
 							}
 						/>
 					);
@@ -226,7 +289,11 @@ export function PanelLayout( {
 							{ pendingNewTask ? (
 								<TaskNewPanel />
 							) : selectedTaskId ? (
-								<TaskChatPanel taskId={ selectedTaskId } toolbar={ primaryToolbar } />
+								<TaskChatPanel
+									taskId={ selectedTaskId }
+									toolbar={ primaryToolbar }
+									elementSelector={ elementSelector }
+								/>
 							) : (
 								<SiteContentTabs />
 							) }
@@ -278,6 +345,38 @@ export function PanelLayout( {
 										className="app-no-drag-region text-[#a7aaad] hover:text-white"
 										onClick={ browser.handleReload }
 									/>
+									<Button
+										icon={ sidesAxial }
+										label="Select element"
+										showTooltip
+										className={ cx(
+											'app-no-drag-region',
+											elementSelector.isSelecting
+												? 'text-blue-400 bg-blue-500/20'
+												: 'text-[#a7aaad] hover:text-white'
+										) }
+										onClick={ () =>
+											elementSelector.isSelecting
+												? elementSelector.deactivateSelection()
+												: elementSelector.activateSelection()
+										}
+									/>
+									<Button
+										icon={ crop }
+										label="Capture area"
+										showTooltip
+										className={ cx(
+											'app-no-drag-region',
+											areaScreenshot.isCapturing
+												? 'text-blue-400 bg-blue-500/20'
+												: 'text-[#a7aaad] hover:text-white'
+										) }
+										onClick={ () =>
+											areaScreenshot.isCapturing
+												? areaScreenshot.deactivateCapture()
+												: areaScreenshot.activateCapture()
+										}
+									/>
 								</div>
 								<BrowserTabBar
 									tabs={ browser.tabs }
@@ -288,15 +387,26 @@ export function PanelLayout( {
 									canAddTab={ browser.canAddTab }
 								/>
 							</div>
-							<BrowserIframeContainer
-								tabs={ browser.tabs }
-								activeTabId={ browser.activeTabId }
-								autoLoginSrc={ browser.autoLoginSrc }
-								siteName={ browser.siteName }
-								setIframeRef={ browser.setIframeRef }
-								onLoad={ browser.handleIframeLoad }
-								onBeforeUnload={ browser.handleBeforeUnload }
-							/>
+							<div className="relative flex-1 flex flex-col">
+								<BrowserIframeContainer
+									tabs={ browser.tabs }
+									activeTabId={ browser.activeTabId }
+									autoLoginSrc={ browser.autoLoginSrc }
+									siteName={ browser.siteName }
+									setIframeRef={ browser.setIframeRef }
+									onLoad={ browser.handleIframeLoad }
+									onBeforeUnload={ browser.handleBeforeUnload }
+								/>
+								<BrowserCaptureOverlay areaScreenshot={ areaScreenshot } />
+								{ ! isTaskChat && selectedSite && (
+									<BrowserFloatingInput
+										siteId={ selectedSite.id }
+										elementSelector={ elementSelector }
+										areaScreenshot={ areaScreenshot }
+										getActiveIframe={ browser.getActiveIframe }
+									/>
+								) }
+							</div>
 						</>
 					) : (
 						<div className="flex-1 flex items-center justify-center">

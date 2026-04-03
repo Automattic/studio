@@ -20,6 +20,7 @@ import {
 	type MarkdownTheme,
 	visibleWidth,
 	truncateToWidth,
+	CURSOR_MARKER,
 } from '@mariozechner/pi-tui';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, _n, sprintf } from '@wordpress/i18n';
@@ -163,7 +164,7 @@ class PromptEditor implements Component, Focusable {
 				return ' ' + bc( '─'.repeat( borderWidth ) );
 			}
 			if ( this.isEmpty && i === 1 ) {
-				return promptPrefix + chalk.dim( __( 'Type your prompt…' ) );
+				return promptPrefix + CURSOR_MARKER;
 			}
 			if ( i === 1 ) {
 				return promptPrefix + line;
@@ -607,7 +608,7 @@ export class AiChatUI {
 
 	constructor() {
 		const terminal = new ProcessTerminal();
-		this.tui = new TUI( terminal );
+		this.tui = new TUI( terminal, true );
 
 		this.messages = new Container();
 		this.tui.addChild( this.messages );

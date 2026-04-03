@@ -1558,6 +1558,12 @@ export class AiChatUI {
 					__( '%s your local site to the cloud in WordPress.com' ),
 					b( __( 'Push' ) )
 				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "Generate preview sites" */
+					__( '%s with shareable URLs for quick feedback' ),
+					b( __( 'Generate preview sites' ) )
+				),
 			'',
 			separator,
 			'',

@@ -87,6 +87,8 @@ Session-level approvals are cached per tool name so the user isn't prompted repe
 | `toolName` | `string?` | Tool name for tool-type messages |
 | `toolInput` | `unknown?` | Tool input parameters |
 | `toolResult` | `string?` | Tool execution result |
+| `images` | `ImageAttachment[]?` | Base64 image attachments (user messages) |
+| `elements` | `ElementAttachment[]?` | Selected DOM elements (user messages) |
 | `isStreaming` | `boolean?` | Currently being streamed |
 | `isError` | `boolean?` | Error message |
 
@@ -145,11 +147,12 @@ The sidebar's Tasks section (`tasks/task-list.tsx`) replaces the former placehol
 
 When a task is selected, the primary panel renders `TaskChatPanel` instead of `SiteContentTabs`:
 
-- **Message list** — User messages (right-aligned, themed), assistant messages (left-aligned, surface background), tool messages as expandable cards showing tool name with status dot, click to reveal full input (JSON) and output
+- **Message list** — User messages (right-aligned, themed) and assistant messages (left-aligned). Tool call messages are filtered out of the main conversation view — they only appear in the activity indicator.
 - **Auto-scroll** — Scrolls to bottom on new messages
 - **Streaming indicator** — Bouncing dots while agent is responding
+- **Activity indicator** — Compact status bar above the chat input showing the agent's current state ("Thinking", "Editing", "Searching files", etc.) with an elapsed time counter. Clicking opens a flyout panel listing all activity (user messages, assistant responses, tool calls) with relative timestamps. Tool entries in the log are expandable to show full input/output details. Uses a blue pulsing dot only while the agent is actively streaming; no dot when idle.
 - **Permission prompt** — Inline amber dialog above the input when the agent needs filesystem approval
-- **Input** — Textarea with Enter-to-send (Shift+Enter for newlines), disabled during streaming
+- **Input** — Textarea with Enter-to-send (Shift+Enter for newlines), disabled during streaming. Supports image attachments via file picker, clipboard paste, or browser area capture. Images exceeding the API's 5MB base64 limit are automatically resized using a canvas (`resize-image.ts`).
 
 ### Site Overview Integration
 
@@ -208,8 +211,10 @@ apps/studio/src/
 │   ├── task-new-panel.tsx              # New task site picker (primary panel)
 │   ├── task-chat-panel.tsx             # Chat panel (primary panel replacement)
 │   ├── task-chat-input.tsx             # Message input with agent IPC
-│   ├── task-message-list.tsx           # Message bubbles (user/assistant/tool)
+│   ├── task-message-list.tsx           # Message bubbles (user/assistant only, no tool cards)
+│   ├── task-activity-indicator.tsx     # Status bar + expandable activity log flyout
 │   └── task-permission-prompt.tsx      # Inline permission dialog
+├── lib/resize-image.ts                 # Auto-resize base64 images exceeding API limit
 ├── storage/storage-types.ts            # UserData.tasks field added
 ├── ipc-handlers.ts                     # Re-exports task handlers
 ├── ipc-utils.ts                        # Task IPC event types
@@ -229,6 +234,6 @@ apps/cli/ai/
 - More MCP tools (site_create, site_delete, preview_create/update/delete, validate_blocks)
 - Markdown rendering in assistant messages
 - Streaming partial text (SDKPartialAssistantMessage events)
-- Auto-title refinement (use agent to generate a better title after first exchange)
-- Error recovery UI (provider not available, rate limits, etc.)
+- ~~Auto-title refinement (use agent to generate a better title after first exchange)~~ Done — uses Haiku to generate titles
+- Error recovery UI (provider not available, rate limits, etc.). Agent errors now send `ai:done` after `ai:error` so the desktop cleans up properly and follow-ups can resume via session ID.
 - Keyboard shortcuts (Escape to interrupt, etc.)

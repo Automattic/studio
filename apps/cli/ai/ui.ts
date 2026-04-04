@@ -1430,9 +1430,12 @@ export class AiChatUI {
 		const text =
 			' ' +
 			chalk.blue( '⏺' ) +
-			__( " Hello, I'm " ) +
-			chalk.bold( __( 'WordPress Studio' ) ) +
-			__( ', your local WordPress agent and builder.' );
+			' ' +
+			sprintf(
+				/* translators: %s: product name (WordPress Studio) */
+				__( "Hello, I'm %s, your local WordPress agent and builder." ),
+				chalk.bold( 'WordPress Studio' )
+			);
 
 		this.messages.addChild( new Text( '\n' + text + '\n', 0, 0 ) );
 		this.tui.requestRender();

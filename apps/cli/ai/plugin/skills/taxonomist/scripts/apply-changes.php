@@ -7,29 +7,38 @@
  * export/analysis and apply phases.
  *
  * Usage:
- *   TAXONOMIST_SUGGESTIONS=/path/to/suggestions.json studio wp eval-file apply-changes.php
+ *   wp eval-file apply-changes.php <suggestions-path> [mode] [log-path] [remove-cats]
  *
- * Environment variables:
- *   TAXONOMIST_SUGGESTIONS  Path to the suggestions JSON file. Required.
- *                           Format: [{"post_id": 123, "cats": ["wordpress", "ai"]}, ...]
- *                           Values in "cats" are category slugs.
- *   TAXONOMIST_LOG          Path for the change log TSV.
- *                           Default: /tmp/taxonomist-changes.tsv
- *   TAXONOMIST_MODE         "preview" (default) shows what would change.
- *                           "apply" executes the changes.
- *   TAXONOMIST_REMOVE_CATS  Comma-separated category slugs to strip from
- *                           posts that receive new suggestions.
+ * Arguments:
+ *   suggestions-path  Path to the suggestions JSON file. Required.
+ *                     Format: [{"post_id": 123, "cats": ["wordpress", "ai"]}, ...]
+ *   mode              "preview" (default) shows what would change.
+ *                     "apply" executes the changes.
+ *   log-path          Path for the change log TSV.
+ *                     Default: taxonomist-data/logs/changes.tsv
+ *   remove-cats       Comma-separated category slugs to strip from
+ *                     posts that receive new suggestions.
  *
  * @package Taxonomist
  */
 
-$suggestions_file = getenv( 'TAXONOMIST_SUGGESTIONS' );
-$log_file         = getenv( 'TAXONOMIST_LOG' ) ? getenv( 'TAXONOMIST_LOG' ) : '/tmp/taxonomist-changes.tsv';
-$apply_mode       = getenv( 'TAXONOMIST_MODE' ) ? getenv( 'TAXONOMIST_MODE' ) : 'preview';
-$remove_cats_str  = getenv( 'TAXONOMIST_REMOVE_CATS' ) ? getenv( 'TAXONOMIST_REMOVE_CATS' ) : '';
+$resolve_path = static function ( $p ) {
+	return ( '/' === $p[0] ) ? $p : ABSPATH . $p;
+};
+
+$suggestions_file = ! empty( $args[0] ) ? $resolve_path( $args[0] ) : getenv( 'TAXONOMIST_SUGGESTIONS' );
+$apply_mode       = ! empty( $args[1] ) ? $args[1] : ( getenv( 'TAXONOMIST_MODE' ) ?: 'preview' );
+$default_log      = ABSPATH . 'taxonomist-data/logs/changes.tsv';
+$log_file         = ! empty( $args[2] ) ? $resolve_path( $args[2] ) : ( getenv( 'TAXONOMIST_LOG' ) ?: $default_log );
+$remove_cats_str  = isset( $args[3] ) ? $args[3] : ( getenv( 'TAXONOMIST_REMOVE_CATS' ) ?: '' );
+
+$log_dir = dirname( $log_file );
+if ( ! is_dir( $log_dir ) ) {
+	mkdir( $log_dir, 0755, true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_mkdir
+}
 
 if ( ! $suggestions_file || ! file_exists( $suggestions_file ) ) {
-	WP_CLI::error( 'Set TAXONOMIST_SUGGESTIONS to the suggestions JSON path' );
+	WP_CLI::error( 'Provide the suggestions file path as the first argument: eval-file apply-changes.php <path>' );
 }
 
 $suggestions_json = file_get_contents( $suggestions_file ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents

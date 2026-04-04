@@ -8,16 +8,28 @@
  * names, and permalink URL.
  *
  * Usage:
- *   studio wp eval-file export-posts.php
+ *   wp eval-file export-posts.php [output-path]
  *
- * Environment variables:
- *   TAXONOMIST_OUTPUT  Path for the output JSON file.
- *                      Default: /tmp/taxonomist-export.json
+ * Arguments:
+ *   output-path  Path for the output JSON file (relative to WordPress root).
+ *                Default: taxonomist-data/export/posts.json
  *
  * @package Taxonomist
  */
 
-$output_file = getenv( 'TAXONOMIST_OUTPUT' ) ? getenv( 'TAXONOMIST_OUTPUT' ) : '/tmp/taxonomist-export.json';
+// Resolve a path: prepend ABSPATH if the path is relative.
+$resolve_path = static function ( $p ) {
+	return ( '/' === $p[0] ) ? $p : ABSPATH . $p;
+};
+
+$default_output = ABSPATH . 'taxonomist-data/export/posts.json';
+$output_file    = ! empty( $args[0] ) ? $resolve_path( $args[0] ) : ( getenv( 'TAXONOMIST_OUTPUT' ) ?: $default_output );
+
+// Ensure the output directory exists.
+$output_dir = dirname( $output_file );
+if ( ! is_dir( $output_dir ) ) {
+	mkdir( $output_dir, 0755, true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_mkdir
+}
 
 // phpcs:disable WordPress.WP.AlternativeFunctions.file_system_operations_fopen
 // phpcs:disable WordPress.WP.AlternativeFunctions.file_system_operations_fwrite

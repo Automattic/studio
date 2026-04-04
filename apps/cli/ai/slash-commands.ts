@@ -21,4 +21,5 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 	{ name: 'model', description: __( 'Switch the AI model' ) },
 	{ name: 'provider', description: __( 'Switch the AI provider' ) },
 	{ name: 'exit', description: __( 'Exit the chat' ) },
+	{ name: 'taxonomist', description: __( 'Optimize category taxonomy with AI' ) },
 ];

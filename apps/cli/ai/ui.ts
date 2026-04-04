@@ -20,6 +20,7 @@ import {
 	type MarkdownTheme,
 	visibleWidth,
 	truncateToWidth,
+	CURSOR_MARKER,
 } from '@mariozechner/pi-tui';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, _n, sprintf } from '@wordpress/i18n';
@@ -163,7 +164,7 @@ class PromptEditor implements Component, Focusable {
 				return ' ' + bc( '─'.repeat( borderWidth ) );
 			}
 			if ( this.isEmpty && i === 1 ) {
-				return promptPrefix + chalk.dim( __( 'Type your prompt…' ) );
+				return promptPrefix + CURSOR_MARKER;
 			}
 			if ( i === 1 ) {
 				return promptPrefix + line;
@@ -607,7 +608,7 @@ export class AiChatUI {
 
 	constructor() {
 		const terminal = new ProcessTerminal();
-		this.tui = new TUI( terminal );
+		this.tui = new TUI( terminal, true );
 
 		this.messages = new Container();
 		this.tui.addChild( this.messages );
@@ -1423,6 +1424,167 @@ export class AiChatUI {
 		this.currentResponseText = '';
 		this.pendingTodoRenders.clear();
 		this.pendingTodoRenderOrder = [];
+	}
+
+	showOnboarding(): void {
+		const b = chalk.bold;
+
+		const lines = [
+			' ' +
+				chalk.blue( '⏺' ) +
+				' ' +
+				sprintf(
+					/* translators: %s: product name (WordPress Studio) */
+					__( "Hello, I'm %s, your local WordPress agent and builder." ),
+					b( 'WordPress Studio' )
+				),
+			'',
+			' ' +
+				sprintf(
+					/* translators: %s: slash command (/login) */
+					__( 'To get started, run %s to connect your WordPress.com account.' ),
+					b( '/login' )
+				),
+			' ' +
+				sprintf(
+					/* translators: %s: slash command (/api-key) */
+					__( 'If you want to use your own Anthropic API key you can run %s.' ),
+					b( '/api-key' )
+				),
+		];
+
+		this.messages.addChild( new Text( '\n' + lines.join( '\n' ) + '\n', 0, 0 ) );
+		this.tui.requestRender();
+	}
+
+	showCapabilities(): void {
+		const b = chalk.bold;
+		const d = chalk.dim;
+		const separator = d( ' ─'.padEnd( 80, '─' ) );
+
+		const lines = [
+			' ' +
+				chalk.blue( '⏺' ) +
+				' ' +
+				__( "Great, you're connected now! Let me tell you what I can do:" ),
+			'',
+			'  ' + b( __( 'Site Management' ) ),
+			'',
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "Create" */
+					__( '%s new WordPress sites instantly (fully configured, ready to use)' ),
+					b( __( 'Create' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "Start / stop" */
+					__( '%s existing sites' ),
+					b( __( 'Start / stop' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "List" */
+					__( '%s all your local sites and their status' ),
+					b( __( 'List' ) )
+				),
+			'',
+			'  ' + b( __( 'Design & Development' ) ),
+			'',
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "Build" */
+					__( '%s block themes with striking, memorable designs' ),
+					b( __( 'Build' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "CSS, PHP, and JavaScript" */
+					__( 'Write custom %s for themes and plugins' ),
+					b( __( 'CSS, PHP, and JavaScript' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "pages and posts" */
+					__( 'Create %s with valid Gutenberg block content' ),
+					b( __( 'pages and posts' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "plugins" */
+					__( 'Install and activate %s via WP-CLI' ),
+					b( __( 'plugins' ) )
+				),
+			'',
+			'  ' + b( __( 'Content' ) ),
+			'',
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "page content" */
+					__( 'Generate and import %s using core blocks' ),
+					b( __( 'page content' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "navigation menus, site options, post types, taxonomies, and settings" */
+					__( 'Set up %s' ),
+					b( __( 'navigation menus, site options, post types, taxonomies, and settings' ) )
+				),
+			'  - ' + __( "Create realistic placeholder content tailored to your site's purpose" ),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "images and videos" */
+					__( 'Upload %s to your site, using local media files or remote URLs' ),
+					b( __( 'images and videos' ) )
+				),
+			'',
+			'  ' + b( __( 'Preview & Publishing' ) ),
+			'',
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "screenshots" */
+					__( 'Take %s (desktop + mobile) to verify the design is well crafted' ),
+					b( __( 'screenshots' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "Validate" */
+					__( "%s all block content to ensure it's editor-compatible" ),
+					b( __( 'Validate' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "Push" */
+					__( '%s your local site to the cloud in WordPress.com' ),
+					b( __( 'Push' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "Generate preview sites" */
+					__( '%s with shareable URLs for quick feedback' ),
+					b( __( 'Generate preview sites' ) )
+				),
+			'',
+			separator,
+			'',
+			'  ' + __( 'Just tell me what you want to build — for example:' ),
+			'',
+			'  ' + d( chalk.italic( __( '"Create a portfolio site for a photographer"' ) ) ),
+			'  ' + d( chalk.italic( __( '"Build a landing page for a SaaS product"' ) ) ),
+			'  ' + d( chalk.italic( __( '"Make a blog for a coffee shop"' ) ) ),
+			'',
+			'  ' +
+				__(
+					"I'll ask a few quick questions about the name and layout, then build the whole thing for you. The more precise you are about what you want, the better the result will be."
+				),
+		];
+		this.messages.addChild( new Text( '\n' + lines.join( '\n' ) + '\n', 0, 0 ) );
+		this.tui.requestRender();
+	}
+
+	showSuccess( message: string ): void {
+		this.messages.addChild( new Text( '\n ' + chalk.green( '⏺' ) + ' ' + message + '\n', 0, 0 ) );
+		this.tui.requestRender();
 	}
 
 	showError( message: string ): void {

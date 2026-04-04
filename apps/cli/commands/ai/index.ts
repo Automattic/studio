@@ -238,7 +238,12 @@ export async function runCommand(
 		}
 	}
 
-	if ( currentProvider === 'wpcom' ) {
+	const config = await readCliConfig();
+	let showCapabilitiesOnConnect = ! config.aiProvider;
+
+	if ( showCapabilitiesOnConnect ) {
+		ui.showOnboarding();
+	} else if ( currentProvider === 'wpcom' ) {
 		const token = await readAuthToken();
 		if ( token ) {
 			ui.setStatusMessage(
@@ -251,11 +256,8 @@ export async function runCommand(
 		} else {
 			ui.setStatusMessage( __( 'Use /login to authenticate to WordPress.com' ) );
 		}
-	}
-
-	const { anthropicApiKey } = await readCliConfig();
-	if ( currentProvider === 'anthropic-api-key' && ! anthropicApiKey ) {
-		ui.showInfo( __( 'No Anthropic API key saved. Use /provider to enter one.' ) );
+	} else if ( currentProvider === 'anthropic-api-key' && ! config.anthropicApiKey ) {
+		ui.showInfo( __( 'No Anthropic API key saved. Use /api-key to enter one.' ) );
 	}
 
 	async function askUserAndPersistAnswers(
@@ -406,6 +408,11 @@ export async function runCommand(
 				try {
 					await prepareProviderSelection( 'anthropic-api-key', { force: true } );
 					ui.showInfo( __( 'Anthropic API key updated.' ) );
+					if ( showCapabilitiesOnConnect ) {
+						showCapabilitiesOnConnect = false;
+						await switchProvider( 'anthropic-api-key' );
+						ui.showCapabilities();
+					}
 				} catch ( error ) {
 					if ( isPromptAbortError( error ) ) {
 						ui.showInfo( __( 'API key update canceled.' ) );
@@ -427,7 +434,7 @@ export async function runCommand(
 				if ( await isAiProviderReady( 'wpcom' ) ) {
 					const token = await readAuthToken();
 					if ( token ) {
-						ui.showInfo(
+						ui.showSuccess(
 							sprintf(
 								/* translators: 1: display name, 2: email */
 								__( 'Logged in as %1$s (%2$s)' ),
@@ -442,6 +449,11 @@ export async function runCommand(
 								token.displayName
 							)
 						);
+						if ( showCapabilitiesOnConnect ) {
+							showCapabilitiesOnConnect = false;
+							await switchProvider( 'wpcom' );
+							ui.showCapabilities();
+						}
 					}
 				} else {
 					ui.setStatusMessage( __( 'Login failed or canceled' ) );

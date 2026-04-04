@@ -13,7 +13,7 @@ export const AI_PROVIDERS = {
 
 export type AiProviderId = keyof typeof AI_PROVIDERS;
 
-export const DEFAULT_AI_PROVIDER: AiProviderId = 'anthropic-api-key';
+export const DEFAULT_AI_PROVIDER: AiProviderId = 'wpcom';
 export const AI_PROVIDER_PRIORITY: AiProviderId[] = [
 	'wpcom',
 	'anthropic-claude',

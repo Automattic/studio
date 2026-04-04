@@ -246,10 +246,12 @@ export async function runCommand(
 
 		// Auto-trigger provider selection on first run
 		const availableProviders = await getAvailableAiProviders();
-		const providerOptions = availableProviders.map( ( id ) => ( {
-			label: id === 'wpcom' ? __( 'WordPress.com (recommended)' ) : AI_PROVIDERS[ id ],
-			description: id,
-		} ) );
+		const labelToProvider = new Map< string, AiProviderId >();
+		const providerOptions = availableProviders.map( ( id ) => {
+			const label = id === 'wpcom' ? __( 'WordPress.com (recommended)' ) : AI_PROVIDERS[ id ];
+			labelToProvider.set( label, id );
+			return { label, description: id };
+		} );
 		const answer = await ui.askUser( [
 			{
 				question: __( 'Choose how to connect' ),
@@ -257,11 +259,7 @@ export async function runCommand(
 			},
 		] );
 		const selectedLabel = Object.values( answer )[ 0 ] as string;
-		const selectedProvider = availableProviders.find(
-			( id ) =>
-				selectedLabel.startsWith( AI_PROVIDERS[ id ] ) ||
-				selectedLabel.startsWith( 'WordPress.com' )
-		);
+		const selectedProvider = labelToProvider.get( selectedLabel );
 		if ( selectedProvider ) {
 			try {
 				if ( selectedProvider === 'wpcom' ) {

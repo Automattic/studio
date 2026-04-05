@@ -1427,33 +1427,17 @@ export class AiChatUI {
 	}
 
 	showOnboarding(): void {
-		const b = chalk.bold;
+		const text =
+			' ' +
+			chalk.blue( '⏺' ) +
+			' ' +
+			sprintf(
+				/* translators: %s: product name (WordPress Studio) */
+				__( "Hello, I'm %s, your local WordPress agent and builder." ),
+				chalk.bold( 'WordPress Studio' )
+			);
 
-		const lines = [
-			' ' +
-				chalk.blue( '⏺' ) +
-				' ' +
-				sprintf(
-					/* translators: %s: product name (WordPress Studio) */
-					__( "Hello, I'm %s, your local WordPress agent and builder." ),
-					b( 'WordPress Studio' )
-				),
-			'',
-			' ' +
-				sprintf(
-					/* translators: %s: slash command (/login) */
-					__( 'To get started, run %s to connect your WordPress.com account.' ),
-					b( '/login' )
-				),
-			' ' +
-				sprintf(
-					/* translators: %s: slash command (/api-key) */
-					__( 'If you want to use your own Anthropic API key you can run %s.' ),
-					b( '/api-key' )
-				),
-		];
-
-		this.messages.addChild( new Text( '\n' + lines.join( '\n' ) + '\n', 0, 0 ) );
+		this.messages.addChild( new Text( '\n' + text + '\n', 0, 0 ) );
 		this.tui.requestRender();
 	}
 

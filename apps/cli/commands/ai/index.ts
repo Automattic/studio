@@ -243,6 +243,71 @@ export async function runCommand(
 
 	if ( showCapabilitiesOnConnect ) {
 		ui.showOnboarding();
+
+		// Auto-trigger provider selection on first run
+		const availableProviders = await getAvailableAiProviders();
+		const labelToProvider = new Map< string, AiProviderId >();
+		const providerOptions = availableProviders.map( ( id ) => {
+			const label = id === 'wpcom' ? __( 'WordPress.com (recommended)' ) : AI_PROVIDERS[ id ];
+			labelToProvider.set( label, id );
+			return { label, description: id };
+		} );
+		const answer = await ui.askUser( [
+			{
+				question: __( 'Choose how to connect' ),
+				options: providerOptions,
+			},
+		] );
+		const selectedLabel = Object.values( answer )[ 0 ] as string;
+		const selectedProvider = labelToProvider.get( selectedLabel );
+		if ( selectedProvider ) {
+			try {
+				if ( selectedProvider === 'wpcom' ) {
+					// Run login flow directly instead of prepare(), which would
+					// just throw "login required" since there's no token yet.
+					ui.stop();
+					await runLoginCommand();
+					ui.start();
+
+					if ( await isAiProviderReady( 'wpcom' ) ) {
+						await switchProvider( 'wpcom', false );
+						const token = await readAuthToken();
+						if ( token ) {
+							ui.showSuccess(
+								sprintf(
+									/* translators: 1: display name, 2: email */
+									__( 'Logged in as %1$s (%2$s)' ),
+									token.displayName,
+									token.email
+								)
+							);
+							ui.setStatusMessage(
+								sprintf(
+									/* translators: %s: display name */
+									__( 'Logged in as %s' ),
+									token.displayName
+								)
+							);
+							showCapabilitiesOnConnect = false;
+							ui.showCapabilities();
+						}
+					}
+				} else {
+					await prepareProviderSelection( selectedProvider );
+					await switchProvider( selectedProvider, false );
+					showCapabilitiesOnConnect = false;
+					ui.showCapabilities();
+				}
+			} catch ( error ) {
+				if ( ! isPromptAbortError( error ) ) {
+					if ( error instanceof LoggerError ) {
+						ui.showError( error.message );
+					} else {
+						throw error;
+					}
+				}
+			}
+		}
 	} else if ( currentProvider === 'wpcom' ) {
 		const token = await readAuthToken();
 		if ( token ) {

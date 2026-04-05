@@ -168,7 +168,7 @@ async function captureConsoleOutput( fn: () => Promise< void > ): Promise< strin
 	return captured.trim();
 }
 
-async function captureCommandOutput( fn: () => Promise< void > ): Promise< {
+export async function captureCommandOutput( fn: () => Promise< void > ): Promise< {
 	consoleOutput: string;
 	progressOutput: string;
 	exitCode: number | undefined;

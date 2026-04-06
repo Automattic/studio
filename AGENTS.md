@@ -4,7 +4,7 @@ WordPress Studio - Electron desktop app for managing local WordPress sites. Buil
 
 ## Essential Commands
 
-**Dev/Build**: `npm start` | `npm run cli:build` | `node apps/cli/dist/cli/main.js`
+**Dev/Build**: `npm start` | `npm run cli:build` | `node apps/cli/dist/cli/main.mjs`
 **Test**: `npm test [-- path/to/test.test.ts]` | `npm run e2e`
 **Quality**: `npx eslint --fix <files>` (lint and format ONLY modified files)
 **IMPORTANT - Post-Change Verification**: After applying code changes, always run the linter and format modified files (`npx eslint --fix <files>`), the type checker (`npm run typecheck`) and run relevant tests (`npm test [-- path/to/test]`) before considering the work complete.
@@ -14,7 +14,7 @@ WordPress Studio - Electron desktop app for managing local WordPress sites. Buil
 
 ## CLI Commands
 
-**MUST** build CLI before testing: `npm run cli:build && node apps/cli/dist/cli/main.js <command>`
+**MUST** build CLI before testing: `npm run cli:build && node apps/cli/dist/cli/main.mjs <command>`
 - **Auth**: `auth login|logout|status` - WordPress.com OAuth (tokens valid 2 weeks)
 - **Preview Sites**: See `apps/cli/commands/preview/`
 - **Local Sites**: See `apps/cli/commands/site/`

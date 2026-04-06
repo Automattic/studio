@@ -1,10 +1,11 @@
-import { readFile } from 'fs/promises';
+import { cp, readFile } from 'fs/promises';
 import path from 'path';
 import { tool, createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { z } from 'zod/v4';
 import { validateBlocks, type ValidationReport } from 'cli/ai/block-validator';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
+import { auditPerformance } from 'cli/ai/performance-audit';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
 import {
 	Mode as PreviewDeleteMode,
@@ -21,6 +22,7 @@ import { runCommand as runStopSiteCommand, Mode as StopMode } from 'cli/commands
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { getUnsupportedWpCliPostContentMessage } from 'cli/lib/rewrite-wp-cli-post-content';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { normalizeHostname } from 'cli/lib/utils';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
@@ -32,7 +34,7 @@ import { getProgressCallback, setProgressCallback, emitProgress } from 'cli/logg
  *   post create --post_title="Ember & Oak" --post_type=page
  *   → ['post', 'create', '--post_title=Ember & Oak', '--post_type=page']
  */
-function splitCommandArgs( command: string ): string[] {
+function splitBasicCommandArgs( command: string ): string[] {
 	const args: string[] = [];
 	let current = '';
 	let inQuote: string | null = null;
@@ -66,6 +68,38 @@ function splitCommandArgs( command: string ): string[] {
 	}
 
 	return args;
+}
+
+function stripMatchingOuterQuotes( value: string ): string {
+	if ( value.length < 2 ) {
+		return value;
+	}
+
+	const firstChar = value[ 0 ];
+	const lastChar = value[ value.length - 1 ];
+	if ( ( firstChar === '"' || firstChar === "'" ) && firstChar === lastChar ) {
+		return value.slice( 1, -1 );
+	}
+
+	return value;
+}
+
+function splitCommandArgs( command: string ): string[] {
+	const postContentMarker = '--post_content=';
+	const postContentIndex = command.indexOf( postContentMarker );
+
+	// Large block content is commonly emitted without shell quoting and should
+	// be treated as a single literal argument that consumes the rest of the command.
+	if ( postContentIndex !== -1 ) {
+		const prefix = command.slice( 0, postContentIndex ).trim();
+		const postContent = stripMatchingOuterQuotes(
+			command.slice( postContentIndex + postContentMarker.length ).trim()
+		);
+
+		return [ ...splitBasicCommandArgs( prefix ), `${ postContentMarker }${ postContent }` ];
+	}
+
+	return splitBasicCommandArgs( command );
 }
 
 async function findSiteByName( name: string ): Promise< SiteData | undefined > {
@@ -464,6 +498,11 @@ const runWpCliTool = tool(
 				}
 
 				const wpCliArgs = splitCommandArgs( args.command );
+				const unsupportedPostContentMessage = getUnsupportedWpCliPostContentMessage( wpCliArgs );
+				if ( unsupportedPostContentMessage ) {
+					return errorResult( unsupportedPostContentMessage );
+				}
+
 				const result = await sendWpCliCommand( site.id, wpCliArgs );
 
 				let output = '';
@@ -650,6 +689,78 @@ const takeScreenshotTool = tool(
 	}
 );
 
+// --- Taxonomist scripts installer ---
+
+const TAXONOMIST_SCRIPTS_DIR = 'tmp/taxonomist';
+
+const installTaxonomyScriptsTool = tool(
+	'install_taxonomy_scripts',
+	'Copies the Taxonomist PHP scripts into a site so they can be run via wp_cli eval-file. ' +
+		'Call this once before running any Taxonomist eval-file commands.',
+	{
+		nameOrPath: z.string().describe( 'The site name or file system path to the site' ),
+	},
+	async ( args ) => {
+		try {
+			const site = await resolveSite( args.nameOrPath );
+			const srcDir = path.join( import.meta.dirname, 'plugin', 'skills', 'taxonomist', 'scripts' );
+			const destDir = path.join( site.path, TAXONOMIST_SCRIPTS_DIR );
+
+			await cp( srcDir, destDir, { recursive: true } );
+
+			return textResult(
+				`Taxonomist scripts installed to ${ TAXONOMIST_SCRIPTS_DIR }/ in the site directory.`
+			);
+		} catch ( error ) {
+			return errorResult(
+				`Failed to install taxonomy scripts: ${
+					error instanceof Error ? error.message : String( error )
+				}`
+			);
+		}
+	}
+);
+
+const auditPerformanceTool = tool(
+	'audit_performance',
+	'Measures frontend performance metrics for a WordPress site page. Returns Core Web Vitals ' +
+		'(TTFB, FCP, LCP, CLS), page weight, DOM size, request count, and a breakdown of JS, CSS, ' +
+		'image, and font assets. The site must be running. Use this to identify performance issues.',
+	{
+		nameOrPath: z
+			.string()
+			.describe( 'The site name or file system path — the site must be running' ),
+		path: z
+			.string()
+			.optional()
+			.describe( 'URL path to audit (e.g., "/", "/about", "/wp-admin/"). Defaults to "/".' ),
+	},
+	async ( args ) => {
+		try {
+			const site = await resolveSite( args.nameOrPath );
+			const siteUrl = getSiteUrl( site );
+			const urlPath = args.path ?? '/';
+
+			emitProgress( `Auditing performance of ${ siteUrl }${ urlPath }…` );
+
+			const result = await auditPerformance( siteUrl, urlPath );
+
+			if ( result.error ) {
+				emitProgress( `Audit failed: ${ result.error.slice( 0, 80 ) }` );
+				return errorResult( `Performance audit failed: ${ result.error }` );
+			}
+
+			emitProgress( `Audit complete for ${ urlPath }` );
+
+			return textResult( JSON.stringify( result, null, 2 ) );
+		} catch ( error ) {
+			return errorResult(
+				`Performance audit failed: ${ error instanceof Error ? error.message : String( error ) }`
+			);
+		}
+	}
+);
+
 export const studioToolDefinitions = [
 	createSiteTool,
 	listSitesTool,
@@ -664,6 +775,8 @@ export const studioToolDefinitions = [
 	runWpCliTool,
 	validateBlocksTool,
 	takeScreenshotTool,
+	installTaxonomyScriptsTool,
+	auditPerformanceTool,
 ];
 
 export function createStudioTools() {

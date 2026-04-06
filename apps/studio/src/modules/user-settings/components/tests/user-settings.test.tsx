@@ -17,9 +17,6 @@ vi.mock( 'src/lib/app-globals', () => ( {
 	isWindows: vi.fn( () => false ),
 	isWindowsStore: vi.fn( () => false ),
 } ) );
-vi.mock( 'src/hooks/use-feature-flags', () => ( {
-	useFeatureFlags: vi.fn( () => ( { enableAgentSuite: false } ) ),
-} ) );
 vi.mock( 'src/hooks/use-auth' );
 vi.mock( 'src/hooks/use-ipc-listener' );
 vi.mock( 'src/hooks/use-offline' );

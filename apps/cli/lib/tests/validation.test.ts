@@ -8,15 +8,14 @@ import { vi } from 'vitest';
 import { validateSiteSize } from 'cli/lib/validation';
 import { LoggerError } from 'cli/logger';
 
-vi.mock( 'fs', () => ( {
-	default: {
-		existsSync: vi.fn(),
-	},
-} ) );
+vi.mock( 'fs' );
 vi.mock( 'path', () => ( {
 	default: {
 		join: vi.fn(),
 	},
+} ) );
+vi.mock( '@studio/common/lib/deploy-ignore', () => ( {
+	createDeployIgnoreFilter: vi.fn().mockResolvedValue( { ignores: vi.fn() } ),
 } ) );
 vi.mock( '@studio/common/lib/fs-utils', () => ( {
 	calculateDirectorySizeForArchive: vi.fn(),
@@ -43,7 +42,9 @@ describe( 'Validation Module', () => {
 				'Your site exceeds the 2 GB size limit. Please, consider removing unnecessary media files, plugins, or themes from wp-content.'
 			);
 			expect( calculateDirectorySizeForArchive ).toHaveBeenCalledWith(
-				mockSiteFolder + '/wp-content'
+				mockSiteFolder + '/wp-content',
+				expect.anything(),
+				'wp-content'
 			);
 		} );
 
@@ -52,7 +53,9 @@ describe( 'Validation Module', () => {
 
 			expect( await validateSiteSize( mockSiteFolder ) ).toBe( true );
 			expect( calculateDirectorySizeForArchive ).toHaveBeenCalledWith(
-				mockSiteFolder + '/wp-content'
+				mockSiteFolder + '/wp-content',
+				expect.anything(),
+				'wp-content'
 			);
 		} );
 	} );

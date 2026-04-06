@@ -1,5 +1,6 @@
 import { vi } from 'vitest';
 import {
+	getUnsupportedWpCliPostContentMessage,
 	rewriteWpCliPostContentArgs,
 	rewriteWpCliPostContentToFile,
 } from 'cli/lib/rewrite-wp-cli-post-content';
@@ -96,6 +97,17 @@ describe( 'rewriteWpCliPostContentArgs', () => {
 		expect( result!.content ).toBe( '' );
 		expect( result!.args[ 2 ] ).toBe( result!.tempFilePath );
 	} );
+
+	it( 'returns an error message for cat command substitution in post content', () => {
+		expect(
+			getUnsupportedWpCliPostContentMessage( [
+				'post',
+				'create',
+				'--post_content=$(cat /tmp/ane-page-content.txt)',
+				'--post_type=page',
+			] )
+		).toContain( 'does not run in a shell' );
+	} );
 } );
 
 describe( 'rewriteWpCliPostContentToFile', () => {
@@ -123,5 +135,23 @@ describe( 'rewriteWpCliPostContentToFile', () => {
 		expect( result[ 2 ] ).toMatch( /^\/tmp\/wp-cli-post-content-.+\.html$/ );
 		expect( result ).toContain( '--post_type=page' );
 		expect( result.join( ' ' ) ).not.toContain( '--post_content=' );
+	} );
+
+	it( 'rejects cat command substitution in post content', async () => {
+		const writeFile = vi.fn();
+
+		await expect(
+			rewriteWpCliPostContentToFile(
+				[
+					'post',
+					'create',
+					'--post_content="$(cat /tmp/ane-page-content.txt)"',
+					'--post_type=page',
+				],
+				writeFile
+			)
+		).rejects.toThrow( 'does not run in a shell' );
+
+		expect( writeFile ).not.toHaveBeenCalled();
 	} );
 } );

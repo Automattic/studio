@@ -198,14 +198,14 @@ export async function runCommand(
 				progress = 50;
 		}
 
-		const roundedProgress = Math.round( progress );
-		if ( roundedProgress !== lastProgress ) {
+		if ( progress !== lastProgress ) {
 			stalledAttempts = 0;
-			lastProgress = roundedProgress;
+			lastProgress = progress;
 		} else {
 			stalledAttempts++;
 		}
 
+		const roundedProgress = Math.round( progress );
 		logger.spinner.text = sprintf( '%s (%d%%)', statusMessage, roundedProgress );
 
 		await new Promise( ( resolve ) => setTimeout( resolve, SYNC_POLL_INTERVAL_MS ) );

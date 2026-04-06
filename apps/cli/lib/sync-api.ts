@@ -73,28 +73,6 @@ export async function pollBackupStatus( token: string, remoteSiteId: number, bac
 	}
 }
 
-export async function tusUpload(
-	token: string,
-	remoteSiteId: number,
-	archivePath: string,
-	onProgress?: ( percent: number ) => void
-): Promise< string > {
-	const { createTusUpload } = await import( '@studio/common/lib/sync/tus-upload' );
-
-	const { promise } = createTusUpload( {
-		token,
-		remoteSiteId,
-		archivePath,
-		onProgress,
-	} );
-
-	try {
-		return await promise;
-	} catch ( error ) {
-		throw wrapError( __( 'Upload failed' ), error );
-	}
-}
-
 export async function initiateImport(
 	token: string,
 	remoteSiteId: number,

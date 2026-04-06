@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events';
+import { BackupHandlerDirectory } from 'src/lib/import-export/import/handlers/backup-handler-directory';
 import { BackupHandlerSql } from 'src/lib/import-export/import/handlers/backup-handler-sql';
 import { BackupHandlerTarGz } from 'src/lib/import-export/import/handlers/backup-handler-tar-gz';
 import { BackupHandlerWpress } from 'src/lib/import-export/import/handlers/backup-handler-wpress';
@@ -47,7 +48,9 @@ export class BackupHandlerFactory {
 	private static sqlExtensions = [ '.sql' ];
 
 	static create( file: BackupArchiveInfo ): BackupHandler | undefined {
-		if ( this.isZip( file ) ) {
+		if ( file.type === 'directory' ) {
+			return new BackupHandlerDirectory();
+		} else if ( this.isZip( file ) ) {
 			return new BackupHandlerZip();
 		} else if ( this.isTarGz( file ) ) {
 			return new BackupHandlerTarGz();

@@ -31,11 +31,13 @@ import BlueprintDetails from './components/blueprint-details';
 import { AddSiteBlueprintSelector } from './components/blueprints';
 import CreateSite from './components/create-site';
 import ImportBackup from './components/import-backup';
+import ImportLocal from './components/import-local';
 import AddSiteOptions, { type AddSiteFlowType } from './components/options';
 import { PullRemoteSite } from './components/pull-remote-site';
 import Stepper from './components/stepper';
 import { useFindAvailableSiteName } from './hooks/use-find-available-site-name';
 import { applyBlueprintFormValues } from './lib/apply-blueprint-form-values';
+import type { LocalWPSite } from 'src/lib/import-export/import/types';
 
 type BlueprintsData = ReturnType< typeof useGetBlueprints >[ 'data' ];
 
@@ -86,6 +88,8 @@ interface NavigationContentProps {
 	setBlueprintRequiresCustomDomain: ( requires: boolean ) => void;
 	selectedRemoteSite?: SyncSite;
 	setSelectedRemoteSite: ( site?: SyncSite ) => void;
+	selectedLocalWPSite?: LocalWPSite;
+	setSelectedLocalWPSite: ( site?: LocalWPSite ) => void;
 	isDeeplinkFlow: boolean;
 	setIsDeeplinkFlow: ( isDeeplink: boolean ) => void;
 }
@@ -123,6 +127,8 @@ function NavigationContent( props: NavigationContentProps ) {
 		setBlueprintRequiresCustomDomain,
 		selectedRemoteSite,
 		setSelectedRemoteSite,
+		selectedLocalWPSite,
+		setSelectedLocalWPSite,
 		isDeeplinkFlow,
 		setIsDeeplinkFlow,
 	} = props;
@@ -144,6 +150,8 @@ function NavigationContent( props: NavigationContentProps ) {
 				goTo( '/backup' );
 			} else if ( option === 'pullRemote' ) {
 				goTo( '/pullRemote' );
+			} else if ( option === 'importLocal' ) {
+				goTo( '/importLocal' );
 			}
 		},
 		[ goTo ]
@@ -176,6 +184,7 @@ function NavigationContent( props: NavigationContentProps ) {
 
 	const findAvailableSiteName = useFindAvailableSiteName();
 	const [ remoteSiteName, setRemoteSiteName ] = useState( '' );
+	const [ localWPSiteName, setLocalWPSiteName ] = useState( '' );
 
 	const handlePullRemoteContinue = useCallback( async () => {
 		if ( selectedRemoteSite ) {
@@ -184,6 +193,14 @@ function NavigationContent( props: NavigationContentProps ) {
 			goTo( '/pullRemote/create' );
 		}
 	}, [ findAvailableSiteName, goTo, selectedRemoteSite ] );
+
+	const handleImportLocalContinue = useCallback( async () => {
+		if ( selectedLocalWPSite ) {
+			const availableName = await findAvailableSiteName( selectedLocalWPSite.name );
+			setLocalWPSiteName( availableName );
+			goTo( '/importLocal/create' );
+		}
+	}, [ findAvailableSiteName, goTo, selectedLocalWPSite ] );
 
 	const blueprints = useMemo(
 		() => blueprintsData?.blueprints.slice().reverse() || [],
@@ -210,12 +227,16 @@ function NavigationContent( props: NavigationContentProps ) {
 		} else if ( location.path === '/pullRemote/create' ) {
 			setRemoteSiteName( '' );
 			goTo( '/pullRemote' );
+		} else if ( location.path === '/importLocal/create' ) {
+			setLocalWPSiteName( '' );
+			goTo( '/importLocal' );
 		} else if (
 			location.path === '/backup' ||
 			location.path === '/blueprint/select' ||
 			location.path === '/blueprint/deeplink' ||
 			location.path === '/create' ||
-			location.path === '/pullRemote'
+			location.path === '/pullRemote' ||
+			location.path === '/importLocal'
 		) {
 			if ( location.path === '/backup' ) {
 				setFileForImport( null );
@@ -229,6 +250,10 @@ function NavigationContent( props: NavigationContentProps ) {
 			if ( location.path === '/pullRemote' ) {
 				setSelectedRemoteSite( undefined );
 				setRemoteSiteName( '' );
+			}
+			if ( location.path === '/importLocal' ) {
+				setSelectedLocalWPSite( undefined );
+				setLocalWPSiteName( '' );
 			}
 			goToFirstStep();
 		} else {
@@ -244,6 +269,7 @@ function NavigationContent( props: NavigationContentProps ) {
 		setBlueprintWarnings,
 		setSelectedRemoteSite,
 		setBlueprintSuggestedSiteName,
+		setSelectedLocalWPSite,
 	] );
 
 	const handleBlueprintFormValues = useCallback(
@@ -403,6 +429,15 @@ function NavigationContent( props: NavigationContentProps ) {
 					defaultValues={ { ...defaultValues, siteName: remoteSiteName } }
 				/>
 			</Navigator.Screen>
+			<Navigator.Screen className="flex-1" path="/importLocal">
+				<ImportLocal selectedSite={ selectedLocalWPSite } onSiteSelect={ setSelectedLocalWPSite } />
+			</Navigator.Screen>
+			<Navigator.Screen className="flex-1" path="/importLocal/create">
+				<CreateSite
+					{ ...createSiteProps }
+					defaultValues={ { ...defaultValues, siteName: localWPSiteName } }
+				/>
+			</Navigator.Screen>
 			<Stepper
 				currentPath={ location.path }
 				onBack={ handleBack }
@@ -411,6 +446,7 @@ function NavigationContent( props: NavigationContentProps ) {
 				onBlueprintDeeplinkContinue={ handleBlueprintDeeplinkContinue }
 				onBackupContinue={ handleBackupContinue }
 				onPullRemoteContinue={ handlePullRemoteContinue }
+				onImportLocalContinue={ handleImportLocalContinue }
 				onCreateSubmit={ () => {
 					formRef.current?.requestSubmit();
 				} }
@@ -419,6 +455,7 @@ function NavigationContent( props: NavigationContentProps ) {
 				canSubmitBlueprintDeeplink={ !! selectedBlueprint }
 				canSubmitBackup={ !! fileForImport }
 				canSubmitPullRemote={ !! selectedRemoteSite }
+				canSubmitImportLocal={ !! selectedLocalWPSite }
 				canSubmitCreate={ canSubmit }
 			/>
 		</>
@@ -476,6 +513,8 @@ export function AddSiteModalContent( {
 		setBlueprintRequiresCustomDomain,
 		selectedRemoteSite,
 		setSelectedRemoteSite,
+		selectedLocalWPSite,
+		setSelectedLocalWPSite,
 		existingDomainNames,
 		loadAllCustomDomains,
 		isDeeplinkFlow,
@@ -619,6 +658,8 @@ export function AddSiteModalContent( {
 				setBlueprintRequiresCustomDomain={ setBlueprintRequiresCustomDomain }
 				selectedRemoteSite={ selectedRemoteSite }
 				setSelectedRemoteSite={ setSelectedRemoteSite }
+				selectedLocalWPSite={ selectedLocalWPSite }
+				setSelectedLocalWPSite={ setSelectedLocalWPSite }
 				isDeeplinkFlow={ isDeeplinkFlow }
 				setIsDeeplinkFlow={ setIsDeeplinkFlow }
 				startOver={ startOver }

@@ -20,12 +20,14 @@ interface StepperConfig {
 	onBlueprintDeeplinkContinue?: () => void;
 	onBackupContinue?: () => void;
 	onPullRemoteContinue?: () => void;
+	onImportLocalContinue?: () => void;
 	onCreateSubmit?: ( event: FormEvent ) => void;
 	canSubmitBlueprint?: boolean;
 	canSubmitBlueprintDetails?: boolean;
 	canSubmitBlueprintDeeplink?: boolean;
 	canSubmitBackup?: boolean;
 	canSubmitPullRemote?: boolean;
+	canSubmitImportLocal?: boolean;
 	canSubmitCreate?: boolean;
 }
 
@@ -75,6 +77,11 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 			{ id: 'site-details', label: __( 'Site name & details' ), path: '/pullRemote/create' },
 		];
 
+		const importLocalSteps: StepperStep[] = [
+			{ id: 'select-local-site', label: __( 'Select a site' ), path: '/importLocal' },
+			{ id: 'site-details', label: __( 'Site name & details' ), path: '/importLocal/create' },
+		];
+
 		const blueprintDeeplinkSteps: StepperStep[] = [
 			{ id: 'blueprint-selected', label: __( 'Blueprint details' ), path: '/blueprint/deeplink' },
 			{
@@ -102,6 +109,13 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 			return {
 				flow: 'backup',
 				steps: backupSteps,
+			};
+		}
+
+		if ( location.path?.startsWith( '/importLocal' ) ) {
+			return {
+				flow: 'importLocal',
+				steps: importLocalSteps,
 			};
 		}
 
@@ -178,6 +192,7 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 			case '/blueprint/deeplink':
 			case '/backup':
 			case '/pullRemote':
+			case '/importLocal':
 				return {
 					label: __( 'Continue' ),
 					isVisible: true,
@@ -187,6 +202,7 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 			case '/blueprint/deeplink/create':
 			case '/backup/create':
 			case '/pullRemote/create':
+			case '/importLocal/create':
 				return {
 					label: __( 'Add site' ),
 					isVisible: true,
@@ -216,11 +232,15 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 			case '/pullRemote':
 				config?.onPullRemoteContinue?.();
 				break;
+			case '/importLocal':
+				config?.onImportLocalContinue?.();
+				break;
 			case '/create':
 			case '/blueprint/select/create':
 			case '/blueprint/deeplink/create':
 			case '/backup/create':
 			case '/pullRemote/create':
+			case '/importLocal/create':
 				config?.onCreateSubmit?.( { preventDefault: () => {} } as FormEvent );
 				break;
 		}
@@ -241,11 +261,14 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 				return config?.canSubmitBackup ?? false;
 			case '/pullRemote':
 				return config?.canSubmitPullRemote ?? false;
+			case '/importLocal':
+				return config?.canSubmitImportLocal ?? false;
 			case '/create':
 			case '/blueprint/select/create':
 			case '/blueprint/deeplink/create':
 			case '/backup/create':
 			case '/pullRemote/create':
+			case '/importLocal/create':
 				return config?.canSubmitCreate ?? false;
 			default:
 				return false;

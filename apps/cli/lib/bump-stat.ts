@@ -10,7 +10,12 @@ import {
 	saveCliConfig,
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
-import { StatsGroup, StatsMetric } from 'cli/lib/types/bump-stats';
+import {
+	type BumpStatGroup,
+	type BumpStatMetric,
+	StatsGroup,
+	StatsMetric,
+} from 'cli/lib/types/bump-stats';
 
 const lastBumpStatsProvider: LastBumpStatsProvider = {
 	load: async () => {
@@ -28,7 +33,7 @@ const lastBumpStatsProvider: LastBumpStatsProvider = {
 	},
 };
 
-export function bumpStat( group: StatsGroup, stat: StatsMetric, bumpInDev = false ) {
+export function bumpStat( group: BumpStatGroup, stat: BumpStatMetric, bumpInDev = false ) {
 	return __bumpStat( group, stat, bumpInDev );
 }
 

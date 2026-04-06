@@ -42,6 +42,7 @@ Then continue with:
 - validate_blocks: Validate block content for correctness on a running site (runs each block through its save() function in a real browser). Requires a site name or path. Call after every file write/edit that contains block content.
 - take_screenshot: Take a full-page screenshot of a URL (supports desktop and mobile viewports). Use this to visually check the site after building it.
 - audit_performance: Measure frontend performance metrics (TTFB, FCP, LCP, CLS, page weight, DOM size, JS/CSS/image/font asset breakdown) for a running site. Use this to identify performance bottlenecks and guide optimization.
+- record_workflow_event: Record plugin workflow telemetry milestones such as started, completed, or failed for site, theme, block, plugin, or auditing workflows.
 
 ## General rules
 

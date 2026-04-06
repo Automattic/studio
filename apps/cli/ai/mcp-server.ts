@@ -1,8 +1,13 @@
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { createStudioTools } from 'cli/ai/tools';
+import { type McpTelemetryGroup } from 'cli/lib/types/bump-stats';
 
-export async function startMcpStdioServer(): Promise< void > {
-	const studioMcp = createStudioTools();
+type McpServerOptions = {
+	telemetryGroup?: McpTelemetryGroup;
+};
+
+export async function startMcpStdioServer( options: McpServerOptions = {} ): Promise< void > {
+	const studioMcp = createStudioTools( options );
 	const transport = new StdioServerTransport();
 
 	const shutdown = async () => {

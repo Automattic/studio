@@ -6,11 +6,12 @@ import {
 } from 'cli/commands/preview/delete';
 import { runCommand as runListPreviewCommand } from 'cli/commands/preview/list';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
+import { bumpStat } from 'cli/lib/bump-stat';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
 import { getProgressCallback, setProgressCallback } from 'cli/logger';
-import { studioToolDefinitions } from '../tools';
+import { createStudioToolDefinitions, studioToolDefinitions } from '../tools';
 
 vi.mock( 'cli/ai/block-validator', () => ( {
 	validateBlocks: vi.fn(),
@@ -74,6 +75,12 @@ vi.mock( 'cli/lib/cli-config/sites', async () => ( {
 	getSiteByFolder: vi.fn(),
 } ) );
 
+vi.mock( 'cli/lib/bump-stat', () => ( {
+	bumpStat: vi.fn(),
+	bumpAggregatedUniqueStat: vi.fn(),
+	getPlatformMetric: vi.fn(),
+} ) );
+
 vi.mock( 'cli/lib/daemon-client', () => ( {
 	connectToDaemon: vi.fn(),
 	disconnectFromDaemon: vi.fn(),
@@ -126,8 +133,35 @@ describe( 'Studio AI MCP tools', () => {
 				'preview_list',
 				'preview_update',
 				'preview_delete',
+				'record_workflow_event',
 			] )
 		);
+	} );
+
+	it( 'records workflow telemetry for a configured plugin group', async () => {
+		const tool = createStudioToolDefinitions( 'codex-plugin' ).find(
+			( definition ) => definition.name === 'record_workflow_event'
+		);
+		expect( tool ).toBeDefined();
+
+		const result = await tool!.handler(
+			{ workflow: 'theme-build', stage: 'started' } as never,
+			null
+		);
+
+		expect( bumpStat ).toHaveBeenCalledWith( 'codex-plugin', 'theme-build-started' );
+		expect( getTextContent( result ) ).toContain( 'codex-plugin theme-build-started' );
+	} );
+
+	it( 'skips workflow telemetry when no plugin group is configured', async () => {
+		const result = await getTool( 'record_workflow_event' ).handler(
+			{ workflow: 'theme-build', stage: 'started' } as never,
+			null
+		);
+
+		expect( bumpStat ).not.toHaveBeenCalled();
+		expect( result.isError ).toBeUndefined();
+		expect( getTextContent( result ) ).toContain( 'no plugin group configured' );
 	} );
 
 	it( 'creates previews for a resolved local site', async () => {

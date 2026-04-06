@@ -19,11 +19,18 @@ import { runCommand as runListSitesCommand } from 'cli/commands/site/list';
 import { runCommand as runStartSiteCommand } from 'cli/commands/site/start';
 import { runCommand as runStatusCommand } from 'cli/commands/site/status';
 import { runCommand as runStopSiteCommand, Mode as StopMode } from 'cli/commands/site/stop';
+import { bumpStat } from 'cli/lib/bump-stat';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getUnsupportedWpCliPostContentMessage } from 'cli/lib/rewrite-wp-cli-post-content';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
+import {
+	MCP_WORKFLOWS,
+	MCP_WORKFLOW_STAGES,
+	type McpTelemetryGroup,
+	type McpWorkflowStat,
+} from 'cli/lib/types/bump-stats';
 import { normalizeHostname } from 'cli/lib/utils';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
 import { getProgressCallback, setProgressCallback, emitProgress } from 'cli/logger';
@@ -126,6 +133,29 @@ function textResult( text: string ) {
 	return {
 		content: [ { type: 'text' as const, text } ],
 	};
+}
+
+function createRecordWorkflowEventTool( telemetryGroup?: McpTelemetryGroup ) {
+	return tool(
+		'record_workflow_event',
+		'Records a workflow telemetry event for the active AI plugin integration, such as theme-build started or completed.',
+		{
+			workflow: z.enum( MCP_WORKFLOWS ).describe( 'Workflow name, such as theme-build or site-build' ),
+			stage: z
+				.enum( MCP_WORKFLOW_STAGES )
+				.describe( 'Workflow stage to record: started, completed, or failed' ),
+		},
+		async ( args ) => {
+			const stat = `${ args.workflow }-${ args.stage }` as McpWorkflowStat;
+
+			if ( ! telemetryGroup ) {
+				return textResult( `Workflow telemetry skipped for ${ stat }: no plugin group configured.` );
+			}
+
+			bumpStat( telemetryGroup, stat );
+			return textResult( `Workflow telemetry recorded: ${ telemetryGroup } ${ stat }.` );
+		}
+	);
 }
 
 function formatInvalidBlocks( report: ValidationReport ): string[] {
@@ -761,28 +791,33 @@ const auditPerformanceTool = tool(
 	}
 );
 
-export const studioToolDefinitions = [
-	createSiteTool,
-	listSitesTool,
-	getSiteInfoTool,
-	startSiteTool,
-	stopSiteTool,
-	deleteSiteTool,
-	createPreviewTool,
-	listPreviewsTool,
-	updatePreviewTool,
-	deletePreviewTool,
-	runWpCliTool,
-	validateBlocksTool,
-	takeScreenshotTool,
-	installTaxonomyScriptsTool,
-	auditPerformanceTool,
-];
+export function createStudioToolDefinitions( telemetryGroup?: McpTelemetryGroup ) {
+	return [
+		createSiteTool,
+		listSitesTool,
+		getSiteInfoTool,
+		startSiteTool,
+		stopSiteTool,
+		deleteSiteTool,
+		createPreviewTool,
+		listPreviewsTool,
+		updatePreviewTool,
+		deletePreviewTool,
+		runWpCliTool,
+		validateBlocksTool,
+		takeScreenshotTool,
+		installTaxonomyScriptsTool,
+		auditPerformanceTool,
+		createRecordWorkflowEventTool( telemetryGroup ),
+	];
+}
 
-export function createStudioTools() {
+export const studioToolDefinitions = createStudioToolDefinitions();
+
+export function createStudioTools( options: { telemetryGroup?: McpTelemetryGroup } = {} ) {
 	return createSdkMcpServer( {
 		name: 'studio',
 		version: '1.0.0',
-		tools: studioToolDefinitions,
+		tools: createStudioToolDefinitions( options.telemetryGroup ),
 	} );
 }

@@ -5,6 +5,7 @@ import {
 } from '@studio/common/lib/mcp-config';
 import { __ } from '@wordpress/i18n';
 import { startMcpStdioServer } from 'cli/ai/mcp-server';
+import { MCP_TELEMETRY_GROUPS, type McpTelemetryGroup } from 'cli/lib/types/bump-stats';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -63,13 +64,17 @@ function printInstallationInstructions(): void {
 	}
 }
 
-export async function runCommand(): Promise< void > {
+type McpCommandOptions = {
+	telemetryGroup?: McpTelemetryGroup;
+};
+
+export async function runCommand( options: McpCommandOptions = {} ): Promise< void > {
 	if ( process.stdin.isTTY && process.stdout.isTTY ) {
 		printInstallationInstructions();
 		return;
 	}
 
-	await startMcpStdioServer();
+	await startMcpStdioServer( options );
 }
 
 export const registerCommand = ( yargs: StudioArgv ) => {
@@ -77,7 +82,14 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		command: 'mcp',
 		describe: __( 'MCP server for AI assistants' ),
 		builder: ( yargs ) => {
-			return yargs.help( false ).option( 'help', { type: 'boolean' } );
+			return yargs
+				.help( false )
+				.option( 'help', { type: 'boolean' } )
+				.option( 'telemetry-group', {
+					type: 'string',
+					hidden: true,
+					choices: [ ...MCP_TELEMETRY_GROUPS ],
+				} );
 		},
 		handler: async ( argv ) => {
 			if ( argv.help ) {
@@ -85,7 +97,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				return;
 			}
 			try {
-				await runCommand();
+				await runCommand( { telemetryGroup: argv.telemetryGroup as McpTelemetryGroup | undefined } );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );

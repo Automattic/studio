@@ -243,6 +243,7 @@ const toolDisplayNames: Record< string, string > = {
 	mcp__studio__wp_cli: __( 'Run WP-CLI' ),
 	mcp__studio__validate_blocks: __( 'Validate blocks' ),
 	mcp__studio__take_screenshot: __( 'Take screenshot' ),
+	mcp__studio__record_workflow_event: __( 'Record workflow telemetry' ),
 	Read: __( 'Read' ),
 	Write: __( 'Write' ),
 	Edit: __( 'Edit' ),
@@ -277,6 +278,11 @@ function getToolDetail( name: string, input: Record< string, unknown > ): string
 			return __( 'inline content' );
 		case 'mcp__studio__take_screenshot':
 			return typeof input.url === 'string' ? input.url : '';
+		case 'mcp__studio__record_workflow_event':
+			if ( typeof input.workflow === 'string' && typeof input.stage === 'string' ) {
+				return `${ input.workflow } ${ input.stage }`;
+			}
+			return '';
 		case 'Read':
 		case 'Write':
 		case 'Edit': {

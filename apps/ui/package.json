@@ -1,0 +1,33 @@
+{
+	"name": "@studio/ui",
+	"private": true,
+	"version": "0.1.0",
+	"type": "module",
+	"scripts": {
+		"dev:web": "vite --mode web",
+		"dev:electron": "vite --mode electron",
+		"build:web": "vite build --mode web",
+		"build:electron": "vite build --mode electron",
+		"typecheck": "tsc -p tsconfig.json --noEmit",
+		"preview": "vite preview"
+	},
+	"dependencies": {
+		"@tanstack/query-sync-storage-persister": "^5.96.2",
+		"@tanstack/react-query": "^5.75.5",
+		"@tanstack/react-query-persist-client": "^5.96.2",
+		"@tanstack/react-router": "^1.120.14",
+		"@wordpress/icons": "^11.8.0",
+		"@wordpress/private-apis": "^1.10.0",
+		"@wordpress/theme": "0.10.0",
+		"@wordpress/ui": "0.10.0",
+		"react": "^18.2.0",
+		"react-dom": "^18.2.0"
+	},
+	"devDependencies": {
+		"@types/react": "^18.3.27",
+		"@types/react-dom": "^18.3.7",
+		"@vitejs/plugin-react": "^5.1.4",
+		"typescript": "~5.9.3",
+		"vite": "^7.3.1"
+	}
+}

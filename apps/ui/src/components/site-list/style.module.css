@@ -1,0 +1,117 @@
+.root {
+	padding: 12px 16px 16px;
+}
+
+.header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 8px;
+}
+
+.collapseButton {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	background: none;
+	border: none;
+	cursor: pointer;
+	padding: 0;
+	color: #666;
+	font: inherit;
+}
+
+.chevron {
+	font-size: 10px;
+	transition: transform 0.15s ease;
+}
+
+.chevronCollapsed {
+	transform: rotate(-90deg);
+}
+
+.title {
+	font-size: 0.6875rem;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+}
+
+.stopAllButton {
+	background: none;
+	border: none;
+	cursor: pointer;
+	padding: 0;
+	font: inherit;
+	font-size: 0.75rem;
+	color: #666;
+}
+
+.stopAllButton:hover {
+	color: #333;
+}
+
+.loading {
+	padding: 8px 0;
+	color: #999;
+	font-size: 0.8125rem;
+}
+
+.list {
+	list-style: none;
+	padding: 0;
+	margin: 0;
+}
+
+.item {
+	padding: 6px 0;
+	font-size: 0.8125rem;
+	cursor: pointer;
+}
+
+.item:hover {
+	color: #000;
+}
+
+.addButton {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	background: none;
+	border: none;
+	cursor: pointer;
+	color: #666;
+	padding: 6px 0 0;
+	font: inherit;
+	font-size: 0.8125rem;
+}
+
+.addButton:hover {
+	color: #333;
+}
+
+@media ( prefers-color-scheme: dark ) {
+	.collapseButton {
+		color: #999;
+	}
+
+	.stopAllButton {
+		color: #999;
+	}
+
+	.stopAllButton:hover {
+		color: #ccc;
+	}
+
+	.item:hover {
+		color: #fff;
+	}
+
+	.addButton {
+		color: #999;
+	}
+
+	.addButton:hover {
+		color: #ccc;
+	}
+}

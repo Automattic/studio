@@ -1,0 +1,12 @@
+.root {
+	display: flex;
+	height: 100vh;
+	align-items: center;
+	justify-content: center;
+}
+
+.content {
+	max-width: 640px;
+	width: 100%;
+	padding: 32px;
+}

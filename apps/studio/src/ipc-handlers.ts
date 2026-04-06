@@ -35,6 +35,7 @@ import {
 import { generateNumberedName, generateSiteName } from '@studio/common/lib/generate-site-name';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
+import { isMultisite } from '@studio/common/lib/is-multisite';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
@@ -921,6 +922,14 @@ export function getWpVersion( _event: IpcMainInvokeEvent, id: string ) {
 	}
 	const wordPressPath = server.details.path;
 	return getWordPressVersion( wordPressPath );
+}
+
+export function getIsMultisite( _event: IpcMainInvokeEvent, id: string ) {
+	const server = SiteServer.get( id );
+	if ( ! server ) {
+		return false;
+	}
+	return isMultisite( server.details.path );
 }
 
 export async function generateProposedSitePath(

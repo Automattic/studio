@@ -1,14 +1,14 @@
 import os from 'os';
 import path from 'path';
-import fs from 'fs-extra';
-import { extractZip } from '../tools/common/lib/extract-zip';
-import { getLatestSQLiteCommandRelease } from '../apps/studio/src/lib/sqlite-command-release';
-import { SQLITE_DATABASE_INTEGRATION_RELEASE_URL } from '../apps/studio/src/constants';
 import {
 	PHPMYADMIN_DOWNLOAD_URL,
 	PHPMYADMIN_VERSION,
 	getPhpMyAdminInstallSteps,
 } from '@wp-playground/tools';
+import fs from 'fs-extra';
+import { SQLITE_DATABASE_INTEGRATION_RELEASE_URL } from '../apps/studio/src/constants';
+import { getLatestSQLiteCommandRelease } from '../apps/studio/src/lib/sqlite-command-release';
+import { extractZip } from '../tools/common/lib/extract-zip';
 
 const WP_SERVER_FILES_PATH = path.join( __dirname, '..', 'wp-files' );
 
@@ -81,26 +81,19 @@ async function downloadFile( file: FileToDownload ): Promise< void > {
 		fs.moveSync( zipPath, path.join( extractedPath, 'wp-cli.phar' ), { overwrite: true } );
 	} else if ( name === 'sqlite' ) {
 		/**
-		 * The SQLite database integration plugin is extracted
-		 * into a folder with the version number like sqlite-database-integration-1.0.0
-		 * We need to move the contents of that folder to the sqlite-database-integration folder
+		 * The SQLite database integration plugin zip extracts into a folder named
+		 * plugin-sqlite-database-integration (CI-built asset format). We rename it
+		 * to sqlite-database-integration which is the name expected by the rest of the app.
 		 */
 		console.log( `[${ name }] Extracting files from zip ...` );
 		await extractZip( zipPath, extractedPath );
 
-		const files = fs.readdirSync( extractedPath );
-		const sqliteFolder = files.find( ( file ) =>
-			file.startsWith( 'sqlite-database-integration-' )
-		);
-
-		if ( sqliteFolder ) {
-			const sourcePath = path.join( extractedPath, sqliteFolder );
-			const targetPath = path.join( extractedPath, 'sqlite-database-integration' );
-			if ( fs.existsSync( targetPath ) ) {
-				fs.rmSync( targetPath, { recursive: true, force: true } );
-			}
-			fs.moveSync( sourcePath, targetPath );
+		const sourcePath = path.join( extractedPath, 'plugin-sqlite-database-integration' );
+		const targetPath = path.join( extractedPath, 'sqlite-database-integration' );
+		if ( fs.existsSync( targetPath ) ) {
+			fs.rmSync( targetPath, { recursive: true, force: true } );
 		}
+		fs.moveSync( sourcePath, targetPath );
 	} else if ( name === 'phpmyadmin' ) {
 		/**
 		 * phpMyAdmin is extracted into a folder like phpMyAdmin-5.2.3-english.
@@ -155,4 +148,4 @@ async function downloadFiles() {
 	}
 }
 
-downloadFiles();
+void downloadFiles();

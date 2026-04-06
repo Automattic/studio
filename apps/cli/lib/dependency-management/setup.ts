@@ -66,7 +66,10 @@ async function copyBundledSqlite() {
 	const isBundledVersionNewer =
 		installedSqliteVersion && semver.gt( bundledSqliteVersion, installedSqliteVersion );
 	if ( ! isSqliteInstalled || isBundledVersionNewer ) {
-		await recursiveCopyDirectory( bundledSqlitePath, getSqlitePluginPath() );
+		if ( isSqliteInstalled ) {
+			await fs.promises.rm( installedSqlitePath, { recursive: true, force: true } );
+		}
+		await recursiveCopyDirectory( bundledSqlitePath, installedSqlitePath );
 	}
 }
 

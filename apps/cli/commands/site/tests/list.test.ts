@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
 import { readCliConfig } from 'cli/lib/cli-config/core';
-import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { connectToDaemon, disconnectFromDaemon, listProcesses } from 'cli/lib/daemon-client';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { mockReportKeyValuePair } from 'cli/tests/test-utils';
 import { runCommand } from '../list';
@@ -63,6 +63,7 @@ describe( 'CLI: studio site list', () => {
 		vi.mocked( connectToDaemon ).mockResolvedValue( undefined );
 		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
 		vi.mocked( isServerRunning ).mockResolvedValue( undefined );
+		vi.mocked( listProcesses ).mockResolvedValue( [] );
 	} );
 
 	afterEach( () => {

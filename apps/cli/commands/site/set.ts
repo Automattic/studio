@@ -16,6 +16,7 @@ import {
 } from '@studio/common/lib/wordpress-version-utils';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
+import { generateSiteCertificate } from 'cli/lib/certificate-manager';
 import {
 	lockCliConfig,
 	readCliConfig,
@@ -248,6 +249,12 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 			logger.reportStart( LoggerAction.ADD_DOMAIN_TO_HOSTS, __( 'Updating hosts file…' ) );
 			await updateDomainInHosts( oldDomain, domain, site.port );
 			logger.reportSuccess( __( 'Hosts file updated' ) );
+		}
+
+		if ( httpsChanged && https && site.customDomain ) {
+			logger.reportStart( LoggerAction.GENERATE_CERT, __( 'Generating SSL certificates…' ) );
+			await generateSiteCertificate( site.customDomain );
+			logger.reportSuccess( __( 'SSL certificates generated' ) );
 		}
 
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );

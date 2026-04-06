@@ -127,13 +127,8 @@ export async function stopProxyIfNoSitesNeedIt(
 }
 
 export const isSiteRunning = async ( site: SiteData ): Promise< boolean > => {
-	const processInfo = await isServerRunning( site.id );
-	return !! (
-		processInfo &&
-		processInfo.status === 'online' &&
-		site.latestCliPid !== undefined &&
-		processInfo.pid === site.latestCliPid
-	);
+	const status = await getSitesRunningStatus( [ site ] );
+	return status.get( site.id ) ?? false;
 };
 
 /**

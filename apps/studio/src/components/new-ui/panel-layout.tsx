@@ -35,6 +35,7 @@ import { BrowserIframeContainer } from './browser-iframe-container';
 import { BrowserTabBar } from './browser-tab-bar';
 import { CreateProjectFlow } from './create-project/create-project-flow';
 import { Sidebar } from './sidebar';
+import { EditableTaskTitle } from './tasks/editable-task-title';
 import { TaskChatPanel } from './tasks/task-chat-panel';
 import { TaskNewPanel } from './tasks/task-new-panel';
 import { Toolbar } from './toolbar';
@@ -159,10 +160,11 @@ export function PanelLayout( {
 	);
 	const isTaskChat = ! pendingNewTask && ! creatingProject && !! selectedTaskId;
 
-	// Auto-start creation flow for new users with no sites — full-width, sidebar hidden
+	// Auto-start creation flow for brand-new users with no sites and no tasks
 	const hasSites = sites.filter( ( s ) => ! s.isAddingSite ).length > 0;
+	const hasTasks = useRootSelector( ( state ) => state.tasks.tasks.length > 0 );
 	useEffect( () => {
-		if ( ! hasSites && ! creatingProject && ! selectedTaskId && ! pendingNewTask ) {
+		if ( ! hasSites && ! hasTasks && ! creatingProject && ! selectedTaskId && ! pendingNewTask ) {
 			dispatch( setCreatingProject( true ) );
 			// Hide sidebar for the distraction-free first-time experience
 			if ( navPanelRef.current && ! navPanelRef.current.isCollapsed() ) {
@@ -175,6 +177,7 @@ export function PanelLayout( {
 		}
 	}, [
 		hasSites,
+		hasTasks,
 		creatingProject,
 		selectedTaskId,
 		pendingNewTask,
@@ -233,10 +236,14 @@ export function PanelLayout( {
 	const handleLayoutChanged = ( layout: Record< string, number > ) => {
 		saveLayout( layout );
 		const isNavCollapsed = layout.nav === 0;
-		saveCollapsedState( isNavCollapsed, layout.secondary === 0 );
-		// Sync navCollapsed state when panels collapse/expand via drag
+		const isSecondaryCollapsed = layout.secondary === 0;
+		saveCollapsedState( isNavCollapsed, isSecondaryCollapsed );
+		// Sync collapsed state when panels collapse/expand via drag
 		if ( isNavCollapsed !== navCollapsed ) {
 			setNavCollapsed( isNavCollapsed );
+		}
+		if ( isSecondaryCollapsed !== browserCollapsed ) {
+			setBrowserCollapsed( isSecondaryCollapsed );
 		}
 	};
 
@@ -305,7 +312,11 @@ export function PanelLayout( {
 							{ pendingNewTask ? (
 								<span className="text-xs text-frame-text truncate">New Task</span>
 							) : selectedTask ? (
-								<span className="text-xs text-frame-text truncate">{ selectedTask.title }</span>
+								<EditableTaskTitle
+									taskId={ selectedTask.id }
+									title={ selectedTask.title }
+									className="text-xs text-frame-text"
+								/>
 							) : selectedSite ? (
 								<span className="text-xs text-frame-text truncate">{ selectedSite.name }</span>
 							) : undefined }
@@ -315,11 +326,19 @@ export function PanelLayout( {
 					const browserToggle = (
 						<Button
 							icon={ navigation }
-							onClick={ () => togglePanel( secondaryPanelRef.current ) }
+							onClick={ () =>
+								togglePanel( secondaryPanelRef.current, ( willCollapse ) =>
+									setBrowserCollapsed( willCollapse )
+								)
+							}
 							label={ `${ browserCollapsed ? 'Show' : 'Hide' } browser (${
 								isMac() ? '⌘⇧B' : 'Ctrl+Shift+B'
 							})` }
-							className={ ICON_FRAME }
+							className={ cx(
+								ICON_FRAME,
+								'[&_svg]:transition-transform [&_svg]:duration-200',
+								! browserCollapsed && '[&_svg]:rotate-90 !text-frame-theme'
+							) }
 						/>
 					);
 
@@ -337,24 +356,23 @@ export function PanelLayout( {
 						/>
 					);
 
-					const taskSite = selectedTask
-						? sites.find( ( s ) => s.id === selectedTask.siteId )
-						: undefined;
-					const showSiteName = taskSite?.running;
-
 					const taskBrowserToggle = (
 						<Button
 							icon={ navigation }
-							onClick={ () => togglePanel( secondaryPanelRef.current ) }
+							onClick={ () =>
+								togglePanel( secondaryPanelRef.current, ( willCollapse ) =>
+									setBrowserCollapsed( willCollapse )
+								)
+							}
 							label={ `${ browserCollapsed ? 'Show' : 'Hide' } browser (${
 								isMac() ? '⌘⇧B' : 'Ctrl+Shift+B'
 							})` }
-							className={ `${ ICON_FRAME } [&:hover>span]:text-frame-theme [&:focus>span]:text-frame-theme` }
-						>
-							{ showSiteName && (
-								<span className="text-xs font-normal transition-colors">{ taskSite.name }</span>
+							className={ cx(
+								ICON_FRAME,
+								'[&_svg]:transition-transform [&_svg]:duration-200',
+								! browserCollapsed && '[&_svg]:rotate-90 !text-frame-theme'
 							) }
-						</Button>
+						/>
 					);
 
 					const taskToolbar = (
@@ -402,8 +420,6 @@ export function PanelLayout( {
 				minSize="300px"
 				collapsible
 				collapsedSize={ 0 }
-				onCollapse={ () => setBrowserCollapsed( true ) }
-				onExpand={ () => setBrowserCollapsed( false ) }
 			>
 				<div className="h-full flex flex-col overflow-hidden bg-[#1d2327]">
 					{ browser.hasContent ? (

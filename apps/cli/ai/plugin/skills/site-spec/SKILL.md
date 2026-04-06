@@ -6,62 +6,46 @@ user-invokable: true
 
 # Project Spec Discovery
 
-Before creating a new project, gather the user's preferences through a short interactive discovery phase. This produces a **Project Spec** that guides all subsequent design and development decisions.
+Gather what you need to design the project. This is a **conversation**, not a form — be smart about what you already know.
 
-The goal is a conversation, not a form — friendly, quick, and easy to skip through.
+## First: Read What the User Already Told You
 
-## How to Run
+Before asking anything, analyze the user's initial message. They often front-load a lot of information. Extract everything you can:
+- Project name or working title
+- What it's for and who it's for
+- Visual direction, tone, or references
+- Structure hints (single page, multiple pages, specific features)
+- Technical preferences
 
-Gather preferences through 5 rounds. Keep it concise and conversational.
+**Only ask about what's genuinely missing.** If the user said "a portfolio site for my photography with a minimal, clean feel" — you already have the name direction, purpose, audience, and tone. Don't ask about any of those. Jump straight to what you don't know (structure? stack?).
 
-**AskUserQuestion constraints**: Each call supports 1-4 questions, each with 2-4 options. An "Other" free-form option is automatically provided by the system — do NOT add one yourself. Keep option labels short (1-5 words). Only use AskUserQuestion for questions that have meaningful predefined options. For open-ended questions, just ask in your text output — the user will type their answer in the prompt.
+If the user gave you everything, skip straight to design. If they gave you almost everything, ask one or two clarifying questions and move on. Never robotically walk through all five rounds when the user already answered most of them.
 
-### Round 1 — Name
+## What You Need (ask only for what's missing)
 
-"What's your project called?" Ask in your text output. **Stop here and wait for their reply** — do NOT call any tools or continue to the next round. The user needs a chance to type their answer.
+**Name** — What's the project called? If the user described it but didn't name it, suggest a name and ask if it works. Don't force them to name it if they haven't — you can propose one.
 
-### Round 2 — Goals & Context
+**Goals & Context** — What's the project for? Who's the audience? Any reference URLs or images? Ask conversationally, not as a checklist. If the user already explained this, acknowledge it and move on.
 
-"Tell me more about it." Ask about:
-- What the project is for (portfolio, business, blog, app, etc.)
-- Who it's for (audience)
-- Any reference URLs or images the user wants to share
-- General goals ("I want people to book appointments", "I want to showcase my work")
+**Structure** — One-page or multi-page? Use AskUserQuestion with options only if you genuinely don't know. If the user described features that clearly imply multi-page (e.g. "user profiles, a feed, collections"), just confirm your assumption: "Sounds like this needs multiple pages — a feed, profile pages, collections. Sound right?"
 
-This can be one open-ended question or a short back-and-forth. Encourage URLs and images but don't require them. **Stop and wait for their reply.**
-
-### Round 3 — Structure
-
-Use AskUserQuestion:
-- One-page or multi-page? (e.g., single scrollable page with sections vs. separate pages for each area)
-
-### Round 4 — Stack
-
-"How should we build it?" Use AskUserQuestion:
-- **WordPress theme** *(recommended)* — Full WordPress with blocks and the editor
-- **React + WordPress** — React handles the frontend, WordPress powers the backend
-- **Vue + WordPress** — Vue handles the frontend, WordPress powers the backend
+**Stack** — Use AskUserQuestion:
 - **Whatever works best** — We'll pick the best approach for your project
+- **WordPress theme** — Full WordPress with blocks and the editor
+- **React + WordPress** — React frontend, WordPress backend
+- **Vue + WordPress** — Vue frontend, WordPress backend
 
-"Whatever works best" should be the default/first option. Most users will accept it. Power users who want a specific stack can choose explicitly.
+Skip this entirely if the user specified a stack, or if the project clearly calls for a standard WordPress theme.
 
-### Round 5 — Tone & Style
+**Tone & Style** — Visual direction, colors, fonts, inspirations. If the user already shared images or described the vibe, build on that: "Love the 90s direction — I'm thinking neon colors, chunky fonts, geometric patterns. Any specific colors or sites that inspire you?" Don't ask from scratch if they already set the direction.
 
-"What should it feel like?" Ask about:
-- Visual tone (minimal, bold, playful, corporate, editorial, etc.)
-- Any brand colors, fonts, or existing visual identity
-- Inspirations ("I like how Stripe's site feels", "something like a magazine")
+## AskUserQuestion Constraints
 
-Ask in your text output. **Stop and wait for their reply.**
+Each call supports 1-4 questions, each with 2-4 options. An "Other" free-form option is automatically provided — do NOT add one yourself. Keep labels short (1-5 words). Only use AskUserQuestion for genuine multiple-choice moments. For open-ended questions, just ask in your text output.
 
 ## Content Strategy
 
-Generate contextually appropriate content based on the spec — real-ish copy that matches the project's purpose and tone, not lorem ipsum. During the design iteration phase, ask for content feedback:
-- "How does the content feel? Is this the right tone?"
-- "What are we missing?"
-- "Is this the right story for your homepage?"
-
-Use relevant stock photos for imagery based on the project description.
+Generate contextually appropriate content based on the spec — real-ish copy that matches the project's purpose and tone, not lorem ipsum. Use relevant stock photos for imagery.
 
 ## After Gathering Answers
 
@@ -71,25 +55,12 @@ Use relevant stock photos for imagery based on the project description.
 
 1. **Generate 2-3 design directions** as polished standalone HTML/CSS/JS files. Each should be a complete, impressive mockup — not a wireframe. Use real-ish content based on the spec.
 
-2. **Write each option** as a standalone `.html` file using the `file_write` tool. Store them in `~/Studio/previews/` folder. Each file should be self-contained with inline CSS and any JS needed.
+2. **Write each option** as a standalone `.html` file. Store them in `~/Studio/previews/`. Each file should be self-contained with inline CSS and any JS needed. Also create an `index.html` with iframes showing all options side-by-side for easy comparison.
 
-3. **Show the previews in the browser panel** using the `browser_navigate` tool with the **full absolute file path** to the HTML file (e.g. `browser_navigate("/Users/shaun/Studio/previews/option-a.html")`). The file will be served via a local HTTP server automatically. Navigate to the first option immediately, then tell the user about all options and how to switch between them. Create an `index.html` that shows all options side-by-side using iframes, and navigate to that.
+3. **Show the previews in the browser panel** by calling `browser_navigate` with the **full absolute file path** to the index.html (e.g. `browser_navigate("/Users/shaun/Studio/previews/index.html")`). The file will be served via a local HTTP server automatically. **You MUST call browser_navigate** — the user cannot see the files otherwise.
 
 4. **Tell the user** you've created the design options and describe each direction briefly. Ask them to pick one, iterate, or mix elements.
 
-4. **Wait for the user to commit** before building. They should explicitly say "build it" or pick an option. Until then, iterate on the designs based on feedback.
+5. **Wait for the user to commit** before building. They should explicitly say "build it" or pick an option. Until then, iterate on the designs based on feedback.
 
-5. **Only after the user commits** to a design direction should you proceed to `site_create` and theme building.
-
-### Speed Strategy
-
-Generate a quick "style tile" first — just a hero section showing the color palette, typography, and layout direction. Then build out full mockups while the user reacts to the tiles.
-
-## When to Skip Discovery
-
-Do NOT ask questions if:
-- The user already provided enough detail in the initial prompt to start designing. Proceed directly.
-- The user says "just build something" or "surprise me". Pick a bold creative direction yourself and proceed.
-- The user explicitly asks to skip the setup or says they don't want questions.
-
-If the user provides partial info, only ask about what's missing — don't repeat questions they've already answered.
+6. **Only after the user commits** to a design direction should you proceed to `site_create` and theme building.

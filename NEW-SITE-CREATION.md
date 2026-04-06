@@ -16,6 +16,32 @@ Today Studio builds WordPress block themes. But the architecture supports headle
 
 **New but stubbed:** "Import anything" via URL — paste any website URL and the agent scrapes design/content to recreate it locally. v1 can fake this with a placeholder flow that captures the URL and creates a basic site inspired by it.
 
+## Implementation Status
+
+### Done
+
+- **Add-site window removed.** Dedicated Electron window (`add-site-window.ts`, `add-site-root.tsx`) deleted. IPC handlers, preload bridge, renderer routing, and `isAddSiteVisible` menu state all cleaned up.
+- **Creation flow in main window.** `CreateProjectFlow` renders in the primary panel with DotGrid background. "Something new" and "Bring something you already have" chooser cards with frosted glass styling. Triggered via sidebar button, Cmd+N menu, `create-project` IPC event, or auto-start for new users.
+- **Placeholder task system.** "Something new" creates a task with `SETUP_SITE_ID` (`__project-setup__`) — no site on disk. Task list shows setup tasks ungrouped (no site header). When the agent calls `site_create`, the `createSite` handler automatically migrates setup tasks to the real site.
+- **First-time user experience.** Auto-starts creation flow when there are no sites AND no tasks. Sidebar and browser panel collapse for distraction-free full-width experience.
+- **Questionnaire system.** Separate IPC channel (`ai:question-request` / `ai:question-response`) independent from permissions. Full round-trip: CLI headless → agent-manager → IPC event → Redux `pendingQuestions` → `TaskQuestionPrompt` UI → response back to CLI. Options render as a vertical text list with hover-to-theme styling. Chat input doubles as free-form answer when a question is pending.
+- **Browser preview infrastructure.** Preview server (`src/lib/preview-server.ts`) serves local HTML files via `http://localhost:<port>` to satisfy CSP. Agent-manager converts file paths to localhost URLs. Browser panel accepts preview tabs without a running site (`hasContent` flag). Panel auto-expands when preview content arrives. `browser_navigate` tool description updated to mention local file paths.
+- **Task chat max-width.** Messages and input capped at `max-w-3xl` (768px).
+- **Site-spec skill rewritten.** Conversational, not a form. Leads with "read what the user already told you" — only asks about what's missing. Design preview phase is mandatory with explicit `browser_navigate` instructions.
+- **Sidebar layout.** Tasks section scrolls when long; projects section stays visible at bottom. "Add project" button shows active state when creation mode is on.
+- **Floating tour component.** Built (`src/components/new-ui/floating-tour.tsx`) with step-by-step tooltips, arrow positioning, dismiss persistence. Not yet integrated into the post-creation transition.
+- **Import step UI.** Shows WordPress.com, Pressable, Jetpack Backup, WordPress Export, and URL options. Handlers are stubbed (TODO).
+- **Orphan task cleanup.** Task list filters out tasks whose site no longer exists.
+
+### Not yet done
+
+- **Import flow wiring.** The import options render but `handleSelect` is a TODO. Needs to connect to existing `AddSiteModal` flows for backup/xml/wpcom, and build the URL import agent flow.
+- **Floating tour integration.** Component exists but is never triggered. Needs to fire after the user commits to a design and the build starts — point to the build task and project detail.
+- **Post-creation transition.** Sidebar should auto-expand when the build starts. User should land on Project Detail view. "Your project is ready!" moment when build completes. None of this is wired.
+- **Headless path.** Stack choice exists in the skill but no build logic. Needs: React/Vue scaffold tools, REST API enablement, frontend starter project generation.
+- **Design iteration UX.** No structured "commit" moment — the agent just waits for text. Could benefit from a clear "Ready to build?" UI element.
+- **Preview storage cleanup.** Files in `~/Studio/previews/` persist but are never cleaned up when a project is deleted.
+
 ## Flow
 
 The creation flow is the user's **first Task**. It runs in the main window using the existing Task system — primary panel for the spec and chat, browser panel for design previews. When creation is done, the task persists in the sidebar like any other task.
@@ -26,7 +52,7 @@ Welcome / Auth (existing, unchanged)
         ▼
 ┌─────────────────────────────────────────────────────────┐
 │            WHAT DO YOU WANT TO BUILD?                     │
-│            (sidebar hidden, full-width)                   │
+│            (sidebar hidden, full-width, dot grid bg)     │
 │                                                          │
 │   ┌──────────────────┐    ┌──────────────────────┐      │
 │   │   Something      │    │   Bring something    │      │
@@ -44,14 +70,14 @@ Welcome / Auth (existing, unchanged)
 ┌───────────────────────┐ ┌──────────────────────────────┐
 │  PROJECT SPEC (chat)  │ │      WHERE IS IT?            │
 │                       │ │                              │
-│  Round 1 — Name       │ │  ○ WordPress.com             │
-│  Round 2 — Goals      │ │  ○ Pressable                 │
-│  Round 3 — Structure  │ │  ○ Jetpack Backup            │
-│  Round 4 — Stack      │ │  ○ WordPress Export (.xml)   │
-│  Round 5 — Tone/Style │ │  ○ URL                       │
+│  Agent reads the      │ │  ○ WordPress.com             │
+│  user's initial       │ │  ○ Pressable                 │
+│  message and only     │ │  ○ Jetpack Backup            │
+│  asks about what's    │ │  ○ WordPress Export (.xml)   │
+│  genuinely missing.   │ │  ○ URL                       │
 │                       │ │    Paste any website and     │
-│  (see Spec Skill)     │ │    we'll pull it in          │
-│                       │ └──────────┬───────────────────┘
+│  (see site-spec       │ │    we'll pull it in          │
+│   skill)              │ └──────────┬───────────────────┘
 │                       │            │
 │                       │            ▼
 │                       │ ┌──────────────────────────────┐
@@ -69,53 +95,29 @@ Welcome / Auth (existing, unchanged)
 │          DESIGN OPTIONS (chat + browser panel)           │
 │                                                          │
 │  Agent generates 2-3 polished design directions          │
-│  as HTML/CSS/JS, rendered in the browser panel.          │
+│  as HTML/CSS/JS, rendered in the browser panel via       │
+│  preview server (http://localhost:<port>).                │
 │                                                          │
-│  Speed strategy:                                         │
-│  1. Show a quick style tile (hero section with colors,   │
-│     typography, layout direction) within ~30 seconds     │
-│  2. Build out full mockups while user reacts to tiles    │
-│  3. Replace tiles with full renders as they complete     │
-│                                                          │
-│  Files stored in a persistent preview directory           │
-│  (not temp — users can revisit later).                   │
-│                                                          │
+│  Files stored in ~/Studio/previews/.                     │
 │  Each option is a standalone .html file. An index.html   │
 │  ties them together for side-by-side comparison.         │
+│  Agent calls browser_navigate with the absolute file     │
+│  path to show previews in the browser panel.             │
 │                                                          │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐       │
-│  │  Option A   │ │  Option B   │ │  Option C   │       │
-│  └──────┬──────┘ └──────┬──────┘ └──────┬──────┘       │
-│         └───────────────┼───────────────┘               │
-│                         ▼                                │
 │  User picks / iterates / rejects via chat                │
-│  "I like B but make the hero bigger"                     │
-│  "The tone feels too corporate — more playful"           │
-│  "How does the content feel? What are we missing?"       │
-│                         │                                │
-│                         ▼                                │
 │  User commits: "Let's go with this one"                  │
 └─────────────────────────┼────────────────────────────────┘
                           │
                           ▼
 ┌─────────────────────────────────────────────────────────┐
-│                    BUILD (background task)                │
+│                    BUILD                                  │
 │                                                          │
-│  Sidebar expands. Floating tour introduces the UI:       │
-│  "Studio is now building your WordPress. It'll take      │
-│   a minute." → points to the new build task              │
+│  Agent calls site_create → task migrated from            │
+│  __project-setup__ to real site automatically.           │
+│  Block theme → wp_cli → validate → screenshot            │
 │                                                          │
-│  User lands on Project Detail view while they wait.      │
-│  Exposed to: publishing, sync, preview links.            │
-│                                                          │
-│  WordPress theme path:                                   │
-│    site_create → block theme → wp_cli → validate         │
-│    → screenshot → compare to approved design             │
-│                                                          │
-│  Headless path (React/Vue):                              │
-│    site_create with default theme → enable REST/GraphQL  │
-│    → scaffold frontend → connect to WP APIs              │
-│    (basic starter app for v1)                            │
+│  TODO: Sidebar expansion, floating tour, Project         │
+│  Detail holding pattern.                                 │
 │                                                          │
 │  "Your project is ready!"                                │
 └─────────────────────────────────────────────────────────┘
@@ -125,78 +127,56 @@ Welcome / Auth (existing, unchanged)
 
 New users see the Welcome and Permissions screens (existing, unchanged — handles WP.com auth). After that:
 
-1. **Creation flow auto-starts.** The "What do you want to build?" screen fills the main window. Sidebar navigation is hidden — no distractions.
-2. **Spec and design happen in the primary + browser panels.** The user's first interaction with Studio is a conversation. They don't need to learn the app's full UI yet.
-3. **After committing to a design,** the sidebar expands for the first time. A floating tour component (new) points to key elements:
+1. **Creation flow auto-starts.** The "What do you want to build?" screen fills the main window with a dot grid background. Sidebar and browser panel are hidden — no distractions. Triggers when there are no sites AND no tasks.
+2. **Spec and design happen in the primary + browser panels.** The user's first interaction with Studio is a conversation. They don't need to learn the app's full UI yet. The user's initial description appears as the first chat message.
+3. **After committing to a design,** the sidebar expands for the first time. A floating tour component (built, not yet integrated) points to key elements:
    - The build task in the sidebar ("Studio is building your site")
    - The Project Detail view ("Check out what your project can do")
-4. **Project Detail is the holding pattern.** While the agent builds the theme (5+ minutes), the user explores publishing to WordPress.com/Pressable, sync, and preview links. This is productive wait time.
+4. **Project Detail is the holding pattern.** While the agent builds the theme (5+ minutes), the user explores publishing to WordPress.com/Pressable, sync, and preview links. This is productive wait time. (TODO: not yet wired)
 5. **Build completes.** The task updates, the browser panel shows the real site. The user can start a new task to iterate.
 
 Returning users with existing projects skip straight to the main app. The "+ Add project" button in the sidebar triggers the same creation flow, but with the sidebar visible.
 
 ## Project Spec Skill
 
-The `site-spec` skill gathers everything the agent needs before designing. It should feel like a conversation, not a form — friendly, quick, and easy to skip through.
+The `site-spec` skill (`apps/cli/ai/plugin/skills/site-spec/SKILL.md`) gathers everything the agent needs before designing. It's a conversation, not a form.
 
-### Rounds
+**Key principle:** The agent reads the user's initial message first and extracts everything it can — name, purpose, audience, tone, references. It only asks about what's genuinely missing. If the user front-loaded everything, it skips straight to design.
 
-**Round 1 — Name**
-"What's your project called?" (free-form text, not a questionnaire)
-
-**Round 2 — Goals & Context**
-"Tell me more about it." The agent asks about:
-- What the project is for (portfolio, business, blog, app, etc.)
-- Who it's for (audience)
-- Any reference URLs or images the user wants to share
-- General goals ("I want people to book appointments", "I want to showcase my work")
-
-This can be one open-ended question or a short back-and-forth. The agent should encourage URLs and images but not require them.
-
-**Round 3 — Structure**
-One-page or multi-page? (questionnaire with options)
-
-**Round 4 — Stack**
-"How should we build it?" (questionnaire)
-- WordPress theme *(recommended)* — Full WordPress with blocks and the editor
-- React + WordPress — React handles the frontend, WordPress powers the backend
-- Vue + WordPress — Vue handles the frontend, WordPress powers the backend
-- Whatever the AI says *(default)* — We'll pick the best approach for your project
-
-"Whatever the AI says" is the default selection. Most users will accept it. Power users who want a specific stack can choose explicitly.
-
-**Round 5 — Tone & Style**
-"What should it feel like?" The agent asks about:
-- Visual tone (minimal, bold, playful, corporate, editorial, etc.)
-- Any brand colors, fonts, or existing visual identity
-- Inspirations ("I like how Stripe's site feels", "something like a magazine")
+**What the agent needs** (asks only for gaps):
+- **Name** — suggest one if the user didn't provide it
+- **Goals & Context** — purpose, audience, references
+- **Structure** — one-page or multi-page (AskUserQuestion if unclear)
+- **Stack** — WordPress theme, React+WP, Vue+WP, or "whatever works best" (AskUserQuestion, skip if obvious)
+- **Tone & Style** — visual direction, colors, fonts, inspirations
 
 ### Content Strategy
 
-The agent generates contextually appropriate content based on the spec — real-ish copy that matches the project's purpose and tone, not lorem ipsum. During the design iteration phase, the agent asks for content feedback:
-- "How does the content feel? Is this the right tone?"
-- "What are we missing?"
-- "Is this the right story for your homepage?"
-
-Stock photos for imagery in v1. The agent should pick relevant ones based on the project description.
-
-### When to Skip
-
-Same rules as today: if the user provides everything upfront, or says "just build something" / "surprise me", skip to design.
+Real-ish copy matching the project's purpose and tone, not lorem ipsum. Stock photos for imagery based on the project description.
 
 ## Questionnaire System
 
-The agent uses `AskUserQuestion` to ask structured questions (stack choice, layout, etc.). Both surfaces need proper rendering.
+The agent uses `AskUserQuestion` to ask structured questions (stack choice, structure, etc.). This is a **separate IPC channel** from the permission system.
 
-- Agent sends a questionnaire with one or more questions
-- UI presents questions **one at a time** in the chat
-- Each question can be:
-  - **Radio** — pick one from a list of options
-  - **Checkbox** — pick multiple
-  - **Free-form fallback** — every question also allows typing a custom answer
-- User can answer OR ignore the question and type something else to redirect the agent
-- CLI renders the same types as terminal prompts (already works via `@inquirer/prompts`)
-- Desktop renders them as interactive cards in the chat stream
+### Architecture
+
+| Layer | Component | What it does |
+|---|---|---|
+| CLI | `headless.ts` `createIpcAskUserHandler()` | Sends `ai:question-request`, awaits `ai:question-response` |
+| Main | `agent-manager.ts` | Forwards `ai:question-request` → renderer, `ai:question-response` → CLI |
+| IPC | `task-question-request` event | Carries `QuestionRequest` (requestId, taskId, question, options) |
+| Redux | `pendingQuestions` in tasks slice | Stores pending questions |
+| UI | `TaskQuestionPrompt` | Renders question text + option buttons |
+| UI | `TaskChatInput` | Detects pending question, routes typed text as answer |
+| IPC | `respondToQuestionHandler` | Sends answer back through main → CLI |
+
+### Rendering
+
+- Question text shown above options
+- Options render as a vertical list: bold label + muted description, hover turns text theme color
+- No borders, no cards — clean text list
+- Chat input placeholder changes to "Or type your own answer..." when a question is pending
+- Typing in the chat input and submitting answers the question (bypasses the queue)
 
 ## Design Previews
 
@@ -204,189 +184,89 @@ The agent uses `AskUserQuestion` to ask structured questions (stack choice, layo
 
 Polished, impressive HTML/CSS/JS mockups. Not wireframes — these should look like real sites. The agent generates standalone `.html` files for each option, plus an `index.html` that shows all options side-by-side in iframes.
 
-### Where they render
+### How they render
 
-The browser panel in the main window. The existing `BrowserIframeContainer` and tab system can be extended to load local preview files instead of a running site URL.
+The agent calls `browser_navigate` with the absolute file path (e.g., `/Users/.../previews/index.html`). The agent-manager detects the local file path, starts the preview server (`src/lib/preview-server.ts`), converts the path to `http://localhost:<port>/index.html`, and sends the URL to the browser panel. CSP allows `http://localhost:*` in iframes.
 
-### Speed strategy
-
-Generating 2-3 polished mockups can take several minutes. To keep the user engaged:
-
-1. **Style tiles first (~30s).** A single "hero" section per option showing color palette, typography, and layout direction. Renders fast, gives the user something to react to immediately.
-2. **Full renders replace tiles.** As the agent completes each full mockup, it replaces the corresponding style tile. The user sees progress.
-3. **Chat stays active.** While renders build out, the user can comment on the style tiles: "I like the colors in A but the layout in B." The agent incorporates feedback into the full renders.
+For setup tasks (no real site), the agent-manager sends the task ID instead of `SETUP_SITE_ID` so the browser panel's event matching works correctly.
 
 ### Storage
 
-Preview files are stored in a persistent directory per project (not temp). Users can revisit design options later — useful for "actually, I liked the other direction better" moments.
+Preview files stored in `~/Studio/previews/`. Not temp — users can revisit. TODO: cleanup when a project is deleted.
 
 ### Iteration
 
-The user iterates on designs via chat:
-- "Make the hero bigger"
-- "More whitespace"
-- "Can you try a dark version?"
-- "The tone is too corporate — more playful"
-
-When the user is ready, they commit explicitly: "Let's go with this one" / "Build it" / selecting an option and confirming. The agent should surface a clear moment for this: "Ready to build? Pick your favorite and I'll create your WordPress site."
+Via chat — "Make the hero bigger", "More whitespace", "Can you try a dark version?". When ready, the user commits: "Let's go with this one" / "Build it".
 
 ## Post-Creation Transition
 
-When the user commits to a design, several things happen at once:
+When the user commits to a design:
 
-1. **Site creation kicks off** as a new background Task. The agent starts `site_create`, builds the theme, installs content — the full build pipeline.
-2. **Sidebar expands** for the first time (for new users). The creation task appears in the sidebar.
-3. **Floating tour** (new component) — a non-modal tooltip/popover that points to UI elements:
-   - Points to the build task: "Studio is now building your WordPress. It'll take a minute."
-   - Points to Project Detail: "Your WordPress is booting up. Check out what it can do."
-4. **User lands on Project Detail view.** This is where they wait productively — exposed to publishing (WordPress.com, Pressable), sync, and preview links.
-5. **Build completes.** Task status updates. Browser panel can show the real running site. User can start new tasks to iterate on the site.
+1. **Agent calls `site_create`.** The `createSite` IPC handler automatically migrates any tasks with `SETUP_SITE_ID` to the newly created real site. The task now belongs to the real project.
+2. **Sidebar should expand** (TODO: not yet automated).
+3. **Floating tour should fire** (TODO: component exists at `src/components/new-ui/floating-tour.tsx` but not integrated).
+4. **User should land on Project Detail view** (TODO: not wired).
+5. **Build completes.** Task status updates. Browser panel can show the real running site.
 
-## Headless Fork
+## Cleanup: Remove Add-Site Window — DONE
 
-The stack choice in Round 4 determines the build path. The fork happens **at build time only** — the spec and design phases are identical regardless of stack.
+The dedicated add-site Electron window has been fully removed:
 
-### Design previews are stack-agnostic
-
-Whether the user chose "WordPress theme" or "React + WordPress," the design previews are the same: standalone HTML/CSS/JS mockups showing how the site should look. The previews are about design direction, not implementation.
-
-### Build step diverges
-
-**WordPress theme path** (fully working):
-`site_create` → write block theme files → `wp_cli` for content, menus, settings → `validate_blocks` → `take_screenshot` → compare to approved design → fix drift
-
-**Headless path** (basic for v1):
-`site_create` with default theme → enable REST API / GraphQL → scaffold React or Vue project in subdirectory → wire API connections → content managed in WP admin
-
-The headless path produces a working WordPress backend with a connected starter frontend app. The frontend won't be as polished as the theme path — that's future work.
-
-### UI differences for headless projects
-
-After build, headless projects show a "Frontend" section in Project Detail pointing to the React/Vue dev server. The browser panel shows the frontend app instead of the WordPress theme. WP admin is still accessible for content management.
-
-## CLI / UI Parity
-
-The CLI (`studio ai`) and the desktop UI share the same underlying agent, tools, system prompt, and skills. The creation flow works in both interfaces.
-
-### Shared layer (already exists)
-
-| Component | Location | Used by |
-|---|---|---|
-| Agent config | `apps/cli/ai/agent.ts` | Both |
-| System prompt | `tools/common/ai/system-prompt.ts` | Both |
-| Studio tools | `apps/cli/ai/tools.ts` | Both |
-| `site-spec` skill | `apps/cli/ai/plugin/skills/site-spec/` | Both |
-| Headless agent IPC | `apps/cli/commands/ai/headless.ts` | Desktop (forks CLI) |
-
-### Interface layer (differs per surface)
-
-| Concern | CLI | Desktop |
-|---|---|---|
-| Entry | Terminal prompt | Main window (first Task) |
-| Agent process | In-process | Claude Agent SDK in main process |
-| Questionnaires | Terminal prompts (`@inquirer/prompts`) | Interactive cards in chat stream |
-| Design previews | Opens system browser | Browser panel |
-| Progress | Terminal streaming | Activity indicator + browser panel updates |
-| Post-creation | Terminal output | Sidebar expansion + floating tour + Project Detail |
-| Session persistence | Disk files | `TaskMetadata.sessionId` in Redux |
-
-### Work needed for parity
-
-#### 1. Questionnaire UI (both surfaces)
-
-New questionnaire rendering for structured questions in the chat. See [Questionnaire System](#questionnaire-system) above.
-
-#### 2. Design preview rendering
-
-Browser panel needs to load local HTML preview files. Extend the existing `BrowserIframeContainer` to support local file paths alongside site URLs.
-
-#### 3. Update `site-spec` skill
-
-Current rounds: name, layout. Expand to 5 rounds: name, goals/context, structure, stack, tone/style. See [Project Spec Skill](#project-spec-skill) above.
-
-#### 4. Build step per stack
-
-See [Headless Fork](#headless-fork) above.
-
-#### 5. Floating tour component
-
-New UI component for the post-creation transition. Non-modal tooltip/popover that points to specific DOM elements with a message. Dismissable, appears once.
-
-#### 6. Preview storage
-
-Persistent directory per project for design preview files. Needs a storage location outside temp (probably alongside site data in `~/Studio/`), and cleanup when a project is deleted.
-
-## Cleanup: Remove Add-Site Window
-
-The dedicated add-site Electron window (`add-site-window.ts`) was added recently as a prototype but is now superseded by the Task-based flow in the main window. All of this needs to be removed or redirected.
-
-### Delete
-
-| File | What it is |
-|---|---|
-| `src/add-site-window.ts` | Dedicated Electron BrowserWindow for add-site |
-| `src/components/new-ui/add-site-root.tsx` | Root component for the dedicated window (providers, dot grid background) |
-
-### Remove from
-
-| File | What to remove |
-|---|---|
-| `src/ipc-handlers.ts` | `openAddSiteWindow` and `closeAddSiteWindow` handler registrations |
-| `src/preload.ts` | `openAddSiteWindow` and `closeAddSiteWindow` from the IPC bridge |
-| `src/renderer.ts` | `AddSiteRoot` import and `view === 'add-site'` ternary in root component selection |
-
-### Redirect
-
-| File | Current behavior | New behavior |
-|---|---|---|
-| `src/components/new-ui/sidebar.tsx` | "+ Add project" calls `getIpcApi().openAddSiteWindow()` | Should trigger the creation flow in the main window (start a new creation Task, hide sidebar if needed) |
-| `src/menu.ts` | "Add Site..." menu item sends `add-site` IPC event, tracks `isAddSiteVisible` state | Menu item should trigger the main-window creation flow. Remove `isAddSiteVisible` parameter. |
-| `src/lib/deeplink/deeplink-handler.ts` | `add-site` deeplink route opens the dedicated window | Should trigger creation flow in the main window with blueprint context |
-
-### Keep
-
-| File | Why |
-|---|---|
-| `src/components/new-ui/create-project/create-project-flow.tsx` | The chooser UI (new vs. import) moves into the main window's primary panel |
-| `src/components/new-ui/create-project/import-project-step.tsx` | Import source picker, still needed |
-| `src/modules/add-site/index.tsx` | The `AddSiteModal` handles existing import flows (backup, xml, wpcom sync) — unchanged |
-| `src/lib/deeplink/handlers/add-site-with-blueprint.ts` | Blueprint deeplink logic, just needs a different trigger target |
+- **Deleted:** `add-site-window.ts`, `add-site-root.tsx`
+- **Removed:** `openAddSiteWindow` / `closeAddSiteWindow` IPC handlers, preload bridge, renderer `view === 'add-site'` routing, `isAddSiteVisible` menu state
+- **Redirected:** Sidebar button → `setCreatingProject(true)`, Menu → `create-project` IPC event, Deeplink → `create-project` route
+- **Kept:** `CreateProjectFlow`, `ImportProjectStep`, `AddSiteModal` (existing imports), blueprint deeplink handler
 
 ## Architecture
 
-### Main Window (existing)
+### Main Window
 
 The creation flow runs in the main app window using the existing panel layout:
 
-- **Primary panel** — Spec chat and creation UI. The "What do you want to build?" chooser renders here initially, then transitions to the Task chat. Creation-specific UI (step indicators, commit button) can render below the chat input.
-- **Browser panel** — Design previews during creation. Loads local HTML files via the existing `BrowserIframeContainer`.
-- **Sidebar** — Hidden during first-time creation. Expands after the user commits to a design.
+- **Primary panel** — "What do you want to build?" chooser, then Task chat for spec conversation
+- **Browser panel** — Design previews via preview server. Auto-expands when content arrives.
+- **Sidebar** — Hidden during first-time creation. "Add project" button shows active state.
 
 ### Components
 
-- **`src/components/new-ui/create-project/create-project-flow.tsx`** — Initial chooser (new vs. import), transitions to Task chat
-- **`src/components/new-ui/create-project/import-project-step.tsx`** — Import source picker
-- **`src/components/new-ui/floating-tour.tsx`** — New: post-creation guided tour
-- **`src/components/new-ui/tasks/task-chat-panel.tsx`** — Existing: handles the spec conversation
-- **`src/components/new-ui/panel-layout.tsx`** — Existing: manages sidebar visibility
+| Component | File | Status |
+|---|---|---|
+| Chooser (new vs. import) | `src/components/new-ui/create-project/create-project-flow.tsx` | Done |
+| Import source picker | `src/components/new-ui/create-project/import-project-step.tsx` | UI done, handlers stubbed |
+| Floating tour | `src/components/new-ui/floating-tour.tsx` | Built, not integrated |
+| Task chat panel | `src/components/new-ui/tasks/task-chat-panel.tsx` | Done (max-width added) |
+| Question prompt | `src/components/new-ui/tasks/task-question-prompt.tsx` | Done |
+| Panel layout | `src/components/new-ui/panel-layout.tsx` | Done (auto-start, browser auto-expand) |
+| Sidebar | `src/components/new-ui/sidebar.tsx` | Done (scroll fix, active state) |
+| Task list | `src/components/new-ui/tasks/task-list.tsx` | Done (setup tasks, orphan cleanup) |
+| Preview server | `src/lib/preview-server.ts` | Done |
+| Site menu | `src/components/site-menu.tsx` | Done (deselect during creation) |
 
 ### AI Pipeline
 
-- **System prompt** — `tools/common/ai/system-prompt.ts`
-- **`site-spec` skill** — `apps/cli/ai/plugin/skills/site-spec/SKILL.md` (needs expansion)
-- **Agent tools** — `apps/cli/ai/tools.ts`
-- **Agent manager** — `apps/studio/src/modules/ai/lib/agent-manager.ts`
-- **Provider resolver** — `apps/studio/src/modules/ai/lib/provider-resolver.ts`
+| Component | File | Status |
+|---|---|---|
+| System prompt | `tools/common/ai/system-prompt.ts` | Updated (browser_navigate mentions file paths) |
+| Site-spec skill | `apps/cli/ai/plugin/skills/site-spec/SKILL.md` | Rewritten (conversational, design phase mandatory) |
+| Agent tools | `apps/cli/ai/tools.ts` | Updated (browser_navigate supports local files) |
+| Agent manager | `apps/studio/src/modules/ai/lib/agent-manager.ts` | Updated (question IPC, preview server, SETUP_SITE_ID handling) |
+| Headless agent | `apps/cli/commands/ai/headless.ts` | Updated (question channel, empty text fix) |
+| IPC handlers | `apps/studio/src/modules/ai/lib/ipc-handlers.ts` | Updated (respondToQuestionHandler, task migration) |
 
 ### Data
 
-- **Task metadata** — Stored in `appdata-v1.json` via existing Task system
-- **Chat messages** — Stored in `localStorage` via existing Redux listener
-- **Design previews** — Stored in persistent project directory (e.g., `~/Studio/<project>/previews/`)
-- **Session resume** — `TaskMetadata.sessionId` enables resuming creation if the app closes mid-flow
+- **Task metadata** — Stored in `appdata-v1.json`. Setup tasks use `siteId: '__project-setup__'`, migrated to real site on creation.
+- **Chat messages** — Stored in `localStorage` via Redux listener
+- **Design previews** — Stored in `~/Studio/previews/`, served via preview server
+- **Session resume** — `TaskMetadata.sessionId` enables resuming if app closes mid-flow
+
+### Constants
+
+- `SETUP_SITE_ID = '__project-setup__'` — placeholder siteId for tasks before a real site exists
 
 ## Terminology
 
 - **"Project"** in user-facing copy, not "site"
 - Internal code keeps existing naming to avoid churn
-- Sidebar already uses "Projects" as the section header
+- Sidebar uses "Projects" as the section header, "Add project" button
+- Menu uses "New Project..." (Cmd+N)

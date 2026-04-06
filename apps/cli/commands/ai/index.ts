@@ -429,8 +429,8 @@ export async function runCommand(
 					const isUpdate = Boolean( activeSnapshot );
 					ui.showProgress(
 						isUpdate
-							? __( 'Updating preview site… this may take a few minutes.' )
-							: __( 'Creating preview site… this may take a few minutes.' )
+							? __( 'Updating preview site… this may take a moment.' )
+							: __( 'Creating preview site… this may take a moment.' )
 					);
 					ui.setBusy( true );
 
@@ -450,13 +450,8 @@ export async function runCommand(
 						const updated = await getSnapshotsFromConfig( token.id, site.path );
 						const latest = updated.find( ( s ) => ! isSnapshotExpired( s ) );
 						if ( latest ) {
-							ui.showSuccess(
-								sprintf(
-									/* translators: %s: preview site URL */
-									__( 'Preview site ready: https://%s' ),
-									latest.url
-								)
-							);
+							const previewUrl = `https://${ latest.url }`;
+							ui.showSuccess( __( 'Preview site ready!' ) + '\n\n   ' + previewUrl );
 						} else {
 							ui.showInfo( result.consoleOutput || __( 'Preview command completed.' ) );
 						}

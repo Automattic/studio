@@ -1603,7 +1603,7 @@ export class AiChatUI {
 	}
 
 	showProgress( message: string ): void {
-		this.messages.addChild( new Text( '\n ' + chalk.yellow( '⏺' ) + ' ' + message + '\n', 0, 0 ) );
+		this.messages.addChild( new Text( '\n ' + '⏺' + ' ' + message + '\n', 0, 0 ) );
 		this.tui.requestRender();
 	}
 

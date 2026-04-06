@@ -27,6 +27,7 @@ vi.mock( '@studio/common/lib/fs-utils' );
 vi.mock( '@sentry/electron/main', () => ( {
 	captureException: vi.fn(),
 	captureMessage: vi.fn(),
+	setTag: vi.fn(),
 } ) );
 vi.mock( 'src/site-server' );
 vi.mock( 'src/lib/wordpress-setup', () => ( {

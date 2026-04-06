@@ -67,7 +67,7 @@ describe( 'AI auth helpers', () => {
 
 	it( 'uses Claude auth when the Claude auth provider is selected', async () => {
 		vi.mocked( childProcess.execFileSync ).mockReturnValue(
-			JSON.stringify( { loggedIn: true } ) as never
+			Buffer.from( JSON.stringify( { loggedIn: true } ) )
 		);
 
 		const env = await resolveAiEnvironment( 'anthropic-claude' );
@@ -105,7 +105,7 @@ describe( 'AI auth helpers', () => {
 
 	it( 'lists Claude auth only when it is available', async () => {
 		vi.mocked( childProcess.execFileSync ).mockReturnValue(
-			JSON.stringify( { loggedIn: true } ) as never
+			Buffer.from( JSON.stringify( { loggedIn: true } ) )
 		);
 		await expect( getAvailableAiProviders() ).resolves.toEqual( [
 			'wpcom',
@@ -177,7 +177,7 @@ describe( 'AI auth helpers', () => {
 		} );
 		vi.mocked( readAuthToken ).mockResolvedValue( null );
 		vi.mocked( childProcess.execFileSync ).mockReturnValue(
-			JSON.stringify( { loggedIn: true } ) as never
+			Buffer.from( JSON.stringify( { loggedIn: true } ) )
 		);
 
 		await expect( resolveInitialAiProvider() ).resolves.toBe( 'anthropic-claude' );

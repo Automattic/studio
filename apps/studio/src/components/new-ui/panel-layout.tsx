@@ -10,7 +10,7 @@ import {
 	sidesAxial,
 } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { type RefObject, useEffect, useMemo, useRef } from 'react';
+import { type RefObject, useEffect, useMemo, useRef, useState } from 'react';
 import {
 	Group,
 	Panel,
@@ -22,15 +22,18 @@ import { SiteContentTabs } from 'src/components/site-content-tabs';
 import { useAreaScreenshot } from 'src/hooks/use-area-screenshot';
 import { useBrowserPanel } from 'src/hooks/use-browser-panel';
 import { useElementSelector } from 'src/hooks/use-element-selector';
+import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { isMac } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { useRootSelector } from 'src/stores';
+import { useAppDispatch, useRootSelector } from 'src/stores';
+import { setCreatingProject } from 'src/stores/tasks-slice';
 import { BrowserCaptureOverlay } from './browser-capture-overlay';
 import { BrowserFloatingInput } from './browser-floating-input';
 import { BrowserIframeContainer } from './browser-iframe-container';
 import { BrowserTabBar } from './browser-tab-bar';
+import { CreateProjectFlow } from './create-project/create-project-flow';
 import { Sidebar } from './sidebar';
 import { TaskChatPanel } from './tasks/task-chat-panel';
 import { TaskNewPanel } from './tasks/task-new-panel';
@@ -146,19 +149,64 @@ export function PanelLayout( {
 	setNavCollapsed,
 	onToggleNav,
 }: PanelLayoutProps ) {
-	const { selectedSite } = useSiteDetails();
+	const dispatch = useAppDispatch();
+	const { selectedSite, sites } = useSiteDetails();
 	const selectedTaskId = useRootSelector( ( state ) => state.tasks.selectedTaskId );
 	const pendingNewTask = useRootSelector( ( state ) => state.tasks.pendingNewTask );
+	const creatingProject = useRootSelector( ( state ) => state.tasks.creatingProject );
 	const selectedTask = useRootSelector( ( state ) =>
 		state.tasks.tasks.find( ( t ) => t.id === state.tasks.selectedTaskId )
 	);
-	const isTaskChat = ! pendingNewTask && !! selectedTaskId;
+	const isTaskChat = ! pendingNewTask && ! creatingProject && !! selectedTaskId;
+
+	// Auto-start creation flow for new users with no sites — full-width, sidebar hidden
+	const hasSites = sites.filter( ( s ) => ! s.isAddingSite ).length > 0;
+	useEffect( () => {
+		if ( ! hasSites && ! creatingProject && ! selectedTaskId && ! pendingNewTask ) {
+			dispatch( setCreatingProject( true ) );
+			// Hide sidebar for the distraction-free first-time experience
+			if ( navPanelRef.current && ! navPanelRef.current.isCollapsed() ) {
+				togglePanel( navPanelRef.current, () => setNavCollapsed( true ) );
+			}
+			// Hide browser panel too
+			if ( secondaryPanelRef.current && ! secondaryPanelRef.current.isCollapsed() ) {
+				togglePanel( secondaryPanelRef.current );
+			}
+		}
+	}, [
+		hasSites,
+		creatingProject,
+		selectedTaskId,
+		pendingNewTask,
+		dispatch,
+		navPanelRef,
+		secondaryPanelRef,
+		setNavCollapsed,
+	] );
+
+	useIpcListener( 'create-project', () => {
+		dispatch( setCreatingProject( true ) );
+	} );
 	const primaryStartInset = isMac() && navCollapsed ? MAC_TRAFFIC_LIGHT_INSET : undefined;
 	const browser = useBrowserPanel();
+
+	// Auto-expand browser panel when preview content arrives
+	const prevHasContent = useRef( false );
+	useEffect( () => {
+		if ( browser.hasContent && ! prevHasContent.current ) {
+			if ( secondaryPanelRef.current?.isCollapsed() ) {
+				togglePanel( secondaryPanelRef.current );
+			}
+		}
+		prevHasContent.current = browser.hasContent;
+	}, [ browser.hasContent, secondaryPanelRef ] );
 	const elementSelector = useElementSelector( {
 		getActiveIframe: browser.getActiveIframe,
 	} );
 	const areaScreenshot = useAreaScreenshot();
+	const [ browserCollapsed, setBrowserCollapsed ] = useState(
+		() => secondaryPanelRef.current?.isCollapsed() ?? loadCollapsedState().secondary
+	);
 
 	const initialCollapsed = useRef( loadCollapsedState() );
 
@@ -244,54 +292,91 @@ export function PanelLayout( {
 			{ /* PanelPrimary */ }
 			<Panel id="primary" minSize="300px">
 				{ ( () => {
+					const toolbarStart = (
+						<>
+							<Button
+								icon={ drawerLeft }
+								onClick={ onToggleNav }
+								label={ `${ navCollapsed ? 'Show' : 'Hide' } navigation (${
+									isMac() ? '⌘B' : 'Ctrl+B'
+								})` }
+								className={ ICON_FRAME }
+							/>
+							{ pendingNewTask ? (
+								<span className="text-xs text-frame-text truncate">New Task</span>
+							) : selectedTask ? (
+								<span className="text-xs text-frame-text truncate">{ selectedTask.title }</span>
+							) : selectedSite ? (
+								<span className="text-xs text-frame-text truncate">{ selectedSite.name }</span>
+							) : undefined }
+						</>
+					);
+
+					const browserToggle = (
+						<Button
+							icon={ navigation }
+							onClick={ () => togglePanel( secondaryPanelRef.current ) }
+							label={ `${ browserCollapsed ? 'Show' : 'Hide' } browser (${
+								isMac() ? '⌘⇧B' : 'Ctrl+Shift+B'
+							})` }
+							className={ ICON_FRAME }
+						/>
+					);
+
 					const primaryToolbar = (
 						<Toolbar
 							className="app-drag-region"
 							startInset={ primaryStartInset }
-							start={
-								<>
-									<Button
-										icon={ drawerLeft }
-										onClick={ onToggleNav }
-										label={ `${ navCollapsed ? 'Show' : 'Hide' } navigation (${
-											isMac() ? '⌘B' : 'Ctrl+B'
-										})` }
-										className={ ICON_FRAME }
-									/>
-									{ pendingNewTask ? (
-										<span className="text-xs text-frame-text truncate">New Task</span>
-									) : selectedTask ? (
-										<span className="text-xs text-frame-text truncate">{ selectedTask.title }</span>
-									) : selectedSite ? (
-										<span className="text-xs text-frame-text truncate">{ selectedSite.name }</span>
-									) : undefined }
-								</>
-							}
+							start={ toolbarStart }
 							end={
 								<>
 									<StartStopButton />
-									<Button
-										icon={ navigation }
-										onClick={ () => togglePanel( secondaryPanelRef.current ) }
-										label={ `${
-											secondaryPanelRef.current?.isCollapsed() ? 'Show' : 'Hide'
-										} browser (${ isMac() ? '⌘⇧B' : 'Ctrl+Shift+B' })` }
-										className={ ICON_FRAME }
-									/>
+									{ browserToggle }
 								</>
 							}
 						/>
 					);
 
+					const taskSite = selectedTask
+						? sites.find( ( s ) => s.id === selectedTask.siteId )
+						: undefined;
+					const showSiteName = taskSite?.running;
+
+					const taskBrowserToggle = (
+						<Button
+							icon={ navigation }
+							onClick={ () => togglePanel( secondaryPanelRef.current ) }
+							label={ `${ browserCollapsed ? 'Show' : 'Hide' } browser (${
+								isMac() ? '⌘⇧B' : 'Ctrl+Shift+B'
+							})` }
+							className={ `${ ICON_FRAME } [&:hover>span]:text-frame-theme [&:focus>span]:text-frame-theme` }
+						>
+							{ showSiteName && (
+								<span className="text-xs font-normal transition-colors">{ taskSite.name }</span>
+							) }
+						</Button>
+					);
+
+					const taskToolbar = (
+						<Toolbar
+							className="app-drag-region"
+							startInset={ primaryStartInset }
+							start={ toolbarStart }
+							end={ taskBrowserToggle }
+						/>
+					);
+
 					return (
 						<div className="h-full flex flex-col overflow-hidden bg-frame">
-							{ ! isTaskChat && primaryToolbar }
-							{ pendingNewTask ? (
+							{ ! isTaskChat && ! creatingProject && primaryToolbar }
+							{ creatingProject ? (
+								<CreateProjectFlow />
+							) : pendingNewTask ? (
 								<TaskNewPanel />
 							) : selectedTaskId ? (
 								<TaskChatPanel
 									taskId={ selectedTaskId }
-									toolbar={ primaryToolbar }
+									toolbar={ taskToolbar }
 									elementSelector={ elementSelector }
 									areaScreenshot={ areaScreenshot }
 								/>
@@ -317,9 +402,11 @@ export function PanelLayout( {
 				minSize="300px"
 				collapsible
 				collapsedSize={ 0 }
+				onCollapse={ () => setBrowserCollapsed( true ) }
+				onExpand={ () => setBrowserCollapsed( false ) }
 			>
 				<div className="h-full flex flex-col overflow-hidden bg-[#1d2327]">
-					{ browser.autoLoginSrc ? (
+					{ browser.hasContent ? (
 						<>
 							<div className="relative flex items-center gap-1 p-2 flex-shrink-0 app-drag-region">
 								{ browser.isNavigating && (

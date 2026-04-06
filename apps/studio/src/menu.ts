@@ -36,10 +36,7 @@ import { getLogsFilePath } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from 'src/updates';
 
-export async function setupMenu( config: {
-	needsOnboarding: boolean;
-	isAddSiteVisible?: boolean;
-} ) {
+export async function setupMenu( config: { needsOnboarding: boolean } ) {
 	const mainWindow = await getMainWindow();
 	if ( ! mainWindow && process.platform !== 'darwin' ) {
 		Menu.setApplicationMenu( null );
@@ -95,10 +92,7 @@ async function buildBetaFeaturesMenu(): Promise< MenuItemConstructorOptions[] > 
 
 async function getAppMenu(
 	mainWindow: BrowserWindow | null,
-	{
-		needsOnboarding = false,
-		isAddSiteVisible = false,
-	}: { needsOnboarding?: boolean; isAddSiteVisible?: boolean } = {}
+	{ needsOnboarding = false }: { needsOnboarding?: boolean } = {}
 ) {
 	const crashTestMenuItems: MenuItemConstructorOptions[] = [
 		{
@@ -235,12 +229,12 @@ async function getAppMenu(
 			role: 'fileMenu',
 			submenu: [
 				{
-					label: __( 'Add Site…' ),
+					label: __( 'New Project…' ),
 					accelerator: 'CommandOrControl+N',
 					click: async () => {
-						void sendIpcEventToRenderer( 'add-site' );
+						void sendIpcEventToRenderer( 'create-project' );
 					},
-					enabled: ! needsOnboarding && ! isAddSiteVisible,
+					enabled: ! needsOnboarding,
 				},
 				...( process.platform === 'win32'
 					? []

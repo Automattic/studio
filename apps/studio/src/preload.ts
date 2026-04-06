@@ -76,8 +76,6 @@ const api: IpcApi = {
 	getSentryUserId: () => ipcRendererInvoke( 'getSentryUserId' ),
 	getUserLocale: () => ipcRendererInvoke( 'getUserLocale' ),
 	openSettingsWindow: ( tab ) => ipcRendererInvoke( 'openSettingsWindow', tab ),
-	openAddSiteWindow: () => ipcRendererInvoke( 'openAddSiteWindow' ),
-	closeAddSiteWindow: () => ipcRendererInvoke( 'closeAddSiteWindow' ),
 	startServer: ( id ) => ipcRendererInvoke( 'startServer', id ),
 	stopServer: ( id ) => ipcRendererInvoke( 'stopServer', id ),
 	stopAllServers: () => ipcRendererInvoke( 'stopAllServers' ),
@@ -197,6 +195,8 @@ const api: IpcApi = {
 	interruptTaskHandler: ( taskId ) => ipcRendererInvoke( 'interruptTaskHandler', taskId ),
 	respondToPermissionRequestHandler: ( requestId, response, taskId ) =>
 		ipcRendererInvoke( 'respondToPermissionRequestHandler', requestId, response, taskId ),
+	respondToQuestionHandler: ( requestId, answer, taskId ) =>
+		ipcRendererInvoke( 'respondToQuestionHandler', requestId, answer, taskId ),
 
 	// Screen capture
 	captureScreenRegion: ( rect ) => ipcRendererInvoke( 'captureScreenRegion', rect ),

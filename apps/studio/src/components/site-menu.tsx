@@ -161,7 +161,8 @@ function SiteItem( {
 		useSiteDetails();
 	const dispatch = useAppDispatch();
 	const selectedTaskId = useRootSelector( ( state ) => state.tasks.selectedTaskId );
-	const isSelected = ! selectedTaskId && site === selectedSite;
+	const creatingProject = useRootSelector( ( state ) => state.tasks.creatingProject );
+	const isSelected = ! selectedTaskId && ! creatingProject && site === selectedSite;
 	const { isSiteImporting, isSiteExporting } = useImportExport();
 	const { data: editor } = useGetUserEditorQuery();
 	const { data: terminal } = useGetUserTerminalQuery();

@@ -4,7 +4,8 @@ import { useState } from 'react';
 import SiteMenu from 'src/components/site-menu';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
-import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useAppDispatch, useRootSelector } from 'src/stores';
+import { setCreatingProject } from 'src/stores/tasks-slice';
 import { TaskList } from './tasks/task-list';
 
 interface SidebarProps {
@@ -12,6 +13,8 @@ interface SidebarProps {
 }
 
 export function Sidebar( { className }: SidebarProps ) {
+	const dispatch = useAppDispatch();
+	const creatingProject = useRootSelector( ( state ) => state.tasks.creatingProject );
 	const { sites, stopAllRunningSites, startAllStoppedSites, loadingServer } = useSiteDetails();
 	const [ projectsOpen, setProjectsOpen ] = useState( true );
 
@@ -22,16 +25,13 @@ export function Sidebar( { className }: SidebarProps ) {
 
 	return (
 		<nav className={ cx( 'flex flex-col flex-1 overflow-hidden', className ) }>
-			{ /* Tasks section */ }
-			<div className="flex flex-col p-2 gap-2">
+			{ /* Tasks section — scrolls when long */ }
+			<div className="flex-1 min-h-0 overflow-y-auto p-2 gap-2">
 				<TaskList />
 			</div>
 
-			{ /* Flexible spacer — pushes sites to the bottom */ }
-			<div className="flex-1" />
-
-			{ /* Sites section */ }
-			<div className="flex flex-col border-t border-chrome-border">
+			{ /* Sites section — always visible at bottom */ }
+			<div className="flex-shrink-0 flex flex-col border-t border-chrome-border">
 				<header className="flex items-center justify-between px-4 py-3">
 					<button
 						onClick={ () => setProjectsOpen( ! projectsOpen ) }
@@ -76,11 +76,16 @@ export function Sidebar( { className }: SidebarProps ) {
 						<div className="px-2 pb-4">
 							<Button
 								icon={ plus }
-								onClick={ () => getIpcApi().openAddSiteWindow() }
-								className="!w-full !text-chrome-text-secondary hover:!text-chrome-text !text-xs !px-2 !py-2 !justify-start"
+								onClick={ () => dispatch( setCreatingProject( true ) ) }
+								className={ cx(
+									'!w-full !text-xs !px-2 !py-2 !justify-start !rounded-lg',
+									creatingProject
+										? '!bg-chrome-selection !text-chrome-text'
+										: '!text-chrome-text-secondary hover:!text-chrome-text'
+								) }
 								size="compact"
 							>
-								Add site
+								Add project
 							</Button>
 						</div>
 					</div>

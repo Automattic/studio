@@ -42,7 +42,7 @@ import { readSharedConfig, updateSharedConfig } from '@studio/common/lib/shared-
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import { MACOS_TRAFFIC_LIGHT_POSITION, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
-import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
+import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
 import {
 	bumpStat,
@@ -166,6 +166,7 @@ export {
 	sendTaskMessageHandler,
 	interruptTaskHandler,
 	respondToPermissionRequestHandler,
+	respondToQuestionHandler,
 } from 'src/modules/ai/lib/ipc-handlers';
 
 export async function getAgentInstructionsStatus(
@@ -459,6 +460,30 @@ export async function createSite(
 			},
 			{ wpVersion, blueprint: blueprint?.blueprint }
 		);
+
+		// Migrate any setup tasks to the newly created site
+		try {
+			const { SETUP_SITE_ID } = await import( 'src/constants' );
+			await lockAppdata();
+			try {
+				const userData = await loadUserData();
+				const tasks = userData.tasks ?? [];
+				const setupTasks = tasks.filter( ( t: { siteId: string } ) => t.siteId === SETUP_SITE_ID );
+				if ( setupTasks.length > 0 ) {
+					for ( const task of setupTasks ) {
+						task.siteId = server.details.id;
+					}
+					await saveUserData( { ...userData, tasks } );
+					for ( const task of setupTasks ) {
+						await sendIpcEventToRenderer( 'task-updated', task );
+					}
+				}
+			} finally {
+				await unlockAppdata();
+			}
+		} catch {
+			// Non-critical — task migration failure shouldn't block site creation
+		}
 
 		return server.details;
 	} catch ( error ) {
@@ -1157,7 +1182,7 @@ export function showNotification(
 
 export async function setupAppMenu(
 	_event: IpcMainInvokeEvent,
-	config: { needsOnboarding: boolean; isAddSiteVisible?: boolean }
+	config: { needsOnboarding: boolean }
 ) {
 	await setupMenu( config );
 }
@@ -1691,19 +1716,6 @@ export async function openSettingsWindow(
 	const rendererUrl =
 		process.env.NODE_ENV !== 'production' ? process.env[ 'ELECTRON_RENDERER_URL' ] : undefined;
 	open( preloadPath, rendererUrl, tab );
-}
-
-export async function openAddSiteWindow( _event: IpcMainInvokeEvent ): Promise< void > {
-	const { openAddSiteWindow: open } = await import( 'src/add-site-window' );
-	const preloadPath = nodePath.join( __dirname, '../preload/preload.js' );
-	const rendererUrl =
-		process.env.NODE_ENV !== 'production' ? process.env[ 'ELECTRON_RENDERER_URL' ] : undefined;
-	open( preloadPath, rendererUrl );
-}
-
-export async function closeAddSiteWindow( _event: IpcMainInvokeEvent ): Promise< void > {
-	const { closeAddSiteWindow: close } = await import( 'src/add-site-window' );
-	close();
 }
 
 export async function captureScreenRegion(

@@ -148,6 +148,9 @@ export function BrowserFloatingInput( {
 			if ( title ) {
 				void getIpcApi().updateTask( task.id, { title } );
 			}
+			if ( trimmed ) {
+				void getIpcApi().generateTaskTitle( task.id, trimmed );
+			}
 
 			void getIpcApi().startTaskAgentHandler(
 				task.id,

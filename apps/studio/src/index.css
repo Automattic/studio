@@ -222,6 +222,10 @@ div:has( > progress ) > div:first-child {
 	width: 100%;
 }
 
+.task-options-popover .components-menu-item__item {
+	min-width: auto;
+}
+
 /* Assistant messages */
 .assistant-markdown {
 	line-height: 1.4;
@@ -690,6 +694,7 @@ div:has( > progress ) > div:first-child {
 		left: -30%;
 	}
 }
+
 
 /* Keyboard-only focus rings
    Show focus indicators only during keyboard navigation.

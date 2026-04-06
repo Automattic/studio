@@ -1,7 +1,8 @@
 import { DropdownMenu, MenuGroup, MenuItem } from '@wordpress/components';
-import { archive, moreVertical } from '@wordpress/icons';
+import { archive, moreVertical, pencil } from '@wordpress/icons';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { cx } from 'src/lib/cx';
+import { EditableTaskTitle } from './editable-task-title';
 import { TaskPreviewCard } from './task-preview-card';
 import type { TaskMetadata } from 'src/modules/ai/types';
 
@@ -19,6 +20,7 @@ interface TaskListItemProps {
 
 export function TaskListItem( { task, isSelected, onClick, onArchive }: TaskListItemProps ) {
 	const [ menuOpen, setMenuOpen ] = useState( false );
+	const [ renaming, setRenaming ] = useState( false );
 	const [ previewVisible, setPreviewVisible ] = useState( false );
 	const [ mousePos, setMousePos ] = useState( { x: 0, y: 0 } );
 	const timerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
@@ -86,14 +88,13 @@ export function TaskListItem( { task, isSelected, onClick, onArchive }: TaskList
 				onClick={ onClick }
 				className="flex-1 min-w-0 text-left px-2 py-1.5 flex items-center gap-2"
 			>
-				<span
-					className={ cx(
-						'text-sm truncate',
-						isSelected ? 'text-chrome-text' : 'text-chrome-text'
-					) }
-				>
-					{ task.title }
-				</span>
+				<EditableTaskTitle
+					taskId={ task.id }
+					title={ task.title }
+					editing={ renaming }
+					onEditingChange={ setRenaming }
+					className={ cx( 'text-sm', isSelected ? 'text-chrome-text' : 'text-chrome-text' ) }
+				/>
 				{ task.status === 'in-progress' && (
 					<span className="w-1.5 h-1.5 rounded-full bg-[#4f94f8] animate-pulse flex-shrink-0" />
 				) }
@@ -112,9 +113,19 @@ export function TaskListItem( { task, isSelected, onClick, onArchive }: TaskList
 						label="Task options"
 						className="text-chrome-text-tertiary hover:text-chrome-text"
 						onToggle={ setMenuOpen }
+						popoverProps={ { className: 'task-options-popover' } }
 					>
 						{ ( { onClose }: { onClose: () => void } ) => (
 							<MenuGroup>
+								<MenuItem
+									icon={ pencil }
+									onClick={ () => {
+										onClose();
+										setRenaming( true );
+									} }
+								>
+									Rename
+								</MenuItem>
 								<MenuItem
 									icon={ archive }
 									onClick={ () => {

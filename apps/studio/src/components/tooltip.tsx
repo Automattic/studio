@@ -1,11 +1,12 @@
-import { Icon, Popover } from '@wordpress/components';
-import { PropsWithChildren, useState, useEffect } from 'react';
+import { Icon, Tooltip as WPTooltip } from '@wordpress/components';
+import { type PropsWithChildren, useState } from 'react';
 
-export interface TooltipProps
-	extends Pick< React.ComponentProps< typeof Popover >, 'placement' | 'className' > {
+export interface TooltipProps {
 	icon?: JSX.Element;
 	text?: string | JSX.Element;
 	disabled?: boolean;
+	placement?: React.ComponentProps< typeof WPTooltip >[ 'placement' ];
+	className?: string;
 }
 
 const Tooltip = ( {
@@ -13,57 +14,33 @@ const Tooltip = ( {
 	text,
 	children,
 	disabled,
-	placement = 'top',
+	placement,
 	className,
 }: PropsWithChildren< TooltipProps > ) => {
-	const [ isPopoverVisible, setIsPopoverVisible ] = useState( false );
-	const showPopover = () => {
-		if ( disabled ) {
-			return;
-		}
-		setIsPopoverVisible( true );
-	};
-
-	const hidePopover = () => {
-		setIsPopoverVisible( false );
-	};
-
-	useEffect( () => {
-		if ( ! text && isPopoverVisible ) {
-			setIsPopoverVisible( false );
-		}
-	}, [ text, isPopoverVisible ] );
-
 	if ( ! children ) {
 		return null;
 	}
 
-	return (
-		<div
-			className={ className ?? 'inline-flex items-center h-fit' }
-			onFocus={ showPopover }
-			onBlur={ hidePopover }
-			onMouseOut={ hidePopover }
-			onMouseOver={ showPopover }
-		>
-			{ children }
-			{ isPopoverVisible && (
-				<Popover
-					role="tooltip"
-					noArrow={ true }
-					offset={ 8 }
-					className="[&_div]:!shadow-none [&>div]:bg-transparent"
-					animate={ false }
-					placement={ placement }
-				>
-					<div className="inline-flex items-center gap-2 max-w-80 rounded py-2 px-2.5 bg-[#101517] text-white animate-[fade_0.5s_ease-in-out_1]">
-						{ icon && <Icon className="fill-white shrink-0  m-[2px]" size={ 16 } icon={ icon } /> }
-						<span className="text-left text-xs break-words overflow-hidden">{ text }</span>
-					</div>
-				</Popover>
-			) }
-		</div>
+	if ( disabled || ! text ) {
+		return className ? <div className={ className }>{ children }</div> : <>{ children }</>;
+	}
+
+	const tooltipContent = icon ? (
+		<span className="inline-flex items-center gap-2">
+			<Icon className="fill-white shrink-0" size={ 16 } icon={ icon } />
+			<span>{ text }</span>
+		</span>
+	) : (
+		text
 	);
+
+	const tooltip = (
+		<WPTooltip text={ tooltipContent as string } placement={ placement }>
+			{ children as React.ReactElement }
+		</WPTooltip>
+	);
+
+	return className ? <div className={ className }>{ tooltip }</div> : tooltip;
 };
 
 function DynamicTooltip( {

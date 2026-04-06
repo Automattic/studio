@@ -1,6 +1,7 @@
 import { Button, Popover } from '@wordpress/components';
 import { archive, chevronRight, Icon, plus } from '@wordpress/icons';
 import { useCallback, useMemo, useState } from 'react';
+import { SETUP_SITE_ID } from 'src/constants';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { useAppDispatch, useRootSelector } from 'src/stores';
@@ -18,6 +19,8 @@ export function TaskList() {
 	const { sites } = useSiteDetails();
 	const [ showArchived, setShowArchived ] = useState( false );
 
+	const siteIds = useMemo( () => new Set( sites.map( ( s ) => s.id ) ), [ sites ] );
+
 	const siteNameMap = useMemo( () => {
 		const map: Record< string, string > = {};
 		for ( const site of sites ) {
@@ -27,8 +30,13 @@ export function TaskList() {
 	}, [ sites ] );
 
 	const activeTasks = useMemo(
-		() => tasks.filter( ( t ) => ! t.archived ).sort( ( a, b ) => b.updatedAt - a.updatedAt ),
-		[ tasks ]
+		() =>
+			tasks
+				.filter(
+					( t ) => ! t.archived && ( siteIds.has( t.siteId ) || t.siteId === SETUP_SITE_ID )
+				)
+				.sort( ( a, b ) => b.updatedAt - a.updatedAt ),
+		[ tasks, siteIds ]
 	);
 
 	const groupedTasks = useMemo( () => {
@@ -52,8 +60,11 @@ export function TaskList() {
 	}, [ activeTasks, siteNameMap ] );
 
 	const archivedTasks = useMemo(
-		() => tasks.filter( ( t ) => t.archived ).sort( ( a, b ) => b.updatedAt - a.updatedAt ),
-		[ tasks ]
+		() =>
+			tasks
+				.filter( ( t ) => t.archived && siteIds.has( t.siteId ) )
+				.sort( ( a, b ) => b.updatedAt - a.updatedAt ),
+		[ tasks, siteIds ]
 	);
 
 	const handleArchiveTask = ( taskId: string ) => {
@@ -150,30 +161,33 @@ export function TaskList() {
 
 			<div className="flex flex-col gap-2">
 				{ groupedTasks.map( ( group ) => {
+					const isSetup = group.siteId === SETUP_SITE_ID;
 					const isOpen = ! collapsedSites.has( group.siteId );
 					return (
 						<div key={ group.siteId } className="flex flex-col">
-							<button
-								onClick={ () => toggleSite( group.siteId ) }
-								className="flex items-center px-2 py-1 text-xs text-chrome-text-secondary"
-							>
-								<span>{ group.siteName }</span>
-								<Icon
-									icon={ chevronRight }
-									size={ 16 }
-									className={ cx(
-										'fill-chrome-text-secondary transition-transform duration-200',
-										isOpen ? 'rotate-90' : 'rotate-0'
-									) }
-								/>
-							</button>
+							{ ! isSetup && (
+								<button
+									onClick={ () => toggleSite( group.siteId ) }
+									className="flex items-center px-2 py-1 text-xs text-chrome-text-secondary"
+								>
+									<span>{ group.siteName }</span>
+									<Icon
+										icon={ chevronRight }
+										size={ 16 }
+										className={ cx(
+											'fill-chrome-text-secondary transition-transform duration-200',
+											isOpen ? 'rotate-90' : 'rotate-0'
+										) }
+									/>
+								</button>
+							) }
 							<div
 								className={ cx(
-									'grid transition-[grid-template-rows] duration-200 ease-in-out',
-									isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+									! isSetup && 'grid transition-[grid-template-rows] duration-200 ease-in-out',
+									! isSetup && ( isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]' )
 								) }
 							>
-								<div className="overflow-hidden">
+								<div className={ cx( ! isSetup && 'overflow-hidden' ) }>
 									<div className="flex flex-col gap-0.5">
 										{ group.tasks.map( ( task ) => (
 											<TaskListItem

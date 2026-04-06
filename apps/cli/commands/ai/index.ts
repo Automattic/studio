@@ -24,11 +24,13 @@ import { type LoadedAiSession, type TurnStatus } from 'cli/ai/sessions/types';
 import {
 	AI_CHAT_API_KEY_COMMAND,
 	AI_CHAT_BROWSER_COMMAND,
+	AI_CHAT_CLASSIC_TO_BLOCKS_COMMAND,
 	AI_CHAT_EXIT_COMMAND,
 	AI_CHAT_LOGIN_COMMAND,
 	AI_CHAT_LOGOUT_COMMAND,
 	AI_CHAT_MODEL_COMMAND,
 	AI_CHAT_PROVIDER_COMMAND,
+	CLASSIC_TO_BLOCKS_PROMPT,
 } from 'cli/ai/slash-commands';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
@@ -465,6 +467,22 @@ export async function runCommand(
 				const opened = await ui.openActiveSiteInBrowser();
 				if ( ! opened ) {
 					ui.showInfo( __( 'No site selected. Use ↓ to select a site first.' ) );
+				}
+				continue;
+			}
+
+			if ( trimmedPrompt === AI_CHAT_CLASSIC_TO_BLOCKS_COMMAND ) {
+				if ( ! ui.activeSite ) {
+					ui.showInfo(
+						__( 'No site selected. Use ↓ to select a site with a classic theme first.' )
+					);
+					continue;
+				}
+				ui.addUserMessage( '/classic-to-blocks' );
+				try {
+					await runAgentTurn( CLASSIC_TO_BLOCKS_PROMPT );
+				} catch ( error ) {
+					handleAgentTurnError( error );
 				}
 				continue;
 			}

@@ -5,9 +5,14 @@ import { openBrowser } from 'cli/lib/browser';
 import { generateSiteCertificate } from 'cli/lib/certificate-manager';
 import { readCliConfig, SiteData } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
-import { isProxyProcessRunning, startProxyProcess, stopProxyProcess } from 'cli/lib/daemon-client';
+import {
+	isProxyProcessRunning,
+	listProcesses,
+	startProxyProcess,
+	stopProxyProcess,
+} from 'cli/lib/daemon-client';
 import { addDomainToHosts } from 'cli/lib/hosts-file';
-import { isServerRunning } from 'cli/lib/wordpress-server-manager';
+import { isServerRunning, SITE_PROCESS_PREFIX } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 
 /**
@@ -130,3 +135,37 @@ export const isSiteRunning = async ( site: SiteData ): Promise< boolean > => {
 		processInfo.pid === site.latestCliPid
 	);
 };
+
+/**
+ * Check running status for multiple sites with a single daemon call.
+ */
+export async function getSitesRunningStatus(
+	sites: SiteData[]
+): Promise< Map< string, boolean > > {
+	const result = new Map< string, boolean >();
+
+	let processes: Awaited< ReturnType< typeof listProcesses > > = [];
+	try {
+		processes = await listProcesses();
+	} catch {
+		// Daemon not running — all sites are stopped.
+		for ( const site of sites ) {
+			result.set( site.id, false );
+		}
+		return result;
+	}
+
+	for ( const site of sites ) {
+		const processName = SITE_PROCESS_PREFIX + site.id;
+		const processInfo = processes.find( ( p ) => p.name === processName && p.status === 'online' );
+		const running = !! (
+			processInfo &&
+			'pid' in processInfo &&
+			site.latestCliPid !== undefined &&
+			processInfo.pid === site.latestCliPid
+		);
+		result.set( site.id, running );
+	}
+
+	return result;
+}

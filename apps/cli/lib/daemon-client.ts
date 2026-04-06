@@ -245,7 +245,7 @@ const daemonListProcessesSuccessResponseSchema = z.object( {
 
 // Cache the process list returned from the process manager for a very short time to make multiple
 // calls in quick succession more efficient
-async function listProcesses() {
+export async function listProcesses() {
 	await connectToDaemon();
 	const response = await sendDaemonRequest( {
 		type: 'list-processes',

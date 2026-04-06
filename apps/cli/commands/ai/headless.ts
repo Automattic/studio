@@ -57,6 +57,12 @@ interface PermissionResponseMessage {
 	decision: PathGatedApprovalDecision;
 }
 
+interface QuestionResponseMessage {
+	type: 'ai:question-response';
+	requestId: string;
+	answer: string;
+}
+
 interface KillMessage {
 	type: 'ai:kill';
 }
@@ -79,6 +85,7 @@ type DesktopToCliMessage =
 	| FollowUpMessage
 	| InterruptMessage
 	| PermissionResponseMessage
+	| QuestionResponseMessage
 	| KillMessage
 	| GenerateTitleMessage
 	| GenerateSummaryMessage;
@@ -89,6 +96,9 @@ const pendingPermissions = new Map<
 	{ resolve: ( decision: PathGatedApprovalDecision ) => void }
 >();
 
+// Pending question requests — keyed by requestId
+const pendingQuestions = new Map< string, { resolve: ( answer: string ) => void } >();
+
 let activeQuery: Query | null = null;
 
 function send( message: Record< string, unknown > ): void {
@@ -98,8 +108,8 @@ function send( message: Record< string, unknown > ): void {
 }
 
 /**
- * Create an onAskUser handler that routes permission prompts through IPC
- * instead of terminal stdin/stdout.
+ * Create an onAskUser handler that routes questions through IPC
+ * to the desktop UI for interactive selection.
  */
 function createIpcAskUserHandler(): (
 	questions: AskUserQuestion[]
@@ -109,32 +119,20 @@ function createIpcAskUserHandler(): (
 
 		for ( const question of questions ) {
 			const requestId = crypto.randomUUID();
-			const promise = new Promise< PathGatedApprovalDecision >( ( resolve ) => {
-				pendingPermissions.set( requestId, { resolve } );
+			const promise = new Promise< string >( ( resolve ) => {
+				pendingQuestions.set( requestId, { resolve } );
 			} );
 
-			// Send permission request to desktop
+			// Send question request to desktop
 			send( {
-				type: 'ai:permission-request',
+				type: 'ai:question-request',
 				requestId,
-				description: question.question,
+				question: question.question,
 				options: question.options,
 			} );
 
-			const decision = await promise;
-
-			// Map the decision back to the expected answer format
-			const option = question.options.find( ( opt ) => {
-				if ( decision === 'allow_once' ) {
-					return opt.label.toLowerCase().includes( 'once' );
-				}
-				if ( decision === 'allow_session' ) {
-					return opt.label.toLowerCase().includes( 'session' );
-				}
-				return opt.label.toLowerCase().includes( 'deny' );
-			} );
-
-			answers[ question.question ] = option?.label ?? question.options[ 0 ]?.label ?? '';
+			// Wait for the user to pick an option or type a custom answer
+			answers[ question.question ] = await promise;
 		}
 
 		return answers;
@@ -193,7 +191,12 @@ function buildContentBlocks(
 		}
 	}
 
-	blocks.push( { type: 'text', text } );
+	if ( text ) {
+		blocks.push( { type: 'text', text } );
+	} else if ( blocks.length === 0 ) {
+		// Must have at least one block
+		blocks.push( { type: 'text', text: '(no text)' } );
+	}
 
 	return blocks;
 }
@@ -308,6 +311,14 @@ function handlePermissionResponse( message: PermissionResponseMessage ): void {
 	if ( pending ) {
 		pendingPermissions.delete( message.requestId );
 		pending.resolve( message.decision );
+	}
+}
+
+function handleQuestionResponse( message: QuestionResponseMessage ): void {
+	const pending = pendingQuestions.get( message.requestId );
+	if ( pending ) {
+		pendingQuestions.delete( message.requestId );
+		pending.resolve( message.answer );
 	}
 }
 
@@ -447,6 +458,9 @@ export async function runHeadlessAgent(): Promise< void > {
 				break;
 			case 'ai:permission-response':
 				handlePermissionResponse( message );
+				break;
+			case 'ai:question-response':
+				handleQuestionResponse( message );
 				break;
 			case 'ai:kill':
 				handleKill();

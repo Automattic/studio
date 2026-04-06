@@ -41,6 +41,7 @@ import {
 	setTaskStatus,
 	setTaskStreaming,
 	addPermissionRequest,
+	addQuestionRequest,
 	dequeueMessage,
 } from 'src/stores/tasks-slice';
 import uiReducer from 'src/stores/ui-slice';
@@ -466,6 +467,9 @@ if ( typeof window !== 'undefined' && window.ipcListener ) {
 	} );
 	window.ipcListener.subscribe( 'task-permission-request', ( _, request ) => {
 		store.dispatch( addPermissionRequest( request ) );
+	} );
+	window.ipcListener.subscribe( 'task-question-request', ( _, request ) => {
+		store.dispatch( addQuestionRequest( request ) );
 	} );
 	window.ipcListener.subscribe( 'task-error', ( _, { taskId, error } ) => {
 		store.dispatch(

@@ -62,3 +62,16 @@ export interface PermissionRequest {
 }
 
 export type PermissionResponse = 'allow_once' | 'allow_session' | 'deny';
+
+// Questionnaire system — separate from permissions
+export interface QuestionOption {
+	label: string;
+	description: string;
+}
+
+export interface QuestionRequest {
+	requestId: string;
+	taskId: string;
+	question: string;
+	options: QuestionOption[];
+}

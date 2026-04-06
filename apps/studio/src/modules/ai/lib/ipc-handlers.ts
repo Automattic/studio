@@ -6,6 +6,7 @@ import {
 	sendTaskMessage as sendMessage,
 	interruptTask as interrupt,
 	respondToPermissionRequest as respondPermission,
+	respondToQuestionRequest as respondQuestion,
 } from './agent-manager';
 import { generateTitle, generateSummary } from './metadata-generator';
 import type {
@@ -245,4 +246,13 @@ export async function respondToPermissionRequestHandler(
 	taskId?: string
 ): Promise< void > {
 	respondPermission( requestId, response, taskId );
+}
+
+export async function respondToQuestionHandler(
+	_event: IpcMainInvokeEvent,
+	requestId: string,
+	answer: string,
+	taskId?: string
+): Promise< void > {
+	respondQuestion( requestId, answer, taskId );
 }

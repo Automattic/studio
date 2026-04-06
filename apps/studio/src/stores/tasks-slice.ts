@@ -5,6 +5,7 @@ import type {
 	ElementAttachment,
 	ImageAttachment,
 	PermissionRequest,
+	QuestionRequest,
 	TaskMessage,
 	TaskMetadata,
 	TaskStatus,
@@ -21,10 +22,12 @@ export interface TasksState {
 	tasks: TaskMetadata[];
 	selectedTaskId: string | null;
 	pendingNewTask: boolean;
+	creatingProject: boolean;
 	messagesByTask: Record< string, TaskMessage[] >;
 	streamingByTask: Record< string, boolean >;
 	queuedMessagesByTask: Record< string, QueuedMessage[] >;
 	pendingPermissions: PermissionRequest[];
+	pendingQuestions: QuestionRequest[];
 	loaded: boolean;
 }
 
@@ -44,10 +47,12 @@ const initialState: TasksState = {
 	tasks: [],
 	selectedTaskId: null,
 	pendingNewTask: false,
+	creatingProject: false,
 	messagesByTask: typeof window !== 'undefined' ? loadPersistedMessages() : {},
 	streamingByTask: {},
 	queuedMessagesByTask: {},
 	pendingPermissions: [],
+	pendingQuestions: [],
 	loaded: false,
 };
 
@@ -80,11 +85,20 @@ const tasksSlice = createSlice( {
 		setSelectedTaskId( state, action: PayloadAction< string | null > ) {
 			state.selectedTaskId = action.payload;
 			state.pendingNewTask = false;
+			state.creatingProject = false;
 		},
 		setPendingNewTask( state, action: PayloadAction< boolean > ) {
 			state.pendingNewTask = action.payload;
 			if ( action.payload ) {
 				state.selectedTaskId = null;
+				state.creatingProject = false;
+			}
+		},
+		setCreatingProject( state, action: PayloadAction< boolean > ) {
+			state.creatingProject = action.payload;
+			if ( action.payload ) {
+				state.selectedTaskId = null;
+				state.pendingNewTask = false;
 			}
 		},
 		taskUpdatedFromMain( state, action: PayloadAction< TaskMetadata > ) {
@@ -157,6 +171,14 @@ const tasksSlice = createSlice( {
 		removePermissionRequest( state, action: PayloadAction< string > ) {
 			state.pendingPermissions = state.pendingPermissions.filter(
 				( p ) => p.requestId !== action.payload
+			);
+		},
+		addQuestionRequest( state, action: PayloadAction< QuestionRequest > ) {
+			state.pendingQuestions.push( action.payload );
+		},
+		removeQuestionRequest( state, action: PayloadAction< string > ) {
+			state.pendingQuestions = state.pendingQuestions.filter(
+				( q ) => q.requestId !== action.payload
 			);
 		},
 		setTaskStatus( state, action: PayloadAction< { taskId: string; status: TaskStatus } > ) {
@@ -234,12 +256,15 @@ const tasksSlice = createSlice( {
 export const {
 	setSelectedTaskId,
 	setPendingNewTask,
+	setCreatingProject,
 	taskUpdatedFromMain,
 	taskDeletedFromMain,
 	appendTaskMessage,
 	setTaskStreaming,
 	addPermissionRequest,
 	removePermissionRequest,
+	addQuestionRequest,
+	removeQuestionRequest,
 	setTaskStatus,
 	enqueueMessage,
 	dequeueMessage,

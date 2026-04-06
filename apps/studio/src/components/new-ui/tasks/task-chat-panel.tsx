@@ -5,6 +5,7 @@ import { TaskActivityIndicator } from './task-activity-indicator';
 import { TaskChatInput } from './task-chat-input';
 import { TaskMessageList } from './task-message-list';
 import { TaskPermissionPrompt } from './task-permission-prompt';
+import { TaskQuestionPrompt } from './task-question-prompt';
 import { TaskQueuedMessages } from './task-queued-messages';
 import type { UseAreaScreenshotReturn } from 'src/hooks/use-area-screenshot';
 import type { UseElementSelectorReturn } from 'src/hooks/use-element-selector';
@@ -30,6 +31,9 @@ export function TaskChatPanel( {
 	);
 	const hasPendingPermissions = useRootSelector( ( state ) =>
 		state.tasks.pendingPermissions.some( ( p ) => p.taskId === taskId )
+	);
+	const hasPendingQuestions = useRootSelector( ( state ) =>
+		state.tasks.pendingQuestions.some( ( q ) => q.taskId === taskId )
 	);
 	const { sites } = useSiteDetails();
 	const site = sites.find( ( s ) => s.id === task?.siteId );
@@ -58,7 +62,7 @@ export function TaskChatPanel( {
 				{ /* Sticky toolbar with progressive blur */ }
 				{ toolbar && <div className="sticky top-0 z-10 task-toolbar-blur">{ toolbar }</div> }
 
-				<div className="flex-1">
+				<div className="flex-1 max-w-3xl mx-auto w-full">
 					{ messages.length === 0 ? (
 						<EmptyState siteName={ site?.name } />
 					) : (
@@ -68,9 +72,11 @@ export function TaskChatPanel( {
 
 				{ /* Sticky footer — input with progressive blur */ }
 				<div className="sticky bottom-0 z-10 pointer-events-none task-chat-footer">
-					<div className="pointer-events-auto">
+					<div className="pointer-events-auto max-w-3xl mx-auto">
 						{ /* Permission prompt — shown above input when agent needs approval */ }
 						{ hasPendingPermissions && <TaskPermissionPrompt taskId={ taskId } /> }
+						{ /* Question prompt — shown when agent asks a structured question */ }
+						{ hasPendingQuestions && <TaskQuestionPrompt taskId={ taskId } /> }
 						<TaskActivityIndicator
 							taskId={ taskId }
 							messages={ messages }

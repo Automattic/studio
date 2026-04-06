@@ -1,6 +1,9 @@
 import { app } from 'electron';
 import { fork, type ChildProcess } from 'node:child_process';
+import path from 'path';
+import { SETUP_SITE_ID } from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
+import { startPreviewServer } from 'src/lib/preview-server';
 import { SiteServer } from 'src/site-server';
 import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
@@ -138,18 +141,49 @@ export async function startTaskAgent(
 				} );
 				break;
 
+			case 'ai:question-request':
+				void sendIpcEventToRenderer( 'task-question-request', {
+					requestId: message.requestId as string,
+					taskId,
+					question: message.question as string,
+					options: message.options as Array< { label: string; description: string } >,
+				} );
+				break;
+
 			case 'ai:browser-navigate': {
 				const siteId = taskMeta?.siteId;
+				let url = message.url as string;
+
 				if ( siteId ) {
-					let url = message.url as string;
-					// Resolve relative paths to full URLs using the site's base URL
 					const details = SiteServer.get( siteId )?.details;
 					const siteUrl = details?.running ? details.url : undefined;
 					if ( siteUrl && url.startsWith( '/' ) ) {
 						url = new URL( url, siteUrl ).toString();
 					}
-					void sendIpcEventToRenderer( 'browser-navigate', { siteId, url } );
 				}
+
+				// Serve local file paths via the preview server (CSP blocks file:// in iframes)
+				if ( url.startsWith( '/' ) && ! url.startsWith( '//' ) ) {
+					const filePath = url;
+					const dir = path.dirname( filePath );
+					const fileName = path.basename( filePath );
+					startPreviewServer( dir )
+						.then( ( baseUrl ) => {
+							void sendIpcEventToRenderer( 'browser-navigate', {
+								siteId: siteId === SETUP_SITE_ID ? taskId : siteId ?? taskId,
+								url: `${ baseUrl }/${ fileName }`,
+							} );
+						} )
+						.catch( ( err ) => {
+							console.error( 'Failed to start preview server:', err );
+						} );
+					break;
+				}
+
+				void sendIpcEventToRenderer( 'browser-navigate', {
+					siteId: siteId === SETUP_SITE_ID ? taskId : siteId ?? taskId,
+					url,
+				} );
 				break;
 			}
 
@@ -299,6 +333,35 @@ export function respondToPermissionRequest(
 	for ( const [ , task ] of activeTasks ) {
 		try {
 			task.child.send( { type: 'ai:permission-response', requestId, decision: response } );
+		} catch {
+			// ignore
+		}
+	}
+}
+
+/**
+ * Respond to a pending question request — forwarded to the CLI child.
+ */
+export function respondToQuestionRequest(
+	requestId: string,
+	answer: string,
+	taskId?: string
+): void {
+	if ( taskId ) {
+		const active = activeTasks.get( taskId );
+		if ( active ) {
+			try {
+				active.child.send( { type: 'ai:question-response', requestId, answer } );
+			} catch {
+				// ignore
+			}
+		}
+		return;
+	}
+
+	for ( const [ , task ] of activeTasks ) {
+		try {
+			task.child.send( { type: 'ai:question-response', requestId, answer } );
 		} catch {
 			// ignore
 		}

@@ -3,7 +3,12 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { resizeImageIfNeeded } from 'src/lib/resize-image';
 import { useAppDispatch, useRootSelector } from 'src/stores';
-import { appendTaskMessage, enqueueMessage, setTaskStreaming } from 'src/stores/tasks-slice';
+import {
+	appendTaskMessage,
+	enqueueMessage,
+	removeQuestionRequest,
+	setTaskStreaming,
+} from 'src/stores/tasks-slice';
 import type { UseAreaScreenshotReturn } from 'src/hooks/use-area-screenshot';
 import type { UseElementSelectorReturn } from 'src/hooks/use-element-selector';
 import type { ElementAttachment, ImageAttachment, TaskMessage } from 'src/modules/ai/types';
@@ -13,21 +18,29 @@ const ACCEPTED_IMAGE_TYPES = [ 'image/png', 'image/jpeg', 'image/webp', 'image/g
 const MAX_IMAGES = 5;
 
 interface TaskChatInputProps {
-	taskId: string;
-	isStreaming: boolean;
+	taskId?: string;
+	isStreaming?: boolean;
 	elementSelector?: UseElementSelectorReturn;
 	areaScreenshot?: UseAreaScreenshotReturn;
 	restoredMessage?: QueuedMessage | null;
 	onRestoredConsumed?: () => void;
+	/** When provided, called on submit instead of the default task IPC logic. */
+	onSubmit?: ( text: string ) => void;
+	placeholder?: string;
+	/** Class name for the outer wrapper div. */
+	className?: string;
 }
 
 export function TaskChatInput( {
-	taskId,
-	isStreaming,
+	taskId = '',
+	isStreaming = false,
 	elementSelector,
 	areaScreenshot,
 	restoredMessage,
 	onRestoredConsumed,
+	onSubmit,
+	placeholder,
+	className,
 }: TaskChatInputProps ) {
 	const [ value, setValue ] = useState( '' );
 	const [ images, setImages ] = useState< ImageAttachment[] >( [] );
@@ -115,10 +128,35 @@ export function TaskChatInput( {
 		textareaRef.current?.focus();
 	}, [ restoredMessage, onRestoredConsumed ] );
 
+	const pendingQuestion = useRootSelector( ( state ) =>
+		state.tasks.pendingQuestions.find( ( q ) => q.taskId === taskId )
+	);
+
 	const handleSend = useCallback( () => {
 		const trimmed = value.trim();
 		const hasAttachments = images.length > 0 || selectedElements.length > 0;
 		if ( ! trimmed && ! hasAttachments ) {
+			return;
+		}
+
+		// Simple mode: delegate to external handler
+		if ( onSubmit ) {
+			onSubmit( trimmed );
+			setValue( '' );
+			setImages( [] );
+			setImagePreviews( [] );
+			elementSelector?.clearElements();
+			return;
+		}
+
+		// If there's a pending question, answer it with the typed text
+		if ( pendingQuestion && trimmed ) {
+			dispatch( removeQuestionRequest( pendingQuestion.requestId ) );
+			void getIpcApi().respondToQuestionHandler( pendingQuestion.requestId, trimmed, taskId );
+			setValue( '' );
+			setImages( [] );
+			setImagePreviews( [] );
+			elementSelector?.clearElements();
 			return;
 		}
 
@@ -202,6 +240,8 @@ export function TaskChatInput( {
 		dispatch,
 		messages.length,
 		elementSelector,
+		onSubmit,
+		pendingQuestion,
 	] );
 
 	const handleKeyDown = ( e: React.KeyboardEvent ) => {
@@ -238,7 +278,7 @@ export function TaskChatInput( {
 	const hasContent = value.trim() || images.length > 0 || selectedElements.length > 0;
 
 	return (
-		<div className="px-4 pt-1 pb-4">
+		<div className={ cx( 'px-4 pt-1 pb-4', className ) }>
 			<input
 				ref={ fileInputRef }
 				type="file"
@@ -253,7 +293,7 @@ export function TaskChatInput( {
 				} }
 			/>
 
-			<div className="rounded-xl task-chat-input-card">
+			<div className="rounded-xl task-chat-input-card focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-frame-theme">
 				{ /* Image previews */ }
 				{ imagePreviews.length > 0 && (
 					<div className="flex gap-2 px-4 pt-3 flex-wrap">
@@ -305,7 +345,14 @@ export function TaskChatInput( {
 					onChange={ ( e ) => setValue( e.target.value ) }
 					onKeyDown={ handleKeyDown }
 					onPaste={ handlePaste }
-					placeholder={ isStreaming ? 'Queue a follow-up message...' : 'Ask the agent...' }
+					placeholder={
+						placeholder ??
+						( pendingQuestion
+							? 'Or type your own answer...'
+							: isStreaming
+							? 'Queue a follow-up message...'
+							: 'Ask the agent...' )
+					}
 					rows={ 1 }
 					className={ cx(
 						'w-full resize-none bg-transparent px-4 pt-3 pb-1',

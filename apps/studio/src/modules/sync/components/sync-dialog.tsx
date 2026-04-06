@@ -200,7 +200,7 @@ export function SyncDialog( {
 		syncToText = localSite.name;
 		tooltipNoRewindId = createInterpolateElement(
 			__(
-				'Selecting individual items to pull will be enabled automatically once your first backup is complete.<br/>Wait a few minutes or run a full sync in the meantime.'
+				'Your site is being prepared for syncing. This usually takes a few minutes — please try again shortly.'
 			),
 			{ br: <br /> }
 		);
@@ -475,19 +475,22 @@ export function SyncDialog( {
 								<Button variant="link" onClick={ onRequestClose }>
 									{ __( 'Cancel' ) }
 								</Button>
-								<Button
-									variant="primary"
-									onClick={ handleSubmit }
-									disabled={
-										isSubmitDisabled ||
-										isLoadingRewindId ||
-										isPushSelectionOverLimit ||
-										isSizeCheckLoading
-									}
-									data-testid={ `sync-dialog-${ type }-button` }
-								>
-									{ syncTexts.submit }
-								</Button>
+								<Tooltip text={ tooltipNoRewindId } disabled={ ! isErrorRewindId }>
+									<Button
+										variant="primary"
+										onClick={ handleSubmit }
+										disabled={
+											isSubmitDisabled ||
+											isLoadingRewindId ||
+											isErrorRewindId ||
+											isPushSelectionOverLimit ||
+											isSizeCheckLoading
+										}
+										data-testid={ `sync-dialog-${ type }-button` }
+									>
+										{ syncTexts.submit }
+									</Button>
+								</Tooltip>
 							</div>
 						</div>
 					</div>

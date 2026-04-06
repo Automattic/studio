@@ -6,7 +6,6 @@ import { PreviewCommandLoggerAction } from '@studio/common/logger-actions';
 import { ImportExportEventData } from 'src/lib/import-export/handle-events';
 import { StoredAuthToken } from 'src/lib/oauth';
 import { getMainWindow } from 'src/main-window';
-import type { UserData } from 'src/storage/storage-types';
 
 type SnapshotEventData = {
 	action: PreviewCommandLoggerAction;

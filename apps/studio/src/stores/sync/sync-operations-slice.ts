@@ -915,7 +915,6 @@ const pollPullBackupThunk = createTypedAsyncThunk(
 				return;
 			}
 
-
 			Sentry.captureException( error );
 			return rejectWithValue( {
 				title: sprintf( __( 'Error pulling from %s' ), currentPullState.selectedSite.name ),

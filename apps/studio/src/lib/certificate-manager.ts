@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import * as Sentry from '@sentry/electron/main';
-import { SERVER_AUTH_OID } from '@studio/common/constants';
+import { CERT_UNTRUSTED_ROOT, SERVER_AUTH_OID } from '@studio/common/constants';
 import { getCertificatesPath } from '@studio/common/lib/well-known-paths';
 import sudo from '@vscode/sudo-prompt';
 
@@ -30,10 +30,10 @@ export async function isRootCATrusted(): Promise< boolean > {
 		try {
 			const { stdout } = await execFilePromise( 'certutil', [ '-verify', CA_CERT_PATH ] );
 
-			const hasValidPolicies =
-				stdout.includes( 'Verified Application Policies:' ) && stdout.includes( SERVER_AUTH_OID );
+			const isTrusted = ! stdout.includes( CERT_UNTRUSTED_ROOT );
+			const hasServerAuthPolicy = stdout.includes( SERVER_AUTH_OID );
 
-			return hasValidPolicies;
+			return isTrusted && hasServerAuthPolicy;
 		} catch ( error ) {
 			return false;
 		}

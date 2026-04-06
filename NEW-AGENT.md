@@ -126,9 +126,10 @@ The `tasks` slice (`tasks-slice.ts`) manages:
 - `selectedTaskId: string | null` — Currently viewed task
 - `messagesByTask: Record<string, TaskMessage[]>` — Chat messages per task
 - `streamingByTask: Record<string, boolean>` — Per-task streaming indicator
+- `queuedMessagesByTask: Record<string, QueuedMessage[]>` — Messages queued while agent is busy (transient, not persisted)
 - `pendingPermissions: PermissionRequest[]` — Pending permission dialogs
 
-IPC event listeners in `stores/index.ts` dispatch actions for `task-updated`, `task-deleted`, `task-message`, `task-status-changed`, `task-permission-request`, and `task-error` events from the main process.
+IPC event listeners in `stores/index.ts` dispatch actions for `task-updated`, `task-deleted`, `task-message`, `task-status-changed`, `task-permission-request`, and `task-error` events from the main process. The `task-status-changed` listener also handles auto-sending the next queued message when the agent transitions to `waiting`.
 
 ## UI Components
 
@@ -152,7 +153,8 @@ When a task is selected, the primary panel renders `TaskChatPanel` instead of `S
 - **Streaming indicator** — Bouncing dots while agent is responding
 - **Activity indicator** — Compact status bar above the chat input showing the agent's current state ("Thinking", "Editing", "Searching files", etc.) with an elapsed time counter. Clicking opens a flyout panel listing all activity (user messages, assistant responses, tool calls) with relative timestamps. Tool entries in the log are expandable to show full input/output details. Uses a blue pulsing dot only while the agent is actively streaming; no dot when idle.
 - **Permission prompt** — Inline amber dialog above the input when the agent needs filesystem approval
-- **Input** — Textarea with Enter-to-send (Shift+Enter for newlines), disabled during streaming. Supports image attachments via file picker, clipboard paste, or browser area capture. Images exceeding the API's 5MB base64 limit are automatically resized using a canvas (`resize-image.ts`).
+- **Input** — Textarea with Enter-to-send (Shift+Enter for newlines). Supports image attachments via file picker, clipboard paste, or browser area capture. Images exceeding the API's 5MB base64 limit are automatically resized using a canvas (`resize-image.ts`).
+- **Message queue** — Users can type and send follow-up messages while the agent is streaming. Queued messages appear as compact chips above the input. They auto-send one-by-one as the agent completes each turn. Clicking a chip restores it to the input for editing; the X button dismisses it. Auto-send pauses if the agent's last message was an error.
 
 ### Site Overview Integration
 
@@ -210,7 +212,8 @@ apps/studio/src/
 │   ├── task-list-item.tsx              # Individual task item with status dot
 │   ├── task-new-panel.tsx              # New task site picker (primary panel)
 │   ├── task-chat-panel.tsx             # Chat panel (primary panel replacement)
-│   ├── task-chat-input.tsx             # Message input with agent IPC
+│   ├── task-chat-input.tsx             # Message input with agent IPC + queue-on-send
+│   ├── task-queued-messages.tsx        # Queued message chips (click to restore, X to dismiss)
 │   ├── task-message-list.tsx           # Message bubbles (user/assistant only, no tool cards)
 │   ├── task-activity-indicator.tsx     # Status bar + expandable activity log flyout
 │   └── task-permission-prompt.tsx      # Inline permission dialog

@@ -618,14 +618,15 @@ function sendToDesktop( message: Record< string, unknown > ): boolean {
 
 const browserNavigateTool = tool(
 	'browser_navigate',
-	'Navigates the in-app browser preview to a URL or path (e.g. "/wp-admin/", "/wp-admin/post-new.php"). ' +
-		'Use this after making changes to reload the preview at the right page. ' +
+	'Navigates the in-app browser preview to a URL, path, or local file. ' +
+		'Use this after making changes to reload the preview, or to show HTML design previews. ' +
+		'Supports site paths (e.g. "/wp-admin/"), full URLs, and local file paths (e.g. "/Users/.../preview.html"). ' +
 		'Only available when running inside the Studio desktop app.',
 	{
 		url: z
 			.string()
 			.describe(
-				'The URL or path to navigate to (e.g. "/wp-admin/" or "http://localhost:8881/wp-admin/")'
+				'The URL, path, or local file path to navigate to (e.g. "/wp-admin/", "http://localhost:8881/", or "/Users/.../preview.html")'
 			),
 	},
 	async ( args ) => {

@@ -41,7 +41,7 @@ Then continue with:
 - wp_cli: Run WP-CLI commands on a running site
 - validate_blocks: Validate block content for correctness on a running site (runs each block through its save() function in a real browser). Requires a site name or path. Call after every file write/edit that contains block content.
 - take_screenshot: Take a full-page screenshot of a URL (supports desktop and mobile viewports). Use this to visually check the site after building it.
-- browser_navigate: Navigate the in-app browser preview to a URL or path (e.g. "/wp-admin/"). Use after making changes to show the user the result.
+- browser_navigate: Navigate the in-app browser preview to a URL, site path, or local file path. Use after making changes to show the user the result. Also use this to show HTML design previews — pass the absolute file path (e.g. "/Users/.../previews/index.html") and it will be served automatically. **You MUST call this tool after writing preview HTML files** — the user cannot see them otherwise.
 - browser_reload: Reload the current page in the in-app browser preview. Use after making changes to refresh what the user sees.
 
 ## Element Context

@@ -478,7 +478,6 @@ export function SyncDialog( {
 									disabled={
 										isSubmitDisabled ||
 										isLoadingRewindId ||
-										isErrorRewindId ||
 										isPushSelectionOverLimit ||
 										isSizeCheckLoading
 									}

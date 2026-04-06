@@ -25,6 +25,7 @@ function createTab( displayUrl: string ): BrowserTab {
 export function useBrowserPanel() {
 	const { selectedSite, sites } = useSiteDetails();
 	const selectedTaskId = useRootSelector( ( state ) => state.tasks.selectedTaskId );
+	const creatingProject = useRootSelector( ( state ) => state.tasks.creatingProject );
 	const selectedTask = useRootSelector( ( state ) =>
 		state.tasks.tasks.find( ( t ) => t.id === state.tasks.selectedTaskId )
 	);
@@ -34,11 +35,12 @@ export function useBrowserPanel() {
 	const iframeElements = useRef( new Map< string, HTMLIFrameElement | null >() );
 	const navigatingRefs = useRef( new Map< string, boolean >() );
 
-	// Resolve which site to show: task's site or selected site
-	const resolvedSite =
-		selectedTaskId && selectedTask
-			? sites.find( ( s ) => s.id === selectedTask.siteId ) ?? null
-			: selectedSite;
+	// Resolve which site to show: task's site, selected site, or nothing during creation
+	const resolvedSite = creatingProject
+		? null
+		: selectedTaskId && selectedTask
+		? sites.find( ( s ) => s.id === selectedTask.siteId ) ?? null
+		: selectedSite;
 
 	const siteUrl = resolvedSite?.running ? resolvedSite.url : undefined;
 	const siteName = resolvedSite?.name ?? '';
@@ -249,19 +251,48 @@ export function useBrowserPanel() {
 		[ activeTabId, updateTab ]
 	);
 
-	// Listen for agent-initiated browser navigation (targets active tab)
+	// Listen for agent-initiated browser navigation (targets active tab or creates one)
 	useEffect( () => {
 		const handler = ( e: Event ) => {
 			const { siteId, url } = ( e as CustomEvent ).detail;
+
+			// Match by resolved site ID or by task ID (for setup tasks without a real site)
+			const matchesSite = resolvedSite?.id === siteId;
+			const matchesTask = selectedTaskId === siteId;
+			if ( ! matchesSite && ! matchesTask ) {
+				return;
+			}
+
 			const iframe = iframeElements.current.get( activeTabId );
-			if ( resolvedSite?.id === siteId && iframe ) {
+			if ( iframe ) {
+				// Navigate existing tab
 				updateTab( activeTabId, { isLoading: true, displayUrl: url } );
 				iframe.src = url;
+			} else {
+				// No tab exists yet (e.g. preview during setup) — create one
+				const newTab = createTab( url );
+				setTabs( [ newTab ] );
+				setActiveTabId( newTab.id );
 			}
 		};
 		window.addEventListener( 'studio:browser-navigate', handler );
 		return () => window.removeEventListener( 'studio:browser-navigate', handler );
-	}, [ resolvedSite?.id, activeTabId, updateTab ] );
+	}, [ resolvedSite?.id, selectedTaskId, activeTabId, updateTab ] );
+
+	// Listen for requests to open a URL in a new tab
+	useEffect( () => {
+		const handler = ( e: Event ) => {
+			const { siteId, url } = ( e as CustomEvent ).detail;
+			if ( resolvedSite?.id !== siteId || ! siteUrl || tabs.length >= MAX_TABS ) {
+				return;
+			}
+			const newTab = createTab( url );
+			setTabs( ( prev ) => [ ...prev, newTab ] );
+			setActiveTabId( newTab.id );
+		};
+		window.addEventListener( 'studio:browser-open-tab', handler );
+		return () => window.removeEventListener( 'studio:browser-open-tab', handler );
+	}, [ resolvedSite?.id, siteUrl, tabs.length ] );
 
 	// Listen for agent-initiated browser reload (reloads active tab)
 	useEffect( () => {
@@ -345,6 +376,8 @@ export function useBrowserPanel() {
 		// Site info
 		siteUrl,
 		siteName,
+		// Whether the browser has any content to show (running site OR preview tabs)
+		hasContent: !! autoLoginSrc || tabs.length > 0,
 
 		// Active tab state (for toolbar compatibility)
 		isInitialLoad: activeTab?.isInitialLoad ?? true,

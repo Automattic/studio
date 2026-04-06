@@ -5,7 +5,7 @@ import type { BrowserTab } from 'src/hooks/use-browser-panel';
 interface BrowserIframeProps {
 	tab: BrowserTab;
 	isActive: boolean;
-	autoLoginSrc: string;
+	autoLoginSrc?: string;
 	siteName: string;
 	setIframeRef: ( tabId: string, el: HTMLIFrameElement | null ) => void;
 	onLoad: ( tabId: string ) => void;
@@ -90,7 +90,7 @@ function BrowserIframe( {
 					localRef.current = el;
 					setIframeRef( tab.id, el );
 				} }
-				src={ autoLoginSrc }
+				src={ autoLoginSrc ?? tab.displayUrl }
 				onLoad={ () => onLoad( tab.id ) }
 				className={ `w-full h-full border-0 transition-opacity duration-150 ${
 					tab.isInitialLoad ? 'opacity-0' : 'opacity-100'
@@ -104,7 +104,7 @@ function BrowserIframe( {
 interface BrowserIframeContainerProps {
 	tabs: BrowserTab[];
 	activeTabId: string;
-	autoLoginSrc: string;
+	autoLoginSrc?: string;
 	siteName: string;
 	setIframeRef: ( tabId: string, el: HTMLIFrameElement | null ) => void;
 	onLoad: ( tabId: string ) => void;

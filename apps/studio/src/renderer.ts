@@ -28,13 +28,12 @@
 
 import { createElement, StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import AddSiteRoot from 'src/components/new-ui/add-site-root';
 import SettingsRoot from 'src/components/new-ui/settings-root';
 import Root from 'src/components/root';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
 const view = new URLSearchParams( window.location.search ).get( 'view' );
-const RootComponent = view === 'settings' ? SettingsRoot : view === 'add-site' ? AddSiteRoot : Root;
+const RootComponent = view === 'settings' ? SettingsRoot : Root;
 
 void getIpcApi()
 	.getAppGlobals()

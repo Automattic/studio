@@ -637,7 +637,7 @@ export default function AddSiteModal( { className }: AddSiteModalProps ) {
 	const showModal = useRootSelector( selectIsAddSiteModalOpen );
 
 	useEffect( () => {
-		void getIpcApi().setupAppMenu( { needsOnboarding: false, isAddSiteVisible: showModal } );
+		void getIpcApi().setupAppMenu( { needsOnboarding: false } );
 	}, [ showModal ] );
 
 	const openModal = useCallback( () => {

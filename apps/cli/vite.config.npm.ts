@@ -29,7 +29,6 @@ export default mergeConfig(
 		},
 		define: {
 			__ENABLE_CLI_TELEMETRY__: true,
-			__ENABLE_STUDIO_AI__: true,
 			__IS_PACKAGED_FOR_NPM__: true,
 		},
 	} )

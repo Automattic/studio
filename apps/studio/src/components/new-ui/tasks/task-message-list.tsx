@@ -1,3 +1,7 @@
+import Markdown from 'react-markdown';
+import rehypeRaw from 'rehype-raw';
+import remarkGfm from 'remark-gfm';
+import Anchor from 'src/components/assistant-anchor';
 import { cx } from 'src/lib/cx';
 import type { TaskMessage } from 'src/modules/ai/types';
 
@@ -59,7 +63,22 @@ function MessageBubble( { message }: { message: TaskMessage } ) {
 				message.isError && 'border border-red-300 bg-red-50 text-red-800 rounded-lg px-4 py-2'
 			) }
 		>
-			<div className="whitespace-pre-wrap">{ message.content }</div>
+			{ message.isError ? (
+				<div className="whitespace-pre-wrap">{ message.content }</div>
+			) : (
+				<div className="assistant-markdown">
+					<Markdown
+						components={ {
+							a: Anchor,
+							img: () => null,
+						} }
+						remarkPlugins={ [ remarkGfm ] }
+						rehypePlugins={ [ rehypeRaw ] }
+					>
+						{ message.content }
+					</Markdown>
+				</div>
+			) }
 		</div>
 	);
 }

@@ -158,6 +158,7 @@ describe( 'ContentTabSync', () => {
 			getDirectorySize: vi.fn().mockResolvedValue( 0 ),
 			connectWpcomSites: vi.fn(),
 			getWpVersion: vi.fn().mockResolvedValue( '6.4.3' ),
+			getIsMultisite: vi.fn().mockResolvedValue( false ),
 			listLocalFileTree: vi.fn().mockResolvedValue( [
 				{
 					name: 'plugins',

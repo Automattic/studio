@@ -39,6 +39,20 @@ export const ALLOWED_TOOLS = [
 	'AskUserQuestion',
 ] as const;
 
+// Tools allowed when operating on a remote WordPress.com site (WP.com MCP instead of Studio tools)
+export const ALLOWED_TOOLS_REMOTE = [
+	'mcp__wpcom__*',
+	'mcp__studio__*',
+	'Read',
+	'Glob',
+	'Grep',
+	'WebFetch',
+	'WebSearch',
+	'TodoRead',
+	'NotebookRead',
+	'AskUserQuestion',
+] as const;
+
 // Tools that should not manipulate files outside trusted roots without permission (write access)
 const PATH_GATED_TOOLS = [ 'Write', 'Edit', 'Bash', 'NotebookEdit' ] as const;
 const PATH_INPUT_KEYS = [ 'path', 'file_path', 'filePath' ] as const;

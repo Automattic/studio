@@ -11,6 +11,7 @@ export const AI_CHAT_LOGIN_COMMAND = '/login';
 export const AI_CHAT_LOGOUT_COMMAND = '/logout';
 export const AI_CHAT_MODEL_COMMAND = '/model';
 export const AI_CHAT_PROVIDER_COMMAND = '/provider';
+export const AI_CHAT_PREVIEW_COMMAND = '/preview';
 export const AI_CHAT_EXIT_COMMAND = '/exit';
 
 export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
@@ -20,6 +21,7 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 	{ name: 'logout', description: __( 'Log out of WordPress.com' ) },
 	{ name: 'model', description: __( 'Switch the AI model' ) },
 	{ name: 'provider', description: __( 'Switch the AI provider' ) },
+	{ name: 'preview', description: __( 'Push the active site to WordPress.com as a preview' ) },
 	{ name: 'exit', description: __( 'Exit the chat' ) },
 	{ name: 'taxonomist', description: __( 'Optimize category taxonomy with AI' ) },
 	{ name: 'need-for-speed', description: __( 'Run a performance audit on a site' ) },

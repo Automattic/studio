@@ -28,12 +28,17 @@ import {
 	AI_CHAT_LOGIN_COMMAND,
 	AI_CHAT_LOGOUT_COMMAND,
 	AI_CHAT_MODEL_COMMAND,
+	AI_CHAT_PREVIEW_COMMAND,
 	AI_CHAT_PROVIDER_COMMAND,
 } from 'cli/ai/slash-commands';
+import { captureCommandOutput } from 'cli/ai/tools';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { runCommand as runLogoutCommand } from 'cli/commands/auth/logout';
+import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
+import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
 import { readCliConfig } from 'cli/lib/cli-config/core';
+import { getSnapshotsFromConfig, isSnapshotExpired } from 'cli/lib/snapshots';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -465,6 +470,64 @@ export async function runCommand(
 				const opened = await ui.openActiveSiteInBrowser();
 				if ( ! opened ) {
 					ui.showInfo( __( 'No site selected. Use ↓ to select a site first.' ) );
+				}
+				continue;
+			}
+
+			if ( trimmedPrompt === AI_CHAT_PREVIEW_COMMAND ) {
+				const site = ui.activeSite;
+				if ( ! site ) {
+					ui.showInfo( __( 'No site selected. Use ↓ to select a site first.' ) );
+					continue;
+				}
+
+				const token = await readAuthToken();
+				if ( ! token ) {
+					ui.showInfo( __( 'WordPress.com login required. Use /login to authenticate.' ) );
+					continue;
+				}
+
+				try {
+					const snapshots = await getSnapshotsFromConfig( token.id, site.path );
+					const activeSnapshot = snapshots.find( ( s ) => ! isSnapshotExpired( s ) );
+
+					const isUpdate = Boolean( activeSnapshot );
+					ui.showProgress(
+						isUpdate
+							? __( 'Updating preview site… this may take a moment.' )
+							: __( 'Creating preview site… this may take a moment.' )
+					);
+					ui.setBusy( true );
+
+					const result = await captureCommandOutput( async () => {
+						if ( activeSnapshot ) {
+							await runUpdatePreviewCommand( site.path, activeSnapshot.url, false );
+						} else {
+							await runCreatePreviewCommand( site.path );
+						}
+					} );
+
+					ui.setBusy( false );
+
+					if ( result.exitCode ) {
+						ui.showError( result.consoleOutput || __( 'Failed to create preview site.' ) );
+					} else {
+						const updated = await getSnapshotsFromConfig( token.id, site.path );
+						const latest = updated.find( ( s ) => ! isSnapshotExpired( s ) );
+						if ( latest ) {
+							const previewUrl = `https://${ latest.url }`;
+							ui.showSuccess( __( 'Preview site ready!' ) + '\n\n   ' + previewUrl );
+						} else {
+							ui.showInfo( result.consoleOutput || __( 'Preview command completed.' ) );
+						}
+					}
+				} catch ( error ) {
+					ui.setBusy( false );
+					if ( error instanceof LoggerError ) {
+						ui.showError( error.message );
+					} else {
+						ui.showError( __( 'Failed to create preview site.' ) );
+					}
 				}
 				continue;
 			}

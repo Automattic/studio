@@ -93,7 +93,7 @@ export function TaskListItem( { task, isSelected, onClick, onArchive }: TaskList
 					title={ task.title }
 					editing={ renaming }
 					onEditingChange={ setRenaming }
-					className={ cx( 'text-sm', isSelected ? 'text-chrome-text' : 'text-chrome-text' ) }
+					className={ cx( 'text-sm font-light', isSelected ? 'text-chrome-text' : 'text-chrome-text' ) }
 				/>
 				{ task.status === 'in-progress' && (
 					<span className="w-1.5 h-1.5 rounded-full bg-[#4f94f8] animate-pulse flex-shrink-0" />

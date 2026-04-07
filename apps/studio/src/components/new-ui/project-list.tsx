@@ -409,7 +409,7 @@ function ProjectRow( {
 				</button>
 				<button
 					type="button"
-					className="flex-1 min-w-0 text-sm text-left rtl:text-right py-2 pr-1 whitespace-nowrap overflow-hidden text-ellipsis text-chrome-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme"
+					className="flex-1 min-w-0 text-sm font-semibold text-left rtl:text-right py-2 pr-1 whitespace-nowrap overflow-hidden text-ellipsis text-chrome-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme"
 					onClick={ onSelectProject }
 				>
 					{ site.name }
@@ -727,6 +727,7 @@ export function ProjectList() {
 							<Button
 								icon={ archive }
 								label={ showArchived ? 'Hide archived tasks' : 'Show archived tasks' }
+								iconSize={ 18 }
 								className={ cx(
 									'app-no-drag-region',
 									showArchived

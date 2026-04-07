@@ -161,7 +161,6 @@ When a user asks for design changes (custom colors, fonts, layouts, animations, 
 What you CAN do on free plans:
 - Create and edit posts, pages, templates, and template parts
 - Switch between available themes
-- Manage plugins (if the plan allows)
 - Upload media and manage content
 - Use core block settings that the active theme exposes (limited color/font options)`;
 

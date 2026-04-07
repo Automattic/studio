@@ -129,6 +129,22 @@ describe( 'CLI: studio export', () => {
 		expect( reportErrorSpy ).not.toHaveBeenCalled();
 	} );
 
+	it( 'rejects non-.sql file paths when --only db is used', async () => {
+		const reportErrorSpy = vi.spyOn( Logger.prototype, 'reportError' );
+
+		const argv = getYargsArgvMock();
+		registerCommand( argv );
+
+		await argv.parse( [ 'export', 'site-backup.zip', '--path', testSitePath, '--only', 'db' ] );
+
+		expect( exportBackup ).not.toHaveBeenCalled();
+		expect( reportErrorSpy ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				message: 'Invalid export file extension. Must be .sql when exporting database only.',
+			} )
+		);
+	} );
+
 	it( 'rejects .sql exports with --only content', async () => {
 		const reportErrorSpy = vi.spyOn( Logger.prototype, 'reportError' );
 

@@ -130,7 +130,9 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'string',
 					normalize: true,
 					demandOption: true,
-					description: __( 'Path to the export file. Can be a .zip, .tar.gz or .sql file.' ),
+					description: __(
+						'Path to the export file. Full-site exports use .zip or .tar.gz. Database-only exports use .sql.'
+					),
 					coerce: ( value ) => {
 						return path.resolve( untildify( value ) );
 					},
@@ -138,7 +140,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'only', {
 					type: 'string',
 					choices: [ 'content', 'db' ] as const,
-					description: __( 'Export only the content or the database' ),
+					description: __( 'Export only the content or the database. Default exports full site.' ),
 				} );
 		},
 		handler: async ( argv ) => {
@@ -148,6 +150,12 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 						__(
 							'Invalid export file extension. Must be .zip or .tar.gz when exporting site content.'
 						)
+					);
+				}
+
+				if ( argv.only === 'db' && ! argv.exportFile.endsWith( '.sql' ) ) {
+					throw new LoggerError(
+						__( 'Invalid export file extension. Must be .sql when exporting database only.' )
 					);
 				}
 

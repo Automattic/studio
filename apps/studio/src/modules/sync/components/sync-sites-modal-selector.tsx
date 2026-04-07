@@ -1,4 +1,4 @@
-import { Icon, SearchControl as SearchControlWp } from '@wordpress/components';
+import { Icon, SearchControl as SearchControlWp, Spinner } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState, useEffect } from 'react';
@@ -207,7 +207,10 @@ export function SitesListContent( {
 			<SearchSites searchQuery={ searchQuery } setSearchQuery={ setSearchQuery } />
 			<div className="relative h-[calc(84vh-232px)]">
 				{ isLoading ? (
-					<div className="flex justify-center items-center h-full">{ __( 'Loading sites…' ) }</div>
+					<div className="flex justify-center items-center h-full">
+						<Spinner className="!mt-0 !mr-2" />
+						<span className="a8c-body text-frame-text">{ __( 'Loading…' ) }</span>
+					</div>
 				) : isEmpty ? (
 					<div className="flex justify-center items-center h-full">{ emptyMessage }</div>
 				) : (
@@ -217,15 +220,18 @@ export function SitesListContent( {
 						onSelectSite={ onSelectSite }
 					/>
 				) }
-				{ isRefetchingSites && (
-					<div
-						className="absolute inset-0 z-[1] flex items-center justify-center bg-frame/60 backdrop-blur-[8px]"
-						aria-busy="true"
-						aria-live="polite"
-					>
-						<span className="a8c-body text-frame-text">{ __( 'Refreshing sites…' ) }</span>
-					</div>
-				) }
+				<div
+					className={ `absolute inset-0 z-[1] flex items-center justify-center bg-frame/80 backdrop-blur-[8px] transition-opacity duration-200 ${
+						isRefetchingSites
+							? 'opacity-100'
+							: 'opacity-0 pointer-events-none'
+					}` }
+					aria-busy={ isRefetchingSites }
+					aria-live="polite"
+				>
+					<Spinner className="!mt-0 !mr-2" />
+					<span className="a8c-body text-frame-text">{ __( 'Refreshing…' ) }</span>
+				</div>
 			</div>
 		</>
 	);

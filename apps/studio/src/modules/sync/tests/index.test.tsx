@@ -20,6 +20,7 @@ store.replaceReducer( testReducer );
 const mockPullSiteThunk = vi.hoisted( () => vi.fn() );
 const mockPushSiteThunk = vi.hoisted( () => vi.fn() );
 
+vi.mock( 'src/components/dot-grid', () => ( { DotGrid: () => null } ) );
 vi.mock( 'src/lib/get-ipc-api' );
 vi.mock( 'src/hooks/use-auth' );
 vi.mock( 'src/stores/sync/wpcom-sites', async () => {

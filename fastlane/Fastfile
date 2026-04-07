@@ -144,6 +144,9 @@ lane :distribute_release_build do |version: read_package_json_version|
   if version.include?('beta')
     add_git_tag(tag: release_tag)
     push_git_tags(tag: release_tag)
+
+    # Publish beta packages only after the release build succeeds and the beta tag is immutable.
+    trigger_npm_publish(ref: release_tag, npm_tag: 'next')
   else
     create_draft_github_release(version: version, release_tag: release_tag, builds: builds)
   end
@@ -266,8 +269,6 @@ lane :new_beta_release do |version:, skip_confirm: false, github_username: nil|
   bump_version_commit_and_push(version: new_version)
 
   trigger_release_build(version: new_version)
-
-  trigger_npm_publish(ref: "release/#{version}", npm_tag: 'next')
 
   UI.success("New beta release created: v#{new_version}")
 

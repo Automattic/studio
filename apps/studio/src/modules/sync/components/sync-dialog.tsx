@@ -289,7 +289,7 @@ export function SyncDialog( {
 			padding += 80;
 		}
 		if ( warningCount > 0 ) {
-			padding += warningsExpanded ? 80 * warningCount + 30 : 30;
+			padding += warningsExpanded ? 70 * warningCount + 30 : 20;
 		}
 		return padding;
 	};
@@ -469,7 +469,7 @@ export function SyncDialog( {
 								) }
 								<Button
 									variant="link"
-									className="!p-0 !h-auto text-[12px] [&.is-link]:text-frame-text-secondary [&.is-link]:hover:text-frame-theme"
+									className="!p-0 !h-auto text-[12px] leading-[16px] [&.is-link]:text-frame-text-secondary [&.is-link]:hover:text-frame-theme"
 									onClick={ () => setWarningsExpanded( ! warningsExpanded ) }
 								>
 									{ warningsExpanded ? __( 'Hide' ) : __( 'Show' ) }

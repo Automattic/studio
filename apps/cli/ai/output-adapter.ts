@@ -40,6 +40,7 @@ export class JsonAdapter implements AiOutputAdapter {
 	activeSite: SiteInfo | null = null;
 	onSiteSelected: ( ( site: SiteInfo ) => void ) | null = null;
 	onInterrupt: ( () => void ) | null = null;
+	onBeforeExit: ( () => Promise< void > ) | null = null;
 
 	private sessionId: string | undefined;
 
@@ -124,7 +125,7 @@ export class JsonAdapter implements AiOutputAdapter {
 		throw new Error( 'waitForInput is not available in JSON mode' );
 	}
 
-	askUser( questions: AskUserQuestion[] ): Promise< Record< string, string > > {
+	async askUser( questions: AskUserQuestion[] ): Promise< Record< string, string > > {
 		emitEvent( {
 			type: 'question.asked',
 			timestamp: new Date().toISOString(),
@@ -134,10 +135,11 @@ export class JsonAdapter implements AiOutputAdapter {
 			} ) ),
 		} );
 		this.emitTurnCompleted( 'paused' );
+		await this.onBeforeExit?.();
 		process.exit( 0 );
 
 		// Unreachable, but satisfies TypeScript
-		return Promise.resolve( {} );
+		return {};
 	}
 
 	openActiveSiteInBrowser(): Promise< boolean > {

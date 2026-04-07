@@ -141,6 +141,13 @@ export async function runCommand( options: {
 		return persistQueue;
 	};
 
+	if ( ui instanceof JsonAdapter ) {
+		ui.onBeforeExit = async () => {
+			await persistQueue;
+			ui.stop();
+		};
+	}
+
 	async function persistSessionContext(): Promise< void > {
 		await persist( ( recorder ) =>
 			recorder.recordSessionContext( {

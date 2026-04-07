@@ -4,6 +4,7 @@ import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { z } from 'zod';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
+import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 
 const meResponseSchema = z.object( {
 	ID: z.number(),
@@ -54,6 +55,7 @@ export async function handleAuthDeeplink( urlObject: URL ): Promise< void > {
 	try {
 		const authResult = await handleAuthCallback( hash );
 		await updateSharedConfig( { authToken: authResult } );
+		setSentryWpcomUserIdMain( authResult.id );
 		void sendIpcEventToRenderer( 'auth-updated', { token: authResult } );
 	} catch ( error ) {
 		Sentry.captureException( error );

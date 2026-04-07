@@ -168,7 +168,7 @@ async function captureConsoleOutput( fn: () => Promise< void > ): Promise< strin
 	return captured.trim();
 }
 
-async function captureCommandOutput( fn: () => Promise< void > ): Promise< {
+export async function captureCommandOutput( fn: () => Promise< void > ): Promise< {
 	consoleOutput: string;
 	progressOutput: string;
 	exitCode: number | undefined;
@@ -639,9 +639,20 @@ const takeScreenshotTool = tool(
 
 				await page.goto( args.url, { waitUntil: 'networkidle', timeout: 15000 } );
 
-				// Wait for all images to finish loading
-				await page.evaluate( () =>
-					Promise.all(
+				// Scroll through the page to trigger lazy-loaded images, then wait
+				// for all images to finish loading.
+				await page.evaluate( async () => {
+					const delay = ( ms: number ) =>
+						new Promise< void >( ( resolve ) => setTimeout( resolve, ms ) );
+					const scrollHeight = document.body.scrollHeight;
+					const viewportHeight = window.innerHeight;
+					for ( let y = 0; y < scrollHeight; y += viewportHeight ) {
+						window.scrollTo( 0, y );
+						await delay( 100 );
+					}
+					window.scrollTo( 0, 0 );
+
+					await Promise.all(
 						Array.from( document.images )
 							.filter( ( img ) => ! img.complete )
 							.map(
@@ -651,8 +662,8 @@ const takeScreenshotTool = tool(
 										img.addEventListener( 'error', () => resolve() );
 									} )
 							)
-					)
-				);
+					);
+				} );
 
 				// Hide WordPress admin bar and scrollbars for cleaner screenshots
 				await page.addStyleTag( {

@@ -16,6 +16,7 @@ vi.mock( '@sentry/electron/main', () => ( {
 	captureException: vi.fn(),
 	captureMessage: vi.fn(),
 	setUser: vi.fn(),
+	setTag: vi.fn(),
 } ) );
 vi.mock( import( 'src/lib/bump-stats' ), async ( importOriginal ) => {
 	const actual = await importOriginal();

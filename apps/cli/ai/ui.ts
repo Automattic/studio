@@ -79,6 +79,7 @@ class PromptEditor implements Component, Focusable {
 	private _focused = false;
 	private isEmpty = true;
 	activeSiteName: string | null = null;
+	busyMessage: string | null = null;
 	hints: string[] = [];
 	statusMessage: string | null = null;
 	showBottomBar = true;
@@ -146,11 +147,13 @@ class PromptEditor implements Component, Focusable {
 		const emptyPrefix = ' '.repeat( promptWidth );
 		const result = editorLines.map( ( line, i ) => {
 			if ( i === 0 ) {
-				// Top border with active site name on the right
+				// Top border with active site name and optional busy indicator
 				if ( this.activeSiteName && borderWidth > 4 ) {
-					const label = ` ${ this.activeSiteName } `;
+					const busySuffix = this.busyMessage ? ` ${ this.busyMessage }` : '';
+					const label = ` ${ this.activeSiteName }${ busySuffix } `;
 					const trailing = Math.min( 3, borderWidth );
-					const leading = Math.max( 0, borderWidth - label.length - trailing );
+					const labelWidth = visibleWidth( label );
+					const leading = Math.max( 0, borderWidth - labelWidth - trailing );
 					return (
 						' ' +
 						bc( '─'.repeat( leading ) ) +
@@ -1583,9 +1586,39 @@ export class AiChatUI {
 		this.tui.requestRender();
 	}
 
+	showProgress( message: string ): void {
+		this.messages.addChild( new Text( '\n ' + '⏺' + ' ' + message + '\n', 0, 0 ) );
+		this.tui.requestRender();
+	}
+
 	setStatusMessage( message: string | null ): void {
 		this.editor.statusMessage = message;
 		this.tui.requestRender();
+	}
+
+	private busyTimer: ReturnType< typeof setInterval > | null = null;
+	private busyFrameIndex = 0;
+	private static readonly BUSY_FRAMES = [ '⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏' ];
+
+	setBusy( active: boolean ): void {
+		if ( this.busyTimer ) {
+			clearInterval( this.busyTimer );
+			this.busyTimer = null;
+		}
+
+		if ( active ) {
+			this.busyFrameIndex = 0;
+			this.editor.busyMessage = AiChatUI.BUSY_FRAMES[ 0 ];
+			this.tui.requestRender();
+			this.busyTimer = setInterval( () => {
+				this.busyFrameIndex = ( this.busyFrameIndex + 1 ) % AiChatUI.BUSY_FRAMES.length;
+				this.editor.busyMessage = AiChatUI.BUSY_FRAMES[ this.busyFrameIndex ];
+				this.tui.requestRender();
+			}, 80 );
+		} else {
+			this.editor.busyMessage = null;
+			this.tui.requestRender();
+		}
 	}
 
 	private showFilePreview( toolName: string, input: Record< string, unknown > ): void {

@@ -17,7 +17,6 @@ export const SyncTabImage = () => (
 				.sti-dot-theme { fill: var(--color-frame-bg); }
 				@media (prefers-color-scheme: dark) {
 					.sti-wp-logo-dark { fill: var(--color-frame-surface-alt); fill-opacity: 1; }
-					.sti-wp-logo-light { fill: var(--color-frame-surface-alt); }
 				}
 			` }
 		</style>

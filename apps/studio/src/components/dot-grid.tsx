@@ -313,7 +313,7 @@ export function DotGrid( {
 			}
 		}
 
-		function resize() {
+		function setupCanvas() {
 			if ( ! canvas ) return;
 			const dpr = window.devicePixelRatio || 1;
 			canvas.width = Math.round( canvas.offsetWidth * dpr );
@@ -322,18 +322,15 @@ export function DotGrid( {
 			ctx.scale( dpr, dpr );
 			readColor();
 			initDots();
+		}
+
+		function resize() {
+			setupCanvas();
 			ensureLoop();
 		}
 
 		function resizeStatic() {
-			if ( ! canvas ) return;
-			const dpr = window.devicePixelRatio || 1;
-			canvas.width = Math.round( canvas.offsetWidth * dpr );
-			canvas.height = Math.round( canvas.offsetHeight * dpr );
-			ctx = canvas.getContext( '2d' )!;
-			ctx.scale( dpr, dpr );
-			readColor();
-			initDots();
+			setupCanvas();
 			drawStatic();
 		}
 

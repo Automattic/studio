@@ -5,6 +5,42 @@ import * as Sentry from '@sentry/electron/main';
 import { z } from 'zod';
 import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
 
+const activeChildren = new Set< ChildProcess >();
+
+/**
+ * Wait for all active CLI child processes to exit, then allow the app to quit.
+ * Called from the will-quit handler in index.ts so Electron doesn't exit while
+ * children are still writing to shared directories (e.g. copying skills files).
+ */
+export function waitForActiveCliChildren( timeout = 5_000 ): Promise< void > {
+	if ( activeChildren.size === 0 ) {
+		return Promise.resolve();
+	}
+
+	return new Promise< void >( ( resolve ) => {
+		const timer = setTimeout( () => {
+			for ( const child of activeChildren ) {
+				child.kill();
+			}
+			resolve();
+		}, timeout );
+
+		let remaining = activeChildren.size;
+		const onExit = () => {
+			remaining--;
+			if ( remaining === 0 ) {
+				clearTimeout( timer );
+				resolve();
+			}
+		};
+
+		for ( const child of activeChildren ) {
+			child.once( 'exit', onExit );
+			child.kill();
+		}
+	} );
+}
+
 export type CliCommandResult = {
 	stdout: string;
 	stderr: string;
@@ -144,6 +180,7 @@ export function executeCliCommand(
 		execArgv: [ '--experimental-wasm-jspi' ],
 		env: { ...process.env },
 	} );
+	activeChildren.add( child );
 	const eventEmitter = new CliCommandEventEmitter< boolean >();
 
 	child.on( 'spawn', () => {
@@ -199,6 +236,7 @@ export function executeCliCommand(
 	}
 
 	child.on( 'close', ( exitCode, signal ) => {
+		activeChildren.delete( child );
 		child.removeAllListeners();
 		app.off( 'will-quit', appQuitHandler );
 

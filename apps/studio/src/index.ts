@@ -45,6 +45,7 @@ import {
 	startCliEventsSubscriber,
 	stopCliEventsSubscriber,
 } from 'src/modules/cli/lib/cli-events-subscriber';
+import { waitForActiveCliChildren } from 'src/modules/cli/lib/execute-command';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { updateWindowsCliVersionedPathIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
 import { getRunningSiteCount, SiteServer, stopAllServers } from 'src/site-server';
@@ -467,16 +468,15 @@ async function appBoot() {
 		globalShortcut.unregisterAll();
 		stopCliEventsSubscriber();
 
-		if ( shouldStopSitesOnQuit ) {
-			event.preventDefault();
-			stopAllServers( true, 6_000 )
-				.then( () => {
-					app.exit();
-				} )
-				.catch( () => {
-					app.exit();
-				} );
-		}
+		event.preventDefault();
+		const stopSites = shouldStopSitesOnQuit ? stopAllServers( true, 6_000 ) : Promise.resolve();
+		void stopSites
+			.catch( () => {} )
+			.then( () => waitForActiveCliChildren() )
+			.catch( () => {} )
+			.then( () => {
+				app.exit();
+			} );
 	} );
 
 	app.on( 'activate', () => {

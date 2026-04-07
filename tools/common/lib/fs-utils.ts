@@ -117,7 +117,10 @@ export async function recursiveCopyDirectory(
 				return recursiveCopyDirectory( sourcePath, destinationPath );
 			}
 			if ( entry.isFile() ) {
-				return fsPromises.copyFile( sourcePath, destinationPath );
+				return fsPromises.cp( sourcePath, destinationPath, {
+					mode: fs.constants.COPYFILE_FICLONE,
+					preserveTimestamps: true,
+				} );
 			}
 		} )
 	);

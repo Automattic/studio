@@ -14,6 +14,7 @@ import {
 	getWpFilesPath,
 } from '../server-files';
 import { updateLatestSqliteCommandVersion } from './sqlite-command';
+import { areDirectoriesDifferentBySizeAndMtime } from './utils';
 import { getWordPressVersionFromInstallation, updateLatestWordPressVersion } from './wordpress';
 import { updateLatestWpCliVersion } from './wp-cli';
 
@@ -71,8 +72,8 @@ async function copyBundledSqlite() {
 }
 
 async function copyBundledWpCli() {
-	const bundledWpCLIInstalled = fs.existsSync( getWpCliPharPath() );
-	if ( bundledWpCLIInstalled ) {
+	const isServerFilesWpCliInstalled = fs.existsSync( getWpCliPharPath() );
+	if ( isServerFilesWpCliInstalled ) {
 		return;
 	}
 	const bundledWpCLIPath = path.join( getWpFilesPath(), 'wp-cli', 'wp-cli.phar' );
@@ -84,8 +85,29 @@ async function copyBundledSqliteCommand() {
 	if ( ! fs.existsSync( bundledSqliteCommandPath ) ) {
 		return;
 	}
-	// Always copy to ensure files are complete and up-to-date
-	await recursiveCopyDirectory( bundledSqliteCommandPath, getSqliteCommandPath() );
+
+	const bundledVersionFilePath = path.join( bundledSqliteCommandPath, 'version' );
+	const bundledVersion = semver.coerce( fs.readFileSync( bundledVersionFilePath, 'utf8' ) );
+
+	if ( ! bundledVersion ) {
+		return;
+	}
+
+	try {
+		const serverFilesVersionFilePath = path.join( getSqliteCommandPath(), 'version' );
+		const serverFilesVersion = semver.coerce(
+			fs.readFileSync( serverFilesVersionFilePath, 'utf8' )
+		);
+		const isBundledVersionNewer =
+			serverFilesVersion && semver.gt( bundledVersion, serverFilesVersion );
+
+		if ( ! serverFilesVersion || isBundledVersionNewer ) {
+			await recursiveCopyDirectory( bundledSqliteCommandPath, getSqliteCommandPath() );
+		}
+	} catch {
+		// Fall back to copying the bundled version if the server files version cannot be read
+		await recursiveCopyDirectory( bundledSqliteCommandPath, getSqliteCommandPath() );
+	}
 }
 
 async function copyBundledTranslations() {
@@ -110,7 +132,14 @@ async function copyBundledAiInstructions() {
 	if ( ! fs.existsSync( bundledAiInstructionsPath ) ) {
 		return;
 	}
-	await recursiveCopyDirectory( bundledAiInstructionsPath, getAiInstructionsPath() );
+
+	const isBundledVersionDifferent = await areDirectoriesDifferentBySizeAndMtime(
+		bundledAiInstructionsPath,
+		getAiInstructionsPath()
+	);
+	if ( isBundledVersionDifferent ) {
+		await recursiveCopyDirectory( bundledAiInstructionsPath, getAiInstructionsPath() );
+	}
 }
 
 async function copyBundledPhpMyAdmin() {
@@ -118,8 +147,31 @@ async function copyBundledPhpMyAdmin() {
 	if ( ! fs.existsSync( bundledPath ) ) {
 		return;
 	}
-	// Always copy to ensure files are complete and up-to-date
-	await recursiveCopyDirectory( bundledPath, getPhpMyAdminPath() );
+
+	const bundledComposerFilePath = path.join( bundledPath, 'composer.json' );
+	const bundledComposerFile = JSON.parse( fs.readFileSync( bundledComposerFilePath, 'utf8' ) );
+	const bundledVersion = semver.coerce( bundledComposerFile.version );
+
+	if ( ! bundledVersion ) {
+		return;
+	}
+
+	try {
+		const serverFilesComposerFilePath = path.join( getPhpMyAdminPath(), 'composer.json' );
+		const serverFilesComposerFile = JSON.parse(
+			fs.readFileSync( serverFilesComposerFilePath, 'utf8' )
+		);
+		const serverFilesVersion = semver.coerce( serverFilesComposerFile.version );
+		const isBundledVersionNewer =
+			serverFilesVersion && semver.gt( bundledVersion, serverFilesVersion );
+
+		if ( ! serverFilesVersion || isBundledVersionNewer ) {
+			await recursiveCopyDirectory( bundledPath, getPhpMyAdminPath() );
+		}
+	} catch {
+		// Fall back to copying the bundled version if the server files version cannot be read
+		await recursiveCopyDirectory( bundledPath, getPhpMyAdminPath() );
+	}
 }
 
 async function copyBundledLanguagePacks() {
@@ -129,7 +181,14 @@ async function copyBundledLanguagePacks() {
 	}
 	const installedLanguagePacksPath = getLanguagePacksPath();
 	await fs.promises.mkdir( installedLanguagePacksPath, { recursive: true } );
-	await recursiveCopyDirectory( bundledLanguagePacksPath, installedLanguagePacksPath );
+
+	const isBundledVersionDifferent = await areDirectoriesDifferentBySizeAndMtime(
+		bundledLanguagePacksPath,
+		installedLanguagePacksPath
+	);
+	if ( isBundledVersionDifferent ) {
+		await recursiveCopyDirectory( bundledLanguagePacksPath, installedLanguagePacksPath );
+	}
 }
 
 export async function setupServerFiles() {

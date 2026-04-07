@@ -24,7 +24,7 @@ interface CreatePreviewButtonProps {
 export function CreatePreviewButton( { onClick, selectedSite, user }: CreatePreviewButtonProps ) {
 	const { __, _n } = useI18n();
 	const activeOperationsForAnySite = useRootSelector(
-		snapshotSelectors.selectActiveOperationsForAnySite
+		snapshotSelectors.selectActiveCreateUpdateOperationsForAnySite
 	);
 	const activeOperationsForCurrentSite = useRootSelector( ( state ) =>
 		snapshotSelectors.selectActiveCreateOperationForSite( state, selectedSite.id )

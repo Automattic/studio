@@ -161,6 +161,9 @@ const config: ForgeConfig = {
 			// may need to rerun `npm ci` from the repo root to reset the dependency tree after packaging.
 			await execAsync( 'npm run app:install:bundle' );
 
+			console.log( 'Downloading language packs ...' );
+			await execAsync( 'npm run download-language-packs' );
+
 			console.log( 'Building CLI (with bundled node_modules) ...' );
 			// NOTE: The `cli:package` script mutates the `apps/cli/node_modules` directory. You may need to
 			// rerun `npm ci` from the repo root to reset the dependency tree after packaging.
@@ -173,7 +176,12 @@ const config: ForgeConfig = {
 			const cliNodeModules = path.join( repoRoot, 'apps', 'cli', 'dist', 'cli', 'node_modules' );
 
 			// Clean up @anthropic-ai/claude-agent-sdk vendor binaries (uses {arch}-{platform} format)
-			const claudeVendorDir = path.join( cliNodeModules, '@anthropic-ai', 'claude-agent-sdk', 'vendor' );
+			const claudeVendorDir = path.join(
+				cliNodeModules,
+				'@anthropic-ai',
+				'claude-agent-sdk',
+				'vendor'
+			);
 			const platformSuffix = `-${ platform }`;
 			if ( fs.existsSync( claudeVendorDir ) ) {
 				for ( const toolDir of fs.readdirSync( claudeVendorDir ) ) {
@@ -204,9 +212,6 @@ const config: ForgeConfig = {
 					}
 				}
 			}
-
-			console.log('Downloading language packs ...');
-			await execAsync( 'npm run download-language-packs' );
 
 			console.log( `Downloading Node.js binary for ${ platform }-${ arch }...` );
 			await execAsync(

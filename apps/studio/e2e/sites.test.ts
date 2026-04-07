@@ -232,9 +232,14 @@ test.describe( 'Sites without cleanup in-between', () => {
 		await fs.writeFile( sourceThumbnailPath, 'test-thumbnail-data' );
 
 		// Trigger copy via IPC (bypassing native menu since Playwright can't interact with it)
+		// Use getFocusedWindow() instead of getAllWindows()[0] because the thumbnail
+		// capture feature creates hidden BrowserWindows that can appear at index 0.
 		await session.electronApp.evaluate(
 			( { BrowserWindow }, { siteId } ) => {
-				const mainWindow = BrowserWindow.getAllWindows()[ 0 ];
+				const mainWindow =
+					BrowserWindow.getFocusedWindow() ??
+					BrowserWindow.getAllWindows().find( ( w ) => w.isVisible() ) ??
+					BrowserWindow.getAllWindows()[ 0 ];
 				mainWindow.webContents.send( 'site-context-menu-action', {
 					action: 'copy-site',
 					siteId,

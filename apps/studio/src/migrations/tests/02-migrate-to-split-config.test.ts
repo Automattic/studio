@@ -1,6 +1,7 @@
 /**
  * @vitest-environment node
  */
+import { existsSync } from 'fs';
 import { siteDetailsSchema } from '@studio/common/lib/cli-events';
 import { authTokenSchema, sharedConfigSchema } from '@studio/common/lib/shared-config';
 import { snapshotSchema } from '@studio/common/types/snapshot';
@@ -15,19 +16,7 @@ async function runMigration() {
 	}
 }
 
-const { mockFsExistsSync, mockFsMkdirSync } = vi.hoisted( () => ( {
-	mockFsExistsSync: vi.fn(),
-	mockFsMkdirSync: vi.fn(),
-} ) );
-
-vi.mock( 'fs', () => ( {
-	default: {
-		existsSync: mockFsExistsSync,
-		mkdirSync: mockFsMkdirSync,
-	},
-	existsSync: mockFsExistsSync,
-	mkdirSync: mockFsMkdirSync,
-} ) );
+vi.mock( 'fs' );
 
 vi.mock( 'atomically', () => ( {
 	readFile: vi.fn(),
@@ -223,8 +212,8 @@ describe( 'migrateAppConfig', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		// By default: no new files exist, old file exists
-		mockFsExistsSync.mockImplementation( ( p: string ) => {
-			if ( p.includes( 'appdata-v1.json' ) ) {
+		vi.mocked( existsSync ).mockImplementation( ( p ) => {
+			if ( typeof p === 'string' && p.includes( 'appdata-v1.json' ) ) {
 				return true;
 			}
 			return false;
@@ -233,8 +222,8 @@ describe( 'migrateAppConfig', () => {
 	} );
 
 	it( 'does not need to run if new app.json already exists', async () => {
-		mockFsExistsSync.mockImplementation( ( p: string ) => {
-			if ( p.endsWith( 'app.json' ) && p.includes( '.studio' ) ) {
+		vi.mocked( existsSync ).mockImplementation( ( p ) => {
+			if ( typeof p === 'string' && p.endsWith( 'app.json' ) && p.includes( '.studio' ) ) {
 				return true;
 			}
 			return false;
@@ -244,7 +233,7 @@ describe( 'migrateAppConfig', () => {
 	} );
 
 	it( 'does not need to run if old appdata-v1.json does not exist', async () => {
-		mockFsExistsSync.mockReturnValue( false );
+		vi.mocked( existsSync ).mockReturnValue( false );
 
 		expect( await migrateAppConfig.needsToRun() ).toBe( false );
 	} );
@@ -475,11 +464,11 @@ describe( 'migrateAppConfig', () => {
 
 	describe( 'partial migration recovery', () => {
 		it( 'does not overwrite shared.json if it already exists', async () => {
-			mockFsExistsSync.mockImplementation( ( p: string ) => {
-				if ( p.includes( 'appdata-v1.json' ) ) {
+			vi.mocked( existsSync ).mockImplementation( ( p ) => {
+				if ( typeof p === 'string' && p.includes( 'appdata-v1.json' ) ) {
 					return true;
 				}
-				if ( p.endsWith( 'shared.json' ) ) {
+				if ( typeof p === 'string' && p.endsWith( 'shared.json' ) ) {
 					return true;
 				}
 				return false;
@@ -496,11 +485,11 @@ describe( 'migrateAppConfig', () => {
 		} );
 
 		it( 'does not overwrite cli.json if it already exists', async () => {
-			mockFsExistsSync.mockImplementation( ( p: string ) => {
-				if ( p.includes( 'appdata-v1.json' ) ) {
+			vi.mocked( existsSync ).mockImplementation( ( p ) => {
+				if ( typeof p === 'string' && p.includes( 'appdata-v1.json' ) ) {
 					return true;
 				}
-				if ( p.endsWith( 'cli.json' ) ) {
+				if ( typeof p === 'string' && p.endsWith( 'cli.json' ) ) {
 					return true;
 				}
 				return false;

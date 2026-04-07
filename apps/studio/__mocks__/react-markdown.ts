@@ -1,4 +1,4 @@
-import React from 'react';
+/// <reference types="vitest/globals" />
 
 const ReactMarkdown = ( { children }: { children: React.ReactNode } ) => {
 	return React.createElement( 'div', null, children );

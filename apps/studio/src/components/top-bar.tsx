@@ -77,7 +77,7 @@ function Authentication() {
 		return (
 			<Tooltip text={ user?.displayName || '' } placement="bottom-end">
 				<Button
-					onClick={ () => getIpcApi().showUserSettings() }
+					onClick={ () => getIpcApi().showUserSettings( 'account' ) }
 					aria-label={ __( 'Open account settings' ) }
 					variant="icon"
 					className="!p-[8px] !rounded-lg"

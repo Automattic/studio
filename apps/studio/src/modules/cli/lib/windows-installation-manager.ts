@@ -2,7 +2,6 @@ import { app, dialog } from 'electron';
 import { mkdir, rm, writeFile } from 'fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'path';
-import * as Sentry from '@sentry/electron/main';
 import { __ } from '@wordpress/i18n';
 import Registry from 'winreg'; // don't update winreg to 1.2.5 - https://github.com/fresc81/node-winreg/issues/65
 import { getMainWindow } from 'src/main-window';
@@ -53,7 +52,6 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 				message: __( 'The CLI has been installed successfully.' ),
 			} );
 		} catch ( error ) {
-			Sentry.captureException( error );
 			console.error( 'Failed to install CLI', error );
 
 			let message: string = __(
@@ -83,7 +81,6 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 				message: __( 'The CLI has been uninstalled successfully.' ),
 			} );
 		} catch ( error ) {
-			Sentry.captureException( error );
 			console.error( 'Failed to uninstall CLI', error );
 
 			let message: string = __(
@@ -158,7 +155,6 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 
 			await this.setPathInRegistry( updatedPath );
 		} catch ( error ) {
-			Sentry.captureException( error );
 			console.error( 'Failed to install CLI path', error );
 		}
 	}
@@ -184,7 +180,6 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 
 			await writeFile( path.join( STABLE_BIN_DIR_PATH, 'studio.bat' ), content );
 		} catch ( error ) {
-			Sentry.captureException( error );
 			console.error( 'Failed to install CLI: Proxy Bat file', error );
 		}
 	}

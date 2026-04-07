@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { tmpdir } from 'os';
 import path from 'path';
+import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { findLatestBuild, parseElectronApp } from 'electron-playwright-helpers';
 import fs from 'fs-extra';
 import { _electron as electron, Page, ElectronApplication } from 'playwright';
@@ -93,7 +94,19 @@ export class E2ESession {
 
 	async cleanup() {
 		await this.closeApp();
-		await rimraf( this.sessionPath );
+		// Retry on ENOTEMPTY: CLI child processes (e.g. copying skills to server-files) may still be
+		// writing to the session directory briefly after the Electron process exits.
+		for ( let attempt = 0; attempt < 5; attempt++ ) {
+			try {
+				await rimraf( this.sessionPath );
+				return;
+			} catch ( error ) {
+				if ( ! isErrnoException( error ) || error.code !== 'ENOTEMPTY' || attempt === 4 ) {
+					throw error;
+				}
+				await new Promise< void >( ( resolve ) => setTimeout( resolve, 500 ) );
+			}
+		}
 	}
 
 	private async launchFirstWindow( testEnv: NodeJS.ProcessEnv = {} ) {

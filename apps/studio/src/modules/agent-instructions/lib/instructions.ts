@@ -74,3 +74,11 @@ export async function installInstructionFile(
 	await fs.writeFile( filePath, bundledContent, 'utf-8' );
 	return { path: filePath, overwritten: overwrite };
 }
+
+export async function removeInstructionFile(
+	sitePath: string,
+	fileType: InstructionFileType
+): Promise< void > {
+	const filePath = getInstructionFilePath( sitePath, fileType );
+	await fs.rm( filePath, { force: true } );
+}

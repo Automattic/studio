@@ -282,8 +282,7 @@ export class SiteServer {
 				capturedImage = image;
 				return fs.promises.writeFile( outPath, image.toPNG() );
 			} )
-			.catch( async ( error ) => {
-				Sentry.captureException( error );
+			.catch( async () => {
 				if ( capturedImage ) {
 					try {
 						await fs.promises.unlink( outPath );

@@ -8,6 +8,7 @@ import { getLocalizedLink } from 'src/lib/get-localized-link';
 import blueprintsIllustration from 'src/modules/whats-new/assets/blueprints-illustration.svg';
 import cliIllustration from 'src/modules/whats-new/assets/cli-illustration.svg';
 import darkModeIllustration from 'src/modules/whats-new/assets/dark-mode-illustration.svg';
+import phpMyAdminIllustration from 'src/modules/whats-new/assets/phpmyadmin-illustration.svg';
 import { useI18nLocale } from 'src/stores';
 
 interface WhatsNewPage {
@@ -61,6 +62,13 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 			title: __( 'Dark mode is here' ),
 			description: __(
 				'Studio now supports light, dark, and system appearance modes. Head to Settings to choose your preferred look.'
+			),
+		},
+		{
+			image: phpMyAdminIllustration,
+			title: __( 'Manage your database with phpMyAdmin' ),
+			description: __(
+				"Studio now includes phpMyAdmin, giving you a visual interface to manage your site's database. Access it from the Overview tab."
 			),
 		},
 		{

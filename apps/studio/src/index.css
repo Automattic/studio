@@ -464,6 +464,11 @@ div:has( > progress ) > div:first-child {
 		fill: var( --color-frame-text );
 	}
 
+	/* What's new step */
+	[aria-current='step'] .components-button svg {
+		fill: var( --color-frame-theme );
+	}
+
 	/* Primary button — force dark-mode theme blue */
 	.components-button.is-primary {
 		background-color: var( --color-frame-theme );

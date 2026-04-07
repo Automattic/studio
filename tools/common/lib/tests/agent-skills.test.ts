@@ -1,4 +1,4 @@
-import fs from 'fs/promises';
+import fs from 'fs';
 import path from 'path';
 import { vi } from 'vitest';
 import {
@@ -8,16 +8,7 @@ import {
 } from '../agent-skills';
 import { pathExists, recursiveCopyDirectory } from '../fs-utils';
 
-vi.mock( 'fs/promises', () => ( {
-	default: {
-		access: vi.fn(),
-		mkdir: vi.fn(),
-		readdir: vi.fn(),
-		copyFile: vi.fn(),
-		rm: vi.fn(),
-		symlink: vi.fn(),
-	},
-} ) );
+vi.mock( 'fs' );
 
 vi.mock( '../fs-utils', () => ( {
 	pathExists: vi.fn(),
@@ -32,10 +23,10 @@ describe( 'installAiInstructionsToSite', () => {
 		vi.clearAllMocks();
 		vi.mocked( pathExists ).mockResolvedValue( false );
 		vi.mocked( recursiveCopyDirectory ).mockResolvedValue( undefined );
-		vi.mocked( fs.mkdir ).mockResolvedValue( undefined );
-		vi.mocked( fs.rm ).mockResolvedValue( undefined );
-		vi.mocked( fs.symlink ).mockResolvedValue( undefined );
-		vi.mocked( fs.copyFile ).mockResolvedValue( undefined );
+		vi.mocked( fs.promises.mkdir ).mockResolvedValue( undefined );
+		vi.mocked( fs.promises.rm ).mockResolvedValue( undefined );
+		vi.mocked( fs.promises.symlink ).mockResolvedValue( undefined );
+		vi.mocked( fs.promises.copyFile ).mockResolvedValue( undefined );
 	} );
 
 	it( 'copies loose .md files to site root', async () => {
@@ -45,18 +36,18 @@ describe( 'installAiInstructionsToSite', () => {
 			}
 			return false;
 		} );
-		vi.mocked( fs.readdir ).mockResolvedValue( [
+		vi.mocked( fs.promises.readdir ).mockResolvedValue( [
 			{ name: 'AGENTS.md', isFile: () => true, isDirectory: () => false },
 			{ name: 'STUDIO.md', isFile: () => true, isDirectory: () => false },
 		] as never );
 
 		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH );
 
-		expect( fs.copyFile ).toHaveBeenCalledWith(
+		expect( fs.promises.copyFile ).toHaveBeenCalledWith(
 			path.join( BUNDLED_PATH, 'AGENTS.md' ),
 			path.join( SITE_PATH, 'AGENTS.md' )
 		);
-		expect( fs.copyFile ).toHaveBeenCalledWith(
+		expect( fs.promises.copyFile ).toHaveBeenCalledWith(
 			path.join( BUNDLED_PATH, 'STUDIO.md' ),
 			path.join( SITE_PATH, 'STUDIO.md' )
 		);
@@ -72,15 +63,15 @@ describe( 'installAiInstructionsToSite', () => {
 			}
 			return false;
 		} );
-		vi.mocked( fs.readdir ).mockResolvedValue( [
+		vi.mocked( fs.promises.readdir ).mockResolvedValue( [
 			{ name: 'AGENTS.md', isFile: () => true, isDirectory: () => false },
 			{ name: 'STUDIO.md', isFile: () => true, isDirectory: () => false },
 		] as never );
 
-		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH, false );
+		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH, [], false );
 
-		expect( fs.copyFile ).toHaveBeenCalledTimes( 1 );
-		expect( fs.copyFile ).toHaveBeenCalledWith(
+		expect( fs.promises.copyFile ).toHaveBeenCalledTimes( 1 );
+		expect( fs.promises.copyFile ).toHaveBeenCalledWith(
 			path.join( BUNDLED_PATH, 'STUDIO.md' ),
 			path.join( SITE_PATH, 'STUDIO.md' )
 		);
@@ -93,14 +84,14 @@ describe( 'installAiInstructionsToSite', () => {
 			}
 			return false;
 		} );
-		vi.mocked( fs.readdir ).mockResolvedValue( [
+		vi.mocked( fs.promises.readdir ).mockResolvedValue( [
 			{ name: 'studio-cli', isFile: () => false, isDirectory: () => true },
 		] as never );
 
 		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH );
 
 		expect( recursiveCopyDirectory ).not.toHaveBeenCalled();
-		expect( fs.symlink ).not.toHaveBeenCalled();
+		expect( fs.promises.symlink ).not.toHaveBeenCalled();
 	} );
 
 	it( 'skips skill directories even with overwrite when not in user-selected list', async () => {
@@ -110,13 +101,13 @@ describe( 'installAiInstructionsToSite', () => {
 			}
 			return true;
 		} );
-		vi.mocked( fs.readdir ).mockResolvedValue( [
+		vi.mocked( fs.promises.readdir ).mockResolvedValue( [
 			{ name: 'wp-rest-api', isFile: () => false, isDirectory: () => true },
 		] as never );
 
-		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH, true );
+		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH, [], true );
 
-		expect( fs.rm ).not.toHaveBeenCalled();
+		expect( fs.promises.rm ).not.toHaveBeenCalled();
 		expect( recursiveCopyDirectory ).not.toHaveBeenCalled();
 	} );
 
@@ -126,8 +117,8 @@ describe( 'installAiInstructionsToSite', () => {
 		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH );
 
 		expect( recursiveCopyDirectory ).not.toHaveBeenCalled();
-		expect( fs.symlink ).not.toHaveBeenCalled();
-		expect( fs.copyFile ).not.toHaveBeenCalled();
+		expect( fs.promises.symlink ).not.toHaveBeenCalled();
+		expect( fs.promises.copyFile ).not.toHaveBeenCalled();
 	} );
 
 	it( 'copies .md files but skips unselected skill directories', async () => {
@@ -137,16 +128,16 @@ describe( 'installAiInstructionsToSite', () => {
 			}
 			return false;
 		} );
-		vi.mocked( fs.readdir ).mockResolvedValue( [
+		vi.mocked( fs.promises.readdir ).mockResolvedValue( [
 			{ name: 'AGENTS.md', isFile: () => true, isDirectory: () => false },
 			{ name: 'studio-cli', isFile: () => false, isDirectory: () => true },
 		] as never );
 
 		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH );
 
-		expect( fs.copyFile ).toHaveBeenCalledTimes( 1 );
+		expect( fs.promises.copyFile ).toHaveBeenCalledTimes( 1 );
 		expect( recursiveCopyDirectory ).not.toHaveBeenCalled();
-		expect( fs.symlink ).not.toHaveBeenCalled();
+		expect( fs.promises.symlink ).not.toHaveBeenCalled();
 	} );
 
 	it( 'ignores non-.md files at the root level', async () => {
@@ -156,7 +147,7 @@ describe( 'installAiInstructionsToSite', () => {
 			}
 			return false;
 		} );
-		vi.mocked( fs.readdir ).mockResolvedValue( [
+		vi.mocked( fs.promises.readdir ).mockResolvedValue( [
 			{ name: 'AGENTS.md', isFile: () => true, isDirectory: () => false },
 			{ name: 'index.ts', isFile: () => true, isDirectory: () => false },
 			{ name: 'raw-imports.d.ts', isFile: () => true, isDirectory: () => false },
@@ -164,8 +155,8 @@ describe( 'installAiInstructionsToSite', () => {
 
 		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH );
 
-		expect( fs.copyFile ).toHaveBeenCalledTimes( 1 );
-		expect( fs.copyFile ).toHaveBeenCalledWith(
+		expect( fs.promises.copyFile ).toHaveBeenCalledTimes( 1 );
+		expect( fs.promises.copyFile ).toHaveBeenCalledWith(
 			path.join( BUNDLED_PATH, 'AGENTS.md' ),
 			path.join( SITE_PATH, 'AGENTS.md' )
 		);
@@ -178,7 +169,7 @@ describe( 'installAiInstructionsToSite', () => {
 			}
 			return false;
 		} );
-		vi.mocked( fs.readdir ).mockResolvedValue( [
+		vi.mocked( fs.promises.readdir ).mockResolvedValue( [
 			{ name: 'AGENTS.md', isFile: () => true, isDirectory: () => false },
 			{ name: 'STUDIO.md', isFile: () => true, isDirectory: () => false },
 			{ name: 'studio-cli', isFile: () => false, isDirectory: () => true },
@@ -189,11 +180,11 @@ describe( 'installAiInstructionsToSite', () => {
 		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH );
 
 		// 2 .md files copied to site root
-		expect( fs.copyFile ).toHaveBeenCalledTimes( 2 );
+		expect( fs.promises.copyFile ).toHaveBeenCalledTimes( 2 );
 
 		// No skill directories installed
 		expect( recursiveCopyDirectory ).not.toHaveBeenCalled();
-		expect( fs.symlink ).not.toHaveBeenCalled();
+		expect( fs.promises.symlink ).not.toHaveBeenCalled();
 	} );
 
 	it( 'does not attempt to install any skills when none are user-selected', async () => {
@@ -203,7 +194,7 @@ describe( 'installAiInstructionsToSite', () => {
 			}
 			return false;
 		} );
-		vi.mocked( fs.readdir ).mockResolvedValue( [
+		vi.mocked( fs.promises.readdir ).mockResolvedValue( [
 			{ name: 'broken-skill', isFile: () => false, isDirectory: () => true },
 			{ name: 'good-skill', isFile: () => false, isDirectory: () => true },
 		] as never );
@@ -211,7 +202,7 @@ describe( 'installAiInstructionsToSite', () => {
 		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH );
 
 		expect( recursiveCopyDirectory ).not.toHaveBeenCalled();
-		expect( fs.symlink ).not.toHaveBeenCalled();
+		expect( fs.promises.symlink ).not.toHaveBeenCalled();
 	} );
 
 	it( 'skips skill directories on any platform when not user-selected', async () => {
@@ -221,14 +212,14 @@ describe( 'installAiInstructionsToSite', () => {
 			}
 			return false;
 		} );
-		vi.mocked( fs.readdir ).mockResolvedValue( [
+		vi.mocked( fs.promises.readdir ).mockResolvedValue( [
 			{ name: 'wp-plugin-development', isFile: () => false, isDirectory: () => true },
 		] as never );
 
-		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH, false );
+		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH, [], false );
 
 		expect( recursiveCopyDirectory ).not.toHaveBeenCalled();
-		expect( fs.symlink ).not.toHaveBeenCalled();
+		expect( fs.promises.symlink ).not.toHaveBeenCalled();
 	} );
 } );
 
@@ -237,9 +228,9 @@ describe( 'installSkillToSite', () => {
 		vi.clearAllMocks();
 		vi.mocked( pathExists ).mockResolvedValue( false );
 		vi.mocked( recursiveCopyDirectory ).mockResolvedValue( undefined );
-		vi.mocked( fs.mkdir ).mockResolvedValue( undefined );
-		vi.mocked( fs.rm ).mockResolvedValue( undefined );
-		vi.mocked( fs.symlink ).mockResolvedValue( undefined );
+		vi.mocked( fs.promises.mkdir ).mockResolvedValue( undefined );
+		vi.mocked( fs.promises.rm ).mockResolvedValue( undefined );
+		vi.mocked( fs.promises.symlink ).mockResolvedValue( undefined );
 	} );
 
 	it( 'installs a skill directory with symlink', async () => {
@@ -256,7 +247,7 @@ describe( 'installSkillToSite', () => {
 			path.join( BUNDLED_PATH, 'studio-cli' ),
 			path.join( SITE_PATH, '.agents', 'skills', 'studio-cli' )
 		);
-		expect( fs.symlink ).toHaveBeenCalledWith(
+		expect( fs.promises.symlink ).toHaveBeenCalledWith(
 			path.relative(
 				path.join( SITE_PATH, '.claude', 'skills' ),
 				path.join( SITE_PATH, '.agents', 'skills', 'studio-cli' )
@@ -279,7 +270,7 @@ describe( 'installSkillToSite', () => {
 
 		await installSkillToSite( SITE_PATH, BUNDLED_PATH, 'wp-rest-api', true );
 
-		expect( fs.rm ).toHaveBeenCalledWith(
+		expect( fs.promises.rm ).toHaveBeenCalledWith(
 			path.join( SITE_PATH, '.agents', 'skills', 'wp-rest-api' ),
 			{ recursive: true, force: true }
 		);
@@ -298,11 +289,13 @@ describe( 'installSkillToSite', () => {
 		} );
 
 		const epermError = Object.assign( new Error( 'EPERM' ), { code: 'EPERM' } );
-		vi.mocked( fs.symlink ).mockRejectedValueOnce( epermError ).mockResolvedValue( undefined );
+		vi.mocked( fs.promises.symlink )
+			.mockRejectedValueOnce( epermError )
+			.mockResolvedValue( undefined );
 
 		await installSkillToSite( SITE_PATH, BUNDLED_PATH, 'wp-plugin-development', false );
 
-		expect( fs.symlink ).toHaveBeenCalledWith(
+		expect( fs.promises.symlink ).toHaveBeenCalledWith(
 			path.resolve( path.join( SITE_PATH, '.agents', 'skills', 'wp-plugin-development' ) ),
 			path.join( SITE_PATH, '.claude', 'skills', 'wp-plugin-development' ),
 			'junction'
@@ -316,7 +309,7 @@ describe( 'updateManagedInstructionFiles', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		vi.mocked( pathExists ).mockResolvedValue( false );
-		vi.mocked( fs.copyFile ).mockResolvedValue( undefined );
+		vi.mocked( fs.promises.copyFile ).mockResolvedValue( undefined );
 	} );
 
 	it( 'updates STUDIO.md when it exists in the site', async () => {
@@ -324,11 +317,11 @@ describe( 'updateManagedInstructionFiles', () => {
 
 		await updateManagedInstructionFiles( SITE_PATH, BUNDLED_PATH );
 
-		expect( fs.copyFile ).toHaveBeenCalledWith(
+		expect( fs.promises.copyFile ).toHaveBeenCalledWith(
 			path.join( BUNDLED_PATH, 'STUDIO.md' ),
 			path.join( SITE_PATH, 'STUDIO.md' )
 		);
-		expect( fs.copyFile ).toHaveBeenCalledTimes( 1 );
+		expect( fs.promises.copyFile ).toHaveBeenCalledTimes( 1 );
 	} );
 
 	it( 'skips files that do not exist in the site', async () => {
@@ -345,8 +338,8 @@ describe( 'updateManagedInstructionFiles', () => {
 
 		await updateManagedInstructionFiles( SITE_PATH, BUNDLED_PATH );
 
-		expect( fs.copyFile ).toHaveBeenCalledTimes( 1 );
-		expect( fs.copyFile ).toHaveBeenCalledWith(
+		expect( fs.promises.copyFile ).toHaveBeenCalledTimes( 1 );
+		expect( fs.promises.copyFile ).toHaveBeenCalledWith(
 			path.join( BUNDLED_PATH, 'STUDIO.md' ),
 			path.join( SITE_PATH, 'STUDIO.md' )
 		);
@@ -366,7 +359,7 @@ describe( 'updateManagedInstructionFiles', () => {
 
 		await updateManagedInstructionFiles( SITE_PATH, BUNDLED_PATH );
 
-		expect( fs.copyFile ).not.toHaveBeenCalled();
+		expect( fs.promises.copyFile ).not.toHaveBeenCalled();
 	} );
 
 	it( 'does nothing when no managed files exist in the site', async () => {
@@ -374,6 +367,6 @@ describe( 'updateManagedInstructionFiles', () => {
 
 		await updateManagedInstructionFiles( SITE_PATH, BUNDLED_PATH );
 
-		expect( fs.copyFile ).not.toHaveBeenCalled();
+		expect( fs.promises.copyFile ).not.toHaveBeenCalled();
 	} );
 } );

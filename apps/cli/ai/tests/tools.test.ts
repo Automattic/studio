@@ -1,10 +1,14 @@
 import { vi } from 'vitest';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
-import { runCommand as runDeletePreviewCommand } from 'cli/commands/preview/delete';
+import {
+	Mode as PreviewDeleteMode,
+	runCommand as runDeletePreviewCommand,
+} from 'cli/commands/preview/delete';
 import { runCommand as runListPreviewCommand } from 'cli/commands/preview/list';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
+import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
 import { getProgressCallback, setProgressCallback } from 'cli/logger';
 import { studioToolDefinitions } from '../tools';
 
@@ -20,9 +24,13 @@ vi.mock( 'cli/commands/preview/create', () => ( {
 	runCommand: vi.fn(),
 } ) );
 
-vi.mock( 'cli/commands/preview/delete', () => ( {
-	runCommand: vi.fn(),
-} ) );
+vi.mock( import( 'cli/commands/preview/delete' ), async ( importActual ) => {
+	const actual = await importActual();
+	return {
+		Mode: actual.Mode,
+		runCommand: vi.fn(),
+	};
+} );
 
 vi.mock( 'cli/commands/preview/list', () => ( {
 	runCommand: vi.fn(),
@@ -180,7 +188,10 @@ describe( 'Studio AI MCP tools', () => {
 			null
 		);
 
-		expect( runDeletePreviewCommand ).toHaveBeenCalledWith( 'demo.wordpress.com' );
+		expect( runDeletePreviewCommand ).toHaveBeenCalledWith(
+			PreviewDeleteMode.DELETE_SINGLE_SNAPSHOT,
+			'demo.wordpress.com'
+		);
 		expect( result.isError ).toBe( true );
 		expect( getTextContent( result ) ).toBe( 'Failed to delete preview site' );
 	} );
@@ -192,5 +203,90 @@ describe( 'Studio AI MCP tools', () => {
 		await getTool( 'preview_create' ).handler( { nameOrPath: 'My Site' } as never, null );
 
 		expect( getProgressCallback() ).toBe( previousCallback );
+	} );
+
+	it( 'rejects shell syntax in wp_cli post content before dispatching to WP-CLI', async () => {
+		vi.mocked( isServerRunning ).mockResolvedValue( {
+			name: 'site-123',
+			pmId: 1,
+			status: 'online',
+			pid: 1234,
+		} );
+
+		const result = await getTool( 'wp_cli' ).handler(
+			{
+				nameOrPath: 'My Site',
+				command:
+					'post create --post_type=page --post_title=Home --post_content="$(cat /tmp/one-page-content.txt)"',
+			} as never,
+			null
+		);
+
+		expect( sendWpCliCommand ).not.toHaveBeenCalled();
+		expect( result.isError ).toBe( true );
+		expect( getTextContent( result ) ).toContain( 'does not run in a shell' );
+	} );
+
+	it( 'treats unquoted post_content as a single trailing literal argument', async () => {
+		vi.mocked( isServerRunning ).mockResolvedValue( {
+			name: 'site-123',
+			pmId: 1,
+			status: 'online',
+			pid: 1234,
+		} );
+		vi.mocked( sendWpCliCommand ).mockResolvedValue( {
+			stdout: '123',
+			stderr: '',
+			exitCode: 0,
+		} );
+
+		await getTool( 'wp_cli' ).handler(
+			{
+				nameOrPath: 'My Site',
+				command: `post create --post_type=page --post_title="About" --post_status=publish --post_content=<!-- wp:paragraph -->
+<p>Hello world</p>
+<!-- /wp:paragraph -->`,
+			} as never,
+			null
+		);
+
+		expect( sendWpCliCommand ).toHaveBeenCalledWith( 'site-123', [
+			'post',
+			'create',
+			'--post_type=page',
+			'--post_title=About',
+			'--post_status=publish',
+			'--post_content=<!-- wp:paragraph -->\n<p>Hello world</p>\n<!-- /wp:paragraph -->',
+		] );
+	} );
+
+	it( 'strips matching outer quotes from trailing post_content', async () => {
+		vi.mocked( isServerRunning ).mockResolvedValue( {
+			name: 'site-123',
+			pmId: 1,
+			status: 'online',
+			pid: 1234,
+		} );
+		vi.mocked( sendWpCliCommand ).mockResolvedValue( {
+			stdout: '123',
+			stderr: '',
+			exitCode: 0,
+		} );
+
+		await getTool( 'wp_cli' ).handler(
+			{
+				nameOrPath: 'My Site',
+				command: 'post create --post_type=page --post_title="About" --post_content="Hello world"',
+			} as never,
+			null
+		);
+
+		expect( sendWpCliCommand ).toHaveBeenCalledWith( 'site-123', [
+			'post',
+			'create',
+			'--post_type=page',
+			'--post_title=About',
+			'--post_content=Hello world',
+		] );
 	} );
 } );

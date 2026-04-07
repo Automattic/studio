@@ -21,7 +21,7 @@ import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { runCommand } from '../delete';
 
-vi.mock( 'fs/promises' );
+vi.mock( 'fs' );
 vi.mock( 'cli/lib/api' );
 vi.mock( import( '@studio/common/lib/shared-config' ), async ( importOriginal ) => ( {
 	...( await importOriginal() ),

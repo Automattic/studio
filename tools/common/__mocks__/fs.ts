@@ -1,84 +1,27 @@
-import { vi } from 'vitest';
-import type { PathLike } from 'fs';
+import { vol } from 'memfs';
+import { createFsMock } from '@studio/common/lib/tests/utils/create-fs-mock';
 
-const mockFiles: Record< string, string | string[] > = {};
+export { vol };
 
-const readFileMock = vi.fn( async ( path: string ): Promise< string > => {
-	const fileContents = mockFiles[ path ];
-	if ( typeof fileContents === 'string' ) {
-		return fileContents;
-	}
-	return '';
-} );
+// memfs uses POSIX paths; normalize Windows-style backslashes so tests work
+// under the Windows platform simulation in platformTestSuite.
+const toUnixPath = ( p: string | Uint8Array | URL ): string =>
+	typeof p === 'string' ? p.replace( /\\/g, '/' ) : String( p );
 
-const readdirMock = vi.fn( async ( path: string ): Promise< string[] > => {
-	const dirContents = mockFiles[ path ];
-	if ( Array.isArray( dirContents ) ) {
-		return dirContents;
-	}
-	return [];
-} );
+const mock = createFsMock( toUnixPath );
 
-const readFileSyncMock = vi.fn( ( path: string ): string => {
-	const fileContents = mockFiles[ path ];
-	if ( typeof fileContents === 'string' ) {
-		return fileContents;
-	}
-	return '';
-} );
+export default mock;
 
-const copyFileMock = vi.fn( async ( src: string, dest: string ) => {
-	if ( ! ( src in mockFiles ) ) {
-		throw new Error( `ENOENT` );
-	}
-
-	const fileContents = mockFiles[ src ];
-	mockFiles[ dest ] = fileContents;
-
-	return undefined;
-} );
-
-const watchMock = vi.fn< ( path: PathLike ) => { close: () => void } >();
-
-const existsSyncMock = vi.fn( ( path: string ): boolean => {
-	return path in mockFiles;
-} );
-
-const statMock = vi.fn().mockResolvedValue( {
-	isDirectory: () => true,
-} );
-
-const __setFileContents = ( path: string, fileContents: string | string[] ) => {
-	mockFiles[ path ] = fileContents;
-};
-
-const __clearMockFiles = () => {
-	Object.keys( mockFiles ).forEach( ( key ) => delete mockFiles[ key ] );
-};
-
-export default {
-	promises: {
-		copyFile: copyFileMock,
-		cp: copyFileMock,
-		mkdir: vi.fn().mockResolvedValue( undefined ),
-		readFile: readFileMock,
-		readdir: readdirMock,
-		stat: statMock,
-		writeFile: vi.fn().mockResolvedValue( undefined ),
-	},
-	readFileSync: readFileSyncMock,
-	watch: watchMock,
-	existsSync: existsSyncMock,
-	__setFileContents,
-	__clearMockFiles,
-};
-
-// Export named for easier access
-export const promises = {
-	readFile: readFileMock,
-	readdir: readdirMock,
-	stat: statMock,
-};
-export const readFileSync = readFileSyncMock;
-export const watch = watchMock;
-export const existsSync = existsSyncMock;
+export const {
+	createReadStream,
+	createWriteStream,
+	existsSync,
+	mkdirSync,
+	promises,
+	readdirSync,
+	readFileSync,
+	statSync,
+	unlinkSync,
+	watch,
+	writeFileSync,
+} = mock;

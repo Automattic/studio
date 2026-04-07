@@ -1,16 +1,8 @@
 import { getMcpServerConfigJson } from '@studio/common/lib/mcp-config';
+import { createInterpolateElement } from '@wordpress/element';
 import { useI18n } from '@wordpress/react-i18n';
-import Button from 'src/components/button';
 import { CopyTextButton } from 'src/components/copy-text-button';
-import { getIpcApi } from 'src/lib/get-ipc-api';
-
-function DocLink( { label, url }: { label: string; url: string } ) {
-	return (
-		<Button variant="link" onClick={ () => getIpcApi().openURL( url ) }>
-			{ label }
-		</Button>
-	);
-}
+import { LearnMoreLink } from 'src/components/learn-more';
 
 export function McpSettings() {
 	const { __ } = useI18n();
@@ -19,8 +11,13 @@ export function McpSettings() {
 	return (
 		<div className="flex flex-col gap-4">
 			<p className="a8c-body-small m-0">
-				{ __(
-					"Connect your AI coding assistant to the Studio MCP to let it create, configure and interact with your local WordPress sites. Copy the JSON configuration below and add it to your assistant's MCP settings."
+				{ createInterpolateElement(
+					__(
+						"Connect your AI coding assistant to the Studio MCP to let it create, configure and interact with your local WordPress sites. Copy the JSON configuration below and add it to your assistant's MCP settings. <learn_more_link />"
+					),
+					{
+						learn_more_link: <LearnMoreLink docsLinksKey="docsMcp" />,
+					}
 				) }
 			</p>
 			<div className="relative">
@@ -38,30 +35,6 @@ export function McpSettings() {
 					/>
 				</div>
 			</div>
-			<p className="a8c-body-small text-frame-text-secondary m-0">
-				{ __( 'Setup guides:' ) }{ ' ' }
-				<DocLink label={ __( 'Claude Code' ) } url="https://code.claude.com/docs/en/mcp" />
-				{ ', ' }
-				<DocLink
-					label={ __( 'Claude Desktop' ) }
-					url="https://modelcontextprotocol.io/quickstart/user"
-				/>
-				{ ', ' }
-				<DocLink label={ __( 'Codex' ) } url="https://developers.openai.com/codex/mcp" />
-				{ ', ' }
-				<DocLink
-					label={ __( 'Cursor' ) }
-					url="https://cursor.com/docs/mcp#installing-mcp-servers"
-				/>
-				{ ', ' }
-				<DocLink label={ __( 'Windsurf' ) } url="https://docs.windsurf.com/windsurf/cascade/mcp" />
-				{ ', ' }
-				<DocLink
-					label={ __( 'VS Code' ) }
-					url="https://code.visualstudio.com/docs/copilot/chat/mcp-servers"
-				/>
-				.
-			</p>
 		</div>
 	);
 }

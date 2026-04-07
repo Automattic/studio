@@ -167,7 +167,7 @@ async function pickSessionInteractively(
 				loop: false,
 				theme: {
 					style: {
-						keysHelpTip: () => chalk.dim( '↑↓ navigate · ⏎ select · esc cancel' ),
+						keysHelpTip: () => chalk.dim( __( '↑↓ navigate · ⏎ select · esc cancel' ) ),
 					},
 				},
 			},

@@ -15,7 +15,7 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { DeleteProgressRow } from 'src/modules/preview-site/components/delete-progress-row';
 import { PreviewActionButtonsMenu } from 'src/modules/preview-site/components/preview-action-buttons-menu';
 import { useAppDispatch, useRootSelector } from 'src/stores';
-import { snapshotActions, snapshotSelectors } from 'src/stores/snapshot-slice';
+import { snapshotSelectors, snapshotThunks } from 'src/stores/snapshot-slice';
 import { useGetSnapshotStatus } from 'src/stores/wpcom-api';
 
 interface PreviewSiteRowProps {
@@ -179,9 +179,10 @@ export function PreviewSiteRow( {
 							<Button
 								variant="link"
 								onClick={ () => {
-									dispatch(
-										snapshotActions.deleteSnapshotLocally( {
-											atomicSiteId: snapshot.atomicSiteId,
+									void dispatch(
+										snapshotThunks.deleteSnapshot( {
+											hostname: snapshot.url,
+											optimistic: true,
 										} )
 									);
 								} }

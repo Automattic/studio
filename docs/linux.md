@@ -41,15 +41,15 @@ Many contributors use [`nvm`](https://github.com/nvm-sh/nvm) to manage Node.js i
    npm run package
    ```
    
-   This will create an `out/` folder in the project root.
+   This will create an `out/` folder inside `apps/studio/`.
 
 4. **Locate the executable:**
    
-   Navigate to the `out/Studio-linux-x64/` folder. Inside, you'll find a `studio` executable.
+   Navigate to the `apps/studio/out/Studio-linux-x64/` folder. Inside, you'll find a `studio` executable.
 
 5. **Run Studio:**
    ```bash
-   cd out/Studio-linux-x64
+   cd apps/studio/out/Studio-linux-x64
    ./studio
    ```
 
@@ -70,7 +70,7 @@ For easier access, you can create a desktop entry file that will add Studio to y
    Name=Studio by WordPress.com
    Icon=<absolute-path-to-repo>/assets/studio-app-icon.png
    Comment=Local WordPress development environment
-   Exec=<absolute-path-to-repo>/out/Studio-linux-x64/studio %U
+   Exec=<absolute-path-to-repo>/apps/studio/out/Studio-linux-x64/studio %U
    Type=Application
    Terminal=false
    MimeType=x-scheme-handler/wp-studio;
@@ -106,7 +106,7 @@ If you're using Wayland instead of X11, run Studio with additional flags:
 You can add these flags to the `Exec` line in your desktop file if you created one:
 
 ```ini
-Exec=<absolute-path-to-repo>/out/Studio-linux-x64/studio --enable-features=UseOzonePlatform --ozone-platform=wayland %U
+Exec=<absolute-path-to-repo>/apps/studio/out/Studio-linux-x64/studio --enable-features=UseOzonePlatform --ozone-platform=wayland %U
 ```
 
 ## Troubleshooting
@@ -116,7 +116,7 @@ Exec=<absolute-path-to-repo>/out/Studio-linux-x64/studio --enable-features=UseOz
 If you encounter permission issues when running the executable, make sure it has execute permissions:
 
 ```bash
-chmod +x out/Studio-linux-x64/studio
+chmod +x apps/studio/out/Studio-linux-x64/studio
 ```
 
 ### Missing Dependencies
@@ -150,7 +150,7 @@ Since auto-updates are not supported on Linux builds, you'll need to manually up
    npm run package
    ```
 
-The executable in `out/Studio-linux-x64/` will be updated with the new version.
+The executable in `apps/studio/out/Studio-linux-x64/` will be updated with the new version.
 
 ## Contributing
 

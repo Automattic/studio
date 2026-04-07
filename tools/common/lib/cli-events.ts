@@ -55,6 +55,7 @@ export enum SNAPSHOT_EVENTS {
 	CREATED = 'snapshot-created',
 	UPDATED = 'snapshot-updated',
 	DELETED = 'snapshot-deleted',
+	DELETED_ALL = 'snapshot-deleted-all',
 }
 
 export const siteEventSchema = z.object( {
@@ -66,11 +67,16 @@ export const siteEventSchema = z.object( {
 
 export type SiteEvent = z.infer< typeof siteEventSchema >;
 
-export const snapshotEventSchema = z.object( {
-	event: z.enum( SNAPSHOT_EVENTS ),
-	snapshot: snapshotSchema.optional(),
-	snapshotUrl: z.string(),
-} );
+export const snapshotEventSchema = z.union( [
+	z.object( {
+		event: z.literal( SNAPSHOT_EVENTS.DELETED_ALL ),
+	} ),
+	z.object( {
+		event: z.enum( SNAPSHOT_EVENTS ),
+		snapshot: snapshotSchema.optional(),
+		snapshotUrl: z.string(),
+	} ),
+] );
 
 export type SnapshotEvent = z.infer< typeof snapshotEventSchema >;
 
@@ -84,26 +90,38 @@ export type AuthEvent = z.infer< typeof authEventSchema >;
 /**
  * Socket-level schemas for events sent between daemon-client and the _events command.
  */
-export const siteSocketEventSchema = z.object( {
-	event: z.string(),
+const siteSocketEventSchema = z.object( {
+	event: z.enum( SITE_EVENTS ),
 	data: z.object( {
 		siteId: z.string(),
 	} ),
 } );
 
-export const snapshotSocketEventSchema = z.object( {
-	event: z.enum( SNAPSHOT_EVENTS ),
-	data: z.object( {
-		snapshotUrl: z.string(),
+const snapshotSocketEventSchema = z.union( [
+	z.object( {
+		event: z.literal( SNAPSHOT_EVENTS.DELETED_ALL ),
 	} ),
-} );
+	z.object( {
+		event: z.enum( SNAPSHOT_EVENTS ),
+		data: z.object( {
+			snapshotUrl: z.string(),
+		} ),
+	} ),
+] );
 
-export const authSocketEventSchema = z.object( {
+const authSocketEventSchema = z.object( {
 	event: z.enum( AUTH_EVENTS ),
 	data: z.object( {
 		token: authTokenSchema.optional(),
 	} ),
 } );
+
+export const socketEventSchema = z.union( [
+	siteSocketEventSchema,
+	snapshotSocketEventSchema,
+	authSocketEventSchema,
+] );
+export type SocketEvent = z.infer< typeof socketEventSchema >;
 
 /**
  * CLI stdout key-value pair schemas for events parsed by Studio's cli-events-subscriber.

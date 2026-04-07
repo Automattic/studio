@@ -6,8 +6,8 @@ import {
 	updateImporterProgressSnapshot,
 } from './migration-client';
 
-vi.mock( 'child_process', async ( importOriginal ) => {
-	const actual = ( await importOriginal() ) as typeof import('child_process');
+vi.mock( 'node:child_process', async ( importOriginal ) => {
+	const actual = ( await importOriginal() ) as typeof import('node:child_process');
 	return {
 		...actual,
 		spawnSync: vi.fn( ( command: string, args?: string[] ) => {

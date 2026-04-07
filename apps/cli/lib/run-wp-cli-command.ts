@@ -65,6 +65,8 @@ export async function runWpCliCommand(
 	try {
 		await php.setSapiName( 'cli' );
 
+		php.defineConstant( 'WP_SQLITE_AST_DRIVER', true );
+
 		php.mkdir( '/wordpress' );
 		await php.mount( '/wordpress', createNodeFsMountHandler( siteFolder ) );
 

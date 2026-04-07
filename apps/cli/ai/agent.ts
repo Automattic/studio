@@ -35,6 +35,18 @@ export type AiModelId = keyof typeof AI_MODELS;
 export const DEFAULT_MODEL: AiModelId = 'claude-sonnet-4-6';
 const pathApprovalSession = createPathApprovalSession();
 
+// The Claude Agent SDK rejects internal pending promises (e.g. control
+// responses) when an agent turn is interrupted via ESC. These rejections
+// are unhandled because they originate inside the SDK cleanup path rather
+// than propagating through the async iterator. Without this handler,
+// Node.js terminates the process on unhandled rejections.
+process.on( 'unhandledRejection', ( reason ) => {
+	if ( reason instanceof Error && reason.message.includes( 'Query closed' ) ) {
+		return;
+	}
+	throw reason;
+} );
+
 /**
  * Start the AI agent and return the Query object.
  * Caller can iterate messages with `for await` and call `interrupt()` to stop.

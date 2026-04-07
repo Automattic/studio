@@ -40,7 +40,8 @@ export const baseConfig = defineConfig( {
 		rollupOptions: {
 			output: {
 				format: 'es',
-				entryFileNames: '[name].js',
+				entryFileNames: '[name].mjs',
+				chunkFileNames: '[name]-[hash].mjs',
 			},
 			external: ( id ) => {
 				// Bundle the `@wp-playground/blueprints/blueprint-schema-validator` module since we've defined
@@ -75,7 +76,7 @@ export const baseConfig = defineConfig( {
 		mainFields: [ 'main' ],
 	},
 	define: {
-		__ENABLE_STUDIO_AI__: true,
+		__ENABLE_STUDIO_AI__: false,
 		__STUDIO_CLI_VERSION__: JSON.stringify( packageJson.version ),
 	},
 } );

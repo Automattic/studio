@@ -144,7 +144,7 @@ function SearchSites( {
 					onClick={ () =>
 						getIpcApi().openURL( getLocalizedLink( locale, 'docsSyncSupportedSites' ) )
 					}
-					className="text-xs"
+					className="learn-more-link text-xs"
 				>
 					{ __( 'Learn more about supported sites.' ) }
 					<ArrowIcon />

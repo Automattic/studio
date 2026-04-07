@@ -1,8 +1,8 @@
-import { emitEvent, type TurnCompletedStatus } from 'cli/ai/json-events';
-import { AiChatUI, type SiteInfo } from 'cli/ai/ui';
-import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import { DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
+import { emitEvent, type TurnCompletedStatus } from 'cli/ai/json-events';
+import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { AiProviderId } from 'cli/ai/providers';
+import type { SiteInfo } from 'cli/ai/ui';
 
 export type HandleMessageResult =
 	| { sessionId: string; success: boolean; maxTurnsReached?: undefined }
@@ -32,104 +32,6 @@ export interface AiOutputAdapter {
 	waitForInput(): Promise< string >;
 	askUser( questions: AskUserQuestion[] ): Promise< Record< string, string > >;
 	openActiveSiteInBrowser(): Promise< boolean >;
-}
-
-export class InteractiveAdapter implements AiOutputAdapter {
-	readonly chatUI: AiChatUI;
-	private ui: AiChatUI;
-
-	constructor() {
-		this.ui = new AiChatUI();
-		this.chatUI = this.ui;
-	}
-
-	get currentProvider(): AiProviderId {
-		return this.ui.currentProvider;
-	}
-	set currentProvider( value: AiProviderId ) {
-		this.ui.currentProvider = value;
-	}
-
-	get currentModel(): AiModelId {
-		return this.ui.currentModel;
-	}
-	set currentModel( value: AiModelId ) {
-		this.ui.currentModel = value;
-	}
-
-	get activeSite(): SiteInfo | null {
-		return this.ui.activeSite;
-	}
-
-	get onSiteSelected(): ( ( site: SiteInfo ) => void ) | null {
-		return this.ui.onSiteSelected;
-	}
-	set onSiteSelected( fn: ( ( site: SiteInfo ) => void ) | null ) {
-		this.ui.onSiteSelected = fn;
-	}
-
-	get onInterrupt(): ( () => void ) | null {
-		return this.ui.onInterrupt;
-	}
-	set onInterrupt( fn: ( () => void ) | null ) {
-		this.ui.onInterrupt = fn;
-	}
-
-	start(): void {
-		this.ui.start();
-	}
-
-	stop(): void {
-		this.ui.stop();
-	}
-
-	showWelcome(): void {
-		this.ui.showWelcome();
-	}
-
-	showInfo( message: string ): void {
-		this.ui.showInfo( message );
-	}
-
-	showError( message: string ): void {
-		this.ui.showError( message );
-	}
-
-	setStatusMessage( message: string | null ): void {
-		this.ui.setStatusMessage( message );
-	}
-
-	setLoaderMessage( message: string ): void {
-		this.ui.setLoaderMessage( message );
-	}
-
-	beginAgentTurn(): void {
-		this.ui.beginAgentTurn();
-	}
-
-	endAgentTurn(): void {
-		this.ui.endAgentTurn();
-	}
-
-	addUserMessage( text: string ): void {
-		this.ui.addUserMessage( text );
-	}
-
-	handleMessage( message: SDKMessage ): HandleMessageResult | undefined {
-		return this.ui.handleMessage( message );
-	}
-
-	waitForInput(): Promise< string > {
-		return this.ui.waitForInput();
-	}
-
-	askUser( questions: AskUserQuestion[] ): Promise< Record< string, string > > {
-		return this.ui.askUser( questions );
-	}
-
-	openActiveSiteInBrowser(): Promise< boolean > {
-		return this.ui.openActiveSiteInBrowser();
-	}
 }
 
 export class JsonAdapter implements AiOutputAdapter {

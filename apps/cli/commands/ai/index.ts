@@ -16,7 +16,7 @@ import {
 	resolveUnavailableAiProvider,
 	saveSelectedAiProvider,
 } from 'cli/ai/auth';
-import { type AiOutputAdapter, InteractiveAdapter, JsonAdapter } from 'cli/ai/output-adapter';
+import { type AiOutputAdapter, JsonAdapter } from 'cli/ai/output-adapter';
 import { AI_PROVIDERS, type AiProviderId } from 'cli/ai/providers';
 import { resolveResumeSessionContext } from 'cli/ai/sessions/context';
 import { AiSessionRecorder } from 'cli/ai/sessions/recorder';
@@ -31,6 +31,7 @@ import {
 	AI_CHAT_MODEL_COMMAND,
 	AI_CHAT_PROVIDER_COMMAND,
 } from 'cli/ai/slash-commands';
+import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { runCommand as runLogoutCommand } from 'cli/commands/auth/logout';
 import { readCliConfig } from 'cli/lib/cli-config/core';
@@ -173,8 +174,8 @@ export async function runCommand( options: {
 				options.resumeSession.summary.id
 			)
 		);
-		if ( ui instanceof InteractiveAdapter ) {
-			replaySessionHistory( ui.chatUI, options.resumeSession.events );
+		if ( ui instanceof AiChatUI ) {
+			replaySessionHistory( ui, options.resumeSession.events );
 		}
 		if ( ! sessionId ) {
 			ui.showInfo( __( 'No linked Claude session was found. Continuing from transcript only.' ) );
@@ -632,7 +633,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					sessionPersistence?: boolean;
 				};
 				const noSessionPersistence = typedArgv.sessionPersistence === false;
-				const adapter = typedArgv.json ? new JsonAdapter() : new InteractiveAdapter();
+				const adapter: AiOutputAdapter = typedArgv.json ? new JsonAdapter() : new AiChatUI();
 
 				await runCommand( {
 					adapter,

@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
-import { InteractiveAdapter } from 'cli/ai/output-adapter';
 import { listAiSessions, loadAiSession } from 'cli/ai/sessions/store';
+import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runAiCommand } from 'cli/commands/ai';
 import { chooseSessionForAction } from 'cli/commands/ai/sessions/helpers';
 import { Logger, LoggerError } from 'cli/logger';
@@ -37,7 +37,7 @@ export async function runCommand(
 
 	const session = await loadAiSession( resolvedSessionIdOrPrefix );
 	await runAiCommand( {
-		adapter: new InteractiveAdapter(),
+		adapter: new AiChatUI(),
 		resumeSession: session,
 		noSessionPersistence: options.noSessionPersistence === true,
 	} );

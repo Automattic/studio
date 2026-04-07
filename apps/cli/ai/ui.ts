@@ -36,6 +36,7 @@ import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { TodoWriteInput } from '@anthropic-ai/claude-agent-sdk/sdk-tools';
+import type { AiOutputAdapter } from 'cli/ai/output-adapter';
 
 const SITE_PICKER_TAB_LOCAL = 'local' as const;
 const SITE_PICKER_TAB_REMOTE = 'remote' as const;
@@ -428,7 +429,7 @@ function normalizeToolUseResult( result: unknown ): ToolUseResultContent | null 
 
 	return null;
 }
-export class AiChatUI {
+export class AiChatUI implements AiOutputAdapter {
 	private tui: TUI;
 	private editor: PromptEditor;
 	private loader: Loader;

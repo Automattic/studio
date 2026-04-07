@@ -12,7 +12,7 @@ import {
 	isEnterKey,
 } from '@inquirer/core';
 import figures from '@inquirer/figures';
-import colors from 'yoctocolors-cjs';
+import chalk from 'chalk';
 
 export type TreeNode = {
 	name: string;
@@ -110,7 +110,7 @@ function collectCheckedValues( nodes: TreeNode[] ): TreeNode[] {
 
 const treeTheme = {
 	icon: {
-		checked: colors.green( figures.circleFilled ),
+		checked: chalk.green( figures.circleFilled ),
 		unchecked: figures.circle,
 		cursor: figures.pointer,
 		expanded: '▾',
@@ -268,7 +268,7 @@ export default createPrompt< TreeNode[], TreeCheckboxConfig >( ( config, done ) 
 			selected.length > 3
 				? `${ selected.length } items selected`
 				: selected.map( ( n ) => n.name ).join( ', ' );
-		return `${ prefix } ${ message } ${ colors.cyan( summary ) }`;
+		return `${ prefix } ${ message } ${ chalk.cyan( summary ) }`;
 	}
 
 	const page = usePagination( {
@@ -277,18 +277,18 @@ export default createPrompt< TreeNode[], TreeCheckboxConfig >( ( config, done ) 
 		renderItem: ( { item, isActive }: { item: FlatItem; isActive: boolean } ) => {
 			const { node } = item;
 			const indent = '  '.repeat( node.depth );
-			const cursor = isActive ? colors.cyan( figures.pointer ) : ' ';
+			const cursor = isActive ? chalk.cyan( figures.pointer ) : ' ';
 			let check = figures.circle;
 			if ( node.checked ) {
-				check = colors.green( figures.circleFilled );
+				check = chalk.green( figures.circleFilled );
 			} else if ( node.indeterminate ) {
-				check = colors.yellow( '◐' );
+				check = chalk.yellow( '◐' );
 			}
 
 			let icon = '';
 			if ( node.isDirectory ) {
 				if ( node.loading ) {
-					icon = colors.yellow( '⟳ ' );
+					icon = chalk.yellow( '⟳ ' );
 				} else if ( node.expanded ) {
 					icon = '▾ ';
 				} else {
@@ -296,14 +296,14 @@ export default createPrompt< TreeNode[], TreeCheckboxConfig >( ( config, done ) 
 				}
 			}
 
-			const label = isActive ? colors.cyan( node.name ) : node.name;
+			const label = isActive ? chalk.cyan( node.name ) : node.name;
 			return `${ cursor } ${ indent }${ check } ${ icon }${ label }`;
 		},
 		pageSize,
 		loop: false,
 	} );
 
-	const helpTip = colors.dim(
+	const helpTip = chalk.dim(
 		'↑↓ navigate · space toggle · →← expand/collapse · a all · ⏎ confirm · esc cancel'
 	);
 

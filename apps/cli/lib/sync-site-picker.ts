@@ -1,6 +1,7 @@
 import { select } from '@inquirer/prompts';
 import { __, sprintf } from '@wordpress/i18n';
 import chalk from 'chalk';
+import { normalizeHostname } from 'cli/lib/utils';
 import { LoggerError } from 'cli/logger';
 import type { SyncSite } from '@studio/common/types/sync';
 
@@ -20,11 +21,8 @@ export function findSyncSiteByIdentifier( sites: SyncSite[], identifier: string 
 	}
 
 	// Try URL/hostname match
-	const normalizedIdentifier = identifier.replace( /^https?:\/\//, '' ).replace( /\/$/, '' );
-	const matched = sites.filter( ( s ) => {
-		const hostname = s.url.replace( /^https?:\/\//, '' ).replace( /\/$/, '' );
-		return hostname === normalizedIdentifier;
-	} );
+	const normalizedIdentifier = normalizeHostname( identifier );
+	const matched = sites.filter( ( s ) => normalizeHostname( s.url ) === normalizedIdentifier );
 
 	if ( matched.length === 0 ) {
 		throw new LoggerError( sprintf( __( 'No site found matching "%s"' ), identifier ) );
@@ -50,7 +48,7 @@ export function findSyncSiteByIdentifier( sites: SyncSite[], identifier: string 
 	return site;
 }
 
-function getSyncSupportLabel( syncSupport: string ): string {
+function getSyncSupportLabel( syncSupport: SyncSite[ 'syncSupport' ] ): string {
 	switch ( syncSupport ) {
 		case 'needs-upgrade':
 			return __( 'Plan upgrade required' );
@@ -70,7 +68,7 @@ function getSyncSupportLabel( syncSupport: string ): string {
 function formatSiteChoice( site: SyncSite ): string {
 	const parts = [ site.name ];
 
-	const hostname = site.url.replace( /^https?:\/\//, '' ).replace( /\/$/, '' );
+	const hostname = normalizeHostname( site.url );
 	parts.push( chalk.dim( hostname ) );
 
 	if ( site.isStaging ) {
@@ -125,7 +123,7 @@ export async function pickSyncSite(
 				loop: false,
 				theme: {
 					style: {
-						keysHelpTip: () => chalk.dim( '↑↓ navigate · ⏎ select · esc cancel' ),
+						keysHelpTip: () => chalk.dim( __( '↑↓ navigate · ⏎ select · esc cancel' ) ),
 					},
 				},
 			},

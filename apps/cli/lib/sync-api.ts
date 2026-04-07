@@ -9,7 +9,7 @@ import {
 	fetchLatestRewindId as fetchLatestRewindIdBase,
 	fetchRemoteFileTree as fetchRemoteFileTreeBase,
 } from '@studio/common/lib/sync/sync-api';
-import { SyncOptionSchema } from '@studio/common/types/sync';
+import { syncOptionSchema } from '@studio/common/types/sync';
 import { __, sprintf } from '@wordpress/i18n';
 import { z } from 'zod';
 import { LoggerError } from 'cli/logger';
@@ -21,13 +21,13 @@ export function parseSyncOptions( optionsString?: string ): SyncOption[] {
 	}
 
 	return optionsString.split( ',' ).map( ( o ) => {
-		const result = SyncOptionSchema.safeParse( o.trim() );
+		const result = syncOptionSchema.safeParse( o.trim() );
 		if ( ! result.success ) {
 			throw new LoggerError(
 				sprintf(
 					__( 'Invalid sync option: %s. Valid options: %s' ),
 					o.trim(),
-					SyncOptionSchema.options.join( ', ' )
+					syncOptionSchema.options.join( ', ' )
 				)
 			);
 		}
@@ -82,8 +82,7 @@ export async function initiateImport(
 	try {
 		await initiateImportBase( token, remoteSiteId, attachmentId, options );
 	} catch ( error ) {
-		const statusCode = ( error as { statusCode?: number } )?.statusCode;
-		if ( statusCode === 409 ) {
+		if ( error instanceof Error && 'statusCode' in error && error.statusCode === 409 ) {
 			throw new LoggerError(
 				__(
 					'A sync operation is already in progress on this site. Please wait for it to finish and try again.'

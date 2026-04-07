@@ -1,7 +1,7 @@
 import { emitEvent, type TurnCompletedStatus } from 'cli/ai/json-events';
 import { AiChatUI, type SiteInfo } from 'cli/ai/ui';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
-import type { AiModelId, AskUserQuestion } from 'cli/ai/agent';
+import { DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
 import type { AiProviderId } from 'cli/ai/providers';
 
 export type HandleMessageResult =
@@ -134,7 +134,7 @@ export class InteractiveAdapter implements AiOutputAdapter {
 
 export class JsonAdapter implements AiOutputAdapter {
 	currentProvider: AiProviderId = 'wpcom';
-	currentModel: AiModelId = 'claude-sonnet-4-6';
+	currentModel: AiModelId = DEFAULT_MODEL;
 	activeSite: SiteInfo | null = null;
 	onSiteSelected: ( ( site: SiteInfo ) => void ) | null = null;
 	onInterrupt: ( () => void ) | null = null;

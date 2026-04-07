@@ -55,9 +55,9 @@ describe( 'formatImporterJsonlProgress', () => {
 			heartbeat: true,
 			bytes_received: 1024 * 1024 * 6,
 		} );
-		expect( formatImporterProgressSnapshot( heartbeatSnapshot!, 'Downloading essential files', 4 ) ).toBe(
-			'Downloading essential files · 6.0 MB received · 4s'
-		);
+		expect(
+			formatImporterProgressSnapshot( heartbeatSnapshot!, 'Downloading essential files', 4 )
+		).toBe( 'Downloading essential files · 6.0 MB received · 4s' );
 
 		const progressSnapshot = updateImporterProgressSnapshot(
 			{
@@ -67,9 +67,9 @@ describe( 'formatImporterJsonlProgress', () => {
 			},
 			heartbeatSnapshot!
 		);
-		expect( formatImporterProgressSnapshot( progressSnapshot!, 'Downloading essential files', 5 ) ).toBe(
-			'Downloading essential files · 8.0 MB received · 512 KB/s · 5s'
-		);
+		expect(
+			formatImporterProgressSnapshot( progressSnapshot!, 'Downloading essential files', 5 )
+		).toBe( 'Downloading essential files · 8.0 MB received · 512 KB/s · 5s' );
 	} );
 
 	it( 'accumulates bytes across request restarts when the importer heartbeat resets', () => {
@@ -92,7 +92,9 @@ describe( 'formatImporterJsonlProgress', () => {
 			secondRequest!
 		);
 
-		expect( formatImporterProgressSnapshot( restartedHeartbeat!, 'Downloading essential files', 7 ) ).toBe(
+		expect(
+			formatImporterProgressSnapshot( restartedHeartbeat!, 'Downloading essential files', 7 )
+		).toBe(
 			'Downloading essential files · 6.5 MB received · following symlink .../plugins/jetpack/15.7-a.7 · 7s'
 		);
 	} );

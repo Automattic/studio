@@ -52,7 +52,7 @@ function decodePhpScalarValue( rawValue: string ): RuntimeConstantValue | null {
 	}
 
 	if ( rawValue.startsWith( "'" ) && rawValue.endsWith( "'" ) ) {
-		return rawValue.slice( 1, -1 ).replace( /\\\\/g, '\\' ).replace( /\\'/g, "'" );
+		return rawValue.slice( 1, -1 ).replace( /\\'/g, "'" ).replace( /\\\\/g, '\\' );
 	}
 
 	return null;
@@ -60,7 +60,7 @@ function decodePhpScalarValue( rawValue: string ): RuntimeConstantValue | null {
 
 function parseRuntimePhpConstants( runtimePhp: string ): Record< string, RuntimeConstantValue > {
 	const constants: Record< string, RuntimeConstantValue > = {};
-	const defineRegex = /define\('([^']+)',\s*('(?:\\.|[^'])*'|true|false|-?\d+(?:\.\d+)?)\s*\);/g;
+	const defineRegex = /define\('([^']+)',\s*('(?:[^'\\]|\\.)*'|true|false|-?\d+(?:\.\d+)?)\s*\);/g;
 
 	for ( const match of runtimePhp.matchAll( defineRegex ) ) {
 		const value = decodePhpScalarValue( match[ 2 ] );

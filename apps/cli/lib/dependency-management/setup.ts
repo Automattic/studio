@@ -54,7 +54,10 @@ const SQLITE_PLUGIN_DOWNLOAD_URL =
 	'https://downloads.wordpress.org/plugin/sqlite-database-integration.latest-stable.zip';
 
 async function downloadSqliteIntegration(): Promise< void > {
-	const tmpDownloadPath = path.join( os.tmpdir(), `sqlite-integration-${ crypto.randomUUID() }.zip` );
+	const tmpDownloadPath = path.join(
+		os.tmpdir(),
+		`sqlite-integration-${ crypto.randomUUID() }.zip`
+	);
 	const tmpExtractPath = path.join( os.tmpdir(), `sqlite-integration-${ crypto.randomUUID() }` );
 
 	try {

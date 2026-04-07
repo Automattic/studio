@@ -273,6 +273,46 @@ export function DotGrid( {
 			}
 		}
 
+		function drawStatic() {
+			if ( ! ctx || ! canvas ) return;
+			const cssW = canvas.offsetWidth;
+			const cssH = canvas.offsetHeight;
+			ctx.clearRect( 0, 0, cssW, cssH );
+
+			ctx.strokeStyle = color;
+			ctx.lineWidth = crossThickness;
+			ctx.setLineDash( [ 1, 4 ] );
+			for ( let r = 0; r < rows; r++ ) {
+				for ( let c = 0; c < cols; c++ ) {
+					const x = c * spacing;
+					const y = r * spacing;
+					if ( c < cols - 1 ) {
+						ctx.beginPath();
+						ctx.moveTo( x + crossSize, y );
+						ctx.lineTo( ( c + 1 ) * spacing - crossSize, y );
+						ctx.stroke();
+					}
+					if ( r < rows - 1 ) {
+						ctx.beginPath();
+						ctx.moveTo( x, y + crossSize );
+						ctx.lineTo( x, ( r + 1 ) * spacing - crossSize );
+						ctx.stroke();
+					}
+				}
+			}
+			ctx.setLineDash( [] );
+
+			ctx.fillStyle = color;
+			for ( let r = 0; r < rows; r++ ) {
+				for ( let c = 0; c < cols; c++ ) {
+					const x = c * spacing;
+					const y = r * spacing;
+					ctx.fillRect( x - crossSize, y - crossThickness / 2, crossSize * 2, crossThickness );
+					ctx.fillRect( x - crossThickness / 2, y - crossSize, crossThickness, crossSize * 2 );
+				}
+			}
+		}
+
 		function resize() {
 			if ( ! canvas ) return;
 			const dpr = window.devicePixelRatio || 1;
@@ -283,6 +323,39 @@ export function DotGrid( {
 			readColor();
 			initDots();
 			ensureLoop();
+		}
+
+		function resizeStatic() {
+			if ( ! canvas ) return;
+			const dpr = window.devicePixelRatio || 1;
+			canvas.width = Math.round( canvas.offsetWidth * dpr );
+			canvas.height = Math.round( canvas.offsetHeight * dpr );
+			ctx = canvas.getContext( '2d' )!;
+			ctx.scale( dpr, dpr );
+			readColor();
+			initDots();
+			drawStatic();
+		}
+
+		const prefersReducedMotion = window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches;
+
+		if ( prefersReducedMotion ) {
+			resizeStatic();
+
+			const resizeObserver = new ResizeObserver( resizeStatic );
+			resizeObserver.observe( canvas );
+
+			const mediaQuery = window.matchMedia( '(prefers-color-scheme: dark)' );
+			const onColorChange = () => {
+				readColor();
+				drawStatic();
+			};
+			mediaQuery.addEventListener( 'change', onColorChange );
+
+			return () => {
+				resizeObserver.disconnect();
+				mediaQuery.removeEventListener( 'change', onColorChange );
+			};
 		}
 
 		function onMouseMove( e: MouseEvent ) {

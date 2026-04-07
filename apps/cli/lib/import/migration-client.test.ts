@@ -1,17 +1,10 @@
-import { spawnSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import {
 	formatImporterJsonlProgress,
 	formatImporterProgressSnapshot,
-	resolveNativeImporterInvocation,
+	rewriteImporterArgsForNativePhp,
 	updateImporterProgressSnapshot,
 } from './migration-client';
-
-const hasNativePhp =
-	spawnSync( process.env.STUDIO_IMPORTER_PHP || 'php', [ '-v' ], {
-		stdio: 'ignore',
-		timeout: 5000,
-	} ).status === 0;
 
 describe( 'formatImporterJsonlProgress', () => {
 	it( 'shows streamed debug messages from the importer', () => {
@@ -150,33 +143,30 @@ describe( 'formatImporterJsonlProgress', () => {
 		).toBeNull();
 	} );
 
-	it.skipIf( ! hasNativePhp )(
-		'rewrites importer VFS arguments to host paths for native PHP execution',
-		() => {
-			const command = resolveNativeImporterInvocation(
-				'/tmp/importer.phar',
-				'/host/state',
-				'/host/docroot',
-				'/host/tmp',
-				[
-					'files-sync',
-					'https://example.com/?site-export-api',
-					'--state-dir=/state',
-					'--fs-root=/docroot',
-					'--flatten-to=/flat',
-					'--output-dir=/output',
-				],
-				[
-					{ hostPath: '/host/flat', vfsPath: '/flat' },
-					{ hostPath: '/host/output', vfsPath: '/output' },
-				]
-			);
+	it( 'rewrites importer VFS arguments to host paths for native PHP execution', () => {
+		const args = rewriteImporterArgsForNativePhp(
+			'/host/state',
+			'/host/docroot',
+			'/host/tmp',
+			[
+				'files-sync',
+				'https://example.com/?site-export-api',
+				'--state-dir=/state',
+				'--fs-root=/docroot',
+				'--flatten-to=/flat',
+				'--output-dir=/output',
+			],
+			[
+				{ hostPath: '/host/flat', vfsPath: '/flat' },
+				{ hostPath: '/host/output', vfsPath: '/output' },
+			]
+		);
 
-			expect( command.args ).toContain( '/tmp/importer.phar' );
-			expect( command.args ).toContain( '--state-dir=/host/state' );
-			expect( command.args ).toContain( '--fs-root=/host/docroot' );
-			expect( command.args ).toContain( '--flatten-to=/host/flat' );
-			expect( command.args ).toContain( '--output-dir=/host/output' );
-		}
-	);
+		expect( args ).toContain( 'files-sync' );
+		expect( args ).toContain( 'https://example.com/?site-export-api' );
+		expect( args ).toContain( '--state-dir=/host/state' );
+		expect( args ).toContain( '--fs-root=/host/docroot' );
+		expect( args ).toContain( '--flatten-to=/host/flat' );
+		expect( args ).toContain( '--output-dir=/host/output' );
+	} );
 } );

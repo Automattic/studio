@@ -379,19 +379,13 @@ function rewriteImporterPathValue(
 	return value;
 }
 
-export function resolveNativeImporterInvocation(
-	pharPath: string,
+export function rewriteImporterArgsForNativePhp(
 	stateDir: string,
 	docroot: string,
 	tmpDir: string,
 	args: string[],
 	mounts: ImporterMount[] = []
-): NativeImporterCommand {
-	const phpCommand = getNativePhpCommand();
-	if ( ! phpCommand ) {
-		throw new Error( 'No native PHP executable was found in PATH.' );
-	}
-
+): string[] {
 	const pathMappings = [
 		[ '/state', stateDir ] as const,
 		[ '/docroot', docroot ] as const,
@@ -412,9 +406,28 @@ export function resolveNativeImporterInvocation(
 		return `${ option }${ rewriteImporterPathValue( value, pathMappings ) }`;
 	} );
 
+	return resolvedArgs;
+}
+
+export function resolveNativeImporterInvocation(
+	pharPath: string,
+	stateDir: string,
+	docroot: string,
+	tmpDir: string,
+	args: string[],
+	mounts: ImporterMount[] = []
+): NativeImporterCommand {
+	const phpCommand = getNativePhpCommand();
+	if ( ! phpCommand ) {
+		throw new Error( 'No native PHP executable was found in PATH.' );
+	}
+
 	return {
 		command: phpCommand,
-		args: [ pharPath, ...resolvedArgs ],
+		args: [
+			pharPath,
+			...rewriteImporterArgsForNativePhp( stateDir, docroot, tmpDir, args, mounts ),
+		],
 	};
 }
 

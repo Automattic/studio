@@ -35,7 +35,7 @@ const WelcomeMessagePrompt = React.forwardRef< HTMLDivElement, WelcomeMessagePro
 				role="group"
 				aria-labelledby={ id }
 				className={ cx(
-					'inline-block p-3 rounded border border-gray-300 lg:max-w-[70%] select-text bg-white',
+					'inline-block p-3 rounded border border-frame-border lg:max-w-[70%] select-text bg-frame',
 					className
 				) }
 			>
@@ -95,10 +95,10 @@ const WelcomeComponent = React.forwardRef< HTMLDivElement, WelcomeComponentProps
 			return (
 				<div ref={ ref } className="flex flex-col animate-pulse">
 					<div className="flex mt-2">
-						<div className="inline-block p-3 rounded border border-gray-300 lg:max-w-[70%] bg-gray-100 h-16 w-96" />
+						<div className="inline-block p-3 rounded border border-frame-border lg:max-w-[70%] bg-frame-surface h-16 w-96" />
 					</div>
 					<div className="flex mt-2">
-						<div className="inline-block p-3 rounded border border-gray-300 lg:max-w-[70%] bg-gray-100 h-12 w-72" />
+						<div className="inline-block p-3 rounded border border-frame-border lg:max-w-[70%] bg-frame-surface h-12 w-72" />
 					</div>
 				</div>
 			);
@@ -138,7 +138,7 @@ const WelcomeComponent = React.forwardRef< HTMLDivElement, WelcomeComponentProps
 											<div className="mt-2 ml-2">
 												<Button
 													variant="secondary"
-													className="!text-a8c-gray-50 [&:not(:focus)]:shadow-none"
+													className="!text-frame-text-secondary [&:not(:focus)]:shadow-none"
 													onClick={ handleShowMore }
 												>
 													{ __( 'More suggestions' ) }

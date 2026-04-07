@@ -1,4 +1,4 @@
-import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
+import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import {
 	generateCustomDomainFromSiteName,
 	getDomainNameValidationError,
@@ -15,21 +15,20 @@ import { SelectControl, TabPanel } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import Button from 'src/components/button';
 import { ErrorInformation } from 'src/components/error-information';
 import { LearnMoreLink, LearnHowLink } from 'src/components/learn-more';
 import Modal from 'src/components/modal';
 import PasswordControl from 'src/components/password-control';
+import { AgentInstructionsPanel, WordPressSkillsPanel } from 'src/components/site-settings-panels';
 import TextControlComponent from 'src/components/text-control';
 import { Tooltip } from 'src/components/tooltip';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { useRootSelector } from 'src/stores';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
-import { selectDefaultWordPressVersion } from 'src/stores/provider-constants-slice';
 
 type EditSiteDetailsProps = {
 	currentWpVersion: string;
@@ -38,8 +37,14 @@ type EditSiteDetailsProps = {
 
 const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) => {
 	const { __ } = useI18n();
-	const { updateSite, selectedSite, isEditModalOpen, setIsEditModalOpen } = useSiteDetails();
-	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
+	const {
+		updateSite,
+		selectedSite,
+		isEditModalOpen,
+		setIsEditModalOpen,
+		editModalInitialTab,
+		setEditModalInitialTab,
+	} = useSiteDetails();
 	const [ errorUpdatingWpVersion, setErrorUpdatingWpVersion ] = useState< string | null >( null );
 	const [ isEditingSite, setIsEditingSite ] = useState( false );
 	const [ needsRestart, setNeedsRestart ] = useState( false );
@@ -93,9 +98,9 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		() =>
 			// undefined means that this site was created before the isWpAutoUpdating option was introduced to Studio
 			[ undefined, true ].includes( selectedSite?.isWpAutoUpdating )
-				? defaultWordPressVersion
+				? DEFAULT_WORDPRESS_VERSION
 				: currentWpVersion,
-		[ selectedSite, currentWpVersion, defaultWordPressVersion ]
+		[ selectedSite, currentWpVersion ]
 	);
 	const [ selectedWpVersion, setSelectedWpVersion ] = useState( () => getEffectiveWpVersion() );
 	const [ useCustomDomain, setUseCustomDomain ] = useState( Boolean( selectedSite?.customDomain ) );
@@ -105,6 +110,11 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 	const [ customDomainError, setCustomDomainError ] = useState( '' );
 	const [ existingDomainNames, setExistingDomainNames ] = useState< string[] >( [] );
 	const [ enableHttps, setEnableHttps ] = useState( false );
+	const [ activeTab, setActiveTab ] = useState( editModalInitialTab || 'general' );
+	const isFormTab = useMemo(
+		() => activeTab === 'general' || activeTab === 'debugging',
+		[ activeTab ]
+	);
 
 	useEffect( () => {
 		getIpcApi()
@@ -228,7 +238,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 					...selectedSite,
 					name: siteName,
 					phpVersion: selectedPhpVersion,
-					isWpAutoUpdating: selectedWpVersion === defaultWordPressVersion,
+					isWpAutoUpdating: selectedWpVersion === DEFAULT_WORDPRESS_VERSION,
 					customDomain: usedCustomDomain,
 					enableHttps: !! usedCustomDomain && enableHttps,
 					enableXdebug,
@@ -286,11 +296,18 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 				>
 					<form onSubmit={ onSiteEdit }>
 						<TabPanel
-							className="w-full [&>[role=tabpanel]]:h-64 [&>[role=tabpanel]]:overflow-auto"
+							className={ cx(
+								'w-full [&>[role=tabpanel]]:overflow-auto',
+								isFormTab ? '[&>[role=tabpanel]]:h-64' : '[&>[role=tabpanel]]:h-80'
+							) }
 							tabs={ [
 								{ name: 'general', title: __( 'General' ) },
 								{ name: 'debugging', title: __( 'Debugging' ) },
+								{ name: 'skills', title: __( 'Skills' ) },
+								{ name: 'instructions', title: __( 'Instructions' ) },
 							] }
+							initialTabName={ editModalInitialTab }
+							onSelect={ ( tabName: string ) => setActiveTab( tabName ) }
 							orientation="horizontal"
 						>
 							{ ( { name } ) => (
@@ -379,7 +396,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 																{ customDomainError }
 															</ErrorInformation>
 														) }
-														<div className="text-a8c-gray-50 text-xs mt-1">
+														<div className="text-frame-text-secondary text-xs mt-1">
 															{ __(
 																'Your system password will be required to set up the domain.'
 															) }
@@ -401,7 +418,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 												) }
 
 												{ ! isCertificateTrusted && useCustomDomain && (
-													<div className="text-a8c-gray-50 text-xs mt-2">
+													<div className="text-frame-text-secondary text-xs mt-2">
 														{ __(
 															'You need to manually add the Studio certificate authority to your keychain and trust it.'
 														) }{ ' ' }
@@ -444,7 +461,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 													</span>
 												) }
 												{ isUsernameChanged && (
-													<span className="text-a8c-gray-50 text-xs">
+													<span className="text-frame-text-secondary text-xs">
 														{ __(
 															'A new admin user will be created. WordPress does not support renaming usernames.'
 														) }
@@ -523,7 +540,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 																{ __( 'Enable Xdebug' ) }
 															</label>
 														</div>
-														<div className="text-a8c-gray-50 text-xs mt-2">
+														<div className="text-frame-text-secondary text-xs mt-2">
 															{ createInterpolateElement(
 																__(
 																	'Enable PHP debugging with Xdebug. Only one site can have Xdebug enabled at a time. Note that Xdebug may slow down site performance. <learn_more_link />'
@@ -558,7 +575,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 														{ __( 'Enable debug log' ) }
 													</label>
 												</div>
-												<div className="text-a8c-gray-50 text-xs mt-1">
+												<div className="text-frame-text-secondary text-xs mt-1">
 													{ __(
 														"Log PHP errors and warnings to a debug.log file in your site's wp-content directory by setting the WP_DEBUG_LOG constant."
 													) }
@@ -586,7 +603,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 														{ __( 'Show errors in browser' ) }
 													</label>
 												</div>
-												<div className="text-a8c-gray-50 text-xs mt-1">
+												<div className="text-frame-text-secondary text-xs mt-1">
 													{ __(
 														'Display PHP errors and warnings directly in the browser by setting the WP_DEBUG_DISPLAY constant.'
 													) }
@@ -594,23 +611,31 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 											</div>
 										</>
 									) }
+									{ name === 'skills' && selectedSite && (
+										<WordPressSkillsPanel siteId={ selectedSite.id } />
+									) }
+									{ name === 'instructions' && selectedSite && (
+										<AgentInstructionsPanel siteId={ selectedSite.id } />
+									) }
 								</div>
 							) }
 						</TabPanel>
 
-						<div className="flex flex-row justify-end gap-x-5 mt-8 px-8">
-							<Button onClick={ closeModal } disabled={ isEditingSite } variant="tertiary">
-								{ __( 'Cancel' ) }
-							</Button>
-							<Button
-								type="submit"
-								variant="primary"
-								isBusy={ isEditingSite }
-								disabled={ isEditingSite || isFormUnchanged || hasValidationErrors }
-							>
-								{ getEditSiteButtonText() }
-							</Button>
-						</div>
+						{ isFormTab && (
+							<div className="flex flex-row justify-end gap-x-5 mt-8 px-8">
+								<Button onClick={ closeModal } disabled={ isEditingSite } variant="tertiary">
+									{ __( 'Cancel' ) }
+								</Button>
+								<Button
+									type="submit"
+									variant="primary"
+									isBusy={ isEditingSite }
+									disabled={ isEditingSite || isFormUnchanged || hasValidationErrors }
+								>
+									{ getEditSiteButtonText() }
+								</Button>
+							</div>
+						) }
 						<div className="components-popover__fallback-container"></div>
 					</form>
 				</Modal>
@@ -619,6 +644,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 				disabled={ ! selectedSite }
 				className="shrink-0"
 				onClick={ () => {
+					setEditModalInitialTab( 'general' );
 					setIsEditModalOpen( true );
 					resetFormState();
 				} }

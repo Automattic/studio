@@ -136,6 +136,19 @@ export async function deleteSnapshot( atomicSiteId: number, token: string ): Pro
 	}
 }
 
+export async function deleteAllSnapshots( token: string ): Promise< void > {
+	const wpcom = wpcomFactory( token, wpcomXhrRequest );
+
+	try {
+		await wpcom.req.post( {
+			path: '/jurassic-ninja/delete/all',
+			apiNamespace: 'wpcom/v2',
+		} );
+	} catch ( error ) {
+		throw new LoggerError( __( 'Failed to delete all preview sites' ), error );
+	}
+}
+
 export async function validateAccessToken( token: string ): Promise< void > {
 	const wpcom = wpcomFactory( token, wpcomXhrRequest );
 	try {
@@ -163,6 +176,53 @@ export async function getUserInfo(
 		return userResponseSchema.parse( rawResponse );
 	} catch ( error ) {
 		throw new LoggerError( __( 'Failed to fetch user info' ), error );
+	}
+}
+
+export interface WpComSiteInfo {
+	id: number;
+	name: string;
+	url: string;
+}
+
+const wpComSitesResponseSchema = z.object( {
+	sites: z.array(
+		z.object( {
+			ID: z.number(),
+			name: z.string(),
+			URL: z.string(),
+			is_deleted: z.boolean().optional(),
+		} )
+	),
+} );
+
+export async function getWpComSites( token: string ): Promise< WpComSiteInfo[] > {
+	const wpcom = wpcomFactory( token, wpcomXhrRequest );
+	try {
+		const rawResponse = await wpcom.req.get(
+			{
+				apiNamespace: 'rest/v1.2',
+				path: '/me/sites',
+			},
+			{
+				fields: 'ID,name,URL,is_deleted',
+				filter: 'atomic,wpcom',
+				site_activity: 'active',
+			}
+		);
+		const result = wpComSitesResponseSchema.parse( rawResponse );
+		return result.sites
+			.filter( ( site ) => ! site.is_deleted )
+			.map( ( site ) => ( {
+				id: site.ID,
+				name: site.name,
+				url: site.URL,
+			} ) );
+	} catch ( error ) {
+		if ( error instanceof z.ZodError ) {
+			throw new LoggerError( __( 'Invalid API response format' ), error );
+		}
+		throw new LoggerError( __( 'Failed to fetch WordPress.com sites' ), error );
 	}
 }
 

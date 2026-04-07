@@ -11,6 +11,7 @@ vi.mock( 'src/constants', () => ( {
 } ) );
 vi.mock( '@sentry/electron/main', () => ( {
 	captureException: vi.fn(),
+	setTag: vi.fn(),
 } ) );
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import type { CliCommandResult } from 'src/modules/cli/lib/execute-command';

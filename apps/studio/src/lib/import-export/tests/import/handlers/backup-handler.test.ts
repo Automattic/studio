@@ -13,31 +13,8 @@ import { BackupHandlerZip } from 'src/lib/import-export/import/handlers/backup-h
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { createMock } from 'src/lib/test-utils';
 
-vi.mock( 'fs', () => ( {
-	default: {
-		createReadStream: vi.fn(),
-		createWriteStream: vi.fn(),
-		statSync: vi.fn(),
-		existsSync: vi.fn(),
-		promises: {
-			copyFile: vi.fn(),
-		},
-	},
-	createReadStream: vi.fn(),
-	createWriteStream: vi.fn(),
-	statSync: vi.fn(),
-	existsSync: vi.fn(),
-	promises: {
-		copyFile: vi.fn(),
-	},
-} ) );
-vi.mock( 'fs/promises' );
-vi.mock( 'fs-extra', () => ( {
-	default: {
-		ensureDir: vi.fn(),
-	},
-	ensureDir: vi.fn(),
-} ) );
+vi.mock( 'fs' );
+vi.mock( 'fs-extra' );
 vi.mock( 'zlib' );
 vi.mock( 'tar' );
 vi.mock( 'yauzl' );

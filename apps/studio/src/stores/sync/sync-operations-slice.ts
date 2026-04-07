@@ -17,6 +17,33 @@ import type { AppDispatch, RootState } from 'src/stores';
 import type { SyncOption } from 'src/types';
 import type { WPCOM } from 'wpcom/types';
 
+async function updateSiteTimestamp( {
+	siteId,
+	localSiteId,
+	type,
+}: {
+	siteId: number;
+	localSiteId: string;
+	type: 'pull' | 'push';
+} ) {
+	const connectedSites = await getIpcApi().getConnectedWpcomSites( localSiteId );
+	const connectedSite = connectedSites.find(
+		( { id, localSiteId: siteLocalId } ) => siteId === id && localSiteId === siteLocalId
+	);
+
+	if ( ! connectedSite ) {
+		return;
+	}
+
+	const timestampKey = type === 'pull' ? 'lastPullTimestamp' : 'lastPushTimestamp';
+	await getIpcApi().updateConnectedWpcomSites( [
+		{
+			...connectedSite,
+			[ timestampKey ]: new Date().toISOString(),
+		},
+	] );
+}
+
 export type SyncBackupState = {
 	remoteSiteId: number;
 	backupId: number | null;
@@ -611,6 +638,11 @@ const pollPushProgressThunk = createTypedAsyncThunk(
 			switch ( response.status ) {
 				case 'finished':
 					status = pushStatesProgressInfo.finished;
+					await updateSiteTimestamp( {
+						siteId: remoteSiteId,
+						localSiteId: selectedSiteId,
+						type: 'push',
+					} );
 					void dispatch( connectedSitesApi.util.invalidateTags( [ 'ConnectedSites' ] ) );
 					getIpcApi().showNotification( {
 						title: currentPushState.selectedSite.name,
@@ -823,6 +855,11 @@ const pollPullBackupThunk = createTypedAsyncThunk(
 
 				await getIpcApi().removeSyncBackup( remoteSiteId );
 
+				await updateSiteTimestamp( {
+					siteId: remoteSiteId,
+					localSiteId: selectedSiteId,
+					type: 'pull',
+				} );
 				void dispatch( connectedSitesApi.util.invalidateTags( [ 'ConnectedSites' ] ) );
 
 				dispatch(

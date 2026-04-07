@@ -1,11 +1,16 @@
+import path from 'path';
 import { query, type Query } from '@anthropic-ai/claude-agent-sdk';
+import {
+	ALLOWED_TOOLS,
+	STUDIO_ROOT,
+	createPathApprovalSession,
+	promptForApproval,
+	type AskUserQuestion,
+} from 'cli/ai/security';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { createStudioTools } from 'cli/ai/tools';
 
-export interface AskUserQuestion {
-	question: string;
-	options: { label: string; description: string }[];
-}
+export type { AskUserQuestion } from 'cli/ai/security';
 
 export interface AiAgentConfig {
 	prompt: string;
@@ -24,6 +29,19 @@ export const AI_MODELS = {
 export type AiModelId = keyof typeof AI_MODELS;
 
 export const DEFAULT_MODEL: AiModelId = 'claude-sonnet-4-6';
+const pathApprovalSession = createPathApprovalSession();
+
+// The Claude Agent SDK rejects internal pending promises (e.g. control
+// responses) when an agent turn is interrupted via ESC. These rejections
+// are unhandled because they originate inside the SDK cleanup path rather
+// than propagating through the async iterator. Without this handler,
+// Node.js terminates the process on unhandled rejections.
+process.on( 'unhandledRejection', ( reason ) => {
+	if ( reason instanceof Error && reason.message.includes( 'Query closed' ) ) {
+		return;
+	}
+	throw reason;
+} );
 
 /**
  * Start the AI agent and return the Query object.
@@ -46,25 +64,36 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 				studio: createStudioTools(),
 			},
 			maxTurns,
-			cwd: process.cwd(),
-			permissionMode: 'bypassPermissions',
-			allowDangerouslySkipPermissions: true,
-			canUseTool: async ( toolName, input ) => {
+			cwd: STUDIO_ROOT,
+			tools: { type: 'preset', preset: 'claude_code' },
+			allowedTools: [ ...ALLOWED_TOOLS ],
+			permissionMode: 'default',
+			canUseTool: async ( toolName, input, metadata ) => {
 				if ( toolName === 'AskUserQuestion' && onAskUser ) {
 					const typedInput = input as {
 						questions?: AskUserQuestion[];
 						answers?: Record< string, string >;
 					};
-					const questions = typedInput.questions ?? [];
+					const questions = ( typedInput.questions ?? [] ).map( ( q ) => ( {
+						...q,
+						allowFreeForm: true,
+					} ) );
 					const answers = await onAskUser( questions );
 					return {
 						behavior: 'allow' as const,
 						updatedInput: { ...input, answers },
 					};
 				}
-				return { behavior: 'allow' as const, updatedInput: input };
+
+				return promptForApproval( {
+					toolName,
+					input,
+					metadata,
+					onAskUser,
+					pathApprovalSession,
+				} );
 			},
-			allowedTools: [ 'mcp__studio__*', 'Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep' ],
+			plugins: [ { type: 'local' as const, path: path.resolve( import.meta.dirname, 'plugin' ) } ],
 			model,
 			resume,
 		},

@@ -3,9 +3,9 @@
  */
 import fs from 'fs';
 import { normalize } from 'path';
+import { vol } from 'memfs';
 import { vi, beforeAll, afterAll } from 'vitest';
 import { createMainWindow, getMainWindow } from 'src/main-window';
-import { setupWPServerFiles } from 'src/setup-wp-server-files';
 
 vi.mock( 'fs' );
 vi.mock( 'file-stream-rotator' );
@@ -16,12 +16,16 @@ vi.mock( '@sentry/electron/main', () => ( {
 	captureException: vi.fn(),
 	captureMessage: vi.fn(),
 	setUser: vi.fn(),
+	setTag: vi.fn(),
 } ) );
-vi.mock( '@studio/common/lib/bump-stat', () => ( {
-	bumpStat: vi.fn(),
-	bumpAggregatedUniqueStat: vi.fn().mockResolvedValue( undefined ),
-} ) );
-vi.mock( 'src/lib/user-data-watcher' );
+vi.mock( import( 'src/lib/bump-stats' ), async ( importOriginal ) => {
+	const actual = await importOriginal();
+	return {
+		...actual,
+		bumpStat: vi.fn(),
+		bumpAggregatedUniqueStat: vi.fn().mockResolvedValue( undefined ),
+	};
+} );
 vi.mock( 'src/setup-wp-server-files', () => ( {
 	setupWPServerFiles: vi.fn().mockResolvedValue( undefined ),
 	updateWPServerFiles: vi.fn().mockResolvedValue( undefined ),
@@ -30,23 +34,14 @@ vi.mock( 'atomically', () => ( {
 	readFile: vi.fn().mockResolvedValue( Buffer.from( JSON.stringify( { sites: [] } ) ) ),
 	writeFile: vi.fn(),
 } ) );
-vi.mock( 'src/storage/paths', () => ( {
-	getResourcesPath: vi.fn().mockReturnValue( '/mock/resources' ),
-	getUserDataFilePath: vi.fn().mockReturnValue( '/mock/userdata.json' ),
-	getUserDataLockFilePath: vi.fn().mockReturnValue( '/mock/userdata.json.lock' ),
-	getUserDataCertificatesPath: vi.fn().mockReturnValue( '/mock/certificates' ),
-	getServerFilesPath: vi.fn().mockReturnValue( '/mock/server/files' ),
-	getCliPath: vi.fn().mockReturnValue( '/mock/cli/path' ),
-	getBundledNodeBinaryPath: vi.fn().mockReturnValue( '/mock/node/binary' ),
-	getSiteThumbnailPath: vi.fn().mockReturnValue( '/mock/thumbnail.png' ),
-	DEFAULT_SITE_PATH: '/mock/default/site/path',
-} ) );
 vi.mock( 'src/modules/cli/lib/execute-command', () => {
 	const mockEventEmitter = {
-		on: vi.fn().mockImplementation( ( event: string, callback: () => void ) => {
+		on: vi.fn().mockImplementation( ( event: string, callback: ( ...args: any[] ) => void ) => {
 			if ( event === 'started' ) {
-				// Call started callback immediately
 				setTimeout( () => callback(), 0 );
+			}
+			if ( event === 'success' ) {
+				setTimeout( () => callback( { result: { stdout: '[]', stderr: '' } } ), 0 );
 			}
 			return mockEventEmitter;
 		} ),
@@ -71,12 +66,7 @@ vi.mock( 'electron-devtools-installer', () => ( {
 	REDUX_DEVTOOLS: { id: 'lmhkpmbekcpmknklioeibfkpmmfibljd' },
 } ) );
 
-// Setup fs mock file contents
-if ( '__setFileContents' in fs ) {
-	(
-		fs as typeof fs & { __setFileContents: ( path: string, contents: string | string[] ) => void }
-	 ).__setFileContents( normalize( '/path/to/app/temp/com.wordpress.studio/' ), '' );
-}
+vol.mkdirSync( normalize( '/path/to/app/temp/com.wordpress.studio' ), { recursive: true } );
 
 const mockWatcher = {
 	close: vi.fn(),
@@ -110,6 +100,7 @@ function mockElectron() {
 				} ),
 				requestSingleInstanceLock: vi.fn().mockReturnValue( true ),
 				quit: vi.fn(),
+				exit: vi.fn(),
 				setName: vi.fn(),
 				setAsDefaultProtocolClient: vi.fn(),
 				enableSandbox: vi.fn(),
@@ -195,25 +186,6 @@ describe( 'App initialization', () => {
 		expect( mockHandleDeeplink ).toHaveBeenCalledWith( testUrl );
 
 		Object.defineProperty( process, 'platform', { value: originalProcessPlatform } );
-	} );
-
-	it( 'should setup server files before creating main window', async () => {
-		const { mockedEvents } = mockElectron();
-		const setupSpy = vi.fn();
-		vi.mocked( setupWPServerFiles ).mockImplementation( () => {
-			setupSpy();
-			return Promise.resolve();
-		} );
-
-		vi.resetModules();
-		await import( '../index' );
-		await mockedEvents.ready();
-
-		expect( setupSpy ).toHaveBeenCalled();
-		expect( setupSpy.mock.calls.length ).toBeGreaterThan( 0 );
-		expect( vi.mocked( createMainWindow ).mock.calls.length ).toBeGreaterThan( 0 );
-
-		await mockedEvents[ 'will-quit' ]( { preventDefault: vi.fn() } );
 	} );
 
 	it( 'should wait for app initialization before handling window events', async () => {

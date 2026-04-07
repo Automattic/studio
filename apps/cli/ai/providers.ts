@@ -1,25 +1,18 @@
-import childProcess from 'child_process';
 import { password } from '@inquirer/prompts';
+import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __ } from '@wordpress/i18n';
-import { z } from 'zod';
-import { getAnthropicApiKey, getAuthToken, saveAnthropicApiKey } from 'cli/lib/appdata';
+import { readCliConfig, updateCliConfigWithPartial } from 'cli/lib/cli-config/core';
 import { LoggerError } from 'cli/logger';
 
 export const AI_PROVIDERS = {
 	wpcom: 'WordPress.com',
-	'anthropic-claude': 'Anthropic · Claude auth',
 	'anthropic-api-key': 'Anthropic · API key',
 } as const;
 
 export type AiProviderId = keyof typeof AI_PROVIDERS;
 
-export const aiProviderSchema = z.enum( [ 'wpcom', 'anthropic-claude', 'anthropic-api-key' ] );
-export const DEFAULT_AI_PROVIDER: AiProviderId = 'anthropic-api-key';
-export const AI_PROVIDER_PRIORITY: AiProviderId[] = [
-	'wpcom',
-	'anthropic-claude',
-	'anthropic-api-key',
-];
+export const DEFAULT_AI_PROVIDER: AiProviderId = 'wpcom';
+export const AI_PROVIDER_PRIORITY: AiProviderId[] = [ 'wpcom', 'anthropic-api-key' ];
 
 const DEFAULT_WPCOM_AI_GATEWAY_BASE_URL = 'https://public-api.wordpress.com/wpcom/v2/ai-api-proxy';
 const WPCOM_AI_FEATURE_HEADER = 'studio-assistant-anthropic';
@@ -33,25 +26,10 @@ export interface AiProviderDefinition {
 	resolveEnv: () => Promise< Record< string, string > >;
 }
 
-export function hasClaudeCodeAuth(): boolean {
-	try {
-		const output = childProcess.execFileSync( 'claude', [ 'auth', 'status' ], {
-			encoding: 'utf8',
-			timeout: 5000,
-			stdio: [ 'pipe', 'pipe', 'pipe' ],
-		} );
-		return (
-			output.toLowerCase().includes( 'authenticated' ) || ! output.toLowerCase().includes( 'not' )
-		);
-	} catch {
-		return false;
-	}
-}
-
 async function resolveAnthropicApiKey( options?: {
 	force?: boolean;
 } ): Promise< string | undefined > {
-	const savedKey = await getAnthropicApiKey();
+	const { anthropicApiKey: savedKey } = await readCliConfig();
 	if ( savedKey && ! options?.force ) {
 		return savedKey;
 	}
@@ -67,7 +45,7 @@ async function resolveAnthropicApiKey( options?: {
 		},
 	} );
 
-	await saveAnthropicApiKey( apiKey );
+	await updateCliConfigWithPartial( { anthropicApiKey: apiKey } );
 	return apiKey;
 }
 
@@ -83,12 +61,8 @@ function getWpcomAiGatewayBaseUrl(): string {
 }
 
 async function hasValidWpcomAuth(): Promise< boolean > {
-	try {
-		await getAuthToken();
-		return true;
-	} catch {
-		return false;
-	}
+	const token = await readAuthToken();
+	return token !== null;
 }
 
 function createBaseEnvironment(): Record< string, string > {
@@ -117,7 +91,10 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 			throw new LoggerError( __( 'WordPress.com login required. Use /login to authenticate.' ) );
 		},
 		resolveEnv: async () => {
-			const token = await getAuthToken();
+			const token = await readAuthToken();
+			if ( ! token ) {
+				throw new LoggerError( __( 'WordPress.com login required. Use /login to authenticate.' ) );
+			}
 			const env = createBaseEnvironment();
 			env.ANTHROPIC_BASE_URL = getWpcomAiGatewayBaseUrl();
 			env.ANTHROPIC_AUTH_TOKEN = token.accessToken;
@@ -128,40 +105,19 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 			return env;
 		},
 	},
-	'anthropic-claude': {
-		id: 'anthropic-claude',
-		autoFallbackWhenUnavailable: true,
-		isVisible: async () => hasClaudeCodeAuth(),
-		isReady: async () => hasClaudeCodeAuth(),
-		prepare: async () => {
-			if ( hasClaudeCodeAuth() ) {
-				return;
-			}
-
-			throw new LoggerError(
-				__( 'Claude auth is not available. Choose another provider with /provider.' )
-			);
-		},
-		resolveEnv: async () => {
-			if ( ! hasClaudeCodeAuth() ) {
-				throw new LoggerError(
-					__( 'Claude auth is not available. Choose another provider with /provider.' )
-				);
-			}
-
-			return createBaseEnvironment();
-		},
-	},
 	'anthropic-api-key': {
 		id: 'anthropic-api-key',
 		autoFallbackWhenUnavailable: false,
 		isVisible: async () => true,
-		isReady: async () => Boolean( await getAnthropicApiKey() ),
+		isReady: async () => {
+			const { anthropicApiKey } = await readCliConfig();
+			return Boolean( anthropicApiKey );
+		},
 		prepare: async ( options ) => {
 			await resolveAnthropicApiKey( options );
 		},
 		resolveEnv: async () => {
-			const apiKey = await getAnthropicApiKey();
+			const { anthropicApiKey: apiKey } = await readCliConfig();
 			if ( ! apiKey ) {
 				throw new LoggerError(
 					__(

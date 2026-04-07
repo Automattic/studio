@@ -4,13 +4,7 @@ import archiver from 'archiver';
 import { vi } from 'vitest';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 
-vi.mock( 'fs', () => ( {
-	default: {
-		createWriteStream: vi.fn(),
-		existsSync: vi.fn(),
-		unlinkSync: vi.fn(),
-	},
-} ) );
+vi.mock( 'fs' );
 vi.mock( 'path', () => ( {
 	default: {
 		join: vi.fn(),

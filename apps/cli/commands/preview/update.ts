@@ -1,15 +1,18 @@
 import os from 'node:os';
 import path from 'node:path';
 import { DEMO_SITE_EXPIRATION_DAYS } from '@studio/common/constants';
+import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
+import { readAuthToken } from '@studio/common/lib/shared-config';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { Snapshot } from '@studio/common/types/snapshot';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { addDays } from 'date-fns';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
-import { getAuthToken, getSiteByFolder } from 'cli/lib/appdata';
 import { cleanup, archiveSiteContent } from 'cli/lib/archive';
-import { getSnapshotsFromAppdata, updateSnapshotInAppdata } from 'cli/lib/snapshots';
+import { getSiteByFolder } from 'cli/lib/cli-config/sites';
+import { emitCliEvent } from 'cli/lib/daemon-client';
+import { getSnapshotsFromConfig, updateSnapshotInConfig } from 'cli/lib/snapshots';
 import { normalizeHostname } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -52,8 +55,13 @@ export async function runCommand(
 
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating…' ) );
-		const token = await getAuthToken();
-		const snapshots = await getSnapshotsFromAppdata( token.id );
+		const token = await readAuthToken();
+		if ( ! token ) {
+			throw new LoggerError(
+				__( 'Authentication required. Please log in with `studio auth login`.' )
+			);
+		}
+		const snapshots = await getSnapshotsFromConfig( token.id );
 		const snapshotToUpdate = await getSnapshotToUpdate( snapshots, host, siteFolder, overwrite );
 
 		const now = new Date();
@@ -85,7 +93,8 @@ export async function runCommand(
 		);
 
 		logger.reportStart( LoggerAction.APPDATA, __( 'Saving preview site to Studio…' ) );
-		const snapshot = await updateSnapshotInAppdata( uploadResponse.site_id, siteFolder );
+		const snapshot = await updateSnapshotInConfig( uploadResponse.site_id, siteFolder );
+		await emitCliEvent( { event: SNAPSHOT_EVENTS.UPDATED, data: { snapshotUrl: snapshot.url } } );
 		logger.reportSuccess( __( 'Preview site saved to Studio' ) );
 
 		logger.reportKeyValuePair( 'name', snapshot.name ?? '' );

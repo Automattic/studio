@@ -1,5 +1,5 @@
 import path from 'path';
-import { LOCKFILE_NAME } from '@studio/common/constants';
+import { getAppConfigPath } from '@studio/common/lib/well-known-paths';
 
 function inChildProcess() {
 	return process.env.STUDIO_IN_CHILD_PROCESS === 'true';
@@ -16,21 +16,14 @@ try {
 }
 
 export function getUserDataFilePath(): string {
-	if ( process.env.DEV_APP_DATA_PATH ) {
-		return process.env.DEV_APP_DATA_PATH;
-	}
-	return path.join( getAppDataPath(), getAppName(), 'appdata-v1.json' );
+	return getAppConfigPath();
 }
 
-export function getUserDataLockFilePath(): string {
-	return path.join( getAppDataPath(), getAppName(), LOCKFILE_NAME );
-}
-
-export function getServerFilesPath(): string {
+export function getOldServerFilesPath(): string {
 	return path.join( getAppDataPath(), getAppName(), 'server-files' );
 }
 
-export function getUserDataCertificatesPath(): string {
+export function getOldUserDataCertificatesPath(): string {
 	return path.join( getAppDataPath(), getAppName(), 'certificates' );
 }
 
@@ -65,8 +58,8 @@ export function getResourcesPath(): string {
 
 export function getCliPath(): string {
 	return process.env.NODE_ENV === 'development'
-		? path.join( getResourcesPath(), '..', 'cli', 'dist', 'cli', 'main.js' )
-		: path.join( getResourcesPath(), 'cli', 'main.js' );
+		? path.join( getResourcesPath(), '..', 'cli', 'dist', 'cli', 'main.mjs' )
+		: path.join( getResourcesPath(), 'cli', 'main.mjs' );
 }
 
 export function getBundledNodeBinaryPath(): string {

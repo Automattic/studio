@@ -1,36 +1,27 @@
-import {
-	bumpStat,
-	bumpAggregatedUniqueStat,
-	AppdataProvider,
-	LastBumpStatsData,
-} from '@studio/common/lib/bump-stat';
-import { AggregateInterval, StatsGroup, StatsMetric } from '@studio/common/types/stats';
+import fs from 'fs';
+import { AggregateInterval } from '@studio/common/lib/bump-stat';
 import { waitFor } from '@testing-library/react';
 import { readFile, writeFile } from 'atomically';
+import { vol } from 'memfs';
 import { vi } from 'vitest';
+import { bumpStat, bumpAggregatedUniqueStat, StatsGroup, StatsMetric } from '../bump-stats';
 
 vi.mock( 'atomically', () => ( {
 	readFile: vi.fn(),
 	writeFile: vi.fn(),
 } ) );
 
+vi.mock( 'fs' );
+
 // Store original fetch to restore later
 const originalFetch = global.fetch;
 
-// Mock appdata provider for tests
-const mockAppdataProvider: AppdataProvider< LastBumpStatsData > = {
-	load: async () => {
-		const fileContent = await readFile( 'mock-path', 'utf-8' );
-		return JSON.parse( fileContent );
-	},
-	lock: async () => {},
-	unlock: async () => {},
-	save: async ( data ) => {
-		await writeFile( 'mock-path', JSON.stringify( data, null, 2 ), 'utf-8' );
-	},
-};
-
 const originalEnv = { ...process.env };
+
+beforeEach( () => {
+	vol.reset();
+	vi.mocked( fs.existsSync ).mockReturnValue( true );
+} );
 
 afterEach( () => {
 	vi.spyOn( Date, 'now' ).mockRestore();
@@ -156,12 +147,7 @@ describe( 'bumpAggregatedUniqueStat', () => {
 			)
 		);
 
-		await bumpAggregatedUniqueStat(
-			StatsGroup.STUDIO_APP_LAUNCH,
-			StatsMetric.SUCCESS,
-			'weekly',
-			mockAppdataProvider
-		);
+		await bumpAggregatedUniqueStat( StatsGroup.STUDIO_APP_LAUNCH, StatsMetric.SUCCESS, 'weekly' );
 
 		await waitFor( () => expect( mockRequest.isDone() ).toBe( true ) );
 	} );
@@ -192,8 +178,7 @@ describe( 'bumpAggregatedUniqueStat', () => {
 			await bumpAggregatedUniqueStat(
 				StatsGroup.STUDIO_APP_LAUNCH,
 				StatsMetric.SUCCESS,
-				aggregateBy,
-				mockAppdataProvider
+				aggregateBy
 			);
 
 			await waitFor( () => expect( mockRequest.isDone() ).toBe( true ) );
@@ -237,8 +222,7 @@ describe( 'bumpAggregatedUniqueStat', () => {
 			await bumpAggregatedUniqueStat(
 				StatsGroup.STUDIO_APP_LAUNCH,
 				StatsMetric.SUCCESS,
-				aggregateBy,
-				mockAppdataProvider
+				aggregateBy
 			);
 
 			expect( writeFile ).not.toHaveBeenCalled();

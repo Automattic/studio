@@ -1,14 +1,16 @@
+import { type SiteDetails } from '@studio/common/lib/cli-events';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import Table from 'cli-table3';
-import { getSiteUrl, readAppdata, type SiteData } from 'cli/lib/appdata';
+import CliTable3 from 'cli-table3';
+import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
+import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import { getColumnWidths, getPrettyPath } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
-interface SiteListEntry {
+interface SiteListTableEntry {
 	id: string;
 	status: string;
 	name: string;
@@ -16,31 +18,48 @@ interface SiteListEntry {
 	url: string;
 }
 
-async function getSiteListData( sites: SiteData[] ): Promise< SiteListEntry[] > {
-	const result: SiteListEntry[] = [];
+interface SiteListJsonEntry extends SiteDetails {
+	running: boolean;
+}
+
+async function getSiteListData( sites: SiteData[] ): Promise< {
+	tableEntries: SiteListTableEntry[];
+	jsonEntries: SiteListJsonEntry[];
+} > {
+	const tableEntries: SiteListTableEntry[] = [];
+	const jsonEntries: SiteListJsonEntry[] = [];
 
 	for await ( const site of sites ) {
-		const isReady = await isSiteRunning( site );
-		const status = isReady ? `🟢 ${ __( 'Online' ) }` : `🔴 ${ __( 'Offline' ) }`;
+		const running = await isSiteRunning( site );
 		const url = getSiteUrl( site );
+		const status = running ? `🟢 ${ __( 'Online' ) }` : `🔴 ${ __( 'Offline' ) }`;
 
-		result.push( {
+		tableEntries.push( {
 			id: site.id,
 			status,
 			name: site.name,
 			path: getPrettyPath( site.path ),
 			url,
 		} );
+
+		jsonEntries.push( {
+			...site,
+			url,
+			running,
+		} );
 	}
 
-	return result;
+	return { tableEntries, jsonEntries };
 }
 
-function displaySiteList( sitesData: SiteListEntry[], format: 'table' | 'json' ): void {
+function displaySiteList(
+	data: { tableEntries: SiteListTableEntry[]; jsonEntries: SiteListJsonEntry[] },
+	format: 'table' | 'json'
+): void {
 	if ( format === 'table' ) {
 		const colWidths = getColumnWidths( [ 0.1, 0.2, 0.3, 0.4 ] );
 
-		const table = new Table( {
+		const table = new CliTable3( {
 			head: [ __( 'Status' ), __( 'Name' ), __( 'Path' ), __( 'URL' ) ],
 			wordWrap: true,
 			wrapOnWordBoundary: false,
@@ -52,7 +71,7 @@ function displaySiteList( sitesData: SiteListEntry[], format: 'table' | 'json' )
 		} );
 
 		table.push(
-			...sitesData.map( ( site ) => [
+			...data.tableEntries.map( ( site ) => [
 				site.status,
 				site.name,
 				site.path,
@@ -62,7 +81,9 @@ function displaySiteList( sitesData: SiteListEntry[], format: 'table' | 'json' )
 
 		console.log( table.toString() );
 	} else {
-		console.log( JSON.stringify( sitesData, null, 2 ) );
+		const json = JSON.stringify( data.jsonEntries );
+		console.log( json );
+		logger.reportKeyValuePair( 'sites', json );
 	}
 }
 
@@ -71,16 +92,16 @@ const logger = new Logger< LoggerAction >();
 export async function runCommand( format: 'table' | 'json' ): Promise< void > {
 	try {
 		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading sites…' ) );
-		const appdata = await readAppdata();
+		const cliConfig = await readCliConfig();
 
-		if ( appdata.sites.length === 0 ) {
+		if ( cliConfig.sites.length === 0 ) {
 			logger.reportSuccess( __( 'No sites found' ) );
 			return;
 		}
 
 		const sitesMessage = sprintf(
-			_n( 'Found %d site', 'Found %d sites', appdata.sites.length ),
-			appdata.sites.length
+			_n( 'Found %d site', 'Found %d sites', cliConfig.sites.length ),
+			cliConfig.sites.length
 		);
 		logger.reportSuccess( sitesMessage );
 
@@ -88,8 +109,8 @@ export async function runCommand( format: 'table' | 'json' ): Promise< void > {
 		await connectToDaemon();
 		logger.reportSuccess( __( 'Connected to process daemon' ) );
 
-		const sitesData = await getSiteListData( appdata.sites );
-		displaySiteList( sitesData, format );
+		const siteListData = await getSiteListData( cliConfig.sites );
+		displaySiteList( siteListData, format );
 	} finally {
 		await disconnectFromDaemon();
 	}

@@ -39,7 +39,7 @@ export default function BlueprintDetails( {
 
 	return (
 		<VStack className="text-center w-full" alignment="top" spacing={ 0 }>
-			<Heading className="text-center text-[32px] text-gray-900 mb-5" weight={ 500 }>
+			<Heading className="text-center text-[32px] text-frame-text mb-5" weight={ 500 }>
 				{ __( 'Start from a Blueprint' ) }
 			</Heading>
 			<BlueprintWarningNotice
@@ -48,17 +48,17 @@ export default function BlueprintDetails( {
 				className="w-full max-w-4xl mx-auto"
 			/>
 			<VStack className="max-w-[400px] min-w-[350px] mx-auto mt-16 justify-start" spacing={ 0 }>
-				<VStack className="w-full max-h-[172px] p-6 border rounded-t-lg border-gray-200 justify-start">
+				<VStack className="w-full max-h-[172px] p-6 border rounded-t-lg border-frame-border justify-start">
 					<HStack className="h-full justify-start" alignment="top" spacing={ 4 }>
-						<Icon className="fill-a8c-blue-50 shrink-0" icon={ check } size={ 29 } />
+						<Icon className="fill-frame-theme shrink-0" icon={ check } size={ 29 } />
 						<VStack alignment="left" spacing={ 1 }>
-							<Text className="text-lg font-medium text-gray-900 text-left line-clamp-2">
+							<Text className="text-lg font-medium text-frame-text text-left line-clamp-2">
 								{ blueprintTitle }
 							</Text>
 							<VStack alignment="left" spacing={ 4 }>
 								{ blueprintDescription && (
 									<Text
-										className="text-[13px] text-a8c-gray-700 line-clamp-3"
+										className="text-[13px] text-frame-text-secondary line-clamp-3"
 										weight={ 400 }
 										align="start"
 									>
@@ -71,10 +71,10 @@ export default function BlueprintDetails( {
 				</VStack>
 				<HStack
 					alignment="start"
-					className="w-full bg-[#FAFAFA] border border-t-0 rounded-b-lg py-[14px] pe-[14px] ps-[68px] justify-start"
+					className="w-full bg-frame-surface border border-frame-border border-t-0 rounded-b-lg py-[14px] pe-[14px] ps-[68px] justify-start"
 				>
-					<Icon icon={ sourceIcon } size={ 18 } />
-					<Text className="text-[13px] text-a8c-gray-800">{ sourceLabel }</Text>
+					<Icon icon={ sourceIcon } size={ 18 } className="fill-frame-text-secondary" />
+					<Text className="text-[13px] text-frame-text">{ sourceLabel }</Text>
 				</HStack>
 			</VStack>
 		</VStack>

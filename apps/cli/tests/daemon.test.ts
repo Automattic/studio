@@ -1,10 +1,12 @@
 import { EventEmitter } from 'events';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { PassThrough } from 'stream';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const testProcessName = 'studio-site-process-manager-test';
+const tmpDir = path.join( os.tmpdir(), 'studio-daemon-test' );
 
 class MockChildProcess extends EventEmitter {
 	pid = 4321;
@@ -21,11 +23,11 @@ class MockChildProcess extends EventEmitter {
 	} );
 }
 
-const forkMock = vi.fn();
+const spawnMock = vi.fn();
 
 vi.mock( 'child_process', () => {
 	const mockedModule = {
-		fork: forkMock,
+		spawn: spawnMock,
 	};
 	return {
 		...mockedModule,
@@ -47,13 +49,13 @@ vi.mock( '../socket', async ( importOriginal ) => {
 describe( 'ProcessManagerDaemon', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
-		fs.mkdirSync( path.join( '/tmp', 'logs' ), { recursive: true } );
-		process.env.STUDIO_PROCESS_MANAGER_HOME = '/tmp';
+		fs.mkdirSync( path.join( tmpDir, 'logs' ), { recursive: true } );
+		process.env.STUDIO_PROCESS_MANAGER_HOME = tmpDir;
 	} );
 
 	it( 'starts a process, emits events, and writes logs', async () => {
 		const child = new MockChildProcess();
-		forkMock.mockReturnValue( child );
+		spawnMock.mockReturnValue( child );
 		const { ProcessManagerDaemon } = await import( '../process-manager-daemon' );
 
 		const daemon = new ProcessManagerDaemon();
@@ -112,16 +114,16 @@ describe( 'ProcessManagerDaemon', () => {
 		);
 
 		expect(
-			fs.readFileSync( path.join( '/tmp', 'logs', `${ testProcessName }-out.log` ), 'utf8' )
+			fs.readFileSync( path.join( tmpDir, 'logs', `${ testProcessName }-out.log` ), 'utf8' )
 		).toContain( 'fixture-stdout' );
 		expect(
-			fs.readFileSync( path.join( '/tmp', 'logs', `${ testProcessName }-error.log` ), 'utf8' )
+			fs.readFileSync( path.join( tmpDir, 'logs', `${ testProcessName }-error.log` ), 'utf8' )
 		).toContain( 'fixture-stderr' );
 	} );
 
 	it( 'reuses duplicate starts, forwards messages, and resolves missing stops', async () => {
 		const child = new MockChildProcess();
-		forkMock.mockReturnValue( child );
+		spawnMock.mockReturnValue( child );
 		const { ProcessManagerDaemon } = await import( '../process-manager-daemon' );
 
 		const daemon = new ProcessManagerDaemon();
@@ -155,7 +157,7 @@ describe( 'ProcessManagerDaemon', () => {
 		}
 
 		expect( secondProcess.pmId ).toBe( firstProcess.pmId );
-		expect( forkMock ).toHaveBeenCalledTimes( 1 );
+		expect( spawnMock ).toHaveBeenCalledTimes( 1 );
 
 		await daemonInternal.handleRequest( {
 			type: 'send-message-to-process',

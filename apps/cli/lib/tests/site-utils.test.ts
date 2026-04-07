@@ -1,17 +1,16 @@
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { vi, type Mock } from 'vitest';
-import { SiteData, readAppdata } from 'cli/lib/appdata';
+import { SiteData, readCliConfig } from 'cli/lib/cli-config/core';
 import { isProxyProcessRunning, stopProxyProcess } from 'cli/lib/daemon-client';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
 
-vi.mock( 'cli/lib/appdata', async () => {
-	const actual = await vi.importActual( 'cli/lib/appdata' );
+vi.mock( 'cli/lib/cli-config/core', async () => {
+	const actual = await vi.importActual( 'cli/lib/cli-config/core' );
 	return {
 		...actual,
-		getAppdataDirectory: vi.fn().mockReturnValue( '/test/appdata' ),
-		readAppdata: vi.fn(),
+		readCliConfig: vi.fn(),
 	};
 } );
 vi.mock( 'cli/lib/daemon-client' );
@@ -48,7 +47,7 @@ describe( 'stopProxyIfNoSitesNeedIt', () => {
 		( isProxyProcessRunning as Mock ).mockResolvedValue( undefined );
 		( stopProxyProcess as Mock ).mockResolvedValue( undefined );
 		( isServerRunning as Mock ).mockResolvedValue( undefined );
-		( readAppdata as Mock ).mockResolvedValue( { sites: [], snapshots: [] } );
+		( readCliConfig as Mock ).mockResolvedValue( { version: 1, sites: [] } );
 	} );
 
 	afterEach( () => {
@@ -60,15 +59,15 @@ describe( 'stopProxyIfNoSitesNeedIt', () => {
 
 		await stopProxyIfNoSitesNeedIt( 'site-1', mockLogger );
 
-		expect( readAppdata ).not.toHaveBeenCalled();
+		expect( readCliConfig ).not.toHaveBeenCalled();
 		expect( stopProxyProcess ).not.toHaveBeenCalled();
 	} );
 
 	it( 'should stop proxy if no other sites exist', async () => {
 		( isProxyProcessRunning as Mock ).mockResolvedValue( mockProcessDescription );
-		( readAppdata as Mock ).mockResolvedValue( {
+		( readCliConfig as Mock ).mockResolvedValue( {
 			sites: [ createSiteData( { id: 'stopped-site' } ) ],
-			snapshots: [],
+			version: 1,
 		} );
 
 		await stopProxyIfNoSitesNeedIt( 'stopped-site', mockLogger );
@@ -83,13 +82,13 @@ describe( 'stopProxyIfNoSitesNeedIt', () => {
 
 	it( 'should stop proxy if other sites exist but none have custom domains', async () => {
 		( isProxyProcessRunning as Mock ).mockResolvedValue( mockProcessDescription );
-		( readAppdata as Mock ).mockResolvedValue( {
+		( readCliConfig as Mock ).mockResolvedValue( {
 			sites: [
 				createSiteData( { id: 'stopped-site', customDomain: 'stopped.local' } ),
 				createSiteData( { id: 'other-site-1' } ),
 				createSiteData( { id: 'other-site-2' } ),
 			],
-			snapshots: [],
+			version: 1,
 		} );
 
 		await stopProxyIfNoSitesNeedIt( 'stopped-site', mockLogger );
@@ -99,12 +98,12 @@ describe( 'stopProxyIfNoSitesNeedIt', () => {
 
 	it( 'should stop proxy if other sites have custom domains but are not running', async () => {
 		( isProxyProcessRunning as Mock ).mockResolvedValue( mockProcessDescription );
-		( readAppdata as Mock ).mockResolvedValue( {
+		( readCliConfig as Mock ).mockResolvedValue( {
 			sites: [
 				createSiteData( { id: 'stopped-site', customDomain: 'stopped.local' } ),
 				createSiteData( { id: 'other-site', customDomain: 'other.local' } ),
 			],
-			snapshots: [],
+			version: 1,
 		} );
 		( isServerRunning as Mock ).mockResolvedValue( undefined );
 
@@ -116,12 +115,12 @@ describe( 'stopProxyIfNoSitesNeedIt', () => {
 
 	it( 'should not stop proxy if another site with custom domain is running', async () => {
 		( isProxyProcessRunning as Mock ).mockResolvedValue( mockProcessDescription );
-		( readAppdata as Mock ).mockResolvedValue( {
+		( readCliConfig as Mock ).mockResolvedValue( {
 			sites: [
 				createSiteData( { id: 'stopped-site', customDomain: 'stopped.local' } ),
 				createSiteData( { id: 'running-site', customDomain: 'running.local' } ),
 			],
-			snapshots: [],
+			version: 1,
 		} );
 		( isServerRunning as Mock ).mockResolvedValue( mockProcessDescription );
 
@@ -133,9 +132,9 @@ describe( 'stopProxyIfNoSitesNeedIt', () => {
 
 	it( 'should not check if the stopped site is running', async () => {
 		( isProxyProcessRunning as Mock ).mockResolvedValue( mockProcessDescription );
-		( readAppdata as Mock ).mockResolvedValue( {
+		( readCliConfig as Mock ).mockResolvedValue( {
 			sites: [ createSiteData( { id: 'stopped-site', customDomain: 'stopped.local' } ) ],
-			snapshots: [],
+			version: 1,
 		} );
 
 		await stopProxyIfNoSitesNeedIt( 'stopped-site', mockLogger );

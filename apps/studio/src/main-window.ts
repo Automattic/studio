@@ -1,4 +1,10 @@
-import { BrowserWindow, type BrowserWindowConstructorOptions, screen, app } from 'electron';
+import {
+	BrowserWindow,
+	type BrowserWindowConstructorOptions,
+	screen,
+	app,
+	nativeTheme,
+} from 'electron';
 import * as path from 'path';
 import { portFinder } from '@studio/common/lib/port-finder';
 import {
@@ -11,6 +17,7 @@ import {
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { removeMenu } from 'src/menu';
+import { SiteServer } from 'src/site-server';
 import {
 	loadUserData,
 	updateAppdata,
@@ -57,6 +64,9 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		return mainWindow;
 	}
 
+	const userData = await loadUserData();
+	nativeTheme.themeSource = userData.colorScheme ?? 'light';
+
 	const savedBounds = await loadWindowBounds();
 	let windowOptions: BrowserWindowConstructorOptions = {
 		height: MAIN_MIN_HEIGHT,
@@ -97,9 +107,8 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 	// Open the DevTools if the user had it open last time they used the app.
 	// During development the dev tools default to open.
 	void loadUserData().then( ( userData ) => {
-		const { devToolsOpen, sites } = userData;
-		setupDevTools( mainWindow, devToolsOpen );
-		initializePortFinder( sites );
+		setupDevTools( mainWindow, userData.devToolsOpen );
+		initializePortFinder( SiteServer.getAllDetails() );
 	} );
 
 	mainWindow.webContents.on( 'devtools-opened', async () => {

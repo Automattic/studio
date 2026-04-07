@@ -257,9 +257,6 @@ export function SyncDialog( {
 
 	const handleSubmit = () => {
 		if ( type === 'pull' ) {
-			if ( ! rewindId ) {
-				return;
-			}
 			onPull( treeState );
 		} else {
 			onPush( treeState );
@@ -301,12 +298,12 @@ export function SyncDialog( {
 					</span>
 					<div
 						aria-hidden="true"
-						className="flex max-w-full overflow-hidden pb-6 border-b border-a8c-gray-5"
+						className="flex max-w-full overflow-hidden pb-6 border-b border-frame-border"
 					>
 						<div className="overflow-hidden max-w-[calc(50%-25px)]">
 							<div className="whitespace-nowrap truncate">{ syncFrom }</div>
 						</div>
-						<div className="w-[50px] flex items-center justify-center text-a8c-gray-600">
+						<div className="w-[50px] flex items-center justify-center text-frame-text-secondary">
 							<RightArrowIcon />
 						</div>
 						<div className="overflow-hidden max-w-[calc(50%-25px)]">
@@ -353,7 +350,7 @@ export function SyncDialog( {
 										__next40pxDefaultSize
 										__nextHasNoMarginBottom
 										aria-label={ __( 'Select files and folders to sync' ) }
-										className="h-9"
+										className="h-9 select-minimal"
 									/>
 								</div>
 								<TreeView
@@ -369,7 +366,7 @@ export function SyncDialog( {
 											) }`;
 											const backupDate = format( parseInt( rewindId ) * 1000, 'MMM d, y, h:mm a' );
 											return (
-												<div className="mt-2 pb-2 text-xs text-gray-600">
+												<div className="mt-2 pb-2 text-xs text-frame-text-secondary">
 													{ sprintf( __( 'Content from the latest backup: %s.' ), backupDate ) }{ ' ' }
 													<Button
 														variant="link"
@@ -386,7 +383,7 @@ export function SyncDialog( {
 									renderEmptyContent={ ( nodeId, node ) => {
 										if ( nodeId === 'wp-content' && type === 'push' && localFileTreeError ) {
 											return (
-												<div className="text-gray-500 italic">
+												<div className="text-frame-text-secondary italic">
 													{ __(
 														'Could not load files. Please close and reopen this dialog to try again.'
 													) }
@@ -398,7 +395,7 @@ export function SyncDialog( {
 											node.hasError
 										) {
 											return (
-												<div className="text-gray-500 italic">
+												<div className="text-frame-text-secondary italic">
 													{ __(
 														'Error retrieving remote files and directories. Please close and reopen this dialog to try again.'
 													) }
@@ -406,7 +403,10 @@ export function SyncDialog( {
 											);
 										}
 										return (
-											<div className="text-gray-500 italic" aria-label={ __( 'Empty folder' ) }>
+											<div
+												className="text-frame-text-secondary italic"
+												aria-label={ __( 'Empty folder' ) }
+											>
 												{ __( 'Empty' ) }
 											</div>
 										);
@@ -417,7 +417,7 @@ export function SyncDialog( {
 					</div>
 				</Tooltip>
 
-				<div className="px-8 py-4 absolute left-0 right-0 bottom-0 bg-white/[0.8] backdrop-blur-sm z-10 border-t border-a8c-gray-5">
+				<div className="px-8 py-4 absolute left-0 right-0 bottom-0 bg-frame/[0.8] backdrop-blur-sm z-10 border-t border-frame-border">
 					{ type === 'push' && (
 						<div className="mb-4">
 							<TwoColorProgressBar

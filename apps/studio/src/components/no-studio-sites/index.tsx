@@ -33,7 +33,7 @@ export function NoStudioSites() {
 	} );
 
 	return (
-		<main className="bg-white h-full flex overflow-hidden z-10">
+		<main className="bg-frame text-frame-text h-full flex overflow-hidden z-10">
 			<div className="h-full w-full pt-14 px-6 pb-6">
 				<AddSiteModalContent addSiteProps={ addSiteProps } />
 			</div>

@@ -2,12 +2,10 @@
  * @vitest-environment node
  */
 import { IpcMainInvokeEvent } from 'electron';
-import fs from 'fs';
 import { normalize } from 'path';
 import * as Sentry from '@sentry/electron/main';
-import { bumpStat } from '@studio/common/lib/bump-stat';
-import { StatsGroup, StatsMetric } from '@studio/common/types/stats';
 import { readFile } from 'atomically';
+import { vol } from 'memfs';
 import { vi } from 'vitest';
 import {
 	createSite,
@@ -16,6 +14,8 @@ import {
 	getXdebugEnabledSite,
 	loadThemeDetails,
 } from 'src/ipc-handlers';
+import { bumpStat, StatsGroup, StatsMetric } from 'src/lib/bump-stats';
+import { captureSiteThumbnail } from 'src/lib/capture-site-thumbnail';
 import { importBackup, defaultImporterOptions } from 'src/lib/import-export/import/import-manager';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { getMainWindow } from 'src/main-window';
@@ -27,17 +27,7 @@ vi.mock( '@studio/common/lib/fs-utils' );
 vi.mock( '@sentry/electron/main', () => ( {
 	captureException: vi.fn(),
 	captureMessage: vi.fn(),
-} ) );
-vi.mock( 'src/storage/paths', () => ( {
-	getResourcesPath: vi.fn().mockReturnValue( '/mock/resources' ),
-	getUserDataFilePath: vi.fn().mockReturnValue( '/mock/userdata.json' ),
-	getUserDataLockFilePath: vi.fn().mockReturnValue( '/mock/userdata.json.lock' ),
-	getUserDataCertificatesPath: vi.fn().mockReturnValue( '/mock/certificates' ),
-	getServerFilesPath: vi.fn().mockReturnValue( '/mock/server/files' ),
-	getCliPath: vi.fn().mockReturnValue( '/mock/cli/path' ),
-	getBundledNodeBinaryPath: vi.fn().mockReturnValue( '/mock/node/binary' ),
-	getSiteThumbnailPath: vi.fn().mockReturnValue( '/mock/thumbnail.png' ),
-	DEFAULT_SITE_PATH: '/mock/default/site/path',
+	setTag: vi.fn(),
 } ) );
 vi.mock( 'src/site-server' );
 vi.mock( 'src/lib/wordpress-setup', () => ( {
@@ -45,10 +35,20 @@ vi.mock( 'src/lib/wordpress-setup', () => ( {
 } ) );
 vi.mock( 'src/main-window' );
 vi.mock( 'src/lib/import-export/import/import-manager' );
-vi.mock( '@studio/common/lib/bump-stat' );
+vi.mock( import( 'src/lib/bump-stats' ), async ( importOriginal ) => {
+	const actual = await importOriginal();
+	return {
+		...actual,
+		bumpStat: vi.fn(),
+		bumpAggregatedUniqueStat: vi.fn().mockResolvedValue( undefined ),
+	};
+} );
 vi.mock( 'atomically' );
 vi.mock( 'src/lib/get-image-data', () => ( {
 	getImageData: vi.fn().mockResolvedValue( 'data:image/png;base64,mock' ),
+} ) );
+vi.mock( 'src/lib/capture-site-thumbnail', () => ( {
+	captureSiteThumbnail: vi.fn(),
 } ) );
 
 vi.mock( '@studio/common/lib/port-finder', () => ( {
@@ -90,14 +90,15 @@ vi.mocked( SiteServer.register, { partial: true } ).mockImplementation( ( detail
 const mockUserData = {
 	sites: [],
 };
-if ( '__setFileContents' in fs ) {
-	(
-		fs as typeof fs & { __setFileContents: ( path: string, contents: string | string[] ) => void }
-	 ).__setFileContents(
-		normalize( '/path/to/app/appData/App Name/appdata-v1.json' ),
-		JSON.stringify( mockUserData )
-	);
-}
+
+beforeEach( () => {
+	vol.reset();
+	vol.fromJSON( {
+		[ normalize( '/path/to/app/appData/App Name/appdata-v1.json' ) ]:
+			JSON.stringify( mockUserData ),
+	} );
+} );
+
 vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( mockUserData ) ) );
 
 const mockIpcMainInvokeEvent = {
@@ -268,16 +269,25 @@ describe( 'importSite', () => {
 
 describe( 'getXdebugEnabledSite', () => {
 	it( 'should return null when no site has Xdebug enabled', async () => {
-		const mockUserDataWithoutXdebug = {
-			sites: [
-				{ id: 'site-1', name: 'Site 1', path: '/path/to/site-1', enableXdebug: false },
-				{ id: 'site-2', name: 'Site 2', path: '/path/to/site-2' },
-			],
-		};
-		vi.mocked( readFile ).mockResolvedValue(
-			Buffer.from( JSON.stringify( mockUserDataWithoutXdebug ) )
-		);
-		vi.mocked( fs.existsSync ).mockReturnValue( true );
+		vi.mocked( SiteServer.getAllDetails ).mockReturnValue( [
+			{
+				id: 'site-1',
+				name: 'Site 1',
+				path: '/path/to/site-1',
+				enableXdebug: false,
+				running: false,
+				phpVersion: '8.3',
+				port: 9999,
+			},
+			{
+				id: 'site-2',
+				name: 'Site 2',
+				path: '/path/to/site-2',
+				running: false,
+				phpVersion: '8.3',
+				port: 9998,
+			},
+		] as SiteDetails[] );
 
 		const result = await getXdebugEnabledSite( mockIpcMainInvokeEvent );
 
@@ -285,28 +295,27 @@ describe( 'getXdebugEnabledSite', () => {
 	} );
 
 	it( 'should return the site that has Xdebug enabled', async () => {
-		const mockUserDataWithXdebug = {
-			sites: [
-				{ id: 'site-1', name: 'Site 1', path: '/path/to/site-1', enableXdebug: false },
-				{ id: 'site-2', name: 'Site 2', path: '/path/to/site-2', enableXdebug: true },
-			],
-		};
-		vi.mocked( readFile ).mockResolvedValue(
-			Buffer.from( JSON.stringify( mockUserDataWithXdebug ) )
-		);
-		vi.mocked( fs.existsSync ).mockReturnValue( true );
-		vi.mocked( SiteServer.get, { partial: true } ).mockReturnValue( {
-			details: {
+		vi.mocked( SiteServer.getAllDetails ).mockReturnValue( [
+			{
+				id: 'site-1',
+				name: 'Site 1',
+				path: '/path/to/site-1',
+				enableXdebug: false,
+				running: false,
+				phpVersion: '8.3',
+				port: 9999,
+			},
+			{
 				id: 'site-2',
 				name: 'Site 2',
 				path: '/path/to/site-2',
-				running: true,
 				enableXdebug: true,
+				running: true,
 				phpVersion: '8.3',
 				port: 9999,
 				url: 'https://site-2.test',
 			},
-		} );
+		] as SiteDetails[] );
 
 		const result = await getXdebugEnabledSite( mockIpcMainInvokeEvent );
 
@@ -323,27 +332,26 @@ describe( 'getXdebugEnabledSite', () => {
 	} );
 
 	it( 'should return the first site when multiple have Xdebug enabled', async () => {
-		const mockUserDataWithMultipleXdebug = {
-			sites: [
-				{ id: 'site-1', name: 'Site 1', path: '/path/to/site-1', enableXdebug: true },
-				{ id: 'site-2', name: 'Site 2', path: '/path/to/site-2', enableXdebug: true },
-			],
-		};
-		vi.mocked( readFile ).mockResolvedValue(
-			Buffer.from( JSON.stringify( mockUserDataWithMultipleXdebug ) )
-		);
-		vi.mocked( fs.existsSync ).mockReturnValue( true );
-		vi.mocked( SiteServer.get, { partial: true } ).mockReturnValue( {
-			details: {
+		vi.mocked( SiteServer.getAllDetails ).mockReturnValue( [
+			{
 				id: 'site-1',
 				name: 'Site 1',
 				path: '/path/to/site-1',
-				running: false,
 				enableXdebug: true,
+				running: false,
 				phpVersion: '8.3',
 				port: 9999,
 			},
-		} );
+			{
+				id: 'site-2',
+				name: 'Site 2',
+				path: '/path/to/site-2',
+				enableXdebug: true,
+				running: true,
+				phpVersion: '8.3',
+				port: 9998,
+			},
+		] as SiteDetails[] );
 
 		const result = await getXdebugEnabledSite( mockIpcMainInvokeEvent );
 
@@ -360,7 +368,7 @@ describe( 'getXdebugEnabledSite', () => {
 } );
 
 describe( 'loadThemeDetails', () => {
-	it( 'should update thumbnail but not persist theme details when theme has not changed', async () => {
+	it( 'should capture thumbnail but not persist theme details when theme has not changed', async () => {
 		const themeDetails = { name: 'Twenty Twenty-Four', path: '/themes/twentytwentyfour' };
 		const mockServer = {
 			details: {
@@ -370,17 +378,16 @@ describe( 'loadThemeDetails', () => {
 			},
 			getThemeDetails: vi.fn().mockResolvedValue( themeDetails ),
 			persistThemeDetails: vi.fn().mockResolvedValue( undefined ),
-			updateCachedThumbnail: vi.fn().mockResolvedValue( undefined ),
 		};
 		vi.mocked( SiteServer.get ).mockReturnValue( mockServer as unknown as SiteServer );
 
 		await loadThemeDetails( mockIpcMainInvokeEvent, 'test-site-id' );
 
 		expect( mockServer.persistThemeDetails ).not.toHaveBeenCalled();
-		expect( mockServer.updateCachedThumbnail ).toHaveBeenCalled();
+		expect( captureSiteThumbnail ).toHaveBeenCalledWith( 'test-site-id' );
 	} );
 
-	it( 'should persist theme details and update thumbnail when theme has changed', async () => {
+	it( 'should persist theme details and capture thumbnail when theme has changed', async () => {
 		const oldThemeDetails = { name: 'Twenty Twenty-Four', path: '/themes/twentytwentyfour' };
 		const newThemeDetails = { name: 'Twenty Twenty-Five', path: '/themes/twentytwentyfive' };
 		const mockServer = {
@@ -391,13 +398,12 @@ describe( 'loadThemeDetails', () => {
 			},
 			getThemeDetails: vi.fn().mockResolvedValue( newThemeDetails ),
 			persistThemeDetails: vi.fn().mockResolvedValue( undefined ),
-			updateCachedThumbnail: vi.fn().mockResolvedValue( undefined ),
 		};
 		vi.mocked( SiteServer.get ).mockReturnValue( mockServer as unknown as SiteServer );
 
 		await loadThemeDetails( mockIpcMainInvokeEvent, 'test-site-id' );
 
 		expect( mockServer.persistThemeDetails ).toHaveBeenCalled();
-		expect( mockServer.updateCachedThumbnail ).toHaveBeenCalled();
+		expect( captureSiteThumbnail ).toHaveBeenCalledWith( 'test-site-id' );
 	} );
 } );

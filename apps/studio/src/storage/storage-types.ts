@@ -1,5 +1,4 @@
-import { Snapshot } from '@studio/common/types/snapshot';
-import { StoredToken } from 'src/lib/oauth';
+import { StatsMetric } from 'src/lib/bump-stats';
 import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import type { SyncSite } from 'src/modules/sync/types';
 import type { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
@@ -12,36 +11,27 @@ export interface WindowBounds {
 	isFullScreen?: boolean;
 }
 
+export interface AppdataSiteData {
+	themeDetails?: SiteDetails[ 'themeDetails' ];
+	sortOrder?: number;
+}
+
 export interface UserData {
-	sites: SiteDetails[];
-	snapshots: Snapshot[];
+	version: 1;
+	siteMetadata: Record< string, AppdataSiteData >;
 	devToolsOpen?: boolean;
 	windowBounds?: WindowBounds;
-	authToken?: StoredToken;
 	onboardingCompleted?: boolean;
-	locale?: string;
-	lastBumpStats?: {
-		[ group: string ]: {
-			[ stat: string ]: number;
-		};
-	};
+	lastBumpStats?: Record< string, Partial< Record< StatsMetric, number > > >;
 	promptWindowsSpeedUpResult?: PromptWindowsSpeedUpResult;
 	connectedWpcomSites?: { [ userId: number ]: SyncSite[] };
 	sentryUserId?: string;
 	lastSeenVersion?: string;
 	preferredTerminal?: SupportedTerminal;
 	preferredEditor?: SupportedEditor;
+	colorScheme?: 'system' | 'light' | 'dark';
 	betaFeatures?: BetaFeatures;
 	stopSitesOnQuit?: boolean;
-}
-
-export interface PersistedUserData extends Omit< UserData, 'sites' > {
-	version: 1;
-
-	// Users can edit the file system manually which would make UserData['name'] and UserData['path']
-	// get out of sync. `name` is redundant because it can be calculated from `path`, so we
-	// won't persist `name`.
-	sites: Omit< StoppedSiteDetails, 'running' >[];
 }
 
 export interface PromptWindowsSpeedUpResult {
@@ -49,3 +39,8 @@ export interface PromptWindowsSpeedUpResult {
 	appVersion: string;
 	dontAskAgain: boolean;
 }
+
+export const EMPTY_USER_DATA: UserData = {
+	version: 1,
+	siteMetadata: {},
+};

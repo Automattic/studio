@@ -1,12 +1,15 @@
-import { sequential } from '@studio/common/lib/sequential';
 import {
-	siteEventSchema,
+	AUTH_EVENTS,
+	cliAuthEventSchema,
+	cliSiteEventSchema,
+	cliSnapshotEventSchema,
 	SiteEvent,
 	SITE_EVENTS,
 	SiteDetails,
-} from '@studio/common/lib/site-events';
-import { z } from 'zod';
+} from '@studio/common/lib/cli-events';
+import { sequential } from '@studio/common/lib/sequential';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
+import { captureSiteThumbnail } from 'src/lib/capture-site-thumbnail';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { SiteServer } from 'src/site-server';
 
@@ -26,7 +29,7 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 	const { event: eventType, siteId, site, running } = event;
 
 	if ( eventType === SITE_EVENTS.DELETED ) {
-		SiteServer.unregister( siteId );
+		await SiteServer.unregister( siteId );
 		void sendIpcEventToRenderer( 'site-event', event );
 		return;
 	}
@@ -35,23 +38,24 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 		return;
 	}
 
-	// Only register new sites on CREATED events to prevent duplicates
 	if ( eventType === SITE_EVENTS.CREATED ) {
 		const existingServer = SiteServer.get( siteId ) ?? SiteServer.getByPath( site.path );
 		if ( ! existingServer ) {
 			SiteServer.register( siteDetailsToServerDetails( site, running ) );
-		}
-		// Don't send to renderer if site is being created by UI (createSite IPC will handle it)
-		if ( existingServer?.hasOngoingOperation ) {
-			return;
+		} else {
+			existingServer.details = siteDetailsToServerDetails( site, running, existingServer.details );
 		}
 		void sendIpcEventToRenderer( 'site-event', event );
+		if ( running ) {
+			void captureSiteThumbnail( siteId );
+		}
 		return;
 	}
 
-	// For UPDATED events, only update if the site already exists
+	// For UPDATED events, update existing server details
 	const server = SiteServer.get( siteId ) ?? SiteServer.getByPath( site.path );
 	if ( ! server ) {
+		console.warn( `Received UPDATED event for unknown site: ${ siteId }` );
 		return;
 	}
 
@@ -62,15 +66,9 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 	}
 
 	void sendIpcEventToRenderer( 'site-event', event );
-} );
-
-const cliSiteEventSchema = z.object( {
-	action: z.literal( 'keyValuePair' ),
-	key: z.literal( 'site-event' ),
-	value: z
-		.string()
-		.transform( ( val ) => JSON.parse( val ) )
-		.pipe( siteEventSchema ),
+	if ( running ) {
+		void captureSiteThumbnail( siteId );
+	}
 } );
 
 let subscriber: ReturnType< typeof executeCliCommand > | null = null;
@@ -92,6 +90,23 @@ export async function startCliEventsSubscriber(): Promise< void > {
 		} );
 
 		eventEmitter.on( 'data', ( { data } ) => {
+			const authParsed = cliAuthEventSchema.safeParse( data );
+			if ( authParsed.success ) {
+				const { event, token } = authParsed.data.value;
+				if ( event === AUTH_EVENTS.LOGIN && token ) {
+					void sendIpcEventToRenderer( 'auth-updated', { token } );
+				} else {
+					void sendIpcEventToRenderer( 'auth-updated', { token: null } );
+				}
+				return;
+			}
+
+			const snapshotParsed = cliSnapshotEventSchema.safeParse( data );
+			if ( snapshotParsed.success ) {
+				void sendIpcEventToRenderer( 'snapshot-event', snapshotParsed.data.value );
+				return;
+			}
+
 			const parsed = cliSiteEventSchema.safeParse( data );
 			if ( ! parsed.success ) {
 				return;

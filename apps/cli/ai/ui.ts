@@ -2,6 +2,10 @@ import {
 	TUI,
 	ProcessTerminal,
 	Editor,
+	Input,
+	SelectList,
+	type SelectItem,
+	type SelectListTheme,
 	Markdown,
 	Text,
 	Loader,
@@ -14,30 +18,47 @@ import {
 	type EditorTheme,
 	type EditorOptions,
 	type MarkdownTheme,
+	visibleWidth,
+	truncateToWidth,
+	CURSOR_MARKER,
 } from '@mariozechner/pi-tui';
+import { readAuthToken } from '@studio/common/lib/shared-config';
+import { __, _n, sprintf } from '@wordpress/i18n';
 import chalk from 'chalk';
 import { AI_MODELS, DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
-import { AI_CHAT_SLASH_COMMANDS, type SlashCommandDef } from 'cli/ai/slash-commands';
-import {
-	diffTodoSnapshot,
-	type TodoChange,
-	type TodoDiff,
-	type TodoEntry,
-} from 'cli/ai/todo-stream';
-import { getSiteUrl, readAppdata, type SiteData } from 'cli/lib/appdata';
+import { AI_CHAT_SLASH_COMMANDS } from 'cli/ai/slash-commands';
+import { buildTodoUpdateLines, type TodoRenderLine } from 'cli/ai/todo-render';
+import { diffTodoSnapshot, type TodoDiff, type TodoEntry } from 'cli/ai/todo-stream';
+import { getWpComSites } from 'cli/lib/api';
 import { openBrowser } from 'cli/lib/browser';
+import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
+import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { TodoWriteInput } from '@anthropic-ai/claude-agent-sdk/sdk-tools';
+
+const SITE_PICKER_TAB_LOCAL = 'local' as const;
+const SITE_PICKER_TAB_REMOTE = 'remote' as const;
+type SitePickerTab = typeof SITE_PICKER_TAB_LOCAL | typeof SITE_PICKER_TAB_REMOTE;
+
+const sitePickerTheme: SelectListTheme = {
+	selectedPrefix: ( text ) => chalk.blue( text ),
+	selectedText: ( text ) => chalk.bold( text ),
+	description: ( text ) => chalk.dim( text ),
+	scrollInfo: ( text ) => chalk.dim( text ),
+	noMatch: ( text ) => chalk.dim( text ),
+};
 
 export interface SiteInfo {
 	name: string;
 	path: string;
 	running: boolean;
+	remote?: boolean;
+	url?: string;
 }
 
-const FILE_PREVIEW_MAX_LINES = 10;
+const DEFAULT_COLLAPSE_THRESHOLD_LINES = 5;
 
 interface ExpandablePreview {
 	textComponent: Text;
@@ -46,15 +67,22 @@ interface ExpandablePreview {
 	isExpanded: boolean;
 }
 
+function formatToolOutputLines( lines: string[] ): string {
+	return lines
+		.map( ( line, index ) => `${ index === 0 ? '   ' + chalk.dim( '⎿ ' ) : '     ' }${ line }` )
+		.join( '\n' );
+}
+
 class PromptEditor implements Component, Focusable {
 	private editor: Editor;
 	private borderColorFn: ( text: string ) => string;
 	private _focused = false;
 	private isEmpty = true;
 	activeSiteName: string | null = null;
+	busyMessage: string | null = null;
 	hints: string[] = [];
-	slashCommands: SlashCommandDef[] = [];
 	statusMessage: string | null = null;
+	showBottomBar = true;
 
 	get focused(): boolean {
 		return this._focused;
@@ -79,8 +107,8 @@ class PromptEditor implements Component, Focusable {
 	}
 
 	handleInput( data: string ): void {
-		this.isEmpty = false;
 		this.editor.handleInput( data );
+		this.isEmpty = this.editor.getText() === '';
 	}
 
 	setAutocompleteProvider( provider: CombinedAutocompleteProvider ): void {
@@ -96,11 +124,12 @@ class PromptEditor implements Component, Focusable {
 	}
 
 	render( width: number ): string[] {
-		const promptPrefix = ' ' + chalk.bold( '❯ ' );
-		const promptWidth = 3; // space + ❯ + space
+		const promptPrefix = ' ' + chalk.bold( '〉' );
+		const promptWidth = 3; // space + 〉(2 cols)
 		const innerWidth = Math.max( 1, width - promptWidth );
 		const lines = this.editor.render( innerWidth );
 		const bc = this.borderColorFn;
+		const borderWidth = Math.max( 0, width - 2 );
 
 		// The Editor renders: [top_border, ...content, bottom_border, ...autocomplete]
 		// Find the bottom border index: it's the last line containing ─ (U+2500).
@@ -113,17 +142,18 @@ class PromptEditor implements Component, Focusable {
 			}
 		}
 
-		const hasAutocomplete = bottomBorderIndex < lines.length - 1;
-		// Only keep lines up to (and including) the bottom border; drop editor autocomplete lines.
+		const autocompleteLines = lines.slice( bottomBorderIndex + 1 );
 		const editorLines = lines.slice( 0, bottomBorderIndex + 1 );
 		const emptyPrefix = ' '.repeat( promptWidth );
 		const result = editorLines.map( ( line, i ) => {
 			if ( i === 0 ) {
-				// Top border with active site name on the right
-				if ( this.activeSiteName ) {
-					const label = ` ${ this.activeSiteName } `;
-					const trailing = 3;
-					const leading = Math.max( 0, width - 2 - label.length - trailing );
+				// Top border with active site name and optional busy indicator
+				if ( this.activeSiteName && borderWidth > 4 ) {
+					const busySuffix = this.busyMessage ? ` ${ this.busyMessage }` : '';
+					const label = ` ${ this.activeSiteName }${ busySuffix } `;
+					const trailing = Math.min( 3, borderWidth );
+					const labelWidth = visibleWidth( label );
+					const leading = Math.max( 0, borderWidth - labelWidth - trailing );
 					return (
 						' ' +
 						bc( '─'.repeat( leading ) ) +
@@ -131,13 +161,13 @@ class PromptEditor implements Component, Focusable {
 						bc( '─'.repeat( trailing ) )
 					);
 				}
-				return ' ' + bc( '─'.repeat( width - 2 ) );
+				return ' ' + bc( '─'.repeat( borderWidth ) );
 			}
 			if ( i === bottomBorderIndex ) {
-				return ' ' + bc( '─'.repeat( width - 2 ) );
+				return ' ' + bc( '─'.repeat( borderWidth ) );
 			}
 			if ( this.isEmpty && i === 1 ) {
-				return promptPrefix + chalk.dim( 'Type your prompt…' );
+				return promptPrefix + CURSOR_MARKER;
 			}
 			if ( i === 1 ) {
 				return promptPrefix + line;
@@ -145,37 +175,32 @@ class PromptEditor implements Component, Focusable {
 			return emptyPrefix + line;
 		} );
 
-		// Below the bottom border: show suggestions or hint bar (with optional status on the right)
-		if ( hasAutocomplete && this.slashCommands.length > 0 ) {
-			// Filter commands by what the user typed (e.g. "/mo" filters to "model")
-			const text = this.getText().trim();
-			const prefix = text.startsWith( '/' ) ? text.slice( 1 ).toLowerCase() : '';
-			const matching = this.slashCommands.filter( ( cmd ) =>
-				cmd.name.toLowerCase().startsWith( prefix )
+		if ( autocompleteLines.length > 0 ) {
+			return [ ...result, ...autocompleteLines.map( ( line ) => ' ' + line ) ].map( ( line ) =>
+				truncateToWidth( line, width )
 			);
-			const maxLen = Math.max( ...matching.map( ( c ) => c.name.length ) );
-			for ( const cmd of matching ) {
-				result.push(
-					' ' + chalk.dim( `/${ cmd.name.padEnd( maxLen ) }` ) + chalk.dim( '  ' + cmd.description )
-				);
-			}
-		} else {
-			const leftPart =
-				this.hints.length > 0
-					? ' ' + this.hints.map( ( h ) => chalk.dim( h ) ).join( chalk.dim( ' · ' ) )
-					: '';
-			const rightPart = this.statusMessage ? chalk.dim( this.statusMessage ) + ' ' : '';
-			if ( leftPart || rightPart ) {
-				// eslint-disable-next-line no-control-regex
-				const stripAnsi = ( s: string ) => s.replace( /\x1b\[[0-9;]*m/g, '' );
-				const leftLen = stripAnsi( leftPart ).length;
-				const rightLen = stripAnsi( rightPart ).length;
-				const padding = Math.max( 1, width - leftLen - rightLen );
-				result.push( leftPart + ' '.repeat( padding ) + rightPart );
-			}
 		}
 
-		return result;
+		// Below the bottom border: show hint bar (with optional status on the right)
+		if ( ! this.showBottomBar ) {
+			return result.map( ( line ) => truncateToWidth( line, width ) );
+		}
+		const activeHints = this.isEmpty
+			? this.hints
+			: this.hints.filter( ( h ) => h !== __( '↓ select site' ) );
+		const leftPart =
+			activeHints.length > 0
+				? ' ' + activeHints.map( ( h ) => chalk.dim( h ) ).join( chalk.dim( ' · ' ) )
+				: '';
+		const rightPart = this.statusMessage ? chalk.dim( this.statusMessage ) + ' ' : '';
+		if ( leftPart || rightPart ) {
+			const leftLen = visibleWidth( leftPart );
+			const rightLen = visibleWidth( rightPart );
+			const padding = Math.max( 1, width - leftLen - rightLen );
+			result.push( leftPart + ' '.repeat( padding ) + rightPart );
+		}
+
+		return result.map( ( line ) => truncateToWidth( line, width ) );
 	}
 }
 
@@ -208,24 +233,28 @@ const editorTheme: EditorTheme = {
 };
 
 const toolDisplayNames: Record< string, string > = {
-	mcp__studio__site_create: 'Create site',
-	mcp__studio__site_list: 'List sites',
-	mcp__studio__site_info: 'Get site info',
-	mcp__studio__site_start: 'Start site',
-	mcp__studio__site_stop: 'Stop site',
-	mcp__studio__site_delete: 'Delete site',
-	mcp__studio__wp_cli: 'Run WP-CLI',
-	mcp__studio__validate_blocks: 'Validate blocks',
-	mcp__studio__take_screenshot: 'Take screenshot',
-	Read: 'Read',
-	Write: 'Write',
-	Edit: 'Edit',
-	Bash: 'Run',
-	Glob: 'Search',
-	Grep: 'Search',
-	Skill: 'Load skill',
-	Task: 'Run task',
-	TodoWrite: 'Update todo list',
+	mcp__studio__site_create: __( 'Create site' ),
+	mcp__studio__site_list: __( 'List sites' ),
+	mcp__studio__site_info: __( 'Get site info' ),
+	mcp__studio__site_start: __( 'Start site' ),
+	mcp__studio__site_stop: __( 'Stop site' ),
+	mcp__studio__site_delete: __( 'Delete site' ),
+	mcp__studio__preview_create: __( 'Create preview' ),
+	mcp__studio__preview_list: __( 'List previews' ),
+	mcp__studio__preview_update: __( 'Update preview' ),
+	mcp__studio__preview_delete: __( 'Delete preview' ),
+	mcp__studio__wp_cli: __( 'Run WP-CLI' ),
+	mcp__studio__validate_blocks: __( 'Validate blocks' ),
+	mcp__studio__take_screenshot: __( 'Take screenshot' ),
+	Read: __( 'Read' ),
+	Write: __( 'Write' ),
+	Edit: __( 'Edit' ),
+	Bash: __( 'Run' ),
+	Glob: __( 'Search' ),
+	Grep: __( 'Search' ),
+	Skill: __( 'Load skill' ),
+	Task: __( 'Run task' ),
+	TodoWrite: __( 'Update todo list' ),
 };
 
 function getToolDetail( name: string, input: Record< string, unknown > ): string {
@@ -236,14 +265,19 @@ function getToolDetail( name: string, input: Record< string, unknown > ): string
 		case 'mcp__studio__site_start':
 		case 'mcp__studio__site_stop':
 		case 'mcp__studio__site_delete':
+		case 'mcp__studio__preview_create':
+		case 'mcp__studio__preview_list':
 			return typeof input.nameOrPath === 'string' ? input.nameOrPath : '';
+		case 'mcp__studio__preview_update':
+		case 'mcp__studio__preview_delete':
+			return typeof input.host === 'string' ? input.host : '';
 		case 'mcp__studio__wp_cli':
 			return typeof input.command === 'string' ? `wp ${ input.command }` : '';
 		case 'mcp__studio__validate_blocks':
 			if ( typeof input.filePath === 'string' ) {
 				return input.filePath.split( '/' ).slice( -2 ).join( '/' );
 			}
-			return 'inline content';
+			return __( 'inline content' );
 		case 'mcp__studio__take_screenshot':
 			return typeof input.url === 'string' ? input.url : '';
 		case 'Read':
@@ -288,15 +322,27 @@ interface ToolUseResultContent {
 	isError?: boolean;
 }
 
+interface MessageContentWithType {
+	type: string;
+}
+
+interface ToolResultBlock extends MessageContentWithType {
+	type: 'tool_result';
+	content?: unknown;
+	is_error?: boolean;
+}
+
+interface StdoutStderrToolResult {
+	stdout?: unknown;
+	stderr?: unknown;
+	is_error?: unknown;
+	noOutputExpected?: unknown;
+}
+
 interface PendingTodoRender {
 	diff: TodoDiff;
 	toolLabel: string;
 	shouldRender: boolean;
-}
-
-interface RenderableToolLine {
-	text: string;
-	dim?: boolean;
 }
 
 function isTodoWriteInput( input: unknown ): input is TodoWriteInput {
@@ -318,27 +364,74 @@ function isTodoWriteInput( input: unknown ): input is TodoWriteInput {
 	);
 }
 
-function formatTodoAction( action: 'added' | 'completed', todo: TodoChange ): string {
-	const verb = action === 'added' ? 'Added todo' : 'Completed todo';
-	return `${ verb }: ${ todo.content }`;
+function isMessageContentWithType( value: unknown ): value is MessageContentWithType {
+	return typeof value === 'object' && value !== null && 'type' in value;
 }
 
-/**
- * Format a single todo snapshot line for display.
- * in_progress uses activeForm (present-tense "working on it" phrasing),
- * while pending/completed use content (the canonical description).
- */
-function formatTodoSnapshotLine( todo: TodoEntry ): string {
-	switch ( todo.status ) {
-		case 'completed':
-			return `${ chalk.green( '✓' ) } ${ chalk.dim( chalk.strikethrough( todo.content ) ) }`;
-		case 'in_progress':
-			return `${ chalk.yellow( '◐' ) } ${ chalk.dim( todo.activeForm ) }`;
-		default:
-			return `${ chalk.dim( '○' ) } ${ chalk.dim( todo.content ) }`;
+function isToolResultBlock( value: unknown ): value is ToolResultBlock {
+	return isMessageContentWithType( value ) && value.type === 'tool_result';
+}
+
+function isStdoutStderrToolResult( value: unknown ): value is StdoutStderrToolResult {
+	return (
+		typeof value === 'object' &&
+		value !== null &&
+		( 'stdout' in value || 'stderr' in value || 'noOutputExpected' in value )
+	);
+}
+
+function normalizeToolResultContent(
+	content: unknown
+): ToolUseResultContent[ 'content' ] | undefined {
+	if ( typeof content === 'string' ) {
+		return content;
 	}
+
+	if ( Array.isArray( content ) ) {
+		return content.filter( isMessageContentWithType ).map( ( block ) => {
+			if ( 'text' in block && typeof block.text === 'string' ) {
+				return { type: block.type, text: block.text };
+			}
+			return { type: block.type };
+		} );
+	}
+
+	if ( content === undefined || content === null ) {
+		return undefined;
+	}
+
+	return String( content );
 }
 
+function normalizeToolUseResult( result: unknown ): ToolUseResultContent | null {
+	if ( ! result || typeof result !== 'object' ) {
+		return null;
+	}
+
+	if ( 'content' in result || 'isError' in result || 'is_error' in result ) {
+		const typedResult = result as {
+			content?: unknown;
+			isError?: unknown;
+			is_error?: unknown;
+		};
+		return {
+			content: normalizeToolResultContent( typedResult.content ),
+			isError: typedResult.isError === true || typedResult.is_error === true,
+		};
+	}
+
+	if ( isStdoutStderrToolResult( result ) ) {
+		const stdout = typeof result.stdout === 'string' ? result.stdout : '';
+		const stderr = typeof result.stderr === 'string' ? result.stderr : '';
+		const parts = [ stdout, stderr ? `stderr: ${ stderr }` : '' ].filter( Boolean );
+		return {
+			content: parts.join( '\n' ) || undefined,
+			isError: result.is_error === true,
+		};
+	}
+
+	return null;
+}
 export class AiChatUI {
 	private tui: TUI;
 	private editor: PromptEditor;
@@ -364,9 +457,12 @@ export class AiChatUI {
 	private pendingTodoRenders = new Map< string, PendingTodoRender >();
 	private pendingTodoRenderOrder: string[] = [];
 	private _activeSite: SiteInfo | null = null;
-	private expandablePreview: ExpandablePreview | null = null;
+	private activeExpandablePreview: ExpandablePreview | null = null;
 	private _inAgentTurn = false;
 	private _activeSiteData: SiteData | null = null;
+	private siteSelectedCallback: ( ( site: SiteInfo ) => void ) | null = null;
+	private replayMode = false;
+	private replayTimestampMs: number | null = null;
 	private pendingToolCalls = new Map<
 		string,
 		{ name: string; input: Record< string, unknown > }
@@ -429,24 +525,93 @@ export class AiChatUI {
 	private randomThinkingMessage(): string {
 		return this.thinkingMessages[ Math.floor( Math.random() * this.thinkingMessages.length ) ];
 	}
-	private optionPickerVisible = false;
 	private optionPickerContainer: Container | null = null;
-	private optionPickerItems: { label: string; description: string }[] = [];
-	private optionPickerSelectedIndex = 0;
+	private optionPickerSelectList: SelectList | null = null;
+	private optionPickerVisible = false;
 	private optionPickerResolve: ( ( label: string ) => void ) | null = null;
+	private optionPickerOtherActive = false;
+	private optionPickerHasFreeForm = false;
+	private optionPickerItemCount = 0;
+	private optionPickerInput: Input | null = null;
+	private static readonly OTHER_VALUE = '__other__';
+	private static readonly OPTION_PICKER_THEME: SelectListTheme = {
+		selectedPrefix: ( text: string ) => chalk.blue( text ),
+		selectedText: ( text: string ) => chalk.blue( text ),
+		description: ( text: string ) => chalk.dim( text ),
+		scrollInfo: ( text: string ) => chalk.dim( text ),
+		noMatch: ( text: string ) => chalk.dim( text ),
+	};
 	private sitePickerVisible = false;
 	private sitePickerContainer: Container | null = null;
 	private sitePickerItems: SiteInfo[] = [];
 	private sitePickerSiteData: SiteData[] = [];
-	private sitePickerSelectedIndex = 0;
+	private sitePickerSelectList: SelectList | null = null;
+	private sitePickerItemMap: Map< string, SiteInfo > = new Map();
+	private sitePickerTab: SitePickerTab = SITE_PICKER_TAB_LOCAL;
+	private sitePickerRemoteItems: SiteInfo[] = [];
+	private sitePickerRemoteLoading = false;
+	private sitePickerQuery = '';
 
 	get activeSite(): SiteInfo | null {
 		return this._activeSite;
 	}
 
+	private refreshPromptChrome(): void {
+		this.editor.invalidate();
+	}
+
+	set onSiteSelected( fn: ( ( site: SiteInfo ) => void ) | null ) {
+		this.siteSelectedCallback = fn;
+	}
+
+	private nowMs(): number {
+		return this.replayTimestampMs ?? Date.now();
+	}
+
+	setReplayTimestamp( timestamp?: string ): void {
+		if ( ! this.replayMode ) {
+			return;
+		}
+
+		if ( ! timestamp ) {
+			this.replayTimestampMs = null;
+			return;
+		}
+
+		const parsedTimestamp = Date.parse( timestamp );
+		this.replayTimestampMs = Number.isNaN( parsedTimestamp ) ? null : parsedTimestamp;
+	}
+
+	prepareForReplay(): void {
+		this.replayMode = true;
+		this.replayTimestampMs = null;
+		this.hideLoader();
+		this.currentMarkdown = null;
+		this.currentResponseText = '';
+	}
+
+	finishReplay(): void {
+		this.replayMode = false;
+		this.replayTimestampMs = null;
+		this.hideLoader();
+		this.currentMarkdown = null;
+		this.currentResponseText = '';
+	}
+
+	showAgentQuestion(
+		question: string,
+		_options: Array< { label: string; description: string } >
+	): void {
+		this.hideLoader();
+		this.currentMarkdown = null;
+		this.currentResponseText = '';
+		this.messages.addChild( new Text( '\n' + chalk.bold( question ), 0, 0 ) );
+		this.tui.requestRender();
+	}
+
 	constructor() {
 		const terminal = new ProcessTerminal();
-		this.tui = new TUI( terminal );
+		this.tui = new TUI( terminal, true );
 
 		this.messages = new Container();
 		this.tui.addChild( this.messages );
@@ -455,7 +620,7 @@ export class AiChatUI {
 			this.tui,
 			( str ) => chalk.yellow( str ),
 			( str ) => chalk.yellow( str ),
-			'Thinking…'
+			__( 'Thinking…' )
 		);
 		// @ts-expect-error -- frames is private but has no public API to customize
 		this.loader.frames = [
@@ -485,7 +650,6 @@ export class AiChatUI {
 
 		this.editor = new PromptEditor( this.tui, editorTheme );
 
-		this.editor.slashCommands = AI_CHAT_SLASH_COMMANDS;
 		this.editor.setAutocompleteProvider(
 			new CombinedAutocompleteProvider( AI_CHAT_SLASH_COMMANDS )
 		);
@@ -509,70 +673,107 @@ export class AiChatUI {
 				process.exit( 0 );
 			}
 			// Option picker navigation (must be checked before site picker)
-			if ( this.optionPickerVisible ) {
-				if ( matchesKey( data, 'up' ) ) {
-					this.optionPickerSelectedIndex = Math.max( 0, this.optionPickerSelectedIndex - 1 );
-					this.renderOptionPicker();
-					return { consume: true };
-				}
-				if ( matchesKey( data, 'down' ) ) {
-					this.optionPickerSelectedIndex = Math.min(
-						this.optionPickerItems.length - 1,
-						this.optionPickerSelectedIndex + 1
-					);
-					this.renderOptionPicker();
-					return { consume: true };
-				}
-				if ( matchesKey( data, 'enter' ) ) {
-					const selected = this.optionPickerItems[ this.optionPickerSelectedIndex ];
-					this.closeOptionPicker();
-					if ( selected && this.optionPickerResolve ) {
-						this.optionPickerResolve( selected.label );
-						this.optionPickerResolve = null;
+			if ( this.optionPickerSelectList ) {
+				// When "Other" is active, let the inline input handle most keys
+				if ( this.optionPickerOtherActive && this.optionPickerInput ) {
+					if ( matchesKey( data, 'up' ) ) {
+						this.deactivateOptionPickerOther();
+						this.optionPickerSelectList.handleInput( data );
+						this.renderOptionPicker();
+						return { consume: true };
 					}
+					// Forward everything else to the inline input
+					this.optionPickerInput.handleInput( data );
+					this.renderOptionPicker();
 					return { consume: true };
 				}
+
+				// If user starts typing while on a regular option, jump to "Other" (only if free-form is enabled)
+				if (
+					this.optionPickerHasFreeForm &&
+					! matchesKey( data, 'up' ) &&
+					! matchesKey( data, 'down' ) &&
+					! matchesKey( data, 'enter' ) &&
+					! matchesKey( data, 'escape' ) &&
+					data.length === 1 &&
+					data >= ' '
+				) {
+					this.optionPickerSelectList.setSelectedIndex( this.optionPickerItemCount - 1 );
+					this.activateOptionPickerOther();
+					this.optionPickerInput?.handleInput( data );
+					this.renderOptionPicker();
+					return { consume: true };
+				}
+
+				// Let SelectList handle up/down/enter/escape
+				this.optionPickerSelectList.handleInput( data );
+				// onSelect may have closed the picker — bail if so
+				if ( ! this.optionPickerSelectList ) {
+					return { consume: true };
+				}
+				// Check if we landed on "Other" after navigation
+				if ( this.optionPickerHasFreeForm ) {
+					const selected = this.optionPickerSelectList.getSelectedItem();
+					if ( selected?.value === AiChatUI.OTHER_VALUE ) {
+						this.activateOptionPickerOther();
+					}
+				}
+				this.renderOptionPicker();
 				return { consume: true };
 			}
-			// Down arrow to open site picker (when editor is visible and picker is not)
-			if ( matchesKey( data, 'down' ) && this.editorVisible && ! this.sitePickerVisible ) {
+			// Down arrow to open site picker (only when prompt is empty)
+			if (
+				matchesKey( data, 'down' ) &&
+				this.editorVisible &&
+				! this.sitePickerVisible &&
+				this.editor.getText().trim() === ''
+			) {
 				void this.openSitePicker();
 				return { consume: true };
 			}
 			// Site picker navigation
-			if ( this.sitePickerVisible ) {
-				if ( matchesKey( data, 'up' ) ) {
-					this.sitePickerSelectedIndex = Math.max( 0, this.sitePickerSelectedIndex - 1 );
-					this.renderSitePicker();
-					return { consume: true };
-				}
-				if ( matchesKey( data, 'down' ) ) {
-					this.sitePickerSelectedIndex = Math.min(
-						this.sitePickerItems.length - 1,
-						this.sitePickerSelectedIndex + 1
-					);
-					this.renderSitePicker();
-					return { consume: true };
-				}
-				if ( matchesKey( data, 'enter' ) ) {
-					this.selectSite( this.sitePickerSelectedIndex );
-					return { consume: true };
-				}
-				if ( matchesKey( data, 'space' ) ) {
+			if ( this.sitePickerVisible && this.sitePickerSelectList ) {
+				if ( matchesKey( data, 'tab' ) ) {
 					void this.openSelectedSite();
 					return { consume: true };
 				}
-				if ( matchesKey( data, 'escape' ) ) {
-					this.closeSitePicker();
+				if ( matchesKey( data, 'right' ) && this.sitePickerTab === SITE_PICKER_TAB_LOCAL ) {
+					void this.switchToRemoteSites();
 					return { consume: true };
 				}
+				if ( matchesKey( data, 'left' ) && this.sitePickerTab === SITE_PICKER_TAB_REMOTE ) {
+					this.switchToLocalSites();
+					return { consume: true };
+				}
+				if ( matchesKey( data, 'escape' ) ) {
+					if ( this.sitePickerQuery ) {
+						this.setSitePickerQuery( '' );
+					} else {
+						this.closeSitePicker();
+					}
+					return { consume: true };
+				}
+				if ( matchesKey( data, 'backspace' ) ) {
+					if ( this.sitePickerQuery ) {
+						this.setSitePickerQuery( this.sitePickerQuery.slice( 0, -1 ) );
+					}
+					return { consume: true };
+				}
+				// Printable character — append to search query
+				if ( data.length === 1 && data >= ' ' && data <= '~' ) {
+					this.setSitePickerQuery( `${ this.sitePickerQuery }${ data }` );
+					return { consume: true };
+				}
+				// Forward remaining input (up/down/enter) to SelectList
+				this.sitePickerSelectList.handleInput( data );
+				this.renderSitePicker();
 				return { consume: true };
 			}
 			if ( matchesKey( data, 'escape' ) && this.interruptCallback ) {
 				this.wasInterrupted = true;
 				this.interruptCallback();
 			}
-			if ( matchesKey( data, 'ctrl+o' ) && this.expandablePreview ) {
+			if ( matchesKey( data, 'ctrl+o' ) && this.activeExpandablePreview ) {
 				this.toggleExpandablePreview();
 				return { consume: true };
 			}
@@ -581,11 +782,11 @@ export class AiChatUI {
 	}
 
 	private async openSitePicker(): Promise< void > {
-		const appdata = await readAppdata();
-		const sites: SiteData[] = appdata.sites ?? [];
+		const config = await readCliConfig();
+		const sites: SiteData[] = config.sites ?? [];
 		if ( sites.length === 0 ) {
 			this.messages.addChild(
-				new Text( chalk.dim( '  No sites found. Create one first.' ), 1, 0 )
+				new Text( chalk.dim( '  ' + __( 'No sites found. Create one first.' ) ), 1, 0 )
 			);
 			this.tui.requestRender();
 			return;
@@ -599,60 +800,196 @@ export class AiChatUI {
 				running: await isSiteRunning( site ),
 			} ) )
 		);
-		this.sitePickerSelectedIndex = 0;
 		this.sitePickerVisible = true;
-		this.updateHints();
+		this.editor.showBottomBar = false;
 		this.sitePickerContainer = new Container();
 		this.tui.addChild( this.sitePickerContainer );
+		this.rebuildSitePickerList();
 		this.renderSitePicker();
+	}
+
+	private async switchToRemoteSites(): Promise< void > {
+		this.resetSitePickerTab( SITE_PICKER_TAB_REMOTE );
+		this.sitePickerRemoteLoading = true;
+		this.sitePickerRemoteItems = [];
+		this.renderSitePicker();
+
+		const token = await readAuthToken();
+		if ( ! token ) {
+			this.showSitePickerError( __( 'Not logged in. Use /login first.' ) );
+			return;
+		}
+
+		try {
+			const sites = await getWpComSites( token.accessToken );
+			this.sitePickerRemoteItems = sites.map( ( site ) => ( {
+				name: site.name,
+				path: '',
+				running: false,
+				remote: true,
+				url: site.url,
+			} ) );
+			this.sitePickerRemoteLoading = false;
+			this.rebuildSitePickerList();
+			this.renderSitePicker();
+		} catch {
+			this.showSitePickerError( __( 'Failed to load WordPress.com sites. Please try again.' ) );
+		}
+	}
+
+	private showSitePickerError( message: string ): void {
+		this.resetSitePickerTab( SITE_PICKER_TAB_LOCAL );
+		this.sitePickerRemoteItems = [];
+		this.rebuildSitePickerList();
+		this.renderSitePicker();
+		this.messages.addChild( new Text( `\n${ chalk.dim( message ) }\n`, 1, 0 ) );
+		this.tui.requestRender();
+	}
+
+	private resetSitePickerTab( tab: SitePickerTab ): void {
+		this.sitePickerTab = tab;
+		this.sitePickerQuery = '';
+		this.sitePickerRemoteLoading = false;
+	}
+
+	private switchToLocalSites(): void {
+		this.resetSitePickerTab( SITE_PICKER_TAB_LOCAL );
+		this.rebuildSitePickerList();
+		this.renderSitePicker();
+	}
+
+	private setSitePickerQuery( query: string ): void {
+		this.sitePickerQuery = query;
+		this.rebuildSitePickerList();
+		this.renderSitePicker();
+	}
+
+	private selectFilteredSite( site: SiteInfo ): void {
+		if ( site.remote ) {
+			this._activeSiteData = null;
+		} else {
+			const originalIndex = this.sitePickerItems.indexOf( site );
+			this._activeSiteData =
+				originalIndex >= 0 ? this.sitePickerSiteData[ originalIndex ] ?? null : null;
+		}
+		this.setActiveSite( site );
+		this.closeSitePicker();
+	}
+
+	private siteInfoToSelectItem( site: SiteInfo ): SelectItem {
+		if ( site.remote ) {
+			return {
+				value: site.url ?? site.name,
+				label: site.name,
+				description: site.url?.replace( /^https?:\/\//, '' ),
+			};
+		}
+		const status = site.running ? `${ chalk.green( '●' ) } ` : '  ';
+		return {
+			value: site.path,
+			label: `${ status }${ site.name }`,
+		};
+	}
+
+	private rebuildSitePickerList(): void {
+		const allItems =
+			this.sitePickerTab === SITE_PICKER_TAB_REMOTE
+				? this.sitePickerRemoteItems
+				: this.sitePickerItems;
+		const filtered = this.sitePickerQuery
+			? allItems.filter( ( site ) => {
+					const query = this.sitePickerQuery.toLowerCase();
+					return (
+						site.name.toLowerCase().includes( query ) ||
+						( site.url && site.url.toLowerCase().includes( query ) )
+					);
+			  } )
+			: allItems;
+		const selectItems = filtered.map( ( site ) => this.siteInfoToSelectItem( site ) );
+		this.sitePickerItemMap = new Map(
+			filtered.map( ( site, i ) => [ selectItems[ i ].value, site ] )
+		);
+		const maxVisible = Math.max( 5, ( process.stdout.rows ?? 24 ) - 4 );
+		this.sitePickerSelectList = new SelectList( selectItems, maxVisible, sitePickerTheme );
+		this.sitePickerSelectList.onSelect = ( item ) => {
+			const site = this.sitePickerItemMap.get( item.value );
+			if ( site ) {
+				this.selectFilteredSite( site );
+			}
+		};
+		this.sitePickerSelectList.onCancel = () => {
+			this.closeSitePicker();
+		};
 	}
 
 	private renderSitePicker(): void {
 		if ( ! this.sitePickerContainer ) {
 			return;
 		}
-		// Clear previous children
-		while (
-			( this.sitePickerContainer as Container & { children?: unknown[] } ).children?.length
-		) {
-			this.sitePickerContainer.removeChild(
-				( this.sitePickerContainer as Container & { children: Component[] } ).children[ 0 ]
+		this.sitePickerContainer.clear();
+
+		const isLocal = this.sitePickerTab === SITE_PICKER_TAB_LOCAL;
+		const localTab = isLocal ? chalk.bold( __( '[Local]' ) ) : chalk.dim( __( 'Local' ) );
+		const remoteTab = isLocal ? chalk.dim( 'WordPress.com' ) : chalk.bold( '[WordPress.com]' );
+		const pad = ' ';
+		const header = `${ pad }${ localTab }  ${ remoteTab }`;
+
+		const searchLine = this.sitePickerQuery
+			? `${ pad }${ chalk.dim( __( 'Search:' ) ) } ${ this.sitePickerQuery }`
+			: '';
+
+		const hints = isLocal
+			? `${ pad }${ __(
+					'↑↓ navigate · → remote sites · enter select · tab open in browser · esc cancel'
+			  ) }`
+			: `${ pad }${ __(
+					'↑↓ navigate · ← local sites · enter select · tab open in browser · esc cancel'
+			  ) }`;
+
+		const lines = [ header, '' ];
+		if ( searchLine ) {
+			lines.push( searchLine, '' );
+		}
+
+		if ( ! isLocal && this.sitePickerRemoteLoading ) {
+			lines.push( chalk.dim( `${ pad }  ${ __( 'Loading WordPress.com sites…' ) }` ) );
+		} else if ( this.sitePickerSelectList ) {
+			const termWidth = process.stdout.columns ?? 80;
+			lines.push(
+				...this.sitePickerSelectList.render( termWidth - pad.length ).map( ( line ) => pad + line )
 			);
 		}
 
-		const header = chalk.dim( '  Select a site:' );
-		const items = this.sitePickerItems.map( ( site, i ) => {
-			const status = site.running ? chalk.green( '●' ) + ' ' : '  ';
-			if ( i === this.sitePickerSelectedIndex ) {
-				return `  ${ chalk.blue( '❯' ) } ${ status }${ chalk.bold( site.name ) }`;
-			}
-			return `    ${ status }${ site.name }`;
-		} );
+		lines.push( '' );
+		lines.push( chalk.dim( hints ) );
 
-		const text = [
-			header,
-			...items,
-			chalk.dim( '  ↑↓ navigate · enter select · space open in browser · esc cancel' ),
-		].join( '\n' );
+		const text = lines.join( '\n' );
 		this.sitePickerContainer.addChild( new Text( text, 0, 0 ) );
 		this.tui.requestRender();
 	}
 
-	private selectSite( index: number ): void {
-		const site = this.sitePickerItems[ index ];
-		if ( site ) {
-			this.setActiveSite( site );
-			this._activeSiteData = this.sitePickerSiteData[ index ] ?? null;
-		}
-		this.closeSitePicker();
-	}
-
-	private setActiveSite( site: SiteInfo ): void {
+	setActiveSite( site: SiteInfo, options: { announce?: boolean; emitEvent?: boolean } = {} ): void {
+		const { announce = true, emitEvent = true } = options;
 		this._activeSite = site;
 		this.editor.activeSiteName = site.name;
-		this.messages.addChild(
-			new Text( chalk.hex( '#8839ef' )( ' ✻ Selected site: ' + site.name ) + '\n', 0, 0 )
-		);
+		this.refreshPromptChrome();
+		const label = site.remote
+			? sprintf(
+					/* translators: %s: site name */
+					__( ' ✻ Selected site: %s (WordPress.com)' ),
+					site.name
+			  )
+			: sprintf(
+					/* translators: %s: site name */
+					__( ' ✻ Selected site: %s' ),
+					site.name
+			  );
+		if ( announce ) {
+			this.messages.addChild( new Text( `${ chalk.hex( '#5b8db8' )( label ) }\n`, 0, 0 ) );
+		}
+		if ( emitEvent ) {
+			this.siteSelectedCallback?.( site );
+		}
 		this.tui.requestRender();
 	}
 
@@ -660,13 +997,14 @@ export class AiChatUI {
 		this._activeSite = null;
 		this._activeSiteData = null;
 		this.editor.activeSiteName = null;
-		this.messages.addChild( new Text( chalk.dim( ' ✻ Site deselected' ) + '\n', 0, 0 ) );
+		this.refreshPromptChrome();
+		this.messages.addChild( new Text( chalk.dim( __( ' ✻ Site deselected' ) ) + '\n', 0, 0 ) );
 		this.tui.requestRender();
 	}
 
 	private async findSiteFromAppdata( nameOrPath: string ): Promise< SiteInfo | null > {
-		const appdata = await readAppdata();
-		const site = appdata.sites.find(
+		const config = await readCliConfig();
+		const site = config.sites.find(
 			( s ) => s.name.toLowerCase() === nameOrPath.toLowerCase() || s.path === nameOrPath
 		);
 		if ( ! site ) {
@@ -682,7 +1020,38 @@ export class AiChatUI {
 	}
 
 	private isSameSite( a: SiteInfo | null, b: SiteInfo ): boolean {
-		return !! a && ( a.name.toLowerCase() === b.name.toLowerCase() || a.path === b.path );
+		if ( ! a ) {
+			return false;
+		}
+		// Remote sites have no stable path, so never match them against local sites
+		if ( a.remote !== b.remote ) {
+			return false;
+		}
+		return a.path === b.path || a.name.toLowerCase() === b.name.toLowerCase();
+	}
+
+	private async selectLocalSiteFromTool(
+		nameOrPath: string,
+		options: { running?: boolean } = {}
+	): Promise< void > {
+		const site = await this.findSiteFromAppdata( nameOrPath );
+		if ( ! site ) {
+			return;
+		}
+
+		if ( typeof options.running === 'boolean' ) {
+			site.running = options.running;
+		}
+
+		if ( this.isSameSite( this._activeSite, site ) ) {
+			this._activeSite = site;
+			this.editor.activeSiteName = site.name;
+			this.refreshPromptChrome();
+			this.tui.requestRender();
+			return;
+		}
+
+		this.setActiveSite( site );
 	}
 
 	private async autoSelectSiteFromToolResult(
@@ -691,63 +1060,37 @@ export class AiChatUI {
 	): Promise< void > {
 		switch ( toolName ) {
 			case 'mcp__studio__site_create': {
-				// site_create tool input has { name: string }
 				const name = toolInput?.name;
 				if ( typeof name === 'string' ) {
-					const site = await this.findSiteFromAppdata( name );
-					if ( site ) {
-						site.running = true; // site_create auto-starts the site
-						this.setActiveSite( site );
-					}
+					await this.selectLocalSiteFromTool( name, { running: true } );
 				}
 				break;
 			}
+			case 'mcp__studio__site_info':
 			case 'mcp__studio__site_start': {
 				const nameOrPath = toolInput?.nameOrPath;
 				if ( typeof nameOrPath === 'string' ) {
-					const site = await this.findSiteFromAppdata( nameOrPath );
-					if ( site ) {
-						site.running = true;
-						if ( this.isSameSite( this._activeSite, site ) ) {
-							this._activeSite = site; // Update running status in-place
-						} else {
-							this.setActiveSite( site );
-						}
-					}
+					await this.selectLocalSiteFromTool( nameOrPath, {
+						running: toolName === 'mcp__studio__site_start' ? true : undefined,
+					} );
 				}
 				break;
 			}
-			case 'mcp__studio__wp_cli': {
+			case 'mcp__studio__wp_cli':
+			case 'mcp__studio__preview_create':
+			case 'mcp__studio__preview_list':
+			case 'mcp__studio__preview_update':
+			case 'mcp__studio__validate_blocks': {
 				const nameOrPath = toolInput?.nameOrPath;
 				if ( typeof nameOrPath === 'string' ) {
-					if (
-						! this._activeSite ||
-						! this.isSameSite( this._activeSite, {
-							name: nameOrPath,
-							path: nameOrPath,
-							running: true,
-						} )
-					) {
-						const site = await this.findSiteFromAppdata( nameOrPath );
-						if ( site ) {
-							this.setActiveSite( site );
-						}
-					}
+					await this.selectLocalSiteFromTool( nameOrPath );
 				}
 				break;
 			}
 			case 'mcp__studio__site_stop': {
 				const nameOrPath = toolInput?.nameOrPath;
-				if (
-					typeof nameOrPath === 'string' &&
-					this._activeSite &&
-					this.isSameSite( this._activeSite, {
-						name: nameOrPath,
-						path: nameOrPath,
-						running: false,
-					} )
-				) {
-					this._activeSite = { ...this._activeSite, running: false };
+				if ( typeof nameOrPath === 'string' ) {
+					await this.selectLocalSiteFromTool( nameOrPath, { running: false } );
 				}
 				break;
 			}
@@ -770,7 +1113,20 @@ export class AiChatUI {
 	}
 
 	private async openSelectedSite(): Promise< void > {
-		const siteData = this.sitePickerSiteData[ this.sitePickerSelectedIndex ];
+		const selectedItem = this.sitePickerSelectList?.getSelectedItem();
+		const site = selectedItem ? this.sitePickerItemMap.get( selectedItem.value ) : undefined;
+		if ( ! site ) {
+			return;
+		}
+		if ( site.remote && site.url ) {
+			await openBrowser( site.url );
+			return;
+		}
+		if ( ! site.running ) {
+			return;
+		}
+		const originalIndex = this.sitePickerItems.indexOf( site );
+		const siteData = originalIndex >= 0 ? this.sitePickerSiteData[ originalIndex ] : undefined;
 		if ( ! siteData ) {
 			return;
 		}
@@ -781,13 +1137,25 @@ export class AiChatUI {
 	}
 
 	async openActiveSiteInBrowser(): Promise< boolean > {
-		if ( ! this._activeSiteData ) {
+		if ( this._activeSite?.remote && this._activeSite?.url ) {
+			await openBrowser( this._activeSite.url );
+			return true;
+		}
+		if ( ! this._activeSite && ! this._activeSiteData ) {
 			return false;
 		}
 		// Re-read appdata to get the current site state (port/domain may have changed)
-		const appdata = await readAppdata();
-		const freshSiteData = appdata.sites?.find( ( s ) => s.name === this._activeSite?.name );
+		const config = await readCliConfig();
+		const activeSiteName = this._activeSite?.name ?? this._activeSiteData?.name;
+		const freshSiteData = config.sites?.find( ( site ) => site.name === activeSiteName );
 		const siteData = freshSiteData ?? this._activeSiteData;
+		if ( siteData ) {
+			this._activeSiteData = siteData;
+		}
+		if ( ! siteData ) {
+			return false;
+		}
+
 		const url = getSiteUrl( siteData );
 		if ( url ) {
 			await openBrowser( url );
@@ -804,32 +1172,58 @@ export class AiChatUI {
 		this.sitePickerVisible = false;
 		this.sitePickerItems = [];
 		this.sitePickerSiteData = [];
+		this.sitePickerRemoteItems = [];
+		this.sitePickerSelectList = null;
+		this.sitePickerItemMap = new Map();
+		this.resetSitePickerTab( SITE_PICKER_TAB_LOCAL );
+		this.editor.showBottomBar = true;
 		this.updateHints();
 		this.tui.requestRender();
 	}
 
 	private renderOptionPicker(): void {
-		if ( ! this.optionPickerContainer ) {
+		if ( ! this.optionPickerContainer || ! this.optionPickerSelectList ) {
 			return;
 		}
-		while (
-			( this.optionPickerContainer as Container & { children?: unknown[] } ).children?.length
-		) {
-			this.optionPickerContainer.removeChild(
-				( this.optionPickerContainer as Container & { children: Component[] } ).children[ 0 ]
-			);
+		this.optionPickerContainer.clear();
+
+		const width = ( process.stdout.columns ?? 80 ) - 1;
+		const lines = this.optionPickerSelectList.render( width );
+
+		// When "Other" is active, replace the last line with the inline input
+		if ( this.optionPickerOtherActive && this.optionPickerInput && lines.length > 0 ) {
+			const inputText = this.optionPickerInput.getValue();
+			const cursor = chalk.inverse( ' ' );
+			const display = inputText
+				? chalk.blue( inputText ) + cursor
+				: chalk.dim( __( 'Type your answer…' ) ) + cursor;
+			lines[ lines.length - 1 ] = `${ chalk.blue( '→' ) } ${ display }`;
 		}
 
-		const items = this.optionPickerItems.map( ( opt, i ) => {
-			if ( i === this.optionPickerSelectedIndex ) {
-				return `  ${ chalk.blue( '❯' ) } ${ i + 1 }. ${ chalk.blue( opt.label ) }`;
-			}
-			return `    ${ i + 1 }. ${ opt.label }`;
-		} );
-
-		const text = items.join( '\n' );
-		this.optionPickerContainer.addChild( new Text( text, 0, 0 ) );
+		this.optionPickerContainer.addChild( new Text( lines.join( '\n' ), 1, 0 ) );
 		this.tui.requestRender();
+	}
+
+	private activateOptionPickerOther(): void {
+		if ( this.optionPickerOtherActive ) {
+			return;
+		}
+		this.optionPickerOtherActive = true;
+		this.optionPickerInput = new Input();
+		this.optionPickerInput.onSubmit = ( value: string ) => {
+			const trimmed = value.trim();
+			if ( trimmed && this.optionPickerResolve ) {
+				const resolve = this.optionPickerResolve;
+				this.optionPickerResolve = null;
+				this.closeOptionPicker();
+				resolve( trimmed );
+			}
+		};
+	}
+
+	private deactivateOptionPickerOther(): void {
+		this.optionPickerOtherActive = false;
+		this.optionPickerInput = null;
 	}
 
 	private closeOptionPicker(): void {
@@ -838,7 +1232,10 @@ export class AiChatUI {
 			this.optionPickerContainer = null;
 		}
 		this.optionPickerVisible = false;
-		this.optionPickerItems = [];
+		this.optionPickerSelectList = null;
+		this.optionPickerHasFreeForm = false;
+		this.optionPickerItemCount = 0;
+		this.deactivateOptionPickerOther();
 		this.tui.requestRender();
 	}
 
@@ -874,7 +1271,7 @@ export class AiChatUI {
 				} · ${ displayCwd }`
 			),
 			'',
-			chalk.dim.italic( 'Code is Poetry' ),
+			chalk.dim.italic( __( 'Code is Poetry' ) ),
 		];
 
 		// Lay out logo on the left, info on the right (vertically centered)
@@ -914,9 +1311,9 @@ export class AiChatUI {
 		const formatted = lines
 			.map( ( line, i ) => {
 				if ( i === 0 ) {
-					return ' ' + chalk.bgHex( '#eeeeee' ).black( '❯ ' + line + ' ' );
+					return ' ' + chalk.bgHex( '#ddeeff' ).black( '〉' + line + ' ' );
 				}
-				return ' ' + chalk.bgHex( '#eeeeee' ).black( '   ' + line + ' ' );
+				return ' ' + chalk.bgHex( '#ddeeff' ).black( '  ' + line + ' ' );
 			} )
 			.join( '\n' );
 		this.messages.addChild( new Text( '\n' + formatted, 0, 0 ) );
@@ -961,20 +1358,16 @@ export class AiChatUI {
 	}
 
 	private updateHints(): void {
-		if ( this.sitePickerVisible ) {
-			this.editor.hints = [];
-			return;
-		}
 		const hints: string[] = [];
 		if ( ! this._inAgentTurn ) {
-			hints.push( '↓ select site' );
+			hints.push( __( '↓ select site' ) );
 		}
-		if ( this.expandablePreview && ! this.expandablePreview.isExpanded ) {
-			hints.push( 'ctrl+o expand' );
-		} else if ( this.expandablePreview?.isExpanded ) {
-			hints.push( 'ctrl+o collapse' );
+		if ( this.activeExpandablePreview ) {
+			hints.push(
+				this.activeExpandablePreview.isExpanded ? __( 'ctrl+o collapse' ) : __( 'ctrl+o expand' )
+			);
 		}
-		hints.push( 'esc to interrupt' );
+		hints.push( __( 'esc to interrupt' ) );
 		this.editor.hints = hints;
 	}
 
@@ -1008,7 +1401,7 @@ export class AiChatUI {
 		this.currentResponseText = '';
 		this.hasShownResponseMarker = false;
 		this.wasInterrupted = false;
-		this.turnStartTime = Date.now();
+		this.turnStartTime = this.nowMs();
 		this.todoSnapshot = [];
 		this.latestTodoSnapshot = [];
 		this.lastRenderedTodoSignature = null;
@@ -1036,6 +1429,151 @@ export class AiChatUI {
 		this.pendingTodoRenderOrder = [];
 	}
 
+	showOnboarding(): void {
+		const text =
+			' ' +
+			chalk.blue( '⏺' ) +
+			' ' +
+			sprintf(
+				/* translators: %s: product name (WordPress Studio) */
+				__( "Hello, I'm %s, your local WordPress agent and builder." ),
+				chalk.bold( 'WordPress Studio' )
+			);
+
+		this.messages.addChild( new Text( '\n' + text + '\n', 0, 0 ) );
+		this.tui.requestRender();
+	}
+
+	showCapabilities(): void {
+		const b = chalk.bold;
+		const d = chalk.dim;
+		const separator = d( ' ─'.padEnd( 80, '─' ) );
+
+		const lines = [
+			' ' +
+				chalk.blue( '⏺' ) +
+				' ' +
+				__( "Great, you're connected now! Let me tell you what I can do:" ),
+			'',
+			'  ' + b( __( 'Site Management' ) ),
+			'',
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "Create" */
+					__( '%s new WordPress sites instantly (fully configured, ready to use)' ),
+					b( __( 'Create' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "Start / stop" */
+					__( '%s existing sites' ),
+					b( __( 'Start / stop' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "List" */
+					__( '%s all your local sites and their status' ),
+					b( __( 'List' ) )
+				),
+			'',
+			'  ' + b( __( 'Design & Development' ) ),
+			'',
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "Build" */
+					__( '%s block themes with striking, memorable designs' ),
+					b( __( 'Build' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "CSS, PHP, and JavaScript" */
+					__( 'Write custom %s for themes and plugins' ),
+					b( __( 'CSS, PHP, and JavaScript' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "pages and posts" */
+					__( 'Create %s with valid Gutenberg block content' ),
+					b( __( 'pages and posts' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "plugins" */
+					__( 'Install and activate %s via WP-CLI' ),
+					b( __( 'plugins' ) )
+				),
+			'',
+			'  ' + b( __( 'Content' ) ),
+			'',
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "page content" */
+					__( 'Generate and import %s using core blocks' ),
+					b( __( 'page content' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "navigation menus, site options, post types, taxonomies, and settings" */
+					__( 'Set up %s' ),
+					b( __( 'navigation menus, site options, post types, taxonomies, and settings' ) )
+				),
+			'  - ' + __( "Create realistic placeholder content tailored to your site's purpose" ),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "images and videos" */
+					__( 'Upload %s to your site, using local media files or remote URLs' ),
+					b( __( 'images and videos' ) )
+				),
+			'',
+			'  ' + b( __( 'Preview & Publishing' ) ),
+			'',
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "screenshots" */
+					__( 'Take %s (desktop + mobile) to verify the design is well crafted' ),
+					b( __( 'screenshots' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "Validate" */
+					__( "%s all block content to ensure it's editor-compatible" ),
+					b( __( 'Validate' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "Push" */
+					__( '%s your local site to the cloud in WordPress.com' ),
+					b( __( 'Push' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "Generate preview sites" */
+					__( '%s with shareable URLs for quick feedback' ),
+					b( __( 'Generate preview sites' ) )
+				),
+			'',
+			separator,
+			'',
+			'  ' + __( 'Just tell me what you want to build — for example:' ),
+			'',
+			'  ' + d( chalk.italic( __( '"Create a portfolio site for a photographer"' ) ) ),
+			'  ' + d( chalk.italic( __( '"Build a landing page for a SaaS product"' ) ) ),
+			'  ' + d( chalk.italic( __( '"Make a blog for a coffee shop"' ) ) ),
+			'',
+			'  ' +
+				__(
+					"I'll ask a few quick questions about the name and layout, then build the whole thing for you. The more precise you are about what you want, the better the result will be."
+				),
+		];
+		this.messages.addChild( new Text( '\n' + lines.join( '\n' ) + '\n', 0, 0 ) );
+		this.tui.requestRender();
+	}
+
+	showSuccess( message: string ): void {
+		this.messages.addChild( new Text( '\n ' + chalk.green( '⏺' ) + ' ' + message + '\n', 0, 0 ) );
+		this.tui.requestRender();
+	}
+
 	showError( message: string ): void {
 		this.messages.addChild(
 			new Text( '\n ' + chalk.red( '⏺' ) + ' ' + chalk.red( message ) + '\n', 0, 0 )
@@ -1048,9 +1586,39 @@ export class AiChatUI {
 		this.tui.requestRender();
 	}
 
+	showProgress( message: string ): void {
+		this.messages.addChild( new Text( '\n ' + '⏺' + ' ' + message + '\n', 0, 0 ) );
+		this.tui.requestRender();
+	}
+
 	setStatusMessage( message: string | null ): void {
 		this.editor.statusMessage = message;
 		this.tui.requestRender();
+	}
+
+	private busyTimer: ReturnType< typeof setInterval > | null = null;
+	private busyFrameIndex = 0;
+	private static readonly BUSY_FRAMES = [ '⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏' ];
+
+	setBusy( active: boolean ): void {
+		if ( this.busyTimer ) {
+			clearInterval( this.busyTimer );
+			this.busyTimer = null;
+		}
+
+		if ( active ) {
+			this.busyFrameIndex = 0;
+			this.editor.busyMessage = AiChatUI.BUSY_FRAMES[ 0 ];
+			this.tui.requestRender();
+			this.busyTimer = setInterval( () => {
+				this.busyFrameIndex = ( this.busyFrameIndex + 1 ) % AiChatUI.BUSY_FRAMES.length;
+				this.editor.busyMessage = AiChatUI.BUSY_FRAMES[ this.busyFrameIndex ];
+				this.tui.requestRender();
+			}, 80 );
+		} else {
+			this.editor.busyMessage = null;
+			this.tui.requestRender();
+		}
 	}
 
 	private showFilePreview( toolName: string, input: Record< string, unknown > ): void {
@@ -1070,22 +1638,45 @@ export class AiChatUI {
 			return;
 		}
 
+		this.addExpandablePreview( preview );
+	}
+
+	private addExpandablePreview( preview: { collapsed: string; expanded: string } ): void {
 		const textComponent = new Text( preview.collapsed, 0, 0 );
 		this.messages.addChild( textComponent );
 
 		if ( preview.collapsed !== preview.expanded ) {
-			this.expandablePreview = {
+			this.activeExpandablePreview = {
 				textComponent,
 				collapsedContent: preview.collapsed,
 				expandedContent: preview.expanded,
 				isExpanded: false,
 			};
 			this.updateHints();
-		} else {
-			this.expandablePreview = null;
 		}
 
 		this.tui.requestRender();
+	}
+
+	private generateExpandablePreview( lines: string[] ): { collapsed: string; expanded: string } {
+		const expanded = formatToolOutputLines( lines );
+
+		if ( lines.length <= DEFAULT_COLLAPSE_THRESHOLD_LINES ) {
+			return { collapsed: expanded, expanded };
+		}
+
+		const collapsed =
+			formatToolOutputLines( lines.slice( 0, DEFAULT_COLLAPSE_THRESHOLD_LINES ) ) +
+			'\n     ' +
+			chalk.dim(
+				sprintf(
+					/* translators: %d: number of hidden lines */
+					__( '... %d more lines · ctrl+o to expand' ),
+					lines.length - DEFAULT_COLLAPSE_THRESHOLD_LINES
+				)
+			);
+
+		return { collapsed, expanded };
 	}
 
 	private generateWritePreview( content: string ): { collapsed: string; expanded: string } {
@@ -1093,29 +1684,12 @@ export class AiChatUI {
 		const totalLines = lines.length;
 		const numWidth = String( totalLines ).length;
 
-		const formatLines = ( lineList: string[] ) => {
-			return lineList
-				.map( ( line, i ) => {
-					const lineNum = chalk.dim( String( i + 1 ).padStart( numWidth ) );
-					return '   ' + chalk.dim( '⎿ ' ) + lineNum + ' ' + chalk.green( line );
-				} )
-				.join( '\n' );
-		};
-
-		if ( totalLines <= FILE_PREVIEW_MAX_LINES ) {
-			const formatted = formatLines( lines );
-			return { collapsed: formatted, expanded: formatted };
-		}
-
-		const collapsed =
-			formatLines( lines.slice( 0, FILE_PREVIEW_MAX_LINES ) ) +
-			'\n   ' +
-			chalk.dim(
-				'⎿ ... ' + ( totalLines - FILE_PREVIEW_MAX_LINES ) + ' more lines · ctrl+o to expand'
-			);
-		const expanded = formatLines( lines );
-
-		return { collapsed, expanded };
+		return this.generateExpandablePreview(
+			lines.map( ( line, i ) => {
+				const lineNum = chalk.dim( String( i + 1 ).padStart( numWidth ) );
+				return lineNum + ' ' + chalk.green( line );
+			} )
+		);
 	}
 
 	private generateEditPreview(
@@ -1127,36 +1701,21 @@ export class AiChatUI {
 
 		const diffLines: string[] = [];
 		for ( const line of oldLines ) {
-			diffLines.push( '   ' + chalk.dim( '⎿ ' ) + chalk.red( '- ' + line ) );
+			diffLines.push( chalk.red( '- ' + line ) );
 		}
 		for ( const line of newLines ) {
-			diffLines.push( '   ' + chalk.dim( '⎿ ' ) + chalk.green( '+ ' + line ) );
+			diffLines.push( chalk.green( '+ ' + line ) );
 		}
 
-		const totalDiffLines = diffLines.length;
-
-		if ( totalDiffLines <= FILE_PREVIEW_MAX_LINES ) {
-			const formatted = diffLines.join( '\n' );
-			return { collapsed: formatted, expanded: formatted };
-		}
-
-		const collapsed =
-			diffLines.slice( 0, FILE_PREVIEW_MAX_LINES ).join( '\n' ) +
-			'\n   ' +
-			chalk.dim(
-				'⎿ ... ' + ( totalDiffLines - FILE_PREVIEW_MAX_LINES ) + ' more lines · ctrl+o to expand'
-			);
-		const expanded = diffLines.join( '\n' );
-
-		return { collapsed, expanded };
+		return this.generateExpandablePreview( diffLines );
 	}
 
 	private toggleExpandablePreview(): void {
-		if ( ! this.expandablePreview ) {
+		const preview = this.activeExpandablePreview;
+		if ( ! preview ) {
 			return;
 		}
 
-		const preview = this.expandablePreview;
 		preview.isExpanded = ! preview.isExpanded;
 		preview.textComponent.setText(
 			preview.isExpanded ? preview.expandedContent : preview.collapsedContent
@@ -1184,6 +1743,10 @@ export class AiChatUI {
 		this.toolDotText = new Text( '\n ' + '⏺' + ' ' + toolLabel, 0, 0 );
 		this.messages.addChild( this.toolDotText );
 		this.toolDotVisible = true;
+		if ( this.replayMode ) {
+			this.tui.requestRender();
+			return;
+		}
 		this.toolDotTimer = setInterval( () => {
 			if ( ! this.toolDotText ) {
 				return;
@@ -1198,18 +1761,32 @@ export class AiChatUI {
 	private getToolResultContent(
 		message: SDKMessage & { type: 'user' }
 	): ToolUseResultContent | null {
-		const result = message.tool_use_result;
-		if ( ! result || typeof result !== 'object' ) {
+		const toolUseResult = normalizeToolUseResult( message.tool_use_result );
+		if (
+			toolUseResult &&
+			( toolUseResult.content !== undefined || toolUseResult.isError === true )
+		) {
+			return toolUseResult;
+		}
+
+		const contentBlocks = Array.isArray( message.message.content ) ? message.message.content : [];
+		const toolResultBlock = contentBlocks.find( isToolResultBlock );
+		if ( ! toolResultBlock ) {
 			return null;
 		}
 
-		return result as ToolUseResultContent;
+		return {
+			content: normalizeToolResultContent( toolResultBlock.content ),
+			isError: toolResultBlock.is_error === true,
+		};
 	}
 
 	private finalizeToolUseLine( isError: boolean, label: string ): void {
-		const elapsed = this.toolStartTime ? Date.now() - this.toolStartTime : 0;
+		const elapsed = this.toolStartTime ? this.nowMs() - this.toolStartTime : 0;
 		this.toolStartTime = null;
-		const elapsedStr = elapsed > 0 ? chalk.dim( ` (${ ( elapsed / 1000 ).toFixed( 1 ) }s)` ) : '';
+		const elapsedSeconds = Math.max( elapsed, 0 ) / 1000;
+		const elapsedStr =
+			elapsed > 0 || this.replayMode ? chalk.dim( ` (${ elapsedSeconds.toFixed( 1 ) }s)` ) : '';
 		const statusIcon = isError ? chalk.red( '⏺' ) : '⏺';
 
 		if ( this.toolDotText ) {
@@ -1224,28 +1801,14 @@ export class AiChatUI {
 	}
 
 	private renderTodoUpdate( pendingTodoRender: PendingTodoRender ): void {
-		const lines: RenderableToolLine[] = [
-			...pendingTodoRender.diff.added.map( ( todo ) => ( {
-				text: formatTodoAction( 'added', todo ),
-			} ) ),
-			...pendingTodoRender.diff.completed.map( ( todo ) => ( {
-				text: formatTodoAction( 'completed', todo ),
-			} ) ),
-			...( pendingTodoRender.diff.snapshot.length > 0
-				? [
-						{ text: 'Todo list:', dim: true } as RenderableToolLine,
-						...pendingTodoRender.diff.snapshot.map( ( todo ) => ( {
-							text: formatTodoSnapshotLine( todo ),
-						} ) ),
-				  ]
-				: [] ),
-		];
-		const formatted = lines
-			.map(
-				( line ) => '   ' + chalk.dim( '⎿ ' ) + ( line.dim ? chalk.dim( line.text ) : line.text )
-			)
-			.join( '\n' );
-		this.messages.addChild( new Text( formatted, 0, 0 ) );
+		const lines: TodoRenderLine[] = buildTodoUpdateLines( pendingTodoRender.diff.snapshot );
+		if ( lines.length === 0 ) {
+			return;
+		}
+		const rendered = formatToolOutputLines(
+			lines.map( ( line ) => ( line.dim ? chalk.dim( line.text ) : line.text ) )
+		);
+		this.messages.addChild( new Text( rendered, 0, 0 ) );
 	}
 
 	private syncLatestTodoSnapshot(): void {
@@ -1264,6 +1827,28 @@ export class AiChatUI {
 		this.pendingTodoRenders.delete( toolUseId );
 		this.pendingTodoRenderOrder = this.pendingTodoRenderOrder.filter( ( id ) => id !== toolUseId );
 		return pendingTodoRender;
+	}
+
+	private consumeLatestPendingToolCall(): {
+		id: string;
+		name: string;
+		input: Record< string, unknown >;
+	} | null {
+		let latestPendingToolCall: {
+			id: string;
+			name: string;
+			input: Record< string, unknown >;
+		} | null = null;
+
+		for ( const [ id, toolCall ] of this.pendingToolCalls.entries() ) {
+			latestPendingToolCall = { id, ...toolCall };
+		}
+
+		if ( latestPendingToolCall ) {
+			this.pendingToolCalls.delete( latestPendingToolCall.id );
+		}
+
+		return latestPendingToolCall;
 	}
 
 	private renderToolResultText(
@@ -1286,10 +1871,9 @@ export class AiChatUI {
 		const maxLength = toolName === 'mcp__studio__validate_blocks' ? 2000 : 500;
 		const truncated = text.length > maxLength ? text.slice( 0, maxLength ) + '…' : text;
 		const resultLines = truncated.split( '\n' );
-		const formatted = resultLines
-			.map( ( line ) => '   ' + chalk.dim( '⎿ ' ) + chalk.dim( line ) )
-			.join( '\n' );
-		this.messages.addChild( new Text( formatted, 0, 0 ) );
+		this.addExpandablePreview(
+			this.generateExpandablePreview( resultLines.map( ( line ) => chalk.dim( line ) ) )
+		);
 	}
 
 	private showToolResult(
@@ -1376,21 +1960,53 @@ export class AiChatUI {
 
 		for ( const q of questions ) {
 			// Display the question
-			this.messages.addChild( new Text( '\n' + chalk.bold( q.question ), 0, 0 ) );
+			this.messages.addChild( new Text( '\n' + chalk.bold( q.question ), 1, 0 ) );
 			this.tui.requestRender();
 
 			if ( q.options.length > 0 ) {
-				// Use arrow-key option picker
+				// Use SelectList for option-based questions.
+				// When allowFreeForm is true, append an "Other" option with inline input.
 				this.hideEditor();
-				this.optionPickerItems = q.options;
-				this.optionPickerSelectedIndex = 0;
+				const selectItems: SelectItem[] = q.options.map( ( opt, i ) => ( {
+					value: opt.label,
+					label: `${ i + 1 }. ${ opt.label }`,
+					description: opt.description,
+				} ) );
+				this.optionPickerHasFreeForm = q.allowFreeForm === true;
+				if ( this.optionPickerHasFreeForm ) {
+					selectItems.push( {
+						value: AiChatUI.OTHER_VALUE,
+						label: __( 'Other (type my own)' ),
+					} );
+				}
+
+				this.optionPickerItemCount = selectItems.length;
+				const selectList = new SelectList(
+					selectItems,
+					selectItems.length,
+					AiChatUI.OPTION_PICKER_THEME
+				);
+
+				this.optionPickerSelectList = selectList;
 				this.optionPickerVisible = true;
 				this.optionPickerContainer = new Container();
 				this.tui.addChild( this.optionPickerContainer );
-				this.renderOptionPicker();
+				this.optionPickerContainer.addChild( this.optionPickerSelectList );
+				this.tui.requestRender();
 
 				const selected = await new Promise< string >( ( resolve ) => {
 					this.optionPickerResolve = resolve;
+					selectList.onSelect = ( item: SelectItem ) => {
+						if ( item.value === AiChatUI.OTHER_VALUE ) {
+							// "Other" selected via enter without typing — activate input
+							this.activateOptionPickerOther();
+							this.renderOptionPicker();
+							return;
+						}
+						this.optionPickerResolve = null;
+						this.closeOptionPicker();
+						resolve( item.value );
+					};
 				} );
 
 				answers[ q.question ] = selected;
@@ -1414,7 +2030,7 @@ export class AiChatUI {
 		message: SDKMessage
 	):
 		| { sessionId: string; success: boolean; maxTurnsReached?: undefined }
-		| { sessionId: string; maxTurnsReached: true; numTurns: number; costUsd: number }
+		| { sessionId: string; maxTurnsReached: true; numTurns: number }
 		| undefined {
 		switch ( message.type ) {
 			case 'assistant': {
@@ -1441,7 +2057,7 @@ export class AiChatUI {
 						);
 						this.tui.requestRender();
 					} else if ( block.type === 'tool_use' ) {
-						this.toolStartTime = Date.now();
+						this.toolStartTime = this.nowMs();
 						const typedBlock = block as {
 							id: string;
 							name: string;
@@ -1477,7 +2093,7 @@ export class AiChatUI {
 				}
 				// Always show the loader after processing — the agent turn is still active
 				// and more messages are coming (next API call, tool execution, etc.)
-				if ( ! this.loaderVisible ) {
+				if ( ! this.replayMode && ! this.loaderVisible ) {
 					this.showLoader( this.randomThinkingMessage() );
 				}
 				return undefined;
@@ -1495,7 +2111,8 @@ export class AiChatUI {
 				} else if ( ! toolCallId && this.pendingTodoRenderOrder.length > 0 ) {
 					this.showTodoToolResult( message, this.pendingTodoRenderOrder[ 0 ] );
 				} else {
-					this.showToolResult( message, toolCall?.name, toolCall?.input );
+					const fallbackToolCall = toolCall ?? this.consumeLatestPendingToolCall();
+					this.showToolResult( message, fallbackToolCall?.name, fallbackToolCall?.input );
 				}
 				// Close the current markdown block so the next assistant text
 				// creates a fresh visual block (mirrors askUser / endAgentTurn).
@@ -1506,25 +2123,44 @@ export class AiChatUI {
 			case 'result': {
 				this.hideLoader();
 				if ( message.subtype === 'success' ) {
-					const thinkingSec = Math.round( ( Date.now() - this.turnStartTime ) / 1000 );
+					const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
 					if ( ! this.hasShownResponseMarker ) {
-						this.messages.addChild( new Text( '\n ' + chalk.blue( '⏺' ) + ' Done', 0, 0 ) );
+						this.messages.addChild(
+							new Text( '\n ' + chalk.blue( '⏺' ) + ' ' + __( 'Done' ), 0, 0 )
+						);
 					}
 					this.showInfo(
-						`Thought for ${ thinkingSec }s · ${
+						sprintf(
+							/* translators: 1: seconds spent thinking, 2: number of turns */
+							_n(
+								'Thought for %1$ds · %2$d turn',
+								'Thought for %1$ds · %2$d turns',
+								message.num_turns
+							),
+							thinkingSec,
 							message.num_turns
-						} turns · $${ message.total_cost_usd.toFixed( 4 ) }`
+						)
 					);
 					return { sessionId: message.session_id, success: true };
 				}
 
 				// User-initiated interruption: show friendly message instead of error
 				if ( this.wasInterrupted ) {
-					const thinkingSec = Math.round( ( Date.now() - this.turnStartTime ) / 1000 );
+					const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
 					this.messages.addChild(
-						new Text( '\n ' + chalk.yellow( '⏺' ) + ' ' + chalk.yellow( 'Interrupted' ), 0, 0 )
+						new Text(
+							'\n ' + chalk.yellow( '⏺' ) + ' ' + chalk.yellow( __( 'Interrupted' ) ),
+							0,
+							0
+						)
 					);
-					this.showInfo( `Ran for ${ thinkingSec }s before interruption` );
+					this.showInfo(
+						sprintf(
+							/* translators: %d: number of seconds */
+							__( 'Ran for %ds before interruption' ),
+							thinkingSec
+						)
+					);
 					return { sessionId: message.session_id, success: false };
 				}
 
@@ -1538,17 +2174,22 @@ export class AiChatUI {
 						sessionId: message.session_id,
 						maxTurnsReached: true,
 						numTurns: message.num_turns,
-						costUsd: message.total_cost_usd,
 					};
 				} else if ( message.subtype ) {
 					parts.push( `(${ message.subtype })` );
 				}
 				if ( 'permission_denials' in message && message.permission_denials?.length ) {
 					for ( const denial of message.permission_denials ) {
-						parts.push( `Permission denied: ${ denial.tool_name }` );
+						parts.push(
+							sprintf(
+								/* translators: %s: tool name */
+								__( 'Permission denied: %s' ),
+								denial.tool_name
+							)
+						);
 					}
 				}
-				this.showError( parts.length > 0 ? parts.join( '\n' ) : 'Unknown error' );
+				this.showError( parts.length > 0 ? parts.join( '\n' ) : __( 'Unknown error' ) );
 				return { sessionId: message.session_id, success: false };
 			}
 		}

@@ -7,6 +7,11 @@ import {
 	MenuItem,
 	shell,
 } from 'electron';
+import {
+	getAppConfigPath,
+	getCliConfigPath,
+	getSharedConfigPath,
+} from '@studio/common/lib/well-known-paths';
 import { __ } from '@wordpress/i18n';
 import { openAboutWindow } from 'src/about-menu/open-about-menu';
 import { BUG_REPORT_URL, FEATURE_REQUEST_URL } from 'src/constants';
@@ -57,10 +62,10 @@ export function removeMenu() {
 	Menu.setApplicationMenu( null );
 }
 
-export async function popupMenu() {
+export async function popupMenu( position?: { x: number; y: number } ) {
 	const window = await getMainWindow();
 	const menu = await getAppMenu( window );
-	menu.popup();
+	menu.popup( { window: window ?? undefined, ...position } );
 }
 
 async function buildBetaFeaturesMenu(): Promise< MenuItemConstructorOptions[] > {
@@ -153,7 +158,7 @@ async function getAppMenu(
 					label: __( 'Settings…' ),
 					accelerator: 'CommandOrControl+,',
 					click: async () => {
-						void sendIpcEventToRenderer( 'user-settings', { tabName: 'preferences' } );
+						void sendIpcEventToRenderer( 'user-settings', { tabName: 'general' } );
 					},
 				},
 				{
@@ -173,6 +178,41 @@ async function getAppMenu(
 				...( process.env.NODE_ENV === 'development' ? crashTestMenuItems : [] ),
 				...( process.env.NODE_ENV === 'development'
 					? [
+							{
+								label: __( 'Open Config Files (dev only)' ),
+								submenu: [
+									{
+										label: __( 'App Config (app.json)' ),
+										click: async () => {
+											const configPath = getAppConfigPath();
+											const err = await shell.openPath( configPath );
+											if ( err ) {
+												console.error( `Error opening config file: ${ configPath } ${ err }` );
+											}
+										},
+									},
+									{
+										label: __( 'Shared Config (shared.json)' ),
+										click: async () => {
+											const configPath = getSharedConfigPath();
+											const err = await shell.openPath( configPath );
+											if ( err ) {
+												console.error( `Error opening config file: ${ configPath } ${ err }` );
+											}
+										},
+									},
+									{
+										label: __( 'CLI Config (cli.json)' ),
+										click: async () => {
+											const configPath = getCliConfigPath();
+											const err = await shell.openPath( configPath );
+											if ( err ) {
+												console.error( `Error opening config file: ${ configPath } ${ err }` );
+											}
+										},
+									},
+								],
+							},
 							{
 								label: __( 'Feature Flags' ),
 								submenu: featureFlagsMenu,

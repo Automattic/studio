@@ -18,6 +18,49 @@ import { areDirectoriesDifferentBySizeAndMtime } from './utils';
 import { getWordPressVersionFromInstallation, updateLatestWordPressVersion } from './wordpress';
 import { updateLatestWpCliVersion } from './wp-cli';
 
+type VersionReader = () => Promise< semver.SemVer | null >;
+
+async function copyBundledDependencyIfNewerOrMissing( {
+	sourceDirectoryPath,
+	targetDirectoryPath,
+	readSourceVersion,
+	readTargetVersion,
+}: {
+	sourceDirectoryPath: string;
+	targetDirectoryPath: string;
+	readSourceVersion: VersionReader;
+	readTargetVersion: VersionReader;
+} ) {
+	if ( ! fs.existsSync( sourceDirectoryPath ) ) {
+		return;
+	}
+
+	let bundledVersion: Awaited< ReturnType< VersionReader > >;
+
+	try {
+		bundledVersion = await readSourceVersion();
+		if ( ! bundledVersion ) {
+			return;
+		}
+	} catch {
+		// Do nothing if the bundled version cannot be read
+		return;
+	}
+
+	try {
+		const serverFilesVersion = await readTargetVersion();
+		const isBundledVersionNewer =
+			serverFilesVersion && semver.gt( bundledVersion, serverFilesVersion );
+
+		if ( ! serverFilesVersion || isBundledVersionNewer ) {
+			await recursiveCopyDirectory( sourceDirectoryPath, targetDirectoryPath );
+		}
+	} catch {
+		// Fall back to copying the bundled version if the server files version cannot be read
+		await recursiveCopyDirectory( sourceDirectoryPath, targetDirectoryPath );
+	}
+}
+
 // Compare the WordPress version in the bundled `wp-files/latest/wordpress` directory (that ships
 // with the CLI) to `~/.studio/server-files/wordpress-versions/latest`. If the bundled directory is
 // newer, rename the old `wordpress-versions/latest` directory to `wordpress-versions/$VERSION` and
@@ -27,7 +70,7 @@ async function copyBundledLatestWpVersion() {
 	const bundledWpVersion = await getWordPressVersionFromInstallation( bundledWpVersionPath );
 	const bundledWpSemver = semver.coerce( bundledWpVersion );
 
-	if ( ! bundledWpVersion || ! bundledWpSemver ) {
+	if ( ! bundledWpSemver ) {
 		return;
 	}
 
@@ -51,24 +94,20 @@ const SQLITE_FILENAME = 'sqlite-database-integration';
 
 async function copyBundledSqlite() {
 	const bundledSqlitePath = path.join( getWpFilesPath(), SQLITE_FILENAME );
-	const bundledSqliteVersion = semver.coerce(
-		await getSqliteVersionFromInstallation( bundledSqlitePath ),
-		{ includePrerelease: true }
-	);
-	if ( ! bundledSqliteVersion ) {
-		return;
-	}
 	const installedSqlitePath = getSqlitePluginPath();
-	const isSqliteInstalled = fs.existsSync( installedSqlitePath );
-	const installedSqliteVersion = semver.coerce(
-		await getSqliteVersionFromInstallation( installedSqlitePath ),
-		{ includePrerelease: true }
-	);
-	const isBundledVersionNewer =
-		installedSqliteVersion && semver.gt( bundledSqliteVersion, installedSqliteVersion );
-	if ( ! isSqliteInstalled || isBundledVersionNewer ) {
-		await recursiveCopyDirectory( bundledSqlitePath, getSqlitePluginPath() );
-	}
+
+	await copyBundledDependencyIfNewerOrMissing( {
+		sourceDirectoryPath: bundledSqlitePath,
+		targetDirectoryPath: installedSqlitePath,
+		readSourceVersion: async () =>
+			semver.coerce( await getSqliteVersionFromInstallation( bundledSqlitePath ), {
+				includePrerelease: true,
+			} ),
+		readTargetVersion: async () =>
+			semver.coerce( await getSqliteVersionFromInstallation( installedSqlitePath ), {
+				includePrerelease: true,
+			} ),
+	} );
 }
 
 async function copyBundledWpCli() {
@@ -81,33 +120,18 @@ async function copyBundledWpCli() {
 }
 
 async function copyBundledSqliteCommand() {
-	const bundledSqliteCommandPath = path.join( getWpFilesPath(), 'sqlite-command' );
-	if ( ! fs.existsSync( bundledSqliteCommandPath ) ) {
-		return;
-	}
-
-	const bundledVersionFilePath = path.join( bundledSqliteCommandPath, 'version' );
-	const bundledVersion = semver.coerce( fs.readFileSync( bundledVersionFilePath, 'utf8' ) );
-
-	if ( ! bundledVersion ) {
-		return;
-	}
-
-	try {
-		const serverFilesVersionFilePath = path.join( getSqliteCommandPath(), 'version' );
-		const serverFilesVersion = semver.coerce(
-			fs.readFileSync( serverFilesVersionFilePath, 'utf8' )
-		);
-		const isBundledVersionNewer =
-			serverFilesVersion && semver.gt( bundledVersion, serverFilesVersion );
-
-		if ( ! serverFilesVersion || isBundledVersionNewer ) {
-			await recursiveCopyDirectory( bundledSqliteCommandPath, getSqliteCommandPath() );
-		}
-	} catch {
-		// Fall back to copying the bundled version if the server files version cannot be read
-		await recursiveCopyDirectory( bundledSqliteCommandPath, getSqliteCommandPath() );
-	}
+	await copyBundledDependencyIfNewerOrMissing( {
+		sourceDirectoryPath: path.join( getWpFilesPath(), 'sqlite-command' ),
+		targetDirectoryPath: getSqliteCommandPath(),
+		readSourceVersion: async () => {
+			const versionFilePath = path.join( getWpFilesPath(), 'sqlite-command', 'version' );
+			return semver.coerce( fs.readFileSync( versionFilePath, 'utf8' ) );
+		},
+		readTargetVersion: async () => {
+			const versionFilePath = path.join( getSqliteCommandPath(), 'version' );
+			return semver.coerce( fs.readFileSync( versionFilePath, 'utf8' ) );
+		},
+	} );
 }
 
 async function copyBundledTranslations() {
@@ -143,35 +167,20 @@ async function copyBundledAiInstructions() {
 }
 
 async function copyBundledPhpMyAdmin() {
-	const bundledPath = path.join( getWpFilesPath(), 'phpmyadmin' );
-	if ( ! fs.existsSync( bundledPath ) ) {
-		return;
-	}
-
-	const bundledComposerFilePath = path.join( bundledPath, 'composer.json' );
-	const bundledComposerFile = JSON.parse( fs.readFileSync( bundledComposerFilePath, 'utf8' ) );
-	const bundledVersion = semver.coerce( bundledComposerFile.version );
-
-	if ( ! bundledVersion ) {
-		return;
-	}
-
-	try {
-		const serverFilesComposerFilePath = path.join( getPhpMyAdminPath(), 'composer.json' );
-		const serverFilesComposerFile = JSON.parse(
-			fs.readFileSync( serverFilesComposerFilePath, 'utf8' )
-		);
-		const serverFilesVersion = semver.coerce( serverFilesComposerFile.version );
-		const isBundledVersionNewer =
-			serverFilesVersion && semver.gt( bundledVersion, serverFilesVersion );
-
-		if ( ! serverFilesVersion || isBundledVersionNewer ) {
-			await recursiveCopyDirectory( bundledPath, getPhpMyAdminPath() );
-		}
-	} catch {
-		// Fall back to copying the bundled version if the server files version cannot be read
-		await recursiveCopyDirectory( bundledPath, getPhpMyAdminPath() );
-	}
+	await copyBundledDependencyIfNewerOrMissing( {
+		sourceDirectoryPath: path.join( getWpFilesPath(), 'phpmyadmin' ),
+		targetDirectoryPath: getPhpMyAdminPath(),
+		readSourceVersion: async () => {
+			const composerFilePath = path.join( getWpFilesPath(), 'phpmyadmin', 'composer.json' );
+			const composerFile = JSON.parse( fs.readFileSync( composerFilePath, 'utf8' ) );
+			return semver.coerce( composerFile.version );
+		},
+		readTargetVersion: async () => {
+			const composerFilePath = path.join( getPhpMyAdminPath(), 'composer.json' );
+			const composerFile = JSON.parse( fs.readFileSync( composerFilePath, 'utf8' ) );
+			return semver.coerce( composerFile.version );
+		},
+	} );
 }
 
 async function copyBundledLanguagePacks() {

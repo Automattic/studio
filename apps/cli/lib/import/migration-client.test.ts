@@ -1,10 +1,23 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
 	formatImporterJsonlProgress,
 	formatImporterProgressSnapshot,
 	resolveNativeImporterInvocation,
 	updateImporterProgressSnapshot,
 } from './migration-client';
+
+vi.mock( 'child_process', async ( importOriginal ) => {
+	const actual = ( await importOriginal() ) as typeof import('child_process');
+	return {
+		...actual,
+		spawnSync: vi.fn( ( command: string, args?: string[] ) => {
+			if ( command === 'php' && args?.[ 0 ] === '-v' ) {
+				return { status: 0, stdout: Buffer.from( 'PHP 8.3' ), stderr: Buffer.from( '' ) };
+			}
+			return actual.spawnSync( command, args as string[] );
+		} ),
+	};
+} );
 
 describe( 'formatImporterJsonlProgress', () => {
 	it( 'shows streamed debug messages from the importer', () => {

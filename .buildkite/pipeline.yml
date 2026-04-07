@@ -125,31 +125,35 @@ steps:
           - x64
           - arm64
 
-  - input: "🚦 Build for Windows?"
-    prompt: "Do you want to build Windows dev binaries for this PR?"
-    key: input-dev-windows
-    if: build.tag !~ /^v[0-9]+/ && build.branch != 'trunk'
-
-  - group: 📦 Build for Windows
-    key: dev-windows
-    depends_on: input-dev-windows
-    if: build.tag !~ /^v[0-9]+/
+  - group: 📦 Windows Build (PFX signing)
+    key: dev-windows-pfx
     steps:
-      - label: 🔨 Windows Dev Build - {{matrix}}
+      - label: 🔨 Windows PFX Build - x64
         agents:
           queue: windows
-        env:
-          USE_AZURE_TRUSTED_SIGNING: 1
-        command: powershell -File .buildkite/commands/build-for-windows.ps1 -BuildType dev -Architecture {{matrix}}
+        command: powershell -File .buildkite/commands/build-for-windows.ps1 -BuildType dev -Architecture x64
         artifact_paths:
           - apps\studio\out\**\studio-setup.exe
           - apps\studio\out\**\studio-update.nupkg
           - apps\studio\out\**\RELEASES
           - apps\studio\out\**\*.appx
         plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
-        matrix:
-          - x64
-          - arm64
+
+  - group: 🔐 Windows Build (Azure Trusted Signing)
+    key: dev-windows-azure
+    steps:
+      - label: 🔨 Windows Azure Build - x64
+        agents:
+          queue: windows
+        env:
+          USE_AZURE_TRUSTED_SIGNING: 1
+        command: powershell -File .buildkite/commands/build-for-windows.ps1 -BuildType dev -Architecture x64
+        artifact_paths:
+          - apps\studio\out\**\studio-setup.exe
+          - apps\studio\out\**\studio-update.nupkg
+          - apps\studio\out\**\RELEASES
+          - apps\studio\out\**\*.appx
+        plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
 
   - label: ":rocket: Distribute Dev Builds"
     command: |

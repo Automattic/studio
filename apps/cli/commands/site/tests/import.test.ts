@@ -21,7 +21,8 @@ import {
 } from '../import';
 
 const hasSqlite3 =
-	spawnSync( 'sqlite3', [ ':memory:', 'SELECT 1;' ], { stdio: 'ignore' } ).status === 0;
+	spawnSync( 'sqlite3', [ ':memory:', 'SELECT 1;' ], { stdio: 'ignore', timeout: 5000 } ).status ===
+	0;
 
 describe( 'CLI: studio site import helpers', () => {
 	it( 'normalizes URLs by stripping hashes and trailing slashes', () => {

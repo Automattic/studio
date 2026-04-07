@@ -9,12 +9,7 @@ import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { TreeNode } from 'cli/lib/tree-checkbox';
 
 function sortNodes( nodes: TreeNode[] ): TreeNode[] {
-	return [ ...nodes ].sort( ( a, b ) => {
-		if ( a.isDirectory !== b.isDirectory ) {
-			return a.isDirectory ? -1 : 1;
-		}
-		return a.name.localeCompare( b.name );
-	} );
+	return [ ...nodes ].sort( ( a, b ) => a.name.localeCompare( b.name ) );
 }
 
 function buildTreeFromLocal( entries: RawDirectoryEntry[], depth: number = 1 ): TreeNode[] {

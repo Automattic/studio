@@ -1,5 +1,6 @@
 import fs from 'fs';
 import nodePath from 'path';
+import { Upload } from 'tus-js-client';
 
 export type TusUploadOptions = {
 	token: string;
@@ -17,7 +18,7 @@ export function createTusUpload( options: TusUploadOptions ): {
 	const { token, remoteSiteId, archivePath, onProgress, onNetworkPause, onResume } = options;
 
 	let rejectFn: ( error: Error ) => void;
-	let uploadInstance: import('tus-js-client').Upload | null = null;
+	let uploadInstance: Upload | null = null;
 	let isAborted = false;
 	let hasUploadStarted = false;
 	let isNetworkPaused = false;
@@ -31,8 +32,6 @@ export function createTusUpload( options: TusUploadOptions ): {
 	};
 
 	const promise = ( async () => {
-		const { Upload } = await import( 'tus-js-client' );
-
 		const file = fs.createReadStream( archivePath );
 		const fileSize = fs.statSync( archivePath ).size;
 		const filename = nodePath.basename( archivePath );

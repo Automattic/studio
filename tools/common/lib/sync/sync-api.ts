@@ -9,7 +9,7 @@ import {
 	syncBackupResponseSchema,
 	importResponseSchema,
 } from '@studio/common/types/sync';
-import { BackupLsItemSchema, BackupLsResponseBodySchema } from '@studio/common/types/sync-tree';
+import { backupLsItemSchema, backupLsResponseBodySchema } from '@studio/common/types/sync-tree';
 import { transformSitesResponse } from './transform-sites';
 import type { SyncSite, ImportResponse, SyncOption } from '@studio/common/types/sync';
 import type { BackupLsItem } from '@studio/common/types/sync-tree';
@@ -210,7 +210,7 @@ export async function fetchRemoteFileTree(
 		body: { backup_id: rewindId, path: treePath },
 	} );
 
-	const parsed = BackupLsResponseBodySchema.parse( rawResponse );
+	const parsed = backupLsResponseBodySchema.parse( rawResponse );
 
 	if ( ! parsed.ok ) {
 		throw new Error( parsed.error || 'Failed to fetch remote file tree' );
@@ -218,7 +218,7 @@ export async function fetchRemoteFileTree(
 
 	const entries: RemoteFileEntry[] = [];
 	for ( const [ name, rawItem ] of Object.entries( parsed.contents ) ) {
-		const itemResult = BackupLsItemSchema.safeParse( rawItem );
+		const itemResult = backupLsItemSchema.safeParse( rawItem );
 		if ( itemResult.success ) {
 			const item: BackupLsItem = itemResult.data;
 			const isDirectory = item.type === 'dir' || item.has_children === true;

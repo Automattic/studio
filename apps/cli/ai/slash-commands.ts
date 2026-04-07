@@ -25,4 +25,31 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 	{ name: 'exit', description: __( 'Exit the chat' ) },
 	{ name: 'taxonomist', description: __( 'Optimize category taxonomy with AI' ) },
 	{ name: 'need-for-speed', description: __( 'Run a performance audit on a site' ) },
+	{
+		name: 'design-setup',
+		description: __( 'Discover design context for a site and write it to .impeccable.md' ),
+	},
+	{
+		name: 'polish',
+		description: __( 'Final quality pass: visual alignment, typography, interactions, edge cases' ),
+	},
+	{
+		name: 'typeset',
+		description: __( 'Improve typography: font hierarchy, sizing, readability, consistency' ),
+	},
+	{ name: 'animate', description: __( 'Add purposeful animations and micro-interactions' ) },
+	{
+		name: 'arrange',
+		description: __( 'Fix spacing consistency, visual hierarchy, and layout rhythm' ),
+	},
+	{
+		name: 'bolder',
+		description: __( 'Amplify safe designs with more personality and visual impact' ),
+	},
+	{
+		name: 'overdrive',
+		description: __(
+			'Push the design past conventional limits with technically ambitious implementations'
+		),
+	},
 ];

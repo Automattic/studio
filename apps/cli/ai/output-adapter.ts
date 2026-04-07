@@ -80,7 +80,7 @@ export class JsonAdapter implements AiOutputAdapter {
 		// turn.completed is emitted separately with status and usage
 	}
 
-	addUserMessage(): void {
+	addUserMessage( _text: string ): void {
 		// No-op in JSON mode — the service already knows the message it sent
 	}
 

@@ -409,27 +409,33 @@ export async function runCommand( options: {
 	}
 
 	// JSON mode: single turn, then exit
-	if ( options.initialMessage ) {
+	if ( isJsonMode && options.initialMessage ) {
 		let exitCode = 0;
 		try {
 			ui.addUserMessage( options.initialMessage );
 			const result = await runAgentTurn( options.initialMessage );
-			if ( isJsonMode ) {
-				const jsonStatus = result.status === 'interrupted' ? 'error' : result.status;
-				( ui as JsonAdapter ).emitTurnCompleted( jsonStatus, result.usage );
-			}
+			const jsonStatus = result.status === 'interrupted' ? 'error' : result.status;
+			( ui as JsonAdapter ).emitTurnCompleted( jsonStatus, result.usage );
 		} catch ( error ) {
 			exitCode = 1;
 			handleAgentTurnError( error );
-			if ( isJsonMode ) {
-				( ui as JsonAdapter ).emitTurnCompleted( 'error' );
-			}
+			( ui as JsonAdapter ).emitTurnCompleted( 'error' );
 		} finally {
 			await persistQueue;
 			ui.stop();
 			process.exit( exitCode );
 		}
 		return;
+	}
+
+	// Run initial message before entering the input loop
+	if ( options.initialMessage ) {
+		ui.addUserMessage( options.initialMessage );
+		try {
+			await runAgentTurn( options.initialMessage );
+		} catch ( error ) {
+			handleAgentTurnError( error );
+		}
 	}
 
 	// Interactive mode: input loop

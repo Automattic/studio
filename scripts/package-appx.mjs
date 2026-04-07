@@ -217,6 +217,14 @@ if ( useAzureSigning ) {
 			stdio: 'inherit',
 		} );
 		console.log( `Signed ${ appxFile } successfully.` );
+
+		// Rename to remove misleading "unsigned" from the filename
+		const renamedFile = appxFile.replace( ' unsigned', '' );
+		if ( renamedFile !== appxFile ) {
+			const renamedPath = path.join( appxOutputPathSigned, renamedFile );
+			await fs.rename( appxPath, renamedPath );
+			console.log( `Renamed to ${ renamedFile }` );
+		}
 	}
 } else {
 	// PFX certificate signing

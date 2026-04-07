@@ -2,7 +2,6 @@ import { Button } from '@wordpress/components';
 import {
 	chevronLeft,
 	chevronRight,
-	cog,
 	crop,
 	drawerLeft,
 	navigation,
@@ -26,7 +25,6 @@ import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { isMac } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
-import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useAppDispatch, useRootSelector } from 'src/stores';
 import { setCreatingProject } from 'src/stores/tasks-slice';
 import { BrowserCaptureOverlay } from './browser-capture-overlay';
@@ -63,7 +61,6 @@ export function togglePanel(
 	}, 250 );
 }
 
-const ICON_CHROME = 'app-no-drag-region text-chrome-text-secondary';
 const ICON_FRAME = 'app-no-drag-region text-frame-text-secondary';
 
 interface PanelLayoutProps {
@@ -275,17 +272,7 @@ export function PanelLayout( {
 				className="app-no-drag-region"
 			>
 				<div className="h-full flex flex-col overflow-hidden">
-					<Toolbar
-						className="app-drag-region"
-						end={
-							<Button
-								icon={ cog }
-								label={ `Settings (${ isMac() ? '⌘,' : 'Ctrl+,' })` }
-								className={ ICON_CHROME }
-								onClick={ () => getIpcApi().openSettingsWindow() }
-							/>
-						}
-					/>
+					<Toolbar className="app-drag-region" />
 					<Sidebar className="flex-1" />
 				</div>
 			</Panel>

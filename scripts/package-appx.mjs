@@ -182,9 +182,9 @@ await convertToWindowsStore( {
 	outputDirectory: appxOutputPathUnsigned,
 } );
 
-// Create sideload AppX — signing method depends on USE_AZURE_TRUSTED_SIGNING.
+// Create signed AppX (used for local testing via sideloading)
 const appxOutputPathSigned = path.resolve( outPath, `${ appxName }-${ architecture }-signed` );
-console.log( `~~~ Creating .appx for sideloading at ${ appxOutputPathSigned }...` );
+console.log( `~~~ Creating signed .appx for local testing at ${ appxOutputPathSigned }...` );
 
 if ( useAzureSigning ) {
 	const sideloadPublisher =

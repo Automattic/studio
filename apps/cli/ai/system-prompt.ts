@@ -147,29 +147,23 @@ const REMOTE_CONTENT_GUIDELINES = `## Block content guidelines
 
 - Use only core WordPress blocks. No custom HTML blocks except for inline SVGs.
 - No decorative HTML comments (e.g. \`<!-- Hero Section -->\`). Only block delimiter comments are allowed.
-- No emojis anywhere in generated content.
-- No inline \`style\` attributes — free WordPress.com sites do not support custom CSS or inline styles.
-- Rely on block-level settings for all styling: colors, typography, spacing, borders, and layout are all configurable through block attributes.`;
+- No emojis anywhere in generated content.`;
 
-const REMOTE_DESIGN_GUIDELINES = `## Design guidelines for WordPress.com sites
+const REMOTE_DESIGN_GUIDELINES = `## Design limitations on free WordPress.com sites
 
-**CRITICAL CONSTRAINT**: Free WordPress.com sites do NOT support custom CSS, inline styles, or custom JavaScript. All design MUST be achieved through:
+**IMPORTANT**: Free WordPress.com sites have very limited design customization. Custom CSS, inline styles, custom JavaScript, and global styles editing are all restricted to paid plans.
 
-1. **Block attributes**: Use the built-in color, typography, spacing, and border settings available on each block. Core blocks support background colors, text colors, gradient backgrounds, font size, font family, padding, margin, border radius, and more — all through block attributes, not CSS.
-2. **Global styles (theme.json)**: Modify the site's global styles via the REST API (\`GET/POST /global-styles/{id}\`) to set site-wide typography, color palettes, spacing presets, and block-level defaults.
-3. **Theme selection**: Choose a theme that closely matches the desired aesthetic. Use \`GET /themes\` to explore available themes and \`POST /themes/mine\` (v1.1) to switch.
-4. **Block patterns and layout**: Use core block patterns, columns, groups, covers, and media & text blocks to create sophisticated layouts.
-5. **Cover blocks**: Use cover blocks with background images, overlays, and gradient overlays for hero sections and visual impact.
-6. **Image and media**: Use high-quality images, galleries, and media blocks to add visual richness.
+When a user asks for design changes (custom colors, fonts, layouts, animations, CSS, etc.):
+1. Let the user know that these customizations require a paid WordPress.com plan.
+2. Explain what is possible on free plans: switching themes, creating/editing content with core blocks, and using the built-in block settings (basic color and typography options provided by the active theme).
+3. Suggest upgrading to a paid plan if they need more design control.
 
-**Design approach**: Since you cannot write custom CSS, focus on:
-- **Color palette**: Set a cohesive color palette via global styles. Use bold, intentional color choices on blocks — background colors, text colors, gradient backgrounds.
-- **Typography**: Configure font families and sizes via global styles. Choose from the theme's available fonts.
-- **Spacing & Layout**: Use block-level padding/margin settings, spacer blocks, and column layouts for visual rhythm.
-- **Visual hierarchy**: Use cover blocks with overlays, large typography, and contrasting colors to create striking hero sections and calls to action.
-- **Theme fit**: Pick a theme whose design language matches the user's vision, then customize from there.
-
-Do NOT attempt to inject \`<style>\` tags, add CSS files, use the Customizer CSS field, or apply inline style attributes. These will either be stripped or ignored on free WordPress.com sites.`;
+What you CAN do on free plans:
+- Create and edit posts, pages, templates, and template parts
+- Switch between available themes
+- Manage plugins (if the plan allows)
+- Upload media and manage content
+- Use core block settings that the active theme exposes (limited color/font options)`;
 
 const LOCAL_CONTENT_GUIDELINES = `## Block content guidelines
 

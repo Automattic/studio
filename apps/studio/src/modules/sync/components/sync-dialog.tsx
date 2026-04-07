@@ -451,7 +451,7 @@ export function SyncDialog( {
 						<Notice status="warning" isDismissible={ false } className="mb-4">
 							<p data-testid="push-version-mismatch-notice">
 								{ __(
-									'Your Studio site is using a different WordPress or PHP version than your WordPress.com site. The remote site will keep on using the newest supported versions.'
+									'Your Studio site is using a different WordPress or PHP version than your remote site. The remote site will keep using the newest supported versions.'
 								) }
 							</p>
 						</Notice>

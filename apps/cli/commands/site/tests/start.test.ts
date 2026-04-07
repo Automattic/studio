@@ -64,7 +64,8 @@ describe( 'CLI: studio site start', () => {
 		vi.mocked( openSiteInBrowser ).mockResolvedValue( undefined );
 		vi.spyOn( fs, 'existsSync' ).mockReturnValue( true );
 		vi.spyOn( fs, 'readFileSync' ).mockImplementation( ( filePath ) => {
-			if ( filePath === '/test/import/runtime/start.sh' ) {
+			const normalized = String( filePath ).replace( /[\\/]+/g, '/' );
+			if ( normalized === '/test/import/runtime/start.sh' ) {
 				return `npx @wp-playground/cli@latest server \\
     --mount-before-install='/test/import/raw/core:/wordpress' \\
     --mount-before-install='/test/site/wp-content:/wordpress/wp-content' \\
@@ -73,7 +74,7 @@ describe( 'CLI: studio site start', () => {
 `;
 			}
 
-			if ( filePath === '/test/import/runtime/runtime.php' ) {
+			if ( normalized === '/test/import/runtime/runtime.php' ) {
 				return `<?php
 if (!defined('WP_CONTENT_DIR')) {
     define('WP_CONTENT_DIR', '/wordpress/wp-content');

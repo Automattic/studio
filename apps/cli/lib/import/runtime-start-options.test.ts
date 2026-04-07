@@ -26,21 +26,28 @@ describe( 'imported runtime start options', () => {
 	} );
 
 	it( 'loads Playground runtime mounts from the importer start script', () => {
-		vi.spyOn( fs, 'existsSync' ).mockImplementation(
-			( filePath ) =>
-				filePath === '/test/runtime/blueprint.json' ||
-				filePath === '/test/runtime/start.sh' ||
-				filePath === '/test/runtime/runtime.php' ||
-				filePath === '/test/raw/core' ||
-				filePath === 'C:\\\\Sites\\\\test\\\\wp-content' ||
-				filePath === '/test/state/.import-state.json'
+		// Normalize path separators so the mock works on both Unix (forward
+		// slashes) and Windows (backslashes from path.join, double backslashes
+		// from escaped shell paths like C:\\Sites\\...).
+		const normalizePath = ( p: unknown ) => String( p ).replace( /[\\/]+/g, '/' );
+		const existingPaths = new Set( [
+			'/test/runtime/blueprint.json',
+			'/test/runtime/start.sh',
+			'/test/runtime/runtime.php',
+			'/test/raw/core',
+			'C:/Sites/test/wp-content',
+			'/test/state/.import-state.json',
+		] );
+		vi.spyOn( fs, 'existsSync' ).mockImplementation( ( filePath ) =>
+			existingPaths.has( normalizePath( filePath ) )
 		);
 		vi.spyOn( fs, 'readFileSync' ).mockImplementation( ( filePath ) => {
-			if ( filePath === '/test/runtime/blueprint.json' ) {
+			const normalized = normalizePath( filePath );
+			if ( normalized === '/test/runtime/blueprint.json' ) {
 				return '{"landingPage":"/"}';
 			}
 
-			if ( filePath === '/test/runtime/runtime.php' ) {
+			if ( normalized === '/test/runtime/runtime.php' ) {
 				return `<?php
 if (!defined('WP_CONTENT_DIR')) {
     define('WP_CONTENT_DIR', '/wordpress/wp-content');

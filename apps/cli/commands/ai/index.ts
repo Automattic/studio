@@ -60,6 +60,7 @@ export async function runCommand( options: {
 	initialMessage?: string;
 	resumeSession?: LoadedAiSession;
 	noSessionPersistence?: boolean;
+	autoApprove?: boolean;
 } ): Promise< void > {
 	const ui = options.adapter;
 	const isJsonMode = ui instanceof JsonAdapter;
@@ -332,7 +333,7 @@ export async function runCommand( options: {
 			env,
 			model: currentModel,
 			resume: sessionId,
-			autoApprove: isJsonMode,
+			autoApprove: options.autoApprove ?? isJsonMode,
 			onAskUser: ( questions ) => askUserAndPersistAnswers( questions ),
 		} );
 
@@ -613,6 +614,10 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					default: false,
 					description: __( 'Output events as NDJSON to stdout (headless mode)' ),
 				} )
+				.option( 'auto-approve', {
+					type: 'boolean',
+					description: __( 'Auto-approve all tool calls (defaults to true in --json mode)' ),
+				} )
 				.option( 'session-persistence', {
 					type: 'boolean',
 					default: true,
@@ -631,6 +636,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					message?: string;
 					json?: boolean;
 					sessionPersistence?: boolean;
+					autoApprove?: boolean;
 				};
 				const noSessionPersistence = typedArgv.sessionPersistence === false;
 				const adapter: AiOutputAdapter = typedArgv.json ? new JsonAdapter() : new AiChatUI();
@@ -639,6 +645,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					adapter,
 					initialMessage: typedArgv.message,
 					noSessionPersistence,
+					autoApprove: typedArgv.autoApprove,
 				} );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {

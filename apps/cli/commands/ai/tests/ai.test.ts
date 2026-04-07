@@ -632,4 +632,37 @@ describe( 'CLI: studio ai --json mode', () => {
 			} )
 		);
 	} );
+
+	it( 'respects --no-auto-approve flag independently of --json', async () => {
+		const resultMessage = {
+			type: 'result' as const,
+			subtype: 'success' as const,
+			session_id: 'auto-approve-test',
+			num_turns: 1,
+			total_cost_usd: 0.001,
+		};
+		vi.mocked( startAiAgent ).mockReturnValueOnce( {
+			interrupt: vi.fn().mockResolvedValue( undefined ),
+			[ Symbol.asyncIterator ]() {
+				let emitted = false;
+				return {
+					next: async () => {
+						if ( ! emitted ) {
+							emitted = true;
+							return { done: false as const, value: resultMessage };
+						}
+						return { done: true as const, value: undefined };
+					},
+				};
+			},
+		} as never );
+
+		await buildParser().parseAsync( [ 'ai', 'hello', '--json', '--no-auto-approve' ] );
+
+		expect( startAiAgent ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				autoApprove: false,
+			} )
+		);
+	} );
 } );

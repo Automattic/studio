@@ -8,10 +8,7 @@ import { SiteServer } from 'src/site-server';
 
 vi.mock( 'fs' );
 vi.mock( 'src/site-server' );
-vi.mock( 'fs-extra', () => ( {
-	lstat: vi.fn(),
-	move: vi.fn(),
-} ) );
+vi.mock( 'fs-extra' );
 
 platformTestSuite( 'PlaygroundImporter', ( { normalize } ) => {
 	const mockBackupContents: BackupContents = {

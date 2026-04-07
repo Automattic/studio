@@ -28,7 +28,7 @@ const CLI_CONFIG_VERSION = 1;
 
 // IMPORTANT: Always consider that independently installed versions of the CLI (from npm) may also
 // read this file, and any updates to this schema may require updating the `version` field.
-export const aiProviderSchema = z.enum( [ 'wpcom', 'anthropic-claude', 'anthropic-api-key' ] );
+export const aiProviderSchema = z.enum( [ 'wpcom', 'anthropic-api-key' ] );
 
 const cliConfigSchema = z.object( {
 	version: z.literal( CLI_CONFIG_VERSION ),

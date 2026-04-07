@@ -20,9 +20,10 @@ import {
 	type MarkdownTheme,
 	visibleWidth,
 	truncateToWidth,
+	CURSOR_MARKER,
 } from '@mariozechner/pi-tui';
 import { readAuthToken } from '@studio/common/lib/shared-config';
-import { _n, sprintf } from '@wordpress/i18n';
+import { __, _n, sprintf } from '@wordpress/i18n';
 import chalk from 'chalk';
 import { AI_MODELS, DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
@@ -78,6 +79,7 @@ class PromptEditor implements Component, Focusable {
 	private _focused = false;
 	private isEmpty = true;
 	activeSiteName: string | null = null;
+	busyMessage: string | null = null;
 	hints: string[] = [];
 	statusMessage: string | null = null;
 	showBottomBar = true;
@@ -145,11 +147,13 @@ class PromptEditor implements Component, Focusable {
 		const emptyPrefix = ' '.repeat( promptWidth );
 		const result = editorLines.map( ( line, i ) => {
 			if ( i === 0 ) {
-				// Top border with active site name on the right
+				// Top border with active site name and optional busy indicator
 				if ( this.activeSiteName && borderWidth > 4 ) {
-					const label = ` ${ this.activeSiteName } `;
+					const busySuffix = this.busyMessage ? ` ${ this.busyMessage }` : '';
+					const label = ` ${ this.activeSiteName }${ busySuffix } `;
 					const trailing = Math.min( 3, borderWidth );
-					const leading = Math.max( 0, borderWidth - label.length - trailing );
+					const labelWidth = visibleWidth( label );
+					const leading = Math.max( 0, borderWidth - labelWidth - trailing );
 					return (
 						' ' +
 						bc( '─'.repeat( leading ) ) +
@@ -163,7 +167,7 @@ class PromptEditor implements Component, Focusable {
 				return ' ' + bc( '─'.repeat( borderWidth ) );
 			}
 			if ( this.isEmpty && i === 1 ) {
-				return promptPrefix + chalk.dim( 'Type your prompt…' );
+				return promptPrefix + CURSOR_MARKER;
 			}
 			if ( i === 1 ) {
 				return promptPrefix + line;
@@ -183,7 +187,7 @@ class PromptEditor implements Component, Focusable {
 		}
 		const activeHints = this.isEmpty
 			? this.hints
-			: this.hints.filter( ( h ) => h !== '↓ select site' );
+			: this.hints.filter( ( h ) => h !== __( '↓ select site' ) );
 		const leftPart =
 			activeHints.length > 0
 				? ' ' + activeHints.map( ( h ) => chalk.dim( h ) ).join( chalk.dim( ' · ' ) )
@@ -229,28 +233,28 @@ const editorTheme: EditorTheme = {
 };
 
 const toolDisplayNames: Record< string, string > = {
-	mcp__studio__site_create: 'Create site',
-	mcp__studio__site_list: 'List sites',
-	mcp__studio__site_info: 'Get site info',
-	mcp__studio__site_start: 'Start site',
-	mcp__studio__site_stop: 'Stop site',
-	mcp__studio__site_delete: 'Delete site',
-	mcp__studio__preview_create: 'Create preview',
-	mcp__studio__preview_list: 'List previews',
-	mcp__studio__preview_update: 'Update preview',
-	mcp__studio__preview_delete: 'Delete preview',
-	mcp__studio__wp_cli: 'Run WP-CLI',
-	mcp__studio__validate_blocks: 'Validate blocks',
-	mcp__studio__take_screenshot: 'Take screenshot',
-	Read: 'Read',
-	Write: 'Write',
-	Edit: 'Edit',
-	Bash: 'Run',
-	Glob: 'Search',
-	Grep: 'Search',
-	Skill: 'Load skill',
-	Task: 'Run task',
-	TodoWrite: 'Update todo list',
+	mcp__studio__site_create: __( 'Create site' ),
+	mcp__studio__site_list: __( 'List sites' ),
+	mcp__studio__site_info: __( 'Get site info' ),
+	mcp__studio__site_start: __( 'Start site' ),
+	mcp__studio__site_stop: __( 'Stop site' ),
+	mcp__studio__site_delete: __( 'Delete site' ),
+	mcp__studio__preview_create: __( 'Create preview' ),
+	mcp__studio__preview_list: __( 'List previews' ),
+	mcp__studio__preview_update: __( 'Update preview' ),
+	mcp__studio__preview_delete: __( 'Delete preview' ),
+	mcp__studio__wp_cli: __( 'Run WP-CLI' ),
+	mcp__studio__validate_blocks: __( 'Validate blocks' ),
+	mcp__studio__take_screenshot: __( 'Take screenshot' ),
+	Read: __( 'Read' ),
+	Write: __( 'Write' ),
+	Edit: __( 'Edit' ),
+	Bash: __( 'Run' ),
+	Glob: __( 'Search' ),
+	Grep: __( 'Search' ),
+	Skill: __( 'Load skill' ),
+	Task: __( 'Run task' ),
+	TodoWrite: __( 'Update todo list' ),
 };
 
 function getToolDetail( name: string, input: Record< string, unknown > ): string {
@@ -273,7 +277,7 @@ function getToolDetail( name: string, input: Record< string, unknown > ): string
 			if ( typeof input.filePath === 'string' ) {
 				return input.filePath.split( '/' ).slice( -2 ).join( '/' );
 			}
-			return 'inline content';
+			return __( 'inline content' );
 		case 'mcp__studio__take_screenshot':
 			return typeof input.url === 'string' ? input.url : '';
 		case 'Read':
@@ -552,6 +556,10 @@ export class AiChatUI {
 		return this._activeSite;
 	}
 
+	private refreshPromptChrome(): void {
+		this.editor.invalidate();
+	}
+
 	set onSiteSelected( fn: ( ( site: SiteInfo ) => void ) | null ) {
 		this.siteSelectedCallback = fn;
 	}
@@ -603,7 +611,7 @@ export class AiChatUI {
 
 	constructor() {
 		const terminal = new ProcessTerminal();
-		this.tui = new TUI( terminal );
+		this.tui = new TUI( terminal, true );
 
 		this.messages = new Container();
 		this.tui.addChild( this.messages );
@@ -612,7 +620,7 @@ export class AiChatUI {
 			this.tui,
 			( str ) => chalk.yellow( str ),
 			( str ) => chalk.yellow( str ),
-			'Thinking…'
+			__( 'Thinking…' )
 		);
 		// @ts-expect-error -- frames is private but has no public API to customize
 		this.loader.frames = [
@@ -778,7 +786,7 @@ export class AiChatUI {
 		const sites: SiteData[] = config.sites ?? [];
 		if ( sites.length === 0 ) {
 			this.messages.addChild(
-				new Text( chalk.dim( '  No sites found. Create one first.' ), 1, 0 )
+				new Text( chalk.dim( '  ' + __( 'No sites found. Create one first.' ) ), 1, 0 )
 			);
 			this.tui.requestRender();
 			return;
@@ -808,7 +816,7 @@ export class AiChatUI {
 
 		const token = await readAuthToken();
 		if ( ! token ) {
-			this.showSitePickerError( 'Not logged in. Use /login first.' );
+			this.showSitePickerError( __( 'Not logged in. Use /login first.' ) );
 			return;
 		}
 
@@ -825,7 +833,7 @@ export class AiChatUI {
 			this.rebuildSitePickerList();
 			this.renderSitePicker();
 		} catch {
-			this.showSitePickerError( 'Failed to load WordPress.com sites. Please try again.' );
+			this.showSitePickerError( __( 'Failed to load WordPress.com sites. Please try again.' ) );
 		}
 	}
 
@@ -921,18 +929,22 @@ export class AiChatUI {
 		this.sitePickerContainer.clear();
 
 		const isLocal = this.sitePickerTab === SITE_PICKER_TAB_LOCAL;
-		const localTab = isLocal ? chalk.bold( '[Local]' ) : chalk.dim( 'Local' );
+		const localTab = isLocal ? chalk.bold( __( '[Local]' ) ) : chalk.dim( __( 'Local' ) );
 		const remoteTab = isLocal ? chalk.dim( 'WordPress.com' ) : chalk.bold( '[WordPress.com]' );
 		const pad = ' ';
 		const header = `${ pad }${ localTab }  ${ remoteTab }`;
 
 		const searchLine = this.sitePickerQuery
-			? `${ pad }${ chalk.dim( 'Search:' ) } ${ this.sitePickerQuery }`
+			? `${ pad }${ chalk.dim( __( 'Search:' ) ) } ${ this.sitePickerQuery }`
 			: '';
 
 		const hints = isLocal
-			? `${ pad }↑↓ navigate · → remote sites · enter select · tab open in browser · esc cancel`
-			: `${ pad }↑↓ navigate · ← local sites · enter select · tab open in browser · esc cancel`;
+			? `${ pad }${ __(
+					'↑↓ navigate · → remote sites · enter select · tab open in browser · esc cancel'
+			  ) }`
+			: `${ pad }${ __(
+					'↑↓ navigate · ← local sites · enter select · tab open in browser · esc cancel'
+			  ) }`;
 
 		const lines = [ header, '' ];
 		if ( searchLine ) {
@@ -940,7 +952,7 @@ export class AiChatUI {
 		}
 
 		if ( ! isLocal && this.sitePickerRemoteLoading ) {
-			lines.push( chalk.dim( `${ pad }  Loading WordPress.com sites…` ) );
+			lines.push( chalk.dim( `${ pad }  ${ __( 'Loading WordPress.com sites…' ) }` ) );
 		} else if ( this.sitePickerSelectList ) {
 			const termWidth = process.stdout.columns ?? 80;
 			lines.push(
@@ -960,8 +972,18 @@ export class AiChatUI {
 		const { announce = true, emitEvent = true } = options;
 		this._activeSite = site;
 		this.editor.activeSiteName = site.name;
-		const suffix = site.remote ? ' (WordPress.com)' : '';
-		const label = ` ✻ Selected site: ${ site.name }${ suffix }`;
+		this.refreshPromptChrome();
+		const label = site.remote
+			? sprintf(
+					/* translators: %s: site name */
+					__( ' ✻ Selected site: %s (WordPress.com)' ),
+					site.name
+			  )
+			: sprintf(
+					/* translators: %s: site name */
+					__( ' ✻ Selected site: %s' ),
+					site.name
+			  );
 		if ( announce ) {
 			this.messages.addChild( new Text( `${ chalk.hex( '#5b8db8' )( label ) }\n`, 0, 0 ) );
 		}
@@ -975,7 +997,8 @@ export class AiChatUI {
 		this._activeSite = null;
 		this._activeSiteData = null;
 		this.editor.activeSiteName = null;
-		this.messages.addChild( new Text( chalk.dim( ' ✻ Site deselected' ) + '\n', 0, 0 ) );
+		this.refreshPromptChrome();
+		this.messages.addChild( new Text( chalk.dim( __( ' ✻ Site deselected' ) ) + '\n', 0, 0 ) );
 		this.tui.requestRender();
 	}
 
@@ -1007,72 +1030,67 @@ export class AiChatUI {
 		return a.path === b.path || a.name.toLowerCase() === b.name.toLowerCase();
 	}
 
+	private async selectLocalSiteFromTool(
+		nameOrPath: string,
+		options: { running?: boolean } = {}
+	): Promise< void > {
+		const site = await this.findSiteFromAppdata( nameOrPath );
+		if ( ! site ) {
+			return;
+		}
+
+		if ( typeof options.running === 'boolean' ) {
+			site.running = options.running;
+		}
+
+		if ( this.isSameSite( this._activeSite, site ) ) {
+			this._activeSite = site;
+			this.editor.activeSiteName = site.name;
+			this.refreshPromptChrome();
+			this.tui.requestRender();
+			return;
+		}
+
+		this.setActiveSite( site );
+	}
+
 	private async autoSelectSiteFromToolResult(
 		toolName: string,
 		toolInput: Record< string, unknown > | null
 	): Promise< void > {
 		switch ( toolName ) {
 			case 'mcp__studio__site_create': {
-				// site_create tool input has { name: string }
 				const name = toolInput?.name;
 				if ( typeof name === 'string' ) {
-					const site = await this.findSiteFromAppdata( name );
-					if ( site ) {
-						site.running = true; // site_create auto-starts the site
-						this.setActiveSite( site );
-					}
+					await this.selectLocalSiteFromTool( name, { running: true } );
 				}
 				break;
 			}
+			case 'mcp__studio__site_info':
 			case 'mcp__studio__site_start': {
 				const nameOrPath = toolInput?.nameOrPath;
 				if ( typeof nameOrPath === 'string' ) {
-					const site = await this.findSiteFromAppdata( nameOrPath );
-					if ( site ) {
-						site.running = true;
-						if ( this.isSameSite( this._activeSite, site ) ) {
-							this._activeSite = site; // Update running status in-place
-						} else {
-							this.setActiveSite( site );
-						}
-					}
+					await this.selectLocalSiteFromTool( nameOrPath, {
+						running: toolName === 'mcp__studio__site_start' ? true : undefined,
+					} );
 				}
 				break;
 			}
 			case 'mcp__studio__wp_cli':
 			case 'mcp__studio__preview_create':
 			case 'mcp__studio__preview_list':
-			case 'mcp__studio__preview_update': {
+			case 'mcp__studio__preview_update':
+			case 'mcp__studio__validate_blocks': {
 				const nameOrPath = toolInput?.nameOrPath;
 				if ( typeof nameOrPath === 'string' ) {
-					if (
-						! this._activeSite ||
-						! this.isSameSite( this._activeSite, {
-							name: nameOrPath,
-							path: nameOrPath,
-							running: true,
-						} )
-					) {
-						const site = await this.findSiteFromAppdata( nameOrPath );
-						if ( site ) {
-							this.setActiveSite( site );
-						}
-					}
+					await this.selectLocalSiteFromTool( nameOrPath );
 				}
 				break;
 			}
 			case 'mcp__studio__site_stop': {
 				const nameOrPath = toolInput?.nameOrPath;
-				if (
-					typeof nameOrPath === 'string' &&
-					this._activeSite &&
-					this.isSameSite( this._activeSite, {
-						name: nameOrPath,
-						path: nameOrPath,
-						running: false,
-					} )
-				) {
-					this._activeSite = { ...this._activeSite, running: false };
+				if ( typeof nameOrPath === 'string' ) {
+					await this.selectLocalSiteFromTool( nameOrPath, { running: false } );
 				}
 				break;
 			}
@@ -1178,7 +1196,7 @@ export class AiChatUI {
 			const cursor = chalk.inverse( ' ' );
 			const display = inputText
 				? chalk.blue( inputText ) + cursor
-				: chalk.dim( 'Type your answer...' ) + cursor;
+				: chalk.dim( __( 'Type your answer…' ) ) + cursor;
 			lines[ lines.length - 1 ] = `${ chalk.blue( '→' ) } ${ display }`;
 		}
 
@@ -1253,7 +1271,7 @@ export class AiChatUI {
 				} · ${ displayCwd }`
 			),
 			'',
-			chalk.dim.italic( 'Code is Poetry' ),
+			chalk.dim.italic( __( 'Code is Poetry' ) ),
 		];
 
 		// Lay out logo on the left, info on the right (vertically centered)
@@ -1342,12 +1360,14 @@ export class AiChatUI {
 	private updateHints(): void {
 		const hints: string[] = [];
 		if ( ! this._inAgentTurn ) {
-			hints.push( '↓ select site' );
+			hints.push( __( '↓ select site' ) );
 		}
 		if ( this.activeExpandablePreview ) {
-			hints.push( this.activeExpandablePreview.isExpanded ? 'ctrl+o collapse' : 'ctrl+o expand' );
+			hints.push(
+				this.activeExpandablePreview.isExpanded ? __( 'ctrl+o collapse' ) : __( 'ctrl+o expand' )
+			);
 		}
-		hints.push( 'esc to interrupt' );
+		hints.push( __( 'esc to interrupt' ) );
 		this.editor.hints = hints;
 	}
 
@@ -1409,6 +1429,151 @@ export class AiChatUI {
 		this.pendingTodoRenderOrder = [];
 	}
 
+	showOnboarding(): void {
+		const text =
+			' ' +
+			chalk.blue( '⏺' ) +
+			' ' +
+			sprintf(
+				/* translators: %s: product name (WordPress Studio) */
+				__( "Hello, I'm %s, your local WordPress agent and builder." ),
+				chalk.bold( 'WordPress Studio' )
+			);
+
+		this.messages.addChild( new Text( '\n' + text + '\n', 0, 0 ) );
+		this.tui.requestRender();
+	}
+
+	showCapabilities(): void {
+		const b = chalk.bold;
+		const d = chalk.dim;
+		const separator = d( ' ─'.padEnd( 80, '─' ) );
+
+		const lines = [
+			' ' +
+				chalk.blue( '⏺' ) +
+				' ' +
+				__( "Great, you're connected now! Let me tell you what I can do:" ),
+			'',
+			'  ' + b( __( 'Site Management' ) ),
+			'',
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "Create" */
+					__( '%s new WordPress sites instantly (fully configured, ready to use)' ),
+					b( __( 'Create' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "Start / stop" */
+					__( '%s existing sites' ),
+					b( __( 'Start / stop' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "List" */
+					__( '%s all your local sites and their status' ),
+					b( __( 'List' ) )
+				),
+			'',
+			'  ' + b( __( 'Design & Development' ) ),
+			'',
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "Build" */
+					__( '%s block themes with striking, memorable designs' ),
+					b( __( 'Build' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "CSS, PHP, and JavaScript" */
+					__( 'Write custom %s for themes and plugins' ),
+					b( __( 'CSS, PHP, and JavaScript' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "pages and posts" */
+					__( 'Create %s with valid Gutenberg block content' ),
+					b( __( 'pages and posts' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "plugins" */
+					__( 'Install and activate %s via WP-CLI' ),
+					b( __( 'plugins' ) )
+				),
+			'',
+			'  ' + b( __( 'Content' ) ),
+			'',
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "page content" */
+					__( 'Generate and import %s using core blocks' ),
+					b( __( 'page content' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "navigation menus, site options, post types, taxonomies, and settings" */
+					__( 'Set up %s' ),
+					b( __( 'navigation menus, site options, post types, taxonomies, and settings' ) )
+				),
+			'  - ' + __( "Create realistic placeholder content tailored to your site's purpose" ),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "images and videos" */
+					__( 'Upload %s to your site, using local media files or remote URLs' ),
+					b( __( 'images and videos' ) )
+				),
+			'',
+			'  ' + b( __( 'Preview & Publishing' ) ),
+			'',
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "screenshots" */
+					__( 'Take %s (desktop + mobile) to verify the design is well crafted' ),
+					b( __( 'screenshots' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "Validate" */
+					__( "%s all block content to ensure it's editor-compatible" ),
+					b( __( 'Validate' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "Push" */
+					__( '%s your local site to the cloud in WordPress.com' ),
+					b( __( 'Push' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "Generate preview sites" */
+					__( '%s with shareable URLs for quick feedback' ),
+					b( __( 'Generate preview sites' ) )
+				),
+			'',
+			separator,
+			'',
+			'  ' + __( 'Just tell me what you want to build — for example:' ),
+			'',
+			'  ' + d( chalk.italic( __( '"Create a portfolio site for a photographer"' ) ) ),
+			'  ' + d( chalk.italic( __( '"Build a landing page for a SaaS product"' ) ) ),
+			'  ' + d( chalk.italic( __( '"Make a blog for a coffee shop"' ) ) ),
+			'',
+			'  ' +
+				__(
+					"I'll ask a few quick questions about the name and layout, then build the whole thing for you. The more precise you are about what you want, the better the result will be."
+				),
+		];
+		this.messages.addChild( new Text( '\n' + lines.join( '\n' ) + '\n', 0, 0 ) );
+		this.tui.requestRender();
+	}
+
+	showSuccess( message: string ): void {
+		this.messages.addChild( new Text( '\n ' + chalk.green( '⏺' ) + ' ' + message + '\n', 0, 0 ) );
+		this.tui.requestRender();
+	}
+
 	showError( message: string ): void {
 		this.messages.addChild(
 			new Text( '\n ' + chalk.red( '⏺' ) + ' ' + chalk.red( message ) + '\n', 0, 0 )
@@ -1421,9 +1586,39 @@ export class AiChatUI {
 		this.tui.requestRender();
 	}
 
+	showProgress( message: string ): void {
+		this.messages.addChild( new Text( '\n ' + '⏺' + ' ' + message + '\n', 0, 0 ) );
+		this.tui.requestRender();
+	}
+
 	setStatusMessage( message: string | null ): void {
 		this.editor.statusMessage = message;
 		this.tui.requestRender();
+	}
+
+	private busyTimer: ReturnType< typeof setInterval > | null = null;
+	private busyFrameIndex = 0;
+	private static readonly BUSY_FRAMES = [ '⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏' ];
+
+	setBusy( active: boolean ): void {
+		if ( this.busyTimer ) {
+			clearInterval( this.busyTimer );
+			this.busyTimer = null;
+		}
+
+		if ( active ) {
+			this.busyFrameIndex = 0;
+			this.editor.busyMessage = AiChatUI.BUSY_FRAMES[ 0 ];
+			this.tui.requestRender();
+			this.busyTimer = setInterval( () => {
+				this.busyFrameIndex = ( this.busyFrameIndex + 1 ) % AiChatUI.BUSY_FRAMES.length;
+				this.editor.busyMessage = AiChatUI.BUSY_FRAMES[ this.busyFrameIndex ];
+				this.tui.requestRender();
+			}, 80 );
+		} else {
+			this.editor.busyMessage = null;
+			this.tui.requestRender();
+		}
 	}
 
 	private showFilePreview( toolName: string, input: Record< string, unknown > ): void {
@@ -1474,9 +1669,11 @@ export class AiChatUI {
 			formatToolOutputLines( lines.slice( 0, DEFAULT_COLLAPSE_THRESHOLD_LINES ) ) +
 			'\n     ' +
 			chalk.dim(
-				'... ' +
-					( lines.length - DEFAULT_COLLAPSE_THRESHOLD_LINES ) +
-					' more lines · ctrl+o to expand'
+				sprintf(
+					/* translators: %d: number of hidden lines */
+					__( '... %d more lines · ctrl+o to expand' ),
+					lines.length - DEFAULT_COLLAPSE_THRESHOLD_LINES
+				)
 			);
 
 		return { collapsed, expanded };
@@ -1632,6 +1829,28 @@ export class AiChatUI {
 		return pendingTodoRender;
 	}
 
+	private consumeLatestPendingToolCall(): {
+		id: string;
+		name: string;
+		input: Record< string, unknown >;
+	} | null {
+		let latestPendingToolCall: {
+			id: string;
+			name: string;
+			input: Record< string, unknown >;
+		} | null = null;
+
+		for ( const [ id, toolCall ] of this.pendingToolCalls.entries() ) {
+			latestPendingToolCall = { id, ...toolCall };
+		}
+
+		if ( latestPendingToolCall ) {
+			this.pendingToolCalls.delete( latestPendingToolCall.id );
+		}
+
+		return latestPendingToolCall;
+	}
+
 	private renderToolResultText(
 		content: string | Array< { type: string; text?: string } >,
 		toolName?: string
@@ -1757,7 +1976,7 @@ export class AiChatUI {
 				if ( this.optionPickerHasFreeForm ) {
 					selectItems.push( {
 						value: AiChatUI.OTHER_VALUE,
-						label: 'Other (type my own)',
+						label: __( 'Other (type my own)' ),
 					} );
 				}
 
@@ -1892,7 +2111,8 @@ export class AiChatUI {
 				} else if ( ! toolCallId && this.pendingTodoRenderOrder.length > 0 ) {
 					this.showTodoToolResult( message, this.pendingTodoRenderOrder[ 0 ] );
 				} else {
-					this.showToolResult( message, toolCall?.name, toolCall?.input );
+					const fallbackToolCall = toolCall ?? this.consumeLatestPendingToolCall();
+					this.showToolResult( message, fallbackToolCall?.name, fallbackToolCall?.input );
 				}
 				// Close the current markdown block so the next assistant text
 				// creates a fresh visual block (mirrors askUser / endAgentTurn).
@@ -1905,7 +2125,9 @@ export class AiChatUI {
 				if ( message.subtype === 'success' ) {
 					const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
 					if ( ! this.hasShownResponseMarker ) {
-						this.messages.addChild( new Text( '\n ' + chalk.blue( '⏺' ) + ' Done', 0, 0 ) );
+						this.messages.addChild(
+							new Text( '\n ' + chalk.blue( '⏺' ) + ' ' + __( 'Done' ), 0, 0 )
+						);
 					}
 					this.showInfo(
 						sprintf(
@@ -1926,9 +2148,19 @@ export class AiChatUI {
 				if ( this.wasInterrupted ) {
 					const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
 					this.messages.addChild(
-						new Text( '\n ' + chalk.yellow( '⏺' ) + ' ' + chalk.yellow( 'Interrupted' ), 0, 0 )
+						new Text(
+							'\n ' + chalk.yellow( '⏺' ) + ' ' + chalk.yellow( __( 'Interrupted' ) ),
+							0,
+							0
+						)
 					);
-					this.showInfo( `Ran for ${ thinkingSec }s before interruption` );
+					this.showInfo(
+						sprintf(
+							/* translators: %d: number of seconds */
+							__( 'Ran for %ds before interruption' ),
+							thinkingSec
+						)
+					);
 					return { sessionId: message.session_id, success: false };
 				}
 
@@ -1948,10 +2180,16 @@ export class AiChatUI {
 				}
 				if ( 'permission_denials' in message && message.permission_denials?.length ) {
 					for ( const denial of message.permission_denials ) {
-						parts.push( `Permission denied: ${ denial.tool_name }` );
+						parts.push(
+							sprintf(
+								/* translators: %s: tool name */
+								__( 'Permission denied: %s' ),
+								denial.tool_name
+							)
+						);
 					}
 				}
-				this.showError( parts.length > 0 ? parts.join( '\n' ) : 'Unknown error' );
+				this.showError( parts.length > 0 ? parts.join( '\n' ) : __( 'Unknown error' ) );
 				return { sessionId: message.session_id, success: false };
 			}
 		}

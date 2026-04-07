@@ -1,74 +1,58 @@
 /// <reference types="vitest/globals" />
 
-// Extend globalThis to include our mock file system
-declare global {
-	// eslint-disable-next-line no-var
-	var __fsExtraMockFiles: Record< string, string | string[] > | undefined;
-}
+import { fs as memfsFs, vol } from 'memfs';
 
-// Use globalThis to share state between mock and tests
-// This allows tests to directly access and modify the mock file system
-if ( ! globalThis.__fsExtraMockFiles ) {
-	globalThis.__fsExtraMockFiles = {};
-}
-const mockFiles = globalThis.__fsExtraMockFiles;
+export { vol };
 
 const move = vi.fn( async ( source: string, destination: string ): Promise< void > => {
-	mockFiles[ destination ] = mockFiles[ source ];
-	delete mockFiles[ source ];
+	try {
+		memfsFs.renameSync( source, destination );
+	} catch {
+		// Source may not be in vol — fall through silently
+	}
 } );
 
 const remove = vi.fn( async ( path: string ): Promise< void > => {
-	delete mockFiles[ path ];
+	try {
+		const stat = memfsFs.statSync( path );
+		if ( stat.isDirectory() ) {
+			memfsFs.rmdirSync( path, { recursive: true } );
+		} else {
+			memfsFs.unlinkSync( path );
+		}
+	} catch {
+		// Ignore ENOENT — same behaviour as fs-extra's remove
+	}
 } );
 
-const readFile = vi.fn( async ( path: string ): Promise< string > => {
-	const fileContents = mockFiles[ path ];
-	if ( typeof fileContents === 'string' ) {
-		return fileContents;
-	}
-	return '';
-} );
+const readFile = vi.fn( ( ...args: Parameters< typeof memfsFs.promises.readFile > ) =>
+	memfsFs.promises.readFile( ...args )
+);
 
-const readFileSync = vi.fn( ( path: string ): string => {
-	const fileContents = mockFiles[ path ];
-	if ( typeof fileContents === 'string' ) {
-		return fileContents;
-	}
-	return '';
-} );
+const readFileSync = vi.fn( ( ...args: Parameters< typeof memfsFs.readFileSync > ) =>
+	memfsFs.readFileSync( ...args )
+);
 
-const readdir = vi.fn( async ( path: string ): Promise< Array< string > > => {
-	const dirContents = mockFiles[ path ];
-	if ( Array.isArray( dirContents ) ) {
-		return dirContents;
-	}
-	return [];
-} );
+const readdir = vi.fn( ( ...args: Parameters< typeof memfsFs.promises.readdir > ) =>
+	memfsFs.promises.readdir( ...args )
+);
 
 const pathExists = vi.fn( async ( path: string ): Promise< boolean > => {
-	return !! mockFiles[ path ];
+	return memfsFs.existsSync( path );
 } );
 
+const ensureDir = vi.fn();
 const mkdir = vi.fn();
 const readJson = vi.fn();
 const writeFile = vi.fn();
 const writeJson = vi.fn();
 const copy = vi.fn();
-
-const __setFileContents = ( path: string, fileContents: string | string[] ) => {
-	mockFiles[ path ] = fileContents;
-};
-
-const __clearMockFiles = () => {
-	Object.keys( mockFiles ).forEach( ( key ) => delete mockFiles[ key ] );
-};
+const lstat = vi.fn();
 
 export default {
-	__clearMockFiles,
-	__mockFiles: mockFiles,
-	__setFileContents,
 	copy,
+	ensureDir,
+	lstat,
 	mkdir,
 	move,
 	pathExists,
@@ -82,9 +66,9 @@ export default {
 };
 
 export {
-	__clearMockFiles,
-	__setFileContents,
 	copy,
+	ensureDir,
+	lstat,
 	mkdir,
 	move,
 	pathExists,

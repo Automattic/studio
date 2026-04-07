@@ -39,9 +39,8 @@ export const ALLOWED_TOOLS = [
 	'AskUserQuestion',
 ] as const;
 
-// Tools allowed when operating on a remote WordPress.com site (WP.com MCP instead of Studio tools)
+// Tools allowed when operating on a remote WordPress.com site
 export const ALLOWED_TOOLS_REMOTE = [
-	'mcp__wpcom__*',
 	'mcp__studio__*',
 	'Read',
 	'Glob',

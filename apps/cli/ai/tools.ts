@@ -6,6 +6,7 @@ import { z } from 'zod/v4';
 import { validateBlocks, type ValidationReport } from 'cli/ai/block-validator';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
 import { auditPerformance } from 'cli/ai/performance-audit';
+import { createWpcomToolDefinitions } from 'cli/ai/wpcom-tools';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
 import {
 	Mode as PreviewDeleteMode,
@@ -802,13 +803,15 @@ export function createStudioTools() {
 	} );
 }
 
-/** Subset of Studio tools that work with any URL (no local site required). */
-export const remoteCompatibleToolDefinitions = [ takeScreenshotTool ];
-
-export function createRemoteCompatibleTools() {
+/**
+ * Creates an MCP server for remote WordPress.com sites, combining WP.com REST API tools
+ * with URL-based tools (screenshot) that work with any site.
+ */
+export function createRemoteSiteTools( token: string, siteId: number ) {
+	const wpcomTools = createWpcomToolDefinitions( token, siteId );
 	return createSdkMcpServer( {
 		name: 'studio',
 		version: '1.0.0',
-		tools: remoteCompatibleToolDefinitions,
+		tools: [ ...wpcomTools, takeScreenshotTool ],
 	} );
 }

@@ -1,5 +1,5 @@
 import path from 'path';
-import { query, type Query, type McpServerConfig } from '@anthropic-ai/claude-agent-sdk';
+import { query, type Query } from '@anthropic-ai/claude-agent-sdk';
 import {
 	ALLOWED_TOOLS,
 	ALLOWED_TOOLS_REMOTE,
@@ -9,7 +9,7 @@ import {
 	type AskUserQuestion,
 } from 'cli/ai/security';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
-import { createRemoteCompatibleTools, createStudioTools } from 'cli/ai/tools';
+import { createRemoteSiteTools, createStudioTools } from 'cli/ai/tools';
 import type { SiteInfo } from 'cli/ai/ui';
 
 export type { AskUserQuestion } from 'cli/ai/security';
@@ -47,8 +47,6 @@ process.on( 'unhandledRejection', ( reason ) => {
 	throw reason;
 } );
 
-const WPCOM_MCP_URL = 'https://public-api.wordpress.com/wpcom/v2/mcp/v1';
-
 /**
  * Start the AI agent and return the Query object.
  * Caller can iterate messages with `for await` and call `interrupt()` to stop.
@@ -68,21 +66,13 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 
 	const isRemoteSite = activeSite?.remote && activeSite?.wpcomSiteId && wpcomAccessToken;
 
-	// Configure MCP servers based on site type
-	const mcpServers: Record< string, McpServerConfig > = {};
-	if ( isRemoteSite ) {
-		mcpServers.wpcom = {
-			type: 'http' as const,
-			url: WPCOM_MCP_URL,
-			headers: {
-				Authorization: `Bearer ${ wpcomAccessToken }`,
-			},
-		};
-		// Expose URL-based tools (screenshot) that work with any site
-		mcpServers.studio = createRemoteCompatibleTools();
-	} else {
-		mcpServers.studio = createStudioTools();
-	}
+	// Configure MCP servers based on site type:
+	// Remote sites get WP.com REST API tools + screenshot; local sites get the full Studio toolset.
+	const mcpServers = {
+		studio: isRemoteSite
+			? createRemoteSiteTools( wpcomAccessToken, activeSite.wpcomSiteId! )
+			: createStudioTools(),
+	};
 
 	const allowedTools = isRemoteSite ? [ ...ALLOWED_TOOLS_REMOTE ] : [ ...ALLOWED_TOOLS ];
 

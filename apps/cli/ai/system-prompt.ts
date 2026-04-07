@@ -74,9 +74,10 @@ Use \`per_page\` and \`page\` for pagination. Use \`status\` to filter by publis
 
 ## Workflow
 
-1. **Understand the site**: Use \`GET /\` to get site info, \`GET /posts\` to list content, \`GET /themes\` to see installed themes.
-2. **Make changes**: Use POST requests to create/update content, manage plugins/themes, modify templates.
-3. **Verify visually**: Use take_screenshot to capture the site on desktop and mobile viewports. Check spacing, alignment, colors, contrast, and layout. Fix any issues.
+1. **Check the site plan**: Use \`GET /\` (apiNamespace: \`""\`) to get site info. The \`plan\` field tells you what the site can do. Free plans cannot use custom CSS, global styles editing, custom plugins, or advanced design customization — inform the user and suggest upgrading if they request these features.
+2. **Understand the site**: Use \`GET /posts\` to list content, \`GET /themes?status=active\` to see the active theme.
+3. **Make changes**: Use POST requests to create/update content, manage templates, switch themes.
+4. **Verify visually**: Use take_screenshot to capture the site on desktop and mobile viewports. Check spacing, alignment, colors, contrast, and layout. Fix any issues.
 
 ## General rules
 

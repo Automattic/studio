@@ -5,7 +5,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
-import { DotGrid } from 'src/components/dot-grid';
+import { IllustrationGrid } from 'src/components/illustration-grid';
 import offlineIcon from 'src/components/offline-icon';
 import { ScreenshotDemoSite } from 'src/components/screenshot-demo-site';
 import { Tooltip } from 'src/components/tooltip';
@@ -70,28 +70,9 @@ function EmptyGeneric( {
 				</div>
 				{ children }
 			</div>
-			<div className="relative shrink-0 flex items-center justify-center">
-				<div
-					className="absolute overflow-hidden"
-					style={ {
-						inset: '-120px',
-						maskImage: 'radial-gradient(circle, black 20%, transparent 65%)',
-						WebkitMaskImage: 'radial-gradient(circle, black 20%, transparent 65%)',
-					} }
-				>
-					<DotGrid
-						spacing={ 24 }
-						crossSize={ 4 }
-						opacity={ 0.25 }
-						repulsion={ 0.25 }
-						rippleStrength={ 1 }
-						className="text-frame-text"
-					/>
-				</div>
-				<div className="relative z-10">
-					<ScreenshotDemoSite site={ selectedSite } />
-				</div>
-			</div>
+			<IllustrationGrid>
+				<ScreenshotDemoSite site={ selectedSite } />
+			</IllustrationGrid>
 		</div>
 	);
 }

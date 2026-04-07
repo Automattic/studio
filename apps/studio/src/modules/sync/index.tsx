@@ -3,7 +3,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren, useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
-import { DotGrid } from 'src/components/dot-grid';
+import { IllustrationGrid } from 'src/components/illustration-grid';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
 import { useAuth } from 'src/hooks/use-auth';
@@ -59,26 +59,9 @@ function SiteSyncDescription( { children }: PropsWithChildren ) {
 				</div>
 				{ children }
 			</div>
-			<div className="relative shrink-0 flex items-center justify-center">
-				<div
-					className="absolute overflow-hidden"
-					style={ {
-						inset: '-120px',
-						maskImage: 'radial-gradient(circle, black 20%, transparent 65%)',
-						WebkitMaskImage: 'radial-gradient(circle, black 20%, transparent 65%)',
-					} }
-				>
-					<DotGrid
-						spacing={ 24 }
-						crossSize={ 4 }
-						opacity={ 0.25 }
-						repulsion={ 0.25 }
-						rippleStrength={ 1 }
-						className="text-frame-text"
-					/>
-				</div>
-				<SyncTabImage className="relative z-10" />
-			</div>
+			<IllustrationGrid>
+				<SyncTabImage />
+			</IllustrationGrid>
 		</div>
 	);
 }
@@ -91,50 +74,50 @@ function NoAuthSyncTab() {
 
 	return (
 		<SiteSyncDescription>
-				<div className="mt-8">
-					<Tooltip disabled={ ! isOffline } icon={ offlineIcon } text={ offlineMessage }>
+			<div className="mt-8">
+				<Tooltip disabled={ ! isOffline } icon={ offlineIcon } text={ offlineMessage }>
+					<Button
+						aria-description={ isOffline ? offlineMessage : '' }
+						aria-disabled={ isOffline }
+						variant="primary"
+						onClick={ () => {
+							if ( isOffline ) {
+								return;
+							}
+							authenticate();
+						} }
+					>
+						{ __( 'Log in to WordPress.com' ) }
+						<ArrowIcon />
+					</Button>
+				</Tooltip>
+			</div>
+			<div className="mt-3 text-frame-text-secondary a8c-body">
+				<Tooltip
+					disabled={ ! isOffline }
+					icon={ offlineIcon }
+					text={ offlineMessage }
+					placement="bottom-start"
+				>
+					<span>
+						{ __( 'New to WordPress.com?' ) }{ ' ' }
 						<Button
 							aria-description={ isOffline ? offlineMessage : '' }
 							aria-disabled={ isOffline }
-							variant="primary"
+							className="!p-0 text-frame-theme hover:opacity-80 h-auto inline-flex items-center"
 							onClick={ () => {
 								if ( isOffline ) {
 									return;
 								}
-								authenticate();
+								getIpcApi().authenticate( true );
 							} }
 						>
-							{ __( 'Log in to WordPress.com' ) }
+							{ __( 'Create a free account' ) }
 							<ArrowIcon />
 						</Button>
-					</Tooltip>
-				</div>
-				<div className="mt-3 text-frame-text-secondary a8c-body">
-					<Tooltip
-						disabled={ ! isOffline }
-						icon={ offlineIcon }
-						text={ offlineMessage }
-						placement="bottom-start"
-					>
-						<span>
-							{ __( 'New to WordPress.com?' ) }{ ' ' }
-							<Button
-								aria-description={ isOffline ? offlineMessage : '' }
-								aria-disabled={ isOffline }
-								className="!p-0 text-frame-theme hover:opacity-80 h-auto inline-flex items-center"
-								onClick={ () => {
-									if ( isOffline ) {
-										return;
-									}
-									getIpcApi().authenticate( true );
-								} }
-							>
-								{ __( 'Create a free account' ) }
-								<ArrowIcon />
-							</Button>
-						</span>
-					</Tooltip>
-				</div>
+					</span>
+				</Tooltip>
+			</div>
 		</SiteSyncDescription>
 	);
 }

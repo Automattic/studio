@@ -1,6 +1,5 @@
-export const SyncTabImage = ( { className }: { className?: string } ) => (
+export const SyncTabImage = () => (
 	<svg
-		className={ className }
 		width="230"
 		height="218"
 		viewBox="0 0 230 218"
@@ -9,25 +8,20 @@ export const SyncTabImage = ( { className }: { className?: string } ) => (
 	>
 		<style>
 			{ `
-				.sync-img-browser-content { fill: #f0f0f0; }
-				.sync-img-wp-dark { fill: black; fill-opacity: 0.5; }
-				.sync-img-wp-light { fill: white; }
-				.sync-img-connector-bottom { fill: black; fill-opacity: 0.3; }
-				.sync-img-dot-fill { fill: white; }
-				.sync-img-dot-stroke { stroke: black; stroke-opacity: 0.3; }
-				.sync-img-dot-theme-fill { fill: white; }
+				.sti-browser-content { fill: var(--color-frame-surface); }
+				.sti-wp-logo-dark { fill: var(--color-frame-text); fill-opacity: 0.5; }
+				.sti-wp-logo-light { fill: white; }
+				.sti-connector { fill: var(--color-frame-text); fill-opacity: 0.3; }
+				.sti-dot { fill: var(--color-frame-bg); }
+				.sti-dot-outline { stroke: var(--color-frame-text); stroke-opacity: 0.3; }
+				.sti-dot-theme { fill: var(--color-frame-bg); }
 				@media (prefers-color-scheme: dark) {
-					.sync-img-browser-content { fill: #1a1a1a; }
-					.sync-img-wp-dark { fill: #DCDCDE; fill-opacity: 1; }
-					.sync-img-wp-light { fill: #DCDCDE; }
-					.sync-img-connector-bottom { fill: white; fill-opacity: 0.3; }
-					.sync-img-dot-fill { fill: #2F2F2F; }
-					.sync-img-dot-stroke { stroke: white; stroke-opacity: 0.3; }
-					.sync-img-dot-theme-fill { fill: #2F2F2F; }
+					.sti-wp-logo-dark { fill: var(--color-frame-surface-alt); fill-opacity: 1; }
+					.sti-wp-logo-light { fill: var(--color-frame-surface-alt); }
 				}
 			` }
 		</style>
-		<g filter="url(#filter0_d_10828_212512)">
+		<g filter="url(#sti-shadow-top)">
 			<rect x="6" y="3" width="122" height="82" rx="4" fill="#41484D" />
 			<rect x="10" y="6.5" width="2" height="2" rx="1" fill="white" fillOpacity="0.3" />
 			<rect x="14" y="6.5" width="2" height="2" rx="1" fill="white" fillOpacity="0.3" />
@@ -35,16 +29,16 @@ export const SyncTabImage = ( { className }: { className?: string } ) => (
 			<rect x="32" y="5" width="70" height="5" rx="1.5" fill="white" fillOpacity="0.3" />
 			<path
 				d="M7 12H127V81C127 82.6569 125.657 84 124 84H10C8.34314 84 7 82.6569 7 81V12Z"
-				className="sync-img-browser-content"
+				className="sti-browser-content"
 			/>
 			<path
 				fillRule="evenodd"
 				clipRule="evenodd"
 				d="M72.4252 57.325L75.7211 47.7963C76.3347 46.2563 76.5408 45.0267 76.5408 43.9329C76.5408 43.5376 76.5141 43.1665 76.4681 42.8222C77.3096 44.3573 77.7898 46.1229 77.7898 47.9976C77.7898 51.9774 75.6338 55.4527 72.4252 57.3226V57.325ZM68.4867 42.941C69.1366 42.907 69.7211 42.8391 69.7211 42.8391C70.3007 42.7712 70.2328 41.9151 69.6532 41.9491C69.6532 41.9491 67.907 42.0849 66.7769 42.0849C65.7146 42.0849 63.9345 41.9491 63.9345 41.9491C63.3525 41.9151 63.2846 42.8052 63.8666 42.8391C63.8666 42.8391 64.4171 42.907 64.9992 42.941L66.6799 47.5489L64.3177 54.6306L60.3888 42.9386C61.0412 42.9046 61.6233 42.8367 61.6233 42.8367C62.2029 42.7688 62.135 41.9127 61.5554 41.9466C61.5554 41.9466 59.8092 42.0825 58.6791 42.0825C58.4778 42.0825 58.2377 42.0776 57.983 42.0703C59.9159 39.1455 63.2312 37.2102 67 37.2102C69.8108 37.2102 72.367 38.2846 74.2854 40.0453C74.2393 40.0428 74.1932 40.0356 74.1471 40.0356C73.0849 40.0356 72.3355 40.9596 72.3355 41.9491C72.3355 42.8391 72.8472 43.5909 73.3977 44.481C73.8076 45.1989 74.2878 46.1229 74.2878 47.4568C74.2878 48.3808 74.0137 49.5424 73.4656 50.9466L72.3888 54.5433L68.4891 42.9458V42.941H68.4867ZM67 58.7898C65.9402 58.7898 64.9192 58.6322 63.9515 58.3509L67.1892 48.9434L70.5069 58.0307C70.5287 58.0841 70.5554 58.1326 70.5845 58.1787C69.4616 58.5715 68.2563 58.7898 67.0024 58.7898H67ZM56.2102 47.9976C56.2102 46.4333 56.5473 44.9491 57.1439 43.6055L62.2902 57.7082C58.6888 55.9596 56.2102 52.2708 56.2102 47.9976ZM67 36C60.384 36 55 41.384 55 48C55 54.616 60.384 60 67 60C73.616 60 79 54.616 79 48C79 41.384 73.6184 36 67 36Z"
-				className="sync-img-wp-dark"
+				className="sti-wp-logo-dark"
 			/>
 		</g>
-		<g filter="url(#filter1_d_10828_212512)">
+		<g filter="url(#sti-shadow-bottom)">
 			<rect x="102" y="127" width="122" height="82" rx="4" fill="#3858E9" />
 			<rect x="106" y="130.5" width="2" height="2" rx="1" fill="white" fillOpacity="0.3" />
 			<rect x="110" y="130.5" width="2" height="2" rx="1" fill="white" fillOpacity="0.3" />
@@ -58,7 +52,7 @@ export const SyncTabImage = ( { className }: { className?: string } ) => (
 				fillRule="evenodd"
 				clipRule="evenodd"
 				d="M168.425 181.325L171.721 171.796C172.335 170.256 172.541 169.027 172.541 167.933C172.541 167.538 172.514 167.167 172.468 166.822C173.31 168.357 173.79 170.123 173.79 171.998C173.79 175.977 171.634 179.453 168.425 181.323V181.325ZM164.487 166.941C165.137 166.907 165.721 166.839 165.721 166.839C166.301 166.771 166.233 165.915 165.653 165.949C165.653 165.949 163.907 166.085 162.777 166.085C161.715 166.085 159.935 165.949 159.935 165.949C159.352 165.915 159.285 166.805 159.867 166.839C159.867 166.839 160.417 166.907 160.999 166.941L162.68 171.549L160.318 178.631L156.389 166.939C157.041 166.905 157.623 166.837 157.623 166.837C158.203 166.769 158.135 165.913 157.555 165.947C157.555 165.947 155.809 166.082 154.679 166.082C154.478 166.082 154.238 166.078 153.983 166.07C155.916 163.146 159.231 161.21 163 161.21C165.811 161.21 168.367 162.285 170.285 164.045C170.239 164.043 170.193 164.036 170.147 164.036C169.085 164.036 168.335 164.96 168.335 165.949C168.335 166.839 168.847 167.591 169.398 168.481C169.808 169.199 170.288 170.123 170.288 171.457C170.288 172.381 170.014 173.542 169.466 174.947L168.389 178.543L164.489 166.946V166.941H164.487ZM163 182.79C161.94 182.79 160.919 182.632 159.951 182.351L163.189 172.943L166.507 182.031C166.529 182.084 166.555 182.133 166.584 182.179C165.462 182.572 164.256 182.79 163.002 182.79H163ZM152.21 171.998C152.21 170.433 152.547 168.949 153.144 167.605L158.29 181.708C154.689 179.96 152.21 176.271 152.21 171.998ZM163 160C156.384 160 151 165.384 151 172C151 178.616 156.384 184 163 184C169.616 184 175 178.616 175 172C175 165.384 169.618 160 163 160Z"
-				className="sync-img-wp-light"
+				className="sti-wp-logo-light"
 			/>
 		</g>
 		<path
@@ -67,19 +61,19 @@ export const SyncTabImage = ( { className }: { className?: string } ) => (
 		/>
 		<path
 			d="M35.5 93C35.5 92.7239 35.7239 92.5 36 92.5C36.2761 92.5 36.5 92.7239 36.5 93H36H35.5ZM94.3536 173.646C94.5488 173.842 94.5488 174.158 94.3536 174.354L91.1716 177.536C90.9763 177.731 90.6597 177.731 90.4645 177.536C90.2692 177.34 90.2692 177.024 90.4645 176.828L93.2929 174L90.4645 171.172C90.2692 170.976 90.2692 170.66 90.4645 170.464C90.6597 170.269 90.9763 170.269 91.1716 170.464L94.3536 173.646ZM36 93H36.5V166H36H35.5V93H36ZM44 174V173.5H94V174V174.5H44V174ZM36 166H36.5C36.5 170.142 39.8579 173.5 44 173.5V174V174.5C39.3056 174.5 35.5 170.694 35.5 166H36Z"
-			className="sync-img-connector-bottom"
+			className="sti-connector"
 		/>
-		<circle cx="70" cy="174" r="4" className="sync-img-dot-fill" />
-		<circle cx="70" cy="174" r="3.5" className="sync-img-dot-stroke" />
+		<circle cx="70" cy="174" r="4" className="sti-dot" />
+		<circle cx="70" cy="174" r="3.5" className="sti-dot-outline" />
 		<circle cx="36" cy="120" r="4" fill="#01C404" />
-		<circle cx="194" cy="68" r="3.5" className="sync-img-dot-theme-fill" stroke="#6A89FE" />
-		<circle cx="36" cy="136" r="4" className="sync-img-dot-fill" />
-		<circle cx="36" cy="136" r="3.5" className="sync-img-dot-stroke" />
+		<circle cx="194" cy="68" r="3.5" className="sti-dot-theme" stroke="#6A89FE" />
+		<circle cx="36" cy="136" r="4" className="sti-dot" />
+		<circle cx="36" cy="136" r="3.5" className="sti-dot-outline" />
 		<circle cx="194" cy="97" r="4" fill="#01C404" />
-		<circle cx="159" cy="38" r="3.5" className="sync-img-dot-theme-fill" stroke="#6A89FE" />
+		<circle cx="159" cy="38" r="3.5" className="sti-dot-theme" stroke="#6A89FE" />
 		<defs>
 			<filter
-				id="filter0_d_10828_212512"
+				id="sti-shadow-top"
 				x="0"
 				y="0"
 				width="134"
@@ -97,16 +91,11 @@ export const SyncTabImage = ( { className }: { className?: string } ) => (
 				<feOffset dy="3" />
 				<feGaussianBlur stdDeviation="3" />
 				<feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.05 0" />
-				<feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_10828_212512" />
-				<feBlend
-					mode="normal"
-					in="SourceGraphic"
-					in2="effect1_dropShadow_10828_212512"
-					result="shape"
-				/>
+				<feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow" />
+				<feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow" result="shape" />
 			</filter>
 			<filter
-				id="filter1_d_10828_212512"
+				id="sti-shadow-bottom"
 				x="96"
 				y="124"
 				width="134"
@@ -124,13 +113,8 @@ export const SyncTabImage = ( { className }: { className?: string } ) => (
 				<feOffset dy="3" />
 				<feGaussianBlur stdDeviation="3" />
 				<feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.05 0" />
-				<feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_10828_212512" />
-				<feBlend
-					mode="normal"
-					in="SourceGraphic"
-					in2="effect1_dropShadow_10828_212512"
-					result="shape"
-				/>
+				<feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow" />
+				<feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow" result="shape" />
 			</filter>
 		</defs>
 	</svg>

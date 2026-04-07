@@ -257,9 +257,6 @@ export function SyncDialog( {
 
 	const handleSubmit = () => {
 		if ( type === 'pull' ) {
-			if ( ! rewindId ) {
-				return;
-			}
 			onPull( treeState );
 		} else {
 			onPush( treeState );

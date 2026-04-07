@@ -9,11 +9,7 @@ import {
 } from 'cli/lib/api';
 import { LoggerError } from 'cli/logger';
 
-vi.mock( 'fs', () => ( {
-	default: {
-		createReadStream: vi.fn(),
-	},
-} ) );
+vi.mock( 'fs' );
 vi.mock( 'wpcom' );
 vi.mock( 'wpcom-xhr-request' );
 vi.mock( '@studio/common/lib/wpcom-factory', () => ( {

@@ -171,7 +171,7 @@ vi.mock( 'cli/commands/auth/logout', () => ( {
 	runCommand: vi.fn().mockResolvedValue( undefined ),
 } ) );
 
-describe( 'CLI: studio ai sessions command', () => {
+describe( 'CLI: studio code sessions command', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		vi.mocked( readCliConfig ).mockResolvedValue( {
@@ -210,7 +210,7 @@ describe( 'CLI: studio ai sessions command', () => {
 		return parser;
 	}
 
-	it( 'does not record an empty session when running studio ai and exiting immediately', async () => {
+	it( 'does not record an empty session when running studio code and exiting immediately', async () => {
 		await buildParser().parseAsync( [ 'ai' ] );
 
 		expect( ( AiSessionRecorder as typeof AiSessionRecorder ).create ).not.toHaveBeenCalled();

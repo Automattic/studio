@@ -24,29 +24,47 @@ IMPORTANT: You MUST use the wpcom_request tool (prefixed with mcp__studio__) to 
 
 ## Available Tools (prefixed with mcp__studio__)
 
-- **wpcom_request**: A generic WordPress.com REST API client. Supports any endpoint.
+- **wpcom_request**: A REST API client that supports both the WordPress REST API (wp/v2) and the WordPress.com REST API (v1.1).
   - \`method\`: GET, POST, PUT, or DELETE
-  - \`path\`: Relative to \`/sites/{siteId}/\` (e.g., \`/posts\`, \`/posts/123\`, \`/themes/mine\`). Prefix with \`!\` for absolute paths (e.g., \`!/me\`).
+  - \`path\`: Relative to \`/sites/{siteId}/\` (e.g., \`/posts\`, \`/posts/123\`, \`/templates\`). Prefix with \`!\` for absolute paths (e.g., \`!/me\`).
   - \`query\`: Optional query parameters object
   - \`body\`: Optional request body for POST/PUT
+  - \`apiNamespace\`: Defaults to \`"wp/v2"\`. Set to \`""\` (empty string) for WP.com REST API v1.1, or \`"wpcom/v2"\` for WP.com v2 endpoints.
 - **take_screenshot**: Take a full-page screenshot of a URL (supports desktop and mobile viewports)
 
-## Common WordPress.com REST API Endpoints
+## API Namespace Guide
 
-**Posts & Pages**: \`GET /posts\`, \`GET /posts/{id}\`, \`POST /posts/new\`, \`POST /posts/{id}\`, \`POST /posts/{id}/delete\`
-**Media**: \`GET /media\`, \`POST /media/new\` (body: \`{ media_urls: [...] }\`)
+**Prefer wp/v2** (default — standard WordPress REST API) for most resources:
+- Posts, pages, media, categories, tags, users, comments
+- Templates, template parts, navigation, global styles, block patterns
+- Any standard WordPress resource
+
+**Use WP.com v1.1** (set \`apiNamespace: ""\`) for WP.com-specific endpoints:
+- Plugin management: \`/plugins\`, \`/plugins/{slug}/install\`
+- Theme switching: \`/themes/mine\`
+- Site info: \`/\` (root)
+- Site settings: \`/settings\`
+
+## Common wp/v2 Endpoints (default apiNamespace)
+
+**Posts & Pages**: \`GET /posts\`, \`GET /posts/{id}\`, \`POST /posts\`, \`POST /posts/{id}\`, \`DELETE /posts/{id}\`
+**Media**: \`GET /media\`, \`POST /media\`
+**Templates**: \`GET /templates\`, \`GET /templates/{id}\`, \`POST /templates\`, \`POST /templates/{id}\`, \`DELETE /templates/{id}\`
+**Template Parts**: \`GET /template-parts\`, \`GET /template-parts/{id}\`, \`POST /template-parts\`, \`POST /template-parts/{id}\`
+**Navigation**: \`GET /navigation\`, \`POST /navigation\`, \`POST /navigation/{id}\`
+**Global Styles**: \`GET /global-styles/{id}\`, \`POST /global-styles/{id}\`
+**Categories/Tags**: \`GET /categories\`, \`POST /categories\`, \`GET /tags\`, \`POST /tags\`
+**Block Types**: \`GET /block-types\`, \`GET /block-types/{name}\`
+**Search**: \`GET /search?search={query}\`
+
+Use \`per_page\` and \`page\` for pagination. Use \`status\` to filter by publish status. For creating/updating content, pass block markup in the \`content\` field of the body.
+
+## Common WP.com v1.1 Endpoints (set apiNamespace to "")
+
+**Site**: \`GET /\` (site info), \`POST /settings\`
 **Plugins**: \`GET /plugins\`, \`POST /plugins/{slug}/install\`, \`POST /plugins/{slug}\` (body: \`{ active: true/false }\`)
 **Themes**: \`GET /themes\`, \`POST /themes/mine\` (body: \`{ theme: "slug" }\`)
-**Site**: \`GET /\` (site info), \`POST /settings\` (update settings)
-**Templates**: \`GET /templates\`, \`GET /templates/{id}\`, \`POST /templates\`, \`POST /templates/{id}\`
-**Template Parts**: \`GET /template-parts\`, \`GET /template-parts/{id}\`, \`POST /template-parts\`, \`POST /template-parts/{id}\`
-**Navigation**: \`GET /navigation\`, \`POST /navigation\`
-**Global Styles**: \`GET /global-styles/themes/{theme}\`
-**Menus**: \`GET /menus\`, \`POST /menus\`, \`POST /menus/{id}\`
-**Widgets**: \`GET /widgets\`, \`POST /widgets\`
-**Categories/Tags**: \`GET /categories\`, \`POST /categories/new\`, \`GET /tags\`, \`POST /tags/new\`
-
-Use query parameters to filter results (e.g., \`{ "status": "publish", "number": 50, "type": "page" }\`). For creating/updating content, pass block markup in the \`content\` field of the body.
+**Media upload from URL**: \`POST /media/new\` (body: \`{ media_urls: [...] }\`)
 
 ## Workflow
 

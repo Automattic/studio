@@ -307,5 +307,5 @@ export default createPrompt< TreeNode[], TreeCheckboxConfig >( ( config, done ) 
 		'↑↓ navigate · space toggle · →← expand/collapse · a all · ⏎ confirm · esc cancel'
 	);
 
-	return `${ prefix } ${ message }${ cursorHide }\n${ page }\n${ helpTip }`;
+	return `${ prefix } ${ message }${ cursorHide }\n${ page }\n\n${ helpTip }`;
 } );

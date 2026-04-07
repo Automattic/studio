@@ -14,4 +14,3 @@ export type {
 	SyncPushState,
 	PushStates,
 } from './sync-operations-slice';
-export * from './sync-types';

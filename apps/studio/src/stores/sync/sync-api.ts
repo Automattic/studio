@@ -1,12 +1,12 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
+import {
+	backupLsItemSchema,
+	backupLsResponseSchema,
+	latestRewindIdResponseSchema,
+} from '@studio/common/types/sync-tree';
 import { TreeNode } from 'src/components/tree-view';
 import { SYNC_OPTIONS } from 'src/constants';
 import { wpcomApi } from 'src/stores/wpcom-api';
-import {
-	BackupLsItemSchema,
-	BackupLsResponseSchema,
-	LatestRewindIdResponseSchema,
-} from './sync-types';
 import type { BackupLsItem, BackupLsRequest } from '@studio/common/types/sync-tree';
 
 const getParentFolder = ( parentPath: string ) => {
@@ -62,7 +62,7 @@ const syncApi = wpcomApi.injectEndpoints( {
 				apiNamespace: 'wpcom/v2',
 			} ),
 			transformResponse: ( response: unknown ) => {
-				const validationResult = LatestRewindIdResponseSchema.safeParse( {
+				const validationResult = latestRewindIdResponseSchema.safeParse( {
 					body: response,
 					status: 200,
 				} );
@@ -122,7 +122,7 @@ export const fetchRemoteFileTree = createAsyncThunk(
 			throw new Error( errorMessage );
 		}
 
-		const validationResult = BackupLsResponseSchema.shape.body.safeParse( rawResponse );
+		const validationResult = backupLsResponseSchema.shape.body.safeParse( rawResponse );
 		if ( ! validationResult.success ) {
 			console.error( 'Invalid response format:', validationResult.error );
 			throw new Error( 'Invalid response format from server' );
@@ -135,7 +135,7 @@ export const fetchRemoteFileTree = createAsyncThunk(
 
 		const children: TreeNode[] = [];
 		for ( const [ name, rawItem ] of Object.entries( response.contents ) ) {
-			const itemValidation = BackupLsItemSchema.safeParse( rawItem );
+			const itemValidation = backupLsItemSchema.safeParse( rawItem );
 			if ( itemValidation.success ) {
 				const node = convertBackupItemToTreeNode( name, itemValidation.data, path, parentChecked );
 				children.push( node );

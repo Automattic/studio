@@ -58,7 +58,7 @@ IMPORTANT: You MUST use the wpcom_request tool (prefixed with mcp__studio__) to 
 **Templates**: \`GET /templates\`, \`GET /templates/{id}\`, \`POST /templates\`, \`POST /templates/{id}\`, \`DELETE /templates/{id}\`
 **Template Parts**: \`GET /template-parts\`, \`GET /template-parts/{id}\`, \`POST /template-parts\`, \`POST /template-parts/{id}\`
 **Navigation**: \`GET /navigation\`, \`POST /navigation\`, \`POST /navigation/{id}\`
-**Global Styles**: \`GET /global-styles/{id}\`, \`POST /global-styles/{id}\`
+**Global Styles**: \`GET /global-styles/{id}\`, \`POST /global-styles/{id}\`. To find the global styles ID, first \`GET /themes?status=active\` — the active theme's \`_links["wp:user-global-styles"][0].href\` contains the ID.
 **Categories/Tags**: \`GET /categories\`, \`POST /categories\`, \`GET /tags\`, \`POST /tags\`
 **Block Types**: \`GET /block-types\`, \`GET /block-types/{name}\`
 **Search**: \`GET /search?search={query}\`

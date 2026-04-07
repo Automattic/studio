@@ -41,6 +41,7 @@ import {
 	loadImportedRuntimeStartOptions,
 	normalizeImportedSqliteDatabasePath,
 } from 'cli/lib/import/runtime-start-options';
+import { PROCESS_MANAGER_LOGS_DIR } from 'cli/lib/paths';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
 import {
 	isServerRunning,
@@ -145,6 +146,54 @@ function redBox( message: string ): string {
 		.map( ( line ) => chalk.red( '│' ) + ' ' + line.padEnd( maxLen ) + ' ' + chalk.red( '│' ) )
 		.join( '\n' );
 	return `${ top }\n${ body }\n${ bottom }`;
+}
+
+function readRecentDaemonLogs( siteId: string, maxLines = 30 ): string | null {
+	const processName = `studio-site-${ siteId }`;
+	const logPaths = [
+		path.join( PROCESS_MANAGER_LOGS_DIR, `${ processName }-out.log` ),
+		path.join( PROCESS_MANAGER_LOGS_DIR, `${ processName }-error.log` ),
+	];
+
+	const sections: string[] = [];
+	for ( const logPath of logPaths ) {
+		try {
+			const content = fs.readFileSync( logPath, 'utf-8' ).trim();
+			if ( content ) {
+				const lines = content.split( '\n' );
+				const tail = lines.slice( -maxLines ).join( '\n' );
+				sections.push( `--- ${ path.basename( logPath ) } ---\n${ tail }` );
+			}
+		} catch {
+			// Log file may not exist yet.
+		}
+	}
+
+	return sections.length > 0 ? sections.join( '\n\n' ) : null;
+}
+
+function formatServerStartErrorDetails( siteId: string | undefined, error: unknown ): string {
+	const parts: string[] = [];
+
+	if ( error instanceof Error ) {
+		parts.push( error.message );
+
+		const cliArgs = ( error as Error & { cliArgs?: Record< string, unknown > } ).cliArgs;
+		if ( cliArgs ) {
+			parts.push( `\nPlayground CLI args:\n${ JSON.stringify( cliArgs, null, 2 ) }` );
+		}
+	} else {
+		parts.push( String( error ) );
+	}
+
+	if ( siteId ) {
+		const recentLogs = readRecentDaemonLogs( siteId );
+		if ( recentLogs ) {
+			parts.push( `\nDaemon process logs:\n${ recentLogs }` );
+		}
+	}
+
+	return parts.join( '\n' );
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1677,6 +1726,12 @@ export async function runCommand(
 				metadata.localUrl = getSiteUrl( site );
 				saveImportMetadata( metadata );
 				setStage( metadata, 'site-started' );
+			} catch ( serverError ) {
+				const details = formatServerStartErrorDetails( site.id, serverError );
+				throw new ImportError(
+					__( 'Failed to start the WordPress server for the imported site.' ),
+					details
+				);
 			} finally {
 				await disconnectFromDaemon();
 			}

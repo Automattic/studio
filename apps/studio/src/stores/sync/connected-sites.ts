@@ -2,7 +2,8 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { RootState } from 'src/stores';
-import type { SyncSite, SyncModalMode } from 'src/modules/sync/types';
+import type { SyncSite } from '@studio/common/types/sync';
+import type { SyncModalMode } from 'src/modules/sync/types';
 
 type ConnectedSitesState = {
 	isModalOpen: boolean;

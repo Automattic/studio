@@ -46,7 +46,7 @@ import {
 	connectedSitesSelectors,
 	useGetConnectedSitesForLocalSiteQuery,
 } from 'src/stores/sync/connected-sites';
-import type { SyncSite } from 'src/modules/sync/types';
+import type { SyncSite } from '@studio/common/types/sync';
 
 const SyncConnectedSiteControls = ( {
 	connectedSite,

@@ -1,18 +1,25 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import * as Sentry from '@sentry/electron/renderer';
+import {
+	SYNC_PUSH_SIZE_LIMIT_BYTES,
+	SYNC_PUSH_SIZE_LIMIT_GB,
+} from '@studio/common/lib/sync/constants';
+import {
+	pullSiteResponseSchema,
+	syncBackupResponseSchema,
+	importResponseSchema,
+} from '@studio/common/types/sync';
 import { __, sprintf } from '@wordpress/i18n';
-import { z } from 'zod';
-import { SYNC_PUSH_SIZE_LIMIT_BYTES, SYNC_PUSH_SIZE_LIMIT_GB } from 'src/constants';
 import { generateStateId } from 'src/hooks/sync-sites/use-pull-push-states';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getHostnameFromUrl } from 'src/lib/url-utils';
 import { store } from 'src/stores';
 import { connectedSitesApi } from 'src/stores/sync/connected-sites';
+import type { ImportResponse, SyncSite } from '@studio/common/types/sync';
 import type {
 	PullStateProgressInfo,
 	PushStateProgressInfo,
 } from 'src/hooks/use-sync-states-progress-info';
-import type { SyncSite } from 'src/modules/sync/types';
 import type { AppDispatch, RootState } from 'src/stores';
 import type { SyncOption } from 'src/types';
 import type { WPCOM } from 'wpcom/types';
@@ -482,49 +489,6 @@ type PullSiteResult = {
 	remoteSiteId: number;
 };
 
-const pullSiteResponseSchema = z.object( {
-	success: z.boolean(),
-	backup_id: z.number(),
-} );
-
-const importFailedResponseSchema = z.object( {
-	status: z.literal( 'failed' ),
-	success: z.boolean(),
-	error: z.string(),
-	error_data: z
-		.object( {
-			vp_restore_status: z.string().nullable(),
-			vp_restore_message: z.string().nullable(),
-			vp_rewind_id: z.string().nullable(),
-		} )
-		.nullable(),
-} );
-
-const importWorkingResponseSchema = z.object( {
-	status: z.enum( [
-		'started',
-		'initial_backup_started',
-		'initial_backup_finished',
-		'archive_import_started',
-		'archive_import_finished',
-		'finished',
-	] ),
-	success: z.boolean(),
-	backup_progress: z.number().nullable(),
-	import_progress: z.number().nullable(),
-} );
-
-const importResponseSchema = z.discriminatedUnion( 'status', [
-	importWorkingResponseSchema,
-	importFailedResponseSchema,
-] );
-
-const syncBackupResponseSchema = z.object( {
-	status: z.enum( [ 'in-progress', 'finished', 'failed' ] ),
-	download_url: z.string().nullable().optional(),
-	percent: z.number(),
-} );
-
 export const pullSiteThunk = createTypedAsyncThunk< PullSiteResult, PullSitePayload >(
 	'syncOperations/pullSite',
 	async ( { client, connectedSite, selectedSite, options }, { dispatch, rejectWithValue } ) => {
@@ -598,8 +562,6 @@ type PollPushProgressPayload = {
 	signal: AbortSignal;
 	remoteSiteId: number;
 };
-
-type ImportResponse = z.infer< typeof importResponseSchema >;
 
 const pollPushProgressThunk = createTypedAsyncThunk(
 	'syncOperations/pollPushProgress',

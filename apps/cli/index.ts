@@ -136,6 +136,19 @@ async function main() {
 			registerSiteSetCommand( sitesYargs );
 			sitesYargs.version( false ).demandCommand( 1, __( 'You must provide a valid command' ) );
 		} )
+		.command( 'sync', __( 'Sync with WordPress.com' ), async ( syncYargs ) => {
+			const [
+				{ registerCommand: registerSyncPullCommand },
+				{ registerCommand: registerSyncPushCommand },
+			] = await Promise.all( [
+				import( 'cli/commands/sync/pull' ),
+				import( 'cli/commands/sync/push' ),
+			] );
+
+			registerSyncPullCommand( syncYargs );
+			registerSyncPushCommand( syncYargs );
+			syncYargs.version( false ).demandCommand( 1, __( 'You must provide a valid sync command' ) );
+		} )
 		.command( {
 			command: 'wp',
 			describe: __( 'WP-CLI' ),

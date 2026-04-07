@@ -6,6 +6,7 @@ import path from 'node:path';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
+import { SyncSite } from '@studio/common/types/sync';
 import { Upload } from 'tus-js-client';
 import { z } from 'zod';
 import {
@@ -20,7 +21,6 @@ import { exportBackup } from 'src/lib/import-export/export/export-manager';
 import { ExportOptions } from 'src/lib/import-export/export/types';
 import { getAuthenticationToken } from 'src/lib/oauth';
 import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
-import { SyncSite } from 'src/modules/sync/types';
 import { SiteServer } from 'src/site-server';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 import { SyncOption } from 'src/types';

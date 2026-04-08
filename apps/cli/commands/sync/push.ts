@@ -83,7 +83,7 @@ export async function runCommand(
 		specificSelectionPaths = selection.specificSelectionPaths;
 	}
 
-	const tempDir = path.join( os.tmpdir(), 'studio-sync' );
+	const tempDir = await fs.promises.mkdtemp( path.join( os.tmpdir(), 'studio-sync' ) );
 
 	try {
 		fs.mkdirSync( tempDir, { recursive: true } );

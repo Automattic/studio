@@ -199,6 +199,10 @@ export async function runCommand( siteFolder: string, importFile: string ): Prom
 		site = await getSiteByFolder( siteFolder );
 		logger.reportSuccess( __( 'Site loaded' ) );
 
+		if ( ! fs.existsSync( importFile ) ) {
+			throw new LoggerError( sprintf( __( 'Import file not found: %s' ), importFile ) );
+		}
+
 		wasServerRunning = !! ( await isServerRunning( site.id ) );
 
 		if ( wasServerRunning ) {
@@ -206,10 +210,6 @@ export async function runCommand( siteFolder: string, importFile: string ): Prom
 			await stopWordPressServer( site.id );
 			await clearSiteLatestCliPid( site.id );
 			logger.reportSuccess( __( 'WordPress server stopped' ) );
-		}
-
-		if ( ! fs.existsSync( importFile ) ) {
-			throw new LoggerError( sprintf( __( 'Import file not found: %s' ), importFile ) );
 		}
 
 		if ( ! isWordPressDirectory( site.path ) ) {

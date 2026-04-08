@@ -165,7 +165,7 @@ export async function runCommand(
 
 		// Download phase: 50-80%
 		logger.reportProgress( sprintf( __( 'Downloading backup… (%d%%)' ), 50 ) );
-		const tempDir = path.join( os.tmpdir(), 'studio-sync' );
+		const tempDir = await fs.promises.mkdtemp( path.join( os.tmpdir(), 'studio-sync' ) );
 
 		try {
 			fs.mkdirSync( tempDir, { recursive: true } );

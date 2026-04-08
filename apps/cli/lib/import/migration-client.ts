@@ -76,7 +76,17 @@ function parseJsonlRecord( line: string ): unknown | null {
 }
 
 function readNumber( value: unknown ): number | undefined {
-	return typeof value === 'number' && Number.isFinite( value ) ? value : undefined;
+	if ( typeof value === 'number' ) {
+		return Number.isFinite( value ) ? value : undefined;
+	}
+
+	// The importer's PHP json_encode may emit numeric values as strings.
+	if ( typeof value === 'string' && value.length > 0 ) {
+		const parsed = Number( value );
+		return Number.isFinite( parsed ) ? parsed : undefined;
+	}
+
+	return undefined;
 }
 
 function readString( value: unknown ): string | undefined {
@@ -202,10 +212,22 @@ export function updateImporterProgressSnapshot(
 		nextSnapshot.message = status;
 	}
 
-	const downloadedFiles = readNumber( object.downloaded_files ) ?? readNumber( object.files_done );
-	const totalFiles = readNumber( object.total_files ) ?? readNumber( object.files_total );
-	const downloadedBytes = readNumber( object.downloaded_bytes ) ?? readNumber( object.bytes_done );
-	const totalBytes = readNumber( object.total_bytes ) ?? readNumber( object.bytes_total );
+	const downloadedFiles =
+		readNumber( object.downloaded_files ) ??
+		readNumber( object.files_done ) ??
+		readNumber( object.files_downloaded );
+	const totalFiles =
+		readNumber( object.total_files ) ??
+		readNumber( object.files_total ) ??
+		readNumber( object.files );
+	const downloadedBytes =
+		readNumber( object.downloaded_bytes ) ??
+		readNumber( object.bytes_done ) ??
+		readNumber( object.bytes_downloaded );
+	const totalBytes =
+		readNumber( object.total_bytes ) ??
+		readNumber( object.bytes_total ) ??
+		readNumber( object.bytes );
 	const bytesReceived = readNumber( object.bytes_received );
 	const rateBps = readNumber( object.rate_bps );
 	const statementsExecuted = readNumber( object.statements_executed );
@@ -311,7 +333,11 @@ export function formatImporterProgressSnapshot(
 		}
 	}
 
-	if ( snapshot.message && snapshot.message !== snapshot.phase ) {
+	// Don't echo the message when it would duplicate the structured file
+	// count segment (e.g. "[2838 files, 1.2 GB]" alongside "0/2838 files").
+	const hasStructuredFileCounts =
+		snapshot.downloadedFiles !== undefined || snapshot.totalFiles !== undefined;
+	if ( snapshot.message && snapshot.message !== snapshot.phase && ! hasStructuredFileCounts ) {
 		segments.push( snapshot.message );
 	}
 

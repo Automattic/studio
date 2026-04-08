@@ -255,7 +255,9 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 					'studio-cli.sh'
 				);
 
-				return symlinkDestination === prodCliPackagedPath;
+				if ( symlinkDestination === prodCliPackagedPath ) {
+					return true;
+				}
 			}
 
 			return symlinkDestination === cliPackagedPath;

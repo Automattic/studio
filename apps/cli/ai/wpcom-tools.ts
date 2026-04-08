@@ -3,29 +3,53 @@ import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { z } from 'zod/v4';
 
+// Responses larger than this threshold will have heavy fields stripped.
+const COMPACT_THRESHOLD_CHARS = 80_000;
+
 /**
  * Strips known bloated fields from API responses to stay within MCP tool result
- * size limits (~100k characters). The WP.com /sites/{id} endpoint returns a plan
- * object whose `features` sub-field alone can be 60K+ characters. The agent only
- * needs a few plan properties (product_slug, is_free, expired) to gate features,
- * since the system prompt hardcodes what each plan tier can and can't do.
+ * size limits (~100k characters).
+ *
+ * Two cases are handled:
+ * 1. Single object with plan.features (e.g. /sites/{id}): the features sub-field
+ *    alone can be 60K+ chars. The agent only needs a few plan properties.
+ * 2. Array responses (e.g. /templates, /posts): when the list is too large, strip
+ *    heavy per-item fields (content, _links) so the agent can identify items and
+ *    fetch individual ones for full content.
  */
 function compactResponse( result: ApiResponse ): ApiResponse {
-	if ( result && typeof result === 'object' && ! Array.isArray( result ) ) {
-		// plan.features can be 60K+ chars — keep only essential plan properties
-		if ( result.plan && typeof result.plan === 'object' && result.plan.features ) {
-			result = {
-				...result,
-				plan: {
-					product_id: result.plan.product_id,
-					product_slug: result.plan.product_slug,
-					product_name_short: result.plan.product_name_short,
-					expired: result.plan.expired,
-					is_free: result.plan.is_free,
-				},
-			};
+	if ( ! result || typeof result !== 'object' ) {
+		return result;
+	}
+
+	// Case 1: plan.features can be 60K+ chars — keep only essential plan properties
+	if ( ! Array.isArray( result ) && result.plan?.features ) {
+		result = {
+			...result,
+			plan: {
+				product_id: result.plan.product_id,
+				product_slug: result.plan.product_slug,
+				product_name_short: result.plan.product_name_short,
+				expired: result.plan.expired,
+				is_free: result.plan.is_free,
+			},
+		};
+	}
+
+	// Case 2: array responses — strip heavy fields when the response is too large
+	if ( Array.isArray( result ) ) {
+		const fullSize = JSON.stringify( result ).length;
+		if ( fullSize > COMPACT_THRESHOLD_CHARS ) {
+			result = result.map( ( item: ApiResponse ) => {
+				if ( item && typeof item === 'object' && ! Array.isArray( item ) ) {
+					const { content, _links, ...rest } = item;
+					return rest;
+				}
+				return item;
+			} );
 		}
 	}
+
 	return result;
 }
 

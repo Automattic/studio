@@ -698,7 +698,7 @@ export async function runCommand(
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: '$0',
-		describe: __( 'AI-powered WordPress assistant' ),
+		describe: __( 'AI agent for building WordPress' ),
 		builder: ( yargs ) => {
 			return yargs
 				.option( 'path', {

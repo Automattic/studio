@@ -171,7 +171,7 @@ async function main() {
 	if ( __ENABLE_STUDIO_AI__ ) {
 		studioArgv.command(
 			[ 'code', 'ai' ],
-			__( 'AI-powered WordPress assistant' ),
+			__( 'AI agent for building WordPress' ),
 			async ( aiYargs ) => {
 				const { registerCommand: registerAiCommand } = await import( 'cli/commands/ai' );
 				registerAiCommand( aiYargs );

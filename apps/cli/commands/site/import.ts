@@ -1848,7 +1848,19 @@ export async function runCommand(
 
 		if ( ! hasReachedStage( metadata, 'completed' ) ) {
 			if ( hasSkippedFiles( metadata ) ) {
-				prepareSkippedEarlierState( metadata );
+				// Only prepare the state for skipped-earlier if the importer
+				// isn't already mid-way through a skipped-earlier run.  When
+				// it is (status=partial, stage=fetch-skipped), the state file
+				// already encodes the resumption point and overwriting it
+				// would break the importer's validation.
+				const importerState = readImporterState( metadata.stateDirectory );
+				const isResumingSkipped =
+					importerState?.stage === 'fetch-skipped' && importerState?.status !== 'complete';
+
+				if ( ! isResumingSkipped ) {
+					prepareSkippedEarlierState( metadata );
+				}
+
 				logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Downloading remaining files…' ) );
 				await runImporterCommandUntilComplete(
 					metadata.stateDirectory,
@@ -1857,14 +1869,14 @@ export async function runCommand(
 						'files-sync',
 						apiUrl,
 						`--secret=${ secret }`,
-						'--filter=skipped-earlier',
+						...( isResumingSkipped ? [] : [ '--filter=skipped-earlier' ] ),
 						'--no-adaptive',
 						'--state-dir=/state',
 						'--fs-root=/docroot',
 					],
 					( progress ) => logger.reportProgress( progress ),
 					{
-						progressLabel: 'Remaining files',
+						progressLabel: __( 'Remaining files' ),
 						verboseCommands: verbose,
 					}
 				);

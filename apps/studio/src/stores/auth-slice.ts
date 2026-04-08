@@ -8,7 +8,7 @@ import { isInvalidTokenError } from 'src/lib/is-invalid-oauth-token-error';
 import { setSentryWpcomUserIdRenderer } from 'src/lib/renderer-sentry-utils';
 import { store, RootState } from 'src/stores';
 import { getWpcomClient, setWpcomClient } from 'src/stores/wpcom-client';
-import type { StoredToken } from 'src/lib/oauth';
+import type { StoredAuthToken } from 'src/lib/oauth';
 import type { WPCOM } from 'wpcom/types';
 
 interface WpcomParams extends Record< string, unknown > {
@@ -52,7 +52,7 @@ function createWpcomClient( token?: string, locale?: string, onInvalidToken?: ()
 		const modifiedParams = addLocaleToParams( params as WpcomParams );
 		const wrappedCallback = ( err: unknown, response: unknown, headers: unknown ) => {
 			if ( err && isInvalidTokenError( err ) && onInvalidToken && ! isAuthErrorDialogOpen ) {
-				onInvalidToken();
+				void onInvalidToken();
 			}
 			if ( typeof callback === 'function' ) {
 				callback( err, response, headers );
@@ -122,7 +122,7 @@ export const initializeAuth = createTypedAsyncThunk(
 
 export const authTokenReceived = createTypedAsyncThunk(
 	'auth/tokenReceived',
-	async ( { token, locale }: { token: StoredToken; locale?: string } ) => {
+	async ( { token, locale }: { token: StoredAuthToken; locale?: string } ) => {
 		const client = createWpcomClient( token.accessToken, locale, () =>
 			store.dispatch( handleInvalidToken() )
 		);
@@ -205,6 +205,11 @@ export function initializeAuthIpcListeners() {
 			}
 
 			void getIpcApi().showErrorMessageBox( { title, message } );
+			return;
+		}
+
+		if ( ! payload.token ) {
+			void store.dispatch( authLogout( { isOffline: true } ) );
 			return;
 		}
 

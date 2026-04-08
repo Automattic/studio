@@ -179,11 +179,6 @@ export function updateImporterProgressSnapshot(
 		if ( event && event !== 'resuming' ) {
 			nextSnapshot.message = event;
 		}
-		// Lifecycle completion events carry the total index size.
-		const filesIndexed = readNumber( object.files_indexed );
-		if ( filesIndexed !== undefined ) {
-			nextSnapshot.totalFiles = Math.max( filesIndexed, snapshot.totalFiles ?? 0 );
-		}
 		return nextSnapshot;
 	}
 
@@ -253,8 +248,11 @@ export function updateImporterProgressSnapshot(
 		nextSnapshot.currentRequestDownloadedFiles = downloadedFiles;
 		nextSnapshot.downloadedFiles = base + downloadedFiles;
 	}
-	if ( totalFiles !== undefined ) {
-		nextSnapshot.totalFiles = Math.max( totalFiles, snapshot.totalFiles ?? 0 );
+	// Lock the total once set — later values may grow as the importer
+	// discovers symlink targets or the index expands, but a moving total
+	// is confusing in the progress display.
+	if ( totalFiles !== undefined && snapshot.totalFiles === undefined ) {
+		nextSnapshot.totalFiles = totalFiles;
 	}
 	if ( downloadedBytes !== undefined ) {
 		const prev = snapshot.currentRequestDownloadedBytes ?? 0;
@@ -265,8 +263,8 @@ export function updateImporterProgressSnapshot(
 		nextSnapshot.currentRequestDownloadedBytes = downloadedBytes;
 		nextSnapshot.downloadedBytes = base + downloadedBytes;
 	}
-	if ( totalBytes !== undefined ) {
-		nextSnapshot.totalBytes = Math.max( totalBytes, snapshot.totalBytes ?? 0 );
+	if ( totalBytes !== undefined && snapshot.totalBytes === undefined ) {
+		nextSnapshot.totalBytes = totalBytes;
 	}
 	if ( bytesReceived !== undefined ) {
 		const prev = snapshot.currentRequestBytesReceived ?? 0;
@@ -308,16 +306,11 @@ export function formatImporterProgressSnapshot(
 	const elapsed = formatElapsedSeconds( elapsedSeconds );
 	const segments = [ progressLabel ];
 
-	// Always use X/Y format once either count is known so the leading
-	// number doesn't jump between the total and the downloaded count when
-	// the format switches from "Y files" to "X/Y files".
-	if ( snapshot.downloadedFiles !== undefined || snapshot.totalFiles !== undefined ) {
+	// Only show the file count once the total is known — a bare "X files"
+	// without context is noise.  Always use X/Y format for consistency.
+	if ( snapshot.totalFiles !== undefined ) {
 		const downloaded = snapshot.downloadedFiles ?? 0;
-		if ( snapshot.totalFiles !== undefined ) {
-			segments.push( `${ downloaded }/${ snapshot.totalFiles } files` );
-		} else {
-			segments.push( `${ downloaded } files` );
-		}
+		segments.push( `${ downloaded }/${ snapshot.totalFiles } files` );
 	}
 
 	if ( snapshot.downloadedBytes !== undefined && snapshot.totalBytes !== undefined ) {

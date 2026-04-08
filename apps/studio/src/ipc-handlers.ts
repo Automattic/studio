@@ -51,7 +51,6 @@ import {
 	StatsGroup,
 	StatsMetric,
 } from 'src/lib/bump-stats';
-import { captureSiteThumbnail } from 'src/lib/capture-site-thumbnail';
 import {
 	openCertificate as openCertificateDialog,
 	isRootCATrusted,
@@ -66,6 +65,7 @@ import { ImportExportEventData } from 'src/lib/import-export/handle-events';
 import { defaultImporterOptions, importBackup } from 'src/lib/import-export/import/import-manager';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
+import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import * as oauthClient from 'src/lib/oauth';
 import { getAiInstructionsPath } from 'src/lib/server-files-paths';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
@@ -107,6 +107,7 @@ import {
 	updateAppdata,
 } from 'src/storage/user-data';
 import { Blueprint } from 'src/stores/wpcom-api';
+import { captureSiteThumbnail } from './lib/capture-site-thumbnail';
 import type { RawDirectoryEntry } from 'src/modules/sync/types';
 import type { WpCliResult } from 'src/site-server';
 
@@ -817,6 +818,7 @@ export async function isAuthenticated() {
 }
 
 export async function clearAuthenticationToken() {
+	setSentryWpcomUserIdMain( undefined );
 	return await updateSharedConfig( { authToken: undefined } );
 }
 
@@ -991,15 +993,17 @@ export function showItemInFolder( _event: IpcMainInvokeEvent, path: string ) {
 export async function loadThemeDetails(
 	event: IpcMainInvokeEvent,
 	id: string,
-	emitThemeDetailsLoadingEvent = true
+	emitLoadingEvent = true
 ): Promise< StartedSiteDetails[ 'themeDetails' ] > {
 	const server = SiteServer.get( id );
 	if ( ! server ) {
 		throw new Error( 'Site not found.' );
 	}
 
+	void captureSiteThumbnail( id, emitLoadingEvent );
+
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( emitThemeDetailsLoadingEvent ) {
+	if ( emitLoadingEvent ) {
 		sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-loading', { id } );
 	}
 
@@ -1015,8 +1019,6 @@ export async function loadThemeDetails(
 	if ( hasThemeChanged ) {
 		await server.persistThemeDetails();
 	}
-
-	void captureSiteThumbnail( id );
 
 	return themeDetails;
 }

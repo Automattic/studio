@@ -79,7 +79,7 @@ export async function runCommand( options: {
 	ui.start();
 	ui.showWelcome();
 
-	if ( options.showLegacyCommandNotice ) {
+	if ( options.showLegacyCommandNotice && ! isJsonMode ) {
 		ui.showInfo( __( 'ⓘ The "studio ai" command is now "studio code".' ) );
 	}
 

@@ -76,7 +76,7 @@ export function exportEventHandler( { event, data }: ImportExportEventData ): vo
 export async function runCommand(
 	siteFolder: string,
 	exportPath: string,
-	includeOnly?: 'content' | 'db'
+	mode?: 'full' | 'db'
 ): Promise< void > {
 	try {
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
@@ -96,9 +96,7 @@ export async function runCommand(
 
 		const includes: ExportOptions[ 'includes' ] = { database: true, wpContent: true };
 
-		if ( includeOnly === 'content' ) {
-			includes.database = false;
-		} else if ( includeOnly === 'db' ) {
+		if ( mode === 'db' ) {
 			includes.wpContent = false;
 		}
 
@@ -112,6 +110,8 @@ export async function runCommand(
 			exportEventHandler
 		);
 
+		logger.reportSuccess( sprintf( __( '%s successfully exported' ), exportPath ) );
+
 		if ( ! isExported ) {
 			throw new LoggerError( __( 'No suitable exporter found for the provided backup file' ) );
 		}
@@ -120,16 +120,29 @@ export async function runCommand(
 	}
 }
 
+function getTimestamp( date = new Date() ): string {
+	return [
+		date.getFullYear(),
+		date.getMonth() + 1,
+		date.getDate(),
+		date.getHours(),
+		date.getMinutes(),
+		date.getSeconds(),
+	]
+		.map( ( part ) => String( part ).padStart( 2, '0' ) )
+		.join( '-' );
+}
+
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
-		command: 'export <export-file>',
+		command: 'export [export-file]',
 		describe: __( 'Export site to a backup file' ),
 		builder: ( yargs ) => {
 			return yargs
 				.positional( 'export-file', {
 					type: 'string',
 					normalize: true,
-					demandOption: true,
+					demandOption: false,
 					description: __(
 						'Path to the export file. Full-site exports use .zip or .tar.gz. Database-only exports use .sql.'
 					),
@@ -137,39 +150,47 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 						return path.resolve( untildify( value ) );
 					},
 				} )
-				.option( 'only', {
+				.option( 'mode', {
 					type: 'string',
-					choices: [ 'content', 'db' ] as const,
-					description: __( 'Export only the content or the database. Default exports full site.' ),
+					choices: [ 'full', 'db' ] as const,
+					default: 'full' as const,
+					description: __(
+						'Export the full site or just the database. Default exports full site.'
+					),
 				} );
 		},
 		handler: async ( argv ) => {
 			try {
-				if ( argv.only === 'content' && argv.exportFile.endsWith( '.sql' ) ) {
+				let exportFile: string;
+				const timestamp = getTimestamp();
+
+				if ( argv.exportFile ) {
+					exportFile = argv.exportFile;
+				} else if ( argv.mode === 'full' ) {
+					exportFile = path.join( process.cwd(), `studio-backup-${ timestamp }.zip` );
+				} else {
+					exportFile = path.join( process.cwd(), `studio-backup-${ timestamp }.sql` );
+				}
+
+				if (
+					argv.mode === 'full' &&
+					! exportFile.endsWith( '.zip' ) &&
+					! exportFile.endsWith( '.tar.gz' )
+				) {
 					throw new LoggerError(
 						__(
-							'Invalid export file extension. Must be .zip or .tar.gz when exporting site content.'
+							'Invalid export file extension. Must be .zip or .tar.gz when exporting the full site.'
 						)
 					);
 				}
 
-				if ( argv.only === 'db' && ! argv.exportFile.endsWith( '.sql' ) ) {
+				if ( argv.mode === 'db' && ! exportFile.endsWith( '.sql' ) ) {
 					throw new LoggerError(
 						__( 'Invalid export file extension. Must be .sql when exporting database only.' )
 					);
 				}
 
-				if (
-					! argv.exportFile.endsWith( '.sql' ) &&
-					! argv.exportFile.endsWith( '.zip' ) &&
-					! argv.exportFile.endsWith( '.tar.gz' )
-				) {
-					throw new LoggerError(
-						__( 'Invalid export file extension. Must be .zip, .tar.gz or .sql.' )
-					);
-				}
-
-				await runCommand( argv.path, argv.exportFile, argv.only );
+				await runCommand( argv.path, exportFile, argv.mode );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );

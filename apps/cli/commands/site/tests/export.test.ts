@@ -112,30 +112,34 @@ describe( 'CLI: studio export', () => {
 		);
 	} );
 
-	it( 'allows .sql exports without --only db', async () => {
+	it( 'allows .sql exports when --mode db is used', async () => {
 		const reportErrorSpy = vi.spyOn( Logger.prototype, 'reportError' );
 
 		const argv = getYargsArgvMock();
 		registerCommand( argv );
 
-		await argv.parse( [ 'export', 'site-backup.sql', '--path', testSitePath ] );
+		await argv.parse( [ 'export', 'site-backup.sql', '--path', testSitePath, '--mode', 'db' ] );
 
 		expect( exportBackup ).toHaveBeenCalledWith(
 			expect.objectContaining( {
 				backupFile: expect.stringContaining( 'site-backup.sql' ),
+				includes: {
+					database: true,
+					wpContent: false,
+				},
 			} ),
 			expect.any( Function )
 		);
 		expect( reportErrorSpy ).not.toHaveBeenCalled();
 	} );
 
-	it( 'rejects non-.sql file paths when --only db is used', async () => {
+	it( 'rejects non-.sql file paths when --mode db is used', async () => {
 		const reportErrorSpy = vi.spyOn( Logger.prototype, 'reportError' );
 
 		const argv = getYargsArgvMock();
 		registerCommand( argv );
 
-		await argv.parse( [ 'export', 'site-backup.zip', '--path', testSitePath, '--only', 'db' ] );
+		await argv.parse( [ 'export', 'site-backup.zip', '--path', testSitePath, '--mode', 'db' ] );
 
 		expect( exportBackup ).not.toHaveBeenCalled();
 		expect( reportErrorSpy ).toHaveBeenCalledWith(
@@ -145,26 +149,19 @@ describe( 'CLI: studio export', () => {
 		);
 	} );
 
-	it( 'rejects .sql exports with --only content', async () => {
+	it( 'rejects .sql exports with --mode full', async () => {
 		const reportErrorSpy = vi.spyOn( Logger.prototype, 'reportError' );
 
 		const argv = getYargsArgvMock();
 		registerCommand( argv );
 
-		await argv.parse( [
-			'export',
-			'site-backup.sql',
-			'--path',
-			testSitePath,
-			'--only',
-			'content',
-		] );
+		await argv.parse( [ 'export', 'site-backup.sql', '--path', testSitePath, '--mode', 'full' ] );
 
 		expect( exportBackup ).not.toHaveBeenCalled();
 		expect( reportErrorSpy ).toHaveBeenCalledWith(
 			expect.objectContaining( {
 				message:
-					'Invalid export file extension. Must be .zip or .tar.gz when exporting site content.',
+					'Invalid export file extension. Must be .zip or .tar.gz when exporting the full site.',
 			} )
 		);
 	} );

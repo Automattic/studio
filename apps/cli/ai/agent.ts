@@ -83,6 +83,7 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 					name: activeSite.name,
 					url: activeSite.url ?? '',
 					id: activeSite.wpcomSiteId!,
+					planSlug: activeSite.planSlug,
 				},
 		  }
 		: undefined;

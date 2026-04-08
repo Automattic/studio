@@ -382,7 +382,8 @@ export async function runCommand(
 		let enrichedPrompt = prompt;
 		const site = ui.activeSite;
 		if ( site?.remote && site?.url ) {
-			enrichedPrompt = `[Active site: "${ site.name }" (ID: ${ site.wpcomSiteId }) at ${ site.url } (WordPress.com)]\n\n${ prompt }`;
+			const planLabel = site.planSlug ? `, plan: ${ site.planSlug }` : '';
+			enrichedPrompt = `[Active site: "${ site.name }" (ID: ${ site.wpcomSiteId }) at ${ site.url } (WordPress.com${ planLabel })]\n\n${ prompt }`;
 		} else if ( site ) {
 			enrichedPrompt = `[Active site: "${ site.name }" at ${ site.path }${
 				site.running ? ' (running)' : ' (stopped)'

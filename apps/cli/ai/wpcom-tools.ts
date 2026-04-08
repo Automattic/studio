@@ -106,7 +106,25 @@ export function createWpcomToolDefinitions( token: string, siteId: number ) {
 						break;
 				}
 
-				return textResult( JSON.stringify( result, null, 2 ) );
+				// The Claude Agent SDK limits MCP tool results to ~25K tokens
+				// (MAX_MCP_OUTPUT_TOKENS env var, default 25000).
+				// At ~4 chars/token, 80K chars stays safely under that limit.
+				const MAX_RESPONSE_CHARS = 80000;
+				const json = JSON.stringify( result, null, 2 );
+
+				if ( json.length <= MAX_RESPONSE_CHARS ) {
+					return textResult( json );
+				}
+
+				// Response too large — return top-level keys and a hint
+				const keys = typeof result === 'object' && result !== null ? Object.keys( result ) : [];
+				const truncated = json.slice( 0, MAX_RESPONSE_CHARS );
+				const hint =
+					`\n\n--- Response truncated (${ json.length } chars). ` +
+					`Top-level keys: [${ keys.join( ', ' ) }]. ` +
+					`Use the "fields" query parameter to request only the fields you need ` +
+					`(e.g., query: { "fields": "ID,title,URL" }) or narrow your request. ---`;
+				return textResult( truncated + hint );
 			} catch ( error ) {
 				return errorResult(
 					`WP.com API request failed (${ args.method } ${ args.path }): ${ getErrorMessage(

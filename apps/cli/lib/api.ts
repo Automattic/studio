@@ -183,6 +183,7 @@ export interface WpComSiteInfo {
 	id: number;
 	name: string;
 	url: string;
+	planSlug?: string;
 }
 
 const wpComSitesResponseSchema = z.object( {
@@ -192,6 +193,11 @@ const wpComSitesResponseSchema = z.object( {
 			name: z.string(),
 			URL: z.string(),
 			is_deleted: z.boolean().optional(),
+			plan: z
+				.object( {
+					product_slug: z.string(),
+				} )
+				.optional(),
 		} )
 	),
 } );
@@ -205,7 +211,7 @@ export async function getWpComSites( token: string ): Promise< WpComSiteInfo[] >
 				path: '/me/sites',
 			},
 			{
-				fields: 'ID,name,URL,is_deleted',
+				fields: 'ID,name,URL,is_deleted,plan',
 				filter: 'atomic,wpcom',
 				site_activity: 'active',
 			}
@@ -217,6 +223,7 @@ export async function getWpComSites( token: string ): Promise< WpComSiteInfo[] >
 				id: site.ID,
 				name: site.name,
 				url: site.URL,
+				planSlug: site.plan?.product_slug,
 			} ) );
 	} catch ( error ) {
 		if ( error instanceof z.ZodError ) {

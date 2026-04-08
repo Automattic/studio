@@ -57,6 +57,7 @@ export interface SiteInfo {
 	remote?: boolean;
 	url?: string;
 	wpcomSiteId?: number;
+	planSlug?: string;
 }
 
 const DEFAULT_COLLAPSE_THRESHOLD_LINES = 5;
@@ -829,6 +830,7 @@ export class AiChatUI {
 				remote: true,
 				url: site.url,
 				wpcomSiteId: site.id,
+				planSlug: site.planSlug,
 			} ) );
 			this.sitePickerRemoteLoading = false;
 			this.rebuildSitePickerList();

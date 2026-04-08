@@ -28,12 +28,17 @@ import {
 	AI_CHAT_LOGIN_COMMAND,
 	AI_CHAT_LOGOUT_COMMAND,
 	AI_CHAT_MODEL_COMMAND,
+	AI_CHAT_PREVIEW_COMMAND,
 	AI_CHAT_PROVIDER_COMMAND,
 } from 'cli/ai/slash-commands';
+import { captureCommandOutput } from 'cli/ai/tools';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { runCommand as runLogoutCommand } from 'cli/commands/auth/logout';
+import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
+import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
 import { readCliConfig } from 'cli/lib/cli-config/core';
+import { getSnapshotsFromConfig, isSnapshotExpired } from 'cli/lib/snapshots';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -157,6 +162,7 @@ export async function runCommand(
 				path: site.path,
 				remote: site.remote,
 				url: site.url,
+				wpcomSiteId: site.wpcomSiteId,
 			} )
 		);
 	};
@@ -238,7 +244,77 @@ export async function runCommand(
 		}
 	}
 
-	if ( currentProvider === 'wpcom' ) {
+	const config = await readCliConfig();
+	let showCapabilitiesOnConnect = ! config.aiProvider;
+
+	if ( showCapabilitiesOnConnect ) {
+		ui.showOnboarding();
+
+		// Auto-trigger provider selection on first run
+		const availableProviders = await getAvailableAiProviders();
+		const labelToProvider = new Map< string, AiProviderId >();
+		const providerOptions = availableProviders.map( ( id ) => {
+			const label = id === 'wpcom' ? __( 'WordPress.com (recommended)' ) : AI_PROVIDERS[ id ];
+			labelToProvider.set( label, id );
+			return { label, description: id };
+		} );
+		const answer = await ui.askUser( [
+			{
+				question: __( 'Choose how to connect' ),
+				options: providerOptions,
+			},
+		] );
+		const selectedLabel = Object.values( answer )[ 0 ] as string;
+		const selectedProvider = labelToProvider.get( selectedLabel );
+		if ( selectedProvider ) {
+			try {
+				if ( selectedProvider === 'wpcom' ) {
+					// Run login flow directly instead of prepare(), which would
+					// just throw "login required" since there's no token yet.
+					ui.stop();
+					await runLoginCommand();
+					ui.start();
+
+					if ( await isAiProviderReady( 'wpcom' ) ) {
+						await switchProvider( 'wpcom', false );
+						const token = await readAuthToken();
+						if ( token ) {
+							ui.showSuccess(
+								sprintf(
+									/* translators: 1: display name, 2: email */
+									__( 'Logged in as %1$s (%2$s)' ),
+									token.displayName,
+									token.email
+								)
+							);
+							ui.setStatusMessage(
+								sprintf(
+									/* translators: %s: display name */
+									__( 'Logged in as %s' ),
+									token.displayName
+								)
+							);
+							showCapabilitiesOnConnect = false;
+							ui.showCapabilities();
+						}
+					}
+				} else {
+					await prepareProviderSelection( selectedProvider );
+					await switchProvider( selectedProvider, false );
+					showCapabilitiesOnConnect = false;
+					ui.showCapabilities();
+				}
+			} catch ( error ) {
+				if ( ! isPromptAbortError( error ) ) {
+					if ( error instanceof LoggerError ) {
+						ui.showError( error.message );
+					} else {
+						throw error;
+					}
+				}
+			}
+		}
+	} else if ( currentProvider === 'wpcom' ) {
 		const token = await readAuthToken();
 		if ( token ) {
 			ui.setStatusMessage(
@@ -251,11 +327,8 @@ export async function runCommand(
 		} else {
 			ui.setStatusMessage( __( 'Use /login to authenticate to WordPress.com' ) );
 		}
-	}
-
-	const { anthropicApiKey } = await readCliConfig();
-	if ( currentProvider === 'anthropic-api-key' && ! anthropicApiKey ) {
-		ui.showInfo( __( 'No Anthropic API key saved. Use /provider to enter one.' ) );
+	} else if ( currentProvider === 'anthropic-api-key' && ! config.anthropicApiKey ) {
+		ui.showInfo( __( 'No Anthropic API key saved. Use /api-key to enter one.' ) );
 	}
 
 	async function askUserAndPersistAnswers(
@@ -297,15 +370,22 @@ export async function runCommand(
 		ui.beginAgentTurn();
 
 		// Prepend active site context to the prompt.
-		// Remote (WordPress.com) sites only have a URL; local sites have a filesystem path and running state.
+		// Remote (WordPress.com) sites only have a URL and site ID; local sites have a filesystem path and running state.
 		let enrichedPrompt = prompt;
 		const site = ui.activeSite;
 		if ( site?.remote && site?.url ) {
-			enrichedPrompt = `[Active site: "${ site.name }" at ${ site.url } (WordPress.com)]\n\n${ prompt }`;
+			enrichedPrompt = `[Active site: "${ site.name }" (ID: ${ site.wpcomSiteId }) at ${ site.url } (WordPress.com)]\n\n${ prompt }`;
 		} else if ( site ) {
 			enrichedPrompt = `[Active site: "${ site.name }" at ${ site.path }${
 				site.running ? ' (running)' : ' (stopped)'
 			}]\n\n${ prompt }`;
+		}
+
+		// Read the WP.com access token for remote sites
+		let wpcomAccessToken: string | undefined;
+		if ( site?.remote ) {
+			const token = await readAuthToken();
+			wpcomAccessToken = token?.accessToken;
 		}
 
 		await persistSessionContext();
@@ -323,6 +403,8 @@ export async function runCommand(
 			env,
 			model: currentModel,
 			resume: sessionId,
+			activeSite: site,
+			wpcomAccessToken,
 			onAskUser: ( questions ) => askUserAndPersistAnswers( questions ),
 		} );
 
@@ -402,10 +484,73 @@ export async function runCommand(
 				continue;
 			}
 
+			if ( trimmedPrompt === AI_CHAT_PREVIEW_COMMAND ) {
+				const site = ui.activeSite;
+				if ( ! site ) {
+					ui.showInfo( __( 'No site selected. Use ↓ to select a site first.' ) );
+					continue;
+				}
+
+				const token = await readAuthToken();
+				if ( ! token ) {
+					ui.showInfo( __( 'WordPress.com login required. Use /login to authenticate.' ) );
+					continue;
+				}
+
+				try {
+					const snapshots = await getSnapshotsFromConfig( token.id, site.path );
+					const activeSnapshot = snapshots.find( ( s ) => ! isSnapshotExpired( s ) );
+
+					const isUpdate = Boolean( activeSnapshot );
+					ui.showProgress(
+						isUpdate
+							? __( 'Updating preview site… this may take a moment.' )
+							: __( 'Creating preview site… this may take a moment.' )
+					);
+					ui.setBusy( true );
+
+					const result = await captureCommandOutput( async () => {
+						if ( activeSnapshot ) {
+							await runUpdatePreviewCommand( site.path, activeSnapshot.url, false );
+						} else {
+							await runCreatePreviewCommand( site.path );
+						}
+					} );
+
+					ui.setBusy( false );
+
+					if ( result.exitCode ) {
+						ui.showError( result.consoleOutput || __( 'Failed to create preview site.' ) );
+					} else {
+						const updated = await getSnapshotsFromConfig( token.id, site.path );
+						const latest = updated.find( ( s ) => ! isSnapshotExpired( s ) );
+						if ( latest ) {
+							const previewUrl = `https://${ latest.url }`;
+							ui.showSuccess( __( 'Preview site ready!' ) + '\n\n   ' + previewUrl );
+						} else {
+							ui.showInfo( result.consoleOutput || __( 'Preview command completed.' ) );
+						}
+					}
+				} catch ( error ) {
+					ui.setBusy( false );
+					if ( error instanceof LoggerError ) {
+						ui.showError( error.message );
+					} else {
+						ui.showError( __( 'Failed to create preview site.' ) );
+					}
+				}
+				continue;
+			}
+
 			if ( trimmedPrompt === AI_CHAT_API_KEY_COMMAND ) {
 				try {
 					await prepareProviderSelection( 'anthropic-api-key', { force: true } );
 					ui.showInfo( __( 'Anthropic API key updated.' ) );
+					if ( showCapabilitiesOnConnect ) {
+						showCapabilitiesOnConnect = false;
+						await switchProvider( 'anthropic-api-key' );
+						ui.showCapabilities();
+					}
 				} catch ( error ) {
 					if ( isPromptAbortError( error ) ) {
 						ui.showInfo( __( 'API key update canceled.' ) );
@@ -427,7 +572,7 @@ export async function runCommand(
 				if ( await isAiProviderReady( 'wpcom' ) ) {
 					const token = await readAuthToken();
 					if ( token ) {
-						ui.showInfo(
+						ui.showSuccess(
 							sprintf(
 								/* translators: 1: display name, 2: email */
 								__( 'Logged in as %1$s (%2$s)' ),
@@ -442,6 +587,11 @@ export async function runCommand(
 								token.displayName
 							)
 						);
+						if ( showCapabilitiesOnConnect ) {
+							showCapabilitiesOnConnect = false;
+							await switchProvider( 'wpcom' );
+							ui.showCapabilities();
+						}
 					}
 				} else {
 					ui.setStatusMessage( __( 'Login failed or canceled' ) );

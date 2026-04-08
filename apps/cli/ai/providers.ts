@@ -1,4 +1,3 @@
-import childProcess from 'child_process';
 import { password } from '@inquirer/prompts';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __ } from '@wordpress/i18n';
@@ -7,18 +6,13 @@ import { LoggerError } from 'cli/logger';
 
 export const AI_PROVIDERS = {
 	wpcom: 'WordPress.com',
-	'anthropic-claude': 'Anthropic · Claude auth',
 	'anthropic-api-key': 'Anthropic · API key',
 } as const;
 
 export type AiProviderId = keyof typeof AI_PROVIDERS;
 
-export const DEFAULT_AI_PROVIDER: AiProviderId = 'anthropic-api-key';
-export const AI_PROVIDER_PRIORITY: AiProviderId[] = [
-	'wpcom',
-	'anthropic-claude',
-	'anthropic-api-key',
-];
+export const DEFAULT_AI_PROVIDER: AiProviderId = 'wpcom';
+export const AI_PROVIDER_PRIORITY: AiProviderId[] = [ 'wpcom', 'anthropic-api-key' ];
 
 const DEFAULT_WPCOM_AI_GATEWAY_BASE_URL = 'https://public-api.wordpress.com/wpcom/v2/ai-api-proxy';
 const WPCOM_AI_FEATURE_HEADER = 'studio-assistant-anthropic';
@@ -30,21 +24,6 @@ export interface AiProviderDefinition {
 	isReady: () => Promise< boolean >;
 	prepare: ( options?: { force?: boolean } ) => Promise< void >;
 	resolveEnv: () => Promise< Record< string, string > >;
-}
-
-export function hasClaudeCodeAuth(): boolean {
-	try {
-		const output = childProcess.execFileSync( 'claude', [ 'auth', 'status' ], {
-			encoding: 'utf8',
-			timeout: 5000,
-			stdio: [ 'pipe', 'pipe', 'pipe' ],
-		} );
-		return (
-			output.toLowerCase().includes( 'authenticated' ) || ! output.toLowerCase().includes( 'not' )
-		);
-	} catch {
-		return false;
-	}
 }
 
 async function resolveAnthropicApiKey( options?: {
@@ -124,30 +103,6 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 			} );
 			env.CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS = '1';
 			return env;
-		},
-	},
-	'anthropic-claude': {
-		id: 'anthropic-claude',
-		autoFallbackWhenUnavailable: true,
-		isVisible: async () => hasClaudeCodeAuth(),
-		isReady: async () => hasClaudeCodeAuth(),
-		prepare: async () => {
-			if ( hasClaudeCodeAuth() ) {
-				return;
-			}
-
-			throw new LoggerError(
-				__( 'Claude auth is not available. Choose another provider with /provider.' )
-			);
-		},
-		resolveEnv: async () => {
-			if ( ! hasClaudeCodeAuth() ) {
-				throw new LoggerError(
-					__( 'Claude auth is not available. Choose another provider with /provider.' )
-				);
-			}
-
-			return createBaseEnvironment();
 		},
 	},
 	'anthropic-api-key': {

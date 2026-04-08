@@ -7,14 +7,17 @@ import { getSiteThumbnailPath } from 'src/storage/paths';
 // Capture and cache a site's thumbnail. Uses sequential with deduplicateKey to
 // prevent concurrent BrowserWindow creation for the same site and to serialize
 // captures across all sites (one at a time).
-export const captureSiteThumbnail = sequential(
-	async ( id: string ): Promise< void > => {
+export const captureSiteThumbnail = sequential< [ string, boolean? ], void >(
+	async ( id: string, emitLoadingEvent = true ) => {
 		const server = SiteServer.get( id );
 		if ( ! server || ! server.details.running ) {
 			return;
 		}
 
-		await sendIpcEventToRenderer( 'thumbnail-loading', { id } );
+		if ( emitLoadingEvent ) {
+			await sendIpcEventToRenderer( 'thumbnail-loading', { id } );
+		}
+
 		try {
 			await server.updateCachedThumbnail();
 			const thumbnailPath = getSiteThumbnailPath( id );

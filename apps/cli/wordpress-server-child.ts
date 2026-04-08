@@ -438,7 +438,7 @@ const runWpCliCommand = sequential(
 			exitCode: await response.exitCode,
 		};
 	},
-	{ concurrent: 3, max: 100, deduplicateKey: ( args: string[] ) => args.join( ' ' ) }
+	{ concurrent: 3, max: 100, deduplicateKey: ( args ) => args.join( ' ' ) }
 );
 
 function parsePhpError( error: unknown ): string {

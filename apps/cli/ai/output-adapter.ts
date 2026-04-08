@@ -18,6 +18,11 @@ export interface AiOutputAdapter {
 	start(): void;
 	stop(): void;
 	showWelcome(): void;
+	showOnboarding(): void;
+	showCapabilities(): void;
+	showSuccess( message: string ): void;
+	showProgress( message: string ): void;
+	setBusy( active: boolean ): void;
 
 	showInfo( message: string ): void;
 	showError( message: string ): void;
@@ -53,6 +58,26 @@ export class JsonAdapter implements AiOutputAdapter {
 	}
 
 	showWelcome(): void {
+		// No-op in JSON mode
+	}
+
+	showOnboarding(): void {
+		// No-op in JSON mode
+	}
+
+	showCapabilities(): void {
+		// No-op in JSON mode
+	}
+
+	showSuccess( _message: string ): void {
+		// No-op in JSON mode
+	}
+
+	showProgress( _message: string ): void {
+		// No-op in JSON mode
+	}
+
+	setBusy( _active: boolean ): void {
 		// No-op in JSON mode
 	}
 

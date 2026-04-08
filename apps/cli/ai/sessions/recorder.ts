@@ -87,6 +87,7 @@ export class AiSessionRecorder {
 		path: string;
 		remote?: boolean;
 		url?: string;
+		wpcomSiteId?: number;
 	} ): Promise< void > {
 		await this.appendEvent( {
 			type: 'site.selected',
@@ -95,6 +96,7 @@ export class AiSessionRecorder {
 			sitePath: site.path,
 			remote: site.remote,
 			url: site.url,
+			wpcomSiteId: site.wpcomSiteId,
 		} );
 	}
 

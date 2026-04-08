@@ -104,6 +104,9 @@ vi.mock( 'cli/ai/ui', () => ( {
 		showWelcome() {}
 		showInfo() {}
 		showError() {}
+		showSuccess() {}
+		showOnboarding() {}
+		showCapabilities() {}
 		setStatusMessage() {}
 		prepareForReplay() {}
 		finishReplay() {}
@@ -174,6 +177,7 @@ describe( 'CLI: studio ai sessions command', () => {
 		vi.mocked( readCliConfig ).mockResolvedValue( {
 			sites: [],
 			anthropicApiKey: 'test-api-key',
+			aiProvider: 'anthropic-api-key',
 		} as never );
 		askUserMock.mockResolvedValue( {} );
 		waitForInputMock.mockResolvedValue( '/exit' );
@@ -477,6 +481,7 @@ describe( 'CLI: studio ai --json mode', () => {
 		vi.mocked( readCliConfig ).mockResolvedValue( {
 			sites: [],
 			anthropicApiKey: 'test-api-key',
+			aiProvider: 'anthropic-api-key',
 		} as never );
 		vi.spyOn( process, 'exit' ).mockImplementation( () => undefined as never );
 

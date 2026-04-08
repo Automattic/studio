@@ -1,15 +1,31 @@
 import fs from 'fs';
+import path from 'path';
+import { vol } from 'memfs';
 import { vi } from 'vitest';
 import { SqliteIntegrationProvider } from '../sqlite-integration';
 import { platformTestSuite } from './utils/platform-test-suite';
 
+// memfs path resolution uses path.sep. platformTestSuite overrides path.sep to
+// '\\' for Windows tests, which breaks vol operations. Restore POSIX sep
+// temporarily around every vol call so memfs parses paths correctly.
+function volFromJSON( files: Record< string, string > ): void {
+	const savedSep = path.sep;
+	// @ts-expect-error — Temporarily restore POSIX separator for memfs compatibility
+	path.sep = '/';
+	try {
+		const posixFiles: Record< string, string > = {};
+		for ( const [ key, value ] of Object.entries( files ) ) {
+			posixFiles[ key.replace( /\\/g, '/' ) ] = value;
+		}
+		vol.fromJSON( posixFiles );
+	} finally {
+		// @ts-expect-error — Restore original separator
+		path.sep = savedSep;
+	}
+}
+
 const SQLITE_DIRNAME = 'sqlite-database-integration';
 const MOCK_SITE_PATH = 'mock-site-path';
-
-const mockFs = fs as typeof fs & {
-	__setFileContents: ( path: string, fileContents: string | string[] ) => void;
-	__clearMockFiles: () => void;
-};
 
 vi.mock( 'fs' );
 
@@ -29,13 +45,12 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 	beforeEach( () => {
 		provider = new TestSqliteProvider();
 		vi.clearAllMocks();
-		// Clear mock file system state between tests
-		mockFs.__clearMockFiles();
+		vol.reset();
 	} );
 
 	describe( 'needsSqliteSetup', () => {
 		it( 'should return true when db.php exists', async () => {
-			mockFs.__setFileContents( normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ), '' );
+			volFromJSON( { [ normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ) ]: '' } );
 
 			const result = await provider.needsSqliteSetup( MOCK_SITE_PATH );
 
@@ -49,7 +64,7 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 		} );
 
 		it( 'should return false when wp-config.php exists and db.php does not', async () => {
-			mockFs.__setFileContents( normalize( `${ MOCK_SITE_PATH }/wp-config.php` ), 'config' );
+			volFromJSON( { [ normalize( `${ MOCK_SITE_PATH }/wp-config.php` ) ]: 'config' } );
 
 			const result = await provider.needsSqliteSetup( MOCK_SITE_PATH );
 
@@ -57,11 +72,10 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 		} );
 
 		it( 'should return true when both files exist (db.php takes precedence)', async () => {
-			mockFs.__setFileContents( normalize( `${ MOCK_SITE_PATH }/wp-config.php` ), 'config' );
-			mockFs.__setFileContents(
-				normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ),
-				'db-content'
-			);
+			volFromJSON( {
+				[ normalize( `${ MOCK_SITE_PATH }/wp-config.php` ) ]: 'config',
+				[ normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ) ]: 'db-content',
+			} );
 
 			const result = await provider.needsSqliteSetup( MOCK_SITE_PATH );
 
@@ -71,11 +85,10 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 
 	describe( 'installSqliteIntegration', () => {
 		beforeEach( () => {
-			mockFs.__setFileContents(
-				normalize( 'server-files/sqlite-database-integration/db.copy' ),
-				"SQLIntegration path: '{SQLITE_IMPLEMENTATION_FOLDER_PATH}'"
-			);
-			mockFs.__setFileContents( normalize( 'server-files/sqlite-database-integration' ), 'dir' );
+			volFromJSON( {
+				[ normalize( `server-files/${ SQLITE_DIRNAME }/db.copy` ) ]:
+					"SQLIntegration path: '{SQLITE_IMPLEMENTATION_FOLDER_PATH}'",
+			} );
 		} );
 
 		it( 'should create database directory', async () => {
@@ -117,15 +130,14 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 
 	describe( 'keepSqliteIntegrationUpdated', () => {
 		beforeEach( () => {
-			mockFs.__setFileContents(
-				normalize( 'server-files/sqlite-database-integration/db.copy' ),
-				"SQLIntegration path: '{SQLITE_IMPLEMENTATION_FOLDER_PATH}'"
-			);
-			mockFs.__setFileContents( normalize( 'server-files/sqlite-database-integration' ), 'dir' );
+			volFromJSON( {
+				[ normalize( `server-files/${ SQLITE_DIRNAME }/db.copy` ) ]:
+					"SQLIntegration path: '{SQLITE_IMPLEMENTATION_FOLDER_PATH}'",
+			} );
 		} );
 
 		it( 'should install when db.php exists', async () => {
-			mockFs.__setFileContents( normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ), '' );
+			volFromJSON( { [ normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ) ]: '' } );
 
 			await provider.keepSqliteIntegrationUpdated( MOCK_SITE_PATH );
 
@@ -147,7 +159,7 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 		} );
 
 		it( 'should not install when wp-config.php exists and db.php does not', async () => {
-			mockFs.__setFileContents( normalize( `${ MOCK_SITE_PATH }/wp-config.php` ), 'config' );
+			volFromJSON( { [ normalize( `${ MOCK_SITE_PATH }/wp-config.php` ) ]: 'config' } );
 
 			await provider.keepSqliteIntegrationUpdated( MOCK_SITE_PATH );
 
@@ -163,7 +175,7 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
  * Version: 2.1.5
  * Description: SQLite integration
  */`;
-			mockFs.__setFileContents( normalize( 'mu-plugins/sqlite/load.php' ), loadPhpContent );
+			volFromJSON( { [ normalize( 'mu-plugins/sqlite/load.php' ) ]: loadPhpContent } );
 
 			const version = await provider.getSqliteVersionFromInstallation(
 				normalize( 'mu-plugins/sqlite' )
@@ -181,10 +193,9 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 		} );
 
 		it( 'should return empty string if version cannot be parsed', async () => {
-			mockFs.__setFileContents(
-				normalize( 'mu-plugins/sqlite/load.php' ),
-				'<?php // No version here'
-			);
+			volFromJSON( {
+				[ normalize( 'mu-plugins/sqlite/load.php' ) ]: '<?php // No version here',
+			} );
 
 			const version = await provider.getSqliteVersionFromInstallation(
 				normalize( 'mu-plugins/sqlite' )
@@ -196,11 +207,9 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 
 	describe( 'isSqliteIntegrationAvailable', () => {
 		it( 'should return true when both plugin and db.copy exist', async () => {
-			mockFs.__setFileContents( normalize( 'server-files/sqlite-database-integration' ), 'dir' );
-			mockFs.__setFileContents(
-				normalize( 'server-files/sqlite-database-integration/db.copy' ),
-				'content'
-			);
+			volFromJSON( {
+				[ normalize( `server-files/${ SQLITE_DIRNAME }/db.copy` ) ]: 'content',
+			} );
 
 			const available = await provider.isSqliteIntegrationAvailable();
 
@@ -214,10 +223,9 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 		} );
 
 		it( 'should return false when db.copy does not exist', async () => {
-			mockFs.__setFileContents(
-				normalize( 'server-files/sqlite-database-integration/other-file' ),
-				'content'
-			);
+			volFromJSON( {
+				[ normalize( `server-files/${ SQLITE_DIRNAME }/other-file` ) ]: 'content',
+			} );
 
 			const available = await provider.isSqliteIntegrationAvailable();
 

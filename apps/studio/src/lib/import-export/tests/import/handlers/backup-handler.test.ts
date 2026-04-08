@@ -14,12 +14,7 @@ import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { createMock } from 'src/lib/test-utils';
 
 vi.mock( 'fs' );
-vi.mock( 'fs-extra', () => ( {
-	default: {
-		ensureDir: vi.fn(),
-	},
-	ensureDir: vi.fn(),
-} ) );
+vi.mock( 'fs-extra' );
 vi.mock( 'zlib' );
 vi.mock( 'tar' );
 vi.mock( 'yauzl' );

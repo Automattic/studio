@@ -9,6 +9,7 @@ import {
 	hasDefaultDbBlock,
 	removeDbConstants,
 } from '@studio/common/lib/remove-default-db-constants';
+import { __, sprintf } from '@wordpress/i18n';
 import archiver from 'archiver';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { getWordPressVersionFromInstallation } from 'cli/lib/dependency-management/wordpress';
@@ -163,7 +164,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 
 			this.archiveBuilder.on( 'warning', ( err ) => {
 				if ( err.code === 'ENOENT' ) {
-					console.warn( 'Archiver warning:', err );
+					console.warn( __( 'Archiver warning:' ), err );
 				} else {
 					reject( err );
 				}
@@ -314,20 +315,22 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		const stdout = await command.response.stdoutText;
 
 		if ( exitCode !== 0 ) {
-			throw new Error( `Failed to get site plugins: ${ stderr }` );
+			throw new Error( sprintf( __( 'Failed to get site plugins: %s' ), stderr ) );
 		}
 
 		try {
 			return parseJsonFromPhpOutput( stdout );
 		} catch ( error ) {
 			if ( stderr ) {
-				console.error( `Could not get information about plugins: ${ stderr }` );
+				console.error( sprintf( __( 'Could not get information about plugins: %s' ), stderr ) );
 			} else {
-				console.error( `Could not parse plugins list. The WP CLI output: ${ stdout }` );
+				console.error(
+					sprintf( __( 'Could not parse plugins list. The WP CLI output: %s' ), stdout )
+				);
 			}
 
 			throw new Error(
-				'Could not parse information about installed plugins to create meta.json file.'
+				__( 'Could not parse information about installed plugins to create meta.json file.' )
 			);
 		}
 	}
@@ -347,20 +350,22 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		const stdout = await command.response.stdoutText;
 
 		if ( exitCode !== 0 ) {
-			throw new Error( `Failed to get site themes: ${ stderr }` );
+			throw new Error( sprintf( __( 'Failed to get site themes: %s' ), stderr ) );
 		}
 
 		try {
 			return parseJsonFromPhpOutput( stdout );
 		} catch ( error ) {
 			if ( stderr ) {
-				console.error( `Could not get information about themes: ${ stderr }` );
+				console.error( sprintf( __( 'Could not get information about themes: %s' ), stderr ) );
 			} else {
-				console.error( `Could not parse themes list. The WP CLI output: ${ stdout }` );
+				console.error(
+					sprintf( __( 'Could not parse themes list. The WP CLI output: %s' ), stdout )
+				);
 			}
 
 			throw new Error(
-				'Could not parse information about installed themes to create meta.json file.'
+				__( 'Could not parse information about installed themes to create meta.json file.' )
 			);
 		}
 	}

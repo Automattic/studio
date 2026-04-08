@@ -2034,6 +2034,69 @@ export class AiChatUI {
 		| { sessionId: string; maxTurnsReached: true; numTurns: number }
 		| undefined {
 		switch ( message.type ) {
+			case 'system': {
+				// Surface context-management events the SDK emits but that would
+				// otherwise be invisible to the user (compaction, micro-compaction,
+				// compacting status). Without this, long turns can appear to "stop
+				// suddenly" while the SDK is silently shrinking context.
+				if ( ! ( 'subtype' in message ) ) {
+					return undefined;
+				}
+
+				if ( message.subtype === 'status' ) {
+					if ( message.status === 'compacting' ) {
+						this.setLoaderMessage( __( 'Compacting context…' ) );
+					}
+					return undefined;
+				}
+
+				if ( message.subtype === 'compact_boundary' ) {
+					const meta = message.compact_metadata;
+					const trigger = meta?.trigger ?? 'auto';
+					const preTokens = meta?.pre_tokens ?? 0;
+					this.showInfo(
+						sprintf(
+							/* translators: 1: trigger (auto|manual), 2: token count before compaction */
+							__( 'Context compacted (%1$s, %2$d tokens summarized into a shorter form).' ),
+							trigger,
+							preTokens
+						)
+					);
+					return undefined;
+				}
+
+				// `microcompact_boundary` is emitted by the SDK runtime but not in
+				// the public type, so narrow via a defensive cast. It drops old
+				// tool-result attachments (e.g. screenshots) to free tokens without
+				// summarizing the whole transcript.
+				const systemMessage = message as {
+					subtype?: string;
+					microcompactMetadata?: {
+						tokensSaved?: number;
+						clearedAttachmentUUIDs?: string[];
+					};
+				};
+				if ( systemMessage.subtype === 'microcompact_boundary' ) {
+					const tokensSaved = systemMessage.microcompactMetadata?.tokensSaved ?? 0;
+					const cleared = systemMessage.microcompactMetadata?.clearedAttachmentUUIDs?.length ?? 0;
+					this.showInfo(
+						sprintf(
+							/* translators: 1: number of old attachments dropped, 2: tokens freed */
+							_n(
+								'Dropped %1$d old attachment to free %2$d tokens.',
+								'Dropped %1$d old attachments to free %2$d tokens.',
+								cleared
+							),
+							cleared,
+							tokensSaved
+						)
+					);
+					return undefined;
+				}
+
+				return undefined;
+			}
+
 			case 'assistant': {
 				for ( const block of message.message.content ) {
 					if ( block.type === 'text' ) {

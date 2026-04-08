@@ -106,9 +106,9 @@ describe( 'formatImporterJsonlProgress', () => {
 			downloaded_bytes: 1024 * 1024 * 12,
 			total_bytes: 1024 * 1024 * 50,
 		} );
-		// Importer restarts — counters reset. The raw value is used as-is
-		// because the importer re-scans already-handled files on resume and
-		// accumulating would over-count.
+		// Importer restarts — files_done drops because files_imported resets
+		// before the batch offset advances.  The high-water mark holds so the
+		// displayed count never goes backward.
 		const afterRestart = updateImporterProgressSnapshot(
 			{
 				downloaded_files: 5,
@@ -117,12 +117,11 @@ describe( 'formatImporterJsonlProgress', () => {
 			first!
 		);
 
-		expect( afterRestart!.downloadedFiles ).toBe( 5 );
-		expect( afterRestart!.downloadedBytes ).toBe( 1024 * 1024 * 2 );
-		// totalFiles locked to the first value
+		expect( afterRestart!.downloadedFiles ).toBe( 42 );
+		expect( afterRestart!.downloadedBytes ).toBe( 1024 * 1024 * 12 );
 		expect( afterRestart!.totalFiles ).toBe( 100 );
 		expect( formatImporterProgressSnapshot( afterRestart!, 'Essential files', 20 ) ).toBe(
-			'Essential files · 5/100 files · 2.0 MB/50.0 MB · 20s'
+			'Essential files · 42/100 files · 12.0 MB/50.0 MB · 20s'
 		);
 	} );
 

@@ -226,16 +226,17 @@ export function updateImporterProgressSnapshot(
 	const statementsExecuted = readNumber( object.statements_executed );
 	const statementsTotal = readNumber( object.statements_total );
 
-	// files_done and files_total from the importer are globally stable
-	// counters derived from the download list — display them directly.
+	// files_done from the importer can briefly drop on exit-code-2 restarts
+	// (files_imported resets to 0 before the batch offset advances).  Hold
+	// the high-water mark so the displayed count never goes backward.
 	if ( downloadedFiles !== undefined ) {
-		nextSnapshot.downloadedFiles = downloadedFiles;
+		nextSnapshot.downloadedFiles = Math.max( downloadedFiles, snapshot.downloadedFiles ?? 0 );
 	}
 	if ( totalFiles !== undefined ) {
 		nextSnapshot.totalFiles = totalFiles;
 	}
 	if ( downloadedBytes !== undefined ) {
-		nextSnapshot.downloadedBytes = downloadedBytes;
+		nextSnapshot.downloadedBytes = Math.max( downloadedBytes, snapshot.downloadedBytes ?? 0 );
 	}
 	if ( totalBytes !== undefined ) {
 		nextSnapshot.totalBytes = totalBytes;

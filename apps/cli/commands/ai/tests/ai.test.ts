@@ -196,7 +196,7 @@ describe( 'CLI: studio code sessions command', () => {
 					.option( 'session-persistence', {
 						type: 'boolean',
 						default: true,
-						description: __( 'Record this AI chat session to disk' ),
+						description: __( 'Record this code session to disk' ),
 					} );
 				registerAiSessionsListCommand( sessionsYargs as StudioArgv );
 				registerAiSessionsResumeCommand( sessionsYargs as StudioArgv );

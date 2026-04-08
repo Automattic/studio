@@ -725,7 +725,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'session-persistence', {
 					type: 'boolean',
 					default: true,
-					description: __( 'Record this AI chat session to disk' ),
+					description: __( 'Record this code session to disk' ),
 				} );
 		},
 		handler: async ( argv ) => {

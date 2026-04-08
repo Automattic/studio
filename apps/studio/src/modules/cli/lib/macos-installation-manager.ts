@@ -19,16 +19,6 @@ const binPath = path.join( getResourcesPath(), 'bin' );
 const cliPackagedPath = path.join( binPath, 'studio-cli.sh' );
 const uninstallScriptPath = path.join( binPath, 'uninstall-studio-cli.sh' );
 
-const prodCliPackagedPath = path.join(
-	path.sep,
-	'Applications',
-	'Studio.app',
-	'Contents',
-	'Resources',
-	'bin',
-	'studio-cli.sh'
-);
-
 const SUPPORTED_SHELLS = [ '/bin/zsh', '/bin/bash' ] as const;
 const SHELL_PROFILE_MAP: Record< ( typeof SUPPORTED_SHELLS )[ number ], string > = {
 	'/bin/zsh': '.zshrc',
@@ -75,17 +65,7 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 			return false;
 		}
 
-		const currentSymlinkDestination = await this.getCurrentSymlinkDestination();
-
-		// Return true if we are running the development version of the app and the production CLI is installed
-		if (
-			process.env.NODE_ENV !== 'production' &&
-			currentSymlinkDestination === prodCliPackagedPath
-		) {
-			return true;
-		}
-
-		return currentSymlinkDestination === cliPackagedPath;
+		return await this.doesSymlinkLeadToPackagedCli( cliSymlinkPath );
 	}
 
 	async installCliWithConfirmation(): Promise< void > {
@@ -227,24 +207,9 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 	}
 
 	private async uninstallLegacyCliIfNeeded(): Promise< void > {
-		try {
-			const symlinkDestination = await fs.promises.readlink( legacyCliSymlinkPath );
-
-			// Return true if we are running the development version of the app and the production CLI is installed
-			if ( process.env.NODE_ENV !== 'production' ) {
-				if ( symlinkDestination !== prodCliPackagedPath ) {
-					return;
-				}
-			} else if ( symlinkDestination !== cliPackagedPath ) {
-				return;
-			}
-		} catch ( error ) {
-			if ( isErrnoException( error ) && error.code === 'ENOENT' ) {
-				// File does not exist. No need to remove it.
-				return;
-			} else {
-				throw error;
-			}
+		const legacyCliExists = await this.doesSymlinkLeadToPackagedCli( legacyCliSymlinkPath );
+		if ( ! legacyCliExists ) {
+			return;
 		}
 
 		try {
@@ -278,11 +243,27 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 		await fs.promises.writeFile( profilePath, existingContent + lineToAppend, 'utf-8' );
 	}
 
-	private async getCurrentSymlinkDestination(): Promise< string | null > {
+	private async doesSymlinkLeadToPackagedCli( symlinkPath: string ): Promise< boolean > {
 		try {
-			return await fs.promises.readlink( cliSymlinkPath );
+			const symlinkDestination = await fs.promises.readlink( symlinkPath );
+
+			if ( process.env.NODE_ENV !== 'production' ) {
+				const prodCliPackagedPath = path.join(
+					path.sep,
+					'Applications',
+					'Studio.app',
+					'Contents',
+					'Resources',
+					'bin',
+					'studio-cli.sh'
+				);
+
+				return symlinkDestination === prodCliPackagedPath;
+			}
+
+			return symlinkDestination === cliPackagedPath;
 		} catch {
-			return null;
+			return false;
 		}
 	}
 }

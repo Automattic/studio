@@ -123,7 +123,7 @@ describe( 'auth-slice', () => {
 
 	describe( 'authTokenReceived', () => {
 		it( 'sets isAuthenticated and user when token received', async () => {
-			await store.dispatch( authTokenReceived( { token: mockToken } ) );
+			await store.dispatch( authTokenReceived( { token: mockToken, locale: 'en' } ) );
 
 			const state = store.getState();
 			expect( selectIsAuthenticated( state ) ).toBe( true );
@@ -135,7 +135,7 @@ describe( 'auth-slice', () => {
 		} );
 
 		it( 'creates wpcom client and tracks Sentry user id', async () => {
-			await store.dispatch( authTokenReceived( { token: mockToken } ) );
+			await store.dispatch( authTokenReceived( { token: mockToken, locale: 'en' } ) );
 
 			expect( getWpcomClient() ).toBeDefined();
 			expect( sentryUtils.setSentryWpcomUserIdRenderer ).toHaveBeenCalledWith( mockToken.id );
@@ -143,7 +143,7 @@ describe( 'auth-slice', () => {
 
 		it( 'uses empty string for displayName when not provided', async () => {
 			const tokenWithoutName = { ...mockToken, displayName: '' };
-			await store.dispatch( authTokenReceived( { token: tokenWithoutName } ) );
+			await store.dispatch( authTokenReceived( { token: tokenWithoutName, locale: 'en' } ) );
 
 			expect( selectUser( store.getState() )?.displayName ).toBe( '' );
 		} );
@@ -151,7 +151,7 @@ describe( 'auth-slice', () => {
 
 	describe( 'authLogout', () => {
 		beforeEach( async () => {
-			await store.dispatch( authTokenReceived( { token: mockToken } ) );
+			await store.dispatch( authTokenReceived( { token: mockToken, locale: 'en' } ) );
 			vi.clearAllMocks();
 			setupIpcMocks();
 		} );
@@ -194,7 +194,7 @@ describe( 'auth-slice', () => {
 
 	describe( 'handleInvalidToken', () => {
 		beforeEach( async () => {
-			await store.dispatch( authTokenReceived( { token: mockToken } ) );
+			await store.dispatch( authTokenReceived( { token: mockToken, locale: 'en' } ) );
 			vi.clearAllMocks();
 			setupIpcMocks();
 		} );
@@ -235,5 +235,4 @@ describe( 'auth-slice', () => {
 			expect( getIpcApi().showMessageBox ).toHaveBeenCalledTimes( 2 );
 		} );
 	} );
-
 } );

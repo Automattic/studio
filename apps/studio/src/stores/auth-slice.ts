@@ -123,7 +123,7 @@ export const initializeAuth = createTypedAsyncThunk(
 
 export const authTokenReceived = createTypedAsyncThunk(
 	'auth/tokenReceived',
-	async ( { token, locale }: { token: StoredAuthToken; locale?: string }, { dispatch } ) => {
+	async ( { token, locale }: { token: StoredAuthToken; locale: string }, { dispatch } ) => {
 		const client = createWpcomClient( token.accessToken, locale, () =>
 			dispatch( handleInvalidToken() )
 		);

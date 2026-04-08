@@ -210,20 +210,15 @@ export function updateImporterProgressSnapshot(
 		nextSnapshot.message = status;
 	}
 
-	// The streaming-site-migration importer uses files_imported (running
-	// count per invocation, emitted in file_progress and heartbeat records)
-	// and files_indexed (total index size).  files_completed is a per-HTTP-
-	// request count that overlaps with files_imported — mixing them causes
-	// the cumulative tracker to double-count, so we intentionally skip it.
-	// Same for bytes_processed (per-request) vs bytes_received (cumulative).
+	// The importer emits files_done (cumulative entries processed from the
+	// download list, stable across restarts) and files_total (total download
+	// list entries, fixed once the diff phase completes).  These are the
+	// authoritative counters — display them as-is with no accumulation.
 	const downloadedFiles =
+		readNumber( object.files_done ) ??
 		readNumber( object.files_imported ) ??
-		readNumber( object.downloaded_files ) ??
-		readNumber( object.files_done );
-	const totalFiles =
-		readNumber( object.files_indexed ) ??
-		readNumber( object.total_files ) ??
-		readNumber( object.files_total );
+		readNumber( object.downloaded_files );
+	const totalFiles = readNumber( object.files_total ) ?? readNumber( object.total_files );
 	const downloadedBytes =
 		readNumber( object.downloaded_bytes ) ??
 		readNumber( object.bytes_done ) ??
@@ -234,24 +229,18 @@ export function updateImporterProgressSnapshot(
 	const statementsExecuted = readNumber( object.statements_executed );
 	const statementsTotal = readNumber( object.statements_total );
 
-	// File and byte downloaded counts are shown as-is from the current
-	// importer invocation.  The importer's files_imported counter is a
-	// per-invocation running total that resets on exit-code-2 restarts.
-	// Accumulating it across restarts over-counts because the importer
-	// re-scans already-handled files on resume.
+	// files_done and files_total from the importer are globally stable
+	// counters derived from the download list — display them directly.
 	if ( downloadedFiles !== undefined ) {
 		nextSnapshot.downloadedFiles = downloadedFiles;
 	}
-	// Lock the total once set — later values may grow as the importer
-	// discovers symlink targets or the index expands, but a moving total
-	// is confusing in the progress display.
-	if ( totalFiles !== undefined && snapshot.totalFiles === undefined ) {
+	if ( totalFiles !== undefined ) {
 		nextSnapshot.totalFiles = totalFiles;
 	}
 	if ( downloadedBytes !== undefined ) {
 		nextSnapshot.downloadedBytes = downloadedBytes;
 	}
-	if ( totalBytes !== undefined && snapshot.totalBytes === undefined ) {
+	if ( totalBytes !== undefined ) {
 		nextSnapshot.totalBytes = totalBytes;
 	}
 	// bytes_received is cumulative within one HTTP request but resets

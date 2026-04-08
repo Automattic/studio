@@ -126,15 +126,12 @@ describe( 'formatImporterJsonlProgress', () => {
 		);
 	} );
 
-	it( 'locks totalFiles to the first value reported', () => {
+	it( 'always uses the latest files_total from the importer', () => {
 		const first = updateImporterProgressSnapshot( {
 			total_files: 200,
 		} );
-		const higher = updateImporterProgressSnapshot( { total_files: 300 }, first! );
-		expect( higher!.totalFiles ).toBe( 200 );
-
-		const lower = updateImporterProgressSnapshot( { total_files: 150 }, first! );
-		expect( lower!.totalFiles ).toBe( 200 );
+		const updated = updateImporterProgressSnapshot( { total_files: 300 }, first! );
+		expect( updated!.totalFiles ).toBe( 300 );
 	} );
 
 	it( 'prefers phase text over a generic starting status', () => {

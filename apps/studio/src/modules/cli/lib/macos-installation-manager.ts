@@ -15,19 +15,20 @@ const cliSymlinkPath = path.join( os.homedir(), '.local', 'bin', 'studio' );
 const binPath = path.join( getResourcesPath(), 'bin' );
 const cliPackagedPath = path.join( binPath, 'studio-cli.sh' );
 
-const PATH_EXPORT_LINE = 'export PATH="$HOME/.local/bin:$PATH"';
-
-const SHELL_PROFILE_MAP: Record< string, string > = {
+const SUPPORTED_SHELLS = [ '/bin/zsh', '/bin/bash' ] as const;
+const SHELL_PROFILE_MAP: Record< ( typeof SUPPORTED_SHELLS )[ number ], string > = {
 	'/bin/zsh': '.zshrc',
 	'/bin/bash': '.bash_profile',
 };
-const DEFAULT_PROFILE = '.zshrc';
+const DEFAULT_PROFILE = SHELL_PROFILE_MAP[ '/bin/zsh' ];
+const PATH_EXPORT_LINE = 'export PATH="$HOME/.local/bin:$PATH"';
 
 const ERROR_FILE_ALREADY_EXISTS = 'Studio CLI symlink path already occupied by non-symlink';
 
 function getProfilePath(): string {
 	const shell = process.env.SHELL ?? '';
-	const profileFile = SHELL_PROFILE_MAP[ shell ] ?? DEFAULT_PROFILE;
+	const supportedShell = SUPPORTED_SHELLS.find( ( candidate ) => candidate === shell );
+	const profileFile = supportedShell ? SHELL_PROFILE_MAP[ supportedShell ] : DEFAULT_PROFILE;
 	return path.join( os.homedir(), profileFile );
 }
 
@@ -54,7 +55,9 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 	}
 
 	async isCliInstalled(): Promise< boolean > {
-		if ( ! hasLocalBinInContent( await readProfileContent() ) ) {
+		const existingContent = await readProfileContent();
+
+		if ( ! hasLocalBinInContent( existingContent ) ) {
 			return false;
 		}
 

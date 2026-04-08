@@ -472,7 +472,7 @@ describe( 'CLI: studio code sessions command', () => {
 	} );
 } );
 
-describe( 'CLI: studio ai --json mode', () => {
+describe( 'CLI: studio code --json mode', () => {
 	let stdoutChunks: string[];
 	let originalWrite: typeof process.stdout.write;
 
@@ -499,7 +499,7 @@ describe( 'CLI: studio ai --json mode', () => {
 
 	function buildParser(): StudioArgv {
 		const parser = yargs( [] ).scriptName( 'studio' ).strict().exitProcess( false ) as StudioArgv;
-		parser.command( 'ai', __( 'AI-powered WordPress assistant' ), ( aiYargs ) => {
+		parser.command( [ 'code', 'ai' ], __( 'AI agent for building WordPress' ), ( aiYargs ) => {
 			registerAiCommand( aiYargs as StudioArgv );
 			aiYargs.version( false );
 		} );

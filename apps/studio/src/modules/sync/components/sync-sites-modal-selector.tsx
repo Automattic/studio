@@ -148,7 +148,7 @@ function SearchSites( {
 					onClick={ () =>
 						getIpcApi().openURL( getLocalizedLink( locale, 'docsSyncSupportedSites' ) )
 					}
-					className="text-xs"
+					className="learn-more-link text-xs"
 				>
 					{ __( 'Learn more about supported sites.' ) }
 					<ArrowIcon />
@@ -396,7 +396,7 @@ function SiteItem( {
 			{ needsUpgrade && (
 				<div className="a8c-body-small text-frame-text-secondary shrink-0 text-right">
 					<Tooltip
-						text={ __( 'Sync support is available only with Business plan and above' ) }
+						text={ __( 'Sync support is available on selected plans only' ) }
 						placement="bottom"
 					>
 						<Button

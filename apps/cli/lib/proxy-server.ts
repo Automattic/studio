@@ -17,7 +17,7 @@ const proxy = httpProxy.createProxyServer();
 proxy.on( 'error', ( err, req, res ) => {
 	console.error( '[Proxy Error]', err.message );
 	if ( res && res instanceof http.ServerResponse ) {
-		res.writeHead( 500, { 'Content-Type': 'text/plain' } );
+		res.writeHead( 502, { 'Content-Type': 'text/plain' } );
 		res.end( 'Proxy error: ' + err.message );
 	}
 } );

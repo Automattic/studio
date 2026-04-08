@@ -117,6 +117,8 @@ async function main() {
 				{ registerCommand: registerSiteStopCommand },
 				{ registerCommand: registerSiteDeleteCommand },
 				{ registerCommand: registerSiteSetCommand },
+				{ registerCommand: registerImportCommand },
+				{ registerCommand: registerExportCommand },
 			] = await Promise.all( [
 				import( 'cli/commands/site/status' ),
 				import( 'cli/commands/site/create' ),
@@ -125,6 +127,8 @@ async function main() {
 				import( 'cli/commands/site/stop' ),
 				import( 'cli/commands/site/delete' ),
 				import( 'cli/commands/site/set' ),
+				import( 'cli/commands/site/import' ),
+				import( 'cli/commands/site/export' ),
 			] );
 
 			registerSiteStatusCommand( sitesYargs );
@@ -134,6 +138,9 @@ async function main() {
 			registerSiteStopCommand( sitesYargs );
 			registerSiteDeleteCommand( sitesYargs );
 			registerSiteSetCommand( sitesYargs );
+			registerImportCommand( studioArgv );
+			registerExportCommand( studioArgv );
+
 			sitesYargs.version( false ).demandCommand( 1, __( 'You must provide a valid command' ) );
 		} )
 		.command( 'sync', __( 'Sync with WordPress.com' ), async ( syncYargs ) => {

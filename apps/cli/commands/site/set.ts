@@ -267,7 +267,7 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 			const phpVersion = validatePhpVersion( site.phpVersion );
 			const zipUrl = getWordPressVersionUrl( wp );
 
-			const [ response, exitPhp ] = await runWpCliCommand( sitePath, phpVersion, [
+			await using command = await runWpCliCommand( sitePath, phpVersion, [
 				'core',
 				'update',
 				zipUrl,
@@ -276,9 +276,8 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 				'--skip-themes',
 			] );
 
-			const exitCode = await response.exitCode;
+			const exitCode = await command.response.exitCode;
 			if ( exitCode !== 0 ) {
-				exitPhp();
 				throw new LoggerError( sprintf( __( 'Failed to update WordPress version to %s' ), wp ) );
 			}
 			logger.reportSuccess( __( 'WordPress version updated' ) );
@@ -295,8 +294,6 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 			} finally {
 				await unlockCliConfig();
 			}
-
-			exitPhp();
 		}
 
 		if ( needsRestart && wasRunning ) {

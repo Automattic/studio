@@ -1,4 +1,3 @@
-import { shell } from 'electron';
 import { EventEmitter } from 'events';
 import fs from 'fs';
 import path from 'path';
@@ -6,18 +5,15 @@ import { createInterface } from 'readline';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { serializePlugins } from '@studio/common/lib/serialize-plugins';
 import { SupportedPHPVersionsList } from '@studio/common/types/php-versions';
-import { lstat, move } from 'fs-extra';
+import { move } from 'fs-extra';
 import semver from 'semver';
-import { getSiteUrl } from 'src/lib/get-site-url';
-import { generateBackupFilename } from 'src/lib/import-export/export/generate-backup-filename';
-import { ImportEvents } from 'src/lib/import-export/import/events';
-import {
-	BackupContents,
-	MetaFileData,
-	ImportWpContentProgressEventData,
-} from 'src/lib/import-export/import/types';
-import { updateSiteUrl } from 'src/lib/update-site-url';
-import { SiteServer } from 'src/site-server';
+import trash from 'trash';
+import { SiteData } from 'cli/lib/cli-config/core';
+import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
+import { generateBackupFilename } from '../../export/generate-backup-filename';
+import { ImportEvents } from '../events';
+import { BackupContents, MetaFileData, ImportWpContentProgressEventData } from '../types';
+import { updateSiteUrl } from '../update-site-url';
 
 export interface ImporterResult extends Omit< BackupContents, 'metaFile' > {
 	meta?: MetaFileData;
@@ -25,7 +21,7 @@ export interface ImporterResult extends Omit< BackupContents, 'metaFile' > {
 }
 
 export interface Importer extends Partial< EventEmitter > {
-	import( rootPath: string, siteId: string ): Promise< ImporterResult >;
+	import( site: SiteData ): Promise< ImporterResult >;
 }
 
 abstract class BaseImporter extends EventEmitter implements Importer {
@@ -35,20 +31,11 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 		super();
 	}
 
-	abstract import( rootPath: string, siteId: string ): Promise< ImporterResult >;
+	abstract import( site: SiteData ): Promise< ImporterResult >;
 
-	protected async importDatabase(
-		rootPath: string,
-		siteId: string,
-		sqlFiles: string[]
-	): Promise< void > {
+	protected async importDatabase( site: SiteData, sqlFiles: string[] ): Promise< void > {
 		if ( ! sqlFiles.length ) {
 			return;
-		}
-
-		const server = SiteServer.get( siteId );
-		if ( ! server ) {
-			throw new Error( 'Site not found.' );
 		}
 
 		this.emit( ImportEvents.IMPORT_DATABASE_START );
@@ -59,7 +46,7 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 
 		for ( const sqlFile of sortedSqlFiles ) {
 			const sqlTempFile = `${ generateBackupFilename( 'sql' ) }.sql`;
-			const tmpPath = path.join( rootPath, sqlTempFile );
+			const tmpPath = path.join( site.path, sqlTempFile );
 			processedFiles++;
 
 			this.emit( ImportEvents.IMPORT_DATABASE_PROGRESS, {
@@ -71,25 +58,25 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 			try {
 				await move( sqlFile, tmpPath );
 				await this.prepareSqlFile( tmpPath );
-				console.log( `Importing ${ sqlFile }` );
-				const { stderr, exitCode, stdout } = await server.executeWpCliCommand(
-					`sqlite import /wordpress/${ sqlTempFile } --require=/tmp/sqlite-command/command.php --enable-ast-driver`,
-					// SQLite plugin requires PHP 8+
-					{
-						targetPhpVersion: DEFAULT_PHP_VERSION,
-						skipPluginsAndThemes: true,
-					}
-				);
 
-				if ( stdout ) {
-					console.log( `SQLite import stdout: ${ stdout }` );
-				}
+				await using command = await runWpCliCommand( site.path, DEFAULT_PHP_VERSION, [
+					'sqlite',
+					'import',
+					`/wordpress/${ sqlTempFile }`,
+					'--require=/tmp/sqlite-command/command.php',
+					'--enable-ast-driver',
+					'--skip-plugins',
+					'--skip-themes',
+				] );
+
+				const exitCode = await command.response.exitCode;
+				const stderr = await command.response.stderrText;
 
 				if ( stderr ) {
 					console.error( `Error during import of ${ sqlFile }:`, stderr );
 				}
 
-				if ( exitCode ) {
+				if ( exitCode !== 0 ) {
 					throw new Error( 'Database import failed: ' + stderr );
 				}
 			} finally {
@@ -97,7 +84,7 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 			}
 		}
 
-		await updateSiteUrl( server, getSiteUrl( server.details ) );
+		await updateSiteUrl( site );
 		this.emit( ImportEvents.IMPORT_DATABASE_COMPLETE );
 	}
 
@@ -117,25 +104,25 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 abstract class BaseBackupImporter extends BaseImporter {
 	protected shouldCleanUpBeforeImport: boolean = true;
 
-	async import( rootPath: string, siteId: string ): Promise< ImporterResult > {
+	async import( site: SiteData ): Promise< ImporterResult > {
 		this.emit( ImportEvents.IMPORT_START );
 
 		try {
 			if ( this.shouldCleanUpBeforeImport ) {
-				await this.moveExistingWpContentToTrash( rootPath );
+				await this.moveExistingWpContentToTrash( site.path );
 			}
-			await this.importWpConfig( rootPath );
-			await this.importWpContent( rootPath );
+			await this.importWpConfig( site.path );
+			await this.importWpContent( site.path );
 			if ( this.backup.metaFile ) {
 				this.meta = await this.parseMetaFile();
 			}
 			if ( this.backup.sqlFiles.length ) {
-				const databaseDir = path.join( rootPath, 'wp-content', 'database' );
+				const databaseDir = path.join( site.path, 'wp-content', 'database' );
 				const dbPath = path.join( databaseDir, '.ht.sqlite' );
 
 				await this.moveExistingDatabaseToTrash( dbPath );
 				await this.createEmptyDatabase( dbPath );
-				await this.importDatabase( rootPath, siteId, this.backup.sqlFiles );
+				await this.importDatabase( site, this.backup.sqlFiles );
 			}
 
 			this.emit( ImportEvents.IMPORT_COMPLETE );
@@ -164,7 +151,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 		if ( ! fs.existsSync( dbPath ) ) {
 			return;
 		}
-		await shell.trashItem( dbPath );
+		await trash( dbPath );
 	}
 
 	protected async moveExistingWpContentToTrash( rootPath: string ): Promise< void > {
@@ -220,7 +207,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 		for ( const [ type, files ] of Object.entries( filesByType ) ) {
 			for ( const file of files ) {
 				try {
-					const stats = await lstat( file );
+					const stats = await fs.promises.lstat( file );
 					// Skip if it's a directory
 					if ( stats.isDirectory() ) {
 						continue;
@@ -345,27 +332,19 @@ export class LocalImporter extends BaseBackupImporter {
 }
 
 export class PlaygroundImporter extends BaseBackupImporter {
-	protected async importDatabase(
-		rootPath: string,
-		siteId: string,
-		sqlFiles: string[]
-	): Promise< void > {
+	protected async importDatabase( site: SiteData, sqlFiles: string[] ): Promise< void > {
 		if ( ! sqlFiles.length ) {
 			return;
-		}
-		const server = SiteServer.get( siteId );
-		if ( ! server ) {
-			throw new Error( 'Site not found.' );
 		}
 
 		this.emit( ImportEvents.IMPORT_DATABASE_START );
 
 		for ( const sqlFile of sqlFiles ) {
-			await move( sqlFile, path.join( rootPath, 'wp-content', 'database', '.ht.sqlite' ), {
+			await move( sqlFile, path.join( site.path, 'wp-content', 'database', '.ht.sqlite' ), {
 				overwrite: true,
 			} );
 		}
-		await updateSiteUrl( server, getSiteUrl( server.details ) );
+		await updateSiteUrl( site );
 
 		this.emit( ImportEvents.IMPORT_DATABASE_COMPLETE );
 	}
@@ -376,11 +355,11 @@ export class PlaygroundImporter extends BaseBackupImporter {
 }
 
 export class SQLImporter extends BaseImporter {
-	async import( rootPath: string, siteId: string ): Promise< ImporterResult > {
+	async import( site: SiteData ): Promise< ImporterResult > {
 		this.emit( ImportEvents.IMPORT_START );
 
 		try {
-			await this.importDatabase( rootPath, siteId, this.backup.sqlFiles );
+			await this.importDatabase( site, this.backup.sqlFiles );
 
 			this.emit( ImportEvents.IMPORT_COMPLETE );
 			return {
@@ -480,17 +459,9 @@ export class WpressImporter extends BaseBackupImporter {
 		sqlFiles.push( sqliteActivatePluginsPath );
 	}
 
-	protected async importDatabase(
-		rootPath: string,
-		siteId: string,
-		sqlFiles: string[]
-	): Promise< void > {
-		const server = SiteServer.get( siteId );
-		if ( ! server ) {
-			throw new Error( 'Site not found.' );
-		}
+	protected async importDatabase( site: SiteData, sqlFiles: string[] ): Promise< void > {
 		await this.addSqlToSetTheme( sqlFiles );
 		await this.addSqlToActivatePlugins( sqlFiles );
-		await super.importDatabase( rootPath, siteId, sqlFiles );
+		await super.importDatabase( site, sqlFiles );
 	}
 }

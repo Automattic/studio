@@ -85,6 +85,7 @@ const api: IpcApi = {
 	copyText: ( text ) => ipcRendererInvoke( 'copyText', text ),
 	getAppGlobals: () => ipcRendererInvoke( 'getAppGlobals' ),
 	getWpVersion: ( id ) => ipcRendererInvoke( 'getWpVersion', id ),
+	getIsMultisite: ( id ) => ipcRendererInvoke( 'getIsMultisite', id ),
 	generateProposedSitePath: ( siteName ) =>
 		ipcRendererInvoke( 'generateProposedSitePath', siteName ),
 	generateSiteNameFromList: ( usedSites ) =>
@@ -93,8 +94,8 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'generateNumberedNameFromList', baseName, usedSites ),
 	openLocalPath: ( path ) => ipcRendererSend( 'openLocalPath', path ),
 	showItemInFolder: ( path ) => ipcRendererSend( 'showItemInFolder', path ),
-	loadThemeDetails: ( id, emitThemeDetailsLoadingEvent = true ) =>
-		ipcRendererInvoke( 'loadThemeDetails', id, emitThemeDetailsLoadingEvent ),
+	loadThemeDetails: ( id, emitLoadingEvent = true ) =>
+		ipcRendererInvoke( 'loadThemeDetails', id, emitLoadingEvent ),
 	getThumbnailData: ( id ) => ipcRendererInvoke( 'getThumbnailData', id ),
 	getInstalledAppsAndTerminals: () => ipcRendererInvoke( 'getInstalledAppsAndTerminals' ),
 	importSite: ( { id, backupFile } ) => ipcRendererInvoke( 'importSite', { id, backupFile } ),

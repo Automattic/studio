@@ -33,6 +33,7 @@ export interface UserData {
 	betaFeatures?: BetaFeatures;
 	stopSitesOnQuit?: boolean;
 	defaultSiteDirectory?: string;
+	cliAutoInstalled?: boolean;
 }
 
 export interface PromptWindowsSpeedUpResult {

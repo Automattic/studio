@@ -169,10 +169,10 @@ async function main() {
 		.strict();
 
 	if ( __ENABLE_STUDIO_AI__ ) {
-		studioArgv.command( 'ai', __( 'AI-powered WordPress assistant' ), async ( aiYargs ) => {
+		const studioCodeCommandBuilder = async ( aiYargs: StudioArgv ) => {
 			const { registerCommand: registerAiCommand } = await import( 'cli/commands/ai' );
 			registerAiCommand( aiYargs );
-			aiYargs.command( 'sessions', __( 'Manage AI sessions' ), async ( sessionsYargs ) => {
+			aiYargs.command( 'sessions', __( 'Manage code sessions' ), async ( sessionsYargs ) => {
 				const [
 					{ registerCommand: registerAiSessionsListCommand },
 					{ registerCommand: registerAiSessionsResumeCommand },
@@ -190,17 +190,23 @@ async function main() {
 					.option( 'session-persistence', {
 						type: 'boolean',
 						default: true,
-						description: __( 'Record this AI chat session to disk' ),
+						description: __( 'Record this code session to disk' ),
 					} );
 				registerAiSessionsListCommand( sessionsYargs );
 				registerAiSessionsResumeCommand( sessionsYargs );
 				registerAiSessionsDeleteCommand( sessionsYargs );
 				sessionsYargs
 					.version( false )
-					.demandCommand( 1, __( 'You must provide a valid ai sessions command' ) );
+					.demandCommand( 1, __( 'You must provide a valid code sessions command' ) );
 			} );
 			aiYargs.version( false );
-		} );
+		};
+		studioArgv.command(
+			'code',
+			__( 'AI agent for building WordPress sites' ),
+			studioCodeCommandBuilder
+		);
+		studioArgv.command( 'ai', false, studioCodeCommandBuilder );
 	}
 	const { registerCommand: registerMcpCommand } = await import( 'cli/commands/mcp' );
 	registerMcpCommand( studioArgv );

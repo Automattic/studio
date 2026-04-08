@@ -193,6 +193,7 @@ export const CreateSiteForm = ( {
 		}
 
 		const hasErrors =
+			! siteName.trim() ||
 			!! pathError ||
 			( useCustomDomain && !! customDomainError ) ||
 			! adminUsername.trim() ||
@@ -206,7 +207,15 @@ export const CreateSiteForm = ( {
 			onValidityChange( isValid );
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [ pathError, customDomainError, useCustomDomain, adminUsername, adminPassword, adminEmail ] );
+	}, [
+		siteName,
+		pathError,
+		customDomainError,
+		useCustomDomain,
+		adminUsername,
+		adminPassword,
+		adminEmail,
+	] );
 
 	const handleSiteNameChange = useCallback(
 		async ( name: string ) => {
@@ -355,7 +364,9 @@ export const CreateSiteForm = ( {
 						onKeyDown={ ( event ) => {
 							if ( event.key === 'Enter' ) {
 								event.preventDefault();
-								handleFormSubmit( event as FormEvent );
+								if ( errorCount === 0 ) {
+									handleFormSubmit( event as FormEvent );
+								}
 							}
 						} }
 						data-testid="site-name-input"

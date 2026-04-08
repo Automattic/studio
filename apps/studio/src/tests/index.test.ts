@@ -3,6 +3,7 @@
  */
 import fs from 'fs';
 import { normalize } from 'path';
+import { vol } from 'memfs';
 import { vi, beforeAll, afterAll } from 'vitest';
 import { createMainWindow, getMainWindow } from 'src/main-window';
 
@@ -15,6 +16,7 @@ vi.mock( '@sentry/electron/main', () => ( {
 	captureException: vi.fn(),
 	captureMessage: vi.fn(),
 	setUser: vi.fn(),
+	setTag: vi.fn(),
 } ) );
 vi.mock( import( 'src/lib/bump-stats' ), async ( importOriginal ) => {
 	const actual = await importOriginal();
@@ -24,7 +26,6 @@ vi.mock( import( 'src/lib/bump-stats' ), async ( importOriginal ) => {
 		bumpAggregatedUniqueStat: vi.fn().mockResolvedValue( undefined ),
 	};
 } );
-vi.mock( 'src/lib/user-data-watcher' );
 vi.mock( 'src/setup-wp-server-files', () => ( {
 	setupWPServerFiles: vi.fn().mockResolvedValue( undefined ),
 	updateWPServerFiles: vi.fn().mockResolvedValue( undefined ),
@@ -57,7 +58,7 @@ vi.mock( 'src/modules/cli/lib/execute-command', () => {
 	};
 } );
 vi.mock( 'src/modules/cli/lib/windows-installation-manager', () => ( {
-	updateWindowsCliVersionedPathIfNeeded: vi.fn().mockResolvedValue( undefined ),
+	autoInstallWindowsCliIfNeeded: vi.fn().mockResolvedValue( undefined ),
 } ) );
 vi.mock( 'electron-devtools-installer', () => ( {
 	installExtension: vi.fn().mockResolvedValue( { id: 'test-extension' } ),
@@ -65,12 +66,7 @@ vi.mock( 'electron-devtools-installer', () => ( {
 	REDUX_DEVTOOLS: { id: 'lmhkpmbekcpmknklioeibfkpmmfibljd' },
 } ) );
 
-// Setup fs mock file contents
-if ( '__setFileContents' in fs ) {
-	(
-		fs as typeof fs & { __setFileContents: ( path: string, contents: string | string[] ) => void }
-	 ).__setFileContents( normalize( '/path/to/app/temp/com.wordpress.studio/' ), '' );
-}
+vol.mkdirSync( normalize( '/path/to/app/temp/com.wordpress.studio' ), { recursive: true } );
 
 const mockWatcher = {
 	close: vi.fn(),

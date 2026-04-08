@@ -587,6 +587,10 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'string',
 					describe: __( 'Path or URL to Blueprint JSON file' ),
 				} )
+				.option( 'original-blueprint-path', {
+					type: 'string',
+					hidden: true,
+				} )
 				.option( 'admin-username', {
 					type: 'string',
 					describe: __( 'Admin username (defaults to "admin")' ),
@@ -767,6 +771,12 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 						uri,
 						contents: readBlueprint( uri ),
 					};
+
+					// When invoked by the desktop app, the blueprint contents come from a temp file
+					// but resources should be resolved relative to the original file location.
+					if ( argv.originalBlueprintPath ) {
+						config.blueprint.uri = path.resolve( argv.originalBlueprintPath );
+					}
 				}
 			}
 

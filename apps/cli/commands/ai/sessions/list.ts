@@ -11,13 +11,13 @@ type SessionOutputFormat = 'compact' | 'json';
 export async function runCommand( format: SessionOutputFormat ): Promise< void > {
 	const sessions = await listAiSessions();
 
-	if ( sessions.length === 0 ) {
-		console.log( __( 'No AI sessions found' ) );
+	if ( format === 'json' ) {
+		console.log( JSON.stringify( sessions, null, 2 ) );
 		return;
 	}
 
-	if ( format === 'json' ) {
-		console.log( JSON.stringify( sessions, null, 2 ) );
+	if ( sessions.length === 0 ) {
+		console.log( __( 'No AI sessions found' ) );
 		return;
 	}
 

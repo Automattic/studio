@@ -67,6 +67,7 @@ const blueprintSchema = z.object( {
 	image: z.string(),
 	playground_url: z.string(),
 	blueprint: z.record( z.string(), z.unknown() ),
+	filePath: z.string().optional(),
 } );
 
 export type Blueprint = z.infer< typeof blueprintSchema >;

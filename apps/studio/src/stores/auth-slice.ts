@@ -5,6 +5,7 @@ import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { __ } from '@wordpress/i18n';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { isInvalidTokenError } from 'src/lib/is-invalid-oauth-token-error';
+import { setSentryWpcomUserIdRenderer } from 'src/lib/renderer-sentry-utils';
 import { store, RootState } from 'src/stores';
 import { getWpcomClient, setWpcomClient } from 'src/stores/wpcom-client';
 import type { StoredToken } from 'src/lib/oauth';
@@ -77,6 +78,7 @@ export const handleInvalidToken = createTypedAsyncThunk( 'auth/handleInvalidToke
 		void getIpcApi().logRendererMessage( 'info', 'Detected invalid token. Logging out.' );
 		await getIpcApi().clearAuthenticationToken();
 		setWpcomClient( undefined );
+		setSentryWpcomUserIdRenderer( undefined );
 		await getIpcApi().showMessageBox( {
 			type: 'error',
 			message: __( 'Session Expired' ),
@@ -103,6 +105,7 @@ export const initializeAuth = createTypedAsyncThunk(
 				store.dispatch( handleInvalidToken() )
 			);
 			setWpcomClient( client );
+			setSentryWpcomUserIdRenderer( token.id );
 
 			return {
 				id: token.id,
@@ -124,6 +127,7 @@ export const authTokenReceived = createTypedAsyncThunk(
 			store.dispatch( handleInvalidToken() )
 		);
 		setWpcomClient( client );
+		setSentryWpcomUserIdRenderer( token.id );
 
 		return {
 			id: token.id,
@@ -156,6 +160,7 @@ export const authLogout = createTypedAsyncThunk(
 		try {
 			await getIpcApi().clearAuthenticationToken();
 			setWpcomClient( undefined );
+			setSentryWpcomUserIdRenderer( undefined );
 		} catch ( err ) {
 			console.error( err );
 		}

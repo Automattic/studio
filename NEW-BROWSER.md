@@ -117,15 +117,17 @@ Communication between the Electron renderer and the iframe uses `postMessage`, w
 
 ### User Flow
 
-1. User clicks the **Select Element** button (`sidesAxial` icon) in the browser toolbar — always visible, not just during active tasks.
-2. The renderer posts `studio:select-element:activate` to the active tab's iframe. Any previous selection highlight is cleared.
-3. Inside the iframe, hovering highlights elements with a blue overlay. Smart targeting resolves clicks on inline text to their parent semantic element (button, link, etc.).
-4. User clicks an element → the bridge applies a persistent `outline` highlight directly on the element, extracts metadata, and posts `studio:select-element:selected` back to the parent.
-5. Only one element can be selected at a time. Selecting a new element replaces the previous one — its highlight is cleared and the new one takes its place.
-6. **With an active task** — the element appears as a chip in the task chat input. Similarly, area screenshots captured while a task is active are automatically added as image attachments in the task chat input.
-7. **Without an active task** — a glassmorphic floating chat input appears near the selected element (or screenshot region) in the browser panel. Sending from it creates a new task and starts the agent with the element/image context.
-8. Pressing **Escape** clears the selection highlight and exits selection mode (handled in both the iframe and the parent frame).
-9. The selection highlight persists until the user sends the message, selects a different element, presses Escape, or dismisses the chip.
+1. User clicks the **Add notes** button (`sidesAxial` icon) in the browser toolbar — always visible, not just during active tasks.
+2. **Without an active task** — standard selection mode. The renderer posts `studio:select-element:activate` to the active tab's iframe. Any previous selection highlight is cleared.
+3. **With an active task** — persistent selection mode. The renderer posts `studio:select-element:activate-persistent`. Selection mode stays active after each click so users can rapidly annotate multiple elements.
+4. Inside the iframe, hovering highlights elements with a blue overlay. Smart targeting resolves clicks on inline text to their parent semantic element (button, link, etc.).
+5. User clicks an element → the bridge applies a persistent `outline` highlight directly on the element, extracts metadata, and posts `studio:select-element:selected` back to the parent.
+6. A glassmorphic floating chat input appears near the selected element in the browser panel. The input is available in both task-chat and project-detail modes:
+   - **Without an active task** — sending creates a new task and starts the agent.
+   - **With an active task** — sending routes the message through the existing task chat (or queues it if the agent is busy). The element stays highlighted with a numbered floating label showing truncated note text.
+7. **Multi-note flow** — With an active task, users can keep selecting elements and sending notes in rapid succession. Each note is numbered sequentially. If the agent is already responding, notes are queued and auto-sent when the agent finishes each turn.
+8. **Note lifecycle** — When the agent completes a response for a note, that note's highlight turns green (success state) and fades away after ~2 seconds.
+9. Pressing **Escape** clears the selection highlight and exits selection mode (handled in both the iframe and the parent frame).
 
 ### Element Data Captured
 
@@ -146,7 +148,7 @@ Communication between the Electron renderer and the iframe uses `postMessage`, w
 mu-plugin JS (iframe)
   → window.parent.postMessage({ type: 'studio:select-element:selected', element })
   → useElementSelector hook (renderer) stores single element (replaces any previous)
-  → Chat input or floating input displays chip
+  → Floating input displays chip (always shown — both task-chat and project-detail modes)
   → On send: element threaded through IPC (same path as images)
   → headless.ts serializes as <element-context> text block prepended to the prompt
   → Agent receives structured element data alongside the user's message
@@ -162,17 +164,35 @@ Highlights are cleared via `studio:select-element:clear` postMessage in these ca
 - Pressing Escape during selection
 - Dismissing the element chip or sending the message
 
+### Note Overlays
+
+When a note is sent from the floating input during an active task, the selected element gets a persistent overlay managed by the iframe bridge:
+
+- **`studio:notes:add`** — Creates an absolutely-positioned highlight div (blue outline) and a label pill showing `#N: truncated text` at the element's top-right corner.
+- **`studio:notes:complete`** — Turns the highlight green and prepends a checkmark to the label (success state).
+- **`studio:notes:remove`** — Fades out and removes the overlay DOM elements.
+- **`studio:notes:clear`** — Removes all note overlays (e.g. when switching tasks).
+
+Overlays reposition on scroll/resize via debounced `querySelector` + `getBoundingClientRect`. If the element is removed by the agent, the overlay cleans itself up gracefully.
+
+Note state is tracked in Redux (`activeNotesByTask` in `tasks-slice.ts`) with an `ActiveNote` interface that stores `id`, `number`, `text`, `cssSelector`, `boundingBox`, and `status` (`active` → `completed` → `fading`). The `BrowserNoteOverlays` component bridges Redux state to iframe postMessages, handling the timed fade lifecycle.
+
 ### Floating Input
 
-When an element is selected without an active task, a compact floating input appears positioned near the selected element (below it, or above if insufficient space). It uses glassmorphism (`backdrop-blur-xl` with semi-transparent background) to stay readable over any page content. The input auto-focuses and supports Enter to send, Escape to dismiss. Sending creates a new task and starts the agent.
+A compact floating input appears positioned near the selected element (below it, or above if insufficient space). It uses glassmorphism (`backdrop-blur-xl` with semi-transparent background) to stay readable over any page content. The input auto-focuses and supports Enter to send, Escape to dismiss.
+
+The floating input is always visible regardless of whether a task is active:
+- **Without an active task** — Sending creates a new task and starts the agent.
+- **With an active task** — Sending routes the message through the existing task chat system. If the agent is streaming, messages are queued via the existing `enqueueMessage` mechanism and auto-sent when the agent finishes. After sending, persistent selection mode re-activates so the user can immediately pick another element.
 
 ### Key Files
 
 - `tools/common/lib/mu-plugins.ts` — `0-element-selector-bridge.php` mu-plugin with the in-iframe JS bridge (hover overlay, click handler, element data extraction, postMessage communication).
 - `apps/studio/src/hooks/use-element-selector.ts` — Hook managing selection state, postMessage listener, and selected elements collection.
 - `apps/studio/src/hooks/use-browser-panel.ts` — Exposes `getActiveIframe()` for the element selector to post messages to the active tab.
-- `apps/studio/src/components/new-ui/browser-floating-input.tsx` — Floating chat input that appears in the browser panel when elements are selected without an active task. Creates a new task on send.
-- `apps/studio/src/components/new-ui/panel-layout.tsx` — Select Element button in the browser toolbar.
+- `apps/studio/src/components/new-ui/browser-floating-input.tsx` — Floating chat input that appears in the browser panel when elements are selected. Routes to new task creation (project-detail mode) or existing task chat with queueing support (task-chat mode).
+- `apps/studio/src/components/new-ui/browser-note-overlays.tsx` — Lifecycle bridge between Redux note state and iframe postMessages. Handles completed→fading→removed transitions with timed delays.
+- `apps/studio/src/components/new-ui/panel-layout.tsx` — Add Notes button in the browser toolbar.
 - `apps/studio/src/modules/ai/types.ts` — `ElementAttachment` interface.
 - `apps/cli/commands/ai/headless.ts` — `serializeElementContext()` and updated `buildContentBlocks()` for threading element data into agent prompts.
 - `tools/common/ai/system-prompt.ts` — Documents element context usage for the agent.
@@ -188,7 +208,10 @@ When an element is selected without an active task, a compact floating input app
 - **No fake progress bar** — The loading indicator is an honest indeterminate bar (bouncing animation) since iframes don't expose real loading progress.
 - **Tabs reset on site switch** — When the user selects a different site or task, all tabs are replaced with a single fresh tab. Preserving tabs across site switches would be confusing since each site has its own localhost URL.
 - **postMessage for element selection** — The iframe's cross-origin restrictions block direct DOM access, but `postMessage` works across origins by design. A mu-plugin injects the bridge script into every WordPress page, keeping the iframe architecture intact while enabling rich element inspection. This avoids a costly migration to `<webview>` or BrowserView.
-- **Element selector and capture always available** — The select element and capture area buttons are visible at the end of the browser toolbar regardless of whether a task is active. When no task exists, a floating input in the browser panel creates one on send. When a task is active, captured screenshots are automatically added as image attachments in the task chat input. This keeps the interaction discoverable and reduces friction — users don't need to start a task first just to point at something.
-- **One element at a time** — Multi-select was removed after testing. Sending multiple elements created confusing context for the agent — it wasn't clear which element the user's message referred to. Single selection keeps the interaction simple and the agent's response focused.
-- **Outline over overlay divs for selection highlight** — The persistent selection highlight uses `el.style.outline` directly on the element rather than a positioned overlay div. Outlines are immune to `overflow: hidden` clipping, don't require scroll-position calculations, and don't need z-index management.
+- **Add Notes as unified entry point** — The button is always visible and adapts to context. Without a task, it creates one. With a task, it feeds into the existing chat/queue system. This keeps the interaction discoverable and reduces friction — users don't need to think about which mode they're in.
+- **Persistent selection mode for tasks** — When a task is active, clicking "Add notes" enters persistent selection mode. After selecting an element and sending a note, selection mode stays active so users can immediately pick another element. This supports the rapid multi-note workflow without requiring repeated button clicks.
+- **One element per note, multiple notes per task** — Each note targets a single element to keep the agent's context focused. But users can fire off multiple notes in rapid succession — they're queued and processed sequentially, with numbered overlays tracking which note is active.
+- **Note overlays in the iframe** — Post-send note highlights and labels are rendered as absolutely-positioned divs inside the iframe (via the mu-plugin bridge) rather than as React components over the iframe. This means they scroll with the page content and stay aligned with their target elements without requiring cross-frame coordinate translation.
+- **FIFO note completion** — Note lifecycle maps 1:1 with agent response cycles. Each `task-status-changed` → `waiting` event completes the oldest active note. This works because the message queue is also FIFO — the order of note creation matches the order of agent processing.
+- **Outline over overlay divs for initial selection highlight** — The selection-mode highlight uses `el.style.outline` directly on the element rather than a positioned overlay div. Outlines are immune to `overflow: hidden` clipping, don't require scroll-position calculations, and don't need z-index management. Note overlays (post-send) use positioned divs instead, since they need labels and color transitions.
 - **Glassmorphic floating input** — The browser panel floating input uses `backdrop-blur-xl` with a semi-transparent background so it stays readable regardless of the page content behind it. Positioned near the selected element to keep the spatial connection obvious.

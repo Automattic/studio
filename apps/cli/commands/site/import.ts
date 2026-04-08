@@ -1735,6 +1735,7 @@ export async function runCommand(
 				],
 				( progress ) => logger.reportProgress( progress ),
 				{
+					progressLabel: __( 'Downloading database' ),
 					verboseCommands: verbose,
 				}
 			);
@@ -1745,13 +1746,14 @@ export async function runCommand(
 		await ensurePort( metadata );
 
 		if ( ! hasReachedStage( metadata, 'db-applied' ) ) {
-			logger.reportStart( LoggerAction.IMPORT_SQL, __( 'Importing database…' ) );
+			logger.reportStart( LoggerAction.IMPORT_SQL, __( 'Applying database…' ) );
 			await runImporterCommandUntilComplete(
 				metadata.stateDirectory,
 				metadata.rawDirectory,
 				[ ...buildDbApplyArgs( metadata ), `--secret=${ secret }`, '--no-adaptive' ],
-				undefined,
+				( progress ) => logger.reportProgress( progress ),
 				{
+					progressLabel: __( 'Applying database' ),
 					mounts: [ { hostPath: metadata.sitePath, vfsPath: '/site' } ],
 					verboseCommands: verbose,
 				}

@@ -231,7 +231,10 @@ export function updateImporterProgressSnapshot(
 		readNumber( object.files_indexed ) ??
 		readNumber( object.total_files ) ??
 		readNumber( object.files_total );
-	const downloadedBytes = readNumber( object.downloaded_bytes ) ?? readNumber( object.bytes_done );
+	const downloadedBytes =
+		readNumber( object.downloaded_bytes ) ??
+		readNumber( object.bytes_done ) ??
+		readNumber( object.bytes_read );
 	const totalBytes = readNumber( object.total_bytes ) ?? readNumber( object.bytes_total );
 	const bytesReceived = readNumber( object.bytes_received );
 	const rateBps = readNumber( object.rate_bps );
@@ -338,11 +341,14 @@ export function formatImporterProgressSnapshot(
 		}
 	}
 
-	// Don't echo the message when it would duplicate the structured file
-	// count segment (e.g. "[2838 files, 1.2 GB]" alongside "0/2838 files").
-	const hasStructuredFileCounts =
-		snapshot.downloadedFiles !== undefined || snapshot.totalFiles !== undefined;
-	if ( snapshot.message && snapshot.message !== snapshot.phase && ! hasStructuredFileCounts ) {
+	// Don't echo the message when it would duplicate data already shown in
+	// a structured segment (e.g. "[2838 files]" alongside "0/2838 files",
+	// or "db-apply: 100/500 statements" alongside the statements segment).
+	const hasStructuredCounts =
+		snapshot.downloadedFiles !== undefined ||
+		snapshot.totalFiles !== undefined ||
+		snapshot.statementsExecuted !== undefined;
+	if ( snapshot.message && snapshot.message !== snapshot.phase && ! hasStructuredCounts ) {
 		segments.push( snapshot.message );
 	}
 

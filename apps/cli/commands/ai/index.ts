@@ -170,6 +170,7 @@ export async function runCommand(
 				path: site.path,
 				remote: site.remote,
 				url: site.url,
+				wpcomSiteId: site.wpcomSiteId,
 			} )
 		);
 	};
@@ -377,15 +378,22 @@ export async function runCommand(
 		ui.beginAgentTurn();
 
 		// Prepend active site context to the prompt.
-		// Remote (WordPress.com) sites only have a URL; local sites have a filesystem path and running state.
+		// Remote (WordPress.com) sites only have a URL and site ID; local sites have a filesystem path and running state.
 		let enrichedPrompt = prompt;
 		const site = ui.activeSite;
 		if ( site?.remote && site?.url ) {
-			enrichedPrompt = `[Active site: "${ site.name }" at ${ site.url } (WordPress.com)]\n\n${ prompt }`;
+			enrichedPrompt = `[Active site: "${ site.name }" (ID: ${ site.wpcomSiteId }) at ${ site.url } (WordPress.com)]\n\n${ prompt }`;
 		} else if ( site ) {
 			enrichedPrompt = `[Active site: "${ site.name }" at ${ site.path }${
 				site.running ? ' (running)' : ' (stopped)'
 			}]\n\n${ prompt }`;
+		}
+
+		// Read the WP.com access token for remote sites
+		let wpcomAccessToken: string | undefined;
+		if ( site?.remote ) {
+			const token = await readAuthToken();
+			wpcomAccessToken = token?.accessToken;
 		}
 
 		await persistSessionContext();
@@ -403,6 +411,8 @@ export async function runCommand(
 			env,
 			model: currentModel,
 			resume: sessionId,
+			activeSite: site,
+			wpcomAccessToken,
 			onAskUser: ( questions ) => askUserAndPersistAnswers( questions ),
 		} );
 

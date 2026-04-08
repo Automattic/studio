@@ -36,7 +36,7 @@ import {
 } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
-import { importEventHandler } from '../site/import';
+import { importEventHandler } from './import';
 import type { SyncOption } from '@studio/common/types/sync';
 
 const logger = new Logger< LoggerAction >();

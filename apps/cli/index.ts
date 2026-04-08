@@ -2,6 +2,11 @@ import path from 'node:path';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
 import { __ } from '@wordpress/i18n';
 import yargs from 'yargs';
+import { registerCommand as registerExportCommand } from 'cli/commands/export';
+import { registerCommand as registerImportCommand } from 'cli/commands/import';
+import { registerCommand as registerMcpCommand } from 'cli/commands/mcp';
+import { registerCommand as registerPullCommand } from 'cli/commands/pull';
+import { registerCommand as registerPushCommand } from 'cli/commands/push';
 import { bumpAggregatedUniqueStat, getPlatformMetric } from 'cli/lib/bump-stat';
 import { setupServerFiles } from 'cli/lib/dependency-management/setup';
 import { loadTranslations } from 'cli/lib/i18n';
@@ -85,29 +90,39 @@ async function main() {
 			registerAuthLogoutCommand( authYargs );
 			registerAuthStatusCommand( authYargs );
 			authYargs.version( false ).demandCommand( 1, __( 'You must provide a valid auth command' ) );
-		} )
-		.command( 'preview', __( 'Manage preview sites' ), async ( previewYargs ) => {
-			const [
-				{ registerCommand: registerPreviewCreateCommand },
-				{ registerCommand: registerPreviewListCommand },
-				{ registerCommand: registerPreviewDeleteCommand },
-				{ registerCommand: registerPreviewUpdateCommand },
-				{ registerCommand: registerPreviewSetCommand },
-			] = await Promise.all( [
-				import( 'cli/commands/preview/create' ),
-				import( 'cli/commands/preview/list' ),
-				import( 'cli/commands/preview/delete' ),
-				import( 'cli/commands/preview/update' ),
-				import( 'cli/commands/preview/set' ),
-			] );
+		} );
 
-			registerPreviewCreateCommand( previewYargs );
-			registerPreviewListCommand( previewYargs );
-			registerPreviewDeleteCommand( previewYargs );
-			registerPreviewUpdateCommand( previewYargs );
-			registerPreviewSetCommand( previewYargs );
-			previewYargs.version( false ).demandCommand( 1, __( 'You must provide a valid command' ) );
-		} )
+	registerExportCommand( studioArgv );
+	registerImportCommand( studioArgv );
+	registerMcpCommand( studioArgv );
+
+	studioArgv.command( 'preview', __( 'Manage preview sites' ), async ( previewYargs ) => {
+		const [
+			{ registerCommand: registerPreviewCreateCommand },
+			{ registerCommand: registerPreviewListCommand },
+			{ registerCommand: registerPreviewDeleteCommand },
+			{ registerCommand: registerPreviewUpdateCommand },
+			{ registerCommand: registerPreviewSetCommand },
+		] = await Promise.all( [
+			import( 'cli/commands/preview/create' ),
+			import( 'cli/commands/preview/list' ),
+			import( 'cli/commands/preview/delete' ),
+			import( 'cli/commands/preview/update' ),
+			import( 'cli/commands/preview/set' ),
+		] );
+
+		registerPreviewCreateCommand( previewYargs );
+		registerPreviewListCommand( previewYargs );
+		registerPreviewDeleteCommand( previewYargs );
+		registerPreviewUpdateCommand( previewYargs );
+		registerPreviewSetCommand( previewYargs );
+		previewYargs.version( false ).demandCommand( 1, __( 'You must provide a valid command' ) );
+	} );
+
+	registerPullCommand( studioArgv );
+	registerPushCommand( studioArgv );
+
+	studioArgv
 		.command( 'site', __( 'Manage sites' ), async ( sitesYargs ) => {
 			const [
 				{ registerCommand: registerSiteStatusCommand },
@@ -117,8 +132,6 @@ async function main() {
 				{ registerCommand: registerSiteStopCommand },
 				{ registerCommand: registerSiteDeleteCommand },
 				{ registerCommand: registerSiteSetCommand },
-				{ registerCommand: registerImportCommand },
-				{ registerCommand: registerExportCommand },
 			] = await Promise.all( [
 				import( 'cli/commands/site/status' ),
 				import( 'cli/commands/site/create' ),
@@ -127,8 +140,6 @@ async function main() {
 				import( 'cli/commands/site/stop' ),
 				import( 'cli/commands/site/delete' ),
 				import( 'cli/commands/site/set' ),
-				import( 'cli/commands/site/import' ),
-				import( 'cli/commands/site/export' ),
 			] );
 
 			registerSiteStatusCommand( sitesYargs );
@@ -142,19 +153,6 @@ async function main() {
 			registerExportCommand( studioArgv );
 
 			sitesYargs.version( false ).demandCommand( 1, __( 'You must provide a valid command' ) );
-		} )
-		.command( 'sync', __( 'Sync with WordPress.com' ), async ( syncYargs ) => {
-			const [
-				{ registerCommand: registerSyncPullCommand },
-				{ registerCommand: registerSyncPushCommand },
-			] = await Promise.all( [
-				import( 'cli/commands/sync/pull' ),
-				import( 'cli/commands/sync/push' ),
-			] );
-
-			registerSyncPullCommand( syncYargs );
-			registerSyncPushCommand( syncYargs );
-			syncYargs.version( false ).demandCommand( 1, __( 'You must provide a valid sync command' ) );
 		} )
 		.command( {
 			command: 'wp',
@@ -222,8 +220,6 @@ async function main() {
 			aiYargs.version( false );
 		} );
 	}
-	const { registerCommand: registerMcpCommand } = await import( 'cli/commands/mcp' );
-	registerMcpCommand( studioArgv );
 
 	await studioArgv.argv;
 }

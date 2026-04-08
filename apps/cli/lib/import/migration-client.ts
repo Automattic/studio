@@ -41,8 +41,6 @@ interface NativeImporterCommand {
 interface ImporterProgressSnapshot {
 	bytesReceived?: number;
 	currentRequestBytesReceived?: number;
-	currentRequestDownloadedBytes?: number;
-	currentRequestDownloadedFiles?: number;
 	downloadedBytes?: number;
 	downloadedFiles?: number;
 	event?: string;
@@ -236,17 +234,13 @@ export function updateImporterProgressSnapshot(
 	const statementsExecuted = readNumber( object.statements_executed );
 	const statementsTotal = readNumber( object.statements_total );
 
-	// All counters are accumulated so they never decrease when the importer
-	// restarts mid-stream (exit code 2).  A restart is detected when the new
-	// per-request value is lower than the last one we saw.
+	// File and byte downloaded counts are shown as-is from the current
+	// importer invocation.  The importer's files_imported counter is a
+	// per-invocation running total that resets on exit-code-2 restarts.
+	// Accumulating it across restarts over-counts because the importer
+	// re-scans already-handled files on resume.
 	if ( downloadedFiles !== undefined ) {
-		const prev = snapshot.currentRequestDownloadedFiles ?? 0;
-		const cumulative = snapshot.downloadedFiles ?? 0;
-		const restarted = downloadedFiles < prev;
-		const base = restarted ? cumulative : cumulative - prev;
-
-		nextSnapshot.currentRequestDownloadedFiles = downloadedFiles;
-		nextSnapshot.downloadedFiles = base + downloadedFiles;
+		nextSnapshot.downloadedFiles = downloadedFiles;
 	}
 	// Lock the total once set — later values may grow as the importer
 	// discovers symlink targets or the index expands, but a moving total
@@ -255,17 +249,13 @@ export function updateImporterProgressSnapshot(
 		nextSnapshot.totalFiles = totalFiles;
 	}
 	if ( downloadedBytes !== undefined ) {
-		const prev = snapshot.currentRequestDownloadedBytes ?? 0;
-		const cumulative = snapshot.downloadedBytes ?? 0;
-		const restarted = downloadedBytes < prev;
-		const base = restarted ? cumulative : cumulative - prev;
-
-		nextSnapshot.currentRequestDownloadedBytes = downloadedBytes;
-		nextSnapshot.downloadedBytes = base + downloadedBytes;
+		nextSnapshot.downloadedBytes = downloadedBytes;
 	}
 	if ( totalBytes !== undefined && snapshot.totalBytes === undefined ) {
 		nextSnapshot.totalBytes = totalBytes;
 	}
+	// bytes_received is cumulative within one HTTP request but resets
+	// across requests.  Accumulate it so the displayed total only grows.
 	if ( bytesReceived !== undefined ) {
 		const prev = snapshot.currentRequestBytesReceived ?? 0;
 		const cumulative = snapshot.bytesReceived ?? 0;

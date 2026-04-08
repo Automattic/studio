@@ -99,29 +99,30 @@ describe( 'formatImporterJsonlProgress', () => {
 		);
 	} );
 
-	it( 'accumulates downloaded files and bytes across importer restarts', () => {
-		const beforeRestart = updateImporterProgressSnapshot( {
+	it( 'uses raw file and byte counts without accumulating across restarts', () => {
+		const first = updateImporterProgressSnapshot( {
 			downloaded_files: 42,
 			total_files: 100,
 			downloaded_bytes: 1024 * 1024 * 12,
 			total_bytes: 1024 * 1024 * 50,
 		} );
-		// Importer restarts — counters reset to 0 then climb again.
+		// Importer restarts — counters reset. The raw value is used as-is
+		// because the importer re-scans already-handled files on resume and
+		// accumulating would over-count.
 		const afterRestart = updateImporterProgressSnapshot(
 			{
 				downloaded_files: 5,
-				total_files: 100,
 				downloaded_bytes: 1024 * 1024 * 2,
-				total_bytes: 1024 * 1024 * 50,
 			},
-			beforeRestart!
+			first!
 		);
 
-		expect( afterRestart!.downloadedFiles ).toBe( 47 );
-		expect( afterRestart!.downloadedBytes ).toBe( 1024 * 1024 * 14 );
+		expect( afterRestart!.downloadedFiles ).toBe( 5 );
+		expect( afterRestart!.downloadedBytes ).toBe( 1024 * 1024 * 2 );
+		// totalFiles locked to the first value
 		expect( afterRestart!.totalFiles ).toBe( 100 );
 		expect( formatImporterProgressSnapshot( afterRestart!, 'Essential files', 20 ) ).toBe(
-			'Essential files · 47/100 files · 14.0 MB/50.0 MB · 20s'
+			'Essential files · 5/100 files · 2.0 MB/50.0 MB · 20s'
 		);
 	} );
 

@@ -97,7 +97,9 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				return;
 			}
 			try {
-				await runCommand( { telemetryGroup: argv.telemetryGroup as McpTelemetryGroup | undefined } );
+				await runCommand( {
+					telemetryGroup: argv.telemetryGroup as McpTelemetryGroup | undefined,
+				} );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );

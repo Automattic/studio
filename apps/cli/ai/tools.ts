@@ -140,7 +140,9 @@ function createRecordWorkflowEventTool( telemetryGroup?: McpTelemetryGroup ) {
 		'record_workflow_event',
 		'Records a workflow telemetry event for the active AI plugin integration, such as theme-build started or completed.',
 		{
-			workflow: z.enum( MCP_WORKFLOWS ).describe( 'Workflow name, such as theme-build or site-build' ),
+			workflow: z
+				.enum( MCP_WORKFLOWS )
+				.describe( 'Workflow name, such as theme-build or site-build' ),
 			stage: z
 				.enum( MCP_WORKFLOW_STAGES )
 				.describe( 'Workflow stage to record: started, completed, or failed' ),
@@ -149,7 +151,9 @@ function createRecordWorkflowEventTool( telemetryGroup?: McpTelemetryGroup ) {
 			const stat = `${ args.workflow }-${ args.stage }` as McpWorkflowStat;
 
 			if ( ! telemetryGroup ) {
-				return textResult( `Workflow telemetry skipped for ${ stat }: no plugin group configured.` );
+				return textResult(
+					`Workflow telemetry skipped for ${ stat }: no plugin group configured.`
+				);
 			}
 
 			bumpStat( telemetryGroup, stat );

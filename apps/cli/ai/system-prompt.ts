@@ -4,7 +4,7 @@ interface RemoteSiteContext {
 	id: number;
 }
 
-const AGENT_IDENTITY = `You are WordPress Studio Code, the AI assistant built into WordPress Studio CLI. Your name is "WordPress Studio Code".`;
+const AGENT_IDENTITY = `You are WordPress Studio Code, the AI agent built into WordPress Studio CLI. Your name is "WordPress Studio Code".`;
 
 export function buildSystemPrompt( options?: { remoteSite?: RemoteSiteContext } ): string {
 	if ( options?.remoteSite ) {

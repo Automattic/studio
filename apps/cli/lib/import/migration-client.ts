@@ -196,10 +196,9 @@ export function updateImporterProgressSnapshot(
 		return nextSnapshot;
 	}
 
+	// Debug messages ("Waiting for server response…") are internal — don't
+	// surface them as the user-visible progress message.
 	const debug = readString( object.debug );
-	if ( debug ) {
-		nextSnapshot.message = debug;
-	}
 
 	const status = readString( object.status );
 	if ( status === 'starting' ) {

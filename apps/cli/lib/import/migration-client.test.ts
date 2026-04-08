@@ -7,14 +7,14 @@ import {
 } from './migration-client';
 
 describe( 'formatImporterJsonlProgress', () => {
-	it( 'shows streamed debug messages from the importer', () => {
+	it( 'suppresses debug messages from the importer', () => {
 		expect(
 			formatImporterJsonlProgress(
 				{ debug: 'Waiting for server response...' },
 				'Downloading essential files',
 				3
 			)
-		).toBe( 'Downloading essential files · Waiting for server response... · 3s' );
+		).toBeNull();
 	} );
 
 	it( 'suppresses bare phase-only records without additional data', () => {

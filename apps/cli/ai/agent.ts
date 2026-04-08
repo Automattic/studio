@@ -127,7 +127,10 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 					pathApprovalSession,
 				} );
 			},
-			plugins: [ { type: 'local' as const, path: path.resolve( import.meta.dirname, 'plugin' ) } ],
+			plugins: [
+				{ type: 'local' as const, path: path.resolve( import.meta.dirname, 'plugin' ) },
+				{ type: 'local' as const, path: path.resolve( import.meta.dirname, 'plugins/impeccable' ) },
+			],
 			model,
 			resume,
 		},

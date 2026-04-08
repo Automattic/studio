@@ -12,6 +12,10 @@ export default mergeConfig(
 						src: 'ai/plugin',
 						dest: '.',
 					},
+					{
+						src: '../../node_modules/impeccable',
+						dest: 'plugins',
+					},
 				],
 			} ),
 		],

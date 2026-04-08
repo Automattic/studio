@@ -150,7 +150,7 @@ function NewProjectStep( { onBack }: { onBack: () => void } ) {
 			<button
 				onClick={ onBack }
 				disabled={ isCreating }
-				className="fixed bottom-4 left-4 text-xs text-frame-text-tertiary hover:text-frame-text-secondary transition-colors disabled:opacity-50"
+				className="absolute bottom-4 left-4 text-xs text-frame-text-tertiary hover:text-frame-text-secondary transition-colors disabled:opacity-50"
 			>
 				&larr; Back
 			</button>

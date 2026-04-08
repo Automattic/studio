@@ -222,9 +222,7 @@ export function SitesListContent( {
 				) }
 				<div
 					className={ `absolute inset-0 z-[1] flex items-center justify-center bg-frame/80 backdrop-blur-[8px] transition-opacity duration-200 ${
-						isRefetchingSites
-							? 'opacity-100'
-							: 'opacity-0 pointer-events-none'
+						isRefetchingSites ? 'opacity-100' : 'opacity-0 pointer-events-none'
 					}` }
 					aria-busy={ isRefetchingSites }
 					aria-live="polite"

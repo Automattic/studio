@@ -89,23 +89,17 @@ function Authentication() {
 	}
 
 	return (
-		<Tooltip
-			icon={ isOffline ? offlineIcon : undefined }
-			text={ isOffline ? __( "You're currently offline." ) : __( 'Enable Sync and Previews' ) }
-			placement="bottom-end"
+		<Button
+			onClick={ () => getIpcApi().authenticate( false ) }
+			aria-label={ __( 'Log in to Studio with WordPress.com' ) }
+			variant="icon"
+			className="flex gap-x-2 justify-between w-full text-white !rounded-lg !px-2 !py-1.5 h-auto active:!text-white hover:!text-white hover:underline items-center"
+			disabled={ isOffline }
 		>
-			<Button
-				onClick={ () => getIpcApi().authenticate( false ) }
-				aria-label={ __( 'Log in to Studio with WordPress.com' ) }
-				variant="icon"
-				className="flex gap-x-2 justify-between w-full text-white !rounded-lg !px-2 !py-1.5 h-auto active:!text-white hover:!text-white hover:underline items-center"
-				disabled={ isOffline }
-			>
-				<WordPressLogo />
+			<WordPressLogo />
 
-				<div className="text-s text-right">{ __( 'Log in' ) }</div>
-			</Button>
-		</Tooltip>
+			<div className="text-s text-right">{ __( 'Log in' ) }</div>
+		</Button>
 	);
 }
 

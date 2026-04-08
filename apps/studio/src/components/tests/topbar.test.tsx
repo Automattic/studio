@@ -133,8 +133,7 @@ describe( 'TopBar', () => {
 			expect( loginButton ).toBeEnabled();
 		} );
 
-		it( 'shows offline tooltip when offline and unauthenticated', async () => {
-			const user = userEvent.setup();
+		it( 'disables login button when offline and unauthenticated', () => {
 			vi.mocked( useAuth, { partial: true } ).mockReturnValue( { isAuthenticated: false } );
 			vi.mocked( useOffline ).mockReturnValue( true );
 			renderWithProvider( <TopBar onToggleSidebar={ vi.fn() } /> );
@@ -142,8 +141,6 @@ describe( 'TopBar', () => {
 				name: 'Log in to Studio with WordPress.com',
 			} );
 			expect( loginButton ).toBeDisabled();
-			await user.hover( loginButton );
-			expect( screen.getByText( "You're currently offline." ) ).toBeInTheDocument();
 		} );
 	} );
 } );

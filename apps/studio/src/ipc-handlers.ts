@@ -35,6 +35,7 @@ import {
 import { generateNumberedName, generateSiteName } from '@studio/common/lib/generate-site-name';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
+import { isMultisite } from '@studio/common/lib/is-multisite';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
@@ -51,7 +52,6 @@ import {
 	StatsGroup,
 	StatsMetric,
 } from 'src/lib/bump-stats';
-import { captureSiteThumbnail } from 'src/lib/capture-site-thumbnail';
 import {
 	openCertificate as openCertificateDialog,
 	isRootCATrusted,
@@ -108,6 +108,7 @@ import {
 	updateAppdata,
 } from 'src/storage/user-data';
 import { Blueprint } from 'src/stores/wpcom-api';
+import { captureSiteThumbnail } from './lib/capture-site-thumbnail';
 import type { RawDirectoryEntry } from 'src/modules/sync/types';
 import type { WpCliResult } from 'src/site-server';
 
@@ -923,6 +924,14 @@ export function getWpVersion( _event: IpcMainInvokeEvent, id: string ) {
 	return getWordPressVersion( wordPressPath );
 }
 
+export function getIsMultisite( _event: IpcMainInvokeEvent, id: string ) {
+	const server = SiteServer.get( id );
+	if ( ! server ) {
+		return false;
+	}
+	return isMultisite( server.details.path );
+}
+
 export async function generateProposedSitePath(
 	_event: IpcMainInvokeEvent,
 	siteName: string
@@ -993,15 +1002,17 @@ export function showItemInFolder( _event: IpcMainInvokeEvent, path: string ) {
 export async function loadThemeDetails(
 	event: IpcMainInvokeEvent,
 	id: string,
-	emitThemeDetailsLoadingEvent = true
+	emitLoadingEvent = true
 ): Promise< StartedSiteDetails[ 'themeDetails' ] > {
 	const server = SiteServer.get( id );
 	if ( ! server ) {
 		throw new Error( 'Site not found.' );
 	}
 
+	void captureSiteThumbnail( id, emitLoadingEvent );
+
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( emitThemeDetailsLoadingEvent ) {
+	if ( emitLoadingEvent ) {
 		sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-loading', { id } );
 	}
 
@@ -1017,8 +1028,6 @@ export async function loadThemeDetails(
 	if ( hasThemeChanged ) {
 		await server.persistThemeDetails();
 	}
-
-	void captureSiteThumbnail( id );
 
 	return themeDetails;
 }

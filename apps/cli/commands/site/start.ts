@@ -54,7 +54,7 @@ export async function runCommand(
 		let startOptions;
 		if ( site.runtimeBlueprintPath ) {
 			await ensureImportedSiteSqliteReady( sitePath );
-			startOptions = loadImportedRuntimeStartOptions( site.runtimeBlueprintPath );
+			startOptions = await loadImportedRuntimeStartOptions( site.runtimeBlueprintPath );
 		} else {
 			logger.reportStart(
 				LoggerAction.INSTALL_SQLITE,

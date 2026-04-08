@@ -25,7 +25,7 @@ describe( 'imported runtime start options', () => {
 		} );
 	} );
 
-	it( 'loads Playground runtime mounts from the importer start script', () => {
+	it( 'loads Playground runtime mounts from the importer start script', async () => {
 		// Normalize path separators so the mock works on both Unix (forward
 		// slashes) and Windows (backslashes from path.join, double backslashes
 		// from escaped shell paths like C:\\Sites\\...).
@@ -38,27 +38,17 @@ describe( 'imported runtime start options', () => {
 			'C:/Sites/test/wp-content',
 			'/test/state/.import-state.json',
 		] );
-		vi.spyOn( fs, 'existsSync' ).mockImplementation( ( filePath ) =>
-			existingPaths.has( normalizePath( filePath ) )
-		);
-		vi.spyOn( fs, 'readFileSync' ).mockImplementation( ( filePath ) => {
-			const normalized = normalizePath( filePath );
-			if ( normalized === '/test/runtime/blueprint.json' ) {
-				return '{"landingPage":"/"}';
-			}
-
-			if ( normalized === '/test/runtime/runtime.php' ) {
-				return `<?php
+		const testFileContents: Record< string, string > = {
+			'/test/runtime/blueprint.json': '{"landingPage":"/"}',
+			'/test/runtime/runtime.php': `<?php
 if (!defined('WP_CONTENT_DIR')) {
     define('WP_CONTENT_DIR', '/wordpress/wp-content');
 }
 if (!defined('STREAMING_SITE_MIGRATION_REMOTE_UPLOAD_PROXY_STATE_FILE')) {
     define('STREAMING_SITE_MIGRATION_REMOTE_UPLOAD_PROXY_STATE_FILE', '/tmp/streaming-site-migration/.import-state.json');
 }
-`;
-			}
-
-			return `npx @wp-playground/cli@latest server \\
+`,
+			'/test/runtime/start.sh': `npx @wp-playground/cli@latest server \\
     --mount-before-install='/test/raw/core:/wordpress' \\
     --mount-before-install='C:\\\\Sites\\\\test\\\\wp-content:/wordpress/wp-content' \\
     --mount='/test/runtime/runtime.php:/wordpress/wp-content/mu-plugins/0-playground-runtime.php' \\
@@ -66,10 +56,34 @@ if (!defined('STREAMING_SITE_MIGRATION_REMOTE_UPLOAD_PROXY_STATE_FILE')) {
     --mount='/test/state/.import-download-list-skipped.jsonl:/tmp/streaming-site-migration/.import-download-list-skipped.jsonl' \\
     --wordpress-install-mode=do-not-attempt-installing \\
     --port=8882
-`;
+`,
+		};
+		// Pass through to the real fs for paths that are not test fixtures
+		// (e.g. WASM binaries loaded by @php-wasm/node).
+		const realExistsSync = fs.existsSync;
+		const realReadFileSync = fs.readFileSync;
+		vi.spyOn( fs, 'existsSync' ).mockImplementation( ( filePath ) => {
+			const normalized = normalizePath( filePath );
+			if ( existingPaths.has( normalized ) ) {
+				return true;
+			}
+			return realExistsSync( filePath );
 		} );
+		vi.spyOn( fs, 'readFileSync' ).mockImplementation( ( (
+			filePath: fs.PathOrFileDescriptor,
+			...args: unknown[]
+		) => {
+			const normalized = normalizePath( filePath );
+			if ( normalized in testFileContents ) {
+				return testFileContents[ normalized ];
+			}
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+			return ( realReadFileSync as Function )( filePath, ...args ) as string;
+		} ) as typeof fs.readFileSync );
 
-		expect( loadImportedRuntimeStartOptions( '/test/runtime/blueprint.json' ) ).toEqual( {
+		await expect(
+			loadImportedRuntimeStartOptions( '/test/runtime/blueprint.json' )
+		).resolves.toEqual( {
 			blueprint: {
 				landingPage: '/',
 				constants: {

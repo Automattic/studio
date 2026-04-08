@@ -1,9 +1,14 @@
 import fs from 'fs';
 import path from 'path';
+import { loadNodeRuntime } from '@php-wasm/node';
+import { PHP, ProcessIdAllocator } from '@php-wasm/universal';
+import { LatestSupportedPHPVersion } from '@studio/common/types/php-versions';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { LoggerError } from 'cli/logger';
 import type { Blueprint } from '@wp-playground/blueprints';
 import type { StartServerOptions } from 'cli/lib/wordpress-server-manager';
+
+const phpProcessIdAllocator = new ProcessIdAllocator();
 
 const SHELL_ARG_RE = ( flag: string ) =>
 	new RegExp( `--${ flag }=(?:'([^']*)'|"([^"]*)"|([^\\s\\\\]+))`, 'g' );
@@ -38,40 +43,67 @@ type BlueprintWithConstants = Blueprint & {
 	constants?: Record< string, RuntimeConstantValue >;
 };
 
-function decodePhpScalarValue( rawValue: string ): RuntimeConstantValue | null {
-	if ( rawValue === 'true' ) {
-		return true;
-	}
+/**
+ * Extract user-defined constants from a runtime.php file by including it
+ * in a fresh PHP WASM instance. This lets PHP's own parser handle the
+ * syntax — no regex approximation of define() calls, string escaping,
+ * or scalar value decoding.
+ */
+async function parseRuntimePhpConstants(
+	runtimePhpContent: string
+): Promise< Record< string, RuntimeConstantValue > > {
+	const id = await loadNodeRuntime( LatestSupportedPHPVersion, {
+		emscriptenOptions: {
+			processId: phpProcessIdAllocator.claim(),
+		},
+	} );
+	const php = new PHP( id );
 
-	if ( rawValue === 'false' ) {
-		return false;
-	}
+	try {
+		await php.setSapiName( 'cli' );
 
-	if ( /^-?\d+(?:\.\d+)?$/.test( rawValue ) ) {
-		return Number( rawValue );
-	}
+		php.writeFile( '/tmp/runtime.php', runtimePhpContent );
+		php.writeFile(
+			'/tmp/extract-constants.php',
+			`<?php
+$before = get_defined_constants( true )['user'] ?? [];
+include '/tmp/runtime.php';
+$after = get_defined_constants( true )['user'] ?? [];
+echo json_encode( array_diff_key( $after, $before ) );
+`
+		);
 
-	if ( rawValue.startsWith( "'" ) && rawValue.endsWith( "'" ) ) {
-		return rawValue.slice( 1, -1 ).replace( /\\'/g, "'" ).replace( /\\\\/g, '\\' );
-	}
+		const response = await php.cli( [ 'php', '/tmp/extract-constants.php' ] );
+		const stdoutChunks: string[] = [];
+		const reader = response.stdout.getReader();
+		const decoder = new TextDecoder();
 
-	return null;
-}
-
-function parseRuntimePhpConstants( runtimePhp: string ): Record< string, RuntimeConstantValue > {
-	const constants: Record< string, RuntimeConstantValue > = {};
-	const defineRegex = /define\('([^']+)',\s*('(?:[^'\\]|\\.)*'|true|false|-?\d+(?:\.\d+)?)\s*\);/g;
-
-	for ( const match of runtimePhp.matchAll( defineRegex ) ) {
-		const value = decodePhpScalarValue( match[ 2 ] );
-		if ( value === null ) {
-			continue;
+		while ( true ) {
+			const { done, value } = await reader.read();
+			if ( done ) {
+				break;
+			}
+			if ( value ) {
+				stdoutChunks.push( decoder.decode( value, { stream: true } ) );
+			}
 		}
 
-		constants[ match[ 1 ] ] = value;
-	}
+		const exitCode = await response.exitCode;
+		if ( exitCode !== 0 ) {
+			return {};
+		}
 
-	return constants;
+		const parsed = JSON.parse( stdoutChunks.join( '' ).trim() ) as Record< string, unknown >;
+		const constants: Record< string, RuntimeConstantValue > = {};
+		for ( const [ key, val ] of Object.entries( parsed ) ) {
+			if ( typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean' ) {
+				constants[ key ] = val;
+			}
+		}
+		return constants;
+	} finally {
+		php.exit();
+	}
 }
 
 function getMountedWordPressPathConstants(
@@ -141,9 +173,9 @@ export function loadRuntimeBlueprint( runtimeBlueprintPath: string ): Blueprint 
 	}
 }
 
-export function loadImportedRuntimeStartOptions(
+export async function loadImportedRuntimeStartOptions(
 	runtimeBlueprintPath: string
-): StartServerOptions {
+): Promise< StartServerOptions > {
 	const runtimeDirectory = path.dirname( runtimeBlueprintPath );
 	const runtimeStartScriptPath = path.join( runtimeDirectory, 'start.sh' );
 	const runtimePhpPath = path.join( runtimeDirectory, 'runtime.php' );
@@ -158,7 +190,7 @@ export function loadImportedRuntimeStartOptions(
 		if ( fs.existsSync( runtimePhpPath ) ) {
 			blueprint = mergeBlueprintConstants(
 				blueprint,
-				parseRuntimePhpConstants( fs.readFileSync( runtimePhpPath, 'utf-8' ) )
+				await parseRuntimePhpConstants( fs.readFileSync( runtimePhpPath, 'utf-8' ) )
 			);
 			startOptions.blueprint = blueprint;
 		}
@@ -193,7 +225,7 @@ export function loadImportedRuntimeStartOptions(
 	const runtimeConstants = {
 		...getMountedWordPressPathConstants( mountsBeforeInstall, mounts ),
 		...( fs.existsSync( runtimePhpPath )
-			? parseRuntimePhpConstants( fs.readFileSync( runtimePhpPath, 'utf-8' ) )
+			? await parseRuntimePhpConstants( fs.readFileSync( runtimePhpPath, 'utf-8' ) )
 			: {} ),
 	};
 	if ( Object.keys( runtimeConstants ).length > 0 ) {

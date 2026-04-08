@@ -1791,7 +1791,9 @@ export async function runCommand(
 
 		const site = ( await syncMetadataWithExistingSite( metadata ) )!;
 		if ( ! hasReachedStage( metadata, 'site-started' ) ) {
-			const runtimeStartOptions = loadImportedRuntimeStartOptions( metadata.runtimeBlueprintPath );
+			const runtimeStartOptions = await loadImportedRuntimeStartOptions(
+				metadata.runtimeBlueprintPath
+			);
 			logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
 
 			try {

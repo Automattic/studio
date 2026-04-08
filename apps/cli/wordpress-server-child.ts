@@ -151,7 +151,7 @@ async function getBaseRunCLIArgs(
 ): Promise< RunCLIArgs > {
 	if ( ! config.useExactMountLayout && config.blueprint?.uri ) {
 		try {
-			const importedRuntime = loadImportedRuntimeStartOptions( config.blueprint.uri );
+			const importedRuntime = await loadImportedRuntimeStartOptions( config.blueprint.uri );
 			if ( importedRuntime.useExactMountLayout ) {
 				config.mountsBeforeInstall = importedRuntime.mountsBeforeInstall;
 				config.mounts = importedRuntime.mounts;

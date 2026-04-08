@@ -62,28 +62,47 @@ describe( 'CLI: studio site start', () => {
 		vi.mocked( updateSiteLatestCliPid ).mockResolvedValue( undefined );
 		vi.mocked( logSiteDetails ).mockImplementation( () => {} );
 		vi.mocked( openSiteInBrowser ).mockResolvedValue( undefined );
-		vi.spyOn( fs, 'existsSync' ).mockReturnValue( true );
-		vi.spyOn( fs, 'readFileSync' ).mockImplementation( ( filePath ) => {
-			const normalized = String( filePath ).replace( /[\\/]+/g, '/' );
-			if ( normalized === '/test/import/runtime/start.sh' ) {
-				return `npx @wp-playground/cli@latest server \\
+		// Pass through to the real fs for paths that are not test fixtures
+		// (e.g. WASM binaries loaded by @php-wasm/node).
+		const realExistsSync = fs.existsSync;
+		const realReadFileSync = fs.readFileSync;
+		const testFileContents: Record< string, string > = {
+			'/test/import/runtime/blueprint.json': '{"steps":[]}',
+			'/test/import/runtime/start.sh': `npx @wp-playground/cli@latest server \\
     --mount-before-install='/test/import/raw/core:/wordpress' \\
     --mount-before-install='/test/site/wp-content:/wordpress/wp-content' \\
     --mount='/test/import/runtime/runtime.php:/wordpress/wp-content/mu-plugins/0-playground-runtime.php' \\
     --wordpress-install-mode=do-not-attempt-installing
-`;
-			}
-
-			if ( normalized === '/test/import/runtime/runtime.php' ) {
-				return `<?php
+`,
+			'/test/import/runtime/runtime.php': `<?php
 if (!defined('WP_CONTENT_DIR')) {
     define('WP_CONTENT_DIR', '/wordpress/wp-content');
 }
-`;
+`,
+		};
+		const testPaths = new Set( [
+			...Object.keys( testFileContents ),
+			'/test/import/raw/core',
+			'/test/site/wp-content',
+		] );
+		vi.spyOn( fs, 'existsSync' ).mockImplementation( ( filePath ) => {
+			const normalized = String( filePath ).replace( /[\\/]+/g, '/' );
+			if ( testPaths.has( normalized ) ) {
+				return true;
 			}
-
-			return '{"steps":[]}';
+			return realExistsSync( filePath );
 		} );
+		vi.spyOn( fs, 'readFileSync' ).mockImplementation( ( (
+			filePath: fs.PathOrFileDescriptor,
+			...args: unknown[]
+		) => {
+			const normalized = String( filePath ).replace( /[\\/]+/g, '/' );
+			if ( normalized in testFileContents ) {
+				return testFileContents[ normalized ];
+			}
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+			return ( realReadFileSync as Function )( filePath, ...args ) as string;
+		} ) as typeof fs.readFileSync );
 	} );
 
 	afterEach( () => {

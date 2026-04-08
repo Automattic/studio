@@ -844,14 +844,17 @@ const pollPullBackupThunk = createTypedAsyncThunk(
 				);
 
 				await getIpcApi().stopServer( selectedSiteId );
-				await getIpcApi().importSite( {
-					id: selectedSiteId,
-					backupFile: {
-						path: filePath,
-						type: 'application/tar+gzip',
-					},
-				} );
-				await getIpcApi().startServer( selectedSiteId );
+				try {
+					await getIpcApi().importSite( {
+						id: selectedSiteId,
+						backupFile: {
+							path: filePath,
+							type: 'application/tar+gzip',
+						},
+					} );
+				} finally {
+					await getIpcApi().startServer( selectedSiteId );
+				}
 
 				await getIpcApi().removeSyncBackup( remoteSiteId );
 

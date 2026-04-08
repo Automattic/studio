@@ -32,6 +32,7 @@ export interface UserData {
 	colorScheme?: 'system' | 'light' | 'dark';
 	betaFeatures?: BetaFeatures;
 	stopSitesOnQuit?: boolean;
+	cliAutoInstalled?: boolean;
 }
 
 export interface PromptWindowsSpeedUpResult {

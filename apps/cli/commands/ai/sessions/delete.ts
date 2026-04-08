@@ -12,7 +12,7 @@ export async function runCommand( sessionIdOrPrefix?: string ): Promise< void > 
 	if ( ! resolvedSessionIdOrPrefix ) {
 		const selectedSession = await chooseSessionForAction(
 			__( 'Select a session to delete:' ),
-			__( 'No AI sessions found' )
+			__( 'No code sessions found' )
 		);
 		if ( ! selectedSession ) {
 			return;
@@ -24,20 +24,20 @@ export async function runCommand( sessionIdOrPrefix?: string ): Promise< void > 
 	if ( resolvedSessionIdOrPrefix.toLowerCase() === 'latest' ) {
 		const sessions = await listAiSessions();
 		if ( sessions.length === 0 ) {
-			throw new Error( __( 'No AI sessions found' ) );
+			throw new Error( __( 'No code sessions found' ) );
 		}
 
 		resolvedSessionIdOrPrefix = sessions[ 0 ].id;
 	}
 
 	const deletedSession = await deleteAiSession( resolvedSessionIdOrPrefix );
-	console.log( `${ __( 'Deleted AI session' ) }: ${ deletedSession.id }` );
+	console.log( `${ __( 'Deleted code session' ) }: ${ deletedSession.id }` );
 }
 
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'delete [id]',
-		describe: __( 'Delete an AI session (id, prefix, "latest", or picker)' ),
+		describe: __( 'Delete a code session (id, prefix, "latest", or picker)' ),
 		builder: ( deleteYargs ) => {
 			return deleteYargs.positional( 'id', {
 				type: 'string',
@@ -51,7 +51,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );
 				} else {
-					logger.reportError( new LoggerError( __( 'Failed to delete AI session' ), error ) );
+					logger.reportError( new LoggerError( __( 'Failed to delete code session' ), error ) );
 				}
 			}
 		},

@@ -1,5 +1,6 @@
 import { dialog } from 'electron';
-import { mkdir, readlink, symlink, unlink, lstat } from 'node:fs/promises';
+import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import * as Sentry from '@sentry/electron/main';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
@@ -8,18 +9,26 @@ import { sudoExec } from 'src/lib/sudo-exec';
 import { getMainWindow } from 'src/main-window';
 import { StudioCliInstallationManager } from 'src/modules/cli/lib/ipc-handlers';
 import { getResourcesPath } from 'src/storage/paths';
+import { loadUserData, updateAppdata } from 'src/storage/user-data';
 import packageJson from '../../../../package.json';
 
-const cliSymlinkPath = '/usr/local/bin/studio';
+const legacyCliSymlinkPath = '/usr/local/bin/studio';
+const cliSymlinkPath = path.join( os.homedir(), '.local', 'bin', 'studio' );
 
 const binPath = path.join( getResourcesPath(), 'bin' );
 const cliPackagedPath = path.join( binPath, 'studio-cli.sh' );
-const installScriptPath = path.join( binPath, 'install-studio-cli.sh' );
 const uninstallScriptPath = path.join( binPath, 'uninstall-studio-cli.sh' );
 
+const SUPPORTED_SHELLS = [ 'bash', 'zsh' ] as const;
+const SHELL_PROFILE_MAP: Record< ( typeof SUPPORTED_SHELLS )[ number ], string > = {
+	bash: '.bash_profile',
+	zsh: '.zshrc',
+};
+const DEFAULT_PROFILE = SHELL_PROFILE_MAP[ 'zsh' ];
+const PATH_DEFINITION = '$HOME/.local/bin';
+const PATH_EXPORT_LINE = `export PATH="${ PATH_DEFINITION }:$PATH"`;
+
 const ERROR_FILE_ALREADY_EXISTS = 'Studio CLI symlink path already occupied by non-symlink';
-// Defined in @vscode/sudo-prompt
-const ERROR_PERMISSION = 'User did not grant permission.';
 
 export class MacOSCliInstallationManager implements StudioCliInstallationManager {
 	constructor() {
@@ -29,36 +38,18 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 	}
 
 	async isCliInstalled(): Promise< boolean > {
-		const currentSymlinkDestination = await this.getCurrentSymlinkDestination();
+		const existingContent = await this.readShellProfileContent();
 
-		// Return true if we are running the development version of the app and the production CLI is installed
-		if ( process.env.NODE_ENV !== 'production' ) {
-			const prodCliPackagedPath = path.join(
-				path.sep,
-				'Applications',
-				'Studio.app',
-				'Contents',
-				'Resources',
-				'bin',
-				'studio-cli.sh'
-			);
-			if ( currentSymlinkDestination === prodCliPackagedPath ) {
-				return true;
-			}
+		if ( ! existingContent.includes( PATH_DEFINITION ) ) {
+			return false;
 		}
 
-		return currentSymlinkDestination === cliPackagedPath;
+		return await this.doesSymlinkLeadToPackagedCli( cliSymlinkPath );
 	}
 
 	async installCliWithConfirmation(): Promise< void > {
 		try {
 			await this.installCli();
-			const mainWindow = await getMainWindow();
-			await dialog.showMessageBox( mainWindow, {
-				type: 'info',
-				title: __( 'CLI Installed' ),
-				message: __( 'The CLI has been installed successfully.' ),
-			} );
 		} catch ( error ) {
 			console.error( 'Failed to install CLI', error );
 
@@ -76,8 +67,6 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 						),
 						cliSymlinkPath
 					);
-				} else if ( error.message === ERROR_PERMISSION ) {
-					message = __( 'Please ensure you grant Studio admin permissions when prompted.' );
 				} else {
 					// Only report unexpected errors to Sentry
 					Sentry.captureException( error );
@@ -98,6 +87,7 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 	async uninstallCliWithConfirmation(): Promise< void > {
 		try {
 			await this.uninstallCli();
+			await this.uninstallLegacyCliIfNeeded();
 			const mainWindow = await getMainWindow();
 			await dialog.showMessageBox( mainWindow, {
 				type: 'info',
@@ -125,9 +115,21 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 		}
 	}
 
+	async autoInstallIfNeeded(): Promise< void > {
+		// Only auto-install on first launch. If the flag is already set but the CLI isn't
+		// installed, the user must have explicitly disabled it — respect their choice.
+		const userData = await loadUserData();
+		if ( userData.cliAutoInstalled ) {
+			return;
+		}
+
+		await this.installCli();
+		await updateAppdata( { cliAutoInstalled: true } );
+	}
+
 	private async installCli(): Promise< void > {
 		try {
-			const stats = await lstat( cliSymlinkPath );
+			const stats = await fs.promises.lstat( cliSymlinkPath );
 
 			if ( ! stats.isSymbolicLink() ) {
 				throw new Error( ERROR_FILE_ALREADY_EXISTS );
@@ -144,59 +146,131 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 			return;
 		}
 
-		try {
-			const directoryPath = path.dirname( cliSymlinkPath );
+		const directoryPath = path.dirname( cliSymlinkPath );
 
-			await unlink( cliSymlinkPath );
-			await mkdir( directoryPath, { recursive: true } );
-			await symlink( cliPackagedPath, cliSymlinkPath );
-		} catch ( e ) {
-			// `/usr/local/bin` is not typically writable by non-root users, so in most cases, we run
-			// this install script with admin privileges to create the symlink.
-			await sudoExec( `/bin/sh "${ installScriptPath }"`, {
-				name: packageJson.productName,
-				env: {
-					CLI_SYMLINK_PATH: cliSymlinkPath,
-					CLI_PACKAGED_PATH: cliPackagedPath,
-				},
-			} );
+		try {
+			await fs.promises.unlink( cliSymlinkPath );
+		} catch ( error ) {
+			if ( ! isErrnoException( error ) || error.code !== 'ENOENT' ) {
+				throw error;
+			}
 		}
+
+		await fs.promises.mkdir( directoryPath, { recursive: true } );
+		await fs.promises.symlink( cliPackagedPath, cliSymlinkPath );
+		await this.ensurePathInProfile();
 	}
 
 	private async uninstallCli(): Promise< void > {
 		try {
-			const stats = await lstat( cliSymlinkPath );
+			const stats = await fs.promises.lstat( cliSymlinkPath );
 
 			if ( ! stats.isSymbolicLink() ) {
 				throw new Error( ERROR_FILE_ALREADY_EXISTS );
 			}
 		} catch ( error ) {
 			if ( isErrnoException( error ) && error.code === 'ENOENT' ) {
-				// File does not exist, which means we can proceed
-			} else {
-				throw error;
+				// File does not exist, nothing to uninstall.
+				return;
 			}
+			throw error;
+		}
+
+		await fs.promises.unlink( cliSymlinkPath );
+	}
+
+	private async uninstallLegacyCliIfNeeded(): Promise< void > {
+		const legacyCliExists = await this.doesSymlinkLeadToPackagedCli( legacyCliSymlinkPath );
+		if ( ! legacyCliExists ) {
+			return;
 		}
 
 		try {
-			await unlink( cliSymlinkPath );
+			await fs.promises.unlink( legacyCliSymlinkPath );
 		} catch ( error ) {
 			// `/usr/local/bin` is not typically writable by non-root users, so in most cases, we run
 			// this uninstall script with admin privileges to remove the symlink.
 			await sudoExec( `/bin/sh "${ uninstallScriptPath }"`, {
 				name: packageJson.productName,
 				env: {
-					CLI_SYMLINK_PATH: cliSymlinkPath,
+					CLI_SYMLINK_PATH: legacyCliSymlinkPath,
 				},
 			} );
 		}
 	}
 
-	private async getCurrentSymlinkDestination(): Promise< string | null > {
-		try {
-			return await readlink( cliSymlinkPath );
-		} catch {
-			return null;
+	private async ensurePathInProfile(): Promise< void > {
+		const existingContent = await this.readShellProfileContent();
+
+		if ( existingContent.includes( PATH_DEFINITION ) ) {
+			return;
 		}
+
+		const profilePath = this.getShellProfilePath();
+
+		const lineToAppend =
+			existingContent.endsWith( '\n' ) || existingContent === ''
+				? `${ PATH_EXPORT_LINE }\n`
+				: `\n${ PATH_EXPORT_LINE }\n`;
+
+		await fs.promises.writeFile( profilePath, existingContent + lineToAppend, 'utf-8' );
+	}
+
+	private getShellProfilePath(): string {
+		const shell = path.basename( os.userInfo().shell ?? process.env.SHELL ?? '' );
+		const supportedShell = SUPPORTED_SHELLS.find( ( candidate ) => candidate === shell );
+		const profileFile = supportedShell ? SHELL_PROFILE_MAP[ supportedShell ] : DEFAULT_PROFILE;
+		return path.join( os.homedir(), profileFile );
+	}
+
+	private async readShellProfileContent(): Promise< string > {
+		try {
+			return await fs.promises.readFile( this.getShellProfilePath(), 'utf-8' );
+		} catch ( error ) {
+			if ( isErrnoException( error ) && error.code === 'ENOENT' ) {
+				return '';
+			}
+			throw error;
+		}
+	}
+
+	private async doesSymlinkLeadToPackagedCli( symlinkPath: string ): Promise< boolean > {
+		try {
+			const symlinkDestination = await fs.promises.readlink( symlinkPath );
+
+			if ( process.env.NODE_ENV !== 'production' ) {
+				const prodCliPackagedPath = path.join(
+					path.sep,
+					'Applications',
+					'Studio.app',
+					'Contents',
+					'Resources',
+					'bin',
+					'studio-cli.sh'
+				);
+
+				if ( symlinkDestination === prodCliPackagedPath ) {
+					return true;
+				}
+			}
+
+			return symlinkDestination === cliPackagedPath;
+		} catch {
+			return false;
+		}
+	}
+}
+
+export async function autoInstallMacOSCliIfNeeded(): Promise< void > {
+	if ( process.platform !== 'darwin' || process.env.NODE_ENV !== 'production' ) {
+		return;
+	}
+
+	try {
+		const manager = new MacOSCliInstallationManager();
+		await manager.autoInstallIfNeeded();
+	} catch ( error ) {
+		console.error( 'Failed to auto-install macOS CLI', error );
+		Sentry.captureException( error );
 	}
 }

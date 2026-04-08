@@ -1327,6 +1327,14 @@ async function syncMetadataWithExistingSite(
 	return site;
 }
 
+function getAutoLoginUrl( localUrl: string, redirectTo?: string ): string {
+	const base = `${ localUrl }/studio-auto-login`;
+	if ( ! redirectTo ) {
+		return base;
+	}
+	return `${ base }?redirect_to=${ encodeURIComponent( redirectTo ) }`;
+}
+
 function printReadyMessage( metadata: ImportMetadata ): void {
 	if ( ! metadata.localUrl ) {
 		return;
@@ -1335,8 +1343,8 @@ function printReadyMessage( metadata: ImportMetadata ): void {
 	console.log( '' );
 	console.log( `Site "${ metadata.siteName }" is ready.` );
 	console.log( '' );
-	console.log( __( 'Site URL: ' ), `${ metadata.localUrl }?studio-auto-login` );
-	console.log( __( 'WP Admin: ' ), `${ metadata.localUrl }/wp-admin/?studio-auto-login` );
+	console.log( __( 'Site URL: ' ), getAutoLoginUrl( metadata.localUrl ) );
+	console.log( __( 'WP Admin: ' ), getAutoLoginUrl( metadata.localUrl, '/wp-admin/' ) );
 	console.log( '' );
 }
 
@@ -1345,8 +1353,8 @@ function printCompletionMessage( metadata: ImportMetadata ): void {
 	console.log( `Site "${ metadata.siteName }" imported successfully.` );
 	console.log( '' );
 	if ( metadata.localUrl ) {
-		console.log( __( 'Site URL: ' ), `${ metadata.localUrl }?studio-auto-login` );
-		console.log( __( 'WP Admin: ' ), `${ metadata.localUrl }/wp-admin/?studio-auto-login` );
+		console.log( __( 'Site URL: ' ), getAutoLoginUrl( metadata.localUrl ) );
+		console.log( __( 'WP Admin: ' ), getAutoLoginUrl( metadata.localUrl, '/wp-admin/' ) );
 		console.log( '' );
 	}
 }

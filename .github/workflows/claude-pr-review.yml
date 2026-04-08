@@ -121,6 +121,7 @@ jobs:
                 - Changes must look correct in both light and dark mode
                 - Check RTL layout if touching layout/positioning code
                 - Interactive states (loading, disabled, error) must handle rapid user interaction
+                - Accessibility: watch for low color contrast, missing aria labels, and keyboard navigation issues
 
             14. **Testing**
                 - Tests should add real value, not just coverage — fully-mocked tests that don't exercise real logic are low value
@@ -128,9 +129,10 @@ jobs:
                 - Test error recovery paths and schema validation on corrupt/mismatched data
                 - Vitest for unit tests, Playwright for E2E; tests co-located in `tests/` subdirectories
 
+            Only provide noteworthy feedback. Keep feedback concise.
             Provide feedback using inline comments for specific issues.
             Use top-level comments for general observations.
-            Be thorough but constructive. Do not add positive reinforcement comments.
+            Do not add positive reinforcement comments.
 
           claude_args: |
             --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"

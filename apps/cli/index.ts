@@ -190,14 +190,14 @@ async function main() {
 					.option( 'session-persistence', {
 						type: 'boolean',
 						default: true,
-						description: __( 'Record this AI chat session to disk' ),
+						description: __( 'Record this code session to disk' ),
 					} );
 				registerAiSessionsListCommand( sessionsYargs );
 				registerAiSessionsResumeCommand( sessionsYargs );
 				registerAiSessionsDeleteCommand( sessionsYargs );
 				sessionsYargs
 					.version( false )
-					.demandCommand( 1, __( 'You must provide a valid ai sessions command' ) );
+					.demandCommand( 1, __( 'You must provide a valid code sessions command' ) );
 			} );
 			aiYargs.version( false );
 		};

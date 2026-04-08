@@ -35,28 +35,28 @@ async function copyBundledDependencyIfNewerOrMissing( {
 		return;
 	}
 
-	let bundledVersion: Awaited< ReturnType< VersionReader > >;
+	let sourceVersion: Awaited< ReturnType< VersionReader > >;
 
 	try {
-		bundledVersion = await readSourceVersion();
-		if ( ! bundledVersion ) {
+		sourceVersion = await readSourceVersion();
+		if ( ! sourceVersion ) {
 			return;
 		}
 	} catch {
-		// Do nothing if the bundled version cannot be read
+		// Do nothing if the source version cannot be read
 		return;
 	}
 
 	try {
-		const serverFilesVersion = await readTargetVersion();
-		const isBundledVersionNewer =
-			serverFilesVersion && semver.gt( bundledVersion, serverFilesVersion );
+		const targetVersion = await readTargetVersion();
+		const isSourceVersionNewer = targetVersion && semver.gt( sourceVersion, targetVersion );
 
-		if ( ! serverFilesVersion || isBundledVersionNewer ) {
+		if ( ! targetVersion || isSourceVersionNewer ) {
 			await recursiveCopyDirectory( sourceDirectoryPath, targetDirectoryPath );
 		}
 	} catch {
-		// Fall back to copying the bundled version if the server files version cannot be read
+		// The error is likely because of a missing or corrupted target directory, in which case we
+		// copy the source directory to the target directory
 		await recursiveCopyDirectory( sourceDirectoryPath, targetDirectoryPath );
 	}
 }
@@ -111,12 +111,16 @@ async function copyBundledSqlite() {
 }
 
 async function copyBundledWpCli() {
-	const isServerFilesWpCliInstalled = fs.existsSync( getWpCliPharPath() );
-	if ( isServerFilesWpCliInstalled ) {
-		return;
-	}
 	const bundledWpCLIPath = path.join( getWpFilesPath(), 'wp-cli', 'wp-cli.phar' );
-	await fs.promises.copyFile( bundledWpCLIPath, getWpCliPharPath() );
+	const sourceStats = await fs.promises.lstat( bundledWpCLIPath );
+	const targetStats = await fs.promises.lstat( getWpCliPharPath() );
+
+	if ( sourceStats.size !== targetStats.size || sourceStats.mtimeMs !== targetStats.mtimeMs ) {
+		await fs.promises.cp( bundledWpCLIPath, getWpCliPharPath(), {
+			mode: fs.constants.COPYFILE_FICLONE,
+			preserveTimestamps: true,
+		} );
+	}
 }
 
 async function copyBundledSqliteCommand() {
@@ -148,7 +152,15 @@ async function copyBundledTranslations() {
 		'available-site-translations.json'
 	);
 
-	await fs.promises.copyFile( bundledTranslationsPath, installedTranslationsPath );
+	const sourceStats = await fs.promises.lstat( bundledTranslationsPath );
+	const targetStats = await fs.promises.lstat( installedTranslationsPath );
+
+	if ( sourceStats.size !== targetStats.size || sourceStats.mtimeMs !== targetStats.mtimeMs ) {
+		await fs.promises.cp( bundledTranslationsPath, installedTranslationsPath, {
+			mode: fs.constants.COPYFILE_FICLONE,
+			preserveTimestamps: true,
+		} );
+	}
 }
 
 async function copyBundledAiInstructions() {

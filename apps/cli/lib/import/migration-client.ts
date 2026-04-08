@@ -278,12 +278,16 @@ export function formatImporterProgressSnapshot(
 	const elapsed = formatElapsedSeconds( elapsedSeconds );
 	const segments = [ progressLabel ];
 
-	if ( snapshot.downloadedFiles !== undefined && snapshot.totalFiles !== undefined ) {
-		segments.push( `${ snapshot.downloadedFiles }/${ snapshot.totalFiles } files` );
-	} else if ( snapshot.downloadedFiles !== undefined ) {
-		segments.push( `${ snapshot.downloadedFiles } files` );
-	} else if ( snapshot.totalFiles !== undefined ) {
-		segments.push( `${ snapshot.totalFiles } files` );
+	// Always use X/Y format once either count is known so the leading
+	// number doesn't jump between the total and the downloaded count when
+	// the format switches from "Y files" to "X/Y files".
+	if ( snapshot.downloadedFiles !== undefined || snapshot.totalFiles !== undefined ) {
+		const downloaded = snapshot.downloadedFiles ?? 0;
+		if ( snapshot.totalFiles !== undefined ) {
+			segments.push( `${ downloaded }/${ snapshot.totalFiles } files` );
+		} else {
+			segments.push( `${ downloaded } files` );
+		}
 	}
 
 	if ( snapshot.downloadedBytes !== undefined && snapshot.totalBytes !== undefined ) {

@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { Writable } from 'stream';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
+import ignore from 'ignore';
 import { z } from 'zod';
 
 export async function downloadFile( url: string, destinationPath: string ): Promise< void > {
@@ -57,6 +58,9 @@ export async function fetchLatestGithubRelease( repo: string ) {
 	return partialGithubReleaseSchema.parse( rawResponse );
 }
 
+const IGNORE_PATTERNS = [ '.DS_Store', 'Thumbs.db' ];
+const IGNORE_INSTANCE = ignore().add( IGNORE_PATTERNS );
+
 type FileMetadata = {
 	mtimeMs: number;
 	size: number;
@@ -71,6 +75,11 @@ async function collectDirectoryMetadata(
 
 	for ( const entry of entries ) {
 		const fullPath = path.join( directoryPath, entry.name );
+		const relativePath = path.relative( basePath, fullPath );
+
+		if ( IGNORE_INSTANCE.ignores( relativePath ) ) {
+			continue;
+		}
 
 		if ( entry.isDirectory() ) {
 			const nestedFiles = await collectDirectoryMetadata( fullPath, basePath );
@@ -84,7 +93,6 @@ async function collectDirectoryMetadata(
 			continue;
 		}
 
-		const relativePath = path.relative( basePath, fullPath );
 		const stats = await fs.promises.lstat( fullPath );
 		files.set( relativePath, { size: stats.size, mtimeMs: Math.floor( stats.mtimeMs ) } );
 	}

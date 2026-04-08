@@ -20,7 +20,7 @@ import { updateLatestWpCliVersion } from './wp-cli';
 
 type VersionReader = () => Promise< semver.SemVer | null >;
 
-async function copyBundledDependencyIfNewerOrMissing( {
+async function copySourceDirectoryIfNewerOrMissing( {
 	sourceDirectoryPath,
 	targetDirectoryPath,
 	readSourceVersion,
@@ -36,6 +36,7 @@ async function copyBundledDependencyIfNewerOrMissing( {
 	}
 
 	let sourceVersion: Awaited< ReturnType< VersionReader > >;
+	let shouldCopy = false;
 
 	try {
 		sourceVersion = await readSourceVersion();
@@ -50,13 +51,19 @@ async function copyBundledDependencyIfNewerOrMissing( {
 	try {
 		const targetVersion = await readTargetVersion();
 		const isSourceVersionNewer = targetVersion && semver.gt( sourceVersion, targetVersion );
-
-		if ( ! targetVersion || isSourceVersionNewer ) {
-			await recursiveCopyDirectory( sourceDirectoryPath, targetDirectoryPath );
-		}
+		shouldCopy = Boolean( ! targetVersion || isSourceVersionNewer );
 	} catch {
 		// The error is likely because of a missing or corrupted target directory, in which case we
 		// copy the source directory to the target directory
+		shouldCopy = true;
+	}
+
+	if ( shouldCopy ) {
+		try {
+			await fs.promises.rm( targetDirectoryPath, { recursive: true, force: true } );
+		} catch {
+			// Do nothing if the target directory is missing or corrupted
+		}
 		await recursiveCopyDirectory( sourceDirectoryPath, targetDirectoryPath );
 	}
 }
@@ -93,30 +100,39 @@ async function copyBundledLatestWpVersion() {
 const SQLITE_FILENAME = 'sqlite-database-integration';
 
 async function copyBundledSqlite() {
-	const bundledSqlitePath = path.join( getWpFilesPath(), SQLITE_FILENAME );
-	const installedSqlitePath = getSqlitePluginPath();
+	const sourceSqlitePath = path.join( getWpFilesPath(), SQLITE_FILENAME );
+	const targetSqlitePath = getSqlitePluginPath();
 
-	await copyBundledDependencyIfNewerOrMissing( {
-		sourceDirectoryPath: bundledSqlitePath,
-		targetDirectoryPath: installedSqlitePath,
+	await copySourceDirectoryIfNewerOrMissing( {
+		sourceDirectoryPath: sourceSqlitePath,
+		targetDirectoryPath: targetSqlitePath,
 		readSourceVersion: async () =>
-			semver.coerce( await getSqliteVersionFromInstallation( bundledSqlitePath ), {
+			semver.coerce( await getSqliteVersionFromInstallation( sourceSqlitePath ), {
 				includePrerelease: true,
 			} ),
 		readTargetVersion: async () =>
-			semver.coerce( await getSqliteVersionFromInstallation( installedSqlitePath ), {
+			semver.coerce( await getSqliteVersionFromInstallation( targetSqlitePath ), {
 				includePrerelease: true,
 			} ),
 	} );
 }
 
 async function copyBundledWpCli() {
-	const bundledWpCLIPath = path.join( getWpFilesPath(), 'wp-cli', 'wp-cli.phar' );
-	const sourceStats = await fs.promises.lstat( bundledWpCLIPath );
-	const targetStats = await fs.promises.lstat( getWpCliPharPath() );
+	const sourceWpCLIPath = path.join( getWpFilesPath(), 'wp-cli', 'wp-cli.phar' );
+	const sourceStats = await fs.promises.lstat( sourceWpCLIPath );
+	let shouldCopy = false;
 
-	if ( sourceStats.size !== targetStats.size || sourceStats.mtimeMs !== targetStats.mtimeMs ) {
-		await fs.promises.cp( bundledWpCLIPath, getWpCliPharPath(), {
+	try {
+		const targetStats = await fs.promises.lstat( getWpCliPharPath() );
+		shouldCopy =
+			sourceStats.size !== targetStats.size ||
+			Math.floor( sourceStats.mtimeMs ) !== Math.floor( targetStats.mtimeMs );
+	} catch {
+		shouldCopy = true;
+	}
+
+	if ( shouldCopy ) {
+		await fs.promises.cp( sourceWpCLIPath, getWpCliPharPath(), {
 			mode: fs.constants.COPYFILE_FICLONE,
 			preserveTimestamps: true,
 		} );
@@ -124,7 +140,7 @@ async function copyBundledWpCli() {
 }
 
 async function copyBundledSqliteCommand() {
-	await copyBundledDependencyIfNewerOrMissing( {
+	await copySourceDirectoryIfNewerOrMissing( {
 		sourceDirectoryPath: path.join( getWpFilesPath(), 'sqlite-command' ),
 		targetDirectoryPath: getSqliteCommandPath(),
 		readSourceVersion: async () => {
@@ -139,24 +155,30 @@ async function copyBundledSqliteCommand() {
 }
 
 async function copyBundledTranslations() {
-	const bundledTranslationsPath = path.join(
+	const sourceTranslationsPath = path.join(
 		getWpFilesPath(),
 		'latest',
 		'available-site-translations.json'
 	);
-	if ( ! fs.existsSync( bundledTranslationsPath ) ) {
-		return;
-	}
-	const installedTranslationsPath = path.join(
+	const targetTranslationsPath = path.join(
 		getWordPressVersionPath( 'latest' ),
 		'available-site-translations.json'
 	);
 
-	const sourceStats = await fs.promises.lstat( bundledTranslationsPath );
-	const targetStats = await fs.promises.lstat( installedTranslationsPath );
+	const sourceStats = await fs.promises.lstat( sourceTranslationsPath );
+	let shouldCopy = false;
 
-	if ( sourceStats.size !== targetStats.size || sourceStats.mtimeMs !== targetStats.mtimeMs ) {
-		await fs.promises.cp( bundledTranslationsPath, installedTranslationsPath, {
+	try {
+		const targetStats = await fs.promises.lstat( targetTranslationsPath );
+		shouldCopy =
+			sourceStats.size !== targetStats.size ||
+			Math.floor( sourceStats.mtimeMs ) !== Math.floor( targetStats.mtimeMs );
+	} catch {
+		shouldCopy = true;
+	}
+
+	if ( shouldCopy ) {
+		await fs.promises.cp( sourceTranslationsPath, targetTranslationsPath, {
 			mode: fs.constants.COPYFILE_FICLONE,
 			preserveTimestamps: true,
 		} );
@@ -164,22 +186,27 @@ async function copyBundledTranslations() {
 }
 
 async function copyBundledAiInstructions() {
-	const bundledAiInstructionsPath = path.join( getWpFilesPath(), 'skills' );
-	if ( ! fs.existsSync( bundledAiInstructionsPath ) ) {
+	const sourceAiInstructionsPath = path.join( getWpFilesPath(), 'skills' );
+	if ( ! fs.existsSync( sourceAiInstructionsPath ) ) {
 		return;
 	}
 
-	const isBundledVersionDifferent = await areDirectoriesDifferentBySizeAndMtime(
-		bundledAiInstructionsPath,
+	const isSourceDirectoryDifferent = await areDirectoriesDifferentBySizeAndMtime(
+		sourceAiInstructionsPath,
 		getAiInstructionsPath()
 	);
-	if ( isBundledVersionDifferent ) {
-		await recursiveCopyDirectory( bundledAiInstructionsPath, getAiInstructionsPath() );
+	if ( isSourceDirectoryDifferent ) {
+		try {
+			await fs.promises.rm( getAiInstructionsPath(), { recursive: true, force: true } );
+		} catch {
+			// Do nothing if the target directory is missing or corrupted
+		}
+		await recursiveCopyDirectory( sourceAiInstructionsPath, getAiInstructionsPath() );
 	}
 }
 
 async function copyBundledPhpMyAdmin() {
-	await copyBundledDependencyIfNewerOrMissing( {
+	await copySourceDirectoryIfNewerOrMissing( {
 		sourceDirectoryPath: path.join( getWpFilesPath(), 'phpmyadmin' ),
 		targetDirectoryPath: getPhpMyAdminPath(),
 		readSourceVersion: async () => {
@@ -196,19 +223,22 @@ async function copyBundledPhpMyAdmin() {
 }
 
 async function copyBundledLanguagePacks() {
-	const bundledLanguagePacksPath = path.join( getWpFilesPath(), 'latest', 'languages' );
-	if ( ! fs.existsSync( bundledLanguagePacksPath ) ) {
+	const sourceLanguagePacksPath = path.join( getWpFilesPath(), 'latest', 'languages' );
+	if ( ! fs.existsSync( sourceLanguagePacksPath ) ) {
 		return;
 	}
-	const installedLanguagePacksPath = getLanguagePacksPath();
-	await fs.promises.mkdir( installedLanguagePacksPath, { recursive: true } );
-
-	const isBundledVersionDifferent = await areDirectoriesDifferentBySizeAndMtime(
-		bundledLanguagePacksPath,
-		installedLanguagePacksPath
+	const targetLanguagePacksPath = getLanguagePacksPath();
+	const isSourceDirectoryDifferent = await areDirectoriesDifferentBySizeAndMtime(
+		sourceLanguagePacksPath,
+		targetLanguagePacksPath
 	);
-	if ( isBundledVersionDifferent ) {
-		await recursiveCopyDirectory( bundledLanguagePacksPath, installedLanguagePacksPath );
+	if ( isSourceDirectoryDifferent ) {
+		try {
+			await fs.promises.rm( targetLanguagePacksPath, { recursive: true, force: true } );
+		} catch {
+			// Do nothing if the target directory is missing or corrupted
+		}
+		await recursiveCopyDirectory( sourceLanguagePacksPath, targetLanguagePacksPath );
 	}
 }
 

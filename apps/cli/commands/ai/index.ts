@@ -66,6 +66,7 @@ export async function runCommand( options: {
 	resumeSession?: LoadedAiSession;
 	noSessionPersistence?: boolean;
 	autoApprove?: boolean;
+	showLegacyCommandNotice?: boolean;
 } ): Promise< void > {
 	const ui = options.adapter;
 	const isJsonMode = ui instanceof JsonAdapter;
@@ -77,6 +78,10 @@ export async function runCommand( options: {
 	ui.currentModel = currentModel;
 	ui.start();
 	ui.showWelcome();
+
+	if ( options.showLegacyCommandNotice ) {
+		ui.showInfo( __( 'ⓘ The "studio ai" command is now "studio code".' ) );
+	}
 
 	let sessionRecorder: AiSessionRecorder | undefined;
 	let didDisableSessionPersistence = options.noSessionPersistence === true;
@@ -762,7 +767,7 @@ export async function runCommand( options: {
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: '$0 [message]',
-		describe: __( 'AI-powered WordPress assistant' ),
+		describe: __( 'AI agent for building WordPress' ),
 		builder: ( yargs ) => {
 			return yargs
 				.positional( 'message', {
@@ -784,7 +789,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'session-persistence', {
 					type: 'boolean',
 					default: true,
-					description: __( 'Record this AI chat session to disk' ),
+					description: __( 'Record this code session to disk' ),
 				} )
 				.check( ( argv ) => {
 					if ( argv.json && ! argv.message ) {
@@ -809,6 +814,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					initialMessage: typedArgv.message,
 					noSessionPersistence,
 					autoApprove: typedArgv.autoApprove,
+					showLegacyCommandNotice: argv._[ 0 ] === 'ai',
 				} );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {

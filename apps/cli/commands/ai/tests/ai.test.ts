@@ -171,7 +171,7 @@ vi.mock( 'cli/commands/auth/logout', () => ( {
 	runCommand: vi.fn().mockResolvedValue( undefined ),
 } ) );
 
-describe( 'CLI: studio ai sessions command', () => {
+describe( 'CLI: studio code sessions command', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		vi.mocked( readCliConfig ).mockResolvedValue( {
@@ -186,9 +186,9 @@ describe( 'CLI: studio ai sessions command', () => {
 
 	function buildParser(): StudioArgv {
 		const parser = yargs( [] ).scriptName( 'studio' ).strict().exitProcess( false ) as StudioArgv;
-		parser.command( 'ai', __( 'AI-powered WordPress assistant' ), ( aiYargs ) => {
+		parser.command( [ 'code', 'ai' ], __( 'AI agent for building WordPress' ), ( aiYargs ) => {
 			registerAiCommand( aiYargs as StudioArgv );
-			aiYargs.command( 'sessions', __( 'Manage AI sessions' ), ( sessionsYargs ) => {
+			aiYargs.command( 'sessions', __( 'Manage code sessions' ), ( sessionsYargs ) => {
 				sessionsYargs
 					.option( 'path', {
 						hidden: true,
@@ -196,21 +196,21 @@ describe( 'CLI: studio ai sessions command', () => {
 					.option( 'session-persistence', {
 						type: 'boolean',
 						default: true,
-						description: __( 'Record this AI chat session to disk' ),
+						description: __( 'Record this code session to disk' ),
 					} );
 				registerAiSessionsListCommand( sessionsYargs as StudioArgv );
 				registerAiSessionsResumeCommand( sessionsYargs as StudioArgv );
 				registerAiSessionsDeleteCommand( sessionsYargs as StudioArgv );
 				sessionsYargs
 					.version( false )
-					.demandCommand( 1, __( 'You must provide a valid ai sessions command' ) );
+					.demandCommand( 1, __( 'You must provide a valid code sessions command' ) );
 			} );
 			aiYargs.version( false );
 		} );
 		return parser;
 	}
 
-	it( 'does not record an empty session when running studio ai and exiting immediately', async () => {
+	it( 'does not record an empty session when running studio code and exiting immediately', async () => {
 		await buildParser().parseAsync( [ 'ai' ] );
 
 		expect( ( AiSessionRecorder as typeof AiSessionRecorder ).create ).not.toHaveBeenCalled();

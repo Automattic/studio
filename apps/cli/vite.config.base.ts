@@ -20,6 +20,7 @@ export const baseConfig = defineConfig( {
 				{
 					src: '../../wp-files',
 					dest: '.',
+					preserveTimestamps: true,
 				},
 			],
 		} ),

@@ -179,6 +179,11 @@ export function updateImporterProgressSnapshot(
 		if ( event && event !== 'resuming' ) {
 			nextSnapshot.message = event;
 		}
+		// Lifecycle completion events carry the total index size.
+		const filesIndexed = readNumber( object.files_indexed );
+		if ( filesIndexed !== undefined ) {
+			nextSnapshot.totalFiles = Math.max( filesIndexed, snapshot.totalFiles ?? 0 );
+		}
 		return nextSnapshot;
 	}
 
@@ -212,22 +217,24 @@ export function updateImporterProgressSnapshot(
 		nextSnapshot.message = status;
 	}
 
+	// The streaming-site-migration importer uses files_imported (running
+	// count per invocation, emitted with every file_progress record) and
+	// files_completed / bytes_processed (per-HTTP-request, in completion
+	// chunks).  Map all known variants so structured counters are set.
 	const downloadedFiles =
+		readNumber( object.files_imported ) ??
+		readNumber( object.files_completed ) ??
 		readNumber( object.downloaded_files ) ??
-		readNumber( object.files_done ) ??
-		readNumber( object.files_downloaded );
+		readNumber( object.files_done );
 	const totalFiles =
 		readNumber( object.total_files ) ??
 		readNumber( object.files_total ) ??
-		readNumber( object.files );
+		readNumber( object.files_indexed );
 	const downloadedBytes =
+		readNumber( object.bytes_processed ) ??
 		readNumber( object.downloaded_bytes ) ??
-		readNumber( object.bytes_done ) ??
-		readNumber( object.bytes_downloaded );
-	const totalBytes =
-		readNumber( object.total_bytes ) ??
-		readNumber( object.bytes_total ) ??
-		readNumber( object.bytes );
+		readNumber( object.bytes_done );
+	const totalBytes = readNumber( object.total_bytes ) ?? readNumber( object.bytes_total );
 	const bytesReceived = readNumber( object.bytes_received );
 	const rateBps = readNumber( object.rate_bps );
 	const statementsExecuted = readNumber( object.statements_executed );

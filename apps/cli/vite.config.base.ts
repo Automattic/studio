@@ -24,6 +24,7 @@ export const baseConfig = defineConfig( {
 							{
 								src: bundledWpFilesPath,
 								dest: '.',
+								preserveTimestamps: true,
 							},
 						],
 					} ),

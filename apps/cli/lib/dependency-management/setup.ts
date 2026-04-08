@@ -16,9 +16,59 @@ import {
 	getWpFilesPath,
 } from '../server-files';
 import { updateLatestSqliteCommandVersion } from './sqlite-command';
-import { downloadFile } from './utils';
+import { areDirectoriesDifferentBySizeAndMtime, downloadFile } from './utils';
 import { getWordPressVersionFromInstallation, updateLatestWordPressVersion } from './wordpress';
 import { downloadWpCli, updateLatestWpCliVersion } from './wp-cli';
+
+type VersionReader = () => Promise< semver.SemVer | null >;
+
+async function copySourceDirectoryIfNewerOrMissing( {
+	sourceDirectoryPath,
+	targetDirectoryPath,
+	readSourceVersion,
+	readTargetVersion,
+}: {
+	sourceDirectoryPath: string;
+	targetDirectoryPath: string;
+	readSourceVersion: VersionReader;
+	readTargetVersion: VersionReader;
+} ) {
+	if ( ! fs.existsSync( sourceDirectoryPath ) ) {
+		return;
+	}
+
+	let sourceVersion: Awaited< ReturnType< VersionReader > >;
+	let shouldCopy = false;
+
+	try {
+		sourceVersion = await readSourceVersion();
+		if ( ! sourceVersion ) {
+			return;
+		}
+	} catch {
+		// Do nothing if the source version cannot be read
+		return;
+	}
+
+	try {
+		const targetVersion = await readTargetVersion();
+		const isSourceVersionNewer = targetVersion && semver.gt( sourceVersion, targetVersion );
+		shouldCopy = Boolean( ! targetVersion || isSourceVersionNewer );
+	} catch {
+		// The error is likely because of a missing or corrupted target directory, in which case we
+		// copy the source directory to the target directory
+		shouldCopy = true;
+	}
+
+	if ( shouldCopy ) {
+		try {
+			await fs.promises.rm( targetDirectoryPath, { recursive: true, force: true } );
+		} catch {
+			// Do nothing if the target directory is missing or corrupted
+		}
+		await recursiveCopyDirectory( sourceDirectoryPath, targetDirectoryPath );
+	}
+}
 
 // Compare the WordPress version in the bundled `wp-files/latest/wordpress` directory (that ships
 // with the CLI) to `~/.studio/server-files/wordpress-versions/latest`. If the bundled directory is
@@ -29,7 +79,7 @@ async function copyBundledLatestWpVersion() {
 	const bundledWpVersion = await getWordPressVersionFromInstallation( bundledWpVersionPath );
 	const bundledWpSemver = semver.coerce( bundledWpVersion );
 
-	if ( ! bundledWpVersion || ! bundledWpSemver ) {
+	if ( ! bundledWpSemver ) {
 		return;
 	}
 
@@ -103,69 +153,134 @@ async function copyBundledSqlite() {
 }
 
 async function copyBundledWpCli() {
-	if ( fs.existsSync( getWpCliPharPath() ) ) {
-		return;
-	}
-	const bundledWpCLIPath = path.join( getWpFilesPath(), 'wp-cli', 'wp-cli.phar' );
-	if ( fs.existsSync( bundledWpCLIPath ) ) {
-		await fs.promises.copyFile( bundledWpCLIPath, getWpCliPharPath() );
-	} else {
+	const sourceWpCLIPath = path.join( getWpFilesPath(), 'wp-cli', 'wp-cli.phar' );
+	if ( ! fs.existsSync( sourceWpCLIPath ) ) {
 		// Bundled WP-CLI not available (e.g. dev build) — download it directly.
 		await downloadWpCli();
+		return;
+	}
+
+	const sourceStats = await fs.promises.lstat( sourceWpCLIPath );
+	let shouldCopy = false;
+
+	try {
+		const targetStats = await fs.promises.lstat( getWpCliPharPath() );
+		shouldCopy =
+			sourceStats.size !== targetStats.size ||
+			Math.floor( sourceStats.mtimeMs ) !== Math.floor( targetStats.mtimeMs );
+	} catch {
+		shouldCopy = true;
+	}
+
+	if ( shouldCopy ) {
+		await fs.promises.cp( sourceWpCLIPath, getWpCliPharPath(), {
+			mode: fs.constants.COPYFILE_FICLONE,
+			preserveTimestamps: true,
+		} );
 	}
 }
 
 async function copyBundledSqliteCommand() {
-	const bundledSqliteCommandPath = path.join( getWpFilesPath(), 'sqlite-command' );
-	if ( ! fs.existsSync( bundledSqliteCommandPath ) ) {
-		return;
-	}
-	// Always copy to ensure files are complete and up-to-date
-	await recursiveCopyDirectory( bundledSqliteCommandPath, getSqliteCommandPath() );
+	await copySourceDirectoryIfNewerOrMissing( {
+		sourceDirectoryPath: path.join( getWpFilesPath(), 'sqlite-command' ),
+		targetDirectoryPath: getSqliteCommandPath(),
+		readSourceVersion: async () => {
+			const versionFilePath = path.join( getWpFilesPath(), 'sqlite-command', 'version' );
+			return semver.coerce( fs.readFileSync( versionFilePath, 'utf8' ) );
+		},
+		readTargetVersion: async () => {
+			const versionFilePath = path.join( getSqliteCommandPath(), 'version' );
+			return semver.coerce( fs.readFileSync( versionFilePath, 'utf8' ) );
+		},
+	} );
 }
 
 async function copyBundledTranslations() {
-	const bundledTranslationsPath = path.join(
+	const sourceTranslationsPath = path.join(
 		getWpFilesPath(),
 		'latest',
 		'available-site-translations.json'
 	);
-	if ( ! fs.existsSync( bundledTranslationsPath ) ) {
-		return;
-	}
-	const installedTranslationsPath = path.join(
+	const targetTranslationsPath = path.join(
 		getWordPressVersionPath( 'latest' ),
 		'available-site-translations.json'
 	);
 
-	await fs.promises.copyFile( bundledTranslationsPath, installedTranslationsPath );
+	const sourceStats = await fs.promises.lstat( sourceTranslationsPath );
+	let shouldCopy = false;
+
+	try {
+		const targetStats = await fs.promises.lstat( targetTranslationsPath );
+		shouldCopy =
+			sourceStats.size !== targetStats.size ||
+			Math.floor( sourceStats.mtimeMs ) !== Math.floor( targetStats.mtimeMs );
+	} catch {
+		shouldCopy = true;
+	}
+
+	if ( shouldCopy ) {
+		await fs.promises.cp( sourceTranslationsPath, targetTranslationsPath, {
+			mode: fs.constants.COPYFILE_FICLONE,
+			preserveTimestamps: true,
+		} );
+	}
 }
 
 async function copyBundledAiInstructions() {
-	const bundledAiInstructionsPath = path.join( getWpFilesPath(), 'skills' );
-	if ( ! fs.existsSync( bundledAiInstructionsPath ) ) {
+	const sourceAiInstructionsPath = path.join( getWpFilesPath(), 'skills' );
+	if ( ! fs.existsSync( sourceAiInstructionsPath ) ) {
 		return;
 	}
-	await recursiveCopyDirectory( bundledAiInstructionsPath, getAiInstructionsPath() );
+
+	const isSourceDirectoryDifferent = await areDirectoriesDifferentBySizeAndMtime(
+		sourceAiInstructionsPath,
+		getAiInstructionsPath()
+	);
+	if ( isSourceDirectoryDifferent ) {
+		try {
+			await fs.promises.rm( getAiInstructionsPath(), { recursive: true, force: true } );
+		} catch {
+			// Do nothing if the target directory is missing or corrupted
+		}
+		await recursiveCopyDirectory( sourceAiInstructionsPath, getAiInstructionsPath() );
+	}
 }
 
 async function copyBundledPhpMyAdmin() {
-	const bundledPath = path.join( getWpFilesPath(), 'phpmyadmin' );
-	if ( ! fs.existsSync( bundledPath ) ) {
-		return;
-	}
-	// Always copy to ensure files are complete and up-to-date
-	await recursiveCopyDirectory( bundledPath, getPhpMyAdminPath() );
+	await copySourceDirectoryIfNewerOrMissing( {
+		sourceDirectoryPath: path.join( getWpFilesPath(), 'phpmyadmin' ),
+		targetDirectoryPath: getPhpMyAdminPath(),
+		readSourceVersion: async () => {
+			const composerFilePath = path.join( getWpFilesPath(), 'phpmyadmin', 'composer.json' );
+			const composerFile = JSON.parse( fs.readFileSync( composerFilePath, 'utf8' ) );
+			return semver.coerce( composerFile.version );
+		},
+		readTargetVersion: async () => {
+			const composerFilePath = path.join( getPhpMyAdminPath(), 'composer.json' );
+			const composerFile = JSON.parse( fs.readFileSync( composerFilePath, 'utf8' ) );
+			return semver.coerce( composerFile.version );
+		},
+	} );
 }
 
 async function copyBundledLanguagePacks() {
-	const bundledLanguagePacksPath = path.join( getWpFilesPath(), 'latest', 'languages' );
-	if ( ! fs.existsSync( bundledLanguagePacksPath ) ) {
+	const sourceLanguagePacksPath = path.join( getWpFilesPath(), 'latest', 'languages' );
+	if ( ! fs.existsSync( sourceLanguagePacksPath ) ) {
 		return;
 	}
-	const installedLanguagePacksPath = getLanguagePacksPath();
-	await fs.promises.mkdir( installedLanguagePacksPath, { recursive: true } );
-	await recursiveCopyDirectory( bundledLanguagePacksPath, installedLanguagePacksPath );
+	const targetLanguagePacksPath = getLanguagePacksPath();
+	const isSourceDirectoryDifferent = await areDirectoriesDifferentBySizeAndMtime(
+		sourceLanguagePacksPath,
+		targetLanguagePacksPath
+	);
+	if ( isSourceDirectoryDifferent ) {
+		try {
+			await fs.promises.rm( targetLanguagePacksPath, { recursive: true, force: true } );
+		} catch {
+			// Do nothing if the target directory is missing or corrupted
+		}
+		await recursiveCopyDirectory( sourceLanguagePacksPath, targetLanguagePacksPath );
+	}
 }
 
 export async function setupServerFiles() {

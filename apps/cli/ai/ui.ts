@@ -1609,21 +1609,57 @@ export class AiChatUI {
 	}
 
 	/**
-	 * Update the context-usage indicator shown in the footer.
-	 *
-	 * `modelUsage` comes from an SDK `result` message. We sum the input token
-	 * flavours (regular + cache reads + cache creations) because all of them
-	 * count against the model's context window, and divide by `contextWindow`
-	 * to surface a rough "how full is the context" percentage to the user.
+	 * Tracks the last-call prompt size (input + cache reads + cache creations)
+	 * from the most recent assistant message. Unlike `result.modelUsage` — which
+	 * is summed across all agentic iterations in a turn and therefore overstates
+	 * how full the context actually is — this mirrors what was actually sent to
+	 * the model on the latest API call. That's the closest available signal for
+	 * "how full is the context right now".
+	 */
+	private lastPromptTokens: number | null = null;
+
+	/**
+	 * Largest `contextWindow` observed in any `result.modelUsage` this session.
+	 * Cached so the footer can render mid-turn (while only `assistant` messages
+	 * are streaming in) without waiting for the next `result`.
+	 */
+	private knownContextWindow: number | null = null;
+
+	/**
+	 * Record the prompt-size snapshot from an assistant message's `usage` block.
+	 * Called from `handleMessage` on every `assistant` message so the indicator
+	 * reflects the latest iteration even mid-turn.
+	 */
+	recordAssistantUsage( usage: unknown ): void {
+		if ( ! usage || typeof usage !== 'object' ) {
+			return;
+		}
+		const u = usage as {
+			input_tokens?: number;
+			cache_read_input_tokens?: number;
+			cache_creation_input_tokens?: number;
+		};
+		const total =
+			( u.input_tokens ?? 0 ) +
+			( u.cache_read_input_tokens ?? 0 ) +
+			( u.cache_creation_input_tokens ?? 0 );
+		if ( total > 0 ) {
+			this.lastPromptTokens = total;
+			this.renderContextUsageLabel();
+		}
+	}
+
+	/**
+	 * Cache the largest `contextWindow` from an SDK `result.modelUsage` map.
+	 * Called on every `result` message. We pick the largest window because
+	 * resume/fork sessions can list multiple models and we want the main
+	 * agent's budget, not a side sub-agent's.
 	 */
 	updateContextUsage(
 		modelUsage:
 			| Record<
 					string,
 					{
-						inputTokens?: number;
-						cacheReadInputTokens?: number;
-						cacheCreationInputTokens?: number;
 						contextWindow?: number;
 					}
 			  >
@@ -1633,29 +1669,28 @@ export class AiChatUI {
 			return;
 		}
 
-		// Use the entry with the largest window — resume/fork sessions can
-		// list multiple models, and we want the one whose budget is actually
-		// driving the next turn.
-		let best: { used: number; window: number } | null = null;
+		let window = this.knownContextWindow ?? 0;
 		for ( const usage of Object.values( modelUsage ) ) {
-			const window = usage.contextWindow ?? 0;
-			if ( window <= 0 ) {
-				continue;
-			}
-			const used =
-				( usage.inputTokens ?? 0 ) +
-				( usage.cacheReadInputTokens ?? 0 ) +
-				( usage.cacheCreationInputTokens ?? 0 );
-			if ( ! best || window > best.window ) {
-				best = { used, window };
+			const candidate = usage.contextWindow ?? 0;
+			if ( candidate > window ) {
+				window = candidate;
 			}
 		}
 
-		if ( ! best ) {
+		if ( window > 0 ) {
+			this.knownContextWindow = window;
+			this.renderContextUsageLabel();
+		}
+	}
+
+	private renderContextUsageLabel(): void {
+		if ( this.lastPromptTokens === null || ! this.knownContextWindow ) {
 			return;
 		}
-
-		const percent = Math.min( 100, Math.round( ( best.used / best.window ) * 100 ) );
+		const percent = Math.min(
+			100,
+			Math.round( ( this.lastPromptTokens / this.knownContextWindow ) * 100 )
+		);
 		this.editor.contextUsageLabel = sprintf(
 			/* translators: %d: percentage of context window consumed */
 			__( 'Context %d%%' ),
@@ -2165,6 +2200,9 @@ export class AiChatUI {
 			}
 
 			case 'assistant': {
+				// Capture per-call prompt size so the footer reflects the latest
+				// iteration's context fill, not the per-turn cumulative total.
+				this.recordAssistantUsage( ( message.message as { usage?: unknown } ).usage );
 				for ( const block of message.message.content ) {
 					if ( block.type === 'text' ) {
 						this.hideLoader();

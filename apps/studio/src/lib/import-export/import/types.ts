@@ -23,6 +23,17 @@ export interface BackupArchiveInfo {
 
 export type NewImporter = new ( backup: BackupContents ) => Importer;
 
+export interface LocalWPSite {
+	id: string;
+	name: string;
+	path: string;
+	phpVersion: string;
+	domain: string;
+	localWPId: string;
+	mysqlVersion?: string;
+	mysqlPort?: number;
+}
+
 export interface BackupExtractProgressEventData {
 	progress: number;
 	processedFiles?: number;

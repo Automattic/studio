@@ -16,6 +16,7 @@ import { syncOperationsThunks } from 'src/stores/sync';
 import { useConnectSiteMutation } from 'src/stores/sync/connected-sites';
 import { Blueprint } from 'src/stores/wpcom-api';
 import type { BlueprintPreferredVersions } from '@studio/common/lib/blueprint-validation';
+import type { LocalWPSite } from 'src/lib/import-export/import/types';
 import type { SyncSite } from 'src/modules/sync/types';
 import type { SyncOption } from 'src/types';
 
@@ -57,6 +58,7 @@ export function useAddSite() {
 	const [ fileForImport, setFileForImport ] = useState< File | null >( null );
 	const [ selectedBlueprint, setSelectedBlueprint ] = useState< Blueprint | undefined >();
 	const [ selectedRemoteSite, setSelectedRemoteSite ] = useState< SyncSite | undefined >();
+	const [ selectedLocalWPSite, setSelectedLocalWPSite ] = useState< LocalWPSite | undefined >();
 	const [ blueprintPreferredVersions, setBlueprintPreferredVersions ] = useState<
 		BlueprintPreferredVersions | undefined
 	>();
@@ -105,6 +107,7 @@ export function useAddSite() {
 		setBlueprintSuggestedSiteName( undefined );
 		setBlueprintRequiresCustomDomain( false );
 		setSelectedRemoteSite( undefined );
+		setSelectedLocalWPSite( undefined );
 		setDeeplinkPhpVersion( DEFAULT_PHP_VERSION );
 		setDeeplinkWpVersion( DEFAULT_WORDPRESS_VERSION );
 		clearDeeplinkState();
@@ -243,7 +246,7 @@ export function useAddSite() {
 					usedCustomDomain = generateCustomDomainFromSiteName( formValues.siteName );
 				}
 				// For import/sync workflows, the respective handlers will start the server
-				const shouldSkipStart = !! fileForImport || !! selectedRemoteSite;
+				const shouldSkipStart = !! fileForImport || !! selectedRemoteSite || !! selectedLocalWPSite;
 
 				const enableHttps = formValues.useCustomDomain ? formValues.enableHttps : false;
 				let updatedBlueprint: Blueprint | undefined;
@@ -277,6 +280,23 @@ export function useAddSite() {
 							getIpcApi().showNotification( {
 								title: newSite.name,
 								body: __( 'Your new site was imported' ),
+							} );
+						} else if ( selectedLocalWPSite ) {
+							const importSource = await getIpcApi().prepareLocalWPImport(
+								selectedLocalWPSite.path,
+								selectedLocalWPSite.localWPId,
+								selectedLocalWPSite.mysqlVersion,
+								selectedLocalWPSite.mysqlPort
+							);
+							await importFile( importSource, newSite, {
+								showImportNotification: false,
+								isNewSite: true,
+							} );
+							clearImportState( newSite.id );
+
+							getIpcApi().showNotification( {
+								title: newSite.name,
+								body: __( 'Your site was imported from Local' ),
 							} );
 						} else if ( selectedRemoteSite && client ) {
 							await connectSite( { site: selectedRemoteSite, localSiteId: newSite.id } );
@@ -315,6 +335,7 @@ export function useAddSite() {
 			fileForImport,
 			importFile,
 			selectedBlueprint,
+			selectedLocalWPSite,
 			selectedRemoteSite,
 			connectSite,
 			setSelectedTab,
@@ -348,6 +369,8 @@ export function useAddSite() {
 			setBlueprintRequiresCustomDomain,
 			selectedRemoteSite,
 			setSelectedRemoteSite,
+			selectedLocalWPSite,
+			setSelectedLocalWPSite,
 			existingDomainNames,
 			loadAllCustomDomains,
 			isDeeplinkFlow,
@@ -373,6 +396,7 @@ export function useAddSite() {
 			blueprintSuggestedSiteName,
 			blueprintRequiresCustomDomain,
 			selectedRemoteSite,
+			selectedLocalWPSite,
 			existingDomainNames,
 			loadAllCustomDomains,
 			isDeeplinkFlow,

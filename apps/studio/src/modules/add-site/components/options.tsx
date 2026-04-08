@@ -4,7 +4,7 @@ import {
 	__experimentalHeading as Heading,
 	__experimentalText as Text,
 } from '@wordpress/components';
-import { Icon, plus, backup, chevronRight, chevronLeft, download } from '@wordpress/icons';
+import { Icon, plus, backup, chevronRight, chevronLeft, download, desktop } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { Tooltip } from 'src/components/tooltip';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
@@ -17,7 +17,8 @@ export type AddSiteFlowType =
 	| 'blueprint'
 	| 'blueprintDeeplink'
 	| 'backup'
-	| 'pullRemote';
+	| 'pullRemote'
+	| 'importLocal';
 interface AddSiteOptionsProps {
 	onOptionSelect: ( option: AddSiteFlowType ) => void;
 }
@@ -130,6 +131,12 @@ export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps 
 				title={ __( 'Import from a backup' ) }
 				description={ __( 'Start a site from a backup' ) }
 				onClick={ () => onOptionSelect( 'backup' ) }
+			/>
+			<OptionButton
+				icon={ <Icon icon={ desktop } size={ 24 } fill="var(--color-frame-theme)" /> }
+				title={ __( 'Import from Local' ) }
+				description={ __( 'Import an existing site from Local WP' ) }
+				onClick={ () => onOptionSelect( 'importLocal' ) }
 			/>
 		</VStack>
 	);

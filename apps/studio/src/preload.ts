@@ -156,6 +156,9 @@ const api: IpcApi = {
 	setWindowControlVisibility: ( visible ) =>
 		ipcRendererInvoke( 'setWindowControlVisibility', visible ),
 	updateSitesSortOrder: ( updates ) => ipcRendererInvoke( 'updateSitesSortOrder', updates ),
+	getLocalWPSites: () => ipcRendererInvoke( 'getLocalWPSites' ),
+	prepareLocalWPImport: ( sitePath, localWPId, mysqlVersion, mysqlPort ) =>
+		ipcRendererInvoke( 'prepareLocalWPImport', sitePath, localWPId, mysqlVersion, mysqlPort ),
 	isStudioCliInstalled: () => ipcRendererInvoke( 'isStudioCliInstalled' ),
 	installStudioCli: () => ipcRendererInvoke( 'installStudioCli' ),
 	uninstallStudioCli: () => ipcRendererInvoke( 'uninstallStudioCli' ),

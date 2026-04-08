@@ -1,4 +1,4 @@
-import { exec, ExecOptions } from 'child_process';
+import { exec, execFile, spawn, ExecOptions } from 'child_process';
 import {
 	BrowserWindow,
 	Menu,
@@ -64,7 +64,7 @@ import { exportBackup } from 'src/lib/import-export/export/export-manager';
 import { ExportOptions } from 'src/lib/import-export/export/types';
 import { ImportExportEventData } from 'src/lib/import-export/handle-events';
 import { defaultImporterOptions, importBackup } from 'src/lib/import-export/import/import-manager';
-import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
+import { BackupArchiveInfo, LocalWPSite } from 'src/lib/import-export/import/types';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import * as oauthClient from 'src/lib/oauth';
@@ -378,8 +378,22 @@ export async function importSite(
 		// Clear blueprint so it doesn't overwrite imported data on first start
 		site.meta.blueprint = undefined;
 
+		// For Local WP directory imports: fix the site URL (imported DB has the
+		// old Local WP domain) and deactivate plugins that may force HTTPS or
+		// use MySQL-specific features incompatible with Studio's SQLite environment.
+		if ( backupFile.type === 'directory' ) {
+			const siteUrl = `http://localhost:${ site.details.port }`;
+			await updateSiteUrlAfterImport( event, id, siteUrl );
+			// Clean up the prep directory (SQL dumps, symlinks) created by prepareLocalWPImport
+			await fsPromises.rm( backupFile.path, { recursive: true } ).catch( () => {} );
+		}
+
 		return site.details;
 	} catch ( e ) {
+		// Clean up the prep directory on failure too
+		if ( backupFile.type === 'directory' ) {
+			await fsPromises.rm( backupFile.path, { recursive: true } ).catch( () => {} );
+		}
 		bumpStat( StatsGroup.STUDIO_IMPORT, StatsMetric.FAILURE );
 		// Don't report validation errors to Sentry - these are expected user errors
 		if (
@@ -1737,4 +1751,357 @@ export async function updateSitesSortOrder(
 	} finally {
 		await unlockAppdata();
 	}
+}
+
+export async function getLocalWPSites( _event: IpcMainInvokeEvent ): Promise< LocalWPSite[] > {
+	const configPath = nodePath.join( app.getPath( 'appData' ), 'Local', 'sites.json' );
+
+	try {
+		const data = await fsPromises.readFile( configPath, 'utf-8' );
+		const parsed: unknown = JSON.parse( data );
+
+		if ( ! parsed || typeof parsed !== 'object' || Array.isArray( parsed ) ) {
+			return [];
+		}
+
+		const sitesConfig = parsed as Record< string, Record< string, unknown > >;
+		const sites: LocalWPSite[] = [];
+
+		for ( const [ id, site ] of Object.entries( sitesConfig ) ) {
+			if ( ! site || typeof site !== 'object' ) {
+				continue;
+			}
+
+			const rawPath = typeof site.path === 'string' ? site.path : '';
+			const sitePath = rawPath.replace( /^~/, os.homedir() );
+
+			// Ensure path is absolute to prevent path traversal
+			if ( ! sitePath || ! nodePath.isAbsolute( sitePath ) ) {
+				continue;
+			}
+
+			const wpContentPath = nodePath.join( sitePath, 'app', 'public', 'wp-content' );
+			if ( ! ( await pathExists( wpContentPath ) ) ) {
+				continue;
+			}
+
+			const services = site.services as Record< string, Record< string, unknown > > | undefined;
+			const mysqlVersion =
+				typeof services?.mysql?.version === 'string' ? services.mysql.version : undefined;
+			const mysqlPorts = services?.mysql?.ports as Record< string, number[] > | undefined;
+			const mysqlPort = mysqlPorts?.MYSQL?.[ 0 ];
+
+			sites.push( {
+				id: typeof site.id === 'string' ? site.id : id,
+				name: typeof site.name === 'string' ? site.name : nodePath.basename( sitePath ),
+				path: sitePath,
+				phpVersion: typeof services?.php?.version === 'string' ? services.php.version : '',
+				domain: typeof site.domain === 'string' ? site.domain : '',
+				localWPId: id,
+				mysqlVersion,
+				mysqlPort: typeof mysqlPort === 'number' ? mysqlPort : undefined,
+			} );
+		}
+
+		return sites;
+	} catch {
+		// Config file not found or invalid
+		return [];
+	}
+}
+
+export async function prepareLocalWPImport(
+	_event: IpcMainInvokeEvent,
+	sitePath: string,
+	localWPId: string,
+	mysqlVersion?: string,
+	mysqlPort?: number
+): Promise< BackupArchiveInfo > {
+	if ( ! nodePath.isAbsolute( sitePath ) ) {
+		throw new Error( 'Invalid site path.' );
+	}
+
+	// Verify sitePath is a known Local WP site to prevent a compromised
+	// renderer from pointing the import at arbitrary filesystem locations.
+	const knownSites = await getLocalWPSites( _event );
+	if ( ! knownSites.some( ( s ) => s.path === sitePath ) ) {
+		throw new Error( 'Site path does not match any known Local WP site.' );
+	}
+
+	// Validate IDs to prevent path traversal
+	const pathTraversalPattern = /[/\\]/;
+	if ( pathTraversalPattern.test( localWPId ) ) {
+		throw new Error( 'Invalid Local WP site ID.' );
+	}
+	if ( mysqlVersion && pathTraversalPattern.test( mysqlVersion ) ) {
+		throw new Error( 'Invalid MySQL version.' );
+	}
+
+	const localAppData = app.getPath( 'appData' );
+	const dataDir = nodePath.join( localAppData, 'Local', 'run', localWPId, 'mysql', 'data' );
+
+	if ( ! ( await pathExists( dataDir ) ) ) {
+		throw new Error( 'Could not find the MySQL data directory for this site.' );
+	}
+
+	// Find Local WP's bundled MySQL binaries
+	const mysqlServiceDir = nodePath.join( localAppData, 'Local', 'lightning-services' );
+	let mysqldBin = '';
+	let mysqldumpBin = '';
+
+	if ( mysqlVersion ) {
+		const candidates = [
+			nodePath.join(
+				mysqlServiceDir,
+				`mysql-${ mysqlVersion }`,
+				'bin',
+				`darwin-${ process.arch }`,
+				'bin'
+			),
+			nodePath.join( mysqlServiceDir, `mysql-${ mysqlVersion }`, 'bin', 'darwin', 'bin' ),
+		];
+		for ( const binDir of candidates ) {
+			if ( await pathExists( nodePath.join( binDir, 'mysqld' ) ) ) {
+				mysqldBin = nodePath.join( binDir, 'mysqld' );
+				mysqldumpBin = nodePath.join( binDir, 'mysqldump' );
+				break;
+			}
+		}
+	}
+
+	// Fallback: search for any available MySQL binary
+	if ( ! mysqldBin ) {
+		try {
+			const serviceDirs = await fsPromises.readdir( mysqlServiceDir );
+			for ( const dir of serviceDirs
+				.filter( ( d ) => d.startsWith( 'mysql-' ) )
+				.sort()
+				.reverse() ) {
+				const candidates = [
+					nodePath.join( mysqlServiceDir, dir, 'bin', `darwin-${ process.arch }`, 'bin' ),
+					nodePath.join( mysqlServiceDir, dir, 'bin', 'darwin', 'bin' ),
+				];
+				for ( const binDir of candidates ) {
+					if ( await pathExists( nodePath.join( binDir, 'mysqld' ) ) ) {
+						mysqldBin = nodePath.join( binDir, 'mysqld' );
+						mysqldumpBin = nodePath.join( binDir, 'mysqldump' );
+						break;
+					}
+				}
+				if ( mysqldBin ) {
+					break;
+				}
+			}
+		} catch {
+			// Could not read lightning-services directory
+		}
+	}
+
+	if ( ! mysqldBin || ! mysqldumpBin ) {
+		throw new Error(
+			'Could not find MySQL binaries from Local WP. Make sure Local WP is installed.'
+		);
+	}
+
+	const tmpDir = await fsPromises.mkdtemp( nodePath.join( os.tmpdir(), 'studio_local_prep' ) );
+	const tmpSqlDir = nodePath.join( tmpDir, 'app', 'sql' );
+	await fsPromises.mkdir( tmpSqlDir, { recursive: true } );
+
+	const mysqlBin = nodePath.join( nodePath.dirname( mysqldumpBin ), 'mysql' );
+
+	// Helper: list tables and dump each to a separate file using the given connection args
+	async function dumpDatabase( connectionArgs: string[] ) {
+		const tables = await new Promise< string[] >( ( resolve, reject ) => {
+			execFile(
+				mysqlBin,
+				[ ...connectionArgs, '-N', '-e', 'SHOW TABLES', 'local' ],
+				{ maxBuffer: 10 * 1024 * 1024 },
+				( error, stdout, stderr ) => {
+					if ( error ) {
+						reject( new Error( `Failed to list tables.\n${ stderr }` ) );
+						return;
+					}
+					resolve(
+						stdout
+							.split( '\n' )
+							.map( ( t ) => t.trim() )
+							.filter( Boolean )
+							.filter( ( t ) => ! /[/\\]/.test( t ) )
+					);
+				}
+			);
+		} );
+
+		for ( const table of tables ) {
+			const tableDumpPath = nodePath.join( tmpSqlDir, `${ table }.sql` );
+			await new Promise< void >( ( resolve, reject ) => {
+				// Stream mysqldump output directly to file instead of buffering
+				// in memory, since tables like wp_postmeta can be very large.
+				const dumpProcess = spawn(
+					mysqldumpBin,
+					[ ...connectionArgs, '--no-tablespaces', '--skip-extended-insert', 'local', table ],
+					{ stdio: [ 'ignore', 'pipe', 'pipe' ] }
+				);
+
+				const outStream = fs.createWriteStream( tableDumpPath );
+				dumpProcess.stdout?.pipe( outStream );
+
+				let stderrData = '';
+				dumpProcess.stderr?.on( 'data', ( data: Buffer ) => {
+					stderrData += data.toString();
+				} );
+
+				dumpProcess.on( 'close', ( code ) => {
+					if ( code !== 0 ) {
+						reject( new Error( `Failed to export table ${ table }.\n${ stderrData }` ) );
+					} else {
+						resolve();
+					}
+				} );
+				dumpProcess.on( 'error', reject );
+			} );
+		}
+	}
+
+	try {
+		// Try connecting to the site's running MySQL instance first (if Local WP is running).
+		// Fall back to starting a temporary MySQL server if the site isn't running.
+		let dumpSucceeded = false;
+
+		if ( mysqlPort ) {
+			try {
+				await dumpDatabase( [
+					`--host=127.0.0.1`,
+					`--port=${ mysqlPort }`,
+					'--user=root',
+					'--password=root',
+				] );
+				dumpSucceeded = true;
+			} catch {
+				// Site isn't running in Local WP — fall back to temporary server
+			}
+		}
+
+		if ( ! dumpSucceeded ) {
+			const socketPath = nodePath.join( tmpDir, 'mysql.sock' );
+			const pidFile = nodePath.join( tmpDir, 'mysql.pid' );
+
+			// Start a temporary MySQL server with the site's data directory.
+			// Uses --skip-networking (no TCP) and --skip-grant-tables (no auth).
+			// Cannot use --innodb-read-only because InnoDB may need to perform
+			// redo log recovery if MySQL wasn't shut down cleanly.
+			const mysqldProcess = spawn(
+				mysqldBin,
+				[
+					`--datadir=${ dataDir }`,
+					`--socket=${ socketPath }`,
+					'--port=0',
+					'--skip-networking',
+					`--pid-file=${ pidFile }`,
+					'--skip-grant-tables',
+				],
+				{ stdio: [ 'ignore', 'ignore', 'pipe' ] }
+			);
+
+			let mysqldStderr = '';
+			mysqldProcess.stderr?.on( 'data', ( data: Buffer ) => {
+				mysqldStderr += data.toString();
+			} );
+
+			// Wait for MySQL to be ready (socket file appears)
+			const maxWait = 20000;
+			const startTime = Date.now();
+			while ( Date.now() - startTime < maxWait ) {
+				if ( await pathExists( socketPath ) ) {
+					break;
+				}
+				await new Promise( ( r ) => setTimeout( r, 300 ) );
+			}
+
+			if ( ! ( await pathExists( socketPath ) ) ) {
+				mysqldProcess.kill();
+				throw new Error(
+					`MySQL server failed to start within the timeout period.\n${ mysqldStderr }`
+				);
+			}
+
+			try {
+				await dumpDatabase( [ `--socket=${ socketPath }`, '--user=root' ] );
+			} finally {
+				// Shut down the temporary MySQL server and wait for exit
+				await new Promise< void >( ( resolve ) => {
+					mysqldProcess.on( 'exit', resolve );
+					mysqldProcess.kill();
+					setTimeout( () => {
+						mysqldProcess.kill( 'SIGKILL' );
+						resolve();
+					}, 5000 );
+				} );
+			}
+		}
+
+		// Symlink the app/public directory so the DirectoryHandler picks up wp-content
+		const publicSrc = nodePath.join( sitePath, 'app', 'public' );
+		const publicDest = nodePath.join( tmpDir, 'app', 'public' );
+		if ( await pathExists( publicSrc ) ) {
+			await fsPromises.symlink( publicSrc, publicDest );
+		}
+
+		// Copy local-site.json if it exists
+		const metaFile = nodePath.join( sitePath, 'local-site.json' );
+		if ( await pathExists( metaFile ) ) {
+			await fsPromises.copyFile( metaFile, nodePath.join( tmpDir, 'local-site.json' ) );
+		}
+
+		return { path: tmpDir, type: 'directory' };
+	} catch ( e ) {
+		await fsPromises.rm( tmpDir, { recursive: true } ).catch( () => {} );
+		throw e;
+	}
+}
+
+async function updateSiteUrlAfterImport(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	newUrl: string
+): Promise< void > {
+	// Validate URL format and restrict to HTTP(S) schemes
+	let parsedUrl;
+	try {
+		parsedUrl = new URL( newUrl );
+	} catch {
+		throw new Error( 'Invalid URL provided.' );
+	}
+	if ( parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:' ) {
+		throw new Error( 'Invalid URL scheme. Only http and https are allowed.' );
+	}
+
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( 'Site not found.' );
+	}
+	const dbPath = nodePath.join( server.details.path, 'wp-content', 'database', '.ht.sqlite' );
+	if ( ! ( await pathExists( dbPath ) ) ) {
+		throw new Error( 'SQLite database not found.' );
+	}
+
+	const escapedUrl = newUrl.replace( /'/g, "''" );
+	const sql = [
+		`UPDATE wp_options SET option_value = '${ escapedUrl }' WHERE option_name = 'siteurl';`,
+		`UPDATE wp_options SET option_value = '${ escapedUrl }' WHERE option_name = 'home';`,
+		// Deactivate all plugins — imported plugins may force HTTPS,
+		// use MySQL-specific features, or otherwise break under Studio's
+		// SQLite/PHP-WASM environment. Users can reactivate from WP admin.
+		`UPDATE wp_options SET option_value = 'a:0:{}' WHERE option_name = 'active_plugins';`,
+	].join( ' ' );
+
+	await new Promise< void >( ( resolve, reject ) => {
+		execFile( 'sqlite3', [ dbPath, sql ], ( error, _stdout, stderr ) => {
+			if ( error ) {
+				reject( new Error( `Failed to update site settings: ${ stderr }` ) );
+				return;
+			}
+			resolve();
+		} );
+	} );
 }

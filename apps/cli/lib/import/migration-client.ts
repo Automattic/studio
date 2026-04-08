@@ -41,6 +41,8 @@ interface NativeImporterCommand {
 interface ImporterProgressSnapshot {
 	bytesReceived?: number;
 	currentRequestBytesReceived?: number;
+	currentRequestDownloadedBytes?: number;
+	currentRequestDownloadedFiles?: number;
 	downloadedBytes?: number;
 	downloadedFiles?: number;
 	event?: string;
@@ -209,28 +211,41 @@ export function updateImporterProgressSnapshot(
 	const statementsExecuted = readNumber( object.statements_executed );
 	const statementsTotal = readNumber( object.statements_total );
 
+	// All counters are accumulated so they never decrease when the importer
+	// restarts mid-stream (exit code 2).  A restart is detected when the new
+	// per-request value is lower than the last one we saw.
 	if ( downloadedFiles !== undefined ) {
-		nextSnapshot.downloadedFiles = downloadedFiles;
+		const prev = snapshot.currentRequestDownloadedFiles ?? 0;
+		const cumulative = snapshot.downloadedFiles ?? 0;
+		const restarted = downloadedFiles < prev;
+		const base = restarted ? cumulative : cumulative - prev;
+
+		nextSnapshot.currentRequestDownloadedFiles = downloadedFiles;
+		nextSnapshot.downloadedFiles = base + downloadedFiles;
 	}
 	if ( totalFiles !== undefined ) {
-		nextSnapshot.totalFiles = totalFiles;
+		nextSnapshot.totalFiles = Math.max( totalFiles, snapshot.totalFiles ?? 0 );
 	}
 	if ( downloadedBytes !== undefined ) {
-		nextSnapshot.downloadedBytes = downloadedBytes;
+		const prev = snapshot.currentRequestDownloadedBytes ?? 0;
+		const cumulative = snapshot.downloadedBytes ?? 0;
+		const restarted = downloadedBytes < prev;
+		const base = restarted ? cumulative : cumulative - prev;
+
+		nextSnapshot.currentRequestDownloadedBytes = downloadedBytes;
+		nextSnapshot.downloadedBytes = base + downloadedBytes;
 	}
 	if ( totalBytes !== undefined ) {
-		nextSnapshot.totalBytes = totalBytes;
+		nextSnapshot.totalBytes = Math.max( totalBytes, snapshot.totalBytes ?? 0 );
 	}
 	if ( bytesReceived !== undefined ) {
-		const previousRequestBytes = snapshot.currentRequestBytesReceived ?? 0;
-		const previousCumulativeBytes = snapshot.bytesReceived ?? 0;
-		const requestRestarted = bytesReceived < previousRequestBytes;
-		const byteBase = requestRestarted
-			? previousCumulativeBytes
-			: previousCumulativeBytes - previousRequestBytes;
+		const prev = snapshot.currentRequestBytesReceived ?? 0;
+		const cumulative = snapshot.bytesReceived ?? 0;
+		const restarted = bytesReceived < prev;
+		const base = restarted ? cumulative : cumulative - prev;
 
 		nextSnapshot.currentRequestBytesReceived = bytesReceived;
-		nextSnapshot.bytesReceived = byteBase + bytesReceived;
+		nextSnapshot.bytesReceived = base + bytesReceived;
 	}
 	if ( rateBps !== undefined ) {
 		nextSnapshot.rateBps = rateBps;

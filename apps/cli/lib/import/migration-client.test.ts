@@ -99,6 +99,40 @@ describe( 'formatImporterJsonlProgress', () => {
 		);
 	} );
 
+	it( 'accumulates downloaded files and bytes across importer restarts', () => {
+		const beforeRestart = updateImporterProgressSnapshot( {
+			downloaded_files: 42,
+			total_files: 100,
+			downloaded_bytes: 1024 * 1024 * 12,
+			total_bytes: 1024 * 1024 * 50,
+		} );
+		// Importer restarts — counters reset to 0 then climb again.
+		const afterRestart = updateImporterProgressSnapshot(
+			{
+				downloaded_files: 5,
+				total_files: 100,
+				downloaded_bytes: 1024 * 1024 * 2,
+				total_bytes: 1024 * 1024 * 50,
+			},
+			beforeRestart!
+		);
+
+		expect( afterRestart!.downloadedFiles ).toBe( 47 );
+		expect( afterRestart!.downloadedBytes ).toBe( 1024 * 1024 * 14 );
+		expect( afterRestart!.totalFiles ).toBe( 100 );
+		expect( formatImporterProgressSnapshot( afterRestart!, 'Essential files', 20 ) ).toBe(
+			'Essential files · 47/100 files · 14.0 MB/50.0 MB · 20s'
+		);
+	} );
+
+	it( 'never decreases totalFiles when the importer reports a lower total', () => {
+		const first = updateImporterProgressSnapshot( {
+			total_files: 200,
+		} );
+		const second = updateImporterProgressSnapshot( { total_files: 150 }, first! );
+		expect( second!.totalFiles ).toBe( 200 );
+	} );
+
 	it( 'prefers phase text over a generic starting status', () => {
 		const snapshot = updateImporterProgressSnapshot( {
 			status: 'starting',

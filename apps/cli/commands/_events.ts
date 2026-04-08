@@ -31,7 +31,7 @@ import {
 } from 'cli/lib/daemon-client';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import { SocketServer } from 'cli/lib/socket';
-import { subscribeSiteEvents } from 'cli/lib/wordpress-server-manager';
+import { SITE_PROCESS_PREFIX } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 
 const logger = new Logger< LoggerAction >();
@@ -186,11 +186,31 @@ export async function runCommand(): Promise< void > {
 
 	await emitAllSitesStatus();
 
-	await subscribeSiteEvents( ( { siteId, event, running } ) => {
-		void emitSiteEvent( event, siteId, running );
+	const bus = await getDaemonBus();
+
+	// Subscribe to IPC events from site processes. `result` messages mean the server started successfully.
+	bus.on( 'process-message', ( message ) => {
+		if ( ! message.process.name.startsWith( SITE_PROCESS_PREFIX ) ) {
+			return;
+		}
+
+		if ( message.raw.topic === 'result' ) {
+			const siteId = message.process.name.replace( SITE_PROCESS_PREFIX, '' );
+			void emitSiteEvent( SITE_EVENTS.UPDATED, siteId, true );
+		}
 	} );
 
-	const bus = await getDaemonBus();
+	// Subscribe to process manager daemon events for site processes. All events are mapped to 'site-updated'.
+	bus.on( 'process-event', ( event ) => {
+		if ( ! event.process.name.startsWith( SITE_PROCESS_PREFIX ) ) {
+			return;
+		}
+
+		if ( event.event !== 'online' ) {
+			const siteId = event.process.name.replace( SITE_PROCESS_PREFIX, '' );
+			void emitSiteEvent( SITE_EVENTS.UPDATED, siteId, false );
+		}
+	} );
 
 	bus.on( 'daemon-kill', () => {
 		void emitAllSitesStopped();

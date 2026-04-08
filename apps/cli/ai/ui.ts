@@ -56,6 +56,7 @@ export interface SiteInfo {
 	running: boolean;
 	remote?: boolean;
 	url?: string;
+	wpcomSiteId?: number;
 }
 
 const DEFAULT_COLLAPSE_THRESHOLD_LINES = 5;
@@ -828,6 +829,7 @@ export class AiChatUI {
 				running: false,
 				remote: true,
 				url: site.url,
+				wpcomSiteId: site.id,
 			} ) );
 			this.sitePickerRemoteLoading = false;
 			this.rebuildSitePickerList();
@@ -1455,18 +1457,18 @@ export class AiChatUI {
 				' ' +
 				__( "Great, you're connected now! Let me tell you what I can do:" ),
 			'',
-			'  ' + b( __( 'Site Management' ) ),
+			'  ' + b( __( 'Local Sites Management' ) ),
 			'',
 			'  - ' +
 				sprintf(
 					/* translators: %s: bold "Create" */
-					__( '%s new WordPress sites instantly (fully configured, ready to use)' ),
+					__( '%s new local WordPress sites instantly (fully configured, ready to use)' ),
 					b( __( 'Create' ) )
 				),
 			'  - ' +
 				sprintf(
 					/* translators: %s: bold "Start / stop" */
-					__( '%s existing sites' ),
+					__( '%s existing local sites' ),
 					b( __( 'Start / stop' ) )
 				),
 			'  - ' +

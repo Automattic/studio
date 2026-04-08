@@ -83,6 +83,7 @@ class PromptEditor implements Component, Focusable {
 	busyMessage: string | null = null;
 	hints: string[] = [];
 	statusMessage: string | null = null;
+	contextUsageLabel: string | null = null;
 	showBottomBar = true;
 
 	get focused(): boolean {
@@ -193,7 +194,17 @@ class PromptEditor implements Component, Focusable {
 			activeHints.length > 0
 				? ' ' + activeHints.map( ( h ) => chalk.dim( h ) ).join( chalk.dim( ' · ' ) )
 				: '';
-		const rightPart = this.statusMessage ? chalk.dim( this.statusMessage ) + ' ' : '';
+		const rightSegments: string[] = [];
+		if ( this.contextUsageLabel ) {
+			rightSegments.push( this.contextUsageLabel );
+		}
+		if ( this.statusMessage ) {
+			rightSegments.push( this.statusMessage );
+		}
+		const rightPart =
+			rightSegments.length > 0
+				? rightSegments.map( ( s ) => chalk.dim( s ) ).join( chalk.dim( ' · ' ) ) + ' '
+				: '';
 		if ( leftPart || rightPart ) {
 			const leftLen = visibleWidth( leftPart );
 			const rightLen = visibleWidth( rightPart );
@@ -1597,6 +1608,62 @@ export class AiChatUI {
 		this.tui.requestRender();
 	}
 
+	/**
+	 * Update the context-usage indicator shown in the footer.
+	 *
+	 * `modelUsage` comes from an SDK `result` message. We sum the input token
+	 * flavours (regular + cache reads + cache creations) because all of them
+	 * count against the model's context window, and divide by `contextWindow`
+	 * to surface a rough "how full is the context" percentage to the user.
+	 */
+	updateContextUsage(
+		modelUsage:
+			| Record<
+					string,
+					{
+						inputTokens?: number;
+						cacheReadInputTokens?: number;
+						cacheCreationInputTokens?: number;
+						contextWindow?: number;
+					}
+			  >
+			| undefined
+	): void {
+		if ( ! modelUsage ) {
+			return;
+		}
+
+		// Use the entry with the largest window — resume/fork sessions can
+		// list multiple models, and we want the one whose budget is actually
+		// driving the next turn.
+		let best: { used: number; window: number } | null = null;
+		for ( const usage of Object.values( modelUsage ) ) {
+			const window = usage.contextWindow ?? 0;
+			if ( window <= 0 ) {
+				continue;
+			}
+			const used =
+				( usage.inputTokens ?? 0 ) +
+				( usage.cacheReadInputTokens ?? 0 ) +
+				( usage.cacheCreationInputTokens ?? 0 );
+			if ( ! best || window > best.window ) {
+				best = { used, window };
+			}
+		}
+
+		if ( ! best ) {
+			return;
+		}
+
+		const percent = Math.min( 100, Math.round( ( best.used / best.window ) * 100 ) );
+		this.editor.contextUsageLabel = sprintf(
+			/* translators: %d: percentage of context window consumed */
+			__( 'Context %d%%' ),
+			percent
+		);
+		this.tui.requestRender();
+	}
+
 	private busyTimer: ReturnType< typeof setInterval > | null = null;
 	private busyFrameIndex = 0;
 	private static readonly BUSY_FRAMES = [ '⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏' ];
@@ -2186,6 +2253,7 @@ export class AiChatUI {
 			}
 			case 'result': {
 				this.hideLoader();
+				this.updateContextUsage( message.modelUsage );
 				if ( message.subtype === 'success' ) {
 					const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
 					if ( ! this.hasShownResponseMarker ) {

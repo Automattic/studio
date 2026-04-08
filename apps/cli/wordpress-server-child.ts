@@ -173,13 +173,13 @@ async function getBaseRunCLIArgs(
 	let mountsBeforeInstall = [ ...( config.mountsBeforeInstall ?? [] ) ];
 	const mounts = [ ...( config.mounts ?? [] ) ];
 
+	await cleanupLegacyMuPlugins( config.sitePath );
+
+	const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( {
+		isWpAutoUpdating: config.isWpAutoUpdating,
+	} );
+
 	if ( ! useExactMountLayout ) {
-		await cleanupLegacyMuPlugins( config.sitePath );
-
-		const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( {
-			isWpAutoUpdating: config.isWpAutoUpdating,
-		} );
-
 		mountsBeforeInstall = [
 			...( config.mountsBeforeInstall ?? [
 				{
@@ -187,14 +187,6 @@ async function getBaseRunCLIArgs(
 					vfsPath: '/wordpress',
 				},
 			] ),
-			{
-				hostPath: studioMuPluginsHostPath,
-				vfsPath: '/internal/studio/mu-plugins',
-			},
-			{
-				hostPath: loaderMuPluginHostPath,
-				vfsPath: '/internal/shared/mu-plugins/99-studio-loader.php',
-			},
 			{
 				hostPath: getWpCliPharPath(),
 				vfsPath: '/tmp/wp-cli.phar',
@@ -205,6 +197,19 @@ async function getBaseRunCLIArgs(
 			},
 		];
 	}
+
+	// Studio MU-plugins (auto-login, admin-api, etc.) must be mounted for
+	// all sites including imported ones that use an exact mount layout.
+	mountsBeforeInstall.push(
+		{
+			hostPath: studioMuPluginsHostPath,
+			vfsPath: '/internal/studio/mu-plugins',
+		},
+		{
+			hostPath: loaderMuPluginHostPath,
+			vfsPath: '/internal/shared/mu-plugins/99-studio-loader.php',
+		}
+	);
 
 	const enableDebugLog = config.enableDebugLog ?? false;
 	const enableDebugDisplay = config.enableDebugDisplay ?? false;

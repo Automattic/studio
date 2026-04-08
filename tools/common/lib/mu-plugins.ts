@@ -506,8 +506,16 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 
 			$username = get_option( 'studio_admin_username', 'admin' );
 			$user = get_user_by( 'login', $username );
+
+			// Imported sites may not have the studio_admin_username option or a
+			// user named 'admin'.  Fall back to the first administrator account.
 			if ( ! $user ) {
-				wp_die( 'Auto-login failed: admin user not found' );
+				$admins = get_users( array( 'role' => 'administrator', 'number' => 1, 'orderby' => 'ID', 'order' => 'ASC' ) );
+				$user   = ! empty( $admins ) ? $admins[0] : null;
+			}
+
+			if ( ! $user ) {
+				wp_die( 'Auto-login failed: no administrator user found' );
 			}
 
 			wp_set_current_user( $user->ID, $user->user_login );

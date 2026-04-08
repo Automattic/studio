@@ -123,7 +123,7 @@ export function displaySessionsCompact( sessions: AiSessionSummary[] ): void {
 	};
 
 	console.log(
-		chalk.bold( __( 'AI Sessions' ) ) +
+		chalk.bold( __( 'Code Sessions' ) ) +
 			chalk.dim( ` (${ sessions.length })` ) +
 			chalk.dim( ` · ${ __( 'Most recent first' ) }` )
 	);

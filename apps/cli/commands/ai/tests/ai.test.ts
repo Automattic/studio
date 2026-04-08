@@ -203,7 +203,7 @@ describe( 'CLI: studio code sessions command', () => {
 				registerAiSessionsDeleteCommand( sessionsYargs as StudioArgv );
 				sessionsYargs
 					.version( false )
-					.demandCommand( 1, __( 'You must provide a valid ai sessions command' ) );
+					.demandCommand( 1, __( 'You must provide a valid code sessions command' ) );
 			} );
 			aiYargs.version( false );
 		} );

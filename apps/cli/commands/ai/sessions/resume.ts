@@ -16,7 +16,7 @@ export async function runCommand(
 	if ( ! resolvedSessionIdOrPrefix ) {
 		const selectedSession = await chooseSessionForAction(
 			__( 'Select a session to resume:' ),
-			__( 'No AI sessions found' )
+			__( 'No code sessions found' )
 		);
 		if ( ! selectedSession ) {
 			return;
@@ -28,7 +28,7 @@ export async function runCommand(
 	if ( resolvedSessionIdOrPrefix.toLowerCase() === 'latest' ) {
 		const sessions = await listAiSessions();
 		if ( sessions.length === 0 ) {
-			throw new Error( __( 'No AI sessions found' ) );
+			throw new Error( __( 'No code sessions found' ) );
 		}
 
 		resolvedSessionIdOrPrefix = sessions[ 0 ].id;

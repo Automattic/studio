@@ -3,6 +3,32 @@ import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { z } from 'zod/v4';
 
+/**
+ * Strips known bloated fields from API responses to stay within MCP tool result
+ * size limits (~100k characters). The WP.com /sites/{id} endpoint returns a plan
+ * object whose `features` sub-field alone can be 60K+ characters. The agent only
+ * needs a few plan properties (product_slug, is_free, expired) to gate features,
+ * since the system prompt hardcodes what each plan tier can and can't do.
+ */
+function compactResponse( result: ApiResponse ): ApiResponse {
+	if ( result && typeof result === 'object' && ! Array.isArray( result ) ) {
+		// plan.features can be 60K+ chars — keep only essential plan properties
+		if ( result.plan && typeof result.plan === 'object' && result.plan.features ) {
+			result = {
+				...result,
+				plan: {
+					product_id: result.plan.product_id,
+					product_slug: result.plan.product_slug,
+					product_name_short: result.plan.product_name_short,
+					expired: result.plan.expired,
+					is_free: result.plan.is_free,
+				},
+			};
+		}
+	}
+	return result;
+}
+
 function errorResult( message: string ) {
 	return {
 		content: [ { type: 'text' as const, text: message } ],
@@ -106,7 +132,8 @@ export function createWpcomToolDefinitions( token: string, siteId: number ) {
 						break;
 				}
 
-				return textResult( JSON.stringify( result, null, 2 ) );
+				const compacted = compactResponse( result );
+				return textResult( JSON.stringify( compacted, null, 2 ) );
 			} catch ( error ) {
 				return errorResult(
 					`WP.com API request failed (${ args.method } ${ args.path }): ${ getErrorMessage(

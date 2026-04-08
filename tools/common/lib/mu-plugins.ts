@@ -499,15 +499,22 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 			<script>
 			(function() {
 				var active = false;
+				var persistentMode = false;
 				var overlay = null;
 				var currentTarget = null;
 				var selectionHighlights = [];
+				var noteOverlays = {};
 
 				window.addEventListener('message', function(event) {
 					if (!event.data || !event.data.type) return;
-					if (event.data.type === 'studio:select-element:activate') activateSelection();
+					if (event.data.type === 'studio:select-element:activate') { persistentMode = false; activateSelection(); }
+					if (event.data.type === 'studio:select-element:activate-persistent') { persistentMode = true; activateSelection(); }
 					if (event.data.type === 'studio:select-element:deactivate') deactivateSelection();
 					if (event.data.type === 'studio:select-element:clear') clearHighlights();
+					if (event.data.type === 'studio:notes:add') addNoteOverlay(event.data);
+					if (event.data.type === 'studio:notes:complete') completeNoteOverlay(event.data.noteId);
+					if (event.data.type === 'studio:notes:remove') removeNoteOverlay(event.data.noteId);
+					if (event.data.type === 'studio:notes:clear') clearAllNoteOverlays();
 				});
 
 				function activateSelection() {
@@ -577,6 +584,7 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 				function resolveTarget(el) {
 					if (!el || el === document.body || el === document.documentElement) return null;
 					if (el.id === 'studio-element-selector-overlay') return null;
+					if (el.className && typeof el.className === 'string' && (el.className.indexOf('studio-note-') !== -1)) return null;
 					// Walk up to find semantic elements when clicking on inline text
 					var semantic = ['A', 'BUTTON', 'INPUT', 'SELECT', 'TEXTAREA', 'IMG', 'VIDEO', 'AUDIO', 'LABEL'];
 					var check = el;
@@ -621,7 +629,9 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 					addSelectionHighlight(target);
 					var data = extractElementData(target);
 					window.parent.postMessage({ type: 'studio:select-element:selected', element: data }, '*');
-					deactivateSelection();
+					if (!persistentMode) {
+						deactivateSelection();
+					}
 				}
 
 				function onKeyDown(e) {
@@ -720,6 +730,127 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 					}
 					return path;
 				}
+
+				function addNoteOverlay(data) {
+					var noteId = data.noteId;
+					var number = data.number;
+					var label = data.label || '';
+					var cssSelector = data.cssSelector;
+					if (!noteId || !cssSelector) return;
+					var el = null;
+					try { el = document.querySelector(cssSelector); } catch(e) { /* invalid selector */ }
+					if (!el) return;
+					var rect = el.getBoundingClientRect();
+					var scrollX = window.scrollX || window.pageXOffset;
+					var scrollY = window.scrollY || window.pageYOffset;
+
+					// Highlight outline
+					var highlight = document.createElement('div');
+					highlight.className = 'studio-note-overlay';
+					var hs = highlight.style;
+					hs.position = 'absolute';
+					hs.pointerEvents = 'none';
+					hs.zIndex = '2147483646';
+					hs.border = '2px solid rgba(59, 130, 246, 0.7)';
+					hs.borderRadius = '3px';
+					hs.transition = 'border-color 0.3s, opacity 0.5s';
+					hs.left = (rect.left + scrollX - 2) + 'px';
+					hs.top = (rect.top + scrollY - 2) + 'px';
+					hs.width = (rect.width + 4) + 'px';
+					hs.height = (rect.height + 4) + 'px';
+					document.body.appendChild(highlight);
+
+					// Label pill
+					var pill = document.createElement('div');
+					pill.className = 'studio-note-label';
+					var ps = pill.style;
+					ps.position = 'absolute';
+					ps.pointerEvents = 'none';
+					ps.zIndex = '2147483646';
+					ps.background = 'rgba(30, 41, 59, 0.9)';
+					ps.color = '#e2e8f0';
+					ps.fontSize = '11px';
+					ps.lineHeight = '1';
+					ps.padding = '3px 7px';
+					ps.borderRadius = '4px';
+					ps.maxWidth = '180px';
+					ps.overflow = 'hidden';
+					ps.textOverflow = 'ellipsis';
+					ps.whiteSpace = 'nowrap';
+					ps.fontFamily = '-apple-system, BlinkMacSystemFont, sans-serif';
+					ps.transition = 'background 0.3s, opacity 0.5s';
+					pill.textContent = '#' + number + (label ? ': ' + label : '');
+					var pillLeft = rect.right + scrollX - 2;
+					var pillTop = rect.top + scrollY - 18;
+					ps.left = pillLeft + 'px';
+					ps.top = Math.max(0, pillTop) + 'px';
+					document.body.appendChild(pill);
+
+					noteOverlays[noteId] = { highlight: highlight, label: pill, selector: cssSelector };
+				}
+
+				function completeNoteOverlay(noteId) {
+					var entry = noteOverlays[noteId];
+					if (!entry) return;
+					entry.highlight.style.borderColor = 'rgba(34, 197, 94, 0.7)';
+					entry.label.style.background = 'rgba(22, 101, 52, 0.9)';
+					entry.label.textContent = '\\u2713 ' + entry.label.textContent;
+				}
+
+				function removeNoteOverlay(noteId) {
+					var entry = noteOverlays[noteId];
+					if (!entry) return;
+					entry.highlight.style.opacity = '0';
+					entry.label.style.opacity = '0';
+					setTimeout(function() {
+						if (entry.highlight.parentNode) entry.highlight.parentNode.removeChild(entry.highlight);
+						if (entry.label.parentNode) entry.label.parentNode.removeChild(entry.label);
+						delete noteOverlays[noteId];
+					}, 500);
+				}
+
+				function clearAllNoteOverlays() {
+					for (var id in noteOverlays) {
+						var entry = noteOverlays[id];
+						if (entry.highlight.parentNode) entry.highlight.parentNode.removeChild(entry.highlight);
+						if (entry.label.parentNode) entry.label.parentNode.removeChild(entry.label);
+					}
+					noteOverlays = {};
+				}
+
+				// Reposition note overlays on scroll/resize
+				var repositionTimer = null;
+				function repositionNoteOverlays() {
+					var scrollX = window.scrollX || window.pageXOffset;
+					var scrollY = window.scrollY || window.pageYOffset;
+					for (var id in noteOverlays) {
+						var entry = noteOverlays[id];
+						var el = null;
+						try { el = document.querySelector(entry.selector); } catch(e) { /* skip */ }
+						if (!el) {
+							// Element gone — remove overlay
+							if (entry.highlight.parentNode) entry.highlight.parentNode.removeChild(entry.highlight);
+							if (entry.label.parentNode) entry.label.parentNode.removeChild(entry.label);
+							delete noteOverlays[id];
+							continue;
+						}
+						var rect = el.getBoundingClientRect();
+						entry.highlight.style.left = (rect.left + scrollX - 2) + 'px';
+						entry.highlight.style.top = (rect.top + scrollY - 2) + 'px';
+						entry.highlight.style.width = (rect.width + 4) + 'px';
+						entry.highlight.style.height = (rect.height + 4) + 'px';
+						entry.label.style.left = (rect.right + scrollX - 2) + 'px';
+						entry.label.style.top = Math.max(0, rect.top + scrollY - 18) + 'px';
+					}
+				}
+				window.addEventListener('scroll', function() {
+					clearTimeout(repositionTimer);
+					repositionTimer = setTimeout(repositionNoteOverlays, 50);
+				}, true);
+				window.addEventListener('resize', function() {
+					clearTimeout(repositionTimer);
+					repositionTimer = setTimeout(repositionNoteOverlays, 50);
+				});
 
 				function findWpBlockName(el) {
 					var current = el;

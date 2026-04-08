@@ -7,8 +7,10 @@ interface UseElementSelectorOptions {
 
 export interface UseElementSelectorReturn {
 	isSelecting: boolean;
+	isPersistent: boolean;
 	selectedElements: ElementAttachment[];
 	activateSelection: () => void;
+	activatePersistentSelection: () => void;
 	deactivateSelection: () => void;
 	removeElement: ( index: number ) => void;
 	clearElements: () => void;
@@ -18,8 +20,10 @@ export function useElementSelector( {
 	getActiveIframe,
 }: UseElementSelectorOptions ): UseElementSelectorReturn {
 	const [ isSelecting, setIsSelecting ] = useState( false );
+	const [ isPersistent, setIsPersistent ] = useState( false );
 	const [ selectedElements, setSelectedElements ] = useState< ElementAttachment[] >( [] );
 	const isSelectingRef = useRef( false );
+	const isPersistentRef = useRef( false );
 
 	const postToIframe = useCallback(
 		( type: string ) => {
@@ -37,13 +41,25 @@ export function useElementSelector( {
 
 	const activateSelection = useCallback( () => {
 		setIsSelecting( true );
+		setIsPersistent( false );
 		isSelectingRef.current = true;
+		isPersistentRef.current = false;
 		postToIframe( 'studio:select-element:activate' );
+	}, [ postToIframe ] );
+
+	const activatePersistentSelection = useCallback( () => {
+		setIsSelecting( true );
+		setIsPersistent( true );
+		isSelectingRef.current = true;
+		isPersistentRef.current = true;
+		postToIframe( 'studio:select-element:activate-persistent' );
 	}, [ postToIframe ] );
 
 	const deactivateSelection = useCallback( () => {
 		setIsSelecting( false );
+		setIsPersistent( false );
 		isSelectingRef.current = false;
+		isPersistentRef.current = false;
 		postToIframe( 'studio:select-element:deactivate' );
 	}, [ postToIframe ] );
 
@@ -90,8 +106,10 @@ export function useElementSelector( {
 					...( el.wpBlockName && { wpBlockName: el.wpBlockName } ),
 				};
 				setSelectedElements( [ attachment ] );
-				setIsSelecting( false );
-				isSelectingRef.current = false;
+				if ( ! isPersistentRef.current ) {
+					setIsSelecting( false );
+					isSelectingRef.current = false;
+				}
 			}
 
 			if ( event.data.type === 'studio:select-element:deactivated' ) {
@@ -118,8 +136,10 @@ export function useElementSelector( {
 
 	return {
 		isSelecting,
+		isPersistent,
 		selectedElements,
 		activateSelection,
+		activatePersistentSelection,
 		deactivateSelection,
 		removeElement,
 		clearElements,

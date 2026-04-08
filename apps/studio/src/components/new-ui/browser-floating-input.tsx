@@ -1,17 +1,25 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { useAppDispatch } from 'src/stores';
-import { createNewTask, appendTaskMessage, setTaskStreaming } from 'src/stores/tasks-slice';
+import { useAppDispatch, useRootSelector } from 'src/stores';
+import {
+	createNewTask,
+	appendTaskMessage,
+	setTaskStreaming,
+	enqueueMessage,
+	addActiveNote,
+} from 'src/stores/tasks-slice';
 import type { UseAreaScreenshotReturn } from 'src/hooks/use-area-screenshot';
 import type { UseElementSelectorReturn } from 'src/hooks/use-element-selector';
 import type { ElementAttachment, ImageAttachment, TaskMessage } from 'src/modules/ai/types';
+import type { QueuedMessage } from 'src/stores/tasks-slice';
 
 interface BrowserFloatingInputProps {
 	siteId: string;
 	elementSelector: UseElementSelectorReturn;
 	areaScreenshot: UseAreaScreenshotReturn;
 	getActiveIframe: () => HTMLIFrameElement | null;
+	selectedTaskId?: string | null;
 }
 
 export function BrowserFloatingInput( {
@@ -19,12 +27,23 @@ export function BrowserFloatingInput( {
 	elementSelector,
 	areaScreenshot,
 	getActiveIframe,
+	selectedTaskId,
 }: BrowserFloatingInputProps ) {
 	const [ value, setValue ] = useState( '' );
 	const [ isSending, setIsSending ] = useState( false );
 	const textareaRef = useRef< HTMLTextAreaElement >( null );
 	const containerRef = useRef< HTMLDivElement >( null );
 	const dispatch = useAppDispatch();
+
+	const isStreaming = useRootSelector( ( state ) =>
+		selectedTaskId ? state.tasks.streamingByTask[ selectedTaskId ] ?? false : false
+	);
+	const taskMessages = useRootSelector( ( state ) =>
+		selectedTaskId ? state.tasks.messagesByTask[ selectedTaskId ] ?? [] : []
+	);
+	const noteCounter = useRootSelector( ( state ) =>
+		selectedTaskId ? state.tasks.noteCounterByTask[ selectedTaskId ] ?? 0 : 0
+	);
 
 	const { selectedElements, clearElements } = elementSelector;
 	const { screenshot, clearScreenshot } = areaScreenshot;
@@ -107,36 +126,133 @@ export function BrowserFloatingInput( {
 		}
 	}, [ hasAttachment ] );
 
+	const postNoteToIframe = useCallback(
+		( noteId: string, number: number, label: string, cssSelector: string ) => {
+			const iframe = getActiveIframe();
+			if ( iframe?.contentWindow ) {
+				try {
+					iframe.contentWindow.postMessage(
+						{ type: 'studio:notes:add', noteId, number, label, cssSelector },
+						'*'
+					);
+				} catch {
+					// cross-origin guard
+				}
+			}
+		},
+		[ getActiveIframe ]
+	);
+
 	const handleSend = useCallback( async () => {
 		const trimmed = value.trim();
 		if ( ( ! trimmed && ! hasAttachment ) || isSending ) {
 			return;
 		}
 
+		const messageImages: ImageAttachment[] | undefined = hasScreenshot
+			? [ { data: screenshot!.data, mediaType: 'image/png' } ]
+			: undefined;
+		const messageElements: ElementAttachment[] | undefined = hasElement
+			? [ ...selectedElements ]
+			: undefined;
+
+		const parts: string[] = [];
+		if ( hasElement ) {
+			parts.push( '1 element' );
+		}
+		if ( hasScreenshot ) {
+			parts.push( '1 screenshot' );
+		}
+		const contentFallback = parts.length > 0 ? `[Attached ${ parts.join( ' and ' ) }]` : '';
+
+		// --- Task chat mode: send through existing task ---
+		if ( selectedTaskId ) {
+			const messageId = `user-${ Date.now() }`;
+
+			// Dispatch the note overlay
+			if ( hasElement && lastElement ) {
+				const nextNumber = noteCounter + 1;
+				const noteText = trimmed.length > 30 ? trimmed.slice( 0, 27 ) + '...' : trimmed;
+				dispatch(
+					addActiveNote( {
+						taskId: selectedTaskId,
+						note: {
+							id: messageId,
+							text: noteText,
+							cssSelector: lastElement.cssSelector,
+							boundingBox: lastElement.boundingBox,
+						},
+					} )
+				);
+				postNoteToIframe( messageId, nextNumber, noteText, lastElement.cssSelector );
+			}
+
+			if ( isStreaming ) {
+				// Queue while agent is busy
+				const queued: QueuedMessage = {
+					id: messageId,
+					text: trimmed || contentFallback,
+					...( messageImages && { images: messageImages } ),
+					...( messageElements && { elements: messageElements } ),
+				};
+				dispatch( enqueueMessage( { taskId: selectedTaskId, message: queued } ) );
+			} else {
+				// Send directly
+				const userMessage: TaskMessage = {
+					id: messageId,
+					role: 'user',
+					content: trimmed || contentFallback,
+					timestamp: Date.now(),
+					...( messageImages && { images: messageImages } ),
+					...( messageElements && { elements: messageElements } ),
+				};
+				dispatch( appendTaskMessage( { taskId: selectedTaskId, message: userMessage } ) );
+				dispatch( setTaskStreaming( { taskId: selectedTaskId, streaming: true } ) );
+
+				const isFirstMessage = taskMessages.length === 0;
+				if ( isFirstMessage ) {
+					const tempTitle = trimmed.length > 50 ? trimmed.slice( 0, 47 ) + '...' : trimmed;
+					if ( tempTitle ) {
+						void getIpcApi().updateTask( selectedTaskId, { title: tempTitle } );
+					}
+					if ( trimmed ) {
+						void getIpcApi().generateTaskTitle( selectedTaskId, trimmed );
+					}
+					void getIpcApi().startTaskAgentHandler(
+						selectedTaskId,
+						trimmed,
+						undefined,
+						messageImages,
+						messageElements
+					);
+				} else {
+					void getIpcApi().sendTaskMessageHandler(
+						selectedTaskId,
+						trimmed,
+						messageImages,
+						messageElements
+					);
+				}
+			}
+
+			setValue( '' );
+			clearElements();
+			clearScreenshot();
+			// Re-activate persistent selection for the next note
+			elementSelector.activatePersistentSelection();
+			return;
+		}
+
+		// --- Project detail mode: create new task ---
 		setIsSending( true );
 
 		try {
 			const task = await dispatch( createNewTask( siteId ) ).unwrap();
 
-			const parts: string[] = [];
-			if ( hasElement ) {
-				parts.push( '1 element' );
-			}
-			if ( hasScreenshot ) {
-				parts.push( '1 screenshot' );
-			}
-
-			const messageImages: ImageAttachment[] | undefined = hasScreenshot
-				? [ { data: screenshot!.data, mediaType: 'image/png' } ]
-				: undefined;
-			const messageElements: ElementAttachment[] | undefined = hasElement
-				? [ ...selectedElements ]
-				: undefined;
-
 			const userMessage: TaskMessage = {
 				id: `user-${ Date.now() }`,
 				role: 'user',
-				content: trimmed || ( parts.length > 0 ? `[Attached ${ parts.join( ' and ' ) }]` : '' ),
+				content: trimmed || contentFallback,
 				timestamp: Date.now(),
 				...( messageImages && { images: messageImages } ),
 				...( messageElements && { elements: messageElements } ),
@@ -173,11 +289,18 @@ export function BrowserFloatingInput( {
 		hasScreenshot,
 		screenshot,
 		selectedElements,
+		lastElement,
 		isSending,
 		siteId,
+		selectedTaskId,
+		isStreaming,
+		taskMessages.length,
+		noteCounter,
 		dispatch,
 		clearElements,
 		clearScreenshot,
+		elementSelector,
+		postNoteToIframe,
 	] );
 
 	const handleKeyDown = ( e: React.KeyboardEvent ) => {

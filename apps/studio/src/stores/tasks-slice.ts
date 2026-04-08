@@ -18,6 +18,15 @@ export interface QueuedMessage {
 	elements?: ElementAttachment[];
 }
 
+export interface ActiveNote {
+	id: string;
+	number: number;
+	text: string;
+	cssSelector: string;
+	boundingBox: { x: number; y: number; width: number; height: number };
+	status: 'active' | 'completed' | 'fading';
+}
+
 export interface TasksState {
 	tasks: TaskMetadata[];
 	selectedTaskId: string | null;
@@ -26,6 +35,8 @@ export interface TasksState {
 	messagesByTask: Record< string, TaskMessage[] >;
 	streamingByTask: Record< string, boolean >;
 	queuedMessagesByTask: Record< string, QueuedMessage[] >;
+	activeNotesByTask: Record< string, ActiveNote[] >;
+	noteCounterByTask: Record< string, number >;
 	pendingPermissions: PermissionRequest[];
 	pendingQuestions: QuestionRequest[];
 	loaded: boolean;
@@ -51,6 +62,8 @@ const initialState: TasksState = {
 	messagesByTask: typeof window !== 'undefined' ? loadPersistedMessages() : {},
 	streamingByTask: {},
 	queuedMessagesByTask: {},
+	activeNotesByTask: {},
+	noteCounterByTask: {},
 	pendingPermissions: [],
 	pendingQuestions: [],
 	loaded: false,
@@ -114,6 +127,8 @@ const tasksSlice = createSlice( {
 			delete state.messagesByTask[ action.payload ];
 			delete state.streamingByTask[ action.payload ];
 			delete state.queuedMessagesByTask[ action.payload ];
+			delete state.activeNotesByTask[ action.payload ];
+			delete state.noteCounterByTask[ action.payload ];
 			if ( state.selectedTaskId === action.payload ) {
 				state.selectedTaskId = null;
 			}
@@ -206,6 +221,52 @@ const tasksSlice = createSlice( {
 		clearQueuedMessages( state, action: PayloadAction< { taskId: string } > ) {
 			delete state.queuedMessagesByTask[ action.payload.taskId ];
 		},
+		addActiveNote(
+			state,
+			action: PayloadAction< { taskId: string; note: Omit< ActiveNote, 'number' | 'status' > } >
+		) {
+			const { taskId, note } = action.payload;
+			if ( ! state.activeNotesByTask[ taskId ] ) {
+				state.activeNotesByTask[ taskId ] = [];
+			}
+			const counter = ( state.noteCounterByTask[ taskId ] ?? 0 ) + 1;
+			state.noteCounterByTask[ taskId ] = counter;
+			state.activeNotesByTask[ taskId ].push( {
+				...note,
+				number: counter,
+				status: 'active',
+			} );
+		},
+		completeOldestNote( state, action: PayloadAction< { taskId: string } > ) {
+			const notes = state.activeNotesByTask[ action.payload.taskId ];
+			if ( notes ) {
+				const active = notes.find( ( n ) => n.status === 'active' );
+				if ( active ) {
+					active.status = 'completed';
+				}
+			}
+		},
+		setNoteFading( state, action: PayloadAction< { taskId: string; noteId: string } > ) {
+			const notes = state.activeNotesByTask[ action.payload.taskId ];
+			if ( notes ) {
+				const note = notes.find( ( n ) => n.id === action.payload.noteId );
+				if ( note ) {
+					note.status = 'fading';
+				}
+			}
+		},
+		removeNote( state, action: PayloadAction< { taskId: string; noteId: string } > ) {
+			const notes = state.activeNotesByTask[ action.payload.taskId ];
+			if ( notes ) {
+				state.activeNotesByTask[ action.payload.taskId ] = notes.filter(
+					( n ) => n.id !== action.payload.noteId
+				);
+			}
+		},
+		clearTaskNotes( state, action: PayloadAction< { taskId: string } > ) {
+			delete state.activeNotesByTask[ action.payload.taskId ];
+			delete state.noteCounterByTask[ action.payload.taskId ];
+		},
 	},
 	extraReducers: ( builder ) => {
 		builder.addCase( loadTasks.fulfilled, ( state, action ) => {
@@ -234,6 +295,8 @@ const tasksSlice = createSlice( {
 			state.tasks = state.tasks.filter( ( t ) => t.id !== action.payload );
 			delete state.messagesByTask[ action.payload ];
 			delete state.queuedMessagesByTask[ action.payload ];
+			delete state.activeNotesByTask[ action.payload ];
+			delete state.noteCounterByTask[ action.payload ];
 			if ( state.selectedTaskId === action.payload ) {
 				state.selectedTaskId = null;
 			}
@@ -245,6 +308,8 @@ const tasksSlice = createSlice( {
 				delete state.messagesByTask[ id ];
 				delete state.streamingByTask[ id ];
 				delete state.queuedMessagesByTask[ id ];
+				delete state.activeNotesByTask[ id ];
+				delete state.noteCounterByTask[ id ];
 			}
 			if ( state.selectedTaskId && removedIds.has( state.selectedTaskId ) ) {
 				state.selectedTaskId = null;
@@ -269,6 +334,11 @@ export const {
 	enqueueMessage,
 	dequeueMessage,
 	clearQueuedMessages,
+	addActiveNote,
+	completeOldestNote,
+	setNoteFading,
+	removeNote,
+	clearTaskNotes,
 } = tasksSlice.actions;
 
 export const tasksReducer = tasksSlice.reducer;

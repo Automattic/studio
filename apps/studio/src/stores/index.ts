@@ -43,6 +43,7 @@ import {
 	addPermissionRequest,
 	addQuestionRequest,
 	dequeueMessage,
+	completeOldestNote,
 } from 'src/stores/tasks-slice';
 import uiReducer from 'src/stores/ui-slice';
 import { getWpcomClient, wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
@@ -428,6 +429,13 @@ if ( typeof window !== 'undefined' && window.ipcListener ) {
 						firstResponse: firstAssistantMsg?.content,
 					} );
 				}
+			}
+
+			// Complete the oldest active note overlay
+			const preQueueState = store.getState();
+			const activeNotes = preQueueState.tasks.activeNotesByTask[ taskId ];
+			if ( activeNotes?.some( ( n ) => n.status === 'active' ) ) {
+				store.dispatch( completeOldestNote( { taskId } ) );
 			}
 
 			// Auto-send next queued message

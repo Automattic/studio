@@ -30,6 +30,7 @@ import { setCreatingProject } from 'src/stores/tasks-slice';
 import { BrowserCaptureOverlay } from './browser-capture-overlay';
 import { BrowserFloatingInput } from './browser-floating-input';
 import { BrowserIframeContainer } from './browser-iframe-container';
+import { BrowserNoteOverlays } from './browser-note-overlays';
 import { BrowserTabBar } from './browser-tab-bar';
 import { CreateProjectFlow } from './create-project/create-project-flow';
 import { Sidebar } from './sidebar';
@@ -187,6 +188,18 @@ export function PanelLayout( {
 	useIpcListener( 'create-project', () => {
 		dispatch( setCreatingProject( true ) );
 	} );
+
+	// Hide browser panel when entering the create-project flow
+	useEffect( () => {
+		if (
+			creatingProject &&
+			secondaryPanelRef.current &&
+			! secondaryPanelRef.current.isCollapsed()
+		) {
+			togglePanel( secondaryPanelRef.current );
+		}
+	}, [ creatingProject, secondaryPanelRef ] );
+
 	const primaryStartInset = isMac() && navCollapsed ? MAC_TRAFFIC_LIGHT_INSET : undefined;
 	const browser = useBrowserPanel();
 
@@ -448,7 +461,7 @@ export function PanelLayout( {
 								<div className="flex items-center app-no-drag-region flex-shrink-0">
 									<Button
 										icon={ sidesAxial }
-										label="Select element"
+										label="Add notes"
 										showTooltip
 										className={ cx(
 											'app-no-drag-region',
@@ -459,6 +472,8 @@ export function PanelLayout( {
 										onClick={ () =>
 											elementSelector.isSelecting
 												? elementSelector.deactivateSelection()
+												: isTaskChat
+												? elementSelector.activatePersistentSelection()
 												: elementSelector.activateSelection()
 										}
 									/>
@@ -492,14 +507,19 @@ export function PanelLayout( {
 									onUrlChange={ browser.handleUrlChange }
 								/>
 								<BrowserCaptureOverlay areaScreenshot={ areaScreenshot } />
-								{ ! isTaskChat && selectedSite && (
+								{ selectedSite && (
 									<BrowserFloatingInput
 										siteId={ selectedSite.id }
 										elementSelector={ elementSelector }
 										areaScreenshot={ areaScreenshot }
 										getActiveIframe={ browser.getActiveIframe }
+										selectedTaskId={ isTaskChat ? selectedTaskId : undefined }
 									/>
 								) }
+								<BrowserNoteOverlays
+									taskId={ isTaskChat ? selectedTaskId : null }
+									getActiveIframe={ browser.getActiveIframe }
+								/>
 							</div>
 						</>
 					) : (

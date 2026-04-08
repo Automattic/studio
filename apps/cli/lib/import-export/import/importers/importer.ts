@@ -5,6 +5,7 @@ import { createInterface } from 'readline';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { serializePlugins } from '@studio/common/lib/serialize-plugins';
 import { SupportedPHPVersionsList } from '@studio/common/types/php-versions';
+import { __, sprintf } from '@wordpress/i18n';
 import { move } from 'fs-extra';
 import semver from 'semver';
 import trash from 'trash';
@@ -73,11 +74,11 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 				const stderr = await command.response.stderrText;
 
 				if ( stderr ) {
-					console.error( `Error during import of ${ sqlFile }:`, stderr );
+					console.error( sprintf( __( 'Error during import of %s:' ), sqlFile ), stderr );
 				}
 
 				if ( exitCode !== 0 ) {
-					throw new Error( 'Database import failed: ' + stderr );
+					throw new Error( sprintf( __( 'Database import failed: %s' ), stderr ) );
 				}
 			} finally {
 				await this.safelyDeletePath( tmpPath );

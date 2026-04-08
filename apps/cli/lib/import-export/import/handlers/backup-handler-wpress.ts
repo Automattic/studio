@@ -2,6 +2,7 @@ import { EventEmitter } from 'events';
 import * as fs from 'fs';
 import { constants } from 'fs';
 import * as path from 'path';
+import { __, sprintf } from '@wordpress/i18n';
 import * as fse from 'fs-extra';
 import { ImportEvents } from '../events';
 import { BackupArchiveInfo } from '../types';
@@ -160,7 +161,9 @@ export class BackupHandlerWpress extends EventEmitter implements BackupHandler {
 		try {
 			await fs.promises.access( file.path, constants.F_OK );
 		} catch ( error ) {
-			throw new Error( `Input file at location "${ file.path }" could not be found.` );
+			throw new Error(
+				sprintf( __( 'Input file at location "%s" could not be found.' ), file.path )
+			);
 		}
 
 		const inputFile = await fs.promises.open( file.path, 'r' );
@@ -193,7 +196,9 @@ export class BackupHandlerWpress extends EventEmitter implements BackupHandler {
 		try {
 			await fs.promises.access( file.path, constants.F_OK );
 		} catch ( error ) {
-			throw new Error( `Input file at location "${ file.path }" could not be found.` );
+			throw new Error(
+				sprintf( __( 'Input file at location "%s" could not be found.' ), file.path )
+			);
 		}
 
 		await fse.emptyDir( extractionDirectory );

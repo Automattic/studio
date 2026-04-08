@@ -12,6 +12,7 @@ import {
 	isEnterKey,
 } from '@inquirer/core';
 import figures from '@inquirer/figures';
+import { __, sprintf } from '@wordpress/i18n';
 import chalk from 'chalk';
 
 export type TreeNode = {
@@ -266,7 +267,7 @@ export default createPrompt< TreeNode[], TreeCheckboxConfig >( ( config, done ) 
 		const selected = collectCheckedValues( tree );
 		const summary =
 			selected.length > 3
-				? `${ selected.length } items selected`
+				? sprintf( __( '%d items selected' ), selected.length )
 				: selected.map( ( n ) => n.name ).join( ', ' );
 		return `${ prefix } ${ message } ${ chalk.cyan( summary ) }`;
 	}
@@ -304,7 +305,14 @@ export default createPrompt< TreeNode[], TreeCheckboxConfig >( ( config, done ) 
 	} );
 
 	const helpTip = chalk.dim(
-		'↑↓ navigate · space toggle · →← expand/collapse · a all · ⏎ confirm · esc cancel'
+		[
+			__( '↑↓ navigate' ),
+			__( 'space toggle' ),
+			__( '→← expand/collapse' ),
+			__( 'a all' ),
+			__( '⏎ confirm' ),
+			__( 'esc cancel' ),
+		].join( ' · ' )
 	);
 
 	return `${ prefix } ${ message }${ cursorHide }\n${ page }\n\n${ helpTip }`;

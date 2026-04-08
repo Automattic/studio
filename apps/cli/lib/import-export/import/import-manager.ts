@@ -1,6 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { __ } from '@wordpress/i18n';
 import { SiteData } from 'cli/lib/cli-config/core';
 import { ImportExportEventData, handleEvents } from '../handle-events';
 import { BackupExtractEvents, ImporterEvents, ValidatorEvents } from './events';
@@ -52,7 +53,7 @@ export async function importBackup(
 ): Promise< ImporterResult > {
 	const backupHandler = BackupHandlerFactory.create( backupFile );
 	if ( ! backupHandler ) {
-		throw new Error( 'No suitable backup handler found for the provided backup file' );
+		throw new Error( __( 'No suitable backup handler found for the provided backup file' ) );
 	}
 
 	const extractionDirectory = await fs.promises.mkdtemp(
@@ -62,7 +63,7 @@ export async function importBackup(
 	const importer = selectImporter( fileList, extractionDirectory, onEvent, options );
 
 	if ( ! importer ) {
-		throw new Error( 'No suitable importer found for the provided backup contents' );
+		throw new Error( __( 'No suitable importer found for the provided backup contents' ) );
 	}
 
 	let removeBackupListeners;

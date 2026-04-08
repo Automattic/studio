@@ -1,4 +1,4 @@
-import { select } from '@inquirer/prompts';
+import { search } from '@inquirer/prompts';
 import { __, sprintf } from '@wordpress/i18n';
 import chalk from 'chalk';
 import { normalizeHostname } from 'cli/lib/utils';
@@ -90,7 +90,7 @@ export async function pickSyncSite(
 		return undefined;
 	}
 
-	const choices = [
+	const allChoices = [
 		...syncable.map( ( site ) => ( {
 			name: formatSiteChoice( site ),
 			value: site.id,
@@ -115,15 +115,37 @@ export async function pickSyncSite(
 	}
 
 	try {
-		const selectedId = await select(
+		const selectedId = await search(
 			{
 				message,
-				choices,
+				source: ( term ) => {
+					if ( ! term ) {
+						return allChoices;
+					}
+					const lowerTerm = term.toLowerCase();
+					return allChoices.filter( ( choice ) => {
+						const site = sites.find( ( s ) => s.id === choice.value );
+						if ( ! site ) {
+							return false;
+						}
+						return (
+							site.name.toLowerCase().includes( lowerTerm ) ||
+							normalizeHostname( site.url ).toLowerCase().includes( lowerTerm )
+						);
+					} );
+				},
 				pageSize: 12,
-				loop: false,
 				theme: {
 					style: {
-						keysHelpTip: () => chalk.dim( __( '↑↓ navigate · ⏎ select · esc cancel' ) ),
+						keysHelpTip: () =>
+							chalk.dim(
+								[
+									__( '↑↓ navigate' ),
+									__( 'type to filter' ),
+									__( '⏎ select' ),
+									__( 'esc cancel' ),
+								].join( ' · ' )
+							),
 					},
 				},
 			},

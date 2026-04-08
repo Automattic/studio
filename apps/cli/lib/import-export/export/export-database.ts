@@ -1,6 +1,7 @@
 import path from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
+import { __, sprintf } from '@wordpress/i18n';
 import { move } from 'fs-extra';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { generateBackupFilename } from './generate-backup-filename';
@@ -26,7 +27,7 @@ export async function exportDatabaseToFile(
 
 	const exitCode = await command.response.exitCode;
 	if ( exitCode !== 0 ) {
-		throw new Error( 'Database export failed' );
+		throw new Error( __( 'Database export failed' ) );
 	}
 
 	// Move the file to its final destination
@@ -51,7 +52,7 @@ export async function exportDatabaseToMultipleFiles(
 	const tablesStdout = await command.response.stdoutText;
 	const exitCode = await command.response.exitCode;
 	if ( exitCode !== 0 ) {
-		throw new Error( 'Database export failed' );
+		throw new Error( __( 'Database export failed' ) );
 	}
 
 	let tables;
@@ -59,8 +60,10 @@ export async function exportDatabaseToMultipleFiles(
 	try {
 		tables = parseJsonFromPhpOutput( tablesStdout );
 	} catch ( error ) {
-		console.error( `Could not get list of database tables. The WP CLI output: ${ tablesStdout }` );
-		throw new Error( 'Could not get list of database tables to export.' );
+		console.error(
+			sprintf( __( 'Could not get list of database tables. The WP CLI output: %s' ), tablesStdout )
+		);
+		throw new Error( __( 'Could not get list of database tables to export.' ) );
 	}
 
 	const tmpFiles: string[] = [];
@@ -88,7 +91,7 @@ export async function exportDatabaseToMultipleFiles(
 
 		const exitCode = await command.response.exitCode;
 		if ( exitCode !== 0 ) {
-			throw new Error( `Database export failed for table ${ table }` );
+			throw new Error( sprintf( __( 'Database export failed for table %s' ), table ) );
 		}
 
 		// Move the file to its final destination

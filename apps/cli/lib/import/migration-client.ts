@@ -218,22 +218,20 @@ export function updateImporterProgressSnapshot(
 	}
 
 	// The streaming-site-migration importer uses files_imported (running
-	// count per invocation, emitted with every file_progress record) and
-	// files_completed / bytes_processed (per-HTTP-request, in completion
-	// chunks).  Map all known variants so structured counters are set.
+	// count per invocation, emitted in file_progress and heartbeat records)
+	// and files_indexed (total index size).  files_completed is a per-HTTP-
+	// request count that overlaps with files_imported — mixing them causes
+	// the cumulative tracker to double-count, so we intentionally skip it.
+	// Same for bytes_processed (per-request) vs bytes_received (cumulative).
 	const downloadedFiles =
 		readNumber( object.files_imported ) ??
-		readNumber( object.files_completed ) ??
 		readNumber( object.downloaded_files ) ??
 		readNumber( object.files_done );
 	const totalFiles =
+		readNumber( object.files_indexed ) ??
 		readNumber( object.total_files ) ??
-		readNumber( object.files_total ) ??
-		readNumber( object.files_indexed );
-	const downloadedBytes =
-		readNumber( object.bytes_processed ) ??
-		readNumber( object.downloaded_bytes ) ??
-		readNumber( object.bytes_done );
+		readNumber( object.files_total );
+	const downloadedBytes = readNumber( object.downloaded_bytes ) ?? readNumber( object.bytes_done );
 	const totalBytes = readNumber( object.total_bytes ) ?? readNumber( object.bytes_total );
 	const bytesReceived = readNumber( object.bytes_received );
 	const rateBps = readNumber( object.rate_bps );

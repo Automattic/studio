@@ -2,7 +2,7 @@ import { vi } from 'vitest';
 
 export const connectToDaemon = vi.fn().mockResolvedValue( undefined );
 export const disconnectFromDaemon = vi.fn().mockResolvedValue( undefined );
-export const emitSiteEvent = vi.fn().mockResolvedValue( undefined );
+export const emitCliEvent = vi.fn().mockResolvedValue( undefined );
 export const killDaemonAndChildren = vi.fn().mockResolvedValue( undefined );
 export const listProcesses = vi.fn().mockResolvedValue( [] );
 export const getDaemonBus = vi.fn().mockResolvedValue( {} );

@@ -1,9 +1,4 @@
-import {
-	combineReducers,
-	configureStore,
-	createListenerMiddleware,
-	isAnyOf,
-} from '@reduxjs/toolkit';
+import { combineReducers, configureStore, createListenerMiddleware } from '@reduxjs/toolkit';
 import { setupListeners } from '@reduxjs/toolkit/query';
 import { useDispatch, useSelector } from 'react-redux';
 import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
@@ -22,7 +17,7 @@ import { installedAppsApi } from 'src/stores/installed-apps-api';
 import onboardingReducer from 'src/stores/onboarding-slice';
 import {
 	reducer as snapshotReducer,
-	updateSnapshotLocally,
+	refreshSnapshots,
 	snapshotActions,
 } from 'src/stores/snapshot-slice';
 import { syncReducer, syncOperationsActions } from 'src/stores/sync';
@@ -89,12 +84,18 @@ startAppListening( {
 	},
 } );
 
-// Save snapshots to user config
+// Save snapshot changes to CLI config via preview set command
 startAppListening( {
-	matcher: isAnyOf( updateSnapshotLocally, snapshotActions.deleteSnapshotLocally ),
+	actionCreator: snapshotActions.updateSnapshotLocally,
 	async effect( action, listenerApi ) {
 		const state = listenerApi.getState();
-		await getIpcApi().saveSnapshotsToStorage( state.snapshot.snapshots );
+		const snapshot = state.snapshot.snapshots.find(
+			( snapshot ) => snapshot.atomicSiteId === action.payload.atomicSiteId
+		);
+
+		if ( snapshot && snapshot.name ) {
+			await getIpcApi().setSnapshot( snapshot.url, { name: snapshot.name } );
+		}
 	},
 } );
 
@@ -358,9 +359,10 @@ export const store = configureStore( {
 // Enable the refetchOnFocus behavior
 setupListeners( store.dispatch );
 
-// Initialize beta features on store initialization, but skip in test environment
+// Initialize beta features and fetch snapshots on store initialization, but skip in test environment
 if ( process.env.NODE_ENV !== 'test' ) {
 	void store.dispatch( loadBetaFeatures() );
+	void refreshSnapshots();
 }
 
 export type AppDispatch = typeof store.dispatch;

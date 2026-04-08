@@ -70,7 +70,7 @@ const ExportSite = ( {
 		<div className="flex flex-col gap-4">
 			<div>
 				<h4 className="a8c-subtitle-small leading-5">{ __( 'Export' ) }</h4>
-				<p className="text-a8c-gray-70 leading-[140%] a8c-helper-text text-[13px]">
+				<p className="text-frame-text-secondary leading-[140%] a8c-helper-text text-[13px]">
 					{ __( 'Export your entire site or only the database.' ) }
 				</p>
 			</div>
@@ -79,7 +79,9 @@ const ExportSite = ( {
 					{ isExporting && (
 						<>
 							<ProgressBar />
-							<div className="text-a8c-gray-70 a8c-body">{ currentProgress.statusMessage }</div>
+							<div className="text-frame-text-secondary a8c-body">
+								{ currentProgress.statusMessage }
+							</div>
 						</>
 					) }
 					{ isExportCompleted && ! isExportError && (
@@ -107,7 +109,7 @@ const ExportSite = ( {
 							onClick={ () => handleExport( exportDatabase ) }
 							type="submit"
 							variant="secondary"
-							className={ cx( isExportDisabled ? '' : '!text-a8c-blue-50 !shadow-a8c-blue-50' ) }
+							className={ cx( isExportDisabled ? '' : '!text-frame-theme !shadow-frame-theme' ) }
 							disabled={ isExportDisabled }
 						>
 							{ __( 'Export database' ) }
@@ -151,8 +153,8 @@ const InitialImportButton = ( {
 				className={ cx(
 					'w-full',
 					disabled
-						? '[&>div.border-zinc-300]:border-gray-400 cursor-not-allowed opacity-50'
-						: '[&>div.border-zinc-300]:hover:border-a8c-blue-50'
+						? '[&>div.border-zinc-300]:border-frame-border cursor-not-allowed opacity-50'
+						: '[&>div.border-zinc-300]:hover:border-frame-theme'
 				) }
 				onClick={ openFileSelector }
 				disabled={ disabled }
@@ -259,7 +261,7 @@ const ImportSite = ( {
 	return (
 		<div className={ cx( 'flex flex-col w-full', startLoadingCursorClassName ) }>
 			<div className="a8c-subtitle-small mb-1">{ __( 'Import' ) }</div>
-			<div className="text-a8c-gray-70 a8c-body mb-4">
+			<div className="text-frame-text-secondary a8c-body mb-4">
 				{ createInterpolateElement(
 					__(
 						'Import a Jetpack backup, a full-site backup in another format, or a .sql database file. <learn_more_link />'
@@ -278,8 +280,8 @@ const ImportSite = ( {
 				>
 					<div
 						className={ cx(
-							'h-36 w-full rounded-sm border border-zinc-300 flex-col justify-center items-center inline-flex',
-							isDraggingOver && ! isImporting && 'border-a8c-blue-50 bg-a8c-gray-0'
+							'h-36 w-full rounded-sm border border-frame-border flex-col justify-center items-center inline-flex',
+							isDraggingOver && ! isImporting && 'border-frame-theme bg-frame-surface'
 						) }
 					>
 						{ isImporting && (
@@ -287,7 +289,7 @@ const ImportSite = ( {
 								<div className="w-[240px]">
 									<ProgressBar />
 								</div>
-								<div className="text-a8c-gray-70 a8c-body mt-4">
+								<div className="text-frame-text-secondary a8c-body mt-4">
 									{ currentProgress.statusMessage || __( 'Importing…' ) }
 								</div>
 							</>
@@ -312,8 +314,8 @@ const ImportSite = ( {
 						) }
 						{ isInitial && (
 							<>
-								<Icon className="!fill-a8c-gray-70" icon={ download } />
-								<span className="text-a8c-gray-70 a8c-body-small mt-1">
+								<Icon className="!fill-frame-text-secondary" icon={ download } />
+								<span className="text-frame-text-secondary a8c-body-small mt-1">
 									{ isDraggingOver
 										? __( 'Drop file' )
 										: __( 'Drag a file here, or click to select a file' ) }

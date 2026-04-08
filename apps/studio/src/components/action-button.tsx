@@ -143,7 +143,7 @@ export const ActionButton = ( {
 			buttonLabel = __( 'Running' );
 			buttonProps = {
 				icon: <CircleIcon height={ iconSize } width={ iconSize } />,
-				className: cx( defaultButtonClassName, '!text-a8c-green-50' ),
+				className: cx( defaultButtonClassName, '!text-frame-running' ),
 				'data-testid': 'site-status-running',
 			};
 			break;

@@ -1,12 +1,10 @@
 import { vi } from 'vitest';
+import { SiteData, readCliConfig, saveCliConfig } from 'cli/lib/cli-config/core';
 import {
-	SiteData,
 	clearSiteLatestCliPid,
 	getSiteByFolder,
-	readAppdata,
-	saveAppdata,
 	updateSiteAutoStart,
-} from 'cli/lib/appdata';
+} from 'cli/lib/cli-config/sites';
 import {
 	connectToDaemon,
 	disconnectFromDaemon,
@@ -17,16 +15,21 @@ import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Mode, runCommand } from '../stop';
 
-vi.mock( 'cli/lib/appdata', async () => {
-	const actual = await vi.importActual( 'cli/lib/appdata' );
+vi.mock( 'cli/lib/cli-config/core', async () => {
+	const actual = await vi.importActual( 'cli/lib/cli-config/core' );
+	return {
+		...actual,
+		readCliConfig: vi.fn(),
+		saveCliConfig: vi.fn().mockResolvedValue( undefined ),
+	};
+} );
+vi.mock( 'cli/lib/cli-config/sites', async () => {
+	const actual = await vi.importActual( 'cli/lib/cli-config/sites' );
 	return {
 		...actual,
 		getSiteByFolder: vi.fn(),
-		readAppdata: vi.fn(),
 		clearSiteLatestCliPid: vi.fn(),
 		updateSiteAutoStart: vi.fn().mockResolvedValue( undefined ),
-		getAppdataDirectory: vi.fn().mockReturnValue( '/test/appdata' ),
-		saveAppdata: vi.fn().mockResolvedValue( undefined ),
 	};
 } );
 vi.mock( 'cli/lib/daemon-client' );
@@ -230,7 +233,7 @@ describe( 'CLI: studio site stop --all', () => {
 
 	describe( 'Error Cases', () => {
 		it( 'should throw when appdata cannot be read', async () => {
-			vi.mocked( readAppdata ).mockRejectedValue( new Error( 'Failed to read appdata' ) );
+			vi.mocked( readCliConfig ).mockRejectedValue( new Error( 'Failed to read appdata' ) );
 
 			await expect( runCommand( Mode.STOP_ALL_SITES, undefined, false ) ).rejects.toThrow(
 				'Failed to read appdata'
@@ -239,7 +242,11 @@ describe( 'CLI: studio site stop --all', () => {
 		} );
 
 		it( 'should throw when process manager connection fails', async () => {
-			vi.mocked( readAppdata ).mockResolvedValue( { sites: testSites, snapshots: [] } );
+			vi.mocked( readCliConfig ).mockResolvedValue( {
+				version: 1,
+				sites: testSites,
+				snapshots: [],
+			} );
 			vi.mocked( connectToDaemon ).mockRejectedValue(
 				new Error( 'process manager connection failed' )
 			);
@@ -251,7 +258,11 @@ describe( 'CLI: studio site stop --all', () => {
 		} );
 
 		it( 'should throw when killDaemonAndAllChildren fails', async () => {
-			vi.mocked( readAppdata ).mockResolvedValue( { sites: testSites, snapshots: [] } );
+			vi.mocked( readCliConfig ).mockResolvedValue( {
+				version: 1,
+				sites: testSites,
+				snapshots: [],
+			} );
 			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
 			vi.mocked( killDaemonAndChildren ).mockRejectedValue( new Error( 'Failed to kill daemon' ) );
 
@@ -264,7 +275,7 @@ describe( 'CLI: studio site stop --all', () => {
 
 	describe( 'Success Cases', () => {
 		it( 'should kill daemon even with empty sites list', async () => {
-			vi.mocked( readAppdata ).mockResolvedValue( { sites: [], snapshots: [] } );
+			vi.mocked( readCliConfig ).mockResolvedValue( { version: 1, sites: [], snapshots: [] } );
 
 			await runCommand( Mode.STOP_ALL_SITES, undefined, false );
 
@@ -273,7 +284,11 @@ describe( 'CLI: studio site stop --all', () => {
 		} );
 
 		it( 'should kill daemon even if no sites are running', async () => {
-			vi.mocked( readAppdata ).mockResolvedValue( { sites: testSites, snapshots: [] } );
+			vi.mocked( readCliConfig ).mockResolvedValue( {
+				version: 1,
+				sites: testSites,
+				snapshots: [],
+			} );
 
 			vi.mocked( isServerRunning ).mockResolvedValue( undefined );
 
@@ -286,14 +301,18 @@ describe( 'CLI: studio site stop --all', () => {
 		} );
 
 		it( 'should handle single site', async () => {
-			vi.mocked( readAppdata ).mockResolvedValue( { sites: [ testSites[ 0 ] ], snapshots: [] } );
+			vi.mocked( readCliConfig ).mockResolvedValue( {
+				version: 1,
+				sites: [ testSites[ 0 ] ],
+				snapshots: [],
+			} );
 			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
 
 			await runCommand( Mode.STOP_ALL_SITES, undefined, false );
 
 			expect( killDaemonAndChildren ).toHaveBeenCalledTimes( 1 );
-			expect( saveAppdata ).toHaveBeenCalledTimes( 1 );
-			expect( saveAppdata ).toHaveBeenCalledWith(
+			expect( saveCliConfig ).toHaveBeenCalledTimes( 1 );
+			expect( saveCliConfig ).toHaveBeenCalledWith(
 				expect.objectContaining( {
 					sites: expect.arrayContaining( [
 						expect.objectContaining( {
@@ -306,12 +325,16 @@ describe( 'CLI: studio site stop --all', () => {
 		} );
 
 		it( 'should stop all running sites', async () => {
-			vi.mocked( readAppdata ).mockResolvedValue( { sites: testSites, snapshots: [] } );
+			vi.mocked( readCliConfig ).mockResolvedValue( {
+				version: 1,
+				sites: testSites,
+				snapshots: [],
+			} );
 			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
 
 			await runCommand( Mode.STOP_ALL_SITES, undefined, false );
 
-			expect( readAppdata ).toHaveBeenCalled();
+			expect( readCliConfig ).toHaveBeenCalled();
 			expect( connectToDaemon ).toHaveBeenCalled();
 			expect( isServerRunning ).toHaveBeenCalledTimes( 3 );
 			expect( isServerRunning ).toHaveBeenCalledWith( 'site-1' );
@@ -320,8 +343,8 @@ describe( 'CLI: studio site stop --all', () => {
 
 			expect( killDaemonAndChildren ).toHaveBeenCalledTimes( 1 );
 
-			expect( saveAppdata ).toHaveBeenCalledTimes( 1 );
-			expect( saveAppdata ).toHaveBeenCalledWith(
+			expect( saveCliConfig ).toHaveBeenCalledTimes( 1 );
+			expect( saveCliConfig ).toHaveBeenCalledWith(
 				expect.objectContaining( {
 					sites: expect.arrayContaining( [
 						expect.objectContaining( {
@@ -342,7 +365,11 @@ describe( 'CLI: studio site stop --all', () => {
 		} );
 
 		it( 'should stop only running sites (mixed state)', async () => {
-			vi.mocked( readAppdata ).mockResolvedValue( { sites: testSites, snapshots: [] } );
+			vi.mocked( readCliConfig ).mockResolvedValue( {
+				version: 1,
+				sites: testSites,
+				snapshots: [],
+			} );
 
 			vi.mocked( isServerRunning )
 				.mockResolvedValueOnce( testProcessDescription ) // site-1 running
@@ -355,8 +382,8 @@ describe( 'CLI: studio site stop --all', () => {
 
 			expect( killDaemonAndChildren ).toHaveBeenCalledTimes( 1 );
 
-			expect( saveAppdata ).toHaveBeenCalledTimes( 1 );
-			expect( saveAppdata ).toHaveBeenCalledWith(
+			expect( saveCliConfig ).toHaveBeenCalledTimes( 1 );
+			expect( saveCliConfig ).toHaveBeenCalledWith(
 				expect.objectContaining( {
 					sites: expect.arrayContaining( [
 						expect.objectContaining( {
@@ -370,7 +397,7 @@ describe( 'CLI: studio site stop --all', () => {
 					] ),
 				} )
 			);
-			expect( saveAppdata ).toHaveBeenCalledWith(
+			expect( saveCliConfig ).toHaveBeenCalledWith(
 				expect.objectContaining( {
 					sites: expect.not.arrayContaining( [
 						expect.objectContaining( {

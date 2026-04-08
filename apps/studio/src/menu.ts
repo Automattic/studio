@@ -7,6 +7,11 @@ import {
 	MenuItem,
 	shell,
 } from 'electron';
+import {
+	getAppConfigPath,
+	getCliConfigPath,
+	getSharedConfigPath,
+} from '@studio/common/lib/well-known-paths';
 import { __ } from '@wordpress/i18n';
 import { openAboutWindow } from 'src/about-menu/open-about-menu';
 import { BUG_REPORT_URL, FEATURE_REQUEST_URL } from 'src/constants';
@@ -29,7 +34,6 @@ import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { getLogsFilePath } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
-import { getUserDataFilePath } from 'src/storage/paths';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from 'src/updates';
 
 export async function setupMenu( config: {
@@ -154,7 +158,7 @@ async function getAppMenu(
 					label: __( 'Settings…' ),
 					accelerator: 'CommandOrControl+,',
 					click: async () => {
-						void sendIpcEventToRenderer( 'user-settings', { tabName: 'preferences' } );
+						void sendIpcEventToRenderer( 'user-settings', { tabName: 'general' } );
 					},
 				},
 				{
@@ -175,14 +179,39 @@ async function getAppMenu(
 				...( process.env.NODE_ENV === 'development'
 					? [
 							{
-								label: __( 'Open Appdata File (dev only)' ),
-								click: async () => {
-									const appdataPath = getUserDataFilePath();
-									const err = await shell.openPath( appdataPath );
-									if ( err ) {
-										console.error( `Error opening appdata file: ${ appdataPath } ${ err }` );
-									}
-								},
+								label: __( 'Open Config Files (dev only)' ),
+								submenu: [
+									{
+										label: __( 'App Config (app.json)' ),
+										click: async () => {
+											const configPath = getAppConfigPath();
+											const err = await shell.openPath( configPath );
+											if ( err ) {
+												console.error( `Error opening config file: ${ configPath } ${ err }` );
+											}
+										},
+									},
+									{
+										label: __( 'Shared Config (shared.json)' ),
+										click: async () => {
+											const configPath = getSharedConfigPath();
+											const err = await shell.openPath( configPath );
+											if ( err ) {
+												console.error( `Error opening config file: ${ configPath } ${ err }` );
+											}
+										},
+									},
+									{
+										label: __( 'CLI Config (cli.json)' ),
+										click: async () => {
+											const configPath = getCliConfigPath();
+											const err = await shell.openPath( configPath );
+											if ( err ) {
+												console.error( `Error opening config file: ${ configPath } ${ err }` );
+											}
+										},
+									},
+								],
 							},
 							{
 								label: __( 'Feature Flags' ),

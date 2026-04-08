@@ -1,7 +1,7 @@
 /** @type {import('tailwindcss').Config} */
+import path from 'node:path';
 import palette from '@automattic/color-studio';
 import plugin from 'tailwindcss/plugin';
-import path from 'node:path';
 import { WINDOWS_TITLEBAR_HEIGHT, MAIN_MIN_WIDTH, APP_CHROME_SPACING } from './src/constants.ts';
 
 const BASE_FONT_SIZE = 16; // 1 rem
@@ -153,6 +153,19 @@ module.exports = {
 				'development-text': 'hsl(200, 95%, 28%)',
 				'circle-env-production': '#069e08',
 				'circle-env-staging': '#f7ba42',
+				// Content frame colors (CSS custom properties, swap in dark mode)
+				frame: 'var(--color-frame-bg)',
+				'frame-text': 'var(--color-frame-text)',
+				'frame-text-secondary': 'var(--color-frame-text-secondary)',
+				'frame-border': 'var(--color-frame-border)',
+				'frame-surface': 'var(--color-frame-surface)',
+				'frame-surface-alt': 'var(--color-frame-surface-alt)',
+				'frame-theme': 'var(--color-frame-theme)',
+				'frame-theme-hover': 'var(--color-frame-theme-hover)',
+				'frame-code-text': 'var(--color-frame-code-text)',
+				'frame-running': 'var(--color-frame-running)',
+				'frame-error': 'var(--color-frame-error)',
+				'frame-tab-active': 'var(--color-frame-tab-active)',
 			},
 			spacing: {
 				chrome: `${ APP_CHROME_SPACING }px`,

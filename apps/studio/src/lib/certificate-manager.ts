@@ -4,14 +4,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import * as Sentry from '@sentry/electron/main';
+import { CERT_UNTRUSTED_ROOT, SERVER_AUTH_OID } from '@studio/common/constants';
+import { getCertificatesPath } from '@studio/common/lib/well-known-paths';
 import sudo from '@vscode/sudo-prompt';
-import { getUserDataCertificatesPath } from 'src/storage/paths';
 
 const execFilePromise = promisify( execFile );
 
 // Certificate configuration
-const CERT_DIRECTORY = getUserDataCertificatesPath();
-const CA_CERT_PATH = path.join( CERT_DIRECTORY, 'studio-ca.crt' );
+const CA_CERT_PATH = path.join( getCertificatesPath(), 'studio-ca.crt' );
 
 export async function openCertificate() {
 	shell.showItemInFolder( CA_CERT_PATH );
@@ -28,15 +28,12 @@ export async function isRootCATrusted(): Promise< boolean > {
 
 	if ( process.platform === 'win32' ) {
 		try {
-			// Execute certutil with more specific validation
 			const { stdout } = await execFilePromise( 'certutil', [ '-verify', CA_CERT_PATH ] );
 
-			const hasValidPolicies =
-				stdout.includes( 'Verified Application Policies:' ) &&
-				stdout.includes( 'Server Authentication' );
+			const isTrusted = ! stdout.includes( CERT_UNTRUSTED_ROOT );
+			const hasServerAuthPolicy = stdout.includes( SERVER_AUTH_OID );
 
-			// Only consider the certificate trusted if it has the Server Authentication policy.
-			return hasValidPolicies;
+			return isTrusted && hasServerAuthPolicy;
 		} catch ( error ) {
 			return false;
 		}

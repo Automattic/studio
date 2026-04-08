@@ -134,7 +134,7 @@ export default function ImportBackup( {
 
 	return (
 		<VStack className="text-center w-full" alignment="top" spacing={ 0 }>
-			<Heading className="text-center text-[32px] text-gray-900 mb-[59px]" weight={ 500 }>
+			<Heading className="text-center text-[32px] text-frame-text mb-[59px]" weight={ 500 }>
 				{ __( 'Import from a backup' ) }
 			</Heading>
 
@@ -144,7 +144,7 @@ export default function ImportBackup( {
 					'transition-colors cursor-pointer',
 					isDragging
 						? 'border-blue-500 bg-blue-50'
-						: 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
+						: 'border-frame-border hover:border-frame-text-secondary hover:bg-frame-surface'
 				) }
 				onDragOver={ handleDragOver }
 				onDragLeave={ handleDragLeave }
@@ -161,14 +161,14 @@ export default function ImportBackup( {
 				{ selectedFile ? (
 					<VStack className="items-center justify-center h-full" spacing={ 2 }>
 						<Text
-							className="text-base font-medium text-gray-900 max-w-md px-4"
+							className="text-base font-medium text-frame-text max-w-md px-4"
 							weight={ 400 }
 							title={ selectedFile.name }
 						>
 							{ truncateMiddle( selectedFile.name ) }
 						</Text>
 						<HStack spacing={ 2 } alignment="center">
-							<Text className="text-base text-gray-600">
+							<Text className="text-base text-frame-text-secondary">
 								{ formatFileSize( selectedFile.size ) }
 							</Text>
 							<button
@@ -182,9 +182,9 @@ export default function ImportBackup( {
 					</VStack>
 				) : (
 					<VStack className="items-center justify-center h-full" spacing={ 2 }>
-						<Icon icon={ download } size={ 24 } className="fill-gray-400" />
+						<Icon icon={ download } size={ 24 } className="fill-frame-text-secondary" />
 						<Heading
-							className="text-[14px] leading-4 font-normal text-center text-gray-700"
+							className="text-[14px] leading-4 font-normal text-center text-frame-text-secondary"
 							weight="400"
 						>
 							{ isDragging ? (

@@ -4,22 +4,27 @@ import {
 	AggregateInterval,
 	LastBumpStatsProvider,
 } from '@studio/common/lib/bump-stat';
-import { lockAppdata, readAppdata, saveAppdata, unlockAppdata } from 'cli/lib/appdata';
+import {
+	lockCliConfig,
+	readCliConfig,
+	saveCliConfig,
+	unlockCliConfig,
+} from 'cli/lib/cli-config/core';
 import { StatsGroup, StatsMetric } from 'cli/lib/types/bump-stats';
 
 const lastBumpStatsProvider: LastBumpStatsProvider = {
 	load: async () => {
-		const { lastBumpStats } = await readAppdata();
+		const { lastBumpStats } = await readCliConfig();
 		return lastBumpStats ?? {};
 	},
-	lock: lockAppdata,
-	unlock: unlockAppdata,
+	lock: lockCliConfig,
+	unlock: unlockCliConfig,
 	save: async ( lastBumpStats ) => {
-		const appdata = await readAppdata();
-		appdata.lastBumpStats = lastBumpStats;
+		const config = await readCliConfig();
+		config.lastBumpStats = lastBumpStats;
 		// Locking is handled in `@studio/common/lib/bump-stat`
 		// eslint-disable-next-line studio/require-lock-before-save
-		await saveAppdata( appdata );
+		await saveCliConfig( config );
 	},
 };
 

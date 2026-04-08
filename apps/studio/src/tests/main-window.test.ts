@@ -2,9 +2,8 @@
  * @vitest-environment node
  */
 import { BrowserWindow } from 'electron';
-import fs from 'fs';
-import { normalize } from 'path';
 import { readFile } from 'atomically';
+import { vol } from 'memfs';
 import { vi } from 'vitest';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { createMainWindow, getMainWindow, __resetMainWindow } from 'src/main-window';
@@ -14,17 +13,6 @@ vi.mock( 'src/ipc-utils' );
 vi.mock( 'atomically' );
 vi.mock( 'src/lib/app-globals', () => ( {
 	saveWindowBounds: vi.fn(),
-} ) );
-vi.mock( 'src/storage/paths', () => ( {
-	getResourcesPath: vi.fn().mockReturnValue( '/mock/resources' ),
-	getUserDataFilePath: vi.fn().mockReturnValue( '/mock/userdata.json' ),
-	getUserDataLockFilePath: vi.fn().mockReturnValue( '/mock/userdata.json.lock' ),
-	getUserDataCertificatesPath: vi.fn().mockReturnValue( '/mock/certificates' ),
-	getServerFilesPath: vi.fn().mockReturnValue( '/mock/server/files' ),
-	getCliPath: vi.fn().mockReturnValue( '/mock/cli/path' ),
-	getBundledNodeBinaryPath: vi.fn().mockReturnValue( '/mock/node/binary' ),
-	getSiteThumbnailPath: vi.fn().mockReturnValue( '/mock/thumbnail.png' ),
-	DEFAULT_SITE_PATH: '/mock/default/site/path',
 } ) );
 
 // Create a simpler mock that tracks event handlers
@@ -74,6 +62,12 @@ vi.mock( 'electron', () => {
 		dialog: {
 			showMessageBox: vi.fn(),
 		},
+		nativeTheme: {
+			themeSource: 'light',
+		},
+		screen: {
+			getAllDisplays: vi.fn().mockReturnValue( [] ),
+		},
 		BrowserWindow: MockBrowserWindow,
 		shell: {
 			trashItem: vi.fn(),
@@ -90,20 +84,13 @@ vi.mock( 'electron', () => {
 const mockUserData = {
 	sites: [],
 };
-if ( '__setFileContents' in fs ) {
-	(
-		fs as typeof fs & { __setFileContents: ( path: string, contents: string | string[] ) => void }
-	 ).__setFileContents(
-		normalize( '/path/to/app/appData/App Name/appdata-v1.json' ),
-		JSON.stringify( mockUserData )
-	);
-}
 vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( mockUserData ) ) );
 
 describe( 'getMainWindow', () => {
 	let createdWindow: BrowserWindow;
 
 	beforeEach( async () => {
+		vol.reset();
 		createdWindow = await createMainWindow();
 	} );
 

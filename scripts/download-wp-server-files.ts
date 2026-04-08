@@ -1,9 +1,14 @@
 import os from 'os';
 import path from 'path';
+import {
+	PHPMYADMIN_DOWNLOAD_URL,
+	PHPMYADMIN_VERSION,
+	getPhpMyAdminInstallSteps,
+} from '@wp-playground/tools';
 import fs from 'fs-extra';
-import { extractZip } from '../tools/common/lib/extract-zip';
-import { getLatestSQLiteCommandRelease } from '../apps/studio/src/lib/sqlite-command-release';
 import { SQLITE_DATABASE_INTEGRATION_RELEASE_URL } from '../apps/studio/src/constants';
+import { getLatestSQLiteCommandRelease } from '../apps/studio/src/lib/sqlite-command-release';
+import { extractZip } from '../tools/common/lib/extract-zip';
 
 const WP_SERVER_FILES_PATH = path.join( __dirname, '..', 'wp-files' );
 
@@ -42,6 +47,12 @@ const FILES_TO_DOWNLOAD: FileToDownload[] = [
 		},
 		destinationPath: path.join( WP_SERVER_FILES_PATH, 'sqlite-command' ),
 	},
+	{
+		name: 'phpmyadmin',
+		description: 'phpMyAdmin',
+		getUrl: () => PHPMYADMIN_DOWNLOAD_URL,
+		destinationPath: path.join( WP_SERVER_FILES_PATH, 'phpmyadmin' ),
+	},
 ];
 
 async function downloadFile( file: FileToDownload ): Promise< void > {
@@ -70,25 +81,52 @@ async function downloadFile( file: FileToDownload ): Promise< void > {
 		fs.moveSync( zipPath, path.join( extractedPath, 'wp-cli.phar' ), { overwrite: true } );
 	} else if ( name === 'sqlite' ) {
 		/**
-		 * The SQLite database integration plugin is extracted
-		 * into a folder with the version number like sqlite-database-integration-1.0.0
-		 * We need to move the contents of that folder to the sqlite-database-integration folder
+		 * The SQLite database integration plugin zip extracts into a folder named
+		 * plugin-sqlite-database-integration (CI-built asset format). We rename it
+		 * to sqlite-database-integration which is the name expected by the rest of the app.
 		 */
 		console.log( `[${ name }] Extracting files from zip ...` );
 		await extractZip( zipPath, extractedPath );
 
-		const files = fs.readdirSync( extractedPath );
-		const sqliteFolder = files.find( ( file ) =>
-			file.startsWith( 'sqlite-database-integration-' )
-		);
+		const sourcePath = path.join( extractedPath, 'plugin-sqlite-database-integration' );
+		const targetPath = path.join( extractedPath, 'sqlite-database-integration' );
+		if ( fs.existsSync( targetPath ) ) {
+			fs.rmSync( targetPath, { recursive: true, force: true } );
+		}
+		fs.moveSync( sourcePath, targetPath );
+	} else if ( name === 'phpmyadmin' ) {
+		/**
+		 * phpMyAdmin is extracted into a folder like phpMyAdmin-5.2.3-english.
+		 * We extract to a temp dir, rename to the destination, then inject the
+		 * Playground-specific config and SQLite adapter from @wp-playground/tools.
+		 */
+		console.log( `[${ name }] Extracting files from zip ...` );
+		const tmpExtractPath = path.join( os.tmpdir(), 'phpmyadmin-extract' );
+		if ( fs.existsSync( tmpExtractPath ) ) {
+			fs.rmSync( tmpExtractPath, { recursive: true, force: true } );
+		}
+		await extractZip( zipPath, tmpExtractPath );
 
-		if ( sqliteFolder ) {
-			const sourcePath = path.join( extractedPath, sqliteFolder );
-			const targetPath = path.join( extractedPath, 'sqlite-database-integration' );
-			if ( fs.existsSync( targetPath ) ) {
-				fs.rmSync( targetPath, { recursive: true, force: true } );
+		const innerFolder = `phpMyAdmin-${ PHPMYADMIN_VERSION }-english`;
+		const sourcePath = path.join( tmpExtractPath, innerFolder );
+		if ( fs.existsSync( extractedPath ) ) {
+			fs.rmSync( extractedPath, { recursive: true, force: true } );
+		}
+		fs.moveSync( sourcePath, extractedPath );
+		fs.rmSync( tmpExtractPath, { recursive: true, force: true } );
+
+		// Inject Playground-specific config and SQLite adapter
+		console.log( `[${ name }] Injecting Playground-specific files ...` );
+		const installSteps = await getPhpMyAdminInstallSteps();
+		for ( const step of installSteps ) {
+			if ( step.step === 'writeFile' && typeof step.data === 'string' ) {
+				// step.path is like /tools/phpmyadmin/config.inc.php — strip the /tools/phpmyadmin prefix
+				const relativePath = step.path.replace( '/tools/phpmyadmin/', '' );
+				const destFile = path.join( extractedPath, relativePath );
+				await fs.ensureDir( path.dirname( destFile ) );
+
+				await fs.writeFile( destFile, step.data );
 			}
-			fs.renameSync( sourcePath, targetPath );
 		}
 	} else {
 		console.log( `[${ name }] Extracting files from zip ...` );
@@ -110,4 +148,4 @@ async function downloadFiles() {
 	}
 }
 
-downloadFiles();
+void downloadFiles();

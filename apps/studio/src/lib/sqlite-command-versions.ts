@@ -1,9 +1,9 @@
 import path from 'path';
+import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 import fs from 'fs-extra';
 import semver, { SemVer } from 'semver';
 import { downloadSQLiteCommand } from 'src/lib/download-utils';
 import { getLatestSQLiteCommandRelease } from 'src/lib/sqlite-command-release';
-import { getServerFilesPath } from 'src/storage/paths';
 
 interface DistributionCheckResult {
 	needsDownload: boolean;

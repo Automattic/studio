@@ -1,6 +1,7 @@
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { defineConfig } from 'vite';
+import { viteStaticCopy } from 'vite-plugin-static-copy';
 
 const nodeBuiltinExternals: RegExp[] = [
 	/^node:/,
@@ -13,6 +14,17 @@ const packageJson = JSON.parse( readFileSync( resolve( __dirname, 'package.json'
 const packageJsonDependencies = Object.keys( packageJson.dependencies || {} );
 
 export const baseConfig = defineConfig( {
+	plugins: [
+		viteStaticCopy( {
+			targets: [
+				{
+					src: '../../wp-files',
+					dest: '.',
+					preserveTimestamps: true,
+				},
+			],
+		} ),
+	],
 	build: {
 		lib: {
 			entry: {
@@ -29,7 +41,8 @@ export const baseConfig = defineConfig( {
 		rollupOptions: {
 			output: {
 				format: 'es',
-				entryFileNames: '[name].js',
+				entryFileNames: '[name].mjs',
+				chunkFileNames: '[name]-[hash].mjs',
 			},
 			external: ( id ) => {
 				// Bundle the `@wp-playground/blueprints/blueprint-schema-validator` module since we've defined
@@ -48,7 +61,7 @@ export const baseConfig = defineConfig( {
 		commonjsOptions: {
 			ignoreDynamicRequires: true,
 		},
-		sourcemap: true,
+		sourcemap: false,
 		minify: false,
 	},
 	resolve: {
@@ -64,8 +77,7 @@ export const baseConfig = defineConfig( {
 		mainFields: [ 'main' ],
 	},
 	define: {
-		__ENABLE_STUDIO_AI__: true,
-		__ENABLE_AGENT_SUITE__: true,
+		__ENABLE_STUDIO_AI__: false,
 		__STUDIO_CLI_VERSION__: JSON.stringify( packageJson.version ),
 	},
 } );

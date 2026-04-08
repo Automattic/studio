@@ -31,13 +31,13 @@ export async function runCommand( sessionIdOrPrefix?: string ): Promise< void > 
 	}
 
 	const deletedSession = await deleteAiSession( resolvedSessionIdOrPrefix );
-	console.log( `${ __( 'Deleted AI session' ) }: ${ deletedSession.id }` );
+	console.log( `${ __( 'Deleted code session' ) }: ${ deletedSession.id }` );
 }
 
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'delete [id]',
-		describe: __( 'Delete an AI session (id, prefix, "latest", or picker)' ),
+		describe: __( 'Delete an code session (id, prefix, "latest", or picker)' ),
 		builder: ( deleteYargs ) => {
 			return deleteYargs.positional( 'id', {
 				type: 'string',
@@ -51,7 +51,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );
 				} else {
-					logger.reportError( new LoggerError( __( 'Failed to delete AI session' ), error ) );
+					logger.reportError( new LoggerError( __( 'Failed to delete code session' ), error ) );
 				}
 			}
 		},

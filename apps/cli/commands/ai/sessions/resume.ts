@@ -44,7 +44,7 @@ export async function runCommand(
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'resume [id]',
-		describe: __( 'Resume an AI session (id, prefix, "latest", or picker)' ),
+		describe: __( 'Resume an code session (id, prefix, "latest", or picker)' ),
 		builder: ( resumeYargs ) => {
 			return resumeYargs.positional( 'id', {
 				type: 'string',
@@ -62,7 +62,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );
 				} else {
-					const loggerError = new LoggerError( __( 'Failed to resume AI session' ), error );
+					const loggerError = new LoggerError( __( 'Failed to resume code session' ), error );
 					logger.reportError( loggerError );
 				}
 			}

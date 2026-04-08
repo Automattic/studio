@@ -64,7 +64,7 @@ async function resolveSessionByIdOrPrefix(
 		: sessions.filter( ( session ) => session.id.startsWith( sessionIdOrPrefix ) );
 
 	if ( candidates.length === 0 ) {
-		throw new Error( `AI session not found: ${ sessionIdOrPrefix }` );
+		throw new Error( `code session not found: ${ sessionIdOrPrefix }` );
 	}
 
 	if ( candidates.length > 1 ) {

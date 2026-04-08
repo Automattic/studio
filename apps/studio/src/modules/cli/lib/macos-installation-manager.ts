@@ -19,12 +19,12 @@ const binPath = path.join( getResourcesPath(), 'bin' );
 const cliPackagedPath = path.join( binPath, 'studio-cli.sh' );
 const uninstallScriptPath = path.join( binPath, 'uninstall-studio-cli.sh' );
 
-const SUPPORTED_SHELLS = [ '/bin/zsh', '/bin/bash' ] as const;
+const SUPPORTED_SHELLS = [ 'bash', 'zsh' ] as const;
 const SHELL_PROFILE_MAP: Record< ( typeof SUPPORTED_SHELLS )[ number ], string > = {
-	'/bin/zsh': '.zshrc',
-	'/bin/bash': '.bash_profile',
+	bash: '.bash_profile',
+	zsh: '.zshrc',
 };
-const DEFAULT_PROFILE = SHELL_PROFILE_MAP[ '/bin/zsh' ];
+const DEFAULT_PROFILE = SHELL_PROFILE_MAP[ 'zsh' ];
 const PATH_DEFINITION = '$HOME/.local/bin';
 const PATH_EXPORT_LINE = `export PATH="${ PATH_DEFINITION }:$PATH"`;
 
@@ -223,7 +223,7 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 	}
 
 	private getShellProfilePath(): string {
-		const shell = process.env.SHELL ?? '';
+		const shell = path.basename( os.userInfo().shell ?? process.env.SHELL ?? '' );
 		const supportedShell = SUPPORTED_SHELLS.find( ( candidate ) => candidate === shell );
 		const profileFile = supportedShell ? SHELL_PROFILE_MAP[ supportedShell ] : DEFAULT_PROFILE;
 		return path.join( os.homedir(), profileFile );

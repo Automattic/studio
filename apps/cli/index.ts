@@ -175,7 +175,7 @@ async function main() {
 			async ( aiYargs ) => {
 				const { registerCommand: registerAiCommand } = await import( 'cli/commands/ai' );
 				registerAiCommand( aiYargs );
-				aiYargs.command( 'sessions', __( 'Manage AI sessions' ), async ( sessionsYargs ) => {
+				aiYargs.command( 'sessions', __( 'Manage code sessions' ), async ( sessionsYargs ) => {
 					const [
 						{ registerCommand: registerAiSessionsListCommand },
 						{ registerCommand: registerAiSessionsResumeCommand },

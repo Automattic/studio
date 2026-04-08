@@ -188,7 +188,7 @@ describe( 'CLI: studio code sessions command', () => {
 		const parser = yargs( [] ).scriptName( 'studio' ).strict().exitProcess( false ) as StudioArgv;
 		parser.command( [ 'code', 'ai' ], __( 'AI-powered WordPress assistant' ), ( aiYargs ) => {
 			registerAiCommand( aiYargs as StudioArgv );
-			aiYargs.command( 'sessions', __( 'Manage AI sessions' ), ( sessionsYargs ) => {
+			aiYargs.command( 'sessions', __( 'Manage code sessions' ), ( sessionsYargs ) => {
 				sessionsYargs
 					.option( 'path', {
 						hidden: true,

@@ -281,7 +281,14 @@ export function formatImporterProgressSnapshot(
 	elapsedSeconds: number
 ): string | null {
 	const elapsed = formatElapsedSeconds( elapsedSeconds );
-	const segments = [ progressLabel ];
+	// Use the importer's phase as the label when it describes what's
+	// actually happening (e.g. "indexing remote files" instead of the
+	// generic "Downloading essential files" during the index phase).
+	const label =
+		snapshot.phase && snapshot.phase !== 'streaming' && snapshot.phase !== 'starting'
+			? snapshot.phase.charAt( 0 ).toUpperCase() + snapshot.phase.slice( 1 )
+			: progressLabel;
+	const segments = [ label ];
 
 	// Only show the file count once the total is known — a bare "X files"
 	// without context is noise.  Always use X/Y format for consistency.
@@ -314,10 +321,11 @@ export function formatImporterProgressSnapshot(
 	// Don't echo the message when it would duplicate data already shown in
 	// a structured segment (e.g. "[2838 files]" alongside "0/2838 files",
 	// or "db-apply: 100/500 statements" alongside the statements segment).
+	// Only suppress when we're actually rendering the structured segment —
+	// totalFiles must be defined (not just downloadedFiles) because the
+	// file segment is gated on totalFiles.
 	const hasStructuredCounts =
-		snapshot.downloadedFiles !== undefined ||
-		snapshot.totalFiles !== undefined ||
-		snapshot.statementsExecuted !== undefined;
+		snapshot.totalFiles !== undefined || snapshot.statementsExecuted !== undefined;
 	if ( snapshot.message && snapshot.message !== snapshot.phase && ! hasStructuredCounts ) {
 		segments.push( snapshot.message );
 	}

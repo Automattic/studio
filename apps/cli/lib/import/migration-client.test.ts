@@ -95,7 +95,7 @@ describe( 'formatImporterJsonlProgress', () => {
 		expect(
 			formatImporterProgressSnapshot( restartedHeartbeat!, 'Downloading essential files', 7 )
 		).toBe(
-			'Downloading essential files · 6.5 MB received · following symlink .../plugins/jetpack/15.7-a.7 · 7s'
+			'Indexing remote files · 6.5 MB received · following symlink .../plugins/jetpack/15.7-a.7 · 7s'
 		);
 	} );
 
@@ -160,7 +160,7 @@ describe( 'formatImporterJsonlProgress', () => {
 			directory: '/wordpress/plugins/jetpack/15.7-a.7',
 		} );
 		expect( formatImporterProgressSnapshot( snapshot!, 'Downloading essential files', 8 ) ).toBe(
-			'Downloading essential files · following symlink .../plugins/jetpack/15.7-a.7 · 8s'
+			'Indexing remote files · following symlink .../plugins/jetpack/15.7-a.7 · 8s'
 		);
 	} );
 

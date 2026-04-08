@@ -214,10 +214,7 @@ export function updateImporterProgressSnapshot(
 	// download list, stable across restarts) and files_total (total download
 	// list entries, fixed once the diff phase completes).  These are the
 	// authoritative counters — display them as-is with no accumulation.
-	const downloadedFiles =
-		readNumber( object.files_done ) ??
-		readNumber( object.files_imported ) ??
-		readNumber( object.downloaded_files );
+	const downloadedFiles = readNumber( object.files_done ) ?? readNumber( object.downloaded_files );
 	const totalFiles = readNumber( object.files_total ) ?? readNumber( object.total_files );
 	const downloadedBytes =
 		readNumber( object.downloaded_bytes ) ??

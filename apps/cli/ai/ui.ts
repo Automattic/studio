@@ -34,7 +34,7 @@ import { getWpComSites } from 'cli/lib/api';
 import { openBrowser } from 'cli/lib/browser';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
-import { isSiteRunning } from 'cli/lib/site-utils';
+import { getSitesRunningStatus, isSiteRunning } from 'cli/lib/site-utils';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { TodoWriteInput } from '@anthropic-ai/claude-agent-sdk/sdk-tools';
 
@@ -56,6 +56,7 @@ export interface SiteInfo {
 	running: boolean;
 	remote?: boolean;
 	url?: string;
+	wpcomSiteId?: number;
 }
 
 const DEFAULT_COLLAPSE_THRESHOLD_LINES = 5;
@@ -793,13 +794,12 @@ export class AiChatUI {
 		}
 
 		this.sitePickerSiteData = sites;
-		this.sitePickerItems = await Promise.all(
-			sites.map( async ( site ) => ( {
-				name: site.name,
-				path: site.path,
-				running: await isSiteRunning( site ),
-			} ) )
-		);
+		const runningStatus = await getSitesRunningStatus( sites );
+		this.sitePickerItems = sites.map( ( site ) => ( {
+			name: site.name,
+			path: site.path,
+			running: runningStatus.get( site.id ) ?? false,
+		} ) );
 		this.sitePickerVisible = true;
 		this.editor.showBottomBar = false;
 		this.sitePickerContainer = new Container();
@@ -828,6 +828,7 @@ export class AiChatUI {
 				running: false,
 				remote: true,
 				url: site.url,
+				wpcomSiteId: site.id,
 			} ) );
 			this.sitePickerRemoteLoading = false;
 			this.rebuildSitePickerList();
@@ -1455,18 +1456,18 @@ export class AiChatUI {
 				' ' +
 				__( "Great, you're connected now! Let me tell you what I can do:" ),
 			'',
-			'  ' + b( __( 'Site Management' ) ),
+			'  ' + b( __( 'Local Sites Management' ) ),
 			'',
 			'  - ' +
 				sprintf(
 					/* translators: %s: bold "Create" */
-					__( '%s new WordPress sites instantly (fully configured, ready to use)' ),
+					__( '%s new local WordPress sites instantly (fully configured, ready to use)' ),
 					b( __( 'Create' ) )
 				),
 			'  - ' +
 				sprintf(
 					/* translators: %s: bold "Start / stop" */
-					__( '%s existing sites' ),
+					__( '%s existing local sites' ),
 					b( __( 'Start / stop' ) )
 				),
 			'  - ' +

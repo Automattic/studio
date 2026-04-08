@@ -7,6 +7,7 @@ import { validateBlocks, type ValidationReport } from 'cli/ai/block-validator';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
 import { checkHtmlBlocks, type HtmlBlockReport } from 'cli/ai/html-block-checker';
 import { auditPerformance } from 'cli/ai/performance-audit';
+import { createWpcomToolDefinitions } from 'cli/ai/wpcom-tools';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
 import {
 	Mode as PreviewDeleteMode,
@@ -772,10 +773,12 @@ const takeScreenshotTool = tool(
 				// Reduce motion to avoid capturing mid-animation states
 				await page.emulateMedia( { reducedMotion: 'reduce' } );
 
-				await page.goto( args.url, { waitUntil: 'networkidle', timeout: 15000 } );
+				await page.goto( args.url, { waitUntil: 'domcontentloaded', timeout: 30000 } );
+				await page.waitForLoadState( 'networkidle', { timeout: 10000 } ).catch( () => {} );
 
 				// Scroll through the page to trigger lazy-loaded images, then wait
-				// for all images to finish loading.
+				// for all images to finish loading (with a timeout so we don't hang
+				// on images that never settle).
 				await page.evaluate( async () => {
 					const delay = ( ms: number ) =>
 						new Promise< void >( ( resolve ) => setTimeout( resolve, ms ) );
@@ -787,7 +790,8 @@ const takeScreenshotTool = tool(
 					}
 					window.scrollTo( 0, 0 );
 
-					await Promise.all(
+					const timeout = new Promise< void >( ( resolve ) => setTimeout( resolve, 5000 ) );
+					const allImages = Promise.all(
 						Array.from( document.images )
 							.filter( ( img ) => ! img.complete )
 							.map(
@@ -798,6 +802,7 @@ const takeScreenshotTool = tool(
 									} )
 							)
 					);
+					await Promise.race( [ allImages, timeout ] );
 				} );
 
 				// Hide WordPress admin bar and scrollbars for cleaner screenshots
@@ -931,5 +936,18 @@ export function createStudioTools() {
 		name: 'studio',
 		version: '1.0.0',
 		tools: studioToolDefinitions,
+	} );
+}
+
+/**
+ * Creates an MCP server for remote WordPress.com sites, combining WP.com REST API tools
+ * with URL-based tools (screenshot) that work with any site.
+ */
+export function createRemoteSiteTools( token: string, siteId: number ) {
+	const wpcomTools = createWpcomToolDefinitions( token, siteId );
+	return createSdkMcpServer( {
+		name: 'studio',
+		version: '1.0.0',
+		tools: [ ...wpcomTools, takeScreenshotTool ],
 	} );
 }

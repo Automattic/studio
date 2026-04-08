@@ -44,7 +44,7 @@ export async function runCommand(
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'resume [id]',
-		describe: __( 'Resume an code session (id, prefix, "latest", or picker)' ),
+		describe: __( 'Resume a code session (id, prefix, "latest", or picker)' ),
 		builder: ( resumeYargs ) => {
 			return resumeYargs.positional( 'id', {
 				type: 'string',

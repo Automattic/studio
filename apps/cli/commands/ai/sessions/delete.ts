@@ -37,7 +37,7 @@ export async function runCommand( sessionIdOrPrefix?: string ): Promise< void > 
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'delete [id]',
-		describe: __( 'Delete an code session (id, prefix, "latest", or picker)' ),
+		describe: __( 'Delete a code session (id, prefix, "latest", or picker)' ),
 		builder: ( deleteYargs ) => {
 			return deleteYargs.positional( 'id', {
 				type: 'string',

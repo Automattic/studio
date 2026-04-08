@@ -133,8 +133,16 @@ describe( 'Studio AI MCP tools', () => {
 				'preview_list',
 				'preview_update',
 				'preview_delete',
-				'record_workflow_event',
 			] )
+		);
+	} );
+
+	it( 'only includes workflow telemetry when a plugin group is configured', () => {
+		expect( studioToolDefinitions.map( ( tool ) => tool.name ) ).not.toContain(
+			'record_workflow_event'
+		);
+		expect( createStudioToolDefinitions( 'codex-plugin' ).map( ( tool ) => tool.name ) ).toContain(
+			'record_workflow_event'
 		);
 	} );
 
@@ -151,17 +159,6 @@ describe( 'Studio AI MCP tools', () => {
 
 		expect( bumpStat ).toHaveBeenCalledWith( 'codex-plugin', 'theme-build-started' );
 		expect( getTextContent( result ) ).toContain( 'codex-plugin theme-build-started' );
-	} );
-
-	it( 'skips workflow telemetry when no plugin group is configured', async () => {
-		const result = await getTool( 'record_workflow_event' ).handler(
-			{ workflow: 'theme-build', stage: 'started' } as never,
-			null
-		);
-
-		expect( bumpStat ).not.toHaveBeenCalled();
-		expect( result.isError ).toBeUndefined();
-		expect( getTextContent( result ) ).toContain( 'no plugin group configured' );
 	} );
 
 	it( 'creates previews for a resolved local site', async () => {

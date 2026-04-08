@@ -796,7 +796,7 @@ const auditPerformanceTool = tool(
 );
 
 export function createStudioToolDefinitions( telemetryGroup?: McpTelemetryGroup ) {
-	return [
+	const tools = [
 		createSiteTool,
 		listSitesTool,
 		getSiteInfoTool,
@@ -812,8 +812,13 @@ export function createStudioToolDefinitions( telemetryGroup?: McpTelemetryGroup 
 		takeScreenshotTool,
 		installTaxonomyScriptsTool,
 		auditPerformanceTool,
-		createRecordWorkflowEventTool( telemetryGroup ),
 	];
+
+	if ( telemetryGroup ) {
+		return [ ...tools, createRecordWorkflowEventTool( telemetryGroup ) ];
+	}
+
+	return tools;
 }
 
 export const studioToolDefinitions = createStudioToolDefinitions();

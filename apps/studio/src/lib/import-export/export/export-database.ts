@@ -4,6 +4,19 @@ import { move } from 'fs-extra';
 import { generateBackupFilename } from 'src/lib/import-export/export/generate-backup-filename';
 import { SiteServer } from 'src/site-server';
 
+/**
+ * Filter PHP deprecation and notice messages from stderr output.
+ * These are harmless in the context of WP-CLI commands and should not
+ * cause the export to fail (e.g. deprecations in bundled phar dependencies).
+ */
+function filterPhpNonFatalMessages( stderr: string ): string {
+	return stderr
+		.split( '\n' )
+		.filter( ( line ) => ! /^PHP (Deprecated|Notice|Warning):/.test( line ) )
+		.join( '\n' )
+		.trim();
+}
+
 export async function exportDatabaseToFile(
 	site: SiteDetails,
 	finalDestination: string
@@ -27,8 +40,9 @@ export async function exportDatabaseToFile(
 		}
 	);
 
-	if ( stderr ) {
-		throw new Error( `Database export failed: ${ stderr }` );
+	const filteredStderr = filterPhpNonFatalMessages( stderr );
+	if ( filteredStderr ) {
+		throw new Error( `Database export failed: ${ filteredStderr }` );
 	}
 
 	if ( exitCode ) {
@@ -58,8 +72,9 @@ export async function exportDatabaseToMultipleFiles(
 			skipPluginsAndThemes: true,
 		}
 	);
-	if ( tablesResult.stderr ) {
-		throw new Error( `Database export failed: ${ tablesResult.stderr }` );
+	const filteredTablesStderr = filterPhpNonFatalMessages( tablesResult.stderr );
+	if ( filteredTablesStderr ) {
+		throw new Error( `Database export failed: ${ filteredTablesStderr }` );
 	}
 	if ( tablesResult.exitCode ) {
 		throw new Error( 'Database export failed' );
@@ -96,8 +111,9 @@ export async function exportDatabaseToMultipleFiles(
 			}
 		);
 
-		if ( stderr ) {
-			throw new Error( `Database export failed: ${ stderr }` );
+		const filteredTableStderr = filterPhpNonFatalMessages( stderr );
+		if ( filteredTableStderr ) {
+			throw new Error( `Database export failed: ${ filteredTableStderr }` );
 		}
 
 		if ( exitCode ) {

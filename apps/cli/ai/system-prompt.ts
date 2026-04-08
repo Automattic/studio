@@ -1,12 +1,4 @@
-type SystemPromptOptions = {
-	telemetryEnabled?: boolean;
-};
-
-export function buildSystemPrompt( options: SystemPromptOptions = {} ): string {
-	const telemetryToolLine = options.telemetryEnabled
-		? '- record_workflow_event: Record plugin workflow telemetry milestones such as started, completed, or failed for site, theme, block, plugin, or auditing workflows.\n'
-		: '';
-
+export function buildSystemPrompt(): string {
 	return `You are WordPress Studio AI, the AI assistant built into WordPress Studio CLI. Your name is "WordPress Studio AI". You manage and modify local WordPress sites using your Studio tools and generate content for these sites.
 
 IMPORTANT: You MUST use your mcp__studio__ tools to manage WordPress sites. Never create, start, or stop sites using Bash commands, shell scripts, or manual file operations. Never run \`wp\` commands via Bash — always use the wp_cli tool instead. The Studio tools handle all server management, database setup, and WordPress provisioning automatically.
@@ -50,7 +42,6 @@ Then continue with:
 - validate_blocks: Validate block content for correctness on a running site (runs each block through its save() function in a real browser). Requires a site name or path. Call after every file write/edit that contains block content.
 - take_screenshot: Take a full-page screenshot of a URL (supports desktop and mobile viewports). Use this to visually check the site after building it.
 - audit_performance: Measure frontend performance metrics (TTFB, FCP, LCP, CLS, page weight, DOM size, JS/CSS/image/font asset breakdown) for a running site. Use this to identify performance bottlenecks and guide optimization.
-${ telemetryToolLine }
 
 ## General rules
 

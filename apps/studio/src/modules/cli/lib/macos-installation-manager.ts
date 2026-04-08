@@ -1,19 +1,33 @@
 import { dialog } from 'electron';
-import { mkdir, readFile, readlink, symlink, unlink, lstat, writeFile } from 'node:fs/promises';
+import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import * as Sentry from '@sentry/electron/main';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { __, sprintf } from '@wordpress/i18n';
+import { sudoExec } from 'src/lib/sudo-exec';
 import { getMainWindow } from 'src/main-window';
 import { StudioCliInstallationManager } from 'src/modules/cli/lib/ipc-handlers';
 import { getResourcesPath } from 'src/storage/paths';
 import { loadUserData, updateAppdata } from 'src/storage/user-data';
+import packageJson from '../../../../package.json';
 
+const legacyCliSymlinkPath = '/usr/local/bin/studio';
 const cliSymlinkPath = path.join( os.homedir(), '.local', 'bin', 'studio' );
 
 const binPath = path.join( getResourcesPath(), 'bin' );
 const cliPackagedPath = path.join( binPath, 'studio-cli.sh' );
+const uninstallScriptPath = path.join( binPath, 'uninstall-studio-cli.sh' );
+
+const prodCliPackagedPath = path.join(
+	path.sep,
+	'Applications',
+	'Studio.app',
+	'Contents',
+	'Resources',
+	'bin',
+	'studio-cli.sh'
+);
 
 const SUPPORTED_SHELLS = [ '/bin/zsh', '/bin/bash' ] as const;
 const SHELL_PROFILE_MAP: Record< ( typeof SUPPORTED_SHELLS )[ number ], string > = {
@@ -34,7 +48,7 @@ function getProfilePath(): string {
 
 async function readProfileContent(): Promise< string > {
 	try {
-		return await readFile( getProfilePath(), 'utf-8' );
+		return await fs.promises.readFile( getProfilePath(), 'utf-8' );
 	} catch ( error ) {
 		if ( isErrnoException( error ) && error.code === 'ENOENT' ) {
 			return '';
@@ -64,19 +78,11 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 		const currentSymlinkDestination = await this.getCurrentSymlinkDestination();
 
 		// Return true if we are running the development version of the app and the production CLI is installed
-		if ( process.env.NODE_ENV !== 'production' ) {
-			const prodCliPackagedPath = path.join(
-				path.sep,
-				'Applications',
-				'Studio.app',
-				'Contents',
-				'Resources',
-				'bin',
-				'studio-cli.sh'
-			);
-			if ( currentSymlinkDestination === prodCliPackagedPath ) {
-				return true;
-			}
+		if (
+			process.env.NODE_ENV !== 'production' &&
+			currentSymlinkDestination === prodCliPackagedPath
+		) {
+			return true;
 		}
 
 		return currentSymlinkDestination === cliPackagedPath;
@@ -128,6 +134,7 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 	async uninstallCliWithConfirmation(): Promise< void > {
 		try {
 			await this.uninstallCli();
+			await this.uninstallLegacyCliIfNeeded();
 			const mainWindow = await getMainWindow();
 			await dialog.showMessageBox( mainWindow, {
 				type: 'info',
@@ -169,7 +176,7 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 
 	private async installCli(): Promise< void > {
 		try {
-			const stats = await lstat( cliSymlinkPath );
+			const stats = await fs.promises.lstat( cliSymlinkPath );
 
 			if ( ! stats.isSymbolicLink() ) {
 				throw new Error( ERROR_FILE_ALREADY_EXISTS );
@@ -189,21 +196,21 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 		const directoryPath = path.dirname( cliSymlinkPath );
 
 		try {
-			await unlink( cliSymlinkPath );
+			await fs.promises.unlink( cliSymlinkPath );
 		} catch ( error ) {
 			if ( ! isErrnoException( error ) || error.code !== 'ENOENT' ) {
 				throw error;
 			}
 		}
 
-		await mkdir( directoryPath, { recursive: true } );
-		await symlink( cliPackagedPath, cliSymlinkPath );
+		await fs.promises.mkdir( directoryPath, { recursive: true } );
+		await fs.promises.symlink( cliPackagedPath, cliSymlinkPath );
 		await this.ensurePathInProfile();
 	}
 
 	private async uninstallCli(): Promise< void > {
 		try {
-			const stats = await lstat( cliSymlinkPath );
+			const stats = await fs.promises.lstat( cliSymlinkPath );
 
 			if ( ! stats.isSymbolicLink() ) {
 				throw new Error( ERROR_FILE_ALREADY_EXISTS );
@@ -216,7 +223,42 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 			throw error;
 		}
 
-		await unlink( cliSymlinkPath );
+		await fs.promises.unlink( cliSymlinkPath );
+	}
+
+	private async uninstallLegacyCliIfNeeded(): Promise< void > {
+		try {
+			const symlinkDestination = await fs.promises.readlink( legacyCliSymlinkPath );
+
+			// Return true if we are running the development version of the app and the production CLI is installed
+			if ( process.env.NODE_ENV !== 'production' ) {
+				if ( symlinkDestination !== prodCliPackagedPath ) {
+					return;
+				}
+			} else if ( symlinkDestination !== cliPackagedPath ) {
+				return;
+			}
+		} catch ( error ) {
+			if ( isErrnoException( error ) && error.code === 'ENOENT' ) {
+				// File does not exist. No need to remove it.
+				return;
+			} else {
+				throw error;
+			}
+		}
+
+		try {
+			await fs.promises.unlink( legacyCliSymlinkPath );
+		} catch ( error ) {
+			// `/usr/local/bin` is not typically writable by non-root users, so in most cases, we run
+			// this uninstall script with admin privileges to remove the symlink.
+			await sudoExec( `/bin/sh "${ uninstallScriptPath }"`, {
+				name: packageJson.productName,
+				env: {
+					CLI_SYMLINK_PATH: legacyCliSymlinkPath,
+				},
+			} );
+		}
 	}
 
 	private async ensurePathInProfile(): Promise< void > {
@@ -233,12 +275,12 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 				? `${ PATH_EXPORT_LINE }\n`
 				: `\n${ PATH_EXPORT_LINE }\n`;
 
-		await writeFile( profilePath, existingContent + lineToAppend, 'utf-8' );
+		await fs.promises.writeFile( profilePath, existingContent + lineToAppend, 'utf-8' );
 	}
 
 	private async getCurrentSymlinkDestination(): Promise< string | null > {
 		try {
-			return await readlink( cliSymlinkPath );
+			return await fs.promises.readlink( cliSymlinkPath );
 		} catch {
 			return null;
 		}

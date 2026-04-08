@@ -3,28 +3,26 @@ import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { z } from 'zod/v4';
 
-// Responses larger than this threshold will have heavy fields stripped.
-const COMPACT_THRESHOLD_CHARS = 80_000;
-
 /**
- * Strips known bloated fields from API responses to stay within MCP tool result
- * size limits (~100k characters).
+ * Special case: the WP.com /sites/{id} endpoint returns a `plan` object whose
+ * `features` sub-field alone is 60K+ characters, which pushes the tool result past
+ * Claude Code's MCP output limit (~100k chars). The API doesn't support sub-field
+ * filtering (e.g. `fields=plan.product_slug`), so we can't solve this via query
+ * params. The agent only needs a few plan properties to gate features since the
+ * system prompt hardcodes what each plan tier can do.
  *
- * Two cases are handled:
- * 1. Single object with plan.features (e.g. /sites/{id}): the features sub-field
- *    alone can be 60K+ chars. The agent only needs a few plan properties.
- * 2. Array responses (e.g. /templates, /posts): when the list is too large, strip
- *    heavy per-item fields (content, _links) so the agent can identify items and
- *    fetch individual ones for full content.
+ * This is NOT a pattern to follow for other endpoints. For general large responses,
+ * the system prompt instructs the agent to use `_fields` (wp/v2) or `fields` (v1.1)
+ * query params to request only the properties it needs.
  */
 function compactResponse( result: ApiResponse ): ApiResponse {
-	if ( ! result || typeof result !== 'object' ) {
-		return result;
-	}
-
-	// Case 1: plan.features can be 60K+ chars — keep only essential plan properties
-	if ( ! Array.isArray( result ) && result.plan?.features ) {
-		result = {
+	if (
+		result &&
+		typeof result === 'object' &&
+		! Array.isArray( result ) &&
+		result.plan?.features
+	) {
+		return {
 			...result,
 			plan: {
 				product_id: result.plan.product_id,
@@ -35,21 +33,6 @@ function compactResponse( result: ApiResponse ): ApiResponse {
 			},
 		};
 	}
-
-	// Case 2: array responses — strip heavy fields when the response is too large
-	if ( Array.isArray( result ) ) {
-		const fullSize = JSON.stringify( result ).length;
-		if ( fullSize > COMPACT_THRESHOLD_CHARS ) {
-			result = result.map( ( item: ApiResponse ) => {
-				if ( item && typeof item === 'object' && ! Array.isArray( item ) ) {
-					const { content, _links, ...rest } = item;
-					return rest;
-				}
-				return item;
-			} );
-		}
-	}
-
 	return result;
 }
 

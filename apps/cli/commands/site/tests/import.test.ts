@@ -14,7 +14,7 @@ import {
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
-import { runCommand } from '../import';
+import { runCommand } from '../../import';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
 vi.mock( 'cli/lib/cli-config/sites', () => ( {

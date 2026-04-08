@@ -27,7 +27,7 @@ import { selectSyncItemsForPush } from 'cli/lib/sync-selector';
 import { findSyncSiteByIdentifier, pickSyncSite } from 'cli/lib/sync-site-picker';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
-import { exportEventHandler } from '../site/export';
+import { exportEventHandler } from './export';
 
 const logger = new Logger< LoggerAction >();
 

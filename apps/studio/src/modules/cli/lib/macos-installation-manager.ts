@@ -25,31 +25,10 @@ const SHELL_PROFILE_MAP: Record< ( typeof SUPPORTED_SHELLS )[ number ], string >
 	'/bin/bash': '.bash_profile',
 };
 const DEFAULT_PROFILE = SHELL_PROFILE_MAP[ '/bin/zsh' ];
-const PATH_EXPORT_LINE = 'export PATH="$HOME/.local/bin:$PATH"';
+const PATH_DEFINITION = '$HOME/.local/bin';
+const PATH_EXPORT_LINE = `export PATH="${ PATH_DEFINITION }:$PATH"`;
 
 const ERROR_FILE_ALREADY_EXISTS = 'Studio CLI symlink path already occupied by non-symlink';
-
-function getProfilePath(): string {
-	const shell = process.env.SHELL ?? '';
-	const supportedShell = SUPPORTED_SHELLS.find( ( candidate ) => candidate === shell );
-	const profileFile = supportedShell ? SHELL_PROFILE_MAP[ supportedShell ] : DEFAULT_PROFILE;
-	return path.join( os.homedir(), profileFile );
-}
-
-async function readProfileContent(): Promise< string > {
-	try {
-		return await fs.promises.readFile( getProfilePath(), 'utf-8' );
-	} catch ( error ) {
-		if ( isErrnoException( error ) && error.code === 'ENOENT' ) {
-			return '';
-		}
-		throw error;
-	}
-}
-
-function hasLocalBinInContent( content: string ): boolean {
-	return content.includes( '$HOME/.local/bin' );
-}
 
 export class MacOSCliInstallationManager implements StudioCliInstallationManager {
 	constructor() {
@@ -59,9 +38,9 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 	}
 
 	async isCliInstalled(): Promise< boolean > {
-		const existingContent = await readProfileContent();
+		const existingContent = await this.readShellProfileContent();
 
-		if ( ! hasLocalBinInContent( existingContent ) ) {
+		if ( ! existingContent.includes( PATH_DEFINITION ) ) {
 			return false;
 		}
 
@@ -227,13 +206,13 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 	}
 
 	private async ensurePathInProfile(): Promise< void > {
-		const existingContent = await readProfileContent();
+		const existingContent = await this.readShellProfileContent();
 
-		if ( hasLocalBinInContent( existingContent ) ) {
+		if ( existingContent.includes( PATH_DEFINITION ) ) {
 			return;
 		}
 
-		const profilePath = getProfilePath();
+		const profilePath = this.getShellProfilePath();
 
 		const lineToAppend =
 			existingContent.endsWith( '\n' ) || existingContent === ''
@@ -241,6 +220,24 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 				: `\n${ PATH_EXPORT_LINE }\n`;
 
 		await fs.promises.writeFile( profilePath, existingContent + lineToAppend, 'utf-8' );
+	}
+
+	private getShellProfilePath(): string {
+		const shell = process.env.SHELL ?? '';
+		const supportedShell = SUPPORTED_SHELLS.find( ( candidate ) => candidate === shell );
+		const profileFile = supportedShell ? SHELL_PROFILE_MAP[ supportedShell ] : DEFAULT_PROFILE;
+		return path.join( os.homedir(), profileFile );
+	}
+
+	private async readShellProfileContent(): Promise< string > {
+		try {
+			return await fs.promises.readFile( this.getShellProfilePath(), 'utf-8' );
+		} catch ( error ) {
+			if ( isErrnoException( error ) && error.code === 'ENOENT' ) {
+				return '';
+			}
+			throw error;
+		}
 	}
 
 	private async doesSymlinkLeadToPackagedCli( symlinkPath: string ): Promise< boolean > {

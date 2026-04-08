@@ -201,7 +201,11 @@ async function main() {
 			} );
 			aiYargs.version( false );
 		};
-		studioArgv.command( 'code', __( 'AI agent for building WordPress' ), studioCodeCommandBuilder );
+		studioArgv.command(
+			'code',
+			__( 'AI agent for building WordPress sites' ),
+			studioCodeCommandBuilder
+		);
 		studioArgv.command( 'ai', false, studioCodeCommandBuilder );
 	}
 	const { registerCommand: registerMcpCommand } = await import( 'cli/commands/mcp' );

@@ -17,10 +17,10 @@
  * relevant script in place.
  */
 
+import { spawnSync, type SpawnSyncOptions } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { spawnSync, type SpawnSyncOptions } from 'child_process';
 import { z } from 'zod';
 
 const REPO_ROOT = path.resolve( __dirname, '..' );
@@ -105,7 +105,9 @@ function main() {
 		return;
 	}
 
-	const stagingParent = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-package-' ) );
+	const stagingParent = fs.realpathSync.native(
+		fs.mkdtempSync( path.join( os.tmpdir(), 'studio-package-' ) )
+	);
 	const stagingRoot = path.join( stagingParent, 'repo' );
 
 	try {

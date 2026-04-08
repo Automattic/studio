@@ -302,9 +302,8 @@ async function startPullPoller( selectedSiteId: string, remoteSiteId: number ) {
 // Initialize auth once locale is loaded, and re-initialize when locale changes
 startAppListening( {
 	matcher: isAnyOf( initializeUserLocale.fulfilled, saveUserLocale.fulfilled ),
-	effect( action, listenerApi ) {
-		const { locale } = listenerApi.getState().i18n;
-		void listenerApi.dispatch( initializeAuth( { locale } ) );
+	effect( _, listenerApi ) {
+		void listenerApi.dispatch( initializeAuth() );
 	},
 } );
 
@@ -379,7 +378,7 @@ setupListeners( store.dispatch );
 
 // Initialize beta features and fetch snapshots on store initialization, but skip in test environment
 if ( process.env.NODE_ENV !== 'test' ) {
-	initializeAuthIpcListeners();
+	initializeAuthIpcListeners( store.dispatch, store.getState.bind( store ) );
 	void store.dispatch( loadBetaFeatures() );
 	void refreshSnapshots();
 }

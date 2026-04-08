@@ -6,9 +6,9 @@ import { __ } from '@wordpress/i18n';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { isInvalidTokenError } from 'src/lib/is-invalid-oauth-token-error';
 import { setSentryWpcomUserIdRenderer } from 'src/lib/renderer-sentry-utils';
-import { store, RootState } from 'src/stores';
 import { getWpcomClient, setWpcomClient } from 'src/stores/wpcom-client';
 import type { StoredAuthToken } from 'src/lib/oauth';
+import type { AppDispatch, RootState } from 'src/stores';
 import type { WPCOM } from 'wpcom/types';
 
 interface WpcomParams extends Record< string, unknown > {
@@ -93,7 +93,8 @@ export const handleInvalidToken = createTypedAsyncThunk( 'auth/handleInvalidToke
 
 export const initializeAuth = createTypedAsyncThunk(
 	'auth/initialize',
-	async ( { locale }: { locale?: string } ) => {
+	async ( _, { dispatch, getState } ) => {
+		const { locale } = getState().i18n;
 		try {
 			const token = await getIpcApi().getAuthenticationToken();
 
@@ -102,7 +103,7 @@ export const initializeAuth = createTypedAsyncThunk(
 			}
 
 			const client = createWpcomClient( token.accessToken, locale, () =>
-				store.dispatch( handleInvalidToken() )
+				dispatch( handleInvalidToken() )
 			);
 			setWpcomClient( client );
 			setSentryWpcomUserIdRenderer( token.id );
@@ -122,9 +123,9 @@ export const initializeAuth = createTypedAsyncThunk(
 
 export const authTokenReceived = createTypedAsyncThunk(
 	'auth/tokenReceived',
-	async ( { token, locale }: { token: StoredAuthToken; locale?: string } ) => {
+	async ( { token, locale }: { token: StoredAuthToken; locale?: string }, { dispatch } ) => {
 		const client = createWpcomClient( token.accessToken, locale, () =>
-			store.dispatch( handleInvalidToken() )
+			dispatch( handleInvalidToken() )
 		);
 		setWpcomClient( client );
 		setSentryWpcomUserIdRenderer( token.id );
@@ -191,7 +192,7 @@ const authSlice = createSlice( {
 export const selectIsAuthenticated = ( state: RootState ) => state.auth.isAuthenticated;
 export const selectUser = ( state: RootState ) => state.auth.user ?? undefined;
 
-export function initializeAuthIpcListeners() {
+export function initializeAuthIpcListeners( dispatch: AppDispatch, getState: () => RootState ) {
 	window.ipcListener.subscribe( 'auth-updated', ( _event, payload ) => {
 		if ( 'error' in payload ) {
 			let title: string = __( 'Authentication error' );
@@ -209,12 +210,12 @@ export function initializeAuthIpcListeners() {
 		}
 
 		if ( ! payload.token ) {
-			void store.dispatch( authLogout( { isOffline: true } ) );
+			void dispatch( authLogout( { isOffline: true } ) );
 			return;
 		}
 
-		const locale = store.getState().i18n.locale;
-		void store.dispatch( authTokenReceived( { token: payload.token, locale } ) );
+		const locale = getState().i18n.locale;
+		void dispatch( authTokenReceived( { token: payload.token, locale } ) );
 	} );
 }
 

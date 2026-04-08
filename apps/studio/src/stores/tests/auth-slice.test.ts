@@ -8,14 +8,12 @@ import {
 	authTokenReceived,
 	handleInvalidToken,
 	initializeAuth,
-	initializeAuthIpcListeners,
 	selectIsAuthenticated,
 	selectUser,
 } from 'src/stores/auth-slice';
 import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 import { getWpcomClient, setWpcomClient } from 'src/stores/wpcom-client';
 import type { StoredAuthToken } from 'src/lib/oauth';
-import type { WPCOM } from 'wpcom/types';
 
 vi.mock( 'src/lib/get-ipc-api' );
 
@@ -70,7 +68,7 @@ describe( 'auth-slice', () => {
 
 	describe( 'initializeAuth', () => {
 		it( 'sets isAuthenticated to false when no token exists', async () => {
-			const result = await store.dispatch( initializeAuth( { locale: 'en' } ) );
+			const result = await store.dispatch( initializeAuth() );
 
 			expect( result.type ).toBe( 'auth/initialize/fulfilled' );
 			expect( result.payload ).toBeNull();
@@ -85,7 +83,7 @@ describe( 'auth-slice', () => {
 				getAuthenticationToken: vi.fn().mockResolvedValue( mockToken ),
 			} );
 
-			await store.dispatch( initializeAuth( { locale: 'en' } ) );
+			await store.dispatch( initializeAuth() );
 
 			const state = store.getState();
 			expect( selectIsAuthenticated( state ) ).toBe( true );
@@ -101,7 +99,7 @@ describe( 'auth-slice', () => {
 				getAuthenticationToken: vi.fn().mockResolvedValue( mockToken ),
 			} );
 
-			await store.dispatch( initializeAuth( { locale: 'en' } ) );
+			await store.dispatch( initializeAuth() );
 
 			expect( getWpcomClient() ).toBeDefined();
 			expect( sentryUtils.setSentryWpcomUserIdRenderer ).toHaveBeenCalledWith( mockToken.id );
@@ -113,7 +111,7 @@ describe( 'auth-slice', () => {
 				getAuthenticationToken: vi.fn().mockRejectedValue( error ),
 			} );
 
-			const result = await store.dispatch( initializeAuth( { locale: 'en' } ) );
+			const result = await store.dispatch( initializeAuth() );
 
 			expect( result.payload ).toBeNull();
 			expect( Sentry.captureException ).toHaveBeenCalledWith( error );
@@ -238,65 +236,4 @@ describe( 'auth-slice', () => {
 		} );
 	} );
 
-	describe( 'initializeAuthIpcListeners', () => {
-		type IpcCallback = ( event: unknown, payload: unknown ) => void;
-		let capturedCallback: IpcCallback;
-
-		beforeEach( () => {
-			vi.mocked( window.ipcListener.subscribe ).mockImplementationOnce(
-				( _event: string, callback: IpcCallback ) => {
-					capturedCallback = callback;
-				}
-			);
-			initializeAuthIpcListeners();
-		} );
-
-		it( 'subscribes to auth-updated IPC events', () => {
-			expect( window.ipcListener.subscribe ).toHaveBeenCalledWith(
-				'auth-updated',
-				expect.any( Function )
-			);
-		} );
-
-		it( 'dispatches authTokenReceived when a valid token is received', async () => {
-			capturedCallback( null, { token: mockToken } );
-			await new Promise( ( resolve ) => setTimeout( resolve, 0 ) );
-
-			const state = store.getState();
-			expect( selectIsAuthenticated( state ) ).toBe( true );
-			expect( selectUser( state ) ).toEqual( {
-				id: mockToken.id,
-				email: mockToken.email,
-				displayName: mockToken.displayName,
-			} );
-		} );
-
-		it( 'shows authentication error message box on auth error', async () => {
-			capturedCallback( null, { error: new Error( 'Some error' ) } );
-			await new Promise( ( resolve ) => setTimeout( resolve, 0 ) );
-
-			expect( getIpcApi().showErrorMessageBox ).toHaveBeenCalledWith(
-				expect.objectContaining( { title: 'Authentication error' } )
-			);
-		} );
-
-		it( 'shows authorization denied message box when user denies access', async () => {
-			capturedCallback( null, { error: new Error( 'access_denied by user' ) } );
-			await new Promise( ( resolve ) => setTimeout( resolve, 0 ) );
-
-			expect( getIpcApi().showErrorMessageBox ).toHaveBeenCalledWith(
-				expect.objectContaining( { title: 'Authorization denied' } )
-			);
-		} );
-
-		it( 'clears auth state when a null token is received', async () => {
-			await store.dispatch( authTokenReceived( { token: mockToken } ) );
-
-			capturedCallback( null, { token: null } );
-			await new Promise( ( resolve ) => setTimeout( resolve, 0 ) );
-
-			expect( selectIsAuthenticated( store.getState() ) ).toBe( false );
-			expect( selectUser( store.getState() ) ).toBeUndefined();
-		} );
-	} );
 } );

@@ -50,12 +50,6 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 	async installCliWithConfirmation(): Promise< void > {
 		try {
 			await this.installCli();
-			const mainWindow = await getMainWindow();
-			await dialog.showMessageBox( mainWindow, {
-				type: 'info',
-				title: __( 'CLI Installed' ),
-				message: __( 'The CLI has been installed successfully.' ),
-			} );
 		} catch ( error ) {
 			console.error( 'Failed to install CLI', error );
 

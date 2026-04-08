@@ -10,6 +10,8 @@ import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { loadNodeRuntime } from '@php-wasm/node';
+import { PHP, ProcessIdAllocator } from '@php-wasm/universal';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { arePathsEqual, isEmptyDir, pathExists } from '@studio/common/lib/fs-utils';
@@ -19,6 +21,7 @@ import { readAuthToken, type StoredAuthToken } from '@studio/common/lib/shared-c
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import { ImportCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
+import { LatestSupportedPHPVersion } from '@studio/common/types/php-versions';
 import { __ } from '@wordpress/i18n';
 import chalk from 'chalk';
 import { getWpComSites, rotateStreamingExportSecret, type WpComSiteInfo } from 'cli/lib/api';
@@ -52,6 +55,7 @@ import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
 const logger = new Logger< LoggerAction >();
+const phpProcessIdAllocator = new ProcessIdAllocator();
 
 const PLUGIN_INSTALL_HINT =
 	'Make sure the streaming-site-migration plugin is installed and activated.\n' +
@@ -285,25 +289,6 @@ function hasReachedStage( metadata: ImportMetadata, stage: ImportStage ): boolea
 	return getStageRank( metadata.stage ) >= getStageRank( stage );
 }
 
-function parsePhpSerializedStringArray( serialized: string ): string[] {
-	const items: string[] = [];
-	const regex = /s:(\d+):"([\s\S]*?)";/g;
-	let match;
-
-	while ( ( match = regex.exec( serialized ) ) !== null ) {
-		items.push( match[ 2 ] );
-	}
-
-	return items;
-}
-
-function serializePhpStringArray( items: string[] ): string {
-	const entries = items
-		.map( ( value, index ) => `i:${ index };s:${ value.length }:"${ value }";` )
-		.join( '' );
-	return `a:${ items.length }:{${ entries }}`;
-}
-
 function reportVerboseCommand( verbose: boolean, command: string, args: string[] = [] ): void {
 	if ( ! verbose ) {
 		return;
@@ -312,12 +297,19 @@ function reportVerboseCommand( verbose: boolean, command: string, args: string[]
 	console.error( `[command] ${ [ command, ...args ].join( ' ' ) }` );
 }
 
-function deactivatePluginInSqlite(
+/**
+ * Deactivate plugins from the active_plugins option in a local SQLite
+ * database. Uses PHP WASM's native serialize()/unserialize() to roundtrip
+ * the serialized option value correctly — the PHP serialization format
+ * uses byte-counted strings that a regex-based JavaScript parser would
+ * silently corrupt on multi-byte UTF-8 plugin paths.
+ */
+async function deactivatePluginsInSqlite(
 	dbPath: string,
 	tablePrefix: string,
-	pluginSlug: string,
+	pluginSlugs: string[],
 	verbose = false
-): boolean {
+): Promise< string[] > {
 	const table = `${ tablePrefix }options`;
 	reportVerboseCommand( verbose, 'sqlite3', [
 		dbPath,
@@ -329,27 +321,112 @@ function deactivatePluginInSqlite(
 	] );
 
 	if ( readResult.status !== 0 || ! readResult.stdout ) {
-		return false;
+		return [];
 	}
 
-	const plugins = parsePhpSerializedStringArray( readResult.stdout.toString().trim() );
-	const filtered = plugins.filter( ( plugin ) => ! plugin.startsWith( `${ pluginSlug }/` ) );
-
-	if ( filtered.length === plugins.length ) {
-		return false;
+	const serialized = readResult.stdout.toString().trim();
+	if ( ! serialized ) {
+		return [];
 	}
 
-	const serialized = serializePhpStringArray( filtered );
-	const sql = `UPDATE ${ table } SET option_value = '${ serialized.replace(
-		/'/g,
-		"''"
-	) }' WHERE option_name = 'active_plugins';`;
-	reportVerboseCommand( verbose, 'sqlite3', [ dbPath, '<stdin>' ] );
-	if ( verbose ) {
-		console.error( sql );
+	const id = await loadNodeRuntime( LatestSupportedPHPVersion, {
+		emscriptenOptions: {
+			processId: phpProcessIdAllocator.claim(),
+		},
+	} );
+	const php = new PHP( id );
+
+	try {
+		await php.setSapiName( 'cli' );
+
+		// Pass data through the VFS to avoid string escaping issues.
+		php.writeFile(
+			'/tmp/input.json',
+			JSON.stringify( {
+				serialized: Buffer.from( serialized ).toString( 'base64' ),
+				slugs: pluginSlugs,
+			} )
+		);
+
+		php.writeFile(
+			'/tmp/filter-plugins.php',
+			`<?php
+$input = json_decode( file_get_contents( '/tmp/input.json' ), true );
+$plugins = @unserialize( base64_decode( $input['serialized'] ) );
+if ( ! is_array( $plugins ) ) {
+	echo json_encode( [ 'deactivated' => [] ] );
+	exit( 0 );
+}
+$deactivated = [];
+$filtered    = [];
+foreach ( $plugins as $plugin ) {
+	$dominated = false;
+	foreach ( $input['slugs'] as $slug ) {
+		if ( strpos( $plugin, $slug . '/' ) === 0 ) {
+			$dominated   = true;
+			$deactivated[] = $slug;
+			break;
+		}
 	}
-	const writeResult = spawnSync( 'sqlite3', [ dbPath ], { input: sql } );
-	return writeResult.status === 0;
+	if ( ! $dominated ) {
+		$filtered[] = $plugin;
+	}
+}
+if ( empty( $deactivated ) ) {
+	echo json_encode( [ 'deactivated' => [] ] );
+	exit( 0 );
+}
+echo json_encode( [
+	'serialized'  => base64_encode( serialize( array_values( $filtered ) ) ),
+	'deactivated' => array_values( array_unique( $deactivated ) ),
+] );
+`
+		);
+
+		const response = await php.cli( [ 'php', '/tmp/filter-plugins.php' ] );
+		const stdoutChunks: string[] = [];
+		const reader = response.stdout.getReader();
+		const decoder = new TextDecoder();
+
+		while ( true ) {
+			const { done, value } = await reader.read();
+			if ( done ) {
+				break;
+			}
+			if ( value ) {
+				stdoutChunks.push( decoder.decode( value, { stream: true } ) );
+			}
+		}
+
+		const exitCode = await response.exitCode;
+		if ( exitCode !== 0 ) {
+			return [];
+		}
+
+		const output = JSON.parse( stdoutChunks.join( '' ).trim() ) as {
+			deactivated: string[];
+			serialized?: string;
+		};
+		if ( ! output.deactivated || output.deactivated.length === 0 ) {
+			return [];
+		}
+
+		const newSerialized = Buffer.from( output.serialized!, 'base64' ).toString( 'utf-8' );
+		const escapedValue = newSerialized.replace( /'/g, "''" );
+		const sql = `UPDATE ${ table } SET option_value = '${ escapedValue }' WHERE option_name = 'active_plugins';`;
+		reportVerboseCommand( verbose, 'sqlite3', [ dbPath, '<stdin>' ] );
+		if ( verbose ) {
+			console.error( sql );
+		}
+		const writeResult = spawnSync( 'sqlite3', [ dbPath ], { input: sql } );
+		if ( writeResult.status !== 0 ) {
+			return [];
+		}
+
+		return output.deactivated;
+	} finally {
+		php.exit();
+	}
 }
 
 function getMetadataPath( technicalSiteDirectory: string ): string {
@@ -1688,11 +1765,14 @@ export async function runCommand(
 
 		const sqliteDbPath = await ensureImportedSiteSqliteReady( metadata.sitePath );
 		const tablePrefix = metadata.tablePrefix || 'wp_';
-		if ( deactivatePluginInSqlite( sqliteDbPath, tablePrefix, 'sg-security', verbose ) ) {
-			logger.reportSuccess( 'Deactivated sg-security plugin' );
-		}
-		if ( deactivatePluginInSqlite( sqliteDbPath, tablePrefix, 'sg-cachepress', verbose ) ) {
-			logger.reportSuccess( 'Deactivated sg-cachepress plugin' );
+		const deactivatedPlugins = await deactivatePluginsInSqlite(
+			sqliteDbPath,
+			tablePrefix,
+			[ 'sg-security', 'sg-cachepress' ],
+			verbose
+		);
+		for ( const slug of deactivatedPlugins ) {
+			logger.reportSuccess( `Deactivated ${ slug } plugin` );
 		}
 
 		let createdSiteRecord = false;

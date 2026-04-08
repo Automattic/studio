@@ -784,10 +784,8 @@ async function loadWpComSites(): Promise< { sites: WpComSiteInfo[]; token: Store
 		);
 	}
 
-	logger.reportStart( LoggerAction.LOAD_WPCOM_SITES, __( 'Loading WordPress.com sites…' ) );
 	try {
 		const sites = await getWpComSites( token.accessToken );
-		logger.reportSuccess( `${ __( 'Loaded WordPress.com sites' ) }: ${ sites.length }` );
 		return { token, sites };
 	} catch ( error ) {
 		throw new LoggerError( __( 'Failed to load WordPress.com sites' ), error );
@@ -795,11 +793,8 @@ async function loadWpComSites(): Promise< { sites: WpComSiteInfo[]; token: Store
 }
 
 async function rotateWpComSecret( site: WpComSiteInfo, token: StoredAuthToken ): Promise< string > {
-	logger.reportStart( LoggerAction.ROTATE_SECRET, __( 'Rotating WordPress.com site secret…' ) );
 	try {
-		const secret = await rotateStreamingExportSecret( site.id, token.accessToken );
-		logger.reportSuccess( __( 'WordPress.com site secret rotated' ) );
-		return secret;
+		return await rotateStreamingExportSecret( site.id, token.accessToken );
 	} catch ( error ) {
 		throw new LoggerError( __( 'Failed to rotate the WordPress.com site secret' ), error );
 	}
@@ -836,9 +831,20 @@ async function resolveImportSource(
 		return { url, secret: providedSecret };
 	}
 
-	// Resolve the WP.com site that matches the requested URL (or pick the
-	// only connected site when no URL is given).
+	// When the caller provides a URL, try the stored secret first without
+	// loading the full site list or rotating.  The caller will fall back to
+	// loading sites and rotating the secret if the preflight fails.
+	if ( url ) {
+		const storedSecret = readStoredSecret( url, providedName );
+		if ( storedSecret ) {
+			return { url, secret: storedSecret };
+		}
+	}
+
+	// Need the full site list: either no URL was given (interactive pick) or
+	// no stored secret exists and we need the site ID to rotate one.
 	const { token, sites } = await loadWpComSites();
+
 	let resolvedUrl: string;
 	let wpComSite: WpComSiteInfo;
 
@@ -877,14 +883,6 @@ async function resolveImportSource(
 		resolvedUrl = wpComSite.url;
 		console.log( `${ __( 'Using your only connected WordPress.com site:' ) } ${ resolvedUrl }` );
 		console.log( '' );
-	}
-
-	// Reuse a secret from a previous import run when one exists, so we don't
-	// rotate on every resume. The caller will retry with a fresh secret if
-	// this one turns out to be stale.
-	const storedSecret = readStoredSecret( resolvedUrl, providedName );
-	if ( storedSecret ) {
-		return { url: resolvedUrl, secret: storedSecret, wpComSite, wpComToken: token };
 	}
 
 	return {
@@ -974,7 +972,7 @@ async function runPreflight(
 		return JSON.parse( fs.readFileSync( preflightCachePath, 'utf-8' ) );
 	}
 
-	logger.reportStart( LoggerAction.PREFLIGHT, __( 'Connecting to remote site…' ) );
+	logger.reportStart( LoggerAction.PREFLIGHT, __( 'Initiating the migration…' ) );
 
 	let preflightResult: ImporterResult;
 	try {
@@ -1616,13 +1614,30 @@ export async function runCommand(
 		try {
 			preflight = await runPreflight( metadata, apiUrl, secret, verbose );
 		} catch ( preflightError ) {
-			// If we used a stored secret and have WP.com credentials, try
-			// rotating the secret once before giving up — the old one may
-			// have expired.
-			if ( ! resolvedSource.wpComSite || ! resolvedSource.wpComToken ) {
-				throw preflightError;
+			// The stored secret may have expired.  Resolve the WP.com site
+			// (loading the site list only now, if we haven't already) and
+			// rotate the secret before retrying the preflight.
+			if ( resolvedSource.wpComSite && resolvedSource.wpComToken ) {
+				secret = await rotateWpComSecret( resolvedSource.wpComSite, resolvedSource.wpComToken );
+			} else {
+				let token: StoredAuthToken | null;
+				try {
+					token = await readAuthToken();
+				} catch {
+					token = null;
+				}
+				if ( ! token ) {
+					throw preflightError;
+				}
+				const sites = await getWpComSites( token.accessToken );
+				const matched = findMatchingWpComSite( sites, resolvedUrl );
+				if ( ! matched ) {
+					throw preflightError;
+				}
+				resolvedSource.wpComSite = matched;
+				resolvedSource.wpComToken = token;
+				secret = await rotateWpComSecret( matched, token );
 			}
-			secret = await rotateWpComSecret( resolvedSource.wpComSite, resolvedSource.wpComToken );
 			preflight = await runPreflight( metadata, apiUrl, secret, verbose );
 		}
 		metadata.remoteSiteUrl = preflight.siteurl || metadata.normalizedUrl;
@@ -1680,7 +1695,7 @@ export async function runCommand(
 				],
 				( progress ) => logger.reportProgress( progress ),
 				{
-					progressLabel: 'Essential files',
+					progressLabel: 'Downloading essential files',
 					verboseCommands: verbose,
 				}
 			);

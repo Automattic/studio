@@ -425,18 +425,28 @@ const runWpCliCommand = sequential(
 
 		const rewrittenArgs = await rewriteWpCliPostContentToFile( args, server.playground.writeFile );
 
-		const response = await server.playground.cli( [
-			'php',
-			'/tmp/wp-cli.phar',
-			`--path=${ await server.playground.documentRoot }`,
-			...rewrittenArgs,
-		] );
+		// Send activity heartbeats during long-running WP-CLI commands (e.g. wp import)
+		// to prevent the inactivity timeout from killing the process.
+		const heartbeatInterval = setInterval( () => {
+			process.send!( { topic: 'activity' } );
+		}, 30_000 );
 
-		return {
-			stdout: await response.stdoutText,
-			stderr: await response.stderrText,
-			exitCode: await response.exitCode,
-		};
+		try {
+			const response = await server.playground.cli( [
+				'php',
+				'/tmp/wp-cli.phar',
+				`--path=${ await server.playground.documentRoot }`,
+				...rewrittenArgs,
+			] );
+
+			return {
+				stdout: await response.stdoutText,
+				stderr: await response.stderrText,
+				exitCode: await response.exitCode,
+			};
+		} finally {
+			clearInterval( heartbeatInterval );
+		}
 	},
 	{ concurrent: 3, max: 100, deduplicateKey: ( args: string[] ) => args.join( ' ' ) }
 );

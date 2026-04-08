@@ -1,5 +1,6 @@
 import path from 'path';
 import { query, type Query } from '@anthropic-ai/claude-agent-sdk';
+import { AiPluginManager } from 'cli/ai/plugin-manager';
 import {
 	ALLOWED_TOOLS,
 	STUDIO_ROOT,
@@ -30,6 +31,7 @@ export type AiModelId = keyof typeof AI_MODELS;
 
 export const DEFAULT_MODEL: AiModelId = 'claude-sonnet-4-6';
 const pathApprovalSession = createPathApprovalSession();
+const pluginManager = new AiPluginManager();
 
 // The Claude Agent SDK rejects internal pending promises (e.g. control
 // responses) when an agent turn is interrupted via ESC. These rejections
@@ -47,9 +49,11 @@ process.on( 'unhandledRejection', ( reason ) => {
  * Start the AI agent and return the Query object.
  * Caller can iterate messages with `for await` and call `interrupt()` to stop.
  */
-export function startAiAgent( config: AiAgentConfig ): Query {
+export async function startAiAgent( config: AiAgentConfig ): Promise< Query > {
 	const { prompt, env, model = DEFAULT_MODEL, maxTurns = 50, resume, onAskUser } = config;
 	const resolvedEnv = env ?? { ...( process.env as Record< string, string > ) };
+
+	const externalPlugins = await pluginManager.resolvePlugins();
 
 	return query( {
 		prompt,
@@ -62,6 +66,7 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 			},
 			mcpServers: {
 				studio: createStudioTools(),
+				...externalPlugins.mcpServers,
 			},
 			maxTurns,
 			cwd: STUDIO_ROOT,
@@ -93,9 +98,30 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 					pathApprovalSession,
 				} );
 			},
-			plugins: [ { type: 'local' as const, path: path.resolve( import.meta.dirname, 'plugin' ) } ],
+			plugins: [
+				{ type: 'local' as const, path: path.resolve( import.meta.dirname, 'plugin' ) },
+				...externalPlugins.pluginEntries,
+			],
 			model,
 			resume,
 		},
 	} );
 }
+
+export async function ensurePluginsInstalled(): Promise< void > {
+	for ( const manifest of pluginManager.getDefaultPlugins() ) {
+		await pluginManager.install( manifest );
+	}
+}
+
+export async function checkPluginUpdates(): Promise< string | null > {
+	for ( const manifest of pluginManager.getDefaultPlugins() ) {
+		const result = await pluginManager.checkForUpdates( manifest );
+		if ( result.available ) {
+			return `data-liberation plugin update available (${ result.currentVersion } → ${ result.latestVersion }). Run 'studio ai plugin update' to update.`;
+		}
+	}
+	return null;
+}
+
+export { pluginManager };

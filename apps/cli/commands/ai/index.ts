@@ -1,9 +1,13 @@
 import { readAuthToken } from '@studio/common/lib/shared-config';
+import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import {
 	AI_MODELS,
 	DEFAULT_MODEL,
 	startAiAgent,
+	ensurePluginsInstalled,
+	checkPluginUpdates,
+	pluginManager,
 	type AiModelId,
 	type AskUserQuestion,
 } from 'cli/ai/agent';
@@ -71,6 +75,20 @@ export async function runCommand(
 	ui.currentModel = currentModel;
 	ui.start();
 	ui.showWelcome();
+
+	// Ensure AI plugins are installed (first-run auto-install, silent)
+	await ensurePluginsInstalled();
+
+	// Discover slash commands from installed plugins and add to autocomplete
+	const pluginSkills = await pluginManager.discoverSkillCommands();
+	ui.addSlashCommands( pluginSkills );
+
+	// Async update check — fire and forget
+	void checkPluginUpdates().then( ( message ) => {
+		if ( message ) {
+			ui.showInfo( message );
+		}
+	} );
 
 	let sessionRecorder: AiSessionRecorder | undefined;
 	let didDisableSessionPersistence = options.noSessionPersistence === true;
@@ -390,7 +408,7 @@ export async function runCommand(
 			} )
 		);
 
-		const agentQuery = startAiAgent( {
+		const agentQuery = await startAiAgent( {
 			prompt: enrichedPrompt,
 			env,
 			model: currentModel,
@@ -681,9 +699,22 @@ export async function runCommand(
 
 			await maybeAutoSwitchProvider();
 
+			// Check if the prompt is a plugin skill slash command (e.g. /liberate)
+			let agentPrompt = prompt;
+			const slashMatch = trimmedPrompt.match( /^\/(\S+)(.*)$/ );
+			if ( slashMatch ) {
+				const skill = await pluginManager.loadSkillContent( slashMatch[ 1 ] );
+				if ( skill ) {
+					const userArgs = slashMatch[ 2 ].trim();
+					agentPrompt = `Follow these skill instructions. IMPORTANT: When the instructions reference tool names like "liberate_detect", "liberate_extract", etc., you must call them with the MCP prefix: ${ skill.mcpPrefix } (e.g., "${ skill.mcpPrefix }liberate_detect"). The tools are available as MCP tools, not CLI commands.\n\nWhen calling liberate_extract, always use ${ STUDIO_SITES_ROOT }/liberated/<site-slug>/ as the outputDir (e.g. ${ STUDIO_SITES_ROOT }/liberated/example.com/ for example.com). This keeps extraction output within the Studio directory.\n\n${ skill.content }${
+						userArgs ? `\n\nUser request: ${ userArgs }` : ''
+					}`;
+				}
+			}
+
 			ui.addUserMessage( prompt );
 			try {
-				await runAgentTurn( prompt );
+				await runAgentTurn( agentPrompt );
 			} catch ( error ) {
 				handleAgentTurnError( error );
 			}

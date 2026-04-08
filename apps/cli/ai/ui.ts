@@ -1243,6 +1243,15 @@ export class AiChatUI {
 		this.tui.start();
 	}
 
+	addSlashCommands( commands: Array< { name: string; description: string } > ): void {
+		if ( commands.length === 0 ) {
+			return;
+		}
+		this.editor.setAutocompleteProvider(
+			new CombinedAutocompleteProvider( [ ...AI_CHAT_SLASH_COMMANDS, ...commands ] )
+		);
+	}
+
 	showWelcome(): void {
 		const version = typeof __STUDIO_CLI_VERSION__ === 'string' ? __STUDIO_CLI_VERSION__ : '';
 		const cwd = process.cwd();

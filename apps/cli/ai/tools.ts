@@ -732,6 +732,44 @@ const installTaxonomyScriptsTool = tool(
 	}
 );
 
+// --- Import scripts installer ---
+
+const IMPORT_SCRIPTS_DIR = 'tmp/import-liberated-data';
+
+const installImportScriptsTool = tool(
+	'install_import_scripts',
+	'Copies the import-liberated-data PHP scripts into a site so they can be run via wp_cli eval-file. ' +
+		'Call this once before running the WooCommerce product CSV import.',
+	{
+		nameOrPath: z.string().describe( 'The site name or file system path to the site' ),
+	},
+	async ( args ) => {
+		try {
+			const site = await resolveSite( args.nameOrPath );
+			const srcDir = path.join(
+				import.meta.dirname,
+				'plugin',
+				'skills',
+				'import-liberated-data',
+				'scripts'
+			);
+			const destDir = path.join( site.path, IMPORT_SCRIPTS_DIR );
+
+			await cp( srcDir, destDir, { recursive: true } );
+
+			return textResult(
+				`Import scripts installed to ${ IMPORT_SCRIPTS_DIR }/ in the site directory.`
+			);
+		} catch ( error ) {
+			return errorResult(
+				`Failed to install import scripts: ${
+					error instanceof Error ? error.message : String( error )
+				}`
+			);
+		}
+	}
+);
+
 const auditPerformanceTool = tool(
 	'audit_performance',
 	'Measures frontend performance metrics for a WordPress site page. Returns Core Web Vitals ' +
@@ -787,6 +825,7 @@ export const studioToolDefinitions = [
 	validateBlocksTool,
 	takeScreenshotTool,
 	installTaxonomyScriptsTool,
+	installImportScriptsTool,
 	auditPerformanceTool,
 ];
 

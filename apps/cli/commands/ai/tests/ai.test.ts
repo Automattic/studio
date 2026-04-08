@@ -89,6 +89,11 @@ vi.mock( 'cli/ai/agent', async () => {
 	return {
 		...actual,
 		startAiAgent: vi.fn( () => emptyQuery ),
+		ensurePluginsInstalled: vi.fn().mockResolvedValue( undefined ),
+		checkPluginUpdates: vi.fn().mockResolvedValue( null ),
+		pluginManager: {
+			discoverSkillCommands: vi.fn().mockResolvedValue( [] ),
+		},
 	};
 } );
 
@@ -107,6 +112,7 @@ vi.mock( 'cli/ai/ui', () => ( {
 		showSuccess() {}
 		showOnboarding() {}
 		showCapabilities() {}
+		addSlashCommands() {}
 		setStatusMessage() {}
 		prepareForReplay() {}
 		finishReplay() {}

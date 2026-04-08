@@ -155,6 +155,20 @@ export class AiSessionRecorder {
 		} );
 	}
 
+	async recordPluginEvent(
+		event: Extract<
+			AiSessionEvent,
+			| { type: 'plugin.installed' }
+			| { type: 'plugin.update_available' }
+			| { type: 'plugin.updated' }
+			| { type: 'plugin.load_failed' }
+			| { type: 'plugin.linked' }
+			| { type: 'plugin.unlinked' }
+		>
+	): Promise< void > {
+		await this.appendEvent( event );
+	}
+
 	private async appendEvent( event: AiSessionEvent ): Promise< void > {
 		await fs.appendFile( this.filePath, `${ JSON.stringify( event ) }\n`, {
 			encoding: 'utf8',

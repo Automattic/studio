@@ -29,6 +29,8 @@ export interface PathGatedPermissionRequest {
 // Tools that can run without permissions (read access)
 export const ALLOWED_TOOLS = [
 	'mcp__studio__*',
+	'mcp__data_liberation__*',
+	'Skill',
 	'Read',
 	'Glob',
 	'Grep',

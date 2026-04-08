@@ -58,6 +58,44 @@ export type AiSessionEvent =
 			type: 'turn.closed';
 			timestamp: string;
 			status: TurnStatus;
+	  }
+	| {
+			type: 'plugin.installed';
+			timestamp: string;
+			pluginName: string;
+			version: string;
+			durationMs: number;
+	  }
+	| {
+			type: 'plugin.update_available';
+			timestamp: string;
+			pluginName: string;
+			currentVersion: string;
+			availableVersion: string;
+	  }
+	| {
+			type: 'plugin.updated';
+			timestamp: string;
+			pluginName: string;
+			oldVersion: string;
+			newVersion: string;
+	  }
+	| {
+			type: 'plugin.load_failed';
+			timestamp: string;
+			pluginName: string;
+			error: string;
+	  }
+	| {
+			type: 'plugin.linked';
+			timestamp: string;
+			pluginName: string;
+			path: string;
+	  }
+	| {
+			type: 'plugin.unlinked';
+			timestamp: string;
+			pluginName: string;
 	  };
 
 export interface AiSessionSummary {

@@ -199,6 +199,28 @@ async function main() {
 					.version( false )
 					.demandCommand( 1, __( 'You must provide a valid ai sessions command' ) );
 			} );
+			aiYargs.command( 'plugin', __( 'Manage AI plugins' ), async ( pluginYargs ) => {
+				const [
+					{ registerCommand: registerPluginListCommand },
+					{ registerCommand: registerPluginUpdateCommand },
+					{ registerCommand: registerPluginLinkCommand },
+					{ registerCommand: registerPluginUnlinkCommand },
+				] = await Promise.all( [
+					import( 'cli/commands/ai/plugin/list' ),
+					import( 'cli/commands/ai/plugin/update' ),
+					import( 'cli/commands/ai/plugin/link' ),
+					import( 'cli/commands/ai/plugin/unlink' ),
+				] );
+
+				registerPluginListCommand( pluginYargs );
+				registerPluginUpdateCommand( pluginYargs );
+				registerPluginLinkCommand( pluginYargs );
+				registerPluginUnlinkCommand( pluginYargs );
+				pluginYargs
+					.option( 'path', { hidden: true } )
+					.version( false )
+					.demandCommand( 1, __( 'You must provide a valid plugin command' ) );
+			} );
 			aiYargs.version( false );
 		} );
 	}

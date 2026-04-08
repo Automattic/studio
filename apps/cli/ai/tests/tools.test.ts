@@ -20,6 +20,10 @@ vi.mock( 'cli/ai/browser-utils', () => ( {
 	getSharedBrowser: vi.fn(),
 } ) );
 
+vi.mock( 'cli/ai/html-block-checker', () => ( {
+	checkHtmlBlocks: vi.fn(),
+} ) );
+
 vi.mock( 'cli/commands/preview/create', () => ( {
 	runCommand: vi.fn(),
 } ) );

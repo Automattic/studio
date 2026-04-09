@@ -1,0 +1,127 @@
+name: Agent Evaluation
+
+on:
+  schedule:
+    # Daily at 6:00 AM UTC (before most people start work)
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    inputs:
+      channel_id:
+        description: 'Slack channel ID to post results (leave empty to skip notification)'
+        required: false
+        type: string
+      test_filter:
+        description: 'Run only first N tests (leave empty for all)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  eval:
+    name: Run agent evaluation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build CLI
+        run: npm run cli:build
+
+      - name: Run evaluation
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          ARGS="--no-cache --output /tmp/eval-results.json"
+          if [ -n "${{ inputs.test_filter }}" ]; then
+            ARGS="$ARGS -n ${{ inputs.test_filter }}"
+          fi
+          npx promptfoo eval -c eval/promptfoo.config.yaml $ARGS
+
+      - name: Parse results
+        id: results
+        run: |
+          RESULTS=$(cat /tmp/eval-results.json)
+          PASSED=$(echo "$RESULTS" | jq '[.results[] | select(.success == true)] | length')
+          FAILED=$(echo "$RESULTS" | jq '[.results[] | select(.success == false)] | length')
+          ERRORS=$(echo "$RESULTS" | jq '[.results[] | select(.error != null)] | length')
+          TOTAL=$(echo "$RESULTS" | jq '.results | length')
+
+          echo "passed=$PASSED" >> $GITHUB_OUTPUT
+          echo "failed=$FAILED" >> $GITHUB_OUTPUT
+          echo "errors=$ERRORS" >> $GITHUB_OUTPUT
+          echo "total=$TOTAL" >> $GITHUB_OUTPUT
+
+          # Build per-test summary
+          SUMMARY=$(echo "$RESULTS" | jq -r '.results[] | "• " + (.description // .vars.caseId // "unknown") + ": " + (if .success then "✅" elif .error then "❌ error" else "❌ fail" end)')
+          echo "summary<<EOF" >> $GITHUB_OUTPUT
+          echo "$SUMMARY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Send Slack notification
+        if: inputs.channel_id || (github.event_name == 'schedule')
+        env:
+          SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
+          # Manual input > studio-code channel for scheduled runs
+          SLACK_CHANNEL_ID: ${{ inputs.channel_id || 'C08LZ79MKG9' }}
+        run: |
+          PASSED="${{ steps.results.outputs.passed }}"
+          FAILED="${{ steps.results.outputs.failed }}"
+          TOTAL="${{ steps.results.outputs.total }}"
+          SUMMARY="${{ steps.results.outputs.summary }}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          if [ "$FAILED" = "0" ]; then
+            EMOJI=":white_check_mark:"
+            COLOR="#36a64f"
+            HEADER="Agent eval: $PASSED/$TOTAL passed"
+          else
+            EMOJI=":x:"
+            COLOR="#e01e5a"
+            HEADER="Agent eval: $FAILED/$TOTAL failed"
+          fi
+
+          jq -n \
+            --arg channel "$SLACK_CHANNEL_ID" \
+            --arg header "$EMOJI $HEADER" \
+            --arg summary "$SUMMARY" \
+            --arg url "$RUN_URL" \
+            --arg color "$COLOR" \
+            '{
+              channel: $channel,
+              username: "Studio Eval",
+              icon_emoji: ":test_tube:",
+              attachments: [{
+                color: $color,
+                blocks: [
+                  { type: "section", text: { type: "mrkdwn", text: $header } },
+                  { type: "section", text: { type: "mrkdwn", text: $summary } },
+                  { type: "context", elements: [{ type: "mrkdwn", text: ("<" + $url + "|View run>") }] }
+                ]
+              }]
+            }' | \
+          curl -s -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_TOKEN" \
+            -H 'Content-Type: application/json; charset=utf-8' \
+            --data-binary @-
+
+          echo "✅ Sent eval results to Slack channel $SLACK_CHANNEL_ID"
+
+      - name: Upload results artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-results
+          path: /tmp/eval-results.json
+          retention-days: 30

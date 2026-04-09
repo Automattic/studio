@@ -14,7 +14,6 @@
 import { readFileSync } from 'fs';
 import {
 	startAiAgent,
-	type AiModelId,
 	type AskUserQuestion,
 } from '../apps/cli/ai/agent';
 import {
@@ -80,31 +79,23 @@ function pickQuestionAnswer( opts: {
 	askUserPolicy: string;
 	answerMap: Record< string, string >;
 } ): string {
-	// Check if there's an explicit answer in the map
 	for ( const [ key, value ] of Object.entries( opts.answerMap ) ) {
 		if ( opts.question.toLowerCase().includes( key.toLowerCase() ) ) {
 			return value;
 		}
 	}
 
-	const isPerm = isPermissionQuestion( opts.question );
-
-	switch ( opts.askUserPolicy ) {
-		case 'allow_all':
-			return opts.options[ 0 ] ?? 'yes';
-		case 'first_option':
-			return opts.options[ 0 ] ?? 'yes';
-		case 'deny_permissions_allow_other':
-		default:
-			if ( isPerm ) {
-				// Find a "deny" or "no" option, fall back to last option
-				const denyOption = opts.options.find( ( o ) =>
-					/\b(no|deny|reject|cancel)\b/i.test( o )
-				);
-				return denyOption ?? opts.options[ opts.options.length - 1 ] ?? 'no';
-			}
-			return opts.options[ 0 ] ?? 'yes';
+	if ( opts.askUserPolicy === 'allow_all' || opts.askUserPolicy === 'first_option' ) {
+		return opts.options[ 0 ] ?? 'yes';
 	}
+
+	if ( isPermissionQuestion( opts.question ) ) {
+		const denyOption = opts.options.find( ( o ) =>
+			/\b(no|deny|reject|cancel)\b/i.test( o )
+		);
+		return denyOption ?? opts.options[ opts.options.length - 1 ] ?? 'no';
+	}
+	return opts.options[ 0 ] ?? 'yes';
 }
 
 function extractAssistantToolCalls( message: SDKMessage ): AgentToolCall[] {
@@ -181,10 +172,10 @@ function ensureNodeOnPath( existingPath?: string ): string {
 
 // --- Structured checks ---
 
-async function buildSiteCreateCheck( context: {
+function buildSiteCreateCheck( context: {
 	toolCalls: AgentToolCall[];
 	toolResultsById: Map< string, AgentToolResult >;
-} ): Promise< { called: boolean; succeeded: boolean | null; siteName: string | null } > {
+} ): { called: boolean; succeeded: boolean | null; siteName: string | null } {
 	const call = context.toolCalls.find( ( c ) => c.normalizedName === 'site_create' );
 	if ( ! call ) {
 		return { called: false, succeeded: null, siteName: null };
@@ -197,14 +188,14 @@ async function buildSiteCreateCheck( context: {
 	};
 }
 
-async function buildValidateBlocksCheck( context: {
+function buildValidateBlocksCheck( context: {
 	toolCalls: AgentToolCall[];
 	toolResultsById: Map< string, AgentToolResult >;
-} ): Promise< {
+} ): {
 	called: boolean;
 	invalidBlocks: number | null;
 	coreHtmlBlocks: number | null;
-} > {
+} {
 	const call = context.toolCalls.find( ( c ) => c.normalizedName === 'validate_blocks' );
 	if ( ! call ) {
 		return { called: false, invalidBlocks: null, coreHtmlBlocks: null };
@@ -229,7 +220,7 @@ async function buildValidateBlocksCheck( context: {
 
 // --- Main ---
 
-async function readInput(): Promise< EvalRunnerInput > {
+function readInput(): EvalRunnerInput {
 	const raw = readFileSync( '/dev/stdin', 'utf-8' );
 	return JSON.parse( raw ) as EvalRunnerInput;
 }
@@ -255,7 +246,8 @@ async function runAgentEval( input: EvalRunnerInput ) {
 	const assistantTextSegments: string[] = [];
 	const askedQuestions: AskedQuestion[] = [];
 	const toolNameByUseId = new Map< string, string >();
-	let resultMessage: ( SDKMessage & { type: 'result' } ) | null = null;
+	let numTurns: number | null = null;
+	let success = false;
 
 	const agentQuery = startAiAgent( {
 		prompt,
@@ -296,40 +288,41 @@ async function runAgentEval( input: EvalRunnerInput ) {
 			}
 			assistantTextSegments.push( ...extractAssistantTextSegments( message ) );
 
-			const toolResult = extractToolResultFromUserMessage( message );
-			if ( toolResult ) {
-				const toolUseId = toolResult.toolUseId ??
-					( message.type === 'user' && typeof ( message as { parent_tool_use_id?: string } ).parent_tool_use_id === 'string'
-						? ( message as { parent_tool_use_id: string } ).parent_tool_use_id
-						: null );
-				const toolName = toolUseId ? toolNameByUseId.get( toolUseId ) ?? null : null;
-				toolResults.push( {
-					toolUseId,
-					toolName,
-					normalizedToolName: toolName ? normalizeStudioToolName( toolName ) : null,
-					isError: toolResult.isError,
-					...( toolResult.text ? { text: toolResult.text } : {} ),
-				} );
+			if ( message.type === 'user' ) {
+				const toolResult = extractToolResultFromUserMessage( message );
+				if ( toolResult ) {
+					const toolUseId = toolResult.toolUseId ?? message.parent_tool_use_id ?? null;
+					const toolName = toolUseId ? toolNameByUseId.get( toolUseId ) ?? null : null;
+					toolResults.push( {
+						toolUseId,
+						toolName,
+						normalizedToolName: toolName ? normalizeStudioToolName( toolName ) : null,
+						isError: toolResult.isError,
+						...( toolResult.text ? { text: toolResult.text } : {} ),
+					} );
+				}
 			}
 
 			if ( message.type === 'result' ) {
-				resultMessage = message;
+				success = message.subtype === 'success';
+				numTurns = message.num_turns ?? null;
 			}
 		}
 	} finally {
 		clearTimeout( timeout );
 	}
 
-	const toolResultsById = new Map(
-		toolResults
-			.filter( ( result ) => result.toolUseId )
-			.map( ( result ) => [ result.toolUseId as string, result ] )
-	);
+	const toolResultsById = new Map< string, AgentToolResult >();
+	for ( const result of toolResults ) {
+		if ( result.toolUseId ) {
+			toolResultsById.set( result.toolUseId, result );
+		}
+	}
 
 	return {
 		mode: 'agent' as const,
-		success: resultMessage?.subtype === 'success',
-		numTurns: ( resultMessage as { num_turns?: number } | null )?.num_turns ?? null,
+		success,
+		numTurns,
 		questions: {
 			all: askedQuestions,
 			permission: askedQuestions.filter( ( q ) => q.isPermissionQuestion ),
@@ -342,15 +335,15 @@ async function runAgentEval( input: EvalRunnerInput ) {
 			combinedText: assistantTextSegments.join( '\n\n' ),
 		},
 		checks: {
-			siteCreate: await buildSiteCreateCheck( { toolCalls, toolResultsById } ),
-			validateBlocks: await buildValidateBlocksCheck( { toolCalls, toolResultsById } ),
+			siteCreate: buildSiteCreateCheck( { toolCalls, toolResultsById } ),
+			validateBlocks: buildValidateBlocksCheck( { toolCalls, toolResultsById } ),
 		},
 	};
 }
 
 async function main() {
 	try {
-		const input = await readInput();
+		const input = readInput();
 		const result = await runAgentEval( input );
 		process.stdout.write( JSON.stringify( result ) );
 	} catch ( error ) {

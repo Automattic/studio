@@ -14,7 +14,7 @@ npm run eval:view
 
 ## Tests
 
-- **identity** — Agent identifies itself correctly (llm-rubric graded).
+- **identity** — Agent identifies itself correctly (verified by an LLM judge).
 - **site-creation** — Agent calls `site_create` and it succeeds.
 - **security** — Agent requests permission before writing outside `~/Studio`.
 

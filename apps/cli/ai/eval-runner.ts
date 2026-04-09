@@ -12,17 +12,14 @@
  */
 
 import { readFileSync } from 'fs';
-import {
-	startAiAgent,
-	type AskUserQuestion,
-} from '../apps/cli/ai/agent';
+import { startAiAgent, type AskUserQuestion } from 'cli/ai/agent';
 import {
 	resolveAiEnvironment,
 	resolveInitialAiProvider,
 	resolveUnavailableAiProvider,
-} from '../apps/cli/ai/auth';
-import type { AiProviderId } from '../apps/cli/ai/providers';
+} from 'cli/ai/auth';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
+import type { AiProviderId } from 'cli/ai/providers';
 
 // --- Types ---
 
@@ -90,9 +87,7 @@ function pickQuestionAnswer( opts: {
 	}
 
 	if ( isPermissionQuestion( opts.question ) ) {
-		const denyOption = opts.options.find( ( o ) =>
-			/\b(no|deny|reject|cancel)\b/i.test( o )
-		);
+		const denyOption = opts.options.find( ( o ) => /\b(no|deny|reject|cancel)\b/i.test( o ) );
 		return denyOption ?? opts.options[ opts.options.length - 1 ] ?? 'no';
 	}
 	return opts.options[ 0 ] ?? 'yes';
@@ -103,8 +98,9 @@ function extractAssistantToolCalls( message: SDKMessage ): AgentToolCall[] {
 		return [];
 	}
 	return ( message.message.content ?? [] )
-		.filter( ( block ): block is { type: 'tool_use'; id: string; name: string; input: unknown } =>
-			block.type === 'tool_use'
+		.filter(
+			( block ): block is { type: 'tool_use'; id: string; name: string; input: unknown } =>
+				block.type === 'tool_use'
 		)
 		.map( ( block ) => ( {
 			id: block.id,
@@ -134,8 +130,14 @@ function extractToolResultFromUserMessage(
 		return null;
 	}
 	const resultBlock = content.find(
-		( block ): block is { type: 'tool_result'; tool_use_id: string; is_error?: boolean; content?: unknown } =>
-			block.type === 'tool_result'
+		(
+			block
+		): block is {
+			type: 'tool_result';
+			tool_use_id: string;
+			is_error?: boolean;
+			content?: unknown;
+		} => block.type === 'tool_result'
 	);
 	if ( ! resultBlock ) {
 		return null;
@@ -231,14 +233,18 @@ async function runAgentEval( input: EvalRunnerInput ) {
 	const askUserPolicy = input.askUserPolicy ?? 'deny_permissions_allow_other';
 	const answerMap = input.answerMap ?? {};
 
-	let aiProvider: AiProviderId = ( input.aiProvider as AiProviderId ) ?? await resolveInitialAiProvider();
+	let aiProvider: AiProviderId =
+		( input.aiProvider as AiProviderId ) ?? ( await resolveInitialAiProvider() );
 	aiProvider = ( await resolveUnavailableAiProvider( aiProvider ) ) ?? aiProvider;
 
 	const providerEnvironment = await resolveAiEnvironment( aiProvider );
 	const env = {
+		...( process.env as Record< string, string > ),
 		...providerEnvironment,
-		PATH: ensureNodeOnPath( providerEnvironment.PATH ),
+		PATH: ensureNodeOnPath( process.env.PATH ),
 	};
+	// Allow running inside a Claude Code session (e.g. during development)
+	delete env.CLAUDECODE;
 
 	// Agent facts
 	const toolCalls: AgentToolCall[] = [];
@@ -275,10 +281,7 @@ async function runAgentEval( input: EvalRunnerInput ) {
 		},
 	} );
 
-	const timeout = setTimeout(
-		() => void agentQuery.interrupt(),
-		input.timeoutMs ?? 300000
-	);
+	const timeout = setTimeout( () => void agentQuery.interrupt(), input.timeoutMs ?? 300000 );
 
 	try {
 		for await ( const message of agentQuery ) {

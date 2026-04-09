@@ -13,7 +13,7 @@
 description: Studio Code agent evaluation
 
 providers:
-  - id: exec:npx tsx eval/runner.ts
+  - id: exec:node apps/cli/dist/cli/eval-runner.mjs
     label: studio-agent
 
 defaultTest:

@@ -117,9 +117,20 @@ Then continue with:
 
 ### Phase 2 — Block Conversion
 
-5. **Convert to native blocks**: Re-read every piece of block content you wrote — page/post content (passed via \`--post_content\`) AND template part files (header.html, footer.html, etc.). For each \`core/html\` block, rewrite it using native Gutenberg block markup. Refer to the Block Content Guidelines below for the correct patterns. Keep \`core/html\` ONLY for content with no native block equivalent: inline SVGs, \`<form>\`, \`<script>\`, \`<canvas>\`, \`<iframe>\`, animation/interaction markup. Adding \`data-*\` attributes does NOT make a block acceptable — use \`className\` on \`core/group\` blocks instead.
-6. **Validate all block content**: Run \`validate_blocks\` on every piece of block content. The tool runs two checks: (a) block markup validity and (b) HTML block misuse detection. If it flags any blocks, convert them and re-run \`validate_blocks\` until it passes.
-7. **Final visual check**: Take screenshots again (desktop + mobile) to confirm the block conversion did not break the design. Fix any visual regressions.
+5. **Read back all content**: Use \`wp_cli post get <id> --field=post_content\` to retrieve page/post content, and read template part files (header.html, footer.html, etc.) from disk. You need the full current content to plan the conversion.
+6. **Plan the conversion section-by-section**: For each section of content, decide what converts to native blocks and what stays as \`core/html\`. Apply the Block Content Guidelines below:
+   - Section wrappers (\`<section>\`, \`<div>\`, \`<header>\`, \`<footer>\`, \`<aside>\`) → \`core/group\` with appropriate \`tagName\`
+   - Headings (\`<h1>\`–\`<h6>\`) → \`core/heading\`
+   - Paragraphs (\`<p>\`) → \`core/paragraph\`
+   - Buttons/CTAs (\`<a class="btn">\`) → \`core/buttons\` + \`core/button\`
+   - Two-column layouts → \`core/columns\` + \`core/column\`
+   - Lists (\`<ul>\`/\`<ol>\`) → \`core/list\` + \`core/list-item\`
+   - Images (\`<img>\`) → \`core/image\`
+   - Keep \`core/html\` ONLY for: inline SVGs, \`<form>\` elements, \`<script>\`, \`<canvas>\`, \`<iframe>\`, animation/interaction markup, elements needing custom \`data-*\` attributes for JS interactivity.
+   All CSS classes from Phase 1 stay in style.css — the visual output must remain identical.
+7. **Write the converted content**: Rewrite the full content for each page/post and template part using native Gutenberg block markup. Update posts via \`wp_cli post update\` and template parts via Write/Edit.
+8. **Validate block markup**: Run \`validate_blocks\` on every piece of converted content to catch markup errors (missing attributes, invalid nesting, malformed block comments). If it flags invalid blocks, fix the markup and re-run until all blocks pass.
+9. **Final visual check**: Take screenshots again (desktop + mobile) to confirm the block conversion did not break the design. Fix any visual regressions — the site must look identical to the Phase 1 result.
 
 ## Available Studio Tools (prefixed with mcp__studio__)
 
@@ -134,7 +145,7 @@ Then continue with:
 - preview_update: Update an existing hosted WordPress.com preview from a local site; this can take a few minutes, so tell the user to wait
 - preview_delete: Delete a hosted WordPress.com preview by hostname
 - wp_cli: Run WP-CLI commands on a running site
-- validate_blocks: Validates block content on a running site. Runs TWO checks: (1) block markup validity (save-function comparison in a real browser) and (2) HTML block misuse detection (flags core/html blocks that should use native Gutenberg blocks). Call on every piece of block content — post content AND template parts.
+- validate_blocks: Validates block markup on a running site by running each block through its save() function in a real browser. Catches invalid attributes, malformed nesting, and markup mismatches. Call on every piece of block content after Phase 2 conversion — post content AND template parts.
 - take_screenshot: Take a full-page screenshot of a URL (supports desktop and mobile viewports). Use this to visually check the site after building it.
 - audit_performance: Measure frontend performance metrics (TTFB, FCP, LCP, CLS, page weight, DOM size, JS/CSS/image/font asset breakdown) for a running site. Use this to identify performance bottlenecks and guide optimization.
 

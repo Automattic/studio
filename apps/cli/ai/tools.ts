@@ -5,7 +5,6 @@ import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { z } from 'zod/v4';
 import { validateBlocks, type ValidationReport } from 'cli/ai/block-validator';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
-import { checkHtmlBlocks, type HtmlBlockReport } from 'cli/ai/html-block-checker';
 import { auditPerformance } from 'cli/ai/performance-audit';
 import { createWpcomToolDefinitions } from 'cli/ai/wpcom-tools';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
@@ -539,9 +538,9 @@ const runWpCliTool = tool(
 
 const validateBlocksTool = tool(
 	'validate_blocks',
-	"Validates WordPress block content by running each block through its save() function in the site's block editor (real browser), " +
-		'AND checks for misuse of core/html blocks (structural HTML that should use native Gutenberg blocks). ' +
-		'The site must be running. Returns per-block validation results and HTML block check results.',
+	"Validates WordPress block content by running each block through its save() function in the site's block editor (real browser). " +
+		'Catches invalid attributes, malformed nesting, and markup mismatches. ' +
+		'The site must be running. Returns per-block validation results.',
 	{
 		nameOrPath: z
 			.string()
@@ -574,11 +573,7 @@ const validateBlocksTool = tool(
 			const site = await resolveSite( args.nameOrPath );
 			const siteUrl = getSiteUrl( site );
 
-			// Run both checks in parallel on the same content.
-			const [ report, htmlReport ] = await Promise.all( [
-				validateBlocks( blockContent, siteUrl ),
-				checkHtmlBlocks( blockContent, siteUrl ),
-			] );
+			const report = await validateBlocks( blockContent, siteUrl );
 
 			if ( report.error ) {
 				emitProgress( `Validation failed for ${ fileName }: ${ report.error.slice( 0, 80 ) }` );
@@ -602,138 +597,10 @@ const validateBlocksTool = tool(
 				lines.push( '', 'Invalid blocks:', ...formatInvalidBlocks( report ) );
 			}
 
-			// Append HTML block check results.
-			if ( htmlReport.error ) {
-				lines.push( '', `HTML Block Check: ERROR — ${ htmlReport.error }` );
-			} else if ( ! htmlReport.passed ) {
-				lines.push(
-					'',
-					`HTML Block Check: FAILED (${ htmlReport.problematicBlocks } convertible HTML block(s) must be replaced with native Gutenberg blocks)`,
-					'',
-					'Problematic blocks:',
-					...formatHtmlBlockIssues( htmlReport )
-				);
-				if ( htmlReport.allowedBlocks > 0 ) {
-					lines.push( '', `Allowed HTML blocks (no action needed): ${ htmlReport.allowedBlocks }` );
-				}
-				lines.push(
-					'',
-					'Convert the flagged HTML blocks to the suggested Gutenberg blocks, then re-run validate_blocks.'
-				);
-			} else {
-				const htmlMsg =
-					htmlReport.htmlBlocks === 0
-						? 'HTML Block Check: PASSED (no core/html blocks)'
-						: `HTML Block Check: PASSED (${ htmlReport.htmlBlocks } HTML block(s), all acceptable)`;
-				lines.push( '', htmlMsg );
-			}
-
 			return textResult( lines.join( '\n' ) );
 		} catch ( error ) {
 			return errorResult(
 				`Block validation failed: ${ error instanceof Error ? error.message : String( error ) }`
-			);
-		}
-	}
-);
-
-function formatHtmlBlockIssues( report: HtmlBlockReport ): string[] {
-	const lines: string[] = [];
-	for ( let i = 0; i < report.issues.length; i++ ) {
-		const issue = report.issues[ i ];
-		lines.push(
-			`  ${ i + 1 }. Block #${ issue.index }: <${ issue.wrapperTag }> wrapper (depth: ${
-				issue.maxDepth
-			}, ${ issue.totalElements } elements)`
-		);
-		lines.push( `     → Replace with: ${ issue.suggestedBlocks.join( ' or ' ) }` );
-		if ( issue.originalContent.length > 0 ) {
-			const snippet = issue.originalContent.slice( 0, 120 ).replace( /\n/g, ' ' );
-			lines.push( `     HTML: ${ snippet }${ issue.originalContent.length > 120 ? '…' : '' }` );
-		}
-	}
-	return lines;
-}
-
-const checkHtmlBlocksTool = tool(
-	'check_html_blocks',
-	'Checks WordPress block content for misuse of core/html blocks. Detects HTML blocks that ' +
-		'wrap structural elements (div, section, headings, paragraphs, lists) which should use ' +
-		'native Gutenberg blocks instead. Returns a report with replacement suggestions. ' +
-		'The site must be running.',
-	{
-		nameOrPath: z
-			.string()
-			.describe( 'The site name or file system path — the site must be running' ),
-		filePath: z
-			.string()
-			.optional()
-			.describe( 'Path to a file containing WordPress block content to check' ),
-		content: z
-			.string()
-			.optional()
-			.describe( 'Raw WordPress block content (HTML with block comments) to check' ),
-	},
-	async ( args ) => {
-		try {
-			let blockContent: string;
-			let fileName = 'inline content';
-
-			if ( args.filePath ) {
-				blockContent = await readFile( args.filePath, 'utf-8' );
-				fileName = args.filePath.split( '/' ).slice( -2 ).join( '/' );
-			} else if ( args.content ) {
-				blockContent = args.content;
-			} else {
-				return errorResult( 'Either content or filePath must be provided.' );
-			}
-
-			emitProgress( `Checking HTML blocks in ${ fileName }…` );
-
-			const site = await resolveSite( args.nameOrPath );
-			const siteUrl = getSiteUrl( site );
-			const report = await checkHtmlBlocks( blockContent, siteUrl );
-
-			if ( report.error ) {
-				emitProgress(
-					`HTML block check failed for ${ fileName }: ${ report.error.slice( 0, 80 ) }`
-				);
-				return errorResult( `HTML block check failed: ${ report.error }` );
-			}
-
-			if ( report.passed ) {
-				const msg =
-					report.htmlBlocks === 0
-						? 'HTML Block Check: PASSED (no core/html blocks found)'
-						: `HTML Block Check: PASSED (${ report.htmlBlocks } HTML block(s) found, all acceptable uses)`;
-				emitProgress( `${ fileName }: ${ msg }` );
-				return textResult( msg );
-			}
-
-			emitProgress(
-				`${ fileName }: FAILED — ${ report.problematicBlocks } problematic HTML block(s)`
-			);
-
-			const lines = [
-				`HTML Block Check: FAILED (${ report.problematicBlocks } structural HTML block(s) found)`,
-				'',
-				'Problematic blocks:',
-				...formatHtmlBlockIssues( report ),
-			];
-
-			if ( report.allowedBlocks > 0 ) {
-				lines.push( '', `Allowed HTML blocks (no action needed): ${ report.allowedBlocks }` );
-			}
-
-			lines.push(
-				'',
-				'Convert the flagged HTML blocks to the suggested Gutenberg blocks, then re-run check_html_blocks and validate_blocks.'
-			);
-
-			return textResult( lines.join( '\n' ) );
-		} catch ( error ) {
-			return errorResult(
-				`HTML block check failed: ${ error instanceof Error ? error.message : String( error ) }`
 			);
 		}
 	}
@@ -925,7 +792,6 @@ export const studioToolDefinitions = [
 	deletePreviewTool,
 	runWpCliTool,
 	validateBlocksTool,
-	checkHtmlBlocksTool,
 	takeScreenshotTool,
 	installTaxonomyScriptsTool,
 	auditPerformanceTool,

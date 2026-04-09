@@ -70,6 +70,8 @@ IMPORTANT: Before doing ANY work, you MUST first check the site's plan by callin
 
 Use \`per_page\` and \`page\` for pagination. Use \`status\` to filter by publish status. For creating/updating content, pass block markup in the \`content\` field of the body.
 
+**IMPORTANT: Minimize response sizes** to avoid exceeding tool output limits. Use \`_fields\` (wp/v2) or \`fields\` (v1.1) query parameters to request only the properties you need and exclude heavy fields like \`content\`. For listing endpoints, fetch with lightweight fields first (e.g. \`_fields=id,slug,title,status\` for wp/v2, or \`fields=ID,name,description,URL\` for v1.1), then fetch individual items by ID when you need the full content. When using \`fields\` with v1.1, always include \`ID\` in the field list.
+
 ## Common WP.com v1.1 Endpoints (set apiNamespace to "")
 
 **Site**: \`GET /\` (site info), \`POST /settings\`

@@ -18,8 +18,6 @@ ${ REMOTE_DESIGN_GUIDELINES }
 
 	return `${ buildLocalIntro() }
 
-${ LOCAL_CONTENT_GUIDELINES }
-
 ${ LOCAL_DESIGN_GUIDELINES }
 `;
 }
@@ -117,18 +115,7 @@ Then continue with:
 
 ### Phase 2 — Block Conversion
 
-5. **Read back all content**: Use \`wp_cli post get <id> --field=post_content\` to retrieve page/post content, and read template part files (header.html, footer.html, etc.) from disk. You need the full current content to plan the conversion.
-6. **Plan the conversion section-by-section**: For each section of content, decide what converts to native blocks and what stays as \`core/html\`. Apply the Block Content Guidelines below:
-   - Section wrappers (\`<section>\`, \`<div>\`, \`<header>\`, \`<footer>\`, \`<aside>\`) → \`core/group\` with appropriate \`tagName\`
-   - Headings (\`<h1>\`–\`<h6>\`) → \`core/heading\`
-   - Paragraphs (\`<p>\`) → \`core/paragraph\`
-   - Buttons/CTAs (\`<a class="btn">\`) → \`core/buttons\` + \`core/button\`
-   - Two-column layouts → \`core/columns\` + \`core/column\`
-   - Lists (\`<ul>\`/\`<ol>\`) → \`core/list\` + \`core/list-item\`
-   - Images (\`<img>\`) → \`core/image\`
-   - Keep \`core/html\` ONLY for: inline SVGs, \`<form>\` elements, \`<script>\`, \`<canvas>\`, \`<iframe>\`, animation/interaction markup, elements needing custom \`data-*\` attributes for JS interactivity.
-   All CSS classes from Phase 1 stay in style.css — the visual output must remain identical.
-7. **Write the converted content**: Rewrite the full content for each page/post and template part using native Gutenberg block markup. Update posts via \`wp_cli post update\` and template parts via Write/Edit.
+5. **Convert to native blocks**: Run the \`blockify\` skill to convert all \`core/html\` blocks to native Gutenberg blocks, validate the markup, and verify the design is preserved.
 8. **Validate block markup**: Run \`validate_blocks\` on every piece of converted content to catch markup errors (missing attributes, invalid nesting, malformed block comments). If it flags invalid blocks, fix the markup and re-run until all blocks pass.
 9. **Final visual check**: Take screenshots again (desktop + mobile) to confirm the block conversion did not break the design. Fix any visual regressions — the site must look identical to the Phase 1 result.
 
@@ -145,7 +132,7 @@ Then continue with:
 - preview_update: Update an existing hosted WordPress.com preview from a local site; this can take a few minutes, so tell the user to wait
 - preview_delete: Delete a hosted WordPress.com preview by hostname
 - wp_cli: Run WP-CLI commands on a running site
-- validate_blocks: Validates block markup on a running site by running each block through its save() function in a real browser. Catches invalid attributes, malformed nesting, and markup mismatches. Call on every piece of block content after Phase 2 conversion — post content AND template parts.
+- validate_blocks: Validates block markup on a running site by running each block through its save() function in a real browser. Catches invalid attributes, malformed nesting, and markup mismatches. Used by the \`blockify\` skill during block conversion.
 - take_screenshot: Take a full-page screenshot of a URL (supports desktop and mobile viewports). Use this to visually check the site after building it.
 - audit_performance: Measure frontend performance metrics (TTFB, FCP, LCP, CLS, page weight, DOM size, JS/CSS/image/font asset breakdown) for a running site. Use this to identify performance bottlenecks and guide optimization.
 
@@ -178,116 +165,7 @@ const REMOTE_DESIGN_GUIDELINES = `## Design capabilities by plan
 - Custom CSS, global styles, plugin management, and advanced customization become available.
 - Check the specific plan to determine exact capabilities.`;
 
-const LOCAL_CONTENT_GUIDELINES = `## Block content guidelines
-
-**Reference for Phase 2 (Block Conversion).** When converting content to native blocks, use these patterns. During Phase 1, you may ignore this section and write HTML freely.
-
-### Core block patterns
-
-**Section wrapper** (replaces \`<section>\`, \`<div>\`, \`<aside>\`, \`<header>\`, \`<footer>\`):
-\`\`\`
-<!-- wp:group {"tagName":"section","className":"hero-section","layout":{"type":"default"}} -->
-<section class="wp-block-group hero-section">
-  <!-- inner blocks go here -->
-</section>
-<!-- /wp:group -->
-\`\`\`
-
-**Heading** (replaces \`<h1>\`–\`<h6>\`):
-\`\`\`
-<!-- wp:heading {"level":1,"className":"hero-title"} -->
-<h1 class="wp-block-heading hero-title">Your Title</h1>
-<!-- /wp:heading -->
-\`\`\`
-
-**Paragraph** (replaces \`<p>\`):
-\`\`\`
-<!-- wp:paragraph {"className":"hero-subtitle"} -->
-<p class="hero-subtitle">Your text here.</p>
-<!-- /wp:paragraph -->
-\`\`\`
-
-**Columns layout** (replaces CSS grid/flex with \`<div>\` children):
-\`\`\`
-<!-- wp:columns {"className":"features-grid"} -->
-<div class="wp-block-columns features-grid">
-  <!-- wp:column -->
-  <div class="wp-block-column">
-    <!-- inner blocks -->
-  </div>
-  <!-- /wp:column -->
-  <!-- wp:column -->
-  <div class="wp-block-column">
-    <!-- inner blocks -->
-  </div>
-  <!-- /wp:column -->
-</div>
-<!-- /wp:columns -->
-\`\`\`
-
-**Image** (replaces \`<img>\`):
-\`\`\`
-<!-- wp:image {"className":"hero-image"} -->
-<figure class="wp-block-image hero-image"><img src="https://example.com/image.jpg" alt="Description"/></figure>
-<!-- /wp:image -->
-\`\`\`
-
-**Buttons** (replaces \`<a class="btn">\`):
-\`\`\`
-<!-- wp:buttons {"className":"hero-cta"} -->
-<div class="wp-block-buttons hero-cta">
-  <!-- wp:button {"className":"primary-btn"} -->
-  <div class="wp-block-button primary-btn"><a class="wp-block-button__link wp-element-button" href="#">Get Started</a></div>
-  <!-- /wp:button -->
-</div>
-<!-- /wp:buttons -->
-\`\`\`
-
-**List** (replaces \`<ul>\` / \`<ol>\`):
-\`\`\`
-<!-- wp:list {"className":"feature-list"} -->
-<ul class="feature-list">
-  <!-- wp:list-item -->
-  <li>First item</li>
-  <!-- /wp:list-item -->
-  <!-- wp:list-item -->
-  <li>Second item</li>
-  <!-- /wp:list-item -->
-</ul>
-<!-- /wp:list -->
-\`\`\`
-
-**Separator** (replaces \`<hr>\`):
-\`\`\`
-<!-- wp:separator {"className":"section-divider"} -->
-<hr class="wp-block-separator section-divider"/>
-<!-- /wp:separator -->
-\`\`\`
-
-### Nesting blocks
-
-Sections are built by nesting blocks inside \`core/group\`. All visual styling (grid layouts, spacing, colors, backgrounds, animations) goes in \`style.css\` targeting the \`className\`. The block structure is for editability; the CSS is for aesthetics.
-
-### When core/html IS acceptable
-
-Only use \`core/html\` for content that has NO native block equivalent:
-- Inline SVGs (icons, illustrations, decorative graphics)
-- \`<form>\` elements and interactive inputs
-- Animation/interaction markup (marquee, custom cursor, scroll-triggered elements)
-- A single \`<script>\` block at the bottom of the page for frontend JS
-
-### Additional rules
-
-- Never use \`core/html\` to wrap text content, headings, layout sections, or lists.
-- No decorative HTML comments (e.g. \`<!-- Hero Section -->\`, \`<!-- Features -->\`). Only block delimiter comments are allowed.
-- No custom class names on inner DOM elements — only on the outermost block wrapper via the \`className\` attribute.
-- No inline \`style\` or \`style\` block attributes for styling. Use \`className\` + \`style.css\` instead.
-- Use \`core/spacer\` for empty spacing divs, not \`core/group\`.
-- No emojis anywhere in generated content.`;
-
 const LOCAL_DESIGN_GUIDELINES = `## Design guidelines
-
-**Primary reference for Phase 1 (Design).** These guidelines drive your visual decisions.
 
 **Important**: Always use sophisticated scroll effects and add animations unless specifically asked otherwise.
 

@@ -1,4 +1,3 @@
-import { sprintf } from '@wordpress/i18n';
 import { Icon, help, drawerLeft, cog } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import Button from 'src/components/button';
@@ -20,13 +19,14 @@ const DEFAULT_TOOLTIP_PLACEMENT = 'bottom-start';
 function ToggleSidebar( { onToggleSidebar }: TopBarProps ) {
 	const { __ } = useI18n();
 	return (
-		<div className="app-no-drag-region">
-			<Tooltip
-				text={ __( 'Toggle sidebar' ) }
-				className="h-6"
-				placement={ DEFAULT_TOOLTIP_PLACEMENT }
-			>
-				<Button onClick={ onToggleSidebar } variant="icon" aria-label={ __( 'Toggle sidebar' ) }>
+		<div className="app-no-drag-region ml-2">
+			<Tooltip text={ __( 'Toggle sidebar' ) } placement={ DEFAULT_TOOLTIP_PLACEMENT }>
+				<Button
+					onClick={ onToggleSidebar }
+					variant="icon"
+					aria-label={ __( 'Toggle sidebar' ) }
+					className="!p-1.5 !rounded-lg"
+				>
 					<Icon className="text-white" icon={ drawerLeft } size={ 24 } />
 				</Button>
 			</Tooltip>
@@ -55,14 +55,14 @@ function OfflineIndicator() {
 					className="h-6"
 					placement={ DEFAULT_TOOLTIP_PLACEMENT }
 				>
-					<Button
+					<span
+						role="status"
 						aria-label={ __( 'Offline indicator' ) }
 						aria-description={ offlineMessage.join( ' ' ) }
-						className="cursor-default !w-6 !h-6"
-						variant="icon"
+						className="inline-flex items-center justify-center w-6 h-6"
 					>
-						<Icon className="text-white" size={ 18 } icon={ offlineIcon } />
-					</Button>
+						<Icon className="text-white fill-white" size={ 18 } icon={ offlineIcon } />
+					</span>
 				</Tooltip>
 			</div>
 		)
@@ -75,49 +75,48 @@ function Authentication() {
 	const isOffline = useOffline();
 	if ( isAuthenticated ) {
 		return (
-			<Button
-				onClick={ () => getIpcApi().showUserSettings( 'account' ) }
-				aria-label={ __( 'Open account settings' ) }
-				variant="icon"
-				className="text-white hover:!text-white !px-1 py-1 !h-6 gap-2"
-			>
-				<span>{ sprintf( __( 'Howdy, %s' ), user?.displayName || '' ) }</span>{ ' ' }
-				<Gravatar size={ 18 } className="border-white border-[1.5px]" />
-			</Button>
+			<Tooltip text={ user?.displayName || '' } placement="bottom-end">
+				<Button
+					onClick={ () => getIpcApi().showUserSettings( 'account' ) }
+					aria-label={ __( 'Open account settings' ) }
+					variant="icon"
+					className="!p-[8px] !rounded-lg"
+				>
+					<Gravatar size={ 20 } className="border-white border-[1.5px]" />
+				</Button>
+			</Tooltip>
 		);
 	}
 
 	return (
-		<Tooltip
-			disabled={ ! isOffline }
-			icon={ offlineIcon }
-			text={ __( "You're currently offline." ) }
+		<Button
+			onClick={ () => getIpcApi().authenticate( false ) }
+			aria-label={ __( 'Log in to Studio with WordPress.com' ) }
+			variant="icon"
+			className="flex gap-x-2 justify-between w-full text-white !rounded-lg !px-2 !py-1.5 h-auto active:!text-white hover:!text-white hover:underline items-center"
+			disabled={ isOffline }
 		>
-			<Button
-				onClick={ () => getIpcApi().authenticate( false ) }
-				aria-label={ __( 'Log in to Studio with WordPress.com' ) }
-				className="flex gap-x-2 justify-between w-full text-white rounded !px-2 !py-0 h-auto active:!text-white hover:!text-white hover:underline items-center"
-				disabled={ isOffline }
-			>
-				<WordPressLogo />
+			<WordPressLogo />
 
-				<div className="text-s text-right">{ __( 'Log in' ) }</div>
-			</Button>
-		</Tooltip>
+			<div className="text-s text-right">{ __( 'Log in' ) }</div>
+		</Button>
 	);
 }
 
 function SettingsButton() {
 	const { __ } = useI18n();
 	return (
-		<Button
-			onClick={ () => getIpcApi().showUserSettings( 'general' ) }
-			aria-label={ __( 'Open settings' ) }
-			variant="icon"
-			data-testid="settings-button"
-		>
-			<Icon className="text-white" size={ 24 } icon={ cog } />
-		</Button>
+		<Tooltip text={ __( 'Settings' ) } placement="bottom-end">
+			<Button
+				onClick={ () => getIpcApi().showUserSettings( 'general' ) }
+				aria-label={ __( 'Open settings' ) }
+				variant="icon"
+				className="!p-1.5 !rounded-lg"
+				data-testid="settings-button"
+			>
+				<Icon className="text-white" size={ 24 } icon={ cog } />
+			</Button>
+		</Tooltip>
 	);
 }
 
@@ -130,7 +129,7 @@ export default function TopBar( { onToggleSidebar }: TopBarProps ) {
 	};
 
 	return (
-		<div className="flex justify-between items-center text-white px-2 pb-2 pt-1.5">
+		<div className="flex justify-between items-center text-white pl-2 pr-0.5">
 			<div className="flex items-center space-x-1.5 rtl:space-x-reverse">
 				<ToggleSidebar onToggleSidebar={ onToggleSidebar } />
 				<OfflineIndicator />
@@ -139,8 +138,13 @@ export default function TopBar( { onToggleSidebar }: TopBarProps ) {
 			<div className="app-no-drag-region flex items-center space-x-1.5 rtl:space-x-reverse">
 				<Authentication />
 				<SettingsButton />
-				<Tooltip text={ __( 'Get help' ) } placement="bottom-start">
-					<Button onClick={ openDocs } aria-label={ __( 'Get help' ) } variant="icon">
+				<Tooltip text={ __( 'Get help' ) } placement="bottom-end">
+					<Button
+						onClick={ openDocs }
+						aria-label={ __( 'Get help' ) }
+						variant="icon"
+						className="!p-1.5 !rounded-lg"
+					>
 						<Icon className="text-white" size={ 24 } icon={ help } />
 					</Button>
 				</Tooltip>

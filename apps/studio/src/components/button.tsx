@@ -36,25 +36,26 @@ justify-center
 disabled:cursor-not-allowed
 aria-disabled:cursor-not-allowed
 [&.components-button]:focus:shadow-[inset_0_0_0_1px_transparent]
-[&.components-button]:focus-visible:shadow-[0_0_0_1px_#3858E9]
-[&.components-button]:focus-visible:shadow-a8c-blue-50
+[&.components-button]:focus-visible:shadow-[0_0_0_1px_var(--color-frame-theme)]
+[&.components-button]:focus-visible:shadow-frame-theme
 [&.components-button.is-destructive]:focus-visible:shadow-a8c-red-50
 [&_svg]:shrink-0
 `.replace( /\n/g, ' ' );
 
 const primaryStyles = `
 [&.is-primary:not(:disabled)]:focus:shadow-[inset_0_0_0_1px_transparent]
-[&.is-primary:not(:disabled)]:focus-visible:shadow-[inset_0_0_0_1px_white,0_0_0_1px_#3858E9]
+[&.is-primary:not(:disabled)]:focus-visible:shadow-[inset_0_0_0_1px_white,0_0_0_1px_var(--color-frame-theme)]
 `.replace( /\n/g, ' ' );
 
 const secondaryStyles = `
-[&.is-secondary]:text-black
+[&.is-secondary]:text-frame-text
 [&.is-secondary]:shadow-[inset_0_0_0_1px_black]
 [&.is-secondary]:shadow-a8c-gray-5
 [&.is-secondary]:focus:shadow-a8c-gray-5
-[&.is-secondary]:focus-visible:shadow-a8c-blue-50
-[&.is-secondary:not(.is-destructive,:disabled,[aria-disabled=true])]:hover:text-a8c-blue-50
-[&.is-secondary:not(.is-destructive,:disabled,[aria-disabled=true])]:active:text-black
+[&.is-secondary]:focus-visible:shadow-frame-theme
+[&.is-secondary:not(.is-destructive,:disabled,[aria-disabled=true])]:hover:text-frame-theme
+[&.is-secondary:not(.is-destructive,:disabled,[aria-disabled=true]):hover_svg]:fill-frame-theme
+[&.is-secondary:not(.is-destructive,:disabled,[aria-disabled=true])]:active:text-frame-text
 [&.is-secondary:disabled:not(:focus)]:shadow-[inset_0_0_0_1px_black]
 [&.is-secondary:disabled:not(:focus)]:shadow-a8c-gray-5
 [&.is-secondary:not(:focus)]:aria-disabled:shadow-[inset_0_0_0_1px_black]
@@ -66,15 +67,15 @@ const secondaryStyles = `
 const outlinedStyles = `
 outlined
 text-white
-[&.components-button]:hover:text-black
-[&.components-button]:hover:bg-gray-100
-[&.components-button]:active:text-black
-[&.components-button]:active:bg-gray-100
+[&.components-button]:hover:text-frame-text
+[&.components-button]:hover:bg-frame-surface
+[&.components-button]:active:text-frame-text
+[&.components-button]:active:bg-frame-surface
 [&.components-button]:shadow-[inset_0_0_0_1px_white]
 [&.components-button.outlined]:focus:shadow-[inset_0_0_0_1px_white]
 [&.components-button]:focus-visible:outline-none
-[&.components-button.outlined]:focus-visible:shadow-[inset_0_0_0_1px_#3858E9]
-[&.components-button]:focus-visible:shadow-a8c-blue-50
+[&.components-button.outlined]:focus-visible:shadow-[inset_0_0_0_1px_var(--color-frame-theme)]
+[&.components-button]:focus-visible:shadow-frame-theme
 `.replace( /\n/g, ' ' );
 
 const destructiveStyles = `
@@ -88,16 +89,15 @@ const destructiveStyles = `
 
 const linkStyles = `
 [&.is-link]:no-underline
-[&.is-link]:hover:text-[#2145e6]
-[&.is-link]:active:text-black
+[&.is-link]:hover:text-frame-theme
+[&.is-link]:active:text-frame-text
 [&.is-link]:disabled:text-a8c-gray-50
 `.replace( /\n/g, ' ' );
 
 const iconStyles = `
 [&.components-button]:p-0
 h-auto
-hover:bg-white
-hover:bg-opacity-10
+hover:bg-white/10
 `.replace( /\n/g, ' ' );
 
 /**

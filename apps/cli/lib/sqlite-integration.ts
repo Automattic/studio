@@ -1,5 +1,5 @@
 import { SqliteIntegrationProvider } from '@studio/common/lib/sqlite-integration';
-import { getServerFilesPath } from 'cli/lib/server-files';
+import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 
 const SQLITE_FILENAME = 'sqlite-database-integration';
 
@@ -33,4 +33,8 @@ export async function keepSqliteIntegrationUpdated( sitePath: string ) {
 
 export async function isSqliteIntegrationInstalled( sitePath: string ) {
 	return provider.isSqliteInstalled( sitePath );
+}
+
+export async function getSqliteVersionFromInstallation( sqlitePath: string ) {
+	return provider.getSqliteVersionFromInstallation( sqlitePath );
 }

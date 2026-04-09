@@ -1,6 +1,5 @@
 import { EventEmitter } from 'events';
 import fs from 'fs';
-import fsPromises from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
@@ -105,7 +104,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 
 		try {
 			for ( const requiredPath of requiredPaths ) {
-				const stats = await fsPromises.stat(
+				const stats = await fs.promises.stat(
 					path.join( this.options.site.path, requiredPath.path )
 				);
 				if ( requiredPath.isDir && ! stats.isDirectory() ) {
@@ -217,7 +216,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 					continue;
 				}
 
-				const stat = await fsPromises.stat( fullPath );
+				const stat = await fs.promises.stat( fullPath );
 				if ( stat.isDirectory() ) {
 					this.archiveBuilder.directory( fullPath, archivePath, ( entry ) => {
 						const entryPathRelativeToArchiveRoot = path.join( archivePath, entry.name );
@@ -251,7 +250,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		}
 
 		this.emit( ExportEvents.DATABASE_EXPORT_START );
-		const tmpFolder = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio_export' ) );
+		const tmpFolder = await fs.promises.mkdtemp( path.join( os.tmpdir(), 'studio_export' ) );
 
 		if ( this.options.splitDatabaseDumpByTable ) {
 			const sqlFiles = await exportDatabaseToMultipleFiles( this.options.site, tmpFolder );
@@ -272,7 +271,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 
 	private async cleanupTempFiles(): Promise< void > {
 		for ( const sqlFile of this.backup.sqlFiles ) {
-			await fsPromises
+			await fs.promises
 				.unlink( sqlFile )
 				.catch( ( err ) => console.error( `Failed to delete temporary file ${ sqlFile }:`, err ) );
 		}
@@ -296,9 +295,9 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		studioJson.plugins = plugins;
 		studioJson.themes = themes;
 
-		const tempDir = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio-export-' ) );
+		const tempDir = await fs.promises.mkdtemp( path.join( os.tmpdir(), 'studio-export-' ) );
 		const studioJsonPath = path.join( tempDir, 'meta.json' );
-		await fsPromises.writeFile( studioJsonPath, JSON.stringify( studioJson, null, 2 ) );
+		await fs.promises.writeFile( studioJsonPath, JSON.stringify( studioJson, null, 2 ) );
 		return studioJsonPath;
 	}
 

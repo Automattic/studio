@@ -1,4 +1,3 @@
-import * as Sentry from '@sentry/react';
 import React, { createContext, useContext, ReactNode, useState, useEffect } from 'react';
 import { useAuth } from 'src/hooks/use-auth';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
@@ -66,7 +65,6 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 					...flags,
 				} );
 			} catch ( error ) {
-				Sentry.captureException( error );
 				console.error( error );
 			}
 		}

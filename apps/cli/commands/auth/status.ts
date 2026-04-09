@@ -1,7 +1,7 @@
+import { readAuthToken } from '@studio/common/lib/shared-config';
 import { AuthCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
 import { getUserInfo } from 'cli/lib/api';
-import { getAuthToken } from 'cli/lib/appdata';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -9,16 +9,15 @@ export async function runCommand(): Promise< void > {
 	const logger = new Logger< LoggerAction >();
 
 	logger.reportStart( LoggerAction.STATUS_CHECK, __( 'Checking authentication status…' ) );
-	let token: Awaited< ReturnType< typeof getAuthToken > >;
 
 	try {
-		token = await getAuthToken();
-	} catch ( error ) {
-		logger.reportError( new LoggerError( __( 'Authentication token is invalid or expired' ) ) );
-		return;
-	}
+		const token = await readAuthToken();
 
-	try {
+		if ( ! token ) {
+			logger.reportError( new LoggerError( __( 'Authentication token is invalid or expired' ) ) );
+			return;
+		}
+
 		const userData = await getUserInfo( token.accessToken );
 		logger.reportSuccess(
 			sprintf( __( 'Authenticated with WordPress.com as `%s`' ), userData.username )

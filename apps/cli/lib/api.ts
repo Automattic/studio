@@ -136,6 +136,19 @@ export async function deleteSnapshot( atomicSiteId: number, token: string ): Pro
 	}
 }
 
+export async function deleteAllSnapshots( token: string ): Promise< void > {
+	const wpcom = wpcomFactory( token, wpcomXhrRequest );
+
+	try {
+		await wpcom.req.post( {
+			path: '/jurassic-ninja/delete/all',
+			apiNamespace: 'wpcom/v2',
+		} );
+	} catch ( error ) {
+		throw new LoggerError( __( 'Failed to delete all preview sites' ), error );
+	}
+}
+
 export async function validateAccessToken( token: string ): Promise< void > {
 	const wpcom = wpcomFactory( token, wpcomXhrRequest );
 	try {

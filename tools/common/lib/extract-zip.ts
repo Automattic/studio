@@ -1,6 +1,6 @@
+import fs from 'fs';
 import path from 'path';
 import { promisify } from 'util';
-import fs from 'fs-extra';
 import yauzl from 'yauzl';
 
 const openZip = promisify< string, yauzl.Options, yauzl.ZipFile >( yauzl.open );
@@ -27,7 +27,7 @@ export async function extractZip( zipPath: string, destinationFolder: string ): 
 			}
 
 			try {
-				await fs.ensureDir( path.dirname( fullPath ) );
+				await fs.promises.mkdir( path.dirname( fullPath ), { recursive: true } );
 
 				const readStream = await openReadStream( entry );
 				const writeStream = fs.createWriteStream( fullPath );

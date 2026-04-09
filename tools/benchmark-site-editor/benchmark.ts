@@ -40,7 +40,7 @@ import { measureSiteEditor, METRIC_NAMES, type MeasurementResult } from './measu
 // ---------------------------------------------------------------------------
 
 const STUDIO_ROOT = path.resolve( import.meta.dirname, '../..' );
-const STUDIO_CLI_PATH = path.resolve( STUDIO_ROOT, 'apps/cli/dist/cli/main.js' );
+const STUDIO_CLI_PATH = path.resolve( STUDIO_ROOT, 'apps/cli/dist/cli/main.mjs' );
 const PLAYGROUND_CLI_BIN =
 	process.platform === 'win32' ? 'wp-playground-cli.cmd' : 'wp-playground-cli';
 const PLAYGROUND_CLI_PATH = path.resolve(

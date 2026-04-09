@@ -4,9 +4,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { domainToASCII } from 'node:url';
 import { promisify } from 'node:util';
+import { CERT_UNTRUSTED_ROOT, SERVER_AUTH_OID } from '@studio/common/constants';
+import { getCertificatesPath } from '@studio/common/lib/well-known-paths';
 import sudo from '@vscode/sudo-prompt';
+import { __ } from '@wordpress/i18n';
 import forge from 'node-forge';
-import { getAppdataDirectory } from 'cli/lib/appdata';
 
 const execFilePromise = promisify( execFile );
 
@@ -66,7 +68,7 @@ function createNameConstraintsExtension( domains: string[] ) {
 const CA_NAME = 'WordPress Studio CA';
 const CA_CERT_VALIDITY_DAYS = 3650; // 10 years
 const SITE_CERT_VALIDITY_DAYS = 825; // a little over 2 years
-const CERT_DIRECTORY = path.join( getAppdataDirectory(), 'certificates' );
+const CERT_DIRECTORY = getCertificatesPath();
 const CA_CERT_PATH = path.join( CERT_DIRECTORY, 'studio-ca.crt' );
 const CA_KEY_PATH = path.join( CERT_DIRECTORY, 'studio-ca.key' );
 
@@ -158,15 +160,12 @@ export async function isRootCATrusted(): Promise< boolean > {
 
 	if ( process.platform === 'win32' ) {
 		try {
-			// Execute certutil with more specific validation
 			const { stdout } = await execFilePromise( 'certutil', [ '-verify', CA_CERT_PATH ] );
 
-			const hasValidPolicies =
-				stdout.includes( 'Verified Application Policies:' ) &&
-				stdout.includes( 'Server Authentication' );
+			const isTrusted = ! stdout.includes( CERT_UNTRUSTED_ROOT );
+			const hasServerAuthPolicy = stdout.includes( SERVER_AUTH_OID );
 
-			// Only consider the certificate trusted if it has the Server Authentication policy.
-			return hasValidPolicies;
+			return isTrusted && hasServerAuthPolicy;
 		} catch ( error ) {
 			return false;
 		}

@@ -11,7 +11,7 @@ export const getLatestTag = () => {
 
 		// Get the latest reachable release tag that is not a beta tag
 		const latestReleaseTag = child_process
-			.execSync( 'git describe --tags --abbrev=0 --match "v*" --exclude "*-beta*"' )
+			.execSync( 'git tag --list "v*" --sort=-version:refname | grep -v "\\-beta" | head -1' )
 			.toString()
 			.trim();
 

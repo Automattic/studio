@@ -13,6 +13,8 @@ import path from 'path';
 import { pathToFileURL } from 'url';
 import * as Sentry from '@sentry/electron/main';
 import { PROTOCOL_PREFIX } from '@studio/common/constants';
+import { runMigrations } from '@studio/common/lib/migration';
+import { getCurrentUserId } from '@studio/common/lib/shared-config';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import {
@@ -34,24 +36,19 @@ import {
 } from 'src/lib/bump-stats';
 import { handleDeeplink } from 'src/lib/deeplink';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
+import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
-import { startUserDataWatcher, stopUserDataWatcher } from 'src/lib/user-data-watcher';
 import { setupLogging } from 'src/logging';
 import { createMainWindow, getMainWindow } from 'src/main-window';
-import {
-	needsToMigrateFromWpNowFolder,
-	migrateFromWpNowFolder,
-} from 'src/migrations/migrate-from-wp-now-folder';
-import { removeSitesWithEmptyDirectories } from 'src/migrations/remove-sites-with-empty-dirs';
-import { renameLaunchUniquesStat } from 'src/migrations/rename-launch-uniques-stat';
+import { migrations } from 'src/migrations';
 import {
 	startCliEventsSubscriber,
 	stopCliEventsSubscriber,
 } from 'src/modules/cli/lib/cli-events-subscriber';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
-import { updateWindowsCliVersionedPathIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
-import { setupWPServerFiles, updateWPServerFiles } from 'src/setup-wp-server-files';
-import { getRunningSiteCount, stopAllServers } from 'src/site-server';
+import { autoInstallMacOSCliIfNeeded } from 'src/modules/cli/lib/macos-installation-manager';
+import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
+import { getRunningSiteCount, SiteServer, stopAllServers } from 'src/site-server';
 import {
 	loadUserData,
 	lockAppdata,
@@ -115,6 +112,9 @@ async function setupSentryUserId() {
 	} finally {
 		await unlockAppdata();
 	}
+
+	const wpcomUserId = await getCurrentUserId();
+	setSentryWpcomUserIdMain( wpcomUserId ?? undefined );
 }
 
 // This is a workaround to ensure that the extension background workers are started
@@ -307,21 +307,14 @@ async function appBoot() {
 
 		setupIpc();
 
-		await setupWPServerFiles().catch( Sentry.captureException );
-		// WordPress server files are updated asynchronously to avoid delaying app initialization
-		updateWPServerFiles().catch( Sentry.captureException );
-
-		if ( await needsToMigrateFromWpNowFolder() ) {
-			await migrateFromWpNowFolder();
-		}
+		await runMigrations( migrations ).catch( Sentry.captureException );
 
 		await setupSentryUserId();
 
-		await removeSitesWithEmptyDirectories();
-
-		await renameLaunchUniquesStat();
-
-		await startUserDataWatcher();
+		// Fetch data from CLI and subscribe to CLI events before starting the user data
+		// watcher. The watcher can trigger getMainWindow() which creates the window early,
+		// so sites must be loaded first.
+		await SiteServer.fetchAll();
 		await startCliEventsSubscriber();
 
 		await createMainWindow();
@@ -347,7 +340,8 @@ async function appBoot() {
 			'monthly'
 		).catch( ( err ) => Sentry.captureException( err ) );
 
-		await updateWindowsCliVersionedPathIfNeeded();
+		await autoInstallWindowsCliIfNeeded();
+		await autoInstallMacOSCliIfNeeded();
 
 		finishedInitialization = true;
 	} );
@@ -473,7 +467,6 @@ async function appBoot() {
 
 	app.on( 'will-quit', ( event ) => {
 		globalShortcut.unregisterAll();
-		stopUserDataWatcher();
 		stopCliEventsSubscriber();
 
 		if ( shouldStopSitesOnQuit ) {

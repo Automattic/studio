@@ -19,7 +19,11 @@ import {
 	type EditorOptions,
 	type MarkdownTheme,
 	visibleWidth,
+	truncateToWidth,
+	CURSOR_MARKER,
 } from '@mariozechner/pi-tui';
+import { readAuthToken } from '@studio/common/lib/shared-config';
+import { __, _n, sprintf } from '@wordpress/i18n';
 import chalk from 'chalk';
 import { AI_MODELS, DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
@@ -27,9 +31,10 @@ import { AI_CHAT_SLASH_COMMANDS } from 'cli/ai/slash-commands';
 import { buildTodoUpdateLines, type TodoRenderLine } from 'cli/ai/todo-render';
 import { diffTodoSnapshot, type TodoDiff, type TodoEntry } from 'cli/ai/todo-stream';
 import { getWpComSites } from 'cli/lib/api';
-import { getAuthToken, getSiteUrl, readAppdata, type SiteData } from 'cli/lib/appdata';
 import { openBrowser } from 'cli/lib/browser';
-import { isSiteRunning } from 'cli/lib/site-utils';
+import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
+import { getSiteUrl } from 'cli/lib/cli-config/sites';
+import { getSitesRunningStatus, isSiteRunning } from 'cli/lib/site-utils';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { TodoWriteInput } from '@anthropic-ai/claude-agent-sdk/sdk-tools';
 
@@ -51,6 +56,7 @@ export interface SiteInfo {
 	running: boolean;
 	remote?: boolean;
 	url?: string;
+	wpcomSiteId?: number;
 }
 
 const DEFAULT_COLLAPSE_THRESHOLD_LINES = 5;
@@ -74,6 +80,7 @@ class PromptEditor implements Component, Focusable {
 	private _focused = false;
 	private isEmpty = true;
 	activeSiteName: string | null = null;
+	busyMessage: string | null = null;
 	hints: string[] = [];
 	statusMessage: string | null = null;
 	showBottomBar = true;
@@ -123,6 +130,7 @@ class PromptEditor implements Component, Focusable {
 		const innerWidth = Math.max( 1, width - promptWidth );
 		const lines = this.editor.render( innerWidth );
 		const bc = this.borderColorFn;
+		const borderWidth = Math.max( 0, width - 2 );
 
 		// The Editor renders: [top_border, ...content, bottom_border, ...autocomplete]
 		// Find the bottom border index: it's the last line containing ─ (U+2500).
@@ -140,11 +148,13 @@ class PromptEditor implements Component, Focusable {
 		const emptyPrefix = ' '.repeat( promptWidth );
 		const result = editorLines.map( ( line, i ) => {
 			if ( i === 0 ) {
-				// Top border with active site name on the right
-				if ( this.activeSiteName ) {
-					const label = ` ${ this.activeSiteName } `;
-					const trailing = 3;
-					const leading = Math.max( 0, width - 2 - label.length - trailing );
+				// Top border with active site name and optional busy indicator
+				if ( this.activeSiteName && borderWidth > 4 ) {
+					const busySuffix = this.busyMessage ? ` ${ this.busyMessage }` : '';
+					const label = ` ${ this.activeSiteName }${ busySuffix } `;
+					const trailing = Math.min( 3, borderWidth );
+					const labelWidth = visibleWidth( label );
+					const leading = Math.max( 0, borderWidth - labelWidth - trailing );
 					return (
 						' ' +
 						bc( '─'.repeat( leading ) ) +
@@ -152,13 +162,13 @@ class PromptEditor implements Component, Focusable {
 						bc( '─'.repeat( trailing ) )
 					);
 				}
-				return ' ' + bc( '─'.repeat( width - 2 ) );
+				return ' ' + bc( '─'.repeat( borderWidth ) );
 			}
 			if ( i === bottomBorderIndex ) {
-				return ' ' + bc( '─'.repeat( width - 2 ) );
+				return ' ' + bc( '─'.repeat( borderWidth ) );
 			}
 			if ( this.isEmpty && i === 1 ) {
-				return promptPrefix + chalk.dim( 'Type your prompt…' );
+				return promptPrefix + CURSOR_MARKER;
 			}
 			if ( i === 1 ) {
 				return promptPrefix + line;
@@ -167,16 +177,18 @@ class PromptEditor implements Component, Focusable {
 		} );
 
 		if ( autocompleteLines.length > 0 ) {
-			return [ ...result, ...autocompleteLines.map( ( line ) => ' ' + line ) ];
+			return [ ...result, ...autocompleteLines.map( ( line ) => ' ' + line ) ].map( ( line ) =>
+				truncateToWidth( line, width )
+			);
 		}
 
 		// Below the bottom border: show hint bar (with optional status on the right)
 		if ( ! this.showBottomBar ) {
-			return result;
+			return result.map( ( line ) => truncateToWidth( line, width ) );
 		}
 		const activeHints = this.isEmpty
 			? this.hints
-			: this.hints.filter( ( h ) => h !== '↓ select site' );
+			: this.hints.filter( ( h ) => h !== __( '↓ select site' ) );
 		const leftPart =
 			activeHints.length > 0
 				? ' ' + activeHints.map( ( h ) => chalk.dim( h ) ).join( chalk.dim( ' · ' ) )
@@ -189,7 +201,7 @@ class PromptEditor implements Component, Focusable {
 			result.push( leftPart + ' '.repeat( padding ) + rightPart );
 		}
 
-		return result;
+		return result.map( ( line ) => truncateToWidth( line, width ) );
 	}
 }
 
@@ -222,28 +234,28 @@ const editorTheme: EditorTheme = {
 };
 
 const toolDisplayNames: Record< string, string > = {
-	mcp__studio__site_create: 'Create site',
-	mcp__studio__site_list: 'List sites',
-	mcp__studio__site_info: 'Get site info',
-	mcp__studio__site_start: 'Start site',
-	mcp__studio__site_stop: 'Stop site',
-	mcp__studio__site_delete: 'Delete site',
-	mcp__studio__preview_create: 'Create preview',
-	mcp__studio__preview_list: 'List previews',
-	mcp__studio__preview_update: 'Update preview',
-	mcp__studio__preview_delete: 'Delete preview',
-	mcp__studio__wp_cli: 'Run WP-CLI',
-	mcp__studio__validate_blocks: 'Validate blocks',
-	mcp__studio__take_screenshot: 'Take screenshot',
-	Read: 'Read',
-	Write: 'Write',
-	Edit: 'Edit',
-	Bash: 'Run',
-	Glob: 'Search',
-	Grep: 'Search',
-	Skill: 'Load skill',
-	Task: 'Run task',
-	TodoWrite: 'Update todo list',
+	mcp__studio__site_create: __( 'Create site' ),
+	mcp__studio__site_list: __( 'List sites' ),
+	mcp__studio__site_info: __( 'Get site info' ),
+	mcp__studio__site_start: __( 'Start site' ),
+	mcp__studio__site_stop: __( 'Stop site' ),
+	mcp__studio__site_delete: __( 'Delete site' ),
+	mcp__studio__preview_create: __( 'Create preview' ),
+	mcp__studio__preview_list: __( 'List previews' ),
+	mcp__studio__preview_update: __( 'Update preview' ),
+	mcp__studio__preview_delete: __( 'Delete preview' ),
+	mcp__studio__wp_cli: __( 'Run WP-CLI' ),
+	mcp__studio__validate_blocks: __( 'Validate blocks' ),
+	mcp__studio__take_screenshot: __( 'Take screenshot' ),
+	Read: __( 'Read' ),
+	Write: __( 'Write' ),
+	Edit: __( 'Edit' ),
+	Bash: __( 'Run' ),
+	Glob: __( 'Search' ),
+	Grep: __( 'Search' ),
+	Skill: __( 'Load skill' ),
+	Task: __( 'Run task' ),
+	TodoWrite: __( 'Update todo list' ),
 };
 
 function getToolDetail( name: string, input: Record< string, unknown > ): string {
@@ -266,7 +278,7 @@ function getToolDetail( name: string, input: Record< string, unknown > ): string
 			if ( typeof input.filePath === 'string' ) {
 				return input.filePath.split( '/' ).slice( -2 ).join( '/' );
 			}
-			return 'inline content';
+			return __( 'inline content' );
 		case 'mcp__studio__take_screenshot':
 			return typeof input.url === 'string' ? input.url : '';
 		case 'Read':
@@ -449,6 +461,9 @@ export class AiChatUI {
 	private activeExpandablePreview: ExpandablePreview | null = null;
 	private _inAgentTurn = false;
 	private _activeSiteData: SiteData | null = null;
+	private siteSelectedCallback: ( ( site: SiteInfo ) => void ) | null = null;
+	private replayMode = false;
+	private replayTimestampMs: number | null = null;
 	private pendingToolCalls = new Map<
 		string,
 		{ name: string; input: Record< string, unknown > }
@@ -542,9 +557,62 @@ export class AiChatUI {
 		return this._activeSite;
 	}
 
+	private refreshPromptChrome(): void {
+		this.editor.invalidate();
+	}
+
+	set onSiteSelected( fn: ( ( site: SiteInfo ) => void ) | null ) {
+		this.siteSelectedCallback = fn;
+	}
+
+	private nowMs(): number {
+		return this.replayTimestampMs ?? Date.now();
+	}
+
+	setReplayTimestamp( timestamp?: string ): void {
+		if ( ! this.replayMode ) {
+			return;
+		}
+
+		if ( ! timestamp ) {
+			this.replayTimestampMs = null;
+			return;
+		}
+
+		const parsedTimestamp = Date.parse( timestamp );
+		this.replayTimestampMs = Number.isNaN( parsedTimestamp ) ? null : parsedTimestamp;
+	}
+
+	prepareForReplay(): void {
+		this.replayMode = true;
+		this.replayTimestampMs = null;
+		this.hideLoader();
+		this.currentMarkdown = null;
+		this.currentResponseText = '';
+	}
+
+	finishReplay(): void {
+		this.replayMode = false;
+		this.replayTimestampMs = null;
+		this.hideLoader();
+		this.currentMarkdown = null;
+		this.currentResponseText = '';
+	}
+
+	showAgentQuestion(
+		question: string,
+		_options: Array< { label: string; description: string } >
+	): void {
+		this.hideLoader();
+		this.currentMarkdown = null;
+		this.currentResponseText = '';
+		this.messages.addChild( new Text( '\n' + chalk.bold( question ), 0, 0 ) );
+		this.tui.requestRender();
+	}
+
 	constructor() {
 		const terminal = new ProcessTerminal();
-		this.tui = new TUI( terminal );
+		this.tui = new TUI( terminal, true );
 
 		this.messages = new Container();
 		this.tui.addChild( this.messages );
@@ -553,7 +621,7 @@ export class AiChatUI {
 			this.tui,
 			( str ) => chalk.yellow( str ),
 			( str ) => chalk.yellow( str ),
-			'Thinking…'
+			__( 'Thinking…' )
 		);
 		// @ts-expect-error -- frames is private but has no public API to customize
 		this.loader.frames = [
@@ -715,17 +783,23 @@ export class AiChatUI {
 	}
 
 	private async openSitePicker(): Promise< void > {
-		const appdata = await readAppdata();
-		const sites: SiteData[] = appdata.sites ?? [];
+		const config = await readCliConfig();
+		const sites: SiteData[] = config.sites ?? [];
+		if ( sites.length === 0 ) {
+			this.messages.addChild(
+				new Text( chalk.dim( '  ' + __( 'No sites found. Create one first.' ) ), 1, 0 )
+			);
+			this.tui.requestRender();
+			return;
+		}
 
 		this.sitePickerSiteData = sites;
-		this.sitePickerItems = await Promise.all(
-			sites.map( async ( site ) => ( {
-				name: site.name,
-				path: site.path,
-				running: await isSiteRunning( site ),
-			} ) )
-		);
+		const runningStatus = await getSitesRunningStatus( sites );
+		this.sitePickerItems = sites.map( ( site ) => ( {
+			name: site.name,
+			path: site.path,
+			running: runningStatus.get( site.id ) ?? false,
+		} ) );
 		this.sitePickerVisible = true;
 		this.editor.showBottomBar = false;
 		this.sitePickerContainer = new Container();
@@ -740,11 +814,9 @@ export class AiChatUI {
 		this.sitePickerRemoteItems = [];
 		this.renderSitePicker();
 
-		let token: Awaited< ReturnType< typeof getAuthToken > >;
-		try {
-			token = await getAuthToken();
-		} catch {
-			this.showSitePickerError( 'Not logged in. Use /login first.' );
+		const token = await readAuthToken();
+		if ( ! token ) {
+			this.showSitePickerError( __( 'Not logged in. Use /login first.' ) );
 			return;
 		}
 
@@ -756,12 +828,13 @@ export class AiChatUI {
 				running: false,
 				remote: true,
 				url: site.url,
+				wpcomSiteId: site.id,
 			} ) );
 			this.sitePickerRemoteLoading = false;
 			this.rebuildSitePickerList();
 			this.renderSitePicker();
 		} catch {
-			this.showSitePickerError( 'Failed to load WordPress.com sites. Please try again.' );
+			this.showSitePickerError( __( 'Failed to load WordPress.com sites. Please try again.' ) );
 		}
 	}
 
@@ -857,18 +930,22 @@ export class AiChatUI {
 		this.sitePickerContainer.clear();
 
 		const isLocal = this.sitePickerTab === SITE_PICKER_TAB_LOCAL;
-		const localTab = isLocal ? chalk.bold( '[Local]' ) : chalk.dim( 'Local' );
+		const localTab = isLocal ? chalk.bold( __( '[Local]' ) ) : chalk.dim( __( 'Local' ) );
 		const remoteTab = isLocal ? chalk.dim( 'WordPress.com' ) : chalk.bold( '[WordPress.com]' );
 		const pad = ' ';
 		const header = `${ pad }${ localTab }  ${ remoteTab }`;
 
 		const searchLine = this.sitePickerQuery
-			? `${ pad }${ chalk.dim( 'Search:' ) } ${ this.sitePickerQuery }`
+			? `${ pad }${ chalk.dim( __( 'Search:' ) ) } ${ this.sitePickerQuery }`
 			: '';
 
 		const hints = isLocal
-			? `${ pad }↑↓ navigate · → remote sites · enter select · tab open in browser · esc cancel`
-			: `${ pad }↑↓ navigate · ← local sites · enter select · tab open in browser · esc cancel`;
+			? `${ pad }${ __(
+					'↑↓ navigate · → remote sites · enter select · tab open in browser · esc cancel'
+			  ) }`
+			: `${ pad }${ __(
+					'↑↓ navigate · ← local sites · enter select · tab open in browser · esc cancel'
+			  ) }`;
 
 		const lines = [ header, '' ];
 		if ( searchLine ) {
@@ -876,7 +953,7 @@ export class AiChatUI {
 		}
 
 		if ( ! isLocal && this.sitePickerRemoteLoading ) {
-			lines.push( chalk.dim( `${ pad }  Loading WordPress.com sites…` ) );
+			lines.push( chalk.dim( `${ pad }  ${ __( 'Loading WordPress.com sites…' ) }` ) );
 		} else if ( this.sitePickerSelectList ) {
 			const termWidth = process.stdout.columns ?? 80;
 			lines.push(
@@ -892,12 +969,28 @@ export class AiChatUI {
 		this.tui.requestRender();
 	}
 
-	private setActiveSite( site: SiteInfo ): void {
+	setActiveSite( site: SiteInfo, options: { announce?: boolean; emitEvent?: boolean } = {} ): void {
+		const { announce = true, emitEvent = true } = options;
 		this._activeSite = site;
 		this.editor.activeSiteName = site.name;
-		const suffix = site.remote ? ' (WordPress.com)' : '';
-		const label = ` ✻ Selected site: ${ site.name }${ suffix }`;
-		this.messages.addChild( new Text( `${ chalk.hex( '#5b8db8' )( label ) }\n`, 0, 0 ) );
+		this.refreshPromptChrome();
+		const label = site.remote
+			? sprintf(
+					/* translators: %s: site name */
+					__( ' ✻ Selected site: %s (WordPress.com)' ),
+					site.name
+			  )
+			: sprintf(
+					/* translators: %s: site name */
+					__( ' ✻ Selected site: %s' ),
+					site.name
+			  );
+		if ( announce ) {
+			this.messages.addChild( new Text( `${ chalk.hex( '#5b8db8' )( label ) }\n`, 0, 0 ) );
+		}
+		if ( emitEvent ) {
+			this.siteSelectedCallback?.( site );
+		}
 		this.tui.requestRender();
 	}
 
@@ -905,13 +998,14 @@ export class AiChatUI {
 		this._activeSite = null;
 		this._activeSiteData = null;
 		this.editor.activeSiteName = null;
-		this.messages.addChild( new Text( chalk.dim( ' ✻ Site deselected' ) + '\n', 0, 0 ) );
+		this.refreshPromptChrome();
+		this.messages.addChild( new Text( chalk.dim( __( ' ✻ Site deselected' ) ) + '\n', 0, 0 ) );
 		this.tui.requestRender();
 	}
 
 	private async findSiteFromAppdata( nameOrPath: string ): Promise< SiteInfo | null > {
-		const appdata = await readAppdata();
-		const site = appdata.sites.find(
+		const config = await readCliConfig();
+		const site = config.sites.find(
 			( s ) => s.name.toLowerCase() === nameOrPath.toLowerCase() || s.path === nameOrPath
 		);
 		if ( ! site ) {
@@ -937,72 +1031,67 @@ export class AiChatUI {
 		return a.path === b.path || a.name.toLowerCase() === b.name.toLowerCase();
 	}
 
+	private async selectLocalSiteFromTool(
+		nameOrPath: string,
+		options: { running?: boolean } = {}
+	): Promise< void > {
+		const site = await this.findSiteFromAppdata( nameOrPath );
+		if ( ! site ) {
+			return;
+		}
+
+		if ( typeof options.running === 'boolean' ) {
+			site.running = options.running;
+		}
+
+		if ( this.isSameSite( this._activeSite, site ) ) {
+			this._activeSite = site;
+			this.editor.activeSiteName = site.name;
+			this.refreshPromptChrome();
+			this.tui.requestRender();
+			return;
+		}
+
+		this.setActiveSite( site );
+	}
+
 	private async autoSelectSiteFromToolResult(
 		toolName: string,
 		toolInput: Record< string, unknown > | null
 	): Promise< void > {
 		switch ( toolName ) {
 			case 'mcp__studio__site_create': {
-				// site_create tool input has { name: string }
 				const name = toolInput?.name;
 				if ( typeof name === 'string' ) {
-					const site = await this.findSiteFromAppdata( name );
-					if ( site ) {
-						site.running = true; // site_create auto-starts the site
-						this.setActiveSite( site );
-					}
+					await this.selectLocalSiteFromTool( name, { running: true } );
 				}
 				break;
 			}
+			case 'mcp__studio__site_info':
 			case 'mcp__studio__site_start': {
 				const nameOrPath = toolInput?.nameOrPath;
 				if ( typeof nameOrPath === 'string' ) {
-					const site = await this.findSiteFromAppdata( nameOrPath );
-					if ( site ) {
-						site.running = true;
-						if ( this.isSameSite( this._activeSite, site ) ) {
-							this._activeSite = site; // Update running status in-place
-						} else {
-							this.setActiveSite( site );
-						}
-					}
+					await this.selectLocalSiteFromTool( nameOrPath, {
+						running: toolName === 'mcp__studio__site_start' ? true : undefined,
+					} );
 				}
 				break;
 			}
 			case 'mcp__studio__wp_cli':
 			case 'mcp__studio__preview_create':
 			case 'mcp__studio__preview_list':
-			case 'mcp__studio__preview_update': {
+			case 'mcp__studio__preview_update':
+			case 'mcp__studio__validate_blocks': {
 				const nameOrPath = toolInput?.nameOrPath;
 				if ( typeof nameOrPath === 'string' ) {
-					if (
-						! this._activeSite ||
-						! this.isSameSite( this._activeSite, {
-							name: nameOrPath,
-							path: nameOrPath,
-							running: true,
-						} )
-					) {
-						const site = await this.findSiteFromAppdata( nameOrPath );
-						if ( site ) {
-							this.setActiveSite( site );
-						}
-					}
+					await this.selectLocalSiteFromTool( nameOrPath );
 				}
 				break;
 			}
 			case 'mcp__studio__site_stop': {
 				const nameOrPath = toolInput?.nameOrPath;
-				if (
-					typeof nameOrPath === 'string' &&
-					this._activeSite &&
-					this.isSameSite( this._activeSite, {
-						name: nameOrPath,
-						path: nameOrPath,
-						running: false,
-					} )
-				) {
-					this._activeSite = { ...this._activeSite, running: false };
+				if ( typeof nameOrPath === 'string' ) {
+					await this.selectLocalSiteFromTool( nameOrPath, { running: false } );
 				}
 				break;
 			}
@@ -1053,13 +1142,21 @@ export class AiChatUI {
 			await openBrowser( this._activeSite.url );
 			return true;
 		}
-		if ( ! this._activeSiteData ) {
+		if ( ! this._activeSite && ! this._activeSiteData ) {
 			return false;
 		}
 		// Re-read appdata to get the current site state (port/domain may have changed)
-		const appdata = await readAppdata();
-		const freshSiteData = appdata.sites?.find( ( s ) => s.name === this._activeSite?.name );
+		const config = await readCliConfig();
+		const activeSiteName = this._activeSite?.name ?? this._activeSiteData?.name;
+		const freshSiteData = config.sites?.find( ( site ) => site.name === activeSiteName );
 		const siteData = freshSiteData ?? this._activeSiteData;
+		if ( siteData ) {
+			this._activeSiteData = siteData;
+		}
+		if ( ! siteData ) {
+			return false;
+		}
+
 		const url = getSiteUrl( siteData );
 		if ( url ) {
 			await openBrowser( url );
@@ -1100,7 +1197,7 @@ export class AiChatUI {
 			const cursor = chalk.inverse( ' ' );
 			const display = inputText
 				? chalk.blue( inputText ) + cursor
-				: chalk.dim( 'Type your answer...' ) + cursor;
+				: chalk.dim( __( 'Type your answer…' ) ) + cursor;
 			lines[ lines.length - 1 ] = `${ chalk.blue( '→' ) } ${ display }`;
 		}
 
@@ -1175,7 +1272,7 @@ export class AiChatUI {
 				} · ${ displayCwd }`
 			),
 			'',
-			chalk.dim.italic( 'Code is Poetry' ),
+			chalk.dim.italic( __( 'Code is Poetry' ) ),
 		];
 
 		// Lay out logo on the left, info on the right (vertically centered)
@@ -1264,12 +1361,14 @@ export class AiChatUI {
 	private updateHints(): void {
 		const hints: string[] = [];
 		if ( ! this._inAgentTurn ) {
-			hints.push( '↓ select site' );
+			hints.push( __( '↓ select site' ) );
 		}
 		if ( this.activeExpandablePreview ) {
-			hints.push( this.activeExpandablePreview.isExpanded ? 'ctrl+o collapse' : 'ctrl+o expand' );
+			hints.push(
+				this.activeExpandablePreview.isExpanded ? __( 'ctrl+o collapse' ) : __( 'ctrl+o expand' )
+			);
 		}
-		hints.push( 'esc to interrupt' );
+		hints.push( __( 'esc to interrupt' ) );
 		this.editor.hints = hints;
 	}
 
@@ -1303,7 +1402,7 @@ export class AiChatUI {
 		this.currentResponseText = '';
 		this.hasShownResponseMarker = false;
 		this.wasInterrupted = false;
-		this.turnStartTime = Date.now();
+		this.turnStartTime = this.nowMs();
 		this.todoSnapshot = [];
 		this.latestTodoSnapshot = [];
 		this.lastRenderedTodoSignature = null;
@@ -1331,6 +1430,151 @@ export class AiChatUI {
 		this.pendingTodoRenderOrder = [];
 	}
 
+	showOnboarding(): void {
+		const text =
+			' ' +
+			chalk.blue( '⏺' ) +
+			' ' +
+			sprintf(
+				/* translators: %s: product name (WordPress Studio) */
+				__( "Hello, I'm %s, your local WordPress agent and builder." ),
+				chalk.bold( 'WordPress Studio' )
+			);
+
+		this.messages.addChild( new Text( '\n' + text + '\n', 0, 0 ) );
+		this.tui.requestRender();
+	}
+
+	showCapabilities(): void {
+		const b = chalk.bold;
+		const d = chalk.dim;
+		const separator = d( ' ─'.padEnd( 80, '─' ) );
+
+		const lines = [
+			' ' +
+				chalk.blue( '⏺' ) +
+				' ' +
+				__( "Great, you're connected now! Let me tell you what I can do:" ),
+			'',
+			'  ' + b( __( 'Local Sites Management' ) ),
+			'',
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "Create" */
+					__( '%s new local WordPress sites instantly (fully configured, ready to use)' ),
+					b( __( 'Create' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "Start / stop" */
+					__( '%s existing local sites' ),
+					b( __( 'Start / stop' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "List" */
+					__( '%s all your local sites and their status' ),
+					b( __( 'List' ) )
+				),
+			'',
+			'  ' + b( __( 'Design & Development' ) ),
+			'',
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "Build" */
+					__( '%s block themes with striking, memorable designs' ),
+					b( __( 'Build' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "CSS, PHP, and JavaScript" */
+					__( 'Write custom %s for themes and plugins' ),
+					b( __( 'CSS, PHP, and JavaScript' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "pages and posts" */
+					__( 'Create %s with valid Gutenberg block content' ),
+					b( __( 'pages and posts' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "plugins" */
+					__( 'Install and activate %s via WP-CLI' ),
+					b( __( 'plugins' ) )
+				),
+			'',
+			'  ' + b( __( 'Content' ) ),
+			'',
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "page content" */
+					__( 'Generate and import %s using core blocks' ),
+					b( __( 'page content' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "navigation menus, site options, post types, taxonomies, and settings" */
+					__( 'Set up %s' ),
+					b( __( 'navigation menus, site options, post types, taxonomies, and settings' ) )
+				),
+			'  - ' + __( "Create realistic placeholder content tailored to your site's purpose" ),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "images and videos" */
+					__( 'Upload %s to your site, using local media files or remote URLs' ),
+					b( __( 'images and videos' ) )
+				),
+			'',
+			'  ' + b( __( 'Preview & Publishing' ) ),
+			'',
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "screenshots" */
+					__( 'Take %s (desktop + mobile) to verify the design is well crafted' ),
+					b( __( 'screenshots' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "Validate" */
+					__( "%s all block content to ensure it's editor-compatible" ),
+					b( __( 'Validate' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "Push" */
+					__( '%s your local site to the cloud in WordPress.com' ),
+					b( __( 'Push' ) )
+				),
+			'  - ' +
+				sprintf(
+					/* translators: %s: bold "Generate preview sites" */
+					__( '%s with shareable URLs for quick feedback' ),
+					b( __( 'Generate preview sites' ) )
+				),
+			'',
+			separator,
+			'',
+			'  ' + __( 'Just tell me what you want to build — for example:' ),
+			'',
+			'  ' + d( chalk.italic( __( '"Create a portfolio site for a photographer"' ) ) ),
+			'  ' + d( chalk.italic( __( '"Build a landing page for a SaaS product"' ) ) ),
+			'  ' + d( chalk.italic( __( '"Make a blog for a coffee shop"' ) ) ),
+			'',
+			'  ' +
+				__(
+					"I'll ask a few quick questions about the name and layout, then build the whole thing for you. The more precise you are about what you want, the better the result will be."
+				),
+		];
+		this.messages.addChild( new Text( '\n' + lines.join( '\n' ) + '\n', 0, 0 ) );
+		this.tui.requestRender();
+	}
+
+	showSuccess( message: string ): void {
+		this.messages.addChild( new Text( '\n ' + chalk.green( '⏺' ) + ' ' + message + '\n', 0, 0 ) );
+		this.tui.requestRender();
+	}
+
 	showError( message: string ): void {
 		this.messages.addChild(
 			new Text( '\n ' + chalk.red( '⏺' ) + ' ' + chalk.red( message ) + '\n', 0, 0 )
@@ -1343,9 +1587,39 @@ export class AiChatUI {
 		this.tui.requestRender();
 	}
 
+	showProgress( message: string ): void {
+		this.messages.addChild( new Text( '\n ' + '⏺' + ' ' + message + '\n', 0, 0 ) );
+		this.tui.requestRender();
+	}
+
 	setStatusMessage( message: string | null ): void {
 		this.editor.statusMessage = message;
 		this.tui.requestRender();
+	}
+
+	private busyTimer: ReturnType< typeof setInterval > | null = null;
+	private busyFrameIndex = 0;
+	private static readonly BUSY_FRAMES = [ '⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏' ];
+
+	setBusy( active: boolean ): void {
+		if ( this.busyTimer ) {
+			clearInterval( this.busyTimer );
+			this.busyTimer = null;
+		}
+
+		if ( active ) {
+			this.busyFrameIndex = 0;
+			this.editor.busyMessage = AiChatUI.BUSY_FRAMES[ 0 ];
+			this.tui.requestRender();
+			this.busyTimer = setInterval( () => {
+				this.busyFrameIndex = ( this.busyFrameIndex + 1 ) % AiChatUI.BUSY_FRAMES.length;
+				this.editor.busyMessage = AiChatUI.BUSY_FRAMES[ this.busyFrameIndex ];
+				this.tui.requestRender();
+			}, 80 );
+		} else {
+			this.editor.busyMessage = null;
+			this.tui.requestRender();
+		}
 	}
 
 	private showFilePreview( toolName: string, input: Record< string, unknown > ): void {
@@ -1396,9 +1670,11 @@ export class AiChatUI {
 			formatToolOutputLines( lines.slice( 0, DEFAULT_COLLAPSE_THRESHOLD_LINES ) ) +
 			'\n     ' +
 			chalk.dim(
-				'... ' +
-					( lines.length - DEFAULT_COLLAPSE_THRESHOLD_LINES ) +
-					' more lines · ctrl+o to expand'
+				sprintf(
+					/* translators: %d: number of hidden lines */
+					__( '... %d more lines · ctrl+o to expand' ),
+					lines.length - DEFAULT_COLLAPSE_THRESHOLD_LINES
+				)
 			);
 
 		return { collapsed, expanded };
@@ -1468,6 +1744,10 @@ export class AiChatUI {
 		this.toolDotText = new Text( '\n ' + '⏺' + ' ' + toolLabel, 0, 0 );
 		this.messages.addChild( this.toolDotText );
 		this.toolDotVisible = true;
+		if ( this.replayMode ) {
+			this.tui.requestRender();
+			return;
+		}
 		this.toolDotTimer = setInterval( () => {
 			if ( ! this.toolDotText ) {
 				return;
@@ -1503,9 +1783,11 @@ export class AiChatUI {
 	}
 
 	private finalizeToolUseLine( isError: boolean, label: string ): void {
-		const elapsed = this.toolStartTime ? Date.now() - this.toolStartTime : 0;
+		const elapsed = this.toolStartTime ? this.nowMs() - this.toolStartTime : 0;
 		this.toolStartTime = null;
-		const elapsedStr = elapsed > 0 ? chalk.dim( ` (${ ( elapsed / 1000 ).toFixed( 1 ) }s)` ) : '';
+		const elapsedSeconds = Math.max( elapsed, 0 ) / 1000;
+		const elapsedStr =
+			elapsed > 0 || this.replayMode ? chalk.dim( ` (${ elapsedSeconds.toFixed( 1 ) }s)` ) : '';
 		const statusIcon = isError ? chalk.red( '⏺' ) : '⏺';
 
 		if ( this.toolDotText ) {
@@ -1546,6 +1828,28 @@ export class AiChatUI {
 		this.pendingTodoRenders.delete( toolUseId );
 		this.pendingTodoRenderOrder = this.pendingTodoRenderOrder.filter( ( id ) => id !== toolUseId );
 		return pendingTodoRender;
+	}
+
+	private consumeLatestPendingToolCall(): {
+		id: string;
+		name: string;
+		input: Record< string, unknown >;
+	} | null {
+		let latestPendingToolCall: {
+			id: string;
+			name: string;
+			input: Record< string, unknown >;
+		} | null = null;
+
+		for ( const [ id, toolCall ] of this.pendingToolCalls.entries() ) {
+			latestPendingToolCall = { id, ...toolCall };
+		}
+
+		if ( latestPendingToolCall ) {
+			this.pendingToolCalls.delete( latestPendingToolCall.id );
+		}
+
+		return latestPendingToolCall;
 	}
 
 	private renderToolResultText(
@@ -1673,7 +1977,7 @@ export class AiChatUI {
 				if ( this.optionPickerHasFreeForm ) {
 					selectItems.push( {
 						value: AiChatUI.OTHER_VALUE,
-						label: 'Other (type my own)',
+						label: __( 'Other (type my own)' ),
 					} );
 				}
 
@@ -1727,7 +2031,7 @@ export class AiChatUI {
 		message: SDKMessage
 	):
 		| { sessionId: string; success: boolean; maxTurnsReached?: undefined }
-		| { sessionId: string; maxTurnsReached: true; numTurns: number; costUsd: number }
+		| { sessionId: string; maxTurnsReached: true; numTurns: number }
 		| undefined {
 		switch ( message.type ) {
 			case 'assistant': {
@@ -1754,7 +2058,7 @@ export class AiChatUI {
 						);
 						this.tui.requestRender();
 					} else if ( block.type === 'tool_use' ) {
-						this.toolStartTime = Date.now();
+						this.toolStartTime = this.nowMs();
 						const typedBlock = block as {
 							id: string;
 							name: string;
@@ -1790,7 +2094,7 @@ export class AiChatUI {
 				}
 				// Always show the loader after processing — the agent turn is still active
 				// and more messages are coming (next API call, tool execution, etc.)
-				if ( ! this.loaderVisible ) {
+				if ( ! this.replayMode && ! this.loaderVisible ) {
 					this.showLoader( this.randomThinkingMessage() );
 				}
 				return undefined;
@@ -1808,7 +2112,8 @@ export class AiChatUI {
 				} else if ( ! toolCallId && this.pendingTodoRenderOrder.length > 0 ) {
 					this.showTodoToolResult( message, this.pendingTodoRenderOrder[ 0 ] );
 				} else {
-					this.showToolResult( message, toolCall?.name, toolCall?.input );
+					const fallbackToolCall = toolCall ?? this.consumeLatestPendingToolCall();
+					this.showToolResult( message, fallbackToolCall?.name, fallbackToolCall?.input );
 				}
 				// Close the current markdown block so the next assistant text
 				// creates a fresh visual block (mirrors askUser / endAgentTurn).
@@ -1819,25 +2124,44 @@ export class AiChatUI {
 			case 'result': {
 				this.hideLoader();
 				if ( message.subtype === 'success' ) {
-					const thinkingSec = Math.round( ( Date.now() - this.turnStartTime ) / 1000 );
+					const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
 					if ( ! this.hasShownResponseMarker ) {
-						this.messages.addChild( new Text( '\n ' + chalk.blue( '⏺' ) + ' Done', 0, 0 ) );
+						this.messages.addChild(
+							new Text( '\n ' + chalk.blue( '⏺' ) + ' ' + __( 'Done' ), 0, 0 )
+						);
 					}
 					this.showInfo(
-						`Thought for ${ thinkingSec }s · ${
+						sprintf(
+							/* translators: 1: seconds spent thinking, 2: number of turns */
+							_n(
+								'Thought for %1$ds · %2$d turn',
+								'Thought for %1$ds · %2$d turns',
+								message.num_turns
+							),
+							thinkingSec,
 							message.num_turns
-						} turns · $${ message.total_cost_usd.toFixed( 4 ) }`
+						)
 					);
 					return { sessionId: message.session_id, success: true };
 				}
 
 				// User-initiated interruption: show friendly message instead of error
 				if ( this.wasInterrupted ) {
-					const thinkingSec = Math.round( ( Date.now() - this.turnStartTime ) / 1000 );
+					const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
 					this.messages.addChild(
-						new Text( '\n ' + chalk.yellow( '⏺' ) + ' ' + chalk.yellow( 'Interrupted' ), 0, 0 )
+						new Text(
+							'\n ' + chalk.yellow( '⏺' ) + ' ' + chalk.yellow( __( 'Interrupted' ) ),
+							0,
+							0
+						)
 					);
-					this.showInfo( `Ran for ${ thinkingSec }s before interruption` );
+					this.showInfo(
+						sprintf(
+							/* translators: %d: number of seconds */
+							__( 'Ran for %ds before interruption' ),
+							thinkingSec
+						)
+					);
 					return { sessionId: message.session_id, success: false };
 				}
 
@@ -1851,17 +2175,22 @@ export class AiChatUI {
 						sessionId: message.session_id,
 						maxTurnsReached: true,
 						numTurns: message.num_turns,
-						costUsd: message.total_cost_usd,
 					};
 				} else if ( message.subtype ) {
 					parts.push( `(${ message.subtype })` );
 				}
 				if ( 'permission_denials' in message && message.permission_denials?.length ) {
 					for ( const denial of message.permission_denials ) {
-						parts.push( `Permission denied: ${ denial.tool_name }` );
+						parts.push(
+							sprintf(
+								/* translators: %s: tool name */
+								__( 'Permission denied: %s' ),
+								denial.tool_name
+							)
+						);
 					}
 				}
-				this.showError( parts.length > 0 ? parts.join( '\n' ) : 'Unknown error' );
+				this.showError( parts.length > 0 ? parts.join( '\n' ) : __( 'Unknown error' ) );
 				return { sessionId: message.session_id, success: false };
 			}
 		}

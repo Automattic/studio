@@ -6,7 +6,6 @@ import { ExportOptions } from 'src/lib/import-export/export/types';
 import { SiteServer } from 'src/site-server';
 
 vi.mock( 'fs' );
-vi.mock( 'fs/promises' );
 vi.mock( 'os' );
 vi.mock( 'fs-extra' );
 

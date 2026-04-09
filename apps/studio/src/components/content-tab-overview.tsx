@@ -4,6 +4,7 @@ import {
 	archive,
 	code,
 	desktop,
+	grid,
 	pencil,
 	layout,
 	navigation,
@@ -134,6 +135,8 @@ function CustomizeSection( {
 function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'selectedSite' > ) {
 	const { data: editor } = useGetUserEditorQuery();
 	const { data: terminal } = useGetUserTerminalQuery();
+	const { startServer, loadingServer } = useSiteDetails();
+	const isServerLoading = loadingServer[ selectedSite.id ];
 
 	const buttonsArray: ButtonsSectionProps[ 'buttonsArray' ] = [
 		{
@@ -176,6 +179,23 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 			}
 		},
 	} );
+
+	buttonsArray.push( {
+		label: __( 'phpMyAdmin' ),
+		className: 'text-nowrap',
+		icon: grid,
+		disabled: isServerLoading,
+		onClick: async () => {
+			if ( ! selectedSite.running ) {
+				await startServer( selectedSite );
+			}
+			getIpcApi().openSiteURL(
+				selectedSite.id,
+				'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
+			);
+		},
+	} );
+
 	return <ButtonsSection buttonsArray={ buttonsArray } title={ __( 'Open in…' ) } />;
 }
 
@@ -219,17 +239,17 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 				<h2 className="mb-3 a8c-subtitle-small">{ __( 'Theme' ) }</h2>
 				<div
 					className={ cx(
-						'w-full min-h-40 max-h-64 rounded-sm border border-a8c-gray-5 bg-a8c-gray-0 mb-2 flex justify-center',
+						'w-full min-h-40 max-h-64 rounded-sm border border-frame-border bg-frame-surface mb-2 flex justify-center',
 						loading && 'h-64 skeleton-bg',
 						isThumbnailError && 'border-none',
-						! loading && 'hover:border-a8c-blue-50 duration-300'
+						! loading && 'hover:border-frame-theme duration-300'
 					) }
 				>
 					{ ! loading && (
 						<button
 							aria-label={ __( 'Open site' ) }
 							className={ cx(
-								'w-full relative group focus-visible:outline-a8c-blue-50',
+								'w-full relative group focus-visible:outline-frame-theme',
 								isServerLoading && 'cursor-not-allowed'
 							) }
 							onClick={ handleThumbnailClick }
@@ -237,7 +257,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 						>
 							<div
 								className={ cx(
-									'opacity-0 group-hover:bg-white group-focus:bg-white duration-300 absolute size-full flex justify-center items-center bg-white text-a8c-blue-50',
+									'opacity-0 group-hover:bg-frame group-focus:bg-frame duration-300 absolute size-full flex justify-center items-center bg-frame text-frame-theme',
 									isThumbnailError
 										? 'group-hover:opacity-100 group-focus:opacity-100'
 										: 'group-hover:opacity-90 group-focus:opacity-90'
@@ -247,7 +267,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 								<ArrowIcon />
 							</div>
 							{ isThumbnailError ? (
-								<div className="flex w-full items-center justify-center h-64 leading-5 text-a8c-gray-50 text-center">
+								<div className="flex w-full items-center justify-center h-64 leading-5 text-frame-text-secondary text-center">
 									{ __( 'Preview unavailable' ) }
 								</div>
 							) : (

@@ -13,7 +13,7 @@ const backgroundSvg = (
 	>
 		<path
 			d="M32 6.00001C32 2.6863 34.6863 0 38 0H243C246.314 0 249 2.68629 249 6V254C249 257.314 246.314 260 243 260H38C34.6863 260 32 257.314 32 254V6.00001Z"
-			fill="#3858E9"
+			fill="var(--color-frame-theme)"
 			fillOpacity="0.2"
 		/>
 		<path

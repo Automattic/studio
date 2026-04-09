@@ -3,8 +3,8 @@ import https from 'https';
 import { createSecureContext } from 'node:tls';
 import { domainToASCII } from 'node:url';
 import httpProxy from 'http-proxy';
-import { readAppdata } from 'cli/lib/appdata';
 import { generateSiteCertificate } from 'cli/lib/certificate-manager';
+import { readCliConfig } from 'cli/lib/cli-config/core';
 
 let httpProxyServer: http.Server | null = null;
 let httpsProxyServer: https.Server | null = null;
@@ -17,7 +17,7 @@ const proxy = httpProxy.createProxyServer();
 proxy.on( 'error', ( err, req, res ) => {
 	console.error( '[Proxy Error]', err.message );
 	if ( res && res instanceof http.ServerResponse ) {
-		res.writeHead( 500, { 'Content-Type': 'text/plain' } );
+		res.writeHead( 502, { 'Content-Type': 'text/plain' } );
 		res.end( 'Proxy error: ' + err.message );
 	}
 } );
@@ -27,8 +27,8 @@ proxy.on( 'error', ( err, req, res ) => {
  */
 async function getSiteByHost( domain: string ) {
 	try {
-		const appdata = await readAppdata();
-		const site = appdata.sites.find(
+		const cliConfig = await readCliConfig();
+		const site = cliConfig.sites.find(
 			( site ) => domainToASCII( site.customDomain ?? '' ) === domainToASCII( domain )
 		);
 		return site ?? null;

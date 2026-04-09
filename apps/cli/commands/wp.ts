@@ -2,7 +2,7 @@ import { StreamedPHPResponse } from '@php-wasm/universal';
 import { __ } from '@wordpress/i18n';
 import { ArgumentsCamelCase } from 'yargs';
 import yargsParser from 'yargs-parser';
-import { getSiteByFolder } from 'cli/lib/appdata';
+import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { runWpCliCommand, runGlobalWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { validatePhpVersion } from 'cli/lib/utils';

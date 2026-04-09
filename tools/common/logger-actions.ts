@@ -12,9 +12,11 @@ export enum PreviewCommandLoggerAction {
 	ARCHIVE = 'archive',
 	LOAD = 'load',
 	DELETE = 'delete',
+	DELETE_ALL = 'deleteAll',
 	UPLOAD = 'upload',
 	READY = 'ready',
 	APPDATA = 'appdata',
+	SET = 'set',
 }
 
 export enum SiteCommandLoggerAction {
@@ -39,4 +41,5 @@ export enum SiteCommandLoggerAction {
 	APPLY_BLUEPRINT = 'applyBlueprint',
 	DELETE_PREVIEW_SITES = 'deletePreviewSites',
 	DELETE_FILES = 'deleteFiles',
+	CHECKING_DEPENDENCY_UPDATES = 'checkingDependencyUpdates',
 }

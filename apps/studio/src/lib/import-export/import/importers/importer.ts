@@ -1,7 +1,6 @@
 import { shell } from 'electron';
 import { EventEmitter } from 'events';
-import fs, { createReadStream, createWriteStream } from 'fs';
-import fsPromises from 'fs/promises';
+import fs from 'fs';
 import path from 'path';
 import { createInterface } from 'readline';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
@@ -108,7 +107,7 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 
 	protected async safelyDeletePath( path: string ): Promise< void > {
 		try {
-			await fsPromises.rm( path, { recursive: true, force: true } );
+			await fs.promises.rm( path, { recursive: true, force: true } );
 		} catch ( error ) {
 			console.error( `Failed to safely delete path ${ path }:`, error );
 		}
@@ -158,7 +157,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 	protected abstract parseMetaFile(): Promise< MetaFileData | undefined >;
 
 	protected async createEmptyDatabase( dbPath: string ): Promise< void > {
-		await fsPromises.writeFile( dbPath, '' );
+		await fs.promises.writeFile( dbPath, '' );
 	}
 
 	protected async moveExistingDatabaseToTrash( dbPath: string ): Promise< void > {
@@ -183,7 +182,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 				/^languages(\/|\\)?.*/, // Match languages dir and all contents
 			];
 
-			const contents = await fsPromises.readdir( wpContentDir, { recursive: true } );
+			const contents = await fs.promises.readdir( wpContentDir, { recursive: true } );
 
 			for ( const content of contents ) {
 				if ( contentToKeep.some( ( pattern ) => pattern.test( content ) ) ) {
@@ -201,9 +200,9 @@ abstract class BaseBackupImporter extends BaseImporter {
 		const wpConfigSamplePath = path.join( rootPath, 'wp-config-sample.php' );
 
 		if ( this.backup.wpConfig ) {
-			await fsPromises.copyFile( this.backup.wpConfig, wpConfigPath );
+			await fs.promises.copyFile( this.backup.wpConfig, wpConfigPath );
 		} else if ( ! fs.existsSync( wpConfigPath ) && fs.existsSync( wpConfigSamplePath ) ) {
-			await fsPromises.copyFile( wpConfigSamplePath, wpConfigPath );
+			await fs.promises.copyFile( wpConfigSamplePath, wpConfigPath );
 		}
 	}
 
@@ -241,8 +240,8 @@ abstract class BaseBackupImporter extends BaseImporter {
 				);
 
 				const destPath = path.join( wpContentDestDir, relativePath );
-				await fsPromises.mkdir( path.dirname( destPath ), { recursive: true } );
-				await fsPromises.copyFile( file, destPath );
+				await fs.promises.mkdir( path.dirname( destPath ), { recursive: true } );
+				await fs.promises.copyFile( file, destPath );
 
 				processedItems++;
 
@@ -309,7 +308,7 @@ export class JetpackImporter extends BaseBackupImporter {
 		}
 		this.emit( ImportEvents.IMPORT_META_START );
 		try {
-			const metaContent = await fsPromises.readFile( metaFilePath, 'utf-8' );
+			const metaContent = await fs.promises.readFile( metaFilePath, 'utf-8' );
 			const meta = JSON.parse( metaContent );
 			return {
 				phpVersion: this.parsePhpVersion( meta?.phpVersion ),
@@ -331,7 +330,7 @@ export class LocalImporter extends BaseBackupImporter {
 		}
 		this.emit( ImportEvents.IMPORT_META_START );
 		try {
-			const metaContent = await fsPromises.readFile( metaFilePath, 'utf-8' );
+			const metaContent = await fs.promises.readFile( metaFilePath, 'utf-8' );
 			const meta = JSON.parse( metaContent );
 			return {
 				phpVersion: this.parsePhpVersion( meta?.services?.php?.version ),
@@ -403,7 +402,7 @@ export class WpressImporter extends BaseBackupImporter {
 	protected async parseMetaFile(): Promise< MetaFileData > {
 		const packageJsonPath = path.join( this.backup.extractionDirectory, 'package.json' );
 		try {
-			const packageContent = await fsPromises.readFile( packageJsonPath, 'utf8' );
+			const packageContent = await fs.promises.readFile( packageJsonPath, 'utf8' );
 			const {
 				Template: template = '',
 				Stylesheet: stylesheet = '',
@@ -418,8 +417,8 @@ export class WpressImporter extends BaseBackupImporter {
 
 	protected async prepareSqlFile( tmpPath: string ): Promise< void > {
 		const tempOutputPath = `${ tmpPath }.tmp`;
-		const readStream = createReadStream( tmpPath, 'utf8' );
-		const writeStream = createWriteStream( tempOutputPath, 'utf8' );
+		const readStream = fs.createReadStream( tmpPath, 'utf8' );
+		const writeStream = fs.createWriteStream( tempOutputPath, 'utf8' );
 
 		const rl = createInterface( {
 			input: readStream,
@@ -440,7 +439,7 @@ export class WpressImporter extends BaseBackupImporter {
 			writeStream.on( 'error', reject );
 		} );
 
-		await fsPromises.rename( tempOutputPath, tmpPath );
+		await fs.promises.rename( tempOutputPath, tmpPath );
 	}
 
 	protected async addSqlToSetTheme( sqlFiles: string[] ): Promise< void > {
@@ -457,7 +456,7 @@ export class WpressImporter extends BaseBackupImporter {
 			this.backup.extractionDirectory,
 			'studio-wpress-theme.sql'
 		);
-		await fsPromises.writeFile( sqliteSetThemePath, themeUpdateSql );
+		await fs.promises.writeFile( sqliteSetThemePath, themeUpdateSql );
 		sqlFiles.push( sqliteSetThemePath );
 	}
 
@@ -477,7 +476,7 @@ export class WpressImporter extends BaseBackupImporter {
 			this.backup.extractionDirectory,
 			'studio-wpress-activate-plugins.sql'
 		);
-		await fsPromises.writeFile( sqliteActivatePluginsPath, activatePluginsSql );
+		await fs.promises.writeFile( sqliteActivatePluginsPath, activatePluginsSql );
 		sqlFiles.push( sqliteActivatePluginsPath );
 	}
 

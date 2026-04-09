@@ -73,11 +73,11 @@ export const ChatMessage = forwardRef< HTMLDivElement, ChatMessageProps >(
 							'inline-block p-3 rounded border overflow-x-auto overflow-y-hidden select-text',
 							isUnauthenticated ? 'lg:max-w-[90%]' : 'lg:max-w-[70%]',
 							message.failedMessage
-								? 'border-[#FACFD2] bg-[#F7EBEC]'
+								? 'border-frame-error/30 bg-frame-error/10'
 								: message.role === 'user'
-								? 'bg-white'
-								: 'bg-white/45',
-							! message.failedMessage && 'border-gray-300'
+								? 'bg-frame'
+								: 'bg-frame/45',
+							! message.failedMessage && 'border-frame-border'
 						) }
 					>
 						<div className="relative">

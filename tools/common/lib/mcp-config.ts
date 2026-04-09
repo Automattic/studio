@@ -3,9 +3,22 @@
  * AI assistant's settings. Shared between the CLI `studio mcp` command
  * and the Studio desktop Settings dialog.
  */
-export function getMcpServerConfig(): Record< string, { command: string; args: string[] } > {
+type McpServerConfig = {
+	command: string;
+	args: string[];
+};
+
+export const MCP_SERVER_NAME = 'wordpress-studio';
+
+export function getMcpServerLaunchCommand(): string {
+	const serverConfig = getMcpServerConfig()[ MCP_SERVER_NAME ];
+
+	return [ serverConfig.command, ...serverConfig.args ].join( ' ' );
+}
+
+export function getMcpServerConfig(): Record< string, McpServerConfig > {
 	return {
-		'wordpress-studio': {
+		[ MCP_SERVER_NAME ]: {
 			command: 'studio',
 			args: [ 'mcp' ],
 		},

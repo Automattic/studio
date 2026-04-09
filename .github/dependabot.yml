@@ -112,6 +112,7 @@ updates:
       - dependency-name: "ora"
       - dependency-name: "cross-port-killer"
       - dependency-name: "fast-deep-equal"
+      - dependency-name: "simple-git"
 
       # Markdown & content processing
       - dependency-name: "react-markdown"

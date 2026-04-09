@@ -1,12 +1,17 @@
-import { readFile } from 'fs/promises';
+import { cp, readFile } from 'fs/promises';
 import path from 'path';
 import { tool, createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { z } from 'zod/v4';
 import { validateBlocks, type ValidationReport } from 'cli/ai/block-validator';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
+import { auditPerformance } from 'cli/ai/performance-audit';
+import { createWpcomToolDefinitions } from 'cli/ai/wpcom-tools';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
-import { runCommand as runDeletePreviewCommand } from 'cli/commands/preview/delete';
+import {
+	Mode as PreviewDeleteMode,
+	runCommand as runDeletePreviewCommand,
+} from 'cli/commands/preview/delete';
 import { runCommand as runListPreviewCommand } from 'cli/commands/preview/list';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
@@ -15,8 +20,10 @@ import { runCommand as runListSitesCommand } from 'cli/commands/site/list';
 import { runCommand as runStartSiteCommand } from 'cli/commands/site/start';
 import { runCommand as runStatusCommand } from 'cli/commands/site/status';
 import { runCommand as runStopSiteCommand, Mode as StopMode } from 'cli/commands/site/stop';
-import { getSiteByFolder, getSiteUrl, readAppdata, type SiteData } from 'cli/lib/appdata';
+import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
+import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { getUnsupportedWpCliPostContentMessage } from 'cli/lib/rewrite-wp-cli-post-content';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { normalizeHostname } from 'cli/lib/utils';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
@@ -28,7 +35,7 @@ import { getProgressCallback, setProgressCallback, emitProgress } from 'cli/logg
  *   post create --post_title="Ember & Oak" --post_type=page
  *   → ['post', 'create', '--post_title=Ember & Oak', '--post_type=page']
  */
-function splitCommandArgs( command: string ): string[] {
+function splitBasicCommandArgs( command: string ): string[] {
 	const args: string[] = [];
 	let current = '';
 	let inQuote: string | null = null;
@@ -64,9 +71,41 @@ function splitCommandArgs( command: string ): string[] {
 	return args;
 }
 
+function stripMatchingOuterQuotes( value: string ): string {
+	if ( value.length < 2 ) {
+		return value;
+	}
+
+	const firstChar = value[ 0 ];
+	const lastChar = value[ value.length - 1 ];
+	if ( ( firstChar === '"' || firstChar === "'" ) && firstChar === lastChar ) {
+		return value.slice( 1, -1 );
+	}
+
+	return value;
+}
+
+function splitCommandArgs( command: string ): string[] {
+	const postContentMarker = '--post_content=';
+	const postContentIndex = command.indexOf( postContentMarker );
+
+	// Large block content is commonly emitted without shell quoting and should
+	// be treated as a single literal argument that consumes the rest of the command.
+	if ( postContentIndex !== -1 ) {
+		const prefix = command.slice( 0, postContentIndex ).trim();
+		const postContent = stripMatchingOuterQuotes(
+			command.slice( postContentIndex + postContentMarker.length ).trim()
+		);
+
+		return [ ...splitBasicCommandArgs( prefix ), `${ postContentMarker }${ postContent }` ];
+	}
+
+	return splitBasicCommandArgs( command );
+}
+
 async function findSiteByName( name: string ): Promise< SiteData | undefined > {
-	const appdata = await readAppdata();
-	return appdata.sites.find( ( site ) => site.name.toLowerCase() === name.toLowerCase() );
+	const config = await readCliConfig();
+	return config.sites.find( ( site ) => site.name.toLowerCase() === name.toLowerCase() );
 }
 
 async function resolveSite( nameOrPath: string ): Promise< SiteData > {
@@ -130,7 +169,7 @@ async function captureConsoleOutput( fn: () => Promise< void > ): Promise< strin
 	return captured.trim();
 }
 
-async function captureCommandOutput( fn: () => Promise< void > ): Promise< {
+export async function captureCommandOutput( fn: () => Promise< void > ): Promise< {
 	consoleOutput: string;
 	progressOutput: string;
 	exitCode: number | undefined;
@@ -425,38 +464,17 @@ const deletePreviewTool = tool(
 	async ( args ) => {
 		const normalizedHost = normalizeHostname( args.host );
 		return runPreviewCommand(
-			() => runDeletePreviewCommand( normalizedHost ),
+			() => runDeletePreviewCommand( PreviewDeleteMode.DELETE_SINGLE_SNAPSHOT, normalizedHost ),
 			`Preview site "${ normalizedHost }" deleted.`,
 			'Failed to delete preview site'
 		);
 	}
 );
 
-const BLOCK_COMMENT_PATTERN = /<!-- wp:/;
-
-function extractPostContent( command: string ): string | undefined {
-	const args = splitCommandArgs( command );
-	for ( const arg of args ) {
-		if ( arg.startsWith( '--post_content=' ) ) {
-			return arg.slice( '--post_content='.length );
-		}
-	}
-	return undefined;
-}
-
-function isPostContentCommand( command: string ): boolean {
-	const trimmed = command.trimStart();
-	return (
-		( trimmed.startsWith( 'post create' ) || trimmed.startsWith( 'post update' ) ) &&
-		trimmed.includes( '--post_content=' )
-	);
-}
-
 // Note: wp.ts runCommand calls process.exit(), so we use the lower-level sendWpCliCommand directly.
 const runWpCliTool = tool(
 	'wp_cli',
 	'Runs a WP-CLI command on a specific WordPress site. The site must be running. ' +
-		'Post content (in post create/update with --post_content) is automatically validated for block correctness before execution. ' +
 		'Examples: "plugin install woocommerce --activate", "option get blogname", "user list".',
 	{
 		nameOrPath: z.string().describe( 'The site name or file system path to the site' ),
@@ -470,25 +488,6 @@ const runWpCliTool = tool(
 		try {
 			const site = await resolveSite( args.nameOrPath );
 
-			// Validate block content in post create/update commands before executing
-			if ( isPostContentCommand( args.command ) ) {
-				const postContent = extractPostContent( args.command );
-				if ( postContent && BLOCK_COMMENT_PATTERN.test( postContent ) ) {
-					emitProgress( 'Validating post content blocks…' );
-					const siteUrl = getSiteUrl( site );
-					const report = await validateBlocks( postContent, siteUrl );
-					if ( report.invalidBlocks > 0 ) {
-						const lines = [
-							`Block validation failed: ${ report.invalidBlocks }/${ report.totalBlocks } blocks invalid. Fix the content before creating/updating the post.`,
-							'',
-							...formatInvalidBlocks( report ),
-						];
-						return errorResult( lines.join( '\n' ) );
-					}
-					emitProgress( `Post content: all ${ report.totalBlocks } blocks valid` );
-				}
-			}
-
 			try {
 				await connectToDaemon();
 
@@ -500,6 +499,11 @@ const runWpCliTool = tool(
 				}
 
 				const wpCliArgs = splitCommandArgs( args.command );
+				const unsupportedPostContentMessage = getUnsupportedWpCliPostContentMessage( wpCliArgs );
+				if ( unsupportedPostContentMessage ) {
+					return errorResult( unsupportedPostContentMessage );
+				}
+
 				const result = await sendWpCliCommand( site.id, wpCliArgs );
 
 				let output = '';
@@ -634,11 +638,25 @@ const takeScreenshotTool = tool(
 				// Reduce motion to avoid capturing mid-animation states
 				await page.emulateMedia( { reducedMotion: 'reduce' } );
 
-				await page.goto( args.url, { waitUntil: 'networkidle', timeout: 15000 } );
+				await page.goto( args.url, { waitUntil: 'domcontentloaded', timeout: 30000 } );
+				await page.waitForLoadState( 'networkidle', { timeout: 10000 } ).catch( () => {} );
 
-				// Wait for all images to finish loading
-				await page.evaluate( () =>
-					Promise.all(
+				// Scroll through the page to trigger lazy-loaded images, then wait
+				// for all images to finish loading (with a timeout so we don't hang
+				// on images that never settle).
+				await page.evaluate( async () => {
+					const delay = ( ms: number ) =>
+						new Promise< void >( ( resolve ) => setTimeout( resolve, ms ) );
+					const scrollHeight = document.body.scrollHeight;
+					const viewportHeight = window.innerHeight;
+					for ( let y = 0; y < scrollHeight; y += viewportHeight ) {
+						window.scrollTo( 0, y );
+						await delay( 100 );
+					}
+					window.scrollTo( 0, 0 );
+
+					const timeout = new Promise< void >( ( resolve ) => setTimeout( resolve, 5000 ) );
+					const allImages = Promise.all(
 						Array.from( document.images )
 							.filter( ( img ) => ! img.complete )
 							.map(
@@ -648,8 +666,9 @@ const takeScreenshotTool = tool(
 										img.addEventListener( 'error', () => resolve() );
 									} )
 							)
-					)
-				);
+					);
+					await Promise.race( [ allImages, timeout ] );
+				} );
 
 				// Hide WordPress admin bar and scrollbars for cleaner screenshots
 				await page.addStyleTag( {
@@ -686,6 +705,78 @@ const takeScreenshotTool = tool(
 	}
 );
 
+// --- Taxonomist scripts installer ---
+
+const TAXONOMIST_SCRIPTS_DIR = 'tmp/taxonomist';
+
+const installTaxonomyScriptsTool = tool(
+	'install_taxonomy_scripts',
+	'Copies the Taxonomist PHP scripts into a site so they can be run via wp_cli eval-file. ' +
+		'Call this once before running any Taxonomist eval-file commands.',
+	{
+		nameOrPath: z.string().describe( 'The site name or file system path to the site' ),
+	},
+	async ( args ) => {
+		try {
+			const site = await resolveSite( args.nameOrPath );
+			const srcDir = path.join( import.meta.dirname, 'plugin', 'skills', 'taxonomist', 'scripts' );
+			const destDir = path.join( site.path, TAXONOMIST_SCRIPTS_DIR );
+
+			await cp( srcDir, destDir, { recursive: true } );
+
+			return textResult(
+				`Taxonomist scripts installed to ${ TAXONOMIST_SCRIPTS_DIR }/ in the site directory.`
+			);
+		} catch ( error ) {
+			return errorResult(
+				`Failed to install taxonomy scripts: ${
+					error instanceof Error ? error.message : String( error )
+				}`
+			);
+		}
+	}
+);
+
+const auditPerformanceTool = tool(
+	'audit_performance',
+	'Measures frontend performance metrics for a WordPress site page. Returns Core Web Vitals ' +
+		'(TTFB, FCP, LCP, CLS), page weight, DOM size, request count, and a breakdown of JS, CSS, ' +
+		'image, and font assets. The site must be running. Use this to identify performance issues.',
+	{
+		nameOrPath: z
+			.string()
+			.describe( 'The site name or file system path — the site must be running' ),
+		path: z
+			.string()
+			.optional()
+			.describe( 'URL path to audit (e.g., "/", "/about", "/wp-admin/"). Defaults to "/".' ),
+	},
+	async ( args ) => {
+		try {
+			const site = await resolveSite( args.nameOrPath );
+			const siteUrl = getSiteUrl( site );
+			const urlPath = args.path ?? '/';
+
+			emitProgress( `Auditing performance of ${ siteUrl }${ urlPath }…` );
+
+			const result = await auditPerformance( siteUrl, urlPath );
+
+			if ( result.error ) {
+				emitProgress( `Audit failed: ${ result.error.slice( 0, 80 ) }` );
+				return errorResult( `Performance audit failed: ${ result.error }` );
+			}
+
+			emitProgress( `Audit complete for ${ urlPath }` );
+
+			return textResult( JSON.stringify( result, null, 2 ) );
+		} catch ( error ) {
+			return errorResult(
+				`Performance audit failed: ${ error instanceof Error ? error.message : String( error ) }`
+			);
+		}
+	}
+);
+
 export const studioToolDefinitions = [
 	createSiteTool,
 	listSitesTool,
@@ -700,6 +791,8 @@ export const studioToolDefinitions = [
 	runWpCliTool,
 	validateBlocksTool,
 	takeScreenshotTool,
+	installTaxonomyScriptsTool,
+	auditPerformanceTool,
 ];
 
 export function createStudioTools() {
@@ -707,5 +800,18 @@ export function createStudioTools() {
 		name: 'studio',
 		version: '1.0.0',
 		tools: studioToolDefinitions,
+	} );
+}
+
+/**
+ * Creates an MCP server for remote WordPress.com sites, combining WP.com REST API tools
+ * with URL-based tools (screenshot) that work with any site.
+ */
+export function createRemoteSiteTools( token: string, siteId: number ) {
+	const wpcomTools = createWpcomToolDefinitions( token, siteId );
+	return createSdkMcpServer( {
+		name: 'studio',
+		version: '1.0.0',
+		tools: [ ...wpcomTools, takeScreenshotTool ],
 	} );
 }

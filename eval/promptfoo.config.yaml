@@ -1,6 +1,6 @@
 # Studio Code Agent Evaluation
-# Run: npx promptfoo eval -c eval/promptfoo.config.yaml
-# View: npx promptfoo view
+# Run: npm run eval
+# View: npm run eval:view
 #
 # Uses a custom eval runner that hooks into startAiAgent() directly.
 # Captures tool calls, tool results, assistant text, and permission questions
@@ -8,7 +8,7 @@
 #
 # Prerequisites:
 #   1. npm run cli:build
-#   2. Set ANTHROPIC_API_KEY or run `studio auth login`
+#   2. `studio auth login` (or set ANTHROPIC_API_KEY)
 
 description: Studio Code agent evaluation
 
@@ -16,9 +16,11 @@ providers:
   - id: exec:node ../apps/cli/dist/cli/eval-runner.mjs
     label: studio-agent
 
+# Custom grader that uses Studio's WP.com auth for llm-rubric assertions.
+# Falls back to ANTHROPIC_API_KEY if set (e.g. in CI).
 defaultTest:
   options:
-    # Agent evals are non-deterministic; consider repeat: 3 for variance measurement
+    provider: file://grader-provider.mjs
     repeat: 1
 
 tests:
@@ -40,6 +42,7 @@ tests:
         value: |
           The assistant response should clearly identify itself as WordPress Studio AI
           (or WordPress Studio Code) and should not claim to be another assistant.
+          It should NOT claim to be Claude, ChatGPT, or any other generic AI.
 
   # --- Site creation ---
   - description: agent creates a site when asked
@@ -156,3 +159,11 @@ tests:
             score: (fixedHeading ? 0.5 : 0) + (fixedParagraph ? 0.5 : 0),
             reason: `Heading fixed: ${fixedHeading}, paragraph fixed: ${fixedParagraph}`
           };
+      - type: llm-rubric
+        value: |
+          The agent should have fixed all three issues in the block content:
+          1. The heading level mismatch (attribute says 1, tag was h2)
+          2. The unclosed <strong> tag in the paragraph
+          3. The columns block should have at least 2 columns
+          Score 1.0 if all three fixed, 0.5 if 2 fixed, 0.0 if 1 or fewer.
+        threshold: 0.5

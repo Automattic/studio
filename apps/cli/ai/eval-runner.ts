@@ -4,8 +4,6 @@
  * Hooks into startAiAgent() to capture tool calls, tool results, assistant text,
  * and permission questions. Returns raw structured data — assertions live in the
  * promptfoo config, not here.
- *
- * Usage: npx tsx eval/runner.ts <prompt> [config_json] [context_json]
  */
 
 import { startAiAgent, type AskUserQuestion } from 'cli/ai/agent';
@@ -17,54 +15,31 @@ import {
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { AiProviderId } from 'cli/ai/providers';
 
-// --- Types ---
-
 interface EvalRunnerInput {
 	prompt: string;
 	maxTurns?: number;
 	timeoutMs?: number;
 	askUserPolicy?: 'allow_all' | 'first_option' | 'deny_permissions_allow_other';
-	answerMap?: Record< string, string >;
-	aiProvider?: string;
 }
-
-// --- Helpers ---
 
 function normalizeToolName( name: string ): string {
 	return name.replace( /^mcp__studio__/, '' );
 }
 
-function isPermissionQuestion( question: string ): boolean {
-	const lower = question.toLowerCase();
-	return (
-		lower.includes( 'permission' ) ||
-		lower.includes( 'approve' ) ||
-		lower.includes( 'allow' ) ||
-		lower.includes( 'outside' )
-	);
+function hasPermissionOptions( options: string[] ): boolean {
+	return options.some( ( o ) => /\b(deny|allow once|allow for this session)\b/i.test( o ) );
 }
 
-function pickAnswer( opts: {
-	question: string;
-	options: string[];
-	policy: string;
-	answerMap: Record< string, string >;
-} ): string {
-	for ( const [ key, value ] of Object.entries( opts.answerMap ) ) {
-		if ( opts.question.toLowerCase().includes( key.toLowerCase() ) ) {
-			return value;
-		}
+function pickAnswer( question: string, options: string[], policy: string ): string {
+	if ( policy === 'allow_all' || policy === 'first_option' ) {
+		return options[ 0 ] ?? 'yes';
 	}
 
-	if ( opts.policy === 'allow_all' || opts.policy === 'first_option' ) {
-		return opts.options[ 0 ] ?? 'yes';
+	if ( hasPermissionOptions( options ) ) {
+		const denyOption = options.find( ( o ) => /\bdeny\b/i.test( o ) );
+		return denyOption ?? options[ options.length - 1 ] ?? 'no';
 	}
-
-	if ( isPermissionQuestion( opts.question ) ) {
-		const denyOption = opts.options.find( ( o ) => /\b(no|deny|reject|cancel)\b/i.test( o ) );
-		return denyOption ?? opts.options[ opts.options.length - 1 ] ?? 'no';
-	}
-	return opts.options[ 0 ] ?? 'yes';
+	return options[ 0 ] ?? 'yes';
 }
 
 function extractToolCalls( message: SDKMessage ) {
@@ -126,12 +101,10 @@ function extractToolResult( message: SDKMessage ): {
 	return { toolUseId: block.tool_use_id ?? null, isError: block.is_error === true, text };
 }
 
-// --- Input parsing ---
-
 function readInput(): EvalRunnerInput {
 	const prompt = process.argv[ 2 ];
 	if ( ! prompt ) {
-		throw new Error( 'Usage: npx tsx eval/runner.ts <prompt> [config] [context]' );
+		throw new Error( 'Missing prompt argument' );
 	}
 
 	let vars: Record< string, unknown > = {};
@@ -148,19 +121,13 @@ function readInput(): EvalRunnerInput {
 		maxTurns: typeof vars.maxTurns === 'number' ? vars.maxTurns : undefined,
 		timeoutMs: typeof vars.timeoutMs === 'number' ? vars.timeoutMs : undefined,
 		askUserPolicy: vars.askUserPolicy as EvalRunnerInput[ 'askUserPolicy' ],
-		answerMap: vars.answerMap as Record< string, string >,
-		aiProvider: vars.aiProvider as string,
 	};
 }
 
-// --- Main ---
-
 async function runEval( input: EvalRunnerInput ) {
 	const policy = input.askUserPolicy ?? 'deny_permissions_allow_other';
-	const answerMap = input.answerMap ?? {};
 
-	let aiProvider: AiProviderId =
-		( input.aiProvider as AiProviderId ) ?? ( await resolveInitialAiProvider() );
+	let aiProvider: AiProviderId = await resolveInitialAiProvider();
 	aiProvider = ( await resolveUnavailableAiProvider( aiProvider ) ) ?? aiProvider;
 
 	const env = {
@@ -196,13 +163,13 @@ async function runEval( input: EvalRunnerInput ) {
 			const answers: Record< string, string > = {};
 			for ( const q of qs ) {
 				const opts = q.options.map( ( o ) => o.label );
-				const answer = pickAnswer( { question: q.question, options: opts, policy, answerMap } );
+				const answer = pickAnswer( q.question, opts, policy );
 				answers[ q.question ] = answer;
 				questions.push( {
 					question: q.question,
 					options: opts,
 					answer,
-					isPermission: isPermissionQuestion( q.question ),
+					isPermission: hasPermissionOptions( opts ),
 				} );
 			}
 			return answers;

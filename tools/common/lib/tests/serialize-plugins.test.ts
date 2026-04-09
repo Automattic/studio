@@ -1,4 +1,4 @@
-import { serializePlugins } from 'src/lib/serialize-plugins';
+import { serializePlugins } from '@studio/common/lib/serialize-plugins';
 
 describe( 'serializePlugins', () => {
 	it( 'should correctly serialize an empty array', () => {

@@ -27,7 +27,7 @@ import {
 	useGetConnectedSitesForLocalSiteQuery,
 } from 'src/stores/sync/connected-sites';
 import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
-import type { SyncSite } from 'src/modules/sync/types';
+import type { SyncSite } from '@studio/common/types/sync';
 
 function SiteSyncDescription( { children }: PropsWithChildren ) {
 	const { __ } = useI18n();

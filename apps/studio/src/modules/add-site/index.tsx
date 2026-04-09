@@ -9,6 +9,7 @@ import {
 	BlueprintValidationWarning,
 } from '@studio/common/lib/blueprint-validation';
 import { SupportedPHPVersion, SupportedPHPVersionsList } from '@studio/common/types/php-versions';
+import { SyncSite } from '@studio/common/types/sync';
 import { speak } from '@wordpress/a11y';
 import { Navigator, useNavigator } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
@@ -21,7 +22,6 @@ import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useBlueprintDeeplink } from 'src/modules/add-site/hooks/use-blueprint-deeplink';
-import { SyncSite } from 'src/modules/sync/types';
 import { useRootSelector, useAppDispatch, useI18nLocale } from 'src/stores';
 import { formatRtkError } from 'src/stores/format-rtk-error';
 import { openAddSiteModal, closeAddSiteModal, selectIsAddSiteModalOpen } from 'src/stores/ui-slice';

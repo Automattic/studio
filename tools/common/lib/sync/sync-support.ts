@@ -1,5 +1,4 @@
-import type { SyncSupport } from 'src/modules/sync/types';
-import type { SitesEndpointSite } from 'src/stores/sync/wpcom-sites';
+import type { SitesEndpointSite, SyncSupport } from '@studio/common/types/sync';
 
 const STUDIO_SYNC_FEATURE_NAME = 'studio-sync';
 

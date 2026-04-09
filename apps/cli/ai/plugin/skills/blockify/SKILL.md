@@ -12,13 +12,17 @@ Convert all `core/html` blocks in a site's pages, posts, and template parts to n
 
 ### Step 1 — Read back all content
 
-Retrieve every piece of block content:
-- Page/post content: `wp_cli post get <id> --field=post_content` for each page/post
-- Template part files: Read header.html, footer.html, and any other template parts from disk
+Retrieve every piece of block content. You MUST read ALL of these before proceeding:
+- Page/post content: `wp_cli post list --post_type=page,post --fields=ID,post_title` then `wp_cli post get <id> --field=post_content` for each
+- Template part files: Read header.html, footer.html, and ALL other template part files from the theme's `parts/` directory
 
-You need the full current content to plan the conversion.
+Do NOT skip template parts — they often contain navigation, hero sections, or footer content that needs conversion.
 
-### Step 2 — Plan the conversion section-by-section
+### Step 2 — Plan the conversion element-by-element
+
+**CRITICAL: Always decompose.** Never keep an entire section as `core/html` just because it contains some non-convertible sub-elements. Break the section apart: convert every convertible element to native blocks and isolate only the truly non-convertible elements as individual `core/html` blocks.
+
+For example, a hero section with a heading, paragraph, buttons, image, AND a scroll-indicator animation should become: `core/group` > `core/heading` + `core/paragraph` + `core/buttons` + `core/image` + `core/html` (scroll indicator only). Do NOT keep the entire hero as `core/html`.
 
 For each section of content, decide what converts to native blocks and what stays as `core/html`:
 
@@ -37,13 +41,19 @@ For each section of content, decide what converts to native blocks and what stay
 | `<hr>` | `core/separator` |
 | Empty spacing `<div>` | `core/spacer` |
 
-Keep `core/html` ONLY for content with no native block equivalent:
+Keep `core/html` ONLY for individual elements with no native block equivalent:
 - Inline SVGs (icons, illustrations, decorative graphics)
 - `<form>` elements and interactive inputs
 - `<canvas>`, `<iframe>`, `<video>`, `<audio>`
 - Animation/interaction markup (marquee, custom cursor, scroll-triggered elements)
 - Elements needing custom `data-*` attributes for JS interactivity
-- A single `<script>` block at the bottom of the page for frontend JS
+- `<script>` tags — always extract into their own separate `core/html` block, never bundled with structural content
+
+**Things that are NOT valid reasons to keep a section as `core/html`:**
+- `id` attributes — `core/group` supports `anchor` for element IDs
+- Inline `<em>`, `<strong>`, `<br>`, `<a>` inside text — `core/heading` and `core/paragraph` support inline HTML
+- `loading="eager"` on images — drop the attribute rather than keeping the whole section as HTML
+- A single non-convertible child — decompose the section instead of skipping it entirely
 
 All CSS classes from the original design stay in style.css — the visual output must remain identical after conversion.
 

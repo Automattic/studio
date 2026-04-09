@@ -18,6 +18,8 @@ ${ REMOTE_DESIGN_GUIDELINES }
 
 	return `${ buildLocalIntro() }
 
+${ LOCAL_CONTENT_GUIDELINES }
+
 ${ LOCAL_DESIGN_GUIDELINES }
 `;
 }
@@ -116,8 +118,8 @@ Then continue with:
 ### Phase 2 — Block Conversion
 
 5. **Convert to native blocks**: Run the \`blockify\` skill to convert all \`core/html\` blocks to native Gutenberg blocks, validate the markup, and verify the design is preserved.
-8. **Validate block markup**: Run \`validate_blocks\` on every piece of converted content to catch markup errors (missing attributes, invalid nesting, malformed block comments). If it flags invalid blocks, fix the markup and re-run until all blocks pass.
-9. **Final visual check**: Take screenshots again (desktop + mobile) to confirm the block conversion did not break the design. Fix any visual regressions — the site must look identical to the Phase 1 result.
+6. **Validate block markup**: Run \`validate_blocks\` on every piece of converted content to catch markup errors (missing attributes, invalid nesting, malformed block comments). If it flags invalid blocks, fix the markup and re-run until all blocks pass.
+7. **Final visual check**: Take screenshots again (desktop + mobile) to confirm the block conversion did not break the design. Fix any visual regressions — the site must look identical to the Phase 1 result.
 
 ## Available Studio Tools (prefixed with mcp__studio__)
 
@@ -164,6 +166,20 @@ const REMOTE_DESIGN_GUIDELINES = `## Design capabilities by plan
 **Paid plans** (Personal, Premium, Business, eCommerce) — progressively more control:
 - Custom CSS, global styles, plugin management, and advanced customization become available.
 - Check the specific plan to determine exact capabilities.`;
+
+const LOCAL_CONTENT_GUIDELINES = `## Block content guidelines
+
+- Only use \`core/html\` blocks for:
+	- Inline SVGs
+	- \`<form>\` elements and interactive inputs
+	- Animation/interaction markup with no block equivalent (marquee, cursor)
+	- A single \`<script>\` block at the bottom of the page for JS
+- Never use \`core/html\` to wrap text content, headings, layout sections, or lists.
+- No decorative HTML comments (e.g. \`<!-- Hero Section -->\`, \`<!-- Features -->\`). Only block delimiter comments are allowed.
+- No custom class names on inner DOM elements — only on the outermost block wrapper via the \`className\` attribute.
+- No inline \`style\` or \`style\` block attributes for styling. Use \`className\` + \`style.css\` instead.
+- Use \`core/spacer\` for empty spacing divs, not \`core/group\`.
+- No emojis anywhere in generated content.`;
 
 const LOCAL_DESIGN_GUIDELINES = `## Design guidelines
 

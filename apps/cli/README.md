@@ -76,18 +76,16 @@ studio wp option get home --path ~/Studio/my-site
 
 ## Import and export
 
-You can import and export local backups directly from the CLI.
+The Studio CLI allows you to import and export local backups.
+
+When exporting, decide between exporting the complete file as a `.zip` or `.tar.gz` file, or just the database as a `.sql` file. 
+
+For imports, backup files from your WordPress.com site or from Jetpack’s Activity Log page are supported. So are `.wpress` files and `.zip` files from WordPress Playground or Local.
 
 ```bash
 studio export --path ~/Studio/my-site
+studio export --path ~/Studio/my-site --mode db
 studio import ~/Backups/my-site-backup.zip --path ~/Studio/my-site
-```
-
-For full command details and options, run:
-
-```bash
-studio export --help
-studio import --help
 ```
 
 ## Sync with WordPress.com and Pressable
@@ -97,13 +95,6 @@ You can pull from and push to remote sites on both WordPress.com and Pressable. 
 ```bash
 studio pull --path ~/Studio/my-site
 studio push --path ~/Studio/my-site
-```
-
-For full command details and options, run:
-
-```bash
-studio pull --help
-studio push --help
 ```
 
 ## Preview sites

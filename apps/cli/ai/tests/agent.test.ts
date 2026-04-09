@@ -1,6 +1,6 @@
 import fs from 'fs';
-import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { query } from '@anthropic-ai/claude-agent-sdk';
+import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { startAiAgent } from 'cli/ai/agent';
 import { STUDIO_ROOT } from 'cli/ai/security';
 

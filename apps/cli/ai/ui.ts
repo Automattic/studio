@@ -68,10 +68,46 @@ interface ExpandablePreview {
 	isExpanded: boolean;
 }
 
+interface AskUserOutcome {
+	answers: Record< string, string >;
+	skipped: boolean;
+}
+
+interface OptionPickerSelectState {
+	filteredItems: SelectItem[];
+	selectedIndex: number;
+	setSelectedIndex: ( index: number ) => void;
+	getSelectedItem: () => SelectItem | null;
+	onSelectionChange?: ( item: SelectItem ) => void;
+	handleInput: ( data: string ) => void;
+}
+
+const EMPTY_ASK_USER_RESULT_MESSAGE =
+	"User has answered your questions: . You can now continue with the user's answers in mind.";
+
 function formatToolOutputLines( lines: string[] ): string {
 	return lines
 		.map( ( line, index ) => `${ index === 0 ? '   ' + chalk.dim( '⎿ ' ) : '     ' }${ line }` )
 		.join( '\n' );
+}
+
+function formatAskUserResult( outcome: AskUserOutcome ): string {
+	const entries = Object.entries( outcome.answers );
+	if ( entries.length === 0 ) {
+		return __( 'Skipped' );
+	}
+
+	const answerSummary =
+		entries.length === 1
+			? sprintf( __( 'Answer: %s' ), entries[ 0 ][ 1 ] )
+			: [
+					__( 'Answers' ),
+					...entries.map( ( [ question, answer ] ) => `- ${ question }: ${ answer }` ),
+			  ].join( '\n' );
+
+	return outcome.skipped
+		? [ answerSummary, __( 'Skipped remaining questions' ) ].join( '\n' )
+		: answerSummary;
 }
 
 class PromptEditor implements Component, Focusable {
@@ -468,6 +504,7 @@ export class AiChatUI {
 		string,
 		{ name: string; input: Record< string, unknown > }
 	>();
+	private askUserActive = false;
 	currentModel: AiModelId = DEFAULT_MODEL;
 	currentProvider: AiProviderId = DEFAULT_AI_PROVIDER;
 
@@ -534,7 +571,10 @@ export class AiChatUI {
 	private optionPickerHasFreeForm = false;
 	private optionPickerItemCount = 0;
 	private optionPickerInput: Input | null = null;
+	private optionPickerOtherValue = '';
 	private static readonly OTHER_VALUE = '__other__';
+	private static readonly ASK_USER_CANCEL_VALUE = '__studio_ask_user_cancelled__';
+	private lastAskUserOutcome: AskUserOutcome | null = null;
 	private static readonly OPTION_PICKER_THEME: SelectListTheme = {
 		selectedPrefix: ( text: string ) => chalk.blue( text ),
 		selectedText: ( text: string ) => chalk.blue( text ),
@@ -663,7 +703,7 @@ export class AiChatUI {
 				resolve( trimmed );
 			}
 		};
-		// Ctrl+C to exit, Escape to interrupt/close picker, arrow keys for picker
+		// Ctrl+C to exit, Escape to interrupt/close picker, arrow/Tab keys for pickers
 		this.tui.addInputListener( ( data ) => {
 			// Ignore key release events (Kitty protocol sends press + release)
 			if ( isKeyRelease( data ) ) {
@@ -675,17 +715,11 @@ export class AiChatUI {
 			}
 			// Option picker navigation (must be checked before site picker)
 			if ( this.optionPickerSelectList ) {
+				if ( this.handleOptionPickerTabNavigation( data ) ) {
+					return { consume: true };
+				}
 				// When "Other" is active, let the inline input handle most keys
-				if ( this.optionPickerOtherActive && this.optionPickerInput ) {
-					if ( matchesKey( data, 'up' ) ) {
-						this.deactivateOptionPickerOther();
-						this.optionPickerSelectList.handleInput( data );
-						this.renderOptionPicker();
-						return { consume: true };
-					}
-					// Forward everything else to the inline input
-					this.optionPickerInput.handleInput( data );
-					this.renderOptionPicker();
+				if ( this.handleActiveOptionPickerOtherInput( data ) ) {
 					return { consume: true };
 				}
 
@@ -701,8 +735,7 @@ export class AiChatUI {
 				) {
 					this.optionPickerSelectList.setSelectedIndex( this.optionPickerItemCount - 1 );
 					this.activateOptionPickerOther();
-					this.optionPickerInput?.handleInput( data );
-					this.renderOptionPicker();
+					this.handleActiveOptionPickerOtherInput( data );
 					return { consume: true };
 				}
 
@@ -768,6 +801,9 @@ export class AiChatUI {
 				// Forward remaining input (up/down/enter) to SelectList
 				this.sitePickerSelectList.handleInput( data );
 				this.renderSitePicker();
+				return { consume: true };
+			}
+			if ( matchesKey( data, 'escape' ) && this.cancelAskUserQuestions() ) {
 				return { consume: true };
 			}
 			if ( matchesKey( data, 'escape' ) && this.interruptCallback ) {
@@ -1189,20 +1225,212 @@ export class AiChatUI {
 		this.optionPickerContainer.clear();
 
 		const width = ( process.stdout.columns ?? 80 ) - 1;
-		const lines = this.optionPickerSelectList.render( width );
-
-		// When "Other" is active, replace the last line with the inline input
-		if ( this.optionPickerOtherActive && this.optionPickerInput && lines.length > 0 ) {
-			const inputText = this.optionPickerInput.getValue();
-			const cursor = chalk.inverse( ' ' );
-			const display = inputText
-				? chalk.blue( inputText ) + cursor
-				: chalk.dim( __( 'Type your answer…' ) ) + cursor;
-			lines[ lines.length - 1 ] = `${ chalk.blue( '→' ) } ${ display }`;
-		}
-
+		const lines = this.renderOptionPickerLines( width );
+		lines.push( '', chalk.dim( this.getAskUserHintText() ) );
 		this.optionPickerContainer.addChild( new Text( lines.join( '\n' ), 1, 0 ) );
 		this.tui.requestRender();
+	}
+
+	private renderOptionPickerLines( width: number ): string[] {
+		const selectList = this.getOptionPickerSelectState();
+		if ( selectList.filteredItems.length === 0 ) {
+			return [ AiChatUI.OPTION_PICKER_THEME.noMatch( __( '  No matching commands' ) ) ];
+		}
+
+		return selectList.filteredItems.map( ( item, index ) =>
+			this.renderOptionPickerItemLine( item, index === selectList.selectedIndex, width )
+		);
+	}
+
+	private renderOptionPickerItemLine(
+		item: SelectItem,
+		isSelected: boolean,
+		width: number
+	): string {
+		if ( item.value === AiChatUI.OTHER_VALUE ) {
+			return this.renderOptionPickerFreeFormLine( isSelected, width );
+		}
+
+		const prefix = isSelected ? `${ AiChatUI.OPTION_PICKER_THEME.selectedPrefix( '→' ) } ` : '  ';
+		const prefixWidth = 2;
+		const label = item.label || item.value;
+		const description = item.description?.replace( /[\r\n]+/g, ' ' ).trim();
+
+		if ( description && width > 40 ) {
+			const maxValueWidth = Math.min( 30, width - prefixWidth - 4 );
+			const truncatedLabel = truncateToWidth( label, maxValueWidth, '' );
+			const spacing = ' '.repeat( Math.max( 1, 32 - visibleWidth( truncatedLabel ) ) );
+			const descriptionStart = prefixWidth + visibleWidth( truncatedLabel ) + spacing.length;
+			const remainingWidth = width - descriptionStart - 2;
+
+			if ( remainingWidth > 10 ) {
+				const truncatedDescription = truncateToWidth( description, remainingWidth, '' );
+				const styledDescription = isSelected
+					? chalk.blue( spacing + truncatedDescription )
+					: AiChatUI.OPTION_PICKER_THEME.description( spacing + truncatedDescription );
+
+				return truncateToWidth(
+					`${ prefix }${ this.renderOptionPickerLabel(
+						truncatedLabel,
+						isSelected
+					) }${ styledDescription }`,
+					width
+				);
+			}
+		}
+
+		const maxWidth = width - prefixWidth - 2;
+		return truncateToWidth(
+			`${ prefix }${ this.renderOptionPickerLabel(
+				truncateToWidth( label, maxWidth, '' ),
+				isSelected
+			) }`,
+			width
+		);
+	}
+
+	private renderOptionPickerFreeFormLine( isSelected: boolean, width: number ): string {
+		const prefix = isSelected ? `${ AiChatUI.OPTION_PICKER_THEME.selectedPrefix( '→' ) } ` : '  ';
+		const indexLabel = this.getOptionPickerIndexLabel( this.optionPickerItemCount );
+
+		if ( this.optionPickerOtherActive && this.optionPickerInput ) {
+			const cursor = chalk.inverse( ' ' );
+			const display = this.optionPickerOtherValue
+				? `${ chalk.blue( this.optionPickerOtherValue ) }${ cursor }`
+				: cursor;
+
+			return truncateToWidth( `${ prefix }${ indexLabel }${ display }`, width );
+		}
+
+		return truncateToWidth(
+			`${ prefix }${ indexLabel }${ chalk.dim( this.getOptionPickerFreeFormLabel() ) }`,
+			width
+		);
+	}
+
+	private renderOptionPickerLabel( label: string, isSelected: boolean ): string {
+		const match = label.match( /^(\d+\.\s)(.*)$/u );
+		if ( ! match ) {
+			return isSelected ? chalk.blue( label ) : label;
+		}
+
+		const [ , indexLabel, text ] = match;
+		return `${ this.renderOptionPickerIndexLabel( indexLabel ) }${
+			isSelected ? chalk.blue( text ) : text
+		}`;
+	}
+
+	private renderOptionPickerIndexLabel( indexLabel: string ): string {
+		return chalk.gray( indexLabel );
+	}
+
+	private getOptionPickerIndexLabel( index: number ): string {
+		return this.renderOptionPickerIndexLabel( `${ index }. ` );
+	}
+
+	private getOptionPickerSelectState(): OptionPickerSelectState {
+		return this.optionPickerSelectList as unknown as OptionPickerSelectState;
+	}
+
+	private handleActiveOptionPickerOtherNavigation( data: string ): boolean {
+		if (
+			! this.optionPickerOtherActive ||
+			! this.optionPickerInput ||
+			! this.optionPickerSelectList ||
+			( ! matchesKey( data, 'up' ) && ! matchesKey( data, 'down' ) )
+		) {
+			return false;
+		}
+
+		this.deactivateOptionPickerOther();
+		this.optionPickerSelectList.handleInput( data );
+		this.renderOptionPicker();
+		return true;
+	}
+
+	private handleActiveOptionPickerOtherInput( data: string ): boolean {
+		if ( ! this.optionPickerOtherActive || ! this.optionPickerInput ) {
+			return false;
+		}
+
+		if ( this.handleActiveOptionPickerOtherNavigation( data ) ) {
+			return true;
+		}
+
+		const input = this.optionPickerInput;
+		input.handleInput( data );
+
+		// Escape or submit may close the picker during handleInput().
+		if (
+			this.optionPickerInput !== input ||
+			! this.optionPickerInput ||
+			! this.optionPickerSelectList
+		) {
+			return true;
+		}
+
+		this.optionPickerOtherValue = this.optionPickerInput.getValue();
+		this.renderOptionPicker();
+		return true;
+	}
+
+	private getAskUserHintText(): string {
+		if ( ! this.optionPickerVisible ) {
+			return __( 'enter to submit · esc to skip' );
+		}
+
+		return this.optionPickerOtherActive
+			? __( 'tab/arrow keys to navigate · enter to submit · esc to skip' )
+			: __( 'tab/arrow keys to navigate · enter to select · esc to skip' );
+	}
+
+	private getOptionPickerFreeFormLabel(): string {
+		return __( 'Type something…' );
+	}
+
+	private handleOptionPickerTabNavigation( data: string ): boolean {
+		if ( ! this.optionPickerSelectList ) {
+			return false;
+		}
+
+		const direction = matchesKey( data, 'shift+tab' ) ? -1 : matchesKey( data, 'tab' ) ? 1 : 0;
+		if ( direction === 0 ) {
+			return false;
+		}
+
+		if ( this.optionPickerOtherActive ) {
+			this.deactivateOptionPickerOther();
+		}
+
+		this.moveOptionPickerSelection( direction );
+		if ( this.optionPickerHasFreeForm ) {
+			const selected = this.optionPickerSelectList.getSelectedItem();
+			if ( selected?.value === AiChatUI.OTHER_VALUE ) {
+				this.activateOptionPickerOther();
+			}
+		}
+
+		this.renderOptionPicker();
+		return true;
+	}
+
+	private moveOptionPickerSelection( direction: -1 | 1 ): void {
+		if ( ! this.optionPickerSelectList ) {
+			return;
+		}
+
+		const selectList = this.getOptionPickerSelectState();
+		const itemCount = selectList.filteredItems.length;
+		if ( itemCount === 0 ) {
+			return;
+		}
+
+		const nextIndex = ( selectList.selectedIndex + direction + itemCount ) % itemCount;
+		selectList.setSelectedIndex( nextIndex );
+		const selectedItem = selectList.getSelectedItem();
+		if ( selectedItem && selectList.onSelectionChange ) {
+			selectList.onSelectionChange( selectedItem );
+		}
 	}
 
 	private activateOptionPickerOther(): void {
@@ -1211,6 +1439,14 @@ export class AiChatUI {
 		}
 		this.optionPickerOtherActive = true;
 		this.optionPickerInput = new Input();
+		if ( this.optionPickerOtherValue ) {
+			this.optionPickerInput.setValue( this.optionPickerOtherValue );
+			( this.optionPickerInput as unknown as { cursor: number } ).cursor =
+				this.optionPickerOtherValue.length;
+		}
+		this.optionPickerInput.onEscape = () => {
+			this.cancelAskUserQuestions();
+		};
 		this.optionPickerInput.onSubmit = ( value: string ) => {
 			const trimmed = value.trim();
 			if ( trimmed && this.optionPickerResolve ) {
@@ -1223,6 +1459,9 @@ export class AiChatUI {
 	}
 
 	private deactivateOptionPickerOther(): void {
+		if ( this.optionPickerInput ) {
+			this.optionPickerOtherValue = this.optionPickerInput.getValue();
+		}
 		this.optionPickerOtherActive = false;
 		this.optionPickerInput = null;
 	}
@@ -1237,7 +1476,32 @@ export class AiChatUI {
 		this.optionPickerHasFreeForm = false;
 		this.optionPickerItemCount = 0;
 		this.deactivateOptionPickerOther();
+		this.optionPickerOtherValue = '';
 		this.tui.requestRender();
+	}
+
+	private cancelAskUserQuestions(): boolean {
+		if ( ! this.askUserActive ) {
+			return false;
+		}
+
+		if ( this.optionPickerResolve ) {
+			const resolve = this.optionPickerResolve;
+			this.optionPickerResolve = null;
+			this.closeOptionPicker();
+			resolve( AiChatUI.ASK_USER_CANCEL_VALUE );
+			return true;
+		}
+
+		if ( this.submitResolve ) {
+			const resolve = this.submitResolve;
+			this.submitResolve = null;
+			this.hideEditor();
+			resolve( AiChatUI.ASK_USER_CANCEL_VALUE );
+			return true;
+		}
+
+		return false;
 	}
 
 	start(): void {
@@ -1368,7 +1632,11 @@ export class AiChatUI {
 				this.activeExpandablePreview.isExpanded ? __( 'ctrl+o collapse' ) : __( 'ctrl+o expand' )
 			);
 		}
-		hints.push( __( 'esc to interrupt' ) );
+		if ( this.askUserActive ) {
+			hints.push( this.getAskUserHintText() );
+		} else if ( this._inAgentTurn || this.interruptCallback ) {
+			hints.push( __( 'esc to interrupt' ) );
+		}
 		this.editor.hints = hints;
 	}
 
@@ -1899,7 +2167,18 @@ export class AiChatUI {
 
 		this.finalizeToolUseLine( isError, label );
 
-		const content = typedResult.content;
+		let content = typedResult.content;
+		if ( toolName === 'AskUserQuestion' ) {
+			if ( this.lastAskUserOutcome ) {
+				content = formatAskUserResult( this.lastAskUserOutcome );
+			} else if (
+				typeof content === 'string' &&
+				content.trim() === EMPTY_ASK_USER_RESULT_MESSAGE
+			) {
+				content = __( 'Skipped' );
+			}
+			this.lastAskUserOutcome = null;
+		}
 		if ( content === undefined ) {
 			this.tui.requestRender();
 			return;
@@ -1958,68 +2237,88 @@ export class AiChatUI {
 		this.currentResponseText = '';
 
 		const answers: Record< string, string > = {};
+		let wasSkipped = false;
 
-		for ( const q of questions ) {
-			// Display the question
-			this.messages.addChild( new Text( '\n' + chalk.bold( q.question ), 1, 0 ) );
-			this.tui.requestRender();
-
-			if ( q.options.length > 0 ) {
-				// Use SelectList for option-based questions.
-				// When allowFreeForm is true, append an "Other" option with inline input.
-				this.hideEditor();
-				const selectItems: SelectItem[] = q.options.map( ( opt, i ) => ( {
-					value: opt.label,
-					label: `${ i + 1 }. ${ opt.label }`,
-					description: opt.description,
-				} ) );
-				this.optionPickerHasFreeForm = q.allowFreeForm === true;
-				if ( this.optionPickerHasFreeForm ) {
-					selectItems.push( {
-						value: AiChatUI.OTHER_VALUE,
-						label: __( 'Other (type my own)' ),
-					} );
-				}
-
-				this.optionPickerItemCount = selectItems.length;
-				const selectList = new SelectList(
-					selectItems,
-					selectItems.length,
-					AiChatUI.OPTION_PICKER_THEME
-				);
-
-				this.optionPickerSelectList = selectList;
-				this.optionPickerVisible = true;
-				this.optionPickerContainer = new Container();
-				this.tui.addChild( this.optionPickerContainer );
-				this.optionPickerContainer.addChild( this.optionPickerSelectList );
+		this.askUserActive = true;
+		try {
+			for ( const q of questions ) {
+				// Display the question
+				this.messages.addChild( new Text( '\n' + chalk.bold( q.question ), 1, 0 ) );
 				this.tui.requestRender();
 
-				const selected = await new Promise< string >( ( resolve ) => {
-					this.optionPickerResolve = resolve;
-					selectList.onSelect = ( item: SelectItem ) => {
-						if ( item.value === AiChatUI.OTHER_VALUE ) {
-							// "Other" selected via enter without typing — activate input
-							this.activateOptionPickerOther();
-							this.renderOptionPicker();
-							return;
-						}
-						this.optionPickerResolve = null;
-						this.closeOptionPicker();
-						resolve( item.value );
-					};
-				} );
+				if ( q.options.length > 0 ) {
+					// Use SelectList for option-based questions.
+					// When allowFreeForm is true, append an "Other" option with inline input.
+					this.hideEditor();
+					const selectItems: SelectItem[] = q.options.map( ( opt, i ) => ( {
+						value: opt.label,
+						label: `${ i + 1 }. ${ opt.label }`,
+						description: opt.description,
+					} ) );
+					this.optionPickerHasFreeForm = q.allowFreeForm === true;
+					if ( this.optionPickerHasFreeForm ) {
+						selectItems.push( {
+							value: AiChatUI.OTHER_VALUE,
+							label: `${ selectItems.length + 1 }. ${ this.getOptionPickerFreeFormLabel() }`,
+						} );
+					}
 
-				answers[ q.question ] = selected;
-			} else {
-				// Free-form text input
-				const answer = await this.waitForInput();
-				answers[ q.question ] = answer;
+					this.optionPickerItemCount = selectItems.length;
+					const selectList = new SelectList(
+						selectItems,
+						selectItems.length,
+						AiChatUI.OPTION_PICKER_THEME
+					);
+
+					this.optionPickerSelectList = selectList;
+					this.optionPickerVisible = true;
+					this.optionPickerContainer = new Container();
+					this.tui.addChild( this.optionPickerContainer );
+					this.renderOptionPicker();
+
+					const selected = await new Promise< string >( ( resolve ) => {
+						this.optionPickerResolve = resolve;
+						selectList.onCancel = () => {
+							this.cancelAskUserQuestions();
+						};
+						selectList.onSelect = ( item: SelectItem ) => {
+							if ( item.value === AiChatUI.OTHER_VALUE ) {
+								// "Other" selected via enter without typing — activate input
+								this.activateOptionPickerOther();
+								this.renderOptionPicker();
+								return;
+							}
+							this.optionPickerResolve = null;
+							this.closeOptionPicker();
+							resolve( item.value );
+						};
+					} );
+
+					if ( selected === AiChatUI.ASK_USER_CANCEL_VALUE ) {
+						wasSkipped = true;
+						break;
+					}
+
+					answers[ q.question ] = selected;
+				} else {
+					// Free-form text input
+					const answer = await this.waitForInput();
+					if ( answer === AiChatUI.ASK_USER_CANCEL_VALUE ) {
+						wasSkipped = true;
+						break;
+					}
+					answers[ q.question ] = answer;
+				}
 			}
+		} finally {
+			this.lastAskUserOutcome = {
+				answers: { ...answers },
+				skipped: wasSkipped,
+			};
+			this.askUserActive = false;
+			// Resume the agent turn with a fresh markdown block for subsequent text
+			this.showLoader( this.randomThinkingMessage() );
 		}
-
-		// Resume the agent turn with a fresh markdown block for subsequent text
-		this.showLoader( this.randomThinkingMessage() );
 		return answers;
 	}
 

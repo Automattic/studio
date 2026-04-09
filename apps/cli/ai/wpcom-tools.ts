@@ -142,7 +142,7 @@ export function createWpcomToolDefinitions( token: string, siteId: number ) {
 				}
 
 				const compacted = stripOversizedFields( result );
-				return textResult( JSON.stringify( compacted, null, 2 ) );
+				return textResult( JSON.stringify( compacted ) );
 			} catch ( error ) {
 				return errorResult(
 					`WP.com API request failed (${ args.method } ${ args.path }): ${ getErrorMessage(

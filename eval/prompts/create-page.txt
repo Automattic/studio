@@ -1,0 +1,10 @@
+Create a WordPress "About Us" page for a small design studio.
+
+Requirements:
+- Use only core WordPress blocks (no HTML blocks for layout)
+- Include: hero heading, team section with 3 members, company history timeline, contact CTA
+- All content should use block markup with proper comments
+- Use className attributes for styling, not inline styles
+- Include a style section in the theme's style.css for the custom classes
+
+Output the complete block content for the page.

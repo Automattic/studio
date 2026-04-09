@@ -1,0 +1,111 @@
+# Studio Code Agent Evaluation
+# Run: npx promptfoo eval -c eval/promptfoo.config.yaml
+# View: npx promptfoo view
+#
+# Uses the Claude Agent SDK provider to test Studio Code's AI agent behavior.
+# Tests run against a local WordPress site managed by Studio.
+#
+# Prerequisites:
+#   1. npm run cli:build
+#   2. node apps/cli/dist/cli/main.mjs site create "eval-site" (or reuse existing)
+#   3. node apps/cli/dist/cli/main.mjs site start "eval-site"
+#   4. Set ANTHROPIC_API_KEY or run `studio auth login`
+
+description: Studio Code agent evaluation
+
+prompts:
+  - file://eval/prompts/create-theme.txt
+  - file://eval/prompts/create-page.txt
+  - file://eval/prompts/fix-blocks.txt
+
+providers:
+  - id: anthropic:claude-agent-sdk
+    label: studio-sonnet
+    config:
+      model: claude-sonnet-4-6
+      working_dir: '{{working_dir | default: "./eval/test-sites/eval-workspace"}}'
+      append_allowed_tools:
+        - Write
+        - Edit
+        - Read
+        - Glob
+        - Grep
+        - Bash
+      permission_mode: acceptEdits
+      max_turns: 20
+
+defaultTest:
+  options:
+    # Agent evals are non-deterministic; run multiple times to measure variance
+    repeat: 1
+    # Timeout per test case (agents can take a while)
+    timeout: 120000
+
+tests:
+  # --- Theme creation ---
+  - vars:
+      task: create-theme
+    assert:
+      - type: llm-rubric
+        value: |
+          The agent should create a WordPress block theme. Check that:
+          1. A style.css file was created with proper theme headers
+          2. A templates/ directory was created with at least index.html
+          3. No classic PHP template files (index.php, header.php, etc.)
+          4. The theme uses core WordPress blocks, not custom HTML
+          Score 1.0 if all criteria met, 0.5 if partial, 0.0 if not a block theme.
+        threshold: 0.7
+      - type: javascript
+        value: |
+          const text = String(output).toLowerCase();
+          const hasStyleCss = text.includes('style.css');
+          const hasTemplates = text.includes('templates/') || text.includes('templates\\');
+          const noClassic = !text.includes('get_header') && !text.includes('get_footer');
+          return {
+            pass: hasStyleCss && hasTemplates,
+            score: (hasStyleCss ? 0.4 : 0) + (hasTemplates ? 0.4 : 0) + (noClassic ? 0.2 : 0),
+            reason: `style.css: ${hasStyleCss}, templates/: ${hasTemplates}, block theme: ${noClassic}`
+          };
+      - type: cost
+        threshold: 0.50
+
+  # --- Page content creation ---
+  - vars:
+      task: create-page
+    assert:
+      - type: llm-rubric
+        value: |
+          The agent should create WordPress page content using core blocks. Check that:
+          1. Content uses only core WordPress blocks (wp:heading, wp:paragraph, wp:image, etc.)
+          2. No raw HTML blocks used for layout or text content
+          3. No inline style attributes on blocks
+          4. Block comments are properly formatted (<!-- wp:blockname -->)
+          Score 1.0 if all block content guidelines are followed.
+        threshold: 0.7
+      - type: javascript
+        value: |
+          const text = String(output);
+          const hasBlocks = text.includes('<!-- wp:');
+          const noHtmlLayout = !(/<!-- wp:html -->[\s\S]*?<(div|section|header|footer)/i.test(text));
+          return {
+            pass: hasBlocks,
+            score: (hasBlocks ? 0.5 : 0) + (noHtmlLayout ? 0.5 : 0),
+            reason: `Uses blocks: ${hasBlocks}, no HTML layout: ${noHtmlLayout}`
+          };
+      - type: cost
+        threshold: 0.30
+
+  # --- Block validation awareness ---
+  - vars:
+      task: fix-blocks
+    assert:
+      - type: llm-rubric
+        value: |
+          The agent was given invalid block content. Check that:
+          1. It identified the invalid blocks
+          2. It attempted to fix them (not just reported issues)
+          3. It mentioned or attempted to use block validation
+          Score 1.0 if the agent fixed blocks and validated, 0.5 if only identified.
+        threshold: 0.5
+      - type: cost
+        threshold: 0.30

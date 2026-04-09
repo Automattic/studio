@@ -1,0 +1,10 @@
+Create a minimal WordPress block theme called "Eval Starter" for a bakery website.
+
+Requirements:
+- Block theme (no classic PHP templates)
+- Custom color palette with warm tones
+- A homepage template with a hero section, menu section, and footer
+- Use only core WordPress blocks
+- Include a style.css with proper theme headers and custom CSS
+
+Write all the files needed for a working block theme.

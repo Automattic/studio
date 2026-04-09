@@ -133,3 +133,8 @@ apps/studio/bin/node.exe
 
 # CLI launcher executable (built during packaging via @yao-pkg/pkg)
 bin/studio-cli.exe
+
+# PromptFoo evaluation outputs
+eval/output/
+eval/test-sites/
+.promptfoo/

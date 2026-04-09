@@ -92,6 +92,45 @@ async function main() {
 			authYargs.version( false ).demandCommand( 1, __( 'You must provide a valid auth command' ) );
 		} );
 
+	const studioCodeCommandBuilder = async ( aiYargs: StudioArgv ) => {
+		const { registerCommand: registerAiCommand } = await import( 'cli/commands/ai' );
+		registerAiCommand( aiYargs );
+		aiYargs.command( 'sessions', __( 'Manage code sessions' ), async ( sessionsYargs ) => {
+			const [
+				{ registerCommand: registerAiSessionsDeleteCommand },
+				{ registerCommand: registerAiSessionsListCommand },
+				{ registerCommand: registerAiSessionsResumeCommand },
+			] = await Promise.all( [
+				import( 'cli/commands/ai/sessions/delete' ),
+				import( 'cli/commands/ai/sessions/list' ),
+				import( 'cli/commands/ai/sessions/resume' ),
+			] );
+
+			sessionsYargs
+				.option( 'path', {
+					hidden: true,
+				} )
+				.option( 'session-persistence', {
+					type: 'boolean',
+					default: true,
+					description: __( 'Record this code session to disk' ),
+				} );
+			registerAiSessionsDeleteCommand( sessionsYargs );
+			registerAiSessionsListCommand( sessionsYargs );
+			registerAiSessionsResumeCommand( sessionsYargs );
+			sessionsYargs
+				.version( false )
+				.demandCommand( 1, __( 'You must provide a valid code sessions command' ) );
+		} );
+		aiYargs.version( false );
+	};
+	studioArgv.command(
+		'code',
+		__( 'AI agent for building WordPress sites' ),
+		studioCodeCommandBuilder
+	);
+	studioArgv.command( 'ai', false, studioCodeCommandBuilder );
+
 	registerExportCommand( studioArgv );
 	registerImportCommand( studioArgv );
 	registerMcpCommand( studioArgv );
@@ -185,45 +224,6 @@ async function main() {
 		} )
 		.demandCommand( 1, __( 'You must provide a valid command' ) )
 		.strict();
-
-	const studioCodeCommandBuilder = async ( aiYargs: StudioArgv ) => {
-		const { registerCommand: registerAiCommand } = await import( 'cli/commands/ai' );
-		registerAiCommand( aiYargs );
-		aiYargs.command( 'sessions', __( 'Manage code sessions' ), async ( sessionsYargs ) => {
-			const [
-				{ registerCommand: registerAiSessionsListCommand },
-				{ registerCommand: registerAiSessionsResumeCommand },
-				{ registerCommand: registerAiSessionsDeleteCommand },
-			] = await Promise.all( [
-				import( 'cli/commands/ai/sessions/list' ),
-				import( 'cli/commands/ai/sessions/resume' ),
-				import( 'cli/commands/ai/sessions/delete' ),
-			] );
-
-			sessionsYargs
-				.option( 'path', {
-					hidden: true,
-				} )
-				.option( 'session-persistence', {
-					type: 'boolean',
-					default: true,
-					description: __( 'Record this code session to disk' ),
-				} );
-			registerAiSessionsListCommand( sessionsYargs );
-			registerAiSessionsResumeCommand( sessionsYargs );
-			registerAiSessionsDeleteCommand( sessionsYargs );
-			sessionsYargs
-				.version( false )
-				.demandCommand( 1, __( 'You must provide a valid code sessions command' ) );
-		} );
-		aiYargs.version( false );
-	};
-	studioArgv.command(
-		'code',
-		__( 'AI agent for building WordPress sites' ),
-		studioCodeCommandBuilder
-	);
-	studioArgv.command( 'ai', false, studioCodeCommandBuilder );
 
 	await studioArgv.argv;
 }

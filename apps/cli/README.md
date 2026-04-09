@@ -8,8 +8,12 @@ The Studio CLI lets you:
 
 - Create, run, and manage local WordPress sites from the terminal.
 - Run WP-CLI commands.
+- Import and export site backups.
+- Pull from and push to WordPress.com sites.
 - Publish ephemeral preview sites to share (requires WordPress.com login).
 - Integrate with AI coding agents. Every site comes with an `AGENTS.md` file.
+
+![WordPress Studio CLI demo](./assets/demo.gif)
 
 # Table of contents
 
@@ -17,6 +21,8 @@ The Studio CLI lets you:
 - [Installation](#installation)
 - [Quick start](#quick-start)
 - [Usage](#usage)
+- [Import and export](#import-and-export)
+- [Sync with WordPress.com and Pressable](#sync-with-wordpresscom-and-pressable)
 - [Preview sites](#preview-sites)
 
 ## Requirements
@@ -66,6 +72,38 @@ Run WP-CLI commands in a site:
 ```bash
 studio wp plugin list --path ~/Studio/my-site
 studio wp option get home --path ~/Studio/my-site
+```
+
+## Import and export
+
+You can import and export local backups directly from the CLI.
+
+```bash
+studio export --path ~/Studio/my-site
+studio import ~/Backups/my-site-backup.zip --path ~/Studio/my-site
+```
+
+For full command details and options, run:
+
+```bash
+studio export --help
+studio import --help
+```
+
+## Sync with WordPress.com and Pressable
+
+You can pull from and push to remote sites on both WordPress.com and Pressable. Both commands support selective sync, so you can decide which files to sync and whether to include the database.
+
+```bash
+studio pull --path ~/Studio/my-site
+studio push --path ~/Studio/my-site
+```
+
+For full command details and options, run:
+
+```bash
+studio pull --help
+studio push --help
 ```
 
 ## Preview sites

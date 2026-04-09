@@ -10,6 +10,7 @@
 		"studio": "dist/cli/main.mjs"
 	},
 	"files": [
+		"assets/",
 		"dist/cli/",
 		"patches/",
 		"scripts/"

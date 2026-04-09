@@ -2,10 +2,12 @@ import { app, dialog } from 'electron';
 import { mkdir, rm, writeFile } from 'fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'path';
+import * as Sentry from '@sentry/electron/main';
 import { __ } from '@wordpress/i18n';
 import Registry from 'winreg'; // don't update winreg to 1.2.5 - https://github.com/fresc81/node-winreg/issues/65
 import { getMainWindow } from 'src/main-window';
 import { StudioCliInstallationManager } from 'src/modules/cli/lib/ipc-handlers';
+import { loadUserData, updateAppdata } from 'src/storage/user-data';
 
 // `STABLE_BIN_DIR_PATH` resolves to C:\Users\<USERNAME>\AppData\Local\studio\bin
 export const STABLE_BIN_DIR_PATH = path.resolve( path.dirname( app.getPath( 'exe' ) ), '../bin' );
@@ -36,10 +38,17 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 		}
 	}
 
-	async updateWindowsCliVersionedPathIfNeeded(): Promise< void > {
-		if ( await this.isStudioCliDirInPath() ) {
-			await this.installProxyBatFile();
+	async autoInstallIfNeeded(): Promise< void > {
+		const userData = await loadUserData();
+		if ( userData.cliAutoInstalled ) {
+			// Already ran auto-install before. If CLI is still installed,
+			// update the proxy bat file for the current app version.
+			await this.updateWindowsCliVersionedPathIfNeeded();
+			return;
 		}
+
+		await this.installCli();
+		await updateAppdata( { cliAutoInstalled: true } );
 	}
 
 	async installCliWithConfirmation(): Promise< void > {
@@ -189,6 +198,12 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 		await this.installProxyBatFile();
 	}
 
+	private async updateWindowsCliVersionedPathIfNeeded(): Promise< void > {
+		if ( await this.isStudioCliDirInPath() ) {
+			await this.installProxyBatFile();
+		}
+	}
+
 	private async uninstallCli(): Promise< void > {
 		const currentPath = await this.getPathFromRegistry();
 		const newPath = currentPath
@@ -203,10 +218,16 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 	}
 }
 
-// See the `WindowsCliInstallationManager::installProxyBatFile` comment for more details
-export async function updateWindowsCliVersionedPathIfNeeded() {
-	if ( process.platform === 'win32' ) {
+export async function autoInstallWindowsCliIfNeeded(): Promise< void > {
+	if ( process.platform !== 'win32' || process.env.NODE_ENV !== 'production' ) {
+		return;
+	}
+
+	try {
 		const manager = new WindowsCliInstallationManager();
-		await manager.updateWindowsCliVersionedPathIfNeeded();
+		await manager.autoInstallIfNeeded();
+	} catch ( error ) {
+		console.error( 'Failed to auto-install Windows CLI', error );
+		Sentry.captureException( error );
 	}
 }

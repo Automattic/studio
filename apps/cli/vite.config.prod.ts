@@ -3,13 +3,13 @@ import { resolve } from 'path';
 import { globSync } from 'glob';
 import { defineConfig, mergeConfig } from 'vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
-import devConfig from './vite.config.dev';
+import { baseConfig } from './vite.config.base';
 
 const cliNodeModulesPath = resolve( __dirname, 'node_modules' );
 const distCliNodeModulesPath = resolve( __dirname, 'dist/cli/node_modules' );
 
 export default mergeConfig(
-	devConfig,
+	baseConfig,
 	defineConfig( {
 		plugins: [
 			...( existsSync( cliNodeModulesPath )

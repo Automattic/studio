@@ -13,7 +13,7 @@
 description: Studio Code agent evaluation
 
 providers:
-  - id: exec:node apps/cli/dist/cli/eval-runner.mjs
+  - id: exec:node ../apps/cli/dist/cli/eval-runner.mjs
     label: studio-agent
 
 defaultTest:

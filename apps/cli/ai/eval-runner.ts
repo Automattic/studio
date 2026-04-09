@@ -11,7 +11,6 @@
  * Output: JSON on stdout with structured agent execution data
  */
 
-import { readFileSync } from 'fs';
 import { startAiAgent, type AskUserQuestion } from 'cli/ai/agent';
 import {
 	resolveAiEnvironment,
@@ -222,9 +221,38 @@ function buildValidateBlocksCheck( context: {
 
 // --- Main ---
 
+/**
+ * Read input from CLI args (promptfoo exec provider format):
+ * argv[2] = prompt, argv[3] = provider config JSON, argv[4] = test context JSON
+ * The test context contains vars with our runner config (maxTurns, timeoutMs, etc.)
+ */
 function readInput(): EvalRunnerInput {
-	const raw = readFileSync( '/dev/stdin', 'utf-8' );
-	return JSON.parse( raw ) as EvalRunnerInput;
+	const prompt = process.argv[ 2 ];
+	if ( ! prompt ) {
+		throw new Error(
+			'No prompt provided. Usage: node eval-runner.mjs <prompt> [config] [context]'
+		);
+	}
+
+	// Parse test context to extract vars
+	let vars: Record< string, unknown > = {};
+	if ( process.argv[ 4 ] ) {
+		try {
+			const context = JSON.parse( process.argv[ 4 ] );
+			vars = context?.vars ?? {};
+		} catch {
+			// Ignore parse errors for context
+		}
+	}
+
+	return {
+		prompt: ( vars.prompt as string ) ?? prompt,
+		maxTurns: typeof vars.maxTurns === 'number' ? vars.maxTurns : undefined,
+		timeoutMs: typeof vars.timeoutMs === 'number' ? vars.timeoutMs : undefined,
+		askUserPolicy: ( vars.askUserPolicy as EvalRunnerInput[ 'askUserPolicy' ] ) ?? undefined,
+		answerMap: ( vars.answerMap as Record< string, string > ) ?? undefined,
+		aiProvider: ( vars.aiProvider as string ) ?? undefined,
+	};
 }
 
 async function runAgentEval( input: EvalRunnerInput ) {

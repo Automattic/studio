@@ -260,25 +260,19 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 								{ __( 'Open site' ) }
 								<ArrowIcon />
 							</div>
-							{ isThumbnailError && (
-								<div
-									className={ cx(
-										'flex w-full items-center justify-center h-64 leading-5 text-frame-text-secondary text-center'
-									) }
-								>
+							{ isThumbnailError ? (
+								<div className="flex w-full items-center justify-center h-64 leading-5 text-frame-text-secondary text-center">
 									{ __( 'Preview unavailable' ) }
 								</div>
+							) : (
+								<img
+									onError={ () => setIsThumbnailError( true ) }
+									onLoad={ () => setIsThumbnailError( false ) }
+									className="w-full h-full"
+									src={ thumbnailData || '' }
+									alt={ themeDetails?.name }
+								/>
 							) }
-							<img
-								onError={ () => setIsThumbnailError( true ) }
-								onLoad={ () => setIsThumbnailError( false ) }
-								className={ cx(
-									'w-full h-full',
-									isThumbnailError && 'invisible absolute inset-0'
-								) }
-								src={ thumbnailData || '' }
-								alt={ themeDetails?.name }
-							/>
 						</button>
 					) }
 				</div>

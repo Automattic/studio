@@ -2,7 +2,6 @@ name: Agent Evaluation
 
 on:
   schedule:
-    # Daily at 6:00 AM UTC (before most people start work)
     - cron: '0 6 * * *'
   workflow_dispatch:
     inputs:
@@ -11,7 +10,7 @@ on:
         required: false
         type: string
       test_filter:
-        description: 'Run only first N tests (leave empty for all)'
+        description: 'Run only first N tests (must be a number)'
         required: false
         type: string
 
@@ -32,6 +31,7 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version-file: '.nvmrc'
+          cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
@@ -42,46 +42,53 @@ jobs:
       - name: Run evaluation
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TEST_FILTER: ${{ inputs.test_filter }}
         run: |
           ARGS="--no-cache --output /tmp/eval-results.json"
-          if [ -n "${{ inputs.test_filter }}" ]; then
-            ARGS="$ARGS -n ${{ inputs.test_filter }}"
+          if [ -n "$TEST_FILTER" ]; then
+            if ! [[ "$TEST_FILTER" =~ ^[0-9]+$ ]]; then
+              echo "Error: test_filter must be a number"
+              exit 1
+            fi
+            ARGS="$ARGS -n $TEST_FILTER"
           fi
           npx promptfoo eval -c eval/promptfoo.config.yaml $ARGS
 
       - name: Parse results
         id: results
+        if: always()
         run: |
-          RESULTS=$(cat /tmp/eval-results.json)
-          PASSED=$(echo "$RESULTS" | jq '[.results[] | select(.success == true)] | length')
-          FAILED=$(echo "$RESULTS" | jq '[.results[] | select(.success == false)] | length')
-          ERRORS=$(echo "$RESULTS" | jq '[.results[] | select(.error != null)] | length')
-          TOTAL=$(echo "$RESULTS" | jq '.results | length')
+          if [ ! -f /tmp/eval-results.json ]; then
+            echo "passed=0" >> $GITHUB_OUTPUT
+            echo "failed=0" >> $GITHUB_OUTPUT
+            echo "total=0" >> $GITHUB_OUTPUT
+            exit 0
+          fi
 
-          echo "passed=$PASSED" >> $GITHUB_OUTPUT
-          echo "failed=$FAILED" >> $GITHUB_OUTPUT
-          echo "errors=$ERRORS" >> $GITHUB_OUTPUT
-          echo "total=$TOTAL" >> $GITHUB_OUTPUT
+          jq -r '
+            "passed=" + ([.results.results[] | select(.success == true)] | length | tostring),
+            "failed=" + ([.results.results[] | select(.success == false)] | length | tostring),
+            "total=" + (.results.results | length | tostring)
+          ' /tmp/eval-results.json >> $GITHUB_OUTPUT
 
-          # Build per-test summary
-          SUMMARY=$(echo "$RESULTS" | jq -r '.results[] | "• " + (.description // .vars.caseId // "unknown") + ": " + (if .success then "✅" elif .error then "❌ error" else "❌ fail" end)')
           echo "summary<<EOF" >> $GITHUB_OUTPUT
-          echo "$SUMMARY" >> $GITHUB_OUTPUT
+          jq -r '.results.results[] |
+            "• " + (.description // .vars.caseId // "unknown") + ": " +
+            (if .success then "✅" elif .error then "❌ error" else "❌ fail" end)
+          ' /tmp/eval-results.json >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Send Slack notification
-        if: inputs.channel_id || (github.event_name == 'schedule')
+        if: (inputs.channel_id || github.event_name == 'schedule') && steps.results.outputs.total != '0'
         env:
           SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
-          # Manual input > studio-code channel for scheduled runs
           SLACK_CHANNEL_ID: ${{ inputs.channel_id || 'C08LZ79MKG9' }}
+          PASSED: ${{ steps.results.outputs.passed }}
+          FAILED: ${{ steps.results.outputs.failed }}
+          TOTAL: ${{ steps.results.outputs.total }}
+          SUMMARY: ${{ steps.results.outputs.summary }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          PASSED="${{ steps.results.outputs.passed }}"
-          FAILED="${{ steps.results.outputs.failed }}"
-          TOTAL="${{ steps.results.outputs.total }}"
-          SUMMARY="${{ steps.results.outputs.summary }}"
-          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-
           if [ "$FAILED" = "0" ]; then
             EMOJI=":white_check_mark:"
             COLOR="#36a64f"
@@ -111,12 +118,10 @@ jobs:
                 ]
               }]
             }' | \
-          curl -s -X POST https://slack.com/api/chat.postMessage \
+          curl -sf -o /dev/null -X POST https://slack.com/api/chat.postMessage \
             -H "Authorization: Bearer $SLACK_TOKEN" \
             -H 'Content-Type: application/json; charset=utf-8' \
-            --data-binary @-
-
-          echo "✅ Sent eval results to Slack channel $SLACK_CHANNEL_ID"
+            --data-binary @- || echo "Warning: Slack notification failed"
 
       - name: Upload results artifact
         if: always()
@@ -124,4 +129,4 @@ jobs:
         with:
           name: eval-results
           path: /tmp/eval-results.json
-          retention-days: 30
+          retention-days: 7

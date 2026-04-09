@@ -560,7 +560,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 						return Promise.resolve( {
 							stdout: '<a><br/>some html</ap>',
 							stderr: 'Error',
-							exitCode: 0,
+							exitCode: 1,
 						} );
 					default:
 						return Promise.resolve( { stdout: '', stderr: '', exitCode: 0 } );

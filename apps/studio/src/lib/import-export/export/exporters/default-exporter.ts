@@ -308,7 +308,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			return [];
 		}
 
-		const { stderr, stdout } = await server.executeWpCliCommand(
+		const { exitCode, stdout } = await server.executeWpCliCommand(
 			'plugin list --status=active,inactive --fields=name,status,version --format=json',
 			{
 				skipPluginsAndThemes: true,
@@ -320,8 +320,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		try {
 			return parseJsonFromPhpOutput( stdout );
 		} catch ( error ) {
-			if ( stderr ) {
-				console.error( `Could not get information about plugins: ${ stderr }` );
+			if ( exitCode ) {
 				throw new Error(
 					'Could not get information about installed plugins to create meta.json file.'
 				);
@@ -340,7 +339,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			return [];
 		}
 
-		const { stderr, stdout } = await server.executeWpCliCommand(
+		const { exitCode, stdout } = await server.executeWpCliCommand(
 			'theme list --fields=name,status,version --format=json',
 			{
 				skipPluginsAndThemes: true,
@@ -352,8 +351,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		try {
 			return parseJsonFromPhpOutput( stdout );
 		} catch ( error ) {
-			if ( stderr ) {
-				console.error( `Could not get information about themes: ${ stderr }` );
+			if ( exitCode ) {
 				throw new Error(
 					'Could not get information about installed themes to create meta.json file.'
 				);

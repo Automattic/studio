@@ -318,7 +318,7 @@ describe( 'ai-sessions', () => {
 		process.env.E2E_APP_DATA_PATH = testRoot;
 
 		await expect( deleteAiSession( 'does-not-exist' ) ).rejects.toThrow(
-			'AI session not found: does-not-exist'
+			'Code session not found: does-not-exist'
 		);
 	} );
 

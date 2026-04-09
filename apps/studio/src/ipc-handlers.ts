@@ -35,10 +35,12 @@ import {
 import { generateNumberedName, generateSiteName } from '@studio/common/lib/generate-site-name';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
+import { isMultisite } from '@studio/common/lib/is-multisite';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import { readSharedConfig, updateSharedConfig } from '@studio/common/lib/shared-config';
+import { shouldExcludeFromSync, shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import { MACOS_TRAFFIC_LIGHT_POSITION, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
@@ -51,7 +53,6 @@ import {
 	StatsGroup,
 	StatsMetric,
 } from 'src/lib/bump-stats';
-import { captureSiteThumbnail } from 'src/lib/capture-site-thumbnail';
 import {
 	openCertificate as openCertificateDialog,
 	isRootCATrusted,
@@ -66,6 +67,7 @@ import { ImportExportEventData } from 'src/lib/import-export/handle-events';
 import { defaultImporterOptions, importBackup } from 'src/lib/import-export/import/import-manager';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
+import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import * as oauthClient from 'src/lib/oauth';
 import { getAiInstructionsPath } from 'src/lib/server-files-paths';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
@@ -93,7 +95,6 @@ import {
 import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
-import { shouldExcludeFromSync, shouldLimitDepth } from 'src/modules/sync/lib/tree-utils';
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { getUserEditor, getUserTerminal } from 'src/modules/user-settings/lib/ipc-handlers';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
@@ -107,7 +108,8 @@ import {
 	updateAppdata,
 } from 'src/storage/user-data';
 import { Blueprint } from 'src/stores/wpcom-api';
-import type { RawDirectoryEntry } from 'src/modules/sync/types';
+import { captureSiteThumbnail } from './lib/capture-site-thumbnail';
+import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { WpCliResult } from 'src/site-server';
 
 export {
@@ -817,6 +819,7 @@ export async function isAuthenticated() {
 }
 
 export async function clearAuthenticationToken() {
+	setSentryWpcomUserIdMain( undefined );
 	return await updateSharedConfig( { authToken: undefined } );
 }
 
@@ -921,6 +924,14 @@ export function getWpVersion( _event: IpcMainInvokeEvent, id: string ) {
 	return getWordPressVersion( wordPressPath );
 }
 
+export function getIsMultisite( _event: IpcMainInvokeEvent, id: string ) {
+	const server = SiteServer.get( id );
+	if ( ! server ) {
+		return false;
+	}
+	return isMultisite( server.details.path );
+}
+
 export async function generateProposedSitePath(
 	_event: IpcMainInvokeEvent,
 	siteName: string
@@ -991,15 +1002,17 @@ export function showItemInFolder( _event: IpcMainInvokeEvent, path: string ) {
 export async function loadThemeDetails(
 	event: IpcMainInvokeEvent,
 	id: string,
-	emitThemeDetailsLoadingEvent = true
+	emitLoadingEvent = true
 ): Promise< StartedSiteDetails[ 'themeDetails' ] > {
 	const server = SiteServer.get( id );
 	if ( ! server ) {
 		throw new Error( 'Site not found.' );
 	}
 
+	void captureSiteThumbnail( id, emitLoadingEvent );
+
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( emitThemeDetailsLoadingEvent ) {
+	if ( emitLoadingEvent ) {
 		sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-loading', { id } );
 	}
 
@@ -1015,8 +1028,6 @@ export async function loadThemeDetails(
 	if ( hasThemeChanged ) {
 		await server.persistThemeDetails();
 	}
-
-	void captureSiteThumbnail( id );
 
 	return themeDetails;
 }

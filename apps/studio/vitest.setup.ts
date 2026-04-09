@@ -128,6 +128,7 @@ global.ResizeObserver = require( 'resize-observer-polyfill' );
 vi.mock( '@sentry/electron/main', () => ( {
 	captureException: vi.fn(),
 	captureMessage: vi.fn(),
+	setTag: vi.fn(),
 } ) );
 
 vi.mock( 'electron', () => {

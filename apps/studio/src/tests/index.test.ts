@@ -16,6 +16,7 @@ vi.mock( '@sentry/electron/main', () => ( {
 	captureException: vi.fn(),
 	captureMessage: vi.fn(),
 	setUser: vi.fn(),
+	setTag: vi.fn(),
 } ) );
 vi.mock( import( 'src/lib/bump-stats' ), async ( importOriginal ) => {
 	const actual = await importOriginal();
@@ -57,7 +58,7 @@ vi.mock( 'src/modules/cli/lib/execute-command', () => {
 	};
 } );
 vi.mock( 'src/modules/cli/lib/windows-installation-manager', () => ( {
-	updateWindowsCliVersionedPathIfNeeded: vi.fn().mockResolvedValue( undefined ),
+	autoInstallWindowsCliIfNeeded: vi.fn().mockResolvedValue( undefined ),
 } ) );
 vi.mock( 'electron-devtools-installer', () => ( {
 	installExtension: vi.fn().mockResolvedValue( { id: 'test-extension' } ),

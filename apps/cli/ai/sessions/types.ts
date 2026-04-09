@@ -27,6 +27,7 @@ export type AiSessionEvent =
 			sitePath: string;
 			remote?: boolean;
 			url?: string;
+			wpcomSiteId?: number;
 	  }
 	| {
 			type: 'user.message';

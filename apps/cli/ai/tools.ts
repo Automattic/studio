@@ -1,10 +1,12 @@
-import { readFile } from 'fs/promises';
+import { cp, readFile } from 'fs/promises';
 import path from 'path';
 import { tool, createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { z } from 'zod/v4';
 import { validateBlocks, type ValidationReport } from 'cli/ai/block-validator';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
+import { auditPerformance } from 'cli/ai/performance-audit';
+import { createWpcomToolDefinitions } from 'cli/ai/wpcom-tools';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
 import {
 	Mode as PreviewDeleteMode,
@@ -167,7 +169,7 @@ async function captureConsoleOutput( fn: () => Promise< void > ): Promise< strin
 	return captured.trim();
 }
 
-async function captureCommandOutput( fn: () => Promise< void > ): Promise< {
+export async function captureCommandOutput( fn: () => Promise< void > ): Promise< {
 	consoleOutput: string;
 	progressOutput: string;
 	exitCode: number | undefined;
@@ -636,11 +638,25 @@ const takeScreenshotTool = tool(
 				// Reduce motion to avoid capturing mid-animation states
 				await page.emulateMedia( { reducedMotion: 'reduce' } );
 
-				await page.goto( args.url, { waitUntil: 'networkidle', timeout: 15000 } );
+				await page.goto( args.url, { waitUntil: 'domcontentloaded', timeout: 30000 } );
+				await page.waitForLoadState( 'networkidle', { timeout: 10000 } ).catch( () => {} );
 
-				// Wait for all images to finish loading
-				await page.evaluate( () =>
-					Promise.all(
+				// Scroll through the page to trigger lazy-loaded images, then wait
+				// for all images to finish loading (with a timeout so we don't hang
+				// on images that never settle).
+				await page.evaluate( async () => {
+					const delay = ( ms: number ) =>
+						new Promise< void >( ( resolve ) => setTimeout( resolve, ms ) );
+					const scrollHeight = document.body.scrollHeight;
+					const viewportHeight = window.innerHeight;
+					for ( let y = 0; y < scrollHeight; y += viewportHeight ) {
+						window.scrollTo( 0, y );
+						await delay( 100 );
+					}
+					window.scrollTo( 0, 0 );
+
+					const timeout = new Promise< void >( ( resolve ) => setTimeout( resolve, 5000 ) );
+					const allImages = Promise.all(
 						Array.from( document.images )
 							.filter( ( img ) => ! img.complete )
 							.map(
@@ -650,8 +666,9 @@ const takeScreenshotTool = tool(
 										img.addEventListener( 'error', () => resolve() );
 									} )
 							)
-					)
-				);
+					);
+					await Promise.race( [ allImages, timeout ] );
+				} );
 
 				// Hide WordPress admin bar and scrollbars for cleaner screenshots
 				await page.addStyleTag( {
@@ -688,6 +705,78 @@ const takeScreenshotTool = tool(
 	}
 );
 
+// --- Taxonomist scripts installer ---
+
+const TAXONOMIST_SCRIPTS_DIR = 'tmp/taxonomist';
+
+const installTaxonomyScriptsTool = tool(
+	'install_taxonomy_scripts',
+	'Copies the Taxonomist PHP scripts into a site so they can be run via wp_cli eval-file. ' +
+		'Call this once before running any Taxonomist eval-file commands.',
+	{
+		nameOrPath: z.string().describe( 'The site name or file system path to the site' ),
+	},
+	async ( args ) => {
+		try {
+			const site = await resolveSite( args.nameOrPath );
+			const srcDir = path.join( import.meta.dirname, 'plugin', 'skills', 'taxonomist', 'scripts' );
+			const destDir = path.join( site.path, TAXONOMIST_SCRIPTS_DIR );
+
+			await cp( srcDir, destDir, { recursive: true } );
+
+			return textResult(
+				`Taxonomist scripts installed to ${ TAXONOMIST_SCRIPTS_DIR }/ in the site directory.`
+			);
+		} catch ( error ) {
+			return errorResult(
+				`Failed to install taxonomy scripts: ${
+					error instanceof Error ? error.message : String( error )
+				}`
+			);
+		}
+	}
+);
+
+const auditPerformanceTool = tool(
+	'audit_performance',
+	'Measures frontend performance metrics for a WordPress site page. Returns Core Web Vitals ' +
+		'(TTFB, FCP, LCP, CLS), page weight, DOM size, request count, and a breakdown of JS, CSS, ' +
+		'image, and font assets. The site must be running. Use this to identify performance issues.',
+	{
+		nameOrPath: z
+			.string()
+			.describe( 'The site name or file system path — the site must be running' ),
+		path: z
+			.string()
+			.optional()
+			.describe( 'URL path to audit (e.g., "/", "/about", "/wp-admin/"). Defaults to "/".' ),
+	},
+	async ( args ) => {
+		try {
+			const site = await resolveSite( args.nameOrPath );
+			const siteUrl = getSiteUrl( site );
+			const urlPath = args.path ?? '/';
+
+			emitProgress( `Auditing performance of ${ siteUrl }${ urlPath }…` );
+
+			const result = await auditPerformance( siteUrl, urlPath );
+
+			if ( result.error ) {
+				emitProgress( `Audit failed: ${ result.error.slice( 0, 80 ) }` );
+				return errorResult( `Performance audit failed: ${ result.error }` );
+			}
+
+			emitProgress( `Audit complete for ${ urlPath }` );
+
+			return textResult( JSON.stringify( result, null, 2 ) );
+		} catch ( error ) {
+			return errorResult(
+				`Performance audit failed: ${ error instanceof Error ? error.message : String( error ) }`
+			);
+		}
+	}
+);
+
 export const studioToolDefinitions = [
 	createSiteTool,
 	listSitesTool,
@@ -702,6 +791,8 @@ export const studioToolDefinitions = [
 	runWpCliTool,
 	validateBlocksTool,
 	takeScreenshotTool,
+	installTaxonomyScriptsTool,
+	auditPerformanceTool,
 ];
 
 export function createStudioTools() {
@@ -709,5 +800,18 @@ export function createStudioTools() {
 		name: 'studio',
 		version: '1.0.0',
 		tools: studioToolDefinitions,
+	} );
+}
+
+/**
+ * Creates an MCP server for remote WordPress.com sites, combining WP.com REST API tools
+ * with URL-based tools (screenshot) that work with any site.
+ */
+export function createRemoteSiteTools( token: string, siteId: number ) {
+	const wpcomTools = createWpcomToolDefinitions( token, siteId );
+	return createSdkMcpServer( {
+		name: 'studio',
+		version: '1.0.0',
+		tools: [ ...wpcomTools, takeScreenshotTool ],
 	} );
 }

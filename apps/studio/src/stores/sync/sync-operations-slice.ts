@@ -16,7 +16,7 @@ import { getHostnameFromUrl } from 'src/lib/url-utils';
 import { store } from 'src/stores';
 import { userLoggedOut } from 'src/stores/auth-actions';
 import { connectedSitesApi } from 'src/stores/sync/connected-sites';
-import { stopPullPoller, stopPushPoller } from 'src/stores/sync/sync-pollers';
+import { getWpcomClient } from 'src/stores/wpcom-api';
 import type { ImportResponse, SyncSite } from '@studio/common/types/sync';
 import type {
 	PullStateProgressInfo,
@@ -293,6 +293,115 @@ window.ipcListener.subscribe( 'sync-upload-resumed', ( _event, payload ) => {
 	);
 } );
 
+// Poller infrastructure — manages AbortControllers for push/pull polling loops
+const PUSH_POLLERS = new Map< string, AbortController >();
+const PULL_POLLERS = new Map< string, AbortController >();
+
+export function stopPushPoller( stateId: string ) {
+	PUSH_POLLERS.get( stateId )?.abort();
+	PUSH_POLLERS.delete( stateId );
+}
+
+export function stopPullPoller( stateId: string ) {
+	PULL_POLLERS.get( stateId )?.abort();
+	PULL_POLLERS.delete( stateId );
+}
+
+const PUSH_POLLING_KEYS = [ 'creatingRemoteBackup', 'applyingChanges', 'finishing' ];
+const SYNC_POLLING_INTERVAL = 3000;
+
+function isPushPollable( selectedSiteId: string, remoteSiteId: number ) {
+	const pushState = syncOperationsSelectors.selectPushState(
+		selectedSiteId,
+		remoteSiteId
+	)( store.getState() );
+	return pushState && PUSH_POLLING_KEYS.includes( pushState.status.key );
+}
+
+function isPullPollable( selectedSiteId: string, remoteSiteId: number ) {
+	const pullState = syncOperationsSelectors.selectPullState(
+		selectedSiteId,
+		remoteSiteId
+	)( store.getState() );
+	return pullState?.status.key === 'in-progress' && !! pullState.backupId;
+}
+
+async function startPushPoller( selectedSiteId: string, remoteSiteId: number ) {
+	const stateId = generateStateId( selectedSiteId, remoteSiteId );
+	if ( PUSH_POLLERS.has( stateId ) ) {
+		return;
+	}
+
+	const controller = new AbortController();
+	PUSH_POLLERS.set( stateId, controller );
+
+	try {
+		while ( ! controller.signal.aborted ) {
+			const client = getWpcomClient();
+			if ( ! client ) {
+				break;
+			}
+
+			await store.dispatch(
+				pollPushProgressThunk( {
+					client,
+					signal: controller.signal,
+					selectedSiteId,
+					remoteSiteId,
+				} )
+			);
+
+			if ( controller.signal.aborted || ! isPushPollable( selectedSiteId, remoteSiteId ) ) {
+				break;
+			}
+
+			await new Promise( ( resolve ) => setTimeout( resolve, SYNC_POLLING_INTERVAL ) );
+		}
+	} finally {
+		if ( PUSH_POLLERS.get( stateId ) === controller ) {
+			PUSH_POLLERS.delete( stateId );
+		}
+	}
+}
+
+async function startPullPoller( selectedSiteId: string, remoteSiteId: number ) {
+	const stateId = generateStateId( selectedSiteId, remoteSiteId );
+	if ( PULL_POLLERS.has( stateId ) ) {
+		return;
+	}
+
+	const controller = new AbortController();
+	PULL_POLLERS.set( stateId, controller );
+
+	try {
+		while ( ! controller.signal.aborted ) {
+			const client = getWpcomClient();
+			if ( ! client ) {
+				break;
+			}
+
+			await store.dispatch(
+				pollPullBackupThunk( {
+					client,
+					signal: controller.signal,
+					selectedSiteId,
+					remoteSiteId,
+				} )
+			);
+
+			if ( controller.signal.aborted || ! isPullPollable( selectedSiteId, remoteSiteId ) ) {
+				break;
+			}
+
+			await new Promise( ( resolve ) => setTimeout( resolve, SYNC_POLLING_INTERVAL ) );
+		}
+	} finally {
+		if ( PULL_POLLERS.get( stateId ) === controller ) {
+			PULL_POLLERS.delete( stateId );
+		}
+	}
+}
+
 const createTypedAsyncThunk = createAsyncThunk.withTypes< {
 	state: RootState;
 	dispatch: AppDispatch;
@@ -468,6 +577,7 @@ const pushSiteThunk = createTypedAsyncThunk< void, PushSitePayload >(
 						},
 					} )
 				);
+				void startPushPoller( selectedSite.id, remoteSiteId );
 			} else {
 				return rejectWithValue( {
 					title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
@@ -553,6 +663,7 @@ export const pullSiteThunk = createTypedAsyncThunk< PullSiteResult, PullSitePayl
 						},
 					} )
 				);
+				void startPullPoller( selectedSite.id, remoteSiteId );
 
 				return {
 					backupId: response.backup_id,
@@ -961,6 +1072,7 @@ export const initializeSyncStatesThunk = createTypedAsyncThunk(
 							},
 						} )
 					);
+					void startPushPoller( connectedSite.localSiteId, connectedSite.id );
 				}
 			} catch ( error ) {
 				// Continue checking other sites even if one fails

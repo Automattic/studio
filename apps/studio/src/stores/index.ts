@@ -24,19 +24,14 @@ import {
 import { syncReducer, syncOperationsActions } from 'src/stores/sync';
 import { connectedSitesApi, connectedSitesReducer } from 'src/stores/sync/connected-sites';
 import {
+	stopPullPoller,
+	stopPushPoller,
 	syncOperationsReducer,
-	syncOperationsSelectors,
 	syncOperationsThunks,
 } from 'src/stores/sync/sync-operations-slice';
-import {
-	PUSH_POLLERS,
-	PULL_POLLERS,
-	stopPushPoller,
-	stopPullPoller,
-} from 'src/stores/sync/sync-pollers';
 import { wpcomSitesApi } from 'src/stores/sync/wpcom-sites';
 import uiReducer from 'src/stores/ui-slice';
-import { getWpcomClient, setWpcomClient, wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
+import { setWpcomClient, wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
 import { wordpressVersionsApi } from './wordpress-versions-api';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 
@@ -222,131 +217,6 @@ startAppListening( {
 		// Reset authenticated RTK Query caches
 		listenerApi.dispatch( wpcomSitesApi.util.resetApiState() );
 		listenerApi.dispatch( wpcomApi.util.resetApiState() );
-	},
-} );
-
-const PUSH_POLLING_KEYS = [ 'creatingRemoteBackup', 'applyingChanges', 'finishing' ];
-const SYNC_POLLING_INTERVAL = 3000;
-
-function isPushPollable( selectedSiteId: string, remoteSiteId: number ) {
-	const pushState = syncOperationsSelectors.selectPushState(
-		selectedSiteId,
-		remoteSiteId
-	)( store.getState() );
-	return pushState && PUSH_POLLING_KEYS.includes( pushState.status.key );
-}
-
-function isPullPollable( selectedSiteId: string, remoteSiteId: number ) {
-	const pullState = syncOperationsSelectors.selectPullState(
-		selectedSiteId,
-		remoteSiteId
-	)( store.getState() );
-	return pullState?.status.key === 'in-progress' && !! pullState.backupId;
-}
-
-async function startPushPoller( selectedSiteId: string, remoteSiteId: number ) {
-	const stateId = generateStateId( selectedSiteId, remoteSiteId );
-	if ( PUSH_POLLERS.has( stateId ) ) {
-		return;
-	}
-
-	const controller = new AbortController();
-	PUSH_POLLERS.set( stateId, controller );
-
-	try {
-		while ( ! controller.signal.aborted ) {
-			const client = getWpcomClient();
-			if ( ! client ) {
-				break;
-			}
-
-			await store.dispatch(
-				syncOperationsThunks.pollPushProgress( {
-					client,
-					signal: controller.signal,
-					selectedSiteId,
-					remoteSiteId,
-				} )
-			);
-
-			if ( controller.signal.aborted || ! isPushPollable( selectedSiteId, remoteSiteId ) ) {
-				break;
-			}
-
-			await new Promise( ( resolve ) => setTimeout( resolve, SYNC_POLLING_INTERVAL ) );
-		}
-	} finally {
-		if ( PUSH_POLLERS.get( stateId ) === controller ) {
-			PUSH_POLLERS.delete( stateId );
-		}
-	}
-}
-
-async function startPullPoller( selectedSiteId: string, remoteSiteId: number ) {
-	const stateId = generateStateId( selectedSiteId, remoteSiteId );
-	if ( PULL_POLLERS.has( stateId ) ) {
-		return;
-	}
-
-	const controller = new AbortController();
-	PULL_POLLERS.set( stateId, controller );
-
-	try {
-		while ( ! controller.signal.aborted ) {
-			const client = getWpcomClient();
-			if ( ! client ) {
-				break;
-			}
-
-			await store.dispatch(
-				syncOperationsThunks.pollPullBackup( {
-					client,
-					signal: controller.signal,
-					selectedSiteId,
-					remoteSiteId,
-				} )
-			);
-
-			if ( controller.signal.aborted || ! isPullPollable( selectedSiteId, remoteSiteId ) ) {
-				break;
-			}
-
-			await new Promise( ( resolve ) => setTimeout( resolve, SYNC_POLLING_INTERVAL ) );
-		}
-	} finally {
-		if ( PULL_POLLERS.get( stateId ) === controller ) {
-			PULL_POLLERS.delete( stateId );
-		}
-	}
-}
-
-// Poll push progress when state enters a pollable status
-startAppListening( {
-	actionCreator: syncOperationsActions.updatePushState,
-	effect( action ) {
-		const { selectedSiteId, remoteSiteId } = action.payload;
-		const stateId = generateStateId( selectedSiteId, remoteSiteId );
-
-		if ( isPushPollable( selectedSiteId, remoteSiteId ) ) {
-			void startPushPoller( selectedSiteId, remoteSiteId );
-		} else {
-			stopPushPoller( stateId );
-		}
-	},
-} );
-
-// Poll pull backup when state has a backupId and is in-progress
-startAppListening( {
-	actionCreator: syncOperationsActions.updatePullState,
-	effect( action ) {
-		const { selectedSiteId, remoteSiteId } = action.payload;
-		const stateId = generateStateId( selectedSiteId, remoteSiteId );
-
-		if ( isPullPollable( selectedSiteId, remoteSiteId ) ) {
-			void startPullPoller( selectedSiteId, remoteSiteId );
-		} else {
-			stopPullPoller( stateId );
-		}
 	},
 } );
 

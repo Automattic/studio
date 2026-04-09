@@ -3,6 +3,41 @@ import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { z } from 'zod/v4';
 
+/**
+ * Strips oversized fields from API responses that can't be filtered via query params.
+ *
+ * Special case: the WP.com /sites/{id} endpoint returns a `plan` object whose
+ * `features` sub-field alone is 60K+ characters, which pushes the tool result past
+ * Claude Code's MCP output limit (~100k chars). The v1.1 API doesn't support
+ * sub-field filtering (e.g. `fields=plan.product_slug`), so we can't solve this
+ * via query params. The agent only needs a few plan properties to gate features
+ * since the system prompt hardcodes what each plan tier can do.
+ *
+ * This is NOT a pattern to follow for other endpoints. For general large responses,
+ * the system prompt instructs the agent to use `_fields` (wp/v2) or `fields` (v1.1)
+ * query params to request only the properties it needs.
+ */
+function stripOversizedFields( result: ApiResponse ): ApiResponse {
+	if (
+		result &&
+		typeof result === 'object' &&
+		! Array.isArray( result ) &&
+		result.plan?.features
+	) {
+		return {
+			...result,
+			plan: {
+				product_id: result.plan.product_id,
+				product_slug: result.plan.product_slug,
+				product_name_short: result.plan.product_name_short,
+				expired: result.plan.expired,
+				is_free: result.plan.is_free,
+			},
+		};
+	}
+	return result;
+}
+
 function errorResult( message: string ) {
 	return {
 		content: [ { type: 'text' as const, text: message } ],
@@ -106,7 +141,8 @@ export function createWpcomToolDefinitions( token: string, siteId: number ) {
 						break;
 				}
 
-				return textResult( JSON.stringify( result, null, 2 ) );
+				const compacted = stripOversizedFields( result );
+				return textResult( JSON.stringify( compacted ) );
 			} catch ( error ) {
 				return errorResult(
 					`WP.com API request failed (${ args.method } ${ args.path }): ${ getErrorMessage(

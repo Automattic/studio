@@ -2,6 +2,11 @@ import path from 'node:path';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
 import { __ } from '@wordpress/i18n';
 import yargs from 'yargs';
+import { registerCommand as registerExportCommand } from 'cli/commands/export';
+import { registerCommand as registerImportCommand } from 'cli/commands/import';
+import { registerCommand as registerMcpCommand } from 'cli/commands/mcp';
+import { registerCommand as registerPullCommand } from 'cli/commands/pull';
+import { registerCommand as registerPushCommand } from 'cli/commands/push';
 import { bumpAggregatedUniqueStat, getPlatformMetric } from 'cli/lib/bump-stat';
 import { setupServerFiles } from 'cli/lib/dependency-management/setup';
 import { loadTranslations } from 'cli/lib/i18n';
@@ -85,29 +90,78 @@ async function main() {
 			registerAuthLogoutCommand( authYargs );
 			registerAuthStatusCommand( authYargs );
 			authYargs.version( false ).demandCommand( 1, __( 'You must provide a valid auth command' ) );
-		} )
-		.command( 'preview', __( 'Manage preview sites' ), async ( previewYargs ) => {
+		} );
+
+	const studioCodeCommandBuilder = async ( aiYargs: StudioArgv ) => {
+		const { registerCommand: registerAiCommand } = await import( 'cli/commands/ai' );
+		registerAiCommand( aiYargs );
+		aiYargs.command( 'sessions', __( 'Manage code sessions' ), async ( sessionsYargs ) => {
 			const [
-				{ registerCommand: registerPreviewCreateCommand },
-				{ registerCommand: registerPreviewListCommand },
-				{ registerCommand: registerPreviewDeleteCommand },
-				{ registerCommand: registerPreviewUpdateCommand },
-				{ registerCommand: registerPreviewSetCommand },
+				{ registerCommand: registerAiSessionsDeleteCommand },
+				{ registerCommand: registerAiSessionsListCommand },
+				{ registerCommand: registerAiSessionsResumeCommand },
 			] = await Promise.all( [
-				import( 'cli/commands/preview/create' ),
-				import( 'cli/commands/preview/list' ),
-				import( 'cli/commands/preview/delete' ),
-				import( 'cli/commands/preview/update' ),
-				import( 'cli/commands/preview/set' ),
+				import( 'cli/commands/ai/sessions/delete' ),
+				import( 'cli/commands/ai/sessions/list' ),
+				import( 'cli/commands/ai/sessions/resume' ),
 			] );
 
-			registerPreviewCreateCommand( previewYargs );
-			registerPreviewListCommand( previewYargs );
-			registerPreviewDeleteCommand( previewYargs );
-			registerPreviewUpdateCommand( previewYargs );
-			registerPreviewSetCommand( previewYargs );
-			previewYargs.version( false ).demandCommand( 1, __( 'You must provide a valid command' ) );
-		} )
+			sessionsYargs
+				.option( 'path', {
+					hidden: true,
+				} )
+				.option( 'session-persistence', {
+					type: 'boolean',
+					default: true,
+					description: __( 'Record this code session to disk' ),
+				} );
+			registerAiSessionsDeleteCommand( sessionsYargs );
+			registerAiSessionsListCommand( sessionsYargs );
+			registerAiSessionsResumeCommand( sessionsYargs );
+			sessionsYargs
+				.version( false )
+				.demandCommand( 1, __( 'You must provide a valid code sessions command' ) );
+		} );
+		aiYargs.version( false );
+	};
+	studioArgv.command(
+		'code',
+		__( 'AI agent for building WordPress sites' ),
+		studioCodeCommandBuilder
+	);
+	studioArgv.command( 'ai', false, studioCodeCommandBuilder );
+
+	registerExportCommand( studioArgv );
+	registerImportCommand( studioArgv );
+	registerMcpCommand( studioArgv );
+
+	studioArgv.command( 'preview', __( 'Manage preview sites' ), async ( previewYargs ) => {
+		const [
+			{ registerCommand: registerPreviewCreateCommand },
+			{ registerCommand: registerPreviewListCommand },
+			{ registerCommand: registerPreviewDeleteCommand },
+			{ registerCommand: registerPreviewUpdateCommand },
+			{ registerCommand: registerPreviewSetCommand },
+		] = await Promise.all( [
+			import( 'cli/commands/preview/create' ),
+			import( 'cli/commands/preview/list' ),
+			import( 'cli/commands/preview/delete' ),
+			import( 'cli/commands/preview/update' ),
+			import( 'cli/commands/preview/set' ),
+		] );
+
+		registerPreviewCreateCommand( previewYargs );
+		registerPreviewListCommand( previewYargs );
+		registerPreviewDeleteCommand( previewYargs );
+		registerPreviewUpdateCommand( previewYargs );
+		registerPreviewSetCommand( previewYargs );
+		previewYargs.version( false ).demandCommand( 1, __( 'You must provide a valid command' ) );
+	} );
+
+	registerPullCommand( studioArgv );
+	registerPushCommand( studioArgv );
+
+	studioArgv
 		.command( 'site', __( 'Manage sites' ), async ( sitesYargs ) => {
 			const [
 				{ registerCommand: registerSiteStatusCommand },
@@ -134,6 +188,9 @@ async function main() {
 			registerSiteStopCommand( sitesYargs );
 			registerSiteDeleteCommand( sitesYargs );
 			registerSiteSetCommand( sitesYargs );
+			registerImportCommand( studioArgv );
+			registerExportCommand( studioArgv );
+
 			sitesYargs.version( false ).demandCommand( 1, __( 'You must provide a valid command' ) );
 		} )
 		.command( {
@@ -167,43 +224,6 @@ async function main() {
 		} )
 		.demandCommand( 1, __( 'You must provide a valid command' ) )
 		.strict();
-
-	if ( __ENABLE_STUDIO_AI__ ) {
-		studioArgv.command( 'ai', __( 'AI-powered WordPress assistant' ), async ( aiYargs ) => {
-			const { registerCommand: registerAiCommand } = await import( 'cli/commands/ai' );
-			registerAiCommand( aiYargs );
-			aiYargs.command( 'sessions', __( 'Manage AI sessions' ), async ( sessionsYargs ) => {
-				const [
-					{ registerCommand: registerAiSessionsListCommand },
-					{ registerCommand: registerAiSessionsResumeCommand },
-					{ registerCommand: registerAiSessionsDeleteCommand },
-				] = await Promise.all( [
-					import( 'cli/commands/ai/sessions/list' ),
-					import( 'cli/commands/ai/sessions/resume' ),
-					import( 'cli/commands/ai/sessions/delete' ),
-				] );
-
-				sessionsYargs
-					.option( 'path', {
-						hidden: true,
-					} )
-					.option( 'session-persistence', {
-						type: 'boolean',
-						default: true,
-						description: __( 'Record this AI chat session to disk' ),
-					} );
-				registerAiSessionsListCommand( sessionsYargs );
-				registerAiSessionsResumeCommand( sessionsYargs );
-				registerAiSessionsDeleteCommand( sessionsYargs );
-				sessionsYargs
-					.version( false )
-					.demandCommand( 1, __( 'You must provide a valid ai sessions command' ) );
-			} );
-			aiYargs.version( false );
-		} );
-	}
-	const { registerCommand: registerMcpCommand } = await import( 'cli/commands/mcp' );
-	registerMcpCommand( studioArgv );
 
 	await studioArgv.argv;
 }

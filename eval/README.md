@@ -1,49 +1,25 @@
-# Studio Code Agent Evaluation
+# Agent Evaluation
 
-Automated evaluation using [PromptFoo](https://www.promptfoo.dev/) with a custom runner that hooks into `startAiAgent()`.
+[PromptFoo](https://www.promptfoo.dev/) eval suite for the Studio Code agent. Runs the real agent via `startAiAgent()` and asserts on tool calls, permissions, and output.
 
-Tests the full agent loop: tool calls, permission flows, block validation, site creation.
-
-## Quick Start
+## Usage
 
 ```bash
-# Auth — pick one:
-studio auth login          # WP.com (recommended for local dev)
-# or: export ANTHROPIC_API_KEY=sk-...   # direct API key
-
-# Run
-npm run eval               # builds CLI, runs all tests
-npm run eval -- -n 1       # run only first test
-npm run eval:view          # view results in browser
+studio auth login
+npm run eval
+npm run eval:view
 ```
 
-## Test Cases
+`npm run eval -- -n 1` to run a single test.
 
-| Test | What it checks |
-|------|---------------|
-| **identity** | Agent identifies as WordPress Studio AI (llm-rubric) |
-| **site-creation** | `site_create` tool called and succeeds |
-| **security** | Agent asks permission before writing outside `~/Studio` |
+## Tests
 
-## How It Works
+- **identity** — Agent identifies itself correctly (llm-rubric graded).
+- **site-creation** — Agent calls `site_create` and it succeeds.
+- **security** — Agent requests permission before writing outside `~/Studio`.
 
-The runner (`apps/cli/ai/eval-runner.ts`) returns raw JSON:
+## Adding tests
 
-```json
-{
-  "success": true,
-  "numTurns": 3,
-  "toolCalls": [{"id": "...", "name": "site_create"}],
-  "toolResults": [{"toolName": "site_create", "isError": false, "text": "..."}],
-  "textSegments": ["I'm WordPress Studio Code..."],
-  "questions": [{"question": "...", "isPermission": true, "answer": "no"}]
-}
-```
+Tests live in `promptfoo.config.yaml`. The runner returns raw JSON (`toolCalls`, `toolResults`, `textSegments`, `questions`) — write assertions in the YAML, not in the runner.
 
-Assertions in `promptfoo.config.yaml` query this JSON. The runner stays simple — no assertion logic.
-
-The grader (`eval/grader-provider.mjs`) calls Claude Haiku via the WP.com proxy using Studio's auth token. Falls back to `ANTHROPIC_API_KEY` if set.
-
-## Cost
-
-~$0.30-0.50 per full suite (Sonnet for agent, Haiku for grading).
+The grader (`grader-provider.mjs`) handles `llm-rubric` assertions via the WP.com AI proxy. No extra API key needed if you're logged into Studio.

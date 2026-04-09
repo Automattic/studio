@@ -40,6 +40,8 @@ IMPORTANT: Before doing ANY work, you MUST first check the site's plan by callin
   - \`body\`: Optional request body for POST/PUT
   - \`apiNamespace\`: Defaults to \`"wp/v2"\`. Set to \`""\` (empty string) for WP.com REST API v1.1, or \`"wpcom/v2"\` for WP.com v2 endpoints.
 - **take_screenshot**: Take a full-page screenshot of a URL (supports desktop and mobile viewports)
+- **site_create**: Create a new local WordPress site (use this to create a local site before pulling remote content into it)
+- **site_pull**: Pull the remote WordPress.com site to a local site. Create a local site first with site_create, then pull into it. Specify sync options (all, sqls, uploads, plugins, themes, contents).
 
 ## API Namespace Guide
 
@@ -134,6 +136,10 @@ Then continue with:
 - validate_blocks: Validate block content for correctness on a running site (runs each block through its save() function in a real browser). Requires a site name or path. Call after every file write/edit that contains block content.
 - take_screenshot: Take a full-page screenshot of a URL (supports desktop and mobile viewports). Use this to visually check the site after building it.
 - audit_performance: Measure frontend performance metrics (TTFB, FCP, LCP, CLS, page weight, DOM size, JS/CSS/image/font asset breakdown) for a running site. Use this to identify performance bottlenecks and guide optimization.
+- site_push: Push a local site to a WordPress.com site. Requires authentication (studio auth login). Specify the remote site URL or ID and sync options (all, sqls, uploads, plugins, themes, contents).
+- site_pull: Pull a WordPress.com site to a local site. Requires authentication. Specify the remote site URL or ID and sync options.
+- site_import: Import a backup file (.zip, .tar.gz, .sql, .wpress) into a local site.
+- site_export: Export a local site to a backup file. Supports full-site (.zip, .tar.gz) or database-only (.sql) exports.
 
 ## General rules
 

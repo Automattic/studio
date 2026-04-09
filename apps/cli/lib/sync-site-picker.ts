@@ -5,6 +5,23 @@ import { normalizeHostname } from 'cli/lib/utils';
 import { LoggerError } from 'cli/logger';
 import type { SyncSite } from '@studio/common/types/sync';
 
+function throwSyncSupportError( site: SyncSite ): never {
+	if ( site.syncSupport === 'needs-transfer' ) {
+		throw new LoggerError(
+			sprintf(
+				__(
+					'Site %1$s requires hosting features to be enabled. Please visit https://wordpress.com/hosting-features/%2$d to activate them, then try again.'
+				),
+				site.name,
+				site.id
+			)
+		);
+	}
+	throw new LoggerError(
+		sprintf( __( 'Site %s is not syncable (%s)' ), site.name, site.syncSupport )
+	);
+}
+
 export function findSyncSiteByIdentifier( sites: SyncSite[], identifier: string ): SyncSite {
 	// Try numeric ID match first
 	const numericId = Number( identifier );
@@ -12,9 +29,7 @@ export function findSyncSiteByIdentifier( sites: SyncSite[], identifier: string 
 		const site = sites.find( ( s ) => s.id === numericId );
 		if ( site ) {
 			if ( site.syncSupport !== 'syncable' ) {
-				throw new LoggerError(
-					sprintf( __( 'Site %s is not syncable (%s)' ), site.name, site.syncSupport )
-				);
+				throwSyncSupportError( site );
 			}
 			return site;
 		}
@@ -40,9 +55,7 @@ export function findSyncSiteByIdentifier( sites: SyncSite[], identifier: string 
 
 	const site = matched[ 0 ];
 	if ( site.syncSupport !== 'syncable' ) {
-		throw new LoggerError(
-			sprintf( __( 'Site %s is not syncable (%s)' ), site.name, site.syncSupport )
-		);
+		throwSyncSupportError( site );
 	}
 
 	return site;

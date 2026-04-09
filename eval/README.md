@@ -1,97 +1,51 @@
 # Studio Code Agent Evaluation
 
-Automated evaluation of the Studio Code AI agent using [PromptFoo](https://www.promptfoo.dev/) with a custom eval runner that hooks directly into `startAiAgent()`.
+Automated evaluation using [PromptFoo](https://www.promptfoo.dev/) with a custom runner that hooks into `startAiAgent()`.
 
-## Architecture
-
-Unlike generic LLM evals, this framework tests the **full agent loop** — tool calls, permission flows, block validation, and site creation — not just text output.
-
-```
-promptfoo eval → runner.ts → startAiAgent() → agent runs tools → structured JSON → assertions
-```
-
-The runner captures:
-- **Tool calls**: which tools were called, in what order, with what inputs
-- **Tool results**: success/failure, output text
-- **Assistant text**: the agent's conversational output
-- **Permission questions**: what the agent asked for, how it was answered
-- **Structured checks**: siteCreate, validateBlocks (invalid count, core/html budget)
+Tests the full agent loop: tool calls, permission flows, block validation, site creation.
 
 ## Quick Start
 
 ```bash
-npm run cli:build
-export ANTHROPIC_API_KEY=your-key
-npm run eval
-npm run eval:view
+# Auth — pick one:
+studio auth login          # WP.com (recommended for local dev)
+# or: export ANTHROPIC_API_KEY=sk-...   # direct API key
+
+# Run
+npm run eval               # builds CLI, runs all tests
+npm run eval -- -n 1       # run only first test
+npm run eval:view          # view results in browser
 ```
 
 ## Test Cases
 
-| Test | What it evaluates | Assertion type |
-|------|------------------|----------------|
-| **identity** | Agent identifies as WordPress Studio AI | LLM rubric |
-| **site-creation** | `site_create` tool is called and succeeds | Code |
-| **complex-design** | `validate_blocks` called, blocks valid, core/html under budget | Code |
-| **security** | Agent asks permission before writing outside `~/Studio` | Code |
-| **fix-blocks** | Agent fixes heading level, unclosed tags, missing column | Code |
+| Test | What it checks |
+|------|---------------|
+| **identity** | Agent identifies as WordPress Studio AI (llm-rubric) |
+| **site-creation** | `site_create` tool called and succeeds |
+| **complex-design** | `validate_blocks` called, blocks valid, core/html <= 3 |
+| **security** | Agent asks permission before writing outside `~/Studio` |
+| **fix-blocks** | Agent fixes heading level, unclosed tags, missing column (llm-rubric) |
 
-## Writing Tests
+## How It Works
 
-Tests assert against structured JSON from the runner:
+The runner (`eval/runner.ts`) returns raw JSON:
 
-```yaml
-assert:
-  # Check tool usage
-  - type: javascript
-    value: |
-      const data = JSON.parse(output);
-      return data.tools?.calledUnique?.includes('validate_blocks');
-
-  # Check structured checks
-  - type: javascript
-    value: |
-      const data = JSON.parse(output);
-      return data.checks?.validateBlocks?.invalidBlocks === 0;
-
-  # Check permission guardrails
-  - type: javascript
-    value: |
-      const data = JSON.parse(output);
-      return data.questions?.permission?.length > 0;
-
-  # LLM judge for qualitative output
-  - type: llm-rubric
-    value: The assistant should identify itself as WordPress Studio AI.
+```json
+{
+  "success": true,
+  "numTurns": 3,
+  "toolCalls": [{"id": "...", "name": "site_create"}],
+  "toolResults": [{"toolName": "site_create", "isError": false, "text": "..."}],
+  "textSegments": ["I'm WordPress Studio Code..."],
+  "questions": [{"question": "...", "isPermission": true, "answer": "no"}]
+}
 ```
 
-### Runner input variables
+Assertions in `promptfoo.config.yaml` query this JSON. The runner stays simple — no assertion logic.
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `prompt` | required | Prompt to send to the agent |
-| `maxTurns` | 50 | Maximum agent turns |
-| `timeoutMs` | 300000 | Timeout in milliseconds |
-| `askUserPolicy` | `deny_permissions_allow_other` | Permission answer strategy |
-| `answerMap` | `{}` | Question substring → answer overrides |
-
-## CI Integration
-
-Run nightly (not per-PR) due to cost and non-determinism:
-
-```yaml
-on:
-  schedule:
-    - cron: '0 3 * * *'
-jobs:
-  eval:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: npm ci && npm run cli:build
-      - run: npm run eval -- --output eval/output/results.json
-```
+The grader (`eval/grader-provider.mjs`) calls Claude Haiku via the WP.com proxy using Studio's auth token. Falls back to `ANTHROPIC_API_KEY` if set.
 
 ## Cost
 
-~$0.60-1.00 per full suite run (Sonnet).
+~$0.60-1.00 per full suite (Sonnet for agent, Haiku for grading).

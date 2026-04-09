@@ -45,7 +45,6 @@ export const baseConfig = defineConfig( {
 				'process-manager-daemon': resolve( __dirname, 'process-manager-daemon.ts' ),
 				'proxy-daemon': resolve( __dirname, 'proxy-daemon.ts' ),
 				'wordpress-server-child': resolve( __dirname, 'wordpress-server-child.ts' ),
-				'eval-runner': resolve( __dirname, 'ai/eval-runner.ts' ),
 			},
 			name: 'StudioCLI',
 			formats: [ 'es' ],

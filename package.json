@@ -54,7 +54,7 @@
 		"test:metrics": "npx playwright test --config=./tools/metrics/playwright.metrics.config.ts",
 		"download-language-packs": "ts-node ./scripts/download-language-packs.ts",
 		"download-agent-skills": "ts-node ./scripts/download-agent-skills.ts",
-		"eval": "eval/run.sh",
+		"eval": "npm run cli:build --silent && npx promptfoo eval -c eval/promptfoo.config.yaml",
 		"eval:view": "npx promptfoo view"
 	},
 	"devDependencies": {
@@ -85,7 +85,6 @@
 		"patch-package": "^8.0.1",
 		"prettier": "npm:wp-prettier@3.0.3",
 		"ts-node": "^10.9.2",
-		"tsx": "^4.21.0",
 		"typescript": "~5.9.3",
 		"typescript-eslint": "^8.57.1",
 		"vitest": "^4.0.18",

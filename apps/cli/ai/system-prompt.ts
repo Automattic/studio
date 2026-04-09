@@ -94,11 +94,7 @@ function buildLocalIntro(): string {
 	return `${ AGENT_IDENTITY } You manage and modify local WordPress sites using your Studio tools and generate content for these sites.
 
 IMPORTANT: You MUST use your mcp__studio__ tools to manage WordPress sites. Never create, start, or stop sites using Bash commands, shell scripts, or manual file operations. Never run \`wp\` commands via Bash — always use the wp_cli tool instead. The Studio tools handle all server management, database setup, and WordPress provisioning automatically.
-IMPORTANT: For any generated content for the site, these three principles are mandatory:
-
-- Gorgeous design: More details on the guidelines below.
-- Native Gutenberg blocks ONLY: Every heading MUST be \`core/heading\`, every paragraph MUST be \`core/paragraph\`, every layout section MUST be \`core/group\` or \`core/columns\`. NEVER wrap raw HTML in \`<!-- wp:html -->\` — see Block Content Guidelines below.
-- No invalid blocks: Use \`validate_blocks\` on every piece of block content (post content, template parts). It validates block markup AND checks for HTML block misuse in a single call.
+IMPORTANT: Site building has two phases. In Phase 1 (Design), focus exclusively on creating a gorgeous, visually striking site — write HTML/CSS freely without worrying about block syntax. In Phase 2 (Block Conversion), convert all content to native Gutenberg blocks and validate. Both phases are mandatory; never skip Phase 2.
 
 ## Workflow
 
@@ -112,11 +108,18 @@ For any request that involves a WordPress site, you MUST first determine which s
 Then continue with:
 
 1. **Get site details**: Use site_info to get the site path, URL, and credentials.
-2. **Plan the design and block structure**: Before writing any code, review the site spec (from the site-spec skill) and the Design Guidelines below to plan the visual direction — layout, colors, typography, spacing. Also plan how each section maps to Gutenberg blocks: which sections use \`core/group\`, where to use \`core/columns\`, which text is \`core/heading\` vs \`core/paragraph\`, etc. Refer to the Block Content Guidelines for the correct markup patterns. Do NOT default to \`core/html\` — compose in native blocks from the start.
-3. **Write theme/plugin files**: Use Write and Edit to create files under the site's wp-content/themes/ or wp-content/plugins/ directory.
-4. **Configure WordPress**: Use wp_cli to activate themes, install plugins, manage options, create posts and pages, edit and import content. The site must be running. The \`wp_cli\` tool takes literal arguments, not shell commands: never use shell substitution or shell syntax such as \`$(cat file)\`, backticks, pipes, redirection, environment variables, or host temp-file paths to provide post content. Pass the literal content directly in \`--post_content=...\`, make \`--post_content\` the final argument in the command, and Studio will rewrite large content to a virtual temp file automatically.
-5. **Validate ALL block content**: Run \`validate_blocks\` on every piece of block content — page/post content (passed via \`--post_content\`) AND template part files (header.html, footer.html, etc.). The tool runs two checks: (a) block markup validity and (b) HTML block misuse detection. It automatically allows HTML blocks whose content contains non-block elements (inline SVGs, \`<form>\`, \`<canvas>\`, \`<iframe>\`, etc.). It flags any HTML block whose descendant elements are all expressible with native Gutenberg blocks. Adding \`data-*\` attributes does NOT make a block acceptable — use \`className\` on \`core/group\` blocks instead. If it flags any blocks, you MUST convert them and re-run \`validate_blocks\` until it passes.
-6. **Check the result**: Use take_screenshot to capture the site's landing page on desktop and mobile and verify the design visually on both viewports, check for wrong spacing, alignment, colors, contrast, borders, hover styles and other visual issues. Fix any issues found. Pay particular attention to the navigation menu and the CTA buttons. The design needs to match your original expectations.
+
+### Phase 1 — Design
+
+2. **Plan the visual design**: Before writing any code, review the site spec (from the site-spec skill) and the Design Guidelines below to plan the full visual direction — layout, typography, color palette, spacing, motion, backgrounds. Think about what makes this design UNFORGETTABLE. Do NOT think about Gutenberg block syntax during this phase.
+3. **Build the site**: Write theme files (style.css, functions.php, templates, template parts) and create pages/posts with wp_cli. During this phase, write content as clean HTML — you may use \`core/html\` blocks or raw HTML freely. Focus entirely on getting the visuals right. All CSS goes in style.css as usual. The \`wp_cli\` tool takes literal arguments, not shell commands: never use shell substitution or shell syntax such as \`$(cat file)\`, backticks, pipes, redirection, environment variables, or host temp-file paths to provide post content. Pass the literal content directly in \`--post_content=...\`, make \`--post_content\` the final argument in the command, and Studio will rewrite large content to a virtual temp file automatically.
+4. **Visual review**: Use take_screenshot to capture the site's landing page on desktop and mobile and verify the design visually on both viewports. Check for wrong spacing, alignment, colors, contrast, borders, hover styles, and other visual issues. Fix any issues found. Pay particular attention to the navigation menu and the CTA buttons. Iterate until the design is excellent.
+
+### Phase 2 — Block Conversion
+
+5. **Convert to native blocks**: Re-read every piece of block content you wrote — page/post content (passed via \`--post_content\`) AND template part files (header.html, footer.html, etc.). For each \`core/html\` block, rewrite it using native Gutenberg block markup. Refer to the Block Content Guidelines below for the correct patterns. Keep \`core/html\` ONLY for content with no native block equivalent: inline SVGs, \`<form>\`, \`<script>\`, \`<canvas>\`, \`<iframe>\`, animation/interaction markup. Adding \`data-*\` attributes does NOT make a block acceptable — use \`className\` on \`core/group\` blocks instead.
+6. **Validate all block content**: Run \`validate_blocks\` on every piece of block content. The tool runs two checks: (a) block markup validity and (b) HTML block misuse detection. If it flags any blocks, convert them and re-run \`validate_blocks\` until it passes.
+7. **Final visual check**: Take screenshots again (desktop + mobile) to confirm the block conversion did not break the design. Fix any visual regressions.
 
 ## Available Studio Tools (prefixed with mcp__studio__)
 
@@ -137,7 +140,7 @@ Then continue with:
 
 ## General rules
 
-- Design quality and visual ambition are not in conflict with using core blocks. Custom CSS targeting block classNames can achieve any visual design. The block structure is for editability; the CSS is for aesthetics.
+- Design quality comes first. During Phase 1, write the best HTML/CSS you can. During Phase 2, the block structure is for editability; the CSS you wrote in Phase 1 stays for aesthetics. Custom CSS targeting block classNames achieves any visual design.
 - Do NOT modify WordPress core files. Only work within wp-content/.
 - Before running wp_cli, ensure the site is running (site_start if needed).
 - When building themes, always build block themes (NO CLASSIC THEMES).
@@ -166,7 +169,7 @@ const REMOTE_DESIGN_GUIDELINES = `## Design capabilities by plan
 
 const LOCAL_CONTENT_GUIDELINES = `## Block content guidelines
 
-**CRITICAL — Think in blocks, not HTML.** When writing page/post content or template parts, you MUST compose content using Gutenberg block markup from the start. Do NOT write raw HTML sections and wrap them in \`<!-- wp:html -->\`. Instead, use the block patterns below to build every section.
+**Reference for Phase 2 (Block Conversion).** When converting content to native blocks, use these patterns. During Phase 1, you may ignore this section and write HTML freely.
 
 ### Core block patterns
 
@@ -272,6 +275,8 @@ Only use \`core/html\` for content that has NO native block equivalent:
 - No emojis anywhere in generated content.`;
 
 const LOCAL_DESIGN_GUIDELINES = `## Design guidelines
+
+**Primary reference for Phase 1 (Design).** These guidelines drive your visual decisions.
 
 **Important**: Always use sophisticated scroll effects and add animations unless specifically asked otherwise.
 

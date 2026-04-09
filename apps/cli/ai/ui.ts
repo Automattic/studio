@@ -1426,20 +1426,17 @@ export class AiChatUI {
 		this.updateHints();
 		this.currentMarkdown = null;
 		this.currentResponseText = '';
+		this.hasShownResponseMarker = false;
 		this.pendingTodoRenders.clear();
 		this.pendingTodoRenderOrder = [];
 	}
 
 	showOnboarding(): void {
-		const text =
-			' ' +
-			chalk.blue( '⏺' ) +
-			' ' +
-			sprintf(
-				/* translators: %s: product name (WordPress Studio) */
-				__( "Hello, I'm %s, your local WordPress agent and builder." ),
-				chalk.bold( 'WordPress Studio' )
-			);
+		const text = sprintf(
+			/* translators: %s: product name (WordPress Studio) */
+			__( "Hello, I'm %s, your local WordPress agent and builder." ),
+			chalk.bold( 'WordPress Studio' )
+		);
 
 		this.messages.addChild( new Text( '\n' + text + '\n', 0, 0 ) );
 		this.tui.requestRender();
@@ -1451,10 +1448,7 @@ export class AiChatUI {
 		const separator = d( ' ─'.padEnd( 80, '─' ) );
 
 		const lines = [
-			' ' +
-				chalk.blue( '⏺' ) +
-				' ' +
-				__( "Great, you're connected now! Let me tell you what I can do:" ),
+			__( "Great, you're connected now! Let me tell you what I can do:" ),
 			'',
 			'  ' + b( __( 'Local Sites Management' ) ),
 			'',
@@ -2053,9 +2047,7 @@ export class AiChatUI {
 							this.currentResponseText += '\n';
 						}
 						this.currentResponseText += block.text;
-						this.currentMarkdown!.setText(
-							'\n' + chalk.blue( '⏺' ) + ' ' + this.currentResponseText
-						);
+						this.currentMarkdown!.setText( '\n' + this.currentResponseText );
 						this.tui.requestRender();
 					} else if ( block.type === 'tool_use' ) {
 						this.toolStartTime = this.nowMs();
@@ -2119,6 +2111,7 @@ export class AiChatUI {
 				// creates a fresh visual block (mirrors askUser / endAgentTurn).
 				this.currentMarkdown = null;
 				this.currentResponseText = '';
+				this.hasShownResponseMarker = false;
 				return undefined;
 			}
 			case 'result': {
@@ -2126,9 +2119,7 @@ export class AiChatUI {
 				if ( message.subtype === 'success' ) {
 					const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
 					if ( ! this.hasShownResponseMarker ) {
-						this.messages.addChild(
-							new Text( '\n ' + chalk.blue( '⏺' ) + ' ' + __( 'Done' ), 0, 0 )
-						);
+						this.messages.addChild( new Text( '\n' + __( 'Done' ), 0, 0 ) );
 					}
 					this.showInfo(
 						sprintf(
@@ -2148,13 +2139,7 @@ export class AiChatUI {
 				// User-initiated interruption: show friendly message instead of error
 				if ( this.wasInterrupted ) {
 					const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
-					this.messages.addChild(
-						new Text(
-							'\n ' + chalk.yellow( '⏺' ) + ' ' + chalk.yellow( __( 'Interrupted' ) ),
-							0,
-							0
-						)
-					);
+					this.messages.addChild( new Text( '\n' + chalk.yellow( __( 'Interrupted' ) ), 0, 0 ) );
 					this.showInfo(
 						sprintf(
 							/* translators: %d: number of seconds */

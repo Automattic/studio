@@ -6,6 +6,7 @@ export interface SlashCommandDef {
 }
 
 export const AI_CHAT_BROWSER_COMMAND = '/browser';
+export const AI_CHAT_CLEAR_COMMAND = '/clear';
 export const AI_CHAT_API_KEY_COMMAND = '/api-key';
 export const AI_CHAT_LOGIN_COMMAND = '/login';
 export const AI_CHAT_LOGOUT_COMMAND = '/logout';
@@ -16,6 +17,7 @@ export const AI_CHAT_EXIT_COMMAND = '/exit';
 
 export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 	{ name: 'browser', description: __( 'Open the active site in the browser' ) },
+	{ name: 'clear', description: __( 'Clear the conversation and start a fresh session' ) },
 	{ name: 'api-key', description: __( 'Set or update the Anthropic API key' ) },
 	{ name: 'login', description: __( 'Log in to WordPress.com' ) },
 	{ name: 'logout', description: __( 'Log out of WordPress.com' ) },

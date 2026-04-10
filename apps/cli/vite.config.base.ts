@@ -90,7 +90,9 @@ export const baseConfig = defineConfig( {
 		mainFields: [ 'main' ],
 	},
 	define: {
-		__STUDIO_CLI_VERSION__: JSON.stringify( packageJson.version ),
+		__ENABLE_CLI_TELEMETRY__: false,
+		__IS_PACKAGED_FOR_NPM__: false,
 		__MINIMUM_NODE_VERSION__: JSON.stringify( minimumNodeVersion ),
+		__STUDIO_CLI_VERSION__: JSON.stringify( packageJson.version ),
 	},
 } );

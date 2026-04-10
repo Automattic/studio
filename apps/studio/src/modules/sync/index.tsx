@@ -3,6 +3,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren, useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
+import { IllustrationGrid } from 'src/components/illustration-grid';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
 import { useAuth } from 'src/hooks/use-auth';
@@ -32,7 +33,7 @@ import type { SyncSite } from '@studio/common/types/sync';
 function SiteSyncDescription( { children }: PropsWithChildren ) {
 	const { __ } = useI18n();
 	return (
-		<div className="p-8 flex justify-between max-w-3xl gap-4">
+		<div className="p-8 flex justify-between max-w-3xl gap-4 overflow-hidden">
 			<div className="flex flex-col">
 				<div className="flex items-center mb-1">
 					<div className="a8c-subtitle text-pretty">
@@ -58,9 +59,9 @@ function SiteSyncDescription( { children }: PropsWithChildren ) {
 				</div>
 				{ children }
 			</div>
-			<div className="flex flex-col shrink-0 items-end">
+			<IllustrationGrid>
 				<SyncTabImage />
-			</div>
+			</IllustrationGrid>
 		</div>
 	);
 }

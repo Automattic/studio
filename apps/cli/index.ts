@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
+import semver from 'semver';
 import yargs from 'yargs';
 import { registerCommand as registerExportCommand } from 'cli/commands/export';
 import { registerCommand as registerImportCommand } from 'cli/commands/import';
@@ -20,6 +21,19 @@ suppressPunycodeWarning();
 
 async function main() {
 	const yargsLocale = await loadTranslations();
+
+	if ( semver.lt( process.version, __MINIMUM_NODE_VERSION__ ) ) {
+		console.error(
+			sprintf(
+				__(
+					'Studio CLI requires Node.js %s or newer. You are running %s.\nUpgrade Node.js and run this command again.\nDownload: https://nodejs.org/en/download'
+				),
+				__MINIMUM_NODE_VERSION__,
+				process.version
+			)
+		);
+		process.exit( 1 );
+	}
 
 	const studioArgv: StudioArgv = yargs( process.argv.slice( 2 ) )
 		.scriptName( 'studio' )

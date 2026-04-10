@@ -1,10 +1,35 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+	applyIndexedEntryProgress,
 	formatImporterJsonlProgress,
 	formatImporterProgressSnapshot,
+	ImporterIndexProgressTracker,
 	rewriteImporterArgsForNativePhp,
 	updateImporterProgressSnapshot,
 } from './migration-client';
+
+function encodePathKey( filePath: string ): string {
+	return Buffer.from( filePath ).toString( 'base64' );
+}
+
+function buildIndexLine( filePath: string ): string {
+	return JSON.stringify( {
+		path: encodePathKey( filePath ),
+		ctime: 1,
+		size: 0,
+		type: 'file',
+	} );
+}
+
+function buildUpdateLine( filePath: string, op: 'F' | 'D' ): string {
+	return JSON.stringify( {
+		op,
+		path: encodePathKey( filePath ),
+	} );
+}
 
 describe( 'formatImporterJsonlProgress', () => {
 	it( 'suppresses debug messages from the importer', () => {
@@ -50,7 +75,7 @@ describe( 'formatImporterJsonlProgress', () => {
 		).toBe( 'Downloading essential files · Downloading file batches · 9s' );
 	} );
 
-	it( 'formats heartbeat and progress-check records as byte/rate progress', () => {
+	it( 'formats heartbeat and progress-check records as byte progress', () => {
 		const heartbeatSnapshot = updateImporterProgressSnapshot( {
 			heartbeat: true,
 			bytes_received: 1024 * 1024 * 6,
@@ -69,7 +94,7 @@ describe( 'formatImporterJsonlProgress', () => {
 		);
 		expect(
 			formatImporterProgressSnapshot( progressSnapshot!, 'Downloading essential files', 5 )
-		).toBe( 'Downloading essential files · 8.0 MB received · 512 KB/s · 5s' );
+		).toBe( 'Downloading essential files · 8.0 MB received · 5s' );
 	} );
 
 	it( 'accumulates bytes across request restarts when the importer heartbeat resets', () => {
@@ -133,6 +158,20 @@ describe( 'formatImporterJsonlProgress', () => {
 		expect( updated!.totalFiles ).toBe( 300 );
 	} );
 
+	it( 'applies exact indexed progress from the local importer index', () => {
+		const staleSnapshot = updateImporterProgressSnapshot( {
+			files_done: 12000,
+			files_total: 78000,
+		} );
+
+		const repairedSnapshot = applyIndexedEntryProgress( staleSnapshot!, 18500 );
+
+		expect( repairedSnapshot.downloadedFiles ).toBe( 18500 );
+		expect( formatImporterProgressSnapshot( repairedSnapshot, 'Files', 12 ) ).toBe(
+			'Files · 18500/78000 files · 12s'
+		);
+	} );
+
 	it( 'prefers phase text over a generic starting status', () => {
 		const snapshot = updateImporterProgressSnapshot( {
 			status: 'starting',
@@ -140,6 +179,20 @@ describe( 'formatImporterJsonlProgress', () => {
 		} );
 		expect( formatImporterProgressSnapshot( snapshot!, 'Downloading essential files', 4 ) ).toBe(
 			'Downloading essential files · starting · 4s'
+		);
+	} );
+
+	it( 'uses the indexing label for symlink-follow progress even after the default starting phase', () => {
+		const snapshot = updateImporterProgressSnapshot(
+			{
+				type: 'symlink_follow',
+				directory: '/wordpress/themes/twentytwentyone/2.7',
+			},
+			{ phase: 'starting' }
+		);
+
+		expect( formatImporterProgressSnapshot( snapshot!, 'Downloading files', 60 ) ).toBe(
+			'Indexing remote files · following symlink .../themes/twentytwentyone/2.7 · 1m 0s'
 		);
 	} );
 
@@ -202,5 +255,50 @@ describe( 'formatImporterJsonlProgress', () => {
 		expect( args ).toContain( '--fs-root=/host/docroot' );
 		expect( args ).toContain( '--flatten-to=/host/flat' );
 		expect( args ).toContain( '--output-dir=/host/output' );
+	} );
+
+	it( 'tracks exact indexed entries from the base index and update log', () => {
+		const tempDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-import-progress-' ) );
+		const indexPath = path.join( tempDir, '.import-index.jsonl' );
+		const updatesPath = path.join( tempDir, '.import-index-updates.jsonl' );
+		const tracker = new ImporterIndexProgressTracker( tempDir );
+
+		try {
+			fs.writeFileSync( indexPath, `${ buildIndexLine( '/a' ) }\n` );
+			expect( tracker.getIndexedEntries() ).toBe( 1 );
+
+			fs.writeFileSync(
+				updatesPath,
+				`${ buildUpdateLine( '/b', 'F' ) }\n${ buildUpdateLine( '/c', 'F' ) }\n`
+			);
+			expect( tracker.getIndexedEntries() ).toBe( 3 );
+
+			fs.appendFileSync( updatesPath, `${ buildUpdateLine( '/b', 'D' ) }\n` );
+			expect( tracker.getIndexedEntries() ).toBe( 2 );
+		} finally {
+			fs.rmSync( tempDir, { recursive: true, force: true } );
+		}
+	} );
+
+	it( 'keeps the exact count stable across merged update log rebuilds', () => {
+		const tempDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-import-progress-' ) );
+		const indexPath = path.join( tempDir, '.import-index.jsonl' );
+		const updatesPath = path.join( tempDir, '.import-index-updates.jsonl' );
+		const tracker = new ImporterIndexProgressTracker( tempDir );
+
+		try {
+			fs.writeFileSync( indexPath, `${ buildIndexLine( '/a' ) }\n` );
+			fs.writeFileSync( updatesPath, `${ buildUpdateLine( '/b', 'F' ) }\n` );
+			expect( tracker.getIndexedEntries() ).toBe( 2 );
+
+			fs.writeFileSync( indexPath, `${ buildIndexLine( '/a' ) }\n${ buildIndexLine( '/b' ) }\n` );
+			fs.rmSync( updatesPath, { force: true } );
+			expect( tracker.getIndexedEntries() ).toBe( 2 );
+
+			fs.writeFileSync( updatesPath, `${ buildUpdateLine( '/c', 'F' ) }\n` );
+			expect( tracker.getIndexedEntries() ).toBe( 3 );
+		} finally {
+			fs.rmSync( tempDir, { recursive: true, force: true } );
+		}
 	} );
 } );

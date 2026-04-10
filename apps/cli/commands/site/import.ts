@@ -65,6 +65,7 @@ const PLUGIN_INSTALL_HINT =
 const IMPORTS_ROOT = path.join( os.homedir(), '.studio', 'imports' );
 const SKIPPED_DOWNLOAD_LIST = '.import-download-list-skipped.jsonl';
 const DEFAULT_WPCOM_SITE_LIST_LIMIT = 15;
+const FILES_SYNC_MAX_EXEC_SECONDS = 30;
 
 const importStageOrder = [
 	'initialized',
@@ -936,6 +937,23 @@ export function getApiUrl( normalizedUrl: string ): string {
 	return apiUrl.toString();
 }
 
+export function buildFilesSyncArgs(
+	apiUrl: string,
+	secret: string,
+	extraArgs: string[] = []
+): string[] {
+	return [
+		'files-sync',
+		apiUrl,
+		`--secret=${ secret }`,
+		...extraArgs,
+		`--max-exec=${ FILES_SYNC_MAX_EXEC_SECONDS }`,
+		'--no-adaptive',
+		'--state-dir=/state',
+		'--fs-root=/docroot',
+	];
+}
+
 function setStage( metadata: ImportMetadata, stage: ImportStage ): void {
 	metadata.stage = stage;
 	saveImportMetadata( metadata );
@@ -1234,7 +1252,7 @@ export function repairCompletedImportState( metadata: ImportMetadata ): string |
 		metadata.stage = 'initialized';
 		saveImportMetadata( metadata );
 		return repairedRawPaths.length > 0
-			? 'Imported file layout is incomplete. Re-downloading essential files and rebuilding the flattened site structure.'
+			? 'Imported file layout is incomplete. Re-downloading site files and rebuilding the flattened site structure.'
 			: 'Flattened site structure is incomplete. Rebuilding the flattened site from the importer output.';
 	}
 
@@ -1462,15 +1480,7 @@ async function restartUnresumableFilesSync(
 	await runImporterCommandUntilComplete(
 		metadata.stateDirectory,
 		metadata.rawDirectory,
-		[
-			'files-sync',
-			apiUrl,
-			`--secret=${ secret }`,
-			'--abort',
-			'--no-adaptive',
-			'--state-dir=/state',
-			'--fs-root=/docroot',
-		],
+		buildFilesSyncArgs( apiUrl, secret, [ '--abort' ] ),
 		undefined,
 		{
 			verboseCommands: verbose,
@@ -1660,7 +1670,7 @@ export async function runCommand(
 		if ( repairedRawPaths.length > 0 && hasReachedStage( metadata, 'essential-files-complete' ) ) {
 			logger.reportWarning(
 				__(
-					'Recovered a broken importer filesystem layout. Re-downloading essential files and rebuilding the flattened site.'
+					'Recovered a broken importer filesystem layout. Re-downloading site files and rebuilding the flattened site.'
 				)
 			);
 			resetEssentialFilesRepairState( metadata.stateDirectory );
@@ -1676,9 +1686,7 @@ export async function runCommand(
 			shouldRefreshFlattenedSite( metadata )
 		) {
 			logger.reportWarning(
-				__(
-					'Rebuilding essential files because the importer state was reset during a previous repair.'
-				)
+				__( 'Rebuilding sute files because the importer state was reset during a previous repair.' )
 			);
 			metadata.stage = 'initialized';
 			saveImportMetadata( metadata );
@@ -1687,27 +1695,18 @@ export async function runCommand(
 
 		if ( ! hasReachedStage( metadata, 'essential-files-complete' ) ) {
 			await restartUnresumableFilesSync( metadata, apiUrl, secret, verbose );
-			logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Downloading essential files…' ) );
+			logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Downloading site files…' ) );
 			await runImporterCommandUntilComplete(
 				metadata.stateDirectory,
 				metadata.rawDirectory,
-				[
-					'files-sync',
-					apiUrl,
-					`--secret=${ secret }`,
-					'--filter=essential-files',
-					'--follow-symlinks',
-					'--no-adaptive', // Don't do backoffs on WP.com sites
-					'--state-dir=/state',
-					'--fs-root=/docroot',
-				],
+				buildFilesSyncArgs( apiUrl, secret, [ '--filter=essential-files', '--follow-symlinks' ] ),
 				( progress ) => logger.reportProgress( progress ),
 				{
-					progressLabel: 'Downloading essential files',
+					progressLabel: 'Downloading files',
 					verboseCommands: verbose,
 				}
 			);
-			logger.reportSuccess( __( 'Essential files downloaded' ) );
+			logger.reportSuccess( __( 'Files downloaded' ) );
 
 			setStage( metadata, 'essential-files-complete' );
 		}
@@ -1865,15 +1864,9 @@ export async function runCommand(
 				await runImporterCommandUntilComplete(
 					metadata.stateDirectory,
 					metadata.rawDirectory,
-					[
-						'files-sync',
-						apiUrl,
-						`--secret=${ secret }`,
+					buildFilesSyncArgs( apiUrl, secret, [
 						...( isResumingSkipped ? [] : [ '--filter=skipped-earlier' ] ),
-						'--no-adaptive',
-						'--state-dir=/state',
-						'--fs-root=/docroot',
-					],
+					] ),
 					( progress ) => logger.reportProgress( progress ),
 					{
 						progressLabel: __( 'Remaining files' ),

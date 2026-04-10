@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+	buildFilesSyncArgs,
 	buildDbApplyArgs,
 	findMatchingWpComSite,
 	formatWpComSitesList,
@@ -45,6 +46,23 @@ describe( 'CLI: studio site import helpers', () => {
 		expect( getApiUrl( normalizeImportUrl( 'https://example.com/?site-export-api' ) ) ).toBe(
 			'https://example.com/?site-export-api'
 		);
+	} );
+
+	it( 'keeps files-sync requests open for up to 30 seconds on the host', () => {
+		expect(
+			buildFilesSyncArgs( 'https://example.com/?site-export-api', 'secret', [
+				'--filter=essential-files',
+			] )
+		).toEqual( [
+			'files-sync',
+			'https://example.com/?site-export-api',
+			'--secret=secret',
+			'--filter=essential-files',
+			'--max-exec=30',
+			'--no-adaptive',
+			'--state-dir=/state',
+			'--fs-root=/docroot',
+		] );
 	} );
 
 	it( 'parses the final JSON envelope from a JSON stream on stdout', () => {

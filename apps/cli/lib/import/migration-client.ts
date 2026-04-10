@@ -53,6 +53,203 @@ interface ImporterProgressSnapshot {
 	totalFiles?: number;
 }
 
+interface ImporterIndexUpdate {
+	delete: boolean;
+	pathKey: string;
+}
+
+function getTrackedFileVersion( filePath: string ): string | null {
+	try {
+		const stats = fs.statSync( filePath );
+		return `${ stats.dev }:${ stats.ino }:${ stats.size }:${ stats.mtimeMs }`;
+	} catch {
+		return null;
+	}
+}
+
+function getTrackedFileIdentity( filePath: string ): { identity: string; size: number } | null {
+	try {
+		const stats = fs.statSync( filePath );
+		return {
+			identity: `${ stats.dev }:${ stats.ino }`,
+			size: stats.size,
+		};
+	} catch {
+		return null;
+	}
+}
+
+function readFileSliceUtf8( filePath: string, start: number, length: number ): string {
+	if ( length <= 0 ) {
+		return '';
+	}
+
+	const fileDescriptor = fs.openSync( filePath, 'r' );
+
+	try {
+		const buffer = Buffer.alloc( length );
+		const bytesRead = fs.readSync( fileDescriptor, buffer, 0, length, start );
+		return buffer.subarray( 0, bytesRead ).toString( 'utf8' );
+	} finally {
+		fs.closeSync( fileDescriptor );
+	}
+}
+
+function readPathKeyFromRecord( line: string ): string | undefined {
+	const record = parseJsonlRecord( line );
+	if ( ! record || typeof record !== 'object' || Array.isArray( record ) ) {
+		return undefined;
+	}
+
+	return readString( ( record as Record< string, unknown > ).path );
+}
+
+function readImporterIndexUpdate( line: string ): ImporterIndexUpdate | null {
+	const record = parseJsonlRecord( line );
+	if ( ! record || typeof record !== 'object' || Array.isArray( record ) ) {
+		return null;
+	}
+
+	const object = record as Record< string, unknown >;
+	const pathKey = readString( object.path );
+	const op = readString( object.op );
+	if ( ! pathKey || ( op !== 'F' && op !== 'D' ) ) {
+		return null;
+	}
+
+	return {
+		delete: op === 'D',
+		pathKey,
+	};
+}
+
+export function applyIndexedEntryProgress(
+	snapshot: ImporterProgressSnapshot,
+	indexedEntries: number
+): ImporterProgressSnapshot {
+	const exactDownloadedFiles =
+		snapshot.totalFiles !== undefined
+			? Math.min( indexedEntries, snapshot.totalFiles )
+			: indexedEntries;
+	if ( exactDownloadedFiles <= ( snapshot.downloadedFiles ?? 0 ) ) {
+		return snapshot;
+	}
+
+	return {
+		...snapshot,
+		downloadedFiles: exactDownloadedFiles,
+	};
+}
+
+export class ImporterIndexProgressTracker {
+	private readonly indexFilePath: string;
+	private readonly updatesFilePath: string;
+	private baselinePathKeys = new Set< string >();
+	private exactIndexedEntries = 0;
+	private indexFileVersion: string | null = null;
+	private pendingPathStates = new Map< string, boolean >();
+	private updatesFileIdentity: string | null = null;
+	private updatesFileOffset = 0;
+	private updatesLineRemainder = '';
+
+	constructor( progressRoot: string ) {
+		this.indexFilePath = path.join( progressRoot, '.import-index.jsonl' );
+		this.updatesFilePath = path.join( progressRoot, '.import-index-updates.jsonl' );
+	}
+
+	getIndexedEntries(): number {
+		this.refreshBaseIndex();
+
+		const updatesStats = getTrackedFileIdentity( this.updatesFilePath );
+		if ( ! updatesStats ) {
+			this.updatesFileIdentity = null;
+			this.updatesFileOffset = 0;
+			this.updatesLineRemainder = '';
+			return this.exactIndexedEntries;
+		}
+
+		if (
+			updatesStats.identity !== this.updatesFileIdentity ||
+			updatesStats.size < this.updatesFileOffset
+		) {
+			this.rebuildBaseIndex();
+		}
+
+		if ( updatesStats.size > this.updatesFileOffset ) {
+			const appendedText = readFileSliceUtf8(
+				this.updatesFilePath,
+				this.updatesFileOffset,
+				updatesStats.size - this.updatesFileOffset
+			);
+			this.updatesFileOffset = updatesStats.size;
+			this.applyUpdateChunk( appendedText );
+		}
+
+		this.updatesFileIdentity = updatesStats.identity;
+		return this.exactIndexedEntries;
+	}
+
+	private refreshBaseIndex(): void {
+		const nextVersion = getTrackedFileVersion( this.indexFilePath );
+		if ( nextVersion !== this.indexFileVersion ) {
+			this.rebuildBaseIndex();
+		}
+	}
+
+	private rebuildBaseIndex(): void {
+		this.indexFileVersion = getTrackedFileVersion( this.indexFilePath );
+		this.baselinePathKeys.clear();
+		this.pendingPathStates.clear();
+		this.updatesFileIdentity = null;
+		this.updatesFileOffset = 0;
+		this.updatesLineRemainder = '';
+
+		try {
+			const contents = fs.readFileSync( this.indexFilePath, 'utf8' );
+			for ( const line of contents.split( '\n' ) ) {
+				const pathKey = readPathKeyFromRecord( line );
+				if ( pathKey ) {
+					this.baselinePathKeys.add( pathKey );
+				}
+			}
+		} catch {
+			// Ignore missing or unreadable index files — the importer creates them lazily.
+		}
+
+		this.exactIndexedEntries = this.baselinePathKeys.size;
+	}
+
+	private applyUpdateChunk( chunk: string ): void {
+		if ( chunk.length === 0 ) {
+			return;
+		}
+
+		const combinedChunk = this.updatesLineRemainder + chunk;
+		const lines = combinedChunk.split( '\n' );
+		this.updatesLineRemainder = lines.pop() ?? '';
+
+		for ( const line of lines ) {
+			const update = readImporterIndexUpdate( line );
+			if ( update ) {
+				this.applyUpdate( update );
+			}
+		}
+	}
+
+	private applyUpdate( update: ImporterIndexUpdate ): void {
+		const previousExists = this.pendingPathStates.has( update.pathKey )
+			? this.pendingPathStates.get( update.pathKey )!
+			: this.baselinePathKeys.has( update.pathKey );
+		const nextExists = ! update.delete;
+
+		if ( previousExists !== nextExists ) {
+			this.exactIndexedEntries += nextExists ? 1 : -1;
+		}
+
+		this.pendingPathStates.set( update.pathKey, nextExists );
+	}
+}
+
 function formatBytes( bytes: number ): string {
 	if ( bytes < 1024 ) {
 		return `${ bytes } B`;
@@ -181,7 +378,7 @@ export function updateImporterProgressSnapshot(
 	}
 
 	if ( type === 'symlink_follow' ) {
-		nextSnapshot.phase = nextSnapshot.phase ?? 'indexing remote files';
+		nextSnapshot.phase = 'indexing remote files';
 		nextSnapshot.message = `following symlink ${ shortenImporterPath(
 			readString( object.directory )
 		) }`;
@@ -189,7 +386,7 @@ export function updateImporterProgressSnapshot(
 	}
 
 	if ( type === 'symlink_follow_rejected' ) {
-		nextSnapshot.phase = nextSnapshot.phase ?? 'indexing remote files';
+		nextSnapshot.phase = 'indexing remote files';
 		nextSnapshot.message = `skipped symlink ${ shortenImporterPath(
 			readString( object.directory )
 		) }`;
@@ -209,11 +406,14 @@ export function updateImporterProgressSnapshot(
 		nextSnapshot.message = status;
 	}
 
-	// The importer emits files_done (cumulative entries processed from the
-	// download list, stable across restarts) and files_total (total download
-	// list entries, fixed once the diff phase completes).  These are the
-	// authoritative counters — display them as-is with no accumulation.
-	const downloadedFiles = readNumber( object.files_done ) ?? readNumber( object.downloaded_files );
+	// The importer emits files_done and files_total over stdout, but files_done
+	// is only a coarse mid-batch counter.  The exact committed-entry count comes
+	// from the local importer index files and is merged in by createProgressReporter().
+	const downloadedFiles =
+		readNumber( object.files_done ) ??
+		readNumber( object.downloaded_files ) ??
+		readNumber( object.files_indexed ) ??
+		readNumber( object.index_size );
 	const totalFiles = readNumber( object.files_total ) ?? readNumber( object.total_files );
 	const downloadedBytes =
 		readNumber( object.downloaded_bytes ) ??
@@ -304,9 +504,6 @@ export function formatImporterProgressSnapshot(
 		segments.push( `${ formatBytes( snapshot.downloadedBytes ) } downloaded` );
 	} else if ( snapshot.bytesReceived !== undefined ) {
 		segments.push( `${ formatBytes( snapshot.bytesReceived ) } received` );
-		if ( snapshot.rateBps !== undefined ) {
-			segments.push( `${ formatBytes( snapshot.rateBps ) }/s` );
-		}
 	}
 
 	if ( snapshot.statementsExecuted !== undefined || snapshot.statementsTotal !== undefined ) {
@@ -465,16 +662,33 @@ export function resolveNativeImporterInvocation(
 }
 
 function createProgressReporter(
+	command: string | undefined,
+	progressRoot: string | undefined,
 	progressLabel: string,
 	defaultPhase: string | undefined,
 	startTime: number,
 	onProgress?: ( output: string ) => void
 ) {
+	const indexProgressTracker =
+		command === 'files-sync' && progressRoot
+			? new ImporterIndexProgressTracker( progressRoot )
+			: undefined;
 	let stdoutLineBuffer = '';
 	let progressSnapshot: ImporterProgressSnapshot | null = defaultPhase
 		? { phase: defaultPhase }
 		: null;
 	let lastRenderedSecond = -1;
+
+	const mergeExactIndexedProgress = () => {
+		if ( ! progressSnapshot || ! indexProgressTracker ) {
+			return;
+		}
+
+		progressSnapshot = applyIndexedEntryProgress(
+			progressSnapshot,
+			indexProgressTracker.getIndexedEntries()
+		);
+	};
 
 	const reportLines = ( lines: string[] ) => {
 		if ( ! onProgress ) {
@@ -487,6 +701,7 @@ function createProgressReporter(
 			if ( nextSnapshot ) {
 				progressSnapshot = nextSnapshot;
 			}
+			mergeExactIndexedProgress();
 			const progressMessage =
 				progressSnapshot &&
 				formatImporterProgressSnapshot(
@@ -526,6 +741,7 @@ function createProgressReporter(
 				return;
 			}
 
+			mergeExactIndexedProgress();
 			const progressMessage = formatImporterProgressSnapshot(
 				progressSnapshot,
 				progressLabel,
@@ -747,6 +963,8 @@ export async function runImporterCommandUntilComplete(
 	// Create the progress reporter once so cumulative counters (bytes received,
 	// file counts) survive across importer restarts (exit code 2).
 	const progressReporter = createProgressReporter(
+		args[ 0 ],
+		options.progressRoot ?? stateDir,
 		progressLabel,
 		defaultPhase,
 		startTime,

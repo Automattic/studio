@@ -25,6 +25,7 @@ const {
 	recordSiteSelectedMock,
 	reportErrorMock,
 	waitForInputMock,
+	activeSiteRef,
 } = vi.hoisted( () => ( {
 	askUserMock: vi.fn(),
 	clearTranscriptMock: vi.fn(),
@@ -33,6 +34,9 @@ const {
 	recordSiteSelectedMock: vi.fn(),
 	reportErrorMock: vi.fn(),
 	waitForInputMock: vi.fn(),
+	activeSiteRef: {
+		current: null as { name: string; path: string; running: boolean } | null,
+	},
 } ) );
 
 vi.mock( 'cli/lib/cli-config/core', async () => {
@@ -103,7 +107,12 @@ vi.mock( 'cli/ai/agent', async () => {
 
 vi.mock( 'cli/ai/ui', () => ( {
 	AiChatUI: class {
-		activeSite: { name: string; path: string; running: boolean } | null = null;
+		get activeSite(): { name: string; path: string; running: boolean } | null {
+			return activeSiteRef.current;
+		}
+		set activeSite( value: { name: string; path: string; running: boolean } | null ) {
+			activeSiteRef.current = value;
+		}
 		currentModel = 'claude-sonnet-4-6';
 		onSiteSelected: ( ( site: { name: string; path: string; running: boolean } ) => void ) | null =
 			null;
@@ -191,6 +200,7 @@ vi.mock( 'cli/commands/auth/logout', () => ( {
 describe( 'CLI: studio code sessions command', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
+		activeSiteRef.current = null;
 		vi.mocked( readCliConfig ).mockResolvedValue( {
 			sites: [],
 			anthropicApiKey: 'test-api-key',
@@ -450,6 +460,30 @@ describe( 'CLI: studio code sessions command', () => {
 
 		expect( recordSessionClearedMock ).toHaveBeenCalledTimes( 1 );
 		expect( recordSiteSelectedMock ).not.toHaveBeenCalled();
+	} );
+
+	it( '/clear with an active site re-emits the site event after the clear marker', async () => {
+		activeSiteRef.current = {
+			name: 'Test Site',
+			path: '/tmp/test-site',
+			running: false,
+		};
+
+		waitForInputMock.mockResolvedValueOnce( '/clear' ).mockResolvedValueOnce( '/exit' );
+
+		await buildParser().parseAsync( [ 'ai' ] );
+
+		expect( recordSessionClearedMock ).toHaveBeenCalledTimes( 1 );
+		expect( recordSiteSelectedMock ).toHaveBeenCalledTimes( 1 );
+		expect( recordSiteSelectedMock ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				name: 'Test Site',
+				path: '/tmp/test-site',
+			} )
+		);
+		expect( recordSiteSelectedMock.mock.invocationCallOrder[ 0 ] ).toBeGreaterThan(
+			recordSessionClearedMock.mock.invocationCallOrder[ 0 ]
+		);
 	} );
 
 	it( 'restores provider, model, and resume session id from session events', async () => {

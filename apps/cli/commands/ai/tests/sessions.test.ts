@@ -652,4 +652,51 @@ describe( 'ai-sessions', () => {
 		expect( seen ).not.toContain( 'user.message:first' );
 		expect( seen ).not.toContain( 'user.message:second' );
 	} );
+
+	it( 'replays post-clear site.selected events so active site is restored', () => {
+		const events: AiSessionEvent[] = [
+			{
+				type: 'user.message',
+				timestamp: '2026-04-10T12:00:00.000Z',
+				text: 'before clear',
+				source: 'prompt',
+			},
+			{
+				type: 'session.cleared',
+				timestamp: '2026-04-10T12:00:01.000Z',
+			},
+			{
+				type: 'site.selected',
+				timestamp: '2026-04-10T12:00:02.000Z',
+				siteName: 'Post-Clear Site',
+				sitePath: '/tmp/post-clear',
+			},
+			{
+				type: 'user.message',
+				timestamp: '2026-04-10T12:00:03.000Z',
+				text: 'after clear',
+				source: 'prompt',
+			},
+		];
+
+		const setActiveSite = vi.fn();
+		const seen: string[] = [];
+		const fakeUi = {
+			...makeFakeReplayUi( seen ),
+			setActiveSite,
+		} as unknown as FakeReplayUi;
+
+		replaySessionHistory( fakeUi, events );
+
+		expect( setActiveSite ).toHaveBeenCalledTimes( 1 );
+		expect( setActiveSite ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				name: 'Post-Clear Site',
+				path: '/tmp/post-clear',
+			} ),
+			expect.anything()
+		);
+		expect( seen ).toContain( 'user.message:after clear' );
+		expect( seen ).not.toContain( 'user.message:before clear' );
+	} );
 } );

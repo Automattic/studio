@@ -52,6 +52,7 @@ import {
 	type BlueprintV1Declaration,
 	type StepDefinition,
 } from '@wp-playground/blueprints';
+import { bumpStat, getPlatformMetric } from 'cli/lib/bump-stat';
 import {
 	lockCliConfig,
 	readCliConfig,
@@ -73,6 +74,7 @@ import { generateSiteName } from 'cli/lib/site-name';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
+import { StatsGroup } from 'cli/lib/types/bump-stats';
 import { untildify } from 'cli/lib/utils';
 import { ValidationError } from 'cli/lib/validation-error';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
@@ -782,6 +784,15 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 
 			try {
 				await runCommand( sitePath, config );
+
+				if ( __ENABLE_CLI_TELEMETRY__ && ! argv.avoidTelemetry ) {
+					bumpStat(
+						__IS_PACKAGED_FOR_NPM__
+							? StatsGroup.STUDIO_CLI_SITE_CREATE_NPM
+							: StatsGroup.STUDIO_CLI_SITE_CREATE_APP,
+						getPlatformMetric()
+					);
+				}
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );

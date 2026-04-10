@@ -1,4 +1,4 @@
-import { SyncSite } from 'src/modules/sync/types';
+import { SyncSite } from '@studio/common/types/sync';
 
 /**
  * Generate updated site data to be stored in `appdata-v1.json`:

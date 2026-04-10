@@ -17,7 +17,7 @@ export async function runCommand( format: SessionOutputFormat ): Promise< void >
 	}
 
 	if ( sessions.length === 0 ) {
-		console.log( __( 'No AI sessions found' ) );
+		console.log( __( 'No code sessions found' ) );
 		return;
 	}
 
@@ -27,7 +27,7 @@ export async function runCommand( format: SessionOutputFormat ): Promise< void >
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'list',
-		describe: __( 'List AI sessions' ),
+		describe: __( 'List code sessions' ),
 		builder: ( listYargs ) => {
 			return listYargs.option( 'format', {
 				type: 'string',
@@ -43,7 +43,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );
 				} else {
-					logger.reportError( new LoggerError( __( 'Failed to list AI sessions' ), error ) );
+					logger.reportError( new LoggerError( __( 'Failed to list code sessions' ), error ) );
 				}
 			}
 		},

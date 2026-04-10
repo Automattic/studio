@@ -18,7 +18,7 @@ export async function archiveSiteContent(
 		const archiveBuilder = archiver( 'zip', {
 			zlib: { level: ZIP_COMPRESSION_LEVEL },
 			followSymlinks: true,
-		} );
+		} as archiver.ArchiverOptions );
 
 		output.on( 'close', () => {
 			resolve( archiveBuilder );

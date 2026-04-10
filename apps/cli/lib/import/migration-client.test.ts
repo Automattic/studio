@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+	applyImporterProgressDisplayHints,
 	applyIndexedEntryProgress,
 	formatImporterJsonlProgress,
 	formatImporterProgressSnapshot,
@@ -95,6 +96,24 @@ describe( 'formatImporterJsonlProgress', () => {
 		expect(
 			formatImporterProgressSnapshot( progressSnapshot!, 'Downloading essential files', 5 )
 		).toBe( 'Downloading essential files · 8.0 MB received · 5s' );
+	} );
+
+	it( 'relables stalled SQL downloads as analyzing sql', () => {
+		const downloadingSqlSnapshot = updateImporterProgressSnapshot( {
+			phase: 'sql',
+			message: 'Downloading SQL dump',
+			bytes_received: 1024 * 1024 * 10.2,
+		} );
+
+		const hintedSnapshot = applyImporterProgressDisplayHints(
+			downloadingSqlSnapshot!,
+			'db-sync',
+			5000
+		);
+
+		expect( formatImporterProgressSnapshot( hintedSnapshot, 'Downloading', 8 ) ).toBe(
+			'Analyzing SQL · 10.2 MB received · 8s'
+		);
 	} );
 
 	it( 'accumulates bytes across request restarts when the importer heartbeat resets', () => {

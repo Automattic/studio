@@ -53,6 +53,8 @@ interface ImporterProgressSnapshot {
 	totalFiles?: number;
 }
 
+const SQL_ANALYZING_STALL_MS = 5000;
+
 interface ImporterIndexUpdate {
 	delete: boolean;
 	pathKey: string;
@@ -547,6 +549,27 @@ export function formatImporterJsonlProgress(
 	return formatImporterProgressSnapshot( snapshot, progressLabel, elapsedSeconds );
 }
 
+export function applyImporterProgressDisplayHints(
+	snapshot: ImporterProgressSnapshot,
+	command: string | undefined,
+	idleMs: number
+): ImporterProgressSnapshot {
+	if (
+		command !== 'db-sync' ||
+		snapshot.phase !== 'downloading' ||
+		( snapshot.bytesReceived ?? 0 ) <= 0 ||
+		idleMs < SQL_ANALYZING_STALL_MS
+	) {
+		return snapshot;
+	}
+
+	return {
+		...snapshot,
+		phase: 'analyzing SQL',
+		message: 'analyzing SQL',
+	};
+}
+
 export async function downloadLatestImporterPhar(): Promise< string > {
 	const pharPath = path.join( getConfigDirectory(), 'importer.phar' );
 	const response = await fetch( IMPORTER_PHAR_URL, { redirect: 'follow' } );
@@ -678,6 +701,14 @@ function createProgressReporter(
 		? { phase: defaultPhase }
 		: null;
 	let lastRenderedSecond = -1;
+	let lastTransferredBytes = 0;
+	let lastTransferProgressAtMs = startTime;
+	// Once the importer reaches the streaming/fetch phase, lock the
+	// displayed label to progressLabel.  Without this, exit-code-2
+	// restarts briefly cycle through index → diff → fetch again,
+	// causing the label to blink from "Downloading files" to
+	// "Indexing remote files" and back.
+	let phaseLabelLocked = false;
 
 	const mergeExactIndexedProgress = () => {
 		if ( ! progressSnapshot || ! indexProgressTracker ) {
@@ -687,6 +718,40 @@ function createProgressReporter(
 		progressSnapshot = applyIndexedEntryProgress(
 			progressSnapshot,
 			indexProgressTracker.getIndexedEntries()
+		);
+	};
+
+	const noteTransferProgress = () => {
+		if ( ! progressSnapshot ) {
+			return;
+		}
+
+		const transferredBytes = Math.max(
+			progressSnapshot.downloadedBytes ?? 0,
+			progressSnapshot.bytesReceived ?? 0
+		);
+		if ( transferredBytes > lastTransferredBytes ) {
+			lastTransferredBytes = transferredBytes;
+			lastTransferProgressAtMs = Date.now();
+		}
+	};
+
+	const snapshotForDisplay = (): ImporterProgressSnapshot => {
+		if ( ! progressSnapshot ) {
+			return {};
+		}
+		let displaySnapshot = progressSnapshot;
+		if ( displaySnapshot.phase === 'streaming' ) {
+			phaseLabelLocked = true;
+		}
+		if ( phaseLabelLocked && displaySnapshot.phase !== 'streaming' ) {
+			displaySnapshot = { ...displaySnapshot, phase: 'streaming' };
+		}
+
+		return applyImporterProgressDisplayHints(
+			displaySnapshot,
+			command,
+			Date.now() - lastTransferProgressAtMs
 		);
 	};
 
@@ -702,13 +767,12 @@ function createProgressReporter(
 				progressSnapshot = nextSnapshot;
 			}
 			mergeExactIndexedProgress();
-			const progressMessage =
-				progressSnapshot &&
-				formatImporterProgressSnapshot(
-					progressSnapshot,
-					progressLabel,
-					Math.floor( ( Date.now() - startTime ) / 1000 )
-				);
+			noteTransferProgress();
+			const progressMessage = formatImporterProgressSnapshot(
+				snapshotForDisplay(),
+				progressLabel,
+				Math.floor( ( Date.now() - startTime ) / 1000 )
+			);
 
 			if ( progressMessage ) {
 				onProgress( progressMessage );
@@ -742,8 +806,9 @@ function createProgressReporter(
 			}
 
 			mergeExactIndexedProgress();
+			noteTransferProgress();
 			const progressMessage = formatImporterProgressSnapshot(
-				progressSnapshot,
+				snapshotForDisplay(),
 				progressLabel,
 				elapsedSeconds
 			);

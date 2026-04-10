@@ -24,6 +24,7 @@ import { type LoadedAiSession, type TurnStatus } from 'cli/ai/sessions/types';
 import {
 	AI_CHAT_API_KEY_COMMAND,
 	AI_CHAT_BROWSER_COMMAND,
+	AI_CHAT_CLEAR_COMMAND,
 	AI_CHAT_EXIT_COMMAND,
 	AI_CHAT_LOGIN_COMMAND,
 	AI_CHAT_LOGOUT_COMMAND,
@@ -482,6 +483,26 @@ export async function runCommand(
 
 			if ( trimmedPrompt === AI_CHAT_EXIT_COMMAND ) {
 				break;
+			}
+
+			if ( trimmedPrompt === AI_CHAT_CLEAR_COMMAND ) {
+				sessionId = undefined;
+				ui.clearTranscript();
+				await persist( ( recorder ) => recorder.recordSessionCleared() );
+				await persistSessionContext();
+				const site = ui.activeSite;
+				if ( site ) {
+					await persist( ( recorder ) =>
+						recorder.recordSiteSelected( {
+							name: site.name,
+							path: site.path,
+							remote: site.remote,
+							url: site.url,
+							wpcomSiteId: site.wpcomSiteId,
+						} )
+					);
+				}
+				continue;
 			}
 
 			if ( trimmedPrompt === AI_CHAT_BROWSER_COMMAND ) {

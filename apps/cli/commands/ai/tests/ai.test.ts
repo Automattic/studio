@@ -17,14 +17,23 @@ import { registerCommand as registerAiSessionsResumeCommand } from 'cli/commands
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { StudioArgv } from 'cli/types';
 
-const { askUserMock, recordSessionContextMock, reportErrorMock, waitForInputMock } = vi.hoisted(
-	() => ( {
-		askUserMock: vi.fn(),
-		recordSessionContextMock: vi.fn(),
-		reportErrorMock: vi.fn(),
-		waitForInputMock: vi.fn(),
-	} )
-);
+const {
+	askUserMock,
+	clearTranscriptMock,
+	recordSessionClearedMock,
+	recordSessionContextMock,
+	recordSiteSelectedMock,
+	reportErrorMock,
+	waitForInputMock,
+} = vi.hoisted( () => ( {
+	askUserMock: vi.fn(),
+	clearTranscriptMock: vi.fn(),
+	recordSessionClearedMock: vi.fn(),
+	recordSessionContextMock: vi.fn(),
+	recordSiteSelectedMock: vi.fn(),
+	reportErrorMock: vi.fn(),
+	waitForInputMock: vi.fn(),
+} ) );
 
 vi.mock( 'cli/lib/cli-config/core', async () => {
 	const actual =
@@ -117,6 +126,9 @@ vi.mock( 'cli/ai/ui', () => ( {
 			this.activeSite = site;
 		}
 		addUserMessage() {}
+		clearTranscript() {
+			clearTranscriptMock();
+		}
 		handleMessage() {
 			return undefined;
 		}
@@ -138,10 +150,15 @@ vi.mock( 'cli/ai/sessions/recorder', () => {
 		static open = vi.fn().mockResolvedValue( new MockAiSessionRecorder() );
 		async recordSdkMessage() {}
 		async recordToolProgress() {}
+		async recordSessionCleared( ...args: unknown[] ) {
+			return recordSessionClearedMock( ...args );
+		}
 		async recordSessionContext( ...args: unknown[] ) {
 			return recordSessionContextMock( ...args );
 		}
-		async recordSiteSelected() {}
+		async recordSiteSelected( ...args: unknown[] ) {
+			return recordSiteSelectedMock( ...args );
+		}
 		async recordUserMessage() {}
 		async recordAgentQuestion() {}
 		async recordTurnClosed() {}
@@ -407,6 +424,32 @@ describe( 'CLI: studio code sessions command', () => {
 
 		expect( deleteAiSession ).not.toHaveBeenCalled();
 		expect( reportErrorMock ).toHaveBeenCalled();
+	} );
+
+	it( '/clear resets the session, clears the transcript, and re-emits context', async () => {
+		waitForInputMock.mockResolvedValueOnce( '/clear' ).mockResolvedValueOnce( '/exit' );
+
+		await buildParser().parseAsync( [ 'ai' ] );
+
+		expect( recordSessionClearedMock ).toHaveBeenCalledTimes( 1 );
+		expect( clearTranscriptMock ).toHaveBeenCalledTimes( 1 );
+
+		// Context must be re-emitted AFTER the cleared event.
+		expect( recordSessionContextMock.mock.invocationCallOrder[ 0 ] ).toBeGreaterThan(
+			recordSessionClearedMock.mock.invocationCallOrder[ 0 ]
+		);
+
+		// startAiAgent should never have been called (no prompt was submitted).
+		expect( startAiAgent ).not.toHaveBeenCalled();
+	} );
+
+	it( '/clear without an active site does not re-emit a site event', async () => {
+		waitForInputMock.mockResolvedValueOnce( '/clear' ).mockResolvedValueOnce( '/exit' );
+
+		await buildParser().parseAsync( [ 'ai' ] );
+
+		expect( recordSessionClearedMock ).toHaveBeenCalledTimes( 1 );
+		expect( recordSiteSelectedMock ).not.toHaveBeenCalled();
 	} );
 
 	it( 'restores provider, model, and resume session id from session events', async () => {

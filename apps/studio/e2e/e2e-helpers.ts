@@ -143,22 +143,31 @@ export class E2ESession {
 	}
 
 	private async waitForMainWindow( timeout: number ): Promise< Page > {
-		const deadline = Date.now() + timeout;
+		const isMainWindow = async ( win: Page ) => ( await win.title() ) === 'WordPress Studio';
 
-		// Check any already-open windows first.
+		// Register the event listener before checking existing windows to avoid a
+		// race where the main window opens between the two operations.
+		const nextWindowPromise = this.electronApp.waitForEvent( 'window', { timeout } );
+
+		// If the main window is already open (e.g. splash closed quickly), return it.
 		for ( const win of this.electronApp.windows() ) {
-			if ( ( await win.title() ) === 'WordPress Studio' ) {
+			if ( await isMainWindow( win ) ) {
 				return win;
 			}
 		}
 
-		// Wait for new windows until we find the main one or time out.
-		while ( Date.now() < deadline ) {
-			const remaining = deadline - Date.now();
-			const win = await this.electronApp.waitForEvent( 'window', { timeout: remaining } );
-			if ( ( await win.title() ) === 'WordPress Studio' ) {
+		// Otherwise wait for incoming windows, skipping the splash.
+		const deadline = Date.now() + timeout;
+		let win = await nextWindowPromise;
+		while ( true ) {
+			if ( await isMainWindow( win ) ) {
 				return win;
 			}
+			const remaining = deadline - Date.now();
+			if ( remaining <= 0 ) {
+				break;
+			}
+			win = await this.electronApp.waitForEvent( 'window', { timeout: remaining } );
 		}
 
 		throw new Error( 'Timed out waiting for the main WordPress Studio window' );

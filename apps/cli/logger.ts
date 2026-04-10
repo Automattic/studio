@@ -77,16 +77,9 @@ export class Logger< T extends string > {
 			return;
 		}
 
-		// Truncate to a single terminal line so ora never wraps the text
-		// across multiple lines.  When wrapped text shrinks on a subsequent
-		// update, ora over-clears and erases previous output above the
-		// spinner — the "disappearing lines" bug.
-		const maxWidth = ( process.stdout.columns || 80 ) - 3;
-		const text = message.length > maxWidth ? message.slice( 0, maxWidth - 1 ) + '…' : message;
-
-		this.spinner.text = text;
+		this.spinner.text = message;
 		if ( ! this.spinner.isSpinning ) {
-			this.spinner.start( text );
+			this.spinner.start( message );
 		} else {
 			this.spinner.render();
 		}

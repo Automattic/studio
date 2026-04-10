@@ -138,7 +138,30 @@ export class E2ESession {
 
 		this.startCapturingMainProcessLogs();
 
-		this.mainWindow = await this.electronApp.firstWindow( { timeout: 60_000 } );
+		// firstWindow() may return the splash screen. Wait for the main app window instead.
+		this.mainWindow = await this.waitForMainWindow( 60_000 );
+	}
+
+	private async waitForMainWindow( timeout: number ): Promise< Page > {
+		const deadline = Date.now() + timeout;
+
+		// Check any already-open windows first.
+		for ( const win of this.electronApp.windows() ) {
+			if ( ( await win.title() ) === 'WordPress Studio' ) {
+				return win;
+			}
+		}
+
+		// Wait for new windows until we find the main one or time out.
+		while ( Date.now() < deadline ) {
+			const remaining = deadline - Date.now();
+			const win = await this.electronApp.waitForEvent( 'window', { timeout: remaining } );
+			if ( ( await win.title() ) === 'WordPress Studio' ) {
+				return win;
+			}
+		}
+
+		throw new Error( 'Timed out waiting for the main WordPress Studio window' );
 	}
 
 	async reportMainProcessLogsOnFailure( testInfo: TestInfo ) {

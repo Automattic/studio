@@ -396,7 +396,7 @@ div:has( > progress ) > div:first-child {
 		color: var( --color-frame-text );
 	}
 	:is( [data-testid='site-content'], .components-modal__frame, [data-fullscreen-modal] )
-		span:not( .components-button span, button span ) {
+		span:not( .components-button span, button span, .text-a8c-red-50, .text-a8c-green-50, .text-frame-error, .text-frame-running ) {
 		color: var( --color-frame-text );
 	}
 

@@ -28,7 +28,7 @@
 		color-scheme: dark;
 		--color-frame-bg: #2f2f2f;
 		--color-frame-text: #e0e0e0;
-		--color-frame-text-secondary: #949494;
+		--color-frame-text-secondary: #a0a0a0;
 		--color-frame-border: #474747;
 		--color-frame-surface: #383838;
 		--color-frame-surface-alt: #474747;
@@ -396,7 +396,7 @@ div:has( > progress ) > div:first-child {
 		color: var( --color-frame-text );
 	}
 	:is( [data-testid='site-content'], .components-modal__frame, [data-fullscreen-modal] )
-		span:not( .components-button span, button span ) {
+		span:not( .components-button span, button span, .text-a8c-red-50, .text-a8c-green-50, .text-frame-error, .text-frame-running ) {
 		color: var( --color-frame-text );
 	}
 

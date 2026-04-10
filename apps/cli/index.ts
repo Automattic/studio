@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
+import semver from 'semver';
 import yargs from 'yargs';
 import { registerCommand as registerExportCommand } from 'cli/commands/export';
 import { registerCommand as registerImportCommand } from 'cli/commands/import';
@@ -20,6 +21,19 @@ suppressPunycodeWarning();
 
 async function main() {
 	const yargsLocale = await loadTranslations();
+
+	if ( semver.lt( process.version, __MINIMUM_NODE_VERSION__ ) ) {
+		console.error(
+			sprintf(
+				__(
+					'Studio CLI requires Node.js %s or newer. You are running %s.\nUpgrade Node.js and run this command again.\nDownload: https://nodejs.org/en/download'
+				),
+				__MINIMUM_NODE_VERSION__,
+				process.version
+			)
+		);
+		process.exit( 1 );
+	}
 
 	const studioArgv: StudioArgv = yargs( process.argv.slice( 2 ) )
 		.scriptName( 'studio' )
@@ -91,6 +105,45 @@ async function main() {
 			registerAuthStatusCommand( authYargs );
 			authYargs.version( false ).demandCommand( 1, __( 'You must provide a valid auth command' ) );
 		} );
+
+	const studioCodeCommandBuilder = async ( aiYargs: StudioArgv ) => {
+		const { registerCommand: registerAiCommand } = await import( 'cli/commands/ai' );
+		registerAiCommand( aiYargs );
+		aiYargs.command( 'sessions', __( 'Manage code sessions' ), async ( sessionsYargs ) => {
+			const [
+				{ registerCommand: registerAiSessionsDeleteCommand },
+				{ registerCommand: registerAiSessionsListCommand },
+				{ registerCommand: registerAiSessionsResumeCommand },
+			] = await Promise.all( [
+				import( 'cli/commands/ai/sessions/delete' ),
+				import( 'cli/commands/ai/sessions/list' ),
+				import( 'cli/commands/ai/sessions/resume' ),
+			] );
+
+			sessionsYargs
+				.option( 'path', {
+					hidden: true,
+				} )
+				.option( 'session-persistence', {
+					type: 'boolean',
+					default: true,
+					description: __( 'Record this code session to disk' ),
+				} );
+			registerAiSessionsDeleteCommand( sessionsYargs );
+			registerAiSessionsListCommand( sessionsYargs );
+			registerAiSessionsResumeCommand( sessionsYargs );
+			sessionsYargs
+				.version( false )
+				.demandCommand( 1, __( 'You must provide a valid code sessions command' ) );
+		} );
+		aiYargs.version( false );
+	};
+	studioArgv.command(
+		'code',
+		__( 'AI agent for building WordPress sites' ),
+		studioCodeCommandBuilder
+	);
+	studioArgv.command( 'ai', false, studioCodeCommandBuilder );
 
 	registerExportCommand( studioArgv );
 	registerImportCommand( studioArgv );
@@ -185,45 +238,6 @@ async function main() {
 		} )
 		.demandCommand( 1, __( 'You must provide a valid command' ) )
 		.strict();
-
-	const studioCodeCommandBuilder = async ( aiYargs: StudioArgv ) => {
-		const { registerCommand: registerAiCommand } = await import( 'cli/commands/ai' );
-		registerAiCommand( aiYargs );
-		aiYargs.command( 'sessions', __( 'Manage code sessions' ), async ( sessionsYargs ) => {
-			const [
-				{ registerCommand: registerAiSessionsListCommand },
-				{ registerCommand: registerAiSessionsResumeCommand },
-				{ registerCommand: registerAiSessionsDeleteCommand },
-			] = await Promise.all( [
-				import( 'cli/commands/ai/sessions/list' ),
-				import( 'cli/commands/ai/sessions/resume' ),
-				import( 'cli/commands/ai/sessions/delete' ),
-			] );
-
-			sessionsYargs
-				.option( 'path', {
-					hidden: true,
-				} )
-				.option( 'session-persistence', {
-					type: 'boolean',
-					default: true,
-					description: __( 'Record this code session to disk' ),
-				} );
-			registerAiSessionsListCommand( sessionsYargs );
-			registerAiSessionsResumeCommand( sessionsYargs );
-			registerAiSessionsDeleteCommand( sessionsYargs );
-			sessionsYargs
-				.version( false )
-				.demandCommand( 1, __( 'You must provide a valid code sessions command' ) );
-		} );
-		aiYargs.version( false );
-	};
-	studioArgv.command(
-		'code',
-		__( 'AI agent for building WordPress sites' ),
-		studioCodeCommandBuilder
-	);
-	studioArgv.command( 'ai', false, studioCodeCommandBuilder );
 
 	await studioArgv.argv;
 }

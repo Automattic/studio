@@ -95,6 +95,21 @@ async function main() {
 	const studioCodeCommandBuilder = async ( aiYargs: StudioArgv ) => {
 		const { registerCommand: registerAiCommand } = await import( 'cli/commands/ai' );
 		registerAiCommand( aiYargs );
+		aiYargs.command( {
+			command: 'serve',
+			describe: __( 'Start A2A server for agent-to-agent communication' ),
+			builder: ( serveYargs: StudioArgv ) => {
+				return serveYargs.option( 'port', {
+					type: 'number',
+					description: __( 'Port to listen on' ),
+					default: 41567,
+				} );
+			},
+			handler: async ( argv ) => {
+				process.env.STUDIO_A2A_PORT = String( ( argv as { port?: number } ).port ?? 41567 );
+				await import( 'cli/a2a-server/index.js' );
+			},
+		} );
 		aiYargs.command( 'sessions', __( 'Manage code sessions' ), async ( sessionsYargs ) => {
 			const [
 				{ registerCommand: registerAiSessionsDeleteCommand },

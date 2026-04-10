@@ -533,4 +533,123 @@ describe( 'ai-sessions', () => {
 		expect( clearedEvent ).toBeDefined();
 		expect( clearedEvent?.timestamp ).toMatch( /^\d{4}-\d{2}-\d{2}T/ );
 	} );
+
+	type FakeReplayUi = Parameters< typeof replaySessionHistory >[ 0 ];
+
+	function makeFakeReplayUi( seen: string[] ): FakeReplayUi {
+		const noop = () => undefined;
+		return {
+			prepareForReplay: noop,
+			finishReplay: noop,
+			setReplayTimestamp: noop,
+			setActiveSite: noop,
+			beginAgentTurn: noop,
+			endAgentTurn: noop,
+			addUserMessage: ( text: string ) => {
+				seen.push( `user.message:${ text }` );
+			},
+			handleMessage: noop,
+			setLoaderMessage: noop,
+			showAgentQuestion: noop,
+		} as unknown as FakeReplayUi;
+	}
+
+	it( 'replays all events when no session.cleared marker is present', () => {
+		const events: AiSessionEvent[] = [
+			{
+				type: 'session.started',
+				timestamp: '2026-04-10T12:00:00.000Z',
+				version: 1,
+				sessionId: 'test',
+			},
+			{
+				type: 'user.message',
+				timestamp: '2026-04-10T12:00:01.000Z',
+				text: 'Hello',
+				source: 'prompt',
+			},
+			{
+				type: 'turn.closed',
+				timestamp: '2026-04-10T12:00:02.000Z',
+				status: 'success',
+			},
+		];
+		const seen: string[] = [];
+		const fakeUi = makeFakeReplayUi( seen );
+		replaySessionHistory( fakeUi, events );
+		expect( seen ).toContain( 'user.message:Hello' );
+	} );
+
+	it( 'replays only events after the last session.cleared marker', () => {
+		const events: AiSessionEvent[] = [
+			{
+				type: 'user.message',
+				timestamp: '2026-04-10T12:00:00.000Z',
+				text: 'before clear',
+				source: 'prompt',
+			},
+			{
+				type: 'turn.closed',
+				timestamp: '2026-04-10T12:00:01.000Z',
+				status: 'success',
+			},
+			{
+				type: 'session.cleared',
+				timestamp: '2026-04-10T12:00:02.000Z',
+			},
+			{
+				type: 'user.message',
+				timestamp: '2026-04-10T12:00:03.000Z',
+				text: 'after clear',
+				source: 'prompt',
+			},
+			{
+				type: 'turn.closed',
+				timestamp: '2026-04-10T12:00:04.000Z',
+				status: 'success',
+			},
+		];
+		const seen: string[] = [];
+		const fakeUi = makeFakeReplayUi( seen );
+		replaySessionHistory( fakeUi, events );
+		expect( seen ).toContain( 'user.message:after clear' );
+		expect( seen ).not.toContain( 'user.message:before clear' );
+	} );
+
+	it( 'replays only events after the most recent of multiple session.cleared markers', () => {
+		const events: AiSessionEvent[] = [
+			{
+				type: 'user.message',
+				timestamp: '2026-04-10T12:00:00.000Z',
+				text: 'first',
+				source: 'prompt',
+			},
+			{
+				type: 'session.cleared',
+				timestamp: '2026-04-10T12:00:01.000Z',
+			},
+			{
+				type: 'user.message',
+				timestamp: '2026-04-10T12:00:02.000Z',
+				text: 'second',
+				source: 'prompt',
+			},
+			{
+				type: 'session.cleared',
+				timestamp: '2026-04-10T12:00:03.000Z',
+			},
+			{
+				type: 'user.message',
+				timestamp: '2026-04-10T12:00:04.000Z',
+				text: 'third',
+				source: 'prompt',
+			},
+		];
+		const seen: string[] = [];
+		const fakeUi = makeFakeReplayUi( seen );
+		replaySessionHistory( fakeUi, events );
+		expect( seen ).toContain( 'user.message:third' );
+		expect( seen ).not.toContain( 'user.message:first' );
+		expect( seen ).not.toContain( 'user.message:second' );
+	} );
 } );

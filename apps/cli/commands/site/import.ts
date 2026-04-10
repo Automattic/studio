@@ -564,6 +564,51 @@ function decodeImporterStatePath( value: string | null | undefined ): string | n
 	}
 }
 
+// Production drop-ins and mu-plugins that depend on wp.com
+// infrastructure.  object-cache.php relies on a Memcached server that
+// doesn't exist locally.  wpcomsh* mu-plugins depend on multisite
+// functions and wp.com API endpoints that aren't available in a
+// standalone Playground environment.
+const PRODUCTION_DROP_INS = [
+	'wp-content/object-cache.php',
+	'wp-content/mu-plugins/wpcomsh',
+	'wp-content/mu-plugins/wpcomsh-dev',
+	'wp-content/mu-plugins/wpcomsh-loader.php',
+];
+
+function removeProductionDropIns( sitePath: string ): string[] {
+	const removed: string[] = [];
+	for ( const relative of PRODUCTION_DROP_INS ) {
+		const fullPath = path.join( sitePath, relative );
+		if ( fs.existsSync( fullPath ) ) {
+			fs.rmSync( fullPath, { recursive: true, force: true } );
+			removed.push( path.basename( relative ) );
+		}
+	}
+	return removed;
+}
+
+/**
+ * Reads the auto_prepend_file INI value from preflight state and returns
+ * its parent directory.  On wp.com Atomic, auto_prepend_file is
+ * /scripts/env.php — a directory outside the WordPress roots that the
+ * exporter won't discover on its own.
+ */
+function getAutoPrependDirectory( stateDirectory: string ): string | null {
+	const state = readImporterState( stateDirectory ) as
+		| ( ImporterStateSnapshot & Record< string, unknown > )
+		| null;
+	const preflight = state?.preflight?.data as Record< string, unknown > | undefined;
+	const runtime = preflight?.runtime as Record< string, unknown > | undefined;
+	const iniGetAll = runtime?.ini_get_all as Record< string, unknown > | undefined;
+	const autoPrepend = iniGetAll?.auto_prepend_file;
+	if ( typeof autoPrepend !== 'string' || ! autoPrepend.startsWith( '/' ) ) {
+		return null;
+	}
+	const dir = path.posix.dirname( autoPrepend );
+	return dir && dir !== '/' ? dir : null;
+}
+
 function getRequiredRawRootDirectoryNames( stateDirectory: string ): string[] {
 	const state = readImporterState( stateDirectory ) as
 		| ( ImporterStateSnapshot & Record< string, unknown > )
@@ -1693,13 +1738,26 @@ export async function runCommand(
 			await rebuildFlattenedSiteDirectory( metadata );
 		}
 
+		// On wp.com Atomic, auto_prepend_file points to /scripts/env.php which
+		// lives outside the WordPress roots.  Pass it as --extra-directory so
+		// the exporter traverses and indexes it alongside core and wp-content.
+		const extraDirArgs: string[] = [];
+		const autoPrependDir = getAutoPrependDirectory( metadata.stateDirectory );
+		if ( autoPrependDir ) {
+			extraDirArgs.push( `--extra-directory=${ autoPrependDir }` );
+		}
+
 		if ( ! hasReachedStage( metadata, 'essential-files-complete' ) ) {
 			await restartUnresumableFilesSync( metadata, apiUrl, secret, verbose );
 			logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Downloading site files…' ) );
 			await runImporterCommandUntilComplete(
 				metadata.stateDirectory,
 				metadata.rawDirectory,
-				buildFilesSyncArgs( apiUrl, secret, [ '--filter=essential-files', '--follow-symlinks' ] ),
+				buildFilesSyncArgs( apiUrl, secret, [
+					'--filter=essential-files',
+					'--follow-symlinks',
+					...extraDirArgs,
+				] ),
 				( progress ) => logger.reportProgress( progress ),
 				{
 					progressLabel: 'Downloading files',
@@ -1799,6 +1857,13 @@ export async function runCommand(
 			logger.reportSuccess( `Deactivated ${ slug } plugin` );
 		}
 
+		// Remove production drop-ins and mu-plugins that depend on
+		// wp.com infrastructure and would crash the local site.
+		const removedDropIns = removeProductionDropIns( metadata.sitePath );
+		for ( const name of removedDropIns ) {
+			logger.reportSuccess( `Removed production drop-in: ${ name }` );
+		}
+
 		let createdSiteRecord = false;
 		if ( ! hasReachedStage( metadata, 'site-registered' ) ) {
 			logger.reportStart( LoggerAction.CREATE_SITE, `Creating site "${ metadata.siteName }"…` );
@@ -1818,6 +1883,7 @@ export async function runCommand(
 			const runtimeStartOptions = await loadImportedRuntimeStartOptions(
 				metadata.runtimeBlueprintPath
 			);
+
 			logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
 
 			try {
@@ -1866,6 +1932,7 @@ export async function runCommand(
 					metadata.rawDirectory,
 					buildFilesSyncArgs( apiUrl, secret, [
 						...( isResumingSkipped ? [] : [ '--filter=skipped-earlier' ] ),
+						...extraDirArgs,
 					] ),
 					( progress ) => logger.reportProgress( progress ),
 					{

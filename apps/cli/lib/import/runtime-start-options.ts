@@ -233,8 +233,69 @@ export async function loadImportedRuntimeStartOptions(
 		startOptions.blueprint = blueprint;
 	}
 
+	// On wp.com Atomic, auto_prepend_file points to /scripts/env.php —
+	// a directory outside the WordPress roots that the importer's
+	// apply-runtime doesn't mount.  Detect it from the importer state
+	// and add the mount so absolute paths like
+	// require_once('/scripts/object-cache.memcache.php') resolve.
+	const extraDirMounts = getExtraDirectoryMountsFromImporterState( runtimeDirectory );
+	if ( extraDirMounts.length > 0 ) {
+		startOptions.mountsBeforeInstall = [
+			...( startOptions.mountsBeforeInstall ?? [] ),
+			...extraDirMounts,
+		];
+	}
+
 	startOptions.skipSqliteSetup = true;
 	startOptions.useExactMountLayout = true;
 
 	return startOptions;
+}
+
+/**
+ * Reads the importer state to find directories that need mounting at their
+ * original absolute paths (e.g. /scripts from auto_prepend_file).  These
+ * directories are downloaded into the raw/ tree but aren't in the flattened
+ * site path or the generated start.sh.
+ */
+function getExtraDirectoryMountsFromImporterState(
+	runtimeDirectory: string
+): Array< { hostPath: string; vfsPath: string } > {
+	const importRoot = path.dirname( runtimeDirectory );
+	const statePath = path.join( importRoot, 'state', '.import-state.json' );
+	const rawDirectory = path.join( importRoot, 'raw' );
+
+	if ( ! fs.existsSync( statePath ) ) {
+		return [];
+	}
+
+	try {
+		const state = JSON.parse( fs.readFileSync( statePath, 'utf-8' ) ) as Record< string, unknown >;
+		const preflight = ( state.preflight as Record< string, unknown > | undefined )?.data as
+			| Record< string, unknown >
+			| undefined;
+		const runtime = preflight?.runtime as Record< string, unknown > | undefined;
+		const iniGetAll = runtime?.ini_get_all as Record< string, unknown > | undefined;
+		const autoPrepend = iniGetAll?.auto_prepend_file;
+
+		if ( typeof autoPrepend !== 'string' || ! autoPrepend.startsWith( '/' ) ) {
+			return [];
+		}
+
+		const dir = path.posix.dirname( autoPrepend );
+		if ( ! dir || dir === '/' ) {
+			return [];
+		}
+
+		// The raw download preserves full remote paths, so /scripts
+		// becomes raw/scripts on the host filesystem.
+		const hostPath = path.join( rawDirectory, dir.slice( 1 ) );
+		if ( ! fs.existsSync( hostPath ) ) {
+			return [];
+		}
+
+		return [ { hostPath, vfsPath: dir } ];
+	} catch {
+		return [];
+	}
 }

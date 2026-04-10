@@ -15,6 +15,11 @@ import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
 const IMPORTER_PHAR_URL =
 	'https://github.com/adamziel/streaming-site-migration/releases/latest/download/importer.phar';
 
+function getBundledImporterPhar(): string | null {
+	const candidate = path.join( import.meta.dirname, 'importer.phar' );
+	return fs.existsSync( candidate ) ? candidate : null;
+}
+
 export interface ImporterResult {
 	stdout: string;
 	stderr: string;
@@ -584,6 +589,10 @@ export async function downloadLatestImporterPhar(): Promise< string > {
 }
 
 async function ensureImporterPhar(): Promise< string > {
+	const bundled = getBundledImporterPhar();
+	if ( bundled ) {
+		return bundled;
+	}
 	return downloadLatestImporterPhar();
 }
 

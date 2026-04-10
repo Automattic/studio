@@ -10,6 +10,7 @@ import { createMainWindow, getMainWindow } from 'src/main-window';
 vi.mock( 'fs' );
 vi.mock( 'file-stream-rotator' );
 vi.mock( 'src/main-window' );
+vi.mock( 'src/splash-window' );
 vi.mock( 'src/updates' );
 vi.mock( '@sentry/electron/main', () => ( {
 	init: vi.fn(),

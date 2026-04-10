@@ -38,6 +38,13 @@ vi.mock( 'electron', () => {
 			mockEventHandlers.get( event )!.push( handler );
 		} );
 
+		once = vi.fn().mockImplementation( ( event: string, handler: ( ...args: any[] ) => void ) => {
+			if ( ! mockEventHandlers.has( event ) ) {
+				mockEventHandlers.set( event, [] );
+			}
+			mockEventHandlers.get( event )!.push( handler );
+		} );
+
 		webContents = {
 			isDestroyed: vi.fn().mockReturnValue( false ),
 			send: vi.fn(),

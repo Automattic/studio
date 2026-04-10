@@ -61,6 +61,12 @@ BrowserWindow.prototype.on = vi.fn( ( event: string, handler: ( ...args: any[] )
 	}
 	eventHandlers[ event ].push( handler );
 } );
+BrowserWindow.prototype.once = vi.fn( ( event: string, handler: ( ...args: any[] ) => void ) => {
+	if ( ! eventHandlers[ event ] ) {
+		eventHandlers[ event ] = [];
+	}
+	eventHandlers[ event ].push( handler );
+} );
 BrowserWindow.prototype.emit = vi.fn( ( event: string, ...args: any[] ) => {
 	const handlers = eventHandlers[ event ] || [];
 	handlers.forEach( ( handler ) => handler( ...args ) );

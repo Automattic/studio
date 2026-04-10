@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
 import { __ } from '@wordpress/i18n';
+import semver from 'semver';
 import yargs from 'yargs';
 import { registerCommand as registerExportCommand } from 'cli/commands/export';
 import { registerCommand as registerImportCommand } from 'cli/commands/import';
@@ -15,6 +16,13 @@ import { untildify } from 'cli/lib/utils';
 import { StudioArgv } from 'cli/types';
 
 const version = __STUDIO_CLI_VERSION__;
+
+if ( semver.lt( process.version, __MINIMUM_NODE_VERSION__ ) ) {
+	console.error(
+		`Studio CLI requires Node.js ${ __MINIMUM_NODE_VERSION__ } or newer. Current version: ${ process.version }.`
+	);
+	process.exit( 1 );
+}
 
 suppressPunycodeWarning();
 

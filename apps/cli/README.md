@@ -90,12 +90,12 @@ Studio Code is an interactive AI agent specialized in building and optimizing Wo
 studio code
 ```
 
-List, resume or delete a previous sessions:
+Delete, lis,t or resume a previous session:
 
 ```bash
+studio code sessions delete
 studio code sessions list
 studio code sessions resume
-studio code sessions delete
 ```
 
 ## Import and export

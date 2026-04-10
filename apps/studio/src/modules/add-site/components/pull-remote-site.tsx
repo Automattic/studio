@@ -16,7 +16,7 @@ import { NoWpcomSitesContent } from 'src/modules/sync/components/no-wpcom-sites-
 import { SitesListContent } from 'src/modules/sync/components/sync-sites-modal-selector';
 import { SyncTabImage } from 'src/modules/sync/components/sync-tab-image';
 import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
-import type { SyncSite } from 'src/modules/sync/types';
+import type { SyncSite } from '@studio/common/types/sync';
 
 function SiteSyncDescription( { children }: PropsWithChildren ) {
 	const { __ } = useI18n();
@@ -139,7 +139,9 @@ export function PullRemoteSite( {
 	const {
 		data: syncSites = [],
 		isLoading,
+		isFetching,
 		isSuccess,
+		refetch: refetchWpComSites,
 	} = useGetWpComSitesQuery(
 		{
 			userId: user?.id,
@@ -167,9 +169,11 @@ export function PullRemoteSite( {
 					) : (
 						<SitesListContent
 							isLoading={ isLoading }
+							isFetching={ isFetching }
 							syncSites={ syncSites }
 							selectedSiteId={ selectedRemoteSite?.id || null }
 							onSelectSite={ handleSiteSelect }
+							refetchSites={ refetchWpComSites }
 						/>
 					) }
 				</VStack>

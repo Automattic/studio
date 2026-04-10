@@ -390,7 +390,7 @@ describe( 'loadThemeDetails', () => {
 		await loadThemeDetails( mockIpcMainInvokeEvent, 'test-site-id' );
 
 		expect( mockServer.persistThemeDetails ).not.toHaveBeenCalled();
-		expect( captureSiteThumbnail ).toHaveBeenCalledWith( 'test-site-id' );
+		expect( captureSiteThumbnail ).toHaveBeenCalledWith( 'test-site-id', true );
 	} );
 
 	it( 'should persist theme details and capture thumbnail when theme has changed', async () => {
@@ -410,6 +410,6 @@ describe( 'loadThemeDetails', () => {
 		await loadThemeDetails( mockIpcMainInvokeEvent, 'test-site-id' );
 
 		expect( mockServer.persistThemeDetails ).toHaveBeenCalled();
-		expect( captureSiteThumbnail ).toHaveBeenCalledWith( 'test-site-id' );
+		expect( captureSiteThumbnail ).toHaveBeenCalledWith( 'test-site-id', true );
 	} );
 } );

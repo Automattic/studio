@@ -5,6 +5,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
+import { IllustrationGrid } from 'src/components/illustration-grid';
 import offlineIcon from 'src/components/offline-icon';
 import { ScreenshotDemoSite } from 'src/components/screenshot-demo-site';
 import { Tooltip } from 'src/components/tooltip';
@@ -32,7 +33,7 @@ function EmptyGeneric( {
 }: PropsWithChildren< { selectedSite: SiteDetails } > ) {
 	const { __ } = useI18n();
 	return (
-		<div className="p-8 flex justify-between max-w-3xl gap-4">
+		<div className="p-8 flex justify-between max-w-3xl gap-4 overflow-hidden">
 			<div className="flex flex-col">
 				<div className="a8c-subtitle mb-1">{ __( 'Share a preview of your Studio site' ) }</div>
 				<div className="w-[40ch] text-frame-text-secondary a8c-body">
@@ -69,9 +70,9 @@ function EmptyGeneric( {
 				</div>
 				{ children }
 			</div>
-			<div className="flex flex-col shrink-0 items-end">
+			<IllustrationGrid>
 				<ScreenshotDemoSite site={ selectedSite } />
-			</div>
+			</IllustrationGrid>
 		</div>
 	);
 }

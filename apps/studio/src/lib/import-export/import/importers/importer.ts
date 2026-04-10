@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { createInterface } from 'readline';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
+import { serializePlugins } from '@studio/common/lib/serialize-plugins';
 import { SupportedPHPVersionsList } from '@studio/common/types/php-versions';
 import { lstat, move } from 'fs-extra';
 import semver from 'semver';
@@ -15,7 +16,6 @@ import {
 	MetaFileData,
 	ImportWpContentProgressEventData,
 } from 'src/lib/import-export/import/types';
-import { serializePlugins } from 'src/lib/serialize-plugins';
 import { updateSiteUrl } from 'src/lib/update-site-url';
 import { SiteServer } from 'src/site-server';
 

@@ -3,6 +3,7 @@ import path from 'path';
 import { tool, createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { z } from 'zod/v4';
+import { openAgentationBrowser } from 'cli/ai/agentation-inject';
 import { validateBlocks, type ValidationReport } from 'cli/ai/block-validator';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
 import { auditPerformance } from 'cli/ai/performance-audit';
@@ -942,6 +943,29 @@ const exportSiteTool = tool(
 	}
 );
 
+const openAnnotationBrowserTool = tool(
+	'open_annotation_browser',
+	'Opens a headed browser on a site with the Agentation annotation toolbar. ' +
+		'The user can click elements and add visual feedback. Use agentation MCP tools to read annotations afterward.',
+	{
+		url: z.string().describe( 'The site URL to open (e.g., "http://localhost:8881")' ),
+	},
+	async ( args ) => {
+		try {
+			emitProgress( `Opening annotation browser at ${ args.url }…` );
+			const message = await openAgentationBrowser( args.url );
+			emitProgress( 'Annotation browser ready' );
+			return textResult( message );
+		} catch ( error ) {
+			return errorResult(
+				`Failed to open annotation browser: ${
+					error instanceof Error ? error.message : String( error )
+				}`
+			);
+		}
+	}
+);
+
 export const studioToolDefinitions = [
 	createSiteTool,
 	listSitesTool,
@@ -962,6 +986,7 @@ export const studioToolDefinitions = [
 	pullSiteTool,
 	importSiteTool,
 	exportSiteTool,
+	openAnnotationBrowserTool,
 ];
 
 export function createStudioTools() {

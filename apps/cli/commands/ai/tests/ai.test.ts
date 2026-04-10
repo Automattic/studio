@@ -35,7 +35,14 @@ const {
 	reportErrorMock: vi.fn(),
 	waitForInputMock: vi.fn(),
 	activeSiteRef: {
-		current: null as { name: string; path: string; running: boolean } | null,
+		current: null as {
+			name: string;
+			path: string;
+			running: boolean;
+			remote?: boolean;
+			url?: string;
+			wpcomSiteId?: number;
+		} | null,
 	},
 } ) );
 
@@ -107,15 +114,39 @@ vi.mock( 'cli/ai/agent', async () => {
 
 vi.mock( 'cli/ai/ui', () => ( {
 	AiChatUI: class {
-		get activeSite(): { name: string; path: string; running: boolean } | null {
+		get activeSite(): {
+			name: string;
+			path: string;
+			running: boolean;
+			remote?: boolean;
+			url?: string;
+			wpcomSiteId?: number;
+		} | null {
 			return activeSiteRef.current;
 		}
-		set activeSite( value: { name: string; path: string; running: boolean } | null ) {
+		set activeSite(
+			value: {
+				name: string;
+				path: string;
+				running: boolean;
+				remote?: boolean;
+				url?: string;
+				wpcomSiteId?: number;
+			} | null
+		) {
 			activeSiteRef.current = value;
 		}
 		currentModel = 'claude-sonnet-4-6';
-		onSiteSelected: ( ( site: { name: string; path: string; running: boolean } ) => void ) | null =
-			null;
+		onSiteSelected:
+			| ( ( site: {
+					name: string;
+					path: string;
+					running: boolean;
+					remote?: boolean;
+					url?: string;
+					wpcomSiteId?: number;
+			  } ) => void )
+			| null = null;
 		onInterrupt: ( () => void ) | null = null;
 		start() {}
 		stop() {}
@@ -131,7 +162,14 @@ vi.mock( 'cli/ai/ui', () => ( {
 		beginAgentTurn() {}
 		endAgentTurn() {}
 		setLoaderMessage() {}
-		setActiveSite( site: { name: string; path: string; running: boolean } ) {
+		setActiveSite( site: {
+			name: string;
+			path: string;
+			running: boolean;
+			remote?: boolean;
+			url?: string;
+			wpcomSiteId?: number;
+		} ) {
 			this.activeSite = site;
 		}
 		addUserMessage() {}
@@ -483,6 +521,31 @@ describe( 'CLI: studio code sessions command', () => {
 		);
 		expect( recordSiteSelectedMock.mock.invocationCallOrder[ 0 ] ).toBeGreaterThan(
 			recordSessionClearedMock.mock.invocationCallOrder[ 0 ]
+		);
+	} );
+
+	it( '/clear with an active remote site re-emits the remote site fields', async () => {
+		activeSiteRef.current = {
+			name: 'My WPCOM Site',
+			path: '',
+			running: false,
+			remote: true,
+			url: 'https://mywpcomsite.wordpress.com',
+			wpcomSiteId: 12345,
+		};
+
+		waitForInputMock.mockResolvedValueOnce( '/clear' ).mockResolvedValueOnce( '/exit' );
+
+		await buildParser().parseAsync( [ 'ai' ] );
+
+		expect( recordSiteSelectedMock ).toHaveBeenCalledTimes( 1 );
+		expect( recordSiteSelectedMock ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				name: 'My WPCOM Site',
+				remote: true,
+				url: 'https://mywpcomsite.wordpress.com',
+				wpcomSiteId: 12345,
+			} )
 		);
 	} );
 

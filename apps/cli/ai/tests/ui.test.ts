@@ -169,6 +169,41 @@ describe( 'AiChatUI auto site selection', () => {
 	} );
 } );
 
+describe( 'AiChatUI.clearTranscript', () => {
+	beforeEach( () => {
+		vi.clearAllMocks();
+	} );
+
+	it( 'clears children, resets streaming state, and requests a render', () => {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			clearTranscript: () => void;
+			[ key: string ]: unknown;
+		};
+
+		const children: unknown[] = [ {}, {} ];
+		const messages = {
+			clear: vi.fn( () => {
+				children.length = 0;
+			} ),
+			children,
+		};
+		const tui = { requestRender: vi.fn() };
+
+		ui.messages = messages;
+		ui.tui = tui;
+		ui.currentMarkdown = { someMarkdown: true };
+		ui.currentResponseText = 'in-progress';
+		ui.hideLoader = vi.fn();
+
+		ui.clearTranscript();
+
+		expect( messages.children ).toHaveLength( 0 );
+		expect( ui.currentMarkdown ).toBeNull();
+		expect( ui.currentResponseText ).toBe( '' );
+		expect( tui.requestRender ).toHaveBeenCalledTimes( 1 );
+	} );
+} );
+
 describe( 'AiChatUI.handleMessage', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();

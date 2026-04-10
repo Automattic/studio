@@ -599,6 +599,14 @@ export class AiChatUI {
 		this.currentResponseText = '';
 	}
 
+	clearTranscript(): void {
+		this.hideLoader();
+		this.currentMarkdown = null;
+		this.currentResponseText = '';
+		this.messages.clear();
+		this.tui.requestRender();
+	}
+
 	showAgentQuestion(
 		question: string,
 		_options: Array< { label: string; description: string } >

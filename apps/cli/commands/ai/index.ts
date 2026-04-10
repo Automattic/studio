@@ -60,7 +60,11 @@ function getErrorMessage( error: unknown ): string {
 }
 
 export async function runCommand(
-	options: { resumeSession?: LoadedAiSession; noSessionPersistence?: boolean } = {}
+	options: {
+		resumeSession?: LoadedAiSession;
+		noSessionPersistence?: boolean;
+		showLegacyCommandNotice?: boolean;
+	} = {}
 ): Promise< void > {
 	const ui = new AiChatUI();
 	const resumeContext = resolveResumeSessionContext( options.resumeSession );
@@ -71,6 +75,10 @@ export async function runCommand(
 	ui.currentModel = currentModel;
 	ui.start();
 	ui.showWelcome();
+
+	if ( options.showLegacyCommandNotice ) {
+		ui.showInfo( __( 'ⓘ The "studio ai" command is now "studio code".' ) );
+	}
 
 	let sessionRecorder: AiSessionRecorder | undefined;
 	let didDisableSessionPersistence = options.noSessionPersistence === true;
@@ -162,6 +170,7 @@ export async function runCommand(
 				path: site.path,
 				remote: site.remote,
 				url: site.url,
+				wpcomSiteId: site.wpcomSiteId,
 			} )
 		);
 	};
@@ -369,15 +378,22 @@ export async function runCommand(
 		ui.beginAgentTurn();
 
 		// Prepend active site context to the prompt.
-		// Remote (WordPress.com) sites only have a URL; local sites have a filesystem path and running state.
+		// Remote (WordPress.com) sites only have a URL and site ID; local sites have a filesystem path and running state.
 		let enrichedPrompt = prompt;
 		const site = ui.activeSite;
 		if ( site?.remote && site?.url ) {
-			enrichedPrompt = `[Active site: "${ site.name }" at ${ site.url } (WordPress.com)]\n\n${ prompt }`;
+			enrichedPrompt = `[Active site: "${ site.name }" (ID: ${ site.wpcomSiteId }) at ${ site.url } (WordPress.com)]\n\n${ prompt }`;
 		} else if ( site ) {
 			enrichedPrompt = `[Active site: "${ site.name }" at ${ site.path }${
 				site.running ? ' (running)' : ' (stopped)'
 			}]\n\n${ prompt }`;
+		}
+
+		// Read the WP.com access token for remote sites
+		let wpcomAccessToken: string | undefined;
+		if ( site?.remote ) {
+			const token = await readAuthToken();
+			wpcomAccessToken = token?.accessToken;
 		}
 
 		await persistSessionContext();
@@ -395,6 +411,8 @@ export async function runCommand(
 			env,
 			model: currentModel,
 			resume: sessionId,
+			activeSite: site,
+			wpcomAccessToken,
 			onAskUser: ( questions ) => askUserAndPersistAnswers( questions ),
 		} );
 
@@ -698,7 +716,7 @@ export async function runCommand(
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: '$0',
-		describe: __( 'AI-powered WordPress assistant' ),
+		describe: __( 'AI agent for building WordPress' ),
 		builder: ( yargs ) => {
 			return yargs
 				.option( 'path', {
@@ -707,7 +725,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'session-persistence', {
 					type: 'boolean',
 					default: true,
-					description: __( 'Record this AI chat session to disk' ),
+					description: __( 'Record this code session to disk' ),
 				} );
 		},
 		handler: async ( argv ) => {
@@ -716,6 +734,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					( argv as { sessionPersistence?: boolean } ).sessionPersistence === false;
 				await runCommand( {
 					noSessionPersistence,
+					showLegacyCommandNotice: argv._[ 0 ] === 'ai',
 				} );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {

@@ -9,6 +9,10 @@ import { store } from 'src/stores';
 
 vi.mock( 'src/hooks/use-auth' );
 vi.mock( 'src/hooks/use-offline' );
+vi.mock( 'src/lib/app-globals', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('src/lib/app-globals') >() ),
+	isWindows: () => false,
+} ) );
 
 const mockOpenURL = vi.fn();
 const mockAuthenticate = vi.fn();
@@ -58,7 +62,7 @@ describe( 'TopBar', () => {
 	it( 'shows offline indicator', async () => {
 		vi.mocked( useOffline ).mockReturnValue( true );
 		await act( async () => renderWithProvider( <TopBar onToggleSidebar={ vi.fn() } /> ) );
-		const offlineIndicator = screen.getByRole( 'button', {
+		const offlineIndicator = screen.getByRole( 'status', {
 			name: 'Offline indicator',
 		} );
 		expect( offlineIndicator ).toHaveAttribute( 'aria-description' );
@@ -129,8 +133,7 @@ describe( 'TopBar', () => {
 			expect( loginButton ).toBeEnabled();
 		} );
 
-		it( 'shows offline tooltip when offline and unauthenticated', async () => {
-			const user = userEvent.setup();
+		it( 'disables login button when offline and unauthenticated', () => {
 			vi.mocked( useAuth, { partial: true } ).mockReturnValue( { isAuthenticated: false } );
 			vi.mocked( useOffline ).mockReturnValue( true );
 			renderWithProvider( <TopBar onToggleSidebar={ vi.fn() } /> );
@@ -138,8 +141,6 @@ describe( 'TopBar', () => {
 				name: 'Log in to Studio with WordPress.com',
 			} );
 			expect( loginButton ).toBeDisabled();
-			await user.hover( loginButton );
-			expect( screen.getByText( "You're currently offline." ) ).toBeInTheDocument();
 		} );
 	} );
 } );

@@ -21,6 +21,10 @@ export type AiSessionEvent =
 			model: string;
 	  }
 	| {
+			type: 'session.cleared';
+			timestamp: string;
+	  }
+	| {
 			type: 'site.selected';
 			timestamp: string;
 			siteName: string;

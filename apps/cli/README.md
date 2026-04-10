@@ -11,7 +11,7 @@ The Studio CLI lets you:
 - Import and export site backups.
 - Pull from and push to WordPress.com sites.
 - Publish ephemeral preview sites to share (requires WordPress.com login).
-- Build WordPress sites in Visual Studio Code with an interactive AI agent specialized in WordPress, backed by the full power of the Studio CLI.
+- Build WordPress sites in Studio Code with an interactive AI agent specialized in WordPress, backed by the full power of the Studio CLI.
 - Integrate with other AI coding agents. Every site comes with an `AGENTS.md` file.
 
 <p align="center">

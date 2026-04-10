@@ -238,6 +238,12 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 		try {
 			const symlinkDestination = await fs.promises.readlink( symlinkPath );
 
+			// Don't overwrite standalone CLI installed via curl installer
+			const standaloneCliPath = path.join( os.homedir(), '.studio', 'bin', 'studio' );
+			if ( symlinkDestination === standaloneCliPath ) {
+				return true;
+			}
+
 			if ( process.env.NODE_ENV !== 'production' ) {
 				const prodCliPackagedPath = path.join(
 					path.sep,

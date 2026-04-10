@@ -1,3 +1,6 @@
+# Standalone CLI bundles
+standalone-bundles/
+
 # Logs
 logs
 *.log

@@ -46,7 +46,7 @@ import {
 	connectedSitesSelectors,
 	useGetConnectedSitesForLocalSiteQuery,
 } from 'src/stores/sync/connected-sites';
-import type { SyncSite } from 'src/modules/sync/types';
+import type { SyncSite } from '@studio/common/types/sync';
 
 const SyncConnectedSiteControls = ( {
 	connectedSite,
@@ -435,7 +435,7 @@ const SyncConnectedSitesSectionItem = ( {
 							>
 								<div className="flex flex-col gap-2 min-w-44 flex-shrink">
 									<div className="a8c-body-small flex items-center gap-0.5">
-										<Icon icon={ info } size={ 14 } />
+										<Icon icon={ info } size={ 14 } className="fill-frame-text-secondary" />
 										{ pushState.status.message }
 									</div>
 									<ProgressBar value={ pushState.status.progress } maxValue={ 100 } />
@@ -488,7 +488,7 @@ const SyncConnectedSitesSectionItem = ( {
 												className="fill-frame-text-secondary"
 											/>
 										) : (
-											<Icon icon={ info } size={ 14 } />
+											<Icon icon={ info } size={ 14 } className="fill-frame-text-secondary" />
 										) }
 										{ getPushUploadMessage( pushState.status.message, uploadPercentage ) }
 									</div>

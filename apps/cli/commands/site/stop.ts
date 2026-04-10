@@ -55,7 +55,7 @@ export async function runCommand(
 				return;
 			}
 
-			logger.reportStart( LoggerAction.STOP_SITE, __( 'Stopping WordPress servers…' ) );
+			logger.reportStart( LoggerAction.STOP_SITE, __( 'Stopping WordPress server…' ) );
 
 			try {
 				await stopWordPressServer( site.id );

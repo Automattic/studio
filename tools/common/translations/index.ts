@@ -19,7 +19,33 @@ import { locale_data as vi } from '@studio/common/translations/studio-vi.jed.jso
 import { locale_data as zhCN } from '@studio/common/translations/studio-zh-cn.jed.json';
 import { locale_data as zhTW } from '@studio/common/translations/studio-zh-tw.jed.json';
 
-export const localeDataDictionary = {
+type LocaleData = {
+	messages: Record< string, string[] | { domain: string; 'plural-forms': string; lang: string } >;
+};
+type SupportedLocale =
+	| 'ar'
+	| 'de'
+	| 'en'
+	| 'es'
+	| 'fr'
+	| 'he'
+	| 'hu'
+	| 'id'
+	| 'it'
+	| 'ja'
+	| 'ko'
+	| 'nl'
+	| 'pl'
+	| 'pt-br'
+	| 'ru'
+	| 'sv'
+	| 'tr'
+	| 'uk'
+	| 'vi'
+	| 'zh-cn'
+	| 'zh-tw';
+
+export const localeDataDictionary: Record< SupportedLocale, LocaleData | null > = {
 	ar,
 	de,
 	en: null,
@@ -41,4 +67,4 @@ export const localeDataDictionary = {
 	vi,
 	'zh-cn': zhCN,
 	'zh-tw': zhTW,
-} as const;
+};

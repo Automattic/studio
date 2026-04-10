@@ -1,3 +1,4 @@
+import { ACCEPTED_IMPORT_FILE_TYPES } from '@studio/common/constants';
 import {
 	__experimentalVStack as VStack,
 	__experimentalHStack as HStack,
@@ -11,7 +12,6 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useRef, useState } from 'react';
 import { ErrorIcon } from 'src/components/error-icon';
 import { LearnMoreLink } from 'src/components/learn-more';
-import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
 import { cx } from 'src/lib/cx';
 
 const formatFileSize = ( bytes: number ) => {

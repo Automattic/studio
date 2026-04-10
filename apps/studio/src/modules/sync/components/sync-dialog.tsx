@@ -1,3 +1,4 @@
+import { SYNC_PUSH_SIZE_LIMIT_GB } from '@studio/common/lib/sync/constants';
 import {
 	Icon,
 	SelectControl,
@@ -17,7 +18,6 @@ import Modal from 'src/components/modal';
 import { TwoColorProgressBar } from 'src/components/progress-bar';
 import { Tooltip } from 'src/components/tooltip';
 import { TreeView, TreeNode, updateNodeById } from 'src/components/tree-view';
-import { SYNC_PUSH_SIZE_LIMIT_GB } from 'src/constants';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { useIsMultisite } from 'src/hooks/use-is-multisite';
 import { cx } from 'src/lib/cx';
@@ -34,7 +34,7 @@ import { useI18nLocale } from 'src/stores';
 import { useLatestRewindId, useRemoteFileTree, useLocalFileTree } from 'src/stores/sync';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import { TreeViewLoadingSkeleton } from './tree-view-loading-skeleton';
-import type { SyncSite } from 'src/modules/sync/types';
+import type { SyncSite } from '@studio/common/types/sync';
 
 type SyncDialogProps = {
 	type: 'push' | 'pull';

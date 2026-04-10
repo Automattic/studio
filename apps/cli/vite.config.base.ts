@@ -1,7 +1,9 @@
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { copyFileSync, existsSync, mkdirSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
+import semver from 'semver';
 import { defineConfig } from 'vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
+import packageJson from './package.json';
 
 const nodeBuiltinExternals: RegExp[] = [
 	/^node:/,
@@ -10,9 +12,21 @@ const nodeBuiltinExternals: RegExp[] = [
 	/^dns\/promises$/,
 ];
 
-const packageJson = JSON.parse( readFileSync( resolve( __dirname, 'package.json' ), 'utf-8' ) );
 const packageJsonDependencies = Object.keys( packageJson.dependencies || {} );
-const distCliPackageJsonPath = resolve( __dirname, 'dist/cli/package.json' );
+const minimumNodeVersionRange = packageJson.engines?.node;
+
+if ( typeof minimumNodeVersionRange !== 'string' || minimumNodeVersionRange.length === 0 ) {
+	throw new Error( 'apps/cli/package.json must define engines.node as a non-empty string.' );
+}
+
+const minimumNodeVersion = semver.minVersion( minimumNodeVersionRange )?.version;
+
+if ( ! minimumNodeVersion ) {
+	throw new Error(
+		`Invalid engines.node range in apps/cli/package.json: ${ minimumNodeVersionRange }`
+	);
+}
+
 const bundledWpFilesPath = resolve( __dirname, 'wp-files' );
 const bundledImporterPhar = resolve( __dirname, 'lib/import/importer.phar' );
 
@@ -101,7 +115,9 @@ export const baseConfig = defineConfig( {
 		mainFields: [ 'main' ],
 	},
 	define: {
-		__ENABLE_STUDIO_AI__: false,
+		__ENABLE_CLI_TELEMETRY__: false,
+		__IS_PACKAGED_FOR_NPM__: false,
+		__MINIMUM_NODE_VERSION__: JSON.stringify( minimumNodeVersion ),
 		__STUDIO_CLI_VERSION__: JSON.stringify( packageJson.version ),
 	},
 } );

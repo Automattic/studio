@@ -45,7 +45,6 @@ function isPromptAbortError( error: unknown ): boolean {
 }
 
 export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
-<<<<<<< HEAD
 	{
 		name: 'browser',
 		description: __( 'Open the active site in the browser' ),

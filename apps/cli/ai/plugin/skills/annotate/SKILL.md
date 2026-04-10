@@ -26,7 +26,20 @@ Before opening the browser, dismiss all pending annotations from previous sessio
 
 Call `site_info` to get the site URL — do NOT guess the URL or port.
 
-Use the `open_annotation_browser` tool with the site URL. This opens a headed Playwright browser with the Agentation toolbar injected.
+**First, check for cmux** by running `test -S /tmp/cmux.sock && echo "cmux" || echo "no cmux"`.
+
+**If cmux is available**, use it for a side-by-side browser pane:
+
+```bash
+cmux browser open "<URL>"
+```
+Capture `surface:NN` from output, then:
+```bash
+cmux browser surface:NN wait --load-state complete --timeout-ms 15000
+cmux browser surface:NN eval 'import("https://esm.sh/react@18").then(function(R) { return import("https://esm.sh/react-dom@18/client?deps=react@18").then(function(RD) { return import("https://esm.sh/agentation@3?deps=react@18,react-dom@18").then(function(Ag) { var c = document.createElement("div"); c.id = "__agentation-root"; document.body.appendChild(c); RD.createRoot(c).render(R.default.createElement(Ag.PageFeedbackToolbarCSS, { endpoint: "http://localhost:4747" })); }); }); }); "ok"'
+```
+
+**If cmux is NOT available**, use the `open_annotation_browser` tool with the site URL. This opens a standalone Playwright browser with Agentation injected.
 
 Tell the user:
 > The browser is open. Click the **circle icon** in the bottom-right corner to activate the toolbar, then click any element to annotate it. Let me know when you're done.

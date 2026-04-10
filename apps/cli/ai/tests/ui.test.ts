@@ -197,6 +197,7 @@ describe( 'AiChatUI.clearTranscript', () => {
 
 		ui.clearTranscript();
 
+		expect( ui.hideLoader ).toHaveBeenCalled();
 		expect( messages.children ).toHaveLength( 0 );
 		expect( ui.currentMarkdown ).toBeNull();
 		expect( ui.currentResponseText ).toBe( '' );

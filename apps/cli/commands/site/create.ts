@@ -785,7 +785,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			try {
 				await runCommand( sitePath, config );
 
-				if ( ! argv.avoidTelemetry ) {
+				if ( __ENABLE_CLI_TELEMETRY__ && ! argv.avoidTelemetry ) {
 					bumpStat(
 						__IS_PACKAGED_FOR_NPM__
 							? StatsGroup.STUDIO_CLI_SITE_CREATE_NPM

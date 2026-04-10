@@ -21,6 +21,7 @@ const {
 	askUserMock,
 	clearTranscriptMock,
 	showWelcomeMock,
+	showInfoMock,
 	recordSessionClearedMock,
 	recordSessionContextMock,
 	recordSiteSelectedMock,
@@ -31,6 +32,7 @@ const {
 	askUserMock: vi.fn(),
 	clearTranscriptMock: vi.fn(),
 	showWelcomeMock: vi.fn(),
+	showInfoMock: vi.fn(),
 	recordSessionClearedMock: vi.fn(),
 	recordSessionContextMock: vi.fn(),
 	recordSiteSelectedMock: vi.fn(),
@@ -155,7 +157,9 @@ vi.mock( 'cli/ai/ui', () => ( {
 		showWelcome() {
 			showWelcomeMock();
 		}
-		showInfo() {}
+		showInfo( ...args: unknown[] ) {
+			showInfoMock( ...args );
+		}
 		showError() {}
 		showSuccess() {}
 		showOnboarding() {}
@@ -497,6 +501,8 @@ describe( 'CLI: studio code sessions command', () => {
 		expect( showWelcomeMock.mock.invocationCallOrder[ 1 ] ).toBeGreaterThan(
 			clearTranscriptMock.mock.invocationCallOrder[ 0 ]
 		);
+
+		expect( showInfoMock ).toHaveBeenCalledWith( 'Conversation cleared' );
 
 		// startAiAgent should never have been called (no prompt was submitted).
 		expect( startAiAgent ).not.toHaveBeenCalled();

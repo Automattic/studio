@@ -489,6 +489,7 @@ export async function runCommand(
 				sessionId = undefined;
 				ui.clearTranscript();
 				ui.showWelcome();
+				ui.showInfo( __( 'Conversation cleared' ) );
 				await persist( ( recorder ) => recorder.recordSessionCleared() );
 				await persistSessionContext();
 				const site = ui.activeSite;

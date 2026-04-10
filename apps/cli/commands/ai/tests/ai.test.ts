@@ -20,6 +20,7 @@ import { StudioArgv } from 'cli/types';
 const {
 	askUserMock,
 	clearTranscriptMock,
+	showWelcomeMock,
 	recordSessionClearedMock,
 	recordSessionContextMock,
 	recordSiteSelectedMock,
@@ -29,6 +30,7 @@ const {
 } = vi.hoisted( () => ( {
 	askUserMock: vi.fn(),
 	clearTranscriptMock: vi.fn(),
+	showWelcomeMock: vi.fn(),
 	recordSessionClearedMock: vi.fn(),
 	recordSessionContextMock: vi.fn(),
 	recordSiteSelectedMock: vi.fn(),
@@ -150,7 +152,9 @@ vi.mock( 'cli/ai/ui', () => ( {
 		onInterrupt: ( () => void ) | null = null;
 		start() {}
 		stop() {}
-		showWelcome() {}
+		showWelcome() {
+			showWelcomeMock();
+		}
 		showInfo() {}
 		showError() {}
 		showSuccess() {}
@@ -487,6 +491,13 @@ describe( 'CLI: studio code sessions command', () => {
 			recordSessionClearedMock.mock.invocationCallOrder[ 0 ]
 		);
 
+		// showWelcome must be called after clearTranscript.
+		// showWelcome is also called at startup, so index [1] is the /clear invocation.
+		expect( showWelcomeMock ).toHaveBeenCalledTimes( 2 );
+		expect( showWelcomeMock.mock.invocationCallOrder[ 1 ] ).toBeGreaterThan(
+			clearTranscriptMock.mock.invocationCallOrder[ 0 ]
+		);
+
 		// startAiAgent should never have been called (no prompt was submitted).
 		expect( startAiAgent ).not.toHaveBeenCalled();
 	} );
@@ -498,6 +509,7 @@ describe( 'CLI: studio code sessions command', () => {
 
 		expect( recordSessionClearedMock ).toHaveBeenCalledTimes( 1 );
 		expect( recordSiteSelectedMock ).not.toHaveBeenCalled();
+		expect( showWelcomeMock ).toHaveBeenCalled();
 	} );
 
 	it( '/clear with an active site re-emits the site event after the clear marker', async () => {
@@ -522,6 +534,7 @@ describe( 'CLI: studio code sessions command', () => {
 		expect( recordSiteSelectedMock.mock.invocationCallOrder[ 0 ] ).toBeGreaterThan(
 			recordSessionClearedMock.mock.invocationCallOrder[ 0 ]
 		);
+		expect( showWelcomeMock ).toHaveBeenCalled();
 	} );
 
 	it( '/clear with an active remote site re-emits the remote site fields', async () => {

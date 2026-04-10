@@ -488,6 +488,7 @@ export async function runCommand(
 			if ( trimmedPrompt === AI_CHAT_CLEAR_COMMAND ) {
 				sessionId = undefined;
 				ui.clearTranscript();
+				ui.showWelcome();
 				await persist( ( recorder ) => recorder.recordSessionCleared() );
 				await persistSessionContext();
 				const site = ui.activeSite;

@@ -17,23 +17,23 @@ import { StudioArgv } from 'cli/types';
 
 const version = __STUDIO_CLI_VERSION__;
 
-if ( semver.lt( process.version, __MINIMUM_NODE_VERSION__ ) ) {
-	console.error(
-		sprintf(
-			__(
-				'Studio CLI requires Node.js %s or newer. You are running %s.\nUpgrade Node.js and run this command again.\nDownload: https://nodejs.org/en/download'
-			),
-			__MINIMUM_NODE_VERSION__,
-			process.version
-		)
-	);
-	process.exit( 1 );
-}
-
 suppressPunycodeWarning();
 
 async function main() {
 	const yargsLocale = await loadTranslations();
+
+	if ( semver.lt( process.version, __MINIMUM_NODE_VERSION__ ) ) {
+		console.error(
+			sprintf(
+				__(
+					'Studio CLI requires Node.js %s or newer. You are running %s.\nUpgrade Node.js and run this command again.\nDownload: https://nodejs.org/en/download'
+				),
+				__MINIMUM_NODE_VERSION__,
+				process.version
+			)
+		);
+		process.exit( 1 );
+	}
 
 	const studioArgv: StudioArgv = yargs( process.argv.slice( 2 ) )
 		.scriptName( 'studio' )

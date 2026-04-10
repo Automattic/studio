@@ -94,6 +94,10 @@ export default defineConfig({
 						src: normalizePath( resolve( __dirname, 'src/about-menu/studio-app-icon.png' ) ),
 						dest: '.',
 					},
+					{
+						src: normalizePath( resolve( __dirname, 'src/about-menu/splash.html' ) ),
+						dest: '.',
+					},
 				],
 			} ),
 			// Sentry must be the last plugin

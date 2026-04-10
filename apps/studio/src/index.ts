@@ -49,6 +49,7 @@ import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { autoInstallMacOSCliIfNeeded } from 'src/modules/cli/lib/macos-installation-manager';
 import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
 import { getRunningSiteCount, SiteServer, stopAllServers } from 'src/site-server';
+import { createSplashWindow, destroySplashWindow } from 'src/splash-window';
 import {
 	loadUserData,
 	lockAppdata,
@@ -245,6 +246,8 @@ async function appBoot() {
 	}
 
 	app.on( 'ready', async () => {
+		createSplashWindow();
+
 		const locale = await getUserLocaleWithFallback();
 		if ( process.env.NODE_ENV === 'development' ) {
 			await installExtension( REACT_DEVELOPER_TOOLS );
@@ -317,7 +320,7 @@ async function appBoot() {
 		await SiteServer.fetchAll();
 		await startCliEventsSubscriber();
 
-		await createMainWindow();
+		await createMainWindow( destroySplashWindow );
 
 		const userData = await loadUserData();
 		// Bump stats for the first time the app runs - this is when no lastBumpStats are available

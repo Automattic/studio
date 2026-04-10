@@ -59,7 +59,7 @@ function isValidWindowBounds( bounds: WindowBounds ): boolean {
 	} );
 }
 
-export async function createMainWindow(): Promise< BrowserWindow > {
+export async function createMainWindow( onReadyToShow?: () => void ): Promise< BrowserWindow > {
 	if ( mainWindow && ! mainWindow.isDestroyed() ) {
 		return mainWindow;
 	}
@@ -74,6 +74,7 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		backgroundColor: 'rgba(30, 30, 30, 1)',
 		minHeight: MAIN_MIN_HEIGHT,
 		minWidth: MAIN_MIN_WIDTH,
+		show: false,
 		webPreferences: {
 			preload: path.join( __dirname, '../preload/preload.js' ),
 			webSecurity: process.env.NODE_ENV !== 'development',
@@ -92,6 +93,11 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 	}
 
 	mainWindow = new BrowserWindow( windowOptions );
+
+	mainWindow.once( 'ready-to-show', () => {
+		onReadyToShow?.();
+		mainWindow?.show();
+	} );
 
 	// Restore fullscreen state if it was saved
 	if ( savedBounds?.isFullScreen ) {

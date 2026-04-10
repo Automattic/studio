@@ -15,7 +15,7 @@ The Studio CLI lets you:
 
 <p align="center">
 	<br>
-	<img src="assets/demo.gif" alt="WordPress Studio CLI demo" width="500">
+	<img src="assets/demo.gif" alt="WordPress Studio CLI demo" width="600">
 	<br>
 </p>
 

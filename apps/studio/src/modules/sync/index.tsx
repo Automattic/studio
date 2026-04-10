@@ -33,7 +33,7 @@ import type { SyncSite } from 'src/modules/sync/types';
 function SiteSyncDescription( { children }: PropsWithChildren ) {
 	const { __ } = useI18n();
 	return (
-		<div className="p-8 flex justify-between max-w-3xl gap-4">
+		<div className="p-8 flex justify-between max-w-3xl gap-4 overflow-hidden">
 			<div className="flex flex-col">
 				<div className="flex items-center mb-1">
 					<div className="a8c-subtitle text-pretty">

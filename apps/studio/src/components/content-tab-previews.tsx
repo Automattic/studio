@@ -33,7 +33,7 @@ function EmptyGeneric( {
 }: PropsWithChildren< { selectedSite: SiteDetails } > ) {
 	const { __ } = useI18n();
 	return (
-		<div className="p-8 flex justify-between max-w-3xl gap-4">
+		<div className="p-8 flex justify-between max-w-3xl gap-4 overflow-hidden">
 			<div className="flex flex-col">
 				<div className="a8c-subtitle mb-1">{ __( 'Share a preview of your Studio site' ) }</div>
 				<div className="w-[40ch] text-frame-text-secondary a8c-body">

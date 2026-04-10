@@ -1,6 +1,7 @@
 import { AggregateInterval } from '@studio/common/lib/bump-stat';
 import { waitFor } from '@testing-library/react';
 import { vi } from 'vitest';
+import { EMPTY_USER_DATA } from 'src/storage/storage-types';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 import { bumpStat, bumpAggregatedUniqueStat, StatsGroup, StatsMetric } from '../bump-stats';
 
@@ -15,7 +16,6 @@ vi.mock( 'src/storage/user-data', () => ( {
 const originalFetch = global.fetch;
 
 const originalEnv = { ...process.env };
-const EMPTY_USER_DATA = { version: 1 as const, siteMetadata: {}, lastBumpStats: {} };
 let mockUserData = structuredClone( EMPTY_USER_DATA );
 
 beforeEach( () => {

@@ -704,7 +704,7 @@ def find_previous_stable_release_tag(version:)
   target_version = Gem::Version.new(version)
   matching_tags = sh('git', 'tag', '--list', 'v*').lines.filter_map do |tag|
     tag = tag.strip
-    match = tag.match(/^v(\d+(?:\.\d+)*)$/)
+    match = tag.match(/^v(\d+\.\d+\.\d+)$/)
     next if match.nil?
 
     tag_version = Gem::Version.new(match[1])

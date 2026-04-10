@@ -157,6 +157,13 @@ export class AiSessionRecorder {
 		} );
 	}
 
+	async recordSessionCleared(): Promise< void > {
+		await this.appendEvent( {
+			type: 'session.cleared',
+			timestamp: toIsoTimestamp(),
+		} );
+	}
+
 	private async appendEvent( event: AiSessionEvent ): Promise< void > {
 		await fs.appendFile( this.filePath, `${ JSON.stringify( event ) }\n`, {
 			encoding: 'utf8',

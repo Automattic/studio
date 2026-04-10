@@ -518,4 +518,19 @@ describe( 'ai-sessions', () => {
 			{ announce: true, emitEvent: false }
 		);
 	} );
+
+	it( 'records a session.cleared event', async () => {
+		testRoot = await fs.mkdtemp( path.join( os.tmpdir(), 'studio-ai-sessions-' ) );
+		process.env.E2E = '1';
+		process.env.E2E_APP_DATA_PATH = testRoot;
+
+		const startedAt = new Date( '2026-04-10T12:00:00.000Z' );
+		const recorder = await AiSessionRecorder.create( { startedAt } );
+		await recorder.recordSessionCleared();
+
+		const events = await readAiSessionEventsFromFile( recorder.filePath );
+		const clearedEvent = events.find( ( e ) => e.type === 'session.cleared' );
+		expect( clearedEvent ).toBeDefined();
+		expect( clearedEvent?.timestamp ).toMatch( /^\d{4}-\d{2}-\d{2}T/ );
+	} );
 } );

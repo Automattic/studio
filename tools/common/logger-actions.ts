@@ -73,12 +73,5 @@ export enum SyncCommandLoggerAction {
 
 export enum PublishCommandLoggerAction {
 	LOAD_SITES = 'loadSites',
-	FETCH_REMOTE_SITES = 'fetchRemoteSites',
-	// WordPress.com statuses
-	PREPROCESS = 'preprocess',
-	PROCESS_FILES = 'process_files',
-	RECREATE_DATABASE = 'recreate_database',
-	POSTPROCESS_DATABASE = 'postprocess_database',
-	VERIFY_SITE_INTEGRITY = 'verify_site_integrity',
-	CLEAN_UP = 'clean_up',
+	WAITING_FOR_SETUP = 'waitingForSetup',
 }

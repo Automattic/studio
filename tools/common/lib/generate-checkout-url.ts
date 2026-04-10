@@ -1,8 +1,13 @@
-import { DEFAULT_CUSTOM_DOMAIN_SUFFIX } from '@studio/common/constants';
-import { SiteData } from './cli-config/core';
+import { DEFAULT_CUSTOM_DOMAIN_SUFFIX } from '../constants';
+
+interface CheckoutSite {
+	id: string;
+	name: string;
+	customDomain?: string;
+}
 
 export function generateCheckoutUrl(
-	selectedSite?: SiteData,
+	selectedSite?: CheckoutSite,
 	section: string = 'studio-sync',
 	options?: { autoOpenPush?: boolean }
 ): string {

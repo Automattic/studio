@@ -1,3 +1,4 @@
+import { generateCheckoutUrl } from '@studio/common/lib/generate-checkout-url';
 import { __ } from '@wordpress/i18n';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button, { ButtonVariant } from 'src/components/button';
@@ -5,7 +6,6 @@ import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
-import { generateCheckoutUrl } from 'src/lib/generate-checkout-url';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
 interface CreateButtonProps {

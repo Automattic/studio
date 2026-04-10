@@ -449,7 +449,7 @@ describe( 'CLI: studio site import helpers', () => {
 				} as Parameters< typeof repairCompletedImportState >[ 0 ];
 
 				expect( repairCompletedImportState( metadata ) ).toContain(
-					'Re-downloading essential files'
+					'Re-downloading site files'
 				);
 				expect( metadata.stage ).toBe( 'initialized' );
 				expect( fs.existsSync( path.join( rawDirectory, 'wordpress' ) ) ).toBe( false );

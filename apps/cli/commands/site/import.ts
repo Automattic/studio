@@ -1699,10 +1699,7 @@ export async function runCommand(
 			await runImporterCommandUntilComplete(
 				metadata.stateDirectory,
 				metadata.rawDirectory,
-				buildFilesSyncArgs( apiUrl, secret, [
-					'--filter=essential-files',
-					'--follow-symlinks',
-				] ),
+				buildFilesSyncArgs( apiUrl, secret, [ '--filter=essential-files', '--follow-symlinks' ] ),
 				( progress ) => logger.reportProgress( progress ),
 				{
 					progressLabel: 'Downloading files',

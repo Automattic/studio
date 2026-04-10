@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { startAiAgent, type AiAgentConfig } from 'cli/ai/agent';
+import { startAiAgent, type AiAgentConfig, type AskUserQuestion } from 'cli/ai/agent';
 import type { Message } from '@a2a-js/sdk';
 import type {
 	AgentExecutor,
@@ -8,9 +8,10 @@ import type {
 } from '@a2a-js/sdk/server';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 
-/**
- * Helper to create a well-formed A2A Message.
- */
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
 function agentMessage( text: string ): Message {
 	return {
 		kind: 'message',
@@ -20,20 +21,16 @@ function agentMessage( text: string ): Message {
 	};
 }
 
-/**
- * Extracts the user's text prompt from an A2A message.
- */
 function extractPrompt( ctx: RequestContext ): string {
 	const parts = ctx.userMessage.parts ?? [];
-	const textParts = parts
-		.filter( ( p ): p is { kind: 'text'; text: string } => p.kind === 'text' )
-		.map( ( p ) => p.text );
-	return textParts.join( '\n' ) || 'Hello';
+	return (
+		parts
+			.filter( ( p ): p is { kind: 'text'; text: string } => p.kind === 'text' )
+			.map( ( p ) => p.text )
+			.join( '\n' ) || 'Hello'
+	);
 }
 
-/**
- * Extracts displayable text from an SDK assistant message.
- */
 function extractAssistantText( message: SDKMessage ): string | null {
 	if ( message.type !== 'assistant' ) {
 		return null;
@@ -47,9 +44,6 @@ function extractAssistantText( message: SDKMessage ): string | null {
 	return texts.length > 0 ? texts.join( '\n' ) : null;
 }
 
-/**
- * Extracts tool use info from an SDK assistant message for status reporting.
- */
 function extractToolUse(
 	message: SDKMessage
 ): { name: string; input?: Record< string, unknown > } | null {
@@ -67,22 +61,181 @@ function extractToolUse(
 	return null;
 }
 
+// ---------------------------------------------------------------------------
+// Agent session — keeps a running agent alive across A2A execute() calls
+// ---------------------------------------------------------------------------
+
+type SessionEvent =
+	| { kind: 'text'; text: string }
+	| { kind: 'tool-use'; name: string }
+	| {
+			kind: 'question';
+			questions: AskUserQuestion[];
+			resolve: ( answers: Record< string, string > ) => void;
+	  }
+	| { kind: 'result'; success: boolean; text: string }
+	| { kind: 'error'; message: string }
+	| { kind: 'done' };
+
+/**
+ * Wraps a running Studio Code agent and exposes its output as an async event
+ * queue. The agent runs in the background; events are drained by the executor
+ * on each A2A execute() call.
+ *
+ * When the agent asks a question (via onAskUser), the session stores the
+ * pending resolve function. The executor publishes `input-required` to A2A
+ * and returns. When the client sends a continuation, the executor resolves
+ * the pending question and resumes draining.
+ */
+class AgentSession {
+	private events: SessionEvent[] = [];
+	private waitResolve: ( () => void ) | null = null;
+	private _finished = false;
+	private queryHandle: ReturnType< typeof startAiAgent > | null = null;
+
+	/** Pending question waiting for the client's answer. */
+	pendingQuestion: {
+		questions: AskUserQuestion[];
+		resolve: ( answers: Record< string, string > ) => void;
+	} | null = null;
+
+	aborted = false;
+
+	start( prompt: string ) {
+		const config: AiAgentConfig = {
+			prompt,
+			maxTurns: 50,
+			onAskUser: async ( questions ) => {
+				return new Promise< Record< string, string > >( ( resolve ) => {
+					this.push( { kind: 'question', questions, resolve } );
+				} );
+			},
+		};
+
+		this.queryHandle = startAiAgent( config );
+
+		// Run the agent in the background, pushing events to the queue
+		( async () => {
+			try {
+				for await ( const message of this.queryHandle! ) {
+					if ( this.aborted ) {
+						break;
+					}
+
+					const text = extractAssistantText( message );
+					if ( text ) {
+						this.push( { kind: 'text', text } );
+					}
+
+					const toolUse = extractToolUse( message );
+					if ( toolUse ) {
+						this.push( { kind: 'tool-use', name: toolUse.name } );
+					}
+
+					if ( message.type === 'result' ) {
+						const resultText =
+							message.subtype === 'success'
+								? message.result
+								: `Agent error: ${ message.subtype }`;
+						this.push( {
+							kind: 'result',
+							success: message.subtype === 'success',
+							text: resultText,
+						} );
+					}
+				}
+			} catch ( error ) {
+				const errorMessage = error instanceof Error ? error.message : String( error );
+				this.push( { kind: 'error', message: errorMessage } );
+			} finally {
+				this._finished = true;
+				this.push( { kind: 'done' } );
+			}
+		} )();
+	}
+
+	interrupt() {
+		this.aborted = true;
+		this.queryHandle?.interrupt();
+	}
+
+	get finished() {
+		return this._finished;
+	}
+
+	/** Wait for and return the next event, or null if done. */
+	async nextEvent(): Promise< SessionEvent | null > {
+		if ( this.events.length > 0 ) {
+			return this.events.shift()!;
+		}
+		if ( this._finished ) {
+			return null;
+		}
+		await new Promise< void >( ( resolve ) => {
+			this.waitResolve = resolve;
+		} );
+		return this.events.shift() ?? null;
+	}
+
+	private push( event: SessionEvent ) {
+		this.events.push( event );
+		if ( this.waitResolve ) {
+			const resolve = this.waitResolve;
+			this.waitResolve = null;
+			resolve();
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// A2A Executor
+// ---------------------------------------------------------------------------
+
 /**
  * A2A AgentExecutor that wraps the Studio Code AI agent.
  *
- * Each A2A task spawns a full Studio Code agent session. The agent runs
- * its own loop (Claude SDK → MCP tools → Playwright browser) and streams
- * results back through the A2A event bus.
+ * Each A2A context spawns a full Studio Code agent session. The session persists
+ * across execute() calls so that the agent can ask questions back to the calling
+ * agent (via A2A's input-required state) and resume when answers arrive.
  */
 export class StudioCodeExecutor implements AgentExecutor {
-	private activeTasks = new Map< string, { abort: () => void } >();
+	private sessions = new Map< string, AgentSession >();
 
 	async execute( ctx: RequestContext, bus: ExecutionEventBus ): Promise< void > {
-		const { taskId, contextId, userMessage, task } = ctx;
-		const prompt = extractPrompt( ctx );
+		const { taskId, contextId, userMessage } = ctx;
+		const userText = extractPrompt( ctx );
 
-		// Create task if new
-		if ( ! task ) {
+		let session = this.sessions.get( contextId );
+
+		if ( session?.pendingQuestion ) {
+			// Continuation — the client is answering a pending question.
+			// Resolve the promise so the agent can continue.
+			const { questions, resolve } = session.pendingQuestion;
+			session.pendingQuestion = null;
+
+			const answers: Record< string, string > = {};
+			for ( const q of questions ) {
+				answers[ q.question ] = userText;
+			}
+			resolve( answers );
+
+			// Report that we're working again
+			bus.publish( {
+				kind: 'status-update',
+				taskId,
+				contextId,
+				final: false,
+				status: {
+					state: 'working',
+					timestamp: new Date().toISOString(),
+					message: agentMessage( 'Resuming...' ),
+				},
+			} );
+		} else if ( ! session ) {
+			// New task — create session and start the agent
+			session = new AgentSession();
+			this.sessions.set( contextId, session );
+
 			bus.publish( {
 				kind: 'task',
 				id: taskId,
@@ -93,80 +246,66 @@ export class StudioCodeExecutor implements AgentExecutor {
 				},
 				history: [ userMessage ],
 			} );
+
+			bus.publish( {
+				kind: 'status-update',
+				taskId,
+				contextId,
+				final: false,
+				status: {
+					state: 'working',
+					timestamp: new Date().toISOString(),
+					message: agentMessage( 'Starting Studio Code agent...' ),
+				},
+			} );
+
+			session.start( userText );
 		}
 
-		// Report working
-		bus.publish( {
-			kind: 'status-update',
-			taskId,
-			contextId,
-			final: false,
-			status: {
-				state: 'working',
-				timestamp: new Date().toISOString(),
-				message: agentMessage( 'Starting Studio Code agent...' ),
-			},
-		} );
+		// Drain events until the agent finishes or asks a question
+		await this.drainEvents( session, taskId, contextId, bus );
+	}
 
-		let aborted = false;
-		const agentConfig: AiAgentConfig = {
-			prompt,
-			maxTurns: 50,
-			// In A2A mode, auto-approve tool calls within trusted roots.
-			// The agent's security model still gates filesystem access.
-			onAskUser: async ( questions ) => {
-				// Report that we need input, with the questions as context
-				const questionText = questions
-					.map( ( q ) => {
-						const opts = q.options.map( ( o ) => o.label ).join( ', ' );
-						return `${ q.question } (${ opts })`;
-					} )
-					.join( '\n' );
-
+	private async drainEvents(
+		session: AgentSession,
+		taskId: string,
+		contextId: string,
+		bus: ExecutionEventBus
+	): Promise< void > {
+		while ( true ) {
+			const event = await session.nextEvent();
+			if ( ! event ) {
 				bus.publish( {
 					kind: 'status-update',
 					taskId,
 					contextId,
-					final: false,
+					final: true,
 					status: {
-						state: 'input-required',
+						state: session.aborted ? 'canceled' : 'completed',
 						timestamp: new Date().toISOString(),
-						message: agentMessage( questionText ),
 					},
 				} );
+				this.sessions.delete( contextId );
+				bus.finished();
+				return;
+			}
 
-				// For now, auto-approve with defaults. A full implementation would
-				// wait for the A2A client to send a continuation message.
-				const answers: Record< string, string > = {};
-				for ( const q of questions ) {
-					answers[ q.question ] = q.options[ 0 ]?.label ?? 'yes';
-				}
-				return answers;
-			},
-		};
-
-		const queryHandle = startAiAgent( agentConfig );
-
-		// Track for cancellation
-		this.activeTasks.set( taskId, {
-			abort: () => {
-				aborted = true;
-				queryHandle.interrupt();
-			},
-		} );
-
-		const collectedText: string[] = [];
-
-		try {
-			for await ( const message of queryHandle ) {
-				if ( aborted ) {
+			switch ( event.kind ) {
+				case 'text':
+					bus.publish( {
+						kind: 'status-update',
+						taskId,
+						contextId,
+						final: false,
+						status: {
+							state: 'working',
+							timestamp: new Date().toISOString(),
+							message: agentMessage( event.text ),
+						},
+					} );
 					break;
-				}
 
-				// Extract assistant text for streaming
-				const text = extractAssistantText( message );
-				if ( text ) {
-					collectedText.push( text );
+				case 'tool-use':
 					bus.publish( {
 						kind: 'status-update',
 						taskId,
@@ -175,34 +314,44 @@ export class StudioCodeExecutor implements AgentExecutor {
 						status: {
 							state: 'working',
 							timestamp: new Date().toISOString(),
-							message: agentMessage( text ),
+							message: agentMessage( `Using tool: ${ event.name }` ),
 						},
 					} );
-				}
+					break;
 
-				// Report tool usage as status updates
-				const toolUse = extractToolUse( message );
-				if ( toolUse ) {
+				case 'question': {
+					// Format questions for the calling agent
+					const questionText = event.questions
+						.map( ( q ) => {
+							const opts = q.options.map( ( o ) => o.label ).join( ', ' );
+							return opts ? `${ q.question }\nOptions: ${ opts }` : q.question;
+						} )
+						.join( '\n\n' );
+
+					// Store the resolver so the next execute() call can feed the answer
+					session.pendingQuestion = {
+						questions: event.questions,
+						resolve: event.resolve,
+					};
+
+					// Tell the client we need input, then return.
+					// The next execute() call will resolve the question and resume.
 					bus.publish( {
 						kind: 'status-update',
 						taskId,
 						contextId,
 						final: false,
 						status: {
-							state: 'working',
+							state: 'input-required',
 							timestamp: new Date().toISOString(),
-							message: agentMessage( `Using tool: ${ toolUse.name }` ),
+							message: agentMessage( questionText ),
 						},
 					} );
+					bus.finished();
+					return;
 				}
 
-				// Handle result messages
-				if ( message.type === 'result' ) {
-					const finalText =
-						message.subtype === 'success'
-							? message.result
-							: `Agent error: ${ message.subtype }`;
-
+				case 'result':
 					bus.publish( {
 						kind: 'artifact-update',
 						taskId,
@@ -210,75 +359,50 @@ export class StudioCodeExecutor implements AgentExecutor {
 						artifact: {
 							artifactId: uuidv4(),
 							name: 'Agent Response',
-							parts: [ { kind: 'text', text: finalText } ],
+							parts: [ { kind: 'text', text: event.text } ],
 						},
 					} );
-
 					bus.publish( {
 						kind: 'status-update',
 						taskId,
 						contextId,
 						final: true,
 						status: {
-							state: message.subtype === 'success' ? 'completed' : 'failed',
+							state: event.success ? 'completed' : 'failed',
 							timestamp: new Date().toISOString(),
 						},
 					} );
+					this.sessions.delete( contextId );
 					bus.finished();
 					return;
-				}
+
+				case 'error':
+					bus.publish( {
+						kind: 'status-update',
+						taskId,
+						contextId,
+						final: true,
+						status: {
+							state: 'failed',
+							timestamp: new Date().toISOString(),
+							message: agentMessage( `Agent failed: ${ event.message }` ),
+						},
+					} );
+					this.sessions.delete( contextId );
+					bus.finished();
+					return;
+
+				case 'done':
+					this.sessions.delete( contextId );
+					bus.finished();
+					return;
 			}
-
-			// If we reach here without a result message, the agent finished normally
-			const finalOutput =
-				collectedText.length > 0
-					? collectedText.join( '\n\n' )
-					: 'Agent completed without output.';
-
-			bus.publish( {
-				kind: 'artifact-update',
-				taskId,
-				contextId,
-				artifact: {
-					artifactId: uuidv4(),
-					name: 'Agent Response',
-					parts: [ { kind: 'text', text: finalOutput } ],
-				},
-			} );
-
-			bus.publish( {
-				kind: 'status-update',
-				taskId,
-				contextId,
-				final: true,
-				status: {
-					state: aborted ? 'canceled' : 'completed',
-					timestamp: new Date().toISOString(),
-				},
-			} );
-		} catch ( error ) {
-			const errorMessage = error instanceof Error ? error.message : String( error );
-			bus.publish( {
-				kind: 'status-update',
-				taskId,
-				contextId,
-				final: true,
-				status: {
-					state: 'failed',
-					timestamp: new Date().toISOString(),
-					message: agentMessage( `Agent failed: ${ errorMessage }` ),
-				},
-			} );
-		} finally {
-			this.activeTasks.delete( taskId );
-			bus.finished();
 		}
 	}
 
 	async cancelTask( taskId: string ): Promise< void > {
-		const active = this.activeTasks.get( taskId );
-		if ( active ) {
-			active.abort();
+		for ( const session of this.sessions.values() ) {
+			session.interrupt();
 		}
 	}
 }

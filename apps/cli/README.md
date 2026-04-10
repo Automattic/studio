@@ -13,7 +13,11 @@ The Studio CLI lets you:
 - Publish ephemeral preview sites to share (requires WordPress.com login).
 - Integrate with AI coding agents. Every site comes with an `AGENTS.md` file.
 
-![WordPress Studio CLI demo](./assets/demo.gif)
+<p align="center">
+	<br>
+	<img src="assets/demo.gif" alt="WordPress Studio CLI demo" width="500">
+	<br>
+</p>
 
 # Table of contents
 

@@ -1064,6 +1064,45 @@ function removeImportedSqliteDatabase( sitePath: string ): void {
 	fs.rmSync( path.join( databaseDirectory, '.ht.sqlite.php' ), { force: true } );
 }
 
+/**
+ * Detects post-completion damage to a finished import and rolls back to an
+ * earlier stage so the next run can recover.
+ *
+ * This runs at the start of every `pull-streaming` invocation.  When an
+ * import has already reached the 'completed' stage, Studio checks that the
+ * critical artifacts are still intact.  If any are missing or corrupt, the
+ * stage is rewound to the latest point where the pipeline can pick up again.
+ *
+ * The checks, in order:
+ *
+ *  1. Runtime blueprint missing — the blueprint.json that tells Playground
+ *     how to start the imported site.  It lives in a persistent directory
+ *     so this only happens if the user (or another tool) deletes it.
+ *
+ *  2. SQLite database missing — the imported .ht.sqlite was deleted.
+ *     WordPress Playground will happily create a fresh one on next start,
+ *     which leads to check 3.
+ *
+ *  3. Fresh WordPress install detected — Playground replaced the imported
+ *     database with a blank install (blogname "My WordPress Website",
+ *     "Hello world!" post).  This happens when Playground starts a site
+ *     whose .ht.sqlite was deleted or corrupted: it creates a fresh
+ *     database to bootstrap WordPress.  We detect this and re-apply the
+ *     imported database from the downloaded SQL dump.
+ *
+ *  4. URL rewrite stale — the database still contains the remote site URL
+ *     instead of the local Studio URL.  reprint's `db-apply` handles this
+ *     during the normal flow, but the local URL isn't finalized until the
+ *     site is registered (a later stage), so a crash between those stages
+ *     can leave the URL unwritten.  Re-applying the database fixes it.
+ *
+ *  5. Flattened site structure broken — wp-content/themes or
+ *     wp-content/plugins is missing, or contains broken symlinks.
+ *     reprint's `flat-document-root` creates symlinks from the site
+ *     directory into the raw download tree.  If raw files are cleaned up
+ *     or moved, those symlinks break.  We roll all the way back to
+ *     re-download and re-flatten.
+ */
 export function repairCompletedImportState( metadata: ImportMetadata ): string | null {
 	if ( metadata.stage !== 'completed' ) {
 		return null;

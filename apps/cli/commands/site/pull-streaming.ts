@@ -10,8 +10,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { loadNodeRuntime } from '@php-wasm/node';
-import { PHP, ProcessIdAllocator } from '@php-wasm/universal';
+import { ProcessIdAllocator } from '@php-wasm/universal';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { arePathsEqual, isEmptyDir, pathExists } from '@studio/common/lib/fs-utils';
@@ -20,7 +19,6 @@ import { portFinder } from '@studio/common/lib/port-finder';
 import { readAuthToken, type StoredAuthToken } from '@studio/common/lib/shared-config';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { ImportCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
-import { LatestSupportedPHPVersion } from '@studio/common/types/php-versions';
 import { __ } from '@wordpress/i18n';
 import chalk from 'chalk';
 import { getWpComSites, rotateStreamingExportSecret, type WpComSiteInfo } from 'cli/lib/api';
@@ -38,7 +36,6 @@ import {
 	runImporterCommandUntilComplete,
 } from 'cli/lib/import/migration-client';
 import {
-	ensureImportedSiteSqliteReady,
 	loadImportedRuntimeStartOptions,
 	normalizeImportedSqliteDatabasePath,
 } from 'cli/lib/import/runtime-start-options';
@@ -53,7 +50,6 @@ import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
 const logger = new Logger< LoggerAction >();
-const phpProcessIdAllocator = new ProcessIdAllocator();
 
 const PLUGIN_INSTALL_HINT =
 	'Make sure the streaming-site-migration plugin is installed and activated.\n' +

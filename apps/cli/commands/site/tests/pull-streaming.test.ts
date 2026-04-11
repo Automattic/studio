@@ -59,12 +59,10 @@ describe( 'CLI: studio site pull-streaming helpers', () => {
 		] );
 	} );
 
-	it( 'parses the final JSON envelope from a JSON stream on stdout', () => {
+	it( 'parses the JSON envelope from the last stdout line', () => {
 		expect(
 			parseImporterJson( {
-				stdout:
-					'{"debug":"Waiting for server response..."}\n' +
-					'{\n  "ok": true,\n  "data": {\n    "protocol_version": 1\n  }\n}',
+				stdout: '{"ok":true,"data":{"protocol_version":1}}',
 				stderr: '',
 			} as never )
 		).toEqual( {

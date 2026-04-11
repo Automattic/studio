@@ -210,16 +210,46 @@ export class ImporterIndexProgressTracker {
 		this.updatesFileOffset = 0;
 		this.updatesLineRemainder = '';
 
+		let fileDescriptor: number | undefined;
 		try {
-			const contents = fs.readFileSync( this.indexFilePath, 'utf8' );
-			for ( const line of contents.split( '\n' ) ) {
-				const pathKey = readPathKeyFromRecord( line );
+			fileDescriptor = fs.openSync( this.indexFilePath, 'r' );
+		} catch {
+			// Ignore missing or unreadable index files — the importer creates them lazily.
+			this.exactIndexedEntries = 0;
+			return;
+		}
+
+		// Read the index file in chunks instead of loading the entire file
+		// into memory.  For sites with tens of thousands of files, the
+		// index can be several megabytes of JSON-L.
+		try {
+			const chunkSize = 64 * 1024;
+			const buffer = Buffer.alloc( chunkSize );
+			let remainder = '';
+			let bytesRead: number;
+
+			do {
+				bytesRead = fs.readSync( fileDescriptor, buffer, 0, chunkSize, null );
+				const text = remainder + buffer.subarray( 0, bytesRead ).toString( 'utf8' );
+				const lines = text.split( '\n' );
+				remainder = lines.pop() ?? '';
+
+				for ( const line of lines ) {
+					const pathKey = readPathKeyFromRecord( line );
+					if ( pathKey ) {
+						this.baselinePathKeys.add( pathKey );
+					}
+				}
+			} while ( bytesRead === chunkSize );
+
+			if ( remainder ) {
+				const pathKey = readPathKeyFromRecord( remainder );
 				if ( pathKey ) {
 					this.baselinePathKeys.add( pathKey );
 				}
 			}
-		} catch {
-			// Ignore missing or unreadable index files — the importer creates them lazily.
+		} finally {
+			fs.closeSync( fileDescriptor );
 		}
 
 		this.exactIndexedEntries = this.baselinePathKeys.size;
@@ -844,7 +874,13 @@ async function runImporterCommandWithNativePhp(
 		const child = spawn( command.command, command.args, {
 			stdio: [ 'ignore', 'pipe', 'pipe' ],
 		} );
-		const stdoutChunks: string[] = [];
+
+		// reprint emits JSON-L on stdout — one JSON object per line, often
+		// tens of thousands of progress events for large sites.  We only
+		// need the last complete line (the result envelope), so we track it
+		// with a rolling buffer instead of accumulating the full output.
+		let lastCompleteLine = '';
+		let stdoutLineRemainder = '';
 		const stderrChunks: string[] = [];
 
 		const sigintHandler = () => {
@@ -859,8 +895,17 @@ async function runImporterCommandWithNativePhp(
 
 		child.stdout?.on( 'data', ( chunk: Buffer ) => {
 			const text = chunk.toString();
-			stdoutChunks.push( text );
 			progressReporter.pushStdoutChunk( text );
+
+			const combined = stdoutLineRemainder + text;
+			const lines = combined.split( '\n' );
+			stdoutLineRemainder = lines.pop() ?? '';
+			for ( let i = lines.length - 1; i >= 0; i-- ) {
+				if ( lines[ i ].trim() ) {
+					lastCompleteLine = lines[ i ];
+					break;
+				}
+			}
 		} );
 
 		child.stderr?.on( 'data', ( chunk: Buffer ) => {
@@ -875,8 +920,11 @@ async function runImporterCommandWithNativePhp(
 		child.on( 'exit', ( exitCode ) => {
 			cleanup();
 			progressReporter.flush();
+			// If there's a non-empty remainder after the last newline, it's
+			// the final line (reprint may omit the trailing newline).
+			const finalLine = stdoutLineRemainder.trim() || lastCompleteLine;
 			resolve( {
-				stdout: stdoutChunks.join( '' ),
+				stdout: finalLine,
 				stderr: stderrChunks.join( '' ),
 				exitCode: exitCode ?? 1,
 			} );

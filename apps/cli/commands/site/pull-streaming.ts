@@ -196,78 +196,16 @@ function formatServerStartErrorDetails( siteId: string | undefined, error: unkno
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function parseImporterJson( result: ImporterResult ): any {
+	// ImporterResult.stdout now contains only the last line from reprint's
+	// JSON-L output (the result envelope), not the entire stream.
 	const raw = result.stdout.trim();
-	const parsedValues: unknown[] = [];
-	let index = 0;
 
-	while ( index < raw.length ) {
-		while ( /\s/.test( raw[ index ] ?? '' ) ) {
-			index++;
-		}
-
-		if ( index >= raw.length ) {
-			break;
-		}
-
-		if ( raw[ index ] !== '{' && raw[ index ] !== '[' ) {
-			index++;
-			continue;
-		}
-
-		let depth = 0;
-		let inString = false;
-		let isEscaped = false;
-		let endIndex = index;
-
-		for ( ; endIndex < raw.length; endIndex++ ) {
-			const char = raw[ endIndex ];
-
-			if ( inString ) {
-				if ( isEscaped ) {
-					isEscaped = false;
-					continue;
-				}
-
-				if ( char === '\\' ) {
-					isEscaped = true;
-					continue;
-				}
-
-				if ( char === '"' ) {
-					inString = false;
-				}
-				continue;
-			}
-
-			if ( char === '"' ) {
-				inString = true;
-				continue;
-			}
-
-			if ( char === '{' || char === '[' ) {
-				depth++;
-				continue;
-			}
-
-			if ( char === '}' || char === ']' ) {
-				depth--;
-				if ( depth === 0 ) {
-					endIndex++;
-					break;
-				}
-			}
-		}
-
+	if ( raw ) {
 		try {
-			parsedValues.push( JSON.parse( raw.slice( index, endIndex ) ) );
-			index = endIndex;
+			return JSON.parse( raw );
 		} catch {
-			index++;
+			// Fall through to throw a descriptive error below.
 		}
-	}
-
-	if ( parsedValues.length > 0 ) {
-		return parsedValues.at( -1 );
 	}
 
 	throw new LoggerError(

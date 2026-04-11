@@ -104,6 +104,58 @@ async function pipePhpStream(
 	}
 }
 
+/**
+ * Pipes a PHP stream to the parent process via IPC while tracking only the
+ * last complete line.  Unlike pipePhpStream which accumulates all chunks in
+ * a buffer, this avoids unbounded memory growth for large stdout streams.
+ */
+async function pipePhpStreamTrackingLastLine(
+	stream: ReadableStream< Uint8Array >,
+	type: 'stdout' | 'stderr',
+	tracker: { lastCompleteLine: string; remainder: string }
+) {
+	const reader = stream.getReader();
+	const decoder = new TextDecoder();
+
+	try {
+		while ( true ) {
+			const { done, value } = await reader.read();
+
+			if ( done ) {
+				return;
+			}
+
+			if ( ! value ) {
+				continue;
+			}
+
+			const chunk = decoder.decode( value, { stream: true } );
+			if ( ! chunk ) {
+				continue;
+			}
+
+			const combined = tracker.remainder + chunk;
+			const lines = combined.split( '\n' );
+			tracker.remainder = lines.pop() ?? '';
+			for ( let i = lines.length - 1; i >= 0; i-- ) {
+				if ( lines[ i ].trim() ) {
+					tracker.lastCompleteLine = lines[ i ];
+					break;
+				}
+			}
+
+			await sendAndFlush( { type, chunk } satisfies ImporterChildMessage );
+		}
+	} finally {
+		const remaining = decoder.decode();
+		if ( remaining ) {
+			tracker.remainder += remaining;
+			await sendAndFlush( { type, chunk: remaining } satisfies ImporterChildMessage );
+		}
+		reader.releaseLock();
+	}
+}
+
 async function runImporter( msg: RunMessage ) {
 	const { pharPath, stateDir, docroot, tmpDir, args, mounts = [] } = msg;
 
@@ -141,18 +193,26 @@ async function runImporter( msg: RunMessage ) {
 		await php.setSpawnHandler( createNoopSpawnHandler() );
 
 		const response = await php.cli( [ 'php', '/tmp/reprint.phar', ...args ] );
-		const stdoutChunks: string[] = [];
 		const stderrChunks: string[] = [];
+
+		// Track only the last complete stdout line (the result envelope).
+		// reprint emits JSON-L with thousands of progress lines for large
+		// sites — accumulating them all would blow up memory.  The stdout
+		// tracker below replaces the old pattern of buffering all chunks
+		// and joining them at the end.
+		const stdoutTracker = { lastCompleteLine: '', remainder: '' };
 
 		const [ exitCode ] = await Promise.all( [
 			response.exitCode,
-			pipePhpStream( response.stdout, 'stdout', stdoutChunks ),
+			pipePhpStreamTrackingLastLine( response.stdout, 'stdout', stdoutTracker ),
 			pipePhpStream( response.stderr, 'stderr', stderrChunks ),
 		] );
 
+		const finalLine = stdoutTracker.remainder.trim() || stdoutTracker.lastCompleteLine;
+
 		await sendAndFlush( {
 			type: 'result',
-			stdout: stdoutChunks.join( '' ),
+			stdout: finalLine,
 			stderr: stderrChunks.join( '' ),
 			exitCode,
 		} satisfies ImporterChildMessage );

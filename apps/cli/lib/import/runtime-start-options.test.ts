@@ -4,6 +4,7 @@ import path from 'path';
 import { vi } from 'vitest';
 import {
 	ensureImportedSiteSqliteReady,
+	getExtraDirectoryMountsFromImporterState,
 	loadImportedRuntimeStartOptions,
 	loadRuntimeBlueprint,
 	normalizeImportedSqliteDatabasePath,
@@ -131,6 +132,79 @@ if (!defined('STREAMING_SITE_MIGRATION_REMOTE_UPLOAD_PROXY_STATE_FILE')) {
 		} finally {
 			fs.rmSync( sitePath, { recursive: true, force: true } );
 		}
+	} );
+
+	describe( 'getExtraDirectoryMountsFromImporterState', () => {
+		it( 'rejects path traversal in auto_prepend_file', () => {
+			const importRoot = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-import-traversal-' ) );
+			const runtimeDir = path.join( importRoot, 'runtime' );
+			const stateDir = path.join( importRoot, 'state' );
+			const rawDir = path.join( importRoot, 'raw' );
+
+			try {
+				fs.mkdirSync( runtimeDir, { recursive: true } );
+				fs.mkdirSync( stateDir, { recursive: true } );
+				fs.mkdirSync( rawDir, { recursive: true } );
+
+				// A malicious server could set auto_prepend_file to a path
+				// with ../ segments to escape the raw directory.
+				fs.writeFileSync(
+					path.join( stateDir, '.import-state.json' ),
+					JSON.stringify( {
+						preflight: {
+							data: {
+								runtime: {
+									ini_get_all: {
+										auto_prepend_file: '/../../../etc/passwd',
+									},
+								},
+							},
+						},
+					} )
+				);
+
+				// Even if the traversed path exists on the host, it must be
+				// rejected because it escapes the raw/ directory.
+				const result = getExtraDirectoryMountsFromImporterState( runtimeDir );
+				expect( result ).toEqual( [] );
+			} finally {
+				fs.rmSync( importRoot, { recursive: true, force: true } );
+			}
+		} );
+
+		it( 'allows a valid auto_prepend_file within the raw directory', () => {
+			const importRoot = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-import-valid-' ) );
+			const runtimeDir = path.join( importRoot, 'runtime' );
+			const stateDir = path.join( importRoot, 'state' );
+			const rawDir = path.join( importRoot, 'raw' );
+			const scriptsDir = path.join( rawDir, 'scripts' );
+
+			try {
+				fs.mkdirSync( runtimeDir, { recursive: true } );
+				fs.mkdirSync( stateDir, { recursive: true } );
+				fs.mkdirSync( scriptsDir, { recursive: true } );
+
+				fs.writeFileSync(
+					path.join( stateDir, '.import-state.json' ),
+					JSON.stringify( {
+						preflight: {
+							data: {
+								runtime: {
+									ini_get_all: {
+										auto_prepend_file: '/scripts/env.php',
+									},
+								},
+							},
+						},
+					} )
+				);
+
+				const result = getExtraDirectoryMountsFromImporterState( runtimeDir );
+				expect( result ).toEqual( [ { hostPath: scriptsDir, vfsPath: '/scripts' } ] );
+			} finally {
+				fs.rmSync( importRoot, { recursive: true, force: true } );
+			}
+		} );
 	} );
 
 	it( 'ensures sqlite integration is installed for imported sites', async () => {

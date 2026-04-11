@@ -258,7 +258,7 @@ export async function loadImportedRuntimeStartOptions(
  * directories are downloaded into the raw/ tree but aren't in the flattened
  * site path or the generated start.sh.
  */
-function getExtraDirectoryMountsFromImporterState(
+export function getExtraDirectoryMountsFromImporterState(
 	runtimeDirectory: string
 ): Array< { hostPath: string; vfsPath: string } > {
 	const importRoot = path.dirname( runtimeDirectory );
@@ -290,6 +290,11 @@ function getExtraDirectoryMountsFromImporterState(
 		// The raw download preserves full remote paths, so /scripts
 		// becomes raw/scripts on the host filesystem.
 		const hostPath = path.join( rawDirectory, dir.slice( 1 ) );
+		const resolvedHostPath = path.resolve( hostPath );
+		const resolvedRawDirectory = path.resolve( rawDirectory );
+		if ( ! resolvedHostPath.startsWith( resolvedRawDirectory + path.sep ) ) {
+			return [];
+		}
 		if ( ! fs.existsSync( hostPath ) ) {
 			return [];
 		}

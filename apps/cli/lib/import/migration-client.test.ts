@@ -3,12 +3,12 @@ import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
-	applyImporterProgressDisplayHints,
+	applyReprintProgressDisplayHints,
 	applyIndexedEntryProgress,
-	formatImporterJsonlProgress,
-	formatImporterProgressSnapshot,
-	ImporterIndexProgressTracker,
-	updateImporterProgressSnapshot,
+	formatReprintJsonlProgress,
+	formatReprintProgressSnapshot,
+	ReprintIndexProgressTracker,
+	updateReprintProgressSnapshot,
 } from './migration-client';
 
 function encodePathKey( filePath: string ): string {
@@ -31,10 +31,10 @@ function buildUpdateLine( filePath: string, op: 'F' | 'D' ): string {
 	} );
 }
 
-describe( 'formatImporterJsonlProgress', () => {
-	it( 'suppresses debug messages from the importer', () => {
+describe( 'formatReprintJsonlProgress', () => {
+	it( 'suppresses debug messages from reprint', () => {
 		expect(
-			formatImporterJsonlProgress(
+			formatReprintJsonlProgress(
 				{ debug: 'Waiting for server response...' },
 				'Downloading essential files',
 				3
@@ -44,13 +44,13 @@ describe( 'formatImporterJsonlProgress', () => {
 
 	it( 'suppresses bare phase-only records without additional data', () => {
 		expect(
-			formatImporterJsonlProgress( { phase: 'index' }, 'Downloading essential files', 7 )
+			formatReprintJsonlProgress( { phase: 'index' }, 'Downloading essential files', 7 )
 		).toBeNull();
 	} );
 
 	it( 'formats streamed file and byte counts when present', () => {
 		expect(
-			formatImporterJsonlProgress(
+			formatReprintJsonlProgress(
 				{
 					downloaded_files: 42,
 					total_files: 100,
@@ -65,7 +65,7 @@ describe( 'formatImporterJsonlProgress', () => {
 
 	it( 'falls back to a generic progress message when only a message field is available', () => {
 		expect(
-			formatImporterJsonlProgress(
+			formatReprintJsonlProgress(
 				{
 					message: 'Downloading file batches',
 				},
@@ -76,15 +76,15 @@ describe( 'formatImporterJsonlProgress', () => {
 	} );
 
 	it( 'formats heartbeat and progress-check records as byte progress', () => {
-		const heartbeatSnapshot = updateImporterProgressSnapshot( {
+		const heartbeatSnapshot = updateReprintProgressSnapshot( {
 			heartbeat: true,
 			bytes_received: 1024 * 1024 * 6,
 		} );
 		expect(
-			formatImporterProgressSnapshot( heartbeatSnapshot!, 'Downloading essential files', 4 )
+			formatReprintProgressSnapshot( heartbeatSnapshot!, 'Downloading essential files', 4 )
 		).toBe( 'Downloading essential files · 6.0 MB received · 4s' );
 
-		const progressSnapshot = updateImporterProgressSnapshot(
+		const progressSnapshot = updateReprintProgressSnapshot(
 			{
 				progress_check: true,
 				bytes_received: 1024 * 1024 * 8,
@@ -93,41 +93,41 @@ describe( 'formatImporterJsonlProgress', () => {
 			heartbeatSnapshot!
 		);
 		expect(
-			formatImporterProgressSnapshot( progressSnapshot!, 'Downloading essential files', 5 )
+			formatReprintProgressSnapshot( progressSnapshot!, 'Downloading essential files', 5 )
 		).toBe( 'Downloading essential files · 8.0 MB received · 5s' );
 	} );
 
 	it( 'relables stalled SQL downloads as analyzing sql', () => {
-		const downloadingSqlSnapshot = updateImporterProgressSnapshot( {
+		const downloadingSqlSnapshot = updateReprintProgressSnapshot( {
 			phase: 'sql',
 			message: 'Downloading SQL dump',
 			bytes_received: 1024 * 1024 * 10.2,
 		} );
 
-		const hintedSnapshot = applyImporterProgressDisplayHints(
+		const hintedSnapshot = applyReprintProgressDisplayHints(
 			downloadingSqlSnapshot!,
 			'db-sync',
 			5000
 		);
 
-		expect( formatImporterProgressSnapshot( hintedSnapshot, 'Downloading', 8 ) ).toBe(
+		expect( formatReprintProgressSnapshot( hintedSnapshot, 'Downloading', 8 ) ).toBe(
 			'Analyzing SQL · 10.2 MB received · 8s'
 		);
 	} );
 
-	it( 'accumulates bytes across request restarts when the importer heartbeat resets', () => {
-		const firstRequest = updateImporterProgressSnapshot( {
+	it( 'accumulates bytes across request restarts when the reprint heartbeat resets', () => {
+		const firstRequest = updateReprintProgressSnapshot( {
 			heartbeat: true,
 			bytes_received: 1024 * 1024 * 6,
 		} );
-		const secondRequest = updateImporterProgressSnapshot(
+		const secondRequest = updateReprintProgressSnapshot(
 			{
 				type: 'symlink_follow',
 				directory: '/wordpress/plugins/jetpack/15.7-a.7',
 			},
 			firstRequest!
 		);
-		const restartedHeartbeat = updateImporterProgressSnapshot(
+		const restartedHeartbeat = updateReprintProgressSnapshot(
 			{
 				heartbeat: true,
 				bytes_received: 1024 * 512,
@@ -136,23 +136,23 @@ describe( 'formatImporterJsonlProgress', () => {
 		);
 
 		expect(
-			formatImporterProgressSnapshot( restartedHeartbeat!, 'Downloading essential files', 7 )
+			formatReprintProgressSnapshot( restartedHeartbeat!, 'Downloading essential files', 7 )
 		).toBe(
 			'Indexing remote files · 6.5 MB received · following symlink .../plugins/jetpack/15.7-a.7 · 7s'
 		);
 	} );
 
 	it( 'uses raw file and byte counts without accumulating across restarts', () => {
-		const first = updateImporterProgressSnapshot( {
+		const first = updateReprintProgressSnapshot( {
 			downloaded_files: 42,
 			total_files: 100,
 			downloaded_bytes: 1024 * 1024 * 12,
 			total_bytes: 1024 * 1024 * 50,
 		} );
-		// Importer restarts — files_done drops because files_imported resets
+		// reprint restarts — files_done drops because files_imported resets
 		// before the batch offset advances.  The high-water mark holds so the
 		// displayed count never goes backward.
-		const afterRestart = updateImporterProgressSnapshot(
+		const afterRestart = updateReprintProgressSnapshot(
 			{
 				downloaded_files: 5,
 				downloaded_bytes: 1024 * 1024 * 2,
@@ -163,21 +163,21 @@ describe( 'formatImporterJsonlProgress', () => {
 		expect( afterRestart!.downloadedFiles ).toBe( 42 );
 		expect( afterRestart!.downloadedBytes ).toBe( 1024 * 1024 * 12 );
 		expect( afterRestart!.totalFiles ).toBe( 100 );
-		expect( formatImporterProgressSnapshot( afterRestart!, 'Essential files', 20 ) ).toBe(
+		expect( formatReprintProgressSnapshot( afterRestart!, 'Essential files', 20 ) ).toBe(
 			'Essential files · 42/100 files · 12.0 MB/50.0 MB · 20s'
 		);
 	} );
 
-	it( 'always uses the latest files_total from the importer', () => {
-		const first = updateImporterProgressSnapshot( {
+	it( 'always uses the latest files_total from reprint', () => {
+		const first = updateReprintProgressSnapshot( {
 			total_files: 200,
 		} );
-		const updated = updateImporterProgressSnapshot( { total_files: 300 }, first! );
+		const updated = updateReprintProgressSnapshot( { total_files: 300 }, first! );
 		expect( updated!.totalFiles ).toBe( 300 );
 	} );
 
-	it( 'applies exact indexed progress from the local importer index', () => {
-		const staleSnapshot = updateImporterProgressSnapshot( {
+	it( 'applies exact indexed progress from the local reprint index', () => {
+		const staleSnapshot = updateReprintProgressSnapshot( {
 			files_done: 12000,
 			files_total: 78000,
 		} );
@@ -185,23 +185,23 @@ describe( 'formatImporterJsonlProgress', () => {
 		const repairedSnapshot = applyIndexedEntryProgress( staleSnapshot!, 18500 );
 
 		expect( repairedSnapshot.downloadedFiles ).toBe( 18500 );
-		expect( formatImporterProgressSnapshot( repairedSnapshot, 'Files', 12 ) ).toBe(
+		expect( formatReprintProgressSnapshot( repairedSnapshot, 'Files', 12 ) ).toBe(
 			'Files · 18500/78000 files · 12s'
 		);
 	} );
 
 	it( 'prefers phase text over a generic starting status', () => {
-		const snapshot = updateImporterProgressSnapshot( {
+		const snapshot = updateReprintProgressSnapshot( {
 			status: 'starting',
 			phase: 'fetch',
 		} );
-		expect( formatImporterProgressSnapshot( snapshot!, 'Downloading essential files', 4 ) ).toBe(
+		expect( formatReprintProgressSnapshot( snapshot!, 'Downloading essential files', 4 ) ).toBe(
 			'Downloading essential files · starting · 4s'
 		);
 	} );
 
 	it( 'uses the indexing label for symlink-follow progress even after the default starting phase', () => {
-		const snapshot = updateImporterProgressSnapshot(
+		const snapshot = updateReprintProgressSnapshot(
 			{
 				type: 'symlink_follow',
 				directory: '/wordpress/themes/twentytwentyone/2.7',
@@ -209,13 +209,13 @@ describe( 'formatImporterJsonlProgress', () => {
 			{ phase: 'starting' }
 		);
 
-		expect( formatImporterProgressSnapshot( snapshot!, 'Downloading files', 60 ) ).toBe(
+		expect( formatReprintProgressSnapshot( snapshot!, 'Downloading files', 60 ) ).toBe(
 			'Indexing remote files · following symlink .../themes/twentytwentyone/2.7 · 1m 0s'
 		);
 	} );
 
 	it( 'does not surface resuming lifecycle events to the user', () => {
-		const snapshot = updateImporterProgressSnapshot( {
+		const snapshot = updateReprintProgressSnapshot( {
 			type: 'lifecycle',
 			event: 'resuming',
 			command: 'files-sync',
@@ -226,18 +226,18 @@ describe( 'formatImporterJsonlProgress', () => {
 	} );
 
 	it( 'formats symlink-follow events as progress details', () => {
-		const snapshot = updateImporterProgressSnapshot( {
+		const snapshot = updateReprintProgressSnapshot( {
 			type: 'symlink_follow',
 			directory: '/wordpress/plugins/jetpack/15.7-a.7',
 		} );
-		expect( formatImporterProgressSnapshot( snapshot!, 'Downloading essential files', 8 ) ).toBe(
+		expect( formatReprintProgressSnapshot( snapshot!, 'Downloading essential files', 8 ) ).toBe(
 			'Indexing remote files · following symlink .../plugins/jetpack/15.7-a.7 · 8s'
 		);
 	} );
 
 	it( 'ignores the final response envelope records', () => {
 		expect(
-			formatImporterJsonlProgress(
+			formatReprintJsonlProgress(
 				{
 					http_code: 200,
 					data: { ok: true },
@@ -252,7 +252,7 @@ describe( 'formatImporterJsonlProgress', () => {
 		const tempDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-import-progress-' ) );
 		const indexPath = path.join( tempDir, '.import-index.jsonl' );
 		const updatesPath = path.join( tempDir, '.import-index-updates.jsonl' );
-		const tracker = new ImporterIndexProgressTracker( tempDir );
+		const tracker = new ReprintIndexProgressTracker( tempDir );
 
 		try {
 			fs.writeFileSync( indexPath, `${ buildIndexLine( '/a' ) }\n` );
@@ -275,7 +275,7 @@ describe( 'formatImporterJsonlProgress', () => {
 		const tempDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-import-progress-' ) );
 		const indexPath = path.join( tempDir, '.import-index.jsonl' );
 		const updatesPath = path.join( tempDir, '.import-index-updates.jsonl' );
-		const tracker = new ImporterIndexProgressTracker( tempDir );
+		const tracker = new ReprintIndexProgressTracker( tempDir );
 
 		try {
 			fs.writeFileSync( indexPath, `${ buildIndexLine( '/a' ) }\n` );

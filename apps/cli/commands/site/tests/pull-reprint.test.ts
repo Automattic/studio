@@ -10,16 +10,16 @@ import {
 	getApiUrl,
 	getImportKey,
 	inferSiteNameFromUrl,
-	migrateLegacyImporterLayout,
+	migrateLegacyReprintLayout,
 	normalizeImportUrl,
-	parseImporterJson,
+	parseReprintJson,
 	prepareSkippedEarlierState,
 	repairBlockingRawImportPaths,
 	shouldRefreshFlattenedSite,
 	shouldRestartFilesSyncIndex,
-} from '../pull-streaming';
+} from '../pull-reprint';
 
-describe( 'CLI: studio site pull-streaming helpers', () => {
+describe( 'CLI: studio site pull-reprint helpers', () => {
 	it( 'normalizes URLs by stripping hashes and trailing slashes', () => {
 		expect( normalizeImportUrl( 'https://example.com/foo//#section' ) ).toBe(
 			'https://example.com/foo'
@@ -61,7 +61,7 @@ describe( 'CLI: studio site pull-streaming helpers', () => {
 
 	it( 'parses the JSON envelope from the last stdout line', () => {
 		expect(
-			parseImporterJson( {
+			parseReprintJson( {
 				stdout: '{"ok":true,"data":{"protocol_version":1}}',
 				stderr: '',
 			} as never )
@@ -116,7 +116,7 @@ describe( 'CLI: studio site pull-streaming helpers', () => {
 				],
 				1
 			)
-		).toContain( 'studio site pull-streaming --list-wpcom-sites' );
+		).toContain( 'studio site pull-reprint --list-wpcom-sites' );
 	} );
 
 	it( 'restarts files-sync indexing only when the saved state has no resumable cursor', () => {
@@ -234,7 +234,7 @@ describe( 'CLI: studio site pull-streaming helpers', () => {
 			fs.writeFileSync( path.join( legacyRawDirectory, 'wp-content', 'index.php' ), '<?php' );
 
 			expect(
-				migrateLegacyImporterLayout( technicalSiteDirectory, stateDirectory, rawDirectory )
+				migrateLegacyReprintLayout( technicalSiteDirectory, stateDirectory, rawDirectory )
 			).toBe( true );
 			expect( fs.existsSync( path.join( stateDirectory, '.import-state.json' ) ) ).toBe( true );
 			expect( fs.existsSync( path.join( stateDirectory, '.import-remote-index.jsonl' ) ) ).toBe(

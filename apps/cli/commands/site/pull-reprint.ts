@@ -1,8 +1,8 @@
 /**
- * CLI command: studio site pull-streaming
+ * CLI command: studio site pull-reprint
  *
  * Imports a remote WordPress site into a local Studio site using the
- * streaming site migration protocol and the importer's two-phase file
+ * streaming site migration protocol and reprint's two-phase file
  * filtering support.
  */
 import crypto from 'crypto';
@@ -32,7 +32,7 @@ import { getSiteUrl, updateSiteAutoStart, updateSiteLatestCliPid } from 'cli/lib
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import {
 	type ReprintProcessResult,
-	runImporterCommandUntilComplete,
+	runReprintCommandUntilComplete,
 } from 'cli/lib/import/migration-client';
 import {
 	loadImportedRuntimeStartOptions,
@@ -96,7 +96,7 @@ interface ImportMetadata {
 	secret?: string;
 }
 
-interface ImporterStateSnapshot {
+interface ReprintStateSnapshot {
 	command?: string | null;
 	status?: string | null;
 	cursor?: unknown;
@@ -195,7 +195,7 @@ function formatServerStartErrorDetails( siteId: string | undefined, error: unkno
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function parseImporterJson( result: ReprintProcessResult ): any {
+export function parseReprintJson( result: ReprintProcessResult ): any {
 	// ReprintProcessResult.stdout now contains only the last line from reprint's
 	// JSON-L output (the result envelope), not the entire stream.
 	const raw = result.stdout.trim();
@@ -233,7 +233,7 @@ function getMetadataPath( technicalSiteDirectory: string ): string {
 	return path.join( technicalSiteDirectory, 'import.json' );
 }
 
-function getImporterStatePath( stateDirectory: string ): string {
+function getReprintStatePath( stateDirectory: string ): string {
 	return path.join( stateDirectory, '.import-state.json' );
 }
 
@@ -279,7 +279,7 @@ function moveDirectoryContents( sourceDirectory: string, targetDirectory: string
 	return moved;
 }
 
-export function migrateLegacyImporterLayout(
+export function migrateLegacyReprintLayout(
 	technicalSiteDirectory: string,
 	stateDirectory: string,
 	rawDirectory: string
@@ -322,10 +322,10 @@ function readImportMetadata( metadataPath: string ): ImportMetadata | null {
 	return metadata;
 }
 
-function readImporterState( stateDirectory: string ): ImporterStateSnapshot | null {
+function readReprintState( stateDirectory: string ): ReprintStateSnapshot | null {
 	let raw: string;
 	try {
-		raw = fs.readFileSync( getImporterStatePath( stateDirectory ), 'utf-8' );
+		raw = fs.readFileSync( getReprintStatePath( stateDirectory ), 'utf-8' );
 	} catch ( error: unknown ) {
 		if ( ( error as NodeJS.ErrnoException ).code === 'ENOENT' ) {
 			return null;
@@ -333,14 +333,14 @@ function readImporterState( stateDirectory: string ): ImporterStateSnapshot | nu
 		throw error;
 	}
 
-	return JSON.parse( raw ) as ImporterStateSnapshot;
+	return JSON.parse( raw ) as ReprintStateSnapshot;
 }
 
-function updateImporterState(
+function updateReprintState(
 	stateDirectory: string,
 	update: ( state: Record< string, unknown > ) => Record< string, unknown >
 ): void {
-	const statePath = getImporterStatePath( stateDirectory );
+	const statePath = getReprintStatePath( stateDirectory );
 	if ( ! fs.existsSync( statePath ) ) {
 		return;
 	}
@@ -349,7 +349,7 @@ function updateImporterState(
 	try {
 		currentState = JSON.parse( fs.readFileSync( statePath, 'utf-8' ) ) as Record< string, unknown >;
 	} catch {
-		// Leave importer state untouched if it cannot be parsed.
+		// Leave reprint state untouched if it cannot be parsed.
 		return;
 	}
 
@@ -357,7 +357,7 @@ function updateImporterState(
 	fs.writeFileSync( statePath, JSON.stringify( nextState, null, 2 ) + '\n' );
 }
 
-function decodeImporterStatePath( value: string | null | undefined ): string | null {
+function decodeReprintStatePath( value: string | null | undefined ): string | null {
 	if ( ! value ) {
 		return null;
 	}
@@ -374,8 +374,8 @@ function decodeImporterStatePath( value: string | null | undefined ): string | n
 }
 
 function getRequiredRawRootDirectoryNames( stateDirectory: string ): string[] {
-	const state = readImporterState( stateDirectory ) as
-		| ( ImporterStateSnapshot & Record< string, unknown > )
+	const state = readReprintState( stateDirectory ) as
+		| ( ReprintStateSnapshot & Record< string, unknown > )
 		| null;
 	const preflight = state?.preflight?.data as Record< string, unknown > | undefined;
 	const wpDetect = preflight?.wp_detect as Record< string, unknown > | undefined;
@@ -389,7 +389,7 @@ function getRequiredRawRootDirectoryNames( stateDirectory: string ): string[] {
 				return null;
 			}
 
-			return decodeImporterStatePath( typeof root.path === 'string' ? root.path : null );
+			return decodeReprintStatePath( typeof root.path === 'string' ? root.path : null );
 		} )
 		.concat(
 			[
@@ -480,7 +480,7 @@ export function shouldRefreshFlattenedSite(
 }
 
 export function shouldRestartFilesSyncIndex( stateDirectory: string ): boolean {
-	const state = readImporterState( stateDirectory );
+	const state = readReprintState( stateDirectory );
 	if ( ! state ) {
 		return false;
 	}
@@ -583,7 +583,7 @@ export function formatWpComSitesList(
 		lines.push(
 			`... and ${
 				sites.length - visibleSites.length
-			} more. Run \`studio site pull-streaming --list-wpcom-sites\` to see the full list.`
+			} more. Run \`studio site pull-reprint --list-wpcom-sites\` to see the full list.`
 		);
 	}
 
@@ -809,7 +809,7 @@ async function runPreflight(
 
 	let preflightResult: ReprintProcessResult;
 	try {
-		preflightResult = await runImporterCommandUntilComplete(
+		preflightResult = await runReprintCommandUntilComplete(
 			metadata.stateDirectory,
 			metadata.rawDirectory,
 			[
@@ -836,7 +836,7 @@ async function runPreflight(
 
 	let envelope;
 	try {
-		envelope = parseImporterJson( preflightResult );
+		envelope = parseReprintJson( preflightResult );
 	} catch {
 		throw new ImportError(
 			__( 'The remote site did not respond with a recognized format.' ) +
@@ -916,7 +916,7 @@ export function prepareSkippedEarlierState( metadata: ImportMetadata ): void {
 		return;
 	}
 
-	updateImporterState( metadata.stateDirectory, ( state ) => ( {
+	updateReprintState( metadata.stateDirectory, ( state ) => ( {
 		...state,
 		command: 'files-sync',
 		status: 'complete',
@@ -926,7 +926,7 @@ export function prepareSkippedEarlierState( metadata: ImportMetadata ): void {
 }
 
 function resetEssentialFilesRepairState( stateDirectory: string ): void {
-	const existingState = readImporterState( stateDirectory ) as Record< string, unknown > | null;
+	const existingState = readReprintState( stateDirectory ) as Record< string, unknown > | null;
 	const preflight = existingState?.preflight;
 
 	for ( const fileName of [
@@ -939,7 +939,7 @@ function resetEssentialFilesRepairState( stateDirectory: string ): void {
 		fs.rmSync( path.join( stateDirectory, fileName ), { force: true } );
 	}
 
-	const statePath = getImporterStatePath( stateDirectory );
+	const statePath = getReprintStatePath( stateDirectory );
 	if ( preflight ) {
 		fs.writeFileSync( statePath, JSON.stringify( { preflight }, null, 2 ) + '\n' );
 	} else {
@@ -955,7 +955,7 @@ function getDownloadedSqlDumpPath( metadata: ImportMetadata ): string {
  * Detects missing critical artifacts in a completed import and rolls back
  * to an earlier stage so the next run can recover.
  *
- * This runs at the start of every `pull-streaming` invocation.  When an
+ * This runs at the start of every `pull-reprint` invocation.  When an
  * import has already reached the 'completed' stage, we verify that the two
  * files required to start the site still exist: the runtime blueprint and
  * the SQLite database.  If either was deleted (by the user, another tool,
@@ -1019,7 +1019,7 @@ async function refreshFlattenedSiteDirectory(
 	>,
 	verbose: boolean
 ): Promise< void > {
-	await runImporterCommandUntilComplete(
+	await runReprintCommandUntilComplete(
 		metadata.stateDirectory,
 		metadata.rawDirectory,
 		[
@@ -1114,7 +1114,7 @@ function printCompletionMessage( metadata: ImportMetadata ): void {
 }
 
 function printResumeMessage( url: string, providedName?: string, requiresSecret = false ): void {
-	const command = [ 'studio site pull-streaming', `--url ${ url }` ];
+	const command = [ 'studio site pull-reprint', `--url ${ url }` ];
 	if ( requiresSecret ) {
 		command.push( '--secret <secret>' );
 	}
@@ -1168,7 +1168,7 @@ async function abortImport(
 		);
 	}
 
-	migrateLegacyImporterLayout(
+	migrateLegacyReprintLayout(
 		metadata.technicalSiteDirectory,
 		metadata.stateDirectory,
 		metadata.rawDirectory
@@ -1213,7 +1213,7 @@ async function restartUnresumableFilesSync(
 			'Restarting remote file indexing before resume because the previous run did not save a resumable cursor.'
 		)
 	);
-	await runImporterCommandUntilComplete(
+	await runReprintCommandUntilComplete(
 		metadata.stateDirectory,
 		metadata.rawDirectory,
 		buildFilesSyncArgs( apiUrl, secret, [ '--abort' ] ),
@@ -1311,14 +1311,14 @@ export async function runCommand(
 	const apiUrl = getApiUrl( metadata.normalizedUrl );
 
 	if (
-		migrateLegacyImporterLayout(
+		migrateLegacyReprintLayout(
 			metadata.technicalSiteDirectory,
 			metadata.stateDirectory,
 			metadata.rawDirectory
 		)
 	) {
 		logger.reportWarning(
-			__( 'Recovered importer state from an older Studio runtime layout before continuing.' )
+			__( 'Recovered reprint state from an older Studio runtime layout before continuing.' )
 		);
 	}
 
@@ -1399,7 +1399,7 @@ export async function runCommand(
 		if ( repairedRawPaths.length > 0 && hasReachedStage( metadata, 'essential-files-complete' ) ) {
 			logger.reportWarning(
 				__(
-					'Recovered a broken importer filesystem layout. Re-downloading site files and rebuilding the flattened site.'
+					'Recovered a broken reprint filesystem layout. Re-downloading site files and rebuilding the flattened site.'
 				)
 			);
 			resetEssentialFilesRepairState( metadata.stateDirectory );
@@ -1408,14 +1408,14 @@ export async function runCommand(
 			await rebuildFlattenedSiteDirectory( metadata );
 		}
 
-		const importerState = readImporterState( metadata.stateDirectory );
+		const reprintState = readReprintState( metadata.stateDirectory );
 		if (
-			! importerState?.command &&
+			! reprintState?.command &&
 			hasReachedStage( metadata, 'essential-files-complete' ) &&
 			shouldRefreshFlattenedSite( metadata )
 		) {
 			logger.reportWarning(
-				__( 'Rebuilding sute files because the importer state was reset during a previous repair.' )
+				__( 'Rebuilding sute files because the reprint state was reset during a previous repair.' )
 			);
 			metadata.stage = 'initialized';
 			saveImportMetadata( metadata );
@@ -1425,7 +1425,7 @@ export async function runCommand(
 		if ( ! hasReachedStage( metadata, 'essential-files-complete' ) ) {
 			await restartUnresumableFilesSync( metadata, apiUrl, secret, verbose );
 			logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Downloading site files…' ) );
-			await runImporterCommandUntilComplete(
+			await runReprintCommandUntilComplete(
 				metadata.stateDirectory,
 				metadata.rawDirectory,
 				buildFilesSyncArgs( apiUrl, secret, [ '--filter=essential-files', '--follow-symlinks' ] ),
@@ -1449,7 +1449,7 @@ export async function runCommand(
 
 		if ( ! hasReachedStage( metadata, 'db-downloaded' ) ) {
 			logger.reportStart( LoggerAction.DOWNLOAD_SQL, __( 'Downloading database…' ) );
-			await runImporterCommandUntilComplete(
+			await runReprintCommandUntilComplete(
 				metadata.stateDirectory,
 				metadata.rawDirectory,
 				[
@@ -1475,7 +1475,7 @@ export async function runCommand(
 
 		if ( ! hasReachedStage( metadata, 'db-applied' ) ) {
 			logger.reportStart( LoggerAction.IMPORT_SQL, __( 'Applying database…' ) );
-			await runImporterCommandUntilComplete(
+			await runReprintCommandUntilComplete(
 				metadata.stateDirectory,
 				metadata.rawDirectory,
 				[ ...buildDbApplyArgs( metadata ), `--secret=${ secret }`, '--no-adaptive' ],
@@ -1492,7 +1492,7 @@ export async function runCommand(
 
 		if ( ! hasReachedStage( metadata, 'runtime-generated' ) ) {
 			logger.reportStart( LoggerAction.URL_REWRITE, __( 'Generating runtime configuration…' ) );
-			await runImporterCommandUntilComplete(
+			await runReprintCommandUntilComplete(
 				metadata.stateDirectory,
 				metadata.rawDirectory,
 				[
@@ -1565,21 +1565,21 @@ export async function runCommand(
 
 		if ( ! hasReachedStage( metadata, 'completed' ) ) {
 			if ( hasSkippedFiles( metadata ) ) {
-				// Only prepare the state for skipped-earlier if the importer
+				// Only prepare the state for skipped-earlier if reprint
 				// isn't already mid-way through a skipped-earlier run.  When
 				// it is (status=partial, stage=fetch-skipped), the state file
 				// already encodes the resumption point and overwriting it
-				// would break the importer's validation.
-				const importerState = readImporterState( metadata.stateDirectory );
+				// would break reprint's validation.
+				const reprintState = readReprintState( metadata.stateDirectory );
 				const isResumingSkipped =
-					importerState?.stage === 'fetch-skipped' && importerState?.status !== 'complete';
+					reprintState?.stage === 'fetch-skipped' && reprintState?.status !== 'complete';
 
 				if ( ! isResumingSkipped ) {
 					prepareSkippedEarlierState( metadata );
 				}
 
 				logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Downloading remaining files…' ) );
-				await runImporterCommandUntilComplete(
+				await runReprintCommandUntilComplete(
 					metadata.stateDirectory,
 					metadata.rawDirectory,
 					buildFilesSyncArgs( apiUrl, secret, [
@@ -1609,8 +1609,8 @@ export async function runCommand(
 
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
-		command: 'pull-streaming',
-		describe: __( 'Pull a remote WordPress site using the streaming importer' ),
+		command: 'pull-reprint',
+		describe: __( 'Pull a remote WordPress site using the reprint pull tool' ),
 		builder: ( builderYargs ) => {
 			return builderYargs
 				.option( 'url', {

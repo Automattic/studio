@@ -25,19 +25,19 @@ export interface ReprintProcessResult {
 	exitCode: number;
 }
 
-export interface ImporterMount {
+export interface ReprintMount {
 	hostPath: string;
 	vfsPath: string;
 }
 
-export interface RunImporterOptions {
-	mounts?: ImporterMount[];
+export interface RunReprintOptions {
+	mounts?: ReprintMount[];
 	progressRoot?: string;
 	progressLabel?: string;
 	verboseCommands?: boolean;
 }
 
-interface ImporterProgressSnapshot {
+interface ReprintProgressSnapshot {
 	bytesReceived?: number;
 	currentRequestBytesReceived?: number;
 	downloadedBytes?: number;
@@ -54,7 +54,7 @@ interface ImporterProgressSnapshot {
 
 const SQL_ANALYZING_STALL_MS = 5000;
 
-interface ImporterIndexUpdate {
+interface ReprintIndexUpdate {
 	delete: boolean;
 	pathKey: string;
 }
@@ -105,7 +105,7 @@ function readPathKeyFromRecord( line: string ): string | undefined {
 	return readString( ( record as Record< string, unknown > ).path );
 }
 
-function readImporterIndexUpdate( line: string ): ImporterIndexUpdate | null {
+function readReprintIndexUpdate( line: string ): ReprintIndexUpdate | null {
 	const record = parseJsonlRecord( line );
 	if ( ! record || typeof record !== 'object' || Array.isArray( record ) ) {
 		return null;
@@ -125,9 +125,9 @@ function readImporterIndexUpdate( line: string ): ImporterIndexUpdate | null {
 }
 
 export function applyIndexedEntryProgress(
-	snapshot: ImporterProgressSnapshot,
+	snapshot: ReprintProgressSnapshot,
 	indexedEntries: number
-): ImporterProgressSnapshot {
+): ReprintProgressSnapshot {
 	const exactDownloadedFiles =
 		snapshot.totalFiles !== undefined
 			? Math.min( indexedEntries, snapshot.totalFiles )
@@ -142,7 +142,7 @@ export function applyIndexedEntryProgress(
 	};
 }
 
-export class ImporterIndexProgressTracker {
+export class ReprintIndexProgressTracker {
 	private readonly indexFilePath: string;
 	private readonly updatesFilePath: string;
 	private baselinePathKeys = new Set< string >();
@@ -209,7 +209,7 @@ export class ImporterIndexProgressTracker {
 		try {
 			fileDescriptor = fs.openSync( this.indexFilePath, 'r' );
 		} catch {
-			// Ignore missing or unreadable index files — the importer creates them lazily.
+			// Ignore missing or unreadable index files — reprint creates them lazily.
 			this.exactIndexedEntries = 0;
 			return;
 		}
@@ -260,14 +260,14 @@ export class ImporterIndexProgressTracker {
 		this.updatesLineRemainder = lines.pop() ?? '';
 
 		for ( const line of lines ) {
-			const update = readImporterIndexUpdate( line );
+			const update = readReprintIndexUpdate( line );
 			if ( update ) {
 				this.applyUpdate( update );
 			}
 		}
 	}
 
-	private applyUpdate( update: ImporterIndexUpdate ): void {
+	private applyUpdate( update: ReprintIndexUpdate ): void {
 		const previousExists = this.pendingPathStates.has( update.pathKey )
 			? this.pendingPathStates.get( update.pathKey )!
 			: this.baselinePathKeys.has( update.pathKey );
@@ -306,7 +306,7 @@ function readNumber( value: unknown ): number | undefined {
 		return Number.isFinite( value ) ? value : undefined;
 	}
 
-	// The importer's PHP json_encode may emit numeric values as strings.
+	// reprint's PHP json_encode may emit numeric values as strings.
 	if ( typeof value === 'string' && value.length > 0 ) {
 		const parsed = Number( value );
 		return Number.isFinite( parsed ) ? parsed : undefined;
@@ -325,7 +325,7 @@ function formatElapsedSeconds( elapsedSeconds: number ): string {
 	return mins > 0 ? `${ mins }m ${ secs }s` : `${ secs }s`;
 }
 
-function mapImporterPhase( phase: string | undefined ): string | undefined {
+function mapReprintPhase( phase: string | undefined ): string | undefined {
 	switch ( phase ) {
 		case 'index':
 			return 'indexing remote files';
@@ -359,7 +359,7 @@ function getDefaultPhaseForCommand( command: string | undefined ): string | unde
 	}
 }
 
-function shortenImporterPath( value: string | undefined ): string | undefined {
+function shortenReprintPath( value: string | undefined ): string | undefined {
 	if ( ! value ) {
 		return undefined;
 	}
@@ -372,10 +372,10 @@ function shortenImporterPath( value: string | undefined ): string | undefined {
 	return `.../${ segments.slice( -3 ).join( '/' ) }`;
 }
 
-export function updateImporterProgressSnapshot(
+export function updateReprintProgressSnapshot(
 	record: unknown,
-	snapshot: ImporterProgressSnapshot = {}
-): ImporterProgressSnapshot | null {
+	snapshot: ReprintProgressSnapshot = {}
+): ReprintProgressSnapshot | null {
 	if ( ! record || typeof record !== 'object' || Array.isArray( record ) ) {
 		return null;
 	}
@@ -386,21 +386,21 @@ export function updateImporterProgressSnapshot(
 		return null;
 	}
 
-	const nextSnapshot: ImporterProgressSnapshot = { ...snapshot };
+	const nextSnapshot: ReprintProgressSnapshot = { ...snapshot };
 	const type = readString( object.type );
 	if ( type ) {
 		nextSnapshot.event = type;
 	}
 
-	const phase = mapImporterPhase( readString( object.phase ) );
+	const phase = mapReprintPhase( readString( object.phase ) );
 	if ( phase ) {
 		nextSnapshot.phase = phase;
 	}
 
 	if ( type === 'lifecycle' ) {
-		nextSnapshot.phase = mapImporterPhase( readString( object.stage ) ) ?? nextSnapshot.phase;
+		nextSnapshot.phase = mapReprintPhase( readString( object.stage ) ) ?? nextSnapshot.phase;
 		// Don't overwrite the last meaningful message with "resuming" — the user
-		// doesn't need to know about internal importer restarts.
+		// doesn't need to know about internal reprint restarts.
 		const event = readString( object.event );
 		if ( event && event !== 'resuming' ) {
 			nextSnapshot.message = event;
@@ -410,7 +410,7 @@ export function updateImporterProgressSnapshot(
 
 	if ( type === 'symlink_follow' ) {
 		nextSnapshot.phase = 'indexing remote files';
-		nextSnapshot.message = `following symlink ${ shortenImporterPath(
+		nextSnapshot.message = `following symlink ${ shortenReprintPath(
 			readString( object.directory )
 		) }`;
 		return nextSnapshot;
@@ -418,7 +418,7 @@ export function updateImporterProgressSnapshot(
 
 	if ( type === 'symlink_follow_rejected' ) {
 		nextSnapshot.phase = 'indexing remote files';
-		nextSnapshot.message = `skipped symlink ${ shortenImporterPath(
+		nextSnapshot.message = `skipped symlink ${ shortenReprintPath(
 			readString( object.directory )
 		) }`;
 		return nextSnapshot;
@@ -437,9 +437,9 @@ export function updateImporterProgressSnapshot(
 		nextSnapshot.message = status;
 	}
 
-	// The importer emits files_done and files_total over stdout, but files_done
+	// reprint emits files_done and files_total over stdout, but files_done
 	// is only a coarse mid-batch counter.  The exact committed-entry count comes
-	// from the local importer index files and is merged in by createProgressReporter().
+	// from the local reprint index files and is merged in by createProgressReporter().
 	const downloadedFiles =
 		readNumber( object.files_done ) ??
 		readNumber( object.downloaded_files ) ??
@@ -456,7 +456,7 @@ export function updateImporterProgressSnapshot(
 	const statementsExecuted = readNumber( object.statements_executed );
 	const statementsTotal = readNumber( object.statements_total );
 
-	// files_done from the importer can briefly drop on exit-code-2 restarts
+	// files_done from reprint can briefly drop on exit-code-2 restarts
 	// (files_imported resets to 0 before the batch offset advances).  Hold
 	// the high-water mark so the displayed count never goes backward.
 	if ( downloadedFiles !== undefined ) {
@@ -505,13 +505,13 @@ export function updateImporterProgressSnapshot(
 	return nextSnapshot;
 }
 
-export function formatImporterProgressSnapshot(
-	snapshot: ImporterProgressSnapshot,
+export function formatReprintProgressSnapshot(
+	snapshot: ReprintProgressSnapshot,
 	progressLabel: string,
 	elapsedSeconds: number
 ): string | null {
 	const elapsed = formatElapsedSeconds( elapsedSeconds );
-	// Use the importer's phase as the label when it describes what's
+	// Use reprint's phase as the label when it describes what's
 	// actually happening (e.g. "indexing remote files" instead of the
 	// generic "Downloading essential files" during the index phase).
 	const label =
@@ -565,24 +565,24 @@ export function formatImporterProgressSnapshot(
 	return segments.join( ' · ' );
 }
 
-export function formatImporterJsonlProgress(
+export function formatReprintJsonlProgress(
 	record: unknown,
 	progressLabel: string,
 	elapsedSeconds: number
 ): string | null {
-	const snapshot = updateImporterProgressSnapshot( record );
+	const snapshot = updateReprintProgressSnapshot( record );
 	if ( ! snapshot ) {
 		return null;
 	}
 
-	return formatImporterProgressSnapshot( snapshot, progressLabel, elapsedSeconds );
+	return formatReprintProgressSnapshot( snapshot, progressLabel, elapsedSeconds );
 }
 
-export function applyImporterProgressDisplayHints(
-	snapshot: ImporterProgressSnapshot,
+export function applyReprintProgressDisplayHints(
+	snapshot: ReprintProgressSnapshot,
 	command: string | undefined,
 	idleMs: number
-): ImporterProgressSnapshot {
+): ReprintProgressSnapshot {
 	if (
 		command !== 'db-sync' ||
 		snapshot.phase !== 'downloading' ||
@@ -599,15 +599,15 @@ export function applyImporterProgressDisplayHints(
 	};
 }
 
-function getImporterChildPath(): string {
-	for ( const filename of [ 'importer-child.mjs', 'importer-child.js' ] ) {
+function getReprintChildPath(): string {
+	for ( const filename of [ 'reprint-child.mjs', 'reprint-child.js' ] ) {
 		const candidate = path.resolve( import.meta.dirname, filename );
 		if ( fs.existsSync( candidate ) ) {
 			return candidate;
 		}
 	}
 
-	return path.resolve( import.meta.dirname, 'importer-child.mjs' );
+	return path.resolve( import.meta.dirname, 'reprint-child.mjs' );
 }
 
 function createProgressReporter(
@@ -620,16 +620,16 @@ function createProgressReporter(
 ) {
 	const indexProgressTracker =
 		command === 'files-sync' && progressRoot
-			? new ImporterIndexProgressTracker( progressRoot )
+			? new ReprintIndexProgressTracker( progressRoot )
 			: undefined;
 	let stdoutLineBuffer = '';
-	let progressSnapshot: ImporterProgressSnapshot | null = defaultPhase
+	let progressSnapshot: ReprintProgressSnapshot | null = defaultPhase
 		? { phase: defaultPhase }
 		: null;
 	let lastRenderedSecond = -1;
 	let lastTransferredBytes = 0;
 	let lastTransferProgressAtMs = startTime;
-	// Once the importer reaches the streaming/fetch phase, lock the
+	// Once reprint reaches the streaming/fetch phase, lock the
 	// displayed label to progressLabel.  Without this, exit-code-2
 	// restarts briefly cycle through index → diff → fetch again,
 	// causing the label to blink from "Downloading files" to
@@ -662,7 +662,7 @@ function createProgressReporter(
 		}
 	};
 
-	const snapshotForDisplay = (): ImporterProgressSnapshot => {
+	const snapshotForDisplay = (): ReprintProgressSnapshot => {
 		if ( ! progressSnapshot ) {
 			return {};
 		}
@@ -674,7 +674,7 @@ function createProgressReporter(
 			displaySnapshot = { ...displaySnapshot, phase: 'streaming' };
 		}
 
-		return applyImporterProgressDisplayHints(
+		return applyReprintProgressDisplayHints(
 			displaySnapshot,
 			command,
 			Date.now() - lastTransferProgressAtMs
@@ -688,13 +688,13 @@ function createProgressReporter(
 
 		for ( const line of lines ) {
 			const record = parseJsonlRecord( line );
-			const nextSnapshot = updateImporterProgressSnapshot( record, progressSnapshot ?? undefined );
+			const nextSnapshot = updateReprintProgressSnapshot( record, progressSnapshot ?? undefined );
 			if ( nextSnapshot ) {
 				progressSnapshot = nextSnapshot;
 			}
 			mergeExactIndexedProgress();
 			noteTransferProgress();
-			const progressMessage = formatImporterProgressSnapshot(
+			const progressMessage = formatReprintProgressSnapshot(
 				snapshotForDisplay(),
 				progressLabel,
 				Math.floor( ( Date.now() - startTime ) / 1000 )
@@ -733,7 +733,7 @@ function createProgressReporter(
 
 			mergeExactIndexedProgress();
 			noteTransferProgress();
-			const progressMessage = formatImporterProgressSnapshot(
+			const progressMessage = formatReprintProgressSnapshot(
 				snapshotForDisplay(),
 				progressLabel,
 				elapsedSeconds
@@ -757,16 +757,16 @@ function createProgressReporter(
 
 type ProgressReporter = ReturnType< typeof createProgressReporter >;
 
-async function runImporterCommand(
+async function runReprintCommand(
 	pharPath: string,
 	stateDir: string,
 	docroot: string,
 	tmpDir: string,
 	args: string[],
-	options: RunImporterOptions,
+	options: RunReprintOptions,
 	progressReporter: ProgressReporter
 ): Promise< ReprintProcessResult > {
-	const childPath = getImporterChildPath();
+	const childPath = getReprintChildPath();
 
 	if ( options.verboseCommands ) {
 		const mountsSuffix =
@@ -831,7 +831,7 @@ async function runImporterCommand(
 				}
 
 				if ( msg.type === 'error' ) {
-					reject( new Error( msg.message || 'importer child process error' ) );
+					reject( new Error( msg.message || 'reprint child process error' ) );
 				}
 			}
 		);
@@ -852,7 +852,7 @@ async function runImporterCommand(
 				const details = childStderr
 					? `Child process stderr:\n${ childStderr }`
 					: 'No error details available';
-				reject( new Error( `importer child process exited with code ${ code }. ${ details }` ) );
+				reject( new Error( `reprint child process exited with code ${ code }. ${ details }` ) );
 			}
 		} );
 
@@ -872,12 +872,12 @@ async function runImporterCommand(
 	} );
 }
 
-export async function runImporterCommandUntilComplete(
+export async function runReprintCommandUntilComplete(
 	stateDir: string,
 	docroot: string,
 	args: string[],
 	onProgress?: ( output: string ) => void,
-	options: RunImporterOptions = {}
+	options: RunReprintOptions = {}
 ): Promise< ReprintProcessResult > {
 	const pharPath = getBundledReprintPhar();
 	const tmpDir = path.join( path.dirname( stateDir ), 'tmp' );
@@ -888,7 +888,7 @@ export async function runImporterCommandUntilComplete(
 	const startTime = Date.now();
 
 	// Create the progress reporter once so cumulative counters (bytes received,
-	// file counts) survive across importer restarts (exit code 2).
+	// file counts) survive across reprint restarts (exit code 2).
 	const progressReporter = createProgressReporter(
 		args[ 0 ],
 		options.progressRoot ?? stateDir,
@@ -902,7 +902,7 @@ export async function runImporterCommandUntilComplete(
 
 	try {
 		do {
-			lastResult = await runImporterCommand(
+			lastResult = await runReprintCommand(
 				pharPath,
 				stateDir,
 				docroot,

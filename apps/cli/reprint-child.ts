@@ -1,5 +1,5 @@
 /**
- * Importer Child Process
+ * Reprint Child Process
  *
  * Runs reprint.phar via PHP WASM in an isolated child process so that
  * the parent's event loop stays responsive for Ctrl+C handling and
@@ -26,7 +26,7 @@ function sendAndFlush( msg: Record< string, unknown > ): Promise< void > {
 	} );
 }
 
-interface ImporterMount {
+interface ReprintMount {
 	hostPath: string;
 	vfsPath: string;
 }
@@ -38,10 +38,10 @@ interface RunMessage {
 	docroot: string;
 	tmpDir: string;
 	args: string[];
-	mounts?: ImporterMount[];
+	mounts?: ReprintMount[];
 }
 
-type ImporterChildMessage =
+type ReprintChildMessage =
 	| {
 			type: 'result';
 			stdout: string;
@@ -61,7 +61,7 @@ type ImporterChildMessage =
 			chunk: string;
 	  };
 
-async function mountDirectory( php: PHP, mount: ImporterMount ) {
+async function mountDirectory( php: PHP, mount: ReprintMount ) {
 	php.mkdir( mount.vfsPath );
 	await php.mount( mount.vfsPath, createNodeFsMountHandler( mount.hostPath ) );
 }
@@ -92,13 +92,13 @@ async function pipePhpStream(
 			}
 
 			buffer.push( chunk );
-			await sendAndFlush( { type, chunk } satisfies ImporterChildMessage );
+			await sendAndFlush( { type, chunk } satisfies ReprintChildMessage );
 		}
 	} finally {
 		const remaining = decoder.decode();
 		if ( remaining ) {
 			buffer.push( remaining );
-			await sendAndFlush( { type, chunk: remaining } satisfies ImporterChildMessage );
+			await sendAndFlush( { type, chunk: remaining } satisfies ReprintChildMessage );
 		}
 		reader.releaseLock();
 	}
@@ -144,19 +144,19 @@ async function pipePhpStreamTrackingLastLine(
 				}
 			}
 
-			await sendAndFlush( { type, chunk } satisfies ImporterChildMessage );
+			await sendAndFlush( { type, chunk } satisfies ReprintChildMessage );
 		}
 	} finally {
 		const remaining = decoder.decode();
 		if ( remaining ) {
 			tracker.remainder += remaining;
-			await sendAndFlush( { type, chunk: remaining } satisfies ImporterChildMessage );
+			await sendAndFlush( { type, chunk: remaining } satisfies ReprintChildMessage );
 		}
 		reader.releaseLock();
 	}
 }
 
-async function runImporter( msg: RunMessage ) {
+async function runReprint( msg: RunMessage ) {
 	const { pharPath, stateDir, docroot, tmpDir, args, mounts = [] } = msg;
 
 	const id = await loadNodeRuntime( LatestSupportedPHPVersion, {
@@ -215,12 +215,12 @@ async function runImporter( msg: RunMessage ) {
 			stdout: finalLine,
 			stderr: stderrChunks.join( '' ),
 			exitCode,
-		} satisfies ImporterChildMessage );
+		} satisfies ReprintChildMessage );
 	} catch ( error ) {
 		await sendAndFlush( {
 			type: 'error',
 			message: error instanceof Error ? error.message : String( error ),
-		} satisfies ImporterChildMessage );
+		} satisfies ReprintChildMessage );
 	} finally {
 		php.exit();
 	}
@@ -232,7 +232,7 @@ process.on( 'message', async ( msg: RunMessage ) => {
 	}
 
 	try {
-		await runImporter( msg );
+		await runReprint( msg );
 	} catch ( error ) {
 		try {
 			await sendAndFlush( {

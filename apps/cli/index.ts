@@ -188,7 +188,7 @@ async function main() {
 			const [
 				{ registerCommand: registerSiteStatusCommand },
 				{ registerCommand: registerSiteCreateCommand },
-				{ registerCommand: registerSitePullStreamingCommand },
+				{ registerCommand: registerSitePullReprintCommand },
 				{ registerCommand: registerSiteListCommand },
 				{ registerCommand: registerSiteStartCommand },
 				{ registerCommand: registerSiteStopCommand },
@@ -197,7 +197,7 @@ async function main() {
 			] = await Promise.all( [
 				import( 'cli/commands/site/status' ),
 				import( 'cli/commands/site/create' ),
-				import( 'cli/commands/site/pull-streaming' ),
+				import( 'cli/commands/site/pull-reprint' ),
 				import( 'cli/commands/site/list' ),
 				import( 'cli/commands/site/start' ),
 				import( 'cli/commands/site/stop' ),
@@ -207,7 +207,7 @@ async function main() {
 
 			registerSiteStatusCommand( sitesYargs );
 			registerSiteCreateCommand( sitesYargs );
-			registerSitePullStreamingCommand( sitesYargs );
+			registerSitePullReprintCommand( sitesYargs );
 			registerSiteListCommand( sitesYargs );
 			registerSiteStartCommand( sitesYargs );
 			registerSiteStopCommand( sitesYargs );

@@ -1,3 +1,8 @@
+/**
+ * Translates reprint's output (blueprint.json, start.sh, runtime.php) into
+ * the StartServerOptions that Playground CLI expects. This is the bridge
+ * between reprint's view of the imported site and Studio's server startup.
+ */
 import fs from 'fs';
 import path from 'path';
 import { loadNodeRuntime } from '@php-wasm/node';
@@ -146,6 +151,14 @@ function mergeBlueprintConstants(
 	};
 }
 
+/**
+ * Returns the path to the imported SQLite database, renaming it if needed.
+ *
+ * reprint downloads the database as `.ht.sqlite.php` because some hosting
+ * environments serve `.sqlite` files directly over HTTP.  The `.php`
+ * extension prevents that.  Playground expects `.ht.sqlite`, so we rename
+ * it on first access.
+ */
 export function normalizeImportedSqliteDatabasePath( sitePath: string ): string {
 	const databaseDirectory = path.join( sitePath, 'wp-content', 'database' );
 	const sqlitePath = path.join( databaseDirectory, '.ht.sqlite' );

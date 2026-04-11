@@ -247,6 +247,7 @@ async function getBaseRunCLIArgs(
 		wordpressInstallMode,
 		redis: IS_JSPI_AVAILABLE,
 		memcached: IS_JSPI_AVAILABLE,
+		nativeSpawn: true,
 	};
 
 	if ( config.wpVersion ) {

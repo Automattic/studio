@@ -1,5 +1,5 @@
 /**
- * CLI command: studio site import
+ * CLI command: studio site pull-streaming
  *
  * Imports a remote WordPress site into a local Studio site using the
  * streaming site migration protocol and the importer's two-phase file
@@ -766,7 +766,7 @@ export function formatWpComSitesList(
 		lines.push(
 			`... and ${
 				sites.length - visibleSites.length
-			} more. Run \`studio site import --list-wpcom-sites\` to see the full list.`
+			} more. Run \`studio site pull-streaming --list-wpcom-sites\` to see the full list.`
 		);
 	}
 
@@ -1376,7 +1376,7 @@ function printCompletionMessage( metadata: ImportMetadata ): void {
 }
 
 function printResumeMessage( url: string, providedName?: string, requiresSecret = false ): void {
-	const command = [ 'studio site import', `--url ${ url }` ];
+	const command = [ 'studio site pull-streaming', `--url ${ url }` ];
 	if ( requiresSecret ) {
 		command.push( '--secret <secret>' );
 	}
@@ -1883,8 +1883,8 @@ export async function runCommand(
 
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
-		command: 'import',
-		describe: __( 'Import a remote WordPress site' ),
+		command: 'pull-streaming',
+		describe: __( 'Pull a remote WordPress site using the streaming importer' ),
 		builder: ( builderYargs ) => {
 			return builderYargs
 				.option( 'url', {

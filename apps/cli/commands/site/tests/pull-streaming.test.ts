@@ -19,13 +19,13 @@ import {
 	repairCompletedImportState,
 	shouldRefreshFlattenedSite,
 	shouldRestartFilesSyncIndex,
-} from '../import';
+} from '../pull-streaming';
 
 const hasSqlite3 =
 	spawnSync( 'sqlite3', [ ':memory:', 'SELECT 1;' ], { stdio: 'ignore', timeout: 5000 } ).status ===
 	0;
 
-describe( 'CLI: studio site import helpers', () => {
+describe( 'CLI: studio site pull-streaming helpers', () => {
 	it( 'normalizes URLs by stripping hashes and trailing slashes', () => {
 		expect( normalizeImportUrl( 'https://example.com/foo//#section' ) ).toBe(
 			'https://example.com/foo'
@@ -124,7 +124,7 @@ describe( 'CLI: studio site import helpers', () => {
 				],
 				1
 			)
-		).toContain( '--list-wpcom-sites' );
+		).toContain( 'studio site pull-streaming --list-wpcom-sites' );
 	} );
 
 	it( 'restarts files-sync indexing only when the saved state has no resumable cursor', () => {

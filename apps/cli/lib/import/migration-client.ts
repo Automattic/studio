@@ -963,19 +963,18 @@ async function runImporterCommandWithWasmChild(
 		let settled = false;
 		const childStderrChunks: string[] = [];
 
-		child.stderr?.on( 'data', ( chunk: Buffer ) => {
-			childStderrChunks.push( chunk.toString() );
-		} );
-
 		const sigintHandler = () => {
 			child.kill( 'SIGKILL' );
 			process.exit( 130 );
 		};
-		process.on( 'SIGINT', sigintHandler );
 
 		const cleanup = () => {
 			process.removeListener( 'SIGINT', sigintHandler );
 		};
+
+		child.stderr?.on( 'data', ( chunk: Buffer ) => {
+			childStderrChunks.push( chunk.toString() );
+		} );
 
 		child.on(
 			'message',
@@ -998,9 +997,9 @@ async function runImporterCommandWithWasmChild(
 
 				cleanup();
 				settled = true;
+				progressReporter.flush();
 
 				if ( msg.type === 'result' ) {
-					progressReporter.flush();
 					resolve( {
 						stdout: msg.stdout || '',
 						stderr: msg.stderr || '',
@@ -1034,6 +1033,10 @@ async function runImporterCommandWithWasmChild(
 				reject( new Error( `importer child process exited with code ${ code }. ${ details }` ) );
 			}
 		} );
+
+		// Register SIGINT after all event handlers are attached so that
+		// an exception between fork() and here can't leak the handler.
+		process.on( 'SIGINT', sigintHandler );
 
 		child.send( {
 			type: 'run',

@@ -345,16 +345,16 @@ function updateImporterState(
 		return;
 	}
 
+	let currentState: Record< string, unknown >;
 	try {
-		const currentState = JSON.parse( fs.readFileSync( statePath, 'utf-8' ) ) as Record<
-			string,
-			unknown
-		>;
-		const nextState = update( currentState );
-		fs.writeFileSync( statePath, JSON.stringify( nextState, null, 2 ) + '\n' );
+		currentState = JSON.parse( fs.readFileSync( statePath, 'utf-8' ) ) as Record< string, unknown >;
 	} catch {
 		// Leave importer state untouched if it cannot be parsed.
+		return;
 	}
+
+	const nextState = update( currentState );
+	fs.writeFileSync( statePath, JSON.stringify( nextState, null, 2 ) + '\n' );
 }
 
 function decodeImporterStatePath( value: string | null | undefined ): string | null {

@@ -221,9 +221,9 @@ async function runImporter( msg: RunMessage ) {
 			type: 'error',
 			message: error instanceof Error ? error.message : String( error ),
 		} satisfies ImporterChildMessage );
+	} finally {
+		php.exit();
 	}
-
-	php.exit();
 }
 
 process.on( 'message', async ( msg: RunMessage ) => {

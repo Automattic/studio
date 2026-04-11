@@ -74,6 +74,9 @@ echo json_encode( array_diff_key( $after, $before ) );
 		);
 
 		const response = await php.cli( [ 'php', '/tmp/extract-constants.php' ] );
+		// Buffering is safe here: the output is a single JSON object
+		// containing only user-defined PHP constants from runtime.php,
+		// typically a handful of key-value pairs — not an unbounded stream.
 		const stdoutChunks: string[] = [];
 		const reader = response.stdout.getReader();
 		const decoder = new TextDecoder();
@@ -265,42 +268,49 @@ export function getExtraDirectoryMountsFromImporterState(
 	const statePath = path.join( importRoot, 'state', '.import-state.json' );
 	const rawDirectory = path.join( importRoot, 'raw' );
 
-	if ( ! fs.existsSync( statePath ) ) {
-		return [];
-	}
-
+	let raw: string;
 	try {
-		const state = JSON.parse( fs.readFileSync( statePath, 'utf-8' ) ) as Record< string, unknown >;
-		const preflight = ( state.preflight as Record< string, unknown > | undefined )?.data as
-			| Record< string, unknown >
-			| undefined;
-		const runtime = preflight?.runtime as Record< string, unknown > | undefined;
-		const iniGetAll = runtime?.ini_get_all as Record< string, unknown > | undefined;
-		const autoPrepend = iniGetAll?.auto_prepend_file;
-
-		if ( typeof autoPrepend !== 'string' || ! autoPrepend.startsWith( '/' ) ) {
-			return [];
-		}
-
-		const dir = path.posix.dirname( autoPrepend );
-		if ( ! dir || dir === '/' ) {
-			return [];
-		}
-
-		// The raw download preserves full remote paths, so /scripts
-		// becomes raw/scripts on the host filesystem.
-		const hostPath = path.join( rawDirectory, dir.slice( 1 ) );
-		const resolvedHostPath = path.resolve( hostPath );
-		const resolvedRawDirectory = path.resolve( rawDirectory );
-		if ( ! resolvedHostPath.startsWith( resolvedRawDirectory + path.sep ) ) {
-			return [];
-		}
-		if ( ! fs.existsSync( hostPath ) ) {
-			return [];
-		}
-
-		return [ { hostPath, vfsPath: dir } ];
+		raw = fs.readFileSync( statePath, 'utf-8' );
 	} catch {
+		// State file may not exist yet.
 		return [];
 	}
+
+	let state: Record< string, unknown >;
+	try {
+		state = JSON.parse( raw ) as Record< string, unknown >;
+	} catch {
+		// Malformed state file — skip extra mounts rather than crashing.
+		return [];
+	}
+
+	const preflight = ( state.preflight as Record< string, unknown > | undefined )?.data as
+		| Record< string, unknown >
+		| undefined;
+	const runtime = preflight?.runtime as Record< string, unknown > | undefined;
+	const iniGetAll = runtime?.ini_get_all as Record< string, unknown > | undefined;
+	const autoPrepend = iniGetAll?.auto_prepend_file;
+
+	if ( typeof autoPrepend !== 'string' || ! autoPrepend.startsWith( '/' ) ) {
+		return [];
+	}
+
+	const dir = path.posix.dirname( autoPrepend );
+	if ( ! dir || dir === '/' ) {
+		return [];
+	}
+
+	// The raw download preserves full remote paths, so /scripts
+	// becomes raw/scripts on the host filesystem.
+	const hostPath = path.join( rawDirectory, dir.slice( 1 ) );
+	const resolvedHostPath = path.resolve( hostPath );
+	const resolvedRawDirectory = path.resolve( rawDirectory );
+	if ( ! resolvedHostPath.startsWith( resolvedRawDirectory + path.sep ) ) {
+		return [];
+	}
+	if ( ! fs.existsSync( hostPath ) ) {
+		return [];
+	}
+
+	return [ { hostPath, vfsPath: dir } ];
 }

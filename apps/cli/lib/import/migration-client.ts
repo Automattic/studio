@@ -1,7 +1,7 @@
 /**
  * Migration Client – thin wrapper around reprint.phar
  *
- * Downloads and runs the streaming-site-migration CLI tool.
+ * Runs the bundled reprint.phar streaming-site-migration CLI tool.
  *
  * Prefer native PHP when available so the importer can use host tools
  * like external sort for large indexes. Fall back to a PHP WASM child

@@ -60,17 +60,10 @@ export interface StartServerOptions {
 	useExactMountLayout?: boolean;
 }
 
-export async function startWordPressServer(
+function buildServerConfig(
 	site: SiteData,
-	logger: Logger< string >,
-	options?: StartServerOptions
-): Promise< ProcessDescription > {
-	const wordPressServerChildPath = path.resolve(
-		import.meta.dirname,
-		'wordpress-server-child.mjs'
-	);
-	const processName = getProcessName( site.id );
-
+	options?: Partial< StartServerOptions & RunBlueprintOptions >
+): ServerConfig {
 	const serverConfig: ServerConfig = {
 		siteId: site.id,
 		sitePath: site.path,
@@ -142,6 +135,21 @@ export async function startWordPressServer(
 	if ( site.enableDebugDisplay ) {
 		serverConfig.enableDebugDisplay = true;
 	}
+
+	return serverConfig;
+}
+
+export async function startWordPressServer(
+	site: SiteData,
+	logger: Logger< string >,
+	options?: StartServerOptions
+): Promise< ProcessDescription > {
+	const wordPressServerChildPath = path.resolve(
+		import.meta.dirname,
+		'wordpress-server-child.mjs'
+	);
+	const processName = getProcessName( site.id );
+	const serverConfig = buildServerConfig( site, options );
 
 	const processDesc = await startProcess( processName, wordPressServerChildPath );
 	await waitForReadyMessage( processDesc.pmId );
@@ -387,54 +395,7 @@ export async function runBlueprint(
 	);
 	const processName = getProcessName( site.id );
 
-	const serverConfig: ServerConfig = {
-		siteId: site.id,
-		sitePath: site.path,
-		port: site.port,
-		phpVersion: site.phpVersion,
-		siteTitle: site.name,
-		blueprint: {
-			contents: options.blueprint,
-			uri: options.blueprintUri,
-		},
-	};
-
-	if ( site.customDomain ) {
-		const protocol = site.enableHttps ? 'https' : 'http';
-		serverConfig.absoluteUrl = `${ protocol }://${ site.customDomain }`;
-	}
-
-	if ( site.adminUsername ) {
-		serverConfig.adminUsername = site.adminUsername;
-	}
-
-	if ( site.adminPassword ) {
-		serverConfig.adminPassword = site.adminPassword;
-	}
-
-	if ( site.adminEmail ) {
-		serverConfig.adminEmail = site.adminEmail;
-	}
-
-	if ( site.isWpAutoUpdating !== undefined ) {
-		serverConfig.isWpAutoUpdating = site.isWpAutoUpdating;
-	}
-
-	if ( options.wpVersion ) {
-		serverConfig.wpVersion = options.wpVersion;
-	}
-
-	if ( site.enableXdebug ) {
-		serverConfig.enableXdebug = true;
-	}
-
-	if ( site.enableDebugLog ) {
-		serverConfig.enableDebugLog = true;
-	}
-
-	if ( site.enableDebugDisplay ) {
-		serverConfig.enableDebugDisplay = true;
-	}
+	const serverConfig = buildServerConfig( site, options );
 
 	const processDesc = await startProcess( processName, wordPressServerChildPath );
 	try {

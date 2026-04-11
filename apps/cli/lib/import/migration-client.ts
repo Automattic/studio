@@ -19,7 +19,7 @@ function getBundledReprintPhar(): string {
 	return candidate;
 }
 
-export interface ImporterResult {
+export interface ReprintProcessResult {
 	stdout: string;
 	stderr: string;
 	exitCode: number;
@@ -856,7 +856,7 @@ async function runImporterCommandWithNativePhp(
 	args: string[],
 	options: RunImporterOptions,
 	progressReporter: ProgressReporter
-): Promise< ImporterResult > {
+): Promise< ReprintProcessResult > {
 	const command = resolveNativeImporterInvocation(
 		pharPath,
 		stateDir,
@@ -870,7 +870,7 @@ async function runImporterCommandWithNativePhp(
 		console.error( `[importer] ${ [ command.command, ...command.args ].join( ' ' ) }` );
 	}
 
-	return await new Promise< ImporterResult >( ( resolve, reject ) => {
+	return await new Promise< ReprintProcessResult >( ( resolve, reject ) => {
 		const child = spawn( command.command, command.args, {
 			stdio: [ 'ignore', 'pipe', 'pipe' ],
 		} );
@@ -943,7 +943,7 @@ async function runImporterCommandWithWasmChild(
 	args: string[],
 	options: RunImporterOptions,
 	progressReporter: ProgressReporter
-): Promise< ImporterResult > {
+): Promise< ReprintProcessResult > {
 	const childPath = getImporterChildPath();
 
 	if ( options.verboseCommands ) {
@@ -956,7 +956,7 @@ async function runImporterCommandWithWasmChild(
 		console.error( `[reprint] php reprint.phar ${ args.join( ' ' ) }${ mountsSuffix }` );
 	}
 
-	return await new Promise< ImporterResult >( ( resolve, reject ) => {
+	return await new Promise< ReprintProcessResult >( ( resolve, reject ) => {
 		const child: ChildProcess = fork( childPath, [], {
 			stdio: [ 'pipe', 'pipe', 'pipe', 'ipc' ],
 		} );
@@ -1053,7 +1053,7 @@ export async function runImporterCommandUntilComplete(
 	args: string[],
 	onProgress?: ( output: string ) => void,
 	options: RunImporterOptions = {}
-): Promise< ImporterResult > {
+): Promise< ReprintProcessResult > {
 	const pharPath = getBundledReprintPhar();
 	const tmpDir = path.join( path.dirname( stateDir ), 'tmp' );
 	fs.mkdirSync( tmpDir, { recursive: true } );
@@ -1074,7 +1074,7 @@ export async function runImporterCommandUntilComplete(
 		onProgress
 	);
 
-	let lastResult: ImporterResult | undefined;
+	let lastResult: ReprintProcessResult | undefined;
 
 	try {
 		do {
@@ -1102,7 +1102,12 @@ export async function runImporterCommandUntilComplete(
 
 			if ( lastResult.exitCode === 1 ) {
 				const details = [ lastResult.stderr, lastResult.stdout ].filter( Boolean ).join( '\n' );
-				throw new Error( details || 'reprint.phar failed' );
+				throw new Error(
+					details ||
+						`reprint.phar exited with code 1 (command: ${
+							args[ 0 ] ?? 'unknown'
+						}). No output was captured.`
+				);
 			}
 		} while ( lastResult.exitCode === 2 );
 

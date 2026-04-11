@@ -31,7 +31,7 @@ import {
 import { getSiteUrl, updateSiteAutoStart, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import {
-	type ImporterResult,
+	type ReprintProcessResult,
 	runImporterCommandUntilComplete,
 } from 'cli/lib/import/migration-client';
 import {
@@ -195,8 +195,8 @@ function formatServerStartErrorDetails( siteId: string | undefined, error: unkno
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function parseImporterJson( result: ImporterResult ): any {
-	// ImporterResult.stdout now contains only the last line from reprint's
+export function parseImporterJson( result: ReprintProcessResult ): any {
+	// ReprintProcessResult.stdout now contains only the last line from reprint's
 	// JSON-L output (the result envelope), not the entire stream.
 	const raw = result.stdout.trim();
 
@@ -512,12 +512,18 @@ export function inferSiteNameFromUrl( url: string ): string {
 	return new URL( normalizeImportUrl( url ) ).hostname;
 }
 
+// 12 hex characters = 48 bits of a SHA-256 hash.  This is used as a
+// directory name for the import's technical files, not for security.
+// At 48 bits the birthday-collision threshold is ~2^24 (~16 million)
+// imports — far beyond any realistic single-machine usage.
+const IMPORT_KEY_HEX_LENGTH = 12;
+
 export function getImportKey( normalizedUrl: string, explicitName?: string ): string {
 	return crypto
 		.createHash( 'sha256' )
 		.update( `${ normalizedUrl }\n${ explicitName || '__auto__' }` )
 		.digest( 'hex' )
-		.slice( 0, 12 );
+		.slice( 0, IMPORT_KEY_HEX_LENGTH );
 }
 
 function readStoredSecret( url: string, explicitName?: string ): string | undefined {
@@ -801,7 +807,7 @@ async function runPreflight(
 
 	logger.reportStart( LoggerAction.PREFLIGHT, __( 'Initiating the migration…' ) );
 
-	let preflightResult: ImporterResult;
+	let preflightResult: ReprintProcessResult;
 	try {
 		preflightResult = await runImporterCommandUntilComplete(
 			metadata.stateDirectory,

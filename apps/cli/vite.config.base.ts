@@ -1,8 +1,7 @@
-import { copyFileSync, existsSync, mkdirSync, writeFileSync } from 'fs';
+import { copyFileSync, cpSync, existsSync, mkdirSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
 import semver from 'semver';
 import { defineConfig } from 'vite';
-import { viteStaticCopy } from 'vite-plugin-static-copy';
 import packageJson from './package.json';
 
 const nodeBuiltinExternals: RegExp[] = [
@@ -27,24 +26,11 @@ if ( ! minimumNodeVersion ) {
 	);
 }
 
-const bundledWpFilesPath = resolve( __dirname, 'wp-files' );
+const bundledWpFilesPath = resolve( __dirname, '..', '..', 'wp-files' );
 const bundledReprintPhar = resolve( __dirname, 'lib/import/reprint.phar' );
 
 export const baseConfig = defineConfig( {
 	plugins: [
-		...( existsSync( bundledWpFilesPath )
-			? [
-					viteStaticCopy( {
-						targets: [
-							{
-								src: bundledWpFilesPath,
-								dest: '.',
-								preserveTimestamps: true,
-							},
-						],
-					} ),
-			  ]
-			: [] ),
 		{
 			name: 'write-dist-extras',
 			apply: 'build',
@@ -55,6 +41,9 @@ export const baseConfig = defineConfig( {
 					resolve( outDir, 'package.json' ),
 					JSON.stringify( { type: 'module' }, null, 2 ) + '\n'
 				);
+				if ( existsSync( bundledWpFilesPath ) ) {
+					cpSync( bundledWpFilesPath, resolve( outDir, 'wp-files' ), { recursive: true } );
+				}
 				if ( existsSync( bundledReprintPhar ) ) {
 					copyFileSync( bundledReprintPhar, resolve( outDir, 'reprint.phar' ) );
 				}

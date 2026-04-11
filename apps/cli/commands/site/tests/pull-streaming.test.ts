@@ -1,4 +1,3 @@
-import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -16,14 +15,9 @@ import {
 	parseImporterJson,
 	prepareSkippedEarlierState,
 	repairBlockingRawImportPaths,
-	repairCompletedImportState,
 	shouldRefreshFlattenedSite,
 	shouldRestartFilesSyncIndex,
 } from '../pull-streaming';
-
-const hasSqlite3 =
-	spawnSync( 'sqlite3', [ ':memory:', 'SELECT 1;' ], { stdio: 'ignore', timeout: 5000 } ).status ===
-	0;
 
 describe( 'CLI: studio site pull-streaming helpers', () => {
 	it( 'normalizes URLs by stripping hashes and trailing slashes', () => {
@@ -290,173 +284,6 @@ describe( 'CLI: studio site pull-streaming helpers', () => {
 			fs.rmSync( stateDirectory, { recursive: true, force: true } );
 		}
 	} );
-
-	it.skipIf( ! hasSqlite3 )(
-		'repairs a completed import when the local database is a fresh WordPress install',
-		() => {
-			const technicalSiteDirectory = fs.mkdtempSync(
-				path.join( os.tmpdir(), 'studio-import-repair-' )
-			);
-			const sitePath = path.join( technicalSiteDirectory, 'site' );
-			const stateDirectory = path.join( technicalSiteDirectory, 'state' );
-			const runtimeDirectory = path.join( technicalSiteDirectory, 'runtime' );
-			const sqlitePath = path.join( sitePath, 'wp-content', 'database', '.ht.sqlite' );
-
-			try {
-				fs.mkdirSync( path.dirname( sqlitePath ), { recursive: true } );
-				fs.mkdirSync( stateDirectory, { recursive: true } );
-				fs.mkdirSync( runtimeDirectory, { recursive: true } );
-				fs.writeFileSync( path.join( stateDirectory, 'db.sql' ), '-- imported dump' );
-				fs.writeFileSync( path.join( runtimeDirectory, 'blueprint.json' ), '{}' );
-
-				spawnSync( 'sqlite3', [
-					sqlitePath,
-					[
-						'CREATE TABLE wp_options (option_name TEXT, option_value TEXT);',
-						'CREATE TABLE wp_posts (ID INTEGER, post_title TEXT, post_status TEXT, post_type TEXT);',
-						"INSERT INTO wp_options VALUES ('blogname','My WordPress Website');",
-						"INSERT INTO wp_posts VALUES (1,'Hello world!','publish','post');",
-						"INSERT INTO wp_posts VALUES (2,'Sample Page','publish','page');",
-					].join( ' ' ),
-				] );
-
-				const metadata = {
-					stage: 'completed',
-					sitePath,
-					stateDirectory,
-					runtimeBlueprintPath: path.join( runtimeDirectory, 'blueprint.json' ),
-					tablePrefix: 'wp_',
-					technicalSiteDirectory,
-				} as Parameters< typeof repairCompletedImportState >[ 0 ];
-
-				expect( repairCompletedImportState( metadata ) ).toContain(
-					'Reapplying the imported database'
-				);
-				expect( metadata.stage ).toBe( 'db-downloaded' );
-				expect( fs.existsSync( sqlitePath ) ).toBe( false );
-			} finally {
-				fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
-			}
-		}
-	);
-
-	it.skipIf( ! hasSqlite3 )(
-		'repairs a completed import when the imported database still has the remote site URL',
-		() => {
-			const technicalSiteDirectory = fs.mkdtempSync(
-				path.join( os.tmpdir(), 'studio-import-rewrite-repair-' )
-			);
-			const sitePath = path.join( technicalSiteDirectory, 'site' );
-			const stateDirectory = path.join( technicalSiteDirectory, 'state' );
-			const runtimeDirectory = path.join( technicalSiteDirectory, 'runtime' );
-			const sqlitePath = path.join( sitePath, 'wp-content', 'database', '.ht.sqlite' );
-
-			try {
-				fs.mkdirSync( path.dirname( sqlitePath ), { recursive: true } );
-				fs.mkdirSync( stateDirectory, { recursive: true } );
-				fs.mkdirSync( runtimeDirectory, { recursive: true } );
-				fs.writeFileSync( path.join( stateDirectory, 'db.sql' ), '-- imported dump' );
-				fs.writeFileSync( path.join( runtimeDirectory, 'blueprint.json' ), '{}' );
-
-				spawnSync( 'sqlite3', [
-					sqlitePath,
-					[
-						'CREATE TABLE wp_options (option_name TEXT, option_value TEXT);',
-						"INSERT INTO wp_options VALUES ('home','https://example.com');",
-						"INSERT INTO wp_options VALUES ('siteurl','https://example.com');",
-					].join( ' ' ),
-				] );
-
-				const metadata = {
-					stage: 'completed',
-					sitePath,
-					stateDirectory,
-					runtimeBlueprintPath: path.join( runtimeDirectory, 'blueprint.json' ),
-					tablePrefix: 'wp_',
-					technicalSiteDirectory,
-					localUrl: 'http://localhost:8881',
-					rawDirectory: path.join( technicalSiteDirectory, 'raw' ),
-				} as Parameters< typeof repairCompletedImportState >[ 0 ];
-
-				expect( repairCompletedImportState( metadata ) ).toContain(
-					'Reapplying the imported database with the local Studio URL'
-				);
-				expect( metadata.stage ).toBe( 'db-downloaded' );
-				expect( fs.existsSync( sqlitePath ) ).toBe( false );
-			} finally {
-				fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
-			}
-		}
-	);
-
-	it.skipIf( ! hasSqlite3 )(
-		'repairs a completed import when the raw importer tree has a blocking root file',
-		() => {
-			const technicalSiteDirectory = fs.mkdtempSync(
-				path.join( os.tmpdir(), 'studio-import-layout-repair-' )
-			);
-			const sitePath = path.join( technicalSiteDirectory, 'site' );
-			const stateDirectory = path.join( technicalSiteDirectory, 'state' );
-			const runtimeDirectory = path.join( technicalSiteDirectory, 'runtime' );
-			const rawDirectory = path.join( technicalSiteDirectory, 'raw' );
-			const sqlitePath = path.join( sitePath, 'wp-content', 'database', '.ht.sqlite' );
-
-			try {
-				fs.mkdirSync( path.dirname( sqlitePath ), { recursive: true } );
-				fs.mkdirSync( stateDirectory, { recursive: true } );
-				fs.mkdirSync( runtimeDirectory, { recursive: true } );
-				fs.mkdirSync( rawDirectory, { recursive: true } );
-				fs.writeFileSync( path.join( runtimeDirectory, 'blueprint.json' ), '{}' );
-				fs.writeFileSync( path.join( rawDirectory, 'wordpress' ), '' );
-				fs.writeFileSync( path.join( stateDirectory, '.import-index.jsonl' ), '{"path":"foo"}\n' );
-				fs.writeFileSync(
-					path.join( stateDirectory, '.import-state.json' ),
-					JSON.stringify( {
-						preflight: {
-							data: {
-								wp_detect: {
-									roots: [
-										{
-											path: `base64:${ Buffer.from( '/wordpress/core/6.9.4' ).toString(
-												'base64'
-											) }`,
-										},
-									],
-								},
-							},
-						},
-					} )
-				);
-
-				spawnSync( 'sqlite3', [
-					sqlitePath,
-					[
-						'CREATE TABLE wp_options (option_name TEXT, option_value TEXT);',
-						"INSERT INTO wp_options VALUES ('home','http://localhost:8881');",
-						"INSERT INTO wp_options VALUES ('siteurl','http://localhost:8881');",
-					].join( ' ' ),
-				] );
-
-				const metadata = {
-					stage: 'completed',
-					sitePath,
-					stateDirectory,
-					runtimeBlueprintPath: path.join( runtimeDirectory, 'blueprint.json' ),
-					tablePrefix: 'wp_',
-					technicalSiteDirectory,
-					localUrl: 'http://localhost:8881',
-					rawDirectory,
-				} as Parameters< typeof repairCompletedImportState >[ 0 ];
-
-				expect( repairCompletedImportState( metadata ) ).toContain( 'Re-downloading site files' );
-				expect( metadata.stage ).toBe( 'initialized' );
-				expect( fs.existsSync( path.join( rawDirectory, 'wordpress' ) ) ).toBe( false );
-				expect( fs.existsSync( path.join( stateDirectory, '.import-index.jsonl' ) ) ).toBe( false );
-			} finally {
-				fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
-			}
-		}
-	);
 
 	// Creating broken symlinks requires elevated privileges on Windows.
 	it.skipIf( process.platform === 'win32' )(

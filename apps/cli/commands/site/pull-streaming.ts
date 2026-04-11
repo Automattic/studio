@@ -5,7 +5,6 @@
  * streaming site migration protocol and the importer's two-phase file
  * filtering support.
  */
-import { spawnSync } from 'child_process';
 import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
@@ -998,110 +997,22 @@ function getDownloadedSqlDumpPath( metadata: ImportMetadata ): string {
 	return path.join( metadata.stateDirectory, 'db.sql' );
 }
 
-function querySqliteValue( dbPath: string, sql: string ): string | null {
-	const result = spawnSync( 'sqlite3', [ dbPath, sql ] );
-	if ( result.status !== 0 ) {
-		return null;
-	}
-
-	return result.stdout.toString().trim();
-}
-
-function normalizeComparableUrl( value: string ): string {
-	return value.trim().replace( /\/+$/, '' );
-}
-
-function isFreshWordPressInstallDatabase( dbPath: string, tablePrefix: string ): boolean {
-	if ( ! fs.existsSync( dbPath ) ) {
-		return false;
-	}
-
-	const blogname = querySqliteValue(
-		dbPath,
-		`SELECT option_value FROM ${ tablePrefix }options WHERE option_name = 'blogname';`
-	);
-	if ( blogname !== 'My WordPress Website' ) {
-		return false;
-	}
-
-	const posts = querySqliteValue(
-		dbPath,
-		`SELECT post_title || '|' || post_status || '|' || post_type FROM ${ tablePrefix }posts ORDER BY ID LIMIT 5;`
-	);
-
-	return (
-		posts?.includes( 'Hello world!|publish|post' ) === true &&
-		posts.includes( 'Sample Page|publish|page' )
-	);
-}
-
-function needsLocalUrlRewrite(
-	dbPath: string,
-	tablePrefix: string,
-	localUrl: string | undefined
-): boolean {
-	if ( ! localUrl || ! fs.existsSync( dbPath ) ) {
-		return false;
-	}
-
-	const expectedLocalUrl = normalizeComparableUrl( localUrl );
-	for ( const optionName of [ 'home', 'siteurl' ] ) {
-		const optionValue = querySqliteValue(
-			dbPath,
-			`SELECT option_value FROM ${ tablePrefix }options WHERE option_name = '${ optionName }';`
-		);
-		if ( optionValue && normalizeComparableUrl( optionValue ) !== expectedLocalUrl ) {
-			return true;
-		}
-	}
-
-	return false;
-}
-
-function removeImportedSqliteDatabase( sitePath: string ): void {
-	const databaseDirectory = path.join( sitePath, 'wp-content', 'database' );
-	fs.rmSync( path.join( databaseDirectory, '.ht.sqlite' ), { force: true } );
-	fs.rmSync( path.join( databaseDirectory, '.ht.sqlite.php' ), { force: true } );
-}
-
 /**
- * Detects post-completion damage to a finished import and rolls back to an
- * earlier stage so the next run can recover.
+ * Detects missing critical artifacts in a completed import and rolls back
+ * to an earlier stage so the next run can recover.
  *
  * This runs at the start of every `pull-streaming` invocation.  When an
- * import has already reached the 'completed' stage, Studio checks that the
- * critical artifacts are still intact.  If any are missing or corrupt, the
- * stage is rewound to the latest point where the pipeline can pick up again.
+ * import has already reached the 'completed' stage, we verify that the two
+ * files required to start the site still exist: the runtime blueprint and
+ * the SQLite database.  If either was deleted (by the user, another tool,
+ * or a crash), the stage is rewound to the latest point where the pipeline
+ * can regenerate it.
  *
- * The checks, in order:
- *
- *  1. Runtime blueprint missing — the blueprint.json that tells Playground
- *     how to start the imported site.  It lives in a persistent directory
- *     so this only happens if the user (or another tool) deletes it.
- *
- *  2. SQLite database missing — the imported .ht.sqlite was deleted.
- *     WordPress Playground will happily create a fresh one on next start,
- *     which leads to check 3.
- *
- *  3. Fresh WordPress install detected — Playground replaced the imported
- *     database with a blank install (blogname "My WordPress Website",
- *     "Hello world!" post).  This happens when Playground starts a site
- *     whose .ht.sqlite was deleted or corrupted: it creates a fresh
- *     database to bootstrap WordPress.  We detect this and re-apply the
- *     imported database from the downloaded SQL dump.
- *
- *  4. URL rewrite stale — the database still contains the remote site URL
- *     instead of the local Studio URL.  reprint's `db-apply` handles this
- *     during the normal flow, but the local URL isn't finalized until the
- *     site is registered (a later stage), so a crash between those stages
- *     can leave the URL unwritten.  Re-applying the database fixes it.
- *
- *  5. Flattened site structure broken — wp-content/themes or
- *     wp-content/plugins is missing, or contains broken symlinks.
- *     reprint's `flat-document-root` creates symlinks from the site
- *     directory into the raw download tree.  If raw files are cleaned up
- *     or moved, those symlinks break.  We roll all the way back to
- *     re-download and re-flatten.
+ * We intentionally don't try to detect subtler corruption (wrong URLs,
+ * stale data, broken symlinks).  reprint's db-apply already handles URL
+ * rewriting, and broken flattened-site symlinks are caught separately by
+ * shouldRefreshFlattenedSite() in the main flow.  Trying to second-guess
+ * reprint here would add complexity without reliable coverage.
  */
 export function repairCompletedImportState( metadata: ImportMetadata ): string | null {
 	if ( metadata.stage !== 'completed' ) {
@@ -1125,36 +1036,6 @@ export function repairCompletedImportState( metadata: ImportMetadata ): string |
 		metadata.stage = 'flattened';
 		saveImportMetadata( metadata );
 		return 'Imported database is missing. Resuming from database download.';
-	}
-
-	const tablePrefix = metadata.tablePrefix || 'wp_';
-	if ( isFreshWordPressInstallDatabase( sqlitePath, tablePrefix ) ) {
-		removeImportedSqliteDatabase( metadata.sitePath );
-		metadata.stage = fs.existsSync( getDownloadedSqlDumpPath( metadata ) )
-			? 'db-downloaded'
-			: 'flattened';
-		saveImportMetadata( metadata );
-		return 'Detected a fresh local WordPress database instead of the imported database. Reapplying the imported database.';
-	}
-
-	if ( needsLocalUrlRewrite( sqlitePath, tablePrefix, metadata.localUrl ) ) {
-		removeImportedSqliteDatabase( metadata.sitePath );
-		metadata.stage = 'db-downloaded';
-		saveImportMetadata( metadata );
-		return 'Imported database still references the remote site URL. Reapplying the imported database with the local Studio URL.';
-	}
-
-	const repairedRawPaths = repairBlockingRawImportPaths(
-		metadata.stateDirectory,
-		metadata.rawDirectory
-	);
-	if ( repairedRawPaths.length > 0 || shouldRefreshFlattenedSite( metadata ) ) {
-		resetEssentialFilesRepairState( metadata.stateDirectory );
-		metadata.stage = 'initialized';
-		saveImportMetadata( metadata );
-		return repairedRawPaths.length > 0
-			? 'Imported file layout is incomplete. Re-downloading site files and rebuilding the flattened site structure.'
-			: 'Flattened site structure is incomplete. Rebuilding the flattened site from the importer output.';
 	}
 
 	return null;

@@ -448,9 +448,7 @@ describe( 'CLI: studio site import helpers', () => {
 					rawDirectory,
 				} as Parameters< typeof repairCompletedImportState >[ 0 ];
 
-				expect( repairCompletedImportState( metadata ) ).toContain(
-					'Re-downloading site files'
-				);
+				expect( repairCompletedImportState( metadata ) ).toContain( 'Re-downloading site files' );
 				expect( metadata.stage ).toBe( 'initialized' );
 				expect( fs.existsSync( path.join( rawDirectory, 'wordpress' ) ) ).toBe( false );
 				expect( fs.existsSync( path.join( stateDirectory, '.import-index.jsonl' ) ) ).toBe( false );

@@ -10,14 +10,13 @@
 import { ChildProcess, fork, spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
 
-const REPRINT_PHAR_URL =
-	'https://github.com/adamziel/streaming-site-migration/releases/latest/download/reprint.phar';
-
-function getBundledReprintPhar(): string | null {
+function getBundledReprintPhar(): string {
 	const candidate = path.join( import.meta.dirname, 'reprint.phar' );
-	return fs.existsSync( candidate ) ? candidate : null;
+	if ( ! fs.existsSync( candidate ) ) {
+		throw new Error( `Bundled reprint.phar not found at ${ candidate }` );
+	}
+	return candidate;
 }
 
 export interface ImporterResult {
@@ -575,27 +574,6 @@ export function applyImporterProgressDisplayHints(
 	};
 }
 
-export async function downloadLatestReprintPhar(): Promise< string > {
-	const pharPath = path.join( getConfigDirectory(), 'reprint.phar' );
-	const response = await fetch( REPRINT_PHAR_URL, { redirect: 'follow' } );
-
-	if ( ! response.ok ) {
-		throw new Error( `Failed to download reprint.phar: ${ response.status }` );
-	}
-
-	const buffer = Buffer.from( await response.arrayBuffer() );
-	fs.writeFileSync( pharPath, buffer );
-	return pharPath;
-}
-
-async function ensureReprintPhar(): Promise< string > {
-	const bundled = getBundledReprintPhar();
-	if ( bundled ) {
-		return bundled;
-	}
-	return downloadLatestReprintPhar();
-}
-
 function getImporterChildPath(): string {
 	for ( const filename of [ 'importer-child.mjs', 'importer-child.js' ] ) {
 		const candidate = path.resolve( import.meta.dirname, filename );
@@ -1025,7 +1003,7 @@ export async function runImporterCommandUntilComplete(
 	onProgress?: ( output: string ) => void,
 	options: RunImporterOptions = {}
 ): Promise< ImporterResult > {
-	const pharPath = await ensureReprintPhar();
+	const pharPath = getBundledReprintPhar();
 	const tmpDir = path.join( path.dirname( stateDir ), 'tmp' );
 	fs.mkdirSync( tmpDir, { recursive: true } );
 

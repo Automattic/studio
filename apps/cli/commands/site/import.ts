@@ -19,7 +19,6 @@ import { generateNumberedName } from '@studio/common/lib/generate-site-name';
 import { portFinder } from '@studio/common/lib/port-finder';
 import { readAuthToken, type StoredAuthToken } from '@studio/common/lib/shared-config';
 import { sortSites } from '@studio/common/lib/sort-sites';
-import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import { ImportCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { LatestSupportedPHPVersion } from '@studio/common/types/php-versions';
 import { __ } from '@wordpress/i18n';
@@ -35,7 +34,6 @@ import {
 import { getSiteUrl, updateSiteAutoStart, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import {
-	downloadLatestReprintPhar,
 	type ImporterResult,
 	runImporterCommandUntilComplete,
 } from 'cli/lib/import/migration-client';
@@ -1588,13 +1586,6 @@ export async function runCommand(
 
 	await ensureFreshSitePath( metadata );
 	ensureImportDirectories( metadata );
-
-	try {
-		fs.unlinkSync( path.join( getConfigDirectory(), 'reprint.phar' ) );
-	} catch {
-		// Ignore missing cache file.
-	}
-	await downloadLatestReprintPhar();
 
 	const repairedCompletedImportMessage = repairCompletedImportState( metadata );
 	if ( repairedCompletedImportMessage ) {

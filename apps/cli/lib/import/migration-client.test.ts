@@ -8,7 +8,6 @@ import {
 	formatImporterJsonlProgress,
 	formatImporterProgressSnapshot,
 	ImporterIndexProgressTracker,
-	rewriteImporterArgsForNativePhp,
 	updateImporterProgressSnapshot,
 } from './migration-client';
 
@@ -247,33 +246,6 @@ describe( 'formatImporterJsonlProgress', () => {
 				9
 			)
 		).toBeNull();
-	} );
-
-	it( 'rewrites importer VFS arguments to host paths for native PHP execution', () => {
-		const args = rewriteImporterArgsForNativePhp(
-			'/host/state',
-			'/host/docroot',
-			'/host/tmp',
-			[
-				'files-sync',
-				'https://example.com/?site-export-api',
-				'--state-dir=/state',
-				'--fs-root=/docroot',
-				'--flatten-to=/flat',
-				'--output-dir=/output',
-			],
-			[
-				{ hostPath: '/host/flat', vfsPath: '/flat' },
-				{ hostPath: '/host/output', vfsPath: '/output' },
-			]
-		);
-
-		expect( args ).toContain( 'files-sync' );
-		expect( args ).toContain( 'https://example.com/?site-export-api' );
-		expect( args ).toContain( '--state-dir=/host/state' );
-		expect( args ).toContain( '--fs-root=/host/docroot' );
-		expect( args ).toContain( '--flatten-to=/host/flat' );
-		expect( args ).toContain( '--output-dir=/host/output' );
 	} );
 
 	it( 'tracks exact indexed entries from the base index and update log', () => {

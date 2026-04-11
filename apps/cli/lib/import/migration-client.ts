@@ -1,13 +1,13 @@
 /**
  * Migration Client – thin wrapper around reprint.phar
  *
- * Runs the bundled reprint.phar streaming-site-migration CLI tool.
- *
- * Prefer native PHP when available so the importer can use host tools
- * like external sort for large indexes. Fall back to a PHP WASM child
- * process when native PHP is unavailable.
+ * Runs the bundled reprint.phar streaming-site-migration CLI tool
+ * via a PHP WASM child process. reprint's index sorter falls back
+ * to an in-memory usort() when exec() is unavailable, which handles
+ * sites with up to hundreds of thousands of files comfortably within
+ * the 512 MB WASM memory limit.
  */
-import { ChildProcess, fork, spawn, spawnSync } from 'node:child_process';
+import { ChildProcess, fork } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -35,11 +35,6 @@ export interface RunImporterOptions {
 	progressRoot?: string;
 	progressLabel?: string;
 	verboseCommands?: boolean;
-}
-
-interface NativeImporterCommand {
-	command: string;
-	args: string[];
 }
 
 interface ImporterProgressSnapshot {
@@ -615,92 +610,6 @@ function getImporterChildPath(): string {
 	return path.resolve( import.meta.dirname, 'importer-child.mjs' );
 }
 
-function getNativePhpCommand(): string | null {
-	const candidates = [ process.env.STUDIO_IMPORTER_PHP, 'php' ].filter(
-		( value ): value is string => typeof value === 'string' && value.length > 0
-	);
-
-	for ( const candidate of candidates ) {
-		const result = spawnSync( candidate, [ '-v' ], {
-			stdio: 'ignore',
-		} );
-		if ( result.status === 0 ) {
-			return candidate;
-		}
-	}
-
-	return null;
-}
-
-function rewriteImporterPathValue(
-	value: string,
-	pathMappings: Array< readonly [ string, string ] >
-): string {
-	for ( const [ virtualPath, hostPath ] of pathMappings ) {
-		if ( value === virtualPath ) {
-			return hostPath;
-		}
-
-		if ( value.startsWith( `${ virtualPath }/` ) ) {
-			return path.join( hostPath, value.slice( virtualPath.length + 1 ) );
-		}
-	}
-
-	return value;
-}
-
-export function rewriteImporterArgsForNativePhp(
-	stateDir: string,
-	docroot: string,
-	tmpDir: string,
-	args: string[],
-	mounts: ImporterMount[] = []
-): string[] {
-	const pathMappings = [
-		[ '/state', stateDir ] as const,
-		[ '/docroot', docroot ] as const,
-		[ '/tmp', tmpDir ] as const,
-		...mounts
-			.map( ( mount ) => [ mount.vfsPath, mount.hostPath ] as const )
-			.sort( ( left, right ) => right[ 0 ].length - left[ 0 ].length ),
-	];
-
-	const resolvedArgs = args.map( ( arg ) => {
-		const equalsIndex = arg.indexOf( '=' );
-		if ( equalsIndex === -1 ) {
-			return rewriteImporterPathValue( arg, pathMappings );
-		}
-
-		const option = arg.slice( 0, equalsIndex + 1 );
-		const value = arg.slice( equalsIndex + 1 );
-		return `${ option }${ rewriteImporterPathValue( value, pathMappings ) }`;
-	} );
-
-	return resolvedArgs;
-}
-
-export function resolveNativeImporterInvocation(
-	pharPath: string,
-	stateDir: string,
-	docroot: string,
-	tmpDir: string,
-	args: string[],
-	mounts: ImporterMount[] = []
-): NativeImporterCommand {
-	const phpCommand = getNativePhpCommand();
-	if ( ! phpCommand ) {
-		throw new Error( 'No native PHP executable was found in PATH.' );
-	}
-
-	return {
-		command: phpCommand,
-		args: [
-			pharPath,
-			...rewriteImporterArgsForNativePhp( stateDir, docroot, tmpDir, args, mounts ),
-		],
-	};
-}
-
 function createProgressReporter(
 	command: string | undefined,
 	progressRoot: string | undefined,
@@ -848,94 +757,7 @@ function createProgressReporter(
 
 type ProgressReporter = ReturnType< typeof createProgressReporter >;
 
-async function runImporterCommandWithNativePhp(
-	pharPath: string,
-	stateDir: string,
-	docroot: string,
-	tmpDir: string,
-	args: string[],
-	options: RunImporterOptions,
-	progressReporter: ProgressReporter
-): Promise< ReprintProcessResult > {
-	const command = resolveNativeImporterInvocation(
-		pharPath,
-		stateDir,
-		docroot,
-		tmpDir,
-		args,
-		options.mounts ?? []
-	);
-
-	if ( options.verboseCommands ) {
-		console.error( `[importer] ${ [ command.command, ...command.args ].join( ' ' ) }` );
-	}
-
-	return await new Promise< ReprintProcessResult >( ( resolve, reject ) => {
-		const child = spawn( command.command, command.args, {
-			stdio: [ 'ignore', 'pipe', 'pipe' ],
-		} );
-
-		// reprint emits JSON-L on stdout — one JSON object per line, often
-		// tens of thousands of progress events for large sites.  We only
-		// need the last complete line (the result envelope), so we track it
-		// with a rolling buffer instead of accumulating the full output.
-		let lastCompleteLine = '';
-		let stdoutLineRemainder = '';
-		const stderrChunks: string[] = [];
-
-		const sigintHandler = () => {
-			child.kill( 'SIGKILL' );
-			process.exit( 130 );
-		};
-
-		const cleanup = () => {
-			process.removeListener( 'SIGINT', sigintHandler );
-		};
-
-		child.stdout?.on( 'data', ( chunk: Buffer ) => {
-			const text = chunk.toString();
-			progressReporter.pushStdoutChunk( text );
-
-			const combined = stdoutLineRemainder + text;
-			const lines = combined.split( '\n' );
-			stdoutLineRemainder = lines.pop() ?? '';
-			for ( let i = lines.length - 1; i >= 0; i-- ) {
-				if ( lines[ i ].trim() ) {
-					lastCompleteLine = lines[ i ];
-					break;
-				}
-			}
-		} );
-
-		child.stderr?.on( 'data', ( chunk: Buffer ) => {
-			stderrChunks.push( chunk.toString() );
-		} );
-
-		child.on( 'error', ( error ) => {
-			cleanup();
-			reject( error );
-		} );
-
-		child.on( 'exit', ( exitCode ) => {
-			cleanup();
-			progressReporter.flush();
-			// If there's a non-empty remainder after the last newline, it's
-			// the final line (reprint may omit the trailing newline).
-			const finalLine = stdoutLineRemainder.trim() || lastCompleteLine;
-			resolve( {
-				stdout: finalLine,
-				stderr: stderrChunks.join( '' ),
-				exitCode: exitCode ?? 1,
-			} );
-		} );
-
-		// Register SIGINT after all event handlers are attached so that
-		// an exception between spawn() and here can't leak the handler.
-		process.on( 'SIGINT', sigintHandler );
-	} );
-}
-
-async function runImporterCommandWithWasmChild(
+async function runImporterCommand(
 	pharPath: string,
 	stateDir: string,
 	docroot: string,
@@ -1064,7 +886,6 @@ export async function runImporterCommandUntilComplete(
 	const progressLabel = options.progressLabel ?? args[ 0 ] ?? 'Importing';
 	const defaultPhase = getDefaultPhaseForCommand( args[ 0 ] );
 	const startTime = Date.now();
-	const nativePhpCommand = getNativePhpCommand();
 
 	// Create the progress reporter once so cumulative counters (bytes received,
 	// file counts) survive across importer restarts (exit code 2).
@@ -1081,27 +902,15 @@ export async function runImporterCommandUntilComplete(
 
 	try {
 		do {
-			if ( nativePhpCommand ) {
-				lastResult = await runImporterCommandWithNativePhp(
-					pharPath,
-					stateDir,
-					docroot,
-					tmpDir,
-					args,
-					options,
-					progressReporter
-				);
-			} else {
-				lastResult = await runImporterCommandWithWasmChild(
-					pharPath,
-					stateDir,
-					docroot,
-					tmpDir,
-					args,
-					options,
-					progressReporter
-				);
-			}
+			lastResult = await runImporterCommand(
+				pharPath,
+				stateDir,
+				docroot,
+				tmpDir,
+				args,
+				options,
+				progressReporter
+			);
 
 			if ( lastResult.exitCode === 1 ) {
 				const details = [ lastResult.stderr, lastResult.stdout ].filter( Boolean ).join( '\n' );

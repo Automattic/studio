@@ -35,7 +35,7 @@ import {
 import { getSiteUrl, updateSiteAutoStart, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import {
-	downloadLatestImporterPhar,
+	downloadLatestReprintPhar,
 	type ImporterResult,
 	runImporterCommandUntilComplete,
 } from 'cli/lib/import/migration-client';
@@ -278,7 +278,7 @@ export function parseImporterJson( result: ImporterResult ): any {
 	}
 
 	throw new LoggerError(
-		`importer.phar did not return valid JSON.\nstdout: ${ raw }\nstderr: ${ result.stderr }`
+		`reprint.phar did not return valid JSON.\nstdout: ${ raw }\nstderr: ${ result.stderr }`
 	);
 }
 
@@ -1590,11 +1590,11 @@ export async function runCommand(
 	ensureImportDirectories( metadata );
 
 	try {
-		fs.unlinkSync( path.join( getConfigDirectory(), 'importer.phar' ) );
+		fs.unlinkSync( path.join( getConfigDirectory(), 'reprint.phar' ) );
 	} catch {
 		// Ignore missing cache file.
 	}
-	await downloadLatestImporterPhar();
+	await downloadLatestReprintPhar();
 
 	const repairedCompletedImportMessage = repairCompletedImportState( metadata );
 	if ( repairedCompletedImportMessage ) {

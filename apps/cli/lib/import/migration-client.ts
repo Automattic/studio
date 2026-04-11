@@ -1,5 +1,5 @@
 /**
- * Migration Client – thin wrapper around importer.phar
+ * Migration Client – thin wrapper around reprint.phar
  *
  * Downloads and runs the streaming-site-migration CLI tool.
  *
@@ -12,11 +12,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
 
-const IMPORTER_PHAR_URL =
-	'https://github.com/adamziel/streaming-site-migration/releases/latest/download/importer.phar';
+const REPRINT_PHAR_URL =
+	'https://github.com/adamziel/streaming-site-migration/releases/latest/download/reprint.phar';
 
-function getBundledImporterPhar(): string | null {
-	const candidate = path.join( import.meta.dirname, 'importer.phar' );
+function getBundledReprintPhar(): string | null {
+	const candidate = path.join( import.meta.dirname, 'reprint.phar' );
 	return fs.existsSync( candidate ) ? candidate : null;
 }
 
@@ -575,12 +575,12 @@ export function applyImporterProgressDisplayHints(
 	};
 }
 
-export async function downloadLatestImporterPhar(): Promise< string > {
-	const pharPath = path.join( getConfigDirectory(), 'importer.phar' );
-	const response = await fetch( IMPORTER_PHAR_URL, { redirect: 'follow' } );
+export async function downloadLatestReprintPhar(): Promise< string > {
+	const pharPath = path.join( getConfigDirectory(), 'reprint.phar' );
+	const response = await fetch( REPRINT_PHAR_URL, { redirect: 'follow' } );
 
 	if ( ! response.ok ) {
-		throw new Error( `Failed to download importer.phar: ${ response.status }` );
+		throw new Error( `Failed to download reprint.phar: ${ response.status }` );
 	}
 
 	const buffer = Buffer.from( await response.arrayBuffer() );
@@ -588,12 +588,12 @@ export async function downloadLatestImporterPhar(): Promise< string > {
 	return pharPath;
 }
 
-async function ensureImporterPhar(): Promise< string > {
-	const bundled = getBundledImporterPhar();
+async function ensureReprintPhar(): Promise< string > {
+	const bundled = getBundledReprintPhar();
 	if ( bundled ) {
 		return bundled;
 	}
-	return downloadLatestImporterPhar();
+	return downloadLatestReprintPhar();
 }
 
 function getImporterChildPath(): string {
@@ -924,7 +924,7 @@ async function runImporterCommandWithWasmChild(
 						.map( ( mount ) => `${ mount.hostPath }:${ mount.vfsPath }` )
 						.join( ',' ) }`
 				: '';
-		console.error( `[importer] php importer.phar ${ args.join( ' ' ) }${ mountsSuffix }` );
+		console.error( `[reprint] php reprint.phar ${ args.join( ' ' ) }${ mountsSuffix }` );
 	}
 
 	return await new Promise< ImporterResult >( ( resolve, reject ) => {
@@ -1025,7 +1025,7 @@ export async function runImporterCommandUntilComplete(
 	onProgress?: ( output: string ) => void,
 	options: RunImporterOptions = {}
 ): Promise< ImporterResult > {
-	const pharPath = await ensureImporterPhar();
+	const pharPath = await ensureReprintPhar();
 	const tmpDir = path.join( path.dirname( stateDir ), 'tmp' );
 	fs.mkdirSync( tmpDir, { recursive: true } );
 
@@ -1073,7 +1073,7 @@ export async function runImporterCommandUntilComplete(
 
 			if ( lastResult.exitCode === 1 ) {
 				const details = [ lastResult.stderr, lastResult.stdout ].filter( Boolean ).join( '\n' );
-				throw new Error( details || 'importer.phar failed' );
+				throw new Error( details || 'reprint.phar failed' );
 			}
 		} while ( lastResult.exitCode === 2 );
 

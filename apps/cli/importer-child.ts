@@ -1,7 +1,7 @@
 /**
  * Importer Child Process
  *
- * Runs importer.phar via PHP WASM in an isolated child process so that
+ * Runs reprint.phar via PHP WASM in an isolated child process so that
  * the parent's event loop stays responsive for Ctrl+C handling and
  * progress reporting. The parent communicates via IPC messages.
  */
@@ -126,7 +126,7 @@ async function runImporter( msg: RunMessage ) {
 			await mountDirectory( php, mount );
 		}
 
-		await php.mount( '/tmp/importer.phar', createNodeFsMountHandler( pharPath ) );
+		await php.mount( '/tmp/reprint.phar', createNodeFsMountHandler( pharPath ) );
 
 		php.writeFile( '/tmp/ca-bundle.crt', rootCertificates.join( '\n' ) );
 		await setPhpIniEntries( php, {
@@ -140,7 +140,7 @@ async function runImporter( msg: RunMessage ) {
 
 		await php.setSpawnHandler( createNoopSpawnHandler() );
 
-		const response = await php.cli( [ 'php', '/tmp/importer.phar', ...args ] );
+		const response = await php.cli( [ 'php', '/tmp/reprint.phar', ...args ] );
 		const stdoutChunks: string[] = [];
 		const stderrChunks: string[] = [];
 

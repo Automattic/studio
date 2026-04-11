@@ -28,7 +28,7 @@ if ( ! minimumNodeVersion ) {
 }
 
 const bundledWpFilesPath = resolve( __dirname, 'wp-files' );
-const bundledImporterPhar = resolve( __dirname, 'lib/import/importer.phar' );
+const bundledReprintPhar = resolve( __dirname, 'lib/import/reprint.phar' );
 
 export const baseConfig = defineConfig( {
 	plugins: [
@@ -55,8 +55,8 @@ export const baseConfig = defineConfig( {
 					resolve( outDir, 'package.json' ),
 					JSON.stringify( { type: 'module' }, null, 2 ) + '\n'
 				);
-				if ( existsSync( bundledImporterPhar ) ) {
-					copyFileSync( bundledImporterPhar, resolve( outDir, 'importer.phar' ) );
+				if ( existsSync( bundledReprintPhar ) ) {
+					copyFileSync( bundledReprintPhar, resolve( outDir, 'reprint.phar' ) );
 				}
 			},
 		},

@@ -305,25 +305,35 @@ function saveImportMetadata( metadata: ImportMetadata ): void {
 }
 
 function readImportMetadata( metadataPath: string ): ImportMetadata | null {
+	let raw: string;
 	try {
-		const metadata = JSON.parse( fs.readFileSync( metadataPath, 'utf-8' ) ) as ImportMetadata;
-		if ( metadata.version !== IMPORT_METADATA_VERSION ) {
+		raw = fs.readFileSync( metadataPath, 'utf-8' );
+	} catch ( error: unknown ) {
+		if ( ( error as NodeJS.ErrnoException ).code === 'ENOENT' ) {
 			return null;
 		}
-		return metadata;
-	} catch {
+		throw error;
+	}
+
+	const metadata = JSON.parse( raw ) as ImportMetadata;
+	if ( metadata.version !== IMPORT_METADATA_VERSION ) {
 		return null;
 	}
+	return metadata;
 }
 
 function readImporterState( stateDirectory: string ): ImporterStateSnapshot | null {
+	let raw: string;
 	try {
-		return JSON.parse(
-			fs.readFileSync( getImporterStatePath( stateDirectory ), 'utf-8' )
-		) as ImporterStateSnapshot;
-	} catch {
-		return null;
+		raw = fs.readFileSync( getImporterStatePath( stateDirectory ), 'utf-8' );
+	} catch ( error: unknown ) {
+		if ( ( error as NodeJS.ErrnoException ).code === 'ENOENT' ) {
+			return null;
+		}
+		throw error;
 	}
+
+	return JSON.parse( raw ) as ImporterStateSnapshot;
 }
 
 function updateImporterState(

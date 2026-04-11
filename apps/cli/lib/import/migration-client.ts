@@ -887,7 +887,6 @@ async function runImporterCommandWithNativePhp(
 			child.kill( 'SIGKILL' );
 			process.exit( 130 );
 		};
-		process.on( 'SIGINT', sigintHandler );
 
 		const cleanup = () => {
 			process.removeListener( 'SIGINT', sigintHandler );
@@ -929,6 +928,10 @@ async function runImporterCommandWithNativePhp(
 				exitCode: exitCode ?? 1,
 			} );
 		} );
+
+		// Register SIGINT after all event handlers are attached so that
+		// an exception between spawn() and here can't leak the handler.
+		process.on( 'SIGINT', sigintHandler );
 	} );
 }
 

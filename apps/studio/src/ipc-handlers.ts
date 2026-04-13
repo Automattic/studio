@@ -1321,7 +1321,7 @@ export async function isImportExportSupported( _event: IpcMainInvokeEvent, siteI
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
 	}
-	return site.hasSQLitePlugin();
+	return site.isSqliteSite();
 }
 
 export function getDirectorySize( _event: IpcMainInvokeEvent, siteId: string, subdir: string[] ) {

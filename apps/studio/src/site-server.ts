@@ -1,10 +1,9 @@
 import fs from 'fs';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
-import { SQLITE_FILENAME } from '@studio/common/constants';
 import { siteListSchema, type SiteListItem } from '@studio/common/lib/cli-events';
+import { hasMysqlWpConfig } from '@studio/common/lib/fs-utils';
 import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
-import fsExtra from 'fs-extra';
 import { parse } from 'shell-quote';
 import { z } from 'zod';
 import {
@@ -437,33 +436,7 @@ export class SiteServer {
 		}
 	}
 
-	async hasSQLitePlugin(): Promise< boolean > {
-		const wpContentPath = nodePath.join( this.details.path, 'wp-content' );
-
-		const sqliteIntegrationPaths = {
-			muPlugin: nodePath.join( wpContentPath, 'mu-plugins', SQLITE_FILENAME ),
-			muPluginLegacy: nodePath.join( wpContentPath, 'mu-plugins', `${ SQLITE_FILENAME }-main` ),
-			regularPlugin: nodePath.join( wpContentPath, 'plugins', SQLITE_FILENAME ),
-		};
-
-		const requiredConfigPaths = {
-			wpConfig: nodePath.join( this.details.path, 'wp-config.php' ),
-			dbConfig: nodePath.join( wpContentPath, 'db.php' ),
-			dbSqlite: nodePath.join( wpContentPath, 'database', '.ht.sqlite' ),
-		};
-
-		const anyIntegrationExists = await Promise.all( [
-			fsExtra.pathExists( sqliteIntegrationPaths.muPlugin ),
-			fsExtra.pathExists( sqliteIntegrationPaths.muPluginLegacy ),
-			fsExtra.pathExists( sqliteIntegrationPaths.regularPlugin ),
-		] ).then( ( results ) => results.some( Boolean ) );
-
-		const configFilesExist = await Promise.all( [
-			fsExtra.pathExists( requiredConfigPaths.wpConfig ),
-			fsExtra.pathExists( requiredConfigPaths.dbConfig ),
-			fsExtra.pathExists( requiredConfigPaths.dbSqlite ),
-		] ).then( ( results ) => results.every( Boolean ) );
-
-		return anyIntegrationExists && configFilesExist;
+	isSqliteSite(): boolean {
+		return ! hasMysqlWpConfig( this.details.path );
 	}
 }

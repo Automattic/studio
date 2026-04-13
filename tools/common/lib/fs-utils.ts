@@ -72,6 +72,27 @@ export function isWordPressDirectory( projectPath: string ): boolean {
 	);
 }
 
+/**
+ * Returns true if the site's wp-config.php defines real MySQL credentials
+ * (non-placeholder DB_NAME and DB_USER), indicating the site uses MySQL
+ * rather than SQLite.
+ *
+ * Mirrors the detection logic used internally by Playground's boot process.
+ */
+export function hasMysqlWpConfig( sitePath: string ): boolean {
+	const wpConfigPath = path.join( sitePath, 'wp-config.php' );
+	if ( ! fs.existsSync( wpConfigPath ) ) {
+		return false;
+	}
+	const wpConfig = fs.readFileSync( wpConfigPath, 'utf8' );
+	const dbNameMatch = wpConfig.match( /define\s*\(\s*['"]DB_NAME['"]\s*,\s*['"]([^'"]*)['"]\s*\)/ );
+	const dbUserMatch = wpConfig.match( /define\s*\(\s*['"]DB_USER['"]\s*,\s*['"]([^'"]*)['"]\s*\)/ );
+	if ( ! dbNameMatch || ! dbUserMatch ) {
+		return false;
+	}
+	return dbNameMatch[ 1 ] !== 'database_name_here' && dbUserMatch[ 1 ] !== 'username_here';
+}
+
 // Compare paths, preferring inode comparison when both paths exist on disk.
 // `fs.Stats.dev` signifies the device ID, and `fs.Stats.ino` signifies the inode number
 // that uniquely identifies the file or directory. This approach respects the current file

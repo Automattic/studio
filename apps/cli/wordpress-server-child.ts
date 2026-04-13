@@ -12,7 +12,7 @@
  */
 import { dirname } from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
-import { isWordPressDirectory } from '@studio/common/lib/fs-utils';
+import { hasMysqlWpConfig, isWordPressDirectory } from '@studio/common/lib/fs-utils';
 import { IS_JSPI_AVAILABLE } from '@studio/common/lib/jspi';
 import { cleanupLegacyMuPlugins, getMuPlugins } from '@studio/common/lib/mu-plugins';
 import { decodePassword } from '@studio/common/lib/passwords';
@@ -110,28 +110,6 @@ async function setAdminCredentials(
 			...( adminEmail && { email: escapePhpString( adminEmail ) } ),
 		},
 	} );
-}
-
-/**
- * Returns true if the site's wp-config.php defines real MySQL credentials,
- * indicating the site uses MySQL rather than SQLite.
- *
- * Mirrors the detection logic used internally by Playground's boot process.
- *
- * @param sitePath - The path to the site
- */
-function hasMysqlWpConfig( sitePath: string ): boolean {
-	const wpConfigPath = `${ sitePath }/wp-config.php`;
-	if ( ! fs.existsSync( wpConfigPath ) ) {
-		return false;
-	}
-	const wpConfig = fs.readFileSync( wpConfigPath, 'utf8' );
-	const dbNameMatch = wpConfig.match( /define\s*\(\s*['"]DB_NAME['"]\s*,\s*['"]([^'"]*)['"]\s*\)/ );
-	const dbUserMatch = wpConfig.match( /define\s*\(\s*['"]DB_USER['"]\s*,\s*['"]([^'"]*)['"]\s*\)/ );
-	if ( ! dbNameMatch || ! dbUserMatch ) {
-		return false;
-	}
-	return dbNameMatch[ 1 ] !== 'database_name_here' && dbUserMatch[ 1 ] !== 'username_here';
 }
 
 /**

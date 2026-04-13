@@ -20,16 +20,12 @@ export async function exportDatabaseToFile(
 	// Execute the command to export directly to the temp file
 	// Use absolute path /wordpress/ because that's where site.path is mounted in the WASM filesystem
 	const vfsFilePath = `/wordpress/${ tempFileName }`;
-	const { stderr, exitCode } = await server.executeWpCliCommand(
+	const { exitCode } = await server.executeWpCliCommand(
 		`sqlite export ${ vfsFilePath } --require=/tmp/sqlite-command/command.php --enable-ast-driver`,
 		{
 			skipPluginsAndThemes: true,
 		}
 	);
-
-	if ( stderr ) {
-		throw new Error( `Database export failed: ${ stderr }` );
-	}
 
 	if ( exitCode ) {
 		throw new Error( 'Database export failed' );
@@ -58,9 +54,6 @@ export async function exportDatabaseToMultipleFiles(
 			skipPluginsAndThemes: true,
 		}
 	);
-	if ( tablesResult.stderr ) {
-		throw new Error( `Database export failed: ${ tablesResult.stderr }` );
-	}
 	if ( tablesResult.exitCode ) {
 		throw new Error( 'Database export failed' );
 	}
@@ -89,16 +82,12 @@ export async function exportDatabaseToMultipleFiles(
 		const vfsFilePath = `/wordpress/${ fileName }`;
 
 		// Execute the command to export directly to a temporary file in the project directory
-		const { stderr, exitCode } = await server.executeWpCliCommand(
+		const { exitCode } = await server.executeWpCliCommand(
 			`sqlite export ${ vfsFilePath } --tables=${ table } --require=/tmp/sqlite-command/command.php --enable-ast-driver`,
 			{
 				skipPluginsAndThemes: true,
 			}
 		);
-
-		if ( stderr ) {
-			throw new Error( `Database export failed: ${ stderr }` );
-		}
 
 		if ( exitCode ) {
 			throw new Error( 'Database export failed' );

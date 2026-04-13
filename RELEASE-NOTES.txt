@@ -3,7 +3,7 @@ Unreleased
 
 1.7.8
 =====
-* Released studio code command
+* Released studio code command #3002
 * Added push/pull and import/export commands to the CLI #3010
 * Redesigned titlebar: window title, button sizing, offline indicator #2675
 * Improved rendering correct error and buttons when pull failed #2964
@@ -14,7 +14,7 @@ Unreleased
 * Misc minor improvements to CLI #3023, #3020, #2962, #2937, #2997, #2850. #2855, #2809
 * Misc smaller UI improvements #2965, #2991, #2987, #3001, #2959, #2988, #2980, #2894, #2943
 * Misc dark mode improvements #3003, #2966, #2885
-* Updated multiple dependencies, including WP Playground, and PHP-Wasm
+* Updated multiple dependencies, including WP Playground and PHP-Wasm
 
 1.7.7
 =====

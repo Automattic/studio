@@ -11,6 +11,7 @@ import { loadUserData, updateAppdata } from 'src/storage/user-data';
 
 // `STABLE_BIN_DIR_PATH` resolves to C:\Users\<USERNAME>\AppData\Local\studio\bin
 export const STABLE_BIN_DIR_PATH = path.resolve( path.dirname( app.getPath( 'exe' ) ), '../bin' );
+
 const PATH_KEY = 'Path';
 
 const currentUserRegistry = new Registry( {
@@ -27,9 +28,13 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 
 	/**
 	 * Check if the stable bin directory has been created and if it's contained in the registry PATH.
+	 * Also detects standalone CLI installed via install.ps1.
 	 */
 	async isCliInstalled(): Promise< boolean > {
 		try {
+			if ( await this.isStandaloneCli() ) {
+				return true;
+			}
 			const isStudioCliDirInPath = await this.isStudioCliDirInPath();
 			return isStudioCliDirInPath && existsSync( STABLE_BIN_DIR_PATH );
 		} catch ( error ) {
@@ -193,7 +198,32 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 		}
 	}
 
+	/**
+	 * Check if a standalone CLI (installed via install.ps1) is present.
+	 * Detects the standalone launcher (studio.cmd) in the default or custom install path.
+	 */
+	private async isStandaloneCli(): Promise< boolean > {
+		const currentPath = await this.getPathFromRegistry();
+		const pathDirs = currentPath.split( ';' ).map( ( item ) => item.trim() );
+
+		for ( const dir of pathDirs ) {
+			// Skip the app's own bin directory
+			if ( dir.toLowerCase() === STABLE_BIN_DIR_PATH.toLowerCase() ) {
+				continue;
+			}
+			const studioCmdPath = path.join( dir, 'studio.cmd' );
+			if ( existsSync( studioCmdPath ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	private async installCli(): Promise< void > {
+		// Don't overwrite standalone CLI installed via install.ps1
+		if ( await this.isStandaloneCli() ) {
+			return;
+		}
 		await this.installPath();
 		await this.installProxyBatFile();
 	}

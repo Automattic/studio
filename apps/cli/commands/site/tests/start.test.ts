@@ -259,6 +259,10 @@ if (!defined('WP_CONTENT_DIR')) {
 							WP_CONTENT_DIR: '/wordpress/wp-content',
 							WP_PLUGIN_DIR: '/wordpress/wp-content/plugins',
 							WPMU_PLUGIN_DIR: '/wordpress/wp-content/mu-plugins',
+							DB_NAME: 'wordpress',
+							DB_USER: 'wordpress',
+							DB_PASSWORD: 'wordpress',
+							DB_HOST: 'localhost',
 						},
 					},
 					mountsBeforeInstall: [

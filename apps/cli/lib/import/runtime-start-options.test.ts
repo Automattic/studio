@@ -93,6 +93,10 @@ if (!defined('STREAMING_SITE_MIGRATION_REMOTE_UPLOAD_PROXY_STATE_FILE')) {
 					WPMU_PLUGIN_DIR: '/wordpress/wp-content/mu-plugins',
 					STREAMING_SITE_MIGRATION_REMOTE_UPLOAD_PROXY_STATE_FILE:
 						'/tmp/streaming-site-migration/.import-state.json',
+					DB_NAME: 'wordpress',
+					DB_USER: 'wordpress',
+					DB_PASSWORD: 'wordpress',
+					DB_HOST: 'localhost',
 				},
 			},
 			blueprintUri: '/test/runtime/blueprint.json',
@@ -233,9 +237,9 @@ if (!defined('STREAMING_SITE_MIGRATION_REMOTE_UPLOAD_PROXY_STATE_FILE')) {
 				.spyOn( sqliteIntegrationModule, 'installSqliteIntegration' )
 				.mockResolvedValue( undefined );
 
-			await expect( ensureImportedSiteSqliteReady( runtimeBlueprintPath ) ).resolves.toBe(
-				sqlitePath
-			);
+			await expect(
+				ensureImportedSiteSqliteReady( runtimeBlueprintPath )
+			).resolves.toBe( sqlitePath );
 			// Receives the parent of the resolved wp-content in the raw tree.
 			expect( installSqliteIntegrationMock ).toHaveBeenCalledWith(
 				path.join( importRoot, 'raw' )

@@ -330,8 +330,11 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 	muPlugins.push( {
 		filename: '0-sqlite-command.php',
 		content: `<?php
-		// Ensure SQLite command can find the plugin
+		// Ensure SQLite command can find the plugin.
+		// For new sites, Playground manages the plugin in-memory at /internal/shared/sqlite-database-integration.
+		// For existing sites that haven't been cleaned up yet, the plugin is on disk at the legacy path.
 		add_filter( 'sqlite_command_sqlite_plugin_directories', function( $directories ) {
+			$directories[] = '/internal/shared/sqlite-database-integration';
 			$directories[] = '/wordpress/wp-content/mu-plugins/sqlite-database-integration';
 			return $directories;
 		} );

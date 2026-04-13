@@ -61,6 +61,11 @@ All CSS classes from the original design stay in style.css — the visual output
 
 Rewrite the full content for each page/post and template part using native Gutenberg block markup. Use the block patterns below as reference. Update posts via `wp_cli post update` and template parts via Write/Edit.
 
+**IMPORTANT — Fix CSS conflicts after conversion.** Native Gutenberg blocks add wrapper elements with default styles (e.g., `core/button` adds `.wp-block-button` and `.wp-block-button__link.wp-element-button` with their own border, padding, and background). These default styles will stack on top of your Phase 1 CSS and cause visual regressions like double borders on buttons. After converting, update `style.css` to reset the default block styles that conflict with your design. Common fixes:
+- Buttons: Reset `.wp-block-button__link` border, padding, and background so only your custom class styles apply.
+- Groups: Reset `.wp-block-group` padding/margin if it conflicts with your section spacing.
+- Columns: Reset `.wp-block-columns` gap if it overrides your grid spacing.
+
 ### Step 4 — Validate block markup
 
 Run `validate_blocks` on every piece of converted content to catch markup errors (missing attributes, invalid nesting, malformed block comments). If it flags invalid blocks, fix the markup and re-run until all blocks pass.

@@ -49,11 +49,15 @@ Keep `core/html` ONLY for individual elements with no native block equivalent:
 - Elements needing custom `data-*` attributes for JS interactivity
 - `<script>` tags — always extract into their own separate `core/html` block, never bundled with structural content
 
-**Things that are NOT valid reasons to keep a section as `core/html`:**
+**Things that are NOT valid reasons to keep an element as `core/html`:**
 - `id` attributes — `core/group` supports `anchor` for element IDs
 - Inline `<em>`, `<strong>`, `<br>`, `<a>` inside text — `core/heading` and `core/paragraph` support inline HTML
 - `loading="eager"` on images — drop the attribute rather than keeping the whole section as HTML
 - A single non-convertible child — decompose the section instead of skipping it entirely
+- Small text-containing `<div>` or `<span>` elements (eyebrow text, labels, captions, taglines) — convert to `core/paragraph` with the appropriate `className`
+- Decorative wrapper `<div>` elements — convert to `core/group` with `className`
+
+**Be thorough.** Convert every single element that has a native block equivalent. Do not leave small or simple elements as `core/html` out of convenience. A `<div>` with text inside it is a `core/paragraph` or `core/group`, not a Custom HTML block.
 
 All CSS classes from the original design stay in style.css — the visual output must remain identical after conversion.
 

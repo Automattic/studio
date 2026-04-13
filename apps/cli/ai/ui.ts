@@ -443,6 +443,7 @@ export class AiChatUI {
 	private currentMarkdown: Markdown | null = null;
 	readonly queue = new MessageQueue();
 	private directInputResolve: ( ( text: string ) => void ) | null = null;
+	private queueContainer: Container;
 	private loaderVisible = false;
 	private editorVisible = false;
 	private interruptCallback: ( () => void ) | null = null;
@@ -650,6 +651,12 @@ export class AiChatUI {
 			'•',
 			'•',
 		];
+
+		this.queueContainer = new Container();
+
+		this.queue.onChange = () => {
+			this.renderQueuedMessages();
+		};
 
 		this.editor = new PromptEditor( this.tui, editorTheme );
 
@@ -1350,12 +1357,19 @@ export class AiChatUI {
 
 	private showLoader( message?: string ): void {
 		if ( ! this.loaderVisible ) {
-			// Ensure editor is removed first so loader appears above it
+			// Remove queue container and editor so loader appears above them
 			const wasEditorVisible = this.editorVisible;
+			const hasQueuedMessages = this.queue.length > 0;
 			if ( wasEditorVisible ) {
 				this.tui.removeChild( this.editor );
 			}
+			if ( hasQueuedMessages ) {
+				this.tui.removeChild( this.queueContainer );
+			}
 			this.tui.addChild( this.loader );
+			if ( hasQueuedMessages ) {
+				this.tui.addChild( this.queueContainer );
+			}
 			if ( wasEditorVisible ) {
 				this.tui.addChild( this.editor );
 			}
@@ -1375,6 +1389,41 @@ export class AiChatUI {
 			this.loaderVisible = false;
 			this.tui.requestRender();
 		}
+	}
+
+	private renderQueuedMessages(): void {
+		// Remove existing queue container from TUI
+		this.tui.removeChild( this.queueContainer );
+
+		// Recreate with updated children
+		this.queueContainer = new Container();
+
+		const messages = this.queue.pending();
+		for ( const message of messages ) {
+			const lines = message.split( '\n' );
+			const formatted = lines
+				.map( ( line, i ) => {
+					if ( i === 0 ) {
+						return ' ' + chalk.dim( chalk.bgHex( '#ddeeff' ).black( '〉' + line + ' ' ) );
+					}
+					return ' ' + chalk.dim( chalk.bgHex( '#ddeeff' ).black( '  ' + line + ' ' ) );
+				} )
+				.join( '\n' );
+			this.queueContainer.addChild( new Text( '\n' + formatted, 0, 0 ) );
+		}
+
+		// Maintain TUI child ordering: messages > loader > queueContainer > editor
+		if ( this.editorVisible ) {
+			this.tui.removeChild( this.editor );
+		}
+		if ( messages.length > 0 ) {
+			this.tui.addChild( this.queueContainer );
+		}
+		if ( this.editorVisible ) {
+			this.tui.addChild( this.editor );
+		}
+
+		this.tui.requestRender();
 	}
 
 	private updateHints(): void {

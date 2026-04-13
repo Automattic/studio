@@ -66,9 +66,6 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 	}
 
 	void sendIpcEventToRenderer( 'site-event', event );
-	if ( running ) {
-		void captureSiteThumbnail( siteId, false );
-	}
 } );
 
 let subscriber: ReturnType< typeof executeCliCommand > | null = null;

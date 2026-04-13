@@ -270,8 +270,8 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		} );
 
 		mockArchiver = createMockArchiver();
-		( archiver as MockedFunction< typeof archiver > ).mockReturnValue(
-			mockArchiver as unknown as archiver.Archiver
+		( archiver as unknown as MockedFunction< ( ...args: unknown[] ) => unknown > ).mockReturnValue(
+			mockArchiver
 		);
 		mockWriteStream = {
 			on: vi.fn(),

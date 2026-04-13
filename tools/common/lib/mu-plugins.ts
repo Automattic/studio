@@ -5,7 +5,7 @@
  * available to WordPress instances. Shared between desktop app and CLI.
  */
 
-import { mkdtemp, readdir, unlink, writeFile } from 'fs/promises';
+import { access, mkdtemp, readdir, rm, unlink, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -620,6 +620,46 @@ export async function cleanupLegacyMuPlugins( sitePath: string ): Promise< void 
 				await unlink( join( muPluginsDir, name ) );
 			} catch {
 				// Best-effort: file may already be gone or locked
+			}
+		} )
+	);
+}
+
+/**
+ * Remove on-disk SQLite integration files that older Studio versions wrote
+ * directly into the site's wp-content directory.
+ *
+ * Newer versions let Playground CLI manage the SQLite plugin entirely in
+ * memory via its virtual filesystem, so these on-disk copies are no longer
+ * needed. Leaving them in place causes no harm for existing sites (Playground's
+ * preload shim defers to the on-disk db.php when present), but removing them
+ * keeps the site directory clean and consistent with newly-created sites.
+ *
+ * Only removes files from SQLite sites — MySQL sites (detected via
+ * hasMysqlWpConfig) are left untouched.
+ *
+ * @param sitePath - Absolute path to the WordPress site directory
+ */
+export async function cleanupLegacySqliteFiles( sitePath: string ): Promise< void > {
+	const wpContentPath = join( sitePath, 'wp-content' );
+
+	const pathsToRemove = [
+		join( wpContentPath, 'mu-plugins', 'sqlite-database-integration' ),
+		join( wpContentPath, 'db.php' ),
+	];
+
+	await Promise.all(
+		pathsToRemove.map( async ( targetPath ) => {
+			try {
+				await access( targetPath );
+			} catch {
+				// Path doesn't exist — nothing to do
+				return;
+			}
+			try {
+				await rm( targetPath, { recursive: true, force: true } );
+			} catch {
+				// Best-effort: ignore errors (file locked, permissions, etc.)
 			}
 		} )
 	);

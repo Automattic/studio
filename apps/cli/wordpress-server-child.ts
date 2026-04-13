@@ -14,7 +14,11 @@ import { dirname } from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { hasMysqlWpConfig, isWordPressDirectory } from '@studio/common/lib/fs-utils';
 import { IS_JSPI_AVAILABLE } from '@studio/common/lib/jspi';
-import { cleanupLegacyMuPlugins, getMuPlugins } from '@studio/common/lib/mu-plugins';
+import {
+	cleanupLegacyMuPlugins,
+	cleanupLegacySqliteFiles,
+	getMuPlugins,
+} from '@studio/common/lib/mu-plugins';
 import { decodePassword } from '@studio/common/lib/passwords';
 import { formatPlaygroundCliMessage } from '@studio/common/lib/playground-cli-messages';
 import { sequential } from '@studio/common/lib/sequential';
@@ -152,6 +156,9 @@ async function getBaseRunCLIArgs(
 	const skipSqliteSetup = hasMysqlWpConfig( config.sitePath );
 
 	await cleanupLegacyMuPlugins( config.sitePath );
+	if ( ! skipSqliteSetup ) {
+		await cleanupLegacySqliteFiles( config.sitePath );
+	}
 
 	const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( {
 		isWpAutoUpdating: config.isWpAutoUpdating,

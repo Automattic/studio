@@ -1,6 +1,8 @@
+import path from 'path';
 import { updateManagedInstructionFiles } from '@studio/common/lib/agent-skills';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
+import { rewriteVfsSymlinksToHostPaths } from 'cli/commands/site/pull-reprint';
 import {
 	getSiteByFolder,
 	updateSiteAutoStart,
@@ -53,6 +55,8 @@ export async function runCommand(
 
 		let startOptions;
 		if ( site.runtimeBlueprintPath ) {
+			const importRoot = path.dirname( path.dirname( site.runtimeBlueprintPath ) );
+			rewriteVfsSymlinksToHostPaths( sitePath, path.join( importRoot, 'raw' ) );
 			await ensureImportedSiteSqliteReady( site.runtimeBlueprintPath );
 			startOptions = await loadImportedRuntimeStartOptions( site.runtimeBlueprintPath );
 		} else {

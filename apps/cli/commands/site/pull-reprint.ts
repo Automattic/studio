@@ -1053,7 +1053,7 @@ async function rebuildFlattenedSiteDirectory( metadata: ImportMetadata ): Promis
  * every symlink whose target starts with ../docroot/ to point at the
  * corresponding absolute path in the raw import directory.
  */
-function rewriteVfsSymlinksToHostPaths( sitePath: string, rawDirectory: string ): void {
+export function rewriteVfsSymlinksToHostPaths( sitePath: string, rawDirectory: string ): void {
 	const VFS_PREFIX = '../docroot/';
 
 	function rewriteInDirectory( dirPath: string ): void {
@@ -1093,7 +1093,13 @@ function rewriteVfsSymlinksToHostPaths( sitePath: string, rawDirectory: string )
 
 	// Also rewrite symlinks one level deeper (e.g. wp-content/themes/mytheme
 	// may be a symlink into the raw tree).
-	for ( const entry of fs.readdirSync( sitePath ) ) {
+	let topEntries;
+	try {
+		topEntries = fs.readdirSync( sitePath );
+	} catch {
+		return;
+	}
+	for ( const entry of topEntries ) {
 		const entryPath = path.join( sitePath, entry );
 		try {
 			if ( fs.statSync( entryPath ).isDirectory() ) {

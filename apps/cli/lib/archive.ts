@@ -17,8 +17,9 @@ export async function archiveSiteContent(
 		const output = fs.createWriteStream( archivePath );
 		const archiveBuilder = archiver( 'zip', {
 			zlib: { level: ZIP_COMPRESSION_LEVEL },
+			// @ts-expect-error The `followSymlinks` option comes from a patch
 			followSymlinks: true,
-		} as archiver.ArchiverOptions );
+		} );
 
 		output.on( 'close', () => {
 			resolve( archiveBuilder );

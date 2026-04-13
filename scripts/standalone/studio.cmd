@@ -38,5 +38,4 @@ set NODE_OPTIONS=
 
 set "EXIT_CODE=!ERRORLEVEL!"
 chcp !ORIGINAL_CP! >nul
-endlocal
-exit /b !EXIT_CODE!
+endlocal & exit /b %EXIT_CODE%

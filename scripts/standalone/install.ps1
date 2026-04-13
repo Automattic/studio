@@ -58,14 +58,7 @@ function Install-StudioCli {
     $ExtractDir = Join-Path $env:TEMP "studio-cli-extract"
     if (Test-Path $ExtractDir) { Remove-Item $ExtractDir -Recurse -Force }
     New-Item -ItemType Directory -Path $ExtractDir -Force | Out-Null
-    tar -xzf "$TmpDir\$BundleName" -C $ExtractDir
-
-    # Move contents from nested directory
-    $NestedDir = Get-ChildItem $ExtractDir -Directory | Select-Object -First 1
-    if ($NestedDir) {
-        Get-ChildItem $NestedDir.FullName | Move-Item -Destination $ExtractDir -Force
-        Remove-Item $NestedDir.FullName -Recurse -Force
-    }
+    tar -xzf "$TmpDir\$BundleName" -C $ExtractDir --strip-components=1
 
     # Replace only bin/ and cli/, preserving config
     New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null

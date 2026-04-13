@@ -47,19 +47,6 @@ function run( cmd: string ): void {
 	execSync( cmd, { cwd: repoRoot, stdio: 'inherit' } );
 }
 
-function copyDirSync( src: string, dest: string ): void {
-	fs.mkdirSync( dest, { recursive: true } );
-	for ( const entry of fs.readdirSync( src, { withFileTypes: true } ) ) {
-		const srcPath = path.join( src, entry.name );
-		const destPath = path.join( dest, entry.name );
-		if ( entry.isDirectory() ) {
-			copyDirSync( srcPath, destPath );
-		} else {
-			fs.copyFileSync( srcPath, destPath );
-		}
-	}
-}
-
 async function main(): Promise< void > {
 	console.log( `==> Building standalone bundle: ${ bundleName }\n` );
 
@@ -85,7 +72,9 @@ async function main(): Promise< void > {
 	}
 
 	// Copy CLI bundle
-	copyDirSync( path.join( repoRoot, 'apps', 'cli', 'dist', 'cli' ), path.join( bundleDir, 'cli' ) );
+	fs.cpSync( path.join( repoRoot, 'apps', 'cli', 'dist', 'cli' ), path.join( bundleDir, 'cli' ), {
+		recursive: true,
+	} );
 
 	// Copy launcher script
 	const standaloneDir = path.join( repoRoot, 'scripts', 'standalone' );

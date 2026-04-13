@@ -155,7 +155,7 @@ function mergeBlueprintConstants(
  * Returns the real wp-content directory for an imported site.
  *
  * The flattened site directory may contain a wp-content symlink that uses
- * VFS-relative paths (e.g. ../docroot/srv/htdocs/wp-content) which don't
+ * VFS-relative paths (e.g. ../fs-root/srv/htdocs/wp-content) which don't
  * resolve on the host filesystem.  Instead of traversing that symlink, we
  * derive the real path from the import's raw directory and the content_dir
  * recorded in the import state during preflight.
@@ -193,7 +193,7 @@ function resolveImportedWpContentPath( runtimeBlueprintPath: string ): string {
 
 	// Fallback: find the wp-content directory that contains the imported
 	// database.  There may be multiple wp-content directories in the raw
-	// tree (e.g. one at the WordPress root and one inside the docroot),
+	// tree (e.g. one at the WordPress root and one inside the fsRoot),
 	// so the database subdirectory disambiguates.
 	const candidates: string[] = [];
 	function findWpContentDirs( dir: string, depth = 0 ): void {

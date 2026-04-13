@@ -246,7 +246,7 @@ function getLegacyStateDirectory( technicalSiteDirectory: string ): string {
 }
 
 function getLegacyRawDirectory( technicalSiteDirectory: string ): string {
-	return path.join( technicalSiteDirectory, 'tmp', 'export', 'docroot' );
+	return path.join( technicalSiteDirectory, 'tmp', 'export', 'fs-root' );
 }
 
 function moveDirectoryContents( sourceDirectory: string, targetDirectory: string ): boolean {
@@ -437,7 +437,7 @@ export function repairBlockingRawImportPaths(
  * Read the remote WP_CONTENT_DIR path from the reprint state's preflight
  * data.  This is the absolute path on the source server (e.g.
  * "/srv/htdocs/wp-content"), which mirrors the directory layout inside the
- * raw docroot.
+ * raw fs-root.
  */
 export function getContentDirFromState( stateDirectory: string ): string | null {
 	const state = readReprintState( stateDirectory ) as
@@ -1037,6 +1037,72 @@ async function rebuildFlattenedSiteDirectory( metadata: ImportMetadata ): Promis
 
 	fs.rmSync( metadata.sitePath, { recursive: true, force: true } );
 	fs.mkdirSync( metadata.sitePath, { recursive: true } );
+}
+
+/**
+ * Rewrites symlinks in the flattened site directory from VFS-relative paths
+ * to absolute host paths.
+ *
+ * reprint's flat-document-root runs inside the PHP WASM VFS where /fs-root
+ * and /flat are siblings.  It creates relative symlinks like
+ * ../fs-root/srv/htdocs/wp-content that resolve inside the VFS but break on
+ * the host because the raw directory and the site directory are in different
+ * trees (e.g. ~/.studio/imports/.../raw vs ~/Studio/site-name).
+ *
+ * Walks the site directory (and one level of subdirectories) and rewrites
+ * every symlink whose target starts with ../fs-root/ to point at the
+ * corresponding absolute path in the raw import directory.
+ */
+function rewriteVfsSymlinksToHostPaths( sitePath: string, rawDirectory: string ): void {
+	const VFS_PREFIX = '../fs-root/';
+
+	function rewriteInDirectory( dirPath: string ): void {
+		let entries;
+		try {
+			entries = fs.readdirSync( dirPath );
+		} catch {
+			return;
+		}
+
+		for ( const entry of entries ) {
+			const entryPath = path.join( dirPath, entry );
+
+			let stats;
+			try {
+				stats = fs.lstatSync( entryPath );
+			} catch {
+				continue;
+			}
+
+			if ( ! stats.isSymbolicLink() ) {
+				continue;
+			}
+
+			const target = fs.readlinkSync( entryPath );
+			if ( ! target.startsWith( VFS_PREFIX ) ) {
+				continue;
+			}
+
+			const hostTarget = path.join( rawDirectory, target.slice( VFS_PREFIX.length ) );
+			fs.unlinkSync( entryPath );
+			fs.symlinkSync( hostTarget, entryPath );
+		}
+	}
+
+	rewriteInDirectory( sitePath );
+
+	// Also rewrite symlinks one level deeper (e.g. wp-content/themes/mytheme
+	// may be a symlink into the raw tree).
+	for ( const entry of fs.readdirSync( sitePath ) ) {
+		const entryPath = path.join( sitePath, entry );
+		try {
+			if ( fs.statSync( entryPath ).isDirectory() ) {
+				rewriteInDirectory( entryPath );
+			}
+		} catch {
+			// Broken symlinks or unreadable entries — skip.
+		}
+	}
 }
 
 async function refreshFlattenedSiteDirectory(

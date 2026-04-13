@@ -760,7 +760,7 @@ type ProgressReporter = ReturnType< typeof createProgressReporter >;
 async function runReprintCommand(
 	pharPath: string,
 	stateDir: string,
-	docroot: string,
+	fsRoot: string,
 	tmpDir: string,
 	args: string[],
 	options: RunReprintOptions,
@@ -864,7 +864,7 @@ async function runReprintCommand(
 			type: 'run',
 			pharPath,
 			stateDir,
-			docroot,
+			fsRoot,
 			tmpDir,
 			args,
 			mounts: options.mounts ?? [],
@@ -874,7 +874,7 @@ async function runReprintCommand(
 
 export async function runReprintCommandUntilComplete(
 	stateDir: string,
-	docroot: string,
+	fsRoot: string,
 	args: string[],
 	onProgress?: ( output: string ) => void,
 	options: RunReprintOptions = {}
@@ -905,7 +905,7 @@ export async function runReprintCommandUntilComplete(
 			lastResult = await runReprintCommand(
 				pharPath,
 				stateDir,
-				docroot,
+				fsRoot,
 				tmpDir,
 				args,
 				options,

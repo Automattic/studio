@@ -189,7 +189,7 @@ describe( 'CLI: studio site pull-reprint helpers', () => {
 		}
 	} );
 
-	it( 'builds db-apply args using raw docroot path when contentDir is provided', () => {
+	it( 'builds db-apply args using raw fs-root path when contentDir is provided', () => {
 		expect(
 			buildDbApplyArgs(
 				{
@@ -241,7 +241,7 @@ describe( 'CLI: studio site pull-reprint helpers', () => {
 		const stateDirectory = path.join( technicalSiteDirectory, 'state' );
 		const rawDirectory = path.join( technicalSiteDirectory, 'raw' );
 		const legacyStateDirectory = path.join( technicalSiteDirectory, 'tmp', 'export', 'state' );
-		const legacyRawDirectory = path.join( technicalSiteDirectory, 'tmp', 'export', 'docroot' );
+		const legacyRawDirectory = path.join( technicalSiteDirectory, 'tmp', 'export', 'fs-root' );
 
 		try {
 			fs.mkdirSync( stateDirectory, { recursive: true } );

@@ -35,7 +35,7 @@ interface RunMessage {
 	type: 'run';
 	pharPath: string;
 	stateDir: string;
-	docroot: string;
+	fsRoot: string;
 	tmpDir: string;
 	args: string[];
 	mounts?: ReprintMount[];
@@ -157,7 +157,7 @@ async function pipePhpStreamTrackingLastLine(
 }
 
 async function runReprint( msg: RunMessage ) {
-	const { pharPath, stateDir, docroot, tmpDir, args, mounts = [] } = msg;
+	const { pharPath, stateDir, fsRoot, tmpDir, args, mounts = [] } = msg;
 
 	const id = await loadNodeRuntime( LatestSupportedPHPVersion, {
 		followSymlinks: true,
@@ -172,7 +172,7 @@ async function runReprint( msg: RunMessage ) {
 
 		await mountDirectory( php, { hostPath: tmpDir, vfsPath: '/tmp' } );
 		await mountDirectory( php, { hostPath: stateDir, vfsPath: stateDir } );
-		await mountDirectory( php, { hostPath: docroot, vfsPath: docroot } );
+		await mountDirectory( php, { hostPath: fsRoot, vfsPath: fsRoot } );
 
 		for ( const mount of mounts ) {
 			await mountDirectory( php, mount );

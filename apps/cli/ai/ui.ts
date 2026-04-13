@@ -1749,6 +1749,7 @@ export class AiChatUI {
 	private showToolUse( toolLabel: string ): void {
 		this.showLoader( this.randomThinkingMessage() );
 		this.stopToolDotBlink();
+		this.lastProgressText = null;
 		this.toolDotLabel = toolLabel;
 		this.toolDotText = new Text( '\n ' + '⏺' + ' ' + toolLabel, 0, 0 );
 		this.messages.addChild( this.toolDotText );

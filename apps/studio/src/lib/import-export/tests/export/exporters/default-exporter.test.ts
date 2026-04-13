@@ -270,8 +270,8 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		} );
 
 		mockArchiver = createMockArchiver();
-		( archiver as MockedFunction< typeof archiver > ).mockReturnValue(
-			mockArchiver as unknown as archiver.Archiver
+		( archiver as unknown as MockedFunction< ( ...args: unknown[] ) => unknown > ).mockReturnValue(
+			mockArchiver
 		);
 		mockWriteStream = {
 			on: vi.fn(),
@@ -560,7 +560,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 						return Promise.resolve( {
 							stdout: '<a><br/>some html</ap>',
 							stderr: 'Error',
-							exitCode: 0,
+							exitCode: 1,
 						} );
 					default:
 						return Promise.resolve( { stdout: '', stderr: '', exitCode: 0 } );

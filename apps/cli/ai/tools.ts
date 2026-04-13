@@ -7,6 +7,8 @@ import { validateBlocks, type ValidationReport } from 'cli/ai/block-validator';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
 import { auditPerformance } from 'cli/ai/performance-audit';
 import { createWpcomToolDefinitions } from 'cli/ai/wpcom-tools';
+import { runCommand as runExportCommand } from 'cli/commands/export';
+import { runCommand as runImportCommand } from 'cli/commands/import';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
 import {
 	Mode as PreviewDeleteMode,
@@ -14,6 +16,8 @@ import {
 } from 'cli/commands/preview/delete';
 import { runCommand as runListPreviewCommand } from 'cli/commands/preview/list';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
+import { runCommand as runPullCommand } from 'cli/commands/pull';
+import { runCommand as runPushCommand } from 'cli/commands/push';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
 import { runCommand as runListSitesCommand } from 'cli/commands/site/list';
@@ -25,6 +29,7 @@ import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getUnsupportedWpCliPostContentMessage } from 'cli/lib/rewrite-wp-cli-post-content';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
+import { parseSyncOptions } from 'cli/lib/sync-api';
 import { normalizeHostname } from 'cli/lib/utils';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
 import { getProgressCallback, setProgressCallback, emitProgress } from 'cli/logger';
@@ -738,7 +743,7 @@ const installTaxonomyScriptsTool = tool(
 );
 
 const auditPerformanceTool = tool(
-	'audit_performance',
+	'need_for_speed',
 	'Measures frontend performance metrics for a WordPress site page. Returns Core Web Vitals ' +
 		'(TTFB, FCP, LCP, CLS), page weight, DOM size, request count, and a breakdown of JS, CSS, ' +
 		'image, and font assets. The site must be running. Use this to identify performance issues.',
@@ -777,6 +782,166 @@ const auditPerformanceTool = tool(
 	}
 );
 
+const pushSiteTool = tool(
+	'site_push',
+	'Pushes a local WordPress site to a WordPress.com site. Requires WordPress.com authentication ' +
+		'(studio auth login). Exports the local site, uploads it, and imports it on the remote site. ' +
+		'This can take several minutes depending on site size.',
+	{
+		nameOrPath: z.string().describe( 'The local site name or file system path' ),
+		remoteSite: z
+			.string()
+			.describe( 'The remote WordPress.com site URL or numeric site ID to push to' ),
+		options: z
+			.string()
+			.optional()
+			.describe(
+				'Comma-separated sync options: all, sqls, uploads, plugins, themes, contents. Defaults to "all".'
+			),
+	},
+	async ( args ) => {
+		try {
+			const site = await resolveSite( args.nameOrPath );
+			const syncOptions = parseSyncOptions( args.options ?? 'all' );
+
+			const result = await captureCommandOutput( () =>
+				runPushCommand( site.path, syncOptions, args.remoteSite )
+			);
+			const output = result.consoleOutput || result.progressOutput || 'Push completed.';
+
+			if ( result.exitCode ) {
+				return errorResult( output );
+			}
+
+			return textResult( output );
+		} catch ( error ) {
+			return errorResult(
+				`Failed to push site: ${ error instanceof Error ? error.message : String( error ) }`
+			);
+		}
+	}
+);
+
+const pullSiteTool = tool(
+	'site_pull',
+	'Pulls a WordPress.com site to a local WordPress site. Requires WordPress.com authentication ' +
+		'(studio auth login). Creates a remote backup, downloads it, and imports it locally. ' +
+		'This can take several minutes depending on site size.',
+	{
+		nameOrPath: z.string().describe( 'The local site name or file system path' ),
+		remoteSite: z
+			.string()
+			.describe( 'The remote WordPress.com site URL or numeric site ID to pull from' ),
+		options: z
+			.string()
+			.optional()
+			.describe(
+				'Comma-separated sync options: all, sqls, uploads, plugins, themes, contents. Defaults to "all".'
+			),
+	},
+	async ( args ) => {
+		try {
+			const site = await resolveSite( args.nameOrPath );
+			const syncOptions = parseSyncOptions( args.options ?? 'all' );
+
+			const result = await captureCommandOutput( () =>
+				runPullCommand( site.path, syncOptions, args.remoteSite )
+			);
+			const output = result.consoleOutput || result.progressOutput || 'Pull completed.';
+
+			if ( result.exitCode ) {
+				return errorResult( output );
+			}
+
+			return textResult( output );
+		} catch ( error ) {
+			return errorResult(
+				`Failed to pull site: ${ error instanceof Error ? error.message : String( error ) }`
+			);
+		}
+	}
+);
+
+const importSiteTool = tool(
+	'site_import',
+	'Imports a backup file into a local WordPress site. Supports .zip, .tar.gz, .sql, and .wpress formats. ' +
+		'The site server will be stopped during import and restarted afterward if it was running.',
+	{
+		nameOrPath: z.string().describe( 'The local site name or file system path' ),
+		importFile: z.string().describe( 'Absolute path to the backup file to import' ),
+	},
+	async ( args ) => {
+		try {
+			const site = await resolveSite( args.nameOrPath );
+
+			const result = await captureCommandOutput( () =>
+				runImportCommand( site.path, args.importFile )
+			);
+			const output = result.consoleOutput || result.progressOutput || 'Import completed.';
+
+			if ( result.exitCode ) {
+				return errorResult( output );
+			}
+
+			return textResult( output );
+		} catch ( error ) {
+			return errorResult(
+				`Failed to import site: ${ error instanceof Error ? error.message : String( error ) }`
+			);
+		}
+	}
+);
+
+const exportSiteTool = tool(
+	'site_export',
+	'Exports a local WordPress site to a backup file. Supports full-site export (.zip or .tar.gz) ' +
+		'or database-only export (.sql). If no export file path is provided, creates a timestamped file in the current directory.',
+	{
+		nameOrPath: z.string().describe( 'The local site name or file system path' ),
+		exportFile: z
+			.string()
+			.optional()
+			.describe(
+				'Path for the export file. Use .zip or .tar.gz for full export, .sql for database only. ' +
+					'If omitted, a timestamped file is created in the current directory.'
+			),
+		mode: z
+			.enum( [ 'full', 'db' ] )
+			.optional()
+			.describe(
+				'Export mode: "full" for entire site, "db" for database only. Defaults to "full".'
+			),
+	},
+	async ( args ) => {
+		try {
+			const site = await resolveSite( args.nameOrPath );
+			const mode = args.mode ?? 'full';
+
+			let exportFile = args.exportFile;
+			if ( ! exportFile ) {
+				const timestamp = new Date().toISOString().replace( /[:.]/g, '-' ).slice( 0, 19 );
+				const ext = mode === 'db' ? '.sql' : '.zip';
+				exportFile = path.join( process.cwd(), `studio-backup-${ timestamp }${ ext }` );
+			}
+
+			const result = await captureCommandOutput( () =>
+				runExportCommand( site.path, exportFile, mode )
+			);
+			const output = result.consoleOutput || result.progressOutput || `Exported to ${ exportFile }`;
+
+			if ( result.exitCode ) {
+				return errorResult( output );
+			}
+
+			return textResult( output );
+		} catch ( error ) {
+			return errorResult(
+				`Failed to export site: ${ error instanceof Error ? error.message : String( error ) }`
+			);
+		}
+	}
+);
+
 export const studioToolDefinitions = [
 	createSiteTool,
 	listSitesTool,
@@ -793,6 +958,10 @@ export const studioToolDefinitions = [
 	takeScreenshotTool,
 	installTaxonomyScriptsTool,
 	auditPerformanceTool,
+	pushSiteTool,
+	pullSiteTool,
+	importSiteTool,
+	exportSiteTool,
 ];
 
 export function createStudioTools() {
@@ -812,6 +981,6 @@ export function createRemoteSiteTools( token: string, siteId: number ) {
 	return createSdkMcpServer( {
 		name: 'studio',
 		version: '1.0.0',
-		tools: [ ...wpcomTools, takeScreenshotTool ],
+		tools: [ ...wpcomTools, takeScreenshotTool, createSiteTool, pullSiteTool ],
 	} );
 }

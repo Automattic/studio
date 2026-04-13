@@ -1,3 +1,4 @@
+import fs from 'fs';
 import path from 'path';
 import { query, type Query } from '@anthropic-ai/claude-agent-sdk';
 import {
@@ -88,6 +89,10 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 				},
 		  }
 		: undefined;
+
+	if ( ! fs.existsSync( STUDIO_ROOT ) ) {
+		fs.mkdirSync( STUDIO_ROOT, { recursive: true } );
+	}
 
 	return query( {
 		prompt,

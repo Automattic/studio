@@ -11,11 +11,9 @@ export const SCREENSHOT_HEIGHT = 1248;
 export const LIMIT_OF_ZIP_SITES_PER_USER = 10;
 export const LIMIT_OF_PROMPTS_PER_USER = 200;
 export const UPDATED_MESSAGE_DURATION_MS = 60000; // 1 minute
-export const SYNC_PUSH_SIZE_LIMIT_GB = 5;
-export const SYNC_PUSH_SIZE_LIMIT_BYTES = SYNC_PUSH_SIZE_LIMIT_GB * 1024 * 1024 * 1024; // 5GB
 export const AUTO_UPDATE_INTERVAL_MS = 60 * 60 * 1000;
 export const MACOS_TRAFFIC_LIGHT_POSITION = { x: 20, y: 20 };
-export const WINDOWS_TITLEBAR_HEIGHT = 32;
+export const WINDOWS_TITLEBAR_HEIGHT = 44;
 export const ABOUT_WINDOW_WIDTH = 300;
 export const ABOUT_WINDOW_HEIGHT = 350;
 export const TELEX_HOSTNAME = 'telex.automattic.ai';
@@ -32,23 +30,6 @@ export const WPCOM_PROFILE_URL = 'https://wordpress.com/me';
 export const LOCAL_STORAGE_CHAT_MESSAGES_KEY = 'ai_chat_messages';
 export const LOCAL_STORAGE_CHAT_API_IDS_KEY = 'ai_chat_ids';
 export const DEFAULT_TERMINAL = 'terminal';
-
-//Import file constants
-
-export const ACCEPTED_IMPORT_FILE_TYPES = [ '.zip', '.gz', '.gzip', '.tar', '.tar.gz', '.wpress' ];
-
-// Archiver options
-export const ARCHIVER_OPTIONS = {
-	zip: {
-		zlib: { level: 9 },
-		followSymlinks: true,
-	},
-	tar: {
-		gzip: true,
-		gzipOptions: { level: 9 },
-		followSymlinks: true,
-	},
-};
 
 export const SYNC_OPTIONS = {
 	// Options sent for pull and push
@@ -75,7 +56,7 @@ export const WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT =
 	WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT_IN_HRS * 60 * 60 * 1000; // 6hr
 
 // SQLite
-const SQLITE_DATABASE_INTEGRATION_VERSION = 'v2.2.22';
+const SQLITE_DATABASE_INTEGRATION_VERSION = 'v2.2.23';
 
 export const SQLITE_DATABASE_INTEGRATION_RELEASE_URL = `https://github.com/WordPress/sqlite-database-integration/releases/download/${ SQLITE_DATABASE_INTEGRATION_VERSION }/plugin-sqlite-database-integration.zip`;
 

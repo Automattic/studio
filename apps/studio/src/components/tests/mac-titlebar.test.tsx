@@ -12,6 +12,8 @@ const FULLSCREEN_CLASSES = {
 	rtl: 'rtl:pr-4',
 } as const;
 
+// In fullscreen mode, no extra padding classes are applied (traffic lights are hidden)
+
 const NON_FULLSCREEN_CLASSES = {
 	ltr: {
 		normal: 'ltr:pl-window-controls-width-mac',
@@ -55,14 +57,14 @@ describe( 'MacTitlebar', () => {
 		expect( titlebar ).not.toHaveClass( FULLSCREEN_CLASSES.rtl );
 	} );
 
-	it( 'should render with minimal padding in fullscreen mode', () => {
+	it( 'should render with no extra padding in fullscreen mode', () => {
 		vi.mocked( useFullscreen ).mockReturnValue( true );
 
 		const { container } = render( <MacTitlebar /> );
 		const titlebar = container.firstChild;
 
-		expect( titlebar ).toHaveClass( FULLSCREEN_CLASSES.ltr );
-		expect( titlebar ).toHaveClass( FULLSCREEN_CLASSES.rtl );
+		expect( titlebar ).not.toHaveClass( FULLSCREEN_CLASSES.ltr );
+		expect( titlebar ).not.toHaveClass( FULLSCREEN_CLASSES.rtl );
 		expect( titlebar ).not.toHaveClass( NON_FULLSCREEN_CLASSES.ltr.normal );
 		expect( titlebar ).not.toHaveClass( NON_FULLSCREEN_CLASSES.rtl.normal );
 	} );

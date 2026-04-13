@@ -209,37 +209,36 @@ describe( 'Studio AI MCP tools', () => {
 		const previousCallback = vi.fn();
 		setProgressCallback( previousCallback );
 
-		// preview_create internally calls captureCommandOutput which should forward progress
 		vi.mocked( runCreatePreviewCommand ).mockImplementation( async () => {
 			const currentCallback = getProgressCallback();
 			currentCallback?.( 'Creating preview…' );
-			currentCallback?.( 'Almost done…' );
 		} );
 
 		await getTool( 'preview_create' ).handler( { nameOrPath: 'My Site' } as never, null );
 
 		expect( previousCallback ).toHaveBeenCalledWith( 'Creating preview…' );
-		expect( previousCallback ).toHaveBeenCalledWith( 'Almost done…' );
 	} );
 
-	it( 'deduplicates consecutive identical progress messages', async () => {
+	it( 'throttles rapid progress messages and flushes the last one', async () => {
 		const previousCallback = vi.fn();
 		setProgressCallback( previousCallback );
 
 		vi.mocked( runCreatePreviewCommand ).mockImplementation( async () => {
 			const currentCallback = getProgressCallback();
-			currentCallback?.( 'Uploading… (3%)' );
-			currentCallback?.( 'Uploading… (3%)' );
-			currentCallback?.( 'Uploading… (3%)' );
-			currentCallback?.( 'Uploading… (4%)' );
-			currentCallback?.( 'Uploading… (4%)' );
+			// First message goes through immediately
+			currentCallback?.( 'Extracting… (1/100)' );
+			// These are all within the throttle window so they get buffered
+			currentCallback?.( 'Extracting… (2/100)' );
+			currentCallback?.( 'Extracting… (3/100)' );
+			currentCallback?.( 'Extracting… (4/100)' );
 		} );
 
 		await getTool( 'preview_create' ).handler( { nameOrPath: 'My Site' } as never, null );
 
+		// First message forwarded immediately, last pending message flushed on completion
 		expect( previousCallback ).toHaveBeenCalledTimes( 2 );
-		expect( previousCallback ).toHaveBeenCalledWith( 'Uploading… (3%)' );
-		expect( previousCallback ).toHaveBeenCalledWith( 'Uploading… (4%)' );
+		expect( previousCallback ).toHaveBeenCalledWith( 'Extracting… (1/100)' );
+		expect( previousCallback ).toHaveBeenCalledWith( 'Extracting… (4/100)' );
 	} );
 
 	it( 'rejects shell syntax in wp_cli post content before dispatching to WP-CLI', async () => {

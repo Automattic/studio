@@ -38,6 +38,7 @@ describe( 'ai-sessions', () => {
 		await recorder.recordSiteSelected( {
 			name: 'My WordPress Website',
 			path: '/tmp/my-wordpress-website',
+			running: false,
 		} );
 		await recorder.recordUserMessage( {
 			text: 'Help me create a plugin',
@@ -153,6 +154,7 @@ describe( 'ai-sessions', () => {
 		await recorder.recordSiteSelected( {
 			name: 'my-remote-site',
 			path: '',
+			running: false,
 			remote: true,
 			url: 'https://my-remote-site.wordpress.com',
 		} );
@@ -232,6 +234,7 @@ describe( 'ai-sessions', () => {
 		await recorder.recordSiteSelected( {
 			name: 'My WordPress Website',
 			path: '/tmp/my-wordpress-website',
+			running: false,
 		} );
 		await recorder.recordUserMessage( {
 			text: 'Create a homepage for me',

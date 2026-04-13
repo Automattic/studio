@@ -634,6 +634,34 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			let adminPassword = argv.adminPassword;
 			let adminEmail = argv.adminEmail;
 
+			// Validate the WordPress version against available versions before prompting
+			if ( wpVersion && wpVersion !== 'latest' && wpVersion !== 'nightly' ) {
+				try {
+					const availableVersions = await fetchWordPressVersions();
+					const isAvailable = availableVersions.some(
+						( v ) => v.value === wpVersion || v.value.startsWith( wpVersion + '.' )
+					);
+					if ( ! isAvailable ) {
+						const versionLabels = availableVersions
+							.filter( ( v ) => v.value !== 'latest' )
+							.map( ( v ) => v.label );
+						logger.reportError(
+							new LoggerError(
+								sprintf(
+									/* translators: %1$s: requested version, %2$s: list of available versions */
+									__( 'WordPress version "%1$s" is not available. Available versions: %2$s' ),
+									wpVersion,
+									versionLabels.join( ', ' )
+								)
+							)
+						);
+						return;
+					}
+				} catch {
+					// If we can't fetch versions (network issue), let it proceed and fail later
+				}
+			}
+
 			try {
 				if ( process.stdin.isTTY ) {
 					if ( ! siteName ) {
@@ -744,34 +772,6 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			// Apply defaults for non-interactive mode when flags weren't provided
 			wpVersion = wpVersion ?? DEFAULT_WORDPRESS_VERSION;
 			phpVersion = phpVersion ?? DEFAULT_PHP_VERSION;
-
-			// Validate the WordPress version against available versions
-			if ( wpVersion !== 'latest' && wpVersion !== 'nightly' ) {
-				try {
-					const availableVersions = await fetchWordPressVersions();
-					const isAvailable = availableVersions.some(
-						( v ) => v.value === wpVersion || v.value.startsWith( wpVersion + '.' )
-					);
-					if ( ! isAvailable ) {
-						const versionLabels = availableVersions
-							.filter( ( v ) => v.value !== 'latest' )
-							.map( ( v ) => v.label );
-						throw new LoggerError(
-							sprintf(
-								/* translators: %1$s: requested version, %2$s: list of available versions */
-								__( 'WordPress version "%1$s" is not available. Available versions: %2$s' ),
-								wpVersion,
-								versionLabels.join( ', ' )
-							)
-						);
-					}
-				} catch ( error ) {
-					if ( error instanceof LoggerError ) {
-						throw error;
-					}
-					// If we can't fetch versions (network issue), let it proceed and fail later
-				}
-			}
 
 			const config: CreateCommandOptions = {
 				name: siteName,

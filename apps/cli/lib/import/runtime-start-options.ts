@@ -404,8 +404,15 @@ export async function loadImportedRuntimeStartOptions(
 
 	const startScript = fs.readFileSync( runtimeStartScriptPath, 'utf-8' );
 
-	// start.sh uses VFS paths (/flat, /output, /state) that need to be
-	// resolved to host paths before they can be used as Playground mounts.
+	// start.sh may contain paths that don't exist on the host:
+	//
+	// 1. VFS paths from older imports (/flat, /output, /state) that need
+	//    mapping to their real host equivalents.
+	//
+	// 2. /internal/symlinks/ paths from PHP WASM's followSymlinks mode.
+	//    When PHP WASM resolves a host symlink, it maps the target through
+	//    /internal/symlinks/<absolute-host-path-without-leading-slash>.
+	//    These paths work inside WASM but don't exist on the host.
 	const importRoot = path.dirname( runtimeDirectory );
 	const importMetadataPath = path.join( importRoot, 'import.json' );
 	let sitePath: string | undefined;
@@ -422,7 +429,18 @@ export async function loadImportedRuntimeStartOptions(
 		'/state': path.join( importRoot, 'state' ),
 	};
 
-	function resolveVfsMountPath( mount: { hostPath: string; vfsPath: string } ) {
+	function resolveWasmMountPath( mount: { hostPath: string; vfsPath: string } ) {
+		// Strip PHP WASM's internal symlink resolution prefix to recover
+		// the real host path.
+		const INTERNAL_SYMLINKS_PREFIX = '/internal/symlinks/';
+		if ( mount.hostPath.startsWith( INTERNAL_SYMLINKS_PREFIX ) ) {
+			return {
+				hostPath: '/' + mount.hostPath.slice( INTERNAL_SYMLINKS_PREFIX.length ),
+				vfsPath: mount.vfsPath,
+			};
+		}
+
+		// Map legacy VFS paths to host paths.
 		for ( const [ vfsPrefix, hostPrefix ] of Object.entries( vfsToHostMap ) ) {
 			if ( mount.hostPath === vfsPrefix ) {
 				return { hostPath: hostPrefix, vfsPath: mount.vfsPath };
@@ -434,16 +452,17 @@ export async function loadImportedRuntimeStartOptions(
 				};
 			}
 		}
+
 		return mount;
 	}
 
 	const mountsBeforeInstall = filterExistingMounts(
 		getShellFlagValues( startScript, 'mount-before-install' )
 			.map( parseMountSpec )
-			.map( resolveVfsMountPath )
+			.map( resolveWasmMountPath )
 	);
 	const mounts = filterExistingMounts(
-		getShellFlagValues( startScript, 'mount' ).map( parseMountSpec ).map( resolveVfsMountPath )
+		getShellFlagValues( startScript, 'mount' ).map( parseMountSpec ).map( resolveWasmMountPath )
 	);
 	const wordpressInstallMode = getShellFlagValues( startScript, 'wordpress-install-mode' ).at(
 		0

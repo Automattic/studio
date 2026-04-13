@@ -144,15 +144,7 @@ export async function runCommand(
 	} );
 
 	ui.onSiteSelected = ( site ) => {
-		void persist( ( recorder ) =>
-			recorder.recordSiteSelected( {
-				name: site.name,
-				path: site.path,
-				remote: site.remote,
-				url: site.url,
-				wpcomSiteId: site.wpcomSiteId,
-			} )
-		);
+		void persist( ( recorder ) => recorder.recordSiteSelected( site ) );
 	};
 
 	if ( options.resumeSession ) {
@@ -476,6 +468,18 @@ export async function runCommand(
 		prepareProviderSelection,
 		maybeAutoSwitchProvider,
 		persistSessionContext,
+		async clearSession() {
+			sessionId = undefined;
+			ui.clearTranscript();
+			ui.showWelcome();
+			ui.showInfo( __( 'Conversation cleared' ) );
+			await persist( ( recorder ) => recorder.recordSessionCleared() );
+			await persistSessionContext();
+			const site = ui.activeSite;
+			if ( site ) {
+				await persist( ( recorder ) => recorder.recordSiteSelected( site ) );
+			}
+		},
 	};
 
 	// --- Main loop ---

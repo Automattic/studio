@@ -24,6 +24,7 @@ export interface SlashCommandContext {
 	): Promise< void >;
 	maybeAutoSwitchProvider(): Promise< void >;
 	persistSessionContext(): Promise< void >;
+	clearSession(): Promise< void >;
 }
 
 export type SlashCommandHandler = (
@@ -53,6 +54,14 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 			if ( ! opened ) {
 				ctx.ui.showInfo( __( 'No site selected. Use ↓ to select a site first.' ) );
 			}
+			return 'continue';
+		},
+	},
+	{
+		name: 'clear',
+		description: __( 'Clear the conversation and start a fresh session' ),
+		handler: async ( _prompt, ctx ) => {
+			await ctx.clearSession();
 			return 'continue';
 		},
 	},

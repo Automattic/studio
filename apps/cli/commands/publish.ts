@@ -54,22 +54,10 @@ export async function runCommand( siteFolder: string ): Promise< void > {
 			);
 		}
 
-		await openBrowser( generateCheckoutUrl( site, 'studio-publish', { autoOpenPush: true } ) );
-		logger.reportStart(
-			LoggerAction.WAITING_FOR_SETUP,
-			__( 'Waiting for site setup to complete in the browser…' )
-		);
-		await new Promise< void >( ( resolve ) => {
-			const onSignal = () => {
-				process.off( 'SIGINT', onSignal );
-				process.off( 'SIGTERM', onSignal );
-				resolve();
-			};
-			process.on( 'SIGINT', onSignal );
-			process.on( 'SIGTERM', onSignal );
-		} );
+		const checkoutUrl = generateCheckoutUrl( site, 'studio-publish', { autoOpenPush: true } );
+		await openBrowser( checkoutUrl );
 		logger.reportSuccess(
-			__( 'Cancelled. You can resume publishing at any time by re-running `studio publish`.' )
+			__( 'Follow the procedure on the site to finish publishing your site.' )
 		);
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {

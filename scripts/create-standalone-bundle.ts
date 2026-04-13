@@ -102,29 +102,16 @@ async function main(): Promise< void > {
 		fs.chmodSync( path.join( bundleDir, 'bin', 'studio' ), 0o755 );
 	}
 
-	// Step 4: Compress
+	// Step 4: Compress (tar.gz for all platforms)
 	console.log( '\n==> Step 4/4: Compressing...' );
 	fs.mkdirSync( outputDir, { recursive: true } );
 
-	const archiveExt = isWindows ? 'zip' : 'tar.gz';
-	const archivePath = path.join( outputDir, `${ bundleName }.${ archiveExt }` );
+	const archivePath = path.join( outputDir, `${ bundleName }.tar.gz` );
 
 	// Remove existing archive
 	fs.rmSync( archivePath, { force: true } );
 
-	if ( isWindows ) {
-		// PowerShell's Compress-Archive works on both Windows and macOS/Linux with pwsh
-		try {
-			run(
-				`cd "${ outputDir }" && powershell -Command "Compress-Archive -Path '${ bundleName }' -DestinationPath '${ bundleName }.${ archiveExt }' -Force"`
-			);
-		} catch {
-			// Fallback to zip command on macOS/Linux
-			run( `cd "${ outputDir }" && zip -rq "${ bundleName }.${ archiveExt }" "${ bundleName }"` );
-		}
-	} else {
-		run( `tar -czf "${ archivePath }" -C "${ outputDir }" "${ bundleName }"` );
-	}
+	run( `tar -czf "${ archivePath }" -C "${ outputDir }" "${ bundleName }"` );
 
 	fs.rmSync( bundleDir, { recursive: true, force: true } );
 

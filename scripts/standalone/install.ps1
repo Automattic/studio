@@ -38,7 +38,7 @@ function Get-Bundle {
 
 function Install-StudioCli {
     $Arch = Get-Platform
-    $BundleName = "studio-cli-win32-${Arch}.zip"
+    $BundleName = "studio-cli-win32-${Arch}.tar.gz"
     $BundleUrl = "${BaseUrl}/${BundleName}"
     $TmpDir = Join-Path $env:TEMP "studio-cli-install"
 
@@ -58,7 +58,7 @@ function Install-StudioCli {
     $ExtractDir = Join-Path $env:TEMP "studio-cli-extract"
     if (Test-Path $ExtractDir) { Remove-Item $ExtractDir -Recurse -Force }
     New-Item -ItemType Directory -Path $ExtractDir -Force | Out-Null
-    Expand-Archive -Path "$TmpDir\$BundleName" -DestinationPath $ExtractDir -Force
+    tar -xzf "$TmpDir\$BundleName" -C $ExtractDir
 
     # Move contents from nested directory
     $NestedDir = Get-ChildItem $ExtractDir -Directory | Select-Object -First 1

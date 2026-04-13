@@ -144,15 +144,7 @@ export async function runCommand(
 	} );
 
 	ui.onSiteSelected = ( site ) => {
-		void persist( ( recorder ) =>
-			recorder.recordSiteSelected( {
-				name: site.name,
-				path: site.path,
-				remote: site.remote,
-				url: site.url,
-				wpcomSiteId: site.wpcomSiteId,
-			} )
-		);
+		void persist( ( recorder ) => recorder.recordSiteSelected( site ) );
 	};
 
 	if ( options.resumeSession ) {
@@ -485,15 +477,7 @@ export async function runCommand(
 			await persistSessionContext();
 			const site = ui.activeSite;
 			if ( site ) {
-				await persist( ( recorder ) =>
-					recorder.recordSiteSelected( {
-						name: site.name,
-						path: site.path,
-						remote: site.remote,
-						url: site.url,
-						wpcomSiteId: site.wpcomSiteId,
-					} )
-				);
+				await persist( ( recorder ) => recorder.recordSiteSelected( site ) );
 			}
 		},
 	};

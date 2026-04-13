@@ -1056,6 +1056,10 @@ async function refreshFlattenedSiteDirectory(
 			'--state-dir=/state',
 			'--fs-root=/docroot',
 			'--flatten-to=/flat',
+			// Tell reprint the real host paths so symlinks resolve correctly
+			// on the host filesystem, not just inside the PHP WASM VFS.
+			'--host-fs-root=' + metadata.rawDirectory,
+			'--host-flatten-to=' + metadata.sitePath,
 		],
 		undefined,
 		{

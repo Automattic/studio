@@ -1411,13 +1411,14 @@ export class AiChatUI {
 	}
 
 	/**
-	 * Begin an agent turn: hide editor, show loader, prepare response area.
+	 * Begin an agent turn: show loader, keep editor visible, prepare response area.
 	 */
 	beginAgentTurn(): void {
 		this.editor.setText( '' );
 		this._inAgentTurn = true;
 		this.updateHints();
 		this.showLoader( this.randomThinkingMessage() );
+		this.showEditor();
 		this.currentResponseText = '';
 		this.hasShownResponseMarker = false;
 		this.wasInterrupted = false;

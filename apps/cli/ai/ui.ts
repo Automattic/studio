@@ -444,6 +444,7 @@ export class AiChatUI {
 	readonly queue = new MessageQueue();
 	private directInputResolve: ( ( text: string ) => void ) | null = null;
 	private queueContainer: Container;
+	private queueEditIndex: number | null = null;
 	private loaderVisible = false;
 	private editorVisible = false;
 	private interruptCallback: ( () => void ) | null = null;
@@ -666,14 +667,30 @@ export class AiChatUI {
 
 		this.editor.onSubmit = ( text ) => {
 			const trimmed = text.trim();
-			if ( ! trimmed ) {
-				return;
-			}
 			// Direct input mode (askUser free-form) takes priority over the queue
 			if ( this.directInputResolve ) {
+				if ( ! trimmed ) {
+					return;
+				}
 				const resolve = this.directInputResolve;
 				this.directInputResolve = null;
 				resolve( trimmed );
+				return;
+			}
+			// Queue edit mode: save edit or remove if empty
+			if ( this.queueEditIndex !== null ) {
+				if ( trimmed ) {
+					this.queue.replace( this.queueEditIndex, trimmed );
+				} else {
+					this.queue.remove( this.queueEditIndex );
+				}
+				this.queueEditIndex = null;
+				this.editor.setText( '' );
+				this.updateHints();
+				this.tui.requestRender();
+				return;
+			}
+			if ( ! trimmed ) {
 				return;
 			}
 			this.queue.enqueue( trimmed );
@@ -737,6 +754,50 @@ export class AiChatUI {
 				}
 				this.renderOptionPicker();
 				return { consume: true };
+			}
+			// Up arrow to edit queued messages (only when editor is empty and queue has items)
+			if (
+				matchesKey( data, 'up' ) &&
+				this.editorVisible &&
+				this.editor.getText().trim() === '' &&
+				this.queue.length > 0 &&
+				this.queueEditIndex === null
+			) {
+				this.queueEditIndex = this.queue.length - 1;
+				this.editor.setText( this.queue.pending()[ this.queueEditIndex ] );
+				this.updateHints();
+				this.tui.requestRender();
+				return { consume: true };
+			}
+			// Navigate within queue edit mode
+			if ( this.queueEditIndex !== null ) {
+				if ( matchesKey( data, 'up' ) && this.queueEditIndex > 0 ) {
+					const currentText = this.editor.getText().trim();
+					if ( currentText ) {
+						this.queue.replace( this.queueEditIndex, currentText );
+					}
+					this.queueEditIndex--;
+					this.editor.setText( this.queue.pending()[ this.queueEditIndex ] );
+					this.tui.requestRender();
+					return { consume: true };
+				}
+				if ( matchesKey( data, 'down' ) && this.queueEditIndex < this.queue.length - 1 ) {
+					const currentText = this.editor.getText().trim();
+					if ( currentText ) {
+						this.queue.replace( this.queueEditIndex, currentText );
+					}
+					this.queueEditIndex++;
+					this.editor.setText( this.queue.pending()[ this.queueEditIndex ] );
+					this.tui.requestRender();
+					return { consume: true };
+				}
+				if ( matchesKey( data, 'escape' ) ) {
+					this.queueEditIndex = null;
+					this.editor.setText( '' );
+					this.updateHints();
+					this.tui.requestRender();
+					return { consume: true };
+				}
 			}
 			// Down arrow to open site picker (only when prompt is empty)
 			if (
@@ -1428,8 +1489,11 @@ export class AiChatUI {
 
 	private updateHints(): void {
 		const hints: string[] = [];
-		if ( ! this._inAgentTurn ) {
+		if ( ! this._inAgentTurn && this.queueEditIndex === null ) {
 			hints.push( __( '↓ select site' ) );
+		}
+		if ( this._inAgentTurn && this.queue.length > 0 && this.queueEditIndex === null ) {
+			hints.push( __( '↑ edit queued messages' ) );
 		}
 		if ( this.activeExpandablePreview ) {
 			hints.push(
@@ -1463,6 +1527,7 @@ export class AiChatUI {
 	 * Begin an agent turn: show loader, keep editor visible, prepare response area.
 	 */
 	beginAgentTurn(): void {
+		this.queueEditIndex = null;
 		this.editor.setText( '' );
 		this._inAgentTurn = true;
 		this.updateHints();

@@ -273,11 +273,47 @@ export async function loadImportedRuntimeStartOptions(
 	}
 
 	const startScript = fs.readFileSync( runtimeStartScriptPath, 'utf-8' );
+
+	// start.sh uses VFS paths (/flat, /output, /state) that need to be
+	// resolved to host paths before they can be used as Playground mounts.
+	const importRoot = path.dirname( runtimeDirectory );
+	const importMetadataPath = path.join( importRoot, 'import.json' );
+	let sitePath: string | undefined;
+	try {
+		const meta = JSON.parse( fs.readFileSync( importMetadataPath, 'utf-8' ) );
+		sitePath = meta.sitePath;
+	} catch {
+		// Fall through — mounts with unresolvable VFS paths will be filtered.
+	}
+
+	const vfsToHostMap: Record< string, string > = {
+		'/flat': sitePath ?? '',
+		'/output': runtimeDirectory,
+		'/state': path.join( importRoot, 'state' ),
+	};
+
+	function resolveVfsMountPath( mount: { hostPath: string; vfsPath: string } ) {
+		for ( const [ vfsPrefix, hostPrefix ] of Object.entries( vfsToHostMap ) ) {
+			if ( mount.hostPath === vfsPrefix ) {
+				return { hostPath: hostPrefix, vfsPath: mount.vfsPath };
+			}
+			if ( mount.hostPath.startsWith( vfsPrefix + '/' ) ) {
+				return {
+					hostPath: path.join( hostPrefix, mount.hostPath.slice( vfsPrefix.length + 1 ) ),
+					vfsPath: mount.vfsPath,
+				};
+			}
+		}
+		return mount;
+	}
+
 	const mountsBeforeInstall = filterExistingMounts(
-		getShellFlagValues( startScript, 'mount-before-install' ).map( parseMountSpec )
+		getShellFlagValues( startScript, 'mount-before-install' )
+			.map( parseMountSpec )
+			.map( resolveVfsMountPath )
 	);
 	const mounts = filterExistingMounts(
-		getShellFlagValues( startScript, 'mount' ).map( parseMountSpec )
+		getShellFlagValues( startScript, 'mount' ).map( parseMountSpec ).map( resolveVfsMountPath )
 	);
 	const wordpressInstallMode = getShellFlagValues( startScript, 'wordpress-install-mode' ).at(
 		0

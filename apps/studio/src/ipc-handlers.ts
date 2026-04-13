@@ -358,6 +358,9 @@ export async function importSite(
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
 	}
+	// Import commands run WP-CLI which needs a live Playground instance in the daemon
+	// so that SQLite is available in-memory. Ensure the site is running before proceeding.
+	await site.start();
 	try {
 		if ( ! isWordPressDirectory( site.details.path ) ) {
 			await setupWordPressFilesOnly( site.details.path );

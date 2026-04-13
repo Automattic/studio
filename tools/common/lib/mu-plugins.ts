@@ -83,8 +83,11 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		content: `<?php
 		// This is a temporary fix for a Query Manager plugin, which isn't rendered in wp-admin if sapi is "cli" (it's the case for wordpress-playground).
 		// See https://github.com/WordPress/wordpress-playground/pull/2424#issuecomment-3686951491
-		// It's not the best fix, but it's simple and for consistency it's the same as used in wordpress-playground (https://github.com/WordPress/wordpress-playground/pull/2415)		
-		define('QM_TESTS', true);
+		// It's not the best fix, but it's simple and for consistency it's the same as used in wordpress-playground (https://github.com/WordPress/wordpress-playground/pull/2415)
+		// Playground's SQLite preload shim also defines QM_TESTS, so guard against redefinition.
+		if ( ! defined( 'QM_TESTS' ) ) {
+			define( 'QM_TESTS', true );
+		}
 		`,
 	} );
 

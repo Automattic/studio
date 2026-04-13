@@ -73,11 +73,14 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 		studio: isRemoteSite
 			? createRemoteSiteTools( wpcomAccessToken, activeSite.wpcomSiteId! )
 			: createStudioTools(),
+		agentation: {
+			command: 'npx',
+			args: [ '--yes', 'agentation-mcp', 'server' ],
+		},
 	};
 
 	const allowedTools = isRemoteSite ? [ ...ALLOWED_TOOLS_REMOTE ] : [ ...ALLOWED_TOOLS ];
 
-	// Build site-aware system prompt
 	const systemPromptOptions = isRemoteSite
 		? {
 				remoteSite: {

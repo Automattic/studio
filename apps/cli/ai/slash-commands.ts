@@ -284,6 +284,7 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		description: __( 'Exit the chat' ),
 		handler: async () => 'break',
 	},
+	{ name: 'annotate', description: __( 'Annotate site elements visually in a browser' ) },
 	{ name: 'taxonomist', description: __( 'Optimize category taxonomy with AI' ) },
 	{ name: 'need-for-speed', description: __( 'Run a performance audit on a site' ) },
 ];

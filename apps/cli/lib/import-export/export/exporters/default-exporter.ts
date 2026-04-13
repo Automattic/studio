@@ -153,7 +153,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		this.emit( ExportEvents.BACKUP_CREATE_START );
 		const isZip = this.options.backupFile.endsWith( '.zip' );
 		const format = isZip ? 'zip' : 'tar';
-		return archiver( format, ARCHIVER_OPTIONS[ format ] as archiver.ArchiverOptions );
+		return archiver( format, ARCHIVER_OPTIONS[ format ] );
 	}
 
 	private setupArchiveListeners( output: fs.WriteStream ): Promise< void > {

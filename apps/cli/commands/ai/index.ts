@@ -480,8 +480,9 @@ export async function runCommand(
 
 	// --- Main loop ---
 	try {
+		ui.prepareForInput();
 		while ( true ) {
-			const prompt = await ui.waitForInput();
+			const prompt = await ui.queue.dequeue();
 			const trimmedPrompt = prompt.trim();
 
 			const cmd = AI_CHAT_SLASH_COMMANDS.find( ( c ) => `/${ c.name }` === trimmedPrompt );

@@ -17,12 +17,12 @@ import { registerCommand as registerAiSessionsResumeCommand } from 'cli/commands
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { StudioArgv } from 'cli/types';
 
-const { askUserMock, recordSessionContextMock, reportErrorMock, waitForInputMock } = vi.hoisted(
+const { askUserMock, recordSessionContextMock, reportErrorMock, dequeueMock } = vi.hoisted(
 	() => ( {
 		askUserMock: vi.fn(),
 		recordSessionContextMock: vi.fn(),
 		reportErrorMock: vi.fn(),
-		waitForInputMock: vi.fn(),
+		dequeueMock: vi.fn(),
 	} )
 );
 
@@ -124,9 +124,18 @@ vi.mock( 'cli/ai/ui', () => ( {
 		async askUser() {
 			return askUserMock();
 		}
-		async waitForInput() {
-			return waitForInputMock();
-		}
+		queue = {
+			enqueue: vi.fn(),
+			dequeue: dequeueMock,
+			pending: vi.fn( () => [] ),
+			remove: vi.fn(),
+			replace: vi.fn(),
+			onChange: null,
+			get length() {
+				return 0;
+			},
+		};
+		prepareForInput() {}
 	},
 	getToolDetail: ( _name: string, input: Record< string, unknown > ) =>
 		typeof input.detail === 'string' ? input.detail : '',
@@ -180,7 +189,7 @@ describe( 'CLI: studio code sessions command', () => {
 			aiProvider: 'anthropic-api-key',
 		} as never );
 		askUserMock.mockResolvedValue( {} );
-		waitForInputMock.mockResolvedValue( '/exit' );
+		dequeueMock.mockResolvedValue( '/exit' );
 		vi.spyOn( process, 'exit' ).mockImplementation( () => undefined as never );
 	} );
 
@@ -217,7 +226,7 @@ describe( 'CLI: studio code sessions command', () => {
 	} );
 
 	it( 'records sessions by default once a prompt is submitted', async () => {
-		waitForInputMock.mockResolvedValueOnce( 'Hello' ).mockResolvedValueOnce( '/exit' );
+		dequeueMock.mockResolvedValueOnce( 'Hello' ).mockResolvedValueOnce( '/exit' );
 
 		await buildParser().parseAsync( [ 'ai' ] );
 
@@ -231,7 +240,7 @@ describe( 'CLI: studio code sessions command', () => {
 		expect( alternateModel ).toBeDefined();
 		const [ selectedModelId, selectedModelLabel ] = alternateModel!;
 
-		waitForInputMock.mockResolvedValueOnce( '/model' ).mockResolvedValueOnce( '/exit' );
+		dequeueMock.mockResolvedValueOnce( '/model' ).mockResolvedValueOnce( '/exit' );
 		askUserMock.mockResolvedValueOnce( {
 			'Select a model': selectedModelLabel,
 		} );
@@ -247,7 +256,7 @@ describe( 'CLI: studio code sessions command', () => {
 	} );
 
 	it( 'persists selected provider before the first prompt is sent', async () => {
-		waitForInputMock.mockResolvedValueOnce( '/provider' ).mockResolvedValueOnce( '/exit' );
+		dequeueMock.mockResolvedValueOnce( '/provider' ).mockResolvedValueOnce( '/exit' );
 		askUserMock.mockResolvedValueOnce( {
 			'Select an AI provider': AI_PROVIDERS.wpcom,
 		} );
@@ -264,7 +273,7 @@ describe( 'CLI: studio code sessions command', () => {
 
 	it( 'persists auto-switched provider after logout before any prompt is sent', async () => {
 		vi.mocked( resolveUnavailableAiProvider ).mockResolvedValueOnce( 'wpcom' );
-		waitForInputMock.mockResolvedValueOnce( '/logout' ).mockResolvedValueOnce( '/exit' );
+		dequeueMock.mockResolvedValueOnce( '/logout' ).mockResolvedValueOnce( '/exit' );
 
 		await buildParser().parseAsync( [ 'ai' ] );
 
@@ -411,7 +420,7 @@ describe( 'CLI: studio code sessions command', () => {
 
 	it( 'restores provider, model, and resume session id from session events', async () => {
 		vi.mocked( resolveInitialAiProvider ).mockResolvedValue( 'wpcom' );
-		waitForInputMock.mockResolvedValueOnce( 'Continue the task' ).mockResolvedValueOnce( '/exit' );
+		dequeueMock.mockResolvedValueOnce( 'Continue the task' ).mockResolvedValueOnce( '/exit' );
 
 		vi.mocked( listAiSessions ).mockResolvedValue( [
 			{

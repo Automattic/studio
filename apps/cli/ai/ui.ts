@@ -26,6 +26,7 @@ import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import chalk from 'chalk';
 import { AI_MODELS, DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
+import { MessageQueue } from 'cli/ai/message-queue';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
 import { AI_CHAT_SLASH_COMMANDS } from 'cli/ai/slash-commands';
 import { buildTodoUpdateLines, type TodoRenderLine } from 'cli/ai/todo-render';
@@ -440,7 +441,8 @@ export class AiChatUI {
 	private messages: Container;
 	private currentResponseText = '';
 	private currentMarkdown: Markdown | null = null;
-	private submitResolve: ( ( text: string ) => void ) | null = null;
+	readonly queue = new MessageQueue();
+	private directInputResolve: ( ( text: string ) => void ) | null = null;
 	private loaderVisible = false;
 	private editorVisible = false;
 	private interruptCallback: ( () => void ) | null = null;
@@ -657,11 +659,18 @@ export class AiChatUI {
 
 		this.editor.onSubmit = ( text ) => {
 			const trimmed = text.trim();
-			if ( trimmed && this.submitResolve ) {
-				const resolve = this.submitResolve;
-				this.submitResolve = null;
-				resolve( trimmed );
+			if ( ! trimmed ) {
+				return;
 			}
+			// Direct input mode (askUser free-form) takes priority over the queue
+			if ( this.directInputResolve ) {
+				const resolve = this.directInputResolve;
+				this.directInputResolve = null;
+				resolve( trimmed );
+				return;
+			}
+			this.queue.enqueue( trimmed );
+			this.editor.setText( '' );
 		};
 		// Ctrl+C to exit, Escape to interrupt/close picker, arrow keys for picker
 		this.tui.addInputListener( ( data ) => {
@@ -1298,12 +1307,22 @@ export class AiChatUI {
 		this.tui.stop();
 	}
 
-	waitForInput(): Promise< string > {
+	prepareForInput(): void {
+		this.editor.setText( '' );
+		this.hideLoader();
+		this.showEditor();
+	}
+
+	/**
+	 * Wait for a single direct input from the user, bypassing the message queue.
+	 * Used by askUser for free-form text input during agent turns.
+	 */
+	private waitForDirectInput(): Promise< string > {
 		this.editor.setText( '' );
 		this.hideLoader();
 		this.showEditor();
 		return new Promise( ( resolve ) => {
-			this.submitResolve = resolve;
+			this.directInputResolve = resolve;
 		} );
 	}
 
@@ -2012,8 +2031,8 @@ export class AiChatUI {
 
 				answers[ q.question ] = selected;
 			} else {
-				// Free-form text input
-				const answer = await this.waitForInput();
+				// Free-form text input (bypasses message queue)
+				const answer = await this.waitForDirectInput();
 				answers[ q.question ] = answer;
 			}
 		}

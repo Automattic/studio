@@ -33,7 +33,6 @@ import { z } from 'zod';
 import { sanitizeRunCLIArgs } from 'cli/lib/cli-args-sanitizer';
 import { rewriteWpCliPostContentToFile } from 'cli/lib/rewrite-wp-cli-post-content';
 import { getPhpMyAdminPath, getSqliteCommandPath, getWpCliPharPath } from 'cli/lib/server-files';
-import { isSqliteIntegrationInstalled } from 'cli/lib/sqlite-integration';
 import {
 	ServerConfig,
 	managerMessageSchema,
@@ -114,26 +113,49 @@ async function setAdminCredentials(
 }
 
 /**
- * Gets the WordPress installation mode based on whether WordPress files
- * and SQLite integration are present.
+ * Returns true if the site's wp-config.php defines real MySQL credentials,
+ * indicating the site uses MySQL rather than SQLite.
+ *
+ * Mirrors the detection logic used internally by Playground's boot process.
+ *
+ * @param sitePath - The path to the site
+ */
+function hasMysqlWpConfig( sitePath: string ): boolean {
+	const wpConfigPath = `${ sitePath }/wp-config.php`;
+	if ( ! fs.existsSync( wpConfigPath ) ) {
+		return false;
+	}
+	const wpConfig = fs.readFileSync( wpConfigPath, 'utf8' );
+	const dbNameMatch = wpConfig.match( /define\s*\(\s*['"]DB_NAME['"]\s*,\s*['"]([^'"]*)['"]\s*\)/ );
+	const dbUserMatch = wpConfig.match( /define\s*\(\s*['"]DB_USER['"]\s*,\s*['"]([^'"]*)['"]\s*\)/ );
+	if ( ! dbNameMatch || ! dbUserMatch ) {
+		return false;
+	}
+	return dbNameMatch[ 1 ] !== 'database_name_here' && dbUserMatch[ 1 ] !== 'username_here';
+}
+
+/**
+ * Gets the WordPress installation mode based on whether WordPress files exist
+ * and whether the site is configured to use MySQL.
+ *
+ * - No WordPress files yet → download-and-install (Playground installs WP + SQLite)
+ * - WordPress + MySQL wp-config.php → do-not-attempt-installing (respect existing MySQL setup)
+ * - WordPress + SQLite (or no wp-config.php) → install-from-existing-files-if-needed
  *
  * @param sitePath - The path to the site
  * @returns The WordPressInstallMode to use for the site
  */
-async function getWordPressInstallMode( sitePath: string ): Promise< WordPressInstallMode > {
-	const hasWordPress = isWordPressDirectory( sitePath );
-	const hasSqlite = await isSqliteIntegrationInstalled( sitePath );
-
-	if ( ! hasWordPress ) {
+function getWordPressInstallMode( sitePath: string ): WordPressInstallMode {
+	if ( ! isWordPressDirectory( sitePath ) ) {
 		return 'download-and-install';
 	}
 
-	if ( hasSqlite ) {
-		return 'install-from-existing-files-if-needed';
+	if ( hasMysqlWpConfig( sitePath ) ) {
+		// We don't want Playground to attempt installing WordPress when site is using MySQL.
+		return 'do-not-attempt-installing';
 	}
 
-	// We don't want playground to attempt installing WordPress when site is using MySQL.
-	return 'do-not-attempt-installing';
+	return 'install-from-existing-files-if-needed';
 }
 
 function getBaseRunCLIArgs(
@@ -148,7 +170,8 @@ async function getBaseRunCLIArgs(
 	command: RunCLIArgs[ 'command' ],
 	config: ServerConfig
 ): Promise< RunCLIArgs > {
-	const wordpressInstallMode = await getWordPressInstallMode( config.sitePath );
+	const wordpressInstallMode = getWordPressInstallMode( config.sitePath );
+	const skipSqliteSetup = hasMysqlWpConfig( config.sitePath );
 
 	await cleanupLegacyMuPlugins( config.sitePath );
 
@@ -239,7 +262,7 @@ async function getBaseRunCLIArgs(
 		internalCookieStore: false,
 		login: false,
 		followSymlinks: true,
-		skipSqliteSetup: true,
+		skipSqliteSetup,
 		port: config.port,
 		'mount-before-install': mounts,
 		'site-url': config.absoluteUrl || `http://localhost:${ config.port }`,

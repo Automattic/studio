@@ -205,6 +205,43 @@ describe( 'Studio AI MCP tools', () => {
 		expect( getProgressCallback() ).toBe( previousCallback );
 	} );
 
+	it( 'forwards progress messages to the previous callback during command execution', async () => {
+		const previousCallback = vi.fn();
+		setProgressCallback( previousCallback );
+
+		// preview_create internally calls captureCommandOutput which should forward progress
+		vi.mocked( runCreatePreviewCommand ).mockImplementation( async () => {
+			const currentCallback = getProgressCallback();
+			currentCallback?.( 'Creating preview…' );
+			currentCallback?.( 'Almost done…' );
+		} );
+
+		await getTool( 'preview_create' ).handler( { nameOrPath: 'My Site' } as never, null );
+
+		expect( previousCallback ).toHaveBeenCalledWith( 'Creating preview…' );
+		expect( previousCallback ).toHaveBeenCalledWith( 'Almost done…' );
+	} );
+
+	it( 'deduplicates consecutive identical progress messages', async () => {
+		const previousCallback = vi.fn();
+		setProgressCallback( previousCallback );
+
+		vi.mocked( runCreatePreviewCommand ).mockImplementation( async () => {
+			const currentCallback = getProgressCallback();
+			currentCallback?.( 'Uploading… (3%)' );
+			currentCallback?.( 'Uploading… (3%)' );
+			currentCallback?.( 'Uploading… (3%)' );
+			currentCallback?.( 'Uploading… (4%)' );
+			currentCallback?.( 'Uploading… (4%)' );
+		} );
+
+		await getTool( 'preview_create' ).handler( { nameOrPath: 'My Site' } as never, null );
+
+		expect( previousCallback ).toHaveBeenCalledTimes( 2 );
+		expect( previousCallback ).toHaveBeenCalledWith( 'Uploading… (3%)' );
+		expect( previousCallback ).toHaveBeenCalledWith( 'Uploading… (4%)' );
+	} );
+
 	it( 'rejects shell syntax in wp_cli post content before dispatching to WP-CLI', async () => {
 		vi.mocked( isServerRunning ).mockResolvedValue( {
 			name: 'site-123',

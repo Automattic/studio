@@ -194,8 +194,13 @@ export async function captureCommandOutput( fn: () => Promise< void > ): Promise
 		consoleOutput += args.map( String ).join( ' ' ) + '\n';
 	};
 	process.exitCode = undefined;
+	let lastForwardedMessage = '';
 	setProgressCallback( ( message ) => {
 		progressMessages.push( message );
+		if ( previousCallback && message !== lastForwardedMessage ) {
+			lastForwardedMessage = message;
+			previousCallback( message );
+		}
 	} );
 
 	try {

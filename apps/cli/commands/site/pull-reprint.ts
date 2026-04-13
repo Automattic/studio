@@ -1039,78 +1039,6 @@ async function rebuildFlattenedSiteDirectory( metadata: ImportMetadata ): Promis
 	fs.mkdirSync( metadata.sitePath, { recursive: true } );
 }
 
-/**
- * Rewrites symlinks in the flattened site directory from VFS-relative paths
- * to absolute host paths.
- *
- * reprint's flat-document-root runs inside the PHP WASM VFS where /docroot
- * and /flat are siblings.  It creates relative symlinks like
- * ../docroot/srv/htdocs/wp-content that resolve inside the VFS but break on
- * the host because the raw directory and the site directory are in different
- * trees (e.g. ~/.studio/imports/.../raw vs ~/Studio/site-name).
- *
- * Walks the site directory (and one level of subdirectories) and rewrites
- * every symlink whose target starts with ../docroot/ to point at the
- * corresponding absolute path in the raw import directory.
- */
-export function rewriteVfsSymlinksToHostPaths( sitePath: string, rawDirectory: string ): void {
-	const VFS_PREFIX = '../docroot/';
-
-	function rewriteInDirectory( dirPath: string ): void {
-		let entries;
-		try {
-			entries = fs.readdirSync( dirPath );
-		} catch {
-			return;
-		}
-
-		for ( const entry of entries ) {
-			const entryPath = path.join( dirPath, entry );
-
-			let stats;
-			try {
-				stats = fs.lstatSync( entryPath );
-			} catch {
-				continue;
-			}
-
-			if ( ! stats.isSymbolicLink() ) {
-				continue;
-			}
-
-			const target = fs.readlinkSync( entryPath );
-			if ( ! target.startsWith( VFS_PREFIX ) ) {
-				continue;
-			}
-
-			const hostTarget = path.join( rawDirectory, target.slice( VFS_PREFIX.length ) );
-			fs.unlinkSync( entryPath );
-			fs.symlinkSync( hostTarget, entryPath );
-		}
-	}
-
-	rewriteInDirectory( sitePath );
-
-	// Also rewrite symlinks one level deeper (e.g. wp-content/themes/mytheme
-	// may be a symlink into the raw tree).
-	let topEntries;
-	try {
-		topEntries = fs.readdirSync( sitePath );
-	} catch {
-		return;
-	}
-	for ( const entry of topEntries ) {
-		const entryPath = path.join( sitePath, entry );
-		try {
-			if ( fs.statSync( entryPath ).isDirectory() ) {
-				rewriteInDirectory( entryPath );
-			}
-		} catch {
-			// Broken symlinks or unreadable entries — skip.
-		}
-	}
-}
-
 async function refreshFlattenedSiteDirectory(
 	metadata: Pick<
 		ImportMetadata,
@@ -1437,7 +1365,6 @@ export async function runCommand(
 			logger.reportStart( LoggerAction.CREATE_SITE, __( 'Refreshing site directory…' ) );
 			await rebuildFlattenedSiteDirectory( metadata );
 			await refreshFlattenedSiteDirectory( metadata, verbose );
-			rewriteVfsSymlinksToHostPaths( metadata.sitePath, metadata.rawDirectory );
 			logger.reportSuccess( __( 'Site directory refreshed' ) );
 		}
 		await syncMetadataWithExistingSite( metadata );
@@ -1543,7 +1470,6 @@ export async function runCommand(
 		if ( ! hasReachedStage( metadata, 'flattened' ) ) {
 			logger.reportStart( LoggerAction.CREATE_SITE, __( 'Preparing site directory…' ) );
 			await refreshFlattenedSiteDirectory( metadata, verbose );
-			rewriteVfsSymlinksToHostPaths( metadata.sitePath, metadata.rawDirectory );
 			logger.reportSuccess( __( 'Site directory prepared' ) );
 			setStage( metadata, 'flattened' );
 		}

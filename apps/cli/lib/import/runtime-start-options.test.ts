@@ -229,15 +229,15 @@ if (!defined('STREAMING_SITE_MIGRATION_REMOTE_UPLOAD_PROXY_STATE_FILE')) {
 			fs.writeFileSync( runtimeBlueprintPath, '{}' );
 			fs.writeFileSync( sqlitePath, 'sqlite' );
 			const sqliteIntegrationModule = await import( 'cli/lib/sqlite-integration' );
-			const keepSqliteIntegrationUpdatedMock = vi
-				.spyOn( sqliteIntegrationModule, 'keepSqliteIntegrationUpdated' )
-				.mockResolvedValue( true );
+			const installSqliteIntegrationMock = vi
+				.spyOn( sqliteIntegrationModule, 'installSqliteIntegration' )
+				.mockResolvedValue( undefined );
 
 			await expect( ensureImportedSiteSqliteReady( runtimeBlueprintPath ) ).resolves.toBe(
 				sqlitePath
 			);
 			// Receives the parent of the resolved wp-content in the raw tree.
-			expect( keepSqliteIntegrationUpdatedMock ).toHaveBeenCalledWith(
+			expect( installSqliteIntegrationMock ).toHaveBeenCalledWith(
 				path.join( importRoot, 'raw' )
 			);
 		} finally {

@@ -8,7 +8,7 @@ import {
 } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
+import { installSqliteIntegration, keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { isServerRunning, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
@@ -241,11 +241,11 @@ if (!defined('WP_CONTENT_DIR')) {
 
 			await runCommand( '/test/site' );
 
-			// keepSqliteIntegrationUpdated receives the parent of the resolved
-			// wp-content directory in the raw import tree, not the flattened
-			// site path, because the flattened site's wp-content may be a VFS
-			// symlink that doesn't resolve on the host filesystem.
-			expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( '/test/import/raw' );
+			// installSqliteIntegration is called directly (not via
+			// keepSqliteIntegrationUpdated) because needsSqliteSetup returns
+			// false for imported sites that have wp-config.php but no db.php.
+			// The path is the parent of the resolved wp-content in the raw tree.
+			expect( installSqliteIntegration ).toHaveBeenCalledWith( '/test/import/raw' );
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				expect.objectContaining( {
 					runtimeBlueprintPath: '/test/import/runtime/blueprint.json',

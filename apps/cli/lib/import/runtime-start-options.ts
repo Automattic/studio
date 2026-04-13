@@ -8,7 +8,7 @@ import path from 'path';
 import { loadNodeRuntime } from '@php-wasm/node';
 import { PHP, ProcessIdAllocator } from '@php-wasm/universal';
 import { LatestSupportedPHPVersion } from '@studio/common/types/php-versions';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
+import { installSqliteIntegration } from 'cli/lib/sqlite-integration';
 import { LoggerError } from 'cli/logger';
 import type { Blueprint } from '@wp-playground/blueprints';
 import type { StartServerOptions } from 'cli/lib/wordpress-server-manager';
@@ -191,15 +191,40 @@ function resolveImportedWpContentPath( runtimeBlueprintPath: string ): string {
 		}
 	}
 
-	// Fallback: try the conventional location in the raw tree.
-	const conventionalPath = path.join( rawDirectory, 'wp-content' );
-	if ( fs.existsSync( conventionalPath ) ) {
-		return conventionalPath;
+	// Fallback: find the wp-content directory that contains the imported
+	// database.  There may be multiple wp-content directories in the raw
+	// tree (e.g. one at the WordPress root and one inside the docroot),
+	// so the database subdirectory disambiguates.
+	const candidates: string[] = [];
+	function findWpContentDirs( dir: string, depth = 0 ): void {
+		if ( depth > 5 ) {
+			return;
+		}
+		let entries;
+		try {
+			entries = fs.readdirSync( dir, { withFileTypes: true } );
+		} catch {
+			return;
+		}
+		for ( const entry of entries ) {
+			if ( entry.name === 'wp-content' && entry.isDirectory() ) {
+				candidates.push( path.join( dir, entry.name ) );
+			} else if ( entry.isDirectory() && ! entry.isSymbolicLink() ) {
+				findWpContentDirs( path.join( dir, entry.name ), depth + 1 );
+			}
+		}
+	}
+	findWpContentDirs( rawDirectory );
+
+	// Prefer the wp-content that has the imported database.
+	const withDatabase = candidates.find( ( c ) =>
+		fs.existsSync( path.join( c, 'database', '.ht.sqlite' ) )
+	);
+	if ( withDatabase ) {
+		return withDatabase;
 	}
 
-	// Last resort: walk the raw tree looking for wp-content/database.
-	// This shouldn't normally be needed but handles edge cases.
-	return path.join( rawDirectory, 'wp-content' );
+	return candidates[ 0 ] ?? path.join( rawDirectory, 'wp-content' );
 }
 
 /**
@@ -228,9 +253,12 @@ export async function ensureImportedSiteSqliteReady(
 ): Promise< string > {
 	const wpContentPath = resolveImportedWpContentPath( runtimeBlueprintPath );
 	const sqlitePath = normalizeImportedSqliteDatabasePath( runtimeBlueprintPath );
-	// keepSqliteIntegrationUpdated expects the site root and appends
-	// /wp-content internally, so pass the parent of the resolved wp-content.
-	await keepSqliteIntegrationUpdated( path.dirname( wpContentPath ) );
+	// Imported sites always need the SQLite drop-in installed.
+	// keepSqliteIntegrationUpdated's needsSqliteSetup check returns false
+	// when wp-config.php exists without db.php (it assumes MySQL), so we
+	// call installSqliteIntegration directly.  It expects the site root
+	// and appends /wp-content internally.
+	await installSqliteIntegration( path.dirname( wpContentPath ) );
 	return sqlitePath;
 }
 

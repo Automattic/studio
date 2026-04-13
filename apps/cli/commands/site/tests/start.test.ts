@@ -241,7 +241,11 @@ if (!defined('WP_CONTENT_DIR')) {
 
 			await runCommand( '/test/site' );
 
-			expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( '/test/site' );
+			// keepSqliteIntegrationUpdated receives the parent of the resolved
+			// wp-content directory in the raw import tree, not the flattened
+			// site path, because the flattened site's wp-content may be a VFS
+			// symlink that doesn't resolve on the host filesystem.
+			expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( '/test/import/raw' );
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				expect.objectContaining( {
 					runtimeBlueprintPath: '/test/import/runtime/blueprint.json',

@@ -117,20 +117,28 @@ if (!defined('STREAMING_SITE_MIGRATION_REMOTE_UPLOAD_PROXY_STATE_FILE')) {
 	} );
 
 	it( 'normalizes the importer sqlite filename to .ht.sqlite', () => {
-		const sitePath = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-import-site-' ) );
-		const databaseDirectory = path.join( sitePath, 'wp-content', 'database' );
+		// Set up the directory layout that an import produces:
+		// {importRoot}/raw/wp-content/database/.ht.sqlite.php
+		// {importRoot}/runtime/blueprint.json
+		const importRoot = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-import-site-' ) );
+		const rawWpContent = path.join( importRoot, 'raw', 'wp-content' );
+		const databaseDirectory = path.join( rawWpContent, 'database' );
+		const runtimeDir = path.join( importRoot, 'runtime' );
+		const runtimeBlueprintPath = path.join( runtimeDir, 'blueprint.json' );
 		const sqlitePhpPath = path.join( databaseDirectory, '.ht.sqlite.php' );
 		const sqlitePath = path.join( databaseDirectory, '.ht.sqlite' );
 
 		try {
 			fs.mkdirSync( databaseDirectory, { recursive: true } );
+			fs.mkdirSync( runtimeDir, { recursive: true } );
+			fs.writeFileSync( runtimeBlueprintPath, '{}' );
 			fs.writeFileSync( sqlitePhpPath, 'sqlite' );
 
-			expect( normalizeImportedSqliteDatabasePath( sitePath ) ).toBe( sqlitePath );
+			expect( normalizeImportedSqliteDatabasePath( runtimeBlueprintPath ) ).toBe( sqlitePath );
 			expect( fs.existsSync( sqlitePath ) ).toBe( true );
 			expect( fs.existsSync( sqlitePhpPath ) ).toBe( false );
 		} finally {
-			fs.rmSync( sitePath, { recursive: true, force: true } );
+			fs.rmSync( importRoot, { recursive: true, force: true } );
 		}
 	} );
 
@@ -208,22 +216,32 @@ if (!defined('STREAMING_SITE_MIGRATION_REMOTE_UPLOAD_PROXY_STATE_FILE')) {
 	} );
 
 	it( 'ensures sqlite integration is installed for imported sites', async () => {
-		const sitePath = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-import-site-' ) );
-		const databaseDirectory = path.join( sitePath, 'wp-content', 'database' );
+		const importRoot = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-import-site-' ) );
+		const rawWpContent = path.join( importRoot, 'raw', 'wp-content' );
+		const databaseDirectory = path.join( rawWpContent, 'database' );
+		const runtimeDir = path.join( importRoot, 'runtime' );
+		const runtimeBlueprintPath = path.join( runtimeDir, 'blueprint.json' );
 		const sqlitePath = path.join( databaseDirectory, '.ht.sqlite' );
 
 		try {
 			fs.mkdirSync( databaseDirectory, { recursive: true } );
+			fs.mkdirSync( runtimeDir, { recursive: true } );
+			fs.writeFileSync( runtimeBlueprintPath, '{}' );
 			fs.writeFileSync( sqlitePath, 'sqlite' );
 			const sqliteIntegrationModule = await import( 'cli/lib/sqlite-integration' );
 			const keepSqliteIntegrationUpdatedMock = vi
 				.spyOn( sqliteIntegrationModule, 'keepSqliteIntegrationUpdated' )
 				.mockResolvedValue( true );
 
-			await expect( ensureImportedSiteSqliteReady( sitePath ) ).resolves.toBe( sqlitePath );
-			expect( keepSqliteIntegrationUpdatedMock ).toHaveBeenCalledWith( sitePath );
+			await expect( ensureImportedSiteSqliteReady( runtimeBlueprintPath ) ).resolves.toBe(
+				sqlitePath
+			);
+			// Receives the parent of the resolved wp-content in the raw tree.
+			expect( keepSqliteIntegrationUpdatedMock ).toHaveBeenCalledWith(
+				path.join( importRoot, 'raw' )
+			);
 		} finally {
-			fs.rmSync( sitePath, { recursive: true, force: true } );
+			fs.rmSync( importRoot, { recursive: true, force: true } );
 		}
 	} );
 } );

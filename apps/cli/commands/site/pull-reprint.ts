@@ -1006,7 +1006,7 @@ export function repairCompletedImportState( metadata: ImportMetadata ): string |
 		return 'Runtime configuration is missing. Resuming from runtime generation.';
 	}
 
-	const sqlitePath = normalizeImportedSqliteDatabasePath( metadata.sitePath );
+	const sqlitePath = normalizeImportedSqliteDatabasePath( metadata.runtimeBlueprintPath );
 	if ( ! fs.existsSync( sqlitePath ) ) {
 		if ( fs.existsSync( getDownloadedSqlDumpPath( metadata ) ) ) {
 			metadata.stage = 'db-downloaded';
@@ -1506,9 +1506,7 @@ export async function runCommand(
 			// When contentDir is known, the SQLite path points directly into
 			// /docroot (the raw directory) so no /site mount is needed.
 			// Fall back to /site mount only when contentDir is unavailable.
-			const dbApplyMounts = contentDir
-				? []
-				: [ { hostPath: metadata.sitePath, vfsPath: '/site' } ];
+			const dbApplyMounts = contentDir ? [] : [ { hostPath: metadata.sitePath, vfsPath: '/site' } ];
 			await runReprintCommandUntilComplete(
 				metadata.stateDirectory,
 				metadata.rawDirectory,

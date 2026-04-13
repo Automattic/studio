@@ -152,6 +152,57 @@ function mergeBlueprintConstants(
 }
 
 /**
+ * Returns the real wp-content directory for an imported site.
+ *
+ * The flattened site directory may contain a wp-content symlink that uses
+ * VFS-relative paths (e.g. ../docroot/srv/htdocs/wp-content) which don't
+ * resolve on the host filesystem.  Instead of traversing that symlink, we
+ * derive the real path from the import's raw directory and the content_dir
+ * recorded in the import state during preflight.
+ *
+ * Falls back to sitePath/wp-content for non-imported sites or when the
+ * import state doesn't specify a content_dir.
+ */
+function resolveImportedWpContentPath( runtimeBlueprintPath: string ): string {
+	const importRoot = path.dirname( path.dirname( runtimeBlueprintPath ) );
+	const rawDirectory = path.join( importRoot, 'raw' );
+	const statePath = path.join( importRoot, 'state', '.import-state.json' );
+
+	if ( fs.existsSync( statePath ) ) {
+		try {
+			const state = JSON.parse( fs.readFileSync( statePath, 'utf-8' ) ) as Record<
+				string,
+				unknown
+			>;
+			const preflight = ( state.preflight as Record< string, unknown > | undefined )?.data as
+				| Record< string, unknown >
+				| undefined;
+			const contentDir = ( preflight?.paths_urls as Record< string, unknown > | undefined )
+				?.content_dir;
+
+			if ( typeof contentDir === 'string' && contentDir.startsWith( '/' ) ) {
+				const resolved = path.join( rawDirectory, contentDir.slice( 1 ) );
+				if ( fs.existsSync( resolved ) ) {
+					return resolved;
+				}
+			}
+		} catch {
+			// Fall through to the default path.
+		}
+	}
+
+	// Fallback: try the conventional location in the raw tree.
+	const conventionalPath = path.join( rawDirectory, 'wp-content' );
+	if ( fs.existsSync( conventionalPath ) ) {
+		return conventionalPath;
+	}
+
+	// Last resort: walk the raw tree looking for wp-content/database.
+	// This shouldn't normally be needed but handles edge cases.
+	return path.join( rawDirectory, 'wp-content' );
+}
+
+/**
  * Returns the path to the imported SQLite database, renaming it if needed.
  *
  * reprint downloads the database as `.ht.sqlite.php` because some hosting
@@ -159,8 +210,9 @@ function mergeBlueprintConstants(
  * extension prevents that.  Playground expects `.ht.sqlite`, so we rename
  * it on first access.
  */
-export function normalizeImportedSqliteDatabasePath( sitePath: string ): string {
-	const databaseDirectory = path.join( sitePath, 'wp-content', 'database' );
+export function normalizeImportedSqliteDatabasePath( runtimeBlueprintPath: string ): string {
+	const wpContentPath = resolveImportedWpContentPath( runtimeBlueprintPath );
+	const databaseDirectory = path.join( wpContentPath, 'database' );
 	const sqlitePath = path.join( databaseDirectory, '.ht.sqlite' );
 	const sqlitePhpPath = path.join( databaseDirectory, '.ht.sqlite.php' );
 
@@ -171,9 +223,14 @@ export function normalizeImportedSqliteDatabasePath( sitePath: string ): string 
 	return sqlitePath;
 }
 
-export async function ensureImportedSiteSqliteReady( sitePath: string ): Promise< string > {
-	const sqlitePath = normalizeImportedSqliteDatabasePath( sitePath );
-	await keepSqliteIntegrationUpdated( sitePath );
+export async function ensureImportedSiteSqliteReady(
+	runtimeBlueprintPath: string
+): Promise< string > {
+	const wpContentPath = resolveImportedWpContentPath( runtimeBlueprintPath );
+	const sqlitePath = normalizeImportedSqliteDatabasePath( runtimeBlueprintPath );
+	// keepSqliteIntegrationUpdated expects the site root and appends
+	// /wp-content internally, so pass the parent of the resolved wp-content.
+	await keepSqliteIntegrationUpdated( path.dirname( wpContentPath ) );
 	return sqlitePath;
 }
 

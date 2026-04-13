@@ -135,6 +135,7 @@ describe( 'useImportExport hook', () => {
 				statusMessage: 'Export failed. Please try again.',
 				progress: 100,
 				exportType: 'full',
+				isError: true,
 			},
 		} );
 		expect( getIpcApi().exportSite ).toHaveBeenCalledWith( {

@@ -8,7 +8,6 @@ import { ExportEvents } from 'cli/lib/import-export/export/events';
 import { exportBackup } from 'cli/lib/import-export/export/export-manager';
 import { BackupCreateProgressEventData, ExportOptions } from 'cli/lib/import-export/export/types';
 import { ImportExportEventData } from 'cli/lib/import-export/handle-events';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { untildify } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -86,13 +85,6 @@ export async function runCommand(
 		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
 		const site = await getSiteByFolder( siteFolder );
 		logger.reportSuccess( __( 'Site loaded' ) );
-
-		logger.reportStart(
-			LoggerAction.INSTALL_SQLITE,
-			__( 'Setting up SQLite integration, if needed…' )
-		);
-		await keepSqliteIntegrationUpdated( siteFolder );
-		logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
 
 		const includes: ExportOptions[ 'includes' ] = { database: true, wpContent: true };
 

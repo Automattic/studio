@@ -18,7 +18,6 @@ import {
 	DEFAULT_IMPORTER_OPTIONS,
 	importBackup,
 } from 'cli/lib/import-export/import/import-manager';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import {
 	checkBackupSize,
 	fetchSyncableSites,
@@ -204,13 +203,6 @@ export async function runCommand(
 	} finally {
 		try {
 			if ( site && wasServerRunning ) {
-				logger.reportStart(
-					LoggerAction.INSTALL_SQLITE,
-					__( 'Setting up SQLite integration, if needed…' )
-				);
-				await keepSqliteIntegrationUpdated( siteFolder );
-				logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
-
 				logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
 				await startWordPressServer( site, logger );
 				logger.reportSuccess( __( 'WordPress server started' ) );

@@ -73,7 +73,6 @@ import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { generateSiteName } from 'cli/lib/site-name';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { StatsGroup } from 'cli/lib/types/bump-stats';
 import { untildify } from 'cli/lib/utils';
 import { ValidationError } from 'cli/lib/validation-error';
@@ -245,12 +244,6 @@ export async function runCommand(
 				)
 			);
 		}
-
-		logger.reportStart( LoggerAction.INSTALL_SQLITE, __( 'Setting up SQLite integration…' ) );
-		const isSqliteUpdated = await keepSqliteIntegrationUpdated( sitePath );
-		logger.reportSuccess(
-			isSqliteUpdated ? __( 'SQLite integration configured' ) : __( 'SQLite integration skipped' )
-		);
 
 		try {
 			const sharedConfig = await readSharedConfig();

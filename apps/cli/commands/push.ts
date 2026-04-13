@@ -16,7 +16,6 @@ import { __, sprintf } from '@wordpress/i18n';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { exportBackup } from 'cli/lib/import-export/export/export-manager';
 import { ExportOptions } from 'cli/lib/import-export/export/types';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import {
 	fetchSyncableSites,
 	initiateImport,
@@ -46,13 +45,6 @@ export async function runCommand(
 	logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
 	const site = await getSiteByFolder( siteFolder );
 	logger.reportSuccess( __( 'Site loaded' ) );
-
-	logger.reportStart(
-		LoggerAction.INSTALL_SQLITE,
-		__( 'Setting up SQLite integration, if needed…' )
-	);
-	await keepSqliteIntegrationUpdated( siteFolder );
-	logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
 
 	logger.reportStart( LoggerAction.FETCH_REMOTE_SITES, __( 'Fetching WordPress.com sites…' ) );
 	const remoteSites = await fetchSyncableSites( token.accessToken );

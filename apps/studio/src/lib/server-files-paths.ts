@@ -7,9 +7,6 @@ import os from 'os';
 import path from 'path';
 import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 
-// SQLite integration folder name
-const SQLITE_FILENAME = 'sqlite-database-integration';
-
 /**
  * Get a temporary path for tests
  */
@@ -39,13 +36,6 @@ function getWordPressVersionsPath(): string {
  */
 export function getWordPressVersionPath( version: string ): string {
 	return path.join( getWordPressVersionsPath(), version );
-}
-
-/**
- * The full path to the "SQLite database integration" folder.
- */
-export function getSqlitePath(): string {
-	return path.join( getBasePath(), SQLITE_FILENAME );
 }
 
 /**

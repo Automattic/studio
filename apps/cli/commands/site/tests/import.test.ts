@@ -11,7 +11,6 @@ import {
 	DEFAULT_IMPORTER_OPTIONS,
 	importBackup,
 } from 'cli/lib/import-export/import/import-manager';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { runCommand } from '../../import';
@@ -23,9 +22,6 @@ vi.mock( 'cli/lib/cli-config/sites', () => ( {
 	getSiteUrl: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/daemon-client' );
-vi.mock( 'cli/lib/sqlite-integration', () => ( {
-	keepSqliteIntegrationUpdated: vi.fn(),
-} ) );
 vi.mock( 'cli/lib/wordpress-server-manager', () => ( {
 	isServerRunning: vi.fn(),
 	stopWordPressServer: vi.fn(),
@@ -61,7 +57,6 @@ describe( 'CLI: studio import', () => {
 		vi.mocked( getSiteByFolder ).mockResolvedValue( testSite );
 		vi.mocked( isServerRunning ).mockResolvedValue( undefined );
 		vi.mocked( stopWordPressServer ).mockResolvedValue( undefined );
-		vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( false );
 		vi.mocked( isWordPressDirectory ).mockReturnValue( true );
 		vi.mocked( getServerFilesPath ).mockReturnValue( '/server-files' );
 		vi.mocked( recursiveCopyDirectory ).mockResolvedValue( undefined );
@@ -167,7 +162,6 @@ describe( 'CLI: studio import', () => {
 	it( 'preserves import error when restore steps fail', async () => {
 		vi.mocked( isServerRunning ).mockResolvedValue( { pid: 1234 } as never );
 		vi.mocked( importBackup ).mockRejectedValue( new Error( 'import failed' ) );
-		vi.mocked( keepSqliteIntegrationUpdated ).mockRejectedValue( new Error( 'restart failed' ) );
 
 		await expect( runCommand( testSitePath, testImportPath ) ).rejects.toThrow( 'import failed' );
 		expect( stopWordPressServer ).toHaveBeenCalledWith( testSite.id );

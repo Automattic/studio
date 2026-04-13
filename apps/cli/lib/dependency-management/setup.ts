@@ -2,13 +2,11 @@ import fs from 'fs';
 import path from 'path';
 import { recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
 import semver from 'semver';
-import { getSqliteVersionFromInstallation } from 'cli/lib/sqlite-integration';
 import {
 	getAiInstructionsPath,
 	getLanguagePacksPath,
 	getPhpMyAdminPath,
 	getSqliteCommandPath,
-	getSqlitePluginPath,
 	getWordPressVersionPath,
 	getWpCliPharPath,
 	getWpFilesPath,
@@ -95,26 +93,6 @@ async function copyBundledLatestWpVersion() {
 		}
 		await recursiveCopyDirectory( bundledWpVersionPath, latestWpVersionPath );
 	}
-}
-
-const SQLITE_FILENAME = 'sqlite-database-integration';
-
-async function copyBundledSqlite() {
-	const sourceSqlitePath = path.join( getWpFilesPath(), SQLITE_FILENAME );
-	const targetSqlitePath = getSqlitePluginPath();
-
-	await copySourceDirectoryIfNewerOrMissing( {
-		sourceDirectoryPath: sourceSqlitePath,
-		targetDirectoryPath: targetSqlitePath,
-		readSourceVersion: async () =>
-			semver.coerce( await getSqliteVersionFromInstallation( sourceSqlitePath ), {
-				includePrerelease: true,
-			} ),
-		readTargetVersion: async () =>
-			semver.coerce( await getSqliteVersionFromInstallation( targetSqlitePath ), {
-				includePrerelease: true,
-			} ),
-	} );
 }
 
 async function copyBundledWpCli() {
@@ -245,7 +223,6 @@ async function copyBundledLanguagePacks() {
 export async function setupServerFiles() {
 	const steps: [ string, () => Promise< void > ][] = [
 		[ 'WordPress version', copyBundledLatestWpVersion ],
-		[ 'SQLite integration', copyBundledSqlite ],
 		[ 'WP-CLI', copyBundledWpCli ],
 		[ 'SQLite command', copyBundledSqliteCommand ],
 		[ 'translations', copyBundledTranslations ],

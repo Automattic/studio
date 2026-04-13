@@ -71,7 +71,6 @@ import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import * as oauthClient from 'src/lib/oauth';
 import { getAiInstructionsPath } from 'src/lib/server-files-paths';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
-import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import * as windowsHelpers from 'src/lib/windows-helpers';
 import { setupWordPressFilesOnly } from 'src/lib/wordpress-setup';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
@@ -828,8 +827,6 @@ export async function exportSite(
 	options: ExportOptions
 ): Promise< boolean > {
 	try {
-		await keepSqliteIntegrationUpdated( options.site.path );
-
 		const onEvent = ( data: ImportExportEventData ) => {
 			const parentWindow = BrowserWindow.fromWebContents( event.sender );
 			sendIpcEventToRendererWithWindow( parentWindow, 'on-export', data, options.site.id );

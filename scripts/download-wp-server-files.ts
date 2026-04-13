@@ -6,7 +6,6 @@ import {
 	getPhpMyAdminInstallSteps,
 } from '@wp-playground/tools';
 import fs from 'fs-extra';
-import { SQLITE_DATABASE_INTEGRATION_RELEASE_URL } from '../apps/studio/src/constants';
 import { getLatestSQLiteCommandRelease } from '../apps/studio/src/lib/sqlite-command-release';
 import { extractZip } from '../tools/common/lib/extract-zip';
 
@@ -26,11 +25,6 @@ const FILES_TO_DOWNLOAD: FileToDownload[] = [
 		description: 'latest WordPress version',
 		getUrl: () => 'https://wordpress.org/latest.zip',
 		destinationPath: path.join( WP_SERVER_FILES_PATH, 'latest' ),
-	},
-	{
-		name: 'sqlite',
-		description: 'SQLite files',
-		getUrl: () => SQLITE_DATABASE_INTEGRATION_RELEASE_URL,
 	},
 	{
 		name: 'wp-cli',

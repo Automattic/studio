@@ -23,7 +23,6 @@ import {
 	ImportWpContentProgressEventData,
 } from 'cli/lib/import-export/import/types';
 import { getBackupFileType } from 'cli/lib/import-export/utils';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { untildify } from 'cli/lib/utils';
 import {
 	isServerRunning,
@@ -236,13 +235,6 @@ export async function runCommand( siteFolder: string, importFile: string ): Prom
 	} finally {
 		try {
 			if ( site && wasServerRunning ) {
-				logger.reportStart(
-					LoggerAction.INSTALL_SQLITE,
-					__( 'Setting up SQLite integration, if needed…' )
-				);
-				await keepSqliteIntegrationUpdated( siteFolder );
-				logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
-
 				logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
 				await startWordPressServer( site, logger );
 				logger.reportSuccess( __( 'WordPress server started' ) );

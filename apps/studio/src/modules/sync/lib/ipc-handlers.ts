@@ -20,7 +20,6 @@ import { getSyncBackupTempPath } from 'src/lib/get-sync-backup-temp-path';
 import { exportBackup } from 'src/lib/import-export/export/export-manager';
 import { ExportOptions } from 'src/lib/import-export/export/types';
 import { getAuthenticationToken } from 'src/lib/oauth';
-import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import { SiteServer } from 'src/site-server';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 import { SyncOption } from 'src/types';
@@ -160,8 +159,6 @@ export async function exportSiteForPush(
 		if ( abortController.signal.aborted ) {
 			throw new Error( 'Export aborted' );
 		}
-
-		await keepSqliteIntegrationUpdated( site.details.path );
 
 		const shouldIncludeSyncOption = (
 			optionsToSync: SyncOption[] | undefined,

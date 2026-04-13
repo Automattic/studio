@@ -7,7 +7,6 @@ import {
 } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { isServerRunning, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
@@ -22,7 +21,6 @@ vi.mock( 'cli/lib/cli-config/sites', async () => ( {
 vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/site-utils' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
-vi.mock( 'cli/lib/sqlite-integration' );
 
 describe( 'CLI: studio site start', () => {
 	// Simple test data
@@ -56,7 +54,6 @@ describe( 'CLI: studio site start', () => {
 		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
 		vi.mocked( isServerRunning ).mockResolvedValue( undefined );
 		vi.mocked( setupCustomDomain ).mockResolvedValue( undefined );
-		vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( false );
 		vi.mocked( startWordPressServer ).mockResolvedValue( testProcessDescription );
 		vi.mocked( updateSiteLatestCliPid ).mockResolvedValue( undefined );
 		vi.mocked( logSiteDetails ).mockImplementation( () => {} );
@@ -105,15 +102,6 @@ describe( 'CLI: studio site start', () => {
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
-		it( 'should throw when SQLite integration setup fails', async () => {
-			vi.mocked( keepSqliteIntegrationUpdated ).mockRejectedValue(
-				new Error( 'SQLite setup failed' )
-			);
-
-			await expect( runCommand( '/test/site' ) ).rejects.toThrow( 'SQLite setup failed' );
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
-
 		it( 'should throw when browser fails', async () => {
 			vi.mocked( openSiteInBrowser ).mockRejectedValue( new Error( 'Browser error' ) );
 
@@ -138,7 +126,6 @@ describe( 'CLI: studio site start', () => {
 			expect( connectToDaemon ).toHaveBeenCalled();
 			expect( isServerRunning ).toHaveBeenCalledWith( testSite.id );
 			expect( setupCustomDomain ).toHaveBeenCalledWith( testSite, expect.any( Logger ) );
-			expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( '/test/site' );
 			expect( startWordPressServer ).toHaveBeenCalledWith( testSite, expect.any( Logger ) );
 			expect( updateSiteLatestCliPid ).toHaveBeenCalledWith(
 				testSite.id,
@@ -177,12 +164,6 @@ describe( 'CLI: studio site start', () => {
 				expect.any( Logger )
 			);
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
-
-		it( 'should update SQLite integration', async () => {
-			await runCommand( '/test/site' );
-
-			expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( '/test/site' );
 		} );
 
 		it( 'should skip browser when skipBrowser is true', async () => {

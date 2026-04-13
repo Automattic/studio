@@ -29,7 +29,6 @@ import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
@@ -80,7 +79,6 @@ vi.mock( import( '@studio/common/lib/well-known-paths' ), async ( importOriginal
 vi.mock( 'cli/lib/site-language' );
 vi.mock( 'cli/lib/site-utils' );
 vi.mock( '@studio/common/lib/agent-skills' );
-vi.mock( 'cli/lib/sqlite-integration' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
 
 describe( 'CLI: studio site create', () => {
@@ -121,7 +119,6 @@ describe( 'CLI: studio site create', () => {
 
 	let consoleLogSpy: MockInstance;
 	let fsMkdirSyncSpy: MockInstance;
-	let loggerReportSuccessSpy: MockInstance;
 
 	const createPathExistsMock = ( sitePathExists = false ) => {
 		const path = require( 'path' );
@@ -143,7 +140,6 @@ describe( 'CLI: studio site create', () => {
 
 		consoleLogSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
 		fsMkdirSyncSpy = vi.spyOn( fs, 'mkdirSync' ).mockReturnValue( undefined );
-		loggerReportSuccessSpy = vi.spyOn( Logger.prototype, 'reportSuccess' );
 		vi.mocked( getServerFilesPath ).mockReturnValue( '/test/server-files' );
 		createPathExistsMock( false );
 		vi.mocked( isEmptyDir ).mockResolvedValue( true );
@@ -158,7 +154,6 @@ describe( 'CLI: studio site create', () => {
 		vi.mocked( saveCliConfig ).mockResolvedValue( undefined );
 		vi.mocked( lockCliConfig ).mockResolvedValue( undefined );
 		vi.mocked( unlockCliConfig ).mockResolvedValue( undefined );
-		vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( true );
 		vi.mocked( connectToDaemon ).mockResolvedValue( undefined );
 		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
 		vi.mocked( updateServerFiles ).mockResolvedValue( undefined );
@@ -252,18 +247,6 @@ describe( 'CLI: studio site create', () => {
 
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
-
-		it( 'should error if SQLite integration is not available', async () => {
-			vi.mocked( keepSqliteIntegrationUpdated ).mockRejectedValue(
-				new Error( 'SQLite integration files not found. Please ensure Studio is installed.' )
-			);
-
-			await expect( runCommand( mockSitePath, { ...defaultTestOptions } ) ).rejects.toThrow(
-				'SQLite integration files not found'
-			);
-
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
 	} );
 
 	describe( 'Success Cases', () => {
@@ -271,8 +254,6 @@ describe( 'CLI: studio site create', () => {
 			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
 			expect( fsMkdirSyncSpy ).toHaveBeenCalledWith( mockSitePath, { recursive: true } );
-			expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( mockSitePath );
-			expect( loggerReportSuccessSpy ).toHaveBeenCalledWith( 'SQLite integration configured' );
 			expect( portFinder.getOpenPort ).toHaveBeenCalled();
 			expect( lockCliConfig ).toHaveBeenCalled();
 			expect( saveCliConfig ).toHaveBeenCalled();
@@ -282,15 +263,6 @@ describe( 'CLI: studio site create', () => {
 			expect( logSiteDetails ).toHaveBeenCalled();
 			expect( openSiteInBrowser ).toHaveBeenCalled();
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
-
-		it( 'should skip SQLite integration when it is already configured', async () => {
-			vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( false );
-
-			await runCommand( mockSitePath, { ...defaultTestOptions } );
-
-			expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( mockSitePath );
-			expect( loggerReportSuccessSpy ).toHaveBeenCalledWith( 'SQLite integration skipped' );
 		} );
 
 		it( 'should create site with custom name', async () => {
@@ -786,16 +758,6 @@ describe( 'CLI: studio site create', () => {
 					noStart: true,
 				} )
 			).rejects.toThrow( 'Failed to apply Blueprint' );
-
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
-
-		it( 'should handle SQLite setup failure', async () => {
-			vi.mocked( keepSqliteIntegrationUpdated ).mockRejectedValue(
-				new Error( 'SQLite setup failed' )
-			);
-
-			await expect( runCommand( mockSitePath, { ...defaultTestOptions } ) ).rejects.toThrow();
 
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );

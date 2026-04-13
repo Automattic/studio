@@ -217,8 +217,8 @@ describe( 'Studio AI MCP tools', () => {
 
 		await getTool( 'preview_create' ).handler( { nameOrPath: 'My Site' } as never, null );
 
-		expect( previousCallback ).toHaveBeenCalledWith( 'Creating preview…' );
-		expect( previousCallback ).toHaveBeenCalledWith( 'Almost done…' );
+		expect( previousCallback ).toHaveBeenCalledWith( 'Creating preview…', undefined );
+		expect( previousCallback ).toHaveBeenCalledWith( 'Almost done…', undefined );
 	} );
 
 	it( 'rejects shell syntax in wp_cli post content before dispatching to WP-CLI', async () => {

@@ -1323,12 +1323,12 @@ export class AiChatUI {
 
 	private lastProgressText: Text | null = null;
 
-	setLoaderMessage( message: string ): void {
+	setLoaderMessage( message: string, update?: boolean ): void {
 		if ( ! message ) {
 			return;
 		}
 		const formatted = '   ' + chalk.dim( '⎿ ' ) + chalk.dim( message );
-		if ( this.lastProgressText ) {
+		if ( update && this.lastProgressText ) {
 			this.lastProgressText.setText( formatted );
 		} else {
 			this.lastProgressText = new Text( formatted, 0, 0 );

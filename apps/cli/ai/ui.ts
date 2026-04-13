@@ -1528,7 +1528,6 @@ export class AiChatUI {
 	 */
 	beginAgentTurn(): void {
 		this.queueEditIndex = null;
-		this.editor.setText( '' );
 		this._inAgentTurn = true;
 		this.updateHints();
 		this.showLoader( this.randomThinkingMessage() );

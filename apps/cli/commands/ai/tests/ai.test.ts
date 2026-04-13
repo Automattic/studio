@@ -495,6 +495,7 @@ describe( 'CLI: studio code --json mode', () => {
 
 	afterEach( () => {
 		process.stdout.write = originalWrite;
+		process.exitCode = undefined;
 	} );
 
 	function buildParser(): StudioArgv {
@@ -551,7 +552,7 @@ describe( 'CLI: studio code --json mode', () => {
 				autoApprove: true,
 			} )
 		);
-		expect( process.exit ).toHaveBeenCalledWith( 0 );
+		expect( process.exitCode ).not.toBe( 1 );
 	} );
 
 	it( 'streams SDK messages as NDJSON', async () => {
@@ -623,7 +624,7 @@ describe( 'CLI: studio code --json mode', () => {
 			type: 'turn.completed',
 			status: 'error',
 		} );
-		expect( process.exit ).toHaveBeenCalledWith( 1 );
+		expect( process.exitCode ).toBe( 1 );
 	} );
 
 	it( 'does not call autoApprove in interactive mode', async () => {

@@ -452,22 +452,21 @@ export function getContentDirFromState( stateDirectory: string ): string | null 
 }
 
 export function buildDbApplyArgs(
-	metadata: Pick< ImportMetadata, 'normalizedUrl' | 'remoteSiteUrl' | 'localUrl' | 'sitePath' >,
+	metadata: Pick<
+		ImportMetadata,
+		'normalizedUrl' | 'remoteSiteUrl' | 'localUrl' | 'sitePath' | 'stateDirectory' | 'rawDirectory'
+	>,
 	contentDir?: string | null
 ): string[] {
-	// Point the SQLite path directly at the raw docroot layout to avoid
-	// traversing VFS symlinks created by flat-document-root.  When
-	// content_dir is unknown, fall back to the conventional wp-content
-	// location under the flattened site mount.
 	const sqlitePath = contentDir
-		? `/docroot${ contentDir }/database/.ht.sqlite`
-		: '/site/wp-content/database/.ht.sqlite';
+		? `${ metadata.rawDirectory }${ contentDir }/database/.ht.sqlite`
+		: `${ metadata.sitePath }/wp-content/database/.ht.sqlite`;
 
 	return [
 		'db-apply',
 		getApiUrl( metadata.normalizedUrl ),
-		'--state-dir=/state',
-		'--fs-root=/docroot',
+		`--state-dir=${ metadata.stateDirectory }`,
+		`--fs-root=${ metadata.rawDirectory }`,
 		'--target-engine=sqlite',
 		`--target-sqlite-path=${ sqlitePath }`,
 		`--new-site-url=${ metadata.localUrl! }`,
@@ -780,6 +779,7 @@ export function getApiUrl( normalizedUrl: string ): string {
 }
 
 export function buildFilesSyncArgs(
+	metadata: Pick< ImportMetadata, 'stateDirectory' | 'rawDirectory' >,
 	apiUrl: string,
 	secret: string,
 	extraArgs: string[] = []
@@ -791,8 +791,8 @@ export function buildFilesSyncArgs(
 		...extraArgs,
 		`--max-exec=${ FILES_SYNC_MAX_EXEC_SECONDS }`,
 		'--no-adaptive',
-		'--state-dir=/state',
-		'--fs-root=/docroot',
+		`--state-dir=${ metadata.stateDirectory }`,
+		`--fs-root=${ metadata.rawDirectory }`,
 	];
 }
 
@@ -844,8 +844,8 @@ async function runPreflight(
 				apiUrl,
 				`--secret=${ secret }`,
 				'--no-adaptive',
-				'--state-dir=/state',
-				'--fs-root=/docroot',
+				`--state-dir=${ metadata.stateDirectory }`,
+				`--fs-root=${ metadata.rawDirectory }`,
 			],
 			undefined,
 			{
@@ -1053,17 +1053,13 @@ async function refreshFlattenedSiteDirectory(
 			'flat-document-root',
 			getApiUrl( metadata.normalizedUrl ),
 			'--no-adaptive',
-			'--state-dir=/state',
-			'--fs-root=/docroot',
-			'--flatten-to=/flat',
-			// Tell reprint the real host paths so symlinks resolve correctly
-			// on the host filesystem, not just inside the PHP WASM VFS.
-			'--host-fs-root=' + metadata.rawDirectory,
-			'--host-flatten-to=' + metadata.sitePath,
+			`--state-dir=${ metadata.stateDirectory }`,
+			`--fs-root=${ metadata.rawDirectory }`,
+			`--flatten-to=${ metadata.sitePath }`,
 		],
 		undefined,
 		{
-			mounts: [ { hostPath: metadata.sitePath, vfsPath: '/flat' } ],
+			mounts: [ { hostPath: metadata.sitePath, vfsPath: metadata.sitePath } ],
 			verboseCommands: verbose,
 		}
 	);
@@ -1247,7 +1243,7 @@ async function restartUnresumableFilesSync(
 	await runReprintCommandUntilComplete(
 		metadata.stateDirectory,
 		metadata.rawDirectory,
-		buildFilesSyncArgs( apiUrl, secret, [ '--abort' ] ),
+		buildFilesSyncArgs( metadata, apiUrl, secret, [ '--abort' ] ),
 		undefined,
 		{
 			verboseCommands: verbose,
@@ -1459,7 +1455,7 @@ export async function runCommand(
 			await runReprintCommandUntilComplete(
 				metadata.stateDirectory,
 				metadata.rawDirectory,
-				buildFilesSyncArgs( apiUrl, secret, [ '--filter=essential-files', '--follow-symlinks' ] ),
+				buildFilesSyncArgs( metadata, apiUrl, secret, [ '--filter=essential-files', '--follow-symlinks' ] ),
 				( progress ) => logger.reportProgress( progress ),
 				{
 					progressLabel: 'Downloading files',
@@ -1489,8 +1485,8 @@ export async function runCommand(
 					`--secret=${ secret }`,
 					'--sql-output=file',
 					'--no-adaptive',
-					'--state-dir=/state',
-					'--fs-root=/docroot',
+					`--state-dir=${ metadata.stateDirectory }`,
+					`--fs-root=${ metadata.rawDirectory }`,
 				],
 				( progress ) => logger.reportProgress( progress ),
 				{
@@ -1507,10 +1503,9 @@ export async function runCommand(
 		if ( ! hasReachedStage( metadata, 'db-applied' ) ) {
 			logger.reportStart( LoggerAction.IMPORT_SQL, __( 'Applying database…' ) );
 			const contentDir = getContentDirFromState( metadata.stateDirectory );
-			// When contentDir is known, the SQLite path points directly into
-			// /docroot (the raw directory) so no /site mount is needed.
-			// Fall back to /site mount only when contentDir is unavailable.
-			const dbApplyMounts = contentDir ? [] : [ { hostPath: metadata.sitePath, vfsPath: '/site' } ];
+			const dbApplyMounts = contentDir
+				? []
+				: [ { hostPath: metadata.sitePath, vfsPath: metadata.sitePath } ];
 			await runReprintCommandUntilComplete(
 				metadata.stateDirectory,
 				metadata.rawDirectory,
@@ -1534,16 +1529,16 @@ export async function runCommand(
 				[
 					'apply-runtime',
 					'--no-adaptive',
-					'--state-dir=/state',
-					'--flat-document-root=/flat',
-					'--output-dir=/output',
+					`--state-dir=${ metadata.stateDirectory }`,
+					`--flat-document-root=${ metadata.sitePath }`,
+					`--output-dir=${ metadata.runtimeDirectory }`,
 					'--runtime=playground-cli',
 				],
 				undefined,
 				{
 					mounts: [
-						{ hostPath: metadata.sitePath, vfsPath: '/flat' },
-						{ hostPath: metadata.runtimeDirectory, vfsPath: '/output' },
+						{ hostPath: metadata.sitePath, vfsPath: metadata.sitePath },
+						{ hostPath: metadata.runtimeDirectory, vfsPath: metadata.runtimeDirectory },
 					],
 					verboseCommands: verbose,
 				}
@@ -1618,7 +1613,7 @@ export async function runCommand(
 				await runReprintCommandUntilComplete(
 					metadata.stateDirectory,
 					metadata.rawDirectory,
-					buildFilesSyncArgs( apiUrl, secret, [
+					buildFilesSyncArgs( metadata, apiUrl, secret, [
 						...( isResumingSkipped ? [] : [ '--filter=skipped-earlier' ] ),
 					] ),
 					( progress ) => logger.reportProgress( progress ),

@@ -171,8 +171,8 @@ async function runReprint( msg: RunMessage ) {
 		await php.setSapiName( 'cli' );
 
 		await mountDirectory( php, { hostPath: tmpDir, vfsPath: '/tmp' } );
-		await mountDirectory( php, { hostPath: stateDir, vfsPath: '/state' } );
-		await mountDirectory( php, { hostPath: docroot, vfsPath: '/docroot' } );
+		await mountDirectory( php, { hostPath: stateDir, vfsPath: stateDir } );
+		await mountDirectory( php, { hostPath: docroot, vfsPath: docroot } );
 
 		for ( const mount of mounts ) {
 			await mountDirectory( php, mount );

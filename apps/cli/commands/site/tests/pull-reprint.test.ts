@@ -43,8 +43,9 @@ describe( 'CLI: studio site pull-reprint helpers', () => {
 	} );
 
 	it( 'keeps files-sync requests open for up to 30 seconds on the host', () => {
+		const metadata = { stateDirectory: '/tmp/state', rawDirectory: '/tmp/raw' };
 		expect(
-			buildFilesSyncArgs( 'https://example.com/?site-export-api', 'secret', [
+			buildFilesSyncArgs( metadata, 'https://example.com/?site-export-api', 'secret', [
 				'--filter=essential-files',
 			] )
 		).toEqual( [
@@ -54,8 +55,8 @@ describe( 'CLI: studio site pull-reprint helpers', () => {
 			'--filter=essential-files',
 			'--max-exec=30',
 			'--no-adaptive',
-			'--state-dir=/state',
-			'--fs-root=/docroot',
+			'--state-dir=/tmp/state',
+			'--fs-root=/tmp/raw',
 		] );
 	} );
 
@@ -196,35 +197,39 @@ describe( 'CLI: studio site pull-reprint helpers', () => {
 					remoteSiteUrl: 'https://example.com',
 					localUrl: 'http://localhost:8881',
 					sitePath: '/tmp/site',
+					stateDirectory: '/tmp/state',
+					rawDirectory: '/tmp/raw',
 				} as never,
 				'/srv/htdocs/wp-content'
 			)
 		).toEqual( [
 			'db-apply',
 			'https://example.com/?site-export-api',
-			'--state-dir=/state',
-			'--fs-root=/docroot',
+			'--state-dir=/tmp/state',
+			'--fs-root=/tmp/raw',
 			'--target-engine=sqlite',
-			'--target-sqlite-path=/docroot/srv/htdocs/wp-content/database/.ht.sqlite',
+			'--target-sqlite-path=/tmp/raw/srv/htdocs/wp-content/database/.ht.sqlite',
 			'--new-site-url=http://localhost:8881',
 		] );
 	} );
 
-	it( 'falls back to /site mount path when contentDir is not provided', () => {
+	it( 'falls back to site path when contentDir is not provided', () => {
 		expect(
 			buildDbApplyArgs( {
 				normalizedUrl: 'https://example.com/',
 				remoteSiteUrl: 'https://example.com',
 				localUrl: 'http://localhost:8881',
 				sitePath: '/tmp/site',
+				stateDirectory: '/tmp/state',
+				rawDirectory: '/tmp/raw',
 			} as never )
 		).toEqual( [
 			'db-apply',
 			'https://example.com/?site-export-api',
-			'--state-dir=/state',
-			'--fs-root=/docroot',
+			'--state-dir=/tmp/state',
+			'--fs-root=/tmp/raw',
 			'--target-engine=sqlite',
-			'--target-sqlite-path=/site/wp-content/database/.ht.sqlite',
+			'--target-sqlite-path=/tmp/site/wp-content/database/.ht.sqlite',
 			'--new-site-url=http://localhost:8881',
 		] );
 	} );

@@ -1039,6 +1039,66 @@ async function rebuildFlattenedSiteDirectory( metadata: ImportMetadata ): Promis
 	fs.mkdirSync( metadata.sitePath, { recursive: true } );
 }
 
+/**
+ * Rewrites VFS symlinks created by reprint's flat-document-root to use
+ * absolute host paths.
+ *
+ * flat-document-root runs inside the PHP WASM VFS where /docroot and /flat
+ * are siblings.  It creates relative symlinks like ../docroot/srv/htdocs/wp-content
+ * that resolve correctly inside the VFS but break on the host filesystem
+ * where the raw directory and the site directory live in different trees
+ * (e.g. ~/.studio/imports/.../raw vs ~/Studio/site-name).
+ *
+ * This walks the site directory and rewrites any symlink whose target starts
+ * with ../docroot/ to point to the corresponding absolute path in the raw
+ * directory instead.
+ */
+function rewriteVfsSymlinksToHostPaths( sitePath: string, rawDirectory: string ): void {
+	const VFS_PREFIX = '../docroot/';
+
+	function rewriteInDirectory( dirPath: string ): void {
+		for ( const entry of fs.readdirSync( dirPath ) ) {
+			const entryPath = path.join( dirPath, entry );
+
+			let stats;
+			try {
+				stats = fs.lstatSync( entryPath );
+			} catch {
+				continue;
+			}
+
+			if ( ! stats.isSymbolicLink() ) {
+				continue;
+			}
+
+			const target = fs.readlinkSync( entryPath );
+			if ( ! target.startsWith( VFS_PREFIX ) ) {
+				continue;
+			}
+
+			// ../docroot/srv/htdocs/wp-content → {rawDirectory}/srv/htdocs/wp-content
+			const hostTarget = path.join( rawDirectory, target.slice( VFS_PREFIX.length ) );
+			fs.unlinkSync( entryPath );
+			fs.symlinkSync( hostTarget, entryPath );
+		}
+	}
+
+	rewriteInDirectory( sitePath );
+
+	// Also rewrite symlinks one level deeper (e.g. wp-content/themes/mytheme
+	// may be a symlink into the raw tree).
+	for ( const entry of fs.readdirSync( sitePath ) ) {
+		const entryPath = path.join( sitePath, entry );
+		try {
+			if ( fs.statSync( entryPath ).isDirectory() ) {
+				rewriteInDirectory( entryPath );
+			}
+		} catch {
+			// Broken symlinks or unreadable entries — skip.
+		}
+	}
+}
+
 async function refreshFlattenedSiteDirectory(
 	metadata: Pick<
 		ImportMetadata,
@@ -1365,6 +1425,7 @@ export async function runCommand(
 			logger.reportStart( LoggerAction.CREATE_SITE, __( 'Refreshing site directory…' ) );
 			await rebuildFlattenedSiteDirectory( metadata );
 			await refreshFlattenedSiteDirectory( metadata, verbose );
+			rewriteVfsSymlinksToHostPaths( metadata.sitePath, metadata.rawDirectory );
 			logger.reportSuccess( __( 'Site directory refreshed' ) );
 		}
 		await syncMetadataWithExistingSite( metadata );
@@ -1470,6 +1531,7 @@ export async function runCommand(
 		if ( ! hasReachedStage( metadata, 'flattened' ) ) {
 			logger.reportStart( LoggerAction.CREATE_SITE, __( 'Preparing site directory…' ) );
 			await refreshFlattenedSiteDirectory( metadata, verbose );
+			rewriteVfsSymlinksToHostPaths( metadata.sitePath, metadata.rawDirectory );
 			logger.reportSuccess( __( 'Site directory prepared' ) );
 			setStage( metadata, 'flattened' );
 		}
@@ -1506,9 +1568,7 @@ export async function runCommand(
 			// When contentDir is known, the SQLite path points directly into
 			// /docroot (the raw directory) so no /site mount is needed.
 			// Fall back to /site mount only when contentDir is unavailable.
-			const dbApplyMounts = contentDir
-				? []
-				: [ { hostPath: metadata.sitePath, vfsPath: '/site' } ];
+			const dbApplyMounts = contentDir ? [] : [ { hostPath: metadata.sitePath, vfsPath: '/site' } ];
 			await runReprintCommandUntilComplete(
 				metadata.stateDirectory,
 				metadata.rawDirectory,

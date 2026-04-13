@@ -194,22 +194,9 @@ export async function captureCommandOutput( fn: () => Promise< void > ): Promise
 		consoleOutput += args.map( String ).join( ' ' ) + '\n';
 	};
 	process.exitCode = undefined;
-	let lastForwardedTime = 0;
-	let pendingMessage: string | null = null;
-	const PROGRESS_THROTTLE_MS = 3000;
 	setProgressCallback( ( message ) => {
 		progressMessages.push( message );
-		if ( ! previousCallback ) {
-			return;
-		}
-		const now = Date.now();
-		if ( now - lastForwardedTime >= PROGRESS_THROTTLE_MS ) {
-			lastForwardedTime = now;
-			pendingMessage = null;
-			previousCallback( message );
-		} else {
-			pendingMessage = message;
-		}
+		previousCallback?.( message );
 	} );
 
 	try {
@@ -217,9 +204,6 @@ export async function captureCommandOutput( fn: () => Promise< void > ): Promise
 	} catch ( error ) {
 		thrownError = error;
 	} finally {
-		if ( pendingMessage && previousCallback ) {
-			previousCallback( pendingMessage );
-		}
 		console.log = originalConsoleLog;
 		console.table = originalConsoleTable;
 		setProgressCallback( previousCallback );

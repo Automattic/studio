@@ -246,16 +246,16 @@ export class SiteServer {
 		console.log( 'Stopping server with ID', this.details.id );
 		try {
 			await this.server.stop();
-
-			if ( ! this.details.running ) {
-				console.log( 'Server is not running' );
-				return;
-			}
-
-			const { running, autoStart, url, ...rest } = this.details;
-			this.details = { running: false, autoStart: false, ...rest };
 		} catch ( error ) {
 			console.error( error );
+		}
+
+		const { running, autoStart, ...rest } = this.details;
+		if ( 'url' in rest ) {
+			const { url, ...stoppedRest } = rest;
+			this.details = { running: false, ...stoppedRest };
+		} else {
+			this.details = { running: false, ...rest };
 		}
 	}
 

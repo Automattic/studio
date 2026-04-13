@@ -433,16 +433,43 @@ export function repairBlockingRawImportPaths(
 	return repairedPaths;
 }
 
+/**
+ * Read the remote WP_CONTENT_DIR path from the reprint state's preflight
+ * data.  This is the absolute path on the source server (e.g.
+ * "/srv/htdocs/wp-content"), which mirrors the directory layout inside the
+ * raw docroot.
+ */
+export function getContentDirFromState( stateDirectory: string ): string | null {
+	const state = readReprintState( stateDirectory ) as
+		| ( ReprintStateSnapshot & Record< string, unknown > )
+		| null;
+	const preflight = state?.preflight?.data as Record< string, unknown > | undefined;
+	const database = preflight?.database as Record< string, unknown > | undefined;
+	const wp = database?.wp as Record< string, unknown > | undefined;
+	const pathsUrls = wp?.paths_urls as Record< string, unknown > | undefined;
+	const contentDir = pathsUrls?.content_dir;
+	return typeof contentDir === 'string' ? contentDir : null;
+}
+
 export function buildDbApplyArgs(
-	metadata: Pick< ImportMetadata, 'normalizedUrl' | 'remoteSiteUrl' | 'localUrl' | 'sitePath' >
+	metadata: Pick< ImportMetadata, 'normalizedUrl' | 'remoteSiteUrl' | 'localUrl' | 'sitePath' >,
+	contentDir?: string | null
 ): string[] {
+	// Point the SQLite path directly at the raw docroot layout to avoid
+	// traversing VFS symlinks created by flat-document-root.  When
+	// content_dir is unknown, fall back to the conventional wp-content
+	// location under the flattened site mount.
+	const sqlitePath = contentDir
+		? `/docroot${ contentDir }/database/.ht.sqlite`
+		: '/site/wp-content/database/.ht.sqlite';
+
 	return [
 		'db-apply',
 		getApiUrl( metadata.normalizedUrl ),
 		'--state-dir=/state',
 		'--fs-root=/docroot',
 		'--target-engine=sqlite',
-		'--target-sqlite-path=/site/wp-content/database/.ht.sqlite',
+		`--target-sqlite-path=${ sqlitePath }`,
 		`--new-site-url=${ metadata.localUrl! }`,
 	];
 }
@@ -1475,14 +1502,21 @@ export async function runCommand(
 
 		if ( ! hasReachedStage( metadata, 'db-applied' ) ) {
 			logger.reportStart( LoggerAction.IMPORT_SQL, __( 'Applying database…' ) );
+			const contentDir = getContentDirFromState( metadata.stateDirectory );
+			// When contentDir is known, the SQLite path points directly into
+			// /docroot (the raw directory) so no /site mount is needed.
+			// Fall back to /site mount only when contentDir is unavailable.
+			const dbApplyMounts = contentDir
+				? []
+				: [ { hostPath: metadata.sitePath, vfsPath: '/site' } ];
 			await runReprintCommandUntilComplete(
 				metadata.stateDirectory,
 				metadata.rawDirectory,
-				[ ...buildDbApplyArgs( metadata ), `--secret=${ secret }`, '--no-adaptive' ],
+				[ ...buildDbApplyArgs( metadata, contentDir ), `--secret=${ secret }`, '--no-adaptive' ],
 				( progress ) => logger.reportProgress( progress ),
 				{
 					progressLabel: __( 'Applying database' ),
-					mounts: [ { hostPath: metadata.sitePath, vfsPath: '/site' } ],
+					mounts: dbApplyMounts,
 					verboseCommands: verbose,
 				}
 			);

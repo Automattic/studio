@@ -188,7 +188,29 @@ describe( 'CLI: studio site pull-reprint helpers', () => {
 		}
 	} );
 
-	it( 'builds db-apply args for SQLite with the new site URL', () => {
+	it( 'builds db-apply args using raw docroot path when contentDir is provided', () => {
+		expect(
+			buildDbApplyArgs(
+				{
+					normalizedUrl: 'https://example.com/',
+					remoteSiteUrl: 'https://example.com',
+					localUrl: 'http://localhost:8881',
+					sitePath: '/tmp/site',
+				} as never,
+				'/srv/htdocs/wp-content'
+			)
+		).toEqual( [
+			'db-apply',
+			'https://example.com/?site-export-api',
+			'--state-dir=/state',
+			'--fs-root=/docroot',
+			'--target-engine=sqlite',
+			'--target-sqlite-path=/docroot/srv/htdocs/wp-content/database/.ht.sqlite',
+			'--new-site-url=http://localhost:8881',
+		] );
+	} );
+
+	it( 'falls back to /site mount path when contentDir is not provided', () => {
 		expect(
 			buildDbApplyArgs( {
 				normalizedUrl: 'https://example.com/',

@@ -117,6 +117,95 @@ async function copyBundledWpCli() {
 	}
 }
 
+async function patchSqliteCommandForStudio() {
+	// Patch the installed SQLiteDatabaseIntegrationLoader.php to also check
+	// Playground's in-memory VFS path for the SQLite integration plugin.
+	// Playground CLI mounts the plugin at /internal/shared/sqlite-database-integration
+	// inside its virtual filesystem, so it is never written to the site directory on disk.
+	// This patch is applied after copying the bundled sqlite-command to the server-files
+	// directory. The upstream sqlite-command repo will be updated separately.
+	const loaderPath = path.join(
+		getSqliteCommandPath(),
+		'src',
+		'SQLiteDatabaseIntegrationLoader.php'
+	);
+
+	if ( ! fs.existsSync( loaderPath ) ) {
+		return;
+	}
+
+	let content = await fs.promises.readFile( loaderPath, 'utf8' );
+	let modified = false;
+
+	// 1. Add /internal/shared/ path to get_plugin_directory() if not already present.
+	// Playground CLI mounts the SQLite plugin at this in-memory VFS path, so it is
+	// never written to the site directory on disk.
+	const internalSharedPath = '/internal/shared/sqlite-database-integration';
+	const muPluginsLine = "\t\t\tABSPATH . '/wp-content/mu-plugins/sqlite-database-integration',";
+	if ( ! content.includes( internalSharedPath ) && content.includes( muPluginsLine ) ) {
+		content = content.replace(
+			muPluginsLine,
+			muPluginsLine + `\n\t\t\t'${ internalSharedPath }',`
+		);
+		modified = true;
+	}
+
+	// 2. Replace get_plugin_version() with a simpler implementation that reads the version
+	// directly from wp-includes/database/version.php (which defines SQLITE_DRIVER_VERSION).
+	// The original implementation requires db.php on disk, which Playground never writes.
+	const originalGetPluginVersionMethod =
+		'\tpublic static function get_plugin_version() {\n' +
+		'\t\t// Check if there is a db.php file in the wp-content directory.\n' +
+		"\t\tif ( ! file_exists( ABSPATH . '/wp-content/db.php' ) ) {\n" +
+		'\t\t\treturn false;\n' +
+		'\t\t}\n' +
+		'\n' +
+		'\t\t// If the file is found, we need to check that it is the sqlite integration plugin.\n' +
+		"\t\t$plugin_file = file_get_contents( ABSPATH . '/wp-content/db.php' );\n" +
+		"\t\tif ( ! preg_match( '/define\\( \\'SQLITE_DB_DROPIN_VERSION\\', \\'([0-9.]+)\\' \\)/', $plugin_file ) ) {\n" +
+		'\t\t\treturn false;\n' +
+		'\t\t}\n' +
+		'\n' +
+		'\t\t$plugin_path = self::get_plugin_directory();\n' +
+		'\t\tif ( ! $plugin_path ) {\n' +
+		'\t\t\treturn false;\n' +
+		'\t\t}\n' +
+		'\n' +
+		'\t\t// Try to get the version number from readme.txt\n' +
+		"\t\t$plugin_file = file_get_contents( $plugin_path . '/readme.txt' );\n" +
+		'\n' +
+		"\t\tpreg_match( '/^Stable tag:\\s*?(.+)$/m', $plugin_file, $matches );\n" +
+		'\n' +
+		'\t\treturn isset( $matches[1] ) ? trim( $matches[1] ) : false;\n' +
+		'\t}';
+
+	const patchedGetPluginVersionMethod =
+		'\tpublic static function get_plugin_version() {\n' +
+		'\t\t$plugin_path = self::get_plugin_directory();\n' +
+		'\t\tif ( ! $plugin_path ) {\n' +
+		'\t\t\treturn false;\n' +
+		'\t\t}\n' +
+		'\n' +
+		"\t\t$version_file = $plugin_path . '/wp-includes/database/version.php';\n" +
+		'\t\tif ( ! file_exists( $version_file ) ) {\n' +
+		'\t\t\treturn false;\n' +
+		'\t\t}\n' +
+		'\n' +
+		'\t\trequire_once $version_file;\n' +
+		'\n' +
+		"\t\treturn defined( 'SQLITE_DRIVER_VERSION' ) ? SQLITE_DRIVER_VERSION : false;\n" +
+		'\t}';
+
+	if ( content.includes( originalGetPluginVersionMethod ) ) {
+		content = content.replace( originalGetPluginVersionMethod, patchedGetPluginVersionMethod );
+		modified = true;
+	}
+
+	if ( modified ) {
+		await fs.promises.writeFile( loaderPath, content, 'utf8' );
+	}
+}
+
 async function copyBundledSqliteCommand() {
 	await copySourceDirectoryIfNewerOrMissing( {
 		sourceDirectoryPath: path.join( getWpFilesPath(), 'sqlite-command' ),
@@ -130,6 +219,7 @@ async function copyBundledSqliteCommand() {
 			return semver.coerce( fs.readFileSync( versionFilePath, 'utf8' ) );
 		},
 	} );
+	await patchSqliteCommandForStudio();
 }
 
 async function copyBundledTranslations() {

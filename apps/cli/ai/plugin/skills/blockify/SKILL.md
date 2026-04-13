@@ -74,9 +74,17 @@ Rewrite the full content for each page/post and template part using native Guten
 
 Run `validate_blocks` on every piece of converted content to catch markup errors (missing attributes, invalid nesting, malformed block comments). If it flags invalid blocks, fix the markup and re-run until all blocks pass.
 
-### Step 5 — Final visual check
+### Step 5 — Visual regression check
 
-Take screenshots (desktop + mobile) to confirm the conversion did not break the design. Fix any visual regressions — the site must look identical to the original.
+Take screenshots (desktop + mobile) and compare them against the Phase 1 screenshots you already have in context. The site must look identical to the Phase 1 result. Look specifically for these common regressions introduced by block conversion:
+
+- **Double borders or backgrounds on buttons** — `core/button` adds `.wp-block-button__link` with default border/background that stacks on your CSS
+- **Extra padding or spacing around sections** — `core/group` and `.wp-block-columns` add default padding/gap
+- **Missing background colors or gradients** — elements that had inline styles may lose them when converted to blocks
+- **Font size or weight changes** — block defaults may override your typography
+- **Broken hover/active states** — interactive styles may target the old selectors
+
+If any regressions are found, update `style.css` to fix the conflicts (typically by resetting default block styles for the affected classes), then re-screenshot and compare again. Iterate until the design matches Phase 1 exactly.
 
 ## Block pattern reference
 

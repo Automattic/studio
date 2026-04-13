@@ -137,9 +137,9 @@ export async function runCommand(
 		);
 	}
 
-	setProgressCallback( ( message ) => {
+	setProgressCallback( ( message, update ) => {
 		const timestamp = new Date().toISOString();
-		ui.setLoaderMessage( message );
+		ui.setLoaderMessage( message, update );
 		void persist( ( recorder ) => recorder.recordToolProgress( message, timestamp ) );
 	} );
 

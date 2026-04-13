@@ -136,7 +136,7 @@ export async function runCommand(
 
 			// Backup phase: 0-50%
 			const backupProgress = Math.round( status.percent * 0.5 );
-			logger.spinner.text = sprintf( __( 'Creating remote backup… (%d%%)' ), backupProgress );
+			logger.reportProgress( sprintf( __( 'Creating remote backup… (%d%%)' ), backupProgress ) );
 
 			await new Promise( ( resolve ) => setTimeout( resolve, SYNC_POLL_INTERVAL_MS ) );
 		}

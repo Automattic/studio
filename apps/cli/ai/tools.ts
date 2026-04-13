@@ -194,8 +194,9 @@ export async function captureCommandOutput( fn: () => Promise< void > ): Promise
 		consoleOutput += args.map( String ).join( ' ' ) + '\n';
 	};
 	process.exitCode = undefined;
-	setProgressCallback( ( message ) => {
+	setProgressCallback( ( message, update ) => {
 		progressMessages.push( message );
+		previousCallback?.( message, update );
 	} );
 
 	try {

@@ -1329,11 +1329,19 @@ export class AiChatUI {
 		this.tui.requestRender();
 	}
 
-	setLoaderMessage( message: string ): void {
+	private lastProgressText: Text | null = null;
+
+	setLoaderMessage( message: string, update?: boolean ): void {
 		if ( ! message ) {
 			return;
 		}
-		this.messages.addChild( new Text( '   ' + chalk.dim( '⎿ ' ) + chalk.dim( message ), 0, 0 ) );
+		const formatted = '   ' + chalk.dim( '⎿ ' ) + chalk.dim( message );
+		if ( update && this.lastProgressText ) {
+			this.lastProgressText.setText( formatted );
+		} else {
+			this.lastProgressText = new Text( formatted, 0, 0 );
+			this.messages.addChild( this.lastProgressText );
+		}
 		this.tui.requestRender();
 	}
 
@@ -1362,6 +1370,7 @@ export class AiChatUI {
 			this.loader.stop();
 			this.tui.removeChild( this.loader );
 			this.loaderVisible = false;
+			this.lastProgressText = null;
 			this.tui.requestRender();
 		}
 	}
@@ -1748,6 +1757,7 @@ export class AiChatUI {
 	private showToolUse( toolLabel: string ): void {
 		this.showLoader( this.randomThinkingMessage() );
 		this.stopToolDotBlink();
+		this.lastProgressText = null;
 		this.toolDotLabel = toolLabel;
 		this.toolDotText = new Text( '\n ' + '⏺' + ' ' + toolLabel, 0, 0 );
 		this.messages.addChild( this.toolDotText );

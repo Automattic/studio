@@ -35,6 +35,8 @@ const { pathToFileURL } = require( 'node:url' );
 
 // Convert Windows backslash paths to forward slashes for tar compatibility
 const posix = ( p ) => p.split( sep ).join( '/' );
+// MSYS tar on Windows interprets "C:" as a remote host; --force-local prevents this (BSD tar doesn't support it)
+const FORCE_LOCAL = process.platform === 'win32' ? ' --force-local' : '';
 
 const DEFAULT_CLI_DIR = join( homedir(), '.studio', 'cli' );
 const CLI_DIR = process.env.STUDIO_CLI_DIR || DEFAULT_CLI_DIR;
@@ -67,7 +69,7 @@ async function main() {
 			rmSync( CLI_DIR, { recursive: true, force: true } );
 		}
 		mkdirSync( CLI_DIR, { recursive: true } );
-		execSync( `tar -xzf "${ posix( cliTarPath ) }" --force-local -C "${ posix( CLI_DIR ) }"`, {
+		execSync( `tar -xzf "${ posix( cliTarPath ) }"${ FORCE_LOCAL } -C "${ posix( CLI_DIR ) }"`, {
 			stdio: 'inherit',
 		} );
 		unlinkSync( cliTarPath );
@@ -82,7 +84,7 @@ async function main() {
 		}
 		mkdirSync( NODE_MODULES_DIR, { recursive: true } );
 		execSync(
-			`tar -xzf "${ posix( tarPath ) }" --force-local -C "${ posix( NODE_MODULES_DIR ) }"`,
+			`tar -xzf "${ posix( tarPath ) }"${ FORCE_LOCAL } -C "${ posix( NODE_MODULES_DIR ) }"`,
 			{
 				stdio: 'inherit',
 			}

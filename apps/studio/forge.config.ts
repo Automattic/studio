@@ -21,9 +21,9 @@ const config: ForgeConfig = {
 		icon: path.join( __dirname, 'assets', 'studio-app-icon' ),
 		osxSign: {
 			optionsForFile: ( filePath ) => {
-				// The bundled binary (and bundled Node) requires specific entitlements for V8 JIT.
+				// The bundled binary requires specific entitlements for V8 JIT.
 				// Without these, V8 crashes with SIGTRAP when trying to allocate executable memory.
-				if ( filePath.endsWith( 'bin/studio' ) || filePath.endsWith( 'bin/node' ) ) {
+				if ( filePath.endsWith( 'bin/studio' ) ) {
 					return {
 						entitlements: path.join( repoRoot, 'apps', 'studio', 'entitlements', 'node.plist' ),
 					};
@@ -190,6 +190,18 @@ const config: ForgeConfig = {
 			// Copy it as studio-cli.exe for the AppxManifest.
 			if ( platform === 'win32' ) {
 				fs.copyFileSync( cliDest, path.join( __dirname, 'bin', 'studio-cli.exe' ) );
+			}
+
+			// Clean up bin/ before forge copies it as extraResource.
+			// Remove Node binaries (now embedded in the bundle) and cross-platform files.
+			const binDir = path.join( __dirname, 'bin' );
+			for ( const file of fs.readdirSync( binDir ) ) {
+				if ( file.startsWith( 'node' ) ) {
+					fs.rmSync( path.join( binDir, file ), { force: true } );
+				}
+			}
+			if ( platform !== 'win32' ) {
+				fs.rmSync( path.join( binDir, 'studio-cli.bat' ), { force: true } );
 			}
 		},
 	},

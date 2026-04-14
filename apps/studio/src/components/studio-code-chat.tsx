@@ -304,6 +304,7 @@ export function StudioCodeChat( { selectedSite }: StudioCodeChatProps ) {
 					handleKeyDown={ handleKeyDown }
 					clearConversation={ clearConversation }
 					isAssistantThinking={ state.isStreaming }
+					showTelexLink={ false }
 				/>
 			</div>
 		</div>

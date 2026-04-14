@@ -138,5 +138,4 @@ CLAUDE.md
 apps/studio/bin/node
 apps/studio/bin/node.exe
 
-# CLI launcher executable (built during packaging via @yao-pkg/pkg)
 bin/studio-cli.exe

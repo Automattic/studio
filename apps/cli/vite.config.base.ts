@@ -74,6 +74,7 @@ export const nativeExternals = [
 	'playwright',
 	'playwright-core',
 	'sharp',
+	'trash',
 	'winreg',
 ];
 

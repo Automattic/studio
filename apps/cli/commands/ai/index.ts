@@ -472,6 +472,7 @@ export async function runCommand( options: {
 	// JSON mode: single turn, then exit
 	if ( isJsonMode && options.initialMessage ) {
 		try {
+			await maybeAutoSwitchProvider();
 			ui.addUserMessage( options.initialMessage );
 			const result = await runAgentTurn( options.initialMessage );
 			const jsonStatus = result.status === 'interrupted' ? 'error' : result.status;

@@ -189,7 +189,10 @@ export function AddSiteBlueprintSelector( {
 		setValidationError( undefined );
 		setUploadedFileName( null );
 
-		if ( file && file.type === 'application/json' && onFileBlueprintSelect ) {
+		const isJson = file?.type === 'application/json' || file?.name.endsWith( '.json' );
+		const isZip = file?.type === 'application/zip' || file?.name.endsWith( '.zip' );
+
+		if ( file && isJson && onFileBlueprintSelect ) {
 			setUploadedFileName( file.name );
 
 			try {
@@ -244,6 +247,60 @@ export function AddSiteBlueprintSelector( {
 					setValidationError( __( 'Failed to load Blueprint file. Please try again.' ) );
 				}
 				console.error( 'Failed to parse Blueprint file:', error );
+			}
+		} else if ( file && isZip && onFileBlueprintSelect ) {
+			setUploadedFileName( file.name );
+
+			try {
+				const zipPath = getIpcApi().getPathForFile( file );
+				const { blueprintJson, blueprintJsonPath, tempDir } =
+					await getIpcApi().extractBlueprintBundle( zipPath );
+				const blueprintMeta = blueprintJson as {
+					version?: number;
+					meta?: { title?: string; description?: string };
+				};
+
+				if ( blueprintMeta.version === 2 ) {
+					setValidationError(
+						__( 'Blueprint v2 format is not supported yet. Please use Blueprint v1 format.' )
+					);
+					void getIpcApi().cleanupBlueprintTempDir( tempDir );
+
+					if ( fileRef.current ) {
+						fileRef.current.value = '';
+					}
+					return;
+				}
+
+				const validation = await getIpcApi().validateBlueprint( blueprintJson );
+				if ( ! validation.valid ) {
+					setValidationError( validation.error || __( 'Invalid Blueprint format' ) );
+					void getIpcApi().cleanupBlueprintTempDir( tempDir );
+					if ( fileRef.current ) {
+						fileRef.current.value = '';
+					}
+					return;
+				}
+
+				const fileWarnings =
+					validation.warnings && validation.warnings.length > 0 ? validation.warnings : undefined;
+
+				const fileBlueprint: Blueprint = {
+					slug: `file:${ file.name }`,
+					title: blueprintMeta.meta?.title || file.name.replace( '.zip', '' ),
+					excerpt:
+						blueprintMeta.meta?.description || generateDefaultBlueprintDescription( blueprintJson ),
+					image: '',
+					playground_url: '',
+					blueprint: blueprintJson,
+					filePath: blueprintJsonPath,
+				};
+
+				setUploadedFileName( null );
+				onFileBlueprintSelect( fileBlueprint, fileWarnings );
+			} catch ( error ) {
+				setValidationError( __( 'Failed to load Blueprint ZIP file. Please try again.' ) );
+				console.error( 'Failed to extract Blueprint ZIP:', error );
 			}
 		}
 		if ( fileRef.current ) {
@@ -330,7 +387,7 @@ export function AddSiteBlueprintSelector( {
 						<input
 							ref={ fileRef }
 							type="file"
-							accept=".json,application/json"
+							accept=".json,.zip,application/json,application/zip"
 							onChange={ handleFileSelect }
 							className="hidden"
 						/>

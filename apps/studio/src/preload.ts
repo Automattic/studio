@@ -153,6 +153,9 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'listLocalFileTree', siteId, path, maxDepth ),
 	validateBlueprint: ( blueprintJson ) => ipcRendererInvoke( 'validateBlueprint', blueprintJson ),
 	readBlueprintFile: ( filePath ) => ipcRendererInvoke( 'readBlueprintFile', filePath ),
+	extractBlueprintBundle: ( zipFilePath ) =>
+		ipcRendererInvoke( 'extractBlueprintBundle', zipFilePath ),
+	cleanupBlueprintTempDir: ( tempDir ) => ipcRendererInvoke( 'cleanupBlueprintTempDir', tempDir ),
 	showSiteContextMenu: ( context ) => ipcRendererSend( 'showSiteContextMenu', context ),
 	setWindowControlVisibility: ( visible ) =>
 		ipcRendererInvoke( 'setWindowControlVisibility', visible ),

@@ -502,6 +502,14 @@ export async function createSite(
 		} );
 
 		throw error;
+	} finally {
+		if ( blueprint?.filePath ) {
+			const bundlePrefix = nodePath.join( os.tmpdir(), 'studio-blueprint-bundle-' );
+			const blueprintDir = nodePath.dirname( nodePath.resolve( blueprint.filePath ) );
+			if ( blueprintDir.startsWith( bundlePrefix ) ) {
+				await fsPromises.rm( blueprintDir, { recursive: true, force: true } ).catch( () => {} );
+			}
+		}
 	}
 }
 
@@ -1722,6 +1730,96 @@ export async function readBlueprintFile(
 
 	const fileContents = await fsPromises.readFile( resolvedPath, 'utf-8' );
 	return JSON.parse( fileContents );
+}
+
+export async function extractBlueprintBundle(
+	_event: IpcMainInvokeEvent,
+	zipFilePath: string
+): Promise< {
+	blueprintJson: Blueprint[ 'blueprint' ];
+	blueprintJsonPath: string;
+	tempDir: string;
+} > {
+	const { promisify } = await import( 'util' );
+
+	const yauzl = require( 'yauzl' ) as typeof import('yauzl');
+	const openZip = promisify< string, import('yauzl').Options, import('yauzl').ZipFile >(
+		yauzl.open
+	);
+
+	const resolvedZipPath = nodePath.resolve( zipFilePath );
+	const tempDir = await fsPromises.mkdtemp(
+		nodePath.join( os.tmpdir(), 'studio-blueprint-bundle-' )
+	);
+
+	try {
+		const zipFile = await openZip( resolvedZipPath, { lazyEntries: true } );
+		const openReadStream = promisify( zipFile.openReadStream.bind( zipFile ) );
+
+		await new Promise< void >( ( resolve, reject ) => {
+			zipFile.on( 'entry', async ( entry: import('yauzl').Entry ) => {
+				const fullPath = nodePath.join( tempDir, entry.fileName );
+
+				// Prevent path traversal
+				if ( ! fullPath.startsWith( tempDir + nodePath.sep ) ) {
+					zipFile.readEntry();
+					return;
+				}
+
+				if ( entry.fileName.endsWith( '/' ) ) {
+					await fsPromises.mkdir( fullPath, { recursive: true } );
+					zipFile.readEntry();
+					return;
+				}
+
+				try {
+					await fsPromises.mkdir( nodePath.dirname( fullPath ), { recursive: true } );
+					const readStream = await openReadStream( entry );
+					const writeStream = fs.createWriteStream( fullPath );
+					readStream.pipe( writeStream );
+					writeStream.once( 'finish', () => zipFile.readEntry() );
+					writeStream.once( 'error', reject );
+					readStream.once( 'error', reject );
+				} catch ( err ) {
+					reject( err );
+				}
+			} );
+			zipFile.on( 'end', resolve );
+			zipFile.on( 'error', reject );
+			zipFile.readEntry();
+		} );
+
+		const blueprintJsonPath = nodePath.join( tempDir, 'blueprint.json' );
+		try {
+			await fsPromises.access( blueprintJsonPath );
+		} catch {
+			throw new Error(
+				__(
+					'No blueprint.json found in the ZIP file. Please ensure the ZIP contains a blueprint.json at its root.'
+				)
+			);
+		}
+
+		const fileContents = await fsPromises.readFile( blueprintJsonPath, 'utf-8' );
+		const blueprintJson = JSON.parse( fileContents );
+
+		return { blueprintJson, blueprintJsonPath, tempDir };
+	} catch ( error ) {
+		await fsPromises.rm( tempDir, { recursive: true, force: true } );
+		throw error;
+	}
+}
+
+export async function cleanupBlueprintTempDir(
+	_event: IpcMainInvokeEvent,
+	tempDir: string
+): Promise< void > {
+	const allowedPrefix = nodePath.join( os.tmpdir(), 'studio-blueprint-bundle-' );
+	const resolvedDir = nodePath.resolve( tempDir );
+	if ( ! resolvedDir.startsWith( allowedPrefix ) ) {
+		throw new Error( 'Invalid temp directory path' );
+	}
+	await fsPromises.rm( resolvedDir, { recursive: true, force: true } );
 }
 
 export async function setWindowControlVisibility( event: IpcMainInvokeEvent, visible: boolean ) {

@@ -17,14 +17,38 @@ import { registerCommand as registerAiSessionsResumeCommand } from 'cli/commands
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { StudioArgv } from 'cli/types';
 
-const { askUserMock, recordSessionContextMock, reportErrorMock, waitForInputMock } = vi.hoisted(
-	() => ( {
-		askUserMock: vi.fn(),
-		recordSessionContextMock: vi.fn(),
-		reportErrorMock: vi.fn(),
-		waitForInputMock: vi.fn(),
-	} )
-);
+const {
+	askUserMock,
+	clearTranscriptMock,
+	showWelcomeMock,
+	showInfoMock,
+	recordSessionClearedMock,
+	recordSessionContextMock,
+	recordSiteSelectedMock,
+	reportErrorMock,
+	waitForInputMock,
+	activeSiteRef,
+} = vi.hoisted( () => ( {
+	askUserMock: vi.fn(),
+	clearTranscriptMock: vi.fn(),
+	showWelcomeMock: vi.fn(),
+	showInfoMock: vi.fn(),
+	recordSessionClearedMock: vi.fn(),
+	recordSessionContextMock: vi.fn(),
+	recordSiteSelectedMock: vi.fn(),
+	reportErrorMock: vi.fn(),
+	waitForInputMock: vi.fn(),
+	activeSiteRef: {
+		current: null as {
+			name: string;
+			path: string;
+			running: boolean;
+			remote?: boolean;
+			url?: string;
+			wpcomSiteId?: number;
+		} | null,
+	},
+} ) );
 
 vi.mock( 'cli/lib/cli-config/core', async () => {
 	const actual =
@@ -94,15 +118,48 @@ vi.mock( 'cli/ai/agent', async () => {
 
 vi.mock( 'cli/ai/ui', () => ( {
 	AiChatUI: class {
-		activeSite: { name: string; path: string; running: boolean } | null = null;
+		get activeSite(): {
+			name: string;
+			path: string;
+			running: boolean;
+			remote?: boolean;
+			url?: string;
+			wpcomSiteId?: number;
+		} | null {
+			return activeSiteRef.current;
+		}
+		set activeSite(
+			value: {
+				name: string;
+				path: string;
+				running: boolean;
+				remote?: boolean;
+				url?: string;
+				wpcomSiteId?: number;
+			} | null
+		) {
+			activeSiteRef.current = value;
+		}
 		currentModel = 'claude-sonnet-4-6';
-		onSiteSelected: ( ( site: { name: string; path: string; running: boolean } ) => void ) | null =
-			null;
+		onSiteSelected:
+			| ( ( site: {
+					name: string;
+					path: string;
+					running: boolean;
+					remote?: boolean;
+					url?: string;
+					wpcomSiteId?: number;
+			  } ) => void )
+			| null = null;
 		onInterrupt: ( () => void ) | null = null;
 		start() {}
 		stop() {}
-		showWelcome() {}
-		showInfo() {}
+		showWelcome() {
+			showWelcomeMock();
+		}
+		showInfo( ...args: unknown[] ) {
+			showInfoMock( ...args );
+		}
 		showError() {}
 		showSuccess() {}
 		showOnboarding() {}
@@ -113,10 +170,20 @@ vi.mock( 'cli/ai/ui', () => ( {
 		beginAgentTurn() {}
 		endAgentTurn() {}
 		setLoaderMessage() {}
-		setActiveSite( site: { name: string; path: string; running: boolean } ) {
+		setActiveSite( site: {
+			name: string;
+			path: string;
+			running: boolean;
+			remote?: boolean;
+			url?: string;
+			wpcomSiteId?: number;
+		} ) {
 			this.activeSite = site;
 		}
 		addUserMessage() {}
+		clearTranscript() {
+			clearTranscriptMock();
+		}
 		handleMessage() {
 			return undefined;
 		}
@@ -138,10 +205,15 @@ vi.mock( 'cli/ai/sessions/recorder', () => {
 		static open = vi.fn().mockResolvedValue( new MockAiSessionRecorder() );
 		async recordSdkMessage() {}
 		async recordToolProgress() {}
+		async recordSessionCleared( ...args: unknown[] ) {
+			return recordSessionClearedMock( ...args );
+		}
 		async recordSessionContext( ...args: unknown[] ) {
 			return recordSessionContextMock( ...args );
 		}
-		async recordSiteSelected() {}
+		async recordSiteSelected( ...args: unknown[] ) {
+			return recordSiteSelectedMock( ...args );
+		}
 		async recordUserMessage() {}
 		async recordAgentQuestion() {}
 		async recordTurnClosed() {}
@@ -174,6 +246,7 @@ vi.mock( 'cli/commands/auth/logout', () => ( {
 describe( 'CLI: studio code sessions command', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
+		activeSiteRef.current = null;
 		vi.mocked( readCliConfig ).mockResolvedValue( {
 			sites: [],
 			anthropicApiKey: 'test-api-key',
@@ -407,6 +480,92 @@ describe( 'CLI: studio code sessions command', () => {
 
 		expect( deleteAiSession ).not.toHaveBeenCalled();
 		expect( reportErrorMock ).toHaveBeenCalled();
+	} );
+
+	it( '/clear resets the session, clears the transcript, and re-emits context', async () => {
+		waitForInputMock.mockResolvedValueOnce( '/clear' ).mockResolvedValueOnce( '/exit' );
+
+		await buildParser().parseAsync( [ 'ai' ] );
+
+		expect( recordSessionClearedMock ).toHaveBeenCalledTimes( 1 );
+		expect( clearTranscriptMock ).toHaveBeenCalledTimes( 1 );
+
+		// Context must be re-emitted AFTER the cleared event.
+		expect( recordSessionContextMock.mock.invocationCallOrder[ 0 ] ).toBeGreaterThan(
+			recordSessionClearedMock.mock.invocationCallOrder[ 0 ]
+		);
+
+		// showWelcome must be called after clearTranscript.
+		// showWelcome is also called at startup, so index [1] is the /clear invocation.
+		expect( showWelcomeMock ).toHaveBeenCalledTimes( 2 );
+		expect( showWelcomeMock.mock.invocationCallOrder[ 1 ] ).toBeGreaterThan(
+			clearTranscriptMock.mock.invocationCallOrder[ 0 ]
+		);
+
+		expect( showInfoMock ).toHaveBeenCalledWith( 'Conversation cleared' );
+
+		// startAiAgent should never have been called (no prompt was submitted).
+		expect( startAiAgent ).not.toHaveBeenCalled();
+	} );
+
+	it( '/clear without an active site does not re-emit a site event', async () => {
+		waitForInputMock.mockResolvedValueOnce( '/clear' ).mockResolvedValueOnce( '/exit' );
+
+		await buildParser().parseAsync( [ 'ai' ] );
+
+		expect( recordSessionClearedMock ).toHaveBeenCalledTimes( 1 );
+		expect( recordSiteSelectedMock ).not.toHaveBeenCalled();
+		expect( showWelcomeMock ).toHaveBeenCalled();
+	} );
+
+	it( '/clear with an active site re-emits the site event after the clear marker', async () => {
+		activeSiteRef.current = {
+			name: 'Test Site',
+			path: '/tmp/test-site',
+			running: false,
+		};
+
+		waitForInputMock.mockResolvedValueOnce( '/clear' ).mockResolvedValueOnce( '/exit' );
+
+		await buildParser().parseAsync( [ 'ai' ] );
+
+		expect( recordSessionClearedMock ).toHaveBeenCalledTimes( 1 );
+		expect( recordSiteSelectedMock ).toHaveBeenCalledTimes( 1 );
+		expect( recordSiteSelectedMock ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				name: 'Test Site',
+				path: '/tmp/test-site',
+			} )
+		);
+		expect( recordSiteSelectedMock.mock.invocationCallOrder[ 0 ] ).toBeGreaterThan(
+			recordSessionClearedMock.mock.invocationCallOrder[ 0 ]
+		);
+		expect( showWelcomeMock ).toHaveBeenCalled();
+	} );
+
+	it( '/clear with an active remote site re-emits the remote site fields', async () => {
+		activeSiteRef.current = {
+			name: 'My WPCOM Site',
+			path: '',
+			running: false,
+			remote: true,
+			url: 'https://mywpcomsite.wordpress.com',
+			wpcomSiteId: 12345,
+		};
+
+		waitForInputMock.mockResolvedValueOnce( '/clear' ).mockResolvedValueOnce( '/exit' );
+
+		await buildParser().parseAsync( [ 'ai' ] );
+
+		expect( recordSiteSelectedMock ).toHaveBeenCalledTimes( 1 );
+		expect( recordSiteSelectedMock ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				name: 'My WPCOM Site',
+				remote: true,
+				url: 'https://mywpcomsite.wordpress.com',
+				wpcomSiteId: 12345,
+			} )
+		);
 	} );
 
 	it( 'restores provider, model, and resume session id from session events', async () => {

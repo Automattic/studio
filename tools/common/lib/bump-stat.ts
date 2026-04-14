@@ -5,7 +5,7 @@ import { isSameDay, isSameMonth, isSameWeek } from 'date-fns';
 const MAX_GROUP_LENGTH = 27;
 const MAX_STAT_LENGTH = 32;
 
-export type AggregateInterval = 'daily' | 'weekly' | 'monthly';
+export type AggregateInterval = 'daily' | 'weekly' | 'monthly' | 'forever';
 
 // Returns true if we attempted to bump the stat
 export function __bumpStat( group: string, stat: string, bumpInDev = false ) {
@@ -71,6 +71,11 @@ export async function __bumpAggregatedUniqueStat(
 	if ( lastBump === null ) {
 		__bumpStat( group, stat, bumpInDev );
 		await updateLastBump( group, stat, provider );
+		return;
+	}
+
+	// `forever` is suitable for stats like "first launch"
+	if ( aggregateBy === 'forever' ) {
 		return;
 	}
 

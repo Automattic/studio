@@ -12,7 +12,6 @@
 	--color-frame-surface-alt: #dcdcde;
 	--color-frame-scrollbar-thumb: #7f7f7f;
 	--color-frame-scrollbar-thumb-hover: #484848;
-	--color-frame-scrollbar-border: #fff;
 	--color-frame-theme: #3858e9;
 	--color-frame-theme-hover: #2145e6;
 	--color-frame-code-text: #1d2327;
@@ -34,7 +33,6 @@
 		--color-frame-surface-alt: #474747;
 		--color-frame-scrollbar-thumb: #666666;
 		--color-frame-scrollbar-thumb-hover: #888888;
-		--color-frame-scrollbar-border: #2f2f2f;
 		--color-frame-theme: #6b8aff;
 		--color-frame-theme-hover: #8da6ff;
 		--color-frame-code-text: #e0e0e0;
@@ -169,14 +167,16 @@ div:has( > progress ) > div:first-child {
 /* Customize srollbar thumb appearance for the sites sidebar and tab panel */
 .sites-scrollbar::-webkit-scrollbar-thumb {
 	background: var( --color-frame-scrollbar-thumb );
+	background-clip: padding-box;
 	border-radius: 10px;
-	border: 2px solid var( --color-frame-scrollbar-border );
+	border: 2px solid transparent;
 }
 .components-tab-panel__tab-content::-webkit-scrollbar-thumb,
 .assistant-textarea::-webkit-scrollbar-thumb {
 	background: var( --color-frame-scrollbar-thumb );
+	background-clip: padding-box;
 	border-radius: 10px;
-	border: 2px solid var( --color-frame-scrollbar-border );
+	border: 2px solid transparent;
 }
 
 /* Add hover effect to thumb appearance on the scrollbar */

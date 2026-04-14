@@ -697,11 +697,35 @@ def extract_release_notes(version:)
   end
 end
 
+# Find the latest stable release tag lower than the target version, regardless of reachability from HEAD.
+def find_previous_stable_release_tag(version:)
+  sh('git', 'fetch', '--tags', '--force')
+
+  target_version = Gem::Version.new(version)
+  matching_tags = sh('git', 'tag', '--list', 'v*').lines.filter_map do |tag|
+    tag = tag.strip
+    match = tag.match(/^v(\d+\.\d+\.\d+)$/)
+    next if match.nil?
+
+    tag_version = Gem::Version.new(match[1])
+    next unless tag_version < target_version
+
+    [tag, tag_version]
+  end
+
+  previous_tag = matching_tags.max_by(&:last)&.first
+
+  UI.important("No previous stable tag found before #{version}") if previous_tag.nil?
+
+  previous_tag
+end
+
 # Generate a draft release notes section from merged PRs and prepend it to RELEASE-NOTES.txt.
 # Uses GitHub's generate-notes API to list PRs since the last published release.
 def update_release_notes_draft(version:)
-  # Find the latest stable (non-beta) release tag reachable from HEAD.
-  previous_tag = find_previous_tag(pattern: 'v*', exclude: '*beta*')
+  # Find the latest stable release tag lower than the target version.
+  # The latest published release tag is not always reachable from trunk before its backmerge PR lands.
+  previous_tag = find_previous_stable_release_tag(version: version)
 
   changelog = get_prs_between_tags(
     repository: GITHUB_REPO,

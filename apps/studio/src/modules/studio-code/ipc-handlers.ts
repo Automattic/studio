@@ -3,34 +3,29 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { readSharedConfig } from '@studio/common/lib/shared-config';
-import { loadUserData, updateAppdata } from 'src/storage/user-data';
-import { getOrCreateProcess, getProcess, stopProcess } from './studio-code-process';
-import type { AiEngine, StudioCodeCommand } from './studio-code-types';
+import { abortTurn, spawnTurn } from './studio-code-process';
 
-export async function studioCodeStart(
+export async function studioCodeSendMessage(
 	_event: IpcMainInvokeEvent,
 	siteId: string,
 	sitePath: string,
-	siteName: string,
-	siteUrl: string
+	message: string
 ): Promise< void > {
-	// getOrCreateProcess handles both creation and starting
-	getOrCreateProcess( siteId, sitePath, siteName, siteUrl );
+	spawnTurn( siteId, sitePath, message );
 }
 
-export async function studioCodeSend(
+export async function studioCodeRespondToPermission(
 	_event: IpcMainInvokeEvent,
 	siteId: string,
-	command: StudioCodeCommand
+	sitePath: string,
+	message: string,
+	permissionResponse: Record< string, string >
 ): Promise< void > {
-	const proc = getProcess( siteId );
-	if ( proc ) {
-		proc.send( command );
-	}
+	spawnTurn( siteId, sitePath, message, { permissionResponse } );
 }
 
-export function studioCodeStop( _event: IpcMainInvokeEvent, siteId: string ): void {
-	stopProcess( siteId );
+export function studioCodeAbort( _event: IpcMainInvokeEvent, siteId: string ): void {
+	abortTurn( siteId );
 }
 
 export async function studioCodeCheckProvider(
@@ -56,16 +51,4 @@ export async function studioCodeCheckProvider(
 	}
 
 	return { available: providers.length > 0, providers };
-}
-
-export async function getAiEngine( _event: IpcMainInvokeEvent ): Promise< AiEngine > {
-	const userData = await loadUserData();
-	return userData.preferredAiEngine ?? 'studio-code';
-}
-
-export async function saveAiEngine(
-	_event: IpcMainInvokeEvent,
-	engine: AiEngine
-): Promise< void > {
-	await updateAppdata( { preferredAiEngine: engine } );
 }

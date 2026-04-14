@@ -18,20 +18,14 @@ vi.mock( 'src/ipc-utils', () => ( {
 describe( 'StudioCodeProcess module', () => {
 	it( 'should export expected functions', async () => {
 		const mod = await import( '../studio-code-process' );
-		expect( mod.getOrCreateProcess ).toBeDefined();
-		expect( mod.getProcess ).toBeDefined();
-		expect( mod.stopProcess ).toBeDefined();
+		expect( mod.spawnTurn ).toBeDefined();
+		expect( mod.abortTurn ).toBeDefined();
 		expect( mod.stopAllProcesses ).toBeDefined();
 	} );
 
-	it( 'getProcess returns undefined for unknown siteId', async () => {
+	it( 'abortTurn does not throw for unknown siteId', async () => {
 		const mod = await import( '../studio-code-process' );
-		expect( mod.getProcess( 'nonexistent-site' ) ).toBeUndefined();
-	} );
-
-	it( 'stopProcess does not throw for unknown siteId', async () => {
-		const mod = await import( '../studio-code-process' );
-		expect( () => mod.stopProcess( 'nonexistent-site' ) ).not.toThrow();
+		expect( () => mod.abortTurn( 'nonexistent-site' ) ).not.toThrow();
 	} );
 
 	it( 'stopAllProcesses does not throw when no processes exist', async () => {

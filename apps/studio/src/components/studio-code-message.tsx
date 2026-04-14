@@ -16,6 +16,11 @@ interface StudioCodeMessageProps {
 export function StudioCodeMessage( { message, siteId }: StudioCodeMessageProps ) {
 	const isUser = message.role === 'user';
 
+	// Skip rendering empty assistant messages (the thinking indicator handles this state)
+	if ( ! isUser && ! message.content && message.toolCalls.length === 0 ) {
+		return null;
+	}
+
 	return (
 		<>
 			<div className="h-4" />

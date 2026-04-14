@@ -4,159 +4,144 @@ import readline from 'node:readline';
 import * as Sentry from '@sentry/electron/main';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
-import type { StudioCodeCommand, StudioCodeEvent } from './studio-code-types';
+import type { StudioCodeEvent } from './studio-code-types';
 
-class StudioCodeProcess {
-	private child: ChildProcess | null = null;
-	private siteId: string;
-	private sitePath: string;
-	private siteName: string;
-	private siteUrl: string;
-
-	constructor( siteId: string, sitePath: string, siteName: string, siteUrl: string ) {
-		this.siteId = siteId;
-		this.sitePath = sitePath;
-		this.siteName = siteName;
-		this.siteUrl = siteUrl;
-	}
-
-	start(): void {
-		if ( this.child ) {
-			return;
-		}
-
-		const nodePath = getBundledNodeBinaryPath();
-		const cliPath = getCliPath();
-
-		this.child = spawn(
-			nodePath,
-			[
-				'--experimental-wasm-jspi',
-				cliPath,
-				'ai',
-				'--headless',
-				'--site',
-				this.sitePath,
-				'--site-name',
-				this.siteName,
-				'--site-url',
-				this.siteUrl,
-			],
-			{
-				stdio: [ 'pipe', 'pipe', 'pipe' ],
-				env: { ...process.env },
-			}
-		);
-
-		const rl = readline.createInterface( { input: this.child.stdout! } );
-		rl.on( 'line', ( line ) => {
-			try {
-				const event: StudioCodeEvent = JSON.parse( line );
-				void sendIpcEventToRenderer( 'studio-code-event', {
-					siteId: this.siteId,
-					event,
-				} );
-			} catch {
-				console.error( `[StudioCode - ${ this.siteId }] Non-JSON stdout line:`, line );
-			}
-		} );
-
-		this.child.stderr?.on( 'data', ( data: Buffer ) => {
-			const text = data.toString().trimEnd();
-			if ( text ) {
-				console.error( `[StudioCode - ${ this.siteId }] stderr:`, text );
-			}
-		} );
-
-		this.child.on( 'error', ( error ) => {
-			console.error( `[StudioCode - ${ this.siteId }] Process error:`, error );
-			Sentry.captureException( error );
-		} );
-
-		this.child.on( 'close', ( exitCode, signal ) => {
-			console.info(
-				`[StudioCode - ${ this.siteId }] Process exited with code ${ exitCode }, signal ${ signal }`
-			);
-			this.child = null;
-			app.off( 'will-quit', this.appQuitHandler );
-		} );
-
-		app.on( 'will-quit', this.appQuitHandler );
-	}
-
-	send( command: StudioCodeCommand ): void {
-		if ( ! this.child?.stdin?.writable ) {
-			console.error(
-				`[StudioCode - ${ this.siteId }] Cannot send command: process stdin not writable`
-			);
-			return;
-		}
-		this.child.stdin.write( JSON.stringify( command ) + '\n' );
-	}
-
-	stop(): void {
-		if ( ! this.child ) {
-			return;
-		}
-
-		app.off( 'will-quit', this.appQuitHandler );
-
-		const pid = this.child.pid;
-		this.child.removeAllListeners();
-		const result = this.child.kill();
-		this.child = null;
-
-		if ( result ) {
-			console.info( `[StudioCode - ${ this.siteId }] Killed process with pid ${ pid }` );
-		} else {
-			console.error(
-				`[StudioCode - ${ this.siteId }] Failed to kill process with pid ${ pid }. It may have already terminated.`
-			);
-		}
-	}
-
-	get isRunning(): boolean {
-		return this.child !== null;
-	}
-
-	private appQuitHandler = () => {
-		this.stop();
-	};
+interface SiteSession {
+	activeTurn: ChildProcess | null;
+	activeTurnRl: readline.Interface | null;
+	appQuitHandler: ( () => void ) | null;
+	lastSessionId: string | null;
 }
 
-// Module-level process registry
-const processes = new Map< string, StudioCodeProcess >();
+// Module-level registry keyed by siteId
+const sessions = new Map< string, SiteSession >();
 
-export function getOrCreateProcess(
+function getOrCreateSession( siteId: string ): SiteSession {
+	let session = sessions.get( siteId );
+	if ( ! session ) {
+		session = { activeTurn: null, activeTurnRl: null, appQuitHandler: null, lastSessionId: null };
+		sessions.set( siteId, session );
+	}
+	return session;
+}
+
+function cleanupTurn( session: SiteSession ): void {
+	if ( session.appQuitHandler ) {
+		app.off( 'will-quit', session.appQuitHandler );
+		session.appQuitHandler = null;
+	}
+	session.activeTurnRl?.close();
+	session.activeTurnRl = null;
+	if ( session.activeTurn ) {
+		session.activeTurn.removeAllListeners();
+		session.activeTurn.kill();
+		session.activeTurn = null;
+	}
+}
+
+export function spawnTurn(
 	siteId: string,
 	sitePath: string,
-	siteName: string,
-	siteUrl: string
-): StudioCodeProcess {
-	let proc = processes.get( siteId );
-	if ( ! proc || ! proc.isRunning ) {
-		proc = new StudioCodeProcess( siteId, sitePath, siteName, siteUrl );
-		proc.start();
-		processes.set( siteId, proc );
+	message: string,
+	options?: {
+		resumeSessionId?: string;
+		permissionResponse?: Record< string, string >;
 	}
-	return proc;
+): void {
+	const session = getOrCreateSession( siteId );
+
+	// Kill any active turn for this site
+	cleanupTurn( session );
+
+	const nodePath = getBundledNodeBinaryPath();
+	const cliPath = getCliPath();
+
+	const args = [
+		'--experimental-wasm-jspi',
+		cliPath,
+		'code',
+		message,
+		'--json',
+		'--no-auto-approve',
+		'--path',
+		sitePath,
+	];
+
+	const sessionId = options?.resumeSessionId ?? session.lastSessionId;
+	if ( sessionId ) {
+		args.push( '--resume-session', sessionId );
+	}
+
+	if ( options?.permissionResponse ) {
+		args.push( '--permission-response', JSON.stringify( options.permissionResponse ) );
+	}
+
+	const child = spawn( nodePath, args, {
+		stdio: [ 'pipe', 'pipe', 'pipe' ],
+		env: { ...process.env },
+	} );
+
+	session.activeTurn = child;
+
+	const rl = readline.createInterface( { input: child.stdout! } );
+	session.activeTurnRl = rl;
+
+	rl.on( 'line', ( line ) => {
+		try {
+			const event: StudioCodeEvent = JSON.parse( line );
+
+			if ( event.type === 'turn.completed' && event.sessionId ) {
+				session.lastSessionId = event.sessionId;
+			}
+
+			void sendIpcEventToRenderer( 'studio-code-event', { siteId, event } );
+		} catch {
+			console.error( `[StudioCode - ${ siteId }] Non-JSON stdout line:`, line );
+		}
+	} );
+
+	child.stderr?.on( 'data', ( data: Buffer ) => {
+		const text = data.toString().trimEnd();
+		if ( text ) {
+			console.error( `[StudioCode - ${ siteId }] stderr:`, text );
+		}
+	} );
+
+	child.on( 'error', ( error ) => {
+		console.error( `[StudioCode - ${ siteId }] Process error:`, error );
+		Sentry.captureException( error );
+	} );
+
+	child.on( 'close', ( exitCode, signal ) => {
+		console.info(
+			`[StudioCode - ${ siteId }] Process exited with code ${ exitCode }, signal ${ signal }`
+		);
+		rl.close();
+		if ( session.appQuitHandler ) {
+			app.off( 'will-quit', session.appQuitHandler );
+			session.appQuitHandler = null;
+		}
+		if ( session.activeTurn === child ) {
+			session.activeTurn = null;
+			session.activeTurnRl = null;
+		}
+	} );
+
+	const appQuitHandler = () => cleanupTurn( session );
+	session.appQuitHandler = appQuitHandler;
+	app.on( 'will-quit', appQuitHandler );
 }
 
-export function getProcess( siteId: string ): StudioCodeProcess | undefined {
-	return processes.get( siteId );
-}
-
-export function stopProcess( siteId: string ): void {
-	const proc = processes.get( siteId );
-	if ( proc ) {
-		proc.stop();
-		processes.delete( siteId );
+export function abortTurn( siteId: string ): void {
+	const session = sessions.get( siteId );
+	if ( session ) {
+		cleanupTurn( session );
 	}
 }
 
 export function stopAllProcesses(): void {
-	for ( const [ siteId, proc ] of processes ) {
-		proc.stop();
-		processes.delete( siteId );
+	for ( const [ , session ] of sessions ) {
+		cleanupTurn( session );
 	}
+	sessions.clear();
 }

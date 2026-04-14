@@ -26,7 +26,6 @@ import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { addUrlParams } from 'src/lib/url-utils';
-import { type AiEngine } from 'src/modules/studio-code/studio-code-types';
 import { useAppDispatch, useRootSelector } from 'src/stores';
 import {
 	chatThunks,
@@ -361,26 +360,15 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
 	const { enableStudioCode } = useFeatureFlags();
-	const [ aiEngine, setAiEngine ] = useState< AiEngine >( 'wpcom-assistant' );
-	const [ engineChecked, setEngineChecked ] = useState( false );
 
-	useEffect( () => {
-		if ( ! enableStudioCode ) {
-			setEngineChecked( true );
-			return;
-		}
-		void Promise.all( [ getIpcApi().getAiEngine(), getIpcApi().studioCodeCheckProvider() ] ).then(
-			( [ engine, provider ] ) => {
-				if ( provider.available && engine === 'studio-code' ) {
-					setAiEngine( 'studio-code' );
-				} else {
-					setAiEngine( 'wpcom-assistant' );
-				}
-				setEngineChecked( true );
-			}
-		);
-	}, [ enableStudioCode ] );
+	if ( enableStudioCode ) {
+		return <StudioCodeChat selectedSite={ selectedSite } />;
+	}
 
+	return <WpcomAssistant selectedSite={ selectedSite } />;
+}
+
+function WpcomAssistant( { selectedSite }: ContentTabAssistantProps ) {
 	const inputRef = useRef< HTMLTextAreaElement >( null );
 	const wrapperRef = useRef< HTMLDivElement >( null );
 	const dispatch = useAppDispatch();
@@ -474,10 +462,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		localStorage.setItem( 'dontShowTelexBanner', 'true' );
 		setIsTelexBannerVisible( false );
 	};
-
-	if ( engineChecked && aiEngine === 'studio-code' ) {
-		return <StudioCodeChat selectedSite={ selectedSite } />;
-	}
 
 	return (
 		<div className="relative min-h-full flex flex-col" ref={ wrapperRef }>

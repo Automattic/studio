@@ -1,10 +1,8 @@
-import { SelectControl } from '@wordpress/components';
 import { Icon, check } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useState } from 'react';
 import Button from 'src/components/button';
 import Modal from 'src/components/modal';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import {
 	INSTRUCTION_FILES,
@@ -15,66 +13,10 @@ import {
 	BUNDLED_SKILLS,
 	type SkillStatus,
 } from 'src/modules/agent-instructions/lib/skills-constants';
-import { type AiEngine } from 'src/modules/studio-code/studio-code-types';
-
 interface AiSettingsModalProps {
 	isOpen: boolean;
 	onClose: () => void;
 	siteId: string;
-}
-
-function AiEnginePanel() {
-	const { __ } = useI18n();
-	const [ engine, setEngine ] = useState< AiEngine >( 'wpcom-assistant' );
-
-	useEffect( () => {
-		void getIpcApi()
-			.getAiEngine()
-			.then( ( savedEngine ) => {
-				setEngine( savedEngine );
-			} );
-	}, [] );
-
-	const handleChange = ( value: string ) => {
-		const newEngine = value as AiEngine;
-		setEngine( newEngine );
-		void getIpcApi().saveAiEngine( newEngine );
-	};
-
-	return (
-		<div className="flex flex-col gap-4">
-			<div>
-				<h3 className="text-sm font-medium text-frame-text">{ __( 'AI engine' ) }</h3>
-				<p className="text-xs text-frame-text-secondary mt-0.5">
-					{ __( 'Choose which AI engine powers the assistant' ) }
-				</p>
-			</div>
-			<SelectControl
-				value={ engine }
-				options={ [
-					{
-						label: __( 'Studio Assistant (WordPress.com)' ),
-						value: 'wpcom-assistant',
-					},
-					{
-						label: __( 'Studio Code (Local Agent)' ),
-						value: 'studio-code',
-					},
-				] }
-				onChange={ handleChange }
-				__nextHasNoMarginBottom
-			/>
-			<p className="text-xs text-frame-text-secondary -mt-2">
-				{ engine === 'studio-code'
-					? __(
-							'Studio Code runs a local AI agent using your own API key. It can read and edit files in your site directory.'
-					  )
-					: __(
-							'Studio Assistant uses WordPress.com to answer questions about WordPress development.'
-					  ) }
-			</p>
-		</div>
-	);
 }
 
 function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
@@ -318,8 +260,6 @@ function WordPressSkillsPanel( { siteId }: { siteId: string } ) {
 
 export function AiSettingsModal( { isOpen, onClose, siteId }: AiSettingsModalProps ) {
 	const { __ } = useI18n();
-	const { enableStudioCode } = useFeatureFlags();
-
 	if ( ! isOpen ) {
 		return null;
 	}
@@ -333,7 +273,6 @@ export function AiSettingsModal( { isOpen, onClose, siteId }: AiSettingsModalPro
 			className="min-h-[350px] app-no-drag-region"
 		>
 			<div className="px-2 pb-4 flex gap-6 flex-col">
-				{ enableStudioCode && <AiEnginePanel /> }
 				<AgentInstructionsPanel siteId={ siteId } />
 				<WordPressSkillsPanel siteId={ siteId } />
 			</div>

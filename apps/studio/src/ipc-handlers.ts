@@ -158,12 +158,10 @@ export {
 } from 'src/modules/user-settings/lib/ipc-handlers';
 
 export {
-	studioCodeStart,
-	studioCodeSend,
-	studioCodeStop,
+	studioCodeSendMessage,
+	studioCodeRespondToPermission,
+	studioCodeAbort,
 	studioCodeCheckProvider,
-	getAiEngine,
-	saveAiEngine,
 } from 'src/modules/studio-code/ipc-handlers';
 
 export async function getAgentInstructionsStatus(

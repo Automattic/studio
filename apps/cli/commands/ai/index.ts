@@ -149,9 +149,9 @@ export async function runCommand( options: {
 		);
 	}
 
-	setProgressCallback( ( message, update ) => {
+	setProgressCallback( ( message ) => {
 		const timestamp = new Date().toISOString();
-		ui.setLoaderMessage( message, update );
+		ui.setLoaderMessage( message );
 		void persist( ( recorder ) => recorder.recordToolProgress( message, timestamp ) );
 	} );
 
@@ -591,24 +591,6 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'path', {
 					hidden: true,
 				} )
-				.option( 'headless', {
-					type: 'boolean',
-					default: false,
-					hidden: true,
-					describe: __( 'Run in headless mode with NDJSON communication on stdin/stdout' ),
-				} )
-				.option( 'site', {
-					type: 'string',
-					describe: __( 'Path to the active WordPress site' ),
-				} )
-				.option( 'site-name', {
-					type: 'string',
-					describe: __( 'Name of the active WordPress site' ),
-				} )
-				.option( 'site-url', {
-					type: 'string',
-					describe: __( 'URL of the active WordPress site' ),
-				} )
 				.option( 'json', {
 					type: 'boolean',
 					default: false,
@@ -642,40 +624,32 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		},
 		handler: async ( argv ) => {
 			try {
-				if ( argv.headless ) {
-					const { runHeadlessCommand } = await import( 'cli/ai/headless' );
-					await runHeadlessCommand( {
-						siteName: argv[ 'site-name' ] as string | undefined,
-						siteUrl: argv[ 'site-url' ] as string | undefined,
-					} );
-				} else {
-					const typedArgv = argv as {
-						message?: string;
-						json?: boolean;
-						sessionPersistence?: boolean;
-						autoApprove?: boolean;
-						resumeSession?: string;
-						permissionResponse?: string;
-					};
-					const noSessionPersistence = typedArgv.sessionPersistence === false;
-					const adapter: AiOutputAdapter = typedArgv.json ? new JsonAdapter() : new AiChatUI();
+				const typedArgv = argv as {
+					message?: string;
+					json?: boolean;
+					sessionPersistence?: boolean;
+					autoApprove?: boolean;
+					resumeSession?: string;
+					permissionResponse?: string;
+				};
+				const noSessionPersistence = typedArgv.sessionPersistence === false;
+				const adapter: AiOutputAdapter = typedArgv.json ? new JsonAdapter() : new AiChatUI();
 
-					if ( adapter instanceof JsonAdapter && typedArgv.permissionResponse ) {
-						adapter.permissionResponse = JSON.parse( typedArgv.permissionResponse ) as Record<
-							string,
-							string
-						>;
-					}
-
-					await runCommand( {
-						adapter,
-						initialMessage: typedArgv.message,
-						resumeSessionId: typedArgv.resumeSession,
-						noSessionPersistence,
-						autoApprove: typedArgv.autoApprove,
-						showLegacyCommandNotice: argv._[ 0 ] === 'ai',
-					} );
+				if ( adapter instanceof JsonAdapter && typedArgv.permissionResponse ) {
+					adapter.permissionResponse = JSON.parse( typedArgv.permissionResponse ) as Record<
+						string,
+						string
+					>;
 				}
+
+				await runCommand( {
+					adapter,
+					initialMessage: typedArgv.message,
+					resumeSessionId: typedArgv.resumeSession,
+					noSessionPersistence,
+					autoApprove: typedArgv.autoApprove,
+					showLegacyCommandNotice: argv._[ 0 ] === 'ai',
+				} );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );

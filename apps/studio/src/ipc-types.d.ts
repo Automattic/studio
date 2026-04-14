@@ -88,7 +88,6 @@ type IpcApi = {
 
 interface FeatureFlags {
 	enableBlueprints: boolean;
-	enableAgentSuite: boolean;
 	enableStudioCode: boolean;
 }
 

@@ -374,6 +374,7 @@ export async function loadImportedRuntimeStartOptions(
 ): Promise< StartServerOptions > {
 	const runtimeDirectory = path.dirname( runtimeBlueprintPath );
 	const runtimeStartScriptPath = path.join( runtimeDirectory, 'start.sh' );
+	const startJsonPath = path.join( runtimeDirectory, 'start.json' );
 	const runtimePhpPath = path.join( runtimeDirectory, 'runtime.php' );
 
 	let blueprint = loadRuntimeBlueprint( runtimeBlueprintPath );
@@ -382,7 +383,7 @@ export async function loadImportedRuntimeStartOptions(
 		blueprintUri: runtimeBlueprintPath,
 	};
 
-	if ( ! fs.existsSync( runtimeStartScriptPath ) ) {
+	if ( ! fs.existsSync( startJsonPath ) && ! fs.existsSync( runtimeStartScriptPath ) ) {
 		if ( fs.existsSync( runtimePhpPath ) ) {
 			blueprint = mergeBlueprintConstants(
 				blueprint,
@@ -402,9 +403,7 @@ export async function loadImportedRuntimeStartOptions(
 		return startOptions;
 	}
 
-	const startScript = fs.readFileSync( runtimeStartScriptPath, 'utf-8' );
-
-	// start.sh may contain paths that don't exist on the host:
+	// start.sh / start.json may contain paths that don't exist on the host:
 	//
 	// 1. VFS paths from older imports (/flat, /output, /state) that need
 	//    mapping to their real host equivalents.
@@ -429,9 +428,10 @@ export async function loadImportedRuntimeStartOptions(
 		'/state': path.join( importRoot, 'state' ),
 	};
 
-	function resolveWasmMountPath( mount: { hostPath: string; vfsPath: string } ) {
-		// Strip PHP WASM's internal symlink resolution prefix to recover
-		// the real host path.
+	function resolveVfsMountPath( mount: { hostPath: string; vfsPath: string } ) {
+		// Playground's --follow-symlinks resolves symlinks that point
+		// outside the mounted tree to /internal/symlinks/{host_path}.
+		// Strip the prefix to recover the real host filesystem path.
 		const INTERNAL_SYMLINKS_PREFIX = '/internal/symlinks/';
 		if ( mount.hostPath.startsWith( INTERNAL_SYMLINKS_PREFIX ) ) {
 			return {
@@ -456,17 +456,44 @@ export async function loadImportedRuntimeStartOptions(
 		return mount;
 	}
 
+	// Prefer start.json (structured config) over parsing start.sh.
+	// start.json has explicit source/target pairs; start.sh requires
+	// regex extraction from shell-escaped flag values.
+	let rawMountsBeforeInstall: Array< { hostPath: string; vfsPath: string } >;
+	let rawMounts: Array< { hostPath: string; vfsPath: string } >;
+	let wordpressInstallMode: StartServerOptions[ 'wordpressInstallMode' ];
+
+	if ( fs.existsSync( startJsonPath ) ) {
+		const startConfig = JSON.parse( fs.readFileSync( startJsonPath, 'utf-8' ) ) as {
+			mounts_before_install?: Array< { source: string; target: string } >;
+			mounts?: Array< { source: string; target: string } >;
+			wordpress_install_mode?: string;
+		};
+		rawMountsBeforeInstall = ( startConfig.mounts_before_install ?? [] ).map( ( m ) => ( {
+			hostPath: m.source,
+			vfsPath: m.target,
+		} ) );
+		rawMounts = ( startConfig.mounts ?? [] ).map( ( m ) => ( {
+			hostPath: m.source,
+			vfsPath: m.target,
+		} ) );
+		wordpressInstallMode =
+			startConfig.wordpress_install_mode as StartServerOptions[ 'wordpressInstallMode' ];
+	} else {
+		const startScript = fs.readFileSync( runtimeStartScriptPath, 'utf-8' );
+		rawMountsBeforeInstall = getShellFlagValues( startScript, 'mount-before-install' ).map(
+			parseMountSpec
+		);
+		rawMounts = getShellFlagValues( startScript, 'mount' ).map( parseMountSpec );
+		wordpressInstallMode = getShellFlagValues( startScript, 'wordpress-install-mode' ).at(
+			0
+		) as StartServerOptions[ 'wordpressInstallMode' ];
+	}
+
 	const mountsBeforeInstall = filterExistingMounts(
-		getShellFlagValues( startScript, 'mount-before-install' )
-			.map( parseMountSpec )
-			.map( resolveWasmMountPath )
+		rawMountsBeforeInstall.map( resolveVfsMountPath )
 	);
-	const mounts = filterExistingMounts(
-		getShellFlagValues( startScript, 'mount' ).map( parseMountSpec ).map( resolveWasmMountPath )
-	);
-	const wordpressInstallMode = getShellFlagValues( startScript, 'wordpress-install-mode' ).at(
-		0
-	) as StartServerOptions[ 'wordpressInstallMode' ];
+	const mounts = filterExistingMounts( rawMounts.map( resolveVfsMountPath ) );
 
 	if ( mountsBeforeInstall.length > 0 ) {
 		startOptions.mountsBeforeInstall = mountsBeforeInstall;

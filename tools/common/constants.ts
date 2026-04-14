@@ -25,6 +25,9 @@ export const LOCKFILE_WAIT_TIME = 5000;
 export const PLAYGROUND_CLI_INACTIVITY_TIMEOUT = 2 * 60 * 1000; // 2 minutes of no output = timeout
 export const PLAYGROUND_CLI_MAX_TIMEOUT = 10 * 60 * 1000; // 10 minutes absolute maximum
 export const PLAYGROUND_CLI_ACTIVITY_CHECK_INTERVAL = 5 * 1000; // Check for inactivity every 5 seconds
+// Heartbeat emitted by long-running child operations (e.g. start-server, run-blueprint) so the
+// parent's inactivity watchdog isn't tripped by silent-but-progressing work.
+export const PLAYGROUND_CLI_CHILD_HEARTBEAT_INTERVAL = 15 * 1000;
 
 // Certificate validation — we use these instead of human-readable labels
 // because Windows localizes certutil output on non-English systems.

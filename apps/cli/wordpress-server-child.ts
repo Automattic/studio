@@ -11,7 +11,10 @@
  * - Sends activity heartbeats to prevent timeout during long operations
  */
 import { dirname } from 'path';
-import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
+import {
+	DEFAULT_PHP_VERSION,
+	PLAYGROUND_CLI_CHILD_HEARTBEAT_INTERVAL,
+} from '@studio/common/constants';
 import { isWordPressDirectory } from '@studio/common/lib/fs-utils';
 import { IS_JSPI_AVAILABLE } from '@studio/common/lib/jspi';
 import { cleanupLegacyMuPlugins, getMuPlugins } from '@studio/common/lib/mu-plugins';
@@ -278,6 +281,19 @@ async function getBaseRunCLIArgs(
 	return args;
 }
 
+// Long-running operations like Playground bootstrap can go silent for extended periods (PHP WASM
+// init, WordPress core download, blueprint asset fetches). The parent's inactivity watchdog
+// observes child stdout/stderr as a liveness proxy, so silent-but-progressing work gets killed
+// after PLAYGROUND_CLI_INACTIVITY_TIMEOUT. This heartbeat keeps the watchdog satisfied while
+// PLAYGROUND_CLI_MAX_TIMEOUT remains a backstop against true hangs.
+function startChildHeartbeat(): NodeJS.Timeout {
+	return setInterval( () => {
+		if ( process.connected ) {
+			process.send!( { topic: 'activity' } );
+		}
+	}, PLAYGROUND_CLI_CHILD_HEARTBEAT_INTERVAL );
+}
+
 let startupAbortController: AbortController | null = null;
 let startingPromise: Promise< void > | null = null;
 
@@ -306,6 +322,7 @@ const startServer = wrapWithStartingPromise(
 		startupAbortController = new AbortController();
 		const stopSignal = AbortSignal.any( [ signal, startupAbortController.signal ] );
 
+		const heartbeatId = startChildHeartbeat();
 		try {
 			stopSignal.throwIfAborted();
 
@@ -339,6 +356,7 @@ const startServer = wrapWithStartingPromise(
 			// Rethrowing the error so that `ipcMessageHandler` returns an error IPC response and kills the process
 			throw error;
 		} finally {
+			clearInterval( heartbeatId );
 			startupAbortController = null;
 		}
 	}
@@ -387,6 +405,7 @@ async function stopServer(): Promise< StopServerResult > {
 }
 
 async function runBlueprint( config: ServerConfig, signal: AbortSignal ): Promise< void > {
+	const heartbeatId = startChildHeartbeat();
 	try {
 		signal.throwIfAborted();
 
@@ -399,6 +418,8 @@ async function runBlueprint( config: ServerConfig, signal: AbortSignal ): Promis
 	} catch ( error ) {
 		errorToConsole( `Failed to run Blueprint:`, error );
 		throw error;
+	} finally {
+		clearInterval( heartbeatId );
 	}
 }
 

@@ -32,7 +32,7 @@ const abortController = new AbortController();
 process.on( 'SIGINT', () => abortController.abort() );
 process.on( 'SIGTERM', () => abortController.abort() );
 
-export function getProcessName( siteId: string ): string {
+function getProcessName( siteId: string ): string {
 	return `${ SITE_PROCESS_PREFIX }${ siteId }`;
 }
 
@@ -48,7 +48,7 @@ export async function isServerRunning( siteId: string ): Promise< ProcessDescrip
  * 3. Send 'start-server' message with config
  * 4. Wait for response before resolving
  */
-export interface StartServerOptions {
+interface StartServerOptions {
 	wpVersion?: string;
 	blueprint?: unknown;
 	blueprintUri?: string;
@@ -168,7 +168,7 @@ const messageActivityTrackers = new Map<
 	}
 >();
 
-export interface SendMessageOptions {
+interface SendMessageOptions {
 	maxTotalElapsedTime?: number;
 	logger?: Logger< string >;
 }
@@ -180,7 +180,7 @@ export interface SendMessageOptions {
  * - Checks periodically for inactivity
  * - Has both inactivity timeout and max total timeout
  */
-export async function sendMessage(
+async function sendMessage(
 	pmId: number,
 	processName: string,
 	message: ManagerMessagePayload,
@@ -321,7 +321,7 @@ export async function stopWordPressServer( siteId: string ): Promise< void > {
 	}
 }
 
-export interface RunBlueprintOptions {
+interface RunBlueprintOptions {
 	wpVersion?: string;
 	blueprint: unknown;
 	blueprintUri: string;

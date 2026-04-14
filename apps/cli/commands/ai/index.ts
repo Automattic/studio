@@ -10,6 +10,8 @@ import {
 	resolveUnavailableAiProvider,
 	saveSelectedAiProvider,
 } from 'cli/ai/auth';
+import { closeSharedBrowser } from 'cli/ai/browser-utils';
+import { type AiOutputAdapter, JsonAdapter } from 'cli/ai/output-adapter';
 import { AI_PROVIDERS, type AiProviderId } from 'cli/ai/providers';
 import { resolveResumeSessionContext } from 'cli/ai/sessions/context';
 import { AiSessionRecorder } from 'cli/ai/sessions/recorder';
@@ -39,14 +41,17 @@ function getErrorMessage( error: unknown ): string {
 	return String( error );
 }
 
-export async function runCommand(
-	options: {
-		resumeSession?: LoadedAiSession;
-		noSessionPersistence?: boolean;
-		showLegacyCommandNotice?: boolean;
-	} = {}
-): Promise< void > {
-	const ui = new AiChatUI();
+export async function runCommand( options: {
+	adapter: AiOutputAdapter;
+	initialMessage?: string;
+	resumeSession?: LoadedAiSession;
+	resumeSessionId?: string;
+	noSessionPersistence?: boolean;
+	autoApprove?: boolean;
+	showLegacyCommandNotice?: boolean;
+} ): Promise< void > {
+	const ui = options.adapter;
+	const isJsonMode = ui instanceof JsonAdapter;
 	const resumeContext = resolveResumeSessionContext( options.resumeSession );
 	let currentProvider: AiProviderId =
 		resumeContext.provider ?? ( await resolveInitialAiProvider() );
@@ -56,13 +61,13 @@ export async function runCommand(
 	ui.start();
 	ui.showWelcome();
 
-	if ( options.showLegacyCommandNotice ) {
+	if ( options.showLegacyCommandNotice && ! isJsonMode ) {
 		ui.showInfo( __( 'ⓘ The "studio ai" command is now "studio code".' ) );
 	}
 
 	let sessionRecorder: AiSessionRecorder | undefined;
 	let didDisableSessionPersistence = options.noSessionPersistence === true;
-	let sessionId: string | undefined = resumeContext.sessionId;
+	let sessionId: string | undefined = options.resumeSessionId ?? resumeContext.sessionId;
 	let persistQueue: Promise< void > = Promise.resolve();
 
 	if ( options.noSessionPersistence ) {
@@ -128,6 +133,13 @@ export async function runCommand(
 		return persistQueue;
 	};
 
+	if ( ui instanceof JsonAdapter ) {
+		ui.onBeforeExit = async () => {
+			await persistQueue;
+			ui.stop();
+		};
+	}
+
 	async function persistSessionContext(): Promise< void > {
 		await persist( ( recorder ) =>
 			recorder.recordSessionContext( {
@@ -155,7 +167,9 @@ export async function runCommand(
 				options.resumeSession.summary.id
 			)
 		);
-		replaySessionHistory( ui, options.resumeSession.events );
+		if ( ui instanceof AiChatUI ) {
+			replaySessionHistory( ui, options.resumeSession.events );
+		}
 		if ( ! sessionId ) {
 			ui.showInfo( __( 'No linked Claude session was found. Continuing from transcript only.' ) );
 		}
@@ -345,7 +359,9 @@ export async function runCommand(
 		return answers;
 	}
 
-	async function runAgentTurn( prompt: string ): Promise< void > {
+	async function runAgentTurn(
+		prompt: string
+	): Promise< { status: TurnStatus; usage?: { numTurns: number; costUsd?: number } } > {
 		const env = await resolveAiEnvironment( currentProvider );
 		ui.beginAgentTurn();
 
@@ -383,6 +399,7 @@ export async function runCommand(
 			env,
 			model: currentModel,
 			resume: sessionId,
+			autoApprove: options.autoApprove ?? isJsonMode,
 			activeSite: site,
 			wpcomAccessToken,
 			onAskUser: ( questions ) => askUserAndPersistAnswers( questions ),
@@ -404,7 +421,7 @@ export async function runCommand(
 					sessionId = result.sessionId;
 					await persist( ( recorder ) => recorder.recordAgentSessionId( result.sessionId ) );
 
-					if ( 'maxTurnsReached' in result && result.maxTurnsReached ) {
+					if ( result.type === 'max_turns' ) {
 						maxTurnsResult = {
 							numTurns: result.numTurns,
 						};
@@ -442,9 +459,47 @@ export async function runCommand(
 			const choice = Object.values( answer )[ 0 ]?.toLowerCase();
 			if ( choice === 'yes' ) {
 				ui.addUserMessage( 'Continue' );
-				await runAgentTurn( 'Continue from where you left off.' );
+				return runAgentTurn( 'Continue from where you left off.' );
 			}
 		}
+
+		return {
+			status: turnStatus,
+			usage: maxTurnsResult,
+		};
+	}
+
+	// JSON mode: single turn, then exit
+	if ( isJsonMode && options.initialMessage ) {
+		try {
+			ui.addUserMessage( options.initialMessage );
+			const result = await runAgentTurn( options.initialMessage );
+			const jsonStatus = result.status === 'interrupted' ? 'error' : result.status;
+			( ui as JsonAdapter ).emitTurnCompleted( jsonStatus, result.usage );
+		} catch ( error ) {
+			process.exitCode = 1;
+			handleAgentTurnError( error );
+			( ui as JsonAdapter ).emitTurnCompleted( 'error' );
+		} finally {
+			await persistQueue;
+			ui.stop();
+			await closeSharedBrowser();
+		}
+		return;
+	}
+
+	// Run initial message before entering the input loop
+	if ( options.initialMessage ) {
+		ui.addUserMessage( options.initialMessage );
+		try {
+			await runAgentTurn( options.initialMessage );
+		} catch ( error ) {
+			handleAgentTurnError( error );
+		}
+	}
+
+	if ( ! ( ui instanceof AiChatUI ) ) {
+		throw new Error( 'Interactive mode requires AiChatUI adapter' );
 	}
 
 	const slashCommandContext: SlashCommandContext = {
@@ -525,16 +580,21 @@ export async function runCommand(
 
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
-		command: '$0',
+		command: '$0 [message]',
 		describe: __( 'AI agent for building WordPress' ),
 		builder: ( yargs ) => {
 			return yargs
+				.positional( 'message', {
+					type: 'string',
+					description: __( 'Initial message to send to the AI agent' ),
+				} )
 				.option( 'path', {
 					hidden: true,
 				} )
 				.option( 'headless', {
 					type: 'boolean',
 					default: false,
+					hidden: true,
 					describe: __( 'Run in headless mode with NDJSON communication on stdin/stdout' ),
 				} )
 				.option( 'site', {
@@ -549,10 +609,35 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'string',
 					describe: __( 'URL of the active WordPress site' ),
 				} )
+				.option( 'json', {
+					type: 'boolean',
+					default: false,
+					description: __( 'Output events as NDJSON to stdout (headless mode)' ),
+				} )
+				.option( 'auto-approve', {
+					type: 'boolean',
+					description: __( 'Auto-approve all tool calls (defaults to true in --json mode)' ),
+				} )
+				.option( 'resume-session', {
+					type: 'string',
+					hidden: true,
+					description: __( 'SDK session ID to resume (for JSON mode multi-turn)' ),
+				} )
+				.option( 'permission-response', {
+					type: 'string',
+					hidden: true,
+					description: __( 'JSON-encoded permission response for a paused session' ),
+				} )
 				.option( 'session-persistence', {
 					type: 'boolean',
 					default: true,
 					description: __( 'Record this code session to disk' ),
+				} )
+				.check( ( argv ) => {
+					if ( argv.json && ! argv.message ) {
+						throw new Error( __( '--json requires an initial message argument' ) );
+					}
+					return true;
 				} );
 		},
 		handler: async ( argv ) => {
@@ -564,10 +649,30 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 						siteUrl: argv[ 'site-url' ] as string | undefined,
 					} );
 				} else {
-					const noSessionPersistence =
-						( argv as { sessionPersistence?: boolean } ).sessionPersistence === false;
+					const typedArgv = argv as {
+						message?: string;
+						json?: boolean;
+						sessionPersistence?: boolean;
+						autoApprove?: boolean;
+						resumeSession?: string;
+						permissionResponse?: string;
+					};
+					const noSessionPersistence = typedArgv.sessionPersistence === false;
+					const adapter: AiOutputAdapter = typedArgv.json ? new JsonAdapter() : new AiChatUI();
+
+					if ( adapter instanceof JsonAdapter && typedArgv.permissionResponse ) {
+						adapter.permissionResponse = JSON.parse( typedArgv.permissionResponse ) as Record<
+							string,
+							string
+						>;
+					}
+
 					await runCommand( {
+						adapter,
+						initialMessage: typedArgv.message,
+						resumeSessionId: typedArgv.resumeSession,
 						noSessionPersistence,
+						autoApprove: typedArgv.autoApprove,
 						showLegacyCommandNotice: argv._[ 0 ] === 'ai',
 					} );
 				}

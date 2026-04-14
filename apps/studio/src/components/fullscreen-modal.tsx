@@ -67,7 +67,7 @@ export const FullscreenModal: React.FC< FullscreenModalProps > = ( {
 			<HStack
 				className={ cx(
 					'flex p-4 app-drag-region',
-					isWindows() ? 'justify-start ltr:pt-8' : 'justify-end'
+					isWindows() ? 'justify-start' : 'justify-end'
 				) }
 			>
 				<Button

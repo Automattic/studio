@@ -1745,13 +1745,13 @@ export async function setWindowControlVisibility( event: IpcMainInvokeEvent, vis
 		const isDark = nativeTheme.shouldUseDarkColors;
 		if ( visible ) {
 			parentWindow.setTitleBarOverlay( {
-				color: isDark ? 'rgba(47, 47, 47, 1)' : 'rgba(30, 30, 30, 1)',
+				color: 'rgba(30, 30, 30, 1)',
 				symbolColor: 'white',
 				height: WINDOWS_TITLEBAR_HEIGHT,
 			} );
 		} else {
 			parentWindow.setTitleBarOverlay( {
-				color: isDark ? 'rgba(47, 47, 47, 1)' : '#fff',
+				color: isDark ? 'rgba(30, 30, 30, 1)' : '#fff',
 				symbolColor: isDark ? 'white' : '#1e1e1e',
 				height: WINDOWS_TITLEBAR_HEIGHT,
 			} );

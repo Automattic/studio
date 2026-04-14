@@ -29,9 +29,12 @@ const {
 	writeFileSync,
 } = require( 'node:fs' );
 const { homedir } = require( 'node:os' );
-const { join } = require( 'node:path' );
+const { join, sep } = require( 'node:path' );
 const { isSea, getAsset } = require( 'node:sea' );
 const { pathToFileURL } = require( 'node:url' );
+
+// Convert Windows backslash paths to forward slashes for tar compatibility
+const posix = ( p ) => p.split( sep ).join( '/' );
 
 const DEFAULT_CLI_DIR = join( homedir(), '.studio', 'cli' );
 const CLI_DIR = process.env.STUDIO_CLI_DIR || DEFAULT_CLI_DIR;
@@ -64,7 +67,9 @@ async function main() {
 			rmSync( CLI_DIR, { recursive: true, force: true } );
 		}
 		mkdirSync( CLI_DIR, { recursive: true } );
-		execSync( `tar -xzf "${ cliTarPath }" -C "${ CLI_DIR }"`, { stdio: 'inherit' } );
+		execSync( `tar -xzf "${ posix( cliTarPath ) }" -C "${ posix( CLI_DIR ) }"`, {
+			stdio: 'inherit',
+		} );
 		unlinkSync( cliTarPath );
 
 		// Extract node_modules alongside the CLI bundle
@@ -76,7 +81,9 @@ async function main() {
 			rmSync( NODE_MODULES_DIR, { recursive: true, force: true } );
 		}
 		mkdirSync( NODE_MODULES_DIR, { recursive: true } );
-		execSync( `tar -xzf "${ tarPath }" -C "${ NODE_MODULES_DIR }"`, { stdio: 'inherit' } );
+		execSync( `tar -xzf "${ posix( tarPath ) }" -C "${ posix( NODE_MODULES_DIR ) }"`, {
+			stdio: 'inherit',
+		} );
 		unlinkSync( tarPath );
 
 		writeFileSync( MARKER_FILE, BUNDLE_VERSION );

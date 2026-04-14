@@ -50,6 +50,11 @@ const bundleDir = path.join( repoRoot, 'apps', 'cli', 'bundle' );
 const bundleBuildDir = path.join( bundleDir, 'build' );
 const cliDistDir = path.join( repoRoot, 'apps', 'cli', 'dist', 'cli' );
 
+// Convert Windows paths to POSIX for tar (backslashes and colons cause issues)
+function posix( p: string ): string {
+	return p.split( path.sep ).join( '/' );
+}
+
 function run( cmd: string, cwd?: string ): void {
 	execSync( cmd, { cwd: cwd ?? repoRoot, stdio: 'inherit' } );
 }
@@ -71,17 +76,16 @@ async function main(): Promise< void > {
 	fs.mkdirSync( bundleBuildDir, { recursive: true } );
 
 	// CLI bundle (JS files, wp-files, etc. — excludes node_modules)
-	run(
-		`tar -czf "${ path.join( bundleBuildDir, 'cli.tar.gz' ) }" --exclude='node_modules' .`,
-		cliDistDir
-	);
+	const cliTarPath = posix( path.join( bundleBuildDir, 'cli.tar.gz' ) );
+	run( `tar -czf "${ cliTarPath }" --exclude='node_modules' .`, cliDistDir );
 
 	// node_modules — use source node_modules (not dist) because externalized
 	// native packages have transitive deps (e.g. ws, ini) that they need at runtime.
 	// Strip browser dirs to save space. Keep asyncify as fallback for JSPI.
 	const cliNodeModules = path.join( repoRoot, 'apps', 'cli', 'node_modules' );
+	const nmTarPath = posix( path.join( bundleBuildDir, 'node_modules.tar.gz' ) );
 	run(
-		`tar -czf "${ path.join( bundleBuildDir, 'node_modules.tar.gz' ) }" ` +
+		`tar -czf "${ nmTarPath }" ` +
 			`--exclude='.cache' ` +
 			`--exclude='playwright/browsers' --exclude='playwright-core/browsers' .`,
 		cliNodeModules
@@ -123,7 +127,7 @@ async function main(): Promise< void > {
 	// Inject the bundle blob
 	const blobPath = path.join( bundleDir, 'bundle.blob' );
 	run(
-		`npx postject "${ outputPath }" NODE_SEA_BLOB "${ blobPath }" ` +
+		`npx postject "${ posix( outputPath ) }" NODE_SEA_BLOB "${ posix( blobPath ) }" ` +
 			'--sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2' +
 			( isDarwin ? ' --macho-segment-name NODE_SEA' : '' )
 	);

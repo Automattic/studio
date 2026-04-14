@@ -637,6 +637,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			// Validate and resolve the WordPress version against available versions before prompting
 			if ( wpVersion && wpVersion !== 'latest' && wpVersion !== 'nightly' ) {
 				try {
+					logger.reportStart( LoggerAction.VALIDATE, __( 'Checking WordPress version…' ) );
 					const availableVersions = await fetchWordPressVersions();
 					const matchedVersion = availableVersions.find(
 						( v ) => v.value === wpVersion || v.value.startsWith( wpVersion + '.' )
@@ -665,6 +666,14 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 								__( 'WordPress version: %1$s → %2$s' ),
 								wpVersion,
 								matchedVersion.value
+							)
+						);
+					} else {
+						logger.reportSuccess(
+							sprintf(
+								/* translators: %s: WordPress version */
+								__( 'WordPress version: %s' ),
+								wpVersion
 							)
 						);
 					}

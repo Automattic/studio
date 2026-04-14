@@ -8,6 +8,8 @@ user-invokable: true
 
 Convert all `core/html` blocks in a site's pages, posts, and template parts to native Gutenberg blocks. The CSS stays untouched — the visual output must remain identical.
 
+**The goal is FAITHFUL CONVERSION.** Convert every `core/html` block that has a native block equivalent. Do not make editorial decisions about what to skip. Do not "improve" or simplify the structure. Reproduce the exact same content using native blocks.
+
 ## How to Run
 
 ### Step 1 — Read back all content
@@ -18,7 +20,26 @@ Retrieve every piece of block content. You MUST read ALL of these before proceed
 
 Do NOT skip template parts — they often contain navigation, hero sections, or footer content that needs conversion.
 
-### Step 2 — Plan the conversion element-by-element
+### Step 2 — Audit every core/html block
+
+Before planning the conversion, list every `core/html` block you found across all content. For each one, state:
+- Where it is (page/post name or template part file)
+- What HTML it contains (the wrapper tag and a brief summary)
+- What it will become: the specific native block(s), OR `core/html` (kept) with the reason
+
+Example:
+```
+1. Homepage hero wrapper: <section class="hero-section"> with heading, paragraph, buttons, image, scroll indicator
+   → core/group (tagName="section") with inner core/heading + core/paragraph + core/buttons + core/image + core/html (scroll indicator only)
+2. Homepage script tag: <script src="iconify">
+   → core/html (kept — script tag, no block equivalent)
+3. Header nav logo: <div class="logo"><a>Site Name</a></div>
+   → core/group with inner core/paragraph
+```
+
+This audit ensures nothing is silently skipped. Every `core/html` block must be accounted for.
+
+### Step 3 — Plan the conversion element-by-element (using audit from Step 2)
 
 **CRITICAL: Always decompose.** Never keep an entire section as `core/html` just because it contains some non-convertible sub-elements. Break the section apart: convert every convertible element to native blocks and isolate only the truly non-convertible elements as individual `core/html` blocks.
 
@@ -56,25 +77,31 @@ Keep `core/html` ONLY for individual elements with no native block equivalent:
 - A single non-convertible child — decompose the section instead of skipping it entirely
 - Small text-containing `<div>` or `<span>` elements (eyebrow text, labels, captions, taglines) — convert to `core/paragraph` with the appropriate `className`
 - Decorative wrapper `<div>` elements — convert to `core/group` with `className`
+- **Section wrappers with background images, overlays, or gradients** — these are always `core/group` with `className`. All visual effects (background-image, overlays, pseudo-elements, gradients) are handled by CSS targeting the className, not by the block markup. There is no reason to keep a `<section>` or `<div>` wrapper as `core/html` because of its visual styling.
 
 **Be thorough.** Convert every single element that has a native block equivalent. Do not leave small or simple elements as `core/html` out of convenience. A `<div>` with text inside it is a `core/paragraph` or `core/group`, not a Custom HTML block.
 
 All CSS classes from the original design stay in style.css — the visual output must remain identical after conversion.
 
-### Step 3 — Write the converted content
+### Step 4 — Write the converted content
 
 Rewrite the full content for each page/post and template part using native Gutenberg block markup. Use the block patterns below as reference. Update posts via `wp_cli post update` and template parts via Write/Edit.
 
-**IMPORTANT — Fix CSS conflicts after conversion.** Native Gutenberg blocks add wrapper elements with default styles (e.g., `core/button` adds `.wp-block-button` and `.wp-block-button__link.wp-element-button` with their own border, padding, and background). These default styles will stack on top of your Phase 1 CSS and cause visual regressions like double borders on buttons. After converting, update `style.css` to reset the default block styles that conflict with your design. Common fixes:
-- Buttons: Reset `.wp-block-button__link` border, padding, and background so only your custom class styles apply.
-- Groups: Reset `.wp-block-group` padding/margin if it conflicts with your section spacing.
-- Columns: Reset `.wp-block-columns` gap if it overrides your grid spacing.
+**IMPORTANT — CSS migration must be atomic replacements, not additions.** When converting elements to native blocks, the block markup changes the DOM structure (e.g., a bare `<a class="btn-gold">` becomes `<div class="wp-block-button btn-gold"><a class="wp-block-button__link wp-element-button">`). The Phase 1 CSS rules targeting the old selectors will now apply to the wrong elements, causing double borders, double backgrounds, and broken layouts.
 
-### Step 4 — Validate block markup
+**The rule:** Every time you write a new block-scoped CSS rule, you MUST delete the Phase 1 rule it replaces. One rule out, one rule in. Never leave both.
+
+For example, when converting buttons:
+- **Delete** the Phase 1 rule: `.btn-gold { background: gold; border: 2px solid gold; padding: 1rem 2rem; }`
+- **Replace** with a block-scoped rule: `.wp-block-button.btn-gold .wp-block-button__link { background: gold; border: 2px solid gold; padding: 1rem 2rem; }`
+
+This applies to all converted elements, not just buttons. If a Phase 1 rule targeted a bare class that is now a `className` on a block wrapper, rewrite the rule to target the correct block DOM structure.
+
+### Step 5 — Validate block markup
 
 Run `validate_blocks` on every piece of converted content to catch markup errors (missing attributes, invalid nesting, malformed block comments). If it flags invalid blocks, fix the markup and re-run until all blocks pass.
 
-### Step 5 — Visual regression check
+### Step 6 — Visual regression check
 
 Take screenshots (desktop + mobile) and compare them against the Phase 1 screenshots you already have in context. The site must look identical to the Phase 1 result. Look specifically for these common regressions introduced by block conversion:
 

@@ -1,4 +1,4 @@
-import ora, { Ora } from 'ora';
+import { Spinner } from 'picospinner';
 
 const isIpcMode = Boolean( process.send );
 
@@ -45,11 +45,11 @@ export class LoggerError extends Error {
 }
 
 export class Logger< T extends string > {
-	public spinner: Ora;
+	public spinner: Spinner;
 	private currentAction: T | 'keyValuePair' | null = null;
 
 	constructor() {
-		this.spinner = ora();
+		this.spinner = new Spinner();
 	}
 
 	public reportStart( action: T, message: string ) {
@@ -63,7 +63,8 @@ export class Logger< T extends string > {
 			progressCallback!( message );
 			return;
 		}
-		this.spinner.start( message );
+		this.spinner.setText( message );
+		this.spinner.start();
 	}
 
 	public reportProgress( message: string ) {
@@ -78,11 +79,11 @@ export class Logger< T extends string > {
 		}
 
 		// Update the spinner text and force render
-		this.spinner.text = message;
-		if ( ! this.spinner.isSpinning ) {
-			this.spinner.start( message );
+		this.spinner.setText( message );
+		if ( ! this.spinner.running ) {
+			this.spinner.start();
 		} else {
-			this.spinner.render();
+			this.spinner.refresh();
 		}
 	}
 
@@ -92,7 +93,7 @@ export class Logger< T extends string > {
 		} else if ( progressCallback ) {
 			progressCallback!( message );
 		} else if ( shouldClearSpinner ) {
-			this.spinner.clear();
+			this.spinner.stop();
 		} else {
 			this.spinner.succeed( message );
 		}

@@ -156,6 +156,8 @@ const api: IpcApi = {
 	showSiteContextMenu: ( context ) => ipcRendererSend( 'showSiteContextMenu', context ),
 	setWindowControlVisibility: ( visible ) =>
 		ipcRendererInvoke( 'setWindowControlVisibility', visible ),
+	setTitleBarBackdropEffect: ( enabled ) =>
+		ipcRendererInvoke( 'setTitleBarBackdropEffect', enabled ),
 	updateSitesSortOrder: ( updates ) => ipcRendererInvoke( 'updateSitesSortOrder', updates ),
 	isStudioCliInstalled: () => ipcRendererInvoke( 'isStudioCliInstalled' ),
 	installStudioCli: () => ipcRendererInvoke( 'installStudioCli' ),

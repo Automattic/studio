@@ -380,12 +380,12 @@ const deleteSiteTool = tool(
 		deleteFiles: z
 			.boolean()
 			.optional()
-			.describe( 'Also move site files to trash. Defaults to false.' ),
+			.describe( 'Move site files to trash. Defaults to true. Set to false to keep files.' ),
 	},
 	async ( args ) => {
 		try {
 			const site = await resolveSite( args.nameOrPath );
-			await runDeleteSiteCommand( site.path, args.deleteFiles ?? false );
+			await runDeleteSiteCommand( site.path, args.deleteFiles ?? true );
 			return textResult( `Site "${ site.name }" deleted.` );
 		} catch ( error ) {
 			return errorResult(

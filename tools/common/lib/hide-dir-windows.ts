@@ -1,4 +1,5 @@
 import { execFile } from 'child_process';
+import path from 'path';
 
 /**
  * Sets the "hidden" attribute on a directory on Windows using `attrib +H`.
@@ -23,15 +24,16 @@ export async function isDirectoryHiddenOnWindows( dirPath: string ): Promise< bo
 	if ( process.platform !== 'win32' ) {
 		return false;
 	}
+	const resolvedPath = path.resolve( dirPath );
 	return new Promise( ( resolve ) => {
-		execFile( 'attrib', [ dirPath ], ( error, stdout ) => {
+		execFile( 'attrib', [ resolvedPath ], ( error, stdout ) => {
 			if ( error ) {
 				resolve( false );
 				return;
 			}
 			// attrib output format: "     H  C:\path\to\dir"
 			// The attributes appear before the path, H indicates hidden
-			const attributes = stdout.substring( 0, stdout.indexOf( dirPath ) );
+			const attributes = stdout.substring( 0, stdout.indexOf( resolvedPath ) );
 			resolve( attributes.includes( 'H' ) );
 		} );
 	} );

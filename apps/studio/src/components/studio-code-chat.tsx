@@ -239,8 +239,13 @@ export function StudioCodeChat( { selectedSite }: StudioCodeChatProps ) {
 		dispatch( { type: 'ADD_USER_MESSAGE', text } );
 		setInputValue( '' );
 
-		void getIpcApi().studioCodeSendMessage( selectedSite.id, selectedSite.path, text );
-	}, [ inputValue, state.isStreaming, selectedSite.id, selectedSite.path ] );
+		void getIpcApi().studioCodeSendMessage(
+			selectedSite.id,
+			selectedSite.path,
+			selectedSite.name,
+			text
+		);
+	}, [ inputValue, state.isStreaming, selectedSite.id, selectedSite.path, selectedSite.name ] );
 
 	const handleKeyDown = useCallback( () => {
 		// Key handling is done by AIInput internally
@@ -260,11 +265,18 @@ export function StudioCodeChat( { selectedSite }: StudioCodeChatProps ) {
 			void getIpcApi().studioCodeRespondToPermission(
 				selectedSite.id,
 				selectedSite.path,
+				selectedSite.name,
 				state.lastUserMessage ?? 'Continue',
 				response
 			);
 		},
-		[ selectedSite.id, selectedSite.path, state.pendingPermission, state.lastUserMessage ]
+		[
+			selectedSite.id,
+			selectedSite.path,
+			selectedSite.name,
+			state.pendingPermission,
+			state.lastUserMessage,
+		]
 	);
 
 	const isThinking = state.isStreaming && getLastAssistantMessage( state.messages )?.content === '';

@@ -9,19 +9,21 @@ export async function studioCodeSendMessage(
 	_event: IpcMainInvokeEvent,
 	siteId: string,
 	sitePath: string,
+	siteName: string,
 	message: string
 ): Promise< void > {
-	spawnTurn( siteId, sitePath, message );
+	spawnTurn( siteId, sitePath, siteName, message );
 }
 
 export async function studioCodeRespondToPermission(
 	_event: IpcMainInvokeEvent,
 	siteId: string,
 	sitePath: string,
+	siteName: string,
 	message: string,
 	permissionResponse: Record< string, string >
 ): Promise< void > {
-	spawnTurn( siteId, sitePath, message, { permissionResponse } );
+	spawnTurn( siteId, sitePath, siteName, message, { permissionResponse } );
 }
 
 export function studioCodeAbort( _event: IpcMainInvokeEvent, siteId: string ): void {

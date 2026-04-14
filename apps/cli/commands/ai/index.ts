@@ -49,6 +49,7 @@ export async function runCommand( options: {
 	noSessionPersistence?: boolean;
 	autoApprove?: boolean;
 	showLegacyCommandNotice?: boolean;
+	activeSite?: { name: string; path: string; running?: boolean };
 } ): Promise< void > {
 	const ui = options.adapter;
 	const isJsonMode = ui instanceof JsonAdapter;
@@ -58,6 +59,13 @@ export async function runCommand( options: {
 	let currentModel: AiModelId = resumeContext.model ?? DEFAULT_MODEL;
 	ui.currentProvider = currentProvider;
 	ui.currentModel = currentModel;
+	if ( options.activeSite ) {
+		ui.activeSite = {
+			name: options.activeSite.name,
+			path: options.activeSite.path,
+			running: options.activeSite.running ?? false,
+		};
+	}
 	ui.start();
 	ui.showWelcome();
 
@@ -592,6 +600,11 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'path', {
 					hidden: true,
 				} )
+				.option( 'site-name', {
+					type: 'string',
+					hidden: true,
+					description: __( 'Name of the active WordPress site' ),
+				} )
 				.option( 'json', {
 					type: 'boolean',
 					default: false,
@@ -632,6 +645,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					autoApprove?: boolean;
 					resumeSession?: string;
 					permissionResponse?: string;
+					siteName?: string;
 				};
 				const noSessionPersistence = typedArgv.sessionPersistence === false;
 				const adapter: AiOutputAdapter = typedArgv.json ? new JsonAdapter() : new AiChatUI();
@@ -643,6 +657,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					>;
 				}
 
+				const sitePath = typeof argv.path === 'string' ? argv.path : undefined;
 				await runCommand( {
 					adapter,
 					initialMessage: typedArgv.message,
@@ -650,6 +665,10 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					noSessionPersistence,
 					autoApprove: typedArgv.autoApprove,
 					showLegacyCommandNotice: argv._[ 0 ] === 'ai',
+					activeSite:
+						sitePath && typedArgv.siteName
+							? { name: typedArgv.siteName, path: sitePath }
+							: undefined,
 				} );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {

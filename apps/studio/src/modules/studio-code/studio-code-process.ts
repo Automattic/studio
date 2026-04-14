@@ -42,6 +42,7 @@ function cleanupTurn( session: SiteSession ): void {
 export function spawnTurn(
 	siteId: string,
 	sitePath: string,
+	siteName: string,
 	message: string,
 	options?: {
 		resumeSessionId?: string;
@@ -65,6 +66,8 @@ export function spawnTurn(
 		'--no-auto-approve',
 		'--path',
 		sitePath,
+		'--site-name',
+		siteName,
 	];
 
 	const sessionId = options?.resumeSessionId ?? session.lastSessionId;

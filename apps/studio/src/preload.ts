@@ -171,13 +171,14 @@ const api: IpcApi = {
 	getWordPressSkillsStatus: ( siteId ) => ipcRendererInvoke( 'getWordPressSkillsStatus', siteId ),
 	installWordPressSkills: ( siteId, options ) =>
 		ipcRendererInvoke( 'installWordPressSkills', siteId, options ),
-	studioCodeSendMessage: ( siteId, sitePath, message ) =>
-		ipcRendererInvoke( 'studioCodeSendMessage', siteId, sitePath, message ),
-	studioCodeRespondToPermission: ( siteId, sitePath, message, permissionResponse ) =>
+	studioCodeSendMessage: ( siteId, sitePath, siteName, message ) =>
+		ipcRendererInvoke( 'studioCodeSendMessage', siteId, sitePath, siteName, message ),
+	studioCodeRespondToPermission: ( siteId, sitePath, siteName, message, permissionResponse ) =>
 		ipcRendererInvoke(
 			'studioCodeRespondToPermission',
 			siteId,
 			sitePath,
+			siteName,
 			message,
 			permissionResponse
 		),

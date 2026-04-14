@@ -10,6 +10,7 @@ import {
 	resolveUnavailableAiProvider,
 	saveSelectedAiProvider,
 } from 'cli/ai/auth';
+import { closeSharedBrowser } from 'cli/ai/browser-utils';
 import { type AiOutputAdapter, JsonAdapter } from 'cli/ai/output-adapter';
 import { AI_PROVIDERS, type AiProviderId } from 'cli/ai/providers';
 import { resolveResumeSessionContext } from 'cli/ai/sessions/context';
@@ -489,6 +490,7 @@ export async function runCommand( options: {
 		} finally {
 			await persistQueue;
 			ui.stop();
+			await closeSharedBrowser();
 		}
 		return;
 	}

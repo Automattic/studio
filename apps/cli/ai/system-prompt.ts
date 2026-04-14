@@ -137,7 +137,7 @@ Then continue with:
 - wp_cli: Run WP-CLI commands on a running site
 - validate_blocks: Validate block content for correctness on a running site (runs each block through its save() function in a real browser). Requires a site name or path. Call after every file write/edit that contains block content.
 - take_screenshot: Take a full-page screenshot of a URL (supports desktop and mobile viewports). Use this to visually check the site after building it.
-- audit_performance: Measure frontend performance metrics (TTFB, FCP, LCP, CLS, page weight, DOM size, JS/CSS/image/font asset breakdown) for a running site. Use this to identify performance bottlenecks and guide optimization.
+- need_for_speed: Measure frontend performance metrics (TTFB, FCP, LCP, CLS, page weight, DOM size, JS/CSS/image/font asset breakdown) for a running site. Use this to identify performance bottlenecks and guide optimization.
 - site_push: Push a local site to a WordPress.com site. Requires authentication (studio auth login). Specify the remote site URL or ID and sync options (all, sqls, uploads, plugins, themes, contents).
 - site_pull: Pull a WordPress.com site to a local site. Requires authentication. Specify the remote site URL or ID and sync options.
 - site_import: Import a backup file (.zip, .tar.gz, .sql, .wpress) into a local site.

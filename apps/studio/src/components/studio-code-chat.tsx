@@ -10,6 +10,10 @@ import { StudioCodePermission } from './studio-code-permission';
 import type { ChatMessage, PermissionRequest, ToolCallState } from './studio-code-types';
 import type { StudioCodeEvent } from 'src/modules/studio-code/studio-code-types';
 
+// ── Persistent state across tab switches ──
+// Keyed by siteId so each site keeps its own conversation.
+const stateCache = new Map< string, State >();
+
 // ── State & Reducer ──
 
 type State = {
@@ -205,9 +209,17 @@ interface StudioCodeChatProps {
 }
 
 export function StudioCodeChat( { selectedSite }: StudioCodeChatProps ) {
-	const [ state, dispatch ] = useReducer( reducer, initialState );
+	const [ state, dispatch ] = useReducer(
+		reducer,
+		stateCache.get( selectedSite.id ) ?? initialState
+	);
 	const [ inputValue, setInputValue ] = useState( '' );
 	const messagesEndRef = useRef< HTMLDivElement >( null );
+
+	// Sync state to cache so it survives tab switches
+	useEffect( () => {
+		stateCache.set( selectedSite.id, state );
+	}, [ selectedSite.id, state ] );
 
 	// Listen for IPC events from the CLI process
 	const handleEvent = useCallback(
@@ -252,8 +264,9 @@ export function StudioCodeChat( { selectedSite }: StudioCodeChatProps ) {
 	}, [] );
 
 	const clearConversation = useCallback( () => {
+		stateCache.delete( selectedSite.id );
 		dispatch( { type: 'CLEAR' } );
-	}, [] );
+	}, [ selectedSite.id ] );
 
 	const handlePermissionRespond = useCallback(
 		( id: string, answer: string ) => {

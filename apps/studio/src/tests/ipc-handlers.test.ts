@@ -35,6 +35,10 @@ vi.mock( 'src/lib/wordpress-setup', () => ( {
 } ) );
 vi.mock( 'src/main-window' );
 vi.mock( 'src/lib/import-export/import/import-manager' );
+vi.mock( 'src/lib/sqlite-versions', () => ( {
+	keepSqliteIntegrationUpdated: vi.fn().mockResolvedValue( false ),
+	installSqliteIntegration: vi.fn().mockResolvedValue( undefined ),
+} ) );
 vi.mock( import( 'src/lib/bump-stats' ), async ( importOriginal ) => {
 	const actual = await importOriginal();
 	return {
@@ -195,6 +199,7 @@ describe( 'importSite', () => {
 			start: vi.fn(),
 			stop: vi.fn(),
 			updateSiteDetails: vi.fn(),
+			hasSQLitePlugin: vi.fn().mockResolvedValue( true ),
 			executeWpCliCommand: vi
 				.fn()
 				.mockResolvedValue( { stdout: 'New Site Title', stderr: '', exitCode: 0 } ),
@@ -244,6 +249,7 @@ describe( 'importSite', () => {
 			start: vi.fn(),
 			stop: vi.fn(),
 			updateSiteDetails: vi.fn(),
+			hasSQLitePlugin: vi.fn().mockResolvedValue( true ),
 			executeWpCliCommand: vi
 				.fn()
 				.mockResolvedValue( { stdout: 'New Site Title', stderr: '', exitCode: 0 } ),

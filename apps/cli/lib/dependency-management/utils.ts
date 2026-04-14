@@ -47,6 +47,7 @@ export async function fetchLatestGithubRelease( repo: string ) {
 
 	const response = await fetch( `https://api.github.com/repos/${ repo }/releases/latest`, {
 		headers,
+		signal: AbortSignal.timeout( 5000 ),
 	} );
 
 	if ( ! response.ok ) {

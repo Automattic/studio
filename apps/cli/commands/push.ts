@@ -156,7 +156,7 @@ export async function runCommand(
 			onProgress: ( percent ) => {
 				// Upload phase: 20-40%
 				const progress = Math.round( 20 + percent * 0.2 );
-				logger.spinner.setText( sprintf( __( 'Uploading archive… (%d%%)' ), progress ) );
+				logger.reportProgress( sprintf( __( 'Uploading archive… (%d%%)' ), progress ) );
 			},
 		} );
 
@@ -183,7 +183,7 @@ export async function runCommand(
 		}
 
 		// Initiate import: 40%
-		logger.spinner.setText( sprintf( __( 'Initiating import… (%d%%)' ), 40 ) );
+		logger.reportProgress( sprintf( __( 'Initiating import… (%d%%)' ), 40 ) );
 		await initiateImport( token.accessToken, remoteSite.id, attachmentId, {
 			optionsToSync,
 			specificSelectionPaths,
@@ -237,7 +237,7 @@ export async function runCommand(
 				stalledAttempts++;
 			}
 
-			logger.spinner.setText( sprintf( '%s (%d%%)', statusMessage, roundedProgress ) );
+			logger.reportProgress( sprintf( '%s (%d%%)', statusMessage, roundedProgress ) );
 
 			await new Promise( ( resolve ) => setTimeout( resolve, SYNC_POLL_INTERVAL_MS ) );
 		}

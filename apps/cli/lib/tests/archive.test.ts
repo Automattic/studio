@@ -51,8 +51,8 @@ describe( 'Archive Module', () => {
 		vi.clearAllMocks();
 		mockArchiver = createMockArchiver();
 		mockWriteStream = createMockWriteStream();
-		vi.mocked( archiver ).mockReturnValue(
-			mockArchiver as unknown as ReturnType< typeof archiver >
+		vi.mocked( archiver as unknown as ( ...args: unknown[] ) => unknown ).mockReturnValue(
+			mockArchiver
 		);
 		vi.mocked( fs.createWriteStream ).mockReturnValue(
 			mockWriteStream as unknown as ReturnType< typeof fs.createWriteStream >

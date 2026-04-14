@@ -2,7 +2,7 @@ import { Spinner } from 'picospinner';
 
 const isIpcMode = Boolean( process.send );
 
-type ProgressCallback = ( message: string ) => void;
+type ProgressCallback = ( message: string, update?: boolean ) => void;
 let progressCallback: ProgressCallback | null = null;
 
 export function setProgressCallback( callback: ProgressCallback | null ): void {
@@ -74,7 +74,7 @@ export class Logger< T extends string > {
 		}
 
 		if ( progressCallback ) {
-			progressCallback!( message );
+			progressCallback!( message, true );
 			return;
 		}
 

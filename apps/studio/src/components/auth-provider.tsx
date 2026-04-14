@@ -7,6 +7,7 @@ import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { isInvalidTokenError } from 'src/lib/is-invalid-oauth-token-error';
+import { setSentryWpcomUserIdRenderer } from 'src/lib/renderer-sentry-utils';
 import { useI18nLocale } from 'src/stores';
 import { setWpcomClient } from 'src/stores/wpcom-api';
 import type { WPCOM } from 'wpcom/types';
@@ -55,9 +56,9 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 			setClient( undefined );
 			setWpcomClient( undefined );
 			setUser( undefined );
+			setSentryWpcomUserIdRenderer( undefined );
 		} catch ( err ) {
 			console.error( 'Failed to handle invalid token:', err );
-			Sentry.captureException( err );
 		}
 	}, [] );
 
@@ -79,6 +80,16 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 		}
 
 		const { token } = payload;
+
+		if ( ! token ) {
+			setIsAuthenticated( false );
+			setClient( undefined );
+			setWpcomClient( undefined );
+			setUser( undefined );
+			setSentryWpcomUserIdRenderer( undefined );
+			return;
+		}
+
 		const newClient = createWpcomClient( token.accessToken, locale, handleInvalidToken );
 
 		setIsAuthenticated( true );
@@ -89,6 +100,7 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 			email: token.email,
 			displayName: token.displayName || '',
 		} );
+		setSentryWpcomUserIdRenderer( token.id );
 	} );
 
 	const logout = useCallback( async () => {
@@ -103,7 +115,6 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 				console.log( 'Token revoked' );
 			} catch ( err ) {
 				console.error( 'Failed to revoke token:', err );
-				Sentry.captureException( err );
 			}
 		} else if ( isOffline ) {
 			console.log( 'Offline: Skipping token revocation request' );
@@ -115,9 +126,9 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 			setClient( undefined );
 			setWpcomClient( undefined );
 			setUser( undefined );
+			setSentryWpcomUserIdRenderer( undefined );
 		} catch ( err ) {
 			console.error( err );
-			Sentry.captureException( err );
 		}
 	}, [ client, isOffline ] );
 
@@ -141,6 +152,7 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 					email: token.email,
 					displayName: token.displayName || '',
 				} );
+				setSentryWpcomUserIdRenderer( token.id );
 			} catch ( err ) {
 				console.error( err );
 				Sentry.captureException( err );

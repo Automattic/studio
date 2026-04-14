@@ -37,9 +37,9 @@ export function SiteIsBeingCreated( { siteName, statusMessage }: SiteIsBeingCrea
 	return (
 		<div className="flex flex-col w-full h-full app-no-drag-region pt-8 overflow-y-auto justify-center items-center">
 			<div className="w-[300px] text-center">
-				<div className="text-black a8c-subtitle-small mb-4">{ siteName }</div>
+				<div className="text-frame-text a8c-subtitle-small mb-4">{ siteName }</div>
 				<ProgressBar className="w-full" />
-				<div className="text-a8c-gray-70 a8c-body mt-4">{ displayMessage }</div>
+				<div className="text-frame-text-secondary a8c-body mt-4">{ displayMessage }</div>
 			</div>
 		</div>
 	);

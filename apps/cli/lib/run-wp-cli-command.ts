@@ -8,6 +8,7 @@ import {
 	ProcessIdAllocator,
 } from '@php-wasm/universal';
 import { createSpawnHandler } from '@php-wasm/util';
+import { IS_JSPI_AVAILABLE } from '@studio/common/lib/jspi';
 import { cleanupLegacyMuPlugins, getMuPlugins } from '@studio/common/lib/mu-plugins';
 import { LatestSupportedPHPVersion } from '@studio/common/types/php-versions';
 import { __ } from '@wordpress/i18n';
@@ -39,6 +40,10 @@ export interface RunWpCliCommandOptions {
 	siteUrl?: string;
 }
 
+interface DisposableWpCliResponse extends Disposable {
+	response: StreamedPHPResponse;
+}
+
 // Run a WP-CLI command in a PHP-WASM instance. This function can be used even if the targeted
 // Studio site is already running, but it is typically faster to use the `sendWpCliCommand`
 // function in that case.
@@ -46,11 +51,11 @@ export async function runWpCliCommand(
 	siteFolder: string,
 	phpVersion: SupportedPHPVersion,
 	args: string[]
-): Promise< [ StreamedPHPResponse, exitPhp: () => void ] > {
+): Promise< DisposableWpCliResponse > {
 	const id = await loadNodeRuntime( phpVersion, {
 		followSymlinks: true,
-		withRedis: true,
-		withMemcached: true,
+		withRedis: IS_JSPI_AVAILABLE,
+		withMemcached: IS_JSPI_AVAILABLE,
 		emscriptenOptions: {
 			processId: processIdAllocator.claim(),
 		},
@@ -59,6 +64,8 @@ export async function runWpCliCommand(
 
 	try {
 		await php.setSapiName( 'cli' );
+
+		php.defineConstant( 'WP_SQLITE_AST_DRIVER', true );
 
 		php.mkdir( '/wordpress' );
 		await php.mount( '/wordpress', createNodeFsMountHandler( siteFolder ) );
@@ -91,11 +98,16 @@ export async function runWpCliCommand(
 
 		await setupPlatformLevelMuPlugins( php );
 
-		return [
-			await php.cli( [ 'php', '/tmp/wp-cli.phar', '--path=/wordpress', ...args ] ),
-			() => php.exit(),
-		];
+		const response = await php.cli( [ 'php', '/tmp/wp-cli.phar', '--path=/wordpress', ...args ] );
+
+		return {
+			response,
+			[ Symbol.dispose ]() {
+				php.exit();
+			},
+		};
 	} catch ( error ) {
+		php.exit();
 		throw new Error( __( 'An error occurred while running the WP-CLI command.' ) );
 	}
 }
@@ -104,13 +116,11 @@ export async function runWpCliCommand(
  * Run a global WP-CLI command without requiring a site.
  * Useful for commands like --version that don't need a WordPress installation.
  */
-export async function runGlobalWpCliCommand(
-	args: string[]
-): Promise< [ StreamedPHPResponse, exitPhp: () => void ] > {
+export async function runGlobalWpCliCommand( args: string[] ): Promise< DisposableWpCliResponse > {
 	const id = await loadNodeRuntime( LatestSupportedPHPVersion, {
 		followSymlinks: true,
-		withRedis: true,
-		withMemcached: true,
+		withRedis: false,
+		withMemcached: false,
 		emscriptenOptions: {
 			processId: processIdAllocator.claim(),
 		},
@@ -131,8 +141,16 @@ export async function runGlobalWpCliCommand(
 
 		await php.mount( '/tmp/wp-cli.phar', createNodeFsMountHandler( getWpCliPharPath() ) );
 
-		return [ await php.cli( [ 'php', '/tmp/wp-cli.phar', ...args ] ), () => php.exit() ];
+		const response = await php.cli( [ 'php', '/tmp/wp-cli.phar', ...args ] );
+
+		return {
+			response,
+			[ Symbol.dispose ]() {
+				php.exit();
+			},
+		};
 	} catch ( error ) {
+		php.exit();
 		throw new Error( __( 'An error occurred while running the WP-CLI command.' ) );
 	}
 }

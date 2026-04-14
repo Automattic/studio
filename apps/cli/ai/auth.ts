@@ -4,7 +4,7 @@ import {
 	getAiProviderDefinition,
 	type AiProviderId,
 } from 'cli/ai/providers';
-import { getAiProvider, saveAiProvider } from 'cli/lib/appdata';
+import { readCliConfig, updateCliConfigWithPartial } from 'cli/lib/cli-config/core';
 
 async function getPreferredReadyProvider(
 	exclude?: AiProviderId
@@ -49,7 +49,7 @@ export async function resolveUnavailableAiProvider(
 }
 
 export async function resolveInitialAiProvider(): Promise< AiProviderId > {
-	const savedProvider = await getAiProvider();
+	const { aiProvider: savedProvider } = await readCliConfig();
 	if ( savedProvider ) {
 		const definition = getAiProviderDefinition( savedProvider );
 		if (
@@ -73,7 +73,7 @@ export async function resolveInitialAiProvider(): Promise< AiProviderId > {
 }
 
 export async function saveSelectedAiProvider( provider: AiProviderId ): Promise< void > {
-	await saveAiProvider( provider );
+	await updateCliConfigWithPartial( { aiProvider: provider } );
 }
 
 export async function prepareAiProvider(

@@ -3,13 +3,12 @@ import {
 	createAsyncThunk,
 	createSelector,
 	createSlice,
-	isAnyOf,
 	PayloadAction,
 } from '@reduxjs/toolkit';
+import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
 import { PreviewCommandLoggerAction } from '@studio/common/logger-actions';
 import { Snapshot } from '@studio/common/types/snapshot';
 import { __, sprintf } from '@wordpress/i18n';
-import fastDeepEqual from 'fast-deep-equal';
 import { LIMIT_OF_ZIP_SITES_PER_USER } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { RootState, store } from 'src/stores/index';
@@ -38,16 +37,10 @@ type UpdateOperation = BaseOperation & {
 type DeleteOperation = BaseOperation & {
 	snapshotUrl: string;
 	type: 'delete';
+	optimistic?: boolean;
 };
 
-type BulkOperation = Omit< BaseOperation, 'progress' > & {
-	operationIds: UUID[];
-	siteId?: string;
-	type: 'bulk';
-	userId?: number;
-};
-
-export type SnapshotOperation = CreateOperation | UpdateOperation | DeleteOperation | BulkOperation;
+export type SnapshotOperation = CreateOperation | UpdateOperation | DeleteOperation;
 
 type SnapshotState = {
 	operations: Record< UUID, SnapshotOperation >;
@@ -90,48 +83,13 @@ const updateSnapshot = createTypedAsyncThunk<
 
 const deleteSnapshot = createTypedAsyncThunk(
 	'snapshot/deleteSnapshot',
-	async ( { hostname }: { hostname: string } ) => {
+	async ( { hostname }: { hostname: string; optimistic?: boolean } ) => {
 		const { operationId } = await getIpcApi().deleteSnapshot( hostname );
 		return { operationId };
 	}
 );
 
-async function deleteMultipleSnapshots(
-	snapshots: Snapshot[]
-): Promise< [ url: string, operationId: UUID ][] > {
-	return await Promise.all(
-		snapshots.map( async ( snapshot ) => {
-			const { operationId } = await getIpcApi().deleteSnapshot( snapshot.url );
-			return [ snapshot.url, operationId ];
-		} )
-	);
-}
-
-const deleteAllSnapshotsForSite = createTypedAsyncThunk<
-	{ operations: [ url: string, operationId: UUID ][]; bulkOperationId: UUID },
-	{ siteId: string }
->( 'snapshot/deleteAllSnapshotsForSite', async ( { siteId }, thunkAPI ) => {
-	const state = thunkAPI.getState();
-	const snapshots = snapshotSelectors.selectSnapshotsBySite( state, siteId );
-	const operations = await deleteMultipleSnapshots( snapshots );
-	const bulkOperationId = window.crypto.randomUUID();
-
-	return { operations, bulkOperationId };
-} );
-
-const deleteAllSnapshotsForUser = createTypedAsyncThunk<
-	{ operations: [ url: string, operationId: UUID ][]; bulkOperationId: UUID },
-	{ userId: number }
->( 'snapshot/deleteAllSnapshotsForUser', async ( { userId }, thunkAPI ) => {
-	const state = thunkAPI.getState();
-	const snapshots = snapshotSelectors.selectSnapshotsByUser( state, userId );
-	const operations = await deleteMultipleSnapshots( snapshots );
-	const bulkOperationId = window.crypto.randomUUID();
-
-	return { operations, bulkOperationId };
-} );
-
-export const updateSnapshotLocally = createAction< {
+const updateSnapshotLocally = createAction< {
 	atomicSiteId: number;
 	snapshot: Partial< Omit< Snapshot, 'atomicSiteId' > >;
 } >( 'snapshot/updateSnapshot' );
@@ -144,6 +102,12 @@ const snapshotSlice = createSlice( {
 			state.snapshots = state.snapshots.filter(
 				( snapshot ) => snapshot.atomicSiteId !== action.payload.atomicSiteId
 			);
+		},
+		deleteAllSnapshots: ( state ) => {
+			state.snapshots = [];
+		},
+		addSnapshot: ( state, action: PayloadAction< { snapshot: Snapshot } > ) => {
+			state.snapshots.push( action.payload.snapshot );
 		},
 		setSnapshots: ( state, action: PayloadAction< { snapshots: Snapshot[] } > ) => {
 			state.snapshots = action.payload.snapshots;
@@ -191,48 +155,11 @@ const snapshotSlice = createSlice( {
 					snapshotUrl: action.meta.arg.hostname,
 					status: 'pending',
 					type: 'delete',
+					optimistic: action.meta.arg.optimistic ?? false,
 				};
-			} )
-			.addMatcher(
-				isAnyOf( deleteAllSnapshotsForSite.fulfilled, deleteAllSnapshotsForUser.fulfilled ),
-				( state, action ) => {
-					if ( ! action.payload.operations.length ) {
-						return;
-					}
-
-					const bulkOperation: BulkOperation = {
-						error: null,
-						operationIds: action.payload.operations.map( ( [ _, operationId ] ) => operationId ),
-						status: 'pending',
-						type: 'bulk',
-					};
-
-					if ( 'siteId' in action.meta.arg ) {
-						bulkOperation.siteId = action.meta.arg.siteId;
-					} else if ( 'userId' in action.meta.arg ) {
-						bulkOperation.userId = action.meta.arg.userId;
-					}
-
-					state.operations[ action.payload.bulkOperationId ] = bulkOperation;
-
-					action.payload.operations.forEach( ( [ url, operationId ] ) => {
-						state.operations[ operationId ] = {
-							error: null,
-							progress: 0,
-							snapshotUrl: url,
-							status: 'pending',
-							type: 'delete',
-						};
-					} );
-				}
-			);
+			} );
 	},
 	selectors: {
-		selectActiveBulkOperationForUser: ( state, userId: number ): BulkOperation | undefined =>
-			Object.values( state.operations ).find(
-				( operation ): operation is BulkOperation =>
-					operation.status === 'pending' && operation.type === 'bulk' && operation.userId === userId
-			),
 		selectActiveCreateOperationForSite: ( state, siteId: string ): CreateOperation | undefined =>
 			Object.values( state.operations ).find(
 				( operation ): operation is CreateOperation =>
@@ -260,10 +187,17 @@ const snapshotSlice = createSlice( {
 	},
 } );
 
-const selectActiveOperationsForAnySite = createSelector(
+// We use the `createSelector` API here to memoize the result. Whenever a selector returns a
+// reference type (array, object, etc), it's good to use `createSelector` to avoid unnecessary
+// React re-renders.
+const selectActiveCreateUpdateOperationsForAnySite = createSelector(
 	[ ( state: RootState ) => state.snapshot.operations ],
 	( operations ) =>
-		Object.values( operations ).filter( ( operation ) => operation.status === 'pending' )
+		Object.values( operations ).filter(
+			( operation ) =>
+				( operation.type === 'update' || operation.type === 'create' ) &&
+				operation.status === 'pending'
+		)
 );
 
 const selectSnapshotsBySite = createSelector(
@@ -288,37 +222,56 @@ const selectSnapshotsBySiteAndUser = createSelector(
 		( state: RootState ) => state.snapshot.snapshots,
 		( state: RootState, localSiteId: string ) => localSiteId,
 		( state: RootState, localSiteId: string, userId: number ) => userId,
+		( state: RootState ) => state.snapshot.operations,
 	],
-	( snapshots = [], localSiteId, userId ) =>
-		snapshots.filter(
-			( snapshot ) => snapshot.localSiteId === localSiteId && snapshot.userId === userId
-		)
+	( snapshots = [], localSiteId, userId, operations ) =>
+		snapshots
+			.filter( ( snapshot ) => snapshot.localSiteId === localSiteId && snapshot.userId === userId )
+			// Filter out any snapshots that are currently being deleted optimistically
+			.filter(
+				( snapshot ) =>
+					! Object.values( operations ).some(
+						( operation ) =>
+							operation.snapshotUrl === snapshot.url &&
+							operation.type === 'delete' &&
+							operation.optimistic
+					)
+			)
 );
 
-window.ipcListener.subscribe( 'user-data-updated', ( _, payload ) => {
-	const state = store.getState();
-	const snapshots = payload.snapshots;
-
-	if ( ! fastDeepEqual( state.snapshot.snapshots, snapshots ) ) {
-		store.dispatch( snapshotSlice.actions.setSnapshots( { snapshots } ) );
-
-		// Optimistically update the snapshot usage count
-		const countDiff = snapshots.length - state.snapshot.snapshots.length;
-		store.dispatch(
-			wpcomApi.util.updateQueryData( 'getSnapshotUsage', undefined, ( data ) => {
-				// There's a risk that more sites are deleted locally than the count returned by the
-				// API, because expired sites are preserved locally. Therefore, we need to ensure
-				// the count is non-negative.
-				data.siteCount = Math.max( 0, data.siteCount + countDiff );
-			} )
-		);
-
-		// Wait for changes to take effect on the back-end before invalidating the query
-		setTimeout( () => {
-			store.dispatch( wpcomApi.util.invalidateTags( [ 'SnapshotUsage' ] ) );
-		}, 8000 );
+// Optimistically update the snapshot usage count and schedule a re-fetch.
+// There's a risk that more sites are deleted locally than the count returned by the
+// API, because expired sites are preserved locally. Therefore, we need to ensure
+// the count is non-negative.
+function updateSnapshotUsageCount( countDiff: number, isAbsolute = false ) {
+	if ( countDiff === 0 && ! isAbsolute ) {
+		return;
 	}
-} );
+
+	store.dispatch(
+		wpcomApi.util.updateQueryData( 'getSnapshotUsage', undefined, ( data ) => {
+			if ( isAbsolute ) {
+				data.siteCount = countDiff;
+			} else {
+				data.siteCount = Math.max( 0, data.siteCount + countDiff );
+			}
+		} )
+	);
+
+	// Wait for changes to take effect on the back-end before invalidating the query
+	setTimeout( () => {
+		store.dispatch( wpcomApi.util.invalidateTags( [ 'SnapshotUsage' ] ) );
+	}, 8000 );
+}
+
+export async function refreshSnapshots() {
+	const snapshots = await getIpcApi().fetchSnapshots();
+	const state = store.getState();
+	const countDiff = snapshots.length - state.snapshot.snapshots.length;
+
+	store.dispatch( snapshotSlice.actions.setSnapshots( { snapshots } ) );
+	updateSnapshotUsageCount( countDiff );
+}
 
 function getOperationProgress( action: PreviewCommandLoggerAction ): [ string, number ] {
 	switch ( action ) {
@@ -342,26 +295,54 @@ function getOperation( operationId: UUID ) {
 	return state.snapshot.operations[ operationId ];
 }
 
-function getAssociatedBulkOperation( targetOperationId: UUID ): [ UUID, BulkOperation ] | [] {
-	const state = store.getState();
-	// `Object.entries()` always returns a string type for the key, but we know the type is actually constrained to UUID
-	const entries = Object.entries( state.snapshot.operations ) as [ UUID, SnapshotOperation ][];
+window.ipcListener.subscribe( 'snapshot-event', ( _, snapshotEvent ) => {
+	const { event: eventType } = snapshotEvent;
 
-	for ( const [ operationId, operation ] of entries ) {
-		if ( operation.type === 'bulk' && operation.operationIds.includes( targetOperationId ) ) {
-			return [ operationId, operation ];
-		}
+	if ( eventType === SNAPSHOT_EVENTS.DELETED_ALL ) {
+		store.dispatch( snapshotSlice.actions.deleteAllSnapshots() );
+		updateSnapshotUsageCount( 0, true );
+		return;
 	}
 
-	return [];
-}
+	const { snapshot, snapshotUrl } = snapshotEvent;
 
-function isBulkOperationSettled( bulkOperation: BulkOperation ) {
-	return bulkOperation.operationIds.every( ( operationId ) => {
-		const operation = getOperation( operationId );
-		return operation && operation.status !== 'pending';
-	} );
-}
+	if ( eventType === SNAPSHOT_EVENTS.DELETED ) {
+		const state = store.getState();
+		const existing = state.snapshot.snapshots.find( ( s ) => s.url === snapshotUrl );
+		if ( existing ) {
+			store.dispatch(
+				snapshotSlice.actions.deleteSnapshotLocally( { atomicSiteId: existing.atomicSiteId } )
+			);
+			updateSnapshotUsageCount( -1 );
+		}
+		return;
+	}
+
+	if ( ! snapshot ) {
+		// Fallback to full refresh if no snapshot data included
+		void refreshSnapshots();
+		return;
+	}
+
+	if ( eventType === SNAPSHOT_EVENTS.CREATED ) {
+		const state = store.getState();
+		const existing = state.snapshot.snapshots.find( ( s ) => s.url === snapshot.url );
+		if ( ! existing ) {
+			store.dispatch( snapshotSlice.actions.addSnapshot( { snapshot } ) );
+			updateSnapshotUsageCount( 1 );
+		}
+		return;
+	}
+
+	if ( eventType === SNAPSHOT_EVENTS.UPDATED ) {
+		store.dispatch(
+			snapshotActions.updateSnapshotLocally( {
+				atomicSiteId: snapshot.atomicSiteId,
+				snapshot,
+			} )
+		);
+	}
+} );
 
 window.ipcListener.subscribe( 'snapshot-output', ( event, payload ) => {
 	const operation = getOperation( payload.operationId );
@@ -448,18 +429,6 @@ window.ipcListener.subscribe( 'snapshot-success', ( event, payload ) => {
 		} )
 	);
 
-	const [ bulkOperationId, bulkOperation ] = getAssociatedBulkOperation( payload.operationId );
-	const bulkOperationIsSettled = bulkOperation && isBulkOperationSettled( bulkOperation );
-
-	if ( bulkOperationId && bulkOperationIsSettled ) {
-		store.dispatch(
-			snapshotActions.updateOperation( {
-				operationId: bulkOperationId,
-				operation: { status: 'fulfilled' },
-			} )
-		);
-	}
-
 	const { snapshotUrl = '' } = operation;
 
 	if ( operation.type === 'create' ) {
@@ -473,15 +442,10 @@ window.ipcListener.subscribe( 'snapshot-success', ( event, payload ) => {
 			body: sprintf( __( "Preview site '%s' has been updated." ), snapshotUrl ),
 		} );
 	} else if ( operation.type === 'delete' ) {
-		if ( ! bulkOperation ) {
+		if ( ! operation.optimistic ) {
 			getIpcApi().showNotification( {
 				title: operation.snapshotName,
 				body: sprintf( __( "Preview site '%s' has been deleted." ), snapshotUrl ),
-			} );
-		} else if ( bulkOperationIsSettled ) {
-			getIpcApi().showNotification( {
-				title: __( 'Delete Successful' ),
-				body: __( 'All preview sites have been deleted.' ),
 			} );
 		}
 	}
@@ -493,7 +457,7 @@ export const snapshotActions = {
 };
 export const snapshotSelectors = {
 	...snapshotSlice.selectors,
-	selectActiveOperationsForAnySite,
+	selectActiveCreateUpdateOperationsForAnySite,
 	selectSnapshotsBySite,
 	selectSnapshotsByUser,
 	selectSnapshotsBySiteAndUser,
@@ -502,7 +466,5 @@ export const snapshotThunks = {
 	createSnapshot,
 	updateSnapshot,
 	deleteSnapshot,
-	deleteAllSnapshotsForSite,
-	deleteAllSnapshotsForUser,
 };
 export const reducer = snapshotSlice.reducer;

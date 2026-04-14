@@ -16,7 +16,6 @@ const config: ForgeConfig = {
 	packagerConfig: {
 		asar: true,
 		extraResource: [
-			path.join( repoRoot, 'wp-files' ),
 			path.join( __dirname, 'assets' ),
 			path.join( __dirname, 'bin' ),
 			path.join( repoRoot, 'apps', 'cli', 'dist', 'cli' ),
@@ -72,7 +71,6 @@ const config: ForgeConfig = {
 			// External resources (shouldn't be in asar)
 			/^\/assets/,
 			/^\/bin/,
-			/^\/wp-files/,
 			/^\/apps\/cli\/dist\/cli/,
 			/^\/dist\/playground-cli/,
 		],
@@ -158,18 +156,13 @@ const config: ForgeConfig = {
 					);
 				} );
 
-			console.log( "Ensuring latest WordPress zip isn't included in production build ..." );
-			const zipPath = path.join( repoRoot, 'wp-files', 'latest.zip' );
-			try {
-				fs.unlinkSync( zipPath );
-			} catch ( err ) {
-				if ( isErrnoException( err ) && err.code !== 'ENOENT' ) throw err;
-			}
-
 			console.log( 'Installing Studio app dependencies for bundling ...' );
 			// NOTE: The `app:install:bundle` script mutates the `apps/studio/node_modules` directory. You
 			// may need to rerun `npm ci` from the repo root to reset the dependency tree after packaging.
 			await execAsync( 'npm run app:install:bundle' );
+
+			console.log( 'Downloading language packs ...' );
+			await execAsync( 'npm run download-language-packs' );
 
 			console.log( 'Building CLI (with bundled node_modules) ...' );
 			// NOTE: The `cli:package` script mutates the `apps/cli/node_modules` directory. You may need to
@@ -183,7 +176,12 @@ const config: ForgeConfig = {
 			const cliNodeModules = path.join( repoRoot, 'apps', 'cli', 'dist', 'cli', 'node_modules' );
 
 			// Clean up @anthropic-ai/claude-agent-sdk vendor binaries (uses {arch}-{platform} format)
-			const claudeVendorDir = path.join( cliNodeModules, '@anthropic-ai', 'claude-agent-sdk', 'vendor' );
+			const claudeVendorDir = path.join(
+				cliNodeModules,
+				'@anthropic-ai',
+				'claude-agent-sdk',
+				'vendor'
+			);
 			const platformSuffix = `-${ platform }`;
 			if ( fs.existsSync( claudeVendorDir ) ) {
 				for ( const toolDir of fs.readdirSync( claudeVendorDir ) ) {
@@ -214,9 +212,6 @@ const config: ForgeConfig = {
 					}
 				}
 			}
-
-			console.log('Downloading language packs ...');
-			await execAsync( 'npm run download-language-packs' );
 
 			console.log( `Downloading Node.js binary for ${ platform }-${ arch }...` );
 			await execAsync(

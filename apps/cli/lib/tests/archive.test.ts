@@ -4,13 +4,7 @@ import archiver from 'archiver';
 import { vi } from 'vitest';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 
-vi.mock( 'fs', () => ( {
-	default: {
-		createWriteStream: vi.fn(),
-		existsSync: vi.fn(),
-		unlinkSync: vi.fn(),
-	},
-} ) );
+vi.mock( 'fs' );
 vi.mock( 'path', () => ( {
 	default: {
 		join: vi.fn(),
@@ -57,8 +51,8 @@ describe( 'Archive Module', () => {
 		vi.clearAllMocks();
 		mockArchiver = createMockArchiver();
 		mockWriteStream = createMockWriteStream();
-		vi.mocked( archiver ).mockReturnValue(
-			mockArchiver as unknown as ReturnType< typeof archiver >
+		vi.mocked( archiver as unknown as ( ...args: unknown[] ) => unknown ).mockReturnValue(
+			mockArchiver
 		);
 		vi.mocked( fs.createWriteStream ).mockReturnValue(
 			mockWriteStream as unknown as ReturnType< typeof fs.createWriteStream >

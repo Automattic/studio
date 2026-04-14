@@ -2,7 +2,7 @@ import { StreamedPHPResponse } from '@php-wasm/universal';
 import { __ } from '@wordpress/i18n';
 import { ArgumentsCamelCase } from 'yargs';
 import yargsParser from 'yargs-parser';
-import { getSiteByFolder } from 'cli/lib/appdata';
+import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { runWpCliCommand, runGlobalWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { validatePhpVersion } from 'cli/lib/utils';
@@ -48,11 +48,10 @@ export async function runCommand(
 ): Promise< void > {
 	// Handle global WP-CLI commands that don't require a site path (--studio-no-path)
 	if ( mode === Mode.GLOBAL ) {
-		const [ response, exitPhp ] = await runGlobalWpCliCommand( args );
+		await using command = await runGlobalWpCliCommand( args );
 
-		await pipePHPResponse( response );
-		process.exitCode = await response.exitCode;
-		exitPhp();
+		await pipePHPResponse( command.response );
+		process.exitCode = await command.response.exitCode;
 
 		return;
 	}
@@ -86,11 +85,10 @@ export async function runCommand(
 	process.on( 'SIGTERM', () => process.exit( 1 ) );
 
 	// …If not, run the command in a new PHP-WASM instance
-	const [ response, exitPhp ] = await runWpCliCommand( siteFolder, phpVersion, args );
+	await using command = await runWpCliCommand( siteFolder, phpVersion, args );
 
-	await pipePHPResponse( response );
-	process.exitCode = await response.exitCode;
-	exitPhp();
+	await pipePHPResponse( command.response );
+	process.exitCode = await command.response.exitCode;
 }
 
 function removeArgumentFromArgv(

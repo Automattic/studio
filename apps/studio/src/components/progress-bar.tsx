@@ -76,9 +76,9 @@ type TwoColorProgressBarProps = {
 export function TwoColorProgressBar( {
 	value,
 	maxValue,
-	normalColorClass = 'bg-a8c-blue-50',
+	normalColorClass = 'bg-frame-theme',
 	overLimitColorClass = 'bg-a8c-red-50',
-	trackColorClass = 'bg-a8c-gray-5',
+	trackColorClass = 'bg-frame-text-secondary',
 	showLabels = false,
 	valueLabel,
 	limitLabel,
@@ -91,12 +91,14 @@ export function TwoColorProgressBar( {
 		<div>
 			{ showLabels && ( valueLabel || limitLabel || overLimitLabel ) && (
 				<div className="flex justify-between items-center text-xs mb-2">
-					<div className="text-a8c-gray-90 font-medium uppercase">{ valueLabel }</div>
+					<div className="text-frame-text font-medium uppercase">{ valueLabel }</div>
 					<div>
 						{ isOverLimit && overLimitLabel ? (
-							<span className="text-a8c-gray-700 text-xs">{ overLimitLabel }</span>
+							<span className="text-frame-text-secondary text-xs">{ overLimitLabel }</span>
 						) : (
-							limitLabel && <span className="text-a8c-gray-700 text-xs">{ limitLabel }</span>
+							limitLabel && (
+								<span className="text-frame-text-secondary text-xs">{ limitLabel }</span>
+							)
 						) }
 					</div>
 				</div>

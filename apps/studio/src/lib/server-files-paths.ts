@@ -5,7 +5,7 @@
 
 import os from 'os';
 import path from 'path';
-import { getServerFilesPath } from 'src/storage/paths';
+import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 
 // SQLite integration folder name
 const SQLITE_FILENAME = 'sqlite-database-integration';
@@ -46,30 +46,6 @@ export function getWordPressVersionPath( version: string ): string {
  */
 export function getSqlitePath(): string {
 	return path.join( getBasePath(), SQLITE_FILENAME );
-}
-
-/**
- * The path to the wp-cli folder.
- */
-function getWpCliFolderPath(): string {
-	if ( process.env.NODE_ENV === 'test' ) {
-		return getTmpPath( 'wp-cli' );
-	}
-	return getServerFilesPath();
-}
-
-/**
- * The path for wp-cli.phar file.
- */
-export function getWpCliPath(): string {
-	return path.join( getWpCliFolderPath(), 'wp-cli.phar' );
-}
-
-/**
- * The path where bundled WordPress language packs are stored.
- */
-export function getLanguagePacksPath(): string {
-	return path.join( getBasePath(), 'language-packs' );
 }
 
 /**

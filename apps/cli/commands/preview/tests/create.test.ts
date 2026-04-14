@@ -1,11 +1,12 @@
 import os from 'os';
 import path from 'path';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
+import { readAuthToken } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
-import { getAuthToken, getSiteByFolder } from 'cli/lib/appdata';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
-import { saveSnapshotToAppdata } from 'cli/lib/snapshots';
+import { getSiteByFolder } from 'cli/lib/cli-config/sites';
+import { saveSnapshotToConfig } from 'cli/lib/snapshots';
 import { LoggerError } from 'cli/logger';
 import { runCommand } from '../create';
 
@@ -18,10 +19,16 @@ const mockReportWarning = vi.fn();
 const mockReportKeyValuePair = vi.fn();
 
 vi.mock( '@studio/common/lib/get-wordpress-version' );
-vi.mock( 'cli/lib/appdata', async () => ( {
-	...( await vi.importActual( 'cli/lib/appdata' ) ),
-	getAppdataDirectory: vi.fn().mockReturnValue( '/test/appdata' ),
-	getAuthToken: vi.fn(),
+vi.mock( import( '@studio/common/lib/shared-config' ), async ( importOriginal ) => ( {
+	...( await importOriginal() ),
+	readAuthToken: vi.fn(),
+} ) );
+vi.mock( 'cli/lib/cli-config/snapshots', async () => ( {
+	...( await vi.importActual( 'cli/lib/cli-config/snapshots' ) ),
+	getNextSnapshotSequence: vi.fn().mockReturnValue( 1 ),
+} ) );
+vi.mock( 'cli/lib/cli-config/sites', async () => ( {
+	...( await vi.importActual( 'cli/lib/cli-config/sites' ) ),
 	getSiteByFolder: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/validation', () => ( {
@@ -29,7 +36,11 @@ vi.mock( 'cli/lib/validation', () => ( {
 } ) );
 vi.mock( 'cli/lib/archive' );
 vi.mock( 'cli/lib/api' );
-vi.mock( 'cli/lib/snapshots' );
+vi.mock( 'cli/lib/snapshots', async () => ( {
+	...( await vi.importActual( 'cli/lib/snapshots' ) ),
+	getSnapshotsFromConfig: vi.fn().mockResolvedValue( [] ),
+	saveSnapshotToConfig: vi.fn(),
+} ) );
 vi.mock( 'cli/logger', () => ( {
 	Logger: class {
 		reportStart = mockReportStart;
@@ -73,7 +84,7 @@ describe( 'Preview Create Command', () => {
 		vi.spyOn( path, 'basename' ).mockReturnValue( mockBasename );
 		vi.spyOn( process, 'cwd' ).mockReturnValue( mockFolder );
 
-		vi.mocked( getAuthToken ).mockResolvedValue( mockAuthToken );
+		vi.mocked( readAuthToken ).mockResolvedValue( mockAuthToken );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( {
 			id: 'site-123',
 			path: mockFolder,
@@ -88,7 +99,7 @@ describe( 'Preview Create Command', () => {
 			site_id: mockAtomicSiteId,
 		} );
 		vi.mocked( waitForSiteReady ).mockResolvedValue( true );
-		vi.mocked( saveSnapshotToAppdata ).mockResolvedValue( {
+		vi.mocked( saveSnapshotToConfig ).mockResolvedValue( {
 			url: mockSiteUrl,
 			atomicSiteId: mockAtomicSiteId,
 			localSiteId: 'site-123',
@@ -129,10 +140,12 @@ describe( 'Preview Create Command', () => {
 			`Preview site available at: https://${ mockSiteUrl }`,
 		] );
 
-		expect( saveSnapshotToAppdata ).toHaveBeenCalledWith(
+		expect( saveSnapshotToConfig ).toHaveBeenCalledWith(
 			mockFolder,
 			mockAtomicSiteId,
-			mockSiteUrl
+			mockSiteUrl,
+			mockAuthToken.id,
+			'Test Site Preview 1'
 		);
 		expect( mockReportStart.mock.calls[ 4 ] ).toEqual( [
 			'appdata',
@@ -164,11 +177,7 @@ describe( 'Preview Create Command', () => {
 	} );
 
 	it( 'should handle authentication errors', async () => {
-		const errorMessage =
-			'Authentication required. Please run the Studio app and authenticate first.';
-		vi.mocked( getAuthToken ).mockImplementation( () => {
-			throw new LoggerError( errorMessage );
-		} );
+		vi.mocked( readAuthToken ).mockResolvedValue( null );
 
 		await runCommand( mockFolder );
 
@@ -213,12 +222,12 @@ describe( 'Preview Create Command', () => {
 
 		expect( mockReportError ).toHaveBeenCalled();
 		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
-		expect( saveSnapshotToAppdata ).not.toHaveBeenCalled();
+		expect( saveSnapshotToConfig ).not.toHaveBeenCalled();
 	} );
 
 	it( 'should handle appdata errors', async () => {
 		const errorMessage = 'Failed to save to appdata';
-		vi.mocked( saveSnapshotToAppdata ).mockImplementation( () => {
+		vi.mocked( saveSnapshotToConfig ).mockImplementation( () => {
 			throw new LoggerError( errorMessage );
 		} );
 

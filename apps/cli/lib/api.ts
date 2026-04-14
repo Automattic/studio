@@ -136,6 +136,19 @@ export async function deleteSnapshot( atomicSiteId: number, token: string ): Pro
 	}
 }
 
+export async function deleteAllSnapshots( token: string ): Promise< void > {
+	const wpcom = wpcomFactory( token, wpcomXhrRequest );
+
+	try {
+		await wpcom.req.post( {
+			path: '/jurassic-ninja/delete/all',
+			apiNamespace: 'wpcom/v2',
+		} );
+	} catch ( error ) {
+		throw new LoggerError( __( 'Failed to delete all preview sites' ), error );
+	}
+}
+
 export async function validateAccessToken( token: string ): Promise< void > {
 	const wpcom = wpcomFactory( token, wpcomXhrRequest );
 	try {
@@ -179,6 +192,7 @@ const wpComSitesResponseSchema = z.object( {
 			name: z.string(),
 			URL: z.string(),
 			is_deleted: z.boolean().optional(),
+			is_a8c: z.boolean().optional(),
 		} )
 	),
 } );
@@ -192,14 +206,14 @@ export async function getWpComSites( token: string ): Promise< WpComSiteInfo[] >
 				path: '/me/sites',
 			},
 			{
-				fields: 'ID,name,URL,is_deleted',
+				fields: 'ID,name,URL,is_deleted,is_a8c',
 				filter: 'atomic,wpcom',
 				site_activity: 'active',
 			}
 		);
 		const result = wpComSitesResponseSchema.parse( rawResponse );
 		return result.sites
-			.filter( ( site ) => ! site.is_deleted )
+			.filter( ( site ) => ! site.is_deleted && ! site.is_a8c )
 			.map( ( site ) => ( {
 				id: site.ID,
 				name: site.name,

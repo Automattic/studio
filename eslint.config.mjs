@@ -38,7 +38,9 @@ export default defineConfig(
 			},
 			sourceType: 'commonjs',
 			parserOptions: {
-				projectService: true,
+				projectService: {
+					allowDefaultProject: [ 'apps/studio/tailwind.config.js' ],
+				},
 			},
 		},
 		settings: {
@@ -72,7 +74,10 @@ export default defineConfig(
 			],
 			'import-x/no-named-as-default-member': 'off',
 			// @wp-playground/blueprints ships blueprint-schema-validator outside its package.json exports map
-			'import-x/no-unresolved': [ 'error', { ignore: [ '@wp-playground/blueprints/blueprint-schema-validator' ] } ],
+			'import-x/no-unresolved': [
+				'error',
+				{ ignore: [ '@wp-playground/blueprints/blueprint-schema-validator' ] },
+			],
 			'import-x/order': [
 				'error',
 				{
@@ -82,7 +87,28 @@ export default defineConfig(
 				},
 			],
 			'react-hooks/set-state-in-effect': 'off',
-			'studio/require-lock-before-save': 'error',
+			'studio/require-lock-before-save': [
+				'error',
+				{
+					pairs: [
+						{
+							save: [ 'saveUserData', 'saveAppdata' ],
+							lock: 'lockAppdata',
+							unlock: 'unlockAppdata',
+						},
+						{
+							save: 'saveCliConfig',
+							lock: 'lockCliConfig',
+							unlock: 'unlockCliConfig',
+						},
+						{
+							save: 'saveSharedConfig',
+							lock: 'lockSharedConfig',
+							unlock: 'unlockSharedConfig',
+						},
+					],
+				},
+			],
 		},
 	},
 	{

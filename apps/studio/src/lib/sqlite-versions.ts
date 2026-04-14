@@ -1,6 +1,6 @@
 import { SQLITE_FILENAME } from '@studio/common/constants';
 import { SqliteIntegrationProvider } from '@studio/common/lib/sqlite-integration';
-import { getServerFilesPath } from 'src/storage/paths';
+import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 
 class ElectronSqliteProvider extends SqliteIntegrationProvider {
 	getServerFilesPath(): string {
@@ -19,3 +19,6 @@ export const getSqliteVersionFromInstallation = ( sqliteMuPluginPath: string ) =
 
 export const keepSqliteIntegrationUpdated = ( sitePath: string ) =>
 	provider.keepSqliteIntegrationUpdated( sitePath );
+
+export const installSqliteIntegration = ( sitePath: string ) =>
+	provider.installSqliteIntegration( sitePath );

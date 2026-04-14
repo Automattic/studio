@@ -128,6 +128,7 @@ global.ResizeObserver = require( 'resize-observer-polyfill' );
 vi.mock( '@sentry/electron/main', () => ( {
 	captureException: vi.fn(),
 	captureMessage: vi.fn(),
+	setTag: vi.fn(),
 } ) );
 
 vi.mock( 'electron', () => {
@@ -166,11 +167,16 @@ vi.mock( 'electron', () => {
 	};
 } );
 
-vi.mock( 'src/storage/paths', () => ( {
+vi.mock( import( './src/storage/paths' ), () => ( {
 	getResourcesPath: vi.fn().mockReturnValue( '/mock/resources' ),
 	getUserDataFilePath: vi.fn().mockReturnValue( '/mock/userdata.json' ),
 	getUserDataLockFilePath: vi.fn().mockReturnValue( '/mock/userdata.json.lock' ),
-	getUserDataCertificatesPath: vi.fn().mockReturnValue( '/mock/certificates' ),
+	getOldUserDataCertificatesPath: vi.fn().mockReturnValue( '/mock/certificates' ),
+	getOldServerFilesPath: vi.fn().mockReturnValue( '/mock/server/files' ),
+	getCliPath: vi.fn().mockReturnValue( '/mock/cli/path' ),
+	getBundledNodeBinaryPath: vi.fn().mockReturnValue( '/mock/node/binary' ),
+	getSiteThumbnailPath: vi.fn().mockReturnValue( '/mock/thumbnail.png' ),
+	DEFAULT_SITE_PATH: '/mock/default/site/path',
 } ) );
 
 vi.mock( 'lockfile', () => {
@@ -191,18 +197,19 @@ vi.mock( 'atomically', () => ( {
 	writeFile: vi.fn(),
 } ) );
 
-vi.mock( 'ora', () => {
-	const mockOra = () => ( {
-		start: vi.fn().mockReturnThis(),
-		stop: vi.fn().mockReturnThis(),
-		succeed: vi.fn().mockReturnThis(),
-		fail: vi.fn().mockReturnThis(),
-		warn: vi.fn().mockReturnThis(),
-		info: vi.fn().mockReturnThis(),
-		text: '',
-		isSpinning: false,
-	} );
+vi.mock( 'picospinner', () => {
+	class MockSpinner {
+		start = vi.fn().mockReturnThis();
+		stop = vi.fn().mockReturnThis();
+		succeed = vi.fn().mockReturnThis();
+		fail = vi.fn().mockReturnThis();
+		warn = vi.fn().mockReturnThis();
+		info = vi.fn().mockReturnThis();
+		setText = vi.fn().mockReturnThis();
+		refresh = vi.fn().mockReturnThis();
+		running = false;
+	}
 	return {
-		default: mockOra,
+		Spinner: MockSpinner,
 	};
 } );

@@ -9,18 +9,18 @@ rem Set code page to UTF-8
 chcp 65001 >nul
 
 set BUNDLED_NODE_EXECUTABLE=%~dp0node.exe
-set "CLI_SCRIPT=%~dp0..\cli\main.js"
+set "CLI_SCRIPT=%~dp0..\cli\main.mjs"
 
 rem Prevent node from printing warnings about NODE_OPTIONS being ignored
 set NODE_OPTIONS=
 
 if exist "%BUNDLED_NODE_EXECUTABLE%" (
-	"!BUNDLED_NODE_EXECUTABLE!" "!CLI_SCRIPT!" %*
+	"!BUNDLED_NODE_EXECUTABLE!" --experimental-wasm-jspi "!CLI_SCRIPT!" %*
 ) else (
 	if not exist "!CLI_SCRIPT!" (
-		set "CLI_SCRIPT=%~dp0..\dist\cli\main.js"
+		set "CLI_SCRIPT=%~dp0..\dist\cli\main.mjs"
 	)
-	node "!CLI_SCRIPT!" %*
+	node --experimental-wasm-jspi "!CLI_SCRIPT!" %*
 )
 
 set "EXIT_CODE=!ERRORLEVEL!"

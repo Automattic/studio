@@ -4,22 +4,27 @@ import {
 	AggregateInterval,
 	LastBumpStatsProvider,
 } from '@studio/common/lib/bump-stat';
-import { lockAppdata, readAppdata, saveAppdata, unlockAppdata } from 'cli/lib/appdata';
+import {
+	lockCliConfig,
+	readCliConfig,
+	saveCliConfig,
+	unlockCliConfig,
+} from 'cli/lib/cli-config/core';
 import { StatsGroup, StatsMetric } from 'cli/lib/types/bump-stats';
 
 const lastBumpStatsProvider: LastBumpStatsProvider = {
 	load: async () => {
-		const { lastBumpStats } = await readAppdata();
+		const { lastBumpStats } = await readCliConfig();
 		return lastBumpStats ?? {};
 	},
-	lock: lockAppdata,
-	unlock: unlockAppdata,
+	lock: lockCliConfig,
+	unlock: unlockCliConfig,
 	save: async ( lastBumpStats ) => {
-		const appdata = await readAppdata();
-		appdata.lastBumpStats = lastBumpStats;
+		const config = await readCliConfig();
+		config.lastBumpStats = lastBumpStats;
 		// Locking is handled in `@studio/common/lib/bump-stat`
 		// eslint-disable-next-line studio/require-lock-before-save
-		await saveAppdata( appdata );
+		await saveCliConfig( config );
 	},
 };
 
@@ -47,4 +52,29 @@ export function getPlatformMetric(): StatsMetric {
 		default:
 			return StatsMetric.UNKNOWN_PLATFORM;
 	}
+}
+
+type InstallTypeLaunchStatGroups = {
+	weeklyUnique: StatsGroup;
+	monthlyUnique: StatsGroup;
+	firstLaunch: StatsGroup;
+	totalLaunches: StatsGroup;
+};
+
+export function getInstallTypeLaunchStatGroups(): InstallTypeLaunchStatGroups {
+	if ( __IS_PACKAGED_FOR_NPM__ ) {
+		return {
+			weeklyUnique: StatsGroup.STUDIO_CLI_WEEKLY_UNIQUE_NPM,
+			monthlyUnique: StatsGroup.STUDIO_CLI_MONTHLY_UNIQUE_NPM,
+			firstLaunch: StatsGroup.STUDIO_CLI_FIRST_LAUNCH_NPM,
+			totalLaunches: StatsGroup.STUDIO_CLI_TOTAL_LAUNCHES_NPM,
+		};
+	}
+
+	return {
+		weeklyUnique: StatsGroup.STUDIO_CLI_WEEKLY_UNIQUE_APP,
+		monthlyUnique: StatsGroup.STUDIO_CLI_MONTHLY_UNIQUE_APP,
+		firstLaunch: StatsGroup.STUDIO_CLI_FIRST_LAUNCH_APP,
+		totalLaunches: StatsGroup.STUDIO_CLI_TOTAL_LAUNCHES_APP,
+	};
 }

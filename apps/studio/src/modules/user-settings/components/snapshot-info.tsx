@@ -39,7 +39,7 @@ export const SnapshotInfo = ( {
 			<h2 className="a8c-label-semibold">{ __( 'Preview sites' ) }</h2>
 			<div className="flex gap-3 flex-row items-center w-full">
 				{ snapshotCreationBlocked ? (
-					<div className="text-a8c-gray-70">
+					<div className="text-frame-text-secondary">
 						{ __( 'Preview sites are not available for your account.' ) }
 					</div>
 				) : (
@@ -48,7 +48,7 @@ export const SnapshotInfo = ( {
 							<div className="flex w-full flex-row justify-between gap-8">
 								<div className="flex flex-row items-center text-right">
 									{ isDeleting && <Spinner className="!mt-0 !mx-2" /> }
-									<span className="text-a8c-gray-70">
+									<span className="text-frame-text-secondary">
 										{ sprintf( __( '%1$d of %2$d active preview sites' ), siteCount, siteLimit ) }
 									</span>
 								</div>

@@ -5,7 +5,6 @@ import { getAppGlobals } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { isWindowFrameRtl } from 'src/lib/is-window-frame-rtl';
-import appIcon from '../../assets/titlebar-icon.svg';
 
 export default function WindowsTitlebar( {
 	className,
@@ -44,7 +43,6 @@ export default function WindowsTitlebar( {
 			</Button>
 
 			<div className="flex gap-2 app-drag">
-				<img src={ appIcon } alt="" className="w-[16px] flex-shrink-0" />
 				<h1 className="text-xs">{ getAppGlobals().appName }</h1>
 			</div>
 			<div className="flex-1 ps-2">{ children }</div>

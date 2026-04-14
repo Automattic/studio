@@ -10,13 +10,12 @@ import { extractZip } from '@studio/common/lib/extract-zip';
 import followRedirects, { FollowResponse } from 'follow-redirects';
 import fs from 'fs-extra';
 import { HttpProxyAgent, HttpsProxyAgent } from 'hpagent';
-import { getWordPressVersionPath, getWpCliPath } from './server-files-paths';
+import { getWordPressVersionPath } from './server-files-paths';
 
 const { https } = followRedirects;
 
 // Constants
 const DEFAULT_WORDPRESS_VERSION = 'latest';
-const WP_CLI_URL = 'https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar';
 
 interface DownloadResult {
 	downloaded: boolean;
@@ -74,54 +73,6 @@ function getWordPressVersionUrl( version = DEFAULT_WORDPRESS_VERSION ): string {
 		);
 	}
 	return `https://wordpress.org/wordpress-${ version }.zip`;
-}
-
-/**
- * Download a file to a destination path
- */
-async function downloadFile( {
-	url,
-	destinationFilePath,
-	itemName,
-	overwrite = false,
-}: {
-	url: string;
-	destinationFilePath: string;
-	itemName: string;
-	overwrite?: boolean;
-} ): Promise< DownloadResult > {
-	let statusCode = 0;
-	try {
-		if ( fs.existsSync( destinationFilePath ) && ! overwrite ) {
-			return { downloaded: false, statusCode: 0 };
-		}
-		fs.ensureDirSync( path.dirname( destinationFilePath ) );
-		const response = await new Promise< IncomingMessage >( ( resolve ) =>
-			httpsGet( url, ( response ) => resolve( response ) )
-		);
-		statusCode = response.statusCode ?? 0;
-		if ( response.statusCode !== 200 ) {
-			throw new Error( `Failed to download file (Status code ${ response.statusCode }).` );
-		}
-		await new Promise< void >( ( resolve, reject ) => {
-			fs.ensureFileSync( destinationFilePath );
-			const file = fs.createWriteStream( destinationFilePath );
-			response.pipe( file );
-			file.on( 'finish', () => {
-				file.close();
-				resolve();
-			} );
-			file.on( 'error', ( error ) => {
-				file.close();
-				reject( error );
-			} );
-		} );
-		console.log( `Downloaded ${ itemName } to ${ destinationFilePath }` );
-		return { downloaded: true, statusCode };
-	} catch ( error ) {
-		console.error( `Error downloading file ${ itemName }`, error );
-		return { downloaded: false, statusCode };
-	}
 }
 
 /**
@@ -193,18 +144,6 @@ async function downloadFileAndUnzip( {
 }
 
 /**
- * Download WP-CLI
- */
-async function downloadWpCli( overwrite = false ): Promise< DownloadResult > {
-	return downloadFile( {
-		url: WP_CLI_URL,
-		destinationFilePath: getWpCliPath(),
-		itemName: 'wp-cli',
-		overwrite,
-	} );
-}
-
-/**
  * Download a specific WordPress version
  */
 export async function downloadWordPress(
@@ -243,68 +182,6 @@ export async function downloadWordPress(
 			}
 		}
 	}
-}
-
-/**
- * Get the latest WP-CLI version from GitHub
- */
-let latestWPCliVersionCache: string | null = null;
-
-async function getLatestWPCliVersion(): Promise< string > {
-	if ( latestWPCliVersionCache ) {
-		return latestWPCliVersionCache;
-	}
-
-	try {
-		const response = await fetch(
-			'https://api.github.com/repos/wp-cli/wp-cli/releases?per_page=1'
-		);
-		const data: Record< string, string >[] = await response.json();
-		latestWPCliVersionCache = data?.[ 0 ]?.tag_name || '';
-	} catch ( _error ) {
-		// Discard the failed fetch, return the cache
-	}
-
-	return latestWPCliVersionCache || '';
-}
-
-/**
- * Check if WP-CLI installation is outdated
- */
-async function isWPCliInstallationOutdated(
-	getVersionFromInstallation: () => Promise< string >
-): Promise< boolean > {
-	const installedVersion = await getVersionFromInstallation();
-	const latestVersion = await getLatestWPCliVersion();
-
-	if ( ! installedVersion ) {
-		return true;
-	}
-
-	if ( ! latestVersion ) {
-		return false;
-	}
-
-	try {
-		const { default: semver } = await import( 'semver' );
-		return semver.lt( installedVersion, latestVersion );
-	} catch ( _error ) {
-		return false;
-	}
-}
-
-/**
- * Update WP-CLI to the latest version if needed
- */
-export async function updateLatestWPCliVersion(
-	getVersionFromInstallation: () => Promise< string >
-): Promise< void > {
-	let shouldOverwrite = false;
-	const pathExist = await fs.pathExists( getWpCliPath() );
-	if ( pathExist ) {
-		shouldOverwrite = await isWPCliInstallationOutdated( getVersionFromInstallation );
-	}
-	await downloadWpCli( shouldOverwrite );
 }
 
 /**

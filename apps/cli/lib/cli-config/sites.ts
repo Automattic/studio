@@ -1,0 +1,102 @@
+import { arePathsEqual, isWordPressDirectory } from '@studio/common/lib/fs-utils';
+import { __ } from '@wordpress/i18n';
+import { LoggerError } from 'cli/logger';
+import {
+	lockCliConfig,
+	readCliConfig,
+	saveCliConfig,
+	type SiteData,
+	unlockCliConfig,
+} from './core';
+
+export async function getSiteByFolder( siteFolder: string ): Promise< SiteData > {
+	const config = await readCliConfig();
+	const site = config.sites.find( ( site ) => arePathsEqual( site.path, siteFolder ) );
+
+	if ( ! site ) {
+		if ( isWordPressDirectory( siteFolder ) ) {
+			throw new LoggerError(
+				__( 'The specified directory is not added to Studio. Use `studio site create` to add it.' )
+			);
+		}
+
+		throw new LoggerError( __( 'The specified directory is not added to Studio.' ) );
+	}
+
+	return site;
+}
+
+export function getSiteUrl( site: SiteData ): string {
+	if ( site.url ) {
+		return site.url;
+	}
+
+	if ( site.customDomain ) {
+		const protocol = site.enableHttps ? 'https' : 'http';
+		return `${ protocol }://${ site.customDomain }`;
+	}
+
+	return `http://localhost:${ site.port }`;
+}
+
+export async function updateSiteLatestCliPid( siteId: string, pid: number ): Promise< void > {
+	try {
+		await lockCliConfig();
+		const config = await readCliConfig();
+		const site = config.sites.find( ( s ) => s.id === siteId );
+
+		if ( ! site ) {
+			throw new LoggerError( __( 'Site not found' ) );
+		}
+
+		site.latestCliPid = pid;
+		await saveCliConfig( config );
+	} finally {
+		await unlockCliConfig();
+	}
+}
+
+export async function clearSiteLatestCliPid( siteId: string ): Promise< void > {
+	try {
+		await lockCliConfig();
+		const config = await readCliConfig();
+		const site = config.sites.find( ( s ) => s.id === siteId );
+
+		if ( ! site ) {
+			throw new LoggerError( __( 'Site not found' ) );
+		}
+
+		delete site.latestCliPid;
+		await saveCliConfig( config );
+	} finally {
+		await unlockCliConfig();
+	}
+}
+
+export async function updateSiteAutoStart( siteId: string, autoStart: boolean ): Promise< void > {
+	try {
+		await lockCliConfig();
+		const config = await readCliConfig();
+		const site = config.sites.find( ( s ) => s.id === siteId );
+
+		if ( ! site ) {
+			throw new LoggerError( __( 'Site not found' ) );
+		}
+
+		site.autoStart = autoStart;
+		await saveCliConfig( config );
+	} finally {
+		await unlockCliConfig();
+	}
+}
+
+export async function removeSiteFromConfig( siteId: string ): Promise< void > {
+	try {
+		await lockCliConfig();
+		const config = await readCliConfig();
+		config.sites = config.sites.filter( ( s ) => s.id !== siteId );
+		await saveCliConfig( config );
+	} finally {
+		await unlockCliConfig();
+	}
+}

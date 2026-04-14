@@ -3,8 +3,10 @@ import fs from 'fs';
 import fsPromises from 'fs/promises';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
+import { getCurrentUserId } from '@studio/common/lib/shared-config';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
+import { SyncSite } from '@studio/common/types/sync';
 import { Upload } from 'tus-js-client';
 import { z } from 'zod';
 import {
@@ -19,7 +21,6 @@ import { exportBackup } from 'src/lib/import-export/export/export-manager';
 import { ExportOptions } from 'src/lib/import-export/export/types';
 import { getAuthenticationToken } from 'src/lib/oauth';
 import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
-import { SyncSite } from 'src/modules/sync/types';
 import { SiteServer } from 'src/site-server';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 import { SyncOption } from 'src/types';
@@ -420,12 +421,13 @@ type WpcomSitesToConnect = { sites: SyncSite[]; localSiteId: string }[];
 export async function connectWpcomSites( event: IpcMainInvokeEvent, list: WpcomSitesToConnect ) {
 	try {
 		await lockAppdata();
-		const userData = await loadUserData();
-		const currentUserId = userData.authToken?.id;
+		const currentUserId = await getCurrentUserId();
 
 		if ( ! currentUserId ) {
 			throw new Error( 'User not authenticated' );
 		}
+
+		const userData = await loadUserData();
 
 		userData.connectedWpcomSites = userData.connectedWpcomSites || {};
 		userData.connectedWpcomSites[ currentUserId ] =
@@ -464,12 +466,13 @@ export async function disconnectWpcomSites(
 ) {
 	try {
 		await lockAppdata();
-		const userData = await loadUserData();
-		const currentUserId = userData.authToken?.id;
+		const currentUserId = await getCurrentUserId();
 
 		if ( ! currentUserId ) {
 			throw new Error( 'User not authenticated' );
 		}
+
+		const userData = await loadUserData();
 
 		const connectedWpcomSites = userData.connectedWpcomSites;
 
@@ -500,12 +503,13 @@ export async function updateConnectedWpcomSites(
 ) {
 	try {
 		await lockAppdata();
-		const userData = await loadUserData();
-		const currentUserId = userData.authToken?.id;
+		const currentUserId = await getCurrentUserId();
 
 		if ( ! currentUserId ) {
 			throw new Error( 'User not authenticated' );
 		}
+
+		const userData = await loadUserData();
 
 		const connections = userData.connectedWpcomSites?.[ currentUserId ] || [];
 
@@ -533,13 +537,13 @@ export async function getConnectedWpcomSites(
 	event: IpcMainInvokeEvent,
 	localSiteId?: string
 ): Promise< SyncSite[] > {
-	const userData = await loadUserData();
-
-	const currentUserId = userData.authToken?.id;
+	const currentUserId = await getCurrentUserId();
 
 	if ( ! currentUserId ) {
 		return [];
 	}
+
+	const userData = await loadUserData();
 
 	const allConnected = userData.connectedWpcomSites?.[ currentUserId ] || [];
 

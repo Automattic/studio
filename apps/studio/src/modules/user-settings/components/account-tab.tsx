@@ -1,46 +1,48 @@
-import { useI18n } from '@wordpress/react-i18n';
-import Button from 'src/components/button';
-import { Gravatar } from 'src/components/gravatar';
-import { Tooltip } from 'src/components/tooltip';
-import { WPCOM_PROFILE_URL } from 'src/constants';
-import { getIpcApi } from 'src/lib/get-ipc-api';
-
-const UserInfo = ( {
-	user,
-	onLogout,
-}: {
-	user?: { displayName: string; email: string };
-	onLogout: () => void;
-} ) => {
-	const { __ } = useI18n();
-	return (
-		<div className="flex w-full gap-5 py-1">
-			<div className="flex w-full items-center gap-3">
-				<Tooltip text={ __( 'Edit profile' ) } placement="bottom">
-					<Button
-						onClick={ () => getIpcApi().openURL( WPCOM_PROFILE_URL ) }
-						aria-label={ __( 'Edit profile' ) }
-						variant="icon"
-					>
-						<Gravatar detailedDefaultImage size={ 32 } isBlack />
-					</Button>
-				</Tooltip>
-				<div className="flex flex-col">
-					<span className="overflow-ellipsis">{ user?.displayName }</span>
-					<span className="text-a8c-gray-700 text-[10px] leading-[10px]">{ user?.email }</span>
-				</div>
-			</div>
-			<Button variant="secondary" className="!gap-3" onClick={ onLogout }>
-				{ __( 'Log out' ) }
-			</Button>
-		</div>
-	);
-};
+import { useAuth } from 'src/hooks/use-auth';
+import { NonAuthenticatedAccountTab } from './non-authenticated-account-tab';
+import { PromptInfo } from './prompt-info';
+import { SnapshotInfo } from './snapshot-info';
+import { UserInfo } from './user-info';
 
 export const AccountTab = ( {
-	user,
-	logout,
+	loadingDeletingAllSnapshots,
+	activeSnapshotCount,
+	isLoadingSnapshotUsage,
+	isOffline,
+	snapshotQuota,
+	onRemoveSnapshots,
 }: {
-	user?: { displayName: string; email: string };
-	logout: () => void;
-} ) => <UserInfo onLogout={ logout } user={ user } />;
+	loadingDeletingAllSnapshots: boolean;
+	activeSnapshotCount: number;
+	isLoadingSnapshotUsage: boolean;
+	isOffline: boolean;
+	snapshotQuota: number;
+	onRemoveSnapshots: () => void;
+} ) => {
+	const { isAuthenticated, user, logout } = useAuth();
+
+	return (
+		<>
+			{ isAuthenticated ? (
+				<>
+					<UserInfo onLogout={ logout } user={ user } />
+					<SnapshotInfo
+						isDeleting={ loadingDeletingAllSnapshots || isLoadingSnapshotUsage }
+						isDisabled={
+							activeSnapshotCount === 0 ||
+							isOffline ||
+							loadingDeletingAllSnapshots ||
+							isLoadingSnapshotUsage
+						}
+						siteCount={ activeSnapshotCount }
+						siteLimit={ snapshotQuota }
+						onRemoveSnapshots={ onRemoveSnapshots }
+					/>
+					<PromptInfo />
+				</>
+			) : (
+				<NonAuthenticatedAccountTab />
+			) }
+		</>
+	);
+};

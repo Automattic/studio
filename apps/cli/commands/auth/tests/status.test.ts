@@ -1,6 +1,6 @@
+import { readAuthToken } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
 import { getUserInfo } from 'cli/lib/api';
-import { getAuthToken } from 'cli/lib/appdata';
 import { LoggerError } from 'cli/logger';
 import {
 	mockReportStart,
@@ -13,7 +13,9 @@ import {
 import { runCommand } from '../status';
 
 vi.mock( 'cli/lib/api' );
-vi.mock( 'cli/lib/appdata' );
+vi.mock( '@studio/common/lib/shared-config', () => ( {
+	readAuthToken: vi.fn(),
+} ) );
 vi.mock( 'cli/logger', () => ( {
 	Logger: class {
 		reportStart = mockReportStart;
@@ -47,7 +49,7 @@ describe( 'Auth Status Command', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 
-		vi.mocked( getAuthToken ).mockResolvedValue( mockToken );
+		vi.mocked( readAuthToken ).mockResolvedValue( mockToken );
 		vi.mocked( getUserInfo ).mockResolvedValue( mockUserData );
 	} );
 
@@ -59,7 +61,7 @@ describe( 'Auth Status Command', () => {
 		await runCommand();
 
 		expect( mockReportStart ).toHaveBeenCalled();
-		expect( getAuthToken ).toHaveBeenCalled();
+		expect( readAuthToken ).toHaveBeenCalled();
 		expect( getUserInfo ).toHaveBeenCalledWith( mockToken.accessToken );
 		expect( mockReportSuccess ).toHaveBeenCalledWith(
 			expect.stringContaining( 'Authenticated with WordPress.com as `testuser`' )
@@ -67,7 +69,7 @@ describe( 'Auth Status Command', () => {
 	} );
 
 	it( 'should report error when token is invalid', async () => {
-		vi.mocked( getAuthToken ).mockRejectedValue( new Error( 'Token error' ) );
+		vi.mocked( readAuthToken ).mockResolvedValue( null );
 
 		await runCommand();
 

@@ -12,9 +12,11 @@ export enum PreviewCommandLoggerAction {
 	ARCHIVE = 'archive',
 	LOAD = 'load',
 	DELETE = 'delete',
+	DELETE_ALL = 'deleteAll',
 	UPLOAD = 'upload',
 	READY = 'ready',
 	APPDATA = 'appdata',
+	SET = 'set',
 }
 
 export enum SiteCommandLoggerAction {
@@ -37,6 +39,34 @@ export enum SiteCommandLoggerAction {
 	SETUP_WORDPRESS = 'setupWordPress',
 	SAVE_SITE = 'saveSite',
 	APPLY_BLUEPRINT = 'applyBlueprint',
+	EXTRACT_BACKUP = 'extractBackup',
+	IMPORT_SITE = 'importSite',
+	IMPORT_DATABASE = 'importDatabase',
+	IMPORT_WP_CONTENT = 'importWpContent',
+	IMPORT_META = 'importMeta',
+	EXPORT_SITE = 'exportSite',
+	CREATE_BACKUP = 'createBackup',
+	EXPORT_DATABASE = 'exportDatabase',
+	EXPORT_WP_CONTENT = 'exportWpContent',
+	EXPORT_CONFIG = 'exportConfig',
 	DELETE_PREVIEW_SITES = 'deletePreviewSites',
 	DELETE_FILES = 'deleteFiles',
+	CHECKING_DEPENDENCY_UPDATES = 'checkingDependencyUpdates',
+}
+
+export enum SyncCommandLoggerAction {
+	START_DAEMON = 'startDaemon',
+	STOP_SITE = 'stopSite',
+	LOAD_SITES = 'loadSites',
+	INSTALL_SQLITE = 'installSqlite',
+	FETCH_REMOTE_SITES = 'fetchRemoteSites',
+	ARCHIVE = 'archive',
+	UPLOAD = 'upload',
+	INITIATE_IMPORT = 'initiateImport',
+	POLL_IMPORT = 'pollImport',
+	INITIATE_BACKUP = 'initiateBackup',
+	POLL_BACKUP = 'pollBackup',
+	START_SITE = 'startSite',
+	DOWNLOAD = 'download',
+	IMPORT = 'import',
 }

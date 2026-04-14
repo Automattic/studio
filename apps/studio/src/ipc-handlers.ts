@@ -18,7 +18,8 @@ import os from 'os';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import {
-	installAiInstructionsToSite,
+	installSkillToSite,
+	removeSkillFromSite,
 	updateManagedInstructionFiles,
 } from '@studio/common/lib/agent-skills';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
@@ -34,12 +35,13 @@ import {
 import { generateNumberedName, generateSiteName } from '@studio/common/lib/generate-site-name';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
+import { isMultisite } from '@studio/common/lib/is-multisite';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
-import { portFinder } from '@studio/common/lib/port-finder';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
+import { readSharedConfig, updateSharedConfig } from '@studio/common/lib/shared-config';
+import { shouldExcludeFromSync, shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
-import { Snapshot } from '@studio/common/types/snapshot';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import { MACOS_TRAFFIC_LIGHT_POSITION, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
@@ -57,7 +59,7 @@ import {
 	trustRootCA,
 } from 'src/lib/certificate-manager';
 import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
-import { buildFeatureFlags, getFeatureFlagFromEnv } from 'src/lib/feature-flags';
+import { buildFeatureFlags } from 'src/lib/feature-flags';
 import { getImageData } from 'src/lib/get-image-data';
 import { exportBackup } from 'src/lib/import-export/export/export-manager';
 import { ExportOptions } from 'src/lib/import-export/export/types';
@@ -65,10 +67,11 @@ import { ImportExportEventData } from 'src/lib/import-export/handle-events';
 import { defaultImporterOptions, importBackup } from 'src/lib/import-export/import/import-manager';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
+import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import * as oauthClient from 'src/lib/oauth';
 import { getAiInstructionsPath } from 'src/lib/server-files-paths';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
-import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
+import { installSqliteIntegration, keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import * as windowsHelpers from 'src/lib/windows-helpers';
 import { setupWordPressFilesOnly } from 'src/lib/wordpress-setup';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
@@ -78,17 +81,20 @@ import { type InstructionFileType } from 'src/modules/agent-instructions/constan
 import {
 	getAllInstructionFilesStatus,
 	installInstructionFile,
+	removeInstructionFile,
 	type InstructionFileStatus,
 } from 'src/modules/agent-instructions/lib/instructions';
 import {
+	BUNDLED_SKILLS,
 	getSkillsStatus,
 	installAllSkills,
+	installSkillById,
+	removeSkillById,
 	type SkillStatus,
 } from 'src/modules/agent-instructions/lib/skills';
 import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
-import { shouldExcludeFromSync, shouldLimitDepth } from 'src/modules/sync/lib/tree-utils';
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { getUserEditor, getUserTerminal } from 'src/modules/user-settings/lib/ipc-handlers';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
@@ -102,7 +108,8 @@ import {
 	updateAppdata,
 } from 'src/storage/user-data';
 import { Blueprint } from 'src/stores/wpcom-api';
-import type { RawDirectoryEntry } from 'src/modules/sync/types';
+import { captureSiteThumbnail } from './lib/capture-site-thumbnail';
+import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { WpCliResult } from 'src/site-server';
 
 export {
@@ -130,14 +137,20 @@ export {
 export {
 	createSnapshot,
 	deleteSnapshot,
+	deleteAllSnapshots,
+	fetchSnapshots,
+	setSnapshot,
 	updateSnapshot,
 } from 'src/modules/preview-site/lib/ipc-handlers';
 
 export {
+	getColorScheme,
 	getInstalledAppsAndTerminals,
 	getUserEditor,
 	getUserLocale,
 	getUserTerminal,
+	previewColorScheme,
+	saveColorScheme,
 	saveUserEditor,
 	saveUserLocale,
 	saveUserTerminal,
@@ -169,6 +182,18 @@ export async function installAgentInstructions(
 	return installInstructionFile( server.details.path, fileType, overwrite );
 }
 
+export async function removeAgentInstruction(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	fileType: InstructionFileType
+): Promise< void > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( `Site not found: ${ siteId }` );
+	}
+	await removeInstructionFile( server.details.path, fileType );
+}
+
 export async function getWordPressSkillsStatus(
 	_event: IpcMainInvokeEvent,
 	siteId: string
@@ -191,6 +216,84 @@ export async function installWordPressSkills(
 	}
 	const overwrite = options?.overwrite ?? false;
 	await installAllSkills( server.details.path, overwrite );
+}
+
+export async function installWordPressSkillById(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	skillId: string,
+	options?: { overwrite?: boolean }
+): Promise< void > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( `Site not found: ${ siteId }` );
+	}
+	const overwrite = options?.overwrite ?? false;
+	await installSkillById( server.details.path, skillId, overwrite );
+}
+
+export async function removeWordPressSkillById(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	skillId: string
+): Promise< void > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( `Site not found: ${ siteId }` );
+	}
+	await removeSkillById( server.details.path, skillId );
+}
+
+export async function getWordPressSkillsStatusAllSites(
+	_event: IpcMainInvokeEvent
+): Promise< SkillStatus[] > {
+	const sharedConfig = await readSharedConfig();
+	const selectedSkills = sharedConfig.selectedSkills ?? [];
+	return BUNDLED_SKILLS.map( ( skill ) => ( {
+		...skill,
+		installed: selectedSkills.includes( skill.id ),
+	} ) );
+}
+
+export async function installWordPressSkillsToAllSites(
+	_event: IpcMainInvokeEvent,
+	options: { skillId: string; overwrite?: boolean }
+): Promise< void > {
+	const sites = SiteServer.getAll();
+	const overwrite = options.overwrite ?? false;
+	const bundledPath = getAiInstructionsPath();
+	const tasks = sites.map( ( site ) =>
+		installSkillToSite( site.details.path, bundledPath, options.skillId, overwrite )
+	);
+	const results = await Promise.allSettled( tasks );
+	results.forEach( ( result ) => {
+		if ( result.status === 'rejected' ) {
+			console.error( '[skills] Failed to install skill:', result.reason );
+		}
+	} );
+
+	const sharedConfig = await readSharedConfig();
+	const existing = sharedConfig.selectedSkills ?? [];
+	const merged = Array.from( new Set( [ ...existing, options.skillId ] ) );
+	await updateSharedConfig( { selectedSkills: merged } );
+}
+
+export async function removeWordPressSkillFromAllSites(
+	_event: IpcMainInvokeEvent,
+	skillId: string
+): Promise< void > {
+	const sites = SiteServer.getAll();
+	const tasks = sites.map( ( site ) => removeSkillFromSite( site.details.path, skillId ) );
+	const results = await Promise.allSettled( tasks );
+	results.forEach( ( result ) => {
+		if ( result.status === 'rejected' ) {
+			console.error( '[skills] Failed to remove skill:', result.reason );
+		}
+	} );
+
+	const sharedConfig = await readSharedConfig();
+	const updated = ( sharedConfig.selectedSkills ?? [] ).filter( ( id ) => id !== skillId );
+	await updateSharedConfig( { selectedSkills: updated } );
 }
 
 const DEBUG_LOG_MAX_LINES = 50;
@@ -226,41 +329,26 @@ function readPm2Logs( siteId: string ): { stdout?: string[]; stderr?: string[] }
 	};
 }
 
-function mergeSiteDetailsWithRunningDetails( sites: SiteDetails[] ): SiteDetails[] {
-	return sites.map( ( site ) => {
-		const server = SiteServer.get( site.id );
-		if ( server ) {
-			return server.details;
-		}
-		return site;
-	} );
-}
-
 export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< SiteDetails[] > {
+	const sites = SiteServer.getAllDetails();
 	const userData = await loadUserData();
-
-	const { sites } = userData;
-
-	// Ensure we have an instance of a server for each site we know about
 	for ( const site of sites ) {
-		if ( ! SiteServer.get( site.id ) && ! site.running ) {
-			SiteServer.register( site );
+		const appdataSite = userData.siteMetadata[ site.id ];
+		if ( appdataSite ) {
+			site.sortOrder = appdataSite.sortOrder;
+			site.themeDetails = appdataSite.themeDetails;
 		}
 	}
 
-	return mergeSiteDetailsWithRunningDetails( sites );
+	return sites;
 }
 
 export async function getXdebugEnabledSite(
 	_event: IpcMainInvokeEvent
 ): Promise< SiteDetails | null > {
-	const userData = await loadUserData();
-	const { sites } = userData;
+	const sites = SiteServer.getAllDetails();
 	const xdebugSite = sites.find( ( site ) => site.enableXdebug );
-	if ( ! xdebugSite ) {
-		return null;
-	}
-	return mergeSiteDetailsWithRunningDetails( [ xdebugSite ] )[ 0 ] || null;
+	return xdebugSite || null;
 }
 
 export async function importSite(
@@ -274,6 +362,10 @@ export async function importSite(
 	try {
 		if ( ! isWordPressDirectory( site.details.path ) ) {
 			await setupWordPressFilesOnly( site.details.path );
+		}
+
+		if ( ! ( await site.hasSQLitePlugin() ) ) {
+			await installSqliteIntegration( site.details.path );
 		}
 
 		const onEvent = ( data: ImportExportEventData ) => {
@@ -353,6 +445,7 @@ export async function createSite(
 				enableHttps,
 				siteId,
 				blueprint: blueprint?.blueprint,
+				originalBlueprintPath: blueprint?.filePath,
 				adminUsername,
 				adminPassword,
 				adminEmail,
@@ -364,13 +457,6 @@ export async function createSite(
 		// If the site is running after creation, fetch theme details and update thumbnail
 		if ( server.details.running ) {
 			void loadThemeDetails( event, server.details.id );
-		}
-
-		// Install AI instructions and skills into the new site
-		if ( getFeatureFlagFromEnv( 'enableAgentSuite' ) ) {
-			void installAiInstructionsToSite( path, getAiInstructionsPath() ).catch( ( error ) => {
-				console.error( '[ai-instructions] Failed to install AI instructions to new site:', error );
-			} );
 		}
 
 		return server.details;
@@ -490,31 +576,6 @@ export async function updateSite(
 
 	if ( hasCliChanges ) {
 		await editSiteViaCli( options );
-
-		const userData = await loadUserData();
-		const freshSiteData = userData.sites.find( ( s ) => s.id === updatedSite.id );
-		if ( freshSiteData ) {
-			const wasRunning = server.details.running;
-
-			if ( wasRunning ) {
-				const url = freshSiteData.customDomain
-					? `${ freshSiteData.enableHttps ? 'https' : 'http' }://${ freshSiteData.customDomain }`
-					: `http://localhost:${ freshSiteData.port }`;
-
-				server.details = {
-					...freshSiteData,
-					running: true,
-					url,
-				};
-
-				server.server.url = url;
-			} else {
-				server.details = {
-					...freshSiteData,
-					running: false,
-				};
-			}
-		}
 	}
 }
 
@@ -707,7 +768,6 @@ export async function copySite(
 	const newThumbnailPath = getSiteThumbnailPath( newSiteId );
 	if ( fs.existsSync( sourceThumbnailPath ) ) {
 		await fs.promises.copyFile( sourceThumbnailPath, newThumbnailPath );
-		// Send thumbnail-loaded event so UI updates immediately
 		const thumbnailData = await getImageData( newThumbnailPath );
 		sendIpcEventToRendererWithWindow(
 			BrowserWindow.fromWebContents( event.sender ),
@@ -716,33 +776,26 @@ export async function copySite(
 		);
 	}
 
-	const port = await portFinder.getOpenPort();
-
-	const newSiteDetails: StoppedSiteDetails = {
-		id: newSiteId,
-		name: siteName,
+	const { server, details } = await SiteServer.create( {
 		path: finalSitePath,
-		port,
+		name: siteName,
+		siteId: newSiteId,
 		phpVersion: sourceSite.phpVersion,
-		running: false,
 		adminUsername: sourceSite.adminUsername,
-		adminPassword: sourceSite.adminPassword,
+		adminPassword: sourceSite.adminPassword
+			? decodePassword( sourceSite.adminPassword )
+			: undefined,
 		adminEmail: sourceSite.adminEmail,
-		themeDetails: sourceSite.themeDetails,
-	};
+		noStart: true,
+	} );
 
-	try {
-		await lockAppdata();
-		const userData = await loadUserData();
-		userData.sites.push( newSiteDetails );
-		await saveUserData( userData );
-	} finally {
-		await unlockAppdata();
+	// Persist themeDetails to appdata (Studio-only data)
+	if ( sourceSite.themeDetails ) {
+		server.details.themeDetails = sourceSite.themeDetails;
+		await server.persistThemeDetails();
 	}
 
-	SiteServer.register( newSiteDetails );
-
-	return newSiteDetails;
+	return details;
 }
 
 export function logRendererMessage(
@@ -770,7 +823,8 @@ export async function isAuthenticated() {
 }
 
 export async function clearAuthenticationToken() {
-	return await updateAppdata( { authToken: undefined } );
+	setSentryWpcomUserIdMain( undefined );
+	return await updateSharedConfig( { authToken: undefined } );
 }
 
 export async function exportSite(
@@ -805,25 +859,8 @@ export async function exportSite(
 	}
 }
 
-export async function saveSnapshotsToStorage( event: IpcMainInvokeEvent, snapshots: Snapshot[] ) {
-	try {
-		await lockAppdata();
-		const userData = await loadUserData();
-		userData.snapshots = snapshots;
-		await saveUserData( userData );
-	} finally {
-		await unlockAppdata();
-	}
-}
-
 export async function saveLastSeenVersion( event: IpcMainInvokeEvent, version: string ) {
 	await updateAppdata( { lastSeenVersion: version } );
-}
-
-export async function getSnapshots( _event: IpcMainInvokeEvent ): Promise< Snapshot[] > {
-	const userData = await loadUserData();
-	const { snapshots = [] } = userData;
-	return snapshots;
 }
 
 export async function getLastSeenVersion(
@@ -889,6 +926,14 @@ export function getWpVersion( _event: IpcMainInvokeEvent, id: string ) {
 	}
 	const wordPressPath = server.details.path;
 	return getWordPressVersion( wordPressPath );
+}
+
+export function getIsMultisite( _event: IpcMainInvokeEvent, id: string ) {
+	const server = SiteServer.get( id );
+	if ( ! server ) {
+		return false;
+	}
+	return isMultisite( server.details.path );
 }
 
 export async function generateProposedSitePath(
@@ -961,17 +1006,18 @@ export function showItemInFolder( _event: IpcMainInvokeEvent, path: string ) {
 export async function loadThemeDetails(
 	event: IpcMainInvokeEvent,
 	id: string,
-	emitThemeDetailsLoadingEvent = true
+	emitLoadingEvent = true
 ): Promise< StartedSiteDetails[ 'themeDetails' ] > {
 	const server = SiteServer.get( id );
 	if ( ! server ) {
 		throw new Error( 'Site not found.' );
 	}
 
+	void captureSiteThumbnail( id, emitLoadingEvent );
+
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( emitThemeDetailsLoadingEvent ) {
+	if ( emitLoadingEvent ) {
 		sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-loading', { id } );
-		sendIpcEventToRendererWithWindow( parentWindow, 'thumbnail-loading', { id } );
 	}
 
 	const oldThemePath = server.details.themeDetails?.path;
@@ -983,23 +1029,8 @@ export async function loadThemeDetails(
 		details: themeDetails,
 	} );
 
-	try {
-		if ( hasThemeChanged ) {
-			if ( ! emitThemeDetailsLoadingEvent ) {
-				sendIpcEventToRendererWithWindow( parentWindow, 'thumbnail-loading', { id } );
-			}
-			await server.persistThemeDetails();
-		}
-		await server.updateCachedThumbnail();
-		const thumbnailPath = getSiteThumbnailPath( id );
-		const thumbnailData = await getImageData( thumbnailPath );
-		sendIpcEventToRendererWithWindow( parentWindow, 'thumbnail-loaded', {
-			id,
-			imageData: thumbnailData,
-		} );
-	} catch ( error ) {
-		sendIpcEventToRendererWithWindow( parentWindow, 'thumbnail-load-error', { id } );
-		console.error( `Failed to update thumbnail for server ${ id }:`, error );
+	if ( hasThemeChanged ) {
+		await server.persistThemeDetails();
 	}
 
 	return themeDetails;
@@ -1610,9 +1641,7 @@ export async function isFullscreen( _event: IpcMainInvokeEvent ): Promise< boole
 }
 
 export async function getAllCustomDomains(): Promise< string[] > {
-	const userData = await loadUserData();
-
-	return userData.sites
+	return SiteServer.getAllDetails()
 		.map( ( site ) => site.customDomain )
 		.filter( ( domain ): domain is string => domain !== undefined );
 }
@@ -1718,15 +1747,11 @@ export async function updateSitesSortOrder(
 		await lockAppdata();
 		const userData = await loadUserData();
 
-		const updatedSites = userData.sites.map( ( site ) => {
-			const update = updates.find( ( u ) => u.siteId === site.id );
-			if ( update ) {
-				return { ...site, sortOrder: update.sortOrder };
-			}
-			return site;
-		} );
+		for ( const { siteId, sortOrder } of updates ) {
+			userData.siteMetadata[ siteId ] = { ...userData.siteMetadata[ siteId ], sortOrder };
+		}
 
-		await saveUserData( { ...userData, sites: updatedSites } );
+		await saveUserData( userData );
 	} finally {
 		await unlockAppdata();
 	}

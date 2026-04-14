@@ -1,7 +1,7 @@
+import { SYNC_PUSH_SIZE_LIMIT_BYTES } from '@studio/common/lib/sync/constants';
 import { renderHook, waitFor } from '@testing-library/react';
 import { vi } from 'vitest';
 import { TreeNode } from 'src/components/tree-view';
-import { SYNC_PUSH_SIZE_LIMIT_BYTES } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useSelectedItemsPushSize } from 'src/modules/sync/hooks/use-selected-items-push-size';
 

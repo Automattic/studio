@@ -3,6 +3,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren, useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
+import { IllustrationGrid } from 'src/components/illustration-grid';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
 import { useAuth } from 'src/hooks/use-auth';
@@ -27,19 +28,19 @@ import {
 	useGetConnectedSitesForLocalSiteQuery,
 } from 'src/stores/sync/connected-sites';
 import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
-import type { SyncSite } from 'src/modules/sync/types';
+import type { SyncSite } from '@studio/common/types/sync';
 
 function SiteSyncDescription( { children }: PropsWithChildren ) {
 	const { __ } = useI18n();
 	return (
-		<div className="p-8 flex justify-between max-w-3xl gap-4">
+		<div className="p-8 flex justify-between max-w-3xl gap-4 overflow-hidden">
 			<div className="flex flex-col">
 				<div className="flex items-center mb-1">
 					<div className="a8c-subtitle text-pretty">
 						{ __( 'Sync with WordPress.com or Pressable' ) }
 					</div>
 				</div>
-				<div className="max-w-[40ch] text-a8c-gray-70 a8c-body">
+				<div className="max-w-[40ch] text-frame-text-secondary a8c-body">
 					{ __(
 						'Launch your existing WordPress.com or Jetpack-activated Pressable sites, or import an existing one. Then, share your work with the world.'
 					) }
@@ -50,17 +51,17 @@ function SiteSyncDescription( { children }: PropsWithChildren ) {
 						__( 'Supports staging and production sites.' ),
 						__( 'Sync database and file changes.' ),
 					].map( ( text ) => (
-						<div key={ text } className="text-a8c-gray-70 a8c-body flex items-center">
-							<Icon className="fill-a8c-blue-50 me-2 shrink-0" icon={ check } />
+						<div key={ text } className="text-frame-text-secondary a8c-body flex items-center">
+							<Icon className="fill-frame-theme me-2 shrink-0" icon={ check } />
 							{ text }
 						</div>
 					) ) }
 				</div>
 				{ children }
 			</div>
-			<div className="flex flex-col shrink-0 items-end">
+			<IllustrationGrid>
 				<SyncTabImage />
-			</div>
+			</IllustrationGrid>
 		</div>
 	);
 }
@@ -91,7 +92,7 @@ function NoAuthSyncTab() {
 					</Button>
 				</Tooltip>
 			</div>
-			<div className="mt-3 text-a8c-gray-70 a8c-body">
+			<div className="mt-3 text-frame-text-secondary a8c-body">
 				<Tooltip
 					disabled={ ! isOffline }
 					icon={ offlineIcon }
@@ -103,7 +104,7 @@ function NoAuthSyncTab() {
 						<Button
 							aria-description={ isOffline ? offlineMessage : '' }
 							aria-disabled={ isOffline }
-							className="!p-0 text-a8c-blue-50 hover:opacity-80 h-auto inline-flex items-center"
+							className="!p-0 text-frame-theme hover:opacity-80 h-auto inline-flex items-center"
 							onClick={ () => {
 								if ( isOffline ) {
 									return;
@@ -204,7 +205,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 							disconnectSite( { siteId: id, localSiteId: selectedSite.id } )
 						}
 					/>
-					<div className="sticky bottom-0 bg-white/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
+					<div className="sticky bottom-0 bg-frame/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
 						<ConnectButton
 							variant="primary"
 							connectSite={ () => dispatch( connectedSitesActions.openModal( 'connect' ) ) }

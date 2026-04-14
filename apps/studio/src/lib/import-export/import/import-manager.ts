@@ -1,4 +1,4 @@
-import fsPromises from 'fs/promises';
+import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { ImportExportEventData, handleEvents } from 'src/lib/import-export/handle-events';
@@ -60,7 +60,9 @@ export async function importBackup(
 		throw new Error( 'No suitable backup handler found for the provided backup file' );
 	}
 
-	const extractionDirectory = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio_backup' ) );
+	const extractionDirectory = await fs.promises.mkdtemp(
+		path.join( os.tmpdir(), 'studio_backup' )
+	);
 	const fileList = await backupHandler.listFiles( backupFile );
 	const importer = selectImporter( fileList, extractionDirectory, onEvent, options );
 
@@ -78,7 +80,7 @@ export async function importBackup(
 	} finally {
 		removeBackupListeners?.();
 		removeImportListeners?.();
-		await fsPromises.rm( extractionDirectory, { recursive: true } );
+		await fs.promises.rm( extractionDirectory, { recursive: true } );
 	}
 }
 

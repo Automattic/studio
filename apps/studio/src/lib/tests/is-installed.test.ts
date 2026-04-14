@@ -20,16 +20,14 @@ type ReaddirSyncStrings = (
 ) => string[];
 type ReaddirSyncMock = ReturnType< typeof vi.fn< ReaddirSyncStrings > >;
 
-vi.mock( 'fs', () => {
-	const existsSync = vi.fn< ( path: PathLike ) => boolean >();
-	const readdirSync = vi.fn< ReaddirSyncStrings >();
-
-	return {
-		default: { existsSync, readdirSync },
-		existsSync,
-		readdirSync,
-	};
-} );
+vi.mock( 'fs', () => ( {
+	default: {
+		existsSync: vi.fn(),
+		readdirSync: vi.fn(),
+	},
+	existsSync: vi.fn(),
+	readdirSync: vi.fn(),
+} ) );
 
 vi.mock( 'electron', () => ( {
 	app: {

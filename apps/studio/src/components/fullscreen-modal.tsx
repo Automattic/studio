@@ -64,7 +64,12 @@ export const FullscreenModal: React.FC< FullscreenModalProps > = ( {
 			aria-modal="true"
 			data-fullscreen-modal
 		>
-			<HStack className={ cx( 'flex justify-end p-4 app-drag-region', isWindows() && 'ltr:pt-8' ) }>
+			<HStack
+				className={ cx(
+					'flex p-4 app-drag-region',
+					isWindows() ? 'ltr:justify-start rtl:justify-end' : 'ltr:justify-end rtl:justify-start'
+				) }
+			>
 				<Button
 					icon={ close }
 					onClick={ onClose }

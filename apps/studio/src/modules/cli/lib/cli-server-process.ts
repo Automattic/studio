@@ -77,10 +77,13 @@ export class CliServerProcess {
 
 	async delete( trashFiles: boolean ): Promise< void > {
 		return new Promise( ( resolve, reject ) => {
-			const args = [ 'site', 'delete', '--path', this.sitePath ];
-			if ( trashFiles ) {
-				args.push( '--files' );
-			}
+			const args = [
+				'site',
+				'delete',
+				'--path',
+				this.sitePath,
+				trashFiles ? '--files' : '--no-files',
+			];
 			const [ emitter ] = executeCliCommand( args, {
 				output: 'capture',
 				logPrefix: this.siteId,

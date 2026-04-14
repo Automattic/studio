@@ -276,7 +276,11 @@ export async function rotateStreamingExportSecret(
 		if ( result.code !== 200 ) {
 			throw new LoggerError(
 				__( 'Failed to rotate the WordPress.com site secret' ),
-				new Error( `Unexpected response code ${ result.code }` )
+				new Error(
+					`Unexpected response code ${ result.code }. Raw response: ${ JSON.stringify(
+						rawResponse
+					) }`
+				)
 			);
 		}
 
@@ -286,7 +290,14 @@ export async function rotateStreamingExportSecret(
 			throw error;
 		}
 		if ( error instanceof z.ZodError ) {
-			throw new LoggerError( __( 'Invalid API response format' ), error );
+			throw new LoggerError(
+				__( 'Invalid API response format' ),
+				new Error(
+					`Zod validation failed: ${ error.message }. Raw response: ${ JSON.stringify(
+						rawResponse
+					) }`
+				)
+			);
 		}
 		throw new LoggerError( __( 'Failed to rotate the WordPress.com site secret' ), error );
 	}

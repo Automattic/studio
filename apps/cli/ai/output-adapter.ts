@@ -27,7 +27,7 @@ export interface AiOutputAdapter {
 	showInfo( message: string ): void;
 	showError( message: string ): void;
 	setStatusMessage( message: string | null ): void;
-	setLoaderMessage( message: string ): void;
+	setLoaderMessage( message: string, update?: boolean ): void;
 
 	beginAgentTurn(): void;
 	endAgentTurn(): void;
@@ -93,7 +93,7 @@ export class JsonAdapter implements AiOutputAdapter {
 		// No-op in JSON mode
 	}
 
-	setLoaderMessage( message: string ): void {
+	setLoaderMessage( message: string, _update?: boolean ): void {
 		emitEvent( { type: 'progress', timestamp: new Date().toISOString(), message } );
 	}
 

@@ -1759,6 +1759,27 @@ export async function setWindowControlVisibility( event: IpcMainInvokeEvent, vis
 	}
 }
 
+export async function setTitleBarBackdropEffect( event: IpcMainInvokeEvent, enabled: boolean ) {
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	if ( ! parentWindow || process.platform !== 'win32' ) {
+		return;
+	}
+
+	if ( enabled ) {
+		parentWindow.setTitleBarOverlay( {
+			color: '#131313',
+			symbolColor: 'white',
+			height: WINDOWS_TITLEBAR_HEIGHT,
+		} );
+	} else {
+		parentWindow.setTitleBarOverlay( {
+			color: 'rgba(30, 30, 30, 1)',
+			symbolColor: 'white',
+			height: WINDOWS_TITLEBAR_HEIGHT,
+		} );
+	}
+}
+
 export async function updateSitesSortOrder(
 	event: IpcMainInvokeEvent,
 	updates: { siteId: string; sortOrder: number }[]

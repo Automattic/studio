@@ -10,9 +10,51 @@ import { StudioCodePermission } from './studio-code-permission';
 import type { ChatMessage, PermissionRequest, ToolCallState } from './studio-code-types';
 import type { StudioCodeEvent } from 'src/modules/studio-code/studio-code-types';
 
-// ── Persistent state across tab switches ──
-// Keyed by siteId so each site keeps its own conversation.
-const stateCache = new Map< string, State >();
+// ── LocalStorage persistence ──
+
+const STORAGE_KEY = 'studio_code_chat';
+
+interface PersistedState {
+	messages: ChatMessage[];
+	sessionId?: string;
+}
+
+function loadPersistedState( siteId: string ): PersistedState | null {
+	try {
+		const stored = localStorage.getItem( STORAGE_KEY );
+		if ( ! stored ) {
+			return null;
+		}
+		const allSites = JSON.parse( stored ) as Record< string, PersistedState >;
+		return allSites[ siteId ] ?? null;
+	} catch {
+		return null;
+	}
+}
+
+function savePersistedState( siteId: string, state: PersistedState ): void {
+	try {
+		const stored = localStorage.getItem( STORAGE_KEY );
+		const allSites = stored ? ( JSON.parse( stored ) as Record< string, PersistedState > ) : {};
+		allSites[ siteId ] = state;
+		localStorage.setItem( STORAGE_KEY, JSON.stringify( allSites ) );
+	} catch {
+		// Ignore storage errors
+	}
+}
+
+function clearPersistedState( siteId: string ): void {
+	try {
+		const stored = localStorage.getItem( STORAGE_KEY );
+		if ( stored ) {
+			const allSites = JSON.parse( stored ) as Record< string, PersistedState >;
+			delete allSites[ siteId ];
+			localStorage.setItem( STORAGE_KEY, JSON.stringify( allSites ) );
+		}
+	} catch {
+		// Ignore storage errors
+	}
+}
 
 // ── State & Reducer ──
 
@@ -208,18 +250,32 @@ interface StudioCodeChatProps {
 	selectedSite: SiteDetails;
 }
 
+function initState( siteId: string ): State {
+	const persisted = loadPersistedState( siteId );
+	if ( persisted ) {
+		return {
+			...initialState,
+			messages: persisted.messages,
+			sessionId: persisted.sessionId,
+		};
+	}
+	return initialState;
+}
+
 export function StudioCodeChat( { selectedSite }: StudioCodeChatProps ) {
-	const [ state, dispatch ] = useReducer(
-		reducer,
-		stateCache.get( selectedSite.id ) ?? initialState
-	);
+	const [ state, dispatch ] = useReducer( reducer, selectedSite.id, initState );
 	const [ inputValue, setInputValue ] = useState( '' );
 	const messagesEndRef = useRef< HTMLDivElement >( null );
 
-	// Sync state to cache so it survives tab switches
+	// Persist messages and sessionId to localStorage
 	useEffect( () => {
-		stateCache.set( selectedSite.id, state );
-	}, [ selectedSite.id, state ] );
+		if ( state.messages.length > 0 ) {
+			savePersistedState( selectedSite.id, {
+				messages: state.messages,
+				sessionId: state.sessionId,
+			} );
+		}
+	}, [ selectedSite.id, state.messages, state.sessionId ] );
 
 	// Listen for IPC events from the CLI process
 	const handleEvent = useCallback(
@@ -264,7 +320,7 @@ export function StudioCodeChat( { selectedSite }: StudioCodeChatProps ) {
 	}, [] );
 
 	const clearConversation = useCallback( () => {
-		stateCache.delete( selectedSite.id );
+		clearPersistedState( selectedSite.id );
 		dispatch( { type: 'CLEAR' } );
 	}, [ selectedSite.id ] );
 

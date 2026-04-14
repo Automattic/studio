@@ -10,11 +10,7 @@ export const SiteNameBox = ( { siteName, envType }: SiteNameBoxProps ) => {
 	return (
 		<>
 			<span className="inline-block">
-				{ envType === 'studio' ? (
-					<StudioBadge className="h-6" />
-				) : (
-					<EnvironmentBadge type={ envType } className="h-6" />
-				) }
+				{ envType === 'studio' ? <StudioBadge /> : <EnvironmentBadge type={ envType } /> }
 			</span>
 			<span className="text-frame-text-secondary"> { siteName } </span>
 		</>

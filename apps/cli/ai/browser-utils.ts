@@ -37,6 +37,18 @@ export async function getSharedBrowser(): Promise< Browser > {
 	return browserPromise;
 }
 
+/**
+ * Close the shared browser instance (if any) so the Node.js event loop can
+ * drain and the process can exit naturally without calling process.exit().
+ */
+export async function closeSharedBrowser(): Promise< void > {
+	if ( browserPromise ) {
+		const browser = await browserPromise;
+		await browser.close().catch( () => {} );
+		browserPromise = null;
+	}
+}
+
 /** Collect diagnostic info from the page to help debug editor load failures. */
 async function getPageDiagnostics( page: Page ): Promise< string > {
 	try {

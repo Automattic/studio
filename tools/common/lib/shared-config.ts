@@ -4,6 +4,7 @@ import { readFile, writeFile } from 'atomically';
 import { z } from 'zod';
 import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME, SHARED_CONFIG_LOCKFILE_NAME } from '../constants';
 import { authTokenSchema, type StoredAuthToken } from './auth-token-schema';
+import { hideDirectoryOnWindows } from './hide-dir-windows';
 import { lockFileAsync, unlockFileAsync } from './lockfile';
 import { getConfigDirectory, getSharedConfigPath } from './well-known-paths';
 
@@ -68,6 +69,7 @@ export async function saveSharedConfig( config: SharedConfig ): Promise< void > 
 	const configDir = getConfigDirectory();
 	if ( ! fs.existsSync( configDir ) ) {
 		fs.mkdirSync( configDir, { recursive: true } );
+		await hideDirectoryOnWindows( configDir );
 	}
 
 	const configPath = getSharedConfigPath();

@@ -6,6 +6,7 @@ import {
 	LOCKFILE_WAIT_TIME,
 } from '@studio/common/constants';
 import { siteDetailsSchema } from '@studio/common/lib/cli-events';
+import { hideDirectoryOnWindows } from '@studio/common/lib/hide-dir-windows';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
 import { getCliConfigPath, getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import { snapshotSchema } from '@studio/common/types/snapshot';
@@ -96,6 +97,7 @@ export async function saveCliConfig( config: CliConfig ): Promise< void > {
 		const configDir = getConfigDirectory();
 		if ( ! fs.existsSync( configDir ) ) {
 			fs.mkdirSync( configDir, { recursive: true } );
+			await hideDirectoryOnWindows( configDir );
 		}
 
 		const configPath = getCliConfigPath();

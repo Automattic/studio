@@ -24,6 +24,7 @@ import {
 } from '@studio/common/lib/agent-skills';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
+import { extractZip } from '@studio/common/lib/extract-zip';
 import {
 	calculateDirectorySizeForArchive,
 	isWordPressDirectory,
@@ -1740,54 +1741,13 @@ export async function extractBlueprintBundle(
 	blueprintJsonPath: string;
 	tempDir: string;
 } > {
-	const { promisify } = await import( 'util' );
-
-	const yauzl = require( 'yauzl' ) as typeof import('yauzl');
-	const openZip = promisify< string, import('yauzl').Options, import('yauzl').ZipFile >(
-		yauzl.open
-	);
-
 	const resolvedZipPath = nodePath.resolve( zipFilePath );
 	const tempDir = await fsPromises.mkdtemp(
 		nodePath.join( os.tmpdir(), 'studio-blueprint-bundle-' )
 	);
 
 	try {
-		const zipFile = await openZip( resolvedZipPath, { lazyEntries: true } );
-		const openReadStream = promisify( zipFile.openReadStream.bind( zipFile ) );
-
-		await new Promise< void >( ( resolve, reject ) => {
-			zipFile.on( 'entry', async ( entry: import('yauzl').Entry ) => {
-				const fullPath = nodePath.join( tempDir, entry.fileName );
-
-				// Prevent path traversal
-				if ( ! fullPath.startsWith( tempDir + nodePath.sep ) ) {
-					zipFile.readEntry();
-					return;
-				}
-
-				if ( entry.fileName.endsWith( '/' ) ) {
-					await fsPromises.mkdir( fullPath, { recursive: true } );
-					zipFile.readEntry();
-					return;
-				}
-
-				try {
-					await fsPromises.mkdir( nodePath.dirname( fullPath ), { recursive: true } );
-					const readStream = await openReadStream( entry );
-					const writeStream = fs.createWriteStream( fullPath );
-					readStream.pipe( writeStream );
-					writeStream.once( 'finish', () => zipFile.readEntry() );
-					writeStream.once( 'error', reject );
-					readStream.once( 'error', reject );
-				} catch ( err ) {
-					reject( err );
-				}
-			} );
-			zipFile.on( 'end', resolve );
-			zipFile.on( 'error', reject );
-			zipFile.readEntry();
-		} );
+		await extractZip( resolvedZipPath, tempDir );
 
 		const blueprintJsonPath = nodePath.join( tempDir, 'blueprint.json' );
 		try {

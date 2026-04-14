@@ -67,7 +67,7 @@ async function main() {
 			rmSync( CLI_DIR, { recursive: true, force: true } );
 		}
 		mkdirSync( CLI_DIR, { recursive: true } );
-		execSync( `tar -xzf "${ posix( cliTarPath ) }" -C "${ posix( CLI_DIR ) }"`, {
+		execSync( `tar -xzf "${ posix( cliTarPath ) }" --force-local -C "${ posix( CLI_DIR ) }"`, {
 			stdio: 'inherit',
 		} );
 		unlinkSync( cliTarPath );
@@ -81,9 +81,12 @@ async function main() {
 			rmSync( NODE_MODULES_DIR, { recursive: true, force: true } );
 		}
 		mkdirSync( NODE_MODULES_DIR, { recursive: true } );
-		execSync( `tar -xzf "${ posix( tarPath ) }" -C "${ posix( NODE_MODULES_DIR ) }"`, {
-			stdio: 'inherit',
-		} );
+		execSync(
+			`tar -xzf "${ posix( tarPath ) }" --force-local -C "${ posix( NODE_MODULES_DIR ) }"`,
+			{
+				stdio: 'inherit',
+			}
+		);
 		unlinkSync( tarPath );
 
 		writeFileSync( MARKER_FILE, BUNDLE_VERSION );

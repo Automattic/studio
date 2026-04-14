@@ -76,8 +76,9 @@ async function main(): Promise< void > {
 	fs.mkdirSync( bundleBuildDir, { recursive: true } );
 
 	// CLI bundle (JS files, wp-files, etc. — excludes node_modules)
+	// --force-local prevents tar from interpreting "C:" as a remote host on Windows
 	const cliTarPath = posix( path.join( bundleBuildDir, 'cli.tar.gz' ) );
-	run( `tar -czf "${ cliTarPath }" --exclude='node_modules' .`, cliDistDir );
+	run( `tar -czf "${ cliTarPath }" --force-local --exclude='node_modules' .`, cliDistDir );
 
 	// node_modules — use source node_modules (not dist) because externalized
 	// native packages have transitive deps (e.g. ws, ini) that they need at runtime.
@@ -85,7 +86,7 @@ async function main(): Promise< void > {
 	const cliNodeModules = path.join( repoRoot, 'apps', 'cli', 'node_modules' );
 	const nmTarPath = posix( path.join( bundleBuildDir, 'node_modules.tar.gz' ) );
 	run(
-		`tar -czf "${ nmTarPath }" ` +
+		`tar -czf "${ nmTarPath }" --force-local ` +
 			`--exclude='.cache' ` +
 			`--exclude='playwright/browsers' --exclude='playwright-core/browsers' .`,
 		cliNodeModules

@@ -37,7 +37,7 @@ import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { getSitesRunningStatus, isSiteRunning } from 'cli/lib/site-utils';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { TodoWriteInput } from '@anthropic-ai/claude-agent-sdk/sdk-tools';
-import type { AiOutputAdapter } from 'cli/ai/output-adapter';
+import type { AiOutputAdapter, HandleMessageResult } from 'cli/ai/output-adapter';
 
 const SITE_PICKER_TAB_LOCAL = 'local' as const;
 const SITE_PICKER_TAB_REMOTE = 'remote' as const;
@@ -2028,12 +2028,7 @@ export class AiChatUI implements AiOutputAdapter {
 	 * Process an SDK message and update the UI.
 	 * Returns session result when the agent turn is complete.
 	 */
-	handleMessage(
-		message: SDKMessage
-	):
-		| { sessionId: string; success: boolean; maxTurnsReached?: undefined }
-		| { sessionId: string; maxTurnsReached: true; numTurns: number }
-		| undefined {
+	handleMessage( message: SDKMessage ): HandleMessageResult | undefined {
 		switch ( message.type ) {
 			case 'assistant': {
 				for ( const block of message.message.content ) {
@@ -2143,7 +2138,7 @@ export class AiChatUI implements AiOutputAdapter {
 							message.num_turns
 						)
 					);
-					return { sessionId: message.session_id, success: true };
+					return { type: 'result', sessionId: message.session_id, success: true };
 				}
 
 				// User-initiated interruption: show friendly message instead of error
@@ -2163,7 +2158,7 @@ export class AiChatUI implements AiOutputAdapter {
 							thinkingSec
 						)
 					);
-					return { sessionId: message.session_id, success: false };
+					return { type: 'result', sessionId: message.session_id, success: false };
 				}
 
 				// Build detailed error message
@@ -2173,8 +2168,8 @@ export class AiChatUI implements AiOutputAdapter {
 				}
 				if ( message.subtype === 'error_max_turns' ) {
 					return {
+						type: 'max_turns',
 						sessionId: message.session_id,
-						maxTurnsReached: true,
 						numTurns: message.num_turns,
 					};
 				} else if ( message.subtype ) {
@@ -2192,7 +2187,7 @@ export class AiChatUI implements AiOutputAdapter {
 					}
 				}
 				this.showError( parts.length > 0 ? parts.join( '\n' ) : __( 'Unknown error' ) );
-				return { sessionId: message.session_id, success: false };
+				return { type: 'result', sessionId: message.session_id, success: false };
 			}
 		}
 		return undefined;

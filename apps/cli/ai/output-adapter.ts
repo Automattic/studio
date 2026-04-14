@@ -5,8 +5,8 @@ import type { AiProviderId } from 'cli/ai/providers';
 import type { SiteInfo } from 'cli/ai/ui';
 
 export type HandleMessageResult =
-	| { sessionId: string; success: boolean; maxTurnsReached?: undefined }
-	| { sessionId: string; maxTurnsReached: true; numTurns: number; costUsd?: number };
+	| { type: 'result'; sessionId: string; success: boolean }
+	| { type: 'max_turns'; sessionId: string; numTurns: number; costUsd?: number };
 
 export interface AiOutputAdapter {
 	currentProvider: AiProviderId;
@@ -73,8 +73,8 @@ export class JsonAdapter implements AiOutputAdapter {
 		// No-op in JSON mode
 	}
 
-	showProgress( _message: string ): void {
-		// No-op in JSON mode
+	showProgress( message: string ): void {
+		emitEvent( { type: 'progress', timestamp: new Date().toISOString(), message } );
 	}
 
 	setBusy( _active: boolean ): void {
@@ -113,21 +113,20 @@ export class JsonAdapter implements AiOutputAdapter {
 		emitEvent( { type: 'message', timestamp: new Date().toISOString(), message } );
 
 		if ( message.type === 'result' ) {
-			if ( message.subtype === 'success' ) {
-				this.sessionId = message.session_id;
-				return { sessionId: message.session_id, success: true };
-			}
+			this.sessionId = message.session_id;
 			if ( message.subtype === 'error_max_turns' ) {
-				this.sessionId = message.session_id;
 				return {
+					type: 'max_turns',
 					sessionId: message.session_id,
-					maxTurnsReached: true,
 					numTurns: message.num_turns,
 					costUsd: message.total_cost_usd,
 				};
 			}
-			this.sessionId = message.session_id;
-			return { sessionId: message.session_id, success: false };
+			return {
+				type: 'result',
+				sessionId: message.session_id,
+				success: message.subtype === 'success',
+			};
 		}
 
 		return undefined;
@@ -161,10 +160,11 @@ export class JsonAdapter implements AiOutputAdapter {
 		} );
 		this.emitTurnCompleted( 'paused' );
 		await this.onBeforeExit?.();
-		process.exit( 0 );
+		process.exitCode = 0;
 
-		// Unreachable, but satisfies TypeScript
-		return {};
+		// Return a never-resolving promise to halt execution while letting
+		// the event loop drain naturally (flushes stdout, completes async I/O).
+		return new Promise< Record< string, string > >( () => {} );
 	}
 
 	openActiveSiteInBrowser(): Promise< boolean > {

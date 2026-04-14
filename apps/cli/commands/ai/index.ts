@@ -427,7 +427,7 @@ export async function runCommand( options: {
 					sessionId = result.sessionId;
 					await persist( ( recorder ) => recorder.recordAgentSessionId( result.sessionId ) );
 
-					if ( 'maxTurnsReached' in result && result.maxTurnsReached ) {
+					if ( result.type === 'max_turns' ) {
 						maxTurnsResult = {
 							numTurns: result.numTurns,
 						};
@@ -477,20 +477,18 @@ export async function runCommand( options: {
 
 	// JSON mode: single turn, then exit
 	if ( isJsonMode && options.initialMessage ) {
-		let exitCode = 0;
 		try {
 			ui.addUserMessage( options.initialMessage );
 			const result = await runAgentTurn( options.initialMessage );
 			const jsonStatus = result.status === 'interrupted' ? 'error' : result.status;
 			( ui as JsonAdapter ).emitTurnCompleted( jsonStatus, result.usage );
 		} catch ( error ) {
-			exitCode = 1;
+			process.exitCode = 1;
 			handleAgentTurnError( error );
 			( ui as JsonAdapter ).emitTurnCompleted( 'error' );
 		} finally {
 			await persistQueue;
 			ui.stop();
-			process.exit( exitCode );
 		}
 		return;
 	}
@@ -505,8 +503,12 @@ export async function runCommand( options: {
 		}
 	}
 
+	if ( ! ( ui instanceof AiChatUI ) ) {
+		throw new Error( 'Interactive mode requires AiChatUI adapter' );
+	}
+
 	const slashCommandContext: SlashCommandContext = {
-		ui: ui as AiChatUI,
+		ui,
 		get currentModel() {
 			return currentModel;
 		},

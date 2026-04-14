@@ -806,6 +806,8 @@ const pollPullBackupThunk = createTypedAsyncThunk(
 				);
 
 				await getIpcApi().stopServer( selectedSiteId );
+				// Ensure the server restarts even if the import fails, so the site
+				// doesn't get stuck in a stopped state. Errors propagate to the outer catch.
 				try {
 					await getIpcApi().importSite( {
 						id: selectedSiteId,

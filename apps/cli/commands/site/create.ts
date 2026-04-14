@@ -634,14 +634,14 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			let adminPassword = argv.adminPassword;
 			let adminEmail = argv.adminEmail;
 
-			// Validate the WordPress version against available versions before prompting
+			// Validate and resolve the WordPress version against available versions before prompting
 			if ( wpVersion && wpVersion !== 'latest' && wpVersion !== 'nightly' ) {
 				try {
 					const availableVersions = await fetchWordPressVersions();
-					const isAvailable = availableVersions.some(
+					const matchedVersion = availableVersions.find(
 						( v ) => v.value === wpVersion || v.value.startsWith( wpVersion + '.' )
 					);
-					if ( ! isAvailable ) {
+					if ( ! matchedVersion ) {
 						const versionLabels = availableVersions
 							.filter( ( v ) => v.value !== 'latest' )
 							.map( ( v ) => v.label );
@@ -657,6 +657,18 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 						);
 						return;
 					}
+					// Resolve short versions to full versions (e.g. "6.7" → "6.7.2")
+					if ( matchedVersion.value !== wpVersion ) {
+						logger.reportSuccess(
+							sprintf(
+								/* translators: %1$s: requested version, %2$s: resolved version */
+								__( 'WordPress version: %1$s → %2$s' ),
+								wpVersion,
+								matchedVersion.value
+							)
+						);
+					}
+					wpVersion = matchedVersion.value;
 				} catch {
 					// If we can't fetch versions (network issue), let it proceed and fail later
 				}

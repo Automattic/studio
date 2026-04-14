@@ -1,7 +1,7 @@
 /**
  * Migration Client – thin wrapper around reprint.phar
  *
- * Runs the bundled reprint.phar streaming-site-migration CLI tool
+ * Runs the bundled reprint.phar CLI tool
  * via a PHP WASM child process. reprint's index sorter falls back
  * to an in-memory usort() when exec() is unavailable, which handles
  * sites with up to hundreds of thousands of files comfortably within

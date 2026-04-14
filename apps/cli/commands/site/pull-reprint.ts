@@ -52,9 +52,9 @@ import { StudioArgv } from 'cli/types';
 const logger = new Logger< LoggerAction >();
 
 const PLUGIN_INSTALL_HINT =
-	'Make sure the streaming-site-migration plugin is installed and activated.\n' +
+	'Make sure the reprint-exporter plugin is installed and activated.\n' +
 	'Download the latest version from:\n' +
-	'https://github.com/adamziel/streaming-site-migration/releases/latest';
+	'https://github.com/adamziel/reprint/releases/latest';
 
 const IMPORTS_ROOT = path.join( os.homedir(), '.studio', 'imports' );
 const SKIPPED_DOWNLOAD_LIST = '.import-download-list-skipped.jsonl';

@@ -3,7 +3,7 @@
  * apps/cli/lib/import/reprint.phar.  Run manually or via `npm run update-reprint`.
  *
  * Uses the GitHub API to find the latest release of the
- * adamziel/streaming-site-migration repo, then downloads the reprint.phar
+ * adamziel/reprint repo, then downloads the reprint.phar
  * asset from that release.
  */
 import fs from 'fs';
@@ -13,7 +13,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname( fileURLToPath( import.meta.url ) );
 
-const REPO = 'adamziel/streaming-site-migration';
+const REPO = 'adamziel/reprint';
 const ASSET_NAME = 'reprint.phar';
 const OUTPUT_PATH = path.join( __dirname, '..', 'apps', 'cli', 'lib', 'import', ASSET_NAME );
 

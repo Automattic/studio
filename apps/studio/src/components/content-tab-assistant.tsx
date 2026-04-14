@@ -359,9 +359,9 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 );
 
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
-	const { enableStudioCode } = useFeatureFlags();
+	const { enableStudioCodeUi } = useFeatureFlags();
 
-	if ( enableStudioCode ) {
+	if ( enableStudioCodeUi ) {
 		return <StudioCodeChat selectedSite={ selectedSite } />;
 	}
 

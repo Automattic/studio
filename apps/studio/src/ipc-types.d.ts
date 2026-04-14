@@ -88,7 +88,7 @@ type IpcApi = {
 
 interface FeatureFlags {
 	enableBlueprints: boolean;
-	enableStudioCode: boolean;
+	enableStudioCodeUi: boolean;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type

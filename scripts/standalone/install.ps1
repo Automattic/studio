@@ -38,9 +38,8 @@ function Get-Bundle {
 
 function Install-StudioCli {
     $Arch = Get-Platform
-    $BundleName = "studio-cli-win32-${Arch}.tar.gz"
-    $BundleUrl = "${BaseUrl}/${BundleName}"
-    $TmpDir = Join-Path $env:TEMP "studio-cli-install"
+    $BinaryName = "studio-cli-win32-${Arch}.exe"
+    $BinaryUrl = "${BaseUrl}/${BinaryName}"
 
     Write-Host "Studio CLI Installer"
     Write-Host ""
@@ -48,32 +47,11 @@ function Install-StudioCli {
 
     # Download
     Write-Host "Downloading Studio CLI..."
-    if (Test-Path $TmpDir) { Remove-Item $TmpDir -Recurse -Force }
-    New-Item -ItemType Directory -Path $TmpDir -Force | Out-Null
-    Get-Bundle -Url $BundleUrl -Dest "$TmpDir\$BundleName"
-
-    # Extract to temp location, then replace only bin/ and cli/
-    # to preserve existing config files (cli.json, shared.json, certificates, etc.)
-    Write-Host "Installing to $InstallDir..."
-    $ExtractDir = Join-Path $env:TEMP "studio-cli-extract"
-    if (Test-Path $ExtractDir) { Remove-Item $ExtractDir -Recurse -Force }
-    New-Item -ItemType Directory -Path $ExtractDir -Force | Out-Null
-    tar -xzf "$TmpDir\$BundleName" -C $ExtractDir --strip-components=1
-
-    # Replace only bin/ and cli/, preserving config
-    New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
-    foreach ($dir in @("bin", "cli")) {
-        $dest = Join-Path $InstallDir $dir
-        if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
-        Move-Item (Join-Path $ExtractDir $dir) -Destination $dest -Force
-    }
-    Remove-Item $ExtractDir -Recurse -Force
-
-    # Cleanup
-    Remove-Item $TmpDir -Recurse -Force
+    $BinDir = Join-Path $InstallDir "bin"
+    New-Item -ItemType Directory -Path $BinDir -Force | Out-Null
+    Get-Bundle -Url $BinaryUrl -Dest (Join-Path $BinDir "studio.exe")
 
     # Add to PATH
-    $BinDir = Join-Path $InstallDir "bin"
     $UserPath = [Environment]::GetEnvironmentVariable("PATH", "User")
     if ($UserPath -notlike "*$BinDir*") {
         [Environment]::SetEnvironmentVariable("PATH", "$BinDir;$UserPath", "User")

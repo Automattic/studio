@@ -5,9 +5,7 @@ import { MakerDMG } from '@electron-forge/maker-dmg';
 import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
 import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
-import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { exec } from 'child_process';
-import { exec as pkgExec } from '@yao-pkg/pkg';
 import type { ForgeConfig } from '@electron-forge/shared-types';
 
 const repoRoot = path.resolve( __dirname, '../..' );
@@ -18,15 +16,14 @@ const config: ForgeConfig = {
 		extraResource: [
 			path.join( __dirname, 'assets' ),
 			path.join( __dirname, 'bin' ),
-			path.join( repoRoot, 'apps', 'cli', 'dist', 'cli' ),
 		],
 		executableName: process.platform === 'linux' ? 'studio' : undefined,
 		icon: path.join( __dirname, 'assets', 'studio-app-icon' ),
 		osxSign: {
 			optionsForFile: ( filePath ) => {
-				// The bundled Node binary requires specific entitlements for V8 JIT compilation.
+				// The bundled binary (and bundled Node) requires specific entitlements for V8 JIT.
 				// Without these, V8 crashes with SIGTRAP when trying to allocate executable memory.
-				if ( filePath.endsWith( 'bin/node' ) ) {
+				if ( filePath.endsWith( 'bin/studio' ) || filePath.endsWith( 'bin/node' ) ) {
 					return {
 						entitlements: path.join( repoRoot, 'apps', 'studio', 'entitlements', 'node.plist' ),
 					};
@@ -71,7 +68,6 @@ const config: ForgeConfig = {
 			// External resources (shouldn't be in asar)
 			/^\/assets/,
 			/^\/bin/,
-			/^\/apps\/cli\/dist\/cli/,
 			/^\/dist\/playground-cli/,
 		],
 	},
@@ -164,81 +160,36 @@ const config: ForgeConfig = {
 			console.log( 'Downloading language packs ...' );
 			await execAsync( 'npm run download-language-packs' );
 
-			console.log( 'Building CLI (with bundled node_modules) ...' );
-			// NOTE: The `cli:package` script mutates the `apps/cli/node_modules` directory. You may need to
-			// rerun `npm ci` from the repo root to reset the dependency tree after packaging.
-			await execAsync( 'npm run cli:package' );
-
-			// Remove native binaries for other platforms from CLI's node_modules.
-			// Some packages ship binaries for all platforms which causes code-signing failures
-			// on Windows when signtool encounters non-PE binaries (e.g., darwin .node files).
-			console.log( `Removing native binaries for other platforms from CLI bundle...` );
-			const cliNodeModules = path.join( repoRoot, 'apps', 'cli', 'dist', 'cli', 'node_modules' );
-
-			// Clean up @anthropic-ai/claude-agent-sdk vendor binaries (uses {arch}-{platform} format)
-			const claudeVendorDir = path.join(
-				cliNodeModules,
-				'@anthropic-ai',
-				'claude-agent-sdk',
-				'vendor'
-			);
-			const platformSuffix = `-${ platform }`;
-			if ( fs.existsSync( claudeVendorDir ) ) {
-				for ( const toolDir of fs.readdirSync( claudeVendorDir ) ) {
-					const toolPath = path.join( claudeVendorDir, toolDir );
-					if ( fs.statSync( toolPath ).isDirectory() ) {
-						for ( const archPlatformDir of fs.readdirSync( toolPath ) ) {
-							if ( ! archPlatformDir.endsWith( platformSuffix ) ) {
-								const dirToRemove = path.join( toolPath, archPlatformDir );
-								fs.rmSync( dirToRemove, { recursive: true, force: true } );
-								console.log( `Removed claude-agent-sdk/vendor/${ toolDir }/${ archPlatformDir }` );
-							}
-						}
-					}
-				}
-			}
-
-			// Clean up koffi binaries (uses {platform}_{arch} format)
-			const koffiBuildDir = path.join( cliNodeModules, 'koffi', 'build', 'koffi' );
-			const platformPrefix = `${ platform }_`;
-			if ( fs.existsSync( koffiBuildDir ) ) {
-				for ( const platformArchDir of fs.readdirSync( koffiBuildDir ) ) {
-					if ( ! platformArchDir.startsWith( platformPrefix ) ) {
-						const dirToRemove = path.join( koffiBuildDir, platformArchDir );
-						if ( fs.statSync( dirToRemove ).isDirectory() ) {
-							fs.rmSync( dirToRemove, { recursive: true, force: true } );
-							console.log( `Removed koffi/build/koffi/${ platformArchDir }` );
-						}
-					}
-				}
-			}
-
-			console.log( `Downloading Node.js binary for ${ platform }-${ arch }...` );
+			// Build the CLI as a standalone binary with the bundle + node_modules embedded.
+			console.log( `Building CLI bundle for ${ platform }-${ arch }...` );
 			await execAsync(
 				`npx ts-node ${ path.join(
 					repoRoot,
 					'scripts',
-					'download-node-binary.ts'
+					'create-standalone-bundle.ts'
 				) } ${ platform } ${ arch }`
 			);
 
-			// Build CLI launcher executable for Windows AppX (Microsoft Store).
-			// AppX packages require AppExecutionAlias with an .exe target — batch files won't work.
+			// Copy the bundled binary to the app's bin directory
+			const cliBinaryName =
+				platform === 'win32'
+					? `studio-cli-${ platform }-${ arch }.exe`
+					: `studio-cli-${ platform }-${ arch }`;
+			const cliSource = path.join( repoRoot, 'standalone-bundles', cliBinaryName );
+			const cliDest = path.join(
+				__dirname,
+				'bin',
+				platform === 'win32' ? 'studio.exe' : 'studio'
+			);
+			fs.copyFileSync( cliSource, cliDest );
+			if ( platform !== 'win32' ) {
+				fs.chmodSync( cliDest, 0o755 );
+			}
+
+			// On Windows, the bundled binary also serves as the AppExecutionAlias target.
+			// Copy it as studio-cli.exe for the AppxManifest.
 			if ( platform === 'win32' ) {
-				const pkgArch = arch === 'x64' ? 'x64' : 'arm64';
-				const target = `node22-win-${ pkgArch }`;
-				console.log( `Building CLI launcher executable for ${ target }...` );
-				await pkgExec( [
-					'bin/studio-cli-launcher.js',
-					'--target',
-					target,
-					'--output',
-					'bin/studio-cli.exe',
-					'--compress',
-					'GZip',
-					'--no-bytecode',
-					'--public',
-				] );
+				fs.copyFileSync( cliDest, path.join( __dirname, 'bin', 'studio-cli.exe' ) );
 			}
 		},
 	},

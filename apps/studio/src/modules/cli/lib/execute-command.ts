@@ -1,9 +1,15 @@
 import { app } from 'electron';
-import { fork, ChildProcess, StdioOptions } from 'node:child_process';
+import { fork, spawn, ChildProcess, StdioOptions } from 'node:child_process';
 import EventEmitter from 'node:events';
+import path from 'node:path';
 import * as Sentry from '@sentry/electron/main';
 import { z } from 'zod';
-import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
+import {
+	getBundledNodeBinaryPath,
+	getCliBinaryPath,
+	getCliPath,
+	getResourcesPath,
+} from 'src/storage/paths';
 
 export type CliCommandResult = {
 	stdout: string;
@@ -124,26 +130,41 @@ export function executeCliCommand(
 	args: string[],
 	options: ExecuteCliCommandOptions = { output: 'ignore' }
 ): [ CliCommandEventEmitter< boolean >, ChildProcess ] {
-	const cliPath = getCliPath();
-
-	let stdio: StdioOptions | undefined;
 	/**
 	 * If there's an IPC channel, the CLI `Logger` uses IPC to communicate all expected events. This
 	 * means that for many CLI commands, the captured stdout/stderr will be empty, unless something
 	 * unexpected was logged.
 	 */
+	let stdio: StdioOptions;
 	if ( options.output === 'capture' ) {
 		stdio = [ 'ignore', 'pipe', 'pipe', 'ipc' ];
-	} else if ( options.output === 'ignore' ) {
+	} else {
 		stdio = [ 'ignore', 'ignore', 'ignore', 'ipc' ];
 	}
 
-	const child = fork( cliPath, [ ...args, '--avoid-telemetry' ], {
-		stdio,
-		execPath: getBundledNodeBinaryPath(),
-		execArgv: [ '--experimental-wasm-jspi' ],
-		env: { ...process.env },
-	} );
+	const cliBinaryPath = getCliBinaryPath();
+	const cliArgs = [ ...args, '--avoid-telemetry' ];
+
+	let child: ChildProcess;
+	if ( cliBinaryPath ) {
+		// Production: use the bundled binary directly. Set STUDIO_CLI_DIR so
+		// the binary extracts assets to the app's Resources directory.
+		child = spawn( cliBinaryPath, cliArgs, {
+			stdio,
+			env: {
+				...process.env,
+				STUDIO_CLI_DIR: path.join( getResourcesPath(), 'cli' ),
+			},
+		} );
+	} else {
+		// Development/test: use fork() with the CLI script and system Node
+		child = fork( getCliPath(), cliArgs, {
+			stdio,
+			execPath: getBundledNodeBinaryPath(),
+			execArgv: [ '--experimental-wasm-jspi' ],
+			env: { ...process.env },
+		} );
+	}
 	const eventEmitter = new CliCommandEventEmitter< boolean >();
 
 	child.on( 'spawn', () => {

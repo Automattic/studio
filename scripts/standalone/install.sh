@@ -67,29 +67,13 @@ download() {
 # --- Install ---
 
 install_studio() {
-	BUNDLE_NAME="studio-cli-${PLATFORM}-${ARCH}.tar.gz"
-	BUNDLE_URL="${BASE_URL}/${BUNDLE_NAME}"
-	TMP_DIR="$(mktemp -d)"
+	BINARY_NAME="studio-cli-${PLATFORM}-${ARCH}"
+	BINARY_URL="${BASE_URL}/${BINARY_NAME}"
 
 	echo "Downloading Studio CLI..."
-	download "$BUNDLE_URL" "$TMP_DIR/$BUNDLE_NAME"
-
-	echo "Installing to $INSTALL_DIR..."
-	# Extract to temp location first, then replace only bin/ and cli/
-	# to preserve existing config files (cli.json, shared.json, certificates, etc.)
-	EXTRACT_DIR="$(mktemp -d)"
-	tar -xzf "$TMP_DIR/$BUNDLE_NAME" -C "$EXTRACT_DIR" --strip-components=1
-
-	mkdir -p "$INSTALL_DIR"
-	rm -rf "$INSTALL_DIR/bin" "$INSTALL_DIR/cli"
-	mv "$EXTRACT_DIR/bin" "$INSTALL_DIR/bin"
-	mv "$EXTRACT_DIR/cli" "$INSTALL_DIR/cli"
-	rm -rf "$EXTRACT_DIR"
-
-	chmod +x "$INSTALL_DIR/bin/node"
+	mkdir -p "$INSTALL_DIR/bin"
+	download "$BINARY_URL" "$INSTALL_DIR/bin/studio"
 	chmod +x "$INSTALL_DIR/bin/studio"
-
-	rm -rf "$TMP_DIR"
 
 	# Symlink to PATH
 	mkdir -p "$BIN_DIR"

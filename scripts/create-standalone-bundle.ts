@@ -1,9 +1,13 @@
 #!/usr/bin/env ts-node
 /**
- * Creates a standalone Studio CLI bundle for the current platform.
- * Output: standalone-bundles/studio-cli-{platform}-{arch}.tar.gz|zip
+ * Creates a standalone Studio CLI binary.
  *
- * Prerequisites: Node.js >= 22, npm dependencies installed
+ * The CLI bundle and node_modules are embedded as assets inside the Node binary.
+ * On first run, the entry point extracts them to ~/.studio/cli/.
+ *
+ * Output: standalone-bundles/studio-cli-{platform}-{arch}[.exe]
+ *
+ * Prerequisites: Node.js >= 24, npm dependencies installed
  *
  * Usage:
  *   npx ts-node scripts/create-standalone-bundle.ts
@@ -38,74 +42,103 @@ if ( ! supportedArchs.includes( archArg ) ) {
 }
 
 const isWindows = platformArg === 'win32';
-const bundleName = `studio-cli-${ platformArg }-${ archArg }`;
+const isDarwin = platformArg === 'darwin';
+const bundleName = `studio-cli-${ platformArg }-${ archArg }${ isWindows ? '.exe' : '' }`;
 const outputDir = path.join( repoRoot, 'standalone-bundles' );
-const bundleDir = path.join( outputDir, bundleName );
 const nodeBinDir = path.join( repoRoot, 'apps', 'studio', 'bin' );
+const bundleDir = path.join( repoRoot, 'apps', 'cli', 'bundle' );
+const bundleBuildDir = path.join( bundleDir, 'build' );
+const cliDistDir = path.join( repoRoot, 'apps', 'cli', 'dist', 'cli' );
 
-function run( cmd: string ): void {
-	execSync( cmd, { cwd: repoRoot, stdio: 'inherit' } );
+function run( cmd: string, cwd?: string ): void {
+	execSync( cmd, { cwd: cwd ?? repoRoot, stdio: 'inherit' } );
 }
 
 async function main(): Promise< void > {
-	console.log( `==> Building standalone bundle: ${ bundleName }\n` );
+	console.log( `==> Building standalone binary: ${ bundleName }\n` );
 
-	// Step 1: Build CLI with bundled node_modules
-	console.log( '==> Step 1/4: Building CLI package...' );
+	// Step 1: Build CLI
+	console.log( '==> Step 1/5: Building CLI package...' );
 	run( 'npm run cli:package' );
 
 	// Step 2: Download Node binary for target platform
-	console.log( `\n==> Step 2/4: Downloading Node.js binary for ${ platformArg }-${ archArg }...` );
+	console.log( `\n==> Step 2/5: Downloading Node.js binary for ${ platformArg }-${ archArg }...` );
 	run( `npx ts-node scripts/download-node-binary.ts ${ platformArg } ${ archArg }` );
 
-	// Step 3: Assemble bundle
-	console.log( '\n==> Step 3/4: Assembling bundle...' );
-	fs.rmSync( bundleDir, { recursive: true, force: true } );
-	fs.mkdirSync( path.join( bundleDir, 'bin' ), { recursive: true } );
-	fs.mkdirSync( path.join( bundleDir, 'cli' ), { recursive: true } );
+	// Step 3: Create bundle assets (tarballs of CLI bundle + node_modules)
+	console.log( '\n==> Step 3/5: Creating bundle assets...' );
+	fs.rmSync( bundleBuildDir, { recursive: true, force: true } );
+	fs.mkdirSync( bundleBuildDir, { recursive: true } );
 
-	// Copy Node binary
-	const nodeBinary = isWindows ? 'node.exe' : 'node';
-	fs.copyFileSync( path.join( nodeBinDir, nodeBinary ), path.join( bundleDir, 'bin', nodeBinary ) );
-	if ( ! isWindows ) {
-		fs.chmodSync( path.join( bundleDir, 'bin', nodeBinary ), 0o755 );
-	}
+	// CLI bundle (JS files, wp-files, etc. — excludes node_modules)
+	run(
+		`tar -czf "${ path.join( bundleBuildDir, 'cli.tar.gz' ) }" --exclude='node_modules' .`,
+		cliDistDir
+	);
 
-	// Copy CLI bundle
-	fs.cpSync( path.join( repoRoot, 'apps', 'cli', 'dist', 'cli' ), path.join( bundleDir, 'cli' ), {
-		recursive: true,
-	} );
+	// node_modules — use source node_modules (not dist) because externalized
+	// native packages have transitive deps (e.g. ws, ini) that they need at runtime.
+	// Strip browser dirs to save space. Keep asyncify as fallback for JSPI.
+	const cliNodeModules = path.join( repoRoot, 'apps', 'cli', 'node_modules' );
+	run(
+		`tar -czf "${ path.join( bundleBuildDir, 'node_modules.tar.gz' ) }" ` +
+			`--exclude='.cache' ` +
+			`--exclude='playwright/browsers' --exclude='playwright-core/browsers' .`,
+		cliNodeModules
+	);
 
-	// Copy launcher script
-	const standaloneDir = path.join( repoRoot, 'scripts', 'standalone' );
-	if ( isWindows ) {
-		fs.copyFileSync(
-			path.join( standaloneDir, 'studio.cmd' ),
-			path.join( bundleDir, 'bin', 'studio.cmd' )
-		);
-	} else {
-		fs.copyFileSync(
-			path.join( standaloneDir, 'studio' ),
-			path.join( bundleDir, 'bin', 'studio' )
-		);
-		fs.chmodSync( path.join( bundleDir, 'bin', 'studio' ), 0o755 );
-	}
+	const cliSize = (
+		fs.statSync( path.join( bundleBuildDir, 'cli.tar.gz' ) ).size /
+		1024 /
+		1024
+	).toFixed( 1 );
+	const nmSize = (
+		fs.statSync( path.join( bundleBuildDir, 'node_modules.tar.gz' ) ).size /
+		1024 /
+		1024
+	).toFixed( 1 );
+	console.log( `   CLI bundle: ${ cliSize } MB, node_modules: ${ nmSize } MB` );
 
-	// Step 4: Compress (tar.gz for all platforms)
-	console.log( '\n==> Step 4/4: Compressing...' );
+	// Step 4: Generate bundle blob
+	console.log( '\n==> Step 4/5: Generating bundle blob...' );
+	run( 'node --experimental-sea-config config.json', bundleDir );
+
+	// Step 5: Inject bundle blob into Node binary
+	console.log( '\n==> Step 5/5: Injecting bundle blob into Node binary...' );
 	fs.mkdirSync( outputDir, { recursive: true } );
 
-	const archivePath = path.join( outputDir, `${ bundleName }.tar.gz` );
+	const nodeBinary = isWindows ? 'node.exe' : 'node';
+	const outputPath = path.join( outputDir, bundleName );
 
-	// Remove existing archive
-	fs.rmSync( archivePath, { force: true } );
+	fs.copyFileSync( path.join( nodeBinDir, nodeBinary ), outputPath );
+	if ( ! isWindows ) {
+		fs.chmodSync( outputPath, 0o755 );
+	}
 
-	run( `tar -czf "${ archivePath }" -C "${ outputDir }" "${ bundleName }"` );
+	// macOS: remove code signature before injection
+	if ( isDarwin ) {
+		run( `codesign --remove-signature "${ outputPath }"` );
+	}
 
-	fs.rmSync( bundleDir, { recursive: true, force: true } );
+	// Inject the bundle blob
+	const blobPath = path.join( bundleDir, 'bundle.blob' );
+	run(
+		`npx postject "${ outputPath }" NODE_SEA_BLOB "${ blobPath }" ` +
+			'--sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2' +
+			( isDarwin ? ' --macho-segment-name NODE_SEA' : '' )
+	);
 
-	const size = ( fs.statSync( archivePath ).size / 1024 / 1024 ).toFixed( 1 );
-	console.log( `\n==> Done! Bundle: ${ archivePath } (${ size } MB)` );
+	// macOS: re-sign with ad-hoc signature
+	if ( isDarwin ) {
+		run( `codesign -s - "${ outputPath }"` );
+	}
+
+	// Cleanup build artifacts
+	fs.rmSync( bundleBuildDir, { recursive: true, force: true } );
+	fs.rmSync( blobPath, { force: true } );
+
+	const size = ( fs.statSync( outputPath ).size / 1024 / 1024 ).toFixed( 1 );
+	console.log( `\n==> Done! Binary: ${ outputPath } (${ size } MB)` );
 }
 
 main().catch( ( error ) => {

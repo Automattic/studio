@@ -1,6 +1,11 @@
+import { existsSync, symlinkSync, unlinkSync } from 'fs';
+import { resolve } from 'path';
 import { defineConfig, mergeConfig } from 'vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 import { baseConfig } from './vite.config.base';
+
+const cliNodeModulesPath = resolve( __dirname, 'node_modules' );
+const distNodeModulesPath = resolve( __dirname, 'dist/cli/node_modules' );
 
 export default mergeConfig(
 	baseConfig,
@@ -14,6 +19,25 @@ export default mergeConfig(
 					},
 				],
 			} ),
+			{
+				// Symlink node_modules for dev builds so native modules are accessible
+				// without copying hundreds of MB on every rebuild.
+				name: 'symlink-node-modules',
+				apply: 'build' as const,
+				closeBundle() {
+					if ( ! existsSync( cliNodeModulesPath ) ) {
+						return;
+					}
+					try {
+						unlinkSync( distNodeModulesPath );
+					} catch {
+						// ignore if doesn't exist
+					}
+					if ( ! existsSync( distNodeModulesPath ) ) {
+						symlinkSync( cliNodeModulesPath, distNodeModulesPath );
+					}
+				},
+			},
 		],
 	} )
 );

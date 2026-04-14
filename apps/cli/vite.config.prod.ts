@@ -8,6 +8,20 @@ import { baseConfig } from './vite.config.base';
 const cliNodeModulesPath = resolve( __dirname, 'node_modules' );
 const distCliNodeModulesPath = resolve( __dirname, 'dist/cli/node_modules' );
 
+// Only copy native/WASM packages to dist (pure JS deps are inlined by Vite)
+// Only copy packages that can't be bundled (native addons, WASM, worker thread deps)
+const nativeModulePaths = [
+	{ src: 'node_modules/@php-wasm', dest: 'node_modules' },
+	{ src: 'node_modules/@wp-playground', dest: 'node_modules' },
+	{ src: 'node_modules/@anthropic-ai', dest: 'node_modules' },
+	{ src: 'node_modules/@img', dest: 'node_modules' },
+	{ src: 'node_modules/fs-ext-extra-prebuilt', dest: 'node_modules' },
+	{ src: 'node_modules/koffi', dest: 'node_modules' },
+	{ src: 'node_modules/sharp', dest: 'node_modules' },
+	{ src: 'node_modules/playwright', dest: 'node_modules' },
+	{ src: 'node_modules/playwright-core', dest: 'node_modules' },
+];
+
 export default mergeConfig(
 	baseConfig,
 	defineConfig( {
@@ -15,12 +29,9 @@ export default mergeConfig(
 			...( existsSync( cliNodeModulesPath )
 				? [
 						viteStaticCopy( {
-							targets: [
-								{
-									src: 'node_modules',
-									dest: '.',
-								},
-							],
+							targets: nativeModulePaths.filter( ( { src } ) =>
+								existsSync( resolve( __dirname, src ) )
+							),
 						} ),
 						{
 							// Remove PHP-WASM asyncify binaries from dist. JSPI is newer and faster

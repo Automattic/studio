@@ -1,6 +1,10 @@
 # Standalone CLI bundles
 standalone-bundles/
 
+# Bundle build artifacts
+apps/cli/bundle/build/
+apps/cli/bundle/bundle.blob
+
 # Logs
 logs
 *.log

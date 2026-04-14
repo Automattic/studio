@@ -200,7 +200,7 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 
 	/**
 	 * Check if a standalone CLI (installed via install.ps1) is present.
-	 * Detects the standalone launcher (studio.cmd) in the default or custom install path.
+	 * Detects the standalone binary (studio.exe) in the default or custom install path.
 	 */
 	private async isStandaloneCli(): Promise< boolean > {
 		const currentPath = await this.getPathFromRegistry();
@@ -211,8 +211,8 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 			if ( dir.toLowerCase() === STABLE_BIN_DIR_PATH.toLowerCase() ) {
 				continue;
 			}
-			const studioCmdPath = path.join( dir, 'studio.cmd' );
-			if ( existsSync( studioCmdPath ) ) {
+			const studioExePath = path.join( dir, 'studio.exe' );
+			if ( existsSync( studioExePath ) ) {
 				return true;
 			}
 		}

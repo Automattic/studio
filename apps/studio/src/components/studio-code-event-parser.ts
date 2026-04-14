@@ -154,21 +154,14 @@ export function parseStudioCodeEvent( event: StudioCodeEvent ): ParsedAction[] {
 			];
 
 		case 'question.asked':
-			if ( event.questions.length > 0 ) {
-				const q = event.questions[ 0 ];
-				return [
-					{
-						type: 'PERMISSION_REQUEST',
-						request: {
-							id: crypto.randomUUID(),
-							toolName: q.question,
-							input: {},
-							description: q.question,
-						},
-					},
-				];
-			}
-			return [];
+			return event.questions.map( ( q ) => ( {
+				type: 'PERMISSION_REQUEST' as const,
+				request: {
+					id: crypto.randomUUID(),
+					question: q.question,
+					options: q.options.map( ( o ) => o.label ),
+				},
+			} ) );
 
 		case 'progress':
 			return [ { type: 'SET_PROGRESS', message: event.message } ];

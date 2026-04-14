@@ -17,7 +17,6 @@ export type ChatMessage = {
 
 export type PermissionRequest = {
 	id: string;
-	toolName: string;
-	input: Record< string, unknown >;
-	description: string;
+	question: string;
+	options: string[];
 };

@@ -251,17 +251,17 @@ export function StudioCodeChat( { selectedSite }: StudioCodeChatProps ) {
 	}, [] );
 
 	const handlePermissionRespond = useCallback(
-		( id: string, allowed: boolean ) => {
+		( id: string, answer: string ) => {
 			dispatch( { type: 'PERMISSION_RESOLVED' } );
-			const answer: Record< string, string > = {};
+			const response: Record< string, string > = {};
 			if ( state.pendingPermission ) {
-				answer[ state.pendingPermission.toolName ] = allowed ? 'Allow once' : 'Deny';
+				response[ state.pendingPermission.question ] = answer;
 			}
 			void getIpcApi().studioCodeRespondToPermission(
 				selectedSite.id,
 				selectedSite.path,
 				state.lastUserMessage ?? 'Continue',
-				answer
+				response
 			);
 		},
 		[ selectedSite.id, selectedSite.path, state.pendingPermission, state.lastUserMessage ]

@@ -6,58 +6,36 @@ import type { PermissionRequest } from 'src/components/studio-code-types';
 describe( 'StudioCodePermission', () => {
 	const mockPermission: PermissionRequest = {
 		id: 'perm_1',
-		toolName: 'Write',
-		input: { file_path: '/Users/test/file.txt' },
-		description: 'Write to /Users/test/file.txt',
+		question: 'Allow Write to access /Users/test/file.txt?',
+		options: [ 'Allow once', 'Allow for this session', 'Deny' ],
 	};
 
-	it( 'renders permission request with Allow and Deny buttons', () => {
+	it( 'renders permission request with option buttons', () => {
 		const onRespond = vi.fn();
 		render( <StudioCodePermission permission={ mockPermission } onRespond={ onRespond } /> );
 		expect( screen.getByText( 'Permission Required' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'Allow' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Allow once' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Allow for this session' ) ).toBeInTheDocument();
 		expect( screen.getByText( 'Deny' ) ).toBeInTheDocument();
 	} );
 
-	it( 'renders the tool name', () => {
+	it( 'renders the question', () => {
 		const onRespond = vi.fn();
 		render( <StudioCodePermission permission={ mockPermission } onRespond={ onRespond } /> );
-		expect( screen.getByText( 'Write' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Allow Write to access /Users/test/file.txt?' ) ).toBeInTheDocument();
 	} );
 
-	it( 'renders the description', () => {
+	it( 'calls onRespond with the selected option label', () => {
 		const onRespond = vi.fn();
 		render( <StudioCodePermission permission={ mockPermission } onRespond={ onRespond } /> );
-		expect( screen.getByText( 'Write to /Users/test/file.txt' ) ).toBeInTheDocument();
+		fireEvent.click( screen.getByText( 'Allow once' ) );
+		expect( onRespond ).toHaveBeenCalledWith( 'perm_1', 'Allow once' );
 	} );
 
-	it( 'calls onRespond with allowed=true when Allow clicked', () => {
-		const onRespond = vi.fn();
-		render( <StudioCodePermission permission={ mockPermission } onRespond={ onRespond } /> );
-		fireEvent.click( screen.getByText( 'Allow' ) );
-		expect( onRespond ).toHaveBeenCalledWith( 'perm_1', true );
-	} );
-
-	it( 'calls onRespond with allowed=false when Deny clicked', () => {
+	it( 'calls onRespond with Deny when Deny clicked', () => {
 		const onRespond = vi.fn();
 		render( <StudioCodePermission permission={ mockPermission } onRespond={ onRespond } /> );
 		fireEvent.click( screen.getByText( 'Deny' ) );
-		expect( onRespond ).toHaveBeenCalledWith( 'perm_1', false );
-	} );
-
-	it( 'renders input JSON when input has keys', () => {
-		const onRespond = vi.fn();
-		render( <StudioCodePermission permission={ mockPermission } onRespond={ onRespond } /> );
-		expect( screen.getByText( /file_path/ ) ).toBeInTheDocument();
-	} );
-
-	it( 'does not render input JSON when input is empty', () => {
-		const onRespond = vi.fn();
-		const emptyInputPermission: PermissionRequest = {
-			...mockPermission,
-			input: {},
-		};
-		render( <StudioCodePermission permission={ emptyInputPermission } onRespond={ onRespond } /> );
-		expect( screen.queryByText( /file_path/ ) ).not.toBeInTheDocument();
+		expect( onRespond ).toHaveBeenCalledWith( 'perm_1', 'Deny' );
 	} );
 } );

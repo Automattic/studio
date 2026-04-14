@@ -35,6 +35,7 @@ import {
 	runReprintCommandUntilComplete,
 } from 'cli/lib/import/migration-client';
 import {
+	ensureImportedSiteSqliteReady,
 	loadImportedRuntimeStartOptions,
 	normalizeImportedSqliteDatabasePath,
 } from 'cli/lib/import/runtime-start-options';
@@ -1455,7 +1456,10 @@ export async function runCommand(
 			await runReprintCommandUntilComplete(
 				metadata.stateDirectory,
 				metadata.rawDirectory,
-				buildFilesSyncArgs( metadata, apiUrl, secret, [ '--filter=essential-files', '--follow-symlinks' ] ),
+				buildFilesSyncArgs( metadata, apiUrl, secret, [
+					'--filter=essential-files',
+					'--follow-symlinks',
+				] ),
 				( progress ) => logger.reportProgress( progress ),
 				{
 					progressLabel: 'Downloading files',
@@ -1563,6 +1567,7 @@ export async function runCommand(
 
 		const site = ( await syncMetadataWithExistingSite( metadata ) )!;
 		if ( ! hasReachedStage( metadata, 'site-started' ) ) {
+			await ensureImportedSiteSqliteReady( metadata.runtimeBlueprintPath );
 			const runtimeStartOptions = await loadImportedRuntimeStartOptions(
 				metadata.runtimeBlueprintPath
 			);

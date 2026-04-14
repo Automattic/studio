@@ -1,4 +1,5 @@
 // To run tests, execute `npm run test -- src/modules/sync/tests/index.test.tsx` from the root directory
+import { SyncSite } from '@studio/common/types/sync';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { vi } from 'vitest';
@@ -9,7 +10,6 @@ import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ContentTabSync } from 'src/modules/sync';
 import { useSelectedItemsPushSize } from 'src/modules/sync/hooks/use-selected-items-push-size';
-import { SyncSite } from 'src/modules/sync/types';
 import { store } from 'src/stores';
 import { syncOperationsActions, useLatestRewindId, useRemoteFileTree } from 'src/stores/sync';
 import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
@@ -20,6 +20,7 @@ store.replaceReducer( testReducer );
 const mockPullSiteThunk = vi.hoisted( () => vi.fn() );
 const mockPushSiteThunk = vi.hoisted( () => vi.fn() );
 
+vi.mock( 'src/components/dot-grid', () => ( { DotGrid: () => null } ) );
 vi.mock( 'src/lib/get-ipc-api' );
 vi.mock( 'src/hooks/use-auth' );
 vi.mock( 'src/stores/sync/wpcom-sites', async () => {
@@ -158,6 +159,7 @@ describe( 'ContentTabSync', () => {
 			getDirectorySize: vi.fn().mockResolvedValue( 0 ),
 			connectWpcomSites: vi.fn(),
 			getWpVersion: vi.fn().mockResolvedValue( '6.4.3' ),
+			getIsMultisite: vi.fn().mockResolvedValue( false ),
 			listLocalFileTree: vi.fn().mockResolvedValue( [
 				{
 					name: 'plugins',

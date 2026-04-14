@@ -72,7 +72,8 @@ type UserDataSafeKeys =
 	| 'preferredEditor'
 	| 'betaFeatures'
 	| 'colorScheme'
-	| 'preferredAiEngine';
+	| 'preferredAiEngine'
+	| 'cliAutoInstalled';
 
 type PartialUserDataWithSafeKeysToUpdate = Partial< Pick< UserData, UserDataSafeKeys > >;
 

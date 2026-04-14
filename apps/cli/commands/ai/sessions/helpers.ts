@@ -123,7 +123,7 @@ export function displaySessionsCompact( sessions: AiSessionSummary[] ): void {
 	};
 
 	console.log(
-		chalk.bold( __( 'AI Sessions' ) ) +
+		chalk.bold( __( 'Code Sessions' ) ) +
 			chalk.dim( ` (${ sessions.length })` ) +
 			chalk.dim( ` · ${ __( 'Most recent first' ) }` )
 	);
@@ -167,7 +167,10 @@ async function pickSessionInteractively(
 				loop: false,
 				theme: {
 					style: {
-						keysHelpTip: () => chalk.dim( '↑↓ navigate · ⏎ select · esc cancel' ),
+						keysHelpTip: () =>
+							chalk.dim(
+								[ __( '↑↓ navigate' ), __( '⏎ select' ), __( 'esc cancel' ) ].join( ' · ' )
+							),
 					},
 				},
 			},

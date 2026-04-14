@@ -38,6 +38,7 @@ describe( 'ai-sessions', () => {
 		await recorder.recordSiteSelected( {
 			name: 'My WordPress Website',
 			path: '/tmp/my-wordpress-website',
+			running: false,
 		} );
 		await recorder.recordUserMessage( {
 			text: 'Help me create a plugin',
@@ -153,6 +154,7 @@ describe( 'ai-sessions', () => {
 		await recorder.recordSiteSelected( {
 			name: 'my-remote-site',
 			path: '',
+			running: false,
 			remote: true,
 			url: 'https://my-remote-site.wordpress.com',
 		} );
@@ -232,6 +234,7 @@ describe( 'ai-sessions', () => {
 		await recorder.recordSiteSelected( {
 			name: 'My WordPress Website',
 			path: '/tmp/my-wordpress-website',
+			running: false,
 		} );
 		await recorder.recordUserMessage( {
 			text: 'Create a homepage for me',
@@ -318,7 +321,7 @@ describe( 'ai-sessions', () => {
 		process.env.E2E_APP_DATA_PATH = testRoot;
 
 		await expect( deleteAiSession( 'does-not-exist' ) ).rejects.toThrow(
-			'AI session not found: does-not-exist'
+			'Code session not found: does-not-exist'
 		);
 	} );
 
@@ -517,5 +520,186 @@ describe( 'ai-sessions', () => {
 			},
 			{ announce: true, emitEvent: false }
 		);
+	} );
+
+	it( 'records a session.cleared event', async () => {
+		testRoot = await fs.mkdtemp( path.join( os.tmpdir(), 'studio-ai-sessions-' ) );
+		process.env.E2E = '1';
+		process.env.E2E_APP_DATA_PATH = testRoot;
+
+		const startedAt = new Date( '2026-04-10T12:00:00.000Z' );
+		const recorder = await AiSessionRecorder.create( { startedAt } );
+		await recorder.recordSessionCleared();
+
+		const events = await readAiSessionEventsFromFile( recorder.filePath );
+		const clearedEvent = events.find( ( e ) => e.type === 'session.cleared' );
+		expect( clearedEvent ).toBeDefined();
+		expect( clearedEvent?.timestamp ).toMatch( /^\d{4}-\d{2}-\d{2}T/ );
+	} );
+
+	type FakeReplayUi = Parameters< typeof replaySessionHistory >[ 0 ];
+
+	function makeFakeReplayUi( seen: string[] ): FakeReplayUi {
+		const noop = () => undefined;
+		return {
+			prepareForReplay: noop,
+			finishReplay: noop,
+			setReplayTimestamp: noop,
+			setActiveSite: noop,
+			beginAgentTurn: noop,
+			endAgentTurn: noop,
+			addUserMessage: ( text: string ) => {
+				seen.push( `user.message:${ text }` );
+			},
+			handleMessage: noop,
+			setLoaderMessage: noop,
+			showAgentQuestion: noop,
+		} as unknown as FakeReplayUi;
+	}
+
+	it( 'replays all events when no session.cleared marker is present', () => {
+		const events: AiSessionEvent[] = [
+			{
+				type: 'session.started',
+				timestamp: '2026-04-10T12:00:00.000Z',
+				version: 1,
+				sessionId: 'test',
+			},
+			{
+				type: 'user.message',
+				timestamp: '2026-04-10T12:00:01.000Z',
+				text: 'Hello',
+				source: 'prompt',
+			},
+			{
+				type: 'turn.closed',
+				timestamp: '2026-04-10T12:00:02.000Z',
+				status: 'success',
+			},
+		];
+		const seen: string[] = [];
+		const fakeUi = makeFakeReplayUi( seen );
+		replaySessionHistory( fakeUi, events );
+		expect( seen ).toContain( 'user.message:Hello' );
+	} );
+
+	it( 'replays only events after the last session.cleared marker', () => {
+		const events: AiSessionEvent[] = [
+			{
+				type: 'user.message',
+				timestamp: '2026-04-10T12:00:00.000Z',
+				text: 'before clear',
+				source: 'prompt',
+			},
+			{
+				type: 'turn.closed',
+				timestamp: '2026-04-10T12:00:01.000Z',
+				status: 'success',
+			},
+			{
+				type: 'session.cleared',
+				timestamp: '2026-04-10T12:00:02.000Z',
+			},
+			{
+				type: 'user.message',
+				timestamp: '2026-04-10T12:00:03.000Z',
+				text: 'after clear',
+				source: 'prompt',
+			},
+			{
+				type: 'turn.closed',
+				timestamp: '2026-04-10T12:00:04.000Z',
+				status: 'success',
+			},
+		];
+		const seen: string[] = [];
+		const fakeUi = makeFakeReplayUi( seen );
+		replaySessionHistory( fakeUi, events );
+		expect( seen ).toContain( 'user.message:after clear' );
+		expect( seen ).not.toContain( 'user.message:before clear' );
+	} );
+
+	it( 'replays only events after the most recent of multiple session.cleared markers', () => {
+		const events: AiSessionEvent[] = [
+			{
+				type: 'user.message',
+				timestamp: '2026-04-10T12:00:00.000Z',
+				text: 'first',
+				source: 'prompt',
+			},
+			{
+				type: 'session.cleared',
+				timestamp: '2026-04-10T12:00:01.000Z',
+			},
+			{
+				type: 'user.message',
+				timestamp: '2026-04-10T12:00:02.000Z',
+				text: 'second',
+				source: 'prompt',
+			},
+			{
+				type: 'session.cleared',
+				timestamp: '2026-04-10T12:00:03.000Z',
+			},
+			{
+				type: 'user.message',
+				timestamp: '2026-04-10T12:00:04.000Z',
+				text: 'third',
+				source: 'prompt',
+			},
+		];
+		const seen: string[] = [];
+		const fakeUi = makeFakeReplayUi( seen );
+		replaySessionHistory( fakeUi, events );
+		expect( seen ).toContain( 'user.message:third' );
+		expect( seen ).not.toContain( 'user.message:first' );
+		expect( seen ).not.toContain( 'user.message:second' );
+	} );
+
+	it( 'replays post-clear site.selected events so active site is restored', () => {
+		const events: AiSessionEvent[] = [
+			{
+				type: 'user.message',
+				timestamp: '2026-04-10T12:00:00.000Z',
+				text: 'before clear',
+				source: 'prompt',
+			},
+			{
+				type: 'session.cleared',
+				timestamp: '2026-04-10T12:00:01.000Z',
+			},
+			{
+				type: 'site.selected',
+				timestamp: '2026-04-10T12:00:02.000Z',
+				siteName: 'Post-Clear Site',
+				sitePath: '/tmp/post-clear',
+			},
+			{
+				type: 'user.message',
+				timestamp: '2026-04-10T12:00:03.000Z',
+				text: 'after clear',
+				source: 'prompt',
+			},
+		];
+
+		const setActiveSite = vi.fn();
+		const seen: string[] = [];
+		const fakeUi = {
+			...makeFakeReplayUi( seen ),
+			setActiveSite,
+		} as unknown as FakeReplayUi;
+
+		replaySessionHistory( fakeUi, events );
+
+		expect( setActiveSite ).toHaveBeenCalledTimes( 1 );
+		expect( setActiveSite ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				name: 'Post-Clear Site',
+				path: '/tmp/post-clear',
+			} ),
+			expect.anything()
+		);
+		expect( seen ).toContain( 'user.message:after clear' );
+		expect( seen ).not.toContain( 'user.message:before clear' );
 	} );
 } );

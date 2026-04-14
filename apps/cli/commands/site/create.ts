@@ -52,6 +52,7 @@ import {
 	type BlueprintV1Declaration,
 	type StepDefinition,
 } from '@wp-playground/blueprints';
+import { bumpStat, getPlatformMetric } from 'cli/lib/bump-stat';
 import {
 	lockCliConfig,
 	readCliConfig,
@@ -73,6 +74,7 @@ import { generateSiteName } from 'cli/lib/site-name';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
+import { StatsGroup } from 'cli/lib/types/bump-stats';
 import { untildify } from 'cli/lib/utils';
 import { ValidationError } from 'cli/lib/validation-error';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
@@ -587,6 +589,10 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'string',
 					describe: __( 'Path or URL to Blueprint JSON file' ),
 				} )
+				.option( 'original-blueprint-path', {
+					type: 'string',
+					hidden: true,
+				} )
 				.option( 'admin-username', {
 					type: 'string',
 					describe: __( 'Admin username (defaults to "admin")' ),
@@ -767,11 +773,26 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 						uri,
 						contents: readBlueprint( uri ),
 					};
+
+					// When invoked by the desktop app, the blueprint contents come from a temp file
+					// but resources should be resolved relative to the original file location.
+					if ( argv.originalBlueprintPath ) {
+						config.blueprint.uri = path.resolve( argv.originalBlueprintPath );
+					}
 				}
 			}
 
 			try {
 				await runCommand( sitePath, config );
+
+				if ( __ENABLE_CLI_TELEMETRY__ && ! argv.avoidTelemetry ) {
+					bumpStat(
+						__IS_PACKAGED_FOR_NPM__
+							? StatsGroup.STUDIO_CLI_SITE_CREATE_NPM
+							: StatsGroup.STUDIO_CLI_SITE_CREATE_APP,
+						getPlatformMetric()
+					);
+				}
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );

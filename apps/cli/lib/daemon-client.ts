@@ -152,7 +152,7 @@ async function waitForDaemonReady() {
 }
 
 function spawnDaemonProcess() {
-	const daemonScriptPath = path.resolve( import.meta.dirname, 'process-manager-daemon.js' );
+	const daemonScriptPath = path.resolve( import.meta.dirname, 'process-manager-daemon.mjs' );
 	const daemonProcess = spawn( process.execPath, [ daemonScriptPath ], {
 		detached: true,
 		stdio: 'ignore',
@@ -245,7 +245,7 @@ const daemonListProcessesSuccessResponseSchema = z.object( {
 
 // Cache the process list returned from the process manager for a very short time to make multiple
 // calls in quick succession more efficient
-async function listProcesses() {
+export async function listProcesses() {
 	await connectToDaemon();
 	const response = await sendDaemonRequest( {
 		type: 'list-processes',
@@ -272,7 +272,7 @@ export async function sendMessageToProcess(
 }
 
 export async function startProxyProcess(): Promise< ProcessDescription > {
-	const proxyDaemonPath = path.resolve( import.meta.dirname, 'proxy-daemon.js' );
+	const proxyDaemonPath = path.resolve( import.meta.dirname, 'proxy-daemon.mjs' );
 
 	return startProcess( PROXY_PROCESS_NAME, proxyDaemonPath );
 }

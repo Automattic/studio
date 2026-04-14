@@ -2,29 +2,21 @@
  * @vitest-environment node
  */
 // To run tests, execute `npm run test -- src/storage/user-data.test.ts` from the root directory
+import fs from 'fs';
 import { readFile, writeFile } from 'atomically';
+import { vol } from 'memfs';
 import { vi } from 'vitest';
 import { loadUserData, lockAppdata, unlockAppdata, saveUserData } from 'src/storage/user-data';
 import { UserData } from '../storage-types';
 
-const { getUserDataFilePathMock, getAppConfigLockFilePathMock, mockFsExistsSync, mockFsMkdirSync } =
-	vi.hoisted( () => {
-		return {
-			getUserDataFilePathMock: vi.fn().mockReturnValue( '/path/to/app/.studio/app.json' ),
-			getAppConfigLockFilePathMock: vi.fn().mockReturnValue( '/path/to/app/.studio/app.json.lock' ),
-			mockFsExistsSync: vi.fn().mockReturnValue( true ),
-			mockFsMkdirSync: vi.fn(),
-		};
-	} );
+const { getUserDataFilePathMock, getAppConfigLockFilePathMock } = vi.hoisted( () => {
+	return {
+		getUserDataFilePathMock: vi.fn().mockReturnValue( '/path/to/app/.studio/app.json' ),
+		getAppConfigLockFilePathMock: vi.fn().mockReturnValue( '/path/to/app/.studio/app.json.lock' ),
+	};
+} );
 
-vi.mock( 'fs', () => ( {
-	default: {
-		existsSync: mockFsExistsSync,
-		mkdirSync: mockFsMkdirSync,
-	},
-	existsSync: mockFsExistsSync,
-	mkdirSync: mockFsMkdirSync,
-} ) );
+vi.mock( 'fs' );
 vi.mock( 'src/storage/paths', () => ( {
 	getUserDataFilePath: getUserDataFilePathMock,
 } ) );
@@ -68,6 +60,11 @@ const mockedUserData: UserData = {
 };
 
 describe( 'User data', () => {
+	beforeEach( () => {
+		vol.reset();
+		vi.mocked( fs.existsSync ).mockReturnValue( true );
+	} );
+
 	afterEach( () => {
 		vi.clearAllMocks();
 	} );

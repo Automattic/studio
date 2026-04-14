@@ -16,6 +16,7 @@ import { AI_PROVIDERS, type AiProviderId } from 'cli/ai/providers';
 import { resolveResumeSessionContext } from 'cli/ai/sessions/context';
 import { AiSessionRecorder } from 'cli/ai/sessions/recorder';
 import { replaySessionHistory } from 'cli/ai/sessions/replay';
+import { listAiSessions } from 'cli/ai/sessions/store';
 import { type LoadedAiSession, type TurnStatus } from 'cli/ai/sessions/types';
 import { AI_CHAT_SLASH_COMMANDS, type SlashCommandContext } from 'cli/ai/slash-commands';
 import { AiChatUI } from 'cli/ai/ui';
@@ -97,6 +98,22 @@ export async function runCommand( options: {
 					filePath: options.resumeSession.summary.filePath,
 					linkedAgentSessionIds: options.resumeSession.summary.linkedAgentSessionIds,
 				} );
+			} else if ( options.resumeSessionId ) {
+				// Find existing session file by SDK agent session ID so
+				// follow-up turns append to the same file instead of creating new ones.
+				const sessions = await listAiSessions();
+				const existing = sessions.find( ( s ) =>
+					s.linkedAgentSessionIds.includes( options.resumeSessionId! )
+				);
+				if ( existing ) {
+					sessionRecorder = await AiSessionRecorder.open( {
+						sessionId: existing.id,
+						filePath: existing.filePath,
+						linkedAgentSessionIds: existing.linkedAgentSessionIds,
+					} );
+				} else {
+					sessionRecorder = await AiSessionRecorder.create();
+				}
 			} else {
 				sessionRecorder = await AiSessionRecorder.create();
 			}

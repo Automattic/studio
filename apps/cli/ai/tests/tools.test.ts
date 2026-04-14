@@ -205,6 +205,22 @@ describe( 'Studio AI MCP tools', () => {
 		expect( getProgressCallback() ).toBe( previousCallback );
 	} );
 
+	it( 'forwards progress messages to the previous callback during command execution', async () => {
+		const previousCallback = vi.fn();
+		setProgressCallback( previousCallback );
+
+		vi.mocked( runCreatePreviewCommand ).mockImplementation( async () => {
+			const currentCallback = getProgressCallback();
+			currentCallback?.( 'Creating preview…' );
+			currentCallback?.( 'Almost done…' );
+		} );
+
+		await getTool( 'preview_create' ).handler( { nameOrPath: 'My Site' } as never, null );
+
+		expect( previousCallback ).toHaveBeenCalledWith( 'Creating preview…', undefined );
+		expect( previousCallback ).toHaveBeenCalledWith( 'Almost done…', undefined );
+	} );
+
 	it( 'rejects shell syntax in wp_cli post content before dispatching to WP-CLI', async () => {
 		vi.mocked( isServerRunning ).mockResolvedValue( {
 			name: 'site-123',

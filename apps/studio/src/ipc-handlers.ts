@@ -6,6 +6,7 @@ import {
 	app,
 	clipboard,
 	dialog,
+	nativeTheme,
 	shell,
 	type IpcMainInvokeEvent,
 	Notification,
@@ -43,7 +44,12 @@ import { readSharedConfig, updateSharedConfig } from '@studio/common/lib/shared-
 import { shouldExcludeFromSync, shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
-import { MACOS_TRAFFIC_LIGHT_POSITION, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
+import {
+	MACOS_TRAFFIC_LIGHT_POSITION,
+	MAIN_MIN_WIDTH,
+	SIDEBAR_WIDTH,
+	WINDOWS_TITLEBAR_HEIGHT,
+} from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
 import {
@@ -71,7 +77,7 @@ import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import * as oauthClient from 'src/lib/oauth';
 import { getAiInstructionsPath } from 'src/lib/server-files-paths';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
-import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
+import { installSqliteIntegration, keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import * as windowsHelpers from 'src/lib/windows-helpers';
 import { setupWordPressFilesOnly } from 'src/lib/wordpress-setup';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
@@ -362,6 +368,10 @@ export async function importSite(
 	try {
 		if ( ! isWordPressDirectory( site.details.path ) ) {
 			await setupWordPressFilesOnly( site.details.path );
+		}
+
+		if ( ! ( await site.hasSQLitePlugin() ) ) {
+			await installSqliteIntegration( site.details.path );
 		}
 
 		const onEvent = ( data: ImportExportEventData ) => {
@@ -1722,11 +1732,51 @@ export async function readBlueprintFile(
 
 export async function setWindowControlVisibility( event: IpcMainInvokeEvent, visible: boolean ) {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( parentWindow && process.platform === 'darwin' ) {
+	if ( ! parentWindow ) {
+		return;
+	}
+
+	if ( process.platform === 'darwin' ) {
 		parentWindow.setWindowButtonVisibility( visible );
 		if ( visible ) {
 			parentWindow.setWindowButtonPosition( MACOS_TRAFFIC_LIGHT_POSITION );
 		}
+	} else if ( process.platform === 'win32' ) {
+		const isDark = nativeTheme.shouldUseDarkColors;
+		if ( visible ) {
+			parentWindow.setTitleBarOverlay( {
+				color: 'rgba(30, 30, 30, 1)',
+				symbolColor: 'white',
+				height: WINDOWS_TITLEBAR_HEIGHT,
+			} );
+		} else {
+			parentWindow.setTitleBarOverlay( {
+				color: isDark ? '#2f2f2f' : '#fff',
+				symbolColor: isDark ? 'white' : '#1e1e1e',
+				height: WINDOWS_TITLEBAR_HEIGHT,
+			} );
+		}
+	}
+}
+
+export async function setTitleBarBackdropEffect( event: IpcMainInvokeEvent, enabled: boolean ) {
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	if ( ! parentWindow || process.platform !== 'win32' ) {
+		return;
+	}
+
+	if ( enabled ) {
+		parentWindow.setTitleBarOverlay( {
+			color: '#131313',
+			symbolColor: 'white',
+			height: WINDOWS_TITLEBAR_HEIGHT,
+		} );
+	} else {
+		parentWindow.setTitleBarOverlay( {
+			color: 'rgba(30, 30, 30, 1)',
+			symbolColor: 'white',
+			height: WINDOWS_TITLEBAR_HEIGHT,
+		} );
 	}
 }
 

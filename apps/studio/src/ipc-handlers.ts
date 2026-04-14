@@ -1751,7 +1751,7 @@ export async function setWindowControlVisibility( event: IpcMainInvokeEvent, vis
 			} );
 		} else {
 			parentWindow.setTitleBarOverlay( {
-				color: isDark ? 'rgba(30, 30, 30, 1)' : '#fff',
+				color: isDark ? '#2f2f2f' : '#fff',
 				symbolColor: isDark ? 'white' : '#1e1e1e',
 				height: WINDOWS_TITLEBAR_HEIGHT,
 			} );

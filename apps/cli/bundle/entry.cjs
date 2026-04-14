@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 /**
  * Bundle entry point for the standalone CLI binary.
  *
@@ -18,11 +19,18 @@
  */
 'use strict';
 
-const { isSea, getAsset } = require( 'node:sea' );
-const { existsSync, mkdirSync, readFileSync, rmSync, unlinkSync, writeFileSync } = require( 'node:fs' );
 const { execSync } = require( 'node:child_process' );
-const { join } = require( 'node:path' );
+const {
+	existsSync,
+	mkdirSync,
+	readFileSync,
+	rmSync,
+	unlinkSync,
+	writeFileSync,
+} = require( 'node:fs' );
 const { homedir } = require( 'node:os' );
+const { join } = require( 'node:path' );
+const { isSea, getAsset } = require( 'node:sea' );
 const { pathToFileURL } = require( 'node:url' );
 
 const DEFAULT_CLI_DIR = join( homedir(), '.studio', 'cli' );
@@ -39,8 +47,8 @@ async function main() {
 		process.exit( 1 );
 	}
 
-	const needsExtract = ! existsSync( MARKER_FILE ) ||
-		readFileSync( MARKER_FILE, 'utf8' ).trim() !== BUNDLE_VERSION;
+	const needsExtract =
+		! existsSync( MARKER_FILE ) || readFileSync( MARKER_FILE, 'utf8' ).trim() !== BUNDLE_VERSION;
 
 	if ( needsExtract ) {
 		console.log( 'First run — extracting runtime assets...' );
@@ -91,7 +99,11 @@ async function main() {
 
 	if ( scriptIndex >= 0 ) {
 		// Child process mode: run the script directly
-		process.argv = [ process.argv[ 0 ], process.argv[ scriptIndex ], ...process.argv.slice( scriptIndex + 1 ) ];
+		process.argv = [
+			process.argv[ 0 ],
+			process.argv[ scriptIndex ],
+			...process.argv.slice( scriptIndex + 1 ),
+		];
 		await import( pathToFileURL( process.argv[ 1 ] ).href );
 		return;
 	}

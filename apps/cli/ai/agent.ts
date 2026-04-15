@@ -10,7 +10,7 @@ import {
 	type AskUserQuestion,
 } from 'cli/ai/security';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
-import { createRemoteSiteTools, createStudioTools } from 'cli/ai/tools';
+import { createRemoteSiteTools, createSelfHostedSiteTools, createStudioTools } from 'cli/ai/tools';
 import type { SiteInfo } from 'cli/ai/ui';
 
 export type { AskUserQuestion } from 'cli/ai/security';
@@ -67,28 +67,54 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 	} = config;
 	const resolvedEnv = env ?? { ...( process.env as Record< string, string > ) };
 
-	const isRemoteSite = activeSite?.remote && activeSite?.wpcomSiteId && wpcomAccessToken;
+	const isWpcomSite = activeSite?.remote && activeSite?.wpcomSiteId && wpcomAccessToken;
+	const isSelfHostedSite =
+		activeSite?.selfHostedSite &&
+		activeSite?.url &&
+		activeSite?.selfHostedUsername &&
+		activeSite?.selfHostedAppPassword;
 
 	// Configure MCP servers based on site type:
-	// Remote sites get WP.com REST API tools + screenshot; local sites get the full Studio toolset.
-	const mcpServers = {
-		studio: isRemoteSite
-			? createRemoteSiteTools( wpcomAccessToken, activeSite.wpcomSiteId! )
-			: createStudioTools(),
-	};
+	// WP.com sites get WP.com REST API tools; self-hosted sites get direct REST API tools;
+	// local sites get the full Studio toolset.
+	let mcpServers;
+	if ( isWpcomSite ) {
+		mcpServers = {
+			studio: createRemoteSiteTools( wpcomAccessToken, activeSite.wpcomSiteId! ),
+		};
+	} else if ( isSelfHostedSite ) {
+		mcpServers = {
+			studio: createSelfHostedSiteTools(
+				activeSite.url!,
+				activeSite.selfHostedUsername!,
+				activeSite.selfHostedAppPassword!
+			),
+		};
+	} else {
+		mcpServers = { studio: createStudioTools() };
+	}
 
-	const allowedTools = isRemoteSite ? [ ...ALLOWED_TOOLS_REMOTE ] : [ ...ALLOWED_TOOLS ];
+	const allowedTools =
+		isWpcomSite || isSelfHostedSite ? [ ...ALLOWED_TOOLS_REMOTE ] : [ ...ALLOWED_TOOLS ];
 
 	// Build site-aware system prompt
-	const systemPromptOptions = isRemoteSite
-		? {
-				remoteSite: {
-					name: activeSite.name,
-					url: activeSite.url ?? '',
-					id: activeSite.wpcomSiteId!,
-				},
-		  }
-		: undefined;
+	let systemPromptOptions;
+	if ( isWpcomSite ) {
+		systemPromptOptions = {
+			remoteSite: {
+				name: activeSite.name,
+				url: activeSite.url ?? '',
+				id: activeSite.wpcomSiteId!,
+			},
+		};
+	} else if ( isSelfHostedSite ) {
+		systemPromptOptions = {
+			selfHostedSite: {
+				name: activeSite.name,
+				url: activeSite.url!,
+			},
+		};
+	}
 
 	if ( ! fs.existsSync( STUDIO_ROOT ) ) {
 		fs.mkdirSync( STUDIO_ROOT, { recursive: true } );

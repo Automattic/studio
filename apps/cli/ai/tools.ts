@@ -6,6 +6,7 @@ import { z } from 'zod/v4';
 import { validateBlocks, type ValidationReport } from 'cli/ai/block-validator';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
 import { auditPerformance } from 'cli/ai/performance-audit';
+import { createSelfHostedToolDefinitions } from 'cli/ai/self-hosted-tools';
 import { createWpcomToolDefinitions } from 'cli/ai/wpcom-tools';
 import { runCommand as runExportCommand } from 'cli/commands/export';
 import { runCommand as runImportCommand } from 'cli/commands/import';
@@ -983,5 +984,22 @@ export function createRemoteSiteTools( token: string, siteId: number ) {
 		name: 'studio',
 		version: '1.0.0',
 		tools: [ ...wpcomTools, takeScreenshotTool, createSiteTool, pullSiteTool ],
+	} );
+}
+
+/**
+ * Creates an MCP server for self-hosted WordPress sites, using Application Passwords
+ * for authentication via the standard WordPress REST API.
+ */
+export function createSelfHostedSiteTools(
+	siteUrl: string,
+	username: string,
+	appPassword: string
+) {
+	const selfHostedTools = createSelfHostedToolDefinitions( siteUrl, username, appPassword );
+	return createSdkMcpServer( {
+		name: 'studio',
+		version: '1.0.0',
+		tools: [ ...selfHostedTools, takeScreenshotTool, createSiteTool ],
 	} );
 }

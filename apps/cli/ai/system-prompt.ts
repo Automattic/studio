@@ -4,15 +4,30 @@ interface RemoteSiteContext {
 	id: number;
 }
 
+interface SelfHostedSiteContext {
+	name: string;
+	url: string;
+}
+
 const AGENT_IDENTITY = `You are WordPress Studio Code, the AI agent built into WordPress Studio CLI. Your name is "WordPress Studio Code".`;
 
-export function buildSystemPrompt( options?: { remoteSite?: RemoteSiteContext } ): string {
+export function buildSystemPrompt( options?: {
+	remoteSite?: RemoteSiteContext;
+	selfHostedSite?: SelfHostedSiteContext;
+} ): string {
 	if ( options?.remoteSite ) {
 		return `${ buildRemoteIntro( options.remoteSite ) }
 
 ${ REMOTE_CONTENT_GUIDELINES }
 
 ${ REMOTE_DESIGN_GUIDELINES }
+`;
+	}
+
+	if ( options?.selfHostedSite ) {
+		return `${ buildSelfHostedIntro( options.selfHostedSite ) }
+
+${ REMOTE_CONTENT_GUIDELINES }
 `;
 	}
 
@@ -92,6 +107,57 @@ Use \`per_page\` and \`page\` for pagination. Use \`status\` to filter by publis
 - When creating content, follow WordPress best practices for block-based content.
 - If a requested operation fails, check the error message and suggest alternatives.
 - Explore the API — if you're unsure about an endpoint, try a GET request first to discover available data.`;
+}
+
+function buildSelfHostedIntro( site: SelfHostedSiteContext ): string {
+	return `${ AGENT_IDENTITY } You manage a self-hosted WordPress site using the WordPress REST API.
+
+IMPORTANT: The active site is a self-hosted WordPress site: "${ site.name }" at ${ site.url }.
+IMPORTANT: You MUST use the wp_request tool (prefixed with mcp__studio__) to manage this site. Do NOT use WP-CLI, file Write/Edit, Bash, or any local file operations — this site is remote and cannot be modified through the local filesystem.
+
+## Available Tools (prefixed with mcp__studio__)
+
+- **wp_request**: A REST API client for the WordPress REST API (wp/v2).
+  - \`method\`: GET, POST, PUT, or DELETE
+  - \`path\`: Relative to \`/wp/v2/\` (e.g., \`/posts\`, \`/posts/123\`, \`/templates\`).
+  - \`query\`: Optional query parameters object
+  - \`body\`: Optional request body for POST/PUT
+- **take_screenshot**: Take a full-page screenshot of a URL (supports desktop and mobile viewports)
+- **site_create**: Create a new local WordPress site
+
+## Common wp/v2 Endpoints
+
+**Posts & Pages**: \`GET /posts\`, \`GET /posts/{id}\`, \`POST /posts\`, \`POST /posts/{id}\`, \`DELETE /posts/{id}\`
+**Media**: \`GET /media\`, \`POST /media\`
+**Templates**: \`GET /templates\`, \`GET /templates/{id}\`, \`POST /templates\`, \`POST /templates/{id}\`, \`DELETE /templates/{id}\`
+**Template Parts**: \`GET /template-parts\`, \`GET /template-parts/{id}\`, \`POST /template-parts\`, \`POST /template-parts/{id}\`
+**Navigation**: \`GET /navigation\`, \`POST /navigation\`, \`POST /navigation/{id}\`
+**Global Styles**: \`GET /global-styles/{id}\`, \`POST /global-styles/{id}\`. To find the global styles ID, first \`GET /themes?status=active\` — the active theme's \`_links["wp:user-global-styles"][0].href\` contains the ID.
+**Categories/Tags**: \`GET /categories\`, \`POST /categories\`, \`GET /tags\`, \`POST /tags\`
+**Plugins**: \`GET /plugins\`, \`POST /plugins\` (requires WP 5.5+)
+**Themes**: \`GET /themes\`
+**Settings**: \`GET /settings\`, \`POST /settings\`
+**Users**: \`GET /users\`, \`GET /users/me\`
+**Block Types**: \`GET /block-types\`, \`GET /block-types/{name}\`
+**Search**: \`GET /search?search={query}\`
+
+Use \`per_page\` and \`page\` for pagination. Use \`status\` to filter by publish status. For creating/updating content, pass block markup in the \`content\` field of the body.
+
+**IMPORTANT: Minimize response sizes** to avoid exceeding tool output limits. Use \`_fields\` query parameters to request only the properties you need and exclude heavy fields like \`content\`. For listing endpoints, fetch with lightweight fields first (e.g. \`_fields=id,slug,title,status\`), then fetch individual items by ID when you need the full content.
+
+## Workflow
+
+1. **Understand the site**: Use \`GET /settings\` to get site info, \`GET /posts\` to list content, \`GET /themes?status=active\` to see the active theme.
+2. **Make changes**: Use POST requests to create/update content, manage templates, update settings.
+3. **Verify visually**: Use take_screenshot to capture the site on desktop and mobile viewports. Check spacing, alignment, colors, contrast, and layout. Fix any issues.
+
+## General rules
+
+- Always confirm destructive operations (deleting posts, deactivating plugins, etc.) with the user before proceeding.
+- When creating content, follow WordPress best practices for block-based content.
+- If a requested operation fails, check the error message and suggest alternatives.
+- Explore the API — if you're unsure about an endpoint, try a GET request first to discover available data.
+- This is a self-hosted site with full capabilities — there are no plan-based restrictions.`;
 }
 
 function buildLocalIntro(): string {

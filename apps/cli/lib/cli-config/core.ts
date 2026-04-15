@@ -36,6 +36,14 @@ export const updateCheckSchema = z.object( {
 	latestVersion: z.string(),
 } );
 
+export const selfHostedSiteSchema = z.object( {
+	id: z.string(),
+	url: z.string(),
+	username: z.string(),
+	appPassword: z.string(),
+	name: z.string(),
+} );
+
 const cliConfigSchema = z.object( {
 	version: z.literal( CLI_CONFIG_VERSION ),
 	sites: z.array( siteSchema ).default( () => [] ),
@@ -46,10 +54,12 @@ const cliConfigSchema = z.object( {
 		.record( z.string(), z.partialRecord( z.enum( StatsMetric ), z.number() ) )
 		.optional(),
 	updateCheck: updateCheckSchema.optional(),
+	selfHostedSites: z.array( selfHostedSiteSchema ).optional(),
 } );
 
 type CliConfig = z.infer< typeof cliConfigSchema >;
 export type SiteData = z.infer< typeof siteSchema >;
+export type SelfHostedSiteData = z.infer< typeof selfHostedSiteSchema >;
 
 const DEFAULT_CLI_CONFIG: CliConfig = {
 	version: CLI_CONFIG_VERSION,

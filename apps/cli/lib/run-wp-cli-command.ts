@@ -1,3 +1,5 @@
+import { createRequire } from 'node:module';
+import path from 'node:path';
 import { rootCertificates } from 'node:tls';
 import { loadNodeRuntime, createNodeFsMountHandler } from '@php-wasm/node';
 import {
@@ -7,13 +9,128 @@ import {
 	setPhpIniEntries,
 	ProcessIdAllocator,
 } from '@php-wasm/universal';
-import { createSpawnHandler } from '@php-wasm/util';
+import { createSpawnHandler, phpVar } from '@php-wasm/util';
 import { IS_JSPI_AVAILABLE } from '@studio/common/lib/jspi';
 import { cleanupLegacyMuPlugins, getMuPlugins } from '@studio/common/lib/mu-plugins';
 import { LatestSupportedPHPVersion } from '@studio/common/types/php-versions';
 import { __ } from '@wordpress/i18n';
 import { setupPlatformLevelMuPlugins } from '@wp-playground/wordpress';
+import yauzl from 'yauzl';
 import { getSqliteCommandPath, getWpCliPharPath } from 'cli/lib/server-files';
+
+const require = createRequire( import.meta.url );
+
+function getSqliteIntegrationZipPath(): string {
+	return path.join(
+		path.dirname( require.resolve( '@wp-playground/cli/package.json' ) ),
+		'sqlite-database-integration.zip'
+	);
+}
+
+/**
+ * Node.js reimplementation of preloadSqliteIntegration from @wp-playground/wordpress.
+ * The upstream version uses php.run() internally (via unzipFile) to extract the zip,
+ * which corrupts the PHP WASM runtime state for subsequent php.cli() calls. This version
+ * extracts the zip in Node.js and writes files directly into the PHP VFS instead.
+ */
+async function setupSqliteIntegration( php: PHP ): Promise< void > {
+	const pluginVfsPath = '/internal/shared/sqlite-database-integration';
+
+	// Extract zip in Node.js and write files directly into the PHP VFS.
+	// We use yauzl (already a transitive dependency) instead of php.run()-based
+	// extraction to avoid corrupting the PHP WASM runtime state before php.cli().
+	const zipPath = getSqliteIntegrationZipPath();
+	await new Promise< void >( ( resolve, reject ) => {
+		yauzl.open( zipPath, { lazyEntries: true }, ( err, zipfile ) => {
+			if ( err || ! zipfile ) {
+				return reject( err );
+			}
+			zipfile.readEntry();
+			zipfile.on( 'entry', ( entry: yauzl.Entry ) => {
+				// Strip the top-level directory (e.g. plugin-sqlite-database-integration/)
+				const relativePath = entry.fileName.replace( /^[^/]+\//, '' );
+				if ( ! relativePath || entry.fileName.endsWith( '/' ) ) {
+					zipfile.readEntry();
+					return;
+				}
+				const vfsFilePath = `${ pluginVfsPath }/${ relativePath }`;
+				const dir = path.posix.dirname( vfsFilePath );
+				if ( ! php.isDir( dir ) ) {
+					php.mkdir( dir );
+				}
+				zipfile.openReadStream( entry, ( streamErr, readStream ) => {
+					if ( streamErr || ! readStream ) {
+						return reject( streamErr );
+					}
+					const chunks: Buffer[] = [];
+					readStream.on( 'data', ( chunk: Buffer ) => chunks.push( chunk ) );
+					readStream.on( 'end', () => {
+						php.writeFile( vfsFilePath, new Uint8Array( Buffer.concat( chunks ) ) );
+						zipfile.readEntry();
+					} );
+					readStream.on( 'error', reject );
+				} );
+			} );
+			zipfile.on( 'end', resolve );
+			zipfile.on( 'error', reject );
+		} );
+	} );
+
+	// Write SQLITE_MAIN_FILE constant
+	php.defineConstant( 'SQLITE_MAIN_FILE', '1' );
+
+	// Generate the mu-plugin and preload files from db.copy (same logic as upstream)
+	const dbCopyContent = php
+		.readFileAsText( `${ pluginVfsPath }/db.copy` )
+		.replace( "'{SQLITE_IMPLEMENTATION_FOLDER_PATH}'", phpVar( pluginVfsPath ) )
+		.replace( "'{SQLITE_PLUGIN}'", phpVar( `${ pluginVfsPath }/load.php` ) );
+
+	const dbPhpGuard = `<?php
+	// Do not preload this if WordPress comes with a custom db.php file.
+	if(file_exists(${ phpVar( '/wordpress/wp-content/db.php' ) })) {
+		return;
+	}
+	?>`;
+
+	const muPluginPath = '/internal/shared/mu-plugins/sqlite-database-integration.php';
+	php.writeFile( muPluginPath, dbPhpGuard + dbCopyContent );
+
+	const preloadContent = `<?php
+/**
+ * Loads the SQLite integration plugin before WordPress is loaded
+ * and without creating a drop-in "db.php" file.
+ */
+class Playground_SQLite_Integration_Loader {
+	public function __call($name, $arguments) {
+		$this->load_sqlite_integration();
+		if($GLOBALS['wpdb'] === $this) {
+			throw new Exception('Infinite loop detected in $wpdb – SQLite integration plugin could not be loaded');
+		}
+		return call_user_func_array(array($GLOBALS['wpdb'], $name), $arguments);
+	}
+	public function __get($name) {
+		$this->load_sqlite_integration();
+		if($GLOBALS['wpdb'] === $this) {
+			throw new Exception('Infinite loop detected in $wpdb – SQLite integration plugin could not be loaded');
+		}
+		return $GLOBALS['wpdb']->$name;
+	}
+	public function __set($name, $value) {
+		$this->load_sqlite_integration();
+		if($GLOBALS['wpdb'] === $this) {
+			throw new Exception('Infinite loop detected in $wpdb – SQLite integration plugin could not be loaded');
+		}
+		$GLOBALS['wpdb']->$name = $value;
+	}
+	protected function load_sqlite_integration() {
+		require_once ${ phpVar( muPluginPath ) };
+	}
+}
+$GLOBALS['wpdb'] = new Playground_SQLite_Integration_Loader();
+`;
+
+	php.writeFile( '/internal/shared/preload/0-sqlite.php', dbPhpGuard + preloadContent );
+}
 
 const processIdAllocator = new ProcessIdAllocator();
 const PLAYGROUND_INTERNAL_SHARED_FOLDER = '/internal/shared';
@@ -97,6 +214,7 @@ export async function runWpCliCommand(
 		await php.mount( '/tmp/sqlite-command', createNodeFsMountHandler( getSqliteCommandPath() ) );
 
 		await setupPlatformLevelMuPlugins( php );
+		await setupSqliteIntegration( php );
 
 		const response = await php.cli( [ 'php', '/tmp/wp-cli.phar', '--path=/wordpress', ...args ] );
 

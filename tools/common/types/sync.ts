@@ -74,7 +74,7 @@ export type SyncSite = {
 	syncSupport: SyncSupport;
 	lastPullTimestamp: string | null;
 	lastPushTimestamp: string | null;
-	wpVersion: string;
+	wpVersion: string | null;
 };
 
 // Pull backup API schemas

@@ -26,9 +26,7 @@ const version = __STUDIO_CLI_VERSION__;
 suppressPunycodeWarning();
 
 async function main() {
-	// Start update check and register exit handler for the update banner.
-	// Uses a synchronous exit handler so the banner shows even for --version.
-	setupUpdateNotifier( version );
+	await setupUpdateNotifier( version );
 
 	const yargsLocale = await loadTranslations();
 

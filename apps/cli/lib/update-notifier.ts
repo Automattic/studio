@@ -19,7 +19,7 @@ const npmRegistryResponseSchema = z.object( {
 
 /**
  * Reads the updateCheck field from cli.json synchronously.
- * Uses a direct fs.readFileSync + JSON.parse to avoid the async readCliConfig path,
+ * Uses a direct fs.readFileSync + zod parse to avoid the async readCliConfig path,
  * so the banner can be printed before any command output.
  */
 function readUpdateCheck(): UpdateCheck | null {
@@ -31,14 +31,6 @@ function readUpdateCheck(): UpdateCheck | null {
 		// File doesn't exist, field missing, or invalid
 	}
 	return null;
-}
-
-async function saveUpdateCheck( updateCheck: UpdateCheck ): Promise< void > {
-	try {
-		await updateCliConfigWithPartial( { updateCheck } );
-	} catch {
-		// Non-critical, ignore write failures
-	}
 }
 
 async function fetchLatestVersion(): Promise< string | null > {
@@ -71,13 +63,12 @@ function hasJsonFlag(): boolean {
  * Checks for available updates and displays a banner at the top of output.
  *
  * Reads the updateCheck field from cli.json synchronously so the banner prints
- * immediately, before any command output. A background fetch refreshes the cached
- * data for the next invocation when it is stale or missing (same pattern as npm's
- * update-notifier).
+ * immediately, before any command output. If the cache is stale or missing,
+ * fetches the latest version from the npm registry and saves it to cli.json.
  *
  * The banner is suppressed in IPC mode or when --json flag is used.
  */
-export function setupUpdateNotifier( currentVersion: string ): void {
+export async function setupUpdateNotifier( currentVersion: string ): Promise< void > {
 	if ( Boolean( process.send ) || hasJsonFlag() ) {
 		return;
 	}
@@ -85,26 +76,30 @@ export function setupUpdateNotifier( currentVersion: string ): void {
 	const updateCheck = readUpdateCheck();
 	const now = Date.now();
 
-	// Start a background fetch if cache is stale or missing
+	// Fetch and cache if stale or missing (up to FETCH_TIMEOUT_MS)
 	if ( ! updateCheck || now - updateCheck.lastChecked >= UPDATE_CHECK_INTERVAL_MS ) {
-		// Fire and forget -- the result will be cached for the next invocation
-		void fetchLatestVersion().then( ( version ) => {
-			if ( version ) {
-				void saveUpdateCheck( { lastChecked: now, latestVersion: version } );
+		const version = await fetchLatestVersion();
+		if ( version ) {
+			try {
+				await updateCliConfigWithPartial( {
+					updateCheck: { lastChecked: now, latestVersion: version },
+				} );
+			} catch {
+				// Non-critical, ignore write failures
 			}
-		} );
+		}
 	}
 
-	// Show the banner immediately from cache (before any command output).
-	// On the first run the cache won't exist yet, so the banner won't show
-	// until the next invocation.
+	// Read again in case we just updated the cache on the first run
+	const latestCheck = readUpdateCheck();
+
 	if (
-		updateCheck &&
-		semver.valid( updateCheck.latestVersion ) &&
+		latestCheck &&
+		semver.valid( latestCheck.latestVersion ) &&
 		semver.valid( currentVersion ) &&
-		semver.gt( updateCheck.latestVersion, currentVersion )
+		semver.gt( latestCheck.latestVersion, currentVersion )
 	) {
-		process.stderr.write( formatUpdateBanner( currentVersion, updateCheck.latestVersion ) );
+		process.stderr.write( formatUpdateBanner( currentVersion, latestCheck.latestVersion ) );
 	}
 }
 

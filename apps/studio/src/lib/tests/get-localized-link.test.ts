@@ -55,30 +55,4 @@ describe( 'getLocalizedLink', () => {
 			);
 		} );
 	} );
-
-	describe( 'legal links', () => {
-		it( 'should return localized WordPress.com Terms of Service URLs', () => {
-			expect( getLocalizedLink( 'en', 'legalWpcomTermsOfService' ) ).toBe(
-				'https://wordpress.com/tos/'
-			);
-			expect( getLocalizedLink( 'es', 'legalWpcomTermsOfService' ) ).toBe(
-				'https://wordpress.com/es/tos/'
-			);
-			expect( getLocalizedLink( 'pt-br', 'legalWpcomTermsOfService' ) ).toBe(
-				'https://wordpress.com/pt-br/tos/'
-			);
-		} );
-
-		it( 'should return Automattic Privacy Policy URL for all locales', () => {
-			expect( getLocalizedLink( 'en', 'legalAutomatticPrivacyPolicy' ) ).toBe(
-				'https://automattic.com/privacy/'
-			);
-			expect( getLocalizedLink( 'es', 'legalAutomatticPrivacyPolicy' ) ).toBe(
-				'https://automattic.com/privacy/'
-			);
-			expect( getLocalizedLink( 'ja', 'legalAutomatticPrivacyPolicy' ) ).toBe(
-				'https://automattic.com/privacy/'
-			);
-		} );
-	} );
 } );

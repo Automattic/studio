@@ -69,7 +69,7 @@ function hasJsonFlag(): boolean {
  * The banner is suppressed in IPC mode or when --json flag is used.
  */
 export async function setupUpdateNotifier( currentVersion: string ): Promise< void > {
-	if ( Boolean( process.send ) || hasJsonFlag() ) {
+	if ( ! __IS_PACKAGED_FOR_NPM__ || Boolean( process.send ) || hasJsonFlag() ) {
 		return;
 	}
 

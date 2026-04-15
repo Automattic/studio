@@ -111,8 +111,7 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 
 		it( 'should return false for db.php without SQLITE_DB_DROPIN_VERSION', async () => {
 			volFromJSON( {
-				[ normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ) ]:
-					'<?php\n// Some other drop-in.',
+				[ normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ) ]: '<?php\n// Some other drop-in.',
 			} );
 
 			const result = await provider.hasCustomDbDropin( MOCK_SITE_PATH );

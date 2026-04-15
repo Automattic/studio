@@ -49,6 +49,8 @@ export async function runCommand(
 
 		if ( target === Mode.STOP_SINGLE_SITE && siteFolder ) {
 			const site = await getSiteByFolder( siteFolder );
+			await updateSiteAutoStart( site.id, autoStart );
+
 			const runningProcess = await isServerRunning( site.id );
 			if ( ! runningProcess ) {
 				logger.reportSuccess( __( 'WordPress server is not running' ) );
@@ -60,7 +62,6 @@ export async function runCommand(
 			try {
 				await stopWordPressServer( site.id );
 				await clearSiteLatestCliPid( site.id );
-				await updateSiteAutoStart( site.id, autoStart );
 				logger.reportSuccess( __( 'WordPress server stopped' ) );
 				await stopProxyIfNoSitesNeedIt( site.id, logger );
 			} catch ( error ) {

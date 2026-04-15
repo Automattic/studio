@@ -184,6 +184,56 @@ export function AddSiteBlueprintSelector( {
 		[ handleBlueprintClick, handlePreviewClick, __ ]
 	);
 
+	const validateAndBuildBlueprint = async (
+		blueprintJson: Blueprint[ 'blueprint' ],
+		fileName: string,
+		filePath: string,
+		onCleanup?: () => void
+	): Promise< {
+		blueprint: Blueprint;
+		warnings: BlueprintValidationWarning[] | undefined;
+	} | null > => {
+		const meta = blueprintJson as {
+			version?: number;
+			meta?: { title?: string; description?: string };
+		};
+
+		if ( meta.version === 2 ) {
+			setValidationError(
+				__( 'Blueprint v2 format is not supported yet. Please use Blueprint v1 format.' )
+			);
+			onCleanup?.();
+			return null;
+		}
+
+		const validation = await getIpcApi().validateBlueprint( blueprintJson );
+		if ( ! validation.valid ) {
+			setValidationError( validation.error || __( 'Invalid Blueprint format' ) );
+			onCleanup?.();
+			return null;
+		}
+
+		const warnings =
+			validation.warnings && validation.warnings.length > 0 ? validation.warnings : undefined;
+
+		const baseName = fileName.replace( /\.(json|zip)$/, '' );
+		const blueprint: Blueprint = {
+			slug: `file:${ fileName }`,
+			title: meta.meta?.title || baseName,
+			excerpt:
+				meta.meta?.description ||
+				generateDefaultBlueprintDescription(
+					blueprintJson as Parameters< typeof generateDefaultBlueprintDescription >[ 0 ]
+				),
+			image: '',
+			playground_url: '',
+			blueprint: blueprintJson,
+			filePath,
+		};
+
+		return { blueprint, warnings };
+	};
+
 	const handleFileSelect = async ( event: React.ChangeEvent< HTMLInputElement > ) => {
 		const file = event.target.files?.[ 0 ];
 		setValidationError( undefined );
@@ -198,42 +248,15 @@ export function AddSiteBlueprintSelector( {
 			try {
 				const text = await file.text();
 				const blueprintJson = JSON.parse( text );
-
-				if ( blueprintJson.version === 2 ) {
-					setValidationError(
-						__( 'Blueprint v2 format is not supported yet. Please use Blueprint v1 format.' )
-					);
-					if ( fileRef.current ) {
-						fileRef.current.value = '';
-					}
-					return;
+				const result = await validateAndBuildBlueprint(
+					blueprintJson,
+					file.name,
+					getIpcApi().getPathForFile( file )
+				);
+				if ( result ) {
+					onFileBlueprintSelect( result.blueprint, result.warnings );
 				}
-
-				const validation = await getIpcApi().validateBlueprint( blueprintJson );
-				if ( ! validation.valid ) {
-					setValidationError( validation.error || __( 'Invalid Blueprint format' ) );
-					if ( fileRef.current ) {
-						fileRef.current.value = '';
-					}
-					return;
-				}
-
-				const fileWarnings =
-					validation.warnings && validation.warnings.length > 0 ? validation.warnings : undefined;
-
-				const fileBlueprint: Blueprint = {
-					slug: `file:${ file.name }`, // Use filename as part of the slug
-					title: blueprintJson.meta?.title || file.name.replace( '.json', '' ),
-					excerpt:
-						blueprintJson.meta?.description || generateDefaultBlueprintDescription( blueprintJson ),
-					image: '', // No image for file-based blueprints
-					playground_url: '', // No playground URL for file-based blueprints
-					blueprint: blueprintJson, // The actual blueprint JSON
-					filePath: getIpcApi().getPathForFile( file ),
-				};
-
 				setUploadedFileName( null );
-				onFileBlueprintSelect( fileBlueprint, fileWarnings );
 			} catch ( error ) {
 				if ( error instanceof SyntaxError ) {
 					setValidationError(
@@ -250,56 +273,33 @@ export function AddSiteBlueprintSelector( {
 			}
 		} else if ( file && isZip && onFileBlueprintSelect ) {
 			setUploadedFileName( file.name );
+			let tempDir: string | undefined;
 
 			try {
 				const zipPath = getIpcApi().getPathForFile( file );
-				const { blueprintJson, blueprintJsonPath, tempDir } =
-					await getIpcApi().extractBlueprintBundle( zipPath );
-				const blueprintMeta = blueprintJson as {
-					version?: number;
-					meta?: { title?: string; description?: string };
-				};
-
-				if ( blueprintMeta.version === 2 ) {
-					setValidationError(
-						__( 'Blueprint v2 format is not supported yet. Please use Blueprint v1 format.' )
-					);
-					void getIpcApi().cleanupBlueprintTempDir( tempDir );
-
-					if ( fileRef.current ) {
-						fileRef.current.value = '';
-					}
-					return;
+				const extracted = await getIpcApi().extractBlueprintBundle( zipPath );
+				tempDir = extracted.tempDir;
+				const result = await validateAndBuildBlueprint(
+					extracted.blueprintJson,
+					file.name,
+					extracted.blueprintJsonPath,
+					() => void getIpcApi().cleanupBlueprintTempDir( tempDir! )
+				);
+				if ( result ) {
+					onFileBlueprintSelect( result.blueprint, result.warnings );
 				}
-
-				const validation = await getIpcApi().validateBlueprint( blueprintJson );
-				if ( ! validation.valid ) {
-					setValidationError( validation.error || __( 'Invalid Blueprint format' ) );
-					void getIpcApi().cleanupBlueprintTempDir( tempDir );
-					if ( fileRef.current ) {
-						fileRef.current.value = '';
-					}
-					return;
-				}
-
-				const fileWarnings =
-					validation.warnings && validation.warnings.length > 0 ? validation.warnings : undefined;
-
-				const fileBlueprint: Blueprint = {
-					slug: `file:${ file.name }`,
-					title: blueprintMeta.meta?.title || file.name.replace( '.zip', '' ),
-					excerpt:
-						blueprintMeta.meta?.description || generateDefaultBlueprintDescription( blueprintJson ),
-					image: '',
-					playground_url: '',
-					blueprint: blueprintJson,
-					filePath: blueprintJsonPath,
-				};
-
 				setUploadedFileName( null );
-				onFileBlueprintSelect( fileBlueprint, fileWarnings );
 			} catch ( error ) {
-				setValidationError( __( 'Failed to load Blueprint ZIP file. Please try again.' ) );
+				if ( tempDir ) {
+					void getIpcApi().cleanupBlueprintTempDir( tempDir );
+				}
+				if ( error instanceof SyntaxError ) {
+					setValidationError(
+						sprintf( __( 'Invalid JSON format in blueprint.json: %s' ), error.message )
+					);
+				} else {
+					setValidationError( __( 'Failed to load Blueprint ZIP file. Please try again.' ) );
+				}
 				console.error( 'Failed to extract Blueprint ZIP:', error );
 			}
 		}

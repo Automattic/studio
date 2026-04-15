@@ -1,27 +1,12 @@
-import { RecommendedPHPVersion as DEFAULT_PHP_VERSION } from '@studio/common/types/php-versions';
 import semver from 'semver';
 
-/**
- * Compares the WordPress and PHP versions of the current site with the versions supported by Jurassic Ninja preview sites.
- */
-export function hasVersionMismatch( {
-	wpVersion,
-	latestWpVersion,
-	phpVersion,
-}: {
-	wpVersion: string;
-	latestWpVersion: string | undefined;
-	phpVersion: string;
-} ): boolean {
-	const coercedWpVersion = semver.coerce( wpVersion );
-	const coercedLatestWpVersion = semver.coerce( latestWpVersion );
-	const isPhpVersionDefault = phpVersion === DEFAULT_PHP_VERSION;
+export function hasVersionMismatch( version1: string, version2: string ): boolean {
+	const coercedVersion1 = semver.coerce( version1 );
+	const coercedVersion2 = semver.coerce( version2 );
 
-	// We need coerced versions to ensure they can be parsed and compared by semver
-	const isWpVersionOlderThanLatest =
-		coercedWpVersion &&
-		coercedLatestWpVersion &&
-		semver.compare( coercedWpVersion, coercedLatestWpVersion ) < 0;
-
-	return isWpVersionOlderThanLatest || ! isPhpVersionDefault;
+	return (
+		!! coercedVersion1 &&
+		!! coercedVersion2 &&
+		semver.compare( coercedVersion1, coercedVersion2 ) !== 0
+	);
 }

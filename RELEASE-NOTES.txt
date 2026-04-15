@@ -5,6 +5,7 @@ Unreleased
 =====
 * Released studio code command #3002
 * Added push/pull and import/export commands to the CLI #3010
+* Added .deployignore support for Preview Sites to exclude files from deploys #2924
 * Redesigned titlebar: window title, button sizing, offline indicator #2675
 * Improved rendering correct error and buttons when pull failed #2964
 * Fixed SSL certificate trust nudge on non-English Windows #2932

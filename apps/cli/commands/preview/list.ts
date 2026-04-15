@@ -1,5 +1,6 @@
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
+import { Snapshot } from '@studio/common/types/snapshot';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import CliTable3 from 'cli-table3';
 import { format } from 'date-fns';
@@ -14,9 +15,38 @@ import { getColumnWidths } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
+function buildSnapshotTable( snapshots: Snapshot[] ): string {
+	const colWidths = getColumnWidths( [ 0.4, 0.25, 0.175, 0.175 ] );
+	const table = new CliTable3( {
+		head: [ __( 'URL' ), __( 'Site Name' ), __( 'Updated' ), __( 'Expires in' ) ],
+		wordWrap: true,
+		wrapOnWordBoundary: false,
+		colWidths,
+		style: {
+			head: [],
+			border: [],
+		},
+	} );
+
+	for ( const snapshot of snapshots ) {
+		const durationUntilExpiry = formatDurationUntilExpiry( snapshot.date );
+		const url = `https://${ snapshot.url }`;
+
+		table.push( [
+			{ href: url, content: url },
+			snapshot.name,
+			format( snapshot.date, 'yyyy-MM-dd HH:mm' ),
+			durationUntilExpiry,
+		] );
+	}
+
+	return table.toString();
+}
+
 export async function runCommand(
 	siteFolder: string,
-	outputFormat: 'table' | 'json'
+	outputFormat: 'table' | 'json',
+	all = false
 ): Promise< void > {
 	const logger = new Logger< LoggerAction >();
 
@@ -30,7 +60,9 @@ export async function runCommand(
 		}
 
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating…' ) );
-		await getSiteByFolder( siteFolder );
+		if ( ! all ) {
+			await getSiteByFolder( siteFolder );
+		}
 		const token = await readAuthToken();
 		if ( ! token ) {
 			throw new LoggerError(
@@ -40,7 +72,7 @@ export async function runCommand(
 		logger.reportSuccess( __( 'Validation successful' ), true );
 
 		logger.reportStart( LoggerAction.LOAD, __( 'Loading preview sites…' ) );
-		const snapshots = await getSnapshotsFromConfig( token.id, siteFolder );
+		const snapshots = await getSnapshotsFromConfig( token.id, all ? undefined : siteFolder );
 
 		if ( snapshots.length === 0 ) {
 			logger.reportSuccess( __( 'No preview sites found' ) );
@@ -65,33 +97,52 @@ export async function runCommand(
 			logger.reportSuccess( snapshotsMessage );
 		}
 
-		if ( outputFormat === 'table' ) {
-			const colWidths = getColumnWidths( [ 0.4, 0.25, 0.175, 0.175 ] );
-			const table = new CliTable3( {
-				head: [ __( 'URL' ), __( 'Site Name' ), __( 'Updated' ), __( 'Expires in' ) ],
-				wordWrap: true,
-				wrapOnWordBoundary: false,
-				colWidths,
-				style: {
-					head: [],
-					border: [],
-				},
-			} );
+		if ( all ) {
+			const config = await readCliConfig();
+			const siteNameById = new Map< string, string >(
+				config.sites.map( ( site ) => [ site.id, site.name ] )
+			);
+			/* translators: Placeholder label for a local site that no longer exists in the config. */
+			const unknownSiteLabel = __( 'Unknown site' );
 
+			// Group by resolved site name rather than localSiteId so any orphaned snapshots
+			// (whose local site no longer exists in the config) collapse into a single
+			// "Unknown site" group instead of rendering a duplicate header per dead ID.
+			const snapshotsBySiteName = new Map< string, Snapshot[] >();
 			for ( const snapshot of snapshots ) {
-				const durationUntilExpiry = formatDurationUntilExpiry( snapshot.date );
-				const url = `https://${ snapshot.url }`;
-
-				table.push( [
-					{ href: url, content: url },
-					snapshot.name,
-					format( snapshot.date, 'yyyy-MM-dd HH:mm' ),
-					durationUntilExpiry,
-				] );
+				const siteName = siteNameById.get( snapshot.localSiteId ) ?? unknownSiteLabel;
+				const bucket = snapshotsBySiteName.get( siteName ) ?? [];
+				bucket.push( snapshot );
+				snapshotsBySiteName.set( siteName, bucket );
 			}
 
-			console.log( table.toString() );
+			// Sort groups by preview-site count descending so users can immediately spot
+			// which local site is closest to the preview-site limit. Ties break alphabetically
+			// by site name for stable output.
+			const sortedGroups = [ ...snapshotsBySiteName.entries() ]
+				.map( ( [ siteName, siteSnapshots ] ) => ( { siteName, siteSnapshots } ) )
+				.sort( ( a, b ) => {
+					if ( b.siteSnapshots.length !== a.siteSnapshots.length ) {
+						return b.siteSnapshots.length - a.siteSnapshots.length;
+					}
+					return a.siteName.localeCompare( b.siteName );
+				} );
+
+			const sections = sortedGroups.map( ( { siteName, siteSnapshots } ) => {
+				const header = sprintf(
+					/* translators: 1: Local site name. 2: Number of preview sites for that local site. */
+					_n( '%1$s (%2$d preview site)', '%1$s (%2$d preview sites)', siteSnapshots.length ),
+					siteName,
+					siteSnapshots.length
+				);
+				return `${ header }\n${ buildSnapshotTable( siteSnapshots ) }`;
+			} );
+
+			console.log( sections.join( '\n\n' ) );
+			return;
 		}
+
+		console.log( buildSnapshotTable( snapshots ) );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );
@@ -107,15 +158,21 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		command: 'list',
 		describe: __( 'List preview sites' ),
 		builder: ( yargs ) => {
-			return yargs.option( 'format', {
-				type: 'string',
-				choices: [ 'table', 'json' ],
-				default: 'table',
-				description: __( 'Output format' ),
-			} );
+			return yargs
+				.option( 'format', {
+					type: 'string',
+					choices: [ 'table', 'json' ],
+					default: 'table',
+					description: __( 'Output format' ),
+				} )
+				.option( 'all', {
+					type: 'boolean',
+					default: false,
+					description: __( 'List preview sites for all local sites, grouped by site' ),
+				} );
 		},
 		handler: async ( argv ) => {
-			await runCommand( argv.path, argv.format as 'table' | 'json' );
+			await runCommand( argv.path, argv.format as 'table' | 'json', Boolean( argv.all ) );
 		},
 	} );
 };

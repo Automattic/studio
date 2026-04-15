@@ -75,10 +75,15 @@ describe( 'dependency-management/setup throttling', () => {
 			} );
 		} );
 
-		it( 'swallows errors from the cli config write', async () => {
+		it( 'swallows errors from the cli config write and logs them', async () => {
 			const consoleErrorSpy = vi.spyOn( console, 'error' ).mockImplementation( () => {} );
-			vi.mocked( updateCliConfigWithPartial ).mockRejectedValue( new Error( 'write failed' ) );
+			const error = new Error( 'write failed' );
+			vi.mocked( updateCliConfigWithPartial ).mockRejectedValue( error );
 			await expect( markDependencyCheckTime() ).resolves.toBeUndefined();
+			expect( consoleErrorSpy ).toHaveBeenCalledWith(
+				'Failed to persist dependency check timestamp:',
+				error
+			);
 			consoleErrorSpy.mockRestore();
 		} );
 	} );

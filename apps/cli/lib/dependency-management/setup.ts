@@ -262,6 +262,14 @@ export async function setupServerFiles() {
 	}
 }
 
+/**
+ * Fetches the latest WordPress version from the network.
+ *
+ * This performs a network request, so callers should gate it behind
+ * `shouldCheckDependencyUpdates()` and follow a successful call with
+ * `markDependencyCheckTime()` to avoid hitting the network on every
+ * invocation (see STU-1455).
+ */
 export async function updateServerFiles() {
 	try {
 		await updateLatestWordPressVersion();

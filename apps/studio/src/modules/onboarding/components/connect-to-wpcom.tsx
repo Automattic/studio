@@ -107,14 +107,14 @@ export function OnboardingConnectToWpcom( { onSkip }: { onSkip: () => void } ) {
 					{
 						tos_link: (
 							<Button
-								className="!p-0 text-frame-theme hover:opacity-80 h-auto !text-xs underline"
+								className="learn-more-link !p-0 h-auto !text-xs"
 								variant="link"
 								onClick={ () => getIpcApi().openURL( getLocalizedLink( locale, 'a8cTos' ) ) }
 							/>
 						),
 						privacy_link: (
 							<Button
-								className="!p-0 text-frame-theme hover:opacity-80 h-auto !text-xs underline"
+								className="learn-more-link !p-0 h-auto !text-xs"
 								variant="link"
 								onClick={ () =>
 									getIpcApi().openURL( getLocalizedLink( locale, 'a8cPrivacyPolicy' ) )

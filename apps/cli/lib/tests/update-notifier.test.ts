@@ -10,18 +10,18 @@ describe( 'formatUpdateBanner', () => {
 		expect( plain ).toContain( '1.8.0' );
 	} );
 
-	it( 'should include the npm update command', () => {
-		const banner = formatUpdateBanner( '1.7.8', '1.8.0' );
-		const plain = banner.replace( /\u001B\[[0-9;]*m/g, '' );
-		expect( plain ).toContain( 'npm update -g wp-studio' );
-	} );
-
 	it( 'should include the changelog URL', () => {
 		const banner = formatUpdateBanner( '1.7.8', '1.8.0' );
 		const plain = banner.replace( /\u001B\[[0-9;]*m/g, '' );
 		expect( plain ).toContain(
 			'https://developer.wordpress.com/docs/developer-tools/studio/changelog/'
 		);
+	} );
+
+	it( 'should include the npm update command', () => {
+		const banner = formatUpdateBanner( '1.7.8', '1.8.0' );
+		const plain = banner.replace( /\u001B\[[0-9;]*m/g, '' );
+		expect( plain ).toContain( 'npm update -g wp-studio' );
 	} );
 
 	it( 'should be wrapped in a box', () => {

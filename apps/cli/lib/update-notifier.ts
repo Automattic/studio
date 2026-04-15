@@ -2,19 +2,27 @@ import fs from 'fs';
 import path from 'path';
 import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import { __, sprintf } from '@wordpress/i18n';
+import { writeFile } from 'atomically';
 import chalk from 'chalk';
 import semver from 'semver';
+import { z } from 'zod';
 
 const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
-const FETCH_TIMEOUT_MS = 5000;
+const FETCH_TIMEOUT_MS = 3000;
 const NPM_REGISTRY_URL = 'https://registry.npmjs.org/wp-studio/latest';
 const CHANGELOG_URL = 'https://developer.wordpress.com/docs/developer-tools/studio/changelog/';
 const CACHE_FILE_NAME = 'cli-update-check.json';
 
-interface UpdateCheckCache {
-	lastChecked: number;
-	latestVersion: string;
-}
+const updateCheckCacheSchema = z.object( {
+	lastChecked: z.number(),
+	latestVersion: z.string(),
+} );
+
+type UpdateCheckCache = z.infer< typeof updateCheckCacheSchema >;
+
+const npmRegistryResponseSchema = z.object( {
+	version: z.string(),
+} );
 
 function getCacheFilePath(): string {
 	return path.join( getConfigDirectory(), CACHE_FILE_NAME );
@@ -23,23 +31,20 @@ function getCacheFilePath(): string {
 function readCache(): UpdateCheckCache | null {
 	try {
 		const content = fs.readFileSync( getCacheFilePath(), 'utf8' );
-		const data = JSON.parse( content );
-		if ( typeof data.lastChecked === 'number' && typeof data.latestVersion === 'string' ) {
-			return data as UpdateCheckCache;
-		}
+		return updateCheckCacheSchema.parse( JSON.parse( content ) );
 	} catch {
 		// Cache doesn't exist or is invalid
 	}
 	return null;
 }
 
-function writeCache( cache: UpdateCheckCache ): void {
+async function writeCache( cache: UpdateCheckCache ): Promise< void > {
 	try {
 		const configDir = getConfigDirectory();
 		if ( ! fs.existsSync( configDir ) ) {
 			fs.mkdirSync( configDir, { recursive: true } );
 		}
-		fs.writeFileSync( getCacheFilePath(), JSON.stringify( cache ), 'utf8' );
+		await writeFile( getCacheFilePath(), JSON.stringify( cache ), { encoding: 'utf8' } );
 	} catch {
 		// Non-critical, ignore write failures
 	}
@@ -60,8 +65,8 @@ async function fetchLatestVersion(): Promise< string | null > {
 			return null;
 		}
 
-		const data = ( await response.json() ) as { version?: string };
-		return typeof data.version === 'string' ? data.version : null;
+		const data = npmRegistryResponseSchema.parse( await response.json() );
+		return data.version;
 	} catch {
 		return null;
 	}
@@ -93,7 +98,7 @@ export function setupUpdateNotifier( currentVersion: string ): void {
 		// Fire and forget -- the result will be cached for the next invocation
 		void fetchLatestVersion().then( ( version ) => {
 			if ( version ) {
-				writeCache( { lastChecked: now, latestVersion: version } );
+				void writeCache( { lastChecked: now, latestVersion: version } );
 			}
 		} );
 	}
@@ -118,11 +123,13 @@ export function formatUpdateBanner( currentVersion: string, latestVersion: strin
 		chalk.dim( currentVersion ),
 		chalk.green( latestVersion )
 	);
+
 	const commandLine = sprintf(
 		/* translators: %s is the npm command to run */
 		__( 'Run %s to update' ),
 		chalk.cyan( 'npm update -g wp-studio' )
 	);
+
 	const changelogLine = sprintf(
 		/* translators: %s is the changelog URL */
 		__( 'Changelog: %s' ),

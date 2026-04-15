@@ -64,7 +64,7 @@ async function maybePromptContinue(
 				reason.numTurns
 			)
 		);
-		question = __( 'Reached the turn limit. Continue?' );
+		question = __( 'I have been running for a long time. Do you want me to continue?' );
 		resumePrompt = 'Continue from where you left off.';
 	} else if ( reason.lastProgress ) {
 		const snippet = reason.lastProgress;

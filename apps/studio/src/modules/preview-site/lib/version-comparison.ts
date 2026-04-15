@@ -1,6 +1,9 @@
 import semver from 'semver';
 
-export function hasVersionMismatch( version1: string | null, version2: string | null ): boolean {
+export function hasVersionMismatch(
+	version1: string | undefined,
+	version2: string | undefined
+): boolean {
 	const coercedVersion1 = semver.coerce( version1 );
 	const coercedVersion2 = semver.coerce( version2 );
 

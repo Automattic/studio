@@ -139,7 +139,7 @@ export function formatUpdateBanner( currentVersion: string, latestVersion: strin
 
 	const paddedLines = lines.map( ( line ) => {
 		const visibleLen = stripAnsi( line ).length;
-		const rightPad = innerWidth - padding - visibleLen;
+		const rightPad = Math.max( 0, innerWidth - padding - visibleLen );
 		return `${ side }${ ' '.repeat( padding ) }${ line }${ ' '.repeat( rightPad ) }${ side }`;
 	} );
 

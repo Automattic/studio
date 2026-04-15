@@ -528,7 +528,13 @@ export async function runCommand( options: {
 			ui.addUserMessage( options.initialMessage );
 			const result = await runAgentTurn( options.initialMessage );
 			const jsonStatus = result.status === 'interrupted' ? 'error' : result.status;
-			( ui as JsonAdapter ).emitTurnCompleted( jsonStatus, result.usage );
+			let maxTurnsScope: 'outer' | 'subagent' | undefined;
+			if ( jsonStatus === 'max_turns' ) {
+				maxTurnsScope = 'outer';
+			} else if ( ui.subagentMaxTurns ) {
+				maxTurnsScope = 'subagent';
+			}
+			( ui as JsonAdapter ).emitTurnCompleted( jsonStatus, result.usage, maxTurnsScope );
 		} catch ( error ) {
 			process.exitCode = 1;
 			handleAgentTurnError( error );

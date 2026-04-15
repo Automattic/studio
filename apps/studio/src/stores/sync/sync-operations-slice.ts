@@ -432,15 +432,17 @@ const cancelPushThunk = createTypedAsyncThunk(
 		abortCallback?.();
 		getIpcApi().cancelSyncOperation( operationId );
 
-		dispatch(
-			syncOperationsActions.updatePushState( {
-				selectedSiteId,
-				remoteSiteId,
-				state: { status: getPushStatesProgressInfo().cancelled },
-			} )
-		);
-
+		// Treat `displayNotification: false` as a "silent cancel" (e.g. logout cleanup):
+		// abort the underlying operation but avoid creating a persisted "cancelled" UI state.
 		if ( displayNotification ) {
+			dispatch(
+				syncOperationsActions.updatePushState( {
+					selectedSiteId,
+					remoteSiteId,
+					state: { status: getPushStatesProgressInfo().cancelled },
+				} )
+			);
+
 			getIpcApi().showNotification( {
 				title: __( 'Push cancelled' ),
 				body: __( 'The push operation has been cancelled.' ),
@@ -459,13 +461,16 @@ const cancelPullThunk = createTypedAsyncThunk(
 		stopPullPoller( operationId );
 		getIpcApi().cancelSyncOperation( operationId );
 
-		dispatch(
-			syncOperationsActions.updatePullState( {
-				selectedSiteId,
-				remoteSiteId,
-				state: { status: getPullStatesProgressInfo().cancelled },
-			} )
-		);
+		// See cancelPushThunk note: skip "cancelled" UI state for silent cancels (logout cleanup).
+		if ( displayNotification ) {
+			dispatch(
+				syncOperationsActions.updatePullState( {
+					selectedSiteId,
+					remoteSiteId,
+					state: { status: getPullStatesProgressInfo().cancelled },
+				} )
+			);
+		}
 
 		getIpcApi()
 			.removeSyncBackup( remoteSiteId )

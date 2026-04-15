@@ -54,6 +54,7 @@ export type JsonEvent =
 				numTurns: number;
 				costUsd?: number;
 			};
+			maxTurnsScope?: 'outer' | 'subagent';
 	  };
 
 export function emitEvent( event: JsonEvent ): void {

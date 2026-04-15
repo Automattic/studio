@@ -154,7 +154,8 @@ export class JsonAdapter implements AiOutputAdapter {
 
 	emitTurnCompleted(
 		status: TurnCompletedStatus,
-		usage?: { numTurns: number; costUsd?: number }
+		usage?: { numTurns: number; costUsd?: number },
+		maxTurnsScope?: 'outer' | 'subagent'
 	): void {
 		emitEvent( {
 			type: 'turn.completed',
@@ -162,6 +163,7 @@ export class JsonAdapter implements AiOutputAdapter {
 			sessionId: this.sessionId ?? '',
 			status,
 			usage,
+			maxTurnsScope,
 		} );
 	}
 

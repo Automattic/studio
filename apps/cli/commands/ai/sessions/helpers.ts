@@ -1,7 +1,7 @@
 import { select } from '@inquirer/prompts';
 import { truncateToWidth, visibleWidth } from '@mariozechner/pi-tui';
+import chalk from '@studio/common/lib/chalk';
 import { __ } from '@wordpress/i18n';
-import chalk from 'chalk';
 import { listAiSessions } from 'cli/ai/sessions/store';
 import type { AiSessionSummary } from 'cli/ai/sessions/types';
 

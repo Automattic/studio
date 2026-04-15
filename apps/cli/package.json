@@ -40,7 +40,6 @@
 		"@wp-playground/wordpress": "3.1.19",
 		"archiver": "^7.0.1",
 		"atomically": "^2.1.1",
-		"chalk": "^5.6.2",
 		"cli-table3": "^0.6.5",
 		"fs-extra": "^11.3.4",
 		"http-proxy": "^1.18.1",

@@ -41,6 +41,66 @@ function getErrorMessage( error: unknown ): string {
 	return String( error );
 }
 
+type ContinueReason =
+	| { kind: 'outer'; numTurns: number }
+	| { kind: 'subagent'; lastProgress: string | null };
+
+interface ContinueDecision {
+	resumePrompt: string;
+}
+
+async function maybePromptContinue(
+	ui: AiOutputAdapter,
+	reason: ContinueReason
+): Promise< ContinueDecision | null > {
+	let question: string;
+	let resumePrompt: string;
+
+	if ( reason.kind === 'outer' ) {
+		ui.showInfo(
+			sprintf(
+				/* translators: %d: number of turns used */
+				_n( 'Used %d turn', 'Used %d turns', reason.numTurns ),
+				reason.numTurns
+			)
+		);
+		question = __( 'Reached the turn limit. Continue?' );
+		resumePrompt = 'Continue from where you left off.';
+	} else if ( reason.lastProgress ) {
+		const snippet = reason.lastProgress;
+		question = sprintf(
+			/* translators: %s: last visible progress snippet from the subagent */
+			__( 'A subagent hit its turn limit. Last progress: "%s". Continue?' ),
+			snippet
+		);
+		resumePrompt =
+			`Your previous Task subagent stopped at: "${ snippet }". ` +
+			'Re-dispatch the Task with a more focused scope to continue from there, ' +
+			'or complete the remaining work inline.';
+	} else {
+		question = __( 'A subagent hit its turn limit mid-task. Continue?' );
+		resumePrompt =
+			'Your previous Task subagent hit its turn limit. Re-dispatch the same Task ' +
+			'with a more focused scope (e.g. smaller batch), or complete the remaining ' +
+			'work inline without a subagent.';
+	}
+
+	const answer = await ui.askUser( [
+		{
+			question,
+			options: [
+				{ label: 'Yes', description: __( 'Resume where the agent left off' ) },
+				{ label: 'No', description: __( 'Stop here' ) },
+			],
+		},
+	] );
+	const choice = Object.values( answer )[ 0 ]?.toLowerCase();
+	if ( choice !== 'yes' ) {
+		return null;
+	}
+	return { resumePrompt };
+}
+
 export async function runCommand( options: {
 	adapter: AiOutputAdapter;
 	initialMessage?: string;
@@ -438,27 +498,21 @@ export async function runCommand( options: {
 			ui.endAgentTurn();
 		}
 
+		let continueReason: ContinueReason | null = null;
 		if ( maxTurnsResult ) {
-			ui.showInfo(
-				sprintf(
-					/* translators: %d: number of turns used */
-					_n( 'Used %d turn', 'Used %d turns', maxTurnsResult.numTurns ),
-					maxTurnsResult.numTurns
-				)
-			);
-			const answer = await ui.askUser( [
-				{
-					question: __( 'Reached the turn limit. Continue?' ),
-					options: [
-						{ label: 'Yes', description: __( 'Resume where the agent left off' ) },
-						{ label: 'No', description: __( 'Stop here' ) },
-					],
-				},
-			] );
-			const choice = Object.values( answer )[ 0 ]?.toLowerCase();
-			if ( choice === 'yes' ) {
+			continueReason = { kind: 'outer', numTurns: maxTurnsResult.numTurns };
+		} else if ( turnStatus !== 'interrupted' && ui.subagentMaxTurns ) {
+			continueReason = {
+				kind: 'subagent',
+				lastProgress: ui.subagentMaxTurns.lastProgress,
+			};
+		}
+
+		if ( continueReason && ! isJsonMode ) {
+			const decision = await maybePromptContinue( ui, continueReason );
+			if ( decision ) {
 				ui.addUserMessage( 'Continue' );
-				return runAgentTurn( 'Continue from where you left off.' );
+				return runAgentTurn( decision.resumePrompt );
 			}
 		}
 

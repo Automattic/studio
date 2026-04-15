@@ -21,6 +21,7 @@ export interface AiAgentConfig {
 	model?: AiModelId;
 	maxTurns?: number;
 	resume?: string;
+	autoApprove?: boolean;
 	activeSite?: SiteInfo | null;
 	wpcomAccessToken?: string;
 	onAskUser?: ( questions: AskUserQuestion[] ) => Promise< Record< string, string > >;
@@ -59,6 +60,7 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 		model = DEFAULT_MODEL,
 		maxTurns = 50,
 		resume,
+		autoApprove,
 		activeSite,
 		wpcomAccessToken,
 		onAskUser,
@@ -108,6 +110,13 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 			allowedTools,
 			permissionMode: 'default',
 			canUseTool: async ( toolName, input, metadata ) => {
+				if ( autoApprove ) {
+					return {
+						behavior: 'allow' as const,
+						updatedInput: input as Record< string, unknown >,
+					};
+				}
+
 				if ( toolName === 'AskUserQuestion' && onAskUser ) {
 					const typedInput = input as {
 						questions?: AskUserQuestion[];

@@ -64,7 +64,7 @@ async function deletePreviewSites( authToken: StoredAuthToken, siteFolder: strin
 
 export async function runCommand(
 	siteFolder: string,
-	deleteFiles: boolean = false
+	deleteFiles: boolean = true
 ): Promise< void > {
 	try {
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
@@ -144,8 +144,8 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		builder: ( yargs ) => {
 			return yargs.option( 'files', {
 				type: 'boolean',
-				description: __( 'Also move site files to trash' ),
-				default: false,
+				description: __( 'Move site files to trash (use --no-files to keep files)' ),
+				default: true,
 			} );
 		},
 		handler: async ( argv ) => {

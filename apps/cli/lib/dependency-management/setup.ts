@@ -15,10 +15,8 @@ import {
 	getWpCliPharPath,
 	getWpFilesPath,
 } from '../server-files';
-import { updateLatestSqliteCommandVersion } from './sqlite-command';
 import { areDirectoriesDifferentBySizeAndMtime, downloadFile } from './utils';
 import { getWordPressVersionFromInstallation, updateLatestWordPressVersion } from './wordpress';
-import { downloadWpCli, updateLatestWpCliVersion } from './wp-cli';
 
 type VersionReader = () => Promise< semver.SemVer | null >;
 
@@ -154,12 +152,6 @@ async function copyBundledSqlite() {
 
 async function copyBundledWpCli() {
 	const sourceWpCLIPath = path.join( getWpFilesPath(), 'wp-cli', 'wp-cli.phar' );
-	if ( ! fs.existsSync( sourceWpCLIPath ) ) {
-		// Bundled WP-CLI not available (e.g. dev build) — download it directly.
-		await downloadWpCli();
-		return;
-	}
-
 	const sourceStats = await fs.promises.lstat( sourceWpCLIPath );
 	let shouldCopy = false;
 
@@ -305,17 +297,9 @@ export async function setupServerFiles() {
 }
 
 export async function updateServerFiles() {
-	const steps: [ string, () => Promise< void > ][] = [
-		[ 'WordPress version', updateLatestWordPressVersion ],
-		[ 'WP-CLI', updateLatestWpCliVersion ],
-		[ 'SQLite integration', updateLatestSqliteCommandVersion ],
-	];
-
-	await Promise.all(
-		steps.map( ( [ name, step ] ) =>
-			step().catch( ( error ) => {
-				console.error( `Failed to update dependency ${ name }:`, error );
-			} )
-		)
-	);
+	try {
+		await updateLatestWordPressVersion();
+	} catch ( error ) {
+		console.error( 'Failed to update dependency WordPress version:', error );
+	}
 }

@@ -5,8 +5,17 @@ export function replaySessionHistory( ui: AiChatUI, events: AiSessionEvent[] ): 
 	ui.prepareForReplay();
 	let isTurnOpen = false;
 
+	let lastClearedIndex = -1;
+	for ( let i = events.length - 1; i >= 0; i-- ) {
+		if ( events[ i ].type === 'session.cleared' ) {
+			lastClearedIndex = i;
+			break;
+		}
+	}
+	const eventsToReplay = lastClearedIndex >= 0 ? events.slice( lastClearedIndex + 1 ) : events;
+
 	try {
-		for ( const event of events ) {
+		for ( const event of eventsToReplay ) {
 			ui.setReplayTimestamp( event.timestamp );
 
 			if ( event.type === 'site.selected' ) {

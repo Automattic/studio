@@ -17,6 +17,7 @@ import {
 import { setupServerFiles } from 'cli/lib/dependency-management/setup';
 import { loadTranslations } from 'cli/lib/i18n';
 import { StatsGroup, StatsMetric } from 'cli/lib/types/bump-stats';
+import { setupUpdateNotifier } from 'cli/lib/update-notifier';
 import { untildify } from 'cli/lib/utils';
 import { StudioArgv } from 'cli/types';
 
@@ -25,6 +26,8 @@ const version = __STUDIO_CLI_VERSION__;
 suppressPunycodeWarning();
 
 async function main() {
+	await setupUpdateNotifier( version );
+
 	const yargsLocale = await loadTranslations();
 
 	if ( semver.lt( process.version, __MINIMUM_NODE_VERSION__ ) ) {

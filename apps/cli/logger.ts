@@ -1,8 +1,8 @@
-import ora, { Ora } from 'ora';
+import { Spinner } from 'picospinner';
 
 const isIpcMode = Boolean( process.send );
 
-type ProgressCallback = ( message: string ) => void;
+type ProgressCallback = ( message: string, update?: boolean ) => void;
 let progressCallback: ProgressCallback | null = null;
 
 export function setProgressCallback( callback: ProgressCallback | null ): void {
@@ -45,11 +45,11 @@ export class LoggerError extends Error {
 }
 
 export class Logger< T extends string > {
-	public spinner: Ora;
+	public spinner: Spinner;
 	private currentAction: T | 'keyValuePair' | null = null;
 
 	constructor() {
-		this.spinner = ora();
+		this.spinner = new Spinner();
 	}
 
 	public reportStart( action: T, message: string ) {
@@ -63,7 +63,8 @@ export class Logger< T extends string > {
 			progressCallback!( message );
 			return;
 		}
-		this.spinner.start( message );
+		this.spinner.setText( message );
+		this.spinner.start();
 	}
 
 	public reportProgress( message: string ) {
@@ -73,15 +74,16 @@ export class Logger< T extends string > {
 		}
 
 		if ( progressCallback ) {
-			progressCallback!( message );
+			progressCallback!( message, true );
 			return;
 		}
 
-		this.spinner.text = message;
-		if ( ! this.spinner.isSpinning ) {
-			this.spinner.start( message );
+		// Update the spinner text and force render
+		this.spinner.setText( message );
+		if ( ! this.spinner.running ) {
+			this.spinner.start();
 		} else {
-			this.spinner.render();
+			this.spinner.refresh();
 		}
 	}
 
@@ -91,7 +93,7 @@ export class Logger< T extends string > {
 		} else if ( progressCallback ) {
 			progressCallback!( message );
 		} else if ( shouldClearSpinner ) {
-			this.spinner.clear();
+			this.spinner.stop();
 		} else {
 			this.spinner.succeed( message );
 		}

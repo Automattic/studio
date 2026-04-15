@@ -225,15 +225,23 @@ describe( 'CLI: studio site delete', () => {
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
-		it( 'should delete a site and remove files when files flag is set', async () => {
+		it( 'should move files to trash by default', async () => {
 			vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [] );
 
-			await runCommand( testSiteFolder, true );
+			await runCommand( testSiteFolder );
 
+			expect( trash ).toHaveBeenCalledWith( testSiteFolder );
 			expect( saveCliConfig ).toHaveBeenCalled();
-			const savedCliConfig = vi.mocked( saveCliConfig ).mock.calls[ 0 ][ 0 ];
-			expect( savedCliConfig.sites ).toHaveLength( 0 );
-			expect( trash ).toHaveBeenCalledWith( [ testSiteFolder ] );
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
+		} );
+
+		it( 'should not move files to trash when --no-files is used', async () => {
+			vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [] );
+
+			await runCommand( testSiteFolder, false );
+
+			expect( trash ).not.toHaveBeenCalled();
+			expect( saveCliConfig ).toHaveBeenCalled();
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 

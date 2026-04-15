@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { Writable } from 'stream';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
+import ignore from 'ignore';
 import { z } from 'zod';
 
 export async function downloadFile( url: string, destinationPath: string ): Promise< void > {
@@ -46,6 +47,7 @@ export async function fetchLatestGithubRelease( repo: string ) {
 
 	const response = await fetch( `https://api.github.com/repos/${ repo }/releases/latest`, {
 		headers,
+		signal: AbortSignal.timeout( 5000 ),
 	} );
 
 	if ( ! response.ok ) {
@@ -55,4 +57,81 @@ export async function fetchLatestGithubRelease( repo: string ) {
 	const rawResponse: unknown = await response.json();
 
 	return partialGithubReleaseSchema.parse( rawResponse );
+}
+
+const IGNORE_PATTERNS = [ '.DS_Store', 'Thumbs.db' ];
+const IGNORE_INSTANCE = ignore().add( IGNORE_PATTERNS );
+
+type FileMetadata = {
+	mtimeMs: number;
+	size: number;
+};
+
+async function collectDirectoryMetadata(
+	directoryPath: string,
+	basePath = directoryPath
+): Promise< Map< string, FileMetadata > > {
+	const files = new Map< string, FileMetadata >();
+	const entries = await fs.promises.readdir( directoryPath, { withFileTypes: true } );
+
+	for ( const entry of entries ) {
+		const fullPath = path.join( directoryPath, entry.name );
+		const relativePath = path.relative( basePath, fullPath );
+
+		if ( IGNORE_INSTANCE.ignores( relativePath ) ) {
+			continue;
+		}
+
+		if ( entry.isDirectory() ) {
+			const nestedFiles = await collectDirectoryMetadata( fullPath, basePath );
+			for ( const [ key, value ] of nestedFiles ) {
+				files.set( key, value );
+			}
+			continue;
+		}
+
+		if ( ! entry.isFile() ) {
+			continue;
+		}
+
+		const stats = await fs.promises.lstat( fullPath );
+		files.set( relativePath, { size: stats.size, mtimeMs: Math.floor( stats.mtimeMs ) } );
+	}
+
+	return files;
+}
+
+// Returns true when source and target have any file-level differences by relative path, size, or mtime.
+export async function areDirectoriesDifferentBySizeAndMtime(
+	sourceDirectoryPath: string,
+	targetDirectoryPath: string
+): Promise< boolean > {
+	if ( ! fs.existsSync( sourceDirectoryPath ) || ! fs.existsSync( targetDirectoryPath ) ) {
+		return true;
+	}
+
+	const [ sourceFiles, targetFiles ] = await Promise.all( [
+		collectDirectoryMetadata( sourceDirectoryPath ),
+		collectDirectoryMetadata( targetDirectoryPath ),
+	] );
+
+	if ( sourceFiles.size !== targetFiles.size ) {
+		return true;
+	}
+
+	for ( const [ relativePath, sourceMetadata ] of sourceFiles ) {
+		const targetMetadata = targetFiles.get( relativePath );
+		if ( ! targetMetadata ) {
+			return true;
+		}
+
+		if (
+			sourceMetadata.size !== targetMetadata.size ||
+			sourceMetadata.mtimeMs !== targetMetadata.mtimeMs
+		) {
+			return true;
+		}
+	}
+
+	return false;
 }

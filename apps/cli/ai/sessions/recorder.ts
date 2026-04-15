@@ -7,6 +7,7 @@ import type { AiSessionEvent, TurnStatus } from './types';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { AiModelId } from 'cli/ai/agent';
 import type { AiProviderId } from 'cli/ai/providers';
+import type { SiteInfo } from 'cli/ai/ui';
 
 function toIsoTimestamp( value?: Date ): string {
 	return ( value ?? new Date() ).toISOString();
@@ -82,12 +83,7 @@ export class AiSessionRecorder {
 		} );
 	}
 
-	async recordSiteSelected( site: {
-		name: string;
-		path: string;
-		remote?: boolean;
-		url?: string;
-	} ): Promise< void > {
+	async recordSiteSelected( site: SiteInfo ): Promise< void > {
 		await this.appendEvent( {
 			type: 'site.selected',
 			timestamp: toIsoTimestamp(),
@@ -95,6 +91,7 @@ export class AiSessionRecorder {
 			sitePath: site.path,
 			remote: site.remote,
 			url: site.url,
+			wpcomSiteId: site.wpcomSiteId,
 		} );
 	}
 
@@ -152,6 +149,13 @@ export class AiSessionRecorder {
 			type: 'turn.closed',
 			timestamp: toIsoTimestamp(),
 			status,
+		} );
+	}
+
+	async recordSessionCleared(): Promise< void > {
+		await this.appendEvent( {
+			type: 'session.cleared',
+			timestamp: toIsoTimestamp(),
 		} );
 	}
 

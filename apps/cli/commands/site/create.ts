@@ -52,6 +52,7 @@ import {
 	type BlueprintV1Declaration,
 	type StepDefinition,
 } from '@wp-playground/blueprints';
+import { bumpStat, getPlatformMetric } from 'cli/lib/bump-stat';
 import {
 	lockCliConfig,
 	readCliConfig,
@@ -73,6 +74,7 @@ import { generateSiteName } from 'cli/lib/site-name';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
+import { StatsGroup } from 'cli/lib/types/bump-stats';
 import { untildify } from 'cli/lib/utils';
 import { ValidationError } from 'cli/lib/validation-error';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
@@ -116,13 +118,17 @@ export async function runCommand(
 			);
 
 			await updateServerFiles();
+			logger.reportSuccess( __( 'Dependencies up to date' ) );
 		}
 	} catch ( error ) {
-		// Swallow errors in production. They aren't critical and likely relate to things outside the
-		// user's control, like network issues or bad API responses.
+		// Errors here aren't critical and likely relate to things outside the user's control,
+		// like network issues or bad API responses. Report them in development, and silently
+		// clear the spinner in production so creation can continue.
 		if ( process.env.NODE_ENV !== 'production' ) {
 			const loggerError = new LoggerError( 'Failed to update dependencies', error );
-			logger.reportError( loggerError );
+			logger.reportError( loggerError, false );
+		} else {
+			logger.reportSuccess( __( 'Dependencies up to date' ), true );
 		}
 	}
 
@@ -782,6 +788,15 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 
 			try {
 				await runCommand( sitePath, config );
+
+				if ( __ENABLE_CLI_TELEMETRY__ && ! argv.avoidTelemetry ) {
+					bumpStat(
+						__IS_PACKAGED_FOR_NPM__
+							? StatsGroup.STUDIO_CLI_SITE_CREATE_NPM
+							: StatsGroup.STUDIO_CLI_SITE_CREATE_APP,
+						getPlatformMetric()
+					);
+				}
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );

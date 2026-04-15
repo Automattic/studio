@@ -4,9 +4,8 @@ import { BlueprintValidationWarning } from '@studio/common/lib/blueprint-validat
 import { SiteEvent, SnapshotEvent } from '@studio/common/lib/cli-events';
 import { PreviewCommandLoggerAction } from '@studio/common/logger-actions';
 import { ImportExportEventData } from 'src/lib/import-export/handle-events';
-import { StoredAuthToken } from 'src/lib/oauth';
 import { getMainWindow } from 'src/main-window';
-import type { UserData } from 'src/storage/storage-types';
+import type { StoredAuthToken } from '@studio/common/lib/shared-config';
 
 type SnapshotEventData = {
 	action: PreviewCommandLoggerAction;
@@ -60,8 +59,6 @@ export interface IpcEvents {
 	'user-settings': [ { tabName?: string } ];
 	'window-fullscreen-change': [ boolean ];
 	'user-preference-changed': [ void ];
-	'user-data-updated': [ UserData ];
-	'user-data-error': [ string ];
 	'refresh-app-globals': [ void ];
 	'beta-features-updated': [ void ];
 }

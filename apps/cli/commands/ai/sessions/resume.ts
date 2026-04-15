@@ -1,5 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { listAiSessions, loadAiSession } from 'cli/ai/sessions/store';
+import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runAiCommand } from 'cli/commands/ai';
 import { chooseSessionForAction } from 'cli/commands/ai/sessions/helpers';
 import { Logger, LoggerError } from 'cli/logger';
@@ -16,7 +17,7 @@ export async function runCommand(
 	if ( ! resolvedSessionIdOrPrefix ) {
 		const selectedSession = await chooseSessionForAction(
 			__( 'Select a session to resume:' ),
-			__( 'No AI sessions found' )
+			__( 'No code sessions found' )
 		);
 		if ( ! selectedSession ) {
 			return;
@@ -28,7 +29,7 @@ export async function runCommand(
 	if ( resolvedSessionIdOrPrefix.toLowerCase() === 'latest' ) {
 		const sessions = await listAiSessions();
 		if ( sessions.length === 0 ) {
-			throw new Error( __( 'No AI sessions found' ) );
+			throw new Error( __( 'No code sessions found' ) );
 		}
 
 		resolvedSessionIdOrPrefix = sessions[ 0 ].id;
@@ -36,6 +37,7 @@ export async function runCommand(
 
 	const session = await loadAiSession( resolvedSessionIdOrPrefix );
 	await runAiCommand( {
+		adapter: new AiChatUI(),
 		resumeSession: session,
 		noSessionPersistence: options.noSessionPersistence === true,
 	} );
@@ -44,7 +46,7 @@ export async function runCommand(
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'resume [id]',
-		describe: __( 'Resume an AI session (id, prefix, "latest", or picker)' ),
+		describe: __( 'Resume a code session (id, prefix, "latest", or picker)' ),
 		builder: ( resumeYargs ) => {
 			return resumeYargs.positional( 'id', {
 				type: 'string',
@@ -62,7 +64,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );
 				} else {
-					const loggerError = new LoggerError( __( 'Failed to resume AI session' ), error );
+					const loggerError = new LoggerError( __( 'Failed to resume code session' ), error );
 					logger.reportError( loggerError );
 				}
 			}

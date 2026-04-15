@@ -15,7 +15,7 @@ import {
 	widget,
 } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import { ButtonsSection, ButtonsSectionProps } from 'src/components/buttons-section';
 import { useSiteDetails } from 'src/hooks/use-site-details';
@@ -214,6 +214,10 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 	const loading = loadingThemeDetails || loadingThumbnails || initialLoading;
 	const isServerLoading = loadingServer[ selectedSite.id ];
 
+	useEffect( () => {
+		setIsThumbnailError( false );
+	}, [ thumbnailData ] );
+
 	const handleThumbnailClick = async () => {
 		if ( isServerLoading ) return;
 
@@ -222,16 +226,6 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 		}
 		getIpcApi().openSiteURL( selectedSite.id, '', { autoLogin: false } );
 	};
-
-	const thumbnailImage = (
-		<img
-			onError={ () => setIsThumbnailError( true ) }
-			onLoad={ () => setIsThumbnailError( false ) }
-			className="w-full h-full"
-			src={ thumbnailData || '' }
-			alt={ themeDetails?.name }
-		/>
-	);
 
 	return (
 		<div className="p-8 flex max-w-4xl">
@@ -271,7 +265,13 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 									{ __( 'Preview unavailable' ) }
 								</div>
 							) : (
-								thumbnailImage
+								<img
+									onError={ () => setIsThumbnailError( true ) }
+									onLoad={ () => setIsThumbnailError( false ) }
+									className="w-full h-full"
+									src={ thumbnailData || '' }
+									alt={ themeDetails?.name }
+								/>
 							) }
 						</button>
 					) }

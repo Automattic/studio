@@ -1,12 +1,6 @@
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import {
-	AI_MODELS,
-	DEFAULT_MODEL,
-	startAiAgent,
-	type AiModelId,
-	type AskUserQuestion,
-} from 'cli/ai/agent';
+import { DEFAULT_MODEL, startAiAgent, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
 import {
 	getAvailableAiProviders,
 	isAiProviderReady,
@@ -16,23 +10,16 @@ import {
 	resolveUnavailableAiProvider,
 	saveSelectedAiProvider,
 } from 'cli/ai/auth';
+import { closeSharedBrowser } from 'cli/ai/browser-utils';
+import { type AiOutputAdapter, JsonAdapter } from 'cli/ai/output-adapter';
 import { AI_PROVIDERS, type AiProviderId } from 'cli/ai/providers';
 import { resolveResumeSessionContext } from 'cli/ai/sessions/context';
 import { AiSessionRecorder } from 'cli/ai/sessions/recorder';
 import { replaySessionHistory } from 'cli/ai/sessions/replay';
 import { type LoadedAiSession, type TurnStatus } from 'cli/ai/sessions/types';
-import {
-	AI_CHAT_API_KEY_COMMAND,
-	AI_CHAT_BROWSER_COMMAND,
-	AI_CHAT_EXIT_COMMAND,
-	AI_CHAT_LOGIN_COMMAND,
-	AI_CHAT_LOGOUT_COMMAND,
-	AI_CHAT_MODEL_COMMAND,
-	AI_CHAT_PROVIDER_COMMAND,
-} from 'cli/ai/slash-commands';
+import { AI_CHAT_SLASH_COMMANDS, type SlashCommandContext } from 'cli/ai/slash-commands';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
-import { runCommand as runLogoutCommand } from 'cli/commands/auth/logout';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -54,10 +41,16 @@ function getErrorMessage( error: unknown ): string {
 	return String( error );
 }
 
-export async function runCommand(
-	options: { resumeSession?: LoadedAiSession; noSessionPersistence?: boolean } = {}
-): Promise< void > {
-	const ui = new AiChatUI();
+export async function runCommand( options: {
+	adapter: AiOutputAdapter;
+	initialMessage?: string;
+	resumeSession?: LoadedAiSession;
+	noSessionPersistence?: boolean;
+	autoApprove?: boolean;
+	showLegacyCommandNotice?: boolean;
+} ): Promise< void > {
+	const ui = options.adapter;
+	const isJsonMode = ui instanceof JsonAdapter;
 	const resumeContext = resolveResumeSessionContext( options.resumeSession );
 	let currentProvider: AiProviderId =
 		resumeContext.provider ?? ( await resolveInitialAiProvider() );
@@ -66,6 +59,10 @@ export async function runCommand(
 	ui.currentModel = currentModel;
 	ui.start();
 	ui.showWelcome();
+
+	if ( options.showLegacyCommandNotice && ! isJsonMode ) {
+		ui.showInfo( __( 'ⓘ The "studio ai" command is now "studio code".' ) );
+	}
 
 	let sessionRecorder: AiSessionRecorder | undefined;
 	let didDisableSessionPersistence = options.noSessionPersistence === true;
@@ -135,6 +132,13 @@ export async function runCommand(
 		return persistQueue;
 	};
 
+	if ( ui instanceof JsonAdapter ) {
+		ui.onBeforeExit = async () => {
+			await persistQueue;
+			ui.stop();
+		};
+	}
+
 	async function persistSessionContext(): Promise< void > {
 		await persist( ( recorder ) =>
 			recorder.recordSessionContext( {
@@ -144,21 +148,14 @@ export async function runCommand(
 		);
 	}
 
-	setProgressCallback( ( message ) => {
+	setProgressCallback( ( message, update ) => {
 		const timestamp = new Date().toISOString();
-		ui.setLoaderMessage( message );
+		ui.setLoaderMessage( message, update );
 		void persist( ( recorder ) => recorder.recordToolProgress( message, timestamp ) );
 	} );
 
 	ui.onSiteSelected = ( site ) => {
-		void persist( ( recorder ) =>
-			recorder.recordSiteSelected( {
-				name: site.name,
-				path: site.path,
-				remote: site.remote,
-				url: site.url,
-			} )
-		);
+		void persist( ( recorder ) => recorder.recordSiteSelected( site ) );
 	};
 
 	if ( options.resumeSession ) {
@@ -169,7 +166,9 @@ export async function runCommand(
 				options.resumeSession.summary.id
 			)
 		);
-		replaySessionHistory( ui, options.resumeSession.events );
+		if ( ui instanceof AiChatUI ) {
+			replaySessionHistory( ui, options.resumeSession.events );
+		}
 		if ( ! sessionId ) {
 			ui.showInfo( __( 'No linked Claude session was found. Continuing from transcript only.' ) );
 		}
@@ -238,7 +237,77 @@ export async function runCommand(
 		}
 	}
 
-	if ( currentProvider === 'wpcom' ) {
+	const config = await readCliConfig();
+	let showCapabilitiesOnConnect = ! config.aiProvider;
+
+	if ( showCapabilitiesOnConnect ) {
+		ui.showOnboarding();
+
+		// Auto-trigger provider selection on first run
+		const availableProviders = await getAvailableAiProviders();
+		const labelToProvider = new Map< string, AiProviderId >();
+		const providerOptions = availableProviders.map( ( id ) => {
+			const label = id === 'wpcom' ? __( 'WordPress.com (recommended)' ) : AI_PROVIDERS[ id ];
+			labelToProvider.set( label, id );
+			return { label, description: id };
+		} );
+		const answer = await ui.askUser( [
+			{
+				question: __( 'Choose how to connect' ),
+				options: providerOptions,
+			},
+		] );
+		const selectedLabel = Object.values( answer )[ 0 ] as string;
+		const selectedProvider = labelToProvider.get( selectedLabel );
+		if ( selectedProvider ) {
+			try {
+				if ( selectedProvider === 'wpcom' ) {
+					// Run login flow directly instead of prepare(), which would
+					// just throw "login required" since there's no token yet.
+					ui.stop();
+					await runLoginCommand();
+					ui.start();
+
+					if ( await isAiProviderReady( 'wpcom' ) ) {
+						await switchProvider( 'wpcom', false );
+						const token = await readAuthToken();
+						if ( token ) {
+							ui.showSuccess(
+								sprintf(
+									/* translators: 1: display name, 2: email */
+									__( 'Logged in as %1$s (%2$s)' ),
+									token.displayName,
+									token.email
+								)
+							);
+							ui.setStatusMessage(
+								sprintf(
+									/* translators: %s: display name */
+									__( 'Logged in as %s' ),
+									token.displayName
+								)
+							);
+							showCapabilitiesOnConnect = false;
+							ui.showCapabilities();
+						}
+					}
+				} else {
+					await prepareProviderSelection( selectedProvider );
+					await switchProvider( selectedProvider, false );
+					showCapabilitiesOnConnect = false;
+					ui.showCapabilities();
+				}
+			} catch ( error ) {
+				if ( ! isPromptAbortError( error ) ) {
+					if ( error instanceof LoggerError ) {
+						ui.showError( error.message );
+					} else {
+						throw error;
+					}
+				}
+			}
+		}
+	} else if ( currentProvider === 'wpcom' ) {
 		const token = await readAuthToken();
 		if ( token ) {
 			ui.setStatusMessage(
@@ -251,11 +320,8 @@ export async function runCommand(
 		} else {
 			ui.setStatusMessage( __( 'Use /login to authenticate to WordPress.com' ) );
 		}
-	}
-
-	const { anthropicApiKey } = await readCliConfig();
-	if ( currentProvider === 'anthropic-api-key' && ! anthropicApiKey ) {
-		ui.showInfo( __( 'No Anthropic API key saved. Use /provider to enter one.' ) );
+	} else if ( currentProvider === 'anthropic-api-key' && ! config.anthropicApiKey ) {
+		ui.showInfo( __( 'No Anthropic API key saved. Use /api-key to enter one.' ) );
 	}
 
 	async function askUserAndPersistAnswers(
@@ -292,20 +358,29 @@ export async function runCommand(
 		return answers;
 	}
 
-	async function runAgentTurn( prompt: string ): Promise< void > {
+	async function runAgentTurn(
+		prompt: string
+	): Promise< { status: TurnStatus; usage?: { numTurns: number; costUsd?: number } } > {
 		const env = await resolveAiEnvironment( currentProvider );
 		ui.beginAgentTurn();
 
 		// Prepend active site context to the prompt.
-		// Remote (WordPress.com) sites only have a URL; local sites have a filesystem path and running state.
+		// Remote (WordPress.com) sites only have a URL and site ID; local sites have a filesystem path and running state.
 		let enrichedPrompt = prompt;
 		const site = ui.activeSite;
 		if ( site?.remote && site?.url ) {
-			enrichedPrompt = `[Active site: "${ site.name }" at ${ site.url } (WordPress.com)]\n\n${ prompt }`;
+			enrichedPrompt = `[Active site: "${ site.name }" (ID: ${ site.wpcomSiteId }) at ${ site.url } (WordPress.com)]\n\n${ prompt }`;
 		} else if ( site ) {
 			enrichedPrompt = `[Active site: "${ site.name }" at ${ site.path }${
 				site.running ? ' (running)' : ' (stopped)'
 			}]\n\n${ prompt }`;
+		}
+
+		// Read the WP.com access token for remote sites
+		let wpcomAccessToken: string | undefined;
+		if ( site?.remote ) {
+			const token = await readAuthToken();
+			wpcomAccessToken = token?.accessToken;
 		}
 
 		await persistSessionContext();
@@ -323,6 +398,9 @@ export async function runCommand(
 			env,
 			model: currentModel,
 			resume: sessionId,
+			autoApprove: options.autoApprove ?? isJsonMode,
+			activeSite: site,
+			wpcomAccessToken,
 			onAskUser: ( questions ) => askUserAndPersistAnswers( questions ),
 		} );
 
@@ -342,7 +420,7 @@ export async function runCommand(
 					sessionId = result.sessionId;
 					await persist( ( recorder ) => recorder.recordAgentSessionId( result.sessionId ) );
 
-					if ( 'maxTurnsReached' in result && result.maxTurnsReached ) {
+					if ( result.type === 'max_turns' ) {
 						maxTurnsResult = {
 							numTurns: result.numTurns,
 						};
@@ -380,167 +458,111 @@ export async function runCommand(
 			const choice = Object.values( answer )[ 0 ]?.toLowerCase();
 			if ( choice === 'yes' ) {
 				ui.addUserMessage( 'Continue' );
-				await runAgentTurn( 'Continue from where you left off.' );
+				return runAgentTurn( 'Continue from where you left off.' );
 			}
+		}
+
+		return {
+			status: turnStatus,
+			usage: maxTurnsResult,
+		};
+	}
+
+	// JSON mode: single turn, then exit
+	if ( isJsonMode && options.initialMessage ) {
+		try {
+			ui.addUserMessage( options.initialMessage );
+			const result = await runAgentTurn( options.initialMessage );
+			const jsonStatus = result.status === 'interrupted' ? 'error' : result.status;
+			( ui as JsonAdapter ).emitTurnCompleted( jsonStatus, result.usage );
+		} catch ( error ) {
+			process.exitCode = 1;
+			handleAgentTurnError( error );
+			( ui as JsonAdapter ).emitTurnCompleted( 'error' );
+		} finally {
+			await persistQueue;
+			ui.stop();
+			await closeSharedBrowser();
+		}
+		return;
+	}
+
+	// Run initial message before entering the input loop
+	if ( options.initialMessage ) {
+		ui.addUserMessage( options.initialMessage );
+		try {
+			await runAgentTurn( options.initialMessage );
+		} catch ( error ) {
+			handleAgentTurnError( error );
 		}
 	}
 
+	if ( ! ( ui instanceof AiChatUI ) ) {
+		throw new Error( 'Interactive mode requires AiChatUI adapter' );
+	}
+
+	const slashCommandContext: SlashCommandContext = {
+		ui,
+		get currentModel() {
+			return currentModel;
+		},
+		set currentModel( value ) {
+			currentModel = value;
+		},
+		get currentProvider() {
+			return currentProvider;
+		},
+		get showCapabilitiesOnConnect() {
+			return showCapabilitiesOnConnect;
+		},
+		set showCapabilitiesOnConnect( value ) {
+			showCapabilitiesOnConnect = value;
+		},
+		switchProvider,
+		prepareProviderSelection,
+		maybeAutoSwitchProvider,
+		persistSessionContext,
+		async clearSession() {
+			sessionId = undefined;
+			ui.clearTranscript();
+			ui.showWelcome();
+			ui.showInfo( __( 'Conversation cleared' ) );
+			await persist( ( recorder ) => recorder.recordSessionCleared() );
+			await persistSessionContext();
+			const site = ui.activeSite;
+			if ( site ) {
+				await persist( ( recorder ) => recorder.recordSiteSelected( site ) );
+			}
+		},
+	};
+
+	// --- Main loop ---
 	try {
 		while ( true ) {
 			const prompt = await ui.waitForInput();
 			const trimmedPrompt = prompt.trim();
 
-			if ( trimmedPrompt === AI_CHAT_EXIT_COMMAND ) {
-				break;
-			}
-
-			if ( trimmedPrompt === AI_CHAT_BROWSER_COMMAND ) {
-				const opened = await ui.openActiveSiteInBrowser();
-				if ( ! opened ) {
-					ui.showInfo( __( 'No site selected. Use ↓ to select a site first.' ) );
-				}
-				continue;
-			}
-
-			if ( trimmedPrompt === AI_CHAT_API_KEY_COMMAND ) {
-				try {
-					await prepareProviderSelection( 'anthropic-api-key', { force: true } );
-					ui.showInfo( __( 'Anthropic API key updated.' ) );
-				} catch ( error ) {
-					if ( isPromptAbortError( error ) ) {
-						ui.showInfo( __( 'API key update canceled.' ) );
-						continue;
-					}
-					if ( error instanceof LoggerError ) {
-						ui.showError( error.message );
-						continue;
-					}
-					throw error;
-				}
-				continue;
-			}
-
-			if ( trimmedPrompt === AI_CHAT_LOGIN_COMMAND ) {
-				ui.stop();
-				await runLoginCommand();
-				ui.start();
-				if ( await isAiProviderReady( 'wpcom' ) ) {
-					const token = await readAuthToken();
-					if ( token ) {
-						ui.showInfo(
-							sprintf(
-								/* translators: 1: display name, 2: email */
-								__( 'Logged in as %1$s (%2$s)' ),
-								token.displayName,
-								token.email
-							)
-						);
-						ui.setStatusMessage(
-							sprintf(
-								/* translators: %s: display name */
-								__( 'Logged in as %s' ),
-								token.displayName
-							)
-						);
+			const cmd = AI_CHAT_SLASH_COMMANDS.find( ( c ) => `/${ c.name }` === trimmedPrompt );
+			if ( cmd ) {
+				if ( cmd.handler ) {
+					const result = await cmd.handler( prompt, slashCommandContext );
+					if ( result === 'break' ) {
+						break;
 					}
 				} else {
-					ui.setStatusMessage( __( 'Login failed or canceled' ) );
-				}
-				continue;
-			}
-
-			if ( trimmedPrompt === AI_CHAT_LOGOUT_COMMAND ) {
-				ui.stop();
-				await runLogoutCommand();
-				ui.start();
-				ui.setStatusMessage( __( 'Logged out of WordPress.com' ) );
-				await maybeAutoSwitchProvider();
-				continue;
-			}
-
-			if ( trimmedPrompt === AI_CHAT_MODEL_COMMAND ) {
-				const modelOptions = ( Object.entries( AI_MODELS ) as [ AiModelId, string ][] ).map(
-					( [ id, label ] ) => ( {
-						label:
-							id === currentModel
-								? sprintf(
-										/* translators: %s: model name */
-										__( '%s (current)' ),
-										label
-								  )
-								: label,
-						description: id,
-					} )
-				);
-				const answer = await ui.askUser( [
-					{ question: __( 'Select a model' ), options: modelOptions },
-				] );
-				const selectedId = Object.values( answer )[ 0 ] as string;
-				const newModel = ( Object.entries( AI_MODELS ) as [ AiModelId, string ][] ).find(
-					( [ , label ] ) => selectedId.startsWith( label )
-				);
-				if ( newModel && newModel[ 0 ] !== currentModel ) {
-					currentModel = newModel[ 0 ];
-					ui.currentModel = currentModel;
-					ui.showInfo(
-						sprintf(
-							/* translators: %s: model name */
-							__( 'Switched to %s' ),
-							AI_MODELS[ currentModel ]
-						)
-					);
-					await persistSessionContext();
-				}
-				continue;
-			}
-
-			if ( trimmedPrompt === AI_CHAT_PROVIDER_COMMAND ) {
-				const availableProviders = await getAvailableAiProviders();
-				const providerOptions = availableProviders.map( ( id ) => ( {
-					label:
-						id === currentProvider
-							? sprintf(
-									/* translators: %s: provider name */
-									__( '%s (current)' ),
-									AI_PROVIDERS[ id ]
-							  )
-							: AI_PROVIDERS[ id ],
-					description: id,
-				} ) );
-				const answer = await ui.askUser( [
-					{ question: __( 'Select an AI provider' ), options: providerOptions },
-				] );
-				const selectedLabel = Object.values( answer )[ 0 ] as string;
-				const newProvider = availableProviders.find( ( id ) =>
-					selectedLabel.startsWith( AI_PROVIDERS[ id ] )
-				);
-				if ( newProvider && newProvider !== currentProvider ) {
+					// Skill command — no handler, route to agent
+					await maybeAutoSwitchProvider();
+					ui.addUserMessage( prompt );
 					try {
-						await prepareProviderSelection( newProvider );
-						await switchProvider( newProvider );
+						await runAgentTurn( `Run the /${ cmd.name } skill using the Skill tool.` );
 					} catch ( error ) {
-						if ( isPromptAbortError( error ) ) {
-							ui.showInfo(
-								sprintf(
-									/* translators: %s: provider name */
-									__( 'Provider setup canceled. Kept %s.' ),
-									AI_PROVIDERS[ currentProvider ]
-								)
-							);
-							continue;
-						}
-						if ( error instanceof LoggerError ) {
-							ui.showError( error.message );
-							continue;
-						}
-						throw error;
+						handleAgentTurnError( error );
 					}
 				}
 				continue;
 			}
 
 			await maybeAutoSwitchProvider();
-
 			ui.addUserMessage( prompt );
 			try {
 				await runAgentTurn( prompt );
@@ -557,25 +579,55 @@ export async function runCommand(
 
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
-		command: '$0',
-		describe: __( 'AI-powered WordPress assistant' ),
+		command: '$0 [message]',
+		describe: __( 'AI agent for building WordPress' ),
 		builder: ( yargs ) => {
 			return yargs
+				.positional( 'message', {
+					type: 'string',
+					description: __( 'Initial message to send to the AI agent' ),
+				} )
 				.option( 'path', {
 					hidden: true,
+				} )
+				.option( 'json', {
+					type: 'boolean',
+					default: false,
+					description: __( 'Output events as NDJSON to stdout (headless mode)' ),
+				} )
+				.option( 'auto-approve', {
+					type: 'boolean',
+					description: __( 'Auto-approve all tool calls (defaults to true in --json mode)' ),
 				} )
 				.option( 'session-persistence', {
 					type: 'boolean',
 					default: true,
-					description: __( 'Record this AI chat session to disk' ),
+					description: __( 'Record this code session to disk' ),
+				} )
+				.check( ( argv ) => {
+					if ( argv.json && ! argv.message ) {
+						throw new Error( __( '--json requires an initial message argument' ) );
+					}
+					return true;
 				} );
 		},
 		handler: async ( argv ) => {
 			try {
-				const noSessionPersistence =
-					( argv as { sessionPersistence?: boolean } ).sessionPersistence === false;
+				const typedArgv = argv as {
+					message?: string;
+					json?: boolean;
+					sessionPersistence?: boolean;
+					autoApprove?: boolean;
+				};
+				const noSessionPersistence = typedArgv.sessionPersistence === false;
+				const adapter: AiOutputAdapter = typedArgv.json ? new JsonAdapter() : new AiChatUI();
+
 				await runCommand( {
+					adapter,
+					initialMessage: typedArgv.message,
 					noSessionPersistence,
+					autoApprove: typedArgv.autoApprove,
+					showLegacyCommandNotice: argv._[ 0 ] === 'ai',
 				} );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {

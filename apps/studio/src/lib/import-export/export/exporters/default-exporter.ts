@@ -2,13 +2,13 @@ import { EventEmitter } from 'events';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { ARCHIVER_OPTIONS } from '@studio/common/constants';
 import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
 import {
 	hasDefaultDbBlock,
 	removeDbConstants,
 } from '@studio/common/lib/remove-default-db-constants';
 import archiver from 'archiver';
-import { ARCHIVER_OPTIONS } from 'src/constants';
 import { getSiteUrl } from 'src/lib/get-site-url';
 import { ExportEvents } from 'src/lib/import-export/export/events';
 import {
@@ -329,7 +329,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			return [];
 		}
 
-		const { stderr, stdout } = await server.executeWpCliCommand(
+		const { exitCode, stdout } = await server.executeWpCliCommand(
 			'plugin list --status=active,inactive --fields=name,status,version --format=json',
 			{
 				skipPluginsAndThemes: true,
@@ -341,8 +341,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		try {
 			return parseJsonFromPhpOutput( stdout );
 		} catch ( error ) {
-			if ( stderr ) {
-				console.error( `Could not get information about plugins: ${ stderr }` );
+			if ( exitCode ) {
 				throw new Error(
 					'Could not get information about installed plugins to create meta.json file.'
 				);
@@ -361,7 +360,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			return [];
 		}
 
-		const { stderr, stdout } = await server.executeWpCliCommand(
+		const { exitCode, stdout } = await server.executeWpCliCommand(
 			'theme list --fields=name,status,version --format=json',
 			{
 				skipPluginsAndThemes: true,
@@ -373,8 +372,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		try {
 			return parseJsonFromPhpOutput( stdout );
 		} catch ( error ) {
-			if ( stderr ) {
-				console.error( `Could not get information about themes: ${ stderr }` );
+			if ( exitCode ) {
 				throw new Error(
 					'Could not get information about installed themes to create meta.json file.'
 				);

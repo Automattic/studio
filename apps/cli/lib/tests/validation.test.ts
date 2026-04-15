@@ -8,11 +8,7 @@ import { vi } from 'vitest';
 import { validateSiteSize } from 'cli/lib/validation';
 import { LoggerError } from 'cli/logger';
 
-vi.mock( 'fs', () => ( {
-	default: {
-		existsSync: vi.fn(),
-	},
-} ) );
+vi.mock( 'fs' );
 vi.mock( 'path', () => ( {
 	default: {
 		join: vi.fn(),

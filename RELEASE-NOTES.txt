@@ -1,6 +1,22 @@
 Unreleased
 ==========
 
+1.7.8
+=====
+* Released studio code command #3002
+* Added push/pull and import/export commands to the CLI #3010
+* Added .deployignore support for Preview Sites to exclude files from deploys #2924
+* Redesigned titlebar: window title, button sizing, offline indicator #2675
+* Improved rendering correct error and buttons when pull failed #2964
+* Fixed SSL certificate trust nudge on non-English Windows #2932
+* Fixed blueprint local resource resolution when creating sites from the app #2935
+* Fixed account settings button opening general tab instead of account #2930
+* Fixed site sort order not preserved across app restarts #2902
+* Misc minor improvements to CLI #3023, #3020, #2962, #2937, #2997, #2850. #2855, #2809
+* Misc smaller UI improvements #2965, #2991, #2987, #3001, #2959, #2988, #2980, #2894, #2943
+* Misc dark mode improvements #3003, #2966, #2885
+* Updated multiple dependencies, including WP Playground and PHP-Wasm
+
 1.7.7
 =====
 * Added dark mode support #2652 #2865 #2857 #2866

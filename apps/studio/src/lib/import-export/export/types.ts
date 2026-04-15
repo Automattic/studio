@@ -1,4 +1,4 @@
-import type { ProgressData } from 'archiver';
+import type archiver from 'archiver';
 import type { EventEmitter } from 'events';
 import type { Ignore } from 'ignore';
 
@@ -25,7 +25,7 @@ export interface Exporter extends Partial< EventEmitter > {
 }
 
 export interface BackupCreateProgressEventData {
-	progress: ProgressData;
+	progress: archiver.ProgressData;
 }
 
 export type NewExporter = new ( options: ExportOptions ) => Exporter;

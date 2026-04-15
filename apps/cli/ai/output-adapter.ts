@@ -1,5 +1,6 @@
 import { DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
 import { emitEvent, type TurnCompletedStatus } from 'cli/ai/json-events';
+import { detectSubagentMaxTurns } from 'cli/ai/subagent-max-turns';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { AiProviderId } from 'cli/ai/providers';
 import type { SiteInfo } from 'cli/ai/ui';
@@ -14,6 +15,7 @@ export interface AiOutputAdapter {
 	activeSite: SiteInfo | null;
 	onSiteSelected: ( ( site: SiteInfo ) => void ) | null;
 	onInterrupt: ( () => void ) | null;
+	subagentMaxTurns: { lastProgress: string | null } | null;
 
 	start(): void;
 	stop(): void;
@@ -46,6 +48,7 @@ export class JsonAdapter implements AiOutputAdapter {
 	onSiteSelected: ( ( site: SiteInfo ) => void ) | null = null;
 	onInterrupt: ( () => void ) | null = null;
 	onBeforeExit: ( () => Promise< void > ) | null = null;
+	subagentMaxTurns: { lastProgress: string | null } | null = null;
 
 	private sessionId: string | undefined;
 
@@ -98,6 +101,7 @@ export class JsonAdapter implements AiOutputAdapter {
 	}
 
 	beginAgentTurn(): void {
+		this.subagentMaxTurns = null;
 		emitEvent( { type: 'turn.started', timestamp: new Date().toISOString() } );
 	}
 
@@ -111,6 +115,22 @@ export class JsonAdapter implements AiOutputAdapter {
 
 	handleMessage( message: SDKMessage ): HandleMessageResult | undefined {
 		emitEvent( { type: 'message', timestamp: new Date().toISOString(), message } );
+
+		if ( message.type === 'user' ) {
+			const typed = message as unknown as {
+				tool_use_result?: { content?: unknown };
+			};
+			const detected = detectSubagentMaxTurns(
+				typed.tool_use_result?.content as
+					| string
+					| Array< Record< string, unknown > >
+					| null
+					| undefined
+			);
+			if ( detected ) {
+				this.subagentMaxTurns = detected;
+			}
+		}
 
 		if ( message.type === 'result' ) {
 			this.sessionId = message.session_id;

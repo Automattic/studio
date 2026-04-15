@@ -102,12 +102,8 @@ export async function runCommand(
 			const siteNameById = new Map< string, string >(
 				config.sites.map( ( site ) => [ site.id, site.name ] )
 			);
-			/* translators: Placeholder label for a local site that no longer exists in the config. */
 			const unknownSiteLabel = __( 'Unknown site' );
 
-			// Group by resolved site name rather than localSiteId so any orphaned snapshots
-			// (whose local site no longer exists in the config) collapse into a single
-			// "Unknown site" group instead of rendering a duplicate header per dead ID.
 			const snapshotsBySiteName = new Map< string, Snapshot[] >();
 			for ( const snapshot of snapshots ) {
 				const siteName = siteNameById.get( snapshot.localSiteId ) ?? unknownSiteLabel;
@@ -116,9 +112,6 @@ export async function runCommand(
 				snapshotsBySiteName.set( siteName, bucket );
 			}
 
-			// Sort groups by preview-site count descending so users can immediately spot
-			// which local site is closest to the preview-site limit. Ties break alphabetically
-			// by site name for stable output.
 			const sortedGroups = [ ...snapshotsBySiteName.entries() ]
 				.map( ( [ siteName, siteSnapshots ] ) => ( { siteName, siteSnapshots } ) )
 				.sort( ( a, b ) => {

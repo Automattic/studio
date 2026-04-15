@@ -215,7 +215,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 					continue;
 				}
 
-				if ( this.options.deployIgnore?.ignores( archivePath.replace( /\\/g, '/' ) ) ) {
+				if ( this.options.deployIgnore?.ignores( archivePath ) ) {
 					continue;
 				}
 
@@ -230,9 +230,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 						if (
 							this.isExactPathExcluded( entryPathRelativeToArchiveRoot ) ||
 							this.isPathExcludedByPattern( fullEntryPathOnDisk ) ||
-							this.options.deployIgnore?.ignores(
-								entryPathRelativeToArchiveRoot.replace( /\\/g, '/' )
-							)
+							this.options.deployIgnore?.ignores( entryPathRelativeToArchiveRoot )
 						) {
 							return false;
 						}
@@ -241,7 +239,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 				} else {
 					if (
 						this.isExactPathExcluded( archivePath ) ||
-						this.options.deployIgnore?.ignores( archivePath.replace( /\\/g, '/' ) )
+						this.options.deployIgnore?.ignores( archivePath )
 					) {
 						continue;
 					}

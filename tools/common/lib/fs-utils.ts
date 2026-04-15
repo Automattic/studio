@@ -32,9 +32,7 @@ export function calculateDirectorySizeForArchive(
 				await Promise.all(
 					files.map( async ( file ) => {
 						const filePath = path.join( dirPath, file.name );
-						const fileRelativeToRoot = path
-							.relative( directoryPath, filePath )
-							.replace( /\\/g, '/' );
+						const fileRelativeToRoot = path.relative( directoryPath, filePath );
 						const ignorePath = pathPrefix
 							? `${ pathPrefix }/${ fileRelativeToRoot }`
 							: fileRelativeToRoot;

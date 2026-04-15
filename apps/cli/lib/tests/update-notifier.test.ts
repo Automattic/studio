@@ -46,9 +46,9 @@ describe( 'setupUpdateNotifier', () => {
 		stderrWriteSpy.mockRestore();
 	} );
 
-	it( 'should not show banner when in IPC mode', () => {
+	it( 'should not show banner when in IPC mode', async () => {
 		process.send = vi.fn();
-		setupUpdateNotifier( '1.0.0' );
+		await setupUpdateNotifier( '1.0.0' );
 		expect( stderrWriteSpy ).not.toHaveBeenCalled();
 	} );
 } );

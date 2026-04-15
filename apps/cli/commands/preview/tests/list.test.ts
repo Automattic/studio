@@ -111,7 +111,7 @@ describe( 'Preview List Command', () => {
 
 		await runCommand( mockFolder, 'table' );
 
-		const loggedLines = consoleLogSpy.mock.calls.map( ( call ) => String( call[ 0 ] ) );
+		const loggedLines = consoleLogSpy.mock.calls.map( ( call: unknown[] ) => String( call[ 0 ] ) );
 		// No grouped "Site Name (N preview site[s])" header in the single-site path.
 		expect( loggedLines.some( ( line ) => /\(\d+ preview sites?\)/.test( line ) ) ).toBe( false );
 		// The snapshot table should be rendered once.
@@ -185,7 +185,9 @@ describe( 'Preview List Command', () => {
 		it( 'should print one grouped header per local site with a per-site count', async () => {
 			await runCommand( '/not/a/site', 'table', true );
 
-			const output = consoleLogSpy.mock.calls.map( ( call ) => String( call[ 0 ] ) ).join( '\n' );
+			const output = consoleLogSpy.mock.calls
+				.map( ( call: unknown[] ) => String( call[ 0 ] ) )
+				.join( '\n' );
 			expect( output ).toMatch( /^Site A \(\d+ preview sites?\)$/m );
 			expect( output ).toMatch( /^Site B \(\d+ preview sites?\)$/m );
 		} );
@@ -221,7 +223,9 @@ describe( 'Preview List Command', () => {
 
 			await runCommand( '/not/a/site', 'table', true );
 
-			const output = consoleLogSpy.mock.calls.map( ( call ) => String( call[ 0 ] ) ).join( '\n' );
+			const output = consoleLogSpy.mock.calls
+				.map( ( call: unknown[] ) => String( call[ 0 ] ) )
+				.join( '\n' );
 			const siteAIndex = output.indexOf( 'Site A (' );
 			const siteBIndex = output.indexOf( 'Site B (' );
 			expect( siteBIndex ).toBeGreaterThanOrEqual( 0 );
@@ -242,7 +246,9 @@ describe( 'Preview List Command', () => {
 
 			await runCommand( '/not/a/site', 'table', true );
 
-			const output = consoleLogSpy.mock.calls.map( ( call ) => String( call[ 0 ] ) ).join( '\n' );
+			const output = consoleLogSpy.mock.calls
+				.map( ( call: unknown[] ) => String( call[ 0 ] ) )
+				.join( '\n' );
 			expect( output ).toMatch( /^Unknown site \(1 preview site\)$/m );
 			expect( mockReportError ).not.toHaveBeenCalled();
 		} );
@@ -269,7 +275,9 @@ describe( 'Preview List Command', () => {
 
 			await runCommand( '/not/a/site', 'table', true );
 
-			const output = consoleLogSpy.mock.calls.map( ( call ) => String( call[ 0 ] ) ).join( '\n' );
+			const output = consoleLogSpy.mock.calls
+				.map( ( call: unknown[] ) => String( call[ 0 ] ) )
+				.join( '\n' );
 			const unknownHeaders = output.match( /^Unknown site \(\d+ preview sites?\)$/gm ) ?? [];
 			expect( unknownHeaders ).toEqual( [ 'Unknown site (2 preview sites)' ] );
 		} );

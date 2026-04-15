@@ -205,6 +205,88 @@ describe( 'AiChatUI.clearTranscript', () => {
 	} );
 } );
 
+describe( 'AiChatUI subagent max-turns detection', () => {
+	beforeEach( () => {
+		vi.clearAllMocks();
+	} );
+
+	function createMinimalUi() {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			handleMessage: ( message: unknown ) => unknown;
+			subagentMaxTurns: { lastProgress: string | null } | null;
+			[ key: string ]: unknown;
+		};
+		ui.pendingToolCalls = new Map( [
+			[ 'task-1', { name: 'Task', input: { description: 'setup products' } } ],
+		] );
+		ui.pendingTodoRenders = new Map();
+		ui.pendingTodoRenderOrder = [];
+		ui.showTodoToolResult = vi.fn();
+		ui.showToolResult = vi.fn();
+		ui.currentMarkdown = null;
+		ui.currentResponseText = '';
+		ui.subagentMaxTurns = null;
+		return ui;
+	}
+
+	it( 'sets subagentMaxTurns when a Task tool_result contains the marker', () => {
+		const ui = createMinimalUi();
+
+		ui.handleMessage( {
+			type: 'user',
+			parent_tool_use_id: 'task-1',
+			tool_use_result: {
+				content: [
+					{ type: 'text', text: 'Updated product 21.' },
+					{
+						type: 'text',
+						text: 'Claude Code returned an error result: Reached maximum number of turns (50)',
+					},
+				],
+			},
+			message: { content: [] },
+		} );
+
+		expect( ui.subagentMaxTurns ).toEqual( { lastProgress: 'Updated product 21.' } );
+	} );
+
+	it( 'leaves subagentMaxTurns null when the marker is absent', () => {
+		const ui = createMinimalUi();
+
+		ui.handleMessage( {
+			type: 'user',
+			parent_tool_use_id: 'task-1',
+			tool_use_result: { content: 'Task completed successfully.' },
+			message: { content: [] },
+		} );
+
+		expect( ui.subagentMaxTurns ).toBeNull();
+	} );
+
+	it( 'overwrites with the most recent subagent max-turns event', () => {
+		const ui = createMinimalUi();
+		ui.subagentMaxTurns = { lastProgress: 'older progress' };
+		( ui.pendingToolCalls as Map< string, unknown > ).set( 'task-2', {
+			name: 'Task',
+			input: {},
+		} );
+
+		ui.handleMessage( {
+			type: 'user',
+			parent_tool_use_id: 'task-2',
+			tool_use_result: {
+				content: [
+					{ type: 'text', text: 'newer progress' },
+					{ type: 'text', text: 'Reached maximum number of turns (50)' },
+				],
+			},
+			message: { content: [] },
+		} );
+
+		expect( ui.subagentMaxTurns ).toEqual( { lastProgress: 'newer progress' } );
+	} );
+} );
+
 describe( 'AiChatUI.handleMessage', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();

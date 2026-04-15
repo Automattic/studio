@@ -1,4 +1,5 @@
 import { __experimentalHeading as Heading, Icon } from '@wordpress/components';
+import { createInterpolateElement } from '@wordpress/element';
 import { check } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { ArrowIcon } from 'src/components/arrow-icon';
@@ -8,16 +9,19 @@ import { Tooltip } from 'src/components/tooltip';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { getLocalizedLink } from 'src/lib/get-localized-link';
+import { useI18nLocale } from 'src/stores';
 
 export function OnboardingConnectToWpcom( { onSkip }: { onSkip: () => void } ) {
 	const { __ } = useI18n();
 	const isOffline = useOffline();
 	const offlineMessage = __( "You're currently offline." );
 	const { authenticate } = useAuth();
+	const locale = useI18nLocale();
 
 	return (
-		<div className="h-full flex flex-col">
-			<div className="flex flex-col gap-4 my-auto text-pretty">
+		<div className="h-full min-h-0 flex flex-col">
+			<div className="flex flex-col gap-4 flex-1 justify-center text-pretty min-h-0">
 				<Heading data-testid="onboarding-welcome-title" className="a8c-subtitle text-xl">
 					{ __( 'Welcome to WordPress Studio' ) }
 				</Heading>
@@ -90,6 +94,35 @@ export function OnboardingConnectToWpcom( { onSkip }: { onSkip: () => void } ) {
 						</Button>
 					</div>
 				</Tooltip>
+			</div>
+
+			<div
+				data-testid="onboarding-legal"
+				className="text-frame-text-secondary text-xs leading-5 shrink-0 pt-10"
+			>
+				{ createInterpolateElement(
+					__(
+						'By continuing, you agree to our <tos_link>Terms of Service</tos_link> and have read our <privacy_link>Privacy Policy</privacy_link>.'
+					),
+					{
+						tos_link: (
+							<Button
+								className="!p-0 text-frame-theme hover:opacity-80 h-auto !text-xs underline"
+								variant="link"
+								onClick={ () => getIpcApi().openURL( getLocalizedLink( locale, 'a8cTos' ) ) }
+							/>
+						),
+						privacy_link: (
+							<Button
+								className="!p-0 text-frame-theme hover:opacity-80 h-auto !text-xs underline"
+								variant="link"
+								onClick={ () =>
+									getIpcApi().openURL( getLocalizedLink( locale, 'a8cPrivacyPolicy' ) )
+								}
+							/>
+						),
+					}
+				) }
 			</div>
 		</div>
 	);

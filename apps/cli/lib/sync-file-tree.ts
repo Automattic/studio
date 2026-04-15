@@ -1,7 +1,7 @@
 import fs from 'fs';
 import nodePath from 'path';
-import { createDeployIgnoreFilter, DEPLOY_IGNORE_DEFAULTS } from '@studio/common/lib/deploy-ignore';
-import { SYNC_ADDITIONAL_DEFAULTS } from '@studio/common/lib/sync/constants';
+import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
+import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
 import { shouldExcludeFromSync, shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { Ignore } from 'ignore';
@@ -14,10 +14,7 @@ export async function listLocalFileTree(
 	deployIgnore?: Ignore
 ): Promise< RawDirectoryEntry[] > {
 	if ( ! deployIgnore ) {
-		deployIgnore = await createDeployIgnoreFilter( sitePath, [
-			...DEPLOY_IGNORE_DEFAULTS,
-			...SYNC_ADDITIONAL_DEFAULTS,
-		] );
+		deployIgnore = await createDeployIgnoreFilter( sitePath, SYNC_IGNORE_DEFAULTS );
 	}
 
 	const fullPath = nodePath.join( sitePath, relativePath );

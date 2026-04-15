@@ -62,7 +62,7 @@ describe( 'validateBlueprintData', () => {
 			expect( result.valid ).toBe( true );
 		} );
 
-		it( 'should return warnings for unsupported features', async () => {
+		it( 'should accept a blueprint with landingPage without warnings', async () => {
 			const blueprint = {
 				landingPage: '/wp-admin/',
 			};
@@ -71,8 +71,7 @@ describe( 'validateBlueprintData', () => {
 
 			expect( result.valid ).toBe( true );
 			if ( result.valid ) {
-				expect( result.warnings.length ).toBeGreaterThan( 0 );
-				expect( result.warnings.map( ( w ) => w.feature ) ).toContain( 'landingPage' );
+				expect( result.warnings ).toHaveLength( 0 );
 			}
 		} );
 	} );

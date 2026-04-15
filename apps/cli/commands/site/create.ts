@@ -24,6 +24,7 @@ import {
 	pathExists,
 	recursiveCopyDirectory,
 } from '@studio/common/lib/fs-utils';
+import { normalizeLandingPage } from '@studio/common/lib/landing-page';
 import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
 import { isOnline } from '@studio/common/lib/network-utils';
 import {
@@ -375,6 +376,7 @@ export async function runCommand(
 			isWpAutoUpdating: options.wpVersion === DEFAULT_WORDPRESS_VERSION,
 			customDomain: options.customDomain,
 			enableHttps: options.enableHttps,
+			landingPage: normalizeLandingPage( blueprint?.landingPage ),
 		};
 
 		logger.reportStart( LoggerAction.SAVE_SITE, __( 'Saving site…' ) );

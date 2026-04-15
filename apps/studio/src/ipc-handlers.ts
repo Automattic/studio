@@ -896,7 +896,11 @@ export async function openSiteURL(
 		return;
 	}
 
-	let url = new URL( relativeURL, site.server.url );
+	// When the caller didn't ask for a specific path (the generic "Open site"
+	// entry points pass `''`), honor the Blueprint-provided `landingPage` if
+	// the site has one. Explicit relative paths (e.g. `/wp-admin/`) still win.
+	const targetPath = relativeURL || site.details.landingPage || '';
+	let url = new URL( targetPath, site.server.url );
 	if ( autoLogin ) {
 		const autoLoginUrl = new URL( '/studio-auto-login', site.server.url );
 		autoLoginUrl.searchParams.append( 'redirect_to', url.toString() );

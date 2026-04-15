@@ -4,9 +4,9 @@
  * The CLI emits these events via the `_events` command, and Studio
  * subscribes to them to maintain its state without reading config files.
  */
-import { z } from 'zod';
 import { authTokenSchema } from '@studio/common/lib/auth-token-schema';
 import { snapshotSchema } from '@studio/common/types/snapshot';
+import { z } from 'zod';
 
 /**
  * Site data included in events. This is the data Studio needs to display sites.
@@ -28,6 +28,7 @@ export const siteDetailsSchema = z.object( {
 	enableXdebug: z.boolean().optional(),
 	enableDebugLog: z.boolean().optional(),
 	enableDebugDisplay: z.boolean().optional(),
+	landingPage: z.string().optional(),
 } );
 
 export type SiteDetails = z.infer< typeof siteDetailsSchema >;

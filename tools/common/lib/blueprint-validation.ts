@@ -18,13 +18,7 @@ const UNSUPPORTED_BLUEPRINT_FEATURES: UnsupportedFeature[] = [];
 /**
  * Blueprint properties that are not supported in Studio
  */
-const UNSUPPORTED_BLUEPRINT_PROPERTIES: UnsupportedFeature[] = [
-	{
-		type: 'property',
-		name: 'landingPage',
-		reason: __( 'Studio manages its own navigation and landing pages.' ),
-	},
-];
+const UNSUPPORTED_BLUEPRINT_PROPERTIES: UnsupportedFeature[] = [];
 
 function isStepSupported( stepName: string ): boolean {
 	return ! UNSUPPORTED_BLUEPRINT_FEATURES.some(

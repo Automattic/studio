@@ -1,8 +1,14 @@
-import { __ } from '@wordpress/i18n';
+import { createInterpolateElement } from '@wordpress/element';
+import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { AIInput } from 'src/components/ai-input';
+import { ArrowIcon } from 'src/components/arrow-icon';
 import { MessageThinking } from 'src/components/assistant-thinking';
+import Button from 'src/components/button';
+import { LIMIT_OF_PROMPTS_PER_USER } from 'src/constants';
+import { useAuth } from 'src/hooks/use-auth';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
+import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { parseStudioCodeEvent, type ParsedAction } from './studio-code-event-parser';
 import { StudioCodeMessage } from './studio-code-message';
@@ -266,6 +272,9 @@ export function StudioCodeChat( { selectedSite }: StudioCodeChatProps ) {
 	const [ state, dispatch ] = useReducer( reducer, selectedSite.id, initState );
 	const [ inputValue, setInputValue ] = useState( '' );
 	const messagesEndRef = useRef< HTMLDivElement >( null );
+	const { isAuthenticated, authenticate } = useAuth();
+	const isOffline = useOffline();
+	const showUnauthenticated = ! isAuthenticated && ! isOffline;
 
 	// Persist messages and sessionId to localStorage
 	useEffect( () => {
@@ -353,32 +362,63 @@ export function StudioCodeChat( { selectedSite }: StudioCodeChatProps ) {
 	return (
 		<div className="flex flex-col h-full">
 			<div className="flex-1 overflow-y-auto px-4 pb-4">
-				{ state.messages.map( ( message ) => (
-					<StudioCodeMessage key={ message.id } message={ message } siteId={ selectedSite.id } />
-				) ) }
-				{ isThinking && (
-					<div className="flex justify-start ltr:md:mr-24 rtl:md:ml-24 mt-4">
-						<div className="inline-block p-3 rounded border border-frame-border bg-frame/45">
-							<MessageThinking />
-							{ state.progressMessage && (
-								<p className="text-xs text-frame-text-secondary mt-1 mb-0">
-									{ state.progressMessage }
-								</p>
-							) }
-						</div>
-					</div>
-				) }
-				{ state.pendingPermission && (
-					<StudioCodePermission
-						permission={ state.pendingPermission }
-						onRespond={ handlePermissionRespond }
-					/>
+				{ ! showUnauthenticated && (
+					<>
+						{ state.messages.map( ( message ) => (
+							<StudioCodeMessage
+								key={ message.id }
+								message={ message }
+								siteId={ selectedSite.id }
+							/>
+						) ) }
+						{ isThinking && (
+							<div className="flex justify-start ltr:md:mr-24 rtl:md:ml-24 mt-4">
+								<div className="inline-block p-3 rounded border border-frame-border bg-frame/45">
+									<MessageThinking />
+									{ state.progressMessage && (
+										<p className="text-xs text-frame-text-secondary mt-1 mb-0">
+											{ state.progressMessage }
+										</p>
+									) }
+								</div>
+							</div>
+						) }
+						{ state.pendingPermission && (
+							<StudioCodePermission
+								permission={ state.pendingPermission }
+								onRespond={ handlePermissionRespond }
+							/>
+						) }
+					</>
 				) }
 				<div ref={ messagesEndRef } />
 			</div>
+			{ showUnauthenticated && (
+				<div className="px-4 pb-4">
+					<div className="p-3 rounded border border-frame-border bg-frame/45">
+						<div className="mb-3 a8c-label-semibold">{ __( 'Hold up!' ) }</div>
+						<div className="mb-1">
+							{ __( 'You need to log in to your WordPress.com account to use Studio Code.' ) }
+						</div>
+						<div className="mb-1">
+							{ createInterpolateElement(
+								__( "If you don't have an account yet, <a>create one for free</a>." ),
+								{
+									a: <Button variant="link" onClick={ () => getIpcApi().authenticate( true ) } />,
+								}
+							) }
+						</div>
+						<div className="mb-3">{ __( 'Usage limits may change in the future.' ) }</div>
+						<Button variant="primary" onClick={ authenticate }>
+							{ __( 'Log in to WordPress.com' ) }
+							<ArrowIcon />
+						</Button>
+					</div>
+				</div>
+			) }
 			<div className="px-4 pb-4">
 				<AIInput
-					disabled={ false }
+					disabled={ showUnauthenticated }
 					input={ inputValue }
 					setInput={ setInputValue }
 					handleSend={ handleSend }

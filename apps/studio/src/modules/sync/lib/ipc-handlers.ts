@@ -3,8 +3,9 @@ import fs from 'fs';
 import fsPromises from 'fs/promises';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
-import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
+import { createDeployIgnoreFilter, DEPLOY_IGNORE_DEFAULTS } from '@studio/common/lib/deploy-ignore';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
+import { SYNC_ADDITIONAL_DEFAULTS } from '@studio/common/lib/sync/constants';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { SyncSite } from '@studio/common/types/sync';
@@ -22,7 +23,6 @@ import { exportBackup } from 'src/lib/import-export/export/export-manager';
 import { ExportOptions } from 'src/lib/import-export/export/types';
 import { getAuthenticationToken } from 'src/lib/oauth';
 import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
-import { SYNC_ADDITIONAL_DEFAULTS } from '@studio/common/lib/sync/constants';
 import { SiteServer } from 'src/site-server';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 import { SyncOption } from 'src/types';
@@ -165,10 +165,10 @@ export async function exportSiteForPush(
 
 		await keepSqliteIntegrationUpdated( site.details.path );
 
-		const deployIgnore = await createDeployIgnoreFilter(
-			site.details.path,
-			SYNC_ADDITIONAL_DEFAULTS
-		);
+		const deployIgnore = await createDeployIgnoreFilter( site.details.path, [
+			...DEPLOY_IGNORE_DEFAULTS,
+			...SYNC_ADDITIONAL_DEFAULTS,
+		] );
 
 		const shouldIncludeSyncOption = (
 			optionsToSync: SyncOption[] | undefined,

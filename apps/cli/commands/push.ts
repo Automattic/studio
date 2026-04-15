@@ -2,7 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
-import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
+import { createDeployIgnoreFilter, DEPLOY_IGNORE_DEFAULTS } from '@studio/common/lib/deploy-ignore';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import {
 	SYNC_ADDITIONAL_DEFAULTS,
@@ -109,7 +109,10 @@ export async function runCommand(
 			};
 		}
 
-		const deployIgnore = await createDeployIgnoreFilter( site.path, SYNC_ADDITIONAL_DEFAULTS );
+		const deployIgnore = await createDeployIgnoreFilter( site.path, [
+			...DEPLOY_IGNORE_DEFAULTS,
+			...SYNC_ADDITIONAL_DEFAULTS,
+		] );
 
 		const isExported = await exportBackup(
 			{

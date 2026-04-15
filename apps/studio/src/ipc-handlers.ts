@@ -25,7 +25,7 @@ import {
 } from '@studio/common/lib/agent-skills';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
-import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
+import { createDeployIgnoreFilter, DEPLOY_IGNORE_DEFAULTS } from '@studio/common/lib/deploy-ignore';
 import {
 	calculateDirectorySizeForArchive,
 	isWordPressDirectory,
@@ -42,6 +42,7 @@ import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import { readSharedConfig, updateSharedConfig } from '@studio/common/lib/shared-config';
+import { SYNC_ADDITIONAL_DEFAULTS } from '@studio/common/lib/sync/constants';
 import { shouldExcludeFromSync, shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
@@ -102,7 +103,6 @@ import {
 import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
-import { SYNC_ADDITIONAL_DEFAULTS } from '@studio/common/lib/sync/constants';
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { getUserEditor, getUserTerminal } from 'src/modules/user-settings/lib/ipc-handlers';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
@@ -117,8 +117,8 @@ import {
 } from 'src/storage/user-data';
 import { Blueprint } from 'src/stores/wpcom-api';
 import { captureSiteThumbnail } from './lib/capture-site-thumbnail';
-import type { Ignore } from 'ignore';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
+import type { Ignore } from 'ignore';
 import type { WpCliResult } from 'src/site-server';
 
 export {
@@ -1666,7 +1666,10 @@ export async function listLocalFileTree(
 	if ( ! server ) throw new Error( 'Site not found' );
 
 	if ( ! deployIgnore ) {
-		deployIgnore = await createDeployIgnoreFilter( server.details.path, SYNC_ADDITIONAL_DEFAULTS );
+		deployIgnore = await createDeployIgnoreFilter( server.details.path, [
+			...DEPLOY_IGNORE_DEFAULTS,
+			...SYNC_ADDITIONAL_DEFAULTS,
+		] );
 	}
 
 	const fullPath = nodePath.join( server.details.path, path );

@@ -23,6 +23,7 @@ import {
 	Exporter,
 	BackupCreateProgressEventData,
 	StudioJson,
+	StudioJsonPluginOrTheme,
 } from '../types';
 
 export class DefaultExporter extends EventEmitter implements Exporter {
@@ -214,6 +215,10 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 					continue;
 				}
 
+				if ( this.options.deployIgnore?.ignores( archivePath.replace( /\\/g, '/' ) ) ) {
+					continue;
+				}
+
 				const stat = await fsPromises.stat( fullPath );
 				if ( stat.isDirectory() ) {
 					this.archiveBuilder.directory( fullPath, archivePath, ( entry ) => {
@@ -224,14 +229,20 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 						);
 						if (
 							this.isExactPathExcluded( entryPathRelativeToArchiveRoot ) ||
-							this.isPathExcludedByPattern( fullEntryPathOnDisk )
+							this.isPathExcludedByPattern( fullEntryPathOnDisk ) ||
+							this.options.deployIgnore?.ignores(
+								entryPathRelativeToArchiveRoot.replace( /\\/g, '/' )
+							)
 						) {
 							return false;
 						}
 						return entry;
 					} );
 				} else {
-					if ( this.isExactPathExcluded( archivePath ) ) {
+					if (
+						this.isExactPathExcluded( archivePath ) ||
+						this.options.deployIgnore?.ignores( archivePath.replace( /\\/g, '/' ) )
+					) {
 						continue;
 					}
 					this.archiveBuilder.file( fullPath, { name: archivePath } );
@@ -290,8 +301,18 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			this.getSiteThemes( this.options.site.path ),
 		] );
 
-		studioJson.plugins = plugins;
-		studioJson.themes = themes;
+		studioJson.plugins = this.options.deployIgnore
+			? plugins.filter(
+					( p: StudioJsonPluginOrTheme ) =>
+						! this.options.deployIgnore!.ignores( `wp-content/plugins/${ p.name }` )
+			  )
+			: plugins;
+		studioJson.themes = this.options.deployIgnore
+			? themes.filter(
+					( t: StudioJsonPluginOrTheme ) =>
+						! this.options.deployIgnore!.ignores( `wp-content/themes/${ t.name }` )
+			  )
+			: themes;
 
 		const tempDir = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio-export-' ) );
 		const studioJsonPath = path.join( tempDir, 'meta.json' );

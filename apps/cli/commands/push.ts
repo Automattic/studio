@@ -2,8 +2,10 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
+import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import {
+	SYNC_ADDITIONAL_DEFAULTS,
 	SYNC_MAX_STALLED_ATTEMPTS,
 	SYNC_POLL_INTERVAL_MS,
 	SYNC_PUSH_SIZE_LIMIT_BYTES,
@@ -107,6 +109,8 @@ export async function runCommand(
 			};
 		}
 
+		const deployIgnore = await createDeployIgnoreFilter( site.path, SYNC_ADDITIONAL_DEFAULTS );
+
 		const isExported = await exportBackup(
 			{
 				site,
@@ -115,6 +119,7 @@ export async function runCommand(
 				phpVersion: DEFAULT_PHP_VERSION,
 				splitDatabaseDumpByTable: true,
 				specificSelectionPaths,
+				deployIgnore,
 			},
 			exportEventHandler
 		);

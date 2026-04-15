@@ -1,6 +1,7 @@
 import { SiteData } from 'cli/lib/cli-config/core';
 import type archiver from 'archiver';
 import type { EventEmitter } from 'events';
+import type { Ignore } from 'ignore';
 
 export interface ExportOptions {
 	site: SiteData;
@@ -9,6 +10,7 @@ export interface ExportOptions {
 	phpVersion: string;
 	splitDatabaseDumpByTable?: boolean;
 	specificSelectionPaths?: string[];
+	deployIgnore?: Ignore;
 }
 
 export type ExportOptionsIncludes = 'wpContent' | 'database';

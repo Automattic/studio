@@ -66,7 +66,11 @@ import {
 	updateSiteLatestCliPid,
 } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
-import { updateServerFiles } from 'cli/lib/dependency-management/setup';
+import {
+	markDependencyCheckTime,
+	shouldCheckDependencyUpdates,
+	updateServerFiles,
+} from 'cli/lib/dependency-management/setup';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { getAiInstructionsPath } from 'cli/lib/server-files';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
@@ -111,13 +115,14 @@ export async function runCommand(
 	const isOnlineStatus = await isOnline();
 
 	try {
-		if ( isOnlineStatus ) {
+		if ( isOnlineStatus && ( await shouldCheckDependencyUpdates() ) ) {
 			logger.reportStart(
 				LoggerAction.CHECKING_DEPENDENCY_UPDATES,
 				__( 'Checking for dependency updates…' )
 			);
 
 			await updateServerFiles();
+			await markDependencyCheckTime();
 			logger.reportSuccess( __( 'Dependencies up to date' ) );
 		}
 	} catch ( error ) {

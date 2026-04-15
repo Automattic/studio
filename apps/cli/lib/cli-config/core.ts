@@ -40,6 +40,7 @@ const cliConfigSchema = z.object( {
 	lastBumpStats: z
 		.record( z.string(), z.partialRecord( z.enum( StatsMetric ), z.number() ) )
 		.optional(),
+	lastDependencyCheckTime: z.number().optional(),
 } );
 
 type CliConfig = z.infer< typeof cliConfigSchema >;

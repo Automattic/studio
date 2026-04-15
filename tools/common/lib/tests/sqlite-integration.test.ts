@@ -83,6 +83,43 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 		} );
 	} );
 
+	describe( 'hasCustomDbDropin', () => {
+		it( 'should return false when db.php does not exist', async () => {
+			const result = await provider.hasCustomDbDropin( MOCK_SITE_PATH );
+			expect( result ).toBe( false );
+		} );
+
+		it( 'should return false for stock db.php', async () => {
+			volFromJSON( {
+				[ normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ) ]:
+					"<?php\n// This file is auto-generated and copied from the sqlite plugin.\ndefine( 'SQLITE_DB_DROPIN_VERSION', '1.8.0' );",
+			} );
+
+			const result = await provider.hasCustomDbDropin( MOCK_SITE_PATH );
+			expect( result ).toBe( false );
+		} );
+
+		it( 'should return true for custom db.php that defines SQLITE_DB_DROPIN_VERSION', async () => {
+			volFromJSON( {
+				[ normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ) ]:
+					"<?php\n// Custom markdown database integration.\ndefine( 'SQLITE_DB_DROPIN_VERSION', '1.8.0' );\ndefine( 'MARKDOWN_DB_DROPIN', true );",
+			} );
+
+			const result = await provider.hasCustomDbDropin( MOCK_SITE_PATH );
+			expect( result ).toBe( true );
+		} );
+
+		it( 'should return false for db.php without SQLITE_DB_DROPIN_VERSION', async () => {
+			volFromJSON( {
+				[ normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ) ]:
+					'<?php\n// Some other drop-in.',
+			} );
+
+			const result = await provider.hasCustomDbDropin( MOCK_SITE_PATH );
+			expect( result ).toBe( false );
+		} );
+	} );
+
 	describe( 'installSqliteIntegration', () => {
 		beforeEach( () => {
 			volFromJSON( {
@@ -106,6 +143,41 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 			expect( vi.mocked( fs.promises.writeFile ) ).toHaveBeenCalledWith(
 				normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ),
 				`SQLIntegration path: realpath( __DIR__ . '/mu-plugins/${ SQLITE_DIRNAME }' )`
+			);
+		} );
+
+		it( 'should not overwrite custom db.php drop-in', async () => {
+			volFromJSON( {
+				[ normalize( `server-files/${ SQLITE_DIRNAME }/db.copy` ) ]:
+					"SQLIntegration path: '{SQLITE_IMPLEMENTATION_FOLDER_PATH}'",
+				[ normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ) ]:
+					"<?php\ndefine( 'SQLITE_DB_DROPIN_VERSION', '1.8.0' );\ndefine( 'MARKDOWN_DB_DROPIN', true );",
+			} );
+
+			await provider.installSqliteIntegration( MOCK_SITE_PATH );
+
+			// db.php should NOT be written (custom drop-in preserved).
+			expect( vi.mocked( fs.promises.writeFile ) ).not.toHaveBeenCalledWith(
+				normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ),
+				expect.any( String )
+			);
+		} );
+
+		it( 'should still copy mu-plugin when custom db.php exists', async () => {
+			volFromJSON( {
+				[ normalize( `server-files/${ SQLITE_DIRNAME }/db.copy` ) ]:
+					"SQLIntegration path: '{SQLITE_IMPLEMENTATION_FOLDER_PATH}'",
+				[ normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ) ]:
+					"<?php\ndefine( 'SQLITE_DB_DROPIN_VERSION', '1.8.0' );\ndefine( 'MARKDOWN_DB_DROPIN', true );",
+			} );
+
+			await provider.installSqliteIntegration( MOCK_SITE_PATH );
+
+			// The mu-plugin should still be updated — custom drop-ins depend on it.
+			expect( vi.mocked( fs.promises.cp ) ).toHaveBeenCalledWith(
+				normalize( `server-files/${ SQLITE_DIRNAME }` ),
+				normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_DIRNAME }` ),
+				expect.any( Object )
 			);
 		} );
 

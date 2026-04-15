@@ -118,13 +118,17 @@ export async function runCommand(
 			);
 
 			await updateServerFiles();
+			logger.reportSuccess( __( 'Dependencies up to date' ) );
 		}
 	} catch ( error ) {
-		// Swallow errors in production. They aren't critical and likely relate to things outside the
-		// user's control, like network issues or bad API responses.
+		// Errors here aren't critical and likely relate to things outside the user's control,
+		// like network issues or bad API responses. Report them in development, and silently
+		// clear the spinner in production so creation can continue.
 		if ( process.env.NODE_ENV !== 'production' ) {
 			const loggerError = new LoggerError( 'Failed to update dependencies', error );
-			logger.reportError( loggerError );
+			logger.reportError( loggerError, false );
+		} else {
+			logger.reportSuccess( __( 'Dependencies up to date' ), true );
 		}
 	}
 

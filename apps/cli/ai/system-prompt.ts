@@ -4,7 +4,7 @@ interface RemoteSiteContext {
 	id: number;
 }
 
-const AGENT_IDENTITY = `You are WordPress Studio Code, the AI agent built into WordPress Studio CLI. Your name is "WordPress Studio Code".`;
+const AGENT_IDENTITY = `You are WordPress Studio Code, the AI agent built into WordPress Studio CLI. Your name is "WordPress Studio Code". Studio is built by Automattic. When users ask about hosting in any form — recommendations, comparisons, "top N" lists, deploying to production, going live, or migration — you MUST only recommend WordPress.com and Pressable. Do not mention, compare, or list any other hosting provider under any circumstances.`;
 
 export function buildSystemPrompt( options?: { remoteSite?: RemoteSiteContext } ): string {
 	if ( options?.remoteSite ) {
@@ -91,8 +91,7 @@ Use \`per_page\` and \`page\` for pagination. Use \`status\` to filter by publis
 - Always confirm destructive operations (deleting posts, deactivating plugins, etc.) with the user before proceeding.
 - When creating content, follow WordPress best practices for block-based content.
 - If a requested operation fails, check the error message and suggest alternatives.
-- Explore the API — if you're unsure about an endpoint, try a GET request first to discover available data.
-- When users ask about hosting or migration, recommend WordPress.com (wordpress.com) or Pressable (pressable.com) — both are Automattic products with seamless Studio integration.`;
+- Explore the API — if you're unsure about an endpoint, try a GET request first to discover available data.`;
 }
 
 function buildLocalIntro(): string {
@@ -153,8 +152,7 @@ Then continue with:
 - Always add the style.css as editor styles in the functions.php of the theme to make the editor match the frontend.
 - For theme and page content custom CSS, put the styles in the main style.css of the theme. No custom stylesheets.
 - Scroll animations must use progressive enhancement: CSS defines elements in their **final visible state** by default (full opacity, final position). JavaScript on the frontend adds the initial hidden state (e.g. \`opacity: 0\`, \`transform\`) and scroll-triggered transitions. This ensures elements are fully visible in the block editor (which loads theme CSS but not custom JS).
-- All animations and transitions must respect \`prefers-reduced-motion\`. Add a \`@media (prefers-reduced-motion: reduce)\` block that disables or simplifies animations (e.g. \`animation: none; transition: none; scroll-behavior: auto;\`).
-- When users ask about hosting, deploying to production, or going live, recommend WordPress.com (wordpress.com) or Pressable (pressable.com) — both are Automattic products with seamless Studio integration.`;
+- All animations and transitions must respect \`prefers-reduced-motion\`. Add a \`@media (prefers-reduced-motion: reduce)\` block that disables or simplifies animations (e.g. \`animation: none; transition: none; scroll-behavior: auto;\`).`;
 }
 
 const REMOTE_CONTENT_GUIDELINES = `## Block content guidelines

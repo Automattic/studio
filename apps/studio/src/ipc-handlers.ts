@@ -67,19 +67,14 @@ import {
 import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
 import { buildFeatureFlags } from 'src/lib/feature-flags';
 import { getImageData } from 'src/lib/get-image-data';
-import { exportBackup } from 'src/lib/import-export/export/export-manager';
 import { ExportOptions } from 'src/lib/import-export/export/types';
-import { ImportExportEventData } from 'src/lib/import-export/handle-events';
-import { defaultImporterOptions, importBackup } from 'src/lib/import-export/import/import-manager';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import * as oauthClient from 'src/lib/oauth';
 import { getAiInstructionsPath } from 'src/lib/server-files-paths';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
-import { installSqliteIntegration, keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import * as windowsHelpers from 'src/lib/windows-helpers';
-import { setupWordPressFilesOnly } from 'src/lib/wordpress-setup';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
@@ -101,6 +96,10 @@ import {
 import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
+import {
+	importSite as importSiteViaCli,
+	exportSite as exportSiteViaCli,
+} from 'src/modules/import-export/lib/ipc-handlers';
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { getUserEditor, getUserTerminal } from 'src/modules/user-settings/lib/ipc-handlers';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
@@ -366,28 +365,9 @@ export async function importSite(
 		throw new Error( 'Site not found.' );
 	}
 	try {
-		if ( ! isWordPressDirectory( site.details.path ) ) {
-			await setupWordPressFilesOnly( site.details.path );
-		}
+		await importSiteViaCli( event, site.details, backupFile.path );
 
-		if ( ! ( await site.hasSQLitePlugin() ) ) {
-			await installSqliteIntegration( site.details.path );
-		}
-
-		const onEvent = ( data: ImportExportEventData ) => {
-			const parentWindow = BrowserWindow.fromWebContents( event.sender );
-			sendIpcEventToRendererWithWindow( parentWindow, 'on-import', data, id );
-		};
-		const result = await importBackup( backupFile, site.details, onEvent, defaultImporterOptions );
-
-		bumpStat( StatsGroup.STUDIO_IMPORT, getImporterMetric( result.importerType ) );
-
-		if ( result?.meta?.phpVersion ) {
-			site.details.phpVersion = result.meta.phpVersion;
-		}
-
-		// Clear blueprint so it doesn't overwrite imported data on first start
-		site.meta.blueprint = undefined;
+		// bumpStat( StatsGroup.STUDIO_IMPORT, getImporterMetric( result.importerType ) );
 
 		return site.details;
 	} catch ( e ) {
@@ -836,28 +816,15 @@ export async function clearAuthenticationToken() {
 export async function exportSite(
 	event: IpcMainInvokeEvent,
 	options: ExportOptions
-): Promise< boolean > {
+): Promise< void > {
 	try {
-		await keepSqliteIntegrationUpdated( options.site.path );
+		await exportSiteViaCli( event, options.site, options.backupFile );
 
-		const onEvent = ( data: ImportExportEventData ) => {
-			const parentWindow = BrowserWindow.fromWebContents( event.sender );
-			sendIpcEventToRendererWithWindow( parentWindow, 'on-export', data, options.site.id );
-		};
-
-		const result = await exportBackup( options, onEvent );
-
-		if ( result ) {
-			const isDatabaseOnly = options.includes.database && ! options.includes.wpContent;
-			bumpStat(
-				StatsGroup.STUDIO_EXPORT,
-				isDatabaseOnly ? StatsMetric.DATABASE_ONLY : StatsMetric.FULL_SITE
-			);
-		} else {
-			bumpStat( StatsGroup.STUDIO_EXPORT, StatsMetric.FAILURE );
-		}
-
-		return result;
+		const isDatabaseOnly = options.includes.database && ! options.includes.wpContent;
+		bumpStat(
+			StatsGroup.STUDIO_EXPORT,
+			isDatabaseOnly ? StatsMetric.DATABASE_ONLY : StatsMetric.FULL_SITE
+		);
 	} catch ( e ) {
 		bumpStat( StatsGroup.STUDIO_EXPORT, StatsMetric.FAILURE );
 		Sentry.captureException( e );

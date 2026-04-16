@@ -1,6 +1,6 @@
 import path from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
-import { ExportEvents } from '@studio/common/lib/import-export-events';
+import { ExportEvents, ExportEventTuple } from '@studio/common/lib/import-export-events';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
@@ -14,6 +14,49 @@ import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
 const logger = new Logger< LoggerAction >();
+
+function sendIpcEvent( event: ExportEventTuple ) {
+	process.send!( { event } );
+}
+
+function handleExportIpc( emitter: ImportExportEventEmitter ) {
+	emitter.on( ExportEvents.EXPORT_START, () => {
+		sendIpcEvent( [ ExportEvents.EXPORT_START, undefined ] );
+	} );
+	emitter.on( ExportEvents.BACKUP_CREATE_START, () => {
+		sendIpcEvent( [ ExportEvents.BACKUP_CREATE_START, undefined ] );
+	} );
+	emitter.on( ExportEvents.WP_CONTENT_EXPORT_START, () => {
+		sendIpcEvent( [ ExportEvents.WP_CONTENT_EXPORT_START, undefined ] );
+	} );
+	emitter.on( ExportEvents.WP_CONTENT_EXPORT_COMPLETE, () => {
+		sendIpcEvent( [ ExportEvents.WP_CONTENT_EXPORT_COMPLETE, undefined ] );
+	} );
+	emitter.on( ExportEvents.DATABASE_EXPORT_START, () => {
+		sendIpcEvent( [ ExportEvents.DATABASE_EXPORT_START, undefined ] );
+	} );
+	emitter.on( ExportEvents.DATABASE_EXPORT_COMPLETE, () => {
+		sendIpcEvent( [ ExportEvents.DATABASE_EXPORT_COMPLETE, undefined ] );
+	} );
+	emitter.on( ExportEvents.BACKUP_CREATE_PROGRESS, ( progressData ) => {
+		sendIpcEvent( [ ExportEvents.BACKUP_CREATE_PROGRESS, progressData ] );
+	} );
+	emitter.on( ExportEvents.BACKUP_CREATE_COMPLETE, () => {
+		sendIpcEvent( [ ExportEvents.BACKUP_CREATE_COMPLETE, undefined ] );
+	} );
+	emitter.on( ExportEvents.CONFIG_EXPORT_START, () => {
+		sendIpcEvent( [ ExportEvents.CONFIG_EXPORT_START, undefined ] );
+	} );
+	emitter.on( ExportEvents.CONFIG_EXPORT_COMPLETE, () => {
+		sendIpcEvent( [ ExportEvents.CONFIG_EXPORT_COMPLETE, undefined ] );
+	} );
+	emitter.on( ExportEvents.EXPORT_COMPLETE, () => {
+		sendIpcEvent( [ ExportEvents.EXPORT_COMPLETE, undefined ] );
+	} );
+	emitter.on( ExportEvents.EXPORT_ERROR, ( error ) => {
+		sendIpcEvent( [ ExportEvents.EXPORT_ERROR, error ] );
+	} );
+}
 
 export function handleExportEvents( emitter: ImportExportEventEmitter ): void {
 	emitter.on( ExportEvents.EXPORT_START, () => {
@@ -109,7 +152,11 @@ export async function runCommand(
 			throw new LoggerError( __( 'No suitable exporter found for the provided backup file' ) );
 		}
 
-		handleExportEvents( exporter );
+		if ( process.send ) {
+			handleExportIpc( exporter );
+		} else {
+			handleExportEvents( exporter );
+		}
 		await exporter.export();
 
 		logger.reportSuccess( sprintf( __( '%s successfully exported' ), exportPath ) );

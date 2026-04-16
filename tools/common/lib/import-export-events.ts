@@ -62,11 +62,14 @@ export const importWpContentProgressEventDataSchema = z.object( {
 	totalBytes: z.number().optional(),
 } );
 
+const nullOrUndefined = z.undefined().nullable();
+
 export const importEventTupleSchema = z.union( [
 	z.tuple( [
 		z.literal( BackupExtractEvents.BACKUP_EXTRACT_START ),
-		backupExtractProgressEventDataSchema.or( z.undefined() ),
+		backupExtractProgressEventDataSchema,
 	] ),
+	z.tuple( [ z.literal( BackupExtractEvents.BACKUP_EXTRACT_START ), nullOrUndefined ] ),
 	z.tuple( [
 		z.literal( BackupExtractEvents.BACKUP_EXTRACT_PROGRESS ),
 		backupExtractProgressEventDataSchema,
@@ -77,29 +80,30 @@ export const importEventTupleSchema = z.union( [
 	] ),
 	z.tuple( [
 		z.literal( BackupExtractEvents.BACKUP_EXTRACT_COMPLETE ),
-		backupExtractProgressEventDataSchema.or( z.undefined() ),
+		backupExtractProgressEventDataSchema,
 	] ),
+	z.tuple( [ z.literal( BackupExtractEvents.BACKUP_EXTRACT_COMPLETE ), nullOrUndefined ] ),
 	z.tuple( [ z.literal( BackupExtractEvents.BACKUP_EXTRACT_WARNING ), z.string() ] ),
 	z.tuple( [ z.literal( BackupExtractEvents.BACKUP_EXTRACT_ERROR ), z.unknown() ] ),
-	z.tuple( [ z.literal( ValidatorEvents.IMPORT_VALIDATION_START ), z.undefined() ] ),
-	z.tuple( [ z.literal( ValidatorEvents.IMPORT_VALIDATION_COMPLETE ), z.undefined() ] ),
+	z.tuple( [ z.literal( ValidatorEvents.IMPORT_VALIDATION_START ), nullOrUndefined ] ),
+	z.tuple( [ z.literal( ValidatorEvents.IMPORT_VALIDATION_COMPLETE ), nullOrUndefined ] ),
 	z.tuple( [ z.literal( ValidatorEvents.IMPORT_VALIDATION_ERROR ), z.unknown() ] ),
-	z.tuple( [ z.literal( ImporterEvents.IMPORT_START ), z.undefined() ] ),
-	z.tuple( [ z.literal( ImporterEvents.IMPORT_DATABASE_START ), z.undefined() ] ),
+	z.tuple( [ z.literal( ImporterEvents.IMPORT_START ), nullOrUndefined ] ),
+	z.tuple( [ z.literal( ImporterEvents.IMPORT_DATABASE_START ), nullOrUndefined ] ),
 	z.tuple( [
 		z.literal( ImporterEvents.IMPORT_DATABASE_PROGRESS ),
 		importDatabaseProgressEventDataSchema,
 	] ),
-	z.tuple( [ z.literal( ImporterEvents.IMPORT_DATABASE_COMPLETE ), z.undefined() ] ),
-	z.tuple( [ z.literal( ImporterEvents.IMPORT_WP_CONTENT_START ), z.undefined() ] ),
+	z.tuple( [ z.literal( ImporterEvents.IMPORT_DATABASE_COMPLETE ), nullOrUndefined ] ),
+	z.tuple( [ z.literal( ImporterEvents.IMPORT_WP_CONTENT_START ), nullOrUndefined ] ),
 	z.tuple( [
 		z.literal( ImporterEvents.IMPORT_WP_CONTENT_PROGRESS ),
 		importWpContentProgressEventDataSchema,
 	] ),
-	z.tuple( [ z.literal( ImporterEvents.IMPORT_WP_CONTENT_COMPLETE ), z.undefined() ] ),
-	z.tuple( [ z.literal( ImporterEvents.IMPORT_META_START ), z.undefined() ] ),
-	z.tuple( [ z.literal( ImporterEvents.IMPORT_META_COMPLETE ), z.undefined() ] ),
-	z.tuple( [ z.literal( ImporterEvents.IMPORT_COMPLETE ), z.undefined() ] ),
+	z.tuple( [ z.literal( ImporterEvents.IMPORT_WP_CONTENT_COMPLETE ), nullOrUndefined ] ),
+	z.tuple( [ z.literal( ImporterEvents.IMPORT_META_START ), nullOrUndefined ] ),
+	z.tuple( [ z.literal( ImporterEvents.IMPORT_META_COMPLETE ), nullOrUndefined ] ),
+	z.tuple( [ z.literal( ImporterEvents.IMPORT_COMPLETE ), nullOrUndefined ] ),
 	z.tuple( [ z.literal( ImporterEvents.IMPORT_ERROR ), z.unknown() ] ),
 ] );
 
@@ -135,23 +139,23 @@ const backupCreateProgressEventDataSchema = z.object( {
 } );
 
 export const exportEventTupleSchema = z.union( [
-	z.tuple( [ z.literal( ExportEvents.EXPORT_START ), z.undefined() ] ),
-	z.tuple( [ z.literal( ExportEvents.EXPORT_COMPLETE ), z.undefined() ] ),
+	z.tuple( [ z.literal( ExportEvents.EXPORT_START ), nullOrUndefined ] ),
+	z.tuple( [ z.literal( ExportEvents.EXPORT_COMPLETE ), nullOrUndefined ] ),
 	z.tuple( [ z.literal( ExportEvents.EXPORT_ERROR ), z.unknown().nullable() ] ),
-	z.tuple( [ z.literal( ExportEvents.BACKUP_CREATE_START ), z.undefined() ] ),
+	z.tuple( [ z.literal( ExportEvents.BACKUP_CREATE_START ), nullOrUndefined ] ),
 	z.tuple( [
 		z.literal( ExportEvents.BACKUP_CREATE_PROGRESS ),
 		backupCreateProgressEventDataSchema,
 	] ),
-	z.tuple( [ z.literal( ExportEvents.BACKUP_CREATE_COMPLETE ), z.undefined() ] ),
-	z.tuple( [ z.literal( ExportEvents.WP_CONTENT_EXPORT_START ), z.undefined() ] ),
-	z.tuple( [ z.literal( ExportEvents.WP_CONTENT_EXPORT_PROGRESS ), z.undefined() ] ),
-	z.tuple( [ z.literal( ExportEvents.WP_CONTENT_EXPORT_COMPLETE ), z.undefined() ] ),
-	z.tuple( [ z.literal( ExportEvents.DATABASE_EXPORT_START ), z.undefined() ] ),
-	z.tuple( [ z.literal( ExportEvents.DATABASE_EXPORT_PROGRESS ), z.undefined() ] ),
-	z.tuple( [ z.literal( ExportEvents.DATABASE_EXPORT_COMPLETE ), z.undefined() ] ),
-	z.tuple( [ z.literal( ExportEvents.CONFIG_EXPORT_START ), z.undefined() ] ),
-	z.tuple( [ z.literal( ExportEvents.CONFIG_EXPORT_COMPLETE ), z.undefined() ] ),
+	z.tuple( [ z.literal( ExportEvents.BACKUP_CREATE_COMPLETE ), nullOrUndefined ] ),
+	z.tuple( [ z.literal( ExportEvents.WP_CONTENT_EXPORT_START ), nullOrUndefined ] ),
+	z.tuple( [ z.literal( ExportEvents.WP_CONTENT_EXPORT_PROGRESS ), nullOrUndefined ] ),
+	z.tuple( [ z.literal( ExportEvents.WP_CONTENT_EXPORT_COMPLETE ), nullOrUndefined ] ),
+	z.tuple( [ z.literal( ExportEvents.DATABASE_EXPORT_START ), nullOrUndefined ] ),
+	z.tuple( [ z.literal( ExportEvents.DATABASE_EXPORT_PROGRESS ), nullOrUndefined ] ),
+	z.tuple( [ z.literal( ExportEvents.DATABASE_EXPORT_COMPLETE ), nullOrUndefined ] ),
+	z.tuple( [ z.literal( ExportEvents.CONFIG_EXPORT_START ), nullOrUndefined ] ),
+	z.tuple( [ z.literal( ExportEvents.CONFIG_EXPORT_COMPLETE ), nullOrUndefined ] ),
 ] );
 
 export type ImportEventTuple = z.infer< typeof importEventTupleSchema >;

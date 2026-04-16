@@ -141,11 +141,50 @@ export const wpcomSitesApi = createApi( {
 			},
 			providesTags: ( _result, _error, arg ) => [ { type: 'WpComSites', userId: arg.userId } ],
 		} ),
+		getPhpVersion: builder.query< string, { siteId: number; userId?: number } >( {
+			queryFn: async ( { siteId } ) => {
+				const wpcomClient = getWpcomClient();
+				if ( ! wpcomClient ) {
+					return { error: { status: 401, data: 'Not authenticated' } };
+				}
+
+				try {
+					const response = await wpcomClient.req.get( {
+						apiNamespace: 'wpcom/v2',
+						path: `/sites/${ siteId }/hosting/php-version`,
+					} );
+
+					if ( typeof response !== 'string' ) {
+						throw new Error( 'Invalid hosting php-version response' );
+					}
+
+					return { data: response };
+				} catch ( error ) {
+					Sentry.captureException( error );
+					console.error( error );
+					return {
+						error: {
+							status: 500,
+							data: error,
+						},
+					};
+				}
+			},
+			keepUnusedDataFor: 300,
+			providesTags: ( _result, _error, arg ) => [
+				{ type: 'WpComSites', userId: arg.userId },
+				{ type: 'WpComSites', id: arg.siteId },
+			],
+		} ),
 	} ),
 } );
 
-const { useGetWpComSitesQuery: useGetWpComSitesQueryBase } = wpcomSitesApi;
+const {
+	useGetWpComSitesQuery: useGetWpComSitesQueryBase,
+	useGetPhpVersionQuery: useGetPhpVersionQueryBase,
+} = wpcomSitesApi;
 
 // Wrap the query hook with offline check
 // Authentication is already handled in queryFn which checks wpcomClient
 export const useGetWpComSitesQuery = withOfflineCheck( useGetWpComSitesQueryBase );
+export const useGetPhpVersionQuery = withOfflineCheck( useGetPhpVersionQueryBase );

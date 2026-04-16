@@ -62,31 +62,46 @@ export const importWpContentProgressEventDataSchema = z.object( {
 	totalBytes: z.number().optional(),
 } );
 
-export const importEventDataMapSchema = z.object( {
-	[ BackupExtractEvents.BACKUP_EXTRACT_START ]: backupExtractProgressEventDataSchema.optional(),
-	[ BackupExtractEvents.BACKUP_EXTRACT_PROGRESS ]: backupExtractProgressEventDataSchema,
-	[ BackupExtractEvents.BACKUP_EXTRACT_FILE_START ]: backupExtractProgressEventDataSchema,
-	[ BackupExtractEvents.BACKUP_EXTRACT_COMPLETE ]: backupExtractProgressEventDataSchema.optional(),
-	[ BackupExtractEvents.BACKUP_EXTRACT_WARNING ]: z.string(),
-	[ BackupExtractEvents.BACKUP_EXTRACT_ERROR ]: z.unknown(),
-	[ ValidatorEvents.IMPORT_VALIDATION_START ]: z.undefined(),
-	[ ValidatorEvents.IMPORT_VALIDATION_COMPLETE ]: z.undefined(),
-	[ ValidatorEvents.IMPORT_VALIDATION_ERROR ]: z.unknown(),
-	[ ImporterEvents.IMPORT_START ]: z.undefined(),
-	[ ImporterEvents.IMPORT_DATABASE_START ]: z.undefined(),
-	[ ImporterEvents.IMPORT_DATABASE_PROGRESS ]: importDatabaseProgressEventDataSchema,
-	[ ImporterEvents.IMPORT_DATABASE_COMPLETE ]: z.undefined(),
-	[ ImporterEvents.IMPORT_WP_CONTENT_START ]: z.undefined(),
-	[ ImporterEvents.IMPORT_WP_CONTENT_PROGRESS ]: importWpContentProgressEventDataSchema,
-	[ ImporterEvents.IMPORT_WP_CONTENT_COMPLETE ]: z.undefined(),
-	[ ImporterEvents.IMPORT_META_START ]: z.undefined(),
-	[ ImporterEvents.IMPORT_META_COMPLETE ]: z.undefined(),
-	[ ImporterEvents.IMPORT_COMPLETE ]: z.undefined(),
-	[ ImporterEvents.IMPORT_ERROR ]: z.unknown(),
-} );
-
-type ImportEventType = ( typeof ImportEvents )[ keyof typeof ImportEvents ];
-type ImportEventDataMap = z.infer< typeof importEventDataMapSchema >;
+export const importEventTupleSchema = z.union( [
+	z.tuple( [
+		z.literal( BackupExtractEvents.BACKUP_EXTRACT_START ),
+		backupExtractProgressEventDataSchema.or( z.undefined() ),
+	] ),
+	z.tuple( [
+		z.literal( BackupExtractEvents.BACKUP_EXTRACT_PROGRESS ),
+		backupExtractProgressEventDataSchema,
+	] ),
+	z.tuple( [
+		z.literal( BackupExtractEvents.BACKUP_EXTRACT_FILE_START ),
+		backupExtractProgressEventDataSchema,
+	] ),
+	z.tuple( [
+		z.literal( BackupExtractEvents.BACKUP_EXTRACT_COMPLETE ),
+		backupExtractProgressEventDataSchema.or( z.undefined() ),
+	] ),
+	z.tuple( [ z.literal( BackupExtractEvents.BACKUP_EXTRACT_WARNING ), z.string() ] ),
+	z.tuple( [ z.literal( BackupExtractEvents.BACKUP_EXTRACT_ERROR ), z.unknown() ] ),
+	z.tuple( [ z.literal( ValidatorEvents.IMPORT_VALIDATION_START ), z.undefined() ] ),
+	z.tuple( [ z.literal( ValidatorEvents.IMPORT_VALIDATION_COMPLETE ), z.undefined() ] ),
+	z.tuple( [ z.literal( ValidatorEvents.IMPORT_VALIDATION_ERROR ), z.unknown() ] ),
+	z.tuple( [ z.literal( ImporterEvents.IMPORT_START ), z.undefined() ] ),
+	z.tuple( [ z.literal( ImporterEvents.IMPORT_DATABASE_START ), z.undefined() ] ),
+	z.tuple( [
+		z.literal( ImporterEvents.IMPORT_DATABASE_PROGRESS ),
+		importDatabaseProgressEventDataSchema,
+	] ),
+	z.tuple( [ z.literal( ImporterEvents.IMPORT_DATABASE_COMPLETE ), z.undefined() ] ),
+	z.tuple( [ z.literal( ImporterEvents.IMPORT_WP_CONTENT_START ), z.undefined() ] ),
+	z.tuple( [
+		z.literal( ImporterEvents.IMPORT_WP_CONTENT_PROGRESS ),
+		importWpContentProgressEventDataSchema,
+	] ),
+	z.tuple( [ z.literal( ImporterEvents.IMPORT_WP_CONTENT_COMPLETE ), z.undefined() ] ),
+	z.tuple( [ z.literal( ImporterEvents.IMPORT_META_START ), z.undefined() ] ),
+	z.tuple( [ z.literal( ImporterEvents.IMPORT_META_COMPLETE ), z.undefined() ] ),
+	z.tuple( [ z.literal( ImporterEvents.IMPORT_COMPLETE ), z.undefined() ] ),
+	z.tuple( [ z.literal( ImporterEvents.IMPORT_ERROR ), z.unknown() ] ),
+] );
 
 export const ExportEvents = {
 	EXPORT_START: 'export_start',
@@ -119,25 +134,27 @@ const backupCreateProgressEventDataSchema = z.object( {
 	} ),
 } );
 
-export const exportEventDataMapSchema = z.object( {
-	[ ExportEvents.EXPORT_START ]: z.undefined(),
-	[ ExportEvents.EXPORT_COMPLETE ]: z.undefined(),
-	[ ExportEvents.EXPORT_ERROR ]: z.unknown().nullable(),
-	[ ExportEvents.BACKUP_CREATE_START ]: z.undefined(),
-	[ ExportEvents.BACKUP_CREATE_PROGRESS ]: backupCreateProgressEventDataSchema,
-	[ ExportEvents.BACKUP_CREATE_COMPLETE ]: z.undefined(),
-	[ ExportEvents.WP_CONTENT_EXPORT_START ]: z.undefined(),
-	[ ExportEvents.WP_CONTENT_EXPORT_PROGRESS ]: z.undefined(),
-	[ ExportEvents.WP_CONTENT_EXPORT_COMPLETE ]: z.undefined(),
-	[ ExportEvents.DATABASE_EXPORT_START ]: z.undefined(),
-	[ ExportEvents.DATABASE_EXPORT_PROGRESS ]: z.undefined(),
-	[ ExportEvents.DATABASE_EXPORT_COMPLETE ]: z.undefined(),
-	[ ExportEvents.CONFIG_EXPORT_START ]: z.undefined(),
-	[ ExportEvents.CONFIG_EXPORT_COMPLETE ]: z.undefined(),
-} );
+export const exportEventTupleSchema = z.union( [
+	z.tuple( [ z.literal( ExportEvents.EXPORT_START ), z.undefined() ] ),
+	z.tuple( [ z.literal( ExportEvents.EXPORT_COMPLETE ), z.undefined() ] ),
+	z.tuple( [ z.literal( ExportEvents.EXPORT_ERROR ), z.unknown().nullable() ] ),
+	z.tuple( [ z.literal( ExportEvents.BACKUP_CREATE_START ), z.undefined() ] ),
+	z.tuple( [
+		z.literal( ExportEvents.BACKUP_CREATE_PROGRESS ),
+		backupCreateProgressEventDataSchema,
+	] ),
+	z.tuple( [ z.literal( ExportEvents.BACKUP_CREATE_COMPLETE ), z.undefined() ] ),
+	z.tuple( [ z.literal( ExportEvents.WP_CONTENT_EXPORT_START ), z.undefined() ] ),
+	z.tuple( [ z.literal( ExportEvents.WP_CONTENT_EXPORT_PROGRESS ), z.undefined() ] ),
+	z.tuple( [ z.literal( ExportEvents.WP_CONTENT_EXPORT_COMPLETE ), z.undefined() ] ),
+	z.tuple( [ z.literal( ExportEvents.DATABASE_EXPORT_START ), z.undefined() ] ),
+	z.tuple( [ z.literal( ExportEvents.DATABASE_EXPORT_PROGRESS ), z.undefined() ] ),
+	z.tuple( [ z.literal( ExportEvents.DATABASE_EXPORT_COMPLETE ), z.undefined() ] ),
+	z.tuple( [ z.literal( ExportEvents.CONFIG_EXPORT_START ), z.undefined() ] ),
+	z.tuple( [ z.literal( ExportEvents.CONFIG_EXPORT_COMPLETE ), z.undefined() ] ),
+] );
 
-type ExportEventType = ( typeof ExportEvents )[ keyof typeof ExportEvents ];
-type ExportEventDataMap = z.infer< typeof exportEventDataMapSchema >;
-
-export type ImportExportEventType = ImportEventType | ExportEventType;
-export type ImportExportEventDataMap = ImportEventDataMap & ExportEventDataMap;
+export type ImportEventTuple = z.infer< typeof importEventTupleSchema >;
+export type ExportEventTuple = z.infer< typeof exportEventTupleSchema >;
+export type ImportExportEventTuple = ImportEventTuple | ExportEventTuple;
+export type ImportExportEventType = ImportExportEventTuple[ 0 ];

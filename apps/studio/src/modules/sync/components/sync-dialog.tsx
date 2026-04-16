@@ -1,5 +1,6 @@
 import { PRESSABLE_PHP_VERSION } from '@studio/common/constants';
 import { SYNC_PUSH_SIZE_LIMIT_GB } from '@studio/common/lib/sync/constants';
+import { RecommendedPHPVersion as DEFAULT_PHP_VERSION } from '@studio/common/types/php-versions';
 import {
 	Icon,
 	SelectControl,

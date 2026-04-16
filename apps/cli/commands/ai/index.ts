@@ -20,7 +20,6 @@ import { type LoadedAiSession, type TurnStatus } from 'cli/ai/sessions/types';
 import { AI_CHAT_SLASH_COMMANDS, type SlashCommandContext } from 'cli/ai/slash-commands';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
-import { getAssistantQuota } from 'cli/lib/api';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -370,48 +369,6 @@ export async function runCommand( options: {
 		prompt: string
 	): Promise< { status: TurnStatus; usage?: { numTurns: number; costUsd?: number } } > {
 		const env = await resolveAiEnvironment( currentProvider );
-
-		// Pre-flight check: when using the WordPress.com proxy, verify the
-		// usage cap before starting a turn. The agent SDK can't classify
-		// proxy 429s as rate_limit errors when ANTHROPIC_BASE_URL points
-		// off-domain, so without this check a capped user would see a
-		// generic error after the SDK's retry budget is exhausted.
-		if ( currentProvider === 'wpcom' ) {
-			const token = await readAuthToken();
-			if ( token?.accessToken ) {
-				try {
-					const quota = await getAssistantQuota( token.accessToken );
-					if ( quota.isExceeded ) {
-						ui.showError(
-							__(
-								'AI usage cap reached. You can continue using Studio Code by switching to your own Anthropic API key.'
-							)
-						);
-						if ( quota.daysUntilReset > 0 ) {
-							ui.showInfo(
-								sprintf(
-									/* translators: %d: number of days */
-									_n(
-										'Your quota resets in %d day.',
-										'Your quota resets in %d days.',
-										quota.daysUntilReset
-									),
-									quota.daysUntilReset
-								)
-							);
-						}
-						ui.showInfo(
-							__( 'Use /provider to switch to Anthropic · API key, or try again later.' )
-						);
-						return { status: 'error' };
-					}
-				} catch {
-					// Quota check is best-effort. If it fails (offline, transient
-					// API error, etc.) we still try the turn — the SDK will
-					// surface any backend error normally.
-				}
-			}
-		}
 
 		ui.beginAgentTurn();
 

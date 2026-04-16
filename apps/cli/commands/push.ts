@@ -14,7 +14,7 @@ import { SyncCommandLoggerAction as LoggerAction } from '@studio/common/logger-a
 import { SyncOption } from '@studio/common/types/sync';
 import { __, sprintf } from '@wordpress/i18n';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
-import { exportBackup } from 'cli/lib/import-export/export/export-manager';
+import { getExporter } from 'cli/lib/import-export/export/export-manager';
 import { ExportOptions } from 'cli/lib/import-export/export/types';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import {
@@ -107,7 +107,7 @@ export async function runCommand(
 			};
 		}
 
-		const exporter = await exportBackup( {
+		const exporter = await getExporter( {
 			site,
 			backupFile: archivePath,
 			includes,

@@ -6,7 +6,7 @@ import { __, _n, sprintf } from '@wordpress/i18n';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
-import { exportBackup } from 'cli/lib/import-export/export/export-manager';
+import { getExporter } from 'cli/lib/import-export/export/export-manager';
 import { ExportOptions } from 'cli/lib/import-export/export/types';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { untildify } from 'cli/lib/utils';
@@ -98,7 +98,7 @@ export async function runCommand(
 			includes.wpContent = false;
 		}
 
-		const exporter = await exportBackup( {
+		const exporter = await getExporter( {
 			site,
 			backupFile: exportPath,
 			phpVersion: DEFAULT_PHP_VERSION,

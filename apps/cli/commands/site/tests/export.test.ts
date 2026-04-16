@@ -5,7 +5,7 @@ import yargs from 'yargs';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
-import { exportBackup } from 'cli/lib/import-export/export/export-manager';
+import { getExporter } from 'cli/lib/import-export/export/export-manager';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { Logger, LoggerError } from 'cli/logger';
 import { registerCommand, runCommand } from '../../export';
@@ -24,8 +24,8 @@ vi.mock( 'cli/lib/cli-config/sites', () => ( {
 } ) );
 vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/sqlite-integration' );
-vi.mock( 'cli/lib/import-export/export/export-manager', () => ( {
-	exportBackup: vi.fn(),
+vi.mock( import( 'cli/lib/import-export/export/export-manager' ), () => ( {
+	getExporter: vi.fn(),
 } ) );
 
 describe( 'CLI: studio export', () => {
@@ -59,7 +59,7 @@ describe( 'CLI: studio export', () => {
 		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( testSite );
 		vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( false );
-		vi.mocked( exportBackup ).mockResolvedValue( createExporter() as never );
+		vi.mocked( getExporter ).mockResolvedValue( createExporter() as never );
 	} );
 
 	afterEach( () => {
@@ -72,7 +72,7 @@ describe( 'CLI: studio export', () => {
 		expect( connectToDaemon ).toHaveBeenCalled();
 		expect( getSiteByFolder ).toHaveBeenCalledWith( testSitePath );
 		expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( testSitePath );
-		expect( exportBackup ).toHaveBeenCalledWith( {
+		expect( getExporter ).toHaveBeenCalledWith( {
 			site: testSite,
 			backupFile: testExportPath,
 			phpVersion: '8.3',
@@ -100,7 +100,7 @@ describe( 'CLI: studio export', () => {
 			} );
 			exporter.emit( ExportEvents.EXPORT_COMPLETE );
 		} );
-		vi.mocked( exportBackup ).mockResolvedValue( exporter as never );
+		vi.mocked( getExporter ).mockResolvedValue( exporter as never );
 
 		await runCommand( testSitePath, testExportPath );
 
@@ -114,7 +114,7 @@ describe( 'CLI: studio export', () => {
 	} );
 
 	it( 'throws when no suitable exporter is found', async () => {
-		vi.mocked( exportBackup ).mockResolvedValue( null as never );
+		vi.mocked( getExporter ).mockResolvedValue( null as never );
 
 		const command = runCommand( testSitePath, testExportPath );
 		await expect( command ).rejects.toThrow( LoggerError );
@@ -131,7 +131,7 @@ describe( 'CLI: studio export', () => {
 
 		await argv.parse( [ 'export', 'site-backup.sql', '--path', testSitePath, '--mode', 'db' ] );
 
-		expect( exportBackup ).toHaveBeenCalledWith(
+		expect( getExporter ).toHaveBeenCalledWith(
 			expect.objectContaining( {
 				backupFile: expect.stringContaining( 'site-backup.sql' ),
 				includes: {
@@ -151,7 +151,7 @@ describe( 'CLI: studio export', () => {
 
 		await argv.parse( [ 'export', 'site-backup.zip', '--path', testSitePath, '--mode', 'db' ] );
 
-		expect( exportBackup ).not.toHaveBeenCalled();
+		expect( getExporter ).not.toHaveBeenCalled();
 		expect( reportErrorSpy ).toHaveBeenCalledWith(
 			expect.objectContaining( {
 				message: 'Invalid export file extension. Must be .sql when exporting database only.',
@@ -167,7 +167,7 @@ describe( 'CLI: studio export', () => {
 
 		await argv.parse( [ 'export', 'site-backup.sql', '--path', testSitePath, '--mode', 'full' ] );
 
-		expect( exportBackup ).not.toHaveBeenCalled();
+		expect( getExporter ).not.toHaveBeenCalled();
 		expect( reportErrorSpy ).toHaveBeenCalledWith(
 			expect.objectContaining( {
 				message:

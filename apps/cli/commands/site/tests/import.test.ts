@@ -8,10 +8,7 @@ import { vi } from 'vitest';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
-import {
-	DEFAULT_IMPORTER_OPTIONS,
-	importBackup,
-} from 'cli/lib/import-export/import/import-manager';
+import { DEFAULT_IMPORTER_OPTIONS, getImporter } from 'cli/lib/import-export/import/import-manager';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
@@ -31,9 +28,9 @@ vi.mock( 'cli/lib/wordpress-server-manager', () => ( {
 	isServerRunning: vi.fn(),
 	stopWordPressServer: vi.fn(),
 } ) );
-vi.mock( 'cli/lib/import-export/import/import-manager', () => ( {
+vi.mock( import( 'cli/lib/import-export/import/import-manager' ), () => ( {
 	DEFAULT_IMPORTER_OPTIONS: [],
-	importBackup: vi.fn(),
+	getImporter: vi.fn(),
 } ) );
 vi.mock( '@studio/common/lib/well-known-paths' );
 vi.mock( '@studio/common/lib/fs-utils', () => ( {
@@ -86,7 +83,7 @@ describe( 'CLI: studio import', () => {
 		vi.mocked( getServerFilesPath ).mockReturnValue( '/server-files' );
 		vi.mocked( recursiveCopyDirectory ).mockResolvedValue( undefined );
 		vi.spyOn( fs, 'existsSync' ).mockImplementation( ( p ) => p === testImportPath );
-		vi.mocked( importBackup ).mockReturnValue( createImporter() as never );
+		vi.mocked( getImporter ).mockReturnValue( createImporter() as never );
 	} );
 
 	afterEach( () => {
@@ -98,7 +95,7 @@ describe( 'CLI: studio import', () => {
 
 		expect( connectToDaemon ).toHaveBeenCalled();
 		expect( getSiteByFolder ).toHaveBeenCalledWith( testSitePath );
-		expect( importBackup ).toHaveBeenCalledWith(
+		expect( getImporter ).toHaveBeenCalledWith(
 			{
 				path: testImportPath,
 				type: 'application/zip',
@@ -147,7 +144,7 @@ describe( 'CLI: studio import', () => {
 			importer.emit( ImporterEvents.IMPORT_COMPLETE );
 			return importResult;
 		} );
-		vi.mocked( importBackup ).mockReturnValue( importer as never );
+		vi.mocked( getImporter ).mockReturnValue( importer as never );
 
 		await runCommand( testSitePath, testImportPath );
 
@@ -162,7 +159,7 @@ describe( 'CLI: studio import', () => {
 
 	it( 'preserves import error when restore steps fail', async () => {
 		vi.mocked( isServerRunning ).mockResolvedValue( { pid: 1234 } as never );
-		vi.mocked( importBackup ).mockReturnValue(
+		vi.mocked( getImporter ).mockReturnValue(
 			createImporter( async () => {
 				throw new Error( 'import failed' );
 			} ) as never

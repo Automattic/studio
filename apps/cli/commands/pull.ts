@@ -14,10 +14,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { SiteData } from 'cli/lib/cli-config/core';
 import { clearSiteLatestCliPid, getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
-import {
-	DEFAULT_IMPORTER_OPTIONS,
-	importBackup,
-} from 'cli/lib/import-export/import/import-manager';
+import { DEFAULT_IMPORTER_OPTIONS, getImporter } from 'cli/lib/import-export/import/import-manager';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import {
 	checkBackupSize,
@@ -181,7 +178,7 @@ export async function runCommand(
 				logger.reportSuccess( __( 'WordPress server stopped' ) );
 			}
 
-			const importer = importBackup(
+			const importer = getImporter(
 				{ path: destPath, type: 'application/gzip' },
 				DEFAULT_IMPORTER_OPTIONS
 			);

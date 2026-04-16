@@ -13,10 +13,7 @@ import { SiteData } from 'cli/lib/cli-config/core';
 import { clearSiteLatestCliPid, getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
-import {
-	DEFAULT_IMPORTER_OPTIONS,
-	importBackup,
-} from 'cli/lib/import-export/import/import-manager';
+import { DEFAULT_IMPORTER_OPTIONS, getImporter } from 'cli/lib/import-export/import/import-manager';
 import { getBackupFileType } from 'cli/lib/import-export/utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { untildify } from 'cli/lib/utils';
@@ -221,7 +218,7 @@ export async function runCommand( siteFolder: string, importFile: string ): Prom
 
 		logger.reportStart( LoggerAction.IMPORT_SITE, __( 'Starting import…' ) );
 
-		const importer = importBackup(
+		const importer = getImporter(
 			{ path: importFile, type: getBackupFileType( importFile ) },
 			DEFAULT_IMPORTER_OPTIONS
 		);

@@ -1,7 +1,7 @@
 import { DefaultExporter, SqlExporter } from './exporters';
 import { ExportOptions, Exporter, NewExporter } from './types';
 
-export async function exportBackup(
+export async function getExporter(
 	exportOptions: ExportOptions,
 	exporters: NewExporter[] = defaultExporterOptions
 ): Promise< Exporter | null > {

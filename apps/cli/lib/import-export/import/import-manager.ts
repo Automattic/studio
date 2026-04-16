@@ -91,7 +91,7 @@ class BackupImporter extends ImportExportEventEmitter implements Importer {
 	}
 }
 
-export function importBackup( backupFile: BackupArchiveInfo, options: ImporterOption[] ): Importer {
+export function getImporter( backupFile: BackupArchiveInfo, options: ImporterOption[] ): Importer {
 	return new BackupImporter( backupFile, options );
 }
 

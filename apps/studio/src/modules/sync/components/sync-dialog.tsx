@@ -187,7 +187,7 @@ export function SyncDialog( {
 	let versionMismatchNotice = '';
 	if ( shouldShowPhpVersionMismatch && shouldShowWpVersionMismatch ) {
 		versionMismatchNotice = __(
-			'Your Studio site is using a different WordPress and PHP version than your remote site. The remote site will keep using the newest supported versions.'
+			'Your Studio site is using different WordPress and PHP versions than your remote site. The remote site will keep using the newest supported versions.'
 		);
 	} else if ( shouldShowPhpVersionMismatch ) {
 		versionMismatchNotice = __(

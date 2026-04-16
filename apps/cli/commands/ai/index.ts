@@ -550,6 +550,10 @@ export async function runCommand( options: {
 						break;
 					}
 				} else {
+					if ( cmd.requiresSite && ! ui.activeSite ) {
+						ui.showInfo( __( 'No site selected. Use ↓ to select a site first.' ) );
+						continue;
+					}
 					// Skill command — no handler, route to agent
 					await maybeAutoSwitchProvider();
 					ui.addUserMessage( prompt );

@@ -36,6 +36,10 @@ export interface SlashCommandDef {
 	name: string;
 	description: string;
 	handler?: SlashCommandHandler;
+	// Set `true` for handlerless skill commands that cannot proceed without an
+	// active site. The main loop shows a "No site selected…" message and skips
+	// the agent turn when no site is active.
+	requiresSite?: boolean;
 }
 
 function isPromptAbortError( error: unknown ): boolean {
@@ -293,6 +297,14 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		description: __( 'Exit the chat' ),
 		handler: async () => 'break',
 	},
-	{ name: 'taxonomist', description: __( 'Optimize category taxonomy with AI' ) },
-	{ name: 'need-for-speed', description: __( 'Run a performance audit on a site' ) },
+	{
+		name: 'taxonomist',
+		description: __( 'Optimize category taxonomy with AI' ),
+		requiresSite: true,
+	},
+	{
+		name: 'need-for-speed',
+		description: __( 'Run a performance audit on a site' ),
+		requiresSite: true,
+	},
 ];

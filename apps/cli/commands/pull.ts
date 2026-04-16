@@ -70,7 +70,6 @@ export async function runCommand(
 		logger.reportStart( LoggerAction.FETCH_REMOTE_SITES, __( 'Fetching WordPress.com sites…' ) );
 		const remoteSites = await fetchSyncableSites( token.accessToken );
 		logger.spinner.stop();
-		logger.reportSuccess( sprintf( __( 'Found %d sites' ), remoteSites.length ), true );
 
 		let remoteSite;
 		if ( siteIdentifier ) {

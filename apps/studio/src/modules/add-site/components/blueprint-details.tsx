@@ -1,4 +1,3 @@
-import { BlueprintValidationWarning } from '@studio/common/lib/blueprint-validation';
 import {
 	__experimentalVStack as VStack,
 	__experimentalHStack as HStack,
@@ -9,19 +8,16 @@ import {
 import { check, link, upload, starFilled } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { Blueprint } from 'src/stores/wpcom-api';
-import { BlueprintWarningNotice } from './blueprint-warning-notice';
 
 type BlueprintSource = 'deeplink' | 'file' | 'featured';
 
 interface BlueprintDetailsProps {
 	selectedBlueprint?: Blueprint;
-	warnings?: BlueprintValidationWarning[];
 	source?: BlueprintSource;
 }
 
 export default function BlueprintDetails( {
 	selectedBlueprint,
-	warnings,
 	source = 'deeplink',
 }: BlueprintDetailsProps ) {
 	const { __ } = useI18n();
@@ -42,11 +38,6 @@ export default function BlueprintDetails( {
 			<Heading className="text-center text-[32px] text-frame-text mb-5" weight={ 500 }>
 				{ __( 'Start from a Blueprint' ) }
 			</Heading>
-			<BlueprintWarningNotice
-				warnings={ warnings }
-				fileName={ blueprintTitle }
-				className="w-full max-w-4xl mx-auto"
-			/>
 			<VStack className="max-w-[400px] min-w-[350px] mx-auto mt-16 justify-start" spacing={ 0 }>
 				<VStack className="w-full max-h-[172px] p-6 border rounded-t-lg border-frame-border justify-start">
 					<HStack className="h-full justify-start" alignment="top" spacing={ 4 }>

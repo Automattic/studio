@@ -6,9 +6,6 @@ describe( 'validateBlueprintData', () => {
 			const result = await validateBlueprintData( {} );
 
 			expect( result.valid ).toBe( true );
-			if ( result.valid ) {
-				expect( result.warnings ).toHaveLength( 0 );
-			}
 		} );
 
 		it( 'should accept a blueprint with valid steps', async () => {
@@ -62,7 +59,7 @@ describe( 'validateBlueprintData', () => {
 			expect( result.valid ).toBe( true );
 		} );
 
-		it( 'should accept a blueprint with landingPage without warnings', async () => {
+		it( 'should accept a blueprint with landingPage', async () => {
 			const blueprint = {
 				landingPage: '/wp-admin/',
 			};
@@ -70,9 +67,6 @@ describe( 'validateBlueprintData', () => {
 			const result = await validateBlueprintData( blueprint );
 
 			expect( result.valid ).toBe( true );
-			if ( result.valid ) {
-				expect( result.warnings ).toHaveLength( 0 );
-			}
 		} );
 	} );
 

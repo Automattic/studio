@@ -105,7 +105,7 @@ Run `validate_blocks` on every piece of converted content to catch markup errors
 
 Take screenshots (desktop + mobile) and compare them against the Phase 1 screenshots you already have in context. The site must look identical to the Phase 1 result. Look specifically for these common regressions introduced by block conversion:
 
-- **Double borders or backgrounds on buttons** — `core/button` adds `.wp-block-button__link` with default border/background that stacks on your CSS
+- **Double borders or backgrounds on buttons** — if you see the button rendered inside another visible rectangle, paint leaked onto the `.wp-block-button` wrapper. Move every paint property (background, border, padding, color) off `.wp-block-button.<className>` and onto `.wp-block-button.<className> .wp-block-button__link`. See "Where button CSS goes" in the Buttons pattern reference below.
 - **Extra padding or spacing around sections** — `core/group` and `.wp-block-columns` add default padding/gap
 - **Missing background colors or gradients** — elements that had inline styles may lose them when converted to blocks
 - **Font size or weight changes** — block defaults may override your typography
@@ -185,6 +185,28 @@ Replaces `<a class="btn">`:
 </div>
 <!-- /wp:buttons -->
 ```
+
+**CRITICAL — Where button CSS goes.** A `core/button` renders two stacked elements: the `.wp-block-button` wrapper and the `.wp-block-button__link` anchor inside. ALL visual paint (background, border, padding, color, font, hover, transitions, shadow, border-radius) MUST target `.wp-block-button.<className> .wp-block-button__link`. The `.wp-block-button` wrapper carries ZERO paint — give it only layout properties (margin, flex alignment) if any. Putting paint on the wrapper creates the classic "button inside a button" double-background/double-border effect.
+
+For example, when migrating `.btn-gold { background: gold; border: 2px solid gold; padding: 1rem 2rem; color: black; }`:
+
+- **Correct** (all paint on the inner link):
+  ```css
+  .wp-block-button.btn-gold .wp-block-button__link {
+    background: gold;
+    border: 2px solid gold;
+    padding: 1rem 2rem;
+    color: black;
+  }
+  ```
+- **Wrong** (paint on the wrapper — produces the double-layer effect):
+  ```css
+  .wp-block-button.btn-gold {
+    background: gold;
+    border: 2px solid gold;
+    padding: 1rem 2rem;
+  }
+  ```
 
 ### List
 

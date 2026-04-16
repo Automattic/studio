@@ -94,8 +94,10 @@ export class Logger< T extends string > {
 			progressCallback!( message );
 		} else if ( shouldClearSpinner ) {
 			this.spinner.stop();
-		} else {
+		} else if ( this.spinner.running ) {
 			this.spinner.succeed( message );
+		} else {
+			console.log( message );
 		}
 
 		this.currentAction = null;
@@ -110,7 +112,11 @@ export class Logger< T extends string > {
 			progressCallback!( message );
 			return;
 		}
-		this.spinner.warn( message );
+		if ( this.spinner.running ) {
+			this.spinner.warn( message );
+		} else {
+			console.warn( message );
+		}
 	}
 
 	public reportError( error: LoggerError, isFatal = true ) {
@@ -122,8 +128,10 @@ export class Logger< T extends string > {
 			process.send!( { action: this.currentAction, status: 'fail', message: error.message } );
 		} else if ( progressCallback ) {
 			progressCallback!( error.message );
-		} else {
+		} else if ( this.spinner.running ) {
 			this.spinner.fail( error.message );
+		} else {
+			console.error( error.message );
 		}
 
 		this.currentAction = null;

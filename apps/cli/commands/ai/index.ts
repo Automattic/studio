@@ -45,14 +45,10 @@ type ContinueReason =
 	| { kind: 'outer'; numTurns: number }
 	| { kind: 'subagent'; lastProgress: string | null };
 
-interface ContinueDecision {
-	resumePrompt: string;
-}
-
 async function maybePromptContinue(
 	ui: AiOutputAdapter,
 	reason: ContinueReason
-): Promise< ContinueDecision | null > {
+): Promise< string | null > {
 	let question: string;
 	let resumePrompt: string;
 
@@ -96,9 +92,10 @@ async function maybePromptContinue(
 	] );
 	const choice = Object.values( answer )[ 0 ]?.toLowerCase();
 	if ( choice !== 'yes' ) {
+		ui.showInfo( __( 'Stopped. You can send a new message to pick up where you left off.' ) );
 		return null;
 	}
-	return { resumePrompt };
+	return resumePrompt;
 }
 
 export async function runCommand( options: {
@@ -509,10 +506,10 @@ export async function runCommand( options: {
 		}
 
 		if ( continueReason && ! isJsonMode ) {
-			const decision = await maybePromptContinue( ui, continueReason );
-			if ( decision ) {
+			const resumePrompt = await maybePromptContinue( ui, continueReason );
+			if ( resumePrompt ) {
 				ui.addUserMessage( 'Continue' );
-				return runAgentTurn( decision.resumePrompt );
+				return runAgentTurn( resumePrompt );
 			}
 		}
 

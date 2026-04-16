@@ -1,6 +1,6 @@
 import { DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
 import { emitEvent, type TurnCompletedStatus } from 'cli/ai/json-events';
-import { detectSubagentMaxTurns } from 'cli/ai/subagent-max-turns';
+import { detectSubagentMaxTurnsFromMessage } from 'cli/ai/subagent-max-turns';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { AiProviderId } from 'cli/ai/providers';
 import type { SiteInfo } from 'cli/ai/ui';
@@ -116,20 +116,11 @@ export class JsonAdapter implements AiOutputAdapter {
 	handleMessage( message: SDKMessage ): HandleMessageResult | undefined {
 		emitEvent( { type: 'message', timestamp: new Date().toISOString(), message } );
 
-		if ( message.type === 'user' ) {
-			const typed = message as unknown as {
-				tool_use_result?: { content?: unknown };
-			};
-			const detected = detectSubagentMaxTurns(
-				typed.tool_use_result?.content as
-					| string
-					| Array< Record< string, unknown > >
-					| null
-					| undefined
-			);
-			if ( detected ) {
-				this.subagentMaxTurns = detected;
-			}
+		const detected = detectSubagentMaxTurnsFromMessage(
+			message as { type: string; [ key: string ]: unknown }
+		);
+		if ( detected ) {
+			this.subagentMaxTurns = detected;
 		}
 
 		if ( message.type === 'result' ) {

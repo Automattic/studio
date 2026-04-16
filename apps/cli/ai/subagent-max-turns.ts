@@ -53,3 +53,27 @@ export function detectSubagentMaxTurns(
 
 	return { lastProgress };
 }
+
+/**
+ * Check an SDK message for subagent max-turns. Extracts tool_use_result
+ * content from the raw message and runs the detector.
+ * Only inspects 'user' messages with a Task-shaped tool result.
+ */
+export function detectSubagentMaxTurnsFromMessage(
+	message: { type: string; [ key: string ]: unknown },
+	isTaskToolResult?: boolean
+): { lastProgress: string | null } | null {
+	if ( message.type !== 'user' ) {
+		return null;
+	}
+
+	// In AiChatUI we know from pendingToolCalls whether this was a Task;
+	// in JsonAdapter we check every user message (no pending-tool tracking).
+	if ( isTaskToolResult === false ) {
+		return null;
+	}
+
+	const toolResult = ( message as { tool_use_result?: { content?: unknown } } ).tool_use_result;
+	const content = toolResult?.content as string | ContentBlock[] | null | undefined;
+	return detectSubagentMaxTurns( content );
+}

@@ -28,7 +28,7 @@ import chalk from 'chalk';
 import { AI_MODELS, DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
 import { AI_CHAT_SLASH_COMMANDS } from 'cli/ai/slash-commands';
-import { detectSubagentMaxTurns } from 'cli/ai/subagent-max-turns';
+import { detectSubagentMaxTurnsFromMessage } from 'cli/ai/subagent-max-turns';
 import { buildTodoUpdateLines, type TodoRenderLine } from 'cli/ai/todo-render';
 import { diffTodoSnapshot, type TodoDiff, type TodoEntry } from 'cli/ai/todo-stream';
 import { getWpComSites } from 'cli/lib/api';
@@ -2119,18 +2119,12 @@ export class AiChatUI implements AiOutputAdapter {
 			case 'user': {
 				const toolCallId = message.parent_tool_use_id;
 				const toolCall = toolCallId ? this.pendingToolCalls.get( toolCallId ) : null;
-				if ( toolCall?.name === 'Task' ) {
-					const toolResult = ( message as { tool_use_result?: { content?: unknown } } )
-						.tool_use_result;
-					const rawContent = toolResult?.content as
-						| string
-						| Array< Record< string, unknown > >
-						| null
-						| undefined;
-					const detected = detectSubagentMaxTurns( rawContent );
-					if ( detected ) {
-						this.subagentMaxTurns = detected;
-					}
+				const detected = detectSubagentMaxTurnsFromMessage(
+					message as { type: string; [ key: string ]: unknown },
+					toolCall?.name === 'Task'
+				);
+				if ( detected ) {
+					this.subagentMaxTurns = detected;
 				}
 				if ( toolCallId ) {
 					this.pendingToolCalls.delete( toolCallId );

@@ -58,7 +58,7 @@ export class Logger< T extends string > {
 		if ( canSend() ) {
 			process.send!( { action, status: 'inprogress', message } );
 		} else if ( progressCallback ) {
-			progressCallback!( message );
+			progressCallback( message );
 		} else {
 			this.spinner.setText( message );
 			if ( ! this.spinner.running ) {
@@ -71,7 +71,7 @@ export class Logger< T extends string > {
 		if ( canSend() ) {
 			process.send!( { action: this.currentAction, status: 'inprogress', message } );
 		} else if ( progressCallback ) {
-			progressCallback!( message, true );
+			progressCallback( message, true );
 		} else {
 			if ( ! this.spinner.running ) {
 				this.spinner.start();
@@ -84,7 +84,7 @@ export class Logger< T extends string > {
 		if ( canSend() ) {
 			process.send!( { action: this.currentAction, status: 'success', message } );
 		} else if ( progressCallback ) {
-			progressCallback!( message );
+			progressCallback( message );
 		} else {
 			if ( ! this.spinner.running ) {
 				this.spinner.start();
@@ -99,7 +99,7 @@ export class Logger< T extends string > {
 		if ( canSend() ) {
 			process.send!( { action: this.currentAction, status: 'warning', message } );
 		} else if ( progressCallback ) {
-			progressCallback!( message );
+			progressCallback( message );
 		} else {
 			if ( ! this.spinner.running ) {
 				this.spinner.start();
@@ -116,7 +116,7 @@ export class Logger< T extends string > {
 		if ( canSend() ) {
 			process.send!( { action: this.currentAction, status: 'fail', message: error.message } );
 		} else if ( progressCallback ) {
-			progressCallback!( error.message );
+			progressCallback( error.message );
 		} else {
 			if ( ! this.spinner.running ) {
 				this.spinner.start();

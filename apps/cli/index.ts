@@ -8,10 +8,16 @@ import { registerCommand as registerImportCommand } from 'cli/commands/import';
 import { registerCommand as registerMcpCommand } from 'cli/commands/mcp';
 import { registerCommand as registerPullCommand } from 'cli/commands/pull';
 import { registerCommand as registerPushCommand } from 'cli/commands/push';
-import { bumpAggregatedUniqueStat, getPlatformMetric } from 'cli/lib/bump-stat';
+import {
+	bumpAggregatedUniqueStat,
+	bumpStat,
+	getInstallTypeLaunchStatGroups,
+	getPlatformMetric,
+} from 'cli/lib/bump-stat';
 import { setupServerFiles } from 'cli/lib/dependency-management/setup';
 import { loadTranslations } from 'cli/lib/i18n';
 import { StatsGroup, StatsMetric } from 'cli/lib/types/bump-stats';
+import { setupUpdateNotifier } from 'cli/lib/update-notifier';
 import { untildify } from 'cli/lib/utils';
 import { StudioArgv } from 'cli/types';
 
@@ -20,6 +26,8 @@ const version = __STUDIO_CLI_VERSION__;
 suppressPunycodeWarning();
 
 async function main() {
+	await setupUpdateNotifier( version );
+
 	const yargsLocale = await loadTranslations();
 
 	if ( semver.lt( process.version, __MINIMUM_NODE_VERSION__ ) ) {
@@ -61,29 +69,32 @@ async function main() {
 		} )
 		.middleware( async ( argv ) => {
 			if ( __ENABLE_CLI_TELEMETRY__ && ! argv.avoidTelemetry ) {
-				try {
-					await bumpAggregatedUniqueStat(
-						StatsGroup.STUDIO_CLI_USAGE_UNIQUE,
-						StatsMetric.SUCCESS,
-						'weekly'
-					);
+				const platformMetric = getPlatformMetric();
+				const launchGroups = getInstallTypeLaunchStatGroups();
 
-					if ( __IS_PACKAGED_FOR_NPM__ ) {
-						await bumpAggregatedUniqueStat(
-							StatsGroup.STUDIO_CLI_WEEKLY_UNIQUE_NPM,
-							getPlatformMetric(),
-							'weekly'
-						);
-					} else {
-						await bumpAggregatedUniqueStat(
-							StatsGroup.STUDIO_CLI_WEEKLY_UNIQUE_APP,
-							getPlatformMetric(),
-							'weekly'
-						);
-					}
-				} catch ( error ) {
-					console.error( 'Failed to bump stat:', error );
-				}
+				bumpStat( launchGroups.totalLaunches, platformMetric );
+
+				bumpAggregatedUniqueStat( launchGroups.firstLaunch, platformMetric, 'forever' ).catch( () =>
+					console.error( 'Failed to bump stat:', launchGroups.firstLaunch )
+				);
+
+				// STUDIO_CLI_USAGE_UNIQUE and launchGroups.weeklyUnique are equivalent, apart from tracking
+				// different metrics. For now, we keep both for backward compatibility.
+				bumpAggregatedUniqueStat(
+					StatsGroup.STUDIO_CLI_USAGE_UNIQUE,
+					StatsMetric.SUCCESS,
+					'weekly'
+				).catch( () =>
+					console.error( 'Failed to bump stat:', StatsGroup.STUDIO_CLI_USAGE_UNIQUE )
+				);
+
+				bumpAggregatedUniqueStat( launchGroups.weeklyUnique, platformMetric, 'weekly' ).catch( () =>
+					console.error( 'Failed to bump stat:', launchGroups.weeklyUnique )
+				);
+
+				bumpAggregatedUniqueStat( launchGroups.monthlyUnique, platformMetric, 'monthly' ).catch(
+					() => console.error( 'Failed to bump stat:', launchGroups.monthlyUnique )
+				);
 			}
 		} )
 		.middleware( async () => {

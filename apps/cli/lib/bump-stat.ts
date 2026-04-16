@@ -53,3 +53,28 @@ export function getPlatformMetric(): StatsMetric {
 			return StatsMetric.UNKNOWN_PLATFORM;
 	}
 }
+
+type InstallTypeLaunchStatGroups = {
+	weeklyUnique: StatsGroup;
+	monthlyUnique: StatsGroup;
+	firstLaunch: StatsGroup;
+	totalLaunches: StatsGroup;
+};
+
+export function getInstallTypeLaunchStatGroups(): InstallTypeLaunchStatGroups {
+	if ( __IS_PACKAGED_FOR_NPM__ ) {
+		return {
+			weeklyUnique: StatsGroup.STUDIO_CLI_WEEKLY_UNIQUE_NPM,
+			monthlyUnique: StatsGroup.STUDIO_CLI_MONTHLY_UNIQUE_NPM,
+			firstLaunch: StatsGroup.STUDIO_CLI_FIRST_LAUNCH_NPM,
+			totalLaunches: StatsGroup.STUDIO_CLI_TOTAL_LAUNCHES_NPM,
+		};
+	}
+
+	return {
+		weeklyUnique: StatsGroup.STUDIO_CLI_WEEKLY_UNIQUE_APP,
+		monthlyUnique: StatsGroup.STUDIO_CLI_MONTHLY_UNIQUE_APP,
+		firstLaunch: StatsGroup.STUDIO_CLI_FIRST_LAUNCH_APP,
+		totalLaunches: StatsGroup.STUDIO_CLI_TOTAL_LAUNCHES_APP,
+	};
+}

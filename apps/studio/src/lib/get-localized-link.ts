@@ -62,6 +62,12 @@ const A8C_LINKS = {
 	a8cAiGuidelines: {
 		en: 'https://automattic.com/ai-guidelines/',
 	},
+	a8cPrivacyPolicy: {
+		en: 'https://automattic.com/privacy/',
+	},
+	a8cTos: {
+		en: 'https://wordpress.com/tos/',
+	},
 } satisfies Record< `a8c${ string }`, TranslatedLink >;
 
 const LINKS = {

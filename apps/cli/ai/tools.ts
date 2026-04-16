@@ -194,8 +194,9 @@ export async function captureCommandOutput( fn: () => Promise< void > ): Promise
 		consoleOutput += args.map( String ).join( ' ' ) + '\n';
 	};
 	process.exitCode = undefined;
-	setProgressCallback( ( message ) => {
+	setProgressCallback( ( message, update ) => {
 		progressMessages.push( message );
+		previousCallback?.( message, update );
 	} );
 
 	try {
@@ -379,12 +380,12 @@ const deleteSiteTool = tool(
 		deleteFiles: z
 			.boolean()
 			.optional()
-			.describe( 'Also move site files to trash. Defaults to false.' ),
+			.describe( 'Move site files to trash. Defaults to true. Set to false to keep files.' ),
 	},
 	async ( args ) => {
 		try {
 			const site = await resolveSite( args.nameOrPath );
-			await runDeleteSiteCommand( site.path, args.deleteFiles ?? false );
+			await runDeleteSiteCommand( site.path, args.deleteFiles ?? true );
 			return textResult( `Site "${ site.name }" deleted.` );
 		} catch ( error ) {
 			return errorResult(
@@ -743,7 +744,7 @@ const installTaxonomyScriptsTool = tool(
 );
 
 const auditPerformanceTool = tool(
-	'audit_performance',
+	'need_for_speed',
 	'Measures frontend performance metrics for a WordPress site page. Returns Core Web Vitals ' +
 		'(TTFB, FCP, LCP, CLS), page weight, DOM size, request count, and a breakdown of JS, CSS, ' +
 		'image, and font assets. The site must be running. Use this to identify performance issues.',

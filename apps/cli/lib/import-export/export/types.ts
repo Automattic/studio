@@ -1,5 +1,5 @@
 import { SiteData } from 'cli/lib/cli-config/core';
-import type { ProgressData } from 'archiver';
+import type archiver from 'archiver';
 import type { EventEmitter } from 'events';
 
 export interface ExportOptions {
@@ -24,7 +24,7 @@ export interface Exporter extends Partial< EventEmitter > {
 }
 
 export interface BackupCreateProgressEventData {
-	progress: ProgressData;
+	progress: archiver.ProgressData;
 }
 
 export type NewExporter = new ( options: ExportOptions ) => Exporter;

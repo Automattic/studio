@@ -11,7 +11,8 @@ The Studio CLI lets you:
 - Import and export site backups.
 - Pull from and push to WordPress.com sites.
 - Publish ephemeral preview sites to share (requires WordPress.com login).
-- Integrate with AI coding agents. Every site comes with an `AGENTS.md` file.
+- Build WordPress sites in Studio Code with an interactive AI agent specialized in WordPress, backed by the full power of the Studio CLI.
+- Integrate with other AI coding agents. Every site comes with an `AGENTS.md` file.
 
 <p align="center">
 	<br>
@@ -25,6 +26,7 @@ The Studio CLI lets you:
 - [Installation](#installation)
 - [Quick start](#quick-start)
 - [Usage](#usage)
+- [Studio Code](#studio-code)
 - [Import and export](#import-and-export)
 - [Sync with WordPress.com and Pressable](#sync-with-wordpresscom-and-pressable)
 - [Preview sites](#preview-sites)
@@ -76,6 +78,24 @@ Run WP-CLI commands in a site:
 ```bash
 studio wp plugin list --path ~/Studio/my-site
 studio wp option get home --path ~/Studio/my-site
+```
+
+## Studio Code
+
+> 🧪 _Studio Code is currently in early access. Features, capabilities, and usage limits may change as it evolves._
+
+Studio Code is an interactive AI agent specialized in building and optimizing WordPress sites. It integrates seamlessly with your Studio sites and can create themes, install plugins, edit code and content, and run WP-CLI commands autonomously from your terminal. It validates its own work through a built-in feedback loop that takes screenshots and confirms block syntax. You can use frontier models through the WordPress.com provider or bring your own API keys. 
+
+```bash
+studio code
+```
+
+Delete, lis,t or resume a previous session:
+
+```bash
+studio code sessions delete
+studio code sessions list
+studio code sessions resume
 ```
 
 ## Import and export

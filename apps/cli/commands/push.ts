@@ -57,7 +57,6 @@ export async function runCommand(
 	logger.reportStart( LoggerAction.FETCH_REMOTE_SITES, __( 'Fetching WordPress.com sites…' ) );
 	const remoteSites = await fetchSyncableSites( token.accessToken );
 	logger.spinner.stop();
-	logger.reportSuccess( sprintf( __( 'Found %d sites' ), remoteSites.length ), true );
 
 	let remoteSite;
 	if ( remoteSiteIdentifier ) {
@@ -156,7 +155,7 @@ export async function runCommand(
 			onProgress: ( percent ) => {
 				// Upload phase: 20-40%
 				const progress = Math.round( 20 + percent * 0.2 );
-				logger.spinner.text = sprintf( __( 'Uploading archive… (%d%%)' ), progress );
+				logger.reportProgress( sprintf( __( 'Uploading archive… (%d%%)' ), progress ) );
 			},
 		} );
 
@@ -183,7 +182,7 @@ export async function runCommand(
 		}
 
 		// Initiate import: 40%
-		logger.spinner.text = sprintf( __( 'Initiating import… (%d%%)' ), 40 );
+		logger.reportProgress( sprintf( __( 'Initiating import… (%d%%)' ), 40 ) );
 		await initiateImport( token.accessToken, remoteSite.id, attachmentId, {
 			optionsToSync,
 			specificSelectionPaths,
@@ -237,7 +236,7 @@ export async function runCommand(
 				stalledAttempts++;
 			}
 
-			logger.spinner.text = sprintf( '%s (%d%%)', statusMessage, roundedProgress );
+			logger.reportProgress( sprintf( '%s (%d%%)', statusMessage, roundedProgress ) );
 
 			await new Promise( ( resolve ) => setTimeout( resolve, SYNC_POLL_INTERVAL_MS ) );
 		}

@@ -6,9 +6,7 @@ import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import Modal from 'src/components/modal';
 import offlineIcon from 'src/components/offline-icon';
-import { PressableLogo } from 'src/components/pressable-logo';
 import { Tooltip } from 'src/components/tooltip';
-import { WordPressLogoCircle } from 'src/components/wordpress-logo-circle';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
@@ -275,6 +273,50 @@ function ListSites( {
 	);
 }
 
+function getMshotUrl( siteUrl: string ): string {
+	return `https://s0.wp.com/mshots/v1/${ encodeURIComponent( siteUrl ) }?w=300&h=200`;
+}
+
+function SiteThumbnail( {
+	site,
+	isSelected,
+	isDisabled,
+	isLoading,
+}: {
+	site: SyncSite;
+	isSelected: boolean;
+	isDisabled: boolean;
+	isLoading: boolean;
+} ) {
+	if ( isLoading ) {
+		return (
+			<div className="w-[120px] h-[80px] rounded-lg skeleton-bg shrink-0" aria-label="Loading" />
+		);
+	}
+
+	const mshotUrl = getMshotUrl( site.url );
+
+	return (
+		<div
+			className={ cx(
+				'relative w-[120px] h-[80px] rounded-lg shrink-0 overflow-hidden bg-frame-surface border',
+				isSelected ? 'border-white/20' : 'border-frame-border',
+				isDisabled && 'opacity-50'
+			) }
+		>
+			<img src={ mshotUrl } alt="" className="w-full h-full object-cover" loading="lazy" />
+			{ site.siteIconUrl && (
+				<img
+					src={ site.siteIconUrl }
+					alt=""
+					className="absolute bottom-1 left-1 w-5 h-5 rounded border border-white/30 bg-white object-cover"
+					loading="lazy"
+				/>
+			) }
+		</div>
+	);
+}
+
 function SiteItem( {
 	site,
 	isSelected,
@@ -293,7 +335,6 @@ function SiteItem( {
 	const needsUpgrade = site.syncSupport === 'needs-upgrade';
 	const isDeleted = site.syncSupport === 'deleted';
 	const isUnsupported = site.syncSupport === 'unsupported';
-	const isPressable = site.isPressable;
 	const isDisabled = isDeleted || isUnsupported || needsUpgrade || isMissingPermissions;
 
 	return (
@@ -324,63 +365,67 @@ function SiteItem( {
 				onClick();
 			} }
 		>
-			<div className="flex flex-col gap-0.5 min-w-0">
-				{ isSiteLoading ? (
-					<div className="flex items-center gap-1.5">
-						<div className="w-3 h-3 rounded-full skeleton-bg" aria-label={ __( 'Loading' ) } />
+			<div className="flex items-center gap-3 min-w-0">
+				<SiteThumbnail
+					site={ site }
+					isSelected={ isSelected }
+					isDisabled={ isDisabled }
+					isLoading={ isSiteLoading }
+				/>
+				<div className="flex flex-col gap-0.5 min-w-0">
+					{ isSiteLoading ? (
 						<div
 							className="h-4 w-48 rounded skeleton-bg"
 							aria-label={ __( 'Loading site name' ) }
 						/>
-					</div>
-				) : (
-					<div
-						className={ cx(
-							'a8c-body truncate flex items-center',
-							isSelected && '!text-white',
-							! isSyncable && 'text-frame-text-secondary'
-						) }
-					>
-						{ isPressable ? (
-							<span className="me-1.5">
-								<PressableLogo size={ 12 } />
-							</span>
-						) : (
-							<span className="me-1.5">
-								<WordPressLogoCircle
-									size={ 12 }
-									{ ...( isSelected && { color: '#fff' } ) }
-									{ ...( isDisabled && { color: 'var(--color-frame-text-secondary)' } ) }
-								/>
-							</span>
-						) }
-						{ site.name }
-					</div>
-				) }
-				{ isSiteLoading ? (
-					<div className="h-3 w-36 rounded skeleton-bg" aria-label={ __( 'Loading site URL' ) } />
-				) : (
-					<Button
-						variant="link"
-						className={ cx(
-							'a8c-body-small truncate !p-0 w-full !justify-start',
-							isSelected
-								? '!text-inherit hover:!text-white/70'
-								: '!text-frame-text-secondary hover:!text-frame-theme'
-						) }
-						onClick={ () => getIpcApi().openURL( site.url ) }
-						onKeyDown={ ( e: React.KeyboardEvent ) => {
-							if ( e.code === 'Space' || e.code === 'Enter' ) {
-								e.preventDefault();
-								e.stopPropagation();
-								getIpcApi().openURL( site.url );
-							}
-						} }
-					>
-						<div className="truncate">{ site.url.replace( /^https?:\/\//, '' ) }</div>
-						<ArrowIcon />
-					</Button>
-				) }
+					) : (
+						<div
+							className={ cx(
+								'a8c-body truncate',
+								isSelected && '!text-white',
+								! isSyncable && 'text-frame-text-secondary'
+							) }
+						>
+							{ site.name }
+						</div>
+					) }
+					{ isSiteLoading ? (
+						<div className="h-3 w-36 rounded skeleton-bg" aria-label={ __( 'Loading site URL' ) } />
+					) : (
+						<div className="flex items-center gap-1.5">
+							<Button
+								variant="link"
+								className={ cx(
+									'a8c-body-small truncate !p-0 !justify-start',
+									isSelected
+										? '!text-inherit hover:!text-white/70'
+										: '!text-frame-text-secondary hover:!text-frame-theme'
+								) }
+								onClick={ () => getIpcApi().openURL( site.url ) }
+								onKeyDown={ ( e: React.KeyboardEvent ) => {
+									if ( e.code === 'Space' || e.code === 'Enter' ) {
+										e.preventDefault();
+										e.stopPropagation();
+										getIpcApi().openURL( site.url );
+									}
+								} }
+							>
+								<div className="truncate">{ site.url.replace( /^https?:\/\//, '' ) }</div>
+								<ArrowIcon />
+							</Button>
+							{ site.planName && (
+								<span
+									className={ cx(
+										'a8c-body-small shrink-0',
+										isSelected ? 'text-white/60' : 'text-frame-text-tertiary'
+									) }
+								>
+									· { site.planName }
+								</span>
+							) }
+						</div>
+					) }
+				</div>
 			</div>
 			{ isSyncable && (
 				<div className="flex gap-2">

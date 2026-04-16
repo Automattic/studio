@@ -145,11 +145,12 @@ async function appBoot() {
 
 	if ( process.defaultApp ) {
 		if ( process.argv.length >= 2 ) {
-			app.setAsDefaultProtocolClient( PROTOCOL_PREFIX, process.execPath, [
-				path.resolve( process.argv[ 1 ] ),
-			] );
+			const appArgs = [ path.resolve( process.argv[ 1 ] ) ];
+			app.removeAsDefaultProtocolClient( PROTOCOL_PREFIX, process.execPath, appArgs );
+			app.setAsDefaultProtocolClient( PROTOCOL_PREFIX, process.execPath, appArgs );
 		}
 	} else {
+		app.removeAsDefaultProtocolClient( PROTOCOL_PREFIX );
 		app.setAsDefaultProtocolClient( PROTOCOL_PREFIX );
 	}
 

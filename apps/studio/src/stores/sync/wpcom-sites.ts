@@ -102,7 +102,7 @@ export const wpcomSitesApi = createApi( {
 						{
 							fields: SITE_FIELDS,
 							filter: 'atomic,wpcom',
-							options: 'created_at,wpcom_staging_blog_ids',
+							options: 'created_at,wpcom_staging_blog_ids,software_version',
 							site_activity: 'active',
 						}
 					);

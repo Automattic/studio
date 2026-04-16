@@ -73,9 +73,7 @@ export async function runCommand(
 
 		logger.reportStart( LoggerAction.LOAD, __( 'Loading preview sites…' ) );
 
-		// In --all mode, prune expired snapshots whose local site no longer exists in the
-		// config. They're almost certainly already deleted on the server and would only
-		// clutter the output, so we take the opportunity to clean up local state too.
+		// Expired orphans are almost certainly already deleted server-side — clean them up.
 		if ( all ) {
 			await pruneExpiredOrphanedSnapshots( token.id, isSnapshotExpired );
 		}

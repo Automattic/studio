@@ -121,13 +121,6 @@ export async function deleteAllSnapshotsForUserFromConfig( userId: number ): Pro
 	}
 }
 
-/**
- * Remove snapshots whose local site no longer exists in the config AND which are already
- * expired. Such snapshots are almost certainly already deleted on the server and only
- * clutter local state. Returns the number of snapshots pruned.
- *
- * Scoped to a single userId so it only ever touches the invoking user's snapshots.
- */
 export async function pruneExpiredOrphanedSnapshots(
 	userId: number,
 	isExpired: ( snapshot: Snapshot ) => boolean

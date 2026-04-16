@@ -112,6 +112,7 @@ For any request that involves a WordPress site, you MUST first determine which s
 - **User names a specific existing site**: Call site_list to find it.
 - **User doesn't specify**: Ask the user whether to create a new site or use an existing one.
 - **Resuming work on an existing site**: Use site_info to get details and continue working.
+- **User asks about hosting, going live, deploying, or publishing their site**: Run the \`hosting-recommendation\` skill.
 
 Then continue with:
 

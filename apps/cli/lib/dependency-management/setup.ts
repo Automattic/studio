@@ -13,10 +13,8 @@ import {
 	getWpCliPharPath,
 	getWpFilesPath,
 } from '../server-files';
-import { updateLatestSqliteCommandVersion } from './sqlite-command';
 import { areDirectoriesDifferentBySizeAndMtime } from './utils';
 import { getWordPressVersionFromInstallation, updateLatestWordPressVersion } from './wordpress';
-import { updateLatestWpCliVersion } from './wp-cli';
 
 type VersionReader = () => Promise< semver.SemVer | null >;
 
@@ -264,17 +262,9 @@ export async function setupServerFiles() {
 }
 
 export async function updateServerFiles() {
-	const steps: [ string, () => Promise< void > ][] = [
-		[ 'WordPress version', updateLatestWordPressVersion ],
-		[ 'WP-CLI', updateLatestWpCliVersion ],
-		[ 'SQLite integration', updateLatestSqliteCommandVersion ],
-	];
-
-	await Promise.all(
-		steps.map( ( [ name, step ] ) =>
-			step().catch( ( error ) => {
-				console.error( `Failed to update dependency ${ name }:`, error );
-			} )
-		)
-	);
+	try {
+		await updateLatestWordPressVersion();
+	} catch ( error ) {
+		console.error( 'Failed to update dependency WordPress version:', error );
+	}
 }

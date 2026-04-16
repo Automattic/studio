@@ -71,7 +71,20 @@ export async function runCommand(
 		}
 
 		logger.reportStart( LoggerAction.LOAD, __( 'Loading preview sites…' ) );
-		const snapshots = await getSnapshotsFromConfig( token.id, all ? undefined : siteFolder );
+		const rawSnapshots = await getSnapshotsFromConfig( token.id, all ? undefined : siteFolder );
+
+		const config = all ? await readCliConfig() : undefined;
+		const siteNameById = config
+			? new Map< string, string >( config.sites.map( ( site ) => [ site.id, site.name ] ) )
+			: undefined;
+
+		const snapshots =
+			all && siteNameById
+				? rawSnapshots.filter(
+						( snapshot ) =>
+							siteNameById.has( snapshot.localSiteId ) || ! isSnapshotExpired( snapshot )
+				  )
+				: rawSnapshots;
 
 		if ( snapshots.length === 0 ) {
 			logger.reportSuccess( __( 'No preview sites found' ) );
@@ -96,11 +109,7 @@ export async function runCommand(
 			logger.reportSuccess( snapshotsMessage );
 		}
 
-		if ( all ) {
-			const config = await readCliConfig();
-			const siteNameById = new Map< string, string >(
-				config.sites.map( ( site ) => [ site.id, site.name ] )
-			);
+		if ( all && siteNameById ) {
 			const unknownSiteLabel = __( 'Unknown site' );
 
 			const snapshotsBySiteName = new Map< string, Snapshot[] >();

@@ -176,7 +176,7 @@ describe( 'Preview List Command', () => {
 
 			expect( getSiteByFolder ).not.toHaveBeenCalled();
 			expect( getSnapshotsFromConfig ).toHaveBeenCalledWith( mockAuthToken.id, undefined );
-			expect( mockReportSuccess.mock.calls[ 1 ] ).toEqual( [ 'Found 2 preview sites' ] );
+			expect( mockReportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Found 2 preview sites' ] );
 			expect( mockReportError ).not.toHaveBeenCalled();
 		} );
 
@@ -299,7 +299,7 @@ describe( 'Preview List Command', () => {
 
 			await runCommand( '/not/a/site', 'table', true );
 
-			expect( mockReportSuccess.mock.calls[ 1 ] ).toEqual( [
+			expect( mockReportSuccess.mock.calls[ 0 ] ).toEqual( [
 				'Found 2 preview sites (1 expired)',
 			] );
 		} );
@@ -309,7 +309,43 @@ describe( 'Preview List Command', () => {
 
 			await runCommand( '/not/a/site', 'table', true );
 
-			expect( mockReportSuccess.mock.calls[ 1 ] ).toEqual( [ 'No preview sites found' ] );
+			expect( mockReportSuccess.mock.calls[ 0 ] ).toEqual( [ 'No preview sites found' ] );
+		} );
+
+		it( 'should exclude expired orphaned snapshots (no associated local site)', async () => {
+			const expiredOrphan = {
+				url: 'expired-orphan.example.com',
+				atomicSiteId: 800,
+				localSiteId: 'dead-site',
+				date: Date.now() - 1000 * 60 * 60 * 24 * 30, // 30 days ago
+				name: 'Expired Orphan',
+				userId: 789,
+			};
+			const freshOrphan = {
+				url: 'fresh-orphan.example.com',
+				atomicSiteId: 801,
+				localSiteId: 'also-dead-site',
+				date: Date.now(),
+				name: 'Fresh Orphan',
+				userId: 789,
+			};
+			vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [
+				expiredOrphan,
+				freshOrphan,
+				mockSnapshots[ 0 ],
+			] );
+			vi.mocked( isSnapshotExpired ).mockImplementation(
+				( snapshot ) => snapshot.url === expiredOrphan.url
+			);
+
+			await runCommand( '/not/a/site', 'table', true );
+
+			expect( mockReportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Found 2 preview sites' ] );
+			const output = consoleLogSpy.mock.calls
+				.map( ( call: unknown[] ) => String( call[ 0 ] ) )
+				.join( '\n' );
+			expect( output ).not.toContain( expiredOrphan.url );
+			expect( output ).toContain( freshOrphan.url );
 		} );
 	} );
 } );

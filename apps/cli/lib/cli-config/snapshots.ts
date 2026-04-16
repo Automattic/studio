@@ -121,6 +121,41 @@ export async function deleteAllSnapshotsForUserFromConfig( userId: number ): Pro
 	}
 }
 
+/**
+ * Remove snapshots whose local site no longer exists in the config AND which are already
+ * expired. Such snapshots are almost certainly already deleted on the server and only
+ * clutter local state. Returns the number of snapshots pruned.
+ *
+ * Scoped to a single userId so it only ever touches the invoking user's snapshots.
+ */
+export async function pruneExpiredOrphanedSnapshots(
+	userId: number,
+	isExpired: ( snapshot: Snapshot ) => boolean
+): Promise< number > {
+	try {
+		await lockCliConfig();
+		const config = await readCliConfig();
+		const siteIds = new Set( config.sites.map( ( s ) => s.id ) );
+		const filtered = config.snapshots.filter( ( snapshot ) => {
+			if ( snapshot.userId !== userId ) {
+				return true;
+			}
+			if ( siteIds.has( snapshot.localSiteId ) ) {
+				return true;
+			}
+			return ! isExpired( snapshot );
+		} );
+		const pruned = config.snapshots.length - filtered.length;
+		if ( pruned > 0 ) {
+			config.snapshots = filtered;
+			await saveCliConfig( config );
+		}
+		return pruned;
+	} finally {
+		await unlockCliConfig();
+	}
+}
+
 export async function setSnapshotInConfig(
 	snapshotUrl: string,
 	updates: { name?: string }

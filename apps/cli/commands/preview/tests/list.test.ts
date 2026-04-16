@@ -2,7 +2,11 @@ import { readAuthToken } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
-import { getSnapshotsFromConfig, isSnapshotExpired } from 'cli/lib/snapshots';
+import {
+	getSnapshotsFromConfig,
+	isSnapshotExpired,
+	pruneExpiredOrphanedSnapshots,
+} from 'cli/lib/snapshots';
 import {
 	mockReportStart,
 	mockReportSuccess,
@@ -312,40 +316,25 @@ describe( 'Preview List Command', () => {
 			expect( mockReportSuccess.mock.calls[ 0 ] ).toEqual( [ 'No preview sites found' ] );
 		} );
 
-		it( 'should exclude expired orphaned snapshots (no associated local site)', async () => {
-			const expiredOrphan = {
-				url: 'expired-orphan.example.com',
-				atomicSiteId: 800,
-				localSiteId: 'dead-site',
-				date: Date.now() - 1000 * 60 * 60 * 24 * 30, // 30 days ago
-				name: 'Expired Orphan',
-				userId: 789,
-			};
-			const freshOrphan = {
-				url: 'fresh-orphan.example.com',
-				atomicSiteId: 801,
-				localSiteId: 'also-dead-site',
-				date: Date.now(),
-				name: 'Fresh Orphan',
-				userId: 789,
-			};
-			vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [
-				expiredOrphan,
-				freshOrphan,
-				mockSnapshots[ 0 ],
-			] );
-			vi.mocked( isSnapshotExpired ).mockImplementation(
-				( snapshot ) => snapshot.url === expiredOrphan.url
-			);
-
+		it( 'should prune expired orphaned snapshots from cli.json before listing', async () => {
 			await runCommand( '/not/a/site', 'table', true );
 
-			expect( mockReportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Found 2 preview sites' ] );
-			const output = consoleLogSpy.mock.calls
-				.map( ( call: unknown[] ) => String( call[ 0 ] ) )
-				.join( '\n' );
-			expect( output ).not.toContain( expiredOrphan.url );
-			expect( output ).toContain( freshOrphan.url );
+			expect( pruneExpiredOrphanedSnapshots ).toHaveBeenCalledWith(
+				mockAuthToken.id,
+				isSnapshotExpired
+			);
+			// Prune must run before the snapshot fetch so the command sees the cleaned list.
+			const pruneOrder =
+				vi.mocked( pruneExpiredOrphanedSnapshots ).mock.invocationCallOrder[ 0 ] ?? Infinity;
+			const fetchOrder =
+				vi.mocked( getSnapshotsFromConfig ).mock.invocationCallOrder[ 0 ] ?? -Infinity;
+			expect( pruneOrder ).toBeLessThan( fetchOrder );
 		} );
+	} );
+
+	it( 'should not prune when running without --all', async () => {
+		await runCommand( mockFolder, 'table' );
+
+		expect( pruneExpiredOrphanedSnapshots ).not.toHaveBeenCalled();
 	} );
 } );

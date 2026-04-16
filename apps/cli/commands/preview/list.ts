@@ -10,6 +10,7 @@ import {
 	formatDurationUntilExpiry,
 	getSnapshotsFromConfig,
 	isSnapshotExpired,
+	pruneExpiredOrphanedSnapshots,
 } from 'cli/lib/snapshots';
 import { getColumnWidths } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
@@ -71,20 +72,19 @@ export async function runCommand(
 		}
 
 		logger.reportStart( LoggerAction.LOAD, __( 'Loading preview sites…' ) );
-		const rawSnapshots = await getSnapshotsFromConfig( token.id, all ? undefined : siteFolder );
 
+		// In --all mode, prune expired snapshots whose local site no longer exists in the
+		// config. They're almost certainly already deleted on the server and would only
+		// clutter the output, so we take the opportunity to clean up local state too.
+		if ( all ) {
+			await pruneExpiredOrphanedSnapshots( token.id, isSnapshotExpired );
+		}
+
+		const snapshots = await getSnapshotsFromConfig( token.id, all ? undefined : siteFolder );
 		const config = all ? await readCliConfig() : undefined;
 		const siteNameById = config
 			? new Map< string, string >( config.sites.map( ( site ) => [ site.id, site.name ] ) )
 			: undefined;
-
-		const snapshots =
-			all && siteNameById
-				? rawSnapshots.filter(
-						( snapshot ) =>
-							siteNameById.has( snapshot.localSiteId ) || ! isSnapshotExpired( snapshot )
-				  )
-				: rawSnapshots;
 
 		if ( snapshots.length === 0 ) {
 			logger.reportSuccess( __( 'No preview sites found' ) );

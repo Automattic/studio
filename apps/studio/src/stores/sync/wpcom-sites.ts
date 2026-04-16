@@ -6,6 +6,7 @@ import {
 	transformSitesResponse,
 } from '@studio/common/lib/sync/transform-sites';
 import { sitesEndpointSiteSchema, sitesEndpointResponseSchema } from '@studio/common/types/sync';
+import { z } from 'zod';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { reconcileConnectedSites } from 'src/modules/sync/lib/reconcile-connected-sites';
 import { withOfflineCheck } from 'src/stores/utils/with-offline-check';
@@ -154,11 +155,7 @@ export const wpcomSitesApi = createApi( {
 						path: `/sites/${ siteId }/hosting/php-version`,
 					} );
 
-					if ( typeof response !== 'string' ) {
-						throw new Error( 'Invalid hosting php-version response' );
-					}
-
-					return { data: response };
+					return { data: z.string().parse( response ) };
 				} catch ( error ) {
 					Sentry.captureException( error );
 					console.error( error );

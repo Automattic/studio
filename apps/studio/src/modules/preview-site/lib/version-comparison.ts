@@ -21,7 +21,7 @@ export function hasVersionMismatch(
  * - WordPress version is the latest stable version
  * - PHP version is the recommended By Studio
  */
-export function isWpAndPhpVersionsSupportedByPreviewSites( {
+export function hasUnsupportedWpOrPhpVersion( {
 	wpVersion,
 	latestWpVersion,
 	phpVersion,

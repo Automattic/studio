@@ -53,6 +53,9 @@ export type SitesEndpointSite = z.infer< typeof sitesEndpointSiteSchema >;
 // Permissive wrapper for the /me/sites response (to fail gracefully per-site)
 export const sitesEndpointResponseSchema = z.object( {
 	sites: z.array( z.unknown() ),
+	total: z.number().optional(),
+	page: z.number().optional(),
+	per_page: z.number().optional(),
 } );
 
 // Sync support types

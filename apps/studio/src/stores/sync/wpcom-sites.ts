@@ -86,8 +86,17 @@ export const wpcomSitesApi = createApi( {
 				{ type: 'WpComSites', id: arg.siteId },
 			],
 		} ),
-		getWpComSites: builder.query< SyncSite[], { connectedSiteIds?: number[]; userId?: number } >( {
-			queryFn: async ( { connectedSiteIds } ) => {
+		getWpComSites: builder.query<
+			{ sites: SyncSite[]; total: number; page: number; perPage: number },
+			{
+				connectedSiteIds?: number[];
+				userId?: number;
+				page?: number;
+				perPage?: number;
+				search?: string;
+			}
+		>( {
+			queryFn: async ( { connectedSiteIds, page = 1, perPage = 20, search } ) => {
 				const wpcomClient = getWpcomClient();
 				if ( ! wpcomClient ) {
 					return { error: { status: 401, data: 'Not authenticated' } };
@@ -96,40 +105,58 @@ export const wpcomSitesApi = createApi( {
 				try {
 					const allConnectedSites = await getIpcApi().getConnectedWpcomSites();
 
+					const queryParams: Record< string, string | number | boolean > = {
+						fields: SITE_FIELDS,
+						filter: 'atomic,wpcom',
+						options: 'created_at,wpcom_staging_blog_ids,software_version',
+						site_activity: 'active',
+						include_a8c_owned: false,
+						page,
+						per_page: perPage,
+					};
+					if ( search ) {
+						queryParams.search = search;
+					}
+
 					const response = await wpcomClient.req.get(
 						{
-							apiNamespace: 'rest/v1.2',
+							apiNamespace: 'rest/v1.3',
 							path: `/me/sites`,
 						},
-						{
-							fields: SITE_FIELDS,
-							filter: 'atomic,wpcom',
-							options: 'created_at,wpcom_staging_blog_ids,software_version',
-							site_activity: 'active',
-						}
+						queryParams
 					);
 
 					const parsedResponse = sitesEndpointResponseSchema.parse( response );
 
 					const sentryOptions = { onParseError: Sentry.captureException };
 
-					const syncSitesForReconciliation = transformSitesResponse( parsedResponse.sites, {
-						connectedSiteIds: allConnectedSites.map( ( { id } ) => id ),
-						...sentryOptions,
-					} );
+					// Only reconcile on the first page without search
+					if ( page === 1 && ! search ) {
+						const syncSitesForReconciliation = transformSitesResponse( parsedResponse.sites, {
+							connectedSiteIds: allConnectedSites.map( ( { id } ) => id ),
+							...sentryOptions,
+						} );
 
-					const { updatedConnectedSites } = reconcileConnectedSites(
-						allConnectedSites,
-						syncSitesForReconciliation
-					);
-					await getIpcApi().updateConnectedWpcomSites( updatedConnectedSites );
+						const { updatedConnectedSites } = reconcileConnectedSites(
+							allConnectedSites,
+							syncSitesForReconciliation
+						);
+						await getIpcApi().updateConnectedWpcomSites( updatedConnectedSites );
+					}
 
-					const syncSitesForSelectedSite = transformSitesResponse( parsedResponse.sites, {
+					const syncSites = transformSitesResponse( parsedResponse.sites, {
 						connectedSiteIds,
 						...sentryOptions,
 					} );
 
-					return { data: syncSitesForSelectedSite };
+					return {
+						data: {
+							sites: syncSites,
+							total: parsedResponse.total ?? syncSites.length,
+							page: parsedResponse.page ?? page,
+							perPage: parsedResponse.per_page ?? perPage,
+						},
+					};
 				} catch ( error ) {
 					Sentry.captureException( error );
 					console.error( error );

@@ -141,10 +141,11 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	const [ disconnectSite ] = useDisconnectSiteMutation();
 
 	const connectedSiteIds = connectedSites.map( ( { id } ) => id );
-	const { data: syncSites = [] } = useGetWpComSitesQuery( {
+	const { data: syncSitesData } = useGetWpComSitesQuery( {
 		connectedSiteIds,
 		userId: user?.id,
 	} );
+	const syncSites = syncSitesData?.sites ?? [];
 
 	const [ selectedRemoteSite, setSelectedRemoteSite ] = useState< SyncSite | null >( null );
 

@@ -36,7 +36,7 @@ import {
 } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
-import { importEventHandler } from './import';
+import { handleImportEvents } from './import';
 import type { SyncOption } from '@studio/common/types/sync';
 
 const logger = new Logger< LoggerAction >();
@@ -181,12 +181,12 @@ export async function runCommand(
 				logger.reportSuccess( __( 'WordPress server stopped' ) );
 			}
 
-			await importBackup(
+			const importer = importBackup(
 				{ path: destPath, type: 'application/gzip' },
-				site,
-				importEventHandler,
 				DEFAULT_IMPORTER_OPTIONS
 			);
+			handleImportEvents( importer );
+			await importer.import( site );
 
 			// Something in Playground makes it so the front-end of the site sometimes returns an error page
 			// on the first request. Send that first request from here to hide the error from the user.

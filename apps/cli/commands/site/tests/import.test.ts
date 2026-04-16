@@ -1,12 +1,13 @@
 import fs from 'fs';
 import path from 'path';
 import { isWordPressDirectory, recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
+import { ImporterEvents, ValidatorEvents } from '@studio/common/lib/import-export-events';
 import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { vi } from 'vitest';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
-import { ImporterEvents, ValidatorEvents } from 'cli/lib/import-export/import/events';
+import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
 import {
 	DEFAULT_IMPORTER_OPTIONS,
 	importBackup,
@@ -52,6 +53,25 @@ describe( 'CLI: studio import', () => {
 		adminUsername: 'admin',
 		adminPassword: 'password123',
 	};
+	const importResult = {
+		extractionDirectory: '/tmp/extracted',
+		sqlFiles: [],
+		wpContentFiles: [],
+		wpContentDirectory: '/tmp/extracted/wp-content',
+		wpConfig: '/tmp/extracted/wp-config.php',
+		importerType: 'LocalImporter',
+	};
+
+	class MockImporter extends ImportExportEventEmitter {
+		constructor( private importImpl: () => Promise< typeof importResult > ) {
+			super();
+		}
+		import = vi.fn( async () => this.importImpl() );
+	}
+
+	const createImporter = (
+		importImpl: () => Promise< typeof importResult > = async () => importResult
+	) => new MockImporter( importImpl );
 
 	beforeEach( () => {
 		vi.clearAllMocks();
@@ -66,14 +86,7 @@ describe( 'CLI: studio import', () => {
 		vi.mocked( getServerFilesPath ).mockReturnValue( '/server-files' );
 		vi.mocked( recursiveCopyDirectory ).mockResolvedValue( undefined );
 		vi.spyOn( fs, 'existsSync' ).mockImplementation( ( p ) => p === testImportPath );
-		vi.mocked( importBackup ).mockResolvedValue( {
-			extractionDirectory: '/tmp/extracted',
-			sqlFiles: [],
-			wpContentFiles: [],
-			wpContentDirectory: '/tmp/extracted/wp-content',
-			wpConfig: '/tmp/extracted/wp-config.php',
-			importerType: 'LocalImporter',
-		} );
+		vi.mocked( importBackup ).mockReturnValue( createImporter() as never );
 	} );
 
 	afterEach( () => {
@@ -90,8 +103,6 @@ describe( 'CLI: studio import', () => {
 				path: testImportPath,
 				type: 'application/zip',
 			},
-			testSite,
-			expect.any( Function ),
 			DEFAULT_IMPORTER_OPTIONS
 		);
 		expect( disconnectFromDaemon ).toHaveBeenCalled();
@@ -126,32 +137,17 @@ describe( 'CLI: studio import', () => {
 		const reportProgressSpy = vi.spyOn( Logger.prototype, 'reportProgress' );
 		const reportSuccessSpy = vi.spyOn( Logger.prototype, 'reportSuccess' );
 
-		vi.mocked( importBackup ).mockImplementation( async ( _backupFile, _site, onEvent ) => {
-			onEvent( {
-				event: ValidatorEvents.IMPORT_VALIDATION_START,
-				data: undefined,
+		const importer = createImporter( async () => {
+			importer.emit( ValidatorEvents.IMPORT_VALIDATION_START );
+			importer.emit( ImporterEvents.IMPORT_DATABASE_START );
+			importer.emit( ImporterEvents.IMPORT_DATABASE_PROGRESS, {
+				processedFiles: 1,
+				totalFiles: 2,
 			} );
-			onEvent( {
-				event: ImporterEvents.IMPORT_DATABASE_START,
-				data: undefined,
-			} );
-			onEvent( {
-				event: ImporterEvents.IMPORT_DATABASE_PROGRESS,
-				data: { processedFiles: 1, totalFiles: 2 },
-			} );
-			onEvent( {
-				event: ImporterEvents.IMPORT_COMPLETE,
-				data: undefined,
-			} );
-			return {
-				extractionDirectory: '/tmp/extracted',
-				sqlFiles: [],
-				wpContentFiles: [],
-				wpContentDirectory: '/tmp/extracted/wp-content',
-				wpConfig: '/tmp/extracted/wp-config.php',
-				importerType: 'LocalImporter',
-			};
+			importer.emit( ImporterEvents.IMPORT_COMPLETE );
+			return importResult;
 		} );
+		vi.mocked( importBackup ).mockReturnValue( importer as never );
 
 		await runCommand( testSitePath, testImportPath );
 
@@ -166,7 +162,11 @@ describe( 'CLI: studio import', () => {
 
 	it( 'preserves import error when restore steps fail', async () => {
 		vi.mocked( isServerRunning ).mockResolvedValue( { pid: 1234 } as never );
-		vi.mocked( importBackup ).mockRejectedValue( new Error( 'import failed' ) );
+		vi.mocked( importBackup ).mockReturnValue(
+			createImporter( async () => {
+				throw new Error( 'import failed' );
+			} ) as never
+		);
 		vi.mocked( keepSqliteIntegrationUpdated ).mockRejectedValue( new Error( 'restart failed' ) );
 
 		await expect( runCommand( testSitePath, testImportPath ) ).rejects.toThrow( 'import failed' );

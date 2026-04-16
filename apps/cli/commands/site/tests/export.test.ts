@@ -1,9 +1,10 @@
+import { ExportEvents } from '@studio/common/lib/import-export-events';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { vi } from 'vitest';
 import yargs from 'yargs';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
-import { ExportEvents } from 'cli/lib/import-export/export/events';
+import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
 import { exportBackup } from 'cli/lib/import-export/export/export-manager';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { Logger, LoggerError } from 'cli/logger';
@@ -40,6 +41,17 @@ describe( 'CLI: studio export', () => {
 		adminPassword: 'password123',
 	};
 
+	class MockExporter extends ImportExportEventEmitter {
+		constructor( private exportImpl: () => Promise< void > ) {
+			super();
+		}
+		export = vi.fn( async () => this.exportImpl() );
+		canHandle = vi.fn( async () => true );
+	}
+
+	const createExporter = ( exportImpl: () => Promise< void > = async () => {} ) =>
+		new MockExporter( exportImpl );
+
 	beforeEach( () => {
 		vi.clearAllMocks();
 
@@ -47,7 +59,7 @@ describe( 'CLI: studio export', () => {
 		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( testSite );
 		vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( false );
-		vi.mocked( exportBackup ).mockResolvedValue( true );
+		vi.mocked( exportBackup ).mockResolvedValue( createExporter() as never );
 	} );
 
 	afterEach( () => {
@@ -60,18 +72,15 @@ describe( 'CLI: studio export', () => {
 		expect( connectToDaemon ).toHaveBeenCalled();
 		expect( getSiteByFolder ).toHaveBeenCalledWith( testSitePath );
 		expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( testSitePath );
-		expect( exportBackup ).toHaveBeenCalledWith(
-			{
-				site: testSite,
-				backupFile: testExportPath,
-				phpVersion: '8.3',
-				includes: {
-					wpContent: true,
-					database: true,
-				},
+		expect( exportBackup ).toHaveBeenCalledWith( {
+			site: testSite,
+			backupFile: testExportPath,
+			phpVersion: '8.3',
+			includes: {
+				wpContent: true,
+				database: true,
 			},
-			expect.any( Function )
-		);
+		} );
 		expect( disconnectFromDaemon ).toHaveBeenCalled();
 	} );
 
@@ -80,16 +89,18 @@ describe( 'CLI: studio export', () => {
 		const reportProgressSpy = vi.spyOn( Logger.prototype, 'reportProgress' );
 		const reportSuccessSpy = vi.spyOn( Logger.prototype, 'reportSuccess' );
 
-		vi.mocked( exportBackup ).mockImplementation( async ( _options, onEvent ) => {
-			onEvent( { event: ExportEvents.EXPORT_START, data: undefined } );
-			onEvent( { event: ExportEvents.BACKUP_CREATE_START, data: undefined } );
-			onEvent( {
-				event: ExportEvents.BACKUP_CREATE_PROGRESS,
-				data: { progress: { entries: { processed: 1, total: 2 } } },
+		const exporter = createExporter( async () => {
+			exporter.emit( ExportEvents.EXPORT_START );
+			exporter.emit( ExportEvents.BACKUP_CREATE_START );
+			exporter.emit( ExportEvents.BACKUP_CREATE_PROGRESS, {
+				progress: {
+					entries: { processed: 1, total: 2 },
+					fs: { processedBytes: 1024, totalBytes: 2048 },
+				},
 			} );
-			onEvent( { event: ExportEvents.EXPORT_COMPLETE, data: undefined } );
-			return true;
+			exporter.emit( ExportEvents.EXPORT_COMPLETE );
 		} );
+		vi.mocked( exportBackup ).mockResolvedValue( exporter as never );
 
 		await runCommand( testSitePath, testExportPath );
 
@@ -103,7 +114,7 @@ describe( 'CLI: studio export', () => {
 	} );
 
 	it( 'throws when no suitable exporter is found', async () => {
-		vi.mocked( exportBackup ).mockResolvedValue( false );
+		vi.mocked( exportBackup ).mockResolvedValue( null as never );
 
 		const command = runCommand( testSitePath, testExportPath );
 		await expect( command ).rejects.toThrow( LoggerError );
@@ -127,8 +138,7 @@ describe( 'CLI: studio export', () => {
 					database: true,
 					wpContent: false,
 				},
-			} ),
-			expect.any( Function )
+			} )
 		);
 		expect( reportErrorSpy ).not.toHaveBeenCalled();
 	} );

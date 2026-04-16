@@ -1,13 +1,13 @@
 import path from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
+import { ExportEvents } from '@studio/common/lib/import-export-events';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
-import { ExportEvents } from 'cli/lib/import-export/export/events';
+import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
 import { exportBackup } from 'cli/lib/import-export/export/export-manager';
-import { BackupCreateProgressEventData, ExportOptions } from 'cli/lib/import-export/export/types';
-import { ImportExportEventData } from 'cli/lib/import-export/handle-events';
+import { ExportOptions } from 'cli/lib/import-export/export/types';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { untildify } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
@@ -15,62 +15,60 @@ import { StudioArgv } from 'cli/types';
 
 const logger = new Logger< LoggerAction >();
 
-export function exportEventHandler( { event, data }: ImportExportEventData ): void {
-	switch ( event ) {
-		case ExportEvents.EXPORT_START:
-			logger.reportStart( LoggerAction.EXPORT_SITE, __( 'Starting export…' ) );
-			break;
+export function handleExportEvents( emitter: ImportExportEventEmitter ): void {
+	emitter.on( ExportEvents.EXPORT_START, () => {
+		logger.reportStart( LoggerAction.EXPORT_SITE, __( 'Starting export…' ) );
+	} );
 
-		case ExportEvents.BACKUP_CREATE_START:
-			logger.reportStart( LoggerAction.CREATE_BACKUP, __( 'Creating backup file…' ) );
-			break;
+	emitter.on( ExportEvents.BACKUP_CREATE_START, () => {
+		logger.reportStart( LoggerAction.CREATE_BACKUP, __( 'Creating backup file…' ) );
+	} );
 
-		case ExportEvents.WP_CONTENT_EXPORT_START:
-			logger.reportStart( LoggerAction.EXPORT_WP_CONTENT, __( 'Traversing WordPress content…' ) );
-			break;
-		case ExportEvents.WP_CONTENT_EXPORT_COMPLETE:
-			logger.reportSuccess( __( 'WordPress content traversed' ) );
-			break;
+	emitter.on( ExportEvents.WP_CONTENT_EXPORT_START, () => {
+		logger.reportStart( LoggerAction.EXPORT_WP_CONTENT, __( 'Traversing WordPress content…' ) );
+	} );
 
-		case ExportEvents.DATABASE_EXPORT_START:
-			logger.reportStart( LoggerAction.EXPORT_DATABASE, __( 'Exporting database…' ) );
-			break;
-		case ExportEvents.DATABASE_EXPORT_COMPLETE:
-			logger.reportSuccess( __( 'Database exported' ) );
-			break;
+	emitter.on( ExportEvents.WP_CONTENT_EXPORT_COMPLETE, () => {
+		logger.reportSuccess( __( 'WordPress content traversed' ) );
+	} );
 
-		case ExportEvents.BACKUP_CREATE_PROGRESS: {
-			const progressData = data as BackupCreateProgressEventData;
-			const processed = progressData?.progress?.entries?.processed;
+	emitter.on( ExportEvents.DATABASE_EXPORT_START, () => {
+		logger.reportStart( LoggerAction.EXPORT_DATABASE, __( 'Exporting database…' ) );
+	} );
 
-			if ( processed != null ) {
-				logger.reportProgress(
-					sprintf(
-						_n( 'Backing up file… (%d processed)', 'Backing up files… (%d processed)', processed ),
-						processed
-					)
-				);
-			}
-			break;
-		}
-		case ExportEvents.BACKUP_CREATE_COMPLETE:
-			logger.reportSuccess( __( 'Backup file created' ) );
-			break;
+	emitter.on( ExportEvents.DATABASE_EXPORT_COMPLETE, () => {
+		logger.reportSuccess( __( 'Database exported' ) );
+	} );
 
-		case ExportEvents.CONFIG_EXPORT_START:
-			logger.reportStart( LoggerAction.EXPORT_CONFIG, __( 'Exporting configuration…' ) );
-			break;
-		case ExportEvents.CONFIG_EXPORT_COMPLETE:
-			logger.reportSuccess( __( 'Configuration exported' ) );
-			break;
+	emitter.on( ExportEvents.BACKUP_CREATE_PROGRESS, ( progressData ) => {
+		const processed = progressData.progress.entries.processed;
+		logger.reportProgress(
+			sprintf(
+				_n( 'Backing up file… (%d processed)', 'Backing up files… (%d processed)', processed ),
+				processed
+			)
+		);
+	} );
 
-		case ExportEvents.EXPORT_COMPLETE:
-			logger.reportSuccess( __( 'Site exported successfully' ) );
-			break;
+	emitter.on( ExportEvents.BACKUP_CREATE_COMPLETE, () => {
+		logger.reportSuccess( __( 'Backup file created' ) );
+	} );
 
-		case ExportEvents.EXPORT_ERROR:
-			throw new LoggerError( __( 'Export failed' ), data instanceof Error ? data : undefined );
-	}
+	emitter.on( ExportEvents.CONFIG_EXPORT_START, () => {
+		logger.reportStart( LoggerAction.EXPORT_CONFIG, __( 'Exporting configuration…' ) );
+	} );
+
+	emitter.on( ExportEvents.CONFIG_EXPORT_COMPLETE, () => {
+		logger.reportSuccess( __( 'Configuration exported' ) );
+	} );
+
+	emitter.on( ExportEvents.EXPORT_COMPLETE, () => {
+		logger.reportSuccess( __( 'Site exported successfully' ) );
+	} );
+
+	emitter.on( ExportEvents.EXPORT_ERROR, ( error ) => {
+		throw new LoggerError( __( 'Export failed' ), error instanceof Error ? error : undefined );
+	} );
 }
 
 export async function runCommand(
@@ -100,21 +98,21 @@ export async function runCommand(
 			includes.wpContent = false;
 		}
 
-		const isExported = await exportBackup(
-			{
-				site,
-				backupFile: exportPath,
-				phpVersion: DEFAULT_PHP_VERSION,
-				includes,
-			},
-			exportEventHandler
-		);
+		const exporter = await exportBackup( {
+			site,
+			backupFile: exportPath,
+			phpVersion: DEFAULT_PHP_VERSION,
+			includes,
+		} );
 
-		logger.reportSuccess( sprintf( __( '%s successfully exported' ), exportPath ) );
-
-		if ( ! isExported ) {
+		if ( ! exporter ) {
 			throw new LoggerError( __( 'No suitable exporter found for the provided backup file' ) );
 		}
+
+		handleExportEvents( exporter );
+		await exporter.export();
+
+		logger.reportSuccess( sprintf( __( '%s successfully exported' ), exportPath ) );
 	} finally {
 		await disconnectFromDaemon();
 	}

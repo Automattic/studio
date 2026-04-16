@@ -2207,6 +2207,15 @@ export class AiChatUI implements AiOutputAdapter {
 				this.showError( parts.length > 0 ? parts.join( '\n' ) : __( 'Unknown error' ) );
 				return { type: 'result', sessionId: message.session_id, success: false };
 			}
+			case 'system': {
+				if ( message.subtype === 'status' && message.status === 'compacting' ) {
+					this.showLoader( __( 'Compacting conversation history…' ) );
+				} else if ( message.subtype === 'compact_boundary' ) {
+					this.hideLoader();
+					this.showInfo( __( 'Conversation history compacted' ) );
+				}
+				return undefined;
+			}
 		}
 		return undefined;
 	}

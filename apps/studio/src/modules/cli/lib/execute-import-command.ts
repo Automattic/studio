@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 
-const importEventSchema = z.object( {
+export const importEventSchema = z.object( {
 	event: importEventTupleSchema,
 } );
 
@@ -11,18 +11,15 @@ export async function executeImportCliCommand(
 	siteId: string,
 	args: string[],
 	parentWindow: Electron.BrowserWindow | null
-): Promise< void > {
+) {
 	const [ cliEventEmitter ] = executeCliCommand( args, { output: 'capture' } );
 
 	cliEventEmitter.on( 'data', ( { data } ) => {
 		const parsed = importEventSchema.safeParse( data );
 
-		if ( ! parsed.success ) {
-			console.error( 'Invalid import event:', parsed.error );
-			return;
+		if ( parsed.success ) {
+			sendIpcEventToRendererWithWindow( parentWindow, 'on-import', parsed.data.event, siteId );
 		}
-
-		sendIpcEventToRendererWithWindow( parentWindow, 'on-import', parsed.data.event, siteId );
 	} );
 
 	cliEventEmitter.on( 'error', ( { error } ) => {
@@ -46,4 +43,6 @@ export async function executeImportCliCommand(
 	cliEventEmitter.on( 'success', () => {
 		// Do nothing for now
 	} );
+
+	return cliEventEmitter;
 }

@@ -1,10 +1,14 @@
-import { shell, BrowserWindow, IpcMainInvokeEvent } from 'electron';
-import { ExportEvents } from '@studio/common/lib/import-export-events';
+import { shell, BrowserWindow, IpcMainInvokeEvent, Notification } from 'electron';
+import { ExportEvents, ImporterEvents } from '@studio/common/lib/import-export-events';
+import { __ } from '@wordpress/i18n';
 import {
 	executeExportCliCommand,
 	exportEventSchema,
 } from 'src/modules/cli/lib/execute-export-command';
-import { executeImportCliCommand } from 'src/modules/cli/lib/execute-import-command';
+import {
+	executeImportCliCommand,
+	importEventSchema,
+} from 'src/modules/cli/lib/execute-import-command';
 
 export async function importSite(
 	event: IpcMainInvokeEvent,
@@ -12,11 +16,23 @@ export async function importSite(
 	importArchivePath: string
 ) {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	return executeImportCliCommand(
+	const eventEmitter = await executeImportCliCommand(
 		site.id,
 		[ 'import', '--path', site.path, importArchivePath ],
 		parentWindow
 	);
+
+	eventEmitter.on( 'data', ( { data } ) => {
+		const result = importEventSchema.safeParse( data );
+
+		if ( result.success && result.data.event[ 0 ] === ImporterEvents.IMPORT_COMPLETE ) {
+			const notif = new Notification( {
+				title: site.name,
+				body: __( 'Import completed' ),
+			} );
+			notif.show();
+		}
+	} );
 }
 
 export async function exportSite(

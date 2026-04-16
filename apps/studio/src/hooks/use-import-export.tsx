@@ -141,26 +141,17 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					type: file.type,
 					path: filePath,
 				};
-				const importedSite = await getIpcApi().importSite( {
+				await getIpcApi().importSite( {
 					id: selectedSite.id,
 					backupFile,
 				} );
-
-				await updateSite( importedSite );
-
-				if ( showImportNotification ) {
-					getIpcApi().showNotification( {
-						title: selectedSite.name,
-						body: __( 'Import completed' ),
-					} );
-				}
 			} catch ( error ) {
 				await handleImportError( error );
 			} finally {
 				await startServer( selectedSite );
 			}
 		},
-		[ importState, startServer, stopServer, updateSite ]
+		[ importState, startServer, stopServer ]
 	);
 
 	const clearImportState = useCallback( ( siteId: string ) => {

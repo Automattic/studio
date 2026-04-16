@@ -4,6 +4,7 @@ import { isWordPressDirectory, recursiveCopyDirectory } from '@studio/common/lib
 import {
 	BackupExtractEvents,
 	ImporterEvents,
+	ImportEventTuple,
 	ValidatorEvents,
 } from '@studio/common/lib/import-export-events';
 import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
@@ -46,6 +47,70 @@ async function setupWordPressFilesOnly( sitePath: string ): Promise< void > {
 	}
 
 	await recursiveCopyDirectory( bundledWpPath, sitePath );
+}
+
+function sendIpcEvent( event: ImportEventTuple ) {
+	process.send!( { event } );
+}
+
+function handleImportIpc( emitter: ImportExportEventEmitter ) {
+	emitter.on( ValidatorEvents.IMPORT_VALIDATION_START, () => {
+		sendIpcEvent( [ ValidatorEvents.IMPORT_VALIDATION_START, undefined ] );
+	} );
+	emitter.on( ValidatorEvents.IMPORT_VALIDATION_COMPLETE, () => {
+		sendIpcEvent( [ ValidatorEvents.IMPORT_VALIDATION_COMPLETE, undefined ] );
+	} );
+	emitter.on( ValidatorEvents.IMPORT_VALIDATION_ERROR, ( error ) => {
+		sendIpcEvent( [ ValidatorEvents.IMPORT_VALIDATION_ERROR, error ] );
+	} );
+	emitter.on( BackupExtractEvents.BACKUP_EXTRACT_START, () => {
+		sendIpcEvent( [ BackupExtractEvents.BACKUP_EXTRACT_START, undefined ] );
+	} );
+	emitter.on( BackupExtractEvents.BACKUP_EXTRACT_PROGRESS, ( progressData ) => {
+		sendIpcEvent( [ BackupExtractEvents.BACKUP_EXTRACT_PROGRESS, progressData ] );
+	} );
+	emitter.on( BackupExtractEvents.BACKUP_EXTRACT_COMPLETE, () => {
+		sendIpcEvent( [ BackupExtractEvents.BACKUP_EXTRACT_COMPLETE, undefined ] );
+	} );
+	emitter.on( BackupExtractEvents.BACKUP_EXTRACT_WARNING, ( warningMessage ) => {
+		sendIpcEvent( [ BackupExtractEvents.BACKUP_EXTRACT_WARNING, warningMessage ] );
+	} );
+	emitter.on( BackupExtractEvents.BACKUP_EXTRACT_ERROR, ( error ) => {
+		sendIpcEvent( [ BackupExtractEvents.BACKUP_EXTRACT_ERROR, error ] );
+	} );
+	emitter.on( ImporterEvents.IMPORT_START, () => {
+		sendIpcEvent( [ ImporterEvents.IMPORT_START, undefined ] );
+	} );
+	emitter.on( ImporterEvents.IMPORT_DATABASE_START, () => {
+		sendIpcEvent( [ ImporterEvents.IMPORT_DATABASE_START, undefined ] );
+	} );
+	emitter.on( ImporterEvents.IMPORT_DATABASE_PROGRESS, ( progressData ) => {
+		sendIpcEvent( [ ImporterEvents.IMPORT_DATABASE_PROGRESS, progressData ] );
+	} );
+	emitter.on( ImporterEvents.IMPORT_DATABASE_COMPLETE, () => {
+		sendIpcEvent( [ ImporterEvents.IMPORT_DATABASE_COMPLETE, undefined ] );
+	} );
+	emitter.on( ImporterEvents.IMPORT_WP_CONTENT_START, () => {
+		sendIpcEvent( [ ImporterEvents.IMPORT_WP_CONTENT_START, undefined ] );
+	} );
+	emitter.on( ImporterEvents.IMPORT_WP_CONTENT_PROGRESS, ( progressData ) => {
+		sendIpcEvent( [ ImporterEvents.IMPORT_WP_CONTENT_PROGRESS, progressData ] );
+	} );
+	emitter.on( ImporterEvents.IMPORT_WP_CONTENT_COMPLETE, () => {
+		sendIpcEvent( [ ImporterEvents.IMPORT_WP_CONTENT_COMPLETE, undefined ] );
+	} );
+	emitter.on( ImporterEvents.IMPORT_META_START, () => {
+		sendIpcEvent( [ ImporterEvents.IMPORT_META_START, undefined ] );
+	} );
+	emitter.on( ImporterEvents.IMPORT_META_COMPLETE, () => {
+		sendIpcEvent( [ ImporterEvents.IMPORT_META_COMPLETE, undefined ] );
+	} );
+	emitter.on( ImporterEvents.IMPORT_COMPLETE, () => {
+		sendIpcEvent( [ ImporterEvents.IMPORT_COMPLETE, undefined ] );
+	} );
+	emitter.on( ImporterEvents.IMPORT_ERROR, ( error ) => {
+		sendIpcEvent( [ ImporterEvents.IMPORT_ERROR, error ] );
+	} );
 }
 
 export function handleImportEvents( emitter: ImportExportEventEmitter ): void {
@@ -222,7 +287,11 @@ export async function runCommand( siteFolder: string, importFile: string ): Prom
 			{ path: importFile, type: getBackupFileType( importFile ) },
 			DEFAULT_IMPORTER_OPTIONS
 		);
-		handleImportEvents( importer );
+		if ( process.send ) {
+			handleImportIpc( importer );
+		} else {
+			handleImportEvents( importer );
+		}
 		await importer.import( site );
 
 		// Something in Playground makes it so the front-end of the site sometimes returns an error page

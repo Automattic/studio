@@ -6,7 +6,9 @@ import {
 } from '@wordpress/components';
 import { Icon, plus, backup, chevronRight, chevronLeft, download } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
+import Button from 'src/components/button';
 import { Tooltip } from 'src/components/tooltip';
+import { useAuth } from 'src/hooks/use-auth';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
@@ -87,6 +89,7 @@ export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps 
 	const { __ } = useI18n();
 	const { enableBlueprints } = useFeatureFlags();
 	const isOffline = useOffline();
+	const { isAuthenticated, user, logout } = useAuth();
 	const blueprintOfflineMessage = __(
 		'Starting from a Blueprint requires an internet connection.'
 	);
@@ -131,6 +134,19 @@ export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps 
 				description={ __( 'Start a site from a backup' ) }
 				onClick={ () => onOptionSelect( 'backup' ) }
 			/>
+			{ isAuthenticated && user && (
+				<div className="flex items-center justify-center gap-2 mt-4 text-xs text-frame-text-secondary">
+					<span>{ user.email }</span>
+					<span className="text-frame-text-tertiary">·</span>
+					<Button
+						variant="link"
+						className="!p-0 !text-frame-text-secondary hover:!text-frame-theme !text-xs"
+						onClick={ () => void logout() }
+					>
+						{ __( 'Sign out' ) }
+					</Button>
+				</div>
+			) }
 		</VStack>
 	);
 }

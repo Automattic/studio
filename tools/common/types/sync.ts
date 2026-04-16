@@ -14,6 +14,12 @@ export const sitesEndpointSiteSchema = z.object( {
 		.nullable()
 		.optional(),
 	is_a8c: z.boolean().optional(),
+	icon: z
+		.object( {
+			img: z.string(),
+			ico: z.string(),
+		} )
+		.optional(),
 	options: z
 		.object( {
 			created_at: z.string(),
@@ -75,6 +81,9 @@ export type SyncSite = {
 	lastPullTimestamp: string | null;
 	lastPushTimestamp: string | null;
 	wpVersion?: string;
+	siteIconUrl?: string;
+	planName?: string;
+	createdAt?: string;
 };
 
 // Pull backup API schemas

@@ -26,6 +26,7 @@ const SITE_FIELDS = [
 	'is_a8c',
 	'hosting_provider_guess',
 	'environment_type',
+	'icon',
 ].join( ',' );
 
 export const wpcomSitesApi = createApi( {

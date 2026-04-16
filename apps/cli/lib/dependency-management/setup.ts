@@ -262,25 +262,9 @@ export async function setupServerFiles() {
 	}
 }
 
-/**
- * Fetches the latest WordPress version from the network.
- *
- * This performs a network request, so callers should gate it behind
- * `shouldCheckDependencyUpdates()` and follow a successful call with
- * `markDependencyCheckTime()` to avoid hitting the network on every
- * invocation (see STU-1455).
- */
-export async function updateServerFiles() {
-	try {
-		await updateLatestWordPressVersion();
-	} catch ( error ) {
-		console.error( 'Failed to update dependency WordPress version:', error );
-	}
-}
-
 export const DEPENDENCY_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
-export async function shouldCheckDependencyUpdates(): Promise< boolean > {
+async function shouldCheckDependencyUpdates(): Promise< boolean > {
 	try {
 		const { lastDependencyCheckTime } = await readCliConfig();
 		if ( typeof lastDependencyCheckTime !== 'number' ) {
@@ -297,10 +281,29 @@ export async function shouldCheckDependencyUpdates(): Promise< boolean > {
 	}
 }
 
-export async function markDependencyCheckTime(): Promise< void > {
+async function markDependencyCheckTime(): Promise< void > {
 	try {
 		await updateCliConfigWithPartial( { lastDependencyCheckTime: Date.now() } );
 	} catch ( error ) {
 		console.error( 'Failed to persist dependency check timestamp:', error );
 	}
+}
+
+/**
+ * Checks for and applies dependency updates (e.g. WordPress versions), throttled
+ * to at most once per 24 hours. Returns true if the check ran, false if skipped.
+ */
+export async function updateServerFiles(): Promise< boolean > {
+	if ( ! ( await shouldCheckDependencyUpdates() ) ) {
+		return false;
+	}
+
+	try {
+		await updateLatestWordPressVersion();
+	} catch ( error ) {
+		console.error( 'Failed to update dependency WordPress version:', error );
+	}
+
+	await markDependencyCheckTime();
+	return true;
 }

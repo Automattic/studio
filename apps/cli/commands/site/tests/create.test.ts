@@ -25,11 +25,7 @@ import {
 } from 'cli/lib/cli-config/core';
 import { removeSiteFromConfig, updateSiteAutoStart } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
-import {
-	markDependencyCheckTime,
-	shouldCheckDependencyUpdates,
-	updateServerFiles,
-} from 'cli/lib/dependency-management/setup';
+import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
@@ -165,9 +161,7 @@ describe( 'CLI: studio site create', () => {
 		vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( true );
 		vi.mocked( connectToDaemon ).mockResolvedValue( undefined );
 		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
-		vi.mocked( updateServerFiles ).mockResolvedValue( undefined );
-		vi.mocked( shouldCheckDependencyUpdates ).mockResolvedValue( true );
-		vi.mocked( markDependencyCheckTime ).mockResolvedValue( undefined );
+		vi.mocked( updateServerFiles ).mockResolvedValue( true );
 		vi.mocked( setupCustomDomain ).mockResolvedValue( undefined );
 		vi.mocked( startWordPressServer ).mockResolvedValue( mockProcessDescription );
 		vi.mocked( runBlueprint ).mockResolvedValue( undefined );
@@ -1040,33 +1034,19 @@ $table_prefix = 'wp_';
 		} );
 	} );
 
-	describe( 'Dependency update throttling', () => {
-		it( 'runs and records the dependency check when throttle is expired', async () => {
-			vi.mocked( shouldCheckDependencyUpdates ).mockResolvedValue( true );
-
+	describe( 'Dependency updates', () => {
+		it( 'calls updateServerFiles when online', async () => {
 			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
 			expect( updateServerFiles ).toHaveBeenCalledTimes( 1 );
-			expect( markDependencyCheckTime ).toHaveBeenCalledTimes( 1 );
 		} );
 
-		it( 'skips the dependency check when called within the throttle window', async () => {
-			vi.mocked( shouldCheckDependencyUpdates ).mockResolvedValue( false );
-
-			await runCommand( mockSitePath, { ...defaultTestOptions } );
-
-			expect( updateServerFiles ).not.toHaveBeenCalled();
-			expect( markDependencyCheckTime ).not.toHaveBeenCalled();
-		} );
-
-		it( 'skips the dependency check when offline regardless of throttle', async () => {
+		it( 'skips updateServerFiles when offline', async () => {
 			vi.mocked( isOnline ).mockResolvedValue( false );
-			vi.mocked( shouldCheckDependencyUpdates ).mockResolvedValue( true );
 
 			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
 			expect( updateServerFiles ).not.toHaveBeenCalled();
-			expect( markDependencyCheckTime ).not.toHaveBeenCalled();
 		} );
 	} );
 } );

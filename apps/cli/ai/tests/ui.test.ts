@@ -251,4 +251,155 @@ describe( 'AiChatUI.handleMessage', () => {
 		);
 		expect( ui.pendingToolCalls ).toEqual( new Map() );
 	} );
+
+	it( 'surfaces the cap message when content contains the studio_cap_exceeded marker', () => {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			handleMessage: ( message: unknown ) => unknown;
+			[ key: string ]: unknown;
+		};
+		const hideLoader = vi.fn();
+		const showError = vi.fn();
+		const showInfo = vi.fn();
+
+		ui.hideLoader = hideLoader;
+		ui.showError = showError;
+		ui.showInfo = showInfo;
+		ui.currentProvider = 'wpcom';
+		ui.currentMarkdown = { setText: vi.fn() };
+		ui.currentResponseText = 'previous content';
+		ui.usageCapReached = false;
+
+		const result = ui.handleMessage( {
+			type: 'assistant',
+			error: 'unknown',
+			message: {
+				content: [
+					{
+						type: 'text',
+						text: 'API Error: 429 {"error":"studio_cap_exceeded","message":"You have exceeded your AI usage cap."}',
+					},
+				],
+			},
+			parent_tool_use_id: null,
+			uuid: 'uuid',
+			session_id: 'sess',
+		} );
+
+		expect( result ).toBeUndefined();
+		expect( hideLoader ).toHaveBeenCalled();
+		expect( showError ).toHaveBeenCalledWith( expect.stringContaining( 'AI usage cap reached' ) );
+		expect( showInfo ).toHaveBeenCalledWith( expect.stringContaining( '/provider' ) );
+		expect( ui.usageCapReached ).toBe( true );
+		expect( ui.currentMarkdown ).toBeNull();
+		expect( ui.currentResponseText ).toBe( '' );
+	} );
+
+	it( 'does not suggest /provider on the cap message when using anthropic-api-key', () => {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			handleMessage: ( message: unknown ) => unknown;
+			[ key: string ]: unknown;
+		};
+		const showError = vi.fn();
+		const showInfo = vi.fn();
+
+		ui.hideLoader = vi.fn();
+		ui.showError = showError;
+		ui.showInfo = showInfo;
+		ui.currentProvider = 'anthropic-api-key';
+		ui.currentMarkdown = null;
+		ui.currentResponseText = '';
+		ui.usageCapReached = false;
+
+		ui.handleMessage( {
+			type: 'assistant',
+			error: 'unknown',
+			message: {
+				content: [
+					{
+						type: 'text',
+						text: 'API Error: 429 {"error":"studio_cap_exceeded","message":"cap"}',
+					},
+				],
+			},
+			parent_tool_use_id: null,
+			uuid: 'uuid',
+			session_id: 'sess',
+		} );
+
+		expect( showError ).toHaveBeenCalled();
+		expect( showInfo ).not.toHaveBeenCalled();
+	} );
+
+	it( 'skips the "Done" success indicator when the usage cap was reached', () => {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			handleMessage: ( message: unknown ) => unknown;
+			[ key: string ]: unknown;
+		};
+		const addChild = vi.fn();
+		const showInfo = vi.fn();
+
+		ui.hideLoader = vi.fn();
+		ui.showInfo = showInfo;
+		ui.usageCapReached = true;
+		ui.hasShownResponseMarker = false;
+		ui.nowMs = () => 5000;
+		ui.turnStartTime = 0;
+		ui.messages = { addChild };
+
+		const result = ui.handleMessage( {
+			type: 'result',
+			subtype: 'success',
+			session_id: 'sess',
+			num_turns: 1,
+		} );
+
+		expect( addChild ).not.toHaveBeenCalled();
+		expect( showInfo ).not.toHaveBeenCalled();
+		expect( result ).toEqual( { type: 'result', sessionId: 'sess', success: false } );
+	} );
+
+	it( 'reports hasErrorBeenSurfaced based on usageCapReached', () => {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			hasErrorBeenSurfaced: () => boolean;
+			[ key: string ]: unknown;
+		};
+		ui.usageCapReached = false;
+		expect( ui.hasErrorBeenSurfaced() ).toBe( false );
+		ui.usageCapReached = true;
+		expect( ui.hasErrorBeenSurfaced() ).toBe( true );
+	} );
+
+	it( 'does not trip the cap branch when an assistant error has no marker in content', () => {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			handleMessage: ( message: unknown ) => unknown;
+			[ key: string ]: unknown;
+		};
+		const showError = vi.fn();
+		const showInfo = vi.fn();
+
+		ui.hideLoader = vi.fn();
+		ui.showError = showError;
+		ui.showInfo = showInfo;
+		ui.currentProvider = 'wpcom';
+		ui.currentMarkdown = null;
+		ui.currentResponseText = '';
+		ui.usageCapReached = false;
+		// Empty content + replay mode bypasses the rendering path; this test
+		// only guards that the cap branch isn't taken without a marker.
+		ui.replayMode = true;
+		ui.loaderVisible = true;
+
+		ui.handleMessage( {
+			type: 'assistant',
+			error: 'unknown',
+			message: { content: [] },
+			parent_tool_use_id: null,
+			uuid: 'uuid',
+			session_id: 'sess',
+		} );
+
+		expect( showError ).not.toHaveBeenCalled();
+		expect( showInfo ).not.toHaveBeenCalled();
+		expect( ui.usageCapReached ).toBe( false );
+	} );
 } );

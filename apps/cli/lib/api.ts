@@ -227,6 +227,52 @@ export async function getWpComSites( token: string ): Promise< WpComSiteInfo[] >
 	}
 }
 
+const assistantQuotaResponseSchema = z.object( {
+	max_quota: z.number(),
+	quota_reset_date: z.string(),
+	remaining_quota: z.number(),
+} );
+
+export interface AssistantQuotaInfo {
+	maxQuota: number;
+	remainingQuota: number;
+	quotaResetDate: string;
+	daysUntilReset: number;
+	isExceeded: boolean;
+}
+
+function calculateDaysUntilReset( resetDate: string ): number {
+	const reset = new Date( resetDate ).getTime();
+	if ( Number.isNaN( reset ) ) {
+		return 0;
+	}
+	const diff = reset - Date.now();
+	return Math.max( 0, Math.ceil( diff / ( 1000 * 60 * 60 * 24 ) ) );
+}
+
+export async function getAssistantQuota( token: string ): Promise< AssistantQuotaInfo > {
+	const wpcom = wpcomFactory( token, wpcomXhrRequest );
+	try {
+		const rawResponse = await wpcom.req.get( {
+			path: '/studio-app/ai-assistant/quota',
+			apiNamespace: 'wpcom/v2',
+		} );
+		const result = assistantQuotaResponseSchema.parse( rawResponse );
+		return {
+			maxQuota: result.max_quota,
+			remainingQuota: result.remaining_quota,
+			quotaResetDate: result.quota_reset_date,
+			daysUntilReset: calculateDaysUntilReset( result.quota_reset_date ),
+			isExceeded: result.remaining_quota <= 0,
+		};
+	} catch ( error ) {
+		if ( error instanceof z.ZodError ) {
+			throw new LoggerError( __( 'Invalid quota API response format' ), error );
+		}
+		throw new LoggerError( __( 'Failed to fetch AI assistant quota' ), error );
+	}
+}
+
 export async function revokeAuthToken( token: string ): Promise< void > {
 	const wpcom = wpcomFactory( token, wpcomXhrRequest );
 	try {

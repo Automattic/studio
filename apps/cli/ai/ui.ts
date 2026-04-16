@@ -446,6 +446,7 @@ export class AiChatUI implements AiOutputAdapter {
 	private editorVisible = false;
 	private interruptCallback: ( () => void ) | null = null;
 	private wasInterrupted = false;
+	private usageCapReached = false;
 	private hasShownResponseMarker = false;
 	private turnStartTime = 0;
 	private toolStartTime: number | null = null;
@@ -1420,6 +1421,7 @@ export class AiChatUI implements AiOutputAdapter {
 		this.currentResponseText = '';
 		this.hasShownResponseMarker = false;
 		this.wasInterrupted = false;
+		this.usageCapReached = false;
 		this.turnStartTime = this.nowMs();
 		this.todoSnapshot = [];
 		this.latestTodoSnapshot = [];
@@ -1446,6 +1448,16 @@ export class AiChatUI implements AiOutputAdapter {
 		this.currentResponseText = '';
 		this.pendingTodoRenders.clear();
 		this.pendingTodoRenderOrder = [];
+	}
+
+	/**
+	 * Returns true when the current/last turn surfaced the AI usage cap
+	 * message to the user. Lets callers suppress redundant downstream
+	 * errors (e.g. the SDK's "process exited with code 1" that follows
+	 * the upstream 429).
+	 */
+	hasErrorBeenSurfaced(): boolean {
+		return this.usageCapReached;
 	}
 
 	showOnboarding(): void {
@@ -2049,6 +2061,37 @@ export class AiChatUI implements AiOutputAdapter {
 	handleMessage( message: SDKMessage ): HandleMessageResult | undefined {
 		switch ( message.type ) {
 			case 'assistant': {
+				// Detect the AI usage cap response from the WordPress.com proxy.
+				// The backend returns a 4xx with a body containing the
+				// `studio_cap_exceeded` marker. The agent SDK can't classify
+				// errors from off-domain base URLs, so it surfaces the body
+				// verbatim as a text block — we just look for the marker.
+				let isCapMessage = false;
+				if ( message.error ) {
+					for ( const block of message.message.content ) {
+						if ( block.type === 'text' && /studio_cap_exceeded/i.test( block.text ?? '' ) ) {
+							isCapMessage = true;
+							break;
+						}
+					}
+				}
+				if ( isCapMessage ) {
+					this.hideLoader();
+					this.usageCapReached = true;
+					this.showError(
+						__(
+							'AI usage cap reached. You can continue using Studio Code by switching to your own Anthropic API key.'
+						)
+					);
+					if ( this.currentProvider === 'wpcom' ) {
+						this.showInfo(
+							__( 'Use /provider to switch to Anthropic · API key, or try again later.' )
+						);
+					}
+					this.currentMarkdown = null;
+					this.currentResponseText = '';
+					return undefined;
+				}
 				for ( const block of message.message.content ) {
 					if ( block.type === 'text' ) {
 						this.hideLoader();
@@ -2138,6 +2181,15 @@ export class AiChatUI implements AiOutputAdapter {
 			case 'result': {
 				this.hideLoader();
 				if ( message.subtype === 'success' ) {
+					// When the cap message was surfaced earlier in this turn,
+					// the SDK still classifies the turn as successful because
+					// it produced an assistant message. Skip the "Done" /
+					// "Thought for Xs" indicators so the cap message stands
+					// on its own, and report the turn as failed to upstream
+					// callers.
+					if ( this.usageCapReached ) {
+						return { type: 'result', sessionId: message.session_id, success: false };
+					}
 					const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
 					if ( ! this.hasShownResponseMarker ) {
 						this.messages.addChild(

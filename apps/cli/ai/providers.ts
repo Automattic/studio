@@ -73,6 +73,7 @@ function createBaseEnvironment(): Record< string, string > {
 	delete env.ANTHROPIC_BASE_URL;
 	delete env.ANTHROPIC_CUSTOM_HEADERS;
 	delete env.CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS;
+	delete env.CLAUDE_CODE_MAX_RETRIES;
 
 	return env;
 }
@@ -102,6 +103,11 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 				'X-WPCOM-AI-Feature': WPCOM_AI_FEATURE_HEADER,
 			} );
 			env.CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS = '1';
+			// The default agent retry count (10) causes the CLI to hang for
+			// minutes when the WPCOM proxy returns a 429 (e.g. usage cap
+			// reached). Retries don't recover the cap, so fail fast and let
+			// the UI surface the error.
+			env.CLAUDE_CODE_MAX_RETRIES = '0';
 			return env;
 		},
 	},

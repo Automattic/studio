@@ -1,7 +1,7 @@
 import { Icon, SearchControl as SearchControlWp, Spinner } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import Modal from 'src/components/modal';
@@ -54,18 +54,9 @@ export function SyncSitesModalSelector( {
 	} );
 	const connectedSiteIds = connectedSites.map( ( { id } ) => id );
 
-	const {
-		data: syncSites = [],
-		isLoading,
-		isFetching,
-		isSuccess,
-		refetch: refetchWpComSites,
-	} = useGetWpComSitesQuery(
-		{ connectedSiteIds, userId: user?.id },
-		{ refetchOnMountOrArgChange: true }
-	);
+	const sitesQuery = useSitesQuery( { connectedSiteIds, userId: user?.id } );
 
-	if ( syncSites.length === 0 && isSuccess && ! isLoading ) {
+	if ( sitesQuery.sites.length === 0 && sitesQuery.isSuccess && ! sitesQuery.isLoading ) {
 		return <NoWpcomSitesModal onRequestClose={ onRequestClose } selectedSite={ selectedSite } />;
 	}
 
@@ -89,12 +80,9 @@ export function SyncSitesModalSelector( {
 		>
 			<div className="relative" data-testid="sync-sites-modal-selector">
 				<SitesListContent
-					isLoading={ isLoading }
-					isFetching={ isFetching }
-					syncSites={ syncSites }
+					sitesQuery={ sitesQuery }
 					selectedSiteId={ selectedSiteId }
 					onSelectSite={ setSelectedSiteId }
-					refetchSites={ refetchWpComSites }
 				/>
 				<Footer
 					onRequestClose={ onRequestClose }
@@ -122,14 +110,18 @@ export function SyncSitesModalSelector( {
 function SearchSites( {
 	searchQuery,
 	setSearchQuery,
+	onRefresh,
+	isRefreshing,
 }: {
 	searchQuery: string;
 	setSearchQuery: ( value: string ) => void;
+	onRefresh: () => void;
+	isRefreshing: boolean;
 } ) {
 	const { __ } = useI18n();
 	const locale = useI18nLocale();
 	return (
-		<div className="flex flex-col px-8 pb-6 border-b border-frame-border shrink-0">
+		<div className="flex flex-col items-center px-8 pb-6 shrink-0 max-w-lg mx-auto w-full">
 			<SearchControl
 				className="w-full mt-0.5 mb-2 text-frame-text"
 				placeholder={ __( 'Search sites' ) }
@@ -141,15 +133,23 @@ function SearchSites( {
 				__nextHasNoMarginBottom={ true }
 			/>
 			<p className="a8c-helper-text text-frame-text-secondary">
-				{ __( "Can't find your site?" ) }{ ' ' }
+				<Button
+					variant="link"
+					onClick={ onRefresh }
+					disabled={ isRefreshing }
+					className="!p-0 text-xs"
+				>
+					{ isRefreshing ? __( 'Refreshing…' ) : __( 'Refresh list' ) }
+				</Button>
+				{ ' · ' }
 				<Button
 					variant="link"
 					onClick={ () =>
 						getIpcApi().openURL( getLocalizedLink( locale, 'docsSyncSupportedSites' ) )
 					}
-					className="learn-more-link text-xs"
+					className="!p-0 text-xs"
 				>
-					{ __( 'Learn more about supported sites.' ) }
+					{ __( 'Supported sites' ) }
 					<ArrowIcon />
 				</Button>
 			</p>
@@ -157,80 +157,108 @@ function SearchSites( {
 	);
 }
 
-export function SitesListContent( {
-	isLoading,
-	isFetching,
-	syncSites,
-	selectedSiteId,
-	onSelectSite,
-	refetchSites,
-}: {
+export interface SitesQueryResult {
+	sites: SyncSite[];
+	total: number;
 	isLoading: boolean;
 	isFetching: boolean;
-	syncSites: SyncSite[];
+	isSuccess: boolean;
+	searchQuery: string;
+	setSearchQuery: ( query: string ) => void;
+	refetch: () => void;
+}
+
+export function useSitesQuery( {
+	connectedSiteIds,
+	userId,
+}: {
+	connectedSiteIds?: number[];
+	userId?: number;
+} ): SitesQueryResult {
+	const [ searchQuery, setSearchQuery ] = useState( '' );
+	const [ debouncedSearch, setDebouncedSearch ] = useState( '' );
+
+	// Debounce search input for server-side search
+	useEffect( () => {
+		const timer = setTimeout( () => {
+			setDebouncedSearch( searchQuery );
+		}, 300 );
+		return () => clearTimeout( timer );
+	}, [ searchQuery ] );
+
+	const { data, isLoading, isFetching, isSuccess, refetch } = useGetWpComSitesQuery( {
+		connectedSiteIds,
+		userId,
+		perPage: 100,
+		search: debouncedSearch || undefined,
+	} );
+
+	const handleSetSearchQuery = useCallback( ( query: string ) => {
+		setSearchQuery( query );
+	}, [] );
+
+	return {
+		sites: data?.sites ?? [],
+		total: data?.total ?? 0,
+		isLoading,
+		isFetching,
+		isSuccess,
+		searchQuery,
+		setSearchQuery: handleSetSearchQuery,
+		refetch: () => void refetch(),
+	};
+}
+
+export function SitesListContent( {
+	sitesQuery,
+	selectedSiteId,
+	onSelectSite,
+}: {
+	sitesQuery: SitesQueryResult;
 	selectedSiteId: number | null;
 	onSelectSite: ( id: number ) => void;
-	refetchSites: () => void | Promise< unknown >;
 } ) {
 	const { __ } = useI18n();
-	const isOffline = useOffline();
-	const [ searchQuery, setSearchQuery ] = useState< string >( '' );
+	const { sites, isLoading, isFetching, searchQuery, setSearchQuery } = sitesQuery;
 
-	useEffect( () => {
-		if ( isOffline ) {
-			return;
-		}
-		const handleWindowFocus = () => {
-			void refetchSites();
-		};
-		window.addEventListener( 'focus', handleWindowFocus );
-		return () => window.removeEventListener( 'focus', handleWindowFocus );
-	}, [ isOffline, refetchSites ] );
-
-	const filteredSites = syncSites.filter( ( site ) => {
-		const searchQueryLower = searchQuery.toLowerCase();
-		return (
-			site.name?.toLowerCase().includes( searchQueryLower ) ||
-			site.url?.toLowerCase().includes( searchQueryLower )
-		);
-	} );
-	const isEmpty = filteredSites.length === 0;
+	const isEmpty = sites.length === 0 && ! isLoading && ! isFetching;
 	const emptyMessage = searchQuery
 		? sprintf( __( 'No sites found for "%s"' ), searchQuery )
-		: __( 'No sites found' );
-
-	const isRefetchingSites = isFetching && ! isLoading;
+		: __( 'No WordPress.com sites found on this account.' );
 
 	return (
-		<>
-			<SearchSites searchQuery={ searchQuery } setSearchQuery={ setSearchQuery } />
-			<div className="relative h-[calc(84vh-232px)]">
+		<div className="flex flex-col h-[calc(100vh-220px)]">
+			<SearchSites
+				searchQuery={ searchQuery }
+				setSearchQuery={ setSearchQuery }
+				onRefresh={ sitesQuery.refetch }
+				isRefreshing={ sitesQuery.isFetching }
+			/>
+			<div className="flex-1 min-h-0 relative flex flex-col">
 				{ isLoading ? (
-					<div className="flex justify-center items-center h-full">
-						<Spinner className="!mt-0 !mr-2" />
-						<span className="a8c-body text-frame-text">{ __( 'Loading…' ) }</span>
+					<div className="flex-1 flex flex-col justify-center items-center gap-3">
+						<Spinner className="!mt-0 [&>circle]:stroke-frame-text-secondary" />
+						<span className="text-sm text-frame-text-secondary">
+							{ __( 'Loading your sites…' ) }
+						</span>
 					</div>
 				) : isEmpty ? (
-					<div className="flex justify-center items-center h-full">{ emptyMessage }</div>
+					<div className="flex-1 flex flex-col justify-center items-center gap-2">
+						<span className="text-sm text-frame-text-secondary">{ emptyMessage }</span>
+					</div>
 				) : (
-					<ListSites
-						syncSites={ filteredSites }
-						selectedSiteId={ selectedSiteId }
-						onSelectSite={ onSelectSite }
-					/>
+					<>
+						<div className="pointer-events-none absolute top-0 left-0 right-0 h-10 z-10 bg-gradient-to-b from-frame to-transparent" />
+						<div className="pointer-events-none absolute bottom-0 left-0 right-0 h-10 z-10 bg-gradient-to-t from-frame to-transparent" />
+						<ListSites
+							syncSites={ sites }
+							selectedSiteId={ selectedSiteId }
+							onSelectSite={ onSelectSite }
+						/>
+					</>
 				) }
-				<div
-					className={ `absolute inset-0 z-[1] flex items-center justify-center bg-frame/80 backdrop-blur-[8px] transition-opacity duration-200 ${
-						isRefetchingSites ? 'opacity-100' : 'opacity-0 pointer-events-none'
-					}` }
-					aria-busy={ isRefetchingSites }
-					aria-live="polite"
-				>
-					<Spinner className="!mt-0 !mr-2" />
-					<span className="a8c-body text-frame-text">{ __( 'Refreshing…' ) }</span>
-				</div>
 			</div>
-		</>
+		</div>
 	);
 }
 
@@ -248,20 +276,21 @@ const getSortedSites = ( sites: SyncSite[] ) => {
 	return [ ...sites ].sort( ( a, b ) => order[ a.syncSupport ] - order[ b.syncSupport ] );
 };
 
-function ListSites( {
-	syncSites,
+function SiteGrid( {
+	sites,
 	selectedSiteId,
 	onSelectSite,
 }: {
-	syncSites: SyncSite[];
+	sites: SyncSite[];
 	selectedSiteId: null | number;
 	onSelectSite: ( id: number ) => void;
 } ) {
-	const sortedSites = getSortedSites( syncSites );
-
 	return (
-		<div className="flex flex-col overflow-y-auto h-full pt-px">
-			{ sortedSites.map( ( site ) => (
+		<div
+			className="grid gap-5"
+			style={ { gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' } }
+		>
+			{ sites.map( ( site ) => (
 				<SiteItem
 					key={ site.id }
 					site={ site }
@@ -273,25 +302,109 @@ function ListSites( {
 	);
 }
 
+function ListSites( {
+	syncSites,
+	selectedSiteId,
+	onSelectSite,
+}: {
+	syncSites: SyncSite[];
+	selectedSiteId: null | number;
+	onSelectSite: ( id: number ) => void;
+} ) {
+	const { __ } = useI18n();
+
+	const syncable = syncSites.filter( ( s ) => s.syncSupport === 'syncable' );
+	const alreadyConnected = syncSites.filter( ( s ) => s.syncSupport === 'already-connected' );
+	const needsTransfer = syncSites.filter( ( s ) => s.syncSupport === 'needs-transfer' );
+	const needsUpgrade = syncSites.filter( ( s ) => s.syncSupport === 'needs-upgrade' );
+	const other = syncSites.filter(
+		( s ) =>
+			s.syncSupport === 'unsupported' ||
+			s.syncSupport === 'missing-permissions' ||
+			s.syncSupport === 'deleted'
+	);
+
+	const sections: Array< { title: string; description?: string; sites: SyncSite[] } > = [];
+	if ( syncable.length > 0 ) {
+		sections.push( { title: '', sites: syncable } );
+	}
+	if ( alreadyConnected.length > 0 ) {
+		sections.push( {
+			title: __( 'Already connected' ),
+			description: __( 'These sites are already linked to a local site.' ),
+			sites: alreadyConnected,
+		} );
+	}
+	if ( needsTransfer.length > 0 ) {
+		sections.push( {
+			title: __( 'Enable hosting features first' ),
+			description: __(
+				'These sites need hosting features turned on before they can sync. You can do this from WordPress.com.'
+			),
+			sites: needsTransfer,
+		} );
+	}
+	if ( needsUpgrade.length > 0 ) {
+		sections.push( {
+			title: __( 'Upgrade your plan to sync' ),
+			description: __(
+				'Syncing requires a Business plan or higher. Upgrade on WordPress.com to get started.'
+			),
+			sites: needsUpgrade,
+		} );
+	}
+	if ( other.length > 0 ) {
+		sections.push( {
+			title: __( 'Not available for sync' ),
+			description: __(
+				"These sites can't be synced due to missing permissions or other limitations."
+			),
+			sites: other,
+		} );
+	}
+
+	return (
+		<div className="overflow-y-auto h-full px-8 pt-6 pb-8">
+			{ sections.map( ( section ) => (
+				<div key={ section.title || 'syncable' } className={ section.title ? 'mt-8' : '' }>
+					{ section.title && (
+						<div className="mb-5 px-1.5">
+							<h3 className="text-base font-medium text-frame-text">{ section.title }</h3>
+							{ section.description && (
+								<p className="text-sm text-frame-text-secondary mt-1">{ section.description }</p>
+							) }
+						</div>
+					) }
+					<SiteGrid
+						sites={ section.sites }
+						selectedSiteId={ selectedSiteId }
+						onSelectSite={ onSelectSite }
+					/>
+				</div>
+			) ) }
+		</div>
+	);
+}
+
 function getMshotUrl( siteUrl: string ): string {
-	return `https://s0.wp.com/mshots/v1/${ encodeURIComponent( siteUrl ) }?w=300&h=200`;
+	return `https://s0.wp.com/mshots/v1/${ encodeURIComponent( siteUrl ) }?w=600&h=400`;
 }
 
 function SiteThumbnail( {
 	site,
-	isSelected,
 	isDisabled,
 	isLoading,
+	showBadge = false,
+	showOverlayCta = false,
 }: {
 	site: SyncSite;
-	isSelected: boolean;
 	isDisabled: boolean;
 	isLoading: boolean;
+	showBadge?: boolean;
+	showOverlayCta?: boolean;
 } ) {
 	if ( isLoading ) {
-		return (
-			<div className="w-[120px] h-[80px] rounded-lg skeleton-bg shrink-0" aria-label="Loading" />
-		);
+		return <div className="w-full aspect-[3/2] rounded-lg skeleton-bg" aria-label="Loading" />;
 	}
 
 	const mshotUrl = getMshotUrl( site.url );
@@ -299,8 +412,7 @@ function SiteThumbnail( {
 	return (
 		<div
 			className={ cx(
-				'relative w-[120px] h-[80px] rounded-lg shrink-0 overflow-hidden bg-frame-surface border',
-				isSelected ? 'border-white/20' : 'border-frame-border',
+				'relative w-full aspect-[3/2] rounded-lg overflow-hidden bg-frame-surface border border-frame-border',
 				isDisabled && 'opacity-50'
 			) }
 		>
@@ -309,12 +421,85 @@ function SiteThumbnail( {
 				<img
 					src={ site.siteIconUrl }
 					alt=""
-					className="absolute bottom-1 left-1 w-5 h-5 rounded border border-white/30 bg-white object-cover"
+					className="absolute bottom-1.5 left-1.5 w-6 h-6 rounded border border-white/30 bg-white object-cover"
 					loading="lazy"
 				/>
 			) }
+			{ showBadge && (
+				<div className="absolute bottom-1.5 right-1.5 rounded border border-white/30 bg-white/90 backdrop-blur-sm">
+					<EnvironmentBadge type={ getSiteEnvironment( site ) } selected={ false } />
+				</div>
+			) }
+			{ showOverlayCta && (
+				<div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-black/20">
+					<SiteOverlayCta site={ site } />
+				</div>
+			) }
 		</div>
 	);
+}
+
+function SiteOverlayCta( { site }: { site: SyncSite } ) {
+	const { __ } = useI18n();
+
+	if ( site.syncSupport === 'needs-upgrade' ) {
+		return (
+			<>
+				<Button
+					variant="secondary"
+					className="!text-xs !px-3 !py-1.5 !h-auto !bg-white !shadow-sm"
+					onClick={ ( e: React.MouseEvent ) => {
+						e.stopPropagation();
+						getIpcApi().openURL( `https://wordpress.com/plans/${ site.id }` );
+					} }
+				>
+					{ __( 'Upgrade plan' ) }
+					<ArrowIcon />
+				</Button>
+				{ site.planName && (
+					<span className="text-[11px] text-white/80 drop-shadow-sm">{ site.planName }</span>
+				) }
+			</>
+		);
+	}
+	if ( site.syncSupport === 'needs-transfer' ) {
+		return (
+			<Button
+				variant="secondary"
+				className="!text-xs !px-3 !py-1.5 !h-auto !bg-white !shadow-sm"
+				onClick={ ( e: React.MouseEvent ) => {
+					e.stopPropagation();
+					getIpcApi().openURL( `https://wordpress.com/hosting-features/${ site.id }` );
+				} }
+			>
+				{ __( 'Enable' ) }
+				<ArrowIcon />
+			</Button>
+		);
+	}
+	return null;
+}
+
+function SiteStatusLabel( { site }: { site: SyncSite } ) {
+	const { __ } = useI18n();
+
+	if ( site.syncSupport === 'already-connected' ) {
+		return (
+			<span className="text-[11px] text-frame-text-secondary">{ __( 'Already connected' ) }</span>
+		);
+	}
+	if ( site.syncSupport === 'missing-permissions' ) {
+		return (
+			<span className="text-[11px] text-frame-text-secondary">{ __( 'Missing permissions' ) }</span>
+		);
+	}
+	if ( site.syncSupport === 'deleted' ) {
+		return <span className="text-[11px] text-frame-text-secondary">{ __( 'Deleted' ) }</span>;
+	}
+	if ( site.syncSupport === 'unsupported' ) {
+		return <span className="text-[11px] text-frame-text-secondary">{ __( 'Unsupported' ) }</span>;
+	}
+	return null;
 }
 
 function SiteItem( {
@@ -328,25 +513,24 @@ function SiteItem( {
 } ) {
 	const { __ } = useI18n();
 	const isSiteLoading = useRootSelector( connectedSitesSelectors.selectIsLoadingSiteId( site.id ) );
-	const isAlreadyConnected = site.syncSupport === 'already-connected';
 	const isSyncable = site.syncSupport === 'syncable';
-	const isNeedsTransfer = site.syncSupport === 'needs-transfer';
-	const isMissingPermissions = site.syncSupport === 'missing-permissions';
-	const needsUpgrade = site.syncSupport === 'needs-upgrade';
-	const isDeleted = site.syncSupport === 'deleted';
-	const isUnsupported = site.syncSupport === 'unsupported';
-	const isDisabled = isDeleted || isUnsupported || needsUpgrade || isMissingPermissions;
+	const hasOverlayCta =
+		site.syncSupport === 'needs-upgrade' || site.syncSupport === 'needs-transfer';
+	const isDisabled =
+		site.syncSupport === 'deleted' ||
+		site.syncSupport === 'unsupported' ||
+		site.syncSupport === 'missing-permissions';
 
 	return (
 		<div
 			className={ cx(
-				'flex py-3 px-8 items-center border-b justify-between gap-4',
-				isSelected && 'bg-frame-theme text-white border-frame-theme',
-				! isSelected && 'text-frame-text border-frame-border',
+				'flex flex-col rounded-xl overflow-hidden transition-colors p-1.5',
+				isSelected && 'ring-2 ring-frame-theme bg-frame-theme/5',
 				! isSelected && isSyncable && 'hover:bg-frame-surface',
 				isSyncable
-					? 'cursor-pointer focus:outline-none focus:ring-1 focus:ring-frame-theme focus:relative focus:z-10'
-					: 'cursor-default'
+					? 'cursor-pointer focus:outline-none focus:ring-2 focus:ring-frame-theme'
+					: 'cursor-default',
+				isDisabled && 'opacity-60'
 			) }
 			role="button"
 			aria-disabled={ ! isSyncable }
@@ -365,127 +549,31 @@ function SiteItem( {
 				onClick();
 			} }
 		>
-			<div className="flex items-center gap-3 min-w-0">
-				<SiteThumbnail
-					site={ site }
-					isSelected={ isSelected }
-					isDisabled={ isDisabled }
-					isLoading={ isSiteLoading }
-				/>
-				<div className="flex flex-col gap-0.5 min-w-0">
-					{ isSiteLoading ? (
-						<div
-							className="h-4 w-48 rounded skeleton-bg"
-							aria-label={ __( 'Loading site name' ) }
-						/>
-					) : (
-						<div
-							className={ cx(
-								'a8c-body truncate',
-								isSelected && '!text-white',
-								! isSyncable && 'text-frame-text-secondary'
-							) }
-						>
-							{ site.name }
-						</div>
-					) }
-					{ isSiteLoading ? (
-						<div className="h-3 w-36 rounded skeleton-bg" aria-label={ __( 'Loading site URL' ) } />
-					) : (
-						<div className="flex items-center gap-1.5">
-							<Button
-								variant="link"
-								className={ cx(
-									'a8c-body-small truncate !p-0 !justify-start',
-									isSelected
-										? '!text-inherit hover:!text-white/70'
-										: '!text-frame-text-secondary hover:!text-frame-theme'
-								) }
-								onClick={ () => getIpcApi().openURL( site.url ) }
-								onKeyDown={ ( e: React.KeyboardEvent ) => {
-									if ( e.code === 'Space' || e.code === 'Enter' ) {
-										e.preventDefault();
-										e.stopPropagation();
-										getIpcApi().openURL( site.url );
-									}
-								} }
-							>
-								<div className="truncate">{ site.url.replace( /^https?:\/\//, '' ) }</div>
-								<ArrowIcon />
-							</Button>
-							{ site.planName && (
-								<span
-									className={ cx(
-										'a8c-body-small shrink-0',
-										isSelected ? 'text-white/60' : 'text-frame-text-tertiary'
-									) }
-								>
-									· { site.planName }
-								</span>
-							) }
-						</div>
-					) }
-				</div>
-			</div>
-			{ isSyncable && (
-				<div className="flex gap-2">
-					<EnvironmentBadge type={ getSiteEnvironment( site ) } selected={ isSelected } />
-				</div>
-			) }
-			{ isAlreadyConnected && (
-				<div className="a8c-body-small text-frame-text-secondary shrink-0">
-					{ __( 'Already connected' ) }
-				</div>
-			) }
-			{ needsUpgrade && (
-				<div className="a8c-body-small text-frame-text-secondary shrink-0 text-right">
-					<Tooltip
-						text={ __( 'Sync support is available on selected plans only' ) }
-						placement="bottom"
-					>
-						<Button
-							variant="link"
-							onClick={ () => getIpcApi().openURL( `https://wordpress.com/plans/${ site.id }` ) }
-						>
-							{ __( 'Upgrade plan' ) }
-							<ArrowIcon />
-						</Button>
-					</Tooltip>
-				</div>
-			) }
-			{ isNeedsTransfer && (
-				<div className="a8c-body-small text-frame-text-secondary shrink-0 text-right">
-					<Button
-						variant="link"
-						onClick={ () =>
-							getIpcApi().openURL( `https://wordpress.com/hosting-features/${ site.id }` )
-						}
-					>
-						{ __( 'Enable hosting features' ) }
-						<ArrowIcon />
-					</Button>
-				</div>
-			) }
-			{ isMissingPermissions && (
-				<div className="a8c-body-small text-frame-text-secondary shrink-0 text-right">
-					{ __( 'Missing permissions' ) }
-				</div>
-			) }
-			{ isDeleted && (
-				<div className="a8c-body-small text-frame-text-secondary shrink-0 text-right">
-					{ __( 'Deleted' ) }
-				</div>
-			) }
-			{ isUnsupported && (
-				<Tooltip
-					text={ __( 'Self-hosted (e.g. jurassic.ninja) sites are not supported' ) }
-					placement="bottom"
-				>
-					<div className="a8c-body-small text-frame-text-secondary shrink-0">
-						{ __( 'Unsupported site' ) }
+			<SiteThumbnail
+				site={ site }
+				isDisabled={ isDisabled }
+				isLoading={ isSiteLoading }
+				showBadge={ isSyncable }
+				showOverlayCta={ hasOverlayCta }
+			/>
+			<div className="flex flex-col pt-1.5 px-1.5 min-w-0">
+				{ isSiteLoading ? (
+					<div className="h-4 w-3/4 rounded skeleton-bg" aria-label={ __( 'Loading site name' ) } />
+				) : (
+					<div className="text-sm font-medium truncate text-frame-text">{ site.name }</div>
+				) }
+				{ isSiteLoading ? (
+					<div
+						className="h-3 w-1/2 rounded skeleton-bg mt-0.5"
+						aria-label={ __( 'Loading site URL' ) }
+					/>
+				) : (
+					<div className="text-xs text-frame-text-secondary truncate">
+						{ site.url.replace( /^https?:\/\//, '' ) }
 					</div>
-				</Tooltip>
-			) }
+				) }
+				{ ! isSiteLoading && ! isSyncable && <SiteStatusLabel site={ site } /> }
+			</div>
 		</div>
 	);
 }

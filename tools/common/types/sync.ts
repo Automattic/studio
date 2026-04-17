@@ -18,6 +18,7 @@ export const sitesEndpointSiteSchema = z.object( {
 		.object( {
 			created_at: z.string(),
 			wpcom_staging_blog_ids: z.array( z.number() ),
+			software_version: z.string(),
 		} )
 		.optional(),
 	capabilities: z
@@ -73,6 +74,7 @@ export type SyncSite = {
 	syncSupport: SyncSupport;
 	lastPullTimestamp: string | null;
 	lastPushTimestamp: string | null;
+	wpVersion?: string;
 };
 
 // Pull backup API schemas

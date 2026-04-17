@@ -896,8 +896,16 @@ export async function openSiteURL(
 		return;
 	}
 
-	let url = new URL( relativeURL, site.server.url );
-	if ( autoLogin ) {
+	// When the caller didn't ask for a specific path (the generic "Open site"
+	// entry points pass `''`), honor the Blueprint-provided `landingPage` if
+	// the site has one. Explicit relative paths (e.g. `/wp-admin/`) still win.
+	const usingLandingPage = ! relativeURL && !! site.details.landingPage;
+	const targetPath = relativeURL || site.details.landingPage || '';
+	let url = new URL( targetPath, site.server.url );
+	// Blueprint landing pages may point at admin screens; force auto-login so
+	// users don't get bounced to the login page. This matches Playground's
+	// "always-logged-in sandbox" behavior for Blueprint-imported sites.
+	if ( autoLogin || usingLandingPage ) {
 		const autoLoginUrl = new URL( '/studio-auto-login', site.server.url );
 		autoLoginUrl.searchParams.append( 'redirect_to', url.toString() );
 		url = autoLoginUrl;

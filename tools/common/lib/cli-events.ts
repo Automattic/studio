@@ -28,6 +28,7 @@ export const siteDetailsSchema = z.object( {
 	enableXdebug: z.boolean().optional(),
 	enableDebugLog: z.boolean().optional(),
 	enableDebugDisplay: z.boolean().optional(),
+	landingPage: z.string().optional(),
 } );
 
 export type SiteDetails = z.infer< typeof siteDetailsSchema >;

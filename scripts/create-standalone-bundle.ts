@@ -5,9 +5,14 @@
  * The CLI bundle and node_modules are embedded as assets inside the Node binary.
  * On first run, the entry point extracts them to ~/.studio/cli/.
  *
- * Output: standalone-bundles/studio-cli-{platform}-{arch}[.exe]
+ * Output:
+ *   standalone-bundles/studio-cli-{platform}-{arch}[.exe]
+ *   standalone-bundles/studio-cli-{platform}-{arch}[.exe].sha256
  *
  * Prerequisites: Node.js >= 24, npm dependencies installed
+ *
+ * NOTE: The `cli:package` step mutates `apps/cli/node_modules`. If you need a
+ * clean tree afterwards, run `npm ci` from the repo root to reset it.
  *
  * Usage:
  *   npx ts-node scripts/create-standalone-bundle.ts
@@ -16,6 +21,7 @@
  */
 
 import { execSync } from 'child_process';
+import { createHash } from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
@@ -59,6 +65,10 @@ function run( cmd: string, cwd?: string ): void {
 	execSync( cmd, { cwd: cwd ?? repoRoot, stdio: 'inherit' } );
 }
 
+function sha256( file: string ): string {
+	return createHash( 'sha256' ).update( fs.readFileSync( file ) ).digest( 'hex' );
+}
+
 async function main(): Promise< void > {
 	console.log( `==> Building standalone binary: ${ bundleName }\n` );
 
@@ -93,17 +103,22 @@ async function main(): Promise< void > {
 		cliNodeModules
 	);
 
-	const cliSize = (
-		fs.statSync( path.join( bundleBuildDir, 'cli.tar.gz' ) ).size /
-		1024 /
-		1024
-	).toFixed( 1 );
-	const nmSize = (
-		fs.statSync( path.join( bundleBuildDir, 'node_modules.tar.gz' ) ).size /
-		1024 /
-		1024
-	).toFixed( 1 );
+	const cliTarFullPath = path.join( bundleBuildDir, 'cli.tar.gz' );
+	const nmTarFullPath = path.join( bundleBuildDir, 'node_modules.tar.gz' );
+	const cliSize = ( fs.statSync( cliTarFullPath ).size / 1024 / 1024 ).toFixed( 1 );
+	const nmSize = ( fs.statSync( nmTarFullPath ).size / 1024 / 1024 ).toFixed( 1 );
 	console.log( `   CLI bundle: ${ cliSize } MB, node_modules: ${ nmSize } MB` );
+
+	// Derive bundle-version from tarball hashes so the runtime can detect
+	// when embedded assets change and trigger re-extraction automatically.
+	// 16 hex chars = 64 bits — collision-resistant enough for a cache key,
+	// short enough to read at a glance in logs.
+	const bundleVersion = createHash( 'sha256' )
+		.update( sha256( cliTarFullPath ) )
+		.update( sha256( nmTarFullPath ) )
+		.digest( 'hex' )
+		.slice( 0, 16 );
+	fs.writeFileSync( path.join( bundleBuildDir, 'bundle-version.txt' ), bundleVersion );
 
 	// Step 4: Generate bundle blob
 	console.log( '\n==> Step 4/5: Generating bundle blob...' );
@@ -139,12 +154,20 @@ async function main(): Promise< void > {
 		run( `codesign -s - "${ outputPath }"` );
 	}
 
+	// Emit a SHA-256 checksum file alongside the binary so the curl installers
+	// can verify the download before executing it.
+	const binarySha = sha256( outputPath );
+	const checksumPath = `${ outputPath }.sha256`;
+	fs.writeFileSync( checksumPath, `${ binarySha }  ${ path.basename( outputPath ) }\n` );
+
 	// Cleanup build artifacts
 	fs.rmSync( bundleBuildDir, { recursive: true, force: true } );
 	fs.rmSync( blobPath, { force: true } );
 
 	const size = ( fs.statSync( outputPath ).size / 1024 / 1024 ).toFixed( 1 );
 	console.log( `\n==> Done! Binary: ${ outputPath } (${ size } MB)` );
+	console.log( `    SHA-256:   ${ binarySha }` );
+	console.log( `    Checksum:  ${ checksumPath }` );
 }
 
 main().catch( ( error ) => {

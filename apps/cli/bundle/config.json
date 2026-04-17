@@ -4,6 +4,7 @@
 	"disableExperimentalSEAWarning": true,
 	"assets": {
 		"node_modules.tar.gz": "build/node_modules.tar.gz",
-		"cli.tar.gz": "build/cli.tar.gz"
+		"cli.tar.gz": "build/cli.tar.gz",
+		"bundle-version": "build/bundle-version.txt"
 	}
 }

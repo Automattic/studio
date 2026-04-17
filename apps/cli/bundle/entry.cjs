@@ -16,17 +16,24 @@
  * Assets embedded in the binary:
  *   - node_modules.tar.gz: Native/WASM packages needed at runtime
  *   - cli.tar.gz: The CLI bundle (main.mjs + chunks + wp-files)
+ *   - bundle-version: SHA-256 fingerprint of the tarballs above. When the
+ *     binary changes, this value changes, triggering re-extraction.
  */
 'use strict';
 
 const { execSync } = require( 'node:child_process' );
 const {
+	closeSync,
 	existsSync,
 	mkdirSync,
+	openSync,
+	readdirSync,
 	readFileSync,
+	renameSync,
 	rmSync,
-	unlinkSync,
+	statSync,
 	writeFileSync,
+	writeSync,
 } = require( 'node:fs' );
 const { homedir } = require( 'node:os' );
 const { join, sep } = require( 'node:path' );
@@ -40,11 +47,130 @@ const FORCE_LOCAL = process.platform === 'win32' ? ' --force-local' : '';
 
 const DEFAULT_CLI_DIR = join( homedir(), '.studio', 'cli' );
 const CLI_DIR = process.env.STUDIO_CLI_DIR || DEFAULT_CLI_DIR;
-const NODE_MODULES_DIR = join( CLI_DIR, 'node_modules' );
+const PARENT_DIR = join( CLI_DIR, '..' );
 const MARKER_FILE = join( CLI_DIR, '.bundle-version' );
+const LOCK_FILE = `${ CLI_DIR }.lock`;
+const STALE_LOCK_MS = 60_000;
 
-// Bump this to force re-extraction when the binary is updated
-const BUNDLE_VERSION = '0.0.1';
+const sleep = ( ms ) => new Promise( ( resolve ) => setTimeout( resolve, ms ) );
+
+// Coordinate concurrent first-runs with a single lockfile. openSync('wx')
+// is an atomic "create if not exists" so only one process can hold it.
+// A stale lock (owning process died mid-extraction) is broken after STALE_LOCK_MS.
+async function acquireLock() {
+	const deadline = Date.now() + STALE_LOCK_MS * 2;
+	while ( Date.now() < deadline ) {
+		try {
+			mkdirSync( PARENT_DIR, { recursive: true } );
+			const fd = openSync( LOCK_FILE, 'wx' );
+			writeSync( fd, String( process.pid ) );
+			closeSync( fd );
+			return;
+		} catch ( err ) {
+			if ( err.code !== 'EEXIST' ) {
+				throw err;
+			}
+		}
+		try {
+			const stats = statSync( LOCK_FILE );
+			if ( Date.now() - stats.mtimeMs > STALE_LOCK_MS ) {
+				rmSync( LOCK_FILE, { force: true } );
+				continue;
+			}
+		} catch {
+			// Lock vanished between attempts; retry immediately.
+			continue;
+		}
+		await sleep( 200 );
+	}
+	throw new Error( `Timed out waiting for ${ LOCK_FILE } after ${ STALE_LOCK_MS * 2 }ms.` );
+}
+
+function releaseLock() {
+	rmSync( LOCK_FILE, { force: true } );
+}
+
+// Remove orphaned `${CLI_DIR}.tmp-*` dirs left behind by killed/crashed runs.
+function sweepStaleTmpDirs() {
+	let entries;
+	try {
+		entries = readdirSync( PARENT_DIR );
+	} catch {
+		return;
+	}
+	const base = CLI_DIR.split( sep ).pop();
+	for ( const name of entries ) {
+		if ( name.startsWith( `${ base }.tmp-` ) ) {
+			rmSync( join( PARENT_DIR, name ), { recursive: true, force: true } );
+		}
+	}
+}
+
+function runTar( args ) {
+	try {
+		execSync( `tar ${ args }`, { stdio: 'inherit' } );
+	} catch ( err ) {
+		throw new Error(
+			`Failed to extract bundle with tar. Make sure 'tar' is installed and on PATH. Original error: ${ err.message }`
+		);
+	}
+}
+
+function extractTarAsset( assetName, destDir ) {
+	// Extract into a sibling tmp dir first, then move it into place. The
+	// surrounding lock serializes this across processes, so the window between
+	// rm and rename can't be interleaved with another writer.
+	const suffix = `.tmp-${ process.pid }`;
+	const tmpDir = `${ destDir }${ suffix }`;
+	const tarPath = `${ destDir }${ suffix }.tar.gz`;
+
+	let extractionSucceeded = false;
+	try {
+		writeFileSync( tarPath, Buffer.from( getAsset( assetName ) ) );
+
+		if ( existsSync( tmpDir ) ) {
+			rmSync( tmpDir, { recursive: true, force: true } );
+		}
+		mkdirSync( tmpDir, { recursive: true } );
+		runTar( `-xzf "${ posix( tarPath ) }"${ FORCE_LOCAL } -C "${ posix( tmpDir ) }"` );
+
+		if ( existsSync( destDir ) ) {
+			rmSync( destDir, { recursive: true, force: true } );
+		}
+		renameSync( tmpDir, destDir );
+		extractionSucceeded = true;
+	} finally {
+		rmSync( tarPath, { force: true } );
+		if ( ! extractionSucceeded ) {
+			rmSync( tmpDir, { recursive: true, force: true } );
+		}
+	}
+}
+
+async function ensureExtracted( bundleVersion ) {
+	await acquireLock();
+	try {
+		// Re-check under the lock: another process may have extracted while we
+		// were waiting.
+		if (
+			existsSync( MARKER_FILE ) &&
+			readFileSync( MARKER_FILE, 'utf8' ).trim() === bundleVersion
+		) {
+			return;
+		}
+
+		console.log( 'First run — extracting runtime assets...' );
+		sweepStaleTmpDirs();
+
+		extractTarAsset( 'cli.tar.gz', CLI_DIR );
+		extractTarAsset( 'node_modules.tar.gz', join( CLI_DIR, 'node_modules' ) );
+
+		writeFileSync( MARKER_FILE, bundleVersion );
+		console.log( 'Extraction complete.' );
+	} finally {
+		releaseLock();
+	}
+}
 
 async function main() {
 	if ( ! isSea() ) {
@@ -52,47 +178,12 @@ async function main() {
 		process.exit( 1 );
 	}
 
-	const needsExtract =
-		! existsSync( MARKER_FILE ) || readFileSync( MARKER_FILE, 'utf8' ).trim() !== BUNDLE_VERSION;
+	const bundleVersion = Buffer.from( getAsset( 'bundle-version' ) ).toString( 'utf8' ).trim();
+	const markerMatches =
+		existsSync( MARKER_FILE ) && readFileSync( MARKER_FILE, 'utf8' ).trim() === bundleVersion;
 
-	if ( needsExtract ) {
-		console.log( 'First run — extracting runtime assets...' );
-
-		// Extract CLI bundle
-		const parentDir = join( CLI_DIR, '..' );
-		mkdirSync( parentDir, { recursive: true } );
-		const cliBundleTar = Buffer.from( getAsset( 'cli.tar.gz' ) );
-		const cliTarPath = join( parentDir, 'cli.tar.gz' );
-		writeFileSync( cliTarPath, cliBundleTar );
-
-		if ( existsSync( CLI_DIR ) ) {
-			rmSync( CLI_DIR, { recursive: true, force: true } );
-		}
-		mkdirSync( CLI_DIR, { recursive: true } );
-		execSync( `tar -xzf "${ posix( cliTarPath ) }"${ FORCE_LOCAL } -C "${ posix( CLI_DIR ) }"`, {
-			stdio: 'inherit',
-		} );
-		unlinkSync( cliTarPath );
-
-		// Extract node_modules alongside the CLI bundle
-		const nodeModulesTar = Buffer.from( getAsset( 'node_modules.tar.gz' ) );
-		const tarPath = join( parentDir, 'node_modules.tar.gz' );
-		writeFileSync( tarPath, nodeModulesTar );
-
-		if ( existsSync( NODE_MODULES_DIR ) ) {
-			rmSync( NODE_MODULES_DIR, { recursive: true, force: true } );
-		}
-		mkdirSync( NODE_MODULES_DIR, { recursive: true } );
-		execSync(
-			`tar -xzf "${ posix( tarPath ) }"${ FORCE_LOCAL } -C "${ posix( NODE_MODULES_DIR ) }"`,
-			{
-				stdio: 'inherit',
-			}
-		);
-		unlinkSync( tarPath );
-
-		writeFileSync( MARKER_FILE, BUNDLE_VERSION );
-		console.log( 'Extraction complete.' );
+	if ( ! markerMatches ) {
+		await ensureExtracted( bundleVersion );
 	}
 
 	// When spawned as a child process (e.g. daemon spawning wp-server),

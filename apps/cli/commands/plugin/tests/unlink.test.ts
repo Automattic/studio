@@ -80,6 +80,17 @@ describe( 'CLI: studio plugin unlink', () => {
 
 			await expect( runCommand( testSiteFolder, pluginName ) ).rejects.toThrow( 'Site not found' );
 		} );
+
+		it.each( [ '../evil', '../../etc', 'foo/bar', 'a/b/c' ] )(
+			'rejects path traversal in plugin name: %s',
+			async ( malicious ) => {
+				await expect( runCommand( testSiteFolder, malicious ) ).rejects.toThrow(
+					/Invalid plugin name/
+				);
+				expect( fs.promises.unlink ).not.toHaveBeenCalled();
+				expect( fs.promises.lstat ).not.toHaveBeenCalled();
+			}
+		);
 	} );
 
 	describe( 'Success Cases', () => {

@@ -3,6 +3,14 @@ import path from 'path';
 import { pathExists } from '@studio/common/lib/fs-utils';
 import { vi } from 'vitest';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
+import {
+	mockReportStart,
+	mockReportSuccess,
+	mockReportError,
+	mockReportProgress,
+	mockReportWarning,
+	mockReportKeyValuePair,
+} from 'cli/tests/test-utils';
 import { runCommand } from '../list-linked';
 
 vi.mock( 'fs', () => {
@@ -23,6 +31,19 @@ vi.mock( 'cli/lib/cli-config/sites', async () => {
 		getSiteByFolder: vi.fn(),
 	};
 } );
+vi.mock( 'cli/logger', () => ( {
+	Logger: class {
+		reportStart = mockReportStart;
+		reportSuccess = mockReportSuccess;
+		reportError = mockReportError;
+		reportProgress = mockReportProgress;
+		reportWarning = mockReportWarning;
+		reportKeyValuePair = mockReportKeyValuePair;
+		spinner = {};
+		currentAction = null;
+	},
+	LoggerError: class LoggerError extends Error {},
+} ) );
 
 describe( 'CLI: studio plugin list-linked', () => {
 	const testSiteFolder = '/test/site/path';
@@ -60,12 +81,17 @@ describe( 'CLI: studio plugin list-linked', () => {
 	const joinedOutput = () =>
 		consoleLogSpy.mock.calls.map( ( c: unknown[] ) => String( c[ 0 ] ?? '' ) ).join( '\n' );
 
+	const loggerMessages = () =>
+		[ ...mockReportStart.mock.calls, ...mockReportSuccess.mock.calls ]
+			.map( ( c ) => String( c[ c.length - 1 ] ?? '' ) )
+			.join( '\n' );
+
 	it( 'prints no linked plugins message when plugins dir is missing', async () => {
 		vi.mocked( pathExists ).mockResolvedValue( false );
 
 		await runCommand( testSiteFolder, 'table' );
 
-		expect( joinedOutput() ).toMatch( /No linked plugins found/ );
+		expect( loggerMessages() ).toMatch( /No linked plugins found/ );
 	} );
 
 	it( 'prints no linked plugins message when dir has no symlinks', async () => {
@@ -78,7 +104,7 @@ describe( 'CLI: studio plugin list-linked', () => {
 
 		await runCommand( testSiteFolder, 'table' );
 
-		expect( joinedOutput() ).toMatch( /No linked plugins found/ );
+		expect( loggerMessages() ).toMatch( /No linked plugins found/ );
 	} );
 
 	it( 'lists linked plugins in table format', async () => {
@@ -96,8 +122,8 @@ describe( 'CLI: studio plugin list-linked', () => {
 
 		await runCommand( testSiteFolder, 'table' );
 
+		expect( loggerMessages() ).toMatch( /Found 2 linked plugin/ );
 		const output = joinedOutput();
-		expect( output ).toMatch( /Found 2 linked plugin/ );
 		expect( output ).toContain( 'plugin-a' );
 		expect( output ).toContain( 'plugin-b' );
 		expect( output ).toContain( '/dev/plugin-a' );

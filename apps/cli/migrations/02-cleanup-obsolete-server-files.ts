@@ -26,8 +26,13 @@ function getObsoletePaths(): string[] {
 export const cleanupObsoleteServerFiles: Migration = {
 	needsToRun: async () => getObsoletePaths().some( ( p ) => fs.existsSync( p ) ),
 	run: async () => {
-		await Promise.all(
+		const results = await Promise.allSettled(
 			getObsoletePaths().map( ( p ) => fs.promises.rm( p, { recursive: true, force: true } ) )
 		);
+		for ( const result of results ) {
+			if ( result.status === 'rejected' ) {
+				console.error( '[migration] Failed to remove obsolete server-files entry:', result.reason );
+			}
+		}
 	},
 };

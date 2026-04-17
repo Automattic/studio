@@ -256,14 +256,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 			case ImporterEvents.IMPORT_ERROR:
 			case BackupExtractEvents.BACKUP_EXTRACT_ERROR:
 			case ValidatorEvents.IMPORT_VALIDATION_ERROR:
-				setImportState( ( { [ siteId ]: currentProgress, ...rest } ) => ( {
-					...rest,
-					[ siteId ]: {
-						...currentProgress,
-						statusMessage: __( 'Import failed. Please try again.' ),
-						progress: 100,
-					},
-				} ) );
+				clearImportState( siteId );
 				break;
 		}
 	} );
@@ -417,15 +410,6 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				break;
 			}
 			case ExportEvents.EXPORT_ERROR: {
-				getIpcApi().showErrorMessageBox( {
-					title: __( 'Failed exporting site' ),
-					message: __(
-						'An error occurred while exporting the site. If this problem persists, please contact support.'
-					),
-					error: data,
-					showOpenLogs: true,
-				} );
-
 				setExportState( ( { [ siteId ]: currentProgress, ...rest } ) => ( {
 					...rest,
 					[ siteId ]: {

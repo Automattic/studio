@@ -140,6 +140,7 @@ export async function importSite(
 
 type ExportOptions = {
 	mode: 'full' | 'content' | 'db';
+	showErrorModal?: boolean;
 	showItemInFolder?: boolean;
 	showNotification?: boolean;
 	splitDatabaseDumpByTable?: boolean;
@@ -159,6 +160,7 @@ export async function exportSite(
 
 	const {
 		mode,
+		showErrorModal = true,
 		showItemInFolder = false,
 		showNotification = false,
 		splitDatabaseDumpByTable = false,
@@ -186,10 +188,16 @@ export async function exportSite(
 			);
 		} );
 
-		eventEmitter.on( 'data', ( { data } ) => {
+		eventEmitter.on( 'data', async ( { data } ) => {
 			const result = exportEventSchema.safeParse( data );
 
-			if ( result.success && result.data.event[ 0 ] === ExportEvents.EXPORT_COMPLETE ) {
+			if ( ! result.success ) {
+				return;
+			}
+
+			const parsed = result.data;
+
+			if ( parsed.event[ 0 ] === ExportEvents.EXPORT_COMPLETE ) {
 				if ( showNotification ) {
 					const notification = new Notification( {
 						title: site.details.name,
@@ -201,6 +209,17 @@ export async function exportSite(
 				if ( showItemInFolder ) {
 					shell.showItemInFolder( destinationPath );
 				}
+			}
+
+			if ( parsed.event[ 0 ] === ExportEvents.EXPORT_ERROR && showErrorModal ) {
+				await showErrorMessageBox( event, {
+					title: __( 'Failed exporting site' ),
+					message: __(
+						'An error occurred while exporting the site. If this problem persists, please contact support.'
+					),
+					error: data,
+					showOpenLogs: true,
+				} );
 			}
 		} );
 

@@ -32,8 +32,6 @@ export async function executeExportCliCommand(
 	} );
 
 	cliEventEmitter.on( 'failure', ( { error } ) => {
-		console.log( 'error', error );
-
 		sendIpcEventToRendererWithWindow(
 			parentWindow,
 			'on-export',

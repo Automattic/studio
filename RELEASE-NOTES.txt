@@ -1,63 +1,6 @@
 Unreleased
 ==========
 
-1.7.9
-=====
-* Add push/pull/import/export MCP tools for AI agents #3022
-* Fix dark mode onboarding screen #3025
-* Sort studio code commands and subcommands alphabetically #3027
-* Strip unnecessary fields in wpcom_request response #3005
-* Fix dark mode visibility for error/success text in site list #3034
-* Studio: Filter out deprecated warnings from fatal errors #3018
-* CLI: ensure Studio root exists before starting code agent #3039
-* Bump actions/checkout from 4 to 6 #3048
-* Update CLI README with GIF and import/export/push/pull #3029
-* Enforce minimum node version in the CLI #3049
-* Fix sidebar top padding on Windows #3026
-* Bump actions/setup-node from 4 to 6 #3047
-* Bump dependabot/fetch-metadata from 2 to 3 #3046
-* Update illustration colors and add dot grid background #3004
-* Upgrade archiver to v7 to fix glob and inflight deprecation warnings #3050
-* Studio: Fix sync info icon color in dark mode #3053
-* Fix white border around scrollbar in light mode #3051
-* Track more CLI bump stats #3054
-* Fix site thumbnail not displaying correctly for newly created sites #3028
-* Add Studio Code section to CLI README #3059
-* Fix release notes previous tag selection and filtering #3063
-* Rename audit skill directory to match need-for-speed skill name #3067
-* Add archiver patches back to fix following symlinks on export #3060
-* Update SQLite plugin to 2.2.23 #3069
-* Fix flaky edit-site-details test on Windows CI #3068
-* Fix export error message showing success styling in non-English locales #3061
-* Rename audit_performance tool and refactor slash command dispatch #3073
-* Disable autoStart when server crashes on startup #3036
-* Align connected site labels with sync dialog layout #3032
-* Show real-time progress feedback during push/pull from Studio Code #3071
-* CLI AI: Add /clear command #3062
-* Use abort timeout for github latest-release fetch #3074
-* Update @wp-playground/* and @php-wasm/* packages to 3.1.19 #3083
-* Fix sync pull getting stuck when site has broken SQLite integration #3008
-* Replace ora with picospinner #3035
-* CLI AI: Add `--json` flag for headless NDJSON output #3012
-* Fix TypeScript error in AiOutputAdapter interface for setLoaderMessage #3085
-* Hide .studio directory on Windows #3079
-* Default site delete to also trash files #3084
-* Move close button in fullscreen modal and improve Windows title bar overlay #3087
-* Add .deployignore entry to 1.7.8 release notes #3091
-* Fix flaky edit-site-details test on Windows CI (#3068 follow-up) #3092
-* Fix 'Spinner is already running' error when creating sites via CLI #3093
-* CLI: Show clear error for non-existent WordPress versions #3065
-* Stop runtime update checks for WP-CLI and sqlite-command #3086
-* Add update notifier to CLI #3096
-* Add ToS and Privacy Policy to onboarding screen #3097
-* Fix picospinner migration issues, clean up `Logger` API #3109
-* Show compaction status in CLI code agent UI #3101
-* Improve WP mismatch notice #3103
-* CLI: Throttle dependency update checks to once per 24h #3100
-* Add hosting guidance to agent instructions #3111
-* Fix checking php version mismatch #3112
-* Support landingPage Blueprint property #3107
-
 1.7.8
 =====
 * Released studio code command #3002

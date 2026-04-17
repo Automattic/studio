@@ -163,6 +163,16 @@ studio plugin unlink my-plugin --path ~/Studio/my-site
 studio theme unlink my-theme --path ~/Studio/my-site
 ```
 
+Run from inside a plugin or theme folder — no flags needed:
+
+```bash
+cd ~/Developer/wp-plugins/my-plugin
+studio plugin link        # interactive site picker appears
+studio plugin unlink      # plugin name defaults to current folder name
+```
+
+When `--path` does not point to a Studio site and the terminal is interactive, the CLI opens a searchable picker listing every local site so you can choose the target. In non-interactive shells (CI, piped input) the original error is preserved, so automation fails loud instead of silently prompting.
+
 Notes:
 
 - The source directory must look like a valid WordPress plugin (PHP file with a `Plugin Name:` header) or theme (`style.css` with a `Theme Name:` header).

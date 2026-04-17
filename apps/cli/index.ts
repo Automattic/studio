@@ -186,6 +186,42 @@ async function main() {
 	registerPullCommand( studioArgv );
 	registerPushCommand( studioArgv );
 
+	studioArgv.command( 'plugin', __( 'Manage plugins' ), async ( pluginYargs ) => {
+		const [
+			{ registerCommand: registerPluginLinkCommand },
+			{ registerCommand: registerPluginUnlinkCommand },
+			{ registerCommand: registerPluginListLinkedCommand },
+		] = await Promise.all( [
+			import( 'cli/commands/plugin/link' ),
+			import( 'cli/commands/plugin/unlink' ),
+			import( 'cli/commands/plugin/list-linked' ),
+		] );
+
+		registerPluginLinkCommand( pluginYargs );
+		registerPluginUnlinkCommand( pluginYargs );
+		registerPluginListLinkedCommand( pluginYargs );
+		pluginYargs
+			.version( false )
+			.demandCommand( 1, __( 'You must provide a valid plugin command' ) );
+	} );
+
+	studioArgv.command( 'theme', __( 'Manage themes' ), async ( themeYargs ) => {
+		const [
+			{ registerCommand: registerThemeLinkCommand },
+			{ registerCommand: registerThemeUnlinkCommand },
+			{ registerCommand: registerThemeListLinkedCommand },
+		] = await Promise.all( [
+			import( 'cli/commands/theme/link' ),
+			import( 'cli/commands/theme/unlink' ),
+			import( 'cli/commands/theme/list-linked' ),
+		] );
+
+		registerThemeLinkCommand( themeYargs );
+		registerThemeUnlinkCommand( themeYargs );
+		registerThemeListLinkedCommand( themeYargs );
+		themeYargs.version( false ).demandCommand( 1, __( 'You must provide a valid theme command' ) );
+	} );
+
 	studioArgv
 		.command( 'site', __( 'Manage sites' ), async ( sitesYargs ) => {
 			const [

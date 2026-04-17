@@ -31,6 +31,11 @@ const CLI_CONFIG_VERSION = 1;
 // read this file, and any updates to this schema may require updating the `version` field.
 export const aiProviderSchema = z.enum( [ 'wpcom', 'anthropic-api-key' ] );
 
+export const updateCheckSchema = z.object( {
+	lastChecked: z.number(),
+	latestVersion: z.string(),
+} );
+
 const cliConfigSchema = z.object( {
 	version: z.literal( CLI_CONFIG_VERSION ),
 	sites: z.array( siteSchema ).default( () => [] ),
@@ -40,6 +45,8 @@ const cliConfigSchema = z.object( {
 	lastBumpStats: z
 		.record( z.string(), z.partialRecord( z.enum( StatsMetric ), z.number() ) )
 		.optional(),
+	lastDependencyCheckTime: z.number().optional(),
+	updateCheck: updateCheckSchema.optional(),
 } );
 
 type CliConfig = z.infer< typeof cliConfigSchema >;

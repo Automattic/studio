@@ -37,7 +37,6 @@ export async function runCommand(
 				__( 'Authentication required. Please log in with `studio auth login`.' )
 			);
 		}
-		logger.reportSuccess( __( 'Validation successful' ), true );
 
 		logger.reportStart( LoggerAction.LOAD, __( 'Loading preview sites…' ) );
 		const snapshots = await getSnapshotsFromConfig( token.id, siteFolder );

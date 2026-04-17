@@ -112,23 +112,17 @@ export async function runCommand(
 
 	try {
 		if ( isOnlineStatus ) {
-			logger.reportStart(
-				LoggerAction.CHECKING_DEPENDENCY_UPDATES,
-				__( 'Checking for dependency updates…' )
-			);
-
-			await updateServerFiles();
-			logger.reportSuccess( __( 'Dependencies up to date' ) );
+			const updated = await updateServerFiles();
+			if ( updated ) {
+				logger.reportSuccess( __( 'Dependencies updated' ) );
+			}
 		}
 	} catch ( error ) {
 		// Errors here aren't critical and likely relate to things outside the user's control,
-		// like network issues or bad API responses. Report them in development, and silently
-		// clear the spinner in production so creation can continue.
+		// like network issues or bad API responses. Report them only in development.
 		if ( process.env.NODE_ENV !== 'production' ) {
 			const loggerError = new LoggerError( 'Failed to update dependencies', error );
 			logger.reportError( loggerError, false );
-		} else {
-			logger.reportSuccess( __( 'Dependencies up to date' ), true );
 		}
 	}
 
@@ -637,6 +631,55 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			let adminUsername = argv.adminUsername;
 			let adminPassword = argv.adminPassword;
 			let adminEmail = argv.adminEmail;
+
+			// Validate and resolve the WordPress version against available versions before prompting
+			if ( wpVersion && wpVersion !== 'latest' && wpVersion !== 'nightly' ) {
+				try {
+					logger.reportStart( LoggerAction.VALIDATE, __( 'Checking WordPress version…' ) );
+					const availableVersions = await fetchWordPressVersions();
+					const matchedVersion = availableVersions.find(
+						( v ) => v.value === wpVersion || v.value.startsWith( wpVersion + '.' )
+					);
+					if ( ! matchedVersion ) {
+						const versionLabels = availableVersions
+							.filter( ( v ) => v.value !== 'latest' )
+							.map( ( v ) => v.label );
+						logger.reportError(
+							new LoggerError(
+								sprintf(
+									/* translators: %1$s: requested version, %2$s: list of available versions */
+									__( 'WordPress version "%1$s" is not available. Available versions: %2$s' ),
+									wpVersion,
+									versionLabels.join( ', ' )
+								)
+							)
+						);
+						return;
+					}
+					// Resolve short versions to full versions (e.g. "6.7" → "6.7.2")
+					if ( matchedVersion.value !== wpVersion ) {
+						logger.reportSuccess(
+							sprintf(
+								/* translators: %1$s: requested version, %2$s: resolved version */
+								__( 'WordPress version: %1$s → %2$s' ),
+								wpVersion,
+								matchedVersion.value
+							)
+						);
+					} else {
+						logger.reportSuccess(
+							sprintf(
+								/* translators: %s: WordPress version */
+								__( 'WordPress version: %s' ),
+								wpVersion
+							)
+						);
+					}
+					wpVersion = matchedVersion.value;
+				} catch {
+					// If we can't fetch versions (network issue), let it proceed and fail later
+				}
+			}
 
 			try {
 				if ( process.stdin.isTTY ) {

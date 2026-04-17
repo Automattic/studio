@@ -161,7 +161,7 @@ describe( 'CLI: studio site create', () => {
 		vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( true );
 		vi.mocked( connectToDaemon ).mockResolvedValue( undefined );
 		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
-		vi.mocked( updateServerFiles ).mockResolvedValue( undefined );
+		vi.mocked( updateServerFiles ).mockResolvedValue( true );
 		vi.mocked( setupCustomDomain ).mockResolvedValue( undefined );
 		vi.mocked( startWordPressServer ).mockResolvedValue( mockProcessDescription );
 		vi.mocked( runBlueprint ).mockResolvedValue( undefined );
@@ -1031,6 +1031,22 @@ $table_prefix = 'wp_';
 				expect.anything(),
 				'utf-8'
 			);
+		} );
+	} );
+
+	describe( 'Dependency updates', () => {
+		it( 'calls updateServerFiles when online', async () => {
+			await runCommand( mockSitePath, { ...defaultTestOptions } );
+
+			expect( updateServerFiles ).toHaveBeenCalledTimes( 1 );
+		} );
+
+		it( 'skips updateServerFiles when offline', async () => {
+			vi.mocked( isOnline ).mockResolvedValue( false );
+
+			await runCommand( mockSitePath, { ...defaultTestOptions } );
+
+			expect( updateServerFiles ).not.toHaveBeenCalled();
 		} );
 	} );
 } );

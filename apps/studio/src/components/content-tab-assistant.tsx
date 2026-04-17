@@ -459,7 +459,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 						<TelexIcon />
 						<span className="text-frame-text">
 							{ createInterpolateElement(
-								__( 'Build blocks with <button>Telex <ArrowIcon /></button>' ),
+								__( 'Build blocks with <button>Telex <ArrowIcon/></button>' ),
 								{
 									button: (
 										<Button

@@ -34,6 +34,20 @@ function Get-Bundle {
     Invoke-WebRequest -Uri $Url -OutFile $Dest -UseBasicParsing
 }
 
+# --- Checksum verification ---
+
+function Test-Checksum {
+    param([string]$File, [string]$ChecksumFile)
+
+    # Checksum file format: "<sha256>  <filename>"
+    $Expected = ((Get-Content $ChecksumFile -Raw) -split '\s+')[0].ToLower()
+    $Actual = (Get-FileHash -Path $File -Algorithm SHA256).Hash.ToLower()
+
+    if ($Expected -ne $Actual) {
+        throw "Checksum mismatch: expected $Expected, got $Actual"
+    }
+}
+
 # --- Install ---
 
 function Install-StudioCli {
@@ -45,15 +59,34 @@ function Install-StudioCli {
     Write-Host ""
     Write-Host "Detected platform: win32-$Arch"
 
-    # Download
-    Write-Host "Downloading Studio CLI..."
     $BinDir = Join-Path $InstallDir "bin"
     New-Item -ItemType Directory -Path $BinDir -Force | Out-Null
-    Get-Bundle -Url $BinaryUrl -Dest (Join-Path $BinDir "studio.exe")
 
-    # Add to PATH
+    $BinaryPath = Join-Path $BinDir "studio.exe"
+    $ChecksumPath = "$BinaryPath.sha256"
+
+    Write-Host "Downloading Studio CLI..."
+    Get-Bundle -Url $BinaryUrl -Dest $BinaryPath
+    Get-Bundle -Url "$BinaryUrl.sha256" -Dest $ChecksumPath
+
+    Write-Host "Verifying checksum..."
+    try {
+        Test-Checksum -File $BinaryPath -ChecksumFile $ChecksumPath
+    }
+    catch {
+        Remove-Item $BinaryPath -Force -ErrorAction SilentlyContinue
+        Remove-Item $ChecksumPath -Force -ErrorAction SilentlyContinue
+        throw
+    }
+    Remove-Item $ChecksumPath -Force
+
+    # Add to PATH — split on ';' for exact-entry match, not substring.
     $UserPath = [Environment]::GetEnvironmentVariable("PATH", "User")
-    if ($UserPath -notlike "*$BinDir*") {
+    $PathDirs = @()
+    if ($UserPath) {
+        $PathDirs = $UserPath -split ';' | Where-Object { $_ -ne '' }
+    }
+    if ($PathDirs -notcontains $BinDir) {
         [Environment]::SetEnvironmentVariable("PATH", "$BinDir;$UserPath", "User")
         $env:PATH = "$BinDir;$env:PATH"
         Write-Host "Added $BinDir to user PATH"

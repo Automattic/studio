@@ -64,20 +64,58 @@ download() {
 	fi
 }
 
+# --- Checksum verification ---
+
+verify_checksum() {
+	BINARY="$1"
+	CHECKSUM_FILE="$2"
+
+	# Checksum file format: "<sha256>  <filename>". Only the hash field matters.
+	EXPECTED="$(awk '{print $1}' "$CHECKSUM_FILE")"
+
+	if command -v shasum >/dev/null 2>&1; then
+		ACTUAL="$(shasum -a 256 "$BINARY" | awk '{print $1}')"
+	elif command -v sha256sum >/dev/null 2>&1; then
+		ACTUAL="$(sha256sum "$BINARY" | awk '{print $1}')"
+	elif command -v openssl >/dev/null 2>&1; then
+		ACTUAL="$(openssl dgst -sha256 "$BINARY" | awk '{print $NF}')"
+	else
+		echo "Error: shasum, sha256sum, or openssl is required to verify the download" >&2
+		return 1
+	fi
+
+	if [ "$EXPECTED" != "$ACTUAL" ]; then
+		echo "Error: checksum mismatch (expected $EXPECTED, got $ACTUAL)" >&2
+		return 1
+	fi
+}
+
 # --- Install ---
 
 install_studio() {
 	BINARY_NAME="studio-cli-${PLATFORM}-${ARCH}"
 	BINARY_URL="${BASE_URL}/${BINARY_NAME}"
 
-	echo "Downloading Studio CLI..."
 	mkdir -p "$INSTALL_DIR/bin"
-	download "$BINARY_URL" "$INSTALL_DIR/bin/studio"
-	chmod +x "$INSTALL_DIR/bin/studio"
+	BINARY_PATH="$INSTALL_DIR/bin/studio"
+	CHECKSUM_PATH="$BINARY_PATH.sha256"
+
+	echo "Downloading Studio CLI..."
+	download "$BINARY_URL" "$BINARY_PATH"
+	download "${BINARY_URL}.sha256" "$CHECKSUM_PATH"
+
+	echo "Verifying checksum..."
+	if ! verify_checksum "$BINARY_PATH" "$CHECKSUM_PATH"; then
+		rm -f "$BINARY_PATH" "$CHECKSUM_PATH"
+		echo "Error: checksum verification failed. Aborting." >&2
+		exit 1
+	fi
+	rm -f "$CHECKSUM_PATH"
+	chmod +x "$BINARY_PATH"
 
 	# Symlink to PATH
 	mkdir -p "$BIN_DIR"
-	ln -sf "$INSTALL_DIR/bin/studio" "$BIN_DIR/studio"
+	ln -sf "$BINARY_PATH" "$BIN_DIR/studio"
 }
 
 # --- PATH setup ---
@@ -101,7 +139,9 @@ ensure_path() {
 		PATH_LINE="export PATH=\"$BIN_DIR:\$PATH\""
 	fi
 
-	if [ -f "$RC_FILE" ] && grep -qF "$BIN_DIR" "$RC_FILE" 2>/dev/null; then
+	# Exact-line match — a substring hit against an unrelated ".local/bin/..."
+	# entry shouldn't make us skip adding our own line.
+	if [ -f "$RC_FILE" ] && grep -qxF "$PATH_LINE" "$RC_FILE" 2>/dev/null; then
 		return
 	fi
 

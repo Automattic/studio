@@ -1,3 +1,4 @@
+import { PRESSABLE_PHP_VERSION } from '@studio/common/constants';
 import { SYNC_PUSH_SIZE_LIMIT_GB } from '@studio/common/lib/sync/constants';
 import { RecommendedPHPVersion as DEFAULT_PHP_VERSION } from '@studio/common/types/php-versions';
 import {
@@ -31,7 +32,12 @@ import { useSyncDialogTexts } from 'src/modules/sync/hooks/use-sync-dialog-texts
 import { useTopLevelSyncTree } from 'src/modules/sync/hooks/use-top-level-sync-tree';
 import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
 import { useI18nLocale } from 'src/stores';
-import { useLatestRewindId, useRemoteFileTree, useLocalFileTree } from 'src/stores/sync';
+import {
+	useHostingPhpVersion,
+	useLatestRewindId,
+	useRemoteFileTree,
+	useLocalFileTree,
+} from 'src/stores/sync';
 import { TreeViewLoadingSkeleton } from './tree-view-loading-skeleton';
 import type { SyncSite } from '@studio/common/types/sync';
 
@@ -177,8 +183,20 @@ export function SyncDialog( {
 		remoteFileTreeError,
 	} = useDynamicTreeState( type, localSite.id, remoteSite.id, setTreeState );
 
+	const {
+		phpVersion: remotePhpVersion,
+		isLoading: isLoadingRemotePhpVersion,
+		isError: isRemotePhpVersionError,
+	} = useHostingPhpVersion( remoteSite.id, { skip: type !== 'push' || remoteSite.isPressable } );
+
 	const shouldShowPhpVersionMismatch =
-		type === 'push' && localSite.phpVersion !== DEFAULT_PHP_VERSION;
+		type === 'push' &&
+		! isLoadingRemotePhpVersion &&
+		! isRemotePhpVersionError &&
+		hasVersionMismatch(
+			localSite.phpVersion,
+			remoteSite.isPressable ? PRESSABLE_PHP_VERSION : remotePhpVersion
+		);
 
 	const [ wpVersion ] = useGetWpVersion( localSite );
 	const shouldShowWpVersionMismatch =

@@ -30,6 +30,7 @@ The Studio CLI lets you:
 - [Import and export](#import-and-export)
 - [Sync with WordPress.com and Pressable](#sync-with-wordpresscom-and-pressable)
 - [Preview sites](#preview-sites)
+- [Link external plugins and themes](#link-external-plugins-and-themes)
 
 ## Requirements
 
@@ -136,3 +137,34 @@ Publish a preview with this command:
 ```bash
 studio preview create --path ~/Studio/my-site
 ```
+
+## Link external plugins and themes
+
+You can keep plugin or theme source code in a central development folder (for example `~/Developer/wp-plugins`) and symlink it into one or more Studio sites. Changes to the source directory are reflected in every site it is linked to, so you can iterate on a plugin once and try it across multiple WordPress versions, PHP versions, or test datasets.
+
+Link a plugin or theme into a site:
+
+```bash
+studio plugin link ~/Developer/wp-plugins/my-plugin --path ~/Studio/my-site
+studio theme link ~/Developer/wp-themes/my-theme --path ~/Studio/my-site
+```
+
+List what is currently linked in a site:
+
+```bash
+studio plugin list-linked --path ~/Studio/my-site
+studio theme list-linked --path ~/Studio/my-site
+```
+
+Remove a link (the source directory is preserved):
+
+```bash
+studio plugin unlink my-plugin --path ~/Studio/my-site
+studio theme unlink my-theme --path ~/Studio/my-site
+```
+
+Notes:
+
+- The source directory must look like a valid WordPress plugin (PHP file with a `Plugin Name:` header) or theme (`style.css` with a `Theme Name:` header).
+- Relative symlinks are used by default. On Windows, if symlink permissions are unavailable the CLI falls back to a directory junction.
+- `unlink` only removes the symlink inside the site — your source files are never touched.

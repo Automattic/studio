@@ -6,7 +6,7 @@ import { PreviewCommandLoggerAction } from '@studio/common/logger-actions';
 import { ImportExportEventData } from 'src/lib/import-export/handle-events';
 import { getMainWindow } from 'src/main-window';
 import type { StoredAuthToken } from '@studio/common/lib/shared-config';
-import type { StudioCodeEvent } from 'src/modules/studio-code/studio-code-types';
+import type { StudioCodeEvent } from 'src/modules/studio-code/studio-code-event-types';
 
 type SnapshotEventData = {
 	action: PreviewCommandLoggerAction;

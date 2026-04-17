@@ -6,7 +6,7 @@ import Anchor from 'src/components/assistant-anchor';
 import createCodeComponent from 'src/components/assistant-code-block';
 import { cx } from 'src/lib/cx';
 import { StudioCodeToolCall } from './studio-code-tool-call';
-import type { ChatMessage } from './studio-code-types';
+import type { ChatMessage } from './studio-code-ui-types';
 
 interface StudioCodeMessageProps {
 	message: ChatMessage;

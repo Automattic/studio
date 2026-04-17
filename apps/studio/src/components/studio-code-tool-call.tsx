@@ -2,7 +2,7 @@ import { __ } from '@wordpress/i18n';
 import { chevronDown, chevronRight, Icon } from '@wordpress/icons';
 import { useState } from 'react';
 import { cx } from 'src/lib/cx';
-import type { ToolCallState } from './studio-code-types';
+import type { ToolCallState } from './studio-code-ui-types';
 
 function formatToolName( name: string ): string {
 	// Convert "mcp__studio__site_create" → "Site Create"

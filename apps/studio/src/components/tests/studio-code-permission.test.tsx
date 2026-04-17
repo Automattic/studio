@@ -1,7 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { StudioCodePermission } from 'src/components/studio-code-permission';
-import type { PermissionRequest } from 'src/components/studio-code-types';
+import type { PermissionRequest } from 'src/components/studio-code-ui-types';
 
 describe( 'StudioCodePermission', () => {
 	const mockPermission: PermissionRequest = {

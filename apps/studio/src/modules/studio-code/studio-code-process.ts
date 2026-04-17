@@ -4,7 +4,7 @@ import readline from 'node:readline';
 import * as Sentry from '@sentry/electron/main';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
-import type { StudioCodeEvent } from './studio-code-types';
+import type { StudioCodeEvent } from './studio-code-event-types';
 
 interface SiteSession {
 	activeTurn: ChildProcess | null;

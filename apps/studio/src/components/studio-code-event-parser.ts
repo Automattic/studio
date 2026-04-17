@@ -1,5 +1,5 @@
-import type { PermissionRequest } from './studio-code-types';
-import type { StudioCodeEvent } from 'src/modules/studio-code/studio-code-types';
+import type { PermissionRequest } from './studio-code-ui-types';
+import type { StudioCodeEvent } from 'src/modules/studio-code/studio-code-event-types';
 
 // Minimal shapes matching SDK types — avoids importing @anthropic-ai/claude-agent-sdk in the renderer.
 

@@ -12,8 +12,8 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { parseStudioCodeEvent, type ParsedAction } from './studio-code-event-parser';
 import { StudioCodeMessage } from './studio-code-message';
 import { StudioCodePermission } from './studio-code-permission';
-import type { ChatMessage, PermissionRequest, ToolCallState } from './studio-code-types';
-import type { StudioCodeEvent } from 'src/modules/studio-code/studio-code-types';
+import type { ChatMessage, PermissionRequest, ToolCallState } from './studio-code-ui-types';
+import type { StudioCodeEvent } from 'src/modules/studio-code/studio-code-event-types';
 
 // ── LocalStorage persistence ──
 

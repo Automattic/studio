@@ -1,6 +1,6 @@
 import { Button } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
-import type { PermissionRequest } from './studio-code-types';
+import type { PermissionRequest } from './studio-code-ui-types';
 
 interface StudioCodePermissionProps {
 	permission: PermissionRequest;

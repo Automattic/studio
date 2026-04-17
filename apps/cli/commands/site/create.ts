@@ -112,23 +112,17 @@ export async function runCommand(
 
 	try {
 		if ( isOnlineStatus ) {
-			logger.reportStart(
-				LoggerAction.CHECKING_DEPENDENCY_UPDATES,
-				__( 'Checking for dependency updates…' )
-			);
-
-			await updateServerFiles();
-			logger.reportSuccess( __( 'Dependencies up to date' ) );
+			const updated = await updateServerFiles();
+			if ( updated ) {
+				logger.reportSuccess( __( 'Dependencies updated' ) );
+			}
 		}
 	} catch ( error ) {
 		// Errors here aren't critical and likely relate to things outside the user's control,
-		// like network issues or bad API responses. Report them in development, and silently
-		// clear the spinner in production so creation can continue.
+		// like network issues or bad API responses. Report them only in development.
 		if ( process.env.NODE_ENV !== 'production' ) {
 			const loggerError = new LoggerError( 'Failed to update dependencies', error );
 			logger.reportError( loggerError, false );
-		} else {
-			logger.reportSuccess( __( 'Dependencies up to date' ), true );
 		}
 	}
 

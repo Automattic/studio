@@ -9,6 +9,12 @@ export const SupportedPHPVersions = [ '8.5', '8.4', '8.3', '8.2', '8.1', '8.0', 
 
 export const LatestSupportedPHPVersion = '8.5' as const;
 
+/**
+ * We don't have an opportunity to retrieve PHP version from Jetpack connected sites,
+ * so as a temporary solution - we are using a hardcoded value.
+ */
+export const PressablePHPVersion = '8.5' as const;
+
 export const SupportedPHPVersionsList: string[] = [ ...SupportedPHPVersions ];
 
 export type SupportedPHPVersion = ( typeof SupportedPHPVersions )[ number ];

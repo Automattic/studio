@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { isWordPressDirectory, recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
 import {
 	BackupExtractEvents,
@@ -12,7 +13,7 @@ import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-a
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { SiteData } from 'cli/lib/cli-config/core';
 import { clearSiteLatestCliPid, getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
-import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
 import { DEFAULT_IMPORTER_OPTIONS, getImporter } from 'cli/lib/import-export/import/import-manager';
 import { getBackupFileType } from 'cli/lib/import-export/utils';
@@ -302,6 +303,8 @@ export async function runCommand(
 		// on the first request. Send that first request from here to hide the error from the user.
 		const siteUrl = getSiteUrl( site );
 		await fetch( siteUrl ).catch( () => {} );
+
+		await emitCliEvent( { event: SITE_EVENTS.UPDATED, data: { siteId: site.id } } );
 	} catch ( error ) {
 		importError = error;
 	} finally {

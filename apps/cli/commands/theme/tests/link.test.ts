@@ -132,6 +132,20 @@ describe( 'CLI: studio theme link', () => {
 				/already linked to a different location/
 			);
 		} );
+
+		it( 'throws when source resolves to filesystem root (empty basename)', async () => {
+			vi.mocked( pathExists ).mockImplementation(
+				async ( p: string ) => p === '/' || p === '/style.css'
+			);
+			vi.mocked( fs.promises.readFile ).mockResolvedValue(
+				'/*\nTheme Name: Root Theme\n*/' as unknown as never
+			);
+
+			await expect( runCommand( testSiteFolder, '/' ) ).rejects.toThrow(
+				/Could not determine a valid theme directory name/
+			);
+			expect( fs.promises.symlink ).not.toHaveBeenCalled();
+		} );
 	} );
 
 	describe( 'Success Cases', () => {

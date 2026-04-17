@@ -6,7 +6,6 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 	return (
 		<div className={ styles.root }>
 			<aside className={ styles.sidebar }>
-				<div className={ styles.spacer } />
 				<div className={ styles.separator } />
 				<SiteList />
 			</aside>

@@ -21,6 +21,12 @@ export interface AuthUser {
 }
 
 export interface Connector {
+	/**
+	 * Optional hook for connector-specific setup that must run after the
+	 * connector is constructed but before the UI renders.
+	 */
+	init?(): Promise< void >;
+
 	// Auth
 	requiresAuth: boolean;
 	isAuthenticated(): Promise< boolean >;

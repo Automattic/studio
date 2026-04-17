@@ -1,42 +1,13 @@
-*,
-*::before,
-*::after {
-	box-sizing: border-box;
+body {
 	margin: 0;
 	padding: 0;
-}
-
-body {
-	font-family:
-		-apple-system,
-		BlinkMacSystemFont,
-		'Segoe UI',
-		Roboto,
-		'Apple Color Emoji',
-		'Segoe UI Emoji',
-		'Noto Color Emoji',
-		'Noto Sans',
-		'Arial Unicode MS',
-		sans-serif;
-	font-size: 13px;
-	line-height: 1.4;
-	-webkit-font-smoothing: antialiased;
-	-moz-osx-font-smoothing: grayscale;
-	background-color: #ffffff;
-	color: #1e1e1e;
+	font-family: var(--wpds-font-family-body);
+	font-size: var(--wpds-font-size-md);
+	line-height: var(--wpds-font-line-height-md);
+	background-color: var(--wpds-color-bg-surface-neutral-strong);
+	color: var(--wpds-color-fg-content-neutral);
 	color-scheme: light dark;
-}
-
-@media ( prefers-color-scheme: dark ) {
-	body {
-		background-color: #1e1e1e;
-		color: #f0f0f0;
-	}
-}
-
-/* Electron: make the window draggable */
-body {
-	-webkit-app-region: drag;
+	-webkit-app-region: drag; /* Electron: make the window draggable */
 }
 
 button,

@@ -7,7 +7,7 @@ import { createIpcConnector } from '@/data/core/connectors/ipc';
 async function bootstrap() {
 	const connector = createIpcConnector();
 
-	await persistPromise;
+	await Promise.all( [ connector.init?.(), persistPromise ] );
 
 	createRoot( document.getElementById( 'root' )! ).render(
 		<StrictMode>

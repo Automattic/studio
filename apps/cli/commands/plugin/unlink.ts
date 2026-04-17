@@ -19,6 +19,16 @@ export async function runCommand( sitePath: string, pluginName?: string ): Promi
 		throw new LoggerError( __( 'Plugin name is required' ) );
 	}
 
+	// Reject path traversal: plugin name must be a single path segment
+	if ( path.basename( resolvedPluginName ) !== resolvedPluginName ) {
+		throw new LoggerError(
+			sprintf(
+				__( 'Invalid plugin name "%s": must be a single directory name without path separators' ),
+				resolvedPluginName
+			)
+		);
+	}
+
 	// Resolve site: try --path, fall back to picker if it's not a site and stdin is a TTY
 	let resolvedSitePath = sitePath;
 	try {

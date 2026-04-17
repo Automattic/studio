@@ -80,6 +80,17 @@ describe( 'CLI: studio theme unlink', () => {
 
 			await expect( runCommand( testSiteFolder, themeName ) ).rejects.toThrow( 'Site not found' );
 		} );
+
+		it.each( [ '../evil', '../../etc', 'foo/bar', 'a/b/c' ] )(
+			'rejects path traversal in theme name: %s',
+			async ( malicious ) => {
+				await expect( runCommand( testSiteFolder, malicious ) ).rejects.toThrow(
+					/Invalid theme name/
+				);
+				expect( fs.promises.unlink ).not.toHaveBeenCalled();
+				expect( fs.promises.lstat ).not.toHaveBeenCalled();
+			}
+		);
 	} );
 
 	describe( 'Success Cases', () => {

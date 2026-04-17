@@ -1,9 +1,10 @@
 import fs from 'fs';
 import path from 'path';
 import { pathExists } from '@studio/common/lib/fs-utils';
+import { PluginCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
-import { LoggerError } from 'cli/logger';
+import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
 interface LinkedPlugin {
@@ -45,29 +46,40 @@ async function getLinkedPlugins( sitePath: string ): Promise< LinkedPlugin[] > {
 }
 
 export async function runCommand( sitePath: string, format: 'table' | 'json' ): Promise< void > {
-	// Validate site exists
-	await getSiteByFolder( sitePath );
+	const logger = new Logger< LoggerAction >();
 
-	const linkedPlugins = await getLinkedPlugins( sitePath );
+	try {
+		// Validate site exists
+		await getSiteByFolder( sitePath );
 
-	if ( format === 'json' ) {
-		console.log( JSON.stringify( linkedPlugins, null, 2 ) );
-		return;
-	}
+		if ( format === 'json' ) {
+			const linkedPlugins = await getLinkedPlugins( sitePath );
+			console.log( JSON.stringify( linkedPlugins, null, 2 ) );
+			return;
+		}
 
-	if ( linkedPlugins.length === 0 ) {
-		console.log( __( 'No linked plugins found.' ) );
-		console.log( __( 'Use "studio plugin link <source-path>" to link an external plugin.' ) );
-		return;
-	}
+		logger.reportStart( LoggerAction.LIST_LINKED, __( 'Listing linked plugins…' ) );
+		const linkedPlugins = await getLinkedPlugins( sitePath );
 
-	console.log( sprintf( __( 'Found %d linked plugin(s):' ), linkedPlugins.length ) );
-	console.log();
+		if ( linkedPlugins.length === 0 ) {
+			logger.reportSuccess( __( 'No linked plugins found.' ) );
+			console.log( __( 'Use "studio plugin link <source-path>" to link an external plugin.' ) );
+			return;
+		}
 
-	for ( const plugin of linkedPlugins ) {
-		console.log( `  ${ plugin.name }` );
-		console.log( `    → ${ plugin.sourcePath }` );
-		console.log();
+		logger.reportSuccess( sprintf( __( 'Found %d linked plugin(s):' ), linkedPlugins.length ) );
+
+		for ( const plugin of linkedPlugins ) {
+			console.log( `  ${ plugin.name }` );
+			console.log( `    → ${ plugin.sourcePath }` );
+			console.log();
+		}
+	} catch ( error ) {
+		if ( error instanceof LoggerError ) {
+			logger.reportError( error );
+		} else {
+			logger.reportError( new LoggerError( __( 'Failed to list linked plugins' ), error ) );
+		}
 	}
 }
 
@@ -84,16 +96,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			} );
 		},
 		handler: async ( argv ) => {
-			try {
-				await runCommand( argv.path, argv.format as 'table' | 'json' );
-			} catch ( error ) {
-				process.exitCode = 1;
-				if ( error instanceof LoggerError ) {
-					console.error( error.message );
-				} else if ( error instanceof Error ) {
-					console.error( __( 'Failed to list linked plugins' ), error.message );
-				}
-			}
+			await runCommand( argv.path, argv.format as 'table' | 'json' );
 		},
 	} );
 };

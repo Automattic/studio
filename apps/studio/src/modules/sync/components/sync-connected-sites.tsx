@@ -22,6 +22,7 @@ import { useOffline } from 'src/hooks/use-offline';
 import { useSyncStatesProgressInfo } from 'src/hooks/use-sync-states-progress-info';
 import {
 	pushBackupIsUploading,
+	pullBackupIsDownloadingOrImporting,
 	canCancelPull,
 	canCancelPush,
 } from 'src/lib/active-sync-operations';
@@ -59,22 +60,37 @@ const SyncConnectedSiteControls = ( {
 	const isOffline = useOffline();
 	const dispatch = useAppDispatch();
 	const [ syncDialogType, setSyncDialogType ] = useState< 'pull' | 'push' | null >( null );
-	const isAnySitePulling = useRootSelector( syncOperationsSelectors.selectIsAnySitePulling );
-	const isAnySitePushing = useRootSelector( syncOperationsSelectors.selectIsAnySitePushing );
 	const getLastSyncTimeText = useLastSyncTimeText();
 	const { user, client } = useAuth();
 	const { data: connectedSites = [] } = useGetConnectedSitesForLocalSiteQuery( {
 		localSiteId: selectedSite.id,
 		userId: user?.id,
 	} );
-	const isAnyConnectedSiteSyncing = useRootSelector( ( state ) =>
-		connectedSites.some(
-			( site ) =>
-				syncOperationsSelectors.selectIsSiteIdPulling( selectedSite.id, site.id )( state ) ||
-				syncOperationsSelectors.selectIsSiteIdPushing( selectedSite.id, site.id )( state )
-		)
+	const isAnyConnectedSiteDoingLocalSyncWork = useRootSelector( ( state ) =>
+		connectedSites.some( ( site ) => {
+			const pullState = syncOperationsSelectors.selectPullState(
+				selectedSite.id,
+				site.id
+			)( state );
+			const pushState = syncOperationsSelectors.selectPushState(
+				selectedSite.id,
+				site.id
+			)( state );
+			return (
+				pullBackupIsDownloadingOrImporting( pullState?.status.key ) ||
+				pushBackupIsUploading( pushState?.status.key )
+			);
+		} )
 	);
-	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
+	const isAnySiteDoingLocalSyncWork = useRootSelector( ( state ) => {
+		const anyPullLocal = Object.values( syncOperationsSelectors.selectPullStates( state ) ).some(
+			( pullState ) => pullBackupIsDownloadingOrImporting( pullState.status.key )
+		);
+		const anyPushLocal = Object.values( syncOperationsSelectors.selectPushStates( state ) ).some(
+			( pushState ) => pushBackupIsUploading( pushState.status.key )
+		);
+		return anyPullLocal || anyPushLocal;
+	} );
 
 	return (
 		<Tooltip
@@ -84,10 +100,10 @@ const SyncConnectedSiteControls = ( {
 			placement="top-start"
 		>
 			<div className="flex gap-2 h-5">
-				{ isAnySiteSyncing ? (
+				{ isAnySiteDoingLocalSyncWork ? (
 					<Tooltip
 						text={
-							isAnyConnectedSiteSyncing
+							isAnyConnectedSiteDoingLocalSyncWork
 								? __(
 										'This Studio site is syncing. Please wait for the sync to finish before you pull it.'
 								  )
@@ -112,12 +128,11 @@ const SyncConnectedSiteControls = ( {
 							variant="link"
 							className={ cx(
 								! isOffline &&
-									! isAnySitePulling &&
-									! isAnySitePushing &&
+									! isAnySiteDoingLocalSyncWork &&
 									'!text-frame-text hover:!text-frame-theme'
 							) }
 							onClick={ () => setSyncDialogType( 'pull' ) }
-							disabled={ isAnySiteSyncing || isOffline }
+							disabled={ isAnySiteDoingLocalSyncWork || isOffline }
 							data-testid="sync-list-pull-button"
 						>
 							<Icon icon={ cloudDownload } />
@@ -125,10 +140,10 @@ const SyncConnectedSiteControls = ( {
 						</Button>
 					</DynamicTooltip>
 				) }
-				{ isAnySiteSyncing ? (
+				{ isAnySiteDoingLocalSyncWork ? (
 					<Tooltip
 						text={
-							isAnyConnectedSiteSyncing
+							isAnyConnectedSiteDoingLocalSyncWork
 								? __(
 										'This Studio site is syncing. Please wait for the sync to finish before you push it.'
 								  )
@@ -153,12 +168,11 @@ const SyncConnectedSiteControls = ( {
 							variant="link"
 							className={ cx(
 								! isOffline &&
-									! isAnySitePulling &&
-									! isAnySitePushing &&
+									! isAnySiteDoingLocalSyncWork &&
 									'!text-frame-text hover:!text-frame-theme'
 							) }
 							onClick={ () => setSyncDialogType( 'push' ) }
-							disabled={ isAnySiteSyncing || isOffline }
+							disabled={ isAnySiteDoingLocalSyncWork || isOffline }
 							data-testid="sync-list-push-button"
 						>
 							<Icon icon={ cloudUpload } />
@@ -670,12 +684,20 @@ const SyncConnectedSiteSection = ( {
 		connectedSitesSelectors.selectIsLoadingSiteId( connectedSite.id )
 	);
 	const hasConnectionErrors = connectedSite?.syncSupport !== 'already-connected';
-	const isPulling = useRootSelector(
-		syncOperationsSelectors.selectIsSiteIdPulling( selectedSite.id, connectedSite.id )
-	);
-	const isPushing = useRootSelector(
-		syncOperationsSelectors.selectIsSiteIdPushing( selectedSite.id, connectedSite.id )
-	);
+	const isDoingLocalSyncWork = useRootSelector( ( state ) => {
+		const pullState = syncOperationsSelectors.selectPullState(
+			selectedSite.id,
+			connectedSite.id
+		)( state );
+		const pushState = syncOperationsSelectors.selectPushState(
+			selectedSite.id,
+			connectedSite.id
+		)( state );
+		return (
+			pullBackupIsDownloadingOrImporting( pullState?.status.key ) ||
+			pushBackupIsUploading( pushState?.status.key )
+		);
+	} );
 
 	let logo = <WordPressLogoCircle />;
 	if ( isSiteLoading ) {
@@ -702,18 +724,16 @@ const SyncConnectedSiteSection = ( {
 						text={ __(
 							'This site is syncing. Please wait for the sync to finish before you can disconnect it.'
 						) }
-						disabled={ ! ( isPulling || isPushing ) || isOffline }
+						disabled={ ! isDoingLocalSyncWork || isOffline }
 						placement="top-start"
 					>
 						<Button
 							variant="link"
 							className={ cx(
-								! isPulling && ! isPushing
-									? '!text-frame-text-secondary hover:!text-a8c-red-50'
-									: ''
+								! isDoingLocalSyncWork ? '!text-frame-text-secondary hover:!text-a8c-red-50' : ''
 							) }
 							onClick={ handleDisconnectSite }
-							disabled={ isPulling || isPushing }
+							disabled={ isDoingLocalSyncWork }
 						>
 							{ __( 'Disconnect' ) }
 						</Button>

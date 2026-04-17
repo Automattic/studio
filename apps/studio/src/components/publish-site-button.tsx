@@ -3,6 +3,10 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useCallback } from 'react';
 import { useAuth } from 'src/hooks/use-auth';
 import { useSiteDetails } from 'src/hooks/use-site-details';
+import {
+	pullBackupIsDownloadingOrImporting,
+	pushBackupIsUploading,
+} from 'src/lib/active-sync-operations';
 import { generateCheckoutUrl } from 'src/lib/generate-checkout-url';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ConnectButton } from 'src/modules/sync/components/connect-button';
@@ -18,9 +22,15 @@ export const PublishSiteButton = () => {
 		localSiteId: selectedSite?.id,
 		userId: user?.id,
 	} );
-	const isAnySitePulling = useRootSelector( syncOperationsSelectors.selectIsAnySitePulling );
-	const isAnySitePushing = useRootSelector( syncOperationsSelectors.selectIsAnySitePushing );
-	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
+	const isAnySiteDoingLocalSyncWork = useRootSelector( ( state ) => {
+		const anyPullLocal = Object.values( syncOperationsSelectors.selectPullStates( state ) ).some(
+			( pullState ) => pullBackupIsDownloadingOrImporting( pullState.status.key )
+		);
+		const anyPushLocal = Object.values( syncOperationsSelectors.selectPushStates( state ) ).some(
+			( pushState ) => pushBackupIsUploading( pushState.status.key )
+		);
+		return anyPullLocal || anyPushLocal;
+	} );
 
 	const handlePublishClick = useCallback( () => {
 		if ( ! selectedSite ) return;
@@ -36,9 +46,9 @@ export const PublishSiteButton = () => {
 			variant="primary"
 			icon={ cloudUpload }
 			connectSite={ handlePublishClick }
-			disabled={ isAnySiteSyncing }
+			disabled={ isAnySiteDoingLocalSyncWork }
 			tooltipText={
-				isAnySiteSyncing
+				isAnySiteDoingLocalSyncWork
 					? __(
 							'Another site is syncing. Please wait for the sync to finish before you publish your site.'
 					  )

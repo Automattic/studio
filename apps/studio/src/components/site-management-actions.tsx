@@ -4,6 +4,7 @@ import { ActionButton } from 'src/components/action-button';
 import { PublishSiteButton } from 'src/components/publish-site-button';
 import { Tooltip } from 'src/components/tooltip';
 import { useImportExport } from 'src/hooks/use-import-export';
+import { pullBackupIsDownloadingOrImporting } from 'src/lib/active-sync-operations';
 import { useRootSelector } from 'src/stores';
 import { syncOperationsSelectors } from 'src/stores/sync';
 
@@ -22,19 +23,26 @@ export const SiteManagementActions = ( {
 }: SiteManagementActionProps ) => {
 	const { __ } = useI18n();
 	const { isSiteImporting } = useImportExport();
-	const isPulling = useRootSelector(
-		syncOperationsSelectors.selectIsSiteIdPulling( selectedSite?.id ?? '' )
-	);
+	const isPullingLocally = useRootSelector( ( state ) => {
+		if ( ! selectedSite ) {
+			return false;
+		}
+		return Object.values( syncOperationsSelectors.selectPullStates( state ) ).some(
+			( pullState ) =>
+				pullState.selectedSite?.id === selectedSite.id &&
+				pullBackupIsDownloadingOrImporting( pullState.status.key )
+		);
+	} );
 
 	if ( ! selectedSite ) {
 		return null;
 	}
 
 	const isImporting = isSiteImporting( selectedSite.id );
-	const disabled = isImporting || isPulling;
+	const disabled = isImporting || isPullingLocally;
 
 	let buttonLabelOnDisabled: string = __( 'Importing…' );
-	if ( isPulling ) {
+	if ( isPullingLocally ) {
 		buttonLabelOnDisabled = __( 'Pulling…' );
 	}
 

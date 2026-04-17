@@ -105,15 +105,20 @@ export async function runCommand( options: {
 				const existing = sessions.find( ( s ) =>
 					s.linkedAgentSessionIds.includes( options.resumeSessionId! )
 				);
-				if ( existing ) {
-					sessionRecorder = await AiSessionRecorder.open( {
-						sessionId: existing.id,
-						filePath: existing.filePath,
-						linkedAgentSessionIds: existing.linkedAgentSessionIds,
-					} );
-				} else {
-					sessionRecorder = await AiSessionRecorder.create();
+				if ( ! existing ) {
+					throw new Error(
+						sprintf(
+							/* translators: %s: agent session ID */
+							__( 'No AI session found for resume ID: %s' ),
+							options.resumeSessionId
+						)
+					);
 				}
+				sessionRecorder = await AiSessionRecorder.open( {
+					sessionId: existing.id,
+					filePath: existing.filePath,
+					linkedAgentSessionIds: existing.linkedAgentSessionIds,
+				} );
 			} else {
 				sessionRecorder = await AiSessionRecorder.create();
 			}
@@ -387,6 +392,7 @@ export async function runCommand( options: {
 	async function runAgentTurn(
 		prompt: string
 	): Promise< { status: TurnStatus; usage?: { numTurns: number; costUsd?: number } } > {
+		await maybeAutoSwitchProvider();
 		const env = await resolveAiEnvironment( currentProvider );
 		ui.beginAgentTurn();
 
@@ -497,7 +503,6 @@ export async function runCommand( options: {
 	// JSON mode: single turn, then exit
 	if ( isJsonMode && options.initialMessage ) {
 		try {
-			await maybeAutoSwitchProvider();
 			ui.addUserMessage( options.initialMessage );
 			const result = await runAgentTurn( options.initialMessage );
 			const jsonStatus = result.status === 'interrupted' ? 'error' : result.status;
@@ -578,7 +583,6 @@ export async function runCommand( options: {
 					}
 				} else {
 					// Skill command — no handler, route to agent
-					await maybeAutoSwitchProvider();
 					ui.addUserMessage( prompt );
 					try {
 						await runAgentTurn( `Run the /${ cmd.name } skill using the Skill tool.` );
@@ -589,7 +593,6 @@ export async function runCommand( options: {
 				continue;
 			}
 
-			await maybeAutoSwitchProvider();
 			ui.addUserMessage( prompt );
 			try {
 				await runAgentTurn( prompt );

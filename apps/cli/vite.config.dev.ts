@@ -33,8 +33,20 @@ export default mergeConfig(
 					} catch {
 						// ignore if doesn't exist
 					}
-					if ( ! existsSync( distNodeModulesPath ) ) {
-						symlinkSync( cliNodeModulesPath, distNodeModulesPath );
+					if ( existsSync( distNodeModulesPath ) ) {
+						return;
+					}
+					// On Windows, plain symlinks require developer mode or admin. Use
+					// junction for directories — it works without elevated privileges.
+					const linkType = process.platform === 'win32' ? 'junction' : 'dir';
+					try {
+						symlinkSync( cliNodeModulesPath, distNodeModulesPath, linkType );
+					} catch ( err ) {
+						console.warn(
+							`[vite] Could not symlink node_modules into dist (${
+								( err as Error ).message
+							}). Native modules may not resolve.`
+						);
 					}
 				},
 			},

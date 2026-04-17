@@ -146,7 +146,7 @@ export function executeCliCommand(
 	const cliArgs = [ ...args, '--avoid-telemetry' ];
 
 	let child: ChildProcess;
-	if ( cliBinaryPath ) {
+	if ( cliBinaryPath !== null ) {
 		// Production: use the bundled binary directly. Set STUDIO_CLI_DIR so
 		// the binary extracts assets to the app's Resources directory.
 		child = spawn( cliBinaryPath, cliArgs, {

@@ -56,15 +56,14 @@ export function getResourcesPath(): string {
 	return path.join( exePath, 'resources' );
 }
 
-export function getCliBinaryPath(): string {
-	const binaryName = process.platform === 'win32' ? 'studio.exe' : 'studio';
-
-	if ( process.env.NODE_ENV === 'production' ) {
-		return path.join( getResourcesPath(), 'bin', binaryName );
+export function getCliBinaryPath(): string | null {
+	// The bundled binary is only produced by the packaging step, so in test
+	// and development we fall back to running the CLI script with system node.
+	if ( process.env.NODE_ENV !== 'production' ) {
+		return null;
 	}
-
-	// In test and development, the bundled binary isn't available. Use system node with the CLI script.
-	return '';
+	const binaryName = process.platform === 'win32' ? 'studio.exe' : 'studio';
+	return path.join( getResourcesPath(), 'bin', binaryName );
 }
 
 export function getCliPath(): string {
@@ -80,10 +79,14 @@ export function getBundledNodeBinaryPath(): string {
 		return path.join( getResourcesPath(), 'bin', nodeBinaryName );
 	}
 
+	// In test environment, use the Electron node binary. The system-level node binary is not reliable
+	// in this context.
 	if ( process.env.NODE_ENV === 'test' ) {
 		return process.execPath;
 	}
 
+	// In development, use the system-level node binary. The bundled node binary most likely isn't
+	// available, and the Electron binary is noticeably slower.
 	return nodeBinaryName;
 }
 

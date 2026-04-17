@@ -45,11 +45,44 @@ type ManagedProcessStopped = ManagedProcessBase & {
 };
 type ManagedProcess = ManagedProcessRunning | ManagedProcessStopped;
 
-function getProcessLogPaths( processName: string ) {
+function formatLogDateTag( date: Date ): string {
+	const year = date.getFullYear();
+	const month = String( date.getMonth() + 1 ).padStart( 2, '0' );
+	const day = String( date.getDate() ).padStart( 2, '0' );
+	return `${ year }${ month }${ day }`;
+}
+
+function getProcessLogPaths( processName: string, date: Date = new Date() ) {
+	const dateTag = formatLogDateTag( date );
 	return {
-		stdoutLogPath: path.join( PROCESS_MANAGER_LOGS_DIR, `${ processName }-out.log` ),
-		stderrLogPath: path.join( PROCESS_MANAGER_LOGS_DIR, `${ processName }-error.log` ),
+		stdoutLogPath: path.join( PROCESS_MANAGER_LOGS_DIR, `${ processName }-out-${ dateTag }.log` ),
+		stderrLogPath: path.join( PROCESS_MANAGER_LOGS_DIR, `${ processName }-error-${ dateTag }.log` ),
 	};
+}
+
+async function renameLegacyLogIfPresent(
+	processName: string,
+	stream: 'out' | 'error'
+): Promise< void > {
+	const legacyPath = path.join( PROCESS_MANAGER_LOGS_DIR, `${ processName }-${ stream }.log` );
+	let stats: fs.Stats;
+	try {
+		stats = await fs.promises.stat( legacyPath );
+	} catch {
+		return;
+	}
+	const targetPath = path.join(
+		PROCESS_MANAGER_LOGS_DIR,
+		`${ processName }-${ stream }-${ formatLogDateTag( stats.mtime ) }.log`
+	);
+	if ( fs.existsSync( targetPath ) ) {
+		return;
+	}
+	try {
+		await fs.promises.rename( legacyPath, targetPath );
+	} catch {
+		// Best-effort; the migration will prune the legacy file eventually by mtime.
+	}
 }
 
 function timestampLogLine( line: string ): string {
@@ -192,6 +225,8 @@ export class ProcessManagerDaemon {
 		}
 
 		const pmId = this.nextPmId++;
+		await renameLegacyLogIfPresent( processName, 'out' );
+		await renameLegacyLogIfPresent( processName, 'error' );
 		const { stdoutLogPath, stderrLogPath } = getProcessLogPaths( processName );
 		const stdoutStream = createWriteStream( stdoutLogPath, { flags: 'a' } );
 		const stderrStream = createWriteStream( stderrLogPath, { flags: 'a' } );

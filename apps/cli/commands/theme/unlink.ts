@@ -19,6 +19,16 @@ export async function runCommand( sitePath: string, themeName?: string ): Promis
 		throw new LoggerError( __( 'Theme name is required' ) );
 	}
 
+	// Reject path traversal: theme name must be a single path segment
+	if ( path.basename( resolvedThemeName ) !== resolvedThemeName ) {
+		throw new LoggerError(
+			sprintf(
+				__( 'Invalid theme name "%s": must be a single directory name without path separators' ),
+				resolvedThemeName
+			)
+		);
+	}
+
 	// Resolve site: try --path, fall back to picker if it's not a site and stdin is a TTY
 	let resolvedSitePath = sitePath;
 	try {

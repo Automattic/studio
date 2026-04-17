@@ -3,6 +3,14 @@ import path from 'path';
 import { pathExists } from '@studio/common/lib/fs-utils';
 import { vi } from 'vitest';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
+import {
+	mockReportStart,
+	mockReportSuccess,
+	mockReportError,
+	mockReportProgress,
+	mockReportWarning,
+	mockReportKeyValuePair,
+} from 'cli/tests/test-utils';
 import { runCommand } from '../list-linked';
 
 vi.mock( 'fs', () => {
@@ -23,6 +31,19 @@ vi.mock( 'cli/lib/cli-config/sites', async () => {
 		getSiteByFolder: vi.fn(),
 	};
 } );
+vi.mock( 'cli/logger', () => ( {
+	Logger: class {
+		reportStart = mockReportStart;
+		reportSuccess = mockReportSuccess;
+		reportError = mockReportError;
+		reportProgress = mockReportProgress;
+		reportWarning = mockReportWarning;
+		reportKeyValuePair = mockReportKeyValuePair;
+		spinner = {};
+		currentAction = null;
+	},
+	LoggerError: class LoggerError extends Error {},
+} ) );
 
 describe( 'CLI: studio theme list-linked', () => {
 	const testSiteFolder = '/test/site/path';
@@ -60,12 +81,17 @@ describe( 'CLI: studio theme list-linked', () => {
 	const joinedOutput = () =>
 		consoleLogSpy.mock.calls.map( ( c: unknown[] ) => String( c[ 0 ] ?? '' ) ).join( '\n' );
 
+	const loggerMessages = () =>
+		[ ...mockReportStart.mock.calls, ...mockReportSuccess.mock.calls ]
+			.map( ( c ) => String( c[ c.length - 1 ] ?? '' ) )
+			.join( '\n' );
+
 	it( 'prints no linked themes message when themes dir is missing', async () => {
 		vi.mocked( pathExists ).mockResolvedValue( false );
 
 		await runCommand( testSiteFolder, 'table' );
 
-		expect( joinedOutput() ).toMatch( /No linked themes found/ );
+		expect( loggerMessages() ).toMatch( /No linked themes found/ );
 	} );
 
 	it( 'lists linked themes in table format', async () => {
@@ -83,8 +109,8 @@ describe( 'CLI: studio theme list-linked', () => {
 
 		await runCommand( testSiteFolder, 'table' );
 
+		expect( loggerMessages() ).toMatch( /Found 2 linked theme/ );
 		const output = joinedOutput();
-		expect( output ).toMatch( /Found 2 linked theme/ );
 		expect( output ).toContain( 'theme-a' );
 		expect( output ).toContain( 'theme-b' );
 		expect( output ).toContain( '/dev/theme-a' );

@@ -1,0 +1,18 @@
+body {
+	margin: 0;
+	padding: 0;
+	font-family: var(--wpds-font-family-body);
+	font-size: var(--wpds-font-size-md);
+	line-height: var(--wpds-font-line-height-md);
+	background-color: var(--wpds-color-bg-surface-neutral-strong);
+	color: var(--wpds-color-fg-content-neutral);
+	color-scheme: light dark;
+	-webkit-app-region: drag; /* Electron: make the window draggable */
+}
+
+button,
+a,
+input,
+[role="button"] {
+	-webkit-app-region: no-drag;
+}

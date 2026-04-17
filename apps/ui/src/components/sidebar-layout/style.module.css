@@ -1,0 +1,24 @@
+.root {
+	display: flex;
+	height: 100vh;
+}
+
+.sidebar {
+	width: 260px;
+	flex-shrink: 0;
+	background-color: var(--wpds-color-bg-surface-neutral-weak);
+	display: flex;
+	flex-direction: column;
+	justify-content: flex-end;
+}
+
+.separator {
+	margin-block-start: auto;
+	height: 1px;
+	background-color: var(--wpds-color-stroke-surface-neutral);
+}
+
+.main {
+	flex: 1;
+	overflow: auto;
+}

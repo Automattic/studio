@@ -4,7 +4,6 @@ import { BlueprintValidationWarning } from '@studio/common/lib/blueprint-validat
 import { SiteEvent, SnapshotEvent } from '@studio/common/lib/cli-events';
 import { ExportEventTuple, ImportEventTuple } from '@studio/common/lib/import-export-events';
 import { PreviewCommandLoggerAction } from '@studio/common/logger-actions';
-import { ImportExportEventData } from 'src/lib/import-export/handle-events';
 import { getMainWindow } from 'src/main-window';
 import type { StoredAuthToken } from '@studio/common/lib/shared-config';
 

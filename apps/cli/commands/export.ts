@@ -117,7 +117,9 @@ export function handleExportEvents( emitter: ImportExportEventEmitter ): void {
 export async function runCommand(
 	siteFolder: string,
 	exportPath: string,
-	mode?: 'full' | 'db'
+	mode: 'full' | 'content' | 'db' = 'full',
+	splitDbDumpByTable = false,
+	includeOnlyPaths: string[] = []
 ): Promise< void > {
 	try {
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
@@ -139,6 +141,8 @@ export async function runCommand(
 
 		if ( mode === 'db' ) {
 			includes.wpContent = false;
+		} else if ( mode === 'content' ) {
+			includes.database = false;
 		}
 
 		const exporter = await getExporter( {
@@ -146,6 +150,8 @@ export async function runCommand(
 			backupFile: exportPath,
 			phpVersion: DEFAULT_PHP_VERSION,
 			includes,
+			splitDatabaseDumpByTable: splitDbDumpByTable,
+			specificSelectionPaths: includeOnlyPaths,
 		} );
 
 		if ( ! exporter ) {
@@ -197,11 +203,28 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} )
 				.option( 'mode', {
 					type: 'string',
-					choices: [ 'full', 'db' ] as const,
+					choices: [ 'full', 'content', 'db' ] as const,
 					default: 'full' as const,
 					description: __(
-						'Export the full site or just the database. Default exports full site.'
+						'Export the full site, just the content, or just the database. Default exports full site.'
 					),
+				} )
+				.option( 'split-db-dump-by-table', {
+					type: 'boolean',
+					default: false,
+					description: __( 'Split the database dump by table' ),
+					hidden: true,
+				} )
+				.option( 'include-only', {
+					type: 'array',
+					description: __( 'Include only the specified tables in the database dump' ),
+					coerce: ( value ) => {
+						if ( ! Array.isArray( value ) ) {
+							throw new Error( __( 'include-only must be an array' ) );
+						}
+						return value.map( String );
+					},
+					hidden: true,
 				} );
 		},
 		handler: async ( argv ) => {
@@ -211,14 +234,14 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 
 				if ( argv.exportFile ) {
 					exportFile = argv.exportFile;
-				} else if ( argv.mode === 'full' ) {
+				} else if ( argv.mode === 'full' || argv.mode === 'content' ) {
 					exportFile = path.join( process.cwd(), `studio-backup-${ timestamp }.zip` );
 				} else {
 					exportFile = path.join( process.cwd(), `studio-backup-${ timestamp }.sql` );
 				}
 
 				if (
-					argv.mode === 'full' &&
+					( argv.mode === 'full' || argv.mode === 'content' ) &&
 					! exportFile.endsWith( '.zip' ) &&
 					! exportFile.endsWith( '.tar.gz' )
 				) {
@@ -235,7 +258,13 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					);
 				}
 
-				await runCommand( argv.path, exportFile, argv.mode );
+				await runCommand(
+					argv.path,
+					exportFile,
+					argv.mode,
+					argv.splitDbDumpByTable,
+					argv.includeOnly
+				);
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );

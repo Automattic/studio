@@ -78,8 +78,8 @@ function handleImportIpc( emitter: ImportExportEventEmitter ) {
 	emitter.on( BackupExtractEvents.BACKUP_EXTRACT_ERROR, ( error ) => {
 		sendIpcEvent( [ BackupExtractEvents.BACKUP_EXTRACT_ERROR, error ] );
 	} );
-	emitter.on( ImporterEvents.IMPORT_START, () => {
-		sendIpcEvent( [ ImporterEvents.IMPORT_START, undefined ] );
+	emitter.on( ImporterEvents.IMPORT_START, ( importerType ) => {
+		sendIpcEvent( [ ImporterEvents.IMPORT_START, importerType ] );
 	} );
 	emitter.on( ImporterEvents.IMPORT_DATABASE_START, () => {
 		sendIpcEvent( [ ImporterEvents.IMPORT_DATABASE_START, undefined ] );
@@ -247,7 +247,11 @@ export function handleImportEvents( emitter: ImportExportEventEmitter ): void {
 	} );
 }
 
-export async function runCommand( siteFolder: string, importFile: string ): Promise< void > {
+export async function runCommand(
+	siteFolder: string,
+	importFile: string,
+	alwaysStartServer = false
+): Promise< void > {
 	let site: SiteData | undefined;
 	let wasServerRunning = false;
 	let importError: unknown;
@@ -302,7 +306,7 @@ export async function runCommand( siteFolder: string, importFile: string ): Prom
 		importError = error;
 	} finally {
 		try {
-			if ( site && wasServerRunning ) {
+			if ( site && ( wasServerRunning || alwaysStartServer ) ) {
 				logger.reportStart(
 					LoggerAction.INSTALL_SQLITE,
 					__( 'Setting up SQLite integration, if needed…' )
@@ -339,19 +343,25 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		command: 'import <import-file>',
 		describe: __( 'Import a backup file to site' ),
 		builder: ( yargs ) => {
-			return yargs.positional( 'import-file', {
-				type: 'string',
-				normalize: true,
-				demandOption: true,
-				description: __( 'Path to the import file' ),
-				coerce: ( value ) => {
-					return path.resolve( untildify( value ) );
-				},
-			} );
+			return yargs
+				.positional( 'import-file', {
+					type: 'string',
+					normalize: true,
+					demandOption: true,
+					description: __( 'Path to the import file' ),
+					coerce: ( value ) => {
+						return path.resolve( untildify( value ) );
+					},
+				} )
+				.option( 'start-server', {
+					type: 'boolean',
+					default: false,
+					hidden: false,
+				} );
 		},
 		handler: async ( argv ) => {
 			try {
-				await runCommand( argv.path, argv.importFile );
+				await runCommand( argv.path, argv.importFile, argv.startServer );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );

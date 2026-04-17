@@ -3,9 +3,7 @@ import { z } from 'zod';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 
-export const importEventSchema = z.object( {
-	event: importEventTupleSchema,
-} );
+export const messageSchema = z.object( { event: importEventTupleSchema } );
 
 export async function executeImportCliCommand(
 	siteId: string,
@@ -15,7 +13,7 @@ export async function executeImportCliCommand(
 	const [ cliEventEmitter ] = executeCliCommand( args, { output: 'capture' } );
 
 	cliEventEmitter.on( 'data', ( { data } ) => {
-		const parsed = importEventSchema.safeParse( data );
+		const parsed = messageSchema.safeParse( data );
 
 		if ( parsed.success ) {
 			sendIpcEventToRendererWithWindow( parentWindow, 'on-import', parsed.data.event, siteId );

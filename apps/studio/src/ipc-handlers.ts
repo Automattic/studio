@@ -52,13 +52,7 @@ import {
 } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
-import {
-	bumpStat,
-	getImporterMetric,
-	getBlueprintMetric,
-	StatsGroup,
-	StatsMetric,
-} from 'src/lib/bump-stats';
+import { bumpStat, getBlueprintMetric, StatsGroup } from 'src/lib/bump-stats';
 import {
 	openCertificate as openCertificateDialog,
 	isRootCATrusted,
@@ -67,8 +61,6 @@ import {
 import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
 import { buildFeatureFlags } from 'src/lib/feature-flags';
 import { getImageData } from 'src/lib/get-image-data';
-import { ExportOptions } from 'src/lib/import-export/export/types';
-import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import * as oauthClient from 'src/lib/oauth';
@@ -96,10 +88,6 @@ import {
 import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
-import {
-	importSite as importSiteViaCli,
-	exportSite as exportSiteViaCli,
-} from 'src/modules/import-export/lib/ipc-handlers';
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { getUserEditor, getUserTerminal } from 'src/modules/user-settings/lib/ipc-handlers';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
@@ -161,6 +149,8 @@ export {
 	saveUserTerminal,
 	showUserSettings,
 } from 'src/modules/user-settings/lib/ipc-handlers';
+
+export { importSite, exportSite } from 'src/modules/import-export/lib/ipc-handlers';
 
 export async function getAgentInstructionsStatus(
 	_event: IpcMainInvokeEvent,
@@ -354,34 +344,6 @@ export async function getXdebugEnabledSite(
 	const sites = SiteServer.getAllDetails();
 	const xdebugSite = sites.find( ( site ) => site.enableXdebug );
 	return xdebugSite || null;
-}
-
-export async function importSite(
-	event: IpcMainInvokeEvent,
-	{ id, backupFile }: { id: string; backupFile: BackupArchiveInfo }
-): Promise< SiteDetails > {
-	const site = SiteServer.get( id );
-	if ( ! site ) {
-		throw new Error( 'Site not found.' );
-	}
-	try {
-		await importSiteViaCli( event, site.details, backupFile.path );
-
-		// bumpStat( StatsGroup.STUDIO_IMPORT, getImporterMetric( result.importerType ) );
-
-		return site.details;
-	} catch ( e ) {
-		bumpStat( StatsGroup.STUDIO_IMPORT, StatsMetric.FAILURE );
-		// Don't report validation errors to Sentry - these are expected user errors
-		if (
-			! ( e instanceof Error ) ||
-			( ! e.message.includes( 'No suitable importer found for the provided backup contents' ) &&
-				! e.message.includes( 'No suitable backup handler found for the provided backup file' ) )
-		) {
-			Sentry.captureException( e );
-		}
-		throw e;
-	}
 }
 
 export async function createSite(
@@ -811,25 +773,6 @@ export async function isAuthenticated() {
 export async function clearAuthenticationToken() {
 	setSentryWpcomUserIdMain( undefined );
 	return await updateSharedConfig( { authToken: undefined } );
-}
-
-export async function exportSite(
-	event: IpcMainInvokeEvent,
-	options: ExportOptions
-): Promise< void > {
-	try {
-		await exportSiteViaCli( event, options.site, options.backupFile );
-
-		const isDatabaseOnly = options.includes.database && ! options.includes.wpContent;
-		bumpStat(
-			StatsGroup.STUDIO_EXPORT,
-			isDatabaseOnly ? StatsMetric.DATABASE_ONLY : StatsMetric.FULL_SITE
-		);
-	} catch ( e ) {
-		bumpStat( StatsGroup.STUDIO_EXPORT, StatsMetric.FAILURE );
-		Sentry.captureException( e );
-		throw e;
-	}
 }
 
 export async function saveLastSeenVersion( event: IpcMainInvokeEvent, version: string ) {

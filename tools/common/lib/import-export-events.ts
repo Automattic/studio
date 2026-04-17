@@ -88,7 +88,7 @@ export const importEventTupleSchema = z.union( [
 	z.tuple( [ z.literal( ValidatorEvents.IMPORT_VALIDATION_START ), nullOrUndefined ] ),
 	z.tuple( [ z.literal( ValidatorEvents.IMPORT_VALIDATION_COMPLETE ), nullOrUndefined ] ),
 	z.tuple( [ z.literal( ValidatorEvents.IMPORT_VALIDATION_ERROR ), z.unknown() ] ),
-	z.tuple( [ z.literal( ImporterEvents.IMPORT_START ), nullOrUndefined ] ),
+	z.tuple( [ z.literal( ImporterEvents.IMPORT_START ), z.string() ] ),
 	z.tuple( [ z.literal( ImporterEvents.IMPORT_DATABASE_START ), nullOrUndefined ] ),
 	z.tuple( [
 		z.literal( ImporterEvents.IMPORT_DATABASE_PROGRESS ),

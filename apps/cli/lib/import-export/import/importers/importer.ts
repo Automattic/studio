@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { createInterface } from 'readline';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
+import { generateBackupFilename } from '@studio/common/lib/generate-backup-filename';
 import { ImportEvents } from '@studio/common/lib/import-export-events';
 import { serializePlugins } from '@studio/common/lib/serialize-plugins';
 import { SupportedPHPVersionsList } from '@studio/common/types/php-versions';
@@ -12,7 +13,6 @@ import trash from 'trash';
 import { SiteData } from 'cli/lib/cli-config/core';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { ImportExportEventEmitter } from '../../events';
-import { generateBackupFilename } from '../../export/generate-backup-filename';
 import { BackupContents, MetaFileData } from '../types';
 import { updateSiteUrl } from '../update-site-url';
 
@@ -106,7 +106,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 	protected shouldCleanUpBeforeImport: boolean = true;
 
 	async import( site: SiteData ): Promise< ImporterResult > {
-		this.emit( ImportEvents.IMPORT_START );
+		this.emit( ImportEvents.IMPORT_START, this.constructor.name );
 
 		try {
 			if ( this.shouldCleanUpBeforeImport ) {
@@ -357,7 +357,7 @@ export class PlaygroundImporter extends BaseBackupImporter {
 
 export class SQLImporter extends BaseImporter {
 	async import( site: SiteData ): Promise< ImporterResult > {
-		this.emit( ImportEvents.IMPORT_START );
+		this.emit( ImportEvents.IMPORT_START, this.constructor.name );
 
 		try {
 			await this.importDatabase( site, this.backup.sqlFiles );

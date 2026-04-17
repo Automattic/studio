@@ -97,22 +97,6 @@ For example, when converting buttons:
 
 This applies to all converted elements, not just buttons. If a Phase 1 rule targeted a bare class that is now a `className` on a block wrapper, rewrite the rule to target the correct block DOM structure.
 
-### Step 5 — Validate block markup
-
-Run `validate_blocks` on every piece of converted content to catch markup errors (missing attributes, invalid nesting, malformed block comments). If it flags invalid blocks, fix the markup and re-run until all blocks pass.
-
-### Step 6 — Visual regression check
-
-Take screenshots (desktop + mobile) and compare them against the Phase 1 screenshots you already have in context. The site must look identical to the Phase 1 result. Look specifically for these common regressions introduced by block conversion:
-
-- **Double borders or backgrounds on buttons** — if you see the button rendered inside another visible rectangle, paint leaked onto the `.wp-block-button` wrapper. Move every paint property (background, border, padding, color) off `.wp-block-button.<className>` and onto `.wp-block-button.<className> .wp-block-button__link`. See "Where button CSS goes" in the Buttons pattern reference below.
-- **Extra padding or spacing around sections** — `core/group` and `.wp-block-columns` add default padding/gap
-- **Missing background colors or gradients** — elements that had inline styles may lose them when converted to blocks
-- **Font size or weight changes** — block defaults may override your typography
-- **Broken hover/active states** — interactive styles may target the old selectors
-
-If any regressions are found, update `style.css` to fix the conflicts (typically by resetting default block styles for the affected classes), then re-screenshot and compare again. Iterate until the design matches Phase 1 exactly.
-
 ## Block pattern reference
 
 ### Section wrapper

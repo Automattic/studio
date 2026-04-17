@@ -40,4 +40,7 @@ export interface Connector {
 	deleteSite( id: string ): Promise< void >;
 	startSite( id: string ): Promise< void >;
 	stopSite( id: string ): Promise< void >;
+
+	// Locale
+	getUserLocale(): Promise< string | undefined >;
 }

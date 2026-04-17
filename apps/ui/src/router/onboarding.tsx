@@ -1,4 +1,5 @@
 import { createRoute } from '@tanstack/react-router';
+import { __ } from '@wordpress/i18n';
 import { OnboardingLayout } from '@/components/onboarding-layout';
 import { rootRoute } from './root';
 
@@ -13,10 +14,10 @@ function OnboardingPage() {
 						marginBottom: 8,
 					} }
 				>
-					Start a new project
+					{ __( 'Start a new project' ) }
 				</h1>
 				<p style={ { color: '#666', marginBottom: 32 } }>
-					WordPress can power anything. What are you building?
+					{ __( 'WordPress can power anything. What are you building?' ) }
 				</p>
 				<div
 					style={ {
@@ -35,9 +36,9 @@ function OnboardingPage() {
 							cursor: 'pointer',
 						} }
 					>
-						<h3 style={ { fontWeight: 600, marginBottom: 8 } }>Create new</h3>
+						<h3 style={ { fontWeight: 600, marginBottom: 8 } }>{ __( 'Create new' ) }</h3>
 						<p style={ { color: '#666', fontSize: '0.875rem' } }>
-							Start fresh with a blank project and build it with AI
+							{ __( 'Start fresh with a blank project and build it with AI' ) }
 						</p>
 					</div>
 					<div
@@ -50,9 +51,9 @@ function OnboardingPage() {
 							cursor: 'pointer',
 						} }
 					>
-						<h3 style={ { fontWeight: 600, marginBottom: 8 } }>Bring existing</h3>
+						<h3 style={ { fontWeight: 600, marginBottom: 8 } }>{ __( 'Bring existing' ) }</h3>
 						<p style={ { color: '#666', fontSize: '0.875rem' } }>
-							Import from WordPress.com, a backup, or an export file
+							{ __( 'Import from WordPress.com, a backup, or an export file' ) }
 						</p>
 					</div>
 				</div>

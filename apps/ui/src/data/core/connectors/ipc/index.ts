@@ -69,5 +69,10 @@ export function createIpcConnector(): Connector {
 		async stopSite( id ) {
 			await ipcApi.stopServer( id );
 		},
+
+		// Locale
+		async getUserLocale(): Promise< string | undefined > {
+			return ipcApi.getUserLocale();
+		},
 	};
 }

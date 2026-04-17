@@ -1,3 +1,4 @@
+import { __ } from '@wordpress/i18n';
 import { Icon, chevronDown, chevronRight, plus } from '@wordpress/icons';
 import { Button, Collapsible, Stack } from '@wordpress/ui';
 import { useState } from 'react';
@@ -14,18 +15,18 @@ export function SiteList() {
 				<Collapsible.Trigger
 					render={
 						<Button variant="minimal" tone="neutral" size="compact">
-							<span className={ styles.title }>Projects</span>
+							<span className={ styles.title }>{ __( 'Projects' ) }</span>
 							<Icon icon={ open ? chevronDown : chevronRight } size={ 18 } />
 						</Button>
 					}
 				/>
 				<Button variant="minimal" tone="neutral" size="compact">
-					Stop all
+					{ __( 'Stop all' ) }
 				</Button>
 			</Stack>
 			<Collapsible.Panel>
 				{ isLoading ? (
-					<p className={ styles.loading }>Loading...</p>
+					<p className={ styles.loading }>{ __( 'Loading…' ) }</p>
 				) : (
 					<ul className={ styles.list }>
 						{ sites?.map( ( site ) => (
@@ -37,7 +38,7 @@ export function SiteList() {
 				) }
 				<Button variant="minimal" tone="neutral" size="compact">
 					<Icon icon={ plus } size={ 18 } />
-					<span>Add site</span>
+					<span>{ __( 'Add site' ) }</span>
 				</Button>
 			</Collapsible.Panel>
 		</Collapsible.Root>

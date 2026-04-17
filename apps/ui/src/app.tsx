@@ -1,5 +1,7 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider } from '@tanstack/react-router';
+import { defaultI18n } from '@wordpress/i18n';
+import { I18nProvider } from '@wordpress/react-i18n';
 import { privateApis } from '@wordpress/theme';
 import { ConnectorProvider, queryClient } from '@/data/core';
 import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
@@ -23,9 +25,11 @@ export function App( { connector }: AppProps ) {
 	return (
 		<ConnectorProvider connector={ connector }>
 			<QueryClientProvider client={ queryClient }>
-				<ThemeProvider isRoot color={ themeColor }>
-					<RouterProvider router={ router } />
-				</ThemeProvider>
+				<I18nProvider i18n={ defaultI18n }>
+					<ThemeProvider isRoot color={ themeColor }>
+						<RouterProvider router={ router } />
+					</ThemeProvider>
+				</I18nProvider>
 			</QueryClientProvider>
 		</ConnectorProvider>
 	);

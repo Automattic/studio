@@ -90,10 +90,14 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 
 			const filePath = getIpcApi().getPathForFile( file );
 
-			return getIpcApi().importSite( selectedSite.id, filePath, {
-				alwaysStartServer: true,
-				showNotification: showImportNotification,
-			} );
+			try {
+				await getIpcApi().importSite( selectedSite.id, filePath, {
+					alwaysStartServer: true,
+					showNotification: showImportNotification,
+				} );
+			} catch ( error ) {
+				// Do nothing
+			}
 		},
 		[ importState ]
 	);
@@ -276,11 +280,15 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				},
 			} ) );
 
-			return getIpcApi().exportSite( site.id, backupFile, {
-				mode: mode === 'database' ? 'db' : 'full',
-				showItemInFolder: true,
-				showNotification: true,
-			} );
+			try {
+				await getIpcApi().exportSite( site.id, backupFile, {
+					mode: mode === 'database' ? 'db' : 'full',
+					showItemInFolder: true,
+					showNotification: true,
+				} );
+			} catch {
+				// Do nothing
+			}
 		},
 		[ exportState ]
 	);

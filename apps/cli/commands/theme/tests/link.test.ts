@@ -12,6 +12,7 @@ vi.mock( 'fs', () => {
 		lstat: vi.fn(),
 		readFile: vi.fn(),
 		readlink: vi.fn(),
+		realpath: vi.fn(),
 		mkdir: vi.fn(),
 		symlink: vi.fn(),
 		unlink: vi.fn(),
@@ -30,8 +31,10 @@ vi.mock( 'cli/lib/cli-config/sites', async () => {
 } );
 
 describe( 'CLI: studio theme link', () => {
-	const testSiteFolder = '/test/site/path';
-	const testSourcePath = '/test/themes/my-theme';
+	// Use `path.resolve` so the mocked pathExists comparison matches the
+	// platform-specific absolute form that runCommand computes (e.g. `C:\…` on Windows).
+	const testSiteFolder = path.resolve( '/test/site/path' );
+	const testSourcePath = path.resolve( '/test/themes/my-theme' );
 	const themesDir = path.join( testSiteFolder, 'wp-content', 'themes' );
 	const targetPath = path.join( themesDir, 'my-theme' );
 	const styleCssPath = path.join( testSourcePath, 'style.css' );
@@ -59,6 +62,8 @@ describe( 'CLI: studio theme link', () => {
 		);
 		vi.mocked( fs.promises.mkdir ).mockResolvedValue( undefined );
 		vi.mocked( fs.promises.symlink ).mockResolvedValue( undefined );
+		// Default: realpath returns input unchanged (no symlink chain).
+		vi.mocked( fs.promises.realpath ).mockImplementation( async ( p ) => String( p ) );
 	} );
 
 	afterEach( () => {
@@ -133,15 +138,46 @@ describe( 'CLI: studio theme link', () => {
 			);
 		} );
 
-		it( 'throws when source resolves to filesystem root (empty basename)', async () => {
+		it( 'throws when source lives inside the target site (recursive)', async () => {
+			const insidePath = path.join( testSiteFolder, 'wp-content', 'themes', 'inner' );
+			const insideStyleCss = path.join( insidePath, 'style.css' );
 			vi.mocked( pathExists ).mockImplementation(
-				async ( p: string ) => p === '/' || p === '/style.css'
+				async ( p: string ) => p === insidePath || p === insideStyleCss
+			);
+			vi.mocked( fs.promises.realpath ).mockImplementation( async ( p ) => String( p ) );
+
+			await expect( runCommand( testSiteFolder, insidePath ) ).rejects.toThrow(
+				/must not live inside the target site/
+			);
+			expect( fs.promises.symlink ).not.toHaveBeenCalled();
+		} );
+
+		it( 'throws when source symlink resolves into the target site', async () => {
+			const insidePath = path.join( testSiteFolder, 'wp-content', 'themes', 'inner' );
+			vi.mocked( fs.promises.realpath ).mockImplementation( async ( p ) => {
+				if ( String( p ) === testSourcePath ) {
+					return insidePath;
+				}
+				return String( p );
+			} );
+
+			await expect( runCommand( testSiteFolder, testSourcePath ) ).rejects.toThrow(
+				/must not live inside the target site/
+			);
+			expect( fs.promises.symlink ).not.toHaveBeenCalled();
+		} );
+
+		it( 'throws when source resolves to filesystem root (empty basename)', async () => {
+			const fsRoot = path.resolve( '/' );
+			const rootStyleCss = path.join( fsRoot, 'style.css' );
+			vi.mocked( pathExists ).mockImplementation(
+				async ( p: string ) => p === fsRoot || p === rootStyleCss
 			);
 			vi.mocked( fs.promises.readFile ).mockResolvedValue(
 				'/*\nTheme Name: Root Theme\n*/' as unknown as never
 			);
 
-			await expect( runCommand( testSiteFolder, '/' ) ).rejects.toThrow(
+			await expect( runCommand( testSiteFolder, fsRoot ) ).rejects.toThrow(
 				/Could not determine a valid theme directory name/
 			);
 			expect( fs.promises.symlink ).not.toHaveBeenCalled();

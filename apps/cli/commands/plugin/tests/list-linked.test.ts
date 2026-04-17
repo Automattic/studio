@@ -46,8 +46,11 @@ vi.mock( 'cli/logger', () => ( {
 } ) );
 
 describe( 'CLI: studio plugin list-linked', () => {
-	const testSiteFolder = '/test/site/path';
+	// Resolve so absolute paths match the platform-specific form `path.resolve` produces
+	// inside `getLinkedPlugins` (e.g. `C:\…` on Windows).
+	const testSiteFolder = path.resolve( '/test/site/path' );
 	const pluginsDir = path.join( testSiteFolder, 'wp-content', 'plugins' );
+	const devSource = ( name: string ) => path.resolve( '/dev', name );
 
 	const makeDirent = ( name: string ): fs.Dirent =>
 		( {
@@ -117,7 +120,7 @@ describe( 'CLI: studio plugin list-linked', () => {
 		} as fs.Stats );
 		vi.mocked( fs.promises.readlink ).mockImplementation( async ( p ) => {
 			const name = path.basename( String( p ) );
-			return path.relative( pluginsDir, `/dev/${ name }` );
+			return path.relative( pluginsDir, devSource( name ) );
 		} );
 
 		await runCommand( testSiteFolder, 'table' );
@@ -126,8 +129,8 @@ describe( 'CLI: studio plugin list-linked', () => {
 		const output = joinedOutput();
 		expect( output ).toContain( 'plugin-a' );
 		expect( output ).toContain( 'plugin-b' );
-		expect( output ).toContain( '/dev/plugin-a' );
-		expect( output ).toContain( '/dev/plugin-b' );
+		expect( output ).toContain( devSource( 'plugin-a' ) );
+		expect( output ).toContain( devSource( 'plugin-b' ) );
 	} );
 
 	it( 'outputs JSON format', async () => {
@@ -138,14 +141,14 @@ describe( 'CLI: studio plugin list-linked', () => {
 			isSymbolicLink: () => true,
 		} as fs.Stats );
 		vi.mocked( fs.promises.readlink ).mockResolvedValue(
-			path.relative( pluginsDir, '/dev/plugin-a' )
+			path.relative( pluginsDir, devSource( 'plugin-a' ) )
 		);
 
 		await runCommand( testSiteFolder, 'json' );
 
 		expect( consoleLogSpy ).toHaveBeenCalledTimes( 1 );
 		const parsed = JSON.parse( consoleLogSpy.mock.calls[ 0 ][ 0 ] as string );
-		expect( parsed ).toEqual( [ { name: 'plugin-a', sourcePath: '/dev/plugin-a' } ] );
+		expect( parsed ).toEqual( [ { name: 'plugin-a', sourcePath: devSource( 'plugin-a' ) } ] );
 	} );
 
 	it( 'skips entries that fail to stat', async () => {
@@ -159,11 +162,13 @@ describe( 'CLI: studio plugin list-linked', () => {
 			}
 			return { isSymbolicLink: () => true } as fs.Stats;
 		} );
-		vi.mocked( fs.promises.readlink ).mockResolvedValue( path.relative( pluginsDir, '/dev/good' ) );
+		vi.mocked( fs.promises.readlink ).mockResolvedValue(
+			path.relative( pluginsDir, devSource( 'good' ) )
+		);
 
 		await runCommand( testSiteFolder, 'json' );
 
 		const parsed = JSON.parse( consoleLogSpy.mock.calls[ 0 ][ 0 ] as string );
-		expect( parsed ).toEqual( [ { name: 'good', sourcePath: '/dev/good' } ] );
+		expect( parsed ).toEqual( [ { name: 'good', sourcePath: devSource( 'good' ) } ] );
 	} );
 } );

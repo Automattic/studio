@@ -17,7 +17,7 @@ import {
 	useUnlinkPluginMutation,
 	useUnlinkThemeMutation,
 } from 'src/stores/linked-extensions-api';
-import type { LinkedExtension } from 'src/lib/plugin-theme-link';
+import type { LinkedExtension } from 'src/stores/linked-extensions-api';
 
 interface ContentTabLinkedExtensionsProps {
 	selectedSite: SiteDetails;
@@ -231,22 +231,16 @@ export function ContentTabLinkedExtensions( { selectedSite }: ContentTabLinkedEx
 		}
 
 		try {
-			const result =
-				kind === 'plugin'
-					? await linkPlugin( { siteId: selectedSite.id, sourcePath: folder.path } ).unwrap()
-					: await linkTheme( { siteId: selectedSite.id, sourcePath: folder.path } ).unwrap();
-
-			if ( result.alreadyLinked ) {
-				getIpcApi().showNotification( {
-					title: kind === 'plugin' ? __( 'Plugin already linked' ) : __( 'Theme already linked' ),
-					body: result.name,
-				} );
+			if ( kind === 'plugin' ) {
+				await linkPlugin( { siteId: selectedSite.id, sourcePath: folder.path } ).unwrap();
 			} else {
-				getIpcApi().showNotification( {
-					title: kind === 'plugin' ? __( 'Plugin linked' ) : __( 'Theme linked' ),
-					body: result.name,
-				} );
+				await linkTheme( { siteId: selectedSite.id, sourcePath: folder.path } ).unwrap();
 			}
+
+			getIpcApi().showNotification( {
+				title: kind === 'plugin' ? __( 'Plugin linked' ) : __( 'Theme linked' ),
+				body: folder.path,
+			} );
 		} catch ( error ) {
 			getIpcApi().showErrorMessageBox( {
 				title: kind === 'plugin' ? __( 'Failed to link plugin' ) : __( 'Failed to link theme' ),

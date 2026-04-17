@@ -75,14 +75,6 @@ import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import * as oauthClient from 'src/lib/oauth';
-import {
-	linkExtension,
-	listLinkedExtensions,
-	unlinkExtension,
-	type LinkedExtension,
-	type LinkResult,
-	type UnlinkResult,
-} from 'src/lib/plugin-theme-link';
 import { getAiInstructionsPath } from 'src/lib/server-files-paths';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { installSqliteIntegration, keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
@@ -107,6 +99,12 @@ import {
 	type SkillStatus,
 } from 'src/modules/agent-instructions/lib/skills';
 import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
+import {
+	linkExtensionViaCli,
+	listLinkedExtensionsViaCli,
+	unlinkExtensionViaCli,
+	type LinkedExtension,
+} from 'src/modules/cli/lib/execute-link-command';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
@@ -310,74 +308,58 @@ export async function removeWordPressSkillFromAllSites(
 	await updateSharedConfig( { selectedSkills: updated } );
 }
 
-export async function listLinkedPlugins(
-	_event: IpcMainInvokeEvent,
-	siteId: string
-): Promise< LinkedExtension[] > {
+function getSitePath( siteId: string ): string {
 	const server = SiteServer.get( siteId );
 	if ( ! server ) {
 		throw new Error( `Site not found: ${ siteId }` );
 	}
-	return listLinkedExtensions( 'plugin', server.details.path );
+	return server.details.path;
+}
+
+export async function listLinkedPlugins(
+	_event: IpcMainInvokeEvent,
+	siteId: string
+): Promise< LinkedExtension[] > {
+	return listLinkedExtensionsViaCli( 'plugin', getSitePath( siteId ) );
 }
 
 export async function listLinkedThemes(
 	_event: IpcMainInvokeEvent,
 	siteId: string
 ): Promise< LinkedExtension[] > {
-	const server = SiteServer.get( siteId );
-	if ( ! server ) {
-		throw new Error( `Site not found: ${ siteId }` );
-	}
-	return listLinkedExtensions( 'theme', server.details.path );
+	return listLinkedExtensionsViaCli( 'theme', getSitePath( siteId ) );
 }
 
 export async function linkPlugin(
 	_event: IpcMainInvokeEvent,
 	siteId: string,
 	sourcePath: string
-): Promise< LinkResult > {
-	const server = SiteServer.get( siteId );
-	if ( ! server ) {
-		throw new Error( `Site not found: ${ siteId }` );
-	}
-	return linkExtension( 'plugin', server.details.path, sourcePath );
+): Promise< void > {
+	await linkExtensionViaCli( 'plugin', getSitePath( siteId ), sourcePath );
 }
 
 export async function linkTheme(
 	_event: IpcMainInvokeEvent,
 	siteId: string,
 	sourcePath: string
-): Promise< LinkResult > {
-	const server = SiteServer.get( siteId );
-	if ( ! server ) {
-		throw new Error( `Site not found: ${ siteId }` );
-	}
-	return linkExtension( 'theme', server.details.path, sourcePath );
+): Promise< void > {
+	await linkExtensionViaCli( 'theme', getSitePath( siteId ), sourcePath );
 }
 
 export async function unlinkPlugin(
 	_event: IpcMainInvokeEvent,
 	siteId: string,
 	name: string
-): Promise< UnlinkResult > {
-	const server = SiteServer.get( siteId );
-	if ( ! server ) {
-		throw new Error( `Site not found: ${ siteId }` );
-	}
-	return unlinkExtension( 'plugin', server.details.path, name );
+): Promise< void > {
+	await unlinkExtensionViaCli( 'plugin', getSitePath( siteId ), name );
 }
 
 export async function unlinkTheme(
 	_event: IpcMainInvokeEvent,
 	siteId: string,
 	name: string
-): Promise< UnlinkResult > {
-	const server = SiteServer.get( siteId );
-	if ( ! server ) {
-		throw new Error( `Site not found: ${ siteId }` );
-	}
-	return unlinkExtension( 'theme', server.details.path, name );
+): Promise< void > {
+	await unlinkExtensionViaCli( 'theme', getSitePath( siteId ), name );
 }
 
 const DEBUG_LOG_MAX_LINES = 50;

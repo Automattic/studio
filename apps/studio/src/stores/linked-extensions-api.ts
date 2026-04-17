@@ -1,6 +1,8 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import type { LinkedExtension, LinkResult, UnlinkResult } from 'src/lib/plugin-theme-link';
+import type { LinkedExtension } from 'src/modules/cli/lib/execute-link-command';
+
+export type { LinkedExtension };
 
 interface LinkArgs {
 	siteId: string;
@@ -52,44 +54,44 @@ export const linkedExtensionsApi = createApi( {
 			},
 			providesTags: ( _result, _error, siteId ) => [ { type: 'LinkedThemes', id: siteId } ],
 		} ),
-		linkPlugin: builder.mutation< LinkResult, LinkArgs >( {
+		linkPlugin: builder.mutation< void, LinkArgs >( {
 			queryFn: async ( { siteId, sourcePath } ) => {
 				try {
-					const data = await getIpcApi().linkPlugin( siteId, sourcePath );
-					return { data };
+					await getIpcApi().linkPlugin( siteId, sourcePath );
+					return { data: undefined };
 				} catch ( err ) {
 					return toQueryError( err );
 				}
 			},
 			invalidatesTags: ( _result, _error, { siteId } ) => [ { type: 'LinkedPlugins', id: siteId } ],
 		} ),
-		linkTheme: builder.mutation< LinkResult, LinkArgs >( {
+		linkTheme: builder.mutation< void, LinkArgs >( {
 			queryFn: async ( { siteId, sourcePath } ) => {
 				try {
-					const data = await getIpcApi().linkTheme( siteId, sourcePath );
-					return { data };
+					await getIpcApi().linkTheme( siteId, sourcePath );
+					return { data: undefined };
 				} catch ( err ) {
 					return toQueryError( err );
 				}
 			},
 			invalidatesTags: ( _result, _error, { siteId } ) => [ { type: 'LinkedThemes', id: siteId } ],
 		} ),
-		unlinkPlugin: builder.mutation< UnlinkResult, UnlinkArgs >( {
+		unlinkPlugin: builder.mutation< void, UnlinkArgs >( {
 			queryFn: async ( { siteId, name } ) => {
 				try {
-					const data = await getIpcApi().unlinkPlugin( siteId, name );
-					return { data };
+					await getIpcApi().unlinkPlugin( siteId, name );
+					return { data: undefined };
 				} catch ( err ) {
 					return toQueryError( err );
 				}
 			},
 			invalidatesTags: ( _result, _error, { siteId } ) => [ { type: 'LinkedPlugins', id: siteId } ],
 		} ),
-		unlinkTheme: builder.mutation< UnlinkResult, UnlinkArgs >( {
+		unlinkTheme: builder.mutation< void, UnlinkArgs >( {
 			queryFn: async ( { siteId, name } ) => {
 				try {
-					const data = await getIpcApi().unlinkTheme( siteId, name );
-					return { data };
+					await getIpcApi().unlinkTheme( siteId, name );
+					return { data: undefined };
 				} catch ( err ) {
 					return toQueryError( err );
 				}

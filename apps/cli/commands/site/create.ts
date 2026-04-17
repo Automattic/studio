@@ -52,6 +52,7 @@ import {
 	type BlueprintV1Declaration,
 	type StepDefinition,
 } from '@wp-playground/blueprints';
+import { bumpStat, getPlatformMetric } from 'cli/lib/bump-stat';
 import {
 	lockCliConfig,
 	readCliConfig,
@@ -73,6 +74,7 @@ import { generateSiteName } from 'cli/lib/site-name';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
+import { StatsGroup } from 'cli/lib/types/bump-stats';
 import { untildify } from 'cli/lib/utils';
 import { ValidationError } from 'cli/lib/validation-error';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
@@ -110,19 +112,17 @@ export async function runCommand(
 
 	try {
 		if ( isOnlineStatus ) {
-			logger.reportStart(
-				LoggerAction.CHECKING_DEPENDENCY_UPDATES,
-				__( 'Checking for dependency updates…' )
-			);
-
-			await updateServerFiles();
+			const updated = await updateServerFiles();
+			if ( updated ) {
+				logger.reportSuccess( __( 'Dependencies updated' ) );
+			}
 		}
 	} catch ( error ) {
-		// Swallow errors in production. They aren't critical and likely relate to things outside the
-		// user's control, like network issues or bad API responses.
+		// Errors here aren't critical and likely relate to things outside the user's control,
+		// like network issues or bad API responses. Report them only in development.
 		if ( process.env.NODE_ENV !== 'production' ) {
 			const loggerError = new LoggerError( 'Failed to update dependencies', error );
-			logger.reportError( loggerError );
+			logger.reportError( loggerError, false );
 		}
 	}
 
@@ -632,6 +632,55 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			let adminPassword = argv.adminPassword;
 			let adminEmail = argv.adminEmail;
 
+			// Validate and resolve the WordPress version against available versions before prompting
+			if ( wpVersion && wpVersion !== 'latest' && wpVersion !== 'nightly' ) {
+				try {
+					logger.reportStart( LoggerAction.VALIDATE, __( 'Checking WordPress version…' ) );
+					const availableVersions = await fetchWordPressVersions();
+					const matchedVersion = availableVersions.find(
+						( v ) => v.value === wpVersion || v.value.startsWith( wpVersion + '.' )
+					);
+					if ( ! matchedVersion ) {
+						const versionLabels = availableVersions
+							.filter( ( v ) => v.value !== 'latest' )
+							.map( ( v ) => v.label );
+						logger.reportError(
+							new LoggerError(
+								sprintf(
+									/* translators: %1$s: requested version, %2$s: list of available versions */
+									__( 'WordPress version "%1$s" is not available. Available versions: %2$s' ),
+									wpVersion,
+									versionLabels.join( ', ' )
+								)
+							)
+						);
+						return;
+					}
+					// Resolve short versions to full versions (e.g. "6.7" → "6.7.2")
+					if ( matchedVersion.value !== wpVersion ) {
+						logger.reportSuccess(
+							sprintf(
+								/* translators: %1$s: requested version, %2$s: resolved version */
+								__( 'WordPress version: %1$s → %2$s' ),
+								wpVersion,
+								matchedVersion.value
+							)
+						);
+					} else {
+						logger.reportSuccess(
+							sprintf(
+								/* translators: %s: WordPress version */
+								__( 'WordPress version: %s' ),
+								wpVersion
+							)
+						);
+					}
+					wpVersion = matchedVersion.value;
+				} catch {
+					// If we can't fetch versions (network issue), let it proceed and fail later
+				}
+			}
+
 			try {
 				if ( process.stdin.isTTY ) {
 					if ( ! siteName ) {
@@ -782,6 +831,15 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 
 			try {
 				await runCommand( sitePath, config );
+
+				if ( __ENABLE_CLI_TELEMETRY__ && ! argv.avoidTelemetry ) {
+					bumpStat(
+						__IS_PACKAGED_FOR_NPM__
+							? StatsGroup.STUDIO_CLI_SITE_CREATE_NPM
+							: StatsGroup.STUDIO_CLI_SITE_CREATE_APP,
+						getPlatformMetric()
+					);
+				}
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );

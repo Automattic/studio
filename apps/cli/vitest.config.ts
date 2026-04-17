@@ -5,6 +5,9 @@ import sharedConfig from '../../vitest.shared';
 export default mergeConfig(
 	sharedConfig,
 	defineProject( {
+		define: {
+			__IS_PACKAGED_FOR_NPM__: true,
+		},
 		test: {
 			name: 'cli',
 			include: [ '**/*.test.{ts,tsx}' ],

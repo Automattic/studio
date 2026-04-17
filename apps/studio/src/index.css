@@ -12,7 +12,6 @@
 	--color-frame-surface-alt: #dcdcde;
 	--color-frame-scrollbar-thumb: #7f7f7f;
 	--color-frame-scrollbar-thumb-hover: #484848;
-	--color-frame-scrollbar-border: #fff;
 	--color-frame-theme: #3858e9;
 	--color-frame-theme-hover: #2145e6;
 	--color-frame-code-text: #1d2327;
@@ -25,15 +24,15 @@
 
 @media ( prefers-color-scheme: dark ) {
 	:root {
+		color-scheme: dark;
 		--color-frame-bg: #2f2f2f;
 		--color-frame-text: #e0e0e0;
-		--color-frame-text-secondary: #949494;
+		--color-frame-text-secondary: #a0a0a0;
 		--color-frame-border: #474747;
 		--color-frame-surface: #383838;
 		--color-frame-surface-alt: #474747;
 		--color-frame-scrollbar-thumb: #666666;
 		--color-frame-scrollbar-thumb-hover: #888888;
-		--color-frame-scrollbar-border: #2f2f2f;
 		--color-frame-theme: #6b8aff;
 		--color-frame-theme-hover: #8da6ff;
 		--color-frame-code-text: #e0e0e0;
@@ -167,20 +166,22 @@ div:has( > progress ) > div:first-child {
 
 /* Customize srollbar thumb appearance for the sites sidebar and tab panel */
 .sites-scrollbar::-webkit-scrollbar-thumb {
-	background: #ffffff26;
+	background: var( --color-frame-scrollbar-thumb );
+	background-clip: padding-box;
 	border-radius: 10px;
-	border: 2px solid rgba( 30, 30, 30, 1 );
+	border: 2px solid transparent;
 }
 .components-tab-panel__tab-content::-webkit-scrollbar-thumb,
 .assistant-textarea::-webkit-scrollbar-thumb {
 	background: var( --color-frame-scrollbar-thumb );
+	background-clip: padding-box;
 	border-radius: 10px;
-	border: 2px solid var( --color-frame-scrollbar-border );
+	border: 2px solid transparent;
 }
 
 /* Add hover effect to thumb appearance on the scrollbar */
 .sites-scrollbar::-webkit-scrollbar-thumb:hover {
-	background: rgba( 255, 255, 255, 0.5 );
+	background: var( --color-frame-scrollbar-thumb-hover );
 }
 .components-tab-panel__tab-content::-webkit-scrollbar-thumb:hover,
 .assistant-textarea::-webkit-scrollbar-thumb:hover {
@@ -395,7 +396,7 @@ div:has( > progress ) > div:first-child {
 		color: var( --color-frame-text );
 	}
 	:is( [data-testid='site-content'], .components-modal__frame, [data-fullscreen-modal] )
-		span:not( .components-button span, button span ) {
+		span:not( .components-button span, button span, .text-a8c-red-50, .text-a8c-green-50, .text-frame-error, .text-frame-running ) {
 		color: var( --color-frame-text );
 	}
 

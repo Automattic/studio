@@ -27,6 +27,7 @@ vi.mock( '@studio/common/lib/fs-utils' );
 vi.mock( '@sentry/electron/main', () => ( {
 	captureException: vi.fn(),
 	captureMessage: vi.fn(),
+	setTag: vi.fn(),
 } ) );
 vi.mock( 'src/site-server' );
 vi.mock( 'src/lib/wordpress-setup', () => ( {
@@ -34,6 +35,10 @@ vi.mock( 'src/lib/wordpress-setup', () => ( {
 } ) );
 vi.mock( 'src/main-window' );
 vi.mock( 'src/lib/import-export/import/import-manager' );
+vi.mock( 'src/lib/sqlite-versions', () => ( {
+	keepSqliteIntegrationUpdated: vi.fn().mockResolvedValue( false ),
+	installSqliteIntegration: vi.fn().mockResolvedValue( undefined ),
+} ) );
 vi.mock( import( 'src/lib/bump-stats' ), async ( importOriginal ) => {
 	const actual = await importOriginal();
 	return {
@@ -194,6 +199,7 @@ describe( 'importSite', () => {
 			start: vi.fn(),
 			stop: vi.fn(),
 			updateSiteDetails: vi.fn(),
+			hasSQLitePlugin: vi.fn().mockResolvedValue( true ),
 			executeWpCliCommand: vi
 				.fn()
 				.mockResolvedValue( { stdout: 'New Site Title', stderr: '', exitCode: 0 } ),
@@ -243,6 +249,7 @@ describe( 'importSite', () => {
 			start: vi.fn(),
 			stop: vi.fn(),
 			updateSiteDetails: vi.fn(),
+			hasSQLitePlugin: vi.fn().mockResolvedValue( true ),
 			executeWpCliCommand: vi
 				.fn()
 				.mockResolvedValue( { stdout: 'New Site Title', stderr: '', exitCode: 0 } ),
@@ -383,7 +390,7 @@ describe( 'loadThemeDetails', () => {
 		await loadThemeDetails( mockIpcMainInvokeEvent, 'test-site-id' );
 
 		expect( mockServer.persistThemeDetails ).not.toHaveBeenCalled();
-		expect( captureSiteThumbnail ).toHaveBeenCalledWith( 'test-site-id' );
+		expect( captureSiteThumbnail ).toHaveBeenCalledWith( 'test-site-id', true );
 	} );
 
 	it( 'should persist theme details and capture thumbnail when theme has changed', async () => {
@@ -403,6 +410,6 @@ describe( 'loadThemeDetails', () => {
 		await loadThemeDetails( mockIpcMainInvokeEvent, 'test-site-id' );
 
 		expect( mockServer.persistThemeDetails ).toHaveBeenCalled();
-		expect( captureSiteThumbnail ).toHaveBeenCalledWith( 'test-site-id' );
+		expect( captureSiteThumbnail ).toHaveBeenCalledWith( 'test-site-id', true );
 	} );
 } );

@@ -3,63 +3,659 @@
 msgid ""
 msgstr "Content-Type: text/plain; charset=utf-8\n"
 
-#: apps/cli/ai/providers.ts:112
-#: apps/cli/ai/providers.ts:117
+#: apps/cli/ai/providers.ts:91
+#: apps/cli/ai/providers.ts:96
+#: apps/cli/commands/ai/index.ts:504
 msgid "WordPress.com login required. Use /login to authenticate."
 msgstr ""
 
-#: apps/cli/ai/providers.ts:140
-#: apps/cli/ai/providers.ts:146
-msgid "Claude auth is not available. Choose another provider with /provider."
-msgstr ""
-
-#: apps/cli/ai/providers.ts:168
+#: apps/cli/ai/providers.ts:123
 msgid ""
 "Anthropic API key required. Switch to Anthropic · API key with /provider to "
 "save one."
 msgstr ""
 
-#: apps/cli/ai/providers.ts:59
+#: apps/cli/ai/providers.ts:38
 msgid "Enter your Anthropic API key (will be saved for future use):"
 msgstr ""
 
-#: apps/cli/ai/providers.ts:63
+#: apps/cli/ai/providers.ts:42
 msgid "API key is required"
 msgstr ""
 
-#: apps/cli/commands/_events.ts:170
+#: apps/cli/ai/slash-commands.ts:18
+msgid "Open the active site in the browser"
+msgstr ""
+
+#: apps/cli/ai/slash-commands.ts:19
+msgid "Set or update the Anthropic API key"
+msgstr ""
+
+#: apps/cli/ai/slash-commands.ts:20
+#: apps/cli/commands/auth/login.ts:97
+#: apps/studio/src/components/content-tab-assistant.tsx:353
+#: apps/studio/src/components/content-tab-previews.tsx:100
+#: apps/studio/src/modules/add-site/components/pull-remote-site.tsx:94
+#: apps/studio/src/modules/onboarding/components/connect-to-wpcom.tsx:57
+#: apps/studio/src/modules/sync/index.tsx:89
+msgid "Log in to WordPress.com"
+msgstr ""
+
+#: apps/cli/ai/slash-commands.ts:21
+msgid "Log out of WordPress.com"
+msgstr ""
+
+#: apps/cli/ai/slash-commands.ts:22
+msgid "Switch the AI model"
+msgstr ""
+
+#: apps/cli/ai/slash-commands.ts:23
+msgid "Switch the AI provider"
+msgstr ""
+
+#: apps/cli/ai/slash-commands.ts:24
+msgid "Push the active site to WordPress.com as a preview"
+msgstr ""
+
+#: apps/cli/ai/slash-commands.ts:25
+msgid "Exit the chat"
+msgstr ""
+
+#: apps/cli/ai/slash-commands.ts:26
+msgid "Optimize category taxonomy with AI"
+msgstr ""
+
+#: apps/cli/ai/slash-commands.ts:27
+msgid "Run a performance audit on a site"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:191
+#: apps/cli/ai/ui.ts:1364
+msgid "↓ select site"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:237
+msgid "Create site"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:238
+#: apps/cli/commands/site/list.ts:122
+msgid "List sites"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:239
+msgid "Get site info"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:240
+#: apps/cli/commands/site/start.ts:94
+#: apps/studio/src/components/site-menu.tsx:85
+msgid "Start site"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:241
+#: apps/studio/src/components/site-menu.tsx:84
+msgid "Stop site"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:242
+#: apps/cli/commands/site/delete.ts:138
+#: apps/studio/src/components/content-tab-settings.tsx:112
+#: apps/studio/src/hooks/use-delete-site.ts:28
+msgid "Delete site"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:243
+msgid "Create preview"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:244
+msgid "List previews"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:245
+msgid "Update preview"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:246
+#: apps/studio/src/modules/preview-site/components/preview-action-buttons-menu.tsx:57
+msgid "Delete preview"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:247
+msgid "Run WP-CLI"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:248
+msgid "Validate blocks"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:249
+msgid "Take screenshot"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:250
+msgid "Read"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:251
+msgid "Write"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:252
+#: apps/studio/src/menu.ts:253
+msgid "Edit"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:253
+#: apps/studio/src/components/assistant-code-block.tsx:113
+msgid "Run"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:254
+#: apps/cli/ai/ui.ts:255
+msgid "Search"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:256
+msgid "Load skill"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:257
+msgid "Run task"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:258
+msgid "Update todo list"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:281
+msgid "inline content"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:624
+#: apps/studio/src/components/assistant-thinking.tsx:6
+msgid "Thinking…"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:790
+msgid "No sites found. Create one first."
+msgstr ""
+
+#: apps/cli/ai/ui.ts:819
+msgid "Not logged in. Use /login first."
+msgstr ""
+
+#: apps/cli/ai/ui.ts:837
+msgid "Failed to load WordPress.com sites. Please try again."
+msgstr ""
+
+#: apps/cli/ai/ui.ts:933
+msgid "[Local]"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:933
+msgid "Local"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:939
+msgid "Search:"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:943
+msgid ""
+"↑↓ navigate · → remote sites · enter select · tab open in browser · esc "
+"cancel"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:946
+msgid ""
+"↑↓ navigate · ← local sites · enter select · tab open in browser · esc "
+"cancel"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:956
+msgid "Loading WordPress.com sites…"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:980
+#. %s: site name
+msgid " ✻ Selected site: %s (WordPress.com)"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:985
+#. %s: site name
+msgid " ✻ Selected site: %s"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1002
+msgid " ✻ Site deselected"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1200
+msgid "Type your answer…"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1275
+msgid "Code is Poetry"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1368
+msgid "ctrl+o collapse"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1368
+msgid "ctrl+o expand"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1371
+msgid "esc to interrupt"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1440
+#. %s: product name (WordPress Studio)
+msgid "Hello, I'm %s, your local WordPress agent and builder."
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1457
+msgid "Great, you're connected now! Let me tell you what I can do:"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1459
+msgid "Local Sites Management"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1464
+#. %s: bold "Create"
+msgid "%s new local WordPress sites instantly (fully configured, ready to use)"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1465
+#: apps/studio/src/modules/onboarding/index.tsx:20
+msgid "Create"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1470
+#. %s: bold "Start / stop"
+msgid "%s existing local sites"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1471
+msgid "Start / stop"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1476
+#. %s: bold "List"
+msgid "%s all your local sites and their status"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1477
+msgid "List"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1480
+msgid "Design & Development"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1485
+#. %s: bold "Build"
+msgid "%s block themes with striking, memorable designs"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1486
+#: apps/studio/src/modules/onboarding/index.tsx:25
+msgid "Build"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1491
+#. %s: bold "CSS, PHP, and JavaScript"
+msgid "Write custom %s for themes and plugins"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1492
+msgid "CSS, PHP, and JavaScript"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1497
+#. %s: bold "pages and posts"
+msgid "Create %s with valid Gutenberg block content"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1498
+msgid "pages and posts"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1503
+#. %s: bold "plugins"
+msgid "Install and activate %s via WP-CLI"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1504
+msgid "plugins"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1507
+msgid "Content"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1512
+#. %s: bold "page content"
+msgid "Generate and import %s using core blocks"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1513
+msgid "page content"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1518
+#. %s: bold "navigation menus, site options, post types, taxonomies, and settings"
+msgid "Set up %s"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1519
+msgid "navigation menus, site options, post types, taxonomies, and settings"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1521
+msgid "Create realistic placeholder content tailored to your site's purpose"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1525
+#. %s: bold "images and videos"
+msgid "Upload %s to your site, using local media files or remote URLs"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1526
+msgid "images and videos"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1529
+msgid "Preview & Publishing"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1534
+#. %s: bold "screenshots"
+msgid "Take %s (desktop + mobile) to verify the design is well crafted"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1535
+msgid "screenshots"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1540
+#. %s: bold "Validate"
+msgid "%s all block content to ensure it's editor-compatible"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1541
+msgid "Validate"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1546
+#. %s: bold "Push"
+msgid "%s your local site to the cloud in WordPress.com"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1547
+#: apps/studio/src/modules/sync/components/sync-connected-sites.tsx:143
+#: apps/studio/src/modules/sync/components/sync-connected-sites.tsx:165
+#: apps/studio/src/modules/sync/hooks/use-sync-dialog-texts.tsx:81
+msgid "Push"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1552
+#. %s: bold "Generate preview sites"
+msgid "%s with shareable URLs for quick feedback"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1553
+msgid "Generate preview sites"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1558
+msgid "Just tell me what you want to build — for example:"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1560
+msgid "\"Create a portfolio site for a photographer\""
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1561
+msgid "\"Build a landing page for a SaaS product\""
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1562
+msgid "\"Make a blog for a coffee shop\""
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1565
+msgid ""
+"I'll ask a few quick questions about the name and layout, then build the "
+"whole thing for you. The more precise you are about what you want, the "
+"better the result will be."
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1675
+#. %d: number of hidden lines
+msgid "... %d more lines · ctrl+o to expand"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:1980
+msgid "Other (type my own)"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:2130
+#: apps/studio/src/modules/whats-new/components/whats-new-modal.tsx:133
+msgid "Done"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:2136
+#. 1: seconds spent thinking, 2: number of turns
+msgid "Thought for %1$ds · %2$d turn"
+msgid_plural "Thought for %1$ds · %2$d turns"
+msgstr[0] ""
+msgstr[1] ""
+
+#: apps/cli/ai/ui.ts:2153
+msgid "Interrupted"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:2161
+#. %d: number of seconds
+msgid "Ran for %ds before interruption"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:2187
+#. %s: tool name
+msgid "Permission denied: %s"
+msgstr ""
+
+#: apps/cli/ai/ui.ts:2193
+msgid "Unknown error"
+msgstr ""
+
+#: apps/cli/commands/_events.ts:183
 #: apps/cli/commands/site/list.ts:108
 msgid "Connecting to process daemon…"
 msgstr ""
 
-#: apps/cli/commands/_events.ts:172
+#: apps/cli/commands/_events.ts:185
 #: apps/cli/commands/site/list.ts:110
 msgid "Connected to process daemon"
 msgstr ""
 
-#: apps/cli/commands/_events.ts:194
+#: apps/cli/commands/_events.ts:227
 msgid "Events watcher failed"
 msgstr ""
 
-#: apps/cli/commands/ai/index.ts:484
-#: apps/cli/commands/ai/tests/ai.test.ts:185
-#: apps/cli/index.ts:172
-msgid "AI-powered WordPress assistant"
+#: apps/cli/commands/ai/index.ts:719
+#: apps/cli/commands/ai/tests/ai.test.ts:189
+msgid "AI agent for building WordPress"
 msgstr ""
 
-#: apps/cli/commands/ai/index.ts:493
-#: apps/cli/commands/ai/tests/ai.test.ts:195
-#: apps/cli/index.ts:193
-msgid "Record this AI chat session to disk"
+#: apps/cli/commands/ai/index.ts:728
+#: apps/cli/commands/ai/tests/ai.test.ts:199
+#: apps/cli/index.ts:210
+msgid "Record this code session to disk"
 msgstr ""
 
-#: apps/cli/commands/ai/index.ts:507
-#: apps/cli/commands/ai/index.ts:204
+#: apps/cli/commands/ai/index.ts:743
+#: apps/cli/commands/ai/index.ts:247
 msgid "AI agent failed"
 msgstr ""
 
+#: apps/cli/commands/ai/index.ts:80
+msgid "ⓘ The \"studio ai\" command is now \"studio code\"."
+msgstr ""
+
+#: apps/cli/commands/ai/index.ts:89
+msgid "Session persistence disabled (--no-session-persistence)."
+msgstr ""
+
+#: apps/cli/commands/ai/index.ts:115
+#: apps/cli/commands/ai/index.ts:140
+#. %s: error message
+msgid "Session persistence disabled: %s"
+msgstr ""
+
+#: apps/cli/commands/ai/index.ts:182
+#. %s: session ID
+msgid "Resuming session %s"
+msgstr ""
+
+#: apps/cli/commands/ai/index.ts:188
+msgid "No linked Claude session was found. Continuing from transcript only."
+msgstr ""
+
+#: apps/cli/commands/ai/index.ts:251
+msgid "Use /api-key to update the Anthropic API key."
+msgstr ""
+
+#: apps/cli/commands/ai/index.ts:265
+msgid "WordPress.com (recommended)"
+msgstr ""
+
+#: apps/cli/commands/ai/index.ts:271
+msgid "Choose how to connect"
+msgstr ""
+
+#: apps/cli/commands/ai/index.ts:293
+#: apps/cli/commands/ai/index.ts:586
+#. 1: display name, 2: email
+msgid "Logged in as %1$s (%2$s)"
+msgstr ""
+
+#: apps/cli/commands/ai/index.ts:301
+#: apps/cli/commands/ai/index.ts:331
+#: apps/cli/commands/ai/index.ts:594
+#. %s: display name
+#. %s: user display name
+msgid "Logged in as %s"
+msgstr ""
+
+#: apps/cli/commands/ai/index.ts:336
+msgid "Use /login to authenticate to WordPress.com"
+msgstr ""
+
+#: apps/cli/commands/ai/index.ts:339
+msgid "No Anthropic API key saved. Use /api-key to enter one."
+msgstr ""
+
+#: apps/cli/commands/ai/index.ts:490
+#: apps/cli/commands/ai/index.ts:498
+msgid "No site selected. Use ↓ to select a site first."
+msgstr ""
+
+#: apps/cli/commands/ai/index.ts:515
+msgid "Updating preview site… this may take a moment."
+msgstr ""
+
+#: apps/cli/commands/ai/index.ts:516
+msgid "Creating preview site… this may take a moment."
+msgstr ""
+
+#: apps/cli/commands/ai/index.ts:531
+#: apps/cli/commands/ai/index.ts:547
+msgid "Failed to create preview site."
+msgstr ""
+
+#: apps/cli/commands/ai/index.ts:537
+msgid "Preview site ready!"
+msgstr ""
+
+#: apps/cli/commands/ai/index.ts:539
+msgid "Preview command completed."
+msgstr ""
+
+#: apps/cli/commands/ai/index.ts:556
+msgid "Anthropic API key updated."
+msgstr ""
+
+#: apps/cli/commands/ai/index.ts:564
+msgid "API key update canceled."
+msgstr ""
+
+#: apps/cli/commands/ai/index.ts:605
+msgid "Login failed or canceled"
+msgstr ""
+
+#: apps/cli/commands/ai/index.ts:614
+msgid "Logged out of WordPress.com"
+msgstr ""
+
+#: apps/cli/commands/ai/index.ts:626
+#: apps/cli/commands/ai/index.ts:662
+#. %s: model name
+#. %s: provider name
+msgid "%s (current)"
+msgstr ""
+
+#: apps/cli/commands/ai/index.ts:634
+msgid "Select a model"
+msgstr ""
+
+#: apps/cli/commands/ai/index.ts:646
+#: apps/cli/commands/ai/index.ts:214
+#. %s: model name
+#. %s: provider name
+msgid "Switched to %s"
+msgstr ""
+
+#: apps/cli/commands/ai/index.ts:669
+msgid "Select an AI provider"
+msgstr ""
+
+#: apps/cli/commands/ai/index.ts:684
+#. %s: provider name
+msgid "Provider setup canceled. Kept %s."
+msgstr ""
+
+#: apps/cli/commands/ai/index.ts:232
+#. 1: previous provider name, 2: new provider name
+msgid "%1$s is no longer available. Switched to %2$s."
+msgstr ""
+
+#: apps/cli/commands/ai/index.ts:457
+#. %d: number of turns used
+msgid "Used %d turn"
+msgid_plural "Used %d turns"
+msgstr[0] ""
+msgstr[1] ""
+
+#: apps/cli/commands/ai/index.ts:463
+msgid "Reached the turn limit. Continue?"
+msgstr ""
+
+#: apps/cli/commands/ai/index.ts:465
+msgid "Resume where the agent left off"
+msgstr ""
+
+#: apps/cli/commands/ai/index.ts:466
+msgid "Stop here"
+msgstr ""
+
 #: apps/cli/commands/ai/sessions/delete.ts:40
-msgid "Delete an AI session (id, prefix, \"latest\", or picker)"
+msgid "Delete a code session (id, prefix, \"latest\", or picker)"
 msgstr ""
 
 #: apps/cli/commands/ai/sessions/delete.ts:44
@@ -68,7 +664,7 @@ msgid "Session id, id prefix, or \"latest\""
 msgstr ""
 
 #: apps/cli/commands/ai/sessions/delete.ts:54
-msgid "Failed to delete AI session"
+msgid "Failed to delete code session"
 msgstr ""
 
 #: apps/cli/commands/ai/sessions/delete.ts:14
@@ -77,14 +673,14 @@ msgstr ""
 
 #: apps/cli/commands/ai/sessions/delete.ts:15
 #: apps/cli/commands/ai/sessions/delete.ts:27
-#: apps/cli/commands/ai/sessions/list.ts:15
+#: apps/cli/commands/ai/sessions/list.ts:20
 #: apps/cli/commands/ai/sessions/resume.ts:19
 #: apps/cli/commands/ai/sessions/resume.ts:31
-msgid "No AI sessions found"
+msgid "No code sessions found"
 msgstr ""
 
 #: apps/cli/commands/ai/sessions/delete.ts:34
-msgid "Deleted AI session"
+msgid "Deleted code session"
 msgstr ""
 
 #: apps/cli/commands/ai/sessions/helpers.ts:75
@@ -92,15 +688,32 @@ msgid "(No prompt yet)"
 msgstr ""
 
 #: apps/cli/commands/ai/sessions/helpers.ts:126
-msgid "AI Sessions"
+msgid "Code Sessions"
 msgstr ""
 
 #: apps/cli/commands/ai/sessions/helpers.ts:128
 msgid "Most recent first"
 msgstr ""
 
+#: apps/cli/commands/ai/sessions/helpers.ts:172
+#: apps/cli/lib/sync-site-picker.ts:143
+#: apps/cli/lib/tree-checkbox.ts:309
+msgid "↑↓ navigate"
+msgstr ""
+
+#: apps/cli/commands/ai/sessions/helpers.ts:172
+#: apps/cli/lib/sync-site-picker.ts:145
+msgid "⏎ select"
+msgstr ""
+
+#: apps/cli/commands/ai/sessions/helpers.ts:172
+#: apps/cli/lib/sync-site-picker.ts:146
+#: apps/cli/lib/tree-checkbox.ts:314
+msgid "esc cancel"
+msgstr ""
+
 #: apps/cli/commands/ai/sessions/list.ts:30
-msgid "List AI sessions"
+msgid "List code sessions"
 msgstr ""
 
 #: apps/cli/commands/ai/sessions/list.ts:36
@@ -112,38 +725,29 @@ msgid "Output format"
 msgstr ""
 
 #: apps/cli/commands/ai/sessions/list.ts:46
-msgid "Failed to list AI sessions"
+msgid "Failed to list code sessions"
 msgstr ""
 
 #: apps/cli/commands/ai/sessions/resume.ts:47
-msgid "Resume an AI session (id, prefix, \"latest\", or picker)"
+msgid "Resume a code session (id, prefix, \"latest\", or picker)"
 msgstr ""
 
 #: apps/cli/commands/ai/sessions/resume.ts:65
-msgid "Failed to resume AI session"
+msgid "Failed to resume code session"
 msgstr ""
 
 #: apps/cli/commands/ai/sessions/resume.ts:18
 msgid "Select a session to resume:"
 msgstr ""
 
-#: apps/cli/commands/ai/tests/ai.test.ts:187
-#: apps/cli/index.ts:175
-msgid "Manage AI sessions"
+#: apps/cli/commands/ai/tests/ai.test.ts:191
+#: apps/cli/index.ts:192
+msgid "Manage code sessions"
 msgstr ""
 
-#: apps/cli/commands/ai/tests/ai.test.ts:202
-#: apps/cli/index.ts:200
-msgid "You must provide a valid ai sessions command"
-msgstr ""
-
-#: apps/cli/commands/auth/login.ts:97
-#: apps/studio/src/components/content-tab-assistant.tsx:354
-#: apps/studio/src/components/content-tab-previews.tsx:100
-#: apps/studio/src/modules/add-site/components/pull-remote-site.tsx:94
-#: apps/studio/src/modules/onboarding/components/connect-to-wpcom.tsx:57
-#: apps/studio/src/modules/sync/index.tsx:89
-msgid "Log in to WordPress.com"
+#: apps/cli/commands/ai/tests/ai.test.ts:206
+#: apps/cli/index.ts:217
+msgid "You must provide a valid code sessions command"
 msgstr ""
 
 #: apps/cli/commands/auth/login.ts:23
@@ -224,6 +828,332 @@ msgstr ""
 msgid "Failed to check authentication status"
 msgstr ""
 
+#: apps/cli/commands/export.ts:21
+#: apps/studio/src/hooks/use-import-export.tsx:360
+#: apps/studio/src/hooks/use-import-export.tsx:481
+msgid "Starting export…"
+msgstr ""
+
+#: apps/cli/commands/export.ts:25
+msgid "Creating backup file…"
+msgstr ""
+
+#: apps/cli/commands/export.ts:29
+msgid "Traversing WordPress content…"
+msgstr ""
+
+#: apps/cli/commands/export.ts:32
+msgid "WordPress content traversed"
+msgstr ""
+
+#: apps/cli/commands/export.ts:36
+msgid "Exporting database…"
+msgstr ""
+
+#: apps/cli/commands/export.ts:39
+msgid "Database exported"
+msgstr ""
+
+#: apps/cli/commands/export.ts:49
+msgid "Backing up file… (%d processed)"
+msgid_plural "Backing up files… (%d processed)"
+msgstr[0] ""
+msgstr[1] ""
+
+#: apps/cli/commands/export.ts:57
+msgid "Backup file created"
+msgstr ""
+
+#: apps/cli/commands/export.ts:61
+#: apps/studio/src/hooks/use-import-export.tsx:501
+msgid "Exporting configuration…"
+msgstr ""
+
+#: apps/cli/commands/export.ts:64
+msgid "Configuration exported"
+msgstr ""
+
+#: apps/cli/commands/export.ts:68
+msgid "Site exported successfully"
+msgstr ""
+
+#: apps/cli/commands/export.ts:72
+msgid "Export failed"
+msgstr ""
+
+#: apps/cli/commands/export.ts:139
+msgid "Export site to a backup file"
+msgstr ""
+
+#: apps/cli/commands/export.ts:146
+msgid ""
+"Path to the export file. Full-site exports use .zip or .tar.gz. "
+"Database-only exports use .sql."
+msgstr ""
+
+#: apps/cli/commands/export.ts:157
+msgid "Export the full site or just the database. Default exports full site."
+msgstr ""
+
+#: apps/cli/commands/export.ts:181
+msgid ""
+"Invalid export file extension. Must be .zip or .tar.gz when exporting the "
+"full site."
+msgstr ""
+
+#: apps/cli/commands/export.ts:189
+msgid "Invalid export file extension. Must be .sql when exporting database only."
+msgstr ""
+
+#: apps/cli/commands/export.ts:198
+msgid "Failed to export site"
+msgstr ""
+
+#: apps/cli/commands/export.ts:82
+#: apps/cli/commands/import.ts:194
+#: apps/cli/commands/pull.ts:62
+#: apps/cli/commands/site/create.ts:390
+#: apps/cli/commands/site/create.ts:435
+#: apps/cli/commands/site/delete.ts:70
+#: apps/cli/commands/site/start.ts:25
+#: apps/cli/commands/site/status.ts:17
+msgid "Starting process daemon…"
+msgstr ""
+
+#: apps/cli/commands/export.ts:84
+#: apps/cli/commands/import.ts:196
+#: apps/cli/commands/pull.ts:64
+#: apps/cli/commands/site/create.ts:392
+#: apps/cli/commands/site/create.ts:437
+#: apps/cli/commands/site/delete.ts:72
+#: apps/cli/commands/site/start.ts:27
+#: apps/cli/commands/site/status.ts:19
+msgid "Process daemon started"
+msgstr ""
+
+#: apps/cli/commands/export.ts:86
+#: apps/cli/commands/import.ts:198
+#: apps/cli/commands/pull.ts:66
+#: apps/cli/commands/push.ts:46
+#: apps/cli/commands/site/delete.ts:74
+#: apps/cli/commands/site/start.ts:29
+#: apps/cli/commands/site/status.ts:21
+msgid "Loading site…"
+msgstr ""
+
+#: apps/cli/commands/export.ts:88
+#: apps/cli/commands/import.ts:200
+#: apps/cli/commands/pull.ts:68
+#: apps/cli/commands/push.ts:48
+#: apps/cli/commands/site/delete.ts:76
+#: apps/cli/commands/site/start.ts:31
+#: apps/cli/commands/site/status.ts:23
+msgid "Site loaded"
+msgstr ""
+
+#: apps/cli/commands/export.ts:92
+#: apps/cli/commands/import.ts:241
+#: apps/cli/commands/pull.ts:209
+#: apps/cli/commands/push.ts:52
+#: apps/cli/commands/site/start.ts:52
+msgid "Setting up SQLite integration, if needed…"
+msgstr ""
+
+#: apps/cli/commands/export.ts:95
+#: apps/cli/commands/import.ts:244
+#: apps/cli/commands/pull.ts:212
+#: apps/cli/commands/push.ts:55
+#: apps/cli/commands/site/start.ts:55
+msgid "SQLite integration configured as needed"
+msgstr ""
+
+#: apps/cli/commands/export.ts:113
+msgid "%s successfully exported"
+msgstr ""
+
+#: apps/cli/commands/export.ts:116
+#: apps/cli/commands/push.ts:123
+msgid "No suitable exporter found for the provided backup file"
+msgstr ""
+
+#: apps/cli/commands/import.ts:39
+#: apps/studio/src/hooks/use-import-export.tsx:69
+msgid "Importing plugins…"
+msgstr ""
+
+#: apps/cli/commands/import.ts:40
+#: apps/studio/src/hooks/use-import-export.tsx:70
+msgid "Importing themes…"
+msgstr ""
+
+#: apps/cli/commands/import.ts:41
+#: apps/studio/src/hooks/use-import-export.tsx:71
+msgid "Importing media uploads…"
+msgstr ""
+
+#: apps/cli/commands/import.ts:42
+#: apps/studio/src/hooks/use-import-export.tsx:72
+msgid "Importing other files…"
+msgstr ""
+
+#: apps/cli/commands/import.ts:62
+msgid "Started import…"
+msgstr ""
+
+#: apps/cli/commands/import.ts:63
+msgid "Validating backup…"
+msgstr ""
+
+#: apps/cli/commands/import.ts:66
+msgid "Backup validated"
+msgstr ""
+
+#: apps/cli/commands/import.ts:70
+msgid "Backup validation failed"
+msgstr ""
+
+#: apps/cli/commands/import.ts:75
+#: apps/studio/src/hooks/use-import-export.tsx:191
+msgid "Extracting backup files…"
+msgstr ""
+
+#: apps/cli/commands/import.ts:86
+msgid "Extracting backup file… (%1$d/%2$d)"
+msgid_plural "Extracting backup files… (%1$d/%2$d)"
+msgstr[0] ""
+msgstr[1] ""
+
+#: apps/cli/commands/import.ts:99
+msgid "Backup extraction completed"
+msgstr ""
+
+#: apps/cli/commands/import.ts:103
+msgid "A warning occurred while extracting backup"
+msgstr ""
+
+#: apps/cli/commands/import.ts:108
+msgid "Failed to extract backup"
+msgstr ""
+
+#: apps/cli/commands/import.ts:113
+#: apps/studio/src/hooks/use-import-export.tsx:222
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:118
+msgid "Importing backup…"
+msgstr ""
+
+#: apps/cli/commands/import.ts:116
+#: apps/studio/src/hooks/use-import-export.tsx:232
+#: apps/studio/src/hooks/use-import-export.tsx:239
+msgid "Importing database…"
+msgstr ""
+
+#: apps/cli/commands/import.ts:127
+msgid "Importing database file… (%1$d/%2$d)"
+msgid_plural "Importing database files… (%1$d/%2$d)"
+msgstr[0] ""
+msgstr[1] ""
+
+#: apps/cli/commands/import.ts:140
+msgid "Database import completed"
+msgstr ""
+
+#: apps/cli/commands/import.ts:144
+#: apps/cli/commands/import.ts:155
+#: apps/studio/src/hooks/use-import-export.tsx:280
+#: apps/studio/src/hooks/use-import-export.tsx:286
+msgid "Importing WordPress content…"
+msgstr ""
+
+#: apps/cli/commands/import.ts:159
+#. %1$s is a content type label, %2$d is processed items, %3$d is total items
+msgid "%1$s (%2$d/%3$d)"
+msgstr ""
+
+#: apps/cli/commands/import.ts:169
+msgid "WordPress content import completed"
+msgstr ""
+
+#: apps/cli/commands/import.ts:173
+msgid "Importing metadata…"
+msgstr ""
+
+#: apps/cli/commands/import.ts:176
+msgid "Metadata import completed"
+msgstr ""
+
+#: apps/cli/commands/import.ts:179
+msgid "Site imported successfully"
+msgstr ""
+
+#: apps/cli/commands/import.ts:183
+msgid "Import failed"
+msgstr ""
+
+#: apps/cli/commands/import.ts:273
+msgid "Import a backup file to site"
+msgstr ""
+
+#: apps/cli/commands/import.ts:279
+msgid "Path to the import file"
+msgstr ""
+
+#: apps/cli/commands/import.ts:292
+msgid "Failed to import site"
+msgstr ""
+
+#: apps/cli/commands/import.ts:50
+#: apps/cli/commands/site/create.ts:230
+msgid ""
+"Cannot set up WordPress. Bundled WordPress files not found. Please connect "
+"to the internet or reinstall Studio."
+msgstr ""
+
+#: apps/cli/commands/import.ts:203
+msgid "Import file not found: %s"
+msgstr ""
+
+#: apps/cli/commands/import.ts:209
+#: apps/cli/commands/pull.ts:178
+#: apps/cli/commands/site/delete.ts:80
+#: apps/cli/commands/site/stop.ts:58
+msgid "Stopping WordPress server…"
+msgstr ""
+
+#: apps/cli/commands/import.ts:212
+#: apps/cli/commands/pull.ts:181
+#: apps/cli/commands/site/delete.ts:82
+#: apps/cli/commands/site/stop.ts:64
+msgid "WordPress server stopped"
+msgstr ""
+
+#: apps/cli/commands/import.ts:216
+#: apps/cli/commands/site/create.ts:236
+msgid "Copying bundled WordPress…"
+msgstr ""
+
+#: apps/cli/commands/import.ts:218
+#: apps/cli/commands/site/create.ts:238
+msgid "WordPress files copied"
+msgstr ""
+
+#: apps/cli/commands/import.ts:221
+msgid "Starting import…"
+msgstr ""
+
+#: apps/cli/commands/import.ts:246
+#: apps/cli/commands/pull.ts:214
+#: apps/cli/commands/site/create.ts:398
+#: apps/cli/commands/site/start.ts:66
+msgid "Starting WordPress server…"
+msgstr ""
+
+#: apps/cli/commands/import.ts:248
+#: apps/cli/commands/pull.ts:216
+#: apps/cli/commands/site/create.ts:406
+#: apps/cli/commands/site/start.ts:70
+msgid "WordPress server started"
+msgstr ""
+
 #: apps/cli/commands/mcp.ts:31
 msgid "WordPress Studio MCP Server"
 msgstr ""
@@ -233,12 +1163,10 @@ msgid "Run one of the following commands to add MCP support to your AI assistant
 msgstr ""
 
 #: apps/cli/commands/mcp.ts:36
-#: apps/studio/src/modules/mcp/components/mcp-settings.tsx:43
 msgid "Claude Code"
 msgstr ""
 
 #: apps/cli/commands/mcp.ts:39
-#: apps/studio/src/modules/mcp/components/mcp-settings.tsx:50
 msgid "Codex"
 msgstr ""
 
@@ -253,12 +1181,10 @@ msgid "Configuration file locations:"
 msgstr ""
 
 #: apps/cli/commands/mcp.ts:50
-#: apps/studio/src/modules/mcp/components/mcp-settings.tsx:46
 msgid "Claude Desktop"
 msgstr ""
 
 #: apps/cli/commands/mcp.ts:53
-#: apps/studio/src/modules/mcp/components/mcp-settings.tsx:53
 #: apps/studio/src/modules/user-settings/lib/editor.ts:76
 #. "Cursor" is the brand name for an IDE and does not need to be translated
 msgid "Cursor"
@@ -279,7 +1205,7 @@ msgid ""
 msgstr ""
 
 #: apps/cli/commands/mcp.ts:78
-msgid "MCP server for AI assistants"
+msgid "MCP server for AI agents"
 msgstr ""
 
 #: apps/cli/commands/mcp.ts:93
@@ -296,21 +1222,23 @@ msgid "Preview site name"
 msgstr ""
 
 #: apps/cli/commands/preview/create.ts:26
-#: apps/cli/commands/preview/delete.ts:16
+#: apps/cli/commands/preview/delete.ts:44
 #: apps/cli/commands/preview/list.ts:32
 #: apps/cli/commands/preview/update.ts:57
 msgid "Validating…"
 msgstr ""
 
 #: apps/cli/commands/preview/create.ts:32
-#: apps/cli/commands/preview/delete.ts:20
+#: apps/cli/commands/preview/delete.ts:37
 #: apps/cli/commands/preview/list.ts:37
 #: apps/cli/commands/preview/update.ts:61
+#: apps/cli/commands/pull.ts:58
+#: apps/cli/commands/push.ts:42
 msgid "Authentication required. Please log in with `studio auth login`."
 msgstr ""
 
 #: apps/cli/commands/preview/create.ts:35
-#: apps/cli/commands/preview/delete.ts:33
+#: apps/cli/commands/preview/delete.ts:55
 #: apps/cli/commands/preview/list.ts:40
 #: apps/cli/commands/preview/update.ts:73
 msgid "Validation successful"
@@ -318,9 +1246,9 @@ msgstr ""
 
 #: apps/cli/commands/preview/create.ts:37
 #: apps/cli/commands/preview/update.ts:75
-#: apps/studio/src/stores/snapshot-slice.ts:173
-#: apps/studio/src/stores/snapshot-slice.ts:334
-#: apps/studio/src/stores/snapshot-slice.ts:336
+#: apps/studio/src/stores/snapshot-slice.ts:134
+#: apps/studio/src/stores/snapshot-slice.ts:279
+#: apps/studio/src/stores/snapshot-slice.ts:281
 msgid "Creating archive…"
 msgstr ""
 
@@ -331,7 +1259,7 @@ msgstr ""
 
 #: apps/cli/commands/preview/create.ts:41
 #: apps/cli/commands/preview/update.ts:79
-#: apps/studio/src/stores/snapshot-slice.ts:338
+#: apps/studio/src/stores/snapshot-slice.ts:283
 msgid "Uploading archive…"
 msgstr ""
 
@@ -341,7 +1269,7 @@ msgid "Archive uploaded"
 msgstr ""
 
 #: apps/cli/commands/preview/create.ts:46
-#: apps/studio/src/stores/snapshot-slice.ts:340
+#: apps/studio/src/stores/snapshot-slice.ts:285
 msgid "Creating preview site…"
 msgstr ""
 
@@ -369,29 +1297,42 @@ msgstr ""
 msgid "Failed to create preview site"
 msgstr ""
 
-#: apps/cli/commands/preview/delete.ts:56
-msgid "Delete a preview site"
+#: apps/cli/commands/preview/delete.ts:89
+msgid "Delete preview site(s)"
 msgstr ""
 
-#: apps/cli/commands/preview/delete.ts:61
+#: apps/cli/commands/preview/delete.ts:94
+msgid "Delete all preview sites for your user"
+msgstr ""
+
+#: apps/cli/commands/preview/delete.ts:99
 msgid "Hostname of the preview site to delete"
 msgstr ""
 
-#: apps/cli/commands/preview/delete.ts:27
+#: apps/cli/commands/preview/delete.ts:103
+msgid "Hostname is required unless --all is passed."
+msgstr ""
+
+#: apps/cli/commands/preview/delete.ts:49
 msgid ""
 "Preview site not found. Use the `studio preview list` command to see "
 "available preview sites."
 msgstr ""
 
-#: apps/cli/commands/preview/delete.ts:35
+#: apps/cli/commands/preview/delete.ts:57
 msgid "Deleting…"
 msgstr ""
 
-#: apps/cli/commands/preview/delete.ts:42
+#: apps/cli/commands/preview/delete.ts:66
+#: apps/cli/commands/preview/delete.ts:74
 msgid "Deletion successful"
 msgstr ""
 
-#: apps/cli/commands/preview/delete.ts:47
+#: apps/cli/commands/preview/delete.ts:68
+msgid "Deleting all preview sites…"
+msgstr ""
+
+#: apps/cli/commands/preview/delete.ts:80
 #: apps/cli/lib/api.ts:135
 msgid "Failed to delete preview site"
 msgstr ""
@@ -499,401 +1440,453 @@ msgstr ""
 msgid "Failed to update preview site"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:501
+#: apps/cli/commands/pull.ts:241
+msgid "Pull a WordPress.com site to your local site"
+msgstr ""
+
+#: apps/cli/commands/pull.ts:246
+#: apps/cli/commands/push.ts:267
+msgid "Comma-separated sync options: all, sqls, uploads, plugins, themes, contents"
+msgstr ""
+
+#: apps/cli/commands/pull.ts:254
+#: apps/cli/commands/push.ts:275
+msgid "Remote site URL or ID"
+msgstr ""
+
+#: apps/cli/commands/pull.ts:264
+msgid "Pull failed"
+msgstr ""
+
+#: apps/cli/commands/pull.ts:70
+#: apps/cli/commands/push.ts:57
+msgid "Fetching WordPress.com sites…"
+msgstr ""
+
+#: apps/cli/commands/pull.ts:73
+#: apps/cli/commands/push.ts:60
+msgid "Found %d sites"
+msgstr ""
+
+#: apps/cli/commands/pull.ts:79
+msgid "Select a site to pull from"
+msgstr ""
+
+#: apps/cli/commands/pull.ts:91
+msgid "Fetching file tree…"
+msgstr ""
+
+#: apps/cli/commands/pull.ts:106
+msgid "Initializing remote backup… (%d%%)"
+msgstr ""
+
+#: apps/cli/commands/pull.ts:121
+msgid "Remote backup failed"
+msgstr ""
+
+#: apps/cli/commands/pull.ts:139
+msgid "Creating remote backup… (%d%%)"
+msgstr ""
+
+#: apps/cli/commands/pull.ts:145
+msgid "Backup timed out — no progress detected"
+msgstr ""
+
+#: apps/cli/commands/pull.ts:154
+msgid ""
+"Your site's backup exceeds %d GB. Pulling it will prevent you from pushing "
+"the site back. Do you want to continue?"
+msgstr ""
+
+#: apps/cli/commands/pull.ts:167
+msgid "Downloading backup… (%d%%)"
+msgstr ""
+
+#: apps/cli/commands/pull.ts:197
+msgid "Pulled from %s (%s)"
+msgstr ""
+
+#: apps/cli/commands/push.ts:262
+msgid "Push your local site to a WordPress.com site"
+msgstr ""
+
+#: apps/cli/commands/push.ts:285
+msgid "Push failed"
+msgstr ""
+
+#: apps/cli/commands/push.ts:66
+msgid "Select a site to push to"
+msgstr ""
+
+#: apps/cli/commands/push.ts:130
+msgid ""
+"The archive exceeds the %d GB size limit. Please reduce the size of your "
+"site and try again."
+msgstr ""
+
+#: apps/cli/commands/push.ts:151
+#: apps/cli/commands/push.ts:159
+msgid "Uploading archive… (%d%%)"
+msgstr ""
+
+#: apps/cli/commands/push.ts:168
+msgid ""
+"Press Ctrl+C again to cancel. The upload cannot be safely cancelled "
+"mid-transfer."
+msgstr ""
+
+#: apps/cli/commands/push.ts:172
+msgid "Upload cancelled"
+msgstr ""
+
+#: apps/cli/commands/push.ts:186
+msgid "Initiating import… (%d%%)"
+msgstr ""
+
+#: apps/cli/commands/push.ts:201
+msgid "Import failed on %s"
+msgstr ""
+
+#: apps/cli/commands/push.ts:216
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:97
+msgid "Backing up remote site…"
+msgstr ""
+
+#: apps/cli/commands/push.ts:220
+#: apps/cli/commands/push.ts:228
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:99
+msgid "Applying changes…"
+msgstr ""
+
+#: apps/cli/commands/push.ts:224
+#: apps/studio/src/components/site-is-being-created.tsx:17
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:100
+msgid "Almost there…"
+msgstr ""
+
+#: apps/cli/commands/push.ts:247
+msgid "Import timed out on %s — no progress detected"
+msgstr ""
+
+#: apps/cli/commands/push.ts:252
+msgid "Successfully pushed to %s (%s)"
+msgstr ""
+
+#: apps/cli/commands/site/create.ts:504
 msgid "Blueprint file not found: %s"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:509
+#: apps/cli/commands/site/create.ts:512
 msgid "Failed to parse Blueprint JSON file: %s"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:519
+#: apps/cli/commands/site/create.ts:522
 msgid "Must be a valid UUID"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:529
-#: apps/cli/commands/site/set.ts:356
+#: apps/cli/commands/site/create.ts:532
 msgid ""
 "Must be: \"latest\", \"nightly\", or a valid version number (e.g., \"6.4\", "
 "\"6.4.1\", \"6.4-beta1\")"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:539
-#: apps/cli/commands/site/set.ts:365
+#: apps/cli/commands/site/create.ts:542
 msgid "Must be: at least %s"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:549
+#: apps/cli/commands/site/create.ts:552
 msgid "Create a new site"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:554
+#: apps/cli/commands/site/create.ts:557
 msgid "Site ID (UUID format, used internally by Studio app)"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:560
-#: apps/cli/commands/site/set.ts:333
-#: apps/studio/src/components/content-tab-settings.tsx:115
-#: apps/studio/src/modules/add-site/components/create-site-form.tsx:451
-#: apps/studio/src/modules/site-settings/edit-site-details.tsx:298
+#: apps/cli/commands/site/create.ts:563
+#: apps/studio/src/components/content-tab-settings.tsx:121
+#: apps/studio/src/modules/add-site/components/create-site-form.tsx:460
+#: apps/studio/src/modules/site-settings/edit-site-details.tsx:318
 msgid "Site name"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:564
+#: apps/cli/commands/site/create.ts:567
 msgid "WordPress version (e.g., \"latest\", \"6.4\", \"6.4.1\")"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:570
-#: apps/cli/commands/site/set.ts:345
+#: apps/cli/commands/site/create.ts:573
 #: apps/cli/commands/site/status.ts:58
-#: apps/studio/src/components/content-tab-settings.tsx:159
-#: apps/studio/src/modules/add-site/components/create-site-form.tsx:531
-#: apps/studio/src/modules/site-settings/edit-site-details.tsx:311
+#: apps/studio/src/components/content-tab-settings.tsx:165
+#: apps/studio/src/modules/add-site/components/create-site-form.tsx:542
+#: apps/studio/src/modules/site-settings/edit-site-details.tsx:331
 msgid "PHP version"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:576
+#: apps/cli/commands/site/create.ts:579
 msgid "Custom domain (e.g., \"mysite.local\")"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:580
+#: apps/cli/commands/site/create.ts:583
 msgid "Enable HTTPS for custom domain"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:585
+#: apps/cli/commands/site/create.ts:588
 msgid "Path or URL to Blueprint JSON file"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:589
+#: apps/cli/commands/site/create.ts:596
 msgid "Admin username (defaults to \"admin\")"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:593
+#: apps/cli/commands/site/create.ts:600
 msgid ""
 "Admin password (auto-generated if not provided). Note: passwords in CLI "
 "arguments may be visible in process lists; consider using a Blueprint file "
 "for sensitive passwords."
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:599
+#: apps/cli/commands/site/create.ts:606
 msgid "Admin email (defaults to \"admin@localhost.com\")"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:603
+#: apps/cli/commands/site/create.ts:610
 msgid "Start the site after creation"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:608
+#: apps/cli/commands/site/create.ts:615
 #: apps/cli/commands/site/start.ts:99
 msgid "Skip opening the site in browser after starting"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:613
+#: apps/cli/commands/site/create.ts:620
 msgid "Skip printing site URL and admin credentials after creating"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:633
+#: apps/cli/commands/site/create.ts:640
 msgid "Site name:"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:640
+#: apps/cli/commands/site/create.ts:647
 #: tools/common/lib/generate-site-name.ts:7
 msgid "My WordPress Website"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:642
+#: apps/cli/commands/site/create.ts:649
 msgid "Site path:"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:660
-#: apps/cli/commands/site/create.ts:677
+#: apps/cli/commands/site/create.ts:667
+#: apps/cli/commands/site/create.ts:684
 msgid "%s (recommended)"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:660
-#: apps/studio/src/modules/add-site/components/create-site-form.tsx:550
+#: apps/cli/commands/site/create.ts:667
+#: apps/studio/src/modules/add-site/components/create-site-form.tsx:561
 msgid "Latest"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:666
+#: apps/cli/commands/site/create.ts:673
 msgid "WordPress version:"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:675
+#: apps/cli/commands/site/create.ts:682
 msgid "PHP version:"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:691
+#: apps/cli/commands/site/create.ts:698
 msgid "Custom domain (leave empty to skip):"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:699
+#: apps/cli/commands/site/create.ts:706
 msgid "Enable HTTPS?"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:706
+#: apps/cli/commands/site/create.ts:713
 msgid "Admin username:"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:714
+#: apps/cli/commands/site/create.ts:721
 msgid "Admin password (leave empty to auto-generate):"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:724
+#: apps/cli/commands/site/create.ts:731
 msgid "Admin email:"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:776
-#: apps/studio/src/hooks/use-site-details.tsx:301
+#: apps/cli/commands/site/create.ts:789
+#: apps/studio/src/hooks/use-site-details.tsx:276
 msgid "Failed to create site"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:114
+#: apps/cli/commands/site/create.ts:115
 msgid "Checking for dependency updates…"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:129
+#: apps/cli/commands/site/create.ts:130
 msgid "Validating site configuration…"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:137
+#: apps/cli/commands/site/create.ts:138
 msgid "The selected directory is not empty nor an existing WordPress site."
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:186
+#: apps/cli/commands/site/create.ts:187
 msgid ""
 "The enableMultisite Blueprint step requires a custom domain. WordPress "
 "multisite does not support custom ports. Use --domain <name>.local to set a "
 "custom domain."
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:155
+#: apps/cli/commands/site/create.ts:156
 #. %1$s: feature name, %2$s: reason
 msgid "Blueprint feature \"%1$s\" is not supported: %2$s"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:195
+#: apps/cli/commands/site/create.ts:196
 msgid "The selected directory is already in use."
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:216
+#: apps/cli/commands/site/create.ts:217
 msgid "Site configuration validated"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:219
+#: apps/cli/commands/site/create.ts:220
 msgid "Creating site directory…"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:221
+#: apps/cli/commands/site/create.ts:222
 msgid "Site directory created"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:229
-msgid ""
-"Cannot set up WordPress. Bundled WordPress files not found. Please connect "
-"to the internet or reinstall Studio."
-msgstr ""
-
-#: apps/cli/commands/site/create.ts:235
-msgid "Copying bundled WordPress…"
-msgstr ""
-
-#: apps/cli/commands/site/create.ts:237
-msgid "WordPress files copied"
-msgstr ""
-
-#: apps/cli/commands/site/create.ts:240
+#: apps/cli/commands/site/create.ts:241
 msgid ""
 "Cannot set up WordPress while offline. Specific WordPress versions require "
 "an internet connection. Try using \"latest\" version or ensure internet "
 "connectivity."
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:246
+#: apps/cli/commands/site/create.ts:247
 msgid "Setting up SQLite integration…"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:249
+#: apps/cli/commands/site/create.ts:250
 msgid "SQLite integration configured"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:249
+#: apps/cli/commands/site/create.ts:250
 msgid "SQLite integration skipped"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:256
+#: apps/cli/commands/site/create.ts:259
 msgid "Failed to install AI instructions. Proceeding anyway…"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:261
+#: apps/cli/commands/site/create.ts:264
 msgid "Assigning port…"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:264
+#: apps/cli/commands/site/create.ts:267
 #. %d is the port number
 msgid "Port assigned: %d"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:371
+#: apps/cli/commands/site/create.ts:374
 msgid "Saving site…"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:381
-#: apps/cli/commands/site/create.ts:458
+#: apps/cli/commands/site/create.ts:384
+#: apps/cli/commands/site/create.ts:461
 msgid "Site created successfully"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:387
-#: apps/cli/commands/site/create.ts:432
-#: apps/cli/commands/site/delete.ts:69
-#: apps/cli/commands/site/set.ts:253
-#: apps/cli/commands/site/start.ts:25
-#: apps/cli/commands/site/status.ts:17
-msgid "Starting process daemon…"
-msgstr ""
-
-#: apps/cli/commands/site/create.ts:389
-#: apps/cli/commands/site/create.ts:434
-#: apps/cli/commands/site/delete.ts:71
-#: apps/cli/commands/site/set.ts:255
-#: apps/cli/commands/site/start.ts:27
-#: apps/cli/commands/site/status.ts:19
-msgid "Process daemon started"
-msgstr ""
-
-#: apps/cli/commands/site/create.ts:394
+#: apps/cli/commands/site/create.ts:397
 msgid "Starting WordPress server and applying Blueprint…"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:395
-#: apps/cli/commands/site/set.ts:307
-#: apps/cli/commands/site/start.ts:66
-msgid "Starting WordPress server…"
-msgstr ""
-
-#: apps/cli/commands/site/create.ts:403
-#: apps/cli/commands/site/set.ts:312
-#: apps/cli/commands/site/start.ts:70
-msgid "WordPress server started"
-msgstr ""
-
-#: apps/cli/commands/site/create.ts:428
+#: apps/cli/commands/site/create.ts:431
 #: apps/cli/commands/site/start.ts:84
 msgid "Failed to start WordPress server"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:436
+#: apps/cli/commands/site/create.ts:439
 msgid "Applying Blueprint…"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:439
+#: apps/cli/commands/site/create.ts:442
 msgid "Blueprint source path is missing"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:446
+#: apps/cli/commands/site/create.ts:449
 msgid "Blueprint applied successfully"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:454
+#: apps/cli/commands/site/create.ts:457
 msgid "Failed to apply Blueprint"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:463
+#: apps/cli/commands/site/create.ts:466
 msgid "Run \"studio site start\" to start the site."
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:478
+#: apps/cli/commands/site/create.ts:481
 msgid "Failed to fetch Blueprint"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:484
+#: apps/cli/commands/site/create.ts:487
 msgid "Failed to parse Blueprint JSON"
 msgstr ""
 
-#: apps/cli/commands/site/delete.ts:141
-#: apps/studio/src/components/content-tab-settings.tsx:106
-#: apps/studio/src/hooks/use-delete-site.ts:29
-msgid "Delete site"
-msgstr ""
-
-#: apps/cli/commands/site/delete.ts:145
+#: apps/cli/commands/site/delete.ts:142
 msgid "Also move site files to trash"
 msgstr ""
 
-#: apps/cli/commands/site/delete.ts:156
+#: apps/cli/commands/site/delete.ts:153
 msgid "Failed to delete site"
 msgstr ""
 
-#: apps/cli/commands/site/delete.ts:35
+#: apps/cli/commands/site/delete.ts:36
 msgid "Deleting %d associated preview site…"
 msgid_plural "Deleting %d associated preview sites…"
 msgstr[0] ""
 msgstr[1] ""
 
-#: apps/cli/commands/site/delete.ts:51
+#: apps/cli/commands/site/delete.ts:52
 msgid "Associated preview sites deleted"
 msgstr ""
 
-#: apps/cli/commands/site/delete.ts:56
+#: apps/cli/commands/site/delete.ts:57
 msgid "Failed to delete associated preview sites. Proceeding anyway…"
 msgstr ""
 
-#: apps/cli/commands/site/delete.ts:73
-#: apps/cli/commands/site/set.ts:120
-#: apps/cli/commands/site/start.ts:29
-#: apps/cli/commands/site/status.ts:21
-msgid "Loading site…"
-msgstr ""
-
-#: apps/cli/commands/site/delete.ts:75
-#: apps/cli/commands/site/set.ts:122
-#: apps/cli/commands/site/start.ts:31
-#: apps/cli/commands/site/status.ts:23
-msgid "Site loaded"
-msgstr ""
-
-#: apps/cli/commands/site/delete.ts:79
-#: apps/cli/commands/site/set.ts:260
-msgid "Stopping WordPress server…"
-msgstr ""
-
-#: apps/cli/commands/site/delete.ts:81
-#: apps/cli/commands/site/set.ts:262
-#: apps/cli/commands/site/stop.ts:64
-msgid "WordPress server stopped"
-msgstr ""
-
-#: apps/cli/commands/site/delete.ts:88
+#: apps/cli/commands/site/delete.ts:89
 msgid "Removing domain from hosts file…"
 msgstr ""
 
-#: apps/cli/commands/site/delete.ts:91
+#: apps/cli/commands/site/delete.ts:92
 msgid "Domain removed from hosts file"
 msgstr ""
 
-#: apps/cli/commands/site/delete.ts:94
+#: apps/cli/commands/site/delete.ts:95
 msgid "Deleting SSL certificates…"
 msgstr ""
 
-#: apps/cli/commands/site/delete.ts:96
+#: apps/cli/commands/site/delete.ts:97
 msgid "SSL certificates deleted"
 msgstr ""
 
-#: apps/cli/commands/site/delete.ts:110
-#: apps/cli/commands/site/set.ts:207
+#: apps/cli/commands/site/delete.ts:111
 #: apps/cli/lib/cli-config/sites.ts:23
 msgid "The specified directory is not added to Studio."
 msgstr ""
 
-#: apps/cli/commands/site/delete.ts:120
+#: apps/cli/commands/site/delete.ts:121
 msgid "Moving site files to trash…"
 msgstr ""
 
-#: apps/cli/commands/site/delete.ts:126
+#: apps/cli/commands/site/delete.ts:123
 msgid "Site files moved to trash"
 msgstr ""
 
-#: apps/cli/commands/site/delete.ts:128
+#: apps/cli/commands/site/delete.ts:125
 msgid "Site files already removed"
 msgstr ""
 
@@ -911,10 +1904,6 @@ msgstr ""
 msgid "Path"
 msgstr ""
 
-#: apps/cli/commands/site/list.ts:122
-msgid "List sites"
-msgstr ""
-
 #: apps/cli/commands/site/list.ts:143
 msgid "Failed to list sites"
 msgstr ""
@@ -930,12 +1919,11 @@ msgid "Offline"
 msgstr ""
 
 #: apps/cli/commands/site/list.ts:94
-#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:188
 msgid "Loading sites…"
 msgstr ""
 
 #: apps/cli/commands/site/list.ts:98
-#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:181
+#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:202
 msgid "No sites found"
 msgstr ""
 
@@ -944,115 +1932,6 @@ msgid "Found %d site"
 msgid_plural "Found %d sites"
 msgstr[0] ""
 msgstr[1] ""
-
-#: apps/cli/commands/site/set.ts:328
-msgid "Configure site settings"
-msgstr ""
-
-#: apps/cli/commands/site/set.ts:337
-msgid "Custom domain (must end with .local)"
-msgstr ""
-
-#: apps/cli/commands/site/set.ts:341
-msgid "Enable HTTPS (requires custom domain)"
-msgstr ""
-
-#: apps/cli/commands/site/set.ts:350
-#: apps/studio/src/components/content-tab-settings.tsx:158
-#: apps/studio/src/components/wp-version-selector/index.tsx:78
-msgid "WordPress version"
-msgstr ""
-
-#: apps/cli/commands/site/set.ts:373
-#: apps/studio/src/modules/site-settings/edit-site-details.tsx:520
-msgid "Enable Xdebug"
-msgstr ""
-
-#: apps/cli/commands/site/set.ts:377
-#: apps/cli/commands/site/status.ts:62
-msgid "Admin username"
-msgstr ""
-
-#: apps/cli/commands/site/set.ts:381
-#: apps/cli/commands/site/status.ts:67
-msgid "Admin password"
-msgstr ""
-
-#: apps/cli/commands/site/set.ts:385
-#: apps/cli/commands/site/status.ts:71
-msgid "Admin email"
-msgstr ""
-
-#: apps/cli/commands/site/set.ts:389
-msgid "Enable WP_DEBUG_LOG"
-msgstr ""
-
-#: apps/cli/commands/site/set.ts:393
-msgid "Enable WP_DEBUG_DISPLAY"
-msgstr ""
-
-#: apps/cli/commands/site/set.ts:415
-msgid "Failed to configure site"
-msgstr ""
-
-#: apps/cli/commands/site/set.ts:87
-msgid ""
-"At least one option (--name, --domain, --https, --php, --wp, --xdebug, "
-"--admin-username, --admin-password, --admin-email, --debug-log, "
-"--debug-display) is required."
-msgstr ""
-
-#: apps/cli/commands/site/set.ts:94
-msgid "Site name cannot be empty."
-msgstr ""
-
-#: apps/cli/commands/site/set.ts:105
-msgid "Admin password cannot be empty."
-msgstr ""
-
-#: apps/cli/commands/site/set.ts:140
-msgid "HTTPS requires a custom domain. Use --domain to set one."
-msgstr ""
-
-#: apps/cli/commands/site/set.ts:152
-#. %s: site name
-msgid ""
-"Only one site can have Xdebug enabled at a time. Disable Xdebug on \"%s\" "
-"first."
-msgstr ""
-
-#: apps/cli/commands/site/set.ts:186
-msgid "No changes to apply. The site already has the specified settings."
-msgstr ""
-
-#: apps/cli/commands/site/set.ts:248
-msgid "Updating hosts file…"
-msgstr ""
-
-#: apps/cli/commands/site/set.ts:250
-msgid "Hosts file updated"
-msgstr ""
-
-#: apps/cli/commands/site/set.ts:266
-msgid "Updating WordPress version…"
-msgstr ""
-
-#: apps/cli/commands/site/set.ts:282
-msgid "Failed to update WordPress version to %s"
-msgstr ""
-
-#: apps/cli/commands/site/set.ts:284
-msgid "WordPress version updated"
-msgstr ""
-
-#: apps/cli/commands/site/set.ts:315
-msgid "Site configuration updated"
-msgstr ""
-
-#: apps/cli/commands/site/start.ts:94
-#: apps/studio/src/components/site-menu.tsx:85
-msgid "Start site"
-msgstr ""
 
 #: apps/cli/commands/site/start.ts:104
 msgid "Skip printing site URL and admin credentials after starting"
@@ -1064,14 +1943,6 @@ msgstr ""
 
 #: apps/cli/commands/site/start.ts:35
 msgid "WordPress server is already running"
-msgstr ""
-
-#: apps/cli/commands/site/start.ts:52
-msgid "Setting up SQLite integration, if needed…"
-msgstr ""
-
-#: apps/cli/commands/site/start.ts:55
-msgid "SQLite integration configured as needed"
 msgstr ""
 
 #: apps/cli/commands/site/start.ts:61
@@ -1087,23 +1958,23 @@ msgid "Failed to load site status"
 msgstr ""
 
 #: apps/cli/commands/site/status.ts:34
-#: apps/studio/src/components/content-tab-settings.tsx:131
-#: apps/studio/src/components/content-tab-settings.tsx:170
-#: apps/studio/src/components/content-tab-settings.tsx:174
-#: apps/studio/src/components/content-tab-settings.tsx:183
+#: apps/studio/src/components/content-tab-settings.tsx:137
+#: apps/studio/src/components/content-tab-settings.tsx:176
+#: apps/studio/src/components/content-tab-settings.tsx:180
+#: apps/studio/src/components/content-tab-settings.tsx:189
 msgid "Enabled"
 msgstr ""
 
 #: apps/cli/commands/site/status.ts:34
-#: apps/studio/src/components/content-tab-settings.tsx:131
-#: apps/studio/src/components/content-tab-settings.tsx:170
-#: apps/studio/src/components/content-tab-settings.tsx:174
-#: apps/studio/src/components/content-tab-settings.tsx:183
+#: apps/studio/src/components/content-tab-settings.tsx:137
+#: apps/studio/src/components/content-tab-settings.tsx:176
+#: apps/studio/src/components/content-tab-settings.tsx:180
+#: apps/studio/src/components/content-tab-settings.tsx:189
 msgid "Disabled"
 msgstr ""
 
 #: apps/cli/commands/site/status.ts:44
-#: apps/studio/src/components/content-tab-settings.tsx:120
+#: apps/studio/src/components/content-tab-settings.tsx:126
 msgid "Site URL"
 msgstr ""
 
@@ -1120,8 +1991,20 @@ msgid "WP version"
 msgstr ""
 
 #: apps/cli/commands/site/status.ts:60
-#: apps/studio/src/components/content-tab-settings.tsx:169
+#: apps/studio/src/components/content-tab-settings.tsx:175
 msgid "Xdebug"
+msgstr ""
+
+#: apps/cli/commands/site/status.ts:62
+msgid "Admin username"
+msgstr ""
+
+#: apps/cli/commands/site/status.ts:67
+msgid "Admin password"
+msgstr ""
+
+#: apps/cli/commands/site/status.ts:71
+msgid "Admin email"
 msgstr ""
 
 #: apps/cli/commands/site/stop.ts:122
@@ -1148,10 +2031,6 @@ msgstr ""
 msgid "WordPress server is not running"
 msgstr ""
 
-#: apps/cli/commands/site/stop.ts:58
-msgid "Stopping WordPress servers…"
-msgstr ""
-
 #: apps/cli/commands/site/stop.ts:67
 msgid "Failed to stop WordPress server"
 msgstr ""
@@ -1170,52 +2049,46 @@ msgid_plural "Successfully stopped %d sites"
 msgstr[0] ""
 msgstr[1] ""
 
-#: apps/cli/commands/wp.ts:129
-msgid ""
-"Studio CLI does not support the WP-CLI `shell` command. Consider adding "
-"your code to a file and using the `eval` command."
-msgstr ""
-
-#: apps/cli/commands/wp.ts:149
-msgid "Failed to run WP-CLI command"
-msgstr ""
-
-#: apps/cli/index.ts:21
+#: apps/cli/index.ts:26
 msgid "WordPress Studio CLI"
 msgstr ""
 
-#: apps/cli/index.ts:32
+#: apps/cli/index.ts:37
 msgid "Current directory"
 msgstr ""
 
-#: apps/cli/index.ts:33
+#: apps/cli/index.ts:38
 msgid "Path to the WordPress files"
 msgstr ""
 
-#: apps/cli/index.ts:73
+#: apps/cli/index.ts:78
 msgid "Manage authentication"
 msgstr ""
 
-#: apps/cli/index.ts:87
+#: apps/cli/index.ts:92
 msgid "You must provide a valid auth command"
 msgstr ""
 
-#: apps/cli/index.ts:89
+#: apps/cli/index.ts:99
 msgid "Manage preview sites"
 msgstr ""
 
-#: apps/cli/index.ts:109
-#: apps/cli/index.ts:137
-#: apps/cli/index.ts:168
+#: apps/cli/index.ts:119
+#: apps/cli/index.ts:155
+#: apps/cli/index.ts:186
 msgid "You must provide a valid command"
 msgstr ""
 
-#: apps/cli/index.ts:111
+#: apps/cli/index.ts:126
 msgid "Manage sites"
 msgstr ""
 
-#: apps/cli/index.ts:141
+#: apps/cli/index.ts:159
 msgid "WP-CLI"
+msgstr ""
+
+#: apps/cli/index.ts:223
+msgid "AI agent for building WordPress sites"
 msgstr ""
 
 #: apps/cli/lib/api.ts:15
@@ -1231,7 +2104,8 @@ msgid "Invalid site status"
 msgstr ""
 
 #: apps/cli/lib/api.ts:79
-#: apps/cli/lib/api.ts:210
+#: apps/cli/lib/api.ts:224
+#: apps/cli/lib/sync-api.ts:43
 msgid "Invalid API response format"
 msgstr ""
 
@@ -1243,23 +2117,29 @@ msgstr ""
 msgid "Failed to create preview site: site did not become ready within timeout"
 msgstr ""
 
-#: apps/cli/lib/api.ts:144
+#: apps/cli/lib/api.ts:148
+#: apps/studio/src/modules/user-settings/components/user-settings.tsx:66
+msgid "Failed to delete all preview sites"
+msgstr ""
+
+#: apps/cli/lib/api.ts:157
 msgid "Invalid authentication token"
 msgstr ""
 
-#: apps/cli/lib/api.ts:165
+#: apps/cli/lib/api.ts:178
 msgid "Failed to fetch user info"
 msgstr ""
 
-#: apps/cli/lib/api.ts:212
+#: apps/cli/lib/api.ts:226
+#: apps/cli/lib/sync-api.ts:52
 msgid "Failed to fetch WordPress.com sites"
 msgstr ""
 
-#: apps/cli/lib/api.ts:225
+#: apps/cli/lib/api.ts:239
 msgid "Failed to revoke token"
 msgstr ""
 
-#: apps/cli/lib/archive.ts:25
+#: apps/cli/lib/archive.ts:27
 msgid "Failed to create archive"
 msgstr ""
 
@@ -1303,12 +2183,25 @@ msgstr ""
 msgid "Failed to find existing preview site in config"
 msgstr ""
 
-#: apps/cli/lib/cli-config/snapshots.ts:118
+#: apps/cli/lib/cli-config/snapshots.ts:133
 msgid "Preview site not found in config"
 msgstr ""
 
-#: apps/cli/lib/run-wp-cli-command.ts:99
-#: apps/cli/lib/run-wp-cli-command.ts:136
+#: apps/cli/lib/import-export/import/handlers/backup-handler-wpress.ts:165
+#: apps/cli/lib/import-export/import/handlers/backup-handler-wpress.ts:200
+msgid "Input file at location \"%s\" could not be found."
+msgstr ""
+
+#: apps/cli/lib/import-export/import/import-manager.ts:56
+msgid "No suitable backup handler found for the provided backup file"
+msgstr ""
+
+#: apps/cli/lib/import-export/import/import-manager.ts:66
+msgid "No suitable importer found for the provided backup contents"
+msgstr ""
+
+#: apps/cli/lib/run-wp-cli-command.ts:111
+#: apps/cli/lib/run-wp-cli-command.ts:154
 msgid "An error occurred while running the WP-CLI command."
 msgstr ""
 
@@ -1316,55 +2209,55 @@ msgstr ""
 msgid "Studio config file path not found."
 msgstr ""
 
-#: apps/cli/lib/site-utils.ts:47
+#: apps/cli/lib/site-utils.ts:52
 msgid "Site URL: "
 msgstr ""
 
-#: apps/cli/lib/site-utils.ts:48
+#: apps/cli/lib/site-utils.ts:53
 msgid "Username: "
 msgstr ""
 
-#: apps/cli/lib/site-utils.ts:50
+#: apps/cli/lib/site-utils.ts:55
 msgid "Password: "
 msgstr ""
 
-#: apps/cli/lib/site-utils.ts:19
+#: apps/cli/lib/site-utils.ts:24
 msgid "Starting HTTP proxy server…"
 msgstr ""
 
-#: apps/cli/lib/site-utils.ts:21
+#: apps/cli/lib/site-utils.ts:26
 msgid "HTTP proxy server started"
 msgstr ""
 
-#: apps/cli/lib/site-utils.ts:23
+#: apps/cli/lib/site-utils.ts:28
 msgid "HTTP proxy already running"
 msgstr ""
 
-#: apps/cli/lib/site-utils.ts:72
+#: apps/cli/lib/site-utils.ts:77
 msgid "Generating SSL certificates…"
 msgstr ""
 
-#: apps/cli/lib/site-utils.ts:74
+#: apps/cli/lib/site-utils.ts:79
 msgid "SSL certificates generated"
 msgstr ""
 
-#: apps/cli/lib/site-utils.ts:78
+#: apps/cli/lib/site-utils.ts:83
 msgid "Adding domain to hosts file…"
 msgstr ""
 
-#: apps/cli/lib/site-utils.ts:81
+#: apps/cli/lib/site-utils.ts:86
 msgid "Domain added to hosts file"
 msgstr ""
 
-#: apps/cli/lib/site-utils.ts:83
+#: apps/cli/lib/site-utils.ts:88
 msgid "Failed to add domain to hosts file"
 msgstr ""
 
-#: apps/cli/lib/site-utils.ts:119
+#: apps/cli/lib/site-utils.ts:124
 msgid "Stopping HTTP proxy server…"
 msgstr ""
 
-#: apps/cli/lib/site-utils.ts:121
+#: apps/cli/lib/site-utils.ts:126
 msgid "HTTP proxy server stopped"
 msgstr ""
 
@@ -1373,12 +2266,132 @@ msgstr ""
 msgid "Expired"
 msgstr ""
 
+#: apps/cli/lib/sync-api.ts:28
+msgid "Invalid sync option: %s. Valid options: %s"
+msgstr ""
+
+#: apps/cli/lib/sync-api.ts:64
+msgid "Failed to initiate backup"
+msgstr ""
+
+#: apps/cli/lib/sync-api.ts:72
+msgid "Failed to check backup status"
+msgstr ""
+
+#: apps/cli/lib/sync-api.ts:87
+msgid ""
+"A sync operation is already in progress on this site. Please wait for it to "
+"finish and try again."
+msgstr ""
+
+#: apps/cli/lib/sync-api.ts:92
+msgid "Failed to initiate import on remote site"
+msgstr ""
+
+#: apps/cli/lib/sync-api.ts:103
+msgid "Failed to check import status"
+msgstr ""
+
+#: apps/cli/lib/sync-api.ts:111
+msgid "Failed to check backup size"
+msgstr ""
+
+#: apps/cli/lib/sync-api.ts:119
+msgid "Failed to download backup"
+msgstr ""
+
+#: apps/cli/lib/sync-api.ts:130
+msgid "Failed to fetch latest rewind ID"
+msgstr ""
+
+#: apps/cli/lib/sync-api.ts:143
+msgid "Failed to fetch remote file tree"
+msgstr ""
+
+#: apps/cli/lib/sync-selector.ts:51
+msgid "Database (SQL)"
+msgstr ""
+
+#: apps/cli/lib/sync-selector.ts:159
+#: apps/cli/lib/sync-selector.ts:196
+msgid "Select items to sync"
+msgstr ""
+
+#: apps/cli/lib/sync-site-picker.ts:16
+#: apps/cli/lib/sync-site-picker.ts:44
+msgid "Site %s is not syncable (%s)"
+msgstr ""
+
+#: apps/cli/lib/sync-site-picker.ts:28
+msgid "No site found matching \"%s\""
+msgstr ""
+
+#: apps/cli/lib/sync-site-picker.ts:34
+msgid "Multiple sites match \"%s\". Use the site ID instead: %s"
+msgstr ""
+
+#: apps/cli/lib/sync-site-picker.ts:54
+msgid "Plan upgrade required"
+msgstr ""
+
+#: apps/cli/lib/sync-site-picker.ts:56
+msgid "Transfer required"
+msgstr ""
+
+#: apps/cli/lib/sync-site-picker.ts:58
+#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:440
+msgid "Unsupported site"
+msgstr ""
+
+#: apps/cli/lib/sync-site-picker.ts:60
+#: apps/studio/src/modules/preview-site/components/preview-site-row.tsx:173
+#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:431
+msgid "Deleted"
+msgstr ""
+
+#: apps/cli/lib/sync-site-picker.ts:62
+#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:426
+msgid "Missing permissions"
+msgstr ""
+
+#: apps/cli/lib/sync-site-picker.ts:75
+msgid "[staging]"
+msgstr ""
+
+#: apps/cli/lib/sync-site-picker.ts:89
+msgid "No syncable sites found."
+msgstr ""
+
+#: apps/cli/lib/sync-site-picker.ts:144
+msgid "type to filter"
+msgstr ""
+
+#: apps/cli/lib/tree-checkbox.ts:270
+msgid "%d items selected"
+msgstr ""
+
+#: apps/cli/lib/tree-checkbox.ts:310
+msgid "space toggle"
+msgstr ""
+
+#: apps/cli/lib/tree-checkbox.ts:311
+msgid "→← expand/collapse"
+msgstr ""
+
+#: apps/cli/lib/tree-checkbox.ts:312
+msgid "a all"
+msgstr ""
+
+#: apps/cli/lib/tree-checkbox.ts:313
+msgid "⏎ confirm"
+msgstr ""
+
 #: apps/cli/lib/utils.ts:20
 msgid "Unsupported PHP version: %s"
 msgstr ""
 
-#: apps/cli/lib/validation.ts:14
-#: apps/studio/src/modules/preview-site/components/create-preview-button.tsx:79
+#: apps/cli/lib/validation.ts:20
+#: apps/studio/src/modules/preview-site/components/create-preview-button.tsx:83
 #: apps/studio/src/modules/preview-site/hooks/use-update-button-tooltip.ts:34
 msgid ""
 "Your site exceeds the %d GB size limit. Please, consider removing "
@@ -1408,61 +2421,61 @@ msgstr ""
 msgid "Exiting…"
 msgstr ""
 
-#: apps/studio/src/about-menu/open-about-menu.ts:26
+#: apps/studio/src/about-menu/open-about-menu.ts:25
 msgid "Mac with Apple Silicon Chip"
 msgstr ""
 
-#: apps/studio/src/about-menu/open-about-menu.ts:26
+#: apps/studio/src/about-menu/open-about-menu.ts:25
 msgid "Mac with Intel Chip"
 msgstr ""
 
-#: apps/studio/src/about-menu/open-about-menu.ts:29
+#: apps/studio/src/about-menu/open-about-menu.ts:28
 msgid "Windows on ARM"
 msgstr ""
 
-#: apps/studio/src/about-menu/open-about-menu.ts:29
+#: apps/studio/src/about-menu/open-about-menu.ts:28
 msgid "Windows on Intel/AMD"
 msgstr ""
 
-#: apps/studio/src/about-menu/open-about-menu.ts:68
+#: apps/studio/src/about-menu/open-about-menu.ts:67
 msgid "WordPress Studio"
 msgstr ""
 
-#: apps/studio/src/about-menu/open-about-menu.ts:69
-#: apps/studio/src/menu.ts:141
+#: apps/studio/src/about-menu/open-about-menu.ts:68
+#: apps/studio/src/menu.ts:145
 msgid "About WordPress Studio"
 msgstr ""
 
-#: apps/studio/src/about-menu/open-about-menu.ts:70
+#: apps/studio/src/about-menu/open-about-menu.ts:69
 msgid "Share Feedback"
 msgstr ""
 
-#: apps/studio/src/about-menu/open-about-menu.ts:71
+#: apps/studio/src/about-menu/open-about-menu.ts:70
 msgid "Release Notes"
 msgstr ""
 
-#: apps/studio/src/about-menu/open-about-menu.ts:72
+#: apps/studio/src/about-menu/open-about-menu.ts:71
 msgid "Preview sites powered by"
 msgstr ""
 
-#: apps/studio/src/about-menu/open-about-menu.ts:73
+#: apps/studio/src/about-menu/open-about-menu.ts:72
 msgid "Local sites powered by"
 msgstr ""
 
 #: apps/studio/src/additional-phrases.ts:10
-#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:433
-#: apps/studio/src/modules/whats-new/components/whats-new-modal.tsx:126
+#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:467
+#: apps/studio/src/modules/whats-new/components/whats-new-modal.tsx:134
 msgid "Next"
 msgstr ""
 
 #: apps/studio/src/additional-phrases.ts:11
-#: apps/studio/src/modules/whats-new/components/whats-new-modal.tsx:127
+#: apps/studio/src/modules/whats-new/components/whats-new-modal.tsx:135
 msgid "Previous"
 msgstr ""
 
 #: apps/studio/src/components/action-button.tsx:112
 #: apps/studio/src/components/running-sites.tsx:45
-#: apps/studio/src/ipc-handlers.ts:1373
+#: apps/studio/src/ipc-handlers.ts:1420
 msgid "Start"
 msgstr ""
 
@@ -1476,7 +2489,7 @@ msgstr ""
 
 #: apps/studio/src/components/action-button.tsx:131
 #: apps/studio/src/components/running-sites.tsx:36
-#: apps/studio/src/ipc-handlers.ts:1356
+#: apps/studio/src/ipc-handlers.ts:1403
 msgid "Stop"
 msgstr ""
 
@@ -1493,44 +2506,44 @@ msgid "Add site from a Blueprint"
 msgstr ""
 
 #: apps/studio/src/components/ai-clear-history-reminder.tsx:64
-#: apps/studio/src/components/ai-input.tsx:207
+#: apps/studio/src/components/ai-input.tsx:203
 msgid "Are you sure you want to clear the conversation?"
 msgstr ""
 
 #: apps/studio/src/components/ai-clear-history-reminder.tsx:65
-#: apps/studio/src/components/ai-input.tsx:208
+#: apps/studio/src/components/ai-input.tsx:204
 #: apps/studio/src/hooks/use-confirmation-dialog.ts:39
 #: apps/studio/src/renderer.ts:156
 msgid "Don't show this warning again"
 msgstr ""
 
 #: apps/studio/src/components/ai-clear-history-reminder.tsx:66
-#: apps/studio/src/components/ai-input.tsx:209
-#: apps/studio/src/ipc-handlers.ts:1158
+#: apps/studio/src/components/ai-input.tsx:205
+#: apps/studio/src/ipc-handlers.ts:1205
 #: apps/studio/src/lib/deeplink/handlers/add-site-with-blueprint.ts:98
 #: apps/studio/src/lib/shell-open-external-wrapper.ts:47
-#: apps/studio/src/modules/user-settings/components/user-settings.tsx:70
+#: apps/studio/src/modules/user-settings/components/user-settings.tsx:68
 #: apps/studio/src/updates.ts:163
 #: apps/studio/src/updates.ts:177
-#: apps/studio/src/updates.ts:244
+#: apps/studio/src/updates.ts:242
 msgid "OK"
 msgstr ""
 
 #: apps/studio/src/components/ai-clear-history-reminder.tsx:66
-#: apps/studio/src/components/ai-input.tsx:209
+#: apps/studio/src/components/ai-input.tsx:205
 #: apps/studio/src/hooks/use-confirmation-dialog.ts:21
-#: apps/studio/src/hooks/use-delete-site.ts:29
-#: apps/studio/src/index.ts:439
+#: apps/studio/src/hooks/use-delete-site.ts:28
+#: apps/studio/src/index.ts:443
 #: apps/studio/src/modules/cli/lib/ipc-handlers.ts:44
 #: apps/studio/src/modules/cli/lib/ipc-handlers.ts:66
 #: apps/studio/src/modules/preview-site/components/rename-preview-modal.tsx:41
-#: apps/studio/src/modules/site-settings/edit-site-details.tsx:600
+#: apps/studio/src/modules/site-settings/edit-site-details.tsx:627
 #: apps/studio/src/modules/sync/components/sync-connected-sites.tsx:643
-#: apps/studio/src/modules/sync/components/sync-dialog.tsx:476
-#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:456
+#: apps/studio/src/modules/sync/components/sync-dialog.tsx:519
+#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:490
 #: apps/studio/src/modules/user-settings/components/preferences-tab.tsx:129
-#: apps/studio/src/modules/user-settings/components/user-settings.tsx:58
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:796
+#: apps/studio/src/modules/user-settings/components/user-settings.tsx:56
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:758
 msgid "Cancel"
 msgstr ""
 
@@ -1540,92 +2553,36 @@ msgid ""
 "if you have something new to ask."
 msgstr ""
 
-#: apps/studio/src/components/ai-input.tsx:185
+#: apps/studio/src/components/ai-input.tsx:181
 msgid "Stick with me…"
 msgstr ""
 
-#: apps/studio/src/components/ai-input.tsx:187
+#: apps/studio/src/components/ai-input.tsx:183
 msgid "This is taking a little longer than I thought…"
 msgstr ""
 
-#: apps/studio/src/components/ai-input.tsx:189
+#: apps/studio/src/components/ai-input.tsx:185
 msgid "Still working on it…"
 msgstr ""
 
-#: apps/studio/src/components/ai-input.tsx:191
+#: apps/studio/src/components/ai-input.tsx:187
 msgid "Thinking about that…"
 msgstr ""
 
-#: apps/studio/src/components/ai-input.tsx:194
+#: apps/studio/src/components/ai-input.tsx:190
 msgid "What would you like to learn?"
 msgstr ""
 
-#: apps/studio/src/components/ai-input.tsx:256
+#: apps/studio/src/components/ai-input.tsx:252
 msgid "Assistant Menu"
 msgstr ""
 
-#: apps/studio/src/components/ai-input.tsx:271
-#: apps/studio/src/components/ai-settings-modal.tsx:261
-msgid "AI settings"
-msgstr ""
-
-#: apps/studio/src/components/ai-input.tsx:284
+#: apps/studio/src/components/ai-input.tsx:268
 msgid "Build with Telex"
 msgstr ""
 
-#: apps/studio/src/components/ai-input.tsx:296
+#: apps/studio/src/components/ai-input.tsx:280
 msgid "Clear conversation"
-msgstr ""
-
-#: apps/studio/src/components/ai-settings-modal.tsx:79
-msgid "Agent instructions"
-msgstr ""
-
-#: apps/studio/src/components/ai-settings-modal.tsx:81
-msgid "Install instructions so agents know how to use Studio"
-msgstr ""
-
-#: apps/studio/src/components/ai-settings-modal.tsx:91
-#: apps/studio/src/components/ai-settings-modal.tsx:139
-#: apps/studio/src/components/ai-settings-modal.tsx:240
-#: apps/studio/src/modules/user-settings/components/skills-tab.tsx:165
-#: apps/studio/src/modules/user-settings/components/skills-tab.tsx:186
-msgid "Installing..."
-msgstr ""
-
-#: apps/studio/src/components/ai-settings-modal.tsx:91
-msgid "Install All"
-msgstr ""
-
-#: apps/studio/src/components/ai-settings-modal.tsx:129
-msgid "Open"
-msgstr ""
-
-#: apps/studio/src/components/ai-settings-modal.tsx:141
-#: apps/studio/src/components/ai-settings-modal.tsx:242
-msgid "Reinstall"
-msgstr ""
-
-#: apps/studio/src/components/ai-settings-modal.tsx:142
-#: apps/studio/src/components/ai-settings-modal.tsx:243
-#: apps/studio/src/modules/user-settings/components/skills-tab.tsx:186
-msgid "Install"
-msgstr ""
-
-#: apps/studio/src/components/ai-settings-modal.tsx:201
-msgid "WordPress skills"
-msgstr ""
-
-#: apps/studio/src/components/ai-settings-modal.tsx:203
-msgid "WordPress development skills for AI agents"
-msgstr ""
-
-#: apps/studio/src/components/ai-settings-modal.tsx:219
-msgid "WordPress Skills"
-msgstr ""
-
-#: apps/studio/src/components/ai-settings-modal.tsx:229
-msgid "Plugins, blocks, themes, REST API, and WP-CLI skills"
 msgstr ""
 
 #: apps/studio/src/components/assistant-anchor.tsx:32
@@ -1634,19 +2591,19 @@ msgid "Starting the server before opening the site link"
 msgstr ""
 
 #: apps/studio/src/components/assistant-code-block.tsx:64
-#: apps/studio/src/menu.ts:237
-#: apps/studio/src/modules/mcp/components/mcp-settings.tsx:36
+#: apps/studio/src/menu.ts:266
+#: apps/studio/src/modules/mcp/components/mcp-settings.tsx:33
 msgid "Copy"
 msgstr ""
 
 #: apps/studio/src/components/assistant-code-block.tsx:65
-#: apps/studio/src/components/content-tab-settings.tsx:124
-#: apps/studio/src/components/content-tab-settings.tsx:153
-#: apps/studio/src/components/content-tab-settings.tsx:192
-#: apps/studio/src/components/content-tab-settings.tsx:201
-#: apps/studio/src/components/content-tab-settings.tsx:210
-#: apps/studio/src/components/content-tab-settings.tsx:221
-#: apps/studio/src/modules/mcp/components/mcp-settings.tsx:34
+#: apps/studio/src/components/content-tab-settings.tsx:130
+#: apps/studio/src/components/content-tab-settings.tsx:159
+#: apps/studio/src/components/content-tab-settings.tsx:198
+#: apps/studio/src/components/content-tab-settings.tsx:207
+#: apps/studio/src/components/content-tab-settings.tsx:216
+#: apps/studio/src/components/content-tab-settings.tsx:227
+#: apps/studio/src/modules/mcp/components/mcp-settings.tsx:31
 msgid "Copied!"
 msgstr ""
 
@@ -1666,10 +2623,6 @@ msgstr ""
 msgid "Run again"
 msgstr ""
 
-#: apps/studio/src/components/assistant-code-block.tsx:113
-msgid "Run"
-msgstr ""
-
 #: apps/studio/src/components/assistant-code-block.tsx:120
 msgid "Running…"
 msgstr ""
@@ -1682,25 +2635,21 @@ msgstr ""
 msgid "Error"
 msgstr ""
 
-#: apps/studio/src/components/assistant-thinking.tsx:6
-msgid "Thinking…"
-msgstr ""
-
-#: apps/studio/src/components/auth-provider.tsx:66
+#: apps/studio/src/components/auth-provider.tsx:67
 msgid "Authentication error"
 msgstr ""
 
-#: apps/studio/src/components/auth-provider.tsx:67
+#: apps/studio/src/components/auth-provider.tsx:68
 #: apps/studio/src/modules/sync/index.tsx:172
 #: apps/studio/src/modules/sync/index.tsx:182
 msgid "Please try again."
 msgstr ""
 
-#: apps/studio/src/components/auth-provider.tsx:71
+#: apps/studio/src/components/auth-provider.tsx:72
 msgid "Authorization denied"
 msgstr ""
 
-#: apps/studio/src/components/auth-provider.tsx:72
+#: apps/studio/src/components/auth-provider.tsx:73
 msgid ""
 "It looks like you denied the authorization request. To proceed, please "
 "click \"Approve\""
@@ -1732,21 +2681,21 @@ msgid "No"
 msgstr ""
 
 #: apps/studio/src/components/clear-action.tsx:29
-#: apps/studio/src/modules/preview-site/components/preview-site-row.tsx:190
+#: apps/studio/src/modules/preview-site/components/preview-site-row.tsx:191
 msgid "Clear"
 msgstr ""
 
-#: apps/studio/src/components/content-tab-assistant.tsx:74
+#: apps/studio/src/components/content-tab-assistant.tsx:73
 msgid "Oops! We couldn't get a response from the assistant. <a>Try again</a>"
 msgstr ""
 
-#: apps/studio/src/components/content-tab-assistant.tsx:96
+#: apps/studio/src/components/content-tab-assistant.tsx:95
 msgid ""
 "You've reached your <a>usage limit</a> for this month. Your limit will "
 "reset today."
 msgstr ""
 
-#: apps/studio/src/components/content-tab-assistant.tsx:98
+#: apps/studio/src/components/content-tab-assistant.tsx:97
 msgid ""
 "You've reached your <a>usage limit</a> for this month. Your limit will "
 "reset in %d day."
@@ -1756,35 +2705,35 @@ msgid_plural ""
 msgstr[0] ""
 msgstr[1] ""
 
-#: apps/studio/src/components/content-tab-assistant.tsx:116
+#: apps/studio/src/components/content-tab-assistant.tsx:115
 msgid "The AI assistant requires an internet connection."
 msgstr ""
 
-#: apps/studio/src/components/content-tab-assistant.tsx:334
+#: apps/studio/src/components/content-tab-assistant.tsx:333
 msgid "Hold up!"
 msgstr ""
 
-#: apps/studio/src/components/content-tab-assistant.tsx:337
+#: apps/studio/src/components/content-tab-assistant.tsx:336
 msgid "You need to log in to your WordPress.com account to use the assistant."
 msgstr ""
 
-#: apps/studio/src/components/content-tab-assistant.tsx:341
+#: apps/studio/src/components/content-tab-assistant.tsx:340
 msgid "If you don't have an account yet, <a>create one for free</a>."
 msgstr ""
 
-#: apps/studio/src/components/content-tab-assistant.tsx:349
+#: apps/studio/src/components/content-tab-assistant.tsx:348
 msgid "Every account gets %d prompts included for free each month."
 msgstr ""
 
-#: apps/studio/src/components/content-tab-assistant.tsx:465
+#: apps/studio/src/components/content-tab-assistant.tsx:462
 msgid "Build blocks with <button>Telex <ArrowIcon /></button>"
 msgstr ""
 
-#: apps/studio/src/components/content-tab-assistant.tsx:487
+#: apps/studio/src/components/content-tab-assistant.tsx:484
 msgid "Dismiss"
 msgstr ""
 
-#: apps/studio/src/components/content-tab-assistant.tsx:554
+#: apps/studio/src/components/content-tab-assistant.tsx:550
 msgid "Powered by experimental AI. <learn_more_link />"
 msgstr ""
 
@@ -1833,7 +2782,7 @@ msgid "Overwrite %s?"
 msgstr ""
 
 #: apps/studio/src/components/content-tab-import-export.tsx:195
-#: apps/studio/src/index.ts:440
+#: apps/studio/src/index.ts:444
 #: apps/studio/src/lib/windows-helpers.ts:53
 #: apps/studio/src/modules/sync/components/sync-connected-sites.tsx:645
 msgid "Don't ask again"
@@ -1968,7 +2917,7 @@ msgstr ""
 
 #: apps/studio/src/components/content-tab-overview.tsx:250
 #: apps/studio/src/components/content-tab-overview.tsx:266
-#: apps/studio/src/ipc-handlers.ts:1393
+#: apps/studio/src/ipc-handlers.ts:1440
 msgid "Open site"
 msgstr ""
 
@@ -1999,7 +2948,6 @@ msgid "Powered by <a> WordPress.com</a>."
 msgstr ""
 
 #: apps/studio/src/components/content-tab-previews.tsx:83
-#: apps/studio/src/components/top-bar.tsx:94
 #: apps/studio/src/modules/add-site/components/pull-remote-site.tsx:77
 #: apps/studio/src/modules/onboarding/components/connect-to-wpcom.tsx:15
 #: apps/studio/src/modules/sync/index.tsx:72
@@ -2018,103 +2966,142 @@ msgstr ""
 msgid "Create a free account"
 msgstr ""
 
-#: apps/studio/src/components/content-tab-settings.tsx:85
+#: apps/studio/src/components/content-tab-settings.tsx:91
 msgid "Site details"
 msgstr ""
 
-#: apps/studio/src/components/content-tab-settings.tsx:91
+#: apps/studio/src/components/content-tab-settings.tsx:97
 #: apps/studio/src/modules/user-settings/components/snapshot-info.tsx:65
 msgid "More options"
 msgstr ""
 
-#: apps/studio/src/components/content-tab-settings.tsx:97
+#: apps/studio/src/components/content-tab-settings.tsx:103
 msgid "Copy site"
 msgstr ""
 
-#: apps/studio/src/components/content-tab-settings.tsx:123
+#: apps/studio/src/components/content-tab-settings.tsx:129
 msgid "Copy site url to clipboard"
 msgstr ""
 
-#: apps/studio/src/components/content-tab-settings.tsx:129
+#: apps/studio/src/components/content-tab-settings.tsx:135
 msgid "HTTPS"
 msgstr ""
 
-#: apps/studio/src/components/content-tab-settings.tsx:134
+#: apps/studio/src/components/content-tab-settings.tsx:140
 msgid "Trust Certificate"
 msgstr ""
 
-#: apps/studio/src/components/content-tab-settings.tsx:141
+#: apps/studio/src/components/content-tab-settings.tsx:147
 msgid ""
 "You need to trust this certificate to prevent your browser from showing a "
 "secure connection warning."
 msgstr ""
 
-#: apps/studio/src/components/content-tab-settings.tsx:149
-#: apps/studio/src/modules/add-site/components/create-site-form.tsx:509
+#: apps/studio/src/components/content-tab-settings.tsx:155
+#: apps/studio/src/modules/add-site/components/create-site-form.tsx:520
 msgid "Local path"
 msgstr ""
 
-#: apps/studio/src/components/content-tab-settings.tsx:152
+#: apps/studio/src/components/content-tab-settings.tsx:158
 msgid "Copy local path to clipboard"
 msgstr ""
 
-#: apps/studio/src/components/content-tab-settings.tsx:166
-#: apps/studio/src/modules/site-settings/edit-site-details.tsx:289
-msgid "Debugging"
+#: apps/studio/src/components/content-tab-settings.tsx:164
+#: apps/studio/src/components/wp-version-selector/index.tsx:78
+msgid "WordPress version"
 msgstr ""
 
 #: apps/studio/src/components/content-tab-settings.tsx:172
+#: apps/studio/src/modules/site-settings/edit-site-details.tsx:305
+msgid "Debugging"
+msgstr ""
+
+#: apps/studio/src/components/content-tab-settings.tsx:178
 msgid "Debug log"
 msgstr ""
 
-#: apps/studio/src/components/content-tab-settings.tsx:177
+#: apps/studio/src/components/content-tab-settings.tsx:183
 msgid "Open log file"
 msgstr ""
 
-#: apps/studio/src/components/content-tab-settings.tsx:182
+#: apps/studio/src/components/content-tab-settings.tsx:188
 msgid "Debug display"
 msgstr ""
 
-#: apps/studio/src/components/content-tab-settings.tsx:187
+#: apps/studio/src/components/content-tab-settings.tsx:193
 msgid "WP Admin"
 msgstr ""
 
-#: apps/studio/src/components/content-tab-settings.tsx:190
-#: apps/studio/src/modules/add-site/components/create-site-form.tsx:563
-#: apps/studio/src/modules/site-settings/edit-site-details.tsx:415
+#: apps/studio/src/components/content-tab-settings.tsx:196
+#: apps/studio/src/modules/add-site/components/create-site-form.tsx:574
+#: apps/studio/src/modules/site-settings/edit-site-details.tsx:435
 msgid "Username"
 msgstr ""
 
-#: apps/studio/src/components/content-tab-settings.tsx:193
+#: apps/studio/src/components/content-tab-settings.tsx:199
 msgid "Copy admin username to clipboard"
 msgstr ""
 
-#: apps/studio/src/components/content-tab-settings.tsx:199
-#: apps/studio/src/modules/add-site/components/create-site-form.tsx:578
-#: apps/studio/src/modules/site-settings/edit-site-details.tsx:427
+#: apps/studio/src/components/content-tab-settings.tsx:205
+#: apps/studio/src/modules/add-site/components/create-site-form.tsx:589
+#: apps/studio/src/modules/site-settings/edit-site-details.tsx:447
 msgid "Password"
 msgstr ""
 
-#: apps/studio/src/components/content-tab-settings.tsx:202
+#: apps/studio/src/components/content-tab-settings.tsx:208
 msgid "Copy admin password to clipboard"
 msgstr ""
 
-#: apps/studio/src/components/content-tab-settings.tsx:208
-#: apps/studio/src/modules/add-site/components/create-site-form.tsx:600
-#: apps/studio/src/modules/site-settings/edit-site-details.tsx:454
+#: apps/studio/src/components/content-tab-settings.tsx:214
+#: apps/studio/src/modules/add-site/components/create-site-form.tsx:611
+#: apps/studio/src/modules/site-settings/edit-site-details.tsx:474
 msgid "Email"
 msgstr ""
 
-#: apps/studio/src/components/content-tab-settings.tsx:211
+#: apps/studio/src/components/content-tab-settings.tsx:217
 msgid "Copy admin email to clipboard"
 msgstr ""
 
-#: apps/studio/src/components/content-tab-settings.tsx:217
+#: apps/studio/src/components/content-tab-settings.tsx:223
 msgid "Admin URL"
 msgstr ""
 
-#: apps/studio/src/components/content-tab-settings.tsx:220
+#: apps/studio/src/components/content-tab-settings.tsx:226
 msgid "Copy wp-admin url to clipboard"
+msgstr ""
+
+#: apps/studio/src/components/content-tab-settings.tsx:236
+msgid "AI Skills"
+msgstr ""
+
+#: apps/studio/src/components/content-tab-settings.tsx:238
+msgid "Your task agents make use of skills you've installed in"
+msgstr ""
+
+#: apps/studio/src/components/content-tab-settings.tsx:240
+msgid "Studio Settings"
+msgstr ""
+
+#: apps/studio/src/components/content-tab-settings.tsx:243
+msgid "You can override global skills for this site."
+msgstr ""
+
+#: apps/studio/src/components/content-tab-settings.tsx:246
+msgid "Manage site skills"
+msgstr ""
+
+#: apps/studio/src/components/content-tab-settings.tsx:251
+msgid "Agent Instructions"
+msgstr ""
+
+#: apps/studio/src/components/content-tab-settings.tsx:254
+msgid ""
+"Install instruction files like AGENTS.md so AI agents know how to work with "
+"this site."
+msgstr ""
+
+#: apps/studio/src/components/content-tab-settings.tsx:259
+msgid "Manage instructions"
 msgstr ""
 
 #: apps/studio/src/components/copy-text-button.tsx:58
@@ -2139,7 +3126,7 @@ msgid "Try restarting the app, if the problem persists"
 msgstr ""
 
 #: apps/studio/src/components/default-error-fallback.tsx:71
-#: apps/studio/src/menu.ts:313
+#: apps/studio/src/menu.ts:342
 msgid "Help"
 msgstr ""
 
@@ -2162,7 +3149,7 @@ msgid "User avatar"
 msgstr ""
 
 #: apps/studio/src/components/header.tsx:48
-#: apps/studio/src/ipc-handlers.ts:1410
+#: apps/studio/src/ipc-handlers.ts:1457
 msgid "WP admin"
 msgstr ""
 
@@ -2171,13 +3158,8 @@ msgstr ""
 msgid "Open local site"
 msgstr ""
 
-#: apps/studio/src/components/installed-badge.tsx:9
-#: apps/studio/src/modules/user-settings/components/skills-tab.tsx:113
-msgid "Installed"
-msgstr ""
-
 #: apps/studio/src/components/learn-more.tsx:35
-#: apps/studio/src/modules/whats-new/components/whats-new-modal.tsx:49
+#: apps/studio/src/modules/whats-new/components/whats-new-modal.tsx:50
 msgid "Learn more"
 msgstr ""
 
@@ -2204,7 +3186,7 @@ msgid ""
 msgstr ""
 
 #: apps/studio/src/components/publish-site-button.tsx:45
-#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:471
+#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:505
 msgid "Publishing your site requires an internet connection."
 msgstr ""
 
@@ -2247,11 +3229,6 @@ msgstr ""
 msgid "Getting everything ready…"
 msgstr ""
 
-#: apps/studio/src/components/site-is-being-created.tsx:17
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:93
-msgid "Almost there…"
-msgstr ""
-
 #: apps/studio/src/components/site-is-being-created.tsx:18
 msgid "Working on your site…"
 msgstr ""
@@ -2286,10 +3263,6 @@ msgstr ""
 msgid "Starting"
 msgstr ""
 
-#: apps/studio/src/components/site-menu.tsx:84
-msgid "Stop site"
-msgstr ""
-
 #: apps/studio/src/components/site-menu.tsx:99
 msgid "stop %s site"
 msgstr ""
@@ -2312,7 +3285,7 @@ msgstr ""
 
 #: apps/studio/src/components/site-menu.tsx:182
 #: apps/studio/src/modules/sync/components/sync-connected-sites.tsx:678
-#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:296
+#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:330
 msgid "Loading"
 msgstr ""
 
@@ -2320,8 +3293,82 @@ msgstr ""
 msgid "Sites"
 msgstr ""
 
-#: apps/studio/src/components/top-bar.tsx:25
-#: apps/studio/src/components/top-bar.tsx:29
+#: apps/studio/src/components/site-settings-panels.tsx:93
+msgid "Install instruction files so AI agents know how to work with this site."
+msgstr ""
+
+#: apps/studio/src/components/site-settings-panels.tsx:106
+#: apps/studio/src/components/site-settings-panels.tsx:305
+#: apps/studio/src/modules/user-settings/components/skills-tab.tsx:111
+msgid "Installed"
+msgstr ""
+
+#: apps/studio/src/components/site-settings-panels.tsx:124
+msgid "Instruction actions"
+msgstr ""
+
+#: apps/studio/src/components/site-settings-panels.tsx:136
+#: apps/studio/src/components/site-settings-panels.tsx:334
+msgid "Open"
+msgstr ""
+
+#: apps/studio/src/components/site-settings-panels.tsx:145
+#: apps/studio/src/components/site-settings-panels.tsx:343
+#: apps/studio/src/modules/add-site/components/blueprints.tsx:325
+#: apps/studio/src/modules/add-site/components/import-backup.tsx:179
+#: apps/studio/src/modules/user-settings/components/skills-tab.tsx:138
+msgid "Remove"
+msgstr ""
+
+#: apps/studio/src/components/site-settings-panels.tsx:160
+#: apps/studio/src/components/site-settings-panels.tsx:357
+#: apps/studio/src/modules/user-settings/components/skills-tab.tsx:152
+msgid "Available"
+msgstr ""
+
+#: apps/studio/src/components/site-settings-panels.tsx:168
+#: apps/studio/src/components/site-settings-panels.tsx:192
+#: apps/studio/src/components/site-settings-panels.tsx:365
+#: apps/studio/src/components/site-settings-panels.tsx:386
+#: apps/studio/src/modules/user-settings/components/skills-tab.tsx:160
+#: apps/studio/src/modules/user-settings/components/skills-tab.tsx:181
+msgid "Installing..."
+msgstr ""
+
+#: apps/studio/src/components/site-settings-panels.tsx:168
+#: apps/studio/src/components/site-settings-panels.tsx:365
+#: apps/studio/src/modules/user-settings/components/skills-tab.tsx:160
+msgid "Install all"
+msgstr ""
+
+#: apps/studio/src/components/site-settings-panels.tsx:192
+#: apps/studio/src/components/site-settings-panels.tsx:386
+#: apps/studio/src/modules/user-settings/components/skills-tab.tsx:181
+msgid "Install"
+msgstr ""
+
+#: apps/studio/src/components/site-settings-panels.tsx:203
+msgid "Loading instructions..."
+msgstr ""
+
+#: apps/studio/src/components/site-settings-panels.tsx:290
+msgid ""
+"Manage skills for this site. These override the global skills from Studio "
+"Settings."
+msgstr ""
+
+#: apps/studio/src/components/site-settings-panels.tsx:319
+#: apps/studio/src/modules/user-settings/components/skills-tab.tsx:125
+msgid "Skill actions"
+msgstr ""
+
+#: apps/studio/src/components/site-settings-panels.tsx:396
+#: apps/studio/src/modules/user-settings/components/skills-tab.tsx:191
+msgid "Loading skills..."
+msgstr ""
+
+#: apps/studio/src/components/top-bar.tsx:23
+#: apps/studio/src/components/top-bar.tsx:27
 msgid "Toggle sidebar"
 msgstr ""
 
@@ -2333,33 +3380,35 @@ msgstr ""
 msgid "Some features will be unavailable."
 msgstr ""
 
-#: apps/studio/src/components/top-bar.tsx:59
+#: apps/studio/src/components/top-bar.tsx:60
 msgid "Offline indicator"
 msgstr ""
 
-#: apps/studio/src/components/top-bar.tsx:80
+#: apps/studio/src/components/top-bar.tsx:81
 msgid "Open account settings"
 msgstr ""
 
-#: apps/studio/src/components/top-bar.tsx:84
-msgid "Howdy, %s"
-msgstr ""
-
-#: apps/studio/src/components/top-bar.tsx:98
+#: apps/studio/src/components/top-bar.tsx:94
 msgid "Log in to Studio with WordPress.com"
 msgstr ""
 
-#: apps/studio/src/components/top-bar.tsx:104
+#: apps/studio/src/components/top-bar.tsx:101
 #: apps/studio/src/modules/user-settings/components/non-authenticated-account-tab.tsx:31
 msgid "Log in"
 msgstr ""
 
-#: apps/studio/src/components/top-bar.tsx:115
+#: apps/studio/src/components/top-bar.tsx:109
+#: apps/studio/src/hooks/use-content-tabs.tsx:40
+#: apps/studio/src/modules/user-settings/components/user-settings.tsx:104
+msgid "Settings"
+msgstr ""
+
+#: apps/studio/src/components/top-bar.tsx:112
 msgid "Open settings"
 msgstr ""
 
-#: apps/studio/src/components/top-bar.tsx:142
-#: apps/studio/src/components/top-bar.tsx:143
+#: apps/studio/src/components/top-bar.tsx:141
+#: apps/studio/src/components/top-bar.tsx:144
 msgid "Get help"
 msgstr ""
 
@@ -2372,12 +3421,12 @@ msgid "Expand"
 msgstr ""
 
 #: apps/studio/src/components/tree-view.tsx:174
-#: apps/studio/src/modules/sync/components/sync-dialog.tsx:411
+#: apps/studio/src/modules/sync/components/sync-dialog.tsx:419
 msgid "Empty folder"
 msgstr ""
 
 #: apps/studio/src/components/tree-view.tsx:175
-#: apps/studio/src/modules/sync/components/sync-dialog.tsx:413
+#: apps/studio/src/modules/sync/components/sync-dialog.tsx:421
 msgid "Empty"
 msgstr ""
 
@@ -2476,34 +3525,29 @@ msgstr ""
 msgid "Import / Export"
 msgstr ""
 
-#: apps/studio/src/hooks/use-content-tabs.tsx:40
-#: apps/studio/src/modules/user-settings/components/user-settings.tsx:110
-msgid "Settings"
-msgstr ""
-
 #: apps/studio/src/hooks/use-content-tabs.tsx:47
 msgid "Assistant"
 msgstr ""
 
-#: apps/studio/src/hooks/use-delete-site.ts:25
+#: apps/studio/src/hooks/use-delete-site.ts:24
 msgid "Delete %s"
 msgstr ""
 
-#: apps/studio/src/hooks/use-delete-site.ts:26
+#: apps/studio/src/hooks/use-delete-site.ts:25
 msgid ""
 "The site's database will be lost. Including all posts, pages, comments, and "
 "media."
 msgstr ""
 
-#: apps/studio/src/hooks/use-delete-site.ts:31
+#: apps/studio/src/hooks/use-delete-site.ts:30
 msgid "Delete site files from my computer"
 msgstr ""
 
-#: apps/studio/src/hooks/use-delete-site.ts:40
+#: apps/studio/src/hooks/use-delete-site.ts:39
 msgid "Deletion failed"
 msgstr ""
 
-#: apps/studio/src/hooks/use-delete-site.ts:42
+#: apps/studio/src/hooks/use-delete-site.ts:41
 msgid "We couldn't delete the site '%s'. Please try again"
 msgstr ""
 
@@ -2513,22 +3557,6 @@ msgstr ""
 
 #: apps/studio/src/hooks/use-execute-cli.ts:48
 msgid "Error when executing wp-cli command"
-msgstr ""
-
-#: apps/studio/src/hooks/use-import-export.tsx:69
-msgid "Importing plugins…"
-msgstr ""
-
-#: apps/studio/src/hooks/use-import-export.tsx:70
-msgid "Importing themes…"
-msgstr ""
-
-#: apps/studio/src/hooks/use-import-export.tsx:71
-msgid "Importing media uploads…"
-msgstr ""
-
-#: apps/studio/src/hooks/use-import-export.tsx:72
-msgid "Importing other files…"
 msgstr ""
 
 #: apps/studio/src/hooks/use-import-export.tsx:96
@@ -2565,31 +3593,12 @@ msgstr ""
 msgid "Import completed"
 msgstr ""
 
-#: apps/studio/src/hooks/use-import-export.tsx:191
-msgid "Extracting backup files…"
-msgstr ""
-
 #: apps/studio/src/hooks/use-import-export.tsx:201
 msgid "Extracting backup… (%d%%)"
 msgstr ""
 
-#: apps/studio/src/hooks/use-import-export.tsx:222
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:111
-msgid "Importing backup…"
-msgstr ""
-
-#: apps/studio/src/hooks/use-import-export.tsx:232
-#: apps/studio/src/hooks/use-import-export.tsx:239
-msgid "Importing database…"
-msgstr ""
-
 #: apps/studio/src/hooks/use-import-export.tsx:249
 msgid "Importing database… (%d%%)"
-msgstr ""
-
-#: apps/studio/src/hooks/use-import-export.tsx:280
-#: apps/studio/src/hooks/use-import-export.tsx:286
-msgid "Importing WordPress content…"
 msgstr ""
 
 #: apps/studio/src/hooks/use-import-export.tsx:297
@@ -2606,11 +3615,6 @@ msgstr ""
 
 #: apps/studio/src/hooks/use-import-export.tsx:341
 msgid "Import failed. Please try again."
-msgstr ""
-
-#: apps/studio/src/hooks/use-import-export.tsx:360
-#: apps/studio/src/hooks/use-import-export.tsx:481
-msgid "Starting export…"
 msgstr ""
 
 #: apps/studio/src/hooks/use-import-export.tsx:368
@@ -2636,12 +3640,8 @@ msgid "Save database file"
 msgstr ""
 
 #: apps/studio/src/hooks/use-import-export.tsx:491
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:79
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:86
 msgid "Creating backup…"
-msgstr ""
-
-#: apps/studio/src/hooks/use-import-export.tsx:501
-msgid "Exporting configuration…"
 msgstr ""
 
 #: apps/studio/src/hooks/use-import-export.tsx:522
@@ -2664,81 +3664,81 @@ msgstr ""
 msgid "html_lang_attribute"
 msgstr ""
 
-#: apps/studio/src/hooks/use-site-details.tsx:295
+#: apps/studio/src/hooks/use-site-details.tsx:270
 msgid "Blueprint execution failed"
 msgstr ""
 
-#: apps/studio/src/hooks/use-site-details.tsx:296
+#: apps/studio/src/hooks/use-site-details.tsx:271
 msgid ""
 "The selected Blueprint failed to execute properly. This could be due to "
 "invalid PHP code, missing plugins, or other issues in the Blueprint file. "
 "Please check your Blueprint file and try again."
 msgstr ""
 
-#: apps/studio/src/hooks/use-site-details.tsx:302
+#: apps/studio/src/hooks/use-site-details.tsx:277
 msgid ""
 "An error occurred while creating the site. Verify your selected local path "
 "is an empty directory or an existing WordPress folder and try again. If "
 "this problem persists, please contact support."
 msgstr ""
 
-#: apps/studio/src/hooks/use-site-details.tsx:435
-#: apps/studio/src/hooks/use-site-details.tsx:446
+#: apps/studio/src/hooks/use-site-details.tsx:410
+#: apps/studio/src/hooks/use-site-details.tsx:421
 msgid "Failed to initialize custom domains for '%s'"
 msgstr ""
 
-#: apps/studio/src/hooks/use-site-details.tsx:436
+#: apps/studio/src/hooks/use-site-details.tsx:411
 msgid ""
 "Studio needs to use port 80 and 443 to enable custom domains and SSL, but "
 "one of these ports are already in use by another app. Close any local "
 "development apps and restart Studio."
 msgstr ""
 
-#: apps/studio/src/hooks/use-site-details.tsx:447
+#: apps/studio/src/hooks/use-site-details.tsx:422
 msgid ""
 "Please restart Studio and try again. If this problem persists, please "
 "contact support."
 msgstr ""
 
-#: apps/studio/src/hooks/use-site-details.tsx:457
+#: apps/studio/src/hooks/use-site-details.tsx:432
 msgid "Not enough memory to start '%s'"
 msgstr ""
 
-#: apps/studio/src/hooks/use-site-details.tsx:458
+#: apps/studio/src/hooks/use-site-details.tsx:433
 msgid ""
 "Please stop some of your running sites first. If this problem persists, try "
 "closing other apps that might be using memory and try again."
 msgstr ""
 
-#: apps/studio/src/hooks/use-site-details.tsx:466
-#: apps/studio/src/hooks/use-site-details.tsx:475
+#: apps/studio/src/hooks/use-site-details.tsx:441
+#: apps/studio/src/hooks/use-site-details.tsx:450
 msgid "Failed to start '%s'"
 msgstr ""
 
-#: apps/studio/src/hooks/use-site-details.tsx:467
+#: apps/studio/src/hooks/use-site-details.tsx:442
 msgid ""
 "The site server failed to start because the port is already in use. Please "
 "close any local development apps that may be using port  and try again."
 msgstr ""
 
-#: apps/studio/src/hooks/use-site-details.tsx:476
+#: apps/studio/src/hooks/use-site-details.tsx:451
 msgid ""
 "Please verify your site's local path directory contains the standard "
 "WordPress installation files and try again. If this problem persists, "
 "please contact support."
 msgstr ""
 
-#: apps/studio/src/hooks/use-site-details.tsx:504
+#: apps/studio/src/hooks/use-site-details.tsx:479
 msgid "Failed to copy site"
 msgstr ""
 
-#: apps/studio/src/hooks/use-site-details.tsx:505
+#: apps/studio/src/hooks/use-site-details.tsx:480
 msgid ""
 "An error occurred while copying the site. Please try again. If this problem "
 "persists, please contact support."
 msgstr ""
 
-#: apps/studio/src/hooks/use-site-details.tsx:518
+#: apps/studio/src/hooks/use-site-details.tsx:493
 msgid "%s Copy"
 msgstr ""
 
@@ -2746,93 +3746,93 @@ msgstr ""
 msgid "Uploading site (%d%%)…"
 msgstr ""
 
-#: apps/studio/src/index.ts:375
+#: apps/studio/src/index.ts:379
 msgid "Sync is in progress"
 msgstr ""
 
-#: apps/studio/src/index.ts:376
+#: apps/studio/src/index.ts:380
 msgid ""
 "There's a sync operation in progress. Quitting the app will abort that "
 "operation. Are you sure you want to quit?"
 msgstr ""
 
-#: apps/studio/src/index.ts:382
+#: apps/studio/src/index.ts:386
 msgid "Sync will continue"
 msgstr ""
 
-#: apps/studio/src/index.ts:383
+#: apps/studio/src/index.ts:387
 msgid ""
 "The sync process will continue running remotely after you quit Studio. We "
 "will send you an email once it is complete."
 msgstr ""
 
-#: apps/studio/src/index.ts:393
+#: apps/studio/src/index.ts:397
 msgid "Yes, quit the app"
 msgstr ""
 
-#: apps/studio/src/index.ts:393
+#: apps/studio/src/index.ts:397
 msgid "No, take me back"
 msgstr ""
 
-#: apps/studio/src/index.ts:430
+#: apps/studio/src/index.ts:434
 msgid "You have a running site"
 msgid_plural "You have running sites"
 msgstr[0] ""
 msgstr[1] ""
 
-#: apps/studio/src/index.ts:432
+#: apps/studio/src/index.ts:436
 msgid "%d site is currently running. Do you want to stop it before quitting?"
 msgid_plural "%d sites are currently running. Do you want to stop them before quitting?"
 msgstr[0] ""
 msgstr[1] ""
 
-#: apps/studio/src/index.ts:439
+#: apps/studio/src/index.ts:443
 msgid "Stop sites"
 msgstr ""
 
-#: apps/studio/src/index.ts:439
+#: apps/studio/src/index.ts:443
 msgid "Leave running"
 msgstr ""
 
-#: apps/studio/src/ipc-handlers.ts:1431
-#: apps/studio/src/ipc-handlers.ts:1453
-#: apps/studio/src/ipc-handlers.ts:1475
+#: apps/studio/src/ipc-handlers.ts:1478
+#: apps/studio/src/ipc-handlers.ts:1500
+#: apps/studio/src/ipc-handlers.ts:1522
 #. %s is the name of the file explorer. E.g. "Open in Finder"
 #. %s is the name of the editor. E.g. "Open in Cursor"
 #. %s is the name of the terminal. E.g. "Open in Terminal"
 msgid "Open in %s"
 msgstr ""
 
-#: apps/studio/src/ipc-handlers.ts:1496
+#: apps/studio/src/ipc-handlers.ts:1543
 msgid "Edit site…"
 msgstr ""
 
-#: apps/studio/src/ipc-handlers.ts:1513
+#: apps/studio/src/ipc-handlers.ts:1560
 msgid "Copy site…"
 msgstr ""
 
-#: apps/studio/src/ipc-handlers.ts:1530
+#: apps/studio/src/ipc-handlers.ts:1577
 msgid "Delete site…"
 msgstr ""
 
-#: apps/studio/src/ipc-handlers.ts:830
+#: apps/studio/src/ipc-handlers.ts:883
 msgid "Failed to open link"
 msgstr ""
 
-#: apps/studio/src/ipc-handlers.ts:831
+#: apps/studio/src/ipc-handlers.ts:884
 msgid "Please ensure your site files have not been moved or deleted."
 msgstr ""
 
-#: apps/studio/src/ipc-handlers.ts:1158
+#: apps/studio/src/ipc-handlers.ts:1205
 #: apps/studio/src/lib/deeplink/handlers/add-site-with-blueprint.ts:98
 msgid "Open Studio Logs"
 msgstr ""
 
-#: apps/studio/src/ipc-handlers.ts:1314
+#: apps/studio/src/ipc-handlers.ts:1361
 msgid "Certificate Trust Failed"
 msgstr ""
 
-#: apps/studio/src/ipc-handlers.ts:1315
+#: apps/studio/src/ipc-handlers.ts:1362
 msgid ""
 "Studio was unable to trust the certificate automatically. You may need to "
 "trust it manually using certificate manager."
@@ -2867,7 +3867,7 @@ msgid "Please check the link and try again."
 msgstr ""
 
 #: apps/studio/src/lib/deeplink/handlers/add-site-with-blueprint.ts:78
-#: apps/studio/src/modules/add-site/components/blueprints.tsx:210
+#: apps/studio/src/modules/add-site/components/blueprints.tsx:211
 msgid "Invalid Blueprint format"
 msgstr ""
 
@@ -2937,201 +3937,210 @@ msgid ""
 "faster?\" in the application menu."
 msgstr ""
 
-#: apps/studio/src/menu.ts:101
+#: apps/studio/src/menu.ts:105
 msgid "Test Hard Crash (dev only)"
 msgstr ""
 
-#: apps/studio/src/menu.ts:107
+#: apps/studio/src/menu.ts:111
 msgid "Test Render Failure (dev only)"
 msgstr ""
 
-#: apps/studio/src/menu.ts:115
+#: apps/studio/src/menu.ts:119
 msgid "Reload"
 msgstr ""
 
-#: apps/studio/src/menu.ts:116
+#: apps/studio/src/menu.ts:120
 msgid "Force Reload"
 msgstr ""
 
-#: apps/studio/src/menu.ts:117
+#: apps/studio/src/menu.ts:121
 msgid "Toggle DevTools"
 msgstr ""
 
-#: apps/studio/src/menu.ts:147
+#: apps/studio/src/menu.ts:151
 msgid "Restart to Apply Updates"
 msgstr ""
 
-#: apps/studio/src/menu.ts:151
+#: apps/studio/src/menu.ts:155
 msgid "Check for Updates"
 msgstr ""
 
-#: apps/studio/src/menu.ts:154
+#: apps/studio/src/menu.ts:158
 msgid "Settings…"
 msgstr ""
 
-#: apps/studio/src/menu.ts:161
+#: apps/studio/src/menu.ts:165
 msgid "Beta Features"
 msgstr ""
 
-#: apps/studio/src/menu.ts:168
+#: apps/studio/src/menu.ts:172
 msgid "Services"
 msgstr ""
 
-#: apps/studio/src/menu.ts:172
+#: apps/studio/src/menu.ts:176
+#: apps/studio/src/modules/sync/components/sync-dialog.tsx:475
 msgid "Hide"
 msgstr ""
 
-#: apps/studio/src/menu.ts:178
-msgid "Open Appdata File (dev only)"
+#: apps/studio/src/menu.ts:182
+msgid "Open Config Files (dev only)"
 msgstr ""
 
-#: apps/studio/src/menu.ts:188
+#: apps/studio/src/menu.ts:185
+msgid "App Config (app.json)"
+msgstr ""
+
+#: apps/studio/src/menu.ts:195
+msgid "Shared Config (shared.json)"
+msgstr ""
+
+#: apps/studio/src/menu.ts:205
+msgid "CLI Config (cli.json)"
+msgstr ""
+
+#: apps/studio/src/menu.ts:217
 msgid "Feature Flags"
 msgstr ""
 
-#: apps/studio/src/menu.ts:194
+#: apps/studio/src/menu.ts:223
 msgid "Quit"
 msgstr ""
 
-#: apps/studio/src/menu.ts:198
+#: apps/studio/src/menu.ts:227
 msgid "File"
 msgstr ""
 
-#: apps/studio/src/menu.ts:202
+#: apps/studio/src/menu.ts:231
 msgid "Add Site…"
 msgstr ""
 
-#: apps/studio/src/menu.ts:213
+#: apps/studio/src/menu.ts:242
 msgid "Close Window"
 msgstr ""
 
-#: apps/studio/src/menu.ts:224
-msgid "Edit"
-msgstr ""
-
-#: apps/studio/src/menu.ts:228
+#: apps/studio/src/menu.ts:257
 msgid "Undo"
 msgstr ""
 
-#: apps/studio/src/menu.ts:232
+#: apps/studio/src/menu.ts:261
 msgid "Redo"
 msgstr ""
 
-#: apps/studio/src/menu.ts:236
+#: apps/studio/src/menu.ts:265
 msgid "Cut"
 msgstr ""
 
-#: apps/studio/src/menu.ts:238
+#: apps/studio/src/menu.ts:267
 msgid "Paste"
 msgstr ""
 
-#: apps/studio/src/menu.ts:240
+#: apps/studio/src/menu.ts:269
 msgid "Paste and Match Style"
 msgstr ""
 
-#: apps/studio/src/menu.ts:243
+#: apps/studio/src/menu.ts:272
 #: apps/studio/src/modules/preview-site/components/preview-action-buttons-menu.tsx:61
 #: apps/studio/src/modules/preview-site/components/preview-action-buttons-menu.tsx:131
 msgid "Delete"
 msgstr ""
 
-#: apps/studio/src/menu.ts:244
+#: apps/studio/src/menu.ts:273
 msgid "Select All"
 msgstr ""
 
-#: apps/studio/src/menu.ts:247
+#: apps/studio/src/menu.ts:276
 msgid "Speech"
 msgstr ""
 
-#: apps/studio/src/menu.ts:249
+#: apps/studio/src/menu.ts:278
 msgid "Start Speaking"
 msgstr ""
 
-#: apps/studio/src/menu.ts:250
+#: apps/studio/src/menu.ts:279
 msgid "Stop Speaking"
 msgstr ""
 
-#: apps/studio/src/menu.ts:256
+#: apps/studio/src/menu.ts:285
 msgid "View"
 msgstr ""
 
-#: apps/studio/src/menu.ts:259
+#: apps/studio/src/menu.ts:288
 msgid "Show Tab Bar"
 msgstr ""
 
-#: apps/studio/src/menu.ts:260
+#: apps/studio/src/menu.ts:289
 msgid "Show All Tabs"
 msgstr ""
 
-#: apps/studio/src/menu.ts:263
+#: apps/studio/src/menu.ts:292
 msgid "Actual Size"
 msgstr ""
 
-#: apps/studio/src/menu.ts:267
+#: apps/studio/src/menu.ts:296
 msgid "Zoom In"
 msgstr ""
 
-#: apps/studio/src/menu.ts:271
+#: apps/studio/src/menu.ts:300
 msgid "Zoom Out"
 msgstr ""
 
-#: apps/studio/src/menu.ts:276
+#: apps/studio/src/menu.ts:305
 msgid "Toggle Fullscreen"
 msgstr ""
 
-#: apps/studio/src/menu.ts:281
+#: apps/studio/src/menu.ts:310
 msgid "Float on Top of All Other Windows"
 msgstr ""
 
-#: apps/studio/src/menu.ts:296
+#: apps/studio/src/menu.ts:325
 msgid "Window"
 msgstr ""
 
-#: apps/studio/src/menu.ts:302
+#: apps/studio/src/menu.ts:331
 msgid "Minimize"
 msgstr ""
 
-#: apps/studio/src/menu.ts:303
+#: apps/studio/src/menu.ts:332
 msgid "Zoom"
 msgstr ""
 
-#: apps/studio/src/menu.ts:305
+#: apps/studio/src/menu.ts:334
 msgid "Show Previous Tab"
 msgstr ""
 
-#: apps/studio/src/menu.ts:306
+#: apps/studio/src/menu.ts:335
 msgid "Show Next Tab"
 msgstr ""
 
-#: apps/studio/src/menu.ts:307
+#: apps/studio/src/menu.ts:336
 msgid "Move Tab to New Window"
 msgstr ""
 
-#: apps/studio/src/menu.ts:308
+#: apps/studio/src/menu.ts:337
 msgid "Merge All Windows"
 msgstr ""
 
-#: apps/studio/src/menu.ts:317
+#: apps/studio/src/menu.ts:346
 msgid "WordPress Studio Help"
 msgstr ""
 
-#: apps/studio/src/menu.ts:324
+#: apps/studio/src/menu.ts:353
 msgid "What's New"
 msgstr ""
 
-#: apps/studio/src/menu.ts:334
+#: apps/studio/src/menu.ts:363
 msgid "How can I make WordPress Studio faster?"
 msgstr ""
 
-#: apps/studio/src/menu.ts:342
+#: apps/studio/src/menu.ts:371
 msgid "Open Application Logs"
 msgstr ""
 
-#: apps/studio/src/menu.ts:353
+#: apps/studio/src/menu.ts:382
 msgid "Report an Issue"
 msgstr ""
 
-#: apps/studio/src/menu.ts:359
+#: apps/studio/src/menu.ts:388
 msgid "Propose a Feature"
 msgstr ""
 
@@ -3152,8 +4161,8 @@ msgid "Featured Blueprint"
 msgstr ""
 
 #: apps/studio/src/modules/add-site/components/blueprint-details.tsx:43
-#: apps/studio/src/modules/add-site/components/blueprints.tsx:274
-#: apps/studio/src/modules/add-site/components/blueprints.tsx:284
+#: apps/studio/src/modules/add-site/components/blueprints.tsx:276
+#: apps/studio/src/modules/add-site/components/blueprints.tsx:286
 #: apps/studio/src/modules/add-site/components/options.tsx:113
 msgid "Start from a Blueprint"
 msgstr ""
@@ -3190,63 +4199,57 @@ msgstr ""
 msgid "View details"
 msgstr ""
 
-#: apps/studio/src/modules/add-site/components/blueprints.tsx:120
+#: apps/studio/src/modules/add-site/components/blueprints.tsx:121
 msgid "Thumbnail"
 msgstr ""
 
-#: apps/studio/src/modules/add-site/components/blueprints.tsx:140
+#: apps/studio/src/modules/add-site/components/blueprints.tsx:141
 msgid "Title"
 msgstr ""
 
-#: apps/studio/src/modules/add-site/components/blueprints.tsx:158
+#: apps/studio/src/modules/add-site/components/blueprints.tsx:159
 msgid "Preview Blueprint"
 msgstr ""
 
-#: apps/studio/src/modules/add-site/components/blueprints.tsx:166
+#: apps/studio/src/modules/add-site/components/blueprints.tsx:167
 msgid "Description"
 msgstr ""
 
-#: apps/studio/src/modules/add-site/components/blueprints.tsx:200
+#: apps/studio/src/modules/add-site/components/blueprints.tsx:201
 msgid "Blueprint v2 format is not supported yet. Please use Blueprint v1 format."
 msgstr ""
 
-#: apps/studio/src/modules/add-site/components/blueprints.tsx:237
+#: apps/studio/src/modules/add-site/components/blueprints.tsx:239
 #. %s is error message of the JSON parsing error
 msgid "Invalid JSON format: %s"
 msgstr ""
 
-#: apps/studio/src/modules/add-site/components/blueprints.tsx:242
+#: apps/studio/src/modules/add-site/components/blueprints.tsx:244
 msgid "Failed to load Blueprint file. Please try again."
 msgstr ""
 
-#: apps/studio/src/modules/add-site/components/blueprints.tsx:276
-#: apps/studio/src/modules/add-site/components/blueprints.tsx:352
+#: apps/studio/src/modules/add-site/components/blueprints.tsx:278
+#: apps/studio/src/modules/add-site/components/blueprints.tsx:354
 msgid "Loading Blueprints..."
 msgstr ""
 
-#: apps/studio/src/modules/add-site/components/blueprints.tsx:288
+#: apps/studio/src/modules/add-site/components/blueprints.tsx:290
 msgid "Create a new site from a featured Blueprint on your own. <learn_more_link />"
 msgstr ""
 
-#: apps/studio/src/modules/add-site/components/blueprints.tsx:302
+#: apps/studio/src/modules/add-site/components/blueprints.tsx:304
 msgid "Blueprint validation failed"
 msgstr ""
 
-#: apps/studio/src/modules/add-site/components/blueprints.tsx:311
+#: apps/studio/src/modules/add-site/components/blueprints.tsx:313
 msgid "Featured Blueprints"
 msgstr ""
 
-#: apps/studio/src/modules/add-site/components/blueprints.tsx:323
-#: apps/studio/src/modules/add-site/components/import-backup.tsx:179
-#: apps/studio/src/modules/user-settings/components/skills-tab.tsx:143
-msgid "Remove"
-msgstr ""
-
-#: apps/studio/src/modules/add-site/components/blueprints.tsx:343
+#: apps/studio/src/modules/add-site/components/blueprints.tsx:345
 msgid "Choose Blueprint file"
 msgstr ""
 
-#: apps/studio/src/modules/add-site/components/blueprints.tsx:358
+#: apps/studio/src/modules/add-site/components/blueprints.tsx:360
 msgid ""
 "Studio could not load Blueprints. <button>Try again</button> or use your "
 "own Blueprint."
@@ -3260,94 +4263,94 @@ msgstr ""
 msgid "The existing WordPress site at this path will be added."
 msgstr ""
 
-#: apps/studio/src/modules/add-site/components/create-site-form.tsx:411
-#: apps/studio/src/modules/site-settings/edit-site-details.tsx:132
+#: apps/studio/src/modules/add-site/components/create-site-form.tsx:420
+#: apps/studio/src/modules/site-settings/edit-site-details.tsx:145
 msgid "Admin password is required"
 msgstr ""
 
-#: apps/studio/src/modules/add-site/components/create-site-form.tsx:477
+#: apps/studio/src/modules/add-site/components/create-site-form.tsx:488
 msgid "Advanced settings"
 msgstr ""
 
-#: apps/studio/src/modules/add-site/components/create-site-form.tsx:485
+#: apps/studio/src/modules/add-site/components/create-site-form.tsx:496
 #. %d: number of errors found
 msgid "%d error found"
 msgid_plural "%d errors found"
 msgstr[0] ""
 msgstr[1] ""
 
-#: apps/studio/src/modules/add-site/components/create-site-form.tsx:495
+#: apps/studio/src/modules/add-site/components/create-site-form.tsx:506
 #. %d: number of warnings found
 msgid "%d warning found"
 msgid_plural "%d warnings found"
 msgstr[0] ""
 msgstr[1] ""
 
-#: apps/studio/src/modules/add-site/components/create-site-form.tsx:513
+#: apps/studio/src/modules/add-site/components/create-site-form.tsx:524
 msgid ""
 "Select an empty directory or a directory with an existing WordPress site. "
 "<learn_more_link />"
 msgstr ""
 
-#: apps/studio/src/modules/add-site/components/create-site-form.tsx:552
+#: apps/studio/src/modules/add-site/components/create-site-form.tsx:563
 msgid ""
 "You are currently offline so your site will be created with the latest "
 "version. Selecting a different WordPress version requires an internet "
 "connection."
 msgstr ""
 
-#: apps/studio/src/modules/add-site/components/create-site-form.tsx:559
-#: apps/studio/src/modules/site-settings/edit-site-details.tsx:411
+#: apps/studio/src/modules/add-site/components/create-site-form.tsx:570
+#: apps/studio/src/modules/site-settings/edit-site-details.tsx:431
 msgid "Admin credentials"
 msgstr ""
 
-#: apps/studio/src/modules/add-site/components/create-site-form.tsx:619
+#: apps/studio/src/modules/add-site/components/create-site-form.tsx:630
 msgid "Version differs from Blueprint recommendation"
 msgstr ""
 
-#: apps/studio/src/modules/add-site/components/create-site-form.tsx:621
+#: apps/studio/src/modules/add-site/components/create-site-form.tsx:632
 msgid "This Blueprint recommends:"
 msgstr ""
 
-#: apps/studio/src/modules/add-site/components/create-site-form.tsx:627
+#: apps/studio/src/modules/add-site/components/create-site-form.tsx:638
 #. %1$s: recommended PHP version, %2$s: default PHP version
 msgid "PHP %s (selected is %s)"
 msgstr ""
 
-#: apps/studio/src/modules/add-site/components/create-site-form.tsx:637
+#: apps/studio/src/modules/add-site/components/create-site-form.tsx:648
 #. %1$s: recommended WordPress version, %2$s: default WordPress version
 msgid "WordPress %s (selected is %s)"
 msgstr ""
 
-#: apps/studio/src/modules/add-site/components/create-site-form.tsx:644
+#: apps/studio/src/modules/add-site/components/create-site-form.tsx:655
 msgid "Using different versions may cause compatibility issues."
 msgstr ""
 
-#: apps/studio/src/modules/add-site/components/create-site-form.tsx:656
-#: apps/studio/src/modules/site-settings/edit-site-details.tsx:360
+#: apps/studio/src/modules/add-site/components/create-site-form.tsx:667
+#: apps/studio/src/modules/site-settings/edit-site-details.tsx:380
 msgid "Use custom domain"
 msgstr ""
 
-#: apps/studio/src/modules/add-site/components/create-site-form.tsx:661
+#: apps/studio/src/modules/add-site/components/create-site-form.tsx:672
 msgid "WordPress multisite requires a custom domain."
 msgstr ""
 
-#: apps/studio/src/modules/add-site/components/create-site-form.tsx:666
-#: apps/studio/src/modules/site-settings/edit-site-details.tsx:380
+#: apps/studio/src/modules/add-site/components/create-site-form.tsx:677
+#: apps/studio/src/modules/site-settings/edit-site-details.tsx:400
 msgid "Your system password will be required to set up the domain."
 msgstr ""
 
-#: apps/studio/src/modules/add-site/components/create-site-form.tsx:673
-#: apps/studio/src/modules/site-settings/edit-site-details.tsx:366
+#: apps/studio/src/modules/add-site/components/create-site-form.tsx:684
+#: apps/studio/src/modules/site-settings/edit-site-details.tsx:386
 msgid "Domain name"
 msgstr ""
 
-#: apps/studio/src/modules/add-site/components/create-site-form.tsx:690
-#: apps/studio/src/modules/site-settings/edit-site-details.tsx:396
+#: apps/studio/src/modules/add-site/components/create-site-form.tsx:701
+#: apps/studio/src/modules/site-settings/edit-site-details.tsx:416
 msgid "Enable HTTPS"
 msgstr ""
 
-#: apps/studio/src/modules/add-site/components/create-site-form.tsx:695
+#: apps/studio/src/modules/add-site/components/create-site-form.tsx:706
 msgid ""
 "You need to manually add the Studio root certificate authority to your "
 "keychain and trust it to enable HTTPS."
@@ -3408,7 +4411,7 @@ msgid "Choose a featured Blueprint or use your own"
 msgstr ""
 
 #: apps/studio/src/modules/add-site/components/options.tsx:122
-#: apps/studio/src/modules/add-site/components/pull-remote-site.tsx:161
+#: apps/studio/src/modules/add-site/components/pull-remote-site.tsx:163
 msgid "Pull an existing site"
 msgstr ""
 
@@ -3478,7 +4481,7 @@ msgid "Select a remote site"
 msgstr ""
 
 #: apps/studio/src/modules/add-site/hooks/use-stepper.ts:182
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:796
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:758
 msgid "Continue"
 msgstr ""
 
@@ -3493,7 +4496,6 @@ msgid "%s site added."
 msgstr ""
 
 #: apps/studio/src/modules/agent-instructions/lib/skills-constants.ts:16
-#: apps/studio/src/modules/user-settings/components/studio-cli-toggle.tsx:18
 msgid "Studio CLI"
 msgstr ""
 
@@ -3546,73 +4548,54 @@ msgstr ""
 msgid "Proceed"
 msgstr ""
 
-#: apps/studio/src/modules/cli/lib/macos-installation-manager.ts:59
-#: apps/studio/src/modules/cli/lib/windows-installation-manager.ts:52
-msgid "CLI Installed"
-msgstr ""
-
-#: apps/studio/src/modules/cli/lib/macos-installation-manager.ts:60
-#: apps/studio/src/modules/cli/lib/windows-installation-manager.ts:53
-msgid "The CLI has been installed successfully."
-msgstr ""
-
-#: apps/studio/src/modules/cli/lib/macos-installation-manager.ts:65
-#: apps/studio/src/modules/cli/lib/macos-installation-manager.ts:111
-#: apps/studio/src/modules/cli/lib/windows-installation-manager.ts:59
-#: apps/studio/src/modules/cli/lib/windows-installation-manager.ts:89
+#: apps/studio/src/modules/cli/lib/macos-installation-manager.ts:56
+#: apps/studio/src/modules/cli/lib/macos-installation-manager.ts:101
+#: apps/studio/src/modules/cli/lib/windows-installation-manager.ts:66
+#: apps/studio/src/modules/cli/lib/windows-installation-manager.ts:95
 msgid "There was an unknown error. Please check the logs for more information."
 msgstr ""
 
-#: apps/studio/src/modules/cli/lib/macos-installation-manager.ts:74
+#: apps/studio/src/modules/cli/lib/macos-installation-manager.ts:65
 #. 1: Installation path
 msgid ""
 "The installation path %1$s is already occupied by a file or directory. "
 "Please remove it and try again."
 msgstr ""
 
-#: apps/studio/src/modules/cli/lib/macos-installation-manager.ts:80
-msgid "Please ensure you grant Studio admin permissions when prompted."
-msgstr ""
-
-#: apps/studio/src/modules/cli/lib/macos-installation-manager.ts:92
-#: apps/studio/src/modules/cli/lib/windows-installation-manager.ts:70
+#: apps/studio/src/modules/cli/lib/macos-installation-manager.ts:81
+#: apps/studio/src/modules/cli/lib/windows-installation-manager.ts:77
 msgid "Failed to install CLI"
 msgstr ""
 
-#: apps/studio/src/modules/cli/lib/macos-installation-manager.ts:104
-#: apps/studio/src/modules/cli/lib/windows-installation-manager.ts:82
+#: apps/studio/src/modules/cli/lib/macos-installation-manager.ts:94
+#: apps/studio/src/modules/cli/lib/windows-installation-manager.ts:89
 msgid "CLI uninstalled"
 msgstr ""
 
-#: apps/studio/src/modules/cli/lib/macos-installation-manager.ts:105
-#: apps/studio/src/modules/cli/lib/windows-installation-manager.ts:83
+#: apps/studio/src/modules/cli/lib/macos-installation-manager.ts:95
+#: apps/studio/src/modules/cli/lib/windows-installation-manager.ts:90
 msgid "The CLI has been uninstalled successfully."
 msgstr ""
 
-#: apps/studio/src/modules/cli/lib/macos-installation-manager.ts:122
-#: apps/studio/src/modules/cli/lib/windows-installation-manager.ts:100
+#: apps/studio/src/modules/cli/lib/macos-installation-manager.ts:112
+#: apps/studio/src/modules/cli/lib/windows-installation-manager.ts:106
 msgid "Failed to uninstall CLI"
 msgstr ""
 
-#: apps/studio/src/modules/mcp/components/mcp-settings.tsx:22
+#: apps/studio/src/modules/cli/lib/windows-installation-manager.ts:60
+msgid "CLI Installed"
+msgstr ""
+
+#: apps/studio/src/modules/cli/lib/windows-installation-manager.ts:61
+msgid "The CLI has been installed successfully."
+msgstr ""
+
+#: apps/studio/src/modules/mcp/components/mcp-settings.tsx:15
 msgid ""
 "Connect your AI coding assistant to the Studio MCP to let it create, "
 "configure and interact with your local WordPress sites. Copy the JSON "
-"configuration below and add it to your assistant's MCP settings."
-msgstr ""
-
-#: apps/studio/src/modules/mcp/components/mcp-settings.tsx:42
-msgid "Setup guides:"
-msgstr ""
-
-#: apps/studio/src/modules/mcp/components/mcp-settings.tsx:57
-#: apps/studio/src/modules/user-settings/lib/editor.ts:66
-#. "Windsurf" is the brand name for an IDE and does not need to be translated
-msgid "Windsurf"
-msgstr ""
-
-#: apps/studio/src/modules/mcp/components/mcp-settings.tsx:60
-msgid "VS Code"
+"configuration below and add it to your assistant's MCP settings. "
+"<learn_more_link />"
 msgstr ""
 
 #: apps/studio/src/modules/onboarding/components/connect-to-wpcom.tsx:22
@@ -3649,10 +4632,6 @@ msgstr ""
 msgid "Imagine"
 msgstr ""
 
-#: apps/studio/src/modules/onboarding/index.tsx:20
-msgid "Create"
-msgstr ""
-
 #: apps/studio/src/modules/onboarding/index.tsx:21
 msgid "Design"
 msgstr ""
@@ -3661,48 +4640,58 @@ msgstr ""
 msgid "Code"
 msgstr ""
 
-#: apps/studio/src/modules/onboarding/index.tsx:25
-msgid "Build"
-msgstr ""
-
-#: apps/studio/src/modules/preview-site/components/create-preview-button.tsx:63
+#: apps/studio/src/modules/preview-site/components/create-preview-button.tsx:67
 msgid ""
 "A preview of this site is being created. Please wait for it to finish "
 "before creating another."
 msgstr ""
 
-#: apps/studio/src/modules/preview-site/components/create-preview-button.tsx:66
+#: apps/studio/src/modules/preview-site/components/create-preview-button.tsx:70
 msgid ""
 "A different preview site is being created. Please wait for it to finish "
 "before creating another."
 msgstr ""
 
-#: apps/studio/src/modules/preview-site/components/create-preview-button.tsx:70
+#: apps/studio/src/modules/preview-site/components/create-preview-button.tsx:74
 msgid "You've used %d preview sites available on your account."
 msgid_plural "You've used all %d preview sites available on your account."
 msgstr[0] ""
 msgstr[1] ""
 
-#: apps/studio/src/modules/preview-site/components/create-preview-button.tsx:77
+#: apps/studio/src/modules/preview-site/components/create-preview-button.tsx:81
 msgid "Creating a preview site requires an internet connection."
 msgstr ""
 
-#: apps/studio/src/modules/preview-site/components/create-preview-button.tsx:84
+#: apps/studio/src/modules/preview-site/components/create-preview-button.tsx:88
+#: apps/studio/src/modules/preview-site/hooks/use-update-button-tooltip.ts:21
+#: apps/studio/src/modules/user-settings/components/snapshot-info.tsx:43
+msgid "Preview sites are not available for your account."
+msgstr ""
+
+#: apps/studio/src/modules/preview-site/components/create-preview-button.tsx:111
 msgid ""
 "Your Studio site is running versions not supported by preview sites. The "
 "preview site will automatically switch to the supported WordPress and PHP "
 "versions."
 msgstr ""
 
-#: apps/studio/src/modules/preview-site/components/create-preview-button.tsx:87
-#: apps/studio/src/modules/preview-site/hooks/use-update-button-tooltip.ts:21
-#: apps/studio/src/modules/user-settings/components/snapshot-info.tsx:43
-msgid "Preview sites are not available for your account."
+#: apps/studio/src/modules/preview-site/components/create-preview-button.tsx:118
+msgid ""
+"Your Studio site is configured as a multisite network. Preview sites do not "
+"support multisite, which may cause unexpected issues."
 msgstr ""
 
-#: apps/studio/src/modules/preview-site/components/create-preview-button.tsx:122
+#: apps/studio/src/modules/preview-site/components/create-preview-button.tsx:147
 msgid "Create preview site"
 msgstr ""
+
+#: apps/studio/src/modules/preview-site/components/create-preview-button.tsx:159
+#: apps/studio/src/modules/sync/components/sync-dialog.tsx:467
+#. %d: number of warnings
+msgid "%d warning"
+msgid_plural "%d warnings"
+msgstr[0] ""
+msgstr[1] ""
 
 #: apps/studio/src/modules/preview-site/components/delete-progress-row.tsx:14
 msgid "Deleting preview site"
@@ -3722,10 +4711,6 @@ msgstr ""
 #: apps/studio/src/modules/preview-site/components/preview-action-buttons-menu.tsx:41
 #: apps/studio/src/modules/preview-site/components/preview-action-buttons-menu.tsx:114
 msgid "Update"
-msgstr ""
-
-#: apps/studio/src/modules/preview-site/components/preview-action-buttons-menu.tsx:57
-msgid "Delete preview"
 msgstr ""
 
 #: apps/studio/src/modules/preview-site/components/preview-action-buttons-menu.tsx:58
@@ -3768,11 +4753,6 @@ msgstr ""
 msgid "Updating"
 msgstr ""
 
-#: apps/studio/src/modules/preview-site/components/preview-site-row.tsx:173
-#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:397
-msgid "Deleted"
-msgstr ""
-
 #: apps/studio/src/modules/preview-site/components/preview-sites-table-header.tsx:9
 msgid "Preview site"
 msgstr ""
@@ -3790,7 +4770,7 @@ msgid "Rename preview link"
 msgstr ""
 
 #: apps/studio/src/modules/preview-site/components/rename-preview-modal.tsx:48
-#: apps/studio/src/modules/site-settings/edit-site-details.tsx:254
+#: apps/studio/src/modules/site-settings/edit-site-details.tsx:267
 #: apps/studio/src/modules/user-settings/components/preferences-tab.tsx:137
 msgid "Save"
 msgstr ""
@@ -3799,71 +4779,84 @@ msgstr ""
 msgid "Updating a preview site requires an internet connection."
 msgstr ""
 
-#: apps/studio/src/modules/site-settings/edit-site-details.tsx:256
+#: apps/studio/src/modules/site-settings/edit-site-details.tsx:269
 msgid "Saving and restarting…"
 msgstr ""
 
-#: apps/studio/src/modules/site-settings/edit-site-details.tsx:256
+#: apps/studio/src/modules/site-settings/edit-site-details.tsx:269
 msgid "Saving…"
 msgstr ""
 
-#: apps/studio/src/modules/site-settings/edit-site-details.tsx:274
-#: apps/studio/src/modules/site-settings/edit-site-details.tsx:622
-#: apps/studio/src/modules/site-settings/edit-site-details.tsx:625
+#: apps/studio/src/modules/site-settings/edit-site-details.tsx:287
+#: apps/studio/src/modules/site-settings/edit-site-details.tsx:651
+#: apps/studio/src/modules/site-settings/edit-site-details.tsx:654
 msgid "Edit site"
 msgstr ""
 
-#: apps/studio/src/modules/site-settings/edit-site-details.tsx:288
-#: apps/studio/src/modules/user-settings/components/user-settings.tsx:80
+#: apps/studio/src/modules/site-settings/edit-site-details.tsx:304
+#: apps/studio/src/modules/user-settings/components/user-settings.tsx:78
 msgid "General"
 msgstr ""
 
-#: apps/studio/src/modules/site-settings/edit-site-details.tsx:402
+#: apps/studio/src/modules/site-settings/edit-site-details.tsx:306
+#: apps/studio/src/modules/user-settings/components/user-settings.tsx:89
+msgid "Skills"
+msgstr ""
+
+#: apps/studio/src/modules/site-settings/edit-site-details.tsx:307
+msgid "Instructions"
+msgstr ""
+
+#: apps/studio/src/modules/site-settings/edit-site-details.tsx:422
 msgid ""
 "You need to manually add the Studio certificate authority to your keychain "
 "and trust it."
 msgstr ""
 
-#: apps/studio/src/modules/site-settings/edit-site-details.tsx:445
+#: apps/studio/src/modules/site-settings/edit-site-details.tsx:465
 msgid ""
 "A new admin user will be created. WordPress does not support renaming "
 "usernames."
 msgstr ""
 
-#: apps/studio/src/modules/site-settings/edit-site-details.tsx:489
+#: apps/studio/src/modules/site-settings/edit-site-details.tsx:509
 msgid ""
 "Xdebug is currently enabled for \"%s\" site. Disable it there first to "
 "enable it for this site."
 msgstr ""
 
-#: apps/studio/src/modules/site-settings/edit-site-details.tsx:525
+#: apps/studio/src/modules/site-settings/edit-site-details.tsx:540
+msgid "Enable Xdebug"
+msgstr ""
+
+#: apps/studio/src/modules/site-settings/edit-site-details.tsx:545
 msgid ""
 "Enable PHP debugging with Xdebug. Only one site can have Xdebug enabled at "
 "a time. Note that Xdebug may slow down site performance. <learn_more_link />"
 msgstr ""
 
-#: apps/studio/src/modules/site-settings/edit-site-details.tsx:555
+#: apps/studio/src/modules/site-settings/edit-site-details.tsx:575
 msgid "Enable debug log"
 msgstr ""
 
-#: apps/studio/src/modules/site-settings/edit-site-details.tsx:559
+#: apps/studio/src/modules/site-settings/edit-site-details.tsx:579
 msgid ""
 "Log PHP errors and warnings to a debug.log file in your site's wp-content "
 "directory by setting the WP_DEBUG_LOG constant."
 msgstr ""
 
-#: apps/studio/src/modules/site-settings/edit-site-details.tsx:583
+#: apps/studio/src/modules/site-settings/edit-site-details.tsx:603
 msgid "Show errors in browser"
 msgstr ""
 
-#: apps/studio/src/modules/site-settings/edit-site-details.tsx:587
+#: apps/studio/src/modules/site-settings/edit-site-details.tsx:607
 msgid ""
 "Display PHP errors and warnings directly in the browser by setting the "
 "WP_DEBUG_DISPLAY constant."
 msgstr ""
 
 #: apps/studio/src/modules/sync/components/connect-button.tsx:29
-#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:476
+#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:510
 msgid "Connecting a site requires an internet connection."
 msgstr ""
 
@@ -3935,12 +4928,6 @@ msgid ""
 "you push this site."
 msgstr ""
 
-#: apps/studio/src/modules/sync/components/sync-connected-sites.tsx:143
-#: apps/studio/src/modules/sync/components/sync-connected-sites.tsx:165
-#: apps/studio/src/modules/sync/hooks/use-sync-dialog-texts.tsx:81
-msgid "Push"
-msgstr ""
-
 #: apps/studio/src/modules/sync/components/sync-connected-sites.tsx:240
 msgid "Applying final details…"
 msgstr ""
@@ -3966,7 +4953,7 @@ msgid "Loading environment"
 msgstr ""
 
 #: apps/studio/src/modules/sync/components/sync-connected-sites.tsx:315
-#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:327
+#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:361
 msgid "Loading site URL"
 msgstr ""
 
@@ -3980,22 +4967,22 @@ msgid "Pull can not be cancelled while importing changes to your local site"
 msgstr ""
 
 #: apps/studio/src/modules/sync/components/sync-connected-sites.tsx:368
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:347
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:354
 msgid "Pull cancelled"
 msgstr ""
 
 #: apps/studio/src/modules/sync/components/sync-connected-sites.tsx:378
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:113
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:120
 msgid "Error pulling changes"
 msgstr ""
 
 #: apps/studio/src/modules/sync/components/sync-connected-sites.tsx:395
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:95
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:102
 msgid "Error pushing changes"
 msgstr ""
 
 #: apps/studio/src/modules/sync/components/sync-connected-sites.tsx:408
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:112
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:119
 msgid "Pull complete"
 msgstr ""
 
@@ -4031,7 +5018,7 @@ msgid "Push can not be cancelled while applying changes to the remote site"
 msgstr ""
 
 #: apps/studio/src/modules/sync/components/sync-connected-sites.tsx:562
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:320
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:327
 msgid "Push cancelled"
 msgstr ""
 
@@ -4055,7 +5042,7 @@ msgid "Disconnect"
 msgstr ""
 
 #: apps/studio/src/modules/sync/components/sync-connected-sites.tsx:690
-#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:299
+#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:333
 msgid "Loading site name"
 msgstr ""
 
@@ -4075,129 +5062,139 @@ msgstr ""
 msgid "Reconnect"
 msgstr ""
 
-#: apps/studio/src/modules/sync/components/sync-dialog.tsx:202
+#: apps/studio/src/modules/sync/components/sync-dialog.tsx:217
 msgid ""
 "Selecting individual items to pull will be enabled automatically once your "
 "first backup is complete.<br/>Wait a few minutes or run a full sync in the "
 "meantime."
 msgstr ""
 
-#: apps/studio/src/modules/sync/components/sync-dialog.tsx:300
+#: apps/studio/src/modules/sync/components/sync-dialog.tsx:308
 msgid "From %s to %s"
 msgstr ""
 
-#: apps/studio/src/modules/sync/components/sync-dialog.tsx:343
+#: apps/studio/src/modules/sync/components/sync-dialog.tsx:351
 msgid "All files and folders"
 msgstr ""
 
-#: apps/studio/src/modules/sync/components/sync-dialog.tsx:347
+#: apps/studio/src/modules/sync/components/sync-dialog.tsx:355
 msgid "Specific files and folders"
 msgstr ""
 
-#: apps/studio/src/modules/sync/components/sync-dialog.tsx:355
+#: apps/studio/src/modules/sync/components/sync-dialog.tsx:363
 msgid "Select files and folders to sync"
 msgstr ""
 
-#: apps/studio/src/modules/sync/components/sync-dialog.tsx:373
+#: apps/studio/src/modules/sync/components/sync-dialog.tsx:381
 msgid "Content from the latest backup: %s."
 msgstr ""
 
-#: apps/studio/src/modules/sync/components/sync-dialog.tsx:379
+#: apps/studio/src/modules/sync/components/sync-dialog.tsx:387
 msgid "Create new backup ↗"
 msgstr ""
 
-#: apps/studio/src/modules/sync/components/sync-dialog.tsx:390
+#: apps/studio/src/modules/sync/components/sync-dialog.tsx:398
 msgid "Could not load files. Please close and reopen this dialog to try again."
 msgstr ""
 
-#: apps/studio/src/modules/sync/components/sync-dialog.tsx:402
+#: apps/studio/src/modules/sync/components/sync-dialog.tsx:410
 msgid ""
 "Error retrieving remote files and directories. Please close and reopen this "
 "dialog to try again."
 msgstr ""
 
-#: apps/studio/src/modules/sync/components/sync-dialog.tsx:434
+#: apps/studio/src/modules/sync/components/sync-dialog.tsx:442
 msgid "%s over"
 msgstr ""
 
-#: apps/studio/src/modules/sync/components/sync-dialog.tsx:442
+#: apps/studio/src/modules/sync/components/sync-dialog.tsx:450
 msgid ""
 "The current selection exceeds the %d GB push limit. To continue, please "
 "change your selection to reduce the total size."
 msgstr ""
 
-#: apps/studio/src/modules/sync/components/sync-dialog.tsx:453
-msgid ""
-"Your Studio site is using a different WordPress or PHP version than your "
-"WordPress.com site. The remote site will keep on using the newest supported "
-"versions."
+#: apps/studio/src/modules/sync/components/sync-dialog.tsx:475
+msgid "Show"
 msgstr ""
 
-#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:74
+#: apps/studio/src/modules/sync/components/sync-dialog.tsx:483
+msgid ""
+"Your Studio site is using a different WordPress or PHP version than your "
+"remote site. The remote site will keep using the newest supported versions."
+msgstr ""
+
+#: apps/studio/src/modules/sync/components/sync-dialog.tsx:492
+msgid ""
+"Your Studio site is configured as a multisite network. WordPress.com does "
+"not support multisite, so pushing may cause unexpected issues on the remote "
+"site."
+msgstr ""
+
+#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:77
 msgid "Publish your site"
 msgstr ""
 
-#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:76
+#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:79
 msgid "Select a site to import"
 msgstr ""
 
-#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:79
+#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:82
 msgid "Connect your site"
 msgstr ""
 
-#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:132
+#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:137
 msgid "Search sites"
 msgstr ""
 
-#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:141
+#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:146
 msgid "Can't find your site?"
 msgstr ""
 
-#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:149
+#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:154
 msgid "Learn more about supported sites."
 msgstr ""
 
-#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:180
+#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:201
 msgid "No sites found for \"%s\""
 msgstr ""
 
-#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:358
-msgid "Already connected"
+#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:213
+msgid "Loading…"
 msgstr ""
 
-#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:364
-msgid "Sync support is available only with Business plan and above"
-msgstr ""
-
-#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:371
-msgid "Upgrade plan"
-msgstr ""
-
-#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:385
-msgid "Enable hosting features"
+#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:232
+msgid "Refreshing…"
 msgstr ""
 
 #: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:392
-msgid "Missing permissions"
+msgid "Already connected"
 msgstr ""
 
-#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:402
-msgid "Self-hosted (e.g. jurassic.ninja) sites are not supported"
+#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:398
+msgid "Sync support is available on selected plans only"
 msgstr ""
 
-#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:406
-msgid "Unsupported site"
+#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:405
+msgid "Upgrade plan"
+msgstr ""
+
+#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:419
+msgid "Enable hosting features"
 msgstr ""
 
 #: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:436
+msgid "Self-hosted (e.g. jurassic.ninja) sites are not supported"
+msgstr ""
+
+#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:470
 msgid "Connect"
 msgstr ""
 
-#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:451
+#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:485
 msgid "Create a new WordPress.com site"
 msgstr ""
 
-#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:473
+#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:507
 msgid "Importing a remote site requires an internet connection."
 msgstr ""
 
@@ -4380,24 +5377,11 @@ msgstr ""
 msgid "%1$d of %2$d monthly prompts used"
 msgstr ""
 
-#: apps/studio/src/modules/user-settings/components/skills-tab.tsx:100
-msgid "Agents can decide to use skills to help them accomplish specialized tasks."
-msgstr ""
-
-#: apps/studio/src/modules/user-settings/components/skills-tab.tsx:130
-msgid "Skill actions"
-msgstr ""
-
-#: apps/studio/src/modules/user-settings/components/skills-tab.tsx:157
-msgid "Available"
-msgstr ""
-
-#: apps/studio/src/modules/user-settings/components/skills-tab.tsx:165
-msgid "Install all"
-msgstr ""
-
-#: apps/studio/src/modules/user-settings/components/skills-tab.tsx:196
-msgid "Loading skills..."
+#: apps/studio/src/modules/user-settings/components/skills-tab.tsx:92
+msgid ""
+"Select the skills that will be placed in all existing and new sites. Agents "
+"can decide to use skills to help them accomplish specialized tasks. "
+"<learn_more_link />"
 msgstr ""
 
 #: apps/studio/src/modules/user-settings/components/snapshot-info.tsx:36
@@ -4413,24 +5397,18 @@ msgid "%1$d of %2$d active preview sites"
 msgstr ""
 
 #: apps/studio/src/modules/user-settings/components/snapshot-info.tsx:98
-#: apps/studio/src/modules/user-settings/components/user-settings.tsx:54
+#: apps/studio/src/modules/user-settings/components/user-settings.tsx:52
 msgid "Delete all preview sites"
 msgstr ""
 
-#: apps/studio/src/modules/user-settings/components/studio-cli-toggle.tsx:32
-#. %s is the name of the WordPress Studio CLI command ("studio")
-msgid "Enable the <code>%s</code> command in the terminal."
+#: apps/studio/src/modules/user-settings/components/studio-cli-toggle.tsx:24
+msgid "Studio CLI for terminal"
 msgstr ""
 
-#: apps/studio/src/modules/user-settings/components/studio-cli-toggle.tsx:40
-#. %s is the name of the WordPress Studio CLI command ("studio")
-msgid "Enable the <code>%s</code> command in the terminal. <learn_more_link />"
-msgstr ""
-
-#: apps/studio/src/modules/user-settings/components/studio-cli-toggle.tsx:52
+#: apps/studio/src/modules/user-settings/components/studio-cli-toggle.tsx:28
 msgid ""
-"Toggling this option will prompt you for admin privileges to install or "
-"uninstall the Studio CLI for use in the terminal. <learn_more_link />"
+"Use the <code>studio</code> command in any terminal to manage sites, run "
+"WP-CLI commands, and control your local environment. <learn_more_link />"
 msgstr ""
 
 #: apps/studio/src/modules/user-settings/components/terminal-picker.tsx:26
@@ -4450,33 +5428,25 @@ msgstr ""
 msgid "Log out"
 msgstr ""
 
-#: apps/studio/src/modules/user-settings/components/user-settings.tsx:55
+#: apps/studio/src/modules/user-settings/components/user-settings.tsx:53
 msgid ""
 "All preview sites that exist for your WordPress.com account, along with all "
 "posts, pages, comments, and media, will be lost."
 msgstr ""
 
-#: apps/studio/src/modules/user-settings/components/user-settings.tsx:58
+#: apps/studio/src/modules/user-settings/components/user-settings.tsx:56
 msgid "Delete all"
 msgstr ""
 
-#: apps/studio/src/modules/user-settings/components/user-settings.tsx:68
-msgid "Failed to delete all preview sites"
-msgstr ""
-
-#: apps/studio/src/modules/user-settings/components/user-settings.tsx:69
+#: apps/studio/src/modules/user-settings/components/user-settings.tsx:67
 msgid "An error occurred while deleting all preview sites. Please try again."
 msgstr ""
 
-#: apps/studio/src/modules/user-settings/components/user-settings.tsx:87
-msgid "Skills"
-msgstr ""
-
-#: apps/studio/src/modules/user-settings/components/user-settings.tsx:93
+#: apps/studio/src/modules/user-settings/components/user-settings.tsx:84
 msgid "Account"
 msgstr ""
 
-#: apps/studio/src/modules/user-settings/components/user-settings.tsx:99
+#: apps/studio/src/modules/user-settings/components/user-settings.tsx:94
 msgid "MCP"
 msgstr ""
 
@@ -4498,6 +5468,11 @@ msgstr ""
 #: apps/studio/src/modules/user-settings/lib/editor.ts:56
 #. "WebStorm" is the brand name for an IDE and does not need to be translated
 msgid "WebStorm"
+msgstr ""
+
+#: apps/studio/src/modules/user-settings/lib/editor.ts:66
+#. "Windsurf" is the brand name for an IDE and does not need to be translated
+msgid "Windsurf"
 msgstr ""
 
 #: apps/studio/src/modules/user-settings/lib/editor.ts:86
@@ -4533,51 +5508,57 @@ msgstr ""
 msgid "Command Prompt"
 msgstr ""
 
-#: apps/studio/src/modules/whats-new/components/whats-new-modal.tsx:61
+#: apps/studio/src/modules/whats-new/components/whats-new-modal.tsx:62
 msgid "Dark mode is here"
 msgstr ""
 
-#: apps/studio/src/modules/whats-new/components/whats-new-modal.tsx:62
+#: apps/studio/src/modules/whats-new/components/whats-new-modal.tsx:63
 msgid ""
 "Studio now supports light, dark, and system appearance modes. Head to "
 "Settings to choose your preferred look."
 msgstr ""
 
-#: apps/studio/src/modules/whats-new/components/whats-new-modal.tsx:68
+#: apps/studio/src/modules/whats-new/components/whats-new-modal.tsx:69
+msgid "Manage your database with phpMyAdmin"
+msgstr ""
+
+#: apps/studio/src/modules/whats-new/components/whats-new-modal.tsx:70
+msgid ""
+"Studio now includes phpMyAdmin, giving you a visual interface to manage "
+"your site's database. Access it from the Overview tab."
+msgstr ""
+
+#: apps/studio/src/modules/whats-new/components/whats-new-modal.tsx:76
 msgid "WP-CLI support and CLI site management"
 msgstr ""
 
-#: apps/studio/src/modules/whats-new/components/whats-new-modal.tsx:72
+#: apps/studio/src/modules/whats-new/components/whats-new-modal.tsx:80
 #. %s is the name of the WordPress Studio CLI command ("studio")
 msgid ""
 "Easily install the %s CLI to run WP-CLI commands from your terminal and "
 "create, start, stop, or update your sites."
 msgstr ""
 
-#: apps/studio/src/modules/whats-new/components/whats-new-modal.tsx:85
+#: apps/studio/src/modules/whats-new/components/whats-new-modal.tsx:93
 msgid "Introducing Blueprints, a new way to streamline site creation."
 msgstr ""
 
-#: apps/studio/src/modules/whats-new/components/whats-new-modal.tsx:86
+#: apps/studio/src/modules/whats-new/components/whats-new-modal.tsx:94
 msgid ""
 "Select a Blueprint that fits your needs and build your WordPress site even "
 "faster."
 msgstr ""
 
-#: apps/studio/src/modules/whats-new/components/whats-new-modal.tsx:100
+#: apps/studio/src/modules/whats-new/components/whats-new-modal.tsx:108
 msgid "What's New in Studio"
 msgstr ""
 
-#: apps/studio/src/modules/whats-new/components/whats-new-modal.tsx:110
+#: apps/studio/src/modules/whats-new/components/whats-new-modal.tsx:118
 msgid "What's new"
 msgstr ""
 
-#: apps/studio/src/modules/whats-new/components/whats-new-modal.tsx:114
+#: apps/studio/src/modules/whats-new/components/whats-new-modal.tsx:122
 msgid "Illustration for %s"
-msgstr ""
-
-#: apps/studio/src/modules/whats-new/components/whats-new-modal.tsx:125
-msgid "Done"
 msgstr ""
 
 #: apps/studio/src/renderer.ts:142
@@ -4606,147 +5587,130 @@ msgstr ""
 msgid "Not now"
 msgstr ""
 
-#: apps/studio/src/stores/snapshot-slice.ts:342
+#: apps/studio/src/stores/snapshot-slice.ts:287
 msgid "Saving preview site…"
 msgstr ""
 
-#: apps/studio/src/stores/snapshot-slice.ts:456
+#: apps/studio/src/stores/snapshot-slice.ts:388
 msgid "Adding preview site failed"
 msgstr ""
 
-#: apps/studio/src/stores/snapshot-slice.ts:461
+#: apps/studio/src/stores/snapshot-slice.ts:393
 msgid "Updating preview site failed"
 msgstr ""
 
-#: apps/studio/src/stores/snapshot-slice.ts:466
+#: apps/studio/src/stores/snapshot-slice.ts:398
 msgid "Deleting preview site failed"
 msgstr ""
 
-#: apps/studio/src/stores/snapshot-slice.ts:517
+#: apps/studio/src/stores/snapshot-slice.ts:437
 msgid "Preview site '%s' has been created."
 msgstr ""
 
-#: apps/studio/src/stores/snapshot-slice.ts:522
+#: apps/studio/src/stores/snapshot-slice.ts:442
 msgid "Preview site '%s' has been updated."
 msgstr ""
 
-#: apps/studio/src/stores/snapshot-slice.ts:528
+#: apps/studio/src/stores/snapshot-slice.ts:448
 msgid "Preview site '%s' has been deleted."
 msgstr ""
 
-#: apps/studio/src/stores/snapshot-slice.ts:532
-msgid "Delete Successful"
-msgstr ""
-
-#: apps/studio/src/stores/snapshot-slice.ts:533
-msgid "All preview sites have been deleted."
-msgstr ""
-
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:80
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:87
 msgid "Uploading site…"
 msgstr ""
 
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:81
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:85
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:88
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:92
 msgid "Uploading paused"
 msgstr ""
 
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:90
-msgid "Backing up remote site…"
-msgstr ""
-
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:92
-msgid "Applying changes…"
-msgstr ""
-
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:94
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:101
 msgid "Push complete"
 msgstr ""
 
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:96
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:114
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:103
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:121
 msgid "Cancelled"
 msgstr ""
 
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:108
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:115
 msgid "Initializing remote backup…"
 msgstr ""
 
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:110
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:117
 msgid "Downloading backup…"
 msgstr ""
 
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:321
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:328
 msgid "The push operation has been cancelled."
 msgstr ""
 
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:348
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:355
 msgid "The pull operation has been cancelled."
 msgstr ""
 
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:362
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:588
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:369
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:552
 msgid "Studio was unable to connect to WordPress.com. Please try again."
 msgstr ""
 
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:413
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:450
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:460
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:630
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:681
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:420
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:457
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:467
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:592
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:643
 msgid "Error pushing to %s"
 msgstr ""
 
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:414
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:421
 msgid ""
 "The site is too large to push. Please reduce the size of the site and try "
 "again."
 msgstr ""
 
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:587
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:915
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:551
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:882
 msgid "Error pulling from %s"
 msgstr ""
 
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:631
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:676
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:593
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:638
 msgid ""
 "An error occurred while pushing the site. If this problem persists, please "
 "contact support."
 msgstr ""
 
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:651
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:613
 #. %s is the site url without the protocol.
 msgid "%s has been updated"
 msgstr ""
 
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:668
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:630
 msgid ""
 "Database import failed on the remote site. Please review your database and "
 "try again or contact support and provide details from the logs below."
 msgstr ""
 
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:672
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:634
 msgid ""
 "A timeout error occurred while pushing the site, likely due to its large "
 "size. Please try reducing the site's content or files and try again. If "
 "this problem persists, please contact support."
 msgstr ""
 
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:721
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:683
 msgid "Error pushing from %s"
 msgstr ""
 
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:722
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:916
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:684
 msgid "Failed to check backup file size. Please try again."
 msgstr ""
 
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:789
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:751
 msgid "Large site's backup"
 msgstr ""
 
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:791
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:753
 msgid ""
 "Your site's backup exceeds %d GB. Pulling it will prevent you from pushing "
 "the site back.\n"
@@ -4754,7 +5718,7 @@ msgid ""
 "Do you want to continue?"
 msgstr ""
 
-#: apps/studio/src/stores/sync/sync-operations-slice.ts:879
+#: apps/studio/src/stores/sync/sync-operations-slice.ts:841
 #. %s is the site url without the protocol.
 msgid "Studio site has been updated from %s"
 msgstr ""
@@ -4824,7 +5788,7 @@ msgid ""
 "write permissions and try again."
 msgstr ""
 
-#: apps/studio/src/updates.ts:245
+#: apps/studio/src/updates.ts:243
 msgid "Error updating Studio"
 msgstr ""
 

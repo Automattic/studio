@@ -34,9 +34,10 @@ import { getWpComSites } from 'cli/lib/api';
 import { openBrowser } from 'cli/lib/browser';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
-import { isSiteRunning } from 'cli/lib/site-utils';
+import { getSitesRunningStatus, isSiteRunning } from 'cli/lib/site-utils';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { TodoWriteInput } from '@anthropic-ai/claude-agent-sdk/sdk-tools';
+import type { AiOutputAdapter, HandleMessageResult } from 'cli/ai/output-adapter';
 
 const SITE_PICKER_TAB_LOCAL = 'local' as const;
 const SITE_PICKER_TAB_REMOTE = 'remote' as const;
@@ -56,6 +57,7 @@ export interface SiteInfo {
 	running: boolean;
 	remote?: boolean;
 	url?: string;
+	wpcomSiteId?: number;
 }
 
 const DEFAULT_COLLAPSE_THRESHOLD_LINES = 5;
@@ -79,6 +81,7 @@ class PromptEditor implements Component, Focusable {
 	private _focused = false;
 	private isEmpty = true;
 	activeSiteName: string | null = null;
+	busyMessage: string | null = null;
 	hints: string[] = [];
 	statusMessage: string | null = null;
 	showBottomBar = true;
@@ -146,11 +149,13 @@ class PromptEditor implements Component, Focusable {
 		const emptyPrefix = ' '.repeat( promptWidth );
 		const result = editorLines.map( ( line, i ) => {
 			if ( i === 0 ) {
-				// Top border with active site name on the right
+				// Top border with active site name and optional busy indicator
 				if ( this.activeSiteName && borderWidth > 4 ) {
-					const label = ` ${ this.activeSiteName } `;
+					const busySuffix = this.busyMessage ? ` ${ this.busyMessage }` : '';
+					const label = ` ${ this.activeSiteName }${ busySuffix } `;
 					const trailing = Math.min( 3, borderWidth );
-					const leading = Math.max( 0, borderWidth - label.length - trailing );
+					const labelWidth = visibleWidth( label );
+					const leading = Math.max( 0, borderWidth - labelWidth - trailing );
 					return (
 						' ' +
 						bc( '─'.repeat( leading ) ) +
@@ -429,7 +434,7 @@ function normalizeToolUseResult( result: unknown ): ToolUseResultContent | null 
 
 	return null;
 }
-export class AiChatUI {
+export class AiChatUI implements AiOutputAdapter {
 	private tui: TUI;
 	private editor: PromptEditor;
 	private loader: Loader;
@@ -593,6 +598,14 @@ export class AiChatUI {
 		this.hideLoader();
 		this.currentMarkdown = null;
 		this.currentResponseText = '';
+	}
+
+	clearTranscript(): void {
+		this.hideLoader();
+		this.currentMarkdown = null;
+		this.currentResponseText = '';
+		this.messages.clear();
+		this.tui.requestRender();
 	}
 
 	showAgentQuestion(
@@ -790,13 +803,12 @@ export class AiChatUI {
 		}
 
 		this.sitePickerSiteData = sites;
-		this.sitePickerItems = await Promise.all(
-			sites.map( async ( site ) => ( {
-				name: site.name,
-				path: site.path,
-				running: await isSiteRunning( site ),
-			} ) )
-		);
+		const runningStatus = await getSitesRunningStatus( sites );
+		this.sitePickerItems = sites.map( ( site ) => ( {
+			name: site.name,
+			path: site.path,
+			running: runningStatus.get( site.id ) ?? false,
+		} ) );
 		this.sitePickerVisible = true;
 		this.editor.showBottomBar = false;
 		this.sitePickerContainer = new Container();
@@ -825,6 +837,7 @@ export class AiChatUI {
 				running: false,
 				remote: true,
 				url: site.url,
+				wpcomSiteId: site.id,
 			} ) );
 			this.sitePickerRemoteLoading = false;
 			this.rebuildSitePickerList();
@@ -1317,11 +1330,19 @@ export class AiChatUI {
 		this.tui.requestRender();
 	}
 
-	setLoaderMessage( message: string ): void {
+	private lastProgressText: Text | null = null;
+
+	setLoaderMessage( message: string, update?: boolean ): void {
 		if ( ! message ) {
 			return;
 		}
-		this.messages.addChild( new Text( '   ' + chalk.dim( '⎿ ' ) + chalk.dim( message ), 0, 0 ) );
+		const formatted = '   ' + chalk.dim( '⎿ ' ) + chalk.dim( message );
+		if ( update && this.lastProgressText ) {
+			this.lastProgressText.setText( formatted );
+		} else {
+			this.lastProgressText = new Text( formatted, 0, 0 );
+			this.messages.addChild( this.lastProgressText );
+		}
 		this.tui.requestRender();
 	}
 
@@ -1350,6 +1371,7 @@ export class AiChatUI {
 			this.loader.stop();
 			this.tui.removeChild( this.loader );
 			this.loaderVisible = false;
+			this.lastProgressText = null;
 			this.tui.requestRender();
 		}
 	}
@@ -1427,33 +1449,17 @@ export class AiChatUI {
 	}
 
 	showOnboarding(): void {
-		const b = chalk.bold;
+		const text =
+			' ' +
+			chalk.blue( '⏺' ) +
+			' ' +
+			sprintf(
+				/* translators: %s: product name (WordPress Studio) */
+				__( "Hello, I'm %s, your local WordPress agent and builder." ),
+				chalk.bold( 'WordPress Studio' )
+			);
 
-		const lines = [
-			' ' +
-				chalk.blue( '⏺' ) +
-				' ' +
-				sprintf(
-					/* translators: %s: product name (WordPress Studio) */
-					__( "Hello, I'm %s, your local WordPress agent and builder." ),
-					b( 'WordPress Studio' )
-				),
-			'',
-			' ' +
-				sprintf(
-					/* translators: %s: slash command (/login) */
-					__( 'To get started, run %s to connect your WordPress.com account.' ),
-					b( '/login' )
-				),
-			' ' +
-				sprintf(
-					/* translators: %s: slash command (/api-key) */
-					__( 'If you want to use your own Anthropic API key you can run %s.' ),
-					b( '/api-key' )
-				),
-		];
-
-		this.messages.addChild( new Text( '\n' + lines.join( '\n' ) + '\n', 0, 0 ) );
+		this.messages.addChild( new Text( '\n' + text + '\n', 0, 0 ) );
 		this.tui.requestRender();
 	}
 
@@ -1468,18 +1474,18 @@ export class AiChatUI {
 				' ' +
 				__( "Great, you're connected now! Let me tell you what I can do:" ),
 			'',
-			'  ' + b( __( 'Site Management' ) ),
+			'  ' + b( __( 'Local Sites Management' ) ),
 			'',
 			'  - ' +
 				sprintf(
 					/* translators: %s: bold "Create" */
-					__( '%s new WordPress sites instantly (fully configured, ready to use)' ),
+					__( '%s new local WordPress sites instantly (fully configured, ready to use)' ),
 					b( __( 'Create' ) )
 				),
 			'  - ' +
 				sprintf(
 					/* translators: %s: bold "Start / stop" */
-					__( '%s existing sites' ),
+					__( '%s existing local sites' ),
 					b( __( 'Start / stop' ) )
 				),
 			'  - ' +
@@ -1599,9 +1605,39 @@ export class AiChatUI {
 		this.tui.requestRender();
 	}
 
+	showProgress( message: string ): void {
+		this.messages.addChild( new Text( '\n ' + '⏺' + ' ' + message + '\n', 0, 0 ) );
+		this.tui.requestRender();
+	}
+
 	setStatusMessage( message: string | null ): void {
 		this.editor.statusMessage = message;
 		this.tui.requestRender();
+	}
+
+	private busyTimer: ReturnType< typeof setInterval > | null = null;
+	private busyFrameIndex = 0;
+	private static readonly BUSY_FRAMES = [ '⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏' ];
+
+	setBusy( active: boolean ): void {
+		if ( this.busyTimer ) {
+			clearInterval( this.busyTimer );
+			this.busyTimer = null;
+		}
+
+		if ( active ) {
+			this.busyFrameIndex = 0;
+			this.editor.busyMessage = AiChatUI.BUSY_FRAMES[ 0 ];
+			this.tui.requestRender();
+			this.busyTimer = setInterval( () => {
+				this.busyFrameIndex = ( this.busyFrameIndex + 1 ) % AiChatUI.BUSY_FRAMES.length;
+				this.editor.busyMessage = AiChatUI.BUSY_FRAMES[ this.busyFrameIndex ];
+				this.tui.requestRender();
+			}, 80 );
+		} else {
+			this.editor.busyMessage = null;
+			this.tui.requestRender();
+		}
 	}
 
 	private showFilePreview( toolName: string, input: Record< string, unknown > ): void {
@@ -1722,6 +1758,7 @@ export class AiChatUI {
 	private showToolUse( toolLabel: string ): void {
 		this.showLoader( this.randomThinkingMessage() );
 		this.stopToolDotBlink();
+		this.lastProgressText = null;
 		this.toolDotLabel = toolLabel;
 		this.toolDotText = new Text( '\n ' + '⏺' + ' ' + toolLabel, 0, 0 );
 		this.messages.addChild( this.toolDotText );
@@ -2009,12 +2046,7 @@ export class AiChatUI {
 	 * Process an SDK message and update the UI.
 	 * Returns session result when the agent turn is complete.
 	 */
-	handleMessage(
-		message: SDKMessage
-	):
-		| { sessionId: string; success: boolean; maxTurnsReached?: undefined }
-		| { sessionId: string; maxTurnsReached: true; numTurns: number }
-		| undefined {
+	handleMessage( message: SDKMessage ): HandleMessageResult | undefined {
 		switch ( message.type ) {
 			case 'assistant': {
 				for ( const block of message.message.content ) {
@@ -2124,7 +2156,7 @@ export class AiChatUI {
 							message.num_turns
 						)
 					);
-					return { sessionId: message.session_id, success: true };
+					return { type: 'result', sessionId: message.session_id, success: true };
 				}
 
 				// User-initiated interruption: show friendly message instead of error
@@ -2144,7 +2176,7 @@ export class AiChatUI {
 							thinkingSec
 						)
 					);
-					return { sessionId: message.session_id, success: false };
+					return { type: 'result', sessionId: message.session_id, success: false };
 				}
 
 				// Build detailed error message
@@ -2154,8 +2186,8 @@ export class AiChatUI {
 				}
 				if ( message.subtype === 'error_max_turns' ) {
 					return {
+						type: 'max_turns',
 						sessionId: message.session_id,
-						maxTurnsReached: true,
 						numTurns: message.num_turns,
 					};
 				} else if ( message.subtype ) {
@@ -2173,7 +2205,16 @@ export class AiChatUI {
 					}
 				}
 				this.showError( parts.length > 0 ? parts.join( '\n' ) : __( 'Unknown error' ) );
-				return { sessionId: message.session_id, success: false };
+				return { type: 'result', sessionId: message.session_id, success: false };
+			}
+			case 'system': {
+				if ( message.subtype === 'status' && message.status === 'compacting' ) {
+					this.showLoader( __( 'Compacting conversation history…' ) );
+				} else if ( message.subtype === 'compact_boundary' ) {
+					this.hideLoader();
+					this.showInfo( __( 'Conversation history compacted' ) );
+				}
+				return undefined;
 			}
 		}
 		return undefined;

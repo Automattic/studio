@@ -1,4 +1,4 @@
-import { Icon, SearchControl as SearchControlWp } from '@wordpress/components';
+import { Icon, SearchControl as SearchControlWp, Spinner } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState, useEffect } from 'react';
@@ -24,7 +24,8 @@ import {
 	useGetConnectedSitesForLocalSiteQuery,
 } from 'src/stores/sync/connected-sites';
 import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
-import type { SyncSite, SyncModalMode } from 'src/modules/sync/types';
+import type { SyncSite } from '@studio/common/types/sync';
+import type { SyncModalMode } from 'src/modules/sync/types';
 
 const SearchControl = process.env.NODE_ENV === 'test' ? () => null : SearchControlWp;
 
@@ -58,7 +59,9 @@ export function SyncSitesModalSelector( {
 	const {
 		data: syncSites = [],
 		isLoading,
+		isFetching,
 		isSuccess,
+		refetch: refetchWpComSites,
 	} = useGetWpComSitesQuery(
 		{ connectedSiteIds, userId: user?.id },
 		{ refetchOnMountOrArgChange: true }
@@ -89,9 +92,11 @@ export function SyncSitesModalSelector( {
 			<div className="relative" data-testid="sync-sites-modal-selector">
 				<SitesListContent
 					isLoading={ isLoading }
+					isFetching={ isFetching }
 					syncSites={ syncSites }
 					selectedSiteId={ selectedSiteId }
 					onSelectSite={ setSelectedSiteId }
+					refetchSites={ refetchWpComSites }
 				/>
 				<Footer
 					onRequestClose={ onRequestClose }
@@ -144,7 +149,7 @@ function SearchSites( {
 					onClick={ () =>
 						getIpcApi().openURL( getLocalizedLink( locale, 'docsSyncSupportedSites' ) )
 					}
-					className="text-xs"
+					className="learn-more-link text-xs"
 				>
 					{ __( 'Learn more about supported sites.' ) }
 					<ArrowIcon />
@@ -156,17 +161,33 @@ function SearchSites( {
 
 export function SitesListContent( {
 	isLoading,
+	isFetching,
 	syncSites,
 	selectedSiteId,
 	onSelectSite,
+	refetchSites,
 }: {
 	isLoading: boolean;
+	isFetching: boolean;
 	syncSites: SyncSite[];
 	selectedSiteId: number | null;
 	onSelectSite: ( id: number ) => void;
+	refetchSites: () => void | Promise< unknown >;
 } ) {
 	const { __ } = useI18n();
+	const isOffline = useOffline();
 	const [ searchQuery, setSearchQuery ] = useState< string >( '' );
+
+	useEffect( () => {
+		if ( isOffline ) {
+			return;
+		}
+		const handleWindowFocus = () => {
+			void refetchSites();
+		};
+		window.addEventListener( 'focus', handleWindowFocus );
+		return () => window.removeEventListener( 'focus', handleWindowFocus );
+	}, [ isOffline, refetchSites ] );
 
 	const filteredSites = syncSites.filter( ( site ) => {
 		const searchQueryLower = searchQuery.toLowerCase();
@@ -180,23 +201,36 @@ export function SitesListContent( {
 		? sprintf( __( 'No sites found for "%s"' ), searchQuery )
 		: __( 'No sites found' );
 
+	const isRefetchingSites = isFetching && ! isLoading;
+
 	return (
 		<>
 			<SearchSites searchQuery={ searchQuery } setSearchQuery={ setSearchQuery } />
-			<div className="h-[calc(84vh-232px)]">
-				{ isLoading && (
-					<div className="flex justify-center items-center h-full">{ __( 'Loading sites…' ) }</div>
-				) }
-				{ ! isLoading && isEmpty && (
+			<div className="relative h-[calc(84vh-232px)]">
+				{ isLoading ? (
+					<div className="flex justify-center items-center h-full">
+						<Spinner className="!mt-0 !mr-2" />
+						<span className="a8c-body text-frame-text">{ __( 'Loading…' ) }</span>
+					</div>
+				) : isEmpty ? (
 					<div className="flex justify-center items-center h-full">{ emptyMessage }</div>
-				) }
-				{ ! isLoading && ! isEmpty && (
+				) : (
 					<ListSites
 						syncSites={ filteredSites }
 						selectedSiteId={ selectedSiteId }
 						onSelectSite={ onSelectSite }
 					/>
 				) }
+				<div
+					className={ `absolute inset-0 z-[1] flex items-center justify-center bg-frame/80 backdrop-blur-[8px] transition-opacity duration-200 ${
+						isRefetchingSites ? 'opacity-100' : 'opacity-0 pointer-events-none'
+					}` }
+					aria-busy={ isRefetchingSites }
+					aria-live="polite"
+				>
+					<Spinner className="!mt-0 !mr-2" />
+					<span className="a8c-body text-frame-text">{ __( 'Refreshing…' ) }</span>
+				</div>
 			</div>
 		</>
 	);
@@ -361,7 +395,7 @@ function SiteItem( {
 			{ needsUpgrade && (
 				<div className="a8c-body-small text-frame-text-secondary shrink-0 text-right">
 					<Tooltip
-						text={ __( 'Sync support is available only with Business plan and above' ) }
+						text={ __( 'Sync support is available on selected plans only' ) }
 						placement="bottom"
 					>
 						<Button

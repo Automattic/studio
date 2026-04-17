@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { Writable } from 'stream';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
-import { z } from 'zod';
+import ignore from 'ignore';
 
 export async function downloadFile( url: string, destinationPath: string ): Promise< void > {
 	try {
@@ -24,35 +24,79 @@ export async function downloadFile( url: string, destinationPath: string ): Prom
 	await response.body.pipeTo( Writable.toWeb( fs.createWriteStream( destinationPath ) ) );
 }
 
-const partialGithubReleaseSchema = z.object( {
-	tag_name: z.string(),
-	assets: z.array( z.object( { name: z.string(), browser_download_url: z.string() } ) ),
-} );
+const IGNORE_PATTERNS = [ '.DS_Store', 'Thumbs.db' ];
+const IGNORE_INSTANCE = ignore().add( IGNORE_PATTERNS );
 
-export async function fetchLatestGithubRelease( repo: string ) {
-	const headers: HeadersInit = {
-		Accept: 'application/vnd.github.v3+json',
-		'User-Agent': 'wp-studio-cli',
-	};
+type FileMetadata = {
+	mtimeMs: number;
+	size: number;
+};
 
-	// GitHub API has rate limits:
-	// - 60 requests/hour for unauthenticated requests
-	// - 5,000 requests/hour with token authentication
-	// In CI environments, the IP-based rate limit is shared across runners,
-	// so we authenticate with GITHUB_TOKEN when available.
-	if ( process.env.GITHUB_TOKEN ) {
-		headers.Authorization = `token ${ process.env.GITHUB_TOKEN }`;
+async function collectDirectoryMetadata(
+	directoryPath: string,
+	basePath = directoryPath
+): Promise< Map< string, FileMetadata > > {
+	const files = new Map< string, FileMetadata >();
+	const entries = await fs.promises.readdir( directoryPath, { withFileTypes: true } );
+
+	for ( const entry of entries ) {
+		const fullPath = path.join( directoryPath, entry.name );
+		const relativePath = path.relative( basePath, fullPath );
+
+		if ( IGNORE_INSTANCE.ignores( relativePath ) ) {
+			continue;
+		}
+
+		if ( entry.isDirectory() ) {
+			const nestedFiles = await collectDirectoryMetadata( fullPath, basePath );
+			for ( const [ key, value ] of nestedFiles ) {
+				files.set( key, value );
+			}
+			continue;
+		}
+
+		if ( ! entry.isFile() ) {
+			continue;
+		}
+
+		const stats = await fs.promises.lstat( fullPath );
+		files.set( relativePath, { size: stats.size, mtimeMs: Math.floor( stats.mtimeMs ) } );
 	}
 
-	const response = await fetch( `https://api.github.com/repos/${ repo }/releases/latest`, {
-		headers,
-	} );
+	return files;
+}
 
-	if ( ! response.ok ) {
-		throw new Error( `GitHub API request failed: ${ response.status } ${ response.statusText }` );
+// Returns true when source and target have any file-level differences by relative path, size, or mtime.
+export async function areDirectoriesDifferentBySizeAndMtime(
+	sourceDirectoryPath: string,
+	targetDirectoryPath: string
+): Promise< boolean > {
+	if ( ! fs.existsSync( sourceDirectoryPath ) || ! fs.existsSync( targetDirectoryPath ) ) {
+		return true;
 	}
 
-	const rawResponse: unknown = await response.json();
+	const [ sourceFiles, targetFiles ] = await Promise.all( [
+		collectDirectoryMetadata( sourceDirectoryPath ),
+		collectDirectoryMetadata( targetDirectoryPath ),
+	] );
 
-	return partialGithubReleaseSchema.parse( rawResponse );
+	if ( sourceFiles.size !== targetFiles.size ) {
+		return true;
+	}
+
+	for ( const [ relativePath, sourceMetadata ] of sourceFiles ) {
+		const targetMetadata = targetFiles.get( relativePath );
+		if ( ! targetMetadata ) {
+			return true;
+		}
+
+		if (
+			sourceMetadata.size !== targetMetadata.size ||
+			sourceMetadata.mtimeMs !== targetMetadata.mtimeMs
+		) {
+			return true;
+		}
+	}
+
+	return false;
 }

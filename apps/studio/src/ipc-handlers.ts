@@ -6,6 +6,7 @@ import {
 	app,
 	clipboard,
 	dialog,
+	nativeTheme,
 	shell,
 	type IpcMainInvokeEvent,
 	Notification,
@@ -35,13 +36,20 @@ import {
 import { generateNumberedName, generateSiteName } from '@studio/common/lib/generate-site-name';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
+import { isMultisite } from '@studio/common/lib/is-multisite';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import { readSharedConfig, updateSharedConfig } from '@studio/common/lib/shared-config';
+import { shouldExcludeFromSync, shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
-import { MACOS_TRAFFIC_LIGHT_POSITION, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
+import {
+	MACOS_TRAFFIC_LIGHT_POSITION,
+	MAIN_MIN_WIDTH,
+	SIDEBAR_WIDTH,
+	WINDOWS_TITLEBAR_HEIGHT,
+} from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
 import {
@@ -51,7 +59,6 @@ import {
 	StatsGroup,
 	StatsMetric,
 } from 'src/lib/bump-stats';
-import { captureSiteThumbnail } from 'src/lib/capture-site-thumbnail';
 import {
 	openCertificate as openCertificateDialog,
 	isRootCATrusted,
@@ -66,10 +73,11 @@ import { ImportExportEventData } from 'src/lib/import-export/handle-events';
 import { defaultImporterOptions, importBackup } from 'src/lib/import-export/import/import-manager';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
+import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import * as oauthClient from 'src/lib/oauth';
 import { getAiInstructionsPath } from 'src/lib/server-files-paths';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
-import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
+import { installSqliteIntegration, keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import * as windowsHelpers from 'src/lib/windows-helpers';
 import { setupWordPressFilesOnly } from 'src/lib/wordpress-setup';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
@@ -93,7 +101,6 @@ import {
 import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
-import { shouldExcludeFromSync, shouldLimitDepth } from 'src/modules/sync/lib/tree-utils';
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { getUserEditor, getUserTerminal } from 'src/modules/user-settings/lib/ipc-handlers';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
@@ -107,7 +114,8 @@ import {
 	updateAppdata,
 } from 'src/storage/user-data';
 import { Blueprint } from 'src/stores/wpcom-api';
-import type { RawDirectoryEntry } from 'src/modules/sync/types';
+import { captureSiteThumbnail } from './lib/capture-site-thumbnail';
+import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { WpCliResult } from 'src/site-server';
 
 export {
@@ -360,6 +368,10 @@ export async function importSite(
 	try {
 		if ( ! isWordPressDirectory( site.details.path ) ) {
 			await setupWordPressFilesOnly( site.details.path );
+		}
+
+		if ( ! ( await site.hasSQLitePlugin() ) ) {
+			await installSqliteIntegration( site.details.path );
 		}
 
 		const onEvent = ( data: ImportExportEventData ) => {
@@ -817,6 +829,7 @@ export async function isAuthenticated() {
 }
 
 export async function clearAuthenticationToken() {
+	setSentryWpcomUserIdMain( undefined );
 	return await updateSharedConfig( { authToken: undefined } );
 }
 
@@ -921,6 +934,14 @@ export function getWpVersion( _event: IpcMainInvokeEvent, id: string ) {
 	return getWordPressVersion( wordPressPath );
 }
 
+export function getIsMultisite( _event: IpcMainInvokeEvent, id: string ) {
+	const server = SiteServer.get( id );
+	if ( ! server ) {
+		return false;
+	}
+	return isMultisite( server.details.path );
+}
+
 export async function generateProposedSitePath(
 	_event: IpcMainInvokeEvent,
 	siteName: string
@@ -991,15 +1012,17 @@ export function showItemInFolder( _event: IpcMainInvokeEvent, path: string ) {
 export async function loadThemeDetails(
 	event: IpcMainInvokeEvent,
 	id: string,
-	emitThemeDetailsLoadingEvent = true
+	emitLoadingEvent = true
 ): Promise< StartedSiteDetails[ 'themeDetails' ] > {
 	const server = SiteServer.get( id );
 	if ( ! server ) {
 		throw new Error( 'Site not found.' );
 	}
 
+	void captureSiteThumbnail( id, emitLoadingEvent );
+
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( emitThemeDetailsLoadingEvent ) {
+	if ( emitLoadingEvent ) {
 		sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-loading', { id } );
 	}
 
@@ -1015,8 +1038,6 @@ export async function loadThemeDetails(
 	if ( hasThemeChanged ) {
 		await server.persistThemeDetails();
 	}
-
-	void captureSiteThumbnail( id );
 
 	return themeDetails;
 }
@@ -1711,11 +1732,51 @@ export async function readBlueprintFile(
 
 export async function setWindowControlVisibility( event: IpcMainInvokeEvent, visible: boolean ) {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( parentWindow && process.platform === 'darwin' ) {
+	if ( ! parentWindow ) {
+		return;
+	}
+
+	if ( process.platform === 'darwin' ) {
 		parentWindow.setWindowButtonVisibility( visible );
 		if ( visible ) {
 			parentWindow.setWindowButtonPosition( MACOS_TRAFFIC_LIGHT_POSITION );
 		}
+	} else if ( process.platform === 'win32' ) {
+		const isDark = nativeTheme.shouldUseDarkColors;
+		if ( visible ) {
+			parentWindow.setTitleBarOverlay( {
+				color: 'rgba(30, 30, 30, 1)',
+				symbolColor: 'white',
+				height: WINDOWS_TITLEBAR_HEIGHT,
+			} );
+		} else {
+			parentWindow.setTitleBarOverlay( {
+				color: isDark ? '#2f2f2f' : '#fff',
+				symbolColor: isDark ? 'white' : '#1e1e1e',
+				height: WINDOWS_TITLEBAR_HEIGHT,
+			} );
+		}
+	}
+}
+
+export async function setTitleBarBackdropEffect( event: IpcMainInvokeEvent, enabled: boolean ) {
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	if ( ! parentWindow || process.platform !== 'win32' ) {
+		return;
+	}
+
+	if ( enabled ) {
+		parentWindow.setTitleBarOverlay( {
+			color: '#131313',
+			symbolColor: 'white',
+			height: WINDOWS_TITLEBAR_HEIGHT,
+		} );
+	} else {
+		parentWindow.setTitleBarOverlay( {
+			color: 'rgba(30, 30, 30, 1)',
+			symbolColor: 'white',
+			height: WINDOWS_TITLEBAR_HEIGHT,
+		} );
 	}
 }
 

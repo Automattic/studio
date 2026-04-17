@@ -31,8 +31,10 @@ vi.mock( 'cli/lib/cli-config/sites', async () => {
 } );
 
 describe( 'CLI: studio plugin link', () => {
-	const testSiteFolder = '/test/site/path';
-	const testSourcePath = '/test/plugins/my-plugin';
+	// Use `path.resolve` so the mocked pathExists comparison matches the
+	// platform-specific absolute form that runCommand computes (e.g. `C:\…` on Windows).
+	const testSiteFolder = path.resolve( '/test/site/path' );
+	const testSourcePath = path.resolve( '/test/plugins/my-plugin' );
 	const pluginsDir = path.join( testSiteFolder, 'wp-content', 'plugins' );
 	const targetPath = path.join( pluginsDir, 'my-plugin' );
 
@@ -135,9 +137,10 @@ describe( 'CLI: studio plugin link', () => {
 		} );
 
 		it( 'throws when source resolves to filesystem root (empty basename)', async () => {
-			vi.mocked( pathExists ).mockImplementation( async ( p: string ) => p === '/' );
+			const fsRoot = path.resolve( '/' );
+			vi.mocked( pathExists ).mockImplementation( async ( p: string ) => p === fsRoot );
 
-			await expect( runCommand( testSiteFolder, '/' ) ).rejects.toThrow(
+			await expect( runCommand( testSiteFolder, fsRoot ) ).rejects.toThrow(
 				/Could not determine a valid plugin name/
 			);
 			expect( fs.promises.symlink ).not.toHaveBeenCalled();

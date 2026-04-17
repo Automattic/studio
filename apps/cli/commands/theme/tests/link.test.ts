@@ -30,8 +30,10 @@ vi.mock( 'cli/lib/cli-config/sites', async () => {
 } );
 
 describe( 'CLI: studio theme link', () => {
-	const testSiteFolder = '/test/site/path';
-	const testSourcePath = '/test/themes/my-theme';
+	// Use `path.resolve` so the mocked pathExists comparison matches the
+	// platform-specific absolute form that runCommand computes (e.g. `C:\…` on Windows).
+	const testSiteFolder = path.resolve( '/test/site/path' );
+	const testSourcePath = path.resolve( '/test/themes/my-theme' );
 	const themesDir = path.join( testSiteFolder, 'wp-content', 'themes' );
 	const targetPath = path.join( themesDir, 'my-theme' );
 	const styleCssPath = path.join( testSourcePath, 'style.css' );
@@ -134,14 +136,16 @@ describe( 'CLI: studio theme link', () => {
 		} );
 
 		it( 'throws when source resolves to filesystem root (empty basename)', async () => {
+			const fsRoot = path.resolve( '/' );
+			const rootStyleCss = path.join( fsRoot, 'style.css' );
 			vi.mocked( pathExists ).mockImplementation(
-				async ( p: string ) => p === '/' || p === '/style.css'
+				async ( p: string ) => p === fsRoot || p === rootStyleCss
 			);
 			vi.mocked( fs.promises.readFile ).mockResolvedValue(
 				'/*\nTheme Name: Root Theme\n*/' as unknown as never
 			);
 
-			await expect( runCommand( testSiteFolder, '/' ) ).rejects.toThrow(
+			await expect( runCommand( testSiteFolder, fsRoot ) ).rejects.toThrow(
 				/Could not determine a valid theme directory name/
 			);
 			expect( fs.promises.symlink ).not.toHaveBeenCalled();

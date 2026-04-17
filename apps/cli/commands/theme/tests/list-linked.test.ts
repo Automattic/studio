@@ -46,8 +46,11 @@ vi.mock( 'cli/logger', () => ( {
 } ) );
 
 describe( 'CLI: studio theme list-linked', () => {
-	const testSiteFolder = '/test/site/path';
+	// Resolve so absolute paths match the platform-specific form `path.resolve` produces
+	// inside `getLinkedThemes` (e.g. `C:\…` on Windows).
+	const testSiteFolder = path.resolve( '/test/site/path' );
 	const themesDir = path.join( testSiteFolder, 'wp-content', 'themes' );
+	const devSource = ( name: string ) => path.resolve( '/dev', name );
 
 	const makeDirent = ( name: string ): fs.Dirent =>
 		( {
@@ -104,7 +107,7 @@ describe( 'CLI: studio theme list-linked', () => {
 		} as fs.Stats );
 		vi.mocked( fs.promises.readlink ).mockImplementation( async ( p ) => {
 			const name = path.basename( String( p ) );
-			return path.relative( themesDir, `/dev/${ name }` );
+			return path.relative( themesDir, devSource( name ) );
 		} );
 
 		await runCommand( testSiteFolder, 'table' );
@@ -113,8 +116,8 @@ describe( 'CLI: studio theme list-linked', () => {
 		const output = joinedOutput();
 		expect( output ).toContain( 'theme-a' );
 		expect( output ).toContain( 'theme-b' );
-		expect( output ).toContain( '/dev/theme-a' );
-		expect( output ).toContain( '/dev/theme-b' );
+		expect( output ).toContain( devSource( 'theme-a' ) );
+		expect( output ).toContain( devSource( 'theme-b' ) );
 	} );
 
 	it( 'outputs JSON format', async () => {
@@ -125,13 +128,13 @@ describe( 'CLI: studio theme list-linked', () => {
 			isSymbolicLink: () => true,
 		} as fs.Stats );
 		vi.mocked( fs.promises.readlink ).mockResolvedValue(
-			path.relative( themesDir, '/dev/theme-a' )
+			path.relative( themesDir, devSource( 'theme-a' ) )
 		);
 
 		await runCommand( testSiteFolder, 'json' );
 
 		expect( consoleLogSpy ).toHaveBeenCalledTimes( 1 );
 		const parsed = JSON.parse( consoleLogSpy.mock.calls[ 0 ][ 0 ] as string );
-		expect( parsed ).toEqual( [ { name: 'theme-a', sourcePath: '/dev/theme-a' } ] );
+		expect( parsed ).toEqual( [ { name: 'theme-a', sourcePath: devSource( 'theme-a' ) } ] );
 	} );
 } );

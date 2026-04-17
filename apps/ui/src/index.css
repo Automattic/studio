@@ -35,13 +35,13 @@ body {
 }
 
 /* Electron: make the window draggable */
-.studio-electron {
+body {
 	-webkit-app-region: drag;
 }
 
-.studio-electron button,
-.studio-electron a,
-.studio-electron input,
-.studio-electron [role="button"] {
+button,
+a,
+input,
+[role="button"] {
 	-webkit-app-region: no-drag;
 }

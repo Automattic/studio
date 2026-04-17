@@ -10,25 +10,20 @@ import type { Connector } from '@/data/core';
 
 const { ThemeProvider } = unlock( privateApis );
 
-export type AppTarget = 'electron' | 'web';
-
 interface AppProps {
 	connector: Connector;
-	target: AppTarget;
 }
 
-export function App( { connector, target }: AppProps ) {
+export function App( { connector }: AppProps ) {
 	const router = createAppRouter( { queryClient, connector } );
 
 	return (
-		<div className={ `studio-${ target }` }>
-			<ConnectorProvider connector={ connector }>
-				<QueryClientProvider client={ queryClient }>
-					<ThemeProvider isRoot>
-						<RouterProvider router={ router } />
-					</ThemeProvider>
-				</QueryClientProvider>
-			</ConnectorProvider>
-		</div>
+		<ConnectorProvider connector={ connector }>
+			<QueryClientProvider client={ queryClient }>
+				<ThemeProvider isRoot>
+					<RouterProvider router={ router } />
+				</ThemeProvider>
+			</QueryClientProvider>
+		</ConnectorProvider>
 	);
 }

@@ -40,14 +40,10 @@ async function main() {
 	await run( 'npm', [ '-w', 'wp-studio', 'run', 'build' ] );
 
 	console.log( `=> Starting @studio/ui dev server on port ${ UI_DEV_PORT }...` );
-	const uiServer = spawn(
-		'npx',
-		[ 'vite', '--mode', 'electron', '--port', String( UI_DEV_PORT ), '--strictPort' ],
-		{
-			stdio: 'inherit',
-			cwd: resolve( root, 'apps/ui' ),
-		}
-	);
+	const uiServer = spawn( 'npx', [ 'vite', '--port', String( UI_DEV_PORT ), '--strictPort' ], {
+		stdio: 'inherit',
+		cwd: resolve( root, 'apps/ui' ),
+	} );
 
 	// Give the dev server a moment to start
 	await new Promise( ( resolvePromise ) => setTimeout( resolvePromise, 3000 ) );

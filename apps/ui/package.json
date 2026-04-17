@@ -4,10 +4,8 @@
 	"version": "0.1.0",
 	"type": "module",
 	"scripts": {
-		"dev:web": "vite --mode web",
-		"dev:electron": "vite --mode electron",
-		"build:web": "vite build --mode web",
-		"build:electron": "vite build --mode electron",
+		"dev": "vite",
+		"build": "vite build",
 		"typecheck": "tsc -p tsconfig.json --noEmit",
 		"preview": "vite preview"
 	},

@@ -1,17 +1,10 @@
 # @studio/ui
 
-A portable UI layer for Studio that can run as both an Electron renderer and a standalone web app.
+A new UI layer for Studio that runs as the Electron renderer.
+
+The UI is built around a portable connector pattern, so the same React app could be wired to a different backend (e.g. a REST API for a hosted/web version) without changing the UI code. For now, only the Electron IPC connector is shipped.
 
 ## Architecture
-
-### Dual-target design
-
-The same React application runs in two environments with different data backends:
-
-- **Electron**: Uses an IPC connector that delegates to `window.ipcApi` (exposed by the Electron preload script). Auth is optional (handled by the desktop app).
-- **Web**: Uses a REST connector backed by the Telex API (`telex.automattic.ai`) with WordPress.com OAuth for authentication.
-
-A single entry point (`main.tsx`) selects the connector at runtime based on the `__IS_ELECTRON__` Vite define (set via the `--mode` flag). The UI code never imports environment-specific modules directly.
 
 ### Connector pattern
 
@@ -23,26 +16,12 @@ data/core/
   connector-context.tsx   # React Context provider + useConnector() hook
   query-client.ts         # TanStack Query client with localStorage persistence
   connectors/
-    ipc/index.ts          # Electron IPC implementation (requiresAuth: false)
-    rest/index.ts         # Telex REST API + WP.com OAuth (requiresAuth: true)
+    ipc/index.ts          # Electron IPC implementation
 ```
 
 Components access data through the `useConnector()` hook, which pulls the active connector from React Context. This keeps all UI code environment-agnostic.
 
-The `Connector` interface includes an auth surface (`requiresAuth`, `isAuthenticated`, `authenticate`, `logout`, `getAuthUser`) alongside data methods (`getSites`, `createSite`, `deleteSite`, `startSite`, `stopSite`). The interface is intentionally minimal -- new methods are added as features are built.
-
-### Authentication
-
-The REST connector uses WordPress.com OAuth (implicit grant flow) for authentication:
-
-1. `connector.authenticate()` redirects to `public-api.wordpress.com/oauth2/authorize`
-2. After authorization, WordPress.com redirects back to `/auth/callback#access_token=...`
-3. `main.tsx` intercepts the callback **before React mounts** to avoid TanStack Router parsing issues with special characters in the hash fragment
-4. The token and user profile are stored in `localStorage`
-
-Route protection is handled in the root route's `beforeLoad` hook. When `connector.requiresAuth` is true, all routes except `/login` require authentication -- unauthenticated users are redirected to `/login`.
-
-The IPC connector sets `requiresAuth: false`, so auth checks are skipped entirely in Electron.
+The interface includes both a data surface (`getSites`, `createSite`, `deleteSite`, `startSite`, `stopSite`) and an auth surface (`requiresAuth`, `isAuthenticated`, `authenticate`, `logout`, `getAuthUser`). The auth surface is reserved for future non-Electron connectors -- the IPC connector sets `requiresAuth: false` and delegates to the desktop app.
 
 ### Data fetching with TanStack Query
 
@@ -64,7 +43,7 @@ Mutations invalidate related queries on success, keeping the UI in sync without 
 
 Routes are **code-based** (not file-based), following the wp-calypso hosting dashboard pattern. Routes are defined with `createRoute()` calls under `router/` and assembled into a route tree in `router/router.tsx`.
 
-The router context carries both the `QueryClient` and `Connector`, enabling route-level data prefetching and auth checks in `beforeLoad` hooks.
+The router context carries both the `QueryClient` and `Connector`, enabling route-level data prefetching in `beforeLoad` hooks.
 
 ### Component structure
 
@@ -87,13 +66,8 @@ UI is built with `@wordpress/ui` and `@wordpress/theme` from the WordPress Desig
 
 ## Development
 
-You can run the UI in two modes during development:
-
+Run the full Electron app with the new UI as the renderer:
 
 ```bash
-# Web mode (REST connector, Telex API)
-npm -w @studio/ui run dev:web
-
-# Electron mode (Electron app with IPC connector)
-npm run start:new-ui
+npm run start:new
 ```

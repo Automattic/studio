@@ -1,7 +1,6 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import {
 	SYNC_MAX_STALLED_ATTEMPTS,

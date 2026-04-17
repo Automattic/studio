@@ -1,10 +1,9 @@
 import fs from 'fs';
-import path from 'path';
 import { Locale } from '@formatjs/intl-locale';
 import { match } from '@formatjs/intl-localematcher';
 import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
-import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 import { getAppLocale } from 'cli/lib/i18n';
+import { getBundledSiteTranslationsPath } from 'cli/lib/server-files';
 
 interface TranslationsData {
 	translations: Translation[];
@@ -27,14 +26,8 @@ const defaultTranslation: Translation = {
 const SKIP_LOCALE_TAGS = [ 'formal', 'informal' ];
 
 function getLatestVersionTranslations(): TranslationsData | undefined {
-	const latestVersionTranslationsPath = path.join(
-		getServerFilesPath(),
-		'wordpress-versions',
-		'latest',
-		'available-site-translations.json'
-	);
 	try {
-		return JSON.parse( fs.readFileSync( latestVersionTranslationsPath, 'utf8' ) );
+		return JSON.parse( fs.readFileSync( getBundledSiteTranslationsPath(), 'utf8' ) );
 	} catch {
 		// File doesn't exist or can't be read - will fall back to fetching from API
 		return undefined;

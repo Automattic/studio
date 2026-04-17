@@ -1,25 +1,24 @@
 /**
- * Path utilities for server files (WordPress versions, WP-CLI, SQLite)
+ * Path utilities for server files.
  *
+ * Two kinds of paths live here:
+ * - Writable server-files under `~/.studio/server-files/` for deps that may be
+ *   updated at runtime (WordPress).
+ * - Read-only bundled `wp-files/` paths shipped alongside the CLI, for deps
+ *   that don't need a writable destination (AI instructions, SQLite plugin).
  */
 
 import os from 'os';
 import path from 'path';
 import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
+import { getCliPath } from 'src/storage/paths';
 
-// SQLite integration folder name
 const SQLITE_FILENAME = 'sqlite-database-integration';
 
-/**
- * Get a temporary path for tests
- */
 function getTmpPath( subfolder: string ): string {
 	return path.join( os.tmpdir(), `studio-tests-${ subfolder }` );
 }
 
-/**
- * Get the base path for server files (WordPress versions, SQLite, etc.)
- */
 function getBasePath(): string {
 	if ( process.env.NODE_ENV === 'test' ) {
 		return getTmpPath( 'server-files' );
@@ -27,30 +26,22 @@ function getBasePath(): string {
 	return getServerFilesPath();
 }
 
-/**
- * The path where WordPress zip files will be unzipped and stored.
- */
+function getBundledWpFilesPath(): string {
+	return path.join( path.dirname( getCliPath() ), 'wp-files' );
+}
+
 function getWordPressVersionsPath(): string {
 	return path.join( getBasePath(), 'wordpress-versions' );
 }
 
-/**
- * Get the path to a specific WordPress version folder.
- */
 export function getWordPressVersionPath( version: string ): string {
 	return path.join( getWordPressVersionsPath(), version );
 }
 
-/**
- * The full path to the "SQLite database integration" folder.
- */
-export function getSqlitePath(): string {
-	return path.join( getBasePath(), SQLITE_FILENAME );
+export function getBundledSqlitePluginPath(): string {
+	return path.join( getBundledWpFilesPath(), SQLITE_FILENAME );
 }
 
-/**
- * The path where bundled AI instructions and skills are stored.
- */
-export function getAiInstructionsPath(): string {
-	return path.join( getBasePath(), 'skills' );
+export function getBundledAiInstructionsPath(): string {
+	return path.join( getBundledWpFilesPath(), 'skills' );
 }

@@ -1,11 +1,11 @@
 import { SqliteIntegrationProvider } from '@studio/common/lib/sqlite-integration';
-import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
+import { getBundledSqlitePluginPath } from 'cli/lib/server-files';
 
 const SQLITE_FILENAME = 'sqlite-database-integration';
 
 class CliSqliteProvider extends SqliteIntegrationProvider {
-	getServerFilesPath(): string {
-		return getServerFilesPath();
+	getSqlitePluginSourcePath(): string {
+		return getBundledSqlitePluginPath();
 	}
 
 	getSqliteDirname(): string {

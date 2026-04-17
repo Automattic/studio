@@ -32,7 +32,11 @@ import fs from 'fs-extra';
 import { z } from 'zod';
 import { sanitizeRunCLIArgs } from 'cli/lib/cli-args-sanitizer';
 import { rewriteWpCliPostContentToFile } from 'cli/lib/rewrite-wp-cli-post-content';
-import { getPhpMyAdminPath, getSqliteCommandPath, getWpCliPharPath } from 'cli/lib/server-files';
+import {
+	getBundledPhpMyAdminPath,
+	getSqliteCommandPath,
+	getWpCliPharPath,
+} from 'cli/lib/server-files';
 import { isSqliteIntegrationInstalled } from 'cli/lib/sqlite-integration';
 import {
 	ServerConfig,
@@ -262,7 +266,7 @@ async function getBaseRunCLIArgs(
 		args.xdebug = true;
 	}
 
-	const phpMyAdminHostPath = getPhpMyAdminPath();
+	const phpMyAdminHostPath = getBundledPhpMyAdminPath();
 	if ( await fs.pathExists( phpMyAdminHostPath ) ) {
 		mounts.push( {
 			hostPath: phpMyAdminHostPath,

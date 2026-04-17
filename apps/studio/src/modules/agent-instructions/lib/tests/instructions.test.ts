@@ -14,7 +14,7 @@ vi.mock( '@studio/common/lib/fs-utils', () => ( {
 vi.mock( 'fs' );
 
 vi.mock( 'src/lib/server-files-paths', () => ( {
-	getAiInstructionsPath: () => '/test/bundled-skills',
+	getBundledAiInstructionsPath: () => '/test/bundled-skills',
 } ) );
 
 const SITE_PATH = '/test/my-site';

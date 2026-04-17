@@ -3,12 +3,8 @@ import path from 'path';
 
 // Abstract base class for SQLite integration across different contexts
 export abstract class SqliteIntegrationProvider {
-	abstract getServerFilesPath(): string;
+	abstract getSqlitePluginSourcePath(): string;
 	abstract getSqliteDirname(): string;
-
-	protected getSqlitePluginSourcePath(): string {
-		return path.join( this.getServerFilesPath(), this.getSqliteDirname() );
-	}
 
 	async isSqliteIntegrationAvailable(): Promise< boolean > {
 		const sqliteSourcePath = this.getSqlitePluginSourcePath();

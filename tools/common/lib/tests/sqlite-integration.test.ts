@@ -30,8 +30,8 @@ const MOCK_SITE_PATH = 'mock-site-path';
 vi.mock( 'fs' );
 
 class TestSqliteProvider extends SqliteIntegrationProvider {
-	getServerFilesPath(): string {
-		return 'server-files';
+	getSqlitePluginSourcePath(): string {
+		return path.join( 'server-files', SQLITE_DIRNAME );
 	}
 
 	getSqliteDirname(): string {

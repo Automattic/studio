@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { pathExists } from '@studio/common/lib/fs-utils';
-import { getLanguagePacksPath } from 'cli/lib/server-files';
+import { getBundledLanguagePacksPath } from 'cli/lib/server-files';
 
 /**
  * Filters files in a directory that match a given WordPress locale.
@@ -51,7 +51,7 @@ export async function copyLanguagePackToSite(
 	sitePath: string,
 	wpLocale: string
 ): Promise< boolean > {
-	const languagePacksDir = getLanguagePacksPath();
+	const languagePacksDir = getBundledLanguagePacksPath();
 	if ( ! ( await pathExists( languagePacksDir ) ) ) {
 		return false;
 	}

@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import nodePath from 'path';
 import { pathExists } from '@studio/common/lib/fs-utils';
-import { getAiInstructionsPath } from 'src/lib/server-files-paths';
+import { getBundledAiInstructionsPath } from 'src/lib/server-files-paths';
 import { INSTRUCTION_FILES, INSTRUCTION_FILE_TYPES, type InstructionFileType } from '../constants';
 
 export interface InstructionFileStatus {
@@ -19,7 +19,7 @@ export function getInstructionFilePath( sitePath: string, fileType: InstructionF
 
 async function getBundledContent( fileType: InstructionFileType ): Promise< string | null > {
 	const bundledPath = nodePath.join(
-		getAiInstructionsPath(),
+		getBundledAiInstructionsPath(),
 		INSTRUCTION_FILES[ fileType ].fileName
 	);
 	try {

@@ -7,7 +7,7 @@ import {
 	updateSiteLatestCliPid,
 } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
-import { getAiInstructionsPath } from 'cli/lib/server-files';
+import { getBundledAiInstructionsPath } from 'cli/lib/server-files';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { isServerRunning, startWordPressServer } from 'cli/lib/wordpress-server-manager';
@@ -55,7 +55,7 @@ export async function runCommand(
 		logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
 
 		try {
-			await updateManagedInstructionFiles( sitePath, getAiInstructionsPath() );
+			await updateManagedInstructionFiles( sitePath, getBundledAiInstructionsPath() );
 		} catch ( error ) {
 			logger.reportError(
 				new LoggerError( __( 'Failed to update AI instructions. Proceeding anyway…' ), error ),

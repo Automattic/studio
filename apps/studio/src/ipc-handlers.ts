@@ -75,7 +75,7 @@ import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import * as oauthClient from 'src/lib/oauth';
-import { getAiInstructionsPath } from 'src/lib/server-files-paths';
+import { getBundledAiInstructionsPath } from 'src/lib/server-files-paths';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { installSqliteIntegration, keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import * as windowsHelpers from 'src/lib/windows-helpers';
@@ -267,7 +267,7 @@ export async function installWordPressSkillsToAllSites(
 ): Promise< void > {
 	const sites = SiteServer.getAll();
 	const overwrite = options.overwrite ?? false;
-	const bundledPath = getAiInstructionsPath();
+	const bundledPath = getBundledAiInstructionsPath();
 	const tasks = sites.map( ( site ) =>
 		installSkillToSite( site.details.path, bundledPath, options.skillId, overwrite )
 	);
@@ -645,7 +645,7 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 	}
 
 	// Keep managed instruction files (STUDIO.md, CLAUDE.md) up-to-date
-	void updateManagedInstructionFiles( server.details.path, getAiInstructionsPath() ).catch(
+	void updateManagedInstructionFiles( server.details.path, getBundledAiInstructionsPath() ).catch(
 		( error ) => {
 			console.error( '[ai-instructions] Failed to update managed instruction files:', error );
 		}

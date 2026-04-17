@@ -30,6 +30,9 @@ export function getWpFilesPath(): string {
 	return path.join( import.meta.dirname, 'wp-files' );
 }
 
+// Writable server-files paths (under `~/.studio/server-files/`). These are used for dependencies
+// that Studio may update at runtime (WordPress, WP-CLI, SQLite command).
+
 export function getWordPressVersionPath( version: string ): string {
 	return path.join( getServerFilesPath(), 'wordpress-versions', version );
 }
@@ -38,22 +41,29 @@ export function getWpCliPharPath(): string {
 	return path.join( getServerFilesPath(), WP_CLI_PHAR_FILENAME );
 }
 
-export function getSqlitePluginPath(): string {
-	return path.join( getServerFilesPath(), SQLITE_PLUGIN_DIRNAME );
-}
-
 export function getSqliteCommandPath(): string {
 	return path.join( getServerFilesPath(), SQLITE_COMMAND_DIRNAME );
 }
 
-export function getLanguagePacksPath(): string {
-	return path.join( getServerFilesPath(), 'language-packs' );
+// Bundled `wp-files` paths. These are used for dependencies that ship read-only with the CLI
+// and don't need a writable destination.
+
+export function getBundledSqlitePluginPath(): string {
+	return path.join( getWpFilesPath(), SQLITE_PLUGIN_DIRNAME );
 }
 
-export function getAiInstructionsPath(): string {
-	return path.join( getServerFilesPath(), 'skills' );
+export function getBundledLanguagePacksPath(): string {
+	return path.join( getWpFilesPath(), 'latest', 'languages' );
 }
 
-export function getPhpMyAdminPath(): string {
-	return path.join( getServerFilesPath(), 'phpmyadmin' );
+export function getBundledSiteTranslationsPath(): string {
+	return path.join( getWpFilesPath(), 'latest', 'available-site-translations.json' );
+}
+
+export function getBundledAiInstructionsPath(): string {
+	return path.join( getWpFilesPath(), 'skills' );
+}
+
+export function getBundledPhpMyAdminPath(): string {
+	return path.join( getWpFilesPath(), 'phpmyadmin' );
 }

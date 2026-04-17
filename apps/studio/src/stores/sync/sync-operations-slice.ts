@@ -808,6 +808,7 @@ const pollPullBackupThunk = createTypedAsyncThunk(
 				await getIpcApi().importSite( selectedSiteId, filePath, {
 					alwaysStartServer: true,
 					removeBackupOnComplete: true,
+					showErrorModal: false,
 					showNotification: false,
 				} );
 
@@ -862,12 +863,7 @@ const pollPullBackupThunk = createTypedAsyncThunk(
 				);
 			}
 		} catch ( error ) {
-			const currentState = syncOperationsSelectors.selectPullState(
-				selectedSiteId,
-				remoteSiteId
-			)( getState() );
-
-			if ( signal.aborted && currentState?.status.key === 'cancelled' ) {
+			if ( signal.aborted ) {
 				return;
 			}
 

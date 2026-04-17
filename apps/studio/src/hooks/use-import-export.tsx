@@ -89,7 +89,8 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 			} ) );
 
 			const filePath = getIpcApi().getPathForFile( file );
-			void getIpcApi().importSite( selectedSite.id, filePath, {
+
+			return getIpcApi().importSite( selectedSite.id, filePath, {
 				alwaysStartServer: true,
 				showNotification: showImportNotification,
 			} );
@@ -260,6 +261,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					[ siteId ]: {
 						...currentProgress,
 						statusMessage: __( 'Import failed. Please try again.' ),
+						progress: 100,
 					},
 				} ) );
 				break;
@@ -281,7 +283,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				},
 			} ) );
 
-			void getIpcApi().exportSite( site.id, backupFile, {
+			return getIpcApi().exportSite( site.id, backupFile, {
 				mode: mode === 'database' ? 'db' : 'full',
 				showItemInFolder: true,
 				showNotification: true,

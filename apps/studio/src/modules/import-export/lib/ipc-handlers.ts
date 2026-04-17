@@ -19,6 +19,7 @@ const errorSchema = z.object( { message: z.string() } );
 type ImportOptions = {
 	alwaysStartServer?: boolean;
 	removeBackupOnComplete?: boolean;
+	showErrorModal?: boolean;
 	showNotification?: boolean;
 };
 
@@ -36,6 +37,7 @@ export async function importSite(
 	const {
 		alwaysStartServer = false,
 		removeBackupOnComplete = false,
+		showErrorModal = true,
 		showNotification = true,
 	} = options;
 
@@ -70,7 +72,7 @@ export async function importSite(
 				notification.show();
 			}
 
-			if ( parsed.event[ 0 ] === ImporterEvents.IMPORT_ERROR ) {
+			if ( parsed.event[ 0 ] === ImporterEvents.IMPORT_ERROR && showErrorModal ) {
 				const error = parsed.event[ 1 ];
 				const parsedError = errorSchema.safeParse( error );
 
@@ -113,25 +115,25 @@ export async function importSite(
 		} );
 
 		eventEmitter.on( 'success', async () => {
+			resolve();
+
 			if ( removeBackupOnComplete ) {
 				await fs.promises.unlink( importArchivePath );
 			}
-
-			resolve();
 		} );
 
 		eventEmitter.on( 'error', ( { error } ) => {
 			reject( error );
+			bumpStat( StatsGroup.STUDIO_IMPORT, StatsMetric.FAILURE );
 		} );
 
 		eventEmitter.on( 'failure', async ( { error } ) => {
+			reject( error );
 			bumpStat( StatsGroup.STUDIO_IMPORT, StatsMetric.FAILURE );
 
 			if ( removeBackupOnComplete ) {
 				await fs.promises.unlink( importArchivePath );
 			}
-
-			reject( error );
 		} );
 	} );
 }
@@ -191,7 +193,7 @@ export async function exportSite(
 				if ( showNotification ) {
 					const notification = new Notification( {
 						title: site.details.name,
-						body: __( 'Import completed' ),
+						body: __( 'Export completed' ),
 					} );
 					notification.show();
 				}
@@ -204,11 +206,12 @@ export async function exportSite(
 
 		eventEmitter.on( 'error', ( { error } ) => {
 			reject( error );
+			bumpStat( StatsGroup.STUDIO_EXPORT, StatsMetric.FAILURE );
 		} );
 
 		eventEmitter.on( 'failure', ( { error } ) => {
-			bumpStat( StatsGroup.STUDIO_EXPORT, StatsMetric.FAILURE );
 			reject( error );
+			bumpStat( StatsGroup.STUDIO_EXPORT, StatsMetric.FAILURE );
 		} );
 
 		eventEmitter.on( 'success', () => {

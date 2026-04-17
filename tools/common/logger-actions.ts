@@ -70,3 +70,15 @@ export enum SyncCommandLoggerAction {
 	DOWNLOAD = 'download',
 	IMPORT = 'import',
 }
+
+export enum PluginCommandLoggerAction {
+	LINK = 'link',
+	UNLINK = 'unlink',
+	LIST_LINKED = 'listLinked',
+}
+
+export enum ThemeCommandLoggerAction {
+	LINK = 'link',
+	UNLINK = 'unlink',
+	LIST_LINKED = 'listLinked',
+}

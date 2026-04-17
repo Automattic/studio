@@ -68,7 +68,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 
 		vi.mocked( download ).mockResolvedValue( undefined );
 		vi.mocked( fs.readJson ).mockResolvedValue( { steps: [] } );
-		vi.mocked( validateBlueprintData ).mockResolvedValue( { valid: true, warnings: [] } );
+		vi.mocked( validateBlueprintData ).mockResolvedValue( { valid: true } );
 
 		await handleAddSiteWithBlueprint( url );
 
@@ -80,7 +80,6 @@ describe( 'handleAddSiteWithBlueprint', () => {
 		);
 		expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'add-site-with-blueprint', {
 			blueprintPath: expect.stringContaining( 'blueprint-' ),
-			warnings: [],
 		} );
 		expect( mockMainWindow.focus ).toHaveBeenCalled();
 	} );
@@ -129,7 +128,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 		vi.mocked( mockMainWindow.isMinimized ).mockReturnValue( true );
 		vi.mocked( download ).mockResolvedValue( undefined );
 		vi.mocked( fs.readJson ).mockResolvedValue( { steps: [] } );
-		vi.mocked( validateBlueprintData ).mockResolvedValue( { valid: true, warnings: [] } );
+		vi.mocked( validateBlueprintData ).mockResolvedValue( { valid: true } );
 
 		await handleAddSiteWithBlueprint( url );
 
@@ -179,7 +178,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 			const url = new URL( `wp-studio://add-site?blueprint=${ blueprintBase64 }` );
 
 			vi.mocked( fs.writeJson ).mockImplementation( async () => {} );
-			vi.mocked( validateBlueprintData ).mockResolvedValue( { valid: true, warnings: [] } );
+			vi.mocked( validateBlueprintData ).mockResolvedValue( { valid: true } );
 
 			await handleAddSiteWithBlueprint( url );
 
@@ -189,7 +188,6 @@ describe( 'handleAddSiteWithBlueprint', () => {
 			);
 			expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'add-site-with-blueprint', {
 				blueprintPath: expect.stringContaining( 'blueprint-' ),
-				warnings: [],
 			} );
 			expect( download ).not.toHaveBeenCalled();
 		} );

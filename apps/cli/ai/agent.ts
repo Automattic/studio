@@ -144,7 +144,6 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 			},
 			plugins: [ { type: 'local' as const, path: path.resolve( import.meta.dirname, 'plugin' ) } ],
 			model,
-			...( model.startsWith( 'claude-opus-' ) ? { effort: 'max' as const } : {} ),
 			resume,
 		},
 	} );

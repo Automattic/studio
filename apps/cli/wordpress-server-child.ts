@@ -34,8 +34,8 @@ import { sanitizeRunCLIArgs } from 'cli/lib/cli-args-sanitizer';
 import { rewriteWpCliPostContentToFile } from 'cli/lib/rewrite-wp-cli-post-content';
 import {
 	getBundledPhpMyAdminPath,
-	getSqliteCommandPath,
-	getWpCliPharPath,
+	getBundledSqliteCommandPath,
+	getBundledWpCliPharPath,
 } from 'cli/lib/server-files';
 import { isSqliteIntegrationInstalled } from 'cli/lib/sqlite-integration';
 import {
@@ -174,11 +174,11 @@ async function getBaseRunCLIArgs(
 			vfsPath: '/internal/shared/mu-plugins/99-studio-loader.php',
 		},
 		{
-			hostPath: getWpCliPharPath(),
+			hostPath: getBundledWpCliPharPath(),
 			vfsPath: '/tmp/wp-cli.phar',
 		},
 		{
-			hostPath: getSqliteCommandPath(),
+			hostPath: getBundledSqliteCommandPath(),
 			vfsPath: '/tmp/sqlite-command',
 		},
 	];

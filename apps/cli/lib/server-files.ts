@@ -4,10 +4,6 @@ import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 import { __ } from '@wordpress/i18n';
 import { LoggerError } from 'cli/logger';
 
-const WP_CLI_PHAR_FILENAME = 'wp-cli.phar';
-const SQLITE_COMMAND_DIRNAME = 'sqlite-command';
-const SQLITE_PLUGIN_DIRNAME = 'sqlite-database-integration';
-
 export function getAppdataDirectory(): string {
 	if ( process.env.E2E && process.env.E2E_APP_DATA_PATH ) {
 		return path.join( process.env.E2E_APP_DATA_PATH, 'Studio' );
@@ -30,26 +26,25 @@ export function getWpFilesPath(): string {
 	return path.join( import.meta.dirname, 'wp-files' );
 }
 
-// Writable server-files paths (under `~/.studio/server-files/`). These are used for dependencies
-// that Studio may update at runtime (WordPress, WP-CLI, SQLite command).
-
+// The only writable server-files path — WordPress is the one dependency that may be updated at
+// runtime via `updateServerFiles`.
 export function getWordPressVersionPath( version: string ): string {
 	return path.join( getServerFilesPath(), 'wordpress-versions', version );
-}
-
-export function getWpCliPharPath(): string {
-	return path.join( getServerFilesPath(), WP_CLI_PHAR_FILENAME );
-}
-
-export function getSqliteCommandPath(): string {
-	return path.join( getServerFilesPath(), SQLITE_COMMAND_DIRNAME );
 }
 
 // Bundled `wp-files` paths. These are used for dependencies that ship read-only with the CLI
 // and don't need a writable destination.
 
+export function getBundledWpCliPharPath(): string {
+	return path.join( getWpFilesPath(), 'wp-cli', 'wp-cli.phar' );
+}
+
+export function getBundledSqliteCommandPath(): string {
+	return path.join( getWpFilesPath(), 'sqlite-command' );
+}
+
 export function getBundledSqlitePluginPath(): string {
-	return path.join( getWpFilesPath(), SQLITE_PLUGIN_DIRNAME );
+	return path.join( getWpFilesPath(), 'sqlite-database-integration' );
 }
 
 export function getBundledLanguagePacksPath(): string {

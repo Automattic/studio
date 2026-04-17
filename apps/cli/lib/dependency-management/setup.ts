@@ -3,63 +3,8 @@ import path from 'path';
 import { recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
 import semver from 'semver';
 import { readCliConfig, updateCliConfigWithPartial } from 'cli/lib/cli-config/core';
-import {
-	getSqliteCommandPath,
-	getWordPressVersionPath,
-	getWpCliPharPath,
-	getWpFilesPath,
-} from '../server-files';
+import { getWordPressVersionPath, getWpFilesPath } from '../server-files';
 import { getWordPressVersionFromInstallation, updateLatestWordPressVersion } from './wordpress';
-
-type VersionReader = () => Promise< semver.SemVer | null >;
-
-async function copySourceDirectoryIfNewerOrMissing( {
-	sourceDirectoryPath,
-	targetDirectoryPath,
-	readSourceVersion,
-	readTargetVersion,
-}: {
-	sourceDirectoryPath: string;
-	targetDirectoryPath: string;
-	readSourceVersion: VersionReader;
-	readTargetVersion: VersionReader;
-} ) {
-	if ( ! fs.existsSync( sourceDirectoryPath ) ) {
-		return;
-	}
-
-	let sourceVersion: Awaited< ReturnType< VersionReader > >;
-	let shouldCopy = false;
-
-	try {
-		sourceVersion = await readSourceVersion();
-		if ( ! sourceVersion ) {
-			return;
-		}
-	} catch {
-		// Do nothing if the source version cannot be read
-		return;
-	}
-
-	try {
-		const targetVersion = await readTargetVersion();
-		const isSourceVersionNewer = targetVersion && semver.gt( sourceVersion, targetVersion );
-		shouldCopy = Boolean( ! targetVersion || isSourceVersionNewer );
-	} catch {
-		// The error is likely because of a missing or corrupted target directory, in which case we
-		// copy the source directory to the target directory
-		shouldCopy = true;
-	}
-
-	if ( shouldCopy ) {
-		try {
-			await fs.promises.rm( targetDirectoryPath, { recursive: true, force: true } );
-		} catch {
-			// Do nothing if the target directory is missing or corrupted
-		}
-		await recursiveCopyDirectory( sourceDirectoryPath, targetDirectoryPath );
-	}
-}
 
 // Compare the WordPress version in the bundled `wp-files/latest/wordpress` directory (that ships
 // with the CLI) to `~/.studio/server-files/wordpress-versions/latest`. If the bundled directory is
@@ -90,59 +35,14 @@ async function copyBundledLatestWpVersion() {
 	}
 }
 
-async function copyBundledWpCli() {
-	const sourceWpCLIPath = path.join( getWpFilesPath(), 'wp-cli', 'wp-cli.phar' );
-	const sourceStats = await fs.promises.lstat( sourceWpCLIPath );
-	let shouldCopy = false;
-
-	try {
-		const targetStats = await fs.promises.lstat( getWpCliPharPath() );
-		shouldCopy =
-			sourceStats.size !== targetStats.size ||
-			Math.floor( sourceStats.mtimeMs ) !== Math.floor( targetStats.mtimeMs );
-	} catch {
-		shouldCopy = true;
-	}
-
-	if ( shouldCopy ) {
-		await fs.promises.cp( sourceWpCLIPath, getWpCliPharPath(), {
-			mode: fs.constants.COPYFILE_FICLONE,
-			preserveTimestamps: true,
-		} );
-	}
-}
-
-async function copyBundledSqliteCommand() {
-	await copySourceDirectoryIfNewerOrMissing( {
-		sourceDirectoryPath: path.join( getWpFilesPath(), 'sqlite-command' ),
-		targetDirectoryPath: getSqliteCommandPath(),
-		readSourceVersion: async () => {
-			const versionFilePath = path.join( getWpFilesPath(), 'sqlite-command', 'version' );
-			return semver.coerce( fs.readFileSync( versionFilePath, 'utf8' ) );
-		},
-		readTargetVersion: async () => {
-			const versionFilePath = path.join( getSqliteCommandPath(), 'version' );
-			return semver.coerce( fs.readFileSync( versionFilePath, 'utf8' ) );
-		},
-	} );
-}
-
-// Copy bundled dependencies that need a writable destination in `~/.studio/server-files/`.
-// Other bundled deps (SQLite plugin, language packs, phpMyAdmin, AI instructions,
-// translations JSON) are read directly from `wp-files/` and don't need to be copied.
+// Seed `~/.studio/server-files/wordpress-versions/latest` from the bundled WordPress so that
+// `updateLatestWordPressVersion` has a writable destination to update at runtime. Other bundled
+// deps are read directly from `wp-files/` and don't need to be copied.
 export async function setupServerFiles() {
-	const steps: [ string, () => Promise< void > ][] = [
-		[ 'WordPress version', copyBundledLatestWpVersion ],
-		[ 'WP-CLI', copyBundledWpCli ],
-		[ 'SQLite command', copyBundledSqliteCommand ],
-	];
-
-	for ( const [ name, step ] of steps ) {
-		try {
-			await step();
-		} catch ( error ) {
-			console.error( `Failed to set up dependency ${ name }:`, error );
-		}
+	try {
+		await copyBundledLatestWpVersion();
+	} catch ( error ) {
+		console.error( 'Failed to set up dependency WordPress version:', error );
 	}
 }
 

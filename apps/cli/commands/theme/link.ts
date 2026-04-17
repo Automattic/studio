@@ -100,6 +100,14 @@ export async function runCommand( sitePath: string, sourcePath?: string ): Promi
 
 	// Determine theme name from directory name
 	const themeName = path.basename( absoluteSourcePath );
+	if ( ! themeName || themeName === '.' || themeName === '..' ) {
+		throw new LoggerError(
+			sprintf(
+				__( 'Could not determine a valid theme directory name from source path: %s' ),
+				absoluteSourcePath
+			)
+		);
+	}
 	const themesDir = path.join( resolvedSitePath, 'wp-content', 'themes' );
 	const targetPath = path.join( themesDir, themeName );
 

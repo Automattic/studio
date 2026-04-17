@@ -103,6 +103,14 @@ export async function runCommand( sitePath: string, sourcePath?: string ): Promi
 
 	// Determine plugin name from directory name
 	const pluginName = path.basename( absoluteSourcePath );
+	if ( ! pluginName || pluginName === '.' || pluginName === '..' ) {
+		throw new LoggerError(
+			sprintf(
+				__( 'Could not determine a valid plugin name from source path: %s' ),
+				absoluteSourcePath
+			)
+		);
+	}
 	const pluginsDir = path.join( resolvedSitePath, 'wp-content', 'plugins' );
 	const targetPath = path.join( pluginsDir, pluginName );
 

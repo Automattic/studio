@@ -30,6 +30,7 @@ export interface AiAgentConfig {
 export const AI_MODELS = {
 	'claude-sonnet-4-6': 'Sonnet 4.6',
 	'claude-opus-4-6': 'Opus 4.6',
+	'claude-opus-4-7': 'Opus 4.7',
 } as const;
 
 export type AiModelId = keyof typeof AI_MODELS;
@@ -143,6 +144,7 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 			},
 			plugins: [ { type: 'local' as const, path: path.resolve( import.meta.dirname, 'plugin' ) } ],
 			model,
+			...( model.startsWith( 'claude-opus-' ) ? { effort: 'max' as const } : {} ),
 			resume,
 		},
 	} );

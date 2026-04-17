@@ -248,7 +248,7 @@ export async function rotateStreamingExportSecret(
 				'Content-Type': 'application/json',
 			},
 			body: JSON.stringify( {
-				path: '/wp/v2/streaming-export/rotate-secret',
+				path: '/wpcomsh/v1/reprint/rotate-export-secret',
 			} ),
 		}
 	);

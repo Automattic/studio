@@ -178,3 +178,14 @@ Notes:
 - The source directory must look like a valid WordPress plugin (PHP file with a `Plugin Name:` header) or theme (`style.css` with a `Theme Name:` header).
 - Relative symlinks are used by default. On Windows, if symlink permissions are unavailable the CLI falls back to a directory junction.
 - `unlink` only removes the symlink inside the site — your source files are never touched.
+
+### Security considerations
+
+Linking executes the source directory's PHP inside the WordPress site with the same privileges as any other plugin or theme. Treat each linked source as code you trust. The CLI applies the following safeguards, mapped to the [OWASP Agentic Skills Top 10](https://github.com/OWASP/www-project-agentic-skills-top-10):
+
+- **Recursive / cross-link guard (AST03)** — `link` rejects sources that resolve inside the target site, so a plugin cannot symlink back into its own `wp-content` and create a loop.
+- **Symlink chain transparency (AST04)** — when the source path you pass is itself a symlink, the resolved real path is printed alongside the typed path so you can spot brand-impersonation or shadowing attacks.
+- **Path-traversal hardening (AST03)** — `unlink` rejects names containing path separators (`../foo`, `a/b/c`), so an unlink command can only remove items inside the site's plugins/themes directory.
+- **Live updates by design (AST07)** — symlinked sources reflect upstream changes immediately. This is the point of the feature, but it also means a compromised source repository takes effect without an explicit re-install. Pin or sandbox sources you do not control.
+
+The CLI does not scan source contents for malicious code (AST08) and does not maintain a registry of allowed source locations. If you are linking third-party code you did not author, review it the same way you would review any other plugin or theme before installing it on a real site.

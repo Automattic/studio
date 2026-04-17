@@ -98,6 +98,26 @@ export async function runCommand( sitePath: string, sourcePath?: string ): Promi
 		);
 	}
 
+	// Resolve symlinks so subsequent scope checks operate on the real target.
+	// Defends against AST04 (insecure metadata) by surfacing the true location
+	// when a user-typed source path is itself a symlink.
+	const realSourcePath = await fs.promises
+		.realpath( absoluteSourcePath )
+		.catch( () => absoluteSourcePath );
+
+	// Reject sources inside the target site to prevent recursive symlinks
+	// (a theme symlinking back into its own site's wp-content).
+	const resolvedSiteRealPath = await fs.promises
+		.realpath( resolvedSitePath )
+		.catch( () => resolvedSitePath );
+	const sourceWithSep = realSourcePath + path.sep;
+	const siteWithSep = resolvedSiteRealPath + path.sep;
+	if ( realSourcePath === resolvedSiteRealPath || sourceWithSep.startsWith( siteWithSep ) ) {
+		throw new LoggerError(
+			sprintf( __( 'Source must not live inside the target site: %s' ), realSourcePath )
+		);
+	}
+
 	// Determine theme name from directory name
 	const themeName = path.basename( absoluteSourcePath );
 	if ( ! themeName || themeName === '.' || themeName === '..' ) {
@@ -154,6 +174,10 @@ export async function runCommand( sitePath: string, sourcePath?: string ): Promi
 	await createThemeSymlink( absoluteSourcePath, targetPath );
 
 	logger.reportSuccess( sprintf( __( 'Linked theme "%s" → %s' ), themeName, absoluteSourcePath ) );
+	if ( realSourcePath !== absoluteSourcePath ) {
+		// Surface the real target so the user can spot symlink-chain shadowing.
+		console.log( sprintf( __( 'Resolved source: %s' ), realSourcePath ) );
+	}
 	console.log( __( 'Changes to the source directory will be reflected immediately in the site.' ) );
 }
 

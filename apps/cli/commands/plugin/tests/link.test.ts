@@ -13,6 +13,7 @@ vi.mock( 'fs', () => {
 		readdir: vi.fn(),
 		readFile: vi.fn(),
 		readlink: vi.fn(),
+		realpath: vi.fn(),
 		mkdir: vi.fn(),
 		symlink: vi.fn(),
 		unlink: vi.fn(),
@@ -60,6 +61,8 @@ describe( 'CLI: studio plugin link', () => {
 		);
 		vi.mocked( fs.promises.mkdir ).mockResolvedValue( undefined );
 		vi.mocked( fs.promises.symlink ).mockResolvedValue( undefined );
+		// Default: realpath returns input unchanged (no symlink chain).
+		vi.mocked( fs.promises.realpath ).mockImplementation( async ( p ) => String( p ) );
 	} );
 
 	afterEach( () => {
@@ -134,6 +137,33 @@ describe( 'CLI: studio plugin link', () => {
 			await expect( runCommand( testSiteFolder, testSourcePath ) ).rejects.toThrow(
 				/already linked to a different location/
 			);
+		} );
+
+		it( 'throws when source lives inside the target site (recursive)', async () => {
+			const insidePath = path.join( testSiteFolder, 'wp-content', 'plugins', 'inner' );
+			vi.mocked( pathExists ).mockImplementation( async ( p: string ) => p === insidePath );
+			vi.mocked( fs.promises.realpath ).mockImplementation( async ( p ) => String( p ) );
+
+			await expect( runCommand( testSiteFolder, insidePath ) ).rejects.toThrow(
+				/must not live inside the target site/
+			);
+			expect( fs.promises.symlink ).not.toHaveBeenCalled();
+		} );
+
+		it( 'throws when source symlink resolves into the target site', async () => {
+			const insidePath = path.join( testSiteFolder, 'wp-content', 'plugins', 'inner' );
+			vi.mocked( pathExists ).mockImplementation( async ( p: string ) => p === testSourcePath );
+			vi.mocked( fs.promises.realpath ).mockImplementation( async ( p ) => {
+				if ( String( p ) === testSourcePath ) {
+					return insidePath;
+				}
+				return String( p );
+			} );
+
+			await expect( runCommand( testSiteFolder, testSourcePath ) ).rejects.toThrow(
+				/must not live inside the target site/
+			);
+			expect( fs.promises.symlink ).not.toHaveBeenCalled();
 		} );
 
 		it( 'throws when source resolves to filesystem root (empty basename)', async () => {

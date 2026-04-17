@@ -1,7 +1,14 @@
-import { Button, Spinner } from '@wordpress/components';
+import * as Sentry from '@sentry/electron/renderer';
+import { Button, DropdownMenu, MenuGroup, MenuItem, Spinner } from '@wordpress/components';
+import { __ as translate } from '@wordpress/i18n';
+import { archive, code, moreVertical, preformatted } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState } from 'react';
+import { isWindows } from 'src/lib/app-globals';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
+import { getTerminalName } from 'src/modules/user-settings/lib/terminal';
+import { useGetUserEditorQuery, useGetUserTerminalQuery } from 'src/stores/installed-apps-api';
 import {
 	useGetLinkedPluginsQuery,
 	useGetLinkedThemesQuery,
@@ -18,6 +25,32 @@ interface ContentTabLinkedExtensionsProps {
 
 type Kind = 'plugin' | 'theme';
 
+function extractErrorMessage( error: unknown ): string {
+	if ( error instanceof Error ) {
+		return error.message;
+	}
+	if ( typeof error === 'object' && error !== null ) {
+		const err = error as { message?: unknown; error?: unknown; data?: unknown };
+		if ( typeof err.message === 'string' ) {
+			return err.message;
+		}
+		if ( typeof err.error === 'string' ) {
+			return err.error;
+		}
+		if ( typeof err.data === 'string' ) {
+			return err.data;
+		}
+	}
+	if ( typeof error === 'string' ) {
+		return error;
+	}
+	try {
+		return JSON.stringify( error );
+	} catch {
+		return String( error );
+	}
+}
+
 interface ExtensionListProps {
 	kind: Kind;
 	siteId: string;
@@ -31,6 +64,79 @@ interface ExtensionListProps {
 	onRemove: ( name: string ) => void;
 	pendingRemove: string | null;
 	isAdding: boolean;
+}
+
+function OpenInMenu( { sourcePath }: { sourcePath: string } ) {
+	const { __ } = useI18n();
+	const { data: editor } = useGetUserEditorQuery();
+	const { data: terminal } = useGetUserTerminalQuery();
+
+	const fileManagerLabel = isWindows()
+		? // translators: name of app used to navigate files and folders on Windows
+		  __( 'File Explorer' )
+		: // translators: name of app used to navigate files and folders on macOS
+		  __( 'Finder' );
+
+	const editorConfig = editor ? supportedEditorConfig[ editor ] : undefined;
+	const terminalName = getTerminalName( terminal );
+
+	return (
+		<DropdownMenu
+			icon={ moreVertical }
+			label={ __( 'Open in…' ) }
+			className="p-1 flex items-center"
+		>
+			{ ( { onClose }: { onClose: () => void } ) => (
+				<MenuGroup className="w-48 overflow-hidden">
+					<MenuItem
+						icon={ archive }
+						onClick={ () => {
+							getIpcApi().openLocalPath( sourcePath );
+							onClose();
+						} }
+					>
+						<span>{ fileManagerLabel }</span>
+					</MenuItem>
+					{ editor && editorConfig && (
+						<MenuItem
+							icon={ code }
+							onClick={ async () => {
+								onClose();
+								try {
+									await getIpcApi().openAppAtPath( editor, sourcePath );
+								} catch ( error ) {
+									Sentry.captureException( error );
+									getIpcApi().showErrorMessageBox( {
+										title: translate( 'Could not open editor' ),
+										message: extractErrorMessage( error ),
+									} );
+								}
+							} }
+						>
+							<span>{ editorConfig.label }</span>
+						</MenuItem>
+					) }
+					<MenuItem
+						icon={ preformatted }
+						onClick={ async () => {
+							onClose();
+							try {
+								await getIpcApi().openTerminalAtPath( sourcePath );
+							} catch ( error ) {
+								Sentry.captureException( error );
+								getIpcApi().showErrorMessageBox( {
+									title: translate( 'Could not open the terminal' ),
+									message: extractErrorMessage( error ),
+								} );
+							}
+						} }
+					>
+						<span>{ terminalName }</span>
+					</MenuItem>
+				</MenuGroup>
+			) }
+		</DropdownMenu>
+	);
 }
 
 function ExtensionList( {
@@ -71,25 +177,26 @@ function ExtensionList( {
 						const isRemoving = pendingRemove === item.name;
 						return (
 							<li key={ item.name } className="flex items-center justify-between p-3 gap-4">
-								<div className="min-w-0">
+								<div className="min-w-0 flex-1">
 									<div className="font-medium truncate">{ item.name }</div>
-									<button
-										type="button"
-										className="text-frame-text-secondary text-xs truncate text-left hover:underline"
-										onClick={ () => getIpcApi().showItemInFolder( item.sourcePath ) }
+									<div
+										className="text-frame-text-secondary text-xs truncate"
 										title={ item.sourcePath }
 									>
 										{ item.sourcePath }
-									</button>
+									</div>
 								</div>
-								<Button
-									variant="tertiary"
-									isDestructive
-									onClick={ () => onRemove( item.name ) }
-									disabled={ isRemoving }
-								>
-									{ isRemoving ? <Spinner /> : __( 'Unlink' ) }
-								</Button>
+								<div className="flex items-center gap-1 shrink-0">
+									<OpenInMenu sourcePath={ item.sourcePath } />
+									<Button
+										variant="tertiary"
+										isDestructive
+										onClick={ () => onRemove( item.name ) }
+										disabled={ isRemoving }
+									>
+										{ isRemoving ? <Spinner /> : __( 'Unlink' ) }
+									</Button>
+								</div>
 							</li>
 						);
 					} ) }
@@ -143,7 +250,7 @@ export function ContentTabLinkedExtensions( { selectedSite }: ContentTabLinkedEx
 		} catch ( error ) {
 			getIpcApi().showErrorMessageBox( {
 				title: kind === 'plugin' ? __( 'Failed to link plugin' ) : __( 'Failed to link theme' ),
-				message: error instanceof Error ? error.message : String( error ),
+				message: extractErrorMessage( error ),
 			} );
 		}
 	};
@@ -180,7 +287,7 @@ export function ContentTabLinkedExtensions( { selectedSite }: ContentTabLinkedEx
 		} catch ( error ) {
 			getIpcApi().showErrorMessageBox( {
 				title: kind === 'plugin' ? __( 'Failed to unlink plugin' ) : __( 'Failed to unlink theme' ),
-				message: error instanceof Error ? error.message : String( error ),
+				message: extractErrorMessage( error ),
 			} );
 		} finally {
 			setPending( null );

@@ -133,6 +133,15 @@ describe( 'CLI: studio plugin link', () => {
 				/already linked to a different location/
 			);
 		} );
+
+		it( 'throws when source resolves to filesystem root (empty basename)', async () => {
+			vi.mocked( pathExists ).mockImplementation( async ( p: string ) => p === '/' );
+
+			await expect( runCommand( testSiteFolder, '/' ) ).rejects.toThrow(
+				/Could not determine a valid plugin name/
+			);
+			expect( fs.promises.symlink ).not.toHaveBeenCalled();
+		} );
 	} );
 
 	describe( 'Success Cases', () => {

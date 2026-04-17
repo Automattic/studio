@@ -2137,29 +2137,17 @@ export class AiChatUI implements AiOutputAdapter {
 			}
 			case 'result': {
 				this.hideLoader();
-				if ( message.subtype === 'success' ) {
-					const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
-					if ( ! this.hasShownResponseMarker ) {
-						this.messages.addChild(
-							new Text( '\n ' + chalk.blue( '⏺' ) + ' ' + __( 'Done' ), 0, 0 )
-						);
-					}
-					this.showInfo(
-						sprintf(
-							/* translators: 1: seconds spent thinking, 2: number of turns */
-							_n(
-								'Thought for %1$ds · %2$d turn',
-								'Thought for %1$ds · %2$d turns',
-								message.num_turns
-							),
-							thinkingSec,
-							message.num_turns
-						)
-					);
-					return { type: 'result', sessionId: message.session_id, success: true };
+
+				// Max-turns exhaustion has dedicated upstream handling (prompts user to continue).
+				if ( message.subtype === 'error_max_turns' ) {
+					return {
+						type: 'max_turns',
+						sessionId: message.session_id,
+						numTurns: message.num_turns,
+					};
 				}
 
-				// User-initiated interruption: show friendly message instead of error
+				// User-initiated interruption: friendly message, suppress retry prompt.
 				if ( this.wasInterrupted ) {
 					const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
 					this.messages.addChild(
@@ -2176,36 +2164,62 @@ export class AiChatUI implements AiOutputAdapter {
 							thinkingSec
 						)
 					);
+					return {
+						type: 'result',
+						sessionId: message.session_id,
+						success: false,
+						interrupted: true,
+					};
+				}
+
+				// is_error is the authoritative failure signal. A message can have
+				// subtype='success' and still carry is_error=true (e.g. API 504 after
+				// the SDK exhausts retries and emits the error text as the result).
+				if ( message.is_error ) {
+					const parts: string[] = [];
+					if ( 'errors' in message && message.errors?.length ) {
+						parts.push( ...message.errors );
+					}
+					if ( 'result' in message && typeof message.result === 'string' && message.result ) {
+						parts.push( message.result );
+					} else if ( message.subtype && message.subtype !== 'success' ) {
+						parts.push( `(${ message.subtype })` );
+					}
+					if ( 'permission_denials' in message && message.permission_denials?.length ) {
+						for ( const denial of message.permission_denials ) {
+							parts.push(
+								sprintf(
+									/* translators: %s: tool name */
+									__( 'Permission denied: %s' ),
+									denial.tool_name
+								)
+							);
+						}
+					}
+					this.showError( parts.length > 0 ? parts.join( '\n' ) : __( 'Unknown error' ) );
 					return { type: 'result', sessionId: message.session_id, success: false };
 				}
 
-				// Build detailed error message
-				const parts: string[] = [];
-				if ( 'errors' in message && message.errors?.length ) {
-					parts.push( ...message.errors );
+				// Genuine success.
+				const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
+				if ( ! this.hasShownResponseMarker ) {
+					this.messages.addChild(
+						new Text( '\n ' + chalk.blue( '⏺' ) + ' ' + __( 'Done' ), 0, 0 )
+					);
 				}
-				if ( message.subtype === 'error_max_turns' ) {
-					return {
-						type: 'max_turns',
-						sessionId: message.session_id,
-						numTurns: message.num_turns,
-					};
-				} else if ( message.subtype ) {
-					parts.push( `(${ message.subtype })` );
-				}
-				if ( 'permission_denials' in message && message.permission_denials?.length ) {
-					for ( const denial of message.permission_denials ) {
-						parts.push(
-							sprintf(
-								/* translators: %s: tool name */
-								__( 'Permission denied: %s' ),
-								denial.tool_name
-							)
-						);
-					}
-				}
-				this.showError( parts.length > 0 ? parts.join( '\n' ) : __( 'Unknown error' ) );
-				return { type: 'result', sessionId: message.session_id, success: false };
+				this.showInfo(
+					sprintf(
+						/* translators: 1: seconds spent thinking, 2: number of turns */
+						_n(
+							'Thought for %1$ds · %2$d turn',
+							'Thought for %1$ds · %2$d turns',
+							message.num_turns
+						),
+						thinkingSec,
+						message.num_turns
+					)
+				);
+				return { type: 'result', sessionId: message.session_id, success: true };
 			}
 			case 'system': {
 				if ( message.subtype === 'status' && message.status === 'compacting' ) {

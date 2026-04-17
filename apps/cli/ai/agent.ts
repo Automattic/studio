@@ -42,8 +42,15 @@ const pathApprovalSession = createPathApprovalSession();
 // are unhandled because they originate inside the SDK cleanup path rather
 // than propagating through the async iterator. Without this handler,
 // Node.js terminates the process on unhandled rejections.
+const SDK_INTERRUPT_CLEANUP_ERRORS = [
+	'Query closed',
+	'ProcessTransport is not ready for writing',
+];
 process.on( 'unhandledRejection', ( reason ) => {
-	if ( reason instanceof Error && reason.message.includes( 'Query closed' ) ) {
+	if (
+		reason instanceof Error &&
+		SDK_INTERRUPT_CLEANUP_ERRORS.some( ( msg ) => reason.message.includes( msg ) )
+	) {
 		return;
 	}
 	throw reason;

@@ -1,7 +1,14 @@
 import { TabPanel } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { createContext, ReactNode, useContext, useMemo, useState } from 'react';
-export type TabName = 'overview' | 'sync' | 'settings' | 'assistant' | 'import-export' | 'previews';
+export type TabName =
+	| 'overview'
+	| 'sync'
+	| 'settings'
+	| 'assistant'
+	| 'import-export'
+	| 'previews'
+	| 'linked-extensions';
 type Tab = React.ComponentProps< typeof TabPanel >[ 'tabs' ][ number ] & {
 	name: TabName;
 };
@@ -31,18 +38,23 @@ function useTabs() {
 		tabs.push(
 			{
 				order: 4,
+				name: 'linked-extensions',
+				title: __( 'Linked extensions' ),
+			},
+			{
+				order: 5,
 				name: 'import-export',
 				title: __( 'Import / Export' ),
 			},
 			{
-				order: 5,
+				order: 6,
 				name: 'settings',
 				title: __( 'Settings' ),
 			}
 		);
 
 		tabs.push( {
-			order: 6,
+			order: 7,
 			name: 'assistant',
 			title: __( 'Assistant' ),
 			className: 'components-tab-panel__tabs--assistant ltr:pl-8 rtl:pr-8 ltr:ml-auto rtl:mr-auto',

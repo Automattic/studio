@@ -14,6 +14,7 @@ import { certificateTrustApi } from 'src/stores/certificate-trust-api';
 import { reducer as chatReducer } from 'src/stores/chat-slice';
 import i18nReducer from 'src/stores/i18n-slice';
 import { installedAppsApi } from 'src/stores/installed-apps-api';
+import { linkedExtensionsApi } from 'src/stores/linked-extensions-api';
 import onboardingReducer from 'src/stores/onboarding-slice';
 import {
 	reducer as snapshotReducer,
@@ -38,6 +39,7 @@ export type RootState = {
 	betaFeatures: ReturnType< typeof betaFeaturesReducer >;
 	chat: ReturnType< typeof chatReducer >;
 	installedAppsApi: ReturnType< typeof installedAppsApi.reducer >;
+	linkedExtensionsApi: ReturnType< typeof linkedExtensionsApi.reducer >;
 	onboarding: ReturnType< typeof onboardingReducer >;
 	snapshot: ReturnType< typeof snapshotReducer >;
 	sync: ReturnType< typeof syncReducer >;
@@ -326,6 +328,7 @@ export const rootReducer = combineReducers( {
 	betaFeatures: betaFeaturesReducer,
 	chat: chatReducer,
 	installedAppsApi: installedAppsApi.reducer,
+	linkedExtensionsApi: linkedExtensionsApi.reducer,
 	connectedSitesApi: connectedSitesApi.reducer,
 	connectedSites: connectedSitesReducer,
 	wpcomSitesApi: wpcomSitesApi.reducer,
@@ -348,6 +351,7 @@ export const store = configureStore( {
 			.prepend( listenerMiddleware.middleware )
 			.concat( appVersionApi.middleware )
 			.concat( installedAppsApi.middleware )
+			.concat( linkedExtensionsApi.middleware )
 			.concat( connectedSitesApi.middleware )
 			.concat( wpcomSitesApi.middleware )
 			.concat( wordpressVersionsApi.middleware )

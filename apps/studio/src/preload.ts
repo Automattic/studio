@@ -180,6 +180,12 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'installWordPressSkillsToAllSites', options ),
 	removeWordPressSkillFromAllSites: ( skillId ) =>
 		ipcRendererInvoke( 'removeWordPressSkillFromAllSites', skillId ),
+	listLinkedPlugins: ( siteId ) => ipcRendererInvoke( 'listLinkedPlugins', siteId ),
+	listLinkedThemes: ( siteId ) => ipcRendererInvoke( 'listLinkedThemes', siteId ),
+	linkPlugin: ( siteId, sourcePath ) => ipcRendererInvoke( 'linkPlugin', siteId, sourcePath ),
+	linkTheme: ( siteId, sourcePath ) => ipcRendererInvoke( 'linkTheme', siteId, sourcePath ),
+	unlinkPlugin: ( siteId, name ) => ipcRendererInvoke( 'unlinkPlugin', siteId, name ),
+	unlinkTheme: ( siteId, name ) => ipcRendererInvoke( 'unlinkTheme', siteId, name ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

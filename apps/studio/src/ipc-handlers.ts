@@ -75,6 +75,14 @@ import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import * as oauthClient from 'src/lib/oauth';
+import {
+	linkExtension,
+	listLinkedExtensions,
+	unlinkExtension,
+	type LinkedExtension,
+	type LinkResult,
+	type UnlinkResult,
+} from 'src/lib/plugin-theme-link';
 import { getAiInstructionsPath } from 'src/lib/server-files-paths';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { installSqliteIntegration, keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
@@ -300,6 +308,76 @@ export async function removeWordPressSkillFromAllSites(
 	const sharedConfig = await readSharedConfig();
 	const updated = ( sharedConfig.selectedSkills ?? [] ).filter( ( id ) => id !== skillId );
 	await updateSharedConfig( { selectedSkills: updated } );
+}
+
+export async function listLinkedPlugins(
+	_event: IpcMainInvokeEvent,
+	siteId: string
+): Promise< LinkedExtension[] > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( `Site not found: ${ siteId }` );
+	}
+	return listLinkedExtensions( 'plugin', server.details.path );
+}
+
+export async function listLinkedThemes(
+	_event: IpcMainInvokeEvent,
+	siteId: string
+): Promise< LinkedExtension[] > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( `Site not found: ${ siteId }` );
+	}
+	return listLinkedExtensions( 'theme', server.details.path );
+}
+
+export async function linkPlugin(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	sourcePath: string
+): Promise< LinkResult > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( `Site not found: ${ siteId }` );
+	}
+	return linkExtension( 'plugin', server.details.path, sourcePath );
+}
+
+export async function linkTheme(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	sourcePath: string
+): Promise< LinkResult > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( `Site not found: ${ siteId }` );
+	}
+	return linkExtension( 'theme', server.details.path, sourcePath );
+}
+
+export async function unlinkPlugin(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	name: string
+): Promise< UnlinkResult > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( `Site not found: ${ siteId }` );
+	}
+	return unlinkExtension( 'plugin', server.details.path, name );
+}
+
+export async function unlinkTheme(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	name: string
+): Promise< UnlinkResult > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( `Site not found: ${ siteId }` );
+	}
+	return unlinkExtension( 'theme', server.details.path, name );
 }
 
 const DEBUG_LOG_MAX_LINES = 50;

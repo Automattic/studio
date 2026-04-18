@@ -3,10 +3,6 @@
 		var(--wpds-dimension-padding-lg);
 }
 
-.root svg {
-	transform: scale(0.75);
-}
-
 .row {
 	display: flex;
 	align-items: center;

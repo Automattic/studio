@@ -33,3 +33,11 @@ button:focus:not(:focus-visible),
 [role="button"]:focus:not(:focus-visible) {
 	outline: none;
 }
+
+/* Default icons inside buttons and menu items to 75% scale — WP UI's Icon
+   primitive draws at 16px, which reads a bit large for dense sidebars and
+   menus. Scope is tight enough to leave content/illustration SVGs alone. */
+button svg,
+[role^="menuitem"] svg {
+	transform: scale(0.75);
+}

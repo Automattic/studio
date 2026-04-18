@@ -56,4 +56,13 @@ export interface Connector {
 
 	// Locale
 	getUserLocale(): Promise< string | undefined >;
+
+	// Color scheme
+	getColorScheme(): Promise< ColorScheme >;
+	saveColorScheme( scheme: ColorScheme ): Promise< void >;
+
+	// External links
+	openExternalUrl( url: string ): Promise< void >;
 }
+
+export type ColorScheme = 'system' | 'light' | 'dark';

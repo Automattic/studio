@@ -119,7 +119,7 @@ function ProjectSection( {
 						<Button
 							variant="minimal"
 							tone="neutral"
-							size="compact"
+							size="small"
 							className={ styles.projectTrigger }
 						>
 							<Button.Icon icon={ open ? chevronDown : chevronRight } size={ 16 } />
@@ -163,7 +163,7 @@ export function ProjectList() {
 	return (
 		<div className={ styles.root }>
 			<Stack direction="row" align="center" justify="flex-end" className={ styles.header }>
-				<Button variant="minimal" tone="neutral" size="compact">
+				<Button variant="minimal" tone="neutral" size="small">
 					<Button.Icon icon={ plus } size={ 16 } />
 					<span>{ __( 'Add site' ) }</span>
 				</Button>

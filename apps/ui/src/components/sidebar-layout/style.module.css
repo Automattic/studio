@@ -9,6 +9,12 @@
 	background-color: var(--wpds-color-bg-surface-neutral-weak);
 	display: flex;
 	flex-direction: column;
+	overflow: hidden;
+}
+
+.sidebarContent {
+	flex: 1;
+	min-height: 0;
 	overflow-y: auto;
 }
 

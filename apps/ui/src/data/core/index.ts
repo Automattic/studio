@@ -4,6 +4,7 @@ export type {
 	AiSessionEvent,
 	AiSessionSummary,
 	AuthUser,
+	ColorScheme,
 	Connector,
 	LoadedAiSession,
 	SiteDetails,

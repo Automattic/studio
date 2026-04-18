@@ -1,3 +1,8 @@
+:root {
+	/* Default is 2px; 4px reads a bit softer. */
+	--wpds-border-radius-sm: 4px;
+}
+
 body {
 	margin: 0;
 	padding: 0;
@@ -7,12 +12,24 @@ body {
 	background-color: var(--wpds-color-bg-surface-neutral-strong);
 	color: var(--wpds-color-fg-content-neutral);
 	color-scheme: light dark;
-	-webkit-app-region: drag; /* Electron: make the window draggable */
+	-webkit-app-region: drag;
 }
 
+/* Interactive elements opt out of the window drag region.
+   `[data-base-ui-portal] *` covers the @base-ui Menu portal subtree —
+   items render as divs, so we can't rely on the button/link selectors. */
 button,
 a,
 input,
-[role="button"] {
+[role="button"],
+[data-base-ui-portal],
+[data-base-ui-portal] * {
 	-webkit-app-region: no-drag;
+}
+
+/* Show the focus ring only on keyboard focus, overriding @wordpress/ui's
+   :focus-based outline. Unlayered CSS wins over WP UI's cascade layers. */
+button:focus:not(:focus-visible),
+[role="button"]:focus:not(:focus-visible) {
+	outline: none;
 }

@@ -9,7 +9,7 @@
 	min-width: 160px;
 	padding: var(--wpds-dimension-padding-xs);
 	background: var(--wpds-color-bg-surface-neutral-strong);
-	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral-weak);
 	border-radius: var(--wpds-border-radius-md);
 	box-shadow: var(--wpds-elevation-md);
 	color: var(--wpds-color-fg-content-neutral);

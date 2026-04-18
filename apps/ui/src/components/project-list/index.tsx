@@ -1,7 +1,7 @@
 import { Link } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { Icon, chevronDown, chevronRight, plus } from '@wordpress/icons';
-import { Button, Collapsible, Stack } from '@wordpress/ui';
+import { Button, Collapsible, IconButton, Stack } from '@wordpress/ui';
 import { useMemo, useState } from 'react';
 import { useSessions } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
@@ -21,11 +21,15 @@ function groupSessionsByOwner(
 	sites: SiteDetails[] | undefined,
 	sessions: AiSessionSummary[] | undefined
 ): ProjectGroup[] {
+	const knownSitePaths = new Set( ( sites ?? [] ).map( ( site ) => site.path ) );
 	const sessionsByPath = new Map< string, AiSessionSummary[] >();
 	const unassigned: AiSessionSummary[] = [];
 
 	for ( const session of sessions ?? [] ) {
-		if ( ! session.ownerSitePath ) {
+		// A session is "assigned" only if its owner path still matches a known site.
+		// Orphans (site deleted/renamed, empty path, or never selected one) fall through
+		// to the Unassigned bucket so they stay reachable.
+		if ( ! session.ownerSitePath || ! knownSitePaths.has( session.ownerSitePath ) ) {
 			unassigned.push( session );
 			continue;
 		}
@@ -73,31 +77,50 @@ function SessionItem( { session }: { session: AiSessionSummary } ) {
 	);
 }
 
-function ProjectSection( { group, defaultOpen }: { group: ProjectGroup; defaultOpen: boolean } ) {
+function ProjectSection( {
+	group,
+	defaultOpen,
+	isUnassigned,
+}: {
+	group: ProjectGroup;
+	defaultOpen: boolean;
+	isUnassigned: boolean;
+} ) {
 	const [ open, setOpen ] = useState( defaultOpen );
 
 	return (
-		<Collapsible.Root open={ open } onOpenChange={ setOpen } className={ styles.project }>
-			<Stack direction="row" align="center" justify="space-between">
+		<Collapsible.Root
+			open={ open }
+			onOpenChange={ setOpen }
+			className={ `${ styles.project } ${ isUnassigned ? styles.unassigned : '' }` }
+		>
+			<div className={ styles.projectRow }>
 				<Collapsible.Trigger
 					render={
-						<Button variant="minimal" tone="neutral" size="compact">
-							<Icon icon={ open ? chevronDown : chevronRight } size={ 18 } />
+						<Button
+							variant="minimal"
+							tone="neutral"
+							size="compact"
+							className={ styles.projectTrigger }
+						>
+							<span className={ styles.chevron }>
+								<Icon icon={ open ? chevronDown : chevronRight } size={ 14 } />
+							</span>
 							<span className={ styles.projectName }>{ group.label }</span>
 						</Button>
 					}
 				/>
 				{ group.site ? (
-					<Button
+					<IconButton
 						variant="minimal"
 						tone="neutral"
-						size="compact"
-						aria-label={ __( 'New session' ) }
-					>
-						<Icon icon={ plus } size={ 18 } />
-					</Button>
+						size="small"
+						icon={ plus }
+						label={ __( 'New session' ) }
+						className={ styles.projectAction }
+					/>
 				) : null }
-			</Stack>
+			</div>
 			<Collapsible.Panel>
 				{ group.sessions.length === 0 ? (
 					<p className={ styles.empty }>{ __( 'No sessions' ) }</p>
@@ -121,8 +144,7 @@ export function ProjectList() {
 
 	return (
 		<div className={ styles.root }>
-			<Stack direction="row" align="center" justify="space-between" className={ styles.header }>
-				<span className={ styles.title }>{ __( 'Projects' ) }</span>
+			<Stack direction="row" align="center" justify="flex-end" className={ styles.header }>
 				<Button variant="minimal" tone="neutral" size="compact">
 					<Icon icon={ plus } size={ 18 } />
 					<span>{ __( 'Add site' ) }</span>
@@ -134,13 +156,17 @@ export function ProjectList() {
 				<p className={ styles.empty }>{ __( 'No projects yet' ) }</p>
 			) : (
 				<div className={ styles.projects }>
-					{ groups.map( ( group ) => (
-						<ProjectSection
-							key={ group.key }
-							group={ group }
-							defaultOpen={ group.sessions.length > 0 }
-						/>
-					) ) }
+					{ groups.map( ( group ) => {
+						const isUnassigned = group.key === UNASSIGNED_KEY;
+						return (
+							<ProjectSection
+								key={ group.key }
+								group={ group }
+								isUnassigned={ isUnassigned }
+								defaultOpen={ ! isUnassigned && group.sessions.length > 0 }
+							/>
+						);
+					} ) }
 				</div>
 			) }
 		</div>

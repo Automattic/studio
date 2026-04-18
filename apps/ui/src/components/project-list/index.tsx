@@ -49,6 +49,25 @@ function groupSessionsByOwner(
 		sessions: sessionsByPath.get( site.path ) ?? [],
 	} ) );
 
+	// Sort site-groups by the newest session's updatedAt so the most recently
+	// used project lands at the top (and gets expanded on launch). Sessions are
+	// already sorted newest-first, so sessions[0] is each project's MRU. Projects
+	// with no sessions drop to the bottom.
+	groups.sort( ( a, b ) => {
+		const aTimestamp = a.sessions[ 0 ]?.updatedAt;
+		const bTimestamp = b.sessions[ 0 ]?.updatedAt;
+		if ( ! aTimestamp && ! bTimestamp ) {
+			return 0;
+		}
+		if ( ! aTimestamp ) {
+			return 1;
+		}
+		if ( ! bTimestamp ) {
+			return -1;
+		}
+		return Date.parse( bTimestamp ) - Date.parse( aTimestamp );
+	} );
+
 	if ( unassigned.length > 0 ) {
 		groups.push( {
 			key: UNASSIGNED_KEY,
@@ -155,14 +174,16 @@ export function ProjectList() {
 				<p className={ styles.empty }>{ __( 'No projects yet' ) }</p>
 			) : (
 				<div className={ styles.projects }>
-					{ groups.map( ( group ) => {
+					{ groups.map( ( group, index ) => {
 						const isUnassigned = group.key === UNASSIGNED_KEY;
 						return (
 							<ProjectSection
 								key={ group.key }
 								group={ group }
 								isUnassigned={ isUnassigned }
-								defaultOpen={ ! isUnassigned && group.sessions.length > 0 }
+								defaultOpen={
+									! isUnassigned && index === 0 && group.sessions.length > 0
+								}
 							/>
 						);
 					} ) }

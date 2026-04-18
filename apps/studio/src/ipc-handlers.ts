@@ -19,6 +19,11 @@ import os from 'os';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import {
+	deleteAiSession as deleteAiSessionFromStore,
+	listAiSessions as listAiSessionsFromStore,
+	loadAiSession as loadAiSessionFromStore,
+} from '@studio/common/ai/sessions/store';
+import {
 	installSkillToSite,
 	removeSkillFromSite,
 	updateManagedInstructionFiles,
@@ -51,11 +56,7 @@ import {
 	WINDOWS_TITLEBAR_HEIGHT,
 } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
-import {
-	deleteAiSession as deleteAiSessionFromStore,
-	listAiSessions as listAiSessionsFromStore,
-	loadAiSession as loadAiSessionFromStore,
-} from 'src/lib/ai-sessions';
+import { getAiSessionsRootDirectory } from 'src/lib/ai-sessions';
 import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
 import {
 	bumpStat,
@@ -170,21 +171,21 @@ export {
 } from 'src/modules/user-settings/lib/ipc-handlers';
 
 export async function listAiSessions( _event: IpcMainInvokeEvent ): Promise< AiSessionSummary[] > {
-	return listAiSessionsFromStore();
+	return listAiSessionsFromStore( getAiSessionsRootDirectory() );
 }
 
 export async function loadAiSession(
 	_event: IpcMainInvokeEvent,
 	sessionIdOrPrefix: string
 ): Promise< LoadedAiSession > {
-	return loadAiSessionFromStore( sessionIdOrPrefix );
+	return loadAiSessionFromStore( getAiSessionsRootDirectory(), sessionIdOrPrefix );
 }
 
 export async function deleteAiSession(
 	_event: IpcMainInvokeEvent,
 	sessionIdOrPrefix: string
 ): Promise< AiSessionSummary > {
-	return deleteAiSessionFromStore( sessionIdOrPrefix );
+	return deleteAiSessionFromStore( getAiSessionsRootDirectory(), sessionIdOrPrefix );
 }
 
 export async function getAgentInstructionsStatus(

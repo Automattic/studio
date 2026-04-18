@@ -108,5 +108,19 @@ export function createIpcConnector(): Connector {
 		async openExternalUrl( url: string ): Promise< void > {
 			ipcApi.openURL( url );
 		},
+
+		// Window state
+		async isFullscreen(): Promise< boolean > {
+			return ipcApi.isFullscreen();
+		},
+
+		onFullscreenChange( listener ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const ipcListener = ( window as any ).ipcListener;
+			return ipcListener.subscribe(
+				'window-fullscreen-change',
+				( _event: unknown, fullscreen: boolean ) => listener( fullscreen )
+			);
+		},
 	};
 }

@@ -1,7 +1,7 @@
 import { Link } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { chevronDown, chevronRight, plus } from '@wordpress/icons';
-import { Button, Collapsible, IconButton, Stack } from '@wordpress/ui';
+import { Button, Collapsible, IconButton } from '@wordpress/ui';
 import { useMemo, useState } from 'react';
 import { useSessions } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
@@ -162,12 +162,6 @@ export function ProjectList() {
 
 	return (
 		<div className={ styles.root }>
-			<Stack direction="row" align="center" justify="flex-end" className={ styles.header }>
-				<Button variant="minimal" tone="neutral" size="small">
-					<Button.Icon icon={ plus } size={ 16 } />
-					<span>{ __( 'Add site' ) }</span>
-				</Button>
-			</Stack>
 			{ sitesLoading || sessionsLoading ? (
 				<p className={ styles.empty }>{ __( 'Loading…' ) }</p>
 			) : groups.length === 0 ? (
@@ -181,9 +175,7 @@ export function ProjectList() {
 								key={ group.key }
 								group={ group }
 								isUnassigned={ isUnassigned }
-								defaultOpen={
-									! isUnassigned && index === 0 && group.sessions.length > 0
-								}
+								defaultOpen={ ! isUnassigned && index === 0 && group.sessions.length > 0 }
 							/>
 						);
 					} ) }

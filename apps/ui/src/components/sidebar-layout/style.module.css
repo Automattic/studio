@@ -9,13 +9,7 @@
 	background-color: var(--wpds-color-bg-surface-neutral-weak);
 	display: flex;
 	flex-direction: column;
-	justify-content: flex-end;
-}
-
-.separator {
-	margin-block-start: auto;
-	height: 1px;
-	background-color: var(--wpds-color-stroke-surface-neutral);
+	overflow-y: auto;
 }
 
 .main {

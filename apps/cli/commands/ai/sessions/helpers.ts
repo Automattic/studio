@@ -3,7 +3,7 @@ import { truncateToWidth, visibleWidth } from '@mariozechner/pi-tui';
 import chalk from '@studio/common/lib/chalk';
 import { __ } from '@wordpress/i18n';
 import { listAiSessions } from 'cli/ai/sessions/store';
-import type { AiSessionSummary } from 'cli/ai/sessions/types';
+import type { AiSessionSummary } from '@studio/common/ai/sessions/types';
 
 function formatSessionTimestamp( timestamp: string ): string {
 	const parsed = Date.parse( timestamp );

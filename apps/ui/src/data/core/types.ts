@@ -1,3 +1,11 @@
+import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
+
+export type {
+	AiSessionSummary,
+	LoadedAiSession,
+	AiSessionEvent,
+} from '@studio/common/ai/sessions/types';
+
 export interface SiteDetails {
 	id: string;
 	name: string;
@@ -40,6 +48,11 @@ export interface Connector {
 	deleteSite( id: string ): Promise< void >;
 	startSite( id: string ): Promise< void >;
 	stopSite( id: string ): Promise< void >;
+
+	// AI sessions (shared with the CLI — stored as JSONL on disk)
+	getSessions(): Promise< AiSessionSummary[] >;
+	getSession( sessionId: string ): Promise< LoadedAiSession >;
+	deleteSession( sessionId: string ): Promise< void >;
 
 	// Locale
 	getUserLocale(): Promise< string | undefined >;

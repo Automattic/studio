@@ -1,5 +1,6 @@
 import { AiChatUI } from 'cli/ai/ui';
-import type { AiSessionEvent } from './types';
+import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
+import type { AiSessionEvent } from '@studio/common/ai/sessions/types';
 
 export function replaySessionHistory( ui: AiChatUI, events: AiSessionEvent[] ): void {
 	ui.prepareForReplay();
@@ -49,7 +50,7 @@ export function replaySessionHistory( ui: AiChatUI, events: AiSessionEvent[] ): 
 			}
 
 			if ( event.type === 'sdk.message' ) {
-				ui.handleMessage( event.message );
+				ui.handleMessage( event.message as SDKMessage );
 				continue;
 			}
 

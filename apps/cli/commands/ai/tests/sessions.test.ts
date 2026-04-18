@@ -12,7 +12,7 @@ import {
 	readAiSessionEventsFromFile,
 } from 'cli/ai/sessions/store';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
-import type { AiSessionEvent } from 'cli/ai/sessions/types';
+import type { AiSessionEvent } from '@studio/common/ai/sessions/types';
 
 describe( 'ai-sessions', () => {
 	let testRoot: string | undefined;

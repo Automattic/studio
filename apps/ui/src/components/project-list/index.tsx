@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { Icon, chevronDown, chevronRight, plus } from '@wordpress/icons';
+import { chevronDown, chevronRight, plus } from '@wordpress/icons';
 import { Button, Collapsible, IconButton, Stack } from '@wordpress/ui';
 import { useMemo, useState } from 'react';
 import { useSessions } from '@/data/queries/use-sessions';
@@ -103,9 +103,8 @@ function ProjectSection( {
 							size="compact"
 							className={ styles.projectTrigger }
 						>
-							<span className={ styles.chevron }>
-								<Icon icon={ open ? chevronDown : chevronRight } size={ 14 } />
-							</span>
+							<Button.Icon icon={ open ? chevronDown : chevronRight } size={ 16 } />
+
 							<span className={ styles.projectName }>{ group.label }</span>
 						</Button>
 					}
@@ -146,7 +145,7 @@ export function ProjectList() {
 		<div className={ styles.root }>
 			<Stack direction="row" align="center" justify="flex-end" className={ styles.header }>
 				<Button variant="minimal" tone="neutral" size="compact">
-					<Icon icon={ plus } size={ 18 } />
+					<Button.Icon icon={ plus } size={ 16 } />
 					<span>{ __( 'Add site' ) }</span>
 				</Button>
 			</Stack>

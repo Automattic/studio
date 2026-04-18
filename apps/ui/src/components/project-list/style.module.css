@@ -9,6 +9,12 @@
 	padding: var(--wpds-dimension-padding-xs) 0;
 }
 
+.header svg,
+.projectTrigger svg,
+.projectAction svg {
+	transform: scale(0.75);
+}
+
 .projects {
 	display: flex;
 	flex-direction: column;
@@ -49,11 +55,6 @@
 .projectRow:hover .projectAction,
 .projectRow:focus-within .projectAction {
 	opacity: 1;
-}
-
-.chevron {
-	display: inline-flex;
-	flex-shrink: 0;
 }
 
 .projectName {

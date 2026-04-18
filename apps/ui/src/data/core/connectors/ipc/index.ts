@@ -1,6 +1,7 @@
 import type {
 	AiSessionSummary,
 	AuthUser,
+	ColorScheme,
 	Connector,
 	LoadedAiSession,
 	SiteDetails,
@@ -92,6 +93,20 @@ export function createIpcConnector(): Connector {
 		// Locale
 		async getUserLocale(): Promise< string | undefined > {
 			return ipcApi.getUserLocale();
+		},
+
+		// Color scheme
+		async getColorScheme(): Promise< ColorScheme > {
+			return ipcApi.getColorScheme();
+		},
+
+		async saveColorScheme( scheme: ColorScheme ): Promise< void > {
+			await ipcApi.saveColorScheme( scheme );
+		},
+
+		// External links
+		async openExternalUrl( url: string ): Promise< void > {
+			ipcApi.openURL( url );
 		},
 	};
 }

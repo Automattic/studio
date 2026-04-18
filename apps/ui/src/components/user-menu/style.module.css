@@ -1,0 +1,48 @@
+.root {
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md)
+		var(--wpds-dimension-padding-lg);
+}
+
+.row {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xs);
+	opacity: 0.65;
+}
+
+.row:hover,
+.row:focus-within {
+	opacity: 1;
+}
+
+.userTrigger {
+	flex: 1;
+	justify-content: flex-start;
+	min-width: 0;
+	font-weight: var(--wpds-font-weight-regular);
+}
+
+.userName {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	min-width: 0;
+}
+
+.loginButton {
+	flex: 1;
+	justify-content: flex-start;
+}
+
+.popup {
+	min-width: 220px;
+}
+
+.email {
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
+	font-size: var(--wpds-font-size-xs);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}

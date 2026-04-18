@@ -9,12 +9,6 @@
 	padding: var(--wpds-dimension-padding-xs) 0;
 }
 
-.header svg,
-.projectTrigger svg,
-.projectAction svg {
-	transform: scale(0.75);
-}
-
 .projects {
 	display: flex;
 	flex-direction: column;
@@ -93,24 +87,25 @@
 }
 
 .sessionLink {
-	display: block;
-	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm)
-		var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-xl);
+	display: flex;
+	align-items: center;
+	height: 24px;
+	padding: 0 var(--wpds-dimension-padding-sm) 0 var(--wpds-dimension-padding-2xl);
 	color: var(--wpds-color-fg-content-neutral);
 	text-decoration: none;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	font-size: var(--wpds-font-size-sm);
-	border-radius: var(--wpds-dimension-radius-sm);
+	border-radius: var(--wpds-border-radius-sm);
 }
 
 .sessionLink:hover {
 	color: var(--wpds-color-fg-content-neutral);
-	background-color: var(--wpds-color-bg-surface-neutral);
+	background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
 }
 
 .sessionLinkActive {
 	color: var(--wpds-color-fg-content-neutral);
-	background-color: var(--wpds-color-bg-surface-neutral);
+	background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
 }

@@ -3,8 +3,9 @@ import { __, _n, sprintf } from '@wordpress/i18n';
 import { SidebarLayout } from '@/components/sidebar-layout';
 import { useSites } from '@/data/queries/use-sites';
 import { rootRoute } from './root';
+import { sessionDetailRoute } from './sessions';
 
-const dashboardLayoutRoute = createRoute( {
+export const dashboardLayoutRoute = createRoute( {
 	getParentRoute: () => rootRoute,
 	id: 'dashboard-layout',
 	component: () => (
@@ -32,4 +33,7 @@ const dashboardRoute = createRoute( {
 	component: DashboardHome,
 } );
 
-export const dashboardLayoutWithChildren = dashboardLayoutRoute.addChildren( [ dashboardRoute ] );
+export const dashboardLayoutWithChildren = dashboardLayoutRoute.addChildren( [
+	dashboardRoute,
+	sessionDetailRoute,
+] );

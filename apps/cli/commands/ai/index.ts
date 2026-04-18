@@ -1,3 +1,4 @@
+import { type LoadedAiSession, type TurnStatus } from '@studio/common/ai/sessions/types';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { DEFAULT_MODEL, startAiAgent, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
@@ -16,7 +17,6 @@ import { AI_PROVIDERS, type AiProviderId } from 'cli/ai/providers';
 import { resolveResumeSessionContext } from 'cli/ai/sessions/context';
 import { AiSessionRecorder } from 'cli/ai/sessions/recorder';
 import { replaySessionHistory } from 'cli/ai/sessions/replay';
-import { type LoadedAiSession, type TurnStatus } from 'cli/ai/sessions/types';
 import { AI_CHAT_SLASH_COMMANDS, type SlashCommandContext } from 'cli/ai/slash-commands';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';

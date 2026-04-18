@@ -1,4 +1,10 @@
-import type { AuthUser, Connector, SiteDetails } from '../../types';
+import type {
+	AiSessionSummary,
+	AuthUser,
+	Connector,
+	LoadedAiSession,
+	SiteDetails,
+} from '../../types';
 
 /**
  * Creates a connector that delegates to the Electron IPC bridge.
@@ -68,6 +74,19 @@ export function createIpcConnector(): Connector {
 
 		async stopSite( id ) {
 			await ipcApi.stopServer( id );
+		},
+
+		// AI sessions
+		async getSessions(): Promise< AiSessionSummary[] > {
+			return ( await ipcApi.listAiSessions() ) as AiSessionSummary[];
+		},
+
+		async getSession( sessionId ): Promise< LoadedAiSession > {
+			return ( await ipcApi.loadAiSession( sessionId ) ) as LoadedAiSession;
+		},
+
+		async deleteSession( sessionId ) {
+			await ipcApi.deleteAiSession( sessionId );
 		},
 
 		// Locale

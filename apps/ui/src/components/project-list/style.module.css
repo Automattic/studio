@@ -1,0 +1,116 @@
+.root {
+	padding: var(--wpds-dimension-padding-md);
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-sm);
+}
+
+.header {
+	padding: var(--wpds-dimension-padding-xs) 0;
+}
+
+.header svg,
+.projectTrigger svg,
+.projectAction svg {
+	transform: scale(0.75);
+}
+
+.projects {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-xs);
+}
+
+.project {
+	display: flex;
+	flex-direction: column;
+}
+
+.projectRow {
+	position: relative;
+}
+
+.projectTrigger {
+	width: 100%;
+	justify-content: flex-start;
+	min-width: 0;
+	padding-inline-end: var(--wpds-dimension-padding-xl);
+	opacity: 0.65;
+}
+
+.projectTrigger:hover,
+.projectTrigger:focus-visible {
+	opacity: 1;
+}
+
+.projectAction {
+	position: absolute;
+	inset-inline-end: 0;
+	top: 50%;
+	transform: translateY(-50%);
+	opacity: 0;
+	transition: opacity 100ms ease;
+}
+
+.projectRow:hover .projectAction,
+.projectRow:focus-within .projectAction {
+	opacity: 1;
+}
+
+.projectName {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	min-width: 0;
+	font-size: var(--wpds-font-size-sm);
+	font-weight: var(--wpds-font-weight-regular);
+}
+
+.unassigned {
+	margin-top: var(--wpds-dimension-padding-md);
+	padding-top: var(--wpds-dimension-padding-md);
+	border-top: 1px solid var(--wpds-color-stroke-surface-neutral);
+}
+
+.empty {
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm)
+		var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-xl);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-font-size-sm);
+	margin: 0;
+}
+
+.sessionList {
+	list-style: none;
+	padding: 0;
+	margin: 0;
+	display: flex;
+	flex-direction: column;
+}
+
+.sessionItem {
+	min-width: 0;
+}
+
+.sessionLink {
+	display: block;
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm)
+		var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-xl);
+	color: var(--wpds-color-fg-content-neutral);
+	text-decoration: none;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: var(--wpds-font-size-sm);
+	border-radius: var(--wpds-dimension-radius-sm);
+}
+
+.sessionLink:hover {
+	color: var(--wpds-color-fg-content-neutral);
+	background-color: var(--wpds-color-bg-surface-neutral);
+}
+
+.sessionLinkActive {
+	color: var(--wpds-color-fg-content-neutral);
+	background-color: var(--wpds-color-bg-surface-neutral);
+}

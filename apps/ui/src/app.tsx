@@ -26,7 +26,7 @@ export function App( { connector }: AppProps ) {
 		<ConnectorProvider connector={ connector }>
 			<QueryClientProvider client={ queryClient }>
 				<I18nProvider i18n={ defaultI18n }>
-					<ThemeProvider isRoot color={ themeColor }>
+					<ThemeProvider isRoot color={ themeColor } density="compact">
 						<RouterProvider router={ router } />
 					</ThemeProvider>
 				</I18nProvider>

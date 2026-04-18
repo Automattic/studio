@@ -63,6 +63,11 @@ export interface Connector {
 
 	// External links
 	openExternalUrl( url: string ): Promise< void >;
+
+	// Window state (macOS fullscreen hides traffic lights, so the UI needs
+	// to reclaim the space we normally leave for them).
+	isFullscreen(): Promise< boolean >;
+	onFullscreenChange( listener: ( fullscreen: boolean ) => void ): () => void;
 }
 
 export type ColorScheme = 'system' | 'light' | 'dark';

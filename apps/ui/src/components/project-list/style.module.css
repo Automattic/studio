@@ -5,10 +5,6 @@
 	gap: var(--wpds-dimension-padding-sm);
 }
 
-.header {
-	padding: var(--wpds-dimension-padding-xs) 0;
-}
-
 .projects {
 	display: flex;
 	flex-direction: column;

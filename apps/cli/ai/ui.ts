@@ -1262,7 +1262,7 @@ export class AiChatUI implements AiOutputAdapter {
 		const b = chalk.blue;
 
 		// WordPress logo in block characters, widened to avoid vertical stretching in terminals.
-		const logo = [
+		const logoLines = [
 			'    ▄█▛▀▀▀▀█▙▖',
 			' ▗▟█        ▗██▄',
 			'▄███▛ ▝▜██  ▝███▙',
@@ -1271,27 +1271,48 @@ export class AiChatUI implements AiOutputAdapter {
 			'▀▙▖ ▜█▄▟ ▝█▙▄▌ ▄▛',
 			' ▝▜▄▝██▌  ▀██▗▟▀',
 			'    ▀██▙▄▄▄█▛▘',
-		].map( ( s ) => b( s ) );
+		];
+		const logo = logoLines.map( ( s ) => b( s ) );
+		const logoWidth = Math.max( ...logoLines.map( ( s ) => s.length ) );
+
+		// Lay out logo on the left, info on the right (vertically centered)
+		const gap = 4;
+		const leading = 1;
+		const termWidth = process.stdout.columns ?? 80;
+		const availableInfoWidth = Math.max( 0, termWidth - leading - logoWidth - gap );
+
+		// Truncate the cwd with a leading ellipsis (preserving the meaningful
+		// suffix) when the terminal is too narrow, otherwise the welcome wraps
+		// and visually breaks the logo layout.
+		const baseInfo = `${ AI_MODELS[ this.currentModel ] } · ${
+			AI_PROVIDERS[ this.currentProvider ]
+		}`;
+		const sep = ' · ';
+		let secondLine: string;
+		if ( baseInfo.length + sep.length + displayCwd.length <= availableInfoWidth ) {
+			secondLine = `${ baseInfo }${ sep }${ displayCwd }`;
+		} else {
+			const pathBudget = availableInfoWidth - baseInfo.length - sep.length;
+			if ( pathBudget >= 4 ) {
+				secondLine = `${ baseInfo }${ sep }…${ displayCwd.slice( -( pathBudget - 1 ) ) }`;
+			} else {
+				secondLine = baseInfo;
+			}
+		}
 
 		const info = [
 			chalk.bold( 'WordPress Studio' ) + ( version ? chalk.dim( ` v${ version }` ) : '' ),
-			chalk.dim(
-				`${ AI_MODELS[ this.currentModel ] } · ${
-					AI_PROVIDERS[ this.currentProvider ]
-				} · ${ displayCwd }`
-			),
+			chalk.dim( secondLine ),
 			'',
 			chalk.dim.italic( __( 'Code is Poetry' ) ),
 		];
 
-		// Lay out logo on the left, info on the right (vertically centered)
-		const gap = 4;
 		const infoStartRow = Math.max( 0, Math.floor( ( logo.length - info.length ) / 2 ) );
 
 		const lines = logo.map( ( logoLine, i ) => {
 			const infoIndex = i - infoStartRow;
 			const infoText = infoIndex >= 0 && infoIndex < info.length ? info[ infoIndex ] : '';
-			return ' ' + logoLine + ' '.repeat( gap ) + infoText;
+			return ' '.repeat( leading ) + logoLine + ' '.repeat( gap ) + infoText;
 		} );
 
 		this.messages.addChild( new Text( '\n' + lines.join( '\n' ) + '\n', 0, 0 ) );

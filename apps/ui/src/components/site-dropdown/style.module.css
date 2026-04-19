@@ -1,0 +1,102 @@
+.trigger {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-sm);
+	background: transparent;
+	border: 0;
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
+	margin: 0;
+	border-radius: var(--wpds-border-radius-sm);
+	font: inherit;
+	font-size: var(--wpds-font-size-sm);
+	color: var(--wpds-color-fg-content-neutral);
+	cursor: var(--wpds-cursor-control);
+	-webkit-app-region: no-drag;
+}
+
+.trigger:hover,
+.trigger[data-popup-open] {
+	background: var(--wpds-color-bg-surface-neutral);
+}
+
+.triggerSite {
+	font-weight: 600;
+}
+
+.triggerDot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background-color: var(--wpds-color-fg-content-success, #16a34a);
+	flex-shrink: 0;
+	/* Matches the session header's dot spacing: extra room around the dot only. */
+	margin: 0 var(--wpds-dimension-padding-xs);
+}
+
+.triggerEnv {
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.popup {
+	min-width: 320px;
+	padding: 0;
+	gap: 0;
+}
+
+.rows {
+	display: flex;
+	flex-direction: column;
+	padding: var(--wpds-dimension-padding-sm) 0;
+}
+
+.row {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-md);
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-lg);
+	min-height: 44px;
+}
+
+.rowText {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+}
+
+.rowLabel {
+	font-size: var(--wpds-font-size-sm);
+	font-weight: 500;
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.rowSublabel {
+	margin-top: 2px;
+	font-size: var(--wpds-font-size-xs);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.rowAction {
+	flex-shrink: 0;
+	color: var(--wpds-color-fg-content-accent);
+	font-size: var(--wpds-font-size-sm);
+}
+
+.emDash {
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-font-size-md);
+}
+
+.footer {
+	display: flex;
+	gap: var(--wpds-dimension-padding-sm);
+	padding: 0 var(--wpds-dimension-padding-lg) var(--wpds-dimension-padding-md);
+}
+
+.footerButton {
+	flex: 1;
+	justify-content: center;
+}

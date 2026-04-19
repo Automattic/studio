@@ -8,4 +8,6 @@ export type {
 	Connector,
 	LoadedAiSession,
 	SiteDetails,
+	Snapshot,
+	SyncSite,
 } from './types';

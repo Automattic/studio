@@ -5,12 +5,6 @@ export type TurnCompletedStatus = 'success' | 'error' | 'paused' | 'max_turns';
 
 export type JsonEvent =
 	| { type: 'message'; timestamp: string; message: unknown }
-	| {
-			type: 'message.delta';
-			timestamp: string;
-			messageId: string | null;
-			event: unknown;
-	  }
 	| { type: 'progress'; timestamp: string; message: string }
 	| { type: 'info'; timestamp: string; message: string }
 	| { type: 'error'; timestamp: string; message: string }

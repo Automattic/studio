@@ -9,12 +9,6 @@ export type AgentEvent =
 	| { type: 'run.exited'; timestamp: string; status: 'success' | 'error'; code: number | null }
 	| { type: 'run.interrupted'; timestamp: string }
 	| { type: 'message'; timestamp: string; message: unknown }
-	| {
-			type: 'message.delta';
-			timestamp: string;
-			messageId: string | null;
-			event: unknown;
-	  }
 	| { type: 'progress'; timestamp: string; message: string }
 	| { type: 'info'; timestamp: string; message: string }
 	| { type: 'error'; timestamp: string; message: string }

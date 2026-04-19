@@ -3,7 +3,6 @@ import type { AskUserQuestion } from 'cli/ai/agent';
 
 export type JsonEventType =
 	| 'message'
-	| 'message.delta'
 	| 'progress'
 	| 'info'
 	| 'error'
@@ -18,12 +17,6 @@ export type JsonEvent =
 			type: 'message';
 			timestamp: string;
 			message: SDKMessage;
-	  }
-	| {
-			type: 'message.delta';
-			timestamp: string;
-			messageId: string | null;
-			event: unknown;
 	  }
 	| {
 			type: 'progress';

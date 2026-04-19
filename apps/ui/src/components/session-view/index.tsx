@@ -2,7 +2,7 @@ import { isAssistantSdkMessage, isTextBlock, isToolUseBlock } from '@studio/comm
 import { filterEventsAfterLastClear } from '@studio/common/ai/sessions/filter-events';
 import { getToolDetail, getToolDisplayName } from '@studio/common/ai/tools';
 import { __ } from '@wordpress/i18n';
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useLayoutEffect, useMemo, useRef } from 'react';
 import { Markdown } from '@/components/markdown';
 import { useSession } from '@/data/queries/use-sessions';
 import { useFullscreen } from '@/hooks/use-fullscreen';
@@ -126,11 +126,7 @@ function UserTurn( { text }: { text: string } ) {
 }
 
 function AssistantText( { text }: { text: string } ) {
-	return (
-		<div className={ styles.turn }>
-			<Markdown>{ text }</Markdown>
-		</div>
-	);
+	return <Markdown>{ text }</Markdown>;
 }
 
 function ToolUseRow( { name, input }: { name: string; input?: Record< string, unknown > } ) {
@@ -219,23 +215,15 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 	const { data, isLoading, error } = useSession( sessionId );
 	const scrollRef = useRef< HTMLDivElement >( null );
 
-	// Jump to the bottom on first render for this session, before paint so the
-	// scroll lands on the latest message without a visible flash.
+	// Jump to the bottom when the session opens or changes. Run synchronously
+	// before paint to avoid a flash at the top, and re-pin after the next
+	// frame to catch late layout shifts (markdown finishing, fonts settling).
 	useLayoutEffect( () => {
-		const node = scrollRef.current;
-		if ( node ) {
-			node.scrollTop = node.scrollHeight;
-		}
-	}, [ sessionId, data ] );
-
-	// Scrollable content can also grow after the initial paint (e.g. markdown
-	// finishing render, images loading). Re-pin to the bottom briefly after
-	// mount so those late layout shifts don't leave the user mid-scroll.
-	useEffect( () => {
 		const node = scrollRef.current;
 		if ( ! node ) {
 			return;
 		}
+		node.scrollTop = node.scrollHeight;
 		const id = requestAnimationFrame( () => {
 			node.scrollTop = node.scrollHeight;
 		} );

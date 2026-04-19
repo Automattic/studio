@@ -82,12 +82,6 @@
 	gap: var(--wpds-dimension-padding-lg);
 }
 
-.turn {
-	display: flex;
-	flex-direction: column;
-	gap: var(--wpds-dimension-padding-xs);
-}
-
 /* User bubbles act as turn anchors; give them generous breathing room above
    and below so the user's prompt stands apart from the assistant response. */
 .userTurn {

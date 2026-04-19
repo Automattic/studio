@@ -134,5 +134,11 @@ export function createIpcConnector(): Connector {
 				( _event: unknown, fullscreen: boolean ) => listener( fullscreen )
 			);
 		},
+
+		onSiteEvent( listener ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const ipcListener = ( window as any ).ipcListener;
+			return ipcListener.subscribe( 'site-event', () => listener() );
+		},
 	};
 }

@@ -27,10 +27,34 @@
 	width: 6px;
 	height: 6px;
 	border-radius: 50%;
-	background-color: var(--wpds-color-fg-content-success, #16a34a);
 	flex-shrink: 0;
 	/* Matches the session header's dot spacing: extra room around the dot only. */
 	margin: 0 var(--wpds-dimension-padding-xs);
+}
+
+/* Hardcoded because `--wpds-color-fg-content-success` is #002900 (reads as
+   black at 6px) and the critical/accent equivalents don't exist. */
+.triggerDot_running {
+	background-color: #16a34a;
+}
+
+.triggerDot_stopped {
+	background-color: #dc2626;
+}
+
+.triggerDot_transitioning {
+	background-color: #2563eb;
+	animation: siteDotBlink 1s ease-in-out infinite;
+}
+
+@keyframes siteDotBlink {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.25;
+	}
 }
 
 .triggerEnv {
@@ -41,6 +65,14 @@
 	min-width: 320px;
 	padding: 0;
 	gap: 0;
+}
+
+/* Neutralize @wordpress/ui's Button :focus background+border when focus
+   lands programmatically (popup open). Outline is handled globally. Do not
+   reset `color` — it would clobber .is-loading's transparent label. */
+.popup button:focus:not(:focus-visible) {
+	background-color: var(--wp-ui-button-background-color);
+	border-color: var(--wp-ui-button-border-color);
 }
 
 .rows {
@@ -66,13 +98,15 @@
 
 .rowLabel {
 	font-size: var(--wpds-font-size-sm);
+	line-height: 1.2;
 	font-weight: 500;
 	color: var(--wpds-color-fg-content-neutral);
 }
 
 .rowSublabel {
-	margin-top: 2px;
+	margin-top: 4px;
 	font-size: var(--wpds-font-size-xs);
+	line-height: 1.2;
 	color: var(--wpds-color-fg-content-neutral-weak);
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -85,9 +119,10 @@
 	font-size: var(--wpds-font-size-sm);
 }
 
-.emDash {
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-font-size-md);
+.localActions {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xs);
 }
 
 .footer {

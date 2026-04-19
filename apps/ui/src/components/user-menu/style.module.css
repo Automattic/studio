@@ -23,10 +23,7 @@
 
 .userTrigger {
 	flex: 1;
-	justify-content: flex-start;
-	min-width: 0;
 	font-weight: var(--wpds-font-weight-regular);
-	gap: var(--wpds-dimension-padding-sm);
 }
 
 .userName {
@@ -38,7 +35,6 @@
 
 .loginButton {
 	flex: 1;
-	justify-content: flex-start;
 }
 
 .popup {

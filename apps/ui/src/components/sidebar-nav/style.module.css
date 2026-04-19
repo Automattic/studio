@@ -26,8 +26,7 @@
 	color: var(--wpds-color-fg-content-neutral);
 }
 
-.itemActive,
-.itemActive:hover {
+.itemActive {
 	color: var(--wpds-color-fg-content-neutral);
 	font-weight: var(--wpds-font-weight-medium);
 }

@@ -1,7 +1,8 @@
 import { __ } from '@wordpress/i18n';
-import { Button, IconButton } from '@wordpress/ui';
+import { IconButton } from '@wordpress/ui';
 import { Gravatar } from '@/components/gravatar';
 import * as Menu from '@/components/menu';
+import { SidebarButton } from '@/components/sidebar-button';
 import { useConnector } from '@/data/core';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
 import { useColorScheme, useSaveColorScheme } from '@/data/queries/use-color-scheme';
@@ -38,15 +39,10 @@ export function UserMenu() {
 					<Menu.Root modal={ false }>
 						<Menu.Trigger
 							render={
-								<Button
-									variant="minimal"
-									tone="neutral"
-									size="small"
-									className={ styles.userTrigger }
-								>
+								<SidebarButton className={ styles.userTrigger }>
 									<Gravatar email={ user.email } isDark={ themeIsDark } />
 									<span className={ styles.userName }>{ user.displayName }</span>
-								</Button>
+								</SidebarButton>
 							}
 						/>
 						<Menu.Popup side="top" align="start" className={ styles.popup }>
@@ -67,15 +63,9 @@ export function UserMenu() {
 						</Menu.Popup>
 					</Menu.Root>
 				) : (
-					<Button
-						variant="minimal"
-						tone="neutral"
-						size="small"
-						className={ styles.loginButton }
-						onClick={ () => login.mutate() }
-					>
+					<SidebarButton className={ styles.loginButton } onClick={ () => login.mutate() }>
 						{ __( 'Log in with WordPress.com' ) }
-					</Button>
+					</SidebarButton>
 				) }
 				<Menu.Root modal={ false }>
 					<Menu.Trigger

@@ -37,8 +37,6 @@
 .projectToggle {
 	max-width: 100%;
 	height: auto;
-	padding: 0 var(--wpds-dimension-padding-sm);
-	font-weight: inherit;
 }
 
 .projectName {
@@ -116,7 +114,6 @@
 }
 
 .sessionLink {
-	position: relative;
 	width: 100%;
 	height: 26px;
 	padding: 0 var(--wpds-dimension-padding-sm) 0 var(--wpds-dimension-padding-lg);
@@ -157,8 +154,7 @@
 	color: var(--wpds-color-fg-content-neutral);
 }
 
-.sessionLinkActive,
-.sessionLinkActive:hover {
+.sessionLinkActive {
 	color: var(--wpds-color-fg-content-neutral);
 }
 

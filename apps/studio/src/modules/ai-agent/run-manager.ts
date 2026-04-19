@@ -10,7 +10,6 @@ interface AgentRun {
 	sessionId: string;
 	child: ChildProcess;
 	webContents: WebContents;
-	stdoutBuffer: string;
 	interrupted: boolean;
 }
 
@@ -33,23 +32,6 @@ function sendEvent( run: AgentRun, event: AgentRunEvent[ 'event' ] ): void {
 		event,
 	};
 	run.webContents.send( 'ai-agent-event', payload );
-}
-
-function parseAndEmitNdjson( run: AgentRun, chunk: string ): void {
-	run.stdoutBuffer += chunk;
-	let newlineIndex = run.stdoutBuffer.indexOf( '\n' );
-	while ( newlineIndex !== -1 ) {
-		const line = run.stdoutBuffer.slice( 0, newlineIndex ).trim();
-		run.stdoutBuffer = run.stdoutBuffer.slice( newlineIndex + 1 );
-		if ( line ) {
-			try {
-				sendEvent( run, JSON.parse( line ) as JsonEvent );
-			} catch {
-				// Ignore non-JSON lines on stdout.
-			}
-		}
-		newlineIndex = run.stdoutBuffer.indexOf( '\n' );
-	}
 }
 
 export interface StartAgentRunOptions {
@@ -80,7 +62,10 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 			'--avoid-telemetry',
 		],
 		{
-			stdio: [ 'ignore', 'pipe', 'pipe', 'ipc' ],
+			// Agent events arrive over the Node IPC channel (via `process.send`
+			// in the child). stdout/stderr are ignored — the child's
+			// `emitEvent` falls back to stdout only when IPC isn't available.
+			stdio: [ 'ignore', 'ignore', 'ignore', 'ipc' ],
 			execPath: getBundledNodeBinaryPath(),
 			execArgv: [ '--experimental-wasm-jspi' ],
 			env: { ...process.env },
@@ -92,7 +77,6 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 		sessionId,
 		child,
 		webContents,
-		stdoutBuffer: '',
 		interrupted: false,
 	};
 
@@ -103,9 +87,13 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 		sendEvent( run, { type: 'run.started', timestamp: nowIso() } );
 	} );
 
-	child.stdout?.setEncoding( 'utf8' );
-	child.stdout?.on( 'data', ( data: string ) => {
-		parseAndEmitNdjson( run, data );
+	child.on( 'message', ( message ) => {
+		// The CLI's `Logger` also writes to this IPC channel with a different
+		// shape (`{ action, status, message }`) on error paths. Forward only
+		// messages that look like a JsonEvent.
+		if ( message && typeof message === 'object' && 'type' in message ) {
+			sendEvent( run, message as JsonEvent );
+		}
 	} );
 
 	const cleanup = ( code: number | null ) => {
@@ -131,13 +119,7 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 		} );
 	} );
 
-	child.on( 'exit', ( code ) => {
-		// Flush any trailing buffered line without a terminating newline.
-		if ( run.stdoutBuffer.trim() ) {
-			parseAndEmitNdjson( run, '\n' );
-		}
-		cleanup( code );
-	} );
+	child.on( 'exit', cleanup );
 
 	const abortOnDestroy = () => {
 		if ( ! runsById.has( runId ) ) {

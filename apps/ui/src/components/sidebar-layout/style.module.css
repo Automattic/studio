@@ -41,7 +41,6 @@
 	padding: var(--wpds-dimension-padding-sm) 0;
 	min-height: 46px;
 	z-index: 10;
-	-webkit-app-region: no-drag;
 }
 
 /* In macOS fullscreen the traffic lights are hidden, so the toggle can

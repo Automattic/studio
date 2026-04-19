@@ -12,15 +12,17 @@ body {
 	background-color: var(--wpds-color-bg-surface-neutral-strong);
 	color: var(--wpds-color-fg-content-neutral);
 	color-scheme: light dark;
-	-webkit-app-region: drag;
 }
 
-/* Interactive elements opt out of the window drag region.
-   `[data-base-ui-portal] *` covers the @base-ui Menu portal subtree —
-   items render as divs, so we can't rely on the button/link selectors. */
+/* Interactive elements inside drag-region ancestors (title bars, section
+   headers) need to opt out so clicks and focus still land. Harmless where no
+   drag region is active. `[data-base-ui-portal] *` covers the @base-ui Menu
+   portal subtree — items render as divs, so we can't rely on the
+   button/link selectors. */
 button,
 a,
 input,
+textarea,
 [role="button"],
 [data-base-ui-portal],
 [data-base-ui-portal] * {

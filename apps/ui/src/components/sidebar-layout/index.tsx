@@ -7,6 +7,7 @@ import { SidebarHeader } from '@/components/sidebar-header';
 import { SidebarNav } from '@/components/sidebar-nav';
 import { UserMenu } from '@/components/user-menu';
 import { useFullscreen } from '@/hooks/use-fullscreen';
+import { SidebarCollapsedContext } from '@/hooks/use-sidebar-collapsed';
 import { drawerIcon } from '@/lib/icons';
 import styles from './style.module.css';
 import type { ReactNode } from 'react';
@@ -16,35 +17,37 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 	const isFullscreen = useFullscreen();
 
 	return (
-		<div className={ styles.root }>
-			<aside className={ clsx( styles.sidebar, collapsed && styles.sidebarCollapsed ) }>
-				<SidebarHeader onToggleSidebar={ () => setCollapsed( true ) } />
-				<div className={ styles.sidebarContent }>
-					<SidebarNav />
-					<ProjectList />
-				</div>
-				<UserMenu />
-			</aside>
-			<main className={ styles.main }>
-				{ collapsed ? (
-					<div
-						className={ clsx(
-							styles.floatingToggle,
-							isFullscreen && styles.floatingToggleFullscreen
-						) }
-					>
-						<IconButton
-							variant="minimal"
-							tone="neutral"
-							size="small"
-							icon={ drawerIcon }
-							label={ __( 'Show sidebar' ) }
-							onClick={ () => setCollapsed( false ) }
-						/>
+		<SidebarCollapsedContext.Provider value={ collapsed }>
+			<div className={ styles.root }>
+				<aside className={ clsx( styles.sidebar, collapsed && styles.sidebarCollapsed ) }>
+					<SidebarHeader onToggleSidebar={ () => setCollapsed( true ) } />
+					<div className={ styles.sidebarContent }>
+						<SidebarNav />
+						<ProjectList />
 					</div>
-				) : null }
-				{ children }
-			</main>
-		</div>
+					<UserMenu />
+				</aside>
+				<main className={ styles.main }>
+					{ collapsed ? (
+						<div
+							className={ clsx(
+								styles.floatingToggle,
+								isFullscreen && styles.floatingToggleFullscreen
+							) }
+						>
+							<IconButton
+								variant="minimal"
+								tone="neutral"
+								size="small"
+								icon={ drawerIcon }
+								label={ __( 'Show sidebar' ) }
+								onClick={ () => setCollapsed( false ) }
+							/>
+						</div>
+					) : null }
+					{ children }
+				</main>
+			</div>
+		</SidebarCollapsedContext.Provider>
 	);
 }

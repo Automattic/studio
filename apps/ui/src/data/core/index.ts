@@ -8,5 +8,7 @@ export type {
 	Connector,
 	LoadedAiSession,
 	SiteDetails,
+	Snapshot,
+	SyncSite,
 } from './types';
 export type { AgentEvent, AgentRunEvent, AgentTurnStatus } from './agent-events';

@@ -11,8 +11,10 @@ import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Markdown } from '@/components/markdown';
+import { SiteDropdown } from '@/components/site-dropdown';
 import { useAgentRun } from '@/data/queries/use-agent-run';
 import { useSession } from '@/data/queries/use-sessions';
+import { useSites } from '@/data/queries/use-sites';
 import { useFullscreen } from '@/hooks/use-fullscreen';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import styles from './style.module.css';
@@ -115,9 +117,12 @@ function SessionHeader( { summary }: { summary: AiSessionSummary } ) {
 	const siteName = summary.ownerSiteName;
 	const sidebarCollapsed = useSidebarCollapsed();
 	const isFullscreen = useFullscreen();
+	const { data: sites } = useSites();
 	if ( ! siteName ) {
 		return null;
 	}
+
+	const site = sites?.find( ( candidate ) => candidate.path === summary.ownerSitePath );
 
 	// Reserve a no-drag area at the left so the floating sidebar-toggle button
 	// (collapsed state) doesn't sit on top of the header's drag region.
@@ -130,9 +135,15 @@ function SessionHeader( { summary }: { summary: AiSessionSummary } ) {
 	return (
 		<div className={ styles.header }>
 			{ toggleSpacerClass ? <span className={ toggleSpacerClass } aria-hidden="true" /> : null }
-			<span className={ styles.headerSite }>{ siteName }</span>
-			<span className={ styles.headerDot } aria-hidden="true" />
-			<span className={ styles.headerEnv }>{ __( 'Local' ) }</span>
+			{ site ? (
+				<SiteDropdown site={ site } />
+			) : (
+				<>
+					<span className={ styles.headerSite }>{ siteName }</span>
+					<span className={ styles.headerDot } aria-hidden="true" />
+					<span className={ styles.headerEnv }>{ __( 'Local' ) }</span>
+				</>
+			) }
 		</div>
 	);
 }

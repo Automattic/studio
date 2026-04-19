@@ -4,10 +4,18 @@ import { moreHorizontal, plus } from '@wordpress/icons';
 import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useMemo, useState } from 'react';
+import * as Menu from '@/components/menu';
 import { SidebarButton } from '@/components/sidebar-button';
 import { useSessions } from '@/data/queries/use-sessions';
-import { useSites } from '@/data/queries/use-sites';
+import {
+	useIsSiteStarting,
+	useIsSiteStopping,
+	useSites,
+	useStartSite,
+	useStopSite,
+} from '@/data/queries/use-sites';
 import { formatRelativeTime } from '@/lib/format-relative-time';
+import { getSiteDisplayUrl } from '@/lib/get-site-url';
 import styles from './style.module.css';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
@@ -21,16 +29,11 @@ type ProjectGroup = {
 	sessions: AiSessionSummary[];
 };
 
-function stripProtocol( url: string ): string {
-	return url.replace( /^https?:\/\//, '' ).replace( /\/$/, '' );
-}
-
 function deriveSubtitle( site: SiteDetails ): string | undefined {
-	if ( site.url ) {
-		return stripProtocol( site.url );
+	if ( site.customDomain || site.port > 0 ) {
+		return getSiteDisplayUrl( site );
 	}
-	const basename = site.path.split( /[\\/]/ ).filter( Boolean ).pop();
-	return basename;
+	return site.path.split( /[\\/]/ ).filter( Boolean ).pop();
 }
 
 function groupSessionsByOwner(
@@ -115,6 +118,42 @@ function SessionItem( { session }: { session: AiSessionSummary } ) {
 	);
 }
 
+function ProjectActionsMenu( { site }: { site: SiteDetails } ) {
+	const startSite = useStartSite();
+	const stopSite = useStopSite();
+	const isStarting = useIsSiteStarting( site.id );
+	const isStopping = useIsSiteStopping( site.id );
+	const busy = isStarting || isStopping;
+
+	return (
+		<Menu.Root modal={ false }>
+			<Menu.Trigger
+				render={
+					<IconButton
+						variant="minimal"
+						tone="neutral"
+						size="small"
+						icon={ moreHorizontal }
+						label={ __( 'Project actions' ) }
+						className={ styles.projectAction }
+					/>
+				}
+			/>
+			<Menu.Popup side="bottom" align="start">
+				{ site.running ? (
+					<Menu.Item disabled={ busy } onClick={ () => stopSite.mutate( site.id ) }>
+						{ __( 'Stop site' ) }
+					</Menu.Item>
+				) : (
+					<Menu.Item disabled={ busy } onClick={ () => startSite.mutate( site.id ) }>
+						{ isStarting ? __( 'Starting…' ) : __( 'Start site' ) }
+					</Menu.Item>
+				) }
+			</Menu.Popup>
+		</Menu.Root>
+	);
+}
+
 function ProjectSection( {
 	group,
 	isUnassigned,
@@ -151,14 +190,7 @@ function ProjectSection( {
 				</div>
 				{ group.site ? (
 					<div className={ styles.projectActions }>
-						<IconButton
-							variant="minimal"
-							tone="neutral"
-							size="small"
-							icon={ moreHorizontal }
-							label={ __( 'Project actions' ) }
-							className={ styles.projectAction }
-						/>
+						<ProjectActionsMenu site={ group.site } />
 						<IconButton
 							variant="minimal"
 							tone="neutral"

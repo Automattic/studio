@@ -6,6 +6,8 @@ import type {
 	Connector,
 	LoadedAiSession,
 	SiteDetails,
+	Snapshot,
+	SyncSite,
 } from '../../types';
 
 /**
@@ -78,6 +80,16 @@ export function createIpcConnector(): Connector {
 			await ipcApi.stopServer( id );
 		},
 
+		// Preview snapshots
+		async getSnapshots(): Promise< Snapshot[] > {
+			return ( await ipcApi.fetchSnapshots() ) as Snapshot[];
+		},
+
+		// Connected WPCom sites
+		async getConnectedWpcomSites( localSiteId: string ): Promise< SyncSite[] > {
+			return ( await ipcApi.getConnectedWpcomSites( localSiteId ) ) as SyncSite[];
+		},
+
 		// AI sessions
 		async getSessions(): Promise< AiSessionSummary[] > {
 			return ( await ipcApi.listAiSessions() ) as AiSessionSummary[];
@@ -138,6 +150,12 @@ export function createIpcConnector(): Connector {
 				'window-fullscreen-change',
 				( _event: unknown, fullscreen: boolean ) => listener( fullscreen )
 			);
+		},
+
+		onSiteEvent( listener ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const ipcListener = ( window as any ).ipcListener;
+			return ipcListener.subscribe( 'site-event', () => listener() );
 		},
 	};
 }

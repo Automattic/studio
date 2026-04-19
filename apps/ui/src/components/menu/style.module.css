@@ -1,7 +1,11 @@
 /* Styling mirrors @wordpress/components Popover: neutral-strong surface,
-   neutral stroke, medium radius, medium elevation shadow. */
+   neutral stroke, medium radius, medium elevation shadow.
+   Z-index follows @wordpress/ui's convention (tooltip/dialog): a CSS variable
+   with `initial` as the default. This lets sibling layers like tooltips
+   stack naturally above the menu by DOM order — a hardcoded z-index would
+   trap the tooltip (which also resolves to `initial`) underneath. */
 .positioner {
-	z-index: 20;
+	z-index: var(--wp-ui-menu-z-index, initial);
 	outline: none;
 }
 

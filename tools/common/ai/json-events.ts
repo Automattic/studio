@@ -1,6 +1,3 @@
-// Mirrors the subset of `apps/cli/ai/json-events.ts` we forward to the
-// renderer. Update both together.
-
 export type TurnCompletedStatus = 'success' | 'error' | 'paused' | 'max_turns';
 
 export type JsonEvent =

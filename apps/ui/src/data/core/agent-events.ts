@@ -1,33 +1,14 @@
-// Shape of the events streamed over the `ai-agent-event` IPC channel from
-// main. Mirrors the subset of `apps/studio/src/modules/ai-agent/json-events.ts`
-// the UI consumes — update both together.
+import type { JsonEvent } from '@studio/common/ai/json-events';
 
-export type AgentTurnStatus = 'success' | 'error' | 'paused' | 'max_turns';
-
+// The subprocess lifecycle events layer on top of the shared JsonEvent
+// stream: `run.started` fires when the CLI child actually spawns,
+// `run.interrupted` before an explicit kill, and `run.exited` always on
+// subprocess termination (the status doubles as a coarse success signal).
 export type AgentEvent =
+	| JsonEvent
 	| { type: 'run.started'; timestamp: string }
 	| { type: 'run.exited'; timestamp: string; status: 'success' | 'error'; code: number | null }
-	| { type: 'run.interrupted'; timestamp: string }
-	| { type: 'message'; timestamp: string; message: unknown }
-	| { type: 'progress'; timestamp: string; message: string }
-	| { type: 'info'; timestamp: string; message: string }
-	| { type: 'error'; timestamp: string; message: string }
-	| {
-			type: 'question.asked';
-			timestamp: string;
-			questions: Array< {
-				question: string;
-				options: Array< { label: string; description: string } >;
-			} >;
-	  }
-	| { type: 'turn.started'; timestamp: string }
-	| {
-			type: 'turn.completed';
-			timestamp: string;
-			sessionId: string;
-			status: AgentTurnStatus;
-			usage?: { numTurns: number; costUsd?: number };
-	  };
+	| { type: 'run.interrupted'; timestamp: string };
 
 export interface AgentRunEvent {
 	runId: string;

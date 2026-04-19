@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { type WebContents } from 'electron';
 import { fork, type ChildProcess } from 'node:child_process';
 import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
-import type { JsonEvent } from './json-events';
+import type { JsonEvent } from '@studio/common/ai/json-events';
 import type { AgentRunEvent } from './types';
 
 interface AgentRun {

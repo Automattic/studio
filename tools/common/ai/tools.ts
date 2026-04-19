@@ -33,18 +33,6 @@ export function getToolDisplayName( name: string ): string {
 	return displayNames[ name ] ?? name;
 }
 
-/**
- * Plain-text single-line label combining `getToolDisplayName` and
- * `getToolDetail`. Surfaces that can apply their own styling (CLI chalk, UI
- * CSS) are free to call the two helpers directly; this is the "no styling"
- * default.
- */
-export function formatToolLine( name: string, input?: Record< string, unknown > ): string {
-	const displayName = getToolDisplayName( name );
-	const detail = getToolDetail( name, input );
-	return detail ? `${ displayName } (${ detail })` : displayName;
-}
-
 const BASH_DETAIL_MAX_LENGTH = 60;
 
 /**

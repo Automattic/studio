@@ -11,4 +11,4 @@ export type {
 	Snapshot,
 	SyncSite,
 } from './types';
-export type { AgentEvent, AgentRunEvent, AgentTurnStatus } from './agent-events';
+export type { AgentEvent, AgentRunEvent } from './agent-events';

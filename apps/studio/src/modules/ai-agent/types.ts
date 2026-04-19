@@ -1,4 +1,4 @@
-import type { JsonEvent } from './json-events';
+import type { JsonEvent } from '@studio/common/ai/json-events';
 
 export interface AgentRunEvent {
 	runId: string;

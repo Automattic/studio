@@ -3,6 +3,7 @@ import { __ } from '@wordpress/i18n';
 import { category, cog, comment } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
+import { SidebarButton } from '@/components/sidebar-button';
 import styles from './style.module.css';
 import type { ComponentProps } from 'react';
 
@@ -28,21 +29,22 @@ export function SidebarNav() {
 			<ul className={ styles.list }>
 				{ items.map( ( item ) => (
 					<li key={ item.key }>
-						{ item.to ? (
-							<Link
-								to={ item.to }
-								className={ styles.item }
-								activeProps={ { className: clsx( styles.item, styles.itemActive ) } }
-							>
-								<Icon icon={ item.icon } size={ 16 } />
-								<span>{ item.label }</span>
-							</Link>
-						) : (
-							<button type="button" className={ styles.item }>
-								<Icon icon={ item.icon } size={ 16 } />
-								<span>{ item.label }</span>
-							</button>
-						) }
+						<SidebarButton
+							className={ styles.item }
+							render={
+								item.to ? (
+									<Link
+										to={ item.to }
+										activeProps={ {
+											className: clsx( styles.item, styles.itemActive ),
+										} }
+									/>
+								) : undefined
+							}
+						>
+							<Icon icon={ item.icon } size={ 16 } />
+							<span>{ item.label }</span>
+						</SidebarButton>
 					</li>
 				) ) }
 			</ul>

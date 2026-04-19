@@ -28,16 +28,20 @@ input,
 }
 
 /* Show the focus ring only on keyboard focus, overriding @wordpress/ui's
-   :focus-based outline. Unlayered CSS wins over WP UI's cascade layers. */
+   :focus-based outline. Unlayered CSS wins over WP UI's cascade layers.
+   `a` covers Button primitives rendered as links via its `render` prop. */
 button:focus:not(:focus-visible),
+a:focus:not(:focus-visible),
 [role="button"]:focus:not(:focus-visible) {
 	outline: none;
 }
 
 /* Default icons inside buttons and menu items to 75% scale — WP UI's Icon
    primitive draws at 16px, which reads a bit large for dense sidebars and
-   menus. Scope is tight enough to leave content/illustration SVGs alone. */
+   menus. `a svg` covers Button primitives rendered as links via their
+   `render` prop. */
 button svg,
+a svg,
 [role^="menuitem"] svg {
 	transform: scale(0.75);
 }

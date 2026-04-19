@@ -4,6 +4,7 @@ import { moreHorizontal, plus } from '@wordpress/icons';
 import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useMemo, useState } from 'react';
+import { SidebarButton } from '@/components/sidebar-button';
 import { useSessions } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import { formatRelativeTime } from '@/lib/format-relative-time';
@@ -95,15 +96,21 @@ function SessionItem( { session }: { session: AiSessionSummary } ) {
 
 	return (
 		<li className={ styles.sessionItem }>
-			<Link
-				to="/sessions/$sessionId"
-				params={ { sessionId: session.id } }
+			<SidebarButton
 				className={ styles.sessionLink }
-				activeProps={ { className: clsx( styles.sessionLink, styles.sessionLinkActive ) } }
+				render={
+					<Link
+						to="/sessions/$sessionId"
+						params={ { sessionId: session.id } }
+						activeProps={ {
+							className: clsx( styles.sessionLink, styles.sessionLinkActive ),
+						} }
+					/>
+				}
 			>
 				<span className={ styles.sessionLabel }>{ label }</span>
 				<span className={ styles.sessionTime }>{ formatRelativeTime( session.updatedAt ) }</span>
-			</Link>
+			</SidebarButton>
 		</li>
 	);
 }
@@ -131,14 +138,13 @@ function ProjectSection( {
 		>
 			<header className={ styles.projectHeader }>
 				<div className={ styles.projectText }>
-					<button
-						type="button"
+					<SidebarButton
 						className={ styles.projectToggle }
 						onClick={ onToggle }
 						aria-expanded={ isOpen }
 					>
 						<span className={ styles.projectName }>{ group.label }</span>
-					</button>
+					</SidebarButton>
 					{ group.subtitle ? (
 						<span className={ styles.projectSubtitle }>{ group.subtitle }</span>
 					) : null }

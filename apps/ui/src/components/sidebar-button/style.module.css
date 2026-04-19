@@ -1,0 +1,11 @@
+.root {
+	justify-content: flex-start;
+	min-width: 0;
+	border-color: transparent;
+}
+
+.root:hover,
+.root:focus-visible {
+	background-color: transparent;
+	border-color: transparent;
+}

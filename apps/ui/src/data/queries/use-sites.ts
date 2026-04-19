@@ -33,11 +33,8 @@ export function useDeleteSite() {
 	} );
 }
 
-// Fold the query invalidation (and its refetch) into the mutationFn so the
-// mutation stays `isPending` until the sites query actually reflects the new
-// running state. Otherwise there's a window between the IPC call resolving
-// and the refetch landing where the button flips back to enabled while the
-// main process is still finishing the transition.
+// Invalidation is awaited inside `mutationFn` (not `onSettled`) so
+// `isPending` stays true until `site.running` reflects the new state.
 export function useStartSite() {
 	const connector = useConnector();
 	const queryClient = useQueryClient();

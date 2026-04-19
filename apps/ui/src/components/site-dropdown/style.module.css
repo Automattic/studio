@@ -32,9 +32,8 @@
 	margin: 0 var(--wpds-dimension-padding-xs);
 }
 
-/* Hardcoded traffic-light colors: the design tokens for fg-content-success
-   resolve to a very dark green (#002900) that reads as black at 6px, and
-   there are no fg-content-critical / fg-content-accent tokens to lean on. */
+/* Hardcoded because `--wpds-color-fg-content-success` is #002900 (reads as
+   black at 6px) and the critical/accent equivalents don't exist. */
 .triggerDot_running {
 	background-color: #16a34a;
 }
@@ -68,18 +67,9 @@
 	gap: 0;
 }
 
-/* Base UI's FloatingFocusManager moves focus to the first tabbable element
-   when the popup opens via mouse, which gives us a :focus state without
-   matching :focus-visible. The global rule in index.css already suppresses
-   the outline ring for that case, but @wordpress/ui's Button also paints a
-   filled background + border on plain :focus (same declaration as
-   :hover/:active) — the global rule doesn't touch those, so neutralize
-   them here. Border has to be reset alongside background, otherwise the
-   1px active-tone border stays behind and reads as an outline.
-
-   `color` is intentionally NOT reset — resetting it would clobber the
-   loading state's `color: transparent` and leave the label visible while
-   the spinner runs. */
+/* Neutralize @wordpress/ui's Button :focus background+border when focus
+   lands programmatically (popup open). Outline is handled globally. Do not
+   reset `color` — it would clobber .is-loading's transparent label. */
 .popup button:focus:not(:focus-visible) {
 	background-color: var(--wp-ui-button-background-color);
 	border-color: var(--wp-ui-button-border-color);

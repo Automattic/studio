@@ -36,10 +36,7 @@ function deriveSubtitle( site: SiteDetails ): string | undefined {
 	if ( site.url ) {
 		return stripProtocol( site.url );
 	}
-	// When a site is stopped the main process strips `url` from the details,
-	// but `port` is preserved. Surfacing `localhost:<port>` keeps the subtitle
-	// stable across start/stop toggles instead of flipping to the folder
-	// basename (which often mirrors the site name).
+	// Main process strips `url` when the site is stopped but keeps `port`.
 	if ( site.port > 0 ) {
 		return `localhost:${ site.port }`;
 	}

@@ -3,14 +3,8 @@ import { comment, download, globe, plus } from '@wordpress/icons';
 import { Icon, IconButton } from '@wordpress/ui';
 import * as Menu from '@/components/menu';
 import { useFullscreen } from '@/hooks/use-fullscreen';
+import { drawerIcon } from '@/lib/icons';
 import styles from './style.module.css';
-
-const drawerIcon = (
-	<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
-		<rect x="4" y="5" width="16" height="14" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
-		<line x1="9.5" y1="5" x2="9.5" y2="19" stroke="currentColor" strokeWidth="1.5" />
-	</svg>
-);
 
 type Props = {
 	onToggleSidebar: () => void;

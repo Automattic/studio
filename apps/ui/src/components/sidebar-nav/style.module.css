@@ -1,0 +1,44 @@
+.root {
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-xl)
+		calc(var(--wpds-dimension-padding-xl) + var(--wpds-dimension-padding-md));
+}
+
+.list {
+	list-style: none;
+	padding: 0;
+	margin: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.item {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-sm);
+	width: 100%;
+	height: 26px;
+	padding: 0 var(--wpds-dimension-padding-sm);
+	background: transparent;
+	border: 0;
+	border-radius: var(--wpds-border-radius-sm);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-font-size-sm);
+	font-weight: var(--wpds-font-weight-regular);
+	font-family: inherit;
+	text-align: start;
+	text-decoration: none;
+	cursor: var(--wpds-cursor-control);
+}
+
+.item:hover,
+.item:focus-visible {
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.itemActive,
+.itemActive:hover {
+	background: var(--wpds-color-bg-interactive-neutral-weak-active);
+	color: var(--wpds-color-fg-content-neutral);
+	font-weight: var(--wpds-font-weight-medium);
+}

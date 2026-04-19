@@ -4,9 +4,10 @@
 }
 
 .sidebar {
-	width: 260px;
+	width: 320px;
 	flex-shrink: 0;
 	background-color: var(--wpds-color-bg-surface-neutral-weak);
+	border-right: 1px solid var(--wpds-color-stroke-surface-neutral);
 	display: flex;
 	flex-direction: column;
 	overflow: hidden;

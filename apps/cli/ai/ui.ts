@@ -22,6 +22,7 @@ import {
 	truncateToWidth,
 	CURSOR_MARKER,
 } from '@mariozechner/pi-tui';
+import { getToolDetail, getToolDisplayName } from '@studio/common/ai/tools';
 import chalk from '@studio/common/lib/chalk';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, _n, sprintf } from '@wordpress/i18n';
@@ -234,89 +235,13 @@ const editorTheme: EditorTheme = {
 	},
 };
 
-const toolDisplayNames: Record< string, string > = {
-	mcp__studio__site_create: __( 'Create site' ),
-	mcp__studio__site_list: __( 'List sites' ),
-	mcp__studio__site_info: __( 'Get site info' ),
-	mcp__studio__site_start: __( 'Start site' ),
-	mcp__studio__site_stop: __( 'Stop site' ),
-	mcp__studio__site_delete: __( 'Delete site' ),
-	mcp__studio__preview_create: __( 'Create preview' ),
-	mcp__studio__preview_list: __( 'List previews' ),
-	mcp__studio__preview_update: __( 'Update preview' ),
-	mcp__studio__preview_delete: __( 'Delete preview' ),
-	mcp__studio__wp_cli: __( 'Run WP-CLI' ),
-	mcp__studio__validate_blocks: __( 'Validate blocks' ),
-	mcp__studio__take_screenshot: __( 'Take screenshot' ),
-	Read: __( 'Read' ),
-	Write: __( 'Write' ),
-	Edit: __( 'Edit' ),
-	Bash: __( 'Run' ),
-	Glob: __( 'Search' ),
-	Grep: __( 'Search' ),
-	Skill: __( 'Load skill' ),
-	Task: __( 'Run task' ),
-	TodoWrite: __( 'Update todo list' ),
-};
-
-function getToolDetail( name: string, input: Record< string, unknown > ): string {
-	switch ( name ) {
-		case 'mcp__studio__site_create':
-			return typeof input.name === 'string' ? input.name : '';
-		case 'mcp__studio__site_info':
-		case 'mcp__studio__site_start':
-		case 'mcp__studio__site_stop':
-		case 'mcp__studio__site_delete':
-		case 'mcp__studio__preview_create':
-		case 'mcp__studio__preview_list':
-			return typeof input.nameOrPath === 'string' ? input.nameOrPath : '';
-		case 'mcp__studio__preview_update':
-		case 'mcp__studio__preview_delete':
-			return typeof input.host === 'string' ? input.host : '';
-		case 'mcp__studio__wp_cli':
-			return typeof input.command === 'string' ? `wp ${ input.command }` : '';
-		case 'mcp__studio__validate_blocks':
-			if ( typeof input.filePath === 'string' ) {
-				return input.filePath.split( '/' ).slice( -2 ).join( '/' );
-			}
-			return __( 'inline content' );
-		case 'mcp__studio__take_screenshot':
-			return typeof input.url === 'string' ? input.url : '';
-		case 'Read':
-		case 'Write':
-		case 'Edit': {
-			const filePath = input.file_path ?? input.path;
-			if ( typeof filePath === 'string' ) {
-				const parts = filePath.split( '/' );
-				return parts.slice( -2 ).join( '/' );
-			}
-			return '';
-		}
-		case 'Bash':
-			return typeof input.command === 'string'
-				? input.command.length > 60
-					? input.command.slice( 0, 57 ) + '…'
-					: input.command
-				: '';
-		case 'Skill':
-			return typeof input.skill === 'string' ? input.skill : '';
-		case 'Grep':
-		case 'Glob':
-			return typeof input.pattern === 'string' ? input.pattern : '';
-		default:
-			return '';
-	}
-}
-
 function formatToolName( name: string, input?: Record< string, unknown > ): string {
-	const displayName = toolDisplayNames[ name ] ?? name;
-	if ( input ) {
-		const detail = getToolDetail( name, input );
-		if ( detail ) {
-			return chalk.bold( displayName ) + ' ' + chalk.dim( '(' + detail + ')' );
-		}
+	const displayName = chalk.bold( getToolDisplayName( name ) );
+	const detail = getToolDetail( name, input );
+	if ( detail ) {
+		return displayName + ' ' + chalk.dim( '(' + detail + ')' );
 	}
-	return chalk.bold( displayName );
+	return displayName;
 }
 
 interface ToolUseResultContent {

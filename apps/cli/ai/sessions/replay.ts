@@ -1,3 +1,7 @@
+import {
+	filterEventsAfterLastClear,
+	isVisibleUserMessage,
+} from '@studio/common/ai/sessions/filter-events';
 import { AiChatUI } from 'cli/ai/ui';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { AiSessionEvent } from '@studio/common/ai/sessions/types';
@@ -6,14 +10,7 @@ export function replaySessionHistory( ui: AiChatUI, events: AiSessionEvent[] ): 
 	ui.prepareForReplay();
 	let isTurnOpen = false;
 
-	let lastClearedIndex = -1;
-	for ( let i = events.length - 1; i >= 0; i-- ) {
-		if ( events[ i ].type === 'session.cleared' ) {
-			lastClearedIndex = i;
-			break;
-		}
-	}
-	const eventsToReplay = lastClearedIndex >= 0 ? events.slice( lastClearedIndex + 1 ) : events;
+	const eventsToReplay = filterEventsAfterLastClear( events );
 
 	try {
 		for ( const event of eventsToReplay ) {
@@ -34,7 +31,7 @@ export function replaySessionHistory( ui: AiChatUI, events: AiSessionEvent[] ): 
 			}
 
 			if ( event.type === 'user.message' ) {
-				if ( event.source === 'ask_user' ) {
+				if ( ! isVisibleUserMessage( event ) ) {
 					continue;
 				}
 

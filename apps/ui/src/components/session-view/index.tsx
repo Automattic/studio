@@ -1,3 +1,6 @@
+import { isAssistantSdkMessage, isTextBlock, isToolUseBlock } from '@studio/common/ai/sdk-messages';
+import { filterEventsAfterLastClear } from '@studio/common/ai/sessions/filter-events';
+import { getToolDetail, getToolDisplayName } from '@studio/common/ai/tools';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { Markdown } from '@/components/markdown';
@@ -6,20 +9,6 @@ import { useFullscreen } from '@/hooks/use-fullscreen';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import styles from './style.module.css';
 import type { AiSessionEvent, AiSessionSummary, LoadedAiSession } from '@/data/core';
-
-type TextBlock = { type: 'text'; text: string };
-type ToolUseBlock = {
-	type: 'tool_use';
-	id: string;
-	name: string;
-	input?: Record< string, unknown >;
-};
-type ContentBlock = TextBlock | ToolUseBlock | { type: string };
-
-type AssistantSdkMessage = {
-	type: 'assistant';
-	message: { content: ContentBlock[] };
-};
 
 type RenderItem =
 	| { kind: 'user-text'; key: string; text: string }
@@ -33,89 +22,8 @@ type RenderItem =
 			options: Array< { label: string; description: string } >;
 	  };
 
-const TOOL_DISPLAY_NAMES: Record< string, string > = {
-	mcp__studio__site_create: 'create site',
-	mcp__studio__site_list: 'list sites',
-	mcp__studio__site_info: 'site info',
-	mcp__studio__site_start: 'start site',
-	mcp__studio__site_stop: 'stop site',
-	mcp__studio__site_delete: 'delete site',
-	mcp__studio__wp_cli: 'wp',
-	mcp__studio__take_screenshot: 'screenshot',
-	mcp__studio__validate_blocks: 'validate',
-	Read: 'read',
-	Write: 'write',
-	Edit: 'edit',
-	Bash: 'run',
-	Glob: 'search',
-	Grep: 'search',
-	Skill: 'skill',
-	Task: 'task',
-	TodoWrite: 'todos',
-	WebFetch: 'fetch',
-	WebSearch: 'search',
-};
-
-function getToolDisplayName( name: string ): string {
-	return TOOL_DISPLAY_NAMES[ name ] ?? name;
-}
-
-function getToolDetail( name: string, input?: Record< string, unknown > ): string {
-	if ( ! input ) {
-		return '';
-	}
-	switch ( name ) {
-		case 'Read':
-		case 'Write':
-		case 'Edit': {
-			const filePath = input.file_path ?? input.path;
-			if ( typeof filePath === 'string' ) {
-				return filePath.split( '/' ).slice( -2 ).join( '/' );
-			}
-			return '';
-		}
-		case 'Bash':
-			return typeof input.command === 'string' ? input.command : '';
-		case 'Grep':
-		case 'Glob':
-			return typeof input.pattern === 'string' ? input.pattern : '';
-		case 'Skill':
-			return typeof input.skill === 'string' ? input.skill : '';
-		case 'mcp__studio__wp_cli':
-			return typeof input.command === 'string' ? input.command : '';
-		case 'mcp__studio__site_info':
-		case 'mcp__studio__site_start':
-		case 'mcp__studio__site_stop':
-		case 'mcp__studio__site_delete':
-			return typeof input.nameOrPath === 'string' ? input.nameOrPath : '';
-		default:
-			return '';
-	}
-}
-
-function isAssistantSdkMessage( value: unknown ): value is AssistantSdkMessage {
-	if ( ! value || typeof value !== 'object' ) {
-		return false;
-	}
-	const outer = value as { type?: unknown; message?: unknown };
-	if ( outer.type !== 'assistant' ) {
-		return false;
-	}
-	const inner = outer.message as { content?: unknown } | undefined;
-	return !! inner && Array.isArray( inner.content );
-}
-
 function eventsToRenderItems( events: AiSessionEvent[] ): RenderItem[] {
-	// Honor session.cleared by dropping anything emitted before the last clear.
-	let lastClearedIndex = -1;
-	for ( let i = events.length - 1; i >= 0; i-- ) {
-		if ( events[ i ].type === 'session.cleared' ) {
-			lastClearedIndex = i;
-			break;
-		}
-	}
-	const relevant = lastClearedIndex >= 0 ? events.slice( lastClearedIndex + 1 ) : events;
-
+	const relevant = filterEventsAfterLastClear( events );
 	const items: RenderItem[] = [];
 
 	relevant.forEach( ( event, eventIndex ) => {
@@ -135,10 +43,9 @@ function eventsToRenderItems( events: AiSessionEvent[] ): RenderItem[] {
 				if ( ! isAssistantSdkMessage( event.message ) ) {
 					return;
 				}
-				const content = event.message.message.content;
-				content.forEach( ( block, blockIndex ) => {
-					if ( block.type === 'text' ) {
-						const text = ( block as TextBlock ).text?.trim();
+				event.message.message.content.forEach( ( block, blockIndex ) => {
+					if ( isTextBlock( block ) ) {
+						const text = block.text.trim();
 						if ( text ) {
 							items.push( {
 								kind: 'assistant-text',
@@ -146,13 +53,12 @@ function eventsToRenderItems( events: AiSessionEvent[] ): RenderItem[] {
 								text,
 							} );
 						}
-					} else if ( block.type === 'tool_use' ) {
-						const use = block as ToolUseBlock;
+					} else if ( isToolUseBlock( block ) ) {
 						items.push( {
 							kind: 'tool-use',
 							key: `${ eventIndex }:${ blockIndex }:tool`,
-							name: use.name,
-							input: use.input,
+							name: block.name,
+							input: block.input,
 						} );
 					}
 				} );

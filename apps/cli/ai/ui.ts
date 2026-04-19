@@ -22,6 +22,7 @@ import {
 	truncateToWidth,
 	CURSOR_MARKER,
 } from '@mariozechner/pi-tui';
+import { randomThinkingMessage } from '@studio/common/ai/thinking-messages';
 import { getToolDetail, getToolDisplayName } from '@studio/common/ai/tools';
 import chalk from '@studio/common/lib/chalk';
 import { readAuthToken } from '@studio/common/lib/shared-config';
@@ -397,61 +398,6 @@ export class AiChatUI implements AiOutputAdapter {
 	currentModel: AiModelId = DEFAULT_MODEL;
 	currentProvider: AiProviderId = DEFAULT_AI_PROVIDER;
 
-	private readonly thinkingMessages = [
-		'Thinking…',
-		'Iterating…',
-		'Interpolating…',
-		'Philosophising…',
-		'Cogitating…',
-		'Poetizing…',
-		'Sketching…',
-		'Scribbling…',
-		'Drafting…',
-		'Harmonizing…',
-		'Rehearsing…',
-		'Combabulating…',
-		'Conjectureing…',
-		'Tinkering…',
-		'Polishing…',
-		'Concocting…',
-		'Wizarding…',
-		'Enchanting…',
-		'Transmuting…',
-		'Summoning…',
-		'Gutenberging…',
-		'Hooking…',
-		'Filtering…',
-		'Looping…',
-		'Codexing…',
-		'Annotating…',
-		'Ruminating…',
-		'Paragraphing…',
-		'Typesetting…',
-		'Soloing…',
-		'Compiling…',
-		'Abstracting…',
-		'Meandering…',
-		'Daydreaming…',
-		'Riffing…',
-		'Wandering…',
-		'Introspecting…',
-		'Experiencing…',
-		'Reflecting…',
-		'Adventuring…',
-		'Levitating…',
-		'Glueing…',
-		'Soaring…',
-		'Gliding…',
-		'Paragliding…',
-		'Excavating…',
-		'Planting…',
-		'Stargazing…',
-		'Scribing…',
-		'Levitating…',
-	];
-	private randomThinkingMessage(): string {
-		return this.thinkingMessages[ Math.floor( Math.random() * this.thinkingMessages.length ) ];
-	}
 	private optionPickerContainer: Container | null = null;
 	private optionPickerSelectList: SelectList | null = null;
 	private optionPickerVisible = false;
@@ -1362,7 +1308,7 @@ export class AiChatUI implements AiOutputAdapter {
 		this.editor.setText( '' );
 		this._inAgentTurn = true;
 		this.updateHints();
-		this.showLoader( this.randomThinkingMessage() );
+		this.showLoader( randomThinkingMessage() );
 		this.currentResponseText = '';
 		this.hasShownResponseMarker = false;
 		this.wasInterrupted = false;
@@ -1702,7 +1648,7 @@ export class AiChatUI implements AiOutputAdapter {
 	}
 
 	private showToolUse( toolLabel: string ): void {
-		this.showLoader( this.randomThinkingMessage() );
+		this.showLoader( randomThinkingMessage() );
 		this.stopToolDotBlink();
 		this.lastProgressText = null;
 		this.toolDotLabel = toolLabel;
@@ -1984,7 +1930,7 @@ export class AiChatUI implements AiOutputAdapter {
 		}
 
 		// Resume the agent turn with a fresh markdown block for subsequent text
-		this.showLoader( this.randomThinkingMessage() );
+		this.showLoader( randomThinkingMessage() );
 		return answers;
 	}
 
@@ -2055,7 +2001,7 @@ export class AiChatUI implements AiOutputAdapter {
 				// Always show the loader after processing — the agent turn is still active
 				// and more messages are coming (next API call, tool execution, etc.)
 				if ( ! this.replayMode && ! this.loaderVisible ) {
-					this.showLoader( this.randomThinkingMessage() );
+					this.showLoader( randomThinkingMessage() );
 				}
 				return undefined;
 			}

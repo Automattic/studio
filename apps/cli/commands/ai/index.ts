@@ -415,7 +415,12 @@ export async function runCommand( options: {
 			for await ( const message of agentQuery ) {
 				const timestamp = new Date().toISOString();
 				const result = ui.handleMessage( message );
-				await persist( ( recorder ) => recorder.recordSdkMessage( message, timestamp ) );
+				// stream_event = live token deltas; the final assistant message
+				// arrives as a non-partial message and is the only shape we
+				// persist.
+				if ( message.type !== 'stream_event' ) {
+					await persist( ( recorder ) => recorder.recordSdkMessage( message, timestamp ) );
+				}
 				if ( result ) {
 					sessionId = result.sessionId;
 					await persist( ( recorder ) => recorder.recordAgentSessionId( result.sessionId ) );

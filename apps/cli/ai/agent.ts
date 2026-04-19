@@ -144,6 +144,9 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 			plugins: [ { type: 'local' as const, path: path.resolve( import.meta.dirname, 'plugin' ) } ],
 			model,
 			resume,
+			// The TUI ignores `stream_event` messages; enabling this is purely
+			// for adapters (JSON) that want token-level deltas.
+			includePartialMessages: true,
 		},
 	} );
 }

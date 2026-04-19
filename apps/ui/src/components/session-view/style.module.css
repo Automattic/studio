@@ -70,13 +70,18 @@
 	flex: 1;
 	min-height: 0;
 	overflow-y: auto;
+	padding: 0 var(--wpds-dimension-padding-xl);
+	/* Reserve scrollbar space symmetrically so the centered 760px column
+	   doesn't shift left when the scrollbar appears — keeping it aligned
+	   with the (non-scrolling) composer. */
+	scrollbar-gutter: stable both-edges;
 }
 
 .conversation {
 	max-width: 760px;
 	margin: 0 auto;
-	padding: var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-xl)
-		var(--wpds-dimension-padding-2xl);
+	padding-top: var(--wpds-dimension-padding-xl);
+	padding-bottom: var(--wpds-dimension-padding-2xl);
 	display: flex;
 	flex-direction: column;
 	gap: var(--wpds-dimension-padding-lg);
@@ -109,20 +114,74 @@
 	word-wrap: break-word;
 }
 
+.toolBlock {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
 .toolRow {
-	display: grid;
-	grid-template-columns: 72px 1fr;
-	gap: var(--wpds-dimension-padding-md);
+	display: flex;
 	align-items: baseline;
+	gap: var(--wpds-dimension-padding-sm);
 	font-family: var(--wpds-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
 	font-size: var(--wpds-font-size-sm);
 	color: var(--wpds-color-fg-content-neutral-weak);
 	padding: 2px 0;
+	min-width: 0;
+}
+
+.toolOutputWrap {
+	margin-left: var(--wpds-dimension-padding-md);
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.toolOutput {
+	margin: 0;
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md);
+	border-left: 2px solid var(--wpds-color-stroke-surface-neutral);
+	background-color: var(--wpds-color-bg-surface-neutral-strong);
+	color: var(--wpds-color-fg-content-neutral);
+	font-family: var(--wpds-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+	font-size: var(--wpds-font-size-xs);
+	line-height: 1.5;
+	white-space: pre-wrap;
+	word-wrap: break-word;
+	overflow: hidden;
+}
+
+.toolOutputCollapsed {
+	max-height: calc(1.5em * 12);
+	mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+}
+
+.toolOutputError {
+	border-left-color: var(--wpds-color-fg-content-error, #dc2626);
+	color: var(--wpds-color-fg-content-error, #dc2626);
+}
+
+.toolOutputToggle {
+	align-self: flex-start;
+	background: none;
+	border: none;
+	padding: 0;
+	color: var(--wpds-color-fg-content-accent, #2563eb);
+	font: inherit;
+	font-size: var(--wpds-font-size-xs);
+	cursor: pointer;
+}
+
+.toolOutputToggle:hover,
+.toolOutputToggle:focus-visible {
+	text-decoration: underline;
 }
 
 .toolLabel {
 	color: var(--wpds-color-fg-content-neutral-weak);
 	opacity: 0.7;
+	flex-shrink: 0;
 }
 
 .toolDetail {
@@ -130,6 +189,66 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+	min-width: 0;
+	flex: 1;
+}
+
+.thinkingRow {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	padding: var(--wpds-dimension-padding-sm) 0;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-font-size-sm);
+	/* Always reserved so the composer doesn't jump when the indicator is
+	   mounted/unmounted. Holds roughly one head line + one progress line. */
+	min-height: calc(1.5em * 2 + 2px);
+}
+
+.thinkingHead {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-md);
+}
+
+.thinkingDot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background-color: var(--wpds-color-fg-content-accent, #2563eb);
+	animation: thinkingPulse 1.2s ease-in-out infinite;
+	flex-shrink: 0;
+}
+
+.thinkingLabel {
+	font-style: italic;
+}
+
+.thinkingElapsed {
+	color: var(--wpds-color-fg-content-neutral-weak);
+	opacity: 0.7;
+	font-variant-numeric: tabular-nums;
+}
+
+.thinkingProgress {
+	padding-left: calc(8px + var(--wpds-dimension-padding-md));
+	color: var(--wpds-color-fg-content-neutral-weak);
+	opacity: 0.8;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+@keyframes thinkingPulse {
+	0%,
+	100% {
+		opacity: 0.35;
+		transform: scale(0.85);
+	}
+	50% {
+		opacity: 1;
+		transform: scale(1);
+	}
 }
 
 .question {
@@ -181,7 +300,63 @@
 	border: 1px solid var(--wpds-color-stroke-surface-neutral);
 	border-radius: var(--wpds-border-radius-md, 8px);
 	background-color: var(--wpds-color-bg-surface-neutral-strong);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-fg-content-neutral);
 	font-size: var(--wpds-font-size-md);
 	line-height: 1.5;
+	width: 100%;
+	resize: vertical;
+	font-family: inherit;
+	box-sizing: border-box;
+}
+
+.composerInput:focus-visible {
+	outline: 2px solid var(--wpds-color-fg-content-accent, #2563eb);
+	outline-offset: -1px;
+}
+
+.composerInput:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+}
+
+.composerFooter {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--wpds-dimension-padding-md);
+	margin-top: var(--wpds-dimension-padding-sm);
+	min-height: 28px;
+}
+
+.composerError {
+	color: var(--wpds-color-fg-content-error, #dc2626);
+	font-size: var(--wpds-font-size-sm);
+}
+
+.composerActions {
+	display: flex;
+	gap: var(--wpds-dimension-padding-sm);
+	margin-left: auto;
+}
+
+.composerButton {
+	appearance: none;
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: var(--wpds-border-radius-md, 8px);
+	padding: 6px 14px;
+	background-color: var(--wpds-color-bg-surface-neutral);
+	color: var(--wpds-color-fg-content-neutral);
+	font: inherit;
+	font-size: var(--wpds-font-size-sm);
+	cursor: pointer;
+}
+
+.composerButton:hover:not(:disabled),
+.composerButton:focus-visible:not(:disabled) {
+	background-color: var(--wpds-color-bg-surface-neutral-strong);
+}
+
+.composerButton:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
 }

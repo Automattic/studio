@@ -9,3 +9,4 @@ export type {
 	LoadedAiSession,
 	SiteDetails,
 } from './types';
+export type { AgentEvent, AgentRunEvent, AgentTurnStatus } from './agent-events';

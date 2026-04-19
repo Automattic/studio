@@ -110,6 +110,24 @@ export class JsonAdapter implements AiOutputAdapter {
 	}
 
 	handleMessage( message: SDKMessage ): HandleMessageResult | undefined {
+		if ( message.type === 'stream_event' ) {
+			const streamEvent = message.event as {
+				type?: string;
+				message?: { id?: string };
+			};
+			const messageId =
+				streamEvent?.type === 'message_start' && streamEvent.message?.id
+					? streamEvent.message.id
+					: null;
+			emitEvent( {
+				type: 'message.delta',
+				timestamp: new Date().toISOString(),
+				messageId,
+				event: message.event,
+			} );
+			return undefined;
+		}
+
 		emitEvent( { type: 'message', timestamp: new Date().toISOString(), message } );
 
 		if ( message.type === 'result' ) {

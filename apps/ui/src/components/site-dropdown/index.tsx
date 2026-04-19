@@ -13,6 +13,7 @@ import {
 	useStopSite,
 } from '@/data/queries/use-sites';
 import { useSnapshots } from '@/data/queries/use-snapshots';
+import { getSiteDisplayUrl, getSiteUrl } from '@/lib/get-site-url';
 import styles from './style.module.css';
 import type { SiteDetails, Snapshot, SyncSite } from '@/data/core';
 import type { ComponentProps, ElementRef } from 'react';
@@ -108,7 +109,6 @@ function pickLatestSnapshot(
 
 export function SiteDropdown( { site }: Props ) {
 	const connector = useConnector();
-	const localUrl = site.url;
 	const { data: snapshots } = useSnapshots();
 	const { data: connectedSites } = useConnectedWpcomSites( site.id );
 	const previewSnapshot = useMemo(
@@ -133,15 +133,12 @@ export function SiteDropdown( { site }: Props ) {
 				: __( 'Site is starting' )
 			: __( 'Site is stopped' );
 
-	const stoppedUrl = site.port > 0 ? `localhost:${ site.port }` : undefined;
 	const localSublabel =
 		status === 'transitioning'
 			? isStopping
 				? __( 'Stopping…' )
 				: __( 'Starting…' )
-			: localUrl
-			? stripProtocol( localUrl )
-			: stoppedUrl ?? __( 'Not running' );
+			: getSiteDisplayUrl( site );
 
 	const openExternal = ( url: string ) => {
 		void connector.openExternalUrl( url );
@@ -182,14 +179,14 @@ export function SiteDropdown( { site }: Props ) {
 								>
 									{ site.running ? __( 'Stop' ) : __( 'Start' ) }
 								</Button>
-								{ localUrl ? (
+								{ site.running ? (
 									<IconButton
 										variant="minimal"
 										tone="neutral"
 										size="small"
 										icon={ external }
 										label={ __( 'Open local site' ) }
-										onClick={ () => openExternal( localUrl ) }
+										onClick={ () => openExternal( getSiteUrl( site ) ) }
 									/>
 								) : null }
 							</div>

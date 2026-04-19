@@ -15,6 +15,7 @@ import {
 	useStopSite,
 } from '@/data/queries/use-sites';
 import { formatRelativeTime } from '@/lib/format-relative-time';
+import { getSiteDisplayUrl } from '@/lib/get-site-url';
 import styles from './style.module.css';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
@@ -28,20 +29,11 @@ type ProjectGroup = {
 	sessions: AiSessionSummary[];
 };
 
-function stripProtocol( url: string ): string {
-	return url.replace( /^https?:\/\//, '' ).replace( /\/$/, '' );
-}
-
 function deriveSubtitle( site: SiteDetails ): string | undefined {
-	if ( site.url ) {
-		return stripProtocol( site.url );
+	if ( site.customDomain || site.port > 0 ) {
+		return getSiteDisplayUrl( site );
 	}
-	// Main process strips `url` when the site is stopped but keeps `port`.
-	if ( site.port > 0 ) {
-		return `localhost:${ site.port }`;
-	}
-	const basename = site.path.split( /[\\/]/ ).filter( Boolean ).pop();
-	return basename;
+	return site.path.split( /[\\/]/ ).filter( Boolean ).pop();
 }
 
 function groupSessionsByOwner(

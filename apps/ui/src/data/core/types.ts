@@ -17,6 +17,8 @@ export interface SiteDetails {
 	port: number;
 	running: boolean;
 	url?: string;
+	customDomain?: string;
+	enableHttps?: boolean;
 	phpVersion: string;
 	themeDetails?: {
 		name: string;

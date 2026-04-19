@@ -5,6 +5,8 @@ import type {
 	Connector,
 	LoadedAiSession,
 	SiteDetails,
+	Snapshot,
+	SyncSite,
 } from '../../types';
 
 /**
@@ -75,6 +77,16 @@ export function createIpcConnector(): Connector {
 
 		async stopSite( id ) {
 			await ipcApi.stopServer( id );
+		},
+
+		// Preview snapshots
+		async getSnapshots(): Promise< Snapshot[] > {
+			return ( await ipcApi.fetchSnapshots() ) as Snapshot[];
+		},
+
+		// Connected WPCom sites
+		async getConnectedWpcomSites( localSiteId: string ): Promise< SyncSite[] > {
+			return ( await ipcApi.getConnectedWpcomSites( localSiteId ) ) as SyncSite[];
 		},
 
 		// AI sessions

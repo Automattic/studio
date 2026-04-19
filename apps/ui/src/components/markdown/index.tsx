@@ -1,9 +1,12 @@
+import { useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { useConnector } from '@/data/core';
 import styles from './style.module.css';
 import type { Components } from 'react-markdown';
+import type { MouseEvent } from 'react';
 
-const components: Components = {
+const baseComponents: Components = {
 	h1: ( { children } ) => <h1 className={ styles.h1 }>{ children }</h1>,
 	h2: ( { children } ) => <h2 className={ styles.h2 }>{ children }</h2>,
 	h3: ( { children } ) => <h3 className={ styles.h3 }>{ children }</h3>,
@@ -12,11 +15,6 @@ const components: Components = {
 	ul: ( { children } ) => <ul className={ styles.ul }>{ children }</ul>,
 	ol: ( { children } ) => <ol className={ styles.ol }>{ children }</ol>,
 	li: ( { children } ) => <li className={ styles.li }>{ children }</li>,
-	a: ( { children, href } ) => (
-		<a className={ styles.a } href={ href } target="_blank" rel="noreferrer noopener">
-			{ children }
-		</a>
-	),
 	blockquote: ( { children } ) => (
 		<blockquote className={ styles.blockquote }>{ children }</blockquote>
 	),
@@ -48,6 +46,36 @@ const components: Components = {
 };
 
 export function Markdown( { children }: { children: string } ) {
+	const connector = useConnector();
+
+	const components = useMemo< Components >( () => {
+		return {
+			...baseComponents,
+			// Electron swallows plain `target="_blank"` navigations — route clicks
+			// through the connector so links open in the system browser.
+			a: ( { children: linkChildren, href } ) => {
+				const handleClick = ( event: MouseEvent< HTMLAnchorElement > ) => {
+					if ( ! href ) {
+						return;
+					}
+					event.preventDefault();
+					void connector.openExternalUrl( href );
+				};
+				return (
+					<a
+						className={ styles.a }
+						href={ href }
+						onClick={ handleClick }
+						target="_blank"
+						rel="noreferrer noopener"
+					>
+						{ linkChildren }
+					</a>
+				);
+			},
+		};
+	}, [ connector ] );
+
 	return (
 		<div className={ styles.root }>
 			<ReactMarkdown remarkPlugins={ [ remarkGfm ] } components={ components }>

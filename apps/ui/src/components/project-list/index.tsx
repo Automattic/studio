@@ -4,9 +4,16 @@ import { moreHorizontal, plus } from '@wordpress/icons';
 import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useMemo, useState } from 'react';
+import * as Menu from '@/components/menu';
 import { SidebarButton } from '@/components/sidebar-button';
 import { useSessions } from '@/data/queries/use-sessions';
-import { useSites } from '@/data/queries/use-sites';
+import {
+	useIsSiteStarting,
+	useIsSiteStopping,
+	useSites,
+	useStartSite,
+	useStopSite,
+} from '@/data/queries/use-sites';
 import { formatRelativeTime } from '@/lib/format-relative-time';
 import styles from './style.module.css';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
@@ -28,6 +35,13 @@ function stripProtocol( url: string ): string {
 function deriveSubtitle( site: SiteDetails ): string | undefined {
 	if ( site.url ) {
 		return stripProtocol( site.url );
+	}
+	// When a site is stopped the main process strips `url` from the details,
+	// but `port` is preserved. Surfacing `localhost:<port>` keeps the subtitle
+	// stable across start/stop toggles instead of flipping to the folder
+	// basename (which often mirrors the site name).
+	if ( site.port > 0 ) {
+		return `localhost:${ site.port }`;
 	}
 	const basename = site.path.split( /[\\/]/ ).filter( Boolean ).pop();
 	return basename;
@@ -115,6 +129,42 @@ function SessionItem( { session }: { session: AiSessionSummary } ) {
 	);
 }
 
+function ProjectActionsMenu( { site }: { site: SiteDetails } ) {
+	const startSite = useStartSite();
+	const stopSite = useStopSite();
+	const isStarting = useIsSiteStarting( site.id );
+	const isStopping = useIsSiteStopping( site.id );
+	const busy = isStarting || isStopping;
+
+	return (
+		<Menu.Root modal={ false }>
+			<Menu.Trigger
+				render={
+					<IconButton
+						variant="minimal"
+						tone="neutral"
+						size="small"
+						icon={ moreHorizontal }
+						label={ __( 'Project actions' ) }
+						className={ styles.projectAction }
+					/>
+				}
+			/>
+			<Menu.Popup side="bottom" align="start">
+				{ site.running ? (
+					<Menu.Item disabled={ busy } onClick={ () => stopSite.mutate( site.id ) }>
+						{ __( 'Stop site' ) }
+					</Menu.Item>
+				) : (
+					<Menu.Item disabled={ busy } onClick={ () => startSite.mutate( site.id ) }>
+						{ isStarting ? __( 'Starting…' ) : __( 'Start site' ) }
+					</Menu.Item>
+				) }
+			</Menu.Popup>
+		</Menu.Root>
+	);
+}
+
 function ProjectSection( {
 	group,
 	isUnassigned,
@@ -151,14 +201,7 @@ function ProjectSection( {
 				</div>
 				{ group.site ? (
 					<div className={ styles.projectActions }>
-						<IconButton
-							variant="minimal"
-							tone="neutral"
-							size="small"
-							icon={ moreHorizontal }
-							label={ __( 'Project actions' ) }
-							className={ styles.projectAction }
-						/>
+						<ProjectActionsMenu site={ group.site } />
 						<IconButton
 							variant="minimal"
 							tone="neutral"

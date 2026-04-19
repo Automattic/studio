@@ -78,6 +78,10 @@ export interface Connector {
 	// to reclaim the space we normally leave for them).
 	isFullscreen(): Promise< boolean >;
 	onFullscreenChange( listener: ( fullscreen: boolean ) => void ): () => void;
+
+	// Fires whenever a site is created, updated, started, stopped, or deleted.
+	// Consumers typically invalidate cached site data in response.
+	onSiteEvent( listener: () => void ): () => void;
 }
 
 export type ColorScheme = 'system' | 'light' | 'dark';

@@ -1,14 +1,23 @@
 import { __ } from '@wordpress/i18n';
 import { chevronDownSmall, external } from '@wordpress/icons';
 import { Button, Icon, IconButton } from '@wordpress/ui';
+import { clsx } from 'clsx';
 import { forwardRef, useMemo } from 'react';
 import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
+import {
+	useIsSiteStarting,
+	useIsSiteStopping,
+	useStartSite,
+	useStopSite,
+} from '@/data/queries/use-sites';
 import { useSnapshots } from '@/data/queries/use-snapshots';
 import styles from './style.module.css';
 import type { SiteDetails, Snapshot, SyncSite } from '@/data/core';
 import type { ComponentProps, ElementRef } from 'react';
+
+type SiteStatus = 'running' | 'stopped' | 'transitioning';
 
 function stripProtocol( url: string ): string {
 	return url.replace( /^https?:\/\//, '' ).replace( /\/$/, '' );
@@ -16,10 +25,12 @@ function stripProtocol( url: string ): string {
 
 type TriggerProps = Omit< ComponentProps< 'button' >, 'children' > & {
 	siteName: string;
+	status: SiteStatus;
+	statusLabel: string;
 };
 
 const DropdownTrigger = forwardRef< ElementRef< 'button' >, TriggerProps >(
-	function DropdownTrigger( { siteName, className, ...props }, ref ) {
+	function DropdownTrigger( { siteName, status, statusLabel, className, ...props }, ref ) {
 		return (
 			<button
 				ref={ ref }
@@ -28,7 +39,11 @@ const DropdownTrigger = forwardRef< ElementRef< 'button' >, TriggerProps >(
 				{ ...props }
 			>
 				<span className={ styles.triggerSite }>{ siteName }</span>
-				<span className={ styles.triggerDot } aria-hidden="true" />
+				<span
+					className={ clsx( styles.triggerDot, styles[ `triggerDot_${ status }` ] ) }
+					role="img"
+					aria-label={ statusLabel }
+				/>
 				<span className={ styles.triggerEnv }>{ __( 'Local' ) }</span>
 				<Icon icon={ chevronDownSmall } size={ 18 } />
 			</button>
@@ -102,29 +117,82 @@ export function SiteDropdown( { site }: Props ) {
 	);
 	const liveSite = useMemo( () => pickLiveSite( connectedSites ), [ connectedSites ] );
 
+	const startSite = useStartSite();
+	const stopSite = useStopSite();
+	const isStarting = useIsSiteStarting( site.id );
+	const isStopping = useIsSiteStopping( site.id );
+	const status: SiteStatus =
+		isStarting || isStopping ? 'transitioning' : site.running ? 'running' : 'stopped';
+
+	const statusLabel =
+		status === 'running'
+			? __( 'Site is running' )
+			: status === 'transitioning'
+			? isStopping
+				? __( 'Site is stopping' )
+				: __( 'Site is starting' )
+			: __( 'Site is stopped' );
+
+	const stoppedUrl = site.port > 0 ? `localhost:${ site.port }` : undefined;
+	const localSublabel =
+		status === 'transitioning'
+			? isStopping
+				? __( 'Stopping…' )
+				: __( 'Starting…' )
+			: localUrl
+			? stripProtocol( localUrl )
+			: stoppedUrl ?? __( 'Not running' );
+
 	const openExternal = ( url: string ) => {
 		void connector.openExternalUrl( url );
 	};
 
+	const toggleServer = () => {
+		if ( status === 'transitioning' ) {
+			return;
+		}
+		if ( site.running ) {
+			stopSite.mutate( site.id );
+		} else {
+			startSite.mutate( site.id );
+		}
+	};
+
 	return (
 		<Menu.Root modal={ false }>
-			<Menu.Trigger render={ <DropdownTrigger siteName={ site.name } /> } />
+			<Menu.Trigger
+				render={
+					<DropdownTrigger siteName={ site.name } status={ status } statusLabel={ statusLabel } />
+				}
+			/>
 			<Menu.Popup side="bottom" align="start" className={ styles.popup }>
 				<div className={ styles.rows }>
 					<PopoverRow
 						label={ __( 'Local site' ) }
-						sublabel={ localUrl ? stripProtocol( localUrl ) : __( 'Not running' ) }
+						sublabel={ localSublabel }
 						action={
-							localUrl ? (
-								<IconButton
+							<div className={ styles.localActions }>
+								<Button
 									variant="minimal"
 									tone="neutral"
 									size="small"
-									icon={ external }
-									label={ __( 'Open local site' ) }
-									onClick={ () => openExternal( localUrl ) }
-								/>
-							) : null
+									loading={ status === 'transitioning' }
+									loadingAnnouncement={ isStopping ? __( 'Stopping' ) : __( 'Starting' ) }
+									onClick={ toggleServer }
+								>
+									{ site.running ? __( 'Stop' ) : __( 'Start' ) }
+								</Button>
+								{ localUrl ? (
+									<IconButton
+										variant="minimal"
+										tone="neutral"
+										size="small"
+										icon={ external }
+										label={ __( 'Open local site' ) }
+										onClick={ () => openExternal( localUrl ) }
+									/>
+								) : null }
+							</div>
 						}
 					/>
 
@@ -141,9 +209,7 @@ export function SiteDropdown( { site }: Props ) {
 									label={ __( 'Open live site' ) }
 									onClick={ () => openExternal( ensureProtocol( liveSite.url ) ) }
 								/>
-							) : (
-								<span className={ styles.emDash }>—</span>
-							)
+							) : null
 						}
 					/>
 

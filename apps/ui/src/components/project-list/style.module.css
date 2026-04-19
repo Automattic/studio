@@ -86,7 +86,8 @@
 
 .projectActive .projectAction,
 .projectHeader:hover .projectAction,
-.projectHeader:focus-within .projectAction {
+.projectHeader:focus-within .projectAction,
+.projectAction[data-popup-open] {
 	opacity: 1;
 }
 

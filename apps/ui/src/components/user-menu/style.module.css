@@ -1,5 +1,5 @@
 .root {
-	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md)
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-xl)
 		var(--wpds-dimension-padding-lg);
 }
 
@@ -7,18 +7,22 @@
 	display: flex;
 	align-items: center;
 	gap: var(--wpds-dimension-padding-xs);
-	opacity: 0.65;
 }
 
-.row:hover,
-.row:focus-within {
-	opacity: 1;
+.userName,
+.themeToggle {
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.row:hover .userName,
+.row:hover .themeToggle,
+.row:focus-within .userName,
+.row:focus-within .themeToggle {
+	color: var(--wpds-color-fg-content-neutral);
 }
 
 .userTrigger {
 	flex: 1;
-	justify-content: flex-start;
-	min-width: 0;
 	font-weight: var(--wpds-font-weight-regular);
 }
 
@@ -31,7 +35,6 @@
 
 .loginButton {
 	flex: 1;
-	justify-content: flex-start;
 }
 
 .popup {

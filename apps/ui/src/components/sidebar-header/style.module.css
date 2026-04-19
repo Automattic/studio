@@ -5,7 +5,7 @@
 	/* Leave room for macOS traffic lights at {20, 20} plus a visible gap.
 	   min-height is tuned so the flex-centered content lines up with the
 	   vertical center of the traffic lights. */
-	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md)
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-xl)
 		var(--wpds-dimension-padding-sm) 94px;
 	min-height: 46px;
 }
@@ -13,7 +13,7 @@
 /* In macOS fullscreen the traffic lights are hidden, so reclaim the
    padding that was reserved for them. */
 .fullscreen {
-	padding-left: var(--wpds-dimension-padding-md);
+	padding-left: var(--wpds-dimension-padding-xl);
 }
 
 .title {

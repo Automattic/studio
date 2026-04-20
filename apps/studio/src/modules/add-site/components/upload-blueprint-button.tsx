@@ -1,5 +1,4 @@
 import { generateDefaultBlueprintDescription } from '@studio/common/lib/blueprint-settings';
-import { BlueprintValidationWarning } from '@studio/common/lib/blueprint-validation';
 import { Button as WpButton } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
@@ -20,7 +19,7 @@ interface Blueprint {
 }
 
 interface UploadBlueprintButtonProps {
-	onFileBlueprintSelect: ( blueprint: Blueprint, warnings?: BlueprintValidationWarning[] ) => void;
+	onFileBlueprintSelect: ( blueprint: Blueprint ) => void;
 	onError: ( error: string | undefined ) => void;
 }
 
@@ -62,10 +61,7 @@ export function UploadBlueprintButton( {
 					filePath: getIpcApi().getPathForFile( file ),
 				};
 
-				onFileBlueprintSelect(
-					fileBlueprint,
-					validation.warnings?.length ? validation.warnings : undefined
-				);
+				onFileBlueprintSelect( fileBlueprint );
 			} catch ( error ) {
 				if ( error instanceof SyntaxError ) {
 					onError( sprintf( __( 'Invalid JSON: %s' ), error.message ) );

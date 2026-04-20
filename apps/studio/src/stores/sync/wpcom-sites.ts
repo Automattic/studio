@@ -141,7 +141,11 @@ export const wpcomSitesApi = createApi( {
 						// Connected sites that weren't on page 1 need explicit verification
 						// before we'd mark them deleted — otherwise pagination would flag
 						// any connected site past the first page as gone.
-						const fetchedIds = new Set( parsedResponse.sites.map( ( s ) => s.ID ) );
+						const fetchedIds = new Set(
+							parsedResponse.sites
+								.map( ( s ) => sitesEndpointSiteSchema.safeParse( s ).data?.ID )
+								.filter( ( id ): id is number => typeof id === 'number' )
+						);
 						const missingConnectedIds = connectedIds.filter( ( id ) => ! fetchedIds.has( id ) );
 
 						const verifiedDeletedIds = new Set< number >();

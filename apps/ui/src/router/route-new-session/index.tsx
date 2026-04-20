@@ -1,4 +1,5 @@
 import { createRoute, redirect } from '@tanstack/react-router';
+import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { dashboardLayoutRoute } from '../layout-dashboard';
 
 /**
@@ -13,6 +14,10 @@ export const newSessionRoute = createRoute( {
 	path: '/sites/$siteId/new',
 	beforeLoad: async ( { params, context } ) => {
 		const summary = await context.connector.createSession( params.siteId );
+		// Bypasses `useCreateSession`, so we need to invalidate the sessions
+		// list ourselves — otherwise the sidebar wouldn't reflect the new
+		// session on first render after the redirect.
+		await context.queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } );
 		throw redirect( { to: '/sessions/$sessionId', params: { sessionId: summary.id } } );
 	},
 } );

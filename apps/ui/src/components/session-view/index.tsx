@@ -77,7 +77,7 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 			node.scrollTop = node.scrollHeight;
 		} );
 		return () => cancelAnimationFrame( id );
-	}, [ sessionId, data, isRunning ] );
+	}, [ sessionId, data, isRunning, queuedPrompts.length ] );
 
 	if ( isLoading ) {
 		return <div className={ styles.state }>{ __( 'Loading session…' ) }</div>;

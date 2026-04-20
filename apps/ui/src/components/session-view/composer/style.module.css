@@ -120,6 +120,14 @@
 	flex-shrink: 0;
 }
 
+.pillDotLive {
+	background-color: #2563eb;
+}
+
+.envMenuPopup {
+	min-width: 140px;
+}
+
 .sendButton,
 .stopButton {
 	display: inline-flex;

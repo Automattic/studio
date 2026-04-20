@@ -1,4 +1,5 @@
 import type { AgentRunEvent } from './agent-events';
+import type { AiModelId } from '@studio/common/ai/models';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { SyncSite } from '@studio/common/types/sync';
@@ -8,6 +9,7 @@ export type {
 	LoadedAiSession,
 	AiSessionEvent,
 } from '@studio/common/ai/sessions/types';
+export type { AiModelId } from '@studio/common/ai/models';
 export type { Snapshot } from '@studio/common/types/snapshot';
 export type { SyncSite } from '@studio/common/types/sync';
 
@@ -76,9 +78,20 @@ export interface Connector {
 	// that identifies the in-flight agent run; live events for that run stream
 	// through `onAgentEvent`.
 	continueSession( sessionId: string, prompt: string ): Promise< { runId: string } >;
+	// Persist a UI-driven model override for the session. The CLI picks this up
+	// on the next turn; the change survives reloads because it's written to the
+	// session JSONL.
+	setSessionModel( sessionId: string, model: AiModelId ): Promise< void >;
 	interruptAgentRun( runId: string ): Promise< void >;
 	answerAgentQuestion( runId: string, answers: Record< string, string > ): Promise< void >;
 	onAgentEvent( listener: ( event: AgentRunEvent ) => void ): () => void;
+
+	// Flip the session between acting on its owner site's local runtime vs.
+	// its linked WordPress.com live site. The owner site itself never changes.
+	setSessionEnvironment(
+		sessionId: string,
+		environment: 'local' | 'live'
+	): Promise< { environment: 'local' | 'live'; url?: string; wpcomSiteId?: number } >;
 
 	// Locale
 	getUserLocale(): Promise< string | undefined >;

@@ -18,6 +18,7 @@ export async function readAiSessionSummaryFromEvents(
 	let ownerSitePath: string | undefined;
 	let ownerSiteName: string | undefined;
 	let selectedSiteName: string | undefined;
+	let activeEnvironment: 'local' | 'live' = 'local';
 	let endReason: 'error' | 'stopped' | undefined;
 	let eventCount = 0;
 
@@ -45,6 +46,11 @@ export async function readAiSessionSummaryFromEvents(
 				ownerSitePath = event.sitePath;
 				ownerSiteName = event.siteName;
 			}
+			activeEnvironment = event.remote === true ? 'live' : 'local';
+		}
+
+		if ( event.type === 'environment.selected' ) {
+			activeEnvironment = event.environment;
 		}
 
 		if ( event.type === 'user.message' && event.source === 'prompt' && ! firstPrompt ) {
@@ -74,6 +80,7 @@ export async function readAiSessionSummaryFromEvents(
 		ownerSitePath,
 		ownerSiteName,
 		selectedSiteName,
+		activeEnvironment,
 		endReason,
 		eventCount,
 	};

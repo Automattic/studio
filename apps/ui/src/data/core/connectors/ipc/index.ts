@@ -111,12 +111,29 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.continueAiSession( sessionId, prompt ) ) as { runId: string };
 		},
 
+		async setSessionModel( sessionId, model ) {
+			await ipcApi.setAiSessionModel( sessionId, model );
+		},
+
 		async interruptAgentRun( runId ) {
 			await ipcApi.interruptAiAgentRun( runId );
 		},
 
 		async answerAgentQuestion( runId, answers ) {
 			await ipcApi.answerAiAgentQuestion( runId, answers );
+		},
+
+		async setSessionEnvironment( sessionId, environment ) {
+			const result = ( await ipcApi.setSessionEnvironment( sessionId, environment ) ) as {
+				environment: 'local' | 'live';
+				url?: string;
+				wpcomSiteId?: number;
+			};
+			return {
+				environment: result.environment,
+				url: result.url,
+				wpcomSiteId: result.wpcomSiteId,
+			};
 		},
 
 		onAgentEvent( listener ) {

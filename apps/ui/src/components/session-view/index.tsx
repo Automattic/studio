@@ -316,14 +316,14 @@ function Conversation( {
 	data,
 	isRunning,
 	startedAt,
-	pendingQuestion,
+	pendingQuestions,
 	onAnswerQuestion,
 }: {
 	data: LoadedAiSession;
 	isRunning: boolean;
 	startedAt: number | null;
-	pendingQuestion: string | null;
-	onAnswerQuestion: ( label: string ) => void;
+	pendingQuestions: Set< string >;
+	onAnswerQuestion: ( question: string, label: string ) => void;
 } ) {
 	const items = useMemo( () => eventsToRenderItems( data.events ), [ data.events ] );
 	const progressMessage = useMemo(
@@ -354,8 +354,8 @@ function Conversation( {
 								key={ item.key }
 								question={ item.question }
 								options={ item.options }
-								isPending={ item.question === pendingQuestion }
-								onAnswer={ onAnswerQuestion }
+								isPending={ pendingQuestions.has( item.question ) }
+								onAnswer={ ( label ) => onAnswerQuestion( item.question, label ) }
 							/>
 						);
 					default:
@@ -363,7 +363,7 @@ function Conversation( {
 				}
 			} ) }
 			<ThinkingIndicator
-				active={ isRunning && pendingQuestion === null }
+				active={ isRunning && pendingQuestions.size === 0 }
 				startedAt={ startedAt }
 				progressMessage={ progressMessage }
 			/>
@@ -447,11 +447,15 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 		isRunning,
 		startedAt,
 		error: runError,
-		pendingQuestion,
+		pendingQuestions,
 		sendMessage,
 		interrupt,
 		answerQuestion,
 	} = useAgentRun( sessionId );
+	const pendingQuestionTexts = useMemo(
+		() => new Set( pendingQuestions.map( ( q ) => q.question ) ),
+		[ pendingQuestions ]
+	);
 	const scrollRef = useRef< HTMLDivElement >( null );
 
 	useLayoutEffect( () => {
@@ -487,12 +491,12 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 					data={ data }
 					isRunning={ isRunning }
 					startedAt={ startedAt }
-					pendingQuestion={ pendingQuestion?.question ?? null }
-					onAnswerQuestion={ ( label ) => void answerQuestion( label ) }
+					pendingQuestions={ pendingQuestionTexts }
+					onAnswerQuestion={ answerQuestion }
 				/>
 			</div>
 			<Composer
-				isRunning={ isRunning || pendingQuestion !== null }
+				isRunning={ isRunning || pendingQuestions.length > 0 }
 				error={ runError }
 				onSend={ sendMessage }
 				onInterrupt={ interrupt }

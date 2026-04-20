@@ -1,5 +1,4 @@
 import { generateDefaultBlueprintDescription } from '@studio/common/lib/blueprint-settings';
-import { BlueprintValidationWarning } from '@studio/common/lib/blueprint-validation';
 import {
 	__experimentalVStack as VStack,
 	__experimentalHStack as HStack,
@@ -50,7 +49,7 @@ interface AddSiteBlueprintProps {
 	isLoading: boolean;
 	selectedBlueprint: string | null;
 	onBlueprintChange: ( blueprintId: string ) => void;
-	onFileBlueprintSelect?: ( blueprint: Blueprint, warnings?: BlueprintValidationWarning[] ) => void;
+	onFileBlueprintSelect?: ( blueprint: Blueprint ) => void;
 }
 
 export function AddSiteBlueprintSelector( {

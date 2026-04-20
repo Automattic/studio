@@ -6,6 +6,7 @@ import {
 	app,
 	clipboard,
 	dialog,
+	nativeTheme,
 	shell,
 	type IpcMainInvokeEvent,
 	Notification,
@@ -17,6 +18,12 @@ import https from 'node:https';
 import os from 'os';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
+import {
+	createAiSession as createAiSessionInStore,
+	deleteAiSession as deleteAiSessionFromStore,
+	listAiSessions as listAiSessionsFromStore,
+	loadAiSession as loadAiSessionFromStore,
+} from '@studio/common/ai/sessions/store';
 import {
 	installSkillToSite,
 	removeSkillFromSite,
@@ -44,8 +51,14 @@ import { readSharedConfig, updateSharedConfig } from '@studio/common/lib/shared-
 import { shouldExcludeFromSync, shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
-import { MACOS_TRAFFIC_LIGHT_POSITION, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
+import {
+	MACOS_TRAFFIC_LIGHT_POSITION,
+	MAIN_MIN_WIDTH,
+	SIDEBAR_WIDTH,
+	WINDOWS_TITLEBAR_HEIGHT,
+} from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
+import { getAiSessionsRootDirectory } from 'src/lib/ai-sessions';
 import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
 import {
 	bumpStat,
@@ -93,6 +106,7 @@ import {
 	removeSkillById,
 	type SkillStatus,
 } from 'src/modules/agent-instructions/lib/skills';
+import { answerAgentRun, interruptAgentRun, startAgentRun } from 'src/modules/ai-agent/run-manager';
 import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
@@ -110,6 +124,7 @@ import {
 } from 'src/storage/user-data';
 import { Blueprint } from 'src/stores/wpcom-api';
 import { captureSiteThumbnail } from './lib/capture-site-thumbnail';
+import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { WpCliResult } from 'src/site-server';
 
@@ -157,6 +172,74 @@ export {
 	saveUserTerminal,
 	showUserSettings,
 } from 'src/modules/user-settings/lib/ipc-handlers';
+
+export {
+	studioCodeSendMessage,
+	studioCodeRespondToPermission,
+	studioCodeAbort,
+	studioCodeCheckProvider,
+} from 'src/modules/studio-code/ipc-handlers';
+
+export async function listAiSessions( _event: IpcMainInvokeEvent ): Promise< AiSessionSummary[] > {
+	return listAiSessionsFromStore( getAiSessionsRootDirectory() );
+}
+
+export async function loadAiSession(
+	_event: IpcMainInvokeEvent,
+	sessionIdOrPrefix: string
+): Promise< LoadedAiSession > {
+	return loadAiSessionFromStore( getAiSessionsRootDirectory(), sessionIdOrPrefix );
+}
+
+export async function deleteAiSession(
+	_event: IpcMainInvokeEvent,
+	sessionIdOrPrefix: string
+): Promise< AiSessionSummary > {
+	return deleteAiSessionFromStore( getAiSessionsRootDirectory(), sessionIdOrPrefix );
+}
+
+export async function createAiSession(
+	_event: IpcMainInvokeEvent,
+	siteId: string
+): Promise< AiSessionSummary > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( `Site not found: ${ siteId }` );
+	}
+	return createAiSessionInStore( getAiSessionsRootDirectory(), {
+		site: {
+			name: server.details.name,
+			path: server.details.path,
+		},
+	} );
+}
+
+export async function continueAiSession(
+	event: IpcMainInvokeEvent,
+	sessionId: string,
+	prompt: string
+): Promise< { runId: string } > {
+	return startAgentRun( {
+		sessionId,
+		prompt,
+		webContents: event.sender,
+	} );
+}
+
+export async function interruptAiAgentRun(
+	_event: IpcMainInvokeEvent,
+	runId: string
+): Promise< void > {
+	interruptAgentRun( runId );
+}
+
+export async function answerAiAgentQuestion(
+	_event: IpcMainInvokeEvent,
+	runId: string,
+	answers: Record< string, string >
+): Promise< void > {
+	answerAgentRun( runId, answers );
+}
 
 export async function getAgentInstructionsStatus(
 	_event: IpcMainInvokeEvent,
@@ -899,8 +982,16 @@ export async function openSiteURL(
 		return;
 	}
 
-	let url = new URL( relativeURL, site.server.url );
-	if ( autoLogin ) {
+	// When the caller didn't ask for a specific path (the generic "Open site"
+	// entry points pass `''`), honor the Blueprint-provided `landingPage` if
+	// the site has one. Explicit relative paths (e.g. `/wp-admin/`) still win.
+	const usingLandingPage = ! relativeURL && !! site.details.landingPage;
+	const targetPath = relativeURL || site.details.landingPage || '';
+	let url = new URL( targetPath, site.server.url );
+	// Blueprint landing pages may point at admin screens; force auto-login so
+	// users don't get bounced to the login page. This matches Playground's
+	// "always-logged-in sandbox" behavior for Blueprint-imported sites.
+	if ( autoLogin || usingLandingPage ) {
 		const autoLoginUrl = new URL( '/studio-auto-login', site.server.url );
 		autoLoginUrl.searchParams.append( 'redirect_to', url.toString() );
 		url = autoLoginUrl;
@@ -1784,11 +1875,51 @@ export async function cleanupBlueprintTempDir(
 
 export async function setWindowControlVisibility( event: IpcMainInvokeEvent, visible: boolean ) {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( parentWindow && process.platform === 'darwin' ) {
+	if ( ! parentWindow ) {
+		return;
+	}
+
+	if ( process.platform === 'darwin' ) {
 		parentWindow.setWindowButtonVisibility( visible );
 		if ( visible ) {
 			parentWindow.setWindowButtonPosition( MACOS_TRAFFIC_LIGHT_POSITION );
 		}
+	} else if ( process.platform === 'win32' ) {
+		const isDark = nativeTheme.shouldUseDarkColors;
+		if ( visible ) {
+			parentWindow.setTitleBarOverlay( {
+				color: 'rgba(30, 30, 30, 1)',
+				symbolColor: 'white',
+				height: WINDOWS_TITLEBAR_HEIGHT,
+			} );
+		} else {
+			parentWindow.setTitleBarOverlay( {
+				color: isDark ? '#2f2f2f' : '#fff',
+				symbolColor: isDark ? 'white' : '#1e1e1e',
+				height: WINDOWS_TITLEBAR_HEIGHT,
+			} );
+		}
+	}
+}
+
+export async function setTitleBarBackdropEffect( event: IpcMainInvokeEvent, enabled: boolean ) {
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	if ( ! parentWindow || process.platform !== 'win32' ) {
+		return;
+	}
+
+	if ( enabled ) {
+		parentWindow.setTitleBarOverlay( {
+			color: '#131313',
+			symbolColor: 'white',
+			height: WINDOWS_TITLEBAR_HEIGHT,
+		} );
+	} else {
+		parentWindow.setTitleBarOverlay( {
+			color: 'rgba(30, 30, 30, 1)',
+			symbolColor: 'white',
+			height: WINDOWS_TITLEBAR_HEIGHT,
+		} );
 	}
 }
 

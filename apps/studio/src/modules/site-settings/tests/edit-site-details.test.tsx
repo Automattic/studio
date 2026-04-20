@@ -85,7 +85,7 @@ describe( 'EditSiteDetails', () => {
 			name: 'Test Site',
 			path: '/path/to/site',
 			port: 8881,
-			phpVersion: '8.3',
+			phpVersion: '8.4',
 			running: true,
 			url: 'http://localhost:8881',
 		},
@@ -139,7 +139,7 @@ describe( 'EditSiteDetails', () => {
 		} );
 
 		expect( screen.getByLabelText( 'Site name' ) ).toHaveValue( 'Test Site' );
-		expect( screen.getByLabelText( 'PHP version' ) ).toHaveValue( '8.3' );
+		expect( screen.getByLabelText( 'PHP version' ) ).toHaveValue( '8.4' );
 		expect( screen.getByLabelText( 'WordPress version' ) ).toHaveValue( 'latest' );
 	} );
 
@@ -395,9 +395,14 @@ describe( 'EditSiteDetails', () => {
 				isEditModalOpen: true,
 			} )
 		);
-		// Mock the updateSite to delay completion
+		let resolveUpdate: () => void = () => {
+			// Initial no-op reassigned when mockUpdateSite is invoked.
+		};
 		mockUpdateSite.mockImplementation(
-			() => new Promise( ( resolve ) => setTimeout( resolve, 100 ) )
+			() =>
+				new Promise< void >( ( resolve ) => {
+					resolveUpdate = resolve;
+				} )
 		);
 
 		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
@@ -421,6 +426,8 @@ describe( 'EditSiteDetails', () => {
 		expect( screen.getByLabelText( 'PHP version' ) ).toBeDisabled();
 		expect( screen.getByLabelText( 'WordPress version' ) ).toBeDisabled();
 		expect( screen.getByRole( 'button', { name: 'Cancel' } ) ).toBeDisabled();
+
+		resolveUpdate();
 
 		// Wait for the update to complete
 		await waitFor( () => {

@@ -714,7 +714,7 @@ const SyncConnectedSiteSection = ( {
 					<div className="text-frame-text">
 						{ createInterpolateElement(
 							__(
-								'<siteUrlButton /> appears to be deleted or is currently unreachable. <button>Get help ↗</button>'
+								'<siteUrlButton/> appears to be deleted or is currently unreachable. <button>Get help ↗</button>'
 							),
 							{
 								button: (

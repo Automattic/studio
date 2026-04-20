@@ -24,14 +24,14 @@ platformTestSuite( 'SqlExporter', ( { normalize } ) => {
 				name: '123',
 				path: '/path/to/site',
 				port: 9999,
-				phpVersion: '8.3',
+				phpVersion: '8.4',
 			},
 			backupFile: normalize( '/path/to/backup.sql' ),
 			includes: {
 				database: true,
 				wpContent: false,
 			},
-			phpVersion: '8.3',
+			phpVersion: '8.4',
 		};
 
 		// Reset all mock implementations
@@ -43,7 +43,7 @@ platformTestSuite( 'SqlExporter', ( { normalize } ) => {
 				id: '123',
 				name: 'Test Site',
 				port: 9999,
-				phpVersion: '8.3',
+				phpVersion: '8.4',
 				running: false,
 			},
 			executeWpCliCommand: vi.fn().mockResolvedValue( { stdout: '', stderr: '', exitCode: 0 } ),

@@ -1,14 +1,11 @@
-import { EventEmitter } from 'events';
 import fs from 'fs';
 import path from 'path';
-import { ImportEvents } from '../events';
+import { ImportEvents } from '@studio/common/lib/import-export-events';
+import { ImportExportEventEmitter } from '../../events';
 import { BackupHandler } from '../handlers/backup-handler-factory';
 import { BackupArchiveInfo } from '../types';
 
-export class BackupHandlerSql extends EventEmitter implements BackupHandler {
-	constructor() {
-		super();
-	}
+export class BackupHandlerSql extends ImportExportEventEmitter implements BackupHandler {
 	async listFiles( backup: BackupArchiveInfo ): Promise< string[] > {
 		return [ path.basename( backup.path ) ];
 	}

@@ -510,7 +510,13 @@ export function CreateSiteForm( {
 			{ submitError && <div className={ styles.submitError }>{ submitError }</div> }
 
 			<div className={ styles.actions }>
-				<Button type="button" variant="minimal" tone="neutral" onClick={ onCancel }>
+				<Button
+					type="button"
+					variant="minimal"
+					tone="neutral"
+					onClick={ onCancel }
+					disabled={ isSubmitting }
+				>
 					{ __( 'Cancel' ) }
 				</Button>
 				<Button
@@ -518,9 +524,11 @@ export function CreateSiteForm( {
 					variant="solid"
 					tone="brand"
 					disabled={ ! canSubmit }
+					loading={ isSubmitting }
+					loadingAnnouncement={ __( 'Creating site' ) }
 					data-testid="create-site-submit"
 				>
-					{ isSubmitting ? __( 'Creating…' ) : __( 'Create site' ) }
+					{ __( 'Create site' ) }
 				</Button>
 			</div>
 		</form>

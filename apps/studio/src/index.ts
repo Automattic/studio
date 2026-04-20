@@ -9,6 +9,7 @@ import {
 	dialog,
 	MessageBoxSyncOptions,
 } from 'electron';
+import { execFile } from 'node:child_process';
 import path from 'path';
 import { pathToFileURL } from 'url';
 import * as Sentry from '@sentry/electron/main';
@@ -146,8 +147,27 @@ async function appBoot() {
 	if ( process.defaultApp ) {
 		if ( process.argv.length >= 2 ) {
 			const appArgs = [ path.resolve( process.argv[ 1 ] ) ];
-			app.removeAsDefaultProtocolClient( PROTOCOL_PREFIX, process.execPath, appArgs );
-			app.setAsDefaultProtocolClient( PROTOCOL_PREFIX, process.execPath, appArgs );
+			const registerProtocol = () => {
+				app.removeAsDefaultProtocolClient( PROTOCOL_PREFIX, process.execPath, appArgs );
+				app.setAsDefaultProtocolClient( PROTOCOL_PREFIX, process.execPath, appArgs );
+			};
+
+			if ( process.platform === 'darwin' ) {
+				// In dev mode, all Electron instances share the bundle ID "com.github.Electron".
+				// macOS Launch Services may cache stale binary paths from other workspaces.
+				// Force-register the current Electron.app so Launch Services resolves to
+				// this instance when handling wp-studio:// callbacks.
+				const electronAppPath = path.resolve(
+					path.dirname( require.resolve( 'electron' ) ),
+					'dist',
+					'Electron.app'
+				);
+				const lsregister =
+					'/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister';
+				execFile( lsregister, [ '-f', electronAppPath ], () => registerProtocol() );
+			} else {
+				registerProtocol();
+			}
 		}
 	} else {
 		app.removeAsDefaultProtocolClient( PROTOCOL_PREFIX );

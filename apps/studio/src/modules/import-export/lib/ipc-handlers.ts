@@ -1,11 +1,14 @@
 import { shell, BrowserWindow, IpcMainInvokeEvent, Notification } from 'electron';
 import fs from 'fs';
+import { stripVTControlCharacters } from 'util';
 import * as Sentry from '@sentry/electron/main';
+import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
 import { showErrorMessageBox } from 'src/ipc-handlers';
 import { bumpStat, getImporterMetric, StatsGroup, StatsMetric } from 'src/lib/bump-stats';
 import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
+import { CliCommandError } from 'src/modules/cli/lib/execute-command';
 import { executeExportCliCommand } from 'src/modules/cli/lib/execute-export-command';
 import { executeImportCliCommand } from 'src/modules/cli/lib/execute-import-command';
 import { SiteServer } from 'src/site-server';
@@ -27,6 +30,40 @@ function isExpectedImportError( error: unknown ): boolean {
 	);
 }
 
+function sanitizeImportErrorText( value: string ): string {
+	return stripVTControlCharacters( value )
+		.replace( /^Failed to import site:\s*/i, '' )
+		.trim()
+		.split( '\n' )[ 0 ]
+		.trim();
+}
+
+function getBestEffortImportError( error: unknown ): unknown {
+	if ( error instanceof CliCommandError ) {
+		const sanitizedLastErrorMessage = sanitizeImportErrorText( error.lastErrorMessage ?? '' );
+		if ( sanitizedLastErrorMessage ) {
+			return new Error( sanitizedLastErrorMessage );
+		}
+	}
+
+	if ( error instanceof Error ) {
+		const sanitizedMessage = sanitizeImportErrorText( error.message );
+		return new Error( sanitizedMessage );
+	}
+
+	return error;
+}
+
+async function removeFileIfExists( filePath: string ) {
+	try {
+		await fs.promises.unlink( filePath );
+	} catch ( error ) {
+		if ( isErrnoException( error ) && error.code !== 'ENOENT' ) {
+			console.warn( `Failed to remove file: ${ filePath }`, error );
+		}
+	}
+}
+
 async function showImportErrorModal( event: IpcMainInvokeEvent, error: unknown ) {
 	const parsedError = errorSchema.safeParse( error );
 
@@ -40,7 +77,7 @@ async function showImportErrorModal( event: IpcMainInvokeEvent, error: unknown )
 		return;
 	}
 
-	const errorToShow = simplifyErrorForDisplay( error );
+	const errorToShow = simplifyErrorForDisplay( getBestEffortImportError( error ) );
 
 	await showErrorMessageBox( event, {
 		title: __( 'Failed importing site' ),
@@ -99,7 +136,7 @@ export async function importSite(
 			}
 
 			if ( removeBackupOnComplete ) {
-				await fs.promises.unlink( importArchivePath );
+				await removeFileIfExists( importArchivePath );
 			}
 
 			resolve();
@@ -117,7 +154,7 @@ export async function importSite(
 			}
 
 			if ( removeBackupOnComplete ) {
-				await fs.promises.unlink( importArchivePath );
+				await removeFileIfExists( importArchivePath );
 			}
 
 			reject( error );

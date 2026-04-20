@@ -4,6 +4,7 @@ import { onboardingLayoutRoute } from './layout-onboarding';
 import { rootRoute } from './layout-root';
 import { dashboardRoute } from './route-dashboard';
 import { indexRoute } from './route-index';
+import { newSessionRoute } from './route-new-session';
 import { onboardingCreateRoute } from './route-onboarding-create';
 import { onboardingHomeRoute } from './route-onboarding-home';
 import { sessionDetailRoute } from './route-session-detail';
@@ -11,7 +12,7 @@ import type { RouterContext } from './layout-root';
 
 const routeTree = rootRoute.addChildren( [
 	indexRoute,
-	dashboardLayoutRoute.addChildren( [ dashboardRoute, sessionDetailRoute ] ),
+	dashboardLayoutRoute.addChildren( [ dashboardRoute, newSessionRoute, sessionDetailRoute ] ),
 	onboardingLayoutRoute.addChildren( [ onboardingHomeRoute, onboardingCreateRoute ] ),
 ] );
 

@@ -22,7 +22,7 @@ function CreateSitePage() {
 	const handleSubmit = async ( values: CreateSiteFormValues ) => {
 		setSubmitError( '' );
 		try {
-			await createSite.mutateAsync( {
+			const site = await createSite.mutateAsync( {
 				name: values.name,
 				path: values.path,
 				phpVersion: values.phpVersion,
@@ -33,7 +33,7 @@ function CreateSitePage() {
 				adminPassword: values.adminPassword || undefined,
 				adminEmail: values.adminEmail || undefined,
 			} );
-			await navigate( { to: '/dashboard' } );
+			await navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
 		} catch ( error ) {
 			setSubmitError(
 				error instanceof Error ? error.message : __( 'Failed to create site. Please try again.' )

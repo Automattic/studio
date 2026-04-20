@@ -6,7 +6,7 @@ import { clsx } from 'clsx';
 import { useMemo, useState } from 'react';
 import * as Menu from '@/components/menu';
 import { SidebarButton } from '@/components/sidebar-button';
-import { useCreateSession, useSessions } from '@/data/queries/use-sessions';
+import { useSessions } from '@/data/queries/use-sessions';
 import {
 	useIsSiteStarting,
 	useIsSiteStopping,
@@ -110,16 +110,6 @@ function SessionItem( { session }: { session: AiSessionSummary } ) {
 
 function NewSessionButton( { site }: { site: SiteDetails } ) {
 	const navigate = useNavigate();
-	const createSession = useCreateSession();
-
-	const handleClick = async () => {
-		if ( createSession.isPending ) {
-			return;
-		}
-		const summary = await createSession.mutateAsync( site.id );
-		await navigate( { to: '/sessions/$sessionId', params: { sessionId: summary.id } } );
-	};
-
 	return (
 		<IconButton
 			variant="minimal"
@@ -128,8 +118,7 @@ function NewSessionButton( { site }: { site: SiteDetails } ) {
 			icon={ plus }
 			label={ __( 'New session' ) }
 			className={ styles.projectAction }
-			onClick={ handleClick }
-			disabled={ createSession.isPending }
+			onClick={ () => void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } ) }
 		/>
 	);
 }
@@ -221,8 +210,13 @@ function ProjectSection( {
 
 function findActiveProjectKey(
 	groups: ProjectGroup[],
-	activeSessionId: string | undefined
+	activeSessionId: string | undefined,
+	activeSiteId: string | undefined
 ): string | undefined {
+	if ( activeSiteId ) {
+		const match = groups.find( ( group ) => group.site?.id === activeSiteId );
+		if ( match ) return match.key;
+	}
 	if ( ! activeSessionId ) {
 		return undefined;
 	}
@@ -237,13 +231,14 @@ function findActiveProjectKey(
 export function ProjectList() {
 	const { data: sites, isLoading: sitesLoading } = useSites();
 	const { data: sessions, isLoading: sessionsLoading } = useSessions();
-	const params = useParams( { strict: false } ) as { sessionId?: string };
+	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
 	const activeSessionId = params.sessionId;
+	const activeSiteId = params.siteId;
 
 	const groups = useMemo( () => groupSessionsByOwner( sites, sessions ), [ sites, sessions ] );
 	const activeProjectKey = useMemo(
-		() => findActiveProjectKey( groups, activeSessionId ),
-		[ groups, activeSessionId ]
+		() => findActiveProjectKey( groups, activeSessionId, activeSiteId ),
+		[ groups, activeSessionId, activeSiteId ]
 	);
 
 	// Expansion is derived: by default the active project (or, if none, the

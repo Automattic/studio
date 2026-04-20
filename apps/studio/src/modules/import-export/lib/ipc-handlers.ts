@@ -6,9 +6,8 @@ import {
 	ImporterEvents,
 	importIpcEventSchema,
 } from '@studio/common/lib/import-export-events';
-import { __, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
-import { WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT_IN_HRS } from 'src/constants';
 import { showErrorMessageBox } from 'src/ipc-handlers';
 import { bumpStat, getImporterMetric, StatsGroup, StatsMetric } from 'src/lib/bump-stats';
 import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
@@ -17,6 +16,31 @@ import { executeImportCliCommand } from 'src/modules/cli/lib/execute-import-comm
 import { SiteServer } from 'src/site-server';
 
 const errorSchema = z.object( { message: z.string() } );
+
+async function showImportErrorModal( event: IpcMainInvokeEvent, error: unknown ) {
+	const parsedError = errorSchema.safeParse( error );
+
+	if ( parsedError.success && parsedError.data.message.includes( 'Error: absolute path: /' ) ) {
+		await showErrorMessageBox( event, {
+			title: __( 'Failed importing site' ),
+			message: __(
+				'The ZIP archive is invalid. Try to unpack and pack it again. If this problem persists, please contact support.'
+			),
+		} );
+		return;
+	}
+
+	const errorToShow = simplifyErrorForDisplay( error );
+
+	await showErrorMessageBox( event, {
+		title: __( 'Failed importing site' ),
+		message: __(
+			'An error occurred while importing the site. Verify the file is a valid Jetpack backup, Local, Playground, .wpress or .sql database file and try again. If this problem persists, please contact support.'
+		),
+		error: errorToShow,
+		showOpenLogs: true,
+	} );
+}
 
 type ImportOptions = {
 	alwaysStartServer?: boolean;
@@ -53,6 +77,9 @@ export async function importSite(
 	const eventEmitter = await executeImportCliCommand( site.details.id, args, parentWindow );
 
 	return new Promise< void >( ( resolve, reject ) => {
+		let didShowErrorModal = false;
+		let bestErrorPayload: unknown;
+
 		eventEmitter.on( 'data', async ( { data } ) => {
 			const result = importIpcEventSchema.safeParse( data );
 
@@ -74,45 +101,8 @@ export async function importSite(
 				}
 			}
 
-			if ( parsed.event[ 0 ] === ImporterEvents.IMPORT_ERROR && showErrorModal ) {
-				const error = parsed.event[ 1 ];
-				const parsedError = errorSchema.safeParse( error );
-
-				if (
-					parsedError.success &&
-					parsedError.data.message.includes( 'Error: absolute path: /' )
-				) {
-					await showErrorMessageBox( event, {
-						title: __( 'Failed importing site' ),
-						message: __(
-							'The ZIP archive is invalid. Try to unpack and pack it again. If this problem persists, please contact support.'
-						),
-					} );
-				} else if (
-					parsedError.success &&
-					parsedError.data.message.includes( 'WP-CLI command was canceled (timed out)' )
-				) {
-					await showErrorMessageBox( event, {
-						title: __( 'Failed importing site' ),
-						message: sprintf(
-							__(
-								'The import process timed out after %d hours, which can occur when processing very large imports. If the issue persists, please contact support.'
-							),
-							WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT_IN_HRS
-						),
-					} );
-				} else {
-					const errorToShow = simplifyErrorForDisplay( error );
-
-					await showErrorMessageBox( event, {
-						title: __( 'Failed importing site' ),
-						message: __(
-							'An error occurred while importing the site. Verify the file is a valid Jetpack backup, Local, Playground, .wpress or .sql database file and try again. If this problem persists, please contact support.'
-						),
-						error: errorToShow,
-						showOpenLogs: true,
-					} );
-				}
+			if ( parsed.event[ 0 ] === ImporterEvents.IMPORT_ERROR ) {
+				bestErrorPayload = parsed.event[ 1 ];
 			}
 		} );
 
@@ -130,6 +120,11 @@ export async function importSite(
 		} );
 
 		eventEmitter.on( 'failure', async ( { error } ) => {
+			if ( showErrorModal && ! didShowErrorModal ) {
+				didShowErrorModal = true;
+				await showImportErrorModal( event, bestErrorPayload ?? error );
+			}
+
 			reject( error );
 			bumpStat( StatsGroup.STUDIO_IMPORT, StatsMetric.FAILURE );
 
@@ -137,6 +132,17 @@ export async function importSite(
 				await fs.promises.unlink( importArchivePath );
 			}
 		} );
+	} );
+}
+
+async function showExportErrorModal( event: IpcMainInvokeEvent, error: unknown ) {
+	await showErrorMessageBox( event, {
+		title: __( 'Failed exporting site' ),
+		message: __(
+			'An error occurred while exporting the site. If this problem persists, please contact support.'
+		),
+		error,
+		showOpenLogs: true,
 	} );
 }
 
@@ -183,6 +189,9 @@ export async function exportSite(
 	const eventEmitter = await executeExportCliCommand( site.details.id, args, parentWindow );
 
 	return new Promise< void >( ( resolve, reject ) => {
+		let didShowErrorModal = false;
+		let bestErrorPayload: unknown;
+
 		eventEmitter.on( 'data', async ( { data } ) => {
 			const result = exportIpcEventSchema.safeParse( data );
 
@@ -211,15 +220,8 @@ export async function exportSite(
 				}
 			}
 
-			if ( parsed.event[ 0 ] === ExportEvents.EXPORT_ERROR && showErrorModal ) {
-				await showErrorMessageBox( event, {
-					title: __( 'Failed exporting site' ),
-					message: __(
-						'An error occurred while exporting the site. If this problem persists, please contact support.'
-					),
-					error: parsed.event[ 1 ],
-					showOpenLogs: true,
-				} );
+			if ( parsed.event[ 0 ] === ExportEvents.EXPORT_ERROR ) {
+				bestErrorPayload = parsed.event[ 1 ];
 			}
 		} );
 
@@ -228,7 +230,12 @@ export async function exportSite(
 			bumpStat( StatsGroup.STUDIO_EXPORT, StatsMetric.FAILURE );
 		} );
 
-		eventEmitter.on( 'failure', ( { error } ) => {
+		eventEmitter.on( 'failure', async ( { error } ) => {
+			if ( showErrorModal && ! didShowErrorModal ) {
+				didShowErrorModal = true;
+				await showExportErrorModal( event, bestErrorPayload ?? error );
+			}
+
 			reject( error );
 			bumpStat( StatsGroup.STUDIO_EXPORT, StatsMetric.FAILURE );
 		} );

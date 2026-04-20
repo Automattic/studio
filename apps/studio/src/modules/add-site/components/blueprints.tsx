@@ -299,7 +299,6 @@ export function AddSiteBlueprintSelector( {
 				} else {
 					setValidationError( __( 'Failed to load Blueprint ZIP file. Please try again.' ) );
 				}
-				console.error( 'Failed to extract Blueprint ZIP:', error );
 			}
 		}
 		if ( fileRef.current ) {

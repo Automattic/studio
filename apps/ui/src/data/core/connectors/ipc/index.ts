@@ -111,6 +111,10 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.continueAiSession( sessionId, prompt ) ) as { runId: string };
 		},
 
+		async setSessionModel( sessionId, model ) {
+			await ipcApi.setAiSessionModel( sessionId, model );
+		},
+
 		async interruptAgentRun( runId ) {
 			await ipcApi.interruptAiAgentRun( runId );
 		},

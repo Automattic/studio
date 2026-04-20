@@ -19,6 +19,14 @@ export type AiSessionEvent =
 			model: string;
 	  }
 	| {
+			// User-initiated model override (e.g. the composer dropdown in the
+			// desktop UI). The CLI prefers this over `session.context.model` on
+			// resume so the next turn uses the selected model.
+			type: 'session.model_selected';
+			timestamp: string;
+			model: string;
+	  }
+	| {
 			type: 'session.cleared';
 			timestamp: string;
 	  }

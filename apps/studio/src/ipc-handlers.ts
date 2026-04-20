@@ -18,7 +18,9 @@ import https from 'node:https';
 import os from 'os';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
+import { isAiModelId } from '@studio/common/ai/models';
 import {
+	appendAiSessionEvent,
 	createAiSession as createAiSessionInStore,
 	deleteAiSession as deleteAiSessionFromStore,
 	listAiSessions as listAiSessionsFromStore,
@@ -222,6 +224,21 @@ export async function continueAiSession(
 		sessionId,
 		prompt,
 		webContents: event.sender,
+	} );
+}
+
+export async function setAiSessionModel(
+	_event: IpcMainInvokeEvent,
+	sessionId: string,
+	model: string
+): Promise< void > {
+	if ( ! isAiModelId( model ) ) {
+		throw new Error( `Unknown AI model: ${ model }` );
+	}
+	await appendAiSessionEvent( getAiSessionsRootDirectory(), sessionId, {
+		type: 'session.model_selected',
+		timestamp: new Date().toISOString(),
+		model,
 	} );
 }
 

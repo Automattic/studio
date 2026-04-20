@@ -13,13 +13,20 @@ interface RunState {
 	startedAt: number;
 }
 
+export interface PendingQuestion {
+	question: string;
+	options: Array< { label: string; description: string } >;
+}
+
 export interface LiveAgentEvents {
 	runId: string | null;
 	isRunning: boolean;
 	startedAt: number | null;
 	error: string | null;
+	pendingQuestion: PendingQuestion | null;
 	sendMessage: ( prompt: string ) => Promise< void >;
 	interrupt: () => Promise< void >;
+	answerQuestion: ( answer: string ) => Promise< void >;
 }
 
 export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
@@ -28,6 +35,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 
 	const [ runState, setRunState ] = useState< RunState | null >( null );
 	const [ error, setError ] = useState< string | null >( null );
+	const [ pendingQuestion, setPendingQuestion ] = useState< PendingQuestion | null >( null );
 
 	// `runState` drives `isRunning` and is cleared as soon as the agent turn
 	// finishes (`turn.completed`). `subscribedRunIdRef` stays set until the
@@ -38,6 +46,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 	useEffect( () => {
 		setRunState( null );
 		setError( null );
+		setPendingQuestion( null );
 		subscribedRunIdRef.current = null;
 	}, [ sessionId ] );
 
@@ -84,11 +93,13 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 			// exit, but the turn itself is already over.
 			if ( event.type === 'turn.completed' ) {
 				setRunState( null );
+				setPendingQuestion( null );
 				return;
 			}
 
 			if ( event.type === 'run.exited' || event.type === 'run.interrupted' ) {
 				setRunState( null );
+				setPendingQuestion( null );
 				subscribedRunIdRef.current = null;
 				// Only refresh the sessions list (sidebar summaries, updatedAt).
 				// The per-session cache already reflects the streamed events; a
@@ -123,15 +134,17 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 				if ( event.questions.length === 0 ) {
 					return;
 				}
+				const first = event.questions[ 0 ];
 				updateCache( ( events ) => [
 					...events,
 					{
 						type: 'agent.question',
 						timestamp: event.timestamp,
-						question: event.questions[ 0 ].question,
-						options: event.questions[ 0 ].options,
+						question: first.question,
+						options: first.options,
 					},
 				] );
+				setPendingQuestion( { question: first.question, options: first.options } );
 			}
 		} );
 		return unsubscribe;
@@ -179,12 +192,27 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		await connector.interruptAgentRun( runState.runId );
 	}, [ connector, runState ] );
 
+	const answerQuestion = useCallback(
+		async ( answer: string ) => {
+			if ( ! runState || ! pendingQuestion ) {
+				return;
+			}
+			setPendingQuestion( null );
+			await connector.answerAgentQuestion( runState.runId, {
+				[ pendingQuestion.question ]: answer,
+			} );
+		},
+		[ connector, pendingQuestion, runState ]
+	);
+
 	return {
 		runId: runState?.runId ?? null,
 		isRunning: runState !== null,
 		startedAt: runState?.startedAt ?? null,
 		error,
+		pendingQuestion,
 		sendMessage,
 		interrupt,
+		answerQuestion,
 	};
 }

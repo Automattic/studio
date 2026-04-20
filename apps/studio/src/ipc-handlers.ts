@@ -104,7 +104,7 @@ import {
 	removeSkillById,
 	type SkillStatus,
 } from 'src/modules/agent-instructions/lib/skills';
-import { interruptAgentRun, startAgentRun } from 'src/modules/ai-agent/run-manager';
+import { answerAgentRun, interruptAgentRun, startAgentRun } from 'src/modules/ai-agent/run-manager';
 import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
@@ -206,6 +206,14 @@ export async function interruptAiAgentRun(
 	runId: string
 ): Promise< void > {
 	interruptAgentRun( runId );
+}
+
+export async function answerAiAgentQuestion(
+	_event: IpcMainInvokeEvent,
+	runId: string,
+	answers: Record< string, string >
+): Promise< void > {
+	answerAgentRun( runId, answers );
 }
 
 export async function getAgentInstructionsStatus(

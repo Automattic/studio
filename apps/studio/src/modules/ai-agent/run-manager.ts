@@ -51,16 +51,7 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 	const cliPath = getCliPath();
 	const child = fork(
 		cliPath,
-		[
-			'code',
-			'sessions',
-			'resume',
-			sessionId,
-			prompt,
-			'--json',
-			'--auto-approve',
-			'--avoid-telemetry',
-		],
+		[ 'code', 'sessions', 'resume', sessionId, prompt, '--json', '--avoid-telemetry' ],
 		{
 			// Agent events arrive over the Node IPC channel (via `process.send`
 			// in the child). stdout/stderr are ignored — the child's
@@ -139,4 +130,12 @@ export function interruptAgentRun( runId: string ): void {
 	}
 	run.interrupted = true;
 	run.child.kill();
+}
+
+export function answerAgentRun( runId: string, answers: Record< string, string > ): void {
+	const run = runsById.get( runId );
+	if ( ! run || ! run.child.connected ) {
+		return;
+	}
+	run.child.send( { type: 'answer', answers } );
 }

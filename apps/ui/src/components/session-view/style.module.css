@@ -280,9 +280,15 @@
 	cursor: pointer;
 }
 
-.questionOption:hover,
-.questionOption:focus-visible {
+.questionOption:hover:not(:disabled),
+.questionOption:focus-visible:not(:disabled) {
 	text-decoration: underline;
+}
+
+.questionOption:disabled {
+	color: var(--wpds-color-fg-content-neutral-weak);
+	opacity: 0.6;
+	cursor: default;
 }
 
 .composer {

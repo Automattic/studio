@@ -187,6 +187,8 @@ const api: IpcApi = {
 	continueAiSession: ( sessionId, prompt ) =>
 		ipcRendererInvoke( 'continueAiSession', sessionId, prompt ),
 	interruptAiAgentRun: ( runId ) => ipcRendererInvoke( 'interruptAiAgentRun', runId ),
+	answerAiAgentQuestion: ( runId, answers ) =>
+		ipcRendererInvoke( 'answerAiAgentQuestion', runId, answers ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

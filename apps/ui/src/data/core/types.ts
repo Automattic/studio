@@ -72,6 +72,7 @@ export interface Connector {
 	// through `onAgentEvent`.
 	continueSession( sessionId: string, prompt: string ): Promise< { runId: string } >;
 	interruptAgentRun( runId: string ): Promise< void >;
+	answerAgentQuestion( runId: string, answers: Record< string, string > ): Promise< void >;
 	onAgentEvent( listener: ( event: AgentRunEvent ) => void ): () => void;
 
 	// Locale

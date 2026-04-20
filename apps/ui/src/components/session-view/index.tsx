@@ -213,9 +213,13 @@ function ToolUseRow( {
 function AgentQuestion( {
 	question,
 	options,
+	isPending,
+	onAnswer,
 }: {
 	question: string;
 	options: Array< { label: string; description: string } >;
+	isPending: boolean;
+	onAnswer: ( label: string ) => void;
 } ) {
 	return (
 		<div className={ styles.question }>
@@ -224,7 +228,13 @@ function AgentQuestion( {
 				<ul className={ styles.questionOptions }>
 					{ options.map( ( option, index ) => (
 						<li key={ index }>
-							<button type="button" className={ styles.questionOption }>
+							<button
+								type="button"
+								className={ styles.questionOption }
+								disabled={ ! isPending }
+								onClick={ () => onAnswer( option.label ) }
+								title={ option.description }
+							>
 								{ option.label }
 							</button>
 						</li>
@@ -306,10 +316,14 @@ function Conversation( {
 	data,
 	isRunning,
 	startedAt,
+	pendingQuestion,
+	onAnswerQuestion,
 }: {
 	data: LoadedAiSession;
 	isRunning: boolean;
 	startedAt: number | null;
+	pendingQuestion: string | null;
+	onAnswerQuestion: ( label: string ) => void;
 } ) {
 	const items = useMemo( () => eventsToRenderItems( data.events ), [ data.events ] );
 	const progressMessage = useMemo(
@@ -336,7 +350,13 @@ function Conversation( {
 						);
 					case 'agent-question':
 						return (
-							<AgentQuestion key={ item.key } question={ item.question } options={ item.options } />
+							<AgentQuestion
+								key={ item.key }
+								question={ item.question }
+								options={ item.options }
+								isPending={ item.question === pendingQuestion }
+								onAnswer={ onAnswerQuestion }
+							/>
 						);
 					default:
 						return null;
@@ -427,8 +447,10 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 		isRunning,
 		startedAt,
 		error: runError,
+		pendingQuestion,
 		sendMessage,
 		interrupt,
+		answerQuestion,
 	} = useAgentRun( sessionId );
 	const scrollRef = useRef< HTMLDivElement >( null );
 
@@ -461,10 +483,16 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 		<div className={ styles.root }>
 			<SessionHeader summary={ data.summary } />
 			<div ref={ scrollRef } className={ styles.scroll }>
-				<Conversation data={ data } isRunning={ isRunning } startedAt={ startedAt } />
+				<Conversation
+					data={ data }
+					isRunning={ isRunning }
+					startedAt={ startedAt }
+					pendingQuestion={ pendingQuestion?.question ?? null }
+					onAnswerQuestion={ ( label ) => void answerQuestion( label ) }
+				/>
 			</div>
 			<Composer
-				isRunning={ isRunning }
+				isRunning={ isRunning || pendingQuestion !== null }
 				error={ runError }
 				onSend={ sendMessage }
 				onInterrupt={ interrupt }

@@ -6,6 +6,7 @@ import {
 	BackupExtractEvents,
 	ImporterEvents,
 	ImportEventTuple,
+	ImportIpcEvent,
 	ValidatorEvents,
 } from '@studio/common/lib/import-export-events';
 import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
@@ -55,8 +56,9 @@ async function setupWordPressFilesOnly( sitePath: string ): Promise< void > {
 	await recursiveCopyDirectory( bundledWpPath, sitePath );
 }
 
-function sendIpcEvent( event: ImportEventTuple ) {
-	process.send!( { event } );
+function sendIpcEvent( eventTuple: ImportEventTuple ) {
+	const ipcEvent: ImportIpcEvent = { event: eventTuple };
+	process.send!( ipcEvent );
 }
 
 function handleImportIpc( emitter: ImportExportEventEmitter ) {
@@ -111,8 +113,8 @@ function handleImportIpc( emitter: ImportExportEventEmitter ) {
 	emitter.on( ImporterEvents.IMPORT_META_COMPLETE, () => {
 		sendIpcEvent( [ ImporterEvents.IMPORT_META_COMPLETE, undefined ] );
 	} );
-	emitter.on( ImporterEvents.IMPORT_COMPLETE, () => {
-		sendIpcEvent( [ ImporterEvents.IMPORT_COMPLETE, undefined ] );
+	emitter.on( ImporterEvents.IMPORT_COMPLETE, ( importerType ) => {
+		sendIpcEvent( [ ImporterEvents.IMPORT_COMPLETE, importerType ] );
 	} );
 	emitter.on( ImporterEvents.IMPORT_ERROR, ( error ) => {
 		sendIpcEvent( [ ImporterEvents.IMPORT_ERROR, error ] );
@@ -369,7 +371,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'start-server', {
 					type: 'boolean',
 					default: false,
-					hidden: false,
+					hidden: true,
 				} );
 		},
 		handler: async ( argv ) => {

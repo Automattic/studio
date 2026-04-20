@@ -1,11 +1,6 @@
-import { ExportEvents, exportEventTupleSchema } from '@studio/common/lib/import-export-events';
-import { z } from 'zod';
+import { ExportEvents, exportIpcEventSchema } from '@studio/common/lib/import-export-events';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
-
-export const exportEventSchema = z.object( {
-	event: exportEventTupleSchema,
-} );
 
 export async function executeExportCliCommand(
 	siteId: string,
@@ -15,7 +10,7 @@ export async function executeExportCliCommand(
 	const [ cliEventEmitter ] = executeCliCommand( args, { output: 'capture' } );
 
 	cliEventEmitter.on( 'data', ( { data } ) => {
-		const parsed = exportEventSchema.safeParse( data );
+		const parsed = exportIpcEventSchema.safeParse( data );
 
 		if ( parsed.success ) {
 			sendIpcEventToRendererWithWindow( parentWindow, 'on-export', parsed.data.event, siteId );

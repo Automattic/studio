@@ -35,6 +35,14 @@ export const ImportEvents = {
 	...ImporterEvents,
 } as const;
 
+const importerTypeSchema = z.union( [
+	z.literal( 'jetpack' ),
+	z.literal( 'local' ),
+	z.literal( 'playground' ),
+	z.literal( 'sql' ),
+	z.literal( 'wpress' ),
+] );
+
 export const backupExtractProgressEventDataSchema = z.object( {
 	progress: z.number().optional(),
 	processedFiles: z.number().optional(),
@@ -88,7 +96,7 @@ export const importEventTupleSchema = z.union( [
 	z.tuple( [ z.literal( ValidatorEvents.IMPORT_VALIDATION_START ), nullOrUndefined ] ),
 	z.tuple( [ z.literal( ValidatorEvents.IMPORT_VALIDATION_COMPLETE ), nullOrUndefined ] ),
 	z.tuple( [ z.literal( ValidatorEvents.IMPORT_VALIDATION_ERROR ), z.unknown() ] ),
-	z.tuple( [ z.literal( ImporterEvents.IMPORT_START ), z.string() ] ),
+	z.tuple( [ z.literal( ImporterEvents.IMPORT_START ), importerTypeSchema ] ),
 	z.tuple( [ z.literal( ImporterEvents.IMPORT_DATABASE_START ), nullOrUndefined ] ),
 	z.tuple( [
 		z.literal( ImporterEvents.IMPORT_DATABASE_PROGRESS ),
@@ -103,9 +111,15 @@ export const importEventTupleSchema = z.union( [
 	z.tuple( [ z.literal( ImporterEvents.IMPORT_WP_CONTENT_COMPLETE ), nullOrUndefined ] ),
 	z.tuple( [ z.literal( ImporterEvents.IMPORT_META_START ), nullOrUndefined ] ),
 	z.tuple( [ z.literal( ImporterEvents.IMPORT_META_COMPLETE ), nullOrUndefined ] ),
-	z.tuple( [ z.literal( ImporterEvents.IMPORT_COMPLETE ), nullOrUndefined ] ),
+	z.tuple( [ z.literal( ImporterEvents.IMPORT_COMPLETE ), importerTypeSchema ] ),
 	z.tuple( [ z.literal( ImporterEvents.IMPORT_ERROR ), z.unknown() ] ),
 ] );
+
+export const importIpcEventSchema = z.object( { event: importEventTupleSchema } );
+
+export type ImporterType = z.infer< typeof importerTypeSchema >;
+export type ImportEventTuple = z.infer< typeof importEventTupleSchema >;
+export type ImportIpcEvent = z.infer< typeof importIpcEventSchema >;
 
 export const ExportEvents = {
 	EXPORT_START: 'export_start',
@@ -158,7 +172,7 @@ export const exportEventTupleSchema = z.union( [
 	z.tuple( [ z.literal( ExportEvents.CONFIG_EXPORT_COMPLETE ), nullOrUndefined ] ),
 ] );
 
-export type ImportEventTuple = z.infer< typeof importEventTupleSchema >;
+export const exportIpcEventSchema = z.object( { event: exportEventTupleSchema } );
+
 export type ExportEventTuple = z.infer< typeof exportEventTupleSchema >;
-export type ImportExportEventTuple = ImportEventTuple | ExportEventTuple;
-export type ImportExportEventType = ImportExportEventTuple[ 0 ];
+export type ExportIpcEvent = z.infer< typeof exportIpcEventSchema >;

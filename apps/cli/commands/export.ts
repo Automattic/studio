@@ -1,6 +1,10 @@
 import path from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
-import { ExportEvents, ExportEventTuple } from '@studio/common/lib/import-export-events';
+import {
+	ExportEvents,
+	ExportEventTuple,
+	ExportIpcEvent,
+} from '@studio/common/lib/import-export-events';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
@@ -15,8 +19,9 @@ import { StudioArgv } from 'cli/types';
 
 const logger = new Logger< LoggerAction >();
 
-function sendIpcEvent( event: ExportEventTuple ) {
-	process.send!( { event } );
+function sendIpcEvent( eventTuple: ExportEventTuple ) {
+	const ipcEvent: ExportIpcEvent = { event: eventTuple };
+	process.send!( ipcEvent );
 }
 
 function handleExportIpc( emitter: ImportExportEventEmitter ) {
@@ -217,7 +222,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} )
 				.option( 'include-only', {
 					type: 'array',
-					description: __( 'Include only the specified tables in the database dump' ),
+					description: __( 'Include only the specified paths in the export' ),
 					coerce: ( value ) => {
 						if ( ! Array.isArray( value ) ) {
 							throw new Error( __( 'include-only must be an array' ) );

@@ -1,17 +1,19 @@
 import { shell, BrowserWindow, IpcMainInvokeEvent, Notification } from 'electron';
 import fs from 'fs';
-import { ExportEvents, ImporterEvents } from '@studio/common/lib/import-export-events';
+import {
+	ExportEvents,
+	exportIpcEventSchema,
+	ImporterEvents,
+	importIpcEventSchema,
+} from '@studio/common/lib/import-export-events';
 import { __, sprintf } from '@wordpress/i18n';
 import { z } from 'zod';
 import { WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT_IN_HRS } from 'src/constants';
 import { showErrorMessageBox } from 'src/ipc-handlers';
 import { bumpStat, getImporterMetric, StatsGroup, StatsMetric } from 'src/lib/bump-stats';
 import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
-import {
-	executeExportCliCommand,
-	exportEventSchema,
-} from 'src/modules/cli/lib/execute-export-command';
-import { executeImportCliCommand, messageSchema } from 'src/modules/cli/lib/execute-import-command';
+import { executeExportCliCommand } from 'src/modules/cli/lib/execute-export-command';
+import { executeImportCliCommand } from 'src/modules/cli/lib/execute-import-command';
 import { SiteServer } from 'src/site-server';
 
 const errorSchema = z.object( { message: z.string() } );
@@ -52,7 +54,7 @@ export async function importSite(
 
 	return new Promise< void >( ( resolve, reject ) => {
 		eventEmitter.on( 'data', async ( { data } ) => {
-			const result = messageSchema.safeParse( data );
+			const result = importIpcEventSchema.safeParse( data );
 
 			if ( ! result.success ) {
 				return;
@@ -60,16 +62,16 @@ export async function importSite(
 
 			const parsed = result.data;
 
-			if ( parsed.event[ 0 ] === ImporterEvents.IMPORT_START ) {
+			if ( parsed.event[ 0 ] === ImporterEvents.IMPORT_COMPLETE ) {
 				bumpStat( StatsGroup.STUDIO_IMPORT, getImporterMetric( parsed.event[ 1 ] ) );
-			}
 
-			if ( parsed.event[ 0 ] === ImporterEvents.IMPORT_COMPLETE && showNotification ) {
-				const notification = new Notification( {
-					title: site.details.name,
-					body: __( 'Import completed' ),
-				} );
-				notification.show();
+				if ( showNotification ) {
+					const notification = new Notification( {
+						title: site.details.name,
+						body: __( 'Import completed' ),
+					} );
+					notification.show();
+				}
 			}
 
 			if ( parsed.event[ 0 ] === ImporterEvents.IMPORT_ERROR && showErrorModal ) {
@@ -181,15 +183,8 @@ export async function exportSite(
 	const eventEmitter = await executeExportCliCommand( site.details.id, args, parentWindow );
 
 	return new Promise< void >( ( resolve, reject ) => {
-		eventEmitter.on( 'started', () => {
-			bumpStat(
-				StatsGroup.STUDIO_EXPORT,
-				mode === 'db' ? StatsMetric.DATABASE_ONLY : StatsMetric.FULL_SITE
-			);
-		} );
-
 		eventEmitter.on( 'data', async ( { data } ) => {
-			const result = exportEventSchema.safeParse( data );
+			const result = exportIpcEventSchema.safeParse( data );
 
 			if ( ! result.success ) {
 				return;
@@ -198,6 +193,11 @@ export async function exportSite(
 			const parsed = result.data;
 
 			if ( parsed.event[ 0 ] === ExportEvents.EXPORT_COMPLETE ) {
+				bumpStat(
+					StatsGroup.STUDIO_EXPORT,
+					mode === 'db' ? StatsMetric.DATABASE_ONLY : StatsMetric.FULL_SITE
+				);
+
 				if ( showNotification ) {
 					const notification = new Notification( {
 						title: site.details.name,
@@ -217,7 +217,7 @@ export async function exportSite(
 					message: __(
 						'An error occurred while exporting the site. If this problem persists, please contact support.'
 					),
-					error: data,
+					error: parsed.event[ 1 ],
 					showOpenLogs: true,
 				} );
 			}

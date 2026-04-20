@@ -157,7 +157,7 @@ describe( 'CLI: studio import', () => {
 				processedFiles: 1,
 				totalFiles: 2,
 			} );
-			importer.emit( ImporterEvents.IMPORT_COMPLETE );
+			importer.emit( ImporterEvents.IMPORT_COMPLETE, 'jetpack' );
 			return importResult;
 		} );
 		vi.mocked( getImporter ).mockReturnValue( importer as never );

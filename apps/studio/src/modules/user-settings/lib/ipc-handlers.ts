@@ -85,7 +85,7 @@ export async function saveColorScheme(
 
 export async function getColorScheme(): Promise< 'system' | 'light' | 'dark' > {
 	const userData = await loadUserData();
-	const colorScheme = userData.colorScheme ?? 'light';
+	const colorScheme = userData.colorScheme ?? 'system';
 	nativeTheme.themeSource = colorScheme;
 	return colorScheme;
 }

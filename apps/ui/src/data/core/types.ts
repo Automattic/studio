@@ -1,3 +1,4 @@
+import type { AgentRunEvent } from './agent-events';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { SyncSite } from '@studio/common/types/sync';
@@ -65,6 +66,14 @@ export interface Connector {
 	getSessions(): Promise< AiSessionSummary[] >;
 	getSession( sessionId: string ): Promise< LoadedAiSession >;
 	deleteSession( sessionId: string ): Promise< void >;
+
+	// Continue an existing session by sending a new prompt. Returns a `runId`
+	// that identifies the in-flight agent run; live events for that run stream
+	// through `onAgentEvent`.
+	continueSession( sessionId: string, prompt: string ): Promise< { runId: string } >;
+	interruptAgentRun( runId: string ): Promise< void >;
+	answerAgentQuestion( runId: string, answers: Record< string, string > ): Promise< void >;
+	onAgentEvent( listener: ( event: AgentRunEvent ) => void ): () => void;
 
 	// Locale
 	getUserLocale(): Promise< string | undefined >;

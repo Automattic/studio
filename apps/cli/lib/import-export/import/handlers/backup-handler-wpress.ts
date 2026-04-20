@@ -1,10 +1,10 @@
-import { EventEmitter } from 'events';
 import * as fs from 'fs';
 import { constants } from 'fs';
 import * as path from 'path';
+import { ImportEvents } from '@studio/common/lib/import-export-events';
 import { __, sprintf } from '@wordpress/i18n';
 import * as fse from 'fs-extra';
-import { ImportEvents } from '../events';
+import { ImportExportEventEmitter } from '../../events';
 import { BackupArchiveInfo } from '../types';
 import { BackupHandler } from './backup-handler-factory';
 
@@ -130,7 +130,7 @@ async function readBlockToFile( fd: fs.promises.FileHandle, header: Header, outp
 	}
 }
 
-export class BackupHandlerWpress extends EventEmitter implements BackupHandler {
+export class BackupHandlerWpress extends ImportExportEventEmitter implements BackupHandler {
 	private bytesRead: number;
 	private eof: Buffer;
 	private totalFiles: number = 0;

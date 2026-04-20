@@ -1,7 +1,12 @@
 import fs from 'fs';
 import path from 'path';
 import { query, type Query } from '@anthropic-ai/claude-agent-sdk';
-import { ALLOWED_TOOLS, STUDIO_ROOT, promptForApproval, type AskUserQuestion } from 'cli/ai/security';
+import {
+	ALLOWED_TOOLS,
+	STUDIO_ROOT,
+	promptForApproval,
+	type AskUserQuestion,
+} from 'cli/ai/security';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { createRemoteSiteTools, createStudioTools } from 'cli/ai/tools';
 import type { SiteInfo } from 'cli/ai/ui';

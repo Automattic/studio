@@ -167,7 +167,7 @@ async function appBoot() {
 
 				// Find and unregister all com.github.Electron entries from Launch Services,
 				// then force-register the current one.
-				const awkScript = `/^-+$/{p=""} /^path:/{p=substr($0,index($0,"/"))} /com\\.github\\.Electron/{if(p)print p;p=""}`;
+				const awkScript = `/^-+$/{p=""} /^path:/{p=substr($0,index($0,"/")); sub(/ \\(0x[0-9a-f]+\\)$/,"",p)} /com\\.github\\.Electron[^.]/{if(p && p ~ /\\/Electron\\.app$/)print p;p=""}`;
 				exec( `"${ lsregister }" -dump | awk '${ awkScript }'`, ( _error, stdout ) => {
 					for ( const p of ( stdout || '' ).trim().split( '\n' ).filter( Boolean ) ) {
 						if ( p !== electronAppPath ) {

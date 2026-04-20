@@ -177,7 +177,15 @@ export function executeCliCommand(
 			}
 		} );
 		child.stderr?.on( 'data', ( data: Buffer ) => {
-			stderr += data.toString();
+			const text = data.toString();
+			stderr += text;
+			const stderrPrefix = options.logPrefix
+				? `[CLI stderr - ${ options.logPrefix }]`
+				: '[CLI stderr]';
+			const trimmed = text.trimEnd();
+			if ( trimmed ) {
+				console.error( `${ stderrPrefix } ${ trimmed }` );
+			}
 		} );
 	}
 

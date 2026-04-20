@@ -12,7 +12,12 @@ import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { SiteData } from 'cli/lib/cli-config/core';
-import { clearSiteLatestCliPid, getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
+import {
+	clearSiteLatestCliPid,
+	getSiteByFolder,
+	getSiteUrl,
+	updateSitePhpVersion,
+} from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
 import { DEFAULT_IMPORTER_OPTIONS, getImporter } from 'cli/lib/import-export/import/import-manager';
@@ -297,7 +302,12 @@ export async function runCommand(
 		} else {
 			handleImportEvents( importer );
 		}
-		await importer.import( site );
+		const importResult = await importer.import( site );
+		const importedPhpVersion = importResult.meta?.phpVersion;
+		if ( importedPhpVersion && importedPhpVersion !== site.phpVersion ) {
+			await updateSitePhpVersion( site.id, importedPhpVersion );
+			site.phpVersion = importedPhpVersion;
+		}
 
 		// Something in Playground makes it so the front-end of the site sometimes returns an error page
 		// on the first request. Send that first request from here to hide the error from the user.

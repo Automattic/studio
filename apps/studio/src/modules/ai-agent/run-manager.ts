@@ -132,13 +132,31 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 	return { runId };
 }
 
+const INTERRUPT_FORCE_KILL_TIMEOUT_MS = 5000;
+
 export function interruptAgentRun( runId: string ): void {
 	const run = runsById.get( runId );
 	if ( ! run ) {
 		return;
 	}
 	run.interrupted = true;
-	run.child.kill();
+
+	// Prefer the graceful path: ask the child to interrupt via its Agent SDK
+	// query and exit cleanly. A SIGTERM would be swallowed by module-level
+	// handlers that aren't wired to the SDK, leaving the child running.
+	if ( run.child.connected ) {
+		run.child.send( { type: 'interrupt' } );
+		// Safety net: if the child doesn't exit in time, force-kill it so the
+		// renderer isn't stuck in a busy state.
+		setTimeout( () => {
+			if ( runsById.get( runId ) === run && ! run.child.killed ) {
+				run.child.kill( 'SIGKILL' );
+			}
+		}, INTERRUPT_FORCE_KILL_TIMEOUT_MS ).unref();
+		return;
+	}
+
+	run.child.kill( 'SIGKILL' );
 }
 
 export function answerAgentRun( runId: string, answers: Record< string, string > ): void {

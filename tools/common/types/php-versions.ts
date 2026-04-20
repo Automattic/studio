@@ -23,4 +23,4 @@ export type SupportedPHPVersion = ( typeof SupportedPHPVersions )[ number ];
  * The recommended PHP version for new sites.
  * This replaces RecommendedPHPVersion from @wp-playground/common.
  */
-export const RecommendedPHPVersion: SupportedPHPVersion = '8.3';
+export const RecommendedPHPVersion: SupportedPHPVersion = '8.4';

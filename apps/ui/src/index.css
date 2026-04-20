@@ -1,0 +1,50 @@
+:root {
+	/* Default is 2px; 4px reads a bit softer. */
+	--wpds-border-radius-sm: 4px;
+}
+
+body {
+	margin: 0;
+	padding: 0;
+	font-family: var(--wpds-font-family-body);
+	font-size: var(--wpds-font-size-md);
+	line-height: var(--wpds-font-line-height-md);
+	background-color: var(--wpds-color-bg-surface-neutral);
+	color: var(--wpds-color-fg-content-neutral);
+	color-scheme: light dark;
+}
+
+/* Interactive elements inside drag-region ancestors (title bars, section
+   headers) need to opt out so clicks and focus still land. Harmless where no
+   drag region is active. `[data-base-ui-portal] *` covers the @base-ui Menu
+   portal subtree — items render as divs, so we can't rely on the
+   button/link selectors. */
+button,
+a,
+input,
+textarea,
+[role="button"],
+[data-base-ui-portal],
+[data-base-ui-portal] * {
+	-webkit-app-region: no-drag;
+}
+
+/* Show the focus ring only on keyboard focus, overriding @wordpress/ui's
+   :focus-based outline. Unlayered CSS wins over WP UI's cascade layers.
+   `a` covers Button primitives rendered as links via its `render` prop. */
+button:focus:not(:focus-visible),
+a:focus:not(:focus-visible),
+[role="button"]:focus:not(:focus-visible) {
+	outline: none;
+}
+
+/* Compact density: shrink icons to match the tighter spacing tokens.
+   @wordpress/icons draws SVGs at 24x24 by default; the theme's compact
+   density only shrinks padding/gap tokens, not icon sizes. Override the
+   svg width/height attributes with CSS until the design system exposes
+   a density-aware icon token. Ideally this lives in ThemeProvider. */
+[data-wpds-density='compact'] svg {
+	width: 16px;
+	height: 16px;
+}
+

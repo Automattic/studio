@@ -1,6 +1,8 @@
+import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
-import { getAiSessionsRootDirectory } from './paths';
+import { buildAiSessionFileName } from './file-naming';
+import { getAiSessionsDirectoryForDate } from './paths';
 import { readAiSessionSummaryFromEvents } from './summary';
 import type { AiSessionEvent, AiSessionSummary, LoadedAiSession } from './types';
 
@@ -55,9 +57,10 @@ async function listSessionFilesRecursively( directory: string ): Promise< string
 }
 
 async function resolveSessionByIdOrPrefix(
+	rootDirectory: string,
 	sessionIdOrPrefix: string
 ): Promise< AiSessionSummary > {
-	const sessions = await listAiSessions();
+	const sessions = await listAiSessions( rootDirectory );
 	const exactMatch = sessions.find( ( session ) => session.id === sessionIdOrPrefix );
 	const candidates = exactMatch
 		? [ exactMatch ]
@@ -82,8 +85,10 @@ async function resolveSessionByIdOrPrefix(
 	return candidates[ 0 ];
 }
 
-async function pruneEmptySessionDirectories( startDirectory: string ): Promise< void > {
-	const rootDirectory = getAiSessionsRootDirectory();
+async function pruneEmptySessionDirectories(
+	rootDirectory: string,
+	startDirectory: string
+): Promise< void > {
 	let currentDirectory = startDirectory;
 
 	while (
@@ -105,8 +110,8 @@ async function pruneEmptySessionDirectories( startDirectory: string ): Promise< 
 	}
 }
 
-export async function listAiSessions(): Promise< AiSessionSummary[] > {
-	const sessionFiles = await listSessionFilesRecursively( getAiSessionsRootDirectory() );
+export async function listAiSessions( rootDirectory: string ): Promise< AiSessionSummary[] > {
+	const sessionFiles = await listSessionFilesRecursively( rootDirectory );
 	const results = await Promise.allSettled(
 		sessionFiles.map( async ( filePath ) => {
 			const events = await readAiSessionEventsFromFile( filePath );
@@ -125,16 +130,70 @@ export async function listAiSessions(): Promise< AiSessionSummary[] > {
 	return sessions.sort( ( a, b ) => Date.parse( b.updatedAt ) - Date.parse( a.updatedAt ) );
 }
 
-export async function loadAiSession( sessionIdOrPrefix: string ): Promise< LoadedAiSession > {
-	const summary = await resolveSessionByIdOrPrefix( sessionIdOrPrefix );
+export async function loadAiSession(
+	rootDirectory: string,
+	sessionIdOrPrefix: string
+): Promise< LoadedAiSession > {
+	const summary = await resolveSessionByIdOrPrefix( rootDirectory, sessionIdOrPrefix );
 	const events = await readAiSessionEventsFromFile( summary.filePath );
 	return { summary, events };
 }
 
-export async function deleteAiSession( sessionIdOrPrefix: string ): Promise< AiSessionSummary > {
-	const sessionToDelete = await resolveSessionByIdOrPrefix( sessionIdOrPrefix );
+export async function createAiSession(
+	rootDirectory: string,
+	options: {
+		site: {
+			name: string;
+			path: string;
+			remote?: boolean;
+			url?: string;
+			wpcomSiteId?: number;
+		};
+	}
+): Promise< AiSessionSummary > {
+	const startedAt = new Date();
+	const sessionId = crypto.randomUUID();
+	const directory = getAiSessionsDirectoryForDate( rootDirectory, startedAt );
+	const fileName = buildAiSessionFileName( startedAt, sessionId );
+	const filePath = path.join( directory, fileName );
+
+	await fs.mkdir( directory, { recursive: true } );
+
+	const events: AiSessionEvent[] = [
+		{
+			type: 'session.started',
+			timestamp: startedAt.toISOString(),
+			version: 1,
+			sessionId,
+		},
+		{
+			type: 'site.selected',
+			timestamp: startedAt.toISOString(),
+			siteName: options.site.name,
+			sitePath: options.site.path,
+			remote: options.site.remote,
+			url: options.site.url,
+			wpcomSiteId: options.site.wpcomSiteId,
+		},
+	];
+
+	const serialized = events.map( ( event ) => JSON.stringify( event ) ).join( '\n' ) + '\n';
+	await fs.writeFile( filePath, serialized, { encoding: 'utf8' } );
+
+	const summary = await readAiSessionSummaryFromEvents( filePath, events );
+	if ( ! summary ) {
+		throw new Error( 'Failed to build summary for newly created session' );
+	}
+	return summary;
+}
+
+export async function deleteAiSession(
+	rootDirectory: string,
+	sessionIdOrPrefix: string
+): Promise< AiSessionSummary > {
+	const sessionToDelete = await resolveSessionByIdOrPrefix( rootDirectory, sessionIdOrPrefix );
 	await fs.rm( sessionToDelete.filePath, { force: false } );
-	await pruneEmptySessionDirectories( path.dirname( sessionToDelete.filePath ) );
+	await pruneEmptySessionDirectories( rootDirectory, path.dirname( sessionToDelete.filePath ) );
 
 	return sessionToDelete;
 }

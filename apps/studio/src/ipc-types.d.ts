@@ -36,6 +36,7 @@ interface StoppedSiteDetails {
 	enableDebugLog?: boolean;
 	enableDebugDisplay?: boolean;
 	sortOrder?: number;
+	landingPage?: string;
 }
 
 interface StartedSiteDetails extends StoppedSiteDetails {
@@ -88,6 +89,7 @@ type IpcApi = {
 
 interface FeatureFlags {
 	enableBlueprints: boolean;
+	enableStudioCodeUi: boolean;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type

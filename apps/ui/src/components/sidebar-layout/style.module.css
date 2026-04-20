@@ -1,0 +1,50 @@
+.root {
+	display: flex;
+	height: 100vh;
+}
+
+.sidebar {
+	width: 320px;
+	flex-shrink: 0;
+	background-color: var(--wpds-color-bg-surface-neutral-weak);
+	border-right: 1px solid var(--wpds-color-stroke-surface-neutral);
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	transition: width 150ms ease;
+}
+
+.sidebarCollapsed {
+	width: 0;
+}
+
+.sidebarContent {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+}
+
+.main {
+	flex: 1;
+	overflow: auto;
+	position: relative;
+}
+
+.floatingToggle {
+	position: absolute;
+	top: 0;
+	left: 94px;
+	/* Mirror sidebar-header vertical box so the toggle button lands at the
+	   same y-coordinate as when it lives inside the open sidebar. */
+	display: flex;
+	align-items: center;
+	padding: var(--wpds-dimension-padding-sm) 0;
+	min-height: 46px;
+	z-index: 10;
+}
+
+/* In macOS fullscreen the traffic lights are hidden, so the toggle can
+   sit at the main area's left edge. */
+.floatingToggleFullscreen {
+	left: var(--wpds-dimension-padding-md);
+}

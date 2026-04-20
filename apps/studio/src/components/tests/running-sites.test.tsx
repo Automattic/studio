@@ -34,7 +34,7 @@ const runningSite = ( id: string ) => ( {
 	name: `Site ${ id }`,
 	path: `/path/${ id }`,
 	port: 8881,
-	phpVersion: '8.3',
+	phpVersion: '8.4',
 	running: true as const,
 	url: `http://localhost:8881`,
 } );
@@ -44,7 +44,7 @@ const stoppedSite = ( id: string ) => ( {
 	name: `Site ${ id }`,
 	path: `/path/${ id }`,
 	port: 8881,
-	phpVersion: '8.3',
+	phpVersion: '8.4',
 	running: false as const,
 } );
 

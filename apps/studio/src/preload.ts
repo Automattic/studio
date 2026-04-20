@@ -180,6 +180,10 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'installWordPressSkillsToAllSites', options ),
 	removeWordPressSkillFromAllSites: ( skillId ) =>
 		ipcRendererInvoke( 'removeWordPressSkillFromAllSites', skillId ),
+	listAiSessions: () => ipcRendererInvoke( 'listAiSessions' ),
+	loadAiSession: ( sessionIdOrPrefix ) => ipcRendererInvoke( 'loadAiSession', sessionIdOrPrefix ),
+	deleteAiSession: ( sessionIdOrPrefix ) =>
+		ipcRendererInvoke( 'deleteAiSession', sessionIdOrPrefix ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

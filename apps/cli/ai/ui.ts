@@ -22,9 +22,10 @@ import {
 	truncateToWidth,
 	CURSOR_MARKER,
 } from '@mariozechner/pi-tui';
+import { getToolDetail, getToolDisplayName } from '@studio/common/ai/tools';
+import chalk from '@studio/common/lib/chalk';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import chalk from 'chalk';
 import { AI_MODELS, DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
 import { AI_CHAT_SLASH_COMMANDS } from 'cli/ai/slash-commands';
@@ -234,89 +235,13 @@ const editorTheme: EditorTheme = {
 	},
 };
 
-const toolDisplayNames: Record< string, string > = {
-	mcp__studio__site_create: __( 'Create site' ),
-	mcp__studio__site_list: __( 'List sites' ),
-	mcp__studio__site_info: __( 'Get site info' ),
-	mcp__studio__site_start: __( 'Start site' ),
-	mcp__studio__site_stop: __( 'Stop site' ),
-	mcp__studio__site_delete: __( 'Delete site' ),
-	mcp__studio__preview_create: __( 'Create preview' ),
-	mcp__studio__preview_list: __( 'List previews' ),
-	mcp__studio__preview_update: __( 'Update preview' ),
-	mcp__studio__preview_delete: __( 'Delete preview' ),
-	mcp__studio__wp_cli: __( 'Run WP-CLI' ),
-	mcp__studio__validate_blocks: __( 'Validate blocks' ),
-	mcp__studio__take_screenshot: __( 'Take screenshot' ),
-	Read: __( 'Read' ),
-	Write: __( 'Write' ),
-	Edit: __( 'Edit' ),
-	Bash: __( 'Run' ),
-	Glob: __( 'Search' ),
-	Grep: __( 'Search' ),
-	Skill: __( 'Load skill' ),
-	Task: __( 'Run task' ),
-	TodoWrite: __( 'Update todo list' ),
-};
-
-function getToolDetail( name: string, input: Record< string, unknown > ): string {
-	switch ( name ) {
-		case 'mcp__studio__site_create':
-			return typeof input.name === 'string' ? input.name : '';
-		case 'mcp__studio__site_info':
-		case 'mcp__studio__site_start':
-		case 'mcp__studio__site_stop':
-		case 'mcp__studio__site_delete':
-		case 'mcp__studio__preview_create':
-		case 'mcp__studio__preview_list':
-			return typeof input.nameOrPath === 'string' ? input.nameOrPath : '';
-		case 'mcp__studio__preview_update':
-		case 'mcp__studio__preview_delete':
-			return typeof input.host === 'string' ? input.host : '';
-		case 'mcp__studio__wp_cli':
-			return typeof input.command === 'string' ? `wp ${ input.command }` : '';
-		case 'mcp__studio__validate_blocks':
-			if ( typeof input.filePath === 'string' ) {
-				return input.filePath.split( '/' ).slice( -2 ).join( '/' );
-			}
-			return __( 'inline content' );
-		case 'mcp__studio__take_screenshot':
-			return typeof input.url === 'string' ? input.url : '';
-		case 'Read':
-		case 'Write':
-		case 'Edit': {
-			const filePath = input.file_path ?? input.path;
-			if ( typeof filePath === 'string' ) {
-				const parts = filePath.split( '/' );
-				return parts.slice( -2 ).join( '/' );
-			}
-			return '';
-		}
-		case 'Bash':
-			return typeof input.command === 'string'
-				? input.command.length > 60
-					? input.command.slice( 0, 57 ) + '…'
-					: input.command
-				: '';
-		case 'Skill':
-			return typeof input.skill === 'string' ? input.skill : '';
-		case 'Grep':
-		case 'Glob':
-			return typeof input.pattern === 'string' ? input.pattern : '';
-		default:
-			return '';
-	}
-}
-
 function formatToolName( name: string, input?: Record< string, unknown > ): string {
-	const displayName = toolDisplayNames[ name ] ?? name;
-	if ( input ) {
-		const detail = getToolDetail( name, input );
-		if ( detail ) {
-			return chalk.bold( displayName ) + ' ' + chalk.dim( '(' + detail + ')' );
-		}
+	const displayName = chalk.bold( getToolDisplayName( name ) );
+	const detail = getToolDetail( name, input );
+	if ( detail ) {
+		return displayName + ' ' + chalk.dim( '(' + detail + ')' );
 	}
-	return chalk.bold( displayName );
+	return displayName;
 }
 
 interface ToolUseResultContent {
@@ -1262,7 +1187,7 @@ export class AiChatUI implements AiOutputAdapter {
 		const b = chalk.blue;
 
 		// WordPress logo in block characters, widened to avoid vertical stretching in terminals.
-		const logo = [
+		const logoLines = [
 			'    ▄█▛▀▀▀▀█▙▖',
 			' ▗▟█        ▗██▄',
 			'▄███▛ ▝▜██  ▝███▙',
@@ -1271,27 +1196,48 @@ export class AiChatUI implements AiOutputAdapter {
 			'▀▙▖ ▜█▄▟ ▝█▙▄▌ ▄▛',
 			' ▝▜▄▝██▌  ▀██▗▟▀',
 			'    ▀██▙▄▄▄█▛▘',
-		].map( ( s ) => b( s ) );
+		];
+		const logo = logoLines.map( ( s ) => b( s ) );
+		const logoWidth = Math.max( ...logoLines.map( ( s ) => s.length ) );
+
+		// Lay out logo on the left, info on the right (vertically centered)
+		const gap = 4;
+		const leading = 1;
+		const termWidth = process.stdout.columns ?? 80;
+		const availableInfoWidth = Math.max( 0, termWidth - leading - logoWidth - gap );
+
+		// Truncate the cwd with a leading ellipsis (preserving the meaningful
+		// suffix) when the terminal is too narrow, otherwise the welcome wraps
+		// and visually breaks the logo layout.
+		const baseInfo = `${ AI_MODELS[ this.currentModel ] } · ${
+			AI_PROVIDERS[ this.currentProvider ]
+		}`;
+		const sep = ' · ';
+		let secondLine: string;
+		if ( baseInfo.length + sep.length + displayCwd.length <= availableInfoWidth ) {
+			secondLine = `${ baseInfo }${ sep }${ displayCwd }`;
+		} else {
+			const pathBudget = availableInfoWidth - baseInfo.length - sep.length;
+			if ( pathBudget >= 4 ) {
+				secondLine = `${ baseInfo }${ sep }…${ displayCwd.slice( -( pathBudget - 1 ) ) }`;
+			} else {
+				secondLine = baseInfo;
+			}
+		}
 
 		const info = [
 			chalk.bold( 'WordPress Studio' ) + ( version ? chalk.dim( ` v${ version }` ) : '' ),
-			chalk.dim(
-				`${ AI_MODELS[ this.currentModel ] } · ${
-					AI_PROVIDERS[ this.currentProvider ]
-				} · ${ displayCwd }`
-			),
+			chalk.dim( secondLine ),
 			'',
 			chalk.dim.italic( __( 'Code is Poetry' ) ),
 		];
 
-		// Lay out logo on the left, info on the right (vertically centered)
-		const gap = 4;
 		const infoStartRow = Math.max( 0, Math.floor( ( logo.length - info.length ) / 2 ) );
 
 		const lines = logo.map( ( logoLine, i ) => {
 			const infoIndex = i - infoStartRow;
 			const infoText = infoIndex >= 0 && infoIndex < info.length ? info[ infoIndex ] : '';
-			return ' ' + logoLine + ' '.repeat( gap ) + infoText;
+			return ' '.repeat( leading ) + logoLine + ' '.repeat( gap ) + infoText;
 		} );
 
 		this.messages.addChild( new Text( '\n' + lines.join( '\n' ) + '\n', 0, 0 ) );

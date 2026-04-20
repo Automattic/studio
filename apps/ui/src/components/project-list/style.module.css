@@ -1,0 +1,164 @@
+.root {
+	padding: 0 calc(var(--wpds-dimension-padding-xl) + var(--wpds-dimension-padding-sm))
+		var(--wpds-dimension-padding-xl);
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-sm);
+}
+
+.projects {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-xl);
+}
+
+.project {
+	display: flex;
+	flex-direction: column;
+}
+
+.projectHeader {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--wpds-dimension-padding-xs);
+	min-width: 0;
+	margin-bottom: var(--wpds-dimension-padding-xs);
+	padding-right: var(--wpds-dimension-padding-sm);
+}
+
+.projectText {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+}
+
+.projectToggle {
+	max-width: 100%;
+	height: auto;
+}
+
+.projectName {
+	font-size: var(--wpds-font-size-md);
+	line-height: 1.2;
+	font-weight: var(--wpds-font-weight-regular);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	max-width: 100%;
+}
+
+.projectToggle:hover .projectName {
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.projectActive .projectName {
+	color: var(--wpds-color-fg-content-neutral);
+	font-weight: 600;
+}
+
+.projectSubtitle {
+	font-size: var(--wpds-font-size-xs);
+	line-height: 1;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	max-width: 100%;
+	opacity: 0.55;
+	padding: 0 var(--wpds-dimension-padding-sm);
+	margin-top: 4px;
+}
+
+.projectActions {
+	display: flex;
+	align-items: center;
+	flex-shrink: 0;
+	padding-top: 2px;
+}
+
+.projectAction {
+	opacity: 0;
+	transition: opacity 100ms ease;
+}
+
+.projectActive .projectAction,
+.projectHeader:hover .projectAction,
+.projectHeader:focus-within .projectAction,
+.projectAction[data-popup-open] {
+	opacity: 1;
+}
+
+.unassigned {
+	margin-top: var(--wpds-dimension-padding-sm);
+}
+
+.empty {
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-font-size-sm);
+	margin: 0;
+}
+
+.sessionList {
+	list-style: none;
+	padding: 0;
+	margin: 0;
+	display: flex;
+	flex-direction: column;
+}
+
+.sessionItem {
+	min-width: 0;
+}
+
+.sessionLink {
+	width: 100%;
+	height: 26px;
+	padding: 0 var(--wpds-dimension-padding-sm) 0 var(--wpds-dimension-padding-lg);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-font-size-sm);
+	font-weight: var(--wpds-font-weight-regular);
+}
+
+/* Use ::after so we don't collide with the Button primitive's ::before
+   (which it uses for the loading spinner). */
+.sessionLink::after {
+	content: '';
+	position: absolute;
+	left: var(--wpds-dimension-padding-sm);
+	top: 4px;
+	bottom: 4px;
+	width: 1px;
+	background: transparent;
+}
+
+.sessionLabel {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.sessionTime {
+	flex-shrink: 0;
+	font-size: 10px;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	opacity: 0.55;
+}
+
+.sessionLink:hover,
+.sessionLink:focus-visible {
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.sessionLinkActive {
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.sessionLinkActive::after {
+	background: var(--wpds-color-fg-content-neutral);
+}

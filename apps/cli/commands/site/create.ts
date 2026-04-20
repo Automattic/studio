@@ -11,10 +11,7 @@ import {
 } from '@studio/common/constants';
 import { installAiInstructionsToSite } from '@studio/common/lib/agent-skills';
 import { extractFormValuesFromBlueprint } from '@studio/common/lib/blueprint-settings';
-import {
-	filterUnsupportedBlueprintFeatures,
-	validateBlueprintData,
-} from '@studio/common/lib/blueprint-validation';
+import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { getDomainNameValidationError } from '@studio/common/lib/domains';
 import {
@@ -24,6 +21,7 @@ import {
 	pathExists,
 	recursiveCopyDirectory,
 } from '@studio/common/lib/fs-utils';
+import { normalizeLandingPage } from '@studio/common/lib/landing-page';
 import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
 import { isOnline } from '@studio/common/lib/network-utils';
 import {
@@ -149,21 +147,9 @@ export async function runCommand(
 				throw new LoggerError( validation.error );
 			}
 
-			for ( const warning of validation.warnings ) {
-				logger.reportWarning(
-					sprintf(
-						/* translators: %1$s: feature name, %2$s: reason */
-						__( `Blueprint feature "%1$s" is not supported: %2$s` ),
-						warning.feature,
-						warning.reason
-					)
-				);
-			}
-
-			// Extract login credentials from blueprint before filtering
+			// `validateBlueprintData()` does not give us a proper type guard, but in reality, it ensures
+			// `options.blueprint.contents` conforms to the `BlueprintV1Declaration` schema.
 			const formValues = extractFormValuesFromBlueprint(
-				// `validateBlueprintData()` does not give us a proper type guard, but in reality, it ensures
-				// `options.blueprint.contents` conforms to the `BlueprintV1Declaration` schema.
 				options.blueprint.contents as BlueprintV1Declaration
 			);
 			if ( formValues.adminUsername || formValues.adminPassword ) {
@@ -174,9 +160,7 @@ export async function runCommand(
 			}
 
 			blueprintUri = options.blueprint.uri;
-			blueprint = filterUnsupportedBlueprintFeatures(
-				options.blueprint.contents as BlueprintV1Declaration
-			);
+			blueprint = options.blueprint.contents as BlueprintV1Declaration;
 
 			const blueprintHasMultisite = blueprint?.steps
 				?.filter( isStepDefinition )
@@ -369,6 +353,7 @@ export async function runCommand(
 			isWpAutoUpdating: options.wpVersion === DEFAULT_WORDPRESS_VERSION,
 			customDomain: options.customDomain,
 			enableHttps: options.enableHttps,
+			landingPage: normalizeLandingPage( blueprint?.landingPage ),
 		};
 
 		logger.reportStart( LoggerAction.SAVE_SITE, __( 'Saving site…' ) );

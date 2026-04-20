@@ -405,11 +405,7 @@ export async function runCommand( options: {
 			env,
 			model: currentModel,
 			resume: sessionId,
-			// Standalone `--json` runs have no way to answer a prompt, so the
-			// default auto-approves. When forked from a parent process (the
-			// Studio UI), `JsonAdapter.askUser` answers via IPC instead, so
-			// we skip the default and let the parent drive approvals.
-			autoApprove: options.autoApprove ?? ( isJsonMode && typeof process.send !== 'function' ),
+			autoApprove: options.autoApprove ?? isJsonMode,
 			activeSite: site,
 			wpcomAccessToken,
 			onAskUser: ( questions ) => askUserAndPersistAnswers( questions ),

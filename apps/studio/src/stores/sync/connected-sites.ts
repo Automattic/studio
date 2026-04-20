@@ -1,5 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { deriveSlotAssignments } from '@studio/common/lib/sync/slot-derivation';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { RootState } from 'src/stores';
 import type { SyncSite } from '@studio/common/types/sync';
@@ -98,6 +99,32 @@ export const connectedSitesApi = createApi( {
 
 		connectSite: builder.mutation< SyncSite[], { site: SyncSite; localSiteId: string } >( {
 			queryFn: async ( { site, localSiteId } ) => {
+				const existing = await getIpcApi().getConnectedWpcomSites( localSiteId );
+				const { production, staging } = deriveSlotAssignments( existing );
+				const incomingSlot: 'production' | 'staging' | 'archived' =
+					site.slotOverride ??
+					( site.environmentType === 'staging' || site.isStaging
+						? 'staging'
+						: site.environmentType === 'production'
+							? 'production'
+							: 'archived' );
+				if ( incomingSlot === 'production' && production ) {
+					return {
+						error: {
+							status: 'SLOT_TAKEN',
+							data: { slot: 'production', current: production },
+						} as any,
+					};
+				}
+				if ( incomingSlot === 'staging' && staging ) {
+					return {
+						error: {
+							status: 'SLOT_TAKEN',
+							data: { slot: 'staging', current: staging },
+						} as any,
+					};
+				}
+
 				await getIpcApi().connectWpcomSites( [
 					{
 						sites: [ site ],

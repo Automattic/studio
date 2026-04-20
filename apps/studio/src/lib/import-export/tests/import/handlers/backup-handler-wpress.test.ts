@@ -5,8 +5,8 @@
  *   npm test -- backup-handler-wpress
  */
 import fs from 'fs';
-import path from 'path';
 import os from 'os';
+import path from 'path';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { BackupHandlerWpress } from 'src/lib/import-export/import/handlers/backup-handler-wpress';
 
@@ -16,10 +16,10 @@ const HEADER_SIZE = 4377;
 
 function makeHeader( name: string, size: number, prefix: string ): Buffer {
 	const h = Buffer.alloc( HEADER_SIZE );
-	h.write( name,          0,   'utf8' );
+	h.write( name, 0, 'utf8' );
 	h.write( String( size ), 255, 'utf8' );
-	h.write( '0',           269, 'utf8' );
-	h.write( prefix,        281, 'utf8' );
+	h.write( '0', 269, 'utf8' );
+	h.write( prefix, 281, 'utf8' );
 	return h;
 }
 
@@ -57,7 +57,9 @@ describe( 'BackupHandlerWpress — path traversal protection', () => {
 	it( 'blocks a traversal entry with prefix=".."', async () => {
 		fs.writeFileSync(
 			archivePath,
-			buildWpress( [ { name: 'traversal-marker.txt', prefix: '..', content: 'should not land here\n' } ] )
+			buildWpress( [
+				{ name: 'traversal-marker.txt', prefix: '..', content: 'should not land here\n' },
+			] )
 		);
 
 		await handler.extractFiles( { path: archivePath }, extractDir );
@@ -69,7 +71,9 @@ describe( 'BackupHandlerWpress — path traversal protection', () => {
 	it( 'blocks a deep traversal targeting a specific path', async () => {
 		fs.writeFileSync(
 			archivePath,
-			buildWpress( [ { name: 'authorized_keys', prefix: '../../../.ssh', content: 'ssh-rsa AAAA...\n' } ] )
+			buildWpress( [
+				{ name: 'authorized_keys', prefix: '../../../.ssh', content: 'ssh-rsa AAAA...\n' },
+			] )
 		);
 
 		await handler.extractFiles( { path: archivePath }, extractDir );
@@ -81,8 +85,8 @@ describe( 'BackupHandlerWpress — path traversal protection', () => {
 		fs.writeFileSync(
 			archivePath,
 			buildWpress( [
-				{ name: 'evil.txt',     prefix: '..', content: 'bad\n' },
-				{ name: 'safe-file.txt', prefix: '',  content: 'good\n' },
+				{ name: 'evil.txt', prefix: '..', content: 'bad\n' },
+				{ name: 'safe-file.txt', prefix: '', content: 'good\n' },
 			] )
 		);
 
@@ -95,17 +99,23 @@ describe( 'BackupHandlerWpress — path traversal protection', () => {
 		fs.writeFileSync(
 			archivePath,
 			buildWpress( [
-				{ name: 'db.sql',        prefix: '',                              content: '-- dump\n'    },
-				{ name: 'photo.jpg',     prefix: 'wp-content/uploads',           content: 'img data'     },
-				{ name: 'my-plugin.php', prefix: 'wp-content/plugins/my-plugin', content: '<?php // ok'  },
+				{ name: 'db.sql', prefix: '', content: '-- dump\n' },
+				{ name: 'photo.jpg', prefix: 'wp-content/uploads', content: 'img data' },
+				{ name: 'my-plugin.php', prefix: 'wp-content/plugins/my-plugin', content: '<?php // ok' },
 			] )
 		);
 
 		await handler.extractFiles( { path: archivePath }, extractDir );
 
 		expect( fs.existsSync( path.join( extractDir, 'db.sql' ) ) ).toBe( true );
-		expect( fs.existsSync( path.join( extractDir, 'wp-content', 'uploads', 'photo.jpg' ) ) ).toBe( true );
-		expect( fs.existsSync( path.join( extractDir, 'wp-content', 'plugins', 'my-plugin', 'my-plugin.php' ) ) ).toBe( true );
+		expect( fs.existsSync( path.join( extractDir, 'wp-content', 'uploads', 'photo.jpg' ) ) ).toBe(
+			true
+		);
+		expect(
+			fs.existsSync(
+				path.join( extractDir, 'wp-content', 'plugins', 'my-plugin', 'my-plugin.php' )
+			)
+		).toBe( true );
 	} );
 } );
 
@@ -129,7 +139,7 @@ describe( 'BackupHandlerWpress — listFiles traversal filtering', () => {
 			archivePath,
 			buildWpress( [
 				{ name: 'traversal-marker.txt', prefix: '..', content: 'bad\n' },
-				{ name: 'database.sql',          prefix: '',   content: '-- ok\n' },
+				{ name: 'database.sql', prefix: '', content: '-- ok\n' },
 			] )
 		);
 

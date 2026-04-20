@@ -186,7 +186,7 @@ export class BackupHandlerWpress extends EventEmitter implements BackupHandler {
 			do {
 				header = await readHeader( inputFile );
 				if ( header ) {
-				const filePath = path.join( header.prefix, header.name );
+					const filePath = path.join( header.prefix, header.name );
 					if ( ! filePath.split( path.sep ).includes( '..' ) ) {
 						fileNames.push( filePath );
 					}

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { SiteData } from 'cli/lib/cli-config/core';
-import type { Ignore } from 'ignore';
 import type { ImportExportEventEmitter } from '../events';
+import type { Ignore } from 'ignore';
 
 export interface ExportOptions {
 	site: SiteData;

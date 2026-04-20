@@ -137,6 +137,14 @@ export function createIpcConnector(): Connector {
 			await ipcApi.stopServer( id );
 		},
 
+		async updateSite( site, wpVersion ) {
+			await ipcApi.updateSite( site, wpVersion );
+		},
+
+		async getXdebugEnabledSite() {
+			return ( await ipcApi.getXdebugEnabledSite() ) as SiteDetails | null;
+		},
+
 		// Preview snapshots
 		async getSnapshots(): Promise< Snapshot[] > {
 			return ( await ipcApi.fetchSnapshots() ) as Snapshot[];

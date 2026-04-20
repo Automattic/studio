@@ -3,10 +3,10 @@
 	text-align: left;
 }
 
+/* Typography comes from the universal `h1` rule in index.css — this class
+   only layers on the layout spacing above the subtitle. */
 .title {
-	font-size: 2rem;
-	font-weight: 600;
-	margin: 0 0 8px;
+	margin-bottom: 8px;
 }
 
 .subtitle {

@@ -14,6 +14,54 @@ body {
 	color-scheme: light dark;
 }
 
+/* Universal heading styles derived from the design system's font-size /
+   line-height ramp. Each level steps down one token (h1 = 2xl, h6 = xs),
+   keeping the rest of the type contract — family, weight, color, zero
+   margin — identical. Components can still override via their own class
+   where a specific context demands it, but bare `<h1>`…`<h6>` elements
+   pick up a consistent look for free. */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+	font-family: var(--wpds-font-family-heading);
+	font-weight: var(--wpds-font-weight-regular);
+	color: var(--wpds-color-fg-content-neutral);
+	margin: 0;
+}
+
+h1 {
+	font-size: var(--wpds-font-size-2xl);
+	line-height: var(--wpds-font-line-height-2xl);
+}
+
+h2 {
+	font-size: var(--wpds-font-size-xl);
+	line-height: var(--wpds-font-line-height-xl);
+}
+
+h3 {
+	font-size: var(--wpds-font-size-lg);
+	line-height: var(--wpds-font-line-height-lg);
+}
+
+h4 {
+	font-size: var(--wpds-font-size-md);
+	line-height: var(--wpds-font-line-height-md);
+}
+
+h5 {
+	font-size: var(--wpds-font-size-sm);
+	line-height: var(--wpds-font-line-height-sm);
+}
+
+h6 {
+	font-size: var(--wpds-font-size-xs);
+	line-height: var(--wpds-font-line-height-xs);
+}
+
 /* Interactive elements inside drag-region ancestors (title bars, section
    headers) need to opt out so clicks and focus still land. Harmless where no
    drag region is active. `[data-base-ui-portal] *` covers the @base-ui Menu

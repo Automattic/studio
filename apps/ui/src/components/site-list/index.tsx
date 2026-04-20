@@ -124,6 +124,7 @@ function NewSessionButton( { site }: { site: SiteDetails } ) {
 }
 
 function SiteActionsMenu( { site }: { site: SiteDetails } ) {
+	const navigate = useNavigate();
 	const startSite = useStartSite();
 	const stopSite = useStopSite();
 	const isStarting = useIsSiteStarting( site.id );
@@ -154,6 +155,17 @@ function SiteActionsMenu( { site }: { site: SiteDetails } ) {
 						{ isStarting ? __( 'Starting…' ) : __( 'Start site' ) }
 					</Menu.Item>
 				) }
+				<Menu.Separator />
+				<Menu.Item
+					onClick={ () =>
+						void navigate( {
+							to: '/sites/$siteId/settings',
+							params: { siteId: site.id },
+						} )
+					}
+				>
+					{ __( 'Site settings' ) }
+				</Menu.Item>
 			</Menu.Popup>
 		</Menu.Root>
 	);

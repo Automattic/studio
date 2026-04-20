@@ -2,10 +2,6 @@ import type { SyncOption } from '@studio/common/types/sync';
 import type { Ignore } from 'ignore';
 
 export const shouldExcludeFromSync = ( relativePath: string, deployIgnore: Ignore ): boolean => {
-	const itemName = relativePath.split( '/' ).pop() || '';
-	if ( itemName.startsWith( '.' ) ) {
-		return true;
-	}
 	return deployIgnore.ignores( relativePath );
 };
 

@@ -30,17 +30,18 @@ export function ArchivedConnections( props: Props ) {
 			open={ open }
 			onToggle={ ( e ) => setOpen( ( e.currentTarget as HTMLDetailsElement ).open ) }
 		>
-			<summary className="cursor-pointer text-sm text-gray-500">
+			<summary className="a8c-body cursor-pointer text-frame-text-secondary">
 				{ __( 'Archived connections' ) } ({ props.archived.length })
 			</summary>
 			<ul className="mt-2 space-y-1">
 				{ props.archived.map( ( s ) => (
 					<li
 						key={ s.id }
-						className="flex items-center justify-between rounded border border-gray-100 p-2 text-sm dark:border-gray-700"
+						className="a8c-body flex items-center justify-between rounded border border-frame-border p-2 text-frame-text"
 					>
 						<span>
-							{ s.name } <span className="text-gray-500">{ stripProtocol( s.url ) }</span>
+							{ s.name }{ ' ' }
+							<span className="text-frame-text-secondary">{ stripProtocol( s.url ) }</span>
 						</span>
 						<div className="flex gap-2">
 							{ props.isProductionOpen && (

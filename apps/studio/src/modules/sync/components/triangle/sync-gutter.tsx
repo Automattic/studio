@@ -49,7 +49,7 @@ function TimeAgo( { timestamp, prefix }: { timestamp: string; prefix: string } )
 			? rtf.format( -hours, 'hour' )
 			: rtf.format( -Math.round( hours / 24 ), 'day' );
 	return (
-		<span className="text-xs text-gray-500">
+		<span className="a8c-helper-text text-frame-text-secondary">
 			{ prefix } { formatted }
 		</span>
 	);

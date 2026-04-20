@@ -22,10 +22,10 @@ function labelFor( state: Props[ 'state' ] ): string {
 
 export function ProvisioningColumn( { state, error, onRetry }: Props ) {
 	return (
-		<div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-gray-200 p-8 text-center dark:border-gray-700">
+		<div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-frame-border bg-frame-bg p-8 text-center">
 			{ state !== 'failed' && <Spinner /> }
-			<h3 className="text-base font-semibold">{ __( 'Staging' ) }</h3>
-			<p className="text-sm text-gray-500">{ labelFor( state ) }</p>
+			<h3 className="a8c-subtitle text-frame-text">{ __( 'Staging' ) }</h3>
+			<p className="a8c-body text-frame-text-secondary">{ labelFor( state ) }</p>
 			{ state === 'failed' && error && (
 				<Notice status="error" isDismissible={ false }>
 					{ error }

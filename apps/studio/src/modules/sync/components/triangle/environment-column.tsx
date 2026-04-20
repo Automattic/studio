@@ -38,8 +38,8 @@ function formatRelative( ts: string | null | undefined ): string | null {
 function Stat( { label, value, loading }: { label: string; value: number; loading: boolean } ) {
 	return (
 		<div className="flex flex-col">
-			<dt className="text-xs text-gray-500">{ label }</dt>
-			<dd className="text-base font-medium">{ loading ? <Spinner /> : value }</dd>
+			<dt className="a8c-helper-text text-frame-text-secondary">{ label }</dt>
+			<dd className="a8c-subtitle-small text-frame-text">{ loading ? <Spinner /> : value }</dd>
 		</div>
 	);
 }
@@ -54,8 +54,8 @@ function Mshot( props: { url: string } ) {
 
 function LocalTile() {
 	return (
-		<div className="flex h-20 w-32 shrink-0 items-center justify-center rounded bg-gray-100 text-gray-400 dark:bg-gray-800">
-			<span className="text-xs">{ __( 'Local' ) }</span>
+		<div className="flex h-20 w-32 shrink-0 items-center justify-center rounded bg-frame-surface text-frame-text-secondary">
+			<span className="a8c-helper-text">{ __( 'Local' ) }</span>
 		</div>
 	);
 }
@@ -74,32 +74,36 @@ export function EnvironmentColumn( props: Props ) {
 	const lastPull = props.kind === 'remote' ? props.site.lastPullTimestamp : null;
 
 	return (
-		<div className="flex flex-row items-center gap-4 rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
+		<div className="flex flex-row items-center gap-4 rounded-lg border border-frame-border bg-frame-bg p-4">
 			{ props.kind === 'remote' ? <Mshot url={ props.site.url } /> : <LocalTile /> }
 
 			<div className="flex min-w-0 flex-1 flex-col gap-1">
-				<div className="flex items-center gap-2 text-xs uppercase tracking-wide text-gray-500">
+				<div className="a8c-label flex items-center gap-2 text-frame-text-secondary">
 					<span
 						className={
-							'inline-block h-2 w-2 rounded-full ' + ( statusOk ? 'bg-green-500' : 'bg-gray-400' )
+							'inline-block h-2 w-2 rounded-full ' +
+							( statusOk ? 'bg-frame-running' : 'bg-frame-text-secondary' )
 						}
 						aria-hidden="true"
 					/>
 					<span>{ props.label }</span>
 				</div>
-				<div className="truncate text-base font-semibold">{ name }</div>
-				<a href={ url } className="truncate text-sm text-blue-600 hover:underline">
+				<div className="a8c-subtitle truncate text-frame-text">{ name }</div>
+				<a
+					href={ url }
+					className="a8c-link-text truncate text-frame-theme hover:text-frame-theme-hover hover:underline"
+				>
 					{ stripProtocol( url ) }
 				</a>
 				{ props.kind === 'remote' && (
-					<div className="text-xs text-gray-500">
+					<div className="a8c-helper-text text-frame-text-secondary">
 						{ __( 'WP' ) } { props.site.wpVersion ?? '—' }
 						{ props.site.planName ? ` · ${ props.site.planName }` : '' }
 					</div>
 				) }
 			</div>
 
-			<dl className="flex shrink-0 flex-row gap-6 text-sm">
+			<dl className="flex shrink-0 flex-row gap-6">
 				<Stat
 					label={ __( 'Posts' ) }
 					value={ summary.counts.posts }
@@ -113,7 +117,7 @@ export function EnvironmentColumn( props: Props ) {
 			</dl>
 
 			{ ( lastPush || lastPull ) && (
-				<div className="shrink-0 text-right text-xs text-gray-500">
+				<div className="a8c-helper-text shrink-0 text-right text-frame-text-secondary">
 					{ lastPush && (
 						<div>
 							{ __( 'Pushed' ) } { formatRelative( lastPush ) }

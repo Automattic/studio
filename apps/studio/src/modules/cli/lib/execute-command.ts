@@ -1,8 +1,8 @@
 import { app } from 'electron';
 import { fork, ChildProcess, StdioOptions } from 'node:child_process';
-import EventEmitter from 'node:events';
 import * as Sentry from '@sentry/electron/main';
 import { z } from 'zod';
+import { TypedEventEmitter } from 'src/modules/cli/lib/typed-event-emitter';
 import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
 
 export type CliCommandResult = {
@@ -82,22 +82,9 @@ const cliErrorMessageSchema = z.object( {
 	status: z.literal( 'fail' ),
 	message: z.string(),
 } );
-
-class CliCommandEventEmitter< CapturesOutput extends boolean = false > extends EventEmitter {
-	on< K extends keyof CliCommandEventMap< CapturesOutput > >(
-		event: K,
-		listener: ( payload: CliCommandEventMap< CapturesOutput >[ K ] ) => void
-	): this {
-		return super.on( event, listener );
-	}
-
-	emit< K extends keyof CliCommandEventMap< CapturesOutput > >(
-		event: K,
-		payload?: CliCommandEventMap< CapturesOutput >[ K ]
-	): boolean {
-		return super.emit( event, payload );
-	}
-}
+type CliCommandEventEmitter< CapturesOutput extends boolean > = TypedEventEmitter<
+	CliCommandEventMap< CapturesOutput >
+>;
 
 type ExecuteCliCommandOptionsIgnore = {
 	output: 'ignore';
@@ -144,7 +131,7 @@ export function executeCliCommand(
 		execArgv: [ '--experimental-wasm-jspi' ],
 		env: { ...process.env },
 	} );
-	const eventEmitter = new CliCommandEventEmitter< boolean >();
+	const eventEmitter = new TypedEventEmitter< CliCommandEventMap< boolean > >();
 
 	child.on( 'spawn', () => {
 		eventEmitter.emit( 'started' );

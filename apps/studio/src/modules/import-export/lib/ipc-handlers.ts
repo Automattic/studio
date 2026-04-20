@@ -1,11 +1,5 @@
 import { shell, BrowserWindow, IpcMainInvokeEvent, Notification } from 'electron';
 import fs from 'fs';
-import {
-	ExportEvents,
-	exportIpcEventSchema,
-	ImporterEvents,
-	importIpcEventSchema,
-} from '@studio/common/lib/import-export-events';
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
 import { showErrorMessageBox } from 'src/ipc-handlers';
@@ -77,56 +71,32 @@ export async function importSite(
 	const eventEmitter = await executeImportCliCommand( site.details.id, args, parentWindow );
 
 	return new Promise< void >( ( resolve, reject ) => {
-		let didShowErrorModal = false;
-		let bestErrorPayload: unknown;
-
-		eventEmitter.on( 'data', async ( { data } ) => {
-			const result = importIpcEventSchema.safeParse( data );
-
-			if ( ! result.success ) {
-				return;
-			}
-
-			const parsed = result.data;
-
-			if ( parsed.event[ 0 ] === ImporterEvents.IMPORT_COMPLETE ) {
-				bumpStat( StatsGroup.STUDIO_IMPORT, getImporterMetric( parsed.event[ 1 ] ) );
-
-				if ( showNotification ) {
-					const notification = new Notification( {
-						title: site.details.name,
-						body: __( 'Import completed' ),
-					} );
-					notification.show();
-				}
-			}
-
-			if ( parsed.event[ 0 ] === ImporterEvents.IMPORT_ERROR ) {
-				bestErrorPayload = parsed.event[ 1 ];
-			}
-		} );
-
-		eventEmitter.on( 'success', async () => {
+		eventEmitter.on( 'completed', async ( { importerType } ) => {
 			resolve();
+
+			bumpStat( StatsGroup.STUDIO_IMPORT, getImporterMetric( importerType ) );
+
+			if ( showNotification ) {
+				const notification = new Notification( {
+					title: site.details.name,
+					body: __( 'Import completed' ),
+				} );
+				notification.show();
+			}
 
 			if ( removeBackupOnComplete ) {
 				await fs.promises.unlink( importArchivePath );
 			}
 		} );
 
-		eventEmitter.on( 'error', ( { error } ) => {
+		eventEmitter.on( 'failed', async ( { error, displayError } ) => {
 			reject( error );
-			bumpStat( StatsGroup.STUDIO_IMPORT, StatsMetric.FAILURE );
-		} );
 
-		eventEmitter.on( 'failure', async ( { error } ) => {
-			if ( showErrorModal && ! didShowErrorModal ) {
-				didShowErrorModal = true;
-				await showImportErrorModal( event, bestErrorPayload ?? error );
+			bumpStat( StatsGroup.STUDIO_IMPORT, StatsMetric.FAILURE );
+
+			if ( showErrorModal ) {
+				await showImportErrorModal( event, displayError );
 			}
-
-			reject( error );
-			bumpStat( StatsGroup.STUDIO_IMPORT, StatsMetric.FAILURE );
 
 			if ( removeBackupOnComplete ) {
 				await fs.promises.unlink( importArchivePath );
@@ -189,59 +159,35 @@ export async function exportSite(
 	const eventEmitter = await executeExportCliCommand( site.details.id, args, parentWindow );
 
 	return new Promise< void >( ( resolve, reject ) => {
-		let didShowErrorModal = false;
-		let bestErrorPayload: unknown;
-
-		eventEmitter.on( 'data', async ( { data } ) => {
-			const result = exportIpcEventSchema.safeParse( data );
-
-			if ( ! result.success ) {
-				return;
-			}
-
-			const parsed = result.data;
-
-			if ( parsed.event[ 0 ] === ExportEvents.EXPORT_COMPLETE ) {
-				bumpStat(
-					StatsGroup.STUDIO_EXPORT,
-					mode === 'db' ? StatsMetric.DATABASE_ONLY : StatsMetric.FULL_SITE
-				);
-
-				if ( showNotification ) {
-					const notification = new Notification( {
-						title: site.details.name,
-						body: __( 'Export completed' ),
-					} );
-					notification.show();
-				}
-
-				if ( showItemInFolder ) {
-					shell.showItemInFolder( destinationPath );
-				}
-			}
-
-			if ( parsed.event[ 0 ] === ExportEvents.EXPORT_ERROR ) {
-				bestErrorPayload = parsed.event[ 1 ];
-			}
-		} );
-
-		eventEmitter.on( 'error', ( { error } ) => {
-			reject( error );
-			bumpStat( StatsGroup.STUDIO_EXPORT, StatsMetric.FAILURE );
-		} );
-
-		eventEmitter.on( 'failure', async ( { error } ) => {
-			if ( showErrorModal && ! didShowErrorModal ) {
-				didShowErrorModal = true;
-				await showExportErrorModal( event, bestErrorPayload ?? error );
-			}
-
-			reject( error );
-			bumpStat( StatsGroup.STUDIO_EXPORT, StatsMetric.FAILURE );
-		} );
-
-		eventEmitter.on( 'success', () => {
+		eventEmitter.on( 'completed', () => {
 			resolve();
+
+			bumpStat(
+				StatsGroup.STUDIO_EXPORT,
+				mode === 'db' ? StatsMetric.DATABASE_ONLY : StatsMetric.FULL_SITE
+			);
+
+			if ( showNotification ) {
+				const notification = new Notification( {
+					title: site.details.name,
+					body: __( 'Export completed' ),
+				} );
+				notification.show();
+			}
+
+			if ( showItemInFolder ) {
+				shell.showItemInFolder( destinationPath );
+			}
+		} );
+
+		eventEmitter.on( 'failed', async ( { error, displayError } ) => {
+			reject( error );
+
+			bumpStat( StatsGroup.STUDIO_EXPORT, StatsMetric.FAILURE );
+
+			if ( showErrorModal ) {
+				await showExportErrorModal( event, displayError );
+			}
 		} );
 	} );
 }

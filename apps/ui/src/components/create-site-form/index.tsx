@@ -11,7 +11,7 @@ import {
 import { RecommendedPHPVersion, SupportedPHPVersions } from '@studio/common/types/php-versions';
 import {
 	CheckboxControl,
-	__experimentalInputControl as InputControl,
+	privateApis as componentsPrivateApis,
 	__experimentalInputControlSuffixWrapper as InputControlSuffixWrapper,
 } from '@wordpress/components';
 import { DataForm, useFormValidity } from '@wordpress/dataviews';
@@ -20,8 +20,10 @@ import { chevronDown, chevronRight } from '@wordpress/icons';
 import { Button, Icon } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LearnHowLink, LearnMoreLink } from '@/components/learn-more';
+import { usePathValidator } from '@/data/queries/use-create-site-helpers';
+import { useSites } from '@/data/queries/use-sites';
+import { unlock } from '@/lock-unlock';
 import styles from './style.module.css';
-import type { PathValidationResult } from '@/data/queries/use-create-site-helpers';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type {
 	DataFormControlProps,
@@ -55,8 +57,6 @@ interface CreateSiteFormProps {
 	existingDomainNames: string[];
 	onSubmit: ( values: CreateSiteFormValues ) => void;
 	onCancel: () => void;
-	onGenerateProposedPath: ( siteName: string ) => Promise< PathValidationResult >;
-	onSelectPath: ( currentPath: string ) => Promise< PathValidationResult | null >;
 	isSubmitting?: boolean;
 	submitError?: string;
 }
@@ -67,6 +67,10 @@ interface FormData {
 	// True once the user has manually picked a folder via the path picker,
 	// so the name→path auto-generation effect stops overriding their choice.
 	hasCustomPath: boolean;
+	// IPC-derived path validation error (duplicate site, non-empty non-WP dir).
+	// Owned by `PathField`, read by the `path` field's `isValid.custom` rule so
+	// DataForm surfaces it through its normal validity channel.
+	pathError: string;
 	phpVersion: SupportedPHPVersion;
 	wpVersion: string;
 	useCustomDomain: boolean;
@@ -82,10 +86,27 @@ const PHP_VERSION_ELEMENTS = SupportedPHPVersions.map( ( version ) => ( {
 	label: version,
 } ) );
 
-interface PathFieldProps extends DataFormControlProps< FormData > {
-	onSelectPath: ( currentPath: string ) => Promise< PathValidationResult | null >;
-	onPathError: ( error: string ) => void;
-}
+// ValidatedInputControl is the same private-API control DataForm's built-in
+// `text`/`email`/`password` Edit components use, so wiring the path field
+// through it keeps error styling (red ring + icon) consistent with the rest
+// of the form.
+const { ValidatedInputControl } = unlock( componentsPrivateApis ) as {
+	ValidatedInputControl: React.ComponentType< {
+		label?: React.ReactNode;
+		hideLabelFromVision?: boolean;
+		value?: string;
+		placeholder?: string;
+		readOnly?: boolean;
+		required?: boolean;
+		onClick?: () => void;
+		onChange?: ( value: string | undefined ) => void;
+		help?: React.ReactNode;
+		suffix?: React.ReactNode;
+		customValidity?: { type: 'valid' | 'invalid' | 'validating'; message?: string };
+		__next40pxDefaultSize?: boolean;
+		className?: string;
+	} >;
+};
 
 function PathField( {
 	data: item,
@@ -93,24 +114,57 @@ function PathField( {
 	hideLabelFromVision,
 	onChange,
 	validity,
-	onSelectPath,
-	onPathError,
-}: PathFieldProps ) {
+}: DataFormControlProps< FormData > ) {
+	const { data: sites } = useSites();
+	const { generateProposedPath, selectPath } = usePathValidator( sites );
+
+	// onChange is re-created on every parent render in some form setups; use a
+	// ref so the name→path effect isn't re-subscribed each keystroke.
+	const onChangeRef = useRef( onChange );
+	useEffect( () => {
+		onChangeRef.current = onChange;
+	}, [ onChange ] );
+
+	// Auto-generate the path from the site name until the user picks a custom
+	// folder. Owned here so the form has a single source of truth for path
+	// state + error.
+	const pendingNameRef = useRef< string | null >( null );
+	useEffect( () => {
+		if ( item.hasCustomPath ) return;
+		const trimmed = item.name.trim();
+		if ( ! trimmed ) {
+			if ( item.path || item.pathError ) {
+				onChangeRef.current( { path: '', pathError: '' } );
+			}
+			return;
+		}
+		pendingNameRef.current = trimmed;
+		let cancelled = false;
+		void ( async () => {
+			const result = await generateProposedPath( trimmed );
+			if ( cancelled || pendingNameRef.current !== trimmed ) return;
+			onChangeRef.current( { path: result.path, pathError: result.error ?? '' } );
+		} )();
+		return () => {
+			cancelled = true;
+		};
+	}, [ item.name, item.hasCustomPath, item.path, item.pathError, generateProposedPath ] );
+
 	const handleSelect = useCallback( async () => {
-		const result = await onSelectPath( item.hasCustomPath ? item.path : '' );
+		const result = await selectPath( item.hasCustomPath ? item.path : '' );
 		if ( ! result ) return;
-		onPathError( result.error ?? '' );
 		onChange( {
 			path: result.path,
 			hasCustomPath: true,
+			pathError: result.error ?? '',
 			...( ! item.name && result.name ? { name: result.name } : {} ),
 		} );
-	}, [ item.hasCustomPath, item.name, item.path, onChange, onPathError, onSelectPath ] );
+	}, [ item.hasCustomPath, item.name, item.path, onChange, selectPath ] );
 
 	const errorMessage = validity?.custom?.message;
 
 	return (
-		<InputControl
+		<ValidatedInputControl
 			__next40pxDefaultSize
 			label={ field.label }
 			hideLabelFromVision={ hideLabelFromVision }
@@ -119,15 +173,16 @@ function PathField( {
 			readOnly
 			onClick={ handleSelect }
 			className={ styles.pathControl }
+			customValidity={
+				errorMessage ? { type: 'invalid', message: errorMessage } : undefined
+			}
 			help={
-				errorMessage || (
-					<>
-						{ __(
-							'Select an empty directory or a directory with an existing WordPress site.'
-						) }{ ' ' }
-						<LearnMoreLink docsLinksKey="docsSites" />
-					</>
-				)
+				<>
+					{ __(
+						'Select an empty directory or a directory with an existing WordPress site.'
+					) }{ ' ' }
+					<LearnMoreLink docsLinksKey="docsSites" />
+				</>
 			}
 			suffix={
 				<InputControlSuffixWrapper variant="control">
@@ -199,8 +254,6 @@ export function CreateSiteForm( {
 	existingDomainNames,
 	onSubmit,
 	onCancel,
-	onGenerateProposedPath,
-	onSelectPath,
 	isSubmitting,
 	submitError,
 }: CreateSiteFormProps ) {
@@ -208,6 +261,7 @@ export function CreateSiteForm( {
 		name: '',
 		path: '',
 		hasCustomPath: false,
+		pathError: '',
 		phpVersion: RecommendedPHPVersion,
 		wpVersion: DEFAULT_WORDPRESS_VERSION,
 		useCustomDomain: false,
@@ -217,10 +271,6 @@ export function CreateSiteForm( {
 		adminPassword: generatePassword(),
 		adminEmail: 'admin@localhost.com',
 	} ) );
-	// `pathError` is driven by IPC (duplicate site, non-empty non-WP folder)
-	// and surfaced through DataForm via `Field.isValid.custom` on the `path`
-	// field below.
-	const [ pathError, setPathError ] = useState( '' );
 
 	// Seed the site name from `defaultName` the first time it resolves, as
 	// long as the user hasn't typed anything yet. Fires once — subsequent
@@ -231,15 +281,6 @@ export function CreateSiteForm( {
 		hasAppliedDefaultName.current = true;
 		setData( ( prev ) => ( prev.name ? prev : { ...prev, name: defaultName } ) );
 	}, [ defaultName ] );
-
-	// Adapter that bridges DataForm's Edit contract (only `DataFormControlProps`
-	// allowed) to `PathField`'s explicit API.
-	const renderPathField = useCallback(
-		( props: DataFormControlProps< FormData > ) => (
-			<PathField { ...props } onSelectPath={ onSelectPath } onPathError={ setPathError } />
-		),
-		[ onSelectPath ]
-	);
 
 	const fields = useMemo< Field< FormData >[] >(
 		() => [
@@ -252,10 +293,10 @@ export function CreateSiteForm( {
 			{
 				id: 'path',
 				label: __( 'Local path' ),
-				Edit: renderPathField,
+				Edit: PathField,
 				isValid: {
 					required: true,
-					custom: () => pathError || null,
+					custom: ( item: FormData ) => item.pathError || null,
 				},
 			},
 			{
@@ -323,7 +364,7 @@ export function CreateSiteForm( {
 				Edit: EnableHttpsControl,
 			},
 		],
-		[ renderPathField, pathError, existingDomainNames ]
+		[ existingDomainNames ]
 	);
 
 	const basicForm = useMemo< Form >(
@@ -371,30 +412,6 @@ export function CreateSiteForm( {
 
 	const { validity, isValid } = useFormValidity( data, fields, fullForm );
 	const [ isAdvancedOpen, setIsAdvancedOpen ] = useState( false );
-
-	// Auto-generate the path when the site name changes, until the user picks
-	// a custom folder.
-	const pendingNameRef = useRef< string | null >( null );
-	useEffect( () => {
-		if ( data.hasCustomPath ) return;
-		const trimmed = data.name.trim();
-		if ( ! trimmed ) {
-			setPathError( '' );
-			if ( data.path ) setData( ( prev ) => ( { ...prev, path: '' } ) );
-			return;
-		}
-		pendingNameRef.current = trimmed;
-		let cancelled = false;
-		void ( async () => {
-			const result = await onGenerateProposedPath( trimmed );
-			if ( cancelled || pendingNameRef.current !== trimmed ) return;
-			setPathError( result.error ?? '' );
-			setData( ( prev ) => ( { ...prev, path: result.path } ) );
-		} )();
-		return () => {
-			cancelled = true;
-		};
-	}, [ data.name, data.hasCustomPath, onGenerateProposedPath, data.path ] );
 
 	const handleChange = useCallback( ( update: Record< string, unknown > ) => {
 		setData( ( prev ) => {
@@ -476,7 +493,7 @@ export function CreateSiteForm( {
 			{ submitError && <div className={ styles.submitError }>{ submitError }</div> }
 
 			<div className={ styles.actions }>
-				<Button type="button" variant="outline" tone="neutral" onClick={ onCancel }>
+				<Button type="button" variant="minimal" tone="neutral" onClick={ onCancel }>
 					{ __( 'Cancel' ) }
 				</Button>
 				<Button

@@ -5,7 +5,6 @@ import { CreateSiteForm } from '@/components/create-site-form';
 import { OnboardingLayout } from '@/components/onboarding-layout';
 import {
 	useExistingCustomDomains,
-	usePathValidator,
 	useProposedSiteName,
 } from '@/data/queries/use-create-site-helpers';
 import { useSites, useCreateSite } from '@/data/queries/use-sites';
@@ -63,7 +62,6 @@ function CreateSitePage() {
 	const { data: sites } = useSites();
 	const { data: existingDomainNames } = useExistingCustomDomains();
 	const { data: proposedName } = useProposedSiteName( sites );
-	const { generateProposedPath, selectPath } = usePathValidator( sites );
 	const createSite = useCreateSite();
 	const [ submitError, setSubmitError ] = useState( '' );
 
@@ -100,8 +98,6 @@ function CreateSitePage() {
 				existingDomainNames={ existingDomainNames ?? [] }
 				onSubmit={ handleSubmit }
 				onCancel={ () => void navigate( { to: '/onboarding' } ) }
-				onGenerateProposedPath={ generateProposedPath }
-				onSelectPath={ selectPath }
 				isSubmitting={ createSite.isPending }
 				submitError={ submitError }
 			/>

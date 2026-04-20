@@ -1,5 +1,6 @@
+import { listAiSessions, loadAiSession } from '@studio/common/ai/sessions/store';
 import { __ } from '@wordpress/i18n';
-import { listAiSessions, loadAiSession } from 'cli/ai/sessions/store';
+import { getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runAiCommand } from 'cli/commands/ai';
 import { chooseSessionForAction } from 'cli/commands/ai/sessions/helpers';
@@ -27,7 +28,7 @@ export async function runCommand(
 	}
 
 	if ( resolvedSessionIdOrPrefix.toLowerCase() === 'latest' ) {
-		const sessions = await listAiSessions();
+		const sessions = await listAiSessions( getAiSessionsRootDirectory() );
 		if ( sessions.length === 0 ) {
 			throw new Error( __( 'No code sessions found' ) );
 		}
@@ -35,7 +36,7 @@ export async function runCommand(
 		resolvedSessionIdOrPrefix = sessions[ 0 ].id;
 	}
 
-	const session = await loadAiSession( resolvedSessionIdOrPrefix );
+	const session = await loadAiSession( getAiSessionsRootDirectory(), resolvedSessionIdOrPrefix );
 	await runAiCommand( {
 		adapter: new AiChatUI(),
 		resumeSession: session,

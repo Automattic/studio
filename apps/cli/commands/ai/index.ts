@@ -1,3 +1,4 @@
+import { type LoadedAiSession, type TurnStatus } from '@studio/common/ai/sessions/types';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { DEFAULT_MODEL, startAiAgent, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
@@ -14,10 +15,10 @@ import { closeSharedBrowser } from 'cli/ai/browser-utils';
 import { type AiOutputAdapter, JsonAdapter } from 'cli/ai/output-adapter';
 import { AI_PROVIDERS, type AiProviderId } from 'cli/ai/providers';
 import { resolveResumeSessionContext } from 'cli/ai/sessions/context';
+import { getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';
 import { AiSessionRecorder } from 'cli/ai/sessions/recorder';
 import { replaySessionHistory } from 'cli/ai/sessions/replay';
-import { listAiSessions } from 'cli/ai/sessions/store';
-import { type LoadedAiSession, type TurnStatus } from 'cli/ai/sessions/types';
+import { listAiSessions } from '@studio/common/ai/sessions/store';
 import { AI_CHAT_SLASH_COMMANDS, type SlashCommandContext } from 'cli/ai/slash-commands';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
@@ -101,7 +102,7 @@ export async function runCommand( options: {
 			} else if ( options.resumeSessionId ) {
 				// Find existing session file by SDK agent session ID so
 				// follow-up turns append to the same file instead of creating new ones.
-				const sessions = await listAiSessions();
+				const sessions = await listAiSessions( getAiSessionsRootDirectory() );
 				const existing = sessions.find( ( s ) =>
 					s.linkedAgentSessionIds.includes( options.resumeSessionId! )
 				);

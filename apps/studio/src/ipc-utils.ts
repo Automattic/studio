@@ -1,6 +1,5 @@
 import crypto from 'crypto';
 import { BrowserWindow } from 'electron';
-import { BlueprintValidationWarning } from '@studio/common/lib/blueprint-validation';
 import { SiteEvent, SnapshotEvent } from '@studio/common/lib/cli-events';
 import { PreviewCommandLoggerAction } from '@studio/common/logger-actions';
 import { ImportExportEventData } from 'src/lib/import-export/handle-events';
@@ -24,7 +23,6 @@ export interface IpcEvents {
 	'add-site-with-blueprint': [
 		{
 			blueprintPath: string;
-			warnings?: BlueprintValidationWarning[];
 		},
 	];
 	'auth-updated': [ { token: StoredAuthToken } | { token: null } | { error: unknown } ];

@@ -1,8 +1,5 @@
 import fs from 'fs';
-import {
-	filterUnsupportedBlueprintFeatures,
-	validateBlueprintData,
-} from '@studio/common/lib/blueprint-validation';
+import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import {
 	isEmptyDir,
 	isWordPressDirectory,
@@ -167,10 +164,7 @@ describe( 'CLI: studio site create', () => {
 		vi.mocked( runBlueprint ).mockResolvedValue( undefined );
 		vi.mocked( logSiteDetails ).mockImplementation( () => {} );
 		vi.mocked( openSiteInBrowser ).mockResolvedValue( undefined );
-		vi.mocked( validateBlueprintData ).mockResolvedValue( { valid: true, warnings: [] } );
-		vi.mocked( filterUnsupportedBlueprintFeatures ).mockImplementation(
-			( blueprint ) => blueprint
-		);
+		vi.mocked( validateBlueprintData ).mockResolvedValue( { valid: true } );
 		vi.mocked( isOnline ).mockResolvedValue( true );
 		vi.mocked( getPreferredSiteLanguage ).mockResolvedValue( 'en' );
 		vi.mocked( copyLanguagePackToSite ).mockResolvedValue( false );
@@ -553,26 +547,6 @@ describe( 'CLI: studio site create', () => {
 					} ),
 				} )
 			);
-		} );
-
-		it( 'should warn about unsupported Blueprint features', async () => {
-			vi.mocked( validateBlueprintData ).mockResolvedValue( {
-				valid: true,
-				warnings: [
-					{
-						feature: 'login',
-						reason: 'Studio automatically creates and logs in the admin user',
-					},
-				],
-			} );
-
-			await runCommand( mockSitePath, {
-				...defaultTestOptions,
-				blueprint: {
-					uri: '/home/test/blueprint.json',
-					contents: testBlueprint,
-				},
-			} );
 		} );
 	} );
 

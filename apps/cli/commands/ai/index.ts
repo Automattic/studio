@@ -484,7 +484,10 @@ export async function runCommand( options: {
 						question: __( 'There was a hiccup on the server. Do you want to continue?' ),
 						options: [
 							{ label: 'Yes', description: __( 'Continue from where you left off' ) },
-							{ label: 'No', description: __( 'Stop here' ) },
+							{
+								label: 'No',
+								description: __( 'Stop so I can give different instructions' ),
+							},
 						],
 					},
 				] );

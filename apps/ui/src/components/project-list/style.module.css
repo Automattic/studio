@@ -9,7 +9,7 @@
 .projects {
 	display: flex;
 	flex-direction: column;
-	gap: var(--wpds-dimension-padding-xl);
+	gap: 2px;
 }
 
 .project {
@@ -22,7 +22,6 @@
 	align-items: flex-start;
 	gap: var(--wpds-dimension-padding-xs);
 	min-width: 0;
-	margin-bottom: var(--wpds-dimension-padding-xs);
 	padding-right: var(--wpds-dimension-padding-sm);
 }
 
@@ -59,19 +58,6 @@
 	font-weight: 600;
 }
 
-.projectSubtitle {
-	font-size: var(--wpds-font-size-xs);
-	line-height: 1;
-	color: var(--wpds-color-fg-content-neutral-weak);
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-	max-width: 100%;
-	opacity: 0.55;
-	padding: 0 var(--wpds-dimension-padding-sm);
-	margin-top: 4px;
-}
-
 .projectActions {
 	display: flex;
 	align-items: center;
@@ -105,7 +91,7 @@
 .sessionList {
 	list-style: none;
 	padding: 0;
-	margin: 0;
+	margin: 0 0 var(--wpds-dimension-padding-sm);
 	display: flex;
 	flex-direction: column;
 }

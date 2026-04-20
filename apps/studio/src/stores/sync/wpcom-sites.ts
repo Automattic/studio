@@ -132,14 +132,57 @@ export const wpcomSitesApi = createApi( {
 
 					// Only reconcile on the first page without search
 					if ( page === 1 && ! search ) {
+						const connectedIds = allConnectedSites.map( ( { id } ) => id );
 						const syncSitesForReconciliation = transformSitesResponse( parsedResponse.sites, {
-							connectedSiteIds: allConnectedSites.map( ( { id } ) => id ),
+							connectedSiteIds: connectedIds,
 							...sentryOptions,
 						} );
 
+						// Connected sites that weren't on page 1 need explicit verification
+						// before we'd mark them deleted — otherwise pagination would flag
+						// any connected site past the first page as gone.
+						const fetchedIds = new Set( parsedResponse.sites.map( ( s ) => s.ID ) );
+						const missingConnectedIds = connectedIds.filter( ( id ) => ! fetchedIds.has( id ) );
+
+						const verifiedDeletedIds = new Set< number >();
+						const supplementalSites: SyncSite[] = [];
+
+						await Promise.all(
+							missingConnectedIds.map( async ( siteId ) => {
+								try {
+									const singleResponse = await wpcomClient.req.get(
+										{
+											apiNamespace: 'rest/v1.1',
+											path: `/sites/${ siteId }`,
+										},
+										{
+											fields: SITE_FIELDS,
+											options: 'created_at,wpcom_staging_blog_ids',
+										}
+									);
+									const parsed = sitesEndpointSiteSchema.parse( singleResponse );
+									const syncSupport = getSyncSupport( parsed, connectedIds );
+									const isStaging =
+										parsed.environment_type === 'staging' ||
+										parsed.environment_type === 'development';
+									supplementalSites.push(
+										transformSingleSiteResponse( parsed, syncSupport, isStaging )
+									);
+								} catch ( error ) {
+									const status = ( error as { status?: number } )?.status;
+									if ( status === 404 ) {
+										verifiedDeletedIds.add( siteId );
+									}
+									// For any other error (auth, network, 5xx) leave the site's
+									// current state untouched — it'll be re-checked next time.
+								}
+							} )
+						);
+
 						const { updatedConnectedSites } = reconcileConnectedSites(
 							allConnectedSites,
-							syncSitesForReconciliation
+							[ ...syncSitesForReconciliation, ...supplementalSites ],
+							verifiedDeletedIds
 						);
 						await getIpcApi().updateConnectedWpcomSites( updatedConnectedSites );
 					}

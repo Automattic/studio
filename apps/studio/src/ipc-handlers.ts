@@ -19,6 +19,7 @@ import os from 'os';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import {
+	createAiSession as createAiSessionInStore,
 	deleteAiSession as deleteAiSessionFromStore,
 	listAiSessions as listAiSessionsFromStore,
 	loadAiSession as loadAiSessionFromStore,
@@ -187,6 +188,22 @@ export async function deleteAiSession(
 	sessionIdOrPrefix: string
 ): Promise< AiSessionSummary > {
 	return deleteAiSessionFromStore( getAiSessionsRootDirectory(), sessionIdOrPrefix );
+}
+
+export async function createAiSession(
+	_event: IpcMainInvokeEvent,
+	siteId: string
+): Promise< AiSessionSummary > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( `Site not found: ${ siteId }` );
+	}
+	return createAiSessionInStore( getAiSessionsRootDirectory(), {
+		site: {
+			name: server.details.name,
+			path: server.details.path,
+		},
+	} );
 }
 
 export async function continueAiSession(

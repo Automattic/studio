@@ -103,6 +103,10 @@ export function createIpcConnector(): Connector {
 			await ipcApi.deleteAiSession( sessionId );
 		},
 
+		async createSession( siteId ): Promise< AiSessionSummary > {
+			return ( await ipcApi.createAiSession( siteId ) ) as AiSessionSummary;
+		},
+
 		async continueSession( sessionId, prompt ): Promise< { runId: string } > {
 			return ( await ipcApi.continueAiSession( sessionId, prompt ) ) as { runId: string };
 		},

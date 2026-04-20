@@ -16,7 +16,7 @@ type Props = Omit< ComponentProps< typeof Button >, 'variant' | 'tone' | 'size' 
  * their internal ref to the underlying button element.
  */
 export const SidebarButton = forwardRef< ElementRef< typeof Button >, Props >(
-	function SidebarButton( { className, ...props }, ref ) {
+	function SidebarButton( { className, render, nativeButton, ...props }, ref ) {
 		return (
 			<Button
 				ref={ ref }
@@ -24,6 +24,10 @@ export const SidebarButton = forwardRef< ElementRef< typeof Button >, Props >(
 				tone="neutral"
 				size="small"
 				className={ clsx( styles.root, className ) }
+				render={ render }
+				// A `render` prop replaces the native <button>; opt out of Base UI's
+				// native-button semantics unless the caller explicitly opts back in.
+				nativeButton={ nativeButton ?? ! render }
 				{ ...props }
 			/>
 		);

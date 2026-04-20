@@ -1,3 +1,4 @@
+import type { AgentRunEvent } from '../../agent-events';
 import type {
 	AiSessionSummary,
 	AuthUser,
@@ -100,6 +101,26 @@ export function createIpcConnector(): Connector {
 
 		async deleteSession( sessionId ) {
 			await ipcApi.deleteAiSession( sessionId );
+		},
+
+		async continueSession( sessionId, prompt ): Promise< { runId: string } > {
+			return ( await ipcApi.continueAiSession( sessionId, prompt ) ) as { runId: string };
+		},
+
+		async interruptAgentRun( runId ) {
+			await ipcApi.interruptAiAgentRun( runId );
+		},
+
+		async answerAgentQuestion( runId, answers ) {
+			await ipcApi.answerAiAgentQuestion( runId, answers );
+		},
+
+		onAgentEvent( listener ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const ipcListener = ( window as any ).ipcListener;
+			return ipcListener.subscribe( 'ai-agent-event', ( _event: unknown, payload: AgentRunEvent ) =>
+				listener( payload )
+			);
 		},
 
 		// Locale

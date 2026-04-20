@@ -104,6 +104,7 @@ import {
 	removeSkillById,
 	type SkillStatus,
 } from 'src/modules/agent-instructions/lib/skills';
+import { answerAgentRun, interruptAgentRun, startAgentRun } from 'src/modules/ai-agent/run-manager';
 import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
@@ -186,6 +187,33 @@ export async function deleteAiSession(
 	sessionIdOrPrefix: string
 ): Promise< AiSessionSummary > {
 	return deleteAiSessionFromStore( getAiSessionsRootDirectory(), sessionIdOrPrefix );
+}
+
+export async function continueAiSession(
+	event: IpcMainInvokeEvent,
+	sessionId: string,
+	prompt: string
+): Promise< { runId: string } > {
+	return startAgentRun( {
+		sessionId,
+		prompt,
+		webContents: event.sender,
+	} );
+}
+
+export async function interruptAiAgentRun(
+	_event: IpcMainInvokeEvent,
+	runId: string
+): Promise< void > {
+	interruptAgentRun( runId );
+}
+
+export async function answerAiAgentQuestion(
+	_event: IpcMainInvokeEvent,
+	runId: string,
+	answers: Record< string, string >
+): Promise< void > {
+	answerAgentRun( runId, answers );
 }
 
 export async function getAgentInstructionsStatus(

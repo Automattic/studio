@@ -58,7 +58,6 @@ describe( 'CLI: studio import', () => {
 		wpContentFiles: [],
 		wpContentDirectory: '/tmp/extracted/wp-content',
 		wpConfig: '/tmp/extracted/wp-config.php',
-		importerType: 'LocalImporter',
 	};
 
 	class MockImporter extends ImportExportEventEmitter {

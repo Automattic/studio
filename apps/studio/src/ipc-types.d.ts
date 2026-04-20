@@ -36,6 +36,7 @@ interface StoppedSiteDetails {
 	enableDebugLog?: boolean;
 	enableDebugDisplay?: boolean;
 	sortOrder?: number;
+	landingPage?: string;
 }
 
 interface StartedSiteDetails extends StoppedSiteDetails {

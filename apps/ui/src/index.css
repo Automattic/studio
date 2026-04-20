@@ -1,0 +1,49 @@
+:root {
+	/* Default is 2px; 4px reads a bit softer. */
+	--wpds-border-radius-sm: 4px;
+}
+
+body {
+	margin: 0;
+	padding: 0;
+	font-family: var(--wpds-font-family-body);
+	font-size: var(--wpds-font-size-md);
+	line-height: var(--wpds-font-line-height-md);
+	background-color: var(--wpds-color-bg-surface-neutral-strong);
+	color: var(--wpds-color-fg-content-neutral);
+	color-scheme: light dark;
+}
+
+/* Interactive elements inside drag-region ancestors (title bars, section
+   headers) need to opt out so clicks and focus still land. Harmless where no
+   drag region is active. `[data-base-ui-portal] *` covers the @base-ui Menu
+   portal subtree — items render as divs, so we can't rely on the
+   button/link selectors. */
+button,
+a,
+input,
+textarea,
+[role="button"],
+[data-base-ui-portal],
+[data-base-ui-portal] * {
+	-webkit-app-region: no-drag;
+}
+
+/* Show the focus ring only on keyboard focus, overriding @wordpress/ui's
+   :focus-based outline. Unlayered CSS wins over WP UI's cascade layers.
+   `a` covers Button primitives rendered as links via its `render` prop. */
+button:focus:not(:focus-visible),
+a:focus:not(:focus-visible),
+[role="button"]:focus:not(:focus-visible) {
+	outline: none;
+}
+
+/* Default icons inside buttons and menu items to 75% scale — WP UI's Icon
+   primitive draws at 16px, which reads a bit large for dense sidebars and
+   menus. `a svg` covers Button primitives rendered as links via their
+   `render` prop. */
+button svg,
+a svg,
+[role^="menuitem"] svg {
+	transform: scale(0.75);
+}

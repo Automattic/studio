@@ -1,10 +1,10 @@
 import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
-import { buildAiSessionFileName } from './file-naming';
+import { buildAiSessionFileName } from '@studio/common/ai/sessions/file-naming';
 import { getAiSessionsDirectoryForDate } from './paths';
-import type { AiSessionEvent, TurnStatus } from './types';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
+import type { AiSessionEvent, TurnStatus } from '@studio/common/ai/sessions/types';
 import type { AiModelId } from 'cli/ai/agent';
 import type { AiProviderId } from 'cli/ai/providers';
 import type { SiteInfo } from 'cli/ai/ui';

@@ -1,11 +1,11 @@
 import crypto from 'crypto';
 import { BrowserWindow } from 'electron';
-import { BlueprintValidationWarning } from '@studio/common/lib/blueprint-validation';
 import { SiteEvent, SnapshotEvent } from '@studio/common/lib/cli-events';
 import { PreviewCommandLoggerAction } from '@studio/common/logger-actions';
 import { ImportExportEventData } from 'src/lib/import-export/handle-events';
 import { getMainWindow } from 'src/main-window';
 import type { StoredAuthToken } from '@studio/common/lib/shared-config';
+import type { AgentRunEvent } from 'src/modules/ai-agent/types';
 
 type SnapshotEventData = {
 	action: PreviewCommandLoggerAction;
@@ -23,7 +23,6 @@ export interface IpcEvents {
 	'add-site-with-blueprint': [
 		{
 			blueprintPath: string;
-			warnings?: BlueprintValidationWarning[];
 		},
 	];
 	'auth-updated': [ { token: StoredAuthToken } | { token: null } | { error: unknown } ];
@@ -61,6 +60,7 @@ export interface IpcEvents {
 	'user-preference-changed': [ void ];
 	'refresh-app-globals': [ void ];
 	'beta-features-updated': [ void ];
+	'ai-agent-event': [ AgentRunEvent ];
 }
 
 export async function sendIpcEventToRenderer< T extends keyof IpcEvents >(

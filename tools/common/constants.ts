@@ -1,4 +1,4 @@
-import { RecommendedPHPVersion } from './types/php-versions';
+import { RecommendedPHPVersion, PressablePHPVersion } from './types/php-versions';
 
 // Time constants
 export const HOUR_MS = 1000 * 60 * 60;
@@ -38,6 +38,7 @@ export const DEFAULT_CUSTOM_DOMAIN_SUFFIX = '.wp.local';
 export const MINIMUM_WORDPRESS_VERSION = '6.2.1' as const; // https://wordpress.github.io/wordpress-playground/blueprints/examples/#load-an-older-wordpress-version
 export const DEFAULT_WORDPRESS_VERSION = 'latest' as const;
 export const DEFAULT_PHP_VERSION: typeof RecommendedPHPVersion = RecommendedPHPVersion;
+export const PRESSABLE_PHP_VERSION: typeof PressablePHPVersion = PressablePHPVersion;
 export const SQLITE_FILENAME = 'sqlite-database-integration' as const;
 
 // Import file constants

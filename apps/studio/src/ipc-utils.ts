@@ -5,6 +5,8 @@ import { PreviewCommandLoggerAction } from '@studio/common/logger-actions';
 import { ImportExportEventData } from 'src/lib/import-export/handle-events';
 import { getMainWindow } from 'src/main-window';
 import type { StoredAuthToken } from '@studio/common/lib/shared-config';
+import type { AgentRunEvent } from 'src/modules/ai-agent/types';
+import type { StudioCodeEvent } from 'src/modules/studio-code/studio-code-event-types';
 
 type SnapshotEventData = {
 	action: PreviewCommandLoggerAction;
@@ -59,6 +61,8 @@ export interface IpcEvents {
 	'user-preference-changed': [ void ];
 	'refresh-app-globals': [ void ];
 	'beta-features-updated': [ void ];
+	'ai-agent-event': [ AgentRunEvent ];
+	'studio-code-event': [ { siteId: string; event: StudioCodeEvent } ];
 }
 
 export async function sendIpcEventToRenderer< T extends keyof IpcEvents >(

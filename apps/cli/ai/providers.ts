@@ -75,6 +75,12 @@ function createBaseEnvironment(): Record< string, string > {
 	delete env.CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS;
 	delete env.CLAUDE_CODE_MAX_RETRIES;
 
+	// Fail fast on transient API errors so the user-mediated retry prompt can
+	// intervene instead of the SDK burning through its default 10 retries.
+	if ( ! env.CLAUDE_CODE_MAX_RETRIES ) {
+		env.CLAUDE_CODE_MAX_RETRIES = '1';
+	}
+
 	return env;
 }
 

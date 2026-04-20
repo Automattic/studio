@@ -18,6 +18,14 @@ import https from 'node:https';
 import os from 'os';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
+import { isAiModelId } from '@studio/common/ai/models';
+import {
+	appendAiSessionEvent,
+	createAiSession as createAiSessionInStore,
+	deleteAiSession as deleteAiSessionFromStore,
+	listAiSessions as listAiSessionsFromStore,
+	loadAiSession as loadAiSessionFromStore,
+} from '@studio/common/ai/sessions/store';
 import {
 	installSkillToSite,
 	removeSkillFromSite,
@@ -51,6 +59,7 @@ import {
 	WINDOWS_TITLEBAR_HEIGHT,
 } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
+import { getAiSessionsRootDirectory } from 'src/lib/ai-sessions';
 import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
 import {
 	bumpStat,
@@ -98,6 +107,7 @@ import {
 	removeSkillById,
 	type SkillStatus,
 } from 'src/modules/agent-instructions/lib/skills';
+import { answerAgentRun, interruptAgentRun, startAgentRun } from 'src/modules/ai-agent/run-manager';
 import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
@@ -115,6 +125,7 @@ import {
 } from 'src/storage/user-data';
 import { Blueprint } from 'src/stores/wpcom-api';
 import { captureSiteThumbnail } from './lib/capture-site-thumbnail';
+import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { WpCliResult } from 'src/site-server';
 
@@ -162,6 +173,89 @@ export {
 	saveUserTerminal,
 	showUserSettings,
 } from 'src/modules/user-settings/lib/ipc-handlers';
+
+export {
+	studioCodeSendMessage,
+	studioCodeRespondToPermission,
+	studioCodeAbort,
+	studioCodeCheckProvider,
+} from 'src/modules/studio-code/ipc-handlers';
+
+export async function listAiSessions( _event: IpcMainInvokeEvent ): Promise< AiSessionSummary[] > {
+	return listAiSessionsFromStore( getAiSessionsRootDirectory() );
+}
+
+export async function loadAiSession(
+	_event: IpcMainInvokeEvent,
+	sessionIdOrPrefix: string
+): Promise< LoadedAiSession > {
+	return loadAiSessionFromStore( getAiSessionsRootDirectory(), sessionIdOrPrefix );
+}
+
+export async function deleteAiSession(
+	_event: IpcMainInvokeEvent,
+	sessionIdOrPrefix: string
+): Promise< AiSessionSummary > {
+	return deleteAiSessionFromStore( getAiSessionsRootDirectory(), sessionIdOrPrefix );
+}
+
+export async function createAiSession(
+	_event: IpcMainInvokeEvent,
+	siteId: string
+): Promise< AiSessionSummary > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( `Site not found: ${ siteId }` );
+	}
+	return createAiSessionInStore( getAiSessionsRootDirectory(), {
+		site: {
+			name: server.details.name,
+			path: server.details.path,
+		},
+	} );
+}
+
+export async function continueAiSession(
+	event: IpcMainInvokeEvent,
+	sessionId: string,
+	prompt: string
+): Promise< { runId: string } > {
+	return startAgentRun( {
+		sessionId,
+		prompt,
+		webContents: event.sender,
+	} );
+}
+
+export async function setAiSessionModel(
+	_event: IpcMainInvokeEvent,
+	sessionId: string,
+	model: string
+): Promise< void > {
+	if ( ! isAiModelId( model ) ) {
+		throw new Error( `Unknown AI model: ${ model }` );
+	}
+	await appendAiSessionEvent( getAiSessionsRootDirectory(), sessionId, {
+		type: 'session.model_selected',
+		timestamp: new Date().toISOString(),
+		model,
+	} );
+}
+
+export async function interruptAiAgentRun(
+	_event: IpcMainInvokeEvent,
+	runId: string
+): Promise< void > {
+	interruptAgentRun( runId );
+}
+
+export async function answerAiAgentQuestion(
+	_event: IpcMainInvokeEvent,
+	runId: string,
+	answers: Record< string, string >
+): Promise< void > {
+	answerAgentRun( runId, answers );
+}
 
 export async function getAgentInstructionsStatus(
 	_event: IpcMainInvokeEvent,

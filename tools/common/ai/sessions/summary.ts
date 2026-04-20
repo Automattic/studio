@@ -15,6 +15,8 @@ export async function readAiSessionSummaryFromEvents(
 	let updatedAt: string | undefined;
 	let sessionId = extractAiSessionIdFromFilePath( filePath );
 	let firstPrompt: string | undefined;
+	let ownerSitePath: string | undefined;
+	let ownerSiteName: string | undefined;
 	let selectedSiteName: string | undefined;
 	let endReason: 'error' | 'stopped' | undefined;
 	let eventCount = 0;
@@ -39,6 +41,10 @@ export async function readAiSessionSummaryFromEvents(
 
 		if ( event.type === 'site.selected' ) {
 			selectedSiteName = event.siteName;
+			if ( ownerSitePath === undefined ) {
+				ownerSitePath = event.sitePath;
+				ownerSiteName = event.siteName;
+			}
 		}
 
 		if ( event.type === 'user.message' && event.source === 'prompt' && ! firstPrompt ) {
@@ -65,6 +71,8 @@ export async function readAiSessionSummaryFromEvents(
 		agentSessionId: linkedAgentSessionIds[ linkedAgentSessionIds.length - 1 ],
 		linkedAgentSessionIds,
 		firstPrompt,
+		ownerSitePath,
+		ownerSiteName,
 		selectedSiteName,
 		endReason,
 		eventCount,

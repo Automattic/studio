@@ -1,5 +1,3 @@
-import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
-
 export type TurnStatus = 'success' | 'error' | 'max_turns' | 'interrupted';
 
 export type AiSessionEvent =
@@ -18,6 +16,14 @@ export type AiSessionEvent =
 			type: 'session.context';
 			timestamp: string;
 			provider: string;
+			model: string;
+	  }
+	| {
+			// User-initiated model override (e.g. the composer dropdown in the
+			// desktop UI). The CLI prefers this over `session.context.model` on
+			// resume so the next turn uses the selected model.
+			type: 'session.model_selected';
+			timestamp: string;
 			model: string;
 	  }
 	| {
@@ -43,7 +49,9 @@ export type AiSessionEvent =
 	| {
 			type: 'sdk.message';
 			timestamp: string;
-			message: SDKMessage;
+			// Opaque SDK message payload. Only the CLI (which owns the Claude Agent SDK)
+			// narrows this to `SDKMessage`; other consumers treat it as arbitrary JSON.
+			message: unknown;
 	  }
 	| {
 			type: 'tool.progress';
@@ -73,6 +81,12 @@ export interface AiSessionSummary {
 	agentSessionId?: string;
 	linkedAgentSessionIds: string[];
 	firstPrompt?: string;
+	// The site the session was first attached to. Acts as the session's owner
+	// project in the UI sidebar. Undefined for sessions that never selected a site.
+	ownerSitePath?: string;
+	ownerSiteName?: string;
+	// The most recently selected site during the session. May differ from the owner
+	// if the user switched sites mid-session.
 	selectedSiteName?: string;
 	endReason?: 'error' | 'stopped';
 	eventCount: number;

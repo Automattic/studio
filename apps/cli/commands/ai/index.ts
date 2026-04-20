@@ -358,8 +358,11 @@ export async function runCommand( options: {
 		return answers;
 	}
 
+	const MAX_RETRY_ATTEMPTS = 4;
+
 	async function runAgentTurn(
-		prompt: string
+		prompt: string,
+		retryAttempt = 0
 	): Promise< { status: TurnStatus; usage?: { numTurns: number; costUsd?: number } } > {
 		const env = await resolveAiEnvironment( currentProvider );
 		ui.beginAgentTurn();
@@ -425,6 +428,8 @@ export async function runCommand( options: {
 							numTurns: result.numTurns,
 						};
 						turnStatus = 'max_turns';
+					} else if ( result.interrupted ) {
+						turnStatus = 'interrupted';
 					} else {
 						turnStatus = result.success ? 'success' : 'error';
 					}
@@ -432,7 +437,13 @@ export async function runCommand( options: {
 			}
 		} catch ( error ) {
 			turnStatus = 'error';
-			throw error;
+			// In JSON mode there's no interactive retry, so re-throw and let
+			// the caller record the error. In interactive mode, fall through
+			// so the post-loop retry prompt offers the user a chance to retry.
+			if ( isJsonMode ) {
+				throw error;
+			}
+			ui.showError( getErrorMessage( error ) );
 		} finally {
 			await persist( ( recorder ) => recorder.recordTurnClosed( turnStatus ) );
 			ui.endAgentTurn();
@@ -459,6 +470,36 @@ export async function runCommand( options: {
 			if ( choice === 'yes' ) {
 				ui.addUserMessage( 'Continue' );
 				return runAgentTurn( 'Continue from where you left off.' );
+			}
+		}
+
+		if ( turnStatus === 'error' && ! isJsonMode ) {
+			if ( retryAttempt >= MAX_RETRY_ATTEMPTS ) {
+				ui.showInfo(
+					__( 'The server has not recovered after multiple attempts. Please try again later.' )
+				);
+			} else {
+				const answer = await ui.askUser( [
+					{
+						question: __( 'There was a hiccup on the server. Do you want to continue?' ),
+						options: [
+							{ label: 'Yes', description: __( 'Continue from where you left off' ) },
+							{
+								label: 'No',
+								description: __( 'Stop so I can give different instructions' ),
+							},
+						],
+					},
+				] );
+				const choice = Object.values( answer )[ 0 ]?.toLowerCase();
+				if ( choice === 'yes' ) {
+					ui.showInfo( __( 'Retrying…' ) );
+					// If the SDK threw before emitting any result, sessionId is
+					// still whatever it was before this turn; without one to resume,
+					// replay the original prompt instead.
+					const retryPrompt = sessionId ? 'Continue from where you left off.' : prompt;
+					return runAgentTurn( retryPrompt, retryAttempt + 1 );
+				}
 			}
 		}
 

@@ -5,7 +5,7 @@ import type { AiProviderId } from 'cli/ai/providers';
 import type { SiteInfo } from 'cli/ai/ui';
 
 export type HandleMessageResult =
-	| { type: 'result'; sessionId: string; success: boolean }
+	| { type: 'result'; sessionId: string; success: boolean; interrupted?: boolean }
 	| { type: 'max_turns'; sessionId: string; numTurns: number; costUsd?: number };
 
 export interface AiOutputAdapter {
@@ -125,7 +125,7 @@ export class JsonAdapter implements AiOutputAdapter {
 			return {
 				type: 'result',
 				sessionId: message.session_id,
-				success: message.subtype === 'success',
+				success: ! message.is_error,
 			};
 		}
 

@@ -74,6 +74,12 @@ function createBaseEnvironment(): Record< string, string > {
 	delete env.ANTHROPIC_CUSTOM_HEADERS;
 	delete env.CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS;
 
+	// Fail fast on transient API errors so the user-mediated retry prompt can
+	// intervene instead of the SDK burning through its default 10 retries.
+	if ( ! env.CLAUDE_CODE_MAX_RETRIES ) {
+		env.CLAUDE_CODE_MAX_RETRIES = '1';
+	}
+
 	return env;
 }
 

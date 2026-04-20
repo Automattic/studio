@@ -1,0 +1,29 @@
+import { Link } from '@tanstack/react-router';
+import { __ } from '@wordpress/i18n';
+import styles from './style.module.css';
+
+export function OnboardingHomePage() {
+	return (
+		<div className={ styles.page }>
+			<h1 className={ styles.title }>{ __( 'Start a new site' ) }</h1>
+			<p className={ styles.subtitle }>
+				{ __( 'WordPress can power anything. What are you building?' ) }
+			</p>
+			<div className={ styles.cards }>
+				<Link to="/onboarding/create" className={ styles.card }>
+					<h3 className={ styles.cardTitle }>{ __( 'Create new' ) }</h3>
+					<p className={ styles.cardBody }>
+						{ __( 'Start fresh with a blank site and build it with AI' ) }
+					</p>
+				</Link>
+				<div className={ `${ styles.card } ${ styles.cardDisabled }` }>
+					<h3 className={ styles.cardTitle }>{ __( 'Bring existing' ) }</h3>
+					<p className={ styles.cardBody }>
+						{ __( 'Import from WordPress.com, a backup, or an export file' ) }
+					</p>
+					<span className={ styles.cardBadge }>{ __( 'Coming soon' ) }</span>
+				</div>
+			</div>
+		</div>
+	);
+}

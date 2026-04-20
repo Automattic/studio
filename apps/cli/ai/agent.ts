@@ -28,6 +28,7 @@ export interface AiAgentConfig {
 export const AI_MODELS = {
 	'claude-sonnet-4-6': 'Sonnet 4.6',
 	'claude-opus-4-6': 'Opus 4.6',
+	'claude-opus-4-7': 'Opus 4.7',
 } as const;
 
 export type AiModelId = keyof typeof AI_MODELS;

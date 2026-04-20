@@ -67,7 +67,7 @@ class CliCommandError extends Error {
 	}
 }
 
-type CliCommandEventMap< CapturesOutput extends boolean = false > = {
+type CliCommandEventMap< CapturesOutput extends boolean > = {
 	started: void;
 	error: { error: Error };
 	data: { data: unknown };

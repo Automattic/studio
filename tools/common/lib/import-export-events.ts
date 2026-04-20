@@ -70,7 +70,7 @@ export const importWpContentProgressEventDataSchema = z.object( {
 	totalBytes: z.number().optional(),
 } );
 
-const nullOrUndefined = z.undefined().nullable();
+const nullOrUndefined = z.union( [ z.undefined(), z.null() ] );
 
 export const importEventTupleSchema = z.union( [
 	z.tuple( [

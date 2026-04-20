@@ -68,12 +68,10 @@ export async function importSite(
 		args.push( '--start-server' );
 	}
 
-	const eventEmitter = await executeImportCliCommand( site.details.id, args, parentWindow );
+	const eventEmitter = executeImportCliCommand( site.details.id, args, parentWindow );
 
 	return new Promise< void >( ( resolve, reject ) => {
 		eventEmitter.on( 'completed', async ( { importerType } ) => {
-			resolve();
-
 			bumpStat( StatsGroup.STUDIO_IMPORT, getImporterMetric( importerType ) );
 
 			if ( showNotification ) {
@@ -87,11 +85,11 @@ export async function importSite(
 			if ( removeBackupOnComplete ) {
 				await fs.promises.unlink( importArchivePath );
 			}
+
+			resolve();
 		} );
 
 		eventEmitter.on( 'failed', async ( { error, displayError } ) => {
-			reject( error );
-
 			bumpStat( StatsGroup.STUDIO_IMPORT, StatsMetric.FAILURE );
 
 			if ( showErrorModal ) {
@@ -101,6 +99,8 @@ export async function importSite(
 			if ( removeBackupOnComplete ) {
 				await fs.promises.unlink( importArchivePath );
 			}
+
+			reject( error );
 		} );
 	} );
 }
@@ -156,12 +156,10 @@ export async function exportSite(
 		args.push( '--include-only', ...specificSelectionPaths );
 	}
 
-	const eventEmitter = await executeExportCliCommand( site.details.id, args, parentWindow );
+	const eventEmitter = executeExportCliCommand( site.details.id, args, parentWindow );
 
 	return new Promise< void >( ( resolve, reject ) => {
 		eventEmitter.on( 'completed', () => {
-			resolve();
-
 			bumpStat(
 				StatsGroup.STUDIO_EXPORT,
 				mode === 'db' ? StatsMetric.DATABASE_ONLY : StatsMetric.FULL_SITE
@@ -178,16 +176,18 @@ export async function exportSite(
 			if ( showItemInFolder ) {
 				shell.showItemInFolder( destinationPath );
 			}
+
+			resolve();
 		} );
 
 		eventEmitter.on( 'failed', async ( { error, displayError } ) => {
-			reject( error );
-
 			bumpStat( StatsGroup.STUDIO_EXPORT, StatsMetric.FAILURE );
 
 			if ( showErrorModal ) {
 				await showExportErrorModal( event, displayError );
 			}
+
+			reject( error );
 		} );
 	} );
 }

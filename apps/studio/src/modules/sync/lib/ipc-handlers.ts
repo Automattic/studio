@@ -533,6 +533,47 @@ export async function updateConnectedWpcomSites(
 	}
 }
 
+export async function updateConnectedSiteSlot(
+	_event: IpcMainInvokeEvent,
+	args: {
+		localSiteId: string;
+		siteId: number;
+		slotOverride: 'production' | 'staging' | 'archived' | null;
+	}
+): Promise< void > {
+	try {
+		await lockAppdata();
+		const currentUserId = await getCurrentUserId();
+
+		if ( ! currentUserId ) {
+			throw new Error( 'User not authenticated' );
+		}
+
+		const userData = await loadUserData();
+		const connections = userData.connectedWpcomSites?.[ currentUserId ];
+		if ( ! connections || ! connections.length ) {
+			return;
+		}
+
+		const site = connections.find(
+			( conn ) => conn.id === args.siteId && conn.localSiteId === args.localSiteId
+		);
+		if ( ! site ) {
+			return;
+		}
+
+		if ( args.slotOverride === null ) {
+			delete site.slotOverride;
+		} else {
+			site.slotOverride = args.slotOverride;
+		}
+
+		await saveUserData( userData );
+	} finally {
+		await unlockAppdata();
+	}
+}
+
 export async function getConnectedWpcomSites(
 	event: IpcMainInvokeEvent,
 	localSiteId?: string

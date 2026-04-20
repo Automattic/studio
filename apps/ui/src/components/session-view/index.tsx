@@ -6,6 +6,7 @@ import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 import { Composer } from '@/components/session-view/composer';
 import { pickLiveSite } from '@/components/session-view/composer/environment-pill';
 import { Conversation } from '@/components/session-view/conversation';
+import { EmptyBackground } from '@/components/session-view/empty-background';
 import { QueuedPrompts } from '@/components/session-view/queued-prompts';
 import { SiteDropdown } from '@/components/site-dropdown';
 import { useConnector } from '@/data/core';
@@ -109,6 +110,10 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 		[ pendingQuestions ]
 	);
 	const composerBusy = hasActiveRun || pendingQuestions.length > 0;
+	const isEmpty = useMemo(
+		() => ! ( data?.events ?? [] ).some( ( event ) => event.type === 'user.message' ),
+		[ data?.events ]
+	);
 	const scrollRef = useRef< HTMLDivElement >( null );
 
 	useLayoutEffect( () => {
@@ -140,6 +145,7 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 		<div className={ styles.root }>
 			<SessionHeader summary={ data.summary } />
 			<div ref={ scrollRef } className={ styles.scroll }>
+				{ isEmpty ? <EmptyBackground /> : null }
 				<div className={ clsx( styles.column, styles.conversationSpacing ) }>
 					<Conversation
 						data={ data }

@@ -3,7 +3,13 @@ import path from 'path';
 import { recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
 import semver from 'semver';
 import { readCliConfig, updateCliConfigWithPartial } from 'cli/lib/cli-config/core';
-import { getWordPressVersionPath, getWpFilesPath } from '../server-files';
+import {
+	getPhpMyAdminPath,
+	getSqliteCommandPath,
+	getWordPressVersionPath,
+	getWpCliPharPath,
+	getWpFilesPath,
+} from '../server-files';
 import { getWordPressVersionFromInstallation, updateLatestWordPressVersion } from './wordpress';
 
 // Compare the WordPress version in the bundled `wp-files/latest/wordpress` directory (that ships
@@ -35,14 +41,74 @@ async function copyBundledLatestWpVersion() {
 	}
 }
 
-// Seed `~/.studio/server-files/wordpress-versions/latest` from the bundled WordPress so that
-// `updateLatestWordPressVersion` has a writable destination to update at runtime. Other bundled
-// deps are read directly from `wp-files/` and don't need to be copied.
+async function copyBundledWpCli() {
+	const sourcePath = path.join( getWpFilesPath(), 'wp-cli', 'wp-cli.phar' );
+	if ( ! fs.existsSync( sourcePath ) ) {
+		return;
+	}
+	const targetPath = getWpCliPharPath();
+	const sourceStats = await fs.promises.lstat( sourcePath );
+	let shouldCopy = false;
+	try {
+		const targetStats = await fs.promises.lstat( targetPath );
+		shouldCopy =
+			sourceStats.size !== targetStats.size ||
+			Math.floor( sourceStats.mtimeMs ) !== Math.floor( targetStats.mtimeMs );
+	} catch {
+		shouldCopy = true;
+	}
+	if ( shouldCopy ) {
+		await fs.promises.mkdir( path.dirname( targetPath ), { recursive: true } );
+		await fs.promises.cp( sourcePath, targetPath, {
+			mode: fs.constants.COPYFILE_FICLONE,
+			preserveTimestamps: true,
+		} );
+	}
+}
+
+async function copyBundledDirectoryIfMissing( sourcePath: string, targetPath: string ) {
+	if ( ! fs.existsSync( sourcePath ) ) {
+		return;
+	}
+	if ( fs.existsSync( targetPath ) ) {
+		return;
+	}
+	await recursiveCopyDirectory( sourcePath, targetPath );
+}
+
+// Seed `~/.studio/server-files/` from the bundled `wp-files/` directory. WordPress is always
+// copied (since it may be updated at runtime by `updateServerFiles`). wp-cli, sqlite-command,
+// and phpMyAdmin are copied to user-writable paths so PHP-wasm can mount them without hitting
+// permission or file-handle issues that affect mounts pointing directly into the macOS app bundle.
 export async function setupServerFiles() {
 	try {
 		await copyBundledLatestWpVersion();
 	} catch ( error ) {
 		console.error( 'Failed to set up dependency WordPress version:', error );
+	}
+
+	try {
+		await copyBundledWpCli();
+	} catch ( error ) {
+		console.error( 'Failed to set up bundled WP-CLI:', error );
+	}
+
+	try {
+		await copyBundledDirectoryIfMissing(
+			path.join( getWpFilesPath(), 'sqlite-command' ),
+			getSqliteCommandPath()
+		);
+	} catch ( error ) {
+		console.error( 'Failed to set up bundled SQLite command:', error );
+	}
+
+	try {
+		await copyBundledDirectoryIfMissing(
+			path.join( getWpFilesPath(), 'phpmyadmin' ),
+			getPhpMyAdminPath()
+		);
+	} catch ( error ) {
+		console.error( 'Failed to set up bundled phpMyAdmin:', error );
 	}
 }
 

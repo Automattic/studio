@@ -26,22 +26,27 @@ export function getWpFilesPath(): string {
 	return path.join( import.meta.dirname, 'wp-files' );
 }
 
-// The only writable server-files path — WordPress is the one dependency that may be updated at
-// runtime via `updateServerFiles`.
+// Writable server-files paths — copied from the bundled `wp-files/` on CLI startup so they can
+// be mounted into PHP-wasm. Using user-writable copies avoids permission/access issues when
+// mounting files from the macOS app bundle.
 export function getWordPressVersionPath( version: string ): string {
 	return path.join( getServerFilesPath(), 'wordpress-versions', version );
 }
 
+export function getWpCliPharPath(): string {
+	return path.join( getServerFilesPath(), 'wp-cli.phar' );
+}
+
+export function getSqliteCommandPath(): string {
+	return path.join( getServerFilesPath(), 'sqlite-command' );
+}
+
+export function getPhpMyAdminPath(): string {
+	return path.join( getServerFilesPath(), 'phpmyadmin' );
+}
+
 // Bundled `wp-files` paths. These are used for dependencies that ship read-only with the CLI
 // and don't need a writable destination.
-
-export function getBundledWpCliPharPath(): string {
-	return path.join( getWpFilesPath(), 'wp-cli', 'wp-cli.phar' );
-}
-
-export function getBundledSqliteCommandPath(): string {
-	return path.join( getWpFilesPath(), 'sqlite-command' );
-}
 
 export function getBundledSqlitePluginPath(): string {
 	return path.join( getWpFilesPath(), 'sqlite-database-integration' );
@@ -57,8 +62,4 @@ export function getBundledSiteTranslationsPath(): string {
 
 export function getBundledAiInstructionsPath(): string {
 	return path.join( getWpFilesPath(), 'skills' );
-}
-
-export function getBundledPhpMyAdminPath(): string {
-	return path.join( getWpFilesPath(), 'phpmyadmin' );
 }

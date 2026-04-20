@@ -32,11 +32,7 @@ import fs from 'fs-extra';
 import { z } from 'zod';
 import { sanitizeRunCLIArgs } from 'cli/lib/cli-args-sanitizer';
 import { rewriteWpCliPostContentToFile } from 'cli/lib/rewrite-wp-cli-post-content';
-import {
-	getBundledPhpMyAdminPath,
-	getBundledSqliteCommandPath,
-	getBundledWpCliPharPath,
-} from 'cli/lib/server-files';
+import { getPhpMyAdminPath, getSqliteCommandPath, getWpCliPharPath } from 'cli/lib/server-files';
 import { isSqliteIntegrationInstalled } from 'cli/lib/sqlite-integration';
 import {
 	ServerConfig,
@@ -174,11 +170,11 @@ async function getBaseRunCLIArgs(
 			vfsPath: '/internal/shared/mu-plugins/99-studio-loader.php',
 		},
 		{
-			hostPath: getBundledWpCliPharPath(),
+			hostPath: getWpCliPharPath(),
 			vfsPath: '/tmp/wp-cli.phar',
 		},
 		{
-			hostPath: getBundledSqliteCommandPath(),
+			hostPath: getSqliteCommandPath(),
 			vfsPath: '/tmp/sqlite-command',
 		},
 	];
@@ -266,7 +262,7 @@ async function getBaseRunCLIArgs(
 		args.xdebug = true;
 	}
 
-	const phpMyAdminHostPath = getBundledPhpMyAdminPath();
+	const phpMyAdminHostPath = getPhpMyAdminPath();
 	if ( await fs.pathExists( phpMyAdminHostPath ) ) {
 		mounts.push( {
 			hostPath: phpMyAdminHostPath,

@@ -9,14 +9,7 @@ import path from 'node:path';
 import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 import type { Migration } from '@studio/common/lib/migration';
 
-const OBSOLETE_ENTRIES = [
-	'skills',
-	'language-packs',
-	'phpmyadmin',
-	'sqlite-database-integration',
-	'sqlite-command',
-	'wp-cli.phar',
-];
+const OBSOLETE_ENTRIES = [ 'skills', 'language-packs', 'sqlite-database-integration' ];
 
 function getObsoletePaths(): string[] {
 	const serverFilesPath = getServerFilesPath();

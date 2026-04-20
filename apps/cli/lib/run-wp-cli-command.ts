@@ -13,7 +13,7 @@ import { cleanupLegacyMuPlugins, getMuPlugins } from '@studio/common/lib/mu-plug
 import { LatestSupportedPHPVersion } from '@studio/common/types/php-versions';
 import { __ } from '@wordpress/i18n';
 import { setupPlatformLevelMuPlugins } from '@wp-playground/wordpress';
-import { getBundledSqliteCommandPath, getBundledWpCliPharPath } from 'cli/lib/server-files';
+import { getSqliteCommandPath, getWpCliPharPath } from 'cli/lib/server-files';
 
 const processIdAllocator = new ProcessIdAllocator();
 const PLAYGROUND_INTERNAL_SHARED_FOLDER = '/internal/shared';
@@ -93,11 +93,8 @@ export async function runWpCliCommand(
 			PLAYGROUND_INTERNAL_SHARED_FOLDER + '/mu-plugins/99-studio-loader.php',
 			createNodeFsMountHandler( loaderMuPluginHostPath )
 		);
-		await php.mount( '/tmp/wp-cli.phar', createNodeFsMountHandler( getBundledWpCliPharPath() ) );
-		await php.mount(
-			'/tmp/sqlite-command',
-			createNodeFsMountHandler( getBundledSqliteCommandPath() )
-		);
+		await php.mount( '/tmp/wp-cli.phar', createNodeFsMountHandler( getWpCliPharPath() ) );
+		await php.mount( '/tmp/sqlite-command', createNodeFsMountHandler( getSqliteCommandPath() ) );
 
 		await setupPlatformLevelMuPlugins( php );
 
@@ -142,7 +139,7 @@ export async function runGlobalWpCliCommand( args: string[] ): Promise< Disposab
 
 		await php.setSpawnHandler( createNoopSpawnHandler() );
 
-		await php.mount( '/tmp/wp-cli.phar', createNodeFsMountHandler( getBundledWpCliPharPath() ) );
+		await php.mount( '/tmp/wp-cli.phar', createNodeFsMountHandler( getWpCliPharPath() ) );
 
 		const response = await php.cli( [ 'php', '/tmp/wp-cli.phar', ...args ] );
 

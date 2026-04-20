@@ -22,6 +22,7 @@ import {
 } from 'src/stores/snapshot-slice';
 import { syncReducer, syncOperationsActions } from 'src/stores/sync';
 import { connectedSitesApi, connectedSitesReducer } from 'src/stores/sync/connected-sites';
+import { environmentSummaryApi } from 'src/stores/sync/environment-summary-api';
 import {
 	syncOperationsReducer,
 	syncOperationsSelectors,
@@ -43,6 +44,7 @@ export type RootState = {
 	sync: ReturnType< typeof syncReducer >;
 	connectedSitesApi: ReturnType< typeof connectedSitesApi.reducer >;
 	connectedSites: ReturnType< typeof connectedSitesReducer >;
+	environmentSummaryApi: ReturnType< typeof environmentSummaryApi.reducer >;
 	syncOperations: ReturnType< typeof syncOperationsReducer >;
 	wpcomSitesApi: ReturnType< typeof wpcomSitesApi.reducer >;
 	wordpressVersionsApi: ReturnType< typeof wordpressVersionsApi.reducer >;
@@ -328,6 +330,7 @@ export const rootReducer = combineReducers( {
 	installedAppsApi: installedAppsApi.reducer,
 	connectedSitesApi: connectedSitesApi.reducer,
 	connectedSites: connectedSitesReducer,
+	environmentSummaryApi: environmentSummaryApi.reducer,
 	wpcomSitesApi: wpcomSitesApi.reducer,
 	onboarding: onboardingReducer,
 	snapshot: snapshotReducer,
@@ -349,6 +352,7 @@ export const store = configureStore( {
 			.concat( appVersionApi.middleware )
 			.concat( installedAppsApi.middleware )
 			.concat( connectedSitesApi.middleware )
+			.concat( environmentSummaryApi.middleware )
 			.concat( wpcomSitesApi.middleware )
 			.concat( wordpressVersionsApi.middleware )
 			.concat( wpcomApi.middleware )

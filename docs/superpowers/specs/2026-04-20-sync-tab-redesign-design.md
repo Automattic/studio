@@ -107,12 +107,30 @@ Sync remains its own tab. Overview is untouched. (Option B — merging Sync into
 - A new RTK Query endpoint `useGetEnvironmentSummaryQuery(siteId)` returns the content-count block per remote environment. Local counts come from the already-running site via an in-process query (no new network).
 - Staging provisioning: new Main-process module `apps/studio/src/modules/sync/lib/staging-provisioning.ts` exposes `provisionStagingSite(productionSiteId, options)` and emits progress events that the renderer subscribes to. The UI swaps the placeholder card for a streaming column during provisioning.
 
-## Open questions — must resolve before implementation plan
+## API reference (verified against wpcom source)
 
-1. **WordPress.com staging provisioning API.** Is there a public / internal API that creates a staging copy of an existing wpcom site in one call? What are its parameters, failure modes, and typical duration? (Context-a8c session was expired during brainstorming; verification deferred.)
-2. **Pressable staging.** Does Pressable expose an equivalent provisioning path? If so, does the UI need a host picker or does Studio pick automatically based on the production site's host?
-3. **Fallback behavior** if neither API supports one-click provisioning: the placeholder card degrades to "Connect an existing staging site" via today's external flow.
-4. **Content-counts endpoint.** Confirm the lightest-weight way to get Posts / Pages / CPT / Users / Plugins / Themes counts from a remote wpcom site in a single or small number of API calls.
+All endpoints are under the `wpcom/v2` namespace. Source: `wp-content/rest-api-plugins/endpoints/site-staging.php`.
+
+**Staging-site lifecycle:**
+- `GET /sites/{production_site_id}/staging-site` — list staging sites for a production site. Empty array if none.
+- `POST /sites/{production_site_id}/staging-site` — **creates a staging site.** One staging site per production site. Async: monitor via the Transfer Status endpoint. Returns the new site stub with its eventual URL (`https://staging-{id}-{slug}.wpcomstaging.com`).
+- `POST /sites/{production_site_id}/staging-site/validate-quota` — preflight quota check before provisioning.
+- `DELETE /sites/{production_site_id}/staging-site/{staging_site_id}` — delete the staging site.
+- `GET /sites/{staging_site_id}/staging-site/production-site-details` — minimal info about the parent prod site, usable by users who only have access to staging.
+
+**Native prod ↔ staging sync** (runs inside wpcom, triggered by our client call):
+- `POST /sites/{production_site_id}/staging-site/push-to-staging/{staging_site_id}` — body: `{ options: ['sqls' | 'uploads' | 'plugins' | 'themes' | 'contents'] }`.
+- `POST /sites/{production_site_id}/staging-site/pull-from-staging/{staging_site_id}` — body: `{ options: [...], allow_woo_sync: bool }`. WooCommerce db sync must be explicitly opted in.
+- `GET /sites/{production_site_id}/staging-site/sync-state` — latest sync state for the production site. Returns 404 if no staging exists.
+
+The `options` vocabulary matches Studio's existing `SyncOptions` type 1:1 (`sqls | paths | uploads | plugins | themes | contents`), so no translation layer is needed for the prod ↔ staging gutter.
+
+**Content counts:**
+- `GET /rest/v1.2/sites/{site}/post-counts/{post_type}` — returns counts grouped by status for a single post type. Implementation will call this once per visible post type (`post`, `page`, plus any CPTs discovered from the site info response).
+
+**Pressable.** Out of scope for v1 — Pressable has its own platform APIs and its own staging model. Staging-provisioning UI will only offer to create a wpcom staging site. If the production site is on Pressable, the "Create staging site" card will show an explanatory message and link to Pressable's external staging-creation flow. Provisioning parity for Pressable is tracked as a follow-up.
+
+**Fallback.** If the `POST /staging-site` call fails (quota, permissions, or API error), the provisioning UI surfaces the error message inline and offers a "Connect an existing staging site" action that opens today's external flow.
 
 ## Testing strategy
 

@@ -64,7 +64,7 @@ describe( 'CLI: studio export', () => {
 			{
 				site: testSite,
 				backupFile: testExportPath,
-				phpVersion: '8.3',
+				phpVersion: '8.4',
 				includes: {
 					wpContent: true,
 					database: true,

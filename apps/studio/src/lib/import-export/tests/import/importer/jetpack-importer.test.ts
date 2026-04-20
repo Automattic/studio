@@ -77,7 +77,7 @@ platformTestSuite( 'JetpackImporter', ( { normalize } ) => {
 			vi.mocked( fs.promises.copyFile ).mockResolvedValue( undefined );
 			vi.mocked( fs.promises.readFile ).mockResolvedValue(
 				JSON.stringify( {
-					phpVersion: '8.3',
+					phpVersion: '8.4',
 					wordpressVersion: '5.8',
 				} )
 			);
@@ -101,11 +101,11 @@ platformTestSuite( 'JetpackImporter', ( { normalize } ) => {
 			const expectedCommand =
 				'sqlite import /wordpress/studio-backup-sql-2024-08-01-12-00-00.sql --require=/tmp/sqlite-command/command.php --enable-ast-driver';
 			expect( siteServer?.executeWpCliCommand ).toHaveBeenNthCalledWith( 1, expectedCommand, {
-				targetPhpVersion: '8.3',
+				targetPhpVersion: '8.4',
 				skipPluginsAndThemes: true,
 			} );
 			expect( siteServer?.executeWpCliCommand ).toHaveBeenNthCalledWith( 2, expectedCommand, {
-				targetPhpVersion: '8.3',
+				targetPhpVersion: '8.4',
 				skipPluginsAndThemes: true,
 			} );
 

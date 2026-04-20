@@ -8,6 +8,7 @@ import {
 import * as path from 'path';
 import { portFinder } from '@studio/common/lib/port-finder';
 import {
+	DEFAULT_HEIGHT,
 	DEFAULT_WIDTH,
 	MACOS_TRAFFIC_LIGHT_POSITION,
 	MAIN_MIN_HEIGHT,
@@ -65,11 +66,11 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 	}
 
 	const userData = await loadUserData();
-	nativeTheme.themeSource = userData.colorScheme ?? 'light';
+	nativeTheme.themeSource = userData.colorScheme ?? 'system';
 
 	const savedBounds = await loadWindowBounds();
 	let windowOptions: BrowserWindowConstructorOptions = {
-		height: MAIN_MIN_HEIGHT,
+		height: DEFAULT_HEIGHT,
 		width: DEFAULT_WIDTH,
 		backgroundColor: 'rgba(30, 30, 30, 1)',
 		minHeight: MAIN_MIN_HEIGHT,

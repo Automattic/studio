@@ -11,7 +11,6 @@ import { CircleRedCrossIcon } from 'src/components/icons/circle-red-cross';
 import { PauseIcon } from 'src/components/icons/pause';
 import { PlayIcon } from 'src/components/icons/play';
 import offlineIcon from 'src/components/offline-icon';
-import { PressableLogo } from 'src/components/pressable-logo';
 import ProgressBar from 'src/components/progress-bar';
 import { Tooltip, DynamicTooltip } from 'src/components/tooltip';
 import { WordPressLogoCircle } from 'src/components/wordpress-logo-circle';
@@ -662,13 +661,17 @@ const SyncConnectedSiteSection = ( {
 		syncOperationsSelectors.selectIsSiteIdPushing( selectedSite.id, connectedSite.id )
 	);
 
-	let logo = <WordPressLogoCircle />;
+	let logo: React.ReactNode;
 	if ( isSiteLoading ) {
 		logo = <div className="w-5 h-5 rounded-full skeleton-bg" aria-label={ __( 'Loading' ) } />;
 	} else if ( hasConnectionErrors ) {
 		logo = <CircleRedCrossIcon />;
-	} else if ( connectedSite.isPressable ) {
-		logo = <PressableLogo />;
+	} else if ( connectedSite.siteIconUrl ) {
+		logo = (
+			<img src={ connectedSite.siteIconUrl } alt="" className="w-5 h-5 rounded-full object-cover" />
+		);
+	} else {
+		logo = <WordPressLogoCircle />;
 	}
 
 	return (

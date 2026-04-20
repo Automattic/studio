@@ -98,6 +98,21 @@ blockquote {
 	max-height: calc( 100% - 32px );
 }
 
+/* Sync sites modal — center the title across the full header width regardless
+   of the close button position. */
+.sync-sites-modal .components-modal__header {
+	display: grid;
+	grid-template-columns: 1fr auto 1fr;
+}
+.sync-sites-modal .components-modal__header-heading-container {
+	grid-column: 2;
+	justify-content: center;
+}
+.sync-sites-modal .components-modal__header > button {
+	grid-column: 3;
+	justify-self: end;
+}
+
 /* Tabs */
 .components-tab-panel__tab-content {
 	flex: 1;

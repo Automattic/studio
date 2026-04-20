@@ -14,6 +14,12 @@ export const sitesEndpointSiteSchema = z.object( {
 		.nullable()
 		.optional(),
 	is_a8c: z.boolean().optional(),
+	icon: z
+		.object( {
+			img: z.string(),
+			ico: z.string(),
+		} )
+		.optional(),
 	options: z
 		.object( {
 			created_at: z.string(),
@@ -47,6 +53,9 @@ export type SitesEndpointSite = z.infer< typeof sitesEndpointSiteSchema >;
 // Permissive wrapper for the /me/sites response (to fail gracefully per-site)
 export const sitesEndpointResponseSchema = z.object( {
 	sites: z.array( z.unknown() ),
+	total: z.number().optional(),
+	page: z.number().optional(),
+	per_page: z.number().optional(),
 } );
 
 // Sync support types
@@ -75,6 +84,9 @@ export type SyncSite = {
 	lastPullTimestamp: string | null;
 	lastPushTimestamp: string | null;
 	wpVersion?: string;
+	siteIconUrl?: string;
+	planName?: string;
+	createdAt?: string;
 };
 
 // Pull backup API schemas

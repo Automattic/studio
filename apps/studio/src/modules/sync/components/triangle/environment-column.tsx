@@ -123,7 +123,7 @@ export function EnvironmentColumn( props: Props ) {
 				</PreviewFrame>
 			) : (
 				<PreviewFrame
-					badge={ <Badge className="bg-transparent text-frame-text">{ __( 'Local' ) }</Badge> }
+					badge={ <Badge className="bg-transparent text-a8c-gray-800">{ __( 'Local' ) }</Badge> }
 				>
 					<LocalPreviewImage siteName={ props.siteName } />
 				</PreviewFrame>

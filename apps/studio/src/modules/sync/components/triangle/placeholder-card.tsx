@@ -19,18 +19,13 @@ export function ConnectProductionCard( props: { onClick: () => void } ) {
 
 export function CreateStagingCard( props: { onClick: () => void; disabledReason?: string } ) {
 	return (
-		<div className="flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-frame-border p-8 text-center">
-			<h3 className="a8c-subtitle text-frame-text">{ __( 'Create staging site' ) }</h3>
-			<p className="a8c-body text-frame-text-secondary">
-				{ props.disabledReason ??
-					__( 'Provision a staging copy of your production site in one click.' ) }
-			</p>
+		<div className="flex justify-center">
 			<Button
-				variant="primary"
+				variant="secondary"
 				onClick={ props.onClick }
 				disabled={ Boolean( props.disabledReason ) }
 			>
-				{ __( 'Create staging' ) }
+				{ props.disabledReason ?? __( '+ Create a staging copy of your production site' ) }
 			</Button>
 		</div>
 	);

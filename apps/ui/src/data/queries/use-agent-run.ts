@@ -20,19 +20,19 @@ export interface PendingQuestion {
 
 export interface LiveAgentEvents {
 	runId: string | null;
-	// The agent loop is actively working: shows the thinking indicator.
-	// Flips off on `turn.completed` while the subprocess keeps winding down.
+	// Agent loop is working — drives the thinking indicator. Clears at
+	// `turn.completed`, before the subprocess has finished winding down.
 	isRunning: boolean;
-	// The underlying subprocess is still alive: blocks starting a new turn.
-	// Flips off on `run.exited`/`run.interrupted`, which can lag behind
-	// `turn.completed` by the persist-queue drain time.
+	// Subprocess is still alive — blocks starting a new turn. Clears at
+	// `run.exited`/`run.interrupted`, which can lag `turn.completed` by
+	// the persist-queue drain time.
 	hasActiveRun: boolean;
 	startedAt: number | null;
 	error: string | null;
 	pendingQuestions: PendingQuestion[];
-	// Answers the user has picked so far in the current batch. Keyed by
-	// question text. The user can re-click an option to change their mind
-	// until the batch is fully answered and dispatched.
+	// Accumulated answers for the current batch, keyed by question text.
+	// The user can re-click an option to change their pick until every
+	// question is answered, at which point the batch is dispatched.
 	pendingAnswers: Record< string, string >;
 	sendMessage: ( prompt: string ) => Promise< void >;
 	interrupt: () => Promise< void >;
@@ -44,28 +44,18 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 	const queryClient = useQueryClient();
 
 	const [ runState, setRunState ] = useState< RunState | null >( null );
-	// Tracks the agent-loop phase within the current run. Cleared on
-	// `turn.completed` so the thinking indicator hides even while the
-	// subprocess is still flushing its recorder queue.
-	const [ turnActive, setTurnActive ] = useState( false );
+	const [ isTurnActive, setIsTurnActive ] = useState( false );
 	const [ error, setError ] = useState< string | null >( null );
-	// The agent's `AskUserQuestion` tool can ask several questions at once;
-	// the CLI expects a single answers map covering every question in the
-	// batch. The user can click through the options in any order and change
-	// their mind until every question has an answer, at which point we
-	// dispatch the full map and clear both pieces of state.
 	const [ pendingQuestions, setPendingQuestions ] = useState< PendingQuestion[] >( [] );
 	const [ pendingAnswers, setPendingAnswers ] = useState< Record< string, string > >( {} );
 
-	// `runState` drives `isRunning` and is cleared as soon as the agent turn
-	// finishes (`turn.completed`). `subscribedRunIdRef` stays set until the
-	// subprocess actually exits so trailing events for the run still match
-	// the filter.
+	// Subscribed until `run.exited` so trailing events for a run whose turn
+	// has already completed still match the filter.
 	const subscribedRunIdRef = useRef< string | null >( null );
 
 	useEffect( () => {
 		setRunState( null );
-		setTurnActive( false );
+		setIsTurnActive( false );
 		setError( null );
 		setPendingQuestions( [] );
 		setPendingAnswers( {} );
@@ -114,7 +104,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 			// The composer stays disabled until `run.exited` because the
 			// subprocess is still winding down and can't accept a new turn.
 			if ( event.type === 'turn.completed' ) {
-				setTurnActive( false );
+				setIsTurnActive( false );
 				setPendingQuestions( [] );
 				setPendingAnswers( {} );
 				return;
@@ -122,7 +112,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 
 			if ( event.type === 'run.exited' || event.type === 'run.interrupted' ) {
 				setRunState( null );
-				setTurnActive( false );
+				setIsTurnActive( false );
 				setPendingQuestions( [] );
 				setPendingAnswers( {} );
 				subscribedRunIdRef.current = null;
@@ -215,7 +205,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 			try {
 				const { runId: newRunId } = await connector.continueSession( sessionId, prompt );
 				setRunState( { runId: newRunId, startedAt: Date.now() } );
-				setTurnActive( true );
+				setIsTurnActive( true );
 				subscribedRunIdRef.current = newRunId;
 			} catch ( err ) {
 				updateCache( ( events ) => {
@@ -246,7 +236,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 
 	return {
 		runId: runState?.runId ?? null,
-		isRunning: turnActive,
+		isRunning: isTurnActive,
 		hasActiveRun: runState !== null,
 		startedAt: runState?.startedAt ?? null,
 		error,

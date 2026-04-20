@@ -27,21 +27,10 @@ export interface PathGatedPermissionRequest {
 	updatedPermissions?: PermissionUpdate[];
 }
 
-// Tools that can run without permissions (read access)
+// Tools that can run without permissions (read access). The same set
+// applies to both local and remote sites — remote operations still hit
+// the `mcp__studio__*` servers, Read/Grep/etc. are host-filesystem-safe.
 export const ALLOWED_TOOLS = [
-	'mcp__studio__*',
-	'Read',
-	'Glob',
-	'Grep',
-	'WebFetch',
-	'WebSearch',
-	'TodoRead',
-	'NotebookRead',
-	'AskUserQuestion',
-] as const;
-
-// Tools allowed when operating on a remote WordPress.com site
-export const ALLOWED_TOOLS_REMOTE = [
 	'mcp__studio__*',
 	'Read',
 	'Glob',

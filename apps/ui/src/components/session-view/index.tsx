@@ -234,10 +234,7 @@ function AgentQuestion( {
 							<li key={ index }>
 								<button
 									type="button"
-									className={ clsx(
-										styles.questionOption,
-										picked && styles.questionOptionPicked
-									) }
+									className={ clsx( styles.questionOption, picked && styles.questionOptionPicked ) }
 									disabled={ ! isInteractive }
 									onClick={ () => onAnswer( option.label ) }
 									title={ option.description }
@@ -383,18 +380,18 @@ function Conversation( {
 }
 
 interface ComposerProps {
-	isRunning: boolean;
+	disabled: boolean;
 	error: string | null;
 	onSend: ( prompt: string ) => Promise< void >;
 	onInterrupt: () => Promise< void >;
 }
 
-function Composer( { isRunning, error, onSend, onInterrupt }: ComposerProps ) {
+function Composer( { disabled, error, onSend, onInterrupt }: ComposerProps ) {
 	const [ value, setValue ] = useState( '' );
 
 	const send = useCallback( async () => {
 		const trimmed = value.trim();
-		if ( ! trimmed || isRunning ) {
+		if ( ! trimmed || disabled ) {
 			return;
 		}
 		setValue( '' );
@@ -405,7 +402,7 @@ function Composer( { isRunning, error, onSend, onInterrupt }: ComposerProps ) {
 			// error message via `error`.
 			setValue( trimmed );
 		}
-	}, [ value, isRunning, onSend ] );
+	}, [ value, disabled, onSend ] );
 
 	return (
 		<div className={ styles.composer }>
@@ -421,13 +418,13 @@ function Composer( { isRunning, error, onSend, onInterrupt }: ComposerProps ) {
 							void send();
 						}
 					} }
-					disabled={ isRunning }
+					disabled={ disabled }
 					rows={ 3 }
 				/>
 				<div className={ styles.composerFooter }>
 					{ error ? <span className={ styles.composerError }>{ error }</span> : null }
 					<div className={ styles.composerActions }>
-						{ isRunning ? (
+						{ disabled ? (
 							<button
 								type="button"
 								className={ styles.composerButton }
@@ -469,6 +466,7 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 		() => new Set( pendingQuestions.map( ( q ) => q.question ) ),
 		[ pendingQuestions ]
 	);
+	const composerBusy = hasActiveRun || pendingQuestions.length > 0;
 	const scrollRef = useRef< HTMLDivElement >( null );
 
 	useLayoutEffect( () => {
@@ -510,7 +508,7 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 				/>
 			</div>
 			<Composer
-				isRunning={ hasActiveRun || pendingQuestions.length > 0 }
+				disabled={ composerBusy }
 				error={ runError }
 				onSend={ sendMessage }
 				onInterrupt={ interrupt }

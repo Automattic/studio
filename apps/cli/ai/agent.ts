@@ -3,7 +3,6 @@ import path from 'path';
 import { query, type Query } from '@anthropic-ai/claude-agent-sdk';
 import {
 	ALLOWED_TOOLS,
-	ALLOWED_TOOLS_REMOTE,
 	STUDIO_ROOT,
 	createPathApprovalSession,
 	loadPersistedApprovals,
@@ -85,7 +84,7 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 			: createStudioTools(),
 	};
 
-	const allowedTools = isRemoteSite ? [ ...ALLOWED_TOOLS_REMOTE ] : [ ...ALLOWED_TOOLS ];
+	const allowedTools = [ ...ALLOWED_TOOLS ];
 
 	// Build site-aware system prompt
 	const systemPromptOptions = isRemoteSite

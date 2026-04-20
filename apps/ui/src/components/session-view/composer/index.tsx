@@ -3,18 +3,18 @@ import { useCallback, useState } from 'react';
 import styles from './style.module.css';
 
 interface ComposerProps {
-	disabled: boolean;
+	busy: boolean;
 	error: string | null;
 	onSend: ( prompt: string ) => Promise< void >;
 	onInterrupt: () => Promise< void >;
 }
 
-export function Composer( { disabled, error, onSend, onInterrupt }: ComposerProps ) {
+export function Composer( { busy, error, onSend, onInterrupt }: ComposerProps ) {
 	const [ value, setValue ] = useState( '' );
 
 	const send = useCallback( async () => {
 		const trimmed = value.trim();
-		if ( ! trimmed || disabled ) {
+		if ( ! trimmed ) {
 			return;
 		}
 		setValue( '' );
@@ -22,16 +22,23 @@ export function Composer( { disabled, error, onSend, onInterrupt }: ComposerProp
 			await onSend( trimmed );
 		} catch {
 			// Restore the draft so the user can retry; the parent surfaces the
-			// error message via `error`.
+			// error message via `error`. Queued sends never throw from onSend
+			// (the parent swallows the failure and clears the queue instead),
+			// so this path only trips for direct sends from the idle state.
 			setValue( trimmed );
 		}
-	}, [ value, disabled, onSend ] );
+	}, [ value, onSend ] );
+
+	const placeholder = busy
+		? __( 'Queue a follow-up instruction…' )
+		: __( 'Set your next instruction…' );
+	const sendLabel = busy ? __( 'Queue' ) : __( 'Send' );
 
 	return (
 		<div className={ styles.root }>
 			<textarea
 				className={ styles.input }
-				placeholder={ __( 'Set your next instruction…' ) }
+				placeholder={ placeholder }
 				value={ value }
 				onChange={ ( event ) => setValue( event.target.value ) }
 				onKeyDown={ ( event ) => {
@@ -40,26 +47,24 @@ export function Composer( { disabled, error, onSend, onInterrupt }: ComposerProp
 						void send();
 					}
 				} }
-				disabled={ disabled }
 				rows={ 3 }
 			/>
 			<div className={ styles.footer }>
 				{ error ? <span className={ styles.error }>{ error }</span> : null }
 				<div className={ styles.actions }>
-					{ disabled ? (
+					{ busy ? (
 						<button type="button" className={ styles.button } onClick={ () => void onInterrupt() }>
 							{ __( 'Stop' ) }
 						</button>
-					) : (
-						<button
-							type="button"
-							className={ styles.button }
-							onClick={ () => void send() }
-							disabled={ ! value.trim() }
-						>
-							{ __( 'Send' ) }
-						</button>
-					) }
+					) : null }
+					<button
+						type="button"
+						className={ styles.button }
+						onClick={ () => void send() }
+						disabled={ ! value.trim() }
+					>
+						{ sendLabel }
+					</button>
 				</div>
 			</div>
 		</div>

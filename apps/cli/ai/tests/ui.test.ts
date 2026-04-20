@@ -194,6 +194,7 @@ describe( 'AiChatUI.clearTranscript', () => {
 		ui.currentMarkdown = { someMarkdown: true };
 		ui.currentResponseText = 'in-progress';
 		ui.hideLoader = vi.fn();
+		ui.queuedPrompts = [];
 
 		ui.clearTranscript();
 

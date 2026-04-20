@@ -8,9 +8,18 @@ function nowIso(): string {
 	return new Date().toISOString();
 }
 
+function newId(): string {
+	return `${ Date.now().toString( 36 ) }-${ Math.random().toString( 36 ).slice( 2, 10 ) }`;
+}
+
 export interface PendingQuestion {
 	question: string;
 	options: Array< { label: string; description: string } >;
+}
+
+export interface QueuedPrompt {
+	id: string;
+	prompt: string;
 }
 
 export interface LiveAgentEvents {
@@ -28,9 +37,13 @@ export interface LiveAgentEvents {
 	// The user can re-click an option to change their pick until every
 	// question is answered, at which point the batch is dispatched.
 	pendingAnswers: Record< string, string >;
+	// Follow-up prompts the user staged while a turn was in flight. FIFO:
+	// the head auto-dispatches when the current run ends.
+	queuedPrompts: QueuedPrompt[];
 	sendMessage: ( prompt: string ) => Promise< void >;
 	interrupt: () => Promise< void >;
 	answerQuestion: ( question: string, answer: string ) => void;
+	removeQueuedPrompt: ( id: string ) => void;
 }
 
 // `running` → agent loop is working (thinking indicator shown).
@@ -46,6 +59,7 @@ interface State {
 	error: string | null;
 	pendingQuestions: PendingQuestion[];
 	pendingAnswers: Record< string, string >;
+	queuedPrompts: QueuedPrompt[];
 }
 
 const initialState: State = {
@@ -55,6 +69,7 @@ const initialState: State = {
 	error: null,
 	pendingQuestions: [],
 	pendingAnswers: {},
+	queuedPrompts: [],
 };
 
 type Action =
@@ -65,7 +80,11 @@ type Action =
 	| { type: 'run_ended' }
 	| { type: 'questions_added'; questions: PendingQuestion[] }
 	| { type: 'question_answered'; question: string; answer: string }
-	| { type: 'batch_dispatched' };
+	| { type: 'batch_dispatched' }
+	| { type: 'queue_append'; prompt: QueuedPrompt }
+	| { type: 'queue_remove'; id: string }
+	| { type: 'queue_shift' }
+	| { type: 'queue_clear' };
 
 function reducer( state: State, action: Action ): State {
 	switch ( action.type ) {
@@ -89,7 +108,9 @@ function reducer( state: State, action: Action ): State {
 				pendingAnswers: {},
 			};
 		case 'run_ended':
-			return initialState;
+			// Preserve the queue across run boundaries so staged follow-ups
+			// survive the transition. Everything else resets.
+			return { ...initialState, queuedPrompts: state.queuedPrompts };
 		case 'questions_added':
 			return {
 				...state,
@@ -102,6 +123,17 @@ function reducer( state: State, action: Action ): State {
 			};
 		case 'batch_dispatched':
 			return { ...state, pendingQuestions: [], pendingAnswers: {} };
+		case 'queue_append':
+			return { ...state, queuedPrompts: [ ...state.queuedPrompts, action.prompt ] };
+		case 'queue_remove':
+			return {
+				...state,
+				queuedPrompts: state.queuedPrompts.filter( ( q ) => q.id !== action.id ),
+			};
+		case 'queue_shift':
+			return { ...state, queuedPrompts: state.queuedPrompts.slice( 1 ) };
+		case 'queue_clear':
+			return { ...state, queuedPrompts: [] };
 	}
 }
 
@@ -110,11 +142,16 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 	const queryClient = useQueryClient();
 
 	const [ state, dispatch ] = useReducer( reducer, initialState );
-	const { phase, runId, startedAt, error, pendingQuestions, pendingAnswers } = state;
+	const { phase, runId, startedAt, error, pendingQuestions, pendingAnswers, queuedPrompts } = state;
 
 	// Subscribed until `run.exited` so trailing events for a run whose turn
 	// has already completed still match the filter.
 	const subscribedRunIdRef = useRef< string | null >( null );
+	// Re-entry guard for the queue auto-dispatch effect. The effect's deps
+	// re-fire on every queue/phase change; without this guard a second render
+	// between the async start-call and `send_start` could kick off a duplicate
+	// run for the same queued prompt.
+	const dispatchingQueuedRef = useRef( false );
 
 	useEffect( () => {
 		dispatch( { type: 'reset' } );
@@ -206,7 +243,10 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		return unsubscribe;
 	}, [ connector, queryClient, sessionId, updateCache ] );
 
-	const sendMessage = useCallback(
+	// Core "start a new turn" path. Shared by direct sends (`sendMessage` when
+	// idle) and the queue auto-dispatch effect. Throws on error so the direct
+	// caller can restore the composer draft; the queue path catches and clears.
+	const startRun = useCallback(
 		async ( prompt: string ) => {
 			if ( ! sessionId ) {
 				throw new Error( 'No session selected' );
@@ -241,6 +281,44 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		[ connector, sessionId, updateCache ]
 	);
 
+	// Auto-dispatch the head of the queue once the previous run ends. On
+	// success, shift; on failure, drop the whole queue so a broken backend
+	// doesn't cascade errors.
+	useEffect( () => {
+		if ( phase !== 'idle' || queuedPrompts.length === 0 ) {
+			return;
+		}
+		if ( dispatchingQueuedRef.current ) {
+			return;
+		}
+		const next = queuedPrompts[ 0 ];
+		dispatchingQueuedRef.current = true;
+		void ( async () => {
+			try {
+				await startRun( next.prompt );
+				dispatch( { type: 'queue_shift' } );
+			} catch {
+				dispatch( { type: 'queue_clear' } );
+			} finally {
+				dispatchingQueuedRef.current = false;
+			}
+		} )();
+	}, [ phase, queuedPrompts, startRun ] );
+
+	const sendMessage = useCallback(
+		async ( prompt: string ) => {
+			// Queue if anything is in flight, if we're waiting on question
+			// answers, or if earlier queued prompts haven't been dispatched yet
+			// (preserves FIFO order).
+			if ( phase !== 'idle' || pendingQuestions.length > 0 || queuedPrompts.length > 0 ) {
+				dispatch( { type: 'queue_append', prompt: { id: newId(), prompt } } );
+				return;
+			}
+			await startRun( prompt );
+		},
+		[ phase, pendingQuestions.length, queuedPrompts.length, startRun ]
+	);
+
 	const interrupt = useCallback( async () => {
 		if ( ! runId ) {
 			return;
@@ -270,6 +348,10 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		[ connector, runId, pendingAnswers, pendingQuestions ]
 	);
 
+	const removeQueuedPrompt = useCallback( ( id: string ) => {
+		dispatch( { type: 'queue_remove', id } );
+	}, [] );
+
 	return {
 		isRunning: phase === 'running',
 		hasActiveRun: phase !== 'idle',
@@ -277,8 +359,10 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		error,
 		pendingQuestions,
 		pendingAnswers,
+		queuedPrompts,
 		sendMessage,
 		interrupt,
 		answerQuestion,
+		removeQueuedPrompt,
 	};
 }

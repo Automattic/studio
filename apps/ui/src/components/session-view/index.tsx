@@ -3,6 +3,7 @@ import { clsx } from 'clsx';
 import { useLayoutEffect, useMemo, useRef } from 'react';
 import { Composer } from '@/components/session-view/composer';
 import { Conversation } from '@/components/session-view/conversation';
+import { QueuedPrompts } from '@/components/session-view/queued-prompts';
 import { SiteDropdown } from '@/components/site-dropdown';
 import { useAgentRun } from '@/data/queries/use-agent-run';
 import { useSession } from '@/data/queries/use-sessions';
@@ -53,9 +54,11 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 		error: runError,
 		pendingQuestions,
 		pendingAnswers,
+		queuedPrompts,
 		sendMessage,
 		interrupt,
 		answerQuestion,
+		removeQueuedPrompt,
 	} = useAgentRun( sessionId );
 	const pendingQuestionTexts = useMemo(
 		() => new Set( pendingQuestions.map( ( q ) => q.question ) ),
@@ -106,8 +109,9 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 			</div>
 			<div className={ styles.composerOuter }>
 				<div className={ styles.column }>
+					<QueuedPrompts prompts={ queuedPrompts } onRemove={ removeQueuedPrompt } />
 					<Composer
-						disabled={ composerBusy }
+						busy={ composerBusy }
 						error={ runError }
 						onSend={ sendMessage }
 						onInterrupt={ interrupt }

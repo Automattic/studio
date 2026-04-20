@@ -1,5 +1,6 @@
 import os from 'os';
 import path from 'path';
+import { addApprovedPermission, readApprovedPermissions } from 'cli/lib/cli-config/permissions';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import type {
 	CanUseTool,
@@ -17,7 +18,7 @@ export type AskUserHandler = (
 	questions: AskUserQuestion[]
 ) => Promise< Record< string, string > >;
 
-export type PathGatedApprovalDecision = 'allow_once' | 'allow_session' | 'deny';
+export type PathGatedApprovalDecision = 'allow_once' | 'allow_always' | 'deny';
 
 export interface PathGatedPermissionRequest {
 	toolName: string;
@@ -57,7 +58,7 @@ const PATH_GATED_TOOLS = [ 'Write', 'Edit', 'Bash', 'NotebookEdit' ] as const;
 const PATH_INPUT_KEYS = [ 'path', 'file_path', 'filePath' ] as const;
 
 const APPROVE_ONCE_LABEL = 'Allow once';
-const APPROVE_SESSION_LABEL = 'Allow for this session';
+const APPROVE_ALWAYS_LABEL = 'Allow always';
 const DENY_LABEL = 'Deny';
 
 export const STUDIO_ROOT = path.resolve( STUDIO_SITES_ROOT );
@@ -164,6 +165,20 @@ export function createPathApprovalSession(): PathApprovalSession {
 	};
 }
 
+/**
+ * Seeds a path-approval session with every `Allow always` choice persisted
+ * to cli.json. Call once at startup, before the agent begins requesting
+ * tool permissions, so previously-approved paths no longer re-prompt.
+ */
+export async function loadPersistedApprovals(
+	pathApprovalSession: PathApprovalSession
+): Promise< void > {
+	const entries = await readApprovedPermissions();
+	for ( const { toolName, approvalPath } of entries ) {
+		pathApprovalSession.rememberApprovedPath( toolName, approvalPath );
+	}
+}
+
 export function getPathGatedPermissionRequest( {
 	toolName,
 	input,
@@ -212,8 +227,8 @@ export async function askForPathGatedToolApproval( {
 					description: `Run ${ toolName } outside trusted directories for this step.`,
 				},
 				{
-					label: APPROVE_SESSION_LABEL,
-					description: `Allow this kind of ${ toolName } action for the rest of this session.`,
+					label: APPROVE_ALWAYS_LABEL,
+					description: `Remember this choice and stop asking for ${ toolName } on this path.`,
 				},
 				{
 					label: DENY_LABEL,
@@ -227,8 +242,8 @@ export async function askForPathGatedToolApproval( {
 		return 'allow_once';
 	}
 
-	if ( answers[ question ] === APPROVE_SESSION_LABEL ) {
-		return 'allow_session';
+	if ( answers[ question ] === APPROVE_ALWAYS_LABEL ) {
+		return 'allow_always';
 	}
 
 	return 'deny';
@@ -269,8 +284,12 @@ export async function promptForApproval( {
 				};
 			}
 
-			if ( approvalDecision === 'allow_session' ) {
+			if ( approvalDecision === 'allow_always' ) {
 				pathApprovalSession.rememberApprovedPath( toolName, permissionRequest.approvalPath );
+				await addApprovedPermission( {
+					toolName,
+					approvalPath: permissionRequest.approvalPath,
+				} );
 			}
 		}
 

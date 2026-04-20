@@ -6,6 +6,7 @@ import {
 	ALLOWED_TOOLS_REMOTE,
 	STUDIO_ROOT,
 	createPathApprovalSession,
+	loadPersistedApprovals,
 	promptForApproval,
 	type AskUserQuestion,
 } from 'cli/ai/security';
@@ -36,6 +37,13 @@ export type AiModelId = keyof typeof AI_MODELS;
 
 export const DEFAULT_MODEL: AiModelId = 'claude-sonnet-4-6';
 const pathApprovalSession = createPathApprovalSession();
+
+// Seed `pathApprovalSession` with every `Allow always` entry persisted to
+// cli.json. Callers should `await` this once at startup before the agent
+// starts asking for tool permissions.
+export function primeApprovalSession(): Promise< void > {
+	return loadPersistedApprovals( pathApprovalSession );
+}
 
 // The Claude Agent SDK rejects internal pending promises (e.g. control
 // responses) when an agent turn is interrupted via ESC. These rejections

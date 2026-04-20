@@ -1,7 +1,13 @@
 import { type LoadedAiSession, type TurnStatus } from '@studio/common/ai/sessions/types';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { DEFAULT_MODEL, startAiAgent, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
+import {
+	DEFAULT_MODEL,
+	primeApprovalSession,
+	startAiAgent,
+	type AiModelId,
+	type AskUserQuestion,
+} from 'cli/ai/agent';
 import {
 	getAvailableAiProviders,
 	isAiProviderReady,
@@ -51,6 +57,7 @@ export async function runCommand( options: {
 } ): Promise< void > {
 	const ui = options.adapter;
 	const isJsonMode = ui instanceof JsonAdapter;
+	await primeApprovalSession();
 	const resumeContext = resolveResumeSessionContext( options.resumeSession );
 	let currentProvider: AiProviderId =
 		resumeContext.provider ?? ( await resolveInitialAiProvider() );
@@ -402,8 +409,7 @@ export async function runCommand( options: {
 			// default auto-approves. When forked from a parent process (the
 			// Studio UI), `JsonAdapter.askUser` answers via IPC instead, so
 			// we skip the default and let the parent drive approvals.
-			autoApprove:
-				options.autoApprove ?? ( isJsonMode && typeof process.send !== 'function' ),
+			autoApprove: options.autoApprove ?? ( isJsonMode && typeof process.send !== 'function' ),
 			activeSite: site,
 			wpcomAccessToken,
 			onAskUser: ( questions ) => askUserAndPersistAnswers( questions ),

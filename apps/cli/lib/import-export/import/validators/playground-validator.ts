@@ -12,12 +12,18 @@ export class PlaygroundValidator extends EventEmitter implements Validator {
 			'wp-content/plugins',
 			'wp-content/themes',
 		];
-		return (
+		const hasSqliteDatabase =
 			requiredDirs.some( ( dir ) => fileList.some( ( file ) => file.startsWith( dir + '/' ) ) ) &&
 			fileList.some(
 				( file ) => file.startsWith( 'wp-content/database' ) && file.endsWith( '.ht.sqlite' )
-			)
-		);
+			);
+
+		// If the backup also contains SQL dumps, it's a Jetpack/MySQL backup that happens
+		// to include a stale .ht.sqlite file. Defer to the Jetpack importer which will use
+		// the SQL dumps as the authoritative data source.
+		const hasSqlDumps = fileList.some( ( file ) => file.startsWith( 'sql/' ) );
+
+		return hasSqliteDatabase && ! hasSqlDumps;
 	}
 
 	parseBackupContents( fileList: string[], extractionDirectory: string ): BackupContents {

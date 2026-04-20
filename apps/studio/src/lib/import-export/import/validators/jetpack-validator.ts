@@ -47,7 +47,10 @@ export class JetpackValidator extends EventEmitter implements Validator {
 
 			if ( file.startsWith( 'sql/' ) && file.endsWith( '.sql' ) ) {
 				extractedBackup.sqlFiles.push( fullPath );
-			} else if ( file.startsWith( 'wp-content/' ) ) {
+			} else if (
+				file.startsWith( 'wp-content/' ) &&
+				! file.startsWith( 'wp-content/database/' )
+			) {
 				extractedBackup.wpContentFiles.push( fullPath );
 			} else if ( file === 'studio.json' || file === 'meta.json' ) {
 				extractedBackup.metaFile = fullPath;

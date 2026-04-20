@@ -153,8 +153,15 @@ export {
 	pushArchive,
 	removeSyncBackup,
 	resumeSyncUpload,
+	createStagingSite,
+	deleteStagingSite,
 	getLocalSiteSummary,
+	getStagingSyncState,
+	listStagingSites,
+	pullFromStaging,
+	pushToStaging,
 	updateConnectedSiteSlot,
+	validateStagingQuota,
 	updateConnectedWpcomSites,
 } from 'src/modules/sync/lib/ipc-handlers';
 

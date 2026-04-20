@@ -51,6 +51,13 @@ const api: IpcApi = {
 	updateConnectedSiteSlot: ( ...args ) =>
 		ipcRendererInvoke( 'updateConnectedSiteSlot', ...args ),
 	getLocalSiteSummary: ( ...args ) => ipcRendererInvoke( 'getLocalSiteSummary', ...args ),
+	listStagingSites: ( ...args ) => ipcRendererInvoke( 'listStagingSites', ...args ),
+	createStagingSite: ( ...args ) => ipcRendererInvoke( 'createStagingSite', ...args ),
+	deleteStagingSite: ( ...args ) => ipcRendererInvoke( 'deleteStagingSite', ...args ),
+	validateStagingQuota: ( ...args ) => ipcRendererInvoke( 'validateStagingQuota', ...args ),
+	pushToStaging: ( ...args ) => ipcRendererInvoke( 'pushToStaging', ...args ),
+	pullFromStaging: ( ...args ) => ipcRendererInvoke( 'pullFromStaging', ...args ),
+	getStagingSyncState: ( ...args ) => ipcRendererInvoke( 'getStagingSyncState', ...args ),
 	authenticate: ( isSignup ) => ipcRendererSend( 'authenticate', isSignup ),
 	exportSite: ( options ) => ipcRendererInvoke( 'exportSite', options ),
 	isAuthenticated: () => ipcRendererInvoke( 'isAuthenticated' ),

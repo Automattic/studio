@@ -22,6 +22,7 @@ import { ExportOptions } from 'src/lib/import-export/export/types';
 import { getAuthenticationToken } from 'src/lib/oauth';
 import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import { getSiteUrl } from 'src/lib/get-site-url';
+import * as stagingApi from 'src/modules/sync/lib/staging-api';
 import { SiteServer } from 'src/site-server';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 import { SyncOption } from 'src/types';
@@ -532,6 +533,65 @@ export async function updateConnectedWpcomSites(
 	} finally {
 		await unlockAppdata();
 	}
+}
+
+export async function listStagingSites(
+	_event: IpcMainInvokeEvent,
+	args: { productionSiteId: number }
+) {
+	return stagingApi.listStagingSites( args.productionSiteId );
+}
+
+export async function createStagingSite(
+	_event: IpcMainInvokeEvent,
+	args: { productionSiteId: number }
+) {
+	return stagingApi.createStagingSite( args.productionSiteId );
+}
+
+export async function deleteStagingSite(
+	_event: IpcMainInvokeEvent,
+	args: { productionSiteId: number; stagingSiteId: number }
+) {
+	return stagingApi.deleteStagingSite( args.productionSiteId, args.stagingSiteId );
+}
+
+export async function validateStagingQuota(
+	_event: IpcMainInvokeEvent,
+	args: { productionSiteId: number }
+) {
+	return stagingApi.validateStagingQuota( args.productionSiteId );
+}
+
+export async function pushToStaging(
+	_event: IpcMainInvokeEvent,
+	args: { productionSiteId: number; stagingSiteId: number; options: SyncOption[] }
+) {
+	return stagingApi.pushToStaging( args.productionSiteId, args.stagingSiteId, args.options );
+}
+
+export async function pullFromStaging(
+	_event: IpcMainInvokeEvent,
+	args: {
+		productionSiteId: number;
+		stagingSiteId: number;
+		options: SyncOption[];
+		allowWooSync: boolean;
+	}
+) {
+	return stagingApi.pullFromStaging(
+		args.productionSiteId,
+		args.stagingSiteId,
+		args.options,
+		args.allowWooSync
+	);
+}
+
+export async function getStagingSyncState(
+	_event: IpcMainInvokeEvent,
+	args: { productionSiteId: number }
+) {
+	return stagingApi.getSyncState( args.productionSiteId );
 }
 
 export async function getLocalSiteSummary(

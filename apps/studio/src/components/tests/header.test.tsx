@@ -25,7 +25,7 @@ const mockedSites: SiteDetails[] = [
 		running: false,
 		id: 'mock-id',
 		port: 8881,
-		phpVersion: '8.3',
+		phpVersion: '8.4',
 	},
 ];
 

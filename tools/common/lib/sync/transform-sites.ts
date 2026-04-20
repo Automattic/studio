@@ -18,6 +18,7 @@ export function transformSingleSiteResponse(
 		syncSupport,
 		lastPullTimestamp: null,
 		lastPushTimestamp: null,
+		wpVersion: site.options?.software_version,
 	};
 }
 

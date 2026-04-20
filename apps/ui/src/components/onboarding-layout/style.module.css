@@ -1,0 +1,9 @@
+.root {
+	height: 100vh;
+}
+
+.content {
+	max-width: 640px;
+	width: 100%;
+	padding: var(--wpds-dimension-padding-3xl);
+}

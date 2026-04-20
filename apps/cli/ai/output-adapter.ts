@@ -5,7 +5,7 @@ import type { AiProviderId } from 'cli/ai/providers';
 import type { SiteInfo } from 'cli/ai/ui';
 
 export type HandleMessageResult =
-	| { type: 'result'; sessionId: string; success: boolean }
+	| { type: 'result'; sessionId: string; success: boolean; interrupted?: boolean }
 	| { type: 'max_turns'; sessionId: string; numTurns: number; costUsd?: number };
 
 export interface AiOutputAdapter {
@@ -125,7 +125,7 @@ export class JsonAdapter implements AiOutputAdapter {
 			return {
 				type: 'result',
 				sessionId: message.session_id,
-				success: message.subtype === 'success',
+				success: ! message.is_error,
 			};
 		}
 
@@ -158,12 +158,31 @@ export class JsonAdapter implements AiOutputAdapter {
 				options: q.options,
 			} ) ),
 		} );
+
+		// When forked from the Studio main process, wait for answers to come
+		// back over the Node IPC channel. For standalone CLI `--json` use
+		// (piped through a shell) there's no parent, so fall back to the
+		// original "emit paused turn and halt" behavior.
+		if ( typeof process.send === 'function' ) {
+			return new Promise< Record< string, string > >( ( resolve ) => {
+				const onMessage = ( message: unknown ) => {
+					if (
+						message &&
+						typeof message === 'object' &&
+						( message as { type?: string } ).type === 'answer'
+					) {
+						const answers = ( message as { answers?: Record< string, string > } ).answers;
+						process.off( 'message', onMessage );
+						resolve( answers ?? {} );
+					}
+				};
+				process.on( 'message', onMessage );
+			} );
+		}
+
 		this.emitTurnCompleted( 'paused' );
 		await this.onBeforeExit?.();
 		process.exitCode = 0;
-
-		// Return a never-resolving promise to halt execution while letting
-		// the event loop drain naturally (flushes stdout, completes async I/O).
 		return new Promise< Record< string, string > >( () => {} );
 	}
 

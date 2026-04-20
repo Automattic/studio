@@ -64,7 +64,9 @@ export class Logger< T extends string > {
 			return;
 		}
 		this.spinner.setText( message );
-		this.spinner.start();
+		if ( ! this.spinner.running ) {
+			this.spinner.start();
+		}
 	}
 
 	public reportProgress( message: string ) {

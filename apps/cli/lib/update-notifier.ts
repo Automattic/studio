@@ -1,7 +1,7 @@
 import fs from 'fs';
+import chalk from '@studio/common/lib/chalk';
 import { getCliConfigPath } from '@studio/common/lib/well-known-paths';
 import { __, sprintf } from '@wordpress/i18n';
-import chalk from 'chalk';
 import semver from 'semver';
 import { z } from 'zod';
 import { updateCheckSchema, updateCliConfigWithPartial } from 'cli/lib/cli-config/core';

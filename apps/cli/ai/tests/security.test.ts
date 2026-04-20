@@ -17,6 +17,11 @@ import {
 } from 'cli/ai/security';
 import type { CanUseTool, PermissionUpdate } from '@anthropic-ai/claude-agent-sdk';
 
+vi.mock( 'cli/lib/cli-config/permissions', () => ( {
+	addApprovedPermission: vi.fn( async () => {} ),
+	readApprovedPermissions: vi.fn( async () => [] ),
+} ) );
+
 function createCanUseToolMetadata(
 	overrides: Partial< Parameters< CanUseTool >[ 2 ] > = {}
 ): Parameters< CanUseTool >[ 2 ] {
@@ -160,9 +165,9 @@ describe( 'askForPathGatedToolApproval', () => {
 		expect( onAskUser ).toHaveBeenCalledOnce();
 	} );
 
-	it( 'returns allow_session when user selects Allow for this session', async () => {
+	it( 'returns allow_always when user selects Allow always', async () => {
 		const onAskUser = vi.fn( async ( questions: AskUserQuestion[] ) => ( {
-			[ questions[ 0 ].question ]: 'Allow for this session',
+			[ questions[ 0 ].question ]: 'Allow always',
 		} ) );
 
 		const result = await askForPathGatedToolApproval( {
@@ -171,7 +176,7 @@ describe( 'askForPathGatedToolApproval', () => {
 			onAskUser,
 		} );
 
-		expect( result ).toBe( 'allow_session' );
+		expect( result ).toBe( 'allow_always' );
 	} );
 
 	it( 'returns deny for any other answer', async () => {
@@ -245,7 +250,7 @@ describe( 'promptForApproval', () => {
 		} );
 	} );
 
-	it( 'reuses Allow for this session for repeated access in the same directory', async () => {
+	it( 'reuses Allow always for repeated access in the same directory', async () => {
 		const outsideDirectory = path.resolve( os.homedir(), 'Downloads' );
 		const outsidePath = path.resolve( outsideDirectory, 'outside.txt' );
 		const nestedPath = path.resolve( outsideDirectory, 'nested/again.txt' );
@@ -259,7 +264,7 @@ describe( 'promptForApproval', () => {
 		const session = createPathApprovalSession();
 		let askCount = 0;
 		const onAskUser = vi.fn( async ( questions: AskUserQuestion[] ) => {
-			const answer = askCount === 0 ? 'Allow for this session' : 'Deny';
+			const answer = askCount === 0 ? 'Allow always' : 'Deny';
 			askCount += 1;
 			return {
 				[ questions[ 0 ].question ]: answer,
@@ -296,7 +301,7 @@ describe( 'promptForApproval', () => {
 		} );
 	} );
 
-	it( 'does not reuse session approval for a different directory', async () => {
+	it( 'does not reuse Allow always approval for a different directory', async () => {
 		const downloadsDirectory = path.resolve( os.homedir(), 'Downloads' );
 		const desktopDirectory = path.resolve( os.homedir(), 'Desktop' );
 		const downloadsPath = path.resolve( downloadsDirectory, 'outside.txt' );
@@ -319,7 +324,7 @@ describe( 'promptForApproval', () => {
 		const onAskUser = vi.fn( async ( questions: AskUserQuestion[] ) => {
 			const question = questions[ 0 ].question;
 			return {
-				[ question ]: question.includes( downloadsDirectory ) ? 'Allow for this session' : 'Deny',
+				[ question ]: question.includes( downloadsDirectory ) ? 'Allow always' : 'Deny',
 			};
 		} );
 

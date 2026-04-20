@@ -1,18 +1,18 @@
 import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getAiSessionsDirectoryForDate, getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';
-import { AiSessionRecorder } from 'cli/ai/sessions/recorder';
-import { replaySessionHistory } from 'cli/ai/sessions/replay';
 import {
 	deleteAiSession,
 	listAiSessions,
 	loadAiSession,
 	readAiSessionEventsFromFile,
-} from 'cli/ai/sessions/store';
+} from '@studio/common/ai/sessions/store';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { getAiSessionsDirectoryForDate, getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';
+import { AiSessionRecorder } from 'cli/ai/sessions/recorder';
+import { replaySessionHistory } from 'cli/ai/sessions/replay';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
-import type { AiSessionEvent } from 'cli/ai/sessions/types';
+import type { AiSessionEvent } from '@studio/common/ai/sessions/types';
 
 describe( 'ai-sessions', () => {
 	let testRoot: string | undefined;
@@ -183,7 +183,7 @@ describe( 'ai-sessions', () => {
 		await recorder.recordTurnClosed( 'success' );
 
 		const prefix = recorder.sessionId.slice( 0, 8 );
-		const loadedSession = await loadAiSession( prefix );
+		const loadedSession = await loadAiSession( getAiSessionsRootDirectory(), prefix );
 		expect( loadedSession.summary.id ).toBe( recorder.sessionId );
 		expect( loadedSession.summary.agentSessionId ).toBe( 'agent-session-123' );
 		expect( loadedSession.summary.linkedAgentSessionIds ).toEqual( [ 'agent-session-123' ] );
@@ -209,7 +209,7 @@ describe( 'ai-sessions', () => {
 		} );
 		await reopenedRecorder.recordTurnClosed( 'success' );
 
-		const sessions = await listAiSessions();
+		const sessions = await listAiSessions( getAiSessionsRootDirectory() );
 		expect( sessions ).toHaveLength( 1 );
 		expect( sessions[ 0 ] ).toMatchObject( {
 			id: recorder.sessionId,
@@ -242,7 +242,7 @@ describe( 'ai-sessions', () => {
 		} );
 		await recorder.recordTurnClosed( 'interrupted' );
 
-		const sessions = await listAiSessions();
+		const sessions = await listAiSessions( getAiSessionsRootDirectory() );
 		expect( sessions ).toHaveLength( 1 );
 		expect( sessions[ 0 ] ).toMatchObject( {
 			id: recorder.sessionId,
@@ -265,10 +265,13 @@ describe( 'ai-sessions', () => {
 			source: 'prompt',
 		} );
 
-		const deleted = await deleteAiSession( recorder.sessionId.slice( 0, 8 ) );
+		const deleted = await deleteAiSession(
+			getAiSessionsRootDirectory(),
+			recorder.sessionId.slice( 0, 8 )
+		);
 		expect( deleted.id ).toBe( recorder.sessionId );
 
-		const sessions = await listAiSessions();
+		const sessions = await listAiSessions( getAiSessionsRootDirectory() );
 		expect( sessions ).toHaveLength( 0 );
 
 		const dayDirectory = getAiSessionsDirectoryForDate( startedAt );
@@ -300,9 +303,9 @@ describe( 'ai-sessions', () => {
 			source: 'prompt',
 		} );
 
-		await deleteAiSession( firstRecorder.sessionId );
+		await deleteAiSession( getAiSessionsRootDirectory(), firstRecorder.sessionId );
 
-		const sessions = await listAiSessions();
+		const sessions = await listAiSessions( getAiSessionsRootDirectory() );
 		expect( sessions ).toHaveLength( 1 );
 		expect( sessions[ 0 ].id ).toBe( secondRecorder.sessionId );
 
@@ -320,9 +323,9 @@ describe( 'ai-sessions', () => {
 		process.env.E2E = '1';
 		process.env.E2E_APP_DATA_PATH = testRoot;
 
-		await expect( deleteAiSession( 'does-not-exist' ) ).rejects.toThrow(
-			'Code session not found: does-not-exist'
-		);
+		await expect(
+			deleteAiSession( getAiSessionsRootDirectory(), 'does-not-exist' )
+		).rejects.toThrow( 'Code session not found: does-not-exist' );
 	} );
 
 	it( 'throws when deleting an ambiguous id prefix', async () => {
@@ -333,7 +336,9 @@ describe( 'ai-sessions', () => {
 		await AiSessionRecorder.create( { startedAt: new Date( '2026-03-11T10:00:00.000Z' ) } );
 		await AiSessionRecorder.create( { startedAt: new Date( '2026-03-11T11:00:00.000Z' ) } );
 
-		await expect( deleteAiSession( '' ) ).rejects.toThrow( 'Session id prefix is ambiguous' );
+		await expect( deleteAiSession( getAiSessionsRootDirectory(), '' ) ).rejects.toThrow(
+			'Session id prefix is ambiguous'
+		);
 	} );
 
 	it( 'lists sessions with most recent update first (latest semantics)', async () => {
@@ -348,7 +353,7 @@ describe( 'ai-sessions', () => {
 			startedAt: new Date( '2026-03-11T10:00:00.000Z' ),
 		} );
 
-		const sessions = await listAiSessions();
+		const sessions = await listAiSessions( getAiSessionsRootDirectory() );
 		expect( sessions.map( ( session ) => session.id ) ).toEqual( [
 			latest.sessionId,
 			older.sessionId,

@@ -4,6 +4,7 @@ import path from 'path';
 import { extractZip } from '@studio/common/lib/extract-zip';
 import { recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
 import semver from 'semver';
+import { readCliConfig, updateCliConfigWithPartial } from 'cli/lib/cli-config/core';
 import { getSqliteVersionFromInstallation } from 'cli/lib/sqlite-integration';
 import {
 	getAiInstructionsPath,
@@ -296,10 +297,48 @@ export async function setupServerFiles() {
 	}
 }
 
-export async function updateServerFiles() {
+export const DEPENDENCY_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+async function shouldCheckDependencyUpdates(): Promise< boolean > {
+	try {
+		const { lastDependencyCheckTime } = await readCliConfig();
+		if ( typeof lastDependencyCheckTime !== 'number' ) {
+			return true;
+		}
+		const now = Date.now();
+		// Treat future timestamps (clock skew) as stale.
+		if ( lastDependencyCheckTime > now ) {
+			return true;
+		}
+		return now - lastDependencyCheckTime >= DEPENDENCY_CHECK_INTERVAL_MS;
+	} catch {
+		return true;
+	}
+}
+
+async function markDependencyCheckTime(): Promise< void > {
+	try {
+		await updateCliConfigWithPartial( { lastDependencyCheckTime: Date.now() } );
+	} catch ( error ) {
+		console.error( 'Failed to persist dependency check timestamp:', error );
+	}
+}
+
+/**
+ * Checks for and applies dependency updates (e.g. WordPress versions), throttled
+ * to at most once per 24 hours. Returns true if the check ran, false if skipped.
+ */
+export async function updateServerFiles(): Promise< boolean > {
+	if ( ! ( await shouldCheckDependencyUpdates() ) ) {
+		return false;
+	}
+
 	try {
 		await updateLatestWordPressVersion();
 	} catch ( error ) {
 		console.error( 'Failed to update dependency WordPress version:', error );
 	}
+
+	await markDependencyCheckTime();
+	return true;
 }

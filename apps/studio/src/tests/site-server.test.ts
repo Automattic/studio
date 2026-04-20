@@ -23,7 +23,7 @@ vi.mock( 'src/lib/wordpress-provider', () => {
 	const mockProvider = {
 		DEFAULT_PHP_VERSION: '8.0',
 		DEFAULT_WORDPRESS_VERSION: 'latest',
-		ALLOWED_PHP_VERSIONS: [ '8.0', '8.1', '8.2', '8.3' ],
+		ALLOWED_PHP_VERSIONS: [ '8.0', '8.1', '8.2', '8.3', '8.4' ],
 		SQLITE_FILENAME: 'sqlite-database-integration',
 		getWordPressVersionPath: vi
 			.fn()
@@ -87,7 +87,7 @@ describe( 'SiteServer', () => {
 				path: 'test-path',
 				port: 1234,
 				adminPassword: 'test-password',
-				phpVersion: '8.3',
+				phpVersion: '8.4',
 				running: false,
 				themeDetails: undefined,
 			} );

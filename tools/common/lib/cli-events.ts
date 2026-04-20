@@ -30,6 +30,7 @@ export const siteDetailsSchema = z.object( {
 	enableDebugDisplay: z.boolean().optional(),
 	technicalSiteDirectory: z.string().optional(),
 	runtimeBlueprintPath: z.string().optional(),
+	landingPage: z.string().optional(),
 } );
 
 export type SiteDetails = z.infer< typeof siteDetailsSchema >;

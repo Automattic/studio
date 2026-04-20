@@ -1,8 +1,8 @@
-import { EventEmitter } from 'events';
 import fs from 'fs';
 import path from 'path';
 import { createInterface } from 'readline';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
+import { ImportEvents } from '@studio/common/lib/import-export-events';
 import { serializePlugins } from '@studio/common/lib/serialize-plugins';
 import { SupportedPHPVersionsList } from '@studio/common/types/php-versions';
 import { __, sprintf } from '@wordpress/i18n';
@@ -11,9 +11,9 @@ import semver from 'semver';
 import trash from 'trash';
 import { SiteData } from 'cli/lib/cli-config/core';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
+import { ImportExportEventEmitter } from '../../events';
 import { generateBackupFilename } from '../../export/generate-backup-filename';
-import { ImportEvents } from '../events';
-import { BackupContents, MetaFileData, ImportWpContentProgressEventData } from '../types';
+import { BackupContents, MetaFileData } from '../types';
 import { updateSiteUrl } from '../update-site-url';
 
 export interface ImporterResult extends Omit< BackupContents, 'metaFile' > {
@@ -21,11 +21,11 @@ export interface ImporterResult extends Omit< BackupContents, 'metaFile' > {
 	importerType?: string;
 }
 
-export interface Importer extends Partial< EventEmitter > {
+export interface Importer extends ImportExportEventEmitter {
 	import( site: SiteData ): Promise< ImporterResult >;
 }
 
-abstract class BaseImporter extends EventEmitter implements Importer {
+abstract class BaseImporter extends ImportExportEventEmitter implements Importer {
 	protected meta?: MetaFileData;
 
 	constructor( protected backup: BackupContents ) {
@@ -239,7 +239,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 					currentItem: relativePath,
 					processedItems,
 					totalItems,
-				} as ImportWpContentProgressEventData );
+				} );
 			}
 		}
 		this.emit( ImportEvents.IMPORT_WP_CONTENT_COMPLETE );

@@ -80,7 +80,7 @@ describe( 'CLI: studio export', () => {
 				wpContent: true,
 				database: true,
 			},
-			specificSelectionPaths: [],
+			specificSelectionPaths: undefined,
 			splitDatabaseDumpByTable: false,
 		} );
 		expect( disconnectFromDaemon ).toHaveBeenCalled();

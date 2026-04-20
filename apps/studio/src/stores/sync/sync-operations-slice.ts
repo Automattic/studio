@@ -863,7 +863,12 @@ const pollPullBackupThunk = createTypedAsyncThunk(
 				);
 			}
 		} catch ( error ) {
-			if ( signal.aborted ) {
+			const currentState = syncOperationsSelectors.selectPullState(
+				selectedSiteId,
+				remoteSiteId
+			)( getState() );
+
+			if ( signal.aborted && currentState?.status.key === 'cancelled' ) {
 				return;
 			}
 

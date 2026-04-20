@@ -18,6 +18,7 @@ WordPress Studio - Electron desktop app for managing local WordPress sites. Buil
 - **Auth**: `auth login|logout|status` - WordPress.com OAuth (tokens valid 2 weeks)
 - **Preview Sites**: See `apps/cli/commands/preview/`
 - **Local Sites**: See `apps/cli/commands/site/`
+- **Inline auth for `studio code`**: Set `STUDIO_WPCOM_TOKEN=<wpcom-access-token>` to authenticate a single `studio code` invocation without touching stored config. Intended for sandboxed/CI runs. Pins the AI provider to `wpcom` and hard-fails if the token is rejected.
 
 ## Architecture
 

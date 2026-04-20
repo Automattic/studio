@@ -108,32 +108,33 @@ const { ValidatedInputControl } = unlock( componentsPrivateApis ) as {
 	} >;
 };
 
-function PathField( {
-	data: item,
-	field,
-	hideLabelFromVision,
-	onChange,
-	validity,
-}: DataFormControlProps< FormData > ) {
+/**
+ * Runs the name→path auto-generation effect on behalf of the form. Called
+ * from `CreateSiteForm` so it fires whether the Advanced settings section is
+ * open or not — otherwise `data.path` would stay empty on first load and the
+ * Advanced toggle would falsely show "1 error found" until the user
+ * expanded it and `PathField` mounted.
+ */
+function usePathAutoGenerate(
+	data: FormData,
+	onChange: ( update: Partial< FormData > ) => void
+) {
 	const { data: sites } = useSites();
-	const { generateProposedPath, selectPath } = usePathValidator( sites );
+	const { generateProposedPath } = usePathValidator( sites );
 
-	// onChange is re-created on every parent render in some form setups; use a
-	// ref so the name→path effect isn't re-subscribed each keystroke.
+	// `onChange` may be recreated per parent render. Ref it so the async
+	// effect doesn't re-subscribe every keystroke.
 	const onChangeRef = useRef( onChange );
 	useEffect( () => {
 		onChangeRef.current = onChange;
 	}, [ onChange ] );
 
-	// Auto-generate the path from the site name until the user picks a custom
-	// folder. Owned here so the form has a single source of truth for path
-	// state + error.
 	const pendingNameRef = useRef< string | null >( null );
 	useEffect( () => {
-		if ( item.hasCustomPath ) return;
-		const trimmed = item.name.trim();
+		if ( data.hasCustomPath ) return;
+		const trimmed = data.name.trim();
 		if ( ! trimmed ) {
-			if ( item.path || item.pathError ) {
+			if ( data.path || data.pathError ) {
 				onChangeRef.current( { path: '', pathError: '' } );
 			}
 			return;
@@ -148,7 +149,18 @@ function PathField( {
 		return () => {
 			cancelled = true;
 		};
-	}, [ item.name, item.hasCustomPath, item.path, item.pathError, generateProposedPath ] );
+	}, [ data.name, data.hasCustomPath, data.path, data.pathError, generateProposedPath ] );
+}
+
+function PathField( {
+	data: item,
+	field,
+	hideLabelFromVision,
+	onChange,
+	validity,
+}: DataFormControlProps< FormData > ) {
+	const { data: sites } = useSites();
+	const { selectPath } = usePathValidator( sites );
 
 	const handleSelect = useCallback( async () => {
 		const result = await selectPath( item.hasCustomPath ? item.path : '' );
@@ -412,6 +424,11 @@ export function CreateSiteForm( {
 
 	const { validity, isValid } = useFormValidity( data, fields, fullForm );
 	const [ isAdvancedOpen, setIsAdvancedOpen ] = useState( false );
+
+	const handleChangePartial = useCallback( ( update: Partial< FormData > ) => {
+		setData( ( prev ) => ( { ...prev, ...update } ) );
+	}, [] );
+	usePathAutoGenerate( data, handleChangePartial );
 
 	const handleChange = useCallback( ( update: Record< string, unknown > ) => {
 		setData( ( prev ) => {

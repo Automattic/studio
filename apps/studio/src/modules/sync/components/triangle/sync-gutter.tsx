@@ -1,4 +1,4 @@
-import { Button } from '@wordpress/components';
+import { Button, Tooltip } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 
 type Endpoint =
@@ -13,6 +13,10 @@ type Props = {
 	onPush: () => void;
 	onPull: () => void;
 	disabled?: boolean;
+	/** Arrow character used for the push button. Defaults to '↑'. */
+	pushArrow?: '↑' | '↓';
+	/** Arrow character used for the pull button. Defaults to '↓'. */
+	pullArrow?: '↑' | '↓';
 };
 
 function buttonLabel( direction: 'push' | 'pull', from: Endpoint, to: Endpoint ): string {
@@ -38,42 +42,50 @@ function buttonLabel( direction: 'push' | 'pull', from: Endpoint, to: Endpoint )
 	);
 }
 
-function TimeAgo( { timestamp, prefix }: { timestamp: string; prefix: string } ) {
-	// eslint-disable-next-line react-hooks/purity
+function formatTimeAgo( timestamp: string ): string | null {
 	const delta = Date.now() - Date.parse( timestamp );
 	if ( ! Number.isFinite( delta ) ) return null;
 	const rtf = new Intl.RelativeTimeFormat( undefined, { numeric: 'auto' } );
 	const hours = Math.round( delta / ( 1000 * 60 * 60 ) );
-	const formatted =
-		Math.abs( hours ) < 24
-			? rtf.format( -hours, 'hour' )
-			: rtf.format( -Math.round( hours / 24 ), 'day' );
-	return (
-		<span className="a8c-helper-text text-frame-text-secondary">
-			{ prefix } { formatted }
-		</span>
-	);
+	return Math.abs( hours ) < 24
+		? rtf.format( -hours, 'hour' )
+		: rtf.format( -Math.round( hours / 24 ), 'day' );
 }
 
 export function SyncGutter( props: Props ) {
+	const pushArrow = props.pushArrow ?? '↑';
+	const pullArrow = props.pullArrow ?? '↓';
+
+	const pushButton = (
+		<Button variant="secondary" onClick={ props.onPush } disabled={ props.disabled }>
+			{ pushArrow } { buttonLabel( 'push', props.from, props.to ) }
+		</Button>
+	);
+	const pullButton = (
+		<Button variant="secondary" onClick={ props.onPull } disabled={ props.disabled }>
+			{ pullArrow } { buttonLabel( 'pull', props.from, props.to ) }
+		</Button>
+	);
+
+	const pushTooltip = props.lastPushTimestamp
+		? sprintf(
+				/* translators: %s: relative time such as "2 hours ago" */
+				__( 'Last pushed %s' ),
+				formatTimeAgo( props.lastPushTimestamp )
+		  )
+		: null;
+	const pullTooltip = props.lastPullTimestamp
+		? sprintf(
+				/* translators: %s: relative time such as "2 hours ago" */
+				__( 'Last pulled %s' ),
+				formatTimeAgo( props.lastPullTimestamp )
+		  )
+		: null;
+
 	return (
 		<div className="flex flex-row items-center justify-center gap-4 py-1">
-			<div className="flex flex-col items-center gap-0.5">
-				<Button variant="secondary" onClick={ props.onPush } disabled={ props.disabled }>
-					↓ { buttonLabel( 'push', props.from, props.to ) }
-				</Button>
-				{ props.lastPushTimestamp && (
-					<TimeAgo timestamp={ props.lastPushTimestamp } prefix={ __( 'Last pushed' ) } />
-				) }
-			</div>
-			<div className="flex flex-col items-center gap-0.5">
-				<Button variant="secondary" onClick={ props.onPull } disabled={ props.disabled }>
-					↑ { buttonLabel( 'pull', props.from, props.to ) }
-				</Button>
-				{ props.lastPullTimestamp && (
-					<TimeAgo timestamp={ props.lastPullTimestamp } prefix={ __( 'Last pulled' ) } />
-				) }
-			</div>
+			{ pushTooltip ? <Tooltip text={ pushTooltip }>{ pushButton }</Tooltip> : pushButton }
+			{ pullTooltip ? <Tooltip text={ pullTooltip }>{ pullButton }</Tooltip> : pullButton }
 		</div>
 	);
 }

@@ -1,5 +1,9 @@
 import { Spinner } from '@wordpress/components';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
+import { Badge } from 'src/components/badge';
+import { useThemeDetails } from 'src/hooks/use-theme-details';
+import { EnvironmentBadge } from 'src/modules/sync/components/environment-badge';
+import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
 import { useEnvironmentSummary } from '../../hooks/use-environment-summary';
 import type { SyncSite } from '@studio/common/types/sync';
 
@@ -52,7 +56,21 @@ function Mshot( props: { url: string } ) {
 	);
 }
 
-function LocalTile() {
+function LocalPreview( { siteName }: { siteName: string } ) {
+	const { selectedThumbnail } = useThemeDetails();
+	if ( selectedThumbnail ) {
+		return (
+			<img
+				src={ selectedThumbnail }
+				alt={ sprintf(
+					/* translators: %s: The name of the website */
+					__( 'Preview of the %s site' ),
+					siteName
+				) }
+				className="h-20 w-32 shrink-0 rounded object-cover object-top"
+			/>
+		);
+	}
 	return (
 		<div className="flex h-20 w-32 shrink-0 items-center justify-center rounded bg-frame-surface text-frame-text-secondary">
 			<span className="a8c-helper-text">{ __( 'Local' ) }</span>
@@ -69,24 +87,24 @@ export function EnvironmentColumn( props: Props ) {
 
 	const name = props.kind === 'local' ? props.siteName : props.site.name;
 	const url = props.kind === 'local' ? props.siteUrl : props.site.url;
-	const statusOk = props.kind === 'local' ? props.isRunning : props.site.syncSupport === 'syncable';
 	const lastPush = props.kind === 'remote' ? props.site.lastPushTimestamp : null;
 	const lastPull = props.kind === 'remote' ? props.site.lastPullTimestamp : null;
 
 	return (
 		<div className="flex flex-row items-center gap-4 rounded-lg border border-frame-border bg-frame-bg p-4">
-			{ props.kind === 'remote' ? <Mshot url={ props.site.url } /> : <LocalTile /> }
+			{ props.kind === 'remote' ? (
+				<Mshot url={ props.site.url } />
+			) : (
+				<LocalPreview siteName={ props.siteName } />
+			) }
 
 			<div className="flex min-w-0 flex-1 flex-col gap-1">
-				<div className="a8c-label flex items-center gap-2 text-frame-text-secondary">
-					<span
-						className={
-							'inline-block h-2 w-2 rounded-full ' +
-							( statusOk ? 'bg-frame-running' : 'bg-frame-text-secondary' )
-						}
-						aria-hidden="true"
-					/>
-					<span>{ props.label }</span>
+				<div>
+					{ props.kind === 'remote' ? (
+						<EnvironmentBadge type={ getSiteEnvironment( props.site ) } />
+					) : (
+						<Badge className="bg-frame-surface text-frame-text-secondary">{ __( 'Local' ) }</Badge>
+					) }
 				</div>
 				<div className="a8c-subtitle truncate text-frame-text">{ name }</div>
 				<a

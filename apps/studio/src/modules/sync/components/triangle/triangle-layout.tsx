@@ -57,43 +57,19 @@ export function TriangleLayout( { selectedSite }: Props ) {
 	return (
 		<div className="flex flex-col gap-6 p-6">
 			<div className="flex flex-col gap-2">
-				<EnvironmentColumn
-					kind="local"
-					label="Local"
-					localSiteId={ selectedSite.id }
-					siteName={ selectedSite.name }
-					siteUrl={ selectedSite.running ? `http://localhost:${ selectedSite.port }` : '' }
-					isRunning={ selectedSite.running }
-				/>
-
-				{ production ? (
-					<>
-						<SyncGutter
-							from={ { kind: 'local', label: 'Local' } }
-							to={ { kind: 'remote', label: 'Production' } }
-							lastPushTimestamp={ production.lastPushTimestamp }
-							lastPullTimestamp={ production.lastPullTimestamp }
-							onPush={ () => syncActions.push( production ) }
-							onPull={ () => syncActions.pull( production ) }
-						/>
-						<EnvironmentColumn kind="remote" label="Production" site={ production } />
-					</>
-				) : (
-					<ConnectProductionCard onClick={ openConnectModal } />
-				) }
+				{ /*
+				  Row order: Staging (top) → Production → Local (bottom).
+				  Rationale: "pull" reads as a downward motion (from remote down to Local),
+				  so putting Local at the bottom aligns the arrows with the mental model.
+				*/ }
 
 				{ production &&
 					( staging ? (
 						<>
-							{ /*
-							  Semantic note: In UI terms, "push" in the staging↔production gutter
-							  means Promote (staging → prod). In the wpcom API, that corresponds
-							  to the `pull-from-staging` endpoint (wpcom describes the flow from
-							  production's perspective). Wired in Task 21.
-							*/ }
+							<EnvironmentColumn kind="remote" label="Staging" site={ staging } />
 							<SyncGutter
-								from={ { kind: 'remote', label: 'Production' } }
-								to={ { kind: 'remote', label: 'Staging' } }
+								from={ { kind: 'remote', label: 'Staging' } }
+								to={ { kind: 'remote', label: 'Production' } }
 								lastPushTimestamp={
 									syncState?.direction === 'push' && syncState.finished_at
 										? syncState.finished_at
@@ -104,8 +80,13 @@ export function TriangleLayout( { selectedSite }: Props ) {
 										? syncState.finished_at
 										: null
 								}
+								// Promote (staging→prod) moves down visually; refresh staging
+								// from prod moves up. wpcom API mapping is inverted: UI "push"
+								// (promote) = wpcom pull-from-staging; UI "pull" (refresh staging)
+								// = wpcom push-to-staging.
+								pushArrow="↓"
+								pullArrow="↑"
 								onPush={ () => {
-									// UI push (staging→prod) = wpcom "pull-from-staging".
 									void pullFromStaging( {
 										productionSiteId: production!.id,
 										stagingSiteId: staging!.id,
@@ -114,7 +95,6 @@ export function TriangleLayout( { selectedSite }: Props ) {
 									} );
 								} }
 								onPull={ () => {
-									// UI pull (prod→staging) = wpcom "push-to-staging".
 									void pushToStaging( {
 										productionSiteId: production!.id,
 										stagingSiteId: staging!.id,
@@ -122,7 +102,6 @@ export function TriangleLayout( { selectedSite }: Props ) {
 									} );
 								} }
 							/>
-							<EnvironmentColumn kind="remote" label="Staging" site={ staging } />
 						</>
 					) : provisioning.state === 'idle' ? (
 						<CreateStagingCard onClick={ provisioning.start } />
@@ -133,6 +112,34 @@ export function TriangleLayout( { selectedSite }: Props ) {
 							onRetry={ provisioning.start }
 						/>
 					) ) }
+
+				{ production ? (
+					<>
+						<EnvironmentColumn kind="remote" label="Production" site={ production } />
+						<SyncGutter
+							from={ { kind: 'local', label: 'Local' } }
+							to={ { kind: 'remote', label: 'Production' } }
+							lastPushTimestamp={ production.lastPushTimestamp }
+							lastPullTimestamp={ production.lastPullTimestamp }
+							// Production is above Local: push goes up to prod, pull comes down.
+							pushArrow="↑"
+							pullArrow="↓"
+							onPush={ () => syncActions.push( production ) }
+							onPull={ () => syncActions.pull( production ) }
+						/>
+					</>
+				) : (
+					<ConnectProductionCard onClick={ openConnectModal } />
+				) }
+
+				<EnvironmentColumn
+					kind="local"
+					label="Local"
+					localSiteId={ selectedSite.id }
+					siteName={ selectedSite.name }
+					siteUrl={ selectedSite.running ? `http://localhost:${ selectedSite.port }` : '' }
+					isRunning={ selectedSite.running }
+				/>
 			</div>
 
 			<ArchivedConnections

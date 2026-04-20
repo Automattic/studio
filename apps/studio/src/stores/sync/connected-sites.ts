@@ -114,6 +114,24 @@ export const connectedSitesApi = createApi( {
 			],
 		} ),
 
+		updateConnectedSiteSlot: builder.mutation<
+			SyncSite[],
+			{
+				localSiteId: string;
+				siteId: number;
+				slotOverride: 'production' | 'staging' | 'archived' | null;
+			}
+		>( {
+			queryFn: async ( args ) => {
+				await getIpcApi().updateConnectedSiteSlot( args );
+				const sites = await getIpcApi().getConnectedWpcomSites( args.localSiteId );
+				return { data: sites };
+			},
+			invalidatesTags: ( _result, _error, { localSiteId } ) => [
+				{ type: 'ConnectedSites', localSiteId },
+			],
+		} ),
+
 		disconnectSite: builder.mutation< SyncSite[], { siteId: number; localSiteId: string } >( {
 			queryFn: async ( { siteId, localSiteId } ) => {
 				await getIpcApi().disconnectWpcomSites( [
@@ -138,4 +156,5 @@ export const {
 	useGetConnectedSitesForLocalSiteQuery,
 	useConnectSiteMutation,
 	useDisconnectSiteMutation,
+	useUpdateConnectedSiteSlotMutation,
 } = connectedSitesApi;

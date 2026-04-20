@@ -1,3 +1,4 @@
+import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useState } from 'react';
 import type { SyncSite } from '@studio/common/types/sync';
 import { useAuth } from 'src/hooks/use-auth';
@@ -23,11 +24,26 @@ export function useSyncActions( selectedSite: SiteDetails ) {
 		{ connectedSite: SyncSite; direction: 'push' | 'pull' } | null
 	>( null );
 
-	const push = useCallback(
-		( connectedSite: SyncSite ) =>
-			setPendingSyncTarget( { connectedSite, direction: 'push' } ),
-		[]
-	);
+	const push = useCallback( async ( connectedSite: SyncSite ) => {
+		// Guardrail: pushes to production overwrite the live site — always confirm.
+		const isProduction =
+			connectedSite.environmentType === 'production' && ! connectedSite.isStaging;
+		if ( isProduction ) {
+			const confirmed = window.confirm(
+				sprintf(
+					/* translators: %s: production site URL */
+					__(
+						'This will overwrite the content of %s with your local changes. Are you sure you want to continue?'
+					),
+					connectedSite.url
+				)
+			);
+			if ( ! confirmed ) {
+				return;
+			}
+		}
+		setPendingSyncTarget( { connectedSite, direction: 'push' } );
+	}, [] );
 	const pull = useCallback(
 		( connectedSite: SyncSite ) =>
 			setPendingSyncTarget( { connectedSite, direction: 'pull' } ),

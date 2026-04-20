@@ -1,5 +1,6 @@
 import { shell, BrowserWindow, IpcMainInvokeEvent, Notification } from 'electron';
 import fs from 'fs';
+import * as Sentry from '@sentry/electron/main';
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
 import { showErrorMessageBox } from 'src/ipc-handlers';
@@ -10,6 +11,21 @@ import { executeImportCliCommand } from 'src/modules/cli/lib/execute-import-comm
 import { SiteServer } from 'src/site-server';
 
 const errorSchema = z.object( { message: z.string() } );
+
+const EXPECTED_IMPORT_ERROR_SUBSTRINGS = [
+	'No suitable importer found for the provided backup contents',
+	'No suitable backup handler found for the provided backup file',
+];
+
+function isExpectedImportError( error: unknown ): boolean {
+	const parsed = errorSchema.safeParse( error );
+	if ( ! parsed.success ) {
+		return false;
+	}
+	return EXPECTED_IMPORT_ERROR_SUBSTRINGS.some( ( substring ) =>
+		parsed.data.message.includes( substring )
+	);
+}
 
 async function showImportErrorModal( event: IpcMainInvokeEvent, error: unknown ) {
 	const parsedError = errorSchema.safeParse( error );
@@ -91,6 +107,10 @@ export async function importSite(
 
 		eventEmitter.on( 'failed', async ( { error, displayError } ) => {
 			bumpStat( StatsGroup.STUDIO_IMPORT, StatsMetric.FAILURE );
+
+			if ( ! isExpectedImportError( displayError ) ) {
+				Sentry.captureException( displayError );
+			}
 
 			if ( showErrorModal ) {
 				await showImportErrorModal( event, displayError );
@@ -182,6 +202,8 @@ export async function exportSite(
 
 		eventEmitter.on( 'failed', async ( { error, displayError } ) => {
 			bumpStat( StatsGroup.STUDIO_EXPORT, StatsMetric.FAILURE );
+
+			Sentry.captureException( displayError );
 
 			if ( showErrorModal ) {
 				await showExportErrorModal( event, displayError );

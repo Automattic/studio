@@ -74,7 +74,7 @@ export function SyncSitesModalSelector( {
 
 	return (
 		<Modal
-			className="w-[90%] max-w-[1100px] h-full max-h-[90vh] [&>div]:!p-0 [&_h1]:!text-center [&_[role=document]]:flex [&_[role=document]]:flex-col [&_[role=document]>div:last-child]:flex-1 [&_[role=document]>div:last-child]:min-h-0"
+			className="sync-sites-modal w-[90%] max-w-[1100px] h-full max-h-[90vh] [&>div]:!p-0 [&_[role=document]]:flex [&_[role=document]]:flex-col [&_[role=document]>div:last-child]:flex-1 [&_[role=document]>div:last-child]:min-h-0"
 			onRequestClose={ onRequestClose }
 			title={ getModalTitle() }
 		>

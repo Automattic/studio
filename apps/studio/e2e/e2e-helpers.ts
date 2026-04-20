@@ -132,6 +132,9 @@ export class E2ESession {
 				E2E_HOME_PATH: this.homePath,
 				E2E_CLI_CONFIG_PATH: this.cliConfigPath,
 				E2E_SHARED_CONFIG_PATH: this.sharedConfigPath,
+				// DEBUG: isolate the daemon's runtime dir per test session so we can
+				// capture its debug log in the test artifact on failure.
+				STUDIO_PROCESS_MANAGER_HOME: path.join( this.sharedConfigPath, 'pm2' ),
 			},
 			timeout: 60_000,
 		} );
@@ -157,6 +160,21 @@ export class E2ESession {
 			body: Buffer.from( report, 'utf8' ),
 			contentType: 'text/plain',
 		} );
+
+		// DEBUG: attach daemon log (captures PHP-wasm errors from the long-running
+		// WordPress server process, which runs detached from the CLI).
+		try {
+			const daemonLogPath = path.join( this.sharedConfigPath, 'pm2', 'daemon-debug.log' );
+			if ( await fs.pathExists( daemonLogPath ) ) {
+				const daemonLog = await fs.readFile( daemonLogPath, 'utf8' );
+				await testInfo.attach( 'daemon-debug.log', {
+					body: Buffer.from( daemonLog, 'utf8' ),
+					contentType: 'text/plain',
+				} );
+			}
+		} catch ( error ) {
+			console.error( 'Failed to attach daemon log:', error );
+		}
 	}
 
 	private startCapturingMainProcessLogs() {

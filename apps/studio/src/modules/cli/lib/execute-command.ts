@@ -148,13 +148,19 @@ export function executeCliCommand(
 	let lastErrorMessage: string | undefined;
 
 	if ( options.output === 'capture' ) {
-		const logPrefix = options.logPrefix ? `[CLI - site ID ${ options.logPrefix }]` : '[CLI]';
+		// Only callers that opted-in with a `logPrefix` get stdout echoed to
+		// the main-process console. Commands like `preview list --format json`
+		// dump large structured payloads on stdout that would otherwise spam
+		// `npm run start:new` output every time snapshots are fetched.
+		const logPrefix = options.logPrefix ? `[CLI - site ID ${ options.logPrefix }]` : null;
 		child.stdout?.on( 'data', ( data: Buffer ) => {
 			const text = data.toString();
 			stdout += text;
-			const trimmed = text.trimEnd();
-			if ( trimmed ) {
-				console.log( `${ logPrefix } ${ trimmed }` );
+			if ( logPrefix ) {
+				const trimmed = text.trimEnd();
+				if ( trimmed ) {
+					console.log( `${ logPrefix } ${ trimmed }` );
+				}
 			}
 		} );
 		child.stderr?.on( 'data', ( data: Buffer ) => {

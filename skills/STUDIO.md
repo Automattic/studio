@@ -97,7 +97,7 @@ Use the Studio CLI to manage this site. All `studio` commands accept a `--path <
 studio site start          # Start the WordPress server
 studio site stop           # Stop the WordPress server
 studio site status         # Show URL, admin credentials, PHP/WP versions
-studio site set --php 8.3  # Change PHP version
+studio site set --php 8.4  # Change PHP version
 studio site set --wp 6.8   # Update WordPress version
 ```
 

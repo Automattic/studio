@@ -1,8 +1,5 @@
 import fs from 'fs';
-import {
-	filterUnsupportedBlueprintFeatures,
-	validateBlueprintData,
-} from '@studio/common/lib/blueprint-validation';
+import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import {
 	isEmptyDir,
 	isWordPressDirectory,
@@ -161,16 +158,13 @@ describe( 'CLI: studio site create', () => {
 		vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( true );
 		vi.mocked( connectToDaemon ).mockResolvedValue( undefined );
 		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
-		vi.mocked( updateServerFiles ).mockResolvedValue( undefined );
+		vi.mocked( updateServerFiles ).mockResolvedValue( true );
 		vi.mocked( setupCustomDomain ).mockResolvedValue( undefined );
 		vi.mocked( startWordPressServer ).mockResolvedValue( mockProcessDescription );
 		vi.mocked( runBlueprint ).mockResolvedValue( undefined );
 		vi.mocked( logSiteDetails ).mockImplementation( () => {} );
 		vi.mocked( openSiteInBrowser ).mockResolvedValue( undefined );
-		vi.mocked( validateBlueprintData ).mockResolvedValue( { valid: true, warnings: [] } );
-		vi.mocked( filterUnsupportedBlueprintFeatures ).mockImplementation(
-			( blueprint ) => blueprint
-		);
+		vi.mocked( validateBlueprintData ).mockResolvedValue( { valid: true } );
 		vi.mocked( isOnline ).mockResolvedValue( true );
 		vi.mocked( getPreferredSiteLanguage ).mockResolvedValue( 'en' );
 		vi.mocked( copyLanguagePackToSite ).mockResolvedValue( false );
@@ -553,26 +547,6 @@ describe( 'CLI: studio site create', () => {
 					} ),
 				} )
 			);
-		} );
-
-		it( 'should warn about unsupported Blueprint features', async () => {
-			vi.mocked( validateBlueprintData ).mockResolvedValue( {
-				valid: true,
-				warnings: [
-					{
-						feature: 'login',
-						reason: 'Studio automatically creates and logs in the admin user',
-					},
-				],
-			} );
-
-			await runCommand( mockSitePath, {
-				...defaultTestOptions,
-				blueprint: {
-					uri: '/home/test/blueprint.json',
-					contents: testBlueprint,
-				},
-			} );
 		} );
 	} );
 
@@ -1031,6 +1005,22 @@ $table_prefix = 'wp_';
 				expect.anything(),
 				'utf-8'
 			);
+		} );
+	} );
+
+	describe( 'Dependency updates', () => {
+		it( 'calls updateServerFiles when online', async () => {
+			await runCommand( mockSitePath, { ...defaultTestOptions } );
+
+			expect( updateServerFiles ).toHaveBeenCalledTimes( 1 );
+		} );
+
+		it( 'skips updateServerFiles when offline', async () => {
+			vi.mocked( isOnline ).mockResolvedValue( false );
+
+			await runCommand( mockSitePath, { ...defaultTestOptions } );
+
+			expect( updateServerFiles ).not.toHaveBeenCalled();
 		} );
 	} );
 } );

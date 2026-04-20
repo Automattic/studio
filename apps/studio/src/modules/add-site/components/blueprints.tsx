@@ -1,5 +1,4 @@
 import { generateDefaultBlueprintDescription } from '@studio/common/lib/blueprint-settings';
-import { BlueprintValidationWarning } from '@studio/common/lib/blueprint-validation';
 import {
 	__experimentalVStack as VStack,
 	__experimentalHStack as HStack,
@@ -50,7 +49,7 @@ interface AddSiteBlueprintProps {
 	isLoading: boolean;
 	selectedBlueprint: string | null;
 	onBlueprintChange: ( blueprintId: string ) => void;
-	onFileBlueprintSelect?: ( blueprint: Blueprint, warnings?: BlueprintValidationWarning[] ) => void;
+	onFileBlueprintSelect?: ( blueprint: Blueprint ) => void;
 }
 
 export function AddSiteBlueprintSelector( {
@@ -215,9 +214,6 @@ export function AddSiteBlueprintSelector( {
 					return;
 				}
 
-				const fileWarnings =
-					validation.warnings && validation.warnings.length > 0 ? validation.warnings : undefined;
-
 				const fileBlueprint: Blueprint = {
 					slug: `file:${ file.name }`, // Use filename as part of the slug
 					title: blueprintJson.meta?.title || file.name.replace( '.json', '' ),
@@ -230,7 +226,7 @@ export function AddSiteBlueprintSelector( {
 				};
 
 				setUploadedFileName( null );
-				onFileBlueprintSelect( fileBlueprint, fileWarnings );
+				onFileBlueprintSelect( fileBlueprint );
 			} catch ( error ) {
 				if ( error instanceof SyntaxError ) {
 					setValidationError(

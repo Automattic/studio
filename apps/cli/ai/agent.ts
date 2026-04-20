@@ -3,9 +3,7 @@ import path from 'path';
 import { query, type Query } from '@anthropic-ai/claude-agent-sdk';
 import {
 	ALLOWED_TOOLS,
-	ALLOWED_TOOLS_REMOTE,
 	STUDIO_ROOT,
-	createPathApprovalSession,
 	promptForApproval,
 	type AskUserQuestion,
 } from 'cli/ai/security';
@@ -35,7 +33,6 @@ export const AI_MODELS = {
 export type AiModelId = keyof typeof AI_MODELS;
 
 export const DEFAULT_MODEL: AiModelId = 'claude-sonnet-4-6';
-const pathApprovalSession = createPathApprovalSession();
 
 // The Claude Agent SDK rejects internal pending promises (e.g. control
 // responses) when an agent turn is interrupted via ESC. These rejections
@@ -77,7 +74,7 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 			: createStudioTools(),
 	};
 
-	const allowedTools = isRemoteSite ? [ ...ALLOWED_TOOLS_REMOTE ] : [ ...ALLOWED_TOOLS ];
+	const allowedTools = [ ...ALLOWED_TOOLS ];
 
 	// Build site-aware system prompt
 	const systemPromptOptions = isRemoteSite
@@ -133,13 +130,7 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 					};
 				}
 
-				return promptForApproval( {
-					toolName,
-					input,
-					metadata,
-					onAskUser,
-					pathApprovalSession,
-				} );
+				return promptForApproval( { toolName, input, metadata, onAskUser } );
 			},
 			plugins: [ { type: 'local' as const, path: path.resolve( import.meta.dirname, 'plugin' ) } ],
 			model,

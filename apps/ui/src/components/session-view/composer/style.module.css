@@ -1,0 +1,71 @@
+.root {
+	display: flex;
+	flex-direction: column;
+}
+
+.input {
+	min-height: 88px;
+	padding: var(--wpds-dimension-padding-md);
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: var(--wpds-border-radius-md, 8px);
+	background-color: var(--wpds-color-bg-surface-neutral-strong);
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-font-size-md);
+	line-height: 1.5;
+	width: 100%;
+	resize: vertical;
+	font-family: inherit;
+	box-sizing: border-box;
+}
+
+.input:focus-visible {
+	outline: 2px solid var(--wpds-color-fg-content-accent, #2563eb);
+	outline-offset: -1px;
+}
+
+.input:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+}
+
+.footer {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--wpds-dimension-padding-md);
+	margin-top: var(--wpds-dimension-padding-sm);
+	min-height: 28px;
+}
+
+.error {
+	color: var(--wpds-color-fg-content-error, #dc2626);
+	font-size: var(--wpds-font-size-sm);
+}
+
+.actions {
+	display: flex;
+	gap: var(--wpds-dimension-padding-sm);
+	margin-left: auto;
+}
+
+.button {
+	appearance: none;
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: var(--wpds-border-radius-md, 8px);
+	padding: 6px 14px;
+	background-color: var(--wpds-color-bg-surface-neutral);
+	color: var(--wpds-color-fg-content-neutral);
+	font: inherit;
+	font-size: var(--wpds-font-size-sm);
+	cursor: pointer;
+}
+
+.button:hover:not(:disabled),
+.button:focus-visible:not(:disabled) {
+	background-color: var(--wpds-color-bg-surface-neutral-strong);
+}
+
+.button:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}

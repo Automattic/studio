@@ -30,6 +30,9 @@ export interface LiveAgentEvents {
 	// `run.exited`/`run.interrupted`, which can lag `turn.completed` by
 	// the persist-queue drain time.
 	hasActiveRun: boolean;
+	// User has clicked Stop and we're waiting for the child to wind down.
+	// Gives the Stop button immediate "Stopping…" feedback.
+	isInterrupting: boolean;
 	startedAt: number | null;
 	error: string | null;
 	pendingQuestions: PendingQuestion[];
@@ -57,6 +60,7 @@ interface State {
 	runId: string | null;
 	startedAt: number | null;
 	error: string | null;
+	isInterrupting: boolean;
 	pendingQuestions: PendingQuestion[];
 	pendingAnswers: Record< string, string >;
 	queuedPrompts: QueuedPrompt[];
@@ -67,6 +71,7 @@ const initialState: State = {
 	runId: null,
 	startedAt: null,
 	error: null,
+	isInterrupting: false,
 	pendingQuestions: [],
 	pendingAnswers: {},
 	queuedPrompts: [],
@@ -78,6 +83,7 @@ type Action =
 	| { type: 'error_set'; message: string | null }
 	| { type: 'turn_completed' }
 	| { type: 'run_ended' }
+	| { type: 'interrupt_requested' }
 	| { type: 'questions_added'; questions: PendingQuestion[] }
 	| { type: 'question_answered'; question: string; answer: string }
 	| { type: 'batch_dispatched' }
@@ -97,6 +103,7 @@ function reducer( state: State, action: Action ): State {
 				runId: action.runId,
 				startedAt: action.startedAt,
 				error: null,
+				isInterrupting: false,
 			};
 		case 'error_set':
 			return { ...state, error: action.message };
@@ -111,6 +118,8 @@ function reducer( state: State, action: Action ): State {
 			// Preserve the queue across run boundaries so staged follow-ups
 			// survive the transition. Everything else resets.
 			return { ...initialState, queuedPrompts: state.queuedPrompts };
+		case 'interrupt_requested':
+			return { ...state, isInterrupting: true };
 		case 'questions_added':
 			return {
 				...state,
@@ -142,7 +151,16 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 	const queryClient = useQueryClient();
 
 	const [ state, dispatch ] = useReducer( reducer, initialState );
-	const { phase, runId, startedAt, error, pendingQuestions, pendingAnswers, queuedPrompts } = state;
+	const {
+		phase,
+		runId,
+		startedAt,
+		error,
+		isInterrupting,
+		pendingQuestions,
+		pendingAnswers,
+		queuedPrompts,
+	} = state;
 
 	// Subscribed until `run.exited` so trailing events for a run whose turn
 	// has already completed still match the filter.
@@ -198,8 +216,25 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 				case 'turn.completed':
 					dispatch( { type: 'turn_completed' } );
 					return;
+				case 'run.interrupting':
+					dispatch( { type: 'interrupt_requested' } );
+					return;
 				case 'run.exited':
 				case 'run.interrupted':
+					if ( event.type === 'run.interrupted' ) {
+						// Append a synthetic `turn.closed` so the conversation view
+						// renders the "Interrupted by you" marker immediately. The
+						// CLI also persists a real `turn.closed` to the session file,
+						// so the marker survives a reload.
+						updateCache( ( events ) => [
+							...events,
+							{
+								type: 'turn.closed',
+								timestamp: event.timestamp,
+								status: 'interrupted',
+							},
+						] );
+					}
 					dispatch( { type: 'run_ended' } );
 					subscribedRunIdRef.current = null;
 					// Only refresh the sessions list (sidebar summaries, updatedAt).
@@ -323,6 +358,10 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		if ( ! runId ) {
 			return;
 		}
+		// Optimistic feedback: the main-process `run.interrupting` event will
+		// also set this, but flipping state on the click keeps the button
+		// from lingering in its active style while the IPC is in flight.
+		dispatch( { type: 'interrupt_requested' } );
 		await connector.interruptAgentRun( runId );
 	}, [ connector, runId ] );
 
@@ -355,6 +394,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 	return {
 		isRunning: phase === 'running',
 		hasActiveRun: phase !== 'idle',
+		isInterrupting,
 		startedAt,
 		error,
 		pendingQuestions,

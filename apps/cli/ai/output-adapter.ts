@@ -49,13 +49,32 @@ export class JsonAdapter implements AiOutputAdapter {
 	permissionResponse: Record< string, string > | null = null;
 
 	private sessionId: string | undefined;
+	private ipcMessageListener: ( ( message: unknown ) => void ) | null = null;
 
 	start(): void {
-		// No-op in JSON mode
+		// When forked from Studio, route the parent's IPC `interrupt` message
+		// to onInterrupt. SIGTERM from the parent is swallowed by module-level
+		// handlers (e.g. wordpress-server-manager), so we can't rely on signals.
+		if ( typeof process.send !== 'function' ) {
+			return;
+		}
+		this.ipcMessageListener = ( message ) => {
+			if (
+				message &&
+				typeof message === 'object' &&
+				( message as { type?: string } ).type === 'interrupt'
+			) {
+				this.onInterrupt?.();
+			}
+		};
+		process.on( 'message', this.ipcMessageListener );
 	}
 
 	stop(): void {
-		// No-op in JSON mode
+		if ( this.ipcMessageListener ) {
+			process.off( 'message', this.ipcMessageListener );
+			this.ipcMessageListener = null;
+		}
 	}
 
 	showWelcome(): void {

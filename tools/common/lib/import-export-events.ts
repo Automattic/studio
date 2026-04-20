@@ -75,9 +75,8 @@ const nullOrUndefined = z.undefined().nullable();
 export const importEventTupleSchema = z.union( [
 	z.tuple( [
 		z.literal( BackupExtractEvents.BACKUP_EXTRACT_START ),
-		backupExtractProgressEventDataSchema,
+		backupExtractProgressEventDataSchema.or( nullOrUndefined ),
 	] ),
-	z.tuple( [ z.literal( BackupExtractEvents.BACKUP_EXTRACT_START ), nullOrUndefined ] ),
 	z.tuple( [
 		z.literal( BackupExtractEvents.BACKUP_EXTRACT_PROGRESS ),
 		backupExtractProgressEventDataSchema,
@@ -88,9 +87,8 @@ export const importEventTupleSchema = z.union( [
 	] ),
 	z.tuple( [
 		z.literal( BackupExtractEvents.BACKUP_EXTRACT_COMPLETE ),
-		backupExtractProgressEventDataSchema,
+		backupExtractProgressEventDataSchema.or( nullOrUndefined ),
 	] ),
-	z.tuple( [ z.literal( BackupExtractEvents.BACKUP_EXTRACT_COMPLETE ), nullOrUndefined ] ),
 	z.tuple( [ z.literal( BackupExtractEvents.BACKUP_EXTRACT_WARNING ), z.string() ] ),
 	z.tuple( [ z.literal( BackupExtractEvents.BACKUP_EXTRACT_ERROR ), z.unknown() ] ),
 	z.tuple( [ z.literal( ValidatorEvents.IMPORT_VALIDATION_START ), nullOrUndefined ] ),

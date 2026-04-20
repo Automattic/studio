@@ -13,11 +13,11 @@ type ImportCliLifecycleEventMap = {
 };
 type ImportCliLifecycleEventEmitter = TypedEventEmitter< ImportCliLifecycleEventMap >;
 
-export async function executeImportCliCommand(
+export function executeImportCliCommand(
 	siteId: string,
 	args: string[],
 	parentWindow: Electron.BrowserWindow | null
-): Promise< ImportCliLifecycleEventEmitter > {
+): ImportCliLifecycleEventEmitter {
 	const [ cliEventEmitter ] = executeCliCommand( args, { output: 'capture' } );
 	const lifecycleEventEmitter = new TypedEventEmitter< ImportCliLifecycleEventMap >();
 	let importerType: ImporterType | undefined;

@@ -96,7 +96,8 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					showNotification: showImportNotification,
 				} );
 			} catch ( error ) {
-				// Do nothing
+				// The main process handles displaying the error modal, so we don't need any explicit error
+				// handling here.
 			}
 		},
 		[ importState ]
@@ -119,15 +120,27 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 		}
 
 		switch ( event ) {
-			case BackupExtractEvents.BACKUP_EXTRACT_START:
+			case BackupExtractEvents.BACKUP_EXTRACT_START: {
+				const statusMessage: string = __( 'Extracting backup files…' );
+
+				setImportState( ( { [ siteId ]: currentProgress, ...rest } ) => ( {
+					...rest,
+					[ siteId ]: {
+						...currentProgress,
+						statusMessage,
+						progress: 50, // Backup extraction takes progress from 5% to 50%
+					},
+				} ) );
+				break;
+			}
 			case BackupExtractEvents.BACKUP_EXTRACT_PROGRESS: {
-				const progress = data?.progress ?? 0;
+				const progress = data.progress ?? 0;
 				let statusMessage: string = __( 'Extracting backup files…' );
 
 				if (
-					data?.processedFiles !== undefined &&
-					data?.totalFiles !== undefined &&
-					data?.totalFiles > 0
+					data.processedFiles !== undefined &&
+					data.totalFiles !== undefined &&
+					data.totalFiles > 0
 				) {
 					const percentage = Math.round( ( data.processedFiles / data.totalFiles ) * 100 );
 					statusMessage = sprintf( __( 'Extracting backup… (%d%%)' ), percentage );
@@ -287,7 +300,8 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					showNotification: true,
 				} );
 			} catch {
-				// Do nothing
+				// The main process handles displaying the error modal, so we don't need any explicit error
+				// handling here.
 			}
 		},
 		[ exportState ]

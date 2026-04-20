@@ -9,11 +9,11 @@ type ExportCliLifecycleEventMap = {
 };
 type ExportCliLifecycleEventEmitter = TypedEventEmitter< ExportCliLifecycleEventMap >;
 
-export async function executeExportCliCommand(
+export function executeExportCliCommand(
 	siteId: string,
 	args: string[],
 	parentWindow: Electron.BrowserWindow | null
-): Promise< ExportCliLifecycleEventEmitter > {
+): ExportCliLifecycleEventEmitter {
 	const [ cliEventEmitter ] = executeCliCommand( args, { output: 'capture' } );
 	const lifecycleEventEmitter = new TypedEventEmitter< ExportCliLifecycleEventMap >();
 	let structuredExportError: unknown;

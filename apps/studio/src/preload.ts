@@ -200,6 +200,8 @@ const api: IpcApi = {
 	createAiSession: ( siteId ) => ipcRendererInvoke( 'createAiSession', siteId ),
 	continueAiSession: ( sessionId, prompt ) =>
 		ipcRendererInvoke( 'continueAiSession', sessionId, prompt ),
+	setAiSessionModel: ( sessionId, model ) =>
+		ipcRendererInvoke( 'setAiSessionModel', sessionId, model ),
 	interruptAiAgentRun: ( runId ) => ipcRendererInvoke( 'interruptAiAgentRun', runId ),
 	answerAiAgentQuestion: ( runId, answers ) =>
 		ipcRendererInvoke( 'answerAiAgentQuestion', runId, answers ),

@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { query, type Query } from '@anthropic-ai/claude-agent-sdk';
+import { AI_MODELS, DEFAULT_MODEL, type AiModelId } from '@studio/common/ai/models';
 import {
 	ALLOWED_TOOLS,
 	STUDIO_ROOT,
@@ -12,6 +13,7 @@ import { createRemoteSiteTools, createStudioTools } from 'cli/ai/tools';
 import type { SiteInfo } from 'cli/ai/ui';
 
 export type { AskUserQuestion } from 'cli/ai/security';
+export { AI_MODELS, DEFAULT_MODEL, type AiModelId };
 
 export interface AiAgentConfig {
 	prompt: string;
@@ -24,16 +26,6 @@ export interface AiAgentConfig {
 	wpcomAccessToken?: string;
 	onAskUser?: ( questions: AskUserQuestion[] ) => Promise< Record< string, string > >;
 }
-
-export const AI_MODELS = {
-	'claude-sonnet-4-6': 'Sonnet 4.6',
-	'claude-opus-4-6': 'Opus 4.6',
-	'claude-opus-4-7': 'Opus 4.7',
-} as const;
-
-export type AiModelId = keyof typeof AI_MODELS;
-
-export const DEFAULT_MODEL: AiModelId = 'claude-sonnet-4-6';
 
 // The Claude Agent SDK rejects internal pending promises (e.g. control
 // responses) when an agent turn is interrupted via ESC. These rejections

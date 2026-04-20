@@ -118,6 +118,17 @@ async function resolveSite( nameOrPath: string ): Promise< SiteData > {
 	if ( siteByName ) {
 		return siteByName;
 	}
+
+	// Also try matching by the last folder segment of the site path,
+	// since the agent may pass just the folder name instead of the full path.
+	if ( ! path.isAbsolute( nameOrPath ) ) {
+		const config = await readCliConfig();
+		const siteByFolder = config.sites.find( ( site ) => path.basename( site.path ) === nameOrPath );
+		if ( siteByFolder ) {
+			return siteByFolder;
+		}
+	}
+
 	return getSiteByFolder( nameOrPath );
 }
 

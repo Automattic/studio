@@ -1,27 +1,19 @@
 import fs from 'fs';
 import path from 'path';
 import { isWordPressDirectory, recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
+import {
+	BackupExtractEvents,
+	ImporterEvents,
+	ValidatorEvents,
+} from '@studio/common/lib/import-export-events';
 import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { SiteData } from 'cli/lib/cli-config/core';
 import { clearSiteLatestCliPid, getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
-import { ImportExportEventData } from 'cli/lib/import-export/handle-events';
-import {
-	BackupExtractEvents,
-	ImporterEvents,
-	ValidatorEvents,
-} from 'cli/lib/import-export/import/events';
-import {
-	DEFAULT_IMPORTER_OPTIONS,
-	importBackup,
-} from 'cli/lib/import-export/import/import-manager';
-import {
-	BackupExtractProgressEventData,
-	ImportDatabaseProgressEventData,
-	ImportWpContentProgressEventData,
-} from 'cli/lib/import-export/import/types';
+import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
+import { DEFAULT_IMPORTER_OPTIONS, getImporter } from 'cli/lib/import-export/import/import-manager';
 import { getBackupFileType } from 'cli/lib/import-export/utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { untildify } from 'cli/lib/utils';
@@ -56,132 +48,138 @@ async function setupWordPressFilesOnly( sitePath: string ): Promise< void > {
 	await recursiveCopyDirectory( bundledWpPath, sitePath );
 }
 
-export function importEventHandler( { event, data }: ImportExportEventData ): void {
-	switch ( event ) {
-		case ValidatorEvents.IMPORT_VALIDATION_START:
-			logger.reportSuccess( sprintf( __( 'Started import…' ) ) );
-			logger.reportStart( LoggerAction.VALIDATE, __( 'Validating backup…' ) );
-			break;
-		case ValidatorEvents.IMPORT_VALIDATION_COMPLETE:
-			logger.reportSuccess( __( 'Backup validated' ) );
-			break;
-		case ValidatorEvents.IMPORT_VALIDATION_ERROR:
-			throw new LoggerError(
-				__( 'Backup validation failed' ),
-				data instanceof Error ? data : undefined
-			);
+export function handleImportEvents( emitter: ImportExportEventEmitter ): void {
+	emitter.on( ValidatorEvents.IMPORT_VALIDATION_START, () => {
+		logger.reportSuccess( sprintf( __( 'Started import…' ) ) );
+		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating backup…' ) );
+	} );
 
-		case BackupExtractEvents.BACKUP_EXTRACT_START:
-			logger.reportStart( LoggerAction.EXTRACT_BACKUP, __( 'Extracting backup files…' ) );
-			break;
-		case BackupExtractEvents.BACKUP_EXTRACT_PROGRESS: {
-			const progressData = data as BackupExtractProgressEventData;
-			if (
-				progressData.processedFiles != null &&
-				progressData.totalFiles != null &&
-				progressData.totalFiles > 0
-			) {
-				logger.reportProgress(
-					sprintf(
-						_n(
-							'Extracting backup file… (%1$d/%2$d)',
-							'Extracting backup files… (%1$d/%2$d)',
-							progressData.totalFiles
-						),
-						progressData.processedFiles,
+	emitter.on( ValidatorEvents.IMPORT_VALIDATION_COMPLETE, () => {
+		logger.reportSuccess( __( 'Backup validated' ) );
+	} );
+
+	emitter.on( ValidatorEvents.IMPORT_VALIDATION_ERROR, ( error ) => {
+		throw new LoggerError(
+			__( 'Backup validation failed' ),
+			error instanceof Error ? error : undefined
+		);
+	} );
+
+	emitter.on( BackupExtractEvents.BACKUP_EXTRACT_START, () => {
+		logger.reportStart( LoggerAction.EXTRACT_BACKUP, __( 'Extracting backup files…' ) );
+	} );
+
+	emitter.on( BackupExtractEvents.BACKUP_EXTRACT_PROGRESS, ( progressData ) => {
+		if (
+			progressData.processedFiles !== undefined &&
+			progressData.totalFiles !== undefined &&
+			progressData.totalFiles > 0
+		) {
+			logger.reportProgress(
+				sprintf(
+					_n(
+						'Extracting backup file… (%1$d/%2$d)',
+						'Extracting backup files… (%1$d/%2$d)',
 						progressData.totalFiles
-					)
-				);
-			}
-			break;
+					),
+					progressData.processedFiles,
+					progressData.totalFiles
+				)
+			);
 		}
-		case BackupExtractEvents.BACKUP_EXTRACT_COMPLETE:
-			logger.reportSuccess( __( 'Backup extraction completed' ) );
-			break;
-		case BackupExtractEvents.BACKUP_EXTRACT_WARNING:
-			logger.reportWarning(
-				typeof data === 'string' ? data : __( 'A warning occurred while extracting backup' )
-			);
-			break;
-		case BackupExtractEvents.BACKUP_EXTRACT_ERROR:
-			throw new LoggerError(
-				__( 'Failed to extract backup' ),
-				data instanceof Error ? data : undefined
-			);
+	} );
 
-		case ImporterEvents.IMPORT_START:
-			logger.reportStart( LoggerAction.IMPORT_SITE, __( 'Importing backup…' ) );
-			break;
-		case ImporterEvents.IMPORT_DATABASE_START:
-			logger.reportStart( LoggerAction.IMPORT_DATABASE, __( 'Importing database…' ) );
-			break;
-		case ImporterEvents.IMPORT_DATABASE_PROGRESS: {
-			const progressData = data as ImportDatabaseProgressEventData;
-			if (
-				progressData.processedFiles != null &&
-				progressData.totalFiles != null &&
-				progressData.totalFiles > 0
-			) {
-				logger.reportProgress(
-					sprintf(
-						_n(
-							'Importing database file… (%1$d/%2$d)',
-							'Importing database files… (%1$d/%2$d)',
-							progressData.totalFiles
-						),
-						progressData.processedFiles,
+	emitter.on( BackupExtractEvents.BACKUP_EXTRACT_COMPLETE, () => {
+		logger.reportSuccess( __( 'Backup extraction completed' ) );
+	} );
+
+	emitter.on( BackupExtractEvents.BACKUP_EXTRACT_WARNING, ( warningMessage ) => {
+		logger.reportWarning( warningMessage || __( 'A warning occurred while extracting backup' ) );
+	} );
+
+	emitter.on( BackupExtractEvents.BACKUP_EXTRACT_ERROR, ( error ) => {
+		throw new LoggerError(
+			__( 'Failed to extract backup' ),
+			error instanceof Error ? error : undefined
+		);
+	} );
+
+	emitter.on( ImporterEvents.IMPORT_START, () => {
+		logger.reportStart( LoggerAction.IMPORT_SITE, __( 'Importing backup…' ) );
+	} );
+
+	emitter.on( ImporterEvents.IMPORT_DATABASE_START, () => {
+		logger.reportStart( LoggerAction.IMPORT_DATABASE, __( 'Importing database…' ) );
+	} );
+
+	emitter.on( ImporterEvents.IMPORT_DATABASE_PROGRESS, ( progressData ) => {
+		if (
+			progressData.processedFiles !== undefined &&
+			progressData.totalFiles !== undefined &&
+			progressData.totalFiles > 0
+		) {
+			logger.reportProgress(
+				sprintf(
+					_n(
+						'Importing database file… (%1$d/%2$d)',
+						'Importing database files… (%1$d/%2$d)',
 						progressData.totalFiles
-					)
-				);
-			}
-			break;
+					),
+					progressData.processedFiles,
+					progressData.totalFiles
+				)
+			);
 		}
-		case ImporterEvents.IMPORT_DATABASE_COMPLETE:
-			logger.reportSuccess( __( 'Database import completed' ) );
-			break;
+	} );
 
-		case ImporterEvents.IMPORT_WP_CONTENT_START:
-			logger.reportStart( LoggerAction.IMPORT_WP_CONTENT, __( 'Importing WordPress content…' ) );
-			break;
-		case ImporterEvents.IMPORT_WP_CONTENT_PROGRESS: {
-			const progressData = data as ImportWpContentProgressEventData;
-			if (
-				progressData.processedItems != null &&
-				progressData.totalItems != null &&
-				progressData.totalItems > 0
-			) {
-				const baseMessage =
-					WP_CONTENT_TYPE_LABELS[ progressData.type || 'other' ] ||
-					__( 'Importing WordPress content…' );
-				logger.reportProgress(
-					sprintf(
-						/* translators: %1$s is a content type label, %2$d is processed items, %3$d is total items */
-						__( '%1$s (%2$d/%3$d)' ),
-						baseMessage,
-						progressData.processedItems,
-						progressData.totalItems
-					)
-				);
-			}
-			break;
+	emitter.on( ImporterEvents.IMPORT_DATABASE_COMPLETE, () => {
+		logger.reportSuccess( __( 'Database import completed' ) );
+	} );
+
+	emitter.on( ImporterEvents.IMPORT_WP_CONTENT_START, () => {
+		logger.reportStart( LoggerAction.IMPORT_WP_CONTENT, __( 'Importing WordPress content…' ) );
+	} );
+
+	emitter.on( ImporterEvents.IMPORT_WP_CONTENT_PROGRESS, ( progressData ) => {
+		if (
+			progressData.processedItems !== undefined &&
+			progressData.totalItems !== undefined &&
+			progressData.totalItems > 0
+		) {
+			const baseMessage =
+				WP_CONTENT_TYPE_LABELS[ progressData.type || 'other' ] ||
+				__( 'Importing WordPress content…' );
+			logger.reportProgress(
+				sprintf(
+					/* translators: %1$s is a content type label, %2$d is processed items, %3$d is total items */
+					__( '%1$s (%2$d/%3$d)' ),
+					baseMessage,
+					progressData.processedItems,
+					progressData.totalItems
+				)
+			);
 		}
-		case ImporterEvents.IMPORT_WP_CONTENT_COMPLETE:
-			logger.reportSuccess( __( 'WordPress content import completed' ) );
-			break;
+	} );
 
-		case ImporterEvents.IMPORT_META_START:
-			logger.reportStart( LoggerAction.IMPORT_META, __( 'Importing metadata…' ) );
-			break;
-		case ImporterEvents.IMPORT_META_COMPLETE:
-			logger.reportSuccess( __( 'Metadata import completed' ) );
-			break;
-		case ImporterEvents.IMPORT_COMPLETE:
-			logger.reportSuccess( __( 'Site imported successfully' ) );
-			break;
+	emitter.on( ImporterEvents.IMPORT_WP_CONTENT_COMPLETE, () => {
+		logger.reportSuccess( __( 'WordPress content import completed' ) );
+	} );
 
-		case ImporterEvents.IMPORT_ERROR:
-			throw new LoggerError( __( 'Import failed' ), data instanceof Error ? data : undefined );
-	}
+	emitter.on( ImporterEvents.IMPORT_META_START, () => {
+		logger.reportStart( LoggerAction.IMPORT_META, __( 'Importing metadata…' ) );
+	} );
+
+	emitter.on( ImporterEvents.IMPORT_META_COMPLETE, () => {
+		logger.reportSuccess( __( 'Metadata import completed' ) );
+	} );
+
+	emitter.on( ImporterEvents.IMPORT_COMPLETE, () => {
+		logger.reportSuccess( __( 'Site imported successfully' ) );
+	} );
+
+	emitter.on( ImporterEvents.IMPORT_ERROR, ( error ) => {
+		throw new LoggerError( __( 'Import failed' ), error instanceof Error ? error : undefined );
+	} );
 }
 
 export async function runCommand( siteFolder: string, importFile: string ): Promise< void > {
@@ -220,12 +218,12 @@ export async function runCommand( siteFolder: string, importFile: string ): Prom
 
 		logger.reportStart( LoggerAction.IMPORT_SITE, __( 'Starting import…' ) );
 
-		await importBackup(
+		const importer = getImporter(
 			{ path: importFile, type: getBackupFileType( importFile ) },
-			site,
-			importEventHandler,
 			DEFAULT_IMPORTER_OPTIONS
 		);
+		handleImportEvents( importer );
+		await importer.import( site );
 
 		// Something in Playground makes it so the front-end of the site sometimes returns an error page
 		// on the first request. Send that first request from here to hide the error from the user.

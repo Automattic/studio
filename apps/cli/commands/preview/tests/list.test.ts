@@ -100,9 +100,8 @@ describe( 'Preview List Command', () => {
 
 		expect( getSnapshotsFromConfig ).toHaveBeenCalledWith( mockAuthToken.id, mockFolder );
 		expect( mockReportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating…' ] );
-		expect( mockReportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful', true ] );
 		expect( mockReportStart.mock.calls[ 1 ] ).toEqual( [ 'load', 'Loading preview sites…' ] );
-		expect( mockReportSuccess.mock.calls[ 1 ] ).toEqual( [ 'Found 2 preview sites' ] );
+		expect( mockReportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Found 2 preview sites' ] );
 	} );
 
 	it( 'should handle validation errors', async () => {
@@ -119,8 +118,7 @@ describe( 'Preview List Command', () => {
 		await runCommand( mockFolder, 'table' );
 
 		expect( mockReportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating…' ] );
-		expect( mockReportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful', true ] );
 		expect( mockReportStart.mock.calls[ 1 ] ).toEqual( [ 'load', 'Loading preview sites…' ] );
-		expect( mockReportSuccess.mock.calls[ 1 ] ).toEqual( [ 'No preview sites found' ] );
+		expect( mockReportSuccess.mock.calls[ 0 ] ).toEqual( [ 'No preview sites found' ] );
 	} );
 } );

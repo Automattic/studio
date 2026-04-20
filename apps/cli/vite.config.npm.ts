@@ -1,10 +1,21 @@
 import { defineConfig, mergeConfig } from 'vite';
+import { viteStaticCopy } from 'vite-plugin-static-copy';
 import { baseConfig, nodeBuiltins, packageJsonDependencies } from './vite.config.base';
 
 // For npm publishing, externalize ALL dependencies (they're installed by the end user).
 export default mergeConfig(
 	baseConfig,
 	defineConfig( {
+		plugins: [
+			viteStaticCopy( {
+				targets: [
+					{
+						src: 'ai/plugin',
+						dest: '.',
+					},
+				],
+			} ),
+		],
 		build: {
 			sourcemap: false,
 			rollupOptions: {

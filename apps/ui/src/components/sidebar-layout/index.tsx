@@ -21,10 +21,8 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 			<div className={ styles.root }>
 				<aside className={ clsx( styles.sidebar, collapsed && styles.sidebarCollapsed ) }>
 					<SidebarHeader onToggleSidebar={ () => setCollapsed( true ) } />
-					<div className={ styles.sidebarContent }>
-						<SidebarNav />
-						<SiteList />
-					</div>
+					<SidebarNav />
+					<SiteList />
 					<UserMenu />
 				</aside>
 				<main className={ styles.main }>

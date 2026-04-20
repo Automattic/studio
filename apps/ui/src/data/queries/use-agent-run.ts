@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import type { AgentEvent, AgentRunEvent, AiSessionEvent, LoadedAiSession } from '@/data/core';
@@ -8,18 +8,12 @@ function nowIso(): string {
 	return new Date().toISOString();
 }
 
-interface RunState {
-	runId: string;
-	startedAt: number;
-}
-
 export interface PendingQuestion {
 	question: string;
 	options: Array< { label: string; description: string } >;
 }
 
 export interface LiveAgentEvents {
-	runId: string | null;
 	// Agent loop is working — drives the thinking indicator. Clears at
 	// `turn.completed`, before the subprocess has finished winding down.
 	isRunning: boolean;
@@ -39,26 +33,91 @@ export interface LiveAgentEvents {
 	answerQuestion: ( question: string, answer: string ) => void;
 }
 
+// `running` → agent loop is working (thinking indicator shown).
+// `winding_down` → turn completed, subprocess still draining; composer
+// stays disabled so the user can't start a new turn mid-exit.
+// `idle` → no active run.
+type RunPhase = 'idle' | 'running' | 'winding_down';
+
+interface State {
+	phase: RunPhase;
+	runId: string | null;
+	startedAt: number | null;
+	error: string | null;
+	pendingQuestions: PendingQuestion[];
+	pendingAnswers: Record< string, string >;
+}
+
+const initialState: State = {
+	phase: 'idle',
+	runId: null,
+	startedAt: null,
+	error: null,
+	pendingQuestions: [],
+	pendingAnswers: {},
+};
+
+type Action =
+	| { type: 'reset' }
+	| { type: 'send_start'; runId: string; startedAt: number }
+	| { type: 'error_set'; message: string | null }
+	| { type: 'turn_completed' }
+	| { type: 'run_ended' }
+	| { type: 'questions_added'; questions: PendingQuestion[] }
+	| { type: 'question_answered'; question: string; answer: string }
+	| { type: 'batch_dispatched' };
+
+function reducer( state: State, action: Action ): State {
+	switch ( action.type ) {
+		case 'reset':
+			return initialState;
+		case 'send_start':
+			return {
+				...state,
+				phase: 'running',
+				runId: action.runId,
+				startedAt: action.startedAt,
+				error: null,
+			};
+		case 'error_set':
+			return { ...state, error: action.message };
+		case 'turn_completed':
+			return {
+				...state,
+				phase: state.phase === 'idle' ? 'idle' : 'winding_down',
+				pendingQuestions: [],
+				pendingAnswers: {},
+			};
+		case 'run_ended':
+			return initialState;
+		case 'questions_added':
+			return {
+				...state,
+				pendingQuestions: [ ...state.pendingQuestions, ...action.questions ],
+			};
+		case 'question_answered':
+			return {
+				...state,
+				pendingAnswers: { ...state.pendingAnswers, [ action.question ]: action.answer },
+			};
+		case 'batch_dispatched':
+			return { ...state, pendingQuestions: [], pendingAnswers: {} };
+	}
+}
+
 export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 
-	const [ runState, setRunState ] = useState< RunState | null >( null );
-	const [ isTurnActive, setIsTurnActive ] = useState( false );
-	const [ error, setError ] = useState< string | null >( null );
-	const [ pendingQuestions, setPendingQuestions ] = useState< PendingQuestion[] >( [] );
-	const [ pendingAnswers, setPendingAnswers ] = useState< Record< string, string > >( {} );
+	const [ state, dispatch ] = useReducer( reducer, initialState );
+	const { phase, runId, startedAt, error, pendingQuestions, pendingAnswers } = state;
 
 	// Subscribed until `run.exited` so trailing events for a run whose turn
 	// has already completed still match the filter.
 	const subscribedRunIdRef = useRef< string | null >( null );
 
 	useEffect( () => {
-		setRunState( null );
-		setIsTurnActive( false );
-		setError( null );
-		setPendingQuestions( [] );
-		setPendingAnswers( {} );
+		dispatch( { type: 'reset' } );
 		subscribedRunIdRef.current = null;
 	}, [ sessionId ] );
 
@@ -95,104 +154,64 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 
 			const event: AgentEvent = payload.event;
 
-			if ( event.type === 'error' ) {
-				setError( event.message );
-				return;
-			}
-
-			// Hide the thinking indicator the moment the agent loop finishes.
-			// The composer stays disabled until `run.exited` because the
-			// subprocess is still winding down and can't accept a new turn.
-			if ( event.type === 'turn.completed' ) {
-				setIsTurnActive( false );
-				setPendingQuestions( [] );
-				setPendingAnswers( {} );
-				return;
-			}
-
-			if ( event.type === 'run.exited' || event.type === 'run.interrupted' ) {
-				setRunState( null );
-				setIsTurnActive( false );
-				setPendingQuestions( [] );
-				setPendingAnswers( {} );
-				subscribedRunIdRef.current = null;
-				// Only refresh the sessions list (sidebar summaries, updatedAt).
-				// The per-session cache already reflects the streamed events; a
-				// refetch here would clobber any optimistic user message the
-				// user just queued for the next turn.
-				void queryClient.invalidateQueries( {
-					queryKey: SESSIONS_QUERY_KEY,
-					exact: true,
-				} );
-				return;
-			}
-
-			if ( event.type === 'message' ) {
-				const finalEvent: AiSessionEvent = {
-					type: 'sdk.message',
-					timestamp: event.timestamp,
-					message: event.message,
-				};
-				updateCache( ( events ) => [ ...events, finalEvent ] );
-				return;
-			}
-
-			if ( event.type === 'progress' ) {
-				updateCache( ( events ) => [
-					...events,
-					{ type: 'tool.progress', timestamp: event.timestamp, message: event.message },
-				] );
-				return;
-			}
-
-			if ( event.type === 'question.asked' ) {
-				if ( event.questions.length === 0 ) {
+			switch ( event.type ) {
+				case 'error':
+					dispatch( { type: 'error_set', message: event.message } );
 					return;
-				}
-				updateCache( ( events ) => [
-					...events,
-					...event.questions.map( ( q ) => ( {
-						type: 'agent.question' as const,
-						timestamp: event.timestamp,
-						question: q.question,
-						options: q.options,
-					} ) ),
-				] );
-				setPendingQuestions( ( prev ) => [ ...prev, ...event.questions ] );
+				case 'turn.completed':
+					dispatch( { type: 'turn_completed' } );
+					return;
+				case 'run.exited':
+				case 'run.interrupted':
+					dispatch( { type: 'run_ended' } );
+					subscribedRunIdRef.current = null;
+					// Only refresh the sessions list (sidebar summaries, updatedAt).
+					// The per-session cache already reflects the streamed events; a
+					// refetch here would clobber any optimistic user message the
+					// user just queued for the next turn.
+					void queryClient.invalidateQueries( {
+						queryKey: SESSIONS_QUERY_KEY,
+						exact: true,
+					} );
+					return;
+				case 'message':
+					updateCache( ( events ) => [
+						...events,
+						{ type: 'sdk.message', timestamp: event.timestamp, message: event.message },
+					] );
+					return;
+				case 'progress':
+					updateCache( ( events ) => [
+						...events,
+						{ type: 'tool.progress', timestamp: event.timestamp, message: event.message },
+					] );
+					return;
+				case 'question.asked':
+					if ( event.questions.length === 0 ) {
+						return;
+					}
+					updateCache( ( events ) => [
+						...events,
+						...event.questions.map( ( q ) => ( {
+							type: 'agent.question' as const,
+							timestamp: event.timestamp,
+							question: q.question,
+							options: q.options,
+						} ) ),
+					] );
+					dispatch( { type: 'questions_added', questions: event.questions } );
+					return;
 			}
 		} );
 		return unsubscribe;
 	}, [ connector, queryClient, sessionId, updateCache ] );
-
-	// Dispatch the collected answer map once every question in the current
-	// batch has been answered. The user can change a pick at any time before
-	// the batch is complete; keeping the "all-answered → send" decision here
-	// (rather than in `answerQuestion`) avoids races between the two setters.
-	useEffect( () => {
-		if ( ! runState ) {
-			return;
-		}
-		if ( pendingQuestions.length === 0 ) {
-			return;
-		}
-		const complete = pendingQuestions.every(
-			( q ) => typeof pendingAnswers[ q.question ] === 'string'
-		);
-		if ( ! complete ) {
-			return;
-		}
-		const answers = pendingAnswers;
-		setPendingQuestions( [] );
-		setPendingAnswers( {} );
-		void connector.answerAgentQuestion( runState.runId, answers );
-	}, [ pendingAnswers, connector, pendingQuestions, runState ] );
 
 	const sendMessage = useCallback(
 		async ( prompt: string ) => {
 			if ( ! sessionId ) {
 				throw new Error( 'No session selected' );
 			}
-			setError( null );
+			dispatch( { type: 'error_set', message: null } );
 
 			const optimisticEvent: AiSessionEvent = {
 				type: 'user.message',
@@ -204,8 +223,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 
 			try {
 				const { runId: newRunId } = await connector.continueSession( sessionId, prompt );
-				setRunState( { runId: newRunId, startedAt: Date.now() } );
-				setIsTurnActive( true );
+				dispatch( { type: 'send_start', runId: newRunId, startedAt: Date.now() } );
 				subscribedRunIdRef.current = newRunId;
 			} catch ( err ) {
 				updateCache( ( events ) => {
@@ -216,7 +234,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 					return [ ...events.slice( 0, idx ), ...events.slice( idx + 1 ) ];
 				} );
 				const message = err instanceof Error ? err.message : String( err );
-				setError( message );
+				dispatch( { type: 'error_set', message } );
 				throw err;
 			}
 		},
@@ -224,21 +242,38 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 	);
 
 	const interrupt = useCallback( async () => {
-		if ( ! runState ) {
+		if ( ! runId ) {
 			return;
 		}
-		await connector.interruptAgentRun( runState.runId );
-	}, [ connector, runState ] );
+		await connector.interruptAgentRun( runId );
+	}, [ connector, runId ] );
 
-	const answerQuestion = useCallback( ( question: string, answer: string ) => {
-		setPendingAnswers( ( prev ) => ( { ...prev, [ question ]: answer } ) );
-	}, [] );
+	// Dispatch the batch once every question has an answer. Done inline here
+	// (rather than via a useEffect watching `pendingAnswers`) because the
+	// "all-answered → send" decision is a direct consequence of this click.
+	const answerQuestion = useCallback(
+		( question: string, answer: string ) => {
+			if ( ! runId ) {
+				return;
+			}
+			const nextAnswers = { ...pendingAnswers, [ question ]: answer };
+			const complete = pendingQuestions.every(
+				( q ) => typeof nextAnswers[ q.question ] === 'string'
+			);
+			if ( complete ) {
+				dispatch( { type: 'batch_dispatched' } );
+				void connector.answerAgentQuestion( runId, nextAnswers );
+			} else {
+				dispatch( { type: 'question_answered', question, answer } );
+			}
+		},
+		[ connector, runId, pendingAnswers, pendingQuestions ]
+	);
 
 	return {
-		runId: runState?.runId ?? null,
-		isRunning: isTurnActive,
-		hasActiveRun: runState !== null,
-		startedAt: runState?.startedAt ?? null,
+		isRunning: phase === 'running',
+		hasActiveRun: phase !== 'idle',
+		startedAt,
 		error,
 		pendingQuestions,
 		pendingAnswers,

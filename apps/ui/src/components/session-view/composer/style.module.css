@@ -159,6 +159,20 @@
 	filter: brightness(1.15);
 }
 
+.stopButton[aria-busy='true'] {
+	animation: stopPulse 1s ease-in-out infinite;
+}
+
+@keyframes stopPulse {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.5;
+	}
+}
+
 .stopGlyph {
 	width: 9px;
 	height: 9px;

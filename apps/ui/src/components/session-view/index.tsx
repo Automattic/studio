@@ -50,6 +50,7 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 	const {
 		isRunning,
 		hasActiveRun,
+		isInterrupting,
 		startedAt,
 		error: runError,
 		pendingQuestions,
@@ -112,6 +113,7 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 					<QueuedPrompts prompts={ queuedPrompts } onRemove={ removeQueuedPrompt } />
 					<Composer
 						busy={ composerBusy }
+						isInterrupting={ isInterrupting }
 						error={ runError }
 						onSend={ sendMessage }
 						onInterrupt={ interrupt }

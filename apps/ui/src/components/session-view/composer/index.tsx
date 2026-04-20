@@ -24,6 +24,7 @@ function PaperclipIcon() {
 
 interface ComposerProps {
 	busy: boolean;
+	isInterrupting?: boolean;
 	error: string | null;
 	onSend: ( prompt: string ) => Promise< void >;
 	onInterrupt: () => Promise< void >;
@@ -32,7 +33,13 @@ interface ComposerProps {
 const isMacPlatform =
 	typeof navigator !== 'undefined' && /mac/i.test( navigator.platform || navigator.userAgent );
 
-export function Composer( { busy, error, onSend, onInterrupt }: ComposerProps ) {
+export function Composer( {
+	busy,
+	isInterrupting = false,
+	error,
+	onSend,
+	onInterrupt,
+}: ComposerProps ) {
 	const [ value, setValue ] = useState( '' );
 
 	const send = useCallback( async () => {
@@ -117,7 +124,11 @@ export function Composer( { busy, error, onSend, onInterrupt }: ComposerProps ) 
 								type="button"
 								className={ styles.stopButton }
 								onClick={ () => void onInterrupt() }
-								aria-label={ __( 'Stop' ) }
+								aria-label={ isInterrupting ? __( 'Stopping' ) : __( 'Stop' ) }
+								aria-busy={ isInterrupting }
+								title={
+									isInterrupting ? __( 'Stopping… click again to force stop' ) : __( 'Stop' )
+								}
 							>
 								<span className={ styles.stopGlyph } aria-hidden="true" />
 							</button>

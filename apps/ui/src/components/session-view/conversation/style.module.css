@@ -157,3 +157,14 @@
 	color: var(--wpds-color-fg-content-accent, #2563eb);
 	opacity: 1;
 }
+
+.interruptedMarker {
+	align-self: center;
+	margin: var(--wpds-dimension-padding-sm) 0;
+	padding: 2px 10px;
+	border-radius: 9999px;
+	background-color: var(--wpds-color-bg-surface-neutral-weak);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-font-size-xs);
+	text-align: center;
+}

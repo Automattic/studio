@@ -11,6 +11,7 @@ interface AgentRun {
 	child: ChildProcess;
 	webContents: WebContents;
 	interrupted: boolean;
+	interruptAttempts: number;
 }
 
 // Two subprocesses resuming the same session id would race on the JSONL
@@ -78,6 +79,7 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 		child,
 		webContents,
 		interrupted: false,
+		interruptAttempts: 0,
 	};
 
 	runsBySessionId.set( sessionId, run );
@@ -132,7 +134,7 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 	return { runId };
 }
 
-const INTERRUPT_FORCE_KILL_TIMEOUT_MS = 5000;
+const INTERRUPT_FORCE_KILL_TIMEOUT_MS = 2000;
 
 export function interruptAgentRun( runId: string ): void {
 	const run = runsById.get( runId );
@@ -140,14 +142,23 @@ export function interruptAgentRun( runId: string ): void {
 		return;
 	}
 	run.interrupted = true;
+	run.interruptAttempts += 1;
 
-	// Prefer the graceful path: ask the child to interrupt via its Agent SDK
-	// query and exit cleanly. A SIGTERM would be swallowed by module-level
-	// handlers that aren't wired to the SDK, leaving the child running.
+	// Second click escalates: the graceful path is in flight but evidently
+	// not landing fast enough, so skip the grace period.
+	if ( run.interruptAttempts > 1 ) {
+		run.child.kill( 'SIGKILL' );
+		return;
+	}
+
+	// First click: tell the child to interrupt via the Agent SDK and exit
+	// cleanly (so the session recorder flushes). SIGTERM is swallowed by
+	// module-level handlers that aren't wired to the SDK, so we use IPC.
 	if ( run.child.connected ) {
 		run.child.send( { type: 'interrupt' } );
-		// Safety net: if the child doesn't exit in time, force-kill it so the
-		// renderer isn't stuck in a busy state.
+		sendEvent( run, { type: 'run.interrupting', timestamp: nowIso() } );
+		// Safety net: if the graceful path doesn't land quickly, force-kill
+		// so the renderer can't get stuck in a busy state.
 		setTimeout( () => {
 			if ( runsById.get( runId ) === run && ! run.child.killed ) {
 				run.child.kill( 'SIGKILL' );

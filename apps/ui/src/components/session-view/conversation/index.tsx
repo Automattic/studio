@@ -29,7 +29,8 @@ type RenderItem =
 			key: string;
 			question: string;
 			options: Array< { label: string; description: string } >;
-	  };
+	  }
+	| { kind: 'interrupted-marker'; key: string };
 
 function eventsToRenderItems( events: AiSessionEvent[] ): RenderItem[] {
 	const relevant = filterEventsAfterLastClear( events );
@@ -97,6 +98,15 @@ function eventsToRenderItems( events: AiSessionEvent[] ): RenderItem[] {
 					question: event.question,
 					options: event.options,
 				} );
+				return;
+			}
+			case 'turn.closed': {
+				if ( event.status === 'interrupted' ) {
+					items.push( {
+						kind: 'interrupted-marker',
+						key: `${ eventIndex }:interrupted`,
+					} );
+				}
 				return;
 			}
 			default:
@@ -272,6 +282,12 @@ export function Conversation( {
 								pickedLabel={ pendingAnswers[ item.question ] }
 								onAnswer={ ( label ) => onAnswerQuestion( item.question, label ) }
 							/>
+						);
+					case 'interrupted-marker':
+						return (
+							<div key={ item.key } className={ styles.interruptedMarker } role="status">
+								{ __( 'Interrupted by you' ) }
+							</div>
 						);
 					default:
 						return null;

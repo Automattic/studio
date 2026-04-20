@@ -9,7 +9,7 @@ import {
 	dialog,
 	MessageBoxSyncOptions,
 } from 'electron';
-import { execFile } from 'node:child_process';
+import { exec, execFile } from 'node:child_process';
 import path from 'path';
 import { pathToFileURL } from 'url';
 import * as Sentry from '@sentry/electron/main';
@@ -155,8 +155,8 @@ async function appBoot() {
 			if ( process.platform === 'darwin' ) {
 				// In dev mode, all Electron instances share the bundle ID "com.github.Electron".
 				// macOS Launch Services may cache stale binary paths from other workspaces.
-				// Force-register the current Electron.app so Launch Services resolves to
-				// this instance when handling wp-studio:// callbacks.
+				// Unregister all other Electron.app binaries from Launch Services, then
+				// force-register the current one so macOS routes wp-studio:// to this instance.
 				const electronAppPath = path.resolve(
 					path.dirname( require.resolve( 'electron' ) ),
 					'dist',
@@ -164,7 +164,18 @@ async function appBoot() {
 				);
 				const lsregister =
 					'/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister';
-				execFile( lsregister, [ '-f', electronAppPath ], () => registerProtocol() );
+
+				// Find and unregister all com.github.Electron entries from Launch Services,
+				// then force-register the current one.
+				const awkScript = `/^-+$/{p=""} /^path:/{p=substr($0,index($0,"/"))} /com\\.github\\.Electron/{if(p)print p;p=""}`;
+				exec( `"${ lsregister }" -dump | awk '${ awkScript }'`, ( _error, stdout ) => {
+					for ( const p of ( stdout || '' ).trim().split( '\n' ).filter( Boolean ) ) {
+						if ( p !== electronAppPath ) {
+							execFile( lsregister, [ '-u', p ], () => {} );
+						}
+					}
+					execFile( lsregister, [ '-f', electronAppPath ], () => registerProtocol() );
+				} );
 			} else {
 				registerProtocol();
 			}

@@ -46,7 +46,7 @@ const DropdownTrigger = forwardRef< ElementRef< 'button' >, TriggerProps >(
 					aria-label={ statusLabel }
 				/>
 				<span className={ styles.triggerEnv }>{ __( 'Local' ) }</span>
-				<Icon icon={ chevronDownSmall } size={ 18 } />
+				<Icon icon={ chevronDownSmall } />
 			</button>
 		);
 	}

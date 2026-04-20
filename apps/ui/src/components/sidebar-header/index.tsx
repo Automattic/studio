@@ -30,15 +30,15 @@ export function SidebarHeader( { onToggleSidebar }: Props ) {
 					/>
 					<Menu.Popup side="bottom" align="start" className={ styles.popup }>
 						<Menu.Item>
-							<Icon icon={ comment } size={ 16 } />
+							<Icon icon={ comment } />
 							<span>{ __( 'New chat' ) }</span>
 						</Menu.Item>
 						<Menu.Item>
-							<Icon icon={ globe } size={ 16 } />
+							<Icon icon={ globe } />
 							<span>{ __( 'New site project' ) }</span>
 						</Menu.Item>
 						<Menu.Item>
-							<Icon icon={ download } size={ 16 } />
+							<Icon icon={ download } />
 							<span>{ __( 'Import from…' ) }</span>
 						</Menu.Item>
 					</Menu.Popup>

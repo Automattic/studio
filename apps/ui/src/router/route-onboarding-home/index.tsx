@@ -1,8 +1,9 @@
-import { Link } from '@tanstack/react-router';
+import { createRoute, Link } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import styles from './style.module.css';
+import { onboardingLayoutRoute } from '../layout-onboarding';
+import styles from '../layout-onboarding/style.module.css';
 
-export function OnboardingHomePage() {
+function OnboardingHomePage() {
 	return (
 		<div className={ styles.page }>
 			<h1 className={ styles.title }>{ __( 'Start a new site' ) }</h1>
@@ -27,3 +28,9 @@ export function OnboardingHomePage() {
 		</div>
 	);
 }
+
+export const onboardingHomeRoute = createRoute( {
+	getParentRoute: () => onboardingLayoutRoute,
+	path: '/onboarding',
+	component: OnboardingHomePage,
+} );

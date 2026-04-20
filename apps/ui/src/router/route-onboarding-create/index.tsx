@@ -1,4 +1,4 @@
-import { useNavigate } from '@tanstack/react-router';
+import { createRoute, useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { useState } from 'react';
 import { CreateSiteForm } from '@/components/create-site-form';
@@ -7,10 +7,11 @@ import {
 	useProposedSiteName,
 } from '@/data/queries/use-create-site-helpers';
 import { useCreateSite, useSites } from '@/data/queries/use-sites';
-import styles from './style.module.css';
+import { onboardingLayoutRoute } from '../layout-onboarding';
+import styles from '../layout-onboarding/style.module.css';
 import type { CreateSiteFormValues } from '@/components/create-site-form';
 
-export function CreateSitePage() {
+function CreateSitePage() {
 	const navigate = useNavigate();
 	const { data: sites } = useSites();
 	const { data: existingDomainNames } = useExistingCustomDomains();
@@ -57,3 +58,9 @@ export function CreateSitePage() {
 		</div>
 	);
 }
+
+export const onboardingCreateRoute = createRoute( {
+	getParentRoute: () => onboardingLayoutRoute,
+	path: '/onboarding/create',
+	component: CreateSitePage,
+} );

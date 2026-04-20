@@ -456,6 +456,7 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 	const { data, isLoading, error } = useSession( sessionId );
 	const {
 		isRunning,
+		hasActiveRun,
 		startedAt,
 		error: runError,
 		pendingQuestions,
@@ -509,7 +510,7 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 				/>
 			</div>
 			<Composer
-				isRunning={ isRunning || pendingQuestions.length > 0 }
+				isRunning={ hasActiveRun || pendingQuestions.length > 0 }
 				error={ runError }
 				onSend={ sendMessage }
 				onInterrupt={ interrupt }

@@ -20,7 +20,13 @@ export interface PendingQuestion {
 
 export interface LiveAgentEvents {
 	runId: string | null;
+	// The agent loop is actively working: shows the thinking indicator.
+	// Flips off on `turn.completed` while the subprocess keeps winding down.
 	isRunning: boolean;
+	// The underlying subprocess is still alive: blocks starting a new turn.
+	// Flips off on `run.exited`/`run.interrupted`, which can lag behind
+	// `turn.completed` by the persist-queue drain time.
+	hasActiveRun: boolean;
 	startedAt: number | null;
 	error: string | null;
 	pendingQuestions: PendingQuestion[];
@@ -38,6 +44,10 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 	const queryClient = useQueryClient();
 
 	const [ runState, setRunState ] = useState< RunState | null >( null );
+	// Tracks the agent-loop phase within the current run. Cleared on
+	// `turn.completed` so the thinking indicator hides even while the
+	// subprocess is still flushing its recorder queue.
+	const [ turnActive, setTurnActive ] = useState( false );
 	const [ error, setError ] = useState< string | null >( null );
 	// The agent's `AskUserQuestion` tool can ask several questions at once;
 	// the CLI expects a single answers map covering every question in the
@@ -55,6 +65,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 
 	useEffect( () => {
 		setRunState( null );
+		setTurnActive( false );
 		setError( null );
 		setPendingQuestions( [] );
 		setPendingAnswers( {} );
@@ -99,11 +110,11 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 				return;
 			}
 
-			// Hide the thinking indicator the moment the agent loop finishes —
-			// the subprocess still takes time to flush recorder writes and
-			// exit, but the turn itself is already over.
+			// Hide the thinking indicator the moment the agent loop finishes.
+			// The composer stays disabled until `run.exited` because the
+			// subprocess is still winding down and can't accept a new turn.
 			if ( event.type === 'turn.completed' ) {
-				setRunState( null );
+				setTurnActive( false );
 				setPendingQuestions( [] );
 				setPendingAnswers( {} );
 				return;
@@ -111,6 +122,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 
 			if ( event.type === 'run.exited' || event.type === 'run.interrupted' ) {
 				setRunState( null );
+				setTurnActive( false );
 				setPendingQuestions( [] );
 				setPendingAnswers( {} );
 				subscribedRunIdRef.current = null;
@@ -203,6 +215,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 			try {
 				const { runId: newRunId } = await connector.continueSession( sessionId, prompt );
 				setRunState( { runId: newRunId, startedAt: Date.now() } );
+				setTurnActive( true );
 				subscribedRunIdRef.current = newRunId;
 			} catch ( err ) {
 				updateCache( ( events ) => {
@@ -233,7 +246,8 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 
 	return {
 		runId: runState?.runId ?? null,
-		isRunning: runState !== null,
+		isRunning: turnActive,
+		hasActiveRun: runState !== null,
 		startedAt: runState?.startedAt ?? null,
 		error,
 		pendingQuestions,

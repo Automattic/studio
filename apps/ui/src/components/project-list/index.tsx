@@ -15,7 +15,6 @@ import {
 	useStopSite,
 } from '@/data/queries/use-sites';
 import { formatRelativeTime } from '@/lib/format-relative-time';
-import { getSiteDisplayUrl } from '@/lib/get-site-url';
 import styles from './style.module.css';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
@@ -25,16 +24,8 @@ type ProjectGroup = {
 	key: string;
 	site?: SiteDetails;
 	label: string;
-	subtitle?: string;
 	sessions: AiSessionSummary[];
 };
-
-function deriveSubtitle( site: SiteDetails ): string | undefined {
-	if ( site.customDomain || site.port > 0 ) {
-		return getSiteDisplayUrl( site );
-	}
-	return site.path.split( /[\\/]/ ).filter( Boolean ).pop();
-}
 
 function groupSessionsByOwner(
 	sites: SiteDetails[] | undefined,
@@ -62,7 +53,6 @@ function groupSessionsByOwner(
 		key: site.id,
 		site,
 		label: site.name,
-		subtitle: deriveSubtitle( site ),
 		sessions: sessionsByPath.get( site.path ) ?? [],
 	} ) );
 
@@ -210,9 +200,6 @@ function ProjectSection( {
 					>
 						<span className={ styles.projectName }>{ group.label }</span>
 					</SidebarButton>
-					{ group.subtitle ? (
-						<span className={ styles.projectSubtitle }>{ group.subtitle }</span>
-					) : null }
 				</div>
 				{ group.site ? (
 					<div className={ styles.projectActions }>

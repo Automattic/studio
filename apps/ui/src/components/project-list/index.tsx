@@ -150,7 +150,7 @@ function ProjectActionsMenu( { site }: { site: SiteDetails } ) {
 						tone="neutral"
 						size="small"
 						icon={ moreHorizontal }
-						label={ __( 'Project actions' ) }
+						label={ __( 'Site actions' ) }
 						className={ styles.projectAction }
 					/>
 				}
@@ -268,7 +268,7 @@ export function ProjectList() {
 			{ sitesLoading || sessionsLoading ? (
 				<p className={ styles.empty }>{ __( 'Loading…' ) }</p>
 			) : groups.length === 0 ? (
-				<p className={ styles.empty }>{ __( 'No projects yet' ) }</p>
+				<p className={ styles.empty }>{ __( 'No sites yet' ) }</p>
 			) : (
 				<div className={ styles.projects }>
 					{ groups.map( ( group ) => (

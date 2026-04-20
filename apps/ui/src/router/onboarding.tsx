@@ -1,69 +1,127 @@
-import { createRoute } from '@tanstack/react-router';
+import { createRoute, Link, Outlet, useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
+import { useState } from 'react';
+import { CreateSiteForm } from '@/components/create-site-form';
 import { OnboardingLayout } from '@/components/onboarding-layout';
+import {
+	useExistingCustomDomains,
+	usePathValidator,
+	useProposedSiteName,
+} from '@/data/queries/use-create-site-helpers';
+import { useSites, useCreateSite } from '@/data/queries/use-sites';
+import styles from './onboarding.module.css';
 import { rootRoute } from './root';
+import type { CreateSiteFormValues } from '@/components/create-site-form';
 
-function OnboardingPage() {
+function OnboardingShell() {
+	const navigate = useNavigate();
+	const { data: sites } = useSites();
+	const hasSites = ( sites?.length ?? 0 ) > 0;
 	return (
-		<OnboardingLayout>
-			<div style={ { textAlign: 'center' } }>
-				<h1
-					style={ {
-						fontSize: '2rem',
-						fontWeight: 600,
-						marginBottom: 8,
-					} }
-				>
-					{ __( 'Start a new project' ) }
-				</h1>
-				<p style={ { color: '#666', marginBottom: 32 } }>
-					{ __( 'WordPress can power anything. What are you building?' ) }
-				</p>
-				<div
-					style={ {
-						display: 'flex',
-						gap: 16,
-						justifyContent: 'center',
-					} }
-				>
-					<div
-						style={ {
-							border: '1px solid #ddd',
-							borderRadius: 8,
-							padding: 24,
-							width: 240,
-							textAlign: 'left',
-							cursor: 'pointer',
-						} }
-					>
-						<h3 style={ { fontWeight: 600, marginBottom: 8 } }>{ __( 'Create new' ) }</h3>
-						<p style={ { color: '#666', fontSize: '0.875rem' } }>
-							{ __( 'Start fresh with a blank project and build it with AI' ) }
-						</p>
-					</div>
-					<div
-						style={ {
-							border: '1px solid #ddd',
-							borderRadius: 8,
-							padding: 24,
-							width: 240,
-							textAlign: 'left',
-							cursor: 'pointer',
-						} }
-					>
-						<h3 style={ { fontWeight: 600, marginBottom: 8 } }>{ __( 'Bring existing' ) }</h3>
-						<p style={ { color: '#666', fontSize: '0.875rem' } }>
-							{ __( 'Import from WordPress.com, a backup, or an export file' ) }
-						</p>
-					</div>
-				</div>
-			</div>
+		<OnboardingLayout
+			onClose={ hasSites ? () => void navigate( { to: '/dashboard' } ) : undefined }
+		>
+			<Outlet />
 		</OnboardingLayout>
 	);
 }
 
-export const onboardingRoute = createRoute( {
+const onboardingLayoutRoute = createRoute( {
 	getParentRoute: () => rootRoute,
-	path: '/onboarding',
-	component: OnboardingPage,
+	id: 'onboarding-layout',
+	component: OnboardingShell,
 } );
+
+function OnboardingIndex() {
+	return (
+		<div className={ styles.page }>
+			<h1 className={ styles.title }>{ __( 'Start a new site' ) }</h1>
+			<p className={ styles.subtitle }>
+				{ __( 'WordPress can power anything. What are you building?' ) }
+			</p>
+			<div className={ styles.cards }>
+				<Link to="/onboarding/create" className={ styles.card }>
+					<h3 className={ styles.cardTitle }>{ __( 'Create new' ) }</h3>
+					<p className={ styles.cardBody }>
+						{ __( 'Start fresh with a blank site and build it with AI' ) }
+					</p>
+				</Link>
+				<div className={ `${ styles.card } ${ styles.cardDisabled }` }>
+					<h3 className={ styles.cardTitle }>{ __( 'Bring existing' ) }</h3>
+					<p className={ styles.cardBody }>
+						{ __( 'Import from WordPress.com, a backup, or an export file' ) }
+					</p>
+					<span className={ styles.cardBadge }>{ __( 'Coming soon' ) }</span>
+				</div>
+			</div>
+		</div>
+	);
+}
+
+function CreateSitePage() {
+	const navigate = useNavigate();
+	const { data: sites } = useSites();
+	const { data: existingDomainNames } = useExistingCustomDomains();
+	const { data: proposedName } = useProposedSiteName( sites );
+	const { generateProposedPath, selectPath } = usePathValidator( sites );
+	const createSite = useCreateSite();
+	const [ submitError, setSubmitError ] = useState( '' );
+
+	const handleSubmit = async ( values: CreateSiteFormValues ) => {
+		setSubmitError( '' );
+		try {
+			await createSite.mutateAsync( {
+				name: values.name,
+				path: values.path,
+				phpVersion: values.phpVersion,
+				wpVersion: values.wpVersion,
+				customDomain: values.customDomain,
+				enableHttps: values.enableHttps,
+				adminUsername: values.adminUsername || undefined,
+				adminPassword: values.adminPassword || undefined,
+				adminEmail: values.adminEmail || undefined,
+			} );
+			await navigate( { to: '/dashboard' } );
+		} catch ( error ) {
+			setSubmitError(
+				error instanceof Error ? error.message : __( 'Failed to create site. Please try again.' )
+			);
+		}
+	};
+
+	return (
+		<div className={ styles.page }>
+			<h1 className={ styles.title }>{ __( 'Create a new site' ) }</h1>
+			<p className={ styles.subtitle }>
+				{ __( 'Choose a name and we\u2019ll scaffold a fresh WordPress site locally.' ) }
+			</p>
+			<CreateSiteForm
+				defaultName={ proposedName }
+				existingDomainNames={ existingDomainNames ?? [] }
+				onSubmit={ handleSubmit }
+				onCancel={ () => void navigate( { to: '/onboarding' } ) }
+				onGenerateProposedPath={ generateProposedPath }
+				onSelectPath={ selectPath }
+				isSubmitting={ createSite.isPending }
+				submitError={ submitError }
+			/>
+		</div>
+	);
+}
+
+const onboardingIndexRoute = createRoute( {
+	getParentRoute: () => onboardingLayoutRoute,
+	path: '/onboarding',
+	component: OnboardingIndex,
+} );
+
+const onboardingCreateRoute = createRoute( {
+	getParentRoute: () => onboardingLayoutRoute,
+	path: '/onboarding/create',
+	component: CreateSitePage,
+} );
+
+export const onboardingRoute = onboardingLayoutRoute.addChildren( [
+	onboardingIndexRoute,
+	onboardingCreateRoute,
+] );

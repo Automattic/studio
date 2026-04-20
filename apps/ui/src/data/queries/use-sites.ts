@@ -1,6 +1,7 @@
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { useConnector } from '@/data/core';
+import type { CreateSiteParams } from '@/data/core';
 
 export const SITES_QUERY_KEY = [ 'sites' ] as const;
 
@@ -19,7 +20,7 @@ export function useCreateSite() {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	return useMutation( {
-		mutationFn: ( params: { name: string } ) => connector.createSite( params ),
+		mutationFn: ( params: CreateSiteParams ) => connector.createSite( params ),
 		onSuccess: () => queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } ),
 	} );
 }

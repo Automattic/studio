@@ -207,10 +207,25 @@ export async function createAiSession(
 	if ( ! server ) {
 		throw new Error( `Site not found: ${ siteId }` );
 	}
-	return createAiSessionInStore( getAiSessionsRootDirectory(), {
+	const sitePath = server.details.path;
+	const sitesRoot = getAiSessionsRootDirectory();
+
+	// Reuse the newest existing empty session for this site (one that has
+	// never received a user prompt) instead of creating another one. This
+	// lets `/sites/$siteId/new` act as a stable "draft slot" per site — the
+	// UI can redirect to it eagerly without piling up orphan sessions.
+	const existing = await listAiSessionsFromStore( sitesRoot );
+	const emptyForSite = existing
+		.filter( ( session ) => session.ownerSitePath === sitePath && ! session.firstPrompt )
+		.sort( ( a, b ) => Date.parse( b.updatedAt ) - Date.parse( a.updatedAt ) )[ 0 ];
+	if ( emptyForSite ) {
+		return emptyForSite;
+	}
+
+	return createAiSessionInStore( sitesRoot, {
 		site: {
 			name: server.details.name,
-			path: server.details.path,
+			path: sitePath,
 		},
 	} );
 }

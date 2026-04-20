@@ -59,7 +59,6 @@
 	margin: 0;
 	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md);
 	border-left: 2px solid var(--wpds-color-stroke-surface-neutral);
-	background-color: var(--wpds-color-bg-surface-neutral-strong);
 	color: var(--wpds-color-fg-content-neutral);
 	font-family: var(--wpds-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
 	font-size: var(--wpds-font-size-xs);
@@ -96,8 +95,8 @@
 }
 
 .toolLabel {
-	color: var(--wpds-color-fg-content-neutral-weak);
-	opacity: 0.7;
+	color: var(--wpds-color-fg-content-neutral);
+	font-weight: 600;
 	flex-shrink: 0;
 }
 

@@ -66,13 +66,12 @@ export function getWpConfigMountPaths( sitePath: string ): MountPath[] {
 			continue;
 		}
 
-		// Skip sensitive system paths
+		// Skip sensitive system paths. Compare against the raw POSIX-style path
+		// captured from the regex (not the resolved path), so detection works the
+		// same on Windows where path.resolve() would prepend a drive letter and
+		// break a literal "/etc/" prefix match.
 		const sensitiveRoots = [ '/etc', '/var', '/proc', '/sys', '/dev' ];
-		if (
-			sensitiveRoots.some(
-				( root ) => resolvedPath === root || resolvedPath.startsWith( root + '/' )
-			)
-		) {
+		if ( sensitiveRoots.some( ( root ) => rawPath === root || rawPath.startsWith( root + '/' ) ) ) {
 			continue;
 		}
 

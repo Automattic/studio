@@ -77,6 +77,12 @@ async function readHeader( fd: fs.promises.FileHandle ): Promise< Header | null 
 	};
 }
 
+function isPathWithinDirectory( filePath: string, directory: string ): boolean {
+	const resolvedFile = path.resolve( filePath );
+	const resolvedDir = path.resolve( directory );
+	return resolvedFile.startsWith( resolvedDir + path.sep ) || resolvedFile === resolvedDir;
+}
+
 /**
  * Reads a block of data from a .wpress file and writes it to a file.
  *
@@ -86,6 +92,12 @@ async function readHeader( fd: fs.promises.FileHandle ): Promise< Header | null 
  */
 async function readBlockToFile( fd: fs.promises.FileHandle, header: Header, outputPath: string ) {
 	const outputFilePath = path.join( outputPath, header.prefix, header.name );
+
+	if ( ! isPathWithinDirectory( outputFilePath, outputPath ) ) {
+		await fd.read( Buffer.alloc( header.size ), 0, header.size, null );
+		return;
+	}
+
 	await fse.ensureDir( path.dirname( outputFilePath ) );
 	const outputStream = fs.createWriteStream( outputFilePath );
 

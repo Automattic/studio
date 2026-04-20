@@ -1,4 +1,4 @@
-import { Link, useParams } from '@tanstack/react-router';
+import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { moreHorizontal, plus } from '@wordpress/icons';
 import { IconButton } from '@wordpress/ui';
@@ -6,7 +6,7 @@ import { clsx } from 'clsx';
 import { useMemo, useState } from 'react';
 import * as Menu from '@/components/menu';
 import { SidebarButton } from '@/components/sidebar-button';
-import { useSessions } from '@/data/queries/use-sessions';
+import { useCreateSession, useSessions } from '@/data/queries/use-sessions';
 import {
 	useIsSiteStarting,
 	useIsSiteStopping,
@@ -15,7 +15,6 @@ import {
 	useStopSite,
 } from '@/data/queries/use-sites';
 import { formatRelativeTime } from '@/lib/format-relative-time';
-import { getSiteDisplayUrl } from '@/lib/get-site-url';
 import styles from './style.module.css';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
@@ -25,16 +24,8 @@ type ProjectGroup = {
 	key: string;
 	site?: SiteDetails;
 	label: string;
-	subtitle?: string;
 	sessions: AiSessionSummary[];
 };
-
-function deriveSubtitle( site: SiteDetails ): string | undefined {
-	if ( site.customDomain || site.port > 0 ) {
-		return getSiteDisplayUrl( site );
-	}
-	return site.path.split( /[\\/]/ ).filter( Boolean ).pop();
-}
 
 function groupSessionsByOwner(
 	sites: SiteDetails[] | undefined,
@@ -62,7 +53,6 @@ function groupSessionsByOwner(
 		key: site.id,
 		site,
 		label: site.name,
-		subtitle: deriveSubtitle( site ),
 		sessions: sessionsByPath.get( site.path ) ?? [],
 	} ) );
 
@@ -115,6 +105,32 @@ function SessionItem( { session }: { session: AiSessionSummary } ) {
 				<span className={ styles.sessionTime }>{ formatRelativeTime( session.updatedAt ) }</span>
 			</SidebarButton>
 		</li>
+	);
+}
+
+function NewSessionButton( { site }: { site: SiteDetails } ) {
+	const navigate = useNavigate();
+	const createSession = useCreateSession();
+
+	const handleClick = async () => {
+		if ( createSession.isPending ) {
+			return;
+		}
+		const summary = await createSession.mutateAsync( site.id );
+		await navigate( { to: '/sessions/$sessionId', params: { sessionId: summary.id } } );
+	};
+
+	return (
+		<IconButton
+			variant="minimal"
+			tone="neutral"
+			size="small"
+			icon={ plus }
+			label={ __( 'New session' ) }
+			className={ styles.projectAction }
+			onClick={ handleClick }
+			disabled={ createSession.isPending }
+		/>
 	);
 }
 
@@ -184,21 +200,11 @@ function ProjectSection( {
 					>
 						<span className={ styles.projectName }>{ group.label }</span>
 					</SidebarButton>
-					{ group.subtitle ? (
-						<span className={ styles.projectSubtitle }>{ group.subtitle }</span>
-					) : null }
 				</div>
 				{ group.site ? (
 					<div className={ styles.projectActions }>
 						<ProjectActionsMenu site={ group.site } />
-						<IconButton
-							variant="minimal"
-							tone="neutral"
-							size="small"
-							icon={ plus }
-							label={ __( 'New session' ) }
-							className={ styles.projectAction }
-						/>
+						<NewSessionButton site={ group.site } />
 					</div>
 				) : null }
 			</header>

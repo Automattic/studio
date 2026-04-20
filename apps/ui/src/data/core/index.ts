@@ -1,6 +1,7 @@
 export { ConnectorProvider, useConnector } from './connector-context';
 export { queryClient, persistPromise } from './query-client';
 export type {
+	AiModelId,
 	AiSessionEvent,
 	AiSessionSummary,
 	AuthUser,
@@ -11,3 +12,4 @@ export type {
 	Snapshot,
 	SyncSite,
 } from './types';
+export type { AgentEvent, AgentRunEvent } from './agent-events';

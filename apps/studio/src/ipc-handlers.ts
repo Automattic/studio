@@ -18,7 +18,10 @@ import https from 'node:https';
 import os from 'os';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
+import { isAiModelId } from '@studio/common/ai/models';
 import {
+	appendAiSessionEvent,
+	createAiSession as createAiSessionInStore,
 	deleteAiSession as deleteAiSessionFromStore,
 	listAiSessions as listAiSessionsFromStore,
 	loadAiSession as loadAiSessionFromStore,
@@ -104,6 +107,7 @@ import {
 	removeSkillById,
 	type SkillStatus,
 } from 'src/modules/agent-instructions/lib/skills';
+import { answerAgentRun, interruptAgentRun, startAgentRun } from 'src/modules/ai-agent/run-manager';
 import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
@@ -170,6 +174,13 @@ export {
 	showUserSettings,
 } from 'src/modules/user-settings/lib/ipc-handlers';
 
+export {
+	studioCodeSendMessage,
+	studioCodeRespondToPermission,
+	studioCodeAbort,
+	studioCodeCheckProvider,
+} from 'src/modules/studio-code/ipc-handlers';
+
 export async function listAiSessions( _event: IpcMainInvokeEvent ): Promise< AiSessionSummary[] > {
 	return listAiSessionsFromStore( getAiSessionsRootDirectory() );
 }
@@ -186,6 +197,64 @@ export async function deleteAiSession(
 	sessionIdOrPrefix: string
 ): Promise< AiSessionSummary > {
 	return deleteAiSessionFromStore( getAiSessionsRootDirectory(), sessionIdOrPrefix );
+}
+
+export async function createAiSession(
+	_event: IpcMainInvokeEvent,
+	siteId: string
+): Promise< AiSessionSummary > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( `Site not found: ${ siteId }` );
+	}
+	return createAiSessionInStore( getAiSessionsRootDirectory(), {
+		site: {
+			name: server.details.name,
+			path: server.details.path,
+		},
+	} );
+}
+
+export async function continueAiSession(
+	event: IpcMainInvokeEvent,
+	sessionId: string,
+	prompt: string
+): Promise< { runId: string } > {
+	return startAgentRun( {
+		sessionId,
+		prompt,
+		webContents: event.sender,
+	} );
+}
+
+export async function setAiSessionModel(
+	_event: IpcMainInvokeEvent,
+	sessionId: string,
+	model: string
+): Promise< void > {
+	if ( ! isAiModelId( model ) ) {
+		throw new Error( `Unknown AI model: ${ model }` );
+	}
+	await appendAiSessionEvent( getAiSessionsRootDirectory(), sessionId, {
+		type: 'session.model_selected',
+		timestamp: new Date().toISOString(),
+		model,
+	} );
+}
+
+export async function interruptAiAgentRun(
+	_event: IpcMainInvokeEvent,
+	runId: string
+): Promise< void > {
+	interruptAgentRun( runId );
+}
+
+export async function answerAiAgentQuestion(
+	_event: IpcMainInvokeEvent,
+	runId: string,
+	answers: Record< string, string >
+): Promise< void > {
+	answerAgentRun( runId, answers );
 }
 
 export async function getAgentInstructionsStatus(

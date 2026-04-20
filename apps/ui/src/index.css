@@ -9,7 +9,7 @@ body {
 	font-family: var(--wpds-font-family-body);
 	font-size: var(--wpds-font-size-md);
 	line-height: var(--wpds-font-line-height-md);
-	background-color: var(--wpds-color-bg-surface-neutral-strong);
+	background-color: var(--wpds-color-bg-surface-neutral);
 	color: var(--wpds-color-fg-content-neutral);
 	color-scheme: light dark;
 }
@@ -38,12 +38,13 @@ a:focus:not(:focus-visible),
 	outline: none;
 }
 
-/* Default icons inside buttons and menu items to 75% scale — WP UI's Icon
-   primitive draws at 16px, which reads a bit large for dense sidebars and
-   menus. `a svg` covers Button primitives rendered as links via their
-   `render` prop. */
-button svg,
-a svg,
-[role^="menuitem"] svg {
-	transform: scale(0.75);
+/* Compact density: shrink icons to match the tighter spacing tokens.
+   @wordpress/icons draws SVGs at 24x24 by default; the theme's compact
+   density only shrinks padding/gap tokens, not icon sizes. Override the
+   svg width/height attributes with CSS until the design system exposes
+   a density-aware icon token. Ideally this lives in ThemeProvider. */
+[data-wpds-density='compact'] svg {
+	width: 16px;
+	height: 16px;
 }
+

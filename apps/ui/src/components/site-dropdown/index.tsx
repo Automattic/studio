@@ -24,30 +24,36 @@ function stripProtocol( url: string ): string {
 	return url.replace( /^https?:\/\//, '' ).replace( /\/$/, '' );
 }
 
-type TriggerProps = Omit< ComponentProps< 'button' >, 'children' > & {
+type TriggerProps = Omit< ComponentProps< typeof Button >, 'children' > & {
 	siteName: string;
+	siteUrl: string;
 	status: SiteStatus;
 	statusLabel: string;
 };
 
-const DropdownTrigger = forwardRef< ElementRef< 'button' >, TriggerProps >(
-	function DropdownTrigger( { siteName, status, statusLabel, className, ...props }, ref ) {
+const DropdownTrigger = forwardRef< ElementRef< typeof Button >, TriggerProps >(
+	function DropdownTrigger( { siteName, siteUrl, status, statusLabel, className, ...props }, ref ) {
 		return (
-			<button
+			<Button
 				ref={ ref }
-				type="button"
-				className={ `${ styles.trigger } ${ className ?? '' }` }
+				variant="minimal"
+				tone="neutral"
+				size="small"
+				className={ clsx( styles.trigger, className ) }
 				{ ...props }
 			>
 				<span className={ styles.triggerSite }>{ siteName }</span>
-				<span
-					className={ clsx( styles.triggerDot, styles[ `triggerDot_${ status }` ] ) }
-					role="img"
-					aria-label={ statusLabel }
-				/>
-				<span className={ styles.triggerEnv }>{ __( 'Local' ) }</span>
-				<Icon icon={ chevronDownSmall } size={ 18 } />
-			</button>
+				<span className={ styles.triggerStatus }>
+					<span
+						className={ clsx( styles.triggerDot, styles[ `triggerDot_${ status }` ] ) }
+						role="img"
+						aria-label={ statusLabel }
+					/>
+					<span className={ styles.triggerEnv }>{ __( 'Local' ) }</span>
+				</span>
+				<span className={ styles.triggerUrl }>{ siteUrl }</span>
+				<Icon icon={ chevronDownSmall } />
+			</Button>
 		);
 	}
 );
@@ -159,7 +165,12 @@ export function SiteDropdown( { site }: Props ) {
 		<Menu.Root modal={ false }>
 			<Menu.Trigger
 				render={
-					<DropdownTrigger siteName={ site.name } status={ status } statusLabel={ statusLabel } />
+					<DropdownTrigger
+						siteName={ site.name }
+						siteUrl={ getSiteDisplayUrl( site ) }
+						status={ status }
+						statusLabel={ statusLabel }
+					/>
 				}
 			/>
 			<Menu.Popup side="bottom" align="start" className={ styles.popup }>

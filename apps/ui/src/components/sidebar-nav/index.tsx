@@ -42,7 +42,7 @@ export function SidebarNav() {
 								) : undefined
 							}
 						>
-							<Icon icon={ item.icon } size={ 16 } />
+							<Icon icon={ item.icon } />
 							<span>{ item.label }</span>
 						</SidebarButton>
 					</li>

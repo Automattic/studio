@@ -1,32 +1,17 @@
-import { ImportExportEventData, handleEvents } from '../handle-events';
-import { ExportEvents } from './events';
 import { DefaultExporter, SqlExporter } from './exporters';
-import { ExportOptions, NewExporter } from './types';
+import { ExportOptions, Exporter, NewExporter } from './types';
 
-export async function exportBackup(
+export async function getExporter(
 	exportOptions: ExportOptions,
-	onEvent: ( data: ImportExportEventData ) => void,
 	exporters: NewExporter[] = defaultExporterOptions
-): Promise< boolean > {
-	let foundValidExporter;
+): Promise< Exporter | null > {
 	for ( const Exporter of exporters ) {
 		const exporterInstance = new Exporter( exportOptions );
-		const removeExportListeners = handleEvents( exporterInstance, onEvent, ExportEvents );
-		foundValidExporter = await exporterInstance.canHandle();
-		if ( foundValidExporter ) {
-			try {
-				await exporterInstance.export();
-			} finally {
-				removeExportListeners();
-			}
-			break;
+		if ( await exporterInstance.canHandle() ) {
+			return exporterInstance;
 		}
 	}
-	if ( ! foundValidExporter ) {
-		onEvent( { event: ExportEvents.EXPORT_ERROR, data: null } );
-		return false;
-	}
-	return true;
+	return null;
 }
 
 const defaultExporterOptions: NewExporter[] = [ DefaultExporter, SqlExporter ];

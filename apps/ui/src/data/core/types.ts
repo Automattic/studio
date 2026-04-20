@@ -1,3 +1,5 @@
+import type { AgentRunEvent } from './agent-events';
+import type { AiModelId } from '@studio/common/ai/models';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { SyncSite } from '@studio/common/types/sync';
@@ -7,6 +9,7 @@ export type {
 	LoadedAiSession,
 	AiSessionEvent,
 } from '@studio/common/ai/sessions/types';
+export type { AiModelId } from '@studio/common/ai/models';
 export type { Snapshot } from '@studio/common/types/snapshot';
 export type { SyncSite } from '@studio/common/types/sync';
 
@@ -65,6 +68,23 @@ export interface Connector {
 	getSessions(): Promise< AiSessionSummary[] >;
 	getSession( sessionId: string ): Promise< LoadedAiSession >;
 	deleteSession( sessionId: string ): Promise< void >;
+
+	// Create an empty session file attached to a site, so the new session
+	// appears in the sidebar immediately. The first prompt flows through
+	// `continueSession` as usual.
+	createSession( siteId: string ): Promise< AiSessionSummary >;
+
+	// Continue an existing session by sending a new prompt. Returns a `runId`
+	// that identifies the in-flight agent run; live events for that run stream
+	// through `onAgentEvent`.
+	continueSession( sessionId: string, prompt: string ): Promise< { runId: string } >;
+	// Persist a UI-driven model override for the session. The CLI picks this up
+	// on the next turn; the change survives reloads because it's written to the
+	// session JSONL.
+	setSessionModel( sessionId: string, model: AiModelId ): Promise< void >;
+	interruptAgentRun( runId: string ): Promise< void >;
+	answerAgentQuestion( runId: string, answers: Record< string, string > ): Promise< void >;
+	onAgentEvent( listener: ( event: AgentRunEvent ) => void ): () => void;
 
 	// Locale
 	getUserLocale(): Promise< string | undefined >;

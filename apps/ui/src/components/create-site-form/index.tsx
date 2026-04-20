@@ -64,6 +64,9 @@ interface CreateSiteFormProps {
 interface FormData {
 	name: string;
 	path: string;
+	// True once the user has manually picked a folder via the path picker,
+	// so the name→path auto-generation effect stops overriding their choice.
+	hasCustomPath: boolean;
 	phpVersion: SupportedPHPVersion;
 	wpVersion: string;
 	useCustomDomain: boolean;
@@ -78,6 +81,70 @@ const PHP_VERSION_ELEMENTS = SupportedPHPVersions.map( ( version ) => ( {
 	value: version,
 	label: version,
 } ) );
+
+interface PathFieldProps extends DataFormControlProps< FormData > {
+	onSelectPath: ( currentPath: string ) => Promise< PathValidationResult | null >;
+	onPathError: ( error: string ) => void;
+}
+
+function PathField( {
+	data: item,
+	field,
+	hideLabelFromVision,
+	onChange,
+	validity,
+	onSelectPath,
+	onPathError,
+}: PathFieldProps ) {
+	const handleSelect = useCallback( async () => {
+		const result = await onSelectPath( item.hasCustomPath ? item.path : '' );
+		if ( ! result ) return;
+		onPathError( result.error ?? '' );
+		onChange( {
+			path: result.path,
+			hasCustomPath: true,
+			...( ! item.name && result.name ? { name: result.name } : {} ),
+		} );
+	}, [ item.hasCustomPath, item.name, item.path, onChange, onPathError, onSelectPath ] );
+
+	const errorMessage = validity?.custom?.message;
+
+	return (
+		<InputControl
+			__next40pxDefaultSize
+			label={ field.label }
+			hideLabelFromVision={ hideLabelFromVision }
+			value={ item.path }
+			placeholder={ __( 'Choose a folder…' ) }
+			readOnly
+			onClick={ handleSelect }
+			className={ styles.pathControl }
+			help={
+				errorMessage || (
+					<>
+						{ __(
+							'Select an empty directory or a directory with an existing WordPress site.'
+						) }{ ' ' }
+						<LearnMoreLink docsLinksKey="docsSites" />
+					</>
+				)
+			}
+			suffix={
+				<InputControlSuffixWrapper variant="control">
+					<Button
+						type="button"
+						variant="minimal"
+						tone="neutral"
+						size="small"
+						onClick={ handleSelect }
+					>
+						{ __( 'Choose…' ) }
+					</Button>
+				</InputControlSuffixWrapper>
+			}
+		/>
+	);
+}
 
 function EnableHttpsControl( { data: item, field, onChange }: DataFormControlProps< FormData > ) {
 	return (
@@ -140,6 +207,7 @@ export function CreateSiteForm( {
 	const [ data, setData ] = useState< FormData >( () => ( {
 		name: '',
 		path: '',
+		hasCustomPath: false,
 		phpVersion: RecommendedPHPVersion,
 		wpVersion: DEFAULT_WORDPRESS_VERSION,
 		useCustomDomain: false,
@@ -149,10 +217,10 @@ export function CreateSiteForm( {
 		adminPassword: generatePassword(),
 		adminEmail: 'admin@localhost.com',
 	} ) );
-	// IPC-derived path errors (duplicate site, non-empty non-WP folder) live
-	// outside DataForm's validity since they can't be computed synchronously.
+	// `pathError` is driven by IPC (duplicate site, non-empty non-WP folder)
+	// and surfaced through DataForm via `Field.isValid.custom` on the `path`
+	// field below.
 	const [ pathError, setPathError ] = useState( '' );
-	const hasCustomPath = useRef( false );
 
 	// Seed the site name from `defaultName` the first time it resolves, as
 	// long as the user hasn't typed anything yet. Fires once — subsequent
@@ -164,60 +232,13 @@ export function CreateSiteForm( {
 		setData( ( prev ) => ( prev.name ? prev : { ...prev, name: defaultName } ) );
 	}, [ defaultName ] );
 
-	const handleSelectPath = useCallback( async () => {
-		const result = await onSelectPath( hasCustomPath.current ? data.path : '' );
-		if ( ! result ) return;
-		hasCustomPath.current = true;
-		setPathError( result.error ?? '' );
-		setData( ( prev ) => ( {
-			...prev,
-			path: result.path,
-			name: prev.name || result.name || prev.name,
-		} ) );
-	}, [ data.path, onSelectPath ] );
-
-	// Custom Edit control for the site path: an InputControl that matches the
-	// chrome of the other DataForm fields, but is read-only and opens the
-	// native folder picker on click or via the suffix button.
-	const PathControl = useCallback(
-		( { data: item, field, hideLabelFromVision }: DataFormControlProps< FormData > ) => {
-			return (
-				<InputControl
-					__next40pxDefaultSize
-					label={ field.label }
-					hideLabelFromVision={ hideLabelFromVision }
-					value={ item.path }
-					placeholder={ __( 'Choose a folder…' ) }
-					readOnly
-					onClick={ handleSelectPath }
-					className={ styles.pathControl }
-					help={
-						pathError || (
-							<>
-								{ __(
-									'Select an empty directory or a directory with an existing WordPress site.'
-								) }{ ' ' }
-								<LearnMoreLink docsLinksKey="docsSites" />
-							</>
-						)
-					}
-					suffix={
-						<InputControlSuffixWrapper variant="control">
-							<Button
-								type="button"
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								onClick={ handleSelectPath }
-							>
-								{ __( 'Choose…' ) }
-							</Button>
-						</InputControlSuffixWrapper>
-					}
-				/>
-			);
-		},
-		[ handleSelectPath, pathError ]
+	// Adapter that bridges DataForm's Edit contract (only `DataFormControlProps`
+	// allowed) to `PathField`'s explicit API.
+	const renderPathField = useCallback(
+		( props: DataFormControlProps< FormData > ) => (
+			<PathField { ...props } onSelectPath={ onSelectPath } onPathError={ setPathError } />
+		),
+		[ onSelectPath ]
 	);
 
 	const fields = useMemo< Field< FormData >[] >(
@@ -231,7 +252,11 @@ export function CreateSiteForm( {
 			{
 				id: 'path',
 				label: __( 'Local path' ),
-				Edit: PathControl,
+				Edit: renderPathField,
+				isValid: {
+					required: true,
+					custom: () => pathError || null,
+				},
 			},
 			{
 				id: 'phpVersion',
@@ -298,7 +323,7 @@ export function CreateSiteForm( {
 				Edit: EnableHttpsControl,
 			},
 		],
-		[ PathControl, existingDomainNames ]
+		[ renderPathField, pathError, existingDomainNames ]
 	);
 
 	const basicForm = useMemo< Form >(
@@ -351,7 +376,7 @@ export function CreateSiteForm( {
 	// a custom folder.
 	const pendingNameRef = useRef< string | null >( null );
 	useEffect( () => {
-		if ( hasCustomPath.current ) return;
+		if ( data.hasCustomPath ) return;
 		const trimmed = data.name.trim();
 		if ( ! trimmed ) {
 			setPathError( '' );
@@ -369,7 +394,7 @@ export function CreateSiteForm( {
 		return () => {
 			cancelled = true;
 		};
-	}, [ data.name, onGenerateProposedPath, data.path ] );
+	}, [ data.name, data.hasCustomPath, onGenerateProposedPath, data.path ] );
 
 	const handleChange = useCallback( ( update: Record< string, unknown > ) => {
 		setData( ( prev ) => {
@@ -384,7 +409,9 @@ export function CreateSiteForm( {
 		} );
 	}, [] );
 
-	const canSubmit = isValid && !! data.path && ! pathError && ! isSubmitting;
+	// `isValid` already folds in `path`'s required + custom (pathError) rules,
+	// so no extra gating needed here.
+	const canSubmit = isValid && ! isSubmitting;
 
 	const handleSubmit = ( event: FormEvent ) => {
 		event.preventDefault();

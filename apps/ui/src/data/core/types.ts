@@ -86,6 +86,13 @@ export interface Connector {
 	answerAgentQuestion( runId: string, answers: Record< string, string > ): Promise< void >;
 	onAgentEvent( listener: ( event: AgentRunEvent ) => void ): () => void;
 
+	// Flip the session between acting on its owner site's local runtime vs.
+	// its linked WordPress.com live site. The owner site itself never changes.
+	setSessionEnvironment(
+		sessionId: string,
+		environment: 'local' | 'live'
+	): Promise< { environment: 'local' | 'live'; url?: string; wpcomSiteId?: number } >;
+
 	// Locale
 	getUserLocale(): Promise< string | undefined >;
 

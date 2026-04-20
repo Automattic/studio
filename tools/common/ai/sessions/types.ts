@@ -40,6 +40,18 @@ export type AiSessionEvent =
 			wpcomSiteId?: number;
 	  }
 	| {
+			type: 'environment.selected';
+			timestamp: string;
+			// Which environment of the session's owner site is now active. The
+			// owner site itself never changes within a session — only whether
+			// tool calls target the local runtime or the linked live WordPress.com
+			// site. `url`/`wpcomSiteId` are resolved at record time so replay
+			// doesn't need to re-query WordPress.com.
+			environment: 'local' | 'live';
+			url?: string;
+			wpcomSiteId?: number;
+	  }
+	| {
 			type: 'user.message';
 			timestamp: string;
 			text: string;
@@ -88,6 +100,10 @@ export interface AiSessionSummary {
 	// The most recently selected site during the session. May differ from the owner
 	// if the user switched sites mid-session.
 	selectedSiteName?: string;
+	// Which environment of the owner site the next turn will act on. Derived
+	// from the latest `environment.selected` event, or falls back to `'live'`
+	// when the most recent `site.selected` marked the site as remote.
+	activeEnvironment: 'local' | 'live';
 	endReason?: 'error' | 'stopped';
 	eventCount: number;
 }

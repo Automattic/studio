@@ -95,6 +95,20 @@ export class AiSessionRecorder {
 		} );
 	}
 
+	async recordEnvironmentSelected( payload: {
+		environment: 'local' | 'live';
+		url?: string;
+		wpcomSiteId?: number;
+	} ): Promise< void > {
+		await this.appendEvent( {
+			type: 'environment.selected',
+			timestamp: toIsoTimestamp(),
+			environment: payload.environment,
+			url: payload.url,
+			wpcomSiteId: payload.wpcomSiteId,
+		} );
+	}
+
 	async recordUserMessage( options: {
 		text: string;
 		source: 'prompt' | 'ask_user';

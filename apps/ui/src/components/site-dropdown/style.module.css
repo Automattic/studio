@@ -34,6 +34,10 @@
 	animation: siteDotBlink 1s ease-in-out infinite;
 }
 
+.triggerDot_live {
+	background-color: #2563eb;
+}
+
 @keyframes siteDotBlink {
 	0%,
 	100% {

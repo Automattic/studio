@@ -48,7 +48,11 @@ import { isMultisite } from '@studio/common/lib/is-multisite';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
-import { readSharedConfig, updateSharedConfig } from '@studio/common/lib/shared-config';
+import {
+	getCurrentUserId,
+	readSharedConfig,
+	updateSharedConfig,
+} from '@studio/common/lib/shared-config';
 import { shouldExcludeFromSync, shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
@@ -240,6 +244,78 @@ export async function setAiSessionModel(
 		timestamp: new Date().toISOString(),
 		model,
 	} );
+}
+
+export interface SetSessionEnvironmentResult {
+	environment: 'local' | 'live';
+	url?: string;
+	wpcomSiteId?: number;
+	summary: AiSessionSummary;
+}
+
+/**
+ * Flip a session between operating on its owner site's local runtime vs. the
+ * linked WordPress.com live site. The owner site itself never changes — this
+ * only toggles which environment the agent targets on the next turn.
+ *
+ * Resolves the live endpoint here rather than accepting it from the renderer
+ * so a buggy UI can't accidentally rebind the session to a different site.
+ */
+export async function setSessionEnvironment(
+	_event: IpcMainInvokeEvent,
+	sessionId: string,
+	environment: 'local' | 'live'
+): Promise< SetSessionEnvironmentResult > {
+	const { summary } = await loadAiSessionFromStore( getAiSessionsRootDirectory(), sessionId );
+
+	if ( ! summary.ownerSitePath || ! summary.ownerSiteName ) {
+		throw new Error( 'Cannot change environment: session has no owner site' );
+	}
+
+	let url: string | undefined;
+	let wpcomSiteId: number | undefined;
+
+	if ( environment === 'live' ) {
+		const ownerServer = SiteServer.getByPath( summary.ownerSitePath );
+		if ( ! ownerServer ) {
+			throw new Error(
+				`Cannot change environment: owner site is no longer available (${ summary.ownerSitePath })`
+			);
+		}
+
+		const currentUserId = await getCurrentUserId();
+		const userData = currentUserId ? await loadUserData() : undefined;
+		const connected = userData?.connectedWpcomSites?.[ currentUserId! ] ?? [];
+		const candidates = connected.filter( ( s ) => s.localSiteId === ownerServer.details.id );
+		// Prefer the production (non-staging) site to match the UI's
+		// `pickLiveSite` behavior in the site dropdown.
+		const liveSite = candidates.find( ( s ) => ! s.isStaging ) ?? candidates[ 0 ];
+
+		if ( ! liveSite ) {
+			throw new Error( 'Cannot switch to live: no linked WordPress.com site for this session' );
+		}
+
+		url = liveSite.url;
+		wpcomSiteId = liveSite.id;
+	}
+
+	await appendAiSessionEvent( getAiSessionsRootDirectory(), sessionId, {
+		type: 'environment.selected',
+		timestamp: new Date().toISOString(),
+		environment,
+		url,
+		wpcomSiteId,
+	} );
+
+	// Refresh the summary so the renderer can update without needing a second round-trip.
+	const refreshed = await loadAiSessionFromStore( getAiSessionsRootDirectory(), sessionId );
+
+	return {
+		environment,
+		url,
+		wpcomSiteId,
+		summary: refreshed.summary,
+	};
 }
 
 export async function interruptAiAgentRun(

@@ -363,7 +363,7 @@ function Conversation( {
 				}
 			} ) }
 			<ThinkingIndicator
-				active={ isRunning }
+				active={ isRunning && pendingQuestion === null }
 				startedAt={ startedAt }
 				progressMessage={ progressMessage }
 			/>

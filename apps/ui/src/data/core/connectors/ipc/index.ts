@@ -123,6 +123,19 @@ export function createIpcConnector(): Connector {
 			await ipcApi.answerAiAgentQuestion( runId, answers );
 		},
 
+		async setSessionEnvironment( sessionId, environment ) {
+			const result = ( await ipcApi.setSessionEnvironment( sessionId, environment ) ) as {
+				environment: 'local' | 'live';
+				url?: string;
+				wpcomSiteId?: number;
+			};
+			return {
+				environment: result.environment,
+				url: result.url,
+				wpcomSiteId: result.wpcomSiteId,
+			};
+		},
+
 		onAgentEvent( listener ) {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;

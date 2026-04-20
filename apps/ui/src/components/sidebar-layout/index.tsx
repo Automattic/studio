@@ -2,9 +2,9 @@ import { __ } from '@wordpress/i18n';
 import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useState } from 'react';
-import { ProjectList } from '@/components/project-list';
 import { SidebarHeader } from '@/components/sidebar-header';
 import { SidebarNav } from '@/components/sidebar-nav';
+import { SiteList } from '@/components/site-list';
 import { UserMenu } from '@/components/user-menu';
 import { useFullscreen } from '@/hooks/use-fullscreen';
 import { SidebarCollapsedContext } from '@/hooks/use-sidebar-collapsed';
@@ -23,7 +23,7 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 					<SidebarHeader onToggleSidebar={ () => setCollapsed( true ) } />
 					<div className={ styles.sidebarContent }>
 						<SidebarNav />
-						<ProjectList />
+						<SiteList />
 					</div>
 					<UserMenu />
 				</aside>

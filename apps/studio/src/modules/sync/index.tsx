@@ -10,7 +10,7 @@ import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ConnectButton } from 'src/modules/sync/components/connect-button';
-import { SyncConnectedSites } from 'src/modules/sync/components/sync-connected-sites';
+import { TriangleLayout } from 'src/modules/sync/components/triangle/triangle-layout';
 import { SyncDialog } from 'src/modules/sync/components/sync-dialog';
 import { SyncSitesModalSelector } from 'src/modules/sync/components/sync-sites-modal-selector';
 import { SyncTabImage } from 'src/modules/sync/components/sync-tab-image';
@@ -192,13 +192,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		<div className="flex flex-col h-full overflow-y-auto">
 			{ connectedSites.length > 0 ? (
 				<div className="h-full relative">
-					<SyncConnectedSites
-						connectedSites={ connectedSites }
-						selectedSite={ selectedSite }
-						disconnectSite={ ( id ) =>
-							disconnectSite( { siteId: id, localSiteId: selectedSite.id } )
-						}
-					/>
+					<TriangleLayout selectedSite={ selectedSite } />
 					<div className="sticky bottom-0 bg-frame/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
 						<ConnectButton
 							variant="primary"

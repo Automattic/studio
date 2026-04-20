@@ -71,6 +71,9 @@ export const syncSupportValues = [
 
 export type SyncSupport = ( typeof syncSupportValues )[ number ];
 
+// Slot override type
+export type SyncSiteSlotOverride = 'production' | 'staging' | 'archived' | null;
+
 // Sync site representation
 export type SyncSite = {
 	id: number;
@@ -87,6 +90,7 @@ export type SyncSite = {
 	siteIconUrl?: string;
 	planName?: string;
 	createdAt?: string;
+	slotOverride?: SyncSiteSlotOverride;
 };
 
 // Pull backup API schemas

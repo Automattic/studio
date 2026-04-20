@@ -16,7 +16,7 @@ import { SyncCommandLoggerAction as LoggerAction } from '@studio/common/logger-a
 import { SyncOption } from '@studio/common/types/sync';
 import { __, sprintf } from '@wordpress/i18n';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
-import { exportBackup } from 'cli/lib/import-export/export/export-manager';
+import { getExporter } from 'cli/lib/import-export/export/export-manager';
 import { ExportOptions } from 'cli/lib/import-export/export/types';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import {
@@ -29,7 +29,7 @@ import { selectSyncItemsForPush } from 'cli/lib/sync-selector';
 import { findSyncSiteByIdentifier, pickSyncSite } from 'cli/lib/sync-site-picker';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
-import { exportEventHandler } from './export';
+import { handleExportEvents } from './export';
 
 const logger = new Logger< LoggerAction >();
 
@@ -110,22 +110,22 @@ export async function runCommand(
 
 		const deployIgnore = await createDeployIgnoreFilter( site.path, SYNC_IGNORE_DEFAULTS );
 
-		const isExported = await exportBackup(
-			{
-				site,
-				backupFile: archivePath,
-				includes,
-				phpVersion: DEFAULT_PHP_VERSION,
-				splitDatabaseDumpByTable: true,
-				specificSelectionPaths,
-				deployIgnore,
-			},
-			exportEventHandler
-		);
+		const exporter = await getExporter( {
+			site,
+			backupFile: archivePath,
+			includes,
+			phpVersion: DEFAULT_PHP_VERSION,
+			splitDatabaseDumpByTable: true,
+			specificSelectionPaths,
+			deployIgnore,
+		} );
 
-		if ( ! isExported ) {
+		if ( ! exporter ) {
 			throw new LoggerError( __( 'No suitable exporter found for the provided backup file' ) );
 		}
+
+		handleExportEvents( exporter );
+		await exporter.export();
 
 		const archiveSize = fs.statSync( archivePath ).size;
 		if ( archiveSize > SYNC_PUSH_SIZE_LIMIT_BYTES ) {

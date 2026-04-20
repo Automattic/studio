@@ -1,9 +1,9 @@
-import { EventEmitter } from 'events';
 import fs from 'fs';
 import fsPromises from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { ARCHIVER_OPTIONS, DEFAULT_PHP_VERSION } from '@studio/common/constants';
+import { ExportEvents } from '@studio/common/lib/import-export-events';
 import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
 import {
 	hasDefaultDbBlock,
@@ -14,19 +14,18 @@ import archiver from 'archiver';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { getWordPressVersionFromInstallation } from 'cli/lib/dependency-management/wordpress';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
-import { ExportEvents } from '../events';
+import { ImportExportEventEmitter } from '../../events';
 import { exportDatabaseToFile, exportDatabaseToMultipleFiles } from '../export-database';
 import { generateBackupFilename } from '../generate-backup-filename';
 import {
 	ExportOptions,
 	BackupContents,
 	Exporter,
-	BackupCreateProgressEventData,
 	StudioJson,
 	StudioJsonPluginOrTheme,
 } from '../types';
 
-export class DefaultExporter extends EventEmitter implements Exporter {
+export class DefaultExporter extends ImportExportEventEmitter implements Exporter {
 	private archiveBuilder!: archiver.Archiver;
 	private backup: BackupContents;
 	private readonly options: ExportOptions;
@@ -173,7 +172,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			this.archiveBuilder.on( 'progress', ( progress ) => {
 				this.emit( ExportEvents.BACKUP_CREATE_PROGRESS, {
 					progress,
-				} as BackupCreateProgressEventData );
+				} );
 			} );
 
 			this.archiveBuilder.on( 'error', reject );

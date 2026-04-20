@@ -1,0 +1,32 @@
+.root {
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-xl)
+		calc(var(--wpds-dimension-padding-xl) + var(--wpds-dimension-padding-md));
+}
+
+.list {
+	list-style: none;
+	padding: 0;
+	margin: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.item {
+	width: 100%;
+	height: 26px;
+	padding: 0 var(--wpds-dimension-padding-sm);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-font-size-sm);
+	font-weight: var(--wpds-font-weight-regular);
+}
+
+.item:hover,
+.item:focus-visible {
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.itemActive {
+	color: var(--wpds-color-fg-content-neutral);
+	font-weight: var(--wpds-font-weight-medium);
+}

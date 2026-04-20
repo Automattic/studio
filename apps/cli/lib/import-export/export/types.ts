@@ -1,7 +1,7 @@
+import { z } from 'zod';
 import { SiteData } from 'cli/lib/cli-config/core';
-import type archiver from 'archiver';
-import type { EventEmitter } from 'events';
 import type { Ignore } from 'ignore';
+import type { ImportExportEventEmitter } from '../events';
 
 export interface ExportOptions {
 	site: SiteData;
@@ -20,13 +20,9 @@ export interface BackupContents {
 	sqlFiles: string[];
 }
 
-export interface Exporter extends Partial< EventEmitter > {
+export interface Exporter extends ImportExportEventEmitter {
 	canHandle(): Promise< boolean >;
 	export(): Promise< void >;
-}
-
-export interface BackupCreateProgressEventData {
-	progress: archiver.ProgressData;
 }
 
 export type NewExporter = new ( options: ExportOptions ) => Exporter;

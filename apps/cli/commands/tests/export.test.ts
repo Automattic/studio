@@ -8,7 +8,7 @@ import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
 import { getExporter } from 'cli/lib/import-export/export/export-manager';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { Logger, LoggerError } from 'cli/logger';
-import { registerCommand, runCommand } from '../../export';
+import { registerCommand, runCommand } from '../export';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
 function getYargsArgvMock() {

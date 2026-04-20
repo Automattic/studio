@@ -9,7 +9,7 @@ body {
 	font-family: var(--wpds-font-family-body);
 	font-size: var(--wpds-font-size-md);
 	line-height: var(--wpds-font-line-height-md);
-	background-color: var(--wpds-color-bg-surface-neutral-strong);
+	background-color: var(--wpds-color-bg-surface-neutral);
 	color: var(--wpds-color-fg-content-neutral);
 	color-scheme: light dark;
 }

@@ -17,6 +17,12 @@ export function useSession( sessionId: string | undefined ) {
 		queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ],
 		queryFn: () => connector.getSession( sessionId! ),
 		enabled: !! sessionId,
+		// `useAgentRun` mutates the cache during a live run and invalidates
+		// explicitly on `run.exited`. Any implicit refetch would race those
+		// cache writes and flicker the transcript.
+		refetchOnWindowFocus: false,
+		refetchOnReconnect: false,
+		staleTime: Infinity,
 	} );
 }
 

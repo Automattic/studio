@@ -73,7 +73,7 @@ platformTestSuite( 'PlaygroundImporter', ( { normalize } ) => {
 			vi.mocked( fs.promises.copyFile ).mockResolvedValue( undefined );
 			vi.mocked( fs.promises.readFile ).mockResolvedValue(
 				JSON.stringify( {
-					phpVersion: '8.3',
+					phpVersion: '8.4',
 					wordpressVersion: '5.8',
 				} )
 			);

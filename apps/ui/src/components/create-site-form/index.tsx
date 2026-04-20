@@ -115,10 +115,7 @@ const { ValidatedInputControl } = unlock( componentsPrivateApis ) as {
  * Advanced toggle would falsely show "1 error found" until the user
  * expanded it and `PathField` mounted.
  */
-function usePathAutoGenerate(
-	data: FormData,
-	onChange: ( update: Partial< FormData > ) => void
-) {
+function usePathAutoGenerate( data: FormData, onChange: ( update: Partial< FormData > ) => void ) {
 	const { data: sites } = useSites();
 	const { generateProposedPath } = usePathValidator( sites );
 
@@ -185,14 +182,10 @@ function PathField( {
 			readOnly
 			onClick={ handleSelect }
 			className={ styles.pathControl }
-			customValidity={
-				errorMessage ? { type: 'invalid', message: errorMessage } : undefined
-			}
+			customValidity={ errorMessage ? { type: 'invalid', message: errorMessage } : undefined }
 			help={
 				<>
-					{ __(
-						'Select an empty directory or a directory with an existing WordPress site.'
-					) }{ ' ' }
+					{ __( 'Select an empty directory or a directory with an existing WordPress site.' ) }{ ' ' }
 					<LearnMoreLink docsLinksKey="docsSites" />
 				</>
 			}

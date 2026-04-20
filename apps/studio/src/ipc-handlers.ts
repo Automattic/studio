@@ -153,6 +153,7 @@ export {
 	pushArchive,
 	removeSyncBackup,
 	resumeSyncUpload,
+	getLocalSiteSummary,
 	updateConnectedSiteSlot,
 	updateConnectedWpcomSites,
 } from 'src/modules/sync/lib/ipc-handlers';

@@ -50,6 +50,7 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'updateConnectedWpcomSites', ...args ),
 	updateConnectedSiteSlot: ( ...args ) =>
 		ipcRendererInvoke( 'updateConnectedSiteSlot', ...args ),
+	getLocalSiteSummary: ( ...args ) => ipcRendererInvoke( 'getLocalSiteSummary', ...args ),
 	authenticate: ( isSignup ) => ipcRendererSend( 'authenticate', isSignup ),
 	exportSite: ( options ) => ipcRendererInvoke( 'exportSite', options ),
 	isAuthenticated: () => ipcRendererInvoke( 'isAuthenticated' ),

@@ -21,6 +21,7 @@ import { exportBackup } from 'src/lib/import-export/export/export-manager';
 import { ExportOptions } from 'src/lib/import-export/export/types';
 import { getAuthenticationToken } from 'src/lib/oauth';
 import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
+import { getSiteUrl } from 'src/lib/get-site-url';
 import { SiteServer } from 'src/site-server';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 import { SyncOption } from 'src/types';
@@ -531,6 +532,31 @@ export async function updateConnectedWpcomSites(
 	} finally {
 		await unlockAppdata();
 	}
+}
+
+export async function getLocalSiteSummary(
+	_event: IpcMainInvokeEvent,
+	args: { localSiteId: string }
+): Promise< { posts: number; pages: number } > {
+	const server = SiteServer.get( args.localSiteId );
+	if ( ! server || ! server.details.running ) {
+		return { posts: 0, pages: 0 };
+	}
+	const base = getSiteUrl( server.details );
+	async function countFor( postType: string ): Promise< number > {
+		try {
+			const res = await fetch(
+				`${ base }/wp-json/wp/v2/${ postType }?per_page=1&status=publish`
+			);
+			if ( ! res.ok ) return 0;
+			const total = Number( res.headers.get( 'X-WP-Total' ) ?? 0 );
+			return Number.isFinite( total ) ? total : 0;
+		} catch {
+			return 0;
+		}
+	}
+	const [ posts, pages ] = await Promise.all( [ countFor( 'posts' ), countFor( 'pages' ) ] );
+	return { posts, pages };
 }
 
 export async function updateConnectedSiteSlot(

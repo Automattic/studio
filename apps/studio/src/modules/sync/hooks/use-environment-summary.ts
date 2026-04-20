@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useGetPostCountsQuery } from 'src/stores/sync/environment-summary-api';
 
 export type EnvironmentSummary = {
@@ -18,6 +20,35 @@ function sumStatuses( counts: Record< string, number > | undefined ): number {
 	return Object.values( counts ).reduce( ( a, b ) => a + b, 0 );
 }
 
+function useLocalSummary( localSiteId: string | null ): EnvironmentSummary {
+	const [ state, setState ] = useState< EnvironmentSummary >( {
+		counts: { posts: 0, pages: 0 },
+		isLoading: Boolean( localSiteId ),
+		isError: false,
+	} );
+	useEffect( () => {
+		if ( ! localSiteId ) return;
+		let cancelled = false;
+		setState( ( s ) => ( { ...s, isLoading: true, isError: false } ) );
+		getIpcApi()
+			.getLocalSiteSummary( { localSiteId } )
+			.then( ( counts ) => {
+				if ( ! cancelled ) {
+					setState( { counts, isLoading: false, isError: false } );
+				}
+			} )
+			.catch( () => {
+				if ( ! cancelled ) {
+					setState( ( s ) => ( { ...s, isLoading: false, isError: true } ) );
+				}
+			} );
+		return () => {
+			cancelled = true;
+		};
+	}, [ localSiteId ] );
+	return state;
+}
+
 export function useEnvironmentSummary( source: EnvironmentSummarySource ): EnvironmentSummary {
 	const postsQuery = useGetPostCountsQuery(
 		source.kind === 'remote' ? { siteId: source.siteId, postType: 'post' } : ( {} as any ),
@@ -27,14 +58,10 @@ export function useEnvironmentSummary( source: EnvironmentSummarySource ): Envir
 		source.kind === 'remote' ? { siteId: source.siteId, postType: 'page' } : ( {} as any ),
 		{ skip: source.kind !== 'remote' }
 	);
+	const local = useLocalSummary( source.kind === 'local' ? source.localSiteId : null );
 
-	// Local-site summaries: Task 8 replaces this with a real in-process fetch.
 	if ( source.kind === 'local' ) {
-		return {
-			counts: { posts: 0, pages: 0 },
-			isLoading: false,
-			isError: false,
-		};
+		return local;
 	}
 
 	return {

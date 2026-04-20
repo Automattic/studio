@@ -6,18 +6,18 @@
 	gap: var(--wpds-dimension-padding-sm);
 }
 
-.projects {
+.sites {
 	display: flex;
 	flex-direction: column;
 	gap: 2px;
 }
 
-.project {
+.site {
 	display: flex;
 	flex-direction: column;
 }
 
-.projectHeader {
+.siteHeader {
 	display: flex;
 	align-items: flex-start;
 	gap: var(--wpds-dimension-padding-xs);
@@ -25,7 +25,7 @@
 	padding-right: var(--wpds-dimension-padding-sm);
 }
 
-.projectText {
+.siteText {
 	flex: 1;
 	min-width: 0;
 	display: flex;
@@ -33,12 +33,12 @@
 	align-items: flex-start;
 }
 
-.projectToggle {
+.siteToggle {
 	max-width: 100%;
 	height: auto;
 }
 
-.projectName {
+.siteName {
 	font-size: var(--wpds-font-size-md);
 	line-height: 1.2;
 	font-weight: var(--wpds-font-weight-regular);
@@ -49,31 +49,31 @@
 	max-width: 100%;
 }
 
-.projectToggle:hover .projectName {
+.siteToggle:hover .siteName {
 	color: var(--wpds-color-fg-content-neutral);
 }
 
-.projectActive .projectName {
+.siteActive .siteName {
 	color: var(--wpds-color-fg-content-neutral);
 	font-weight: 600;
 }
 
-.projectActions {
+.siteActions {
 	display: flex;
 	align-items: center;
 	flex-shrink: 0;
 	padding-top: 2px;
 }
 
-.projectAction {
+.siteAction {
 	opacity: 0;
 	transition: opacity 100ms ease;
 }
 
-.projectActive .projectAction,
-.projectHeader:hover .projectAction,
-.projectHeader:focus-within .projectAction,
-.projectAction[data-popup-open] {
+.siteActive .siteAction,
+.siteHeader:hover .siteAction,
+.siteHeader:focus-within .siteAction,
+.siteAction[data-popup-open] {
 	opacity: 1;
 }
 

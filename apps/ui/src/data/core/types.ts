@@ -1,6 +1,7 @@
 import type { AgentRunEvent } from './agent-events';
 import type { AiModelId } from '@studio/common/ai/models';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
+import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { SyncSite } from '@studio/common/types/sync';
 
@@ -53,10 +54,19 @@ export interface Connector {
 
 	// Sites
 	getSites(): Promise< SiteDetails[] >;
-	createSite( params: { name: string } ): Promise< SiteDetails >;
+	createSite( params: CreateSiteParams ): Promise< SiteDetails >;
 	deleteSite( id: string ): Promise< void >;
 	startSite( id: string ): Promise< void >;
 	stopSite( id: string ): Promise< void >;
+
+	// Site-creation helpers — surface the same main-process capabilities the
+	// desktop app's add-site flow relies on (folder pickers, path validation,
+	// and domain lookups).
+	generateProposedSitePath( siteName: string ): Promise< ProposedSitePath >;
+	generateProposedSiteName( usedSites: SiteDetails[] ): Promise< string >;
+	selectSiteFolder( defaultPath: string ): Promise< SelectedSiteFolder | null >;
+	comparePaths( path1: string, path2: string ): Promise< boolean >;
+	getAllCustomDomains(): Promise< string[] >;
 
 	// Preview snapshots (WordPress.com hosted previews of local sites)
 	getSnapshots(): Promise< Snapshot[] >;
@@ -114,3 +124,29 @@ export interface Connector {
 }
 
 export type ColorScheme = 'system' | 'light' | 'dark';
+
+export interface CreateSiteParams {
+	name: string;
+	path: string;
+	phpVersion?: SupportedPHPVersion;
+	wpVersion?: string;
+	customDomain?: string;
+	enableHttps?: boolean;
+	adminUsername?: string;
+	adminPassword?: string;
+	adminEmail?: string;
+}
+
+export interface ProposedSitePath {
+	path: string;
+	isEmpty: boolean;
+	isWordPress: boolean;
+	isNameTooLong?: boolean;
+}
+
+export interface SelectedSiteFolder {
+	path: string;
+	name: string;
+	isEmpty: boolean;
+	isWordPress: boolean;
+}

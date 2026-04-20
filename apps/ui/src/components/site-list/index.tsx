@@ -6,7 +6,7 @@ import { clsx } from 'clsx';
 import { useMemo, useState } from 'react';
 import * as Menu from '@/components/menu';
 import { SidebarButton } from '@/components/sidebar-button';
-import { useCreateSession, useSessions } from '@/data/queries/use-sessions';
+import { useSessions } from '@/data/queries/use-sessions';
 import {
 	useIsSiteStarting,
 	useIsSiteStopping,
@@ -20,7 +20,7 @@ import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
 const UNASSIGNED_KEY = '__unassigned__';
 
-type ProjectGroup = {
+type SiteGroup = {
 	key: string;
 	site?: SiteDetails;
 	label: string;
@@ -30,7 +30,7 @@ type ProjectGroup = {
 function groupSessionsByOwner(
 	sites: SiteDetails[] | undefined,
 	sessions: AiSessionSummary[] | undefined
-): ProjectGroup[] {
+): SiteGroup[] {
 	const knownSitePaths = new Set( ( sites ?? [] ).map( ( site ) => site.path ) );
 	const sessionsByPath = new Map< string, AiSessionSummary[] >();
 	const unassigned: AiSessionSummary[] = [];
@@ -49,7 +49,7 @@ function groupSessionsByOwner(
 		}
 	}
 
-	const groups: ProjectGroup[] = ( sites ?? [] ).map( ( site ) => ( {
+	const groups: SiteGroup[] = ( sites ?? [] ).map( ( site ) => ( {
 		key: site.id,
 		site,
 		label: site.name,
@@ -57,7 +57,7 @@ function groupSessionsByOwner(
 	} ) );
 
 	// Sort site-groups by the newest session's updatedAt so the most recently
-	// used project lands at the top. Projects with no sessions drop to the bottom.
+	// used site lands at the top. Sites with no sessions drop to the bottom.
 	groups.sort( ( a, b ) => {
 		const aTimestamp = a.sessions[ 0 ]?.updatedAt;
 		const bTimestamp = b.sessions[ 0 ]?.updatedAt;
@@ -110,16 +110,6 @@ function SessionItem( { session }: { session: AiSessionSummary } ) {
 
 function NewSessionButton( { site }: { site: SiteDetails } ) {
 	const navigate = useNavigate();
-	const createSession = useCreateSession();
-
-	const handleClick = async () => {
-		if ( createSession.isPending ) {
-			return;
-		}
-		const summary = await createSession.mutateAsync( site.id );
-		await navigate( { to: '/sessions/$sessionId', params: { sessionId: summary.id } } );
-	};
-
 	return (
 		<IconButton
 			variant="minimal"
@@ -127,14 +117,13 @@ function NewSessionButton( { site }: { site: SiteDetails } ) {
 			size="small"
 			icon={ plus }
 			label={ __( 'New session' ) }
-			className={ styles.projectAction }
-			onClick={ handleClick }
-			disabled={ createSession.isPending }
+			className={ styles.siteAction }
+			onClick={ () => void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } ) }
 		/>
 	);
 }
 
-function ProjectActionsMenu( { site }: { site: SiteDetails } ) {
+function SiteActionsMenu( { site }: { site: SiteDetails } ) {
 	const startSite = useStartSite();
 	const stopSite = useStopSite();
 	const isStarting = useIsSiteStarting( site.id );
@@ -150,8 +139,8 @@ function ProjectActionsMenu( { site }: { site: SiteDetails } ) {
 						tone="neutral"
 						size="small"
 						icon={ moreHorizontal }
-						label={ __( 'Project actions' ) }
-						className={ styles.projectAction }
+						label={ __( 'Site actions' ) }
+						className={ styles.siteAction }
 					/>
 				}
 			/>
@@ -170,14 +159,14 @@ function ProjectActionsMenu( { site }: { site: SiteDetails } ) {
 	);
 }
 
-function ProjectSection( {
+function SiteSection( {
 	group,
 	isUnassigned,
 	isActive,
 	isOpen,
 	onToggle,
 }: {
-	group: ProjectGroup;
+	group: SiteGroup;
 	isUnassigned: boolean;
 	isActive: boolean;
 	isOpen: boolean;
@@ -186,24 +175,24 @@ function ProjectSection( {
 	return (
 		<section
 			className={ clsx(
-				styles.project,
+				styles.site,
 				isUnassigned && styles.unassigned,
-				isActive && styles.projectActive
+				isActive && styles.siteActive
 			) }
 		>
-			<header className={ styles.projectHeader }>
-				<div className={ styles.projectText }>
+			<header className={ styles.siteHeader }>
+				<div className={ styles.siteText }>
 					<SidebarButton
-						className={ styles.projectToggle }
+						className={ styles.siteToggle }
 						onClick={ onToggle }
 						aria-expanded={ isOpen }
 					>
-						<span className={ styles.projectName }>{ group.label }</span>
+						<span className={ styles.siteName }>{ group.label }</span>
 					</SidebarButton>
 				</div>
 				{ group.site ? (
-					<div className={ styles.projectActions }>
-						<ProjectActionsMenu site={ group.site } />
+					<div className={ styles.siteActions }>
+						<SiteActionsMenu site={ group.site } />
 						<NewSessionButton site={ group.site } />
 					</div>
 				) : null }
@@ -219,10 +208,15 @@ function ProjectSection( {
 	);
 }
 
-function findActiveProjectKey(
-	groups: ProjectGroup[],
-	activeSessionId: string | undefined
+function findActiveSiteKey(
+	groups: SiteGroup[],
+	activeSessionId: string | undefined,
+	activeSiteId: string | undefined
 ): string | undefined {
+	if ( activeSiteId ) {
+		const match = groups.find( ( group ) => group.site?.id === activeSiteId );
+		if ( match ) return match.key;
+	}
 	if ( ! activeSessionId ) {
 		return undefined;
 	}
@@ -234,20 +228,21 @@ function findActiveProjectKey(
 	return undefined;
 }
 
-export function ProjectList() {
+export function SiteList() {
 	const { data: sites, isLoading: sitesLoading } = useSites();
 	const { data: sessions, isLoading: sessionsLoading } = useSessions();
-	const params = useParams( { strict: false } ) as { sessionId?: string };
+	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
 	const activeSessionId = params.sessionId;
+	const activeSiteId = params.siteId;
 
 	const groups = useMemo( () => groupSessionsByOwner( sites, sessions ), [ sites, sessions ] );
-	const activeProjectKey = useMemo(
-		() => findActiveProjectKey( groups, activeSessionId ),
-		[ groups, activeSessionId ]
+	const activeSiteKey = useMemo(
+		() => findActiveSiteKey( groups, activeSessionId, activeSiteId ),
+		[ groups, activeSessionId, activeSiteId ]
 	);
 
-	// Expansion is derived: by default the active project (or, if none, the
-	// MRU project — first in the list) is open. Manual toggles are stored as
+	// Expansion is derived: by default the active site (or, if none, the
+	// MRU site — first in the list) is open. Manual toggles are stored as
 	// overrides so the user's explicit choice wins until they toggle again.
 	const mruKey = groups[ 0 ]?.key;
 	const [ overrides, setOverrides ] = useState< Record< string, boolean > >( {} );
@@ -256,10 +251,10 @@ export function ProjectList() {
 		if ( key in overrides ) {
 			return overrides[ key ];
 		}
-		return key === activeProjectKey || ( ! activeProjectKey && key === mruKey );
+		return key === activeSiteKey || ( ! activeSiteKey && key === mruKey );
 	};
 
-	const toggleProject = ( key: string ) => {
+	const toggleSite = ( key: string ) => {
 		setOverrides( ( prev ) => ( { ...prev, [ key ]: ! isOpen( key ) } ) );
 	};
 
@@ -268,17 +263,17 @@ export function ProjectList() {
 			{ sitesLoading || sessionsLoading ? (
 				<p className={ styles.empty }>{ __( 'Loading…' ) }</p>
 			) : groups.length === 0 ? (
-				<p className={ styles.empty }>{ __( 'No projects yet' ) }</p>
+				<p className={ styles.empty }>{ __( 'No sites yet' ) }</p>
 			) : (
-				<div className={ styles.projects }>
+				<div className={ styles.sites }>
 					{ groups.map( ( group ) => (
-						<ProjectSection
+						<SiteSection
 							key={ group.key }
 							group={ group }
 							isUnassigned={ group.key === UNASSIGNED_KEY }
-							isActive={ group.key === activeProjectKey }
+							isActive={ group.key === activeSiteKey }
 							isOpen={ isOpen( group.key ) }
-							onToggle={ () => toggleProject( group.key ) }
+							onToggle={ () => toggleSite( group.key ) }
 						/>
 					) ) }
 				</div>

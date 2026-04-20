@@ -5,6 +5,8 @@ import type {
 	ColorScheme,
 	Connector,
 	LoadedAiSession,
+	ProposedSitePath,
+	SelectedSiteFolder,
 	SiteDetails,
 	Snapshot,
 	SyncSite,
@@ -65,11 +67,66 @@ export function createIpcConnector(): Connector {
 		},
 
 		async createSite( params ) {
-			return ( await ipcApi.createSite( params.name ) ) as SiteDetails;
+			const {
+				name,
+				path,
+				phpVersion,
+				wpVersion,
+				customDomain,
+				enableHttps,
+				adminUsername,
+				adminPassword,
+				adminEmail,
+			} = params;
+			return ( await ipcApi.createSite( path, {
+				siteName: name,
+				phpVersion,
+				wpVersion,
+				customDomain,
+				enableHttps,
+				adminUsername,
+				adminPassword,
+				adminEmail,
+			} ) ) as SiteDetails;
 		},
 
 		async deleteSite( id ) {
 			await ipcApi.deleteSite( id, false );
+		},
+
+		async generateProposedSiteName( usedSites ): Promise< string > {
+			return ( await ipcApi.generateSiteNameFromList( usedSites ) ) as string;
+		},
+
+		async generateProposedSitePath( siteName ): Promise< ProposedSitePath > {
+			const response = ( await ipcApi.generateProposedSitePath( siteName ) ) as {
+				path: string;
+				isEmpty: boolean;
+				isWordPress: boolean;
+				isNameTooLong?: boolean;
+			};
+			return {
+				path: response.path,
+				isEmpty: response.isEmpty,
+				isWordPress: response.isWordPress,
+				isNameTooLong: response.isNameTooLong,
+			};
+		},
+
+		async selectSiteFolder( defaultPath ): Promise< SelectedSiteFolder | null > {
+			const response = ( await ipcApi.showOpenFolderDialog(
+				'Choose folder for site',
+				defaultPath
+			) ) as SelectedSiteFolder | null;
+			return response ?? null;
+		},
+
+		async comparePaths( path1, path2 ) {
+			return ( await ipcApi.comparePaths( path1, path2 ) ) as boolean;
+		},
+
+		async getAllCustomDomains(): Promise< string[] > {
+			return ( await ipcApi.getAllCustomDomains() ) as string[];
 		},
 
 		async startSite( id ) {

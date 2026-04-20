@@ -8,6 +8,8 @@ import { useSyncSitesWithEvents } from '@/data/queries/use-sites';
 import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
 import { unlock } from '@/lock-unlock';
 import { createAppRouter } from '@/router/router';
+import '@wordpress/components/build-style/style.css';
+import '@wordpress/dataviews/build-style/style.css';
 import '@wordpress/theme/design-tokens.css';
 import '@/index.css';
 import type { Connector } from '@/data/core';

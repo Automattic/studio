@@ -291,6 +291,15 @@
 	cursor: default;
 }
 
+/* Keep the picked option fully legible even when disabled, so the user
+   can still see their choice once the batch is finalized. */
+.questionOptionPicked,
+.questionOptionPicked:disabled {
+	font-weight: 600;
+	color: var(--wpds-color-fg-content-accent, #2563eb);
+	opacity: 1;
+}
+
 .composer {
 	padding: 0 var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-xl);
 }

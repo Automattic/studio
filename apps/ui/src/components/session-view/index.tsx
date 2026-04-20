@@ -213,12 +213,14 @@ function ToolUseRow( {
 function AgentQuestion( {
 	question,
 	options,
-	isPending,
+	isInteractive,
+	pickedLabel,
 	onAnswer,
 }: {
 	question: string;
 	options: Array< { label: string; description: string } >;
-	isPending: boolean;
+	isInteractive: boolean;
+	pickedLabel: string | undefined;
 	onAnswer: ( label: string ) => void;
 } ) {
 	return (
@@ -226,19 +228,25 @@ function AgentQuestion( {
 			<p className={ styles.questionText }>{ question }</p>
 			{ options.length > 0 ? (
 				<ul className={ styles.questionOptions }>
-					{ options.map( ( option, index ) => (
-						<li key={ index }>
-							<button
-								type="button"
-								className={ styles.questionOption }
-								disabled={ ! isPending }
-								onClick={ () => onAnswer( option.label ) }
-								title={ option.description }
-							>
-								{ option.label }
-							</button>
-						</li>
-					) ) }
+					{ options.map( ( option, index ) => {
+						const picked = option.label === pickedLabel;
+						return (
+							<li key={ index }>
+								<button
+									type="button"
+									className={ clsx(
+										styles.questionOption,
+										picked && styles.questionOptionPicked
+									) }
+									disabled={ ! isInteractive }
+									onClick={ () => onAnswer( option.label ) }
+									title={ option.description }
+								>
+									{ option.label }
+								</button>
+							</li>
+						);
+					} ) }
 				</ul>
 			) : null }
 		</div>
@@ -317,12 +325,14 @@ function Conversation( {
 	isRunning,
 	startedAt,
 	pendingQuestions,
+	pendingAnswers,
 	onAnswerQuestion,
 }: {
 	data: LoadedAiSession;
 	isRunning: boolean;
 	startedAt: number | null;
 	pendingQuestions: Set< string >;
+	pendingAnswers: Record< string, string >;
 	onAnswerQuestion: ( question: string, label: string ) => void;
 } ) {
 	const items = useMemo( () => eventsToRenderItems( data.events ), [ data.events ] );
@@ -354,7 +364,8 @@ function Conversation( {
 								key={ item.key }
 								question={ item.question }
 								options={ item.options }
-								isPending={ pendingQuestions.has( item.question ) }
+								isInteractive={ pendingQuestions.has( item.question ) }
+								pickedLabel={ pendingAnswers[ item.question ] }
 								onAnswer={ ( label ) => onAnswerQuestion( item.question, label ) }
 							/>
 						);
@@ -448,6 +459,7 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 		startedAt,
 		error: runError,
 		pendingQuestions,
+		pendingAnswers,
 		sendMessage,
 		interrupt,
 		answerQuestion,
@@ -492,6 +504,7 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 					isRunning={ isRunning }
 					startedAt={ startedAt }
 					pendingQuestions={ pendingQuestionTexts }
+					pendingAnswers={ pendingAnswers }
 					onAnswerQuestion={ answerQuestion }
 				/>
 			</div>

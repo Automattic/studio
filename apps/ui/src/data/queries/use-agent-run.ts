@@ -24,6 +24,10 @@ export interface LiveAgentEvents {
 	startedAt: number | null;
 	error: string | null;
 	pendingQuestions: PendingQuestion[];
+	// Answers the user has picked so far in the current batch. Keyed by
+	// question text. The user can re-click an option to change their mind
+	// until the batch is fully answered and dispatched.
+	pendingAnswers: Record< string, string >;
 	sendMessage: ( prompt: string ) => Promise< void >;
 	interrupt: () => Promise< void >;
 	answerQuestion: ( question: string, answer: string ) => void;
@@ -35,13 +39,13 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 
 	const [ runState, setRunState ] = useState< RunState | null >( null );
 	const [ error, setError ] = useState< string | null >( null );
-	// Questions in the current batch that still need an answer. The agent's
-	// `AskUserQuestion` tool can ask several at once; the CLI expects a single
-	// answers map covering every question in the batch.
+	// The agent's `AskUserQuestion` tool can ask several questions at once;
+	// the CLI expects a single answers map covering every question in the
+	// batch. The user can click through the options in any order and change
+	// their mind until every question has an answer, at which point we
+	// dispatch the full map and clear both pieces of state.
 	const [ pendingQuestions, setPendingQuestions ] = useState< PendingQuestion[] >( [] );
-	const [ accumulatedAnswers, setAccumulatedAnswers ] = useState< Record< string, string > >(
-		{}
-	);
+	const [ pendingAnswers, setPendingAnswers ] = useState< Record< string, string > >( {} );
 
 	// `runState` drives `isRunning` and is cleared as soon as the agent turn
 	// finishes (`turn.completed`). `subscribedRunIdRef` stays set until the
@@ -53,7 +57,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		setRunState( null );
 		setError( null );
 		setPendingQuestions( [] );
-		setAccumulatedAnswers( {} );
+		setPendingAnswers( {} );
 		subscribedRunIdRef.current = null;
 	}, [ sessionId ] );
 
@@ -101,14 +105,14 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 			if ( event.type === 'turn.completed' ) {
 				setRunState( null );
 				setPendingQuestions( [] );
-				setAccumulatedAnswers( {} );
+				setPendingAnswers( {} );
 				return;
 			}
 
 			if ( event.type === 'run.exited' || event.type === 'run.interrupted' ) {
 				setRunState( null );
 				setPendingQuestions( [] );
-				setAccumulatedAnswers( {} );
+				setPendingAnswers( {} );
 				subscribedRunIdRef.current = null;
 				// Only refresh the sessions list (sidebar summaries, updatedAt).
 				// The per-session cache already reflects the streamed events; a
@@ -159,23 +163,27 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 	}, [ connector, queryClient, sessionId, updateCache ] );
 
 	// Dispatch the collected answer map once every question in the current
-	// batch has been answered. Keeping the "complete → send" rule here (rather
-	// than inside `answerQuestion`) avoids reading stale state across the two
-	// `setState` calls.
+	// batch has been answered. The user can change a pick at any time before
+	// the batch is complete; keeping the "all-answered → send" decision here
+	// (rather than in `answerQuestion`) avoids races between the two setters.
 	useEffect( () => {
 		if ( ! runState ) {
 			return;
 		}
-		if ( pendingQuestions.length !== 0 ) {
+		if ( pendingQuestions.length === 0 ) {
 			return;
 		}
-		if ( Object.keys( accumulatedAnswers ).length === 0 ) {
+		const complete = pendingQuestions.every(
+			( q ) => typeof pendingAnswers[ q.question ] === 'string'
+		);
+		if ( ! complete ) {
 			return;
 		}
-		const answers = accumulatedAnswers;
-		setAccumulatedAnswers( {} );
+		const answers = pendingAnswers;
+		setPendingQuestions( [] );
+		setPendingAnswers( {} );
 		void connector.answerAgentQuestion( runState.runId, answers );
-	}, [ accumulatedAnswers, connector, pendingQuestions.length, runState ] );
+	}, [ pendingAnswers, connector, pendingQuestions, runState ] );
 
 	const sendMessage = useCallback(
 		async ( prompt: string ) => {
@@ -220,8 +228,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 	}, [ connector, runState ] );
 
 	const answerQuestion = useCallback( ( question: string, answer: string ) => {
-		setPendingQuestions( ( prev ) => prev.filter( ( q ) => q.question !== question ) );
-		setAccumulatedAnswers( ( prev ) => ( { ...prev, [ question ]: answer } ) );
+		setPendingAnswers( ( prev ) => ( { ...prev, [ question ]: answer } ) );
 	}, [] );
 
 	return {
@@ -230,6 +237,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		startedAt: runState?.startedAt ?? null,
 		error,
 		pendingQuestions,
+		pendingAnswers,
 		sendMessage,
 		interrupt,
 		answerQuestion,

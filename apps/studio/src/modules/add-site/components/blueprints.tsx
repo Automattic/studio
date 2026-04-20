@@ -282,7 +282,7 @@ export function AddSiteBlueprintSelector( {
 					extracted.blueprintJson,
 					file.name,
 					extracted.blueprintJsonPath,
-					() => void getIpcApi().cleanupBlueprintTempDir( tempDir! )
+					() => void getIpcApi().cleanupBlueprintTempDir( extracted.tempDir )
 				);
 				if ( result ) {
 					onFileBlueprintSelect( result.blueprint, result.warnings );

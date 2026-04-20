@@ -62,7 +62,7 @@ describe( 'BackupHandlerWpress — path traversal protection', () => {
 			] )
 		);
 
-		await handler.extractFiles( { path: archivePath }, extractDir );
+		await handler.extractFiles( { path: archivePath, type: 'wpress' }, extractDir );
 
 		// Must NOT appear one level above the extraction dir
 		expect( fs.existsSync( path.join( tmpDir, 'traversal-marker.txt' ) ) ).toBe( false );
@@ -76,7 +76,7 @@ describe( 'BackupHandlerWpress — path traversal protection', () => {
 			] )
 		);
 
-		await handler.extractFiles( { path: archivePath }, extractDir );
+		await handler.extractFiles( { path: archivePath, type: 'wpress' }, extractDir );
 
 		expect( fs.existsSync( path.join( tmpDir, '.ssh', 'authorized_keys' ) ) ).toBe( false );
 	} );
@@ -90,7 +90,7 @@ describe( 'BackupHandlerWpress — path traversal protection', () => {
 			] )
 		);
 
-		await handler.extractFiles( { path: archivePath }, extractDir );
+		await handler.extractFiles( { path: archivePath, type: 'wpress' }, extractDir );
 
 		expect( fs.existsSync( path.join( extractDir, 'safe-file.txt' ) ) ).toBe( true );
 	} );
@@ -105,7 +105,7 @@ describe( 'BackupHandlerWpress — path traversal protection', () => {
 			] )
 		);
 
-		await handler.extractFiles( { path: archivePath }, extractDir );
+		await handler.extractFiles( { path: archivePath, type: 'wpress' }, extractDir );
 
 		expect( fs.existsSync( path.join( extractDir, 'db.sql' ) ) ).toBe( true );
 		expect( fs.existsSync( path.join( extractDir, 'wp-content', 'uploads', 'photo.jpg' ) ) ).toBe(
@@ -143,7 +143,7 @@ describe( 'BackupHandlerWpress — listFiles traversal filtering', () => {
 			] )
 		);
 
-		const files = await handler.listFiles( { path: archivePath } );
+		const files = await handler.listFiles( { path: archivePath, type: 'wpress' } );
 
 		expect( files.some( ( f ) => f.includes( '..' ) ) ).toBe( false );
 		expect( files ).toContain( 'database.sql' );

@@ -1,7 +1,7 @@
 import fs, { promises as fsPromises } from 'fs';
 import path from 'path';
 import ignore, { Ignore } from 'ignore';
-import { DEPLOY_IGNORE_DEFAULTS } from './deploy-ignore';
+import { DEPLOY_IGNORE_DEFAULTS } from './deploy-ignore-defaults';
 import { isErrnoException } from './is-errno-exception';
 
 /**

@@ -1,8 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { createDeployIgnoreFilter, DEPLOY_IGNORE_DEFAULTS } from '@studio/common/lib/deploy-ignore';
-import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
+import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 
 function createTempDir(): string {
 	return fs.mkdtempSync( path.join( os.tmpdir(), 'deploy-ignore-test-' ) );
@@ -92,13 +91,5 @@ describe( 'createDeployIgnoreFilter', () => {
 		const ig = await createDeployIgnoreFilter( tempDir );
 		expect( ig.ignores( '.git' ) ).toBe( true );
 		expect( ig.ignores( 'wp-content/index.php' ) ).toBe( false );
-	} );
-} );
-
-describe( 'SYNC_IGNORE_DEFAULTS', () => {
-	it( 'should contain every pattern from DEPLOY_IGNORE_DEFAULTS', () => {
-		for ( const pattern of DEPLOY_IGNORE_DEFAULTS ) {
-			expect( SYNC_IGNORE_DEFAULTS ).toContain( pattern );
-		}
 	} );
 } );

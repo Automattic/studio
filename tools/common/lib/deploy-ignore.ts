@@ -1,13 +1,8 @@
 import { promises as fsPromises } from 'fs';
 import path from 'path';
 import ignore, { Ignore } from 'ignore';
+import { DEPLOY_IGNORE_DEFAULTS } from './deploy-ignore-defaults';
 import { isErrnoException } from './is-errno-exception';
-
-/**
- * Default patterns excluded from deploys. These are pre-seeded
- * but can be overridden via negation patterns in .deployignore.
- */
-export const DEPLOY_IGNORE_DEFAULTS = [ '.git', 'node_modules', '.DS_Store', 'Thumbs.db' ];
 
 const DEPLOY_IGNORE_FILENAME = '.deployignore';
 

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import type { SyncSite } from '@studio/common/types/sync';
 import { deriveSlotAssignments } from './slot-derivation';
+import type { SyncSite } from '@studio/common/types/sync';
 
 function site( overrides: Partial< SyncSite > ): SyncSite {
 	return {

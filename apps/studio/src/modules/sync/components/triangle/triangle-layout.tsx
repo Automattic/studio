@@ -1,22 +1,24 @@
-import { useGetConnectedSitesForLocalSiteQuery } from 'src/stores/sync/connected-sites';
-import { connectedSitesActions } from 'src/stores/sync/connected-sites';
+import { useAuth } from 'src/hooks/use-auth';
+import { useAppDispatch } from 'src/stores';
+import {
+	useGetConnectedSitesForLocalSiteQuery,
+	connectedSitesActions,
+} from 'src/stores/sync/connected-sites';
 import {
 	useGetStagingSyncStateQuery,
 	usePullFromStagingMutation,
 	usePushToStagingMutation,
 } from 'src/stores/sync/staging-site-api';
-import { useAppDispatch } from 'src/stores';
-import { useAuth } from 'src/hooks/use-auth';
-import type { SyncOption } from '@studio/common/types/sync';
-import { deriveSlotAssignments } from '../../lib/slot-derivation';
 import { useStagingProvisioning } from '../../hooks/use-staging-provisioning';
 import { useSyncActions } from '../../hooks/use-sync-actions';
+import { deriveSlotAssignments } from '../../lib/slot-derivation';
+import { SyncDialog } from '../sync-dialog';
 import { ArchivedConnections } from './archived-connections';
 import { EnvironmentColumn } from './environment-column';
 import { ConnectProductionCard, CreateStagingCard } from './placeholder-card';
 import { ProvisioningColumn } from './provisioning-column';
 import { SyncGutter } from './sync-gutter';
-import { SyncDialog } from '../sync-dialog';
+import type { SyncOption } from '@studio/common/types/sync';
 
 type Props = {
 	selectedSite: SiteDetails;
@@ -61,11 +63,7 @@ export function TriangleLayout( { selectedSite }: Props ) {
 						label="Local"
 						localSiteId={ selectedSite.id }
 						siteName={ selectedSite.name }
-						siteUrl={
-							selectedSite.running
-								? `http://localhost:${ selectedSite.port }`
-								: ''
-						}
+						siteUrl={ selectedSite.running ? `http://localhost:${ selectedSite.port }` : '' }
 						isRunning={ selectedSite.running }
 					/>
 				</div>

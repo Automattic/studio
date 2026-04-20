@@ -106,8 +106,8 @@ export const connectedSitesApi = createApi( {
 					( site.environmentType === 'staging' || site.isStaging
 						? 'staging'
 						: site.environmentType === 'production'
-							? 'production'
-							: 'archived' );
+						? 'production'
+						: 'archived' );
 				if ( incomingSlot === 'production' && production ) {
 					return {
 						error: {

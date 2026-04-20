@@ -1,7 +1,7 @@
-import type { SyncSite } from '@studio/common/types/sync';
 import { migrateConnectedSitesToSlots } from '@studio/common/lib/sync/slot-migration';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 import type { Migration } from '@studio/common/lib/migration';
+import type { SyncSite } from '@studio/common/types/sync';
 
 declare module 'src/storage/user-data' {
 	interface UserData {

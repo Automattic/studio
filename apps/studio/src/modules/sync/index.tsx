@@ -10,10 +10,10 @@ import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ConnectButton } from 'src/modules/sync/components/connect-button';
-import { TriangleLayout } from 'src/modules/sync/components/triangle/triangle-layout';
 import { SyncDialog } from 'src/modules/sync/components/sync-dialog';
 import { SyncSitesModalSelector } from 'src/modules/sync/components/sync-sites-modal-selector';
 import { SyncTabImage } from 'src/modules/sync/components/sync-tab-image';
+import { TriangleLayout } from 'src/modules/sync/components/triangle/triangle-layout';
 import {
 	convertTreeToPullOptions,
 	convertTreeToPushOptions,

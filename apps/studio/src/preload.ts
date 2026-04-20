@@ -48,8 +48,7 @@ const api: IpcApi = {
 	disconnectWpcomSites: ( ...args ) => ipcRendererInvoke( 'disconnectWpcomSites', ...args ),
 	updateConnectedWpcomSites: ( ...args ) =>
 		ipcRendererInvoke( 'updateConnectedWpcomSites', ...args ),
-	updateConnectedSiteSlot: ( ...args ) =>
-		ipcRendererInvoke( 'updateConnectedSiteSlot', ...args ),
+	updateConnectedSiteSlot: ( ...args ) => ipcRendererInvoke( 'updateConnectedSiteSlot', ...args ),
 	getLocalSiteSummary: ( ...args ) => ipcRendererInvoke( 'getLocalSiteSummary', ...args ),
 	listStagingSites: ( ...args ) => ipcRendererInvoke( 'listStagingSites', ...args ),
 	createStagingSite: ( ...args ) => ipcRendererInvoke( 'createStagingSite', ...args ),

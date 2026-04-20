@@ -14,10 +14,7 @@ export const environmentSummaryApi = createApi( {
 	tagTypes: [ 'PostCounts' ],
 	keepUnusedDataFor: 60,
 	endpoints: ( builder ) => ( {
-		getPostCounts: builder.query<
-			PostCountsResponse,
-			{ siteId: number; postType: string }
-		>( {
+		getPostCounts: builder.query< PostCountsResponse, { siteId: number; postType: string } >( {
 			queryFn: async ( { siteId, postType } ) => {
 				try {
 					const data = await wpcomRequest< PostCountsResponse >( {

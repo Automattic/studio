@@ -17,10 +17,7 @@ export function ConnectProductionCard( props: { onClick: () => void } ) {
 	);
 }
 
-export function CreateStagingCard( props: {
-	onClick: () => void;
-	disabledReason?: string;
-} ) {
+export function CreateStagingCard( props: { onClick: () => void; disabledReason?: string } ) {
 	return (
 		<div className="flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-gray-300 p-8 text-center dark:border-gray-600">
 			<h3 className="text-base font-semibold">{ __( 'Create staging site' ) }</h3>

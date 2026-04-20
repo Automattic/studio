@@ -16,12 +16,12 @@ import {
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
 import { download } from 'src/lib/download';
+import { getSiteUrl } from 'src/lib/get-site-url';
 import { getSyncBackupTempPath } from 'src/lib/get-sync-backup-temp-path';
 import { exportBackup } from 'src/lib/import-export/export/export-manager';
 import { ExportOptions } from 'src/lib/import-export/export/types';
 import { getAuthenticationToken } from 'src/lib/oauth';
 import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
-import { getSiteUrl } from 'src/lib/get-site-url';
 import * as stagingApi from 'src/modules/sync/lib/staging-api';
 import { SiteServer } from 'src/site-server';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
@@ -605,9 +605,7 @@ export async function getLocalSiteSummary(
 	const base = getSiteUrl( server.details );
 	async function countFor( postType: string ): Promise< number > {
 		try {
-			const res = await fetch(
-				`${ base }/wp-json/wp/v2/${ postType }?per_page=1&status=publish`
-			);
+			const res = await fetch( `${ base }/wp-json/wp/v2/${ postType }?per_page=1&status=publish` );
 			if ( ! res.ok ) return 0;
 			const total = Number( res.headers.get( 'X-WP-Total' ) ?? 0 );
 			return Number.isFinite( total ) ? total : 0;

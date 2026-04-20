@@ -1,7 +1,7 @@
 import { Spinner } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
-import type { SyncSite } from '@studio/common/types/sync';
 import { useEnvironmentSummary } from '../../hooks/use-environment-summary';
+import type { SyncSite } from '@studio/common/types/sync';
 
 type Props =
 	| {
@@ -47,14 +47,7 @@ function Stat( { label, value, loading }: { label: string; value: number; loadin
 function Mshot( props: { url: string } ) {
 	const encoded = encodeURIComponent( props.url );
 	const src = `https://s0.wp.com/mshots/v1/${ encoded }?w=400`;
-	return (
-		<img
-			src={ src }
-			alt=""
-			className="h-24 w-full rounded object-cover"
-			loading="lazy"
-		/>
-	);
+	return <img src={ src } alt="" className="h-24 w-full rounded object-cover" loading="lazy" />;
 }
 
 function LocalTile() {
@@ -74,8 +67,7 @@ export function EnvironmentColumn( props: Props ) {
 
 	const name = props.kind === 'local' ? props.siteName : props.site.name;
 	const url = props.kind === 'local' ? props.siteUrl : props.site.url;
-	const statusOk =
-		props.kind === 'local' ? props.isRunning : props.site.syncSupport === 'syncable';
+	const statusOk = props.kind === 'local' ? props.isRunning : props.site.syncSupport === 'syncable';
 	const lastPush = props.kind === 'remote' ? props.site.lastPushTimestamp : null;
 	const lastPull = props.kind === 'remote' ? props.site.lastPullTimestamp : null;
 
@@ -85,8 +77,7 @@ export function EnvironmentColumn( props: Props ) {
 			<div className="flex items-center gap-2 text-xs uppercase tracking-wide text-gray-500">
 				<span
 					className={
-						'inline-block h-2 w-2 rounded-full ' +
-						( statusOk ? 'bg-green-500' : 'bg-gray-400' )
+						'inline-block h-2 w-2 rounded-full ' + ( statusOk ? 'bg-green-500' : 'bg-gray-400' )
 					}
 					aria-hidden="true"
 				/>

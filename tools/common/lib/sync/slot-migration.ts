@@ -1,5 +1,5 @@
-import type { SyncSite } from '../../types/sync';
 import { deriveSlotAssignments } from './slot-derivation';
+import type { SyncSite } from '../../types/sync';
 
 export function migrateConnectedSitesToSlots( sites: SyncSite[] ): SyncSite[] {
 	if ( sites.length <= 2 ) {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import type { SyncSite } from '../../types/sync';
 import { migrateConnectedSitesToSlots } from './slot-migration';
+import type { SyncSite } from '../../types/sync';
 
 function s( partial: Partial< SyncSite > ): SyncSite {
 	return {

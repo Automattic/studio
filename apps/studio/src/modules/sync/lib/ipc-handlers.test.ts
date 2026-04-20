@@ -41,9 +41,7 @@ describe( 'updateConnectedSiteSlot', () => {
 	it( 'clears slotOverride when passed null', async () => {
 		vi.mocked( loadUserData ).mockResolvedValue( {
 			connectedWpcomSites: {
-				1: [
-					{ id: 100, localSiteId: 'local-1', name: 'a', slotOverride: 'staging' },
-				],
+				1: [ { id: 100, localSiteId: 'local-1', name: 'a', slotOverride: 'staging' } ],
 			},
 		} as any );
 		vi.mocked( saveUserData ).mockResolvedValue( undefined as any );

@@ -1,13 +1,13 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useState } from 'react';
-import type { SyncSite } from '@studio/common/types/sync';
 import { useAuth } from 'src/hooks/use-auth';
-import { useAppDispatch } from 'src/stores';
-import { syncOperationsThunks } from 'src/stores/sync';
 import {
 	convertTreeToPullOptions,
 	convertTreeToPushOptions,
 } from 'src/modules/sync/lib/convert-tree-to-sync-options';
+import { useAppDispatch } from 'src/stores';
+import { syncOperationsThunks } from 'src/stores/sync';
+import type { SyncSite } from '@studio/common/types/sync';
 import type { TreeNode } from 'src/components/tree-view';
 
 /**
@@ -20,9 +20,10 @@ import type { TreeNode } from 'src/components/tree-view';
 export function useSyncActions( selectedSite: SiteDetails ) {
 	const dispatch = useAppDispatch();
 	const { client } = useAuth();
-	const [ pendingSyncTarget, setPendingSyncTarget ] = useState<
-		{ connectedSite: SyncSite; direction: 'push' | 'pull' } | null
-	>( null );
+	const [ pendingSyncTarget, setPendingSyncTarget ] = useState< {
+		connectedSite: SyncSite;
+		direction: 'push' | 'pull';
+	} | null >( null );
 
 	const push = useCallback( async ( connectedSite: SyncSite ) => {
 		// Guardrail: pushes to production overwrite the live site — always confirm.
@@ -45,8 +46,7 @@ export function useSyncActions( selectedSite: SiteDetails ) {
 		setPendingSyncTarget( { connectedSite, direction: 'push' } );
 	}, [] );
 	const pull = useCallback(
-		( connectedSite: SyncSite ) =>
-			setPendingSyncTarget( { connectedSite, direction: 'pull' } ),
+		( connectedSite: SyncSite ) => setPendingSyncTarget( { connectedSite, direction: 'pull' } ),
 		[]
 	);
 

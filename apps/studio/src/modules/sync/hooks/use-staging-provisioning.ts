@@ -1,18 +1,15 @@
 import { useCallback, useRef, useState } from 'react';
-import type { StagingSite } from '@studio/common/types/staging-site';
 import { useConnectSiteMutation } from 'src/stores/sync/connected-sites';
 import {
 	useCreateStagingSiteMutation,
 	useListStagingSitesQuery,
 	useValidateStagingQuotaMutation,
 } from 'src/stores/sync/staging-site-api';
+import type { StagingSite } from '@studio/common/types/staging-site';
 
 type ProvisionState = 'idle' | 'validating' | 'provisioning' | 'ready' | 'failed';
 
-export function useStagingProvisioning( args: {
-	productionSiteId: number;
-	localSiteId: string;
-} ) {
+export function useStagingProvisioning( args: { productionSiteId: number; localSiteId: string } ) {
 	const [ state, setState ] = useState< ProvisionState >( 'idle' );
 	const [ error, setError ] = useState< string | null >( null );
 	const [ stagingSite, setStagingSite ] = useState< StagingSite | null >( null );

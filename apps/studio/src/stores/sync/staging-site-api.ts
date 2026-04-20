@@ -1,11 +1,11 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 import type {
 	StagingSite,
 	SyncState,
 	ValidateQuotaResponse,
 } from '@studio/common/types/staging-site';
 import type { SyncOption } from '@studio/common/types/sync';
-import { getIpcApi } from 'src/lib/get-ipc-api';
 
 export const stagingSiteApi = createApi( {
 	reducerPath: 'stagingSiteApi',
@@ -36,10 +36,7 @@ export const stagingSiteApi = createApi( {
 				{ type: 'StagingSite', id: productionSiteId },
 			],
 		} ),
-		validateStagingQuota: builder.mutation<
-			ValidateQuotaResponse,
-			{ productionSiteId: number }
-		>( {
+		validateStagingQuota: builder.mutation< ValidateQuotaResponse, { productionSiteId: number } >( {
 			queryFn: async ( args ) => ( { data: await getIpcApi().validateStagingQuota( args ) } ),
 		} ),
 		pushToStaging: builder.mutation<
@@ -65,10 +62,7 @@ export const stagingSiteApi = createApi( {
 				{ type: 'StagingSyncState', id: productionSiteId },
 			],
 		} ),
-		getStagingSyncState: builder.query<
-			SyncState | null,
-			{ productionSiteId: number }
-		>( {
+		getStagingSyncState: builder.query< SyncState | null, { productionSiteId: number } >( {
 			queryFn: async ( args ) => ( { data: await getIpcApi().getStagingSyncState( args ) } ),
 			providesTags: ( _r, _e, { productionSiteId } ) => [
 				{ type: 'StagingSyncState', id: productionSiteId },

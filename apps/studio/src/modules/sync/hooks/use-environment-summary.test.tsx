@@ -31,10 +31,9 @@ describe( 'useEnvironmentSummary (remote)', () => {
 			return Promise.resolve( { counts: { all: {} } } );
 		} );
 
-		const { result } = renderHook(
-			() => useEnvironmentSummary( { kind: 'remote', siteId: 1 } ),
-			{ wrapper }
-		);
+		const { result } = renderHook( () => useEnvironmentSummary( { kind: 'remote', siteId: 1 } ), {
+			wrapper,
+		} );
 
 		await waitFor( () => expect( result.current.isLoading ).toBe( false ) );
 		expect( result.current.counts.posts ).toBe( 14 );

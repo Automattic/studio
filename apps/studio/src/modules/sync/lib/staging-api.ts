@@ -7,8 +7,8 @@ import {
 	type SyncState,
 	type ValidateQuotaResponse,
 } from '@studio/common/types/staging-site';
-import type { SyncOption } from '@studio/common/types/sync';
 import { wpcomRequest } from '../../../lib/wpcom-request-main';
+import type { SyncOption } from '@studio/common/types/sync';
 
 export async function listStagingSites( productionSiteId: number ): Promise< StagingSite[] > {
 	const data = await wpcomRequest( {

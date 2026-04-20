@@ -60,10 +60,7 @@ export const FullscreenModal: React.FC< FullscreenModalProps > = ( {
 			aria-modal="true"
 			data-fullscreen-modal
 		>
-			<div
-				aria-hidden="true"
-				className="absolute top-0 left-0 right-0 h-16 z-10 app-drag-region"
-			/>
+			<div aria-hidden="true" className="absolute top-0 left-0 right-0 h-16 z-10 app-drag-region" />
 			<VStack alignment="top" className="w-full h-full overflow-y-auto px-6">
 				{ children }
 			</VStack>

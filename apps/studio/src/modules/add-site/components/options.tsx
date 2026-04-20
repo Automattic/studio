@@ -53,10 +53,7 @@ function OptionCard( {
 		>
 			<div>{ illustration }</div>
 			<div className="flex flex-col gap-1">
-				<Heading
-					className="text-base transition-colors group-hover:text-frame-theme"
-					weight="500"
-				>
+				<Heading className="text-base transition-colors group-hover:text-frame-theme" weight="500">
 					{ title }
 				</Heading>
 				<Text className="text-[13px] !text-frame-text-secondary" weight="400">

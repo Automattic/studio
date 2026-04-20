@@ -17,6 +17,7 @@ interface AIInputProps {
 	handleKeyDown: ( e: React.KeyboardEvent< HTMLTextAreaElement > ) => void;
 	clearConversation: () => void;
 	isAssistantThinking: boolean;
+	showTelexLink?: boolean;
 }
 
 const MAX_ROWS = 10;
@@ -54,6 +55,7 @@ const UnforwardedAIInput = (
 		handleKeyDown,
 		clearConversation,
 		isAssistantThinking,
+		showTelexLink = true,
 	}: AIInputProps,
 	inputRef: React.RefObject< HTMLTextAreaElement > | React.RefCallback< HTMLTextAreaElement > | null
 ) => {
@@ -255,19 +257,24 @@ const UnforwardedAIInput = (
 				{ ( { onClose }: { onClose: () => void } ) => (
 					<>
 						<MenuGroup>
-							<MenuItem
-								data-testid="telex-link-button"
-								onClick={ () => {
-									const telexUrl = addUrlParams( `https://${ TELEX_HOSTNAME }/`, TELEX_UTM_PARAMS );
-									getIpcApi().openURL( telexUrl );
-									onClose();
-								} }
-								className="flex flex-row"
-							>
-								<SparklesIcon />
-								<span className="ltr:pl-2 rtl:pl-2">{ __( 'Build with Telex' ) }</span>
-								<ArrowIcon />
-							</MenuItem>
+							{ showTelexLink && (
+								<MenuItem
+									data-testid="telex-link-button"
+									onClick={ () => {
+										const telexUrl = addUrlParams(
+											`https://${ TELEX_HOSTNAME }/`,
+											TELEX_UTM_PARAMS
+										);
+										getIpcApi().openURL( telexUrl );
+										onClose();
+									} }
+									className="flex flex-row"
+								>
+									<SparklesIcon />
+									<span className="ltr:pl-2 rtl:pl-2">{ __( 'Build with Telex' ) }</span>
+									<ArrowIcon />
+								</MenuItem>
+							) }
 							<MenuItem
 								isDestructive
 								data-testid="clear-conversation-button"

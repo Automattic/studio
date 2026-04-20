@@ -46,6 +46,7 @@ export class JsonAdapter implements AiOutputAdapter {
 	onSiteSelected: ( ( site: SiteInfo ) => void ) | null = null;
 	onInterrupt: ( () => void ) | null = null;
 	onBeforeExit: ( () => Promise< void > ) | null = null;
+	permissionResponse: Record< string, string > | null = null;
 
 	private sessionId: string | undefined;
 
@@ -94,7 +95,7 @@ export class JsonAdapter implements AiOutputAdapter {
 	}
 
 	setLoaderMessage( message: string, _update?: boolean ): void {
-		emitEvent( { type: 'progress', timestamp: new Date().toISOString(), message } );
+		this.showProgress( message );
 	}
 
 	beginAgentTurn(): void {
@@ -150,6 +151,14 @@ export class JsonAdapter implements AiOutputAdapter {
 	}
 
 	async askUser( questions: AskUserQuestion[] ): Promise< Record< string, string > > {
+		// If a permission response was pre-supplied (e.g. from desktop app),
+		// return it immediately instead of pausing.
+		if ( this.permissionResponse ) {
+			const response = this.permissionResponse;
+			this.permissionResponse = null;
+			return response;
+		}
+
 		emitEvent( {
 			type: 'question.asked',
 			timestamp: new Date().toISOString(),

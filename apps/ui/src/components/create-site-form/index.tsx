@@ -1,14 +1,7 @@
 import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
-import {
-	generateCustomDomainFromSiteName,
-	getDomainNameValidationError,
-} from '@studio/common/lib/domains';
-import {
-	generatePassword,
-	validateAdminEmail,
-	validateAdminUsername,
-} from '@studio/common/lib/passwords';
-import { RecommendedPHPVersion, SupportedPHPVersions } from '@studio/common/types/php-versions';
+import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
+import { generatePassword } from '@studio/common/lib/passwords';
+import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
 import {
 	CheckboxControl,
 	privateApis as componentsPrivateApis,
@@ -20,6 +13,16 @@ import { chevronDown, chevronRight } from '@wordpress/icons';
 import { Button, Icon } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LearnHowLink, LearnMoreLink } from '@/components/learn-more';
+import {
+	adminEmailField,
+	adminPasswordField,
+	adminUsernameField,
+	customDomainField,
+	phpVersionField,
+	siteNameField,
+	customDomainToggleField,
+	wpVersionField,
+} from '@/components/site-fields';
 import { usePathValidator } from '@/data/queries/use-create-site-helpers';
 import { useSites } from '@/data/queries/use-sites';
 import { unlock } from '@/lock-unlock';
@@ -80,11 +83,6 @@ interface FormData {
 	adminPassword: string;
 	adminEmail: string;
 }
-
-const PHP_VERSION_ELEMENTS = SupportedPHPVersions.map( ( version ) => ( {
-	value: version,
-	label: version,
-} ) );
 
 // ValidatedInputControl is the same private-API control DataForm's built-in
 // `text`/`email`/`password` Edit components use, so wiring the path field
@@ -289,12 +287,7 @@ export function CreateSiteForm( {
 
 	const fields = useMemo< Field< FormData >[] >(
 		() => [
-			{
-				id: 'name',
-				type: 'text',
-				label: __( 'Site name' ),
-				isValid: { required: true },
-			},
+			siteNameField< FormData >(),
 			{
 				id: 'path',
 				label: __( 'Local path' ),
@@ -304,63 +297,13 @@ export function CreateSiteForm( {
 					custom: ( item: FormData ) => item.pathError || null,
 				},
 			},
-			{
-				id: 'phpVersion',
-				type: 'text',
-				label: __( 'PHP version' ),
-				elements: PHP_VERSION_ELEMENTS,
-			},
-			{
-				id: 'wpVersion',
-				type: 'text',
-				label: __( 'WordPress version' ),
-				placeholder: DEFAULT_WORDPRESS_VERSION,
-			},
-			{
-				id: 'adminUsername',
-				type: 'text',
-				label: __( 'Admin username' ),
-				isValid: {
-					required: true,
-					custom: ( item: FormData ) => validateAdminUsername( item.adminUsername ) || null,
-				},
-			},
-			{
-				id: 'adminPassword',
-				type: 'password',
-				label: __( 'Admin password' ),
-				isValid: { required: true },
-			},
-			{
-				id: 'adminEmail',
-				type: 'email',
-				label: __( 'Admin email' ),
-				isValid: {
-					required: true,
-					custom: ( item: FormData ) => validateAdminEmail( item.adminEmail ) || null,
-				},
-			},
-			{
-				id: 'useCustomDomain',
-				type: 'boolean',
-				label: __( 'Use custom domain' ),
-				description: __( 'Your system password will be required to set up the domain.' ),
-			},
-			{
-				id: 'customDomain',
-				type: 'text',
-				label: __( 'Domain name' ),
-				isVisible: ( item: FormData ) => item.useCustomDomain,
-				isValid: {
-					custom: ( item: FormData ) => {
-						const value = item.customDomain || generateCustomDomainFromSiteName( item.name );
-						return (
-							getDomainNameValidationError( item.useCustomDomain, value, existingDomainNames ) ||
-							null
-						);
-					},
-				},
-			},
+			phpVersionField< FormData >(),
+			wpVersionField< FormData >( DEFAULT_WORDPRESS_VERSION ),
+			adminUsernameField< FormData >(),
+			adminPasswordField< FormData >(),
+			adminEmailField< FormData >(),
+			customDomainToggleField< FormData >(),
+			customDomainField< FormData >( existingDomainNames ),
 			{
 				id: 'enableHttps',
 				type: 'boolean',

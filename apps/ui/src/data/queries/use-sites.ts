@@ -1,7 +1,7 @@
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { useConnector } from '@/data/core';
-import type { CreateSiteParams } from '@/data/core';
+import type { CreateSiteParams, SiteDetails } from '@/data/core';
 
 export const SITES_QUERY_KEY = [ 'sites' ] as const;
 
@@ -57,6 +57,41 @@ export function useStopSite() {
 			await connector.stopSite( id );
 			await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 		},
+	} );
+}
+
+export interface UpdateSiteInput {
+	site: SiteDetails;
+	// Provided only when the user switched WP version; undefined means the
+	// site stays on its current auto-updating track.
+	wpVersion?: string;
+}
+
+export function useUpdateSite() {
+	const connector = useConnector();
+	return useMutation( {
+		mutationFn: async ( { site, wpVersion }: UpdateSiteInput ) => {
+			await connector.updateSite( site, wpVersion );
+			// Intentionally skip an immediate invalidateQueries here: the CLI
+			// edit and the site-updated event are emitted from two separate
+			// CLI processes, so the event is usually still in flight when the
+			// IPC call resolves. A refetch fired now races ahead of the
+			// handler in cli-events-subscriber and returns pre-event state,
+			// which flashes the old values back into the settings form.
+			// `useSyncSitesWithEvents` invalidates `SITES_QUERY_KEY` once the
+			// site-event lands, giving us a single refetch against fresh
+			// in-memory details.
+		},
+	} );
+}
+
+const XDEBUG_ENABLED_SITE_QUERY_KEY = [ 'xdebugEnabledSite' ] as const;
+
+export function useXdebugEnabledSite() {
+	const connector = useConnector();
+	return useQuery( {
+		queryKey: XDEBUG_ENABLED_SITE_QUERY_KEY,
+		queryFn: () => connector.getXdebugEnabledSite(),
 	} );
 }
 

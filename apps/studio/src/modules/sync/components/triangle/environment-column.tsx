@@ -48,15 +48,37 @@ function Stat( { label, value, loading }: { label: string; value: number; loadin
 	);
 }
 
-function Mshot( props: { url: string } ) {
-	const encoded = encodeURIComponent( props.url );
-	const src = `https://s0.wp.com/mshots/v1/${ encoded }?w=320`;
+type PreviewFrameProps = {
+	children: React.ReactNode;
+	siteIconUrl?: string;
+	badge: React.ReactNode;
+};
+
+function PreviewFrame( { children, siteIconUrl, badge }: PreviewFrameProps ) {
 	return (
-		<img src={ src } alt="" className="h-20 w-32 shrink-0 rounded object-cover" loading="lazy" />
+		<div className="relative h-28 w-44 shrink-0 overflow-hidden rounded-lg border border-frame-border bg-frame-surface">
+			{ children }
+			{ siteIconUrl && (
+				<img
+					src={ siteIconUrl }
+					alt=""
+					className="absolute bottom-1.5 left-1.5 h-6 w-6 rounded border border-white/30 bg-white object-cover"
+				/>
+			) }
+			<div className="absolute bottom-1.5 right-1.5 rounded border border-white/30 bg-white/90 backdrop-blur-sm">
+				{ badge }
+			</div>
+		</div>
 	);
 }
 
-function LocalPreview( { siteName }: { siteName: string } ) {
+function MshotImage( { url }: { url: string } ) {
+	const encoded = encodeURIComponent( url );
+	const src = `https://s0.wp.com/mshots/v1/${ encoded }?w=400&h=260`;
+	return <img src={ src } alt="" className="h-full w-full object-cover" loading="lazy" />;
+}
+
+function LocalPreviewImage( { siteName }: { siteName: string } ) {
 	const { selectedThumbnail } = useThemeDetails();
 	if ( selectedThumbnail ) {
 		return (
@@ -67,12 +89,12 @@ function LocalPreview( { siteName }: { siteName: string } ) {
 					__( 'Preview of the %s site' ),
 					siteName
 				) }
-				className="h-20 w-32 shrink-0 rounded object-cover object-top"
+				className="h-full w-full object-cover object-top"
 			/>
 		);
 	}
 	return (
-		<div className="flex h-20 w-32 shrink-0 items-center justify-center rounded bg-frame-surface text-frame-text-secondary">
+		<div className="flex h-full w-full items-center justify-center text-frame-text-secondary">
 			<span className="a8c-helper-text">{ __( 'Local' ) }</span>
 		</div>
 	);
@@ -93,19 +115,21 @@ export function EnvironmentColumn( props: Props ) {
 	return (
 		<div className="flex flex-row items-center gap-4 rounded-lg border border-frame-border bg-frame-bg p-4">
 			{ props.kind === 'remote' ? (
-				<Mshot url={ props.site.url } />
+				<PreviewFrame
+					siteIconUrl={ props.site.siteIconUrl }
+					badge={ <EnvironmentBadge type={ getSiteEnvironment( props.site ) } /> }
+				>
+					<MshotImage url={ props.site.url } />
+				</PreviewFrame>
 			) : (
-				<LocalPreview siteName={ props.siteName } />
+				<PreviewFrame
+					badge={ <Badge className="bg-transparent text-frame-text">{ __( 'Local' ) }</Badge> }
+				>
+					<LocalPreviewImage siteName={ props.siteName } />
+				</PreviewFrame>
 			) }
 
 			<div className="flex min-w-0 flex-1 flex-col gap-1">
-				<div>
-					{ props.kind === 'remote' ? (
-						<EnvironmentBadge type={ getSiteEnvironment( props.site ) } />
-					) : (
-						<Badge className="bg-frame-surface text-frame-text-secondary">{ __( 'Local' ) }</Badge>
-					) }
-				</div>
 				<div className="a8c-subtitle truncate text-frame-text">{ name }</div>
 				<a
 					href={ url }

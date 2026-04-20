@@ -124,7 +124,7 @@ export async function runCommand(
 	exportPath: string,
 	mode: 'full' | 'content' | 'db' = 'full',
 	splitDbDumpByTable = false,
-	includeOnlyPaths: string[] = []
+	includeOnlyPaths?: string[]
 ): Promise< void > {
 	try {
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );

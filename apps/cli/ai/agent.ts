@@ -1,14 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { query, type Query } from '@anthropic-ai/claude-agent-sdk';
-import {
-	ALLOWED_TOOLS,
-	STUDIO_ROOT,
-	createPathApprovalSession,
-	loadPersistedApprovals,
-	promptForApproval,
-	type AskUserQuestion,
-} from 'cli/ai/security';
+import { ALLOWED_TOOLS, STUDIO_ROOT, promptForApproval, type AskUserQuestion } from 'cli/ai/security';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { createRemoteSiteTools, createStudioTools } from 'cli/ai/tools';
 import type { SiteInfo } from 'cli/ai/ui';
@@ -35,14 +28,6 @@ export const AI_MODELS = {
 export type AiModelId = keyof typeof AI_MODELS;
 
 export const DEFAULT_MODEL: AiModelId = 'claude-sonnet-4-6';
-const pathApprovalSession = createPathApprovalSession();
-
-// Seed `pathApprovalSession` with every `Allow always` entry persisted to
-// cli.json. Callers should `await` this once at startup before the agent
-// starts asking for tool permissions.
-export function primeApprovalSession(): Promise< void > {
-	return loadPersistedApprovals( pathApprovalSession );
-}
 
 // The Claude Agent SDK rejects internal pending promises (e.g. control
 // responses) when an agent turn is interrupted via ESC. These rejections
@@ -140,13 +125,7 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 					};
 				}
 
-				return promptForApproval( {
-					toolName,
-					input,
-					metadata,
-					onAskUser,
-					pathApprovalSession,
-				} );
+				return promptForApproval( { toolName, input, metadata, onAskUser } );
 			},
 			plugins: [ { type: 'local' as const, path: path.resolve( import.meta.dirname, 'plugin' ) } ],
 			model,

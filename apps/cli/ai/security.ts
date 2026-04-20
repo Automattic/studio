@@ -154,18 +154,22 @@ export function createPathApprovalSession(): PathApprovalSession {
 	};
 }
 
-/**
- * Seeds a path-approval session with every `Allow always` choice persisted
- * to cli.json. Call once at startup, before the agent begins requesting
- * tool permissions, so previously-approved paths no longer re-prompt.
- */
-export async function loadPersistedApprovals(
-	pathApprovalSession: PathApprovalSession
-): Promise< void > {
-	const entries = await readApprovedPermissions();
-	for ( const { toolName, approvalPath } of entries ) {
-		pathApprovalSession.rememberApprovedPath( toolName, approvalPath );
+// Process-wide approval session. Populated lazily on the first
+// `promptForApproval` call with whatever `Allow always` entries are
+// stored in cli.json.
+const defaultApprovalSession = createPathApprovalSession();
+let primePromise: Promise< void > | null = null;
+
+function primeDefaultApprovalSession(): Promise< void > {
+	if ( ! primePromise ) {
+		primePromise = ( async () => {
+			const entries = await readApprovedPermissions();
+			for ( const { toolName, approvalPath } of entries ) {
+				defaultApprovalSession.rememberApprovedPath( toolName, approvalPath );
+			}
+		} )();
 	}
+	return primePromise;
 }
 
 export function getPathGatedPermissionRequest( {
@@ -243,14 +247,17 @@ export async function promptForApproval( {
 	input,
 	metadata,
 	onAskUser,
-	pathApprovalSession,
+	pathApprovalSession = defaultApprovalSession,
 }: {
 	toolName: string;
 	input: Parameters< CanUseTool >[ 1 ];
 	metadata?: Parameters< CanUseTool >[ 2 ];
 	onAskUser?: AskUserHandler;
-	pathApprovalSession: PathApprovalSession;
+	pathApprovalSession?: PathApprovalSession;
 } ): Promise< PermissionResult > {
+	if ( pathApprovalSession === defaultApprovalSession ) {
+		await primeDefaultApprovalSession();
+	}
 	const permissionRequest = getPathGatedPermissionRequest( {
 		toolName,
 		input,

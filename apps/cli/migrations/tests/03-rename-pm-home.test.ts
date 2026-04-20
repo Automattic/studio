@@ -34,14 +34,11 @@ describe( 'renameProcessManagerHome migration', () => {
 		expect( await renameProcessManagerHome.needsToRun() ).toBe( false );
 	} );
 
-	it( 'does not run when both legacy and new paths exist', async () => {
+	it( 'runs when legacy path exists (regardless of new path)', async () => {
 		fs.mkdirSync( legacyPath(), { recursive: true } );
-		fs.mkdirSync( newPath(), { recursive: true } );
-		expect( await renameProcessManagerHome.needsToRun() ).toBe( false );
-	} );
+		expect( await renameProcessManagerHome.needsToRun() ).toBe( true );
 
-	it( 'runs when legacy path exists and new path does not', async () => {
-		fs.mkdirSync( legacyPath(), { recursive: true } );
+		fs.mkdirSync( newPath(), { recursive: true } );
 		expect( await renameProcessManagerHome.needsToRun() ).toBe( true );
 	} );
 
@@ -58,5 +55,39 @@ describe( 'renameProcessManagerHome migration', () => {
 			'hello'
 		);
 		expect( fs.existsSync( path.join( newPath(), 'pm-connection.lock' ) ) ).toBe( true );
+	} );
+
+	it( 'merges legacy logs into the new path when both exist, and removes the legacy folder', async () => {
+		fs.mkdirSync( path.join( legacyPath(), 'logs' ), { recursive: true } );
+		fs.writeFileSync( path.join( legacyPath(), 'logs', 'site-legacy-out.log' ), 'legacy' );
+		fs.writeFileSync( path.join( legacyPath(), 'events.sock' ), '' );
+
+		fs.mkdirSync( path.join( newPath(), 'logs' ), { recursive: true } );
+		fs.writeFileSync( path.join( newPath(), 'logs', 'site-new-out.log' ), 'fresh' );
+
+		await renameProcessManagerHome.run();
+
+		expect( fs.existsSync( legacyPath() ) ).toBe( false );
+		expect(
+			fs.readFileSync( path.join( newPath(), 'logs', 'site-legacy-out.log' ), 'utf-8' )
+		).toBe( 'legacy' );
+		expect( fs.readFileSync( path.join( newPath(), 'logs', 'site-new-out.log' ), 'utf-8' ) ).toBe(
+			'fresh'
+		);
+	} );
+
+	it( 'does not overwrite an existing log file in the new path with the legacy copy', async () => {
+		fs.mkdirSync( path.join( legacyPath(), 'logs' ), { recursive: true } );
+		fs.writeFileSync( path.join( legacyPath(), 'logs', 'site-1-out.log' ), 'legacy' );
+
+		fs.mkdirSync( path.join( newPath(), 'logs' ), { recursive: true } );
+		fs.writeFileSync( path.join( newPath(), 'logs', 'site-1-out.log' ), 'fresh' );
+
+		await renameProcessManagerHome.run();
+
+		expect( fs.existsSync( legacyPath() ) ).toBe( false );
+		expect( fs.readFileSync( path.join( newPath(), 'logs', 'site-1-out.log' ), 'utf-8' ) ).toBe(
+			'fresh'
+		);
 	} );
 } );

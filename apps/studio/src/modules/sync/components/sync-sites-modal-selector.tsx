@@ -39,7 +39,7 @@ export function SyncSitesModalSelector( {
 	mode = 'connect',
 }: {
 	onRequestClose: () => void;
-	onConnect: ( siteId: number ) => void;
+	onConnect: ( site: SyncSite ) => void;
 	selectedSite: SiteDetails;
 	mode?: SyncModalMode;
 } ) {
@@ -74,11 +74,11 @@ export function SyncSitesModalSelector( {
 
 	return (
 		<Modal
-			className="w-3/5 min-w-[550px] h-full max-h-[84vh] [&>div]:!p-0"
+			className="w-[90%] max-w-[1100px] h-full max-h-[90vh] [&>div]:!p-0 [&_h1]:!text-center [&_[role=document]]:flex [&_[role=document]]:flex-col [&_[role=document]>div:last-child]:flex-1 [&_[role=document]>div:last-child]:min-h-0"
 			onRequestClose={ onRequestClose }
 			title={ getModalTitle() }
 		>
-			<div className="relative" data-testid="sync-sites-modal-selector">
+			<div className="relative flex flex-col h-full" data-testid="sync-sites-modal-selector">
 				<SitesListContent
 					sitesQuery={ sitesQuery }
 					selectedSiteId={ selectedSiteId }
@@ -90,7 +90,11 @@ export function SyncSitesModalSelector( {
 						if ( ! selectedSiteId ) {
 							return;
 						}
-						onConnect( selectedSiteId );
+						const selected = sitesQuery.sites.find( ( s ) => s.id === selectedSiteId );
+						if ( ! selected ) {
+							return;
+						}
+						onConnect( selected );
 					} }
 					disabled={ ! selectedSiteId }
 					selectedSite={ selectedSite }
@@ -107,52 +111,69 @@ export function SyncSitesModalSelector( {
 	);
 }
 
-function SearchSites( {
-	searchQuery,
-	setSearchQuery,
+export function SitesHelperLinks( {
 	onRefresh,
 	isRefreshing,
 }: {
-	searchQuery: string;
-	setSearchQuery: ( value: string ) => void;
 	onRefresh: () => void;
 	isRefreshing: boolean;
 } ) {
 	const { __ } = useI18n();
 	const locale = useI18nLocale();
 	return (
-		<div className="flex flex-col items-center px-8 pb-6 shrink-0 max-w-lg mx-auto w-full">
-			<SearchControl
-				className="w-full mt-0.5 mb-2 text-frame-text"
-				placeholder={ __( 'Search sites' ) }
-				onChange={ ( value ) => {
-					setSearchQuery( value );
-				} }
-				value={ searchQuery }
-				autoFocus
-				__nextHasNoMarginBottom={ true }
-			/>
-			<p className="a8c-helper-text text-frame-text-secondary">
-				<Button
-					variant="link"
-					onClick={ onRefresh }
-					disabled={ isRefreshing }
-					className="!p-0 text-xs"
-				>
-					{ isRefreshing ? __( 'Refreshing…' ) : __( 'Refresh list' ) }
-				</Button>
-				{ ' · ' }
-				<Button
-					variant="link"
-					onClick={ () =>
-						getIpcApi().openURL( getLocalizedLink( locale, 'docsSyncSupportedSites' ) )
-					}
-					className="!p-0 text-xs"
-				>
-					{ __( 'Supported sites' ) }
-					<ArrowIcon />
-				</Button>
-			</p>
+		<p className="a8c-helper-text text-frame-text-secondary">
+			<Button
+				variant="link"
+				onClick={ onRefresh }
+				disabled={ isRefreshing }
+				className="!p-0 text-xs"
+			>
+				{ isRefreshing ? __( 'Refreshing…' ) : __( 'Refresh list' ) }
+			</Button>
+			{ ' · ' }
+			<Button
+				variant="link"
+				onClick={ () =>
+					getIpcApi().openURL( getLocalizedLink( locale, 'docsSyncSupportedSites' ) )
+				}
+				className="!p-0 text-xs"
+			>
+				{ __( 'Supported sites' ) }
+				<ArrowIcon />
+			</Button>
+		</p>
+	);
+}
+
+function SearchSites( {
+	showSearchInput,
+	searchQuery,
+	setSearchQuery,
+	onRefresh,
+	isRefreshing,
+}: {
+	showSearchInput: boolean;
+	searchQuery: string;
+	setSearchQuery: ( value: string ) => void;
+	onRefresh: () => void;
+	isRefreshing: boolean;
+} ) {
+	const { __ } = useI18n();
+	return (
+		<div className="flex flex-col items-center px-8 pb-4 shrink-0 max-w-lg mx-auto w-full">
+			{ showSearchInput && (
+				<SearchControl
+					className="w-full mt-0.5 mb-2 text-frame-text"
+					placeholder={ __( 'Search sites' ) }
+					onChange={ ( value ) => {
+						setSearchQuery( value );
+					} }
+					value={ searchQuery }
+					autoFocus
+					__nextHasNoMarginBottom={ true }
+				/>
+			) }
+			<SitesHelperLinks onRefresh={ onRefresh } isRefreshing={ isRefreshing } />
 		</div>
 	);
 }
@@ -213,10 +234,12 @@ export function SitesListContent( {
 	sitesQuery,
 	selectedSiteId,
 	onSelectSite,
+	headerAction,
 }: {
 	sitesQuery: SitesQueryResult;
 	selectedSiteId: number | null;
 	onSelectSite: ( id: number ) => void;
+	headerAction?: React.ReactNode;
 } ) {
 	const { __ } = useI18n();
 	const { sites, isLoading, isFetching, searchQuery, setSearchQuery } = sitesQuery;
@@ -226,14 +249,21 @@ export function SitesListContent( {
 		? sprintf( __( 'No sites found for "%s"' ), searchQuery )
 		: __( 'No WordPress.com sites found on this account.' );
 
+	const SEARCH_VISIBILITY_THRESHOLD = 5;
+	const showSearchInput = searchQuery.length > 0 || sites.length > SEARCH_VISIBILITY_THRESHOLD;
+
 	return (
-		<div className="flex flex-col h-[calc(100vh-220px)]">
-			<SearchSites
-				searchQuery={ searchQuery }
-				setSearchQuery={ setSearchQuery }
-				onRefresh={ sitesQuery.refetch }
-				isRefreshing={ sitesQuery.isFetching }
-			/>
+		<div className="flex flex-col flex-1 min-h-0 h-full">
+			{ ! isLoading && (
+				<SearchSites
+					showSearchInput={ showSearchInput }
+					searchQuery={ searchQuery }
+					setSearchQuery={ setSearchQuery }
+					onRefresh={ sitesQuery.refetch }
+					isRefreshing={ sitesQuery.isFetching }
+				/>
+			) }
+			{ headerAction && <div className="px-8 pb-4 shrink-0">{ headerAction }</div> }
 			<div className="flex-1 min-h-0 relative flex flex-col">
 				{ isLoading ? (
 					<div className="flex-1 flex flex-col justify-center items-center gap-3">
@@ -243,19 +273,22 @@ export function SitesListContent( {
 						</span>
 					</div>
 				) : isEmpty ? (
-					<div className="flex-1 flex flex-col justify-center items-center gap-2">
+					<div className="flex-1 flex flex-col justify-center items-center gap-3">
 						<span className="text-sm text-frame-text-secondary">{ emptyMessage }</span>
+						{ ! searchQuery && (
+							<CreateButton
+								variant="link"
+								text={ __( 'Create a new WordPress.com site' ) }
+								className="!text-frame-theme !shadow-frame-theme"
+							/>
+						) }
 					</div>
 				) : (
-					<>
-						<div className="pointer-events-none absolute top-0 left-0 right-0 h-10 z-10 bg-gradient-to-b from-frame to-transparent" />
-						<div className="pointer-events-none absolute bottom-0 left-0 right-0 h-10 z-10 bg-gradient-to-t from-frame to-transparent" />
-						<ListSites
-							syncSites={ sites }
-							selectedSiteId={ selectedSiteId }
-							onSelectSite={ onSelectSite }
-						/>
-					</>
+					<ListSites
+						syncSites={ sites }
+						selectedSiteId={ selectedSiteId }
+						onSelectSite={ onSelectSite }
+					/>
 				) }
 			</div>
 		</div>
@@ -288,7 +321,7 @@ function SiteGrid( {
 	return (
 		<div
 			className="grid gap-5"
-			style={ { gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' } }
+			style={ { gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))' } }
 		>
 			{ sites.map( ( site ) => (
 				<SiteItem
@@ -364,24 +397,32 @@ function ListSites( {
 	}
 
 	return (
-		<div className="overflow-y-auto h-full px-8 pt-6 pb-8">
-			{ sections.map( ( section ) => (
-				<div key={ section.title || 'syncable' } className={ section.title ? 'mt-8' : '' }>
-					{ section.title && (
-						<div className="mb-5 px-1.5">
-							<h3 className="text-base font-medium text-frame-text">{ section.title }</h3>
-							{ section.description && (
-								<p className="text-sm text-frame-text-secondary mt-1">{ section.description }</p>
+		<div className="overflow-y-auto h-full">
+			<div className="pointer-events-none sticky top-0 h-10 -mb-10 z-10 bg-gradient-to-b from-frame to-transparent" />
+			<div className="min-h-full flex flex-col justify-center">
+				<div className="px-8 pt-4 pb-8">
+					{ sections.map( ( section ) => (
+						<div key={ section.title || 'syncable' } className={ section.title ? 'mt-8' : '' }>
+							{ section.title && (
+								<div className="mb-5 px-1.5">
+									<h3 className="text-base font-medium text-frame-text">{ section.title }</h3>
+									{ section.description && (
+										<p className="text-sm text-frame-text-secondary mt-1">
+											{ section.description }
+										</p>
+									) }
+								</div>
 							) }
+							<SiteGrid
+								sites={ section.sites }
+								selectedSiteId={ selectedSiteId }
+								onSelectSite={ onSelectSite }
+							/>
 						</div>
-					) }
-					<SiteGrid
-						sites={ section.sites }
-						selectedSiteId={ selectedSiteId }
-						onSelectSite={ onSelectSite }
-					/>
+					) ) }
 				</div>
-			) ) }
+			</div>
+			<div className="pointer-events-none sticky bottom-0 h-10 -mt-10 z-10 bg-gradient-to-t from-frame to-transparent" />
 		</div>
 	);
 }
@@ -447,7 +488,7 @@ function SiteOverlayCta( { site }: { site: SyncSite } ) {
 			<>
 				<Button
 					variant="secondary"
-					className="!text-xs !px-3 !py-1.5 !h-auto !bg-white !shadow-sm"
+					className="!text-xs !px-3 !py-1.5 !h-auto !bg-white !text-a8c-gray-900 hover:!text-a8c-gray-900 !shadow-sm"
 					onClick={ ( e: React.MouseEvent ) => {
 						e.stopPropagation();
 						getIpcApi().openURL( `https://wordpress.com/plans/${ site.id }` );
@@ -457,7 +498,9 @@ function SiteOverlayCta( { site }: { site: SyncSite } ) {
 					<ArrowIcon />
 				</Button>
 				{ site.planName && (
-					<span className="text-[11px] text-white/80 drop-shadow-sm">{ site.planName }</span>
+					<span className="text-[11px] text-white px-2 py-0.5 rounded bg-black/50 backdrop-blur-sm">
+						{ site.planName }
+					</span>
 				) }
 			</>
 		);
@@ -466,7 +509,7 @@ function SiteOverlayCta( { site }: { site: SyncSite } ) {
 		return (
 			<Button
 				variant="secondary"
-				className="!text-xs !px-3 !py-1.5 !h-auto !bg-white !shadow-sm"
+				className="!text-xs !px-3 !py-1.5 !h-auto !bg-white !text-a8c-gray-900 hover:!text-a8c-gray-900 !shadow-sm"
 				onClick={ ( e: React.MouseEvent ) => {
 					e.stopPropagation();
 					getIpcApi().openURL( `https://wordpress.com/hosting-features/${ site.id }` );
@@ -502,7 +545,7 @@ function SiteStatusLabel( { site }: { site: SyncSite } ) {
 	return null;
 }
 
-function SiteItem( {
+export function SiteItem( {
 	site,
 	isSelected,
 	onClick,
@@ -611,7 +654,7 @@ function Footer( {
 	}, [ disabled ] );
 
 	return (
-		<div className="flex px-8 py-4 border-t border-frame-border justify-between items-center">
+		<div className="flex px-8 py-4 justify-between items-center">
 			<CreateButton
 				variant="link"
 				selectedSite={ selectedSite }

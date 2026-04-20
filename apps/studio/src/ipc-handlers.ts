@@ -84,6 +84,7 @@ import { exportBackup } from 'src/lib/import-export/export/export-manager';
 import { ExportOptions } from 'src/lib/import-export/export/types';
 import { ImportExportEventData } from 'src/lib/import-export/handle-events';
 import { defaultImporterOptions, importBackup } from 'src/lib/import-export/import/import-manager';
+import { preflightBackupFile } from 'src/lib/import-export/import/preflight';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
@@ -1890,6 +1891,14 @@ export async function validateBlueprint(
 	blueprintJson: Blueprint[ 'blueprint' ]
 ) {
 	return validateBlueprintData( blueprintJson );
+}
+
+export async function preflightBackup(
+	_event: IpcMainInvokeEvent,
+	filePath: string,
+	fileType: string
+) {
+	return preflightBackupFile( filePath, fileType );
 }
 
 export async function readBlueprintFile(

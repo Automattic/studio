@@ -141,11 +141,13 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	const [ disconnectSite ] = useDisconnectSiteMutation();
 
 	const connectedSiteIds = connectedSites.map( ( { id } ) => id );
-	const { data: syncSitesData } = useGetWpComSitesQuery( {
+	// Subscribe to /me/sites so reconcileConnectedSites runs on page load to
+	// refresh stored connection metadata. The list itself isn't rendered here —
+	// the connect modal has its own subscription with a larger page size.
+	useGetWpComSitesQuery( {
 		connectedSiteIds,
 		userId: user?.id,
 	} );
-	const syncSites = syncSitesData?.sites ?? [];
 
 	const [ selectedRemoteSite, setSelectedRemoteSite ] = useState< SyncSite | null >( null );
 
@@ -176,16 +178,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		}
 	};
 
-	const handleSiteSelection = async ( siteId: number ) => {
-		const selectedSiteFromList = syncSites.find( ( site ) => site.id === siteId );
-		if ( ! selectedSiteFromList ) {
-			getIpcApi().showErrorMessageBox( {
-				title: __( 'Failed to select site' ),
-				message: __( 'Please try again.' ),
-			} );
-			return;
-		}
-
+	const handleSiteSelection = async ( selectedSiteFromList: SyncSite ) => {
 		if ( reduxModalMode === 'push' || reduxModalMode === 'pull' ) {
 			dispatch( connectedSitesActions.openModal( reduxModalMode ) );
 			setSelectedRemoteSite( selectedSiteFromList );
@@ -234,8 +227,8 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 					onRequestClose={ () => {
 						dispatch( connectedSitesActions.closeModal() );
 					} }
-					onConnect={ async ( siteId: number ) => {
-						await handleSiteSelection( siteId );
+					onConnect={ async ( site: SyncSite ) => {
+						await handleSiteSelection( site );
 					} }
 					selectedSite={ selectedSite }
 				/>

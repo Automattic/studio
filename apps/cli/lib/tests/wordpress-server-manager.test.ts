@@ -54,6 +54,10 @@ describe( 'WordPress Server Manager', () => {
 	} );
 
 	function setupIpcMocks(): void {
+		// Pretend the child process is alive so the startup-race guard in
+		// `waitForReadyMessage` doesn't short-circuit with a "child exited" error.
+		vi.mocked( daemonClient.isProcessRunning ).mockResolvedValue( mockProcessDescription );
+
 		// Emit "ready" repeatedly to avoid races where the listener is attached after one-shot emission.
 		const readyInterval = setInterval( () => {
 			mockBus.emit( 'process-message', {
@@ -128,6 +132,36 @@ describe( 'WordPress Server Manager', () => {
 
 			await expect( startWordPressServer( mockSiteData, mockLogger ) ).rejects.toThrow(
 				'Failed to start process'
+			);
+		} );
+
+		it( 'should surface an error when the child process exits before becoming ready', async () => {
+			// Race guard should not fire — pretend the process is still online when checked.
+			vi.mocked( daemonClient.isProcessRunning ).mockResolvedValue( mockProcessDescription );
+
+			// Do not emit `ready`; instead emit an `exit` event to simulate a crash during startup.
+			setTimeout( () => {
+				mockBus.emit( 'process-event', {
+					process: {
+						name: mockProcessDescription.name,
+						pm_id: mockProcessDescription.pmId,
+					},
+					event: 'exit',
+				} );
+			}, 10 );
+
+			await expect( startWordPressServer( mockSiteData, mockLogger ) ).rejects.toThrow(
+				/WordPress server child process exited before becoming ready/
+			);
+		} );
+
+		it( 'should surface an error when the child has already exited before listeners attach', async () => {
+			// Simulate the race where the child process has already exited by the time
+			// `startProcess` resolves — `isProcessRunning` returns undefined.
+			vi.mocked( daemonClient.isProcessRunning ).mockResolvedValue( undefined );
+
+			await expect( startWordPressServer( mockSiteData, mockLogger ) ).rejects.toThrow(
+				/WordPress server child process exited before becoming ready/
 			);
 		} );
 	} );

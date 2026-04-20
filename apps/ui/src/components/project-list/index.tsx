@@ -1,4 +1,4 @@
-import { Link, useParams } from '@tanstack/react-router';
+import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { moreHorizontal, plus } from '@wordpress/icons';
 import { IconButton } from '@wordpress/ui';
@@ -6,7 +6,7 @@ import { clsx } from 'clsx';
 import { useMemo, useState } from 'react';
 import * as Menu from '@/components/menu';
 import { SidebarButton } from '@/components/sidebar-button';
-import { useSessions } from '@/data/queries/use-sessions';
+import { useCreateSession, useSessions } from '@/data/queries/use-sessions';
 import {
 	useIsSiteStarting,
 	useIsSiteStopping,
@@ -118,6 +118,32 @@ function SessionItem( { session }: { session: AiSessionSummary } ) {
 	);
 }
 
+function NewSessionButton( { site }: { site: SiteDetails } ) {
+	const navigate = useNavigate();
+	const createSession = useCreateSession();
+
+	const handleClick = async () => {
+		if ( createSession.isPending ) {
+			return;
+		}
+		const summary = await createSession.mutateAsync( site.id );
+		await navigate( { to: '/sessions/$sessionId', params: { sessionId: summary.id } } );
+	};
+
+	return (
+		<IconButton
+			variant="minimal"
+			tone="neutral"
+			size="small"
+			icon={ plus }
+			label={ __( 'New session' ) }
+			className={ styles.projectAction }
+			onClick={ handleClick }
+			disabled={ createSession.isPending }
+		/>
+	);
+}
+
 function ProjectActionsMenu( { site }: { site: SiteDetails } ) {
 	const startSite = useStartSite();
 	const stopSite = useStopSite();
@@ -191,14 +217,7 @@ function ProjectSection( {
 				{ group.site ? (
 					<div className={ styles.projectActions }>
 						<ProjectActionsMenu site={ group.site } />
-						<IconButton
-							variant="minimal"
-							tone="neutral"
-							size="small"
-							icon={ plus }
-							label={ __( 'New session' ) }
-							className={ styles.projectAction }
-						/>
+						<NewSessionButton site={ group.site } />
 					</div>
 				) : null }
 			</header>

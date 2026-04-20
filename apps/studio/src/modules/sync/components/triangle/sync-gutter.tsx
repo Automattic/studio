@@ -39,6 +39,7 @@ function buttonLabel( direction: 'push' | 'pull', from: Endpoint, to: Endpoint )
 }
 
 function TimeAgo( { timestamp, prefix }: { timestamp: string; prefix: string } ) {
+	// eslint-disable-next-line react-hooks/purity
 	const delta = Date.now() - Date.parse( timestamp );
 	if ( ! Number.isFinite( delta ) ) return null;
 	const rtf = new Intl.RelativeTimeFormat( undefined, { numeric: 'auto' } );
@@ -56,18 +57,18 @@ function TimeAgo( { timestamp, prefix }: { timestamp: string; prefix: string } )
 
 export function SyncGutter( props: Props ) {
 	return (
-		<div className="flex flex-col items-center justify-center gap-6 px-2">
-			<div className="flex flex-col items-center gap-1">
+		<div className="flex flex-row items-center justify-center gap-4 py-1">
+			<div className="flex flex-col items-center gap-0.5">
 				<Button variant="secondary" onClick={ props.onPush } disabled={ props.disabled }>
-					→ { buttonLabel( 'push', props.from, props.to ) }
+					↓ { buttonLabel( 'push', props.from, props.to ) }
 				</Button>
 				{ props.lastPushTimestamp && (
 					<TimeAgo timestamp={ props.lastPushTimestamp } prefix={ __( 'Last pushed' ) } />
 				) }
 			</div>
-			<div className="flex flex-col items-center gap-1">
+			<div className="flex flex-col items-center gap-0.5">
 				<Button variant="secondary" onClick={ props.onPull } disabled={ props.disabled }>
-					← { buttonLabel( 'pull', props.from, props.to ) }
+					↑ { buttonLabel( 'pull', props.from, props.to ) }
 				</Button>
 				{ props.lastPullTimestamp && (
 					<TimeAgo timestamp={ props.lastPullTimestamp } prefix={ __( 'Last pulled' ) } />

@@ -56,17 +56,15 @@ export function TriangleLayout( { selectedSite }: Props ) {
 
 	return (
 		<div className="flex flex-col gap-6 p-6">
-			<div className="flex flex-row items-stretch gap-4">
-				<div className="flex-1">
-					<EnvironmentColumn
-						kind="local"
-						label="Local"
-						localSiteId={ selectedSite.id }
-						siteName={ selectedSite.name }
-						siteUrl={ selectedSite.running ? `http://localhost:${ selectedSite.port }` : '' }
-						isRunning={ selectedSite.running }
-					/>
-				</div>
+			<div className="flex flex-col gap-2">
+				<EnvironmentColumn
+					kind="local"
+					label="Local"
+					localSiteId={ selectedSite.id }
+					siteName={ selectedSite.name }
+					siteUrl={ selectedSite.running ? `http://localhost:${ selectedSite.port }` : '' }
+					isRunning={ selectedSite.running }
+				/>
 
 				{ production ? (
 					<>
@@ -78,14 +76,10 @@ export function TriangleLayout( { selectedSite }: Props ) {
 							onPush={ () => syncActions.push( production ) }
 							onPull={ () => syncActions.pull( production ) }
 						/>
-						<div className="flex-1">
-							<EnvironmentColumn kind="remote" label="Production" site={ production } />
-						</div>
+						<EnvironmentColumn kind="remote" label="Production" site={ production } />
 					</>
 				) : (
-					<div className="flex-1">
-						<ConnectProductionCard onClick={ openConnectModal } />
-					</div>
+					<ConnectProductionCard onClick={ openConnectModal } />
 				) }
 
 				{ production &&
@@ -128,22 +122,16 @@ export function TriangleLayout( { selectedSite }: Props ) {
 									} );
 								} }
 							/>
-							<div className="flex-1">
-								<EnvironmentColumn kind="remote" label="Staging" site={ staging } />
-							</div>
+							<EnvironmentColumn kind="remote" label="Staging" site={ staging } />
 						</>
 					) : provisioning.state === 'idle' ? (
-						<div className="flex-1">
-							<CreateStagingCard onClick={ provisioning.start } />
-						</div>
+						<CreateStagingCard onClick={ provisioning.start } />
 					) : (
-						<div className="flex-1">
-							<ProvisioningColumn
-								state={ provisioning.state }
-								error={ provisioning.error }
-								onRetry={ provisioning.start }
-							/>
-						</div>
+						<ProvisioningColumn
+							state={ provisioning.state }
+							error={ provisioning.error }
+							onRetry={ provisioning.start }
+						/>
 					) ) }
 			</div>
 

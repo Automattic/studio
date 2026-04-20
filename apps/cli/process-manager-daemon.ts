@@ -60,31 +60,6 @@ function getProcessLogPaths( processName: string, date: Date = new Date() ) {
 	};
 }
 
-async function renameLegacyLogIfPresent(
-	processName: string,
-	stream: 'out' | 'error'
-): Promise< void > {
-	const legacyPath = path.join( PROCESS_MANAGER_LOGS_DIR, `${ processName }-${ stream }.log` );
-	let stats: fs.Stats;
-	try {
-		stats = await fs.promises.stat( legacyPath );
-	} catch {
-		return;
-	}
-	const targetPath = path.join(
-		PROCESS_MANAGER_LOGS_DIR,
-		`${ processName }-${ stream }-${ formatLogDateTag( stats.mtime ) }.log`
-	);
-	if ( fs.existsSync( targetPath ) ) {
-		return;
-	}
-	try {
-		await fs.promises.rename( legacyPath, targetPath );
-	} catch {
-		// Best-effort; the migration will prune the legacy file eventually by mtime.
-	}
-}
-
 function timestampLogLine( line: string ): string {
 	return `${ new Date().toISOString() } ${ line }\n`;
 }
@@ -225,8 +200,6 @@ export class ProcessManagerDaemon {
 		}
 
 		const pmId = this.nextPmId++;
-		await renameLegacyLogIfPresent( processName, 'out' );
-		await renameLegacyLogIfPresent( processName, 'error' );
 		const { stdoutLogPath, stderrLogPath } = getProcessLogPaths( processName );
 		const stdoutStream = createWriteStream( stdoutLogPath, { flags: 'a' } );
 		const stderrStream = createWriteStream( stderrLogPath, { flags: 'a' } );

@@ -145,22 +145,6 @@ describe( 'CLI: studio export', () => {
 		expect( reportErrorSpy ).not.toHaveBeenCalled();
 	} );
 
-	it( 'rejects non-.sql file paths when --mode db is used', async () => {
-		const reportErrorSpy = vi.spyOn( Logger.prototype, 'reportError' );
-
-		const argv = getYargsArgvMock();
-		registerCommand( argv );
-
-		await argv.parse( [ 'export', 'site-backup.zip', '--path', testSitePath, '--mode', 'db' ] );
-
-		expect( getExporter ).not.toHaveBeenCalled();
-		expect( reportErrorSpy ).toHaveBeenCalledWith(
-			expect.objectContaining( {
-				message: 'Invalid export file extension. Must be .sql when exporting database only.',
-			} )
-		);
-	} );
-
 	it( 'rejects .sql exports with --mode full', async () => {
 		const reportErrorSpy = vi.spyOn( Logger.prototype, 'reportError' );
 

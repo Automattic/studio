@@ -79,4 +79,5 @@ export const {
 	usePushToStagingMutation,
 	usePullFromStagingMutation,
 	useGetStagingSyncStateQuery,
+	useLazyListStagingSitesQuery,
 } = stagingSiteApi;

@@ -50,8 +50,10 @@ export function getLanguagePacksPath(): string {
 	return path.join( getServerFilesPath(), 'language-packs' );
 }
 
+// AI instructions ship read-only with the CLI bundle and are installed into each site's
+// `.agents/skills/` directory on site create/start. No writable cache needed.
 export function getAiInstructionsPath(): string {
-	return path.join( getServerFilesPath(), 'skills' );
+	return path.join( getWpFilesPath(), 'skills' );
 }
 
 export function getPhpMyAdminPath(): string {

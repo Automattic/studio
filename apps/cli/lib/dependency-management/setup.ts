@@ -5,7 +5,6 @@ import semver from 'semver';
 import { readCliConfig, updateCliConfigWithPartial } from 'cli/lib/cli-config/core';
 import { getSqliteVersionFromInstallation } from 'cli/lib/sqlite-integration';
 import {
-	getAiInstructionsPath,
 	getLanguagePacksPath,
 	getPhpMyAdminPath,
 	getSqliteCommandPath,
@@ -184,26 +183,6 @@ async function copyBundledTranslations() {
 	}
 }
 
-async function copyBundledAiInstructions() {
-	const sourceAiInstructionsPath = path.join( getWpFilesPath(), 'skills' );
-	if ( ! fs.existsSync( sourceAiInstructionsPath ) ) {
-		return;
-	}
-
-	const isSourceDirectoryDifferent = await areDirectoriesDifferentBySizeAndMtime(
-		sourceAiInstructionsPath,
-		getAiInstructionsPath()
-	);
-	if ( isSourceDirectoryDifferent ) {
-		try {
-			await fs.promises.rm( getAiInstructionsPath(), { recursive: true, force: true } );
-		} catch {
-			// Do nothing if the target directory is missing or corrupted
-		}
-		await recursiveCopyDirectory( sourceAiInstructionsPath, getAiInstructionsPath() );
-	}
-}
-
 async function copyBundledPhpMyAdmin() {
 	await copySourceDirectoryIfNewerOrMissing( {
 		sourceDirectoryPath: path.join( getWpFilesPath(), 'phpmyadmin' ),
@@ -249,7 +228,6 @@ export async function setupServerFiles() {
 		[ 'SQLite command', copyBundledSqliteCommand ],
 		[ 'translations', copyBundledTranslations ],
 		[ 'language packs', copyBundledLanguagePacks ],
-		[ 'AI instructions', copyBundledAiInstructions ],
 		[ 'phpMyAdmin', copyBundledPhpMyAdmin ],
 	];
 

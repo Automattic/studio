@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { query, type Query } from '@anthropic-ai/claude-agent-sdk';
+import { AI_MODELS, DEFAULT_MODEL, type AiModelId } from '@studio/common/ai/models';
 import {
 	ALLOWED_TOOLS,
 	STUDIO_ROOT,
@@ -12,6 +13,7 @@ import { createRemoteSiteTools, createStudioTools } from 'cli/ai/tools';
 import type { SiteInfo } from 'cli/ai/ui';
 
 export type { AskUserQuestion } from 'cli/ai/security';
+export { AI_MODELS, DEFAULT_MODEL, type AiModelId };
 
 export interface AiAgentConfig {
 	prompt: string;
@@ -25,23 +27,20 @@ export interface AiAgentConfig {
 	onAskUser?: ( questions: AskUserQuestion[] ) => Promise< Record< string, string > >;
 }
 
-export const AI_MODELS = {
-	'claude-sonnet-4-6': 'Sonnet 4.6',
-	'claude-opus-4-6': 'Opus 4.6',
-	'claude-opus-4-7': 'Opus 4.7',
-} as const;
-
-export type AiModelId = keyof typeof AI_MODELS;
-
-export const DEFAULT_MODEL: AiModelId = 'claude-sonnet-4-6';
-
 // The Claude Agent SDK rejects internal pending promises (e.g. control
 // responses) when an agent turn is interrupted via ESC. These rejections
 // are unhandled because they originate inside the SDK cleanup path rather
 // than propagating through the async iterator. Without this handler,
 // Node.js terminates the process on unhandled rejections.
+const SDK_INTERRUPT_CLEANUP_ERRORS = [
+	'Query closed',
+	'ProcessTransport is not ready for writing',
+];
 process.on( 'unhandledRejection', ( reason ) => {
-	if ( reason instanceof Error && reason.message.includes( 'Query closed' ) ) {
+	if (
+		reason instanceof Error &&
+		SDK_INTERRUPT_CLEANUP_ERRORS.some( ( msg ) => reason.message.includes( msg ) )
+	) {
 		return;
 	}
 	throw reason;

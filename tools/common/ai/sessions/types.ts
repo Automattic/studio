@@ -19,6 +19,14 @@ export type AiSessionEvent =
 			model: string;
 	  }
 	| {
+			// User-initiated model override (e.g. the composer dropdown in the
+			// desktop UI). The CLI prefers this over `session.context.model` on
+			// resume so the next turn uses the selected model.
+			type: 'session.model_selected';
+			timestamp: string;
+			model: string;
+	  }
+	| {
 			type: 'session.cleared';
 			timestamp: string;
 	  }
@@ -28,6 +36,18 @@ export type AiSessionEvent =
 			siteName: string;
 			sitePath: string;
 			remote?: boolean;
+			url?: string;
+			wpcomSiteId?: number;
+	  }
+	| {
+			type: 'environment.selected';
+			timestamp: string;
+			// Which environment of the session's owner site is now active. The
+			// owner site itself never changes within a session — only whether
+			// tool calls target the local runtime or the linked live WordPress.com
+			// site. `url`/`wpcomSiteId` are resolved at record time so replay
+			// doesn't need to re-query WordPress.com.
+			environment: 'local' | 'live';
 			url?: string;
 			wpcomSiteId?: number;
 	  }
@@ -80,6 +100,10 @@ export interface AiSessionSummary {
 	// The most recently selected site during the session. May differ from the owner
 	// if the user switched sites mid-session.
 	selectedSiteName?: string;
+	// Which environment of the owner site the next turn will act on. Derived
+	// from the latest `environment.selected` event, or falls back to `'live'`
+	// when the most recent `site.selected` marked the site as remote.
+	activeEnvironment: 'local' | 'live';
 	endReason?: 'error' | 'stopped';
 	eventCount: number;
 }

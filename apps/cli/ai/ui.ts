@@ -77,6 +77,18 @@ function formatToolOutputLines( lines: string[] ): string {
 		.join( '\n' );
 }
 
+// Faint variant of the user bubble used by `addUserMessage`, for prompts that
+// were staged during an active turn and haven't been dispatched yet.
+function formatQueuedPrompt( text: string ): string {
+	const lines = text.split( '\n' );
+	return lines
+		.map( ( line, i ) => {
+			const body = i === 0 ? '↳ ' + line + ' ' : '  ' + line + ' ';
+			return ' ' + chalk.bgHex( '#e8eef5' ).hex( '#5a6b7d' )( body );
+		} )
+		.join( '\n' );
+}
+
 class PromptEditor implements Component, Focusable {
 	private editor: Editor;
 	private borderColorFn: ( text: string ) => string;
@@ -365,6 +377,8 @@ export class AiChatUI implements AiOutputAdapter {
 	private editor: PromptEditor;
 	private loader: Loader;
 	private messages: Container;
+	private queuedContainer: Container;
+	private queuedPrompts: string[] = [];
 	private currentResponseText = '';
 	private currentMarkdown: Markdown | null = null;
 	private submitResolve: ( ( text: string ) => void ) | null = null;
@@ -476,6 +490,10 @@ export class AiChatUI implements AiOutputAdapter {
 		this.currentMarkdown = null;
 		this.currentResponseText = '';
 		this.messages.clear();
+		if ( this.queuedPrompts.length > 0 ) {
+			this.queuedPrompts = [];
+			this.renderQueuedContainer();
+		}
 		this.tui.requestRender();
 	}
 
@@ -496,6 +514,12 @@ export class AiChatUI implements AiOutputAdapter {
 
 		this.messages = new Container();
 		this.tui.addChild( this.messages );
+
+		// Always mounted just after `messages` and (once shown) just before the
+		// editor, so staged follow-up prompts render in that gap regardless of
+		// whether the loader is currently visible.
+		this.queuedContainer = new Container();
+		this.tui.addChild( this.queuedContainer );
 
 		this.loader = new Loader(
 			this.tui,
@@ -537,10 +561,21 @@ export class AiChatUI implements AiOutputAdapter {
 
 		this.editor.onSubmit = ( text ) => {
 			const trimmed = text.trim();
-			if ( trimmed && this.submitResolve ) {
+			if ( ! trimmed ) {
+				return;
+			}
+			if ( this.submitResolve ) {
 				const resolve = this.submitResolve;
 				this.submitResolve = null;
 				resolve( trimmed );
+				return;
+			}
+			// No waiter → we're mid-turn. Stage the prompt so it fires after
+			// the current run ends; `waitForInput` drains the head.
+			if ( this._inAgentTurn ) {
+				this.queuedPrompts.push( trimmed );
+				this.editor.setText( '' );
+				this.renderQueuedContainer();
 			}
 		};
 		// Ctrl+C to exit, Escape to interrupt/close picker, arrow keys for picker
@@ -648,6 +683,19 @@ export class AiChatUI implements AiOutputAdapter {
 				// Forward remaining input (up/down/enter) to SelectList
 				this.sitePickerSelectList.handleInput( data );
 				this.renderSitePicker();
+				return { consume: true };
+			}
+			// Backspace on an empty editor pops the most recent queued prompt.
+			// Mirrors the × discard affordance in the GUI — lightweight undo
+			// for staged follow-ups without adding a new keybinding.
+			if (
+				matchesKey( data, 'backspace' ) &&
+				this.editorVisible &&
+				this.queuedPrompts.length > 0 &&
+				this.editor.getText() === ''
+			) {
+				this.queuedPrompts.pop();
+				this.renderQueuedContainer();
 				return { consume: true };
 			}
 			if ( matchesKey( data, 'escape' ) && this.interruptCallback ) {
@@ -1203,6 +1251,11 @@ export class AiChatUI implements AiOutputAdapter {
 		this.editor.setText( '' );
 		this.hideLoader();
 		this.showEditor();
+		if ( this.queuedPrompts.length > 0 ) {
+			const next = this.queuedPrompts.shift()!;
+			this.renderQueuedContainer();
+			return Promise.resolve( next );
+		}
 		return new Promise( ( resolve ) => {
 			this.submitResolve = resolve;
 		} );
@@ -1219,6 +1272,15 @@ export class AiChatUI implements AiOutputAdapter {
 			} )
 			.join( '\n' );
 		this.messages.addChild( new Text( '\n' + formatted, 0, 0 ) );
+		this.tui.requestRender();
+	}
+
+	private renderQueuedContainer(): void {
+		this.queuedContainer.clear();
+		for ( const prompt of this.queuedPrompts ) {
+			this.queuedContainer.addChild( new Text( '\n' + formatQueuedPrompt( prompt ), 0, 0 ) );
+		}
+		this.updateHints();
 		this.tui.requestRender();
 	}
 
@@ -1240,12 +1302,16 @@ export class AiChatUI implements AiOutputAdapter {
 
 	private showLoader( message?: string ): void {
 		if ( ! this.loaderVisible ) {
-			// Ensure editor is removed first so loader appears above it
+			// Re-attach trailing children in order so the final stack is
+			// [..., loader, queuedContainer, editor?] — loader just above the
+			// staged follow-ups, which sit just above the editor.
 			const wasEditorVisible = this.editorVisible;
 			if ( wasEditorVisible ) {
 				this.tui.removeChild( this.editor );
 			}
+			this.tui.removeChild( this.queuedContainer );
 			this.tui.addChild( this.loader );
+			this.tui.addChild( this.queuedContainer );
 			if ( wasEditorVisible ) {
 				this.tui.addChild( this.editor );
 			}
@@ -1277,6 +1343,9 @@ export class AiChatUI implements AiOutputAdapter {
 			hints.push(
 				this.activeExpandablePreview.isExpanded ? __( 'ctrl+o collapse' ) : __( 'ctrl+o expand' )
 			);
+		}
+		if ( this.queuedPrompts.length > 0 ) {
+			hints.push( __( 'backspace to unqueue' ) );
 		}
 		hints.push( __( 'esc to interrupt' ) );
 		this.editor.hints = hints;
@@ -2029,29 +2098,17 @@ export class AiChatUI implements AiOutputAdapter {
 			}
 			case 'result': {
 				this.hideLoader();
-				if ( message.subtype === 'success' ) {
-					const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
-					if ( ! this.hasShownResponseMarker ) {
-						this.messages.addChild(
-							new Text( '\n ' + chalk.blue( '⏺' ) + ' ' + __( 'Done' ), 0, 0 )
-						);
-					}
-					this.showInfo(
-						sprintf(
-							/* translators: 1: seconds spent thinking, 2: number of turns */
-							_n(
-								'Thought for %1$ds · %2$d turn',
-								'Thought for %1$ds · %2$d turns',
-								message.num_turns
-							),
-							thinkingSec,
-							message.num_turns
-						)
-					);
-					return { type: 'result', sessionId: message.session_id, success: true };
+
+				// Max-turns exhaustion has dedicated upstream handling (prompts user to continue).
+				if ( message.subtype === 'error_max_turns' ) {
+					return {
+						type: 'max_turns',
+						sessionId: message.session_id,
+						numTurns: message.num_turns,
+					};
 				}
 
-				// User-initiated interruption: show friendly message instead of error
+				// User-initiated interruption: friendly message, suppress retry prompt.
 				if ( this.wasInterrupted ) {
 					const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
 					this.messages.addChild(
@@ -2068,36 +2125,62 @@ export class AiChatUI implements AiOutputAdapter {
 							thinkingSec
 						)
 					);
+					return {
+						type: 'result',
+						sessionId: message.session_id,
+						success: false,
+						interrupted: true,
+					};
+				}
+
+				// is_error is the authoritative failure signal. A message can have
+				// subtype='success' and still carry is_error=true (e.g. API 504 after
+				// the SDK exhausts retries and emits the error text as the result).
+				if ( message.is_error ) {
+					const parts: string[] = [];
+					if ( 'errors' in message && message.errors?.length ) {
+						parts.push( ...message.errors );
+					}
+					if ( 'result' in message && typeof message.result === 'string' && message.result ) {
+						parts.push( message.result );
+					} else if ( message.subtype && message.subtype !== 'success' ) {
+						parts.push( `(${ message.subtype })` );
+					}
+					if ( 'permission_denials' in message && message.permission_denials?.length ) {
+						for ( const denial of message.permission_denials ) {
+							parts.push(
+								sprintf(
+									/* translators: %s: tool name */
+									__( 'Permission denied: %s' ),
+									denial.tool_name
+								)
+							);
+						}
+					}
+					this.showError( parts.length > 0 ? parts.join( '\n' ) : __( 'Unknown error' ) );
 					return { type: 'result', sessionId: message.session_id, success: false };
 				}
 
-				// Build detailed error message
-				const parts: string[] = [];
-				if ( 'errors' in message && message.errors?.length ) {
-					parts.push( ...message.errors );
+				// Genuine success.
+				const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
+				if ( ! this.hasShownResponseMarker ) {
+					this.messages.addChild(
+						new Text( '\n ' + chalk.blue( '⏺' ) + ' ' + __( 'Done' ), 0, 0 )
+					);
 				}
-				if ( message.subtype === 'error_max_turns' ) {
-					return {
-						type: 'max_turns',
-						sessionId: message.session_id,
-						numTurns: message.num_turns,
-					};
-				} else if ( message.subtype ) {
-					parts.push( `(${ message.subtype })` );
-				}
-				if ( 'permission_denials' in message && message.permission_denials?.length ) {
-					for ( const denial of message.permission_denials ) {
-						parts.push(
-							sprintf(
-								/* translators: %s: tool name */
-								__( 'Permission denied: %s' ),
-								denial.tool_name
-							)
-						);
-					}
-				}
-				this.showError( parts.length > 0 ? parts.join( '\n' ) : __( 'Unknown error' ) );
-				return { type: 'result', sessionId: message.session_id, success: false };
+				this.showInfo(
+					sprintf(
+						/* translators: 1: seconds spent thinking, 2: number of turns */
+						_n(
+							'Thought for %1$ds · %2$d turn',
+							'Thought for %1$ds · %2$d turns',
+							message.num_turns
+						),
+						thinkingSec,
+						message.num_turns
+					)
+				);
+				return { type: 'result', sessionId: message.session_id, success: true };
 			}
 			case 'system': {
 				if ( message.subtype === 'status' && message.status === 'compacting' ) {

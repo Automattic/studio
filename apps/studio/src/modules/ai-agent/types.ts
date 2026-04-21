@@ -6,6 +6,7 @@ export interface AgentRunEvent {
 	event:
 		| JsonEvent
 		| { type: 'run.started'; timestamp: string }
+		| { type: 'run.interrupting'; timestamp: string }
 		| { type: 'run.exited'; timestamp: string; status: 'success' | 'error'; code: number | null }
 		| { type: 'run.interrupted'; timestamp: string };
 }

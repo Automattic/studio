@@ -5,7 +5,7 @@ import type { AiProviderId } from 'cli/ai/providers';
 import type { SiteInfo } from 'cli/ai/ui';
 
 export type HandleMessageResult =
-	| { type: 'result'; sessionId: string; success: boolean }
+	| { type: 'result'; sessionId: string; success: boolean; interrupted?: boolean }
 	| { type: 'max_turns'; sessionId: string; numTurns: number; costUsd?: number };
 
 export interface AiOutputAdapter {
@@ -46,15 +46,35 @@ export class JsonAdapter implements AiOutputAdapter {
 	onSiteSelected: ( ( site: SiteInfo ) => void ) | null = null;
 	onInterrupt: ( () => void ) | null = null;
 	onBeforeExit: ( () => Promise< void > ) | null = null;
+	permissionResponse: Record< string, string > | null = null;
 
 	private sessionId: string | undefined;
+	private ipcMessageListener: ( ( message: unknown ) => void ) | null = null;
 
 	start(): void {
-		// No-op in JSON mode
+		// When forked from Studio, route the parent's IPC `interrupt` message
+		// to onInterrupt. SIGTERM from the parent is swallowed by module-level
+		// handlers (e.g. wordpress-server-manager), so we can't rely on signals.
+		if ( typeof process.send !== 'function' ) {
+			return;
+		}
+		this.ipcMessageListener = ( message ) => {
+			if (
+				message &&
+				typeof message === 'object' &&
+				( message as { type?: string } ).type === 'interrupt'
+			) {
+				this.onInterrupt?.();
+			}
+		};
+		process.on( 'message', this.ipcMessageListener );
 	}
 
 	stop(): void {
-		// No-op in JSON mode
+		if ( this.ipcMessageListener ) {
+			process.off( 'message', this.ipcMessageListener );
+			this.ipcMessageListener = null;
+		}
 	}
 
 	showWelcome(): void {
@@ -94,7 +114,7 @@ export class JsonAdapter implements AiOutputAdapter {
 	}
 
 	setLoaderMessage( message: string, _update?: boolean ): void {
-		emitEvent( { type: 'progress', timestamp: new Date().toISOString(), message } );
+		this.showProgress( message );
 	}
 
 	beginAgentTurn(): void {
@@ -125,7 +145,7 @@ export class JsonAdapter implements AiOutputAdapter {
 			return {
 				type: 'result',
 				sessionId: message.session_id,
-				success: message.subtype === 'success',
+				success: ! message.is_error,
 			};
 		}
 
@@ -150,6 +170,14 @@ export class JsonAdapter implements AiOutputAdapter {
 	}
 
 	async askUser( questions: AskUserQuestion[] ): Promise< Record< string, string > > {
+		// If a permission response was pre-supplied (e.g. from desktop app),
+		// return it immediately instead of pausing.
+		if ( this.permissionResponse ) {
+			const response = this.permissionResponse;
+			this.permissionResponse = null;
+			return response;
+		}
+
 		emitEvent( {
 			type: 'question.asked',
 			timestamp: new Date().toISOString(),

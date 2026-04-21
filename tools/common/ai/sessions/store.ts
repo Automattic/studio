@@ -1,5 +1,8 @@
+import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
+import { buildAiSessionFileName } from './file-naming';
+import { getAiSessionsDirectoryForDate } from './paths';
 import { readAiSessionSummaryFromEvents } from './summary';
 import type { AiSessionEvent, AiSessionSummary, LoadedAiSession } from './types';
 
@@ -134,6 +137,65 @@ export async function loadAiSession(
 	const summary = await resolveSessionByIdOrPrefix( rootDirectory, sessionIdOrPrefix );
 	const events = await readAiSessionEventsFromFile( summary.filePath );
 	return { summary, events };
+}
+
+export async function createAiSession(
+	rootDirectory: string,
+	options: {
+		site: {
+			name: string;
+			path: string;
+			remote?: boolean;
+			url?: string;
+			wpcomSiteId?: number;
+		};
+	}
+): Promise< AiSessionSummary > {
+	const startedAt = new Date();
+	const sessionId = crypto.randomUUID();
+	const directory = getAiSessionsDirectoryForDate( rootDirectory, startedAt );
+	const fileName = buildAiSessionFileName( startedAt, sessionId );
+	const filePath = path.join( directory, fileName );
+
+	await fs.mkdir( directory, { recursive: true } );
+
+	const events: AiSessionEvent[] = [
+		{
+			type: 'session.started',
+			timestamp: startedAt.toISOString(),
+			version: 1,
+			sessionId,
+		},
+		{
+			type: 'site.selected',
+			timestamp: startedAt.toISOString(),
+			siteName: options.site.name,
+			sitePath: options.site.path,
+			remote: options.site.remote,
+			url: options.site.url,
+			wpcomSiteId: options.site.wpcomSiteId,
+		},
+	];
+
+	const serialized = events.map( ( event ) => JSON.stringify( event ) ).join( '\n' ) + '\n';
+	await fs.writeFile( filePath, serialized, { encoding: 'utf8' } );
+
+	const summary = await readAiSessionSummaryFromEvents( filePath, events );
+	if ( ! summary ) {
+		throw new Error( 'Failed to build summary for newly created session' );
+	}
+	return summary;
+}
+
+export async function appendAiSessionEvent(
+	rootDirectory: string,
+	sessionIdOrPrefix: string,
+	event: AiSessionEvent
+): Promise< void > {
+	const summary = await resolveSessionByIdOrPrefix( rootDirectory, sessionIdOrPrefix );
+	await fs.appendFile( summary.filePath, `${ JSON.stringify( event ) }\n`, {
+		encoding: 'utf8',
+	} );
 }
 
 export async function deleteAiSession(

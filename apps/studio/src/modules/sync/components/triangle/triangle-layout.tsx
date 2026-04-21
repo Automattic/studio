@@ -15,7 +15,9 @@ import { syncOperationsSelectors } from 'src/stores/sync/sync-operations-slice';
 import { useStagingProvisioning } from '../../hooks/use-staging-provisioning';
 import { useSyncActions } from '../../hooks/use-sync-actions';
 import { deriveSlotAssignments } from '../../lib/slot-derivation';
-import { SyncDialog } from '../sync-dialog';
+import ActivityRegion, {
+	type SetupPanelState,
+} from '../activity-region/activity-region';
 import { ArchivedConnections } from './archived-connections';
 import { computeEdgeGeometry, type Point } from './edge-geometry';
 import { EnvironmentColumn } from './environment-column';
@@ -348,6 +350,26 @@ export function TriangleLayout( { selectedSite }: Props ) {
 		pullLabel: __( 'Pull from Staging' ),
 	};
 
+	const setupPanel: SetupPanelState | null = syncActions.pendingSyncTarget
+		? {
+				localSite: selectedSite,
+				remoteSite: syncActions.pendingSyncTarget.connectedSite,
+				type: syncActions.pendingSyncTarget.direction,
+				onPush: syncActions.commitPush,
+				onPull: syncActions.commitPull,
+		  }
+		: null;
+
+	const activityRegion = (
+		<div className="px-6 pb-6 pt-3">
+			<ActivityRegion
+				localSiteId={ selectedSite.id }
+				setupPanel={ setupPanel }
+				onCloseSetup={ syncActions.closeDialog }
+			/>
+		</div>
+	);
+
 	const prodStagingState: EdgeState = {
 		activeDirection: null,
 		muted: ! production || ! staging,
@@ -376,7 +398,8 @@ export function TriangleLayout( { selectedSite }: Props ) {
 
 	if ( isNarrow ) {
 		return (
-			<div ref={ containerRef } className="flex flex-col gap-3 p-6">
+			<>
+			<div ref={ containerRef } className="flex flex-col gap-3 p-6 pb-0">
 				<div ref={ localRef }>
 					<EnvironmentColumn
 						kind="local"
@@ -420,24 +443,17 @@ export function TriangleLayout( { selectedSite }: Props ) {
 					isProductionOpen={ ! production }
 					isStagingOpen={ ! staging }
 				/>
-				{ syncActions.pendingSyncTarget && (
-					<SyncDialog
-						type={ syncActions.pendingSyncTarget.direction }
-						localSite={ selectedSite }
-						remoteSite={ syncActions.pendingSyncTarget.connectedSite }
-						onPush={ syncActions.commitPush }
-						onPull={ syncActions.commitPull }
-						onRequestClose={ syncActions.closeDialog }
-					/>
-				) }
 			</div>
+			{ activityRegion }
+			</>
 		);
 	}
 
 	return (
+		<>
 		<div
 			ref={ containerRef }
-			className="relative grid grid-cols-[1fr_1fr] gap-x-12 p-6"
+			className="relative grid grid-cols-[1fr_1fr] gap-x-12 p-6 pb-0"
 			style={ { gridTemplateRows: 'auto 120px auto' } }
 		>
 			<svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible">
@@ -477,16 +493,8 @@ export function TriangleLayout( { selectedSite }: Props ) {
 				/>
 			</div>
 
-			{ syncActions.pendingSyncTarget && (
-				<SyncDialog
-					type={ syncActions.pendingSyncTarget.direction }
-					localSite={ selectedSite }
-					remoteSite={ syncActions.pendingSyncTarget.connectedSite }
-					onPush={ syncActions.commitPush }
-					onPull={ syncActions.commitPull }
-					onRequestClose={ syncActions.closeDialog }
-				/>
-			) }
 		</div>
+		{ activityRegion }
+		</>
 	);
 }

@@ -203,11 +203,13 @@ export function EnvironmentColumn( props: Props ) {
 					) }
 					<dl className="mt-1.5 flex flex-row gap-4">
 						<Stat
+							icon={ post }
 							label={ __( 'Posts' ) }
 							value={ summary.counts.posts }
 							loading={ summary.isLoading }
 						/>
 						<Stat
+							icon={ page }
 							label={ __( 'Pages' ) }
 							value={ summary.counts.pages }
 							loading={ summary.isLoading }

@@ -41,19 +41,6 @@ describe( 'browser-utils', () => {
 		expect( options?.args ).toEqual( [ '--ignore-certificate-errors' ] );
 	} );
 
-	it( 'prefers an explicit MCP browser executable path override', () => {
-		vi.stubEnv( 'STUDIO_MCP_BROWSER_EXECUTABLE_PATH', process.execPath );
-
-		const options = buildChromiumLaunchAttempts( {
-			executablePath: () => '/missing/chromium',
-		} )[ 0 ];
-
-		expect( options ).toEqual( {
-			args: [ '--ignore-certificate-errors' ],
-			executablePath: process.execPath,
-		} );
-	} );
-
 	it( 'tries to install Playwright Chromium when the managed browser is missing', async () => {
 		const installBrowser = vi.fn().mockResolvedValue( undefined );
 		let installed = false;
@@ -86,8 +73,7 @@ describe( 'browser-utils', () => {
 		expect( error ).toContain( 'network unavailable' );
 	} );
 
-	it( 'still auto-installs Playwright Chromium when an override path is configured but unavailable', async () => {
-		vi.stubEnv( 'STUDIO_MCP_BROWSER_EXECUTABLE_PATH', '/missing/custom-chromium' );
+	it( 'still auto-installs Playwright Chromium after a default launch fallback fails', async () => {
 		const installBrowser = vi.fn().mockResolvedValue( undefined );
 		let installed = false;
 

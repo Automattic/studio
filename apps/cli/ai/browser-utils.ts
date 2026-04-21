@@ -128,6 +128,7 @@ export async function getSharedBrowser(): Promise< Browser > {
 	}
 	return browserPromise;
 }
+
 /**
  * Close the shared browser instance (if any) so the Node.js event loop can
  * drain and the process can exit naturally without calling process.exit().

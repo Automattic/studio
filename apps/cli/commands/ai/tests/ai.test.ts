@@ -1,3 +1,4 @@
+import { deleteAiSession, listAiSessions, loadAiSession } from '@studio/common/ai/sessions/store';
 import { __ } from '@wordpress/i18n';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import yargs from 'yargs/yargs';
@@ -9,7 +10,6 @@ import {
 } from 'cli/ai/auth';
 import { AI_PROVIDERS } from 'cli/ai/providers';
 import { AiSessionRecorder } from 'cli/ai/sessions/recorder';
-import { deleteAiSession, listAiSessions, loadAiSession } from 'cli/ai/sessions/store';
 import { registerCommand as registerAiCommand } from 'cli/commands/ai';
 import { registerCommand as registerAiSessionsDeleteCommand } from 'cli/commands/ai/sessions/delete';
 import { registerCommand as registerAiSessionsListCommand } from 'cli/commands/ai/sessions/list';
@@ -225,7 +225,7 @@ vi.mock( 'cli/ai/sessions/recorder', () => {
 	};
 } );
 
-vi.mock( 'cli/ai/sessions/store', () => ( {
+vi.mock( '@studio/common/ai/sessions/store', () => ( {
 	listAiSessions: vi.fn(),
 	loadAiSession: vi.fn(),
 	deleteAiSession: vi.fn(),
@@ -364,6 +364,7 @@ describe( 'CLI: studio code sessions command', () => {
 				createdAt: '2026-03-11T11:00:00.000Z',
 				updatedAt: '2026-03-11T11:00:00.000Z',
 				linkedAgentSessionIds: [],
+				activeEnvironment: 'local',
 				eventCount: 1,
 			},
 			{
@@ -372,6 +373,7 @@ describe( 'CLI: studio code sessions command', () => {
 				createdAt: '2026-03-10T11:00:00.000Z',
 				updatedAt: '2026-03-10T11:00:00.000Z',
 				linkedAgentSessionIds: [],
+				activeEnvironment: 'local',
 				eventCount: 1,
 			},
 		] );
@@ -382,6 +384,7 @@ describe( 'CLI: studio code sessions command', () => {
 				createdAt: '2026-03-11T11:00:00.000Z',
 				updatedAt: '2026-03-11T11:00:00.000Z',
 				linkedAgentSessionIds: [],
+				activeEnvironment: 'local',
 				eventCount: 1,
 			},
 			events: [],
@@ -389,7 +392,7 @@ describe( 'CLI: studio code sessions command', () => {
 
 		await buildParser().parseAsync( [ 'ai', 'sessions', 'resume', 'latest' ] );
 
-		expect( loadAiSession ).toHaveBeenCalledWith( 'session-latest' );
+		expect( loadAiSession ).toHaveBeenCalledWith( expect.any( String ), 'session-latest' );
 		expect( ( AiSessionRecorder as typeof AiSessionRecorder ).open ).not.toHaveBeenCalled();
 		expect( process.exit ).toHaveBeenCalledWith( 0 );
 	} );
@@ -402,6 +405,7 @@ describe( 'CLI: studio code sessions command', () => {
 				createdAt: '2026-03-11T11:00:00.000Z',
 				updatedAt: '2026-03-11T11:00:00.000Z',
 				linkedAgentSessionIds: [],
+				activeEnvironment: 'local',
 				eventCount: 1,
 			},
 			{
@@ -410,6 +414,7 @@ describe( 'CLI: studio code sessions command', () => {
 				createdAt: '2026-03-10T11:00:00.000Z',
 				updatedAt: '2026-03-10T11:00:00.000Z',
 				linkedAgentSessionIds: [],
+				activeEnvironment: 'local',
 				eventCount: 1,
 			},
 		] );
@@ -419,12 +424,13 @@ describe( 'CLI: studio code sessions command', () => {
 			createdAt: '2026-03-11T11:00:00.000Z',
 			updatedAt: '2026-03-11T11:00:00.000Z',
 			linkedAgentSessionIds: [],
+			activeEnvironment: 'local',
 			eventCount: 1,
 		} );
 
 		await buildParser().parseAsync( [ 'ai', 'sessions', 'delete', 'latest' ] );
 
-		expect( deleteAiSession ).toHaveBeenCalledWith( 'session-latest' );
+		expect( deleteAiSession ).toHaveBeenCalledWith( expect.any( String ), 'session-latest' );
 		expect( console.log ).toHaveBeenCalledWith( expect.stringContaining( 'session-latest' ) );
 	} );
 
@@ -436,6 +442,7 @@ describe( 'CLI: studio code sessions command', () => {
 				createdAt: '2026-03-11T11:00:00.000Z',
 				updatedAt: '2026-03-11T11:00:00.000Z',
 				linkedAgentSessionIds: [],
+				activeEnvironment: 'local',
 				eventCount: 1,
 			},
 		] );
@@ -446,6 +453,7 @@ describe( 'CLI: studio code sessions command', () => {
 				createdAt: '2026-03-11T11:00:00.000Z',
 				updatedAt: '2026-03-11T11:00:00.000Z',
 				linkedAgentSessionIds: [],
+				activeEnvironment: 'local',
 				eventCount: 1,
 			},
 			events: [],
@@ -459,7 +467,7 @@ describe( 'CLI: studio code sessions command', () => {
 			'--no-session-persistence',
 		] );
 
-		expect( loadAiSession ).toHaveBeenCalledWith( 'session-latest' );
+		expect( loadAiSession ).toHaveBeenCalledWith( expect.any( String ), 'session-latest' );
 		expect( ( AiSessionRecorder as typeof AiSessionRecorder ).open ).not.toHaveBeenCalled();
 		expect( process.exit ).toHaveBeenCalledWith( 0 );
 	} );
@@ -579,6 +587,7 @@ describe( 'CLI: studio code sessions command', () => {
 				createdAt: '2026-03-11T11:00:00.000Z',
 				updatedAt: '2026-03-11T11:00:00.000Z',
 				linkedAgentSessionIds: [],
+				activeEnvironment: 'local',
 				eventCount: 2,
 			},
 		] );
@@ -589,6 +598,7 @@ describe( 'CLI: studio code sessions command', () => {
 				createdAt: '2026-03-11T11:00:00.000Z',
 				updatedAt: '2026-03-11T11:00:00.000Z',
 				linkedAgentSessionIds: [],
+				activeEnvironment: 'local',
 				eventCount: 2,
 			},
 			events: [

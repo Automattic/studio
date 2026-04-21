@@ -113,11 +113,22 @@ describe( 'ProcessManagerDaemon', () => {
 			} )
 		);
 
+		const now = new Date();
+		const dateTag = `${ now.getFullYear() }${ String( now.getMonth() + 1 ).padStart(
+			2,
+			'0'
+		) }${ String( now.getDate() ).padStart( 2, '0' ) }`;
 		expect(
-			fs.readFileSync( path.join( tmpDir, 'logs', `${ testProcessName }-out.log` ), 'utf8' )
+			fs.readFileSync(
+				path.join( tmpDir, 'logs', `${ testProcessName }-out-${ dateTag }.log` ),
+				'utf8'
+			)
 		).toContain( 'fixture-stdout' );
 		expect(
-			fs.readFileSync( path.join( tmpDir, 'logs', `${ testProcessName }-error.log` ), 'utf8' )
+			fs.readFileSync(
+				path.join( tmpDir, 'logs', `${ testProcessName }-error-${ dateTag }.log` ),
+				'utf8'
+			)
 		).toContain( 'fixture-stderr' );
 	} );
 

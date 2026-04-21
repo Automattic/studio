@@ -29,10 +29,19 @@ type TriggerProps = Omit< ComponentProps< typeof Button >, 'children' > & {
 	siteUrl: string;
 	status: SiteStatus;
 	statusLabel: string;
+	environment: 'local' | 'live';
 };
 
 const DropdownTrigger = forwardRef< ElementRef< typeof Button >, TriggerProps >(
-	function DropdownTrigger( { siteName, siteUrl, status, statusLabel, className, ...props }, ref ) {
+	function DropdownTrigger(
+		{ siteName, siteUrl, status, statusLabel, environment, className, ...props },
+		ref
+	) {
+		// In live mode the local server's running/stopped status is irrelevant
+		// to what the agent targets; use a dedicated dot color so the trigger
+		// visibly mirrors the environment pill.
+		const dotClass =
+			environment === 'live' ? styles.triggerDot_live : styles[ `triggerDot_${ status }` ];
 		return (
 			<Button
 				ref={ ref }
@@ -45,11 +54,13 @@ const DropdownTrigger = forwardRef< ElementRef< typeof Button >, TriggerProps >(
 				<span className={ styles.triggerSite }>{ siteName }</span>
 				<span className={ styles.triggerStatus }>
 					<span
-						className={ clsx( styles.triggerDot, styles[ `triggerDot_${ status }` ] ) }
+						className={ clsx( styles.triggerDot, dotClass ) }
 						role="img"
 						aria-label={ statusLabel }
 					/>
-					<span className={ styles.triggerEnv }>{ __( 'Local' ) }</span>
+					<span className={ styles.triggerEnv }>
+						{ environment === 'live' ? __( 'Live' ) : __( 'Local' ) }
+					</span>
 				</span>
 				<span className={ styles.triggerUrl }>{ siteUrl }</span>
 				<Icon icon={ chevronDownSmall } />
@@ -80,6 +91,10 @@ function PopoverRow( {
 
 type Props = {
 	site: SiteDetails;
+	// Optional: when rendered inside a session view, the dropdown reflects the
+	// session's active environment (local vs. live) rather than always reading
+	// "Local". Outside a session context these default to local.
+	activeEnvironment?: 'local' | 'live';
 };
 
 function ensureProtocol( url: string ): string {
@@ -113,7 +128,7 @@ function pickLatestSnapshot(
 		}, undefined );
 }
 
-export function SiteDropdown( { site }: Props ) {
+export function SiteDropdown( { site, activeEnvironment = 'local' }: Props ) {
 	const connector = useConnector();
 	const { data: snapshots } = useSnapshots();
 	const { data: connectedSites } = useConnectedWpcomSites( site.id );
@@ -170,6 +185,7 @@ export function SiteDropdown( { site }: Props ) {
 						siteUrl={ getSiteDisplayUrl( site ) }
 						status={ status }
 						statusLabel={ statusLabel }
+						environment={ activeEnvironment }
 					/>
 				}
 			/>

@@ -134,7 +134,7 @@ export class E2ESession {
 				E2E_SHARED_CONFIG_PATH: this.sharedConfigPath,
 				// DEBUG: isolate the daemon's runtime dir per test session so we can
 				// capture its debug log in the test artifact on failure.
-				STUDIO_PROCESS_MANAGER_HOME: path.join( this.sharedConfigPath, 'pm2' ),
+				STUDIO_PROCESS_MANAGER_HOME: path.join( this.sharedConfigPath, 'daemon' ),
 			},
 			timeout: 60_000,
 		} );
@@ -164,7 +164,7 @@ export class E2ESession {
 		// DEBUG: attach daemon log (captures PHP-wasm errors from the long-running
 		// WordPress server process, which runs detached from the CLI).
 		try {
-			const daemonLogPath = path.join( this.sharedConfigPath, 'pm2', 'daemon-debug.log' );
+			const daemonLogPath = path.join( this.sharedConfigPath, 'daemon', 'daemon-debug.log' );
 			if ( await fs.pathExists( daemonLogPath ) ) {
 				const daemonLog = await fs.readFile( daemonLogPath, 'utf8' );
 				await testInfo.attach( 'daemon-debug.log', {

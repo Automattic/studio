@@ -1,6 +1,14 @@
 .root {
-	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-xl)
-		var(--wpds-dimension-padding-lg);
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-2xl)
+		var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-2xl);
+	/* Stay pinned at the bottom as the sidebar scrolls; `margin-top:
+	   auto` pushes it to the bottom in the flex column when content is
+	   shorter than the viewport. */
+	margin-top: auto;
+	position: sticky;
+	bottom: 0;
+	z-index: 1;
+	background-color: var(--wpds-color-bg-surface-neutral-weak);
 }
 
 .row {

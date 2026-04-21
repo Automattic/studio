@@ -10,18 +10,16 @@
 	border-right: 1px solid var(--wpds-color-stroke-surface-neutral);
 	display: flex;
 	flex-direction: column;
-	overflow: hidden;
+	/* The sidebar itself scrolls so the scrollbar gutter affects the
+	   (sticky) header and footer identically to the middle content —
+	   avoiding the misalignment you get when the scrollbar lives on an
+	   inner wrapper. */
+	overflow-y: auto;
 	transition: width 150ms ease;
 }
 
 .sidebarCollapsed {
 	width: 0;
-}
-
-.sidebarContent {
-	flex: 1;
-	min-height: 0;
-	overflow-y: auto;
 }
 
 .main {
@@ -44,7 +42,7 @@
 }
 
 /* In macOS fullscreen the traffic lights are hidden, so the toggle can
-   sit at the main area's left edge. */
+   sit near the main area's left edge. */
 .floatingToggleFullscreen {
-	left: var(--wpds-dimension-padding-md);
+	left: var(--wpds-dimension-padding-xl);
 }

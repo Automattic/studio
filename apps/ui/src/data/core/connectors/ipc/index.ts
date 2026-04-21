@@ -5,6 +5,8 @@ import type {
 	ColorScheme,
 	Connector,
 	LoadedAiSession,
+	ProposedSitePath,
+	SelectedSiteFolder,
 	SiteDetails,
 	Snapshot,
 	SyncSite,
@@ -65,11 +67,81 @@ export function createIpcConnector(): Connector {
 		},
 
 		async createSite( params ) {
-			return ( await ipcApi.createSite( params.name ) ) as SiteDetails;
+			const {
+				name,
+				path,
+				phpVersion,
+				wpVersion,
+				customDomain,
+				enableHttps,
+				adminUsername,
+				adminPassword,
+				adminEmail,
+			} = params;
+			return ( await ipcApi.createSite( path, {
+				siteName: name,
+				phpVersion,
+				wpVersion,
+				customDomain,
+				enableHttps,
+				adminUsername,
+				adminPassword,
+				adminEmail,
+			} ) ) as SiteDetails;
 		},
 
-		async deleteSite( id ) {
-			await ipcApi.deleteSite( id, false );
+		async deleteSite( id, deleteFiles = true ) {
+			await ipcApi.deleteSite( id, deleteFiles );
+		},
+
+		async copySite( sourceSiteId ): Promise< SiteDetails > {
+			const sites = ( await ipcApi.getSiteDetails() ) as SiteDetails[];
+			const sourceSite = sites.find( ( site ) => site.id === sourceSiteId );
+			if ( ! sourceSite ) {
+				throw new Error( 'Source site not found.' );
+			}
+			// `%s Copy` matches the legacy Studio flow, and the helper bumps
+			// the suffix (`Copy 2`, `Copy 3`…) when earlier copies already
+			// exist.
+			const baseName = `${ sourceSite.name } Copy`;
+			const newName = ( await ipcApi.generateNumberedNameFromList( baseName, sites ) ) as string;
+			const newSiteId = crypto.randomUUID();
+			return ( await ipcApi.copySite( sourceSiteId, newSiteId, newName ) ) as SiteDetails;
+		},
+
+		async generateProposedSiteName( usedSites ): Promise< string > {
+			return ( await ipcApi.generateSiteNameFromList( usedSites ) ) as string;
+		},
+
+		async generateProposedSitePath( siteName ): Promise< ProposedSitePath > {
+			const response = ( await ipcApi.generateProposedSitePath( siteName ) ) as {
+				path: string;
+				isEmpty: boolean;
+				isWordPress: boolean;
+				isNameTooLong?: boolean;
+			};
+			return {
+				path: response.path,
+				isEmpty: response.isEmpty,
+				isWordPress: response.isWordPress,
+				isNameTooLong: response.isNameTooLong,
+			};
+		},
+
+		async selectSiteFolder( defaultPath ): Promise< SelectedSiteFolder | null > {
+			const response = ( await ipcApi.showOpenFolderDialog(
+				'Choose folder for site',
+				defaultPath
+			) ) as SelectedSiteFolder | null;
+			return response ?? null;
+		},
+
+		async comparePaths( path1, path2 ) {
+			return ( await ipcApi.comparePaths( path1, path2 ) ) as boolean;
+		},
+
+		async getAllCustomDomains(): Promise< string[] > {
+			return ( await ipcApi.getAllCustomDomains() ) as string[];
 		},
 
 		async startSite( id ) {
@@ -78,6 +150,14 @@ export function createIpcConnector(): Connector {
 
 		async stopSite( id ) {
 			await ipcApi.stopServer( id );
+		},
+
+		async updateSite( site, wpVersion ) {
+			await ipcApi.updateSite( site, wpVersion );
+		},
+
+		async getXdebugEnabledSite() {
+			return ( await ipcApi.getXdebugEnabledSite() ) as SiteDetails | null;
 		},
 
 		// Preview snapshots
@@ -121,6 +201,19 @@ export function createIpcConnector(): Connector {
 
 		async answerAgentQuestion( runId, answers ) {
 			await ipcApi.answerAiAgentQuestion( runId, answers );
+		},
+
+		async setSessionEnvironment( sessionId, environment ) {
+			const result = ( await ipcApi.setSessionEnvironment( sessionId, environment ) ) as {
+				environment: 'local' | 'live';
+				url?: string;
+				wpcomSiteId?: number;
+			};
+			return {
+				environment: result.environment,
+				url: result.url,
+				wpcomSiteId: result.wpcomSiteId,
+			};
 		},
 
 		onAgentEvent( listener ) {

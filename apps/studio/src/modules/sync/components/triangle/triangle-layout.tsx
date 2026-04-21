@@ -2,7 +2,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Button, Tooltip } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { useAuth } from 'src/hooks/use-auth';
-import { useAppDispatch } from 'src/stores';
+import { useAppDispatch, useRootSelector } from 'src/stores';
+import { syncOperationsSelectors } from 'src/stores/sync/sync-operations-slice';
 import {
 	useGetConnectedSitesForLocalSiteQuery,
 	connectedSitesActions,
@@ -200,6 +201,45 @@ function ArrowButton( {
 			</button>
 		</Tooltip>
 	);
+}
+
+/**
+ * Returns 'push' | 'pull' | null for the active sync between `localSiteId` and the
+ * given remote site. Reads from the `syncOperations` slice via memoized selectors.
+ */
+function useActiveDirection(
+	localSiteId: string,
+	remoteSiteId: number | undefined
+): 'push' | 'pull' | null {
+	const isPushing = useRootSelector( ( state ) =>
+		remoteSiteId !== undefined
+			? syncOperationsSelectors.selectIsSiteIdPushing( localSiteId, remoteSiteId )( state )
+			: false
+	);
+	const isPulling = useRootSelector( ( state ) =>
+		remoteSiteId !== undefined
+			? syncOperationsSelectors.selectIsSiteIdPulling( localSiteId, remoteSiteId )( state )
+			: false
+	);
+	if ( isPushing ) return 'push';
+	if ( isPulling ) return 'pull';
+	return null;
+}
+
+const NARROW_BREAKPOINT = 720;
+
+function useIsNarrow( containerRef: React.RefObject< HTMLDivElement > ): boolean {
+	const [ narrow, setNarrow ] = useState( false );
+	useEffect( () => {
+		const el = containerRef.current;
+		if ( ! el ) return;
+		const check = () => setNarrow( el.clientWidth < NARROW_BREAKPOINT );
+		check();
+		const ro = new ResizeObserver( check );
+		ro.observe( el );
+		return () => ro.disconnect();
+	}, [ containerRef ] );
+	return narrow;
 }
 
 type Props = {

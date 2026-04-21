@@ -648,14 +648,17 @@ const pollPushProgressThunk = createTypedAsyncThunk(
 				case 'started':
 				case 'initial_backup_started':
 				case 'initial_backup_finished':
-					status = pushStatesProgressInfo.creatingRemoteBackup;
+					// Clone — pushStatesProgressInfo returns a shared object; with parallel
+					// syncs, mutating `.progress` on the shared reference would leak into
+					// other operations' progress reporting.
+					status = { ...pushStatesProgressInfo.creatingRemoteBackup };
 					if ( response.backup_progress ) {
 						const progressRange = pushStatesProgressInfo.applyingChanges.progress - status.progress;
 						status.progress = status.progress + progressRange * ( response.backup_progress / 100 );
 					}
 					break;
 				case 'archive_import_started':
-					status = pushStatesProgressInfo.applyingChanges;
+					status = { ...pushStatesProgressInfo.applyingChanges };
 					if ( response.import_progress ) {
 						const progressRange = pushStatesProgressInfo.finishing.progress - status.progress;
 						status.progress = status.progress + progressRange * ( response.import_progress / 100 );

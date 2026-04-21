@@ -210,9 +210,9 @@ async function copyBundledPhpMyAdmin() {
 		return;
 	}
 
-	// The upstream `composer.json` version rarely changes, but we inject
-	// Playground-specific files (e.g. `DbiMysqli.php`) at build time that do change
-	// between Studio releases. Compare by size and mtime so those updates land.
+	// phpMyAdmin's composer.json version rarely changes, but Studio injects
+	// Playground-specific files (e.g. DbiMysqli.php) at build time that do.
+	// Compare by size and mtime so those updates land across releases.
 	const targetPhpMyAdminPath = getPhpMyAdminPath();
 	const isSourceDirectoryDifferent = await areDirectoriesDifferentBySizeAndMtime(
 		sourcePhpMyAdminPath,

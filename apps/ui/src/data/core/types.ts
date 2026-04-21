@@ -1,6 +1,9 @@
 import type { AgentRunEvent } from './agent-events';
 import type { AiModelId } from '@studio/common/ai/models';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
+import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
+import type { InstalledApps } from '@studio/common/lib/user-settings/installed-apps';
+import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { SyncSite } from '@studio/common/types/sync';
@@ -13,6 +16,9 @@ export type {
 export type { AiModelId } from '@studio/common/ai/models';
 export type { Snapshot } from '@studio/common/types/snapshot';
 export type { SyncSite } from '@studio/common/types/sync';
+export type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
+export type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
+export type { InstalledApps } from '@studio/common/lib/user-settings/installed-apps';
 
 export interface SiteDetails {
 	id: string;
@@ -159,12 +165,23 @@ export interface Connector {
 		environment: 'local' | 'live'
 	): Promise< { environment: 'local' | 'live'; url?: string; wpcomSiteId?: number } >;
 
-	// Locale
-	getUserLocale(): Promise< string | undefined >;
+	// User preferences — editor, terminal, color scheme, locale. Fanned out to
+	// the granular main-process handlers inside the connector so the UI has a
+	// single query + mutation to work with.
+	getUserPreferences(): Promise< UserPreferences >;
+	setUserPreferences( partial: Partial< UserPreferences > ): Promise< UserPreferences >;
 
-	// Color scheme
-	getColorScheme(): Promise< ColorScheme >;
-	saveColorScheme( scheme: ColorScheme ): Promise< void >;
+	// Apps detected on disk (editors + terminals). Options in the preferences
+	// form are filtered against this so users can't pick something that isn't
+	// installed.
+	getInstalledApps(): Promise< InstalledApps >;
+
+	// Open the given site's folder in the system file manager, preferred
+	// editor, or preferred terminal. When no editor/terminal preference is
+	// set these reject — callers are expected to route the user to Settings.
+	openSiteFolder( siteId: string ): Promise< void >;
+	openSiteInEditor( siteId: string ): Promise< void >;
+	openSiteInTerminal( siteId: string ): Promise< void >;
 
 	// External links
 	openExternalUrl( url: string ): Promise< void >;
@@ -180,6 +197,15 @@ export interface Connector {
 }
 
 export type ColorScheme = 'system' | 'light' | 'dark';
+
+export interface UserPreferences {
+	editor: SupportedEditor | null;
+	terminal: SupportedTerminal | null;
+	colorScheme: ColorScheme;
+	// Resolved locale string (e.g. "en", "fr-FR"). Read-only in v1 — there's
+	// no connector method for changing it yet.
+	locale: string | undefined;
+}
 
 export interface CreateSiteParams {
 	name: string;

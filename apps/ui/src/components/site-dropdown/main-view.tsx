@@ -1,6 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { external } from '@wordpress/icons';
 import { Button, IconButton } from '@wordpress/ui';
+import * as Menu from '@/components/menu';
 import { getSiteUrl } from '@/lib/get-site-url';
 import styles from './main-view.module.css';
 import { PopoverRow } from './popover-row';
@@ -25,6 +26,9 @@ type Props = {
 	onPushClick: () => void;
 	onPullClick: () => void;
 	onSetupClick: () => void;
+	onOpenFolder: () => void;
+	onOpenInEditor: () => void;
+	onOpenInTerminal: () => void;
 };
 
 export function MainView( {
@@ -44,132 +48,144 @@ export function MainView( {
 	onPushClick,
 	onPullClick,
 	onSetupClick,
+	onOpenFolder,
+	onOpenInEditor,
+	onOpenInTerminal,
 }: Props ) {
 	return (
-		<div className={ styles.rows }>
-			<PopoverRow
-				label={
-					<>
-						{ __( 'Local site' ) }
-						{ site.running ? (
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ external }
-								label={ __( 'Open local site' ) }
-								onClick={ () => onOpenExternal( getSiteUrl( site ) ) }
-							/>
-						) : null }
-					</>
-				}
-				sublabel={ localSublabel }
-				action={
-					<Button
-						variant="minimal"
-						tone="neutral"
-						size="small"
-						loading={ status === 'transitioning' }
-						loadingAnnouncement={ isStopping ? __( 'Stopping' ) : __( 'Starting' ) }
-						onClick={ onToggleServer }
-					>
-						{ site.running ? __( 'Stop' ) : __( 'Start' ) }
-					</Button>
-				}
-			/>
-
-			<PopoverRow
-				label={
-					<>
-						{ __( 'Live site' ) }
-						{ liveSite ? (
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ external }
-								label={ __( 'Open live site' ) }
-								onClick={ () => onOpenExternal( ensureProtocol( liveSite.url ) ) }
-							/>
-						) : null }
-					</>
-				}
-				sublabel={ liveSite ? stripProtocol( liveSite.url ) : __( 'Not yet set up' ) }
-				action={
-					liveSite ? (
-						<div className={ styles.rowActions }>
-							<Button
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								loading={ isPullPending }
-								loadingAnnouncement={ __( 'Pulling from live' ) }
-								disabled={ isSyncing }
-								onClick={ onPullClick }
-							>
-								{ __( 'Pull' ) }
-							</Button>
-							<Button
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								loading={ isPushPending }
-								loadingAnnouncement={ __( 'Pushing to live' ) }
-								disabled={ isSyncing }
-								onClick={ onPushClick }
-							>
-								{ __( 'Push' ) }
-							</Button>
-						</div>
-					) : (
+		<>
+			<div className={ styles.rows }>
+				<PopoverRow
+					label={
+						<>
+							{ __( 'Local site' ) }
+							{ site.running ? (
+								<IconButton
+									variant="minimal"
+									tone="neutral"
+									size="small"
+									icon={ external }
+									label={ __( 'Open local site' ) }
+									onClick={ () => onOpenExternal( getSiteUrl( site ) ) }
+								/>
+							) : null }
+						</>
+					}
+					sublabel={ localSublabel }
+					action={
 						<Button
 							variant="minimal"
 							tone="neutral"
 							size="small"
-							disabled={ isSyncing }
-							onClick={ onSetupClick }
+							loading={ status === 'transitioning' }
+							loadingAnnouncement={ isStopping ? __( 'Stopping' ) : __( 'Starting' ) }
+							onClick={ onToggleServer }
 						>
-							{ __( 'Setup' ) }
+							{ site.running ? __( 'Stop' ) : __( 'Start' ) }
 						</Button>
-					)
-				}
-			/>
+					}
+				/>
 
-			<PopoverRow
-				label={
-					<>
-						{ __( 'Preview site' ) }
-						{ previewSnapshot ? (
-							<IconButton
+				<PopoverRow
+					label={
+						<>
+							{ __( 'Live site' ) }
+							{ liveSite ? (
+								<IconButton
+									variant="minimal"
+									tone="neutral"
+									size="small"
+									icon={ external }
+									label={ __( 'Open live site' ) }
+									onClick={ () => onOpenExternal( ensureProtocol( liveSite.url ) ) }
+								/>
+							) : null }
+						</>
+					}
+					sublabel={ liveSite ? stripProtocol( liveSite.url ) : __( 'Not yet set up' ) }
+					action={
+						liveSite ? (
+							<div className={ styles.rowActions }>
+								<Button
+									variant="minimal"
+									tone="neutral"
+									size="small"
+									loading={ isPullPending }
+									loadingAnnouncement={ __( 'Pulling from live' ) }
+									disabled={ isSyncing }
+									onClick={ onPullClick }
+								>
+									{ __( 'Pull' ) }
+								</Button>
+								<Button
+									variant="minimal"
+									tone="neutral"
+									size="small"
+									loading={ isPushPending }
+									loadingAnnouncement={ __( 'Pushing to live' ) }
+									disabled={ isSyncing }
+									onClick={ onPushClick }
+								>
+									{ __( 'Push' ) }
+								</Button>
+							</div>
+						) : (
+							<Button
 								variant="minimal"
 								tone="neutral"
 								size="small"
-								icon={ external }
-								label={ __( 'Open preview site' ) }
-								onClick={ () => onOpenExternal( ensureProtocol( previewSnapshot.url ) ) }
-							/>
-						) : null }
-					</>
-				}
-				sublabel={
-					previewSnapshot ? stripProtocol( previewSnapshot.url ) : __( 'Not yet created' )
-				}
-				action={
-					<Button
-						variant="minimal"
-						tone="neutral"
-						size="small"
-						loading={ isPreviewPending }
-						loadingAnnouncement={
-							previewSnapshot ? __( 'Updating preview' ) : __( 'Creating preview' )
-						}
-						disabled={ isSyncing }
-						onClick={ onPreviewClick }
-					>
-						{ previewSnapshot ? __( 'Update' ) : __( 'Preview' ) }
-					</Button>
-				}
-			/>
-		</div>
+								disabled={ isSyncing }
+								onClick={ onSetupClick }
+							>
+								{ __( 'Setup' ) }
+							</Button>
+						)
+					}
+				/>
+
+				<PopoverRow
+					label={
+						<>
+							{ __( 'Preview site' ) }
+							{ previewSnapshot ? (
+								<IconButton
+									variant="minimal"
+									tone="neutral"
+									size="small"
+									icon={ external }
+									label={ __( 'Open preview site' ) }
+									onClick={ () => onOpenExternal( ensureProtocol( previewSnapshot.url ) ) }
+								/>
+							) : null }
+						</>
+					}
+					sublabel={
+						previewSnapshot ? stripProtocol( previewSnapshot.url ) : __( 'Not yet created' )
+					}
+					action={
+						<Button
+							variant="minimal"
+							tone="neutral"
+							size="small"
+							loading={ isPreviewPending }
+							loadingAnnouncement={
+								previewSnapshot ? __( 'Updating preview' ) : __( 'Creating preview' )
+							}
+							disabled={ isSyncing }
+							onClick={ onPreviewClick }
+						>
+							{ previewSnapshot ? __( 'Update' ) : __( 'Preview' ) }
+						</Button>
+					}
+				/>
+			</div>
+
+			<Menu.Separator />
+			<div className={ styles.menuItems }>
+				<Menu.Item onClick={ onOpenFolder }>{ __( 'Open folder' ) }</Menu.Item>
+				<Menu.Item onClick={ onOpenInEditor }>{ __( 'Open in editor' ) }</Menu.Item>
+				<Menu.Item onClick={ onOpenInTerminal }>{ __( 'Open in terminal' ) }</Menu.Item>
+			</div>
+		</>
 	);
 }

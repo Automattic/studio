@@ -1,4 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
@@ -15,6 +16,7 @@ import {
 } from '@/data/queries/use-sites';
 import { useSnapshots } from '@/data/queries/use-snapshots';
 import { usePullSiteFromLive, usePushSiteToLive } from '@/data/queries/use-sync-site';
+import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { usePickableWpcomSites } from '@/data/queries/use-wpcom-sites';
 import { getSiteDisplayUrl } from '@/lib/get-site-url';
 import { DropdownTrigger } from './dropdown-trigger';
@@ -42,7 +44,9 @@ type Props = {
 export function SiteDropdown( { site, activeEnvironment = 'local' }: Props ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
+	const navigate = useNavigate();
 	const [ view, setView ] = useState< 'main' | 'picker' >( 'main' );
+	const { data: userPreferences } = useUserPreferences();
 
 	const { data: snapshots } = useSnapshots();
 	const { data: connectedSites } = useConnectedWpcomSites( site.id );
@@ -156,6 +160,34 @@ export function SiteDropdown( { site, activeEnvironment = 'local' }: Props ) {
 		setView( 'main' );
 	};
 
+	const goToPreferences = () => {
+		void navigate( { to: '/settings/preferences' } );
+	};
+
+	const handleOpenFolder = () => {
+		void connector.openSiteFolder( site.id ).catch( ( error ) => {
+			console.error( 'Failed to open site folder:', error );
+		} );
+	};
+
+	const handleOpenInEditor = () => {
+		// No editor preference yet — send the user to Settings so they can
+		// pick one before the action becomes useful.
+		if ( ! userPreferences?.editor ) {
+			goToPreferences();
+			return;
+		}
+		void connector.openSiteInEditor( site.id ).catch( ( error ) => {
+			console.error( 'Failed to open site in editor:', error );
+		} );
+	};
+
+	const handleOpenInTerminal = () => {
+		void connector.openSiteInTerminal( site.id ).catch( ( error ) => {
+			console.error( 'Failed to open site in terminal:', error );
+		} );
+	};
+
 	return (
 		<div className={ styles.root }>
 			<Menu.Root
@@ -198,6 +230,9 @@ export function SiteDropdown( { site, activeEnvironment = 'local' }: Props ) {
 							onPushClick={ handlePushClick }
 							onPullClick={ handlePullClick }
 							onSetupClick={ handleSetupClick }
+							onOpenFolder={ handleOpenFolder }
+							onOpenInEditor={ handleOpenInEditor }
+							onOpenInTerminal={ handleOpenInTerminal }
 						/>
 					) : (
 						<PublishPickerView

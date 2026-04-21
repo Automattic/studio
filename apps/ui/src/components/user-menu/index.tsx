@@ -1,3 +1,4 @@
+import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { IconButton } from '@wordpress/ui';
 import { Gravatar } from '@/components/gravatar';
@@ -17,6 +18,7 @@ const REPORT_ISSUE_URL = 'https://github.com/Automattic/studio/issues/new/choose
 
 export function UserMenu() {
 	const connector = useConnector();
+	const navigate = useNavigate();
 	const { data: user } = useAuthUser();
 	const { data: savedScheme } = useColorScheme();
 	const saveColorScheme = useSaveColorScheme();
@@ -50,13 +52,16 @@ export function UserMenu() {
 								{ user.email }
 							</div>
 							<Menu.Item onClick={ () => openLink( WPCOM_PROFILE_URL ) }>
-								{ __( 'Edit profile' ) }
+								{ __( 'Edit WordPress.com profile' ) }
 							</Menu.Item>
 							<Menu.Item onClick={ () => openLink( DOCS_URL ) }>
 								{ __( 'Documentation' ) }
 							</Menu.Item>
 							<Menu.Item onClick={ () => openLink( REPORT_ISSUE_URL ) }>
 								{ __( 'Report an issue' ) }
+							</Menu.Item>
+							<Menu.Item onClick={ () => void navigate( { to: '/settings' } ) }>
+								{ __( 'Settings' ) }
 							</Menu.Item>
 							<Menu.Separator />
 							<Menu.Item onClick={ () => logout.mutate() }>{ __( 'Log out' ) }</Menu.Item>

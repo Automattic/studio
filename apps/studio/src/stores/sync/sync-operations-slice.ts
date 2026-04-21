@@ -83,20 +83,20 @@ export function getPushStatesProgressInfo(): Record<
 	PushStateProgressInfo
 > {
 	return {
-		creatingBackup: { key: 'creatingBackup', progress: 20, message: __( 'Creating backup…' ) },
-		uploading: { key: 'uploading', progress: 40, message: __( 'Uploading site…' ) },
-		uploadingPaused: { key: 'uploadingPaused', progress: 45, message: __( 'Uploading paused' ) },
+		creatingBackup: { key: 'creatingBackup', progress: 20, message: __( 'Creating local backup…' ) },
+		uploading: { key: 'uploading', progress: 40, message: __( 'Uploading to WordPress.com…' ) },
+		uploadingPaused: { key: 'uploadingPaused', progress: 45, message: __( 'Upload paused' ) },
 		uploadingManuallyPaused: {
 			key: 'uploadingManuallyPaused',
 			progress: 45,
-			message: __( 'Uploading paused' ),
+			message: __( 'Upload paused' ),
 		},
 		creatingRemoteBackup: {
 			key: 'creatingRemoteBackup',
 			progress: 50,
-			message: __( 'Backing up remote site…' ),
+			message: __( 'Snapshotting the remote site…' ),
 		},
-		applyingChanges: { key: 'applyingChanges', progress: 60, message: __( 'Applying changes…' ) },
+		applyingChanges: { key: 'applyingChanges', progress: 60, message: __( 'Applying changes on the remote site…' ) },
 		finishing: { key: 'finishing', progress: 99, message: __( 'Almost there…' ) },
 		finished: { key: 'finished', progress: 100, message: __( 'Push complete' ) },
 		failed: { key: 'failed', progress: 100, message: __( 'Error pushing changes' ) },
@@ -112,10 +112,10 @@ export function getPullStatesProgressInfo(): Record<
 		'in-progress': {
 			key: 'in-progress',
 			progress: 30,
-			message: __( 'Initializing remote backup…' ),
+			message: __( 'Preparing backup on WordPress.com…' ),
 		},
-		downloading: { key: 'downloading', progress: 60, message: __( 'Downloading backup…' ) },
-		importing: { key: 'importing', progress: 80, message: __( 'Importing backup…' ) },
+		downloading: { key: 'downloading', progress: 60, message: __( 'Downloading backup to your machine…' ) },
+		importing: { key: 'importing', progress: 80, message: __( 'Importing into the local site…' ) },
 		finished: { key: 'finished', progress: 100, message: __( 'Pull complete' ) },
 		failed: { key: 'failed', progress: 100, message: __( 'Error pulling changes' ) },
 		cancelled: { key: 'cancelled', progress: 0, message: __( 'Cancelled' ) },

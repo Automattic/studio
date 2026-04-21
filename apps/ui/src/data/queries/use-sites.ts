@@ -25,11 +25,28 @@ export function useCreateSite() {
 	} );
 }
 
+export interface DeleteSiteInput {
+	id: string;
+	// Defaults to true so the delete confirmation can omit the flag and the
+	// caller still removes the site folder from disk.
+	deleteFiles?: boolean;
+}
+
 export function useDeleteSite() {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	return useMutation( {
-		mutationFn: ( id: string ) => connector.deleteSite( id ),
+		mutationFn: ( { id, deleteFiles = true }: DeleteSiteInput ) =>
+			connector.deleteSite( id, deleteFiles ),
+		onSuccess: () => queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } ),
+	} );
+}
+
+export function useCopySite() {
+	const connector = useConnector();
+	const queryClient = useQueryClient();
+	return useMutation( {
+		mutationFn: ( sourceSiteId: string ) => connector.copySite( sourceSiteId ),
 		onSuccess: () => queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } ),
 	} );
 }

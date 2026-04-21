@@ -11,12 +11,15 @@ export class PlaygroundValidator extends ImportExportEventEmitter implements Val
 			'wp-content/plugins',
 			'wp-content/themes',
 		];
-		return (
+		const hasSqliteDatabase =
 			requiredDirs.some( ( dir ) => fileList.some( ( file ) => file.startsWith( dir + '/' ) ) ) &&
 			fileList.some(
 				( file ) => file.startsWith( 'wp-content/database' ) && file.endsWith( '.ht.sqlite' )
-			)
-		);
+			);
+
+		const hasSqlDumps = fileList.some( ( file ) => file.startsWith( 'sql/' ) );
+
+		return hasSqliteDatabase && ! hasSqlDumps;
 	}
 
 	parseBackupContents( fileList: string[], extractionDirectory: string ): BackupContents {

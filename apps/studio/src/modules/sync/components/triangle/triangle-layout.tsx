@@ -1,3 +1,4 @@
+import { Button, Tooltip } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { useAuth } from 'src/hooks/use-auth';
 import { useAppDispatch } from 'src/stores';
@@ -6,7 +7,6 @@ import {
 	connectedSitesActions,
 } from 'src/stores/sync/connected-sites';
 import {
-	useGetStagingSyncStateQuery,
 	usePullFromStagingMutation,
 	usePushToStagingMutation,
 } from 'src/stores/sync/staging-site-api';
@@ -48,10 +48,6 @@ export function TriangleLayout( { selectedSite }: Props ) {
 	const syncActions = useSyncActions( selectedSite );
 	const [ pushToStaging ] = usePushToStagingMutation();
 	const [ pullFromStaging ] = usePullFromStagingMutation();
-	const { data: syncState } = useGetStagingSyncStateQuery(
-		{ productionSiteId: production?.id ?? 0 },
-		{ skip: ! production || ! staging }
-	);
 
 	const openConnectModal = () => dispatch( connectedSitesActions.openModal( 'connect' ) );
 
@@ -128,44 +124,41 @@ export function TriangleLayout( { selectedSite }: Props ) {
 
 			<div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
 				{ productionSlot }
-				<div className="flex items-center justify-center">
+				<div className="flex items-center justify-center gap-2">
 					{ production && staging ? (
-						<SyncGutter
-							from={ { kind: 'remote', label: 'Production' } }
-							to={ { kind: 'remote', label: 'Staging' } }
-							lastPushTimestamp={
-								syncState?.direction === 'push' && syncState.finished_at
-									? syncState.finished_at
-									: null
-							}
-							lastPullTimestamp={
-								syncState?.direction === 'pull' && syncState.finished_at
-									? syncState.finished_at
-									: null
-							}
-							// Labels reference both endpoints explicitly because neither is
-							// Local — "Push to Staging" alone would be ambiguous in the middle
-							// of the screen.
-							pushArrow="→"
-							pullArrow="←"
-							pushLabel={ __( 'Production → Staging' ) }
-							pullLabel={ __( 'Staging → Production' ) }
-							onPush={ () => {
-								void pushToStaging( {
-									productionSiteId: production.id,
-									stagingSiteId: staging.id,
-									options: DEFAULT_STAGING_OPTIONS,
-								} );
-							} }
-							onPull={ () => {
-								void pullFromStaging( {
-									productionSiteId: production.id,
-									stagingSiteId: staging.id,
-									options: DEFAULT_STAGING_OPTIONS,
-									allowWooSync: false,
-								} );
-							} }
-						/>
+						<>
+							<Tooltip text={ __( 'Copy Production to Staging' ) }>
+								<Button
+									variant="secondary"
+									aria-label={ __( 'Copy Production to Staging' ) }
+									onClick={ () => {
+										void pushToStaging( {
+											productionSiteId: production.id,
+											stagingSiteId: staging.id,
+											options: DEFAULT_STAGING_OPTIONS,
+										} );
+									} }
+								>
+									→
+								</Button>
+							</Tooltip>
+							<Tooltip text={ __( 'Copy Staging to Production' ) }>
+								<Button
+									variant="secondary"
+									aria-label={ __( 'Copy Staging to Production' ) }
+									onClick={ () => {
+										void pullFromStaging( {
+											productionSiteId: production.id,
+											stagingSiteId: staging.id,
+											options: DEFAULT_STAGING_OPTIONS,
+											allowWooSync: false,
+										} );
+									} }
+								>
+									←
+								</Button>
+							</Tooltip>
+						</>
 					) : null }
 				</div>
 				{ stagingSlot }

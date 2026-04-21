@@ -13,6 +13,7 @@ import type {
 	SupportedEditor,
 	SupportedTerminal,
 	UserPreferences,
+	WritableUserPreferences,
 } from '@/data/core';
 import type { Field, Form } from '@wordpress/dataviews';
 import type { FormEvent } from 'react';
@@ -35,8 +36,11 @@ function toFormData( prefs: UserPreferences ): FormData {
 	};
 }
 
-function diffFromSaved( next: FormData, saved: UserPreferences ): Partial< UserPreferences > {
-	const patch: Partial< UserPreferences > = {};
+function diffFromSaved(
+	next: FormData,
+	saved: UserPreferences
+): Partial< WritableUserPreferences > {
+	const patch: Partial< WritableUserPreferences > = {};
 	const nextEditor: SupportedEditor | null = next.editor === UNSET ? null : next.editor;
 	const nextTerminal: SupportedTerminal | null = next.terminal === UNSET ? null : next.terminal;
 	if ( nextEditor !== saved.editor ) patch.editor = nextEditor;

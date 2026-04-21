@@ -169,7 +169,7 @@ export interface Connector {
 	// the granular main-process handlers inside the connector so the UI has a
 	// single query + mutation to work with.
 	getUserPreferences(): Promise< UserPreferences >;
-	setUserPreferences( partial: Partial< UserPreferences > ): Promise< UserPreferences >;
+	setUserPreferences( partial: Partial< WritableUserPreferences > ): Promise< void >;
 
 	// Apps detected on disk (editors + terminals). Options in the preferences
 	// form are filtered against this so users can't pick something that isn't
@@ -206,6 +206,12 @@ export interface UserPreferences {
 	// no connector method for changing it yet.
 	locale: string | undefined;
 }
+
+// Subset of UserPreferences that callers can actually mutate. `locale` is
+// resolved by the OS / main process and has no setter, so excluding it from
+// the writable surface prevents accidental passes that would be silently
+// dropped by the connector.
+export type WritableUserPreferences = Omit< UserPreferences, 'locale' >;
 
 export interface CreateSiteParams {
 	name: string;

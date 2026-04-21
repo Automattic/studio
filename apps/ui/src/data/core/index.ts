@@ -18,5 +18,6 @@ export type {
 	SupportedTerminal,
 	SyncSite,
 	UserPreferences,
+	WritableUserPreferences,
 } from './types';
 export type { AgentEvent, AgentRunEvent } from './agent-events';

@@ -384,7 +384,7 @@ export function createIpcConnector(): Connector {
 			return { editor, terminal, colorScheme, locale };
 		},
 
-		async setUserPreferences( partial ): Promise< UserPreferences > {
+		async setUserPreferences( partial ): Promise< void > {
 			const writes: Array< Promise< unknown > > = [];
 			if ( 'editor' in partial ) {
 				writes.push( ipcApi.saveUserEditor( partial.editor ) );
@@ -395,9 +395,7 @@ export function createIpcConnector(): Connector {
 			if ( 'colorScheme' in partial && partial.colorScheme ) {
 				writes.push( ipcApi.saveColorScheme( partial.colorScheme ) );
 			}
-			// `locale` is read-only for now — ignore if passed.
 			await Promise.all( writes );
-			return this.getUserPreferences();
 		},
 
 		async getInstalledApps(): Promise< InstalledApps > {

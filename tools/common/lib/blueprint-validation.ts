@@ -7,12 +7,17 @@ export type BlueprintPreferredVersions = {
 	wp?: string;
 };
 
+export type BlueprintValidationWarning = {
+	message: string;
+};
+
 type BlueprintValidationError = {
 	valid: false;
 	error: string;
 };
 type BlueprintValidationSuccess = {
 	valid: true;
+	warnings?: BlueprintValidationWarning[];
 };
 export type BlueprintValidationResult = BlueprintValidationError | BlueprintValidationSuccess;
 

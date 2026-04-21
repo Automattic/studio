@@ -183,7 +183,6 @@ async function getBaseRunCLIArgs(
 	const enableDebugDisplay = config.enableDebugDisplay ?? false;
 
 	const defaultConstants: Record< string, boolean | string > = {
-		WP_SQLITE_AST_DRIVER: true,
 		WP_DEBUG: enableDebugLog || enableDebugDisplay,
 		WP_DEBUG_LOG: enableDebugLog,
 		WP_DEBUG_DISPLAY: enableDebugDisplay,

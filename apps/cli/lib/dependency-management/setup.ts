@@ -3,63 +3,9 @@ import path from 'path';
 import { recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
 import semver from 'semver';
 import { readCliConfig, updateCliConfigWithPartial } from 'cli/lib/cli-config/core';
-import {
-	getLanguagePacksPath,
-	getWordPressVersionPath,
-	getWpFilesPath,
-} from '../server-files';
+import { getLanguagePacksPath, getWordPressVersionPath, getWpFilesPath } from '../server-files';
 import { areDirectoriesDifferentBySizeAndMtime } from './utils';
 import { getWordPressVersionFromInstallation, updateLatestWordPressVersion } from './wordpress';
-
-type VersionReader = () => Promise< semver.SemVer | null >;
-
-async function copySourceDirectoryIfNewerOrMissing( {
-	sourceDirectoryPath,
-	targetDirectoryPath,
-	readSourceVersion,
-	readTargetVersion,
-}: {
-	sourceDirectoryPath: string;
-	targetDirectoryPath: string;
-	readSourceVersion: VersionReader;
-	readTargetVersion: VersionReader;
-} ) {
-	if ( ! fs.existsSync( sourceDirectoryPath ) ) {
-		return;
-	}
-
-	let sourceVersion: Awaited< ReturnType< VersionReader > >;
-	let shouldCopy = false;
-
-	try {
-		sourceVersion = await readSourceVersion();
-		if ( ! sourceVersion ) {
-			return;
-		}
-	} catch {
-		// Do nothing if the source version cannot be read
-		return;
-	}
-
-	try {
-		const targetVersion = await readTargetVersion();
-		const isSourceVersionNewer = targetVersion && semver.gt( sourceVersion, targetVersion );
-		shouldCopy = Boolean( ! targetVersion || isSourceVersionNewer );
-	} catch {
-		// The error is likely because of a missing or corrupted target directory, in which case we
-		// copy the source directory to the target directory
-		shouldCopy = true;
-	}
-
-	if ( shouldCopy ) {
-		try {
-			await fs.promises.rm( targetDirectoryPath, { recursive: true, force: true } );
-		} catch {
-			// Do nothing if the target directory is missing or corrupted
-		}
-		await recursiveCopyDirectory( sourceDirectoryPath, targetDirectoryPath );
-	}
-}
 
 // Compare the WordPress version in the bundled `wp-files/latest/wordpress` directory (that ships
 // with the CLI) to `~/.studio/server-files/wordpress-versions/latest`. If the bundled directory is

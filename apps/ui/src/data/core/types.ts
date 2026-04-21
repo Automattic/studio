@@ -162,12 +162,6 @@ export interface Connector {
 	answerAgentQuestion( runId: string, answers: Record< string, string > ): Promise< void >;
 	onAgentEvent( listener: ( event: AgentRunEvent ) => void ): () => void;
 
-	// Fires whenever a session JSONL file is modified (from any source —
-	// UI flips, CLI appends, hand edits). Consumers should invalidate the
-	// matching react-query cache entries so the view recomputes from the
-	// refreshed event log.
-	onSessionChanged( listener: ( event: { sessionId: string } ) => void ): () => void;
-
 	// Flip the session between acting on its owner site's local runtime vs.
 	// its linked WordPress.com live site. The owner site itself never changes.
 	setSessionEnvironment(

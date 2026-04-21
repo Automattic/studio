@@ -48,25 +48,6 @@ describe( 'site.selected — environment flips', () => {
 		expect( summary.ownerSitePath ).toBe( '/tmp/my-site' );
 	} );
 
-	it( 'summary folds legacy environment.selected events into activeEnvironment', async () => {
-		rootDirectory = await fs.mkdtemp( path.join( os.tmpdir(), 'studio-env-' ) );
-		const created = await createAiSession( rootDirectory, {
-			site: { name: 'My Site', path: '/tmp/my-site' },
-		} );
-
-		await appendAiSessionEvent( rootDirectory, created.id, {
-			type: 'environment.selected',
-			timestamp: new Date().toISOString(),
-			environment: 'live',
-			url: 'https://mysite.example',
-			wpcomSiteId: 99,
-		} );
-
-		const { summary } = await loadAiSession( rootDirectory, created.id );
-		expect( summary.activeEnvironment ).toBe( 'live' );
-		expect( summary.lastSelectedWpcomSiteId ).toBe( 99 );
-	} );
-
 	it( 'resolver preserves owner name/path when flipping to live', () => {
 		const events: AiSessionEvent[] = [
 			{
@@ -123,31 +104,6 @@ describe( 'site.selected — environment flips', () => {
 		} );
 	} );
 
-	it( 'resolver folds legacy environment.selected over the prior site.selected', () => {
-		const events: AiSessionEvent[] = [
-			{
-				type: 'site.selected',
-				timestamp: '2026-04-20T10:00:00.000Z',
-				siteName: 'My Site',
-				sitePath: '/tmp/my-site',
-			},
-			{
-				type: 'environment.selected',
-				timestamp: '2026-04-20T10:01:00.000Z',
-				environment: 'live',
-				url: 'https://mysite.example',
-				wpcomSiteId: 42,
-			},
-		];
-
-		expect( resolveActiveSiteFromEvents( events ) ).toEqual( {
-			name: 'My Site',
-			path: '/tmp/my-site',
-			remote: true,
-			url: 'https://mysite.example',
-			wpcomSiteId: 42,
-		} );
-	} );
 } );
 
 describe( 'deriveEffectiveEnvironment', () => {

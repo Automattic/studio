@@ -45,17 +45,6 @@ export type AiSessionEvent =
 			wpcomSiteId?: number;
 	  }
 	| {
-			// Legacy event emitted briefly by the apps/ui environment switcher
-			// before sessions switched to writing `site.selected` on every flip.
-			// The summary reducer still folds this into the active-environment
-			// computation so pre-migration sessions keep their live state.
-			type: 'environment.selected';
-			timestamp: string;
-			environment: 'local' | 'live';
-			url?: string;
-			wpcomSiteId?: number;
-	  }
-	| {
 			type: 'user.message';
 			timestamp: string;
 			text: string;

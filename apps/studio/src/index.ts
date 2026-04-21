@@ -41,7 +41,6 @@ import { getSentryReleaseInfo } from 'src/lib/sentry-release';
 import { setupLogging } from 'src/logging';
 import { createMainWindow, getMainWindow } from 'src/main-window';
 import { migrations } from 'src/migrations';
-import { startAiSessionFileWatcher } from 'src/modules/ai-sessions/file-watcher';
 import {
 	startCliEventsSubscriber,
 	stopCliEventsSubscriber,
@@ -320,8 +319,6 @@ async function appBoot() {
 		await startCliEventsSubscriber();
 
 		await createMainWindow();
-
-		startAiSessionFileWatcher();
 
 		const userData = await loadUserData();
 		// Bump stats for the first time the app runs - this is when no lastBumpStats are available

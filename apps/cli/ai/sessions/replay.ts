@@ -31,31 +31,6 @@ export function replaySessionHistory( ui: AiChatUI, events: AiSessionEvent[] ): 
 				continue;
 			}
 
-			if ( event.type === 'environment.selected' ) {
-				// Legacy event emitted briefly by the apps/ui environment
-				// switcher. It toggled the environment without restating the
-				// site — keep name/path from the prior `site.selected` and
-				// only adjust the remote bits so pre-migration sessions still
-				// resume into the right environment.
-				const current = ui.activeSite;
-				if ( ! current ) {
-					continue;
-				}
-				const isLive = event.environment === 'live';
-				ui.setActiveSite(
-					{
-						name: current.name,
-						path: current.path,
-						running: current.running,
-						remote: isLive,
-						url: isLive ? event.url : undefined,
-						wpcomSiteId: isLive ? event.wpcomSiteId : undefined,
-					},
-					{ announce: true, emitEvent: false }
-				);
-				continue;
-			}
-
 			if ( event.type === 'user.message' ) {
 				if ( ! isVisibleUserMessage( event ) ) {
 					continue;

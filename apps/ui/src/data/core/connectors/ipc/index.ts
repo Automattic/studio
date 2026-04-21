@@ -370,13 +370,6 @@ export function createIpcConnector(): Connector {
 			);
 		},
 
-		onSessionChanged( listener ) {
-			return ipcListener.subscribe(
-				'ai-session-changed',
-				( _event: unknown, payload: { sessionId: string } ) => listener( payload )
-			);
-		},
-
 		// User preferences — the underlying main-process handlers are split
 		// per field; we fan out in parallel here so the UI can work with a
 		// single query/mutation pair.

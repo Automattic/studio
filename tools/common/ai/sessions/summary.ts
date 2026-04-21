@@ -57,17 +57,6 @@ export async function readAiSessionSummaryFromEvents(
 			}
 		}
 
-		// Legacy event from the first iteration of the apps/ui environment
-		// switcher (#3157). It toggled the environment without restating the
-		// site, so fold it into the active-env / wpcomSiteId state exactly like
-		// a fresh `site.selected` would. Pre-flip owner/selectedSiteName stay
-		// intact.
-		if ( event.type === 'environment.selected' ) {
-			const isLive = event.environment === 'live';
-			activeEnvironment = isLive ? 'live' : 'local';
-			lastSelectedWpcomSiteId = isLive ? event.wpcomSiteId : undefined;
-		}
-
 		if ( event.type === 'user.message' && event.source === 'prompt' && ! firstPrompt ) {
 			firstPrompt = event.text;
 		}

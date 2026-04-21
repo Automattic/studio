@@ -4,7 +4,6 @@ import { defaultI18n } from '@wordpress/i18n';
 import { I18nProvider } from '@wordpress/react-i18n';
 import { privateApis } from '@wordpress/theme';
 import { ConnectorProvider, queryClient } from '@/data/core';
-import { useSyncSessionsWithEvents } from '@/data/queries/use-sessions';
 import { useSyncSitesWithEvents } from '@/data/queries/use-sites';
 import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
 import { useSyncConnectSiteListener } from '@/hooks/use-sync-connect-site-listener';
@@ -24,7 +23,6 @@ interface AppProps {
 
 function SiteEventsBridge() {
 	useSyncSitesWithEvents();
-	useSyncSessionsWithEvents();
 	useSyncConnectSiteListener();
 	return null;
 }

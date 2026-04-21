@@ -1,6 +1,6 @@
 import { deriveEffectiveEnvironment } from '@studio/common/ai/sessions/effective-site';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useConnector } from '@/data/core';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import type { AiSessionSummary, LoadedAiSession } from '@/data/core';
@@ -103,24 +103,6 @@ export function useSetSessionEnvironment(
 			},
 		}
 	);
-}
-
-/**
- * Keeps session react-query caches in sync with main-process file-watcher
- * events. Any external edit to a session JSONL — UI flips, CLI appends, hand
- * edits — invalidates both the specific session entry and the list query so
- * summaries (sidebar, pill) recompute from the refreshed events. Mount once
- * near the app root.
- */
-export function useSyncSessionsWithEvents(): void {
-	const connector = useConnector();
-	const queryClient = useQueryClient();
-	useEffect( () => {
-		return connector.onSessionChanged( ( { sessionId } ) => {
-			void queryClient.invalidateQueries( { queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ] } );
-			void queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } );
-		} );
-	}, [ connector, queryClient ] );
 }
 
 /**

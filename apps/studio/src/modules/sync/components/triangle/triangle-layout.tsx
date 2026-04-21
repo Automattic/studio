@@ -94,16 +94,16 @@ export function TriangleLayout( { selectedSite }: Props ) {
 	);
 
 	return (
-		<div className="flex flex-col gap-6 p-6">
+		<div className="flex flex-col gap-3 p-6">
 			{ /*
-			  Triangle layout: Local hero on top; Production (left) and Staging (right)
-			  underneath as portrait cards. Sync hubs float between Local and each bottom
-			  card, plus one below connecting Prod ↔ Staging directly.
+			  Triangle layout: Local at top; Production (left) and Staging (right) below.
+			  All three cards share the portrait layout. Sync hubs sit between Local and
+			  each bottom card, plus a compact arrow pair between Prod and Staging.
 			*/ }
 			<EnvironmentColumn
 				kind="local"
 				label="Local"
-				orientation="landscape"
+				orientation="portrait"
 				localSiteId={ selectedSite.id }
 				siteName={ selectedSite.name }
 				siteUrl={ selectedSite.running ? `http://localhost:${ selectedSite.port }` : '' }

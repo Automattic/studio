@@ -151,15 +151,15 @@ export function EnvironmentColumn( props: Props ) {
 		return (
 			<div
 				className={
-					'mx-auto flex w-full max-w-xs flex-col overflow-hidden rounded-lg border ' + rowTint
+					'mx-auto flex w-full max-w-[260px] flex-col overflow-hidden rounded-lg border ' + rowTint
 				}
 			>
 				{ preview }
-				<div className="flex flex-col gap-1 p-4">
-					<div className="a8c-subtitle truncate text-frame-text">{ name }</div>
+				<div className="flex flex-col gap-0.5 p-3">
+					<div className="a8c-subtitle-small truncate text-frame-text">{ name }</div>
 					<a
 						href={ url }
-						className="a8c-link-text truncate text-frame-theme hover:text-frame-theme-hover hover:underline"
+						className="a8c-helper-text truncate text-frame-theme hover:text-frame-theme-hover hover:underline"
 					>
 						{ stripProtocol( url ) }
 					</a>
@@ -169,7 +169,7 @@ export function EnvironmentColumn( props: Props ) {
 							{ props.site.planName ? ` · ${ props.site.planName }` : '' }
 						</div>
 					) }
-					<dl className="mt-2 flex flex-row gap-6">
+					<dl className="mt-1.5 flex flex-row gap-4">
 						<Stat
 							label={ __( 'Posts' ) }
 							value={ summary.counts.posts }
@@ -182,7 +182,7 @@ export function EnvironmentColumn( props: Props ) {
 						/>
 					</dl>
 					{ ( lastPush || lastPull ) && (
-						<div className="a8c-helper-text mt-2 text-frame-text-secondary">
+						<div className="a8c-helper-text mt-1 text-frame-text-secondary">
 							{ lastPush && (
 								<div>
 									{ __( 'Pushed' ) } { formatRelative( lastPush ) }

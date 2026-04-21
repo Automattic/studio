@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Sync Diagram — Spike</title>
+<style>
+  :root {
+    --frame-bg: #2f2f2f;
+    --frame-text: #e0e0e0;
+    --frame-text-secondary: #a0a0a0;
+    --frame-border: #474747;
+    --frame-surface: #383838;
+    --frame-surface-alt: #474747;
+    --frame-theme: #4a90e2;
+    --prod: #069e08;
+    --prod-tint: rgba(6, 158, 8, 0.3);
+    --prod-wash: rgba(6, 158, 8, 0.05);
+    --staging: #f7ba42;
+    --staging-tint: rgba(247, 186, 66, 0.4);
+    --staging-wash: rgba(247, 186, 66, 0.05);
+    --edge-color: #606060;
+    --edge-active: var(--frame-theme);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif; background: var(--frame-bg); color: var(--frame-text); }
+  body { padding: 24px; min-height: 100vh; }
+
+  .controls {
+    margin-bottom: 24px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    position: sticky;
+    top: 0;
+    background: var(--frame-bg);
+    padding: 8px 0;
+    z-index: 10;
+  }
+  .controls button {
+    padding: 6px 12px;
+    background: var(--frame-surface);
+    color: var(--frame-text);
+    border: 1px solid var(--frame-border);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    font-family: inherit;
+  }
+  .controls button.active {
+    border-color: var(--edge-active);
+    color: var(--edge-active);
+  }
+  .controls .group-label {
+    font-size: 11px;
+    color: var(--frame-text-secondary);
+    align-self: center;
+    margin-right: 4px;
+    margin-left: 8px;
+  }
+
+  /* Diagram container */
+  .diagram {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto 120px auto; /* card / line region / card */
+    column-gap: 48px;
+    row-gap: 0;
+    justify-items: center;
+    align-items: start;
+    max-width: 720px;
+    margin: 0 auto;
+  }
+
+  /* Local is top row, spans both columns, centered */
+  #card-local { grid-column: 1 / -1; grid-row: 1; }
+  #card-prod  { grid-column: 1; grid-row: 3; }
+  #card-staging { grid-column: 2; grid-row: 3; }
+
+  /* SVG overlay */
+  .edges {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    overflow: visible;
+    z-index: 0;
+  }
+
+  .edge-line {
+    fill: none;
+    stroke: var(--edge-color);
+    stroke-width: 1.5;
+    stroke-linecap: round;
+  }
+
+  .edge-line--muted {
+    stroke-dasharray: 4 4;
+    opacity: 0.4;
+  }
+
+  .edge-line--active {
+    stroke: var(--edge-active);
+    stroke-dasharray: 6 6;
+    animation: march 1.2s linear infinite;
+  }
+  .edge-line--active.edge-line--pull {
+    animation-direction: reverse;
+  }
+  @keyframes march {
+    to { stroke-dashoffset: -12; }
+  }
+
+  /* Card */
+  .card {
+    width: 240px;
+    border: 1px solid var(--frame-border);
+    background: var(--frame-surface);
+    border-radius: 8px;
+    overflow: hidden;
+    position: relative;
+    z-index: 1;
+  }
+  .card--prod {
+    border-color: var(--prod-tint);
+    background: linear-gradient(var(--prod-wash), var(--prod-wash)), var(--frame-surface);
+  }
+  .card--staging {
+    border-color: var(--staging-tint);
+    background: linear-gradient(var(--staging-wash), var(--staging-wash)), var(--frame-surface);
+  }
+
+  .preview {
+    width: 100%;
+    aspect-ratio: 3/2;
+    background: #1f3cff;
+    color: #fff;
+    display: grid;
+    place-items: center;
+    font-family: ui-monospace, monospace;
+    font-size: 11px;
+    position: relative;
+  }
+
+  .badge {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    background: rgba(255,255,255,0.9);
+    color: #1e1e1e;
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255,255,255,0.3);
+  }
+  .badge--prod { background: #ceead6; color: #005c00; }
+  .badge--staging { background: #fef0c7; color: #714e00; }
+
+  .card-meta {
+    padding: 12px;
+    display: grid;
+    gap: 2px;
+  }
+  .card-title { font-size: 14px; font-weight: 600; color: var(--frame-text); }
+  .card-url { font-size: 12px; color: var(--frame-theme); }
+  .card-sub { font-size: 11px; color: var(--frame-text-secondary); }
+  .card-stats { margin-top: 6px; display: flex; gap: 16px; font-size: 11px; color: var(--frame-text-secondary); }
+  .card-stats dt { margin: 0; }
+  .card-stats dd { margin: 0; color: var(--frame-text); font-size: 13px; font-weight: 500; }
+
+  /* Arrow buttons — each positioned individually along the line. */
+  .arrow-btn {
+    position: absolute;
+    transform-origin: center center;
+  }
+
+  .arrow-btn {
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    background: var(--frame-surface);
+    border: 1px solid var(--frame-border);
+    border-radius: 6px;
+    color: var(--frame-text);
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 120ms, border-color 120ms, color 120ms;
+    font-family: inherit;
+    padding: 0;
+    z-index: 2;
+    pointer-events: auto;
+  }
+  .arrow-btn:hover {
+    background: var(--frame-surface-alt);
+    border-color: var(--frame-text-secondary);
+  }
+  .arrow-btn--active {
+    border-color: var(--edge-active);
+    color: var(--edge-active);
+  }
+  .arrow-btn--disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  /* Placeholder card */
+  .card--placeholder {
+    border-style: dashed;
+    background: transparent;
+    color: var(--frame-text-secondary);
+    display: grid;
+    place-items: center;
+    aspect-ratio: 3/2;
+    font-size: 12px;
+    padding: 16px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<div class="controls">
+  <span class="group-label">Local ↔ Prod:</span>
+  <button data-edge="local-prod" data-state="idle" class="active">Idle</button>
+  <button data-edge="local-prod" data-state="push">Push</button>
+  <button data-edge="local-prod" data-state="pull">Pull</button>
+
+  <span class="group-label">Local ↔ Staging:</span>
+  <button data-edge="local-staging" data-state="idle" class="active">Idle</button>
+  <button data-edge="local-staging" data-state="push">Push</button>
+  <button data-edge="local-staging" data-state="pull">Pull</button>
+
+  <span class="group-label">Prod ↔ Staging:</span>
+  <button data-edge="prod-staging" data-state="idle" class="active">Idle</button>
+  <button data-edge="prod-staging" data-state="push">P→S</button>
+  <button data-edge="prod-staging" data-state="pull">S→P</button>
+
+  <span class="group-label">Slots:</span>
+  <button data-slot="staging" data-state="connected" class="active">Staging: connected</button>
+  <button data-slot="staging" data-state="empty">Staging: empty</button>
+</div>
+
+<div class="diagram" id="diagram">
+  <svg class="edges" id="edges" aria-hidden="true">
+    <path id="edge-local-prod" class="edge-line" d="" />
+    <path id="edge-local-staging" class="edge-line" d="" />
+    <path id="edge-prod-staging" class="edge-line" d="" />
+  </svg>
+
+  <!-- Local (top) -->
+  <div class="card" id="card-local">
+    <div class="preview">
+      LOCAL PREVIEW
+      <div class="badge">Local</div>
+    </div>
+    <div class="card-meta">
+      <div class="card-title">My Bright Website</div>
+      <div class="card-url">localhost:8882</div>
+      <dl class="card-stats">
+        <div><dt>Posts</dt><dd>258</dd></div>
+        <div><dt>Pages</dt><dd>2</dd></div>
+      </dl>
+    </div>
+  </div>
+
+  <!-- Production (bottom-left) -->
+  <div class="card card--prod" id="card-prod">
+    <div class="preview">
+      PRODUCTION PREVIEW
+      <div class="badge badge--prod">Production</div>
+    </div>
+    <div class="card-meta">
+      <div class="card-title">Sporadic Thoughts</div>
+      <div class="card-url">sporadicthoughts.net</div>
+      <div class="card-sub">WP 6.9.4 · Business</div>
+      <dl class="card-stats">
+        <div><dt>Posts</dt><dd>281</dd></div>
+        <div><dt>Pages</dt><dd>2</dd></div>
+      </dl>
+    </div>
+  </div>
+
+  <!-- Staging (bottom-right) -->
+  <div class="card card--staging" id="card-staging">
+    <div class="preview">
+      STAGING PREVIEW
+      <div class="badge badge--staging">Production</div>
+    </div>
+    <div class="card-meta">
+      <div class="card-title">Sporadic Thoughts</div>
+      <div class="card-url">staging-6bda-...</div>
+      <div class="card-sub">WP —</div>
+      <dl class="card-stats">
+        <div><dt>Posts</dt><dd>281</dd></div>
+        <div><dt>Pages</dt><dd>2</dd></div>
+      </dl>
+    </div>
+  </div>
+
+  <!-- Arrow button groups — positioned by JS at edge midpoints -->
+  <button class="arrow-btn" data-edge="local-prod" data-dir="push" title="Push to Production">↓</button>
+  <button class="arrow-btn" data-edge="local-prod" data-dir="pull" title="Pull from Production">↑</button>
+  <button class="arrow-btn" data-edge="local-staging" data-dir="push" title="Push to Staging">↓</button>
+  <button class="arrow-btn" data-edge="local-staging" data-dir="pull" title="Pull from Staging">↑</button>
+  <button class="arrow-btn" data-edge="prod-staging" data-dir="push" title="Copy Production to Staging">↓</button>
+  <button class="arrow-btn" data-edge="prod-staging" data-dir="pull" title="Copy Staging to Production">↑</button>
+</div>
+
+<script>
+  const container = document.getElementById('diagram');
+  const cards = {
+    local: document.getElementById('card-local'),
+    prod: document.getElementById('card-prod'),
+    staging: document.getElementById('card-staging'),
+  };
+  const paths = {
+    'local-prod': document.getElementById('edge-local-prod'),
+    'local-staging': document.getElementById('edge-local-staging'),
+    'prod-staging': document.getElementById('edge-prod-staging'),
+  };
+  function btn(edge, dir) {
+    return document.querySelector(`.arrow-btn[data-edge="${edge}"][data-dir="${dir}"]`);
+  }
+  const btns = {
+    'local-prod':    { push: btn('local-prod', 'push'),    pull: btn('local-prod', 'pull') },
+    'local-staging': { push: btn('local-staging', 'push'), pull: btn('local-staging', 'pull') },
+    'prod-staging':  { push: btn('prod-staging', 'push'),  pull: btn('prod-staging', 'pull') },
+  };
+
+  function anchor(card, side) {
+    const box = container.getBoundingClientRect();
+    const r = card.getBoundingClientRect();
+    const inset = 24; // how far in from the card corner the line attaches
+    switch (side) {
+      case 'bottom-left':  return { x: r.left + inset - box.left, y: r.bottom - box.top };
+      case 'bottom-right': return { x: r.right - inset - box.left, y: r.bottom - box.top };
+      case 'top':          return { x: r.left + r.width / 2 - box.left, y: r.top - box.top };
+      case 'left':         return { x: r.left - box.left, y: r.top + r.height / 2 - box.top };
+      case 'right':        return { x: r.right - box.left, y: r.top + r.height / 2 - box.top };
+      default:             return { x: r.left + r.width / 2 - box.left, y: r.top + r.height / 2 - box.top };
+    }
+  }
+
+  function drawEdge(edgeKey, a, b) {
+    paths[edgeKey].setAttribute('d', `M ${a.x} ${a.y} L ${b.x} ${b.y}`);
+
+    const midX = (a.x + b.x) / 2;
+    const midY = (a.y + b.y) / 2;
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const ux = dx / len; // unit vector from source to destination
+    const uy = dy / len;
+
+    // Angle to rotate a south-pointing glyph (↓) so it points along (ux, uy).
+    // CSS rotate() is CW-positive in screen coords; atan2(-dx, dy) gives the right sign.
+    const angleDeg = Math.atan2(-dx, dy) * 180 / Math.PI;
+
+    // Place buttons on OPPOSITE SIDES of the line (perpendicular offset).
+    // Perpendicular CW 90° to direction (ux, uy) is (uy, -ux).
+    const perpX = uy;
+    const perpY = -ux;
+    const offset = 22;
+    const push = btns[edgeKey].push;
+    const pull = btns[edgeKey].pull;
+
+    push.style.left = `${midX + perpX * offset}px`;
+    push.style.top  = `${midY + perpY * offset}px`;
+    push.style.transform = `translate(-50%, -50%) rotate(${angleDeg}deg)`;
+
+    pull.style.left = `${midX - perpX * offset}px`;
+    pull.style.top  = `${midY - perpY * offset}px`;
+    pull.style.transform = `translate(-50%, -50%) rotate(${angleDeg}deg)`;
+  }
+
+  function recompute() {
+    drawEdge('local-prod',    anchor(cards.local, 'bottom-left'),  anchor(cards.prod, 'top'));
+    drawEdge('local-staging', anchor(cards.local, 'bottom-right'), anchor(cards.staging, 'top'));
+    drawEdge('prod-staging',  anchor(cards.prod, 'right'),         anchor(cards.staging, 'left'));
+  }
+
+  const ro = new ResizeObserver(recompute);
+  ro.observe(container);
+  Object.values(cards).forEach((c) => ro.observe(c));
+  window.addEventListener('resize', recompute);
+  requestAnimationFrame(recompute);
+
+  // Edge state controls
+  const edgeState = { 'local-prod': 'idle', 'local-staging': 'idle', 'prod-staging': 'idle' };
+
+  function applyEdgeState(edge) {
+    const path = paths[edge];
+    const state = edgeState[edge];
+    path.classList.remove('edge-line--active', 'edge-line--pull', 'edge-line--muted');
+    btns[edge].push.classList.remove('arrow-btn--active');
+    btns[edge].pull.classList.remove('arrow-btn--active');
+    if (state === 'push') {
+      path.classList.add('edge-line--active');
+      btns[edge].push.classList.add('arrow-btn--active');
+    } else if (state === 'pull') {
+      path.classList.add('edge-line--active', 'edge-line--pull');
+      btns[edge].pull.classList.add('arrow-btn--active');
+    }
+  }
+
+  document.querySelectorAll('.controls button[data-edge]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const edge = btn.dataset.edge;
+      edgeState[edge] = btn.dataset.state;
+      document.querySelectorAll(`.controls button[data-edge="${edge}"]`).forEach((b) =>
+        b.classList.toggle('active', b.dataset.state === edgeState[edge])
+      );
+      applyEdgeState(edge);
+    });
+  });
+
+  // Slot toggling (show empty staging as placeholder card)
+  const stagingPlaceholder = () => {
+    cards.staging.classList.add('card--placeholder');
+    cards.staging.innerHTML = '<div>Create a staging site</div>';
+    paths['local-staging'].classList.add('edge-line--muted');
+    paths['prod-staging'].classList.add('edge-line--muted');
+    // Reposition after DOM change
+    requestAnimationFrame(recompute);
+  };
+  const stagingOriginalHTML = cards.staging.innerHTML;
+  const stagingConnected = () => {
+    cards.staging.classList.remove('card--placeholder');
+    cards.staging.innerHTML = stagingOriginalHTML;
+    paths['local-staging'].classList.remove('edge-line--muted');
+    paths['prod-staging'].classList.remove('edge-line--muted');
+    requestAnimationFrame(recompute);
+  };
+  document.querySelectorAll('.controls button[data-slot]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll(`.controls button[data-slot="${btn.dataset.slot}"]`).forEach((b) =>
+        b.classList.toggle('active', b === btn)
+      );
+      if (btn.dataset.state === 'empty') stagingPlaceholder(); else stagingConnected();
+    });
+  });
+</script>
+
+</body>
+</html>

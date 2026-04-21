@@ -23,6 +23,7 @@ describe( 'createAiSession', () => {
 
 		expect( summary.ownerSitePath ).toBe( '/tmp/my-site' );
 		expect( summary.ownerSiteName ).toBe( 'My Site' );
+		expect( summary.activeEnvironment ).toBe( 'local' );
 		expect( summary.firstPrompt ).toBeUndefined();
 		expect( summary.eventCount ).toBe( 2 );
 

@@ -187,6 +187,9 @@ vi.mock( 'cli/ai/ui', () => ( {
 		handleMessage() {
 			return undefined;
 		}
+		hasErrorBeenSurfaced() {
+			return false;
+		}
 		showAgentQuestion() {}
 		async askUser() {
 			return askUserMock();

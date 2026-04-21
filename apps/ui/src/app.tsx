@@ -6,6 +6,7 @@ import { privateApis } from '@wordpress/theme';
 import { ConnectorProvider, queryClient } from '@/data/core';
 import { useSyncSitesWithEvents } from '@/data/queries/use-sites';
 import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
+import { useSyncConnectSiteListener } from '@/hooks/use-sync-connect-site-listener';
 import { unlock } from '@/lock-unlock';
 import { createAppRouter } from '@/router/router';
 import '@wordpress/components/build-style/style.css';
@@ -22,6 +23,7 @@ interface AppProps {
 
 function SiteEventsBridge() {
 	useSyncSitesWithEvents();
+	useSyncConnectSiteListener();
 	return null;
 }
 

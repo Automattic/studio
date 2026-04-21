@@ -30,6 +30,18 @@ platformTestSuite( 'PlaygroundValidator', ( { normalize } ) => {
 			expect( validator.canHandle( fileList ) ).toBe( true );
 		} );
 
+		it( 'should return false when backup also contains SQL dumps', () => {
+			const fileList = [
+				'wp-content/database/.ht.sqlite',
+				'wp-content/uploads/2023/image.jpg',
+				'wp-content/plugins/jetpack/jetpack.php',
+				'wp-content/themes/twentytwentyone/style.css',
+				'sql/wp_posts.sql',
+				'sql/wp_options.sql',
+			];
+			expect( validator.canHandle( fileList ) ).toBe( false );
+		} );
+
 		it( 'should return false for invalid backup structure', () => {
 			const fileList = [
 				'wp-admin/wp-admin.php',

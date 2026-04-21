@@ -2,14 +2,14 @@
 	/* Default is 2px; 4px reads a bit softer. */
 	--wpds-border-radius-sm: 4px;
 
-	/* @wordpress/ui's dialog and tooltip both default to `z-index: initial`,
-	   which gets trapped beneath any sticky/positioned ancestor with a
-	   hardcoded z-index — most notably the sidebar header (z-index: 1)
-	   and the sticky user-menu footer (z-index: 1). Promote them above
-	   those layers, with tooltips above dialogs so help text on controls
-	   inside a dialog still surfaces above the dialog popup. */
-	--wp-ui-dialog-z-index: 1000;
-	--wp-ui-tooltip-z-index: 1100;
+	/* Overlay stacking — portals mount into `document.body` and must beat
+	   app-chrome stacking contexts (sidebar header z-index: 1, floating
+	   toggle z-index: 10). The menu popup uses the same 100 via its
+	   component stylesheet; dialogs sit at the same tier. Tooltips live
+	   higher so help text on controls inside a menu/dialog still surfaces
+	   above the containing popup. */
+	--wp-ui-dialog-z-index: 100;
+	--wp-ui-tooltip-z-index: 200;
 }
 
 body {
@@ -88,11 +88,19 @@ textarea,
 
 /* Show the focus ring only on keyboard focus, overriding @wordpress/ui's
    :focus-based outline. Unlayered CSS wins over WP UI's cascade layers.
-   `a` covers Button primitives rendered as links via its `render` prop. */
+   `a` covers Button primitives rendered as links via its `render` prop.
+   Also revert the background/border shift @wordpress/ui's Button applies on
+   `:focus` — when a Dialog auto-focuses a button on open, the "active" look
+   would otherwise show without any user intent. Leave `color` alone:
+   loading buttons rely on `color: transparent` to hide their label while
+   the spinner runs, and overriding that here would make the label visible
+   again. */
 button:focus:not(:focus-visible),
 a:focus:not(:focus-visible),
 [role="button"]:focus:not(:focus-visible) {
 	outline: none;
+	background-color: var(--wp-ui-button-background-color);
+	border-color: var(--wp-ui-button-border-color);
 }
 
 /* Compact density: shrink icons to match the tighter spacing tokens.
@@ -103,5 +111,15 @@ a:focus:not(:focus-visible),
 [data-wpds-density='compact'] svg {
 	width: 16px;
 	height: 16px;
+}
+
+/* @wordpress/components' ComboboxControl (used by DataForm's adaptive
+   picker once a field has 10+ elements) leaves its wrapper without a
+   background, so the body surface bleeds through around the inner input
+   and suggestion rows. Force both to the same background the input
+   itself uses so the control reads as one solid field. */
+.components-combobox-control__suggestions-container,
+.components-form-token-field__suggestions-list {
+	background-color: var(--wp-components-color-background, #fff);
 }
 

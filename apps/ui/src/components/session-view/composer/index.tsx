@@ -38,7 +38,7 @@ interface ComposerProps {
 	// `liveSite` are available. Without a live link the pill is hidden
 	// entirely (there'd be nothing to flip to).
 	sessionId?: string;
-	activeEnvironment?: 'local' | 'live';
+	effectiveEnvironment?: 'local' | 'live';
 	liveSite?: SyncSite;
 }
 
@@ -54,7 +54,7 @@ export function Composer( {
 	onSend,
 	onInterrupt,
 	sessionId,
-	activeEnvironment = 'local',
+	effectiveEnvironment = 'local',
 	liveSite,
 }: ComposerProps ) {
 	const [ value, setValue ] = useState( '' );
@@ -130,7 +130,7 @@ export function Composer( {
 						{ sessionId && liveSite ? (
 							<EnvironmentPill
 								sessionId={ sessionId }
-								activeEnvironment={ activeEnvironment }
+								effectiveEnvironment={ effectiveEnvironment }
 								liveSite={ liveSite }
 								disabled={ busy }
 							/>

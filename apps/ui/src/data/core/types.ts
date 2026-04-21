@@ -115,6 +115,10 @@ export interface Connector {
 	// receive from a sync-connect-site deep link — later fetches backfill the
 	// display name and URL.
 	connectWpcomSite( localSiteId: string, site: SyncSite ): Promise< void >;
+	// Removes a local↔live connection. The remote WordPress.com site is
+	// unaffected — only the Studio-side mapping is dropped, so Pull/Push
+	// are no longer available until the user reconnects.
+	disconnectWpcomSite( localSiteId: string, remoteSiteId: number ): Promise< void >;
 	// Pushes the local site to a previously connected WordPress.com site.
 	// Replaces the remote contents with the local database and wp-content.
 	pushSiteToLive( siteId: string, remoteSiteId: number ): Promise< void >;
@@ -157,6 +161,12 @@ export interface Connector {
 	interruptAgentRun( runId: string ): Promise< void >;
 	answerAgentQuestion( runId: string, answers: Record< string, string > ): Promise< void >;
 	onAgentEvent( listener: ( event: AgentRunEvent ) => void ): () => void;
+
+	// Fires whenever a session JSONL file is modified (from any source —
+	// UI flips, CLI appends, hand edits). Consumers should invalidate the
+	// matching react-query cache entries so the view recomputes from the
+	// refreshed event log.
+	onSessionChanged( listener: ( event: { sessionId: string } ) => void ): () => void;
 
 	// Flip the session between acting on its owner site's local runtime vs.
 	// its linked WordPress.com live site. The owner site itself never changes.

@@ -40,6 +40,9 @@ type Props = {
 	// Switches the dropdown to the publish picker. Lives in the parent because
 	// the picker is a sibling view at the popup level.
 	onSetupClick: () => void;
+	// Opens the disconnect-site confirmation dialog; owned by the parent so the
+	// dialog persists after the dropdown closes.
+	onDisconnectClick: () => void;
 };
 
 // Counts in-flight push/pull mutations for this site across hook instances.
@@ -62,7 +65,7 @@ function useIsSiteSyncing( siteId: string ): { push: boolean; pull: boolean } {
 	return { push, pull };
 }
 
-export function MainView( { site, onSetupClick }: Props ) {
+export function MainView( { site, onSetupClick, onDisconnectClick }: Props ) {
 	const connector = useConnector();
 	const navigate = useNavigate();
 	const { data: userPreferences } = useUserPreferences();
@@ -228,6 +231,15 @@ export function MainView( { site, onSetupClick }: Props ) {
 								>
 									{ __( 'Push' ) }
 								</Button>
+								<Button
+									variant="minimal"
+									tone="neutral"
+									size="small"
+									disabled={ isSyncing }
+									onClick={ onDisconnectClick }
+								>
+									{ __( 'Disconnect' ) }
+								</Button>
 							</div>
 						) : (
 							<Button
@@ -237,7 +249,7 @@ export function MainView( { site, onSetupClick }: Props ) {
 								disabled={ isSyncing }
 								onClick={ onSetupClick }
 							>
-								{ __( 'Setup' ) }
+								{ __( 'Connect' ) }
 							</Button>
 						)
 					}

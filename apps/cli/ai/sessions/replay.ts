@@ -32,10 +32,11 @@ export function replaySessionHistory( ui: AiChatUI, events: AiSessionEvent[] ): 
 			}
 
 			if ( event.type === 'environment.selected' ) {
-				// Environment flips never change the owner site — they only
-				// toggle whether the agent acts on the local runtime or the
-				// linked WordPress.com site. Preserve the name/path from the
-				// prior `site.selected`; only adjust the remote bits.
+				// Legacy event emitted briefly by the apps/ui environment
+				// switcher. It toggled the environment without restating the
+				// site — keep name/path from the prior `site.selected` and
+				// only adjust the remote bits so pre-migration sessions still
+				// resume into the right environment.
 				const current = ui.activeSite;
 				if ( ! current ) {
 					continue;

@@ -62,6 +62,7 @@ export interface IpcEvents {
 	'refresh-app-globals': [ void ];
 	'beta-features-updated': [ void ];
 	'ai-agent-event': [ AgentRunEvent ];
+	'ai-session-changed': [ { sessionId: string } ];
 	'studio-code-event': [ { siteId: string; event: StudioCodeEvent } ];
 }
 

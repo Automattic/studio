@@ -8,8 +8,8 @@ import type { SyncSite } from '@/data/core';
 
 interface EnvironmentPillProps {
 	sessionId: string;
-	activeEnvironment: 'local' | 'live';
-	liveSite: SyncSite;
+	effectiveEnvironment: 'local' | 'live';
+	liveSite: SyncSite | undefined;
 	disabled?: boolean;
 }
 
@@ -23,26 +23,33 @@ function pickLiveSite( connectedSites: SyncSite[] | undefined ): SyncSite | unde
 /**
  * Toggle the active environment for the current session between local and the
  * linked WordPress.com live site. The owner site itself never changes — this
- * only swaps which tool set the next agent turn will use.
+ * appends a fresh `site.selected` event naming the side to use next.
  *
- * The caller is expected to omit this pill entirely when no live site is
- * linked; when a run is in flight it stays rendered but non-interactive so the
- * user can still see the current env at a glance.
+ * `effectiveEnvironment` is derived upstream from the session's stored
+ * `activeEnvironment` joined with the current connected-sites snapshot — a
+ * session whose live was disconnected reads as 'local' until the user
+ * reconnects and explicitly flips back. The "Live" option is disabled when no
+ * live site is currently linked.
  */
 export function EnvironmentPill( {
 	sessionId,
-	activeEnvironment,
+	effectiveEnvironment,
+	liveSite,
 	disabled = false,
 }: EnvironmentPillProps ) {
 	const setEnvironment = useSetSessionEnvironment( sessionId );
-	const isLive = activeEnvironment === 'live';
+	const isLive = effectiveEnvironment === 'live';
 	const label = isLive ? __( 'Live' ) : __( 'Local' );
+	const canGoLive = !! liveSite;
 
 	const onValueChange = ( value: string ) => {
 		if ( value !== 'local' && value !== 'live' ) {
 			return;
 		}
-		if ( value === activeEnvironment ) {
+		if ( value === effectiveEnvironment ) {
+			return;
+		}
+		if ( value === 'live' && ! canGoLive ) {
 			return;
 		}
 		setEnvironment.mutate( value );
@@ -76,9 +83,11 @@ export function EnvironmentPill( {
 				}
 			/>
 			<Menu.Popup side="top" align="end" className={ styles.envMenuPopup }>
-				<Menu.RadioGroup value={ activeEnvironment } onValueChange={ onValueChange }>
+				<Menu.RadioGroup value={ effectiveEnvironment } onValueChange={ onValueChange }>
 					<Menu.RadioItem value="local">{ __( 'Local' ) }</Menu.RadioItem>
-					<Menu.RadioItem value="live">{ __( 'Live' ) }</Menu.RadioItem>
+					<Menu.RadioItem value="live" disabled={ ! canGoLive }>
+						{ __( 'Live' ) }
+					</Menu.RadioItem>
 				</Menu.RadioGroup>
 			</Menu.Popup>
 		</Menu.Root>

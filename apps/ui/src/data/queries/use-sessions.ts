@@ -1,6 +1,9 @@
+import { deriveEffectiveEnvironment } from '@studio/common/ai/sessions/effective-site';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useMemo } from 'react';
 import { useConnector } from '@/data/core';
-import type { LoadedAiSession } from '@/data/core';
+import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
+import type { AiSessionSummary, LoadedAiSession } from '@/data/core';
 
 export const SESSIONS_QUERY_KEY = [ 'sessions' ] as const;
 
@@ -87,4 +90,45 @@ export function useSetSessionEnvironment( sessionId: string | undefined ) {
 			},
 		}
 	);
+}
+
+/**
+ * Keeps session react-query caches in sync with main-process file-watcher
+ * events. Any external edit to a session JSONL — UI flips, CLI appends, hand
+ * edits — invalidates both the specific session entry and the list query so
+ * summaries (sidebar, pill) recompute from the refreshed events. Mount once
+ * near the app root.
+ */
+export function useSyncSessionsWithEvents(): void {
+	const connector = useConnector();
+	const queryClient = useQueryClient();
+	useEffect( () => {
+		return connector.onSessionChanged( ( { sessionId } ) => {
+			void queryClient.invalidateQueries( { queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ] } );
+			void queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } );
+		} );
+	}, [ connector, queryClient ] );
+}
+
+/**
+ * Derive the *effective* environment for a session's next turn. Joins the
+ * session's stored `activeEnvironment` with the live connection state for its
+ * owner — a session flipped to Live whose remote is no longer connected
+ * naturally falls back to 'local' without any cleanup write to the JSONL.
+ */
+export function useSessionEffectiveEnvironment(
+	summary:
+		| Pick< AiSessionSummary, 'activeEnvironment' | 'lastSelectedWpcomSiteId' | 'ownerSitePath' >
+		| undefined,
+	ownerLocalSiteId: string | undefined
+): 'local' | 'live' {
+	const { data: connectedSites } = useConnectedWpcomSites( ownerLocalSiteId );
+
+	return useMemo( () => {
+		if ( ! summary ) {
+			return 'local';
+		}
+		const connectedLiveIds = new Set( ( connectedSites ?? [] ).map( ( site ) => site.id ) );
+		return deriveEffectiveEnvironment( summary, ( blogId ) => connectedLiveIds.has( blogId ) );
+	}, [ summary, connectedSites ] );
 }

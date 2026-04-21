@@ -4,10 +4,9 @@ import { chevronLeft, plus } from '@wordpress/icons';
 import { Icon, IconButton } from '@wordpress/ui';
 import { useConnector } from '@/data/core';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
-import { usePushSiteToLive } from '@/data/queries/use-sync-site';
 import { usePickableWpcomSites } from '@/data/queries/use-wpcom-sites';
 import styles from './publish-picker-view.module.css';
-import { ensureProtocol, stripProtocol } from './utils';
+import { stripProtocol } from './utils';
 import type { SiteDetails, SyncSite } from '@/data/core';
 
 type Props = {
@@ -24,7 +23,6 @@ export function PublishPickerView( { site, onClose }: Props ) {
 	// No `enabled` guard needed — this component only mounts when the picker
 	// view is active, which is the same gating condition.
 	const pickableSites = usePickableWpcomSites();
-	const pushSiteToLive = usePushSiteToLive();
 
 	const openExternal = ( url: string ) => {
 		void connector.openExternalUrl( url );
@@ -41,10 +39,6 @@ export function PublishPickerView( { site, onClose }: Props ) {
 				queryKey: connectedWpcomSitesQueryKey( site.id ),
 			} );
 			onClose();
-			pushSiteToLive.mutate(
-				{ siteId: site.id, remoteSiteId: pickedSite.id },
-				{ onSuccess: () => openExternal( ensureProtocol( pickedSite.url ) ) }
-			);
 		} catch ( error ) {
 			console.error( 'Failed to connect WordPress.com site:', error );
 		}

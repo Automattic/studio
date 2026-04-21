@@ -38,6 +38,25 @@ export function usePushSiteToLive() {
 	} );
 }
 
+type DisconnectWpcomSiteVariables = {
+	siteId: string;
+	remoteSiteId: number;
+};
+
+export function useDisconnectWpcomSite() {
+	const connector = useConnector();
+	const queryClient = useQueryClient();
+	return useMutation( {
+		mutationFn: ( { siteId, remoteSiteId }: DisconnectWpcomSiteVariables ) =>
+			connector.disconnectWpcomSite( siteId, remoteSiteId ),
+		onSuccess: ( _result, { siteId } ) => {
+			void queryClient.invalidateQueries( {
+				queryKey: connectedWpcomSitesQueryKey( siteId ),
+			} );
+		},
+	} );
+}
+
 type PullFromLiveVariables = {
 	siteId: string;
 	remoteSiteId: number;

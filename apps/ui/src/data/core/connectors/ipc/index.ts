@@ -267,6 +267,10 @@ export function createIpcConnector(): Connector {
 			await ipcApi.connectWpcomSites( [ { sites: [ site ], localSiteId } ] );
 		},
 
+		async disconnectWpcomSite( localSiteId, remoteSiteId ): Promise< void > {
+			await ipcApi.disconnectWpcomSites( [ { siteIds: [ remoteSiteId ], localSiteId } ] );
+		},
+
 		onSyncConnectSite( listener ) {
 			return ipcListener.subscribe(
 				'sync-connect-site',
@@ -363,6 +367,13 @@ export function createIpcConnector(): Connector {
 			const ipcListener = ( window as any ).ipcListener;
 			return ipcListener.subscribe( 'ai-agent-event', ( _event: unknown, payload: AgentRunEvent ) =>
 				listener( payload )
+			);
+		},
+
+		onSessionChanged( listener ) {
+			return ipcListener.subscribe(
+				'ai-session-changed',
+				( _event: unknown, payload: { sessionId: string } ) => listener( payload )
 			);
 		},
 

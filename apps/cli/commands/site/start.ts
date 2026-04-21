@@ -1,5 +1,4 @@
 import { updateManagedInstructionFiles } from '@studio/common/lib/agent-skills';
-import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import {
@@ -7,7 +6,7 @@ import {
 	updateSiteAutoStart,
 	updateSiteLatestCliPid,
 } from 'cli/lib/cli-config/sites';
-import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
+import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getAiInstructionsPath } from 'cli/lib/server-files';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
@@ -43,9 +42,6 @@ export async function runCommand(
 			if ( ! skipLogDetails ) {
 				logSiteDetails( site );
 			}
-			// Emit an `UPDATED` event despite the fact that we didn't change anything about the site, as
-			// this is an opportunity to sync state between the daemon and the app if needed.
-			await emitCliEvent( { event: SITE_EVENTS.UPDATED, data: { siteId: site.id } } );
 			return;
 		}
 

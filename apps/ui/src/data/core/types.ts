@@ -2,7 +2,6 @@ import type { AgentRunEvent } from './agent-events';
 import type { AiModelId } from '@studio/common/ai/models';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
-import type { InstalledApps } from '@studio/common/lib/user-settings/installed-apps';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
@@ -18,7 +17,8 @@ export type { Snapshot } from '@studio/common/types/snapshot';
 export type { SyncSite } from '@studio/common/types/sync';
 export type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 export type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
-export type { InstalledApps } from '@studio/common/lib/user-settings/installed-apps';
+
+export type InstalledApps = Record< SupportedEditor | SupportedTerminal, boolean >;
 
 export interface SiteDetails {
 	id: string;

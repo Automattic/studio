@@ -1,13 +1,15 @@
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { moreHorizontal, plus } from '@wordpress/icons';
-import { IconButton } from '@wordpress/ui';
+import { Button, Dialog, IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useMemo, useState } from 'react';
 import * as Menu from '@/components/menu';
 import { SidebarButton } from '@/components/sidebar-button';
 import { useSessions } from '@/data/queries/use-sessions';
 import {
+	useCopySite,
+	useDeleteSite,
 	useIsSiteStarting,
 	useIsSiteStopping,
 	useSites,
@@ -123,51 +125,146 @@ function NewSessionButton( { site }: { site: SiteDetails } ) {
 	);
 }
 
+function DeleteSiteDialog( {
+	site,
+	open,
+	onOpenChange,
+}: {
+	site: SiteDetails;
+	open: boolean;
+	onOpenChange: ( open: boolean ) => void;
+} ) {
+	const navigate = useNavigate();
+	const params = useParams( { strict: false } ) as { siteId?: string };
+	const deleteSite = useDeleteSite();
+	const [ deleteFiles, setDeleteFiles ] = useState( true );
+	const [ error, setError ] = useState< string | null >( null );
+
+	const handleConfirm = () => {
+		setError( null );
+		deleteSite.mutate(
+			{ id: site.id, deleteFiles },
+			{
+				onSuccess: () => {
+					onOpenChange( false );
+					// If the user is currently viewing this site (settings or a
+					// session that belongs to it), bounce them back to the root
+					// so they don't land on a 404 once the cache refreshes.
+					if ( params.siteId === site.id ) {
+						void navigate( { to: '/' } );
+					}
+				},
+				onError: ( err: Error ) => {
+					setError( err.message ?? __( 'Unable to delete the site. Please try again.' ) );
+				},
+			}
+		);
+	};
+
+	return (
+		<Dialog.Root
+			open={ open }
+			onOpenChange={ ( next ) => {
+				if ( ! deleteSite.isPending ) {
+					onOpenChange( next );
+					if ( ! next ) {
+						setError( null );
+					}
+				}
+			} }
+		>
+			<Dialog.Popup size="small">
+				<Dialog.Header>
+					<Dialog.Title>{ sprintf( __( 'Delete %s' ), site.name ) }</Dialog.Title>
+				</Dialog.Header>
+				<p className={ styles.dialogText }>
+					{ __(
+						"The site's database will be lost, including all posts, pages, comments, and media."
+					) }
+				</p>
+				<label className={ styles.dialogCheckbox }>
+					<input
+						type="checkbox"
+						checked={ deleteFiles }
+						onChange={ ( event ) => setDeleteFiles( event.target.checked ) }
+					/>
+					<span>{ __( 'Delete site files from my computer' ) }</span>
+				</label>
+				{ error ? <div className={ styles.dialogError }>{ error }</div> : null }
+				<Dialog.Footer>
+					<Dialog.Action variant="minimal" tone="neutral" disabled={ deleteSite.isPending }>
+						{ __( 'Cancel' ) }
+					</Dialog.Action>
+					<Button
+						variant="solid"
+						tone="brand"
+						loading={ deleteSite.isPending }
+						loadingAnnouncement={ __( 'Deleting site' ) }
+						onClick={ handleConfirm }
+					>
+						{ __( 'Delete site' ) }
+					</Button>
+				</Dialog.Footer>
+			</Dialog.Popup>
+		</Dialog.Root>
+	);
+}
+
 function SiteActionsMenu( { site }: { site: SiteDetails } ) {
 	const navigate = useNavigate();
 	const startSite = useStartSite();
 	const stopSite = useStopSite();
+	const copySite = useCopySite();
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
 	const busy = isStarting || isStopping;
+	const [ deleteOpen, setDeleteOpen ] = useState( false );
 
 	return (
-		<Menu.Root modal={ false }>
-			<Menu.Trigger
-				render={
-					<IconButton
-						variant="minimal"
-						tone="neutral"
-						size="small"
-						icon={ moreHorizontal }
-						label={ __( 'Site actions' ) }
-						className={ styles.siteAction }
-					/>
-				}
-			/>
-			<Menu.Popup side="bottom" align="start">
-				{ site.running ? (
-					<Menu.Item disabled={ busy } onClick={ () => stopSite.mutate( site.id ) }>
-						{ __( 'Stop site' ) }
-					</Menu.Item>
-				) : (
-					<Menu.Item disabled={ busy } onClick={ () => startSite.mutate( site.id ) }>
-						{ isStarting ? __( 'Starting…' ) : __( 'Start site' ) }
-					</Menu.Item>
-				) }
-				<Menu.Separator />
-				<Menu.Item
-					onClick={ () =>
-						void navigate( {
-							to: '/sites/$siteId/settings',
-							params: { siteId: site.id },
-						} )
+		<>
+			<Menu.Root modal={ false }>
+				<Menu.Trigger
+					render={
+						<IconButton
+							variant="minimal"
+							tone="neutral"
+							size="small"
+							icon={ moreHorizontal }
+							label={ __( 'Site actions' ) }
+							className={ styles.siteAction }
+						/>
 					}
-				>
-					{ __( 'Site settings' ) }
-				</Menu.Item>
-			</Menu.Popup>
-		</Menu.Root>
+				/>
+				<Menu.Popup side="bottom" align="start">
+					{ site.running ? (
+						<Menu.Item disabled={ busy } onClick={ () => stopSite.mutate( site.id ) }>
+							{ __( 'Stop site' ) }
+						</Menu.Item>
+					) : (
+						<Menu.Item disabled={ busy } onClick={ () => startSite.mutate( site.id ) }>
+							{ isStarting ? __( 'Starting…' ) : __( 'Start site' ) }
+						</Menu.Item>
+					) }
+					<Menu.Separator />
+					<Menu.Item
+						onClick={ () =>
+							void navigate( {
+								to: '/sites/$siteId/settings',
+								params: { siteId: site.id },
+							} )
+						}
+					>
+						{ __( 'Site settings' ) }
+					</Menu.Item>
+					<Menu.Item disabled={ copySite.isPending } onClick={ () => copySite.mutate( site.id ) }>
+						{ copySite.isPending ? __( 'Copying…' ) : __( 'Copy site' ) }
+					</Menu.Item>
+					<Menu.Separator />
+					<Menu.Item onClick={ () => setDeleteOpen( true ) }>{ __( 'Delete site' ) }</Menu.Item>
+				</Menu.Popup>
+			</Menu.Root>
+			<DeleteSiteDialog site={ site } open={ deleteOpen } onOpenChange={ setDeleteOpen } />
+		</>
 	);
 }
 

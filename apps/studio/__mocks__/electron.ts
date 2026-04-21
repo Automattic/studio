@@ -20,7 +20,6 @@ export const app = {
 	off: vi.fn(),
 	setAppLogsPath: vi.fn(),
 	setAsDefaultProtocolClient: vi.fn(),
-	removeAsDefaultProtocolClient: vi.fn(),
 	enableSandbox: vi.fn(),
 	commandLine: {
 		hasSwitch: vi.fn( () => false ),

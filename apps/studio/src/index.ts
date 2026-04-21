@@ -9,7 +9,8 @@ import {
 	dialog,
 	MessageBoxSyncOptions,
 } from 'electron';
-import { exec, execFile } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import path from 'path';
 import { pathToFileURL } from 'url';
 import * as Sentry from '@sentry/electron/main';
@@ -133,7 +134,47 @@ function launchExtensionBackgroundWorkers( appSession = session.defaultSession )
 	);
 }
 
+// In dev mode, every unpackaged Electron binary shares the bundle ID
+// "com.github.Electron", so protocol handlers across workspaces collide in
+// Launch Services. Patch the Electron.app Info.plist once per workspace to
+// give each dev instance a unique bundle ID derived from its path, then
+// relaunch so the new ID takes effect. The patch is idempotent and only
+// runs on the first boot after `npm install`.
+function ensureUniqueDevBundleId(): void {
+	if ( process.platform !== 'darwin' || ! process.defaultApp ) {
+		return;
+	}
+
+	// process.execPath points to <Electron.app>/Contents/MacOS/Electron, so
+	// walking up three dirs gives the Electron.app bundle reliably regardless
+	// of how the main process was bundled (electron-vite rewrites
+	// `require.resolve('electron')` to the bundled output path in dev).
+	const electronAppPath = path.resolve( process.execPath, '..', '..', '..' );
+	const infoPlist = path.join( electronAppPath, 'Contents', 'Info.plist' );
+	const plistBuddy = '/usr/libexec/PlistBuddy';
+	const lsregister =
+		'/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister';
+
+	const currentId = execFileSync( plistBuddy, [ '-c', 'Print :CFBundleIdentifier', infoPlist ], {
+		encoding: 'utf8',
+	} ).trim();
+	if ( currentId !== 'com.github.Electron' ) {
+		return;
+	}
+
+	const uniqueId = `com.studio.dev.${ createHash( 'sha1' )
+		.update( electronAppPath )
+		.digest( 'hex' )
+		.slice( 0, 12 ) }`;
+	execFileSync( plistBuddy, [ '-c', `Set :CFBundleIdentifier ${ uniqueId }`, infoPlist ] );
+	execFileSync( lsregister, [ '-f', electronAppPath ] );
+	app.relaunch();
+	app.exit( 0 );
+}
+
 async function appBoot() {
+	ensureUniqueDevBundleId();
+
 	app.setName( packageJson.productName );
 
 	Menu.setApplicationMenu( null );
@@ -146,43 +187,11 @@ async function appBoot() {
 
 	if ( process.defaultApp ) {
 		if ( process.argv.length >= 2 ) {
-			const appArgs = [ path.resolve( process.argv[ 1 ] ) ];
-			const registerProtocol = () => {
-				app.removeAsDefaultProtocolClient( PROTOCOL_PREFIX, process.execPath, appArgs );
-				app.setAsDefaultProtocolClient( PROTOCOL_PREFIX, process.execPath, appArgs );
-			};
-
-			if ( process.platform === 'darwin' ) {
-				// In dev mode, all Electron instances share the bundle ID "com.github.Electron".
-				// macOS Launch Services may cache stale binary paths from other workspaces.
-				// Unregister all other Electron.app binaries from Launch Services, then
-				// force-register the current one so macOS routes wp-studio:// to this instance.
-				// process.execPath points to <Electron.app>/Contents/MacOS/Electron, so
-				// walking up three dirs gives the Electron.app bundle reliably. Using
-				// `require.resolve('electron')` here doesn't work because electron-vite
-				// rewrites the call during bundling, resolving it against the bundled
-				// output path (apps/studio/dist) instead of node_modules/electron.
-				const electronAppPath = path.resolve( process.execPath, '..', '..', '..' );
-				const lsregister =
-					'/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister';
-
-				// Find and unregister all com.github.Electron entries from Launch Services,
-				// then force-register the current one.
-				const awkScript = `/^-+$/{p=""} /^path:/{p=substr($0,index($0,"/")); sub(/ \\(0x[0-9a-f]+\\)$/,"",p)} /^identifier:[[:space:]]+com\\.github\\.Electron$/{if(p)print p;p=""}`;
-				exec( `"${ lsregister }" -dump | awk '${ awkScript }'`, ( _error, stdout ) => {
-					for ( const p of ( stdout || '' ).trim().split( '\n' ).filter( Boolean ) ) {
-						if ( p !== electronAppPath ) {
-							execFile( lsregister, [ '-u', p ], () => {} );
-						}
-					}
-					execFile( lsregister, [ '-f', electronAppPath ], () => registerProtocol() );
-				} );
-			} else {
-				registerProtocol();
-			}
+			app.setAsDefaultProtocolClient( PROTOCOL_PREFIX, process.execPath, [
+				path.resolve( process.argv[ 1 ] ),
+			] );
 		}
 	} else {
-		app.removeAsDefaultProtocolClient( PROTOCOL_PREFIX );
 		app.setAsDefaultProtocolClient( PROTOCOL_PREFIX );
 	}
 

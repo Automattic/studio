@@ -103,7 +103,6 @@ function mockElectron() {
 				exit: vi.fn(),
 				setName: vi.fn(),
 				setAsDefaultProtocolClient: vi.fn(),
-				removeAsDefaultProtocolClient: vi.fn(),
 				enableSandbox: vi.fn(),
 				setAppLogsPath: vi.fn(),
 				getLocale: vi.fn().mockReturnValue( 'en-US' ),

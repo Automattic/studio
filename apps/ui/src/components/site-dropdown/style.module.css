@@ -10,11 +10,3 @@
 	padding: 0;
 	gap: 0;
 }
-
-/* Neutralize @wordpress/ui's Button :focus background+border when focus
-   lands programmatically (popup open). Outline is handled globally. Do not
-   reset `color` — it would clobber .is-loading's transparent label. */
-.popup button:focus:not(:focus-visible) {
-	background-color: var(--wp-ui-button-background-color);
-	border-color: var(--wp-ui-button-border-color);
-}

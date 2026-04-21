@@ -89,15 +89,17 @@ textarea,
 /* Show the focus ring only on keyboard focus, overriding @wordpress/ui's
    :focus-based outline. Unlayered CSS wins over WP UI's cascade layers.
    `a` covers Button primitives rendered as links via its `render` prop.
-   Also revert the background/color/border shift that @wordpress/ui's Button
-   applies on `:focus` — when a Dialog auto-focuses a button on open, the
-   "active" look would otherwise show without any user intent. */
+   Also revert the background/border shift @wordpress/ui's Button applies on
+   `:focus` — when a Dialog auto-focuses a button on open, the "active" look
+   would otherwise show without any user intent. Leave `color` alone:
+   loading buttons rely on `color: transparent` to hide their label while
+   the spinner runs, and overriding that here would make the label visible
+   again. */
 button:focus:not(:focus-visible),
 a:focus:not(:focus-visible),
 [role="button"]:focus:not(:focus-visible) {
 	outline: none;
 	background-color: var(--wp-ui-button-background-color);
-	color: var(--wp-ui-button-foreground-color);
 	border-color: var(--wp-ui-button-border-color);
 }
 

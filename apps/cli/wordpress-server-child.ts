@@ -10,7 +10,7 @@
  * - Sends response back when ready
  * - Sends activity heartbeats to prevent timeout during long operations
  */
-import { dirname } from 'path';
+import path, { dirname } from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { isWordPressDirectory } from '@studio/common/lib/fs-utils';
 import { IS_JSPI_AVAILABLE } from '@studio/common/lib/jspi';
@@ -152,7 +152,32 @@ async function getBaseRunCLIArgs(
 	command: RunCLIArgs[ 'command' ],
 	config: ServerConfig
 ): Promise< RunCLIArgs > {
-	const wordpressInstallMode = await getWordPressInstallMode( config.sitePath );
+	// For pulled sites, the pull command persists the computed start
+	// options to start-options.json so the daemon doesn't need to
+	// recompute them (which would spin up PHP WASM).
+	if ( ! config.useExactMountLayout && config.blueprint?.uri ) {
+		try {
+			const optionsPath = path.join( path.dirname( config.blueprint.uri ), 'start-options.json' );
+			if ( fs.existsSync( optionsPath ) ) {
+				const saved = JSON.parse( fs.readFileSync( optionsPath, 'utf-8' ) );
+				if ( saved.useExactMountLayout ) {
+					config.mountsBeforeInstall = saved.mountsBeforeInstall;
+					config.mounts = saved.mounts;
+					config.wordpressInstallMode = saved.wordpressInstallMode ?? config.wordpressInstallMode;
+					config.useExactMountLayout = true;
+					logToConsole( `Loaded persisted start options from ${ optionsPath } before startup` );
+				}
+			}
+		} catch {
+			// Ignore missing or invalid start options and continue with the provided config.
+		}
+	}
+
+	const wordpressInstallMode =
+		config.wordpressInstallMode ?? ( await getWordPressInstallMode( config.sitePath ) );
+	const useExactMountLayout = config.useExactMountLayout ?? false;
+	let mountsBeforeInstall = [ ...( config.mountsBeforeInstall ?? [] ) ];
+	const mounts = [ ...( config.mounts ?? [] ) ];
 
 	await cleanupLegacyMuPlugins( config.sitePath );
 
@@ -160,11 +185,28 @@ async function getBaseRunCLIArgs(
 		isWpAutoUpdating: config.isWpAutoUpdating,
 	} );
 
-	const mounts = [
-		{
-			hostPath: config.sitePath,
-			vfsPath: '/wordpress',
-		},
+	if ( ! useExactMountLayout ) {
+		mountsBeforeInstall = [
+			...( config.mountsBeforeInstall ?? [
+				{
+					hostPath: config.sitePath,
+					vfsPath: '/wordpress',
+				},
+			] ),
+			{
+				hostPath: getWpCliPharPath(),
+				vfsPath: '/tmp/wp-cli.phar',
+			},
+			{
+				hostPath: getSqliteCommandPath(),
+				vfsPath: '/tmp/sqlite-command',
+			},
+		];
+	}
+
+	// Studio MU-plugins (auto-login, admin-api, etc.) must be mounted for
+	// all sites including imported ones that use an exact mount layout.
+	mountsBeforeInstall.push(
 		{
 			hostPath: studioMuPluginsHostPath,
 			vfsPath: '/internal/studio/mu-plugins',
@@ -172,16 +214,8 @@ async function getBaseRunCLIArgs(
 		{
 			hostPath: loaderMuPluginHostPath,
 			vfsPath: '/internal/shared/mu-plugins/99-studio-loader.php',
-		},
-		{
-			hostPath: getWpCliPharPath(),
-			vfsPath: '/tmp/wp-cli.phar',
-		},
-		{
-			hostPath: getSqliteCommandPath(),
-			vfsPath: '/tmp/sqlite-command',
-		},
-	];
+		}
+	);
 
 	const enableDebugLog = config.enableDebugLog ?? false;
 	const enableDebugDisplay = config.enableDebugDisplay ?? false;
@@ -243,9 +277,10 @@ async function getBaseRunCLIArgs(
 		internalCookieStore: false,
 		login: false,
 		followSymlinks: true,
-		skipSqliteSetup: true,
+		skipSqliteSetup: config.skipSqliteSetup ?? ! useExactMountLayout,
 		port: config.port,
-		'mount-before-install': mounts,
+		'mount-before-install': mountsBeforeInstall,
+		...( mounts.length > 0 ? { mount: mounts } : {} ),
 		'site-url': config.absoluteUrl || `http://localhost:${ config.port }`,
 		blueprint: blueprintBundle,
 		wordpressInstallMode,
@@ -266,17 +301,19 @@ async function getBaseRunCLIArgs(
 		args.xdebug = true;
 	}
 
-	const phpMyAdminHostPath = getPhpMyAdminPath();
-	if ( await fs.pathExists( phpMyAdminHostPath ) ) {
-		mounts.push( {
-			hostPath: phpMyAdminHostPath,
-			vfsPath: '/tools/phpmyadmin',
-		} );
-		logToConsole( 'Mounting bundled phpMyAdmin' );
-	} else {
-		logToConsole( 'Bundled phpMyAdmin not found, falling back to Playground download' );
+	if ( ! useExactMountLayout ) {
+		const phpMyAdminHostPath = getPhpMyAdminPath();
+		if ( await fs.pathExists( phpMyAdminHostPath ) ) {
+			mountsBeforeInstall.push( {
+				hostPath: phpMyAdminHostPath,
+				vfsPath: '/tools/phpmyadmin',
+			} );
+			logToConsole( 'Mounting bundled phpMyAdmin' );
+		} else {
+			logToConsole( 'Bundled phpMyAdmin not found, falling back to Playground download' );
+		}
+		args.phpmyadmin = true;
 	}
-	args.phpmyadmin = true;
 
 	lastCliArgs = sanitizeRunCLIArgs( args );
 	return args;
@@ -314,7 +351,56 @@ const startServer = wrapWithStartingPromise(
 			stopSignal.throwIfAborted();
 
 			const args = await getBaseRunCLIArgs( 'server', config );
-			server = await runCLI( args );
+
+			// Playground CLI has an internal .catch() handler that calls process.exit(1)
+			// on certain non-fatal errors (e.g. a background worker exit race). Intercept
+			// process.exit during runCLI so those don't kill the process before we can
+			// check whether the server actually started.
+			//
+			// We also capture recent stdout writes because Playground CLI prints
+			// the error message via its CLI output object (process.stdout.write)
+			// right before calling process.exit — that output is our only window
+			// into the real error since the original Error is swallowed inside
+			// Playground CLI's .catch() handler and never re-thrown.
+			const realExit = process.exit;
+			let interceptedExitCode: number | undefined;
+			const recentStdoutChunks: string[] = [];
+			const prevStdoutWrite = process.stdout.write;
+			process.stdout.write = function ( ...writeArgs: Parameters< typeof prevStdoutWrite > ) {
+				const chunk =
+					typeof writeArgs[ 0 ] === 'string' ? writeArgs[ 0 ] : writeArgs[ 0 ].toString();
+				recentStdoutChunks.push( chunk );
+				if ( recentStdoutChunks.length > 40 ) {
+					recentStdoutChunks.shift();
+				}
+				return prevStdoutWrite.apply( process.stdout, writeArgs );
+			} as typeof process.stdout.write;
+			process.exit = ( ( code?: number ) => {
+				interceptedExitCode = code ?? 0;
+				logToConsole( `Intercepted process.exit(${ code }) from Playground CLI` );
+			} ) as never;
+
+			try {
+				server = await runCLI( args );
+			} finally {
+				process.exit = realExit;
+				process.stdout.write = prevStdoutWrite;
+			}
+
+			// If Playground CLI called process.exit but runCLI still resolved (server started),
+			// log it and continue. If it didn't resolve, the catch block below handles it.
+			if ( interceptedExitCode !== undefined && ! server ) {
+				const capturedOutput = recentStdoutChunks.join( '' ).trim();
+				const details = capturedOutput
+					? `\nPlayground CLI output before exit:\n${ capturedOutput }`
+					: '';
+				throw new Error( `Playground CLI exited with code ${ interceptedExitCode }${ details }` );
+			}
+			if ( interceptedExitCode !== undefined ) {
+				logToConsole(
+					`Playground CLI called process.exit(${ interceptedExitCode }) but the server started — continuing`
+				);
+			}
 
 			stopSignal.throwIfAborted();
 

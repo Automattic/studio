@@ -1,7 +1,7 @@
+import { copyFileSync, cpSync, existsSync, mkdirSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
 import semver from 'semver';
 import { defineConfig } from 'vite';
-import { viteStaticCopy } from 'vite-plugin-static-copy';
 import packageJson from './package.json';
 
 const nodeBuiltinExternals: RegExp[] = [
@@ -26,25 +26,39 @@ if ( ! minimumNodeVersion ) {
 	);
 }
 
+const bundledWpFilesPath = resolve( __dirname, '..', '..', 'wp-files' );
+const bundledReprintPhar = resolve( __dirname, 'lib/pull/reprint.phar' );
+
 export const baseConfig = defineConfig( {
 	plugins: [
-		viteStaticCopy( {
-			targets: [
-				{
-					src: '../../wp-files',
-					dest: '.',
-					preserveTimestamps: true,
-				},
-			],
-		} ),
+		{
+			name: 'write-dist-extras',
+			apply: 'build',
+			writeBundle( options ) {
+				const outDir = options.dir ?? resolve( __dirname, 'dist/cli' );
+				mkdirSync( outDir, { recursive: true } );
+				writeFileSync(
+					resolve( outDir, 'package.json' ),
+					JSON.stringify( { type: 'module' }, null, 2 ) + '\n'
+				);
+				if ( existsSync( bundledWpFilesPath ) ) {
+					cpSync( bundledWpFilesPath, resolve( outDir, 'wp-files' ), { recursive: true } );
+				}
+				if ( existsSync( bundledReprintPhar ) ) {
+					copyFileSync( bundledReprintPhar, resolve( outDir, 'reprint.phar' ) );
+				}
+			},
+		},
 	],
 	build: {
+		emptyOutDir: true,
 		lib: {
 			entry: {
 				main: resolve( __dirname, 'index.ts' ),
 				'process-manager-daemon': resolve( __dirname, 'process-manager-daemon.ts' ),
 				'proxy-daemon': resolve( __dirname, 'proxy-daemon.ts' ),
 				'wordpress-server-child': resolve( __dirname, 'wordpress-server-child.ts' ),
+				'reprint-child': resolve( __dirname, 'reprint-child.ts' ),
 			},
 			name: 'StudioCLI',
 			formats: [ 'es' ],

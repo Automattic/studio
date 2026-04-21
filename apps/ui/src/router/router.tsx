@@ -2,7 +2,6 @@ import { createRouter } from '@tanstack/react-router';
 import { dashboardLayoutRoute } from './layout-dashboard';
 import { onboardingLayoutRoute } from './layout-onboarding';
 import { rootRoute } from './layout-root';
-import { settingsLayoutRoute } from './layout-settings';
 import { dashboardRoute } from './route-dashboard';
 import { indexRoute } from './route-index';
 import { newSessionRoute } from './route-new-session';
@@ -21,7 +20,7 @@ const routeTree = rootRoute.addChildren( [
 		newSessionRoute,
 		sessionDetailRoute,
 		siteSettingsRoute,
-		settingsLayoutRoute.addChildren( [ settingsRoute, settingsPreferencesRoute ] ),
+		settingsRoute.addChildren( [ settingsPreferencesRoute ] ),
 	] ),
 	onboardingLayoutRoute.addChildren( [ onboardingHomeRoute, onboardingCreateRoute ] ),
 ] );

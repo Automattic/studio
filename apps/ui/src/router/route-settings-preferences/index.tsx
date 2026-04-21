@@ -1,9 +1,9 @@
 import { createRoute } from '@tanstack/react-router';
 import { PreferencesTab } from '@/components/settings-view/preferences-tab';
-import { settingsLayoutRoute } from '../layout-settings';
+import { settingsRoute } from '../route-settings';
 
 export const settingsPreferencesRoute = createRoute( {
-	getParentRoute: () => settingsLayoutRoute,
-	path: '/settings/preferences',
+	getParentRoute: () => settingsRoute,
+	path: '/preferences',
 	component: PreferencesTab,
 } );

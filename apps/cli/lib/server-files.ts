@@ -33,8 +33,10 @@ export function getWordPressVersionPath( version: string ): string {
 	return path.join( getServerFilesPath(), 'wordpress-versions', version );
 }
 
+// WP-CLI ships read-only with the CLI bundle and is mounted into the PHP-wasm VFS at
+// `/tmp/wp-cli.phar`. No writable cache needed.
 export function getWpCliPharPath(): string {
-	return path.join( getServerFilesPath(), WP_CLI_PHAR_FILENAME );
+	return path.join( getWpFilesPath(), 'wp-cli', WP_CLI_PHAR_FILENAME );
 }
 
 export function getSqliteCommandPath(): string {

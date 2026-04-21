@@ -8,7 +8,6 @@ import {
 	getPhpMyAdminPath,
 	getSqliteCommandPath,
 	getWordPressVersionPath,
-	getWpCliPharPath,
 	getWpFilesPath,
 } from '../server-files';
 import { areDirectoriesDifferentBySizeAndMtime } from './utils';
@@ -93,28 +92,6 @@ async function copyBundledLatestWpVersion() {
 	}
 }
 
-async function copyBundledWpCli() {
-	const sourceWpCLIPath = path.join( getWpFilesPath(), 'wp-cli', 'wp-cli.phar' );
-	const sourceStats = await fs.promises.lstat( sourceWpCLIPath );
-	let shouldCopy = false;
-
-	try {
-		const targetStats = await fs.promises.lstat( getWpCliPharPath() );
-		shouldCopy =
-			sourceStats.size !== targetStats.size ||
-			Math.floor( sourceStats.mtimeMs ) !== Math.floor( targetStats.mtimeMs );
-	} catch {
-		shouldCopy = true;
-	}
-
-	if ( shouldCopy ) {
-		await fs.promises.cp( sourceWpCLIPath, getWpCliPharPath(), {
-			mode: fs.constants.COPYFILE_FICLONE,
-			preserveTimestamps: true,
-		} );
-	}
-}
-
 async function copyBundledSqliteCommand() {
 	await copySourceDirectoryIfNewerOrMissing( {
 		sourceDirectoryPath: path.join( getWpFilesPath(), 'sqlite-command' ),
@@ -170,7 +147,6 @@ async function copyBundledLanguagePacks() {
 export async function setupServerFiles() {
 	const steps: [ string, () => Promise< void > ][] = [
 		[ 'WordPress version', copyBundledLatestWpVersion ],
-		[ 'WP-CLI', copyBundledWpCli ],
 		[ 'SQLite command', copyBundledSqliteCommand ],
 		[ 'language packs', copyBundledLanguagePacks ],
 		[ 'phpMyAdmin', copyBundledPhpMyAdmin ],

@@ -3,6 +3,7 @@
  * bundled `wp-files/` directory and no longer need a writable cache:
  *   - `skills/` (AI instructions)
  *   - `sqlite-database-integration/` (SQLite plugin)
+ *   - `wp-cli.phar` (WP-CLI)
  *   - `wordpress-versions/latest/available-site-translations.json`
  *
  * Safe to re-run: `needsToRun()` checks for the presence of any obsolete
@@ -19,6 +20,7 @@ function getObsoletePaths(): string[] {
 	return [
 		path.join( serverFilesPath, 'skills' ),
 		path.join( serverFilesPath, 'sqlite-database-integration' ),
+		path.join( serverFilesPath, 'wp-cli.phar' ),
 		path.join(
 			serverFilesPath,
 			'wordpress-versions',

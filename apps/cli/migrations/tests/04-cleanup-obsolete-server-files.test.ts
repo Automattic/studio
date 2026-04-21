@@ -27,6 +27,10 @@ describe( 'cleanupObsoleteServerFiles migration', () => {
 		return path.join( serverFiles, 'sqlite-database-integration' );
 	}
 
+	function wpCliPharPath() {
+		return path.join( serverFiles, 'wp-cli.phar' );
+	}
+
 	function translationsPath() {
 		return path.join(
 			serverFiles,
@@ -50,6 +54,12 @@ describe( 'cleanupObsoleteServerFiles migration', () => {
 		expect( await cleanupObsoleteServerFiles.needsToRun() ).toBe( true );
 	} );
 
+	it( 'runs when wp-cli.phar file exists', async () => {
+		fs.mkdirSync( serverFiles, { recursive: true } );
+		fs.writeFileSync( wpCliPharPath(), 'phar-bytes' );
+		expect( await cleanupObsoleteServerFiles.needsToRun() ).toBe( true );
+	} );
+
 	it( 'runs when translations file exists', async () => {
 		fs.mkdirSync( path.dirname( translationsPath() ), { recursive: true } );
 		fs.writeFileSync( translationsPath(), '{}' );
@@ -57,9 +67,11 @@ describe( 'cleanupObsoleteServerFiles migration', () => {
 	} );
 
 	it( 'removes all obsolete entries and tolerates missing ones', async () => {
-		// Only skills and translations exist; sqlite plugin is already gone.
+		// skills, wp-cli.phar, and translations exist; sqlite plugin is already gone.
 		fs.mkdirSync( skillsPath(), { recursive: true } );
 		fs.writeFileSync( path.join( skillsPath(), 'readme.md' ), 'bundled' );
+		fs.mkdirSync( serverFiles, { recursive: true } );
+		fs.writeFileSync( wpCliPharPath(), 'phar-bytes' );
 		fs.mkdirSync( path.dirname( translationsPath() ), { recursive: true } );
 		fs.writeFileSync( translationsPath(), '{}' );
 
@@ -73,6 +85,7 @@ describe( 'cleanupObsoleteServerFiles migration', () => {
 		expect( fs.existsSync( skillsPath() ) ).toBe( false );
 		expect( fs.existsSync( translationsPath() ) ).toBe( false );
 		expect( fs.existsSync( sqlitePluginPath() ) ).toBe( false );
+		expect( fs.existsSync( wpCliPharPath() ) ).toBe( false );
 		expect( fs.existsSync( siblingFile ) ).toBe( true );
 	} );
 } );

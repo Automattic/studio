@@ -116,7 +116,16 @@ type EdgeState = {
 
 const ARROW_OFFSET = 22;
 
-function Edge( { anchors, state }: { anchors: { a: Point; b: Point } | null; state: EdgeState } ) {
+/**
+ * Renders the SVG `<path>` for an edge. Must be placed inside an `<svg>` element.
+ */
+function EdgePath( {
+	anchors,
+	state,
+}: {
+	anchors: { a: Point; b: Point } | null;
+	state: EdgeState;
+} ) {
 	if ( ! anchors ) return null;
 	const geom = computeEdgeGeometry( anchors.a, anchors.b, ARROW_OFFSET );
 	const pathClass = state.activeDirection
@@ -132,11 +141,28 @@ function Edge( { anchors, state }: { anchors: { a: Point; b: Point } | null; sta
 		? '[stroke-dasharray:4_4]'
 		: '';
 	return (
+		<path
+			d={ geom.pathD }
+			className={ `fill-none stroke-[1.5] [stroke-linecap:round] ${ pathClass } ${ dashClass }` }
+		/>
+	);
+}
+
+/**
+ * Renders the push/pull HTML buttons for an edge. Must be placed as an HTML
+ * sibling of the SVG, not inside it (SVG only accepts SVG children).
+ */
+function EdgeButtons( {
+	anchors,
+	state,
+}: {
+	anchors: { a: Point; b: Point } | null;
+	state: EdgeState;
+} ) {
+	if ( ! anchors ) return null;
+	const geom = computeEdgeGeometry( anchors.a, anchors.b, ARROW_OFFSET );
+	return (
 		<>
-			<path
-				d={ geom.pathD }
-				className={ `fill-none stroke-[1.5] [stroke-linecap:round] ${ pathClass } ${ dashClass }` }
-			/>
 			<ArrowButton
 				center={ geom.pushCenter }
 				angleDeg={ geom.angleDeg }
@@ -415,10 +441,13 @@ export function TriangleLayout( { selectedSite }: Props ) {
 			style={ { gridTemplateRows: 'auto 120px auto' } }
 		>
 			<svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible">
-				<Edge anchors={ anchors.localProd } state={ localProdState } />
-				<Edge anchors={ anchors.localStaging } state={ localStagingState } />
-				<Edge anchors={ anchors.prodStaging } state={ prodStagingState } />
+				<EdgePath anchors={ anchors.localProd } state={ localProdState } />
+				<EdgePath anchors={ anchors.localStaging } state={ localStagingState } />
+				<EdgePath anchors={ anchors.prodStaging } state={ prodStagingState } />
 			</svg>
+			<EdgeButtons anchors={ anchors.localProd } state={ localProdState } />
+			<EdgeButtons anchors={ anchors.localStaging } state={ localStagingState } />
+			<EdgeButtons anchors={ anchors.prodStaging } state={ prodStagingState } />
 
 			<div ref={ localRef } className="col-span-2 row-start-1 justify-self-center">
 				<EnvironmentColumn

@@ -83,8 +83,7 @@ export function useSetSessionEnvironment(
 						summary: {
 							...previous.summary,
 							activeEnvironment: environment,
-							lastSelectedWpcomSiteId:
-								environment === 'live' ? liveWpcomSiteId : undefined,
+							lastSelectedWpcomSiteId: environment === 'live' ? liveWpcomSiteId : undefined,
 						},
 					} );
 				}

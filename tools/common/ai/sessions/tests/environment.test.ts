@@ -103,7 +103,6 @@ describe( 'site.selected — environment flips', () => {
 			wpcomSiteId: undefined,
 		} );
 	} );
-
 } );
 
 describe( 'deriveEffectiveEnvironment', () => {

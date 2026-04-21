@@ -110,7 +110,7 @@ export const importEventTupleSchema = z.union( [
 	z.tuple( [ z.literal( ImporterEvents.IMPORT_META_START ), nullOrUndefined ] ),
 	z.tuple( [ z.literal( ImporterEvents.IMPORT_META_COMPLETE ), nullOrUndefined ] ),
 	z.tuple( [ z.literal( ImporterEvents.IMPORT_COMPLETE ), importerTypeSchema ] ),
-	z.tuple( [ z.literal( ImporterEvents.IMPORT_ERROR ), z.unknown() ] ),
+	z.tuple( [ z.literal( ImporterEvents.IMPORT_ERROR ), z.string() ] ),
 ] );
 
 export const importIpcEventSchema = z.object( { event: importEventTupleSchema } );

@@ -132,7 +132,10 @@ abstract class BaseBackupImporter extends BaseImporter {
 				meta: this.meta,
 			};
 		} catch ( error ) {
-			this.emit( ImportEvents.IMPORT_ERROR, error );
+			this.emit(
+				ImportEvents.IMPORT_ERROR,
+				error instanceof Error ? error.message : String( error )
+			);
 			throw error;
 		}
 	}
@@ -387,7 +390,10 @@ export class SQLImporter extends BaseImporter {
 				wpContentDirectory: this.backup.wpContentDirectory,
 			};
 		} catch ( error ) {
-			this.emit( ImportEvents.IMPORT_ERROR, error );
+			this.emit(
+				ImportEvents.IMPORT_ERROR,
+				error instanceof Error ? error.message : String( error )
+			);
 			throw error;
 		}
 	}

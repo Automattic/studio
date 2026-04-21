@@ -1173,16 +1173,22 @@ export async function showErrorMessageBox(
 		showOpenLogs = false,
 	}: { title: string; message: string; error?: unknown; showOpenLogs?: boolean }
 ) {
-	const simplifiedError = simplifyErrorForDisplay( error );
-	// Remove prepended error message added by IPC handler
-	const filteredError = ( simplifiedError as Error )?.message?.replace(
-		/Error invoking remote method '\w+': Error:/g,
-		''
-	);
+	let detail = message;
+
+	if ( error ) {
+		const simplifiedError = simplifyErrorForDisplay( error );
+		// Remove prepended error message added by IPC handler
+		const filteredError = simplifiedError?.message?.replace(
+			/Error invoking remote method '\w+': Error:/g,
+			''
+		);
+		detail = `${ message }\n\n${ filteredError }`;
+	}
+
 	const response = await showMessageBox( event, {
 		type: 'error',
 		message: title,
-		detail: error ? `${ message }\n\n${ filteredError }` : message,
+		detail,
 		buttons: [ ...( showOpenLogs ? [ __( 'Open Studio Logs' ) ] : [] ), __( 'OK' ) ],
 	} );
 

@@ -56,7 +56,7 @@ export function executeImportCliCommand(
 			sendIpcEventToRendererWithWindow(
 				parentWindow,
 				'on-import',
-				[ ImporterEvents.IMPORT_ERROR, error ],
+				[ ImporterEvents.IMPORT_ERROR, error.message ],
 				siteId
 			);
 		}

@@ -38,7 +38,7 @@ function sanitizeImportErrorText( value: string ): string {
 		.trim();
 }
 
-function getBestEffortImportError( error: unknown ): unknown {
+function getBestEffortImportError( error: unknown ): Error {
 	if ( error instanceof CliCommandError ) {
 		const sanitizedLastErrorMessage = sanitizeImportErrorText( error.lastErrorMessage ?? '' );
 		if ( sanitizedLastErrorMessage ) {
@@ -51,7 +51,7 @@ function getBestEffortImportError( error: unknown ): unknown {
 		return new Error( sanitizedMessage );
 	}
 
-	return error;
+	return new Error( sanitizeImportErrorText( String( error ) ) );
 }
 
 async function removeFileIfExists( filePath: string ) {

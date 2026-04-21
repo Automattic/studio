@@ -4,11 +4,6 @@ import {
 	useGetConnectedSitesForLocalSiteQuery,
 	connectedSitesActions,
 } from 'src/stores/sync/connected-sites';
-import {
-	useGetStagingSyncStateQuery,
-	usePullFromStagingMutation,
-	usePushToStagingMutation,
-} from 'src/stores/sync/staging-site-api';
 import { useStagingProvisioning } from '../../hooks/use-staging-provisioning';
 import { useSyncActions } from '../../hooks/use-sync-actions';
 import { deriveSlotAssignments } from '../../lib/slot-derivation';
@@ -18,7 +13,6 @@ import { EnvironmentColumn } from './environment-column';
 import { ConnectProductionCard, CreateStagingCard } from './placeholder-card';
 import { ProvisioningColumn } from './provisioning-column';
 import { SyncGutter } from './sync-gutter';
-import type { SyncOption } from '@studio/common/types/sync';
 
 type Props = {
 	selectedSite: SiteDetails;
@@ -37,20 +31,6 @@ export function TriangleLayout( { selectedSite }: Props ) {
 		localSiteId: selectedSite.id,
 	} );
 	const syncActions = useSyncActions( selectedSite );
-	const [ pushToStaging ] = usePushToStagingMutation();
-	const [ pullFromStaging ] = usePullFromStagingMutation();
-	const { data: syncState } = useGetStagingSyncStateQuery(
-		{ productionSiteId: production?.id ?? 0 },
-		{ skip: ! production || ! staging }
-	);
-
-	const DEFAULT_STAGING_OPTIONS: SyncOption[] = [
-		'sqls',
-		'uploads',
-		'plugins',
-		'themes',
-		'contents',
-	];
 
 	const openConnectModal = () => dispatch( connectedSitesActions.openModal( 'connect' ) );
 
@@ -127,43 +107,7 @@ export function TriangleLayout( { selectedSite }: Props ) {
 
 			<div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
 				{ productionSlot }
-				<div className="flex items-center justify-center">
-					{ production && staging ? (
-						<SyncGutter
-							from={ { kind: 'remote', label: 'Production' } }
-							to={ { kind: 'remote', label: 'Staging' } }
-							lastPushTimestamp={
-								syncState?.direction === 'push' && syncState.finished_at
-									? syncState.finished_at
-									: null
-							}
-							lastPullTimestamp={
-								syncState?.direction === 'pull' && syncState.finished_at
-									? syncState.finished_at
-									: null
-							}
-							// Prod (left) and Staging (right) sit side by side: Push goes right,
-							// Pull comes back left.
-							pushArrow="→"
-							pullArrow="←"
-							onPush={ () => {
-								void pushToStaging( {
-									productionSiteId: production.id,
-									stagingSiteId: staging.id,
-									options: DEFAULT_STAGING_OPTIONS,
-								} );
-							} }
-							onPull={ () => {
-								void pullFromStaging( {
-									productionSiteId: production.id,
-									stagingSiteId: staging.id,
-									options: DEFAULT_STAGING_OPTIONS,
-									allowWooSync: false,
-								} );
-							} }
-						/>
-					) : null }
-				</div>
+				<div />
 				{ stagingSlot }
 			</div>
 

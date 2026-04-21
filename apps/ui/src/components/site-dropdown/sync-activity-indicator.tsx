@@ -1,11 +1,15 @@
 import { Popover } from '@base-ui/react/popover';
 import { __ } from '@wordpress/i18n';
 import { arrowDown, arrowUp, check, closeSmall, seen } from '@wordpress/icons';
+import { privateApis } from '@wordpress/theme';
 import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useSiteSyncActivity } from '@/data/sync-activity';
+import { unlock } from '@/lock-unlock';
 import styles from './sync-activity-indicator.module.css';
 import type { SyncDirection } from '@/data/sync-activity';
+
+const { ThemeProvider } = unlock( privateApis );
 
 function getPendingIcon( direction: SyncDirection ) {
 	if ( direction === 'preview' ) {
@@ -98,10 +102,14 @@ export function SyncActivityIndicator( { siteId }: { siteId: string } ) {
 			/>
 			<Popover.Portal>
 				<Popover.Positioner side="bottom" align="end" sideOffset={ 6 }>
-					<Popover.Popup className={ styles.errorPopup }>
-						<div className={ styles.errorPopupTitle }>{ label }</div>
-						<div className={ styles.errorPopupMessage }>{ activity.message }</div>
-					</Popover.Popup>
+					{ /* Re-establish density inside the portal (see the
+						comment in `components/menu/index.tsx`). */ }
+					<ThemeProvider density="compact">
+						<Popover.Popup className={ styles.errorPopup }>
+							<div className={ styles.errorPopupTitle }>{ label }</div>
+							<div className={ styles.errorPopupMessage }>{ activity.message }</div>
+						</Popover.Popup>
+					</ThemeProvider>
 				</Popover.Positioner>
 			</Popover.Portal>
 		</Popover.Root>

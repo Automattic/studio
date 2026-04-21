@@ -105,21 +105,24 @@ export function SiteDropdown( { site, activeEnvironment = 'local' }: Props ) {
 		pullSiteFromLive.mutate( { siteId: site.id, remoteSiteId: liveSite.id } );
 	};
 
-	const handlePublishClick = () => {
+	const handlePushClick = () => {
+		if ( ! liveSite || isSyncing ) {
+			return;
+		}
+		pushSiteToLive.mutate(
+			{ siteId: site.id, remoteSiteId: liveSite.id },
+			{ onSuccess: () => openExternal( ensureProtocol( liveSite.url ) ) }
+		);
+	};
+
+	const handleSetupClick = () => {
 		if ( isSyncing ) {
 			return;
 		}
-		if ( liveSite ) {
-			pushSiteToLive.mutate(
-				{ siteId: site.id, remoteSiteId: liveSite.id },
-				{ onSuccess: () => openExternal( ensureProtocol( liveSite.url ) ) }
-			);
-			return;
-		}
 		// No live site yet — let the user pick an existing WordPress.com site
-		// to connect + push to, or link out to the checkout flow to create a
-		// new one. Both options live in the picker view so the dropdown
-		// doesn't grow unbounded in its default state.
+		// to connect to, or link out to the checkout flow to create a new one.
+		// Both options live in the picker view so the dropdown doesn't grow
+		// unbounded in its default state.
 		setView( 'picker' );
 	};
 
@@ -192,8 +195,9 @@ export function SiteDropdown( { site, activeEnvironment = 'local' }: Props ) {
 							onToggleServer={ handleToggleServer }
 							onOpenExternal={ openExternal }
 							onPreviewClick={ handlePreviewClick }
+							onPushClick={ handlePushClick }
 							onPullClick={ handlePullClick }
-							onPublishClick={ handlePublishClick }
+							onSetupClick={ handleSetupClick }
 						/>
 					) : (
 						<PublishPickerView

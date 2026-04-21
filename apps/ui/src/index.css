@@ -2,14 +2,14 @@
 	/* Default is 2px; 4px reads a bit softer. */
 	--wpds-border-radius-sm: 4px;
 
-	/* @wordpress/ui's dialog and tooltip both default to `z-index: initial`,
-	   which gets trapped beneath any sticky/positioned ancestor with a
-	   hardcoded z-index — most notably the sidebar header (z-index: 1)
-	   and the sticky user-menu footer (z-index: 1). Promote them above
-	   those layers, with tooltips above dialogs so help text on controls
-	   inside a dialog still surfaces above the dialog popup. */
-	--wp-ui-dialog-z-index: 1000;
-	--wp-ui-tooltip-z-index: 1100;
+	/* Overlay stacking — portals mount into `document.body` and must beat
+	   app-chrome stacking contexts (sidebar header z-index: 1, floating
+	   toggle z-index: 10). The menu popup uses the same 100 via its
+	   component stylesheet; dialogs sit at the same tier. Tooltips live
+	   higher so help text on controls inside a menu/dialog still surfaces
+	   above the containing popup. */
+	--wp-ui-dialog-z-index: 100;
+	--wp-ui-tooltip-z-index: 200;
 }
 
 body {

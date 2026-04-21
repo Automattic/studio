@@ -179,7 +179,7 @@ export function SiteDropdown( { site, activeEnvironment = 'local' }: Props ) {
 						/>
 					}
 				/>
-				<Menu.Popup side="bottom" align="start" className={ styles.popup }>
+				<Menu.Popup side="bottom" align="end" className={ styles.popup }>
 					{ view === 'main' ? (
 						<MainView
 							site={ site }

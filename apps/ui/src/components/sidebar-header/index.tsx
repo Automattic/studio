@@ -30,7 +30,7 @@ export function SidebarHeader( { onToggleSidebar }: Props ) {
 							/>
 						}
 					/>
-					<Menu.Popup side="bottom" align="start" className={ styles.popup }>
+					<Menu.Popup side="bottom" align="end" className={ styles.popup }>
 						<Menu.Item>
 							<Icon icon={ comment } />
 							<span>{ __( 'New chat' ) }</span>

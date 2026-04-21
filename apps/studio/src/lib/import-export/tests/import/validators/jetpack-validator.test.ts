@@ -84,6 +84,22 @@ platformTestSuite( 'JetpackValidator', ( { normalize } ) => {
 			} );
 		} );
 
+		it( 'should exclude wp-content/database/ from wpContentFiles', () => {
+			const fileList = [
+				'sql/wp_options.sql',
+				'wp-content/database/.ht.sqlite',
+				'wp-content/uploads/2023/image.jpg',
+				'wp-content/plugins/jetpack/jetpack.php',
+			];
+			const extractionDirectory = '/tmp/extracted';
+			const result = validator.parseBackupContents( fileList, extractionDirectory );
+
+			expect( result.wpContentFiles ).toEqual( [
+				normalize( '/tmp/extracted/wp-content/uploads/2023/image.jpg' ),
+				normalize( '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ),
+			] );
+		} );
+
 		it( 'should ignore files that not needed', () => {
 			const fileList = [
 				'sql/wp_options.sql',

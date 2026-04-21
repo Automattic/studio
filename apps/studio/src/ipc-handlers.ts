@@ -212,10 +212,25 @@ export async function createAiSession(
 	if ( ! server ) {
 		throw new Error( `Site not found: ${ siteId }` );
 	}
-	return createAiSessionInStore( getAiSessionsRootDirectory(), {
+	const sitePath = server.details.path;
+	const sitesRoot = getAiSessionsRootDirectory();
+
+	// Reuse the newest existing empty session for this site (one that has
+	// never received a user prompt) instead of creating another one. This
+	// lets `/sites/$siteId/new` act as a stable "draft slot" per site — the
+	// UI can redirect to it eagerly without piling up orphan sessions.
+	const existing = await listAiSessionsFromStore( sitesRoot );
+	const emptyForSite = existing
+		.filter( ( session ) => session.ownerSitePath === sitePath && ! session.firstPrompt )
+		.sort( ( a, b ) => Date.parse( b.updatedAt ) - Date.parse( a.updatedAt ) )[ 0 ];
+	if ( emptyForSite ) {
+		return emptyForSite;
+	}
+
+	return createAiSessionInStore( sitesRoot, {
 		site: {
 			name: server.details.name,
-			path: server.details.path,
+			path: sitePath,
 		},
 	} );
 }
@@ -474,7 +489,7 @@ export async function removeWordPressSkillFromAllSites(
 }
 
 const DEBUG_LOG_MAX_LINES = 50;
-const PM2_HOME = nodePath.join( os.homedir(), '.studio', 'pm2' );
+const PROCESS_MANAGER_HOME = nodePath.join( os.homedir(), '.studio', 'daemon' );
 const DEFAULT_ENCODED_PASSWORD = encodePassword( 'password' );
 
 function readLastLines( filePath: string, maxLines: number ): string[] | undefined {
@@ -495,8 +510,8 @@ function readWordPressDebugLog( sitePath: string ): string[] | undefined {
 	return readLastLines( debugLogPath, DEBUG_LOG_MAX_LINES );
 }
 
-function readPm2Logs( siteId: string ): { stdout?: string[]; stderr?: string[] } {
-	const logsDir = nodePath.join( PM2_HOME, 'logs' );
+function readProcessManagerLogs( siteId: string ): { stdout?: string[]; stderr?: string[] } {
+	const logsDir = nodePath.join( PROCESS_MANAGER_HOME, 'logs' );
 	const stdoutPath = nodePath.join( logsDir, `studio-site-${ siteId }-out.log` );
 	const stderrPath = nodePath.join( logsDir, `studio-site-${ siteId }-error.log` );
 
@@ -663,12 +678,12 @@ export async function createSite(
 			contexts.debugLog = { entries: debugLog };
 		}
 
-		const pm2Logs = readPm2Logs( siteId );
-		if ( pm2Logs.stdout && pm2Logs.stdout.length > 0 ) {
-			contexts.playgroundLogs = { entries: pm2Logs.stdout };
+		const processManagerLogs = readProcessManagerLogs( siteId );
+		if ( processManagerLogs.stdout && processManagerLogs.stdout.length > 0 ) {
+			contexts.playgroundLogs = { entries: processManagerLogs.stdout };
 		}
-		if ( pm2Logs.stderr && pm2Logs.stderr.length > 0 ) {
-			contexts.playgroundErrors = { entries: pm2Logs.stderr };
+		if ( processManagerLogs.stderr && processManagerLogs.stderr.length > 0 ) {
+			contexts.playgroundErrors = { entries: processManagerLogs.stderr };
 		}
 
 		Sentry.captureException( error, {
@@ -798,12 +813,12 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 			contexts.debugLog = { entries: debugLog };
 		}
 
-		const pm2Logs = readPm2Logs( id );
-		if ( pm2Logs.stdout && pm2Logs.stdout.length > 0 ) {
-			contexts.playgroundLogs = { entries: pm2Logs.stdout };
+		const processManagerLogs = readProcessManagerLogs( id );
+		if ( processManagerLogs.stdout && processManagerLogs.stdout.length > 0 ) {
+			contexts.playgroundLogs = { entries: processManagerLogs.stdout };
 		}
-		if ( pm2Logs.stderr && pm2Logs.stderr.length > 0 ) {
-			contexts.playgroundErrors = { entries: pm2Logs.stderr };
+		if ( processManagerLogs.stderr && processManagerLogs.stderr.length > 0 ) {
+			contexts.playgroundErrors = { entries: processManagerLogs.stderr };
 		}
 
 		Sentry.captureException( error, {

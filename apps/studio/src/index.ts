@@ -157,11 +157,12 @@ async function appBoot() {
 				// macOS Launch Services may cache stale binary paths from other workspaces.
 				// Unregister all other Electron.app binaries from Launch Services, then
 				// force-register the current one so macOS routes wp-studio:// to this instance.
-				const electronAppPath = path.resolve(
-					path.dirname( require.resolve( 'electron' ) ),
-					'dist',
-					'Electron.app'
-				);
+				// process.execPath points to <Electron.app>/Contents/MacOS/Electron, so
+				// walking up three dirs gives the Electron.app bundle reliably. Using
+				// `require.resolve('electron')` here doesn't work because electron-vite
+				// rewrites the call during bundling, resolving it against the bundled
+				// output path (apps/studio/dist) instead of node_modules/electron.
+				const electronAppPath = path.resolve( process.execPath, '..', '..', '..' );
 				const lsregister =
 					'/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister';
 

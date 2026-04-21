@@ -20,7 +20,7 @@ import { EnvironmentColumn } from './environment-column';
 import { ConnectProductionCard, CreateStagingCard } from './placeholder-card';
 import { ProvisioningColumn } from './provisioning-column';
 import { SyncGutter } from './sync-gutter';
-import { type Point } from './edge-geometry';
+import { computeEdgeGeometry, type Point } from './edge-geometry';
 import type { SyncOption } from '@studio/common/types/sync';
 
 type CardRefs = {
@@ -102,6 +102,104 @@ function useEdgeAnchors(
 	}, [ containerRef, refs.local, refs.production, refs.staging ] );
 
 	return anchors;
+}
+
+type EdgeState = {
+	activeDirection: 'push' | 'pull' | null;
+	muted: boolean;
+	onPush?: () => void;
+	onPull?: () => void;
+	pushLabel: string;
+	pullLabel: string;
+};
+
+const ARROW_OFFSET = 22;
+
+function Edge( {
+	anchors,
+	state,
+}: {
+	anchors: { a: Point; b: Point } | null;
+	state: EdgeState;
+} ) {
+	if ( ! anchors ) return null;
+	const geom = computeEdgeGeometry( anchors.a, anchors.b, ARROW_OFFSET );
+	const pathClass = state.activeDirection
+		? state.activeDirection === 'push'
+			? 'stroke-frame-theme animate-edge-march'
+			: 'stroke-frame-theme animate-edge-march-reverse'
+		: state.muted
+		? 'stroke-frame-border opacity-40'
+		: 'stroke-frame-border';
+	const dashClass = state.activeDirection
+		? '[stroke-dasharray:6_6]'
+		: state.muted
+		? '[stroke-dasharray:4_4]'
+		: '';
+	return (
+		<>
+			<path
+				d={ geom.pathD }
+				className={ `fill-none stroke-[1.5] [stroke-linecap:round] ${ pathClass } ${ dashClass }` }
+			/>
+			<ArrowButton
+				center={ geom.pushCenter }
+				angleDeg={ geom.angleDeg }
+				glyph="↓"
+				label={ state.pushLabel }
+				active={ state.activeDirection === 'push' }
+				onClick={ state.onPush }
+			/>
+			<ArrowButton
+				center={ geom.pullCenter }
+				angleDeg={ geom.angleDeg }
+				glyph="↑"
+				label={ state.pullLabel }
+				active={ state.activeDirection === 'pull' }
+				onClick={ state.onPull }
+			/>
+		</>
+	);
+}
+
+function ArrowButton( {
+	center,
+	angleDeg,
+	glyph,
+	label,
+	active,
+	onClick,
+}: {
+	center: Point;
+	angleDeg: number;
+	glyph: '↑' | '↓';
+	label: string;
+	active: boolean;
+	onClick?: () => void;
+} ) {
+	const disabled = ! onClick;
+	return (
+		<Tooltip text={ label }>
+			<button
+				type="button"
+				aria-label={ label }
+				onClick={ onClick }
+				disabled={ disabled }
+				className={ `pointer-events-auto absolute grid h-7 w-7 place-items-center rounded-md border ${
+					active
+						? 'border-frame-theme text-frame-theme'
+						: 'border-frame-border bg-frame-surface text-frame-text hover:bg-frame-surface-alt hover:border-frame-text-secondary'
+				} ${ disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer' }` }
+				style={ {
+					left: `${ center.x }px`,
+					top: `${ center.y }px`,
+					transform: `translate(-50%, -50%) rotate(${ angleDeg }deg)`,
+				} }
+			>
+				{ glyph }
+			</button>
+		</Tooltip>
+	);
 }
 
 type Props = {

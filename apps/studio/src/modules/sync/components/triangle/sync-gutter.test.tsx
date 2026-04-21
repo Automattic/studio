@@ -19,18 +19,18 @@ describe( 'SyncGutter', () => {
 		expect( screen.getByRole( 'button', { name: /Pull from Production/ } ) ).toBeInTheDocument();
 	} );
 
-	it( 'labels the staging→production push as "Promote to Production"', () => {
+	it( 'uses generic push/pull labels between two remotes', () => {
 		render(
 			<SyncGutter
-				from={ { kind: 'remote', label: 'Staging' } }
-				to={ { kind: 'remote', label: 'Production' } }
+				from={ { kind: 'remote', label: 'Production' } }
+				to={ { kind: 'remote', label: 'Staging' } }
 				lastPushTimestamp={ null }
 				lastPullTimestamp={ null }
 				onPush={ () => {} }
 				onPull={ () => {} }
 			/>
 		);
-		expect( screen.getByRole( 'button', { name: /Promote to Production/ } ) ).toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: /Refresh staging/ } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: /Push to Staging/ } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: /Pull from Staging/ } ) ).toBeInTheDocument();
 	} );
 } );

@@ -58,79 +58,96 @@ export function TriangleLayout( { selectedSite }: Props ) {
 		<div className="flex flex-col gap-6 p-6">
 			<div className="flex flex-col gap-2">
 				{ /*
-				  Row order: Staging (top) → Production → Local (bottom).
-				  Rationale: "pull" reads as a downward motion (from remote down to Local),
-				  so putting Local at the bottom aligns the arrows with the mental model.
+				  Row order (top → bottom): Production → Staging → Local.
+				  Local at the bottom keeps "pull" reading as a downward motion. Staging
+				  sits in the middle so sync work flows Production ↕ Staging ↕ Local.
 				*/ }
 
+				{ production ? (
+					<EnvironmentColumn kind="remote" label="Production" site={ production } />
+				) : (
+					<ConnectProductionCard onClick={ openConnectModal } />
+				) }
+
+				{ production && staging && (
+					<SyncGutter
+						from={ { kind: 'remote', label: 'Production' } }
+						to={ { kind: 'remote', label: 'Staging' } }
+						lastPushTimestamp={
+							syncState?.direction === 'push' && syncState.finished_at
+								? syncState.finished_at
+								: null
+						}
+						lastPullTimestamp={
+							syncState?.direction === 'pull' && syncState.finished_at
+								? syncState.finished_at
+								: null
+						}
+						// Production is above Staging in the new layout: Push to Staging
+						// moves down; Pull from Staging moves up.
+						pushArrow="↓"
+						pullArrow="↑"
+						onPush={ () => {
+							void pushToStaging( {
+								productionSiteId: production.id,
+								stagingSiteId: staging.id,
+								options: DEFAULT_STAGING_OPTIONS,
+							} );
+						} }
+						onPull={ () => {
+							void pullFromStaging( {
+								productionSiteId: production.id,
+								stagingSiteId: staging.id,
+								options: DEFAULT_STAGING_OPTIONS,
+								allowWooSync: false,
+							} );
+						} }
+					/>
+				) }
+
+				{ production && ! staging && provisioning.state === 'idle' && (
+					<CreateStagingCard onClick={ provisioning.start } />
+				) }
+				{ production && ! staging && provisioning.state !== 'idle' && (
+					<ProvisioningColumn
+						state={ provisioning.state }
+						error={ provisioning.error }
+						onRetry={ provisioning.start }
+					/>
+				) }
+
+				{ staging && <EnvironmentColumn kind="remote" label="Staging" site={ staging } /> }
+
+				{ /*
+				  Local↔remote gutter. When staging exists, Local syncs with Staging; when
+				  there's no staging, Local syncs directly with Production. The staging-first
+				  flow encourages users to stage changes before promoting them to production.
+				*/ }
 				{ production &&
 					( staging ? (
-						<>
-							<EnvironmentColumn kind="remote" label="Staging" site={ staging } />
-							<SyncGutter
-								from={ { kind: 'remote', label: 'Staging' } }
-								to={ { kind: 'remote', label: 'Production' } }
-								lastPushTimestamp={
-									syncState?.direction === 'push' && syncState.finished_at
-										? syncState.finished_at
-										: null
-								}
-								lastPullTimestamp={
-									syncState?.direction === 'pull' && syncState.finished_at
-										? syncState.finished_at
-										: null
-								}
-								// Promote (staging→prod) moves down visually; refresh staging
-								// from prod moves up. wpcom API mapping is inverted: UI "push"
-								// (promote) = wpcom pull-from-staging; UI "pull" (refresh staging)
-								// = wpcom push-to-staging.
-								pushArrow="↓"
-								pullArrow="↑"
-								onPush={ () => {
-									void pullFromStaging( {
-										productionSiteId: production!.id,
-										stagingSiteId: staging!.id,
-										options: DEFAULT_STAGING_OPTIONS,
-										allowWooSync: false,
-									} );
-								} }
-								onPull={ () => {
-									void pushToStaging( {
-										productionSiteId: production!.id,
-										stagingSiteId: staging!.id,
-										options: DEFAULT_STAGING_OPTIONS,
-									} );
-								} }
-							/>
-						</>
-					) : provisioning.state === 'idle' ? (
-						<CreateStagingCard onClick={ provisioning.start } />
-					) : (
-						<ProvisioningColumn
-							state={ provisioning.state }
-							error={ provisioning.error }
-							onRetry={ provisioning.start }
+						<SyncGutter
+							from={ { kind: 'local', label: 'Local' } }
+							to={ { kind: 'remote', label: 'Staging' } }
+							lastPushTimestamp={ staging.lastPushTimestamp }
+							lastPullTimestamp={ staging.lastPullTimestamp }
+							// Staging is above Local: push up, pull down.
+							pushArrow="↑"
+							pullArrow="↓"
+							onPush={ () => syncActions.push( staging ) }
+							onPull={ () => syncActions.pull( staging ) }
 						/>
-					) ) }
-
-				{ production ? (
-					<>
-						<EnvironmentColumn kind="remote" label="Production" site={ production } />
+					) : (
 						<SyncGutter
 							from={ { kind: 'local', label: 'Local' } }
 							to={ { kind: 'remote', label: 'Production' } }
 							lastPushTimestamp={ production.lastPushTimestamp }
 							lastPullTimestamp={ production.lastPullTimestamp }
-							// Production is above Local: push goes up to prod, pull comes down.
 							pushArrow="↑"
 							pullArrow="↓"
 							onPush={ () => syncActions.push( production ) }
 							onPull={ () => syncActions.pull( production ) }
 						/>
-					</>
-				) : (
-					<ConnectProductionCard onClick={ openConnectModal } />
-				) }
+					) ) }
 
 				<EnvironmentColumn
 					kind="local"

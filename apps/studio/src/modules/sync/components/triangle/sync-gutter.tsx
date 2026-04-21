@@ -19,15 +19,7 @@ type Props = {
 	pullArrow?: '↑' | '↓';
 };
 
-function buttonLabel( direction: 'push' | 'pull', from: Endpoint, to: Endpoint ): string {
-	const fromStaging = from.kind === 'remote' && from.label === 'Staging';
-	const toProd = to.kind === 'remote' && to.label === 'Production';
-	if ( direction === 'push' && fromStaging && toProd ) {
-		return __( 'Promote to Production' );
-	}
-	if ( direction === 'pull' && fromStaging && toProd ) {
-		return __( 'Refresh staging from Production' );
-	}
+function buttonLabel( direction: 'push' | 'pull', to: Endpoint ): string {
 	if ( direction === 'push' ) {
 		return sprintf(
 			/* translators: %s: environment label (e.g., "Production", "Staging") */
@@ -58,12 +50,12 @@ export function SyncGutter( props: Props ) {
 
 	const pushButton = (
 		<Button variant="secondary" onClick={ props.onPush } disabled={ props.disabled }>
-			{ pushArrow } { buttonLabel( 'push', props.from, props.to ) }
+			{ pushArrow } { buttonLabel( 'push', props.to ) }
 		</Button>
 	);
 	const pullButton = (
 		<Button variant="secondary" onClick={ props.onPull } disabled={ props.disabled }>
-			{ pullArrow } { buttonLabel( 'pull', props.from, props.to ) }
+			{ pullArrow } { buttonLabel( 'pull', props.to ) }
 		</Button>
 	);
 

@@ -38,8 +38,8 @@ export function getWordPressVersionPath( version: string ): string {
 	return path.join( getWordPressVersionsPath(), version );
 }
 
-export function getBundledSqlitePluginPath(): string {
-	return path.join( getBundledWpFilesPath(), SQLITE_FILENAME );
+export function getSqlitePluginPath(): string {
+	return path.join( getBasePath(), SQLITE_FILENAME );
 }
 
 export function getBundledAiInstructionsPath(): string {

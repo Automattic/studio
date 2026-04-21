@@ -6,6 +6,7 @@ import { readCliConfig, updateCliConfigWithPartial } from 'cli/lib/cli-config/co
 import {
 	getPhpMyAdminPath,
 	getSqliteCommandPath,
+	getSqlitePluginPath,
 	getWordPressVersionPath,
 	getWpCliPharPath,
 	getWpFilesPath,
@@ -100,6 +101,15 @@ export async function setupServerFiles() {
 		);
 	} catch ( error ) {
 		console.error( 'Failed to set up bundled SQLite command:', error );
+	}
+
+	try {
+		await copyBundledDirectoryIfMissing(
+			path.join( getWpFilesPath(), 'sqlite-database-integration' ),
+			getSqlitePluginPath()
+		);
+	} catch ( error ) {
+		console.error( 'Failed to set up bundled SQLite plugin:', error );
 	}
 
 	try {

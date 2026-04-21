@@ -45,12 +45,12 @@ export function getPhpMyAdminPath(): string {
 	return path.join( getServerFilesPath(), 'phpmyadmin' );
 }
 
+export function getSqlitePluginPath(): string {
+	return path.join( getServerFilesPath(), 'sqlite-database-integration' );
+}
+
 // Bundled `wp-files` paths. These are used for dependencies that ship read-only with the CLI
 // and don't need a writable destination.
-
-export function getBundledSqlitePluginPath(): string {
-	return path.join( getWpFilesPath(), 'sqlite-database-integration' );
-}
 
 export function getBundledLanguagePacksPath(): string {
 	return path.join( getWpFilesPath(), 'latest', 'languages' );

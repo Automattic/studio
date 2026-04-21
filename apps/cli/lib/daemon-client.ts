@@ -155,13 +155,9 @@ async function waitForDaemonReady() {
 
 function spawnDaemonProcess() {
 	const daemonScriptPath = path.resolve( import.meta.dirname, 'process-manager-daemon.mjs' );
-	// DEBUG: pipe daemon stdout/stderr to a log file so PHP-wasm errors from the
-	// long-running WordPress server child process can be inspected on CI.
-	const daemonLogPath = path.join( PROCESS_MANAGER_HOME, 'daemon-debug.log' );
-	const logFd = fs.openSync( daemonLogPath, 'a' );
 	const daemonProcess = spawn( process.execPath, [ daemonScriptPath ], {
 		detached: true,
-		stdio: [ 'ignore', logFd, logFd ],
+		stdio: 'ignore',
 		windowsHide: true,
 	} );
 	daemonProcess.unref();

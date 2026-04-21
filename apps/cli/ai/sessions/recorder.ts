@@ -1,10 +1,10 @@
 import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
-import { buildAiSessionFileName } from './file-naming';
+import { buildAiSessionFileName } from '@studio/common/ai/sessions/file-naming';
 import { getAiSessionsDirectoryForDate } from './paths';
-import type { AiSessionEvent, TurnStatus } from './types';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
+import type { AiSessionEvent, TurnStatus } from '@studio/common/ai/sessions/types';
 import type { AiModelId } from 'cli/ai/agent';
 import type { AiProviderId } from 'cli/ai/providers';
 import type { SiteInfo } from 'cli/ai/ui';
@@ -92,6 +92,20 @@ export class AiSessionRecorder {
 			remote: site.remote,
 			url: site.url,
 			wpcomSiteId: site.wpcomSiteId,
+		} );
+	}
+
+	async recordEnvironmentSelected( payload: {
+		environment: 'local' | 'live';
+		url?: string;
+		wpcomSiteId?: number;
+	} ): Promise< void > {
+		await this.appendEvent( {
+			type: 'environment.selected',
+			timestamp: toIsoTimestamp(),
+			environment: payload.environment,
+			url: payload.url,
+			wpcomSiteId: payload.wpcomSiteId,
 		} );
 	}
 

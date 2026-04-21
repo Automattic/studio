@@ -1,10 +1,9 @@
-import { EventEmitter } from 'events';
 import path from 'path';
-import { ImportEvents } from '../events';
+import { ImportExportEventEmitter } from '../../events';
 import { BackupContents } from '../types';
 import { Validator } from './validator';
 
-export class LocalValidator extends EventEmitter implements Validator {
+export class LocalValidator extends ImportExportEventEmitter implements Validator {
 	canHandle( fileList: string[] ): boolean {
 		const requiredDirs = [
 			'app/sql',
@@ -19,7 +18,6 @@ export class LocalValidator extends EventEmitter implements Validator {
 	}
 
 	parseBackupContents( fileList: string[], extractionDirectory: string ): BackupContents {
-		this.emit( ImportEvents.IMPORT_VALIDATION_START );
 		const extractedBackup: BackupContents = {
 			extractionDirectory: extractionDirectory,
 			sqlFiles: [],
@@ -51,8 +49,6 @@ export class LocalValidator extends EventEmitter implements Validator {
 		extractedBackup.sqlFiles.sort( ( a: string, b: string ) =>
 			path.basename( a ).localeCompare( path.basename( b ) )
 		);
-
-		this.emit( ImportEvents.IMPORT_VALIDATION_COMPLETE );
 		return extractedBackup;
 	}
 }

@@ -91,7 +91,7 @@ describe( 'Studio AI MCP tools', () => {
 		path: '/sites/my-site',
 		adminPassword: 'password',
 		port: 8888,
-		phpVersion: '8.3',
+		phpVersion: '8.4',
 	};
 
 	const getTool = ( name: string ) => {

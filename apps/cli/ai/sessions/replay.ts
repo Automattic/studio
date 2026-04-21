@@ -1,18 +1,16 @@
+import {
+	filterEventsAfterLastClear,
+	isVisibleUserMessage,
+} from '@studio/common/ai/sessions/filter-events';
 import { AiChatUI } from 'cli/ai/ui';
-import type { AiSessionEvent } from './types';
+import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
+import type { AiSessionEvent } from '@studio/common/ai/sessions/types';
 
 export function replaySessionHistory( ui: AiChatUI, events: AiSessionEvent[] ): void {
 	ui.prepareForReplay();
 	let isTurnOpen = false;
 
-	let lastClearedIndex = -1;
-	for ( let i = events.length - 1; i >= 0; i-- ) {
-		if ( events[ i ].type === 'session.cleared' ) {
-			lastClearedIndex = i;
-			break;
-		}
-	}
-	const eventsToReplay = lastClearedIndex >= 0 ? events.slice( lastClearedIndex + 1 ) : events;
+	const eventsToReplay = filterEventsAfterLastClear( events );
 
 	try {
 		for ( const event of eventsToReplay ) {
@@ -26,6 +24,31 @@ export function replaySessionHistory( ui: AiChatUI, events: AiSessionEvent[] ): 
 						running: false,
 						remote: event.remote === true,
 						url: typeof event.url === 'string' ? event.url : undefined,
+						wpcomSiteId: typeof event.wpcomSiteId === 'number' ? event.wpcomSiteId : undefined,
+					},
+					{ announce: true, emitEvent: false }
+				);
+				continue;
+			}
+
+			if ( event.type === 'environment.selected' ) {
+				// Environment flips never change the owner site — they only
+				// toggle whether the agent acts on the local runtime or the
+				// linked WordPress.com site. Preserve the name/path from the
+				// prior `site.selected`; only adjust the remote bits.
+				const current = ui.activeSite;
+				if ( ! current ) {
+					continue;
+				}
+				const isLive = event.environment === 'live';
+				ui.setActiveSite(
+					{
+						name: current.name,
+						path: current.path,
+						running: current.running,
+						remote: isLive,
+						url: isLive ? event.url : undefined,
+						wpcomSiteId: isLive ? event.wpcomSiteId : undefined,
 					},
 					{ announce: true, emitEvent: false }
 				);
@@ -33,7 +56,7 @@ export function replaySessionHistory( ui: AiChatUI, events: AiSessionEvent[] ): 
 			}
 
 			if ( event.type === 'user.message' ) {
-				if ( event.source === 'ask_user' ) {
+				if ( ! isVisibleUserMessage( event ) ) {
 					continue;
 				}
 
@@ -49,7 +72,7 @@ export function replaySessionHistory( ui: AiChatUI, events: AiSessionEvent[] ): 
 			}
 
 			if ( event.type === 'sdk.message' ) {
-				ui.handleMessage( event.message );
+				ui.handleMessage( event.message as SDKMessage );
 				continue;
 			}
 

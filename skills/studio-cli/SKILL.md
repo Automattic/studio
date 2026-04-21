@@ -31,7 +31,7 @@ studio site set       # Update site settings
 studio site create --name "My Site" --path ~/Studio/my-site
 ```
 
-**Options:** `--name`, `--wp` (default: "latest", min: 6.2.1), `--php` (default: 8.3, choices: 8.5/8.4/8.3/8.2/8.1/8.0/7.4), `--domain`, `--https`, `--blueprint` (local JSON file path), `--admin-username` (default: "admin"), `--admin-password` (auto-generated if omitted), `--admin-email` (default: "admin@localhost.com"), `--start` (default: true, use `--no-start` to skip), `--skip-browser`, `--skip-log-details`.
+**Options:** `--name`, `--wp` (default: "latest", min: 6.2.1), `--php` (default: 8.4, choices: 8.5/8.4/8.3/8.2/8.1/8.0/7.4), `--domain`, `--https`, `--blueprint` (local JSON file path), `--admin-username` (default: "admin"), `--admin-password` (auto-generated if omitted), `--admin-email` (default: "admin@localhost.com"), `--start` (default: true, use `--no-start` to skip), `--skip-browser`, `--skip-log-details`.
 
 Without flags in a TTY, the CLI prompts interactively for name, path, WP/PHP versions, and domain.
 

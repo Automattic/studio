@@ -22,30 +22,3 @@ export interface BackupArchiveInfo {
 }
 
 export type NewImporter = new ( backup: BackupContents ) => Importer;
-
-export interface BackupExtractProgressEventData {
-	progress: number;
-	processedFiles?: number;
-	totalFiles?: number;
-	currentFile?: string;
-	extractedBytes?: number;
-	totalBytes?: number;
-}
-
-export interface ImportDatabaseProgressEventData {
-	currentTable?: string;
-	processedTables?: number;
-	totalTables?: number;
-	currentFile?: string;
-	processedFiles?: number;
-	totalFiles?: number;
-}
-
-export interface ImportWpContentProgressEventData {
-	type?: 'plugins' | 'themes' | 'uploads' | 'other';
-	currentItem?: string;
-	processedItems?: number;
-	totalItems?: number;
-	processedBytes?: number;
-	totalBytes?: number;
-}

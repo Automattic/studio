@@ -13,7 +13,7 @@ const selectedSite: SiteDetails = {
 	running: false,
 	path: '/test-site',
 	port: 8881,
-	phpVersion: '8.3',
+	phpVersion: '8.4',
 };
 
 vi.mock( 'src/hooks/use-site-details' );

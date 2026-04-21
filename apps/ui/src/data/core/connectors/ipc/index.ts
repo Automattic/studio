@@ -90,8 +90,23 @@ export function createIpcConnector(): Connector {
 			} ) ) as SiteDetails;
 		},
 
-		async deleteSite( id ) {
-			await ipcApi.deleteSite( id, false );
+		async deleteSite( id, deleteFiles = true ) {
+			await ipcApi.deleteSite( id, deleteFiles );
+		},
+
+		async copySite( sourceSiteId ): Promise< SiteDetails > {
+			const sites = ( await ipcApi.getSiteDetails() ) as SiteDetails[];
+			const sourceSite = sites.find( ( site ) => site.id === sourceSiteId );
+			if ( ! sourceSite ) {
+				throw new Error( 'Source site not found.' );
+			}
+			// `%s Copy` matches the legacy Studio flow, and the helper bumps
+			// the suffix (`Copy 2`, `Copy 3`…) when earlier copies already
+			// exist.
+			const baseName = `${ sourceSite.name } Copy`;
+			const newName = ( await ipcApi.generateNumberedNameFromList( baseName, sites ) ) as string;
+			const newSiteId = crypto.randomUUID();
+			return ( await ipcApi.copySite( sourceSiteId, newSiteId, newName ) ) as SiteDetails;
 		},
 
 		async generateProposedSiteName( usedSites ): Promise< string > {

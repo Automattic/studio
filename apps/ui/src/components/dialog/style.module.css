@@ -1,0 +1,48 @@
+.backdrop {
+	position: fixed;
+	inset: 0;
+	background: var(--wpds-color-bg-overlay, rgba(0, 0, 0, 0.5));
+	z-index: var(--wp-ui-dialog-z-index, 1000);
+}
+
+.popup {
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	min-width: 320px;
+	max-width: 480px;
+	padding: var(--wpds-dimension-padding-xl);
+	background: var(--wpds-color-bg-surface-neutral-strong);
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral-weak);
+	border-radius: var(--wpds-border-radius-md);
+	box-shadow: var(--wpds-elevation-lg, var(--wpds-elevation-md));
+	color: var(--wpds-color-fg-content-neutral);
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-md);
+	z-index: var(--wp-ui-dialog-z-index, 1000);
+	outline: none;
+}
+
+.title {
+	margin: 0;
+	font-size: var(--wpds-font-size-lg);
+	line-height: var(--wpds-font-line-height-lg);
+	font-weight: var(--wpds-font-weight-medium);
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.description {
+	margin: 0;
+	font-size: var(--wpds-font-size-sm);
+	line-height: var(--wpds-font-line-height-sm);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: var(--wpds-dimension-padding-sm);
+	margin-top: var(--wpds-dimension-padding-sm);
+}

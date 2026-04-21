@@ -64,7 +64,14 @@ export interface Connector {
 	// Sites
 	getSites(): Promise< SiteDetails[] >;
 	createSite( params: CreateSiteParams ): Promise< SiteDetails >;
-	deleteSite( id: string ): Promise< void >;
+	// Deletes a site from Studio. When `deleteFiles` is true the site folder is
+	// also removed from disk; otherwise the files stay and only the Studio entry
+	// is dropped.
+	deleteSite( id: string, deleteFiles?: boolean ): Promise< void >;
+	// Duplicates an existing site (copies its files and admin credentials, then
+	// registers it as a new site). The connector picks a numbered name and a new
+	// site id internally so callers stay simple.
+	copySite( sourceSiteId: string ): Promise< SiteDetails >;
 	startSite( id: string ): Promise< void >;
 	stopSite( id: string ): Promise< void >;
 	// Persists edits from the site-settings screen via the CLI-backed main

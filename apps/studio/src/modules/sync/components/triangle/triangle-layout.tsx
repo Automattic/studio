@@ -361,7 +361,7 @@ export function TriangleLayout( { selectedSite }: Props ) {
 		: null;
 
 	const activityRegion = (
-		<div className="px-6 pb-6 pt-3">
+		<div className="shrink-0 px-6 pb-6 pt-3 empty:hidden">
 			<ActivityRegion
 				localSiteId={ selectedSite.id }
 				setupPanel={ setupPanel }
@@ -398,7 +398,8 @@ export function TriangleLayout( { selectedSite }: Props ) {
 
 	if ( isNarrow ) {
 		return (
-			<>
+			<div className="flex h-full flex-col">
+			<div className="min-h-0 flex-1 overflow-y-auto">
 			<div ref={ containerRef } className="flex flex-col gap-3 p-6 pb-0">
 				<div ref={ localRef }>
 					<EnvironmentColumn
@@ -444,13 +445,15 @@ export function TriangleLayout( { selectedSite }: Props ) {
 					isStagingOpen={ ! staging }
 				/>
 			</div>
+			</div>
 			{ activityRegion }
-			</>
+			</div>
 		);
 	}
 
 	return (
-		<>
+		<div className="flex h-full flex-col">
+		<div className="min-h-0 flex-1 overflow-y-auto">
 		<div
 			ref={ containerRef }
 			className="relative grid grid-cols-[1fr_1fr] gap-x-12 p-6 pb-0"
@@ -494,7 +497,8 @@ export function TriangleLayout( { selectedSite }: Props ) {
 			</div>
 
 		</div>
+		</div>
 		{ activityRegion }
-		</>
+		</div>
 	);
 }

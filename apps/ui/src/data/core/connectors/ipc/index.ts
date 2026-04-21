@@ -395,6 +395,9 @@ export function createIpcConnector(): Connector {
 			if ( 'colorScheme' in partial && partial.colorScheme ) {
 				writes.push( ipcApi.saveColorScheme( partial.colorScheme ) );
 			}
+			if ( 'locale' in partial && partial.locale ) {
+				writes.push( ipcApi.saveUserLocale( partial.locale ) );
+			}
 			await Promise.all( writes );
 		},
 

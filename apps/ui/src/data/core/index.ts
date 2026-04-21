@@ -15,6 +15,7 @@ export type {
 	SiteDetails,
 	Snapshot,
 	SupportedEditor,
+	SupportedLocale,
 	SupportedTerminal,
 	SyncSite,
 	UserPreferences,

@@ -1,3 +1,4 @@
+import { isSupportedLocale, supportedLocaleNames } from '@studio/common/lib/locale';
 import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { DataForm } from '@wordpress/dataviews';
@@ -5,6 +6,7 @@ import { __ } from '@wordpress/i18n';
 import { Button } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import * as Tabs from '@/components/tabs';
+import { persister } from '@/data/core/query-client';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useFullscreen } from '@/hooks/use-fullscreen';
@@ -14,6 +16,7 @@ import type {
 	ColorScheme,
 	InstalledApps,
 	SupportedEditor,
+	SupportedLocale,
 	SupportedTerminal,
 	UserPreferences,
 	WritableUserPreferences,
@@ -37,6 +40,14 @@ interface FormData {
 	editor: SupportedEditor | typeof UNSET;
 	terminal: SupportedTerminal | typeof UNSET;
 	colorScheme: ColorScheme;
+	locale: SupportedLocale;
+}
+
+// The saved locale can be any string the main process resolved (including ones
+// outside our catalog). Clamp to a SupportedLocale so the form control always
+// has a valid option selected.
+function resolveFormLocale( locale: string | undefined ): SupportedLocale {
+	return isSupportedLocale( locale ) ? locale : 'en';
 }
 
 function toFormData( prefs: UserPreferences ): FormData {
@@ -44,6 +55,7 @@ function toFormData( prefs: UserPreferences ): FormData {
 		editor: prefs.editor ?? UNSET,
 		terminal: prefs.terminal ?? UNSET,
 		colorScheme: prefs.colorScheme,
+		locale: resolveFormLocale( prefs.locale ),
 	};
 }
 
@@ -57,6 +69,7 @@ function diffFromSaved(
 	if ( nextEditor !== saved.editor ) patch.editor = nextEditor;
 	if ( nextTerminal !== saved.terminal ) patch.terminal = nextTerminal;
 	if ( next.colorScheme !== saved.colorScheme ) patch.colorScheme = next.colorScheme;
+	if ( next.locale !== resolveFormLocale( saved.locale ) ) patch.locale = next.locale;
 	return patch;
 }
 
@@ -85,6 +98,10 @@ const COLOR_SCHEME_ELEMENTS: { value: ColorScheme; label: string }[] = [
 	{ value: 'light', label: __( 'Light' ) },
 	{ value: 'dark', label: __( 'Dark' ) },
 ];
+
+const LOCALE_ELEMENTS: { value: SupportedLocale; label: string }[] = Object.entries(
+	supportedLocaleNames
+).map( ( [ value, label ] ) => ( { value: value as SupportedLocale, label } ) );
 
 function SettingsHeader() {
 	const sidebarCollapsed = useSidebarCollapsed();
@@ -139,6 +156,12 @@ export function SettingsView( {
 				label: __( 'Appearance' ),
 				elements: COLOR_SCHEME_ELEMENTS,
 			},
+			{
+				id: 'locale',
+				type: 'text',
+				label: __( 'Language' ),
+				elements: LOCALE_ELEMENTS,
+			},
 		],
 		[ installedApps ]
 	);
@@ -146,7 +169,15 @@ export function SettingsView( {
 	const preferencesForm = useMemo< Form >(
 		() => ( {
 			layout: { type: 'regular', labelPosition: 'top' },
-			fields: [ 'editor', 'terminal', 'colorScheme' ],
+			fields: [
+				{
+					id: 'apps',
+					layout: { type: 'row' },
+					children: [ 'editor', 'terminal' ],
+				},
+				'colorScheme',
+				'locale',
+			],
 		} ),
 		[]
 	);
@@ -166,7 +197,23 @@ export function SettingsView( {
 	const handleSubmit = ( event: FormEvent ) => {
 		event.preventDefault();
 		if ( ! canSubmit ) return;
-		savePreferences.mutate( patch );
+		// Translations are loaded once at bootstrap; the rest of the app imports
+		// `__` from `@wordpress/i18n` directly and doesn't subscribe to locale
+		// changes. Reload the window so every string re-renders in the new
+		// language after a successful save.
+		const localeChanged = 'locale' in patch;
+		savePreferences.mutate( patch, {
+			onSuccess: async () => {
+				if ( localeChanged ) {
+					// The persister is throttled (~1s), so a fresh `setQueryData`
+					// might not hit localStorage before we navigate. Drop the
+					// persisted cache so the next mount refetches preferences
+					// from the main process, which has the newly saved locale.
+					await persister.removeClient();
+					window.location.reload();
+				}
+			},
+		} );
 	};
 
 	return (

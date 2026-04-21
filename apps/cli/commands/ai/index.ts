@@ -414,7 +414,10 @@ export async function runCommand( options: {
 		retryAttempt = 0
 	): Promise< { status: TurnStatus; usage?: { numTurns: number; costUsd?: number } } > {
 		await maybeAutoSwitchProvider();
-		const env = await resolveAiEnvironment( currentProvider );
+		const recorder = await ensureSessionRecorder();
+		const env = await resolveAiEnvironment( currentProvider, {
+			sessionId: recorder?.sessionId,
+		} );
 
 		ui.beginAgentTurn();
 

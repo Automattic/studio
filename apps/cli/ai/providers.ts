@@ -17,13 +17,17 @@ export const AI_PROVIDER_PRIORITY: AiProviderId[] = [ 'wpcom', 'anthropic-api-ke
 const DEFAULT_WPCOM_AI_GATEWAY_BASE_URL = 'https://public-api.wordpress.com/wpcom/v2/ai-api-proxy';
 const WPCOM_AI_FEATURE_HEADER = 'studio-assistant-anthropic';
 
+export interface ResolveAiEnvironmentOptions {
+	sessionId?: string;
+}
+
 export interface AiProviderDefinition {
 	id: AiProviderId;
 	autoFallbackWhenUnavailable: boolean;
 	isVisible: () => Promise< boolean >;
 	isReady: () => Promise< boolean >;
 	prepare: ( options?: { force?: boolean } ) => Promise< void >;
-	resolveEnv: () => Promise< Record< string, string > >;
+	resolveEnv: ( options?: ResolveAiEnvironmentOptions ) => Promise< Record< string, string > >;
 }
 
 async function resolveAnthropicApiKey( options?: {
@@ -105,7 +109,7 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 
 			throw new LoggerError( __( 'WordPress.com login required. Use /login to authenticate.' ) );
 		},
-		resolveEnv: async () => {
+		resolveEnv: async ( options ) => {
 			const inlineToken = readInlineWpcomToken();
 			const accessToken = inlineToken ?? ( await readAuthToken() )?.accessToken;
 			if ( ! accessToken ) {
@@ -114,9 +118,13 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 			const env = createBaseEnvironment();
 			env.ANTHROPIC_BASE_URL = getWpcomAiGatewayBaseUrl();
 			env.ANTHROPIC_AUTH_TOKEN = accessToken;
-			env.ANTHROPIC_CUSTOM_HEADERS = buildAnthropicCustomHeaders( {
+			const customHeaders: Record< string, string > = {
 				'X-WPCOM-AI-Feature': WPCOM_AI_FEATURE_HEADER,
-			} );
+			};
+			if ( options?.sessionId ) {
+				customHeaders[ 'X-WPCOM-Session-ID' ] = options.sessionId;
+			}
+			env.ANTHROPIC_CUSTOM_HEADERS = buildAnthropicCustomHeaders( customHeaders );
 			env.CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS = '1';
 			// The default agent retry count (10) causes the CLI to hang for
 			// minutes when the WPCOM proxy returns a 429 (e.g. usage cap

@@ -5,7 +5,6 @@ import semver from 'semver';
 import { readCliConfig, updateCliConfigWithPartial } from 'cli/lib/cli-config/core';
 import {
 	getLanguagePacksPath,
-	getPhpMyAdminPath,
 	getWordPressVersionPath,
 	getWpFilesPath,
 } from '../server-files';
@@ -91,23 +90,6 @@ async function copyBundledLatestWpVersion() {
 	}
 }
 
-async function copyBundledPhpMyAdmin() {
-	await copySourceDirectoryIfNewerOrMissing( {
-		sourceDirectoryPath: path.join( getWpFilesPath(), 'phpmyadmin' ),
-		targetDirectoryPath: getPhpMyAdminPath(),
-		readSourceVersion: async () => {
-			const composerFilePath = path.join( getWpFilesPath(), 'phpmyadmin', 'composer.json' );
-			const composerFile = JSON.parse( fs.readFileSync( composerFilePath, 'utf8' ) );
-			return semver.coerce( composerFile.version );
-		},
-		readTargetVersion: async () => {
-			const composerFilePath = path.join( getPhpMyAdminPath(), 'composer.json' );
-			const composerFile = JSON.parse( fs.readFileSync( composerFilePath, 'utf8' ) );
-			return semver.coerce( composerFile.version );
-		},
-	} );
-}
-
 async function copyBundledLanguagePacks() {
 	const sourceLanguagePacksPath = path.join( getWpFilesPath(), 'latest', 'languages' );
 	if ( ! fs.existsSync( sourceLanguagePacksPath ) ) {
@@ -132,7 +114,6 @@ export async function setupServerFiles() {
 	const steps: [ string, () => Promise< void > ][] = [
 		[ 'WordPress version', copyBundledLatestWpVersion ],
 		[ 'language packs', copyBundledLanguagePacks ],
-		[ 'phpMyAdmin', copyBundledPhpMyAdmin ],
 	];
 
 	for ( const [ name, step ] of steps ) {

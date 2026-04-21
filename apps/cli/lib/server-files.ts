@@ -56,6 +56,8 @@ export function getAiInstructionsPath(): string {
 	return path.join( getWpFilesPath(), 'skills' );
 }
 
+// phpMyAdmin ships read-only with the CLI bundle and is mounted into the PHP-wasm VFS at
+// `/tools/phpmyadmin`. No writable cache needed.
 export function getPhpMyAdminPath(): string {
-	return path.join( getServerFilesPath(), 'phpmyadmin' );
+	return path.join( getWpFilesPath(), 'phpmyadmin' );
 }

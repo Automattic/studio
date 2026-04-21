@@ -4,6 +4,7 @@
  *   - `skills/` (AI instructions)
  *   - `sqlite-database-integration/` (SQLite plugin)
  *   - `sqlite-command/` (SQLite command)
+ *   - `phpmyadmin/` (phpMyAdmin)
  *   - `wp-cli.phar` (WP-CLI)
  *   - `wordpress-versions/latest/available-site-translations.json`
  *
@@ -22,6 +23,7 @@ function getObsoletePaths(): string[] {
 		path.join( serverFilesPath, 'skills' ),
 		path.join( serverFilesPath, 'sqlite-database-integration' ),
 		path.join( serverFilesPath, 'sqlite-command' ),
+		path.join( serverFilesPath, 'phpmyadmin' ),
 		path.join( serverFilesPath, 'wp-cli.phar' ),
 		path.join(
 			serverFilesPath,

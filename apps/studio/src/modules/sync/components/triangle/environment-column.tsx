@@ -149,7 +149,11 @@ export function EnvironmentColumn( props: Props ) {
 
 	if ( orientation === 'portrait' ) {
 		return (
-			<div className={ 'flex flex-col overflow-hidden rounded-lg border ' + rowTint }>
+			<div
+				className={
+					'mx-auto flex w-full max-w-xs flex-col overflow-hidden rounded-lg border ' + rowTint
+				}
+			>
 				{ preview }
 				<div className="flex flex-col gap-1 p-4">
 					<div className="a8c-subtitle truncate text-frame-text">{ name }</div>

@@ -43,7 +43,7 @@ const selectedSite: SiteDetails = {
 	name: 'Test Site',
 	running: false,
 	path: '/test-site',
-	phpVersion: '8.3',
+	phpVersion: '8.4',
 	adminPassword: btoa( 'test-password' ),
 	port: 9999,
 };
@@ -96,7 +96,7 @@ describe( 'useImportExport hook', () => {
 				database: true,
 				wpContent: true,
 			},
-			phpVersion: '8.3',
+			phpVersion: '8.4',
 		} );
 		expect( getIpcApi().showNotification ).toHaveBeenCalledWith(
 			expect.objectContaining( {
@@ -145,7 +145,7 @@ describe( 'useImportExport hook', () => {
 				database: true,
 				wpContent: true,
 			},
-			phpVersion: '8.3',
+			phpVersion: '8.4',
 		} );
 		expect( getIpcApi().showErrorMessageBox ).toHaveBeenCalledWith( {
 			title: 'Failed exporting site',
@@ -193,7 +193,7 @@ describe( 'useImportExport hook', () => {
 				database: true,
 				wpContent: false,
 			},
-			phpVersion: '8.3',
+			phpVersion: '8.4',
 		} );
 		expect( getIpcApi().showNotification ).toHaveBeenCalledWith(
 			expect.objectContaining( {

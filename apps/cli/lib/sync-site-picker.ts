@@ -1,6 +1,6 @@
 import { search } from '@inquirer/prompts';
+import chalk from '@studio/common/lib/chalk';
 import { __, sprintf } from '@wordpress/i18n';
-import chalk from 'chalk';
 import { normalizeHostname } from 'cli/lib/utils';
 import { LoggerError } from 'cli/logger';
 import type { SyncSite } from '@studio/common/types/sync';

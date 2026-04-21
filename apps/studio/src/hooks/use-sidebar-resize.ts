@@ -1,9 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import {
-	SIDEBAR_WIDTH,
 	SIDEBAR_MIN_WIDTH,
 	SIDEBAR_MAX_WIDTH,
-	SIDEBAR_SNAP_THRESHOLD,
 	LOCAL_STORAGE_SIDEBAR_WIDTH_KEY,
 } from 'src/constants';
 import { getSavedSidebarWidth } from 'src/lib/sidebar-utils';
@@ -40,13 +38,6 @@ export function useSidebarResize( isSidebarVisible: boolean, toggleSidebar: () =
 			rafId = requestAnimationFrame( () => {
 				const delta = e.clientX - dragStartX.current;
 				const newWidth = dragStartWidth.current + delta;
-
-				if ( newWidth < SIDEBAR_SNAP_THRESHOLD ) {
-					// Will snap closed on mouseup
-					setSidebarWidth( Math.max( 0, newWidth ) );
-					return;
-				}
-
 				setSidebarWidth( Math.min( SIDEBAR_MAX_WIDTH, Math.max( SIDEBAR_MIN_WIDTH, newWidth ) ) );
 			} );
 		};
@@ -57,18 +48,6 @@ export function useSidebarResize( isSidebarVisible: boolean, toggleSidebar: () =
 
 			const delta = e.clientX - dragStartX.current;
 			const finalWidth = dragStartWidth.current + delta;
-
-			if ( finalWidth < SIDEBAR_SNAP_THRESHOLD ) {
-				// Snap closed — restore the last good width for when it reopens
-				setSidebarWidth(
-					dragStartWidth.current > SIDEBAR_MIN_WIDTH ? dragStartWidth.current : SIDEBAR_WIDTH
-				);
-				if ( isSidebarVisible ) {
-					toggleSidebar();
-				}
-				return;
-			}
-
 			const clampedWidth = Math.min( SIDEBAR_MAX_WIDTH, Math.max( SIDEBAR_MIN_WIDTH, finalWidth ) );
 			setSidebarWidth( clampedWidth );
 			saveWidth( clampedWidth );

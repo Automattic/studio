@@ -4,7 +4,6 @@ export const MAIN_MIN_HEIGHT = 600;
 export const SIDEBAR_WIDTH = 208;
 export const SIDEBAR_MIN_WIDTH = 200;
 export const SIDEBAR_MAX_WIDTH = 400;
-export const SIDEBAR_SNAP_THRESHOLD = 100;
 export const MAIN_MIN_WIDTH = DEFAULT_WIDTH - SIDEBAR_WIDTH + 20;
 export const LOCAL_STORAGE_SIDEBAR_WIDTH_KEY = 'sidebar_width';
 export const APP_CHROME_SPACING = 10;

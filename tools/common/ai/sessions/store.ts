@@ -187,6 +187,17 @@ export async function createAiSession(
 	return summary;
 }
 
+export async function appendAiSessionEvent(
+	rootDirectory: string,
+	sessionIdOrPrefix: string,
+	event: AiSessionEvent
+): Promise< void > {
+	const summary = await resolveSessionByIdOrPrefix( rootDirectory, sessionIdOrPrefix );
+	await fs.appendFile( summary.filePath, `${ JSON.stringify( event ) }\n`, {
+		encoding: 'utf8',
+	} );
+}
+
 export async function deleteAiSession(
 	rootDirectory: string,
 	sessionIdOrPrefix: string

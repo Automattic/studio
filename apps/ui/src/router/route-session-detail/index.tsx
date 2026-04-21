@@ -1,6 +1,6 @@
 import { createRoute } from '@tanstack/react-router';
 import { SessionView } from '@/components/session-view';
-import { dashboardLayoutRoute } from './dashboard';
+import { dashboardLayoutRoute } from '../layout-dashboard';
 
 function SessionDetail() {
 	const { sessionId } = sessionDetailRoute.useParams();

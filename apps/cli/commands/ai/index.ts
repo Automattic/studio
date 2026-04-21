@@ -51,7 +51,14 @@ export async function runCommand( options: {
 	noSessionPersistence?: boolean;
 	autoApprove?: boolean;
 	showLegacyCommandNotice?: boolean;
-	activeSite?: { name: string; path: string; running?: boolean };
+	activeSite?: {
+		name: string;
+		path: string;
+		running?: boolean;
+		remote?: boolean;
+		url?: string;
+		wpcomSiteId?: number;
+	};
 } ): Promise< void > {
 	const ui = options.adapter;
 	const isJsonMode = ui instanceof JsonAdapter;
@@ -66,6 +73,9 @@ export async function runCommand( options: {
 			name: options.activeSite.name,
 			path: options.activeSite.path,
 			running: options.activeSite.running ?? false,
+			remote: options.activeSite.remote,
+			url: options.activeSite.url,
+			wpcomSiteId: options.activeSite.wpcomSiteId,
 		};
 	}
 	ui.start();

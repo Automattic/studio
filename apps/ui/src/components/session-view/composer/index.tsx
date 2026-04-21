@@ -1,8 +1,12 @@
-import { __ } from '@wordpress/i18n';
+import { AI_MODELS } from '@studio/common/ai/models';
+import { __, sprintf } from '@wordpress/i18n';
 import { arrowUp, chevronDownSmall } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { useCallback, useState } from 'react';
+import * as Menu from '@/components/menu';
+import { EnvironmentPill } from './environment-pill';
 import styles from './style.module.css';
+import type { AiModelId, SyncSite } from '@/data/core';
 
 function PaperclipIcon() {
 	return (
@@ -26,8 +30,16 @@ interface ComposerProps {
 	busy: boolean;
 	isInterrupting?: boolean;
 	error: string | null;
+	model: AiModelId;
+	onModelChange: ( model: AiModelId ) => void;
 	onSend: ( prompt: string ) => Promise< void >;
 	onInterrupt: () => Promise< void >;
+	// Environment pill: only rendered when both a `sessionId` and a linked
+	// `liveSite` are available. Without a live link the pill is hidden
+	// entirely (there'd be nothing to flip to).
+	sessionId?: string;
+	activeEnvironment?: 'local' | 'live';
+	liveSite?: SyncSite;
 }
 
 const isMacPlatform =
@@ -37,8 +49,13 @@ export function Composer( {
 	busy,
 	isInterrupting = false,
 	error,
+	model,
+	onModelChange,
 	onSend,
 	onInterrupt,
+	sessionId,
+	activeEnvironment = 'local',
+	liveSite,
 }: ComposerProps ) {
 	const [ value, setValue ] = useState( '' );
 
@@ -110,15 +127,50 @@ export function Composer( {
 						</button>
 					</div>
 					<div className={ styles.rightActions }>
-						<button type="button" className={ styles.pill } disabled>
-							<span className={ styles.pillDot } aria-hidden="true" />
-							<span>{ __( 'Local' ) }</span>
-							<Icon icon={ chevronDownSmall } size={ 16 } />
-						</button>
-						<button type="button" className={ styles.pill } disabled>
-							<span>{ __( 'Claude Sonnet 4.5' ) }</span>
-							<Icon icon={ chevronDownSmall } size={ 16 } />
-						</button>
+						{ sessionId && liveSite ? (
+							<EnvironmentPill
+								sessionId={ sessionId }
+								activeEnvironment={ activeEnvironment }
+								liveSite={ liveSite }
+								disabled={ busy }
+							/>
+						) : null }
+						<Menu.Root modal={ false }>
+							<Menu.Trigger
+								render={
+									<button
+										type="button"
+										className={ styles.pill }
+										aria-label={ __( 'Select model' ) }
+									>
+										<span>
+											{
+												/* translators: %s: model display name (e.g. "Sonnet 4.6") */
+												sprintf( __( 'Claude %s' ), AI_MODELS[ model ] )
+											}
+										</span>
+										<Icon icon={ chevronDownSmall } size={ 16 } />
+									</button>
+								}
+							/>
+							<Menu.Popup side="top" align="end">
+								<Menu.RadioGroup
+									value={ model }
+									onValueChange={ ( value ) => onModelChange( value as AiModelId ) }
+								>
+									{ ( Object.entries( AI_MODELS ) as [ AiModelId, string ][] ).map(
+										( [ id, label ] ) => (
+											<Menu.RadioItem key={ id } value={ id }>
+												{
+													/* translators: %s: model display name */
+													sprintf( __( 'Claude %s' ), label )
+												}
+											</Menu.RadioItem>
+										)
+									) }
+								</Menu.RadioGroup>
+							</Menu.Popup>
+						</Menu.Root>
 						{ busy ? (
 							<button
 								type="button"

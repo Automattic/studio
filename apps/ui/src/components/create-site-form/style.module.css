@@ -1,0 +1,42 @@
+.form {
+	display: flex;
+	flex-direction: column;
+	gap: 24px;
+	text-align: left;
+}
+
+.pathControl {
+	cursor: pointer;
+}
+
+.pathControl input {
+	cursor: pointer;
+}
+
+.advancedToggle {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	align-self: flex-start;
+}
+
+.advancedErrorCount {
+	margin-left: 8px;
+	font-size: 12px;
+	font-weight: 500;
+	color: #d63638;
+}
+
+.submitError {
+	padding: 10px 12px;
+	border-radius: 4px;
+	background: #fce8e8;
+	color: #7a1a1a;
+	font-size: 13px;
+}
+
+.actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+}

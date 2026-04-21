@@ -696,11 +696,8 @@ export async function createSite(
 		throw error;
 	} finally {
 		if ( blueprint?.filePath ) {
-			const bundlePrefix = nodePath.join( os.tmpdir(), 'studio-blueprint-bundle-' );
 			const blueprintDir = nodePath.dirname( nodePath.resolve( blueprint.filePath ) );
-			if ( blueprintDir.startsWith( bundlePrefix ) ) {
-				await fsPromises.rm( blueprintDir, { recursive: true, force: true } ).catch( () => {} );
-			}
+			await removeBlueprintTempDir( blueprintDir ).catch( () => {} );
 		}
 	}
 }
@@ -1969,16 +1966,20 @@ export async function extractBlueprintBundle(
 	}
 }
 
-export async function cleanupBlueprintTempDir(
-	_event: IpcMainInvokeEvent,
-	tempDir: string
-): Promise< void > {
+async function removeBlueprintTempDir( tempDir: string ): Promise< void > {
 	const allowedPrefix = nodePath.join( os.tmpdir(), 'studio-blueprint-bundle-' );
 	const resolvedDir = nodePath.resolve( tempDir );
 	if ( ! resolvedDir.startsWith( allowedPrefix ) ) {
 		throw new Error( 'Invalid temp directory path' );
 	}
 	await fsPromises.rm( resolvedDir, { recursive: true, force: true } );
+}
+
+export async function cleanupBlueprintTempDir(
+	_event: IpcMainInvokeEvent,
+	tempDir: string
+): Promise< void > {
+	await removeBlueprintTempDir( tempDir );
 }
 
 export async function setWindowControlVisibility( event: IpcMainInvokeEvent, visible: boolean ) {

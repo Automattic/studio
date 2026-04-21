@@ -332,6 +332,8 @@ export async function runCommand(
 				logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
 				await startWordPressServer( site, logger );
 				logger.reportSuccess( __( 'WordPress server started' ) );
+
+				await emitCliEvent( { event: SITE_EVENTS.UPDATED, data: { siteId: site.id } } );
 			}
 		} catch ( error ) {
 			restartSiteError = error;

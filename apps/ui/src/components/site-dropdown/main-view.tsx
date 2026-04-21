@@ -138,7 +138,7 @@ export function MainView( { site, onSetupClick }: Props ) {
 		// No editor preference yet — send the user to Settings so they can
 		// pick one before the action becomes useful.
 		if ( ! userPreferences?.editor ) {
-			void navigate( { to: '/settings/preferences' } );
+			void navigate( { to: '/settings' } );
 			return;
 		}
 		void connector.openSiteInEditor( site.id ).catch( ( error ) => {

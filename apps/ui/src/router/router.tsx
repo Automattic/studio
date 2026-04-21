@@ -9,7 +9,6 @@ import { onboardingCreateRoute } from './route-onboarding-create';
 import { onboardingHomeRoute } from './route-onboarding-home';
 import { sessionDetailRoute } from './route-session-detail';
 import { settingsRoute } from './route-settings';
-import { settingsPreferencesRoute } from './route-settings-preferences';
 import { siteSettingsRoute } from './route-site-settings';
 import type { RouterContext } from './layout-root';
 
@@ -20,7 +19,7 @@ const routeTree = rootRoute.addChildren( [
 		newSessionRoute,
 		sessionDetailRoute,
 		siteSettingsRoute,
-		settingsRoute.addChildren( [ settingsPreferencesRoute ] ),
+		settingsRoute,
 	] ),
 	onboardingLayoutRoute.addChildren( [ onboardingHomeRoute, onboardingCreateRoute ] ),
 ] );

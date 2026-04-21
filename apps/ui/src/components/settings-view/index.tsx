@@ -4,8 +4,11 @@ import { DataForm } from '@wordpress/dataviews';
 import { __ } from '@wordpress/i18n';
 import { Button } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import * as Tabs from '@/components/tabs';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
+import { useFullscreen } from '@/hooks/use-fullscreen';
+import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import styles from './style.module.css';
 import type {
 	ColorScheme,
@@ -18,15 +21,23 @@ import type {
 import type { Field, Form } from '@wordpress/dataviews';
 import type { FormEvent } from 'react';
 
+type TabId = 'preferences';
+
+export function isSettingsTab( value: string ): value is TabId {
+	return value === 'preferences';
+}
+
+export type SettingsTabId = TabId;
+
 // Empty-string sentinel for "not set" — DataForm's select-style fields need a
 // primitive value, so we can't use null directly.
 const UNSET = '' as const;
 
-type FormData = {
+interface FormData {
 	editor: SupportedEditor | typeof UNSET;
 	terminal: SupportedTerminal | typeof UNSET;
 	colorScheme: ColorScheme;
-};
+}
 
 function toFormData( prefs: UserPreferences ): FormData {
 	return {
@@ -75,7 +86,28 @@ const COLOR_SCHEME_ELEMENTS: { value: ColorScheme; label: string }[] = [
 	{ value: 'dark', label: __( 'Dark' ) },
 ];
 
-export function PreferencesTab() {
+function SettingsHeader() {
+	const sidebarCollapsed = useSidebarCollapsed();
+	const isFullscreen = useFullscreen();
+	const toggleSpacerClass = sidebarCollapsed
+		? isFullscreen
+			? styles.toggleSpacerFullscreen
+			: styles.toggleSpacer
+		: null;
+	return (
+		<div className={ styles.header }>
+			{ toggleSpacerClass ? <span className={ toggleSpacerClass } aria-hidden="true" /> : null }
+		</div>
+	);
+}
+
+export function SettingsView( {
+	activeTab,
+	onTabChange,
+}: {
+	activeTab: TabId;
+	onTabChange: ( tab: TabId ) => void;
+} ) {
 	const { data: saved, isLoading } = useUserPreferences();
 	const { data: installedApps } = useInstalledApps();
 	const savePreferences = useSaveUserPreferences();
@@ -87,7 +119,7 @@ export function PreferencesTab() {
 		}
 	}, [ saved ] );
 
-	const fields = useMemo< Field< FormData >[] >(
+	const preferencesFields = useMemo< Field< FormData >[] >(
 		() => [
 			{
 				id: 'editor',
@@ -111,7 +143,7 @@ export function PreferencesTab() {
 		[ installedApps ]
 	);
 
-	const form = useMemo< Form >(
+	const preferencesForm = useMemo< Form >(
 		() => ( {
 			layout: { type: 'regular', labelPosition: 'top' },
 			fields: [ 'editor', 'terminal', 'colorScheme' ],
@@ -124,7 +156,7 @@ export function PreferencesTab() {
 	}, [] );
 
 	if ( isLoading || ! data || ! saved ) {
-		return <p>{ __( 'Loading…' ) }</p>;
+		return <div className={ styles.state }>{ __( 'Loading…' ) }</div>;
 	}
 
 	const patch = diffFromSaved( data, saved );
@@ -138,25 +170,55 @@ export function PreferencesTab() {
 	};
 
 	return (
-		<form onSubmit={ handleSubmit } className={ styles.form }>
-			<DataForm< FormData >
-				data={ data }
-				fields={ fields }
-				form={ form }
-				onChange={ handleChange }
-			/>
-			<div className={ styles.actions }>
-				<Button
-					type="submit"
-					variant="solid"
-					tone="brand"
-					disabled={ ! canSubmit }
-					loading={ savePreferences.isPending }
-					loadingAnnouncement={ __( 'Saving settings' ) }
-				>
-					{ __( 'Save settings' ) }
-				</Button>
-			</div>
-		</form>
+		<div className={ styles.root }>
+			<SettingsHeader />
+			<Tabs.Root
+				selectedTabId={ activeTab }
+				onSelect={ ( tabId ) => {
+					if ( tabId && isSettingsTab( tabId ) ) {
+						onTabChange( tabId );
+					}
+				} }
+			>
+				<div className={ styles.titleBlock }>
+					<h1>{ __( 'Settings' ) }</h1>
+				</div>
+				<div className={ styles.tabsBar }>
+					<div className={ styles.tabsBarInner }>
+						<Tabs.List>
+							<Tabs.Tab tabId="preferences">{ __( 'Preferences' ) }</Tabs.Tab>
+						</Tabs.List>
+					</div>
+				</div>
+
+				<div className={ styles.scroll }>
+					<div className={ styles.contentBlock }>
+						<form onSubmit={ handleSubmit } className={ styles.form }>
+							<Tabs.Panel tabId="preferences">
+								<DataForm< FormData >
+									data={ data }
+									fields={ preferencesFields }
+									form={ preferencesForm }
+									onChange={ handleChange }
+								/>
+							</Tabs.Panel>
+
+							<div className={ styles.actions }>
+								<Button
+									type="submit"
+									variant="solid"
+									tone="brand"
+									disabled={ ! canSubmit }
+									loading={ savePreferences.isPending }
+									loadingAnnouncement={ __( 'Saving settings' ) }
+								>
+									{ __( 'Save settings' ) }
+								</Button>
+							</div>
+						</form>
+					</div>
+				</div>
+			</Tabs.Root>
+		</div>
 	);
 }

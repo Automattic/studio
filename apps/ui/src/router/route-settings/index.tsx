@@ -1,44 +1,42 @@
-import { createRoute, Outlet, redirect, useLocation, useNavigate } from '@tanstack/react-router';
-import {
-	isSettingsTab,
-	SettingsLayout,
-	type SettingsTabId,
-} from '@/components/settings-view/settings-layout';
+import { createRoute, useNavigate } from '@tanstack/react-router';
+import { isSettingsTab, SettingsView } from '@/components/settings-view';
 import { dashboardLayoutRoute } from '../layout-dashboard';
+import type { SettingsTabId } from '@/components/settings-view';
 
-function deriveActiveTab( pathname: string ): SettingsTabId {
-	// The shell renders an <Outlet />, so the only signal for which tab is
-	// active is the URL itself — each tab is its own child route.
-	const segment = pathname.split( '/' ).filter( Boolean ).at( -1 );
-	return segment && isSettingsTab( segment ) ? segment : 'preferences';
+interface SettingsSearch {
+	// Tab selection is a `search` param so opening the route defaults to
+	// preferences and deep-links like `?tab=account` stay human-readable.
+	// Mirrors the shape used by the site-settings route.
+	tab?: SettingsTabId;
 }
 
-function SettingsShell() {
-	const { pathname } = useLocation();
+function SettingsPage() {
+	const { tab } = settingsRoute.useSearch();
 	const navigate = useNavigate();
-	const activeTab = deriveActiveTab( pathname );
+	const activeTab: SettingsTabId = tab ?? 'preferences';
 	return (
-		<SettingsLayout
+		<SettingsView
 			activeTab={ activeTab }
-			onTabChange={ ( next ) => {
-				void navigate( { to: `/settings/${ next }` } );
-			} }
-		>
-			<Outlet />
-		</SettingsLayout>
+			onTabChange={ ( next ) =>
+				void navigate( {
+					to: '/settings',
+					search: { tab: next },
+					replace: true,
+				} )
+			}
+		/>
 	);
 }
 
 export const settingsRoute = createRoute( {
 	getParentRoute: () => dashboardLayoutRoute,
 	path: '/settings',
-	component: SettingsShell,
-	// Bare `/settings` has no tab selected — redirect to the default.
-	// `beforeLoad` fires for child matches too, so we gate on the exact
-	// pathname to avoid redirect loops when `/settings/<tab>` is the target.
-	beforeLoad: ( { location } ) => {
-		if ( location.pathname === '/settings' || location.pathname === '/settings/' ) {
-			throw redirect( { to: '/settings/preferences' } );
+	validateSearch: ( search: Record< string, unknown > ): SettingsSearch => {
+		const value = search.tab;
+		if ( typeof value === 'string' && isSettingsTab( value ) ) {
+			return { tab: value };
 		}
+		return {};
 	},
+	component: SettingsPage,
 } );

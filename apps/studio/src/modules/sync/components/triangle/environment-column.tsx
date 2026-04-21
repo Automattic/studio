@@ -56,7 +56,7 @@ type PreviewFrameProps = {
 
 function PreviewFrame( { children, siteIconUrl, badge }: PreviewFrameProps ) {
 	return (
-		<div className="relative h-28 w-44 shrink-0 overflow-hidden rounded-lg border border-frame-border bg-frame-surface">
+		<div className="relative h-28 w-44 shrink-0 overflow-hidden bg-frame-surface">
 			{ children }
 			{ siteIconUrl && (
 				<img
@@ -120,7 +120,11 @@ export function EnvironmentColumn( props: Props ) {
 			: 'border-[#f7ba42]/40 bg-[#f7ba42]/5';
 
 	return (
-		<div className={ 'flex flex-row items-center gap-4 rounded-lg border p-4 ' + rowTint }>
+		<div
+			className={
+				'flex flex-row items-center gap-4 overflow-hidden rounded-lg border pr-4 ' + rowTint
+			}
+		>
 			{ props.kind === 'remote' ? (
 				<PreviewFrame
 					siteIconUrl={ props.site.siteIconUrl }

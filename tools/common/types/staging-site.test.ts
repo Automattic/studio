@@ -35,8 +35,13 @@ describe( 'staging-site schemas', () => {
 		expect( parsed.status ).toBe( 'in-progress' );
 	} );
 
-	it( 'parses a validate-quota response', () => {
+	it( 'parses a validate-quota response in object form', () => {
 		const parsed = validateQuotaResponseSchema.parse( { has_enough_quota: true } );
-		expect( parsed.has_enough_quota ).toBe( true );
+		expect( parsed ).toEqual( { has_enough_quota: true } );
+	} );
+
+	it( 'parses a validate-quota response in bare-boolean form', () => {
+		expect( validateQuotaResponseSchema.parse( true ) ).toBe( true );
+		expect( validateQuotaResponseSchema.parse( false ) ).toBe( false );
 	} );
 } );

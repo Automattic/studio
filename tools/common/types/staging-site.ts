@@ -17,11 +17,22 @@ export const syncStateResponseSchema = z.object( {
 	direction: z.enum( [ 'push', 'pull' ] ).optional(),
 } );
 
-export const validateQuotaResponseSchema = z.object( {
-	has_enough_quota: z.boolean(),
-	message: z.string().optional(),
-} );
+// The wpcom endpoint returns a bare boolean. Accept either shape so we're tolerant
+// of a future server-side change that returns richer info (e.g. { has_enough_quota, message }).
+export const validateQuotaResponseSchema = z.union( [
+	z.boolean(),
+	z.object( {
+		has_enough_quota: z.boolean(),
+		message: z.string().optional(),
+	} ),
+] );
 
 export type StagingSite = z.infer< typeof stagingSiteSchema >;
 export type SyncState = z.infer< typeof syncStateResponseSchema >;
-export type ValidateQuotaResponse = z.infer< typeof validateQuotaResponseSchema >;
+
+// Normalised shape that callers receive after `validateStagingQuota()` folds
+// a bare boolean wire response into an object.
+export type ValidateQuotaResponse = {
+	has_enough_quota: boolean;
+	message?: string;
+};

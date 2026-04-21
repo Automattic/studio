@@ -47,7 +47,12 @@ export async function validateStagingQuota(
 		apiNamespace: 'wpcom/v2',
 		method: 'POST',
 	} );
-	return validateQuotaResponseSchema.parse( data );
+	const parsed = validateQuotaResponseSchema.parse( data );
+	// Normalise both wire shapes to the same object so callers don't need to branch.
+	if ( typeof parsed === 'boolean' ) {
+		return { has_enough_quota: parsed };
+	}
+	return parsed;
 }
 
 export async function pushToStaging(
@@ -85,8 +90,13 @@ export async function getSyncState( productionSiteId: number ): Promise< SyncSta
 			method: 'GET',
 		} );
 		return syncStateResponseSchema.parse( data );
-	} catch ( error: any ) {
-		if ( error?.statusCode === 404 ) {
+	} catch ( error ) {
+		if (
+			error &&
+			typeof error === 'object' &&
+			'statusCode' in error &&
+			( error as { statusCode?: number } ).statusCode === 404
+		) {
 			return null;
 		}
 		throw error;

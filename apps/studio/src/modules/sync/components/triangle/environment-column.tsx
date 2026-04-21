@@ -1,5 +1,6 @@
 import { Spinner } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
+import { Icon, page, post } from '@wordpress/icons';
 import { Badge } from 'src/components/badge';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { EnvironmentBadge } from 'src/modules/sync/components/environment-badge';
@@ -45,12 +46,40 @@ function formatRelative( ts: string | null | undefined ): string | null {
 	return rtf.format( -days, 'day' );
 }
 
-function Stat( { label, value, loading }: { label: string; value: number; loading: boolean } ) {
+function Stat( {
+	icon,
+	label,
+	value,
+	loading,
+}: {
+	icon: React.ComponentProps< typeof Icon >[ 'icon' ];
+	label: string;
+	value: number;
+	loading: boolean;
+} ) {
 	return (
-		<div className="flex flex-col">
-			<dt className="a8c-helper-text text-frame-text-secondary">{ label }</dt>
-			<dd className="a8c-subtitle-small text-frame-text">{ loading ? <Spinner /> : value }</dd>
+		<div className="flex flex-row items-center gap-1 text-frame-text-secondary" aria-label={ label }>
+			<Icon icon={ icon } size={ 12 } />
+			<span className="text-[11px] leading-none">
+				{ loading ? <Spinner /> : value }
+			</span>
 		</div>
+	);
+}
+
+/**
+ * Truncate a URL with an ellipsis in the middle, preserving the tail so the
+ * user keeps sight of the domain / TLD.
+ */
+function MiddleTruncate( { text }: { text: string } ) {
+	const tailLen = Math.min( text.length, 14 );
+	const head = text.slice( 0, Math.max( 0, text.length - tailLen ) );
+	const tail = text.slice( Math.max( 0, text.length - tailLen ) );
+	return (
+		<span className="flex min-w-0 flex-row">
+			<span className="truncate">{ head }</span>
+			<span className="shrink-0">{ tail }</span>
+		</span>
 	);
 }
 
@@ -204,50 +233,48 @@ export function EnvironmentColumn( props: Props ) {
 	}
 
 	return (
-		<div
-			className={ 'flex flex-row overflow-hidden rounded-lg border ' + rowTint }
-		>
+		<div className={ 'flex h-24 flex-row overflow-hidden rounded-lg border ' + rowTint }>
 			{ preview }
-			<div className="flex min-w-0 flex-1 flex-col gap-0.5 p-3">
-				<div className="a8c-subtitle-small truncate text-frame-text">{ name }</div>
-				<a
-					href={ url }
-					className="a8c-helper-text truncate text-frame-theme hover:text-frame-theme-hover hover:underline"
-				>
-					{ stripProtocol( url ) }
-				</a>
-				{ props.kind === 'remote' && (
-					<div className="a8c-helper-text text-frame-text-secondary">
-						{ __( 'WP' ) } { props.site.wpVersion ?? '—' }
-						{ props.site.planName ? ` · ${ props.site.planName }` : '' }
-					</div>
-				) }
-				<dl className="mt-1.5 flex flex-row gap-4">
-					<Stat
-						label={ __( 'Posts' ) }
-						value={ summary.counts.posts }
-						loading={ summary.isLoading }
-					/>
-					<Stat
-						label={ __( 'Pages' ) }
-						value={ summary.counts.pages }
-						loading={ summary.isLoading }
-					/>
-				</dl>
-				{ ( lastPush || lastPull ) && (
-					<div className="a8c-helper-text mt-1 text-frame-text-secondary">
-						{ lastPush && (
-							<div>
-								{ __( 'Pushed' ) } { formatRelative( lastPush ) }
-							</div>
-						) }
-						{ lastPull && (
-							<div>
-								{ __( 'Pulled' ) } { formatRelative( lastPull ) }
-							</div>
-						) }
-					</div>
-				) }
+			<div className="flex min-w-0 flex-1 flex-col justify-between p-2.5">
+				<div className="flex min-w-0 flex-col gap-0.5">
+					<div className="a8c-subtitle-small truncate text-frame-text">{ name }</div>
+					<a
+						href={ url }
+						className="flex min-w-0 text-[11px] text-frame-theme hover:text-frame-theme-hover hover:underline"
+					>
+						<MiddleTruncate text={ stripProtocol( url ) } />
+					</a>
+				</div>
+				<div className="flex flex-row items-end justify-between gap-2">
+					<dl className="flex flex-row gap-3">
+						<Stat
+							icon={ post }
+							label={ __( 'Posts' ) }
+							value={ summary.counts.posts }
+							loading={ summary.isLoading }
+						/>
+						<Stat
+							icon={ page }
+							label={ __( 'Pages' ) }
+							value={ summary.counts.pages }
+							loading={ summary.isLoading }
+						/>
+					</dl>
+					{ ( lastPush || lastPull ) && (
+						<div className="truncate text-[10px] text-frame-text-secondary">
+							{ lastPush && (
+								<span>
+									{ __( 'Pushed' ) } { formatRelative( lastPush ) }
+								</span>
+							) }
+							{ lastPull && (
+								<span>
+									{ __( 'Pulled' ) } { formatRelative( lastPull ) }
+								</span>
+							) }
+						</div>
+					) }
+				</div>
 			</div>
 		</div>
 	);

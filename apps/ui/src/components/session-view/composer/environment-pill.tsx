@@ -37,7 +37,7 @@ export function EnvironmentPill( {
 	liveSite,
 	disabled = false,
 }: EnvironmentPillProps ) {
-	const setEnvironment = useSetSessionEnvironment( sessionId );
+	const setEnvironment = useSetSessionEnvironment( sessionId, liveSite?.id );
 	const isLive = effectiveEnvironment === 'live';
 	const label = isLive ? __( 'Live' ) : __( 'Local' );
 	const canGoLive = !! liveSite;

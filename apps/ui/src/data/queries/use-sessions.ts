@@ -48,7 +48,14 @@ export function useCreateSession() {
 	} );
 }
 
-export function useSetSessionEnvironment( sessionId: string | undefined ) {
+export function useSetSessionEnvironment(
+	sessionId: string | undefined,
+	// When available, the wpcom blog id of the live site the pill is about to
+	// flip to. Used in the optimistic update so the derived-effective env can
+	// resolve to 'live' immediately, without waiting for the IPC round-trip to
+	// refresh `summary.lastSelectedWpcomSiteId`.
+	liveWpcomSiteId: number | undefined
+) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	const sessionKey = [ ...SESSIONS_QUERY_KEY, sessionId ];
@@ -60,9 +67,10 @@ export function useSetSessionEnvironment( sessionId: string | undefined ) {
 				}
 				return connector.setSessionEnvironment( sessionId, environment );
 			},
-			// Optimistically flip `activeEnvironment` so the pill (and anything
-			// else reading the summary) updates the moment the user clicks,
-			// rather than waiting for the IPC round-trip to the main process.
+			// Optimistically flip `activeEnvironment` + `lastSelectedWpcomSiteId`
+			// so the derived-effective env resolves correctly on the next render,
+			// rather than looking "stuck" on 'local' while the IPC round-trip
+			// writes the real `site.selected` event.
 			onMutate: async ( environment ) => {
 				if ( ! sessionId ) {
 					return { previous: undefined };
@@ -72,7 +80,12 @@ export function useSetSessionEnvironment( sessionId: string | undefined ) {
 				if ( previous ) {
 					queryClient.setQueryData< LoadedAiSession >( sessionKey, {
 						...previous,
-						summary: { ...previous.summary, activeEnvironment: environment },
+						summary: {
+							...previous.summary,
+							activeEnvironment: environment,
+							lastSelectedWpcomSiteId:
+								environment === 'live' ? liveWpcomSiteId : undefined,
+						},
 					} );
 				}
 				return { previous };

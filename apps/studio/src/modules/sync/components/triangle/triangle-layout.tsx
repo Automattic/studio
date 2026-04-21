@@ -114,58 +114,58 @@ export function TriangleLayout( { selectedSite }: Props ) {
 			/>
 
 			{ ( production || staging ) && (
-				<div className="grid grid-cols-2 items-start gap-4">
+				<div className="grid grid-cols-[1fr_auto_1fr] items-start gap-4">
 					<div className="flex justify-center">
 						{ production ? renderLocalSyncHub( 'production' ) : null }
 					</div>
+					<div />
 					<div className="flex justify-center">
 						{ staging ? renderLocalSyncHub( 'staging' ) : null }
 					</div>
 				</div>
 			) }
 
-			<div className="grid grid-cols-2 items-start gap-4">
+			<div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
 				{ productionSlot }
+				<div className="flex items-center justify-center">
+					{ production && staging ? (
+						<SyncGutter
+							from={ { kind: 'remote', label: 'Production' } }
+							to={ { kind: 'remote', label: 'Staging' } }
+							lastPushTimestamp={
+								syncState?.direction === 'push' && syncState.finished_at
+									? syncState.finished_at
+									: null
+							}
+							lastPullTimestamp={
+								syncState?.direction === 'pull' && syncState.finished_at
+									? syncState.finished_at
+									: null
+							}
+							// Prod (left) and Staging (right) sit side by side: Push goes right,
+							// Pull comes back left.
+							pushArrow="→"
+							pullArrow="←"
+							onPush={ () => {
+								void pushToStaging( {
+									productionSiteId: production.id,
+									stagingSiteId: staging.id,
+									options: DEFAULT_STAGING_OPTIONS,
+								} );
+							} }
+							onPull={ () => {
+								void pullFromStaging( {
+									productionSiteId: production.id,
+									stagingSiteId: staging.id,
+									options: DEFAULT_STAGING_OPTIONS,
+									allowWooSync: false,
+								} );
+							} }
+						/>
+					) : null }
+				</div>
 				{ stagingSlot }
 			</div>
-
-			{ production && staging && (
-				<div className="flex justify-center">
-					<SyncGutter
-						from={ { kind: 'remote', label: 'Production' } }
-						to={ { kind: 'remote', label: 'Staging' } }
-						lastPushTimestamp={
-							syncState?.direction === 'push' && syncState.finished_at
-								? syncState.finished_at
-								: null
-						}
-						lastPullTimestamp={
-							syncState?.direction === 'pull' && syncState.finished_at
-								? syncState.finished_at
-								: null
-						}
-						// Prod (left) and Staging (right) sit side by side: Push goes right,
-						// Pull comes back left.
-						pushArrow="→"
-						pullArrow="←"
-						onPush={ () => {
-							void pushToStaging( {
-								productionSiteId: production.id,
-								stagingSiteId: staging.id,
-								options: DEFAULT_STAGING_OPTIONS,
-							} );
-						} }
-						onPull={ () => {
-							void pullFromStaging( {
-								productionSiteId: production.id,
-								stagingSiteId: staging.id,
-								options: DEFAULT_STAGING_OPTIONS,
-								allowWooSync: false,
-							} );
-						} }
-					/>
-				</div>
-			) }
 
 			<ArchivedConnections
 				localSiteId={ selectedSite.id }

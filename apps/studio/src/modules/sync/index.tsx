@@ -191,11 +191,11 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	return (
 		<div className="flex flex-col h-full overflow-y-auto">
 			{ connectedSites.length > 0 ? (
-				<div className="h-full relative">
+				<div>
 					<TriangleLayout selectedSite={ selectedSite } />
-					<div className="sticky bottom-0 bg-frame/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
+					<div className="px-8 pb-6">
 						<ConnectButton
-							variant="primary"
+							variant="tertiary"
 							connectSite={ () => dispatch( connectedSitesActions.openModal( 'connect' ) ) }
 						>
 							{ __( 'Connect another site' ) }

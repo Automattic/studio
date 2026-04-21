@@ -1,9 +1,8 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Button, Tooltip } from '@wordpress/components';
+import { Tooltip } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useAuth } from 'src/hooks/use-auth';
 import { useAppDispatch, useRootSelector } from 'src/stores';
-import { syncOperationsSelectors } from 'src/stores/sync/sync-operations-slice';
 import {
 	useGetConnectedSitesForLocalSiteQuery,
 	connectedSitesActions,
@@ -12,16 +11,17 @@ import {
 	usePullFromStagingMutation,
 	usePushToStagingMutation,
 } from 'src/stores/sync/staging-site-api';
+import { syncOperationsSelectors } from 'src/stores/sync/sync-operations-slice';
 import { useStagingProvisioning } from '../../hooks/use-staging-provisioning';
 import { useSyncActions } from '../../hooks/use-sync-actions';
 import { deriveSlotAssignments } from '../../lib/slot-derivation';
 import { SyncDialog } from '../sync-dialog';
 import { ArchivedConnections } from './archived-connections';
+import { computeEdgeGeometry, type Point } from './edge-geometry';
 import { EnvironmentColumn } from './environment-column';
 import { ConnectProductionCard, CreateStagingCard } from './placeholder-card';
 import { ProvisioningColumn } from './provisioning-column';
 import { SyncGutter } from './sync-gutter';
-import { computeEdgeGeometry, type Point } from './edge-geometry';
 import type { SyncOption } from '@studio/common/types/sync';
 
 type CardRefs = {
@@ -116,13 +116,7 @@ type EdgeState = {
 
 const ARROW_OFFSET = 22;
 
-function Edge( {
-	anchors,
-	state,
-}: {
-	anchors: { a: Point; b: Point } | null;
-	state: EdgeState;
-} ) {
+function Edge( { anchors, state }: { anchors: { a: Point; b: Point } | null; state: EdgeState } ) {
 	if ( ! anchors ) return null;
 	const geom = computeEdgeGeometry( anchors.a, anchors.b, ARROW_OFFSET );
 	const pathClass = state.activeDirection
@@ -272,25 +266,6 @@ export function TriangleLayout( { selectedSite }: Props ) {
 
 	const openConnectModal = () => dispatch( connectedSitesActions.openModal( 'connect' ) );
 
-	const renderLocalSyncHub = ( target: 'production' | 'staging' ) => {
-		const site = target === 'production' ? production : staging;
-		if ( ! site ) return <div />;
-		return (
-			<SyncGutter
-				from={ { kind: 'local', label: 'Local' } }
-				to={ { kind: 'remote', label: target === 'production' ? 'Production' : 'Staging' } }
-				lastPushTimestamp={ site.lastPushTimestamp }
-				lastPullTimestamp={ site.lastPullTimestamp }
-				// Local is above the bottom remotes: Push goes down toward the remote,
-				// Pull comes up toward Local.
-				pushArrow="↓"
-				pullArrow="↑"
-				onPush={ () => syncActions.push( site ) }
-				onPull={ () => syncActions.pull( site ) }
-			/>
-		);
-	};
-
 	const productionSlot = production ? (
 		<EnvironmentColumn
 			kind="remote"
@@ -314,83 +289,164 @@ export function TriangleLayout( { selectedSite }: Props ) {
 		/>
 	);
 
+	const containerRef = useRef< HTMLDivElement >( null );
+	const localRef = useRef< HTMLDivElement >( null );
+	const productionRef = useRef< HTMLDivElement >( null );
+	const stagingRef = useRef< HTMLDivElement >( null );
+
+	const anchors = useEdgeAnchors( containerRef, {
+		local: localRef,
+		production: productionRef,
+		staging: stagingRef,
+	} );
+	const isNarrow = useIsNarrow( containerRef );
+
+	const localProdActive = useActiveDirection( selectedSite.id, production?.id );
+	const localStagingActive = useActiveDirection( selectedSite.id, staging?.id );
+
+	const localProdState: EdgeState = {
+		activeDirection: localProdActive,
+		muted: ! production,
+		onPush: production ? () => syncActions.push( production ) : undefined,
+		onPull: production ? () => syncActions.pull( production ) : undefined,
+		pushLabel: __( 'Push to Production' ),
+		pullLabel: __( 'Pull from Production' ),
+	};
+
+	const localStagingState: EdgeState = {
+		activeDirection: localStagingActive,
+		muted: ! staging,
+		onPush: staging ? () => syncActions.push( staging ) : undefined,
+		onPull: staging ? () => syncActions.pull( staging ) : undefined,
+		pushLabel: __( 'Push to Staging' ),
+		pullLabel: __( 'Pull from Staging' ),
+	};
+
+	const prodStagingState: EdgeState = {
+		activeDirection: null,
+		muted: ! production || ! staging,
+		onPush:
+			production && staging
+				? () =>
+						void pushToStaging( {
+							productionSiteId: production.id,
+							stagingSiteId: staging.id,
+							options: DEFAULT_STAGING_OPTIONS,
+						} )
+				: undefined,
+		onPull:
+			production && staging
+				? () =>
+						void pullFromStaging( {
+							productionSiteId: production.id,
+							stagingSiteId: staging.id,
+							options: DEFAULT_STAGING_OPTIONS,
+							allowWooSync: false,
+						} )
+				: undefined,
+		pushLabel: __( 'Copy Production to Staging' ),
+		pullLabel: __( 'Copy Staging to Production' ),
+	};
+
+	if ( isNarrow ) {
+		return (
+			<div ref={ containerRef } className="flex flex-col gap-3 p-6">
+				<div ref={ localRef }>
+					<EnvironmentColumn
+						kind="local"
+						label="Local"
+						orientation="portrait"
+						localSiteId={ selectedSite.id }
+						siteName={ selectedSite.name }
+						siteUrl={ selectedSite.running ? `http://localhost:${ selectedSite.port }` : '' }
+						isRunning={ selectedSite.running }
+					/>
+				</div>
+				{ production && (
+					<SyncGutter
+						from={ { kind: 'local', label: 'Local' } }
+						to={ { kind: 'remote', label: 'Production' } }
+						lastPushTimestamp={ production.lastPushTimestamp }
+						lastPullTimestamp={ production.lastPullTimestamp }
+						pushArrow="↓"
+						pullArrow="↑"
+						onPush={ () => syncActions.push( production ) }
+						onPull={ () => syncActions.pull( production ) }
+					/>
+				) }
+				<div ref={ productionRef }>{ productionSlot }</div>
+				{ staging && (
+					<SyncGutter
+						from={ { kind: 'local', label: 'Local' } }
+						to={ { kind: 'remote', label: 'Staging' } }
+						lastPushTimestamp={ staging.lastPushTimestamp }
+						lastPullTimestamp={ staging.lastPullTimestamp }
+						pushArrow="↓"
+						pullArrow="↑"
+						onPush={ () => syncActions.push( staging ) }
+						onPull={ () => syncActions.pull( staging ) }
+					/>
+				) }
+				<div ref={ stagingRef }>{ stagingSlot }</div>
+				<ArchivedConnections
+					localSiteId={ selectedSite.id }
+					archived={ archived }
+					isProductionOpen={ ! production }
+					isStagingOpen={ ! staging }
+				/>
+				{ syncActions.pendingSyncTarget && (
+					<SyncDialog
+						type={ syncActions.pendingSyncTarget.direction }
+						localSite={ selectedSite }
+						remoteSite={ syncActions.pendingSyncTarget.connectedSite }
+						onPush={ syncActions.commitPush }
+						onPull={ syncActions.commitPull }
+						onRequestClose={ syncActions.closeDialog }
+					/>
+				) }
+			</div>
+		);
+	}
+
 	return (
-		<div className="flex flex-col gap-3 p-6">
-			{ /*
-			  Triangle layout: Local at top; Production (left) and Staging (right) below.
-			  All three cards share the portrait layout. Sync hubs sit between Local and
-			  each bottom card, plus a compact arrow pair between Prod and Staging.
-			*/ }
-			<EnvironmentColumn
-				kind="local"
-				label="Local"
-				orientation="portrait"
-				localSiteId={ selectedSite.id }
-				siteName={ selectedSite.name }
-				siteUrl={ selectedSite.running ? `http://localhost:${ selectedSite.port }` : '' }
-				isRunning={ selectedSite.running }
-			/>
+		<div
+			ref={ containerRef }
+			className="relative grid grid-cols-[1fr_1fr] gap-x-12 p-6"
+			style={ { gridTemplateRows: 'auto 120px auto' } }
+		>
+			<svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible">
+				<Edge anchors={ anchors.localProd } state={ localProdState } />
+				<Edge anchors={ anchors.localStaging } state={ localStagingState } />
+				<Edge anchors={ anchors.prodStaging } state={ prodStagingState } />
+			</svg>
 
-			{ ( production || staging ) && (
-				<div className="grid grid-cols-[1fr_auto_1fr] items-start gap-4">
-					<div className="flex justify-center">
-						{ production ? renderLocalSyncHub( 'production' ) : null }
-					</div>
-					<div />
-					<div className="flex justify-center">
-						{ staging ? renderLocalSyncHub( 'staging' ) : null }
-					</div>
-				</div>
-			) }
+			<div ref={ localRef } className="col-span-2 row-start-1 justify-self-center">
+				<EnvironmentColumn
+					kind="local"
+					label="Local"
+					orientation="portrait"
+					localSiteId={ selectedSite.id }
+					siteName={ selectedSite.name }
+					siteUrl={ selectedSite.running ? `http://localhost:${ selectedSite.port }` : '' }
+					isRunning={ selectedSite.running }
+				/>
+			</div>
 
-			<div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+			<div ref={ productionRef } className="col-start-1 row-start-3">
 				{ productionSlot }
-				<div className="flex flex-col items-center justify-center gap-2">
-					{ production && staging ? (
-						<>
-							<Tooltip text={ __( 'Copy Production to Staging' ) }>
-								<Button
-									variant="secondary"
-									aria-label={ __( 'Copy Production to Staging' ) }
-									onClick={ () => {
-										void pushToStaging( {
-											productionSiteId: production.id,
-											stagingSiteId: staging.id,
-											options: DEFAULT_STAGING_OPTIONS,
-										} );
-									} }
-								>
-									→
-								</Button>
-							</Tooltip>
-							<Tooltip text={ __( 'Copy Staging to Production' ) }>
-								<Button
-									variant="secondary"
-									aria-label={ __( 'Copy Staging to Production' ) }
-									onClick={ () => {
-										void pullFromStaging( {
-											productionSiteId: production.id,
-											stagingSiteId: staging.id,
-											options: DEFAULT_STAGING_OPTIONS,
-											allowWooSync: false,
-										} );
-									} }
-								>
-									←
-								</Button>
-							</Tooltip>
-						</>
-					) : null }
-				</div>
+			</div>
+			<div ref={ stagingRef } className="col-start-2 row-start-3">
 				{ stagingSlot }
 			</div>
 
-			<ArchivedConnections
-				localSiteId={ selectedSite.id }
-				archived={ archived }
-				isProductionOpen={ ! production }
-				isStagingOpen={ ! staging }
-			/>
+			<div className="col-span-2 row-start-3 mt-4">
+				<ArchivedConnections
+					localSiteId={ selectedSite.id }
+					archived={ archived }
+					isProductionOpen={ ! production }
+					isStagingOpen={ ! staging }
+				/>
+			</div>
 
 			{ syncActions.pendingSyncTarget && (
 				<SyncDialog

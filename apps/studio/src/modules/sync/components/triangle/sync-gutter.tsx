@@ -74,18 +74,20 @@ export function SyncGutter( props: Props ) {
 		</Button>
 	);
 
-	const pushTooltip = props.lastPushTimestamp
+	const pushRelative = props.lastPushTimestamp ? formatTimeAgo( props.lastPushTimestamp ) : null;
+	const pullRelative = props.lastPullTimestamp ? formatTimeAgo( props.lastPullTimestamp ) : null;
+	const pushTooltip = pushRelative
 		? sprintf(
 				/* translators: %s: relative time such as "2 hours ago" */
 				__( 'Last pushed %s' ),
-				formatTimeAgo( props.lastPushTimestamp )
+				pushRelative
 		  )
 		: null;
-	const pullTooltip = props.lastPullTimestamp
+	const pullTooltip = pullRelative
 		? sprintf(
 				/* translators: %s: relative time such as "2 hours ago" */
 				__( 'Last pulled %s' ),
-				formatTimeAgo( props.lastPullTimestamp )
+				pullRelative
 		  )
 		: null;
 

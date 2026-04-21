@@ -117,6 +117,10 @@ export interface Connector {
 	// receive from a sync-connect-site deep link — later fetches backfill the
 	// display name and URL.
 	connectWpcomSite( localSiteId: string, site: SyncSite ): Promise< void >;
+	// Removes a local↔live connection. The remote WordPress.com site is
+	// unaffected — only the Studio-side mapping is dropped, so Pull/Push
+	// are no longer available until the user reconnects.
+	disconnectWpcomSite( localSiteId: string, remoteSiteId: number ): Promise< void >;
 	// Pushes the local site to a previously connected WordPress.com site.
 	// Replaces the remote contents with the local database and wp-content.
 	pushSiteToLive( siteId: string, remoteSiteId: number ): Promise< void >;

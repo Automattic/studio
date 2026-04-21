@@ -1,6 +1,9 @@
+import { deriveEffectiveEnvironment } from '@studio/common/ai/sessions/effective-site';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import { useConnector } from '@/data/core';
-import type { LoadedAiSession } from '@/data/core';
+import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
+import type { AiSessionSummary, LoadedAiSession } from '@/data/core';
 
 export const SESSIONS_QUERY_KEY = [ 'sessions' ] as const;
 
@@ -45,7 +48,14 @@ export function useCreateSession() {
 	} );
 }
 
-export function useSetSessionEnvironment( sessionId: string | undefined ) {
+export function useSetSessionEnvironment(
+	sessionId: string | undefined,
+	// When available, the wpcom blog id of the live site the pill is about to
+	// flip to. Used in the optimistic update so the derived-effective env can
+	// resolve to 'live' immediately, without waiting for the IPC round-trip to
+	// refresh `summary.lastSelectedWpcomSiteId`.
+	liveWpcomSiteId: number | undefined
+) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	const sessionKey = [ ...SESSIONS_QUERY_KEY, sessionId ];
@@ -57,9 +67,10 @@ export function useSetSessionEnvironment( sessionId: string | undefined ) {
 				}
 				return connector.setSessionEnvironment( sessionId, environment );
 			},
-			// Optimistically flip `activeEnvironment` so the pill (and anything
-			// else reading the summary) updates the moment the user clicks,
-			// rather than waiting for the IPC round-trip to the main process.
+			// Optimistically flip `activeEnvironment` + `lastSelectedWpcomSiteId`
+			// so the derived-effective env resolves correctly on the next render,
+			// rather than looking "stuck" on 'local' while the IPC round-trip
+			// writes the real `site.selected` event.
 			onMutate: async ( environment ) => {
 				if ( ! sessionId ) {
 					return { previous: undefined };
@@ -69,7 +80,11 @@ export function useSetSessionEnvironment( sessionId: string | undefined ) {
 				if ( previous ) {
 					queryClient.setQueryData< LoadedAiSession >( sessionKey, {
 						...previous,
-						summary: { ...previous.summary, activeEnvironment: environment },
+						summary: {
+							...previous.summary,
+							activeEnvironment: environment,
+							lastSelectedWpcomSiteId: environment === 'live' ? liveWpcomSiteId : undefined,
+						},
 					} );
 				}
 				return { previous };
@@ -87,4 +102,27 @@ export function useSetSessionEnvironment( sessionId: string | undefined ) {
 			},
 		}
 	);
+}
+
+/**
+ * Derive the *effective* environment for a session's next turn. Joins the
+ * session's stored `activeEnvironment` with the live connection state for its
+ * owner — a session flipped to Live whose remote is no longer connected
+ * naturally falls back to 'local' without any cleanup write to the JSONL.
+ */
+export function useSessionEffectiveEnvironment(
+	summary:
+		| Pick< AiSessionSummary, 'activeEnvironment' | 'lastSelectedWpcomSiteId' | 'ownerSitePath' >
+		| undefined,
+	ownerLocalSiteId: string | undefined
+): 'local' | 'live' {
+	const { data: connectedSites } = useConnectedWpcomSites( ownerLocalSiteId );
+
+	return useMemo( () => {
+		if ( ! summary ) {
+			return 'local';
+		}
+		const connectedLiveIds = new Set( ( connectedSites ?? [] ).map( ( site ) => site.id ) );
+		return deriveEffectiveEnvironment( summary, ( blogId ) => connectedLiveIds.has( blogId ) );
+	}, [ summary, connectedSites ] );
 }

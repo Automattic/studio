@@ -19,6 +19,7 @@ export async function readAiSessionSummaryFromEvents(
 	let ownerSiteName: string | undefined;
 	let selectedSiteName: string | undefined;
 	let activeEnvironment: 'local' | 'live' = 'local';
+	let lastSelectedWpcomSiteId: number | undefined;
 	let endReason: 'error' | 'stopped' | undefined;
 	let eventCount = 0;
 
@@ -42,15 +43,18 @@ export async function readAiSessionSummaryFromEvents(
 
 		if ( event.type === 'site.selected' ) {
 			selectedSiteName = event.siteName;
-			if ( ownerSitePath === undefined ) {
+			const isLive = event.remote === true;
+			activeEnvironment = isLive ? 'live' : 'local';
+			lastSelectedWpcomSiteId = isLive ? event.wpcomSiteId : undefined;
+
+			// Anchor the owner on the first *local* site. Remote-only sessions
+			// (CLI user picked a WP.com site as their very first site) stay
+			// ownerless — they belong in the sidebar's Unassigned group, which
+			// matches the fact that they never had a local home.
+			if ( ownerSitePath === undefined && ! isLive ) {
 				ownerSitePath = event.sitePath;
 				ownerSiteName = event.siteName;
 			}
-			activeEnvironment = event.remote === true ? 'live' : 'local';
-		}
-
-		if ( event.type === 'environment.selected' ) {
-			activeEnvironment = event.environment;
 		}
 
 		if ( event.type === 'user.message' && event.source === 'prompt' && ! firstPrompt ) {
@@ -81,6 +85,7 @@ export async function readAiSessionSummaryFromEvents(
 		ownerSiteName,
 		selectedSiteName,
 		activeEnvironment,
+		lastSelectedWpcomSiteId,
 		endReason,
 		eventCount,
 	};

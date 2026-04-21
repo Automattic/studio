@@ -248,6 +248,7 @@ describe( 'ai-sessions', () => {
 			id: recorder.sessionId,
 			firstPrompt: 'Create a homepage for me',
 			selectedSiteName: 'My WordPress Website',
+			ownerSitePath: '/tmp/my-wordpress-website',
 			endReason: 'stopped',
 		} );
 		expect( sessions[ 0 ].eventCount ).toBeGreaterThanOrEqual( 4 );
@@ -522,6 +523,7 @@ describe( 'ai-sessions', () => {
 				running: false,
 				remote: true,
 				url: 'https://my-remote-site.wordpress.com',
+				wpcomSiteId: undefined,
 			},
 			{ announce: true, emitEvent: false }
 		);

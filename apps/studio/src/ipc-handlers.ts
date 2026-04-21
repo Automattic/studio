@@ -19,6 +19,7 @@ import os from 'os';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { isAiModelId } from '@studio/common/ai/models';
+import { deriveEffectiveEnvironment } from '@studio/common/ai/sessions/effective-site';
 import {
 	appendAiSessionEvent,
 	createAiSession as createAiSessionInStore,
@@ -237,11 +238,62 @@ export async function createAiSession(
 	} );
 }
 
+/**
+ * If the session is flagged 'live' but the remote blog id it was targeting is
+ * no longer in the user's connected-sites list (e.g. the user disconnected
+ * the live site since the last flip), append a `site.selected` event that
+ * bumps the session back to its local owner. Keeps the CLI runtime — which
+ * only reads the event log — in sync with what the UI already shows.
+ *
+ * The pill already derives "Local" at render time via the same check; this
+ * just records the reconciliation on disk so the agent's system prompt and
+ * tool set reflect the same truth on the next turn.
+ */
+async function reconcileSessionEnvironmentBeforeRun( sessionId: string ): Promise< void > {
+	const root = getAiSessionsRootDirectory();
+	const { summary } = await loadAiSessionFromStore( root, sessionId );
+
+	if ( summary.activeEnvironment !== 'live' ) {
+		return;
+	}
+	if ( ! summary.ownerSitePath ) {
+		return;
+	}
+
+	const ownerServer = SiteServer.getByPath( summary.ownerSitePath );
+	if ( ! ownerServer ) {
+		return;
+	}
+
+	const currentUserId = await getCurrentUserId();
+	const userData = currentUserId ? await loadUserData() : undefined;
+	const connected = userData?.connectedWpcomSites?.[ currentUserId! ] ?? [];
+	const connectedForOwner = connected.filter(
+		( site ) => site.localSiteId === ownerServer.details.id
+	);
+	const connectedIds = new Set( connectedForOwner.map( ( site ) => site.id ) );
+
+	const effective = deriveEffectiveEnvironment( summary, ( blogId ) => connectedIds.has( blogId ) );
+	if ( effective === 'live' ) {
+		return;
+	}
+
+	// Live was disconnected since the last flip. Record the fallback so the
+	// CLI's replay sees Local on the next turn.
+	await appendAiSessionEvent( root, sessionId, {
+		type: 'site.selected',
+		timestamp: new Date().toISOString(),
+		siteName: ownerServer.details.name,
+		sitePath: summary.ownerSitePath,
+	} );
+}
+
 export async function continueAiSession(
 	event: IpcMainInvokeEvent,
 	sessionId: string,
 	prompt: string
 ): Promise< { runId: string } > {
+	await reconcileSessionEnvironmentBeforeRun( sessionId );
 	return startAgentRun( {
 		sessionId,
 		prompt,
@@ -274,7 +326,8 @@ export interface SetSessionEnvironmentResult {
 /**
  * Flip a session between operating on its owner site's local runtime vs. the
  * linked WordPress.com live site. The owner site itself never changes — this
- * only toggles which environment the agent targets on the next turn.
+ * writes a fresh `site.selected` event naming the concrete site (local or
+ * remote) the next turn will act on.
  *
  * Resolves the live endpoint here rather than accepting it from the renderer
  * so a buggy UI can't accidentally rebind the session to a different site.
@@ -290,17 +343,16 @@ export async function setSessionEnvironment(
 		throw new Error( 'Cannot change environment: session has no owner site' );
 	}
 
-	let url: string | undefined;
-	let wpcomSiteId: number | undefined;
+	const ownerServer = SiteServer.getByPath( summary.ownerSitePath );
+	if ( ! ownerServer ) {
+		throw new Error(
+			`Cannot change environment: owner site is no longer available (${ summary.ownerSitePath })`
+		);
+	}
+
+	const timestamp = new Date().toISOString();
 
 	if ( environment === 'live' ) {
-		const ownerServer = SiteServer.getByPath( summary.ownerSitePath );
-		if ( ! ownerServer ) {
-			throw new Error(
-				`Cannot change environment: owner site is no longer available (${ summary.ownerSitePath })`
-			);
-		}
-
 		const currentUserId = await getCurrentUserId();
 		const userData = currentUserId ? await loadUserData() : undefined;
 		const connected = userData?.connectedWpcomSites?.[ currentUserId! ] ?? [];
@@ -313,25 +365,40 @@ export async function setSessionEnvironment(
 			throw new Error( 'Cannot switch to live: no linked WordPress.com site for this session' );
 		}
 
-		url = liveSite.url;
-		wpcomSiteId = liveSite.id;
+		await appendAiSessionEvent( getAiSessionsRootDirectory(), sessionId, {
+			type: 'site.selected',
+			timestamp,
+			siteName: liveSite.name,
+			// Keep the owner's path on remote picks too, so the renderer (which
+			// groups the sidebar by `ownerSitePath`) still resolves the session
+			// to its owner while the active environment is live.
+			sitePath: summary.ownerSitePath,
+			remote: true,
+			url: liveSite.url,
+			wpcomSiteId: liveSite.id,
+		} );
+
+		const refreshed = await loadAiSessionFromStore( getAiSessionsRootDirectory(), sessionId );
+		return {
+			environment: 'live',
+			url: liveSite.url,
+			wpcomSiteId: liveSite.id,
+			summary: refreshed.summary,
+		};
 	}
 
+	const details = ownerServer.details;
 	await appendAiSessionEvent( getAiSessionsRootDirectory(), sessionId, {
-		type: 'environment.selected',
-		timestamp: new Date().toISOString(),
-		environment,
-		url,
-		wpcomSiteId,
+		type: 'site.selected',
+		timestamp,
+		siteName: details.name,
+		sitePath: details.path,
+		url: 'url' in details ? details.url : undefined,
 	} );
 
-	// Refresh the summary so the renderer can update without needing a second round-trip.
 	const refreshed = await loadAiSessionFromStore( getAiSessionsRootDirectory(), sessionId );
-
 	return {
-		environment,
-		url,
-		wpcomSiteId,
+		environment: 'local',
 		summary: refreshed.summary,
 	};
 }

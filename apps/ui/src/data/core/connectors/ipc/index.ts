@@ -267,6 +267,10 @@ export function createIpcConnector(): Connector {
 			await ipcApi.connectWpcomSites( [ { sites: [ site ], localSiteId } ] );
 		},
 
+		async disconnectWpcomSite( localSiteId, remoteSiteId ): Promise< void > {
+			await ipcApi.disconnectWpcomSites( [ { siteIds: [ remoteSiteId ], localSiteId } ] );
+		},
+
 		onSyncConnectSite( listener ) {
 			return ipcListener.subscribe(
 				'sync-connect-site',

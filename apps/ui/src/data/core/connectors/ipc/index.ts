@@ -19,11 +19,83 @@ import type {
 export function createIpcConnector(): Connector {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const ipcApi = ( window as any ).ipcApi;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const ipcListener = ( window as any ).ipcListener;
 
 	if ( ! ipcApi ) {
 		throw new Error(
 			'IPC API not available. Are you running inside Electron with the preload script?'
 		);
+	}
+
+	// Preview CLI commands are path-based, not id-based. Look up the matching
+	// site once per call so UI code can keep working with the stable site id.
+	async function resolveSiteFolder( siteId: string ): Promise< string > {
+		const sites = ( await ipcApi.getSiteDetails() ) as SiteDetails[];
+		const site = sites.find( ( candidate ) => candidate.id === siteId );
+		if ( ! site ) {
+			throw new Error( `Site ${ siteId } not found` );
+		}
+		return site.path;
+	}
+
+	// Bridges `createSnapshot`/`updateSnapshot`'s fire-and-forget IPC pattern
+	// into an awaitable promise. The main process emits `snapshot-key-value`
+	// with the final preview URL right before `snapshot-success`; fatal
+	// errors arrive via `snapshot-fatal-error`. All three are broadcast to
+	// every renderer subscriber, so we filter by operationId.
+	function awaitSnapshotOperation( operationId: string ): Promise< { url: string } > {
+		return new Promise( ( resolve, reject ) => {
+			let capturedUrl: string | undefined;
+			const unsubscribes: Array< () => void > = [];
+			const cleanup = () => {
+				for ( const unsubscribe of unsubscribes ) {
+					unsubscribe();
+				}
+			};
+
+			unsubscribes.push(
+				ipcListener.subscribe(
+					'snapshot-key-value',
+					(
+						_event: unknown,
+						payload: { operationId: string; data: { key: string; value: string } }
+					) => {
+						if ( payload.operationId === operationId && payload.data.key === 'url' ) {
+							capturedUrl = payload.data.value;
+						}
+					}
+				)
+			);
+			unsubscribes.push(
+				ipcListener.subscribe(
+					'snapshot-success',
+					( _event: unknown, payload: { operationId: string } ) => {
+						if ( payload.operationId !== operationId ) {
+							return;
+						}
+						cleanup();
+						if ( capturedUrl ) {
+							resolve( { url: capturedUrl } );
+						} else {
+							reject( new Error( 'Preview site command succeeded but no URL was returned.' ) );
+						}
+					}
+				)
+			);
+			unsubscribes.push(
+				ipcListener.subscribe(
+					'snapshot-fatal-error',
+					( _event: unknown, payload: { operationId: string; data: { message: string } } ) => {
+						if ( payload.operationId !== operationId ) {
+							return;
+						}
+						cleanup();
+						reject( new Error( payload.data.message ) );
+					}
+				)
+			);
+		} );
 	}
 
 	return {
@@ -150,9 +222,75 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.fetchSnapshots() ) as Snapshot[];
 		},
 
+		async publishPreviewSite( siteId, existingHostname ): Promise< { url: string } > {
+			const siteFolder = await resolveSiteFolder( siteId );
+			// Reuses the desktop app's `createSnapshot`/`updateSnapshot` IPC
+			// pair. Those kick off a CLI command and immediately return an
+			// operationId; the actual completion is reported later via the
+			// `snapshot-*` event channel, so we correlate by operationId and
+			// resolve once the matching `snapshot-success` fires.
+			const { operationId } = ( await ( existingHostname
+				? ipcApi.updateSnapshot( siteFolder, existingHostname )
+				: ipcApi.createSnapshot( siteFolder ) ) ) as { operationId: string };
+			return awaitSnapshotOperation( operationId );
+		},
+
 		// Connected WPCom sites
 		async getConnectedWpcomSites( localSiteId: string ): Promise< SyncSite[] > {
 			return ( await ipcApi.getConnectedWpcomSites( localSiteId ) ) as SyncSite[];
+		},
+
+		async fetchSyncableWpcomSites(): Promise< SyncSite[] > {
+			return ( await ipcApi.fetchSyncableWpcomSites() ) as SyncSite[];
+		},
+
+		async connectWpcomSite( localSiteId, site ): Promise< void > {
+			await ipcApi.connectWpcomSites( [ { sites: [ site ], localSiteId } ] );
+		},
+
+		onSyncConnectSite( listener ) {
+			return ipcListener.subscribe(
+				'sync-connect-site',
+				(
+					_event: unknown,
+					payload: { remoteSiteId: number; studioSiteId: string; autoOpenPush?: boolean }
+				) => listener( payload )
+			);
+		},
+
+		async pushSiteToLive( siteId, remoteSiteId ): Promise< void > {
+			// Mirrors the desktop app's `pushSiteThunk` — export a backup, then
+			// TUS-upload it + initiate the remote import. We skip the
+			// post-upload polling that the desktop app uses for progress UI;
+			// `pushArchive` only resolves after `import/initiate` succeeds, so
+			// the remote import may still be running when this returns.
+			const operationId = window.crypto.randomUUID();
+			const { archivePath } = ( await ipcApi.exportSiteForPush( siteId, operationId, {} ) ) as {
+				archivePath: string;
+			};
+			const result = ( await ipcApi.pushArchive( siteId, remoteSiteId, archivePath ) ) as {
+				success: boolean;
+				error?: string;
+			};
+			if ( ! result.success ) {
+				throw new Error( result.error ?? 'Push failed' );
+			}
+		},
+
+		async pullSiteFromLive( siteId, remoteSiteId ): Promise< void > {
+			const siteFolder = await resolveSiteFolder( siteId );
+			await ipcApi.pullSiteFromLive( siteFolder, remoteSiteId );
+		},
+
+		getPublishCheckoutUrl( site ): string {
+			const url = new URL( 'https://wordpress.com/setup/new-hosted-site' );
+			url.searchParams.set( 'ref', 'studio' );
+			url.searchParams.set( 'section', 'publish-site' );
+			url.searchParams.set( 'showDomainStep', 'true' );
+			url.searchParams.set( 'studioSiteId', site.id );
+			url.searchParams.set( 'new', site.customDomain ?? site.name );
+			url.searchParams.set( 'autoOpenPush', 'true' );
+			return url.toString();
 		},
 
 		// AI sessions

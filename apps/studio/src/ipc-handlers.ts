@@ -33,6 +33,7 @@ import {
 } from '@studio/common/lib/agent-skills';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
+import { extractZip } from '@studio/common/lib/extract-zip';
 import {
 	calculateDirectorySizeForArchive,
 	isWordPressDirectory,
@@ -693,6 +694,11 @@ export async function createSite(
 		} );
 
 		throw error;
+	} finally {
+		if ( blueprint?.filePath ) {
+			const blueprintDir = nodePath.dirname( nodePath.resolve( blueprint.filePath ) );
+			await removeBlueprintTempDir( blueprintDir ).catch( () => {} );
+		}
 	}
 }
 
@@ -1921,6 +1927,59 @@ export async function readBlueprintFile(
 
 	const fileContents = await fsPromises.readFile( resolvedPath, 'utf-8' );
 	return JSON.parse( fileContents );
+}
+
+export async function extractBlueprintBundle(
+	_event: IpcMainInvokeEvent,
+	zipFilePath: string
+): Promise< {
+	blueprintJson: Blueprint[ 'blueprint' ];
+	blueprintJsonPath: string;
+	tempDir: string;
+} > {
+	const resolvedZipPath = nodePath.resolve( zipFilePath );
+	const tempDir = await fsPromises.mkdtemp(
+		nodePath.join( os.tmpdir(), 'studio-blueprint-bundle-' )
+	);
+
+	try {
+		await extractZip( resolvedZipPath, tempDir );
+
+		const blueprintJsonPath = nodePath.join( tempDir, 'blueprint.json' );
+		try {
+			await fsPromises.access( blueprintJsonPath );
+		} catch {
+			throw new Error(
+				__(
+					'No blueprint.json found in the ZIP file. Please ensure the ZIP contains a blueprint.json at its root.'
+				)
+			);
+		}
+
+		const fileContents = await fsPromises.readFile( blueprintJsonPath, 'utf-8' );
+		const blueprintJson = JSON.parse( fileContents );
+
+		return { blueprintJson, blueprintJsonPath, tempDir };
+	} catch ( error ) {
+		await fsPromises.rm( tempDir, { recursive: true, force: true } );
+		throw error;
+	}
+}
+
+async function removeBlueprintTempDir( tempDir: string ): Promise< void > {
+	const allowedPrefix = nodePath.join( os.tmpdir(), 'studio-blueprint-bundle-' );
+	const resolvedDir = nodePath.resolve( tempDir );
+	if ( ! resolvedDir.startsWith( allowedPrefix ) ) {
+		throw new Error( 'Invalid temp directory path' );
+	}
+	await fsPromises.rm( resolvedDir, { recursive: true, force: true } );
+}
+
+export async function cleanupBlueprintTempDir(
+	_event: IpcMainInvokeEvent,
+	tempDir: string
+): Promise< void > {
+	await removeBlueprintTempDir( tempDir );
 }
 
 export async function setWindowControlVisibility( event: IpcMainInvokeEvent, visible: boolean ) {

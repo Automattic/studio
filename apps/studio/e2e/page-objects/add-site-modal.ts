@@ -26,7 +26,9 @@ export default class AddSiteModal {
 	}
 
 	get fileInput() {
-		return this.page.locator( 'input[type="file"][accept=".json,application/json"]' );
+		return this.page.locator(
+			'input[type="file"][accept=".json,.zip,application/json,application/zip"]'
+		);
 	}
 
 	get backupFileInput() {

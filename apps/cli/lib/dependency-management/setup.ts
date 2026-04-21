@@ -152,37 +152,6 @@ async function copyBundledSqliteCommand() {
 	} );
 }
 
-async function copyBundledTranslations() {
-	const sourceTranslationsPath = path.join(
-		getWpFilesPath(),
-		'latest',
-		'available-site-translations.json'
-	);
-	const targetTranslationsPath = path.join(
-		getWordPressVersionPath( 'latest' ),
-		'available-site-translations.json'
-	);
-
-	const sourceStats = await fs.promises.lstat( sourceTranslationsPath );
-	let shouldCopy = false;
-
-	try {
-		const targetStats = await fs.promises.lstat( targetTranslationsPath );
-		shouldCopy =
-			sourceStats.size !== targetStats.size ||
-			Math.floor( sourceStats.mtimeMs ) !== Math.floor( targetStats.mtimeMs );
-	} catch {
-		shouldCopy = true;
-	}
-
-	if ( shouldCopy ) {
-		await fs.promises.cp( sourceTranslationsPath, targetTranslationsPath, {
-			mode: fs.constants.COPYFILE_FICLONE,
-			preserveTimestamps: true,
-		} );
-	}
-}
-
 async function copyBundledPhpMyAdmin() {
 	await copySourceDirectoryIfNewerOrMissing( {
 		sourceDirectoryPath: path.join( getWpFilesPath(), 'phpmyadmin' ),
@@ -226,7 +195,6 @@ export async function setupServerFiles() {
 		[ 'SQLite integration', copyBundledSqlite ],
 		[ 'WP-CLI', copyBundledWpCli ],
 		[ 'SQLite command', copyBundledSqliteCommand ],
-		[ 'translations', copyBundledTranslations ],
 		[ 'language packs', copyBundledLanguagePacks ],
 		[ 'phpMyAdmin', copyBundledPhpMyAdmin ],
 	];

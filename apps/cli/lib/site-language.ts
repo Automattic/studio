@@ -3,8 +3,8 @@ import path from 'path';
 import { Locale } from '@formatjs/intl-locale';
 import { match } from '@formatjs/intl-localematcher';
 import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
-import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 import { getAppLocale } from 'cli/lib/i18n';
+import { getWpFilesPath } from 'cli/lib/server-files';
 
 interface TranslationsData {
 	translations: Translation[];
@@ -28,8 +28,7 @@ const SKIP_LOCALE_TAGS = [ 'formal', 'informal' ];
 
 function getLatestVersionTranslations(): TranslationsData | undefined {
 	const latestVersionTranslationsPath = path.join(
-		getServerFilesPath(),
-		'wordpress-versions',
+		getWpFilesPath(),
 		'latest',
 		'available-site-translations.json'
 	);

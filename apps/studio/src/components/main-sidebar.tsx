@@ -17,12 +17,7 @@ export default function MainSidebar( { className, style }: MainSidebarProps ) {
 	return (
 		<div
 			data-testid="main-sidebar"
-			className={ cx(
-				'text-chrome-inverted relative',
-				isMac() && 'pt-[10px]',
-				! isMac() && 'pt-[38px]',
-				className
-			) }
+			className={ cx( 'text-chrome-inverted relative pt-[10px]', className ) }
 			style={ style }
 		>
 			{ ! localSites.length ? (

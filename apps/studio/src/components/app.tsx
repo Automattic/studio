@@ -19,6 +19,7 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { Onboarding } from 'src/modules/onboarding';
 import { useOnboarding } from 'src/modules/onboarding/hooks/use-onboarding';
+import { SyncStatusDock } from 'src/modules/sync/components/sync-status-dock/sync-status-dock';
 import { UserSettings } from 'src/modules/user-settings';
 import { WhatsNewModal, useWhatsNew } from 'src/modules/whats-new';
 import { useAppDispatch, useRootSelector } from 'src/stores';
@@ -102,6 +103,7 @@ export default function App() {
 			) }
 			<UserSettings />
 			<WhatsNewModal showModal={ shouldShowWhatsNew } onClose={ closeWhatsNew } />
+			<SyncStatusDock />
 		</>
 	);
 }

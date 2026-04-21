@@ -1,4 +1,4 @@
-import chalk from 'chalk';
+import chalk from '@studio/common/lib/chalk';
 import type { TodoEntry } from 'cli/ai/todo-stream';
 
 export interface TodoRenderLine {

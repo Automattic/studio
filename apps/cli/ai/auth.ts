@@ -2,6 +2,7 @@ import {
 	AI_PROVIDER_PRIORITY,
 	DEFAULT_AI_PROVIDER,
 	getAiProviderDefinition,
+	hasInlineWpcomAuth,
 	type AiProviderId,
 } from 'cli/ai/providers';
 import { readCliConfig, updateCliConfigWithPartial } from 'cli/lib/cli-config/core';
@@ -49,6 +50,10 @@ export async function resolveUnavailableAiProvider(
 }
 
 export async function resolveInitialAiProvider(): Promise< AiProviderId > {
+	if ( hasInlineWpcomAuth() ) {
+		return 'wpcom';
+	}
+
 	const { aiProvider: savedProvider } = await readCliConfig();
 	if ( savedProvider ) {
 		const definition = getAiProviderDefinition( savedProvider );

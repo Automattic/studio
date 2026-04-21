@@ -18,6 +18,14 @@ import https from 'node:https';
 import os from 'os';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
+import { isAiModelId } from '@studio/common/ai/models';
+import {
+	appendAiSessionEvent,
+	createAiSession as createAiSessionInStore,
+	deleteAiSession as deleteAiSessionFromStore,
+	listAiSessions as listAiSessionsFromStore,
+	loadAiSession as loadAiSessionFromStore,
+} from '@studio/common/ai/sessions/store';
 import {
 	installSkillToSite,
 	removeSkillFromSite,
@@ -40,7 +48,11 @@ import { isMultisite } from '@studio/common/lib/is-multisite';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
-import { readSharedConfig, updateSharedConfig } from '@studio/common/lib/shared-config';
+import {
+	getCurrentUserId,
+	readSharedConfig,
+	updateSharedConfig,
+} from '@studio/common/lib/shared-config';
 import { shouldExcludeFromSync, shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
@@ -51,6 +63,7 @@ import {
 	WINDOWS_TITLEBAR_HEIGHT,
 } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
+import { getAiSessionsRootDirectory } from 'src/lib/ai-sessions';
 import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
 import {
 	bumpStat,
@@ -98,6 +111,7 @@ import {
 	removeSkillById,
 	type SkillStatus,
 } from 'src/modules/agent-instructions/lib/skills';
+import { answerAgentRun, interruptAgentRun, startAgentRun } from 'src/modules/ai-agent/run-manager';
 import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
@@ -115,6 +129,7 @@ import {
 } from 'src/storage/user-data';
 import { Blueprint } from 'src/stores/wpcom-api';
 import { captureSiteThumbnail } from './lib/capture-site-thumbnail';
+import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { WpCliResult } from 'src/site-server';
 
@@ -162,6 +177,176 @@ export {
 	saveUserTerminal,
 	showUserSettings,
 } from 'src/modules/user-settings/lib/ipc-handlers';
+
+export {
+	studioCodeSendMessage,
+	studioCodeRespondToPermission,
+	studioCodeAbort,
+	studioCodeCheckProvider,
+} from 'src/modules/studio-code/ipc-handlers';
+
+export async function listAiSessions( _event: IpcMainInvokeEvent ): Promise< AiSessionSummary[] > {
+	return listAiSessionsFromStore( getAiSessionsRootDirectory() );
+}
+
+export async function loadAiSession(
+	_event: IpcMainInvokeEvent,
+	sessionIdOrPrefix: string
+): Promise< LoadedAiSession > {
+	return loadAiSessionFromStore( getAiSessionsRootDirectory(), sessionIdOrPrefix );
+}
+
+export async function deleteAiSession(
+	_event: IpcMainInvokeEvent,
+	sessionIdOrPrefix: string
+): Promise< AiSessionSummary > {
+	return deleteAiSessionFromStore( getAiSessionsRootDirectory(), sessionIdOrPrefix );
+}
+
+export async function createAiSession(
+	_event: IpcMainInvokeEvent,
+	siteId: string
+): Promise< AiSessionSummary > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( `Site not found: ${ siteId }` );
+	}
+	const sitePath = server.details.path;
+	const sitesRoot = getAiSessionsRootDirectory();
+
+	// Reuse the newest existing empty session for this site (one that has
+	// never received a user prompt) instead of creating another one. This
+	// lets `/sites/$siteId/new` act as a stable "draft slot" per site — the
+	// UI can redirect to it eagerly without piling up orphan sessions.
+	const existing = await listAiSessionsFromStore( sitesRoot );
+	const emptyForSite = existing
+		.filter( ( session ) => session.ownerSitePath === sitePath && ! session.firstPrompt )
+		.sort( ( a, b ) => Date.parse( b.updatedAt ) - Date.parse( a.updatedAt ) )[ 0 ];
+	if ( emptyForSite ) {
+		return emptyForSite;
+	}
+
+	return createAiSessionInStore( sitesRoot, {
+		site: {
+			name: server.details.name,
+			path: sitePath,
+		},
+	} );
+}
+
+export async function continueAiSession(
+	event: IpcMainInvokeEvent,
+	sessionId: string,
+	prompt: string
+): Promise< { runId: string } > {
+	return startAgentRun( {
+		sessionId,
+		prompt,
+		webContents: event.sender,
+	} );
+}
+
+export async function setAiSessionModel(
+	_event: IpcMainInvokeEvent,
+	sessionId: string,
+	model: string
+): Promise< void > {
+	if ( ! isAiModelId( model ) ) {
+		throw new Error( `Unknown AI model: ${ model }` );
+	}
+	await appendAiSessionEvent( getAiSessionsRootDirectory(), sessionId, {
+		type: 'session.model_selected',
+		timestamp: new Date().toISOString(),
+		model,
+	} );
+}
+
+export interface SetSessionEnvironmentResult {
+	environment: 'local' | 'live';
+	url?: string;
+	wpcomSiteId?: number;
+	summary: AiSessionSummary;
+}
+
+/**
+ * Flip a session between operating on its owner site's local runtime vs. the
+ * linked WordPress.com live site. The owner site itself never changes — this
+ * only toggles which environment the agent targets on the next turn.
+ *
+ * Resolves the live endpoint here rather than accepting it from the renderer
+ * so a buggy UI can't accidentally rebind the session to a different site.
+ */
+export async function setSessionEnvironment(
+	_event: IpcMainInvokeEvent,
+	sessionId: string,
+	environment: 'local' | 'live'
+): Promise< SetSessionEnvironmentResult > {
+	const { summary } = await loadAiSessionFromStore( getAiSessionsRootDirectory(), sessionId );
+
+	if ( ! summary.ownerSitePath || ! summary.ownerSiteName ) {
+		throw new Error( 'Cannot change environment: session has no owner site' );
+	}
+
+	let url: string | undefined;
+	let wpcomSiteId: number | undefined;
+
+	if ( environment === 'live' ) {
+		const ownerServer = SiteServer.getByPath( summary.ownerSitePath );
+		if ( ! ownerServer ) {
+			throw new Error(
+				`Cannot change environment: owner site is no longer available (${ summary.ownerSitePath })`
+			);
+		}
+
+		const currentUserId = await getCurrentUserId();
+		const userData = currentUserId ? await loadUserData() : undefined;
+		const connected = userData?.connectedWpcomSites?.[ currentUserId! ] ?? [];
+		const candidates = connected.filter( ( s ) => s.localSiteId === ownerServer.details.id );
+		// Prefer the production (non-staging) site to match the UI's
+		// `pickLiveSite` behavior in the site dropdown.
+		const liveSite = candidates.find( ( s ) => ! s.isStaging ) ?? candidates[ 0 ];
+
+		if ( ! liveSite ) {
+			throw new Error( 'Cannot switch to live: no linked WordPress.com site for this session' );
+		}
+
+		url = liveSite.url;
+		wpcomSiteId = liveSite.id;
+	}
+
+	await appendAiSessionEvent( getAiSessionsRootDirectory(), sessionId, {
+		type: 'environment.selected',
+		timestamp: new Date().toISOString(),
+		environment,
+		url,
+		wpcomSiteId,
+	} );
+
+	// Refresh the summary so the renderer can update without needing a second round-trip.
+	const refreshed = await loadAiSessionFromStore( getAiSessionsRootDirectory(), sessionId );
+
+	return {
+		environment,
+		url,
+		wpcomSiteId,
+		summary: refreshed.summary,
+	};
+}
+
+export async function interruptAiAgentRun(
+	_event: IpcMainInvokeEvent,
+	runId: string
+): Promise< void > {
+	interruptAgentRun( runId );
+}
+
+export async function answerAiAgentQuestion(
+	_event: IpcMainInvokeEvent,
+	runId: string,
+	answers: Record< string, string >
+): Promise< void > {
+	answerAgentRun( runId, answers );
+}
 
 export async function getAgentInstructionsStatus(
 	_event: IpcMainInvokeEvent,
@@ -303,7 +488,7 @@ export async function removeWordPressSkillFromAllSites(
 }
 
 const DEBUG_LOG_MAX_LINES = 50;
-const PM2_HOME = nodePath.join( os.homedir(), '.studio', 'pm2' );
+const PROCESS_MANAGER_HOME = nodePath.join( os.homedir(), '.studio', 'daemon' );
 const DEFAULT_ENCODED_PASSWORD = encodePassword( 'password' );
 
 function readLastLines( filePath: string, maxLines: number ): string[] | undefined {
@@ -324,8 +509,8 @@ function readWordPressDebugLog( sitePath: string ): string[] | undefined {
 	return readLastLines( debugLogPath, DEBUG_LOG_MAX_LINES );
 }
 
-function readPm2Logs( siteId: string ): { stdout?: string[]; stderr?: string[] } {
-	const logsDir = nodePath.join( PM2_HOME, 'logs' );
+function readProcessManagerLogs( siteId: string ): { stdout?: string[]; stderr?: string[] } {
+	const logsDir = nodePath.join( PROCESS_MANAGER_HOME, 'logs' );
 	const stdoutPath = nodePath.join( logsDir, `studio-site-${ siteId }-out.log` );
 	const stderrPath = nodePath.join( logsDir, `studio-site-${ siteId }-error.log` );
 
@@ -492,12 +677,12 @@ export async function createSite(
 			contexts.debugLog = { entries: debugLog };
 		}
 
-		const pm2Logs = readPm2Logs( siteId );
-		if ( pm2Logs.stdout && pm2Logs.stdout.length > 0 ) {
-			contexts.playgroundLogs = { entries: pm2Logs.stdout };
+		const processManagerLogs = readProcessManagerLogs( siteId );
+		if ( processManagerLogs.stdout && processManagerLogs.stdout.length > 0 ) {
+			contexts.playgroundLogs = { entries: processManagerLogs.stdout };
 		}
-		if ( pm2Logs.stderr && pm2Logs.stderr.length > 0 ) {
-			contexts.playgroundErrors = { entries: pm2Logs.stderr };
+		if ( processManagerLogs.stderr && processManagerLogs.stderr.length > 0 ) {
+			contexts.playgroundErrors = { entries: processManagerLogs.stderr };
 		}
 
 		Sentry.captureException( error, {
@@ -619,12 +804,12 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 			contexts.debugLog = { entries: debugLog };
 		}
 
-		const pm2Logs = readPm2Logs( id );
-		if ( pm2Logs.stdout && pm2Logs.stdout.length > 0 ) {
-			contexts.playgroundLogs = { entries: pm2Logs.stdout };
+		const processManagerLogs = readProcessManagerLogs( id );
+		if ( processManagerLogs.stdout && processManagerLogs.stdout.length > 0 ) {
+			contexts.playgroundLogs = { entries: processManagerLogs.stdout };
 		}
-		if ( pm2Logs.stderr && pm2Logs.stderr.length > 0 ) {
-			contexts.playgroundErrors = { entries: pm2Logs.stderr };
+		if ( processManagerLogs.stderr && processManagerLogs.stderr.length > 0 ) {
+			contexts.playgroundErrors = { entries: processManagerLogs.stderr };
 		}
 
 		Sentry.captureException( error, {
@@ -896,8 +1081,16 @@ export async function openSiteURL(
 		return;
 	}
 
-	let url = new URL( relativeURL, site.server.url );
-	if ( autoLogin ) {
+	// When the caller didn't ask for a specific path (the generic "Open site"
+	// entry points pass `''`), honor the Blueprint-provided `landingPage` if
+	// the site has one. Explicit relative paths (e.g. `/wp-admin/`) still win.
+	const usingLandingPage = ! relativeURL && !! site.details.landingPage;
+	const targetPath = relativeURL || site.details.landingPage || '';
+	let url = new URL( targetPath, site.server.url );
+	// Blueprint landing pages may point at admin screens; force auto-login so
+	// users don't get bounced to the login page. This matches Playground's
+	// "always-logged-in sandbox" behavior for Blueprint-imported sites.
+	if ( autoLogin || usingLandingPage ) {
 		const autoLoginUrl = new URL( '/studio-auto-login', site.server.url );
 		autoLoginUrl.searchParams.append( 'redirect_to', url.toString() );
 		url = autoLoginUrl;

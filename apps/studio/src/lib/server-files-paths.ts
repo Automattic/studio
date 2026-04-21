@@ -64,3 +64,11 @@ function getBundledWpFilesPath(): string {
 export function getAiInstructionsPath(): string {
 	return path.join( getBundledWpFilesPath(), 'skills' );
 }
+
+/**
+ * The path to the bundled SQLite database integration plugin that ships with the
+ * CLI. Installed into each site's `wp-content/mu-plugins/` directory.
+ */
+export function getBundledSqlitePluginPath(): string {
+	return path.join( getBundledWpFilesPath(), SQLITE_FILENAME );
+}

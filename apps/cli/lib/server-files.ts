@@ -39,8 +39,10 @@ export function getWpCliPharPath(): string {
 	return path.join( getWpFilesPath(), 'wp-cli', WP_CLI_PHAR_FILENAME );
 }
 
+// SQLite command ships read-only with the CLI bundle and is mounted into the PHP-wasm
+// VFS at `/tmp/sqlite-command`. No writable cache needed.
 export function getSqliteCommandPath(): string {
-	return path.join( getServerFilesPath(), SQLITE_COMMAND_DIRNAME );
+	return path.join( getWpFilesPath(), SQLITE_COMMAND_DIRNAME );
 }
 
 export function getLanguagePacksPath(): string {

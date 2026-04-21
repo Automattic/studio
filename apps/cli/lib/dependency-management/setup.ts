@@ -6,7 +6,6 @@ import { readCliConfig, updateCliConfigWithPartial } from 'cli/lib/cli-config/co
 import {
 	getLanguagePacksPath,
 	getPhpMyAdminPath,
-	getSqliteCommandPath,
 	getWordPressVersionPath,
 	getWpFilesPath,
 } from '../server-files';
@@ -92,21 +91,6 @@ async function copyBundledLatestWpVersion() {
 	}
 }
 
-async function copyBundledSqliteCommand() {
-	await copySourceDirectoryIfNewerOrMissing( {
-		sourceDirectoryPath: path.join( getWpFilesPath(), 'sqlite-command' ),
-		targetDirectoryPath: getSqliteCommandPath(),
-		readSourceVersion: async () => {
-			const versionFilePath = path.join( getWpFilesPath(), 'sqlite-command', 'version' );
-			return semver.coerce( fs.readFileSync( versionFilePath, 'utf8' ) );
-		},
-		readTargetVersion: async () => {
-			const versionFilePath = path.join( getSqliteCommandPath(), 'version' );
-			return semver.coerce( fs.readFileSync( versionFilePath, 'utf8' ) );
-		},
-	} );
-}
-
 async function copyBundledPhpMyAdmin() {
 	await copySourceDirectoryIfNewerOrMissing( {
 		sourceDirectoryPath: path.join( getWpFilesPath(), 'phpmyadmin' ),
@@ -147,7 +131,6 @@ async function copyBundledLanguagePacks() {
 export async function setupServerFiles() {
 	const steps: [ string, () => Promise< void > ][] = [
 		[ 'WordPress version', copyBundledLatestWpVersion ],
-		[ 'SQLite command', copyBundledSqliteCommand ],
 		[ 'language packs', copyBundledLanguagePacks ],
 		[ 'phpMyAdmin', copyBundledPhpMyAdmin ],
 	];

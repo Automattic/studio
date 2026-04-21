@@ -297,14 +297,14 @@ export function TriangleLayout( { selectedSite }: Props ) {
 			kind="remote"
 			label="Production"
 			site={ production }
-			orientation="portrait"
+			orientation="landscape"
 		/>
 	) : (
 		<ConnectProductionCard onClick={ openConnectModal } />
 	);
 
 	const stagingSlot = staging ? (
-		<EnvironmentColumn kind="remote" label="Staging" site={ staging } orientation="portrait" />
+		<EnvironmentColumn kind="remote" label="Staging" site={ staging } orientation="landscape" />
 	) : provisioning.state === 'idle' ? (
 		<CreateStagingCard onClick={ provisioning.start } />
 	) : (
@@ -381,7 +381,7 @@ export function TriangleLayout( { selectedSite }: Props ) {
 					<EnvironmentColumn
 						kind="local"
 						label="Local"
-						orientation="portrait"
+						orientation="landscape"
 						localSiteId={ selectedSite.id }
 						siteName={ selectedSite.name }
 						siteUrl={ selectedSite.running ? `http://localhost:${ selectedSite.port }` : '' }
@@ -453,7 +453,7 @@ export function TriangleLayout( { selectedSite }: Props ) {
 				<EnvironmentColumn
 					kind="local"
 					label="Local"
-					orientation="portrait"
+					orientation="landscape"
 					localSiteId={ selectedSite.id }
 					siteName={ selectedSite.name }
 					siteUrl={ selectedSite.running ? `http://localhost:${ selectedSite.port }` : '' }

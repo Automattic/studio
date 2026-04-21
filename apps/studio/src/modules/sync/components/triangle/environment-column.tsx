@@ -3,7 +3,6 @@ import { __, sprintf } from '@wordpress/i18n';
 import { Badge } from 'src/components/badge';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { EnvironmentBadge } from 'src/modules/sync/components/environment-badge';
-import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
 import { useEnvironmentSummary } from '../../hooks/use-environment-summary';
 import type { SyncSite } from '@studio/common/types/sync';
 
@@ -63,7 +62,7 @@ type PreviewFrameProps = {
 };
 
 function PreviewFrame( { children, siteIconUrl, badge, orientation }: PreviewFrameProps ) {
-	const size = orientation === 'landscape' ? 'h-28 w-44 shrink-0' : 'aspect-[3/2] w-full shrink-0';
+	const size = orientation === 'landscape' ? 'h-24 w-36 shrink-0' : 'aspect-[3/2] w-full shrink-0';
 	return (
 		<div className={ `relative overflow-hidden bg-frame-surface ${ size }` }>
 			{ children }
@@ -129,12 +128,16 @@ export function EnvironmentColumn( props: Props ) {
 			? 'border-[#069e08]/30 bg-[#069e08]/5'
 			: 'border-[#f7ba42]/40 bg-[#f7ba42]/5';
 
+	// Drive the badge from the slot label, not from site metadata. This avoids
+	// mislabeling a wpcom staging site whose data happens to have `isStaging: false`.
+	const remoteBadgeType = props.kind === 'remote' && props.label === 'Staging' ? 'staging' : 'production';
+
 	const preview =
 		props.kind === 'remote' ? (
 			<PreviewFrame
 				orientation={ orientation }
 				siteIconUrl={ props.site.siteIconUrl }
-				badge={ <EnvironmentBadge type={ getSiteEnvironment( props.site ) } /> }
+				badge={ <EnvironmentBadge type={ remoteBadgeType } /> }
 			>
 				<MshotImage url={ props.site.url } />
 			</PreviewFrame>
@@ -202,17 +205,14 @@ export function EnvironmentColumn( props: Props ) {
 
 	return (
 		<div
-			className={
-				'flex flex-row items-center gap-4 overflow-hidden rounded-lg border pr-4 ' + rowTint
-			}
+			className={ 'flex flex-row overflow-hidden rounded-lg border ' + rowTint }
 		>
 			{ preview }
-
-			<div className="flex min-w-0 flex-1 flex-col gap-1">
-				<div className="a8c-subtitle truncate text-frame-text">{ name }</div>
+			<div className="flex min-w-0 flex-1 flex-col gap-0.5 p-3">
+				<div className="a8c-subtitle-small truncate text-frame-text">{ name }</div>
 				<a
 					href={ url }
-					className="a8c-link-text truncate text-frame-theme hover:text-frame-theme-hover hover:underline"
+					className="a8c-helper-text truncate text-frame-theme hover:text-frame-theme-hover hover:underline"
 				>
 					{ stripProtocol( url ) }
 				</a>
@@ -222,35 +222,33 @@ export function EnvironmentColumn( props: Props ) {
 						{ props.site.planName ? ` · ${ props.site.planName }` : '' }
 					</div>
 				) }
+				<dl className="mt-1.5 flex flex-row gap-4">
+					<Stat
+						label={ __( 'Posts' ) }
+						value={ summary.counts.posts }
+						loading={ summary.isLoading }
+					/>
+					<Stat
+						label={ __( 'Pages' ) }
+						value={ summary.counts.pages }
+						loading={ summary.isLoading }
+					/>
+				</dl>
+				{ ( lastPush || lastPull ) && (
+					<div className="a8c-helper-text mt-1 text-frame-text-secondary">
+						{ lastPush && (
+							<div>
+								{ __( 'Pushed' ) } { formatRelative( lastPush ) }
+							</div>
+						) }
+						{ lastPull && (
+							<div>
+								{ __( 'Pulled' ) } { formatRelative( lastPull ) }
+							</div>
+						) }
+					</div>
+				) }
 			</div>
-
-			<dl className="flex shrink-0 flex-row gap-6">
-				<Stat
-					label={ __( 'Posts' ) }
-					value={ summary.counts.posts }
-					loading={ summary.isLoading }
-				/>
-				<Stat
-					label={ __( 'Pages' ) }
-					value={ summary.counts.pages }
-					loading={ summary.isLoading }
-				/>
-			</dl>
-
-			{ ( lastPush || lastPull ) && (
-				<div className="a8c-helper-text shrink-0 text-right text-frame-text-secondary">
-					{ lastPush && (
-						<div>
-							{ __( 'Pushed' ) } { formatRelative( lastPush ) }
-						</div>
-					) }
-					{ lastPull && (
-						<div>
-							{ __( 'Pulled' ) } { formatRelative( lastPull ) }
-						</div>
-					) }
-				</div>
-			) }
 		</div>
 	);
 }

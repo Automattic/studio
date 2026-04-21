@@ -204,9 +204,6 @@ export interface UserPreferences {
 	editor: SupportedEditor | null;
 	terminal: SupportedTerminal | null;
 	colorScheme: ColorScheme;
-	// Resolved locale string (e.g. "en", "fr-FR"). May be any locale the main
-	// process resolves — including ones not in our translation catalog — so
-	// consumers should narrow with `isSupportedLocale` before acting on it.
 	locale: string | undefined;
 }
 

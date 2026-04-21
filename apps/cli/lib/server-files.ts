@@ -46,10 +46,8 @@ export function getSqliteCommandPath(): string {
 	return path.join( getServerFilesPath(), SQLITE_COMMAND_DIRNAME );
 }
 
-// Language packs ship read-only with the CLI bundle and are copied into each site's
-// `wp-content/languages/` directory on site create. No writable cache needed.
 export function getLanguagePacksPath(): string {
-	return path.join( getWpFilesPath(), 'latest', 'languages' );
+	return path.join( getServerFilesPath(), 'language-packs' );
 }
 
 // AI instructions ship read-only with the CLI bundle and are installed into each site's

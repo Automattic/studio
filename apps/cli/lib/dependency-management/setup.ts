@@ -5,6 +5,7 @@ import semver from 'semver';
 import { readCliConfig, updateCliConfigWithPartial } from 'cli/lib/cli-config/core';
 import { getSqliteVersionFromInstallation } from 'cli/lib/sqlite-integration';
 import {
+	getLanguagePacksPath,
 	getPhpMyAdminPath,
 	getSqliteCommandPath,
 	getSqlitePluginPath,
@@ -12,6 +13,7 @@ import {
 	getWpCliPharPath,
 	getWpFilesPath,
 } from '../server-files';
+import { areDirectoriesDifferentBySizeAndMtime } from './utils';
 import { getWordPressVersionFromInstallation, updateLatestWordPressVersion } from './wordpress';
 
 type VersionReader = () => Promise< semver.SemVer | null >;
@@ -198,6 +200,26 @@ async function copyBundledPhpMyAdmin() {
 	} );
 }
 
+async function copyBundledLanguagePacks() {
+	const sourceLanguagePacksPath = path.join( getWpFilesPath(), 'latest', 'languages' );
+	if ( ! fs.existsSync( sourceLanguagePacksPath ) ) {
+		return;
+	}
+	const targetLanguagePacksPath = getLanguagePacksPath();
+	const isSourceDirectoryDifferent = await areDirectoriesDifferentBySizeAndMtime(
+		sourceLanguagePacksPath,
+		targetLanguagePacksPath
+	);
+	if ( isSourceDirectoryDifferent ) {
+		try {
+			await fs.promises.rm( targetLanguagePacksPath, { recursive: true, force: true } );
+		} catch {
+			// Do nothing if the target directory is missing or corrupted
+		}
+		await recursiveCopyDirectory( sourceLanguagePacksPath, targetLanguagePacksPath );
+	}
+}
+
 export async function setupServerFiles() {
 	const steps: [ string, () => Promise< void > ][] = [
 		[ 'WordPress version', copyBundledLatestWpVersion ],
@@ -205,6 +227,7 @@ export async function setupServerFiles() {
 		[ 'WP-CLI', copyBundledWpCli ],
 		[ 'SQLite command', copyBundledSqliteCommand ],
 		[ 'translations', copyBundledTranslations ],
+		[ 'language packs', copyBundledLanguagePacks ],
 		[ 'phpMyAdmin', copyBundledPhpMyAdmin ],
 	];
 

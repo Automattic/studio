@@ -1,3 +1,4 @@
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Button, Tooltip } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { useAuth } from 'src/hooks/use-auth';
@@ -19,7 +20,89 @@ import { EnvironmentColumn } from './environment-column';
 import { ConnectProductionCard, CreateStagingCard } from './placeholder-card';
 import { ProvisioningColumn } from './provisioning-column';
 import { SyncGutter } from './sync-gutter';
+import { type Point } from './edge-geometry';
 import type { SyncOption } from '@studio/common/types/sync';
+
+type CardRefs = {
+	local: React.RefObject< HTMLDivElement >;
+	production: React.RefObject< HTMLDivElement >;
+	staging: React.RefObject< HTMLDivElement >;
+};
+
+type Anchors = {
+	localProd: { a: Point; b: Point } | null;
+	localStaging: { a: Point; b: Point } | null;
+	prodStaging: { a: Point; b: Point } | null;
+};
+
+const EMPTY_ANCHORS: Anchors = { localProd: null, localStaging: null, prodStaging: null };
+
+function anchorPoint(
+	card: HTMLDivElement | null,
+	container: HTMLDivElement | null,
+	side: 'bottom-left' | 'bottom-right' | 'top' | 'left' | 'right',
+	inset = 24
+): Point | null {
+	if ( ! card || ! container ) return null;
+	const c = container.getBoundingClientRect();
+	const r = card.getBoundingClientRect();
+	switch ( side ) {
+		case 'bottom-left':
+			return { x: r.left + inset - c.left, y: r.bottom - c.top };
+		case 'bottom-right':
+			return { x: r.right - inset - c.left, y: r.bottom - c.top };
+		case 'top':
+			return { x: r.left + r.width / 2 - c.left, y: r.top - c.top };
+		case 'left':
+			return { x: r.left - c.left, y: r.top + r.height / 2 - c.top };
+		case 'right':
+			return { x: r.right - c.left, y: r.top + r.height / 2 - c.top };
+	}
+}
+
+function useEdgeAnchors(
+	containerRef: React.RefObject< HTMLDivElement >,
+	refs: CardRefs
+): Anchors {
+	const [ anchors, setAnchors ] = useState< Anchors >( EMPTY_ANCHORS );
+
+	useLayoutEffect( () => {
+		const recompute = () => {
+			const container = containerRef.current;
+			const local = refs.local.current;
+			const prod = refs.production.current;
+			const staging = refs.staging.current;
+			const localBL = anchorPoint( local, container, 'bottom-left' );
+			const localBR = anchorPoint( local, container, 'bottom-right' );
+			const prodTop = anchorPoint( prod, container, 'top' );
+			const prodRight = anchorPoint( prod, container, 'right' );
+			const stagingTop = anchorPoint( staging, container, 'top' );
+			const stagingLeft = anchorPoint( staging, container, 'left' );
+			setAnchors( {
+				localProd: localBL && prodTop ? { a: localBL, b: prodTop } : null,
+				localStaging: localBR && stagingTop ? { a: localBR, b: stagingTop } : null,
+				prodStaging: prodRight && stagingLeft ? { a: prodRight, b: stagingLeft } : null,
+			} );
+		};
+
+		recompute();
+		const observed = [
+			containerRef.current,
+			refs.local.current,
+			refs.production.current,
+			refs.staging.current,
+		].filter( ( el ): el is HTMLDivElement => el !== null );
+		const ro = new ResizeObserver( recompute );
+		observed.forEach( ( el ) => ro.observe( el ) );
+		window.addEventListener( 'resize', recompute );
+		return () => {
+			ro.disconnect();
+			window.removeEventListener( 'resize', recompute );
+		};
+	}, [ containerRef, refs.local, refs.production, refs.staging ] );
+
+	return anchors;
+}
 
 type Props = {
 	selectedSite: SiteDetails;

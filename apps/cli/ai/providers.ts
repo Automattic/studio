@@ -65,6 +65,14 @@ async function hasValidWpcomAuth(): Promise< boolean > {
 	return token !== null;
 }
 
+function readInlineWpcomToken(): string | null {
+	return process.env.STUDIO_WPCOM_TOKEN?.trim() || null;
+}
+
+export function hasInlineWpcomAuth(): boolean {
+	return readInlineWpcomToken() !== null;
+}
+
 function createBaseEnvironment(): Record< string, string > {
 	const env = { ...( process.env as Record< string, string > ) };
 
@@ -89,22 +97,23 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 		id: 'wpcom',
 		autoFallbackWhenUnavailable: true,
 		isVisible: async () => true,
-		isReady: hasValidWpcomAuth,
+		isReady: async () => hasInlineWpcomAuth() || ( await hasValidWpcomAuth() ),
 		prepare: async () => {
-			if ( await hasValidWpcomAuth() ) {
+			if ( hasInlineWpcomAuth() || ( await hasValidWpcomAuth() ) ) {
 				return;
 			}
 
 			throw new LoggerError( __( 'WordPress.com login required. Use /login to authenticate.' ) );
 		},
 		resolveEnv: async () => {
-			const token = await readAuthToken();
-			if ( ! token ) {
+			const inlineToken = readInlineWpcomToken();
+			const accessToken = inlineToken ?? ( await readAuthToken() )?.accessToken;
+			if ( ! accessToken ) {
 				throw new LoggerError( __( 'WordPress.com login required. Use /login to authenticate.' ) );
 			}
 			const env = createBaseEnvironment();
 			env.ANTHROPIC_BASE_URL = getWpcomAiGatewayBaseUrl();
-			env.ANTHROPIC_AUTH_TOKEN = token.accessToken;
+			env.ANTHROPIC_AUTH_TOKEN = accessToken;
 			env.ANTHROPIC_CUSTOM_HEADERS = buildAnthropicCustomHeaders( {
 				'X-WPCOM-AI-Feature': WPCOM_AI_FEATURE_HEADER,
 			} );

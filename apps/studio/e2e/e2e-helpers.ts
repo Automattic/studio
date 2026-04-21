@@ -158,12 +158,13 @@ export class E2ESession {
 			contentType: 'text/plain',
 		} );
 
-		// DEBUG: attach daemon log (captures PHP-wasm errors from the long-running
-		// WordPress server process, which runs detached from the CLI). The daemon
-		// writes to the real user's ~/.studio/daemon/ dir, not E2E_SHARED_CONFIG_PATH.
+		// DEBUG: attach daemon + per-site server logs (captures PHP-wasm errors from the
+		// long-running WordPress server process, which runs detached from the CLI).
+		// The daemon writes to ~/.studio/daemon/; per-site logs under daemon/logs/.
 		try {
 			const os = await import( 'os' );
-			const daemonLogPath = path.join( os.homedir(), '.studio', 'daemon', 'daemon-debug.log' );
+			const daemonDir = path.join( os.homedir(), '.studio', 'daemon' );
+			const daemonLogPath = path.join( daemonDir, 'daemon-debug.log' );
 			if ( await fs.pathExists( daemonLogPath ) ) {
 				const daemonLog = await fs.readFile( daemonLogPath, 'utf8' );
 				await testInfo.attach( 'daemon-debug.log', {
@@ -171,8 +172,31 @@ export class E2ESession {
 					contentType: 'text/plain',
 				} );
 			}
+
+			const logsDir = path.join( daemonDir, 'logs' );
+			if ( await fs.pathExists( logsDir ) ) {
+				const entries = await fs.readdir( logsDir );
+				const combined: string[] = [];
+				for ( const entry of entries ) {
+					const filePath = path.join( logsDir, entry );
+					try {
+						const content = await fs.readFile( filePath, 'utf8' );
+						if ( content.trim() ) {
+							combined.push( `===== ${ entry } =====\n${ content }\n` );
+						}
+					} catch {
+						// skip unreadable entries
+					}
+				}
+				if ( combined.length > 0 ) {
+					await testInfo.attach( 'daemon-process-logs.log', {
+						body: Buffer.from( combined.join( '\n' ), 'utf8' ),
+						contentType: 'text/plain',
+					} );
+				}
+			}
 		} catch ( error ) {
-			console.error( 'Failed to attach daemon log:', error );
+			console.error( 'Failed to attach daemon logs:', error );
 		}
 	}
 

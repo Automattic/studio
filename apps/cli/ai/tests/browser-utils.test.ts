@@ -54,19 +54,6 @@ describe( 'browser-utils', () => {
 		} );
 	} );
 
-	it( 'includes configured channels as fallbacks for external environments', () => {
-		vi.stubEnv( 'STUDIO_MCP_BROWSER_CHANNEL', 'chrome' );
-
-		const options = buildChromiumLaunchAttempts( {
-			executablePath: () => '/missing/chromium',
-		} );
-
-		expect( options ).toContainEqual( {
-			args: [ '--ignore-certificate-errors' ],
-			channel: 'chrome',
-		} );
-	} );
-
 	it( 'tries to install Playwright Chromium when the managed browser is missing', async () => {
 		const installBrowser = vi.fn().mockResolvedValue( undefined );
 		let installed = false;
@@ -75,7 +62,6 @@ describe( 'browser-utils', () => {
 			{
 				executablePath: () => ( installed ? process.execPath : '/missing/chromium' ),
 			},
-			{},
 			async () => {
 				installed = true;
 				await installBrowser();
@@ -91,7 +77,6 @@ describe( 'browser-utils', () => {
 			{
 				executablePath: () => '/missing/chromium',
 			},
-			{},
 			async () => {
 				throw new Error( 'network unavailable' );
 			}
@@ -101,21 +86,22 @@ describe( 'browser-utils', () => {
 		expect( error ).toContain( 'network unavailable' );
 	} );
 
-	it( 'skips Playwright auto-install when an explicit browser override is configured', async () => {
-		vi.stubEnv( 'STUDIO_MCP_BROWSER_CHANNEL', 'chrome' );
+	it( 'still auto-installs Playwright Chromium when an override path is configured but unavailable', async () => {
+		vi.stubEnv( 'STUDIO_MCP_BROWSER_EXECUTABLE_PATH', '/missing/custom-chromium' );
 		const installBrowser = vi.fn().mockResolvedValue( undefined );
+		let installed = false;
 
 		const error = await ensurePlaywrightChromiumInstalled(
 			{
-				executablePath: () => '/missing/chromium',
+				executablePath: () => ( installed ? process.execPath : '/missing/chromium' ),
 			},
-			{
-				configuredChannel: 'chrome',
-			},
-			installBrowser
+			async () => {
+				installed = true;
+				await installBrowser();
+			}
 		);
 
 		expect( error ).toBeNull();
-		expect( installBrowser ).not.toHaveBeenCalled();
+		expect( installBrowser ).toHaveBeenCalledTimes( 1 );
 	} );
 } );

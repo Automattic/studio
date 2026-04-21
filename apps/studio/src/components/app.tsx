@@ -106,9 +106,7 @@ export default function App() {
 							<div
 								className={ cx(
 									'w-[3px] rounded-[2px] transition-opacity duration-150 bg-[#3858e9]',
-									isDragging
-										? 'opacity-100'
-										: 'opacity-0 group-hover:opacity-100'
+									isDragging ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
 								) }
 							/>
 						</div>

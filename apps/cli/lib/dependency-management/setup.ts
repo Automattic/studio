@@ -205,20 +205,29 @@ async function copyBundledAiInstructions() {
 }
 
 async function copyBundledPhpMyAdmin() {
-	await copySourceDirectoryIfNewerOrMissing( {
-		sourceDirectoryPath: path.join( getWpFilesPath(), 'phpmyadmin' ),
-		targetDirectoryPath: getPhpMyAdminPath(),
-		readSourceVersion: async () => {
-			const composerFilePath = path.join( getWpFilesPath(), 'phpmyadmin', 'composer.json' );
-			const composerFile = JSON.parse( fs.readFileSync( composerFilePath, 'utf8' ) );
-			return semver.coerce( composerFile.version );
-		},
-		readTargetVersion: async () => {
-			const composerFilePath = path.join( getPhpMyAdminPath(), 'composer.json' );
-			const composerFile = JSON.parse( fs.readFileSync( composerFilePath, 'utf8' ) );
-			return semver.coerce( composerFile.version );
-		},
-	} );
+	const sourcePhpMyAdminPath = path.join( getWpFilesPath(), 'phpmyadmin' );
+	if ( ! fs.existsSync( sourcePhpMyAdminPath ) ) {
+		return;
+	}
+
+	// The upstream `composer.json` version rarely changes, but we inject
+	// Playground-specific files (e.g. `DbiMysqli.php`) at build time that do change
+	// between Studio releases. Compare by size and mtime so those updates land.
+	const targetPhpMyAdminPath = getPhpMyAdminPath();
+	const isSourceDirectoryDifferent = await areDirectoriesDifferentBySizeAndMtime(
+		sourcePhpMyAdminPath,
+		targetPhpMyAdminPath
+	);
+	if ( ! isSourceDirectoryDifferent ) {
+		return;
+	}
+
+	try {
+		await fs.promises.rm( targetPhpMyAdminPath, { recursive: true, force: true } );
+	} catch {
+		// Do nothing if the target directory is missing or corrupted
+	}
+	await recursiveCopyDirectory( sourcePhpMyAdminPath, targetPhpMyAdminPath );
 }
 
 async function copyBundledLanguagePacks() {

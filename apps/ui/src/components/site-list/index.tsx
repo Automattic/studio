@@ -235,7 +235,7 @@ function SiteActionsMenu( { site }: { site: SiteDetails } ) {
 						/>
 					}
 				/>
-				<Menu.Popup side="bottom" align="start">
+				<Menu.Popup side="bottom" align="end">
 					{ site.running ? (
 						<Menu.Item disabled={ busy } onClick={ () => stopSite.mutate( site.id ) }>
 							{ __( 'Stop site' ) }

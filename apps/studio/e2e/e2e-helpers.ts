@@ -181,11 +181,12 @@ export class E2ESession {
 					const filePath = path.join( logsDir, entry );
 					try {
 						const content = await fs.readFile( filePath, 'utf8' );
-						if ( content.trim() ) {
-							combined.push( `===== ${ entry } =====\n${ content }\n` );
-						}
-					} catch {
-						// skip unreadable entries
+						const size = content.length;
+						combined.push(
+							`===== ${ entry } (${ size } bytes) =====\n${ content.trim() || '<EMPTY>' }\n`
+						);
+					} catch ( readErr ) {
+						combined.push( `===== ${ entry } =====\n<UNREADABLE: ${ readErr }>\n` );
 					}
 				}
 				if ( combined.length > 0 ) {

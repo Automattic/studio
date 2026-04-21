@@ -1,11 +1,12 @@
-/* Styling mirrors @wordpress/components Popover: neutral-strong surface,
-   neutral stroke, medium radius, medium elevation shadow.
-   Z-index follows @wordpress/ui's convention (tooltip/dialog): a CSS variable
-   with `initial` as the default. This lets sibling layers like tooltips
-   stack naturally above the menu by DOM order — a hardcoded z-index would
-   trap the tooltip (which also resolves to `initial`) underneath. */
+/* The positioner portal mounts into `document.body`, so it competes with
+   any app-chrome element that creates a stacking context (the sticky
+   sidebar header is `z-index: 1`, the floating toggle is `z-index: 10`).
+   Without a z-index here, `initial` loses to those and the popup gets
+   clipped by the sidebar / session-view header. Pin it to a high value so
+   menus always float above app chrome, while still staying below tooltips
+   which are rendered later in DOM order. */
 .positioner {
-	z-index: var(--wp-ui-menu-z-index, initial);
+	z-index: 100;
 	outline: none;
 }
 
@@ -14,7 +15,7 @@
 	padding: var(--wpds-dimension-padding-xs);
 	background: var(--wpds-color-bg-surface-neutral-strong);
 	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral-weak);
-	border-radius: var(--wpds-border-radius-md);
+	border-radius: var(--wpds-border-radius-lg);
 	box-shadow: var(--wpds-elevation-md);
 	color: var(--wpds-color-fg-content-neutral);
 	display: flex;

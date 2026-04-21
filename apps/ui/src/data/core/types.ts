@@ -93,9 +93,42 @@ export interface Connector {
 
 	// Preview snapshots (WordPress.com hosted previews of local sites)
 	getSnapshots(): Promise< Snapshot[] >;
+	// Creates a new preview snapshot for the given site, or refreshes the
+	// existing one when `existingHostname` is supplied. Resolves with the
+	// final preview URL when the CLI command completes.
+	publishPreviewSite( siteId: string, existingHostname?: string ): Promise< { url: string } >;
 
 	// Connected WordPress.com live sites for a given local site
 	getConnectedWpcomSites( localSiteId: string ): Promise< SyncSite[] >;
+	// All WordPress.com sites the authenticated user can sync with, regardless
+	// of which (if any) local site they're already connected to. The publish
+	// picker filters this list to sites that aren't connected anywhere yet.
+	fetchSyncableWpcomSites(): Promise< SyncSite[] >;
+	// Persists a new local↔live connection so the dropdown picks it up via
+	// `getConnectedWpcomSites`. Safe to call with the minimal `SyncSite` we
+	// receive from a sync-connect-site deep link — later fetches backfill the
+	// display name and URL.
+	connectWpcomSite( localSiteId: string, site: SyncSite ): Promise< void >;
+	// Pushes the local site to a previously connected WordPress.com site.
+	// Replaces the remote contents with the local database and wp-content.
+	pushSiteToLive( siteId: string, remoteSiteId: number ): Promise< void >;
+	// Pulls the connected WordPress.com site's database + wp-content back
+	// into the local Studio site. Stops the local server while the backup
+	// imports and restarts it on completion.
+	pullSiteFromLive( siteId: string, remoteSiteId: number ): Promise< void >;
+	// URL to open in the browser when the user wants to publish a site that
+	// isn't connected to WordPress.com yet (checkout + deep-link back to the
+	// desktop app). Returns `undefined` when the connector can't provide one.
+	getPublishCheckoutUrl( site: SiteDetails ): string | undefined;
+	// Fires when a WordPress.com "Connect to Studio" flow deep-links back
+	// into the app after the user picks a site on wordpress.com.
+	onSyncConnectSite(
+		listener: ( event: {
+			remoteSiteId: number;
+			studioSiteId: string;
+			autoOpenPush?: boolean;
+		} ) => void
+	): () => void;
 
 	// AI sessions (shared with the CLI — stored as JSONL on disk)
 	getSessions(): Promise< AiSessionSummary[] >;

@@ -89,13 +89,26 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 			} ) );
 
 			const filePath = getIpcApi().getPathForFile( file );
+			console.log( '[IMPORT DEBUG][renderer use-import-export] calling importSite', {
+				siteId: selectedSite.id,
+				filePath,
+				showImportNotification,
+				isNewSite,
+			} );
 
 			try {
 				await getIpcApi().importSite( selectedSite.id, filePath, {
 					alwaysStartServer: true,
 					showNotification: showImportNotification,
 				} );
+				console.log( '[IMPORT DEBUG][renderer use-import-export] importSite resolved', {
+					siteId: selectedSite.id,
+				} );
 			} catch ( error ) {
+				console.error( '[IMPORT DEBUG][renderer use-import-export] importSite rejected', {
+					siteId: selectedSite.id,
+					error,
+				} );
 				// The main process handles displaying the error modal, so we don't need any explicit error
 				// handling here.
 			}
@@ -116,8 +129,15 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 
 	useIpcListener( 'on-import', ( _, [ event, data ], siteId ) => {
 		if ( ! siteId ) {
+			console.warn( '[IMPORT DEBUG][renderer use-import-export] on-import event missing siteId', {
+				event,
+			} );
 			return;
 		}
+		console.log( '[IMPORT DEBUG][renderer use-import-export] on-import event received', {
+			siteId,
+			event,
+		} );
 
 		switch ( event ) {
 			case BackupExtractEvents.BACKUP_EXTRACT_START: {

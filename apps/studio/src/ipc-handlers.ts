@@ -1159,8 +1159,25 @@ export async function openAppAtPath(
 export function showMessageBox( event: IpcMainInvokeEvent, options: Electron.MessageBoxOptions ) {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	if ( parentWindow && ! parentWindow.isDestroyed() && ! event.sender.isDestroyed() ) {
+		console.error( 'WINDOW DOES EXIST WHEN DISPLAYING MODAL', {
+			type: options.type,
+			title: options.title,
+			message: options.message,
+			detail: options.detail,
+			buttons: options.buttons,
+		} );
 		return dialog.showMessageBox( parentWindow, options );
 	}
+	console.error( 'WINDOW DOES NOT EXIST WHEN DISPLAYING MODAL', {
+		type: options.type,
+		title: options.title,
+		message: options.message,
+		detail: options.detail,
+		buttons: options.buttons,
+		parentWindowExists: !! parentWindow,
+		parentWindowDestroyed: !! parentWindow?.isDestroyed(),
+		senderDestroyed: event.sender.isDestroyed(),
+	} );
 	return dialog.showMessageBox( options );
 }
 

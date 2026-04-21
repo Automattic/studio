@@ -112,6 +112,12 @@ export function executeCliCommand(
 	options: ExecuteCliCommandOptions = { output: 'ignore' }
 ): [ CliCommandEventEmitter< boolean >, ChildProcess ] {
 	const cliPath = getCliPath();
+	const isImportCommand = args[ 0 ] === 'import';
+	const logImportDebug = ( ...messages: unknown[] ) => {
+		if ( isImportCommand ) {
+			console.log( '[IMPORT DEBUG][executeCliCommand]', ...messages );
+		}
+	};
 
 	let stdio: StdioOptions | undefined;
 	/**
@@ -134,10 +140,12 @@ export function executeCliCommand(
 	const eventEmitter = new TypedEventEmitter< CliCommandEventMap< boolean > >();
 
 	child.on( 'spawn', () => {
+		logImportDebug( 'child spawned', { pid: child.pid, args } );
 		eventEmitter.emit( 'started' );
 	} );
 
 	child.on( 'error', ( error ) => {
+		logImportDebug( 'child process error', error );
 		console.error( 'Child process error:', error );
 		Sentry.captureException( error );
 		eventEmitter.emit( 'error', { error } );
@@ -156,6 +164,12 @@ export function executeCliCommand(
 		child.stdout?.on( 'data', ( data: Buffer ) => {
 			const text = data.toString();
 			stdout += text;
+			if ( isImportCommand ) {
+				const trimmed = text.trim();
+				if ( trimmed ) {
+					logImportDebug( 'stdout chunk', trimmed );
+				}
+			}
 			if ( logPrefix ) {
 				const trimmed = text.trimEnd();
 				if ( trimmed ) {
@@ -165,6 +179,12 @@ export function executeCliCommand(
 		} );
 		child.stderr?.on( 'data', ( data: Buffer ) => {
 			stderr += data.toString();
+			if ( isImportCommand ) {
+				const trimmed = data.toString().trim();
+				if ( trimmed ) {
+					logImportDebug( 'stderr chunk', trimmed );
+				}
+			}
 		} );
 	}
 
@@ -172,6 +192,15 @@ export function executeCliCommand(
 		const errorParsed = cliErrorMessageSchema.safeParse( message );
 		if ( errorParsed.success ) {
 			lastErrorMessage = errorParsed.data.message;
+			logImportDebug( 'received CLI fail message payload', {
+				lastErrorMessage,
+			} );
+		} else if ( isImportCommand ) {
+			const importEvent = ( message as { event?: unknown } )?.event;
+			logImportDebug( 'received CLI message', {
+				hasEvent: !! importEvent,
+				eventName: Array.isArray( importEvent ) ? importEvent[ 0 ] : undefined,
+			} );
 		}
 
 		eventEmitter.emit( 'data', { data: message } );
@@ -192,6 +221,7 @@ export function executeCliCommand(
 	}
 
 	child.on( 'close', ( exitCode, signal ) => {
+		logImportDebug( 'child close event', { exitCode, signal } );
 		child.removeAllListeners();
 		app.off( 'will-quit', appQuitHandler );
 
@@ -202,6 +232,7 @@ export function executeCliCommand(
 		}
 
 		if ( exitCode === 0 ) {
+			logImportDebug( 'emitting success event' );
 			eventEmitter.emit( 'success', { result } );
 		} else {
 			const error = new CliCommandError( {
@@ -211,11 +242,23 @@ export function executeCliCommand(
 				signal,
 			} );
 			if ( options.output === 'capture' ) {
+				logImportDebug( 'emitting failure event with captured output', {
+					exitCode,
+					signal,
+				} );
 				eventEmitter.emit( 'failure', { error, result } );
 			} else {
+				logImportDebug( 'emitting failure event without captured output', {
+					exitCode,
+					signal,
+				} );
 				eventEmitter.emit( 'failure', { error } );
 			}
 		}
+	} );
+
+	child.on( 'exit', ( exitCode, signal ) => {
+		logImportDebug( 'child exit event', { exitCode, signal } );
 	} );
 
 	app.on( 'will-quit', appQuitHandler );

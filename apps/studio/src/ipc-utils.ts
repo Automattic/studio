@@ -79,6 +79,27 @@ export function sendIpcEventToRendererWithWindow< T extends keyof IpcEvents >(
 	...args: IpcEvents[ T ]
 ): void {
 	if ( window && ! window.isDestroyed() && ! window.webContents.isDestroyed() ) {
+		if ( channel === 'on-import' || channel === 'on-export' ) {
+			const [ eventTuple, siteId ] = args as unknown as [ [ string, unknown? ], string ];
+			console.log( '[IMPORT/EXPORT DEBUG][ipc-utils] sending renderer event', {
+				channel,
+				event: eventTuple?.[ 0 ],
+				siteId,
+			} );
+		}
 		window.webContents.send( channel, ...args );
+		return;
+	}
+
+	if ( channel === 'on-import' || channel === 'on-export' ) {
+		const [ eventTuple, siteId ] = args as unknown as [ [ string, unknown? ], string ];
+		console.warn( '[IMPORT/EXPORT DEBUG][ipc-utils] skipped renderer event: invalid window', {
+			channel,
+			event: eventTuple?.[ 0 ],
+			siteId,
+			hasWindow: !! window,
+			windowDestroyed: !! window?.isDestroyed(),
+			webContentsDestroyed: !! window?.webContents?.isDestroyed(),
+		} );
 	}
 }

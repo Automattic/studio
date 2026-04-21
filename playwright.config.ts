@@ -2,6 +2,8 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig( {
 	testDir: './apps/studio/e2e',
+	// Temporary: limit e2e runs to the import/export spec while debugging Windows failures.
+	testMatch: 'import-export.test.ts',
 	snapshotPathTemplate: '{testDir}/__screenshots__/{testFilePath}/{arg}{ext}',
 
 	// The app only allows a single instance to be running at a time, so we can

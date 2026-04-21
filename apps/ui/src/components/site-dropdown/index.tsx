@@ -6,11 +6,7 @@ import {
 	connectedWpcomSitesQueryKey,
 	useConnectedWpcomSites,
 } from '@/data/queries/use-connected-wpcom-sites';
-import {
-	usePublishPreviewSite,
-	usePullSiteFromLive,
-	usePushSiteToLive,
-} from '@/data/queries/use-site-publish';
+import { usePublishPreviewSite } from '@/data/queries/use-preview-site';
 import {
 	useIsSiteStarting,
 	useIsSiteStopping,
@@ -18,6 +14,7 @@ import {
 	useStopSite,
 } from '@/data/queries/use-sites';
 import { useSnapshots } from '@/data/queries/use-snapshots';
+import { usePullSiteFromLive, usePushSiteToLive } from '@/data/queries/use-sync-site';
 import { usePickableWpcomSites } from '@/data/queries/use-wpcom-sites';
 import { getSiteDisplayUrl } from '@/lib/get-site-url';
 import { DropdownTrigger } from './dropdown-trigger';

@@ -1,6 +1,7 @@
 import type { AgentRunEvent } from './agent-events';
 import type { AiModelId } from '@studio/common/ai/models';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
+import type { SupportedLocale } from '@studio/common/lib/locale';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
@@ -17,6 +18,7 @@ export type { Snapshot } from '@studio/common/types/snapshot';
 export type { SyncSite } from '@studio/common/types/sync';
 export type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 export type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
+export type { SupportedLocale } from '@studio/common/lib/locale';
 
 export type InstalledApps = Record< SupportedEditor | SupportedTerminal, boolean >;
 
@@ -202,16 +204,18 @@ export interface UserPreferences {
 	editor: SupportedEditor | null;
 	terminal: SupportedTerminal | null;
 	colorScheme: ColorScheme;
-	// Resolved locale string (e.g. "en", "fr-FR"). Read-only in v1 — there's
-	// no connector method for changing it yet.
+	// Resolved locale string (e.g. "en", "fr-FR"). May be any locale the main
+	// process resolves — including ones not in our translation catalog — so
+	// consumers should narrow with `isSupportedLocale` before acting on it.
 	locale: string | undefined;
 }
 
 // Subset of UserPreferences that callers can actually mutate. `locale` is
-// resolved by the OS / main process and has no setter, so excluding it from
-// the writable surface prevents accidental passes that would be silently
-// dropped by the connector.
-export type WritableUserPreferences = Omit< UserPreferences, 'locale' >;
+// typed as `SupportedLocale` on the write side because only locales we ship
+// translations for can be persisted.
+export type WritableUserPreferences = Omit< UserPreferences, 'locale' > & {
+	locale: SupportedLocale;
+};
 
 export interface CreateSiteParams {
 	name: string;

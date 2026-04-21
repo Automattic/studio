@@ -124,7 +124,7 @@ export function TriangleLayout( { selectedSite }: Props ) {
 
 			<div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
 				{ productionSlot }
-				<div className="flex items-center justify-center gap-2">
+				<div className="flex flex-col items-center justify-center gap-2">
 					{ production && staging ? (
 						<>
 							<Tooltip text={ __( 'Copy Production to Staging' ) }>

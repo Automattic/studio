@@ -14,3 +14,14 @@
 	align-items: center;
 	gap: var(--wpds-dimension-padding-xs);
 }
+
+/* The site-dropdown popup strips the default Menu popup padding/gap (so the
+   environment rows can own their own layout), so the Menu.Items we append
+   below the rows need their own padded band. Mirrors the default Menu popup
+   spacing. */
+.menuItems {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-xs);
+	padding: var(--wpds-dimension-padding-xs);
+}

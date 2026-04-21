@@ -4,12 +4,16 @@ import type {
 	AuthUser,
 	ColorScheme,
 	Connector,
+	InstalledApps,
 	LoadedAiSession,
 	ProposedSitePath,
 	SelectedSiteFolder,
 	SiteDetails,
 	Snapshot,
+	SupportedEditor,
+	SupportedTerminal,
 	SyncSite,
+	UserPreferences,
 } from '../../types';
 
 /**
@@ -362,18 +366,59 @@ export function createIpcConnector(): Connector {
 			);
 		},
 
-		// Locale
-		async getUserLocale(): Promise< string | undefined > {
-			return ipcApi.getUserLocale();
+		// User preferences — the underlying main-process handlers are split
+		// per field; we fan out in parallel here so the UI can work with a
+		// single query/mutation pair.
+		async getUserPreferences(): Promise< UserPreferences > {
+			const [ editor, terminal, colorScheme, locale ] = ( await Promise.all( [
+				ipcApi.getUserEditor(),
+				ipcApi.getUserTerminal(),
+				ipcApi.getColorScheme(),
+				ipcApi.getUserLocale(),
+			] ) ) as [
+				SupportedEditor | null,
+				SupportedTerminal | null,
+				ColorScheme,
+				string | undefined,
+			];
+			return { editor, terminal, colorScheme, locale };
 		},
 
-		// Color scheme
-		async getColorScheme(): Promise< ColorScheme > {
-			return ipcApi.getColorScheme();
+		async setUserPreferences( partial ): Promise< void > {
+			const writes: Array< Promise< unknown > > = [];
+			if ( 'editor' in partial ) {
+				writes.push( ipcApi.saveUserEditor( partial.editor ) );
+			}
+			if ( 'terminal' in partial ) {
+				writes.push( ipcApi.saveUserTerminal( partial.terminal ) );
+			}
+			if ( 'colorScheme' in partial && partial.colorScheme ) {
+				writes.push( ipcApi.saveColorScheme( partial.colorScheme ) );
+			}
+			await Promise.all( writes );
 		},
 
-		async saveColorScheme( scheme: ColorScheme ): Promise< void > {
-			await ipcApi.saveColorScheme( scheme );
+		async getInstalledApps(): Promise< InstalledApps > {
+			return ( await ipcApi.getInstalledAppsAndTerminals() ) as InstalledApps;
+		},
+
+		async openSiteFolder( siteId ): Promise< void > {
+			const sitePath = await resolveSiteFolder( siteId );
+			ipcApi.openLocalPath( sitePath );
+		},
+
+		async openSiteInEditor( siteId ): Promise< void > {
+			const sitePath = await resolveSiteFolder( siteId );
+			const editor = ( await ipcApi.getUserEditor() ) as SupportedEditor | null;
+			if ( ! editor ) {
+				throw new Error( 'No preferred editor configured.' );
+			}
+			await ipcApi.openAppAtPath( editor, sitePath );
+		},
+
+		async openSiteInTerminal( siteId ): Promise< void > {
+			const sitePath = await resolveSiteFolder( siteId );
+			await ipcApi.openTerminalAtPath( sitePath );
 		},
 
 		// External links

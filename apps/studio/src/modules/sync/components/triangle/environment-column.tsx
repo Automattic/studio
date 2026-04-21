@@ -233,11 +233,13 @@ export function EnvironmentColumn( props: Props ) {
 	}
 
 	return (
-		<div className={ 'flex h-24 flex-row overflow-hidden rounded-lg border ' + rowTint }>
+		<div className={ 'flex h-24 w-[360px] flex-row overflow-hidden rounded-lg border ' + rowTint }>
 			{ preview }
 			<div className="flex min-w-0 flex-1 flex-col justify-between p-2.5">
 				<div className="flex min-w-0 flex-col gap-0.5">
-					<div className="a8c-subtitle-small truncate text-frame-text">{ name }</div>
+					<div className="a8c-subtitle-small flex min-w-0 text-frame-text">
+						<MiddleTruncate text={ name } />
+					</div>
 					<a
 						href={ url }
 						className="flex min-w-0 text-[11px] text-frame-theme hover:text-frame-theme-hover hover:underline"

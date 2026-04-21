@@ -461,10 +461,10 @@ export function TriangleLayout( { selectedSite }: Props ) {
 				/>
 			</div>
 
-			<div ref={ productionRef } className="col-start-1 row-start-3">
+			<div ref={ productionRef } className="col-start-1 row-start-3 justify-self-center">
 				{ productionSlot }
 			</div>
-			<div ref={ stagingRef } className="col-start-2 row-start-3">
+			<div ref={ stagingRef } className="col-start-2 row-start-3 justify-self-center">
 				{ stagingSlot }
 			</div>
 

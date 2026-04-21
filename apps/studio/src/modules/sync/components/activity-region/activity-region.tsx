@@ -1,3 +1,4 @@
+import { AnimatePresence, motion } from 'motion/react';
 import { useRootSelector } from 'src/stores';
 import { syncOperationsSelectors } from 'src/stores/sync/sync-operations-slice';
 import { ActiveRow } from './active-row';
@@ -53,35 +54,45 @@ export default function ActivityRegion( {
 		}
 	}
 
-	if ( ! setupPanel && activeIds.length === 0 && failedIds.length === 0 ) {
-		return null;
-	}
+	const hasContent = !! setupPanel || activeIds.length > 0 || failedIds.length > 0;
 
 	return (
-		<div className="w-full border-t border-frame-border bg-frame animate-activity-region-in">
-			{ setupPanel && (
-				<SetupPanel
-					site={ { localSite: setupPanel.localSite, remoteSite: setupPanel.remoteSite } }
-					type={ setupPanel.type }
-					onPush={ setupPanel.onPush }
-					onPull={ setupPanel.onPull }
-					onRequestClose={ onCloseSetup }
-				/>
+		<AnimatePresence initial={ false }>
+			{ hasContent && (
+				<motion.div
+					key="activity-region"
+					initial={ { height: 0, opacity: 0 } }
+					animate={ { height: 'auto', opacity: 1 } }
+					exit={ { height: 0, opacity: 0 } }
+					transition={ { type: 'spring', stiffness: 500, damping: 40, mass: 0.8 } }
+					style={ { overflow: 'hidden' } }
+					className="w-full border-t border-frame-border bg-frame"
+				>
+					{ setupPanel && (
+						<SetupPanel
+							site={ { localSite: setupPanel.localSite, remoteSite: setupPanel.remoteSite } }
+							type={ setupPanel.type }
+							onPush={ setupPanel.onPush }
+							onPull={ setupPanel.onPull }
+							onRequestClose={ onCloseSetup }
+						/>
+					) }
+					{ activeIds.length > 0 && (
+						<div>
+							{ activeIds.map( ( stateId ) => (
+								<ActiveRow key={ stateId } stateId={ stateId } />
+							) ) }
+						</div>
+					) }
+					{ failedIds.length > 0 && (
+						<div>
+							{ failedIds.map( ( stateId ) => (
+								<FailedRow key={ stateId } stateId={ stateId } />
+							) ) }
+						</div>
+					) }
+				</motion.div>
 			) }
-			{ activeIds.length > 0 && (
-				<div>
-					{ activeIds.map( ( stateId ) => (
-						<ActiveRow key={ stateId } stateId={ stateId } />
-					) ) }
-				</div>
-			) }
-			{ failedIds.length > 0 && (
-				<div>
-					{ failedIds.map( ( stateId ) => (
-						<FailedRow key={ stateId } stateId={ stateId } />
-					) ) }
-				</div>
-			) }
-		</div>
+		</AnimatePresence>
 	);
 }

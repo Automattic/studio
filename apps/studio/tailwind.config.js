@@ -208,10 +208,6 @@ module.exports = {
 				march: {
 					to: { 'stroke-dashoffset': '-12' },
 				},
-				'activity-region-in': {
-					from: { transform: 'translateY(16px)', opacity: '0' },
-					to: { transform: 'translateY(0)', opacity: '1' },
-				},
 			},
 			animation: {
 				'slow-spin': 'slow-spin 20s linear infinite',
@@ -221,7 +217,6 @@ module.exports = {
 				'card-shift': 'card-shift 3s ease-in-out infinite',
 				'edge-march': 'march 1.2s linear infinite',
 				'edge-march-reverse': 'march 1.2s linear infinite reverse',
-				'activity-region-in': 'activity-region-in 200ms ease-out',
 			},
 			screens: {
 				sd: `${ MAIN_MIN_WIDTH }px`,

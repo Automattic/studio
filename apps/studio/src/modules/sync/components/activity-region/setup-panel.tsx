@@ -23,7 +23,7 @@ export function SetupPanel( { site, type, onPush, onPull, onRequestClose }: Setu
 
 	return (
 		<div>
-			<div className="flex items-center justify-between px-4 py-2.5 border-b border-frame-border">
+			<div className="flex items-center justify-between px-4 py-2 border-b border-frame-border">
 				<span className="a8c-subtitle-small text-frame-text">{ title }</span>
 				<button
 					type="button"
@@ -34,15 +34,17 @@ export function SetupPanel( { site, type, onPush, onPull, onRequestClose }: Setu
 					{ '×' }
 				</button>
 			</div>
-			<SyncDialogBody
-				compact
-				type={ type }
-				localSite={ localSite }
-				remoteSite={ remoteSite }
-				onPush={ onPush }
-				onPull={ onPull }
-				onRequestClose={ onRequestClose }
-			/>
+			<div className="mx-auto w-full max-w-[48rem] [&_.py-4]:!py-1.5 [&_.pt-5]:!pt-2 [&_.pb-3]:!pb-2 [&_.pb-6]:!pb-3 [&_.pt-1]:!pt-0">
+				<SyncDialogBody
+					compact
+					type={ type }
+					localSite={ localSite }
+					remoteSite={ remoteSite }
+					onPush={ onPush }
+					onPull={ onPull }
+					onRequestClose={ onRequestClose }
+				/>
+			</div>
 		</div>
 	);
 }

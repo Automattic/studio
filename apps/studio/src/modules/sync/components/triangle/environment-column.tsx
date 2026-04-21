@@ -112,8 +112,15 @@ export function EnvironmentColumn( props: Props ) {
 	const lastPush = props.kind === 'remote' ? props.site.lastPushTimestamp : null;
 	const lastPull = props.kind === 'remote' ? props.site.lastPullTimestamp : null;
 
+	const rowTint =
+		props.kind === 'local'
+			? 'border-frame-border bg-frame-surface/40'
+			: props.label === 'Production'
+			? 'border-[#069e08]/30 bg-[#069e08]/5'
+			: 'border-[#f7ba42]/40 bg-[#f7ba42]/5';
+
 	return (
-		<div className="flex flex-row items-center gap-4 rounded-lg border border-frame-border bg-frame-bg p-4">
+		<div className={ 'flex flex-row items-center gap-4 rounded-lg border p-4 ' + rowTint }>
 			{ props.kind === 'remote' ? (
 				<PreviewFrame
 					siteIconUrl={ props.site.siteIconUrl }

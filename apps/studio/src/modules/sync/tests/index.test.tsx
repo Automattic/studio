@@ -99,7 +99,7 @@ const selectedSite: SiteDetails = {
 	path: '/path/to/site',
 	adminPassword: btoa( 'test-password' ),
 	running: false,
-	phpVersion: '8.3',
+	phpVersion: '8.4',
 	id: 'site-id',
 };
 

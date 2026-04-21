@@ -3,8 +3,8 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useConnector } from '@/data/core';
 import styles from './style.module.css';
-import type { Components } from 'react-markdown';
 import type { MouseEvent } from 'react';
+import type { Components } from 'react-markdown';
 
 const baseComponents: Components = {
 	h1: ( { children } ) => <h1 className={ styles.h1 }>{ children }</h1>,

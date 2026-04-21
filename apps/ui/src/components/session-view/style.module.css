@@ -21,18 +21,11 @@
 	-webkit-app-region: drag;
 }
 
-/* Spacers reserve a no-drag area at the header's left so the floating toggle
-   button (rendered by the sidebar layout) sits on top of no-drag pixels,
-   not on top of the header's drag region. Electron's drag-region stacking
-   is unreliable when drag sits beneath a no-drag overlay.
-   Non-fullscreen: 94px for macOS traffic lights + ~40px for the button.
-   Fullscreen: only the button needs clearance. */
+/* Reserve a no-drag area at the left so the floating sidebar-toggle button
+   (collapsed state) doesn't sit on top of the header's drag region. */
 .toggleSpacer {
 	display: block;
 	flex-shrink: 0;
-	/* 94px traffic-light offset + 24px button, minus the header's extra left
-	   padding (xs). Flex gap on .header supplies the visible gap between
-	   the button and the title. */
 	width: calc(118px - var(--wpds-dimension-padding-xs));
 	height: 100%;
 	-webkit-app-region: no-drag;
@@ -70,118 +63,26 @@
 	flex: 1;
 	min-height: 0;
 	overflow-y: auto;
+	position: relative;
+	padding: 0 var(--wpds-dimension-padding-xl);
+	/* Reserve scrollbar space symmetrically so the centered 760px column
+	   doesn't shift left when the scrollbar appears — keeping it aligned
+	   with the (non-scrolling) composer. */
+	scrollbar-gutter: stable both-edges;
 }
 
-.conversation {
+/* Shared 760px column used by both the conversation and composer so their
+   content edges line up at every viewport width. */
+.column {
 	max-width: 760px;
 	margin: 0 auto;
-	padding: var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-xl)
-		var(--wpds-dimension-padding-2xl);
-	display: flex;
-	flex-direction: column;
-	gap: var(--wpds-dimension-padding-lg);
 }
 
-/* User bubbles act as turn anchors; give them generous breathing room above
-   and below so the user's prompt stands apart from the assistant response. */
-.userTurn {
-	display: flex;
-	flex-direction: column;
-	padding: var(--wpds-dimension-padding-xl) 0;
+.conversationSpacing {
+	padding-top: var(--wpds-dimension-padding-xl);
+	padding-bottom: var(--wpds-dimension-padding-2xl);
 }
 
-.userTurn:first-child {
-	padding-top: 0;
-}
-
-.userText {
-	align-self: flex-start;
-	padding: var(--wpds-dimension-padding-md) var(--wpds-dimension-padding-lg);
-	background-color: color-mix(in srgb, var(--wpds-color-fg-content-accent, #2563eb) 10%, transparent);
-	/* Keep the bottom-left tight so the bubble reads as originating from the
-	   speaker label above, and round the other corners generously. */
-	border-radius: 18px 18px 18px var(--wpds-border-radius-md, 8px);
-	max-width: 100%;
-	font-size: var(--wpds-font-size-md);
-	line-height: 1.55;
-	color: var(--wpds-color-fg-content-neutral);
-	white-space: pre-wrap;
-	word-wrap: break-word;
-}
-
-.toolRow {
-	display: grid;
-	grid-template-columns: 72px 1fr;
-	gap: var(--wpds-dimension-padding-md);
-	align-items: baseline;
-	font-family: var(--wpds-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-	font-size: var(--wpds-font-size-sm);
-	color: var(--wpds-color-fg-content-neutral-weak);
-	padding: 2px 0;
-}
-
-.toolLabel {
-	color: var(--wpds-color-fg-content-neutral-weak);
-	opacity: 0.7;
-}
-
-.toolDetail {
-	color: var(--wpds-color-fg-content-neutral);
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.question {
-	display: flex;
-	flex-direction: column;
-	gap: var(--wpds-dimension-padding-sm);
-}
-
-.questionText {
-	margin: 0;
-	color: var(--wpds-color-fg-content-neutral);
-}
-
-.questionOptions {
-	list-style: none;
-	margin: 0;
-	padding: 0;
-	display: flex;
-	flex-wrap: wrap;
-	gap: var(--wpds-dimension-padding-md);
-}
-
-.questionOption {
-	background: none;
-	border: none;
-	padding: 0;
-	color: var(--wpds-color-fg-content-accent, #2563eb);
-	font: inherit;
-	cursor: pointer;
-}
-
-.questionOption:hover,
-.questionOption:focus-visible {
-	text-decoration: underline;
-}
-
-.composer {
+.composerOuter {
 	padding: 0 var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-xl);
-}
-
-.composerInner {
-	max-width: 760px;
-	margin: 0 auto;
-}
-
-.composerInput {
-	min-height: 88px;
-	padding: var(--wpds-dimension-padding-md);
-	border: 1px solid var(--wpds-color-stroke-surface-neutral);
-	border-radius: var(--wpds-border-radius-md, 8px);
-	background-color: var(--wpds-color-bg-surface-neutral-strong);
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-font-size-md);
-	line-height: 1.5;
 }

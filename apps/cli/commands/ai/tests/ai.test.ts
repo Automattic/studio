@@ -364,6 +364,7 @@ describe( 'CLI: studio code sessions command', () => {
 				createdAt: '2026-03-11T11:00:00.000Z',
 				updatedAt: '2026-03-11T11:00:00.000Z',
 				linkedAgentSessionIds: [],
+				activeEnvironment: 'local',
 				eventCount: 1,
 			},
 			{
@@ -372,6 +373,7 @@ describe( 'CLI: studio code sessions command', () => {
 				createdAt: '2026-03-10T11:00:00.000Z',
 				updatedAt: '2026-03-10T11:00:00.000Z',
 				linkedAgentSessionIds: [],
+				activeEnvironment: 'local',
 				eventCount: 1,
 			},
 		] );
@@ -382,6 +384,7 @@ describe( 'CLI: studio code sessions command', () => {
 				createdAt: '2026-03-11T11:00:00.000Z',
 				updatedAt: '2026-03-11T11:00:00.000Z',
 				linkedAgentSessionIds: [],
+				activeEnvironment: 'local',
 				eventCount: 1,
 			},
 			events: [],
@@ -402,6 +405,7 @@ describe( 'CLI: studio code sessions command', () => {
 				createdAt: '2026-03-11T11:00:00.000Z',
 				updatedAt: '2026-03-11T11:00:00.000Z',
 				linkedAgentSessionIds: [],
+				activeEnvironment: 'local',
 				eventCount: 1,
 			},
 			{
@@ -410,6 +414,7 @@ describe( 'CLI: studio code sessions command', () => {
 				createdAt: '2026-03-10T11:00:00.000Z',
 				updatedAt: '2026-03-10T11:00:00.000Z',
 				linkedAgentSessionIds: [],
+				activeEnvironment: 'local',
 				eventCount: 1,
 			},
 		] );
@@ -419,6 +424,7 @@ describe( 'CLI: studio code sessions command', () => {
 			createdAt: '2026-03-11T11:00:00.000Z',
 			updatedAt: '2026-03-11T11:00:00.000Z',
 			linkedAgentSessionIds: [],
+			activeEnvironment: 'local',
 			eventCount: 1,
 		} );
 
@@ -436,6 +442,7 @@ describe( 'CLI: studio code sessions command', () => {
 				createdAt: '2026-03-11T11:00:00.000Z',
 				updatedAt: '2026-03-11T11:00:00.000Z',
 				linkedAgentSessionIds: [],
+				activeEnvironment: 'local',
 				eventCount: 1,
 			},
 		] );
@@ -446,6 +453,7 @@ describe( 'CLI: studio code sessions command', () => {
 				createdAt: '2026-03-11T11:00:00.000Z',
 				updatedAt: '2026-03-11T11:00:00.000Z',
 				linkedAgentSessionIds: [],
+				activeEnvironment: 'local',
 				eventCount: 1,
 			},
 			events: [],
@@ -579,6 +587,7 @@ describe( 'CLI: studio code sessions command', () => {
 				createdAt: '2026-03-11T11:00:00.000Z',
 				updatedAt: '2026-03-11T11:00:00.000Z',
 				linkedAgentSessionIds: [],
+				activeEnvironment: 'local',
 				eventCount: 2,
 			},
 		] );
@@ -589,6 +598,7 @@ describe( 'CLI: studio code sessions command', () => {
 				createdAt: '2026-03-11T11:00:00.000Z',
 				updatedAt: '2026-03-11T11:00:00.000Z',
 				linkedAgentSessionIds: [],
+				activeEnvironment: 'local',
 				eventCount: 2,
 			},
 			events: [

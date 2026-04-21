@@ -1,5 +1,6 @@
 import os from 'os';
 import path from 'path';
+import { addApprovedPermission, readApprovedPermissions } from 'cli/lib/cli-config/permissions';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import type {
 	CanUseTool,
@@ -17,7 +18,7 @@ export type AskUserHandler = (
 	questions: AskUserQuestion[]
 ) => Promise< Record< string, string > >;
 
-export type PathGatedApprovalDecision = 'allow_once' | 'allow_session' | 'deny';
+export type PathGatedApprovalDecision = 'allow_once' | 'allow_always' | 'deny';
 
 export interface PathGatedPermissionRequest {
 	toolName: string;
@@ -26,21 +27,10 @@ export interface PathGatedPermissionRequest {
 	updatedPermissions?: PermissionUpdate[];
 }
 
-// Tools that can run without permissions (read access)
+// Tools that can run without permissions (read access). The same set
+// applies to both local and remote sites — remote operations still hit
+// the `mcp__studio__*` servers, Read/Grep/etc. are host-filesystem-safe.
 export const ALLOWED_TOOLS = [
-	'mcp__studio__*',
-	'Read',
-	'Glob',
-	'Grep',
-	'WebFetch',
-	'WebSearch',
-	'TodoRead',
-	'NotebookRead',
-	'AskUserQuestion',
-] as const;
-
-// Tools allowed when operating on a remote WordPress.com site
-export const ALLOWED_TOOLS_REMOTE = [
 	'mcp__studio__*',
 	'Read',
 	'Glob',
@@ -57,7 +47,7 @@ const PATH_GATED_TOOLS = [ 'Write', 'Edit', 'Bash', 'NotebookEdit' ] as const;
 const PATH_INPUT_KEYS = [ 'path', 'file_path', 'filePath' ] as const;
 
 const APPROVE_ONCE_LABEL = 'Allow once';
-const APPROVE_SESSION_LABEL = 'Allow for this session';
+const APPROVE_ALWAYS_LABEL = 'Allow always';
 const DENY_LABEL = 'Deny';
 
 export const STUDIO_ROOT = path.resolve( STUDIO_SITES_ROOT );
@@ -164,6 +154,24 @@ export function createPathApprovalSession(): PathApprovalSession {
 	};
 }
 
+// Process-wide approval session. Populated lazily on the first
+// `promptForApproval` call with whatever `Allow always` entries are
+// stored in cli.json.
+const defaultApprovalSession = createPathApprovalSession();
+let primePromise: Promise< void > | null = null;
+
+function primeDefaultApprovalSession(): Promise< void > {
+	if ( ! primePromise ) {
+		primePromise = ( async () => {
+			const entries = await readApprovedPermissions();
+			for ( const { toolName, approvalPath } of entries ) {
+				defaultApprovalSession.rememberApprovedPath( toolName, approvalPath );
+			}
+		} )();
+	}
+	return primePromise;
+}
+
 export function getPathGatedPermissionRequest( {
 	toolName,
 	input,
@@ -212,8 +220,8 @@ export async function askForPathGatedToolApproval( {
 					description: `Run ${ toolName } outside trusted directories for this step.`,
 				},
 				{
-					label: APPROVE_SESSION_LABEL,
-					description: `Allow this kind of ${ toolName } action for the rest of this session.`,
+					label: APPROVE_ALWAYS_LABEL,
+					description: `Remember this choice and stop asking for ${ toolName } on this path.`,
 				},
 				{
 					label: DENY_LABEL,
@@ -227,8 +235,8 @@ export async function askForPathGatedToolApproval( {
 		return 'allow_once';
 	}
 
-	if ( answers[ question ] === APPROVE_SESSION_LABEL ) {
-		return 'allow_session';
+	if ( answers[ question ] === APPROVE_ALWAYS_LABEL ) {
+		return 'allow_always';
 	}
 
 	return 'deny';
@@ -239,14 +247,17 @@ export async function promptForApproval( {
 	input,
 	metadata,
 	onAskUser,
-	pathApprovalSession,
+	pathApprovalSession = defaultApprovalSession,
 }: {
 	toolName: string;
 	input: Parameters< CanUseTool >[ 1 ];
 	metadata?: Parameters< CanUseTool >[ 2 ];
 	onAskUser?: AskUserHandler;
-	pathApprovalSession: PathApprovalSession;
+	pathApprovalSession?: PathApprovalSession;
 } ): Promise< PermissionResult > {
+	if ( pathApprovalSession === defaultApprovalSession ) {
+		await primeDefaultApprovalSession();
+	}
 	const permissionRequest = getPathGatedPermissionRequest( {
 		toolName,
 		input,
@@ -269,8 +280,12 @@ export async function promptForApproval( {
 				};
 			}
 
-			if ( approvalDecision === 'allow_session' ) {
+			if ( approvalDecision === 'allow_always' ) {
 				pathApprovalSession.rememberApprovedPath( toolName, permissionRequest.approvalPath );
+				await addApprovedPermission( {
+					toolName,
+					approvalPath: permissionRequest.approvalPath,
+				} );
 			}
 		}
 

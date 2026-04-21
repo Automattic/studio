@@ -7,20 +7,27 @@ import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
 import { useEnvironmentSummary } from '../../hooks/use-environment-summary';
 import type { SyncSite } from '@studio/common/types/sync';
 
-type Props =
-	| {
-			kind: 'local';
-			label: 'Local';
-			localSiteId: string;
-			siteName: string;
-			siteUrl: string;
-			isRunning: boolean;
-	  }
-	| {
-			kind: 'remote';
-			label: 'Production' | 'Staging';
-			site: SyncSite;
-	  };
+type CommonProps = {
+	/** 'landscape' = preview left, info right (hero/Local row). 'portrait' = preview on top, info below (side-by-side columns). */
+	orientation?: 'landscape' | 'portrait';
+};
+
+type Props = CommonProps &
+	(
+		| {
+				kind: 'local';
+				label: 'Local';
+				localSiteId: string;
+				siteName: string;
+				siteUrl: string;
+				isRunning: boolean;
+		  }
+		| {
+				kind: 'remote';
+				label: 'Production' | 'Staging';
+				site: SyncSite;
+		  }
+	);
 
 function stripProtocol( url: string ): string {
 	return url.replace( /^https?:\/\//, '' ).replace( /\/$/, '' );
@@ -52,11 +59,13 @@ type PreviewFrameProps = {
 	children: React.ReactNode;
 	siteIconUrl?: string;
 	badge: React.ReactNode;
+	orientation: 'landscape' | 'portrait';
 };
 
-function PreviewFrame( { children, siteIconUrl, badge }: PreviewFrameProps ) {
+function PreviewFrame( { children, siteIconUrl, badge, orientation }: PreviewFrameProps ) {
+	const size = orientation === 'landscape' ? 'h-28 w-44 shrink-0' : 'aspect-[3/2] w-full shrink-0';
 	return (
-		<div className="relative h-28 w-44 shrink-0 overflow-hidden bg-frame-surface">
+		<div className={ `relative overflow-hidden bg-frame-surface ${ size }` }>
 			{ children }
 			{ siteIconUrl && (
 				<img
@@ -101,6 +110,7 @@ function LocalPreviewImage( { siteName }: { siteName: string } ) {
 }
 
 export function EnvironmentColumn( props: Props ) {
+	const orientation = props.orientation ?? 'landscape';
 	const summary = useEnvironmentSummary(
 		props.kind === 'local'
 			? { kind: 'local', localSiteId: props.localSiteId }
@@ -119,26 +129,80 @@ export function EnvironmentColumn( props: Props ) {
 			? 'border-[#069e08]/30 bg-[#069e08]/5'
 			: 'border-[#f7ba42]/40 bg-[#f7ba42]/5';
 
+	const preview =
+		props.kind === 'remote' ? (
+			<PreviewFrame
+				orientation={ orientation }
+				siteIconUrl={ props.site.siteIconUrl }
+				badge={ <EnvironmentBadge type={ getSiteEnvironment( props.site ) } /> }
+			>
+				<MshotImage url={ props.site.url } />
+			</PreviewFrame>
+		) : (
+			<PreviewFrame
+				orientation={ orientation }
+				badge={ <Badge className="bg-transparent text-a8c-gray-800">{ __( 'Local' ) }</Badge> }
+			>
+				<LocalPreviewImage siteName={ props.siteName } />
+			</PreviewFrame>
+		);
+
+	if ( orientation === 'portrait' ) {
+		return (
+			<div className={ 'flex flex-col overflow-hidden rounded-lg border ' + rowTint }>
+				{ preview }
+				<div className="flex flex-col gap-1 p-4">
+					<div className="a8c-subtitle truncate text-frame-text">{ name }</div>
+					<a
+						href={ url }
+						className="a8c-link-text truncate text-frame-theme hover:text-frame-theme-hover hover:underline"
+					>
+						{ stripProtocol( url ) }
+					</a>
+					{ props.kind === 'remote' && (
+						<div className="a8c-helper-text text-frame-text-secondary">
+							{ __( 'WP' ) } { props.site.wpVersion ?? '—' }
+							{ props.site.planName ? ` · ${ props.site.planName }` : '' }
+						</div>
+					) }
+					<dl className="mt-2 flex flex-row gap-6">
+						<Stat
+							label={ __( 'Posts' ) }
+							value={ summary.counts.posts }
+							loading={ summary.isLoading }
+						/>
+						<Stat
+							label={ __( 'Pages' ) }
+							value={ summary.counts.pages }
+							loading={ summary.isLoading }
+						/>
+					</dl>
+					{ ( lastPush || lastPull ) && (
+						<div className="a8c-helper-text mt-2 text-frame-text-secondary">
+							{ lastPush && (
+								<div>
+									{ __( 'Pushed' ) } { formatRelative( lastPush ) }
+								</div>
+							) }
+							{ lastPull && (
+								<div>
+									{ __( 'Pulled' ) } { formatRelative( lastPull ) }
+								</div>
+							) }
+						</div>
+					) }
+				</div>
+			</div>
+		);
+	}
+
 	return (
 		<div
 			className={
 				'flex flex-row items-center gap-4 overflow-hidden rounded-lg border pr-4 ' + rowTint
 			}
 		>
-			{ props.kind === 'remote' ? (
-				<PreviewFrame
-					siteIconUrl={ props.site.siteIconUrl }
-					badge={ <EnvironmentBadge type={ getSiteEnvironment( props.site ) } /> }
-				>
-					<MshotImage url={ props.site.url } />
-				</PreviewFrame>
-			) : (
-				<PreviewFrame
-					badge={ <Badge className="bg-transparent text-a8c-gray-800">{ __( 'Local' ) }</Badge> }
-				>
-					<LocalPreviewImage siteName={ props.siteName } />
-				</PreviewFrame>
-			) }
+			{ preview }
 
 			<div className="flex min-w-0 flex-1 flex-col gap-1">
 				<div className="a8c-subtitle truncate text-frame-text">{ name }</div>

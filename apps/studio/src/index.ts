@@ -141,7 +141,11 @@ function launchExtensionBackgroundWorkers( appSession = session.defaultSession )
 // give each dev instance a unique bundle ID derived from its path, then
 // relaunch so the new ID takes effect. The patch is idempotent and only
 // runs on the first boot after `npm install`.
-function ensureUniqueDevBundleId(): boolean {
+function ensureUniqueDevBundleId(): void {
+	if ( process.platform !== 'darwin' || ! process.defaultApp ) {
+		return;
+	}
+
 	// process.execPath points to <Electron.app>/Contents/MacOS/Electron, so
 	// walking up three dirs gives the Electron.app bundle reliably regardless
 	// of how the main process was bundled (electron-vite rewrites
@@ -156,22 +160,21 @@ function ensureUniqueDevBundleId(): boolean {
 		encoding: 'utf8',
 	} ).trim();
 	if ( currentId !== 'com.github.Electron' ) {
-		return false;
+		return;
 	}
 
-	const suffix = createHash( 'sha1' ).update( electronAppPath ).digest( 'hex' ).slice( 0, 12 );
-	const uniqueId = `com.studio.dev.${ suffix }`;
+	const uniqueId = `com.studio.dev.${ createHash( 'sha1' )
+		.update( electronAppPath )
+		.digest( 'hex' )
+		.slice( 0, 12 ) }`;
 	execFileSync( plistBuddy, [ '-c', `Set :CFBundleIdentifier ${ uniqueId }`, infoPlist ] );
 	execFileSync( lsregister, [ '-f', electronAppPath ] );
-	return true;
+	app.relaunch();
+	app.exit( 0 );
 }
 
 async function appBoot() {
-	if ( process.platform === 'darwin' && process.defaultApp && ensureUniqueDevBundleId() ) {
-		app.relaunch();
-		app.exit( 0 );
-		return;
-	}
+	ensureUniqueDevBundleId();
 
 	app.setName( packageJson.productName );
 

@@ -361,7 +361,7 @@ export function TriangleLayout( { selectedSite }: Props ) {
 		: null;
 
 	const activityRegion = (
-		<div className="sticky bottom-0 z-10 bg-frame px-6 pb-6 pt-3 empty:hidden">
+		<div className="sticky bottom-0 z-10 empty:hidden">
 			<ActivityRegion
 				localSiteId={ selectedSite.id }
 				setupPanel={ setupPanel }

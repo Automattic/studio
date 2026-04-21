@@ -22,28 +22,27 @@ export function SetupPanel( { site, type, onPush, onPull, onRequestClose }: Setu
 	const { title } = useSyncDialogTexts( type, siteEnv );
 
 	return (
-		<div className="bg-frame-surface border border-frame-border rounded-lg overflow-hidden">
-			<div className="flex items-center justify-between px-4 py-3 border-b border-frame-border">
-				<span className="text-sm font-semibold text-frame-text">{ title }</span>
+		<div>
+			<div className="flex items-center justify-between px-4 py-2.5 border-b border-frame-border">
+				<span className="a8c-subtitle-small text-frame-text">{ title }</span>
 				<button
 					type="button"
-					className="text-frame-text-secondary hover:text-frame-text leading-none"
+					className="text-frame-text-secondary hover:text-frame-text leading-none text-lg"
 					onClick={ onRequestClose }
 					aria-label={ __( 'Close' ) }
 				>
 					{ '×' }
 				</button>
 			</div>
-			<div className="max-h-[60vh] overflow-y-auto relative">
-				<SyncDialogBody
-					type={ type }
-					localSite={ localSite }
-					remoteSite={ remoteSite }
-					onPush={ onPush }
-					onPull={ onPull }
-					onRequestClose={ onRequestClose }
-				/>
-			</div>
+			<SyncDialogBody
+				compact
+				type={ type }
+				localSite={ localSite }
+				remoteSite={ remoteSite }
+				onPush={ onPush }
+				onPull={ onPull }
+				onRequestClose={ onRequestClose }
+			/>
 		</div>
 	);
 }

@@ -49,7 +49,11 @@ type SyncDialogProps = {
 	onRequestClose: () => void;
 };
 
-export type SyncDialogBodyProps = SyncDialogProps;
+export type SyncDialogBodyProps = SyncDialogProps & {
+	/** Compact rendering for inline contexts: skips the description, env breadcrumb,
+	 *  and "What would you like to X?" heading. Tighter horizontal padding. */
+	compact?: boolean;
+};
 
 const useDynamicTreeState = (
 	type: 'push' | 'pull',
@@ -154,7 +158,9 @@ export function SyncDialogBody( {
 	onPush,
 	onPull,
 	onRequestClose,
+	compact = false,
 }: SyncDialogBodyProps ) {
+	const padX = compact ? 'px-4' : 'px-8';
 	const locale = useI18nLocale();
 	const { __, _n } = useI18n();
 	const siteEnv = getSiteEnvironment( remoteSite );
@@ -322,44 +328,48 @@ export function SyncDialogBody( {
 	};
 
 	return (
-		<div style={ { paddingBottom: getBottomPadding() } }>
-			<div className="px-8 pb-6 pt-1">{ syncTexts.description }</div>
-			<div className="px-8">
-				<span className="sr-only">
-					{ /* translators: first %s is the source site name, second %s is the destination site name */ }
-					{ sprintf( __( 'From %s to %s' ), syncFromText, syncToText ) }
-				</span>
-				<div
-					aria-hidden="true"
-					className="flex max-w-full overflow-hidden pb-6 border-b border-frame-border"
-				>
-					<div className="overflow-hidden max-w-[calc(50%-25px)]">
-						<div className="whitespace-nowrap truncate">{ syncFrom }</div>
+		<div>
+			{ ! compact && (
+				<>
+					<div className="px-8 pb-6 pt-1">{ syncTexts.description }</div>
+					<div className="px-8">
+						<span className="sr-only">
+							{ /* translators: first %s is the source site name, second %s is the destination site name */ }
+							{ sprintf( __( 'From %s to %s' ), syncFromText, syncToText ) }
+						</span>
+						<div
+							aria-hidden="true"
+							className="flex max-w-full overflow-hidden pb-6 border-b border-frame-border"
+						>
+							<div className="overflow-hidden max-w-[calc(50%-25px)]">
+								<div className="whitespace-nowrap truncate">{ syncFrom }</div>
+							</div>
+							<div className="w-[50px] flex items-center justify-center text-frame-text-secondary">
+								<RightArrowIcon />
+							</div>
+							<div className="overflow-hidden max-w-[calc(50%-25px)]">
+								<div className="whitespace-nowrap truncate">{ syncTo }</div>
+							</div>
+						</div>
 					</div>
-					<div className="w-[50px] flex items-center justify-center text-frame-text-secondary">
-						<RightArrowIcon />
-					</div>
-					<div className="overflow-hidden max-w-[calc(50%-25px)]">
-						<div className="whitespace-nowrap truncate">{ syncTo }</div>
-					</div>
-				</div>
-			</div>
-			<Heading
-				level={ 2 }
-				lineHeight="28px"
-				size={ 11 }
-				weight={ 500 }
-				upperCase
-				className="px-8 pt-5 pb-3"
-			>
-				{ syncTexts.subtitleSelector }
-			</Heading>
+					<Heading
+						level={ 2 }
+						lineHeight="28px"
+						size={ 11 }
+						weight={ 500 }
+						upperCase
+						className="px-8 pt-5 pb-3"
+					>
+						{ syncTexts.subtitleSelector }
+					</Heading>
+				</>
+			) }
 			<Tooltip
 				className={ cx( 'w-full', isErrorRewindId && 'cursor-not-allowed' ) }
 				text={ tooltipNoRewindId }
 				disabled={ ! isErrorRewindId }
 			>
-				<div className="px-8 pb-2 relative">
+				<div className={ `${ padX } pb-2 relative` }>
 					{ type === 'pull' && isLoadingRewindId && <TreeViewLoadingSkeleton /> }
 					{ type === 'push' && isLoadingLocalFileTree && <TreeViewLoadingSkeleton /> }
 					{ ! isLoadingRewindId && ! isLoadingLocalFileTree && (
@@ -450,7 +460,9 @@ export function SyncDialogBody( {
 				</div>
 			</Tooltip>
 
-			<div className="px-8 py-4 absolute left-0 right-0 bottom-0 bg-frame z-10 border-t border-frame-border">
+			<div
+				className={ `${ padX } py-4 sticky bottom-0 bg-frame z-10 border-t border-frame-border` }
+			>
 				{ type === 'push' && (
 					<div className="mb-4">
 						<TwoColorProgressBar

@@ -58,7 +58,7 @@ export default function ActivityRegion( {
 	}
 
 	return (
-		<div className="w-full bg-frame-surface border border-frame-border rounded-lg">
+		<div className="w-full border-t border-frame-border bg-frame animate-activity-region-in">
 			{ setupPanel && (
 				<SetupPanel
 					site={ { localSite: setupPanel.localSite, remoteSite: setupPanel.remoteSite } }

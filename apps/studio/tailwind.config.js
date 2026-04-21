@@ -205,6 +205,9 @@ module.exports = {
 					'0%, 100%': { transform: 'translate(0, 0)' },
 					'50%': { transform: 'translate(-3px, -3px)' },
 				},
+				march: {
+					to: { 'stroke-dashoffset': '-12' },
+				},
 			},
 			animation: {
 				'slow-spin': 'slow-spin 20s linear infinite',
@@ -212,6 +215,8 @@ module.exports = {
 				'arrow-nudge': 'arrow-nudge 1.2s ease-in-out infinite',
 				'gentle-pulse': 'gentle-pulse 3s ease-in-out infinite',
 				'card-shift': 'card-shift 3s ease-in-out infinite',
+				'edge-march': 'march 1.2s linear infinite',
+				'edge-march-reverse': 'march 1.2s linear infinite reverse',
 			},
 			screens: {
 				sd: `${ MAIN_MIN_WIDTH }px`,

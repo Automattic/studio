@@ -253,7 +253,7 @@ describe( 'AiChatUI.handleMessage', () => {
 		expect( ui.pendingToolCalls ).toEqual( new Map() );
 	} );
 
-	it( 'surfaces the cap message when content contains the studio_cap_exceeded marker', () => {
+	it( 'surfaces the cap message when an assistant error contains an API Error: 429 text block', () => {
 		const ui = Object.create( AiChatUI.prototype ) as {
 			handleMessage: ( message: unknown ) => unknown;
 			[ key: string ]: unknown;
@@ -277,7 +277,7 @@ describe( 'AiChatUI.handleMessage', () => {
 				content: [
 					{
 						type: 'text',
-						text: 'API Error: 429 {"error":"studio_cap_exceeded","message":"You have exceeded your AI usage cap."}',
+						text: 'API Error: 429 {"error":{"message":"You have exceeded your AI usage cap."}}',
 					},
 				],
 			},
@@ -295,13 +295,15 @@ describe( 'AiChatUI.handleMessage', () => {
 		expect( ui.currentResponseText ).toBe( '' );
 	} );
 
-	it( 'does not suggest /provider on the cap message when using anthropic-api-key', () => {
+	it( 'does not trigger cap detection for non-wpcom providers even with a 429 error', () => {
 		const ui = Object.create( AiChatUI.prototype ) as {
 			handleMessage: ( message: unknown ) => unknown;
 			[ key: string ]: unknown;
 		};
 		const showError = vi.fn();
 		const showInfo = vi.fn();
+		const addChild = vi.fn();
+		const requestRender = vi.fn();
 
 		ui.hideLoader = vi.fn();
 		ui.showError = showError;
@@ -310,6 +312,12 @@ describe( 'AiChatUI.handleMessage', () => {
 		ui.currentMarkdown = null;
 		ui.currentResponseText = '';
 		ui.usageCapReached = false;
+		ui.hasShownResponseMarker = false;
+		ui.messages = { addChild };
+		ui.tui = { requestRender };
+		// Replay mode skips the showLoader call at the end of the assistant
+		// branch, which would otherwise need extensive tui stubs.
+		ui.replayMode = true;
 
 		ui.handleMessage( {
 			type: 'assistant',
@@ -318,7 +326,7 @@ describe( 'AiChatUI.handleMessage', () => {
 				content: [
 					{
 						type: 'text',
-						text: 'API Error: 429 {"error":"studio_cap_exceeded","message":"cap"}',
+						text: 'API Error: 429 {"error":{"message":"cap"}}',
 					},
 				],
 			},
@@ -327,8 +335,9 @@ describe( 'AiChatUI.handleMessage', () => {
 			session_id: 'sess',
 		} );
 
-		expect( showError ).toHaveBeenCalled();
+		expect( showError ).not.toHaveBeenCalled();
 		expect( showInfo ).not.toHaveBeenCalled();
+		expect( ui.usageCapReached ).toBe( false );
 	} );
 
 	it( 'skips the "Done" success indicator when the usage cap was reached', () => {
@@ -370,7 +379,7 @@ describe( 'AiChatUI.handleMessage', () => {
 		expect( ui.hasErrorBeenSurfaced() ).toBe( true );
 	} );
 
-	it( 'does not trip the cap branch when an assistant error has no marker in content', () => {
+	it( 'does not trip the cap branch when an assistant error has no 429 text block', () => {
 		const ui = Object.create( AiChatUI.prototype ) as {
 			handleMessage: ( message: unknown ) => unknown;
 			[ key: string ]: unknown;
@@ -386,7 +395,7 @@ describe( 'AiChatUI.handleMessage', () => {
 		ui.currentResponseText = '';
 		ui.usageCapReached = false;
 		// Empty content + replay mode bypasses the rendering path; this test
-		// only guards that the cap branch isn't taken without a marker.
+		// only guards that the cap branch isn't taken without a 429 text block.
 		ui.replayMode = true;
 		ui.loaderVisible = true;
 

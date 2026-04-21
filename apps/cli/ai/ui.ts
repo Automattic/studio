@@ -2023,14 +2023,16 @@ export class AiChatUI implements AiOutputAdapter {
 		switch ( message.type ) {
 			case 'assistant': {
 				// Detect the AI usage cap response from the WordPress.com proxy.
-				// The backend returns a 4xx with a body containing the
-				// `studio_cap_exceeded` marker. The agent SDK can't classify
-				// errors from off-domain base URLs, so it surfaces the body
-				// verbatim as a text block — we just look for the marker.
+				// The proxy returns a 429 when the cap is hit; the SDK can't
+				// classify errors from off-domain base URLs so it forwards the
+				// body verbatim as a text block prefixed with "API Error: 429".
+				// On the wpcom provider a 429 is always a cap issue — matching
+				// the SDK's status-code prefix is more robust than any specific
+				// body marker, which has varied across backend revisions.
 				let isCapMessage = false;
-				if ( message.error ) {
+				if ( message.error && this.currentProvider === 'wpcom' ) {
 					for ( const block of message.message.content ) {
-						if ( block.type === 'text' && /studio_cap_exceeded/i.test( block.text ?? '' ) ) {
+						if ( block.type === 'text' && /API Error:\s*429/i.test( block.text ?? '' ) ) {
 							isCapMessage = true;
 							break;
 						}
@@ -2044,11 +2046,9 @@ export class AiChatUI implements AiOutputAdapter {
 							'AI usage cap reached. You can continue using Studio Code by switching to your own Anthropic API key.'
 						)
 					);
-					if ( this.currentProvider === 'wpcom' ) {
-						this.showInfo(
-							__( 'Use /provider to switch to Anthropic · API key, or try again later.' )
-						);
-					}
+					this.showInfo(
+						__( 'Use /provider to switch to Anthropic · API key, or try again later.' )
+					);
 					this.currentMarkdown = null;
 					this.currentResponseText = '';
 					return undefined;

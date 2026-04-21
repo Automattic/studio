@@ -65,16 +65,9 @@ async function removeFileIfExists( filePath: string ) {
 }
 
 async function showImportErrorModal( event: IpcMainInvokeEvent, error: unknown ) {
-	console.log( '[IMPORT DEBUG][importSite IPC] showImportErrorModal called', {
-		errorType: typeof error,
-	} );
 	const parsedError = errorSchema.safeParse( error );
 
 	if ( parsedError.success && parsedError.data.message.includes( 'Error: absolute path: /' ) ) {
-		console.log(
-			'[IMPORT DEBUG][importSite IPC] showing ZIP absolute-path validation modal',
-			parsedError.data.message
-		);
 		await showErrorMessageBox( event, {
 			title: __( 'Failed importing site' ),
 			message: __(
@@ -85,9 +78,6 @@ async function showImportErrorModal( event: IpcMainInvokeEvent, error: unknown )
 	}
 
 	const errorToShow = simplifyErrorForDisplay( getBestEffortImportError( error ) );
-	console.log( '[IMPORT DEBUG][importSite IPC] showing generic import error modal', {
-		errorMessage: errorToShow instanceof Error ? errorToShow.message : String( errorToShow ),
-	} );
 
 	await showErrorMessageBox( event, {
 		title: __( 'Failed importing site' ),
@@ -131,39 +121,10 @@ export async function importSite(
 		args.push( '--start-server' );
 	}
 
-	console.log( '[IMPORT DEBUG][importSite IPC] invoking CLI import', {
-		siteId,
-		importArchivePath,
-		args,
-		alwaysStartServer,
-		removeBackupOnComplete,
-		showErrorModal,
-		showNotification,
-		parentWindowAvailable: !! parentWindow && ! parentWindow.isDestroyed(),
-	} );
-
 	const eventEmitter = executeImportCliCommand( site.details.id, args, parentWindow );
-	console.log( '[IMPORT DEBUG][importSite IPC] lifecycle listeners attached', {
-		siteId: site.details.id,
-	} );
 
 	return new Promise< void >( ( resolve, reject ) => {
-		let didSettle = false;
-		const watchdog = setTimeout( () => {
-			if ( ! didSettle ) {
-				console.error(
-					'[IMPORT DEBUG][importSite IPC] watchdog: no completed/failed event after 15s',
-					{ siteId: site.details.id, importArchivePath }
-				);
-			}
-		}, 15_000 );
-
 		eventEmitter.on( 'completed', async ( { importerType } ) => {
-			didSettle = true;
-			clearTimeout( watchdog );
-			console.log( '[IMPORT DEBUG][importSite IPC] received "completed" event', {
-				importerType,
-			} );
 			bumpStat( StatsGroup.STUDIO_IMPORT, getImporterMetric( importerType ) );
 
 			if ( showNotification ) {
@@ -178,18 +139,10 @@ export async function importSite(
 				await removeFileIfExists( importArchivePath );
 			}
 
-			console.log( '[IMPORT DEBUG][importSite IPC] resolving importSite promise' );
 			resolve();
 		} );
 
 		eventEmitter.on( 'failed', async ( { error, displayError } ) => {
-			didSettle = true;
-			clearTimeout( watchdog );
-			console.error( '[IMPORT DEBUG][importSite IPC] received "failed" event', {
-				errorName: error.name,
-				errorMessage: error.message,
-				displayErrorType: typeof displayError,
-			} );
 			bumpStat( StatsGroup.STUDIO_IMPORT, StatsMetric.FAILURE );
 
 			if ( ! isExpectedImportError( displayError ) ) {
@@ -197,20 +150,13 @@ export async function importSite(
 			}
 
 			if ( showErrorModal ) {
-				try {
-					await showImportErrorModal( event, displayError );
-				} catch ( e ) {
-					console.error( '[IMPORT DEBUG][importSite IPC] failed to show import error modal', e );
-				}
+				await showImportErrorModal( event, displayError );
 			}
 
 			if ( removeBackupOnComplete ) {
 				await removeFileIfExists( importArchivePath );
 			}
 
-			console.error( '[IMPORT DEBUG][importSite IPC] rejecting importSite promise', {
-				errorName: error.name,
-			} );
 			reject( error );
 		} );
 	} );

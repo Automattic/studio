@@ -23,11 +23,6 @@ export function executeImportCliCommand(
 	args: string[],
 	parentWindow: Electron.BrowserWindow | null
 ): ImportCliLifecycleEventEmitter {
-	const logImportDebug = ( ...messages: unknown[] ) => {
-		console.log( '[IMPORT DEBUG][executeImportCliCommand]', ...messages );
-	};
-	logImportDebug( 'initializing lifecycle bridge', { siteId, args } );
-
 	const [ cliEventEmitter ] = executeCliCommand( args, { output: 'capture' } );
 	const lifecycleEventEmitter = new TypedEventEmitter< ImportCliLifecycleEventMap >();
 	let importerType: ImporterType | undefined;
@@ -52,28 +47,12 @@ export function executeImportCliCommand(
 	}
 
 	function emitFailure( error: Error ) {
-		logImportDebug( 'emitFailure called', {
-			didEmitFinalLifecycleEvent,
-			errorName: error.name,
-			errorMessage: error.message,
-			hasStructuredImportError: structuredImportError !== undefined,
-		} );
 		if ( didEmitFinalLifecycleEvent ) {
-			logImportDebug( 'skipping failure emit because terminal event already emitted' );
 			return;
 		}
 		didEmitFinalLifecycleEvent = true;
 
 		if ( structuredImportError === undefined ) {
-			logImportDebug(
-				'structured import error missing; sending synthetic IMPORT_ERROR to renderer'
-			);
-			logImportDebug( 'sending IPC event to renderer', {
-				channel: 'on-import',
-				event: ImporterEvents.IMPORT_ERROR,
-				siteId,
-				parentWindowAvailable: !! parentWindow && ! parentWindow.isDestroyed(),
-			} );
 			sendIpcEventToRendererWithWindow(
 				parentWindow,
 				'on-import',
@@ -82,7 +61,6 @@ export function executeImportCliCommand(
 			);
 		}
 
-		logImportDebug( 'emitting failed lifecycle event' );
 		lifecycleEventEmitter.emit( 'failed', {
 			error,
 			displayError: structuredImportError ?? error,
@@ -99,15 +77,6 @@ export function executeImportCliCommand(
 				eventName === BackupExtractEvents.BACKUP_EXTRACT_ERROR ||
 				eventName === ValidatorEvents.IMPORT_VALIDATION_ERROR;
 
-			logImportDebug( 'parsed import IPC event', {
-				event: eventName,
-			} );
-			logImportDebug( 'sending IPC event to renderer', {
-				channel: 'on-import',
-				event: eventName,
-				siteId,
-				parentWindowAvailable: !! parentWindow && ! parentWindow.isDestroyed(),
-			} );
 			sendIpcEventToRendererWithWindow( parentWindow, 'on-import', parsed.data.event, siteId );
 
 			if ( eventName === ImporterEvents.IMPORT_COMPLETE ) {
@@ -115,49 +84,25 @@ export function executeImportCliCommand(
 			}
 
 			if ( isTerminalImportErrorEvent ) {
-				logImportDebug( 'captured structured import error from IPC event', {
-					event: eventName,
-				} );
 				structuredImportError = parsed.data.event[ 1 ];
-				logImportDebug( 'terminal import error event detected; emitting failure immediately', {
-					event: eventName,
-				} );
 				emitFailure( ensureError( structuredImportError, `Import failed during ${ eventName }` ) );
 			}
-		} else {
-			logImportDebug( 'ignored non-import IPC payload', {
-				payloadType: typeof data,
-			} );
 		}
 	} );
 
 	cliEventEmitter.on( 'error', ( { error } ) => {
-		logImportDebug( 'received cliEventEmitter error event', {
-			errorName: error.name,
-			errorMessage: error.message,
-		} );
 		emitFailure( error );
 	} );
 
 	cliEventEmitter.on( 'failure', ( { error } ) => {
-		logImportDebug( 'received cliEventEmitter failure event', {
-			errorName: error.name,
-			errorMessage: error.message,
-		} );
 		emitFailure( error );
 	} );
 
 	cliEventEmitter.on( 'success', () => {
-		logImportDebug( 'received cliEventEmitter success event', {
-			didEmitFinalLifecycleEvent,
-			importerType,
-		} );
 		if ( didEmitFinalLifecycleEvent ) {
-			logImportDebug( 'skipping completed emit because terminal event already emitted' );
 			return;
 		}
 		didEmitFinalLifecycleEvent = true;
-		logImportDebug( 'emitting completed lifecycle event', { importerType } );
 		lifecycleEventEmitter.emit( 'completed', {
 			importerType,
 		} );

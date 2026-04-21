@@ -1,9 +1,15 @@
+import { __ } from '@wordpress/i18n';
 import { useAuth } from 'src/hooks/use-auth';
 import { useAppDispatch } from 'src/stores';
 import {
 	useGetConnectedSitesForLocalSiteQuery,
 	connectedSitesActions,
 } from 'src/stores/sync/connected-sites';
+import {
+	useGetStagingSyncStateQuery,
+	usePullFromStagingMutation,
+	usePushToStagingMutation,
+} from 'src/stores/sync/staging-site-api';
 import { useStagingProvisioning } from '../../hooks/use-staging-provisioning';
 import { useSyncActions } from '../../hooks/use-sync-actions';
 import { deriveSlotAssignments } from '../../lib/slot-derivation';
@@ -13,10 +19,19 @@ import { EnvironmentColumn } from './environment-column';
 import { ConnectProductionCard, CreateStagingCard } from './placeholder-card';
 import { ProvisioningColumn } from './provisioning-column';
 import { SyncGutter } from './sync-gutter';
+import type { SyncOption } from '@studio/common/types/sync';
 
 type Props = {
 	selectedSite: SiteDetails;
 };
+
+const DEFAULT_STAGING_OPTIONS: SyncOption[] = [
+	'sqls',
+	'uploads',
+	'plugins',
+	'themes',
+	'contents',
+];
 
 export function TriangleLayout( { selectedSite }: Props ) {
 	const dispatch = useAppDispatch();
@@ -31,6 +46,12 @@ export function TriangleLayout( { selectedSite }: Props ) {
 		localSiteId: selectedSite.id,
 	} );
 	const syncActions = useSyncActions( selectedSite );
+	const [ pushToStaging ] = usePushToStagingMutation();
+	const [ pullFromStaging ] = usePullFromStagingMutation();
+	const { data: syncState } = useGetStagingSyncStateQuery(
+		{ productionSiteId: production?.id ?? 0 },
+		{ skip: ! production || ! staging }
+	);
 
 	const openConnectModal = () => dispatch( connectedSitesActions.openModal( 'connect' ) );
 
@@ -107,7 +128,46 @@ export function TriangleLayout( { selectedSite }: Props ) {
 
 			<div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
 				{ productionSlot }
-				<div />
+				<div className="flex items-center justify-center">
+					{ production && staging ? (
+						<SyncGutter
+							from={ { kind: 'remote', label: 'Production' } }
+							to={ { kind: 'remote', label: 'Staging' } }
+							lastPushTimestamp={
+								syncState?.direction === 'push' && syncState.finished_at
+									? syncState.finished_at
+									: null
+							}
+							lastPullTimestamp={
+								syncState?.direction === 'pull' && syncState.finished_at
+									? syncState.finished_at
+									: null
+							}
+							// Labels reference both endpoints explicitly because neither is
+							// Local — "Push to Staging" alone would be ambiguous in the middle
+							// of the screen.
+							pushArrow="→"
+							pullArrow="←"
+							pushLabel={ __( 'Production → Staging' ) }
+							pullLabel={ __( 'Staging → Production' ) }
+							onPush={ () => {
+								void pushToStaging( {
+									productionSiteId: production.id,
+									stagingSiteId: staging.id,
+									options: DEFAULT_STAGING_OPTIONS,
+								} );
+							} }
+							onPull={ () => {
+								void pullFromStaging( {
+									productionSiteId: production.id,
+									stagingSiteId: staging.id,
+									options: DEFAULT_STAGING_OPTIONS,
+									allowWooSync: false,
+								} );
+							} }
+						/>
+					) : null }
+				</div>
 				{ stagingSlot }
 			</div>
 

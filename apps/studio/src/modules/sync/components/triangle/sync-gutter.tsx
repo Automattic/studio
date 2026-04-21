@@ -14,9 +14,13 @@ type Props = {
 	onPull: () => void;
 	disabled?: boolean;
 	/** Arrow character used for the push button. Defaults to '↑'. */
-	pushArrow?: '↑' | '↓';
+	pushArrow?: '↑' | '↓' | '→' | '←';
 	/** Arrow character used for the pull button. Defaults to '↓'. */
-	pullArrow?: '↑' | '↓';
+	pullArrow?: '↑' | '↓' | '→' | '←';
+	/** Override the push button label (e.g., for remote↔remote flows where "Push to X" is ambiguous). */
+	pushLabel?: string;
+	/** Override the pull button label. */
+	pullLabel?: string;
 };
 
 function buttonLabel( direction: 'push' | 'pull', to: Endpoint ): string {
@@ -48,14 +52,25 @@ export function SyncGutter( props: Props ) {
 	const pushArrow = props.pushArrow ?? '↑';
 	const pullArrow = props.pullArrow ?? '↓';
 
+	const pushText = props.pushLabel ?? buttonLabel( 'push', props.to );
+	const pullText = props.pullLabel ?? buttonLabel( 'pull', props.to );
+
+	// Suppress the leading arrow glyph when a custom label is provided — callers that
+	// pass a label typically encode direction inside it (e.g., "Production → Staging"),
+	// so the prefix arrow would be redundant.
+	const showPushArrow = ! props.pushLabel;
+	const showPullArrow = ! props.pullLabel;
+
 	const pushButton = (
 		<Button variant="secondary" onClick={ props.onPush } disabled={ props.disabled }>
-			{ pushArrow } { buttonLabel( 'push', props.to ) }
+			{ showPushArrow ? `${ pushArrow } ` : '' }
+			{ pushText }
 		</Button>
 	);
 	const pullButton = (
 		<Button variant="secondary" onClick={ props.onPull } disabled={ props.disabled }>
-			{ pullArrow } { buttonLabel( 'pull', props.to ) }
+			{ showPullArrow ? `${ pullArrow } ` : '' }
+			{ pullText }
 		</Button>
 	);
 

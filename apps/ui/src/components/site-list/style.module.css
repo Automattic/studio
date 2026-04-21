@@ -149,10 +149,18 @@
 	background: var(--wpds-color-fg-content-neutral);
 }
 
+.dialogText {
+	margin: 0;
+	font-size: var(--wpds-font-size-sm);
+	line-height: var(--wpds-font-line-height-sm);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
 .dialogCheckbox {
 	display: flex;
 	align-items: center;
 	gap: var(--wpds-dimension-padding-sm);
+	margin-top: var(--wpds-dimension-padding-sm);
 	font-size: var(--wpds-font-size-sm);
 	line-height: var(--wpds-font-line-height-sm);
 	color: var(--wpds-color-fg-content-neutral);
@@ -160,6 +168,7 @@
 }
 
 .dialogError {
+	margin-top: var(--wpds-dimension-padding-sm);
 	font-size: var(--wpds-font-size-sm);
 	line-height: var(--wpds-font-line-height-sm);
 	color: var(--wpds-color-fg-content-critical, var(--wpds-color-fg-content-neutral));

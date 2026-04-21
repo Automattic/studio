@@ -2,12 +2,13 @@
 	/* Default is 2px; 4px reads a bit softer. */
 	--wpds-border-radius-sm: 4px;
 
-	/* @wordpress/ui's tooltip defaults to `z-index: initial`, which gets
-	   trapped beneath any sticky/positioned ancestor with a hardcoded
-	   z-index — most notably the sidebar header (z-index: 1) and the
-	   sticky user-menu footer (z-index: 1). Promote tooltips above those
-	   layers, and above the dialog (z-index: 1000) so help text on
-	   controls inside a dialog still surfaces above the dialog popup. */
+	/* @wordpress/ui's dialog and tooltip both default to `z-index: initial`,
+	   which gets trapped beneath any sticky/positioned ancestor with a
+	   hardcoded z-index — most notably the sidebar header (z-index: 1)
+	   and the sticky user-menu footer (z-index: 1). Promote them above
+	   those layers, with tooltips above dialogs so help text on controls
+	   inside a dialog still surfaces above the dialog popup. */
+	--wp-ui-dialog-z-index: 1000;
 	--wp-ui-tooltip-z-index: 1100;
 }
 

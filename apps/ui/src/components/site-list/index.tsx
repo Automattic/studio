@@ -1,10 +1,9 @@
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { moreHorizontal, plus } from '@wordpress/icons';
-import { Button, IconButton } from '@wordpress/ui';
+import { Button, Dialog, IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useMemo, useState } from 'react';
-import * as Dialog from '@/components/dialog';
 import * as Menu from '@/components/menu';
 import { SidebarButton } from '@/components/sidebar-button';
 import { useSessions } from '@/data/queries/use-sessions';
@@ -174,13 +173,15 @@ function DeleteSiteDialog( {
 				}
 			} }
 		>
-			<Dialog.Popup>
-				<Dialog.Title>{ sprintf( __( 'Delete %s' ), site.name ) }</Dialog.Title>
-				<Dialog.Description>
+			<Dialog.Popup size="small">
+				<Dialog.Header>
+					<Dialog.Title>{ sprintf( __( 'Delete %s' ), site.name ) }</Dialog.Title>
+				</Dialog.Header>
+				<p className={ styles.dialogText }>
 					{ __(
 						"The site's database will be lost, including all posts, pages, comments, and media."
 					) }
-				</Dialog.Description>
+				</p>
 				<label className={ styles.dialogCheckbox }>
 					<input
 						type="checkbox"
@@ -190,12 +191,10 @@ function DeleteSiteDialog( {
 					<span>{ __( 'Delete site files from my computer' ) }</span>
 				</label>
 				{ error ? <div className={ styles.dialogError }>{ error }</div> : null }
-				<Dialog.Actions>
-					<Dialog.Close
-						render={ <Button variant="minimal" tone="neutral" disabled={ deleteSite.isPending } /> }
-					>
+				<Dialog.Footer>
+					<Dialog.Action variant="minimal" tone="neutral" disabled={ deleteSite.isPending }>
 						{ __( 'Cancel' ) }
-					</Dialog.Close>
+					</Dialog.Action>
 					<Button
 						variant="solid"
 						tone="brand"
@@ -205,7 +204,7 @@ function DeleteSiteDialog( {
 					>
 						{ __( 'Delete site' ) }
 					</Button>
-				</Dialog.Actions>
+				</Dialog.Footer>
 			</Dialog.Popup>
 		</Dialog.Root>
 	);

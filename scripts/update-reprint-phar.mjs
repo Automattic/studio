@@ -9,13 +9,17 @@
 import fs from 'fs';
 import https from 'https';
 import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = path.dirname( fileURLToPath( import.meta.url ) );
-
 const REPO = 'adamziel/reprint';
 const ASSET_NAME = 'reprint.phar';
-const OUTPUT_PATH = path.join( __dirname, '..', 'apps', 'cli', 'lib', 'import', ASSET_NAME );
+const OUTPUT_PATH = path.join(
+	import.meta.dirname,
+	'..',
+	'apps',
+	'cli',
+	'lib',
+	'import',
+	ASSET_NAME
+);
 
 function httpsGetJson( url ) {
 	return new Promise( ( resolve, reject ) => {
@@ -23,7 +27,11 @@ function httpsGetJson( url ) {
 			url,
 			{ headers: { 'User-Agent': 'studio-reprint-updater', Accept: 'application/json' } },
 			( response ) => {
-				if ( response.statusCode >= 300 && response.statusCode < 400 && response.headers.location ) {
+				if (
+					response.statusCode >= 300 &&
+					response.statusCode < 400 &&
+					response.headers.location
+				) {
 					return resolve( httpsGetJson( response.headers.location ) );
 				}
 
@@ -75,7 +83,9 @@ if ( ! asset ) {
 	process.exit( 1 );
 }
 
-console.log( `[reprint] Downloading ${ ASSET_NAME } ${ release.tag_name } (${ asset.size } bytes)…` );
+console.log(
+	`[reprint] Downloading ${ ASSET_NAME } ${ release.tag_name } (${ asset.size } bytes)…`
+);
 
 fs.mkdirSync( path.dirname( OUTPUT_PATH ), { recursive: true } );
 await httpsDownload( asset.browser_download_url, OUTPUT_PATH );

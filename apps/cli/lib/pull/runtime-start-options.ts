@@ -205,105 +205,6 @@ function resolveImportedWpContentPath( runtimeBlueprintPath: string ): string {
 	return candidates[ 0 ] ?? path.join( rawDirectory, 'wp-content' );
 }
 
-/**
- * Creates wp-config.php symlinks in WP core directories that don't have one.
- *
- * Managed hosts often separate the WP core files (wp-load.php, wp-admin, etc.)
- * into a shared directory (e.g. __wp__/) while wp-config.php lives in the
- * document root.  WordPress resolves ABSPATH from wp-load.php's __DIR__ and
- * looks for wp-config.php there first.  When it's missing, WordPress redirects
- * to setup-config.php instead of loading the database.
- *
- * This reads the preflight state to find WP root directories that have
- * wp-load.php but not wp-config.php, then creates a relative symlink to the
- * nearest wp-config.php so WordPress can find its config regardless of which
- * directory ABSPATH resolves to.
- */
-function ensureWpConfigSymlinksInCoreDirectories( runtimeBlueprintPath: string ): void {
-	const importRoot = path.dirname( path.dirname( runtimeBlueprintPath ) );
-	const rawDirectory = path.join( importRoot, 'raw' );
-	const statePath = path.join( importRoot, 'state', '.import-state.json' );
-
-	if ( ! fs.existsSync( statePath ) ) {
-		return;
-	}
-
-	let roots: Array< Record< string, unknown > >;
-	try {
-		const state = JSON.parse( fs.readFileSync( statePath, 'utf-8' ) ) as Record< string, unknown >;
-		const preflight = ( state.preflight as Record< string, unknown > | undefined )?.data as
-			| Record< string, unknown >
-			| undefined;
-		const wpDetect = preflight?.wp_detect as Record< string, unknown > | undefined;
-		roots = Array.isArray( wpDetect?.roots ) ? wpDetect.roots : [];
-	} catch {
-		return;
-	}
-
-	// Find the root that has wp-config.php — that's the one we'll symlink to.
-	let wpConfigRoot: string | null = null;
-	for ( const root of roots ) {
-		if ( root.wp_config !== true ) {
-			continue;
-		}
-		const rootPath = decodeBase64Path( root.path );
-		if ( rootPath ) {
-			wpConfigRoot = rootPath;
-			break;
-		}
-	}
-
-	if ( ! wpConfigRoot ) {
-		return;
-	}
-
-	// For each root that has wp-load but no wp-config, create a symlink.
-	for ( const root of roots ) {
-		if ( root.wp_config === true || root.wp_load !== true ) {
-			continue;
-		}
-
-		const rootPath = decodeBase64Path( root.path );
-		if ( ! rootPath ) {
-			continue;
-		}
-
-		const hostCoreDir = path.join( rawDirectory, rootPath.replace( /^\//, '' ) );
-		const wpConfigInCoreDir = path.join( hostCoreDir, 'wp-config.php' );
-
-		if ( fs.existsSync( wpConfigInCoreDir ) ) {
-			continue;
-		}
-
-		// Compute the relative path from the core directory to the wp-config root.
-		const hostWpConfigDir = path.join( rawDirectory, wpConfigRoot.replace( /^\//, '' ) );
-		const relativeWpConfig = path.relative(
-			hostCoreDir,
-			path.join( hostWpConfigDir, 'wp-config.php' )
-		);
-
-		try {
-			fs.symlinkSync( relativeWpConfig, wpConfigInCoreDir );
-		} catch {
-			// Non-fatal — the site may still work if WordPress finds wp-config another way.
-		}
-	}
-}
-
-function decodeBase64Path( value: unknown ): string | null {
-	if ( typeof value !== 'string' ) {
-		return null;
-	}
-	if ( ! value.startsWith( 'base64:' ) ) {
-		return value;
-	}
-	try {
-		return Buffer.from( value.slice( 'base64:'.length ), 'base64' ).toString( 'utf8' );
-	} catch {
-		return null;
-	}
-}
-
 export async function ensureImportedSiteSqliteReady(
 	runtimeBlueprintPath: string
 ): Promise< string > {
@@ -320,7 +221,6 @@ export async function ensureImportedSiteSqliteReady(
 	}
 
 	await installSqliteIntegration( path.dirname( wpContentPath ) );
-	ensureWpConfigSymlinksInCoreDirectories( runtimeBlueprintPath );
 	return sqlitePath;
 }
 

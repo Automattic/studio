@@ -10,10 +10,10 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
-import { encodePassword } from '@studio/common/lib/passwords';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import * as fsUtils from '@studio/common/lib/fs-utils';
 import { generateNumberedName } from '@studio/common/lib/generate-site-name';
+import { encodePassword } from '@studio/common/lib/passwords';
 import { portFinder } from '@studio/common/lib/port-finder';
 import { readAuthToken, type StoredAuthToken } from '@studio/common/lib/shared-config';
 import { sortSites } from '@studio/common/lib/sort-sites';
@@ -52,7 +52,7 @@ import {
 } from 'cli/lib/pull/runtime-start-options';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
 import { buildAutoLoginUrl } from 'cli/lib/site-utils';
-import { isServerRunning, startWordPressServer } from 'cli/lib/wordpress-server-manager';
+import { startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -1072,7 +1072,7 @@ async function resolveSourceSite(
 	url?: string,
 	providedSecret?: string,
 	providedName?: string,
-	verbose = false
+	_verbose = false
 ): Promise< PullSource | null > {
 	// When the caller provides an explicit secret, use it directly.
 	if ( url && providedSecret ) {

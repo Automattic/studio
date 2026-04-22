@@ -116,8 +116,6 @@ Missing OG tags don't hurt rankings directly but kill click-through from social 
 
 **Only reach this section after running the "Check Active Plugins First" step and confirming no SEO plugin is active.**
 
-**Why Jetpack:** It's Automattic's official WordPress plugin and integrates natively with WordPress.com — the same platform users push Studio sites to via `site_push` and `preview_create`. Recommending Jetpack keeps the local dev experience aligned with production.
-
 **Install, activate, and enable the SEO module:**
 
 ```

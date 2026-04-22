@@ -1,0 +1,193 @@
+import { describe, expect, it, vi } from 'vitest';
+import { RemoteSessionLogger } from 'cli/remote-session/logger';
+import { runPollLoop, type PollLoopDeps } from 'cli/remote-session/poll-loop';
+import type { RemoteSessionConfig } from 'cli/remote-session/config';
+import type { PolledMessage } from 'cli/remote-session/telegram-client';
+import type { TurnOutcome } from 'cli/remote-session/turn-runner';
+
+const baseConfig: RemoteSessionConfig = {
+	base_url: 'https://api.example.test/telegram-bot',
+	token: 't',
+	bot: 'b',
+	chat_id: 42,
+	poll_interval_seconds: 0.001,
+	long_poll_timeout_seconds: 5,
+	max_message_chars: 3800,
+	turn_timeout_seconds: 1,
+};
+
+interface ScriptedPoll {
+	script: Array< PolledMessage | null >;
+	calls: number;
+	done: Promise< void >;
+	resolveDone: () => void;
+}
+
+function makeScriptedPoll( messages: Array< PolledMessage | null > ): ScriptedPoll {
+	let resolveDone: () => void = () => undefined;
+	const done = new Promise< void >( ( r ) => {
+		resolveDone = r;
+	} );
+	return { script: messages, calls: 0, done, resolveDone };
+}
+
+function makeDeps(
+	overrides: Partial< PollLoopDeps > & { scriptedPoll?: ScriptedPoll }
+): PollLoopDeps {
+	const respond = vi.fn().mockResolvedValue( undefined );
+	const runTurn = vi.fn< ( args: unknown ) => Promise< TurnOutcome > >();
+	const readState = vi.fn().mockResolvedValue( null );
+	const writeSession = vi.fn().mockResolvedValue( undefined );
+	const clearSession = vi.fn().mockResolvedValue( undefined );
+	const sleep = vi.fn().mockResolvedValue( undefined );
+
+	const scripted = overrides.scriptedPoll;
+	const poll = scripted
+		? vi.fn( async ( _config: RemoteSessionConfig, signal?: AbortSignal ) => {
+				if ( scripted.calls >= scripted.script.length ) {
+					scripted.resolveDone();
+					// Emulate long-poll with no messages: block until the loop aborts.
+					await new Promise< void >( ( resolve ) => {
+						if ( signal?.aborted ) {
+							resolve();
+							return;
+						}
+						signal?.addEventListener( 'abort', () => resolve(), { once: true } );
+					} );
+					const err = new Error( 'aborted' );
+					err.name = 'AbortError';
+					throw err;
+				}
+				const msg = scripted.script[ scripted.calls++ ];
+				return msg;
+		  } )
+		: vi.fn().mockResolvedValue( null );
+
+	return {
+		poll: poll as PollLoopDeps[ 'poll' ],
+		respond,
+		runTurn,
+		readState,
+		writeSession,
+		clearSession,
+		logger: new RemoteSessionLogger( '/dev/null' ),
+		sleep,
+		...overrides,
+	};
+}
+
+describe( 'runPollLoop', () => {
+	it( 'posts attach status, then the reply for a successful turn, then detach status', async () => {
+		const scripted = makeScriptedPoll( [ { chat_id: 42, text: 'hello' } ] );
+		const deps = makeDeps( { scriptedPoll: scripted } );
+		( deps.runTurn as ReturnType< typeof vi.fn > ).mockResolvedValue( {
+			status: 'success',
+			sessionId: 'sess-1',
+			replyText: 'Hi back',
+			isError: false,
+			stderrTail: '',
+			exitCode: 0,
+			staleSession: false,
+		} satisfies TurnOutcome );
+
+		const handle = await runPollLoop( { config: baseConfig, deps, cwd: '/fake/cwd' } );
+		await scripted.done;
+		await handle.detach();
+		await handle.done;
+
+		const respond = deps.respond as ReturnType< typeof vi.fn >;
+		const bodies = respond.mock.calls.map( ( [ , params ] ) => params.text );
+		expect( bodies[ 0 ] ).toMatch( /attached/ );
+		expect( bodies ).toContain( 'Hi back' );
+		expect( bodies.at( -1 ) ).toMatch( /detached/ );
+		expect( deps.writeSession ).toHaveBeenCalledWith( 42, 'sess-1' );
+	} );
+
+	it( 'handles /new by clearing the session and acking, without invoking the agent', async () => {
+		const scripted = makeScriptedPoll( [ { chat_id: 42, text: '/NEW' } ] );
+		const deps = makeDeps( { scriptedPoll: scripted } );
+
+		const handle = await runPollLoop( { config: baseConfig, deps } );
+		await scripted.done;
+		await handle.detach();
+		await handle.done;
+
+		expect( deps.runTurn ).not.toHaveBeenCalled();
+		expect( deps.clearSession ).toHaveBeenCalledWith( 42 );
+		const respond = deps.respond as ReturnType< typeof vi.fn >;
+		const bodies = respond.mock.calls.map( ( [ , params ] ) => params.text );
+		expect( bodies ).toContain( '🆕 Started a new conversation.' );
+	} );
+
+	it( 'retries once with no session id on stale-session outcome and posts the notice', async () => {
+		const scripted = makeScriptedPoll( [ { chat_id: 42, text: 'continue?' } ] );
+		const deps = makeDeps( { scriptedPoll: scripted } );
+		( deps.readState as ReturnType< typeof vi.fn > ).mockResolvedValue( {
+			chat_id: 42,
+			session_id: 'stale',
+		} );
+		const runTurn = deps.runTurn as ReturnType< typeof vi.fn >;
+		runTurn
+			.mockResolvedValueOnce( {
+				status: 'error',
+				isError: true,
+				stderrTail: 'No AI session found for resume ID',
+				exitCode: 1,
+				staleSession: true,
+			} satisfies TurnOutcome )
+			.mockResolvedValueOnce( {
+				status: 'success',
+				sessionId: 'fresh',
+				replyText: 'recovered',
+				isError: false,
+				stderrTail: '',
+				exitCode: 0,
+				staleSession: false,
+			} satisfies TurnOutcome );
+
+		const handle = await runPollLoop( { config: baseConfig, deps } );
+		await scripted.done;
+		await handle.detach();
+		await handle.done;
+
+		expect( deps.clearSession ).toHaveBeenCalledWith( 42 );
+		const respond = deps.respond as ReturnType< typeof vi.fn >;
+		const bodies = respond.mock.calls.map( ( [ , params ] ) => params.text );
+		expect( bodies ).toContain( 'ℹ️ Session expired; started a new one.' );
+		expect( bodies ).toContain( 'recovered' );
+		expect( deps.writeSession ).toHaveBeenCalledWith( 42, 'fresh' );
+	} );
+
+	it( 'ignores messages whose chat_id does not match the bound config', async () => {
+		const scripted = makeScriptedPoll( [ { chat_id: 999, text: 'nope' } ] );
+		const deps = makeDeps( { scriptedPoll: scripted } );
+
+		const handle = await runPollLoop( { config: baseConfig, deps } );
+		await scripted.done;
+		await handle.detach();
+		await handle.done;
+
+		expect( deps.runTurn ).not.toHaveBeenCalled();
+	} );
+
+	it( 'posts the fallback when the turn returns no reply and no question', async () => {
+		const scripted = makeScriptedPoll( [ { chat_id: 42, text: 'hm' } ] );
+		const deps = makeDeps( { scriptedPoll: scripted } );
+		( deps.runTurn as ReturnType< typeof vi.fn > ).mockResolvedValue( {
+			status: 'success',
+			isError: false,
+			stderrTail: '',
+			exitCode: 0,
+			staleSession: false,
+		} satisfies TurnOutcome );
+
+		const handle = await runPollLoop( { config: baseConfig, deps } );
+		await scripted.done;
+		await handle.detach();
+		await handle.done;
+
+		const respond = deps.respond as ReturnType< typeof vi.fn >;
+		const bodies = respond.mock.calls.map( ( [ , params ] ) => params.text );
+		expect( bodies ).toContain( '⚠️ Local agent did not return a result.' );
+	} );
+} );

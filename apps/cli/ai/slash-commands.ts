@@ -10,6 +10,9 @@ import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/crea
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
 import { getSnapshotsFromConfig, isSnapshotExpired } from 'cli/lib/snapshots';
 import { LoggerError } from 'cli/logger';
+import { RemoteSessionConfigError, runRemoteSession } from 'cli/remote-session';
+import { loadRemoteSessionConfig } from 'cli/remote-session/config';
+import { clearSessionId, readStateForChat } from 'cli/remote-session/state';
 import type { AiChatUI } from 'cli/ai/ui';
 
 export interface SlashCommandContext {
@@ -286,6 +289,82 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 				}
 			}
 			return 'continue';
+		},
+	},
+	{
+		name: 'remote-session',
+		description: __(
+			'Attach (blocking), detach, reset, or show status of the Telegram remote session'
+		),
+		handler: async ( prompt, ctx ) => {
+			const sub = ( prompt.trim().split( /\s+/ )[ 1 ] ?? 'status' ).toLowerCase();
+			try {
+				if ( sub === 'attach' ) {
+					ctx.ui.showInfo(
+						__(
+							'Attaching to Telegram. The interactive prompt is blocked while attached; press Ctrl-C to detach.'
+						)
+					);
+					ctx.ui.stop();
+					try {
+						await runRemoteSession();
+					} finally {
+						ctx.ui.start();
+					}
+					return 'continue';
+				}
+
+				if ( sub === 'new' ) {
+					const config = await loadRemoteSessionConfig();
+					await clearSessionId( config.chat_id );
+					ctx.ui.showInfo( __( 'Remote session reset.' ) );
+					return 'continue';
+				}
+
+				if ( sub === 'status' ) {
+					const config = await loadRemoteSessionConfig();
+					const state = await readStateForChat( config.chat_id );
+					const sessionLine = state?.session_id
+						? sprintf(
+								/* translators: %s: session id */
+								__( 'Session id: %s' ),
+								state.session_id
+						  )
+						: __( 'No saved session.' );
+					ctx.ui.showInfo(
+						sprintf(
+							/* translators: 1: chat id, 2: bot name, 3: session info */
+							__( 'Remote session — chat %1$s, bot %2$s. %3$s' ),
+							String( config.chat_id ),
+							config.bot,
+							sessionLine
+						)
+					);
+					return 'continue';
+				}
+
+				if ( sub === 'detach' ) {
+					ctx.ui.showInfo(
+						__(
+							'No remote session is running in this REPL. Use Ctrl-C inside an attached session to detach.'
+						)
+					);
+					return 'continue';
+				}
+
+				ctx.ui.showInfo( __( 'Usage: /remote-session [status|attach|detach|new]' ) );
+				return 'continue';
+			} catch ( error ) {
+				if ( error instanceof RemoteSessionConfigError ) {
+					ctx.ui.showError( error.message );
+					return 'continue';
+				}
+				if ( error instanceof LoggerError ) {
+					ctx.ui.showError( error.message );
+					return 'continue';
+				}
+				throw error;
+			}
 		},
 	},
 	{

@@ -24,6 +24,7 @@ import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
+import { RemoteSessionConfigError, runRemoteSession } from 'cli/remote-session';
 import { StudioArgv } from 'cli/types';
 
 const logger = new Logger< string >();
@@ -647,7 +648,10 @@ export async function runCommand( options: {
 			const prompt = await ui.waitForInput();
 			const trimmedPrompt = prompt.trim();
 
-			const cmd = AI_CHAT_SLASH_COMMANDS.find( ( c ) => `/${ c.name }` === trimmedPrompt );
+			const firstToken = trimmedPrompt.split( /\s+/, 1 )[ 0 ] ?? '';
+			const cmd = firstToken.startsWith( '/' )
+				? AI_CHAT_SLASH_COMMANDS.find( ( c ) => `/${ c.name }` === firstToken )
+				: undefined;
 			if ( cmd ) {
 				if ( cmd.handler ) {
 					const result = await cmd.handler( prompt, slashCommandContext );
@@ -722,8 +726,21 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					default: true,
 					description: __( 'Record this code session to disk' ),
 				} )
+				.option( 'remote-session', {
+					type: 'boolean',
+					default: false,
+					description: __( 'Attach to Telegram and drive studio code remotely' ),
+				} )
+				.option( 'remote-chat-id', {
+					type: 'number',
+					description: __( 'Override the Telegram chat id to bind to' ),
+				} )
+				.option( 'remote-bot', {
+					type: 'string',
+					description: __( 'Override the Telegram bot name to use for replies' ),
+				} )
 				.check( ( argv ) => {
-					if ( argv.json && ! argv.message ) {
+					if ( argv.json && ! argv.message && ! argv.remoteSession ) {
 						throw new Error( __( '--json requires an initial message argument' ) );
 					}
 					return true;
@@ -739,7 +756,28 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					resumeSession?: string;
 					permissionResponse?: string;
 					siteName?: string;
+					remoteSession?: boolean;
+					remoteChatId?: number;
+					remoteBot?: string;
 				};
+
+				if ( typedArgv.remoteSession ) {
+					try {
+						await runRemoteSession( {
+							chat_id: typedArgv.remoteChatId,
+							bot: typedArgv.remoteBot,
+						} );
+					} catch ( error ) {
+						if ( error instanceof RemoteSessionConfigError ) {
+							process.stderr.write( `${ error.message }\n` );
+							process.exitCode = 1;
+							return;
+						}
+						throw error;
+					}
+					return;
+				}
+
 				const noSessionPersistence = typedArgv.sessionPersistence === false;
 				const adapter: AiOutputAdapter = typedArgv.json ? new JsonAdapter() : new AiChatUI();
 

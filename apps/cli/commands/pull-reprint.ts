@@ -10,6 +10,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
+import { encodePassword } from '@studio/common/lib/passwords';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import * as fsUtils from '@studio/common/lib/fs-utils';
 import { generateNumberedName } from '@studio/common/lib/generate-site-name';
@@ -290,7 +291,7 @@ export async function runCommand(
 
 	if ( studioMetadata.stage === 'completed' ) {
 		printCompletionMessage( studioMetadata );
-		return;
+		process.exit( 0 );
 	}
 
 	const isResume = ! created || fs.readdirSync( studioMetadata.stateDirectory ).length > 0;
@@ -402,6 +403,26 @@ export async function runCommand(
 		}
 
 		const site = ( await findExistingSite( studioMetadata ) )!;
+
+		// Imported sites don't go through the normal create flow that sets
+		// admin credentials. Without this, the auto-login mu-plugin can't
+		// find an admin user (it falls back to looking for "admin" which
+		// doesn't exist in the imported database).
+		if ( ! site.adminPassword ) {
+			site.adminPassword = encodePassword( crypto.randomBytes( 24 ).toString( 'base64url' ) );
+			try {
+				await lockCliConfig();
+				const cliConfig = await readCliConfig();
+				const record = cliConfig.sites.find( ( s ) => s.id === site.id );
+				if ( record ) {
+					record.adminPassword = site.adminPassword;
+					await saveCliConfig( cliConfig );
+				}
+			} finally {
+				await unlockCliConfig();
+			}
+		}
+
 		if ( ! hasPullCompletedStage( studioMetadata, 'site-started' ) ) {
 			await ensureImportedSiteSqliteReady( studioMetadata.runtimeBlueprintPath );
 			const runtimeStartOptions = await loadImportedRuntimeStartOptions(
@@ -454,6 +475,7 @@ export async function runCommand(
 		}
 
 		printCompletionMessage( studioMetadata );
+		process.exit( 0 );
 	} catch ( error ) {
 		const resumeCommand = [ 'studio pull-reprint', `--url ${ studioMetadata.normalizedUrl }` ];
 		if ( userProvidedSecret ) {

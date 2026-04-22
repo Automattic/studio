@@ -40,10 +40,10 @@ const { join, sep } = require( 'node:path' );
 const { isSea, getAsset } = require( 'node:sea' );
 const { pathToFileURL } = require( 'node:url' );
 
-// Convert Windows backslash paths to forward slashes for tar compatibility.
-// We target bsdtar (shipped with macOS and Windows 10+), which accepts
-// forward-slashed absolute paths like "C:/foo/bar" without any extra flags.
-const posix = ( p ) => p.split( sep ).join( '/' );
+// We drive tar via stdin rather than passing the archive path as an argv
+// entry. That keeps "C:" out of tar's arguments, so GNU tar (Git Bash on
+// Windows) doesn't try to resolve the drive letter as a remote host. BSD tar
+// handles either form, so this works cross-platform.
 
 const DEFAULT_CLI_DIR = join( homedir(), '.studio', 'cli' );
 const CLI_DIR = process.env.STUDIO_CLI_DIR || DEFAULT_CLI_DIR;
@@ -106,33 +106,33 @@ function sweepStaleTmpDirs() {
 	}
 }
 
-function runTar( args ) {
-	try {
-		execSync( `tar ${ args }`, { stdio: 'inherit' } );
-	} catch ( err ) {
-		throw new Error(
-			`Failed to extract bundle with tar. Make sure 'tar' is installed and on PATH. Original error: ${ err.message }`
-		);
-	}
-}
-
 function extractTarAsset( assetName, destDir ) {
 	// Extract into a sibling tmp dir first, then move it into place. The
 	// surrounding lock serializes this across processes, so the window between
 	// rm and rename can't be interleaved with another writer.
 	const suffix = `.tmp-${ process.pid }`;
 	const tmpDir = `${ destDir }${ suffix }`;
-	const tarPath = `${ destDir }${ suffix }.tar.gz`;
 
 	let extractionSucceeded = false;
 	try {
-		writeFileSync( tarPath, Buffer.from( getAsset( assetName ) ) );
-
 		if ( existsSync( tmpDir ) ) {
 			rmSync( tmpDir, { recursive: true, force: true } );
 		}
 		mkdirSync( tmpDir, { recursive: true } );
-		runTar( `-xzf "${ posix( tarPath ) }" -C "${ posix( tmpDir ) }"` );
+
+		// Stream the asset to tar's stdin and extract in-place (cwd = tmpDir).
+		// No paths in argv => no GNU-tar "Cannot connect to C:" failure.
+		try {
+			execSync( 'tar -xz', {
+				cwd: tmpDir,
+				input: Buffer.from( getAsset( assetName ) ),
+				stdio: [ 'pipe', 'inherit', 'inherit' ],
+			} );
+		} catch ( err ) {
+			throw new Error(
+				`Failed to extract bundle with tar. Make sure 'tar' is installed and on PATH. Original error: ${ err.message }`
+			);
+		}
 
 		if ( existsSync( destDir ) ) {
 			rmSync( destDir, { recursive: true, force: true } );
@@ -140,7 +140,6 @@ function extractTarAsset( assetName, destDir ) {
 		renameSync( tmpDir, destDir );
 		extractionSucceeded = true;
 	} finally {
-		rmSync( tarPath, { force: true } );
 		if ( ! extractionSucceeded ) {
 			rmSync( tmpDir, { recursive: true, force: true } );
 		}

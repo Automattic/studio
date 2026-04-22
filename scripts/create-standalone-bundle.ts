@@ -20,7 +20,7 @@
  *   npx ts-node scripts/create-standalone-bundle.ts win32 x64
  */
 
-import { execSync } from 'child_process';
+import { execSync, spawn } from 'child_process';
 import { createHash } from 'crypto';
 import fs from 'fs';
 import path from 'path';
@@ -69,6 +69,30 @@ function sha256( file: string ): string {
 	return createHash( 'sha256' ).update( fs.readFileSync( file ) ).digest( 'hex' );
 }
 
+// Create a gzipped tarball by streaming tar's stdout to a file. Keeping the
+// archive path out of tar's argv avoids GNU tar (Git Bash / Buildkite Windows)
+// interpreting "C:" as a remote host ("Cannot connect to C: resolve failed").
+// BSD tar (macOS, Windows 10+) handles it either way.
+function createTarball( archivePath: string, cwd: string, extraArgs: string[] ): Promise< void > {
+	return new Promise( ( resolve, reject ) => {
+		const child = spawn( 'tar', [ '-cz', ...extraArgs, '.' ], {
+			cwd,
+			stdio: [ 'ignore', 'pipe', 'inherit' ],
+		} );
+		const out = fs.createWriteStream( archivePath );
+		child.stdout.pipe( out );
+		out.on( 'error', reject );
+		child.on( 'error', reject );
+		child.on( 'close', ( code ) => {
+			if ( code === 0 ) {
+				resolve();
+			} else {
+				reject( new Error( `tar exited with code ${ code }` ) );
+			}
+		} );
+	} );
+}
+
 async function main(): Promise< void > {
 	console.log( `==> Building standalone binary: ${ bundleName }\n` );
 
@@ -86,28 +110,23 @@ async function main(): Promise< void > {
 	fs.mkdirSync( bundleBuildDir, { recursive: true } );
 
 	// CLI bundle (JS files, wp-files, etc. — excludes node_modules).
-	// Exclude patterns are unquoted on purpose: single quotes aren't literal
-	// on Windows cmd.exe and would be passed through as part of the pattern,
-	// matching nothing. We target bsdtar (shipped with macOS and Windows 10+),
-	// which handles forward-slashed absolute paths natively — no --force-local
-	// workaround needed.
-	const cliTarPath = posix( path.join( bundleBuildDir, 'cli.tar.gz' ) );
-	run( `tar -czf "${ cliTarPath }" --exclude=node_modules .`, cliDistDir );
+	// We stream tar's output to a file via Node rather than passing the archive
+	// path to tar directly — that keeps "C:" out of tar's argv, which GNU tar
+	// on Windows would otherwise interpret as a remote host.
+	const cliTarFullPath = path.join( bundleBuildDir, 'cli.tar.gz' );
+	await createTarball( cliTarFullPath, cliDistDir, [ '--exclude=node_modules' ] );
 
 	// node_modules — use source node_modules (not dist) because externalized
 	// native packages have transitive deps (e.g. ws, ini) that they need at runtime.
 	// Strip browser dirs to save space. Keep asyncify as fallback for JSPI.
 	const cliNodeModules = path.join( repoRoot, 'apps', 'cli', 'node_modules' );
-	const nmTarPath = posix( path.join( bundleBuildDir, 'node_modules.tar.gz' ) );
-	run(
-		`tar -czf "${ nmTarPath }" ` +
-			`--exclude=.cache ` +
-			`--exclude=playwright/browsers --exclude=playwright-core/browsers .`,
-		cliNodeModules
-	);
-
-	const cliTarFullPath = path.join( bundleBuildDir, 'cli.tar.gz' );
 	const nmTarFullPath = path.join( bundleBuildDir, 'node_modules.tar.gz' );
+	await createTarball( nmTarFullPath, cliNodeModules, [
+		'--exclude=.cache',
+		'--exclude=playwright/browsers',
+		'--exclude=playwright-core/browsers',
+	] );
+
 	const cliSize = ( fs.statSync( cliTarFullPath ).size / 1024 / 1024 ).toFixed( 1 );
 	const nmSize = ( fs.statSync( nmTarFullPath ).size / 1024 / 1024 ).toFixed( 1 );
 	console.log( `   CLI bundle: ${ cliSize } MB, node_modules: ${ nmSize } MB` );

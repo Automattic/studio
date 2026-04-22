@@ -217,6 +217,14 @@ function PathField( {
 
 	const errorMessage = validity?.custom?.message;
 
+	// `ControlWithError` renders its error UI by setting `customValidity` on
+	// the underlying `<input>` and reading back `validationMessage` — but
+	// readonly inputs are always considered valid by the browser, so that
+	// pipeline silently yields an empty message and the error stays hidden.
+	// The path field is readonly (users pick folders through the native
+	// dialog), so we render the error directly via `help` instead and pass
+	// `customValidity` purely so DataForm still counts this as an invalid
+	// field in its validity map.
 	return (
 		<ValidatedInputControl
 			__next40pxDefaultSize
@@ -229,10 +237,16 @@ function PathField( {
 			className={ styles.pathControl }
 			customValidity={ errorMessage ? { type: 'invalid', message: errorMessage } : undefined }
 			help={
-				<>
-					{ __( 'Select an empty directory or a directory with an existing WordPress site.' ) }{ ' ' }
-					<LearnMoreLink docsLinksKey="docsSites" />
-				</>
+				errorMessage ? (
+					<span className={ styles.pathErrorHelp }>{ errorMessage }</span>
+				) : (
+					<>
+						{ __(
+							'Select an empty directory or a directory with an existing WordPress site.'
+						) }{ ' ' }
+						<LearnMoreLink docsLinksKey="docsSites" />
+					</>
+				)
 			}
 			suffix={
 				<InputControlSuffixWrapper variant="control">

@@ -13,6 +13,10 @@
 	cursor: pointer;
 }
 
+.pathErrorHelp {
+	color: #d63638;
+}
+
 .advancedToggle {
 	display: inline-flex;
 	align-items: center;

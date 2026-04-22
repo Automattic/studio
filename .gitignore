@@ -134,9 +134,7 @@ artifacts
 CLAUDE.md
 !skills/CLAUDE.md
 
-# Bundled binaries (downloaded/built during packaging)
-apps/studio/bin/node
-apps/studio/bin/node.exe
+# Bundled binaries (built during packaging)
 apps/studio/bin/studio
 apps/studio/bin/studio.exe
 

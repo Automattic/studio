@@ -1,13 +1,19 @@
 #!/usr/bin/env ts-node
 /**
- * Download Node.js binary for bundling with Studio
- * Usage: npx ts-node scripts/download-node-binary.ts <platform> <arch>
- * Example: npx ts-node scripts/download-node-binary.ts darwin arm64
+ * Download Node.js binary for bundling with Studio.
+ *
+ * Usage: npx ts-node scripts/download-node-binary.ts <platform> <arch> [destDir]
+ * Example: npx ts-node scripts/download-node-binary.ts darwin arm64 ./build
+ *
+ * When destDir is omitted, the binary is placed in apps/cli/bundle/build/ —
+ * a dedicated build-artifact location that `create-standalone-bundle.ts`
+ * cleans up once the SEA has been generated. Callers can override it to
+ * land the binary anywhere (e.g. for manual testing).
  */
 
 import fs from 'fs';
-import path from 'path';
 import os from 'os';
+import path from 'path';
 import { extract } from 'tar';
 import { extractZip } from '../tools/common/lib/extract-zip';
 
@@ -27,6 +33,7 @@ const NODE_VERSION = getNodeVersion();
 
 const platform = process.argv[ 2 ] || process.platform;
 const arch = process.argv[ 3 ] || process.arch;
+const destOverride = process.argv[ 4 ];
 
 // Map platform names to nodejs.org download naming
 const platformMap: Record< string, string > = {
@@ -54,7 +61,9 @@ if ( ! nodeArch ) {
 	process.exit( 1 );
 }
 
-const binDir = path.join( __dirname, '..', 'apps', 'studio', 'bin' );
+const binDir = destOverride
+	? path.resolve( destOverride )
+	: path.join( __dirname, '..', 'apps', 'cli', 'bundle', 'build' );
 const tmpDir = os.tmpdir();
 
 if ( ! fs.existsSync( binDir ) ) {
@@ -172,4 +181,4 @@ async function main(): Promise< void > {
 	}
 }
 
-main();
+void main();

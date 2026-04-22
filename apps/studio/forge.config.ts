@@ -192,16 +192,10 @@ const config: ForgeConfig = {
 				fs.copyFileSync( cliDest, path.join( __dirname, 'bin', 'studio-cli.exe' ) );
 			}
 
-			// Clean up bin/ before forge copies it as extraResource.
-			// Remove Node binaries (now embedded in the bundle) and cross-platform files.
-			const binDir = path.join( __dirname, 'bin' );
-			for ( const file of fs.readdirSync( binDir ) ) {
-				if ( file.startsWith( 'node' ) ) {
-					fs.rmSync( path.join( binDir, file ), { force: true } );
-				}
-			}
+			// Drop the cross-platform launcher file before forge copies bin/ as
+			// extraResource. macOS/Linux builds don't need studio-cli.bat.
 			if ( platform !== 'win32' ) {
-				fs.rmSync( path.join( binDir, 'studio-cli.bat' ), { force: true } );
+				fs.rmSync( path.join( __dirname, 'bin', 'studio-cli.bat' ), { force: true } );
 			}
 		},
 	},

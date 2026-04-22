@@ -51,7 +51,6 @@ const isWindows = platformArg === 'win32';
 const isDarwin = platformArg === 'darwin';
 const bundleName = `studio-cli-${ platformArg }-${ archArg }${ isWindows ? '.exe' : '' }`;
 const outputDir = path.join( repoRoot, 'standalone-bundles' );
-const nodeBinDir = path.join( repoRoot, 'apps', 'studio', 'bin' );
 const bundleDir = path.join( repoRoot, 'apps', 'cli', 'bundle' );
 const bundleBuildDir = path.join( bundleDir, 'build' );
 const cliDistDir = path.join( repoRoot, 'apps', 'cli', 'dist', 'cli' );
@@ -100,11 +99,7 @@ async function main(): Promise< void > {
 	console.log( '==> Step 1/5: Building CLI package...' );
 	run( 'npm run cli:package' );
 
-	// Step 2: Download Node binary for target platform
-	console.log( `\n==> Step 2/5: Downloading Node.js binary for ${ platformArg }-${ archArg }...` );
-	run( `npx ts-node scripts/download-node-binary.ts ${ platformArg } ${ archArg }` );
-
-	// Step 3: Create bundle assets
+	// Step 2: Create bundle assets
 	// We ship three SEA assets:
 	//   - main.mjs: the CLI source itself (raw, not tarred). Fredrik's
 	//     single-file Vite build means this is a single bundle that the SEA
@@ -113,7 +108,7 @@ async function main(): Promise< void > {
 	//     etc.) — runtime assets that the CLI reads via `import.meta.dirname`.
 	//   - node_modules.tar.gz: native-external packages that Vite leaves as
 	//     bare imports (can't be inlined because of .node addons / WASM).
-	console.log( '\n==> Step 3/5: Creating bundle assets...' );
+	console.log( '\n==> Step 2/5: Creating bundle assets...' );
 	fs.rmSync( bundleBuildDir, { recursive: true, force: true } );
 	fs.mkdirSync( bundleBuildDir, { recursive: true } );
 
@@ -155,9 +150,17 @@ async function main(): Promise< void > {
 	const { version: bundleVersion } = JSON.parse( fs.readFileSync( cliPackageJsonPath, 'utf8' ) );
 	fs.writeFileSync( path.join( bundleBuildDir, 'bundle-version.txt' ), bundleVersion );
 
-	// Step 4: Generate bundle blob
-	console.log( '\n==> Step 4/5: Generating bundle blob...' );
+	// Step 3: Generate bundle blob
+	console.log( '\n==> Step 3/5: Generating bundle blob...' );
 	run( 'node --experimental-sea-config config.json', bundleDir );
+
+	// Step 4: Download Node binary into the build dir. Keeping it there (instead
+	// of next to the shipping studio-cli.sh/.bat in apps/studio/bin) avoids
+	// using a production-facing dir as scratch space.
+	console.log( `\n==> Step 4/5: Downloading Node.js binary for ${ platformArg }-${ archArg }...` );
+	run(
+		`npx ts-node scripts/download-node-binary.ts ${ platformArg } ${ archArg } "${ bundleBuildDir }"`
+	);
 
 	// Step 5: Inject bundle blob into Node binary
 	console.log( '\n==> Step 5/5: Injecting bundle blob into Node binary...' );
@@ -166,7 +169,7 @@ async function main(): Promise< void > {
 	const nodeBinary = isWindows ? 'node.exe' : 'node';
 	const outputPath = path.join( outputDir, bundleName );
 
-	fs.copyFileSync( path.join( nodeBinDir, nodeBinary ), outputPath );
+	fs.copyFileSync( path.join( bundleBuildDir, nodeBinary ), outputPath );
 	if ( ! isWindows ) {
 		fs.chmodSync( outputPath, 0o755 );
 	}

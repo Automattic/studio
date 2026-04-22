@@ -14,9 +14,11 @@
  * desktop app to extract to its own Resources directory.
  *
  * Assets embedded in the binary:
- *   - node_modules.tar.gz: Native/WASM packages needed at runtime
- *   - cli.tar.gz: The CLI bundle (main.mjs + chunks + wp-files)
- *   - bundle-version: SHA-256 fingerprint of the tarballs above. When the
+ *   - main.mjs: Raw CLI bundle (Vite builds a single-file ESM).
+ *   - resources.tar.gz: wp-files/ and other runtime static assets that live
+ *     in dist/cli alongside main.mjs.
+ *   - node_modules.tar.gz: Native/WASM packages Vite leaves as bare imports.
+ *   - bundle-version: SHA-256 fingerprint of the assets above. When the
  *     binary changes, this value changes, triggering re-extraction.
  */
 'use strict';
@@ -161,7 +163,11 @@ async function ensureExtracted( bundleVersion ) {
 		console.log( 'First run — extracting runtime assets...' );
 		sweepStaleTmpDirs();
 
-		extractTarAsset( 'cli.tar.gz', CLI_DIR );
+		// Order matters: extracting resources.tar.gz atomically replaces CLI_DIR,
+		// so main.mjs has to be written afterwards. node_modules extracts into a
+		// subdir and can happen in either order, but we do it last for consistency.
+		extractTarAsset( 'resources.tar.gz', CLI_DIR );
+		writeFileSync( join( CLI_DIR, 'main.mjs' ), Buffer.from( getAsset( 'main.mjs' ) ) );
 		extractTarAsset( 'node_modules.tar.gz', join( CLI_DIR, 'node_modules' ) );
 
 		writeFileSync( MARKER_FILE, bundleVersion );

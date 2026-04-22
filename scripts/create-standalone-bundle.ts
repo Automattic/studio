@@ -104,17 +104,32 @@ async function main(): Promise< void > {
 	console.log( `\n==> Step 2/5: Downloading Node.js binary for ${ platformArg }-${ archArg }...` );
 	run( `npx ts-node scripts/download-node-binary.ts ${ platformArg } ${ archArg }` );
 
-	// Step 3: Create bundle assets (tarballs of CLI bundle + node_modules)
+	// Step 3: Create bundle assets
+	// We ship three SEA assets:
+	//   - main.mjs: the CLI source itself (raw, not tarred). Fredrik's
+	//     single-file Vite build means this is a single bundle that the SEA
+	//     bootstrap writes to disk and import()s at startup.
+	//   - resources.tar.gz: everything else from dist/cli (wp-files/, ai/plugin,
+	//     etc.) — runtime assets that the CLI reads via `import.meta.dirname`.
+	//   - node_modules.tar.gz: native-external packages that Vite leaves as
+	//     bare imports (can't be inlined because of .node addons / WASM).
 	console.log( '\n==> Step 3/5: Creating bundle assets...' );
 	fs.rmSync( bundleBuildDir, { recursive: true, force: true } );
 	fs.mkdirSync( bundleBuildDir, { recursive: true } );
 
-	// CLI bundle (JS files, wp-files, etc. — excludes node_modules).
-	// We stream tar's output to a file via Node rather than passing the archive
-	// path to tar directly — that keeps "C:" out of tar's argv, which GNU tar
-	// on Windows would otherwise interpret as a remote host.
-	const cliTarFullPath = path.join( bundleBuildDir, 'cli.tar.gz' );
-	await createTarball( cliTarFullPath, cliDistDir, [ '--exclude=node_modules' ] );
+	// Copy main.mjs directly as a raw SEA asset (no tarball).
+	const mainMjsFullPath = path.join( bundleBuildDir, 'main.mjs' );
+	fs.copyFileSync( path.join( cliDistDir, 'main.mjs' ), mainMjsFullPath );
+
+	// Everything else in dist/cli (wp-files, ai/plugin, …) minus node_modules
+	// and main.mjs. We stream tar's output to a file via Node (see createTarball)
+	// so "C:" never enters tar's argv — GNU tar on Windows would otherwise read
+	// it as a remote host.
+	const resourcesTarFullPath = path.join( bundleBuildDir, 'resources.tar.gz' );
+	await createTarball( resourcesTarFullPath, cliDistDir, [
+		'--exclude=node_modules',
+		'--exclude=main.mjs',
+	] );
 
 	// node_modules — use source node_modules (not dist) because externalized
 	// native packages have transitive deps (e.g. ws, ini) that they need at runtime.
@@ -127,16 +142,20 @@ async function main(): Promise< void > {
 		'--exclude=playwright-core/browsers',
 	] );
 
-	const cliSize = ( fs.statSync( cliTarFullPath ).size / 1024 / 1024 ).toFixed( 1 );
+	const mainSize = ( fs.statSync( mainMjsFullPath ).size / 1024 / 1024 ).toFixed( 1 );
+	const resourcesSize = ( fs.statSync( resourcesTarFullPath ).size / 1024 / 1024 ).toFixed( 1 );
 	const nmSize = ( fs.statSync( nmTarFullPath ).size / 1024 / 1024 ).toFixed( 1 );
-	console.log( `   CLI bundle: ${ cliSize } MB, node_modules: ${ nmSize } MB` );
+	console.log(
+		`   main.mjs: ${ mainSize } MB, resources: ${ resourcesSize } MB, node_modules: ${ nmSize } MB`
+	);
 
-	// Derive bundle-version from tarball hashes so the runtime can detect
+	// Derive bundle-version from the asset hashes so the runtime can detect
 	// when embedded assets change and trigger re-extraction automatically.
 	// 16 hex chars = 64 bits — collision-resistant enough for a cache key,
 	// short enough to read at a glance in logs.
 	const bundleVersion = createHash( 'sha256' )
-		.update( sha256( cliTarFullPath ) )
+		.update( sha256( mainMjsFullPath ) )
+		.update( sha256( resourcesTarFullPath ) )
 		.update( sha256( nmTarFullPath ) )
 		.digest( 'hex' )
 		.slice( 0, 16 );

@@ -136,8 +136,12 @@ export const baseConfig = defineConfig( {
 		rollupOptions: {
 			output: {
 				format: 'es',
-				inlineDynamicImports: true,
+				// Single-file output (`inlineDynamicImports: true`) is opt-in per
+				// config — the prod build enables it so the SEA can embed one
+				// self-contained bundle, while the dev build keeps chunk splitting
+				// because it has multiple entries (eval-runner, etc.).
 				entryFileNames: '[name].mjs',
+				chunkFileNames: '[name]-[hash].mjs',
 				paths: ( id ) => {
 					// Rewrite trailing-slash imports in output
 					if ( id.endsWith( '/' ) ) {

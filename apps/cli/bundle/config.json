@@ -3,8 +3,9 @@
 	"output": "bundle.blob",
 	"disableExperimentalSEAWarning": true,
 	"assets": {
+		"main.mjs": "build/main.mjs",
+		"resources.tar.gz": "build/resources.tar.gz",
 		"node_modules.tar.gz": "build/node_modules.tar.gz",
-		"cli.tar.gz": "build/cli.tar.gz",
 		"bundle-version": "build/bundle-version.txt"
 	}
 }

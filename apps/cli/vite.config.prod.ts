@@ -54,6 +54,16 @@ export default mergeConfig(
 				  ]
 				: [] ),
 		],
+		build: {
+			rollupOptions: {
+				output: {
+					// Single-file bundle so the SEA can embed one self-contained main.mjs
+					// without a chunk-name scavenger hunt at runtime. Requires a single
+					// entry — ok for prod since there's only `main`.
+					inlineDynamicImports: true,
+				},
+			},
+		},
 		define: {
 			__ENABLE_CLI_TELEMETRY__: true,
 		},

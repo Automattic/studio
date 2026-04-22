@@ -5,7 +5,7 @@ import * as Menu from '@/components/menu';
 import { SidebarButton } from '@/components/sidebar-button';
 import { useConnector } from '@/data/core';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
-import { useColorScheme, useSaveColorScheme } from '@/data/queries/use-color-scheme';
+import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
 import { moonIcon, sunIcon } from '@/lib/icons';
 import styles from './style.module.css';
@@ -18,12 +18,13 @@ const REPORT_ISSUE_URL = 'https://github.com/Automattic/studio/issues/new/choose
 export function UserMenu() {
 	const connector = useConnector();
 	const { data: user } = useAuthUser();
-	const { data: savedScheme } = useColorScheme();
-	const saveColorScheme = useSaveColorScheme();
+	const { data: preferences } = useUserPreferences();
+	const savePreferences = useSaveUserPreferences();
 	const login = useLogin();
 	const logout = useLogout();
 	const effectiveScheme = usePrefersColorScheme();
 
+	const savedScheme = preferences?.colorScheme;
 	const currentScheme: ColorScheme = savedScheme ?? 'system';
 	const themeIsDark =
 		savedScheme === 'dark' || ( savedScheme !== 'light' && effectiveScheme === 'dark' );
@@ -50,7 +51,7 @@ export function UserMenu() {
 								{ user.email }
 							</div>
 							<Menu.Item onClick={ () => openLink( WPCOM_PROFILE_URL ) }>
-								{ __( 'Edit profile' ) }
+								{ __( 'Edit WordPress.com profile' ) }
 							</Menu.Item>
 							<Menu.Item onClick={ () => openLink( DOCS_URL ) }>
 								{ __( 'Documentation' ) }
@@ -83,7 +84,9 @@ export function UserMenu() {
 					<Menu.Popup side="top" align="end">
 						<Menu.RadioGroup
 							value={ currentScheme }
-							onValueChange={ ( value ) => saveColorScheme.mutate( value as ColorScheme ) }
+							onValueChange={ ( value ) =>
+								savePreferences.mutate( { colorScheme: value as ColorScheme } )
+							}
 						>
 							<Menu.RadioItem value="system">{ __( 'System' ) }</Menu.RadioItem>
 							<Menu.RadioItem value="light">{ __( 'Light' ) }</Menu.RadioItem>

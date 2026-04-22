@@ -3,10 +3,11 @@ import os from 'os';
 import path from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { resolveActiveSiteFromEvents } from '../active-site';
+import { deriveEffectiveEnvironment } from '../effective-site';
 import { appendAiSessionEvent, createAiSession, loadAiSession } from '../store';
 import type { AiSessionEvent } from '../types';
 
-describe( 'environment.selected', () => {
+describe( 'site.selected — environment flips', () => {
 	let rootDirectory: string | undefined;
 
 	afterEach( async () => {
@@ -22,24 +23,29 @@ describe( 'environment.selected', () => {
 			site: { name: 'My Site', path: '/tmp/my-site' },
 		} );
 		expect( summary.activeEnvironment ).toBe( 'local' );
+		expect( summary.lastSelectedWpcomSiteId ).toBeUndefined();
 	} );
 
-	it( 'summary reflects the latest environment.selected event', async () => {
+	it( 'summary reflects the latest site.selected flipping to live', async () => {
 		rootDirectory = await fs.mkdtemp( path.join( os.tmpdir(), 'studio-env-' ) );
 		const created = await createAiSession( rootDirectory, {
 			site: { name: 'My Site', path: '/tmp/my-site' },
 		} );
 
 		await appendAiSessionEvent( rootDirectory, created.id, {
-			type: 'environment.selected',
+			type: 'site.selected',
 			timestamp: new Date().toISOString(),
-			environment: 'live',
+			siteName: 'My Site',
+			sitePath: '/tmp/my-site',
+			remote: true,
 			url: 'https://mysite.example',
 			wpcomSiteId: 42,
 		} );
 
 		const { summary } = await loadAiSession( rootDirectory, created.id );
 		expect( summary.activeEnvironment ).toBe( 'live' );
+		expect( summary.lastSelectedWpcomSiteId ).toBe( 42 );
+		expect( summary.ownerSitePath ).toBe( '/tmp/my-site' );
 	} );
 
 	it( 'resolver preserves owner name/path when flipping to live', () => {
@@ -51,9 +57,11 @@ describe( 'environment.selected', () => {
 				sitePath: '/tmp/my-site',
 			},
 			{
-				type: 'environment.selected',
+				type: 'site.selected',
 				timestamp: '2026-04-20T10:01:00.000Z',
-				environment: 'live',
+				siteName: 'My Site',
+				sitePath: '/tmp/my-site',
+				remote: true,
 				url: 'https://mysite.example',
 				wpcomSiteId: 42,
 			},
@@ -75,18 +83,15 @@ describe( 'environment.selected', () => {
 				timestamp: '2026-04-20T10:00:00.000Z',
 				siteName: 'My Site',
 				sitePath: '/tmp/my-site',
-			},
-			{
-				type: 'environment.selected',
-				timestamp: '2026-04-20T10:01:00.000Z',
-				environment: 'live',
+				remote: true,
 				url: 'https://mysite.example',
 				wpcomSiteId: 42,
 			},
 			{
-				type: 'environment.selected',
-				timestamp: '2026-04-20T10:02:00.000Z',
-				environment: 'local',
+				type: 'site.selected',
+				timestamp: '2026-04-20T10:01:00.000Z',
+				siteName: 'My Site',
+				sitePath: '/tmp/my-site',
 			},
 		];
 
@@ -98,17 +103,39 @@ describe( 'environment.selected', () => {
 			wpcomSiteId: undefined,
 		} );
 	} );
+} );
 
-	it( 'resolver ignores environment.selected with no prior site.selected', () => {
-		const events: AiSessionEvent[] = [
-			{
-				type: 'environment.selected',
-				timestamp: '2026-04-20T10:00:00.000Z',
-				environment: 'live',
-				url: 'https://orphan.example',
-			},
-		];
+describe( 'deriveEffectiveEnvironment', () => {
+	it( 'returns local for local sessions', () => {
+		expect( deriveEffectiveEnvironment( { activeEnvironment: 'local' }, () => true ) ).toBe(
+			'local'
+		);
+	} );
 
-		expect( resolveActiveSiteFromEvents( events ) ).toBeUndefined();
+	it( 'returns live when the connection still exists', () => {
+		expect(
+			deriveEffectiveEnvironment(
+				{ activeEnvironment: 'live', lastSelectedWpcomSiteId: 42 },
+				( blogId ) => blogId === 42
+			)
+		).toBe( 'live' );
+	} );
+
+	it( 'falls back to local when the live connection is gone', () => {
+		expect(
+			deriveEffectiveEnvironment(
+				{ activeEnvironment: 'live', lastSelectedWpcomSiteId: 42 },
+				() => false
+			)
+		).toBe( 'local' );
+	} );
+
+	it( 'falls back to local when activeEnvironment is live but no wpcomSiteId is recorded', () => {
+		expect(
+			deriveEffectiveEnvironment(
+				{ activeEnvironment: 'live', lastSelectedWpcomSiteId: undefined },
+				() => true
+			)
+		).toBe( 'local' );
 	} );
 } );

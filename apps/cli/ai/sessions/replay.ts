@@ -31,30 +31,6 @@ export function replaySessionHistory( ui: AiChatUI, events: AiSessionEvent[] ): 
 				continue;
 			}
 
-			if ( event.type === 'environment.selected' ) {
-				// Environment flips never change the owner site — they only
-				// toggle whether the agent acts on the local runtime or the
-				// linked WordPress.com site. Preserve the name/path from the
-				// prior `site.selected`; only adjust the remote bits.
-				const current = ui.activeSite;
-				if ( ! current ) {
-					continue;
-				}
-				const isLive = event.environment === 'live';
-				ui.setActiveSite(
-					{
-						name: current.name,
-						path: current.path,
-						running: current.running,
-						remote: isLive,
-						url: isLive ? event.url : undefined,
-						wpcomSiteId: isLive ? event.wpcomSiteId : undefined,
-					},
-					{ announce: true, emitEvent: false }
-				);
-				continue;
-			}
-
 			if ( event.type === 'user.message' ) {
 				if ( ! isVisibleUserMessage( event ) ) {
 					continue;

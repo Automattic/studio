@@ -8,11 +8,17 @@ export type {
 	ColorScheme,
 	Connector,
 	CreateSiteParams,
+	InstalledApps,
 	LoadedAiSession,
 	ProposedSitePath,
 	SelectedSiteFolder,
 	SiteDetails,
 	Snapshot,
+	SupportedEditor,
+	SupportedLocale,
+	SupportedTerminal,
 	SyncSite,
+	UserPreferences,
+	WritableUserPreferences,
 } from './types';
 export type { AgentEvent, AgentRunEvent } from './agent-events';

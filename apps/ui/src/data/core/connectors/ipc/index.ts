@@ -4,6 +4,8 @@ import type {
 	AuthUser,
 	ColorScheme,
 	Connector,
+	ExtractedBlueprintBundle,
+	FeaturedBlueprint,
 	InstalledApps,
 	LoadedAiSession,
 	ProposedSitePath,
@@ -153,6 +155,7 @@ export function createIpcConnector(): Connector {
 				adminUsername,
 				adminPassword,
 				adminEmail,
+				blueprint,
 			} = params;
 			return ( await ipcApi.createSite( path, {
 				siteName: name,
@@ -163,6 +166,7 @@ export function createIpcConnector(): Connector {
 				adminUsername,
 				adminPassword,
 				adminEmail,
+				blueprint,
 			} ) ) as SiteDetails;
 		},
 
@@ -218,6 +222,69 @@ export function createIpcConnector(): Connector {
 
 		async getAllCustomDomains(): Promise< string[] > {
 			return ( await ipcApi.getAllCustomDomains() ) as string[];
+		},
+
+		async getFeaturedBlueprints( locale ) {
+			const url = new URL( 'https://public-api.wordpress.com/wpcom/v2/studio-app/blueprints' );
+			if ( locale ) {
+				url.searchParams.set( 'locale', locale );
+			}
+			const response = await fetch( url.toString() );
+			if ( ! response.ok ) {
+				throw new Error( `Failed to fetch blueprints: ${ response.status }` );
+			}
+			const body = ( await response.json() ) as {
+				blueprints?: Array< {
+					slug?: string;
+					title?: string;
+					excerpt?: string;
+					image?: string;
+					playground_url?: string;
+					blueprint?: unknown;
+				} >;
+			};
+			// Drop any blueprint missing the fields the UI relies on rather
+			// than failing the whole request — matches the desktop app's
+			// tolerant `transformResponse` behaviour.
+			const list: FeaturedBlueprint[] = [];
+			for ( const item of body.blueprints ?? [] ) {
+				if (
+					typeof item.slug !== 'string' ||
+					typeof item.title !== 'string' ||
+					typeof item.excerpt !== 'string' ||
+					typeof item.image !== 'string' ||
+					typeof item.playground_url !== 'string' ||
+					! item.blueprint ||
+					typeof item.blueprint !== 'object'
+				) {
+					continue;
+				}
+				list.push( {
+					slug: item.slug,
+					title: item.title,
+					excerpt: item.excerpt,
+					image: item.image,
+					playgroundUrl: item.playground_url,
+					blueprint: item.blueprint as FeaturedBlueprint[ 'blueprint' ],
+				} );
+			}
+			return list;
+		},
+
+		async getFilePath( file ) {
+			// `webUtils.getPathForFile` is a synchronous preload-only API; the
+			// connector wraps it in a Promise to keep the surface uniform and
+			// to leave room for non-Electron connectors that might resolve the
+			// path asynchronously.
+			return ( ipcApi.getPathForFile( file ) as string ) ?? '';
+		},
+
+		async extractBlueprintBundle( zipFilePath ): Promise< ExtractedBlueprintBundle > {
+			return ( await ipcApi.extractBlueprintBundle( zipFilePath ) ) as ExtractedBlueprintBundle;
+		},
+
+		async cleanupBlueprintTempDir( tempDir ) {
+			await ipcApi.cleanupBlueprintTempDir( tempDir );
 		},
 
 		async startSite( id ) {

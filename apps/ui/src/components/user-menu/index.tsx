@@ -1,4 +1,3 @@
-import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { IconButton } from '@wordpress/ui';
 import { Gravatar } from '@/components/gravatar';
@@ -18,7 +17,6 @@ const REPORT_ISSUE_URL = 'https://github.com/Automattic/studio/issues/new/choose
 
 export function UserMenu() {
 	const connector = useConnector();
-	const navigate = useNavigate();
 	const { data: user } = useAuthUser();
 	const { data: preferences } = useUserPreferences();
 	const savePreferences = useSaveUserPreferences();
@@ -60,9 +58,6 @@ export function UserMenu() {
 							</Menu.Item>
 							<Menu.Item onClick={ () => openLink( REPORT_ISSUE_URL ) }>
 								{ __( 'Report an issue' ) }
-							</Menu.Item>
-							<Menu.Item onClick={ () => void navigate( { to: '/settings' } ) }>
-								{ __( 'Settings' ) }
 							</Menu.Item>
 							<Menu.Separator />
 							<Menu.Item onClick={ () => logout.mutate() }>{ __( 'Log out' ) }</Menu.Item>

@@ -183,6 +183,9 @@ async function getBaseRunCLIArgs(
 	const enableDebugDisplay = config.enableDebugDisplay ?? false;
 
 	const defaultConstants: Record< string, boolean | string > = {
+		// Fallback for sites where DB_NAME was stripped from wp-config.php.
+		// The SQLite driver (v3+) requires a non-empty DB_NAME at runtime.
+		DB_NAME: 'wordpress',
 		WP_DEBUG: enableDebugLog || enableDebugDisplay,
 		WP_DEBUG_LOG: enableDebugLog,
 		WP_DEBUG_DISPLAY: enableDebugDisplay,

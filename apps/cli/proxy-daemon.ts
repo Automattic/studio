@@ -16,7 +16,7 @@
 
 import { startProxyServers } from 'cli/lib/proxy-server';
 
-async function main() {
+export async function runProxyDaemon() {
 	try {
 		console.log( '[Proxy Daemon] Starting WordPress Studio Proxy Daemon…' );
 		await startProxyServers();
@@ -25,5 +25,3 @@ async function main() {
 		process.exit( 1 );
 	}
 }
-
-void main();

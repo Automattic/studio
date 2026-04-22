@@ -42,44 +42,58 @@ import {
 
 let server: RunCLIServer | null = null;
 let lastCliArgs: Record< string, unknown > | null = null;
+let isWordPressServerChildStarted = false;
+let isIpcLoggingConfigured = false;
 
 // Intercept and prefix all console output from playground-cli
 const originalConsoleLog = console.log;
 const originalConsoleError = console.error;
 const originalConsoleWarn = console.warn;
 
-console.log = ( ...args: unknown[] ) => {
-	originalConsoleLog( '[playground-cli]', ...args );
-	const message = args.join( ' ' );
-	process.send!( { topic: 'activity' } );
-	const formattedMessage = formatPlaygroundCliMessage( message );
-	if ( formattedMessage !== message ) {
-		process.send!( { topic: 'console-message', message: formattedMessage } );
-	}
-};
-
-console.error = ( ...args: unknown[] ) => {
-	originalConsoleError( '[playground-cli]', ...args );
-	process.send!( { topic: 'activity' } );
-};
-
-console.warn = ( ...args: unknown[] ) => {
-	originalConsoleWarn( '[playground-cli]', ...args );
-	process.send!( { topic: 'activity' } );
-};
-
 const originalStdoutWrite = process.stdout.write.bind( process.stdout );
 const originalStderrWrite = process.stderr.write.bind( process.stderr );
 
-process.stdout.write = function ( ...args: Parameters< typeof originalStdoutWrite > ) {
-	process.send!( { topic: 'activity' } );
-	return originalStdoutWrite( ...args );
-} as typeof process.stdout.write;
+function reportActivity() {
+	process.send?.( { topic: 'activity' } );
+}
 
-process.stderr.write = function ( ...args: Parameters< typeof originalStderrWrite > ) {
-	process.send!( { topic: 'activity' } );
-	return originalStderrWrite( ...args );
-} as typeof process.stderr.write;
+function configureIpcLogging() {
+	if ( isIpcLoggingConfigured ) {
+		return;
+	}
+
+	console.log = ( ...args: unknown[] ) => {
+		originalConsoleLog( '[playground-cli]', ...args );
+		const message = args.join( ' ' );
+		reportActivity();
+		const formattedMessage = formatPlaygroundCliMessage( message );
+		if ( formattedMessage !== message ) {
+			process.send?.( { topic: 'console-message', message: formattedMessage } );
+		}
+	};
+
+	console.error = ( ...args: unknown[] ) => {
+		originalConsoleError( '[playground-cli]', ...args );
+		reportActivity();
+	};
+
+	console.warn = ( ...args: unknown[] ) => {
+		originalConsoleWarn( '[playground-cli]', ...args );
+		reportActivity();
+	};
+
+	process.stdout.write = function ( ...args: Parameters< typeof originalStdoutWrite > ) {
+		reportActivity();
+		return originalStdoutWrite( ...args );
+	} as typeof process.stdout.write;
+
+	process.stderr.write = function ( ...args: Parameters< typeof originalStderrWrite > ) {
+		reportActivity();
+		return originalStderrWrite( ...args );
+	} as typeof process.stderr.write;
+
+	isIpcLoggingConfigured = true;
+}
 
 function logToConsole( ...args: Parameters< typeof console.log > ) {
 	originalConsoleLog( `[WordPress Server Child]`, ...args );
@@ -568,9 +582,17 @@ async function ipcMessageHandler( packet: unknown ) {
 	}
 }
 
-if ( process.send ) {
+export function startWordPressServerChildProcess() {
+	if ( isWordPressServerChildStarted ) {
+		return;
+	}
+
+	if ( ! process.send ) {
+		throw new Error( 'process.send is not available' );
+	}
+
+	configureIpcLogging();
 	process.on( 'message', ipcMessageHandler );
 	process.send( { topic: 'ready' } );
-} else {
-	throw new Error( 'process.send is not available' );
+	isWordPressServerChildStarted = true;
 }

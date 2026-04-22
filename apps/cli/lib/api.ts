@@ -86,17 +86,18 @@ export async function uploadArchive(
 async function checkSiteStatus( siteId: number, token: string ): Promise< boolean > {
 	const wpcom = wpcomFactory( token, wpcomXhrRequest );
 
-	// Network and auth errors propagate — the caller should handle them.
-	const rawResponse = await wpcom.req.get( '/jurassic-ninja/status', {
-		apiNamespace: 'wpcom/v2',
-		site_id: siteId,
-	} );
+	try {
+		const rawResponse = await wpcom.req.get( '/jurassic-ninja/status', {
+			apiNamespace: 'wpcom/v2',
+			site_id: siteId,
+		} );
 
-	// Schema validation failures are treated as "not ready" — the API may
-	// return unexpected shapes while the site is still being provisioned.
-	const result = statusResponseSchema.safeParse( rawResponse );
+		const result = statusResponseSchema.parse( rawResponse );
 
-	return result.success && result.data.status === SnapshotStatus.Active;
+		return result.status === SnapshotStatus.Active;
+	} catch {
+		return false;
+	}
 }
 
 export async function waitForSiteReady( siteId: number, token: string ): Promise< boolean > {

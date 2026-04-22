@@ -67,6 +67,9 @@ async function main() {
 			const { runMigrations } = await import( '@studio/common/lib/migration' );
 			const { migrations } = await import( 'cli/migrations' );
 			await runMigrations( migrations );
+
+			const { prunePmLogs } = await import( 'cli/lib/prune-pm-logs' );
+			await prunePmLogs();
 		} )
 		.middleware( async ( argv ) => {
 			if ( __ENABLE_CLI_TELEMETRY__ && ! argv.avoidTelemetry ) {

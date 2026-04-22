@@ -3,8 +3,9 @@ import { createRoute, useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { arrowLeft, download } from '@wordpress/icons';
 import { Button, Icon } from '@wordpress/ui';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { CreateSiteForm } from '@/components/create-site-form';
+import { FileDropzone } from '@/components/file-dropzone';
 import { useConnector } from '@/data/core';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
 import { useImportSite } from '@/data/queries/use-import-site';
@@ -33,27 +34,6 @@ function isValidBackupFile( file: File ): boolean {
 	);
 }
 
-function formatFileSize( bytes: number ): string {
-	if ( bytes === 0 ) return '0 Bytes';
-	const k = 1024;
-	const sizes = [ 'Bytes', 'KB', 'MB', 'GB' ];
-	const i = Math.floor( Math.log( bytes ) / Math.log( k ) );
-	return Math.round( ( bytes / Math.pow( k, i ) ) * 100 ) / 100 + ' ' + sizes[ i ];
-}
-
-function truncateMiddle( filename: string, maxLength = 30 ): string {
-	if ( filename.length <= maxLength ) return filename;
-	const ellipsis = '\u2026';
-	const charsToShow = maxLength - ellipsis.length;
-	const frontChars = Math.ceil( charsToShow / 2 );
-	const backChars = Math.floor( charsToShow / 2 );
-	return (
-		filename.substring( 0, frontChars ) +
-		ellipsis +
-		filename.substring( filename.length - backChars )
-	);
-}
-
 /**
  * Derives a friendly default site name from a backup filename. Strips the
  * archive extension and common "site-backup-2024-01-01" date suffixes so the
@@ -72,108 +52,6 @@ function nameFromFilename( filename: string ): string {
 	return name.replace( /[-_]+/g, ' ' ).trim();
 }
 
-interface BackupDropzoneProps {
-	selectedFile: File | null;
-	onPick: ( file: File ) => void;
-	onClear: () => void;
-}
-
-function BackupDropzone( { selectedFile, onPick, onClear }: BackupDropzoneProps ) {
-	const fileInputRef = useRef< HTMLInputElement | null >( null );
-	const [ isDraggingOver, setIsDraggingOver ] = useState( false );
-	const [ uploadError, setUploadError ] = useState< string | null >( null );
-
-	const handleFile = useCallback(
-		( file: File ) => {
-			if ( ! isValidBackupFile( file ) ) {
-				setUploadError(
-					__(
-						'This file type is not supported. Please use a .zip, .gz, .tar, .tar.gz, or .wpress file.'
-					)
-				);
-				return;
-			}
-			setUploadError( null );
-			onPick( file );
-		},
-		[ onPick ]
-	);
-
-	const handleFileInputChange = ( event: React.ChangeEvent< HTMLInputElement > ) => {
-		const file = event.target.files?.[ 0 ];
-		if ( file ) handleFile( file );
-		// Reset so re-picking the same file after an error re-fires `change`.
-		event.target.value = '';
-	};
-
-	const handleDrop = ( event: React.DragEvent< HTMLDivElement > ) => {
-		event.preventDefault();
-		setIsDraggingOver( false );
-		const file = event.dataTransfer.files[ 0 ];
-		if ( file ) handleFile( file );
-	};
-
-	const handleDragOver = ( event: React.DragEvent< HTMLDivElement > ) => {
-		event.preventDefault();
-		if ( ! isDraggingOver ) setIsDraggingOver( true );
-	};
-
-	const handleDragLeave = () => setIsDraggingOver( false );
-
-	return (
-		<section className={ styles.section }>
-			<div
-				className={ `${ styles.dropzone } ${ isDraggingOver ? styles.dropzoneActive : '' }` }
-				onDragOver={ handleDragOver }
-				onDragLeave={ handleDragLeave }
-				onDrop={ handleDrop }
-			>
-				<Icon icon={ download } />
-				{ selectedFile ? (
-					<>
-						<p className={ styles.fileName } title={ selectedFile.name }>
-							{ truncateMiddle( selectedFile.name ) }
-						</p>
-						<div className={ styles.fileMeta }>
-							<span>{ formatFileSize( selectedFile.size ) }</span>
-							<Button
-								type="button"
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								onClick={ onClear }
-							>
-								{ __( 'Remove' ) }
-							</Button>
-						</div>
-					</>
-				) : (
-					<>
-						<p className={ styles.dropzoneText }>{ __( 'Drop a backup archive here, or' ) }</p>
-						<Button
-							type="button"
-							variant="outline"
-							tone="neutral"
-							onClick={ () => fileInputRef.current?.click() }
-						>
-							{ __( 'Choose file…' ) }
-						</Button>
-					</>
-				) }
-				<input
-					ref={ fileInputRef }
-					type="file"
-					accept={ ACCEPTED_IMPORT_FILE_TYPES.join( ',' ) }
-					className={ styles.fileInput }
-					onChange={ handleFileInputChange }
-					aria-label={ __( 'Select backup file' ) }
-				/>
-			</div>
-			{ uploadError && <p className={ styles.uploadError }>{ uploadError }</p> }
-		</section>
-	);
-}
-
 function OnboardingImportPage() {
 	const { step } = onboardingImportRoute.useSearch();
 	const navigate = useNavigate();
@@ -188,6 +66,7 @@ function OnboardingImportPage() {
 	// steps but not a hard refresh. If the user lands on `step=configure`
 	// with no picked backup, the effect below bounces them back to select.
 	const [ picked, setPicked ] = useState< PickedBackup | null >( null );
+	const [ pickError, setPickError ] = useState< string | null >( null );
 	const [ submitError, setSubmitError ] = useState( '' );
 
 	useEffect( () => {
@@ -202,14 +81,22 @@ function OnboardingImportPage() {
 
 	const handlePick = useCallback(
 		async ( file: File ) => {
+			if ( ! isValidBackupFile( file ) ) {
+				setPickError(
+					__(
+						'This file type is not supported. Please use a .zip, .gz, .tar, .tar.gz, or .wpress file.'
+					)
+				);
+				return;
+			}
 			const path = await connector.getFilePath( file );
 			if ( ! path ) {
-				setSubmitError(
+				setPickError(
 					__( 'Unable to resolve the backup file path. Try choosing the file via the button.' )
 				);
 				return;
 			}
-			setSubmitError( '' );
+			setPickError( null );
 			setPicked( { file, path } );
 			void navigate( {
 				to: '/onboarding/import',
@@ -221,6 +108,7 @@ function OnboardingImportPage() {
 
 	const handleClearPick = useCallback( () => {
 		setPicked( null );
+		setPickError( null );
 	}, [] );
 
 	const handleBackToSelect = useCallback( () => {
@@ -266,10 +154,14 @@ function OnboardingImportPage() {
 						'Drop a backup archive to restore a site locally. Jetpack, All-in-One WP Migration, Local, and Playground exports are supported.'
 					) }
 				</p>
-				<BackupDropzone
-					selectedFile={ picked?.file ?? null }
-					onPick={ ( file ) => void handlePick( file ) }
+				<FileDropzone
+					icon={ download }
+					accept={ ACCEPTED_IMPORT_FILE_TYPES.join( ',' ) }
+					prompt={ __( 'Drop a backup archive here, or' ) }
+					onFile={ ( file ) => void handlePick( file ) }
+					file={ picked?.file ?? null }
 					onClear={ handleClearPick }
+					error={ pickError }
 				/>
 			</div>
 		);

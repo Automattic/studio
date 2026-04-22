@@ -221,7 +221,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				name: '123',
 				path: normalize( '/path/to/site' ),
 				port: 9999,
-				phpVersion: '8.3',
+				phpVersion: '8.4',
 			},
 			backupFile: normalize( '/path/to/backup.tar.gz' ),
 			includes: {
@@ -270,8 +270,8 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		} );
 
 		mockArchiver = createMockArchiver();
-		( archiver as MockedFunction< typeof archiver > ).mockReturnValue(
-			mockArchiver as unknown as archiver.Archiver
+		( archiver as unknown as MockedFunction< ( ...args: unknown[] ) => unknown > ).mockReturnValue(
+			mockArchiver
 		);
 		mockWriteStream = {
 			on: vi.fn(),
@@ -628,7 +628,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				name: 'Test Site',
 				path: normalize( '/path/to/test/site' ),
 				port: 8080,
-				phpVersion: '8.3',
+				phpVersion: '8.4',
 			},
 			backupFile: normalize( '/path/to/test-backup.tar.gz' ),
 			includes: {

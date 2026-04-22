@@ -938,14 +938,19 @@ const pollPullBackupThunk = createTypedAsyncThunk(
 				);
 
 				await getIpcApi().stopServer( selectedSiteId );
-				await getIpcApi().importSite( {
-					id: selectedSiteId,
-					backupFile: {
-						path: filePath,
-						type: 'application/tar+gzip',
-					},
-				} );
-				await getIpcApi().startServer( selectedSiteId );
+				// Ensure the server restarts even if the import fails, so the site
+				// doesn't get stuck in a stopped state. Errors propagate to the outer catch.
+				try {
+					await getIpcApi().importSite( {
+						id: selectedSiteId,
+						backupFile: {
+							path: filePath,
+							type: 'application/tar+gzip',
+						},
+					} );
+				} finally {
+					await getIpcApi().startServer( selectedSiteId );
+				}
 
 				await getIpcApi().removeSyncBackup( remoteSiteId );
 

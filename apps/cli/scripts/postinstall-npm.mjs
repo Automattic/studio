@@ -20,6 +20,7 @@ const packageDir = resolve( scriptDir, '..' );
 const patchedPackages = [
 	join( packageDir, 'node_modules', '@wp-playground', 'wordpress' ),
 	join( packageDir, 'node_modules', 'ps-man' ),
+	join( packageDir, 'node_modules', '@mariozechner', 'pi-tui' ),
 ];
 if ( ! patchedPackages.some( ( pkg ) => existsSync( pkg ) ) ) {
 	process.exit( 0 );

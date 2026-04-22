@@ -2,7 +2,10 @@ import { HOUR_MS } from '@studio/common/constants';
 export const DEFAULT_WIDTH = 900;
 export const MAIN_MIN_HEIGHT = 600;
 export const SIDEBAR_WIDTH = 208;
+export const SIDEBAR_MIN_WIDTH = 200;
+export const SIDEBAR_MAX_WIDTH = 400;
 export const MAIN_MIN_WIDTH = DEFAULT_WIDTH - SIDEBAR_WIDTH + 20;
+export const LOCAL_STORAGE_SIDEBAR_WIDTH_KEY = 'sidebar_width';
 export const APP_CHROME_SPACING = 10;
 export const MIN_WIDTH_CLASS_TO_MEASURE = 'app-measure-tabs-width';
 export const MIN_WIDTH_SELECTOR_TO_MEASURE = `.${ MIN_WIDTH_CLASS_TO_MEASURE }`;
@@ -56,7 +59,7 @@ export const WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT =
 	WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT_IN_HRS * 60 * 60 * 1000; // 6hr
 
 // SQLite
-const SQLITE_DATABASE_INTEGRATION_VERSION = 'v2.2.22';
+const SQLITE_DATABASE_INTEGRATION_VERSION = 'v2.2.23';
 
 export const SQLITE_DATABASE_INTEGRATION_RELEASE_URL = `https://github.com/WordPress/sqlite-database-integration/releases/download/${ SQLITE_DATABASE_INTEGRATION_VERSION }/plugin-sqlite-database-integration.zip`;
 
@@ -78,6 +81,7 @@ export const IPC_VOID_HANDLERS = < const >[
 	'showItemInFolder',
 	'showNotification',
 	'authenticate',
+	'studioCodeAbort',
 ];
 
 // What's New

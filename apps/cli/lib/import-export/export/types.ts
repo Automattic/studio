@@ -1,6 +1,5 @@
 import { SiteData } from 'cli/lib/cli-config/core';
-import type { ProgressData } from 'archiver';
-import type { EventEmitter } from 'events';
+import type { ImportExportEventEmitter } from '../events';
 
 export interface ExportOptions {
 	site: SiteData;
@@ -18,13 +17,9 @@ export interface BackupContents {
 	sqlFiles: string[];
 }
 
-export interface Exporter extends Partial< EventEmitter > {
+export interface Exporter extends ImportExportEventEmitter {
 	canHandle(): Promise< boolean >;
 	export(): Promise< void >;
-}
-
-export interface BackupCreateProgressEventData {
-	progress: ProgressData;
 }
 
 export type NewExporter = new ( options: ExportOptions ) => Exporter;

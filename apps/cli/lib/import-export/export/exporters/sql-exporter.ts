@@ -1,9 +1,9 @@
-import { EventEmitter } from 'events';
-import { ExportEvents } from '../events';
+import { ExportEvents } from '@studio/common/lib/import-export-events';
+import { ImportExportEventEmitter } from '../../events';
 import { exportDatabaseToFile } from '../export-database';
 import { ExportOptions, Exporter } from '../types';
 
-export class SqlExporter extends EventEmitter implements Exporter {
+export class SqlExporter extends ImportExportEventEmitter implements Exporter {
 	constructor( private options: ExportOptions ) {
 		super();
 	}

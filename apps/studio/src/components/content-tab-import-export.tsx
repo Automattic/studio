@@ -43,7 +43,7 @@ const ExportSite = ( {
 	const isExportDisabled = isImporting || isThisSiteSyncing;
 	const isExporting = currentProgress && currentProgress.progress < 100;
 	const isExportCompleted = currentProgress && currentProgress.progress === 100;
-	const isExportError = currentProgress && currentProgress.statusMessage.includes( 'failed' );
+	const isExportError = currentProgress && currentProgress.isError;
 
 	let tooltipText;
 	if ( isThisSiteSyncing ) {

@@ -17,13 +17,17 @@ export const AI_PROVIDER_PRIORITY: AiProviderId[] = [ 'wpcom', 'anthropic-api-ke
 const DEFAULT_WPCOM_AI_GATEWAY_BASE_URL = 'https://public-api.wordpress.com/wpcom/v2/ai-api-proxy';
 const WPCOM_AI_FEATURE_HEADER = 'studio-assistant-anthropic';
 
+export interface ResolveAiEnvironmentOptions {
+	sessionId?: string;
+}
+
 export interface AiProviderDefinition {
 	id: AiProviderId;
 	autoFallbackWhenUnavailable: boolean;
 	isVisible: () => Promise< boolean >;
 	isReady: () => Promise< boolean >;
 	prepare: ( options?: { force?: boolean } ) => Promise< void >;
-	resolveEnv: () => Promise< Record< string, string > >;
+	resolveEnv: ( options?: ResolveAiEnvironmentOptions ) => Promise< Record< string, string > >;
 }
 
 async function resolveAnthropicApiKey( options?: {
@@ -65,6 +69,14 @@ async function hasValidWpcomAuth(): Promise< boolean > {
 	return token !== null;
 }
 
+function readInlineWpcomToken(): string | null {
+	return process.env.STUDIO_WPCOM_TOKEN?.trim() || null;
+}
+
+export function hasInlineWpcomAuth(): boolean {
+	return readInlineWpcomToken() !== null;
+}
+
 function createBaseEnvironment(): Record< string, string > {
 	const env = { ...( process.env as Record< string, string > ) };
 
@@ -73,6 +85,13 @@ function createBaseEnvironment(): Record< string, string > {
 	delete env.ANTHROPIC_BASE_URL;
 	delete env.ANTHROPIC_CUSTOM_HEADERS;
 	delete env.CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS;
+	delete env.CLAUDE_CODE_MAX_RETRIES;
+
+	// Fail fast on transient API errors so the user-mediated retry prompt can
+	// intervene instead of the SDK burning through its default 10 retries.
+	if ( ! env.CLAUDE_CODE_MAX_RETRIES ) {
+		env.CLAUDE_CODE_MAX_RETRIES = '1';
+	}
 
 	return env;
 }
@@ -82,26 +101,36 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 		id: 'wpcom',
 		autoFallbackWhenUnavailable: true,
 		isVisible: async () => true,
-		isReady: hasValidWpcomAuth,
+		isReady: async () => hasInlineWpcomAuth() || ( await hasValidWpcomAuth() ),
 		prepare: async () => {
-			if ( await hasValidWpcomAuth() ) {
+			if ( hasInlineWpcomAuth() || ( await hasValidWpcomAuth() ) ) {
 				return;
 			}
 
 			throw new LoggerError( __( 'WordPress.com login required. Use /login to authenticate.' ) );
 		},
-		resolveEnv: async () => {
-			const token = await readAuthToken();
-			if ( ! token ) {
+		resolveEnv: async ( options ) => {
+			const inlineToken = readInlineWpcomToken();
+			const accessToken = inlineToken ?? ( await readAuthToken() )?.accessToken;
+			if ( ! accessToken ) {
 				throw new LoggerError( __( 'WordPress.com login required. Use /login to authenticate.' ) );
 			}
 			const env = createBaseEnvironment();
 			env.ANTHROPIC_BASE_URL = getWpcomAiGatewayBaseUrl();
-			env.ANTHROPIC_AUTH_TOKEN = token.accessToken;
-			env.ANTHROPIC_CUSTOM_HEADERS = buildAnthropicCustomHeaders( {
+			env.ANTHROPIC_AUTH_TOKEN = accessToken;
+			const customHeaders: Record< string, string > = {
 				'X-WPCOM-AI-Feature': WPCOM_AI_FEATURE_HEADER,
-			} );
+			};
+			if ( options?.sessionId ) {
+				customHeaders[ 'X-WPCOM-Session-ID' ] = options.sessionId;
+			}
+			env.ANTHROPIC_CUSTOM_HEADERS = buildAnthropicCustomHeaders( customHeaders );
 			env.CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS = '1';
+			// The default agent retry count (10) causes the CLI to hang for
+			// minutes when the WPCOM proxy returns a 429 (e.g. usage cap
+			// reached). Retries don't recover the cap, so fail fast and let
+			// the UI surface the error.
+			env.CLAUDE_CODE_MAX_RETRIES = '0';
 			return env;
 		},
 	},

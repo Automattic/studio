@@ -368,7 +368,7 @@ describe( 'chat-slice', () => {
 			id: 'test-site',
 			name: 'Test Site',
 			port: 8881,
-			phpVersion: '8.3',
+			phpVersion: '8.4',
 			path: '/test/path',
 			running: true,
 			url: 'http://localhost:8881',
@@ -421,7 +421,7 @@ describe( 'chat-slice', () => {
 				'twentytwentythree',
 			] );
 			expect( state.chat.currentURL ).toBe( 'http://localhost:8881' );
-			expect( state.chat.phpVersion ).toBe( '8.3' );
+			expect( state.chat.phpVersion ).toBe( '8.4' );
 			expect( state.chat.siteName ).toBe( 'Test Site' );
 		} );
 

@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
 import semver from 'semver';
+import { readCliConfig, updateCliConfigWithPartial } from 'cli/lib/cli-config/core';
 import { getSqliteVersionFromInstallation } from 'cli/lib/sqlite-integration';
 import {
 	getAiInstructionsPath,
@@ -13,10 +14,8 @@ import {
 	getWpCliPharPath,
 	getWpFilesPath,
 } from '../server-files';
-import { updateLatestSqliteCommandVersion } from './sqlite-command';
 import { areDirectoriesDifferentBySizeAndMtime } from './utils';
 import { getWordPressVersionFromInstallation, updateLatestWordPressVersion } from './wordpress';
-import { updateLatestWpCliVersion } from './wp-cli';
 
 type VersionReader = () => Promise< semver.SemVer | null >;
 
@@ -206,20 +205,29 @@ async function copyBundledAiInstructions() {
 }
 
 async function copyBundledPhpMyAdmin() {
-	await copySourceDirectoryIfNewerOrMissing( {
-		sourceDirectoryPath: path.join( getWpFilesPath(), 'phpmyadmin' ),
-		targetDirectoryPath: getPhpMyAdminPath(),
-		readSourceVersion: async () => {
-			const composerFilePath = path.join( getWpFilesPath(), 'phpmyadmin', 'composer.json' );
-			const composerFile = JSON.parse( fs.readFileSync( composerFilePath, 'utf8' ) );
-			return semver.coerce( composerFile.version );
-		},
-		readTargetVersion: async () => {
-			const composerFilePath = path.join( getPhpMyAdminPath(), 'composer.json' );
-			const composerFile = JSON.parse( fs.readFileSync( composerFilePath, 'utf8' ) );
-			return semver.coerce( composerFile.version );
-		},
-	} );
+	const sourcePhpMyAdminPath = path.join( getWpFilesPath(), 'phpmyadmin' );
+	if ( ! fs.existsSync( sourcePhpMyAdminPath ) ) {
+		return;
+	}
+
+	// phpMyAdmin's composer.json version rarely changes, but Studio injects
+	// Playground-specific files (e.g. DbiMysqli.php) at build time that do.
+	// Compare by size and mtime so those updates land across releases.
+	const targetPhpMyAdminPath = getPhpMyAdminPath();
+	const isSourceDirectoryDifferent = await areDirectoriesDifferentBySizeAndMtime(
+		sourcePhpMyAdminPath,
+		targetPhpMyAdminPath
+	);
+	if ( ! isSourceDirectoryDifferent ) {
+		return;
+	}
+
+	try {
+		await fs.promises.rm( targetPhpMyAdminPath, { recursive: true, force: true } );
+	} catch {
+		// Do nothing if the target directory is missing or corrupted
+	}
+	await recursiveCopyDirectory( sourcePhpMyAdminPath, targetPhpMyAdminPath );
 }
 
 async function copyBundledLanguagePacks() {
@@ -263,18 +271,48 @@ export async function setupServerFiles() {
 	}
 }
 
-export async function updateServerFiles() {
-	const steps: [ string, () => Promise< void > ][] = [
-		[ 'WordPress version', updateLatestWordPressVersion ],
-		[ 'WP-CLI', updateLatestWpCliVersion ],
-		[ 'SQLite integration', updateLatestSqliteCommandVersion ],
-	];
+export const DEPENDENCY_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
-	await Promise.all(
-		steps.map( ( [ name, step ] ) =>
-			step().catch( ( error ) => {
-				console.error( `Failed to update dependency ${ name }:`, error );
-			} )
-		)
-	);
+async function shouldCheckDependencyUpdates(): Promise< boolean > {
+	try {
+		const { lastDependencyCheckTime } = await readCliConfig();
+		if ( typeof lastDependencyCheckTime !== 'number' ) {
+			return true;
+		}
+		const now = Date.now();
+		// Treat future timestamps (clock skew) as stale.
+		if ( lastDependencyCheckTime > now ) {
+			return true;
+		}
+		return now - lastDependencyCheckTime >= DEPENDENCY_CHECK_INTERVAL_MS;
+	} catch {
+		return true;
+	}
+}
+
+async function markDependencyCheckTime(): Promise< void > {
+	try {
+		await updateCliConfigWithPartial( { lastDependencyCheckTime: Date.now() } );
+	} catch ( error ) {
+		console.error( 'Failed to persist dependency check timestamp:', error );
+	}
+}
+
+/**
+ * Checks for and applies dependency updates (e.g. WordPress versions), throttled
+ * to at most once per 24 hours. Returns true if the check ran, false if skipped.
+ */
+export async function updateServerFiles(): Promise< boolean > {
+	if ( ! ( await shouldCheckDependencyUpdates() ) ) {
+		return false;
+	}
+
+	try {
+		await updateLatestWordPressVersion();
+	} catch ( error ) {
+		console.error( 'Failed to update dependency WordPress version:', error );
+	}
+
+	await markDependencyCheckTime();
+	return true;
 }

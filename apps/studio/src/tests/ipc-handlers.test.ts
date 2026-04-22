@@ -35,6 +35,10 @@ vi.mock( 'src/lib/wordpress-setup', () => ( {
 } ) );
 vi.mock( 'src/main-window' );
 vi.mock( 'src/lib/import-export/import/import-manager' );
+vi.mock( 'src/lib/sqlite-versions', () => ( {
+	keepSqliteIntegrationUpdated: vi.fn().mockResolvedValue( false ),
+	installSqliteIntegration: vi.fn().mockResolvedValue( undefined ),
+} ) );
 vi.mock( import( 'src/lib/bump-stats' ), async ( importOriginal ) => {
 	const actual = await importOriginal();
 	return {
@@ -62,7 +66,7 @@ const mockSiteDetails: StoppedSiteDetails = {
 	name: 'Test',
 	path: '/test',
 	port: 9999,
-	phpVersion: '8.3',
+	phpVersion: '8.4',
 	running: false,
 	adminPassword: 'mock-password',
 	isWpAutoUpdating: false,
@@ -118,7 +122,7 @@ describe( 'createSite', () => {
 			id: 'mock-cli-site-id',
 			name: 'Test',
 			path: '/test',
-			phpVersion: '8.3',
+			phpVersion: '8.4',
 			port: 9999,
 			running: false,
 			customDomain: undefined,
@@ -188,13 +192,14 @@ describe( 'importSite', () => {
 				name: 'Test',
 				path: '/test',
 				port: 9999,
-				phpVersion: '8.3',
+				phpVersion: '8.4',
 				running: false,
 			},
 			meta: {},
 			start: vi.fn(),
 			stop: vi.fn(),
 			updateSiteDetails: vi.fn(),
+			hasSQLitePlugin: vi.fn().mockResolvedValue( true ),
 			executeWpCliCommand: vi
 				.fn()
 				.mockResolvedValue( { stdout: 'New Site Title', stderr: '', exitCode: 0 } ),
@@ -204,7 +209,7 @@ describe( 'importSite', () => {
 		);
 		vi.mocked( importBackup, { partial: true } ).mockResolvedValue( {
 			meta: {
-				phpVersion: '8.3',
+				phpVersion: '8.4',
 			},
 		} );
 
@@ -219,7 +224,7 @@ describe( 'importSite', () => {
 			expect.any( Function ),
 			defaultImporterOptions
 		);
-		expect( mockSite.details.phpVersion ).toBe( '8.3' );
+		expect( mockSite.details.phpVersion ).toBe( '8.4' );
 		expect( result ).toBe( mockSite.details );
 
 		expect( bumpStat ).toHaveBeenNthCalledWith(
@@ -237,13 +242,14 @@ describe( 'importSite', () => {
 				name: 'Test',
 				path: '/test',
 				port: 9999,
-				phpVersion: '8.3',
+				phpVersion: '8.4',
 				running: false,
 			},
 			meta: {},
 			start: vi.fn(),
 			stop: vi.fn(),
 			updateSiteDetails: vi.fn(),
+			hasSQLitePlugin: vi.fn().mockResolvedValue( true ),
 			executeWpCliCommand: vi
 				.fn()
 				.mockResolvedValue( { stdout: 'New Site Title', stderr: '', exitCode: 0 } ),
@@ -276,7 +282,7 @@ describe( 'getXdebugEnabledSite', () => {
 				path: '/path/to/site-1',
 				enableXdebug: false,
 				running: false,
-				phpVersion: '8.3',
+				phpVersion: '8.4',
 				port: 9999,
 			},
 			{
@@ -284,7 +290,7 @@ describe( 'getXdebugEnabledSite', () => {
 				name: 'Site 2',
 				path: '/path/to/site-2',
 				running: false,
-				phpVersion: '8.3',
+				phpVersion: '8.4',
 				port: 9998,
 			},
 		] as SiteDetails[] );
@@ -302,7 +308,7 @@ describe( 'getXdebugEnabledSite', () => {
 				path: '/path/to/site-1',
 				enableXdebug: false,
 				running: false,
-				phpVersion: '8.3',
+				phpVersion: '8.4',
 				port: 9999,
 			},
 			{
@@ -311,7 +317,7 @@ describe( 'getXdebugEnabledSite', () => {
 				path: '/path/to/site-2',
 				enableXdebug: true,
 				running: true,
-				phpVersion: '8.3',
+				phpVersion: '8.4',
 				port: 9999,
 				url: 'https://site-2.test',
 			},
@@ -325,7 +331,7 @@ describe( 'getXdebugEnabledSite', () => {
 			path: '/path/to/site-2',
 			running: true,
 			enableXdebug: true,
-			phpVersion: '8.3',
+			phpVersion: '8.4',
 			port: 9999,
 			url: 'https://site-2.test',
 		} );
@@ -339,7 +345,7 @@ describe( 'getXdebugEnabledSite', () => {
 				path: '/path/to/site-1',
 				enableXdebug: true,
 				running: false,
-				phpVersion: '8.3',
+				phpVersion: '8.4',
 				port: 9999,
 			},
 			{
@@ -348,7 +354,7 @@ describe( 'getXdebugEnabledSite', () => {
 				path: '/path/to/site-2',
 				enableXdebug: true,
 				running: true,
-				phpVersion: '8.3',
+				phpVersion: '8.4',
 				port: 9998,
 			},
 		] as SiteDetails[] );
@@ -361,7 +367,7 @@ describe( 'getXdebugEnabledSite', () => {
 			path: '/path/to/site-1',
 			running: false,
 			enableXdebug: true,
-			phpVersion: '8.3',
+			phpVersion: '8.4',
 			port: 9999,
 		} );
 	} );

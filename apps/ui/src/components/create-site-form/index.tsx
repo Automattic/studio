@@ -76,6 +76,12 @@ interface FormData {
 	// Owned by `PathField`, read by the `path` field's `isValid.custom` rule so
 	// DataForm surfaces it through its normal validity channel.
 	pathError: string;
+	// True while the async name→path generation is in flight. Used to suppress
+	// the path field's "required" validity during that window so seeding a
+	// name via `initialValues` doesn't flash "1 error found" on the Advanced
+	// settings toggle between the name landing and `generateProposedPath`
+	// resolving one microtask later.
+	isPathPending: boolean;
 	phpVersion: SupportedPHPVersion;
 	wpVersion: string;
 	useCustomDomain: boolean;
@@ -156,21 +162,35 @@ function usePathAutoGenerate( data: FormData, onChange: ( update: Partial< FormD
 		if ( data.hasCustomPath ) return;
 		const trimmed = data.name.trim();
 		if ( ! trimmed ) {
-			if ( data.path || data.pathError ) {
-				onChangeRef.current( { path: '', pathError: '' } );
+			if ( data.path || data.pathError || data.isPathPending ) {
+				onChangeRef.current( { path: '', pathError: '', isPathPending: false } );
 			}
 			return;
 		}
 		pendingNameRef.current = trimmed;
+		// Mark pending before kicking off the async generate so the path
+		// field's validity suppresses its required check during the window.
+		if ( ! data.isPathPending ) {
+			onChangeRef.current( { isPathPending: true } );
+		}
 		let cancelled = false;
 		void ( async () => {
 			const result = await generateProposedPath( trimmed );
 			if ( cancelled || pendingNameRef.current !== trimmed ) return;
-			onChangeRef.current( { path: result.path, pathError: result.error ?? '' } );
+			onChangeRef.current( {
+				path: result.path,
+				pathError: result.error ?? '',
+				isPathPending: false,
+			} );
 		} )();
 		return () => {
 			cancelled = true;
 		};
+		// `data.isPathPending` is intentionally omitted from deps: this effect
+		// writes it (true when starting a generate, false when resolving), and
+		// re-running the effect each time that flip lands would kick off a
+		// redundant generate on every cycle.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [ data.name, data.hasCustomPath, data.path, data.pathError, generateProposedPath ] );
 }
 
@@ -294,6 +314,7 @@ export function CreateSiteForm( {
 			path: '',
 			hasCustomPath: false,
 			pathError: '',
+			isPathPending: false,
 			phpVersion: RecommendedPHPVersion,
 			wpVersion: DEFAULT_WORDPRESS_VERSION,
 			useCustomDomain: false,
@@ -307,7 +328,12 @@ export function CreateSiteForm( {
 		// Synchronous seed — callers already holding the full initial snapshot
 		// (e.g. values extracted from a blueprint) get them applied before the
 		// first render so derived effects like name→path see the seeded name.
-		return applyInitialValues( base, initialValues );
+		const seeded = applyInitialValues( base, initialValues );
+		// If we seeded a name but have no path yet, auto-generation will fire on
+		// mount. Flag the gap so the path field's validity doesn't surface a
+		// stray "required" error before the first generate resolves.
+		if ( seeded.name.trim() && ! seeded.path ) seeded.isPathPending = true;
+		return seeded;
 	} );
 
 	// Re-apply `initialValues` the first time it resolves with a populated
@@ -318,7 +344,13 @@ export function CreateSiteForm( {
 		if ( hasAppliedInitialValues.current || ! initialValues ) return;
 		if ( ! hasAnyValue( initialValues ) ) return;
 		hasAppliedInitialValues.current = true;
-		setData( ( prev ) => applyInitialValues( prev, initialValues ) );
+		setData( ( prev ) => {
+			const next = applyInitialValues( prev, initialValues );
+			// Same rationale as the synchronous seed above — flag pending so
+			// the auto-gen window doesn't flash a required error.
+			if ( next.name.trim() && ! next.path ) next.isPathPending = true;
+			return next;
+		} );
 	}, [ initialValues ] );
 
 	const fields = useMemo< Field< FormData >[] >(
@@ -329,8 +361,16 @@ export function CreateSiteForm( {
 				label: __( 'Local path' ),
 				Edit: PathField,
 				isValid: {
-					required: true,
-					custom: ( item: FormData ) => item.pathError || null,
+					// `required` is expressed through `custom` so it can opt out
+					// while name→path auto-generation is pending — without this,
+					// the brief empty-path window after a seeded name would flash
+					// "1 error found" on the Advanced settings toggle.
+					custom: ( item: FormData ) => {
+						if ( item.pathError ) return item.pathError;
+						if ( item.isPathPending ) return null;
+						if ( ! item.path ) return __( 'Local path is required.' );
+						return null;
+					},
 				},
 			},
 			phpVersionField< FormData >(),
@@ -417,7 +457,11 @@ export function CreateSiteForm( {
 
 	// `isValid` already folds in `path`'s required + custom (pathError) rules,
 	// so no extra gating needed here.
-	const canSubmit = isValid && ! isSubmitting;
+	// `isPathPending` is not reflected in `isValid` (the path validator returns
+	// null during the window so the Advanced toggle stays clean), so gate
+	// submit on it separately — the user shouldn't be able to race the
+	// auto-generate and submit with an empty path.
+	const canSubmit = isValid && ! isSubmitting && ! data.isPathPending;
 
 	const handleSubmit = ( event: FormEvent ) => {
 		event.preventDefault();

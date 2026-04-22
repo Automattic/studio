@@ -2,11 +2,7 @@ import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
 import { generatePassword } from '@studio/common/lib/passwords';
 import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
-import {
-	CheckboxControl,
-	privateApis as componentsPrivateApis,
-	__experimentalInputControlSuffixWrapper as InputControlSuffixWrapper,
-} from '@wordpress/components';
+import { BaseControl, CheckboxControl } from '@wordpress/components';
 import { DataForm, useFormValidity } from '@wordpress/dataviews';
 import { __ } from '@wordpress/i18n';
 import { chevronDown, chevronRight } from '@wordpress/icons';
@@ -25,7 +21,6 @@ import {
 } from '@/components/site-fields';
 import { usePathValidator } from '@/data/queries/use-create-site-helpers';
 import { useSites } from '@/data/queries/use-sites';
-import { unlock } from '@/lock-unlock';
 import styles from './style.module.css';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type {
@@ -91,28 +86,6 @@ interface FormData {
 	adminPassword: string;
 	adminEmail: string;
 }
-
-// ValidatedInputControl is the same private-API control DataForm's built-in
-// `text`/`email`/`password` Edit components use, so wiring the path field
-// through it keeps error styling (red ring + icon) consistent with the rest
-// of the form.
-const { ValidatedInputControl } = unlock( componentsPrivateApis ) as {
-	ValidatedInputControl: React.ComponentType< {
-		label?: React.ReactNode;
-		hideLabelFromVision?: boolean;
-		value?: string;
-		placeholder?: string;
-		readOnly?: boolean;
-		required?: boolean;
-		onClick?: () => void;
-		onChange?: ( value: string | undefined ) => void;
-		help?: React.ReactNode;
-		suffix?: React.ReactNode;
-		customValidity?: { type: 'valid' | 'invalid' | 'validating'; message?: string };
-		__next40pxDefaultSize?: boolean;
-		className?: string;
-	} >;
-};
 
 function hasAnyValue( values: Partial< CreateSiteFormValues > ): boolean {
 	return Object.values( values ).some( ( value ) => value !== undefined && value !== '' );
@@ -194,6 +167,16 @@ function usePathAutoGenerate( data: FormData, onChange: ( update: Partial< FormD
 	}, [ data.name, data.hasCustomPath, data.path, data.pathError, generateProposedPath ] );
 }
 
+/**
+ * The path field is a folder picker, not an editable text field — the value
+ * is always set by either the name→path auto-gen or the native folder dialog
+ * launched from this control. Rendering it as a `<button>` rather than a
+ * disguised readonly `<input>` matches the actual semantics, communicates
+ * "click to choose" to screen readers, and sidesteps the HTML constraint
+ * validation API's refusal to surface `validationMessage` on readonly inputs
+ * (which would otherwise leave async errors like path collisions invisible
+ * under an expanded Advanced section).
+ */
 function PathField( {
 	data: item,
 	field,
@@ -216,52 +199,45 @@ function PathField( {
 	}, [ item.hasCustomPath, item.name, item.path, onChange, selectPath ] );
 
 	const errorMessage = validity?.custom?.message;
+	const triggerLabel = item.path
+		? // translators: %s is the currently selected folder path.
+		  `${ item.path }, ${ __( 'Select a different folder' ) }`
+		: __( 'Select a folder' );
 
-	// `ControlWithError` renders its error UI by setting `customValidity` on
-	// the underlying `<input>` and reading back `validationMessage` — but
-	// readonly inputs are always considered valid by the browser, so that
-	// pipeline silently yields an empty message and the error stays hidden.
-	// The path field is readonly (users pick folders through the native
-	// dialog), so we render the error directly via `help` instead and pass
-	// `customValidity` purely so DataForm still counts this as an invalid
-	// field in its validity map.
 	return (
-		<ValidatedInputControl
-			__next40pxDefaultSize
+		<BaseControl
+			__nextHasNoMarginBottom
 			label={ field.label }
 			hideLabelFromVision={ hideLabelFromVision }
-			value={ item.path }
-			placeholder={ __( 'Choose a folder…' ) }
-			readOnly
-			onClick={ handleSelect }
-			className={ styles.pathControl }
-			customValidity={ errorMessage ? { type: 'invalid', message: errorMessage } : undefined }
 			help={
 				errorMessage ? (
 					<span className={ styles.pathErrorHelp }>{ errorMessage }</span>
 				) : (
 					<>
-						{ __(
-							'Select an empty directory or a directory with an existing WordPress site.'
-						) }{ ' ' }
+						{ __( 'Select an empty directory or a directory with an existing WordPress site.' ) }{ ' ' }
 						<LearnMoreLink docsLinksKey="docsSites" />
 					</>
 				)
 			}
-			suffix={
-				<InputControlSuffixWrapper variant="control">
-					<Button
-						type="button"
-						variant="minimal"
-						tone="neutral"
-						size="small"
-						onClick={ handleSelect }
-					>
-						{ __( 'Choose…' ) }
-					</Button>
-				</InputControlSuffixWrapper>
-			}
-		/>
+		>
+			<button
+				type="button"
+				onClick={ handleSelect }
+				aria-label={ triggerLabel }
+				aria-invalid={ !! errorMessage || undefined }
+				className={ `${ styles.pathTrigger } ${ errorMessage ? styles.pathTriggerError : '' }` }
+			>
+				<span
+					className={ `${ styles.pathValue } ${ item.path ? '' : styles.pathValuePlaceholder }` }
+					aria-hidden="true"
+				>
+					{ item.path || __( 'Choose a folder…' ) }
+				</span>
+				<span className={ styles.pathTriggerAction } aria-hidden="true">
+					{ __( 'Choose\u2026' ) }
+				</span>
+			</button>
+		</BaseControl>
 	);
 }
 

@@ -386,6 +386,7 @@ export class AiChatUI implements AiOutputAdapter {
 	private editorVisible = false;
 	private interruptCallback: ( () => void ) | null = null;
 	private wasInterrupted = false;
+	private usageCapReached = false;
 	private hasShownResponseMarker = false;
 	private turnStartTime = 0;
 	private toolStartTime: number | null = null;
@@ -1381,6 +1382,7 @@ export class AiChatUI implements AiOutputAdapter {
 		this.currentResponseText = '';
 		this.hasShownResponseMarker = false;
 		this.wasInterrupted = false;
+		this.usageCapReached = false;
 		this.turnStartTime = this.nowMs();
 		this.todoSnapshot = [];
 		this.latestTodoSnapshot = [];
@@ -1407,6 +1409,16 @@ export class AiChatUI implements AiOutputAdapter {
 		this.currentResponseText = '';
 		this.pendingTodoRenders.clear();
 		this.pendingTodoRenderOrder = [];
+	}
+
+	/**
+	 * Returns true when the current/last turn surfaced the AI usage cap
+	 * message to the user. Lets callers suppress redundant downstream
+	 * errors (e.g. the SDK's "process exited with code 1" that follows
+	 * the upstream 429).
+	 */
+	hasErrorBeenSurfaced(): boolean {
+		return this.usageCapReached;
 	}
 
 	showOnboarding(): void {
@@ -2010,6 +2022,37 @@ export class AiChatUI implements AiOutputAdapter {
 	handleMessage( message: SDKMessage ): HandleMessageResult | undefined {
 		switch ( message.type ) {
 			case 'assistant': {
+				// Detect the AI usage cap response from the WordPress.com proxy.
+				// The proxy returns a 429 when the cap is hit; the SDK can't
+				// classify errors from off-domain base URLs so it forwards the
+				// body verbatim as a text block prefixed with "API Error: 429".
+				// On the wpcom provider a 429 is always a cap issue — matching
+				// the SDK's status-code prefix is more robust than any specific
+				// body marker, which has varied across backend revisions.
+				let isCapMessage = false;
+				if ( message.error && this.currentProvider === 'wpcom' ) {
+					for ( const block of message.message.content ) {
+						if ( block.type === 'text' && /API Error:\s*429/i.test( block.text ?? '' ) ) {
+							isCapMessage = true;
+							break;
+						}
+					}
+				}
+				if ( isCapMessage ) {
+					this.hideLoader();
+					this.usageCapReached = true;
+					this.showError(
+						__(
+							'AI usage cap reached. You can continue using Studio Code by switching to your own Anthropic API key.'
+						)
+					);
+					this.showInfo(
+						__( 'Use /provider to switch to Anthropic · API key, or try again later.' )
+					);
+					this.currentMarkdown = null;
+					this.currentResponseText = '';
+					return undefined;
+				}
 				for ( const block of message.message.content ) {
 					if ( block.type === 'text' ) {
 						this.hideLoader();
@@ -2106,6 +2149,16 @@ export class AiChatUI implements AiOutputAdapter {
 						sessionId: message.session_id,
 						numTurns: message.num_turns,
 					};
+				}
+
+				// When the cap message was surfaced earlier in this turn,
+				// the SDK still classifies the turn as successful (or returns
+				// is_error with the raw upstream body). Skip the "Done" /
+				// "Thought for Xs" indicators and the generic error rendering
+				// so the cap message stands on its own, and report the turn
+				// as failed to upstream callers.
+				if ( this.usageCapReached ) {
+					return { type: 'result', sessionId: message.session_id, success: false };
 				}
 
 				// User-initiated interruption: friendly message, suppress retry prompt.

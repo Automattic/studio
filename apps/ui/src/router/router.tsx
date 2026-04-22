@@ -5,9 +5,11 @@ import { rootRoute } from './layout-root';
 import { dashboardRoute } from './route-dashboard';
 import { indexRoute } from './route-index';
 import { newSessionRoute } from './route-new-session';
+import { onboardingBlueprintRoute } from './route-onboarding-blueprint';
 import { onboardingCreateRoute } from './route-onboarding-create';
 import { onboardingHomeRoute } from './route-onboarding-home';
 import { sessionDetailRoute } from './route-session-detail';
+import { settingsRoute } from './route-settings';
 import { siteSettingsRoute } from './route-site-settings';
 import type { RouterContext } from './layout-root';
 
@@ -18,8 +20,13 @@ const routeTree = rootRoute.addChildren( [
 		newSessionRoute,
 		sessionDetailRoute,
 		siteSettingsRoute,
+		settingsRoute,
 	] ),
-	onboardingLayoutRoute.addChildren( [ onboardingHomeRoute, onboardingCreateRoute ] ),
+	onboardingLayoutRoute.addChildren( [
+		onboardingHomeRoute,
+		onboardingCreateRoute,
+		onboardingBlueprintRoute,
+	] ),
 ] );
 
 export function createAppRouter( context: RouterContext ) {

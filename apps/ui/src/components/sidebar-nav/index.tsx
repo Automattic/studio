@@ -17,7 +17,7 @@ type NavItem = {
 function getItems(): NavItem[] {
 	return [
 		{ key: 'chat', label: __( 'Chat' ), icon: comment, to: '/dashboard' },
-		{ key: 'settings', label: __( 'Settings' ), icon: cog },
+		{ key: 'settings', label: __( 'Settings' ), icon: cog, to: '/settings' },
 		{ key: 'skills', label: __( 'Skills' ), icon: category },
 	];
 }

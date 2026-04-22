@@ -1,4 +1,3 @@
-import { z } from 'zod';
 import { SiteData } from 'cli/lib/cli-config/core';
 import type { ImportExportEventEmitter } from '../events';
 import type { Ignore } from 'ignore';

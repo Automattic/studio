@@ -52,16 +52,18 @@ export interface CreateSiteFormValues {
 
 interface CreateSiteFormProps {
 	/**
-	 * Initial "Site name" value. Applied once when first provided, so the form
-	 * can seed a randomly-generated default without fighting user input on
-	 * subsequent re-renders.
+	 * Initial field values applied once when first defined — the form won't
+	 * fight user input after that. Lets callers seed a randomly-generated
+	 * site name, pre-fill a blueprint's admin credentials / versions, etc.,
+	 * without needing a controlled form.
 	 */
-	defaultName?: string;
+	initialValues?: Partial< CreateSiteFormValues >;
 	existingDomainNames: string[];
 	onSubmit: ( values: CreateSiteFormValues ) => void;
 	onCancel: () => void;
 	isSubmitting?: boolean;
 	submitError?: string;
+	submitLabel?: string;
 }
 
 interface FormData {
@@ -105,6 +107,31 @@ const { ValidatedInputControl } = unlock( componentsPrivateApis ) as {
 		className?: string;
 	} >;
 };
+
+function hasAnyValue( values: Partial< CreateSiteFormValues > ): boolean {
+	return Object.values( values ).some( ( value ) => value !== undefined && value !== '' );
+}
+
+/**
+ * Merges caller-supplied initial values into form state. Only fields the
+ * caller actually provided are overwritten — user edits to everything else
+ * survive an async initial-value arrival.
+ */
+function applyInitialValues( prev: FormData, values: Partial< CreateSiteFormValues > ): FormData {
+	const next: FormData = { ...prev };
+	if ( values.name !== undefined && ! prev.name ) next.name = values.name;
+	if ( values.phpVersion !== undefined ) next.phpVersion = values.phpVersion;
+	if ( values.wpVersion !== undefined ) next.wpVersion = values.wpVersion;
+	if ( values.adminUsername !== undefined ) next.adminUsername = values.adminUsername;
+	if ( values.adminPassword !== undefined ) next.adminPassword = values.adminPassword;
+	if ( values.adminEmail !== undefined ) next.adminEmail = values.adminEmail;
+	if ( values.customDomain ) {
+		next.useCustomDomain = true;
+		next.customDomain = values.customDomain;
+	}
+	if ( values.enableHttps !== undefined ) next.enableHttps = values.enableHttps;
+	return next;
+}
 
 /**
  * Runs the name→path auto-generation effect on behalf of the form. Called
@@ -253,37 +280,46 @@ function countAdvancedErrors( validity: FormValidity, form: Form ): number {
 }
 
 export function CreateSiteForm( {
-	defaultName,
+	initialValues,
 	existingDomainNames,
 	onSubmit,
 	onCancel,
 	isSubmitting,
 	submitError,
+	submitLabel,
 }: CreateSiteFormProps ) {
-	const [ data, setData ] = useState< FormData >( () => ( {
-		name: '',
-		path: '',
-		hasCustomPath: false,
-		pathError: '',
-		phpVersion: RecommendedPHPVersion,
-		wpVersion: DEFAULT_WORDPRESS_VERSION,
-		useCustomDomain: false,
-		customDomain: '',
-		enableHttps: false,
-		adminUsername: 'admin',
-		adminPassword: generatePassword(),
-		adminEmail: 'admin@localhost.com',
-	} ) );
+	const [ data, setData ] = useState< FormData >( () => {
+		const base: FormData = {
+			name: '',
+			path: '',
+			hasCustomPath: false,
+			pathError: '',
+			phpVersion: RecommendedPHPVersion,
+			wpVersion: DEFAULT_WORDPRESS_VERSION,
+			useCustomDomain: false,
+			customDomain: '',
+			enableHttps: false,
+			adminUsername: 'admin',
+			adminPassword: generatePassword(),
+			adminEmail: 'admin@localhost.com',
+		};
+		if ( ! initialValues ) return base;
+		// Synchronous seed — callers already holding the full initial snapshot
+		// (e.g. values extracted from a blueprint) get them applied before the
+		// first render so derived effects like name→path see the seeded name.
+		return applyInitialValues( base, initialValues );
+	} );
 
-	// Seed the site name from `defaultName` the first time it resolves, as
-	// long as the user hasn't typed anything yet. Fires once — subsequent
-	// `defaultName` churn shouldn't clobber user input.
-	const hasAppliedDefaultName = useRef( false );
+	// Re-apply `initialValues` the first time it resolves with a populated
+	// value. Handles the async case (e.g. `useProposedSiteName` returns after
+	// mount) without clobbering user edits on subsequent re-renders.
+	const hasAppliedInitialValues = useRef( initialValues ? hasAnyValue( initialValues ) : false );
 	useEffect( () => {
-		if ( hasAppliedDefaultName.current || ! defaultName ) return;
-		hasAppliedDefaultName.current = true;
-		setData( ( prev ) => ( prev.name ? prev : { ...prev, name: defaultName } ) );
-	}, [ defaultName ] );
+		if ( hasAppliedInitialValues.current || ! initialValues ) return;
+		if ( ! hasAnyValue( initialValues ) ) return;
+		hasAppliedInitialValues.current = true;
+		setData( ( prev ) => applyInitialValues( prev, initialValues ) );
+	}, [ initialValues ] );
 
 	const fields = useMemo< Field< FormData >[] >(
 		() => [
@@ -464,7 +500,7 @@ export function CreateSiteForm( {
 					loadingAnnouncement={ __( 'Creating site' ) }
 					data-testid="create-site-submit"
 				>
-					{ __( 'Create site' ) }
+					{ submitLabel ?? __( 'Create site' ) }
 				</Button>
 			</div>
 		</form>

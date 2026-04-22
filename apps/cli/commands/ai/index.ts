@@ -266,6 +266,13 @@ export async function runCommand( options: {
 	function handleAgentTurnError( error: unknown ): void {
 		sessionId = undefined;
 
+		// If the UI already surfaced a descriptive error (e.g. the AI usage
+		// cap was reached), suppress the generic SDK exit error (e.g.
+		// "Claude Code process exited with code 1") that follows.
+		if ( ui instanceof AiChatUI && ui.hasErrorBeenSurfaced() ) {
+			return;
+		}
+
 		if ( error instanceof LoggerError ) {
 			ui.showError( error.message );
 		} else if ( error instanceof Error ) {
@@ -407,7 +414,11 @@ export async function runCommand( options: {
 		retryAttempt = 0
 	): Promise< { status: TurnStatus; usage?: { numTurns: number; costUsd?: number } } > {
 		await maybeAutoSwitchProvider();
-		const env = await resolveAiEnvironment( currentProvider );
+		const recorder = await ensureSessionRecorder();
+		const env = await resolveAiEnvironment( currentProvider, {
+			sessionId: recorder?.sessionId,
+		} );
+
 		ui.beginAgentTurn();
 
 		// Prepend active site context to the prompt.
@@ -486,7 +497,12 @@ export async function runCommand( options: {
 			if ( isJsonMode ) {
 				throw error;
 			}
-			ui.showError( getErrorMessage( error ) );
+			// If the UI already surfaced a descriptive terminal error (e.g.
+			// the AI usage cap was reached), suppress the generic SDK exit
+			// error (e.g. "Claude Code process exited with code 1").
+			if ( ! ( ui instanceof AiChatUI && ui.hasErrorBeenSurfaced() ) ) {
+				ui.showError( getErrorMessage( error ) );
+			}
 		} finally {
 			await persist( ( recorder ) => recorder.recordTurnClosed( turnStatus ) );
 			ui.endAgentTurn();
@@ -516,7 +532,12 @@ export async function runCommand( options: {
 			}
 		}
 
-		if ( turnStatus === 'error' && ! isJsonMode ) {
+		// Skip the retry prompt when the UI has already surfaced a terminal
+		// error (e.g. AI usage cap). Retrying won't recover from a cap, and
+		// the user has already been told what to do next.
+		const hasTerminalError = ui instanceof AiChatUI && ui.hasErrorBeenSurfaced();
+
+		if ( turnStatus === 'error' && ! isJsonMode && ! hasTerminalError ) {
 			if ( retryAttempt >= MAX_RETRY_ATTEMPTS ) {
 				ui.showInfo(
 					__( 'The server has not recovered after multiple attempts. Please try again later.' )

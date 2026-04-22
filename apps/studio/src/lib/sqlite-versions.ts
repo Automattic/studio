@@ -1,14 +1,14 @@
 import { SQLITE_FILENAME } from '@studio/common/constants';
 import { SqliteIntegrationProvider } from '@studio/common/lib/sqlite-integration';
-import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
+import { getBundledSqlitePluginPath } from 'src/lib/server-files-paths';
 
 class ElectronSqliteProvider extends SqliteIntegrationProvider {
-	getServerFilesPath(): string {
-		return getServerFilesPath();
-	}
-
 	getSqliteDirname(): string {
 		return SQLITE_FILENAME;
+	}
+
+	protected getSqlitePluginSourcePath(): string {
+		return getBundledSqlitePluginPath();
 	}
 }
 

@@ -17,6 +17,14 @@ function OnboardingHomePage() {
 						{ __( 'Start fresh with a blank site and build it with AI' ) }
 					</p>
 				</Link>
+				<Link to="/onboarding/blueprint" className={ styles.card }>
+					<h3 className={ styles.cardTitle }>{ __( 'Start from a blueprint' ) }</h3>
+					<p className={ styles.cardBody }>
+						{ __(
+							'Pick a featured blueprint or drop in your own to provision plugins, content, and settings.'
+						) }
+					</p>
+				</Link>
 				<div className={ `${ styles.card } ${ styles.cardDisabled }` }>
 					<h3 className={ styles.cardTitle }>{ __( 'Bring existing' ) }</h3>
 					<p className={ styles.cardBody }>

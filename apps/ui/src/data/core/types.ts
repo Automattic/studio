@@ -1,9 +1,13 @@
 import type { AgentRunEvent } from './agent-events';
 import type { AiModelId } from '@studio/common/ai/models';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
+import type { SupportedLocale } from '@studio/common/lib/locale';
+import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
+import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { SyncSite } from '@studio/common/types/sync';
+import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 export type {
 	AiSessionSummary,
@@ -13,6 +17,11 @@ export type {
 export type { AiModelId } from '@studio/common/ai/models';
 export type { Snapshot } from '@studio/common/types/snapshot';
 export type { SyncSite } from '@studio/common/types/sync';
+export type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
+export type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
+export type { SupportedLocale } from '@studio/common/lib/locale';
+
+export type InstalledApps = Record< SupportedEditor | SupportedTerminal, boolean >;
 
 export interface SiteDetails {
 	id: string;
@@ -91,11 +100,66 @@ export interface Connector {
 	comparePaths( path1: string, path2: string ): Promise< boolean >;
 	getAllCustomDomains(): Promise< string[] >;
 
+	// Featured blueprints gallery for the "Start from blueprint" onboarding
+	// flow. Sourced from the public wpcom/v2/studio-app/blueprints endpoint —
+	// no auth required, localized by the user's current UI locale.
+	getFeaturedBlueprints( locale?: string ): Promise< FeaturedBlueprint[] >;
+
+	// Resolves the absolute filesystem path of a File handle picked or dropped
+	// in the renderer. Returns an empty string when the underlying file lacks
+	// a real path (synthetic blobs, non-Electron environments).
+	getFilePath( file: File ): Promise< string >;
+
+	// Extracts a Blueprint ZIP bundle to a temp directory and returns the
+	// parsed `blueprint.json`. The caller is responsible for calling
+	// `cleanupBlueprintTempDir` if the extraction succeeds but the upload
+	// flow never reaches `createSite` — otherwise `createSite` cleans the
+	// temp directory automatically when it uses the extracted blueprint.
+	extractBlueprintBundle( zipFilePath: string ): Promise< ExtractedBlueprintBundle >;
+	cleanupBlueprintTempDir( tempDir: string ): Promise< void >;
+
 	// Preview snapshots (WordPress.com hosted previews of local sites)
 	getSnapshots(): Promise< Snapshot[] >;
+	// Creates a new preview snapshot for the given site, or refreshes the
+	// existing one when `existingHostname` is supplied. Resolves with the
+	// final preview URL when the CLI command completes.
+	publishPreviewSite( siteId: string, existingHostname?: string ): Promise< { url: string } >;
 
 	// Connected WordPress.com live sites for a given local site
 	getConnectedWpcomSites( localSiteId: string ): Promise< SyncSite[] >;
+	// All WordPress.com sites the authenticated user can sync with, regardless
+	// of which (if any) local site they're already connected to. The publish
+	// picker filters this list to sites that aren't connected anywhere yet.
+	fetchSyncableWpcomSites(): Promise< SyncSite[] >;
+	// Persists a new local↔live connection so the dropdown picks it up via
+	// `getConnectedWpcomSites`. Safe to call with the minimal `SyncSite` we
+	// receive from a sync-connect-site deep link — later fetches backfill the
+	// display name and URL.
+	connectWpcomSite( localSiteId: string, site: SyncSite ): Promise< void >;
+	// Removes a local↔live connection. The remote WordPress.com site is
+	// unaffected — only the Studio-side mapping is dropped, so Pull/Push
+	// are no longer available until the user reconnects.
+	disconnectWpcomSite( localSiteId: string, remoteSiteId: number ): Promise< void >;
+	// Pushes the local site to a previously connected WordPress.com site.
+	// Replaces the remote contents with the local database and wp-content.
+	pushSiteToLive( siteId: string, remoteSiteId: number ): Promise< void >;
+	// Pulls the connected WordPress.com site's database + wp-content back
+	// into the local Studio site. Stops the local server while the backup
+	// imports and restarts it on completion.
+	pullSiteFromLive( siteId: string, remoteSiteId: number ): Promise< void >;
+	// URL to open in the browser when the user wants to publish a site that
+	// isn't connected to WordPress.com yet (checkout + deep-link back to the
+	// desktop app). Returns `undefined` when the connector can't provide one.
+	getPublishCheckoutUrl( site: SiteDetails ): string | undefined;
+	// Fires when a WordPress.com "Connect to Studio" flow deep-links back
+	// into the app after the user picks a site on wordpress.com.
+	onSyncConnectSite(
+		listener: ( event: {
+			remoteSiteId: number;
+			studioSiteId: string;
+			autoOpenPush?: boolean;
+		} ) => void
+	): () => void;
 
 	// AI sessions (shared with the CLI — stored as JSONL on disk)
 	getSessions(): Promise< AiSessionSummary[] >;
@@ -126,12 +190,23 @@ export interface Connector {
 		environment: 'local' | 'live'
 	): Promise< { environment: 'local' | 'live'; url?: string; wpcomSiteId?: number } >;
 
-	// Locale
-	getUserLocale(): Promise< string | undefined >;
+	// User preferences — editor, terminal, color scheme, locale. Fanned out to
+	// the granular main-process handlers inside the connector so the UI has a
+	// single query + mutation to work with.
+	getUserPreferences(): Promise< UserPreferences >;
+	setUserPreferences( partial: Partial< WritableUserPreferences > ): Promise< void >;
 
-	// Color scheme
-	getColorScheme(): Promise< ColorScheme >;
-	saveColorScheme( scheme: ColorScheme ): Promise< void >;
+	// Apps detected on disk (editors + terminals). Options in the preferences
+	// form are filtered against this so users can't pick something that isn't
+	// installed.
+	getInstalledApps(): Promise< InstalledApps >;
+
+	// Open the given site's folder in the system file manager, preferred
+	// editor, or preferred terminal. When no editor/terminal preference is
+	// set these reject — callers are expected to route the user to Settings.
+	openSiteFolder( siteId: string ): Promise< void >;
+	openSiteInEditor( siteId: string ): Promise< void >;
+	openSiteInTerminal( siteId: string ): Promise< void >;
 
 	// External links
 	openExternalUrl( url: string ): Promise< void >;
@@ -148,6 +223,29 @@ export interface Connector {
 
 export type ColorScheme = 'system' | 'light' | 'dark';
 
+export interface UserPreferences {
+	editor: SupportedEditor | null;
+	terminal: SupportedTerminal | null;
+	colorScheme: ColorScheme;
+	locale: string | undefined;
+}
+
+// Subset of UserPreferences that callers can actually mutate. `locale` is
+// typed as `SupportedLocale` on the write side because only locales we ship
+// translations for can be persisted.
+export type WritableUserPreferences = Omit< UserPreferences, 'locale' > & {
+	locale: SupportedLocale;
+};
+
+export interface FeaturedBlueprint {
+	slug: string;
+	title: string;
+	excerpt: string;
+	image: string;
+	playgroundUrl: string;
+	blueprint: BlueprintV1Declaration;
+}
+
 export interface CreateSiteParams {
 	name: string;
 	path: string;
@@ -158,6 +256,22 @@ export interface CreateSiteParams {
 	adminUsername?: string;
 	adminPassword?: string;
 	adminEmail?: string;
+	// Optional blueprint payload. When present, `blueprint` is the parsed
+	// blueprint JSON; `slug` is set for featured blueprints (used for stats);
+	// `filePath` points at the extracted `blueprint.json` inside a ZIP bundle
+	// so the CLI can resolve relative asset references. Main process cleans
+	// up the temp dir automatically once `createSite` completes.
+	blueprint?: {
+		blueprint: BlueprintV1Declaration;
+		slug?: string;
+		filePath?: string;
+	};
+}
+
+export interface ExtractedBlueprintBundle {
+	blueprintJson: BlueprintV1Declaration;
+	blueprintJsonPath: string;
+	tempDir: string;
 }
 
 export interface ProposedSitePath {

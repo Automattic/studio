@@ -287,6 +287,13 @@ export function createIpcConnector(): Connector {
 			await ipcApi.cleanupBlueprintTempDir( tempDir );
 		},
 
+		async importSiteFromBackup( siteId, backup ): Promise< SiteDetails > {
+			return ( await ipcApi.importSite( {
+				id: siteId,
+				backupFile: backup,
+			} ) ) as SiteDetails;
+		},
+
 		async startSite( id ) {
 			await ipcApi.startServer( id );
 		},

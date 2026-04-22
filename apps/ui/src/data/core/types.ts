@@ -118,6 +118,14 @@ export interface Connector {
 	extractBlueprintBundle( zipFilePath: string ): Promise< ExtractedBlueprintBundle >;
 	cleanupBlueprintTempDir( tempDir: string ): Promise< void >;
 
+	// Imports a backup archive into an already-created site. Stops the
+	// server, extracts the archive, imports its database + wp-content, then
+	// starts the server back up. `backup.path` comes from `getFilePath`.
+	importSiteFromBackup(
+		siteId: string,
+		backup: { path: string; type: string }
+	): Promise< SiteDetails >;
+
 	// Preview snapshots (WordPress.com hosted previews of local sites)
 	getSnapshots(): Promise< Snapshot[] >;
 	// Creates a new preview snapshot for the given site, or refreshes the

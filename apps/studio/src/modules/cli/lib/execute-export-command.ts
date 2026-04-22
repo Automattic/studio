@@ -12,18 +12,28 @@ type ExportCliLifecycleEventEmitter = TypedEventEmitter< ExportCliLifecycleEvent
 export function executeExportCliCommand(
 	siteId: string,
 	args: string[],
-	parentWindow: Electron.BrowserWindow | null
+	parentWindow: Electron.BrowserWindow | null,
+	options: {
+		abortSignal?: AbortSignal;
+	} = {}
 ): ExportCliLifecycleEventEmitter {
-	const [ cliEventEmitter ] = executeCliCommand( args, { output: 'capture' } );
+	const [ cliEventEmitter, childProcess ] = executeCliCommand( args, { output: 'capture' } );
 	const lifecycleEventEmitter = new TypedEventEmitter< ExportCliLifecycleEventMap >();
 	let structuredExportError: unknown;
 	let didEmitFinalLifecycleEvent = false;
+	const { abortSignal } = options;
+
+	function abortExportProcess() {
+		childProcess.kill( 'SIGKILL' );
+		emitFailure( new Error( 'Export aborted' ) );
+	}
 
 	function emitFailure( error: Error ) {
 		if ( didEmitFinalLifecycleEvent ) {
 			return;
 		}
 		didEmitFinalLifecycleEvent = true;
+		abortSignal?.removeEventListener( 'abort', abortExportProcess );
 
 		if ( structuredExportError === undefined ) {
 			sendIpcEventToRendererWithWindow(
@@ -38,6 +48,14 @@ export function executeExportCliCommand(
 			error,
 			displayError: structuredExportError ?? error,
 		} );
+	}
+
+	if ( abortSignal ) {
+		if ( abortSignal.aborted ) {
+			queueMicrotask( abortExportProcess );
+		} else {
+			abortSignal.addEventListener( 'abort', abortExportProcess, { once: true } );
+		}
 	}
 
 	cliEventEmitter.on( 'data', ( { data } ) => {
@@ -65,6 +83,7 @@ export function executeExportCliCommand(
 			return;
 		}
 		didEmitFinalLifecycleEvent = true;
+		abortSignal?.removeEventListener( 'abort', abortExportProcess );
 		lifecycleEventEmitter.emit( 'completed' );
 	} );
 

@@ -414,6 +414,7 @@ const pushSiteThunk = createTypedAsyncThunk< void, PushSitePayload >(
 					specificSelectionPaths: options?.specificSelectionPaths,
 				}
 			);
+			signal.throwIfAborted();
 
 			if ( archiveSizeInBytes > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
 				return rejectWithValue( {
@@ -439,6 +440,7 @@ const pushSiteThunk = createTypedAsyncThunk< void, PushSitePayload >(
 				options?.optionsToSync,
 				options?.specificSelectionPaths
 			);
+			signal.throwIfAborted();
 
 			if ( response.success ) {
 				dispatch(

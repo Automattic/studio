@@ -188,6 +188,7 @@ export async function exportSiteForPush(
 			mode,
 			splitDatabaseDumpByTable: true,
 			specificSelectionPaths: configuration?.specificSelectionPaths,
+			abortSignal: abortController.signal,
 		} );
 
 		if ( abortController.signal.aborted ) {

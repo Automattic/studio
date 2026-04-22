@@ -180,6 +180,7 @@ type ExportOptions = {
 	showNotification?: boolean;
 	splitDatabaseDumpByTable?: boolean;
 	specificSelectionPaths?: string[];
+	abortSignal?: AbortSignal;
 };
 
 export async function exportSite(
@@ -200,6 +201,7 @@ export async function exportSite(
 		showNotification = false,
 		splitDatabaseDumpByTable = false,
 		specificSelectionPaths = [],
+		abortSignal,
 	} = options;
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
@@ -213,7 +215,9 @@ export async function exportSite(
 		args.push( '--include-only', ...specificSelectionPaths );
 	}
 
-	const eventEmitter = executeExportCliCommand( site.details.id, args, parentWindow );
+	const eventEmitter = executeExportCliCommand( site.details.id, args, parentWindow, {
+		abortSignal,
+	} );
 
 	return new Promise< void >( ( resolve, reject ) => {
 		eventEmitter.on( 'completed', () => {
@@ -238,6 +242,11 @@ export async function exportSite(
 		} );
 
 		eventEmitter.on( 'failed', async ( { error, displayError } ) => {
+			if ( abortSignal?.aborted ) {
+				reject( error );
+				return;
+			}
+
 			bumpStat( StatsGroup.STUDIO_EXPORT, StatsMetric.FAILURE );
 
 			Sentry.captureException( displayError );

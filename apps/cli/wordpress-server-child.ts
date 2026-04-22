@@ -152,9 +152,10 @@ async function getBaseRunCLIArgs(
 	command: RunCLIArgs[ 'command' ],
 	config: ServerConfig
 ): Promise< RunCLIArgs > {
-	// For pulled sites, the pull command persists the computed start
-	// options to start-options.json so the daemon doesn't need to
-	// recompute them (which would spin up PHP WASM).
+	// For sites imported via `studio pull-reprint`, the pull command
+	// persists the computed start options to start-options.json so the
+	// daemon doesn't need to recompute them (which would spin up PHP
+	// WASM to extract runtime.php constants from the imported site).
 	if ( ! config.useExactMountLayout && config.blueprint?.uri ) {
 		try {
 			const optionsPath = path.join( path.dirname( config.blueprint.uri ), 'start-options.json' );

@@ -240,25 +240,29 @@ const settingsResponseSchema = z.object( {
 	updated: z.record( z.string(), z.unknown() ).optional(),
 } );
 
+/**
+ * Enables the reprint exporter on a WordPress.com site by setting the
+ * `reprint_exporter_enabled` site option to the current unix timestamp.
+ *
+ * wpcomsh gates the `?reprint-api` endpoint on this option being a
+ * timestamp within the last 60 minutes (a sliding window that each
+ * accepted export request bumps). Studio must call this before the
+ * first direct request to the site or preflight will be refused.
+ *
+ * Uses WPCOM's generic `/sites/{site}/settings` endpoint because
+ * wpcomsh does not expose a dedicated enable endpoint (the Jetpack
+ * REST proxy path used for `rotate-export-secret` isn't an option).
+ *
+ * The settings endpoint whitelists keys and silently drops unknown
+ * ones with a 200 OK, so we verify that `reprint_exporter_enabled`
+ * appears in the `updated` response — catching a stale wpcomsh
+ * whitelist here, long before the user hits an opaque preflight 403.
+ */
 export async function enableReprintExporter(
 	siteId: number,
 	token: string,
 	verbose = false
 ): Promise< void > {
-	// Flip the `reprint_exporter_enabled` site option to the current unix
-	// timestamp.  wpcomsh gates the ?reprint-api endpoint on this option
-	// being a timestamp within the last 60 minutes (a sliding window that
-	// each accepted export request bumps).  Studio must set it before the
-	// first direct request to the site or preflight will be refused.
-	//
-	// Routed through WPCOM's generic /sites/{site}/settings endpoint — the
-	// Jetpack REST proxy path used for rotate-export-secret isn't an option
-	// here because wpcomsh does not expose a dedicated enable endpoint.
-	//
-	// Verify the response: the generic settings endpoint whitelists keys
-	// and silently drops unknown ones with a 200 OK, so if the wpcomsh
-	// whitelist ever forgets `reprint_exporter_enabled`, this is where we
-	// catch it — long before the user hits an opaque preflight 403.
 	const timestamp = Math.floor( Date.now() / 1000 );
 	if ( verbose ) {
 		console.error(

@@ -551,24 +551,6 @@ describe( 'CLI: studio site create', () => {
 	} );
 
 	describe( 'Runtime Option', () => {
-		it( 'should reject native-php runtime combined with a blueprint', async () => {
-			const testBlueprint: Blueprint = { steps: [] };
-
-			await expect(
-				runCommand( mockSitePath, {
-					...defaultTestOptions,
-					runtime: 'native-php',
-					blueprint: {
-						uri: '/home/test/blueprint.json',
-						contents: testBlueprint,
-					},
-				} )
-			).rejects.toThrow( /Blueprints are not supported on the native PHP runtime/ );
-
-			expect( startWordPressServer ).not.toHaveBeenCalled();
-			expect( runBlueprint ).not.toHaveBeenCalled();
-		} );
-
 		it( 'should persist the runtime field when creating a native-php site', async () => {
 			await runCommand( mockSitePath, {
 				...defaultTestOptions,
@@ -582,14 +564,27 @@ describe( 'CLI: studio site create', () => {
 			);
 		} );
 
-		it( 'should not persist the runtime field for the default playground runtime', async () => {
+		it( 'should persist the runtime field for the default playground runtime', async () => {
 			await runCommand( mockSitePath, {
 				...defaultTestOptions,
 				runtime: 'playground',
 			} );
 
-			const savedSite = vi.mocked( saveCliConfig ).mock.calls[ 0 ][ 0 ].sites[ 0 ];
-			expect( savedSite ).not.toHaveProperty( 'runtime' );
+			expect( saveCliConfig ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					sites: expect.arrayContaining( [ expect.objectContaining( { runtime: 'playground' } ) ] ),
+				} )
+			);
+		} );
+
+		it( 'should default runtime to playground when the flag is omitted', async () => {
+			await runCommand( mockSitePath, { ...defaultTestOptions } );
+
+			expect( saveCliConfig ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					sites: expect.arrayContaining( [ expect.objectContaining( { runtime: 'playground' } ) ] ),
+				} )
+			);
 		} );
 	} );
 

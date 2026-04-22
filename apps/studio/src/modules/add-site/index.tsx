@@ -354,7 +354,6 @@ function NavigationContent( props: NavigationContentProps ) {
 					blueprintSuggestedDomain={ blueprintSuggestedDomain }
 					blueprintSuggestedHttps={ blueprintSuggestedHttps }
 					blueprintRequiresCustomDomain={ blueprintRequiresCustomDomain }
-					hasBlueprint
 				/>
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/create">
@@ -371,7 +370,6 @@ function NavigationContent( props: NavigationContentProps ) {
 					blueprintSuggestedDomain={ blueprintSuggestedDomain }
 					blueprintSuggestedHttps={ blueprintSuggestedHttps }
 					blueprintRequiresCustomDomain={ blueprintRequiresCustomDomain }
-					hasBlueprint
 				/>
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/backup">

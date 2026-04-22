@@ -131,10 +131,6 @@ export async function runCommand(
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating site configuration…' ) );
 
-		if ( options.runtime === 'native-php' && options.blueprint ) {
-			throw new LoggerError( __( 'Blueprints are not supported on the native PHP runtime.' ) );
-		}
-
 		const pathExistsResult = await pathExists( sitePath );
 		const isEmptyDirResult = pathExistsResult && ( await isEmptyDir( sitePath ) );
 		const isWordPressDirResult = pathExistsResult && isWordPressDirectory( sitePath );
@@ -362,9 +358,7 @@ export async function runCommand(
 			customDomain: options.customDomain,
 			enableHttps: options.enableHttps,
 			landingPage: normalizeLandingPage( blueprint?.landingPage ),
-			...( options.runtime && options.runtime !== 'playground'
-				? { runtime: options.runtime }
-				: {} ),
+			runtime: options.runtime ?? 'playground',
 		};
 
 		logger.reportStart( LoggerAction.SAVE_SITE, __( 'Saving site…' ) );

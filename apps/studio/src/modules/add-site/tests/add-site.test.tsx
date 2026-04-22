@@ -209,7 +209,7 @@ describe( 'AddSite', () => {
 				'admin',
 				expect.any( String ),
 				'admin@localhost.com',
-				undefined // runtime
+				'playground' // runtime
 			);
 		} );
 	} );
@@ -430,7 +430,7 @@ describe( 'AddSite', () => {
 				'admin',
 				expect.any( String ),
 				'admin@localhost.com',
-				undefined // runtime
+				'playground' // runtime
 			);
 		} );
 	} );

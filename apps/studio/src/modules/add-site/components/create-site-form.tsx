@@ -51,8 +51,6 @@ interface CreateSiteFormProps {
 	blueprintRequiresCustomDomain?: boolean;
 	/** Blueprint login credentials for pre-filling admin fields */
 	blueprintCredentials?: { adminUsername?: string; adminPassword?: string };
-	/** Whether a blueprint/template has been selected — gates runtime choices */
-	hasBlueprint?: boolean;
 	/** Called when form is submitted */
 	onSubmit: ( values: CreateSiteFormValues ) => void;
 	/** Called when form validity changes */
@@ -172,7 +170,6 @@ export const CreateSiteForm = ( {
 	blueprintSuggestedHttps,
 	blueprintRequiresCustomDomain,
 	blueprintCredentials,
-	hasBlueprint = false,
 	onSubmit,
 	onValidityChange,
 	formRef,
@@ -199,14 +196,6 @@ export const CreateSiteForm = ( {
 	);
 	const [ adminEmail, setAdminEmail ] = useState( 'admin@localhost.com' );
 	const [ runtime, setRuntime ] = useState< SiteRuntime >( 'playground' );
-
-	const showRuntimePicker = isNativePhpRuntimeEnabled && ! hasBlueprint;
-
-	useEffect( () => {
-		if ( hasBlueprint && runtime !== 'playground' ) {
-			setRuntime( 'playground' );
-		}
-	}, [ hasBlueprint, runtime ] );
 
 	const [ pathError, setPathError ] = useState( '' );
 	const [ doesPathContainWordPress, setDoesPathContainWordPress ] = useState( false );
@@ -406,7 +395,7 @@ export const CreateSiteForm = ( {
 			adminUsername: adminUsername || undefined,
 			adminPassword: adminPassword || undefined,
 			adminEmail,
-			runtime: showRuntimePicker ? runtime : undefined,
+			runtime,
 		} ),
 		[
 			siteName,
@@ -420,7 +409,6 @@ export const CreateSiteForm = ( {
 			adminPassword,
 			adminEmail,
 			runtime,
-			showRuntimePicker,
 		]
 	);
 
@@ -583,7 +571,7 @@ export const CreateSiteForm = ( {
 									/>
 								</div>
 
-								{ showRuntimePicker && (
+								{ isNativePhpRuntimeEnabled && (
 									<div className="flex flex-col gap-1.5 leading-4 mt-4">
 										<label className="font-semibold" htmlFor="runtime-select">
 											{ __( 'Runtime' ) }

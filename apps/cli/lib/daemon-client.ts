@@ -28,6 +28,8 @@ import {
 import type { SocketEvent } from '@studio/common/lib/cli-events';
 
 const PROXY_PROCESS_NAME = 'studio-proxy';
+const PROCESS_MANAGER_DAEMON_COMMAND = 'process-manager-daemon';
+const PROXY_DAEMON_COMMAND = 'proxy-daemon';
 const CONNECTION_TIMEOUT_MS = 10_000;
 const PROCESS_MANAGER_LOCKFILE_PATH = path.join( PROCESS_MANAGER_HOME, 'pm-connection.lock' );
 export const SITE_EVENTS_SOCKET_PATH =
@@ -154,12 +156,15 @@ async function waitForDaemonReady() {
 }
 
 function spawnDaemonProcess() {
-	const daemonScriptPath = path.resolve( import.meta.dirname, 'process-manager-daemon.mjs' );
-	const daemonProcess = spawn( process.execPath, [ daemonScriptPath ], {
-		detached: true,
-		stdio: 'ignore',
-		windowsHide: true,
-	} );
+	const daemonProcess = spawn(
+		process.execPath,
+		[ path.resolve( import.meta.dirname, 'main.mjs' ), PROCESS_MANAGER_DAEMON_COMMAND ],
+		{
+			detached: true,
+			stdio: 'ignore',
+			windowsHide: true,
+		}
+	);
 	daemonProcess.unref();
 }
 
@@ -275,9 +280,9 @@ export async function sendMessageToProcess(
 }
 
 export async function startProxyProcess(): Promise< ProcessDescription > {
-	const proxyDaemonPath = path.resolve( import.meta.dirname, 'proxy-daemon.mjs' );
-
-	return startProcess( PROXY_PROCESS_NAME, proxyDaemonPath );
+	return startProcess( PROXY_PROCESS_NAME, path.resolve( import.meta.dirname, 'main.mjs' ), {}, [
+		PROXY_DAEMON_COMMAND,
+	] );
 }
 
 export async function isProxyProcessRunning(): Promise< ProcessDescription | undefined > {

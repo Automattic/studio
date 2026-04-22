@@ -25,6 +25,7 @@ import { ServerConfig, ManagerMessagePayload } from 'cli/lib/types/wordpress-ser
 import { Logger } from 'cli/logger';
 
 export const SITE_PROCESS_PREFIX = 'studio-site-';
+const WORDPRESS_SERVER_CHILD_COMMAND = 'wordpress-server-child';
 
 // Get an abort signal that's triggered on SIGINT/SIGTERM. This is useful for aborting and cleaning
 // up async operations.
@@ -59,10 +60,7 @@ export async function startWordPressServer(
 	logger: Logger< string >,
 	options?: StartServerOptions
 ): Promise< ProcessDescription > {
-	const wordPressServerChildPath = path.resolve(
-		import.meta.dirname,
-		'wordpress-server-child.mjs'
-	);
+	const cliEntrypointPath = path.resolve( import.meta.dirname, 'main.mjs' );
 	const processName = getProcessName( site.id );
 
 	const serverConfig: ServerConfig = {
@@ -117,7 +115,9 @@ export async function startWordPressServer(
 		serverConfig.enableDebugDisplay = true;
 	}
 
-	const processDesc = await startProcess( processName, wordPressServerChildPath );
+	const processDesc = await startProcess( processName, cliEntrypointPath, {}, [
+		WORDPRESS_SERVER_CHILD_COMMAND,
+	] );
 	await waitForReadyMessage( processDesc.pmId );
 	await sendMessage(
 		processDesc.pmId,
@@ -340,10 +340,7 @@ export async function runBlueprint(
 	logger: Logger< string >,
 	options: RunBlueprintOptions
 ): Promise< void > {
-	const wordPressServerChildPath = path.resolve(
-		import.meta.dirname,
-		'wordpress-server-child.mjs'
-	);
+	const cliEntrypointPath = path.resolve( import.meta.dirname, 'main.mjs' );
 	const processName = getProcessName( site.id );
 
 	const serverConfig: ServerConfig = {
@@ -395,7 +392,9 @@ export async function runBlueprint(
 		serverConfig.enableDebugDisplay = true;
 	}
 
-	const processDesc = await startProcess( processName, wordPressServerChildPath );
+	const processDesc = await startProcess( processName, cliEntrypointPath, {}, [
+		WORDPRESS_SERVER_CHILD_COMMAND,
+	] );
 	try {
 		await waitForReadyMessage( processDesc.pmId );
 		await sendMessage(

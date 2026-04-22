@@ -115,7 +115,9 @@ describe( 'WordPress Server Manager', () => {
 
 			expect( vi.mocked( daemonClient.startProcess ) ).toHaveBeenCalledWith(
 				'studio-site-test-site-id',
-				expect.stringContaining( 'wordpress-server-child.mjs' )
+				expect.stringContaining( 'main.mjs' ),
+				{},
+				[ 'wordpress-server-child' ]
 			);
 
 			expect( result ).toEqual( mockProcessDescription );

@@ -127,9 +127,6 @@ export const baseConfig = defineConfig( {
 		lib: {
 			entry: {
 				main: resolve( __dirname, 'index.ts' ),
-				'process-manager-daemon': resolve( __dirname, 'process-manager-daemon.ts' ),
-				'proxy-daemon': resolve( __dirname, 'proxy-daemon.ts' ),
-				'wordpress-server-child': resolve( __dirname, 'wordpress-server-child.ts' ),
 			},
 			name: 'StudioCLI',
 			formats: [ 'es' ],
@@ -139,8 +136,8 @@ export const baseConfig = defineConfig( {
 		rollupOptions: {
 			output: {
 				format: 'es',
+				inlineDynamicImports: true,
 				entryFileNames: '[name].mjs',
-				chunkFileNames: '[name]-[hash].mjs',
 				paths: ( id ) => {
 					// Rewrite trailing-slash imports in output
 					if ( id.endsWith( '/' ) ) {

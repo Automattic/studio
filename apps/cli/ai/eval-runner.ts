@@ -64,16 +64,22 @@ function extractToolCalls( message: SDKMessage ) {
 		} ) );
 }
 
+type TextBlock = { type: 'text'; text: string };
+type ToolResultBlock = {
+	type: 'tool_result';
+	tool_use_id: string;
+	is_error?: boolean;
+	content?: unknown;
+};
+
 function extractTextSegments( message: SDKMessage ): string[] {
 	if ( message.type !== 'assistant' ) {
 		return [];
 	}
-	const content = message.message.content ?? [];
+	const content = ( message.message.content ?? [] ) as Array< { type: string } >;
 	return content
-		.filter(
-			( block: { type: string } ): block is { type: 'text'; text: string } => block.type === 'text'
-		)
-		.map( ( block: { text: string } ) => block.text );
+		.filter( ( block ): block is TextBlock => block.type === 'text' )
+		.map( ( block ) => block.text );
 }
 
 function extractToolResult( message: SDKMessage ): {
@@ -84,12 +90,8 @@ function extractToolResult( message: SDKMessage ): {
 	if ( message.type !== 'user' || ! Array.isArray( message.message.content ) ) {
 		return null;
 	}
-	const block = message.message.content.find(
-		( b: {
-			type: string;
-		} ): b is { type: 'tool_result'; tool_use_id: string; is_error?: boolean; content?: unknown } =>
-			b.type === 'tool_result'
-	);
+	const content = message.message.content as Array< { type: string } >;
+	const block = content.find( ( b ): b is ToolResultBlock => b.type === 'tool_result' );
 	if ( ! block ) {
 		return null;
 	}
@@ -97,9 +99,11 @@ function extractToolResult( message: SDKMessage ): {
 	if ( typeof block.content === 'string' ) {
 		text = block.content;
 	} else if ( Array.isArray( block.content ) ) {
-		const tb = block.content.find( ( b: { type: string } ) => b.type === 'text' );
-		if ( tb && 'text' in tb ) {
-			text = tb.text as string;
+		const tb = ( block.content as Array< { type: string } > ).find(
+			( b ): b is TextBlock => b.type === 'text'
+		);
+		if ( tb ) {
+			text = tb.text;
 		}
 	}
 	return { toolUseId: block.tool_use_id ?? null, isError: block.is_error === true, text };

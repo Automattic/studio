@@ -46,12 +46,7 @@ export interface CreateSiteFormValues {
 }
 
 interface CreateSiteFormProps {
-	/**
-	 * Initial field values applied once when first defined — the form won't
-	 * fight user input after that. Lets callers seed a randomly-generated
-	 * site name, pre-fill a blueprint's admin credentials / versions, etc.,
-	 * without needing a controlled form.
-	 */
+	/** Applied once when first defined — user edits win after. */
 	initialValues?: Partial< CreateSiteFormValues >;
 	existingDomainNames: string[];
 	onSubmit: ( values: CreateSiteFormValues ) => void;
@@ -64,18 +59,12 @@ interface CreateSiteFormProps {
 interface FormData {
 	name: string;
 	path: string;
-	// True once the user has manually picked a folder via the path picker,
-	// so the name→path auto-generation effect stops overriding their choice.
+	// Stops the name→path auto-gen from overriding a manually picked folder.
 	hasCustomPath: boolean;
-	// IPC-derived path validation error (duplicate site, non-empty non-WP dir).
-	// Owned by `PathField`, read by the `path` field's `isValid.custom` rule so
-	// DataForm surfaces it through its normal validity channel.
 	pathError: string;
-	// True while the async name→path generation is in flight. Used to suppress
-	// the path field's "required" validity during that window so seeding a
-	// name via `initialValues` doesn't flash "1 error found" on the Advanced
-	// settings toggle between the name landing and `generateProposedPath`
-	// resolving one microtask later.
+	// Suppresses the path field's required check during the auto-gen async
+	// window so a seeded name doesn't flash "1 error found" on the Advanced
+	// toggle before `generateProposedPath` resolves.
 	isPathPending: boolean;
 	phpVersion: SupportedPHPVersion;
 	wpVersion: string;
@@ -91,11 +80,8 @@ function hasAnyValue( values: Partial< CreateSiteFormValues > ): boolean {
 	return Object.values( values ).some( ( value ) => value !== undefined && value !== '' );
 }
 
-/**
- * Merges caller-supplied initial values into form state. Only fields the
- * caller actually provided are overwritten — user edits to everything else
- * survive an async initial-value arrival.
- */
+// Only fields the caller actually provided overwrite prev — user edits to
+// everything else survive an async initial-value arrival.
 function applyInitialValues( prev: FormData, values: Partial< CreateSiteFormValues > ): FormData {
 	const next: FormData = { ...prev };
 	if ( values.name !== undefined && ! prev.name ) next.name = values.name;
@@ -112,19 +98,13 @@ function applyInitialValues( prev: FormData, values: Partial< CreateSiteFormValu
 	return next;
 }
 
-/**
- * Runs the name→path auto-generation effect on behalf of the form. Called
- * from `CreateSiteForm` so it fires whether the Advanced settings section is
- * open or not — otherwise `data.path` would stay empty on first load and the
- * Advanced toggle would falsely show "1 error found" until the user
- * expanded it and `PathField` mounted.
- */
+// Called from the form (not `PathField`) so it runs even when Advanced is
+// collapsed — otherwise `data.path` would stay empty on first load and the
+// Advanced toggle would falsely show "1 error found".
 function usePathAutoGenerate( data: FormData, onChange: ( update: Partial< FormData > ) => void ) {
 	const { data: sites } = useSites();
 	const { generateProposedPath } = usePathValidator( sites );
 
-	// `onChange` may be recreated per parent render. Ref it so the async
-	// effect doesn't re-subscribe every keystroke.
 	const onChangeRef = useRef( onChange );
 	useEffect( () => {
 		onChangeRef.current = onChange;
@@ -141,8 +121,6 @@ function usePathAutoGenerate( data: FormData, onChange: ( update: Partial< FormD
 			return;
 		}
 		pendingNameRef.current = trimmed;
-		// Mark pending before kicking off the async generate so the path
-		// field's validity suppresses its required check during the window.
 		if ( ! data.isPathPending ) {
 			onChangeRef.current( { isPathPending: true } );
 		}
@@ -159,24 +137,16 @@ function usePathAutoGenerate( data: FormData, onChange: ( update: Partial< FormD
 		return () => {
 			cancelled = true;
 		};
-		// `data.isPathPending` is intentionally omitted from deps: this effect
-		// writes it (true when starting a generate, false when resolving), and
-		// re-running the effect each time that flip lands would kick off a
-		// redundant generate on every cycle.
+		// `data.isPathPending` intentionally omitted — the effect writes it,
+		// so including it would re-trigger a redundant generate each cycle.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [ data.name, data.hasCustomPath, data.path, data.pathError, generateProposedPath ] );
 }
 
-/**
- * The path field is a folder picker, not an editable text field — the value
- * is always set by either the name→path auto-gen or the native folder dialog
- * launched from this control. Rendering it as a `<button>` rather than a
- * disguised readonly `<input>` matches the actual semantics, communicates
- * "click to choose" to screen readers, and sidesteps the HTML constraint
- * validation API's refusal to surface `validationMessage` on readonly inputs
- * (which would otherwise leave async errors like path collisions invisible
- * under an expanded Advanced section).
- */
+// Rendered as a button (not an input) because the value is always set by
+// the name→path auto-gen or the native folder dialog — never typed. Also
+// sidesteps the browser's refusal to expose `validationMessage` on readonly
+// inputs, which was swallowing async errors like path collisions.
 function PathField( {
 	data: item,
 	field,
@@ -263,11 +233,6 @@ function EnableHttpsControl( { data: item, field, onChange }: DataFormControlPro
 	);
 }
 
-/**
- * Walks the advanced form config and tallies how many of its leaf fields
- * currently have invalid validity state. Used to surface an error indicator
- * on the Advanced settings toggle when it's collapsed.
- */
 function countAdvancedErrors( validity: FormValidity, form: Form ): number {
 	const fieldIds: string[] = [];
 	const collect = ( field: FormField | string ) => {
@@ -318,20 +283,13 @@ export function CreateSiteForm( {
 			adminEmail: 'admin@localhost.com',
 		};
 		if ( ! initialValues ) return base;
-		// Synchronous seed — callers already holding the full initial snapshot
-		// (e.g. values extracted from a blueprint) get them applied before the
-		// first render so derived effects like name→path see the seeded name.
 		const seeded = applyInitialValues( base, initialValues );
-		// If we seeded a name but have no path yet, auto-generation will fire on
-		// mount. Flag the gap so the path field's validity doesn't surface a
-		// stray "required" error before the first generate resolves.
 		if ( seeded.name.trim() && ! seeded.path ) seeded.isPathPending = true;
 		return seeded;
 	} );
 
-	// Re-apply `initialValues` the first time it resolves with a populated
-	// value. Handles the async case (e.g. `useProposedSiteName` returns after
-	// mount) without clobbering user edits on subsequent re-renders.
+	// Handles the async seed case (e.g. `useProposedSiteName` resolving after
+	// mount) without clobbering user edits on subsequent renders.
 	const hasAppliedInitialValues = useRef( initialValues ? hasAnyValue( initialValues ) : false );
 	useEffect( () => {
 		if ( hasAppliedInitialValues.current || ! initialValues ) return;
@@ -339,8 +297,6 @@ export function CreateSiteForm( {
 		hasAppliedInitialValues.current = true;
 		setData( ( prev ) => {
 			const next = applyInitialValues( prev, initialValues );
-			// Same rationale as the synchronous seed above — flag pending so
-			// the auto-gen window doesn't flash a required error.
 			if ( next.name.trim() && ! next.path ) next.isPathPending = true;
 			return next;
 		} );
@@ -353,11 +309,9 @@ export function CreateSiteForm( {
 				id: 'path',
 				label: __( 'Local path' ),
 				Edit: PathField,
+				// Required check lives inside `custom` so it can opt out while
+				// `isPathPending` is true — see the `FormData` comment above.
 				isValid: {
-					// `required` is expressed through `custom` so it can opt out
-					// while name→path auto-generation is pending — without this,
-					// the brief empty-path window after a seeded name would flash
-					// "1 error found" on the Advanced settings toggle.
 					custom: ( item: FormData ) => {
 						if ( item.pathError ) return item.pathError;
 						if ( item.isPathPending ) return null;
@@ -417,8 +371,8 @@ export function CreateSiteForm( {
 		} ),
 		[]
 	);
-	// Compute validity across all fields together so a collapsed Advanced
-	// settings section can still surface an error indicator on its toggle.
+	// Covers both sections so the collapsed Advanced toggle still picks up
+	// errors from fields that aren't currently mounted.
 	const fullForm = useMemo< Form >(
 		() => ( {
 			layout: { type: 'regular', labelPosition: 'top' },
@@ -438,9 +392,8 @@ export function CreateSiteForm( {
 	const handleChange = useCallback( ( update: Record< string, unknown > ) => {
 		setData( ( prev ) => {
 			const next: FormData = { ...prev, ...( update as Partial< FormData > ) };
-			// When the user toggles "Use custom domain" on for the first time,
-			// seed the domain input with a sensible default derived from the
-			// site name — matching Studio's add-site flow.
+			// Seed the custom-domain input on first toggle with a sensible
+			// default derived from the site name.
 			if ( ! prev.useCustomDomain && next.useCustomDomain && ! next.customDomain ) {
 				next.customDomain = generateCustomDomainFromSiteName( next.name );
 			}
@@ -448,12 +401,8 @@ export function CreateSiteForm( {
 		} );
 	}, [] );
 
-	// `isValid` already folds in `path`'s required + custom (pathError) rules,
-	// so no extra gating needed here.
-	// `isPathPending` is not reflected in `isValid` (the path validator returns
-	// null during the window so the Advanced toggle stays clean), so gate
-	// submit on it separately — the user shouldn't be able to race the
-	// auto-generate and submit with an empty path.
+	// `isPathPending` is deliberately absent from `isValid` (so the Advanced
+	// toggle doesn't flash), so gate submit on it separately.
 	const canSubmit = isValid && ! isSubmitting && ! data.isPathPending;
 
 	const handleSubmit = ( event: FormEvent ) => {

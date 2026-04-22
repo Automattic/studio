@@ -26,64 +26,21 @@ function truncateMiddle( filename: string, maxLength = 30 ): string {
 }
 
 interface FileDropzoneProps {
-	/**
-	 * Icon shown in both empty and filled states. Defaults to `upload`.
-	 */
 	icon?: Parameters< typeof Icon >[ 0 ][ 'icon' ];
-	/**
-	 * `accept` attribute forwarded to the underlying `<input type="file">`.
-	 * Accept only narrows the native file picker — callers should still
-	 * validate picked files before acting on them.
-	 */
 	accept?: string;
-	/**
-	 * Empty-state prompt shown above the "Choose file…" button. Defaults to a
-	 * generic "Drop a file here, or".
-	 */
 	prompt?: string;
-	/**
-	 * Empty-state button label. Defaults to "Choose file…".
-	 */
 	buttonLabel?: string;
-	/**
-	 * Fires whenever the user picks or drops a file. The parent is responsible
-	 * for validating the file (type, contents) and surfacing any resulting
-	 * error via the `error` prop — the dropzone itself is unopinionated.
-	 */
+	// Parent validates and surfaces any resulting message via `error`.
 	onFile: ( file: File ) => void;
-	/**
-	 * Inline error message shown directly below the dropzone. Controlled by
-	 * the parent so validation rules can live where the domain logic is.
-	 */
 	error?: string | null;
-	/**
-	 * When set, swaps the empty state for a filled state that shows the
-	 * filename, size, and a Remove button. Leave `null`/`undefined` for flows
-	 * that navigate away as soon as a file is accepted.
-	 */
+	// When set, renders a filled state (filename + Remove). Leave unset for
+	// callers that navigate away on successful pick.
 	file?: File | null;
-	/**
-	 * Fires when the user clicks the Remove button in the filled state.
-	 * Required whenever `file` is set.
-	 */
+	// Required whenever `file` is set.
 	onClear?: () => void;
-	/**
-	 * Forwarded for callers that want to attach their own accessible label or
-	 * test id to the outer section.
-	 */
 	className?: string;
 }
 
-/**
- * Low-level drag-and-drop file picker. Owns the drag events, the hidden
- * `<input type="file">`, the visual empty/filled states, and the CSS. Parents
- * handle validation + side effects by consuming `onFile` and passing an
- * `error` string back in when validation fails.
- *
- * The filled state (`file` prop) is opt-in — flows that immediately navigate
- * away after a successful pick (e.g. the blueprint selector) can skip it and
- * let the empty state stay put.
- */
 export function FileDropzone( {
 	icon = upload,
 	accept,

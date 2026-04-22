@@ -190,8 +190,8 @@ describe( 'Preview List Command', () => {
 			const output = consoleLogSpy.mock.calls
 				.map( ( call: unknown[] ) => String( call[ 0 ] ) )
 				.join( '\n' );
-			expect( output ).toMatch( /^Site A \(\d+ preview sites?\)$/m );
-			expect( output ).toMatch( /^Site B \(\d+ preview sites?\)$/m );
+			expect( output ).toMatch( /^Site A — \/test\/folder-a \(\d+ preview sites?\)$/m );
+			expect( output ).toMatch( /^Site B — \/test\/folder-b \(\d+ preview sites?\)$/m );
 		} );
 
 		it( 'should not merge two local sites that happen to share the same name', async () => {
@@ -199,8 +199,8 @@ describe( 'Preview List Command', () => {
 			vi.mocked( readCliConfig ).mockResolvedValue( {
 				version: 1,
 				sites: [
-					{ ...mockSites[ 0 ], id: 'dup-1', name: 'Duplicate' },
-					{ ...mockSites[ 1 ], id: 'dup-2', name: 'Duplicate' },
+					{ ...mockSites[ 0 ], id: 'dup-1', name: 'Duplicate', path: '/dup/one' },
+					{ ...mockSites[ 1 ], id: 'dup-2', name: 'Duplicate', path: '/dup/two' },
 				],
 				snapshots: [],
 				// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -229,11 +229,12 @@ describe( 'Preview List Command', () => {
 			const output = consoleLogSpy.mock.calls
 				.map( ( call: unknown[] ) => String( call[ 0 ] ) )
 				.join( '\n' );
-			const duplicateHeaders = output.match( /^Duplicate \(\d+ preview sites?\)$/gm ) ?? [];
-			// Two separate groups, each with 1 snapshot — not coalesced into one group of 2.
-			expect( duplicateHeaders ).toEqual( [
-				'Duplicate (1 preview site)',
-				'Duplicate (1 preview site)',
+			const duplicateHeaders =
+				output.match( /^Duplicate — \/dup\/\w+ \(\d+ preview sites?\)$/gm ) ?? [];
+			// Two separate groups, disambiguated by path, each with 1 snapshot.
+			expect( duplicateHeaders.sort() ).toEqual( [
+				'Duplicate — /dup/one (1 preview site)',
+				'Duplicate — /dup/two (1 preview site)',
 			] );
 		} );
 
@@ -271,8 +272,8 @@ describe( 'Preview List Command', () => {
 			const output = consoleLogSpy.mock.calls
 				.map( ( call: unknown[] ) => String( call[ 0 ] ) )
 				.join( '\n' );
-			const siteAIndex = output.indexOf( 'Site A (' );
-			const siteBIndex = output.indexOf( 'Site B (' );
+			const siteAIndex = output.indexOf( 'Site A —' );
+			const siteBIndex = output.indexOf( 'Site B —' );
 			expect( siteBIndex ).toBeGreaterThanOrEqual( 0 );
 			expect( siteAIndex ).toBeGreaterThan( siteBIndex );
 		} );

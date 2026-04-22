@@ -103,40 +103,39 @@ export async function runCommand(
 
 		if ( all ) {
 			const config = await readCliConfig();
-			const siteNameById = new Map< string, string >(
-				config.sites.map( ( site ) => [ site.id, site.name ] )
-			);
+			const siteById = new Map( config.sites.map( ( site ) => [ site.id, site ] ) );
 			const unknownSiteLabel = __( 'Unknown site' );
 
 			// Group by localSiteId (names aren't unique), then collapse every group whose
 			// site is missing from the config into a single "Unknown site" bucket.
 			const snapshotsByLocalSiteId = new Map< string, Snapshot[] >();
 			for ( const snapshot of snapshots ) {
-				const key = siteNameById.has( snapshot.localSiteId )
-					? snapshot.localSiteId
-					: unknownSiteLabel;
+				const key = siteById.has( snapshot.localSiteId ) ? snapshot.localSiteId : unknownSiteLabel;
 				const bucket = snapshotsByLocalSiteId.get( key ) ?? [];
 				bucket.push( snapshot );
 				snapshotsByLocalSiteId.set( key, bucket );
 			}
 
 			const sortedGroups = [ ...snapshotsByLocalSiteId.entries() ]
-				.map( ( [ key, siteSnapshots ] ) => ( {
-					siteName: siteNameById.get( key ) ?? unknownSiteLabel,
-					siteSnapshots,
-				} ) )
+				.map( ( [ key, siteSnapshots ] ) => {
+					const site = siteById.get( key );
+					// Include the path alongside the name since Studio doesn't enforce
+					// unique site names and all CLI operations key off the path.
+					const displayName = site ? `${ site.name } — ${ site.path }` : unknownSiteLabel;
+					return { displayName, siteSnapshots };
+				} )
 				.sort( ( a, b ) => {
 					if ( b.siteSnapshots.length !== a.siteSnapshots.length ) {
 						return b.siteSnapshots.length - a.siteSnapshots.length;
 					}
-					return a.siteName.localeCompare( b.siteName );
+					return a.displayName.localeCompare( b.displayName );
 				} );
 
-			const sections = sortedGroups.map( ( { siteName, siteSnapshots } ) => {
+			const sections = sortedGroups.map( ( { displayName, siteSnapshots } ) => {
 				const header = sprintf(
-					/* translators: 1: Local site name. 2: Number of preview sites for that local site. */
+					/* translators: 1: Local site name (may include path for disambiguation). 2: Number of preview sites for that local site. */
 					_n( '%1$s (%2$d preview site)', '%1$s (%2$d preview sites)', siteSnapshots.length ),
-					siteName,
+					displayName,
 					siteSnapshots.length
 				);
 				return `${ header }\n${ buildSnapshotTable( siteSnapshots ) }`;

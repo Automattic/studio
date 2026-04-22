@@ -442,7 +442,21 @@ function formatSnapshot(
 	const mins = Math.floor( elapsed / 60 );
 	const secs = elapsed % 60;
 	parts.push( mins > 0 ? `${ mins }m ${ secs }s` : `${ secs }s` );
-	return parts.join( ' · ' );
+
+	const line = parts.join( ' · ' );
+
+	// picospinner clears previous output by counting how many terminal
+	// lines the text occupied. It gets the terminal width once via
+	// process.stdout.getWindowSize(), but some environments (e.g.
+	// Conductor) don't provide it, leaving the width at Infinity.
+	// When that happens, picospinner assumes 1 line regardless of
+	// actual wrapping, so the clear only erases 1 line and each tick
+	// leaves a ghost line behind. Cap the output to avoid wrapping.
+	const maxWidth = ( process.stdout.getWindowSize?.()?.[ 0 ] ?? 80 ) - 4;
+	if ( line.length > maxWidth ) {
+		return line.slice( 0, maxWidth - 1 ) + '…';
+	}
+	return line;
 }
 
 /** Maps reprint's internal phase identifiers to user-facing labels. */

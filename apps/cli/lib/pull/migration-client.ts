@@ -1,12 +1,9 @@
 /**
  * Runs reprint.phar in a PHP WASM child process.
  *
- *   caller
- *     → runReprintCommandUntilComplete
- *         → forks reprint-child.ts (PHP WASM)
- *         → reprint.phar streams JSON-L progress to stdout via IPC
- *         → progress reporter parses it into spinner text
- *         → exit 0 = done, exit 2 = partial (retry), exit 1 = error
+ * Re-runs the command while they exit with code 2 (partial) until
+ * they exit with either code 0 (success) or code 1 (error).
+ *
  */
 import { ChildProcess, fork } from 'node:child_process';
 import fs from 'node:fs';
@@ -18,6 +15,15 @@ export interface ReprintProcessResult {
 	exitCode: number;
 }
 
+/**
+ * Runs a reprint.phar command in a PHP WASM child process, automatically
+ * retrying on partial completion.
+ *
+ * Reprint commands exit with code 2 when they've made progress but need
+ * another pass (e.g., large file downloads that stream in chunks). This
+ * function loops until the command exits with 0 (success) or throws on
+ * exit code 1 (error).
+ */
 export async function runReprintCommandUntilComplete(
 	stateDir: string,
 	fsRoot: string,
@@ -69,6 +75,15 @@ export async function runReprintCommandUntilComplete(
 	}
 }
 
+/**
+ * Forks a Node child process to execute a single reprint.phar invocation
+ * inside PHP WASM.
+ *
+ * Communication with the child uses IPC messages: the child sends
+ * `stdout`/`stderr` chunks for progress reporting and a final `result`
+ * or `error` message. SIGINT is forwarded to the child so Ctrl-C
+ * terminates cleanly.
+ */
 async function runReprintCommand(
 	pharPath: string,
 	stateDir: string,
@@ -208,6 +223,17 @@ interface ProgressReporter {
 	cleanup: () => void;
 }
 
+/**
+ * Creates a reporter that parses reprint's JSON-L stdout into human-readable
+ * progress lines.
+ *
+ * Reprint emits one JSON object per line with fields like `phase`,
+ * `files_done`, `bytes_received`, etc. The reporter accumulates these into
+ * a snapshot and formats a spinner line such as
+ * "Downloading files · 42/1337 files · 12.3 MB · 3m 12s". A 250ms interval
+ * ticker re-renders the line to keep the elapsed time ticking even when no
+ * new data arrives.
+ */
 function createProgressReporter(
 	label: string,
 	startTime: number,
@@ -264,6 +290,10 @@ function createProgressReporter(
 	};
 }
 
+/**
+ * Parses a single JSON-L line from reprint's stdout, skipping non-progress
+ * envelopes like HTTP response headers and protocol version handshakes.
+ */
 function parseJsonl( line: string ): Record< string, unknown > | null {
 	try {
 		const parsed = JSON.parse( line );
@@ -280,6 +310,19 @@ function parseJsonl( line: string ): Record< string, unknown > | null {
 	}
 }
 
+/**
+ * Merges a parsed JSON-L record into the running progress snapshot.
+ *
+ * Reprint uses inconsistent field names across commands and versions
+ * (e.g., `files_done` vs `downloaded_files` vs `files_indexed`), so this
+ * function normalizes them into a single canonical snapshot shape.
+ * Numeric counters only move forward (via Math.max) to avoid visual
+ * regressions when reprint restarts a partial transfer.
+ *
+ * The `bytes_received` field is special: reprint resets it per HTTP request,
+ * so this function detects resets and accumulates a running total across
+ * requests.
+ */
 function updateSnapshot(
 	record: Record< string, unknown >,
 	prev: ProgressSnapshot
@@ -344,6 +387,13 @@ function updateSnapshot(
 	return next;
 }
 
+/**
+ * Formats the current progress snapshot into a single-line status string
+ * like "Downloading files · 42/1337 files · 12.3 MB · 3m 12s".
+ *
+ * Returns null when there's nothing meaningful to display (no counters,
+ * no message, just the label).
+ */
 function formatSnapshot(
 	snapshot: ProgressSnapshot,
 	label: string,
@@ -395,7 +445,7 @@ function formatSnapshot(
 	return parts.join( ' · ' );
 }
 
-// reprint's internal phase names → user-facing labels.
+/** Maps reprint's internal phase identifiers to user-facing labels. */
 function mapPhase( phase: string | undefined ): string | undefined {
 	switch ( phase ) {
 		case 'index':
@@ -416,6 +466,7 @@ function mapPhase( phase: string | undefined ): string | undefined {
 	}
 }
 
+/** Coerces a value to a finite number, returning undefined for non-numeric or infinite values. */
 function num( value: unknown ): number | undefined {
 	if ( typeof value === 'number' ) {
 		return Number.isFinite( value ) ? value : undefined;
@@ -427,10 +478,12 @@ function num( value: unknown ): number | undefined {
 	return undefined;
 }
 
+/** Returns the value as a string if it's a non-empty string, undefined otherwise. */
 function str( value: unknown ): string | undefined {
 	return typeof value === 'string' && value.length > 0 ? value : undefined;
 }
 
+/** Formats a byte count as a human-readable string (B, KB, or MB). */
 function fmtBytes( bytes: number ): string {
 	if ( bytes < 1024 ) {
 		return `${ bytes } B`;
@@ -441,6 +494,7 @@ function fmtBytes( bytes: number ): string {
 	return `${ ( bytes / ( 1024 * 1024 ) ).toFixed( 1 ) } MB`;
 }
 
+/** Resolves the path to the bundled reprint.phar, throwing if it's missing. */
 function getBundledReprintPhar(): string {
 	const candidate = path.join( import.meta.dirname, 'reprint.phar' );
 	if ( ! fs.existsSync( candidate ) ) {
@@ -449,6 +503,13 @@ function getBundledReprintPhar(): string {
 	return candidate;
 }
 
+/**
+ * Resolves the path to the child process entry point that hosts PHP WASM.
+ *
+ * Checks for both `.mjs` and `.js` extensions to support different build
+ * configurations. Falls back to `.mjs` if neither exists, letting the
+ * runtime produce a clear "file not found" error.
+ */
 function getReprintChildPath(): string {
 	for ( const filename of [ 'reprint-child.mjs', 'reprint-child.js' ] ) {
 		const candidate = path.resolve( import.meta.dirname, filename );

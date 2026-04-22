@@ -91,6 +91,14 @@ export interface Connector {
 	// it (or null) so the settings form can block a conflicting toggle.
 	getXdebugEnabledSite(): Promise< SiteDetails | null >;
 
+	// Exports a site as a full backup archive (files + database). Prompts the
+	// user for a destination via a save-as dialog; resolves with the chosen
+	// path on success, or `null` if the user cancelled the dialog.
+	exportFullSite( siteId: string ): Promise< string | null >;
+	// Exports only the site database as a .sql dump. Same dialog/cancel
+	// semantics as `exportFullSite`.
+	exportDatabase( siteId: string ): Promise< string | null >;
+
 	// Site-creation helpers — surface the same main-process capabilities the
 	// desktop app's add-site flow relies on (folder pickers, path validation,
 	// and domain lookups).

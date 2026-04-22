@@ -40,10 +40,10 @@ const { join, sep } = require( 'node:path' );
 const { isSea, getAsset } = require( 'node:sea' );
 const { pathToFileURL } = require( 'node:url' );
 
-// Convert Windows backslash paths to forward slashes for tar compatibility
+// Convert Windows backslash paths to forward slashes for tar compatibility.
+// We target bsdtar (shipped with macOS and Windows 10+), which accepts
+// forward-slashed absolute paths like "C:/foo/bar" without any extra flags.
 const posix = ( p ) => p.split( sep ).join( '/' );
-// MSYS tar on Windows interprets "C:" as a remote host; --force-local prevents this (BSD tar doesn't support it)
-const FORCE_LOCAL = process.platform === 'win32' ? ' --force-local' : '';
 
 const DEFAULT_CLI_DIR = join( homedir(), '.studio', 'cli' );
 const CLI_DIR = process.env.STUDIO_CLI_DIR || DEFAULT_CLI_DIR;
@@ -132,7 +132,7 @@ function extractTarAsset( assetName, destDir ) {
 			rmSync( tmpDir, { recursive: true, force: true } );
 		}
 		mkdirSync( tmpDir, { recursive: true } );
-		runTar( `-xzf "${ posix( tarPath ) }"${ FORCE_LOCAL } -C "${ posix( tmpDir ) }"` );
+		runTar( `-xzf "${ posix( tarPath ) }" -C "${ posix( tmpDir ) }"` );
 
 		if ( existsSync( destDir ) ) {
 			rmSync( destDir, { recursive: true, force: true } );

@@ -85,11 +85,14 @@ async function main(): Promise< void > {
 	fs.rmSync( bundleBuildDir, { recursive: true, force: true } );
 	fs.mkdirSync( bundleBuildDir, { recursive: true } );
 
-	// CLI bundle (JS files, wp-files, etc. — excludes node_modules)
-	// --force-local prevents MSYS tar from interpreting "C:" as a remote host (BSD tar doesn't support it)
-	const forceLocal = isWindows ? ' --force-local' : '';
+	// CLI bundle (JS files, wp-files, etc. — excludes node_modules).
+	// Exclude patterns are unquoted on purpose: single quotes aren't literal
+	// on Windows cmd.exe and would be passed through as part of the pattern,
+	// matching nothing. We target bsdtar (shipped with macOS and Windows 10+),
+	// which handles forward-slashed absolute paths natively — no --force-local
+	// workaround needed.
 	const cliTarPath = posix( path.join( bundleBuildDir, 'cli.tar.gz' ) );
-	run( `tar -czf "${ cliTarPath }"${ forceLocal } --exclude='node_modules' .`, cliDistDir );
+	run( `tar -czf "${ cliTarPath }" --exclude=node_modules .`, cliDistDir );
 
 	// node_modules — use source node_modules (not dist) because externalized
 	// native packages have transitive deps (e.g. ws, ini) that they need at runtime.
@@ -97,9 +100,9 @@ async function main(): Promise< void > {
 	const cliNodeModules = path.join( repoRoot, 'apps', 'cli', 'node_modules' );
 	const nmTarPath = posix( path.join( bundleBuildDir, 'node_modules.tar.gz' ) );
 	run(
-		`tar -czf "${ nmTarPath }"${ forceLocal } ` +
-			`--exclude='.cache' ` +
-			`--exclude='playwright/browsers' --exclude='playwright-core/browsers' .`,
+		`tar -czf "${ nmTarPath }" ` +
+			`--exclude=.cache ` +
+			`--exclude=playwright/browsers --exclude=playwright-core/browsers .`,
 		cliNodeModules
 	);
 

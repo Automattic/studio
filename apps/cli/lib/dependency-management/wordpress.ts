@@ -6,7 +6,7 @@ import { extractZip } from '@studio/common/lib/extract-zip';
 import { recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
 import { getWordPressVersionUrl } from '@studio/common/lib/wordpress-version-utils';
 import semver from 'semver';
-import { getWordPressVersionPath } from '../server-files';
+import { getWordPressVersionPath } from './paths';
 import { downloadFile } from './utils';
 
 const MINIMUM_SUPPORTED_WP_VERSION = 6;

@@ -194,6 +194,49 @@ describe( 'Preview List Command', () => {
 			expect( output ).toMatch( /^Site B \(\d+ preview sites?\)$/m );
 		} );
 
+		it( 'should not merge two local sites that happen to share the same name', async () => {
+			// Studio doesn't enforce site-name uniqueness, so grouping must be by id.
+			vi.mocked( readCliConfig ).mockResolvedValue( {
+				version: 1,
+				sites: [
+					{ ...mockSites[ 0 ], id: 'dup-1', name: 'Duplicate' },
+					{ ...mockSites[ 1 ], id: 'dup-2', name: 'Duplicate' },
+				],
+				snapshots: [],
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			} as any );
+			vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [
+				{
+					url: 'dup-1.example.com',
+					atomicSiteId: 1,
+					localSiteId: 'dup-1',
+					date: Date.now(),
+					name: 'Dup 1 snapshot',
+					userId: 789,
+				},
+				{
+					url: 'dup-2.example.com',
+					atomicSiteId: 2,
+					localSiteId: 'dup-2',
+					date: Date.now(),
+					name: 'Dup 2 snapshot',
+					userId: 789,
+				},
+			] );
+
+			await runCommand( '/not/a/site', 'table', true );
+
+			const output = consoleLogSpy.mock.calls
+				.map( ( call: unknown[] ) => String( call[ 0 ] ) )
+				.join( '\n' );
+			const duplicateHeaders = output.match( /^Duplicate \(\d+ preview sites?\)$/gm ) ?? [];
+			// Two separate groups, each with 1 snapshot — not coalesced into one group of 2.
+			expect( duplicateHeaders ).toEqual( [
+				'Duplicate (1 preview site)',
+				'Duplicate (1 preview site)',
+			] );
+		} );
+
 		it( 'should order groups by preview-site count descending, tie-breaking alphabetically', async () => {
 			vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [
 				// Site A gets 1 snapshot, Site B gets 2. B should appear first.
@@ -332,9 +375,12 @@ describe( 'Preview List Command', () => {
 		} );
 	} );
 
-	it( 'should not prune when running without --all', async () => {
+	it( 'should prune expired orphaned snapshots even when running without --all', async () => {
 		await runCommand( mockFolder, 'table' );
 
-		expect( pruneExpiredOrphanedSnapshots ).not.toHaveBeenCalled();
+		expect( pruneExpiredOrphanedSnapshots ).toHaveBeenCalledWith(
+			mockAuthToken.id,
+			isSnapshotExpired
+		);
 	} );
 } );

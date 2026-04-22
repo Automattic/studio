@@ -74,15 +74,9 @@ export async function runCommand(
 		logger.reportStart( LoggerAction.LOAD, __( 'Loading preview sites…' ) );
 
 		// Expired orphans are almost certainly already deleted server-side — clean them up.
-		if ( all ) {
-			await pruneExpiredOrphanedSnapshots( token.id, isSnapshotExpired );
-		}
+		await pruneExpiredOrphanedSnapshots( token.id, isSnapshotExpired );
 
 		const snapshots = await getSnapshotsFromConfig( token.id, all ? undefined : siteFolder );
-		const config = all ? await readCliConfig() : undefined;
-		const siteNameById = config
-			? new Map< string, string >( config.sites.map( ( site ) => [ site.id, site.name ] ) )
-			: undefined;
 
 		if ( snapshots.length === 0 ) {
 			logger.reportSuccess( __( 'No preview sites found' ) );
@@ -107,19 +101,30 @@ export async function runCommand(
 			logger.reportSuccess( snapshotsMessage );
 		}
 
-		if ( all && siteNameById ) {
+		if ( all ) {
+			const config = await readCliConfig();
+			const siteNameById = new Map< string, string >(
+				config.sites.map( ( site ) => [ site.id, site.name ] )
+			);
 			const unknownSiteLabel = __( 'Unknown site' );
 
-			const snapshotsBySiteName = new Map< string, Snapshot[] >();
+			// Group by localSiteId (names aren't unique), then collapse every group whose
+			// site is missing from the config into a single "Unknown site" bucket.
+			const snapshotsByLocalSiteId = new Map< string, Snapshot[] >();
 			for ( const snapshot of snapshots ) {
-				const siteName = siteNameById.get( snapshot.localSiteId ) ?? unknownSiteLabel;
-				const bucket = snapshotsBySiteName.get( siteName ) ?? [];
+				const key = siteNameById.has( snapshot.localSiteId )
+					? snapshot.localSiteId
+					: unknownSiteLabel;
+				const bucket = snapshotsByLocalSiteId.get( key ) ?? [];
 				bucket.push( snapshot );
-				snapshotsBySiteName.set( siteName, bucket );
+				snapshotsByLocalSiteId.set( key, bucket );
 			}
 
-			const sortedGroups = [ ...snapshotsBySiteName.entries() ]
-				.map( ( [ siteName, siteSnapshots ] ) => ( { siteName, siteSnapshots } ) )
+			const sortedGroups = [ ...snapshotsByLocalSiteId.entries() ]
+				.map( ( [ key, siteSnapshots ] ) => ( {
+					siteName: siteNameById.get( key ) ?? unknownSiteLabel,
+					siteSnapshots,
+				} ) )
 				.sort( ( a, b ) => {
 					if ( b.siteSnapshots.length !== a.siteSnapshots.length ) {
 						return b.siteSnapshots.length - a.siteSnapshots.length;
@@ -160,8 +165,8 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			return yargs
 				.option( 'format', {
 					type: 'string',
-					choices: [ 'table', 'json' ],
-					default: 'table',
+					choices: [ 'table', 'json' ] as const,
+					default: 'table' as const,
 					description: __( 'Output format' ),
 				} )
 				.option( 'all', {
@@ -171,7 +176,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} );
 		},
 		handler: async ( argv ) => {
-			await runCommand( argv.path, argv.format as 'table' | 'json', Boolean( argv.all ) );
+			await runCommand( argv.path, argv.format, argv.all );
 		},
 	} );
 };

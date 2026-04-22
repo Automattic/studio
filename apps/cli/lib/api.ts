@@ -313,6 +313,18 @@ export async function enableReprintExporter(
 	}
 }
 
+/**
+ * Rotates a WordPress.com site's reprint export secret.
+ *
+ * This calls the Jetpack bridge endpoint used by Studio pull-reprint flows to
+ * request a fresh export token. The response is validated against
+ * `rotateReprintSecretResponseSchema` and the wrapper `code` must be `200`;
+ * otherwise a `LoggerError` is thrown.
+ *
+ * @param siteId Numeric WordPress.com site ID.
+ * @param token OAuth bearer token for the WordPress.com REST API.
+ * @returns The rotated secret string consumed by later export operations.
+ */
 export async function rotateReprintSecret(
 	siteId: number,
 	token: string

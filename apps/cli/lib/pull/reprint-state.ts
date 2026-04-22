@@ -77,6 +77,14 @@ export function getContentDirFromState( stateDirectory: string ): string | null 
  * didn't get far enough to checkpoint a cursor — in that case the
  * next run must restart indexing from scratch rather than trying to
  * resume from a non-existent cursor.
+ *
+ * This handles a real crash-recovery scenario: the user kills the
+ * process (Ctrl-C, laptop sleep, OOM) during the first indexing
+ * pass before reprint writes its first cursor checkpoint. Reprint
+ * itself doesn't auto-detect this — it needs the caller to send
+ * `files-sync --abort` first to clear the broken state. Studio
+ * detects the condition here so pull-reprint can issue that abort
+ * automatically before retrying.
  */
 export function shouldRestartFilesSyncIndex( stateDirectory: string ): boolean {
 	const state = readReprintState( stateDirectory );

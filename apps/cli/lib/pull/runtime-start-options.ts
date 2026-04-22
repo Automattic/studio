@@ -8,6 +8,7 @@ import path from 'path';
 import { loadNodeRuntime } from '@php-wasm/node';
 import { PHP, ProcessIdAllocator } from '@php-wasm/universal';
 import { LatestSupportedPHPVersion } from '@studio/common/types/php-versions';
+import { getContentDirFromState } from 'cli/lib/pull/reprint-state';
 import { installSqliteIntegration } from 'cli/lib/sqlite-integration';
 import { LoggerError } from 'cli/logger';
 import type { Blueprint } from '@wp-playground/blueprints';
@@ -136,73 +137,22 @@ function mergeBlueprintConstants(
  * VFS-relative paths (e.g. ../fs-root/srv/htdocs/wp-content) which don't
  * resolve on the host filesystem.  Instead of traversing that symlink, we
  * derive the real path from the import's raw directory and the content_dir
- * recorded in the import state during preflight.
- *
- * Falls back to sitePath/wp-content for non-imported sites or when the
- * import state doesn't specify a content_dir.
+ * recorded in the reprint preflight state.
  */
 function resolveImportedWpContentPath( runtimeBlueprintPath: string ): string {
 	const importRoot = path.dirname( path.dirname( runtimeBlueprintPath ) );
 	const rawDirectory = path.join( importRoot, 'raw' );
-	const statePath = path.join( importRoot, 'state', '.import-state.json' );
+	const stateDirectory = path.join( importRoot, 'state' );
 
-	if ( fs.existsSync( statePath ) ) {
-		try {
-			const state = JSON.parse( fs.readFileSync( statePath, 'utf-8' ) ) as Record<
-				string,
-				unknown
-			>;
-			const preflight = ( state.preflight as Record< string, unknown > | undefined )?.data as
-				| Record< string, unknown >
-				| undefined;
-			const contentDir = ( preflight?.paths_urls as Record< string, unknown > | undefined )
-				?.content_dir;
-
-			if ( typeof contentDir === 'string' && contentDir.startsWith( '/' ) ) {
-				const resolved = path.join( rawDirectory, contentDir.slice( 1 ) );
-				if ( fs.existsSync( resolved ) ) {
-					return resolved;
-				}
-			}
-		} catch {
-			// Fall through to the default path.
+	const contentDir = getContentDirFromState( stateDirectory );
+	if ( contentDir ) {
+		const resolved = path.join( rawDirectory, contentDir.replace( /^\//, '' ) );
+		if ( fs.existsSync( resolved ) ) {
+			return resolved;
 		}
 	}
 
-	// Fallback: find the wp-content directory that contains the imported
-	// database.  There may be multiple wp-content directories in the raw
-	// tree (e.g. one at the WordPress root and one inside the fsRoot),
-	// so the database subdirectory disambiguates.
-	const candidates: string[] = [];
-	function findWpContentDirs( dir: string, depth = 0 ): void {
-		if ( depth > 5 ) {
-			return;
-		}
-		let entries;
-		try {
-			entries = fs.readdirSync( dir, { withFileTypes: true } );
-		} catch {
-			return;
-		}
-		for ( const entry of entries ) {
-			if ( entry.name === 'wp-content' && entry.isDirectory() ) {
-				candidates.push( path.join( dir, entry.name ) );
-			} else if ( entry.isDirectory() && ! entry.isSymbolicLink() ) {
-				findWpContentDirs( path.join( dir, entry.name ), depth + 1 );
-			}
-		}
-	}
-	findWpContentDirs( rawDirectory );
-
-	// Prefer the wp-content that has the imported database.
-	const withDatabase = candidates.find( ( c ) =>
-		fs.existsSync( path.join( c, 'database', '.ht.sqlite' ) )
-	);
-	if ( withDatabase ) {
-		return withDatabase;
-	}
-
-	return candidates[ 0 ] ?? path.join( rawDirectory, 'wp-content' );
+	return path.join( rawDirectory, 'wp-content' );
 }
 
 export async function ensureImportedSiteSqliteReady(

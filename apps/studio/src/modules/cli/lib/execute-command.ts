@@ -149,7 +149,10 @@ export function executeCliCommand(
 	if ( cliBinaryPath !== null ) {
 		// Production: use the bundled binary directly. Set STUDIO_CLI_DIR so
 		// the binary extracts assets to the app's Resources directory.
-		child = spawn( cliBinaryPath, cliArgs, {
+		// --experimental-wasm-jspi is required for PHP-WASM (JSPI is still
+		// flagged on Node 24.x); the SEA binary is Node, so the flag is
+		// consumed before the embedded CLI code runs.
+		child = spawn( cliBinaryPath, [ '--experimental-wasm-jspi', ...cliArgs ], {
 			stdio,
 			env: {
 				...process.env,

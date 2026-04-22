@@ -11,7 +11,7 @@ CLI_SCRIPT="$CONTENTS_DIR/Resources/cli/main.mjs"
 
 if [ -x "$CLI_BINARY" ]; then
 	unset NODE_OPTIONS
-	exec "$CLI_BINARY" "$@"
+	exec "$CLI_BINARY" --experimental-wasm-jspi "$@"
 fi
 
 # Development fallback: use system Node with the CLI script

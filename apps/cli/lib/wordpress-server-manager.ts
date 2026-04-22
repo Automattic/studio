@@ -4,7 +4,6 @@
  * Manages WordPress server processes via process manager daemon. Each site runs in a separate
  * process that spawns Playground CLI.
  */
-import fs from 'fs';
 import path from 'path';
 import {
 	PLAYGROUND_CLI_ACTIVITY_CHECK_INTERVAL,
@@ -21,7 +20,6 @@ import {
 	type DaemonBusEventMap,
 	sendMessageToProcess,
 } from 'cli/lib/daemon-client';
-import { PROCESS_MANAGER_LOGS_DIR } from 'cli/lib/paths';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { ServerConfig, ManagerMessagePayload } from 'cli/lib/types/wordpress-server-ipc';
 import { Logger } from 'cli/logger';
@@ -119,99 +117,121 @@ export async function startWordPressServer(
 		serverConfig.enableDebugDisplay = true;
 	}
 
-	const processDesc = await startProcess( processName, wordPressServerChildPath );
-	await waitForReadyMessage( processName, processDesc.pmId );
-	await sendMessage(
-		processDesc.pmId,
-		processName,
-		{
-			topic: 'start-server',
-			data: { config: serverConfig },
-		},
-		{ logger }
-	);
-
-	return processDesc;
-}
-
-const CHILD_STDERR_TAIL_BYTES = 4096;
-
-function readChildStderrTail( processName: string ): string {
-	const errorLogPath = path.join( PROCESS_MANAGER_LOGS_DIR, `${ processName }-error.log` );
+	const readyOrExit = await subscribeForReadyOrExit( processName );
 	try {
-		const { size } = fs.statSync( errorLogPath );
-		if ( size === 0 ) {
-			return '';
-		}
-		const readBytes = Math.min( size, CHILD_STDERR_TAIL_BYTES );
-		const buffer = Buffer.alloc( readBytes );
-		const fd = fs.openSync( errorLogPath, 'r' );
-		try {
-			fs.readSync( fd, buffer, 0, readBytes, size - readBytes );
-		} finally {
-			fs.closeSync( fd );
-		}
-		return buffer.toString( 'utf8' ).trimEnd();
-	} catch {
-		return '';
+		const processDesc = await startProcess( processName, wordPressServerChildPath );
+		await readyOrExit.waitFor( processDesc.pmId );
+		await sendMessage(
+			processDesc.pmId,
+			processName,
+			{
+				topic: 'start-server',
+				data: { config: serverConfig },
+			},
+			{ logger }
+		);
+
+		return processDesc;
+	} finally {
+		readyOrExit.dispose();
 	}
 }
 
-function buildChildExitedError( processName: string ): Error {
-	const errorLogPath = path.join( PROCESS_MANAGER_LOGS_DIR, `${ processName }-error.log` );
-	const tail = readChildStderrTail( processName );
-	let message = `WordPress server child process exited before becoming ready. See ${ errorLogPath }`;
-	if ( tail ) {
-		message += `\n${ tail }`;
+function buildChildExitedError( processName: string, stderrTail?: string ): Error {
+	let message = `WordPress server child process "${ processName }" exited before becoming ready.`;
+	if ( stderrTail?.trim() ) {
+		message += `\n${ stderrTail.trimEnd() }`;
 	}
 	return new Error( message );
 }
 
-async function waitForReadyMessage( processName: string, pmId: number ): Promise< void > {
+/**
+ * Attaches listeners to the daemon bus *before* the child process is started so we cannot miss
+ * an early `ready` or `exit` event. Events that arrive before the caller knows the pmId are
+ * buffered (filtered by processName) and replayed once `waitFor(pmId)` is called.
+ * Must be disposed via `dispose()` when done.
+ */
+async function subscribeForReadyOrExit( processName: string ): Promise< {
+	waitFor: ( pmId: number ) => Promise< void >;
+	dispose: () => void;
+} > {
 	const bus = await getDaemonBus();
 
-	let timeoutId: NodeJS.Timeout;
-	let readyHandler: ( packet: DaemonBusEventMap[ 'process-message' ] ) => void;
-	let exitHandler: ( event: DaemonBusEventMap[ 'process-event' ] ) => void;
-	let abortListener: () => void;
+	const pendingReady: Array< DaemonBusEventMap[ 'process-message' ] > = [];
+	const pendingExits: Array< DaemonBusEventMap[ 'process-event' ] > = [];
+	let onReady: () => void = () => {};
+	let onExit: ( stderrTail?: string ) => void = () => {};
+	let waiting = false;
 
-	return new Promise< void >( ( resolve, reject ) => {
-		timeoutId = setTimeout( () => {
-			reject( new Error( 'Timeout waiting for ready message from WordPress server child' ) );
-		}, PLAYGROUND_CLI_INACTIVITY_TIMEOUT );
-		readyHandler = ( packet ) => {
-			if ( packet.process.pm_id === pmId && packet.raw.topic === 'ready' ) {
-				resolve();
-			}
-		};
-		exitHandler = ( event ) => {
-			if ( event.process.pm_id === pmId && event.event === 'exit' ) {
-				reject( buildChildExitedError( processName ) );
-			}
-		};
-		abortListener = () => {
-			reject( new Error( 'Operation aborted' ) );
-		};
-		abortController.signal.addEventListener( 'abort', abortListener );
+	const messageHandler = ( packet: DaemonBusEventMap[ 'process-message' ] ) => {
+		if ( packet.process.name !== processName || packet.raw.topic !== 'ready' ) {
+			return;
+		}
+		if ( waiting ) {
+			onReady();
+		} else {
+			pendingReady.push( packet );
+		}
+	};
+	const eventHandler = ( event: DaemonBusEventMap[ 'process-event' ] ) => {
+		if ( event.process.name !== processName || event.event !== 'exit' ) {
+			return;
+		}
+		if ( waiting ) {
+			onExit( event.stderrTail );
+		} else {
+			pendingExits.push( event );
+		}
+	};
 
-		bus.on( 'process-message', readyHandler );
-		bus.on( 'process-event', exitHandler );
+	bus.on( 'process-message', messageHandler );
+	bus.on( 'process-event', eventHandler );
 
-		// Guard against the race where the child exits between `startProcess` resolving and
-		// our listeners being attached: if the process is no longer running now, surface the
-		// error immediately rather than waiting for the ready-message timeout.
-		void ( async () => {
-			const running = await isProcessRunning( processName );
-			if ( ! running ) {
-				reject( buildChildExitedError( processName ) );
+	const waitFor = ( pmId: number ): Promise< void > => {
+		waiting = true;
+
+		let timeoutId: NodeJS.Timeout;
+		let abortListener: () => void;
+
+		return new Promise< void >( ( resolve, reject ) => {
+			timeoutId = setTimeout( () => {
+				reject( new Error( 'Timeout waiting for ready message from WordPress server child' ) );
+			}, PLAYGROUND_CLI_INACTIVITY_TIMEOUT );
+			abortListener = () => {
+				reject( new Error( 'Operation aborted' ) );
+			};
+
+			onReady = () => resolve();
+			onExit = ( stderrTail ) => reject( buildChildExitedError( processName, stderrTail ) );
+
+			abortController.signal.addEventListener( 'abort', abortListener );
+
+			// Replay any events we buffered before pmId was known.
+			const bufferedExit = pendingExits.find( ( event ) => event.process.pm_id === pmId );
+			if ( bufferedExit ) {
+				onExit( bufferedExit.stderrTail );
+				return;
 			}
-		} )();
-	} ).finally( () => {
-		clearTimeout( timeoutId );
-		abortController.signal.removeEventListener( 'abort', abortListener );
-		bus.off( 'process-message', readyHandler );
-		bus.off( 'process-event', exitHandler );
-	} );
+			const bufferedReady = pendingReady.find( ( packet ) => packet.process.pm_id === pmId );
+			if ( bufferedReady ) {
+				onReady();
+			}
+		} ).finally( () => {
+			clearTimeout( timeoutId );
+			abortController.signal.removeEventListener( 'abort', abortListener );
+			// Release per-call handlers; the bus listeners stay until dispose().
+			onReady = () => {};
+			onExit = () => {};
+			waiting = false;
+		} );
+	};
+
+	const dispose = () => {
+		bus.off( 'process-message', messageHandler );
+		bus.off( 'process-event', eventHandler );
+	};
+
+	return { waitFor, dispose };
 }
 
 const messageActivityTrackers = new Map<
@@ -448,21 +468,26 @@ export async function runBlueprint(
 		serverConfig.enableDebugDisplay = true;
 	}
 
-	const processDesc = await startProcess( processName, wordPressServerChildPath );
+	const readyOrExit = await subscribeForReadyOrExit( processName );
 	try {
-		await waitForReadyMessage( processName, processDesc.pmId );
-		await sendMessage(
-			processDesc.pmId,
-			processName,
-			{
-				topic: 'run-blueprint',
-				data: { config: serverConfig },
-			},
-			{ logger }
-		);
+		const processDesc = await startProcess( processName, wordPressServerChildPath );
+		try {
+			await readyOrExit.waitFor( processDesc.pmId );
+			await sendMessage(
+				processDesc.pmId,
+				processName,
+				{
+					topic: 'run-blueprint',
+					data: { config: serverConfig },
+				},
+				{ logger }
+			);
+		} finally {
+			// Always stop the process after blueprint is applied
+			await stopProcess( processName );
+		}
 	} finally {
-		// Always stop the process after blueprint is applied
-		await stopProcess( processName );
+		readyOrExit.dispose();
 	}
 }
 

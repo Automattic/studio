@@ -6,15 +6,14 @@ import {
 	TelegramAuthError,
 	TelegramBadRequestError,
 	TelegramTransientError,
-	pollMessage,
+	pollMessages,
 	respondMessage,
-	type PolledMessage,
 } from 'cli/remote-session/telegram-client';
 import { runTurn, type TurnOutcome, type TurnRunOptions } from 'cli/remote-session/turn-runner';
 
 /** Injected for tests. */
 export interface PollLoopDeps {
-	poll: typeof pollMessage;
+	poll: typeof pollMessages;
 	respond: typeof respondMessage;
 	runTurn: ( options: TurnRunOptions ) => Promise< TurnOutcome >;
 	readState: typeof readStateForChat;
@@ -25,7 +24,7 @@ export interface PollLoopDeps {
 }
 
 const DEFAULT_DEPS: PollLoopDeps = {
-	poll: pollMessage,
+	poll: pollMessages,
 	respond: respondMessage,
 	runTurn,
 	readState: readStateForChat,
@@ -205,10 +204,10 @@ export async function runPollLoop( options: RunPollLoopOptions ): Promise< PollL
 
 	const loop = async (): Promise< void > => {
 		let backoffAttempt = 0;
-		while ( ! detachRequested ) {
-			let polled: PolledMessage | null;
+		batchLoop: while ( ! detachRequested ) {
+			let batch: Awaited< ReturnType< typeof deps.poll > >;
 			try {
-				polled = await deps.poll( config, abortController.signal );
+				batch = await deps.poll( config, abortController.signal );
 				backoffAttempt = 0;
 			} catch ( error ) {
 				if ( error instanceof TelegramAuthError ) {
@@ -238,63 +237,70 @@ export async function runPollLoop( options: RunPollLoopOptions ): Promise< PollL
 				break;
 			}
 
-			if ( ! polled ) {
+			if ( batch.length === 0 ) {
 				await deps.sleep( config.poll_interval_seconds * 1000 );
 				continue;
 			}
 
-			if ( polled.chat_id !== config.chat_id ) {
-				deps.logger.warn( 'Ignoring message for unbound chat', {
-					polled_chat_id: polled.chat_id,
-					bound_chat_id: config.chat_id,
-				} );
-				continue;
-			}
-
-			const text = polled.text.trim();
-			deps.logger.info( 'Polled message', {
-				chat_id: polled.chat_id,
-				preview: text.slice( 0, 80 ),
-			} );
-
-			if ( text.toLowerCase() === '/new' ) {
-				await deps.clearSession( config.chat_id );
-				try {
-					await deps.respond( config, {
-						chatId: config.chat_id,
-						text: '🆕 Started a new conversation.',
-					} );
-				} catch ( error ) {
-					if ( error instanceof TelegramBadRequestError ) {
-						deps.logger.warn( 'Respond 4xx on /new ack', { status: error.status } );
-					} else {
-						throw error;
-					}
+			// Drain the batch sequentially. One message = one `studio code --json` turn.
+			for ( const polled of batch ) {
+				if ( detachRequested ) {
+					break batchLoop;
 				}
-				continue;
-			}
 
-			try {
-				await handleTurn( deps, config, polled.text );
-			} catch ( error ) {
-				if ( error instanceof TelegramAuthError ) {
-					deps.logger.error( 'Auth error during respond; detaching', {
-						status: error.status,
+				if ( polled.chat_id !== config.chat_id ) {
+					deps.logger.warn( 'Ignoring message for unbound chat', {
+						polled_chat_id: polled.chat_id,
+						bound_chat_id: config.chat_id,
 					} );
-					detachRequested = true;
-					process.exitCode = 1;
-					break;
-				}
-				if ( error instanceof TelegramBadRequestError ) {
-					deps.logger.warn( 'Respond 4xx; dropping chunk', { status: error.status } );
 					continue;
 				}
-				deps.logger.error( 'Turn failed', { error: ( error as Error ).message } );
-				await postBestEffort(
-					deps,
-					config,
-					`⚠️ Local agent error: ${ truncate( ( error as Error ).message, 500 ) }`
-				);
+
+				const text = polled.text.trim();
+				deps.logger.info( 'Polled message', {
+					chat_id: polled.chat_id,
+					preview: text.slice( 0, 80 ),
+				} );
+
+				if ( text.toLowerCase() === '/new' ) {
+					await deps.clearSession( config.chat_id );
+					try {
+						await deps.respond( config, {
+							chatId: config.chat_id,
+							text: '🆕 Started a new conversation.',
+						} );
+					} catch ( error ) {
+						if ( error instanceof TelegramBadRequestError ) {
+							deps.logger.warn( 'Respond 4xx on /new ack', { status: error.status } );
+						} else {
+							throw error;
+						}
+					}
+					continue;
+				}
+
+				try {
+					await handleTurn( deps, config, polled.text );
+				} catch ( error ) {
+					if ( error instanceof TelegramAuthError ) {
+						deps.logger.error( 'Auth error during respond; detaching', {
+							status: error.status,
+						} );
+						detachRequested = true;
+						process.exitCode = 1;
+						break batchLoop;
+					}
+					if ( error instanceof TelegramBadRequestError ) {
+						deps.logger.warn( 'Respond 4xx; dropping chunk', { status: error.status } );
+						continue;
+					}
+					deps.logger.error( 'Turn failed', { error: ( error as Error ).message } );
+					await postBestEffort(
+						deps,
+						config,
+						`⚠️ Local agent error: ${ truncate( ( error as Error ).message, 500 ) }`
+					);
+				}
 			}
 		}
 

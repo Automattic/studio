@@ -3,7 +3,7 @@ import {
 	TelegramAuthError,
 	TelegramBadRequestError,
 	TelegramTransientError,
-	pollMessage,
+	pollMessages,
 	respondMessage,
 } from 'cli/remote-session/telegram-client';
 import type { RemoteSessionConfig } from 'cli/remote-session/config';
@@ -26,7 +26,7 @@ function jsonResponse( body: unknown, status = 200 ): Response {
 	} );
 }
 
-describe( 'pollMessage', () => {
+describe( 'pollMessages', () => {
 	const fetchMock = vi.fn();
 	beforeEach( () => {
 		fetchMock.mockReset();
@@ -36,10 +36,22 @@ describe( 'pollMessage', () => {
 		vi.unstubAllGlobals();
 	} );
 
-	it( 'returns the parsed message on a 200 response', async () => {
-		fetchMock.mockResolvedValueOnce( jsonResponse( { chat_id: 1, text: 'hi', bot: 'my_bot' } ) );
-		const msg = await pollMessage( baseConfig );
-		expect( msg ).toEqual( { chat_id: 1, text: 'hi', bot: 'my_bot' } );
+	it( 'returns the parsed messages array on a 200 response with real server shape', async () => {
+		fetchMock.mockResolvedValueOnce(
+			jsonResponse( {
+				messages: [
+					{
+						message: 'hi',
+						chat_id: 1,
+						bot: 'my_bot',
+						user_id: 99,
+						timestamp: 1776848744,
+					},
+				],
+			} )
+		);
+		const msgs = await pollMessages( baseConfig );
+		expect( msgs ).toEqual( [ { chat_id: 1, text: 'hi', bot: 'my_bot' } ] );
 		expect( fetchMock ).toHaveBeenCalledWith(
 			'https://api.example.test/wpcom/v2/telegram-bot/local-agent-poll',
 			expect.objectContaining( {
@@ -49,38 +61,49 @@ describe( 'pollMessage', () => {
 		);
 	} );
 
-	it( 'returns null on 204 No Content', async () => {
+	it( 'preserves message order when the batch contains several entries', async () => {
+		fetchMock.mockResolvedValueOnce(
+			jsonResponse( {
+				messages: [
+					{ message: 'first', chat_id: 1, bot: 'b' },
+					{ message: 'second', chat_id: 1, bot: 'b' },
+				],
+			} )
+		);
+		const msgs = await pollMessages( baseConfig );
+		expect( msgs.map( ( m ) => m.text ) ).toEqual( [ 'first', 'second' ] );
+	} );
+
+	it( 'returns an empty array on 204 No Content', async () => {
 		fetchMock.mockResolvedValueOnce( new Response( null, { status: 204 } ) );
-		expect( await pollMessage( baseConfig ) ).toBeNull();
+		expect( await pollMessages( baseConfig ) ).toEqual( [] );
 	} );
 
-	it( 'returns null on empty body', async () => {
+	it( 'returns an empty array on empty body', async () => {
 		fetchMock.mockResolvedValueOnce( new Response( '', { status: 200 } ) );
-		expect( await pollMessage( baseConfig ) ).toBeNull();
+		expect( await pollMessages( baseConfig ) ).toEqual( [] );
 	} );
 
-	it( 'returns null on `{}`', async () => {
+	it( 'returns an empty array on `{}`', async () => {
 		fetchMock.mockResolvedValueOnce( jsonResponse( {} ) );
-		expect( await pollMessage( baseConfig ) ).toBeNull();
+		expect( await pollMessages( baseConfig ) ).toEqual( [] );
 	} );
 
-	it( 'unwraps nested { message: {...} } envelopes', async () => {
+	it( 'accepts a legacy nested { message: {...} } envelope defensively', async () => {
 		fetchMock.mockResolvedValueOnce( jsonResponse( { message: { chat_id: 7, text: 'yo' } } ) );
-		expect( await pollMessage( baseConfig ) ).toEqual( {
-			chat_id: 7,
-			text: 'yo',
-			bot: undefined,
-		} );
+		expect( await pollMessages( baseConfig ) ).toEqual( [
+			{ chat_id: 7, text: 'yo', bot: undefined },
+		] );
 	} );
 
 	it( 'throws TelegramAuthError on 401', async () => {
 		fetchMock.mockResolvedValueOnce( new Response( 'no', { status: 401 } ) );
-		await expect( pollMessage( baseConfig ) ).rejects.toBeInstanceOf( TelegramAuthError );
+		await expect( pollMessages( baseConfig ) ).rejects.toBeInstanceOf( TelegramAuthError );
 	} );
 
 	it( 'throws TelegramTransientError on 502', async () => {
 		fetchMock.mockResolvedValueOnce( new Response( 'oh', { status: 502 } ) );
-		await expect( pollMessage( baseConfig ) ).rejects.toBeInstanceOf( TelegramTransientError );
+		await expect( pollMessages( baseConfig ) ).rejects.toBeInstanceOf( TelegramTransientError );
 	} );
 } );
 

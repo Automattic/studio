@@ -31,7 +31,26 @@ Base URL: `https://public-api.wordpress.com/wpcom/v2/telegram-bot`
 
 Headers: `Authorization: Bearer <token>`
 
-Returns the next pending message for the local agent, or an empty body / `{}` when nothing is queued. The worker MUST handle an empty response by sleeping and retrying.
+Returns any pending messages for the local agent. Confirmed response shape:
+
+```json
+{
+  "messages": [
+    {
+      "message": "what's the weather?",
+      "chat_id": 236756880,
+      "bot": "my_test_bot",
+      "user_id": 51814349,
+      "timestamp": 1776848744
+    }
+  ]
+}
+```
+
+Notes:
+- The user's text is in `message`, not `text`.
+- `messages` is always an array. An empty array (or `{}`, or an empty body) means nothing is queued; the worker MUST handle this by sleeping and retrying.
+- The controller drains the array in order, running one `studio code --json` turn per entry before polling again.
 
 ### `POST /local-agent-respond`
 
@@ -463,6 +482,5 @@ DEBUG-level (only when `STUDIO_REMOTE_DEBUG=1`): full request/response bodies wi
 ## Open questions for the implementing agent to resolve
 
 1. Confirm whether `/local-agent-respond` accepts Markdown and converts to Telegram HTML, or expects pre-formatted HTML. (Check against the existing Telegram channel response path on the server.)
-2. Confirm the exact response shape of `/local-agent-poll`: field names for chat_id / text / bot, and how "no message" is represented (empty body, `null`, `{}`, or `{"message": null}`).
-3. Confirm how `studio code` signals a stale/invalid `--resume-session <id>` — stderr text, exit code, a `turn.completed.status === "error"` with a specific result payload, or all of the above. One scripted invocation with a bogus UUID is enough.
-4. Confirm whether `studio code` writes anything to stderr during normal `--json` operation that the controller should treat as an error indicator vs. benign noise.
+2. Confirm how `studio code` signals a stale/invalid `--resume-session <id>` — stderr text, exit code, a `turn.completed.status === "error"` with a specific result payload, or all of the above. One scripted invocation with a bogus UUID is enough.
+3. Confirm whether `studio code` writes anything to stderr during normal `--json` operation that the controller should treat as an error indicator vs. benign noise.

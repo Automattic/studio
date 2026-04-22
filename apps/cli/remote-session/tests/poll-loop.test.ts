@@ -17,18 +17,20 @@ const baseConfig: RemoteSessionConfig = {
 };
 
 interface ScriptedPoll {
-	script: Array< PolledMessage | null >;
+	script: Array< PolledMessage[] >;
 	calls: number;
 	done: Promise< void >;
 	resolveDone: () => void;
 }
 
-function makeScriptedPoll( messages: Array< PolledMessage | null > ): ScriptedPoll {
+function makeScriptedPoll( batches: Array< PolledMessage[] | PolledMessage > ): ScriptedPoll {
 	let resolveDone: () => void = () => undefined;
 	const done = new Promise< void >( ( r ) => {
 		resolveDone = r;
 	} );
-	return { script: messages, calls: 0, done, resolveDone };
+	// Accept either bare messages or batch arrays, for ergonomic test writing.
+	const script = batches.map( ( b ) => ( Array.isArray( b ) ? b : [ b ] ) );
+	return { script, calls: 0, done, resolveDone };
 }
 
 function makeDeps(
@@ -58,10 +60,9 @@ function makeDeps(
 					err.name = 'AbortError';
 					throw err;
 				}
-				const msg = scripted.script[ scripted.calls++ ];
-				return msg;
+				return scripted.script[ scripted.calls++ ];
 		  } )
-		: vi.fn().mockResolvedValue( null );
+		: vi.fn().mockResolvedValue( [] );
 
 	return {
 		poll: poll as PollLoopDeps[ 'poll' ],

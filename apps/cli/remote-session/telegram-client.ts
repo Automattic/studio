@@ -54,15 +54,19 @@ function buildUrl( baseUrl: string, pathName: string ): string {
 }
 
 /**
- * Poll the server for a pending message. Returns null when nothing is queued.
+ * Poll the server for pending messages. Returns an empty array when nothing is queued.
+ *
+ * The server returns `{ messages: [ { message, chat_id, bot, user_id, timestamp }, ... ] }`.
+ * A batch can contain any number of messages; the caller is expected to drain them in order
+ * (one `studio code --json` turn per message) before polling again.
  *
  * Throws TelegramAuthError on 401/403, TelegramTransientError on 5xx or network errors.
  * No inbound retries are attempted — once polled, a dropped message is dropped.
  */
-export async function pollMessage(
+export async function pollMessages(
 	config: RemoteSessionConfig,
 	signal?: AbortSignal
-): Promise< PolledMessage | null > {
+): Promise< PolledMessage[] > {
 	const url = buildUrl( config.base_url, 'local-agent-poll' );
 	const allowedHost = new URL( config.base_url ).host;
 	assertSameHost( url, allowedHost );
@@ -88,7 +92,7 @@ export async function pollMessage(
 			if ( signal?.aborted ) {
 				throw error;
 			}
-			return null;
+			return [];
 		}
 		throw new TelegramTransientError(
 			`Network error polling Telegram: ${ ( error as Error ).message ?? 'unknown' }`
@@ -104,7 +108,7 @@ export async function pollMessage(
 		throw new TelegramTransientError( `Poll returned ${ response.status }`, response.status );
 	}
 	if ( response.status === 204 ) {
-		return null;
+		return [];
 	}
 	if ( response.status >= 300 && response.status < 400 ) {
 		// Never follow server-issued redirects blindly.
@@ -122,36 +126,49 @@ export async function pollMessage(
 
 	const text = await response.text();
 	if ( ! text.trim() ) {
-		return null;
+		return [];
 	}
 	let parsed: unknown;
 	try {
 		parsed = JSON.parse( text );
 	} catch {
-		return null;
+		return [];
 	}
-	return extractMessage( parsed );
+	return extractMessages( parsed );
 }
 
-function extractMessage( payload: unknown ): PolledMessage | null {
+function extractMessages( payload: unknown ): PolledMessage[] {
 	if ( ! payload || typeof payload !== 'object' ) {
-		return null;
+		return [];
 	}
 	const record = payload as Record< string, unknown >;
-	// Per spec open-question 2, the exact shape needs confirmation. Accept either a
-	// flat object (chat_id/text/bot) or a nested one ({ message: {...} }). Treat any
-	// payload missing text/chat_id as "no message".
-	const candidate =
-		record.message && typeof record.message === 'object'
-			? ( record.message as Record< string, unknown > )
-			: record;
-	const chatId = candidate.chat_id;
-	const text = candidate.text;
-	if ( typeof chatId !== 'number' || typeof text !== 'string' ) {
-		return null;
+	// Real server shape: { messages: [ { message, chat_id, bot, user_id, timestamp }, ... ] }.
+	// Accept some alternates defensively in case the server adds a single-message form later.
+	const candidates: unknown[] = Array.isArray( record.messages )
+		? record.messages
+		: record.message && typeof record.message === 'object'
+		? [ record.message ]
+		: typeof record.chat_id === 'number'
+		? [ record ]
+		: [];
+
+	const out: PolledMessage[] = [];
+	for ( const entry of candidates ) {
+		if ( ! entry || typeof entry !== 'object' ) {
+			continue;
+		}
+		const e = entry as Record< string, unknown >;
+		const chatId = e.chat_id;
+		// `message` is the real field name; `text` is accepted as a fallback.
+		const text =
+			typeof e.message === 'string' ? e.message : typeof e.text === 'string' ? e.text : undefined;
+		if ( typeof chatId !== 'number' || typeof text !== 'string' ) {
+			continue;
+		}
+		const bot = typeof e.bot === 'string' ? e.bot : undefined;
+		out.push( { chat_id: chatId, text, bot } );
 	}
-	const bot = typeof candidate.bot === 'string' ? candidate.bot : undefined;
-	return { chat_id: chatId, text, bot };
+	return out;
 }
 
 /**

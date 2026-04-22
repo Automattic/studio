@@ -3,7 +3,7 @@ import path from 'path';
 import { recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
 import semver from 'semver';
 import { readCliConfig, updateCliConfigWithPartial } from 'cli/lib/cli-config/core';
-import { getLanguagePacksPath, getWordPressVersionPath, getWpFilesPath } from '../server-files';
+import { getLanguagePacksPath, getWordPressVersionPath, getWpFilesPath } from './paths';
 import { areDirectoriesDifferentBySizeAndMtime } from './utils';
 import { getWordPressVersionFromInstallation, updateLatestWordPressVersion } from './wordpress';
 

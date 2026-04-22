@@ -1,30 +1,11 @@
-import os from 'os';
 import path from 'path';
 import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
-import { __ } from '@wordpress/i18n';
-import { LoggerError } from 'cli/logger';
 
 const WP_CLI_PHAR_FILENAME = 'wp-cli.phar';
 const SQLITE_COMMAND_DIRNAME = 'sqlite-command';
 
-export function getAppdataDirectory(): string {
-	if ( process.env.E2E && process.env.E2E_APP_DATA_PATH ) {
-		return path.join( process.env.E2E_APP_DATA_PATH, 'Studio' );
-	}
-
-	if ( process.platform === 'win32' ) {
-		if ( ! process.env.APPDATA ) {
-			throw new LoggerError( __( 'Studio config file path not found.' ) );
-		}
-
-		return path.join( process.env.APPDATA, 'Studio' );
-	}
-
-	return path.join( os.homedir(), 'Library', 'Application Support', 'Studio' );
-}
-
-// The `wp-files` directory is located in the same directory as the CLI code. It ships with the
-// installer and contains the unaltered dependencies.
+// The `wp-files` directory ships alongside the bundled CLI code (`dist/cli/wp-files`). Vite
+// emits all chunks to the same output dir so `import.meta.dirname` works from any module.
 export function getWpFilesPath(): string {
 	return path.join( import.meta.dirname, 'wp-files' );
 }

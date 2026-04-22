@@ -1,6 +1,6 @@
 import path from 'path';
 import { SqliteIntegrationProvider } from '@studio/common/lib/sqlite-integration';
-import { getWpFilesPath } from 'cli/lib/server-files';
+import { getWpFilesPath } from 'cli/lib/dependency-management/paths';
 
 const SQLITE_FILENAME = 'sqlite-database-integration';
 

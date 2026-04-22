@@ -29,7 +29,7 @@ Call `site_create` with the provided name and use the layout preference to guide
 
 ## After site_create returns
 
-Follow the **Working cadence** rules in your system prompt. The turn that immediately follows `site_create` is the single biggest source of perceived CLI hangs, so treat it carefully:
+The turn that immediately follows `site_create` is the single biggest source of perceived CLI hangs, so treat it carefully:
 
 1. Acknowledge the site is ready in one short sentence (≤ 2 lines of prose).
 2. Your **next** tool call must be either `site_info` (to confirm path, URL, and credentials) or a minimal first `Write` (≤ 50 lines). Do NOT scaffold a full theme, chain multiple `Write`/`Edit` calls, or produce a long design-plan essay in this turn.

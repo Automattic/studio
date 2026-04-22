@@ -120,13 +120,10 @@ export function FileDropzone( {
 		[ onFile ]
 	);
 
-	const handleDragOver = useCallback(
-		( event: React.DragEvent< HTMLDivElement > ) => {
-			event.preventDefault();
-			if ( ! isDraggingOver ) setIsDraggingOver( true );
-		},
-		[ isDraggingOver ]
-	);
+	const handleDragOver = useCallback( ( event: React.DragEvent< HTMLDivElement > ) => {
+		event.preventDefault();
+		setIsDraggingOver( true );
+	}, [] );
 
 	const handleDragLeave = useCallback( () => setIsDraggingOver( false ), [] );
 

@@ -30,9 +30,8 @@ interface PickedBackup {
 }
 
 function isValidBackupFile( file: File ): boolean {
-	return ACCEPTED_IMPORT_FILE_TYPES.some( ( ext: string ) =>
-		file.name.toLowerCase().endsWith( ext )
-	);
+	const lower = file.name.toLowerCase();
+	return ACCEPTED_IMPORT_FILE_TYPES.some( ( ext ) => lower.endsWith( ext ) );
 }
 
 /**
@@ -41,16 +40,14 @@ function isValidBackupFile( file: File ): boolean {
  * form can seed the site name without the user having to retype it.
  */
 function nameFromFilename( filename: string ): string {
-	let name = filename.replace( /^.*[\\/]/, '' );
-	for ( const ext of ACCEPTED_IMPORT_FILE_TYPES as string[] ) {
-		if ( name.toLowerCase().endsWith( ext ) ) {
-			name = name.slice( 0, -ext.length );
-			break;
-		}
-	}
-	name = name.replace( /[-_](backup|export|wordpress|jetpack)(s)?$/i, '' );
-	name = name.replace( /[-_]\d{4}[-_]\d{2}[-_]\d{2}.*$/, '' );
-	return name.replace( /[-_]+/g, ' ' ).trim();
+	const basename = filename.replace( /^.*[\\/]/, '' );
+	const lower = basename.toLowerCase();
+	const ext = ACCEPTED_IMPORT_FILE_TYPES.find( ( candidate ) => lower.endsWith( candidate ) );
+	return ( ext ? basename.slice( 0, -ext.length ) : basename )
+		.replace( /[-_](backup|export|wordpress|jetpack)(s)?$/i, '' )
+		.replace( /[-_]\d{4}[-_]\d{2}[-_]\d{2}.*$/, '' )
+		.replace( /[-_]+/g, ' ' )
+		.trim();
 }
 
 function OnboardingImportPage() {

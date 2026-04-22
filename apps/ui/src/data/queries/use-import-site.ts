@@ -10,9 +10,10 @@ export interface ImportSiteInput {
 
 /**
  * Runs a backup import against a site that has just been created. The
- * connector stops the site, extracts the archive, imports its database +
- * wp-content, then starts the site back up. The cached site list is
- * invalidated so the updated `running` / `phpVersion` state is picked up.
+ * connector extracts the archive and imports its database + wp-content
+ * into the site's folder. The cached site list is invalidated so the
+ * updated `phpVersion` (which the importer may overwrite from the backup's
+ * meta) is picked up.
  */
 export function useImportSite() {
 	const connector = useConnector();

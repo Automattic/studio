@@ -4,7 +4,7 @@ import { generatePassword } from '@studio/common/lib/passwords';
 import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
 import { BaseControl, CheckboxControl } from '@wordpress/components';
 import { DataForm, useFormValidity } from '@wordpress/dataviews';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { chevronDown, chevronRight } from '@wordpress/icons';
 import { Button, Icon } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -200,8 +200,11 @@ function PathField( {
 
 	const errorMessage = validity?.custom?.message;
 	const triggerLabel = item.path
-		? // translators: %s is the currently selected folder path.
-		  `${ item.path }, ${ __( 'Select a different folder' ) }`
+		? sprintf(
+				// translators: %s is the currently selected folder path.
+				__( '%s, select a different folder' ),
+				item.path
+		  )
 		: __( 'Select a folder' );
 
 	return (

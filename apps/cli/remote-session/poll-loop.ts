@@ -53,13 +53,20 @@ function truncate( text: string, max: number ): string {
 	return text.length > max ? `${ text.slice( 0, max - 1 ) }…` : text;
 }
 
+/** Where a reply should land — derived per-message from the polled payload. */
+interface ReplyTarget {
+	chatId: number;
+	bot?: string;
+}
+
 async function postBestEffort(
 	deps: PollLoopDeps,
 	config: RemoteSessionConfig,
+	target: ReplyTarget,
 	text: string
 ): Promise< void > {
 	try {
-		await deps.respond( config, { chatId: config.chat_id, text } );
+		await deps.respond( config, { chatId: target.chatId, bot: target.bot, text } );
 	} catch ( error ) {
 		deps.logger.warn( 'Best-effort post failed', {
 			error: ( error as Error ).message,
@@ -70,25 +77,27 @@ async function postBestEffort(
 async function postChunks(
 	deps: PollLoopDeps,
 	config: RemoteSessionConfig,
+	target: ReplyTarget,
 	reply: string
 ): Promise< void > {
 	const chunks = chunkReply( reply, config.max_message_chars );
 	deps.logger.info( 'Posting reply', {
-		chat_id: config.chat_id,
+		chat_id: target.chatId,
 		chunks: chunks.length,
 		chars: reply.length,
 	} );
 	for ( const chunk of chunks ) {
-		await deps.respond( config, { chatId: config.chat_id, text: chunk } );
+		await deps.respond( config, { chatId: target.chatId, bot: target.bot, text: chunk } );
 	}
 }
 
 async function handleTurn(
 	deps: PollLoopDeps,
 	config: RemoteSessionConfig,
+	target: ReplyTarget,
 	text: string
 ): Promise< void > {
-	let sessionId: string | undefined = ( await deps.readState( config.chat_id ) )?.session_id;
+	let sessionId: string | undefined = ( await deps.readState( target.chatId ) )?.session_id;
 	const started = Date.now();
 
 	let outcome = await deps.runTurn( {
@@ -99,12 +108,12 @@ async function handleTurn(
 
 	if ( outcome.staleSession && sessionId ) {
 		deps.logger.info( 'Resume failed; retrying without session_id', {
-			chat_id: config.chat_id,
+			chat_id: target.chatId,
 			stale_session_id: sessionId,
 		} );
-		await deps.clearSession( config.chat_id );
+		await deps.clearSession( target.chatId );
 		sessionId = undefined;
-		await postBestEffort( deps, config, 'ℹ️ Session expired; started a new one.' );
+		await postBestEffort( deps, config, target, 'ℹ️ Session expired; started a new one.' );
 		outcome = await deps.runTurn( {
 			text,
 			sessionId: undefined,
@@ -113,12 +122,12 @@ async function handleTurn(
 	}
 
 	if ( outcome.sessionId && outcome.sessionId !== sessionId ) {
-		await deps.writeSession( config.chat_id, outcome.sessionId );
+		await deps.writeSession( target.chatId, outcome.sessionId );
 	}
 
 	const duration = Date.now() - started;
 	deps.logger.info( 'Turn finished', {
-		chat_id: config.chat_id,
+		chat_id: target.chatId,
 		duration_ms: duration,
 		status: outcome.status,
 		exit_code: outcome.exitCode,
@@ -127,7 +136,7 @@ async function handleTurn(
 	} );
 
 	if ( outcome.status === 'timeout' ) {
-		await postBestEffort( deps, config, '⚠️ Turn took too long; aborted.' );
+		await postBestEffort( deps, config, target, '⚠️ Turn took too long; aborted.' );
 		return;
 	}
 
@@ -135,6 +144,7 @@ async function handleTurn(
 		await postBestEffort(
 			deps,
 			config,
+			target,
 			`⚠️ Local agent failed to start: ${ truncate( outcome.stderrTail, 400 ) }`
 		);
 		return;
@@ -145,7 +155,7 @@ async function handleTurn(
 		const message = stderrSnippet
 			? `⚠️ Local agent error: ${ stderrSnippet }`
 			: '⚠️ Local agent error (no output).';
-		await postBestEffort( deps, config, message );
+		await postBestEffort( deps, config, target, message );
 		return;
 	}
 
@@ -156,11 +166,11 @@ async function handleTurn(
 	} );
 
 	if ( reply === null ) {
-		await postBestEffort( deps, config, '⚠️ Local agent did not return a result.' );
+		await postBestEffort( deps, config, target, '⚠️ Local agent did not return a result.' );
 		return;
 	}
 
-	await postChunks( deps, config, reply );
+	await postChunks( deps, config, target, reply );
 }
 
 /**
@@ -175,16 +185,24 @@ export async function runPollLoop( options: RunPollLoopOptions ): Promise< PollL
 	let detachRequested = false;
 	let detachAnnounced = false;
 
-	const state = await deps.readState( config.chat_id );
-	const resuming = Boolean( state?.session_id );
-	const cwd = options.cwd ?? process.cwd();
-	const attachMessage = `🟢 Local agent attached. Working dir: ${ cwd }. ${
-		resuming ? 'Resuming previous session.' : 'New session.'
-	}`;
-
-	// Attach status MUST succeed before entering the loop.
-	await deps.respond( config, { chatId: config.chat_id, text: attachMessage } );
-	deps.logger.info( 'Attached', { chat_id: config.chat_id, resuming } );
+	// Attach status is only posted when the user pinned a `chat_id` in config. Without
+	// it, we don't know where to post until the first message arrives.
+	if ( config.chat_id !== undefined ) {
+		const state = await deps.readState( config.chat_id );
+		const resuming = Boolean( state?.session_id );
+		const cwd = options.cwd ?? process.cwd();
+		const attachMessage = `🟢 Local agent attached. Working dir: ${ cwd }. ${
+			resuming ? 'Resuming previous session.' : 'New session.'
+		}`;
+		await deps.respond( config, {
+			chatId: config.chat_id,
+			bot: config.bot,
+			text: attachMessage,
+		} );
+		deps.logger.info( 'Attached (pinned chat)', { chat_id: config.chat_id, resuming } );
+	} else {
+		deps.logger.info( 'Attached (open to any chat authorized by the bearer)' );
+	}
 	options.onAttached?.();
 
 	const announceDetach = async ( reason: string ) => {
@@ -192,8 +210,16 @@ export async function runPollLoop( options: RunPollLoopOptions ): Promise< PollL
 			return;
 		}
 		detachAnnounced = true;
-		deps.logger.info( 'Detaching', { chat_id: config.chat_id, reason } );
-		await postBestEffort( deps, config, '🔴 Local agent detached.' );
+		deps.logger.info( 'Detaching', { reason } );
+		// Detach status is also only posted when chat_id is pinned.
+		if ( config.chat_id !== undefined ) {
+			await postBestEffort(
+				deps,
+				config,
+				{ chatId: config.chat_id, bot: config.bot },
+				'🔴 Local agent detached.'
+			);
+		}
 	};
 
 	const detach = async () => {
@@ -212,7 +238,14 @@ export async function runPollLoop( options: RunPollLoopOptions ): Promise< PollL
 			} catch ( error ) {
 				if ( error instanceof TelegramAuthError ) {
 					deps.logger.error( 'Auth error; detaching', { status: error.status } );
-					await postBestEffort( deps, config, '⚠️ Bad token; detaching.' );
+					if ( config.chat_id !== undefined ) {
+						await postBestEffort(
+							deps,
+							config,
+							{ chatId: config.chat_id, bot: config.bot },
+							'⚠️ Bad token; detaching.'
+						);
+					}
 					detachRequested = true;
 					process.exitCode = 1;
 					break;
@@ -248,7 +281,9 @@ export async function runPollLoop( options: RunPollLoopOptions ): Promise< PollL
 					break batchLoop;
 				}
 
-				if ( polled.chat_id !== config.chat_id ) {
+				// Only filter by chat_id when the user pinned one. Otherwise trust the
+				// server's per-token authorization: any message it hands us is for us.
+				if ( config.chat_id !== undefined && polled.chat_id !== config.chat_id ) {
 					deps.logger.warn( 'Ignoring message for unbound chat', {
 						polled_chat_id: polled.chat_id,
 						bound_chat_id: config.chat_id,
@@ -256,17 +291,26 @@ export async function runPollLoop( options: RunPollLoopOptions ): Promise< PollL
 					continue;
 				}
 
+				// Reply target: the chat the message came from. `bot` defaults to the
+				// polled bot, unless config pins one.
+				const target: ReplyTarget = {
+					chatId: polled.chat_id,
+					bot: config.bot ?? polled.bot,
+				};
+
 				const text = polled.text.trim();
 				deps.logger.info( 'Polled message', {
 					chat_id: polled.chat_id,
+					bot: polled.bot,
 					preview: text.slice( 0, 80 ),
 				} );
 
 				if ( text.toLowerCase() === '/new' ) {
-					await deps.clearSession( config.chat_id );
+					await deps.clearSession( polled.chat_id );
 					try {
 						await deps.respond( config, {
-							chatId: config.chat_id,
+							chatId: target.chatId,
+							bot: target.bot,
 							text: '🆕 Started a new conversation.',
 						} );
 					} catch ( error ) {
@@ -280,7 +324,7 @@ export async function runPollLoop( options: RunPollLoopOptions ): Promise< PollL
 				}
 
 				try {
-					await handleTurn( deps, config, polled.text );
+					await handleTurn( deps, config, target, polled.text );
 				} catch ( error ) {
 					if ( error instanceof TelegramAuthError ) {
 						deps.logger.error( 'Auth error during respond; detaching', {
@@ -298,6 +342,7 @@ export async function runPollLoop( options: RunPollLoopOptions ): Promise< PollL
 					await postBestEffort(
 						deps,
 						config,
+						target,
 						`⚠️ Local agent error: ${ truncate( ( error as Error ).message, 500 ) }`
 					);
 				}

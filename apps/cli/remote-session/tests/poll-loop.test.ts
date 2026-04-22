@@ -191,4 +191,46 @@ describe( 'runPollLoop', () => {
 		const bodies = respond.mock.calls.map( ( [ , params ] ) => params.text );
 		expect( bodies ).toContain( '⚠️ Local agent did not return a result.' );
 	} );
+
+	describe( 'when chat_id is not pinned in config', () => {
+		const openConfig: RemoteSessionConfig = { ...baseConfig, chat_id: undefined, bot: undefined };
+
+		it( 'does not post attach or detach status (no chat to post to)', async () => {
+			const scripted = makeScriptedPoll( [] );
+			const deps = makeDeps( { scriptedPoll: scripted } );
+
+			const handle = await runPollLoop( { config: openConfig, deps } );
+			await scripted.done;
+			await handle.detach();
+			await handle.done;
+
+			expect( deps.respond ).not.toHaveBeenCalled();
+		} );
+
+		it( 'processes any polled chat and echoes chat_id + bot back when responding', async () => {
+			const scripted = makeScriptedPoll( [ { chat_id: 7, text: 'hi', bot: 'their_bot' } ] );
+			const deps = makeDeps( { scriptedPoll: scripted } );
+			( deps.runTurn as ReturnType< typeof vi.fn > ).mockResolvedValue( {
+				status: 'success',
+				sessionId: 's',
+				replyText: 'pong',
+				isError: false,
+				stderrTail: '',
+				exitCode: 0,
+				staleSession: false,
+			} satisfies TurnOutcome );
+
+			const handle = await runPollLoop( { config: openConfig, deps } );
+			await scripted.done;
+			await handle.detach();
+			await handle.done;
+
+			const respond = deps.respond as ReturnType< typeof vi.fn >;
+			expect( respond ).toHaveBeenCalledWith(
+				openConfig,
+				expect.objectContaining( { chatId: 7, bot: 'their_bot', text: 'pong' } )
+			);
+			expect( deps.writeSession ).toHaveBeenCalledWith( 7, 's' );
+		} );
+	} );
 } );

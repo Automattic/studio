@@ -21,9 +21,11 @@ export async function runRemoteSession( overrides: RemoteSessionOverrides = {} )
 	const { done, detach } = await runPollLoop( {
 		config,
 		onAttached: () => {
-			process.stdout.write(
-				`Remote session attached → chat ${ config.chat_id }.\n` + `Press Ctrl-C to detach.\n`
-			);
+			const target =
+				config.chat_id !== undefined
+					? `chat ${ config.chat_id }`
+					: 'any chat authorized by the bearer';
+			process.stdout.write( `Remote session attached → ${ target }.\nPress Ctrl-C to detach.\n` );
 		},
 	} );
 
@@ -40,12 +42,20 @@ export async function runRemoteSession( overrides: RemoteSessionOverrides = {} )
 	installSignal( 'SIGTERM' );
 
 	const onExit = () => {
-		// Best-effort — don't block exit. 2s timeout built into fetch via abort.
+		// Best-effort — only fires when chat_id is pinned; otherwise we don't know
+		// where to post. Don't block exit.
+		if ( config.chat_id === undefined ) {
+			return;
+		}
 		const controller = new AbortController();
 		const timer = setTimeout( () => controller.abort(), 2000 );
 		void respondMessage(
 			config,
-			{ chatId: config.chat_id, text: '🔴 Local agent ended (process exit).' },
+			{
+				chatId: config.chat_id,
+				bot: config.bot,
+				text: '🔴 Local agent ended (process exit).',
+			},
 			{ signal: controller.signal, maxRetries: 0 }
 		)
 			.catch( () => undefined )

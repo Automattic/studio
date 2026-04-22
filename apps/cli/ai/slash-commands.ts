@@ -316,6 +316,14 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 
 				if ( sub === 'new' ) {
 					const config = await loadRemoteSessionConfig();
+					if ( config.chat_id === undefined ) {
+						ctx.ui.showInfo(
+							__(
+								'No chat is pinned in config, so there is no single stored session to reset. Send `/new` from Telegram instead.'
+							)
+						);
+						return 'continue';
+					}
 					await clearSessionId( config.chat_id );
 					ctx.ui.showInfo( __( 'Remote session reset.' ) );
 					return 'continue';
@@ -323,20 +331,32 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 
 				if ( sub === 'status' ) {
 					const config = await loadRemoteSessionConfig();
-					const state = await readStateForChat( config.chat_id );
-					const sessionLine = state?.session_id
-						? sprintf(
-								/* translators: %s: session id */
-								__( 'Session id: %s' ),
-								state.session_id
-						  )
-						: __( 'No saved session.' );
+					const chatPart =
+						config.chat_id !== undefined
+							? sprintf(
+									/* translators: %s: chat id */
+									__( 'pinned to chat %s' ),
+									String( config.chat_id )
+							  )
+							: __( 'open to any chat authorized by the bearer' );
+					const botPart = config.bot ? `, bot ${ config.bot }` : '';
+					let sessionLine: string = __( 'No saved session (or chat not pinned).' );
+					if ( config.chat_id !== undefined ) {
+						const state = await readStateForChat( config.chat_id );
+						sessionLine = state?.session_id
+							? sprintf(
+									/* translators: %s: session id */
+									__( 'Session id: %s' ),
+									state.session_id
+							  )
+							: __( 'No saved session.' );
+					}
 					ctx.ui.showInfo(
 						sprintf(
-							/* translators: 1: chat id, 2: bot name, 3: session info */
-							__( 'Remote session — chat %1$s, bot %2$s. %3$s' ),
-							String( config.chat_id ),
-							config.bot,
+							/* translators: 1: chat+bot summary, 2: session info */
+							__( 'Remote session — %1$s%2$s. %3$s' ),
+							chatPart,
+							botPart,
 							sessionLine
 						)
 					);

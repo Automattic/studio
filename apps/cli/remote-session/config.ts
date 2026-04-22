@@ -1,13 +1,20 @@
 import fs from 'fs';
+import { readAuthToken } from '@studio/common/lib/shared-config';
 import { getRemoteSessionConfigPath } from '@studio/common/lib/well-known-paths';
 import { readFile, writeFile } from 'atomically';
 import { z } from 'zod';
 
 export const remoteSessionConfigSchema = z.object( {
 	base_url: z.string().url().default( 'https://public-api.wordpress.com/wpcom/v2/telegram-bot' ),
+	// `token` is the only required field; if omitted everywhere, falls back to the
+	// WordPress.com OAuth access token from ~/.studio/shared.json (i.e. /login).
 	token: z.string().min( 1 ),
-	bot: z.string().min( 1 ),
-	chat_id: z.number().int(),
+	// Optional pinning. When set, `chat_id` filters polled messages and `bot` overrides
+	// the per-message bot identity for outgoing replies. When unset, the controller
+	// trusts the server's per-token authorization and echoes chat_id + bot from each
+	// polled message back into the response.
+	bot: z.string().min( 1 ).optional(),
+	chat_id: z.number().int().optional(),
 	poll_interval_seconds: z.number().positive().default( 2 ),
 	long_poll_timeout_seconds: z.number().positive().default( 25 ),
 	max_message_chars: z.number().int().positive().max( 4096 ).default( 3800 ),
@@ -68,7 +75,13 @@ async function readConfigFile(): Promise< Record< string, unknown > > {
 }
 
 /**
- * Load the remote-session config. Priority: CLI overrides > env vars > config file.
+ * Load the remote-session config. Resolution order:
+ *   1. CLI overrides
+ *   2. Env vars (STUDIO_REMOTE_*)
+ *   3. ~/.studio/remote-session.json
+ *   4. For `token` only: fall back to the WordPress.com OAuth access token from
+ *      ~/.studio/shared.json (the same token populated by `studio code` /login).
+ *
  * Throws RemoteSessionConfigError listing missing fields when required values are absent.
  */
 export async function loadRemoteSessionConfig(
@@ -82,6 +95,13 @@ export async function loadRemoteSessionConfig(
 		...cliOverrides,
 	};
 
+	if ( typeof merged.token !== 'string' || merged.token.length === 0 ) {
+		const stored = await readAuthToken();
+		if ( stored?.accessToken ) {
+			merged.token = stored.accessToken;
+		}
+	}
+
 	const parseResult = remoteSessionConfigSchema.safeParse( merged );
 	if ( parseResult.success ) {
 		return parseResult.data;
@@ -94,16 +114,21 @@ export async function loadRemoteSessionConfig(
 			missing.push( field );
 		}
 	}
-	const required = [ 'token', 'bot', 'chat_id' ].filter( ( f ) => missing.includes( f ) );
-	const message =
-		required.length > 0
-			? `Remote session config is missing required fields: ${ required.join( ', ' ) }. ` +
-			  `Set them in ~/.studio/remote-session.json, via environment variables ` +
-			  `(STUDIO_REMOTE_TOKEN, STUDIO_REMOTE_BOT, STUDIO_REMOTE_CHAT_ID), or via CLI flags.`
-			: `Remote session config is invalid: ${ parseResult.error.issues
-					.map( ( i ) => `${ i.path.join( '.' ) }: ${ i.message }` )
-					.join( '; ' ) }`;
-	throw new RemoteSessionConfigError( message, required );
+	const required = [ 'token' ].filter( ( f ) => missing.includes( f ) );
+	if ( required.length > 0 ) {
+		throw new RemoteSessionConfigError(
+			`Remote session needs a bearer token to authenticate to ${ '/local-agent-poll' }. ` +
+				`Run \`studio code\` and \`/login\` to authenticate to WordPress.com, ` +
+				`or set STUDIO_REMOTE_TOKEN, or put a "token" field in ~/.studio/remote-session.json.`,
+			required
+		);
+	}
+	throw new RemoteSessionConfigError(
+		`Remote session config is invalid: ${ parseResult.error.issues
+			.map( ( i ) => `${ i.path.join( '.' ) }: ${ i.message }` )
+			.join( '; ' ) }`,
+		[]
+	);
 }
 
 /**

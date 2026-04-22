@@ -8,8 +8,10 @@ The server side already exists. This spec covers only the local CLI changes.
 
 ## Goals
 
-- One Telegram chat is bound to one resumable `studio code` session at a time. Each Telegram message resumes that session, runs one turn, and exits.
-- The Telegram session shares history across messages (via `--resume-session`), and can be reset on demand.
+- A Telegram chat shares one resumable `studio code` session, keyed by `chat_id`. Each polled message resumes the session for its `chat_id`, runs one turn, and exits.
+- Messages share history within a chat (via `--resume-session`), and can be reset on demand.
+- The server's bearer token is the auth boundary. The local agent trusts that any message returned by `/local-agent-poll` is authorized for the holder of the token, and derives the reply target (`chat_id`, `bot`) from the polled message itself. No pre-binding to a specific chat is required.
+- Optional pinning: a user can still set `chat_id` (and/or `bot`) in config to filter inbound messages and pin the outgoing reply identity, e.g. for a kiosk or shared workstation.
 - Two entry points to the same feature:
   - **Autostart flag**: `studio code --remote-session` enters remote mode immediately.
   - **Slash command**: `/remote-session attach|detach|new|status` toggles remote mode from inside an interactive `studio code` session.
@@ -161,9 +163,18 @@ This gives the Telegram user a way to reset history without needing access to th
 
 ## Configuration
 
-Read from, in priority order: CLI flags > environment variables > config file.
+Required: `token` only. Resolution order: CLI flags > environment variables > config file > WordPress.com OAuth fallback.
 
-Config file: `~/.studio/remote-session.json`, mode `0600`.
+If `token` is missing from the first three sources, the controller falls back to the `accessToken` in `~/.studio/shared.json` — the same token that `studio code` `/login` writes. A logged-in user can therefore start a remote session with **no remote-session config at all**.
+
+`bot` and `chat_id` are **optional**:
+
+- When unset (the default for a logged-in user), the controller derives both per-message from each polled payload (`polled.chat_id`, `polled.bot`) and uses them as the reply target. The server's bearer token is the only auth boundary — any message the server returns is treated as authorized for this local agent.
+- When set, they act as a **pin**:
+  - `chat_id`: drop any inbound message whose `chat_id` does not match. Use for shared/kiosk workstations where you want to limit which Telegram chat can drive the agent.
+  - `bot`: override the reply `bot` field, regardless of which bot the inbound message came through.
+
+Config file: `~/.studio/remote-session.json`, mode `0600`. All fields optional except as noted above:
 
 ```json
 {
@@ -180,16 +191,14 @@ Config file: `~/.studio/remote-session.json`, mode `0600`.
 
 Env var equivalents: `STUDIO_REMOTE_BASE_URL`, `STUDIO_REMOTE_TOKEN`, `STUDIO_REMOTE_BOT`, `STUDIO_REMOTE_CHAT_ID`.
 
-The token MUST never be logged or echoed back to Telegram.
+The token MUST never be logged or echoed back to Telegram. There is no CLI flag for `token` (only `--remote-chat-id` and `--remote-bot`) so the bearer never lands in shell history or `ps` output.
 
-### Why `chat_id` and `bot` are pre-configured (and not just read from each polled message)
+### Behavior when `chat_id` is not pinned
 
-The poll response carries `chat_id` and `bot` per message (see "Server contract"), so it might look like the controller could derive both at runtime and skip configuration entirely. Both stay in config on purpose:
-
-- **`chat_id` is a scoping/security fence.** The controller drops any polled message whose `chat_id` does not match `config.chat_id`. Without this binding, anyone who sends a message to the bot drives your laptop. The chat_id is *not* used to construct the reply target — it's used to filter inbound messages.
-- **`bot` pins the reply identity.** When responding, the controller defaults `body.bot` to `config.bot`. The poll response's `bot` is *not* echoed straight back; pinning it in config means a malformed or rogue inbound message can't trick the controller into replying through a different bot identity.
-
-There is no CLI flag for `token` (only `--remote-chat-id` and `--remote-bot`) so the bearer never lands in shell history or `ps` output.
+- **No attach POST.** The controller has no chat to post to until the first message arrives, so the "🟢 attached" status is skipped. The local terminal still prints `Remote session attached → any chat authorized by the bearer.`
+- **No detach POST and no exit POST** (same reason).
+- **Per-chat session storage.** State is keyed by the `chat_id` observed in each polled message, so different chats keep independent `session_id`s.
+- `/remote-session new` from inside the local REPL is a no-op (it doesn't know which chat to reset). Send `/new` from Telegram to reset the current chat's session instead.
 
 Path helpers: add `getRemoteSessionConfigPath()` and `getRemoteSessionStatePath()` alongside the existing helpers in `tools/common/lib/well-known-paths.ts`. Both files live under `getConfigDirectory()` (`~/.studio/` by default; overridable via `DEV_CONFIG_DIR` / `E2E_SHARED_CONFIG_PATH`, matching the existing convention).
 
@@ -277,11 +286,15 @@ No PTY, no long-lived child, no shared state between processes. The `session_id`
 
 ### Attach (from flag or `/remote-session attach`)
 
-1. Validate config (token, bot, chat_id present). On failure, exit non-zero with a clear local error naming the missing fields. Do not retry.
-2. Load state file; capture any existing `session_id` for the configured chat.
-3. POST status to Telegram: `🟢 Local agent attached. Working dir: <cwd>. <resume_note>` where `<resume_note>` is `Resuming previous session.` if a session_id was loaded, else `New session.`. If the POST fails, abort attach and surface the error locally.
+1. Validate config: `token` must be resolvable (config / env / CLI / WP.com OAuth fallback). On failure, exit non-zero with a clear local error. Do not retry.
+2. **If `chat_id` is pinned in config**:
+   - Load state file; capture any existing `session_id` for that chat.
+   - POST status to Telegram: `🟢 Local agent attached. Working dir: <cwd>. <resume_note>` where `<resume_note>` is `Resuming previous session.` if a session_id was loaded, else `New session.`. If the POST fails, abort attach and surface the error locally.
+   - Print: `Remote session attached → chat <chat_id>.`
+3. **Otherwise** (no pin):
+   - Skip the attach POST (no chat to post to until the first message arrives).
+   - Print: `Remote session attached → any chat authorized by the bearer.`
 4. Set state to `attached`. Start the poll loop.
-5. Print to local terminal: `Remote session attached → chat <chat_id>.`
 
 ### Poll loop
 
@@ -301,23 +314,26 @@ while attached:
             if detach_requested:
                 break
 
-            if msg.chat_id != config.chat_id:
+            # Optional pinning: only filter when the user set `chat_id` in config.
+            if config.chat_id is not None and msg.chat_id != config.chat_id:
                 log_warning("ignoring message for chat {msg.chat_id}; bound to {config.chat_id}")
                 continue
 
+            # Reply target is derived per-message. config.bot, if set, overrides polled.bot.
+            target = { chat_id: msg.chat_id, bot: config.bot or msg.bot }
             text = msg.message.strip()  # NB: server's field name is `message`, not `text`.
 
             if text.lower() == "/new":
-                clear_session_id()
-                post_to_telegram("🆕 Started a new conversation.")
+                clear_session_id(msg.chat_id)
+                post_to_telegram(target, "🆕 Started a new conversation.")
                 continue
 
             reply = run_turn(text, turn_timeout_seconds)
             if reply is None:
-                post_to_telegram("⚠️ Local agent did not return a result.")
+                post_to_telegram(target, "⚠️ Local agent did not return a result.")
                 continue
 
-            post_chunks_to_telegram(reply)
+            post_chunks_to_telegram(target, reply)
 
     except network_error:
         sleep(backoff)  # exponential, cap 30s
@@ -482,7 +498,7 @@ DEBUG-level (only when `STUDIO_REMOTE_DEBUG=1`): full request/response bodies wi
 
 ## Acceptance criteria
 
-1. `studio code --remote-session` starts a process that immediately POSTs the "attached" status to Telegram and begins polling. No interactive UI is shown.
+1. `studio code --remote-session` starts a process that begins polling. No interactive UI is shown. If `chat_id` is pinned in config, the process also POSTs an "attached" status to that chat before the first poll; without a pin, attach is silent on the Telegram side.
 2. From an interactive `studio code` session, `/remote-session attach` starts the poll loop; for v1 this blocks the REPL until the user detaches.
 3. A Telegram message routed to the local agent appears in the chat as a reply within `poll_interval + studio_code_turn_duration + ~2s` end-to-end.
 4. The second and subsequent Telegram messages are processed in the **same** `studio code` session (verified by the agent referring back to earlier turns).

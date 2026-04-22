@@ -29,17 +29,27 @@ describe( 'remote-session config', () => {
 		fs.rmSync( tmpDir, { recursive: true, force: true } );
 	} );
 
-	it( 'reads required fields from the config file', async () => {
+	it( 'reads token from the config file (bot + chat_id are optional)', async () => {
+		fs.writeFileSync(
+			path.join( tmpDir, 'remote-session.json' ),
+			JSON.stringify( { token: 't' } )
+		);
+		const config = await loadRemoteSessionConfig();
+		expect( config.token ).toBe( 't' );
+		expect( config.bot ).toBeUndefined();
+		expect( config.chat_id ).toBeUndefined();
+		expect( config.base_url ).toMatch( /telegram-bot$/ );
+		expect( config.poll_interval_seconds ).toBe( 2 );
+	} );
+
+	it( 'reads optional bot + chat_id when provided in the file', async () => {
 		fs.writeFileSync(
 			path.join( tmpDir, 'remote-session.json' ),
 			JSON.stringify( { token: 't', bot: 'b', chat_id: 1 } )
 		);
 		const config = await loadRemoteSessionConfig();
-		expect( config.token ).toBe( 't' );
 		expect( config.bot ).toBe( 'b' );
 		expect( config.chat_id ).toBe( 1 );
-		expect( config.base_url ).toMatch( /telegram-bot$/ );
-		expect( config.poll_interval_seconds ).toBe( 2 );
 	} );
 
 	it( 'lets env vars override file values', async () => {
@@ -65,14 +75,38 @@ describe( 'remote-session config', () => {
 		expect( config.chat_id ).toBe( 99 );
 	} );
 
-	it( 'throws RemoteSessionConfigError listing missing required fields', async () => {
+	it( 'throws RemoteSessionConfigError when no token is available anywhere', async () => {
 		await expect( loadRemoteSessionConfig() ).rejects.toBeInstanceOf( RemoteSessionConfigError );
 		try {
 			await loadRemoteSessionConfig();
 		} catch ( error ) {
 			const e = error as RemoteSessionConfigError;
-			expect( e.missingFields ).toEqual( expect.arrayContaining( [ 'token', 'bot', 'chat_id' ] ) );
+			expect( e.missingFields ).toEqual( [ 'token' ] );
 		}
+	} );
+
+	it( 'falls back to the WordPress.com OAuth token when no token is provided', async () => {
+		// Drop a shared.json with a non-expired token; this is what `studio code` /login writes.
+		fs.writeFileSync(
+			path.join( tmpDir, 'shared.json' ),
+			JSON.stringify( {
+				version: 1,
+				authToken: {
+					accessToken: 'wpcom-token-from-login',
+					expiresIn: 1209600,
+					expirationTime: Date.now() + 60_000,
+					id: 1,
+					email: 'a@b.test',
+					displayName: 'a',
+				},
+			} )
+		);
+		// No CLI overrides at all — token comes from the shared.json fallback,
+		// bot + chat_id stay undefined (the controller derives them per-message).
+		const config = await loadRemoteSessionConfig();
+		expect( config.token ).toBe( 'wpcom-token-from-login' );
+		expect( config.bot ).toBeUndefined();
+		expect( config.chat_id ).toBeUndefined();
 	} );
 
 	it( 'saves the config file with mode 0600', async () => {

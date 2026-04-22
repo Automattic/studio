@@ -119,6 +119,19 @@ If you encounter permission issues when running the executable, make sure it has
 chmod +x apps/studio/out/Studio-linux-x64/studio
 ```
 
+### `npm start` fails with a Chrome sandbox error (Ubuntu 24.04+)
+
+On distributions that restrict unprivileged user namespaces via AppArmor (notably Ubuntu 24.04+), `npm start` may abort with `FATAL: ... The SUID sandbox helper binary was found, but is not configured correctly`. Electron falls back to its SUID sandbox because AppArmor blocks the user-namespace sandbox by default.
+
+Allow the user-namespace sandbox persistently:
+
+```bash
+echo 'kernel.apparmor_restrict_unprivileged_userns=0' | sudo tee /etc/sysctl.d/60-apparmor-namespace.conf
+sudo sysctl --system
+```
+
+The setting survives reboots and `npm install` runs, so you only need to do this once per machine.
+
 ### Missing Dependencies
 
 If you encounter errors about missing libraries, you may need to install additional system dependencies. Common packages include:

@@ -29,7 +29,7 @@ import {
 } from 'src/stores/sync/sync-operations-slice';
 import { wpcomSitesApi } from 'src/stores/sync/wpcom-sites';
 import uiReducer from 'src/stores/ui-slice';
-import { getWpcomClient, wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
+import { galleryBlueprintsApi, getWpcomClient, wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
 import { wordpressVersionsApi } from './wordpress-versions-api';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 
@@ -48,6 +48,7 @@ export type RootState = {
 	wordpressVersionsApi: ReturnType< typeof wordpressVersionsApi.reducer >;
 	wpcomApi: ReturnType< typeof wpcomApi.reducer >;
 	wpcomPublicApi: ReturnType< typeof wpcomPublicApi.reducer >;
+	galleryBlueprintsApi: ReturnType< typeof galleryBlueprintsApi.reducer >;
 	certificateTrustApi: ReturnType< typeof certificateTrustApi.reducer >;
 	i18n: ReturnType< typeof i18nReducer >;
 	ui: ReturnType< typeof uiReducer >;
@@ -336,6 +337,7 @@ export const rootReducer = combineReducers( {
 	wordpressVersionsApi: wordpressVersionsApi.reducer,
 	wpcomApi: wpcomApi.reducer,
 	wpcomPublicApi: wpcomPublicApi.reducer,
+	galleryBlueprintsApi: galleryBlueprintsApi.reducer,
 	certificateTrustApi: certificateTrustApi.reducer,
 	i18n: i18nReducer,
 	ui: uiReducer,
@@ -353,6 +355,7 @@ export const store = configureStore( {
 			.concat( wordpressVersionsApi.middleware )
 			.concat( wpcomApi.middleware )
 			.concat( wpcomPublicApi.middleware )
+			.concat( galleryBlueprintsApi.middleware )
 			.concat( certificateTrustApi.middleware ),
 } );
 

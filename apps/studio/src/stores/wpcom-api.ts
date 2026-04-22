@@ -1,4 +1,4 @@
-import { createApi, TypedUseQuery, TypedUseMutation } from '@reduxjs/toolkit/query/react';
+import { createApi, fetchBaseQuery, TypedUseQuery, TypedUseMutation } from '@reduxjs/toolkit/query/react';
 import * as Sentry from '@sentry/electron/renderer';
 import { DAY_MS } from '@studio/common/constants';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
@@ -292,3 +292,76 @@ export const useDeleteAllSnapshots = withWpcomClientCheckMutation(
 
 // Blueprints use the public API and don't require authentication
 export const useGetBlueprints = withOfflineCheck( wpcomPublicApi.useGetBlueprintsQuery );
+
+const GALLERY_BASE_URL = 'https://wordpress.github.io/blueprints/';
+const GITHUB_RAW_BASE_URL =
+	'https://raw.githubusercontent.com/WordPress/blueprints/trunk/';
+const PLAYGROUND_BASE_URL = 'https://playground.wordpress.net/';
+
+export interface GalleryBlueprint {
+	slug: string;
+	title: string;
+	description: string;
+	author: string;
+	categories: string[];
+	screenshotUrl: string;
+	featured: boolean;
+	blueprintUrl: string;
+	playgroundUrl: string;
+}
+
+type GalleryIndexEntry = {
+	title: string;
+	description: string;
+	author: string;
+	categories: string[];
+	screenshot_url: string;
+	featured: boolean;
+};
+
+function transformGalleryIndex( raw: unknown ): GalleryBlueprint[] {
+	if ( ! raw || typeof raw !== 'object' || Array.isArray( raw ) ) {
+		return [];
+	}
+	return Object.entries( raw as Record< string, GalleryIndexEntry > ).flatMap(
+		( [ path, entry ] ) => {
+			// path format: "blueprints/{slug}/blueprint.json"
+			const match = path.match( /^blueprints\/([^/]+)\/blueprint\.json$/ );
+			if ( ! match ) {
+				return [];
+			}
+			const slug = match[ 1 ];
+			const blueprintUrl = `${ GITHUB_RAW_BASE_URL }blueprints/${ slug }/blueprint.json`;
+			const playgroundUrl = `${ PLAYGROUND_BASE_URL }?blueprint-url=${ encodeURIComponent( blueprintUrl ) }`;
+			return [
+				{
+					slug,
+					title: entry.title ?? slug,
+					description: entry.description ?? '',
+					author: entry.author ?? '',
+					categories: Array.isArray( entry.categories ) ? entry.categories : [],
+					screenshotUrl: entry.screenshot_url ?? '',
+					featured: entry.featured ?? false,
+					blueprintUrl,
+					playgroundUrl,
+				},
+			];
+		}
+	);
+}
+
+export const galleryBlueprintsApi = createApi( {
+	reducerPath: 'galleryBlueprintsApi',
+	baseQuery: fetchBaseQuery( { baseUrl: GALLERY_BASE_URL } ),
+	endpoints: ( builder ) => ( {
+		getGalleryBlueprints: builder.query< GalleryBlueprint[], void >( {
+			query: () => 'index.json',
+			transformResponse: transformGalleryIndex,
+			keepUnusedDataFor: 60 * 60,
+		} ),
+	} ),
+} );
+
+export const useGetGalleryBlueprints = withOfflineCheck(
+	galleryBlueprintsApi.useGetGalleryBlueprintsQuery
+);

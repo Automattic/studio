@@ -313,6 +313,14 @@ export async function enableReprintExporter(
 	}
 }
 
+/**
+ * Rotates a WordPress.com site's reprint export secret.
+ *
+ * Calls the Jetpack bridge endpoint to request a fresh export token.
+ * The response is validated against `rotateReprintSecretResponseSchema`
+ * and the wrapper `code` must be `200`; otherwise a `LoggerError` is
+ * thrown.
+ */
 export async function rotateReprintSecret( siteId: number, token: string ): Promise< string > {
 	const response = await fetch(
 		`https://public-api.wordpress.com/rest/v1.1/jetpack-blogs/${ siteId }/rest-api?http_envelope=1&`,

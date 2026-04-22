@@ -4,6 +4,7 @@ import fsPromises from 'fs/promises';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
+import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { SyncSite } from '@studio/common/types/sync';
@@ -18,6 +19,7 @@ import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
 import { download } from 'src/lib/download';
 import { getSyncBackupTempPath } from 'src/lib/get-sync-backup-temp-path';
 import { getAuthenticationToken } from 'src/lib/oauth';
+import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { exportSite } from 'src/modules/import-export/lib/ipc-handlers';
 import { SiteServer } from 'src/site-server';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
@@ -531,6 +533,41 @@ export async function updateConnectedWpcomSites(
 	} finally {
 		await unlockAppdata();
 	}
+}
+
+// Wraps the CLI `pull` command for apps/ui. The desktop renderer handles
+// pull via `pullSiteThunk` + `pollPullBackupThunk` using its own WPCOM
+// client to initiate + poll + download — that polling lives in the
+// renderer sync slice with no end-to-end IPC equivalent to reuse. Calling
+// the CLI instead keeps apps/ui free of wpcom-client setup and mirrors the
+// simpler flow used by `push`. Exchanges everything (`--options all`).
+export async function pullSiteFromLive(
+	_event: IpcMainInvokeEvent,
+	siteFolder: string,
+	remoteSiteId: number
+): Promise< void > {
+	return new Promise< void >( ( resolve, reject ) => {
+		const [ emitter ] = executeCliCommand(
+			[ 'pull', '--path', siteFolder, '--remote-site', String( remoteSiteId ), '--options', 'all' ],
+			{ output: 'capture' }
+		);
+
+		emitter.on( 'success', () => resolve() );
+		emitter.on( 'failure', ( { error } ) => reject( error ) );
+		emitter.on( 'error', ( { error } ) => reject( error ) );
+	} );
+}
+
+// Fetches every WordPress.com site the authenticated user can sync to.
+// The desktop renderer builds this list itself via its own WPCOM client
+// (see wpcomSitesApi.getWpComSites); apps/ui doesn't own a wpcom client
+// yet, so we expose a thin IPC wrapper that reuses the stored auth token.
+export async function fetchSyncableWpcomSites( _event: IpcMainInvokeEvent ): Promise< SyncSite[] > {
+	const token = await getAuthenticationToken();
+	if ( ! token?.accessToken ) {
+		throw new Error( 'Authentication required to fetch WordPress.com sites.' );
+	}
+	return fetchSyncableSites( token.accessToken );
 }
 
 export async function getConnectedWpcomSites(

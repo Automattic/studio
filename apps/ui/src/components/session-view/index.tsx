@@ -12,7 +12,11 @@ import { SiteDropdown } from '@/components/site-dropdown';
 import { useConnector } from '@/data/core';
 import { useAgentRun } from '@/data/queries/use-agent-run';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
-import { SESSIONS_QUERY_KEY, useSession } from '@/data/queries/use-sessions';
+import {
+	SESSIONS_QUERY_KEY,
+	useSession,
+	useSessionEffectiveEnvironment,
+} from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import { useFullscreen } from '@/hooks/use-fullscreen';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
@@ -24,12 +28,12 @@ function SessionHeader( { summary }: { summary: AiSessionSummary } ) {
 	const sidebarCollapsed = useSidebarCollapsed();
 	const isFullscreen = useFullscreen();
 	const { data: sites } = useSites();
+	const site = sites?.find( ( candidate ) => candidate.path === summary.ownerSitePath );
+	const effectiveEnvironment = useSessionEffectiveEnvironment( summary, site?.id );
 	if ( ! siteName ) {
 		return null;
 	}
 
-	const site = sites?.find( ( candidate ) => candidate.path === summary.ownerSitePath );
-	const activeEnvironment = summary.activeEnvironment ?? 'local';
 	const toggleSpacerClass = sidebarCollapsed
 		? isFullscreen
 			? styles.toggleSpacerFullscreen
@@ -40,13 +44,13 @@ function SessionHeader( { summary }: { summary: AiSessionSummary } ) {
 		<div className={ styles.header }>
 			{ toggleSpacerClass ? <span className={ toggleSpacerClass } aria-hidden="true" /> : null }
 			{ site ? (
-				<SiteDropdown site={ site } activeEnvironment={ activeEnvironment } />
+				<SiteDropdown site={ site } activeEnvironment={ effectiveEnvironment } />
 			) : (
 				<>
 					<span className={ styles.headerSite }>{ siteName }</span>
 					<span className={ styles.headerDot } aria-hidden="true" />
 					<span className={ styles.headerEnv }>
-						{ activeEnvironment === 'live' ? __( 'Live' ) : __( 'Local' ) }
+						{ effectiveEnvironment === 'live' ? __( 'Live' ) : __( 'Local' ) }
 					</span>
 				</>
 			) }
@@ -65,7 +69,7 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 		: undefined;
 	const { data: connectedSites } = useConnectedWpcomSites( ownerSite?.id );
 	const liveSite = pickLiveSite( connectedSites );
-	const activeEnvironment: 'local' | 'live' = data?.summary.activeEnvironment ?? 'local';
+	const effectiveEnvironment = useSessionEffectiveEnvironment( data?.summary, ownerSite?.id );
 	const {
 		isRunning,
 		hasActiveRun,
@@ -169,7 +173,7 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 						onSend={ sendMessage }
 						onInterrupt={ interrupt }
 						sessionId={ sessionId }
-						activeEnvironment={ activeEnvironment }
+						effectiveEnvironment={ effectiveEnvironment }
 						liveSite={ liveSite }
 					/>
 				</div>

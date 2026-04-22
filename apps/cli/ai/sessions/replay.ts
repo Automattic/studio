@@ -24,6 +24,7 @@ export function replaySessionHistory( ui: AiChatUI, events: AiSessionEvent[] ): 
 						running: false,
 						remote: event.remote === true,
 						url: typeof event.url === 'string' ? event.url : undefined,
+						wpcomSiteId: typeof event.wpcomSiteId === 'number' ? event.wpcomSiteId : undefined,
 					},
 					{ announce: true, emitEvent: false }
 				);

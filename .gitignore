@@ -141,3 +141,8 @@ apps/studio/bin/studio
 apps/studio/bin/studio.exe
 
 bin/studio-cli.exe
+
+# PromptFoo evaluation outputs
+eval/output/
+eval/test-sites/
+.promptfoo/

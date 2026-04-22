@@ -115,8 +115,8 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'promptWindowsSpeedUpSites', ...args ),
 	setDefaultLocaleData: ( locale ) => ipcRendererInvoke( 'setDefaultLocaleData', locale ),
 	resetDefaultLocaleData: () => ipcRendererInvoke( 'resetDefaultLocaleData' ),
-	toggleMinWindowWidth: ( isSidebarVisible ) =>
-		ipcRendererInvoke( 'toggleMinWindowWidth', isSidebarVisible ),
+	toggleMinWindowWidth: ( isSidebarVisible, currentSidebarWidth? ) =>
+		ipcRendererInvoke( 'toggleMinWindowWidth', isSidebarVisible, currentSidebarWidth ),
 	getAbsolutePathFromSite: ( siteId, relativePath ) =>
 		ipcRendererInvoke( 'getAbsolutePathFromSite', siteId, relativePath ),
 	openFileInIDE: ( relativePath, siteId ) =>
@@ -128,6 +128,9 @@ const api: IpcApi = {
 	removeSyncBackup: ( remoteSiteId ) => ipcRendererInvoke( 'removeSyncBackup', remoteSiteId ),
 	getConnectedWpcomSites: ( localSiteId ) =>
 		ipcRendererInvoke( 'getConnectedWpcomSites', localSiteId ),
+	fetchSyncableWpcomSites: () => ipcRendererInvoke( 'fetchSyncableWpcomSites' ),
+	pullSiteFromLive: ( siteFolder, remoteSiteId ) =>
+		ipcRendererInvoke( 'pullSiteFromLive', siteFolder, remoteSiteId ),
 	addSyncOperation: ( id, status ) => ipcRendererSend( 'addSyncOperation', id, status ),
 	clearSyncOperation: ( id ) => ipcRendererSend( 'clearSyncOperation', id ),
 	cancelSyncOperation: ( id ) => ipcRendererSend( 'cancelSyncOperation', id ),
@@ -153,6 +156,9 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'listLocalFileTree', siteId, path, maxDepth ),
 	validateBlueprint: ( blueprintJson ) => ipcRendererInvoke( 'validateBlueprint', blueprintJson ),
 	readBlueprintFile: ( filePath ) => ipcRendererInvoke( 'readBlueprintFile', filePath ),
+	extractBlueprintBundle: ( zipFilePath ) =>
+		ipcRendererInvoke( 'extractBlueprintBundle', zipFilePath ),
+	cleanupBlueprintTempDir: ( tempDir ) => ipcRendererInvoke( 'cleanupBlueprintTempDir', tempDir ),
 	showSiteContextMenu: ( context ) => ipcRendererSend( 'showSiteContextMenu', context ),
 	setWindowControlVisibility: ( visible ) =>
 		ipcRendererInvoke( 'setWindowControlVisibility', visible ),
@@ -200,9 +206,13 @@ const api: IpcApi = {
 	createAiSession: ( siteId ) => ipcRendererInvoke( 'createAiSession', siteId ),
 	continueAiSession: ( sessionId, prompt ) =>
 		ipcRendererInvoke( 'continueAiSession', sessionId, prompt ),
+	setAiSessionModel: ( sessionId, model ) =>
+		ipcRendererInvoke( 'setAiSessionModel', sessionId, model ),
 	interruptAiAgentRun: ( runId ) => ipcRendererInvoke( 'interruptAiAgentRun', runId ),
 	answerAiAgentQuestion: ( runId, answers ) =>
 		ipcRendererInvoke( 'answerAiAgentQuestion', runId, answers ),
+	setSessionEnvironment: ( sessionId, environment ) =>
+		ipcRendererInvoke( 'setSessionEnvironment', sessionId, environment ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

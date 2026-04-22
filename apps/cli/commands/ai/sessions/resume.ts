@@ -1,3 +1,4 @@
+import { resolveActiveSiteFromEvents } from '@studio/common/ai/sessions/active-site';
 import { listAiSessions, loadAiSession } from '@studio/common/ai/sessions/store';
 import { __ } from '@wordpress/i18n';
 import { JsonAdapter } from 'cli/ai/output-adapter';
@@ -43,12 +44,21 @@ export async function runCommand(
 
 	const session = await loadAiSession( getAiSessionsRootDirectory(), resolvedSessionIdOrPrefix );
 	const adapter: AiOutputAdapter = options.json ? new JsonAdapter() : new AiChatUI();
+
+	// JSON-mode resume has no replay loop (that only runs for AiChatUI), so the
+	// active site would stay null and the agent would fall back to local tools
+	// even if the session was flipped to live. Hydrate it explicitly from the
+	// event log instead.
+	const resolvedSite =
+		adapter instanceof JsonAdapter ? resolveActiveSiteFromEvents( session.events ) : undefined;
+
 	await runAiCommand( {
 		adapter,
 		resumeSession: session,
 		noSessionPersistence: options.noSessionPersistence === true,
 		initialMessage: options.message,
 		autoApprove: options.autoApprove,
+		activeSite: resolvedSite,
 	} );
 }
 

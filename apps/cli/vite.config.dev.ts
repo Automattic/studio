@@ -51,5 +51,16 @@ export default mergeConfig(
 				},
 			},
 		],
+		build: {
+			lib: {
+				entry: {
+					'eval-runner': resolve( __dirname, 'ai/eval-runner.ts' ),
+				},
+			},
+		},
+		define: {
+			__IS_PACKAGED_FOR_NPM__: false,
+			__ENABLE_CLI_TELEMETRY__: false,
+		},
 	} )
 );

@@ -1,3 +1,4 @@
+import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { comment, download, globe, plus } from '@wordpress/icons';
 import { Icon, IconButton } from '@wordpress/ui';
@@ -12,6 +13,7 @@ type Props = {
 
 export function SidebarHeader( { onToggleSidebar }: Props ) {
 	const isFullscreen = useFullscreen();
+	const navigate = useNavigate();
 	return (
 		<div className={ `${ styles.root } ${ isFullscreen ? styles.fullscreen : '' }` }>
 			<span className={ styles.title }>{ __( 'Studio' ) }</span>
@@ -28,14 +30,14 @@ export function SidebarHeader( { onToggleSidebar }: Props ) {
 							/>
 						}
 					/>
-					<Menu.Popup side="bottom" align="start" className={ styles.popup }>
+					<Menu.Popup side="bottom" align="end" className={ styles.popup }>
 						<Menu.Item>
 							<Icon icon={ comment } />
 							<span>{ __( 'New chat' ) }</span>
 						</Menu.Item>
-						<Menu.Item>
+						<Menu.Item onClick={ () => void navigate( { to: '/onboarding' } ) }>
 							<Icon icon={ globe } />
-							<span>{ __( 'New site project' ) }</span>
+							<span>{ __( 'New site' ) }</span>
 						</Menu.Item>
 						<Menu.Item>
 							<Icon icon={ download } />

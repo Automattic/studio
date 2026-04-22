@@ -13,7 +13,7 @@ import { cleanupLegacyMuPlugins, getMuPlugins } from '@studio/common/lib/mu-plug
 import { LatestSupportedPHPVersion } from '@studio/common/types/php-versions';
 import { __ } from '@wordpress/i18n';
 import { setupPlatformLevelMuPlugins } from '@wp-playground/wordpress';
-import { getSqliteCommandPath, getWpCliPharPath } from 'cli/lib/server-files';
+import { getSqliteCommandPath, getWpCliPharPath } from 'cli/lib/dependency-management/paths';
 
 const processIdAllocator = new ProcessIdAllocator();
 const PLAYGROUND_INTERNAL_SHARED_FOLDER = '/internal/shared';

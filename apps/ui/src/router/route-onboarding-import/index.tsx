@@ -4,6 +4,7 @@ import { __ } from '@wordpress/i18n';
 import { arrowLeft, download } from '@wordpress/icons';
 import { Button, Icon } from '@wordpress/ui';
 import { useCallback, useEffect, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { CreateSiteForm } from '@/components/create-site-form';
 import { FileDropzone } from '@/components/file-dropzone';
 import { useConnector } from '@/data/core';
@@ -96,8 +97,16 @@ function OnboardingImportPage() {
 				);
 				return;
 			}
-			setPickError( null );
-			setPicked( { file, path } );
+			// `flushSync` commits the state updates before `navigate` fires so
+			// the router's URL change and React's component state land in the
+			// same render pass. Without this, tanstack router's store update
+			// commits first, the component re-renders with `activeStep` already
+			// at `configure` but `picked` still null, and the hard-refresh
+			// guard effect below immediately bounces us back to `select`.
+			flushSync( () => {
+				setPickError( null );
+				setPicked( { file, path } );
+			} );
 			void navigate( {
 				to: '/onboarding/import',
 				search: { step: 'configure' },

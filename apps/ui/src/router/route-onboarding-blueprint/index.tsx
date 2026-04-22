@@ -7,6 +7,7 @@ import { __ } from '@wordpress/i18n';
 import { arrowLeft } from '@wordpress/icons';
 import { Button, Icon } from '@wordpress/ui';
 import { useCallback, useEffect, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { BlueprintSelector, type PickedBlueprint } from '@/components/blueprint-selector';
 import { CreateSiteForm } from '@/components/create-site-form';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
@@ -51,8 +52,16 @@ function OnboardingBlueprintPage() {
 
 	const handlePick = useCallback(
 		( blueprint: PickedBlueprint ) => {
-			setPicked( blueprint );
-			setSubmitError( '' );
+			// `flushSync` commits the state updates *before* `navigate` fires so
+			// the router's URL change and React's component state land in the
+			// same render pass. Without this, tanstack router's store update
+			// commits first, the component re-renders with `activeStep` already
+			// at `configure` but `picked` still null, and the hard-refresh
+			// guard effect below immediately bounces us back to `select`.
+			flushSync( () => {
+				setPicked( blueprint );
+				setSubmitError( '' );
+			} );
 			void navigate( {
 				to: '/onboarding/blueprint',
 				search: { step: 'configure' },

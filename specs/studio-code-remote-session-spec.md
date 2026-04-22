@@ -182,6 +182,15 @@ Env var equivalents: `STUDIO_REMOTE_BASE_URL`, `STUDIO_REMOTE_TOKEN`, `STUDIO_RE
 
 The token MUST never be logged or echoed back to Telegram.
 
+### Why `chat_id` and `bot` are pre-configured (and not just read from each polled message)
+
+The poll response carries `chat_id` and `bot` per message (see "Server contract"), so it might look like the controller could derive both at runtime and skip configuration entirely. Both stay in config on purpose:
+
+- **`chat_id` is a scoping/security fence.** The controller drops any polled message whose `chat_id` does not match `config.chat_id`. Without this binding, anyone who sends a message to the bot drives your laptop. The chat_id is *not* used to construct the reply target — it's used to filter inbound messages.
+- **`bot` pins the reply identity.** When responding, the controller defaults `body.bot` to `config.bot`. The poll response's `bot` is *not* echoed straight back; pinning it in config means a malformed or rogue inbound message can't trick the controller into replying through a different bot identity.
+
+There is no CLI flag for `token` (only `--remote-chat-id` and `--remote-bot`) so the bearer never lands in shell history or `ps` output.
+
 Path helpers: add `getRemoteSessionConfigPath()` and `getRemoteSessionStatePath()` alongside the existing helpers in `tools/common/lib/well-known-paths.ts`. Both files live under `getConfigDirectory()` (`~/.studio/` by default; overridable via `DEV_CONFIG_DIR` / `E2E_SHARED_CONFIG_PATH`, matching the existing convention).
 
 ### How the child `studio code --json` is launched
@@ -228,13 +237,14 @@ Use a dedicated lockfile (`~/.studio/remote-session-state.lock`) with the `lockf
 │  │ ┌────────────────────────────────┐ │  │
 │  │ │ poll loop                      │ │  │   GET /local-agent-poll
 │  │ │   while attached:              │ │──┼──────────► server
-│  │ │     msg = poll()               │ │  │   ◄──────── message
-│  │ │     if msg.text == "/new":     │ │  │
-│  │ │        clear session_id        │ │  │
-│  │ │        ack to telegram         │ │  │
-│  │ │        continue                │ │  │
-│  │ │     reply = run_turn(msg.text) │ │  │
-│  │ │     post(reply)                │ │  │   POST /local-agent-respond
+│  │ │     batch = poll()             │ │  │   ◄──────── { messages: [...] }
+│  │ │     for msg in batch:          │ │  │
+│  │ │       if msg.text == "/new":   │ │  │
+│  │ │          clear session_id      │ │  │
+│  │ │          ack to telegram       │ │  │
+│  │ │          continue              │ │  │
+│  │ │       reply = run_turn(msg)    │ │  │
+│  │ │       post(reply)              │ │  │   POST /local-agent-respond
 │  │ │                                │ │──┼──────────► server
 │  │ └─────────┬──────────────────────┘ │  │
 │  │           │                        │  │
@@ -278,28 +288,36 @@ No PTY, no long-lived child, no shared state between processes. The `session_id`
 ```
 while attached:
     try:
-        msg = GET /local-agent-poll  (long-poll, timeout = long_poll_timeout_seconds)
-        if msg is empty:
+        batch = GET /local-agent-poll  (long-poll, timeout = long_poll_timeout_seconds)
+                # batch is the `messages` array from the server response.
+        if batch is empty:
             sleep(poll_interval_seconds)
             continue
 
-        if msg.chat_id != config.chat_id:
-            log_warning("ignoring message for chat {msg.chat_id}; bound to {config.chat_id}")
-            continue
+        # Drain the batch sequentially. One message = one studio code --json turn.
+        # Concurrency: poll loop blocks until the whole batch is processed before
+        # the next GET — matches the server-side per-chat lock.
+        for msg in batch:
+            if detach_requested:
+                break
 
-        text = msg.text.strip()
+            if msg.chat_id != config.chat_id:
+                log_warning("ignoring message for chat {msg.chat_id}; bound to {config.chat_id}")
+                continue
 
-        if text.lower() == "/new":
-            clear_session_id()
-            post_to_telegram("🆕 Started a new conversation.")
-            continue
+            text = msg.message.strip()  # NB: server's field name is `message`, not `text`.
 
-        reply = run_turn(text, turn_timeout_seconds)
-        if reply is None:
-            post_to_telegram("⚠️ Local agent did not return a result.")
-            continue
+            if text.lower() == "/new":
+                clear_session_id()
+                post_to_telegram("🆕 Started a new conversation.")
+                continue
 
-        post_chunks_to_telegram(reply)
+            reply = run_turn(text, turn_timeout_seconds)
+            if reply is None:
+                post_to_telegram("⚠️ Local agent did not return a result.")
+                continue
+
+            post_chunks_to_telegram(reply)
 
     except network_error:
         sleep(backoff)  # exponential, cap 30s

@@ -149,16 +149,10 @@ async function main(): Promise< void > {
 		`   main.mjs: ${ mainSize } MB, resources: ${ resourcesSize } MB, node_modules: ${ nmSize } MB`
 	);
 
-	// Derive bundle-version from the asset hashes so the runtime can detect
-	// when embedded assets change and trigger re-extraction automatically.
-	// 16 hex chars = 64 bits — collision-resistant enough for a cache key,
-	// short enough to read at a glance in logs.
-	const bundleVersion = createHash( 'sha256' )
-		.update( sha256( mainMjsFullPath ) )
-		.update( sha256( resourcesTarFullPath ) )
-		.update( sha256( nmTarFullPath ) )
-		.digest( 'hex' )
-		.slice( 0, 16 );
+	// Use the CLI package version as the bundle marker. Each release bumps
+	// it, which triggers re-extraction on the user's machine.
+	const cliPackageJsonPath = path.join( repoRoot, 'apps', 'cli', 'package.json' );
+	const { version: bundleVersion } = JSON.parse( fs.readFileSync( cliPackageJsonPath, 'utf8' ) );
 	fs.writeFileSync( path.join( bundleBuildDir, 'bundle-version.txt' ), bundleVersion );
 
 	// Step 4: Generate bundle blob

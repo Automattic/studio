@@ -353,55 +353,13 @@ const startServer = wrapWithStartingPromise(
 
 			const args = await getBaseRunCLIArgs( 'server', config );
 
-			// Playground CLI has an internal .catch() handler that calls process.exit(1)
-			// on certain non-fatal errors (e.g. a background worker exit race). Intercept
-			// process.exit during runCLI so those don't kill the process before we can
-			// check whether the server actually started.
-			//
-			// We also capture recent stdout writes because Playground CLI prints
-			// the error message via its CLI output object (process.stdout.write)
-			// right before calling process.exit — that output is our only window
-			// into the real error since the original Error is swallowed inside
-			// Playground CLI's .catch() handler and never re-thrown.
-			const realExit = process.exit;
-			let interceptedExitCode: number | undefined;
-			const recentStdoutChunks: string[] = [];
-			const prevStdoutWrite = process.stdout.write;
-			process.stdout.write = function ( ...writeArgs: Parameters< typeof prevStdoutWrite > ) {
-				const chunk =
-					typeof writeArgs[ 0 ] === 'string' ? writeArgs[ 0 ] : writeArgs[ 0 ].toString();
-				recentStdoutChunks.push( chunk );
-				if ( recentStdoutChunks.length > 40 ) {
-					recentStdoutChunks.shift();
-				}
-				return prevStdoutWrite.apply( process.stdout, writeArgs );
-			} as typeof process.stdout.write;
-			process.exit = ( ( code?: number ) => {
-				interceptedExitCode = code ?? 0;
-				logToConsole( `Intercepted process.exit(${ code }) from Playground CLI` );
-			} ) as never;
-
-			try {
-				server = await runCLI( args );
-			} finally {
-				process.exit = realExit;
-				process.stdout.write = prevStdoutWrite;
-			}
-
-			// If Playground CLI called process.exit but runCLI still resolved (server started),
-			// log it and continue. If it didn't resolve, the catch block below handles it.
-			if ( interceptedExitCode !== undefined && ! server ) {
-				const capturedOutput = recentStdoutChunks.join( '' ).trim();
-				const details = capturedOutput
-					? `\nPlayground CLI output before exit:\n${ capturedOutput }`
-					: '';
-				throw new Error( `Playground CLI exited with code ${ interceptedExitCode }${ details }` );
-			}
-			if ( interceptedExitCode !== undefined ) {
-				logToConsole(
-					`Playground CLI called process.exit(${ interceptedExitCode }) but the server started — continuing`
-				);
-			}
+			// Playground CLI's runCLI() has a top-level .catch() that calls
+			// process.exit(1) instead of re-throwing. If a non-fatal error
+			// happens (e.g. a background worker exit race), this kills the
+			// entire child process. The daemon will restart it, but the
+			// error message is lost. Filed upstream:
+			// https://github.com/WordPress/wordpress-playground/issues/3520
+			server = await runCLI( args );
 
 			stopSignal.throwIfAborted();
 

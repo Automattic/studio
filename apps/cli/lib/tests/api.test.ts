@@ -1,12 +1,7 @@
 import fs from 'fs';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import { vi } from 'vitest';
-import {
-	rotateReprintSecret,
-	SnapshotStatus,
-	uploadArchive,
-	waitForSiteReady,
-} from 'cli/lib/api';
+import { rotateReprintSecret, SnapshotStatus, uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { LoggerError } from 'cli/logger';
 
 vi.mock( 'fs' );

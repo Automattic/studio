@@ -94,20 +94,15 @@ async function mountDirectory( php: PHP, mount: ReprintMount ) {
 }
 
 /**
- * Pipes a PHP stream to the parent process via IPC while keeping the
- * tail in a bounded ring-buffer.  reprint.phar can produce megabytes
- * of PHP deprecation/warning noise on stderr during a long files-sync;
- * without a cap, joining `buffer` at the end of the run allocates the
- * full payload in one go and blows up child-process memory.  The tail
- * is what matters for diagnostics (the last error before exit), so
- * older bytes are dropped once the ring is full.
+ * Pipes a PHP stream to the parent process via IPC, calling `onChunk`
+ * for each decoded text fragment so the caller can track whatever
+ * summary it needs (last line, tail bytes, etc.) without accumulating
+ * the full stream in memory.
  */
-const STDERR_RING_BUFFER_BYTES = 256 * 1024;
-
-async function pipePhpStreamIntoRing(
+async function pipePhpStream(
 	stream: ReadableStream< Uint8Array >,
 	type: 'stdout' | 'stderr',
-	tail: { text: string }
+	onChunk: ( chunk: string ) => void
 ) {
 	const reader = stream.getReader();
 	const decoder = new TextDecoder();
@@ -129,72 +124,13 @@ async function pipePhpStreamIntoRing(
 				continue;
 			}
 
-			tail.text = keepTail( tail.text + chunk, STDERR_RING_BUFFER_BYTES );
+			onChunk( chunk );
 			await sendAndFlush( { type, chunk } satisfies ReprintChildMessage );
 		}
 	} finally {
 		const remaining = decoder.decode();
 		if ( remaining ) {
-			tail.text = keepTail( tail.text + remaining, STDERR_RING_BUFFER_BYTES );
-			await sendAndFlush( { type, chunk: remaining } satisfies ReprintChildMessage );
-		}
-		reader.releaseLock();
-	}
-}
-
-function keepTail( text: string, maxBytes: number ): string {
-	if ( text.length <= maxBytes ) {
-		return text;
-	}
-	return text.slice( text.length - maxBytes );
-}
-
-/**
- * Pipes a PHP stream to the parent process via IPC while tracking only the
- * last complete line.  Unlike pipePhpStream which accumulates all chunks in
- * a buffer, this avoids unbounded memory growth for large stdout streams.
- */
-async function pipePhpStreamTrackingLastLine(
-	stream: ReadableStream< Uint8Array >,
-	type: 'stdout' | 'stderr',
-	tracker: { lastCompleteLine: string; remainder: string }
-) {
-	const reader = stream.getReader();
-	const decoder = new TextDecoder();
-
-	try {
-		while ( true ) {
-			const { done, value } = await reader.read();
-
-			if ( done ) {
-				return;
-			}
-
-			if ( ! value ) {
-				continue;
-			}
-
-			const chunk = decoder.decode( value, { stream: true } );
-			if ( ! chunk ) {
-				continue;
-			}
-
-			const combined = tracker.remainder + chunk;
-			const lines = combined.split( '\n' );
-			tracker.remainder = lines.pop() ?? '';
-			for ( let i = lines.length - 1; i >= 0; i-- ) {
-				if ( lines[ i ].trim() ) {
-					tracker.lastCompleteLine = lines[ i ];
-					break;
-				}
-			}
-
-			await sendAndFlush( { type, chunk } satisfies ReprintChildMessage );
-		}
-	} finally {
-		const remaining = decoder.decode();
-		if ( remaining ) {
-			tracker.remainder += remaining;
+			onChunk( remaining );
 			await sendAndFlush( { type, chunk: remaining } satisfies ReprintChildMessage );
 		}
 		reader.releaseLock();
@@ -241,25 +177,40 @@ async function runReprint( msg: RunMessage ) {
 			env: collectProxyEnv(),
 		} );
 
-		// Track only the last complete stdout line (the result envelope)
-		// and the tail of stderr.  reprint emits JSON-L with thousands of
-		// progress lines on stdout and can emit megabytes of PHP warnings
-		// on stderr for large imports; both trackers keep memory bounded.
-		const stdoutTracker = { lastCompleteLine: '', remainder: '' };
-		const stderrTail = { text: '' };
+		// reprint emits JSON-L progress on stdout (thousands of lines) and
+		// can emit megabytes of PHP warnings on stderr. We only need the
+		// last stdout line (the result envelope) and the stderr tail for
+		// diagnostics, so both trackers avoid accumulating the full stream.
+		let lastStdoutLine = '';
+		let stdoutRemainder = '';
+		const STDERR_TAIL_BYTES = 256 * 1024;
+		let stderrTail = '';
 
 		const [ exitCode ] = await Promise.all( [
 			response.exitCode,
-			pipePhpStreamTrackingLastLine( response.stdout, 'stdout', stdoutTracker ),
-			pipePhpStreamIntoRing( response.stderr, 'stderr', stderrTail ),
+			pipePhpStream( response.stdout, 'stdout', ( chunk ) => {
+				const combined = stdoutRemainder + chunk;
+				const lines = combined.split( '\n' );
+				stdoutRemainder = lines.pop() ?? '';
+				for ( let i = lines.length - 1; i >= 0; i-- ) {
+					if ( lines[ i ].trim() ) {
+						lastStdoutLine = lines[ i ];
+						break;
+					}
+				}
+			} ),
+			pipePhpStream( response.stderr, 'stderr', ( chunk ) => {
+				stderrTail += chunk;
+				if ( stderrTail.length > STDERR_TAIL_BYTES ) {
+					stderrTail = stderrTail.slice( stderrTail.length - STDERR_TAIL_BYTES );
+				}
+			} ),
 		] );
-
-		const finalLine = stdoutTracker.remainder.trim() || stdoutTracker.lastCompleteLine;
 
 		await sendAndFlush( {
 			type: 'result',
-			stdout: finalLine,
-			stderr: stderrTail.text,
+			stdout: stdoutRemainder.trim() || lastStdoutLine,
+			stderr: stderrTail,
 			exitCode,
 		} satisfies ReprintChildMessage );
 	} catch ( error ) {

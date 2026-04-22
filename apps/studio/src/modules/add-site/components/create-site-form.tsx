@@ -21,6 +21,7 @@ import { LearnMoreLink, LearnHowLink } from 'src/components/learn-more';
 import PasswordControl from 'src/components/password-control';
 import TextControlComponent from 'src/components/text-control';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { cx } from 'src/lib/cx';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 import type { BlueprintPreferredVersions } from '@studio/common/lib/blueprint-validation';
@@ -50,6 +51,8 @@ interface CreateSiteFormProps {
 	blueprintRequiresCustomDomain?: boolean;
 	/** Blueprint login credentials for pre-filling admin fields */
 	blueprintCredentials?: { adminUsername?: string; adminPassword?: string };
+	/** Whether a blueprint/template has been selected — gates runtime choices */
+	hasBlueprint?: boolean;
 	/** Called when form is submitted */
 	onSubmit: ( values: CreateSiteFormValues ) => void;
 	/** Called when form validity changes */
@@ -169,12 +172,14 @@ export const CreateSiteForm = ( {
 	blueprintSuggestedHttps,
 	blueprintRequiresCustomDomain,
 	blueprintCredentials,
+	hasBlueprint = false,
 	onSubmit,
 	onValidityChange,
 	formRef,
 }: CreateSiteFormProps ) => {
 	const { __, isRTL } = useI18n();
 	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
+	const { nativePhpRuntime: isNativePhpRuntimeEnabled } = useFeatureFlags();
 	const [ siteName, setSiteName ] = useState( defaultValues.siteName ?? '' );
 	const [ sitePath, setSitePath ] = useState( defaultValues.sitePath ?? '' );
 	const [ phpVersion, setPhpVersion ] = useState< SupportedPHPVersion >(
@@ -193,6 +198,15 @@ export const CreateSiteForm = ( {
 		() => blueprintCredentials?.adminPassword ?? generatePassword()
 	);
 	const [ adminEmail, setAdminEmail ] = useState( 'admin@localhost.com' );
+	const [ runtime, setRuntime ] = useState< SiteRuntime >( 'playground' );
+
+	const showRuntimePicker = isNativePhpRuntimeEnabled && ! hasBlueprint;
+
+	useEffect( () => {
+		if ( hasBlueprint && runtime !== 'playground' ) {
+			setRuntime( 'playground' );
+		}
+	}, [ hasBlueprint, runtime ] );
 
 	const [ pathError, setPathError ] = useState( '' );
 	const [ doesPathContainWordPress, setDoesPathContainWordPress ] = useState( false );
@@ -392,6 +406,7 @@ export const CreateSiteForm = ( {
 			adminUsername: adminUsername || undefined,
 			adminPassword: adminPassword || undefined,
 			adminEmail,
+			runtime: showRuntimePicker ? runtime : undefined,
 		} ),
 		[
 			siteName,
@@ -404,6 +419,8 @@ export const CreateSiteForm = ( {
 			adminUsername,
 			adminPassword,
 			adminEmail,
+			runtime,
+			showRuntimePicker,
 		]
 	);
 
@@ -565,6 +582,31 @@ export const CreateSiteForm = ( {
 										) }
 									/>
 								</div>
+
+								{ showRuntimePicker && (
+									<div className="flex flex-col gap-1.5 leading-4 mt-4">
+										<label className="font-semibold" htmlFor="runtime-select">
+											{ __( 'Runtime' ) }
+										</label>
+										<SelectControl< SiteRuntime >
+											id="runtime-select"
+											value={ runtime }
+											options={ [
+												{
+													label: __( 'Playground (WebAssembly)' ),
+													value: 'playground',
+												},
+												{
+													label: __( 'Native PHP (experimental)' ),
+													value: 'native-php',
+												},
+											] }
+											onChange={ ( value ) => setRuntime( value ) }
+											__next40pxDefaultSize
+											__nextHasNoMarginBottom
+										/>
+									</div>
+								) }
 
 								<div className="flex flex-col gap-2 mt-4">
 									<span className="font-semibold">{ __( 'Admin credentials' ) }</span>

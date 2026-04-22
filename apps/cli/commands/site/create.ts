@@ -56,6 +56,7 @@ import {
 	readCliConfig,
 	saveCliConfig,
 	SiteData,
+	SiteRuntime,
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
 import {
@@ -100,7 +101,10 @@ type CreateCommandOptions = {
 	noStart: boolean;
 	skipBrowser: boolean;
 	skipLogDetails: boolean;
+	runtime?: SiteRuntime;
 };
+
+const ALLOWED_RUNTIMES: SiteRuntime[] = [ 'playground', 'native-php' ];
 
 export async function runCommand(
 	sitePath: string,
@@ -126,6 +130,10 @@ export async function runCommand(
 
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating site configuration…' ) );
+
+		if ( options.runtime === 'native-php' && options.blueprint ) {
+			throw new LoggerError( __( 'Blueprints are not supported on the native PHP runtime.' ) );
+		}
 
 		const pathExistsResult = await pathExists( sitePath );
 		const isEmptyDirResult = pathExistsResult && ( await isEmptyDir( sitePath ) );
@@ -354,6 +362,9 @@ export async function runCommand(
 			customDomain: options.customDomain,
 			enableHttps: options.enableHttps,
 			landingPage: normalizeLandingPage( blueprint?.landingPage ),
+			...( options.runtime && options.runtime !== 'playground'
+				? { runtime: options.runtime }
+				: {} ),
 		};
 
 		logger.reportStart( LoggerAction.SAVE_SITE, __( 'Saving site…' ) );
@@ -604,6 +615,12 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'boolean',
 					describe: __( 'Skip printing site URL and admin credentials after creating' ),
 					default: false,
+				} )
+				.option( 'runtime', {
+					type: 'string',
+					describe: __( 'Runtime used to serve the site' ),
+					choices: ALLOWED_RUNTIMES,
+					default: 'playground' as SiteRuntime,
 				} );
 		},
 		handler: async ( argv ) => {
@@ -790,6 +807,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				noStart: ! argv.start,
 				skipBrowser: !! argv.skipBrowser,
 				skipLogDetails: !! argv.skipLogDetails,
+				runtime: argv.runtime as SiteRuntime | undefined,
 			};
 
 			if ( argv.blueprint ) {

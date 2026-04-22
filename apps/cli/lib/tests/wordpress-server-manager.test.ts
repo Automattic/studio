@@ -4,6 +4,7 @@ import { SiteData } from 'cli/lib/cli-config/core';
 import * as daemonClient from 'cli/lib/daemon-client';
 import { DaemonBus } from 'cli/lib/daemon-client';
 import {
+	getChildScriptPath,
 	isServerRunning,
 	startWordPressServer,
 	stopWordPressServer,
@@ -115,10 +116,32 @@ describe( 'WordPress Server Manager', () => {
 
 			expect( vi.mocked( daemonClient.startProcess ) ).toHaveBeenCalledWith(
 				'studio-site-test-site-id',
-				expect.stringContaining( 'wordpress-server-child.mjs' )
+				expect.stringMatching( /wordpress-server-child\.mjs$/ )
 			);
 
 			expect( result ).toEqual( mockProcessDescription );
+		} );
+
+		it( 'should use the native-php child script when site.runtime is native-php', async () => {
+			setupIpcMocks();
+
+			await startWordPressServer( { ...mockSiteData, runtime: 'native-php' }, mockLogger );
+
+			expect( vi.mocked( daemonClient.startProcess ) ).toHaveBeenCalledWith(
+				'studio-site-test-site-id',
+				expect.stringMatching( /wordpress-server-child-native\.mjs$/ )
+			);
+		} );
+
+		it( 'should use the playground child script when site.runtime is undefined', async () => {
+			setupIpcMocks();
+
+			await startWordPressServer( { ...mockSiteData, runtime: undefined }, mockLogger );
+
+			expect( vi.mocked( daemonClient.startProcess ) ).toHaveBeenCalledWith(
+				'studio-site-test-site-id',
+				expect.stringMatching( /wordpress-server-child\.mjs$/ )
+			);
 		} );
 
 		it( 'should handle start process failure', async () => {
@@ -129,6 +152,20 @@ describe( 'WordPress Server Manager', () => {
 			await expect( startWordPressServer( mockSiteData, mockLogger ) ).rejects.toThrow(
 				'Failed to start process'
 			);
+		} );
+	} );
+
+	describe( 'getChildScriptPath', () => {
+		it( 'returns the playground child path when runtime is undefined', () => {
+			expect( getChildScriptPath( undefined ) ).toMatch( /wordpress-server-child\.mjs$/ );
+		} );
+
+		it( 'returns the playground child path for explicit playground runtime', () => {
+			expect( getChildScriptPath( 'playground' ) ).toMatch( /wordpress-server-child\.mjs$/ );
+		} );
+
+		it( 'returns the native-php child path for native-php runtime', () => {
+			expect( getChildScriptPath( 'native-php' ) ).toMatch( /wordpress-server-child-native\.mjs$/ );
 		} );
 	} );
 

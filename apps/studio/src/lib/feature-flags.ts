@@ -18,6 +18,12 @@ export const FEATURE_FLAGS: Record< keyof FeatureFlags, FeatureFlagDefinition > 
 		flag: 'enableStudioCodeUi',
 		default: false,
 	},
+	nativePhpRuntime: {
+		label: 'Enable Native PHP Runtime',
+		env: 'ENABLE_NATIVE_PHP_RUNTIME',
+		flag: 'nativePhpRuntime',
+		default: false,
+	},
 } as const;
 
 export function getFeatureFlagFromEnv( flag: keyof FeatureFlags ): boolean {

@@ -10,8 +10,10 @@ CONTENTS_DIR=$(dirname "$(dirname "$BIN_DIR")")
 CLI_SCRIPT="$CONTENTS_DIR/Resources/cli/main.mjs"
 
 if [ -x "$CLI_BINARY" ]; then
+	# Note: Node's SEA startup skips CLI flag parsing, so we can't enable
+	# --experimental-wasm-jspi here. PHP-WASM falls back to asyncify.
 	unset NODE_OPTIONS
-	exec "$CLI_BINARY" --experimental-wasm-jspi "$@"
+	exec "$CLI_BINARY" "$@"
 fi
 
 # Development fallback: use system Node with the CLI script

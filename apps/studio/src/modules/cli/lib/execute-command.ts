@@ -149,10 +149,11 @@ export function executeCliCommand(
 	if ( cliBinaryPath !== null ) {
 		// Production: use the bundled binary directly. Set STUDIO_CLI_DIR so
 		// the binary extracts assets to the app's Resources directory.
-		// --experimental-wasm-jspi is required for PHP-WASM (JSPI is still
-		// flagged on Node 24.x); the SEA binary is Node, so the flag is
-		// consumed before the embedded CLI code runs.
-		child = spawn( cliBinaryPath, [ '--experimental-wasm-jspi', ...cliArgs ], {
+		// Note: --experimental-wasm-jspi can't be enabled on the SEA binary
+		// — Node's SEA startup skips CLI flag parsing, and the flag is
+		// rejected by NODE_OPTIONS. PHP-WASM falls back to asyncify, which
+		// is slower for Redis/memcached but otherwise works correctly.
+		child = spawn( cliBinaryPath, cliArgs, {
 			stdio,
 			env: {
 				...process.env,

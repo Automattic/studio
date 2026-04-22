@@ -8,6 +8,8 @@ export type {
 	ColorScheme,
 	Connector,
 	CreateSiteParams,
+	ExtractedBlueprintBundle,
+	FeaturedBlueprint,
 	InstalledApps,
 	LoadedAiSession,
 	ProposedSitePath,

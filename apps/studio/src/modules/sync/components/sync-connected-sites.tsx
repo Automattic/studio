@@ -5,7 +5,6 @@ import { cloudUpload, cloudDownload, info, close, error } from '@wordpress/icons
 import { useI18n } from '@wordpress/react-i18n';
 import { useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
-import { Badge } from 'src/components/badge';
 import Button from 'src/components/button';
 import { ClearAction } from 'src/components/clear-action';
 import { CircleRedCrossIcon } from 'src/components/icons/circle-red-cross';
@@ -683,9 +682,6 @@ const SyncConnectedSiteSection = ( {
 					<div className="h-5 w-40 rounded skeleton-bg" aria-label={ __( 'Loading site name' ) } />
 				) : (
 					<>
-						<Badge className="bg-frame-surface text-frame-text-secondary">
-							{ connectedSite.isPressable ? __( 'Pressable' ) : __( 'WP.com' ) }
-						</Badge>
 						<EnvironmentBadge type={ getSiteEnvironment( connectedSite ) } />
 						<div className={ cx( 'a8c-label-semibold', hasConnectionErrors && 'error-message' ) }>
 							{ connectedSite.name }

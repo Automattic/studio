@@ -170,7 +170,7 @@ PHASE 2 — Port to block theme. Translate <site>/tmp/prototype/ to a block them
 4. For each prototype HTML file: (a) create an empty page with \`wp_cli post create --post_type=page --post_title="<title>" --post_status=publish --post_content="" --porcelain\` — this returns the new page ID; (b) apply the block markup with \`wp_cli eval '$content = file_get_contents(ABSPATH . "tmp/page-<slug>.html"); wp_update_post(["ID" => <id>, "post_content" => $content]); echo "ok";'\`. Do NOT use \`--post_content-file=<host path>\` — wp_cli runs inside the WASM filesystem and cannot read host paths, so the page updates to empty content silently. \`ABSPATH\` resolves to \`/wordpress/\` inside WASM, which maps to your site root. Finally, set the homepage via \`wp_cli option update show_on_front page\` and \`wp_cli option update page_on_front <id>\`.
 5. **Check the result**: Use take_screenshot to capture the site's landing page on desktop and mobile and verify the design visually on both viewports, check for wrong spacing, alignment, colors, contrast, borders, hover styles and other visual issues. Fix any issues found. Pay particular attention to the navigation menu and the CTA buttons. The design needs to match your original expectations.
 
-${WORK_CADENCE}
+${ WORK_CADENCE }
 
 ## Available Studio Tools (prefixed with mcp__studio__)
 

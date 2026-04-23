@@ -3,6 +3,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState, useEffect, useCallback } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
+import { Badge } from 'src/components/badge';
 import Button from 'src/components/button';
 import Modal from 'src/components/modal';
 import offlineIcon from 'src/components/offline-icon';
@@ -467,8 +468,13 @@ function SiteThumbnail( {
 				/>
 			) }
 			{ showBadge && (
-				<div className="absolute bottom-1.5 right-1.5 rounded border border-white/30 bg-white/90 backdrop-blur-sm">
-					<EnvironmentBadge type={ getSiteEnvironment( site ) } selected={ false } />
+				<div className="absolute bottom-1.5 right-1.5 flex gap-1">
+					<Badge className="bg-black/40 text-white backdrop-blur-sm">
+						{ site.isPressable ? __( 'Pressable' ) : __( 'WP.com' ) }
+					</Badge>
+					<div className="rounded border border-white/30 bg-white/90 backdrop-blur-sm">
+						<EnvironmentBadge type={ getSiteEnvironment( site ) } selected={ false } />
+					</div>
 				</div>
 			) }
 			{ showOverlayCta && (

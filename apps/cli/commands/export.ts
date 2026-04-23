@@ -6,8 +6,8 @@ import {
 	ExportEventTuple,
 	ExportIpcEvent,
 } from '@studio/common/lib/import-export-events';
-import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
+import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';

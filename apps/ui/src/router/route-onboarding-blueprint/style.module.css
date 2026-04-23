@@ -1,0 +1,8 @@
+.backLink {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	align-self: flex-start;
+	margin-bottom: 16px;
+	padding: 4px 8px 4px 4px;
+}

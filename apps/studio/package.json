@@ -12,7 +12,7 @@
 	},
 	"scripts": {
 		"start": "electron-vite dev --config ./electron.vite.config.ts --outDir=dist --watch",
-		"prestart": "npm -w wp-studio run build",
+		"prestart": "npm -w wp-studio run build && node ../../scripts/ensure-dev-bundle-id.mjs",
 		"make": "electron-vite build --config ./electron.vite.config.ts --outDir=dist && electron-forge make .",
 		"make:windows-x64": "electron-vite build --config ./electron.vite.config.ts --outDir=dist && electron-forge make . --arch=x64 --platform=win32",
 		"make:windows-arm64": "electron-vite build --config ./electron.vite.config.ts --outDir=dist && electron-forge make . --arch=arm64 --platform=win32",
@@ -43,7 +43,6 @@
 		"@wordpress/i18n": "^6.9.0",
 		"@wordpress/icons": "^11.4.0",
 		"@wordpress/react-i18n": "^4.41.0",
-		"archiver": "^7.0.1",
 		"atomically": "^2.1.0",
 		"cli-table3": "^0.6.5",
 		"compressible": "2.0.18",

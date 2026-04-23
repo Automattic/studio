@@ -8,7 +8,10 @@
 description: Studio Code agent evaluation
 
 providers:
-  - id: exec:node ../apps/cli/dist/cli/eval-runner.mjs
+  # A shell wrapper rather than `exec:node <path>` so promptfoo's cache layer
+  # can hash the script file. Without a hashable file the command goes through
+  # but promptfoo logs "Could not hash any files" warnings on every run.
+  - id: exec:./run-agent.sh
     label: studio-agent
 
 # Custom grader uses Studio's WP.com auth for llm-rubric assertions.

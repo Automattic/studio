@@ -1,12 +1,22 @@
 import { configureStore } from '@reduxjs/toolkit';
 import { vi } from 'vitest';
-import { FORCE_SHOW_WHATS_NEW } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { appVersionApi, selectIsNewVersion } from 'src/stores/app-version-api';
 
 vi.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: vi.fn(),
 } ) );
+
+let mockForceShowWhatsNew = false;
+vi.mock( 'src/constants', async ( importOriginal ) => {
+	const actual = await importOriginal< typeof import('src/constants') >();
+	return {
+		...actual,
+		get FORCE_SHOW_WHATS_NEW() {
+			return mockForceShowWhatsNew;
+		},
+	};
+} );
 
 const mockIpcApi = {
 	getLastSeenVersion: vi.fn(),
@@ -28,6 +38,7 @@ const createTestStore = () => {
 describe( 'App Version API', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
+		mockForceShowWhatsNew = false;
 	} );
 
 	describe( 'getLastSeenVersion', () => {
@@ -84,17 +95,29 @@ describe( 'App Version API', () => {
 
 		it( 'should not trigger on a patch bump when FORCE_SHOW_WHATS_NEW is false', () => {
 			const result = selectIsNewVersion( createMockQueryResult( '1.2.0' ), '1.2.1' );
-			expect( result ).toBe( FORCE_SHOW_WHATS_NEW );
+			expect( result ).toBe( false );
 		} );
 
 		it( 'should not trigger on a minor bump when FORCE_SHOW_WHATS_NEW is false', () => {
 			const result = selectIsNewVersion( createMockQueryResult( '1.2.0' ), '1.3.0' );
-			expect( result ).toBe( FORCE_SHOW_WHATS_NEW );
+			expect( result ).toBe( false );
 		} );
 
 		it( 'should not trigger on a major bump when FORCE_SHOW_WHATS_NEW is false', () => {
 			const result = selectIsNewVersion( createMockQueryResult( '1.2.0' ), '2.0.0' );
-			expect( result ).toBe( FORCE_SHOW_WHATS_NEW );
+			expect( result ).toBe( false );
+		} );
+
+		it( 'should return true when FORCE_SHOW_WHATS_NEW is true and the version changed', () => {
+			mockForceShowWhatsNew = true;
+			const result = selectIsNewVersion( createMockQueryResult( '2.0.0' ), '2.1.0' );
+			expect( result ).toBe( true );
+		} );
+
+		it( 'should return false when FORCE_SHOW_WHATS_NEW is true but the version did not change', () => {
+			mockForceShowWhatsNew = true;
+			const result = selectIsNewVersion( createMockQueryResult( '3.0.0' ), '3.0.0' );
+			expect( result ).toBe( false );
 		} );
 	} );
 } );

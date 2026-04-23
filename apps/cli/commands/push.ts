@@ -1,8 +1,10 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import {
+	SYNC_IGNORE_DEFAULTS,
 	SYNC_MAX_STALLED_ATTEMPTS,
 	SYNC_POLL_INTERVAL_MS,
 	SYNC_PUSH_SIZE_LIMIT_BYTES,
@@ -105,6 +107,8 @@ export async function runCommand(
 			};
 		}
 
+		const deployIgnore = await createDeployIgnoreFilter( site.path, SYNC_IGNORE_DEFAULTS );
+
 		const exporter = await getExporter( {
 			site,
 			backupFile: archivePath,
@@ -112,6 +116,7 @@ export async function runCommand(
 			phpVersion: site.phpVersion,
 			splitDatabaseDumpByTable: true,
 			specificSelectionPaths,
+			ignoreFilter: deployIgnore,
 		} );
 
 		if ( ! exporter ) {

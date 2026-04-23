@@ -1,3 +1,4 @@
+import 'cli/lib/picospinner-stderr-patch';
 import path from 'node:path';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
 import { __, sprintf } from '@wordpress/i18n';

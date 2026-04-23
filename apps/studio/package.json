@@ -58,6 +58,7 @@
 		"fs-extra": "^11.3.2",
 		"hpagent": "1.2.0",
 		"http-proxy": "^1.18.1",
+		"ignore": "^7.0.5",
 		"lockfile": "^1.0.4",
 		"react": "^18.2.0",
 		"react-dom": "^18.2.0",

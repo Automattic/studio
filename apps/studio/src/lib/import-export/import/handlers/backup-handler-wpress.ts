@@ -118,12 +118,21 @@ async function readBlockToFile( fd: fs.promises.FileHandle, header: Header, outp
 		}
 	};
 
-	const endStream = () => {
-		if ( ! streamEnded && ! outputStream.destroyed ) {
+	// End the stream and wait for it to fully flush so callers can see the file
+	// on disk the moment readBlockToFile resolves. Without this, extractFiles
+	// returns while writes are still in flight, which races with any immediate
+	// fs.existsSync check (see the path-traversal tests).
+	const endStream = (): Promise< void > =>
+		new Promise( ( resolve ) => {
+			if ( streamEnded || outputStream.destroyed ) {
+				resolve();
+				return;
+			}
 			streamEnded = true;
+			outputStream.once( 'close', () => resolve() );
+			outputStream.once( 'error', () => resolve() );
 			outputStream.end();
-		}
-	};
+		} );
 
 	outputStream.once( 'error', errorHandler );
 
@@ -145,7 +154,7 @@ async function readBlockToFile( fd: fs.promises.FileHandle, header: Header, outp
 	} catch ( err ) {
 		errorHandler( err as Error );
 	} finally {
-		endStream();
+		await endStream();
 	}
 }
 

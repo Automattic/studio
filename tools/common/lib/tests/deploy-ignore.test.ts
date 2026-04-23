@@ -72,6 +72,20 @@ describe( 'createDeployIgnoreFilter', () => {
 		expect( ig.ignores( 'uploads/2025/photo.jpg' ) ).toBe( false );
 	} );
 
+	it( 'should apply provided base patterns instead of built-in defaults', async () => {
+		const ig = await createDeployIgnoreFilter( tempDir, [ 'cache', 'database' ] );
+		expect( ig.ignores( 'cache' ) ).toBe( true );
+		expect( ig.ignores( 'database' ) ).toBe( true );
+		expect( ig.ignores( '.git' ) ).toBe( false );
+	} );
+
+	it( 'should allow .deployignore to override provided base patterns via negation', async () => {
+		fs.writeFileSync( path.join( tempDir, '.deployignore' ), '!cache\n' );
+		const ig = await createDeployIgnoreFilter( tempDir, [ 'cache', 'database' ] );
+		expect( ig.ignores( 'cache' ) ).toBe( false );
+		expect( ig.ignores( 'database' ) ).toBe( true );
+	} );
+
 	it( 'should handle empty .deployignore file', async () => {
 		fs.writeFileSync( path.join( tempDir, '.deployignore' ), '' );
 		const ig = await createDeployIgnoreFilter( tempDir );

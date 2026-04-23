@@ -5,20 +5,22 @@ import { ImporterEvents, ValidatorEvents } from '@studio/common/lib/import-expor
 import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { vi } from 'vitest';
-import { getSiteByFolder } from 'cli/lib/cli-config/sites';
+import { getSiteByFolder, updateSitePhpVersion } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
 import { DEFAULT_IMPORTER_OPTIONS, getImporter } from 'cli/lib/import-export/import/import-manager';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
-import { runCommand } from '../../import';
+import { runCommand } from '../import';
 import type { SiteData } from 'cli/lib/cli-config/core';
+import type { ImporterResult } from 'cli/lib/import-export/import/importers/importer';
 
 vi.mock( 'cli/lib/cli-config/sites', () => ( {
 	clearSiteLatestCliPid: vi.fn(),
 	getSiteByFolder: vi.fn(),
 	getSiteUrl: vi.fn(),
+	updateSitePhpVersion: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/sqlite-integration', () => ( {
@@ -50,24 +52,23 @@ describe( 'CLI: studio import', () => {
 		adminUsername: 'admin',
 		adminPassword: 'password123',
 	};
-	const importResult = {
+	const importResult: ImporterResult = {
 		extractionDirectory: '/tmp/extracted',
 		sqlFiles: [],
 		wpContentFiles: [],
 		wpContentDirectory: '/tmp/extracted/wp-content',
 		wpConfig: '/tmp/extracted/wp-config.php',
-		importerType: 'LocalImporter',
 	};
 
 	class MockImporter extends ImportExportEventEmitter {
-		constructor( private importImpl: () => Promise< typeof importResult > ) {
+		constructor( private importImpl: () => Promise< ImporterResult > ) {
 			super();
 		}
 		import = vi.fn( async () => this.importImpl() );
 	}
 
 	const createImporter = (
-		importImpl: () => Promise< typeof importResult > = async () => importResult
+		importImpl: () => Promise< ImporterResult > = async () => importResult
 	) => new MockImporter( importImpl );
 
 	beforeEach( () => {
@@ -103,6 +104,20 @@ describe( 'CLI: studio import', () => {
 			DEFAULT_IMPORTER_OPTIONS
 		);
 		expect( disconnectFromDaemon ).toHaveBeenCalled();
+	} );
+
+	it( 'updates site PHP version from import metadata when available', async () => {
+		const importer = createImporter( async () => ( {
+			...importResult,
+			meta: {
+				phpVersion: '8.3',
+			},
+		} ) );
+		vi.mocked( getImporter ).mockReturnValue( importer as never );
+
+		await runCommand( testSitePath, testImportPath );
+
+		expect( updateSitePhpVersion ).toHaveBeenCalledWith( testSite.id, '8.3' );
 	} );
 
 	it( 'sets up WordPress files when site path is not a WordPress directory', async () => {
@@ -141,7 +156,7 @@ describe( 'CLI: studio import', () => {
 				processedFiles: 1,
 				totalFiles: 2,
 			} );
-			importer.emit( ImporterEvents.IMPORT_COMPLETE );
+			importer.emit( ImporterEvents.IMPORT_COMPLETE, 'jetpack' );
 			return importResult;
 		} );
 		vi.mocked( getImporter ).mockReturnValue( importer as never );

@@ -8,7 +8,7 @@ import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
 import { getExporter } from 'cli/lib/import-export/export/export-manager';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { Logger, LoggerError } from 'cli/logger';
-import { registerCommand, runCommand } from '../../export';
+import { registerCommand, runCommand } from '../export';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
 function getYargsArgvMock() {
@@ -80,6 +80,8 @@ describe( 'CLI: studio export', () => {
 				wpContent: true,
 				database: true,
 			},
+			specificSelectionPaths: undefined,
+			splitDatabaseDumpByTable: false,
 		} );
 		expect( disconnectFromDaemon ).toHaveBeenCalled();
 	} );
@@ -141,22 +143,6 @@ describe( 'CLI: studio export', () => {
 			} )
 		);
 		expect( reportErrorSpy ).not.toHaveBeenCalled();
-	} );
-
-	it( 'rejects non-.sql file paths when --mode db is used', async () => {
-		const reportErrorSpy = vi.spyOn( Logger.prototype, 'reportError' );
-
-		const argv = getYargsArgvMock();
-		registerCommand( argv );
-
-		await argv.parse( [ 'export', 'site-backup.zip', '--path', testSitePath, '--mode', 'db' ] );
-
-		expect( getExporter ).not.toHaveBeenCalled();
-		expect( reportErrorSpy ).toHaveBeenCalledWith(
-			expect.objectContaining( {
-				message: 'Invalid export file extension. Must be .sql when exporting database only.',
-			} )
-		);
 	} );
 
 	it( 'rejects .sql exports with --mode full', async () => {

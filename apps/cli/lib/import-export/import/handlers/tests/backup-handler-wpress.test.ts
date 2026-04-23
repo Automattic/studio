@@ -8,7 +8,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { BackupHandlerWpress } from 'src/lib/import-export/import/handlers/backup-handler-wpress';
+import { BackupHandlerWpress } from '../backup-handler-wpress';
 
 // ── .wpress builder ──────────────────────────────────────────────────────────
 

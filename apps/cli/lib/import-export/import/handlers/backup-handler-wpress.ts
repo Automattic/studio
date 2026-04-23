@@ -223,11 +223,7 @@ export class BackupHandlerWpress extends ImportExportEventEmitter implements Bac
 		this.totalFiles = fileNames.length;
 		this.processedFiles = 0;
 
-		this.emit( ImportEvents.BACKUP_EXTRACT_START, {
-			progress: 0,
-			totalFiles: this.totalFiles,
-			processedFiles: 0,
-		} );
+		this.emit( ImportEvents.BACKUP_EXTRACT_START );
 
 		const inputFile = await fs.promises.open( file.path, 'r' );
 

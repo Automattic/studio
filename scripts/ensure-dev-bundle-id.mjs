@@ -1,11 +1,14 @@
 #!/usr/bin/env node
-// Give each dev workspace's unpackaged Electron.app a unique CFBundleIdentifier
-// so wp-studio:// deep links don't collide across Conductor worktrees in Launch
-// Services. Runs as a `prestart` before electron-vite dev spawns Electron —
-// doing this inside the main process forces `app.relaunch()`, which doesn't
-// survive electron-vite dev (the child loses ELECTRON_RENDERER_URL and boots
-// to an empty window). Idempotent; re-patches after `npm install` resets the
-// plist. macOS-only; no-op elsewhere.
+
+// Git worktrees allow you to have multiple working directories associated with a single repo,
+// enabling you to work on different branches simultaneously. This is especially useful for AI
+// agent threads. It doesn't work well with Electron's protocol client handler logic on macOS,
+// though. That's because macOS uses the Info.plist bundle identifier to determine which binary
+// should open the URL, and if you've started Studio in multiple workspaces, there are multiple
+// potential `wp-studio://` binaries. This script fixes the problem by patching
+// `node_modules/electron/dist/Electron.app/Contents/Info.plist` to contain a unique bundle
+// identifier for each workspace. Runs as a `prestart` before electron-vite dev spawns Electron.
+
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';

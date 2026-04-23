@@ -22,8 +22,6 @@ const electronBinary = createRequire( import.meta.url )( 'electron' );
 const electronAppPath = path.resolve( electronBinary, '..', '..', '..' );
 const infoPlist = path.join( electronAppPath, 'Contents', 'Info.plist' );
 const plistBuddy = '/usr/libexec/PlistBuddy';
-const lsregister =
-	'/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister';
 
 const currentId = execFileSync( plistBuddy, [ '-c', 'Print :CFBundleIdentifier', infoPlist ], {
 	encoding: 'utf8',
@@ -39,5 +37,4 @@ const uniqueId = `com.studio.dev.${ createHash( 'sha1' )
 	.slice( 0, 12 ) }`;
 
 execFileSync( plistBuddy, [ '-c', `Set :CFBundleIdentifier ${ uniqueId }`, infoPlist ] );
-execFileSync( lsregister, [ '-f', electronAppPath ] );
 console.log( `Patched Electron.app bundle ID -> ${ uniqueId }` );

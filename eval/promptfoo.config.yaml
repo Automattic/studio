@@ -8,10 +8,7 @@
 description: Studio Code agent evaluation
 
 providers:
-  # A shell wrapper rather than `exec:node <path>` so promptfoo's cache layer
-  # can hash the script file. Without a hashable file the command goes through
-  # but promptfoo logs "Could not hash any files" warnings on every run.
-  - id: exec:./run-agent.sh
+  - id: exec:node ../apps/cli/dist/cli/eval-runner.mjs
     label: studio-agent
 
 # Custom grader uses Studio's WP.com auth for llm-rubric assertions.
@@ -72,330 +69,35 @@ tests:
           const perms = d.questions?.filter(q => q.isPermission) ?? [];
           return perms.length > 0;
 
-  # ---------------------------------------------------------------------------
-  # Prompt-rule regression tests
-  #
-  # Each case below pins a specific rule that has silently regressed before
-  # and needed to be re-added to the system prompt or a skill. The agent is
-  # told to respond in prose only — we grade its narrated answer, not a real
-  # tool call. That keeps the runs fast and self-contained: no real site, no
-  # permission loop, no filesystem side effects.
-  #
-  # Assertions pull the assistant's text out of the runner output via
-  # `d.textSegments.join('\n')` and grep for the load-bearing substrings.
-  # ---------------------------------------------------------------------------
-
-  # 1. wp_cli takes literal args — no pipes, `$(...)`, or `&&` chaining.
-  #    Shell metacharacters hang or silently corrupt output inside the WASM
-  #    wrapper; filtering must go through `wp_cli eval` with PHP.
-  - description: wp_cli filter uses eval, not shell syntax
+  # Real build, grading on cadence: every individual turn (wall-clock between
+  # successive assistant messages) should be under 40s. Slow turns stall the
+  # UI and signal that the prompt is letting the agent run long, tool-heavy
+  # steps instead of keeping each turn small.
+  - description: single-page site build keeps every turn under 40s
     vars:
-      caseId: wp-cli-no-shell-syntax
-      maxTurns: 5
-      timeoutMs: 60000
+      caseId: single-page-build-turn-cadence
+      maxTurns: 80
+      timeoutMs: 600000
+      askUserPolicy: allow_all
       prompt: |
-        On a local Studio site, how would you filter post 5's `post_content`
-        to find references to the class name `about-img`? Answer in PROSE
-        ONLY, including the exact command you would run. Do not call any
-        tools. Do not execute the command.
+        Build a simple WordPress site named "Eval Turn Timing". The site
+        only needs a single page — no extra pages, no blog posts, no
+        navigation menu beyond what a one-page site requires.
     assert:
       - type: javascript
         value: |
           const d = JSON.parse(output);
-          const text = (d.textSegments || []).join('\n');
-          return text.includes('wp_cli eval');
-      - type: javascript
-        value: |
-          const d = JSON.parse(output);
-          const text = (d.textSegments || []).join('\n');
-          return !text.includes('| grep') && !/\$\(/.test(text);
-
-  # 2. PHASE 2: theme stylesheet is copied via `cp`, not regenerated as a
-  #    fresh Write. Regenerating drifts from the phase-1 approved screenshot
-  #    and burns 60–90s of silent generation.
-  - description: PHASE 2 theme stylesheet copied with cp, not regenerated
-    vars:
-      caseId: phase2-cp-stylesheet
-      maxTurns: 5
-      timeoutMs: 60000
-      prompt: |
-        You are starting PHASE 2 of a block theme build. The PHASE 1 prototype
-        has been screenshot-approved and its stylesheet is at
-        `/Users/alice/Studio/my-site/tmp/prototype/style.css`. What is your
-        VERY FIRST action to produce the theme's main stylesheet at
-        `wp-content/themes/<slug>/assets/css/main.css`? Answer in PROSE ONLY
-        with the exact shell or tool invocation. Do not call any tools.
-    assert:
-      - type: javascript
-        value: |
-          const d = JSON.parse(output);
-          const text = (d.textSegments || []).join('\n');
-          return /cp\s+[^\n]*prototype\/style\.css[^\n]*main\.css/.test(text);
-      - type: javascript
-        value: |
-          const d = JSON.parse(output);
-          const text = (d.textSegments || []).join('\n');
-          // No fresh Write of main.css as the first action.
-          return !/\bWrite\b[\s\S]{0,120}main\.css/.test(text);
-
-  # 3. Button CSS migration: ALL paint goes on the inner link, never on the
-  #    `.wp-block-button` wrapper (which would double-stack with
-  #    `wp-element-button` defaults).
-  - description: button paint on .wp-block-button__link, not the wrapper
-    vars:
-      caseId: button-paint-inner-link
-      maxTurns: 5
-      timeoutMs: 90000
-      prompt: |
-        Migrate this prototype CSS rule so it renders identically on a
-        `core/button` block that carries `className: "btn-primary"`. Output
-        the migrated CSS and a one-sentence explanation. Respond in PROSE
-        ONLY — do not call any tools.
-
-        ```
-        .btn-primary {
-          background: gold;
-          padding: 1rem 2rem;
-          border: 2px solid gold;
-          color: black;
-        }
-        ```
-    assert:
-      - type: javascript
-        value: |
-          const d = JSON.parse(output);
-          const text = (d.textSegments || []).join('\n');
-          return text.includes('.wp-block-button.btn-primary .wp-block-button__link');
-      - type: javascript
-        value: |
-          const d = JSON.parse(output);
-          const text = (d.textSegments || []).join('\n');
-          // The outer `.wp-block-button.btn-primary` selector must not carry
-          // paint in a rule of its own.
-          const ruleRe = /\.wp-block-button\.btn-primary\s*\{([^}]*)\}/g;
-          let m;
-          while ((m = ruleRe.exec(text)) !== null) {
-            if (/(background|padding|border|color)\s*:/.test(m[1])) return false;
+          const durations = d.turnDurationsMs ?? [];
+          if (durations.length === 0) {
+            return { pass: false, score: 0, reason: 'no turns recorded — runner may have failed before the first assistant message' };
           }
-          return true;
-      - type: llm-rubric
-        value: |
-          The response explains that the `.wp-block-button` wrapper gets zero
-          paint (or equivalent: "wrapper carries layout only", "all paint on
-          the inner link", "avoids doubled border/padding/background"). A bare
-          "we change the selector" without a reason does NOT satisfy this.
-
-  # 4. theme.json neutralizes wp-element-button defaults so className rules
-  #    are the only source of button paint.
-  - description: theme.json styles.elements.button is neutralized
-    vars:
-      caseId: theme-json-neutralize-button
-      maxTurns: 5
-      timeoutMs: 90000
-      prompt: |
-        Generate a complete `theme.json` for a block theme whose button paint
-        is supplied ENTIRELY via `className` selectors on
-        `.wp-block-button.<name> .wp-block-button__link`. The theme does NOT
-        define any button styling in theme.json itself. Output the JSON in a
-        single ```json``` code block, with no prose outside the block. Do not
-        call any tools.
-    assert:
-      - type: javascript
-        value: |
-          const d = JSON.parse(output);
-          const text = (d.textSegments || []).join('\n');
-          const m = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-          const body = m ? m[1] : text;
-          let j;
-          try { j = JSON.parse(body); } catch { return false; }
-          const btn = j?.styles?.elements?.button;
-          if (!btn) return false;
-          const bgOk = btn.color?.background === 'transparent';
-          const padOk = btn.spacing?.padding === '0' || btn.spacing?.padding === 0;
-          const borderWOk = btn.border?.width === '0' || btn.border?.width === 0;
-          const borderROk = btn.border?.radius === '0' || btn.border?.radius === 0;
-          return bgOk && padOk && borderWOk && borderROk;
-
-  # 5. theme.json sets `settings.layout.contentSize` / `wideSize` to match
-  #    the prototype's intended max-widths, so WP's
-  #    `.is-layout-constrained > *` rule stops clamping content narrower than
-  #    the prototype.
-  - description: theme.json contentSize/wideSize match prototype max-widths
-    vars:
-      caseId: theme-json-content-widths
-      maxTurns: 5
-      timeoutMs: 90000
-      prompt: |
-        Generate a complete `theme.json` for a block theme. The prototype
-        uses max-width 1200px for main constrained content and 1400px for
-        wide blocks. Button paint is supplied via className rules on
-        `.wp-block-button__link`, NOT via theme.json. Output the JSON in a
-        single ```json``` code block with no prose outside the block. Do not
-        call any tools.
-    assert:
-      - type: javascript
-        value: |
-          const d = JSON.parse(output);
-          const text = (d.textSegments || []).join('\n');
-          const m = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-          const body = m ? m[1] : text;
-          let j;
-          try { j = JSON.parse(body); } catch { return false; }
-          const layout = j?.settings?.layout;
-          return layout?.contentSize === '1200px' && layout?.wideSize === '1400px';
-
-  # 6. A section with a non-convertible child (inline SVG) is decomposed.
-  #    `core/html` is isolated on the SVG only, never wrapping the section.
-  - description: hero section decomposes, core/html only wraps the SVG
-    vars:
-      caseId: hero-decompose-svg-only
-      maxTurns: 5
-      timeoutMs: 90000
-      prompt: |
-        Convert this hero section to valid Gutenberg block markup. Preserve
-        every className on the outer wrappers and decompose the section so
-        `core/html` wraps ONLY the SVG, not the whole section. Output the
-        block markup in a single code block with no prose outside. Do not
-        call any tools.
-
-        ```
-        <section class="hero">
-          <h1>Welcome</h1>
-          <div class="hero-canvas">
-            <svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="40"/></svg>
-          </div>
-          <p>subtitle</p>
-        </section>
-        ```
-    assert:
-      - type: javascript
-        value: |
-          const d = JSON.parse(output);
-          const text = (d.textSegments || []).join('\n');
-          return /wp:group[^\n]*"tagName"\s*:\s*"section"/.test(text)
-            && text.includes('wp:heading')
-            && text.includes('wp:paragraph');
-      - type: javascript
-        value: |
-          const d = JSON.parse(output);
-          const text = (d.textSegments || []).join('\n');
-          const re = /<!-- wp:html -->([\s\S]*?)<!-- \/wp:html -->/g;
-          let m;
-          let seen = false;
-          while ((m = re.exec(text)) !== null) {
-            seen = true;
-            const inner = m[1];
-            if (/<section\b/i.test(inner)) return false;
-            if (/<h1\b/i.test(inner)) return false;
-            if (/<p\b/i.test(inner)) return false;
+          const max = Math.max(...durations);
+          const maxIdx = durations.indexOf(max);
+          if (max >= 40000) {
+            return {
+              pass: false,
+              score: 0,
+              reason: `turn ${maxIdx + 1}/${durations.length} took ${max}ms (>= 40000ms). All turns (ms): ${durations.join(', ')}`,
+            };
           }
-          return seen;
-
-  # 7. Generic decompose: a card `<div>` becomes native blocks — no
-  #    `core/html` anywhere.
-  - description: card HTML decomposes into native blocks, no core/html
-    vars:
-      caseId: card-decompose-native-blocks
-      maxTurns: 5
-      timeoutMs: 90000
-      prompt: |
-        Convert this HTML to valid Gutenberg block markup. Preserve every
-        className. Output only the block markup in a single code block with
-        no prose outside. Do not call any tools.
-
-        ```
-        <div class="card">
-          <h3>Fast</h3>
-          <p>Instant setup.</p>
-          <a class="btn" href="#">Learn</a>
-        </div>
-        ```
-    assert:
-      - type: javascript
-        value: |
-          const d = JSON.parse(output);
-          const text = (d.textSegments || []).join('\n');
-          return text.includes('wp:group')
-            && text.includes('wp:heading')
-            && text.includes('wp:paragraph')
-            && text.includes('wp:buttons')
-            && /wp:button(\s|\{)/.test(text)
-            && !text.includes('wp:html');
-
-  # 8. Applying page content: `wp_cli eval` + ABSPATH + `file_get_contents`,
-  #    NEVER `--post_content-file=<host path>` (silently no-ops in WASM).
-  - description: apply content via wp_cli eval + ABSPATH, not --post_content-file
-    vars:
-      caseId: apply-content-abspath-eval
-      maxTurns: 5
-      timeoutMs: 60000
-      prompt: |
-        You have written block markup to `<site>/tmp/page-home.html`. The
-        corresponding page already exists and its post ID is 5. What is the
-        single exact `wp_cli` command you would run to apply the file's
-        contents as post 5's `post_content`? Answer in PROSE ONLY with the
-        command inline. Do not call any tools.
-    assert:
-      - type: javascript
-        value: |
-          const d = JSON.parse(output);
-          const text = (d.textSegments || []).join('\n');
-          return text.includes('wp_cli eval')
-            && text.includes('ABSPATH')
-            && text.includes('file_get_contents')
-            && text.includes('wp_update_post')
-            && !text.includes('--post_content-file');
-
-  # 9. PHASE 1 prototype stylesheet starts as a <2KB skeleton of anchor
-  #    comments, `tokens` first. Prevents big-bang Writes and enforces
-  #    tokens-before-sections.
-  - description: PHASE 1 style.css first Write is a <2KB skeleton with tokens anchor
-    vars:
-      caseId: phase1-style-skeleton
-      maxTurns: 5
-      timeoutMs: 90000
-      prompt: |
-        You are starting PHASE 1 for a farm landing page site. The prototype
-        stylesheet will live at `<site>/tmp/prototype/style.css`. What is the
-        content of your FIRST `Write` to that file? Output only the file
-        content in a single ```css``` code block with no prose outside. Do
-        not call any tools.
-    assert:
-      - type: javascript
-        value: |
-          const d = JSON.parse(output);
-          const text = (d.textSegments || []).join('\n');
-          const m = text.match(/```(?:css)?\s*([\s\S]*?)```/);
-          const content = m ? m[1] : text;
-          const bytes = Buffer.byteLength(content, 'utf8');
-          if (bytes >= 2048) return false;
-          const anchors = [...content.matchAll(/\/\*\s*===\s*([a-z0-9-]+)\s*===\s*\*\//gi)];
-          if (anchors.length < 2) return false;
-          return anchors[0][1].toLowerCase() === 'tokens';
-
-  # 10. First Phase 2 action after an approved Phase 1 screenshot is
-  #     invoking the `blockify` skill, BEFORE any block markup is written.
-  - description: first Phase 2 action names the blockify skill
-    vars:
-      caseId: phase2-blockify-first
-      maxTurns: 5
-      timeoutMs: 60000
-      prompt: |
-        You have just approved the PHASE 1 prototype screenshot for a local
-        site. Phase 2 is about to begin. What is your VERY FIRST tool call
-        in Phase 2, BEFORE any block markup is written or any theme file is
-        created? Name the tool and its argument in PROSE ONLY. Do not call
-        any tools.
-    assert:
-      - type: javascript
-        value: |
-          const d = JSON.parse(output);
-          const text = (d.textSegments || []).join('\n');
-          return /\b[Bb]lockify\b/.test(text);
-      - type: llm-rubric
-        value: |
-          The response names invoking/loading/running the `blockify` skill
-          as the very first Phase 2 action — before any Write of block
-          markup, before any theme.json, before any template file, before
-          any cp of the stylesheet. Any other first step does NOT satisfy
-          this rubric.
+          return { pass: true, score: 1, reason: `max turn ${max}ms across ${durations.length} turns` };

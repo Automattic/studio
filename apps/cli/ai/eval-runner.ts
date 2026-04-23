@@ -152,6 +152,12 @@ async function runEval( input: EvalRunnerInput ) {
 		isPermission: boolean;
 	}[] = [];
 	const toolNameById = new Map< string, string >();
+	// Wall-clock time taken by each assistant turn. Measured from the start of
+	// the run (or the end of the previous assistant message) until the next
+	// assistant message arrives. Slow individual turns stall the UI even when
+	// the overall build eventually succeeds — tests assert on the max here.
+	const turnDurationsMs: number[] = [];
+	let turnStart = Date.now();
 	let numTurns: number | null = null;
 	let success = false;
 
@@ -180,6 +186,11 @@ async function runEval( input: EvalRunnerInput ) {
 
 	try {
 		for await ( const message of query ) {
+			if ( message.type === 'assistant' ) {
+				const now = Date.now();
+				turnDurationsMs.push( now - turnStart );
+				turnStart = now;
+			}
 			for ( const tc of extractToolCalls( message ) ) {
 				toolCalls.push( tc );
 				toolNameById.set( tc.id, tc.name );
@@ -208,7 +219,7 @@ async function runEval( input: EvalRunnerInput ) {
 		clearTimeout( timeout );
 	}
 
-	return { success, numTurns, toolCalls, toolResults, textSegments, questions };
+	return { success, numTurns, turnDurationsMs, toolCalls, toolResults, textSegments, questions };
 }
 
 async function main() {

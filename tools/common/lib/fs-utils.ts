@@ -34,7 +34,7 @@ export function calculateDirectorySizeForArchive(
 						const filePath = path.join( dirPath, file.name );
 						const fileRelativeToRoot = path.relative( directoryPath, filePath );
 						const ignorePath = pathPrefix
-							? `${ pathPrefix }/${ fileRelativeToRoot }`
+							? path.join( pathPrefix, fileRelativeToRoot )
 							: fileRelativeToRoot;
 						try {
 							if ( ig.ignores( ignorePath ) ) {

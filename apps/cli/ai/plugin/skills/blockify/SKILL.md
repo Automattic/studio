@@ -12,7 +12,7 @@ Convert HTML input into native Gutenberg block markup. The goal is **FAITHFUL CO
 
 - **Input**: any HTML — a single section, a full page, a file you `Read`, a snippet the user pasted, the `post_content` of an existing post fetched via `wp_cli post get`. This skill does not care where the HTML came from.
 - **Output**: valid Gutenberg block markup that renders the same visual DOM. Return it inline in your response, write it to a file with `Write`/`Edit`, or apply it with `wp_cli post update` — whichever the caller asked for.
-- **Out of scope**: this skill does NOT modify CSS, theme files, or site content by default. It is a pure HTML → block markup transformation. If the caller wants the result applied somewhere, they invoke the appropriate tool after receiving the output.
+- **Out of scope**: this skill does not modify CSS or theme files itself. It provides the HTML → block markup translation AND the CSS selector adjustments you MUST make when porting prototype CSS to a block theme (see "CSS migration after conversion" below) so the theme renders identically to the prototype.
 
 ## Decompose — do not give up on a section
 
@@ -160,9 +160,74 @@ Replaces `<hr>`:
 <!-- /wp:separator -->
 ```
 
+## CSS migration after conversion
+
+Block markup renders different DOM than prototype HTML, and WordPress injects default paint via \`wp-element-*\` classes and theme.json styles. Prototype CSS copied verbatim to a block theme produces three classic symptoms: double button padding/borders, content narrower than the prototype, and missing section padding. The rules below are MANDATORY when porting prototype CSS to a theme — not optional polish.
+
+### Buttons — the wrapper carries NO paint
+
+\`core/button\` renders two stacked elements:
+
+- outer wrapper: \`<div class="wp-block-button <className>">\` — carries layout only (margin, flex alignment, width).
+- inner link: \`<a class="wp-block-button__link wp-element-button <className?>">\` — carries ALL paint.
+
+\`.wp-element-button\` already has default WordPress paint (padding, background, border). If your prototype \`.btn-primary { padding; border; background }\` is copied to the theme as-is, the \`className\` puts it on the outer wrapper via \`.wp-block-button.btn-primary\`, and the inner link keeps WordPress's defaults — you get doubled padding, doubled border, nested backgrounds.
+
+Rule: ALL button paint (background, border, padding, color, font, hover, transitions, shadow, border-radius) goes on \`.wp-block-button.<className> .wp-block-button__link\`. The \`.wp-block-button.<className>\` wrapper gets ZERO paint — only layout.
+
+Migration:
+- Delete: \`.btn-primary { background: gold; padding: 1rem 2rem; border: 2px solid gold; color: black; }\`
+- Add: \`.wp-block-button.btn-primary .wp-block-button__link { background: gold; padding: 1rem 2rem; border: 2px solid gold; color: black; }\`
+
+### Images — figure wrapper, and the img itself
+
+\`core/image\` renders:
+
+\`\`\`
+<figure class="wp-block-image <className>">
+  <img src="..." alt="..."/>
+</figure>
+\`\`\`
+
+Prototype \`.hero-image { ... }\` targeting a bare \`<img>\` now needs to decide:
+- figure-level styling (border-radius, box-shadow, outer layout) → \`.wp-block-image.hero-image { ... }\`
+- img-level styling (object-fit, aspect-ratio, sizing that has to apply to the pixel data) → \`.wp-block-image.hero-image img { ... }\`
+
+### Groups / sections — constrained layout fights max-width
+
+A \`core/group\` with \`layout: { type: "constrained" }\` picks up the class \`.is-layout-constrained\`. WordPress applies \`max-width: var(--wp--style--global--content-size)\` to every direct child via \`.is-layout-constrained > *\`. If theme.json's \`contentSize\` doesn't match the prototype's intended max-width, children get clamped to the WP default (often 840px) and content appears narrower than the prototype.
+
+Two fixes:
+- Set \`settings.layout.contentSize\` and \`settings.layout.wideSize\` in theme.json to match the prototype's actual max-widths (e.g. \`"1200px"\` and \`"1400px"\`).
+- For full-bleed sections (hero with a background-image that should go edge-to-edge), use \`layout: { type: "default" }\` on the group instead of \`constrained\` — default layout doesn't inject max-width.
+
+### Neutralize \`wp-element-button\` defaults in theme.json
+
+If your theme provides button styles via \`.wp-block-button.<className> .wp-block-button__link\` selectors, also neutralize the WordPress default so it stops leaking through:
+
+\`\`\`json
+"styles": {
+  "elements": {
+    "button": {
+      "color": { "background": "transparent", "text": "inherit" },
+      "spacing": { "padding": "0" },
+      "border": { "width": "0", "radius": "0" }
+    }
+  }
+}
+\`\`\`
+
+This makes \`wp-element-button\` a no-op; your className rules are the only source of button styling.
+
+### Section padding — keep it on the className, not on block attributes
+
+Prototype-style \`.hero-section { padding: var(--section-py) 0; }\` ports cleanly because \`className\` passes through to the outer \`<section class="wp-block-group hero-section">\`. Do NOT move this padding into \`style.spacing.padding\` block attributes — keep it in the stylesheet.
+
+If a section that SHOULD have padding renders without any, check two things: (a) whether \`theme.json\`'s \`styles.spacing.padding\` is setting a default that overrides the prototype rule (fix: remove or null that default), and (b) whether \`is-layout-constrained\` is shifting the padding onto the inner constrained element — make the selector more specific (\`section.hero-section.wp-block-group { padding: ... }\`) or switch the group to \`layout: { type: "default" }\`.
+
 ## Nesting
 
-Sections are built by nesting blocks inside `core/group`. The block structure is for editability; the stylesheet is for aesthetics. Never push layout, spacing, or color into block markup that belongs in CSS.
+Sections are built by nesting blocks inside \`core/group\`. The block structure is for editability; the stylesheet is for aesthetics. Never push layout, spacing, or color into block markup that belongs in CSS.
 
 ## Additional rules
 

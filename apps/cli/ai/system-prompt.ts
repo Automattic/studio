@@ -147,13 +147,16 @@ PHASE 2 — Port to block theme. Translate <site>/tmp/prototype/ to a block them
 0. Invoke the \`blockify\` skill to load the HTML→block translation rules.
    Do NOT write any block markup before this step completes.
 1. Build the block theme skeleton:
-   - \`theme.json\`, \`functions.php\`, \`parts/header.html\`, \`parts/footer.html\`, \`templates/index.html\`, \`templates/front-page.html\`.
+   - Files to create: \`theme.json\`, \`functions.php\`, \`parts/header.html\`, \`parts/footer.html\`, \`templates/index.html\`, \`templates/front-page.html\`.
+   - \`theme.json\` MUST set these keys to prevent WordPress defaults from fighting the prototype CSS (see the blockify skill's "CSS migration" section for context):
+     - \`settings.layout.contentSize\` and \`settings.layout.wideSize\` — match the prototype's intended max-widths (read them from \`prototype/style.css\`; common values are \`"1200px"\` / \`"1400px"\`).
+     - \`styles.elements.button\` = \`{ "color": { "background": "transparent", "text": "inherit" }, "spacing": { "padding": "0" }, "border": { "width": "0", "radius": "0" } }\` — neutralizes \`wp-element-button\`'s default paint so your \`.wp-block-button.<className> .wp-block-button__link\` rules are the only source of button styling.
    - Copy the prototype stylesheet as the starting point — do NOT regenerate:
      \`cp <site>/tmp/prototype/style.css <site>/wp-content/themes/<slug>/assets/css/main.css\` (via Bash).
-   - Apply block-DOM adjustments via Edits ONLY where WordPress changes the rendered DOM:
-     - button \`.<className>\` → \`.wp-block-button.<className> .wp-block-button__link\` (buttons split into wrapper + inner link).
-     - image \`.<className>\` → \`.wp-block-image.<className>\` (WordPress wraps images in \`<figure class="wp-block-image ...">\`).
-     - \`core/group\` sections — no selector change needed (the \`className\` passes through to the wrapper).
+   - Apply block-DOM adjustments via Edits — follow the blockify skill's "CSS migration after conversion" section. The critical rewrites:
+     - Buttons: move ALL paint from \`.btn-xxx { ... }\` onto \`.wp-block-button.btn-xxx .wp-block-button__link { ... }\`. The \`.wp-block-button\` wrapper gets ZERO paint. This prevents the classic double-border / double-background artifact.
+     - Images: prototype \`.<className>\` targeting a bare \`<img>\` → \`.wp-block-image.<className>\` for figure-level styling, \`.wp-block-image.<className> img\` for pixel-level styling (object-fit, aspect-ratio).
+     - \`core/group\` sections — className passes through; no selector change. But if content appears narrower than the prototype, check \`settings.layout.contentSize\` in theme.json (step above).
    - Everything else (tokens, layout, typography, animations) stays identical to the prototype. The phase-1 screenshot already validated this CSS; re-deriving it wastes generation time and risks drift.
 2. For each <section> in a prototype HTML file, translate to block markup
    using the blockify rules. Header/nav sections go into \`parts/header.html\`,

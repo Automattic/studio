@@ -50,7 +50,8 @@ interface DisposableWpCliResponse extends Disposable {
 export async function runWpCliCommand(
 	siteFolder: string,
 	phpVersion: SupportedPHPVersion,
-	args: string[]
+	args: string[],
+	options: { stdin?: Buffer | Uint8Array } = {}
 ): Promise< DisposableWpCliResponse > {
 	const id = await loadNodeRuntime( phpVersion, {
 		followSymlinks: true,
@@ -100,7 +101,10 @@ export async function runWpCliCommand(
 
 		await setupPlatformLevelMuPlugins( php );
 
-		const response = await php.cli( [ 'php', '/tmp/wp-cli.phar', '--path=/wordpress', ...args ] );
+		const response = await php.cli(
+			[ 'php', '/tmp/wp-cli.phar', '--path=/wordpress', ...args ],
+			options.stdin ? { stdin: options.stdin } : {}
+		);
 
 		return {
 			response,
@@ -118,7 +122,10 @@ export async function runWpCliCommand(
  * Run a global WP-CLI command without requiring a site.
  * Useful for commands like --version that don't need a WordPress installation.
  */
-export async function runGlobalWpCliCommand( args: string[] ): Promise< DisposableWpCliResponse > {
+export async function runGlobalWpCliCommand(
+	args: string[],
+	options: { stdin?: Buffer | Uint8Array } = {}
+): Promise< DisposableWpCliResponse > {
 	const id = await loadNodeRuntime( LatestSupportedPHPVersion, {
 		followSymlinks: true,
 		withRedis: false,
@@ -143,7 +150,10 @@ export async function runGlobalWpCliCommand( args: string[] ): Promise< Disposab
 
 		await php.mount( '/tmp/wp-cli.phar', createNodeFsMountHandler( getWpCliPharPath() ) );
 
-		const response = await php.cli( [ 'php', '/tmp/wp-cli.phar', ...args ] );
+		const response = await php.cli(
+			[ 'php', '/tmp/wp-cli.phar', ...args ],
+			options.stdin ? { stdin: options.stdin } : {}
+		);
 
 		return {
 			response,

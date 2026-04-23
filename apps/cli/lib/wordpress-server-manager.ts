@@ -499,7 +499,8 @@ const wpCliResultSchema = z.object( {
 
 export async function sendWpCliCommand(
 	siteId: string,
-	args: string[]
+	args: string[],
+	stdin?: Buffer
 ): Promise< z.infer< typeof wpCliResultSchema > > {
 	const processName = getProcessName( siteId );
 	const runningProcess = await isProcessRunning( processName );
@@ -510,7 +511,12 @@ export async function sendWpCliCommand(
 
 	const result = await sendMessage( runningProcess.pmId, processName, {
 		topic: 'wp-cli-command',
-		data: { args },
+		data: {
+			args,
+			...( stdin && stdin.length > 0
+				? { stdinBase64: stdin.toString( 'base64' ) }
+				: {} ),
+		},
 	} );
 
 	return wpCliResultSchema.parse( result );

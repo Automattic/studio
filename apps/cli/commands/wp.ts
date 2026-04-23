@@ -40,6 +40,31 @@ enum Mode {
 	SITE = 'site',
 }
 
+/**
+ * Drain `process.stdin` to a Buffer when this Studio CLI invocation
+ * was piped into (e.g. `echo foo | studio wp eval ...`). Returns
+ * `undefined` when stdin is a TTY (interactive shell) so we never
+ * block reading from a terminal.
+ *
+ * Reads bytes synchronously into memory before the WP-CLI command
+ * runs. The buffer is then forwarded to the PHP runtime via the
+ * `stdin` option on `php.cli()` (Playground PR adding that option
+ * is the upstream half of this fix). Without this draining step,
+ * host stdin would never reach PHP — the daemon path runs in a
+ * separate process from `studio wp` and the in-proc path runs in a
+ * worker thread, neither of which has the user's pipe attached.
+ */
+async function drainHostStdin(): Promise< Buffer | undefined > {
+	if ( process.stdin.isTTY ) {
+		return undefined;
+	}
+	const chunks: Buffer[] = [];
+	for await ( const chunk of process.stdin ) {
+		chunks.push( chunk as Buffer );
+	}
+	return chunks.length > 0 ? Buffer.concat( chunks ) : undefined;
+}
+
 export async function runCommand(
 	mode: Mode,
 	siteFolder: string,
@@ -48,7 +73,8 @@ export async function runCommand(
 ): Promise< void > {
 	// Handle global WP-CLI commands that don't require a site path (--studio-no-path)
 	if ( mode === Mode.GLOBAL ) {
-		await using command = await runGlobalWpCliCommand( args );
+		const stdin = await drainHostStdin();
+		await using command = await runGlobalWpCliCommand( args, { stdin } );
 
 		await pipePHPResponse( command.response );
 		process.exitCode = await command.response.exitCode;
@@ -58,6 +84,11 @@ export async function runCommand(
 
 	const site = await getSiteByFolder( siteFolder );
 	const phpVersion = validatePhpVersion( options.phpVersion ?? site.phpVersion );
+
+	// Drain piped stdin (if any) up-front so we can forward it to whichever
+	// WP-CLI execution path we end up on. Both the daemon IPC and in-proc
+	// paths route the bytes through `php.cli({ stdin })`.
+	const stdin = await drainHostStdin();
 
 	// If there's already a running Playground instance for this site AND we're not requesting
 	// a different PHP version, pass the command to it…
@@ -71,7 +102,7 @@ export async function runCommand(
 			await connectToDaemon();
 
 			if ( await isServerRunning( site.id ) ) {
-				const result = await sendWpCliCommand( site.id, args );
+				const result = await sendWpCliCommand( site.id, args, stdin );
 				process.stdout.write( result.stdout );
 				process.stderr.write( result.stderr );
 				process.exit( result.exitCode );
@@ -85,7 +116,9 @@ export async function runCommand(
 	process.on( 'SIGTERM', () => process.exit( 1 ) );
 
 	// …If not, run the command in a new PHP-WASM instance
-	await using command = await runWpCliCommand( siteFolder, phpVersion, args );
+	await using command = await runWpCliCommand( siteFolder, phpVersion, args, {
+		stdin,
+	} );
 
 	await pipePHPResponse( command.response );
 	process.exitCode = await command.response.exitCode;

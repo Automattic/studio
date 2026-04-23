@@ -4,13 +4,11 @@ import {
 	__experimentalHeading as Heading,
 	__experimentalText as Text,
 	Notice,
-	Spinner,
 } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
-import { useBackupPreflight } from '../hooks/use-backup-preflight';
 import {
 	BuildNewSiteIllustration,
 	ConnectSiteIllustration,
@@ -68,17 +66,7 @@ function ImportDropZone( { onValidated }: { onValidated: ( file: File ) => void 
 	const { __ } = useI18n();
 	const [ isDragging, setIsDragging ] = useState( false );
 	const [ extensionError, setExtensionError ] = useState< string >();
-	const [ candidateFile, setCandidateFile ] = useState< File | null >( null );
 	const fileRef = useRef< HTMLInputElement >( null );
-
-	const preflight = useBackupPreflight( candidateFile );
-	const checking = preflight.status === 'checking';
-
-	useEffect( () => {
-		if ( preflight.status === 'valid' && candidateFile ) {
-			onValidated( candidateFile );
-		}
-	}, [ preflight.status, candidateFile, onValidated ] );
 
 	const handleFile = useCallback(
 		( file: File | undefined ) => {
@@ -90,25 +78,21 @@ function ImportDropZone( { onValidated }: { onValidated: ( file: File ) => void 
 			);
 			if ( ! hasValidExtension ) {
 				setExtensionError( __( 'Unsupported file type.' ) );
-				setCandidateFile( null );
 				return;
 			}
 			setExtensionError( undefined );
-			setCandidateFile( file );
+			onValidated( file );
 		},
-		[ __ ]
+		[ __, onValidated ]
 	);
 
 	const handleDrop = useCallback(
 		( e: React.DragEvent ) => {
 			e.preventDefault();
 			setIsDragging( false );
-			if ( checking ) {
-				return;
-			}
 			handleFile( e.dataTransfer.files[ 0 ] );
 		},
-		[ checking, handleFile ]
+		[ handleFile ]
 	);
 
 	const handleChange = useCallback(
@@ -121,25 +105,17 @@ function ImportDropZone( { onValidated }: { onValidated: ( file: File ) => void 
 		[ handleFile ]
 	);
 
-	const preflightError = preflight.status === 'invalid' ? preflight.reason : undefined;
-	const errorMessage = extensionError || preflightError;
-	const errorFileName = preflightError ? candidateFile?.name : undefined;
-
 	return (
 		<div
 			className={ cx(
 				'group w-full border border-dashed rounded-xl p-6 text-center',
-				'bg-frame/50 backdrop-blur-md transition-colors',
-				checking ? 'cursor-progress' : 'cursor-pointer',
+				'bg-frame/50 backdrop-blur-md transition-colors cursor-pointer',
 				isDragging
 					? 'border-frame-theme bg-frame-theme/5'
 					: 'border-frame-border hover:border-frame-theme'
 			) }
 			onDragOver={ ( e ) => {
 				e.preventDefault();
-				if ( checking ) {
-					return;
-				}
 				setIsDragging( true );
 				setExtensionError( undefined );
 			} }
@@ -149,11 +125,8 @@ function ImportDropZone( { onValidated }: { onValidated: ( file: File ) => void 
 			} }
 			onDrop={ handleDrop }
 			onClick={ () => {
-				if ( ! checking ) {
-					fileRef.current?.click();
-				}
+				fileRef.current?.click();
 			} }
-			aria-busy={ checking || undefined }
 		>
 			<input
 				ref={ fileRef }
@@ -161,42 +134,24 @@ function ImportDropZone( { onValidated }: { onValidated: ( file: File ) => void 
 				accept={ ACCEPTED_IMPORT_FILE_TYPES.join( ',' ) }
 				onChange={ handleChange }
 				className="hidden"
-				disabled={ checking }
 			/>
 			<div className="flex flex-col items-center justify-center gap-4 min-h-[180px]">
-				{ checking ? (
-					<>
-						<Spinner style={ { margin: 0, width: 20, height: 20 } } />
-						<Heading className="text-base" weight="500">
-							{ __( 'Verifying backup…' ) }
-						</Heading>
-					</>
-				) : (
-					<>
-						<DropBackupIllustration />
-						<div className="flex flex-col gap-1">
-							<Heading
-								className="text-base transition-colors group-hover:text-frame-theme"
-								weight="500"
-							>
-								{ __( 'Import from a backup' ) }
-							</Heading>
-							<Text className="text-[13px] !text-frame-text-secondary" weight="400">
-								{ __( 'Drop a file or click to browse (.zip, .tar.gz, .sql, .wpress)' ) }
-							</Text>
-						</div>
-					</>
-				) }
+				<DropBackupIllustration />
+				<div className="flex flex-col gap-1">
+					<Heading
+						className="text-base transition-colors group-hover:text-frame-theme"
+						weight="500"
+					>
+						{ __( 'Import from a backup' ) }
+					</Heading>
+					<Text className="text-[13px] !text-frame-text-secondary" weight="400">
+						{ __( 'Drop a file or click to browse (.zip, .tar.gz, .sql, .wpress)' ) }
+					</Text>
+				</div>
 			</div>
-			{ errorMessage && (
+			{ extensionError && (
 				<Notice status="error" isDismissible={ false } className="!mt-4 !mx-0 text-left">
-					{ errorFileName && (
-						<>
-							<strong>{ errorFileName }</strong>
-							<br />
-						</>
-					) }
-					{ errorMessage }
+					{ extensionError }
 				</Notice>
 			) }
 		</div>

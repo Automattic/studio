@@ -79,7 +79,6 @@ import {
 import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
 import { buildFeatureFlags } from 'src/lib/feature-flags';
 import { getImageData } from 'src/lib/get-image-data';
-import { preflightBackupFile } from 'src/lib/import-export/import/preflight';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import * as oauthClient from 'src/lib/oauth';
@@ -1913,14 +1912,6 @@ export async function validateBlueprint(
 	blueprintJson: Blueprint[ 'blueprint' ]
 ) {
 	return validateBlueprintData( blueprintJson );
-}
-
-export async function preflightBackup(
-	_event: IpcMainInvokeEvent,
-	filePath: string,
-	fileType: string
-) {
-	return preflightBackupFile( filePath, fileType );
 }
 
 export async function readBlueprintFile(

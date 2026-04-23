@@ -157,8 +157,6 @@ const api: IpcApi = {
 	listLocalFileTree: ( siteId, path, maxDepth ) =>
 		ipcRenderer.invoke( 'listLocalFileTree', siteId, path, maxDepth ),
 	validateBlueprint: ( blueprintJson ) => ipcRendererInvoke( 'validateBlueprint', blueprintJson ),
-	preflightBackup: ( filePath, fileType ) =>
-		ipcRendererInvoke( 'preflightBackup', filePath, fileType ),
 	readBlueprintFile: ( filePath ) => ipcRendererInvoke( 'readBlueprintFile', filePath ),
 	extractBlueprintBundle: ( zipFilePath ) =>
 		ipcRendererInvoke( 'extractBlueprintBundle', zipFilePath ),

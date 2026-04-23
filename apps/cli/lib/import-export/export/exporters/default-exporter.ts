@@ -3,6 +3,7 @@ import fsPromises from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { ARCHIVER_OPTIONS, DEFAULT_PHP_VERSION } from '@studio/common/constants';
+import { generateBackupFilename } from '@studio/common/lib/generate-backup-filename';
 import { ExportEvents } from '@studio/common/lib/import-export-events';
 import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
 import {
@@ -16,7 +17,6 @@ import { getWordPressVersionFromInstallation } from 'cli/lib/dependency-manageme
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { ImportExportEventEmitter } from '../../events';
 import { exportDatabaseToFile, exportDatabaseToMultipleFiles } from '../export-database';
-import { generateBackupFilename } from '../generate-backup-filename';
 import { ExportOptions, BackupContents, Exporter, StudioJson } from '../types';
 
 export class DefaultExporter extends ImportExportEventEmitter implements Exporter {

@@ -25,13 +25,12 @@ function OnboardingHomePage() {
 						) }
 					</p>
 				</Link>
-				<div className={ `${ styles.card } ${ styles.cardDisabled }` }>
+				<Link to="/onboarding/import" className={ styles.card }>
 					<h3 className={ styles.cardTitle }>{ __( 'Bring existing' ) }</h3>
 					<p className={ styles.cardBody }>
-						{ __( 'Import from WordPress.com, a backup, or an export file' ) }
+						{ __( 'Import from a Jetpack backup or another full-site export' ) }
 					</p>
-					<span className={ styles.cardBadge }>{ __( 'Coming soon' ) }</span>
-				</div>
+				</Link>
 			</div>
 		</div>
 	);

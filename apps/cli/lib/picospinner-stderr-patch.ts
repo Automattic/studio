@@ -16,7 +16,7 @@ type PatchableRenderer = {
 };
 
 function redirectPicospinnerToStderr(): void {
-	const r = renderer as Partial< PatchableRenderer > | undefined;
+	const r = renderer as unknown as Partial< PatchableRenderer > | undefined;
 	if ( ! r || typeof r.render !== 'function' || typeof r.onComponentFinish !== 'function' ) {
 		return;
 	}

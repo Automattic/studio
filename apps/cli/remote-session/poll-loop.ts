@@ -66,7 +66,11 @@ async function postBestEffort(
 	text: string
 ): Promise< void > {
 	try {
-		await deps.respond( config, { chatId: target.chatId, bot: target.bot, text } );
+		await deps.respond(
+			config,
+			{ chatId: target.chatId, bot: target.bot, text },
+			{ logger: deps.logger }
+		);
 	} catch ( error ) {
 		deps.logger.warn( 'Best-effort post failed', {
 			error: ( error as Error ).message,
@@ -87,7 +91,11 @@ async function postChunks(
 		chars: reply.length,
 	} );
 	for ( const chunk of chunks ) {
-		await deps.respond( config, { chatId: target.chatId, bot: target.bot, text: chunk } );
+		await deps.respond(
+			config,
+			{ chatId: target.chatId, bot: target.bot, text: chunk },
+			{ logger: deps.logger }
+		);
 	}
 }
 
@@ -99,16 +107,19 @@ async function handleTurn(
 ): Promise< void > {
 	let sessionId: string | undefined = ( await deps.readState( target.chatId ) )?.session_id;
 	const started = Date.now();
+	const logContext = { chat_id: target.chatId };
 
 	let outcome = await deps.runTurn( {
 		text,
 		sessionId,
 		timeoutMs: config.turn_timeout_seconds * 1000,
+		logger: deps.logger,
+		logContext,
 	} );
 
 	if ( outcome.staleSession && sessionId ) {
 		deps.logger.info( 'Resume failed; retrying without session_id', {
-			chat_id: target.chatId,
+			...logContext,
 			stale_session_id: sessionId,
 		} );
 		await deps.clearSession( target.chatId );
@@ -118,6 +129,8 @@ async function handleTurn(
 			text,
 			sessionId: undefined,
 			timeoutMs: config.turn_timeout_seconds * 1000,
+			logger: deps.logger,
+			logContext,
 		} );
 	}
 
@@ -194,11 +207,15 @@ export async function runPollLoop( options: RunPollLoopOptions ): Promise< PollL
 		const attachMessage = `🟢 Local agent attached. Working dir: ${ cwd }. ${
 			resuming ? 'Resuming previous session.' : 'New session.'
 		}`;
-		await deps.respond( config, {
-			chatId: config.chat_id,
-			bot: config.bot,
-			text: attachMessage,
-		} );
+		await deps.respond(
+			config,
+			{
+				chatId: config.chat_id,
+				bot: config.bot,
+				text: attachMessage,
+			},
+			{ logger: deps.logger }
+		);
 		deps.logger.info( 'Attached (pinned chat)', { chat_id: config.chat_id, resuming } );
 	} else {
 		deps.logger.info( 'Attached (open to any chat authorized by the bearer)' );
@@ -233,7 +250,7 @@ export async function runPollLoop( options: RunPollLoopOptions ): Promise< PollL
 		batchLoop: while ( ! detachRequested ) {
 			let batch: Awaited< ReturnType< typeof deps.poll > >;
 			try {
-				batch = await deps.poll( config, abortController.signal );
+				batch = await deps.poll( config, abortController.signal, { logger: deps.logger } );
 				backoffAttempt = 0;
 			} catch ( error ) {
 				if ( error instanceof TelegramAuthError ) {
@@ -302,17 +319,37 @@ export async function runPollLoop( options: RunPollLoopOptions ): Promise< PollL
 				deps.logger.info( 'Polled message', {
 					chat_id: polled.chat_id,
 					bot: polled.bot,
+					text_length: polled.text.length,
 					preview: text.slice( 0, 80 ),
 				} );
+
+				if ( text.length === 0 ) {
+					// Empty text would cause `studio code --json` to fail its `.check()`
+					// and emit yargs help on stderr. Skip and tell the user.
+					deps.logger.warn( 'Skipping empty message', {
+						chat_id: polled.chat_id,
+					} );
+					await postBestEffort(
+						deps,
+						config,
+						target,
+						'⚠️ Empty message ignored. Send some text or `/new` to start over.'
+					);
+					continue;
+				}
 
 				if ( text.toLowerCase() === '/new' ) {
 					await deps.clearSession( polled.chat_id );
 					try {
-						await deps.respond( config, {
-							chatId: target.chatId,
-							bot: target.bot,
-							text: '🆕 Started a new conversation.',
-						} );
+						await deps.respond(
+							config,
+							{
+								chatId: target.chatId,
+								bot: target.bot,
+								text: '🆕 Started a new conversation.',
+							},
+							{ logger: deps.logger }
+						);
 					} catch ( error ) {
 						if ( error instanceof TelegramBadRequestError ) {
 							deps.logger.warn( 'Respond 4xx on /new ack', { status: error.status } );

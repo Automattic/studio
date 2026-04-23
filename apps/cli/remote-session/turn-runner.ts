@@ -1,6 +1,7 @@
 import { type ChildProcess, spawn } from 'child_process';
 import readline from 'readline';
 import type { JsonEvent, TurnCompletedStatus } from '@studio/common/ai/json-events';
+import type { RemoteSessionLogger } from 'cli/remote-session/logger';
 
 export interface QuestionAsked {
 	question: string;
@@ -40,6 +41,10 @@ export interface TurnRunOptions {
 	onEvent?: ( event: JsonEvent ) => void;
 	/** Abort the turn (kills the child). */
 	signal?: AbortSignal;
+	/** Optional logger for subprocess lifecycle diagnostics. */
+	logger?: RemoteSessionLogger;
+	/** Correlates log lines with the originating chat/message. */
+	logContext?: Record< string, unknown >;
 }
 
 const STDERR_TAIL_BYTES = 2048;
@@ -126,31 +131,55 @@ function detectStaleSession(
 export async function runTurn( options: TurnRunOptions ): Promise< TurnOutcome > {
 	const cliEntry = options.cliEntry ?? process.argv[ 1 ];
 	const execPath = options.execPath ?? process.execPath;
-	const args: string[] = [ cliEntry, 'code', '--json' ];
+	// Send the Telegram text on stdin (`--message-from-stdin`) rather than as a
+	// positional. Avoids both yargs's `--` separator dropping the positional and
+	// any chance of attacker-controlled text being parsed as a flag.
+	const args: string[] = [ cliEntry, 'code', '--json', '--message-from-stdin' ];
 	if ( options.sessionId ) {
 		args.push( '--resume-session', options.sessionId );
 	}
-	// Pass the Telegram text as a positional after `--` so yargs never tries to
-	// interpret anything inside it (e.g. a leading hyphen) as a flag, and so a
-	// shell never sees it. Matches the `$0 [message]` command shape.
-	args.push( '--', options.text );
+
+	const logger = options.logger;
+	const logContext = options.logContext ?? {};
+	const startedAt = Date.now();
+	logger?.info( 'Spawning studio code subprocess', {
+		...logContext,
+		exec: execPath,
+		cli_entry: cliEntry,
+		has_resume_session: options.sessionId !== undefined,
+		session_id: options.sessionId,
+		text_length: options.text.length,
+		text_preview: options.text.slice( 0, 120 ),
+		timeout_ms: options.timeoutMs,
+	} );
 
 	let child: ChildProcess;
 	try {
 		child = spawn( execPath, args, {
-			stdio: [ 'ignore', 'pipe', 'pipe' ],
+			stdio: [ 'pipe', 'pipe', 'pipe' ],
 			env: options.env ?? process.env,
 			// Explicitly never use a shell — text is attacker-controlled.
 			shell: false,
 		} );
 	} catch ( error ) {
+		const message = ( error as Error ).message ?? 'spawn failed';
+		logger?.error( 'Spawn failed', { ...logContext, error: message } );
 		return {
 			status: 'spawn_error',
 			isError: true,
-			stderrTail: ( error as Error ).message ?? 'spawn failed',
+			stderrTail: message,
 			exitCode: null,
 			staleSession: false,
 		};
+	}
+
+	logger?.debug( 'Subprocess spawned', { ...logContext, pid: child.pid } );
+
+	if ( child.stdin ) {
+		child.stdin.on( 'error', ( error ) => {
+			logger?.warn( 'Subprocess stdin error', { ...logContext, error: error.message } );
+		} );
+		child.stdin.end( options.text, 'utf8' );
 	}
 
 	let capturedSessionId: string | undefined;
@@ -166,6 +195,12 @@ export async function runTurn( options: TurnRunOptions ): Promise< TurnOutcome >
 	rl.on( 'line', ( line ) => {
 		const event = parseEvent( line );
 		if ( ! event ) {
+			if ( line.trim().length > 0 ) {
+				logger?.debug( 'Subprocess stdout (non-JSON)', {
+					...logContext,
+					line: line.slice( 0, 500 ),
+				} );
+			}
 			return;
 		}
 		options.onEvent?.( event );
@@ -180,6 +215,14 @@ export async function runTurn( options: TurnRunOptions ): Promise< TurnOutcome >
 					replyText = extracted.replyText;
 				}
 				isError = isError || extracted.isError;
+				logger?.debug( 'Event: message/result', {
+					...logContext,
+					session_id: extracted.sessionId,
+					is_error: extracted.isError,
+					result_chars: extracted.replyText?.length ?? 0,
+				} );
+			} else {
+				logger?.debug( 'Event: message', { ...logContext } );
 			}
 		} else if ( event.type === 'question.asked' ) {
 			pausedQuestions = event.questions.map( ( q ) => ( {
@@ -189,16 +232,34 @@ export async function runTurn( options: TurnRunOptions ): Promise< TurnOutcome >
 					description: o.description,
 				} ) ),
 			} ) );
+			logger?.debug( 'Event: question.asked', {
+				...logContext,
+				questions: pausedQuestions.length,
+			} );
 		} else if ( event.type === 'turn.completed' ) {
 			completedStatus = event.status;
 			if ( event.sessionId ) {
 				capturedSessionId = event.sessionId;
 			}
+			logger?.debug( 'Event: turn.completed', {
+				...logContext,
+				status: event.status,
+				session_id: event.sessionId,
+			} );
+		} else {
+			logger?.debug( 'Event', { ...logContext, type: event.type } );
 		}
 	} );
 
 	child.stderr?.on( 'data', ( chunk: Buffer ) => {
 		stderrTail = appendStderrTail( stderrTail, chunk );
+		const text = chunk.toString( 'utf8' );
+		if ( text.trim().length > 0 ) {
+			logger?.debug( 'Subprocess stderr', {
+				...logContext,
+				chunk: text.slice( 0, 500 ),
+			} );
+		}
 	} );
 
 	const overallTimer = setTimeout( () => {
@@ -213,8 +274,19 @@ export async function runTurn( options: TurnRunOptions ): Promise< TurnOutcome >
 	options.signal?.addEventListener( 'abort', onAbort, { once: true } );
 
 	const exitCode = await new Promise< number | null >( ( resolve ) => {
-		child.once( 'exit', ( code ) => resolve( code ) );
-		child.once( 'error', () => resolve( null ) );
+		child.once( 'exit', ( code, signal ) => {
+			logger?.info( 'Subprocess exited', {
+				...logContext,
+				exit_code: code,
+				signal,
+				duration_ms: Date.now() - startedAt,
+			} );
+			resolve( code );
+		} );
+		child.once( 'error', ( error ) => {
+			logger?.error( 'Subprocess error', { ...logContext, error: error.message } );
+			resolve( null );
+		} );
 	} );
 
 	clearTimeout( overallTimer );
@@ -251,6 +323,18 @@ export async function runTurn( options: TurnRunOptions ): Promise< TurnOutcome >
 	const status: TurnOutcomeStatus = completedStatus ?? ( isError ? 'error' : 'error' );
 	const staleSession =
 		options.sessionId !== undefined && detectStaleSession( stderrTail, replyText, isError );
+
+	logger?.info( 'Turn outcome', {
+		...logContext,
+		status,
+		session_id: capturedSessionId,
+		exit_code: exitCode,
+		is_error: isError,
+		reply_chars: replyText?.length ?? 0,
+		questions: pausedQuestions?.length ?? 0,
+		stale_session: staleSession,
+		stderr_tail: stderrTail ? stderrTail.slice( -500 ) : '',
+	} );
 
 	return {
 		status,

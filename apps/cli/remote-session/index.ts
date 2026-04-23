@@ -1,3 +1,4 @@
+import { getRemoteSessionLogPath } from '@studio/common/lib/well-known-paths';
 import {
 	RemoteSessionConfigError,
 	loadRemoteSessionConfig,
@@ -17,9 +18,21 @@ export { RemoteSessionConfigError };
 export async function runRemoteSession( overrides: RemoteSessionOverrides = {} ): Promise< void > {
 	const config = await loadRemoteSessionConfig( overrides );
 	const logger = new RemoteSessionLogger();
+	const logPath = getRemoteSessionLogPath();
+	logger.info( 'Remote session starting', {
+		base_url: config.base_url,
+		has_chat_id: config.chat_id !== undefined,
+		bot: config.bot,
+		poll_interval_seconds: config.poll_interval_seconds,
+		long_poll_timeout_seconds: config.long_poll_timeout_seconds,
+		turn_timeout_seconds: config.turn_timeout_seconds,
+		debug: process.env.STUDIO_REMOTE_DEBUG === '1',
+	} );
+	process.stdout.write( `Remote session log: ${ logPath }\n` );
 
 	const { done, detach } = await runPollLoop( {
 		config,
+		deps: { logger },
 		onAttached: () => {
 			const target =
 				config.chat_id !== undefined
@@ -56,7 +69,7 @@ export async function runRemoteSession( overrides: RemoteSessionOverrides = {} )
 				bot: config.bot,
 				text: '🔴 Local agent ended (process exit).',
 			},
-			{ signal: controller.signal, maxRetries: 0 }
+			{ signal: controller.signal, maxRetries: 0, logger }
 		)
 			.catch( () => undefined )
 			.finally( () => clearTimeout( timer ) );

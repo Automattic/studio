@@ -1,9 +1,14 @@
 import { type RemoteSessionConfig } from 'cli/remote-session/config';
+import type { RemoteSessionLogger } from 'cli/remote-session/logger';
 
 export interface PolledMessage {
 	chat_id: number;
 	text: string;
 	bot?: string;
+}
+
+export interface TelegramRequestContext {
+	logger?: RemoteSessionLogger;
 }
 
 export class TelegramAuthError extends Error {
@@ -65,7 +70,8 @@ function buildUrl( baseUrl: string, pathName: string ): string {
  */
 export async function pollMessages(
 	config: RemoteSessionConfig,
-	signal?: AbortSignal
+	signal?: AbortSignal,
+	context: TelegramRequestContext = {}
 ): Promise< PolledMessage[] > {
 	const url = buildUrl( config.base_url, 'local-agent-poll' );
 	const allowedHost = new URL( config.base_url ).host;
@@ -74,6 +80,8 @@ export async function pollMessages(
 	const controller = new AbortController();
 	const timeoutId = setTimeout( () => controller.abort(), config.long_poll_timeout_seconds * 1000 );
 	const composite = composeSignals( signal, controller.signal );
+	const startedAt = Date.now();
+	context.logger?.debug( 'Poll start', { url } );
 
 	let response: Response;
 	try {
@@ -92,25 +100,34 @@ export async function pollMessages(
 			if ( signal?.aborted ) {
 				throw error;
 			}
+			context.logger?.debug( 'Poll timed out', {
+				duration_ms: Date.now() - startedAt,
+			} );
 			return [];
 		}
-		throw new TelegramTransientError(
-			`Network error polling Telegram: ${ ( error as Error ).message ?? 'unknown' }`
-		);
+		const message = ( error as Error ).message ?? 'unknown';
+		context.logger?.warn( 'Poll network error', { error: message } );
+		throw new TelegramTransientError( `Network error polling Telegram: ${ message }` );
 	} finally {
 		clearTimeout( timeoutId );
 	}
 
 	if ( response.status === 401 || response.status === 403 ) {
+		context.logger?.error( 'Poll auth error', { status: response.status } );
 		throw new TelegramAuthError( response.status );
 	}
 	if ( response.status >= 500 ) {
+		context.logger?.warn( 'Poll 5xx', { status: response.status } );
 		throw new TelegramTransientError( `Poll returned ${ response.status }`, response.status );
 	}
 	if ( response.status === 204 ) {
+		context.logger?.debug( 'Poll 204 (no messages)', {
+			duration_ms: Date.now() - startedAt,
+		} );
 		return [];
 	}
 	if ( response.status >= 300 && response.status < 400 ) {
+		context.logger?.warn( 'Poll redirect', { status: response.status } );
 		// Never follow server-issued redirects blindly.
 		throw new TelegramTransientError(
 			`Unexpected redirect from poll endpoint: HTTP ${ response.status }`,
@@ -118,6 +135,7 @@ export async function pollMessages(
 		);
 	}
 	if ( ! response.ok ) {
+		context.logger?.warn( 'Poll unexpected status', { status: response.status } );
 		throw new TelegramTransientError(
 			`Poll returned unexpected status ${ response.status }`,
 			response.status
@@ -126,15 +144,27 @@ export async function pollMessages(
 
 	const text = await response.text();
 	if ( ! text.trim() ) {
+		context.logger?.debug( 'Poll empty body', {
+			duration_ms: Date.now() - startedAt,
+		} );
 		return [];
 	}
 	let parsed: unknown;
 	try {
 		parsed = JSON.parse( text );
 	} catch {
+		context.logger?.warn( 'Poll body not JSON', {
+			body_preview: text.slice( 0, 200 ),
+		} );
 		return [];
 	}
-	return extractMessages( parsed );
+	const messages = extractMessages( parsed );
+	context.logger?.debug( 'Poll finished', {
+		status: response.status,
+		duration_ms: Date.now() - startedAt,
+		messages: messages.length,
+	} );
+	return messages;
 }
 
 function extractMessages( payload: unknown ): PolledMessage[] {
@@ -178,21 +208,29 @@ function extractMessages( payload: unknown ): PolledMessage[] {
 export async function respondMessage(
 	config: RemoteSessionConfig,
 	params: { chatId: number; text: string; bot?: string },
-	options: { signal?: AbortSignal; maxRetries?: number } = {}
+	options: { signal?: AbortSignal; maxRetries?: number; logger?: RemoteSessionLogger } = {}
 ): Promise< void > {
 	const url = buildUrl( config.base_url, 'local-agent-respond' );
 	const allowedHost = new URL( config.base_url ).host;
 	assertSameHost( url, allowedHost );
 
+	const bot = params.bot ?? config.bot;
 	const body = JSON.stringify( {
 		chat_id: params.chatId,
 		text: params.text,
-		bot: params.bot ?? config.bot,
+		bot,
 	} );
 
 	const maxRetries = options.maxRetries ?? 3;
 	let attempt = 0;
 	let lastError: unknown;
+	const logger = options.logger;
+	logger?.debug( 'Respond start', {
+		chat_id: params.chatId,
+		bot,
+		text_length: params.text.length,
+		text_preview: params.text.slice( 0, 120 ),
+	} );
 
 	while ( attempt <= maxRetries ) {
 		let response: Response;
@@ -212,15 +250,25 @@ export async function respondMessage(
 			if ( error instanceof Error && error.name === 'AbortError' ) {
 				throw error;
 			}
+			logger?.warn( 'Respond network error', {
+				attempt,
+				chat_id: params.chatId,
+				error: ( error as Error ).message,
+			} );
 			await backoff( attempt );
 			attempt++;
 			continue;
 		}
 
 		if ( response.status === 401 || response.status === 403 ) {
+			logger?.error( 'Respond auth error', {
+				status: response.status,
+				chat_id: params.chatId,
+			} );
 			throw new TelegramAuthError( response.status );
 		}
 		if ( response.status >= 500 ) {
+			logger?.warn( 'Respond 5xx', { status: response.status, attempt } );
 			lastError = new TelegramTransientError(
 				`Respond returned ${ response.status }`,
 				response.status
@@ -231,20 +279,35 @@ export async function respondMessage(
 		}
 		if ( response.status >= 400 ) {
 			const text = await safeReadText( response );
+			logger?.warn( 'Respond 4xx', {
+				status: response.status,
+				chat_id: params.chatId,
+				body_preview: text.slice( 0, 200 ),
+			} );
 			throw new TelegramBadRequestError(
 				`Respond returned ${ response.status }${ text ? `: ${ text }` : '' }`,
 				response.status
 			);
 		}
 		if ( ! response.ok ) {
+			logger?.warn( 'Respond unexpected status', { status: response.status } );
 			throw new TelegramTransientError(
 				`Respond returned unexpected status ${ response.status }`,
 				response.status
 			);
 		}
+		logger?.debug( 'Respond ok', {
+			status: response.status,
+			chat_id: params.chatId,
+			attempt,
+		} );
 		return;
 	}
 
+	logger?.error( 'Respond failed after retries', {
+		chat_id: params.chatId,
+		max_retries: maxRetries,
+	} );
 	if ( lastError instanceof Error ) {
 		throw lastError;
 	}

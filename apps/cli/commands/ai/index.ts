@@ -44,6 +44,14 @@ function getErrorMessage( error: unknown ): string {
 	return String( error );
 }
 
+async function readAllStdin(): Promise< string > {
+	const chunks: Buffer[] = [];
+	for await ( const chunk of process.stdin ) {
+		chunks.push( typeof chunk === 'string' ? Buffer.from( chunk ) : ( chunk as Buffer ) );
+	}
+	return Buffer.concat( chunks ).toString( 'utf8' ).trim();
+}
+
 export async function runCommand( options: {
 	adapter: AiOutputAdapter;
 	initialMessage?: string;
@@ -739,8 +747,14 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'string',
 					description: __( 'Override the Telegram bot name to use for replies' ),
 				} )
+				.option( 'message-from-stdin', {
+					type: 'boolean',
+					hidden: true,
+					default: false,
+					description: __( 'Read the initial message from stdin (for headless drivers)' ),
+				} )
 				.check( ( argv ) => {
-					if ( argv.json && ! argv.message && ! argv.remoteSession ) {
+					if ( argv.json && ! argv.message && ! argv.remoteSession && ! argv.messageFromStdin ) {
 						throw new Error( __( '--json requires an initial message argument' ) );
 					}
 					return true;
@@ -759,6 +773,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					remoteSession?: boolean;
 					remoteChatId?: number;
 					remoteBot?: string;
+					messageFromStdin?: boolean;
 				};
 
 				if ( typedArgv.remoteSession ) {
@@ -781,6 +796,18 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				const noSessionPersistence = typedArgv.sessionPersistence === false;
 				const adapter: AiOutputAdapter = typedArgv.json ? new JsonAdapter() : new AiChatUI();
 
+				let initialMessage = typedArgv.message;
+				if ( typedArgv.messageFromStdin ) {
+					initialMessage = await readAllStdin();
+					if ( ! initialMessage ) {
+						process.stderr.write(
+							`${ __( '--message-from-stdin requires non-empty input on stdin' ) }\n`
+						);
+						process.exitCode = 1;
+						return;
+					}
+				}
+
 				if ( adapter instanceof JsonAdapter && typedArgv.permissionResponse ) {
 					adapter.permissionResponse = JSON.parse( typedArgv.permissionResponse ) as Record<
 						string,
@@ -791,7 +818,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				const sitePath = typeof argv.path === 'string' ? argv.path : undefined;
 				await runCommand( {
 					adapter,
-					initialMessage: typedArgv.message,
+					initialMessage,
 					resumeSessionId: typedArgv.resumeSession,
 					noSessionPersistence,
 					autoApprove: typedArgv.autoApprove,

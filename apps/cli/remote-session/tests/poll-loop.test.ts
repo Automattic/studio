@@ -171,6 +171,21 @@ describe( 'runPollLoop', () => {
 		expect( deps.runTurn ).not.toHaveBeenCalled();
 	} );
 
+	it( 'skips empty messages with a warning instead of spawning the agent', async () => {
+		const scripted = makeScriptedPoll( [ { chat_id: 42, text: '   ' } ] );
+		const deps = makeDeps( { scriptedPoll: scripted } );
+
+		const handle = await runPollLoop( { config: baseConfig, deps } );
+		await scripted.done;
+		await handle.detach();
+		await handle.done;
+
+		expect( deps.runTurn ).not.toHaveBeenCalled();
+		const respond = deps.respond as ReturnType< typeof vi.fn >;
+		const bodies = respond.mock.calls.map( ( [ , params ] ) => params.text );
+		expect( bodies.some( ( b ) => b.includes( 'Empty message ignored' ) ) ).toBe( true );
+	} );
+
 	it( 'posts the fallback when the turn returns no reply and no question', async () => {
 		const scripted = makeScriptedPoll( [ { chat_id: 42, text: 'hm' } ] );
 		const deps = makeDeps( { scriptedPoll: scripted } );
@@ -228,7 +243,8 @@ describe( 'runPollLoop', () => {
 			const respond = deps.respond as ReturnType< typeof vi.fn >;
 			expect( respond ).toHaveBeenCalledWith(
 				openConfig,
-				expect.objectContaining( { chatId: 7, bot: 'their_bot', text: 'pong' } )
+				expect.objectContaining( { chatId: 7, bot: 'their_bot', text: 'pong' } ),
+				expect.objectContaining( { logger: expect.any( RemoteSessionLogger ) } )
 			);
 			expect( deps.writeSession ).toHaveBeenCalledWith( 7, 's' );
 		} );

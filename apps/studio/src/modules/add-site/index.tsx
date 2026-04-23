@@ -40,6 +40,7 @@ import Stepper from './components/stepper';
 import { UploadBlueprintButton } from './components/upload-blueprint-button';
 import { useFindAvailableSiteName } from './hooks/use-find-available-site-name';
 import { applyBlueprintFormValues } from './lib/apply-blueprint-form-values';
+import NavigationContentClassic from './navigation-content-classic';
 
 type BlueprintsData = ReturnType< typeof useGetBlueprints >[ 'data' ];
 
@@ -460,12 +461,15 @@ export function AddSiteModalContent( {
 	} = useGetBlueprints( { locale } );
 
 	const { sites, loadingSites } = useSiteDetails();
+	const { enableBlueprintsGallery } = useFeatureFlags();
+
 	const {
 		handleCreateSite,
 		selectPath,
 		generateProposedPath,
 		deeplinkPhpVersion,
 		deeplinkWpVersion,
+		fileForImport,
 		setFileForImport,
 		selectedBlueprint,
 		setSelectedBlueprint,
@@ -591,6 +595,49 @@ export function AddSiteModalContent( {
 
 	const showDotGrid = ! currentPath || currentPath === '/';
 
+	const sharedNavigationProps = {
+		blueprintsData,
+		blueprintsErrorMessage: formatRtkError( blueprintsError ),
+		isLoadingBlueprints,
+		defaultValues,
+		onSelectPath: selectPath,
+		onSiteNameChange: generateProposedPath,
+		existingDomainNames,
+		onFormSubmit: handleFormSubmit,
+		onValidityChange: setIsFormValid,
+		canSubmit,
+		setFileForImport,
+		selectedBlueprint,
+		setSelectedBlueprint,
+		blueprintPreferredVersions,
+		setBlueprintPreferredVersions,
+		blueprintSuggestedDomain,
+		setBlueprintSuggestedDomain,
+		blueprintSuggestedHttps,
+		setBlueprintSuggestedHttps,
+		blueprintCredentials,
+		blueprintSuggestedSiteName,
+		setBlueprintSuggestedSiteName,
+		blueprintRequiresCustomDomain,
+		setBlueprintRequiresCustomDomain,
+		selectedRemoteSite,
+		setSelectedRemoteSite,
+		isDeeplinkFlow,
+		setIsDeeplinkFlow,
+		startOver,
+	};
+
+	if ( ! enableBlueprintsGallery ) {
+		return (
+			<Navigator
+				className={ className ?? 'w-full h-full app-no-drag-region' }
+				initialPath={ initialNavigatorPath }
+			>
+				<NavigationContentClassic { ...sharedNavigationProps } fileForImport={ fileForImport } />
+			</Navigator>
+		);
+	}
+
 	return (
 		<>
 			<div
@@ -611,38 +658,7 @@ export function AddSiteModalContent( {
 				className={ cx( 'relative z-10', className ?? 'w-full h-full app-no-drag-region' ) }
 				initialPath={ initialNavigatorPath }
 			>
-				<NavigationContent
-					blueprintsData={ blueprintsData }
-					blueprintsErrorMessage={ formatRtkError( blueprintsError ) }
-					isLoadingBlueprints={ isLoadingBlueprints }
-					defaultValues={ defaultValues }
-					onSelectPath={ selectPath }
-					onSiteNameChange={ generateProposedPath }
-					existingDomainNames={ existingDomainNames }
-					onFormSubmit={ handleFormSubmit }
-					onValidityChange={ setIsFormValid }
-					canSubmit={ canSubmit }
-					setFileForImport={ setFileForImport }
-					selectedBlueprint={ selectedBlueprint }
-					setSelectedBlueprint={ setSelectedBlueprint }
-					blueprintPreferredVersions={ blueprintPreferredVersions }
-					setBlueprintPreferredVersions={ setBlueprintPreferredVersions }
-					blueprintSuggestedDomain={ blueprintSuggestedDomain }
-					setBlueprintSuggestedDomain={ setBlueprintSuggestedDomain }
-					blueprintSuggestedHttps={ blueprintSuggestedHttps }
-					setBlueprintSuggestedHttps={ setBlueprintSuggestedHttps }
-					blueprintCredentials={ blueprintCredentials }
-					blueprintSuggestedSiteName={ blueprintSuggestedSiteName }
-					setBlueprintSuggestedSiteName={ setBlueprintSuggestedSiteName }
-					blueprintRequiresCustomDomain={ blueprintRequiresCustomDomain }
-					setBlueprintRequiresCustomDomain={ setBlueprintRequiresCustomDomain }
-					selectedRemoteSite={ selectedRemoteSite }
-					setSelectedRemoteSite={ setSelectedRemoteSite }
-					isDeeplinkFlow={ isDeeplinkFlow }
-					setIsDeeplinkFlow={ setIsDeeplinkFlow }
-					startOver={ startOver }
-					onPathChange={ setCurrentPath }
-				/>
+				<NavigationContent { ...sharedNavigationProps } onPathChange={ setCurrentPath } />
 			</Navigator>
 		</>
 	);

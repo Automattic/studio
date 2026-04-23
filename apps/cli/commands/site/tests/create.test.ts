@@ -550,12 +550,15 @@ describe( 'CLI: studio site create', () => {
 		} );
 	} );
 
-	describe( 'Runtime Option', () => {
-		it( 'should persist the runtime field when creating a native-php site', async () => {
-			await runCommand( mockSitePath, {
-				...defaultTestOptions,
-				runtime: 'native-php',
-			} );
+	describe( 'Runtime (STUDIO_RUNTIME env var)', () => {
+		afterEach( () => {
+			vi.unstubAllEnvs();
+		} );
+
+		it( 'persists runtime=native-php when STUDIO_RUNTIME=native-php', async () => {
+			vi.stubEnv( 'STUDIO_RUNTIME', 'native-php' );
+
+			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
 			expect( saveCliConfig ).toHaveBeenCalledWith(
 				expect.objectContaining( {
@@ -564,11 +567,10 @@ describe( 'CLI: studio site create', () => {
 			);
 		} );
 
-		it( 'should persist the runtime field for the default playground runtime', async () => {
-			await runCommand( mockSitePath, {
-				...defaultTestOptions,
-				runtime: 'playground',
-			} );
+		it( 'defaults to playground when STUDIO_RUNTIME is unset', async () => {
+			vi.stubEnv( 'STUDIO_RUNTIME', undefined );
+
+			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
 			expect( saveCliConfig ).toHaveBeenCalledWith(
 				expect.objectContaining( {
@@ -577,7 +579,9 @@ describe( 'CLI: studio site create', () => {
 			);
 		} );
 
-		it( 'should default runtime to playground when the flag is omitted', async () => {
+		it( 'falls back to playground when STUDIO_RUNTIME has an unknown value', async () => {
+			vi.stubEnv( 'STUDIO_RUNTIME', 'nonsense' );
+
 			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
 			expect( saveCliConfig ).toHaveBeenCalledWith(

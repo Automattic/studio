@@ -173,8 +173,7 @@ describe( 'useAddSite', () => {
 			false,
 			undefined, // adminUsername
 			undefined, // adminPassword
-			undefined, // adminEmail
-			undefined // runtime
+			undefined // adminEmail
 		);
 	} );
 

@@ -6,7 +6,6 @@ import { SiteCommandLoggerAction } from '@studio/common/logger-actions';
 import { z } from 'zod';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { executeCliCommand } from './execute-command';
-import type { SiteRuntime } from '@studio/common/lib/cli-events';
 import type { Blueprint } from '@wp-playground/blueprints';
 
 const cliEventSchema = z.discriminatedUnion( 'action', [
@@ -41,7 +40,6 @@ export interface CreateSiteOptions {
 	adminPassword?: string;
 	adminEmail?: string;
 	noStart?: boolean;
-	runtime?: SiteRuntime;
 }
 
 export async function createSiteViaCli( options: CreateSiteOptions ): Promise< CreateSiteResult > {
@@ -152,10 +150,6 @@ function buildCliArgs( options: CreateSiteOptions ): string[] {
 
 	if ( options.noStart ) {
 		args.push( '--no-start' );
-	}
-
-	if ( options.runtime ) {
-		args.push( '--runtime', options.runtime );
 	}
 
 	return args;

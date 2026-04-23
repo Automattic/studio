@@ -32,7 +32,6 @@ export interface CreateSiteFormValues {
 	adminUsername?: string;
 	adminPassword?: string;
 	adminEmail?: string;
-	runtime?: SiteRuntime;
 }
 
 /**
@@ -295,8 +294,7 @@ export function useAddSite() {
 					shouldSkipStart,
 					formValues.adminUsername,
 					formValues.adminPassword,
-					formValues.adminEmail,
-					formValues.runtime
+					formValues.adminEmail
 				);
 			} catch ( e ) {
 				Sentry.captureException( e );

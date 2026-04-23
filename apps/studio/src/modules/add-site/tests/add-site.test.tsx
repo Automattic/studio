@@ -208,8 +208,7 @@ describe( 'AddSite', () => {
 				false,
 				'admin',
 				expect.any( String ),
-				'admin@localhost.com',
-				'playground' // runtime
+				'admin@localhost.com'
 			);
 		} );
 	} );
@@ -429,8 +428,7 @@ describe( 'AddSite', () => {
 				false,
 				'admin',
 				expect.any( String ),
-				'admin@localhost.com',
-				'playground' // runtime
+				'admin@localhost.com'
 			);
 		} );
 	} );

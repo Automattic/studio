@@ -674,7 +674,6 @@ export async function createSite(
 		adminPassword?: string;
 		adminEmail?: string;
 		noStart?: boolean;
-		runtime?: SiteRuntime;
 	} = {}
 ): Promise< SiteDetails > {
 	const {
@@ -689,7 +688,6 @@ export async function createSite(
 		adminPassword,
 		adminEmail,
 		noStart = false,
-		runtime,
 	} = config;
 
 	const siteId = providedSiteId || crypto.randomUUID();
@@ -713,7 +711,6 @@ export async function createSite(
 				adminPassword,
 				adminEmail,
 				noStart,
-				runtime,
 			},
 			{ wpVersion, blueprint: blueprint?.blueprint }
 		);

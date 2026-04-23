@@ -18,7 +18,7 @@ export const remoteSessionConfigSchema = z.object( {
 	poll_interval_seconds: z.number().positive().default( 2 ),
 	long_poll_timeout_seconds: z.number().positive().default( 25 ),
 	max_message_chars: z.number().int().positive().max( 4096 ).default( 3800 ),
-	turn_timeout_seconds: z.number().positive().default( 300 ),
+	turn_timeout_seconds: z.number().positive().default( 900 ),
 } );
 
 export type RemoteSessionConfig = z.infer< typeof remoteSessionConfigSchema >;

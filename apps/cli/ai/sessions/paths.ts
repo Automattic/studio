@@ -1,6 +1,6 @@
 import path from 'path';
 import { getAiSessionsDirectoryForDate as getDirectoryForDate } from '@studio/common/ai/sessions/paths';
-import { getAppdataDirectory } from 'cli/lib/server-files';
+import { getAppdataDirectory } from 'cli/lib/appdata';
 
 export function getAiSessionsRootDirectory(): string {
 	return path.join( getAppdataDirectory(), 'sessions' );

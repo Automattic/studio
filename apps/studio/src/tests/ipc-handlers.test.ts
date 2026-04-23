@@ -3,21 +3,11 @@
  */
 import { IpcMainInvokeEvent } from 'electron';
 import { normalize } from 'path';
-import * as Sentry from '@sentry/electron/main';
 import { readFile } from 'atomically';
 import { vol } from 'memfs';
 import { vi } from 'vitest';
-import {
-	createSite,
-	isFullscreen,
-	importSite,
-	getXdebugEnabledSite,
-	loadThemeDetails,
-} from 'src/ipc-handlers';
-import { bumpStat, StatsGroup, StatsMetric } from 'src/lib/bump-stats';
+import { createSite, isFullscreen, getXdebugEnabledSite, loadThemeDetails } from 'src/ipc-handlers';
 import { captureSiteThumbnail } from 'src/lib/capture-site-thumbnail';
-import { importBackup, defaultImporterOptions } from 'src/lib/import-export/import/import-manager';
-import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { getMainWindow } from 'src/main-window';
 import { SiteServer } from 'src/site-server';
 
@@ -34,7 +24,6 @@ vi.mock( 'src/lib/wordpress-setup', () => ( {
 	setupWordPressFilesOnly: vi.fn().mockResolvedValue( undefined ),
 } ) );
 vi.mock( 'src/main-window' );
-vi.mock( 'src/lib/import-export/import/import-manager' );
 vi.mock( 'src/lib/sqlite-versions', () => ( {
 	keepSqliteIntegrationUpdated: vi.fn().mockResolvedValue( false ),
 	installSqliteIntegration: vi.fn().mockResolvedValue( undefined ),
@@ -160,116 +149,6 @@ describe( 'isFullscreen', () => {
 		const result = await isFullscreen( mockIpcMainInvokeEvent );
 
 		expect( result ).toBe( true );
-	} );
-} );
-
-describe( 'importSite', () => {
-	const mockBackupFile: BackupArchiveInfo = {
-		path: '/path/to/backup.zip',
-		type: 'doo',
-	};
-
-	beforeEach( () => {
-		vi.mocked( importBackup ).mockReset();
-		vi.mocked( bumpStat ).mockReset();
-	} );
-
-	it( 'should throw error if site is not found', async () => {
-		vi.mocked( SiteServer.get ).mockReturnValue( undefined );
-
-		await expect(
-			importSite( mockIpcMainInvokeEvent, {
-				id: 'non-existent-id',
-				backupFile: mockBackupFile,
-			} )
-		).rejects.toThrow( 'Site not found.' );
-	} );
-
-	it( 'should import backup successfully and bump success stats', async () => {
-		const mockSite = {
-			details: {
-				id: 'test-site',
-				name: 'Test',
-				path: '/test',
-				port: 9999,
-				phpVersion: '8.4',
-				running: false,
-			},
-			meta: {},
-			start: vi.fn(),
-			stop: vi.fn(),
-			updateSiteDetails: vi.fn(),
-			hasSQLitePlugin: vi.fn().mockResolvedValue( true ),
-			executeWpCliCommand: vi
-				.fn()
-				.mockResolvedValue( { stdout: 'New Site Title', stderr: '', exitCode: 0 } ),
-		};
-		vi.mocked( SiteServer.get, { partial: true } ).mockReturnValue(
-			mockSite as unknown as Partial< SiteServer >
-		);
-		vi.mocked( importBackup, { partial: true } ).mockResolvedValue( {
-			meta: {
-				phpVersion: '8.4',
-			},
-		} );
-
-		const result = await importSite( mockIpcMainInvokeEvent, {
-			id: 'test-site',
-			backupFile: mockBackupFile,
-		} );
-
-		expect( importBackup ).toHaveBeenCalledWith(
-			mockBackupFile,
-			mockSite.details,
-			expect.any( Function ),
-			defaultImporterOptions
-		);
-		expect( mockSite.details.phpVersion ).toBe( '8.4' );
-		expect( result ).toBe( mockSite.details );
-
-		expect( bumpStat ).toHaveBeenNthCalledWith(
-			1,
-			StatsGroup.STUDIO_IMPORT,
-			StatsMetric.UNKNOWN_IMPORTER
-		);
-	} );
-
-	it( 'should capture exception in Sentry and bump failure stats when import fails', async () => {
-		const mockError = new Error( 'Import failed' );
-		const mockSite = {
-			details: {
-				id: 'test-site',
-				name: 'Test',
-				path: '/test',
-				port: 9999,
-				phpVersion: '8.4',
-				running: false,
-			},
-			meta: {},
-			start: vi.fn(),
-			stop: vi.fn(),
-			updateSiteDetails: vi.fn(),
-			hasSQLitePlugin: vi.fn().mockResolvedValue( true ),
-			executeWpCliCommand: vi
-				.fn()
-				.mockResolvedValue( { stdout: 'New Site Title', stderr: '', exitCode: 0 } ),
-		};
-		vi.mocked( SiteServer.get, { partial: true } ).mockReturnValue(
-			mockSite as unknown as Partial< SiteServer >
-		);
-		vi.mocked( importBackup ).mockRejectedValue( mockError );
-
-		await expect(
-			importSite( mockIpcMainInvokeEvent, {
-				id: 'test-site',
-				backupFile: mockBackupFile,
-			} )
-		).rejects.toThrow( 'Import failed' );
-
-		expect( Sentry.captureException ).toHaveBeenCalledWith( mockError );
-
-		// Verify failure stats were bumped
-		expect( bumpStat ).toHaveBeenCalledWith( StatsGroup.STUDIO_IMPORT, StatsMetric.FAILURE );
 	} );
 } );
 

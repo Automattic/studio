@@ -1,17 +1,25 @@
 import fs from 'fs';
 import path from 'path';
+import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { isWordPressDirectory, recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
 import {
 	BackupExtractEvents,
 	ImporterEvents,
+	ImportEventTuple,
+	ImportIpcEvent,
 	ValidatorEvents,
 } from '@studio/common/lib/import-export-events';
 import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { SiteData } from 'cli/lib/cli-config/core';
-import { clearSiteLatestCliPid, getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
-import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import {
+	clearSiteLatestCliPid,
+	getSiteByFolder,
+	getSiteUrl,
+	updateSitePhpVersion,
+} from 'cli/lib/cli-config/sites';
+import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
 import { DEFAULT_IMPORTER_OPTIONS, getImporter } from 'cli/lib/import-export/import/import-manager';
 import { getBackupFileType } from 'cli/lib/import-export/utils';
@@ -46,6 +54,71 @@ async function setupWordPressFilesOnly( sitePath: string ): Promise< void > {
 	}
 
 	await recursiveCopyDirectory( bundledWpPath, sitePath );
+}
+
+function sendIpcEvent( eventTuple: ImportEventTuple ) {
+	const ipcEvent: ImportIpcEvent = { event: eventTuple };
+	process.send!( ipcEvent );
+}
+
+function handleImportIpc( emitter: ImportExportEventEmitter ) {
+	emitter.on( ValidatorEvents.IMPORT_VALIDATION_START, () => {
+		sendIpcEvent( [ ValidatorEvents.IMPORT_VALIDATION_START, undefined ] );
+	} );
+	emitter.on( ValidatorEvents.IMPORT_VALIDATION_COMPLETE, () => {
+		sendIpcEvent( [ ValidatorEvents.IMPORT_VALIDATION_COMPLETE, undefined ] );
+	} );
+	emitter.on( ValidatorEvents.IMPORT_VALIDATION_ERROR, ( error ) => {
+		sendIpcEvent( [ ValidatorEvents.IMPORT_VALIDATION_ERROR, error ] );
+	} );
+	emitter.on( BackupExtractEvents.BACKUP_EXTRACT_START, () => {
+		sendIpcEvent( [ BackupExtractEvents.BACKUP_EXTRACT_START, undefined ] );
+	} );
+	emitter.on( BackupExtractEvents.BACKUP_EXTRACT_PROGRESS, ( progressData ) => {
+		sendIpcEvent( [ BackupExtractEvents.BACKUP_EXTRACT_PROGRESS, progressData ] );
+	} );
+	emitter.on( BackupExtractEvents.BACKUP_EXTRACT_COMPLETE, () => {
+		sendIpcEvent( [ BackupExtractEvents.BACKUP_EXTRACT_COMPLETE, undefined ] );
+	} );
+	emitter.on( BackupExtractEvents.BACKUP_EXTRACT_WARNING, ( warningMessage ) => {
+		sendIpcEvent( [ BackupExtractEvents.BACKUP_EXTRACT_WARNING, warningMessage ] );
+	} );
+	emitter.on( BackupExtractEvents.BACKUP_EXTRACT_ERROR, ( error ) => {
+		sendIpcEvent( [ BackupExtractEvents.BACKUP_EXTRACT_ERROR, error ] );
+	} );
+	emitter.on( ImporterEvents.IMPORT_START, ( importerType ) => {
+		sendIpcEvent( [ ImporterEvents.IMPORT_START, importerType ] );
+	} );
+	emitter.on( ImporterEvents.IMPORT_DATABASE_START, () => {
+		sendIpcEvent( [ ImporterEvents.IMPORT_DATABASE_START, undefined ] );
+	} );
+	emitter.on( ImporterEvents.IMPORT_DATABASE_PROGRESS, ( progressData ) => {
+		sendIpcEvent( [ ImporterEvents.IMPORT_DATABASE_PROGRESS, progressData ] );
+	} );
+	emitter.on( ImporterEvents.IMPORT_DATABASE_COMPLETE, () => {
+		sendIpcEvent( [ ImporterEvents.IMPORT_DATABASE_COMPLETE, undefined ] );
+	} );
+	emitter.on( ImporterEvents.IMPORT_WP_CONTENT_START, () => {
+		sendIpcEvent( [ ImporterEvents.IMPORT_WP_CONTENT_START, undefined ] );
+	} );
+	emitter.on( ImporterEvents.IMPORT_WP_CONTENT_PROGRESS, ( progressData ) => {
+		sendIpcEvent( [ ImporterEvents.IMPORT_WP_CONTENT_PROGRESS, progressData ] );
+	} );
+	emitter.on( ImporterEvents.IMPORT_WP_CONTENT_COMPLETE, () => {
+		sendIpcEvent( [ ImporterEvents.IMPORT_WP_CONTENT_COMPLETE, undefined ] );
+	} );
+	emitter.on( ImporterEvents.IMPORT_META_START, () => {
+		sendIpcEvent( [ ImporterEvents.IMPORT_META_START, undefined ] );
+	} );
+	emitter.on( ImporterEvents.IMPORT_META_COMPLETE, () => {
+		sendIpcEvent( [ ImporterEvents.IMPORT_META_COMPLETE, undefined ] );
+	} );
+	emitter.on( ImporterEvents.IMPORT_COMPLETE, ( importerType ) => {
+		sendIpcEvent( [ ImporterEvents.IMPORT_COMPLETE, importerType ] );
+	} );
+	emitter.on( ImporterEvents.IMPORT_ERROR, ( error ) => {
+		sendIpcEvent( [ ImporterEvents.IMPORT_ERROR, error ] );
+	} );
 }
 
 export function handleImportEvents( emitter: ImportExportEventEmitter ): void {
@@ -178,11 +251,15 @@ export function handleImportEvents( emitter: ImportExportEventEmitter ): void {
 	} );
 
 	emitter.on( ImporterEvents.IMPORT_ERROR, ( error ) => {
-		throw new LoggerError( __( 'Import failed' ), error instanceof Error ? error : undefined );
+		throw new LoggerError( __( 'Import failed' ), new Error( error ) );
 	} );
 }
 
-export async function runCommand( siteFolder: string, importFile: string ): Promise< void > {
+export async function runCommand(
+	siteFolder: string,
+	importFile: string,
+	alwaysStartServer = false
+): Promise< void > {
 	let site: SiteData | undefined;
 	let wasServerRunning = false;
 	let importError: unknown;
@@ -222,18 +299,29 @@ export async function runCommand( siteFolder: string, importFile: string ): Prom
 			{ path: importFile, type: getBackupFileType( importFile ) },
 			DEFAULT_IMPORTER_OPTIONS
 		);
-		handleImportEvents( importer );
-		await importer.import( site );
+		if ( process.send ) {
+			handleImportIpc( importer );
+		} else {
+			handleImportEvents( importer );
+		}
+		const importResult = await importer.import( site );
+		const importedPhpVersion = importResult.meta?.phpVersion;
+		if ( importedPhpVersion && importedPhpVersion !== site.phpVersion ) {
+			await updateSitePhpVersion( site.id, importedPhpVersion );
+			site.phpVersion = importedPhpVersion;
+		}
 
 		// Something in Playground makes it so the front-end of the site sometimes returns an error page
 		// on the first request. Send that first request from here to hide the error from the user.
 		const siteUrl = getSiteUrl( site );
 		await fetch( siteUrl ).catch( () => {} );
+
+		await emitCliEvent( { event: SITE_EVENTS.UPDATED, data: { siteId: site.id } } );
 	} catch ( error ) {
 		importError = error;
 	} finally {
 		try {
-			if ( site && wasServerRunning ) {
+			if ( site && ( wasServerRunning || alwaysStartServer ) ) {
 				logger.reportStart(
 					LoggerAction.INSTALL_SQLITE,
 					__( 'Setting up SQLite integration, if needed…' )
@@ -270,19 +358,25 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		command: 'import <import-file>',
 		describe: __( 'Import a backup file to site' ),
 		builder: ( yargs ) => {
-			return yargs.positional( 'import-file', {
-				type: 'string',
-				normalize: true,
-				demandOption: true,
-				description: __( 'Path to the import file' ),
-				coerce: ( value ) => {
-					return path.resolve( untildify( value ) );
-				},
-			} );
+			return yargs
+				.positional( 'import-file', {
+					type: 'string',
+					normalize: true,
+					demandOption: true,
+					description: __( 'Path to the import file' ),
+					coerce: ( value ) => {
+						return path.resolve( untildify( value ) );
+					},
+				} )
+				.option( 'start-server', {
+					type: 'boolean',
+					default: false,
+					hidden: true,
+				} );
 		},
 		handler: async ( argv ) => {
 			try {
-				await runCommand( argv.path, argv.importFile );
+				await runCommand( argv.path, argv.importFile, argv.startServer );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );

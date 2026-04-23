@@ -18,11 +18,9 @@ import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
 import { download } from 'src/lib/download';
 import { getSyncBackupTempPath } from 'src/lib/get-sync-backup-temp-path';
-import { exportBackup } from 'src/lib/import-export/export/export-manager';
-import { ExportOptions } from 'src/lib/import-export/export/types';
 import { getAuthenticationToken } from 'src/lib/oauth';
-import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
+import { exportSite } from 'src/modules/import-export/lib/ipc-handlers';
 import { SiteServer } from 'src/site-server';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 import { SyncOption } from 'src/types';
@@ -163,8 +161,6 @@ export async function exportSiteForPush(
 			throw new Error( 'Export aborted' );
 		}
 
-		await keepSqliteIntegrationUpdated( site.details.path );
-
 		const shouldIncludeSyncOption = (
 			optionsToSync: SyncOption[] | undefined,
 			option: SyncOption
@@ -181,17 +177,22 @@ export async function exportSiteForPush(
 			),
 		};
 
-		const exportOptions: ExportOptions = {
-			site: site.details,
-			backupFile: archivePath,
-			includes,
-			phpVersion: site.details.phpVersion,
+		let mode: 'full' | 'content' | 'db';
+		if ( includes.database && includes.wpContent ) {
+			mode = 'full';
+		} else if ( includes.wpContent ) {
+			mode = 'content';
+		} else {
+			mode = 'db';
+		}
+
+		await exportSite( event, site.details.id, archivePath, {
+			mode,
 			splitDatabaseDumpByTable: true,
 			specificSelectionPaths: configuration?.specificSelectionPaths,
-		};
-
-		const onEvent = () => {};
-		await exportBackup( exportOptions, onEvent );
+			applyDeployIgnore: true,
+			abortSignal: abortController.signal,
+		} );
 
 		if ( abortController.signal.aborted ) {
 			await fsPromises.unlink( archivePath ).catch( () => {

@@ -2,13 +2,9 @@ import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
 import { generatePassword } from '@studio/common/lib/passwords';
 import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
-import {
-	CheckboxControl,
-	privateApis as componentsPrivateApis,
-	__experimentalInputControlSuffixWrapper as InputControlSuffixWrapper,
-} from '@wordpress/components';
+import { BaseControl, CheckboxControl } from '@wordpress/components';
 import { DataForm, useFormValidity } from '@wordpress/dataviews';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { chevronDown, chevronRight } from '@wordpress/icons';
 import { Button, Icon } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -25,7 +21,6 @@ import {
 } from '@/components/site-fields';
 import { usePathValidator } from '@/data/queries/use-create-site-helpers';
 import { useSites } from '@/data/queries/use-sites';
-import { unlock } from '@/lock-unlock';
 import styles from './style.module.css';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type {
@@ -51,29 +46,26 @@ export interface CreateSiteFormValues {
 }
 
 interface CreateSiteFormProps {
-	/**
-	 * Initial "Site name" value. Applied once when first provided, so the form
-	 * can seed a randomly-generated default without fighting user input on
-	 * subsequent re-renders.
-	 */
-	defaultName?: string;
+	/** Applied once when first defined — user edits win after. */
+	initialValues?: Partial< CreateSiteFormValues >;
 	existingDomainNames: string[];
 	onSubmit: ( values: CreateSiteFormValues ) => void;
 	onCancel: () => void;
 	isSubmitting?: boolean;
 	submitError?: string;
+	submitLabel?: string;
 }
 
 interface FormData {
 	name: string;
 	path: string;
-	// True once the user has manually picked a folder via the path picker,
-	// so the name→path auto-generation effect stops overriding their choice.
+	// Stops the name→path auto-gen from overriding a manually picked folder.
 	hasCustomPath: boolean;
-	// IPC-derived path validation error (duplicate site, non-empty non-WP dir).
-	// Owned by `PathField`, read by the `path` field's `isValid.custom` rule so
-	// DataForm surfaces it through its normal validity channel.
 	pathError: string;
+	// Suppresses the path field's required check during the auto-gen async
+	// window so a seeded name doesn't flash "1 error found" on the Advanced
+	// toggle before `generateProposedPath` resolves.
+	isPathPending: boolean;
 	phpVersion: SupportedPHPVersion;
 	wpVersion: string;
 	useCustomDomain: boolean;
@@ -84,41 +76,35 @@ interface FormData {
 	adminEmail: string;
 }
 
-// ValidatedInputControl is the same private-API control DataForm's built-in
-// `text`/`email`/`password` Edit components use, so wiring the path field
-// through it keeps error styling (red ring + icon) consistent with the rest
-// of the form.
-const { ValidatedInputControl } = unlock( componentsPrivateApis ) as {
-	ValidatedInputControl: React.ComponentType< {
-		label?: React.ReactNode;
-		hideLabelFromVision?: boolean;
-		value?: string;
-		placeholder?: string;
-		readOnly?: boolean;
-		required?: boolean;
-		onClick?: () => void;
-		onChange?: ( value: string | undefined ) => void;
-		help?: React.ReactNode;
-		suffix?: React.ReactNode;
-		customValidity?: { type: 'valid' | 'invalid' | 'validating'; message?: string };
-		__next40pxDefaultSize?: boolean;
-		className?: string;
-	} >;
-};
+function hasAnyValue( values: Partial< CreateSiteFormValues > ): boolean {
+	return Object.values( values ).some( ( value ) => value !== undefined && value !== '' );
+}
 
-/**
- * Runs the name→path auto-generation effect on behalf of the form. Called
- * from `CreateSiteForm` so it fires whether the Advanced settings section is
- * open or not — otherwise `data.path` would stay empty on first load and the
- * Advanced toggle would falsely show "1 error found" until the user
- * expanded it and `PathField` mounted.
- */
+// Only fields the caller actually provided overwrite prev — user edits to
+// everything else survive an async initial-value arrival.
+function applyInitialValues( prev: FormData, values: Partial< CreateSiteFormValues > ): FormData {
+	const next: FormData = { ...prev };
+	if ( values.name !== undefined && ! prev.name ) next.name = values.name;
+	if ( values.phpVersion !== undefined ) next.phpVersion = values.phpVersion;
+	if ( values.wpVersion !== undefined ) next.wpVersion = values.wpVersion;
+	if ( values.adminUsername !== undefined ) next.adminUsername = values.adminUsername;
+	if ( values.adminPassword !== undefined ) next.adminPassword = values.adminPassword;
+	if ( values.adminEmail !== undefined ) next.adminEmail = values.adminEmail;
+	if ( values.customDomain ) {
+		next.useCustomDomain = true;
+		next.customDomain = values.customDomain;
+	}
+	if ( values.enableHttps !== undefined ) next.enableHttps = values.enableHttps;
+	return next;
+}
+
+// Called from the form (not `PathField`) so it runs even when Advanced is
+// collapsed — otherwise `data.path` would stay empty on first load and the
+// Advanced toggle would falsely show "1 error found".
 function usePathAutoGenerate( data: FormData, onChange: ( update: Partial< FormData > ) => void ) {
 	const { data: sites } = useSites();
 	const { generateProposedPath } = usePathValidator( sites );
 
-	// `onChange` may be recreated per parent render. Ref it so the async
-	// effect doesn't re-subscribe every keystroke.
 	const onChangeRef = useRef( onChange );
 	useEffect( () => {
 		onChangeRef.current = onChange;
@@ -129,24 +115,38 @@ function usePathAutoGenerate( data: FormData, onChange: ( update: Partial< FormD
 		if ( data.hasCustomPath ) return;
 		const trimmed = data.name.trim();
 		if ( ! trimmed ) {
-			if ( data.path || data.pathError ) {
-				onChangeRef.current( { path: '', pathError: '' } );
+			if ( data.path || data.pathError || data.isPathPending ) {
+				onChangeRef.current( { path: '', pathError: '', isPathPending: false } );
 			}
 			return;
 		}
 		pendingNameRef.current = trimmed;
+		if ( ! data.isPathPending ) {
+			onChangeRef.current( { isPathPending: true } );
+		}
 		let cancelled = false;
 		void ( async () => {
 			const result = await generateProposedPath( trimmed );
 			if ( cancelled || pendingNameRef.current !== trimmed ) return;
-			onChangeRef.current( { path: result.path, pathError: result.error ?? '' } );
+			onChangeRef.current( {
+				path: result.path,
+				pathError: result.error ?? '',
+				isPathPending: false,
+			} );
 		} )();
 		return () => {
 			cancelled = true;
 		};
+		// `data.isPathPending` intentionally omitted — the effect writes it,
+		// so including it would re-trigger a redundant generate each cycle.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [ data.name, data.hasCustomPath, data.path, data.pathError, generateProposedPath ] );
 }
 
+// Rendered as a button (not an input) because the value is always set by
+// the name→path auto-gen or the native folder dialog — never typed. Also
+// sidesteps the browser's refusal to expose `validationMessage` on readonly
+// inputs, which was swallowing async errors like path collisions.
 function PathField( {
 	data: item,
 	field,
@@ -169,38 +169,48 @@ function PathField( {
 	}, [ item.hasCustomPath, item.name, item.path, onChange, selectPath ] );
 
 	const errorMessage = validity?.custom?.message;
+	const triggerLabel = item.path
+		? sprintf(
+				// translators: %s is the currently selected folder path.
+				__( '%s, select a different folder' ),
+				item.path
+		  )
+		: __( 'Select a folder' );
 
 	return (
-		<ValidatedInputControl
-			__next40pxDefaultSize
+		<BaseControl
+			__nextHasNoMarginBottom
 			label={ field.label }
 			hideLabelFromVision={ hideLabelFromVision }
-			value={ item.path }
-			placeholder={ __( 'Choose a folder…' ) }
-			readOnly
-			onClick={ handleSelect }
-			className={ styles.pathControl }
-			customValidity={ errorMessage ? { type: 'invalid', message: errorMessage } : undefined }
 			help={
-				<>
-					{ __( 'Select an empty directory or a directory with an existing WordPress site.' ) }{ ' ' }
-					<LearnMoreLink docsLinksKey="docsSites" />
-				</>
+				errorMessage ? (
+					<span className={ styles.pathErrorHelp }>{ errorMessage }</span>
+				) : (
+					<>
+						{ __( 'Select an empty directory or a directory with an existing WordPress site.' ) }{ ' ' }
+						<LearnMoreLink docsLinksKey="docsSites" />
+					</>
+				)
 			}
-			suffix={
-				<InputControlSuffixWrapper variant="control">
-					<Button
-						type="button"
-						variant="minimal"
-						tone="neutral"
-						size="small"
-						onClick={ handleSelect }
-					>
-						{ __( 'Choose…' ) }
-					</Button>
-				</InputControlSuffixWrapper>
-			}
-		/>
+		>
+			<button
+				type="button"
+				onClick={ handleSelect }
+				aria-label={ triggerLabel }
+				aria-invalid={ !! errorMessage || undefined }
+				className={ `${ styles.pathTrigger } ${ errorMessage ? styles.pathTriggerError : '' }` }
+			>
+				<span
+					className={ `${ styles.pathValue } ${ item.path ? '' : styles.pathValuePlaceholder }` }
+					aria-hidden="true"
+				>
+					{ item.path || __( 'Choose a folder…' ) }
+				</span>
+				<span className={ styles.pathTriggerAction } aria-hidden="true">
+					{ __( 'Choose\u2026' ) }
+				</span>
+			</button>
+		</BaseControl>
 	);
 }
 
@@ -223,11 +233,6 @@ function EnableHttpsControl( { data: item, field, onChange }: DataFormControlPro
 	);
 }
 
-/**
- * Walks the advanced form config and tallies how many of its leaf fields
- * currently have invalid validity state. Used to surface an error indicator
- * on the Advanced settings toggle when it's collapsed.
- */
 function countAdvancedErrors( validity: FormValidity, form: Form ): number {
 	const fieldIds: string[] = [];
 	const collect = ( field: FormField | string ) => {
@@ -253,37 +258,49 @@ function countAdvancedErrors( validity: FormValidity, form: Form ): number {
 }
 
 export function CreateSiteForm( {
-	defaultName,
+	initialValues,
 	existingDomainNames,
 	onSubmit,
 	onCancel,
 	isSubmitting,
 	submitError,
+	submitLabel,
 }: CreateSiteFormProps ) {
-	const [ data, setData ] = useState< FormData >( () => ( {
-		name: '',
-		path: '',
-		hasCustomPath: false,
-		pathError: '',
-		phpVersion: RecommendedPHPVersion,
-		wpVersion: DEFAULT_WORDPRESS_VERSION,
-		useCustomDomain: false,
-		customDomain: '',
-		enableHttps: false,
-		adminUsername: 'admin',
-		adminPassword: generatePassword(),
-		adminEmail: 'admin@localhost.com',
-	} ) );
+	const [ data, setData ] = useState< FormData >( () => {
+		const base: FormData = {
+			name: '',
+			path: '',
+			hasCustomPath: false,
+			pathError: '',
+			isPathPending: false,
+			phpVersion: RecommendedPHPVersion,
+			wpVersion: DEFAULT_WORDPRESS_VERSION,
+			useCustomDomain: false,
+			customDomain: '',
+			enableHttps: false,
+			adminUsername: 'admin',
+			adminPassword: generatePassword(),
+			adminEmail: 'admin@localhost.com',
+		};
+		if ( ! initialValues ) return base;
+		const seeded = applyInitialValues( base, initialValues );
+		if ( seeded.name.trim() && ! seeded.path ) seeded.isPathPending = true;
+		return seeded;
+	} );
 
-	// Seed the site name from `defaultName` the first time it resolves, as
-	// long as the user hasn't typed anything yet. Fires once — subsequent
-	// `defaultName` churn shouldn't clobber user input.
-	const hasAppliedDefaultName = useRef( false );
+	// Handles the async seed case (e.g. `useProposedSiteName` resolving after
+	// mount) without clobbering user edits on subsequent renders.
+	const hasAppliedInitialValues = useRef( initialValues ? hasAnyValue( initialValues ) : false );
 	useEffect( () => {
-		if ( hasAppliedDefaultName.current || ! defaultName ) return;
-		hasAppliedDefaultName.current = true;
-		setData( ( prev ) => ( prev.name ? prev : { ...prev, name: defaultName } ) );
-	}, [ defaultName ] );
+		if ( hasAppliedInitialValues.current || ! initialValues ) return;
+		if ( ! hasAnyValue( initialValues ) ) return;
+		hasAppliedInitialValues.current = true;
+		setData( ( prev ) => {
+			const next = applyInitialValues( prev, initialValues );
+			if ( next.name.trim() && ! next.path ) next.isPathPending = true;
+			return next;
+		} );
+	}, [ initialValues ] );
 
 	const fields = useMemo< Field< FormData >[] >(
 		() => [
@@ -292,9 +309,15 @@ export function CreateSiteForm( {
 				id: 'path',
 				label: __( 'Local path' ),
 				Edit: PathField,
+				// Required check lives inside `custom` so it can opt out while
+				// `isPathPending` is true — see the `FormData` comment above.
 				isValid: {
-					required: true,
-					custom: ( item: FormData ) => item.pathError || null,
+					custom: ( item: FormData ) => {
+						if ( item.pathError ) return item.pathError;
+						if ( item.isPathPending ) return null;
+						if ( ! item.path ) return __( 'Local path is required.' );
+						return null;
+					},
 				},
 			},
 			phpVersionField< FormData >(),
@@ -348,8 +371,8 @@ export function CreateSiteForm( {
 		} ),
 		[]
 	);
-	// Compute validity across all fields together so a collapsed Advanced
-	// settings section can still surface an error indicator on its toggle.
+	// Covers both sections so the collapsed Advanced toggle still picks up
+	// errors from fields that aren't currently mounted.
 	const fullForm = useMemo< Form >(
 		() => ( {
 			layout: { type: 'regular', labelPosition: 'top' },
@@ -369,9 +392,8 @@ export function CreateSiteForm( {
 	const handleChange = useCallback( ( update: Record< string, unknown > ) => {
 		setData( ( prev ) => {
 			const next: FormData = { ...prev, ...( update as Partial< FormData > ) };
-			// When the user toggles "Use custom domain" on for the first time,
-			// seed the domain input with a sensible default derived from the
-			// site name — matching Studio's add-site flow.
+			// Seed the custom-domain input on first toggle with a sensible
+			// default derived from the site name.
 			if ( ! prev.useCustomDomain && next.useCustomDomain && ! next.customDomain ) {
 				next.customDomain = generateCustomDomainFromSiteName( next.name );
 			}
@@ -379,9 +401,9 @@ export function CreateSiteForm( {
 		} );
 	}, [] );
 
-	// `isValid` already folds in `path`'s required + custom (pathError) rules,
-	// so no extra gating needed here.
-	const canSubmit = isValid && ! isSubmitting;
+	// `isPathPending` is deliberately absent from `isValid` (so the Advanced
+	// toggle doesn't flash), so gate submit on it separately.
+	const canSubmit = isValid && ! isSubmitting && ! data.isPathPending;
 
 	const handleSubmit = ( event: FormEvent ) => {
 		event.preventDefault();
@@ -464,7 +486,7 @@ export function CreateSiteForm( {
 					loadingAnnouncement={ __( 'Creating site' ) }
 					data-testid="create-site-submit"
 				>
-					{ __( 'Create site' ) }
+					{ submitLabel ?? __( 'Create site' ) }
 				</Button>
 			</div>
 		</form>

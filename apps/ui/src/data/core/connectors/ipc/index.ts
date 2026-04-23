@@ -1,9 +1,13 @@
+import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
+import { __ } from '@wordpress/i18n';
 import type { AgentRunEvent } from '../../agent-events';
 import type {
 	AiSessionSummary,
 	AuthUser,
 	ColorScheme,
 	Connector,
+	ExtractedBlueprintBundle,
+	FeaturedBlueprint,
 	InstalledApps,
 	LoadedAiSession,
 	ProposedSitePath,
@@ -15,6 +19,60 @@ import type {
 	SyncSite,
 	UserPreferences,
 } from '../../types';
+
+function generateBackupFilename( siteName: string ): string {
+	const now = new Date();
+	const pad = ( n: number ) => String( n ).padStart( 2, '0' );
+	const timestamp =
+		`${ now.getFullYear() }-${ pad( now.getMonth() + 1 ) }-${ pad( now.getDate() ) }` +
+		`-${ pad( now.getHours() ) }-${ pad( now.getMinutes() ) }-${ pad( now.getSeconds() ) }`;
+	return sanitizeFolderName( `studio-backup-${ siteName }-${ timestamp }` );
+}
+
+type ExportRequest = {
+	site: SiteDetails;
+	backupFile: string;
+	includes: { database: boolean; wpContent: boolean };
+	phpVersion: string;
+};
+
+// Runs an export IPC call and surfaces the outcome through the same
+// main-process notification channels the legacy renderer uses: a native
+// success notification on completion, or the error message box (with a
+// "Show logs" affordance) on any failure.
+async function runExport(
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	ipcApi: any,
+	request: ExportRequest
+): Promise< string > {
+	const handleError = ( error?: unknown ) => {
+		ipcApi.showErrorMessageBox( {
+			title: __( 'Failed exporting site' ),
+			message: __(
+				'An error occurred while exporting the site. If this problem persists, please contact support.'
+			),
+			error,
+			showOpenLogs: true,
+		} );
+	};
+
+	let success = false;
+	try {
+		success = ( await ipcApi.exportSite( request ) ) as boolean;
+	} catch ( error ) {
+		handleError( error );
+		throw error;
+	}
+	if ( ! success ) {
+		handleError();
+		throw new Error( 'Export failed' );
+	}
+	ipcApi.showNotification( {
+		title: request.site.name,
+		body: __( 'Export completed' ),
+	} );
+	return request.backupFile;
+}
 
 /**
  * Creates a connector that delegates to the Electron IPC bridge.
@@ -153,6 +211,7 @@ export function createIpcConnector(): Connector {
 				adminUsername,
 				adminPassword,
 				adminEmail,
+				blueprint,
 			} = params;
 			return ( await ipcApi.createSite( path, {
 				siteName: name,
@@ -163,6 +222,7 @@ export function createIpcConnector(): Connector {
 				adminUsername,
 				adminPassword,
 				adminEmail,
+				blueprint,
 			} ) ) as SiteDetails;
 		},
 
@@ -220,6 +280,76 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.getAllCustomDomains() ) as string[];
 		},
 
+		async getFeaturedBlueprints( locale ) {
+			const url = new URL( 'https://public-api.wordpress.com/wpcom/v2/studio-app/blueprints' );
+			if ( locale ) {
+				url.searchParams.set( 'locale', locale );
+			}
+			const response = await fetch( url.toString() );
+			if ( ! response.ok ) {
+				throw new Error( `Failed to fetch blueprints: ${ response.status }` );
+			}
+			const body = ( await response.json() ) as {
+				blueprints?: Array< {
+					slug?: string;
+					title?: string;
+					excerpt?: string;
+					image?: string;
+					playground_url?: string;
+					blueprint?: unknown;
+				} >;
+			};
+			// Drop any blueprint missing the fields the UI relies on rather
+			// than failing the whole request — matches the desktop app's
+			// tolerant `transformResponse` behaviour.
+			const list: FeaturedBlueprint[] = [];
+			for ( const item of body.blueprints ?? [] ) {
+				if (
+					typeof item.slug !== 'string' ||
+					typeof item.title !== 'string' ||
+					typeof item.excerpt !== 'string' ||
+					typeof item.image !== 'string' ||
+					typeof item.playground_url !== 'string' ||
+					! item.blueprint ||
+					typeof item.blueprint !== 'object'
+				) {
+					continue;
+				}
+				list.push( {
+					slug: item.slug,
+					title: item.title,
+					excerpt: item.excerpt,
+					image: item.image,
+					playgroundUrl: item.playground_url,
+					blueprint: item.blueprint as FeaturedBlueprint[ 'blueprint' ],
+				} );
+			}
+			return list;
+		},
+
+		async getFilePath( file ) {
+			// `webUtils.getPathForFile` is a synchronous preload-only API; the
+			// connector wraps it in a Promise to keep the surface uniform and
+			// to leave room for non-Electron connectors that might resolve the
+			// path asynchronously.
+			return ( ipcApi.getPathForFile( file ) as string ) ?? '';
+		},
+
+		async extractBlueprintBundle( zipFilePath ): Promise< ExtractedBlueprintBundle > {
+			return ( await ipcApi.extractBlueprintBundle( zipFilePath ) ) as ExtractedBlueprintBundle;
+		},
+
+		async cleanupBlueprintTempDir( tempDir ) {
+			await ipcApi.cleanupBlueprintTempDir( tempDir );
+		},
+
+		async importSiteFromBackup( siteId, backup ): Promise< SiteDetails > {
+			return ( await ipcApi.importSite( {
+				id: siteId,
+				backupFile: backup,
+			} ) ) as SiteDetails;
+		},
+
 		async startSite( id ) {
 			await ipcApi.startServer( id );
 		},
@@ -234,6 +364,62 @@ export function createIpcConnector(): Connector {
 
 		async getXdebugEnabledSite() {
 			return ( await ipcApi.getXdebugEnabledSite() ) as SiteDetails | null;
+		},
+
+		async exportFullSite( siteId ): Promise< string | null > {
+			const sites = ( await ipcApi.getSiteDetails() ) as SiteDetails[];
+			const site = sites.find( ( candidate ) => candidate.id === siteId );
+			if ( ! site ) {
+				throw new Error( `Site ${ siteId } not found` );
+			}
+			const fileName = generateBackupFilename( site.name );
+			const backupFile = ( await ipcApi.showSaveAsDialog( {
+				title: __( 'Save backup file' ),
+				defaultPath: `${ fileName }.zip`,
+				filters: [
+					{
+						name: 'Compressed Backup Files',
+						extensions: [ 'tar.gz', 'tzg', 'zip' ],
+					},
+				],
+			} ) ) as string;
+			if ( ! backupFile ) {
+				return null;
+			}
+			return runExport( ipcApi, {
+				site,
+				backupFile,
+				includes: { database: true, wpContent: true },
+				phpVersion: site.phpVersion,
+			} );
+		},
+
+		async exportDatabase( siteId ): Promise< string | null > {
+			const sites = ( await ipcApi.getSiteDetails() ) as SiteDetails[];
+			const site = sites.find( ( candidate ) => candidate.id === siteId );
+			if ( ! site ) {
+				throw new Error( `Site ${ siteId } not found` );
+			}
+			const fileName = generateBackupFilename( site.name );
+			const backupFile = ( await ipcApi.showSaveAsDialog( {
+				title: __( 'Save database file' ),
+				defaultPath: `${ fileName }.sql`,
+				filters: [
+					{
+						name: 'SQL dump file',
+						extensions: [ 'sql' ],
+					},
+				],
+			} ) ) as string;
+			if ( ! backupFile ) {
+				return null;
+			}
+			return runExport( ipcApi, {
+				site,
+				backupFile,
+				includes: { database: true, wpContent: false },
+				phpVersion: site.phpVersion,
+			} );
 		},
 
 		// Preview snapshots

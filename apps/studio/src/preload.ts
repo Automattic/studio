@@ -49,7 +49,8 @@ const api: IpcApi = {
 	updateConnectedWpcomSites: ( ...args ) =>
 		ipcRendererInvoke( 'updateConnectedWpcomSites', ...args ),
 	authenticate: ( isSignup ) => ipcRendererSend( 'authenticate', isSignup ),
-	exportSite: ( options ) => ipcRendererInvoke( 'exportSite', options ),
+	exportSite: ( site, destinationPath, options ) =>
+		ipcRendererInvoke( 'exportSite', site, destinationPath, options ),
 	isAuthenticated: () => ipcRendererInvoke( 'isAuthenticated' ),
 	getAuthenticationToken: () => ipcRendererInvoke( 'getAuthenticationToken' ),
 	clearAuthenticationToken: () => ipcRendererInvoke( 'clearAuthenticationToken' ),
@@ -95,7 +96,8 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'loadThemeDetails', id, emitLoadingEvent ),
 	getThumbnailData: ( id ) => ipcRendererInvoke( 'getThumbnailData', id ),
 	getInstalledAppsAndTerminals: () => ipcRendererInvoke( 'getInstalledAppsAndTerminals' ),
-	importSite: ( { id, backupFile } ) => ipcRendererInvoke( 'importSite', { id, backupFile } ),
+	importSite: ( siteId, importArchivePath, options ) =>
+		ipcRendererInvoke( 'importSite', siteId, importArchivePath, options ),
 	executeWPCLiInline: ( options ) => ipcRendererInvoke( 'executeWPCLiInline', options ),
 	getOnboardingData: () => ipcRendererInvoke( 'getOnboardingData' ),
 	saveOnboarding: ( onboardingCompleted ) =>

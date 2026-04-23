@@ -55,7 +55,7 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 		prompt,
 		env,
 		model = DEFAULT_MODEL,
-		maxTurns = 50,
+		maxTurns = 75,
 		resume,
 		autoApprove,
 		activeSite,

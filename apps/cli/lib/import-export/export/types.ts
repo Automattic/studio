@@ -1,6 +1,6 @@
-import { z } from 'zod';
 import { SiteData } from 'cli/lib/cli-config/core';
 import type { ImportExportEventEmitter } from '../events';
+import type { Ignore } from 'ignore';
 
 export interface ExportOptions {
 	site: SiteData;
@@ -9,6 +9,7 @@ export interface ExportOptions {
 	phpVersion: string;
 	splitDatabaseDumpByTable?: boolean;
 	specificSelectionPaths?: string[];
+	ignoreFilter?: Ignore;
 }
 
 export type ExportOptionsIncludes = 'wpContent' | 'database';

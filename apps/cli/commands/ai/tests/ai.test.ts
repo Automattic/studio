@@ -187,6 +187,9 @@ vi.mock( 'cli/ai/ui', () => ( {
 		handleMessage() {
 			return undefined;
 		}
+		hasErrorBeenSurfaced() {
+			return false;
+		}
 		showAgentQuestion() {}
 		async askUser() {
 			return askUserMock();
@@ -201,8 +204,16 @@ vi.mock( 'cli/ai/ui', () => ( {
 
 vi.mock( 'cli/ai/sessions/recorder', () => {
 	class MockAiSessionRecorder {
-		static create = vi.fn().mockResolvedValue( new MockAiSessionRecorder() );
-		static open = vi.fn().mockResolvedValue( new MockAiSessionRecorder() );
+		static create = vi
+			.fn()
+			.mockResolvedValue( new MockAiSessionRecorder( 'mock-session-created' ) );
+		static open = vi.fn( ( options: { sessionId: string } ) =>
+			Promise.resolve( new MockAiSessionRecorder( options.sessionId ) )
+		);
+		readonly sessionId: string;
+		constructor( sessionId: string = 'mock-session-created' ) {
+			this.sessionId = sessionId;
+		}
 		async recordSdkMessage() {}
 		async recordToolProgress() {}
 		async recordSessionCleared( ...args: unknown[] ) {
@@ -624,7 +635,9 @@ describe( 'CLI: studio code sessions command', () => {
 
 		await buildParser().parseAsync( [ 'ai', 'sessions', 'resume', 'latest' ] );
 
-		expect( resolveAiEnvironment ).toHaveBeenCalledWith( 'anthropic-api-key' );
+		expect( resolveAiEnvironment ).toHaveBeenCalledWith( 'anthropic-api-key', {
+			sessionId: 'session-latest',
+		} );
 		expect( ( AiSessionRecorder as typeof AiSessionRecorder ).open ).toHaveBeenCalledWith(
 			expect.objectContaining( {
 				sessionId: 'session-latest',

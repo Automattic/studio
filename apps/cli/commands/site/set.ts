@@ -319,8 +319,6 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 		logger.reportSuccess( __( 'Site configuration updated' ) );
 
 		await emitCliEvent( { event: SITE_EVENTS.UPDATED, data: { siteId: site.id } } );
-
-		return;
 	} finally {
 		await disconnectFromDaemon();
 	}

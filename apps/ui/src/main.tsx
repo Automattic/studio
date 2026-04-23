@@ -8,7 +8,7 @@ import { createIpcConnector } from '@/data/core/connectors/ipc';
 import type { Connector } from '@/data/core';
 
 async function loadTranslations( connector: Connector ) {
-	const locale = await connector.getUserLocale();
+	const { locale } = await connector.getUserPreferences();
 	if ( ! locale || ! isSupportedLocale( locale ) ) {
 		return;
 	}

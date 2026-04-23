@@ -49,7 +49,8 @@ const api: IpcApi = {
 	updateConnectedWpcomSites: ( ...args ) =>
 		ipcRendererInvoke( 'updateConnectedWpcomSites', ...args ),
 	authenticate: ( isSignup ) => ipcRendererSend( 'authenticate', isSignup ),
-	exportSite: ( options ) => ipcRendererInvoke( 'exportSite', options ),
+	exportSite: ( site, destinationPath, options ) =>
+		ipcRendererInvoke( 'exportSite', site, destinationPath, options ),
 	isAuthenticated: () => ipcRendererInvoke( 'isAuthenticated' ),
 	getAuthenticationToken: () => ipcRendererInvoke( 'getAuthenticationToken' ),
 	clearAuthenticationToken: () => ipcRendererInvoke( 'clearAuthenticationToken' ),
@@ -95,7 +96,8 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'loadThemeDetails', id, emitLoadingEvent ),
 	getThumbnailData: ( id ) => ipcRendererInvoke( 'getThumbnailData', id ),
 	getInstalledAppsAndTerminals: () => ipcRendererInvoke( 'getInstalledAppsAndTerminals' ),
-	importSite: ( { id, backupFile } ) => ipcRendererInvoke( 'importSite', { id, backupFile } ),
+	importSite: ( siteId, importArchivePath, options ) =>
+		ipcRendererInvoke( 'importSite', siteId, importArchivePath, options ),
 	executeWPCLiInline: ( options ) => ipcRendererInvoke( 'executeWPCLiInline', options ),
 	getOnboardingData: () => ipcRendererInvoke( 'getOnboardingData' ),
 	saveOnboarding: ( onboardingCompleted ) =>
@@ -115,8 +117,8 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'promptWindowsSpeedUpSites', ...args ),
 	setDefaultLocaleData: ( locale ) => ipcRendererInvoke( 'setDefaultLocaleData', locale ),
 	resetDefaultLocaleData: () => ipcRendererInvoke( 'resetDefaultLocaleData' ),
-	toggleMinWindowWidth: ( isSidebarVisible ) =>
-		ipcRendererInvoke( 'toggleMinWindowWidth', isSidebarVisible ),
+	toggleMinWindowWidth: ( isSidebarVisible, currentSidebarWidth? ) =>
+		ipcRendererInvoke( 'toggleMinWindowWidth', isSidebarVisible, currentSidebarWidth ),
 	getAbsolutePathFromSite: ( siteId, relativePath ) =>
 		ipcRendererInvoke( 'getAbsolutePathFromSite', siteId, relativePath ),
 	openFileInIDE: ( relativePath, siteId ) =>
@@ -128,6 +130,9 @@ const api: IpcApi = {
 	removeSyncBackup: ( remoteSiteId ) => ipcRendererInvoke( 'removeSyncBackup', remoteSiteId ),
 	getConnectedWpcomSites: ( localSiteId ) =>
 		ipcRendererInvoke( 'getConnectedWpcomSites', localSiteId ),
+	fetchSyncableWpcomSites: () => ipcRendererInvoke( 'fetchSyncableWpcomSites' ),
+	pullSiteFromLive: ( siteFolder, remoteSiteId ) =>
+		ipcRendererInvoke( 'pullSiteFromLive', siteFolder, remoteSiteId ),
 	addSyncOperation: ( id, status ) => ipcRendererSend( 'addSyncOperation', id, status ),
 	clearSyncOperation: ( id ) => ipcRendererSend( 'clearSyncOperation', id ),
 	cancelSyncOperation: ( id ) => ipcRendererSend( 'cancelSyncOperation', id ),
@@ -155,6 +160,9 @@ const api: IpcApi = {
 	preflightBackup: ( filePath, fileType ) =>
 		ipcRendererInvoke( 'preflightBackup', filePath, fileType ),
 	readBlueprintFile: ( filePath ) => ipcRendererInvoke( 'readBlueprintFile', filePath ),
+	extractBlueprintBundle: ( zipFilePath ) =>
+		ipcRendererInvoke( 'extractBlueprintBundle', zipFilePath ),
+	cleanupBlueprintTempDir: ( tempDir ) => ipcRendererInvoke( 'cleanupBlueprintTempDir', tempDir ),
 	showSiteContextMenu: ( context ) => ipcRendererSend( 'showSiteContextMenu', context ),
 	setWindowControlVisibility: ( visible ) =>
 		ipcRendererInvoke( 'setWindowControlVisibility', visible ),

@@ -1,9 +1,8 @@
 import { EventEmitter } from 'events';
-import type {
-	ImportExportEventType,
-	ImportExportEventTuple,
-} from '@studio/common/lib/import-export-events';
+import type { ImportEventTuple, ExportEventTuple } from '@studio/common/lib/import-export-events';
 
+type ImportExportEventTuple = ImportEventTuple | ExportEventTuple;
+type ImportExportEventType = ImportExportEventTuple[ 0 ];
 type ImportExportEventData< T extends ImportExportEventType > = Extract<
 	ImportExportEventTuple,
 	[ T, unknown ]

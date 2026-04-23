@@ -59,7 +59,13 @@ body {
 		BlinkMacSystemFont,
 		/* macOS/iOS system UI */ 'Segoe UI',
 		Roboto,
-		/* Windows + Android system UI */ 'Apple Color Emoji',
+		/* Windows + Android system UI */ Ubuntu,
+		Cantarell,
+		'Liberation Sans',
+		'DejaVu Sans',
+		/* Linux system UI — listed before emoji fonts so the space glyph
+		   resolves from a text font, not from Noto Color Emoji's wide space. */
+			'Apple Color Emoji',
 		'Segoe UI Emoji',
 		'Noto Color Emoji',
 		/* emoji */ 'Noto Sans',

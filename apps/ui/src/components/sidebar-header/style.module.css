@@ -9,12 +9,24 @@
 		var(--wpds-dimension-padding-sm) 94px;
 	min-height: 46px;
 	-webkit-app-region: drag;
+	/* Stay pinned while the sidebar scrolls. Opaque background so
+	   scrolling content doesn't bleed through. */
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	background-color: var(--wpds-color-bg-surface-neutral-weak);
 }
 
 /* In macOS fullscreen the traffic lights are hidden, so reclaim the
-   padding that was reserved for them. */
+   padding that was reserved for them and align the title with the
+   site list entries below — the site list outer padding is `xl + sm`
+   and each site label sits inside a button with another `sm` of
+   padding-inline, so its text starts at `xl + 2*sm` from the sidebar
+   edge. */
 .fullscreen {
-	padding-left: var(--wpds-dimension-padding-xl);
+	padding-left: calc(
+		var(--wpds-dimension-padding-xl) + 2 * var(--wpds-dimension-padding-sm)
+	);
 }
 
 .title {

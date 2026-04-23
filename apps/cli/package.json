@@ -1,7 +1,7 @@
 {
 	"name": "wp-studio",
 	"author": "Automattic Inc.",
-	"version": "1.7.9",
+	"version": "1.7.11",
 	"productName": "Studio CLI",
 	"description": "WordPress Studio CLI",
 	"license": "GPL-2.0-or-later",
@@ -43,6 +43,7 @@
 		"cli-table3": "^0.6.5",
 		"fs-extra": "^11.3.4",
 		"http-proxy": "^1.18.1",
+		"ignore": "^7.0.5",
 		"node-forge": "^1.3.3",
 		"patch-package": "^8.0.1",
 		"picospinner": "^3.0.0",

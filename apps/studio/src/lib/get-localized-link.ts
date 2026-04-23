@@ -38,10 +38,10 @@ const DOCS_LINKS = {
 		en: 'https://developer.wordpress.com/docs/developer-tools/studio/ssl-in-studio/',
 	},
 	docsMcp: {
-		en: 'https://developer.wordpress.com/docs/developer-tools/studio/mcp/',
+		en: 'https://developer.wordpress.com/docs/developer-tools/studio/mcp-on-studio/',
 	},
 	docsSkills: {
-		en: 'https://developer.wordpress.com/docs/developer-tools/studio/agent-skills/',
+		en: 'https://developer.wordpress.com/docs/developer-tools/studio/agent-skills-wordpress-studio/',
 	},
 } satisfies Record< `docs${ string }`, TranslatedLink >;
 

@@ -1,7 +1,6 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import {
 	SYNC_MAX_STALLED_ATTEMPTS,
@@ -110,7 +109,7 @@ export async function runCommand(
 			site,
 			backupFile: archivePath,
 			includes,
-			phpVersion: DEFAULT_PHP_VERSION,
+			phpVersion: site.phpVersion,
 			splitDatabaseDumpByTable: true,
 			specificSelectionPaths,
 		} );

@@ -90,6 +90,23 @@ export async function updateSiteAutoStart( siteId: string, autoStart: boolean ):
 	}
 }
 
+export async function updateSitePhpVersion( siteId: string, phpVersion: string ): Promise< void > {
+	try {
+		await lockCliConfig();
+		const config = await readCliConfig();
+		const site = config.sites.find( ( s ) => s.id === siteId );
+
+		if ( ! site ) {
+			throw new LoggerError( __( 'Site not found' ) );
+		}
+
+		site.phpVersion = phpVersion;
+		await saveCliConfig( config );
+	} finally {
+		await unlockCliConfig();
+	}
+}
+
 export async function removeSiteFromConfig( siteId: string ): Promise< void > {
 	try {
 		await lockCliConfig();

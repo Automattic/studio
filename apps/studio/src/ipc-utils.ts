@@ -1,8 +1,8 @@
 import crypto from 'crypto';
 import { BrowserWindow } from 'electron';
 import { SiteEvent, SnapshotEvent } from '@studio/common/lib/cli-events';
+import { ExportEventTuple, ImportEventTuple } from '@studio/common/lib/import-export-events';
 import { PreviewCommandLoggerAction } from '@studio/common/logger-actions';
-import { ImportExportEventData } from 'src/lib/import-export/handle-events';
 import { getMainWindow } from 'src/main-window';
 import type { StoredAuthToken } from '@studio/common/lib/shared-config';
 import type { AgentRunEvent } from 'src/modules/ai-agent/types';
@@ -27,8 +27,8 @@ export interface IpcEvents {
 		},
 	];
 	'auth-updated': [ { token: StoredAuthToken } | { token: null } | { error: unknown } ];
-	'on-export': [ ImportExportEventData, string ];
-	'on-import': [ ImportExportEventData, string ];
+	'on-export': [ ExportEventTuple, string ];
+	'on-import': [ ImportEventTuple, string ];
 	'on-site-create-progress': [ { siteId: string; message: string } ];
 	'site-context-menu-action': [ { action: string; siteId: string } ];
 	'site-event': [ SiteEvent ];

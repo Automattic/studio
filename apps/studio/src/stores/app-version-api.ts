@@ -1,8 +1,7 @@
 import { createSelector } from '@reduxjs/toolkit';
 import { BaseQueryFn } from '@reduxjs/toolkit/query';
 import { createApi, fetchBaseQuery, TypedUseQueryStateResult } from '@reduxjs/toolkit/query/react';
-import semver from 'semver';
-import { FORCE_WHATS_NEW_WHEN_PATCH_CHANGED } from 'src/constants';
+import { FORCE_SHOW_WHATS_NEW } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
 export const appVersionApi = createApi( {
@@ -45,36 +44,19 @@ type GetLastSeenVersionQueryResult = TypedUseQueryStateResult<
 	BaseQueryFn
 >;
 
-function isGreaterExceptPatch( versionA: string | undefined, versionB: string ): boolean {
-	if ( ! versionA ) {
-		return true;
-	}
-
-	if (
-		! semver.valid( versionA ) ||
-		! semver.valid( versionB ) ||
-		semver.gte( versionA, versionB )
-	) {
-		return false;
-	}
-
-	const a = semver.parse( versionA )!;
-	const b = semver.parse( versionB )!;
-
-	if (
-		a.major === b.major &&
-		a.minor === b.minor &&
-		( a.patch !== b.patch || a.prerelease?.length !== b.prerelease?.length )
-	) {
-		return FORCE_WHATS_NEW_WHEN_PATCH_CHANGED;
-	}
-	return true;
-}
-
+// The modal auto-shows only for first-time users (no stored `lastSeenVersion`)
+// or when `FORCE_SHOW_WHATS_NEW` is flipped to `true` and the user hasn't
+// dismissed it on the current app version yet. Patch/minor/major bumps alone
+// never trigger the modal — devs must opt in via the constant.
 export const selectIsNewVersion = createSelector(
 	[
 		( res: GetLastSeenVersionQueryResult ) => res.data,
-		( res: GetLastSeenVersionQueryResult, currentVersion: string ) => currentVersion,
+		( _res: GetLastSeenVersionQueryResult, currentVersion: string ) => currentVersion,
 	],
-	( lastSeenVersion, currentVersion ) => isGreaterExceptPatch( lastSeenVersion, currentVersion )
+	( lastSeenVersion, currentVersion ) => {
+		if ( ! lastSeenVersion ) {
+			return true;
+		}
+		return FORCE_SHOW_WHATS_NEW && lastSeenVersion !== currentVersion;
+	}
 );

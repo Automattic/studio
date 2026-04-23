@@ -1,0 +1,80 @@
+name: Prompt Eval
+
+on:
+  pull_request:
+    paths:
+      - 'apps/cli/ai/system-prompt.ts'
+      - 'apps/cli/ai/plugin/skills/**'
+      - 'apps/cli/ai/agent.ts'
+      - 'apps/cli/ai/tests/promptfoo/**'
+      - '.github/workflows/prompt-eval.yml'
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: prompt-eval-${{ github.ref }}
+  cancel-in-progress: true
+
+# Pin the promptfoo version so a CI regression can't be caused by an upstream
+# release between runs. Bump this deliberately.
+env:
+  PROMPTFOO_VERSION: '0.121.7'
+
+jobs:
+  eval:
+    name: Evaluate agent prompt
+    runs-on: ubuntu-latest
+    # Run on in-repo PRs only. Fork PRs lack access to the
+    # ANTHROPIC_API_KEY secret, so an eval from a fork would fail on
+    # "missing API key" rather than on a real regression. Maintainers can
+    # re-trigger by pushing the branch to the main repo.
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Cache promptfoo responses
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/promptfoo
+          key: promptfoo-${{ runner.os }}-${{ env.PROMPTFOO_VERSION }}-${{ hashFiles('apps/cli/ai/system-prompt.ts', 'apps/cli/ai/plugin/skills/**/SKILL.md', 'apps/cli/ai/tests/promptfoo/promptfooconfig.yaml') }}
+          restore-keys: |
+            promptfoo-${{ runner.os }}-${{ env.PROMPTFOO_VERSION }}-
+
+      - name: Run prompt eval
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        working-directory: apps/cli/ai/tests/promptfoo
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::error::ANTHROPIC_API_KEY is not set. Add it under Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          npx --yes "promptfoo@${PROMPTFOO_VERSION}" eval \
+            --output output.json \
+            --no-write \
+            --no-progress-bar
+
+      - name: Render summary
+        if: always()
+        working-directory: apps/cli/ai/tests/promptfoo
+        run: node scripts/render-summary.mjs >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: promptfoo-report
+          path: apps/cli/ai/tests/promptfoo/output.json
+          if-no-files-found: warn
+          retention-days: 30

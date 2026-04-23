@@ -57,7 +57,8 @@ import {
 	updateSharedConfig,
 } from '@studio/common/lib/shared-config';
 import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
-import { shouldExcludeFromSync, shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
+import { shouldExcludeFromSync } from '@studio/common/lib/sync/exclude-from-sync';
+import { shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import {

@@ -2,7 +2,8 @@ import fs from 'fs';
 import nodePath from 'path';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
-import { shouldExcludeFromSync, shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
+import { shouldExcludeFromSync } from '@studio/common/lib/sync/exclude-from-sync';
+import { shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { Ignore } from 'ignore';
 

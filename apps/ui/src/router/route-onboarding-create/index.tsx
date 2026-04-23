@@ -48,7 +48,7 @@ function CreateSitePage() {
 				{ __( 'Choose a name and we\u2019ll scaffold a fresh WordPress site locally.' ) }
 			</p>
 			<CreateSiteForm
-				defaultName={ proposedName }
+				initialValues={ proposedName ? { name: proposedName } : undefined }
 				existingDomainNames={ existingDomainNames ?? [] }
 				onSubmit={ handleSubmit }
 				onCancel={ () => void navigate( { to: '/onboarding' } ) }

@@ -10,6 +10,8 @@ import { useSessions } from '@/data/queries/use-sessions';
 import {
 	useCopySite,
 	useDeleteSite,
+	useExportDatabase,
+	useExportFullSite,
 	useIsSiteStarting,
 	useIsSiteStopping,
 	useSites,
@@ -215,9 +217,12 @@ function SiteActionsMenu( { site }: { site: SiteDetails } ) {
 	const startSite = useStartSite();
 	const stopSite = useStopSite();
 	const copySite = useCopySite();
+	const exportFullSite = useExportFullSite();
+	const exportDatabase = useExportDatabase();
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
 	const busy = isStarting || isStopping;
+	const isExporting = exportFullSite.isPending || exportDatabase.isPending;
 	const [ deleteOpen, setDeleteOpen ] = useState( false );
 
 	return (
@@ -258,6 +263,13 @@ function SiteActionsMenu( { site }: { site: SiteDetails } ) {
 					</Menu.Item>
 					<Menu.Item disabled={ copySite.isPending } onClick={ () => copySite.mutate( site.id ) }>
 						{ copySite.isPending ? __( 'Copying…' ) : __( 'Copy site' ) }
+					</Menu.Item>
+					<Menu.Separator />
+					<Menu.Item disabled={ isExporting } onClick={ () => exportFullSite.mutate( site.id ) }>
+						{ exportFullSite.isPending ? __( 'Exporting…' ) : __( 'Export entire site' ) }
+					</Menu.Item>
+					<Menu.Item disabled={ isExporting } onClick={ () => exportDatabase.mutate( site.id ) }>
+						{ exportDatabase.isPending ? __( 'Exporting…' ) : __( 'Export database' ) }
 					</Menu.Item>
 					<Menu.Separator />
 					<Menu.Item onClick={ () => setDeleteOpen( true ) }>{ __( 'Delete site' ) }</Menu.Item>

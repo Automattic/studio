@@ -31,7 +31,6 @@ import { openAddSiteModal, closeAddSiteModal, selectIsAddSiteModalOpen } from 's
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import { useGetBlueprints, Blueprint } from 'src/stores/wpcom-api';
 import BlueprintDetails from './components/blueprint-details';
-import { ConnectOptions } from './components/connect-options';
 import CreateSite from './components/create-site';
 import { NewSiteOptions } from './components/new-site-options';
 import AddSiteOptions, { type AddSiteFlowType } from './components/options';
@@ -225,9 +224,6 @@ function NavigationContent( props: NavigationContentProps ) {
 			setBlueprintFileError( undefined );
 			startOver();
 		}
-		if ( location.path === '/connect' ) {
-			startOver();
-		}
 		goBack();
 	}, [
 		location.path,
@@ -360,11 +356,6 @@ function NavigationContent( props: NavigationContentProps ) {
 						onBlueprintChange={ handleBlueprintChange }
 						blueprintFileError={ blueprintFileError }
 					/>
-				</ScreenContent>
-			</Navigator.Screen>
-			<Navigator.Screen className="h-full overflow-y-auto" path="/connect">
-				<ScreenContent>
-					<ConnectOptions onOptionSelect={ handleOptionSelect } />
 				</ScreenContent>
 			</Navigator.Screen>
 			<Navigator.Screen className="h-full overflow-y-auto" path="/new/create">

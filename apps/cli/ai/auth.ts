@@ -4,6 +4,7 @@ import {
 	getAiProviderDefinition,
 	hasInlineWpcomAuth,
 	type AiProviderId,
+	type ResolveAiEnvironmentOptions,
 } from 'cli/ai/providers';
 import { readCliConfig, updateCliConfigWithPartial } from 'cli/lib/cli-config/core';
 
@@ -89,7 +90,8 @@ export async function prepareAiProvider(
 }
 
 export async function resolveAiEnvironment(
-	provider: AiProviderId
+	provider: AiProviderId,
+	options?: ResolveAiEnvironmentOptions
 ): Promise< Record< string, string > > {
-	return getAiProviderDefinition( provider ).resolveEnv();
+	return getAiProviderDefinition( provider ).resolveEnv( options );
 }

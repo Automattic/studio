@@ -29,7 +29,12 @@ import {
 } from 'src/stores/sync/sync-operations-slice';
 import { wpcomSitesApi } from 'src/stores/sync/wpcom-sites';
 import uiReducer from 'src/stores/ui-slice';
-import { galleryBlueprintsApi, getWpcomClient, wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
+import {
+	galleryBlueprintsApi,
+	getWpcomClient,
+	wpcomApi,
+	wpcomPublicApi,
+} from 'src/stores/wpcom-api';
 import { wordpressVersionsApi } from './wordpress-versions-api';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 

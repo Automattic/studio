@@ -1,4 +1,9 @@
-import { createApi, fetchBaseQuery, TypedUseQuery, TypedUseMutation } from '@reduxjs/toolkit/query/react';
+import {
+	createApi,
+	fetchBaseQuery,
+	TypedUseQuery,
+	TypedUseMutation,
+} from '@reduxjs/toolkit/query/react';
 import * as Sentry from '@sentry/electron/renderer';
 import { DAY_MS } from '@studio/common/constants';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
@@ -294,8 +299,7 @@ export const useDeleteAllSnapshots = withWpcomClientCheckMutation(
 export const useGetBlueprints = withOfflineCheck( wpcomPublicApi.useGetBlueprintsQuery );
 
 const GALLERY_BASE_URL = 'https://wordpress.github.io/blueprints/';
-const GITHUB_RAW_BASE_URL =
-	'https://raw.githubusercontent.com/WordPress/blueprints/trunk/';
+const GITHUB_RAW_BASE_URL = 'https://raw.githubusercontent.com/WordPress/blueprints/trunk/';
 const PLAYGROUND_BASE_URL = 'https://playground.wordpress.net/';
 
 export interface GalleryBlueprint {
@@ -332,7 +336,9 @@ function transformGalleryIndex( raw: unknown ): GalleryBlueprint[] {
 			}
 			const slug = match[ 1 ];
 			const blueprintUrl = `${ GITHUB_RAW_BASE_URL }blueprints/${ slug }/blueprint.json`;
-			const playgroundUrl = `${ PLAYGROUND_BASE_URL }?blueprint-url=${ encodeURIComponent( blueprintUrl ) }`;
+			const playgroundUrl = `${ PLAYGROUND_BASE_URL }?blueprint-url=${ encodeURIComponent(
+					blueprintUrl
+				) }`;
 			return [
 				{
 					slug,

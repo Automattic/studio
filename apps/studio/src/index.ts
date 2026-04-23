@@ -9,8 +9,6 @@ import {
 	dialog,
 	MessageBoxSyncOptions,
 } from 'electron';
-import { execFileSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
 import path from 'path';
 import { pathToFileURL } from 'url';
 import * as Sentry from '@sentry/electron/main';
@@ -135,47 +133,7 @@ function launchExtensionBackgroundWorkers( appSession = session.defaultSession )
 	);
 }
 
-// In dev mode, every unpackaged Electron binary shares the bundle ID
-// "com.github.Electron", so protocol handlers across workspaces collide in
-// Launch Services. Patch the Electron.app Info.plist once per workspace to
-// give each dev instance a unique bundle ID derived from its path, then
-// relaunch so the new ID takes effect. The patch is idempotent and only
-// runs on the first boot after `npm install`.
-function ensureUniqueDevBundleId(): void {
-	if ( process.platform !== 'darwin' || ! process.defaultApp ) {
-		return;
-	}
-
-	// process.execPath points to <Electron.app>/Contents/MacOS/Electron, so
-	// walking up three dirs gives the Electron.app bundle reliably regardless
-	// of how the main process was bundled (electron-vite rewrites
-	// `require.resolve('electron')` to the bundled output path in dev).
-	const electronAppPath = path.resolve( process.execPath, '..', '..', '..' );
-	const infoPlist = path.join( electronAppPath, 'Contents', 'Info.plist' );
-	const plistBuddy = '/usr/libexec/PlistBuddy';
-	const lsregister =
-		'/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister';
-
-	const currentId = execFileSync( plistBuddy, [ '-c', 'Print :CFBundleIdentifier', infoPlist ], {
-		encoding: 'utf8',
-	} ).trim();
-	if ( currentId !== 'com.github.Electron' ) {
-		return;
-	}
-
-	const uniqueId = `com.studio.dev.${ createHash( 'sha1' )
-		.update( electronAppPath )
-		.digest( 'hex' )
-		.slice( 0, 12 ) }`;
-	execFileSync( plistBuddy, [ '-c', `Set :CFBundleIdentifier ${ uniqueId }`, infoPlist ] );
-	execFileSync( lsregister, [ '-f', electronAppPath ] );
-	app.relaunch();
-	app.exit( 0 );
-}
-
 async function appBoot() {
-	ensureUniqueDevBundleId();
-
 	app.setName( packageJson.productName );
 
 	Menu.setApplicationMenu( null );

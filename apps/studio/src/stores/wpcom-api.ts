@@ -337,8 +337,8 @@ function transformGalleryIndex( raw: unknown ): GalleryBlueprint[] {
 			const slug = match[ 1 ];
 			const blueprintUrl = `${ GITHUB_RAW_BASE_URL }blueprints/${ slug }/blueprint.json`;
 			const playgroundUrl = `${ PLAYGROUND_BASE_URL }?blueprint-url=${ encodeURIComponent(
-					blueprintUrl
-				) }`;
+				blueprintUrl
+			) }`;
 			return [
 				{
 					slug,

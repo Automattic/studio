@@ -25,7 +25,6 @@ import { WhatsNewModal, useWhatsNew } from 'src/modules/whats-new';
 import { useAppDispatch, useRootSelector } from 'src/stores';
 import { selectOnboardingLoading } from 'src/stores/onboarding-slice';
 import { syncOperationsThunks } from 'src/stores/sync';
-import { useGetGalleryBlueprints } from 'src/stores/wpcom-api';
 import 'src/index.css';
 
 export default function App() {
@@ -42,22 +41,6 @@ export default function App() {
 	const isEmpty = ! loadingSites && ! localSites.length;
 	const shouldShowWhatsNew = showWhatsNew && ! isEmpty;
 	const { client } = useAuth();
-	// TODO: remove - temporary test for gallery blueprints fetching
-	const {
-		data: galleryBlueprints,
-		isLoading: isLoadingGallery,
-		error: galleryError,
-	} = useGetGalleryBlueprints();
-	useEffect( () => {
-		console.log(
-			'[GalleryBlueprints] loading:',
-			isLoadingGallery,
-			'| count:',
-			galleryBlueprints?.length,
-			'| error:',
-			galleryError
-		);
-	}, [ galleryBlueprints, isLoadingGallery, galleryError ] );
 	const dispatch = useAppDispatch();
 
 	// Initialize sync states from in-progress server operations

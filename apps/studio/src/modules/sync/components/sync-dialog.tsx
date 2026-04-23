@@ -461,7 +461,11 @@ export function SyncDialogBody( {
 			</Tooltip>
 
 			<div
-				className={ `${ padX } py-4 sticky bottom-0 bg-frame z-10 border-t border-frame-border` }
+				className={ cx(
+					padX,
+					'py-4 bg-frame border-t border-frame-border',
+					! compact && 'sticky bottom-0 z-10'
+				) }
 			>
 				{ type === 'push' && (
 					<div className="mb-4">

@@ -15,11 +15,14 @@ import { syncOperationsSelectors } from 'src/stores/sync/sync-operations-slice';
 import { useStagingProvisioning } from '../../hooks/use-staging-provisioning';
 import { useSyncActions } from '../../hooks/use-sync-actions';
 import { deriveSlotAssignments } from '../../lib/slot-derivation';
-import ActivityRegion, {
-	type SetupPanelState,
-} from '../activity-region/activity-region';
+import ActivityRegion, { type SetupPanelState } from '../activity-region/activity-region';
 import { ArchivedConnections } from './archived-connections';
-import { computeEdgeGeometry, type Point } from './edge-geometry';
+import {
+	computeEdgeGeometry,
+	computeOrthogonalBranchGeometry,
+	computeTreeSkeletonPath,
+	type Point,
+} from './edge-geometry';
 import { EnvironmentColumn } from './environment-column';
 import { ConnectProductionCard, CreateStagingCard } from './placeholder-card';
 import { ProvisioningColumn } from './provisioning-column';
@@ -43,7 +46,7 @@ const EMPTY_ANCHORS: Anchors = { localProd: null, localStaging: null, prodStagin
 function anchorPoint(
 	card: HTMLDivElement | null,
 	container: HTMLDivElement | null,
-	side: 'bottom-left' | 'bottom-right' | 'top' | 'left' | 'right',
+	side: 'bottom-left' | 'bottom-right' | 'bottom' | 'top' | 'left' | 'right',
 	inset = 24
 ): Point | null {
 	if ( ! card || ! container ) return null;
@@ -54,6 +57,8 @@ function anchorPoint(
 			return { x: r.left + inset - c.left, y: r.bottom - c.top };
 		case 'bottom-right':
 			return { x: r.right - inset - c.left, y: r.bottom - c.top };
+		case 'bottom':
+			return { x: r.left + r.width / 2 - c.left, y: r.bottom - c.top };
 		case 'top':
 			return { x: r.left + r.width / 2 - c.left, y: r.top - c.top };
 		case 'left':
@@ -75,15 +80,14 @@ function useEdgeAnchors(
 			const local = refs.local.current;
 			const prod = refs.production.current;
 			const staging = refs.staging.current;
-			const localBL = anchorPoint( local, container, 'bottom-left' );
-			const localBR = anchorPoint( local, container, 'bottom-right' );
+			const localBottom = anchorPoint( local, container, 'bottom' );
 			const prodTop = anchorPoint( prod, container, 'top' );
 			const prodRight = anchorPoint( prod, container, 'right' );
 			const stagingTop = anchorPoint( staging, container, 'top' );
 			const stagingLeft = anchorPoint( staging, container, 'left' );
 			setAnchors( {
-				localProd: localBL && prodTop ? { a: localBL, b: prodTop } : null,
-				localStaging: localBR && stagingTop ? { a: localBR, b: stagingTop } : null,
+				localProd: localBottom && prodTop ? { a: localBottom, b: prodTop } : null,
+				localStaging: localBottom && stagingTop ? { a: localBottom, b: stagingTop } : null,
 				prodStaging: prodRight && stagingLeft ? { a: prodRight, b: stagingLeft } : null,
 			} );
 		};
@@ -121,15 +125,7 @@ const ARROW_OFFSET = 22;
 /**
  * Renders the SVG `<path>` for an edge. Must be placed inside an `<svg>` element.
  */
-function EdgePath( {
-	anchors,
-	state,
-}: {
-	anchors: { a: Point; b: Point } | null;
-	state: EdgeState;
-} ) {
-	if ( ! anchors ) return null;
-	const geom = computeEdgeGeometry( anchors.a, anchors.b, ARROW_OFFSET );
+function edgeStrokeClasses( state: EdgeState ): string {
 	const pathClass = state.activeDirection
 		? state.activeDirection === 'push'
 			? 'stroke-frame-theme animate-edge-march'
@@ -142,19 +138,10 @@ function EdgePath( {
 		: state.muted
 		? '[stroke-dasharray:4_4]'
 		: '';
-	return (
-		<path
-			d={ geom.pathD }
-			className={ `fill-none stroke-[1.5] [stroke-linecap:round] ${ pathClass } ${ dashClass }` }
-		/>
-	);
+	return `fill-none stroke-[1.5] ${ pathClass } ${ dashClass }`;
 }
 
-/**
- * Renders the push/pull HTML buttons for an edge. Must be placed as an HTML
- * sibling of the SVG, not inside it (SVG only accepts SVG children).
- */
-function EdgeButtons( {
+function EdgePath( {
 	anchors,
 	state,
 }: {
@@ -163,6 +150,69 @@ function EdgeButtons( {
 } ) {
 	if ( ! anchors ) return null;
 	const geom = computeEdgeGeometry( anchors.a, anchors.b, ARROW_OFFSET );
+	return (
+		<path d={ geom.pathD } className={ `${ edgeStrokeClasses( state ) } [stroke-linecap:round]` } />
+	);
+}
+
+/**
+ * Tree skeleton: a single U-bracket stroke from left target to right target
+ * passing through the trunk x (no seam at the T-junction), plus the trunk
+ * segment from source down to the bar. Rendered beneath any active-branch
+ * overlay paths.
+ */
+function TreeSkeleton( {
+	source,
+	leftTarget,
+	rightTarget,
+	midY,
+	muted,
+}: {
+	source: Point;
+	leftTarget: Point;
+	rightTarget: Point;
+	midY: number;
+	muted: boolean;
+} ) {
+	const d = computeTreeSkeletonPath( source, leftTarget, rightTarget, midY );
+	const className = muted
+		? 'fill-none stroke-[1.5] stroke-frame-border opacity-40'
+		: 'fill-none stroke-[1.5] stroke-frame-border';
+	return <path d={ d } className={ className } />;
+}
+
+/**
+ * Overlay L-shaped path that replaces the matching portion of the skeleton
+ * while a sync is active, carrying the animated marching-ants stroke.
+ */
+function ActiveBranchOverlay( {
+	source,
+	midY,
+	target,
+	state,
+}: {
+	source: Point;
+	midY: number;
+	target: Point;
+	state: EdgeState;
+} ) {
+	if ( ! state.activeDirection ) return null;
+	const geom = computeOrthogonalBranchGeometry( source, midY, target, ARROW_OFFSET );
+	return <path d={ geom.pathD } className={ edgeStrokeClasses( state ) } />;
+}
+
+/**
+ * Renders the push/pull HTML buttons for an edge. Must be placed as an HTML
+ * sibling of the SVG, not inside it (SVG only accepts SVG children).
+ */
+function EdgeButtons( {
+	geom,
+	state,
+}: {
+	geom: ReturnType< typeof computeEdgeGeometry > | null;
+	state: EdgeState;
+} ) {
+	if ( ! geom ) return null;
 	return (
 		<>
 			<ArrowButton
@@ -361,13 +411,11 @@ export function TriangleLayout( { selectedSite }: Props ) {
 		: null;
 
 	const activityRegion = (
-		<div className="sticky bottom-0 z-10 empty:hidden">
-			<ActivityRegion
-				localSiteId={ selectedSite.id }
-				setupPanel={ setupPanel }
-				onCloseSetup={ syncActions.closeDialog }
-			/>
-		</div>
+		<ActivityRegion
+			localSiteId={ selectedSite.id }
+			setupPanel={ setupPanel }
+			onCloseSetup={ syncActions.closeDialog }
+		/>
 	);
 
 	const prodStagingState: EdgeState = {
@@ -398,103 +446,159 @@ export function TriangleLayout( { selectedSite }: Props ) {
 
 	if ( isNarrow ) {
 		return (
-			<>
-			<div ref={ containerRef } className="flex flex-col gap-3 p-6 pb-0">
-				<div ref={ localRef }>
-					<EnvironmentColumn
-						kind="local"
-						label="Local"
-						orientation="landscape"
-						localSiteId={ selectedSite.id }
-						siteName={ selectedSite.name }
-						siteUrl={ selectedSite.running ? `http://localhost:${ selectedSite.port }` : '' }
-						isRunning={ selectedSite.running }
-					/>
+			<div className="flex flex-col flex-1 min-h-0">
+				<div className="flex-1 overflow-y-auto min-h-0">
+					<div ref={ containerRef } className="flex flex-col gap-3 p-6">
+						<div ref={ localRef }>
+							<EnvironmentColumn
+								kind="local"
+								label="Local"
+								orientation="landscape"
+								localSiteId={ selectedSite.id }
+								siteName={ selectedSite.name }
+								siteUrl={ selectedSite.running ? `http://localhost:${ selectedSite.port }` : '' }
+								isRunning={ selectedSite.running }
+							/>
+						</div>
+						{ production && (
+							<SyncGutter
+								from={ { kind: 'local', label: 'Local' } }
+								to={ { kind: 'remote', label: 'Production' } }
+								lastPushTimestamp={ production.lastPushTimestamp }
+								lastPullTimestamp={ production.lastPullTimestamp }
+								pushArrow="↓"
+								pullArrow="↑"
+								onPush={ () => syncActions.push( production ) }
+								onPull={ () => syncActions.pull( production ) }
+							/>
+						) }
+						<div ref={ productionRef }>{ productionSlot }</div>
+						{ staging && (
+							<SyncGutter
+								from={ { kind: 'local', label: 'Local' } }
+								to={ { kind: 'remote', label: 'Staging' } }
+								lastPushTimestamp={ staging.lastPushTimestamp }
+								lastPullTimestamp={ staging.lastPullTimestamp }
+								pushArrow="↓"
+								pullArrow="↑"
+								onPush={ () => syncActions.push( staging ) }
+								onPull={ () => syncActions.pull( staging ) }
+							/>
+						) }
+						<div ref={ stagingRef }>{ stagingSlot }</div>
+						<ArchivedConnections
+							localSiteId={ selectedSite.id }
+							archived={ archived }
+							isProductionOpen={ ! production }
+							isStagingOpen={ ! staging }
+						/>
+					</div>
 				</div>
-				{ production && (
-					<SyncGutter
-						from={ { kind: 'local', label: 'Local' } }
-						to={ { kind: 'remote', label: 'Production' } }
-						lastPushTimestamp={ production.lastPushTimestamp }
-						lastPullTimestamp={ production.lastPullTimestamp }
-						pushArrow="↓"
-						pullArrow="↑"
-						onPush={ () => syncActions.push( production ) }
-						onPull={ () => syncActions.pull( production ) }
-					/>
-				) }
-				<div ref={ productionRef }>{ productionSlot }</div>
-				{ staging && (
-					<SyncGutter
-						from={ { kind: 'local', label: 'Local' } }
-						to={ { kind: 'remote', label: 'Staging' } }
-						lastPushTimestamp={ staging.lastPushTimestamp }
-						lastPullTimestamp={ staging.lastPullTimestamp }
-						pushArrow="↓"
-						pullArrow="↑"
-						onPush={ () => syncActions.push( staging ) }
-						onPull={ () => syncActions.pull( staging ) }
-					/>
-				) }
-				<div ref={ stagingRef }>{ stagingSlot }</div>
-				<ArchivedConnections
-					localSiteId={ selectedSite.id }
-					archived={ archived }
-					isProductionOpen={ ! production }
-					isStagingOpen={ ! staging }
-				/>
+				{ activityRegion }
 			</div>
-			{ activityRegion }
-			</>
 		);
 	}
 
 	return (
-		<>
-		<div
-			ref={ containerRef }
-			className="relative grid grid-cols-[1fr_1fr] gap-x-12 p-6 pb-0"
-			style={ { gridTemplateRows: 'auto 120px auto' } }
-		>
-			<svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible">
-				<EdgePath anchors={ anchors.localProd } state={ localProdState } />
-				<EdgePath anchors={ anchors.localStaging } state={ localStagingState } />
-				<EdgePath anchors={ anchors.prodStaging } state={ prodStagingState } />
-			</svg>
-			<EdgeButtons anchors={ anchors.localProd } state={ localProdState } />
-			<EdgeButtons anchors={ anchors.localStaging } state={ localStagingState } />
-			<EdgeButtons anchors={ anchors.prodStaging } state={ prodStagingState } />
+		<div className="flex flex-col flex-1 min-h-0">
+			<div className="flex-1 overflow-y-auto min-h-0 flex items-center justify-center p-6">
+				<div
+					ref={ containerRef }
+					className="relative grid grid-cols-[auto_auto] gap-x-12"
+					style={ { gridTemplateRows: 'auto 120px auto' } }
+				>
+					{ ( () => {
+						const source = anchors.localProd?.a ?? anchors.localStaging?.a ?? null;
+						const prodTarget = anchors.localProd?.b ?? null;
+						const stagingTarget = anchors.localStaging?.b ?? null;
+						const anyTarget = prodTarget ?? stagingTarget;
+						const midY = source && anyTarget ? ( source.y + anyTarget.y ) / 2 : null;
+						const prodBranchGeom =
+							source && prodTarget && midY !== null
+								? computeOrthogonalBranchGeometry( source, midY, prodTarget, ARROW_OFFSET )
+								: null;
+						const stagingBranchGeom =
+							source && stagingTarget && midY !== null
+								? computeOrthogonalBranchGeometry( source, midY, stagingTarget, ARROW_OFFSET )
+								: null;
+						return (
+							<>
+								<svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible">
+									{ source && prodTarget && stagingTarget && midY !== null && (
+										<TreeSkeleton
+											source={ source }
+											leftTarget={ prodTarget }
+											rightTarget={ stagingTarget }
+											midY={ midY }
+											muted={ localProdState.muted && localStagingState.muted }
+										/>
+									) }
+									{ source && prodTarget && midY !== null && (
+										<ActiveBranchOverlay
+											source={ source }
+											midY={ midY }
+											target={ prodTarget }
+											state={ localProdState }
+										/>
+									) }
+									{ source && stagingTarget && midY !== null && (
+										<ActiveBranchOverlay
+											source={ source }
+											midY={ midY }
+											target={ stagingTarget }
+											state={ localStagingState }
+										/>
+									) }
+									<EdgePath anchors={ anchors.prodStaging } state={ prodStagingState } />
+								</svg>
+								<EdgeButtons geom={ prodBranchGeom } state={ localProdState } />
+								<EdgeButtons geom={ stagingBranchGeom } state={ localStagingState } />
+								<EdgeButtons
+									geom={
+										anchors.prodStaging
+											? computeEdgeGeometry(
+													anchors.prodStaging.a,
+													anchors.prodStaging.b,
+													ARROW_OFFSET
+											  )
+											: null
+									}
+									state={ prodStagingState }
+								/>
+							</>
+						);
+					} )() }
 
-			<div ref={ localRef } className="col-span-2 row-start-1 justify-self-center">
-				<EnvironmentColumn
-					kind="local"
-					label="Local"
-					orientation="landscape"
-					localSiteId={ selectedSite.id }
-					siteName={ selectedSite.name }
-					siteUrl={ selectedSite.running ? `http://localhost:${ selectedSite.port }` : '' }
-					isRunning={ selectedSite.running }
-				/>
-			</div>
+					<div ref={ localRef } className="col-span-2 row-start-1 justify-self-center">
+						<EnvironmentColumn
+							kind="local"
+							label="Local"
+							orientation="landscape"
+							localSiteId={ selectedSite.id }
+							siteName={ selectedSite.name }
+							siteUrl={ selectedSite.running ? `http://localhost:${ selectedSite.port }` : '' }
+							isRunning={ selectedSite.running }
+						/>
+					</div>
 
-			<div ref={ productionRef } className="col-start-1 row-start-3 justify-self-center">
-				{ productionSlot }
-			</div>
-			<div ref={ stagingRef } className="col-start-2 row-start-3 justify-self-center">
-				{ stagingSlot }
-			</div>
+					<div ref={ productionRef } className="col-start-1 row-start-3 justify-self-center">
+						{ productionSlot }
+					</div>
+					<div ref={ stagingRef } className="col-start-2 row-start-3 justify-self-center">
+						{ stagingSlot }
+					</div>
 
-			<div className="col-span-2 row-start-3 mt-4">
-				<ArchivedConnections
-					localSiteId={ selectedSite.id }
-					archived={ archived }
-					isProductionOpen={ ! production }
-					isStagingOpen={ ! staging }
-				/>
+					<div className="col-span-2 row-start-3 mt-4">
+						<ArchivedConnections
+							localSiteId={ selectedSite.id }
+							archived={ archived }
+							isProductionOpen={ ! production }
+							isStagingOpen={ ! staging }
+						/>
+					</div>
+				</div>
 			</div>
-
+			{ activityRegion }
 		</div>
-		{ activityRegion }
-		</>
 	);
 }

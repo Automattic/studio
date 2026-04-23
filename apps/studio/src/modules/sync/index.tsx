@@ -189,7 +189,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	};
 
 	return (
-		<div className="flex flex-col h-full overflow-y-auto">
+		<div className="flex flex-col h-full min-h-0">
 			{ connectedSites.length > 0 ? (
 				<TriangleLayout selectedSite={ selectedSite } />
 			) : isLoadingConnectedSites ? null : (

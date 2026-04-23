@@ -6,10 +6,7 @@ import {
 } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback } from 'react';
-import { ArrowIcon } from 'src/components/arrow-icon';
-import StudioButton from 'src/components/button';
 import { cx } from 'src/lib/cx';
-import { getIpcApi } from 'src/lib/get-ipc-api';
 import type { AddSiteFlowType } from './options';
 
 interface Blueprint {
@@ -36,24 +33,6 @@ interface NewSiteOptionsProps {
 	blueprintFileError?: string;
 }
 
-const EMPTY_SITE_PLAYGROUND_URL = 'https://playground.wordpress.net/';
-
-function PreviewLink( { url }: { url: string } ) {
-	const { __ } = useI18n();
-	return (
-		<StudioButton
-			variant="secondary"
-			onClick={ ( e: React.MouseEvent< HTMLButtonElement > ) => {
-				e.stopPropagation();
-				getIpcApi().openURL( url );
-			} }
-			className="!absolute bottom-2 right-2 z-10 !px-2 !py-1 !h-auto !min-h-0 text-[11px] !bg-white/90 hover:!bg-white !text-a8c-gray-900 hover:!text-a8c-gray-900 !shadow-none whitespace-nowrap"
-		>
-			{ __( 'Preview' ) }
-			<ArrowIcon />
-		</StudioButton>
-	);
-}
 
 function EmptySiteCard( { isSelected, onClick }: { isSelected: boolean; onClick: () => void } ) {
 	const { __ } = useI18n();
@@ -104,7 +83,6 @@ function EmptySiteCard( { isSelected, onClick }: { isSelected: boolean; onClick:
 						fill="none"
 					/>
 				</svg>
-				<PreviewLink url={ EMPTY_SITE_PLAYGROUND_URL } />
 			</div>
 			<div className="px-3 pt-3 pb-3">
 				<Heading level={ 3 } className="text-[13px] text-frame-text mb-1" weight={ 500 }>
@@ -152,7 +130,6 @@ function BlueprintCard( {
 						{ blueprint.title }
 					</div>
 				) }
-				{ blueprint.playground_url && <PreviewLink url={ blueprint.playground_url } /> }
 			</div>
 			<div className="px-3 pt-3 pb-3">
 				<Heading level={ 3 } className="text-[13px] text-frame-text mb-1" weight={ 500 }>

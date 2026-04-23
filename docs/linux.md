@@ -93,6 +93,12 @@ For easier access, you can create a desktop entry file that will add Studio to y
    update-desktop-database ~/.local/share/applications
    ```
 
+6. **Register Studio handler for `wp-studio://` links:**
+   ```bash
+   xdg-mime default studio.desktop x-scheme-handler/wp-studio
+   ```
+   Without this, browsers will still show "Open With… / No Apps Available" when WordPress.com OAuth redirects back to `wp-studio://`.
+
 Studio should now appear in your application launcher and can handle `wp-studio://` protocol URLs.
 
 ## Running with Wayland
@@ -155,4 +161,3 @@ The executable in `apps/studio/out/Studio-linux-x64/` will be updated with the n
 ## Contributing
 
 If you encounter Linux-specific issues or have suggestions for improving Linux support, please [open an issue](https://github.com/Automattic/studio/issues) or submit a pull request. Your feedback helps improve Studio for all Linux users!
-

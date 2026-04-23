@@ -1,5 +1,6 @@
 import { type RemoteSessionConfig } from 'cli/remote-session/config';
 import { RemoteSessionLogger } from 'cli/remote-session/logger';
+import { ProgressStreamer } from 'cli/remote-session/progress-streamer';
 import { chunkReply, extractReply } from 'cli/remote-session/reply-formatter';
 import { clearSessionId, readStateForChat, writeSessionId } from 'cli/remote-session/state';
 import {
@@ -109,29 +110,42 @@ async function handleTurn(
 	const started = Date.now();
 	const logContext = { chat_id: target.chatId };
 
-	let outcome = await deps.runTurn( {
-		text,
-		sessionId,
-		timeoutMs: config.turn_timeout_seconds * 1000,
-		logger: deps.logger,
-		logContext,
+	const streamer = new ProgressStreamer( {
+		config,
+		target,
+		deps: { respond: deps.respond, logger: deps.logger },
 	} );
 
-	if ( outcome.staleSession && sessionId ) {
-		deps.logger.info( 'Resume failed; retrying without session_id', {
-			...logContext,
-			stale_session_id: sessionId,
-		} );
-		await deps.clearSession( target.chatId );
-		sessionId = undefined;
-		await postBestEffort( deps, config, target, 'ℹ️ Session expired; started a new one.' );
+	let outcome: TurnOutcome;
+	try {
 		outcome = await deps.runTurn( {
 			text,
-			sessionId: undefined,
+			sessionId,
 			timeoutMs: config.turn_timeout_seconds * 1000,
 			logger: deps.logger,
 			logContext,
+			onEvent: streamer.onEvent,
 		} );
+
+		if ( outcome.staleSession && sessionId ) {
+			deps.logger.info( 'Resume failed; retrying without session_id', {
+				...logContext,
+				stale_session_id: sessionId,
+			} );
+			await deps.clearSession( target.chatId );
+			sessionId = undefined;
+			await postBestEffort( deps, config, target, 'ℹ️ Session expired; started a new one.' );
+			outcome = await deps.runTurn( {
+				text,
+				sessionId: undefined,
+				timeoutMs: config.turn_timeout_seconds * 1000,
+				logger: deps.logger,
+				logContext,
+				onEvent: streamer.onEvent,
+			} );
+		}
+	} finally {
+		streamer.stop();
 	}
 
 	if ( outcome.sessionId && outcome.sessionId !== sessionId ) {

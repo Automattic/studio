@@ -14,11 +14,7 @@ export class BackupHandlerSql extends ImportExportEventEmitter implements Backup
 		const fileName = path.basename( file.path );
 		const destPath = path.join( extractionDirectory, fileName );
 
-		this.emit( ImportEvents.BACKUP_EXTRACT_START, {
-			progress: 0,
-			totalFiles: 1,
-			processedFiles: 0,
-		} );
+		this.emit( ImportEvents.BACKUP_EXTRACT_START );
 
 		this.emit( ImportEvents.BACKUP_EXTRACT_FILE_START, {
 			progress: 0,

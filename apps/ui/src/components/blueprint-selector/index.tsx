@@ -1,9 +1,10 @@
 import { generateDefaultBlueprintDescription } from '@studio/common/lib/blueprint-settings';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { __, sprintf } from '@wordpress/i18n';
-import { external, upload } from '@wordpress/icons';
+import { external } from '@wordpress/icons';
 import { Button, Icon } from '@wordpress/ui';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
+import { FileDropzone } from '@/components/file-dropzone';
 import { useConnector } from '@/data/core';
 import styles from './style.module.css';
 import type { FeaturedBlueprint } from '@/data/core';
@@ -35,9 +36,7 @@ export function BlueprintSelector( {
 	onPick,
 }: BlueprintSelectorProps ) {
 	const connector = useConnector();
-	const fileInputRef = useRef< HTMLInputElement | null >( null );
 	const [ uploadError, setUploadError ] = useState< string | null >( null );
-	const [ isDraggingOver, setIsDraggingOver ] = useState( false );
 
 	const handleFeaturedClick = useCallback(
 		( item: FeaturedBlueprint ) => {
@@ -171,64 +170,16 @@ export function BlueprintSelector( {
 		[ acceptParsedBlueprint, connector ]
 	);
 
-	const handleFileInputChange = ( event: React.ChangeEvent< HTMLInputElement > ) => {
-		const file = event.target.files?.[ 0 ];
-		if ( file ) {
-			void handleFile( file );
-		}
-		// Reset so re-picking the same file after an error re-fires `change`.
-		event.target.value = '';
-	};
-
-	const handleDrop = ( event: React.DragEvent< HTMLDivElement > ) => {
-		event.preventDefault();
-		setIsDraggingOver( false );
-		const file = event.dataTransfer.files[ 0 ];
-		if ( file ) {
-			void handleFile( file );
-		}
-	};
-
-	const handleDragOver = ( event: React.DragEvent< HTMLDivElement > ) => {
-		event.preventDefault();
-		if ( ! isDraggingOver ) setIsDraggingOver( true );
-	};
-
-	const handleDragLeave = () => {
-		setIsDraggingOver( false );
-	};
-
 	return (
 		<div className={ styles.root }>
 			<section className={ styles.section }>
 				<h2 className={ styles.sectionTitle }>{ __( 'Upload your own' ) }</h2>
-				<div
-					className={ `${ styles.dropzone } ${ isDraggingOver ? styles.dropzoneActive : '' }` }
-					onDragOver={ handleDragOver }
-					onDragLeave={ handleDragLeave }
-					onDrop={ handleDrop }
-				>
-					<Icon icon={ upload } />
-					<p className={ styles.dropzoneText }>
-						{ __( 'Drop a Blueprint JSON or ZIP bundle here, or' ) }
-					</p>
-					<Button
-						type="button"
-						variant="outline"
-						tone="neutral"
-						onClick={ () => fileInputRef.current?.click() }
-					>
-						{ __( 'Choose file…' ) }
-					</Button>
-					<input
-						ref={ fileInputRef }
-						type="file"
-						accept={ FILE_ACCEPT }
-						className={ styles.fileInput }
-						onChange={ handleFileInputChange }
-					/>
-				</div>
-				{ uploadError && <p className={ styles.uploadError }>{ uploadError }</p> }
+				<FileDropzone
+					accept={ FILE_ACCEPT }
+					prompt={ __( 'Drop a Blueprint JSON or ZIP bundle here, or' ) }
+					onFile={ ( file ) => void handleFile( file ) }
+					error={ uploadError }
+				/>
 			</section>
 
 			<section className={ styles.section }>

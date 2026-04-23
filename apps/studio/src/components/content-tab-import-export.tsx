@@ -55,13 +55,6 @@ const ExportSite = ( {
 		);
 	}
 
-	const handleExport = async ( exportFunction: typeof exportFullSite | typeof exportDatabase ) => {
-		const exportPath = await exportFunction( selectedSite );
-		if ( exportPath ) {
-			getIpcApi().showItemInFolder( exportPath );
-		}
-	};
-
 	const handleClearExport = () => {
 		clearExportState( selectedSite.id );
 	};
@@ -99,14 +92,14 @@ const ExportSite = ( {
 				<Tooltip text={ tooltipText } disabled={ ! isExportDisabled } placement="top-start">
 					<div className="flex flex-row gap-4">
 						<Button
-							onClick={ () => handleExport( exportFullSite ) }
+							onClick={ () => exportFullSite( selectedSite ) }
 							variant="primary"
 							disabled={ isExportDisabled }
 						>
 							{ __( 'Export entire site' ) }
 						</Button>
 						<Button
-							onClick={ () => handleExport( exportDatabase ) }
+							onClick={ () => exportDatabase( selectedSite ) }
 							type="submit"
 							variant="secondary"
 							className={ cx( isExportDisabled ? '' : '!text-frame-theme !shadow-frame-theme' ) }

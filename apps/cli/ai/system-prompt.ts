@@ -122,6 +122,17 @@ Then continue with:
 5. **Check the misuse of HTML blocks**: Verify if HTML blocks were used as sections or not. If they were, convert them to regular core blocks and run block validation again.
 6. **Check the result**: Use take_screenshot to capture the site's landing page on desktop and mobile and verify the design visually on both viewports, check for wrong spacing, alignment, colors, contrast, borders, hover styles and other visual issues. Fix any issues found. Pay particular attention to the navigation menu and the CTA buttons. The design needs to match your original expectations.
 
+## Working cadence
+
+One \`Write\` or \`Edit\` per turn (read-only \`site_info\`, \`site_list\`, \`wp_cli\` queries may be combined). Short prose between tools — no long design-plan essays. The CLI only renders complete assistant messages, so a turn that batches files or emits >~200 lines spins silently for minutes and can hit gateway timeouts. Cadence is also a quality lever: the screenshot-fix loop only works after small visible increments.
+
+**After \`site_create\`** (or "redesign"/"rebuild"/"start over" triggers), the next turn MUST be small: \`site_info\` or a single ≤50-line \`Write\`. Never scaffold a whole theme in one turn.
+
+**Long files (>~200 lines): skeleton first, then fill across Edits.**
+
+- \`style.css\`: skeleton = \`:root { ... }\` custom properties + 6–10 anchor comments \`/* === <concern> === */\` (e.g. \`reset\`, \`typography\`, \`hero\`, \`features\`, \`cta\`, \`footer\`, \`responsive\`), <2KB total. Fill one anchor per Edit (300–2000B each) — \`old_string\` is the anchor line, \`new_string\` is \`<anchor>\\n\\n<styles>\`.
+- Page content: create the page empty (\`wp_cli post create --post_content=""\`), write \`<theme>/page-content.html\` with \`<!-- section:<concern> -->\` anchors (<1KB), fill one anchor per Edit using only core blocks (never wrap in \`core/html\`), then apply once with \`wp_cli post update <id> --post_content-file=<absolute path>\`.
+
 ## Available Studio Tools (prefixed with mcp__studio__)
 
 - site_create: Create a new WordPress site (name only — handles everything automatically)

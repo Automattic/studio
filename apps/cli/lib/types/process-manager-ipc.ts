@@ -98,6 +98,9 @@ export const processEventSchema = z.object( {
 		z.literal( 'restart' ),
 		z.literal( 'stop' ),
 	] ),
+	// Tail of the child's stderr captured during this invocation. Only populated on `exit`
+	// events; undefined for any other event.
+	stderrTail: z.string().optional(),
 } );
 
 const daemonProcessEventSchema = z.object( {

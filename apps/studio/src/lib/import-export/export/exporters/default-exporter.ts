@@ -217,7 +217,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 					continue;
 				}
 
-				if ( this.options.deployIgnore?.ignores( archivePath ) ) {
+				if ( this.options.ignoreFilter?.ignores( archivePath ) ) {
 					continue;
 				}
 
@@ -232,7 +232,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 						if (
 							this.isExactPathExcluded( entryPathRelativeToArchiveRoot ) ||
 							this.isPathExcludedByPattern( fullEntryPathOnDisk ) ||
-							this.options.deployIgnore?.ignores( entryPathRelativeToArchiveRoot )
+							this.options.ignoreFilter?.ignores( entryPathRelativeToArchiveRoot )
 						) {
 							return false;
 						}
@@ -241,7 +241,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 				} else {
 					if (
 						this.isExactPathExcluded( archivePath ) ||
-						this.options.deployIgnore?.ignores( archivePath )
+						this.options.ignoreFilter?.ignores( archivePath )
 					) {
 						continue;
 					}
@@ -301,16 +301,16 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			this.getSiteThemes( this.options.site.id ),
 		] );
 
-		studioJson.plugins = this.options.deployIgnore
+		studioJson.plugins = this.options.ignoreFilter
 			? plugins.filter(
 					( p: StudioJsonPluginOrTheme ) =>
-						! this.options.deployIgnore!.ignores( `wp-content/plugins/${ p.name }` )
+						! this.options.ignoreFilter!.ignores( `wp-content/plugins/${ p.name }` )
 			  )
 			: plugins;
-		studioJson.themes = this.options.deployIgnore
+		studioJson.themes = this.options.ignoreFilter
 			? themes.filter(
 					( t: StudioJsonPluginOrTheme ) =>
-						! this.options.deployIgnore!.ignores( `wp-content/themes/${ t.name }` )
+						! this.options.ignoreFilter!.ignores( `wp-content/themes/${ t.name }` )
 			  )
 			: themes;
 

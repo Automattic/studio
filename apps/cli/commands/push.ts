@@ -117,7 +117,7 @@ export async function runCommand(
 			phpVersion: DEFAULT_PHP_VERSION,
 			splitDatabaseDumpByTable: true,
 			specificSelectionPaths,
-			deployIgnore,
+			ignoreFilter: deployIgnore,
 		} );
 
 		if ( ! exporter ) {

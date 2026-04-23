@@ -9,7 +9,7 @@ export interface ExportOptions {
 	phpVersion: string;
 	splitDatabaseDumpByTable?: boolean;
 	specificSelectionPaths?: string[];
-	deployIgnore?: Ignore;
+	ignoreFilter?: Ignore;
 }
 
 export type ExportOptionsIncludes = 'wpContent' | 'database';

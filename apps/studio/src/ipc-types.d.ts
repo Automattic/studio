@@ -89,6 +89,7 @@ type IpcApi = {
 
 interface FeatureFlags {
 	enableBlueprints: boolean;
+	enableBlueprintsGallery: boolean;
 	enableStudioCodeUi: boolean;
 }
 

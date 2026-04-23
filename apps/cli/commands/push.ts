@@ -1,7 +1,6 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import {
@@ -114,7 +113,7 @@ export async function runCommand(
 			site,
 			backupFile: archivePath,
 			includes,
-			phpVersion: DEFAULT_PHP_VERSION,
+			phpVersion: site.phpVersion,
 			splitDatabaseDumpByTable: true,
 			specificSelectionPaths,
 			ignoreFilter: deployIgnore,

@@ -57,6 +57,7 @@ import {
 	saveCliConfig,
 	SiteData,
 	SiteRuntime,
+	siteRuntimeSchema,
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
 import {
@@ -103,14 +104,8 @@ type CreateCommandOptions = {
 	skipLogDetails: boolean;
 };
 
-const ALLOWED_RUNTIMES: SiteRuntime[] = [ 'playground', 'native-php' ];
-
 function resolveRuntimeFromEnv(): SiteRuntime {
-	const value = process.env.STUDIO_RUNTIME;
-	if ( value && ( ALLOWED_RUNTIMES as string[] ).includes( value ) ) {
-		return value as SiteRuntime;
-	}
-	return 'playground';
+	return siteRuntimeSchema.catch( 'playground' ).parse( process.env.STUDIO_RUNTIME );
 }
 
 export async function runCommand(

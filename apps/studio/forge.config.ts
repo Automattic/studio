@@ -83,6 +83,7 @@ const config: ForgeConfig = {
 				genericName: 'WordPress Studio',
 				categories: [ 'Utility' ],
 				name: 'studio',
+				bin: 'studio',
 				mimeType: [ 'x-scheme-handler/wp-studio' ],
 			},
 		} ),

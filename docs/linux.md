@@ -161,3 +161,4 @@ The executable in `apps/studio/out/Studio-linux-x64/` will be updated with the n
 ## Contributing
 
 If you encounter Linux-specific issues or have suggestions for improving Linux support, please [open an issue](https://github.com/Automattic/studio/issues) or submit a pull request. Your feedback helps improve Studio for all Linux users!
+

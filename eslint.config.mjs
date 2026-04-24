@@ -74,17 +74,10 @@ export default defineConfig(
 				},
 			],
 			'import-x/no-named-as-default-member': 'off',
-			// @wp-playground/blueprints ships blueprint-schema-validator outside its package.json exports map.
-			// @modelcontextprotocol/sdk 1.29+ only exposes server/stdio.js via a wildcard export which the
-			// eslint-import-x typescript resolver can't follow (runtime resolution is fine).
+			// @wp-playground/blueprints ships blueprint-schema-validator outside its package.json exports map
 			'import-x/no-unresolved': [
 				'error',
-				{
-					ignore: [
-						'@wp-playground/blueprints/blueprint-schema-validator',
-						'@modelcontextprotocol/sdk/server/stdio\\.js$',
-					],
-				},
+				{ ignore: [ '@wp-playground/blueprints/blueprint-schema-validator' ] },
 			],
 			'import-x/order': [
 				'error',

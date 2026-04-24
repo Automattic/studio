@@ -132,3 +132,26 @@ tests:
             }
             return { pass: true, score: 1, reason: `max turn ${max}ms across ${durations.length} turns` };
           });
+      # Regression: the "Page content" cadence used to tell the agent to apply
+      # page blocks via `wp_cli post update --post_content-file=<host path>`.
+      # `wp_cli` runs inside the PHP-WASM filesystem, so host paths silently
+      # resolve to empty content and the post is overwritten with nothing.
+      # The fix is `wp_cli eval` + `file_get_contents(ABSPATH . ...)` — this
+      # assertion fails if any wp_cli call reintroduces --post_content-file=.
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const offending = (d.toolCalls || []).filter(t => {
+              if (t.name !== 'wp_cli') return false;
+              const cmd = t.input && typeof t.input.command === 'string' ? t.input.command : '';
+              return cmd.includes('--post_content-file=');
+            });
+            if (offending.length > 0) {
+              const sample = JSON.stringify(offending[0].input).slice(0, 300);
+              return { pass: false, score: 0, reason: `${offending.length} wp_cli call(s) used --post_content-file=, which silently fails inside PHP-WASM (first: ${sample})` };
+            }
+            return { pass: true, score: 1, reason: 'no wp_cli call used --post_content-file=' };
+          });

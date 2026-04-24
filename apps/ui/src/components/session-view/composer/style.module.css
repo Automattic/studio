@@ -128,6 +128,27 @@
 	min-width: 140px;
 }
 
+.commandsMenuPopup {
+	min-width: 280px;
+}
+
+.commandItem {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.commandName {
+	font-family: var(--wpds-typography-font-family-mono, ui-monospace, monospace);
+	font-size: var(--wpds-typography-font-size-sm);
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.commandDescription {
+	font-size: var(--wpds-typography-font-size-xs);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
 .sendButton,
 .stopButton {
 	display: inline-flex;

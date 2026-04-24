@@ -1,4 +1,5 @@
 import { AI_MODELS } from '@studio/common/ai/models';
+import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
 import { __, sprintf } from '@wordpress/i18n';
 import { arrowUp, chevronDownSmall } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
@@ -7,24 +8,6 @@ import * as Menu from '@/components/menu';
 import { EnvironmentPill } from './environment-pill';
 import styles from './style.module.css';
 import type { AiModelId, SyncSite } from '@/data/core';
-
-function PaperclipIcon() {
-	return (
-		<svg
-			width="16"
-			height="16"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			strokeWidth="1.6"
-			strokeLinecap="round"
-			strokeLinejoin="round"
-			aria-hidden="true"
-		>
-			<path d="M21 11.5 12.5 20a5.5 5.5 0 0 1-7.78-7.78l9.2-9.2a3.5 3.5 0 0 1 4.95 4.95l-9.2 9.2a1.5 1.5 0 0 1-2.12-2.12l8.49-8.49" />
-		</svg>
-	);
-}
 
 interface ComposerProps {
 	busy: boolean;
@@ -101,30 +84,34 @@ export function Composer( {
 				/>
 				<div className={ styles.toolbar }>
 					<div className={ styles.leftActions }>
-						<button
-							type="button"
-							className={ styles.iconButton }
-							aria-label={ __( 'Attach file' ) }
-							disabled
-						>
-							<PaperclipIcon />
-						</button>
-						<button
-							type="button"
-							className={ `${ styles.iconButton } ${ styles.glyphButton }` }
-							aria-label={ __( 'Commands' ) }
-							disabled
-						>
-							/
-						</button>
-						<button
-							type="button"
-							className={ `${ styles.iconButton } ${ styles.glyphButton }` }
-							aria-label={ __( 'Mention' ) }
-							disabled
-						>
-							@
-						</button>
+						<Menu.Root modal={ false }>
+							<Menu.Trigger
+								render={
+									<button
+										type="button"
+										className={ `${ styles.iconButton } ${ styles.glyphButton }` }
+										aria-label={ __( 'Commands' ) }
+									>
+										/
+									</button>
+								}
+							/>
+							<Menu.Popup side="top" align="start" className={ styles.commandsMenuPopup }>
+								{ AI_SKILL_COMMANDS.map( ( command ) => (
+									<Menu.Item
+										key={ command.name }
+										onClick={ () => {
+											void onSend( `/${ command.name }` );
+										} }
+									>
+										<span className={ styles.commandItem }>
+											<span className={ styles.commandName }>/{ command.name }</span>
+											<span className={ styles.commandDescription }>{ command.description }</span>
+										</span>
+									</Menu.Item>
+								) ) }
+							</Menu.Popup>
+						</Menu.Root>
 					</div>
 					<div className={ styles.rightActions }>
 						{ sessionId && liveSite ? (

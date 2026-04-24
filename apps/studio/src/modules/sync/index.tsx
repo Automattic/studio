@@ -7,12 +7,14 @@ import { IllustrationGrid } from 'src/components/illustration-grid';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
 import { useAuth } from 'src/hooks/use-auth';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ConnectButton } from 'src/modules/sync/components/connect-button';
 import { SyncConnectedSites } from 'src/modules/sync/components/sync-connected-sites';
 import { SyncDialog } from 'src/modules/sync/components/sync-dialog';
 import { SyncSitesModalSelector } from 'src/modules/sync/components/sync-sites-modal-selector';
+import { SyncSitesModalSelector as SyncSitesModalSelectorClassic } from 'src/modules/sync/components/sync-sites-modal-selector-classic';
 import { SyncTabImage } from 'src/modules/sync/components/sync-tab-image';
 import {
 	convertTreeToPullOptions,
@@ -140,14 +142,16 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	const [ connectSite ] = useConnectSiteMutation();
 	const [ disconnectSite ] = useDisconnectSiteMutation();
 
+	const { enableBlueprintsGallery } = useFeatureFlags();
 	const connectedSiteIds = connectedSites.map( ( { id } ) => id );
 	// Subscribe to /me/sites so reconcileConnectedSites runs on page load to
 	// refresh stored connection metadata. The list itself isn't rendered here —
 	// the connect modal has its own subscription with a larger page size.
-	useGetWpComSitesQuery( {
+	const { data: wpcomSitesData } = useGetWpComSitesQuery( {
 		connectedSiteIds,
 		userId: user?.id,
 	} );
+	const syncSites = wpcomSitesData?.sites ?? [];
 
 	const [ selectedRemoteSite, setSelectedRemoteSite ] = useState< SyncSite | null >( null );
 
@@ -188,6 +192,18 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		}
 	};
 
+	const handleSiteSelectionClassic = async ( siteId: number ) => {
+		const selectedSiteFromList = syncSites.find( ( site ) => site.id === siteId );
+		if ( ! selectedSiteFromList ) {
+			getIpcApi().showErrorMessageBox( {
+				title: __( 'Failed to select site' ),
+				message: __( 'Please try again.' ),
+			} );
+			return;
+		}
+		await handleSiteSelection( selectedSiteFromList );
+	};
+
 	return (
 		<div className="flex flex-col h-full overflow-y-auto">
 			{ connectedSites.length > 0 ? (
@@ -221,7 +237,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 				</SiteSyncDescription>
 			) }
 
-			{ isModalOpen && ! effectiveRemoteSite && (
+			{ isModalOpen && ! effectiveRemoteSite && enableBlueprintsGallery && (
 				<SyncSitesModalSelector
 					mode={ reduxModalMode || 'connect' }
 					onRequestClose={ () => {
@@ -229,6 +245,19 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 					} }
 					onConnect={ async ( site: SyncSite ) => {
 						await handleSiteSelection( site );
+					} }
+					selectedSite={ selectedSite }
+				/>
+			) }
+
+			{ isModalOpen && ! effectiveRemoteSite && ! enableBlueprintsGallery && (
+				<SyncSitesModalSelectorClassic
+					mode={ reduxModalMode || 'connect' }
+					onRequestClose={ () => {
+						dispatch( connectedSitesActions.closeModal() );
+					} }
+					onConnect={ async ( siteId: number ) => {
+						await handleSiteSelectionClassic( siteId );
 					} }
 					selectedSite={ selectedSite }
 				/>

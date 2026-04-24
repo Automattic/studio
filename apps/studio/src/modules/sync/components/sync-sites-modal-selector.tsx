@@ -7,7 +7,6 @@ import { Badge } from 'src/components/badge';
 import Button from 'src/components/button';
 import Modal from 'src/components/modal';
 import offlineIcon from 'src/components/offline-icon';
-import { Tooltip } from 'src/components/tooltip';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
@@ -295,20 +294,6 @@ export function SitesListContent( {
 		</div>
 	);
 }
-
-const getSortedSites = ( sites: SyncSite[] ) => {
-	const order: Record< SyncSite[ 'syncSupport' ], number > = {
-		syncable: 1,
-		'already-connected': 2,
-		deleted: 3,
-		'missing-permissions': 4,
-		'needs-transfer': 5,
-		'needs-upgrade': 6,
-		unsupported: 7,
-	};
-
-	return [ ...sites ].sort( ( a, b ) => order[ a.syncSupport ] - order[ b.syncSupport ] );
-};
 
 function SiteGrid( {
 	sites,

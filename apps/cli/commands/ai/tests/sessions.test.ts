@@ -1,18 +1,18 @@
 import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getAiSessionsDirectoryForDate, getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';
-import { AiSessionRecorder } from 'cli/ai/sessions/recorder';
-import { replaySessionHistory } from 'cli/ai/sessions/replay';
 import {
 	deleteAiSession,
 	listAiSessions,
 	loadAiSession,
 	readAiSessionEventsFromFile,
-} from 'cli/ai/sessions/store';
+} from '@studio/common/ai/sessions/store';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { getAiSessionsDirectoryForDate, getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';
+import { AiSessionRecorder } from 'cli/ai/sessions/recorder';
+import { replaySessionHistory } from 'cli/ai/sessions/replay';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
-import type { AiSessionEvent } from 'cli/ai/sessions/types';
+import type { AiSessionEvent } from '@studio/common/ai/sessions/types';
 
 describe( 'ai-sessions', () => {
 	let testRoot: string | undefined;
@@ -38,6 +38,7 @@ describe( 'ai-sessions', () => {
 		await recorder.recordSiteSelected( {
 			name: 'My WordPress Website',
 			path: '/tmp/my-wordpress-website',
+			running: false,
 		} );
 		await recorder.recordUserMessage( {
 			text: 'Help me create a plugin',
@@ -153,6 +154,7 @@ describe( 'ai-sessions', () => {
 		await recorder.recordSiteSelected( {
 			name: 'my-remote-site',
 			path: '',
+			running: false,
 			remote: true,
 			url: 'https://my-remote-site.wordpress.com',
 		} );
@@ -181,7 +183,7 @@ describe( 'ai-sessions', () => {
 		await recorder.recordTurnClosed( 'success' );
 
 		const prefix = recorder.sessionId.slice( 0, 8 );
-		const loadedSession = await loadAiSession( prefix );
+		const loadedSession = await loadAiSession( getAiSessionsRootDirectory(), prefix );
 		expect( loadedSession.summary.id ).toBe( recorder.sessionId );
 		expect( loadedSession.summary.agentSessionId ).toBe( 'agent-session-123' );
 		expect( loadedSession.summary.linkedAgentSessionIds ).toEqual( [ 'agent-session-123' ] );
@@ -207,7 +209,7 @@ describe( 'ai-sessions', () => {
 		} );
 		await reopenedRecorder.recordTurnClosed( 'success' );
 
-		const sessions = await listAiSessions();
+		const sessions = await listAiSessions( getAiSessionsRootDirectory() );
 		expect( sessions ).toHaveLength( 1 );
 		expect( sessions[ 0 ] ).toMatchObject( {
 			id: recorder.sessionId,
@@ -232,6 +234,7 @@ describe( 'ai-sessions', () => {
 		await recorder.recordSiteSelected( {
 			name: 'My WordPress Website',
 			path: '/tmp/my-wordpress-website',
+			running: false,
 		} );
 		await recorder.recordUserMessage( {
 			text: 'Create a homepage for me',
@@ -239,12 +242,13 @@ describe( 'ai-sessions', () => {
 		} );
 		await recorder.recordTurnClosed( 'interrupted' );
 
-		const sessions = await listAiSessions();
+		const sessions = await listAiSessions( getAiSessionsRootDirectory() );
 		expect( sessions ).toHaveLength( 1 );
 		expect( sessions[ 0 ] ).toMatchObject( {
 			id: recorder.sessionId,
 			firstPrompt: 'Create a homepage for me',
 			selectedSiteName: 'My WordPress Website',
+			ownerSitePath: '/tmp/my-wordpress-website',
 			endReason: 'stopped',
 		} );
 		expect( sessions[ 0 ].eventCount ).toBeGreaterThanOrEqual( 4 );
@@ -262,10 +266,13 @@ describe( 'ai-sessions', () => {
 			source: 'prompt',
 		} );
 
-		const deleted = await deleteAiSession( recorder.sessionId.slice( 0, 8 ) );
+		const deleted = await deleteAiSession(
+			getAiSessionsRootDirectory(),
+			recorder.sessionId.slice( 0, 8 )
+		);
 		expect( deleted.id ).toBe( recorder.sessionId );
 
-		const sessions = await listAiSessions();
+		const sessions = await listAiSessions( getAiSessionsRootDirectory() );
 		expect( sessions ).toHaveLength( 0 );
 
 		const dayDirectory = getAiSessionsDirectoryForDate( startedAt );
@@ -297,9 +304,9 @@ describe( 'ai-sessions', () => {
 			source: 'prompt',
 		} );
 
-		await deleteAiSession( firstRecorder.sessionId );
+		await deleteAiSession( getAiSessionsRootDirectory(), firstRecorder.sessionId );
 
-		const sessions = await listAiSessions();
+		const sessions = await listAiSessions( getAiSessionsRootDirectory() );
 		expect( sessions ).toHaveLength( 1 );
 		expect( sessions[ 0 ].id ).toBe( secondRecorder.sessionId );
 
@@ -317,9 +324,9 @@ describe( 'ai-sessions', () => {
 		process.env.E2E = '1';
 		process.env.E2E_APP_DATA_PATH = testRoot;
 
-		await expect( deleteAiSession( 'does-not-exist' ) ).rejects.toThrow(
-			'Code session not found: does-not-exist'
-		);
+		await expect(
+			deleteAiSession( getAiSessionsRootDirectory(), 'does-not-exist' )
+		).rejects.toThrow( 'Code session not found: does-not-exist' );
 	} );
 
 	it( 'throws when deleting an ambiguous id prefix', async () => {
@@ -330,7 +337,9 @@ describe( 'ai-sessions', () => {
 		await AiSessionRecorder.create( { startedAt: new Date( '2026-03-11T10:00:00.000Z' ) } );
 		await AiSessionRecorder.create( { startedAt: new Date( '2026-03-11T11:00:00.000Z' ) } );
 
-		await expect( deleteAiSession( '' ) ).rejects.toThrow( 'Session id prefix is ambiguous' );
+		await expect( deleteAiSession( getAiSessionsRootDirectory(), '' ) ).rejects.toThrow(
+			'Session id prefix is ambiguous'
+		);
 	} );
 
 	it( 'lists sessions with most recent update first (latest semantics)', async () => {
@@ -345,7 +354,7 @@ describe( 'ai-sessions', () => {
 			startedAt: new Date( '2026-03-11T10:00:00.000Z' ),
 		} );
 
-		const sessions = await listAiSessions();
+		const sessions = await listAiSessions( getAiSessionsRootDirectory() );
 		expect( sessions.map( ( session ) => session.id ) ).toEqual( [
 			latest.sessionId,
 			older.sessionId,
@@ -514,8 +523,190 @@ describe( 'ai-sessions', () => {
 				running: false,
 				remote: true,
 				url: 'https://my-remote-site.wordpress.com',
+				wpcomSiteId: undefined,
 			},
 			{ announce: true, emitEvent: false }
 		);
+	} );
+
+	it( 'records a session.cleared event', async () => {
+		testRoot = await fs.mkdtemp( path.join( os.tmpdir(), 'studio-ai-sessions-' ) );
+		process.env.E2E = '1';
+		process.env.E2E_APP_DATA_PATH = testRoot;
+
+		const startedAt = new Date( '2026-04-10T12:00:00.000Z' );
+		const recorder = await AiSessionRecorder.create( { startedAt } );
+		await recorder.recordSessionCleared();
+
+		const events = await readAiSessionEventsFromFile( recorder.filePath );
+		const clearedEvent = events.find( ( e ) => e.type === 'session.cleared' );
+		expect( clearedEvent ).toBeDefined();
+		expect( clearedEvent?.timestamp ).toMatch( /^\d{4}-\d{2}-\d{2}T/ );
+	} );
+
+	type FakeReplayUi = Parameters< typeof replaySessionHistory >[ 0 ];
+
+	function makeFakeReplayUi( seen: string[] ): FakeReplayUi {
+		const noop = () => undefined;
+		return {
+			prepareForReplay: noop,
+			finishReplay: noop,
+			setReplayTimestamp: noop,
+			setActiveSite: noop,
+			beginAgentTurn: noop,
+			endAgentTurn: noop,
+			addUserMessage: ( text: string ) => {
+				seen.push( `user.message:${ text }` );
+			},
+			handleMessage: noop,
+			setLoaderMessage: noop,
+			showAgentQuestion: noop,
+		} as unknown as FakeReplayUi;
+	}
+
+	it( 'replays all events when no session.cleared marker is present', () => {
+		const events: AiSessionEvent[] = [
+			{
+				type: 'session.started',
+				timestamp: '2026-04-10T12:00:00.000Z',
+				version: 1,
+				sessionId: 'test',
+			},
+			{
+				type: 'user.message',
+				timestamp: '2026-04-10T12:00:01.000Z',
+				text: 'Hello',
+				source: 'prompt',
+			},
+			{
+				type: 'turn.closed',
+				timestamp: '2026-04-10T12:00:02.000Z',
+				status: 'success',
+			},
+		];
+		const seen: string[] = [];
+		const fakeUi = makeFakeReplayUi( seen );
+		replaySessionHistory( fakeUi, events );
+		expect( seen ).toContain( 'user.message:Hello' );
+	} );
+
+	it( 'replays only events after the last session.cleared marker', () => {
+		const events: AiSessionEvent[] = [
+			{
+				type: 'user.message',
+				timestamp: '2026-04-10T12:00:00.000Z',
+				text: 'before clear',
+				source: 'prompt',
+			},
+			{
+				type: 'turn.closed',
+				timestamp: '2026-04-10T12:00:01.000Z',
+				status: 'success',
+			},
+			{
+				type: 'session.cleared',
+				timestamp: '2026-04-10T12:00:02.000Z',
+			},
+			{
+				type: 'user.message',
+				timestamp: '2026-04-10T12:00:03.000Z',
+				text: 'after clear',
+				source: 'prompt',
+			},
+			{
+				type: 'turn.closed',
+				timestamp: '2026-04-10T12:00:04.000Z',
+				status: 'success',
+			},
+		];
+		const seen: string[] = [];
+		const fakeUi = makeFakeReplayUi( seen );
+		replaySessionHistory( fakeUi, events );
+		expect( seen ).toContain( 'user.message:after clear' );
+		expect( seen ).not.toContain( 'user.message:before clear' );
+	} );
+
+	it( 'replays only events after the most recent of multiple session.cleared markers', () => {
+		const events: AiSessionEvent[] = [
+			{
+				type: 'user.message',
+				timestamp: '2026-04-10T12:00:00.000Z',
+				text: 'first',
+				source: 'prompt',
+			},
+			{
+				type: 'session.cleared',
+				timestamp: '2026-04-10T12:00:01.000Z',
+			},
+			{
+				type: 'user.message',
+				timestamp: '2026-04-10T12:00:02.000Z',
+				text: 'second',
+				source: 'prompt',
+			},
+			{
+				type: 'session.cleared',
+				timestamp: '2026-04-10T12:00:03.000Z',
+			},
+			{
+				type: 'user.message',
+				timestamp: '2026-04-10T12:00:04.000Z',
+				text: 'third',
+				source: 'prompt',
+			},
+		];
+		const seen: string[] = [];
+		const fakeUi = makeFakeReplayUi( seen );
+		replaySessionHistory( fakeUi, events );
+		expect( seen ).toContain( 'user.message:third' );
+		expect( seen ).not.toContain( 'user.message:first' );
+		expect( seen ).not.toContain( 'user.message:second' );
+	} );
+
+	it( 'replays post-clear site.selected events so active site is restored', () => {
+		const events: AiSessionEvent[] = [
+			{
+				type: 'user.message',
+				timestamp: '2026-04-10T12:00:00.000Z',
+				text: 'before clear',
+				source: 'prompt',
+			},
+			{
+				type: 'session.cleared',
+				timestamp: '2026-04-10T12:00:01.000Z',
+			},
+			{
+				type: 'site.selected',
+				timestamp: '2026-04-10T12:00:02.000Z',
+				siteName: 'Post-Clear Site',
+				sitePath: '/tmp/post-clear',
+			},
+			{
+				type: 'user.message',
+				timestamp: '2026-04-10T12:00:03.000Z',
+				text: 'after clear',
+				source: 'prompt',
+			},
+		];
+
+		const setActiveSite = vi.fn();
+		const seen: string[] = [];
+		const fakeUi = {
+			...makeFakeReplayUi( seen ),
+			setActiveSite,
+		} as unknown as FakeReplayUi;
+
+		replaySessionHistory( fakeUi, events );
+
+		expect( setActiveSite ).toHaveBeenCalledTimes( 1 );
+		expect( setActiveSite ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				name: 'Post-Clear Site',
+				path: '/tmp/post-clear',
+			} ),
+			expect.anything()
+		);
+		expect( seen ).toContain( 'user.message:after clear' );
+		expect( seen ).not.toContain( 'user.message:before clear' );
 	} );
 } );

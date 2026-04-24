@@ -1,0 +1,27 @@
+.rows {
+	display: flex;
+	flex-direction: column;
+	/* One unified box of padding around the entire main view plus a fixed
+	   gap between rows — individual rows no longer carry their own
+	   padding, which keeps the rhythm consistent regardless of row count
+	   or which actions each row renders. */
+	padding: var(--wpds-dimension-padding-lg);
+	gap: var(--wpds-dimension-padding-lg);
+}
+
+.rowActions {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xs);
+}
+
+/* The site-dropdown popup strips the default Menu popup padding/gap (so the
+   environment rows can own their own layout), so the Menu.Items we append
+   below the rows need their own padded band. Mirrors the default Menu popup
+   spacing. */
+.menuItems {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-xs);
+	padding: var(--wpds-dimension-padding-xs);
+}

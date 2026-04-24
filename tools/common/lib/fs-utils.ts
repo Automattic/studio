@@ -1,7 +1,7 @@
 import fs, { promises as fsPromises } from 'fs';
 import path from 'path';
 import ignore, { Ignore } from 'ignore';
-import { DEPLOY_IGNORE_DEFAULTS } from './deploy-ignore';
+import { DEPLOY_IGNORE_DEFAULTS } from './deploy-ignore-defaults';
 import { isErrnoException } from './is-errno-exception';
 
 /**
@@ -32,11 +32,9 @@ export function calculateDirectorySizeForArchive(
 				await Promise.all(
 					files.map( async ( file ) => {
 						const filePath = path.join( dirPath, file.name );
-						const fileRelativeToRoot = path
-							.relative( directoryPath, filePath )
-							.replace( /\\/g, '/' );
+						const fileRelativeToRoot = path.relative( directoryPath, filePath );
 						const ignorePath = pathPrefix
-							? `${ pathPrefix }/${ fileRelativeToRoot }`
+							? path.join( pathPrefix, fileRelativeToRoot )
 							: fileRelativeToRoot;
 						try {
 							if ( ig.ignores( ignorePath ) ) {

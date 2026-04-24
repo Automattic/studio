@@ -1,5 +1,5 @@
 import { type Page } from '@playwright/test';
-import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
+import { ACCEPTED_IMPORT_FILE_TYPES } from '@studio/common/constants';
 import SiteForm from './site-form';
 
 export default class AddSiteModal {
@@ -26,7 +26,9 @@ export default class AddSiteModal {
 	}
 
 	get fileInput() {
-		return this.page.locator( 'input[type="file"][accept=".json,application/json"]' );
+		return this.page.locator(
+			'input[type="file"][accept=".json,.zip,application/json,application/zip"]'
+		);
 	}
 
 	get backupFileInput() {

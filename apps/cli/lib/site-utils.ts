@@ -30,13 +30,19 @@ export async function startProxyIfNeeded( logger: Logger< LoggerAction > ): Prom
 }
 
 /**
- * Opens the site in the browser with auto-login to WordPress admin
+ * Opens the site in the browser with auto-login.
+ *
+ * If the site was created from a Blueprint with a `landingPage`, that path is
+ * used as the redirect target. Otherwise the CLI falls back to `/wp-admin/`,
+ * preserving the historical behavior for sites created without one.
  */
 export async function openSiteInBrowser( site: SiteData ): Promise< void > {
 	const siteUrl = getSiteUrl( site );
 	try {
+		const targetPath = site.landingPage || '/wp-admin/';
+		const target = new URL( targetPath, siteUrl ).toString();
 		const autoLoginUrl = `${ siteUrl }/studio-auto-login?redirect_to=${ encodeURIComponent(
-			`${ siteUrl }/wp-admin/`
+			target
 		) }`;
 		await openBrowser( autoLoginUrl );
 	} catch ( error ) {

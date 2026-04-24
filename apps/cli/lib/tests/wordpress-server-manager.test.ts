@@ -130,6 +130,66 @@ describe( 'WordPress Server Manager', () => {
 				'Failed to start process'
 			);
 		} );
+
+		it( 'should surface an error when the child process exits before becoming ready', async () => {
+			// Do not emit `ready`; instead emit an `exit` event to simulate a crash during startup.
+			setTimeout( () => {
+				mockBus.emit( 'process-event', {
+					process: {
+						name: mockProcessDescription.name,
+						pm_id: mockProcessDescription.pmId,
+					},
+					event: 'exit',
+				} );
+			}, 10 );
+
+			await expect( startWordPressServer( mockSiteData, mockLogger ) ).rejects.toThrow(
+				/exited before becoming ready/
+			);
+		} );
+
+		it( 'should include the child stderr tail in the error when the daemon provides it', async () => {
+			const stderrTail = 'SyntaxError: The requested module did not provide an export named X';
+
+			setTimeout( () => {
+				mockBus.emit( 'process-event', {
+					process: {
+						name: mockProcessDescription.name,
+						pm_id: mockProcessDescription.pmId,
+					},
+					event: 'exit',
+					stderrTail,
+				} );
+			}, 10 );
+
+			await expect( startWordPressServer( mockSiteData, mockLogger ) ).rejects.toThrow(
+				new RegExp( stderrTail.replace( /[.*+?^${}()|[\]\\]/g, '\\$&' ) )
+			);
+		} );
+
+		it( 'should catch exit events fired before startProcess resolves', async () => {
+			// Simulate an exit that fires while `startProcess` is still in flight, *before*
+			// the caller knows the pmId. Listeners must be attached ahead of startProcess for
+			// this to work.
+			vi.mocked( daemonClient.startProcess ).mockImplementation( async () => {
+				setTimeout( () => {
+					mockBus.emit( 'process-event', {
+						process: {
+							name: mockProcessDescription.name,
+							pm_id: mockProcessDescription.pmId,
+						},
+						event: 'exit',
+						stderrTail: 'early crash',
+					} );
+				}, 0 );
+				await new Promise( ( resolve ) => setTimeout( resolve, 20 ) );
+				return mockProcessDescription;
+			} );
+
+			await expect( startWordPressServer( mockSiteData, mockLogger ) ).rejects.toThrow(
+				/early crash/
+			);
+		} );
 	} );
 
 	describe( 'stopWordPressServer', () => {

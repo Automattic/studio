@@ -1,15 +1,16 @@
+import path from 'path';
 import { SqliteIntegrationProvider } from '@studio/common/lib/sqlite-integration';
-import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
+import { getWpFilesPath } from 'cli/lib/dependency-management/paths';
 
 const SQLITE_FILENAME = 'sqlite-database-integration';
 
 class CliSqliteProvider extends SqliteIntegrationProvider {
-	getServerFilesPath(): string {
-		return getServerFilesPath();
-	}
-
 	getSqliteDirname(): string {
 		return SQLITE_FILENAME;
+	}
+
+	protected getSqlitePluginSourcePath(): string {
+		return path.join( getWpFilesPath(), SQLITE_FILENAME );
 	}
 }
 

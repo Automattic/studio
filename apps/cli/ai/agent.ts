@@ -1,10 +1,10 @@
+import fs from 'fs';
 import path from 'path';
 import { query, type Query } from '@anthropic-ai/claude-agent-sdk';
+import { AI_MODELS, DEFAULT_MODEL, type AiModelId } from '@studio/common/ai/models';
 import {
 	ALLOWED_TOOLS,
-	ALLOWED_TOOLS_REMOTE,
 	STUDIO_ROOT,
-	createPathApprovalSession,
 	promptForApproval,
 	type AskUserQuestion,
 } from 'cli/ai/security';
@@ -13,6 +13,7 @@ import { createRemoteSiteTools, createStudioTools } from 'cli/ai/tools';
 import type { SiteInfo } from 'cli/ai/ui';
 
 export type { AskUserQuestion } from 'cli/ai/security';
+export { AI_MODELS, DEFAULT_MODEL, type AiModelId };
 
 export interface AiAgentConfig {
 	prompt: string;
@@ -20,28 +21,26 @@ export interface AiAgentConfig {
 	model?: AiModelId;
 	maxTurns?: number;
 	resume?: string;
+	autoApprove?: boolean;
 	activeSite?: SiteInfo | null;
 	wpcomAccessToken?: string;
 	onAskUser?: ( questions: AskUserQuestion[] ) => Promise< Record< string, string > >;
 }
-
-export const AI_MODELS = {
-	'claude-sonnet-4-6': 'Sonnet 4.6',
-	'claude-opus-4-6': 'Opus 4.6',
-} as const;
-
-export type AiModelId = keyof typeof AI_MODELS;
-
-export const DEFAULT_MODEL: AiModelId = 'claude-sonnet-4-6';
-const pathApprovalSession = createPathApprovalSession();
 
 // The Claude Agent SDK rejects internal pending promises (e.g. control
 // responses) when an agent turn is interrupted via ESC. These rejections
 // are unhandled because they originate inside the SDK cleanup path rather
 // than propagating through the async iterator. Without this handler,
 // Node.js terminates the process on unhandled rejections.
+const SDK_INTERRUPT_CLEANUP_ERRORS = [
+	'Query closed',
+	'ProcessTransport is not ready for writing',
+];
 process.on( 'unhandledRejection', ( reason ) => {
-	if ( reason instanceof Error && reason.message.includes( 'Query closed' ) ) {
+	if (
+		reason instanceof Error &&
+		SDK_INTERRUPT_CLEANUP_ERRORS.some( ( msg ) => reason.message.includes( msg ) )
+	) {
 		return;
 	}
 	throw reason;
@@ -56,8 +55,9 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 		prompt,
 		env,
 		model = DEFAULT_MODEL,
-		maxTurns = 50,
+		maxTurns = 75,
 		resume,
+		autoApprove,
 		activeSite,
 		wpcomAccessToken,
 		onAskUser,
@@ -74,7 +74,7 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 			: createStudioTools(),
 	};
 
-	const allowedTools = isRemoteSite ? [ ...ALLOWED_TOOLS_REMOTE ] : [ ...ALLOWED_TOOLS ];
+	const allowedTools = [ ...ALLOWED_TOOLS ];
 
 	// Build site-aware system prompt
 	const systemPromptOptions = isRemoteSite
@@ -86,6 +86,10 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 				},
 		  }
 		: undefined;
+
+	if ( ! fs.existsSync( STUDIO_ROOT ) ) {
+		fs.mkdirSync( STUDIO_ROOT, { recursive: true } );
+	}
 
 	return query( {
 		prompt,
@@ -103,6 +107,13 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 			allowedTools,
 			permissionMode: 'default',
 			canUseTool: async ( toolName, input, metadata ) => {
+				if ( autoApprove ) {
+					return {
+						behavior: 'allow' as const,
+						updatedInput: input as Record< string, unknown >,
+					};
+				}
+
 				if ( toolName === 'AskUserQuestion' && onAskUser ) {
 					const typedInput = input as {
 						questions?: AskUserQuestion[];
@@ -119,13 +130,7 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 					};
 				}
 
-				return promptForApproval( {
-					toolName,
-					input,
-					metadata,
-					onAskUser,
-					pathApprovalSession,
-				} );
+				return promptForApproval( { toolName, input, metadata, onAskUser } );
 			},
 			plugins: [ { type: 'local' as const, path: path.resolve( import.meta.dirname, 'plugin' ) } ],
 			model,

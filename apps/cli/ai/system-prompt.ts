@@ -158,7 +158,7 @@ One \`Write\` or \`Edit\` per turn (read-only \`site_info\`, \`site_list\`, \`wp
 **Long files (>~200 lines): skeleton first, then fill across Edits.**
 
 - \`style.css\`: skeleton = \`:root { ... }\` custom properties + 6–10 anchor comments \`/* === <concern> === */\` (e.g. \`reset\`, \`typography\`, \`hero\`, \`features\`, \`cta\`, \`footer\`, \`responsive\`), <2KB total. Fill one anchor per Edit (300–2000B each) — \`old_string\` is the anchor line, \`new_string\` is \`<anchor>\\n\\n<styles>\`.
-- Page content: create the page empty (\`wp_cli post create --post_content=""\`), write \`<theme>/page-content.html\` with \`<!-- section:<concern> -->\` anchors (<1KB), fill one anchor per Edit using only core blocks (never wrap in \`core/html\`), then apply once with \`wp_cli post update <id> --post_content-file=<absolute path>\`.
+- Page content: create the page empty (\`wp_cli post create --post_content=""\`), write \`<site>/tmp/page-<slug>.html\` (not inside the theme) with \`<!-- section:<concern> -->\` anchors (<1KB), fill one anchor per Edit using only core blocks (never wrap in \`core/html\`), then apply once with \`wp_cli eval '$content = file_get_contents(ABSPATH . "tmp/page-<slug>.html"); wp_update_post(["ID" => <id>, "post_content" => $content]); echo "ok";'\`. Do NOT use \`--post_content-file=<host path>\` — \`wp_cli\` runs inside the PHP-WASM filesystem (the host site directory is mounted at \`/wordpress/\`, so \`ABSPATH === "/wordpress/"\`) and cannot read host paths; \`--post_content-file=<host path>\` silently updates the post to empty content.
 
 ## Available Studio Tools (prefixed with mcp__studio__)
 

@@ -57,9 +57,10 @@ function extractToolCalls( message: SDKMessage ) {
 			} ): block is { type: 'tool_use'; id: string; name: string; input: unknown } =>
 				block.type === 'tool_use'
 		)
-		.map( ( block: { id: string; name: string } ) => ( {
+		.map( ( block: { id: string; name: string; input: unknown } ) => ( {
 			id: block.id,
 			name: normalizeToolName( block.name ),
+			input: block.input,
 		} ) );
 }
 
@@ -140,7 +141,7 @@ async function runEval( input: EvalRunnerInput ) {
 	// Allow running inside a Claude Code session
 	delete env.CLAUDECODE;
 
-	const toolCalls: { id: string; name: string }[] = [];
+	const toolCalls: { id: string; name: string; input: unknown }[] = [];
 	const toolResults: {
 		toolUseId: string | null;
 		toolName: string | null;

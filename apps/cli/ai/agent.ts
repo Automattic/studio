@@ -112,6 +112,11 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 			cwd: STUDIO_ROOT,
 			tools: { type: 'preset', preset: 'claude_code' },
 			allowedTools,
+			// Keep per-turn latency predictable. The native 0.2.110+ runtime
+			// defaults to `effort: 'high'` with adaptive thinking, which can
+			// stall a single turn for 100s+ between tool calls. Studio's agent
+			// work is mostly tool orchestration, so minimal thinking is fine.
+			effort: 'low',
 			permissionMode: 'default',
 			canUseTool: async ( toolName, input, metadata ) => {
 				if ( autoApprove ) {

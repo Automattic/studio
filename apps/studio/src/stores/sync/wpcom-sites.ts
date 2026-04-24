@@ -10,7 +10,7 @@ import { z } from 'zod';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { reconcileConnectedSites } from 'src/modules/sync/lib/reconcile-connected-sites';
 import { withOfflineCheck } from 'src/stores/utils/with-offline-check';
-import { getWpcomClient } from 'src/stores/wpcom-api';
+import { getWpcomClient } from 'src/stores/wpcom-client';
 import type { SyncSite } from '@studio/common/types/sync';
 
 const SITE_FIELDS = [

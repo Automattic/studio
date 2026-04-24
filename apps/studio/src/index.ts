@@ -51,6 +51,7 @@ import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-insta
 import { stopAllProcesses as stopAllStudioCodeProcesses } from 'src/modules/studio-code';
 import { getRunningSiteCount, SiteServer, stopAllServers } from 'src/site-server';
 import {
+	AppConfigVersionMismatchError,
 	loadUserData,
 	lockAppdata,
 	saveUserData,
@@ -116,6 +117,29 @@ async function setupSentryUserId() {
 
 	const wpcomUserId = await getCurrentUserId();
 	setSentryWpcomUserIdMain( wpcomUserId ?? undefined );
+}
+
+function showAppUpgradeRequiredAndQuit( error: AppConfigVersionMismatchError ): void {
+	console.error(
+		`app.json version mismatch: found v${ error.foundVersion }, this build supports v${ error.expectedVersion }.`
+	);
+	Sentry.captureException( error );
+
+	const message = __( 'Please upgrade Studio' );
+	const detail = __(
+		'A newer version of Studio has already run on this computer and updated your configuration. Please upgrade Studio to the latest version to continue.'
+	);
+
+	dialog.showMessageBoxSync( {
+		type: 'error',
+		buttons: [ __( 'Quit' ) ],
+		defaultId: 0,
+		title: message,
+		message,
+		detail,
+	} );
+
+	app.exit( 1 );
 }
 
 // This is a workaround to ensure that the extension background workers are started
@@ -263,6 +287,19 @@ async function appBoot() {
 
 		// By default Electron automatically approves all permissions requests (e.g. notifications, webcam)
 		// We'll opt-in to permissions we specifically need instead.
+		// Fail fast if app.json was written by a newer Studio build. Continuing past
+		// this point would let the older build clobber fields (e.g. connections that
+		// now live in cli.json) it doesn't know about.
+		try {
+			await loadUserData();
+		} catch ( error ) {
+			if ( error instanceof AppConfigVersionMismatchError ) {
+				showAppUpgradeRequiredAndQuit( error );
+				return;
+			}
+			throw error;
+		}
+
 		session.defaultSession.setPermissionRequestHandler( ( webContents, permission, callback ) => {
 			// Reject all permission requests
 			callback( false );

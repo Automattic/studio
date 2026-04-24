@@ -15,8 +15,17 @@ export interface AppdataSiteData {
 	sortOrder?: number;
 }
 
+// Increment `APP_CONFIG_VERSION` for breaking changes to app.json. When the
+// current build boots and finds an app.json stamped with a *higher* version it
+// refuses to load and prompts the user to upgrade, matching the pattern in
+// `tools/common/lib/shared-config.ts`. Additive, non-breaking changes should
+// leave this constant alone.
+export const APP_CONFIG_VERSION = 2;
+
+export type AppConfigVersion = typeof APP_CONFIG_VERSION;
+
 export interface UserData {
-	version: 1;
+	version: AppConfigVersion;
 	siteMetadata: Record< string, AppdataSiteData >;
 	devToolsOpen?: boolean;
 	windowBounds?: WindowBounds;
@@ -40,6 +49,6 @@ export interface PromptWindowsSpeedUpResult {
 }
 
 export const EMPTY_USER_DATA: UserData = {
-	version: 1,
+	version: APP_CONFIG_VERSION,
 	siteMetadata: {},
 };

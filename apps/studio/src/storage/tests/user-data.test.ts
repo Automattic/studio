@@ -41,7 +41,7 @@ vi.mock( 'atomically', () => ( {
 } ) );
 
 const mockedUserData: UserData = {
-	version: 1,
+	version: 2,
 	siteMetadata: {
 		'site-1': {
 			sortOrder: 0,
@@ -86,12 +86,21 @@ describe( 'User data', () => {
 			);
 
 			const result = await loadUserData();
-			expect( result ).toEqual( { version: 1, siteMetadata: {} } );
+			expect( result ).toEqual( { version: 2, siteMetadata: {} } );
 		} );
 
-		test( 'normalizes version to 1', async () => {
+		test( 'normalizes version to the current APP_CONFIG_VERSION', async () => {
 			const result = await loadUserData();
-			expect( result.version ).toBe( 1 );
+			expect( result.version ).toBe( 2 );
+		} );
+
+		test( 'throws AppConfigVersionMismatchError when file was written by a newer build', async () => {
+			const { AppConfigVersionMismatchError } = await import( 'src/storage/user-data' );
+			vi.mocked( readFile ).mockResolvedValue(
+				Buffer.from( JSON.stringify( { version: 999, siteMetadata: {} } ) )
+			);
+
+			await expect( loadUserData() ).rejects.toBeInstanceOf( AppConfigVersionMismatchError );
 		} );
 	} );
 

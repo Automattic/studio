@@ -1,16 +1,19 @@
 /**
  * Moves `connectedWpcomSites` from `app.json` into per-site entries in
- * `cli.json`. Before this migration the Desktop app owned the connection
- * list under a top-level `connectedWpcomSites: { [userId]: SyncSite[] }`
- * in app.json. After this migration the list lives at
- * `cli.json sites[].connectedWpcomSites[userId]`, where both the Desktop
- * app and the Studio CLI can read and write it through shared helpers in
+ * `cli.json`, then stamps `app.json` with the bumped `APP_CONFIG_VERSION`.
+ *
+ * Before this migration the Desktop app owned the connection list under a
+ * top-level `connectedWpcomSites: { [userId]: SyncSite[] }` in app.json.
+ * After this migration the list lives at
+ * `cli.json sites[].connectedWpcomSites[userId]`, where both the Studio app
+ * and the Studio CLI can read and write it through shared helpers in
  * `tools/common/lib/connected-sites.ts`.
  *
- * The migration intentionally leaves app.json's copy intact and only
- * writes cli.json. We rely on the runtime code switching over to reading
- * from cli.json; a later cleanup migration will remove the legacy field
- * once we're confident no release still depends on it.
+ * The version bump doubles as an explicit compatibility gate: once this
+ * migration has run, older Studio builds that boot against the same
+ * `~/.studio` directory refuse to load and prompt the user to upgrade (see
+ * `AppConfigVersionMismatchError` in `src/storage/user-data.ts`). That's the
+ * protection against an older build clobbering the migrated data.
  */
 
 import fs from 'node:fs';
@@ -18,10 +21,12 @@ import { getAppConfigPath, getCliConfigPath } from '@studio/common/lib/well-know
 import { syncSiteSchema } from '@studio/common/types/sync';
 import { readFile, writeFile } from 'atomically';
 import { z } from 'zod';
+import { APP_CONFIG_VERSION } from 'src/storage/storage-types';
 import type { Migration } from '@studio/common/lib/migration';
 
 const appConnectedShapeSchema = z
 	.object( {
+		version: z.number().optional(),
 		connectedWpcomSites: z.record( z.string(), z.array( syncSiteSchema ) ).optional(),
 	} )
 	.loose();
@@ -36,14 +41,6 @@ const cliSiteShapeSchema = z
 const cliConfigShapeSchema = z
 	.object( {
 		sites: z.array( cliSiteShapeSchema ).optional(),
-	} )
-	.loose();
-
-const MIGRATION_MARKER_KEY = 'connectedWpcomSitesMigratedToCli';
-
-const appMarkerShapeSchema = z
-	.object( {
-		[ MIGRATION_MARKER_KEY ]: z.boolean().optional(),
 	} )
 	.loose();
 
@@ -70,13 +67,12 @@ export const migrateConnectedSitesToCli: Migration = {
 		if ( ! appRaw ) {
 			return false;
 		}
-		const marker = appMarkerShapeSchema.safeParse( appRaw );
-		if ( marker.success && marker.data[ MIGRATION_MARKER_KEY ] ) {
+		const parsed = appConnectedShapeSchema.safeParse( appRaw );
+		if ( ! parsed.success ) {
 			return false;
 		}
-		const parsed = appConnectedShapeSchema.safeParse( appRaw );
-		const users = parsed.success ? parsed.data.connectedWpcomSites ?? {} : {};
-		return Object.keys( users ).length > 0;
+		const rawVersion = parsed.data.version ?? 1;
+		return rawVersion < APP_CONFIG_VERSION;
 	},
 
 	async run() {
@@ -128,15 +124,16 @@ export const migrateConnectedSitesToCli: Migration = {
 			return { ...site, connectedWpcomSites: merged };
 		} );
 
-		const nextCli = { ...( cliRaw as Record< string, unknown > ), sites: mergedSites };
-		await writeJson( cliPath, nextCli );
+		if ( grouped.size > 0 ) {
+			const nextCli = { ...( cliRaw as Record< string, unknown > ), sites: mergedSites };
+			await writeJson( cliPath, nextCli );
+		}
 
-		const nextApp = {
-			...( appRaw as Record< string, unknown > ),
-			[ MIGRATION_MARKER_KEY ]: true,
-		};
-		// Intentionally preserve `connectedWpcomSites` in app.json for now so older
-		// Studio versions continue to function until this migration has shipped widely.
+		// Strip the legacy top-level field and stamp the new version. Older builds
+		// will refuse to load once they see a version they don't recognize, which
+		// is the whole point of bumping — they'd silently miss the new data.
+		const { connectedWpcomSites: _legacy, ...appRest } = appRaw as Record< string, unknown >;
+		const nextApp = { ...appRest, version: APP_CONFIG_VERSION };
 		await writeJson( appPath, nextApp );
 	},
 };

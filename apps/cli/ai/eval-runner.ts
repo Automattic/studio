@@ -127,13 +127,15 @@ function readInput(): EvalRunnerInput {
 async function runEval( input: EvalRunnerInput ) {
 	const policy = input.askUserPolicy ?? 'deny_permissions_allow_other';
 
-	let aiProvider: AiProviderId = await resolveInitialAiProvider();
-	aiProvider = ( await resolveUnavailableAiProvider( aiProvider ) ) ?? aiProvider;
-
-	const env = {
-		...( process.env as Record< string, string > ),
-		...( await resolveAiEnvironment( aiProvider ) ),
-	};
+	// Build environment for the agent subprocess.
+	// If ANTHROPIC_API_KEY is already set (e.g. CI), use it directly.
+	// Otherwise resolve via Studio's provider system (WP.com auth or saved API key).
+	const env = { ...( process.env as Record< string, string > ) };
+	if ( ! env.ANTHROPIC_API_KEY ) {
+		let aiProvider: AiProviderId = await resolveInitialAiProvider();
+		aiProvider = ( await resolveUnavailableAiProvider( aiProvider ) ) ?? aiProvider;
+		Object.assign( env, await resolveAiEnvironment( aiProvider ) );
+	}
 	// Allow running inside a Claude Code session
 	delete env.CLAUDECODE;
 

@@ -1091,11 +1091,13 @@ export interface CreateStudioToolsOptions {
 }
 
 export function resolveStudioToolDefinitions( options: CreateStudioToolsOptions = {} ) {
-	return options.enablePreviewSteering
-		? studioToolDefinitions
-		: studioToolDefinitions.filter(
-				( candidate ) => ! previewSteeringToolDefinitions.includes( candidate )
-		  );
+	if ( options.enablePreviewSteering ) {
+		return studioToolDefinitions;
+	}
+	const previewSteeringNames = new Set( previewSteeringToolDefinitions.map( ( t ) => t.name ) );
+	return studioToolDefinitions.filter(
+		( candidate ) => ! previewSteeringNames.has( candidate.name )
+	);
 }
 
 export function createStudioTools( options: CreateStudioToolsOptions = {} ) {

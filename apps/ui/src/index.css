@@ -15,9 +15,9 @@
 body {
 	margin: 0;
 	padding: 0;
-	font-family: var(--wpds-font-family-body);
-	font-size: var(--wpds-font-size-md);
-	line-height: var(--wpds-font-line-height-md);
+	font-family: var(--wpds-typography-font-family-body);
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: var(--wpds-typography-line-height-md);
 	background-color: var(--wpds-color-bg-surface-neutral);
 	color: var(--wpds-color-fg-content-neutral);
 	color-scheme: light dark;
@@ -35,40 +35,40 @@ h3,
 h4,
 h5,
 h6 {
-	font-family: var(--wpds-font-family-heading);
-	font-weight: var(--wpds-font-weight-regular);
+	font-family: var(--wpds-typography-font-family-heading);
+	font-weight: var(--wpds-typography-font-weight-regular);
 	color: var(--wpds-color-fg-content-neutral);
 	margin: 0;
 }
 
 h1 {
-	font-size: var(--wpds-font-size-2xl);
-	line-height: var(--wpds-font-line-height-2xl);
+	font-size: var(--wpds-typography-font-size-2xl);
+	line-height: var(--wpds-typography-line-height-2xl);
 }
 
 h2 {
-	font-size: var(--wpds-font-size-xl);
-	line-height: var(--wpds-font-line-height-xl);
+	font-size: var(--wpds-typography-font-size-xl);
+	line-height: var(--wpds-typography-line-height-xl);
 }
 
 h3 {
-	font-size: var(--wpds-font-size-lg);
-	line-height: var(--wpds-font-line-height-lg);
+	font-size: var(--wpds-typography-font-size-lg);
+	line-height: var(--wpds-typography-line-height-lg);
 }
 
 h4 {
-	font-size: var(--wpds-font-size-md);
-	line-height: var(--wpds-font-line-height-md);
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: var(--wpds-typography-line-height-md);
 }
 
 h5 {
-	font-size: var(--wpds-font-size-sm);
-	line-height: var(--wpds-font-line-height-sm);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
 }
 
 h6 {
-	font-size: var(--wpds-font-size-xs);
-	line-height: var(--wpds-font-line-height-xs);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
 }
 
 /* Interactive elements inside drag-region ancestors (title bars, section

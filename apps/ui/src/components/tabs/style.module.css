@@ -32,7 +32,7 @@
 	padding-block: var(--wpds-dimension-padding-lg) !important;
 	height: auto !important;
 	flex: 0 0 auto;
-	font-size: var(--wpds-font-size-md);
+	font-size: var(--wpds-typography-font-size-md);
 	font-weight: 400;
 	color: var(--wpds-color-fg-content-neutral-weak);
 }

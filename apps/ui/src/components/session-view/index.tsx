@@ -165,7 +165,14 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 	}, [ sessionId, data, isRunning, queuedPrompts.length ] );
 
 	if ( isLoading ) {
-		return <div className={ styles.state }>{ __( 'Loading session…' ) }</div>;
+		return (
+			<div className={ clsx( styles.state, styles.loadingState ) }>
+				<div className={ styles.loadingAnimation }>
+					<EmptyBackground />
+				</div>
+				<div className={ styles.loadingLabel }>{ __( 'Loading…' ) }</div>
+			</div>
+		);
 	}
 
 	if ( error || ! data ) {

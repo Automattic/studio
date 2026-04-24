@@ -188,7 +188,9 @@ async function main() {
 	} );
 
 	registerPullCommand( studioArgv );
-	registerPullReprintCommand( studioArgv );
+	if ( process.env.STUDIO_ENABLE_PULL_REPRINT ) {
+		registerPullReprintCommand( studioArgv );
+	}
 	registerPushCommand( studioArgv );
 
 	studioArgv

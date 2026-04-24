@@ -33,7 +33,6 @@ interface NewSiteOptionsProps {
 	blueprintFileError?: string;
 }
 
-
 function EmptySiteCard( { isSelected, onClick }: { isSelected: boolean; onClick: () => void } ) {
 	const { __ } = useI18n();
 	return (
@@ -178,7 +177,6 @@ function renameBlueprintsForDisplay( blueprints: Blueprint[] ): Blueprint[] {
 }
 
 export function NewSiteOptions( {
-	onOptionSelect,
 	enableBlueprints,
 	blueprints,
 	isLoadingBlueprints,

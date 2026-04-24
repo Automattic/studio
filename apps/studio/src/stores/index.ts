@@ -12,6 +12,7 @@ import { appVersionApi } from 'src/stores/app-version-api';
 import { betaFeaturesReducer, loadBetaFeatures } from 'src/stores/beta-features-slice';
 import { certificateTrustApi } from 'src/stores/certificate-trust-api';
 import { reducer as chatReducer } from 'src/stores/chat-slice';
+import { galleryBlueprintsApi } from 'src/stores/gallery-blueprints-api';
 import i18nReducer from 'src/stores/i18n-slice';
 import { installedAppsApi } from 'src/stores/installed-apps-api';
 import onboardingReducer from 'src/stores/onboarding-slice';
@@ -29,12 +30,7 @@ import {
 } from 'src/stores/sync/sync-operations-slice';
 import { wpcomSitesApi } from 'src/stores/sync/wpcom-sites';
 import uiReducer from 'src/stores/ui-slice';
-import {
-	galleryBlueprintsApi,
-	getWpcomClient,
-	wpcomApi,
-	wpcomPublicApi,
-} from 'src/stores/wpcom-api';
+import { getWpcomClient, wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
 import { wordpressVersionsApi } from './wordpress-versions-api';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 

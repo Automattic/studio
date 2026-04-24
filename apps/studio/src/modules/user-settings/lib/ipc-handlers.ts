@@ -7,6 +7,7 @@ import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { SUPPORTED_EDITORS, SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 import { UserSettingsTabName } from 'src/modules/user-settings/user-settings-types';
+import { defaultSitePath, ensureWritableDirectory } from 'src/storage/paths';
 import { loadUserData, updateAppdata } from 'src/storage/user-data';
 
 export function getInstalledAppsAndTerminals(): InstalledApps {
@@ -48,6 +49,17 @@ export async function saveUserEditor( event: IpcMainInvokeEvent, editor: Support
 	sendIpcEventToRendererWithWindow( parentWindow, 'user-preference-changed' );
 
 	await updateAppdata( { preferredEditor: editor } );
+}
+
+export async function getDefaultSiteDirectory(): Promise< string > {
+	const userData = await loadUserData();
+	return userData.defaultSiteDirectory || defaultSitePath;
+}
+
+export async function saveDefaultSiteDirectory( event: IpcMainInvokeEvent, directory: string ) {
+	await ensureWritableDirectory( directory );
+	await sendIpcEventToRenderer( 'user-preference-changed' );
+	await updateAppdata( { defaultSiteDirectory: directory } );
 }
 
 export async function getUserLocale() {

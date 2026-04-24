@@ -444,6 +444,11 @@ export class AiChatUI implements AiOutputAdapter {
 		return this._activeSite;
 	}
 
+	set activeSite( site: SiteInfo | null ) {
+		this._activeSite = site;
+		this.editor.activeSiteName = site?.name ?? null;
+	}
+
 	private refreshPromptChrome(): void {
 		this.editor.invalidate();
 	}

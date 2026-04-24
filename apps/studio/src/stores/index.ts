@@ -14,7 +14,7 @@ import {
 } from 'src/hooks/use-sync-states-progress-info';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { appVersionApi } from 'src/stores/app-version-api';
-import authReducer, { initializeAuth, initializeAuthIpcListeners } from 'src/stores/auth-slice';
+import authReducer, { initializeAuth } from 'src/stores/auth-slice';
 import { betaFeaturesReducer, loadBetaFeatures } from 'src/stores/beta-features-slice';
 import { certificateTrustApi } from 'src/stores/certificate-trust-api';
 import { reducer as chatReducer } from 'src/stores/chat-slice';
@@ -378,7 +378,6 @@ setupListeners( store.dispatch );
 
 // Initialize beta features and fetch snapshots on store initialization, but skip in test environment
 if ( process.env.NODE_ENV !== 'test' ) {
-	initializeAuthIpcListeners( store.dispatch, store.getState.bind( store ) );
 	void store.dispatch( loadBetaFeatures() );
 	void refreshSnapshots();
 }

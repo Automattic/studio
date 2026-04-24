@@ -59,7 +59,7 @@ async function ipcMessageHandler( packet: unknown ) {
 			result: 'OK',
 		};
 		process.send!( response );
-		process.disconnect();
+		process.exit();
 		return;
 	}
 

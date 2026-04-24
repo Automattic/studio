@@ -32,7 +32,7 @@
 .title {
 	flex: 1;
 	min-width: 0;
-	font-size: var(--wpds-font-size-md);
+	font-size: var(--wpds-typography-font-size-md);
 	font-weight: 600;
 	color: var(--wpds-color-fg-content-neutral);
 	overflow: hidden;

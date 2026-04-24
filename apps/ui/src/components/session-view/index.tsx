@@ -217,7 +217,9 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 					</div>
 				</div>
 			</div>
-			{ showPreview && ownerSite ? <SitePreview site={ ownerSite } /> : null }
+			{ showPreview && ownerSite ? (
+				<SitePreview site={ ownerSite } sessionId={ sessionId } />
+			) : null }
 		</div>
 	);
 }

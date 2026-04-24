@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+RESULTS_FILE="eval/results.json"
+
 echo '--- :npm: Install Node dependencies'
 bash .buildkite/commands/install-node-dependencies.sh
 
@@ -8,35 +10,26 @@ echo '--- :hammer: Build CLI'
 npm run cli:build
 
 echo '--- :test_tube: Run agent evaluation'
-EVAL_ARGS="--no-cache --output /tmp/eval-results.json"
-if [ -n "${EVAL_TEST_FILTER:-}" ]; then
+eval_args=( --no-cache --output "$RESULTS_FILE" )
+if [[ -n "${EVAL_TEST_FILTER:-}" ]]; then
   if ! [[ "$EVAL_TEST_FILTER" =~ ^[0-9]+$ ]]; then
     echo "Error: EVAL_TEST_FILTER must be a number, got: $EVAL_TEST_FILTER"
     exit 1
   fi
-  EVAL_ARGS="$EVAL_ARGS -n $EVAL_TEST_FILTER"
+  eval_args+=( -n "$EVAL_TEST_FILTER" )
 fi
-npx promptfoo@0.121.4 eval -c eval/promptfoo.config.yaml $EVAL_ARGS
+npx promptfoo@0.121.4 eval -c eval/promptfoo.config.yaml "${eval_args[@]}"
 
 echo '--- :slack: Send Slack notification'
-if [ -z "${EVAL_SLACK_CHANNEL:-}" ]; then
-  echo "No EVAL_SLACK_CHANNEL set, skipping Slack notification"
-  exit 0
-fi
-
-if [ -z "${SLACK_TOKEN:-}" ]; then
-  echo "No SLACK_TOKEN set, skipping Slack notification"
-  exit 0
-fi
-
-if [ ! -f /tmp/eval-results.json ]; then
-  echo "No eval results file, skipping Slack notification"
+if [[ -z "${EVAL_SLACK_CHANNEL:-}" || -z "${SLACK_TOKEN:-}" || ! -f "$RESULTS_FILE" ]]; then
+  echo "Skipping Slack notification (missing channel/token/results)"
   exit 0
 fi
 
 RUN_URL="${BUILDKITE_BUILD_URL:-https://buildkite.com}"
 
-jq --arg url "$RUN_URL" '
+# Slack-standard good (#36a64f) and danger (#e01e5a) attachment colors.
+payload=$(jq --arg url "$RUN_URL" '
   .results.stats as $s |
   [.results.results[] |
     "• " + (.testCase.description // .vars.caseId // "unknown") + ": " +
@@ -61,8 +54,13 @@ jq --arg url "$RUN_URL" '
       ]
     }]
   }
-' /tmp/eval-results.json | \
-curl -sf -o /dev/null -X POST https://slack.com/api/chat.postMessage \
-  -H "Authorization: Bearer $SLACK_TOKEN" \
-  -H 'Content-Type: application/json; charset=utf-8' \
-  --data-binary @- && echo "Sent to $EVAL_SLACK_CHANNEL" || echo "Warning: Slack notification failed"
+' "$RESULTS_FILE")
+
+if curl -sf -o /dev/null -X POST https://slack.com/api/chat.postMessage \
+    -H "Authorization: Bearer $SLACK_TOKEN" \
+    -H 'Content-Type: application/json; charset=utf-8' \
+    --data-binary "$payload"; then
+  echo "Sent to $EVAL_SLACK_CHANNEL"
+else
+  echo "Warning: Slack notification failed"
+fi

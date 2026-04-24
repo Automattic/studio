@@ -127,9 +127,7 @@ function readInput(): EvalRunnerInput {
 async function runEval( input: EvalRunnerInput ) {
 	const policy = input.askUserPolicy ?? 'deny_permissions_allow_other';
 
-	// Build environment for the agent subprocess.
-	// If ANTHROPIC_API_KEY is already set (e.g. CI), use it directly.
-	// Otherwise resolve via Studio's provider system (WP.com auth or saved API key).
+	// In CI, ANTHROPIC_API_KEY is provided directly; locally we resolve via Studio's auth.
 	const env = { ...( process.env as Record< string, string > ) };
 	if ( ! env.ANTHROPIC_API_KEY ) {
 		let aiProvider: AiProviderId = await resolveInitialAiProvider();

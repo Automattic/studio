@@ -149,17 +149,16 @@ steps:
           - x64
           - arm64
 
-  # Agent evaluation — runs on scheduled builds only.
-  # To set up: add a schedule in Buildkite UI (Settings → Schedules) with cron "0 6 * * *"
-  # and env var EVAL_SLACK_CHANNEL=C08LZ79MKG9
-  - label: ':test_tube: Agent Evaluation'
+  # Daily agent evaluation. Setup details in eval/README.md.
+  - label: ":test_tube: Agent Evaluation"
+    key: agent_eval
     agents:
       queue: mac
     command: bash .buildkite/commands/run-eval.sh
     plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
     artifact_paths:
-      - /tmp/eval-results.json
-    timeout_in_minutes: 15
+      - eval/results.json
+    timeout_in_minutes: 25
     if: build.source == 'schedule' || build.env('EVAL_PIPELINE') == 'true'
 
   - label: ":rocket: Distribute Dev Builds"

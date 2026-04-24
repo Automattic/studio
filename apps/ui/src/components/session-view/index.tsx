@@ -3,8 +3,16 @@ import { useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Composer } from '@/components/session-view/composer';
+import {
+	useCallback,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState,
+	type ReactNode,
+	type Ref,
+} from 'react';
+import { Composer, ComposerSkeleton } from '@/components/session-view/composer';
 import { pickLiveSite } from '@/components/session-view/composer/environment-pill';
 import { Conversation } from '@/components/session-view/conversation';
 import { EmptyBackground } from '@/components/session-view/empty-background';
@@ -87,6 +95,29 @@ function SessionHeader( {
 	);
 }
 
+interface SessionFrameProps {
+	header?: ReactNode;
+	composer?: ReactNode;
+	preview?: ReactNode;
+	scrollRef?: Ref< HTMLDivElement >;
+	children?: ReactNode;
+}
+
+function SessionFrame( { header, composer, preview, scrollRef, children }: SessionFrameProps ) {
+	return (
+		<div className={ styles.root }>
+			<div className={ styles.chatColumn }>
+				{ header }
+				<div ref={ scrollRef } className={ styles.scroll }>
+					{ children }
+				</div>
+				<div className={ styles.composerOuter }>{ composer }</div>
+			</div>
+			{ preview }
+		</div>
+	);
+}
+
 export function SessionView( { sessionId }: { sessionId: string } ) {
 	const { data, isLoading, error } = useSession( sessionId );
 	const connector = useConnector();
@@ -165,7 +196,22 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 	}, [ sessionId, data, isRunning, queuedPrompts.length ] );
 
 	if ( isLoading ) {
-		return <div className={ styles.state }>{ __( 'Loading session…' ) }</div>;
+		// Use the same SessionFrame with an empty header and a structural
+		// ComposerSkeleton so the scroll area has the exact same dimensions
+		// as the loaded view — otherwise the EmptyBackground canvas jumps
+		// mid-transition.
+		return (
+			<SessionFrame
+				header={ <div className={ styles.header } /> }
+				composer={
+					<div className={ styles.column }>
+						<ComposerSkeleton />
+					</div>
+				}
+			>
+				<EmptyBackground />
+			</SessionFrame>
+		);
 	}
 
 	if ( error || ! data ) {
@@ -178,48 +224,48 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 	}
 
 	return (
-		<div className={ styles.root }>
-			<div className={ styles.chatColumn }>
+		<SessionFrame
+			scrollRef={ scrollRef }
+			header={
 				<SessionHeader
 					summary={ data.summary }
 					previewOpen={ showPreview }
 					onTogglePreview={ () => setPreviewOpen( ( open ) => ! open ) }
 					canTogglePreview={ canTogglePreview }
 				/>
-				<div ref={ scrollRef } className={ styles.scroll }>
-					{ isEmpty ? <EmptyBackground /> : null }
-					<div className={ clsx( styles.column, styles.conversationSpacing ) }>
-						<Conversation
-							data={ data }
-							isRunning={ isRunning }
-							startedAt={ startedAt }
-							pendingQuestions={ pendingQuestionTexts }
-							pendingAnswers={ pendingAnswers }
-							onAnswerQuestion={ answerQuestion }
-						/>
-					</div>
+			}
+			composer={
+				<div className={ styles.column }>
+					<QueuedPrompts prompts={ queuedPrompts } onRemove={ removeQueuedPrompt } />
+					<Composer
+						busy={ composerBusy }
+						isInterrupting={ isInterrupting }
+						error={ runError }
+						model={ currentModel }
+						onModelChange={ onModelChange }
+						onSend={ sendMessage }
+						onInterrupt={ interrupt }
+						sessionId={ sessionId }
+						effectiveEnvironment={ effectiveEnvironment }
+						liveSite={ liveSite }
+					/>
 				</div>
-				<div className={ styles.composerOuter }>
-					<div className={ styles.column }>
-						<QueuedPrompts prompts={ queuedPrompts } onRemove={ removeQueuedPrompt } />
-						<Composer
-							busy={ composerBusy }
-							isInterrupting={ isInterrupting }
-							error={ runError }
-							model={ currentModel }
-							onModelChange={ onModelChange }
-							onSend={ sendMessage }
-							onInterrupt={ interrupt }
-							sessionId={ sessionId }
-							effectiveEnvironment={ effectiveEnvironment }
-							liveSite={ liveSite }
-						/>
-					</div>
-				</div>
+			}
+			preview={
+				showPreview && ownerSite ? <SitePreview site={ ownerSite } sessionId={ sessionId } /> : null
+			}
+		>
+			{ isEmpty ? <EmptyBackground /> : null }
+			<div className={ clsx( styles.column, styles.conversationSpacing ) }>
+				<Conversation
+					data={ data }
+					isRunning={ isRunning }
+					startedAt={ startedAt }
+					pendingQuestions={ pendingQuestionTexts }
+					pendingAnswers={ pendingAnswers }
+					onAnswerQuestion={ answerQuestion }
+				/>
 			</div>
-			{ showPreview && ownerSite ? (
-				<SitePreview site={ ownerSite } sessionId={ sessionId } />
-			) : null }
-		</div>
+		</SessionFrame>
 	);
 }

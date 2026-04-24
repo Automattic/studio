@@ -252,9 +252,7 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 				</div>
 			}
 			preview={
-				showPreview && ownerSite ? (
-					<SitePreview site={ ownerSite } sessionId={ sessionId } />
-				) : null
+				showPreview && ownerSite ? <SitePreview site={ ownerSite } sessionId={ sessionId } /> : null
 			}
 		>
 			{ isEmpty ? <EmptyBackground /> : null }

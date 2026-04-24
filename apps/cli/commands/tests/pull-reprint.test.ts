@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { search } from '@inquirer/prompts';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as migrationClient from 'cli/lib/pull/migration-client';
 import { shouldRestartFilesSyncIndex } from 'cli/lib/pull/reprint-state';
@@ -8,12 +9,16 @@ import {
 	applyDownloadedDatabase,
 	downloadSkippedFiles,
 	findMatchingWpComSite,
-	formatWpComSitesList,
 	getReprintApiUrlForSite,
+	pickWpComSite,
 	getPrivateDirNameForImportSession,
 	inferSiteNameFromUrl,
 	normalizeSiteUrl,
 } from '../pull-reprint';
+
+vi.mock( '@inquirer/prompts', () => ( {
+	search: vi.fn(),
+} ) );
 
 describe( 'CLI: studio pull-reprint helpers', () => {
 	it( 'normalizes URLs by stripping hashes and trailing slashes', () => {
@@ -70,16 +75,25 @@ describe( 'CLI: studio pull-reprint helpers', () => {
 		} );
 	} );
 
-	it( 'formats the truncated WordPress.com site list with a remaining-count suffix', () => {
-		expect(
-			formatWpComSitesList(
-				[
-					{ id: 1, name: 'One', url: 'https://one.wordpress.com' },
-					{ id: 2, name: 'Two', url: 'https://two.wordpress.com' },
-				],
-				1
-			)
-		).toContain( '... and 1 more.' );
+	it( 'returns the WordPress.com site selected through the interactive picker', async () => {
+		const sites = [
+			{ id: 1, name: 'One', url: 'https://one.wordpress.com' },
+			{ id: 2, name: 'Two', url: 'https://two.wordpress.com' },
+		];
+		vi.mocked( search ).mockResolvedValueOnce( 2 );
+
+		const picked = await pickWpComSite( sites );
+
+		expect( picked ).toEqual( sites[ 1 ] );
+		expect( search ).toHaveBeenCalledOnce();
+	} );
+
+	it( 'returns undefined when the user cancels the picker', async () => {
+		const sites = [ { id: 1, name: 'One', url: 'https://one.wordpress.com' } ];
+		const abortError = Object.assign( new Error( 'aborted' ), { name: 'AbortPromptError' } );
+		vi.mocked( search ).mockRejectedValueOnce( abortError );
+
+		await expect( pickWpComSite( sites ) ).resolves.toBeUndefined();
 	} );
 
 	it( 'restarts files-sync indexing only when the saved state has no resumable cursor', () => {

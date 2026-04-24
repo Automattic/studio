@@ -8,7 +8,7 @@
 		calc(var(--wpds-dimension-padding-md) * 2) 0;
 	background-color: var(--wpds-color-bg-surface-neutral);
 	border: 1px solid var(--wpds-color-stroke-surface-neutral);
-	border-radius: var(--wpds-dimension-radius-lg, 12px);
+	border-radius: var(--wpds-border-radius-lg, 12px);
 	overflow: hidden;
 	box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.06);
 }
@@ -45,7 +45,7 @@
 }
 
 .trafficLightActive {
-	background-color: var(--wpds-color-fg-content-accent, #2563eb);
+	background-color: var(--wpds-color-fg-interactive-brand, #2563eb);
 }
 
 .headerSpacer {
@@ -75,7 +75,7 @@
 	height: 20px;
 	border-radius: 50%;
 	border: 2px solid var(--wpds-color-stroke-surface-neutral);
-	border-top-color: var(--wpds-color-fg-content-accent, #2563eb);
+	border-top-color: var(--wpds-color-fg-interactive-brand, #2563eb);
 	animation: sitePreviewSpin 0.8s linear infinite;
 }
 
@@ -100,6 +100,6 @@
 	justify-content: center;
 	padding: var(--wpds-dimension-padding-xl);
 	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-font-size-sm);
+	font-size: var(--wpds-typography-font-size-sm);
 	text-align: center;
 }

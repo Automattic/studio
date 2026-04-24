@@ -15,7 +15,7 @@
 }
 
 .shell:focus-within {
-	border-color: var(--wpds-color-fg-content-accent, #2563eb);
+	border-color: var(--wpds-color-fg-interactive-brand, #2563eb);
 	box-shadow: 0 1px 2px rgb(0 0 0 / 6%), 0 6px 16px rgb(0 0 0 / 8%);
 }
 
@@ -25,7 +25,7 @@
 	border: 0;
 	background: transparent;
 	color: var(--wpds-color-fg-content-neutral);
-	font-size: var(--wpds-font-size-md);
+	font-size: var(--wpds-typography-font-size-md);
 	line-height: 1.5;
 	width: 100%;
 	resize: none;
@@ -99,7 +99,7 @@
 	background-color: transparent;
 	color: var(--wpds-color-fg-content-neutral-weak);
 	font: inherit;
-	font-size: var(--wpds-font-size-sm);
+	font-size: var(--wpds-typography-font-size-sm);
 	cursor: pointer;
 }
 
@@ -143,7 +143,7 @@
 }
 
 .sendButton {
-	background-color: var(--wpds-color-fg-content-accent, #2563eb);
+	background-color: var(--wpds-color-fg-interactive-brand, #2563eb);
 	color: #fff;
 }
 
@@ -197,7 +197,7 @@
 	margin-top: var(--wpds-dimension-padding-sm);
 	padding: 0 var(--wpds-dimension-padding-xs);
 	min-height: 16px;
-	font-size: var(--wpds-font-size-xs);
+	font-size: var(--wpds-typography-font-size-xs);
 	color: var(--wpds-color-fg-content-neutral-weak);
 }
 
@@ -213,5 +213,5 @@
 
 .error {
 	color: var(--wpds-color-fg-content-error, #dc2626);
-	font-size: var(--wpds-font-size-xs);
+	font-size: var(--wpds-typography-font-size-xs);
 }

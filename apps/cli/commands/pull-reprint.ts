@@ -9,11 +9,12 @@ import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { search } from '@inquirer/prompts';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
-import { encodePassword } from '@studio/common/lib/passwords';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import * as fsUtils from '@studio/common/lib/fs-utils';
 import { generateNumberedName } from '@studio/common/lib/generate-site-name';
+import { encodePassword } from '@studio/common/lib/passwords';
 import { portFinder } from '@studio/common/lib/port-finder';
 import { readAuthToken, type StoredAuthToken } from '@studio/common/lib/shared-config';
 import { sortSites } from '@studio/common/lib/sort-sites';
@@ -122,13 +123,6 @@ export const registerCommand = ( yargs: StudioArgv ) => {
  * for each pulled site.
  */
 const PULLS_ROOT = path.join( os.homedir(), '.studio', 'pulls' );
-
-/**
- * Display a hint with this many WordPress.com sites when the user calls just
- * `studio pull-reprint` without the `--url`. Some accounts have hundreds of sites.
- * Let's only display the first few.
- */
-const DEFAULT_WPCOM_SITE_LIST_LIMIT = 15;
 
 const pullStageOrder = [
 	'initialized',
@@ -1041,20 +1035,70 @@ export function findMatchingWpComSite(
 	} );
 }
 
-export function formatWpComSitesList(
-	sites: WpComSiteInfo[],
-	limit = DEFAULT_WPCOM_SITE_LIST_LIMIT
-): string {
-	const visibleSites = sites.slice( 0, limit );
-	const lines = visibleSites.map(
-		( site, index ) => `${ index + 1 }. ${ site.name } - ${ site.url }`
-	);
+/**
+ * Interactive searchable picker for WordPress.com sites.  Shared as a
+ * module-level export so tests can spy on / mock it without driving
+ * `@inquirer/prompts` directly.
+ */
+export async function pickWpComSite(
+	sites: WpComSiteInfo[]
+): Promise< WpComSiteInfo | undefined > {
+	const choices = sites.map( ( site ) => ( {
+		name: `${ site.name } ${ chalk.dim( site.url ) }`,
+		value: site.id,
+	} ) );
 
-	if ( sites.length > visibleSites.length ) {
-		lines.push( `... and ${ sites.length - visibleSites.length } more.` );
+	const abortController = new AbortController();
+	const handleEscKey = ( chunk: Buffer | string ) => {
+		const bytes = Buffer.isBuffer( chunk ) ? chunk : Buffer.from( chunk );
+		if ( bytes.length === 1 && bytes[ 0 ] === 0x1b ) {
+			abortController.abort();
+		}
+	};
+
+	if ( process.stdin.isTTY ) {
+		process.stdin.on( 'data', handleEscKey );
 	}
 
-	return lines.join( '\n' );
+	try {
+		const selectedId = await search(
+			{
+				message: __( 'Select a WordPress.com site to pull:' ),
+				source: ( term ) => {
+					if ( ! term ) {
+						return choices;
+					}
+					const lowerTerm = term.toLowerCase();
+					return choices.filter( ( choice ) => {
+						const site = sites.find( ( s ) => s.id === choice.value );
+						if ( ! site ) {
+							return false;
+						}
+						return (
+							site.name.toLowerCase().includes( lowerTerm ) ||
+							site.url.toLowerCase().includes( lowerTerm )
+						);
+					} );
+				},
+				pageSize: 12,
+			},
+			{ signal: abortController.signal }
+		);
+
+		return sites.find( ( site ) => site.id === selectedId );
+	} catch ( error ) {
+		if (
+			error instanceof Error &&
+			( error.name === 'AbortPromptError' || error.name === 'ExitPromptError' )
+		) {
+			return undefined;
+		}
+		throw error;
+	} finally {
+		if ( process.stdin.isTTY ) {
+			process.stdin.off( 'data', handleEscKey );
+		}
+	}
 }
 
 /**
@@ -1066,7 +1110,8 @@ export function formatWpComSitesList(
  *   2. `--url` alone — try a previously cached secret from an earlier
  *      run for this URL; fall back to rotating a fresh WP.com secret.
  *   3. No `--url` — if the user has exactly one connected WP.com
- *      site, pick it; otherwise list and abort.
+ *      site, pick it automatically; otherwise show an interactive
+ *      picker.
  */
 async function resolveSourceSite(
 	url?: string,
@@ -1139,18 +1184,24 @@ async function resolveSourceSite(
 		}
 
 		if ( sites.length > 1 ) {
-			console.log( __( 'Connected WordPress.com sites:' ) );
-			console.log( formatWpComSitesList( sites ) );
-			console.log( '' );
-			throw new LoggerError(
-				__( 'Multiple WordPress.com sites are available. Re-run with `--url <site-url>`.' )
-			);
+			const picked = await pickWpComSite( sites );
+			if ( ! picked ) {
+				throw new LoggerError( __( 'No WordPress.com site selected.' ) );
+			}
+			wpComSite = picked;
+			resolvedUrl = picked.url;
+		} else {
+			// If the user only has one connected WordPress.com site, pull it by default.
+			wpComSite = sites[ 0 ];
+			resolvedUrl = wpComSite.url;
+			console.log( `${ __( 'Using your only connected WordPress.com site:' ) } ${ resolvedUrl }` );
 		}
 
-		// If the user only has one connected WordPress.com site, pull it by default.
-		wpComSite = sites[ 0 ];
-		resolvedUrl = wpComSite.url;
-		console.log( `${ __( 'Using your only connected WordPress.com site:' ) } ${ resolvedUrl }` );
+		console.log(
+			__(
+				'Note: pull-reprint currently only works with WP Cloud-hosted WordPress.com sites (Atomic / Business plan and above).'
+			)
+		);
 		console.log( '' );
 	}
 

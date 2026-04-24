@@ -86,11 +86,11 @@ process.stderr.write = function ( ...args: Parameters< typeof originalStderrWrit
 } as typeof process.stderr.write;
 
 function logToConsole( ...args: Parameters< typeof console.log > ) {
-	originalConsoleLog( `[WordPress Server Child]`, ...args );
+	originalConsoleLog( `[Playground Server]`, ...args );
 }
 
 function errorToConsole( ...args: Parameters< typeof console.error > ) {
-	originalConsoleError( `[WordPress Server Child]`, ...args );
+	originalConsoleError( `[Playground Server]`, ...args );
 }
 
 function escapePhpString( str: string ): string {
@@ -187,7 +187,9 @@ async function getBaseRunCLIArgs(
 	const enableDebugDisplay = config.enableDebugDisplay ?? false;
 
 	const defaultConstants: Record< string, boolean | string > = {
-		WP_SQLITE_AST_DRIVER: true,
+		// Fallback for sites where DB_NAME was stripped from wp-config.php.
+		// The SQLite driver (v3+) requires a non-empty DB_NAME at runtime.
+		DB_NAME: 'wordpress',
 		WP_DEBUG: enableDebugLog || enableDebugDisplay,
 		WP_DEBUG_LOG: enableDebugLog,
 		WP_DEBUG_DISPLAY: enableDebugDisplay,

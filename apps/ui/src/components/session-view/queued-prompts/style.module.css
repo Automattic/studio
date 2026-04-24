@@ -15,11 +15,11 @@
 	/* Match the user bubble shape but lighter so staged follow-ups read as
 	   "drafted, not sent". Mirrors `.userText` (right-aligned, bottom-right
 	   tight corner). */
-	background-color: color-mix(in srgb, var(--wpds-color-fg-content-accent, #2563eb) 4%, transparent);
-	border: 1px dashed color-mix(in srgb, var(--wpds-color-fg-content-accent, #2563eb) 30%, transparent);
+	background-color: color-mix(in srgb, var(--wpds-color-fg-interactive-brand, #2563eb) 4%, transparent);
+	border: 1px dashed color-mix(in srgb, var(--wpds-color-fg-interactive-brand, #2563eb) 30%, transparent);
 	border-radius: 18px 18px var(--wpds-border-radius-md, 8px) 18px;
 	max-width: 80%;
-	font-size: var(--wpds-font-size-md);
+	font-size: var(--wpds-typography-font-size-md);
 	line-height: 1.55;
 	color: var(--wpds-color-fg-content-neutral-weak);
 }
@@ -56,6 +56,6 @@
 
 .remove:hover,
 .remove:focus-visible {
-	background-color: color-mix(in srgb, var(--wpds-color-fg-content-accent, #2563eb) 12%, transparent);
+	background-color: color-mix(in srgb, var(--wpds-color-fg-interactive-brand, #2563eb) 12%, transparent);
 	color: var(--wpds-color-fg-content-neutral);
 }

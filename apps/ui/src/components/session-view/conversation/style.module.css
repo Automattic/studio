@@ -19,12 +19,12 @@
 .userText {
 	align-self: flex-end;
 	padding: var(--wpds-dimension-padding-md) var(--wpds-dimension-padding-lg);
-	background-color: color-mix(in srgb, var(--wpds-color-fg-content-accent, #2563eb) 10%, transparent);
+	background-color: color-mix(in srgb, var(--wpds-color-fg-interactive-brand, #2563eb) 10%, transparent);
 	/* Bottom-right tight so the bubble reads as originating from the user
 	   on the right; other corners round generously. */
 	border-radius: 18px 18px var(--wpds-border-radius-md, 8px) 18px;
 	max-width: 80%;
-	font-size: var(--wpds-font-size-md);
+	font-size: var(--wpds-typography-font-size-md);
 	line-height: 1.55;
 	color: var(--wpds-color-fg-content-neutral);
 	white-space: pre-wrap;
@@ -41,8 +41,8 @@
 	display: flex;
 	align-items: baseline;
 	gap: var(--wpds-dimension-padding-sm);
-	font-family: var(--wpds-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-	font-size: var(--wpds-font-size-sm);
+	font-family: var(--wpds-typography-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+	font-size: var(--wpds-typography-font-size-sm);
 	color: var(--wpds-color-fg-content-neutral-weak);
 	padding: 2px 0;
 	min-width: 0;
@@ -60,8 +60,8 @@
 	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md);
 	border-left: 2px solid var(--wpds-color-stroke-surface-neutral);
 	color: var(--wpds-color-fg-content-neutral);
-	font-family: var(--wpds-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-	font-size: var(--wpds-font-size-xs);
+	font-family: var(--wpds-typography-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+	font-size: var(--wpds-typography-font-size-xs);
 	line-height: 1.5;
 	white-space: pre-wrap;
 	word-wrap: break-word;
@@ -83,9 +83,9 @@
 	background: none;
 	border: none;
 	padding: 0;
-	color: var(--wpds-color-fg-content-accent, #2563eb);
+	color: var(--wpds-color-fg-interactive-brand, #2563eb);
 	font: inherit;
-	font-size: var(--wpds-font-size-xs);
+	font-size: var(--wpds-typography-font-size-xs);
 	cursor: pointer;
 }
 
@@ -133,7 +133,7 @@
 	background: none;
 	border: none;
 	padding: 0;
-	color: var(--wpds-color-fg-content-accent, #2563eb);
+	color: var(--wpds-color-fg-interactive-brand, #2563eb);
 	font: inherit;
 	cursor: pointer;
 }
@@ -154,7 +154,7 @@
 .questionOptionPicked,
 .questionOptionPicked:disabled {
 	font-weight: 600;
-	color: var(--wpds-color-fg-content-accent, #2563eb);
+	color: var(--wpds-color-fg-interactive-brand, #2563eb);
 	opacity: 1;
 }
 
@@ -165,6 +165,6 @@
 	border-radius: 9999px;
 	background-color: var(--wpds-color-bg-surface-neutral-weak);
 	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-font-size-xs);
+	font-size: var(--wpds-typography-font-size-xs);
 	text-align: center;
 }

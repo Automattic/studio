@@ -31,7 +31,7 @@
 
 .userTrigger {
 	flex: 1;
-	font-weight: var(--wpds-font-weight-regular);
+	font-weight: var(--wpds-typography-font-weight-regular);
 }
 
 .userName {
@@ -51,7 +51,7 @@
 
 .email {
 	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
-	font-size: var(--wpds-font-size-xs);
+	font-size: var(--wpds-typography-font-size-xs);
 	color: var(--wpds-color-fg-content-neutral-weak);
 	overflow: hidden;
 	text-overflow: ellipsis;

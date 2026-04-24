@@ -190,6 +190,7 @@ export async function exportSiteForPush(
 			mode,
 			splitDatabaseDumpByTable: true,
 			specificSelectionPaths: configuration?.specificSelectionPaths,
+			applyDeployIgnore: true,
 			abortSignal: abortController.signal,
 		} );
 

@@ -26,6 +26,11 @@ export async function getSiteByFolder( siteFolder: string ): Promise< SiteData >
 	return site;
 }
 
+export async function findSiteByFolder( siteFolder: string ): Promise< SiteData | undefined > {
+	const config = await readCliConfig();
+	return config.sites.find( ( site ) => arePathsEqual( site.path, siteFolder ) );
+}
+
 export function getSiteUrl( site: SiteData ): string {
 	if ( site.url ) {
 		return site.url;

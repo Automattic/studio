@@ -12,9 +12,19 @@ interface OnboardingLayoutProps {
 	 * the user isn't trapped in the flow.
 	 */
 	onClose?: () => void;
+	/**
+	 * Content width variant. Defaults to a narrow column (`'default'`) sized
+	 * for forms and short cards; `'wide'` is used by pages that host grids of
+	 * content (e.g. the blueprint selector).
+	 */
+	width?: 'default' | 'wide';
 }
 
-export function OnboardingLayout( { children, onClose }: OnboardingLayoutProps ) {
+export function OnboardingLayout( {
+	children,
+	onClose,
+	width = 'default',
+}: OnboardingLayoutProps ) {
 	return (
 		<Stack align="center" justify="center" className={ styles.root }>
 			{ onClose && (
@@ -28,7 +38,9 @@ export function OnboardingLayout( { children, onClose }: OnboardingLayoutProps )
 					onClick={ onClose }
 				/>
 			) }
-			<div className={ styles.content }>{ children }</div>
+			<div className={ `${ styles.content } ${ width === 'wide' ? styles.contentWide : '' }` }>
+				{ children }
+			</div>
 		</Stack>
 	);
 }

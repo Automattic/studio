@@ -124,48 +124,121 @@ export async function startWordPressServer(
 		serverConfig.enableDebugDisplay = true;
 	}
 
-	const processDesc = await startProcess( processName, wordPressServerChildPath );
-	await waitForReadyMessage( processDesc.pmId );
-	await sendMessage(
-		processDesc.pmId,
-		processName,
-		{
-			topic: 'start-server',
-			data: { config: serverConfig },
-		},
-		{ logger }
-	);
+	const readyOrExit = await subscribeForReadyOrExit( processName );
+	try {
+		const processDesc = await startProcess( processName, wordPressServerChildPath );
+		await readyOrExit.waitFor( processDesc.pmId );
+		await sendMessage(
+			processDesc.pmId,
+			processName,
+			{
+				topic: 'start-server',
+				data: { config: serverConfig },
+			},
+			{ logger }
+		);
 
-	return processDesc;
+		return processDesc;
+	} finally {
+		readyOrExit.dispose();
+	}
 }
 
-async function waitForReadyMessage( pmId: number ): Promise< void > {
+function buildChildExitedError( processName: string, stderrTail?: string ): Error {
+	let message = `Server child process "${ processName }" exited before becoming ready.`;
+	if ( stderrTail?.trim() ) {
+		message += `\n${ stderrTail.trimEnd() }`;
+	}
+	return new Error( message );
+}
+
+/**
+ * Attaches listeners to the daemon bus *before* the child process is started so we cannot miss
+ * an early `ready` or `exit` event. Events that arrive before the caller knows the pmId are
+ * buffered (filtered by processName) and replayed once `waitFor(pmId)` is called.
+ * Must be disposed via `dispose()` when done.
+ */
+async function subscribeForReadyOrExit( processName: string ): Promise< {
+	waitFor: ( pmId: number ) => Promise< void >;
+	dispose: () => void;
+} > {
 	const bus = await getDaemonBus();
 
-	let timeoutId: NodeJS.Timeout;
-	let readyHandler: ( packet: DaemonBusEventMap[ 'process-message' ] ) => void;
-	let abortListener: () => void;
+	const pendingReady: Array< DaemonBusEventMap[ 'process-message' ] > = [];
+	const pendingExits: Array< DaemonBusEventMap[ 'process-event' ] > = [];
+	let onReady: () => void = () => {};
+	let onExit: ( stderrTail?: string ) => void = () => {};
+	let waiting = false;
 
-	return new Promise< void >( ( resolve, reject ) => {
-		timeoutId = setTimeout( () => {
-			reject( new Error( 'Timeout waiting for ready message from server child process' ) );
-		}, PLAYGROUND_CLI_INACTIVITY_TIMEOUT );
-		readyHandler = ( packet ) => {
-			if ( packet.process.pm_id === pmId && packet.raw.topic === 'ready' ) {
-				resolve();
+	const messageHandler = ( packet: DaemonBusEventMap[ 'process-message' ] ) => {
+		if ( packet.process.name !== processName || packet.raw.topic !== 'ready' ) {
+			return;
+		}
+		if ( waiting ) {
+			onReady();
+		} else {
+			pendingReady.push( packet );
+		}
+	};
+	const eventHandler = ( event: DaemonBusEventMap[ 'process-event' ] ) => {
+		if ( event.process.name !== processName || event.event !== 'exit' ) {
+			return;
+		}
+		if ( waiting ) {
+			onExit( event.stderrTail );
+		} else {
+			pendingExits.push( event );
+		}
+	};
+
+	bus.on( 'process-message', messageHandler );
+	bus.on( 'process-event', eventHandler );
+
+	const waitFor = ( pmId: number ): Promise< void > => {
+		waiting = true;
+
+		let timeoutId: NodeJS.Timeout;
+		let abortListener: () => void;
+
+		return new Promise< void >( ( resolve, reject ) => {
+			timeoutId = setTimeout( () => {
+				reject( new Error( 'Timeout waiting for ready message from server child process' ) );
+			}, PLAYGROUND_CLI_INACTIVITY_TIMEOUT );
+			abortListener = () => {
+				reject( new Error( 'Operation aborted' ) );
+			};
+
+			onReady = () => resolve();
+			onExit = ( stderrTail ) => reject( buildChildExitedError( processName, stderrTail ) );
+
+			abortController.signal.addEventListener( 'abort', abortListener );
+
+			// Replay any events we buffered before pmId was known.
+			const bufferedExit = pendingExits.find( ( event ) => event.process.pm_id === pmId );
+			if ( bufferedExit ) {
+				onExit( bufferedExit.stderrTail );
+				return;
 			}
-		};
-		abortListener = () => {
-			reject( new Error( 'Operation aborted' ) );
-		};
-		abortController.signal.addEventListener( 'abort', abortListener );
+			const bufferedReady = pendingReady.find( ( packet ) => packet.process.pm_id === pmId );
+			if ( bufferedReady ) {
+				onReady();
+			}
+		} ).finally( () => {
+			clearTimeout( timeoutId );
+			abortController.signal.removeEventListener( 'abort', abortListener );
+			// Release per-call handlers; the bus listeners stay until dispose().
+			onReady = () => {};
+			onExit = () => {};
+			waiting = false;
+		} );
+	};
 
-		bus.on( 'process-message', readyHandler );
-	} ).finally( () => {
-		clearTimeout( timeoutId );
-		abortController.signal.removeEventListener( 'abort', abortListener );
-		bus.off( 'process-message', readyHandler );
-	} );
+	const dispose = () => {
+		bus.off( 'process-message', messageHandler );
+		bus.off( 'process-event', eventHandler );
+	};
+
+	return { waitFor, dispose };
 }
 
 const messageActivityTrackers = new Map<
@@ -399,21 +472,26 @@ export async function runBlueprint(
 		serverConfig.enableDebugDisplay = true;
 	}
 
-	const processDesc = await startProcess( processName, wordPressServerChildPath );
+	const readyOrExit = await subscribeForReadyOrExit( processName );
 	try {
-		await waitForReadyMessage( processDesc.pmId );
-		await sendMessage(
-			processDesc.pmId,
-			processName,
-			{
-				topic: 'run-blueprint',
-				data: { config: serverConfig },
-			},
-			{ logger }
-		);
+		const processDesc = await startProcess( processName, wordPressServerChildPath );
+		try {
+			await readyOrExit.waitFor( processDesc.pmId );
+			await sendMessage(
+				processDesc.pmId,
+				processName,
+				{
+					topic: 'run-blueprint',
+					data: { config: serverConfig },
+				},
+				{ logger }
+			);
+		} finally {
+			// Always stop the process after blueprint is applied
+			await stopProcess( processName );
+		}
 	} finally {
-		// Always stop the process after blueprint is applied
-		await stopProcess( processName );
+		readyOrExit.dispose();
 	}
 }
 

@@ -155,6 +155,20 @@ export function MainView( { site, onSetupClick, onDisconnectClick }: Props ) {
 		} );
 	};
 
+	const handleOpenPhpMyAdmin = () => {
+		openExternal(
+			`${ getSiteUrl( site ) }/phpmyadmin/index.php?route=/database/structure&db=wordpress`
+		);
+	};
+
+	const handleOpenWpAdmin = () => {
+		const siteUrl = getSiteUrl( site );
+		const redirectTo = new URL( '/wp-admin/', siteUrl ).toString();
+		const autoLoginUrl = new URL( '/studio-auto-login', siteUrl );
+		autoLoginUrl.searchParams.set( 'redirect_to', redirectTo );
+		openExternal( autoLoginUrl.toString() );
+	};
+
 	return (
 		<>
 			<div className={ styles.rows }>
@@ -297,6 +311,12 @@ export function MainView( { site, onSetupClick, onDisconnectClick }: Props ) {
 				<Menu.Item onClick={ handleOpenFolder }>{ __( 'Open folder' ) }</Menu.Item>
 				<Menu.Item onClick={ handleOpenInEditor }>{ __( 'Open in editor' ) }</Menu.Item>
 				<Menu.Item onClick={ handleOpenInTerminal }>{ __( 'Open in terminal' ) }</Menu.Item>
+				<Menu.Item disabled={ ! site.running } onClick={ handleOpenPhpMyAdmin }>
+					{ __( 'Open phpMyAdmin' ) }
+				</Menu.Item>
+				<Menu.Item disabled={ ! site.running } onClick={ handleOpenWpAdmin }>
+					{ __( 'Open WP admin' ) }
+				</Menu.Item>
 			</div>
 		</>
 	);

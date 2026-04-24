@@ -1,12 +1,22 @@
 import { configureStore } from '@reduxjs/toolkit';
 import { vi } from 'vitest';
-import { FORCE_WHATS_NEW_WHEN_PATCH_CHANGED } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { appVersionApi, selectIsNewVersion } from 'src/stores/app-version-api';
 
 vi.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: vi.fn(),
 } ) );
+
+let mockForceShowWhatsNew = false;
+vi.mock( 'src/constants', async ( importOriginal ) => {
+	const actual = await importOriginal< typeof import('src/constants') >();
+	return {
+		...actual,
+		get FORCE_SHOW_WHATS_NEW() {
+			return mockForceShowWhatsNew;
+		},
+	};
+} );
 
 const mockIpcApi = {
 	getLastSeenVersion: vi.fn(),
@@ -28,6 +38,7 @@ const createTestStore = () => {
 describe( 'App Version API', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
+		mockForceShowWhatsNew = false;
 	} );
 
 	describe( 'getLastSeenVersion', () => {
@@ -72,93 +83,40 @@ describe( 'App Version API', () => {
 			error: undefined,
 		} );
 
-		it( 'should return true for a new major version', () => {
-			const lastSeenVersion = '1.2.0';
-			const currentVersion = '2.0.0';
-
-			const result = selectIsNewVersion( createMockQueryResult( lastSeenVersion ), currentVersion );
-
+		it( 'should return true for a first-time user (no stored version)', () => {
+			const result = selectIsNewVersion( createMockQueryResult( undefined ), '1.2.0' );
 			expect( result ).toBe( true );
 		} );
 
-		it( 'should return true for a new minor version', () => {
-			const lastSeenVersion = '1.2.0';
-			const currentVersion = '1.3.0';
-
-			const result = selectIsNewVersion( createMockQueryResult( lastSeenVersion ), currentVersion );
-
-			expect( result ).toBe( true );
-		} );
-
-		it( 'should return false for the same version', () => {
-			const lastSeenVersion = '1.2.0';
-			const currentVersion = '1.2.0';
-
-			const result = selectIsNewVersion( createMockQueryResult( lastSeenVersion ), currentVersion );
-
+		it( 'should return false when the stored version matches the current version', () => {
+			const result = selectIsNewVersion( createMockQueryResult( '1.2.0' ), '1.2.0' );
 			expect( result ).toBe( false );
 		} );
 
-		it( "should return true or false depending on whether force what's new is enabled for a new patch version", () => {
-			const lastSeenVersion = '1.2.0';
-			const currentVersion = '1.2.1';
-
-			const result = selectIsNewVersion( createMockQueryResult( lastSeenVersion ), currentVersion );
-
-			expect( result ).toBe( FORCE_WHATS_NEW_WHEN_PATCH_CHANGED );
+		it( 'should not trigger on a patch bump when FORCE_SHOW_WHATS_NEW is false', () => {
+			const result = selectIsNewVersion( createMockQueryResult( '1.2.0' ), '1.2.1' );
+			expect( result ).toBe( false );
 		} );
 
-		it( 'should return true when going from a stable version to a prerelease version', () => {
-			const lastSeenVersion = '1.2.0';
-			const currentVersion = '1.3.0-beta1';
+		it( 'should not trigger on a minor bump when FORCE_SHOW_WHATS_NEW is false', () => {
+			const result = selectIsNewVersion( createMockQueryResult( '1.2.0' ), '1.3.0' );
+			expect( result ).toBe( false );
+		} );
 
-			const result = selectIsNewVersion( createMockQueryResult( lastSeenVersion ), currentVersion );
+		it( 'should not trigger on a major bump when FORCE_SHOW_WHATS_NEW is false', () => {
+			const result = selectIsNewVersion( createMockQueryResult( '1.2.0' ), '2.0.0' );
+			expect( result ).toBe( false );
+		} );
 
+		it( 'should return true when FORCE_SHOW_WHATS_NEW is true and the version changed', () => {
+			mockForceShowWhatsNew = true;
+			const result = selectIsNewVersion( createMockQueryResult( '2.0.0' ), '2.1.0' );
 			expect( result ).toBe( true );
 		} );
 
-		it( "It should return true or false depending on whether force what's new is enabled when going from a prerelease version to a stable version.", () => {
-			const lastSeenVersion = '1.2.0-beta2';
-			const currentVersion = '1.2.0';
-
-			const result = selectIsNewVersion( createMockQueryResult( lastSeenVersion ), currentVersion );
-
-			expect( result ).toBe( FORCE_WHATS_NEW_WHEN_PATCH_CHANGED );
-		} );
-
-		it( "Should return true or false depending on whether force what's new is enabled when going from a stable version to a prerelease version that increases only the patch.", () => {
-			const lastSeenVersion = '1.2.0';
-			const currentVersion = '1.2.1-beta1';
-
-			const result = selectIsNewVersion( createMockQueryResult( lastSeenVersion ), currentVersion );
-
-			expect( result ).toBe( FORCE_WHATS_NEW_WHEN_PATCH_CHANGED );
-		} );
-
-		it( 'should return true for a new prerelease version', () => {
-			const lastSeenVersion = '1.2.0-beta1';
-			const currentVersion = '1.2.0-beta2';
-
-			const result = selectIsNewVersion( createMockQueryResult( lastSeenVersion ), currentVersion );
-
-			expect( result ).toBe( true );
-		} );
-
-		it( 'should return true for undefined lastSeenVersion', () => {
-			const lastSeenVersion = undefined;
-			const currentVersion = '1.2.0';
-
-			const result = selectIsNewVersion( createMockQueryResult( lastSeenVersion ), currentVersion );
-
-			expect( result ).toBe( true );
-		} );
-
-		it( 'should return false for invalid version formats', () => {
-			const lastSeenVersion = 'invalid';
-			const currentVersion = 'also-invalid';
-
-			const result = selectIsNewVersion( createMockQueryResult( lastSeenVersion ), currentVersion );
-
+		it( 'should return false when FORCE_SHOW_WHATS_NEW is true but the version did not change', () => {
+			mockForceShowWhatsNew = true;
+			const result = selectIsNewVersion( createMockQueryResult( '3.0.0' ), '3.0.0' );
 			expect( result ).toBe( false );
 		} );
 	} );

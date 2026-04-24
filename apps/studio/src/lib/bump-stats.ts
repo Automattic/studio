@@ -4,14 +4,8 @@ import {
 	LastBumpStatsProvider,
 	AggregateInterval,
 } from '@studio/common/lib/bump-stat';
-import {
-	JetpackImporter,
-	LocalImporter,
-	PlaygroundImporter,
-	SQLImporter,
-	WpressImporter,
-} from 'src/lib/import-export/import/importers';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
+import type { ImporterType } from '@studio/common/lib/import-export-events';
 
 export enum StatsGroup {
 	STUDIO_APP_LAUNCH = 'studio-app-launch-first',
@@ -89,17 +83,17 @@ export function getPlatformMetric(): StatsMetric {
 	}
 }
 
-export function getImporterMetric( importer?: string ): StatsMetric {
+export function getImporterMetric( importer?: ImporterType ): StatsMetric {
 	switch ( importer ) {
-		case JetpackImporter.name:
+		case 'jetpack':
 			return StatsMetric.JETPACK_IMPORTER;
-		case LocalImporter.name:
+		case 'local':
 			return StatsMetric.LOCAL_IMPORTER;
-		case SQLImporter.name:
+		case 'sql':
 			return StatsMetric.SQL_IMPORTER;
-		case PlaygroundImporter.name:
+		case 'playground':
 			return StatsMetric.PLAYGROUND_IMPORTER;
-		case WpressImporter.name:
+		case 'wpress':
 			return StatsMetric.WPRESS_IMPORTER;
 		default:
 			return StatsMetric.UNKNOWN_IMPORTER;

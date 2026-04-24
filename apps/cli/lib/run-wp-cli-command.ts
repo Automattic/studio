@@ -13,7 +13,7 @@ import { cleanupLegacyMuPlugins, getMuPlugins } from '@studio/common/lib/mu-plug
 import { LatestSupportedPHPVersion } from '@studio/common/types/php-versions';
 import { __ } from '@wordpress/i18n';
 import { setupPlatformLevelMuPlugins } from '@wp-playground/wordpress';
-import { getSqliteCommandPath, getWpCliPharPath } from 'cli/lib/server-files';
+import { getSqliteCommandPath, getWpCliPharPath } from 'cli/lib/dependency-management/paths';
 
 const processIdAllocator = new ProcessIdAllocator();
 const PLAYGROUND_INTERNAL_SHARED_FOLDER = '/internal/shared';
@@ -65,7 +65,9 @@ export async function runWpCliCommand(
 	try {
 		await php.setSapiName( 'cli' );
 
-		php.defineConstant( 'WP_SQLITE_AST_DRIVER', true );
+		// Fallback for sites where DB_NAME was stripped from wp-config.php.
+		// The SQLite driver (v3+) requires a non-empty DB_NAME at runtime.
+		php.defineConstant( 'DB_NAME', 'wordpress' );
 
 		php.mkdir( '/wordpress' );
 		await php.mount( '/wordpress', createNodeFsMountHandler( siteFolder ) );

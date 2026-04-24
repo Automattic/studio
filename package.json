@@ -5,6 +5,7 @@
 	"productName": "Studio",
 	"description": "Local WordPress development environment using Playgrounds",
 	"license": "GPL-2.0-or-later",
+	"packageManager": "npm@11.13.0",
 	"devEngines": {
 		"runtime": {
 			"name": "node",

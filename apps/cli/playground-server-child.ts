@@ -31,8 +31,12 @@ import { WordPressInstallMode } from '@wp-playground/wordpress';
 import fs from 'fs-extra';
 import { z } from 'zod';
 import { sanitizeRunCLIArgs } from 'cli/lib/cli-args-sanitizer';
+import {
+	getPhpMyAdminPath,
+	getSqliteCommandPath,
+	getWpCliPharPath,
+} from 'cli/lib/dependency-management/paths';
 import { rewriteWpCliPostContentToFile } from 'cli/lib/rewrite-wp-cli-post-content';
-import { getPhpMyAdminPath, getSqliteCommandPath, getWpCliPharPath } from 'cli/lib/server-files';
 import { isSqliteIntegrationInstalled } from 'cli/lib/sqlite-integration';
 import {
 	ServerConfig,
@@ -183,7 +187,9 @@ async function getBaseRunCLIArgs(
 	const enableDebugDisplay = config.enableDebugDisplay ?? false;
 
 	const defaultConstants: Record< string, boolean | string > = {
-		WP_SQLITE_AST_DRIVER: true,
+		// Fallback for sites where DB_NAME was stripped from wp-config.php.
+		// The SQLite driver (v3+) requires a non-empty DB_NAME at runtime.
+		DB_NAME: 'wordpress',
 		WP_DEBUG: enableDebugLog || enableDebugDisplay,
 		WP_DEBUG_LOG: enableDebugLog,
 		WP_DEBUG_DISPLAY: enableDebugDisplay,

@@ -4,7 +4,7 @@ import path from 'path';
 import { confirm } from '@inquirer/prompts';
 import { getAppConfigPath } from '@studio/common/lib/well-known-paths';
 import { __ } from '@wordpress/i18n';
-import { getAppdataDirectory } from 'cli/lib/server-files';
+import { getAppdataDirectory } from 'cli/lib/appdata';
 import type { Migration } from '@studio/common/lib/migration';
 
 function isInstalledOnMacOs() {

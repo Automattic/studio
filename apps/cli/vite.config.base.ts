@@ -31,6 +31,11 @@ export const baseConfig = defineConfig( {
 		viteStaticCopy( {
 			targets: [
 				{
+					src: 'php',
+					dest: '.',
+					preserveTimestamps: true,
+				},
+				{
 					src: '../../wp-files',
 					dest: '.',
 					preserveTimestamps: true,

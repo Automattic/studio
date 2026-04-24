@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { pathExists } from '@studio/common/lib/fs-utils';
-import { getLanguagePacksPath } from 'cli/lib/server-files';
+import { getLanguagePacksPath } from 'cli/lib/dependency-management/paths';
 
 /**
  * Filters files in a directory that match a given WordPress locale.

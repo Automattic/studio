@@ -27,6 +27,10 @@ After the user provides the name, use AskUserQuestion for:
 
 Call `site_create` with the provided name and use the layout preference to guide all subsequent design decisions.
 
+## After site_create returns
+
+The turn immediately after `site_create` is the biggest source of perceived hangs. Acknowledge the site in ≤2 lines of prose, then make your next tool call a small one — `site_info`, or a single ≤50-line first `Write`. Do NOT scaffold the theme, chain multiple Writes, or write a long design-plan essay in this turn. Grow the build across many small turns (see the "Working cadence" section of the system prompt).
+
 ## When to Skip Discovery
 
 Do NOT ask questions if:

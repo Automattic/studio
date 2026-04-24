@@ -71,7 +71,9 @@ type UserDataSafeKeys =
 	| 'preferredTerminal'
 	| 'preferredEditor'
 	| 'betaFeatures'
-	| 'colorScheme';
+	| 'colorScheme'
+	| 'defaultSiteDirectory'
+	| 'cliAutoInstalled';
 
 type PartialUserDataWithSafeKeysToUpdate = Partial< Pick< UserData, UserDataSafeKeys > >;
 

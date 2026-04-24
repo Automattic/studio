@@ -1,3 +1,4 @@
+import { ACCEPTED_IMPORT_FILE_TYPES } from '@studio/common/constants';
 import { speak } from '@wordpress/a11y';
 import { Notice } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
@@ -11,7 +12,6 @@ import { ErrorIcon } from 'src/components/error-icon';
 import { LearnMoreLink } from 'src/components/learn-more';
 import ProgressBar from 'src/components/progress-bar';
 import { Tooltip } from 'src/components/tooltip';
-import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
 import { useAuth } from 'src/hooks/use-auth';
 import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
 import { useDragAndDropFile } from 'src/hooks/use-drag-and-drop-file';
@@ -42,7 +42,7 @@ const ExportSite = ( {
 	const isExportDisabled = isImporting || isThisSiteSyncing;
 	const isExporting = currentProgress && currentProgress.progress < 100;
 	const isExportCompleted = currentProgress && currentProgress.progress === 100;
-	const isExportError = currentProgress && currentProgress.statusMessage.includes( 'failed' );
+	const isExportError = currentProgress && currentProgress.isError;
 
 	let tooltipText;
 	if ( isThisSiteSyncing ) {
@@ -54,13 +54,6 @@ const ExportSite = ( {
 			'This Studio site is being imported. Please wait for the import to finish before you export it.'
 		);
 	}
-
-	const handleExport = async ( exportFunction: typeof exportFullSite | typeof exportDatabase ) => {
-		const exportPath = await exportFunction( selectedSite );
-		if ( exportPath ) {
-			getIpcApi().showItemInFolder( exportPath );
-		}
-	};
 
 	const handleClearExport = () => {
 		clearExportState( selectedSite.id );
@@ -99,14 +92,14 @@ const ExportSite = ( {
 				<Tooltip text={ tooltipText } disabled={ ! isExportDisabled } placement="top-start">
 					<div className="flex flex-row gap-4">
 						<Button
-							onClick={ () => handleExport( exportFullSite ) }
+							onClick={ () => exportFullSite( selectedSite ) }
 							variant="primary"
 							disabled={ isExportDisabled }
 						>
 							{ __( 'Export entire site' ) }
 						</Button>
 						<Button
-							onClick={ () => handleExport( exportDatabase ) }
+							onClick={ () => exportDatabase( selectedSite ) }
 							type="submit"
 							variant="secondary"
 							className={ cx( isExportDisabled ? '' : '!text-frame-theme !shadow-frame-theme' ) }

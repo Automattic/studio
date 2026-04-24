@@ -6,6 +6,9 @@ import {
 	LOCKFILE_WAIT_TIME,
 } from '@studio/common/constants';
 import { siteDetailsSchema } from '@studio/common/lib/cli-events';
+export { siteRuntimeSchema } from '@studio/common/lib/cli-events';
+export type { SiteRuntime } from '@studio/common/lib/cli-events';
+import { hideDirectoryOnWindows } from '@studio/common/lib/hide-dir-windows';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
 import { getCliConfigPath, getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import { snapshotSchema } from '@studio/common/types/snapshot';
@@ -30,19 +33,33 @@ const CLI_CONFIG_VERSION = 1;
 // read this file, and any updates to this schema may require updating the `version` field.
 export const aiProviderSchema = z.enum( [ 'wpcom', 'anthropic-api-key' ] );
 
+export const updateCheckSchema = z.object( {
+	lastChecked: z.number(),
+	latestVersion: z.string(),
+} );
+
+export const approvedPermissionSchema = z.object( {
+	toolName: z.string(),
+	approvalPath: z.string(),
+} );
+
 const cliConfigSchema = z.object( {
 	version: z.literal( CLI_CONFIG_VERSION ),
 	sites: z.array( siteSchema ).default( () => [] ),
 	snapshots: z.array( snapshotSchema ).default( () => [] ),
 	aiProvider: aiProviderSchema.optional(),
 	anthropicApiKey: z.string().optional(),
+	approvedPermissions: z.array( approvedPermissionSchema ).optional(),
 	lastBumpStats: z
 		.record( z.string(), z.partialRecord( z.enum( StatsMetric ), z.number() ) )
 		.optional(),
+	lastDependencyCheckTime: z.number().optional(),
+	updateCheck: updateCheckSchema.optional(),
 } );
 
 type CliConfig = z.infer< typeof cliConfigSchema >;
 export type SiteData = z.infer< typeof siteSchema >;
+export type ApprovedPermission = z.infer< typeof approvedPermissionSchema >;
 
 const DEFAULT_CLI_CONFIG: CliConfig = {
 	version: CLI_CONFIG_VERSION,
@@ -96,6 +113,7 @@ export async function saveCliConfig( config: CliConfig ): Promise< void > {
 		const configDir = getConfigDirectory();
 		if ( ! fs.existsSync( configDir ) ) {
 			fs.mkdirSync( configDir, { recursive: true } );
+			await hideDirectoryOnWindows( configDir );
 		}
 
 		const configPath = getCliConfigPath();

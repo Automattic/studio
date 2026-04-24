@@ -5,7 +5,12 @@ import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { z } from 'zod/v4';
 import { validateBlocks, type ValidationReport } from 'cli/ai/block-validator';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
+import { emitEvent } from 'cli/ai/json-events';
 import { auditPerformance } from 'cli/ai/performance-audit';
+import { auditSeo } from 'cli/ai/seo-audit';
+import { createWpcomToolDefinitions } from 'cli/ai/wpcom-tools';
+import { runCommand as runExportCommand } from 'cli/commands/export';
+import { runCommand as runImportCommand } from 'cli/commands/import';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
 import {
 	Mode as PreviewDeleteMode,
@@ -13,6 +18,8 @@ import {
 } from 'cli/commands/preview/delete';
 import { runCommand as runListPreviewCommand } from 'cli/commands/preview/list';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
+import { runCommand as runPullCommand } from 'cli/commands/pull';
+import { runCommand as runPushCommand } from 'cli/commands/push';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
 import { runCommand as runListSitesCommand } from 'cli/commands/site/list';
@@ -24,6 +31,7 @@ import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getUnsupportedWpCliPostContentMessage } from 'cli/lib/rewrite-wp-cli-post-content';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
+import { parseSyncOptions } from 'cli/lib/sync-api';
 import { normalizeHostname } from 'cli/lib/utils';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
 import { getProgressCallback, setProgressCallback, emitProgress } from 'cli/logger';
@@ -112,6 +120,17 @@ async function resolveSite( nameOrPath: string ): Promise< SiteData > {
 	if ( siteByName ) {
 		return siteByName;
 	}
+
+	// Also try matching by the last folder segment of the site path,
+	// since the agent may pass just the folder name instead of the full path.
+	if ( ! path.isAbsolute( nameOrPath ) ) {
+		const config = await readCliConfig();
+		const siteByFolder = config.sites.find( ( site ) => path.basename( site.path ) === nameOrPath );
+		if ( siteByFolder ) {
+			return siteByFolder;
+		}
+	}
+
 	return getSiteByFolder( nameOrPath );
 }
 
@@ -188,8 +207,9 @@ export async function captureCommandOutput( fn: () => Promise< void > ): Promise
 		consoleOutput += args.map( String ).join( ' ' ) + '\n';
 	};
 	process.exitCode = undefined;
-	setProgressCallback( ( message ) => {
+	setProgressCallback( ( message, update ) => {
 		progressMessages.push( message );
+		previousCallback?.( message, update );
 	} );
 
 	try {
@@ -373,12 +393,12 @@ const deleteSiteTool = tool(
 		deleteFiles: z
 			.boolean()
 			.optional()
-			.describe( 'Also move site files to trash. Defaults to false.' ),
+			.describe( 'Move site files to trash. Defaults to true. Set to false to keep files.' ),
 	},
 	async ( args ) => {
 		try {
 			const site = await resolveSite( args.nameOrPath );
-			await runDeleteSiteCommand( site.path, args.deleteFiles ?? false );
+			await runDeleteSiteCommand( site.path, args.deleteFiles ?? true );
 			return textResult( `Site "${ site.name }" deleted.` );
 		} catch ( error ) {
 			return errorResult(
@@ -637,10 +657,12 @@ const takeScreenshotTool = tool(
 				// Reduce motion to avoid capturing mid-animation states
 				await page.emulateMedia( { reducedMotion: 'reduce' } );
 
-				await page.goto( args.url, { waitUntil: 'networkidle', timeout: 15000 } );
+				await page.goto( args.url, { waitUntil: 'domcontentloaded', timeout: 30000 } );
+				await page.waitForLoadState( 'networkidle', { timeout: 10000 } ).catch( () => {} );
 
 				// Scroll through the page to trigger lazy-loaded images, then wait
-				// for all images to finish loading.
+				// for all images to finish loading (with a timeout so we don't hang
+				// on images that never settle).
 				await page.evaluate( async () => {
 					const delay = ( ms: number ) =>
 						new Promise< void >( ( resolve ) => setTimeout( resolve, ms ) );
@@ -652,7 +674,8 @@ const takeScreenshotTool = tool(
 					}
 					window.scrollTo( 0, 0 );
 
-					await Promise.all(
+					const timeout = new Promise< void >( ( resolve ) => setTimeout( resolve, 5000 ) );
+					const allImages = Promise.all(
 						Array.from( document.images )
 							.filter( ( img ) => ! img.complete )
 							.map(
@@ -663,6 +686,7 @@ const takeScreenshotTool = tool(
 									} )
 							)
 					);
+					await Promise.race( [ allImages, timeout ] );
 				} );
 
 				// Hide WordPress admin bar and scrollbars for cleaner screenshots
@@ -700,6 +724,59 @@ const takeScreenshotTool = tool(
 	}
 );
 
+// --- Preview orchestration tools ---
+
+function normalizePreviewPath( raw: string ): string {
+	const trimmed = raw.trim();
+	if ( ! trimmed ) {
+		return '/';
+	}
+	return trimmed.startsWith( '/' ) ? trimmed : `/${ trimmed }`;
+}
+
+const previewNavigateTool = tool(
+	'preview_navigate',
+	'Point the Studio site preview iframe at a specific page on the active site and reload it. ' +
+		'Use this after you finish editing a specific page, post, or template so the user immediately ' +
+		'sees the result of your change. Pass a site-relative path (e.g. "/", "/about/", ' +
+		'"/wp-admin/post.php?post=42&action=edit"). Does nothing when the preview pane is closed or ' +
+		'when running outside the Studio desktop app.',
+	{
+		path: z
+			.string()
+			.describe(
+				'Site-relative path to show in the preview, e.g. "/", "/about/", "/?p=123". Leading slash is added if missing.'
+			),
+	},
+	async ( args ) => {
+		const path = normalizePreviewPath( args.path );
+		emitEvent( {
+			type: 'preview.command',
+			timestamp: new Date().toISOString(),
+			kind: 'navigate',
+			path,
+		} );
+		return textResult( `Preview navigated to ${ path }.` );
+	}
+);
+
+const previewReloadTool = tool(
+	'preview_reload',
+	'Reload the Studio site preview iframe at its current URL. Use this after you edit the active ' +
+		'theme, CSS, template parts, or anything that affects the page the user is currently viewing, ' +
+		'so they see the updated result immediately. Does nothing when the preview pane is closed or ' +
+		'when running outside the Studio desktop app.',
+	{},
+	async () => {
+		emitEvent( {
+			type: 'preview.command',
+			timestamp: new Date().toISOString(),
+			kind: 'reload',
+		} );
+		return textResult( 'Preview reloaded.' );
+	}
+);
+
 // --- Taxonomist scripts installer ---
 
 const TAXONOMIST_SCRIPTS_DIR = 'tmp/taxonomist';
@@ -733,7 +810,7 @@ const installTaxonomyScriptsTool = tool(
 );
 
 const auditPerformanceTool = tool(
-	'audit_performance',
+	'need_for_speed',
 	'Measures frontend performance metrics for a WordPress site page. Returns Core Web Vitals ' +
 		'(TTFB, FCP, LCP, CLS), page weight, DOM size, request count, and a breakdown of JS, CSS, ' +
 		'image, and font assets. The site must be running. Use this to identify performance issues.',
@@ -772,6 +849,214 @@ const auditPerformanceTool = tool(
 	}
 );
 
+const auditSeoTool = tool(
+	'rank_me_up',
+	'Runs an on-page SEO audit on a WordPress site page. Returns title and meta description, ' +
+		'canonical/robots/viewport tags, Open Graph and Twitter cards, heading structure, image alt-text ' +
+		'coverage, internal/external link counts, JSON-LD structured data, and robots.txt/sitemap.xml ' +
+		'availability. The site must be running. Use this to identify on-page SEO issues.',
+	{
+		nameOrPath: z
+			.string()
+			.describe( 'The site name or file system path — the site must be running' ),
+		path: z
+			.string()
+			.optional()
+			.describe( 'URL path to audit (e.g., "/", "/about"). Defaults to "/".' ),
+	},
+	async ( args ) => {
+		try {
+			const site = await resolveSite( args.nameOrPath );
+			const siteUrl = getSiteUrl( site );
+			const urlPath = args.path ?? '/';
+
+			emitProgress( `Auditing SEO of ${ siteUrl }${ urlPath }…` );
+
+			const result = await auditSeo( siteUrl, urlPath );
+
+			if ( result.error ) {
+				emitProgress( `Audit failed: ${ result.error.slice( 0, 80 ) }` );
+				return errorResult( `SEO audit failed: ${ result.error }` );
+			}
+
+			emitProgress( `SEO audit complete for ${ urlPath }` );
+
+			return textResult( JSON.stringify( result, null, 2 ) );
+		} catch ( error ) {
+			return errorResult(
+				`SEO audit failed: ${ error instanceof Error ? error.message : String( error ) }`
+			);
+		}
+	}
+);
+
+const pushSiteTool = tool(
+	'site_push',
+	'Pushes a local WordPress site to a WordPress.com site. Requires WordPress.com authentication ' +
+		'(studio auth login). Exports the local site, uploads it, and imports it on the remote site. ' +
+		'This can take several minutes depending on site size.',
+	{
+		nameOrPath: z.string().describe( 'The local site name or file system path' ),
+		remoteSite: z
+			.string()
+			.describe( 'The remote WordPress.com site URL or numeric site ID to push to' ),
+		options: z
+			.string()
+			.optional()
+			.describe(
+				'Comma-separated sync options: all, sqls, uploads, plugins, themes, contents. Defaults to "all".'
+			),
+	},
+	async ( args ) => {
+		try {
+			const site = await resolveSite( args.nameOrPath );
+			const syncOptions = parseSyncOptions( args.options ?? 'all' );
+
+			const result = await captureCommandOutput( () =>
+				runPushCommand( site.path, syncOptions, args.remoteSite )
+			);
+			const output = result.consoleOutput || result.progressOutput || 'Push completed.';
+
+			if ( result.exitCode ) {
+				return errorResult( output );
+			}
+
+			return textResult( output );
+		} catch ( error ) {
+			return errorResult(
+				`Failed to push site: ${ error instanceof Error ? error.message : String( error ) }`
+			);
+		}
+	}
+);
+
+const pullSiteTool = tool(
+	'site_pull',
+	'Pulls a WordPress.com site to a local WordPress site. Requires WordPress.com authentication ' +
+		'(studio auth login). Creates a remote backup, downloads it, and imports it locally. ' +
+		'This can take several minutes depending on site size.',
+	{
+		nameOrPath: z.string().describe( 'The local site name or file system path' ),
+		remoteSite: z
+			.string()
+			.describe( 'The remote WordPress.com site URL or numeric site ID to pull from' ),
+		options: z
+			.string()
+			.optional()
+			.describe(
+				'Comma-separated sync options: all, sqls, uploads, plugins, themes, contents. Defaults to "all".'
+			),
+	},
+	async ( args ) => {
+		try {
+			const site = await resolveSite( args.nameOrPath );
+			const syncOptions = parseSyncOptions( args.options ?? 'all' );
+
+			const result = await captureCommandOutput( () =>
+				runPullCommand( site.path, syncOptions, args.remoteSite )
+			);
+			const output = result.consoleOutput || result.progressOutput || 'Pull completed.';
+
+			if ( result.exitCode ) {
+				return errorResult( output );
+			}
+
+			return textResult( output );
+		} catch ( error ) {
+			return errorResult(
+				`Failed to pull site: ${ error instanceof Error ? error.message : String( error ) }`
+			);
+		}
+	}
+);
+
+const importSiteTool = tool(
+	'site_import',
+	'Imports a backup file into a local WordPress site. Supports .zip, .tar.gz, .sql, and .wpress formats. ' +
+		'The site server will be stopped during import and restarted afterward if it was running.',
+	{
+		nameOrPath: z.string().describe( 'The local site name or file system path' ),
+		importFile: z.string().describe( 'Absolute path to the backup file to import' ),
+	},
+	async ( args ) => {
+		try {
+			const site = await resolveSite( args.nameOrPath );
+
+			const result = await captureCommandOutput( () =>
+				runImportCommand( site.path, args.importFile )
+			);
+			const output = result.consoleOutput || result.progressOutput || 'Import completed.';
+
+			if ( result.exitCode ) {
+				return errorResult( output );
+			}
+
+			return textResult( output );
+		} catch ( error ) {
+			return errorResult(
+				`Failed to import site: ${ error instanceof Error ? error.message : String( error ) }`
+			);
+		}
+	}
+);
+
+const exportSiteTool = tool(
+	'site_export',
+	'Exports a local WordPress site to a backup file. Supports full-site export (.zip or .tar.gz) ' +
+		'or database-only export (.sql). If no export file path is provided, creates a timestamped file in the current directory.',
+	{
+		nameOrPath: z.string().describe( 'The local site name or file system path' ),
+		exportFile: z
+			.string()
+			.optional()
+			.describe(
+				'Path for the export file. Use .zip or .tar.gz for full export, .sql for database only. ' +
+					'If omitted, a timestamped file is created in the current directory.'
+			),
+		mode: z
+			.enum( [ 'full', 'db' ] )
+			.optional()
+			.describe(
+				'Export mode: "full" for entire site, "db" for database only. Defaults to "full".'
+			),
+	},
+	async ( args ) => {
+		try {
+			const site = await resolveSite( args.nameOrPath );
+			const mode = args.mode ?? 'full';
+
+			let exportFile = args.exportFile;
+			if ( ! exportFile ) {
+				const timestamp = new Date().toISOString().replace( /[:.]/g, '-' ).slice( 0, 19 );
+				const ext = mode === 'db' ? '.sql' : '.zip';
+				exportFile = path.join( process.cwd(), `studio-backup-${ timestamp }${ ext }` );
+			}
+
+			const result = await captureCommandOutput( () =>
+				runExportCommand( site.path, exportFile, mode )
+			);
+			const output = result.consoleOutput || result.progressOutput || `Exported to ${ exportFile }`;
+
+			if ( result.exitCode ) {
+				return errorResult( output );
+			}
+
+			return textResult( output );
+		} catch ( error ) {
+			return errorResult(
+				`Failed to export site: ${ error instanceof Error ? error.message : String( error ) }`
+			);
+		}
+	}
+);
+
+// Tools that only make sense when a Studio desktop UI is listening on the
+// other end of the agent event stream — they steer a preview iframe that
+// doesn't exist when the CLI runs standalone. Kept separate so plain-CLI
+// runs don't see (and the agent can't call) tools that would just produce
+// noise in the terminal transcript.
+const previewSteeringToolDefinitions = [ previewNavigateTool, previewReloadTool ];
+
 export const studioToolDefinitions = [
 	createSiteTool,
 	listSitesTool,
@@ -788,12 +1073,50 @@ export const studioToolDefinitions = [
 	takeScreenshotTool,
 	installTaxonomyScriptsTool,
 	auditPerformanceTool,
+	auditSeoTool,
+	pushSiteTool,
+	pullSiteTool,
+	importSiteTool,
+	exportSiteTool,
+	...previewSteeringToolDefinitions,
 ];
 
-export function createStudioTools() {
+export interface CreateStudioToolsOptions {
+	// Enable preview_navigate / preview_reload. Only meaningful when a
+	// Studio desktop UI is subscribed to the agent event stream — i.e. the
+	// CLI child was forked by the Studio main process (`process.send` is
+	// available). Defaults to false so standalone CLI runs don't advertise
+	// tools whose side effects would vanish into the void.
+	enablePreviewSteering?: boolean;
+}
+
+export function resolveStudioToolDefinitions( options: CreateStudioToolsOptions = {} ) {
+	if ( options.enablePreviewSteering ) {
+		return studioToolDefinitions;
+	}
+	const previewSteeringNames = new Set( previewSteeringToolDefinitions.map( ( t ) => t.name ) );
+	return studioToolDefinitions.filter(
+		( candidate ) => ! previewSteeringNames.has( candidate.name )
+	);
+}
+
+export function createStudioTools( options: CreateStudioToolsOptions = {} ) {
 	return createSdkMcpServer( {
 		name: 'studio',
 		version: '1.0.0',
-		tools: studioToolDefinitions,
+		tools: resolveStudioToolDefinitions( options ),
+	} );
+}
+
+/**
+ * Creates an MCP server for remote WordPress.com sites, combining WP.com REST API tools
+ * with URL-based tools (screenshot) that work with any site.
+ */
+export function createRemoteSiteTools( token: string, siteId: number ) {
+	const wpcomTools = createWpcomToolDefinitions( token, siteId );
+	return createSdkMcpServer( {
+		name: 'studio',
+		version: '1.0.0',
+		tools: [ ...wpcomTools, takeScreenshotTool, createSiteTool, pullSiteTool ],
 	} );
 }

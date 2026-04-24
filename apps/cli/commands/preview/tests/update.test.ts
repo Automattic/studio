@@ -102,11 +102,10 @@ describe( 'Preview Update Command', () => {
 		await runCommand( mockFolder, mockSiteUrl, false );
 		expect( getSiteByFolder ).toHaveBeenCalledWith( mockFolder );
 		expect( mockReportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating…' ] );
-		expect( mockReportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful', true ] );
 
 		expect( archiveSiteContent ).toHaveBeenCalledWith( mockFolder, mockArchivePath );
 		expect( mockReportStart.mock.calls[ 1 ] ).toEqual( [ 'archive', 'Creating archive…' ] );
-		expect( mockReportSuccess.mock.calls[ 1 ] ).toEqual( [ 'Archive created' ] );
+		expect( mockReportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Archive created' ] );
 
 		expect( uploadArchive ).toHaveBeenCalledWith(
 			mockArchivePath,
@@ -115,11 +114,11 @@ describe( 'Preview Update Command', () => {
 			mockSnapshot.atomicSiteId
 		);
 		expect( mockReportStart.mock.calls[ 2 ] ).toEqual( [ 'upload', 'Uploading archive…' ] );
-		expect( mockReportSuccess.mock.calls[ 2 ] ).toEqual( [ 'Archive uploaded' ] );
+		expect( mockReportSuccess.mock.calls[ 1 ] ).toEqual( [ 'Archive uploaded' ] );
 
 		expect( waitForSiteReady ).toHaveBeenCalledWith( mockAtomicSiteId, mockAuthToken.accessToken );
 		expect( mockReportStart.mock.calls[ 3 ] ).toEqual( [ 'ready', 'Updating preview site…' ] );
-		expect( mockReportSuccess.mock.calls[ 3 ] ).toEqual( [
+		expect( mockReportSuccess.mock.calls[ 2 ] ).toEqual( [
 			`Preview site available at: https://${ mockSiteUrl }`,
 		] );
 
@@ -128,7 +127,7 @@ describe( 'Preview Update Command', () => {
 			'appdata',
 			'Saving preview site to Studio…',
 		] );
-		expect( mockReportSuccess.mock.calls[ 4 ] ).toEqual( [ 'Preview site saved to Studio' ] );
+		expect( mockReportSuccess.mock.calls[ 3 ] ).toEqual( [ 'Preview site saved to Studio' ] );
 	} );
 
 	it( 'should use current directory when no folder is specified', async () => {

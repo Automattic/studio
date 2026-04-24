@@ -1,0 +1,59 @@
+.root {
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-2xl)
+		var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-2xl);
+	/* Stay pinned at the bottom as the sidebar scrolls; `margin-top:
+	   auto` pushes it to the bottom in the flex column when content is
+	   shorter than the viewport. */
+	margin-top: auto;
+	position: sticky;
+	bottom: 0;
+	z-index: 1;
+	background-color: var(--wpds-color-bg-surface-neutral-weak);
+}
+
+.row {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xs);
+}
+
+.userName,
+.themeToggle {
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.row:hover .userName,
+.row:hover .themeToggle,
+.row:focus-within .userName,
+.row:focus-within .themeToggle {
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.userTrigger {
+	flex: 1;
+	font-weight: var(--wpds-typography-font-weight-regular);
+}
+
+.userName {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	min-width: 0;
+}
+
+.loginButton {
+	flex: 1;
+}
+
+.popup {
+	min-width: 220px;
+}
+
+.email {
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
+	font-size: var(--wpds-typography-font-size-xs);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}

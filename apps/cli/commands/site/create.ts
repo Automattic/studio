@@ -11,10 +11,7 @@ import {
 } from '@studio/common/constants';
 import { installAiInstructionsToSite } from '@studio/common/lib/agent-skills';
 import { extractFormValuesFromBlueprint } from '@studio/common/lib/blueprint-settings';
-import {
-	filterUnsupportedBlueprintFeatures,
-	validateBlueprintData,
-} from '@studio/common/lib/blueprint-validation';
+import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { getDomainNameValidationError } from '@studio/common/lib/domains';
 import {
@@ -24,6 +21,7 @@ import {
 	pathExists,
 	recursiveCopyDirectory,
 } from '@studio/common/lib/fs-utils';
+import { normalizeLandingPage } from '@studio/common/lib/landing-page';
 import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
 import { isOnline } from '@studio/common/lib/network-utils';
 import {
@@ -52,11 +50,14 @@ import {
 	type BlueprintV1Declaration,
 	type StepDefinition,
 } from '@wp-playground/blueprints';
+import { bumpStat, getPlatformMetric } from 'cli/lib/bump-stat';
 import {
 	lockCliConfig,
 	readCliConfig,
 	saveCliConfig,
 	SiteData,
+	SiteRuntime,
+	siteRuntimeSchema,
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
 import {
@@ -65,14 +66,15 @@ import {
 	updateSiteLatestCliPid,
 } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
+import { getAiInstructionsPath } from 'cli/lib/dependency-management/paths';
 import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
-import { getAiInstructionsPath } from 'cli/lib/server-files';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { generateSiteName } from 'cli/lib/site-name';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
+import { StatsGroup } from 'cli/lib/types/bump-stats';
 import { untildify } from 'cli/lib/utils';
 import { ValidationError } from 'cli/lib/validation-error';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
@@ -102,6 +104,10 @@ type CreateCommandOptions = {
 	skipLogDetails: boolean;
 };
 
+function resolveRuntimeFromEnv(): SiteRuntime {
+	return siteRuntimeSchema.catch( 'playground' ).parse( process.env.STUDIO_RUNTIME );
+}
+
 export async function runCommand(
 	sitePath: string,
 	options: CreateCommandOptions
@@ -110,19 +116,17 @@ export async function runCommand(
 
 	try {
 		if ( isOnlineStatus ) {
-			logger.reportStart(
-				LoggerAction.CHECKING_DEPENDENCY_UPDATES,
-				__( 'Checking for dependency updates…' )
-			);
-
-			await updateServerFiles();
+			const updated = await updateServerFiles();
+			if ( updated ) {
+				logger.reportSuccess( __( 'Dependencies updated' ) );
+			}
 		}
 	} catch ( error ) {
-		// Swallow errors in production. They aren't critical and likely relate to things outside the
-		// user's control, like network issues or bad API responses.
+		// Errors here aren't critical and likely relate to things outside the user's control,
+		// like network issues or bad API responses. Report them only in development.
 		if ( process.env.NODE_ENV !== 'production' ) {
 			const loggerError = new LoggerError( 'Failed to update dependencies', error );
-			logger.reportError( loggerError );
+			logger.reportError( loggerError, false );
 		}
 	}
 
@@ -149,21 +153,9 @@ export async function runCommand(
 				throw new LoggerError( validation.error );
 			}
 
-			for ( const warning of validation.warnings ) {
-				logger.reportWarning(
-					sprintf(
-						/* translators: %1$s: feature name, %2$s: reason */
-						__( `Blueprint feature "%1$s" is not supported: %2$s` ),
-						warning.feature,
-						warning.reason
-					)
-				);
-			}
-
-			// Extract login credentials from blueprint before filtering
+			// `validateBlueprintData()` does not give us a proper type guard, but in reality, it ensures
+			// `options.blueprint.contents` conforms to the `BlueprintV1Declaration` schema.
 			const formValues = extractFormValuesFromBlueprint(
-				// `validateBlueprintData()` does not give us a proper type guard, but in reality, it ensures
-				// `options.blueprint.contents` conforms to the `BlueprintV1Declaration` schema.
 				options.blueprint.contents as BlueprintV1Declaration
 			);
 			if ( formValues.adminUsername || formValues.adminPassword ) {
@@ -174,9 +166,7 @@ export async function runCommand(
 			}
 
 			blueprintUri = options.blueprint.uri;
-			blueprint = filterUnsupportedBlueprintFeatures(
-				options.blueprint.contents as BlueprintV1Declaration
-			);
+			blueprint = options.blueprint.contents as BlueprintV1Declaration;
 
 			const blueprintHasMultisite = blueprint?.steps
 				?.filter( isStepDefinition )
@@ -369,6 +359,8 @@ export async function runCommand(
 			isWpAutoUpdating: options.wpVersion === DEFAULT_WORDPRESS_VERSION,
 			customDomain: options.customDomain,
 			enableHttps: options.enableHttps,
+			landingPage: normalizeLandingPage( blueprint?.landingPage ),
+			runtime: resolveRuntimeFromEnv(),
 		};
 
 		logger.reportStart( LoggerAction.SAVE_SITE, __( 'Saving site…' ) );
@@ -632,6 +624,55 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			let adminPassword = argv.adminPassword;
 			let adminEmail = argv.adminEmail;
 
+			// Validate and resolve the WordPress version against available versions before prompting
+			if ( wpVersion && wpVersion !== 'latest' && wpVersion !== 'nightly' ) {
+				try {
+					logger.reportStart( LoggerAction.VALIDATE, __( 'Checking WordPress version…' ) );
+					const availableVersions = await fetchWordPressVersions();
+					const matchedVersion = availableVersions.find(
+						( v ) => v.value === wpVersion || v.value.startsWith( wpVersion + '.' )
+					);
+					if ( ! matchedVersion ) {
+						const versionLabels = availableVersions
+							.filter( ( v ) => v.value !== 'latest' )
+							.map( ( v ) => v.label );
+						logger.reportError(
+							new LoggerError(
+								sprintf(
+									/* translators: %1$s: requested version, %2$s: list of available versions */
+									__( 'WordPress version "%1$s" is not available. Available versions: %2$s' ),
+									wpVersion,
+									versionLabels.join( ', ' )
+								)
+							)
+						);
+						return;
+					}
+					// Resolve short versions to full versions (e.g. "6.7" → "6.7.2")
+					if ( matchedVersion.value !== wpVersion ) {
+						logger.reportSuccess(
+							sprintf(
+								/* translators: %1$s: requested version, %2$s: resolved version */
+								__( 'WordPress version: %1$s → %2$s' ),
+								wpVersion,
+								matchedVersion.value
+							)
+						);
+					} else {
+						logger.reportSuccess(
+							sprintf(
+								/* translators: %s: WordPress version */
+								__( 'WordPress version: %s' ),
+								wpVersion
+							)
+						);
+					}
+					wpVersion = matchedVersion.value;
+				} catch {
+					// If we can't fetch versions (network issue), let it proceed and fail later
+				}
+			}
+
 			try {
 				if ( process.stdin.isTTY ) {
 					if ( ! siteName ) {
@@ -782,6 +823,15 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 
 			try {
 				await runCommand( sitePath, config );
+
+				if ( __ENABLE_CLI_TELEMETRY__ && ! argv.avoidTelemetry ) {
+					bumpStat(
+						__IS_PACKAGED_FOR_NPM__
+							? StatsGroup.STUDIO_CLI_SITE_CREATE_NPM
+							: StatsGroup.STUDIO_CLI_SITE_CREATE_APP,
+						getPlatformMetric()
+					);
+				}
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );

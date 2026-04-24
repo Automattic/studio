@@ -26,6 +26,11 @@ export async function getSiteByFolder( siteFolder: string ): Promise< SiteData >
 	return site;
 }
 
+export async function findSiteByFolder( siteFolder: string ): Promise< SiteData | undefined > {
+	const config = await readCliConfig();
+	return config.sites.find( ( site ) => arePathsEqual( site.path, siteFolder ) );
+}
+
 export function getSiteUrl( site: SiteData ): string {
 	if ( site.url ) {
 		return site.url;
@@ -84,6 +89,23 @@ export async function updateSiteAutoStart( siteId: string, autoStart: boolean ):
 		}
 
 		site.autoStart = autoStart;
+		await saveCliConfig( config );
+	} finally {
+		await unlockCliConfig();
+	}
+}
+
+export async function updateSitePhpVersion( siteId: string, phpVersion: string ): Promise< void > {
+	try {
+		await lockCliConfig();
+		const config = await readCliConfig();
+		const site = config.sites.find( ( s ) => s.id === siteId );
+
+		if ( ! site ) {
+			throw new LoggerError( __( 'Site not found' ) );
+		}
+
+		site.phpVersion = phpVersion;
 		await saveCliConfig( config );
 	} finally {
 		await unlockCliConfig();

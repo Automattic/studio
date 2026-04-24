@@ -1,0 +1,12 @@
+.root {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-lg);
+	min-width: 0;
+}
+
+.popup {
+	min-width: 320px;
+	padding: 0;
+	gap: 0;
+}

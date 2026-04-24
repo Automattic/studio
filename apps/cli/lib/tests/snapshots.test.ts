@@ -5,10 +5,12 @@ import { vi } from 'vitest';
 import {
 	deleteSnapshotFromConfig,
 	getSnapshotsFromConfig,
+	pruneExpiredOrphanedSnapshots,
 	saveSnapshotToConfig,
 	updateSnapshotInConfig,
 } from 'cli/lib/snapshots';
 import { LoggerError } from 'cli/logger';
+import type { Snapshot } from '@studio/common/types/snapshot';
 
 const mocks = vi.hoisted( () => ( {
 	readFile: vi.fn(),
@@ -427,6 +429,91 @@ describe( 'Snapshots Module', () => {
 
 			await deleteSnapshotFromConfig( 'test1.com' );
 
+			expect( writeFile ).not.toHaveBeenCalled();
+		} );
+	} );
+
+	describe( 'pruneExpiredOrphanedSnapshots', () => {
+		const USER_ID = 42;
+		const isExpired = ( s: Snapshot ) => s.date < 5000;
+
+		it( 'should remove only expired snapshots with no associated site for the given user', async () => {
+			const mockData = {
+				version: 1,
+				sites: [ { id: 'live-site', name: 'Live', path: '/x', port: 80, phpVersion: '8.3' } ],
+				snapshots: [
+					{
+						url: 'live-fresh.com',
+						atomicSiteId: 1,
+						localSiteId: 'live-site',
+						date: 9000,
+						userId: USER_ID,
+					},
+					{
+						url: 'live-expired.com',
+						atomicSiteId: 2,
+						localSiteId: 'live-site',
+						date: 1000,
+						userId: USER_ID,
+					},
+					{
+						url: 'orphan-fresh.com',
+						atomicSiteId: 3,
+						localSiteId: 'dead-site',
+						date: 9000,
+						userId: USER_ID,
+					},
+					{
+						url: 'orphan-expired.com',
+						atomicSiteId: 4,
+						localSiteId: 'dead-site',
+						date: 1000,
+						userId: USER_ID,
+					},
+					{
+						url: 'other-user-orphan-expired.com',
+						atomicSiteId: 5,
+						localSiteId: 'dead-site',
+						date: 1000,
+						userId: 999,
+					},
+				],
+			};
+			mocks.readFile.mockResolvedValue( JSON.stringify( mockData ) );
+
+			const pruned = await pruneExpiredOrphanedSnapshots( USER_ID, isExpired );
+
+			expect( pruned ).toBe( 1 );
+			expect( writeFile ).toHaveBeenCalled();
+			const savedData = JSON.parse( mocks.writeFile.mock.calls[ 0 ][ 1 ] );
+			const urls = savedData.snapshots.map( ( s: Snapshot ) => s.url ).sort();
+			expect( urls ).toEqual( [
+				'live-expired.com',
+				'live-fresh.com',
+				'orphan-fresh.com',
+				'other-user-orphan-expired.com',
+			] );
+		} );
+
+		it( 'should not write the config when nothing needs pruning', async () => {
+			const mockData = {
+				version: 1,
+				sites: [ { id: 'live-site', name: 'Live', path: '/x', port: 80, phpVersion: '8.3' } ],
+				snapshots: [
+					{
+						url: 'live-fresh.com',
+						atomicSiteId: 1,
+						localSiteId: 'live-site',
+						date: 9000,
+						userId: USER_ID,
+					},
+				],
+			};
+			mocks.readFile.mockResolvedValue( JSON.stringify( mockData ) );
+
+			const pruned = await pruneExpiredOrphanedSnapshots( USER_ID, isExpired );
+
+			expect( pruned ).toBe( 0 );
 			expect( writeFile ).not.toHaveBeenCalled();
 		} );
 	} );

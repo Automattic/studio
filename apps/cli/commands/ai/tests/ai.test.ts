@@ -1,5 +1,6 @@
+import { deleteAiSession, listAiSessions, loadAiSession } from '@studio/common/ai/sessions/store';
 import { __ } from '@wordpress/i18n';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import yargs from 'yargs/yargs';
 import { AI_MODELS, DEFAULT_MODEL, startAiAgent } from 'cli/ai/agent';
 import {
@@ -9,7 +10,6 @@ import {
 } from 'cli/ai/auth';
 import { AI_PROVIDERS } from 'cli/ai/providers';
 import { AiSessionRecorder } from 'cli/ai/sessions/recorder';
-import { deleteAiSession, listAiSessions, loadAiSession } from 'cli/ai/sessions/store';
 import { registerCommand as registerAiCommand } from 'cli/commands/ai';
 import { registerCommand as registerAiSessionsDeleteCommand } from 'cli/commands/ai/sessions/delete';
 import { registerCommand as registerAiSessionsListCommand } from 'cli/commands/ai/sessions/list';
@@ -17,14 +17,38 @@ import { registerCommand as registerAiSessionsResumeCommand } from 'cli/commands
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { StudioArgv } from 'cli/types';
 
-const { askUserMock, recordSessionContextMock, reportErrorMock, waitForInputMock } = vi.hoisted(
-	() => ( {
-		askUserMock: vi.fn(),
-		recordSessionContextMock: vi.fn(),
-		reportErrorMock: vi.fn(),
-		waitForInputMock: vi.fn(),
-	} )
-);
+const {
+	askUserMock,
+	clearTranscriptMock,
+	showWelcomeMock,
+	showInfoMock,
+	recordSessionClearedMock,
+	recordSessionContextMock,
+	recordSiteSelectedMock,
+	reportErrorMock,
+	waitForInputMock,
+	activeSiteRef,
+} = vi.hoisted( () => ( {
+	askUserMock: vi.fn(),
+	clearTranscriptMock: vi.fn(),
+	showWelcomeMock: vi.fn(),
+	showInfoMock: vi.fn(),
+	recordSessionClearedMock: vi.fn(),
+	recordSessionContextMock: vi.fn(),
+	recordSiteSelectedMock: vi.fn(),
+	reportErrorMock: vi.fn(),
+	waitForInputMock: vi.fn(),
+	activeSiteRef: {
+		current: null as {
+			name: string;
+			path: string;
+			running: boolean;
+			remote?: boolean;
+			url?: string;
+			wpcomSiteId?: number;
+		} | null,
+	},
+} ) );
 
 vi.mock( 'cli/lib/cli-config/core', async () => {
 	const actual =
@@ -94,15 +118,48 @@ vi.mock( 'cli/ai/agent', async () => {
 
 vi.mock( 'cli/ai/ui', () => ( {
 	AiChatUI: class {
-		activeSite: { name: string; path: string; running: boolean } | null = null;
+		get activeSite(): {
+			name: string;
+			path: string;
+			running: boolean;
+			remote?: boolean;
+			url?: string;
+			wpcomSiteId?: number;
+		} | null {
+			return activeSiteRef.current;
+		}
+		set activeSite(
+			value: {
+				name: string;
+				path: string;
+				running: boolean;
+				remote?: boolean;
+				url?: string;
+				wpcomSiteId?: number;
+			} | null
+		) {
+			activeSiteRef.current = value;
+		}
 		currentModel = 'claude-sonnet-4-6';
-		onSiteSelected: ( ( site: { name: string; path: string; running: boolean } ) => void ) | null =
-			null;
+		onSiteSelected:
+			| ( ( site: {
+					name: string;
+					path: string;
+					running: boolean;
+					remote?: boolean;
+					url?: string;
+					wpcomSiteId?: number;
+			  } ) => void )
+			| null = null;
 		onInterrupt: ( () => void ) | null = null;
 		start() {}
 		stop() {}
-		showWelcome() {}
-		showInfo() {}
+		showWelcome() {
+			showWelcomeMock();
+		}
+		showInfo( ...args: unknown[] ) {
+			showInfoMock( ...args );
+		}
 		showError() {}
 		showSuccess() {}
 		showOnboarding() {}
@@ -113,12 +170,25 @@ vi.mock( 'cli/ai/ui', () => ( {
 		beginAgentTurn() {}
 		endAgentTurn() {}
 		setLoaderMessage() {}
-		setActiveSite( site: { name: string; path: string; running: boolean } ) {
+		setActiveSite( site: {
+			name: string;
+			path: string;
+			running: boolean;
+			remote?: boolean;
+			url?: string;
+			wpcomSiteId?: number;
+		} ) {
 			this.activeSite = site;
 		}
 		addUserMessage() {}
+		clearTranscript() {
+			clearTranscriptMock();
+		}
 		handleMessage() {
 			return undefined;
+		}
+		hasErrorBeenSurfaced() {
+			return false;
 		}
 		showAgentQuestion() {}
 		async askUser() {
@@ -134,14 +204,27 @@ vi.mock( 'cli/ai/ui', () => ( {
 
 vi.mock( 'cli/ai/sessions/recorder', () => {
 	class MockAiSessionRecorder {
-		static create = vi.fn().mockResolvedValue( new MockAiSessionRecorder() );
-		static open = vi.fn().mockResolvedValue( new MockAiSessionRecorder() );
+		static create = vi
+			.fn()
+			.mockResolvedValue( new MockAiSessionRecorder( 'mock-session-created' ) );
+		static open = vi.fn( ( options: { sessionId: string } ) =>
+			Promise.resolve( new MockAiSessionRecorder( options.sessionId ) )
+		);
+		readonly sessionId: string;
+		constructor( sessionId: string = 'mock-session-created' ) {
+			this.sessionId = sessionId;
+		}
 		async recordSdkMessage() {}
 		async recordToolProgress() {}
+		async recordSessionCleared( ...args: unknown[] ) {
+			return recordSessionClearedMock( ...args );
+		}
 		async recordSessionContext( ...args: unknown[] ) {
 			return recordSessionContextMock( ...args );
 		}
-		async recordSiteSelected() {}
+		async recordSiteSelected( ...args: unknown[] ) {
+			return recordSiteSelectedMock( ...args );
+		}
 		async recordUserMessage() {}
 		async recordAgentQuestion() {}
 		async recordTurnClosed() {}
@@ -153,7 +236,7 @@ vi.mock( 'cli/ai/sessions/recorder', () => {
 	};
 } );
 
-vi.mock( 'cli/ai/sessions/store', () => ( {
+vi.mock( '@studio/common/ai/sessions/store', () => ( {
 	listAiSessions: vi.fn(),
 	loadAiSession: vi.fn(),
 	deleteAiSession: vi.fn(),
@@ -171,9 +254,10 @@ vi.mock( 'cli/commands/auth/logout', () => ( {
 	runCommand: vi.fn().mockResolvedValue( undefined ),
 } ) );
 
-describe( 'CLI: studio ai sessions command', () => {
+describe( 'CLI: studio code sessions command', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
+		activeSiteRef.current = null;
 		vi.mocked( readCliConfig ).mockResolvedValue( {
 			sites: [],
 			anthropicApiKey: 'test-api-key',
@@ -186,9 +270,9 @@ describe( 'CLI: studio ai sessions command', () => {
 
 	function buildParser(): StudioArgv {
 		const parser = yargs( [] ).scriptName( 'studio' ).strict().exitProcess( false ) as StudioArgv;
-		parser.command( 'ai', __( 'AI-powered WordPress assistant' ), ( aiYargs ) => {
+		parser.command( [ 'code', 'ai' ], __( 'AI agent for building WordPress' ), ( aiYargs ) => {
 			registerAiCommand( aiYargs as StudioArgv );
-			aiYargs.command( 'sessions', __( 'Manage AI sessions' ), ( sessionsYargs ) => {
+			aiYargs.command( 'sessions', __( 'Manage code sessions' ), ( sessionsYargs ) => {
 				sessionsYargs
 					.option( 'path', {
 						hidden: true,
@@ -196,21 +280,21 @@ describe( 'CLI: studio ai sessions command', () => {
 					.option( 'session-persistence', {
 						type: 'boolean',
 						default: true,
-						description: __( 'Record this AI chat session to disk' ),
+						description: __( 'Record this code session to disk' ),
 					} );
 				registerAiSessionsListCommand( sessionsYargs as StudioArgv );
 				registerAiSessionsResumeCommand( sessionsYargs as StudioArgv );
 				registerAiSessionsDeleteCommand( sessionsYargs as StudioArgv );
 				sessionsYargs
 					.version( false )
-					.demandCommand( 1, __( 'You must provide a valid ai sessions command' ) );
+					.demandCommand( 1, __( 'You must provide a valid code sessions command' ) );
 			} );
 			aiYargs.version( false );
 		} );
 		return parser;
 	}
 
-	it( 'does not record an empty session when running studio ai and exiting immediately', async () => {
+	it( 'does not record an empty session when running studio code and exiting immediately', async () => {
 		await buildParser().parseAsync( [ 'ai' ] );
 
 		expect( ( AiSessionRecorder as typeof AiSessionRecorder ).create ).not.toHaveBeenCalled();
@@ -291,6 +375,7 @@ describe( 'CLI: studio ai sessions command', () => {
 				createdAt: '2026-03-11T11:00:00.000Z',
 				updatedAt: '2026-03-11T11:00:00.000Z',
 				linkedAgentSessionIds: [],
+				activeEnvironment: 'local',
 				eventCount: 1,
 			},
 			{
@@ -299,6 +384,7 @@ describe( 'CLI: studio ai sessions command', () => {
 				createdAt: '2026-03-10T11:00:00.000Z',
 				updatedAt: '2026-03-10T11:00:00.000Z',
 				linkedAgentSessionIds: [],
+				activeEnvironment: 'local',
 				eventCount: 1,
 			},
 		] );
@@ -309,6 +395,7 @@ describe( 'CLI: studio ai sessions command', () => {
 				createdAt: '2026-03-11T11:00:00.000Z',
 				updatedAt: '2026-03-11T11:00:00.000Z',
 				linkedAgentSessionIds: [],
+				activeEnvironment: 'local',
 				eventCount: 1,
 			},
 			events: [],
@@ -316,7 +403,7 @@ describe( 'CLI: studio ai sessions command', () => {
 
 		await buildParser().parseAsync( [ 'ai', 'sessions', 'resume', 'latest' ] );
 
-		expect( loadAiSession ).toHaveBeenCalledWith( 'session-latest' );
+		expect( loadAiSession ).toHaveBeenCalledWith( expect.any( String ), 'session-latest' );
 		expect( ( AiSessionRecorder as typeof AiSessionRecorder ).open ).not.toHaveBeenCalled();
 		expect( process.exit ).toHaveBeenCalledWith( 0 );
 	} );
@@ -329,6 +416,7 @@ describe( 'CLI: studio ai sessions command', () => {
 				createdAt: '2026-03-11T11:00:00.000Z',
 				updatedAt: '2026-03-11T11:00:00.000Z',
 				linkedAgentSessionIds: [],
+				activeEnvironment: 'local',
 				eventCount: 1,
 			},
 			{
@@ -337,6 +425,7 @@ describe( 'CLI: studio ai sessions command', () => {
 				createdAt: '2026-03-10T11:00:00.000Z',
 				updatedAt: '2026-03-10T11:00:00.000Z',
 				linkedAgentSessionIds: [],
+				activeEnvironment: 'local',
 				eventCount: 1,
 			},
 		] );
@@ -346,12 +435,13 @@ describe( 'CLI: studio ai sessions command', () => {
 			createdAt: '2026-03-11T11:00:00.000Z',
 			updatedAt: '2026-03-11T11:00:00.000Z',
 			linkedAgentSessionIds: [],
+			activeEnvironment: 'local',
 			eventCount: 1,
 		} );
 
 		await buildParser().parseAsync( [ 'ai', 'sessions', 'delete', 'latest' ] );
 
-		expect( deleteAiSession ).toHaveBeenCalledWith( 'session-latest' );
+		expect( deleteAiSession ).toHaveBeenCalledWith( expect.any( String ), 'session-latest' );
 		expect( console.log ).toHaveBeenCalledWith( expect.stringContaining( 'session-latest' ) );
 	} );
 
@@ -363,6 +453,7 @@ describe( 'CLI: studio ai sessions command', () => {
 				createdAt: '2026-03-11T11:00:00.000Z',
 				updatedAt: '2026-03-11T11:00:00.000Z',
 				linkedAgentSessionIds: [],
+				activeEnvironment: 'local',
 				eventCount: 1,
 			},
 		] );
@@ -373,6 +464,7 @@ describe( 'CLI: studio ai sessions command', () => {
 				createdAt: '2026-03-11T11:00:00.000Z',
 				updatedAt: '2026-03-11T11:00:00.000Z',
 				linkedAgentSessionIds: [],
+				activeEnvironment: 'local',
 				eventCount: 1,
 			},
 			events: [],
@@ -386,7 +478,7 @@ describe( 'CLI: studio ai sessions command', () => {
 			'--no-session-persistence',
 		] );
 
-		expect( loadAiSession ).toHaveBeenCalledWith( 'session-latest' );
+		expect( loadAiSession ).toHaveBeenCalledWith( expect.any( String ), 'session-latest' );
 		expect( ( AiSessionRecorder as typeof AiSessionRecorder ).open ).not.toHaveBeenCalled();
 		expect( process.exit ).toHaveBeenCalledWith( 0 );
 	} );
@@ -409,6 +501,92 @@ describe( 'CLI: studio ai sessions command', () => {
 		expect( reportErrorMock ).toHaveBeenCalled();
 	} );
 
+	it( '/clear resets the session, clears the transcript, and re-emits context', async () => {
+		waitForInputMock.mockResolvedValueOnce( '/clear' ).mockResolvedValueOnce( '/exit' );
+
+		await buildParser().parseAsync( [ 'ai' ] );
+
+		expect( recordSessionClearedMock ).toHaveBeenCalledTimes( 1 );
+		expect( clearTranscriptMock ).toHaveBeenCalledTimes( 1 );
+
+		// Context must be re-emitted AFTER the cleared event.
+		expect( recordSessionContextMock.mock.invocationCallOrder[ 0 ] ).toBeGreaterThan(
+			recordSessionClearedMock.mock.invocationCallOrder[ 0 ]
+		);
+
+		// showWelcome must be called after clearTranscript.
+		// showWelcome is also called at startup, so index [1] is the /clear invocation.
+		expect( showWelcomeMock ).toHaveBeenCalledTimes( 2 );
+		expect( showWelcomeMock.mock.invocationCallOrder[ 1 ] ).toBeGreaterThan(
+			clearTranscriptMock.mock.invocationCallOrder[ 0 ]
+		);
+
+		expect( showInfoMock ).toHaveBeenCalledWith( 'Conversation cleared' );
+
+		// startAiAgent should never have been called (no prompt was submitted).
+		expect( startAiAgent ).not.toHaveBeenCalled();
+	} );
+
+	it( '/clear without an active site does not re-emit a site event', async () => {
+		waitForInputMock.mockResolvedValueOnce( '/clear' ).mockResolvedValueOnce( '/exit' );
+
+		await buildParser().parseAsync( [ 'ai' ] );
+
+		expect( recordSessionClearedMock ).toHaveBeenCalledTimes( 1 );
+		expect( recordSiteSelectedMock ).not.toHaveBeenCalled();
+		expect( showWelcomeMock ).toHaveBeenCalled();
+	} );
+
+	it( '/clear with an active site re-emits the site event after the clear marker', async () => {
+		activeSiteRef.current = {
+			name: 'Test Site',
+			path: '/tmp/test-site',
+			running: false,
+		};
+
+		waitForInputMock.mockResolvedValueOnce( '/clear' ).mockResolvedValueOnce( '/exit' );
+
+		await buildParser().parseAsync( [ 'ai' ] );
+
+		expect( recordSessionClearedMock ).toHaveBeenCalledTimes( 1 );
+		expect( recordSiteSelectedMock ).toHaveBeenCalledTimes( 1 );
+		expect( recordSiteSelectedMock ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				name: 'Test Site',
+				path: '/tmp/test-site',
+			} )
+		);
+		expect( recordSiteSelectedMock.mock.invocationCallOrder[ 0 ] ).toBeGreaterThan(
+			recordSessionClearedMock.mock.invocationCallOrder[ 0 ]
+		);
+		expect( showWelcomeMock ).toHaveBeenCalled();
+	} );
+
+	it( '/clear with an active remote site re-emits the remote site fields', async () => {
+		activeSiteRef.current = {
+			name: 'My WPCOM Site',
+			path: '',
+			running: false,
+			remote: true,
+			url: 'https://mywpcomsite.wordpress.com',
+			wpcomSiteId: 12345,
+		};
+
+		waitForInputMock.mockResolvedValueOnce( '/clear' ).mockResolvedValueOnce( '/exit' );
+
+		await buildParser().parseAsync( [ 'ai' ] );
+
+		expect( recordSiteSelectedMock ).toHaveBeenCalledTimes( 1 );
+		expect( recordSiteSelectedMock ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				name: 'My WPCOM Site',
+				remote: true,
+				url: 'https://mywpcomsite.wordpress.com',
+				wpcomSiteId: 12345,
+			} )
+		);
+	} );
+
 	it( 'restores provider, model, and resume session id from session events', async () => {
 		vi.mocked( resolveInitialAiProvider ).mockResolvedValue( 'wpcom' );
 		waitForInputMock.mockResolvedValueOnce( 'Continue the task' ).mockResolvedValueOnce( '/exit' );
@@ -420,6 +598,7 @@ describe( 'CLI: studio ai sessions command', () => {
 				createdAt: '2026-03-11T11:00:00.000Z',
 				updatedAt: '2026-03-11T11:00:00.000Z',
 				linkedAgentSessionIds: [],
+				activeEnvironment: 'local',
 				eventCount: 2,
 			},
 		] );
@@ -430,6 +609,7 @@ describe( 'CLI: studio ai sessions command', () => {
 				createdAt: '2026-03-11T11:00:00.000Z',
 				updatedAt: '2026-03-11T11:00:00.000Z',
 				linkedAgentSessionIds: [],
+				activeEnvironment: 'local',
 				eventCount: 2,
 			},
 			events: [
@@ -455,7 +635,9 @@ describe( 'CLI: studio ai sessions command', () => {
 
 		await buildParser().parseAsync( [ 'ai', 'sessions', 'resume', 'latest' ] );
 
-		expect( resolveAiEnvironment ).toHaveBeenCalledWith( 'anthropic-api-key' );
+		expect( resolveAiEnvironment ).toHaveBeenCalledWith( 'anthropic-api-key', {
+			sessionId: 'session-latest',
+		} );
 		expect( ( AiSessionRecorder as typeof AiSessionRecorder ).open ).toHaveBeenCalledWith(
 			expect.objectContaining( {
 				sessionId: 'session-latest',
@@ -469,5 +651,206 @@ describe( 'CLI: studio ai sessions command', () => {
 			} )
 		);
 		expect( process.exit ).toHaveBeenCalledWith( 0 );
+	} );
+} );
+
+describe( 'CLI: studio code --json mode', () => {
+	let stdoutChunks: string[];
+	let originalWrite: typeof process.stdout.write;
+
+	beforeEach( () => {
+		vi.clearAllMocks();
+		vi.mocked( readCliConfig ).mockResolvedValue( {
+			sites: [],
+			anthropicApiKey: 'test-api-key',
+			aiProvider: 'anthropic-api-key',
+		} as never );
+		vi.spyOn( process, 'exit' ).mockImplementation( () => undefined as never );
+
+		stdoutChunks = [];
+		originalWrite = process.stdout.write;
+		process.stdout.write = ( chunk: string | Uint8Array ) => {
+			stdoutChunks.push( typeof chunk === 'string' ? chunk : new TextDecoder().decode( chunk ) );
+			return true;
+		};
+	} );
+
+	afterEach( () => {
+		process.stdout.write = originalWrite;
+		process.exitCode = undefined;
+	} );
+
+	function buildParser(): StudioArgv {
+		const parser = yargs( [] ).scriptName( 'studio' ).strict().exitProcess( false ) as StudioArgv;
+		parser.command( [ 'code', 'ai' ], __( 'AI agent for building WordPress' ), ( aiYargs ) => {
+			registerAiCommand( aiYargs as StudioArgv );
+			aiYargs.version( false );
+		} );
+		return parser;
+	}
+
+	function parseNdjsonEvents(): Array< Record< string, unknown > > {
+		return stdoutChunks
+			.join( '' )
+			.split( '\n' )
+			.filter( ( line ) => line.trim() )
+			.map( ( line ) => JSON.parse( line ) );
+	}
+
+	it( 'runs a single turn and emits turn.started and turn.completed events', async () => {
+		const resultMessage = {
+			type: 'result' as const,
+			subtype: 'success' as const,
+			session_id: 'json-session-1',
+			num_turns: 1,
+			total_cost_usd: 0.001,
+		};
+		vi.mocked( startAiAgent ).mockReturnValueOnce( {
+			interrupt: vi.fn().mockResolvedValue( undefined ),
+			[ Symbol.asyncIterator ]() {
+				let emitted = false;
+				return {
+					next: async () => {
+						if ( ! emitted ) {
+							emitted = true;
+							return { done: false as const, value: resultMessage };
+						}
+						return { done: true as const, value: undefined };
+					},
+				};
+			},
+		} as never );
+
+		await buildParser().parseAsync( [ 'ai', 'hello world', '--json' ] );
+
+		const events = parseNdjsonEvents();
+		expect( events[ 0 ] ).toMatchObject( { type: 'turn.started' } );
+		expect( events[ events.length - 1 ] ).toMatchObject( {
+			type: 'turn.completed',
+			status: 'success',
+		} );
+		expect( startAiAgent ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				autoApprove: true,
+			} )
+		);
+		expect( process.exitCode ).not.toBe( 1 );
+	} );
+
+	it( 'streams SDK messages as NDJSON', async () => {
+		const resultMessage = {
+			type: 'result' as const,
+			subtype: 'success' as const,
+			session_id: 'test-session-123',
+			num_turns: 3,
+			total_cost_usd: 0.005,
+		};
+
+		vi.mocked( startAiAgent ).mockReturnValueOnce( {
+			interrupt: vi.fn().mockResolvedValue( undefined ),
+			[ Symbol.asyncIterator ]() {
+				let emitted = false;
+				return {
+					next: async () => {
+						if ( ! emitted ) {
+							emitted = true;
+							return { done: false as const, value: resultMessage };
+						}
+						return { done: true as const, value: undefined };
+					},
+				};
+			},
+		} as never );
+
+		await buildParser().parseAsync( [ 'ai', 'test prompt', '--json' ] );
+
+		const events = parseNdjsonEvents();
+		const messageEvent = events.find( ( e ) => e.type === 'message' );
+		expect( messageEvent ).toBeDefined();
+		expect( ( messageEvent as Record< string, unknown > ).message ).toMatchObject( {
+			type: 'result',
+			session_id: 'test-session-123',
+		} );
+
+		const completedEvent = events.find( ( e ) => e.type === 'turn.completed' );
+		expect( completedEvent ).toMatchObject( {
+			type: 'turn.completed',
+			sessionId: 'test-session-123',
+			status: 'success',
+		} );
+	} );
+
+	it( 'emits error event and exits with code 1 on agent failure', async () => {
+		vi.mocked( startAiAgent ).mockReturnValueOnce( {
+			interrupt: vi.fn().mockResolvedValue( undefined ),
+			[ Symbol.asyncIterator ]() {
+				return {
+					next: async () => {
+						throw new Error( 'API connection failed' );
+					},
+				};
+			},
+		} as never );
+
+		await buildParser().parseAsync( [ 'ai', 'test prompt', '--json' ] );
+
+		const events = parseNdjsonEvents();
+		const errorEvent = events.find( ( e ) => e.type === 'error' );
+		expect( errorEvent ).toMatchObject( {
+			type: 'error',
+			message: 'API connection failed',
+		} );
+
+		const completedEvent = events.find( ( e ) => e.type === 'turn.completed' );
+		expect( completedEvent ).toMatchObject( {
+			type: 'turn.completed',
+			status: 'error',
+		} );
+		expect( process.exitCode ).toBe( 1 );
+	} );
+
+	it( 'does not call autoApprove in interactive mode', async () => {
+		waitForInputMock.mockResolvedValueOnce( 'Hello' ).mockResolvedValueOnce( '/exit' );
+
+		await buildParser().parseAsync( [ 'ai' ] );
+
+		expect( startAiAgent ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				autoApprove: false,
+			} )
+		);
+	} );
+
+	it( 'respects --no-auto-approve flag independently of --json', async () => {
+		const resultMessage = {
+			type: 'result' as const,
+			subtype: 'success' as const,
+			session_id: 'auto-approve-test',
+			num_turns: 1,
+			total_cost_usd: 0.001,
+		};
+		vi.mocked( startAiAgent ).mockReturnValueOnce( {
+			interrupt: vi.fn().mockResolvedValue( undefined ),
+			[ Symbol.asyncIterator ]() {
+				let emitted = false;
+				return {
+					next: async () => {
+						if ( ! emitted ) {
+							emitted = true;
+							return { done: false as const, value: resultMessage };
+						}
+						return { done: true as const, value: undefined };
+					},
+				};
+			},
+		} as never );
+
+		await buildParser().parseAsync( [ 'ai', 'hello', '--json', '--no-auto-approve' ] );
+
+		expect( startAiAgent ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				autoApprove: false,
+			} )
+		);
 	} );
 } );

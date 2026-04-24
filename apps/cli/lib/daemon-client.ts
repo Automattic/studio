@@ -35,8 +35,10 @@ export const SITE_EVENTS_SOCKET_PATH =
 		? '\\\\.\\pipe\\studio-events.sock'
 		: path.join( PROCESS_MANAGER_HOME, 'events.sock' );
 
-if ( ! fs.existsSync( PROCESS_MANAGER_HOME ) ) {
-	fs.mkdirSync( PROCESS_MANAGER_HOME, { recursive: true } );
+function ensureProcessManagerHome() {
+	if ( ! fs.existsSync( PROCESS_MANAGER_HOME ) ) {
+		fs.mkdirSync( PROCESS_MANAGER_HOME, { recursive: true } );
+	}
 }
 
 export type DaemonBusEventMap = {
@@ -213,6 +215,7 @@ export async function connectToDaemon(): Promise< void > {
 	if ( isConnected ) {
 		return;
 	}
+	ensureProcessManagerHome();
 	await lockFileAsync( PROCESS_MANAGER_LOCKFILE_PATH, {
 		wait: LOCKFILE_WAIT_TIME,
 		stale: LOCKFILE_STALE_TIME,
@@ -245,7 +248,7 @@ const daemonListProcessesSuccessResponseSchema = z.object( {
 
 // Cache the process list returned from the process manager for a very short time to make multiple
 // calls in quick succession more efficient
-async function listProcesses() {
+export async function listProcesses() {
 	await connectToDaemon();
 	const response = await sendDaemonRequest( {
 		type: 'list-processes',

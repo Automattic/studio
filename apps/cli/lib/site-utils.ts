@@ -5,9 +5,14 @@ import { openBrowser } from 'cli/lib/browser';
 import { generateSiteCertificate } from 'cli/lib/certificate-manager';
 import { readCliConfig, SiteData } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
-import { isProxyProcessRunning, startProxyProcess, stopProxyProcess } from 'cli/lib/daemon-client';
+import {
+	isProxyProcessRunning,
+	listProcesses,
+	startProxyProcess,
+	stopProxyProcess,
+} from 'cli/lib/daemon-client';
 import { addDomainToHosts } from 'cli/lib/hosts-file';
-import { isServerRunning } from 'cli/lib/wordpress-server-manager';
+import { isServerRunning, SITE_PROCESS_PREFIX } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 
 /**
@@ -25,13 +30,19 @@ export async function startProxyIfNeeded( logger: Logger< LoggerAction > ): Prom
 }
 
 /**
- * Opens the site in the browser with auto-login to WordPress admin
+ * Opens the site in the browser with auto-login.
+ *
+ * If the site was created from a Blueprint with a `landingPage`, that path is
+ * used as the redirect target. Otherwise the CLI falls back to `/wp-admin/`,
+ * preserving the historical behavior for sites created without one.
  */
 export async function openSiteInBrowser( site: SiteData ): Promise< void > {
 	const siteUrl = getSiteUrl( site );
 	try {
+		const targetPath = site.landingPage || '/wp-admin/';
+		const target = new URL( targetPath, siteUrl ).toString();
 		const autoLoginUrl = `${ siteUrl }/studio-auto-login?redirect_to=${ encodeURIComponent(
-			`${ siteUrl }/wp-admin/`
+			target
 		) }`;
 		await openBrowser( autoLoginUrl );
 	} catch ( error ) {
@@ -122,11 +133,40 @@ export async function stopProxyIfNoSitesNeedIt(
 }
 
 export const isSiteRunning = async ( site: SiteData ): Promise< boolean > => {
-	const processInfo = await isServerRunning( site.id );
-	return !! (
-		processInfo &&
-		processInfo.status === 'online' &&
-		site.latestCliPid !== undefined &&
-		processInfo.pid === site.latestCliPid
-	);
+	const status = await getSitesRunningStatus( [ site ] );
+	return status.get( site.id ) ?? false;
 };
+
+/**
+ * Check running status for multiple sites with a single daemon call.
+ */
+export async function getSitesRunningStatus(
+	sites: SiteData[]
+): Promise< Map< string, boolean > > {
+	const result = new Map< string, boolean >();
+
+	let processes: Awaited< ReturnType< typeof listProcesses > > = [];
+	try {
+		processes = await listProcesses();
+	} catch {
+		// Daemon not running — all sites are stopped.
+		for ( const site of sites ) {
+			result.set( site.id, false );
+		}
+		return result;
+	}
+
+	for ( const site of sites ) {
+		const processName = SITE_PROCESS_PREFIX + site.id;
+		const processInfo = processes.find( ( p ) => p.name === processName && p.status === 'online' );
+		const running = !! (
+			processInfo &&
+			'pid' in processInfo &&
+			site.latestCliPid !== undefined &&
+			processInfo.pid === site.latestCliPid
+		);
+		result.set( site.id, running );
+	}
+
+	return result;
+}

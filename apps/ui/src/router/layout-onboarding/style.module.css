@@ -10,7 +10,7 @@
 }
 
 .subtitle {
-	color: var(--wpds-color-text-secondary, #666);
+	color: var(--wpds-color-fg-content-neutral-weak, #666);
 	margin: 0 0 32px;
 }
 
@@ -25,16 +25,16 @@
 	text-align: left;
 	padding: 24px;
 	width: 240px;
-	border: 1px solid var(--wpds-color-border, #ddd);
+	border: 1px solid var(--wpds-color-stroke-surface-neutral, #ddd);
 	border-radius: 8px;
 	cursor: pointer;
 	color: inherit;
 	text-decoration: none;
-	background: var(--wpds-color-surface, #fff);
+	background: var(--wpds-color-bg-surface-neutral-strong, #fff);
 }
 
 .card:hover {
-	border-color: var(--wpds-color-border-hover, #bbb);
+	border-color: var(--wpds-color-stroke-interactive-neutral, #bbb);
 }
 
 .cardDisabled {
@@ -48,7 +48,7 @@
 }
 
 .cardBody {
-	color: var(--wpds-color-text-secondary, #666);
+	color: var(--wpds-color-fg-content-neutral-weak, #666);
 	font-size: 0.875rem;
 }
 
@@ -59,5 +59,5 @@
 	font-size: 11px;
 	text-transform: uppercase;
 	letter-spacing: 0.04em;
-	color: var(--wpds-color-text-secondary, #555);
+	color: var(--wpds-color-fg-content-neutral-weak, #555);
 }

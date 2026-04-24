@@ -56,6 +56,8 @@ import {
 	readCliConfig,
 	saveCliConfig,
 	SiteData,
+	SiteRuntime,
+	siteRuntimeSchema,
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
 import {
@@ -101,6 +103,10 @@ type CreateCommandOptions = {
 	skipBrowser: boolean;
 	skipLogDetails: boolean;
 };
+
+function resolveRuntimeFromEnv(): SiteRuntime {
+	return siteRuntimeSchema.catch( 'playground' ).parse( process.env.STUDIO_RUNTIME );
+}
 
 export async function runCommand(
 	sitePath: string,
@@ -354,6 +360,7 @@ export async function runCommand(
 			customDomain: options.customDomain,
 			enableHttps: options.enableHttps,
 			landingPage: normalizeLandingPage( blueprint?.landingPage ),
+			runtime: resolveRuntimeFromEnv(),
 		};
 
 		logger.reportStart( LoggerAction.SAVE_SITE, __( 'Saving site…' ) );

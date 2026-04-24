@@ -3,7 +3,7 @@
 	flex-direction: column;
 	gap: 2px;
 	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-font-size-sm);
+	font-size: var(--wpds-typography-font-size-sm);
 	/* Reserves space so mounting / unmounting the inner content doesn't
 	   shift the surrounding layout. Holds ~one head line + one progress line. */
 	min-height: calc(1.5em * 2 + 2px);
@@ -19,7 +19,7 @@
 	width: 8px;
 	height: 8px;
 	border-radius: 50%;
-	background-color: var(--wpds-color-fg-content-accent, #2563eb);
+	background-color: var(--wpds-color-fg-interactive-brand, #2563eb);
 	animation: pulse 1.2s ease-in-out infinite;
 	flex-shrink: 0;
 }

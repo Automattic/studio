@@ -1113,7 +1113,7 @@ export async function pickWpComSite(
  *      site, pick it automatically; otherwise show an interactive
  *      picker.
  */
-async function resolveSourceSite(
+export async function resolveSourceSite(
 	url?: string,
 	providedSecret?: string,
 	providedName?: string,

@@ -2,7 +2,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { search } from '@inquirer/prompts';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { readAuthToken } from '@studio/common/lib/shared-config';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { getWpComSites, rotateReprintSecret } from 'cli/lib/api';
 import * as migrationClient from 'cli/lib/pull/migration-client';
 import { shouldRestartFilesSyncIndex } from 'cli/lib/pull/reprint-state';
 import {
@@ -14,10 +16,22 @@ import {
 	getPrivateDirNameForImportSession,
 	inferSiteNameFromUrl,
 	normalizeSiteUrl,
+	resolveSourceSite,
 } from '../pull-reprint';
 
 vi.mock( '@inquirer/prompts', () => ( {
 	search: vi.fn(),
+} ) );
+
+vi.mock( import( '@studio/common/lib/shared-config' ), async ( importOriginal ) => ( {
+	...( await importOriginal() ),
+	readAuthToken: vi.fn(),
+} ) );
+
+vi.mock( 'cli/lib/api', async () => ( {
+	...( await vi.importActual( 'cli/lib/api' ) ),
+	getWpComSites: vi.fn(),
+	rotateReprintSecret: vi.fn(),
 } ) );
 
 describe( 'CLI: studio pull-reprint helpers', () => {
@@ -188,6 +202,90 @@ describe( 'CLI: studio pull-reprint helpers', () => {
 		expect( nextState.preflight ).toEqual( { data: { ok: true } } );
 
 		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
+	} );
+} );
+
+describe( 'CLI: studio pull-reprint resolveSourceSite', () => {
+	const mockToken = {
+		accessToken: 'mock-token',
+		id: 1,
+		expiresIn: 3600,
+		expirationTime: Date.now() + 3_600_000,
+		email: 'test@example.com',
+		displayName: 'Test User',
+	};
+
+	beforeEach( () => {
+		vi.mocked( readAuthToken ).mockResolvedValue( mockToken );
+		vi.mocked( rotateReprintSecret ).mockResolvedValue( 'rotated-secret' );
+	} );
+
+	afterEach( () => {
+		vi.mocked( search ).mockReset();
+		vi.mocked( getWpComSites ).mockReset();
+		vi.mocked( rotateReprintSecret ).mockReset();
+		vi.mocked( readAuthToken ).mockReset();
+	} );
+
+	it( 'invokes the interactive picker when no URL is provided and the user has multiple WP.com sites', async () => {
+		const sites = [
+			{ id: 1, name: 'One', url: 'https://one.wordpress.com' },
+			{ id: 2, name: 'Two', url: 'https://two.wordpress.com' },
+		];
+		vi.mocked( getWpComSites ).mockResolvedValueOnce( sites );
+		vi.mocked( search ).mockResolvedValueOnce( 2 );
+
+		const result = await resolveSourceSite();
+
+		expect( search ).toHaveBeenCalledOnce();
+		expect( getWpComSites ).toHaveBeenCalledWith( mockToken.accessToken );
+		expect( result?.url ).toBe( 'https://two.wordpress.com' );
+		expect( result?.wpComSite ).toEqual( sites[ 1 ] );
+		expect( rotateReprintSecret ).toHaveBeenCalledWith( 2, mockToken.accessToken );
+	} );
+
+	it( 'auto-picks the single connected WP.com site without prompting', async () => {
+		const sites = [ { id: 1, name: 'Solo', url: 'https://solo.wordpress.com' } ];
+		vi.mocked( getWpComSites ).mockResolvedValueOnce( sites );
+
+		const result = await resolveSourceSite();
+
+		expect( search ).not.toHaveBeenCalled();
+		expect( result?.url ).toBe( 'https://solo.wordpress.com' );
+	} );
+
+	it( 'does not invoke the picker when a URL is provided alongside a secret', async () => {
+		const result = await resolveSourceSite( 'https://example.com', 'trusted-secret' );
+
+		expect( search ).not.toHaveBeenCalled();
+		expect( getWpComSites ).not.toHaveBeenCalled();
+		expect( result ).toEqual( { url: 'https://example.com', secret: 'trusted-secret' } );
+	} );
+
+	it( 'does not invoke the picker when the user passes a URL that matches a WP.com site', async () => {
+		const sites = [
+			{ id: 1, name: 'One', url: 'https://one.wordpress.com' },
+			{ id: 2, name: 'Two', url: 'https://two.wordpress.com' },
+		];
+		vi.mocked( getWpComSites ).mockResolvedValueOnce( sites );
+
+		const result = await resolveSourceSite( 'https://two.wordpress.com' );
+
+		expect( search ).not.toHaveBeenCalled();
+		expect( result?.url ).toBe( 'https://two.wordpress.com' );
+		expect( result?.wpComSite ).toEqual( sites[ 1 ] );
+	} );
+
+	it( 'throws a helpful error when the user cancels the picker', async () => {
+		vi.mocked( getWpComSites ).mockResolvedValueOnce( [
+			{ id: 1, name: 'One', url: 'https://one.wordpress.com' },
+			{ id: 2, name: 'Two', url: 'https://two.wordpress.com' },
+		] );
+		vi.mocked( search ).mockRejectedValueOnce(
+			Object.assign( new Error( 'aborted' ), { name: 'AbortPromptError' } )
+		);
+
+		await expect( resolveSourceSite() ).rejects.toThrow( /No WordPress.com site selected/ );
 	} );
 } );
 

@@ -15,7 +15,7 @@ import { AddSiteBlueprintSelector } from './components/blueprints';
 import CreateSite from './components/create-site';
 import ImportBackup from './components/import-backup';
 import AddSiteOptionsClassic, { type ClassicAddSiteFlowType } from './components/options-classic';
-import { PullRemoteSite } from './components/pull-remote-site';
+import { PullRemoteSite } from './components/pull-remote-site-classic';
 import StepperClassic from './components/stepper-classic';
 import { useFindAvailableSiteName } from './hooks/use-find-available-site-name';
 import { applyBlueprintFormValues } from './lib/apply-blueprint-form-values';

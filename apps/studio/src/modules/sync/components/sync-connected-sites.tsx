@@ -662,19 +662,13 @@ const SyncConnectedSiteSection = ( {
 		syncOperationsSelectors.selectIsSiteIdPushing( selectedSite.id, connectedSite.id )
 	);
 
-	let logo: React.ReactNode;
+	let logo = <WordPressLogoCircle />;
 	if ( isSiteLoading ) {
 		logo = <div className="w-5 h-5 rounded-full skeleton-bg" aria-label={ __( 'Loading' ) } />;
 	} else if ( hasConnectionErrors ) {
 		logo = <CircleRedCrossIcon />;
 	} else if ( connectedSite.isPressable ) {
 		logo = <PressableLogo />;
-	} else if ( connectedSite.siteIconUrl ) {
-		logo = (
-			<img src={ connectedSite.siteIconUrl } alt="" className="w-5 h-5 rounded-full object-cover" />
-		);
-	} else {
-		logo = <WordPressLogoCircle />;
 	}
 
 	return (

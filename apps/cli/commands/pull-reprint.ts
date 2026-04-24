@@ -1199,7 +1199,7 @@ export async function resolveSourceSite(
 
 		console.log(
 			__(
-				'Note: pull-reprint currently only works with WP Cloud-hosted WordPress.com sites (Atomic / Business plan and above).'
+				'Note: pull-reprint currently only works with WP Cloud-hosted WordPress.com sites (Personal plan and above).'
 			)
 		);
 		console.log( '' );
